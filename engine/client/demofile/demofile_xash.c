@@ -18,25 +18,17 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "demofile.h"
 
-#define dem_unknown  0          // unknown command
-#define dem_norewind 1          // startup message
-#define dem_read     2          // it's a normal network packet
-#define dem_jumptime 3          // move the demostart time value forward by this amount
-#define dem_userdata 4          // userdata from the client.dll
-#define dem_usercmd  5          // read usercmd_t
-#define dem_stop     6          // end of time
+#define dem_unknown  0 // unknown command
+#define dem_norewind 1 // startup message
+#define dem_read     2 // it's a normal network packet
+#define dem_jumptime 3 // move the demostart time value forward by this amount
+#define dem_userdata 4 // userdata from the client.dll
+#define dem_usercmd  5 // read usercmd_t
+#define dem_stop     6 // end of time
 #define dem_lastcmd  dem_stop
 
-#define DEMO_STARTUP 0          // this lump contains startup info needed to spawn into the server
-#define DEMO_NORMAL  1          // this lump contains playback info of messages, etc., needed during playback.
-
-// Demo flags
-#define FDEMO_TITLE         0x01        // Show title
-#define FDEMO_PLAY          0x04        // Playing cd track
-#define FDEMO_FADE_IN_SLOW  0x08        // Fade in (slow)
-#define FDEMO_FADE_IN_FAST  0x10        // Fade in (fast)
-#define FDEMO_FADE_OUT_SLOW 0x20        // Fade out (slow)
-#define FDEMO_FADE_OUT_FAST 0x40        // Fade out (fast)
+#define DEMO_STARTUP 0 // this lump contains startup info needed to spawn into the server
+#define DEMO_NORMAL  1 // this lump contains playback info of messages, etc., needed during playback.
 
 #define IDEMOHEADER   (( 'M' << 24 ) + ( 'E' << 16 ) + ( 'D' << 8 ) + 'I' ) // little-endian "IDEM"
 #define DEMO_PROTOCOL 3
@@ -150,7 +142,7 @@ static void DEM_XASH_DemoInterpolateAngles( void )
 		next = &demo.cmds[( demo.angle_position - 0 ) & ANGLE_MASK];
 		prev = &demo.cmds[( demo.angle_position - 1 ) & ANGLE_MASK];
 		if( cl.skip_interp )
-			*prev = *next;             // camera was teleported
+			*prev = *next; // camera was teleported
 		frac = cl.lerpFrac;
 	}
 	else

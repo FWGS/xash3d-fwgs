@@ -20,10 +20,8 @@ GNU General Public License for more details.
 #define GS_MIN_DIR_ENTRY_COUNT 1
 #define GS_MAX_DIR_ENTRY_COUNT 1024
 
-
 #define GS_DEMO_STARTUP 0 // this lump contains startup info needed to spawn into the server
 #define GS_DEMO_NORMAL  1 // this lump contains playback info of messages, etc., needed during playback.
-
 
 #define GS_CMD_DEMO_START      2
 #define GS_CMD_CONSOLE_COMMAND 3
@@ -79,9 +77,8 @@ static struct
 	float  lasttime;
 	int    entryIndex;
 	double fps;
+	size_t size;
 } demo;
-
-size_t demo_size;
 
 typedef struct demo_anim_s demo_anim_t;
 
@@ -252,13 +249,6 @@ static void DEM_GS_WriteNetPacket( qboolean startup, int start, sizebuf_t *msg )
 
 static void DEM_GS_ReadNetPacket( byte *buffer, size_t *length )
 {
-	int    incoming_sequence;
-	int    incoming_acknowledged;
-	int    incoming_reliable_acknowledged;
-	int    incoming_reliable_sequence;
-	int    outgoing_sequence;
-	int    reliable_sequence;
-	int    last_reliable_sequence;
 	float  timestamp;
 
 	file_t *file = cls.demofile;
@@ -280,6 +270,7 @@ static void DEM_GS_ReadNetPacket( byte *buffer, size_t *length )
 
 	// Skip usercmd and movevars pointers
 	FS_Seek( file, 8, SEEK_CUR );
+
 	FS_Read( file, rp->viewport, sizeof( int[4] ));
 	FS_Read( file, &rp->nextView, sizeof( int ));
 	FS_Read( file, &rp->onlyClientDraw, sizeof( int ));
@@ -424,7 +415,7 @@ static void DEM_GS_ReadDirectory( file_t *file )
 	int i, file_mark, dir_entries_count;
 
 	if( demo.header.directory_offset < 0
-	    || ( demo_size - 4u ) < demo.header.directory_offset )
+	    || ( demo.size - 4u ) < demo.header.directory_offset )
 	{
 		Con_Printf( "Malformed directory offset in demofile.\n" );
 		return;
@@ -438,7 +429,7 @@ static void DEM_GS_ReadDirectory( file_t *file )
 
 	if( dir_entries_count < GS_MIN_DIR_ENTRY_COUNT
 	    || dir_entries_count > GS_MAX_DIR_ENTRY_COUNT
-	    || (( demo_size - ( dir_entries_count * sizeof( dem_entry_t ))) < FS_Tell( file )))
+	    || ((demo.size - ( dir_entries_count * sizeof( dem_entry_t ))) < FS_Tell( file )))
 	{
 		// Case for bogus demo (seems like client crashed or somehow doesn't writted directories entries)
 		// But in most cases we can still playback this demo.
@@ -474,9 +465,9 @@ static qboolean DEM_GS_CanHandle( file_t *file )
 {
 	FS_Seek( file, 0, SEEK_END );
 
-	demo_size = FS_Tell( file );
+	demo.size = FS_Tell( file );
 
-	if( demo_size < GS_DEMO_HEADER_SIZE )
+	if(demo.size < GS_DEMO_HEADER_SIZE )
 	{
 		Con_Printf( "Invalid demo file (the size is too small)." );
 		return false;
@@ -575,15 +566,19 @@ static void DEM_GS_ReadClientDLLData( void )
 
 static qboolean DEM_GS_ReadDemoMessage( byte *buffer, size_t *length )
 {
-	size_t     curpos = 0, lastpos = 0;
+	size_t     curpos = 0;
 	float      fElapsedTime = 0.0f;
 	qboolean   swallowmessages = true;
 	static int tdlastdemoframe = 0;
-	byte       *userbuf = NULL;
-	size_t     size = 0;
 	byte       cmd;
 
-	if(( !cl.background && ( cl.paused || cls.key_dest != key_game )) || cls.key_dest == key_console )
+	if ( !cls.demofile )
+	{
+		CL_DemoCompleted();
+		return false;
+	}
+
+	if ( (!cl.background && ( cl.paused || cls.key_dest != key_game )) || cls.key_dest == key_console )
 	{
 		demo.starttime += host.frametime;
 		return false; // paused
@@ -596,20 +591,19 @@ static qboolean DEM_GS_ReadDemoMessage( byte *buffer, size_t *length )
 
 		if( !cls.demofile )
 			break;
+
 		curpos = FS_Tell( cls.demofile );
 
 		if( !DEM_GS_ReadDemoCmdHeader( &cmd, &demo.timestamp, &frame_num ))
 			return false;
 
-		// Con_Printf("cmd = %d\n", cmd);
 		fElapsedTime = CL_GetDemoPlaybackClock() - demo.starttime;
+
 		if( !cls.timedemo )
-			bSkipMessage = (( demo.timestamp - cl_serverframetime()) >= fElapsedTime ) ? true : false;
-		if( cls.changelevel )
-			demo.framecount = 1;
+			bSkipMessage = ( demo.timestamp > fElapsedTime );
 
 		// changelevel issues
-		if( demo.entryIndex && demo.framecount <= 2 && ( fElapsedTime - demo.timestamp ) > host.frametime )
+		if( demo.framecount <= 2 && ( fElapsedTime - demo.timestamp) > host.frametime )
 			demo.starttime = CL_GetDemoPlaybackClock();
 
 		// not ready for a message yet, put it back on the file.
@@ -660,9 +654,9 @@ static qboolean DEM_GS_ReadDemoMessage( byte *buffer, size_t *length )
 
 	// If we are playing back a timedemo, and we've already passed on a
 	//  frame update for this host_frame tag, then we'll just skip this message.
-	if( cls.timedemo && ( tdlastdemoframe == host.framecount ))
+	if ( cls.timedemo && ( tdlastdemoframe == host.framecount ))
 	{
-		FS_Seek( cls.demofile, FS_Tell( cls.demofile ) - 5, SEEK_SET );
+		FS_Seek(cls.demofile, curpos, SEEK_SET );
 		return false;
 	}
 	tdlastdemoframe = host.framecount;
