@@ -252,6 +252,13 @@ static inline float UintAsFloat( uint32_t u )
 	bits.u = u;
 	return bits.fl;
 }
+
+static inline float SwapFloat( float bf )
+{
+	uint32_t bi = FloatAsUint( bf );
+	uint32_t li = Swap32( bi );
+	return UintAsFloat( li );
+}
 #endif // __cplusplus
 
 // isnan implementation is broken on IRIX as reported in https://github.com/FWGS/xash3d-fwgs/pull/1211
