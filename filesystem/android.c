@@ -23,7 +23,7 @@ GNU General Public License for more details.
 #include <unistd.h>
 #include <errno.h>
 #include <stddef.h>
-#include STDINT_H
+#include <stdint.h>
 #include "filesystem_internal.h"
 #include "crtlib.h"
 #include "xash3d_mathlib.h"

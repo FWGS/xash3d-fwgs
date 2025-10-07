@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #endif
 #include <errno.h>
 #include <stddef.h>
-#include STDINT_H
+#include <stdint.h>
 #include "port.h"
 #include "filesystem_internal.h"
 #include "crtlib.h"

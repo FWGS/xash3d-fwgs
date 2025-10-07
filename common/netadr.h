@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef NET_ADR_H
 #define NET_ADR_H
 
-#include STDINT_H
+#include <stdint.h>
 
 // net.h -- quake's interface to the networking layer
 // a1ba: copied from Quake-2/qcommon/qcommon.h and modified to support IPv6
