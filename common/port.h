@@ -37,7 +37,6 @@ GNU General Public License for more details.
 	// Windows-specific
 	#define __cdecl
 	#define __stdcall
-	#define _inline	static inline
 
 	#if XASH_POSIX
 		#include <unistd.h>
