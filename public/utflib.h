@@ -15,7 +15,7 @@ GNU General Public License for more details.
 #ifndef UTFLIB_H
 #define UTFLIB_H
 
-#include STDINT_H
+#include <stdint.h>
 #include <stddef.h>
 
 typedef struct utfstate_s
