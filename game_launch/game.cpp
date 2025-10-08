@@ -22,7 +22,8 @@ GNU General Public License for more details.
 #include <stdarg.h>
 
 #if XASH_POSIX
-#define XASHLIB "libxash." OS_LIB_EXT
+#include <dlfcn.h>
+#define XASHLIB OS_LIB_PREFIX "xash." OS_LIB_EXT
 #define FreeLibrary( x ) dlclose( x )
 #elif XASH_WIN32
 #include <shellapi.h> // CommandLineToArgvW
