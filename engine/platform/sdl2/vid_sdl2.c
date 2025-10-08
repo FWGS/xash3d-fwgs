@@ -22,6 +22,10 @@ GNU General Public License for more details.
 // include it after because it breaks definitions in net_api.h wtf
 #include <SDL_syswm.h>
 
+#if XASH_PSVITA
+#include <vrtld.h>
+#endif // XASH_PSVITA
+
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
 static void GL_SetupAttributes( void );
@@ -401,9 +405,7 @@ void *GL_GetProcAddress( const char *name )
 #if XASH_PSVITA
 	// try to find in main module
 	if( !func )
-	{
-		func = dlsym( NULL, name );
-	}
+		func = vrtld_dlsym( NULL, name );
 #endif
 
 	if( !func )
