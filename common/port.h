@@ -22,14 +22,16 @@ GNU General Public License for more details.
 #include <limits.h>
 #include "build.h"
 
+#if XASH_POSIX
+	#include <unistd.h>
+	#define OS_LIB_PREFIX "lib"
+#endif
+
 #if XASH_APPLE
 	#include <sys/syslimits.h>
-	#define OS_LIB_PREFIX "lib"
 	#define OS_LIB_EXT    "dylib"
 	#define OPEN_COMMAND  "open"
 #elif XASH_POSIX
-	#include <unistd.h>
-	#define OS_LIB_PREFIX "lib"
 	#define OS_LIB_EXT    "so"
 	#define OPEN_COMMAND  "xdg-open"
 #elif XASH_WIN32
