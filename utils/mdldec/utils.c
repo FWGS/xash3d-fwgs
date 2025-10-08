@@ -24,6 +24,10 @@ GNU General Public License for more details.
 #include "settings.h"
 #include "utils.h"
 
+#if !XASH_WIN32
+	#define _mkdir( x ) mkdir(( x ), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )
+#endif
+
 /*
 ============
 MakeDirectory
