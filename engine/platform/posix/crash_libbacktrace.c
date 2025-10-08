@@ -16,6 +16,7 @@ GNU General Public License for more details.
 
 #if HAVE_LIBBACKTRACE
 #include <signal.h>
+#include <dlfcn.h>
 #include "common.h"
 #include "backtrace.h"
 #include "input.h"
