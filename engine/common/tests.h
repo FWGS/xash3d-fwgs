@@ -26,7 +26,7 @@ extern struct tests_stats_s tests_stats;
 #define TASSERT( exp ) \
 	_TASSERT( !(exp), Msg( S_ERROR "assert failed at %s:%i\n", __FILE__, __LINE__ ) )
 #define TASSERT_EQi( val1, val2 ) \
-	_TASSERT( ( val1 ) != ( val2 ), Msg( S_ERROR "assert failed at %s:%i, \"%d\" != \"%d\"\n", __FILE__, __LINE__, val1, val2 ))
+	_TASSERT( ( val1 ) != ( val2 ), Msg( S_ERROR "assert failed at %s:%i, \"%d\" != \"%d\"\n", __FILE__, __LINE__, (int)val1, (int)val2 ))
 #define TASSERT_EQp( val1, val2 ) \
 	_TASSERT( ( val1 ) != ( val2 ), Msg( S_ERROR "assert failed at %s:%i, \"%p\" != \"%p\"\n", __FILE__, __LINE__, val1, val2 ))
 #define TASSERT_STR( str1, str2 ) \
