@@ -397,25 +397,6 @@ GL_GetProcAddress
 void *GL_GetProcAddress( const char *name )
 {
 	void *func = SDL_GL_GetProcAddress( name );
-#if !SDL_VERSION_ATLEAST( 2, 0, 6 ) && XASH_POSIX
-	if( !func && Sys_CheckParm( "-egl" ))
-	{
-		/*
-		 * SDL2 has broken SDL_GL_GetProcAddress until this commit if using egl:
-		 * https://github.com/libsdl-org/SDL/commit/466ba57d42d244e80357e9ad3011c50af30ed225
-		 * so call eglGetProcAddress directly
-		 * */
-		static void *(*peglGetProcAddress)( const char * );
-		if( !peglGetProcAddress )
-		{
-			void *lib = dlopen( "libEGL.so", RTLD_NOW );
-			if( lib )
-				*(void**)&peglGetProcAddress = dlsym( lib, "eglGetProcAddress" );
-		}
-		if( peglGetProcAddress )
-			func = peglGetProcAddress( name );
-	}
-#endif
 
 #if XASH_PSVITA
 	// try to find in main module
