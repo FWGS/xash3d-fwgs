@@ -123,6 +123,8 @@ const char *Q_PlatformStringByID( const int platform )
 		return "sunos";
 	case PLATFORM_HURD:
 		return "hurd";
+	case PLATFORM_PSP:
+		return "psp";
 	}
 
 	assert( 0 );
