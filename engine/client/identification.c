@@ -405,7 +405,8 @@ static int ID_RunWMIC( char *buffer, const wchar_t *cmdline )
 	DWORD dwRead;
 	BOOL bSuccess = FALSE;
 	wchar_t *cmdline_copy;
-
+	
+	const int cmdline_size = wcslen( cmdline ) * sizeof( *cmdline );
 	PROCESS_INFORMATION pi = { 0 };
 	SECURITY_ATTRIBUTES saAttr =
 	{
@@ -429,7 +430,11 @@ static int ID_RunWMIC( char *buffer, const wchar_t *cmdline )
 		.dwFlags = STARTF_USESTDHANDLES,
 	};
 
-	cmdline_copy = malloc( wcslen( cmdline ) * sizeof( *cmdline_copy ));
+	cmdline_copy = malloc( cmdline_size );
+	if( !cmdline_copy )
+		goto err;
+
+	memcpy( cmdline_copy, cmdline, cmdline_size );
 
 	if( !CreateProcessW( NULL, cmdline_copy, NULL, NULL, true, CREATE_NO_WINDOW, NULL, NULL, &si, &pi ))
 		goto err;
