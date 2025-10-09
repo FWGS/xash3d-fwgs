@@ -383,6 +383,9 @@ void GAME_EXPORT CL_WeaponAnim( int iAnim, int body )
 	view->curstate.rendercolor.b = 0;
 	view->curstate.renderamt = 150;
 #endif
+
+	if (cls.demorecording)
+		CL_WriteDemoAnim( iAnim, body );
 }
 
 /*

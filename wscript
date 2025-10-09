@@ -369,7 +369,7 @@ def configure(conf):
 			]
 
 		opt_cflags = [
-			'-Werror=declaration-after-statement',
+			# '-Werror=declaration-after-statement', # not needed anymore, as we're targetting C99
 			'-Werror=enum-conversion',
 			'-Wno-error=enum-float-conversion', # need this for cvars
 			'-Werror=implicit-int',

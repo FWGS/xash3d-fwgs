@@ -772,17 +772,24 @@ void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 //
 // cl_demo.c
 //
+
+void DEM_Init( void );
 void CL_StartupDemoHeader( void );
 void CL_DrawDemoRecording( void );
 void CL_WriteDemoUserCmd( int cmdnumber );
 void CL_WriteDemoMessage( qboolean startup, int start, sizebuf_t *msg );
 void CL_WriteDemoUserMessage( int size, byte *buffer );
+void CL_WriteDemoJumpTime( void );
+void CL_WriteDemoAnim( int anim, int body );
+void CL_WriteDemoClientData( client_data_t *cdata );
+void CL_WriteDemoSound( int channel, const char *sample, float vol, float attenuation, int flags, int pitch );
+void CL_WriteDemoStringCmd( const char *cmd );
+void CL_WriteDemoEvent( int flags, int idx, float delay, event_args_t *pargs );
 qboolean CL_DemoReadMessage( byte *buffer, size_t *length );
+void CL_DemoCompleted( void );
 void CL_DemoInterpolateAngles( void );
 void CL_CheckStartupDemos( void );
-void CL_WriteDemoJumpTime( void );
 void CL_CloseDemoHeader( void );
-void CL_DemoCompleted( void );
 void CL_PlayDemo_f( void );
 void CL_TimeDemo_f( void );
 void CL_StartDemos_f( void );
@@ -791,6 +798,9 @@ void CL_DeleteDemo_f( void );
 void CL_Record_f( void );
 void CL_Stop_f( void );
 void CL_ListDemo_f( void );
+float CL_GetDemoRecordClock( void );
+float CL_GetDemoPlaybackClock( void );
+int CL_GetDemoFrameCount( void );
 int CL_GetDemoComment( const char *demoname, char *comment );
 
 //
@@ -802,6 +812,7 @@ void CL_SetEventIndex( const char *szEvName, int ev_index );
 void CL_PlaybackEvent( int flags, const edict_t *pInvoker, word eventindex, float delay, float *origin,
 	float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
 void CL_RegisterEvent( int lastnum, const char *szEvName, pfnEventHook func );
+void CL_QueueEvent( int flags, int index, float delay, event_args_t *args );
 void CL_ResetEvent( event_info_t *ei );
 word CL_EventIndex( const char *name );
 void CL_FireEvents( void );
@@ -992,6 +1003,7 @@ void V_Shutdown( void );
 qboolean V_PreRender( void );
 void V_PostRender( void );
 void V_RenderView( void );
+ref_params_t *V_RefParams(void);
 
 //
 // cl_pmove.c

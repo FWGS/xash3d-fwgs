@@ -595,6 +595,7 @@ tell the client.dll about player origin, angles, fov, etc
 static void CL_UpdateClientData( void )
 {
 	client_data_t	cdat;
+	client_data_t	oldcdat;
 
 	if( cls.state != ca_active )
 		return;
@@ -606,12 +607,17 @@ static void CL_UpdateClientData( void )
 	cdat.iWeaponBits = cl.local.weapons;
 	cdat.fov = cl.local.scr_fov;
 
+	if (cls.demorecording)
+		oldcdat = cdat;
+
 	if( clgame.dllFuncs.pfnUpdateClientData( &cdat, cl.time ))
 	{
 		// grab changes if successful
 		VectorCopy( cdat.viewangles, cl.viewangles );
 		cl.local.scr_fov = cdat.fov;
 	}
+	if (cls.demorecording)
+		CL_WriteDemoClientData( &oldcdat );
 }
 
 /*
@@ -3632,7 +3638,10 @@ void CL_Init( void )
 	if( host.type == HOST_DEDICATED )
 		return; // nothing running on the client
 
+	
 	CL_InitLocal();
+
+	DEM_Init(); // init demo interface
 
 	VID_Init();	// init video
 	S_Init();	// init sound
