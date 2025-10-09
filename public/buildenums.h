@@ -44,6 +44,7 @@ GNU General Public License for more details.
 #define PLATFORM_WASI       15
 #define PLATFORM_SUNOS      16
 #define PLATFORM_HURD       17
+#define PLATFORM_PSP        18
 
 #if XASH_WIN32
 	#define XASH_PLATFORM PLATFORM_WIN32
@@ -79,6 +80,8 @@ GNU General Public License for more details.
 	#define XASH_PLATFORM PLATFORM_SUNOS
 #elif XASH_HURD
 	#define XASH_PLATFORM PLATFORM_HURD
+#elif XASH_PSP
+	#define XASH_PLATFORM PLATFORM_PSP
 #else
 	#error
 #endif
