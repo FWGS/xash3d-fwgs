@@ -141,9 +141,6 @@ typedef struct
 
 	notify_t		notify[MAX_DBG_NOTIFY]; // for Con_NXPrintf
 	qboolean		draw_notify;	// true if we have NXPrint message
-
-	// console update
-	double		lastupdate;
 } console_t;
 
 static console_t		con;
@@ -945,13 +942,6 @@ void Con_Print( const char *txt )
 			lastlength = 0;
 			bufpos = 0;
 			charpos = 0;
-		}
-
-		// pump messages to avoid window hanging
-		if( con.lastupdate < Sys_DoubleTime( ))
-		{
-			con.lastupdate = Sys_DoubleTime() + 1.0;
-			Host_InputFrame();
 		}
 
 		// FIXME: disable updating screen, because when texture is bound any console print
