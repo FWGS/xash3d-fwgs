@@ -16,18 +16,27 @@
 #define CS_SIZE       64  // size of one config string
 #define CS_TIME	      16  // size of time string
 
+// platform-specific alignment for types, to not break ABI
+#if XASH_PSP
+	#define MAYBE_ALIGNED( x ) __attribute__(( aligned( 16 )))
+#endif
+
+#if !defined( MAYBE_ALIGNED )
+	#define MAYBE_ALIGNED( x )
+#endif // !defined( MAYBE_ALIGNED )
+
 typedef uint8_t  byte;
 typedef float    vec_t;
 typedef vec_t    vec2_t[2];
 #ifndef vec3_t // SDK renames it to Vector
 typedef vec_t    vec3_t[3];
 #endif
-typedef vec_t    vec4_t[4];
-typedef vec_t    quat_t[4];
+typedef vec_t    vec4_t[4] MAYBE_ALIGNED( 16 );
+typedef vec_t    quat_t[4] MAYBE_ALIGNED( 16 );
 typedef byte     rgba_t[4]; // unsigned byte colorpack
 typedef byte     rgb_t[3];  // unsigned byte colorpack
-typedef vec_t    matrix3x4[3][4];
-typedef vec_t    matrix4x4[4][4];
+typedef vec_t    matrix3x4[3][4] MAYBE_ALIGNED( 16 );
+typedef vec_t    matrix4x4[4][4] MAYBE_ALIGNED( 16 );
 typedef uint32_t poolhandle_t;
 typedef uint32_t dword;
 typedef char     string[MAX_STRING];
@@ -49,7 +58,7 @@ enum { false, true };
 #endif
 typedef int qboolean;
 
-#if XASH_LOW_MEMORY == 1
+#if XASH_LOW_MEMORY == 1 || XASH_PSP
 	#define MAX_QPATH 48
 	#define MAX_MODS  16
 #elif XASH_LOW_MEMORY == 2
