@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #if XASH_WIN32
 #include <direct.h>
 #include <io.h>
+#include "utflib.h"
 #elif XASH_DOS4GW
 #include <direct.h>
 #else
