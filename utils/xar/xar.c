@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #define FreeLibrary( x ) dlclose( x )
 #elif XASH_WIN32
 #include <windows.h>
+#include <direct.h>
 #endif
 
 static void *g_hModule;
