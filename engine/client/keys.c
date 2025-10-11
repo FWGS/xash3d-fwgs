@@ -999,7 +999,7 @@ static qboolean OSK_KeyEvent( int key, int down )
 
 	if( osk.curbutton.val == 0 )
 	{
-		if( key == K_ENTER )
+		if( key == K_ENTER || key == K_A_BUTTON )
 		{
 			osk.curbutton.val = osk_keylayout[osk.curlayout][osk.curbutton.y][osk.curbutton.x];
 			return true;
@@ -1010,6 +1010,7 @@ static qboolean OSK_KeyEvent( int key, int down )
 
 	switch ( key )
 	{
+	case K_A_BUTTON:
 	case K_ENTER:
 		switch( osk.curbutton.val )
 		{
