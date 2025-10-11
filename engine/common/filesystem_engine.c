@@ -27,6 +27,10 @@ GNU General Public License for more details.
 #include "library.h"
 #include "platform/platform.h"
 
+#if XASH_WIN32
+#include <direct.h>
+#endif
+
 static CVAR_DEFINE_AUTO( fs_mount_hd, "0", FCVAR_PRIVILEGED, "mount high definition content folder" );
 static CVAR_DEFINE_AUTO( fs_mount_lv, "0", FCVAR_PRIVILEGED, "mount low violence models content folder" );
 static CVAR_DEFINE_AUTO( fs_mount_addon, "0", FCVAR_PRIVILEGED, "mount addon content folder" );
