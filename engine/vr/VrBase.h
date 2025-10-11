@@ -13,7 +13,6 @@
 #endif
 
 #include <EGL/egl.h>
-#include <EGL/eglext.h>
 
 #if XASH_ANDROID
 #include <jni.h>
@@ -64,16 +63,6 @@ typedef struct {
 	uint32_t Width;
 	uint32_t Height;
 } ovrSwapChain;
-
-typedef struct
-{
-	EGLint		MajorVersion;
-	EGLint		MinorVersion;
-	EGLDisplay	Display;
-	EGLConfig	Config;
-	EGLSurface	TinySurface;
-	EGLContext	Context;
-} ovrEgl;
 
 typedef struct {
 	int Width;

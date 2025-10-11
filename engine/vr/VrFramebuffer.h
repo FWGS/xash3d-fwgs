@@ -6,9 +6,6 @@ void ovrApp_Clear(ovrApp* app);
 void ovrApp_Destroy(ovrApp* app);
 int ovrApp_HandleXrEvents(ovrApp* app);
 
-void ovrEgl_Clear( ovrEgl * egl );
-void ovrEgl_CreateContext( ovrEgl * egl, const ovrEgl * shareEgl );
-
 void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer);
