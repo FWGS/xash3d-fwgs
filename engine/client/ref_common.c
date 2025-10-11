@@ -734,9 +734,9 @@ qboolean R_Init( void )
 	requested_cmdline[0] = 0;
 	requested_cvar[0] = 0;
 
-	success = R_LoadRenderer( "gles3compat" ); //VR always uses GLESv3
+	success = R_LoadRenderer( "gles3compat", false ); //VR always uses GLESv3
 	if( !success && Sys_GetParmFromCmdLine( "-ref", requested_cmdline ))
-		success = R_LoadRenderer( requested_cmdline );
+		success = R_LoadRenderer( requested_cmdline, false );
 
 	if( !success && COM_CheckString( r_refdll.string ) && Q_stricmp( requested_cmdline, r_refdll.string ))
 	{

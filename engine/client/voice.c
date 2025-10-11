@@ -1041,11 +1041,6 @@ void CL_AddVoiceToDatagram( void )
 
 	if( cls.state != ca_active || !voice.device_opened || !Voice_IsRecording())
 		return;
-<<<<<<< HEAD
-
-	size = Voice_GetOpusCompressedData( voice.compress_buffer, sizeof( voice.compress_buffer ), &frames );
-=======
->>>>>>> fwgs/master
 
 	if( voice.goldsrc )
 	{

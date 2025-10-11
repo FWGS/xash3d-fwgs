@@ -13,7 +13,7 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer);
 void ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer);
-void ovrFramebuffer_SetNone();
+void ovrFramebuffer_SetNone( void );
 
 void ovrRenderer_Create(XrSession session, ovrRenderer* renderer, bool useMultiview, int width, int height, int multisamples);
 void ovrRenderer_Destroy(ovrRenderer* renderer);

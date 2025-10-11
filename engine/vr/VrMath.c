@@ -36,7 +36,7 @@ XrPosef
 ================================================================================
 */
 
-XrPosef XrPosef_Identity() {
+XrPosef XrPosef_Identity( void ) {
        XrPosef r;
        r.orientation.x = 0;
        r.orientation.y = 0;

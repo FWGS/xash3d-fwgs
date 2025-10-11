@@ -19,13 +19,14 @@ GNU General Public License for more details.
 #include <VrBase.h>
 #include <VrRenderer.h>
 #include <VrInput.h>
-
+#include <sys/time.h>
 #endif
+#include <SDL.h>
 #include "common.h"
 #include "client.h"
 #include "input.h"
-#include <cl_tent.h>
-#include <platform/sdl/events.h>
+#include "cl_tent.h"
+#include "platform/sdl2/platform_sdl2.h"
 
 CVAR_DEFINE_AUTO( vr_camera_x, "0", FCVAR_MOVEVARS, "Offset x of the camera" );
 CVAR_DEFINE_AUTO( vr_camera_y, "0", FCVAR_MOVEVARS, "Offset y of the camera" );
@@ -441,7 +442,7 @@ void Host_VRButtonMapping( bool swapped, int lbuttons, int rbuttons )
 	lastrbuttons = rbuttons;
 }
 
-bool Host_VRConfig()
+bool Host_VRConfig( void )
 {
 	// Update refresh rate if needed
 	static int lastRefreshRate = 72;
@@ -955,7 +956,7 @@ bool Host_VRWeaponCalibration( float thumbstickX, float thumbstickY )
 	return false;
 }
 
-void Host_VRWeaponCrosshair()
+void Host_VRWeaponCrosshair( void )
 {
 	// Get player position and direction
 	vec3_t vecSrc, vecDir, vecEnd;

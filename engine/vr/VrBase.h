@@ -1,27 +1,29 @@
 #pragma once
 
-#ifdef ANDROID
+#include "build.h"
+
+#if XASH_ANDROID
 #include <android/log.h>
 #define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, "OpenXR", __VA_ARGS__);
 #define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, "OpenXR", __VA_ARGS__);
 #else
-#include <cstdio>
+#include <stdio.h>
 #define ALOGE(...) printf(__VA_ARGS__)
 #define ALOGV(...) printf(__VA_ARGS__)
 #endif
 
-#ifdef ANDROID
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+
+#if XASH_ANDROID
 #include <jni.h>
 #define XR_USE_PLATFORM_ANDROID 1
-#define XR_USE_GRAPHICS_API_OPENGL_ES 1
 #endif
 
+#define XR_USE_GRAPHICS_API_OPENGL_ES 1
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 #include <stdbool.h>
-#include <jni.h>
 
 #if defined(_DEBUG) && (defined(XR_USE_GRAPHICS_API_OPENGL) || defined(XR_USE_GRAPHICS_API_OPENGL_ES))
 
@@ -112,7 +114,7 @@ typedef struct {
 	ovrRenderer Renderer;
 } ovrApp;
 
-#ifdef ANDROID
+#if XASH_ANDROID
 typedef struct {
 	JavaVM* Vm;
 	jobject ActivityObject;

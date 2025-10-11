@@ -18,7 +18,7 @@ void VR_Init( void* system, const char* name, int version ) {
 
 	ovrApp_Clear(&vr_engine.appState);
 
-#ifdef ANDROID
+#if XASH_ANDROID
 	PFN_xrInitializeLoaderKHR xrInitializeLoaderKHR;
 	xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
 	if (xrInitializeLoaderKHR != NULL) {
@@ -36,7 +36,7 @@ void VR_Init( void* system, const char* name, int version ) {
 	int extensionsCount = 0;
 	const char* extensions[32];
 	extensions[extensionsCount++] = XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME;
-#ifdef ANDROID
+#if XASH_ANDROID
 	extensions[extensionsCount++] = XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME;
 	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_INSTANCE)) {
 		extensions[extensionsCount++] = XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME;
@@ -70,7 +70,7 @@ void VR_Init( void* system, const char* name, int version ) {
 	instanceCreateInfo.enabledExtensionCount = (uint32_t)extensionsCount;
 	instanceCreateInfo.enabledExtensionNames = extensions;
 
-#ifdef ANDROID
+#if XASH_ANDROID
 	XrInstanceCreateInfoAndroidKHR instanceCreateInfoAndroid = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
 	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_INSTANCE)) {
 		ovrJava* java = (ovrJava*)system;
@@ -112,7 +112,7 @@ void VR_Init( void* system, const char* name, int version ) {
 	}
 
 	// Get the graphics requirements.
-#ifdef ANDROID
+#if XASH_ANDROID
 	PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = NULL;
 	OXR(xrGetInstanceProcAddr(
 			vr_engine.appState.Instance,
@@ -124,7 +124,7 @@ void VR_Init( void* system, const char* name, int version ) {
 	OXR(pfnGetOpenGLESGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
 #endif
 
-#ifdef ANDROID
+#if XASH_ANDROID
 	vr_engine.appState.MainThreadTid = gettid();
 #endif
 	vr_engine.appState.SystemId = systemId;
@@ -147,7 +147,7 @@ void VR_EnterVR( engine_t* engine ) {
 
 	// Create the OpenXR Session.
 	XrSessionCreateInfo sessionCreateInfo = {};
-#ifdef ANDROID
+#if XASH_ANDROID
 	XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingGL = {};
 	memset(&sessionCreateInfo, 0, sizeof(sessionCreateInfo));
 	graphicsBindingGL.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
@@ -175,7 +175,7 @@ void VR_EnterVR( engine_t* engine ) {
 	OXR(xrCreateReferenceSpace(engine->appState.Session, &spaceCreateInfo, &engine->appState.HeadSpace));
 	engine->appState.RenderThreadTid = gettid();
 
-#ifdef ANDROID
+#if XASH_ANDROID
 	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_PERFORMANCE)) {
 		XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
 		XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;

@@ -84,7 +84,7 @@ void ovrEgl_CreateContext( ovrEgl * egl, const ovrEgl * shareEgl )
 	// Do NOT use eglChooseConfig, because the Android EGL code pushes in multisample
 	// flags in eglChooseConfig if the user has selected the "force 4x MSAA" option in
 	// settings, and that is completely wasted for our warp target.
-	const int MAX_CONFIGS = 1024;
+#define MAX_CONFIGS 1024
 	EGLConfig configs[MAX_CONFIGS];
 	EGLint numConfigs = 0;
 	if ( eglGetConfigs( egl->Display, configs, MAX_CONFIGS, &numConfigs ) == EGL_FALSE )
@@ -448,7 +448,7 @@ void ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
 	glDisable( GL_FRAMEBUFFER_SRGB_EXT );
 }
 
-void ovrFramebuffer_SetNone() {
+void ovrFramebuffer_SetNone( void ) {
 	GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
 }
 

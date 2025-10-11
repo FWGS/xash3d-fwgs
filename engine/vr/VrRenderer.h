@@ -49,7 +49,7 @@ void VR_SetConfigFloat( enum VRConfigFloat config, float value );
 
 void VR_BindFramebuffer(engine_t *engine, int fboIndex);
 void VR_Recenter(engine_t* engine);
-bool VR_DidRecenter();
+bool VR_DidRecenter( void );
 XrPosef VR_GetView(int eye);
-int VR_GetRefreshRate();
+int VR_GetRefreshRate( void );
 void VR_SetRefreshRate(int refresh);

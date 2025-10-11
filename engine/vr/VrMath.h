@@ -19,7 +19,7 @@ double FromXrTime(const XrTime time);
 XrTime ToXrTime(const double timeInSeconds);
 
 // XrPosef
-XrPosef XrPosef_Identity();
+XrPosef XrPosef_Identity( void );
 XrPosef XrPosef_Inverse(const XrPosef a);
 
 // XrQuaternionf

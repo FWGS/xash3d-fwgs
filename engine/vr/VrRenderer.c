@@ -186,7 +186,7 @@ void VR_Recenter(engine_t* engine) {
 	recenterCalled = true;
 }
 
-bool VR_DidRecenter() {
+bool VR_DidRecenter( void ) {
 	bool output = recenterCalled;
 	recenterCalled = false;
 	return output;
@@ -478,7 +478,7 @@ XrPosef VR_GetView(int eye) {
 	return projections[eye].pose;
 }
 
-int VR_GetRefreshRate() {
+int VR_GetRefreshRate( void ) {
 	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_REFRESH)) {
 		if (!pfnGetDisplayRefreshRate) {
 			OXR(xrGetInstanceProcAddr(
