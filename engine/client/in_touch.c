@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include "vgui_draw.h"
 #include "mobility_int.h"
 
+#if !XASH_NO_TOUCH
+
 typedef enum
 {
 	touch_command, // just tap a button
@@ -162,7 +164,6 @@ static CVAR_DEFINE_AUTO( touch_joy_radius, "1.0", FCVAR_FILTERABLE, "joy radius 
 static CVAR_DEFINE_AUTO( touch_move_indicator, "0.0", FCVAR_FILTERABLE, "indicate move events (0 to disable)" );
 static CVAR_DEFINE_AUTO( touch_joy_texture, "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
 static CVAR_DEFINE( touch_emulate, "_touch_emulate", "0", FCVAR_PRIVILEGED, "emulate touch with mouse" );
-CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
 
 // code looks smaller with it
 #define TO_SCRN_Y(x) (refState.width * (x) * Touch_AspectRatio())
@@ -1184,7 +1185,6 @@ void Touch_Init( void )
 	Cvar_RegisterVariable( &touch_joy_texture );
 
 	// input devices cvar
-	Cvar_RegisterVariable( &touch_enable );
 	Cvar_RegisterVariable( &touch_emulate );
 
 	touch.initialized = true;
@@ -2260,3 +2260,5 @@ void Touch_Shutdown( void )
 	touch.initialized = false;
 	Mem_FreePool( &touch.mempool );
 }
+
+#endif // !XASH_NO_TOUCH
