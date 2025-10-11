@@ -43,6 +43,8 @@ NSWITCH_ENVVARS = ['DEVKITPRO']
 
 PSVITA_ENVVARS = ['VITASDK']
 
+PSP_ENVVARS = ['PSPDEV', 'PSPSDK', 'PSPTOOLCHAIN']
+
 # This class does support ONLY r10e and r19c/r20 NDK
 class Android:
 	ctx            = None # waf context
@@ -532,6 +534,64 @@ class PSVita:
 		ldflags = []
 		return ldflags
 
+class PSP:
+	ctx               = None # waf context
+	sdk_home          = None
+	psptoolchain_path = None
+	pspsdk_path       = None
+	binutils_path     = None
+	build_prx         = None
+	fw_version        = None
+	render_type       = None
+
+	def __init__(self, ctx, moduletype, fwversion, rendertype):
+		self.ctx = ctx
+		self.build_prx = True if moduletype == 'prx' else False
+		self.fw_version = fwversion
+		self.render_type = rendertype
+
+		for i in PSP_SDK_ENVVARS:
+			self.sdk_home = os.getenv(i)
+			if self.sdk_home != None:
+				break
+		else:
+			ctx.fatal('Set %s environment variable pointing to the root of PSP SDK!' %
+				' or '.join(PSP_SDK_ENVVARS))
+
+		self.psptoolchain_path = os.path.join(self.sdk_home, 'psp')
+		self.pspsdk_path = os.path.join(self.psptoolchain_path, 'sdk')
+		self.binutils_path  = os.path.join(self.sdk_home, 'bin')
+
+	def cflags(self, cxx = False):
+		cflags = []
+		cflags += ['-I%s' % (os.path.join(self.pspsdk_path, 'include'))]
+		cflags += ['-I.']
+		cflags += ['-DNDEBUG', '-D_PSP_FW_VERSION=%s' % self.fw_version, '-G0']
+		return cflags
+
+	# they go before object list
+	def linkflags(self):
+		linkflags = []
+		return linkflags
+
+	def ldflags(self):
+		ldflags = []
+		if self.build_prx:
+			ldflags += ['-specs=%s' % os.path.join(self.pspsdk_path, 'lib/prxspecs')]
+			ldflags += ['-Wl,-q,-T%s' % os.path.join(self.pspsdk_path, 'lib/linkfile.prx')]
+		ldflags += ['-L%s' % os.path.join(self.pspsdk_path, 'lib')]
+		ldflags += ['-L.']
+		return ldflags
+
+	def stdlibs(self):
+		stdlibs = []
+		stdlibs += ['-lpspdisplay', '-lpspgum_vfpu', '-lpspgu','-lpspge', '-lpspvfpu']
+		stdlibs += ['-lpspaudio', '-lpspdmac']
+		stdlibs += ['-lstdc++', '-lc', '-lm']
+		stdlibs += ['-lpspctrl', '-lpspdebug', '-lpsppower', '-lpsputility',  '-lpspsdk', '-lpsprtc']
+		stdlibs += ['-lpspuser', '-lpspkernel']
+		return stdlibs
+
 def options(opt):
 	xc = opt.add_option_group('Cross compile options')
 	xc.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
@@ -548,6 +608,8 @@ def options(opt):
 		help='enable building for Sailfish/Aurora')
 	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
 		help='enable building for Emscripten')
+	xc.add_option('--psp', action='store', dest='PSP_OPTS', default=None,
+		help='enable building for PlayStation Portable, format: --psp=<module type>,<fw version>,<render type>, example: --psp=prx,660,HW')
 
 def configure(conf):
 	if 'CROSS_COMPILE' in conf.environ:
@@ -643,21 +705,60 @@ def configure(conf):
 		conf.env.LIB_M = ['m']
 		conf.env.VRTLD = ['vrtld']
 		conf.env.DEST_OS = 'psvita'
-	elif conf.options.EMSCRIPTEN:
-		# Emscripten compiler is just wrapper to clang
-		# But we need to setup platform modifiers, they all are contained inside c_emscripten.py for now
-		# In future, that could be upstreamed to waf itself and this wouldn't be needed
-		conf.environ['CC'] = 'emcc'
-		conf.environ['CXX'] = 'em++'
-		conf.environ['AR'] = 'emar'
-		conf.environ['STRIP'] = 'emstrip'
-		conf.environ['OBJCOPY'] = 'llvm-objcopy'
-		conf.load('c_emscripten')
+	elif conf.options.PSP_OPTS:
+		values = conf.options.PSP_OPTS.split(',')
+		if len(values) != 3:
+			conf.fatal('Invalid --psp paramater value!')
+
+		valid_module_type = ['elf', 'prx']
+		valid_render_type = ['SW', 'HW', 'ALL']
+
+		if values[0] not in valid_module_type:
+			conf.fatal('Unknown module type: %s. Supported: %r' % (values[0], ', '.join(valid_module_type)))
+		if values[2] not in valid_render_type:
+			conf.fatal('Unknown render type: %s. Supported: %r' % (values[2], ', '.join(valid_render_type)))
+
+		conf.psp = psp = PSP(conf, values[0], values[1], values[2])
+		conf.environ['CC'] = os.path.join(psp.binutils_path, 'psp-gcc')
+		conf.environ['CXX'] = os.path.join(psp.binutils_path, 'psp-gcc')
+		conf.environ['AS'] = os.path.join(psp.binutils_path, 'psp-gcc')
+		conf.environ['STRIP'] = os.path.join(psp.binutils_path, 'psp-strip')
+		conf.environ['LD'] = os.path.join(psp.binutils_path, 'psp-gcc')
+		conf.environ['AR'] = os.path.join(psp.binutils_path, 'psp-ar')
+		conf.environ['RANLIB'] = os.path.join(psp.binutils_path, 'psp-ranlib')
+		conf.environ['OBJCOPY'] = os.path.join(psp.binutils_path, 'psp-objcopy')
+
+		conf.env.PRXGEN = conf.find_program('psp-prxgen', path_list = psp.binutils_path)
+		conf.env.MKSFO =  conf.find_program('mksfoex', path_list = psp.binutils_path)
+		conf.env.PACK_PBP = conf.find_program('pack-pbp', path_list = psp.binutils_path)
+		conf.env.FIXUP =  conf.find_program('psp-fixup-imports', path_list = psp.binutils_path)
+
+		conf.env.ASFLAGS += psp.cflags()
+		conf.env.CFLAGS += psp.cflags()
+		conf.env.CXXFLAGS += psp.cflags()
+		conf.env.LINKFLAGS += psp.linkflags()
+		conf.env.LDFLAGS += psp.ldflags()
+
+		conf.msg('Selected PSPSDK', '%s' % (psp.sdk_home))
+		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
+		conf.msg('... C/C++ flags', ' '.join(psp.cflags()).replace(psp.sdk_home, '$PSPSDK'))
+		conf.msg('... link flags', ' '.join(psp.linkflags()).replace(psp.sdk_home, '$PSPSDK'))
+		conf.msg('... ld flags', ' '.join(psp.ldflags()).replace(psp.sdk_home, '$PSPSDK'))
+		conf.msg('Bulid prx', '%s' % (psp.build_prx))
+
+		if conf.options.PROFILING:
+			conf.env.LDFLAGS += ['-lpspprof']
+			conf.env.CFLAGS += ['-pg']
+			conf.env.CXXFLAGS += ['-pg']
+		conf.env.LDFLAGS += psp.stdlibs()
+
+		conf.env.PSP_RENDER_TYPE = psp.render_type
+		conf.env.PSP_BUILD_PRX = psp.build_prx
 
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE
 	conf.env.SAILFISH = conf.options.SAILFISH
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten' })
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten', '__psp__': 'psp' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS

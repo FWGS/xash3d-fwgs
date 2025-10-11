@@ -49,6 +49,7 @@ static CVAR_DEFINE_AUTO( cl_backspeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | 
 static CVAR_DEFINE_AUTO( cl_sidespeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default side move speed"  );
 
 static CVAR_DEFINE_AUTO( m_grab_debug, "0", FCVAR_PRIVILEGED, "show debug messages on mouse state change" );
+CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
 
 /*
 ================
@@ -120,6 +121,7 @@ static void IN_StartupMouse( void )
 	Cvar_RegisterVariable( &look_filter );
 	Cvar_RegisterVariable( &m_rawinput );
 	Cvar_RegisterVariable( &m_grab_debug );
+	Cvar_RegisterVariable( &touch_enable );
 
 	// You can use -nomouse argument to prevent using mouse from client
 	// -noenginemouse will disable all mouse input

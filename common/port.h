@@ -48,6 +48,8 @@ GNU General Public License for more details.
 	#define OS_LIB_PREFIX ""
 	#define OS_LIB_EXT    "dll"
 	#define OPEN_COMMAND  "open"
+#elif XASH_PSP
+	#define OS_LIB_EXT    "prx"
 #endif
 
 #if !defined( _MSC_VER )
@@ -56,7 +58,7 @@ GNU General Public License for more details.
 #endif
 
 #if !XASH_WIN32
-	typedef void* HINSTANCE;
+	typedef void *HINSTANCE;
 	typedef struct tagPOINT	{ int x, y; } POINT; // one nasty function in cdll_int.h needs it
 #endif // !XASH_WIN32
 

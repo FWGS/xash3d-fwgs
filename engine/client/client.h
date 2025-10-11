@@ -853,13 +853,13 @@ qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *
 
 static inline cl_entity_t *CL_EDICT_NUM( int index )
 {
-	if( !clgame.entities ) // not in game yet
+	if( unlikely( !clgame.entities )) // not in game yet
 	{
 		Host_Error( "%s: clgame.entities is NULL\n", __func__ );
 		return NULL;
 	}
 
-	if( index < 0 || index >= clgame.maxEntities )
+	if( unlikely( index < 0 || index >= clgame.maxEntities ))
 	{
 		Host_Error( "%s: bad number %i\n", __func__, index );
 		return NULL;
@@ -870,10 +870,10 @@ static inline cl_entity_t *CL_EDICT_NUM( int index )
 
 static inline cl_entity_t *CL_GetEntityByIndex( int index )
 {
-	if( !clgame.entities ) // not in game yet
+	if( unlikely( !clgame.entities )) // not in game yet
 		return NULL;
 
-	if( index < 0 || index >= clgame.maxEntities )
+	if( unlikely( index < 0 || index >= clgame.maxEntities ))
 		return NULL;
 
 	return clgame.entities + index;
@@ -881,7 +881,7 @@ static inline cl_entity_t *CL_GetEntityByIndex( int index )
 
 static inline model_t *CL_ModelHandle( int modelindex )
 {
-	return modelindex >= 0 && modelindex < MAX_MODELS + 4 ? cl.models[modelindex] : NULL;
+	return likely( modelindex >= 0 && modelindex < MAX_MODELS + 4 ) ? cl.models[modelindex] : NULL;
 }
 
 static inline qboolean CL_IsThirdPerson( void )
