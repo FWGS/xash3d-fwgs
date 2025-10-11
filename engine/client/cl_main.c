@@ -2017,25 +2017,9 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	// time to figure out protocol
-	if( p == PROTOCOL_VERSION )
-		proto = PROTO_CURRENT;
-	else if( p == PROTOCOL_LEGACY_VERSION )
-	{
-		if( Q_stristr( version, "Stdio" ))
-			proto = PROTO_GOLDSRC;
-		else
-			proto = PROTO_LEGACY;
-	}
-	else
-	{
-		Con_Printf( "%s: unsupported protocol %d from %s\n", __func__, p, NET_AdrToString( from ));
-		return;
-	}
-
 	// now construct infostring for mainui
-	Info_SetValueForKeyf( s, "p", sizeof( s ), "%i", proto == PROTO_CURRENT ? PROTOCOL_VERSION : PROTOCOL_LEGACY_VERSION );
-	Info_SetValueForKey( s, "gs", proto == PROTO_GOLDSRC ? "1" : "0", sizeof( s ));
+	Info_SetValueForKeyf( s, "p", sizeof( s ), "%i", p );
+	Info_SetValueForKey( s, "gs", "1", sizeof( s )); // we only support GoldSrc here, Xash never should reply with this message
 	Info_SetValueForKey( s, "map", map, sizeof( s ));
 	Info_SetValueForKey( s, "dm", "0", sizeof( s )); // obsolete keys
 	Info_SetValueForKey( s, "team", "0", sizeof( s ));
