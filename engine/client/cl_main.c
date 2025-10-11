@@ -1964,10 +1964,7 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
 
 	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
-	{
-		Con_Printf( "^1Server^7: %s, Info: %s\n", NET_AdrToString( from ), infostring );
 		return; // unsupported proto
-	}
 
 	Info_RemoveKey( infostring, "gs" ); // don't let servers pretend they're something else
 
@@ -1976,17 +1973,10 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	{
 		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ));
 		Info_SetValueForKey( infostring, "p", "48", sizeof( infostring ));
-		Con_Printf( "^3Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
 	}
 	else if( !Q_strcmp( p, "48" ))
 	{
 		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ));
-		Con_Printf( "^3Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
-	}
-	else
-	{
-		// more info about servers
-		Con_Printf( "^2Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
 	}
 
 	UI_AddServerToList( from, infostring );
