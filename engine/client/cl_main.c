@@ -3641,8 +3641,6 @@ void CL_Init( void )
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
 
-	// IN_TouchInit();
-
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 
 	if( !CL_LoadProgs( libpath ))
@@ -3674,7 +3672,6 @@ void CL_Shutdown( void )
 		Touch_WriteConfig();
 	}
 
-	// IN_TouchShutdown ();
 	Joy_Shutdown ();
 	CL_CloseDemoHeader ();
 	IN_Shutdown ();
