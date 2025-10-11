@@ -21,12 +21,13 @@ GNU General Public License for more details.
 #include "xash3d_types.h"
 #include "port.h"
 #include "crtlib.h"
+#if XASH_WIN32
+#include <direct.h>
+#else
+#define _mkdir( x ) mkdir(( x ), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )
+#endif
 #include "settings.h"
 #include "utils.h"
-
-#if !XASH_WIN32
-	#define _mkdir( x ) mkdir(( x ), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )
-#endif
 
 /*
 ============

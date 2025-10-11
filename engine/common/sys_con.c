@@ -23,6 +23,9 @@ GNU General Public License for more details.
 #include <sys/time.h>
 #endif
 #include "xash3d_mathlib.h"
+#if XASH_WIN32
+#include <io.h>
+#endif
 
 // do not waste precious CPU cycles on mobiles or low memory devices
 #if !XASH_WIN32 && !XASH_MOBILE_PLATFORM && !XASH_LOW_MEMORY && !XASH_EMSCRIPTEN

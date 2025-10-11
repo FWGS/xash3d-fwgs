@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #if !XASH_WIN32
 #include <dirent.h>
+#else
+#include <io.h>
 #endif
 
 static char id_md5[33];
@@ -419,9 +421,9 @@ static int ID_RunWMIC( char *buffer, const wchar_t *cmdline )
 	CreatePipe( &g_OUT_Rd, &g_OUT_Wr, &saAttr, 0 );
 	SetHandleInformation( g_IN_Wr, HANDLE_FLAG_INHERIT, 0 );
 
-	STARTUPINFO si =
+	STARTUPINFOW si =
 	{
-		.cb = sizeof( STARTUPINFO ),
+		.cb = sizeof( STARTUPINFOW ),
 		.dwFlags = STARTF_USESTDHANDLES,
 		.hStdInput = g_IN_Rd,
 		.hStdOutput = g_OUT_Wr,
