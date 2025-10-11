@@ -17,6 +17,7 @@ GNU General Public License for more details.
 
 #if XASH_LIB == LIB_WIN32
 #include "lib_win.h"
+#include "utflib.h"
 
 static const wchar_t *FS_PathToWideChar( const char *path )
 {

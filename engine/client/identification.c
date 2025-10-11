@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #include <fcntl.h>
 #if !XASH_WIN32
 #include <dirent.h>
+#else
+#include <io.h>
 #endif
 
 static char id_md5[33];
