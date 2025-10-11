@@ -120,7 +120,6 @@ public class XashActivity extends SDLActivity {
 		return getWindow().superDispatchKeyEvent(event);
 	}
 
-	// TODO: REMOVE LATER, temporary launchers support?
 	@Override
 	protected String[] getArguments() {
 		String gamedir = getIntent().getStringExtra("gamedir");

@@ -13,9 +13,11 @@
 	<string name="preferences_server_package">Server package</string>
 	<string name="preferences_use_icons">Use icons instead of backgrounds</string>
 	<string name="game_data_location">Game data location</string>
-	<string name="file_access_required">All-files access required</string>
-	<string name="file_access_message">All-files access is required for the app to function properly.</string>
+	<string name="external_storage_required">External storage access is required for the app to function properly.</string>
+	<string name="request_permissions">Request permissions</string>
+	<string name="file_access_required">All-files access is required for the app to function properly.</string>
 	<string name="select_current_directory">Select current directory</string>
-	<string name="external_storage_required">External storage access required</string>
-	<string name="external_storage_message">External storage access is required for the app to function properly.</string>
+	<string name="no_games_installed">No games installed yet. Install your games to %s</string>
+	<string name="downloads">Downloads</string>
+	<string name="save">Save</string>
 </resources>
