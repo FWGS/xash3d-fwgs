@@ -821,11 +821,11 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		VectorNormalize( v_right );
 		break;
 	case SPR_FWD_PARALLEL_UPRIGHT:
-		dot = RI.vforward[2];
+		dot = RI.pforward[2];
 		if(( dot > 0.999848f ) || ( dot < -0.999848f ))	// cos(1 degree) = 0.999848
 			return; // invisible
 		VectorSet( v_up, 0.0f, 0.0f, 1.0f );
-		VectorSet( v_right, RI.vforward[1], -RI.vforward[0], 0.0f );
+		VectorSet( v_right, RI.pforward[1], -RI.pforward[0], 0.0f );
 		VectorNormalize( v_right );
 		break;
 	case SPR_FWD_PARALLEL_ORIENTED:
@@ -833,14 +833,14 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		SinCos( angle, &sr, &cr );
 		for( i = 0; i < 3; i++ )
 		{
-			v_right[i] = (RI.vright[i] * cr + RI.vup[i] * sr);
-			v_up[i] = RI.vright[i] * -sr + RI.vup[i] * cr;
+			v_right[i] = (RI.pright[i] * cr + RI.pup[i] * sr);
+			v_up[i] = RI.pright[i] * -sr + RI.pup[i] * cr;
 		}
 		break;
 	case SPR_FWD_PARALLEL: // normal sprite
 	default:
-		VectorCopy( RI.vright, v_right );
-		VectorCopy( RI.vup, v_up );
+		VectorCopy( RI.pright, v_right );
+		VectorCopy( RI.pup, v_up );
 		break;
 	}
 

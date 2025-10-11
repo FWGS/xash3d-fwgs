@@ -358,6 +358,9 @@ void R_SetupFrustum( void )
 	// build the transformation matrix for the given view angles
 	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
 
+	// in VR sprites need the player vectors, not view vectors
+	AngleVectors( RI.viewangles, RI.pforward, RI.pright, RI.pup );
+
 	// Share player transform with the client
 	gEngfuncs.Cvar_SetValue("vr_player_dir_x", RI.vforward[0]);
 	gEngfuncs.Cvar_SetValue("vr_player_dir_y", RI.vforward[1]);

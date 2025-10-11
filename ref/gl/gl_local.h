@@ -160,6 +160,10 @@ typedef struct
 	vec3_t		vright;
 	vec3_t		vup;
 
+	vec3_t		pforward;
+	vec3_t		pright;
+	vec3_t		pup;
+
 	vec3_t		cullorigin;
 	vec3_t		cull_vforward;
 	vec3_t		cull_vright;
