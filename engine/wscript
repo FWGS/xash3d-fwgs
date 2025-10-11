@@ -271,9 +271,8 @@ def build(bld):
 			libs.append('SWSCALE')
 
 		# add client files
-		if not bld.env.DEDICATED:
-			source += bld.path.ant_glob('client/**/*.c')
-			libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
+		source += bld.path.ant_glob('client/**/*.c')
+		libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile', 'XR_LOADER']
 
 		# Android port is linked differently
 		if bld.env.DEST_OS == 'android':
@@ -317,7 +316,5 @@ def build(bld):
 			title_id = 'XASH10000',
 			app_name = 'xash3d-fwgs',
 			rpath = bld.env.DEFAULT_RPATH,
-			lib=['GLESv3', 'EGL', 'openxr_loader'],
-			libpath=['../3rdparty/openxr/lib/android/arm64-v8a'],
 			linkflags = linkflags,
 		)
