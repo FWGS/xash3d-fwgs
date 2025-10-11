@@ -1,6 +1,8 @@
 package su.xash.engine;
 
 import android.annotation.SuppressLint;
+import android.app.ActivityOptions;
+import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.app.Activity;
 import android.content.Intent;
@@ -10,6 +12,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings.Secure;
 import android.util.Log;
+import android.view.Display;
 import android.view.KeyEvent;
 import android.view.WindowManager;
 
@@ -33,6 +36,31 @@ public class XashActivity extends SDLActivity {
         }
 
         AndroidBug5497Workaround.assistActivity(this);
+    }
+
+
+    public static void openVRIntent(Context context, String gamedir, String argv, boolean usevolume) {
+        // 0. Create the launch intent
+        boolean isPico = Build.MANUFACTURER.compareToIgnoreCase("PICO") == 0;
+        Intent intent = new Intent(context, isPico ? XrActivityPico.class : XrActivityMeta.class);
+        intent.putExtra("gamedir", gamedir);
+        intent.putExtra("argv", argv);
+        intent.putExtra("usevolume", usevolume);
+
+        // 1. Locate the main display ID and add that to the intent
+        final int mainDisplayId = Display.DEFAULT_DISPLAY;
+        ActivityOptions options = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            options = ActivityOptions.makeBasic().setLaunchDisplayId(mainDisplayId);
+        }
+
+        // 2. Set the flags: start in a new task and replace any existing tasks in the app stack
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK |
+            Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+        // 3. Launch the activity.
+        // Don't use the container's ContextWrapper, which is adding arguments
+        context.startActivity(intent, options.toBundle());
     }
 
     @Override

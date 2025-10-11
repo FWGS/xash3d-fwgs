@@ -35,14 +35,9 @@ class Game(val ctx: Context, val basedir: DocumentFile, var installed: Boolean =
     }
 
     fun startEngine(ctx: Context) {
-        ctx.startActivity(Intent(ctx, XashActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("gamedir", basedir.name)
-            putExtra("argv", pref.getString("arguments", "-console -log"))
-            putExtra("usevolume", pref.getBoolean("use_volume_buttons", false))
-            //.putExtra("gamelibdir", getGameLibDir(context))
-            //.putExtra("package", getPackageName()) }
-        })
+        val argv = pref.getString("arguments", "-console -log")
+        val useVolume = pref.getBoolean("use_volume_buttons", false)
+        XashActivity.openVRIntent(ctx, basedir.name, argv, useVolume)
     }
 
     private fun parseGameInfo(file: DocumentFile) {
