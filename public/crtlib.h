@@ -56,7 +56,6 @@ enum
 // build.c
 //
 int Q_buildnum( void );
-int Q_buildnum_date( const char *date );
 int Q_buildnum_iso( const char *date );
 int Q_buildnum_compat( void );
 const char *Q_PlatformStringByID( const int platform );

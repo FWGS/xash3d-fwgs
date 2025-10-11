@@ -18,15 +18,6 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "img_png.h"
 
-#if defined(XASH_NO_NETWORK)
-	#include "platform/stub/net_stub.h"
-#elif XASH_NSWITCH
-	// our ntohl is here
-	#include <arpa/inet.h>
-#elif !XASH_WIN32
-	#include <netinet/in.h>
-#endif
-
 static const char png_sign[] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
 static const char ihdr_sign[] = {'I', 'H', 'D', 'R'};
 static const char trns_sign[] = {'t', 'R', 'N', 'S'};
@@ -46,47 +37,47 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	short		p, a, b, c, pa, pb, pc;
 	byte		*buf_p, *pixbuf, *raw, *prior, *idat_buf = NULL, *uncompressed_buffer = NULL;
 	byte		*pallete = NULL, *trns = NULL;
-	uint	 	chunk_len, trns_len, plte_len, crc32, crc32_check, oldsize = 0, newsize = 0, rowsize;
+	uint	 	chunk_len, trns_len = 0, plte_len = 0, crc32, crc32_check, oldsize = 0, newsize = 0, rowsize;
 	uint		uncompressed_size, pixel_size, pixel_count, i, y, filter_type, chunk_sign, r_alpha, g_alpha, b_alpha;
 	qboolean 	has_iend_chunk = false;
 	z_stream 	stream = {0};
 	png_t		png_hdr;
 
-	if( filesize < sizeof( png_hdr ) )
+	if( filesize < sizeof( png_hdr ))
 		return false;
 
 	buf_p = (byte *)buffer;
 
 	// get png header
-	memcpy( &png_hdr, buffer, sizeof( png_t ) );
+	memcpy( &png_hdr, buffer, sizeof( png_t ));
 
 	// check png signature
-	if( memcmp( png_hdr.sign, png_sign, sizeof( png_sign ) ) )
+	if( memcmp( png_hdr.sign, png_sign, sizeof( png_sign )))
 	{
 		Con_DPrintf( S_ERROR "%s: Invalid PNG signature (%s)\n", __func__, name );
 		return false;
 	}
 
 	// convert IHDR chunk length to little endian
-	png_hdr.ihdr_len = ntohl( png_hdr.ihdr_len );
+	png_hdr.ihdr_len = BigLong( png_hdr.ihdr_len );
 
 	// check IHDR chunk length (valid value - 13)
-	if( png_hdr.ihdr_len != sizeof( png_ihdr_t ) )
+	if( png_hdr.ihdr_len != sizeof( png_ihdr_t ))
 	{
 		Con_DPrintf( S_ERROR "%s: Invalid IHDR chunk size %u (%s)\n", __func__, png_hdr.ihdr_len, name );
 		return false;
 	}
 
 	// check IHDR chunk signature
-	if( memcmp( png_hdr.ihdr_sign, ihdr_sign, sizeof( ihdr_sign ) ) )
+	if( memcmp( png_hdr.ihdr_sign, ihdr_sign, sizeof( ihdr_sign )))
 	{
 		Con_DPrintf( S_ERROR "%s: IHDR chunk corrupted (%s)\n", __func__, name );
 		return false;
 	}
 
 	// convert image width and height to little endian
-	image.height = png_hdr.ihdr_chunk.height = ntohl( png_hdr.ihdr_chunk.height );
-	image.width  = png_hdr.ihdr_chunk.width  = ntohl( png_hdr.ihdr_chunk.width );
+	image.height = png_hdr.ihdr_chunk.height = BigLong( png_hdr.ihdr_chunk.height );
+	image.width  = png_hdr.ihdr_chunk.width  = BigLong( png_hdr.ihdr_chunk.width );
 
 	if( png_hdr.ihdr_chunk.height == 0 || png_hdr.ihdr_chunk.width == 0 )
 	{
@@ -107,7 +98,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	    || png_hdr.ihdr_chunk.colortype == PNG_CT_RGBA
 	    || png_hdr.ihdr_chunk.colortype == PNG_CT_GREY
 	    || png_hdr.ihdr_chunk.colortype == PNG_CT_ALPHA
-	    || png_hdr.ihdr_chunk.colortype == PNG_CT_PALLETE ) )
+	    || png_hdr.ihdr_chunk.colortype == PNG_CT_PALLETE ))
 	{
 		Con_DPrintf( S_WARN "%s: Unknown color type %u (%s)\n", __func__, png_hdr.ihdr_chunk.colortype, name );
 		return false;
@@ -139,11 +130,11 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 
 	// calculate IHDR chunk CRC
 	CRC32_Init( &crc32_check );
-	CRC32_ProcessBuffer( &crc32_check, buf_p + sizeof( png_hdr.sign ) + sizeof( png_hdr.ihdr_len ), png_hdr.ihdr_len + sizeof( png_hdr.ihdr_sign ) );
+	CRC32_ProcessBuffer( &crc32_check, buf_p + sizeof( png_hdr.sign ) + sizeof( png_hdr.ihdr_len ), png_hdr.ihdr_len + sizeof( png_hdr.ihdr_sign ));
 	crc32_check = CRC32_Final( crc32_check );
 
 	// check IHDR chunk CRC
-	if( ntohl( png_hdr.ihdr_crc32 ) != crc32_check )
+	if( BigLong( png_hdr.ihdr_crc32 ) != crc32_check )
 	{
 		Con_DPrintf( S_ERROR "%s: IHDR chunk has wrong CRC32 sum (%s)\n", __func__, name );
 		return false;
@@ -156,10 +147,10 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	while( !has_iend_chunk && ( buf_p - buffer ) < filesize )
 	{
 		// get chunk length
-		memcpy( &chunk_len, buf_p, sizeof( chunk_len ) );
+		memcpy( &chunk_len, buf_p, sizeof( chunk_len ));
 
 		// convert chunk length to little endian
-		chunk_len = ntohl( chunk_len );
+		chunk_len = BigLong( chunk_len );
 
 		if( chunk_len > INT_MAX )
 		{
@@ -179,31 +170,31 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		buf_p += sizeof( chunk_len );
 
 		// find transparency
-		if( !memcmp( buf_p, trns_sign, sizeof( trns_sign ) ) )
+		if( !memcmp( buf_p, trns_sign, sizeof( trns_sign )))
 		{
 			trns = buf_p + sizeof( trns_sign );
 			trns_len = chunk_len;
 		}
 		// find pallete for indexed image
-		else if( !memcmp( buf_p, plte_sign, sizeof( plte_sign ) ) )
+		else if( !memcmp( buf_p, plte_sign, sizeof( plte_sign )))
 		{
 			pallete = buf_p + sizeof( plte_sign );
 			plte_len = chunk_len / 3;
 		}
 		// get all IDAT chunks data
-		else if( !memcmp( buf_p, idat_sign, sizeof( idat_sign ) ) )
+		else if( !memcmp( buf_p, idat_sign, sizeof( idat_sign )))
 		{
 			newsize = oldsize + chunk_len;
 			idat_buf = (byte *)Mem_Realloc( host.imagepool, idat_buf, newsize );
 			memcpy( idat_buf + oldsize, buf_p + sizeof( idat_sign ), chunk_len );
 			oldsize = newsize;
 		}
-		else if( !memcmp( buf_p, iend_sign, sizeof( iend_sign ) ) )
+		else if( !memcmp( buf_p, iend_sign, sizeof( iend_sign )))
 			has_iend_chunk = true;
 
 		// calculate chunk CRC
 		CRC32_Init( &crc32_check );
-		CRC32_ProcessBuffer( &crc32_check, buf_p, chunk_len + sizeof( idat_sign ) );
+		CRC32_ProcessBuffer( &crc32_check, buf_p, chunk_len + sizeof( idat_sign ));
 		crc32_check = CRC32_Final( crc32_check );
 
 		// move pointer
@@ -211,10 +202,10 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 		buf_p += chunk_len;
 
 		// get real chunk CRC
-		memcpy( &crc32, buf_p, sizeof( crc32 ) );
+		memcpy( &crc32, buf_p, sizeof( crc32 ));
 
 		// check chunk CRC
-		if( ntohl( crc32 ) != crc32_check )
+		if( BigLong( crc32 ) != crc32_check )
 		{
 			Con_DPrintf( S_ERROR "%s: Found chunk with wrong CRC32 sum (%s)\n", __func__, name );
 			if( idat_buf ) Mem_Free( idat_buf );
@@ -280,7 +271,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 	if( png_hdr.ihdr_chunk.colortype & PNG_CT_RGB )
 		image.flags |= IMAGE_HAS_COLOR;
 
-	if( trns || ( png_hdr.ihdr_chunk.colortype & PNG_CT_ALPHA ) )
+	if( trns || ( png_hdr.ihdr_chunk.colortype & PNG_CT_ALPHA ))
 		image.flags |= IMAGE_HAS_ALPHA;
 
 	image.depth = 1;
@@ -388,7 +379,7 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 				pixbuf[i] = raw[i] + ( prior[i] >> 1 );
 
 			for( ; i < rowsize; i++ )
-				pixbuf[i] = raw[i] + ( ( pixbuf[i - pixel_size] + prior[i] ) >> 1 );
+				pixbuf[i] = raw[i] + (( pixbuf[i - pixel_size] + prior[i] ) >> 1 );
 			break;
 		case PNG_F_PAETH:
 			for( ; i < pixel_size; i++ )
@@ -603,19 +594,19 @@ qboolean Image_SavePNG( const char *name, rgbdata_t *pix )
 	outsize += sizeof( png_footer_t );
 
 	// write PNG header
-	memcpy( png_hdr.sign, png_sign, sizeof( png_sign ) );
+	memcpy( png_hdr.sign, png_sign, sizeof( png_sign ));
 
 	// write IHDR chunk length
-	png_hdr.ihdr_len = htonl( ihdr_len );
+	png_hdr.ihdr_len = BigLong( ihdr_len );
 
 	// write IHDR chunk signature
-	memcpy( png_hdr.ihdr_sign, ihdr_sign, sizeof( ihdr_sign ) );
+	memcpy( png_hdr.ihdr_sign, ihdr_sign, sizeof( ihdr_sign ));
 
 	// write image width
-	png_hdr.ihdr_chunk.width = htonl( pix->width );
+	png_hdr.ihdr_chunk.width = BigLong( pix->width );
 
 	// write image height
-	png_hdr.ihdr_chunk.height = htonl( pix->height );
+	png_hdr.ihdr_chunk.height = BigLong( pix->height );
 
 	// write image bitdepth
 	png_hdr.ihdr_chunk.bitdepth = 8;
@@ -634,11 +625,11 @@ qboolean Image_SavePNG( const char *name, rgbdata_t *pix )
 
 	// get IHDR chunk CRC
 	CRC32_Init( &crc32 );
-	CRC32_ProcessBuffer( &crc32, &png_hdr.ihdr_sign, ihdr_len + sizeof( ihdr_sign ) );
+	CRC32_ProcessBuffer( &crc32, &png_hdr.ihdr_sign, ihdr_len + sizeof( ihdr_sign ));
 	crc32 = CRC32_Final( crc32 );
 
 	// write IHDR chunk CRC
-	png_hdr.ihdr_crc32 = htonl( crc32 );
+	png_hdr.ihdr_crc32 = BigLong( crc32 );
 
 	out = buffer = (byte *)Mem_Malloc( host.imagepool, outsize );
 
@@ -673,43 +664,43 @@ qboolean Image_SavePNG( const char *name, rgbdata_t *pix )
 	idat_len = stream.total_out;
 	outsize += idat_len;
 
-	memcpy( out, &png_hdr, sizeof( png_t ) );
+	memcpy( out, &png_hdr, sizeof( png_t ));
 
 	out += sizeof( png_t );
 
 	// convert IDAT chunk length to big endian
-	big_idat_len = htonl( idat_len );
+	big_idat_len = BigLong( idat_len );
 
 	// write IDAT chunk length
-	memcpy( out, &big_idat_len, sizeof( idat_len ) );
+	memcpy( out, &big_idat_len, sizeof( idat_len ));
 
 	out += sizeof( idat_len );
 
 	// write IDAT chunk signature
-	memcpy( out, idat_sign, sizeof( idat_sign ) );
+	memcpy( out, idat_sign, sizeof( idat_sign ));
 
 	// calculate IDAT chunk CRC
 	CRC32_Init( &crc32 );
-	CRC32_ProcessBuffer( &crc32, out, idat_len + sizeof( idat_sign ) );
+	CRC32_ProcessBuffer( &crc32, out, idat_len + sizeof( idat_sign ));
 	crc32 = CRC32_Final( crc32 );
 
 	out += sizeof( idat_sign );
 	out += idat_len;
 
 	// write IDAT chunk CRC
-	png_ftr.idat_crc32 = htonl( crc32 );
+	png_ftr.idat_crc32 = BigLong( crc32 );
 
 	// write IEND chunk length
 	png_ftr.iend_len = 0;
 
 	// write IEND chunk signature
-	memcpy( png_ftr.iend_sign, iend_sign, sizeof( iend_sign ) );
+	memcpy( png_ftr.iend_sign, iend_sign, sizeof( iend_sign ));
 
 	// write IEND chunk CRC
-	png_ftr.iend_crc32 = htonl( iend_crc32 );
+	png_ftr.iend_crc32 = BigLong( iend_crc32 );
 
 	// write PNG footer to buffer
-	memcpy( out, &png_ftr, sizeof( png_ftr ) );
+	memcpy( out, &png_ftr, sizeof( png_ftr ));
 
 	FS_WriteFile( name, buffer, outsize );
 

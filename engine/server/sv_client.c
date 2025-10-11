@@ -19,22 +19,6 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "net_api.h"
 
-const char *const clc_strings[clc_lastmsg+1] =
-{
-	"clc_bad",
-	"clc_nop",
-	"clc_move",
-	"clc_stringcmd",
-	"clc_delta",
-	"clc_resourcelist",
-	"clc_legacy_userinfo",
-	"clc_fileconsistency",
-	"clc_voicedata",
-	"clc_cvarvalue/clc_goldsrc_hltv",
-	"clc_cvarvalue2/clc_goldsrc_requestcvarvalue",
-	"clc_goldsrc_requestcvarvalue2",
-};
-
 typedef struct ucmd_s
 {
 	const char	*name;
@@ -277,6 +261,25 @@ static sv_client_t *SV_FindEmptySlot( void )
 	return NULL;
 }
 
+static void SV_MaybeNotifyPlayerCountChange( const sv_client_t *cl, const char *address )
+{
+	int i, count = 0;
+
+	// if this was the first client on the server, or the last client
+	// the server can hold, send a heartbeat to the master.
+	for( i = 0; i < svs.maxclients; i++ )
+	{
+		if( svs.clients[i].state >= cs_connected )
+			count++;
+	}
+
+	if( count == 1 || count == svs.maxclients )
+		NET_MasterClear();
+
+	Log_Printf( "\"%s<%i><%i><>\" connected, address \"%s\"\n",
+		cl->name, cl->userid, (int)( cl - svs.clients ), address );
+}
+
 /*
 ==================
 SV_ConnectClient
@@ -288,9 +291,10 @@ static void SV_ConnectClient( netadr_t from )
 {
 	char userinfo[MAX_INFO_STRING];
 	char protinfo[MAX_INFO_STRING];
+	client_frame_t *frames;
 	sv_client_t *newcl = NULL;
 	int qport, version;
-	int i, count = 0;
+	int i;
 	int challenge;
 	const char *s;
 	int extensions;
@@ -334,12 +338,6 @@ static void SV_ConnectClient( netadr_t from )
 
 	if( !SV_ProcessUserAgent( from, protinfo ))
 		return;
-
-	if( Q_strlen( Info_ValueForKey( protinfo, "uuid" )) != 32 )
-	{
-		SV_RejectConnection( from, "invalid authentication certificate length\n" );
-		return;
-	}
 
 	// extract qport from protocol info
 	qport = Q_atoi( Info_ValueForKey( protinfo, "qport" ));
@@ -397,20 +395,31 @@ static void SV_ConnectClient( netadr_t from )
 
 	// build a new connection
 	// accept the new client
-
 	sv.current_client = newcl;
+	frames = Mem_Realloc( host.mempool, newcl->frames, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+	memset( frames, 0, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+	SV_ClearResourceLists( newcl );
+
+	// a1ba: preserve physinfo and viewent as it's set by game logic before client connect!
+	{
+		char physinfo[MAX_INFO_STRING];
+		edict_t *viewent = newcl->pViewEntity;
+
+		memcpy( physinfo, newcl->physinfo, sizeof( physinfo ));
+
+		memset( newcl, 0, sizeof( *newcl ));
+
+		memcpy( newcl->physinfo, physinfo, sizeof( newcl->physinfo ));
+		newcl->pViewEntity = viewent;
+	}
+
 	newcl->edict = EDICT_NUM(( newcl - svs.clients ) + 1 );
-	newcl->challenge = challenge; // save challenge for checksumming
-	newcl->frames = (client_frame_t *)Mem_Realloc( host.mempool, newcl->frames, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
-	memset( newcl->frames, 0, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+	newcl->frames = frames;
 	newcl->userid = g_userid++;	// create unique userid
-	newcl->state = cs_connected;
-	newcl->extensions = extensions & (NET_EXT_SPLITSIZE);
+	newcl->state = cs_connected;	// now expect "spawn" command
+	newcl->extensions = FBitSet( extensions, NET_EXT_SPLITSIZE );
 	Q_strncpy( newcl->useragent, protinfo, sizeof( newcl->useragent ));
 
-	// reset viewentities (from previous level)
-	memset( newcl->viewentity, 0, sizeof( newcl->viewentity ));
-	newcl->num_viewents = 0;
 	// HACKHACK: can hear all players by default to avoid issues
 	// with server.dll without voice game manager
 	newcl->listeners = -1;
@@ -427,6 +436,7 @@ static void SV_ConnectClient( netadr_t from )
 	// build protinfo answer
 	protinfo[0] = '\0';
 	Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", newcl->extensions );
+	Info_SetValueForKey( protinfo, "cheats", sv_cheats.value ? "1" : "0", sizeof( protinfo ));
 
 	// send the connect packet to the client
 	Netchan_OutOfBandPrint( NS_SERVER, from, S2C_CONNECTION" %s", protinfo );
@@ -435,47 +445,18 @@ static void SV_ConnectClient( netadr_t from )
 	newcl->connection_started = host.realtime;
 	newcl->cl_updaterate = 0.05;	// 20 fps as default
 	newcl->delta_sequence = -1;
-	newcl->flags = 0;
-
-	// reset any remaining events
-	memset( &newcl->events, 0, sizeof( newcl->events ));
 
 	// parse some info from the info strings (this can override cl_updaterate)
 	Q_strncpy( newcl->userinfo, userinfo, sizeof( newcl->userinfo ));
-	newcl->fullupdate_next_calltime = 0;
-	newcl->userinfo_next_changetime = 0;
-	newcl->userinfo_penalty = 0;
-	newcl->userinfo_change_attempts = 0;
 
 	SV_UserinfoChanged( newcl );
-	SV_ClearResourceLists( newcl );
-#if 0
-	memset( &newcl->resourcesneeded, 0, sizeof( resource_t ));
-	memset( &newcl->resourcesonhand, 0, sizeof( resource_t ));
-	newcl->resourcesneeded.pNext = newcl->resourcesneeded.pPrev = &newcl->resourcesneeded;
-	newcl->resourcesonhand.pNext = newcl->resourcesonhand.pPrev = &newcl->resourcesonhand;
-#endif
+
 	newcl->next_messagetime = host.realtime + newcl->cl_updaterate;
-	newcl->next_sendinfotime = 0.0;
-	newcl->ignored_ents = 0;
-	newcl->chokecount = 0;
 
 	// reset stats
 	newcl->next_checkpingtime = -1.0;
-	newcl->packet_loss = 0;
 
-	// if this was the first client on the server, or the last client
-	// the server can hold, send a heartbeat to the master.
-	for( i = 0; i < svs.maxclients; i++ )
-	{
-		if( svs.clients[i].state >= cs_connected )
-			count++;
-	}
-
-	Log_Printf( "\"%s<%i><%i><>\" connected, address \"%s\"\n", newcl->name, newcl->userid, i, NET_AdrToString( newcl->netchan.remote_address ));
-
-	if( count == 1 || count == svs.maxclients )
-		NET_MasterClear();
+	SV_MaybeNotifyPlayerCountChange( newcl, NET_AdrToString( newcl->netchan.remote_address ));
 }
 
 /*
@@ -487,24 +468,20 @@ A connection request that came from the game module
 */
 edict_t *GAME_EXPORT SV_FakeConnect( const char *netname )
 {
-	char		userinfo[MAX_INFO_STRING];
-	int		i, count = 0;
-	sv_client_t	*cl;
-
-	if( !COM_CheckString( netname ))
-		netname = "Bot";
+	char userinfo[MAX_INFO_STRING];
+	int i, count = 0;
+	sv_client_t *cl;
 
 	// find a client slot
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
-	{
-		if( cl->state == cs_free )
-			break;
-	}
+	cl = SV_FindEmptySlot();
 
-	if( i == svs.maxclients )
+	if( !cl )
 		return NULL; // server is full
 
 	userinfo[0] = '\0';
+
+	if( !COM_CheckString( netname ))
+		netname = "Bot";
 
 	// setup fake client params
 	Info_SetValueForKey( userinfo, "name", netname, sizeof( userinfo ));
@@ -515,34 +492,26 @@ edict_t *GAME_EXPORT SV_FakeConnect( const char *netname )
 	// build a new connection
 	// accept the new client
 	sv.current_client = cl;
+	if( cl->frames )
+		Mem_Free( cl->frames );	// fakeclients doesn't have frames
+	SV_ClearResourceLists( cl );
 
-	if( cl->frames ) Mem_Free( cl->frames );	// fakeclients doesn't have frames
-	memset( cl, 0, sizeof( sv_client_t ));
+	memset( cl, 0, sizeof( *cl ));
 
-	cl->edict = EDICT_NUM( (cl - svs.clients) + 1 );
-	cl->userid = g_userid++;		// create unique userid
+	cl->state = cs_spawned;
+	cl->edict = EDICT_NUM(( cl - svs.clients ) + 1 );
+	cl->userid = g_userid++; // create unique userid
 	SetBits( cl->flags, FCL_FAKECLIENT );
 
 	// parse some info from the info strings
 	Q_strncpy( cl->userinfo, userinfo, sizeof( cl->userinfo ));
+
 	SV_UserinfoChanged( cl );
 	SetBits( cl->flags, FCL_RESEND_USERINFO );
-	cl->next_sendinfotime = 0.0;
-
-	// if this was the first client on the server, or the last client
-	// the server can hold, send a heartbeat to the master.
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
-		if( cl->state >= cs_connected ) count++;
-	cl = sv.current_client;
-
-	Log_Printf( "\"%s<%i><%i><>\" connected, address \"local\"\n", cl->name, cl->userid, i );
-
 	SetBits( cl->edict->v.flags, FL_CLIENT|FL_FAKECLIENT );	// mark it as fakeclient
 	cl->connection_started = host.realtime;
-	cl->state = cs_spawned;
 
-	if( count == 1 || count == svs.maxclients )
-		NET_MasterClear();
+	SV_MaybeNotifyPlayerCountChange( cl, "local" );
 
 	return cl->edict;
 }
@@ -772,7 +741,7 @@ const char *SV_GetClientIDString( sv_client_t *cl )
 	if( sv_lan.value )
 		return "ID_LAN";
 
-	Q_snprintf( result, sizeof( result ), "ID_%s", MD5_Print( (byte *)cl->hashedcdkey ));
+	Q_snprintf( result, sizeof( result ), "ID_%s", cl->hashedcdkey );
 	return result;
 }
 
@@ -933,7 +902,7 @@ static void SV_ConnectNatClient( netadr_t from )
 {
 	netadr_t to;
 
-	if( !sv_nat.value || !NET_IsMasterAdr( from ))
+	if( !sv_nat.value || !NET_IsMasterAdr( from, NULL ))
 		return;
 
 	if( !NET_StringToAdr( Cmd_Argv( 1 ), &to ))
@@ -1114,7 +1083,7 @@ SV_CalcPing
 recalc ping on current client
 ===================
 */
-int SV_CalcPing( sv_client_t *cl )
+int SV_CalcPing( const sv_client_t *cl )
 {
 	float		ping = 0;
 	int		i, count;
@@ -1911,20 +1880,6 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 
 /*
 ==================
-SV_UpdateUserinfo_f
-==================
-*/
-static qboolean SV_UpdateUserinfo_f( sv_client_t *cl )
-{
-	Q_strncpy( cl->userinfo, Cmd_Argv( 1 ), sizeof( cl->userinfo ));
-
-	if( cl->state >= cs_connected )
-		SetBits( cl->flags, FCL_RESEND_USERINFO ); // needs for update client info
-	return true;
-}
-
-/*
-==================
 SV_SetInfo_f
 ==================
 */
@@ -2176,6 +2131,8 @@ static qboolean SV_Spawn_f( sv_client_t *cl )
 
 	SV_PutClientInServer( cl );
 
+	cl->state = cs_spawning;
+
 	// if we are paused, tell the clients
 	if( sv.paused )
 	{
@@ -2193,7 +2150,8 @@ SV_Begin_f
 */
 static qboolean SV_Begin_f( sv_client_t *cl )
 {
-	if( cl->state != cs_connected )
+	// make sure client has passed connection process correctly
+	if( cl->state != cs_spawning )
 		return false;
 
 	// now client is spawned
@@ -2210,8 +2168,91 @@ SV_SendBuildInfo_f
 */
 static qboolean SV_SendBuildInfo_f( sv_client_t *cl )
 {
+	if( cl->state != cs_spawned )
+		return false;
+
 	SV_ClientPrintf( cl, "Server running " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s, %s-%s)\n",
 		Q_buildnum(), g_buildcommit, Q_buildos(), Q_buildarch() );
+	return true;
+}
+
+/*
+==================
+SV_ClientStatus_f
+==================
+*/
+static qboolean SV_ClientStatus_f( sv_client_t *cl )
+{
+	netadr_t ip4, ip6;
+	vec3_t origin = { 0 };
+	int clients, bots, i;
+
+	if( cl->state != cs_spawned )
+		return false;
+
+	NET_GetLocalAddress( &ip4, &ip6 );
+	if( cl->edict )
+		VectorCopy( cl->edict->v.origin, origin );
+	SV_GetPlayerCount( &clients, &bots );
+
+	SV_ClientPrintf( cl,
+		"hostname: %s\n"
+		"version: %i/%s %d\n",
+		hostname.string,
+		PROTOCOL_VERSION, XASH_VERSION, Q_buildnum( ));
+
+	if( ip4.type == NA_IP )
+		SV_ClientPrintf( cl, "tcp/ip: %s\n", NET_AdrToString( ip4 ));
+	if( ip6.type == NA_IP6 )
+		SV_ClientPrintf( cl, "tcp/ipv6: %s\n", NET_AdrToString( ip6 ));
+
+	SV_ClientPrintf( cl,
+		"map:\t%s at %d x, %d y, %d z\n"
+		"players: %i active (%i max)\n"
+		"# score ping dev  playtime name\n",
+		sv.name, (int)origin[0], (int)origin[1], (int)origin[2],
+		clients, svs.maxclients );
+
+	for( i = 0; i < svs.maxclients; i++ )
+	{
+		const sv_client_t *pcl = &svs.clients[i];
+		int j = 0;
+		int input_devices;
+		const char *s;
+		char devices[8];
+
+		if( pcl->state != cs_spawned )
+			continue;
+
+		if( FBitSet( pcl->flags, FCL_FAKECLIENT ))
+			s = "Bot ";
+		else
+			s = va( "%i", SV_CalcPing( pcl ));
+
+		input_devices = Q_atoi( Info_ValueForKey( pcl->useragent, "d" ));
+
+		if( FBitSet( input_devices, INPUT_DEVICE_MOUSE ))
+			devices[j++] = 'm';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_TOUCH ))
+			devices[j++] = 't';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_JOYSTICK ))
+			devices[j++] = 'j';
+
+		if( FBitSet( input_devices, INPUT_DEVICE_VR ))
+			devices[j++] = 'v';
+
+		if( j == 0 )
+			Q_strncpy( devices, "n/a", sizeof( devices ));
+		else
+			devices[j++] = 0;
+
+		SV_ClientPrintf( cl,
+			"%2i %5i %4s %4s %g %s\n",
+			i, (int)pcl->edict->v.frags, s, devices, host.realtime - pcl->netchan.connect_time, pcl->name );
+	}
+
 	return true;
 }
 
@@ -2996,32 +3037,33 @@ static qboolean SV_EntGetVars_f( sv_client_t *cl )
 	return true;
 }
 
+// keep it sorted
 static const ucmd_t ucmds[] =
 {
-{ "new", SV_New_f },
-{ "god", SV_Godmode_f },
-{ "kill", SV_Kill_f },
-{ "begin", SV_Begin_f },
-{ "spawn", SV_Spawn_f },
-{ "pause", SV_Pause_f },
-{ "noclip", SV_Noclip_f },
-{ "setinfo", SV_SetInfo_f },
-{ "sendres", SV_SendRes_f },
-{ "notarget", SV_Notarget_f },
-{ "info", SV_ShowServerinfo_f },
-{ "dlfile", SV_DownloadFile_f },
-{ "disconnect", SV_Disconnect_f },
-{ "userinfo", SV_UpdateUserinfo_f },
 { "_sv_build_info", SV_SendBuildInfo_f },
+{ "begin", SV_Begin_f },
+{ "disconnect", SV_Disconnect_f },
+{ "dlfile", SV_DownloadFile_f },
+{ "god", SV_Godmode_f },
+{ "info", SV_ShowServerinfo_f },
+{ "kill", SV_Kill_f },
+{ "new", SV_New_f },
+{ "noclip", SV_Noclip_f },
+{ "notarget", SV_Notarget_f },
+{ "pause", SV_Pause_f },
+{ "sendres", SV_SendRes_f },
+{ "setinfo", SV_SetInfo_f },
+{ "spawn", SV_Spawn_f },
+{ "status", SV_ClientStatus_f },
 };
 
 static const ucmd_t enttoolscmds[] =
 {
-{ "ent_list", SV_EntList_f },
-{ "ent_info", SV_EntInfo_f },
-{ "ent_fire", SV_EntFire_f },
 { "ent_create", SV_EntCreate_f },
+{ "ent_fire", SV_EntFire_f },
 { "ent_getvars", SV_EntGetVars_f },
+{ "ent_info", SV_EntInfo_f },
+{ "ent_list", SV_EntList_f },
 };
 
 /*
@@ -3037,41 +3079,37 @@ static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s )
 
 	for( i = 0; i < ARRAYSIZE( ucmds ); i++ )
 	{
-		const ucmd_t *u = &ucmds[i];
-		if( !Q_strcmp( Cmd_Argv( 0 ), u->name ))
+		if( !Q_strcmp( Cmd_Argv( 0 ), ucmds[i].name ))
 		{
-			if( !u->func( cl ))
-				Con_Printf( "'%s' is not valid from the console\n", u->name );
+			if( !ucmds[i].func( cl ))
+				Con_Printf( "'%s' is not valid from the console\n", ucmds[i].name );
 			else
-				Con_Reportf( "ucmd->%s()\n", u->name );
+				Con_Reportf( "ucmd->%s()\n", ucmds[i].name );
 
 			return;
 		}
 	}
 
-	if( sv_enttools_enable.value > 0.0f && !sv.background )
-	{
-		for( i = 0; i < ARRAYSIZE( enttoolscmds ); i++ )
-		{
-			const ucmd_t *u = &enttoolscmds[i];
-
-			if( !Q_strcmp( Cmd_Argv( 0 ), u->name ))
-			{
-				Con_Reportf( "enttools->%s(): %s\n", u->name, s );
-				Log_Printf( "\"%s<%i><%s><>\" performed: %s\n", Info_ValueForKey( cl->userinfo, "name" ),
-							cl->userid, SV_GetClientIDString( cl ), s );
-
-				if( u->func )
-					u->func( cl );
-
-				return;
-			}
-		}
-	}
-
 	if( sv.state == ss_active )
 	{
-		qboolean fullupdate = !Q_strcmp( Cmd_Argv( 0 ), "fullupdate" );
+		qboolean fullupdate;
+
+		if( cl->state == cs_spawned && sv_enttools_enable.value > 0.0f && !sv.background )
+		{
+			for( i = 0; i < ARRAYSIZE( enttoolscmds ); i++ )
+			{
+				if( !Q_strcmp( Cmd_Argv( 0 ), enttoolscmds[i].name ))
+				{
+					Con_Reportf( "enttools->%s(): %s\n", enttoolscmds[i].name, s );
+					Log_Printf( "\"%s<%i><%s><>\" performed: %s\n", Info_ValueForKey( cl->userinfo, "name" ),
+						cl->userid, SV_GetClientIDString( cl ), s );
+					enttoolscmds[i].func( cl );
+					return;
+				}
+			}
+		}
+
+		fullupdate = !Q_strcmp( Cmd_Argv( 0 ), "fullupdate" );
 
 		if( fullupdate )
 		{
@@ -3137,6 +3175,20 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
+	if( NET_IsMasterAdr( from, NULL ))
+	{
+		if( !Q_strcmp( pcmd, M2S_CHALLENGE ))
+		{
+			SV_AddToMaster( from, msg );
+		}
+		else if( !Q_strcmp( pcmd, M2S_NAT_CONNECT ))
+		{
+			SV_ConnectNatClient( from );
+		}
+
+		return;
+	}
+
 	if( !Q_strcmp( pcmd, A2S_GOLDSRC_INFO ) || pcmd[0] == A2S_GOLDSRC_PLAYERS || pcmd[0] == A2S_GOLDSRC_RULES )
 	{
 		SV_SourceQuery_HandleConnnectionlessPacket( pcmd, from );
@@ -3148,14 +3200,6 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( !Q_strcmp( pcmd, A2A_INFO ))
 	{
 		SV_Info( from, Q_atoi( Cmd_Argv( 1 )));
-	}
-	else if( !Q_strcmp( pcmd, M2S_CHALLENGE ))
-	{
-		SV_AddToMaster( from, msg );
-	}
-	else if( !Q_strcmp( pcmd, M2S_NAT_CONNECT ))
-	{
-		SV_ConnectNatClient( from );
 	}
 	else if( !Q_strcmp( pcmd, C2S_BANDWIDTHTEST ))
 	{
@@ -3196,10 +3240,8 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			if( len > 0 )
 				Netchan_OutOfBand( NS_SERVER, from, len, (byte*)buf );
 		}
-		else
-		{
+		else if( sv_log_outofband.value )
 			Con_DPrintf( S_ERROR "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
-		}
 	}
 }
 
@@ -3329,6 +3371,10 @@ static void SV_ParseClientMove( sv_client_t *cl, sizebuf_t *msg )
 	{
 		SV_RunCmd( cl, &cmds[i], cl->netchan.incoming_sequence - i );
 	}
+
+	// was player kicked? stop here
+	if( cl->state <= cs_zombie )
+		return;
 
 	cl->lastcmd = cmds[0];
 
@@ -3479,16 +3525,12 @@ SV_ParseVoiceData
 static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 {
 	char received[4096];
-	sv_client_t	*cur;
-	int i, client;
-	uint length, size, frames;
+	int i;
 
-	cl->m_bLoopback = MSG_ReadByte( msg );
-
-	frames = MSG_ReadByte( msg );
-
-	size = MSG_ReadShort( msg );
-	client = cl - svs.clients;
+	const qboolean loopback = !!MSG_ReadByte( msg );
+	const uint frames = MSG_ReadByte( msg );
+	const uint size = MSG_ReadShort( msg );
+	const int client = cl - svs.clients;
 
 	if( size > sizeof( received ))
 	{
@@ -3499,27 +3541,29 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 
 	MSG_ReadBytes( msg, received, size );
 
-	if( !sv_voiceenable.value || svs.maxclients <= 1 )
+	if( !sv_voiceenable.value || svs.maxclients <= 1 || cl->state != cs_spawned )
 		return;
 
-	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
+	for( i = 0; i < svs.maxclients; i++ )
 	{
-		if( cl != cur )
+		sv_client_t *cur = &svs.clients[i];
+		const qboolean local = cl == cur;
+		uint length = size;
+
+		if( !local )
 		{
 			if( cur->state < cs_connected )
 				continue;
 
-			if( !FBitSet( cur->listeners, BIT( client )))
+			if( !FBitSet( cl->listeners, BIT( i )))
 				continue;
 		}
-
-		length = size;
 
 		// 6 is a number of bytes for other parts of message
 		if( MSG_GetNumBytesLeft( &cur->datagram ) < length + 6 )
 			continue;
 
-		if( cl == cur && !cur->m_bLoopback )
+		if( cl == cur && !loopback )
 			length = 0;
 
 		MSG_BeginServerCmd( &cur->datagram, svc_voicedata );

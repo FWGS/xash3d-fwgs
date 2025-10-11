@@ -22,8 +22,9 @@ GNU General Public License for more details.
 #include "crtlib.h"
 #include "studio.h"
 #include "mdldec.h"
-#include "smd.h"
 #include "utils.h"
+#include "settings.h"
+#include "smd.h"
 
 static matrix3x4	*bonetransform;
 static matrix3x4	*worldtransform;
@@ -39,7 +40,7 @@ static qboolean CreateBoneTransformMatrices( matrix3x4 **matrix )
 
 	if( !*matrix )
 	{
-		fputs( "ERROR: Couldn't allocate memory for bone transformation matrices!\n", stderr );
+		LogPutS( "ERROR: Couldn't allocate memory for bone transformation matrices!");
 		return false;
 	}
 
@@ -227,7 +228,8 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 	int			 norm_index;
 	int			 bone_index;
 	int			 valid_bones;
-	float			 s, t, u, v;
+	int			 width, height;
+	float			 u, v;
 	byte			*vertbone;
 	vec3_t			*studioverts;
 	vec3_t			*studionorms;
@@ -235,16 +237,19 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 	float			 weights[MAXSTUDIOBONEWEIGHTS], oldweight, totalweight;
 	matrix3x4		 bonematrix[MAXSTUDIOBONEWEIGHTS], skinmatrix, *pskinmatrix;
 	mstudioboneweight_t	*studioboneweights;
+	char			 buffer[64];
 
 	vertbone    = ( (byte *)model_hdr + model->vertinfoindex );
 	studioverts = (vec3_t *)( (byte *)model_hdr + model->vertindex );
 	studionorms = (vec3_t *)( (byte *)model_hdr + model->normindex );
 	studioboneweights = (mstudioboneweight_t *)( (byte *)model_hdr + model->blendvertinfoindex );
 
-	s = 1.0f / texture->width;
-	t = 1.0f / texture->height;
+	Q_strncpy( buffer, texture->name, sizeof( buffer ));
 
-	fprintf( fp, "%s\n", texture->name );
+	// Many filesystems couldn't write files if "#" is first character in the name.
+	if( buffer[0] == '#' ) buffer[0] = 's';
+
+	fprintf( fp, "%s\n", buffer );
 
 	for( i = 0; i < 3; i++ )
 	{
@@ -293,10 +298,34 @@ static void WriteTriangleInfo( FILE *fp, mstudiomodel_t *model, mstudiotexture_t
 			u = HalfToFloat( triverts[index]->s );
 			v = -HalfToFloat( triverts[index]->t );
 		}
+		else if( texture->width == 1 || texture->height == 1 )
+		{
+			if( texture->name[0] == '#' )
+			{
+				Q_strncpy( buffer, &texture->name[1], 4 );
+				width = Q_atoi( buffer );
+
+				Q_strncpy( buffer, &texture->name[4], 4 );
+				height = Q_atoi( buffer );
+
+				u = (float)triverts[index]->s / width;
+				v = 1.0f - (float)triverts[index]->t / height;
+			}
+			else
+			{
+				u = (float)triverts[index]->s;
+				v = 1.0f - (float)triverts[index]->t;
+			}
+		}
+		else if( globalsettings & SETTINGS_UVSHIFTING )
+		{
+			u = (float)triverts[index]->s / texture->width;
+			v = 1.0f - (float)triverts[index]->t / texture->height;
+		}
 		else
 		{
-			u = ( triverts[index]->s + 1.0f ) * s;
-			v = 1.0f - triverts[index]->t * t;
+			u = (float)triverts[index]->s / ( texture->width - 1 );
+			v = 1.0f - (float)triverts[index]->t / ( texture->height - 1 );
 		}
 
 		fprintf( fp, "%3i %f %f %f %f %f %f %f %f",
@@ -518,7 +547,7 @@ static void WriteReferences( void )
 
 			if( len == -1 )
 			{
-				fprintf( stderr, "ERROR: Destination path is too long. Couldn't write %s.smd\n", model->name );
+				LogPrintf( "ERROR: Destination path is too long. Couldn't write %s.smd.", model->name );
 				goto _fail;
 			}
 
@@ -526,7 +555,7 @@ static void WriteReferences( void )
 
 			if( !fp )
 			{
-				fprintf( stderr, "ERROR: Couldn't write %s\n", filename );
+				LogPrintf( "ERROR: Couldn't write %s.", filename );
 				goto _fail;
 			}
 
@@ -538,7 +567,7 @@ static void WriteReferences( void )
 
 			fclose( fp );
 
-			printf( "Reference: %s\n", filename );
+			LogPrintf( "Reference: %s.", filename );
 		}
 	}
 
@@ -562,11 +591,11 @@ static void WriteSequences( void )
 	char			 path[MAX_SYSPATH];
 	mstudioseqdesc_t	*seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
 
-	len = Q_snprintf( path, MAX_SYSPATH, "%s" DEFAULT_SEQUENCEPATH, destdir );
+	len = Q_snprintf( path, MAX_SYSPATH, ( globalsettings & SETTINGS_SEPARATEANIMSFOLDER ) ? "%s" SEQUENCEPATH : "%s", destdir );
 
 	if( len == -1 || !MakeDirectory( path ))
 	{
-		fputs( "ERROR: Destination path is too long or write permission denied. Couldn't create directory for sequences\n", stderr );
+		LogPutS( "ERROR: Destination path is too long or write permission denied. Couldn't create directory for sequences." );
 		return;
 	}
 
@@ -583,7 +612,7 @@ static void WriteSequences( void )
 
 			if( namelen == -1 )
 			{
-				fprintf( stderr, "ERROR: Destination path is too long. Couldn't write %s.smd\n", seqdesc->label );
+				LogPrintf( "ERROR: Destination path is too long. Couldn't write %s.smd.", seqdesc->label );
 				return;
 			}
 
@@ -591,7 +620,7 @@ static void WriteSequences( void )
 
 			if( !fp )
 			{
-				fprintf( stderr, "ERROR: Couldn't write %s\n", path );
+				LogPrintf( "ERROR: Couldn't write %s.", path );
 				return;
 			}
 
@@ -602,7 +631,7 @@ static void WriteSequences( void )
 
 			fclose( fp );
 
-			printf( "Sequence: %s\n", path );
+			LogPrintf( "Sequence: %s.", path );
 		}
 	}
 }

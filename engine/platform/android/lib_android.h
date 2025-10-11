@@ -17,7 +17,10 @@ GNU General Public License for more details.
 #ifndef ANDROID_LIB_H
 #define ANDROID_LIB_H
 
+#if !XASH_TERMUX
 #define Platform_POSIX_LoadLibrary( x ) ANDROID_LoadLibrary(( x ))
+#endif // !XASH_TERMUX
+
 #define Platform_POSIX_GetProcAddress( x, y ) ANDROID_GetProcAddress(( x ), ( y ))
 
 void *ANDROID_LoadLibrary( const char *dllname );

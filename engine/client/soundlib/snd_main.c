@@ -56,12 +56,10 @@ loading and unpack to wav any known sound
 */
 wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 {
-	const char	*ext = COM_FileExtension( filename );
-	string		path, loadname;
-	qboolean		anyformat = true;
-	fs_offset_t		filesize = 0;
-	const loadwavfmt_t	*format;
-	byte		*f;
+	const char *ext = COM_FileExtension( filename );
+	string loadname;
+	qboolean anyformat = true;
+	const loadwavfmt_t *format;
 
 	Sound_Reset(); // clear old sounddata
 	Q_strncpy( loadname, filename, sizeof( loadname ));
@@ -70,7 +68,7 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 	{
 		// we needs to compare file extension with list of supported formats
 		// and be sure what is real extension, not a filename with dot
-		for( format = sound.loadformats; format && format->formatstring; format++ )
+		for( format = sound.loadformats; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( format->ext, ext ))
 			{
@@ -86,28 +84,42 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 		goto load_internal;
 
 	// now try all the formats in the selected list
-	for( format = sound.loadformats; format && format->formatstring; format++)
+	for( format = sound.loadformats; format && format->ext; format++)
 	{
 		if( anyformat || !Q_stricmp( ext, format->ext ))
 		{
-			Q_snprintf( path, sizeof( path ),
-				format->formatstring, loadname, "", format->ext );
+			qboolean success = false;
+			fs_offset_t filesize = 0;
+			byte *f;
+			string path;
+
+			Q_snprintf( path, sizeof( path ), DEFAULT_SOUNDPATH "%s.%s", loadname, format->ext );
 
 			f = FS_LoadFile( path, &filesize, false );
 			if( f && filesize > 0 )
 			{
-				if( format->loadfunc( path, f, filesize ))
-				{
-					Mem_Free(f); // release buffer
-					return SoundPack(); // loaded
-				}
-				else Mem_Free(f); // release buffer
+				success = format->loadfunc( path, f, filesize );
+				Mem_Free( f ); // release buffer
 			}
+
+			if( success )
+				return SoundPack(); // loaded
+
+			Q_snprintf( path, sizeof( path ), "%s.%s", loadname, format->ext );
+			f = FS_LoadFile( path, &filesize, false );
+			if( f && filesize > 0 )
+			{
+				success = format->loadfunc( path, f, filesize );
+				Mem_Free( f ); // release buffer
+			}
+
+			if( success )
+				return SoundPack();
 		}
 	}
 
 load_internal:
-	for( format = sound.loadformats; format && format->formatstring; format++ )
+	for( format = sound.loadformats; format && format->ext; format++ )
 	{
 		if( anyformat || !Q_stricmp( ext, format->ext ))
 		{
@@ -148,7 +160,7 @@ open and reading basic info from sound stream
 stream_t *FS_OpenStream( const char *filename )
 {
 	const char	*ext = COM_FileExtension( filename );
-	string		path, loadname;
+	string		loadname;
 	qboolean		anyformat = true;
 	const streamfmt_t	*format;
 	stream_t		*stream = NULL;
@@ -160,7 +172,7 @@ stream_t *FS_OpenStream( const char *filename )
 	{
 		// we needs to compare file extension with list of supported formats
 		// and be sure what is real extension, not a filename with dot
-		for( format = sound.streamformat; format && format->formatstring; format++ )
+		for( format = sound.streamformat; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( format->ext, ext ))
 			{
@@ -172,12 +184,13 @@ stream_t *FS_OpenStream( const char *filename )
 	}
 
 	// now try all the formats in the selected list
-	for( format = sound.streamformat; format && format->formatstring; format++)
+	for( format = sound.streamformat; format && format->ext; format++)
 	{
 		if( anyformat || !Q_stricmp( ext, format->ext ))
 		{
-			Q_snprintf( path, sizeof( path ),
-				format->formatstring, loadname, "", format->ext );
+			string path;
+
+			Q_snprintf( path, sizeof( path ), "%s.%s", loadname, format->ext );
 
 			if(( stream = format->openfunc( path )) != NULL )
 			{

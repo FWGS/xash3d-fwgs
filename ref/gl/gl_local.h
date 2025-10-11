@@ -53,7 +53,6 @@ void VGL_ShimEndFrame( void );
 #endif
 #endif
 
-#define ASSERT(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 #define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
 #include <stdio.h>
@@ -301,13 +300,13 @@ extern float		gldepthmin, gldepthmax;
 void GL_BackendStartFrame( void );
 void GL_BackendEndFrame( void );
 void GL_CleanUpTextureUnits( int last );
-void GL_Bind( GLint tmu, GLenum texnum );
-void GL_MultiTexCoord2f( GLenum texture, GLfloat s, GLfloat t );
+void GL_Bind( int tmu, unsigned int texnum );
+void GL_MultiTexCoord2f( int tmu, GLfloat s, GLfloat t );
 void GL_SetTexCoordArrayMode( GLenum mode );
 void GL_LoadTexMatrixExt( const float *glmatrix );
 void GL_LoadMatrix( const matrix4x4 source );
 void GL_TexGen( GLenum coord, GLenum mode );
-void GL_SelectTexture( GLint texture );
+void GL_SelectTexture( int tmu );
 void GL_CleanupAllTextureUnits( void );
 void GL_LoadIdentityTexMatrix( void );
 void GL_DisableAllTexGens( void );
@@ -357,7 +356,7 @@ void R_DrawModelHull( void );
 // gl_image.c
 //
 void R_SetTextureParameters( void );
-gl_texture_t *R_GetTexture( GLenum texnum );
+gl_texture_t *R_GetTexture( unsigned int texnum );
 const char *GL_TargetToString( GLenum target );
 #define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
 #define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
@@ -372,8 +371,7 @@ void GL_UpdateTexSize( int texnum, int width, int height, int depth );
 qboolean GL_TextureFilteringEnabled( const gl_texture_t *tex );
 void GL_ApplyTextureParams( gl_texture_t *tex );
 int GL_FindTexture( const char *name );
-void GL_FreeTexture( GLenum texnum );
-const char *GL_Target( GLenum target );
+void GL_FreeTexture( unsigned int texnum );
 void R_InitDlightTexture( void );
 void R_TextureList_f( void );
 void R_InitImages( void );

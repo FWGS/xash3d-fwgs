@@ -14,7 +14,7 @@
 try: from fwgslib import get_flags_by_type, get_flags_by_compiler
 except: from waflib.extras.fwgslib import get_flags_by_type, get_flags_by_compiler
 from waflib.Configure import conf
-from waflib import Logs
+from waflib import Logs, Utils
 
 '''
 Flags can be overriden and new types can be added
@@ -61,8 +61,8 @@ CFLAGS = {
 	'common': {
 		# disable thread-safe local static initialization for C++11 code, as it cause crashes on Windows XP
 		'msvc':    ['/D_USING_V110_SDK71_', '/FS', '/Zc:threadSafeInit-', '/MT', '/MP', '/Zc:__cplusplus'],
-		'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden', '-fno-threadsafe-statics'],
-		'gcc':     ['-g', '-fvisibility=hidden'],
+		'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden', '-fno-threadsafe-statics', '-fasynchronous-unwind-tables'],
+		'gcc':     ['-g', '-fvisibility=hidden', '-fasynchronous-unwind-tables'],
 		'owcc':	   ['-fno-short-enum', '-ffloat-store', '-g3']
 	},
 	'fast': {
@@ -177,11 +177,16 @@ def options(opt):
 	grp.add_option('--enable-profile', action = 'store_true', dest = 'PROFILE_GENERATE', default = False,
 		help = 'enable profile generating build (stored in xash3d-prof directory) [default: %(default)s]')
 
+	grp.add_option('--enable-limited-debuginfo', action = 'store_true', dest = 'LIMITED_DEBUGINFO', default = False,
+		help = 'only save line debuginfo, useful for release builds [default: %(default)s]')
+
 	grp.add_option('--use-profile', action = 'store', dest = 'PROFILE_USE', default = None,
 		help = 'use profile during build [default: %(default)s]')
 
 def configure(conf):
 	conf.start_msg('Build type')
+
+	conf.options.BUILD_TYPE = conf.options.BUILD_TYPE.lower()
 
 	# legacy naming for default release build
 	# https://chaos.social/@karolherbst/111340511652012860
@@ -240,21 +245,45 @@ def get_optimization_flags(conf):
 		linkflags+= [conf.get_flags_by_compiler(PROFILE_USE_LINKFLAGS, conf.env.COMPILER_CC)[0] % conf.options.PROFILE_USE]
 		cflags   += [conf.get_flags_by_compiler(PROFILE_USE_CFLAGS, conf.env.COMPILER_CC)[0] % conf.options.PROFILE_USE]
 
-	if conf.env.DEST_OS == 'nswitch' and conf.options.BUILD_TYPE == 'debug':
-		# enable remote debugger
-		cflags.append('-DNSWITCH_DEBUG')
+	if conf.env.DEST_OS == 'nswitch':
+		if conf.options.BUILD_TYPE == 'debug':
+			# enable remote debugger
+			cflags.append('-DNSWITCH_DEBUG')
+		# this port don't have stack printing support
+		cflags.remove('-fasynchronous-unwind-tables')
 	elif conf.env.DEST_OS == 'psvita':
 		# this optimization is broken in vitasdk
 		cflags.append('-fno-optimize-sibling-calls')
 		# remove fvisibility to allow everything to be exported by default
 		cflags.remove('-fvisibility=hidden')
+		# this port don't have stack printing support
+		cflags.remove('-fasynchronous-unwind-tables')
 
-	if conf.env.COMPILER_CC != 'msvc' and conf.env.COMPILER_CC != 'owcc':
+	if conf.env.DEST_CPU == 'riscv' and conf.env.DEST_OS == 'linux' and conf.options.BUILD_TYPE in ['release', 'fast']:
+		# try to guess better flags, as march=native is not supported in my toolchain yet
+		# shoddy work, remove later
+		s = None
+		for line in Utils.readf('/proc/cpuinfo').splitlines():
+			if line.startswith('uarch'):
+				s = line[line.find(':') + 2:]
+				break
+		march = None
+		if s == 'thead,c910':
+			march = '-march=rv64gc_xtheadvector'
+
+		conf.msg('Guessed best -march', march)
+
+	if conf.env.COMPILER_CC in ['gcc', 'clang'] and conf.options.LIMITED_DEBUGINFO:
+		# probably not a good idea to do this, but it should save space on Android builds especially
+		# that are never going to be run under debugger, but we still want that readable fileline
+		# info in backtraces
+		# might enable this for release/fast/fastnative builds in the future
+		cflags = ['-gline-tables-only' if flag.startswith('-g') else flag for flag in cflags]
+
+	if conf.env.COMPILER_CC in ['gcc', 'clang'] and conf.env.DEST_OS not in ['android']:
 		# HLSDK by default compiles with these options under Linux
 		# no reason for us to not do the same
-
-		# TODO: fix DEST_CPU in force 32 bit mode
-		if conf.env.DEST_CPU == 'x86' or (conf.env.DEST_CPU == 'x86_64' and conf.env.DEST_SIZEOF_VOID_P == 4):
+		if conf.env.DEST_CPU == 'x86':
 			cflags.append('-march=pentium-m')
 			cflags.append('-mtune=core2')
 

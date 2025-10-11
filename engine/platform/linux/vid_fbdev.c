@@ -28,6 +28,11 @@ struct fb_s
 
 #define DEFAULT_FBDEV "/dev/fb0"
 
+void Platform_Minimize_f( void )
+{
+	// stub
+}
+
 /*
 ========================
 Android_SwapBuffers
@@ -60,7 +65,7 @@ qboolean  R_Init_Video( const int type )
 
 	if( fb.fd < 0 )
 	{
-		Con_Printf( S_ERROR, "failed to open framebuffer device: %s\n", strerror(errno));
+		Con_Printf( S_ERROR "failed to open framebuffer device: %s\n", strerror(errno));
 	}
 
 	if( Sys_CheckParm( "-ttygfx" ) )
@@ -129,7 +134,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	Con_Reportf( "%s: forced resolution to %dx%d)\n", __func__, width, height );
 
 	VID_SetDisplayTransform( &render_w, &render_h );
-	R_SaveVideoMode( width, height, render_w, render_h );
+	R_SaveVideoMode( width, height, render_w, render_h, false );
 
 	return rserr_ok;
 }
@@ -161,17 +166,10 @@ void* GL_GetProcAddress( const char *name ) // RenderAPI requirement
 
 void GL_UpdateSwapInterval( void )
 {
-	// disable VSync while level is loading
-	if( cls.state < ca_active )
-	{
-		// setup fb vsync here
-		fb.vsync = false;
-		SetBits( gl_vsync.flags, FCVAR_CHANGED );
-	}
-	else if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
+	if( FBitSet( gl_vsync.flags, FCVAR_CHANGED ))
 	{
 		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
-		fb.vsync = true;
+		fb.vsync = gl_vsync.value;
 	}
 }
 
@@ -248,41 +246,9 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	return true;
 }
 
-// unrelated stubs
-void Platform_GetClipboardText( char *buffer, size_t size )
+ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
 {
-
+	return REF_WINDOW_TYPE_NULL;
 }
 
-void Platform_SetClipboardText( const char *buffer, size_t size )
-{
-
-}
-
-void Platform_PreCreateMove( void )
-{
-
-}
-
-// will be implemented later
-void Platform_RunEvents( void )
-{
-
-}
-
-void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
-{
-	*x = *y = 0;
-}
-
-
-void GAME_EXPORT Platform_SetMousePos(int x, int y)
-{
-
-}
-
-void Platform_Vibrate( float life, char flags )
-{
-
-}
 #endif

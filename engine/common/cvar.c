@@ -153,7 +153,7 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 {
 	if( FBitSet( var->flags, FCVAR_USERINFO ))
 	{
-		if ( Host_IsDedicated() )
+		if( Host_IsDedicated() )
 		{
 			// g-cont. this is a very strange behavior...
 			char *info = SV_Serverinfo();
@@ -432,8 +432,9 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 			if( COM_CheckStringEmpty( var->desc ))
 			{
 				// directly set value
-				freestring( var->string );
-				var->string = copystringpool( cvar_pool, value );
+				size_t len = Q_strlen( value ) + 1;
+				var->string = Mem_Realloc( cvar_pool, var->string, len );
+				Q_strncpy( var->string, value, len );
 				var->value = Q_atof( var->string );
 				SetBits( var->flags, flags );
 
@@ -449,11 +450,14 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 
 		if( FBitSet( var->flags, FCVAR_ALLOCATED ) && Q_strcmp( var_desc, var->desc ))
 		{
+			size_t len = Q_strlen( var_desc ) + 1;
+
 			if( !FBitSet( flags, FCVAR_GLCONFIG ))
 				Con_Reportf( "%s change description from %s to %s\n", var->name, var->desc, var_desc );
+
 			// update description if needs
-			freestring( var->desc );
-			var->desc = copystringpool( cvar_pool, var_desc );
+			var->desc = Mem_Realloc( cvar_pool, var->desc, len );
+			Q_strncpy( var->desc, var_desc, len );
 		}
 
 		return var;
@@ -602,9 +606,10 @@ Cvar_Set2
 static convar_t *Cvar_Set2( const char *var_name, const char *value )
 {
 	convar_t	*var;
-	const char	*pszValue;
 	qboolean	dll_variable = false;
 	qboolean	force = false;
+	const char *fixed_string;
+	size_t fixed_string_len;
 
 	if( !Cvar_ValidateVarName( var_name, false ))
 	{
@@ -668,19 +673,20 @@ static convar_t *Cvar_Set2( const char *var_name, const char *value )
 			return var;
 	}
 
-	pszValue = Cvar_ValidateString( var, value );
+	fixed_string = Cvar_ValidateString( var, value );
 
 	// nothing to change
-	if( !Q_strcmp( pszValue, var->string ))
+	if( !Q_strcmp( fixed_string, var->string ))
 		return var;
 
 	// fill it cls.userinfo, svs.serverinfo
-	if( !Cvar_UpdateInfo( var, pszValue, true ))
+	if( !Cvar_UpdateInfo( var, fixed_string, true ))
 		return var;
 
-	// and finally changed the cvar itself
-	freestring( var->string );
-	var->string = copystringpool( cvar_pool, pszValue );
+	// and finally change the cvar itself
+	fixed_string_len = Q_strlen( fixed_string ) + 1;
+	var->string = Mem_Realloc( cvar_pool, var->string, fixed_string_len );
+	Q_strncpy( var->string, fixed_string, fixed_string_len );
 	var->value = Q_atof( var->string );
 
 	// tell engine about changes
@@ -697,7 +703,8 @@ way to change value for many cvars
 */
 void GAME_EXPORT Cvar_DirectSet( convar_t *var, const char *value )
 {
-	const char	*pszValue;
+	const char *fixed_string;
+	size_t fixed_string_len;
 
 	if( unlikely( !var )) return;	// ???
 
@@ -727,19 +734,20 @@ void GAME_EXPORT Cvar_DirectSet( convar_t *var, const char *value )
 		value = var->def_string; // reset to default value
 	}
 
-	pszValue = Cvar_ValidateString( var, value );
+	fixed_string = Cvar_ValidateString( var, value );
 
 	// nothing to change
-	if( !Q_strcmp( pszValue, var->string ))
+	if( !Q_strcmp( fixed_string, var->string ))
 		return;
 
 	// fill it cls.userinfo, svs.serverinfo
-	if( !Cvar_UpdateInfo( var, pszValue, true ))
+	if( !Cvar_UpdateInfo( var, fixed_string, true ))
 		return;
 
-	// and finally changed the cvar itself
-	freestring( var->string );
-	var->string = copystringpool( cvar_pool, pszValue );
+	// and finally change the cvar itself
+	fixed_string_len = Q_strlen( fixed_string ) + 1;
+	var->string = Mem_Realloc( cvar_pool, var->string, fixed_string_len );
+	Q_strncpy( var->string, fixed_string, fixed_string_len );
 	var->value = Q_atof( var->string );
 
 	// tell engine about changes
@@ -773,7 +781,8 @@ can set any protected cvars
 */
 void Cvar_FullSet( const char *var_name, const char *value, int flags )
 {
-	convar_t	*var = Cvar_FindVar( var_name );
+	convar_t *var = Cvar_FindVar( var_name );
+	size_t len = Q_strlen( value ) + 1;
 
 	if( !var )
 	{
@@ -781,8 +790,8 @@ void Cvar_FullSet( const char *var_name, const char *value, int flags )
 		return;
 	}
 
-	freestring( var->string );
-	var->string = copystringpool( cvar_pool, value );
+	var->string = Mem_Realloc( cvar_pool, var->string, len );
+	Q_strncpy( var->string, value, len );
 	var->value = Q_atof( var->string );
 	SetBits( var->flags, flags );
 
@@ -1035,9 +1044,11 @@ qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged )
 		return true;
 	}
 
+#if !defined( XASH_HASHED_VARS )
 	// check variables
-	if( !v ) // already found in basecmd
-		v = Cvar_FindVar( Cmd_Argv( 0 ));
+	v = Cvar_FindVar( Cmd_Argv( 0 ));
+#endif
+
 	if( !v )
 		return false;
 

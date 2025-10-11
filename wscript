@@ -83,7 +83,6 @@ SUBDIRS = [
 	Subproject('public'),
 	Subproject('filesystem'),
 	Subproject('stub/server'),
-	Subproject('dllemu'),
 	Subproject('3rdparty/libbacktrace'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
@@ -91,7 +90,7 @@ SUBDIRS = [
 	Subproject('3rdparty/nanogl',       lambda x: x.env.CLIENT and x.env.NANOGL),
 	Subproject('3rdparty/gl-wes-v2',    lambda x: x.env.CLIENT and x.env.GLWES),
 	Subproject('3rdparty/gl4es',        lambda x: x.env.CLIENT and x.env.GL4ES),
-	Subproject('ref/gl',                lambda x: x.env.CLIENT and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
+	Subproject('ref/gl',                lambda x: x.env.CLIENT and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES or x.env.GLES3COMPAT)),
 	Subproject('ref/soft',              lambda x: x.env.CLIENT and x.env.SOFT),
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
@@ -99,6 +98,7 @@ SUBDIRS = [
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
 	Subproject('3rdparty/opusfile',     lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUSFILE),
+	Subproject('3rdparty/maintui',      lambda x: x.env.CLIENT and x.env.TUI),
 	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT),
 	Subproject('3rdparty/vgui_support', lambda x: x.env.CLIENT),
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
@@ -122,12 +122,12 @@ REFDLLS = [
 	RefDll('gles1', False, 'NANOGL'),
 	RefDll('gles2', False, 'GLWES'),
 	RefDll('gl4es', False),
-	RefDll('gles3compat', False),
+	RefDll('gles3compat', False, 'GLES3COMPAT'),
 	RefDll('null', False),
 ]
 
 def options(opt):
-	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs subproject cmake')
+	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msvs subproject ninja')
 
 	grp = opt.add_option_group('Common options')
 
@@ -136,6 +136,9 @@ def options(opt):
 
 	grp.add_option('--enable-dedicated', action = 'store_true', dest = 'ENABLE_DEDICATED', default = False,
 		help = 'enable building Xash Dedicated Server alongside client [default: %(default)s]')
+
+	grp.add_option('--enable-tui', action = 'store_true', dest = 'ENABLE_TUI', default = False,
+		help = 'enable TUI main menu [default: %(default)s]')
 
 	grp.add_option('--gamedir', action = 'store', dest = 'GAMEDIR', default = 'valve',
 		help = 'engine default (base) game directory [default: %(default)s]')
@@ -167,6 +170,7 @@ def options(opt):
 	# a1ba: special option for me
 	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
 	grp.add_option('--enable-msvcdeps', action='store_true', dest='MSVCDEPS', default=False, help='')
+	grp.add_option('--enable-wafcache', action='store_true', dest='WAFCACHE', default=False, help='')
 
 	grp = opt.add_option_group('Renderers options')
 
@@ -203,10 +207,15 @@ def configure(conf):
 		conf.env.MSVC_TARGETS = ['x86']
 
 	# Load compilers early
-	conf.load('xshlib xcompile compiler_c compiler_cxx gccdeps')
+	conf.load('xshlib xcompile compiler_c compiler_cxx')
 
-	if conf.options.MSVCDEPS:
-		conf.load('msvcdeps')
+	if not conf.options.WAFCACHE:
+		conf.load('gccdeps')
+
+		if conf.options.MSVCDEPS:
+			conf.load('msvcdeps')
+
+	conf.env.WAFCACHE = conf.options.WAFCACHE
 
 	if conf.options.NSWITCH:
 		conf.load('nswitch')
@@ -221,20 +230,18 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs msdev subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake force_32bit')
+	conf.load('msvs subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic force_32bit ninja')
 
+	conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
+	conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
+
+	# Windows XP compatibility
 	if conf.env.MSVC_TARGETS[0] == 'amd64_x86' or conf.env.MSVC_TARGETS[0] == 'x86':
-		conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
-		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE,5.01'
-	else:
-		conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
-		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
+		conf.env.MSVC_SUBSYSTEM += ',5.01'
+		conf.env.CONSOLE_SUBSYSTEM += ',5.01'
 
-	enforce_pic = True # modern defaults
-
-	# modify options dictionary early
+	# Set default options for some platforms
 	if conf.env.DEST_OS == 'android':
-		conf.options.NO_VGUI          = True # skip vgui
 		conf.options.NANOGL           = True
 		conf.options.GLWES            = False # deprecated
 		conf.options.GL4ES            = True
@@ -242,25 +249,16 @@ def configure(conf):
 		conf.options.GL               = False
 	elif conf.env.MAGX:
 		conf.options.SDL12            = True
-		conf.options.NO_VGUI          = True
 		conf.options.GL               = False
 		conf.options.LOW_MEMORY       = 1
-		conf.options.NO_ASYNC_RESOLVE = True
 		enforce_pic = False
-	elif conf.env.DEST_OS == 'nswitch':
-		conf.options.NO_VGUI          = True
-		conf.options.GL               = True
-		conf.options.USE_STBTT        = True
-	elif conf.env.DEST_OS == 'psvita':
-		conf.options.NO_VGUI          = True
-		conf.options.GL               = True
-		conf.options.USE_STBTT        = True
-		# we'll specify -fPIC by hand for shared libraries only
-		enforce_pic                   = False
+	elif conf.env.DEST_OS == 'emscripten':
+		conf.options.BUILD_BUNDLED_DEPS = True
+		conf.options.GLES3COMPAT      = True
+		conf.options.GL               = False
 
-	if conf.env.STATIC_LINKING:
-		enforce_pic = False # PIC may break full static builds
-
+	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
+	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING
 	conf.check_pic(enforce_pic)
 
 	# NOTE: We restrict 64-bit builds ONLY for Win/Linux running on Intel architecture
@@ -274,13 +272,8 @@ def configure(conf):
 	else:
 		force_32bit = conf.options.FORCE32
 
-	# FIXME: move this whole logic to force_32bit.py, and ensure
-	# DEST_SIZEOF_VOID_P is always set
 	if force_32bit:
-		Logs.info('WARNING: will build engine for 32-bit target')
-		conf.force_32bit(True)
-	else:
-		conf.env.DEST_SIZEOF_VOID_P = 4 if conf.check_32bit() else 8
+		conf.force_32bit()
 
 	cflags, linkflags = conf.get_optimization_flags()
 	cxxflags = list(cflags) # optimization flags are common between C and C++ but we need a copy
@@ -333,7 +326,7 @@ def configure(conf):
 			'-Werror=bool-operation',
 			# '-Werror=cast-align=strict',
 			'-Werror=duplicated-cond',
-			'-Werror=format-extra-args',
+			'-Werror=format=2',
 			'-Werror=free-nonheap-object',
 			'-Werror=implicit-fallthrough=2',
 			'-Werror=logical-op',
@@ -350,18 +343,17 @@ def configure(conf):
 			'-Werror=string-compare',
 			'-Werror=tautological-compare',
 			'-Werror=use-after-free=3',
-			'-Werror=unsequenced', # clang's version of -Werror=sequence-point
 			'-Werror=vla',
 			'-Werror=write-strings',
 
 			# unstable diagnostics, may cause false positives
 			'-Walloc-zero',
-			'-Wformat=2',
 			'-Winit-self',
 			'-Wmisleading-indentation',
 			'-Wmismatched-dealloc',
 			'-Wstringop-overflow',
-			'-Wunintialized',
+			'-Wuninitialized',
+			'-Wno-error=format-nonliteral',
 
 			# disabled, flood
 			# '-Wdouble-promotion',
@@ -370,6 +362,11 @@ def configure(conf):
 			'-Wunused-variable',
 			'-Wunused-but-set-variable',
 		]
+
+		if conf.env.COMPILER_CC == 'clang':
+			opt_flags += [
+				'-Werror=unsequenced', # clang's version of -Werror=sequence-point
+			]
 
 		opt_cflags = [
 			'-Werror=declaration-after-statement',
@@ -405,11 +402,13 @@ def configure(conf):
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
 		conf.env.CLIENT = True
-		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos'] and not conf.env.MAGX and not conf.env.STATIC_LINKING
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'emscripten'] and not conf.env.MAGX and not conf.env.STATIC_LINKING
 	else:
 		conf.env.SERVER = True
 		conf.env.CLIENT = False
 		conf.env.LAUNCHER = False
+
+	conf.env.TUI = conf.options.ENABLE_TUI
 
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
 
@@ -444,9 +443,17 @@ def configure(conf):
 		conf.check_cc(lib='vrtld')
 		conf.check_cc(lib='m')
 	elif conf.env.DEST_OS == 'android':
+		# maybe there is some better check?
+		if conf.find_program('termux-info', mandatory=False):
+			conf.env.TERMUX = True
+			conf.define('__TERMUX__', 1)
+
 		conf.check_cc(lib='dl')
 		conf.check_cc(lib='log')
-		# LIB_M added in xcompile!
+		if not conf.options.ANDROID_OPTS:
+			# if we're compiling on device itself
+			conf.check_cc(lib='m')
+		# otherwise LIB_M is defined by xcompile (as it might be libm_hard, depending on NDK configuration)
 	elif conf.env.DEST_OS == 'win32':
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
@@ -532,6 +539,9 @@ int main(void) { return (int)BZ2_bzlibVersion(); }'''
 		conf.add_subproject(i.name)
 
 def build(bld):
+	if bld.env.WAFCACHE:
+		bld.load('wafcache')
+
 	# guard rails to not let install to root
 	if bld.is_install and not bld.options.PACKAGING and not bld.options.destdir:
 		bld.fatal('Set the install destination directory using --destdir option')

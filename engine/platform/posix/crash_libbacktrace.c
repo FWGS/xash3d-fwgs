@@ -1,6 +1,7 @@
 /*
-crashhandler.c - advanced crashhandler
+crash_libbacktrace.c - advanced crashhandler based on libbacktrace
 Copyright (C) 2016 Mittorn
+Copyright (C) 2025 Alibek Omarov
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -15,9 +16,11 @@ GNU General Public License for more details.
 
 #if HAVE_LIBBACKTRACE
 #include <signal.h>
+#include <dlfcn.h>
 #include "common.h"
 #include "backtrace.h"
-
+#include "input.h"
+#include "crash.h"
 
 static struct backtrace_state *g_bt_state;
 static qboolean enable_libbacktrace;
@@ -128,54 +131,19 @@ static int Sys_BacktracePrintFull( void *data, uintptr_t pc, const char *filenam
 	return 0;
 }
 
-void Sys_CrashLibbacktrace( int signal, siginfo_t *si, void *context )
+int Sys_CrashDetailsLibbacktrace( int logfd, char *message, int len, size_t max_len )
 {
-	char message[8192];
-	int len, logfd;
-	struct print_data pd = { .idx = 0 };
-
-	(void)context;
-
-	// flush buffers before writing directly to descriptors
-	fflush( stdout );
-	fflush( stderr );
-
-	// safe actions first, stack and memory may be corrupted
-	len = Q_snprintf( message, sizeof( message ), "Ver: " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s-%s, %s-%s)\n",
-					  Q_buildnum(), g_buildcommit, g_buildbranch, Q_buildos(), Q_buildarch() );
-
-#if !XASH_FREEBSD && !XASH_NETBSD && !XASH_OPENBSD && !XASH_APPLE // they don't have si_ptr
-	len += Q_snprintf( message + len, sizeof( message ) - len, "Crash: signal %d errno %d with code %d at %p %p\n", signal, si->si_errno, si->si_code, si->si_addr, si->si_ptr );
-#else
-	len += Q_snprintf( message + len, sizeof( message ) - len, "Crash: signal %d errno %d with code %d at %p\n", signal, si->si_errno, si->si_code, si->si_addr );
-#endif
-
-	write( STDERR_FILENO, message, len );
-
-	// now get log fd and write trace directly to log
-	pd.logfd = logfd = Sys_LogFileNo();
-	write( logfd, message, len );
-
-	pd.message = message + len;
-	pd.message_size = sizeof( message ) - len;
-	pd.len = 0;
+	struct print_data pd =
+	{
+		.message = message + len,
+		.message_size = sizeof( message ) - len,
+		.logfd = logfd,
+		.len = len,
+	};
 
 	backtrace_full( g_bt_state, 1, Sys_BacktracePrintFull, Sys_BacktracePrintError, &pd );
 
-	// put MessageBox as Sys_Error
-	Msg( "%s\n", message );
-#ifdef XASH_SDL
-	SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
-#endif
-	host.crashed = true;
-	Platform_MessageBox( "Xash Error", message, false );
-
-	// log saved, now we can try to save configs and close log correctly, it may crash
-	if( host.type == HOST_NORMAL )
-		CL_Crashed();
-	host.status = HOST_CRASHED;
-
-	Sys_Quit( "crashed" );
+	return pd.len;
 }
 
 qboolean Sys_SetupLibbacktrace( const char *argv0 )

@@ -25,6 +25,7 @@ static struct
 { PLATFORM_NSWITCH,       "nswitch" },
 { PLATFORM_PSVITA,        "psvita" },
 { PLATFORM_WASI,          "wasi" },
+{ PLATFORM_HURD,          "hurd" },
 };
 
 static struct
@@ -177,16 +178,10 @@ int main( void )
 	if( Q_buildnum_compat() != 4529 )
 		return 200;
 
-	if( Q_buildnum_date( "Apr 02 2015" ) != 1 )
-		return 201;
-
-	if( Q_buildnum_date( "Apr 02 2015" ) != Q_buildnum_iso( "2015-04-02 21:19:10 +0300" ))
+	if( Q_buildnum_iso( "2015-04-02 21:19:10 +0300" ) != 1 )
 		return 202;
 
-	if( Q_buildnum_date( "Apr 17 2023" ) != 2938 )
-		return 203;
-
-	if( Q_buildnum_date( "Apr 17 2023" ) != Q_buildnum_iso( "2023-04-17 21:19:10 +0300" ))
+	if( Q_buildnum_iso( "2023-04-17 21:19:10 +0300" ) != 2938 )
 		return 204;
 
 	return EXIT_SUCCESS;

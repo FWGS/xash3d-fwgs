@@ -405,7 +405,11 @@ void CL_ParseReliableEvent( sizebuf_t *msg, connprotocol_t proto )
 	}
 
 	if( args.entindex > 0 && args.entindex <= cl.maxclients )
-		args.angles[PITCH] *= -3.0f;
+	{
+		args.angles[PITCH] *= 3.0f;
+		if( !FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
+			args.angles[PITCH] = -args.angles[PITCH];
+	}
 
 	CL_QueueEvent( FEV_RELIABLE|FEV_SERVER, event_index, delay, &args );
 }
@@ -477,7 +481,9 @@ void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto )
 
 				if( state->number > 0 && state->number <= cl.maxclients )
 				{
-					args.angles[PITCH] *= -3.0f;
+					args.angles[PITCH] *= 3.0f;
+					if( !FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
+						args.angles[PITCH] = -args.angles[PITCH];
 					CL_CalcPlayerVelocity( state->number, args.velocity );
 					args.ducking = ( state->usehull == 1 );
 				}
@@ -487,7 +493,11 @@ void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto )
 				if( args.entindex != 0 )
 				{
 					if( args.entindex > 0 && args.entindex <= cl.maxclients )
-						args.angles[PITCH] /= -3.0f;
+					{
+						args.angles[PITCH] /= 3.0f;
+						if( !FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
+							args.angles[PITCH] = -args.angles[PITCH];
+					}
 				}
 			}
 

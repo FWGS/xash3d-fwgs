@@ -84,10 +84,17 @@ typedef struct con_lineinfo_s
 	double		addtime;		// notify stuff
 } con_lineinfo_t;
 
+typedef struct history_line_s
+{
+	string buffer;
+	int    cursor;
+	int    scroll;
+} history_line_t;
+
 typedef struct con_history_s
 {
-	field_t lines[CON_HISTORY];
-	field_t backup;
+	history_line_t lines[CON_HISTORY];
+	history_line_t backup;
 	int     line; // the line being displayed from history buffer will be <= nextHistoryLine
 	int     next; // the last line in the history buffer, not masked
 } con_history_t;
@@ -134,9 +141,6 @@ typedef struct
 
 	notify_t		notify[MAX_DBG_NOTIFY]; // for Con_NXPrintf
 	qboolean		draw_notify;	// true if we have NXPrint message
-
-	// console update
-	double		lastupdate;
 } console_t;
 
 static console_t		con;
@@ -465,9 +469,6 @@ static void Con_CheckResize( void )
 	con.backscroll = 0;
 
 	con.input.widthInChars = con.linewidth;
-
-	for( i = 0; i < CON_HISTORY; i++ )
-		con.history.lines[i].widthInChars = con.linewidth;
 }
 
 /*
@@ -943,13 +944,6 @@ void Con_Print( const char *txt )
 			charpos = 0;
 		}
 
-		// pump messages to avoid window hanging
-		if( con.lastupdate < Sys_DoubleTime( ))
-		{
-			con.lastupdate = Sys_DoubleTime() + 1.0;
-			Host_InputFrame();
-		}
-
 		// FIXME: disable updating screen, because when texture is bound any console print
 		// can re-bound it to console font texture
 #if 0
@@ -1267,45 +1261,17 @@ static void Field_CharEvent( field_t *edit, int ch )
 Field_DrawInputLine
 ==================
 */
-static void Field_DrawInputLine( int x, int y, field_t *edit )
+static void Field_DrawInputLine( int x, int y, const field_t *edit )
 {
-	int	len, cursorChar;
-	int	drawLen;
-	int	prestep, curPos;
-	char	str[MAX_SYSPATH];
-	byte	*colorDefault;
+	int curPos;
+	char str[MAX_SYSPATH];
+	const byte *colorDefault = g_color_table[ColorIndex( COLOR_DEFAULT )];
+	const int prestep = bound( 0, edit->scroll, sizeof( edit->buffer ) - 1 );
+	const int drawLen = bound( 0, edit->widthInChars, sizeof( str ));
+	const int cursorCharPos = bound( 0, edit->cursor - prestep, sizeof( str ));
 
-	drawLen = edit->widthInChars;
-	len = Q_strlen( edit->buffer ) + 1;
-	colorDefault = g_color_table[ColorIndex( COLOR_DEFAULT )];
-
-	// guarantee that cursor will be visible
-	if( len <= drawLen )
-	{
-		prestep = 0;
-	}
-	else
-	{
-		if( edit->scroll + drawLen > len )
-		{
-			edit->scroll = len - drawLen;
-			if( edit->scroll < 0 ) edit->scroll = 0;
-		}
-
-		prestep = edit->scroll;
-	}
-
-	if( prestep + drawLen > len )
-		drawLen = len - prestep;
-
-	// extract <drawLen> characters from the field at <prestep>
-	drawLen = Q_min( drawLen, MAX_SYSPATH - 1 );
-
-	memcpy( str, edit->buffer + prestep, drawLen );
-	str[drawLen] = 0;
-
-	// save char for overstrike
-	cursorChar = str[edit->cursor - prestep];
+	str[0] = 0;
+	Q_strncpy( str, edit->buffer + prestep, drawLen );
 
 	// draw it
 	CL_DrawString( x, y, str, colorDefault, con.curFont, FONT_DRAW_UTF8 );
@@ -1314,7 +1280,7 @@ static void Field_DrawInputLine( int x, int y, field_t *edit )
 	if((int)( host.realtime * 4 ) & 1 ) return; // off blink
 
 	// calc cursor position
-	str[edit->cursor - prestep] = 0;
+	str[cursorCharPos] = 0;
 	CL_DrawStringLen( con.curFont, str, &curPos, NULL, FONT_DRAW_UTF8 );
 
 	if( host.key_overstrike )
@@ -1336,6 +1302,32 @@ CONSOLE HISTORY HANDLING
 */
 /*
 ===================
+Con_HistoryFromField
+
+===================
+*/
+static void Con_HistoryFromField( history_line_t *dst, const field_t *src )
+{
+	Q_strncpy( dst->buffer, src->buffer, sizeof( dst->buffer ));
+	dst->cursor = src->cursor;
+	dst->scroll = src->scroll;
+}
+
+/*
+===================
+Con_HistoryToField
+
+===================
+*/
+static void Con_HistoryToField( field_t *dst, const history_line_t *src )
+{
+	Q_strncpy( dst->buffer, src->buffer, sizeof( dst->buffer ));
+	dst->cursor = src->cursor;
+	dst->scroll = src->scroll;
+}
+
+/*
+===================
 Con_HistoryUp
 
 ===================
@@ -1343,12 +1335,14 @@ Con_HistoryUp
 static void Con_HistoryUp( con_history_t *self, field_t *in )
 {
 	if( self->line == self->next )
-		self->backup = *in;
+		Con_HistoryFromField( &self->backup, in );
+	else
+		Con_HistoryFromField( &self->lines[self->line % CON_HISTORY], in );
 
 	if(( self->next - self->line ) < CON_HISTORY )
 		self->line = Q_max( 0, self->line - 1 );
 
-	*in = self->lines[self->line % CON_HISTORY];
+	Con_HistoryToField( in, &self->lines[self->line % CON_HISTORY] );
 }
 
 /*
@@ -1359,10 +1353,13 @@ Con_HistoryDown
 */
 static void Con_HistoryDown( con_history_t *self, field_t *in )
 {
+	Con_HistoryFromField( &self->lines[self->line % CON_HISTORY], in );
+
 	self->line = Q_min( self->next, self->line + 1 );
 	if( self->line == self->next )
-		*in = self->backup;
-	else *in = self->lines[self->line % CON_HISTORY];
+		Con_HistoryToField( in, &self->backup );
+	else
+		Con_HistoryToField( in, &self->lines[self->line % CON_HISTORY] );
 }
 
 /*
@@ -1370,7 +1367,7 @@ static void Con_HistoryDown( con_history_t *self, field_t *in )
 Con_HistoryAppend
 ===================
 */
-static void Con_HistoryAppend( con_history_t *self, field_t *from )
+static void Con_HistoryAppend( con_history_t *self, const field_t *from )
 {
 	int prevLine = Q_max( 0, self->line - 1 );
 	const char *buf = from->buffer;
@@ -1391,13 +1388,12 @@ static void Con_HistoryAppend( con_history_t *self, field_t *from )
 	if( !Q_strcmp( from->buffer, self->lines[prevLine % CON_HISTORY].buffer ))
 		return;
 
-	self->lines[self->next % CON_HISTORY] = *from;
+	Con_HistoryFromField( &self->lines[self->next % CON_HISTORY], from );
 	self->line = ++self->next;
 }
 
 static void Con_LoadHistory( con_history_t *self )
 {
-	field_t *f;
 	file_t *fd;
 	int i;
 
@@ -1408,13 +1404,11 @@ static void Con_LoadHistory( con_history_t *self )
 
 	while( !FS_Eof( fd ))
 	{
-		f = &self->lines[self->next % CON_HISTORY];
-
-		Con_ClearField( f );
-		f->widthInChars = con.linewidth;
+		history_line_t *f = &self->lines[self->next % CON_HISTORY];
 
 		FS_Gets( fd, f->buffer, sizeof( f->buffer ));
 		f->cursor = Q_strlen( f->buffer );
+		f->scroll = 0;
 
 		// skip empty lines
 		if( f->cursor == 0 )
@@ -1423,8 +1417,7 @@ static void Con_LoadHistory( con_history_t *self )
 		// skip repeating lines
 		if( self->next > 0 )
 		{
-			field_t *prev;
-			prev = &self->lines[(self->next - 1) % CON_HISTORY];
+			const history_line_t *prev = &self->lines[(self->next - 1) % CON_HISTORY];
 			if( !Q_stricmp( prev->buffer, f->buffer ))
 				continue;
 		}
@@ -1436,10 +1429,9 @@ static void Con_LoadHistory( con_history_t *self )
 
 	for( i = self->next; i < CON_HISTORY; i++ )
 	{
-		f = &self->lines[i];
+		history_line_t *f = &self->lines[i];
 
-		Con_ClearField( f );
-		f->widthInChars = con.linewidth;
+		memset( f, 0, sizeof( *f ));
 	}
 
 	self->line = self->next;
@@ -1890,7 +1882,7 @@ static void Con_DrawSolidConsole( int lines )
 	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 ); // to prevent grab color from screenfade
 	if( refState.width * 3 / 4 < refState.height && lines >= refState.height )
-		ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.height, refState.width, refState.height - refState.width * 3 / 4, 0, 0, 1, 1, R_GetBuiltinTexture( REF_BLACK_TEXTURE) );
+		ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.height, refState.width, refState.height - refState.width * 3 / 4, 0, 0, 1, 1, R_GetBuiltinTexture( REF_BLACK_TEXTURE ));
 	ref.dllFuncs.R_DrawStretchPic( 0, lines - refState.width * 3 / 4, refState.width, refState.width * 3 / 4, 0, 0, 1, 1, con.background );
 
 	if( !con.curFont || !host.allow_console )
@@ -2031,7 +2023,7 @@ void Con_DrawVersion( void )
 	int	start, height = refState.height;
 	string	curbuild;
 
-	if( !scr_drawversion.value || CL_IsDevOverviewMode() == 2 || net_graph.value )
+	if( !scr_drawversion.value )
 		return;
 
 	if( cls.key_dest == key_menu )
@@ -2042,6 +2034,9 @@ void Con_DrawVersion( void )
 	else
 	{
 		qboolean draw_version;
+
+		if( CL_IsDevOverviewMode() == 2 || net_graph.value )
+			return;
 
 		draw_version = cls.scrshot_action == scrshot_normal
 			|| cls.scrshot_action == scrshot_snapshot
@@ -2158,20 +2153,31 @@ void Con_CharEvent( int key )
 
 static int Con_LoadSimpleConback( const char *name, int flags )
 {
-	const char *paths[] = {
-		"gfx/shell/%s.dds",
-		"gfx/shell/%s.bmp",
-		"gfx/shell/%s.tga",
-		"cached/%s640",
-		"cached/%s",
-	};
-	size_t i;
+	int i;
 
-	for( i = 0; i < ARRAYSIZE( paths ); i++ )
+	for( i = 0; i < 5; i++ )
 	{
 		string path;
 
-		Q_snprintf( path, sizeof( path ), paths[i], name );
+		switch( i )
+		{
+		case 0:
+			Q_snprintf( path, sizeof( path ), "gfx/shell/%s.dds", name );
+			break;
+		case 1:
+			Q_snprintf( path, sizeof( path ), "gfx/shell/%s.bmp", name );
+			break;
+		case 2:
+			Q_snprintf( path, sizeof( path ), "gfx/shell/%s.tga", name );
+			break;
+		case 3:
+			Q_snprintf( path, sizeof( path ), "cached/%s640", name );
+			break;
+		case 4:
+			Q_snprintf( path, sizeof( path ), "cached/%s", name );
+			break;
+		}
+
 		if( g_fsapi.FileExists( path, false ))
 		{
 			int gl_texturenum = ref.dllFuncs.GL_LoadTexture( path, NULL, 0, flags );

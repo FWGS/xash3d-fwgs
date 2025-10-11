@@ -90,23 +90,24 @@ static byte palette_hl[768] =
 // stub
 static const loadpixformat_t load_null[] =
 {
-{ NULL, NULL, NULL, IL_HINT_NO }
+{ NULL, NULL, IL_HINT_NO }
 };
 
 static const loadpixformat_t load_game[] =
 {
-{ "%s%s.%s", "dds", Image_LoadDDS, IL_HINT_NO },	// dds for world and studio models
-{ "%s%s.%s", "bmp", Image_LoadBMP, IL_HINT_NO },	// WON menu images
-{ "%s%s.%s", "tga", Image_LoadTGA, IL_HINT_NO },	// hl vgui menus
-{ "%s%s.%s", "png", Image_LoadPNG, IL_HINT_NO },	// NightFire 007 menus
-{ "%s%s.%s", "mip", Image_LoadMIP, IL_HINT_NO },	// hl textures from wad or buffer
-{ "%s%s.%s", "mdl", Image_LoadMDL, IL_HINT_HL },	// hl studio model skins
-{ "%s%s.%s", "spr", Image_LoadSPR, IL_HINT_HL },	// hl sprite frames
-{ "%s%s.%s", "lmp", Image_LoadLMP, IL_HINT_NO },	// hl menu images (cached.wad etc)
-{ "%s%s.%s", "fnt", Image_LoadFNT, IL_HINT_HL },	// hl console font (fonts.wad etc)
-{ "%s%s.%s", "pal", Image_LoadPAL, IL_HINT_NO },	// install studio\sprite palette
-{ "%s%s.%s", "ktx2", Image_LoadKTX2, IL_HINT_NO },	// ktx2 for world and studio models
-{ NULL, NULL, NULL, IL_HINT_NO }
+{ "dds", Image_LoadDDS, IL_HINT_NO },   // dds for world and studio models
+{ "bmp", Image_LoadBMP, IL_HINT_NO },   // WON menu images
+{ "tga", Image_LoadTGA, IL_HINT_NO },   // hl vgui menus
+{ "png", Image_LoadPNG, IL_HINT_NO },   // NightFire 007 menus
+{ "wad", Image_LoadWAD, IL_HINT_NO },   // hl wad files
+{ "mip", Image_LoadMIP, IL_HINT_NO },   // hl textures from wad or buffer
+{ "mdl", Image_LoadMDL, IL_HINT_HL },   // hl studio model skins
+{ "spr", Image_LoadSPR, IL_HINT_HL },   // hl sprite frames
+{ "lmp", Image_LoadLMP, IL_HINT_NO },   // hl menu images (cached.wad etc)
+{ "fnt", Image_LoadFNT, IL_HINT_HL },   // hl console font (fonts.wad etc)
+{ "pal", Image_LoadPAL, IL_HINT_NO },   // install studio\sprite palette
+{ "ktx2", Image_LoadKTX2, IL_HINT_NO }, // ktx2 for world and studio models
+{ NULL, NULL, IL_HINT_NO }
 };
 
 /*
@@ -119,16 +120,17 @@ static const loadpixformat_t load_game[] =
 // stub
 static const savepixformat_t save_null[] =
 {
-{ NULL, NULL, NULL }
+{ NULL, NULL }
 };
 
 // Xash3D normal instance
 static const savepixformat_t save_game[] =
 {
-{ "%s%s.%s", "tga", Image_SaveTGA },		// tga screenshots
-{ "%s%s.%s", "bmp", Image_SaveBMP },		// bmp levelshots or screenshots
-{ "%s%s.%s", "png", Image_SavePNG },		// png screenshots
-{ NULL, NULL, NULL }
+{ "tga", Image_SaveTGA }, // tga screenshots
+{ "bmp", Image_SaveBMP }, // bmp levelshots or screenshots
+{ "png", Image_SavePNG }, // png screenshots
+{ "wad", Image_SaveWAD }, // player logo in tempdecal.wad
+{ NULL, NULL }
 };
 
 void Image_Setup( void )
@@ -1493,4 +1495,40 @@ size_t Image_ComputeSize( int type, int width, int height, int depth )
 	}
 
 	return 0;
+}
+
+/*
+============
+Image_GenerateMipmaps
+============
+*/
+void Image_GenerateMipmaps( const byte *source, int width, int height, byte *mip1, byte *mip2, byte *mip3 )
+{
+	const int sizes[3][2] = {
+		{ width / 2, height / 2 },
+		{ width / 4, height / 4 },
+		{ width / 8, height / 8 }
+	};
+	byte *mipmaps[3] = { mip1, mip2, mip3 };
+	int m;
+
+	for( m = 0; m < 3; ++m )
+	{
+		int mw, mh, step, y;
+
+		if( !mipmaps[m] )
+			continue;
+		mw = sizes[m][0];
+		mh = sizes[m][1];
+		step = 1 << ( m + 1 );
+		for( y = 0; y < mh; ++y )
+		{
+			int x;
+
+			for( x = 0; x < mw; ++x )
+			{
+				mipmaps[m][y * mw + x] = source[( y * step ) * width + ( x * step )];
+			}
+		}
+	}
 }

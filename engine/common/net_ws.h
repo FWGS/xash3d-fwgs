@@ -82,6 +82,8 @@ static inline qboolean NET_IsLocalAddress( netadr_t adr )
 	return NET_NetadrType( &adr ) == NA_LOOPBACK;
 }
 
+void NET_GetLocalAddress( netadr_t *ip4, netadr_t *ip6 );
+
 #if !XASH_DEDICATED
 int CL_GetSplitSize( void );
 #endif

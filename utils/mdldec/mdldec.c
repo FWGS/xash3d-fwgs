@@ -17,6 +17,12 @@ GNU General Public License for more details.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "build.h"
+#if !XASH_WIN32
+	#include <unistd.h>
+#else
+	#include "getopt.h"
+#endif
 #include "const.h"
 #include "com_model.h"
 #include "crtlib.h"
@@ -26,12 +32,15 @@ GNU General Public License for more details.
 #include "texture.h"
 #include "utils.h"
 #include "version.h"
+#include "settings.h"
+#include "mdldec.h"
 
 char		  destdir[MAX_SYSPATH];
 char		  modelfile[MAX_SYSPATH];
 studiohdr_t	 *model_hdr;
 studiohdr_t	 *texture_hdr;
 studiohdr_t	**anim_hdr;
+int		  globalsettings;
 
 /*
 ============
@@ -75,18 +84,18 @@ static void TextureNameFix( void )
 	mstudiotexture_t	*texture = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex ), *texture1;
 
 	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
+	{
 		ExtractFileName( texture->name, sizeof( texture->name ));
+
+		if( !( ( ( texture->width == 1 || texture->height == 1 )
+		    && texture->name[0] == '#' ) || IsValidName( texture->name )))
+			Q_snprintf( texture->name, sizeof( texture->name ), "MDLDEC_Texture%i.bmp", ++protected );
+	}
 
 	texture -= i;
 
 	for( i = 0; i < texture_hdr->numtextures; ++i, ++texture )
 	{
-		if( !IsValidName( texture->name ))
-		{
-			Q_snprintf( texture->name, sizeof( texture->name ), "MDLDEC_Texture%i.bmp", ++protected );
-			continue;
-		}
-
 		counter = 0;
 
 		texture1 = (mstudiotexture_t *)( (byte *)texture_hdr + texture_hdr->textureindex );
@@ -104,17 +113,17 @@ static void TextureNameFix( void )
 
 		if( counter > 0 )
 		{
-			printf( "WARNING: Texture name \"%s\" is repeated %i times.\n", texture->name, counter );
+			LogPrintf( "WARNING: Texture name \"%s\" is repeated %i times.", texture->name, counter );
 
 			hasduplicates = true;
 		}
 	}
 
 	if( protected )
-		printf( "WARNING: Gived name to %i protected texture(s).\n", protected );
+		LogPrintf( "WARNING: Gived name to %i protected texture%s.", protected, protected > 1 ? "s" : "" );
 
 	if( hasduplicates )
-		puts( "WARNING: Added numeric suffix to repeated texture name(s)." );
+		LogPutS( "WARNING: Added numeric suffix to repeated texture name(s)." );
 }
 
 /*
@@ -124,23 +133,17 @@ BodypartNameFix
 */
 static void BodypartNameFix( void )
 {
-	int			 i, j, k, len, counter, protected = 0, protected_models = 0;
+	int			 i, j, k, l, len, counter, protected = 0, protected_models = 0;
 	qboolean		 hasduplicates = false;
-	mstudiobodyparts_t	*bodypart = (mstudiobodyparts_t *) ( (byte *)model_hdr + model_hdr->bodypartindex );
+	mstudiobodyparts_t	*bodypart = (mstudiobodyparts_t *)( (byte *)model_hdr + model_hdr->bodypartindex );
+	mstudiobodyparts_t	*bodypart1;
 	mstudiomodel_t		*model, *model1;
 
 	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
-		ExtractFileName( bodypart->name, sizeof( bodypart->name ));
-
-	bodypart -= i;
-
-	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
 	{
+		ExtractFileName( bodypart->name, sizeof( bodypart->name ));
 		if( !IsValidName( bodypart->name ))
-		{
 			Q_snprintf( bodypart->name, sizeof( bodypart->name ), "MDLDEC_Bodypart%i", ++protected );
-			continue;
-		}
 
 		model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
 
@@ -148,50 +151,56 @@ static void BodypartNameFix( void )
 		{
 			ExtractFileName( model->name, sizeof( model->name ));
 			COM_StripExtension( model->name );
+			if( !IsValidName( model->name ))
+				Q_snprintf( model->name, sizeof( model->name ), "MDLDEC_Model%i", ++protected_models );
 		}
+	}
 
-		model -= j;
+	bodypart -= i;
+
+	for( i = 0; i < model_hdr->numbodyparts; ++i, ++bodypart )
+	{
+		model = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
 
 		for( j = 0; j < bodypart->nummodels; ++j, ++model )
 		{
-			if( !IsValidName( model->name ))
-			{
-				Q_snprintf( model->name, sizeof( model->name ), "MDLDEC_Model%i", ++protected_models );
-				continue;
-			}
-
 			counter = 0;
 
-			model1 = (mstudiomodel_t *)( (byte *)model_hdr + bodypart->modelindex );
+			bodypart1 = (mstudiobodyparts_t *)( (byte *)model_hdr + model_hdr->bodypartindex );
 
-			for( k = 0; k < bodypart->nummodels; ++k, ++model1 )
+			for( k = 0; k < model_hdr->numbodyparts; ++k, ++bodypart1 )
 			{
-				if( k != j && !Q_strncmp( model1->name, model->name, sizeof( model1->name )))
+				model1 = (mstudiomodel_t *)( (byte *)model_hdr + bodypart1->modelindex );
+
+				for( l = 0; l < bodypart1->nummodels; ++l, ++model1 )
 				{
-					len = Q_snprintf( model1->name, sizeof( model1->name ), "%s_%i", model1->name, ++counter );
+					if( !( i==k && j==l ) && !Q_strncmp( model1->name, model->name, sizeof( model1->name )))
+					{
+						len = Q_snprintf( model1->name, sizeof( model1->name ), "%s_%i", model1->name, ++counter );
 
-					if( len == -1 )
-						Q_snprintf( model1->name, sizeof( model1->name ), "MDLDEC_Model%i_%i", k, counter );
+						if( len == -1 )
+							Q_snprintf( model1->name, sizeof( model1->name ), "MDLDEC_Model%i_%i", l, counter );
+					}
 				}
-			}
 
-			if( counter > 0 )
-			{
-				printf( "WARNING: Sequence name \"%s\" is repeated %i times.\n", model->name, counter );
+				if( counter > 0 )
+				{
+					LogPrintf( "WARNING: Model name \"%s\" is repeated %i times.", model->name, counter );
 
-				hasduplicates = true;
+					hasduplicates = true;
+				}
 			}
 		}
 	}
 
 	if( protected )
-		printf( "WARNING: Gived name to %i protected bodypart(s).\n", protected );
+		LogPrintf( "WARNING: Gived name to %i protected bodypart%s.", protected, protected > 1 ? "s" : "" );
 
 	if( protected_models )
-		printf( "WARNING: Gived name to %i protected model(s).\n", protected_models );
+		LogPrintf( "WARNING: Gived name to %i protected model%s.", protected_models, protected_models > 1 ? "s" : "" );
 
 	if( hasduplicates )
-		puts( "WARNING: Added numeric suffix to repeated bodypart name(s)." );
+		LogPutS( "WARNING: Added numeric suffix to repeated bodypart name(s)." );
 }
 
 /*
@@ -209,18 +218,14 @@ static void SequenceNameFix( void )
 	{
 		ExtractFileName( seqdesc->label, sizeof( seqdesc->label ));
 		COM_StripExtension( seqdesc->label );
+		if( !IsValidName( seqdesc->label ))
+			Q_snprintf( seqdesc->label, sizeof( seqdesc->label ), "MDLDEC_Sequence%i", ++protected );
 	}
 
 	seqdesc -= i;
 
 	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
-		if( !IsValidName( seqdesc->label ))
-		{
-			Q_snprintf( seqdesc->label, sizeof( seqdesc->label ), "MDLDEC_Sequence%i", ++protected );
-			continue;
-		}
-
 		counter = 0;
 
 		seqdesc1 = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
@@ -238,17 +243,17 @@ static void SequenceNameFix( void )
 
 		if( counter > 0 )
 		{
-			printf( "WARNING: Sequence name \"%s\" is repeated %i times.\n", seqdesc->label, counter );
+			LogPrintf( "WARNING: Sequence name \"%s\" is repeated %i times.", seqdesc->label, counter );
 
 			hasduplicates = true;
 		}
 	}
 
 	if( protected )
-		printf( "WARNING: Gived name to %i protected sequence(s).\n", protected );
+		LogPrintf( "WARNING: Gived name to %i protected sequence%s.", protected, protected > 1 ? "s" : "" );
 
 	if( hasduplicates )
-		puts( "WARNING: Added numeric suffix to repeated sequence name(s)." );
+		LogPutS( "WARNING: Added numeric suffix to repeated sequence name(s)." );
 }
 
 /*
@@ -270,7 +275,7 @@ static void BoneNameFix( void )
 	}
 
 	if( protected )
-		printf( "WARNING: Gived name to %i protected bone(s).\n", protected );
+		LogPrintf( "WARNING: Gived name to %i protected bone%s.", protected, protected > 1 ? "s" : "" );
 }
 
 /*
@@ -289,13 +294,13 @@ static qboolean LoadMDL( const char *modelname )
 	const char	 id_mdlhdr[] = {'I', 'D', 'S', 'T'};
 	const char	 id_seqhdr[] = {'I', 'D', 'S', 'Q'};
 
-	printf( "MDL: %s\n", modelname );
+	LogPrintf( "MDL: %s.", modelname );
 
 	len = Q_strlen( modelname );
 
 	if( len > MAX_SYSPATH - 3 )
 	{
-		fputs( "ERROR: Source path is too long.\n", stderr );
+		LogPutS( "ERROR: Source path is too long.");
 		return false;
 	}
 
@@ -303,13 +308,13 @@ static qboolean LoadMDL( const char *modelname )
 
 	if( !ext )
 	{
-		fprintf( stderr, "ERROR: Source file does not have extension.\n" );
+		LogPutS( "ERROR: Source file does not have extension." );
 		return false;
 	}
 
 	if( Q_stricmp( ext, "mdl" ) )
 	{
-		fprintf( stderr, "ERROR: Only .mdl-files is supported.\n" );
+		LogPutS( "ERROR: Only .mdl-files is supported." );
 		return false;
 	}
 
@@ -317,35 +322,47 @@ static qboolean LoadMDL( const char *modelname )
 
 	if( !model_hdr )
 	{
-		fprintf( stderr, "ERROR: Can't open %s\n", modelname );
+		LogPrintf( "ERROR: Can't open %s.", modelname );
 		return false;
 	}
 
-	if( filesize < sizeof( studiohdr_t ) || filesize != model_hdr->length )
+	if( filesize < sizeof( studiohdr_t ))
 	{
-		fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", modelname );
+		LogPrintf( "ERROR: Wrong file size! File %s may be corrupted!", modelname );
 		return false;
+	}
+
+	if( filesize != model_hdr->length )
+	{
+		// Some bad studio model compiler don't write file length
+		if( globalsettings & SETTINGS_NOVALIDATION )
+			LogPrintf( "WARNING: Wrong file size! File %s may be corrupted!", modelname );
+		else
+		{
+			LogPrintf( "ERROR: Wrong file size! File %s may be corrupted!", modelname );
+			return false;
+		}
 	}
 
 	if( memcmp( &model_hdr->ident, id_mdlhdr, sizeof( id_mdlhdr ) ) )
 	{
 		if( !memcmp( &model_hdr->ident, id_seqhdr, sizeof( id_seqhdr ) ) )
-			fprintf( stderr, "ERROR: %s is not a main HL model file.\n", modelname );
+			LogPrintf( "ERROR: %s is not a main HL model file.", modelname );
 		else
-			fprintf( stderr, "ERROR: %s is not a valid HL model file.\n", modelname );
+			LogPrintf( "ERROR: %s is not a valid HL model file.", modelname );
 
 		return false;
 	}
 
 	if( model_hdr->version != STUDIO_VERSION )
 	{
-		fprintf( stderr, "ERROR: %s has unknown Studio MDL format version %d.\n", modelname, model_hdr->version );
+		LogPrintf( "ERROR: %s has unknown Studio MDL format version %d.", modelname, model_hdr->version );
 		return false;
 	}
 
 	if( !model_hdr->numbodyparts )
 	{
-		fprintf( stderr, "ERROR: %s is not a main HL model file.\n", modelname );
+		LogPrintf( "ERROR: %s is not a main HL model file.", modelname );
 		return false;
 	}
 
@@ -380,21 +397,33 @@ static qboolean LoadMDL( const char *modelname )
 			if( !texture_hdr )
 #endif
 			{
-				fprintf( stderr, "ERROR: Can't open external textures file %s\n", texturename );
+				LogPrintf( "ERROR: Can't open external textures file %s.", texturename );
 				return false;
 			}
 		}
 
-		if( filesize < sizeof( studiohdr_t ) || filesize != texture_hdr->length )
+		if( filesize < sizeof( studiohdr_t ) )
 		{
-			fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", texturename );
+			LogPrintf( "ERROR: Wrong file size! File %s may be corrupted!", texturename );
 			return false;
+		}
+
+		if( filesize != texture_hdr->length )
+		{
+			// Some bad studio model compiler don't write file length
+			if( globalsettings & SETTINGS_NOVALIDATION )
+				LogPrintf( "WARNING: Wrong file size! File %s may be corrupted!", texturename );
+			else
+			{
+				LogPrintf( "ERROR: Wrong file size! File %s may be corrupted!", texturename );
+				return false;
+			}
 		}
 
 		if( memcmp( &texture_hdr->ident, id_mdlhdr, sizeof( id_mdlhdr ) )
 		    || !texture_hdr->numtextures )
 		{
-			fprintf( stderr, "ERROR: %s is not a valid external textures file.\n", texturename );
+			LogPrintf( "ERROR: %s is not a valid external textures file.", texturename );
 			return false;
 		}
 	}
@@ -405,7 +434,7 @@ static qboolean LoadMDL( const char *modelname )
 
 	if( !anim_hdr )
 	{
-		fputs( "ERROR: Couldn't allocate memory for sequences.\n", stderr );
+		LogPutS( "ERROR: Couldn't allocate memory for sequences." );
 		return false;
 	}
 
@@ -423,19 +452,31 @@ static qboolean LoadMDL( const char *modelname )
 
 			if( !anim_hdr[i] )
 			{
-				fprintf( stderr, "ERROR: Can't open sequence file %s\n", seqgroupname );
+				LogPrintf( "ERROR: Can't open sequence file %s.", seqgroupname );
 				return false;
 			}
 
-			if( filesize < sizeof( studiohdr_t ) || filesize != anim_hdr[i]->length )
+			if( filesize < sizeof( studiohdr_t ))
 			{
-				fprintf( stderr, "ERROR: Wrong file size! File %s may be corrupted!\n", seqgroupname );
+				LogPrintf( "ERROR: Wrong file size! File %s may be corrupted!", seqgroupname );
 				return false;
+			}
+
+			if( filesize != anim_hdr[i]->length )
+			{
+				// Some bad studio model compiler don't write file length
+				if( globalsettings & SETTINGS_NOVALIDATION )
+					LogPrintf( "WARNING: Wrong file size! File %s may be corrupted!", seqgroupname );
+				else
+				{
+					LogPrintf( "ERROR: Wrong file size! File %s may be corrupted!", seqgroupname );
+					return false;
+				}
 			}
 
 			if( memcmp( &anim_hdr[i]->ident, id_seqhdr, sizeof( id_seqhdr ) ) )
 			{
-				fprintf( stderr, "ERROR: %s is not a valid sequence file.\n", seqgroupname );
+				LogPrintf( "ERROR: %s is not a valid sequence file.", seqgroupname );
 				return false;
 			}
 		}
@@ -446,12 +487,12 @@ static qboolean LoadMDL( const char *modelname )
 	// Some validation checks was found in mdldec-golang by Psycrow101
 	if( model_hdr->numhitboxes > model_hdr->numbones * ( MAXSTUDIOSRCBONES / MAXSTUDIOBONES ))
 	{
-		printf( "WARNING: Invalid hitboxes number %d.\n", model_hdr->numhitboxes );
+		LogPrintf( "WARNING: Invalid hitboxes number %d.", model_hdr->numhitboxes );
 		model_hdr->numhitboxes = 0;
 	}
 	else if( model_hdr->hitboxindex + model_hdr->numhitboxes * ( sizeof( mstudiobbox_t ) + sizeof( mstudiohitboxset_t )) > model_hdr->length )
 	{
-		printf( "WARNING: Invalid hitboxes offset %d.\n", model_hdr->hitboxindex );
+		LogPrintf( "WARNING: Invalid hitboxes offset %d.", model_hdr->hitboxindex );
 		model_hdr->numhitboxes = 0;
 	}
 
@@ -468,22 +509,71 @@ static qboolean LoadMDL( const char *modelname )
 
 /*
 ============
+ShowVersion
+============
+*/
+static void ShowVersion( void )
+{
+	LogPutS( "\nHalf-Life Studio Model Decompiler " APP_VERSION );
+	LogPutS( "Copyright Flying With Gauss 2020-2025 (c) " );
+	LogPutS( "--------------------------------------------------" );
+}
+
+/*
+============
 ShowHelp
 ============
 */
 static void ShowHelp( const char *app_name )
 {
-	printf( "usage: %s source_file\n", app_name );
-	printf( "       %s source_file target_directory\n", app_name );
+	LogPrintf( "usage: %s [-ahlmtuVv] <source_file>", app_name );
+	LogPrintf( "       %s [-ahlmtuVv] <source_file> <target_directory>", app_name );
+	LogPutS( "\nnote:" );
+	LogPutS( "\tby default this decompiler aimed to support extended MDL10 format from XashXT/PrimeXT/Paranoia2." );
+	LogPutS( "\tif you use an old GoldSource studio model compiler you may be need to edit .qc-file after decompilation." );
+	LogPutS( "\noptions:" );
+	LogPutS( "\t-a\tplace files with animations to separate directory." );
+	LogPutS( "\t-l\tdo not output logs." );
+	LogPutS( "\t-m\tuse GoldSource-compatible motion types." );
+	LogPutS( "\t-t\tplace texture files to separate directory." );
+	LogPutS( "\t-u\tenable UV coords shifting for DoomMusic's and Sven-Coop's studio model compilers." );
+	LogPutS( "\t-V\tignore some validation checks for broken models." );
+	LogPutS( "\t-v\tshow version." );
+	LogPutS( "\t-h\tthis message." );
 }
 
 int main( int argc, char *argv[] )
 {
-	int ret = 0;
+	int opt, ret = 0 ;
 
-	puts( "\nHalf-Life Studio Model Decompiler " APP_VERSION );
-	puts( "Copyright Flying With Gauss 2020 (c) " );
-	puts( "--------------------------------------------------" );
+	while( ( opt = getopt( argc, argv, "ahlmtuVv" )) != -1 )
+	{
+		switch( opt )
+		{
+		case 'a': globalsettings |= SETTINGS_SEPARATEANIMSFOLDER; break;
+		case 't': globalsettings |= SETTINGS_SEPARATETEXTURESFOLDER; break;
+		case 'l': globalsettings |= SETTINGS_NOLOGS; break;
+		case 'm': globalsettings |= SETTINGS_LEGACYMOTION; break;
+		case 'u': globalsettings |= SETTINGS_UVSHIFTING; break;
+		case 'V': globalsettings |= SETTINGS_NOVALIDATION; break;
+		case 'h':
+		case '?':
+			globalsettings = 0;
+			ShowVersion();
+			ShowHelp( argv[0] );
+			ret = 2;
+			goto end;
+		case 'v':
+			globalsettings = 0;
+			ShowVersion();
+			ret = 2;
+			goto end;
+		}
+	}
+
+	ShowVersion();
+
+	argc -= (optind - 1);
 
 	if( argc == 1 )
 	{
@@ -493,17 +583,17 @@ int main( int argc, char *argv[] )
 	}
 	else if( argc == 3 )
 	{
-		if( Q_strlen( argv[2] ) > MAX_SYSPATH - 2 )
+		if( Q_strlen( argv[optind + 1] ) > MAX_SYSPATH - 2 )
 		{
-			fputs( "ERROR: Destination path is too long.\n", stderr );
+			LogPutS( "ERROR: Destination path is too long.");
 			ret = 1;
 			goto end;
 		}
 
-		Q_strncpy( destdir, argv[2], sizeof( destdir ));
+		Q_strncpy( destdir, argv[optind + 1], sizeof( destdir ));
 	}
 
-	if( !LoadActivityList( argv[0] ) || !LoadMDL( argv[1] ) )
+	if( !(LoadActivityList( argv[0] ) && LoadMDL( argv[optind] )))
 	{
 		ret = 1;
 		goto end;
@@ -513,10 +603,10 @@ int main( int argc, char *argv[] )
 	WriteSMD();
 	WriteTextures();
 
-	puts( "Done." );
+	LogPutS( "Done." );
 
 end:
-	puts( "--------------------------------------------------" );
+	LogPutS( "--------------------------------------------------" );
 
 	return ret;
 }

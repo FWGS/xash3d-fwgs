@@ -46,30 +46,10 @@ file_n:	byte[dwadinfo_t[num]->disksize]
 infotable	dlumpinfo_t[dwadinfo_t->numlumps]
 ========================================================================
 */
-#define WAD3_NAMELEN	16
 #define HINT_NAMELEN	5	// e.g. _mask, _norm
 #define MAX_FILES_IN_WAD	65535	// real limit as above <2Gb size not a lumpcount
 
 #include "const.h"
-
-typedef struct
-{
-	int		ident;		// should be WAD3
-	int		numlumps;		// num files
-	int		infotableofs;	// LUT offset
-} dwadinfo_t;
-
-typedef struct
-{
-	int		filepos;		// file offset in WAD
-	int		disksize;		// compressed or uncompressed
-	int		size;		// uncompressed
-	signed char	type;		// TYP_*
-	signed char	attribs;		// file attribs
-	signed char	pad0;
-	signed char	pad1;
-	char		name[WAD3_NAMELEN];	// must be null terminated
-} dlumpinfo_t;
 
 struct wfile_s
 {

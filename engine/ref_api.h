@@ -57,7 +57,8 @@ GNU General Public License for more details.
 //    CL_RunLightStyles now accepts lightstyles array.
 //    Removed R_DrawTileClear and Mod_LoadMapSprite, as they're implemented on engine side
 //    Removed FillRGBABlend. Now FillRGBA accepts rendermode parameter.
-#define REF_API_VERSION 9
+// 10. Added R_GetWindowHandle to retrieve platform-specific window object.
+#define REF_API_VERSION 10
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -102,6 +103,16 @@ typedef enum
 	DEMO_XASH3D,
 	DEMO_QUAKE1
 } demo_mode;
+
+typedef enum ref_window_type_e
+{
+	REF_WINDOW_TYPE_NULL = 0,
+	REF_WINDOW_TYPE_WIN32, // HWND
+	REF_WINDOW_TYPE_X11, // Display*
+	REF_WINDOW_TYPE_WAYLAND, // wl_display*
+	REF_WINDOW_TYPE_MACOS, // NSWindow*
+	REF_WINDOW_TYPE_SDL, // SDL_Window*
+} ref_window_type_t;
 
 typedef struct
 {
@@ -467,6 +478,9 @@ typedef struct ref_api_s
 
 	// filesystem exports
 	fs_api_t	*fsapi;
+
+	// for abstracting the engine's rendering
+	ref_window_type_t (*R_GetWindowHandle)( void **handle, ref_window_type_t type );
 } ref_api_t;
 
 struct mip_s;
@@ -657,7 +671,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define ENGINE_SHARED_CVAR( f, x ) ENGINE_SHARED_CVAR_NAME( f, x, x )
 
 // cvars that's logic is shared between renderer and engine
-// actually, they are just created on engine side for convinience
+// actually, they are just created on engine side for convenience
 // and must be retrieved by renderer side
 // sometimes it's done to standartize cvars to make it easier for users
 #define ENGINE_SHARED_CVAR_LIST( f ) \
@@ -687,6 +701,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 	ENGINE_SHARED_CVAR( f, r_drawviewmodel ) \
 	ENGINE_SHARED_CVAR( f, r_glowshellfreq ) \
 	ENGINE_SHARED_CVAR( f, host_allow_materials ) \
+	ENGINE_SHARED_CVAR( f, r_pvs_radius ) \
 
 #define DECLARE_ENGINE_SHARED_CVAR_LIST() \
 	ENGINE_SHARED_CVAR_LIST( DECLARE_ENGINE_SHARED_CVAR )

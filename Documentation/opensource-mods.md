@@ -32,6 +32,9 @@ Version 1.9 mirrored on github - https://github.com/solidi/hl-mods/tree/master/c
 ## Cold Ice Ressurection
 Mirrored on github - https://github.com/solidi/hl-mods/tree/master/cir
 
+## Counter-Life
+Available on ModDB - https://www.moddb.com/mods/counter-life/downloads/cl-version-1-source-code
+
 ## Cthulhu
 Uploaded to github by Oleg Cherkasky - https://github.com/gunrunners-paradise/Cthulhu-HLmod-SDK
 
@@ -124,6 +127,11 @@ Mirrored on github - https://github.com/nekonomicon/HeartOfEvil
 ## Ingram Chillin' Mod
 Official SourceForge repository - https://sourceforge.net/projects/icm-hl/
 
+## Master Sword
+Official github repository of Master Sword Classic - https://github.com/BerntA/MasterSwordClassic
+
+Official github repository of Master Sword Rebirth - https://github.com/MSRevive/MasterSwordRebirth
+
 ## MechMod
 Official github repository - https://github.com/vermagav/mechmod
 
@@ -202,7 +210,7 @@ Branch **redempt** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tr
 OpenAG by YaLTeR - https://github.com/YaLTeR/OpenAG
 
 ## Afraid of Monsters
-malortie's recreation - https://github.com/malortie/hl-aom
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-aom
 
 Branch **aom** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/aom
 
@@ -210,17 +218,17 @@ Branch **aom** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/a
 Reverse-engineered code: branch **aomdc** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/aomdc
 
 ## Azure Sheep
-malortie's recreation - https://github.com/malortie/hl-asheep
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-asheep
 
 Reverse-engineered code: branch **asheep** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/asheep
 
 ## Big Lolly
-malortie's recreation - https://github.com/malortie/hl-biglolly
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-biglolly
 
 Branch **biglolly** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/biglolly
 
 ## Black Ops
-malortie's recreation - https://github.com/malortie/hl-blackops
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-blackops
 
 Branch **blackops** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/blackops
 
@@ -243,13 +251,16 @@ Reverse-engineered code of server part by s1lentq - https://github.com/s1lentq/R
 ## Counter Strike Online
 CSO-like Xash3D-based mod, CSMoE - https://github.com/MoeMod/CSMoE
 
+## Crack-Life
+Reverse-engineered code: branch **cracklife** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/cracklife
+
 ## Crack-Life: Campaign Mode
 Recreation by lostgamer aka nillerusr - https://github.com/LostGamerHL/crack_life
 
 Reverse-engineered code: branch **clcampaign** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/clcampaign
 
 ## Escape from the Darkness
-malortie's recreation - https://github.com/malortie/hl-eftd
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-eftd
 
 Reverse-engineered code: branch **eftd** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/eftd
 
@@ -280,7 +291,7 @@ Reverse-engineered code: branch **rebellion** in hlsdk-portable - https://github
 Branch **hl_urbicide** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/hl_urbicide
 
 ## Half-Life: Visitors
-malortie's recreation - https://github.com/malortie/hl-visitors
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-visitors
 
 Reverse-engineered code: branch **visitors** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/visitors
 
@@ -288,17 +299,17 @@ Reverse-engineered code: branch **visitors** in hlsdk-portable - https://github.
 Branch **half-secret** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/half-secret
 
 ## Night at the Office
-malortie's recreation - https://github.com/malortie/hl-nato
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-nato
 
 Branch **noffice** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/noffice
 
 ## Poke 646
-malortie's recreation - https://github.com/malortie/hl-poke646
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-poke646
 
 Reverse-engineered code: branch **poke646** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/poke646
 
 ## Poke 646: Vendetta
-malortie's recreation - https://github.com/malortie/hl-poke646-vendetta
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-poke646-vendetta
 
 Reverse-engineered code: branch **poke646_vendetta** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/poke646_vendetta
 
@@ -315,19 +326,19 @@ Branch **sewer_beta** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable
 Reverse-engineered code by Velaron - https://github.com/Velaron/tf15-client
 
 ## The Gate
-malortie's recreation - https://github.com/malortie/hl-thegate
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-thegate
 
 Reverse-engineered code: branch **thegate** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/thegate
 
 ## They Hunger
-malortie's recreation - https://github.com/malortie/hl-theyhunger
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-theyhunger
 
 Reverse-engineered code: branch **theyhunger** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/theyhunger
 
 They Hunger: Tactical - https://www.moddb.com/mods/they-hunger-tactical/downloads/tht-source-code-documentation
 
 ## Times of Troubles
-malortie's recreation - https://github.com/malortie/hl-tot
+malortie's recreation - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-tot
 
 Branch **tot** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/tot
 
@@ -349,7 +360,7 @@ Branch **dmc** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/d
 Branch **echoes** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/echoes
 
 ## Half-Life: Invasion
-Port to HLSDK 2.4 by malortie - https://github.com/malortie/hl-invasion
+Port to HLSDK 2.4 by malortie - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-invasion
 
 Port to Linux by fmoraw - https://github.com/fmoraw/hlinvasion
 
@@ -368,7 +379,7 @@ Port to Linux - https://github.com/fmoraw/NS
 Version 1.2: branch **sohl1.2** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/sohl1.2
 
 ## Swiss Cheese Halloween 2002
-Just more playable version by malortie - https://github.com/malortie/hl-shall
+Just more playable version by malortie - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-shall
 
 Branch **halloween** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/halloween
 

@@ -18,6 +18,4 @@ GNU General Public License for more details.
 #include <WS2tcpip.h>
 typedef int WSAsize_t;
 
-#define HAVE_GETADDRINFO
-
 #endif // NET_H

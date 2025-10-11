@@ -241,7 +241,7 @@ qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
 
 	// well, try it.  Flying and swimming monsters are easiest.
-	if( ent->v.flags & ( FL_SWIM|FL_FLY ))
+	if( FBitSet( ent->v.flags, FL_SWIM|FL_FLY ))
 	{
 		// try one move with vertical motion, then one without
 		for( i = 0; i < 2; i++ )
@@ -265,7 +265,7 @@ qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 
 				// that move takes us out of the water.
 				// apparently though, it's okay to travel into solids, lava, sky, etc :)
-				if(( ent->v.flags & FL_SWIM ) && SV_PointContents( trace.endpos ) == CONTENTS_EMPTY )
+				if( FBitSet( ent->v.flags, FL_SWIM ) && SV_PointContents( trace.endpos ) == CONTENTS_EMPTY )
 					return 0;
 
 				VectorCopy( trace.endpos, ent->v.origin );
@@ -303,11 +303,11 @@ qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 
 		if( trace.fraction == 1.0f )
 		{
-			if( ent->v.flags & FL_PARTIALGROUND )
+			if( FBitSet( ent->v.flags, FL_PARTIALGROUND ))
 			{
 				VectorAdd( ent->v.origin, move, ent->v.origin );
 				if( relink ) SV_LinkEdict( ent, true );
-				ent->v.flags &= ~FL_ONGROUND;
+				ClearBits( ent->v.flags, FL_ONGROUND );
 				return 1;
 			}
 			return 0;
@@ -318,7 +318,7 @@ qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 
 			if( SV_CheckBottom( ent, WALKMOVE_NORMAL ) == 0 )
 			{
-				if( ent->v.flags & FL_PARTIALGROUND )
+				if( FBitSet( ent->v.flags, FL_PARTIALGROUND ))
 				{
 					if( relink ) SV_LinkEdict( ent, true );
 					return 1;
@@ -329,7 +329,7 @@ qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 			}
 			else
 			{
-				ent->v.flags &= ~FL_PARTIALGROUND;
+				ClearBits( ent->v.flags, FL_PARTIALGROUND );
 				ent->v.groundentity = trace.ent;
 				if( relink ) SV_LinkEdict( ent, true );
 

@@ -14,9 +14,6 @@ GNU General Public License for more details.
 */
 
 #include "soundlib.h"
-#if XASH_SDL
-#include <SDL_audio.h>
-#endif // XASH_SDL
 
 // global sound variables
 sndlib_t	sound;
@@ -31,19 +28,15 @@ sndlib_t	sound;
 static const loadwavfmt_t load_game[] =
 {
 #ifndef XASH_DEDICATED
-{ DEFAULT_SOUNDPATH "%s%s.%s", "wav", Sound_LoadWAV },
-{ "%s%s.%s", "wav", Sound_LoadWAV },
-{ DEFAULT_SOUNDPATH "%s%s.%s", "mp3", Sound_LoadMPG },
-{ "%s%s.%s", "mp3", Sound_LoadMPG },
-{ DEFAULT_SOUNDPATH "%s%s.%s", "ogg", Sound_LoadOggVorbis },
-{ "%s%s.%s", "ogg", Sound_LoadOggVorbis },
-{ DEFAULT_SOUNDPATH "%s%s.%s", "opus", Sound_LoadOggOpus },
-{ "%s%s.%s", "opus", Sound_LoadOggOpus },
+{ "wav", Sound_LoadWAV },
+{ "mp3", Sound_LoadMPG },
+{ "ogg", Sound_LoadOggVorbis },
+{ "opus", Sound_LoadOggOpus },
 #else // we only need extensions
-{ NULL, "wav" },
-{ NULL, "mp3" },
-{ NULL, "ogg" },
-{ NULL, "opus" },
+{ "wav" },
+{ "mp3" },
+{ "ogg" },
+{ "opus" },
 #endif
 { NULL },
 };
@@ -58,15 +51,15 @@ static const loadwavfmt_t load_game[] =
 static const streamfmt_t stream_game[] =
 {
 #ifndef XASH_DEDICATED
-{ "%s%s.%s", "mp3", Stream_OpenMPG, Stream_ReadMPG, Stream_SetPosMPG, Stream_GetPosMPG, Stream_FreeMPG },
-{ "%s%s.%s", "wav", Stream_OpenWAV, Stream_ReadWAV, Stream_SetPosWAV, Stream_GetPosWAV, Stream_FreeWAV },
-{ "%s%s.%s", "ogg", Stream_OpenOggVorbis, Stream_ReadOggVorbis, Stream_SetPosOggVorbis, Stream_GetPosOggVorbis, Stream_FreeOggVorbis },
-{ "%s%s.%s", "opus", Stream_OpenOggOpus, Stream_ReadOggOpus, Stream_SetPosOggOpus, Stream_GetPosOggOpus, Stream_FreeOggOpus },
+{ "mp3", Stream_OpenMPG, Stream_ReadMPG, Stream_SetPosMPG, Stream_GetPosMPG, Stream_FreeMPG },
+{ "wav", Stream_OpenWAV, Stream_ReadWAV, Stream_SetPosWAV, Stream_GetPosWAV, Stream_FreeWAV },
+{ "ogg", Stream_OpenOggVorbis, Stream_ReadOggVorbis, Stream_SetPosOggVorbis, Stream_GetPosOggVorbis, Stream_FreeOggVorbis },
+{ "opus", Stream_OpenOggOpus, Stream_ReadOggOpus, Stream_SetPosOggOpus, Stream_GetPosOggOpus, Stream_FreeOggOpus },
 #else // we only need extensions
-{ NULL, "mp3" },
-{ NULL, "wav" },
-{ NULL, "ogg" },
-{ NULL, "opus" },
+{ "mp3" },
+{ "wav" },
+{ "ogg" },
+{ "opus" },
 #endif
 { NULL },
 };
@@ -388,31 +381,6 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth
 	if( FBitSet( sc->flags, SOUND_LOOPED ))
 		sc->loopStart = sc->loopStart / stepscale;
 
-#if 0 && XASH_SDL // slow but somewhat accurate (wasn't updated to channel manipulation!!!)
-	{
-		const SDL_AudioFormat infmt  = inwidth  == 1 ? AUDIO_S8 : AUDIO_S16;
-		const SDL_AudioFormat outfmt = outwidth == 1 ? AUDIO_S8 : AUDIO_S16;
-		SDL_AudioCVT cvt;
-
-		// SDL_AudioCVT does conversion in place, original buffer is used for it
-		if( SDL_BuildAudioCVT( &cvt, infmt, inchannels, inrate, outfmt, outchannels, outrate ) > 0 && cvt.needed )
-		{
-			sc->buffer = (byte *)Mem_Realloc( host.soundpool, sc->buffer, oldsize * cvt.len_mult );
-			cvt.len = oldsize;
-			cvt.buf = sc->buffer;
-
-			if( !SDL_ConvertAudio( &cvt ))
-			{
-				t2 = Sys_DoubleTime();
-				Con_Reportf( "Sound_Resample: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs through SDL)\n", inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
-				sc->rate = outrate;
-				sc->width = outwidth;
-				return false; // HACKHACK: return false so Sound_Process won't reallocate buffer
-			}
-		}
-	}
-#endif
-
 	sound.tempbuffer = (byte *)Mem_Realloc( host.soundpool, sound.tempbuffer, sc->size );
 
 	if( inrate == outrate ) // no resampling, just copy data
@@ -481,7 +449,7 @@ qboolean Sound_SupportedFileFormat( const char *fileext )
 	const loadwavfmt_t *format;
 	if( COM_CheckStringEmpty( fileext ))
 	{
-		for( format = sound.loadformats; format && format->formatstring; format++ )
+		for( format = sound.loadformats; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( format->ext, fileext ))
 				return true;

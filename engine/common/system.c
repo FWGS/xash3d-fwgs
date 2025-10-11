@@ -1,5 +1,5 @@
 /*
-sys_win.c - platform dependent code
+sys_win.c - platform dependent code (which haven't moved to platform dir yet)
 Copyright (C) 2011 Uncle Mike
 
 This program is free software: you can redistribute it and/or modify
@@ -23,8 +23,10 @@ GNU General Public License for more details.
 #include <intrin.h>
 #endif
 
-#ifdef XASH_SDL
+#if XASH_SDL == 2
 #include <SDL.h>
+#elif XASH_SDL == 3
+#include <SDL3/SDL.h>
 #endif
 
 #if XASH_POSIX
@@ -72,17 +74,16 @@ Sys_DebugBreak
 */
 void Sys_DebugBreak( void )
 {
-#if XASH_SDL
-	int was_grabbed = host.hWnd != NULL && SDL_GetWindowGrab( host.hWnd );
-#endif
+	qboolean was_grabbed = false;
 
 	if( !Sys_DebuggerPresent( ))
 		return;
 
-#if XASH_SDL
-	if( was_grabbed ) // so annoying...
-		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
-#endif // XASH_SDL
+	if( host.hWnd ) // so annoying
+	{
+		was_grabbed = Platform_GetMouseGrab();
+		Platform_SetMouseGrab( false );
+	}
 
 #if _MSC_VER
 	__debugbreak();
@@ -91,10 +92,8 @@ void Sys_DebugBreak( void )
 	INLINE_NANOSLEEP1(); // sometimes signal comes with delay, let it interrupt nanosleep
 #endif // !_MSC_VER
 
-#if XASH_SDL
 	if( was_grabbed )
-		SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
-#endif
+		Platform_SetMouseGrab( true );
 }
 
 #if !XASH_DEDICATED
@@ -126,23 +125,34 @@ returns username for current profile
 */
 const char *Sys_GetCurrentUser( void )
 {
+	// TODO: move to platform
 #if XASH_WIN32
-	static string	s_userName;
-	unsigned long size = sizeof( s_userName );
+	static wchar_t sw_userName[MAX_STRING];
+	DWORD size = ARRAYSIZE( sw_userName );
 
-	if( GetUserName( s_userName, &size ))
+	if( GetUserNameW( sw_userName, &size ) && sw_userName[0] != 0 )
+	{
+		static char s_userName[MAX_STRING * 4];
+
+		// set length to -1, so it will null terminate
+		WideCharToMultiByte( CP_UTF8, 0, sw_userName, -1, s_userName, sizeof( s_userName ), NULL, NULL );
 		return s_userName;
+	}
 #elif XASH_PSVITA
 	static string username;
 	sceAppUtilSystemParamGetString( SCE_SYSTEM_PARAM_ID_USERNAME, username, sizeof( username ) - 1 );
 	if( COM_CheckStringEmpty( username ))
 		return username;
 #elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
-	uid_t uid = geteuid();
-	struct passwd *pw = getpwuid( uid );
+	static string username;
+	struct passwd *pw = getpwuid( geteuid( ));
 
-	if( pw )
-		return pw->pw_name;
+	// POSIX standard says pw _might_ point to static area, so let's make a copy
+	if( pw && COM_CheckString( pw->pw_name ))
+	{
+		Q_strncpy( username, pw->pw_name, sizeof( username ));
+		return username;
+	}
 #endif
 	return "Player";
 }
@@ -393,7 +403,7 @@ void Sys_Error( const char *error, ... )
 
 	if( !Host_IsDedicated() )
 	{
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 		if( host.hWnd ) SDL_HideWindow( host.hWnd );
 #endif
 #if XASH_WIN32
@@ -415,27 +425,6 @@ void Sys_Error( const char *error, ... )
 	Sys_Quit( "caught an error" );
 }
 
-#if XASH_EMSCRIPTEN
-/* strange glitchy bug on emscripten
-_exit->_Exit->asm._exit->_exit
-As we do not need atexit(), just throw hidden exception
-*/
-
-// Hey, you, making an Emscripten port!
-// What if we're not supposed to use exit() on Emscripten and instead we should
-// exit from the main() function? Would this fix this bug? Test this case, pls.
-#error "Read the comment above"
-
-#include <emscripten.h>
-#define exit my_exit
-void my_exit(int ret)
-{
-	emscripten_cancel_main_loop();
-	printf("exit(%d)\n", ret);
-	EM_ASM(if(showElement)showElement('reload', true);throw 'SimulateInfiniteLoop');
-}
-#endif
-
 /*
 ================
 Sys_Quit
@@ -444,11 +433,7 @@ Sys_Quit
 void Sys_Quit( const char *reason )
 {
 	Host_ShutdownWithReason( reason );
-#if XASH_ANDROID
 	Host_ExitInMain();
-#else
-	exit( error_on_exit );
-#endif
 }
 
 /*

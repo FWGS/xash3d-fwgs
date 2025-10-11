@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "ipv6text.h"
 #include "net_ws_private.h"
+#include "server.h" // sv_cheats
 
 #if XASH_SDL == 2
 #include <SDL_thread.h>
@@ -121,7 +122,7 @@ static CVAR_DEFINE_AUTO( net_resolve_debug, "0", FCVAR_PRIVILEGED, "print resolv
 CVAR_DEFINE( net_clockwindow, "clockwindow", "0.5", FCVAR_PRIVILEGED, "timewindow to execute client moves" );
 
 netadr_t			net_local;
-netadr_t			net6_local;
+static netadr_t		net6_local;
 
 // cvars equivalents for IPv6
 static CVAR_DEFINE( net_ip6name, "ip6", "localhost", FCVAR_PRIVILEGED, "network ip6 address" );
@@ -236,7 +237,6 @@ NET_GetHostByName
 */
 static qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_storage *addr )
 {
-#if defined HAVE_GETADDRINFO
 	struct addrinfo *ai = NULL, *cur;
 	struct addrinfo hints;
 	qboolean ret = false;
@@ -266,29 +266,8 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 	}
 
 	return ret;
-#else
-	struct hostent *h;
-
-#if XASH_NO_IPV6_RESOLVE
-	if( family == AF_INET6 )
-		return false;
-#endif
-
-	if(!( h = gethostbyname( hostname )))
-		return false;
-
-	((struct sockaddr_in *)addr)->sin_family = AF_INET;
-	((struct sockaddr_in *)addr)->sin_addr = *(struct in_addr *)h->h_addr_list[0];
-
-	return true;
-#endif
 }
 
-#if !XASH_EMSCRIPTEN && !XASH_DOS4GW && !defined XASH_NO_ASYNC_NS_RESOLVE
-#define CAN_ASYNC_NS_RESOLVE
-#endif // !XASH_EMSCRIPTEN && !XASH_DOS4GW && !defined XASH_NO_ASYNC_NS_RESOLVE
-
-#ifdef CAN_ASYNC_NS_RESOLVE
 static void NET_ResolveThread( void );
 
 #if XASH_SDL == 2
@@ -379,11 +358,7 @@ static void NET_ResolveThread( void )
 
 	RESOLVE_DBG( "[resolve thread] starting resolve for " );
 	RESOLVE_DBG( nsthread.hostname );
-#ifdef HAVE_GETADDRINFO
 	RESOLVE_DBG( " with getaddrinfo\n" );
-#else
-	RESOLVE_DBG( " with gethostbyname\n" );
-#endif
 
 	if(( res = NET_GetHostByName( nsthread.hostname, nsthread.family, &addr )))
 		RESOLVE_DBG( "[resolve thread] success\n" );
@@ -397,8 +372,6 @@ static void NET_ResolveThread( void )
 	mutex_unlock( nsthread.mutexres );
 	RESOLVE_DBG( "[resolve thread] exiting thread\n" );
 }
-#endif // CAN_ASYNC_NS_RESOLVE
-
 
 /*
 =============
@@ -456,7 +429,6 @@ net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sa
 	{
 		qboolean asyncfailed = true;
 
-#ifdef CAN_ASYNC_NS_RESOLVE
 		if( net.threads_initialized && nonblocking )
 		{
 			mutex_lock( nsthread.mutexres );
@@ -498,7 +470,6 @@ net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sa
 
 			mutex_unlock( nsthread.mutexres );
 		}
-#endif // CAN_ASYNC_NS_RESOLVE
 
 		if( asyncfailed )
 			ret = NET_GetHostByName( copy, family, &temp );
@@ -1139,7 +1110,7 @@ static void NET_AdjustLag( void )
 	dt = bound( 0.0, dt, 0.1 );
 	lasttime = host.realtime;
 
-	if( host_developer.value || !net_fakelag.value )
+	if(( host_developer.value && sv_cheats.value ) || !net_fakelag.value )
 	{
 		if( net_fakelag.value != net.fakelag )
 		{
@@ -1791,12 +1762,12 @@ static void NET_OpenIP( qboolean change_port, int *sockets, const char *net_ifac
 
 /*
 ================
-NET_GetLocalAddress
+NET_DetermineLocalAddress
 
 Returns the servers' ip address as a string.
 ================
 */
-static void NET_GetLocalAddress( void )
+static void NET_DetermineLocalAddress( void )
 {
 	char		hostname[512];
 	char		buff[512];
@@ -1910,7 +1881,7 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 		// get our local address, if possible
 		if( bFirst )
 		{
-			NET_GetLocalAddress();
+			NET_DetermineLocalAddress();
 			bFirst = false;
 		}
 	}
@@ -2008,6 +1979,32 @@ static void NET_ClearLagData( qboolean bClient, qboolean bServer )
 
 /*
 ====================
+NET_GetLocalAddress
+
+get local server addresses
+====================
+*/
+void NET_GetLocalAddress( netadr_t *ip4, netadr_t *ip6 )
+{
+	if( ip4 )
+	{
+		if( net.allow_ip )
+			*ip4 = net_local;
+		else
+			memset( ip4, 0, sizeof( *ip4 ));
+	}
+
+	if( ip6 )
+	{
+		if( net.allow_ip6 )
+			*ip6 = net6_local;
+		else
+			memset( ip6, 0, sizeof( *ip6 ));
+	}
+}
+
+/*
+====================
 NET_Init
 ====================
 */
@@ -2027,6 +2024,7 @@ void NET_Init( void )
 	Cvar_RegisterVariable( &net_fakelag );
 	Cvar_RegisterVariable( &net_fakeloss );
 	Cvar_RegisterVariable( &net_resolve_debug );
+	Cvar_RegisterVariable( &net_clockwindow );
 
 	Q_snprintf( cmd, sizeof( cmd ), "%i", PORT_SERVER );
 	Cvar_FullSet( "hostport", cmd, FCVAR_READ_ONLY );
@@ -2054,9 +2052,7 @@ void NET_Init( void )
 	}
 #endif
 
-#ifdef CAN_ASYNC_NS_RESOLVE
 	NET_InitializeCriticalSections();
-#endif
 
 	net.allow_ip = !Sys_CheckParm( "-noip" );
 	net.allow_ip6 = !Sys_CheckParm( "-noip6" );
@@ -2109,9 +2105,7 @@ void NET_Shutdown( void )
 
 	NET_Config( false, false );
 
-#ifdef CAN_ASYNC_NS_RESOLVE
 	NET_DeleteCriticalSections();
-#endif
 
 #if XASH_WIN32
 	WSACleanup();

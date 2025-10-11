@@ -527,9 +527,32 @@ static touch_button_t *Touch_FindFirst( touchbuttonlist_t *list, const char *nam
 	return Touch_FindNext( list->first, name, privileged );
 }
 
+static void Touch_DisableEdit_f( void )
+{
+	touch.state = state_none;
+	if( touch.edit )
+		touch.edit->finger = -1;
+	if( touch.selection )
+		touch.selection->finger = -1;
+	touch.edit = touch.selection = NULL;
+	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
+
+	if( touch_in_menu.value )
+		Cvar_DirectSet( &touch_in_menu, "0" );
+	else if( cls.key_dest == key_game )
+		Touch_WriteConfig();
+}
+
 void Touch_SetClientOnly( byte state )
 {
 	// TODO: fix clash with vgui cursors
+	if( touch.clientonly == state )
+		return;
+
+	// a1ba: the way client only touch buttons are used, they might come from
+	// client.dll, locking user in edit state, so disable it first
+	Touch_DisableEdit_f();
+
 	touch.clientonly = state;
 
 	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
@@ -761,7 +784,7 @@ static void Touch_SetCommand_f( void )
 	{
 		touch_button_t *button = Touch_FindButtonNoPattern( &touch.list_user, Cmd_Argv( 1 ), Cmd_CurrentCommandIsPrivileged( ));
 
-		if( !button )
+		if( button )
 			Touch_SetCommand( button, Cmd_Argv( 2 ) );
 		else
 			Con_Printf( S_ERROR "no such button" );
@@ -938,7 +961,7 @@ static void Touch_AddButton_f( void )
 	// to let imagelib choose better format
 	//
 	// Remove this when old engine migration would be done
-	if( Q_stricmp( COM_FileExtension( texture ), "tga" ))
+	if( !Q_stricmp( COM_FileExtension( texture ), "tga" ))
 		COM_StripExtension( texture );
 
 	if( Cmd_Argc( ) >= 8 )
@@ -1016,22 +1039,6 @@ static void Touch_EnableEdit_f( void )
 		}
 		touch.config_aspect_ratio = touch.actual_aspect_ratio;
 	}
-}
-
-static void Touch_DisableEdit_f( void )
-{
-	touch.state = state_none;
-	if( touch.edit )
-		touch.edit->finger = -1;
-	if( touch.selection )
-		touch.selection->finger = -1;
-	touch.edit = touch.selection = NULL;
-	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
-
-	if( touch_in_menu.value )
-		Cvar_DirectSet( &touch_in_menu, "0" );
-	else if( cls.key_dest == key_game )
-		Touch_WriteConfig();
 }
 
 static void Touch_DeleteProfile_f( void )
@@ -1179,14 +1186,6 @@ void Touch_Init( void )
 	// input devices cvar
 	Cvar_RegisterVariable( &touch_enable );
 	Cvar_RegisterVariable( &touch_emulate );
-
-	// TODO: touch platform
-#if SDL_VERSION_ATLEAST( 2, 0, 10 )
-	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
-	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
-#elif defined( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH )
-	SDL_SetHint( SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH, "1" );
-#endif
 
 	touch.initialized = true;
 }

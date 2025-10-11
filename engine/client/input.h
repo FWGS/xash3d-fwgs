@@ -46,6 +46,9 @@ uint IN_CollectInputDevices( void );
 void IN_LockInputDevices( qboolean lock );
 void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active );
 
+void IN_SetRelativeMouseMode( qboolean set );
+void IN_SetMouseGrab( qboolean set );
+
 extern convar_t m_yaw;
 extern convar_t m_pitch;
 //

@@ -175,7 +175,7 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
   return length;
 }
 
-#elif defined(__linux__) || defined(__CYGWIN__) || defined(__sun) || defined(__serenity__) || defined(WAI_USE_PROC_SELF_EXE)
+#elif defined(__linux__) || defined(__CYGWIN__) || defined(__sun) || defined(__serenity__) || defined(__gnu_hurd__) || defined(WAI_USE_PROC_SELF_EXE)
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -190,6 +190,10 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
 #endif
 #include <inttypes.h>
 #include <stdbool.h>
+
+#if defined(__gnu_hurd__) && !defined(PATH_MAX)
+#define PATH_MAX 4096
+#endif // defined(__gnu_hurd__) && !defined(PATH_MAX)
 
 #if !defined(WAI_PROC_SELF_EXE)
 #if defined(__sun)
@@ -835,7 +839,7 @@ int WAI_PREFIX(getModulePath)(char* out, int capacity, int* dirname_length)
   return -1;
 }
 
-#elif defined(__SWITCH__) || defined(__vita__)
+#elif defined(__SWITCH__) || defined(__vita__) || defined(__EMSCRIPTEN__)
 
 /* Not possible on this platform */
 

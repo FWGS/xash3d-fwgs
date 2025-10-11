@@ -14,6 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "platform/platform.h"
+#include "xash3d_mathlib.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -74,6 +75,7 @@ static const vrtld_export_t aux_exports[] =
 	VRTLD_EXPORT_SYMBOL( stpcpy ),
 	VRTLD_EXPORT_SYMBOL( rand ),
 	VRTLD_EXPORT_SYMBOL( srand ),
+	VRTLD_EXPORT_SYMBOL( rintf ),
 	VRTLD_EXPORT_SYMBOL( sceGxmMapMemory ), // needed by vgl_shim
 	VRTLD_EXPORT( "dlopen", vrtld_dlopen ),
 	VRTLD_EXPORT( "dlclose", vrtld_dlclose ),
@@ -200,4 +202,20 @@ qboolean PSVita_GetBasePath( char *buf, const size_t buflen )
 	}
 
 	return false;
+}
+
+int PSVita_GetPSID( char *buf, const size_t buflen )
+{
+	SceKernelOpenPsId id;
+	const int datasize = Q_min( buflen, sizeof( id ));
+
+	if( sceKernelGetOpenPsId( &id ) < 0 )
+	{
+		return 0;
+	}
+	else
+	{
+		memcpy( buf, &id.id[0], datasize );
+		return datasize;
+	}
 }

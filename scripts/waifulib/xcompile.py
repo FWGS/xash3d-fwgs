@@ -20,12 +20,21 @@ import os
 import sys
 
 ANDROID_NDK_ENVVARS = ['ANDROID_NDK_HOME', 'ANDROID_NDK']
-ANDROID_NDK_SUPPORTED = [10, 19, 20, 23, 25]
+ANDROID_NDK_SUPPORTED = [10, 19, 20, 23, 25, 27, 28]
 ANDROID_NDK_HARDFP_MAX = 11 # latest version that supports hardfp
 ANDROID_NDK_GCC_MAX = 17 # latest NDK that ships with GCC
 ANDROID_NDK_UNIFIED_SYSROOT_MIN = 15
 ANDROID_NDK_SYSROOT_FLAG_MAX = 19 # latest NDK that need --sysroot flag
-ANDROID_NDK_API_MIN = { 10: 3, 19: 16, 20: 16, 23: 16, 25: 19 } # minimal API level ndk revision supports
+ANDROID_NDK_BUGGED_LINKER_MAX = 22
+ANDROID_NDK_API_MIN = {
+	10: 3,
+	19: 16,
+	20: 16,
+	23: 16,
+	25: 19,
+	27: 19,
+	28: 21,
+} # minimal API level ndk revision supports
 
 ANDROID_STPCPY_API_MIN = 21 # stpcpy() introduced in SDK 21
 ANDROID_64BIT_API_MIN = 21 # minimal API level that supports 64-bit targets
@@ -50,6 +59,7 @@ class Android:
 		self.api = api
 		self.toolchain = toolchain
 		self.arch = arch
+		self.exe = '.exe' if sys.platform.startswith('win32') or sys.platform.startswith('cygwin') else ''
 
 		for i in ANDROID_NDK_ENVVARS:
 			self.ndk_home = os.getenv(i)
@@ -196,10 +206,10 @@ class Android:
 
 	def gen_toolchain_path(self):
 		if self.is_clang():
-			triplet = '%s%d-' % (self.ndk_triplet(llvm_toolchain = True), self.api)
+			base = ''
 		else:
-			triplet = self.ndk_triplet() + '-'
-		return os.path.join(self.gen_gcc_toolchain_path(), 'bin', triplet)
+			base = self.ndk_triplet() + '-'
+		return os.path.join(self.gen_gcc_toolchain_path(), 'bin', base)
 
 	def gen_binutils_path(self):
 		if self.ndk_rev >= 23:
@@ -215,7 +225,11 @@ class Android:
 				s = environ['CC']
 
 			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
-		return self.gen_toolchain_path() + ('clang' if self.is_clang() else 'gcc')
+
+		if self.is_clang():
+			return '%s --target=%s%d' % (self.gen_toolchain_path() + 'clang' + self.exe, self.ndk_triplet(), self.api)
+
+		return self.gen_toolchain_path() + 'gcc'
 
 	def cxx(self):
 		if self.is_host():
@@ -226,19 +240,33 @@ class Android:
 				s = environ['CXX']
 
 			return '%s --target=%s%d' % (s, self.ndk_triplet(), self.api)
-		return self.gen_toolchain_path() + ('clang++' if self.is_clang() else 'g++')
+
+		if self.is_clang():
+			return '%s --target=%s%d' % (self.gen_toolchain_path() + 'clang++' + self.exe, self.ndk_triplet(), self.api)
+
+		return self.gen_toolchain_path() + 'g++'
 
 	def strip(self):
 		if self.is_host():
 			environ = getattr(self.ctx, 'environ', os.environ)
-
 			if 'STRIP' in environ:
 				return environ['STRIP']
 			return 'llvm-strip'
 
 		if self.ndk_rev >= 23:
-			return os.path.join(self.gen_binutils_path(), 'llvm-strip')
-		return os.path.join(self.gen_binutils_path(), 'strip')
+			return os.path.join(self.gen_binutils_path(), 'llvm-strip' + self.exe)
+		return os.path.join(self.gen_binutils_path(), 'strip' + self.exe)
+
+	def ar(self):
+		if self.is_host():
+			environ = getattr(self.ctx, 'environ', os.environ)
+			if 'AR' in environ:
+				return environ['AR']
+			return 'llvm-ar'
+
+		if self.ndk_rev >= 23:
+			return os.path.join(self.gen_binutils_path(), 'llvm-ar' + self.exe)
+		return os.path.join(self.gen_binutils_path(), 'ar' + self.exe)
 
 	def system_stl(self):
 		# TODO: proper STL support
@@ -327,6 +355,12 @@ class Android:
 		else: linkflags += ['-no-canonical-prefixes']
 
 		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined']
+
+		linkflags += ["-Wl,-z,max-page-size=16384"]
+
+		if self.ndk_rev <= ANDROID_NDK_BUGGED_LINKER_MAX:
+			linkflags += ["-Wl,-z,common-page-size=16384"]
+
 		return linkflags
 
 	def ldflags(self):
@@ -336,7 +370,7 @@ class Android:
 			ldflags += ['-lgcc']
 
 		if self.is_clang() or self.is_host():
-			ldflags += ['-stdlib=libstdc++']
+			ldflags += ['-stdlib=libstdc++', '-lc++abi']
 		else: ldflags += ['-no-canonical-prefixes']
 
 		if self.is_arm():
@@ -512,33 +546,50 @@ def options(opt):
 		help='enable building for PlayStation Vita [default: %(default)s]')
 	xc.add_option('--sailfish', action='store', dest='SAILFISH', default = None,
 		help='enable building for Sailfish/Aurora')
+	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
+		help='enable building for Emscripten')
 
 def configure(conf):
-	if conf.options.ANDROID_OPTS:
+	if 'CROSS_COMPILE' in conf.environ:
+		toolchain_path = conf.environ['CROSS_COMPILE']
+		conf.environ['CC'] = toolchain_path + 'cc'
+		conf.environ['CXX'] = toolchain_path + 'c++'
+		conf.environ['STRIP'] = toolchain_path + 'strip'
+		conf.environ['OBJDUMP'] = toolchain_path + 'objdump'
+		conf.environ['AR'] = toolchain_path + 'ar'
+	elif conf.options.ANDROID_OPTS:
 		values = conf.options.ANDROID_OPTS.split(',')
 		if len(values) != 3:
 			conf.fatal('Invalid --android paramater value!')
 
 		valid_archs = ['x86', 'x86_64', 'armeabi', 'armeabi-v7a', 'armeabi-v7a-hard', 'aarch64']
 
+		if values[0] == 'arm64-v8a':
+			values[0] = 'aarch64'
+
 		if values[0] not in valid_archs:
 			conf.fatal('Unknown arch: %s. Supported: %r' % (values[0], ', '.join(valid_archs)))
 
 		conf.android = android = Android(conf, values[0], values[1], int(values[2]))
+
 		conf.environ['CC'] = android.cc()
 		conf.environ['CXX'] = android.cxx()
 		conf.environ['STRIP'] = android.strip()
+		conf.environ['AR'] = android.ar()
 		conf.env.CFLAGS += android.cflags()
 		conf.env.CXXFLAGS += android.cflags(True)
 		conf.env.LINKFLAGS += android.linkflags()
 		conf.env.LDFLAGS += android.ldflags()
 
+		from waflib.Tools.compiler_c import c_compiler
+		from waflib.Tools.compiler_cxx import cxx_compiler
+		c_compiler['win32'] = ['clang' if android.is_clang() or android.is_host() else 'gcc']
+		cxx_compiler['win32'] = ['clang++' if android.is_clang() or android.is_host() else 'gxx']
+
 		conf.env.HAVE_M = True
 		if android.is_hardfp():
 			conf.env.LIB_M = ['m_hard']
 		else: conf.env.LIB_M = ['m']
-
-		conf.env.PREFIX = '/lib/%s' % android.apk_arch()
 
 		conf.msg('Selected Android NDK', '%s, version: %d' % (android.ndk_home, android.ndk_rev))
 		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
@@ -592,11 +643,21 @@ def configure(conf):
 		conf.env.LIB_M = ['m']
 		conf.env.VRTLD = ['vrtld']
 		conf.env.DEST_OS = 'psvita'
+	elif conf.options.EMSCRIPTEN:
+		# Emscripten compiler is just wrapper to clang
+		# But we need to setup platform modifiers, they all are contained inside c_emscripten.py for now
+		# In future, that could be upstreamed to waf itself and this wouldn't be needed
+		conf.environ['CC'] = 'emcc'
+		conf.environ['CXX'] = 'em++'
+		conf.environ['AR'] = 'emar'
+		conf.environ['STRIP'] = 'emstrip'
+		conf.environ['OBJCOPY'] = 'llvm-objcopy'
+		conf.load('c_emscripten')
 
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE
 	conf.env.SAILFISH = conf.options.SAILFISH
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi' })
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS

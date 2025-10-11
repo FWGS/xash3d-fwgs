@@ -17,6 +17,17 @@ GNU General Public License for more details.
 #endif
 #include "platform/platform.h"
 #if XASH_LIB == LIB_POSIX
+
+#if XASH_NSWITCH
+	#define SOLDER_LIBDL_COMPAT
+	#include <solder.h>
+#elif XASH_PSVITA
+	#define VRTLD_LIBDL_COMPAT
+	#include <vrtld.h>
+#else
+	#include <dlfcn.h>
+#endif
+
 #ifdef XASH_IRIX
 #include "platform/irix/dladdr.h"
 #endif
@@ -25,37 +36,22 @@ GNU General Public License for more details.
 #include "filesystem.h"
 #include "server.h"
 #include "platform/android/lib_android.h"
-#include "platform/emscripten/lib_em.h"
 #include "platform/apple/lib_ios.h"
 
-#ifdef XASH_DLL_LOADER // wine-based dll loader
-void * Loader_LoadLibrary (const char *name);
-void * Loader_GetProcAddress (void *hndl, const char *name);
-void Loader_FreeLibrary(void *hndl);
-void *Loader_GetDllHandle( void *hndl );
-const char * Loader_GetFuncName( void *hndl, void *func);
-const char * Loader_GetFuncName_int( void *wm , void *func);
-#endif
-
-
 #ifdef XASH_NO_LIBDL
-#ifndef XASH_DLL_LOADER
-#error Enable at least one dll backend!!!
-#endif // XASH_DLL_LOADER
-
-void *dlsym(void *handle, const char *symbol )
+void *dlsym( void *handle, const char *symbol )
 {
 	Con_DPrintf( "%s( %p, \"%s\" ): stub\n", __func__, handle, symbol );
 	return NULL;
 }
 
-void *dlopen(const char *name, int flag )
+void *dlopen( const char *name, int flag )
 {
 	Con_DPrintf( "%s( \"%s\", %d ): stub\n", __func__, name, flag );
 	return NULL;
 }
 
-int dlclose(void *handle)
+int dlclose( void *handle )
 {
 	Con_DPrintf( "%s( %p ): stub\n", __func__, handle );
 	return 0;
@@ -96,14 +92,6 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	hInst = FS_FindLibrary( dllname, directpath );
 	if( !hInst )
 	{
-		// HACKHACK: direct load dll
-#ifdef XASH_DLL_LOADER
-		if( host.enabledll && ( pHandle = Loader_LoadLibrary(dllname)) )
-		{
-			return pHandle;
-		}
-#endif
-
 		// try to find by linker(LD_LIBRARY_PATH, DYLD_LIBRARY_PATH, LD_32_LIBRARY_PATH and so on...)
 		if( !pHandle )
 		{
@@ -126,34 +114,11 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 		return NULL;
 	}
 
-#ifdef XASH_DLL_LOADER
-	if( host.enabledll && ( !Q_stricmp( COM_FileExtension( hInst->shortPath ), "dll" ) ) )
+	if( !( hInst->hInstance = dlopen( hInst->fullPath, RTLD_NOW ) ) )
 	{
-		if( hInst->encrypted )
-		{
-			Q_snprintf( buf, sizeof( buf ), "Library %s is encrypted. Cannot load", hInst->shortPath );
-			COM_PushLibraryError( buf );
-			Mem_Free( hInst );
-			return NULL;
-		}
-
-		if( !( hInst->hInstance = Loader_LoadLibrary( hInst->fullPath ) ) )
-		{
-			Q_snprintf( buf, sizeof( buf ), "Failed to load DLL with DLL loader: %s", hInst->shortPath );
-			COM_PushLibraryError( buf );
-			Mem_Free( hInst );
-			return NULL;
-		}
-	}
-	else
-#endif
-	{
-		if( !( hInst->hInstance = dlopen( hInst->fullPath, RTLD_NOW ) ) )
-		{
-			COM_PushLibraryError( dlerror() );
-			Mem_Free( hInst );
-			return NULL;
-		}
+		COM_PushLibraryError( dlerror() );
+		Mem_Free( hInst );
+		return NULL;
 	}
 
 	pHandle = hInst->hInstance;
@@ -165,29 +130,15 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 
 void COM_FreeLibrary( void *hInstance )
 {
-#ifdef XASH_DLL_LOADER
-	void *wm;
-	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
-		return Loader_FreeLibrary( hInstance );
-	else
-#endif
-	{
 #ifdef Platform_POSIX_FreeLibrary
-		Platform_POSIX_FreeLibrary( hInstance );
+	Platform_POSIX_FreeLibrary( hInstance );
 #else
-		dlclose( hInstance );
+	dlclose( hInstance );
 #endif
-	}
 }
 
 void *COM_GetProcAddress( void *hInstance, const char *name )
 {
-#ifdef XASH_DLL_LOADER
-	void *wm;
-	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
-		return Loader_GetProcAddress(hInstance, name);
-	else
-#endif
 #if Platform_POSIX_GetProcAddress
 	return Platform_POSIX_GetProcAddress( hInstance, name );
 #else
@@ -202,20 +153,12 @@ void *COM_FunctionFromName( void *hInstance, const char *pName )
 
 const char *COM_NameForFunction( void *hInstance, void *function )
 {
-#ifdef XASH_DLL_LOADER
-	void *wm;
-	if( host.enabledll && (wm = Loader_GetDllHandle( hInstance )) )
-#error ConvertMangledName
-		return Loader_GetFuncName_int(wm, function);
-	else
-#endif
 	// NOTE: dladdr() is a glibc extension
-	{
-		Dl_info info = {0};
-		int ret = dladdr( (void*)function, &info );
-		if( ret && info.dli_sname )
-			return COM_GetPlatformNeutralName( info.dli_sname );
-	}
+	Dl_info info = {0};
+	int ret = dladdr( (void*)function, &info );
+	if( ret && info.dli_sname )
+		return COM_GetPlatformNeutralName( info.dli_sname );
+
 #ifdef XASH_ALLOW_SAVERESTORE_OFFSETS
 	return COM_OffsetNameForFunction( function );
 #else

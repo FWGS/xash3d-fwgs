@@ -21,7 +21,12 @@ GNU General Public License for more details.
 #include "xash3d_types.h"
 #include "port.h"
 #include "crtlib.h"
+#include "settings.h"
 #include "utils.h"
+
+#if !XASH_WIN32
+	#define _mkdir( x ) mkdir(( x ), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )
+#endif
 
 /*
 ============
@@ -39,7 +44,6 @@ qboolean MakeDirectory( const char *path )
 			// with FS_CreatePath
 #if XASH_WIN32
 		        DWORD   dwFlags = GetFileAttributes( path );
-
 		        return ( dwFlags != -1 ) && ( dwFlags & FILE_ATTRIBUTE_DIRECTORY );
 #else
 		        struct stat buf;
@@ -63,6 +67,9 @@ qboolean MakeFullPath( const char *path )
 {
 	char *p = (char *)path, tmp;
 
+	if( *p == '/' )
+		p++;
+
 	for( ; *p; )
 	{
 		p = Q_strpbrk( p, "/\\" );
@@ -75,7 +82,7 @@ qboolean MakeFullPath( const char *path )
 
 		if( !MakeDirectory( path ))
 		{
-			fprintf( stderr, "ERROR: Couldn't create directory %s\n", path );
+			LogPrintf( "ERROR: Couldn't create directory %s.", path );
 			return false;
 		}
 
@@ -151,5 +158,42 @@ byte *LoadFile( const char *filename, off_t *size )
 	fclose( fp );
 
 	return buf;
+}
+
+/*
+============
+LogPutS
+============
+*/
+void LogPutS( const char *str )
+{
+	if( ( globalsettings & SETTINGS_NOLOGS ))
+		return;
+
+	if( Q_strncmp( str, "ERROR:", sizeof( "ERROR:" ) - 1 ))
+		puts( str );
+	else fprintf( stderr, "%s\n", str );
+}
+
+/*
+============
+LogPrintf
+============
+*/
+void LogPrintf( const char *szFmt, ... )
+{
+	va_list args;
+	static char buffer[2048];
+
+	if( ( globalsettings & SETTINGS_NOLOGS ))
+		return;
+
+	va_start( args, szFmt );
+        Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args );
+	va_end( args );
+
+	if( Q_strncmp( buffer, "ERROR:", sizeof( "ERROR:" ) - 1 ))
+		puts( buffer );
+	else fprintf( stderr, "%s\n", buffer );
 }
 

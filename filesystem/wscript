@@ -15,10 +15,14 @@ def options(opt):
 def configure(conf):
 	if conf.env.COMPILER_CXX != 'msvc':
 		conf.env.append_unique('CXXFLAGS', ['-fno-exceptions'])
+
 	if conf.env.DEST_OS == 'android':
 		conf.check_cc(lib='android')
-	elif conf.env.cxxshlib_PATTERN.startswith('lib'): # remove lib prefix for other systems than Android
-		conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
+
+	# remove lib prefix, except on Android which has issues unpacking libraries without prefix when debuggable=false
+	if conf.env.DEST_OS != 'android':
+		if conf.env.cxxshlib_PATTERN.startswith('lib'):
+			conf.env.cxxshlib_PATTERN = conf.env.cxxshlib_PATTERN[3:]
 
 	if conf.check_cc(fragment=MEMFD_CREATE_TEST, msg='Checking for memfd_create', mandatory=False):
 		conf.define('HAVE_MEMFD_CREATE', 1)

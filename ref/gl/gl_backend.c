@@ -17,8 +17,8 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "xash3d_mathlib.h"
 
-char		r_speeds_msg[MAX_SYSPATH];
-ref_speeds_t	r_stats;	// r_speeds counters
+static char r_speeds_msg[MAX_SYSPATH];
+ref_speeds_t r_stats; // r_speeds counters
 
 /*
 ===============
@@ -40,25 +40,6 @@ qboolean R_SpeedsMessage( char *out, size_t size )
 	Q_strncpy( out, r_speeds_msg, size );
 
 	return true;
-}
-
-/*
-==============
-R_Speeds_Printf
-
-helper to print into r_speeds message
-==============
-*/
-static void R_Speeds_Printf( const char *msg, ... )
-{
-	va_list	argptr;
-	char	text[2048];
-
-	va_start( argptr, msg );
-	Q_vsnprintf( text, sizeof( text ), msg, argptr );
-	va_end( argptr );
-
-	Q_strncat( r_speeds_msg, text, sizeof( r_speeds_msg ));
 }
 
 /*
@@ -87,8 +68,6 @@ void GL_BackendEndFrame( void )
 		curleaf = WORLDMODEL->leafs;
 	else curleaf = RI.viewleaf;
 
-	R_Speeds_Printf( "Renderer: ^1Engine^7\n\n" );
-
 	switch( (int)r_speeds->value )
 	{
 	case 1:
@@ -96,8 +75,11 @@ void GL_BackendEndFrame( void )
 			r_stats.c_world_polys, r_stats.c_alias_polys, r_stats.c_studio_polys, r_stats.c_sprite_polys );
 		break;
 	case 2:
-		R_Speeds_Printf( "visible leafs:\n%3i leafs\ncurrent leaf %3i\n", r_stats.c_world_leafs, curleaf - WORLDMODEL->leafs );
-		R_Speeds_Printf( "ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf\n", r_stats.t_world_node, r_stats.t_world_draw );
+		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ),
+			"Renderer: ^1Engine^7\n\n"
+			"visible leafs:\n%3i leafs\ncurrent leaf %3i\n"
+			"ReciusiveWorldNode: %3lf secs\nDrawTextureChains %lf",
+			r_stats.c_world_leafs, (int)( curleaf - WORLDMODEL->leafs ), r_stats.t_world_node, r_stats.t_world_draw );
 		break;
 	case 3:
 		Q_snprintf( r_speeds_msg, sizeof( r_speeds_msg ), "%3i alias models drawn\n%3i studio models drawn\n%3i sprites drawn",
@@ -162,13 +144,14 @@ void GL_LoadIdentityTexMatrix( void )
 GL_SelectTexture
 =================
 */
-void GL_SelectTexture( GLint tmu )
+void GL_SelectTexture( int tmu )
 {
 	if( !GL_Support( GL_ARB_MULTITEXTURE ))
 		return;
 
 	// don't allow negative texture units
-	if( tmu < 0 ) return;
+	if( tmu < 0 )
+		return;
 
 	if( tmu >= GL_MaxTextureUnits( ))
 	{
@@ -188,6 +171,49 @@ void GL_SelectTexture( GLint tmu )
 		if( tmu < glConfig.max_texture_coords )
 			pglClientActiveTextureARB( tmu + GL_TEXTURE0_ARB );
 	}
+}
+
+/*
+=================
+GL_Bind
+=================
+*/
+void GL_Bind( int tmu, unsigned int texnum )
+{
+	const gl_texture_t *texture;
+	GLuint glTarget;
+
+	// missed or invalid texture?
+	if( texnum <= 0 || texnum >= MAX_TEXTURES )
+	{
+		if( texnum != 0 )
+			gEngfuncs.Con_DPrintf( S_ERROR "%s: invalid texturenum %d\n", __func__, texnum );
+		texnum = tr.defaultTexture;
+	}
+
+	if( tmu != GL_KEEP_UNIT )
+		GL_SelectTexture( tmu );
+	else tmu = glState.activeTMU;
+
+	texture = R_GetTexture( texnum );
+	glTarget = texture->target;
+
+	if( glTarget == GL_TEXTURE_2D_ARRAY_EXT )
+		glTarget = GL_TEXTURE_2D;
+
+	if( glState.currentTextureTargets[tmu] != glTarget )
+	{
+		GL_EnableTextureUnit( tmu, false );
+		glState.currentTextureTargets[tmu] = glTarget;
+		GL_EnableTextureUnit( tmu, true );
+	}
+
+	if( glState.currentTextures[tmu] == texture->texnum )
+		return;
+
+	pglBindTexture( texture->target, texture->texnum );
+	glState.currentTextures[tmu] = texture->texnum;
+	glState.currentTexturesIndex[tmu] = texnum;
 }
 
 /*
@@ -248,7 +274,7 @@ void GL_CleanupAllTextureUnits( void )
 GL_MultiTexCoord2f
 =================
 */
-void GL_MultiTexCoord2f( GLenum texture, GLfloat s, GLfloat t )
+void GL_MultiTexCoord2f( int tmu, GLfloat s, GLfloat t )
 {
 	if( !GL_Support( GL_ARB_MULTITEXTURE ))
 		return;
@@ -256,7 +282,7 @@ void GL_MultiTexCoord2f( GLenum texture, GLfloat s, GLfloat t )
 #ifndef XASH_GL_STATIC
 	if( pglMultiTexCoord2f != NULL )
 #endif
-		pglMultiTexCoord2f( texture + GL_TEXTURE0_ARB, s, t );
+		pglMultiTexCoord2f( tmu + GL_TEXTURE0_ARB, s, t );
 }
 
 /*
@@ -335,19 +361,19 @@ void GL_TexGen( GLenum coord, GLenum mode )
 
 	if( mode )
 	{
-		if( !( glState.genSTEnabled[tmu] & bit ))
+		if( !FBitSet( glState.genSTEnabled[tmu], bit ))
 		{
 			pglEnable( gen );
-			glState.genSTEnabled[tmu] |= bit;
+			SetBits( glState.genSTEnabled[tmu], bit );
 		}
 		pglTexGeni( coord, GL_TEXTURE_GEN_MODE, mode );
 	}
 	else
 	{
-		if( glState.genSTEnabled[tmu] & bit )
+		if( FBitSet( glState.genSTEnabled[tmu], bit ))
 		{
 			pglDisable( gen );
-			glState.genSTEnabled[tmu] &= ~bit;
+			ClearBits( glState.genSTEnabled[tmu], bit );
 		}
 	}
 }
@@ -366,15 +392,20 @@ void GL_SetTexCoordArrayMode( GLenum mode )
 		bit = 1;
 	else if( mode == GL_TEXTURE_CUBE_MAP_ARB )
 		bit = 2;
-	else bit = 0;
+	else
+		bit = 0;
 
 	if( cmode != bit )
 	{
-		if( cmode == 1 ) pglDisableClientState( GL_TEXTURE_COORD_ARRAY );
-		else if( cmode == 2 ) pglDisable( GL_TEXTURE_CUBE_MAP_ARB );
+		if( cmode == 1 )
+			pglDisableClientState( GL_TEXTURE_COORD_ARRAY );
+		else if( cmode == 2 )
+			pglDisable( GL_TEXTURE_CUBE_MAP_ARB );
 
-		if( bit == 1 ) pglEnableClientState( GL_TEXTURE_COORD_ARRAY );
-		else if( bit == 2 ) pglEnable( GL_TEXTURE_CUBE_MAP_ARB );
+		if( bit == 1 )
+			pglEnableClientState( GL_TEXTURE_COORD_ARRAY );
+		else if( bit == 2 )
+			pglEnable( GL_TEXTURE_CUBE_MAP_ARB );
 
 		glState.texCoordArrayMode[tmu] = bit;
 	}
@@ -447,7 +478,7 @@ typedef struct envmap_s
 	int	flags;
 } envmap_t;
 
-const envmap_t r_skyBoxInfo[6] =
+static const envmap_t r_skyBoxInfo[6] =
 {
 {{   0, 270, 180}, IMAGE_FLIP_X },
 {{   0,  90, 180}, IMAGE_FLIP_X },
@@ -457,7 +488,7 @@ const envmap_t r_skyBoxInfo[6] =
 {{   0, 180, 180}, IMAGE_FLIP_X },
 };
 
-const envmap_t r_envMapInfo[6] =
+static const envmap_t r_envMapInfo[6] =
 {
 {{  0,   0,  90}, 0 },
 {{  0, 180, -90}, 0 },
@@ -709,7 +740,7 @@ void R_ShowTextures( void )
 		y = k / base_w * gpGlobals->height / base_h;
 
 		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-		GL_Bind( XASH_TEXTURE0, image->texnum );
+		GL_Bind( XASH_TEXTURE0, i );
 
 		if( FBitSet( image->flags, TF_DEPTHMAP ) && !FBitSet( image->flags, TF_NOCOMPARE ))
 			pglTexParameteri( image->target, GL_TEXTURE_COMPARE_MODE_ARB, GL_NONE );

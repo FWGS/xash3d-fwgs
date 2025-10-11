@@ -1,0 +1,3 @@
+# Xash3D 49 netchan protocol
+
+TBD...

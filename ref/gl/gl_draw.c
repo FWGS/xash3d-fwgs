@@ -227,6 +227,9 @@ void R_Set2DMode( qboolean enable )
 		pglEnable( GL_ALPHA_TEST );
 		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
 
+		if( glConfig.max_multisamples > 1 && gl_msaa.value )
+			pglDisable( GL_MULTISAMPLE_ARB );
+
 		glState.in2DMode = true;
 		RI.currententity = NULL;
 		RI.currentmodel = NULL;
@@ -242,6 +245,13 @@ void R_Set2DMode( qboolean enable )
 
 		pglMatrixMode( GL_MODELVIEW );
 		GL_LoadMatrix( RI.worldviewMatrix );
+
+		if( glConfig.max_multisamples > 1 )
+		{
+			if( gl_msaa.value )
+				pglEnable( GL_MULTISAMPLE_ARB );
+			else pglDisable( GL_MULTISAMPLE_ARB );
+		}
 
 		GL_Cull( GL_FRONT );
 	}

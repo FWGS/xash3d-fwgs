@@ -1,11 +1,17 @@
 #!/bin/bash
 
+# As e2k builds for distro that's vastly different from Ubuntu/Debian and specially handles cross-compiling
+# keep it in separate script for now
+if [[ $GH_CPU_ARCH == e2k* ]]; then
+	exec bash scripts/gha/deps_linux-e2k.sh
+fi
+
 . scripts/lib.sh
 
 cd "$GITHUB_WORKSPACE" || exit 1
 
 # "booo, bash feature!", -- posix sh users, probably
-declare -A BASE_BUILD_PACKAGES SDL_BUILD_PACKAGES APPIMAGETOOL
+declare -A BASE_BUILD_PACKAGES SDL_BUILD_PACKAGES APPIMAGETOOL RUST_TARGET
 
 # bzip2 and opus are added from submodules, freetype replaced by stb_truetype in this build, so it's just compiler toolchain
 BASE_BUILD_PACKAGES[common]="desktop-file-utils"
@@ -40,13 +46,22 @@ APPIMAGETOOL[i386]=https://github.com/AppImage/appimagetool/releases/download/co
 # APPIMAGETOOL[arm64]=https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-aarch64.AppImage
 # APPIMAGETOOL[armhf]=https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-armhf.AppImage
 
+RUST_TARGET[amd64]=x86_64-unknown-linux-gnu
+RUST_TARGET[i386]=i686-unknown-linux-gnu
+RUST_TARGET[arm64]=aarch64-unknown-linux-gnu
+RUST_TARGET[armhf]=thumbv7neon-unknown-linux-gnueabihf
+RUST_TARGET[riscv64]=riscv64gc-unknown-linux-gnu
+RUST_TARGET[ppc64el]=powerpc64le-unknown-linux-gnu
+
 regenerate_sources_list()
 {
 	# this is evil but to speed up update, specify all repositories manually
 	sudo rm /etc/apt/sources.list
 	sudo rm -rf /etc/apt/sources.list.d
 
-	for i in focal focal-updates focal-backports focal-security; do
+	codename=$(grep DISTRIB_CODENAME /etc/lsb-release | cut -d= -f2)
+
+	for i in "$codename" "$codename-updates" "$codename-backports" "$codename-security"; do
 		echo "deb [arch=$GH_CPU_ARCH] http://azure.ports.ubuntu.com/ubuntu-ports $i main universe" | sudo tee -a /etc/apt/sources.list
 		echo "deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu $i main universe" | sudo tee -a /etc/apt/sources.list
 	done
@@ -70,5 +85,11 @@ if [ -n "${APPIMAGETOOL[$GH_CPU_ARCH]}" ]; then
 	chmod +x appimagetool.AppImage
 fi
 
+FFMPEG_ARCHIVE=$(get_ffmpeg_archive)
+wget https://github.com/FWGS/FFmpeg-Builds/releases/download/latest/$FFMPEG_ARCHIVE.tar.xz -qO- | tar -xJf -
+mv $FFMPEG_ARCHIVE ffmpeg
+
 wget "https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/SDL2-$SDL_VERSION.tar.gz" -qO- | tar -xzf -
 mv "SDL2-$SDL_VERSION" SDL2_src
+
+rustup target add "${RUST_TARGET[$GH_CPU_ARCH]}"

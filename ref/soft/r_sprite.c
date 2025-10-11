@@ -181,7 +181,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 			pal = gEngfuncs.FS_LoadImage( "#masked.pal", src, pal_bytes );
 			break;
 		default:
-			pal = gEngfuncs.FS_LoadImage( "#normal.pal", src, pal_bytes );
+			pal = gEngfuncs.FS_LoadImage( "#texgamma.pal", src, pal_bytes );
 			break;
 		}
 
@@ -700,7 +700,7 @@ R_DrawSpriteModel
 */
 void R_DrawSpriteModel( cl_entity_t *e )
 {
-	mspriteframe_t *frame, *oldframe;
+	mspriteframe_t *frame = NULL, *oldframe = NULL;
 	msprite_t      *psprite;
 	model_t        *model;
 	int i, type;

@@ -24,6 +24,7 @@ GNU General Public License for more details.
 #include "utils.h"
 #include "smd.h"
 #include "texture.h"
+#include "settings.h"
 #include "qc.h"
 
 static char	**activity_names;
@@ -49,8 +50,8 @@ qboolean LoadActivityList( const char *appname )
 
 		if( !p )
 		{
-			fprintf( stderr, "ERROR: Couldn't find file " ACTIVITIES_FILE ".\n" \
-			    "Place " ACTIVITIES_FILE " beside %s or set MDLDEC_ACT_PATH environment variable.\n", appname );
+			LogPrintf( "ERROR: Couldn't find file " ACTIVITIES_FILE ".\n" \
+			    "Place " ACTIVITIES_FILE " beside %s or set MDLDEC_ACT_PATH environment variable.", appname );
 			return false;
 		}
 
@@ -64,7 +65,7 @@ qboolean LoadActivityList( const char *appname )
 
 		if( !fp )
 		{
-			fputs( "ERROR: Couldn't open file " ACTIVITIES_FILE ".\n", stderr );
+			LogPutS( "ERROR: Couldn't open file " ACTIVITIES_FILE "." );
 			return false;
 		}
 	}
@@ -75,7 +76,7 @@ qboolean LoadActivityList( const char *appname )
 
 		if( !activity_names )
 		{
-			fputs( "ERROR: Couldn't allocate memory for activities strings.\n", stderr );
+			LogPutS( "ERROR: Couldn't allocate memory for activities strings." );
 			return false;
 		}
 
@@ -85,7 +86,7 @@ qboolean LoadActivityList( const char *appname )
 
 		if( !activity_names[activity_count - 1] )
 		{
-			fputs( "ERROR: Couldn't allocate memory for activities strings.\n", stderr );
+			LogPutS( "ERROR: Couldn't allocate memory for activities strings." );
 			return false;
 		}
 	}
@@ -148,21 +149,43 @@ static void GetMotionTypeString( int type, char *str, size_t size, qboolean is_c
 		if( type & STUDIO_LZ )
 			Q_strncat( str, " LZ", size );
 
-		if( type & STUDIO_LXR )
-			Q_strncat( str, " LXR", size );
+		if( globalsettings & SETTINGS_LEGACYMOTION )
+		{
+			if( type & STUDIO_LXR )
+				Q_strncat( str, " AX", size );
 
-		if( type & STUDIO_LYR )
-			Q_strncat( str, " LYR", size );
+			if( type & STUDIO_LYR )
+				Q_strncat( str, " AY", size );
 
-		if( type & STUDIO_LZR )
-			Q_strncat( str, " LZR", size );
+			if( type & STUDIO_LZR )
+				Q_strncat( str, " AZ", size );
 
-		if( type & STUDIO_LINEAR )
-			Q_strncat( str, " LM", size );
+			if( type & STUDIO_LINEAR )
+				Q_strncat( str, " AXR", size );
 
-		if( type & STUDIO_QUADRATIC_MOTION )
-			Q_strncat( str, " LQ", size );
+			if( type & STUDIO_QUADRATIC_MOTION )
+				Q_strncat( str, " AYR", size );
 
+			if( type & STUDIO_RESERVED )
+				Q_strncat( str, " AZR", size );
+		}
+		else
+		{
+			if( type & STUDIO_LXR )
+				Q_strncat( str, " LXR", size );
+
+			if( type & STUDIO_LYR )
+				Q_strncat( str, " LYR", size );
+
+			if( type & STUDIO_LZR )
+				Q_strncat( str, " LZR", size );
+
+			if( type & STUDIO_LINEAR )
+				Q_strncat( str, " LM", size );
+
+			if( type & STUDIO_QUADRATIC_MOTION )
+				Q_strncat( str, " LQ", size );
+		}
 		return;
 	}
 
@@ -179,12 +202,33 @@ static void GetMotionTypeString( int type, char *str, size_t size, qboolean is_c
 	case STUDIO_LX:   p = "LX";   break;
 	case STUDIO_LY:   p = "LY";   break;
 	case STUDIO_LZ:   p = "LZ";   break;
-	case STUDIO_LXR:  p = "LXR";  break;
-	case STUDIO_LYR:  p = "LYR";  break;
-	case STUDIO_LZR:  p = "LZR";  break;
-	case STUDIO_LINEAR: p = "LM"; break;
-	case STUDIO_QUADRATIC_MOTION: p = "LQ"; break;
 	default: break;
+	}
+
+	if( globalsettings & SETTINGS_LEGACYMOTION )
+	{
+		switch( type )
+		{
+		case STUDIO_LXR:  p = "AX";  break;
+		case STUDIO_LYR:  p = "AY";  break;
+		case STUDIO_LZR:  p = "AZ";  break;
+		case STUDIO_LINEAR: p = "AXR"; break;
+		case STUDIO_QUADRATIC_MOTION: p = "AYR"; break;
+		case STUDIO_RESERVED: p = "AZR"; break;
+		default: break;
+		}
+	}
+	else
+	{
+		switch( type )
+		{
+		case STUDIO_LXR:  p = "LXR";  break;
+		case STUDIO_LYR:  p = "LYR";  break;
+		case STUDIO_LZR:  p = "LZR";  break;
+		case STUDIO_LINEAR: p = "LM"; break;
+		case STUDIO_QUADRATIC_MOTION: p = "LQ"; break;
+		default: break;
+		}
 	}
 
 	if( p )
@@ -459,6 +503,7 @@ static void WriteSequenceInfo( FILE *fp )
 	char			 motion_types[256];
 	mstudioevent_t		*event;
 	mstudioseqdesc_t	*seqdesc;
+	const char		*seq_path;
 
 	if( model_hdr->numseqgroups > 1 )
 		fprintf( fp, "$sequencegroupsize %d\n\n", CalcSequenceGroupSize( ) );
@@ -469,6 +514,8 @@ static void WriteSequenceInfo( FILE *fp )
 
 	seqdesc = (mstudioseqdesc_t *)( (byte *)model_hdr + model_hdr->seqindex );
 
+	seq_path = ( globalsettings & SETTINGS_SEPARATEANIMSFOLDER ) ? SEQUENCEPATH : "";
+
 	for( i = 0; i < model_hdr->numseq; ++i, ++seqdesc )
 	{
 		fprintf( fp, "$sequence \"%s\" {\n", seqdesc->label );
@@ -476,12 +523,9 @@ static void WriteSequenceInfo( FILE *fp )
 		if( seqdesc->numblends > 1 )
 		{
 			for( j = 0; j < seqdesc->numblends; j++ )
-				fprintf( fp, "\t\"" DEFAULT_SEQUENCEPATH "%s_blend%02i\"\n", seqdesc->label, j + 1 );
+				fprintf( fp, "\t\"%s%s_blend%02i\"\n", seq_path, seqdesc->label, j + 1 );
 		}
-		else
-		{
-			fprintf( fp, "\t\"" DEFAULT_SEQUENCEPATH "%s\"\n", seqdesc->label );
-		}
+		else fprintf( fp, "\t\"%s%s\"\n", seq_path, seqdesc->label );
 
 		if( seqdesc->activity )
 		{
@@ -493,7 +537,7 @@ static void WriteSequenceInfo( FILE *fp )
 			}
 			else
 			{
-				printf( "WARNING: Sequence %s has a custom activity flag (ACT_%i %i).\n",
+				LogPrintf( "WARNING: Sequence %s has a custom activity flag (ACT_%i %i).",
 				    seqdesc->label, seqdesc->activity, seqdesc->actweight );
 
 				fprintf( fp, "\tACT_%i %i\n", seqdesc->activity, seqdesc->actweight );
@@ -508,7 +552,7 @@ static void WriteSequenceInfo( FILE *fp )
 			    motion_types, seqdesc->blendstart[0], seqdesc->blendend[0] );
 
 			if( !seqdesc->blendtype[0] )
-				printf( "WARNING: Something wrong with blending type for sequence: %s\n", seqdesc->label );
+				LogPrintf( "WARNING: Something wrong with blending type for sequence: %s", seqdesc->label );
 		}
 
 		event = (mstudioevent_t *)( (byte *)model_hdr + seqdesc->eventindex );
@@ -567,7 +611,7 @@ void WriteQCScript( void )
 
 	if( len == -1 )
 	{
-		fprintf( stderr, "ERROR: Destination path is too long. Couldn't write %s.qc\n", modelfile );
+		LogPrintf( "ERROR: Destination path is too long. Couldn't write %s.qc.", modelfile );
 		return;
 	}
 
@@ -575,7 +619,7 @@ void WriteQCScript( void )
 
 	if( !fp )
 	{
-		fprintf( stderr, "ERROR: Couldn't write %s\n", filename );
+		LogPrintf( "ERROR: Couldn't write %s.", filename );
 		return;
 	}
 
@@ -596,7 +640,9 @@ void WriteQCScript( void )
 	fprintf( fp, "$modelname \"%s.mdl\"\n", modelfile );
 
 	fputs( "$cd \".\"\n", fp );
-	fputs( "$cdtexture \"./" DEFAULT_TEXTUREPATH "\"\n", fp );
+	if( globalsettings & SETTINGS_SEPARATETEXTURESFOLDER )
+		fputs( "$cdtexture \"./" TEXTUREPATH "\"\n", fp );
+	else fputs( "$cdtexture \"./\"\n", fp );
 	fputs( "$cliptotextures\n", fp );
 	fputs( "$scale 1.0\n", fp );
 	fputs( "\n", fp );
@@ -631,6 +677,6 @@ void WriteQCScript( void )
 	fputs( "// End of QC script.\n", fp );
 	fclose( fp );
 
-	printf( "QC Script: %s\n", filename );
+	LogPrintf( "QC Script: %s", filename );
 }
 

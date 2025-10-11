@@ -302,14 +302,11 @@ void UI_ConnectionProgress_ParseServerInfo( const char *server )
 
 static void GAME_EXPORT UI_DrawLogo( const char *filename, float x, float y, float width, float height )
 {
-	static float	cin_time;
-	static int	last_frame = -1;
-	byte		*cin_data = NULL;
 	movie_state_t	*cin_state;
-	int		cin_frame;
-	qboolean		redraw = false;
 
-	if( !gameui.drawLogo ) return;
+	if( !gameui.drawLogo )
+		return;
+
 	cin_state = AVI_GetState( CIN_LOGO );
 
 	if( !AVI_IsActive( cin_state ))
@@ -336,37 +333,25 @@ static void GAME_EXPORT UI_DrawLogo( const char *filename, float x, float y, flo
 			gameui.drawLogo = false;
 			return;
 		}
-
-		cin_time = 0.0f;
-		last_frame = -1;
 	}
 
 	if( width <= 0 || height <= 0 )
 	{
 		// precache call, don't draw
-		cin_time = 0.0f;
-		last_frame = -1;
 		return;
 	}
 
-	// advances cinematic time (ignores maxfps and host_framerate settings)
-	cin_time += host.realframetime;
-
-	// restarts the cinematic
-	if( cin_time > gameui.logo_length )
-		cin_time = 0.0f;
+	AVI_SetParm( cin_state,
+		AVI_RENDER_TEXNUM, 0,
+		AVI_RENDER_X, (int)x,
+		AVI_RENDER_Y, (int)y,
+		AVI_RENDER_W, (int)width,
+		AVI_RENDER_H, (int)height,
+		AVI_PARM_LAST );
 
 	// read the next frame
-	cin_frame = AVI_GetVideoFrameNumber( cin_state, cin_time );
-
-	if( cin_frame != last_frame )
-	{
-		cin_data = AVI_GetVideoFrame( cin_state, cin_frame );
-		last_frame = cin_frame;
-		redraw = true;
-	}
-
-	ref.dllFuncs.R_DrawStretchRaw( x, y, width, height, gameui.logo_xres, gameui.logo_yres, cin_data, redraw );
+	if( !AVI_Think( cin_state ))
+		AVI_SetParm( cin_state, AVI_REWIND, AVI_PARM_LAST );
 }
 
 static int GAME_EXPORT UI_GetLogoWidth( void )
@@ -1111,6 +1096,9 @@ UI_ShellExecute
 */
 static void GAME_EXPORT UI_ShellExecute( const char *path, const char *parms, int shouldExit )
 {
+	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
+		path = DEFAULT_UPDATE_PAGE;
+
 	Platform_ShellExecute( path, parms );
 
 	if( shouldExit )
@@ -1273,16 +1261,16 @@ static void pfnEnableTextInput( int enable )
 	Key_EnableTextInput( enable, false );
 }
 
-static int pfnGetRenderers( unsigned int num, char *shortName, size_t size1, char *readableName, size_t size2 )
+static int pfnGetRenderers( unsigned int num, char *short_name, size_t size1, char *long_name, size_t size2 )
 {
-	if( num >= ref.numRenderers )
+	if( num >= ref.num_renderers )
 		return 0;
 
-	if( shortName && size1 )
-		Q_strncpy( shortName, ref.shortNames[num], size1 );
+	if( short_name && size1 )
+		Q_strncpy( short_name, ref.short_names[num], size1 );
 
-	if( readableName && size2 )
-		Q_strncpy( readableName, ref.readableNames[num], size2 );
+	if( long_name && size2 )
+		Q_strncpy( long_name, ref.long_names[num], size2 );
 
 	return 1;
 }

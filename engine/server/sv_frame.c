@@ -707,7 +707,11 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 	{
 		if( MSG_GetNumBytesWritten( &cl->datagram ) < MSG_GetNumBytesLeft( &msg ))
 			MSG_WriteBits( &msg, MSG_GetData( &cl->datagram ), MSG_GetNumBitsWritten( &cl->datagram ));
-		else Con_DPrintf( S_WARN "Ignoring unreliable datagram for %s, would overflow on msg\n", cl->name );
+		else if( host.realtime > cl->overflow_warn_time )
+		{
+			Con_DPrintf( S_WARN "Ignoring unreliable datagram for %s, would overflow on msg\n", cl->name );
+			cl->overflow_warn_time = host.realtime + 5.0f;
+		}
 	}
 
 	MSG_Clear( &cl->datagram );
@@ -889,7 +893,7 @@ void SV_SendClientMessages( void )
 			// now that we were able to send, reset timer to point to next possible send time.
 			// check here also because sv_max/minupdaterate could been changed in runtime
 			updaterate_time = bound( 1.0 / sv_maxupdaterate.value, cl->cl_updaterate, 1.0 / sv_minupdaterate.value );
-			cl->next_messagetime   = host.realtime + sv.frametime + updaterate_time; 
+			cl->next_messagetime = host.realtime + sv.frametime + updaterate_time;
 			ClearBits( cl->flags, FCL_SEND_NET_MESSAGE );
 
 			// NOTE: we should send frame even if server is not simulated to prevent overflow
@@ -958,7 +962,12 @@ void SV_InactivateClients( void )
 		}
 
 		if( cl->state > cs_connected )
+		{
 			cl->state = cs_connected;
+
+			// bump connect timeout
+			cl->connection_started = host.realtime;
+		}
 
 		COM_ClearCustomizationList( &cl->customdata, false );
 		memset( cl->physinfo, 0, MAX_PHYSINFO_STRING );

@@ -15,12 +15,13 @@ GNU General Public License for more details.
 
 #include "imagelib.h"
 
+#define palettesize 256
+#define netsize     255 // number of colours used
 
-#define netsize		256			// number of colours used
-#define prime1		499
-#define prime2		491
-#define prime3		487
-#define prime4		503
+#define prime1      499
+#define prime2      491
+#define prime3      487
+#define prime4      503
 
 #define minpicturebytes	(3*prime4)		// minimum size for input image
 
@@ -446,13 +447,20 @@ rgbdata_t *Image_Quantize( rgbdata_t *pic )
 	learn();
 	unbiasnet();
 
-	pic->palette = Mem_Malloc( host.imagepool, netsize * 3 );
+	pic->palette = Mem_Malloc( host.imagepool, palettesize * 3 );
 
 	for( i = 0; i < netsize; i++ )
 	{
 		pic->palette[i*3+0] = network[i][0];	// red
 		pic->palette[i*3+1] = network[i][1];	// green
 		pic->palette[i*3+2] = network[i][2];	// blue
+	}
+
+	for( ; i < palettesize; i++ )
+	{
+		pic->palette[i*3+0] = 0;
+		pic->palette[i*3+1] = 0;
+		pic->palette[i*3+2] = 0;
 	}
 
 	inxbuild();

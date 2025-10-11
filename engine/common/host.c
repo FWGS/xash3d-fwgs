@@ -14,9 +14,6 @@ GNU General Public License for more details.
 */
 
 #include "build.h"
-#ifdef XASH_SDL
-#include <SDL.h>
-#endif // XASH_SDL
 #include <stdarg.h>  // va_args
 #if !XASH_WIN32
 #include <unistd.h> // fork
@@ -42,10 +39,8 @@ GNU General Public License for more details.
 #include "render_api.h"	// decallist_t
 #include "tests.h"
 
-static pfnChangeGame	pChangeGame = NULL;
-host_parm_t		host;	// host parms
-
-#if XASH_ANDROID
+host_parm_t host;	// host parms
+static pfnChangeGame pChangeGame = NULL;
 static jmp_buf return_from_main_buf;
 
 /*
@@ -64,7 +59,6 @@ void Host_ExitInMain( void )
 {
 	longjmp( return_from_main_buf, 1 );
 }
-#endif // XASH_ANDROID
 
 #ifdef XASH_ENGINE_TESTS
 struct tests_stats_s tests_stats;
@@ -79,7 +73,7 @@ static CVAR_DEFINE_AUTO( host_gameloaded, "0", FCVAR_READ_ONLY, "inidcates a loa
 static CVAR_DEFINE_AUTO( host_clientloaded, "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
 CVAR_DEFINE_AUTO( host_limitlocal, "0", 0, "apply cl_cmdrate and rate to loopback connection" );
 CVAR_DEFINE( host_maxfps, "fps_max", "72", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "host fps upper limit" );
-CVAR_DEFINE_AUTO( fps_override, "1", FCVAR_FILTERABLE, "unlock higher framerate values, not supported" );
+CVAR_DEFINE_AUTO( fps_override, "0", FCVAR_FILTERABLE, "unlock higher framerate values, not supported" );
 static CVAR_DEFINE_AUTO( host_framerate, "0", FCVAR_FILTERABLE, "locks frame timing to this value in seconds" );
 static CVAR_DEFINE( host_sleeptime, "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "milliseconds to sleep for each frame. higher values reduce fps accuracy" );
 static CVAR_DEFINE_AUTO( host_sleeptime_debug, "0", 0, "print sleeps between frames" );
@@ -153,6 +147,7 @@ static void Sys_PrintUsage( const char *exename )
 	O("-bugcomp [opts]    ", "enable precise bug compatibility")
 	O("                   ", "will break games that don't require it")
 	O("                   ", "refer to engine documentation for more info")
+	O("-language <lang>   ", "mount localization game directory")
 	O("-disablehelp       ", "disable this message")
 #if !XASH_DEDICATED
 	O("-dedicated         ", "run engine in dedicated mode")
@@ -179,6 +174,7 @@ static void Sys_PrintUsage( const char *exename )
 	O("-dll <path>        ", "override server DLL path")
 #if !XASH_DEDICATED
 	O("-clientlib <path>  ", "override client DLL path")
+	O("-menulib <path>    ", "override menu DLL path")
 	O("-console           ", "run engine with console enabled")
 	O("-toconsole         ", "run engine witn console open")
 	O("-oldfont           ", "enable unused Quake font in Half-Life")
@@ -189,10 +185,8 @@ static void Sys_PrintUsage( const char *exename )
 	O("-windowed          ", "run engine in windowed mode")
 	O("-ref <name>        ", "use selected renderer dll")
 	O("-gldebug           ", "enable OpenGL debug log")
-#if XASH_WIN32
 	O("-noavi             ", "disable AVI support")
 	O("-nointro           ", "disable intro video")
-#endif
 	O("-noenginejoy       ", "disable engine builtin joystick support")
 	O("-noenginemouse     ", "disable engine builtin mouse support")
 	O("-nosound           ", "disable sound output")
@@ -206,12 +200,9 @@ static void Sys_PrintUsage( const char *exename )
 #if XASH_SDL == 2
 	O("-sdl_renderer <n>  ","use alternative SDL_Renderer for software")
 #endif // XASH_SDL
-#if XASH_ANDROID && !XASH_SDL
-	O("-nativeegl         ","use native egl implementation. Use if screen does not update or black")
-#endif // XASH_ANDROID
-#if XASH_DOS
+#if XASH_VIDEO == VIDEO_DOS
 	O("-novesa            ","disable vesa")
-#endif // XASH_DOS
+#endif // XASH_VIDEO == VIDEO_DOS
 #if XASH_VIDEO == VIDEO_FBDEV
 	O("-fbdev <path>      ","open selected framebuffer")
 	O("-ttygfx            ","set graphics mode in tty")
@@ -541,13 +532,6 @@ static void Host_MemStats_f( void )
 		Con_Printf( S_USAGE "memlist <all>\n" );
 		break;
 	}
-}
-
-static void Host_Minimize_f( void )
-{
-#ifdef XASH_SDL
-	if( host.hWnd ) SDL_MinimizeWindow( host.hWnd );
-#endif
 }
 
 /*
@@ -1052,13 +1036,6 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 			Sys_PrintBugcompUsage( exename );
 	}
 
-	if( !Sys_CheckParm( "-noch" ))
-		Sys_SetupCrashHandler( argv[0] );
-
-#if XASH_DLL_LOADER
-	host.enabledll = !Sys_CheckParm( "-nodll" );
-#endif
-
 	host.change_game = bChangeGame || Sys_CheckParm( "-changegame" );
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started
@@ -1072,7 +1049,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
-	host.allow_console = DEFAULT_ALLOWCONSOLE;
+	host.allow_console = DEFAULT_ALLOWCONSOLE || DEFAULT_DEV > 0;
 
 	if( Sys_CheckParm( "-dev" ))
 	{
@@ -1130,7 +1107,11 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Cvar_SetValue( "sys_ticrate", fps );
 	}
 
+	Sys_InitLog();
 	Con_Init(); // early console running to catch all the messages
+
+	if( !Sys_CheckParm( "-noch" ))
+		Sys_SetupCrashHandler( argv[0] );
 
 #if XASH_ENGINE_TESTS
 	if( Sys_CheckParm( "-runtests" ))
@@ -1142,8 +1123,6 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #endif
 	Platform_Init( Host_IsDedicated( ) || developer >= DEV_EXTENDED, basedir );
 	FS_Init( basedir );
-
-	Sys_InitLog();
 
 	// print current developer level to simplify processing users feedback
 	if( developer > 0 )
@@ -1164,6 +1143,10 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
 	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
 
+#if !XASH_DEDICATED
+	Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig, "save current configuration" );
+#endif
+
 	Image_Init();
 	Sound_Init();
 
@@ -1172,7 +1155,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		Host_RunTests( 1 );
 #endif
 
-	FS_LoadGameInfo( NULL );
+	FS_LoadGameInfo();
 	Cvar_PostFSInit();
 
 	Image_CheckPaletteQ1 ();
@@ -1212,8 +1195,11 @@ Host_Main
 */
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func )
 {
-	static double	oldtime, newtime;
+	static double oldtime;
 	string demoname, exename;
+
+	if( setjmp( return_from_main_buf ))
+		return error_on_exit;
 
 	host.starttime = Sys_DoubleTime();
 
@@ -1246,6 +1232,14 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Cvar_Getf( "ver", FCVAR_READ_ONLY, "shows an engine version", "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat());
 	Cvar_Getf( "host_ver", FCVAR_READ_ONLY, "detailed info about this build", "%i " XASH_VERSION " %s %s %s", Q_buildnum(), Q_buildos(), Q_buildarch(), g_buildcommit);
 	Cvar_Getf( "host_lowmemorymode", FCVAR_READ_ONLY, "indicates if engine compiled for low RAM consumption (0 - normal, 1 - low engine limits, 2 - low protocol limits)", "%i", XASH_LOW_MEMORY );
+
+	Cvar_Get( "host_hl25_extended_structs",
+#if SUPPORT_HL25_EXTENDED_STRUCTS
+		"1",
+#else
+		"0",
+#endif
+		FCVAR_READ_ONLY, "indicates if engine was compiled with extended msurface_t struct" );
 
 	Mod_Init();
 	NET_Init();
@@ -1281,7 +1275,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cmd_AddRestrictedCommand( "quit", Sys_Quit_f, "quit the game" );
 		Cmd_AddRestrictedCommand( "exit", Sys_Quit_f, "quit the game" );
 	}
-	else Cmd_AddRestrictedCommand( "minimize", Host_Minimize_f, "minimize main window to tray" );
+	else Cmd_AddRestrictedCommand( "minimize", Platform_Minimize_f, "minimize main window to tray" );
 
 	host.errorframe = 0;
 
@@ -1322,7 +1316,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Cmd_RemoveCommand( "setgl" );
 	Cbuf_ExecStuffCmds();	// execute stuffcmds (commandline)
 	SCR_CheckStartupVids();	// must be last
-	FS_CheckConfig();
 
 	if( Sys_GetParmFromCmdLine( "-timedemo", demoname ))
 		Cbuf_AddTextf( "timedemo %s\n", demoname );
@@ -1351,20 +1344,14 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	// check after all configs were executed
 	HPAK_CheckIntegrity( hpk_custom_file.string );
 
-#if XASH_ANDROID
-	if( setjmp( return_from_main_buf ))
-		return error_on_exit;
-#endif // XASH_ANDROID
-
 	// main window message loop
-	while( !host.crashed )
+	while( host.status != HOST_CRASHED )
 	{
-		newtime = Sys_DoubleTime ();
+		double newtime = Sys_DoubleTime();
 		COM_Frame( newtime - oldtime );
 		oldtime = newtime;
 	}
 
-	// never reached
 	return 0;
 }
 

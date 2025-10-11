@@ -1,19 +1,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item
-        android:id="@+id/action_browse"
-        android:icon="@drawable/ic_baseline_folder_open_24"
-        android:title="@string/browse"
-        app:showAsAction="always|withText" />
-    <item
-        android:id="@+id/action_install"
-        android:icon="@drawable/ic_baseline_add_24"
-        android:title="@string/install"
-        app:showAsAction="always|withText" />
-    <item
-        android:id="@+id/action_settings"
-        android:icon="@drawable/ic_baseline_settings_24"
-        android:title="@string/app_settings"
-        app:showAsAction="always|withText"
-        android:visible="false"/>
+	xmlns:app="http://schemas.android.com/apk/res-auto">
+	<item
+		android:id="@+id/action_settings"
+		android:icon="@drawable/ic_baseline_settings_24"
+		android:title="@string/app_settings"
+		app:showAsAction="always|withText" />
 </menu>

@@ -41,7 +41,7 @@ GNU General Public License for more details.
 
 #define LIST_HEAD_INIT( name ) { &(name), &(name) }
 
-_inline void list_add__( hullnode_t *new, hullnode_t *prev, hullnode_t *next )
+static inline void list_add__( hullnode_t *new, hullnode_t *prev, hullnode_t *next )
 {
 	next->prev = new;
 	new->next = next;
@@ -50,18 +50,18 @@ _inline void list_add__( hullnode_t *new, hullnode_t *prev, hullnode_t *next )
 }
 
 // add the new entry after the give list entry
-_inline void list_add( hullnode_t *newobj, hullnode_t *head )
+static inline void list_add( hullnode_t *newobj, hullnode_t *head )
 {
 	list_add__( newobj, head, head->next );
 }
 
 // add the new entry before the given list entry (list is circular)
-_inline void list_add_tail( hullnode_t *newobj, hullnode_t *head )
+static inline void list_add_tail( hullnode_t *newobj, hullnode_t *head )
 {
 	list_add__( newobj, head->prev, head );
 }
 
-_inline void list_del( hullnode_t *entry )
+static inline void list_del( hullnode_t *entry )
 {
 	entry->next->prev = entry->prev;
 	entry->prev->next = entry->next;

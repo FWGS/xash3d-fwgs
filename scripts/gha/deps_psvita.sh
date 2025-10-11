@@ -2,6 +2,12 @@
 
 cd $GITHUB_WORKSPACE
 
+# pinning cmake version to 3.28.3, because with cmake 4.x SDL vita fork doesn't building
+# it is known problem and cmake 4.x update breaks many CI pipelines around the world :)
+sudo apt-get update || exit 1
+sudo apt-get install cmake=3.28.3-1build7
+sudo ln -sf /usr/bin/cmake /usr/local/bin/cmake
+
 echo "Downloading vitasdk..."
 
 export VITASDK=/usr/local/vitasdk

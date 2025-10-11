@@ -22,15 +22,13 @@ GNU General Public License for more details.
 #include <stdarg.h>
 
 #if XASH_POSIX
-#define XASHLIB "libxash." OS_LIB_EXT
-#define LoadLibrary( x ) dlopen( x, RTLD_NOW )
-#define GetProcAddress( x, y ) dlsym( x, y )
+#include <dlfcn.h>
+#define XASHLIB OS_LIB_PREFIX "xash." OS_LIB_EXT
 #define FreeLibrary( x ) dlclose( x )
 #elif XASH_WIN32
 #include <shellapi.h> // CommandLineToArgvW
-#define XASHLIB "xash.dll"
-#define SDL2LIB "SDL2.dll"
-#define dlerror() GetStringLastError()
+#define XASHLIB L"xash.dll"
+#define SDL2LIB L"SDL2.dll"
 
 extern "C"
 {
@@ -52,14 +50,14 @@ typedef void (*pfnChangeGame)( const char *progname );
 typedef int  (*pfnInit)( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 typedef void (*pfnShutdown)( void );
 
-static pfnInit     Xash_Main;
-static pfnShutdown Xash_Shutdown = NULL;
+static pfnInit     Host_Main;
+static pfnShutdown Host_Shutdown = NULL;
 static char        szGameDir[128]; // safe place to keep gamedir
 static int         szArgc;
 static char        **szArgv;
 static HINSTANCE   hEngine;
 
-static void Xash_Error( const char *szFmt, ... )
+static void Launch_Error( const char *szFmt, ... )
 {
 	static char	buffer[16384];	// must support > 1k messages
 	va_list		args;
@@ -68,7 +66,7 @@ static void Xash_Error( const char *szFmt, ... )
 	vsnprintf( buffer, sizeof(buffer), szFmt, args );
 	va_end( args );
 
-#if defined( _WIN32 )
+#if XASH_WIN32
 	MessageBoxA( NULL, buffer, "Xash Error", MB_OK );
 #else
 	fprintf( stderr, "Xash Error: %s\n", buffer );
@@ -77,7 +75,7 @@ static void Xash_Error( const char *szFmt, ... )
 	exit( 1 );
 }
 
-#ifdef _WIN32
+#if XASH_WIN32
 static const char *GetStringLastError()
 {
 	static char buf[1024];
@@ -93,40 +91,62 @@ static const char *GetStringLastError()
 static void Sys_LoadEngine( void )
 {
 #if XASH_WIN32
-	HMODULE hSdl;
+	HMODULE hSDL = LoadLibraryExW( SDL2LIB, NULL, LOAD_LIBRARY_AS_DATAFILE );
 
-	if (( hSdl = LoadLibraryEx( SDL2LIB, NULL, LOAD_LIBRARY_AS_DATAFILE )) == NULL )
+	if( !hSDL )
 	{
-		Xash_Error("Unable to load the " SDL2LIB ": %s", dlerror() );
+		Launch_Error("Unable to load %ls: %s", SDL2LIB, GetStringLastError( ));
+		return;
 	}
-	else
+
+	FreeLibrary( hSDL );
+
+	hEngine = LoadLibraryW( XASHLIB );
+	if( !hEngine )
 	{
-		FreeLibrary( hSdl );
+		Launch_Error( "Unable to load %ls: %s", XASHLIB, GetStringLastError( ));
+		return;
 	}
+
+	Host_Main = (pfnInit)GetProcAddress( hEngine, "Host_Main" );
+
+	if( !Host_Main )
+	{
+		Launch_Error( "%ls missed 'Host_Main' export: %s", XASHLIB, GetStringLastError( ));
+		return;
+	}
+
+	Host_Shutdown = (pfnShutdown)GetProcAddress( hEngine, "Host_Shutdown" );
+#elif XASH_POSIX
+	hEngine = dlopen( XASHLIB, RTLD_NOW );
+	if( !hEngine )
+	{
+		Launch_Error( "Unable to load %s: %s", XASHLIB, dlerror( ));
+		return;
+	}
+
+	Host_Main = (pfnInit)dlsym( hEngine, "Host_Main" );
+
+	if( !Host_Main )
+	{
+		Launch_Error( "%s missed 'Host_Main' export: %s", XASHLIB, dlerror( ));
+		return;
+	}
+
+	Host_Shutdown = (pfnShutdown)dlsym( hEngine, "Host_Shutdown" );
+#else
+#error "port me!"
 #endif
-
-	if(( hEngine = LoadLibrary( XASHLIB )) == NULL )
-	{
-		Xash_Error("Unable to load the " XASHLIB ": %s", dlerror() );
-	}
-
-	if(( Xash_Main = (pfnInit)GetProcAddress( hEngine, "Host_Main" )) == NULL )
-	{
-		Xash_Error( XASHLIB " missed 'Host_Main' export: %s", dlerror() );
-	}
-
-	// this is non-fatal for us but change game will not working
-	Xash_Shutdown = (pfnShutdown)GetProcAddress( hEngine, "Host_Shutdown" );
 }
 
 static void Sys_UnloadEngine( void )
 {
-	if( Xash_Shutdown ) Xash_Shutdown( );
+	if( Host_Shutdown ) Host_Shutdown( );
 	if( hEngine ) FreeLibrary( hEngine );
 
 	hEngine = NULL;
-	Xash_Main = NULL;
-	Xash_Shutdown = NULL;
+	Host_Main = NULL;
+	Host_Shutdown = NULL;
 }
 
 static void Sys_ChangeGame( const char *progname )
@@ -134,19 +154,25 @@ static void Sys_ChangeGame( const char *progname )
 	// a1ba: may never be called within engine
 	// if platform supports execv() function
 	if( !progname || !progname[0] )
-		Xash_Error( "Sys_ChangeGame: NULL gamedir" );
+	{
+		Launch_Error( "Sys_ChangeGame: NULL gamedir" );
+		return;
+	}
 
-	if( Xash_Shutdown == NULL )
-		Xash_Error( "Sys_ChangeGame: missed 'Host_Shutdown' export\n" );
+	if( Host_Shutdown == NULL )
+	{
+		Launch_Error( "Sys_ChangeGame: missed 'Host_Shutdown' export\n" );
+		return;
+	}
 
 	strncpy( szGameDir, progname, sizeof( szGameDir ) - 1 );
 
 	Sys_UnloadEngine();
 	Sys_LoadEngine ();
-	Xash_Main( szArgc, szArgv, szGameDir, 1, Sys_ChangeGame );
+	Host_Main( szArgc, szArgv, szGameDir, 1, Sys_ChangeGame );
 }
 
-_inline int Sys_Start( void )
+static int Sys_Start( void )
 {
 	int ret;
 	pfnChangeGame changeGame = NULL;
@@ -168,10 +194,10 @@ _inline int Sys_Start( void )
 
 	Sys_LoadEngine();
 
-	if( Xash_Shutdown )
+	if( Host_Shutdown )
 		changeGame = Sys_ChangeGame;
 
-	ret = Xash_Main( szArgc, szArgv, szGameDir, 0, XASH_DISABLE_MENU_CHANGEGAME ? NULL : changeGame );
+	ret = Host_Main( szArgc, szArgv, szGameDir, 0, XASH_DISABLE_MENU_CHANGEGAME ? NULL : changeGame );
 
 	Sys_UnloadEngine();
 

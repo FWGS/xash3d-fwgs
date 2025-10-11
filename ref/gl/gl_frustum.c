@@ -98,7 +98,7 @@ void GL_FrustumInitOrtho( gl_frustum_t *out, float xLeft, float xRight, float yT
 }
 
 // cull methods
-qboolean GL_FrustumCullBox( gl_frustum_t *out, const vec3_t mins, const vec3_t maxs, int userClipFlags )
+qboolean GL_FrustumCullBox( const gl_frustum_t *out, const vec3_t mins, const vec3_t maxs, int userClipFlags )
 {
 	int	iClipFlags;
 	int	i, bit;
@@ -159,7 +159,7 @@ qboolean GL_FrustumCullBox( gl_frustum_t *out, const vec3_t mins, const vec3_t m
 	return false;
 }
 
-qboolean GL_FrustumCullSphere( gl_frustum_t *out, const vec3_t center, float radius, int userClipFlags )
+qboolean GL_FrustumCullSphere( const gl_frustum_t *out, const vec3_t center, float radius, int userClipFlags )
 {
 	int	iClipFlags;
 	int	i, bit;
