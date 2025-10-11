@@ -39,6 +39,7 @@ CVAR_DEFINE_AUTO( vr_hand_pitch, "0", FCVAR_MOVEVARS, "Hand pitch angle" );
 CVAR_DEFINE_AUTO( vr_hand_yaw, "0", FCVAR_MOVEVARS, "Hand yaw angle" );
 CVAR_DEFINE_AUTO( vr_hand_roll, "0", FCVAR_MOVEVARS, "Hand roll angle" );
 CVAR_DEFINE_AUTO( vr_hand_swap, "0", FCVAR_MOVEVARS, "Hand/weapon swap during dual hand weapons" );
+CVAR_DEFINE_AUTO( vr_haptics_weapon, "0", FCVAR_MOVEVARS, "Haptics amount for the weapon" );
 CVAR_DEFINE_AUTO( vr_hmd_pitch, "0", FCVAR_MOVEVARS, "Camera pitch angle" );
 CVAR_DEFINE_AUTO( vr_hmd_yaw, "0", FCVAR_MOVEVARS, "Camera yaw angle" );
 CVAR_DEFINE_AUTO( vr_hmd_roll, "0", FCVAR_MOVEVARS, "Camera roll angle" );
@@ -108,6 +109,7 @@ CVAR_DEFINE_AUTO( vr_button_thumbstick_dleft_right_alt, "+vr_left", FCVAR_ARCHIV
 CVAR_DEFINE_AUTO( vr_button_thumbstick_dright_right_alt, "+vr_right", FCVAR_ARCHIVE, "Controller mapping" );
 CVAR_DEFINE_AUTO( vr_button_thumbstick_press_right_alt, "touch_hide say;touch_hide say2;messagemode", FCVAR_ARCHIVE, "Controller mapping" );
 CVAR_DEFINE_AUTO( vr_button_trigger_right_alt, "drop", FCVAR_ARCHIVE, "Controller mapping" );
+CVAR_DEFINE_AUTO( vr_haptics_enable, "1", FCVAR_ARCHIVE, "Flag if haptics are enabled" );
 CVAR_DEFINE_AUTO( vr_thumbstick_deadzone_left, "0.15", FCVAR_ARCHIVE, "Deadzone of thumbstick to filter drift" );
 CVAR_DEFINE_AUTO( vr_thumbstick_deadzone_right, "0.8", FCVAR_ARCHIVE, "Deadzone of thumbstick to filter drift" );
 CVAR_DEFINE_AUTO( vr_turn_angle, "45", FCVAR_ARCHIVE, "Angle to rotate by a thumbstick" );
@@ -139,6 +141,8 @@ void Host_VRInit( void )
 	Cvar_RegisterVariable( &vr_hand_yaw );
 	Cvar_RegisterVariable( &vr_hand_roll );
 	Cvar_RegisterVariable( &vr_hand_swap );
+	Cvar_RegisterVariable( &vr_haptics_enable );
+	Cvar_RegisterVariable( &vr_haptics_weapon );
 	Cvar_RegisterVariable( &vr_hmd_pitch );
 	Cvar_RegisterVariable( &vr_hmd_yaw );
 	Cvar_RegisterVariable( &vr_hmd_roll );
@@ -313,8 +317,8 @@ void Host_VRInputFrame( void )
 
 	// Change weapon angles if throwing a grenade
 	if (Cvar_VariableValue("vr_weapon_throw_active") > 0.5f) {
-		weaponAngles[PITCH] = RAD2DEG(Cvar_VariableValue("vr_weapon_throw_pitch"));
-		weaponAngles[YAW] = RAD2DEG(Cvar_VariableValue("vr_weapon_throw_yaw"));
+		weaponAngles[PITCH] = Cvar_VariableValue("vr_weapon_throw_pitch");
+		weaponAngles[YAW] = Cvar_VariableValue("vr_weapon_throw_yaw");
 		weaponAngles[ROLL] = 0;
 	}
 
@@ -352,6 +356,7 @@ void Host_VRInputFrame( void )
 		// No game actions when UI is shown
 		Host_VRButtonMapping(!rightHanded, 0, 0);
 	}
+	Host_VRHaptics( rightHanded );
 }
 
 void Host_VRButtonMap( unsigned int button, int currentButtons, int lastButtons, const char* name, bool alt )
@@ -531,6 +536,32 @@ void Host_VRCustomCommand( char* action )
 	}
 }
 
+void Host_VRHaptics( bool rightHanded )
+{
+	// Check if haptics are enabled
+	if (Cvar_VariableValue("vr_haptics_enable") < 0.5f) {
+		return;
+	}
+
+	// Weapon haptics
+	bool handSwapped = Cvar_VariableValue("vr_hand_swap") > 0.5f;
+	float weaponPower = Cvar_VariableValue("vr_haptics_weapon");
+	if (weaponPower > 0) {
+		int channel = handSwapped == rightHanded ? 0 : 1;
+		IN_VR_Vibrate(weaponPower, channel, 100);
+		Cvar_SetValue("vr_haptics_weapon", 0);
+	}
+
+	// Damage haptics
+	static int lastHealth = 0;
+	if (lastHealth > cl.local.health) {
+		float duration = (float)(lastHealth - cl.local.health) / 50.0f;
+		IN_VR_Vibrate(duration, 0, 100);
+		IN_VR_Vibrate(duration, 1, 100);
+	}
+	lastHealth = cl.local.health;
+}
+
 bool Host_VRMenuInput( bool cursorActive, bool gameMode, bool swapped, int lbuttons, int rbuttons, vec2_t cursor )
 {
 	// Send enter when Keyboard released
@@ -694,13 +725,23 @@ void Host_VRMotionControls( bool zoomed, bool superzoomed, vec3_t hmdAngles, vec
 		if (throwing) {
 			float dir = sqrt(dirX * dirX + dirY * dirY);
 			Cvar_LazySet("vr_weapon_throw_active", 1);
-			Cvar_SetValue("vr_weapon_throw_pitch", sin(dirZ / dir));
-			Cvar_SetValue("vr_weapon_throw_yaw", atan2(dirX, dirY));
+			Cvar_SetValue("vr_weapon_throw_pitch", RAD2DEG(sin(dirZ / dir)));
+			Cvar_SetValue("vr_weapon_throw_yaw", RAD2DEG(atan2(dirX, dirY)));
 		} else if (speed < 0.0001f) {
 			Cvar_LazySet("vr_weapon_throw_active", 0);
 			startDX = weaponDX;
 			startDY = weaponDY;
 			startDZ = weaponDZ;
+		}
+		if (lastThrowing) {
+			float diff = hmdAngles[YAW] - Cvar_VariableValue("vr_weapon_throw_yaw");
+			while (diff > 180) diff -= 360;
+			while (diff <-180) diff += 360;
+			//do not release the grenade when moving hand behind
+			if (fabs(diff) > 100) {
+				Cvar_LazySet("vr_weapon_throw_active", 0);
+				throwing = true;
+			}
 		}
 		if (throwing != lastThrowing) {
 			Cbuf_AddText( throwing ? "+attack\n" : "-attack\n" );

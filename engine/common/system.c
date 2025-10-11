@@ -144,7 +144,7 @@ const char *Sys_GetCurrentUser( void )
 	if( pw )
 		return pw->pw_name;
 #endif
-	return "Player";
+	return "[VR] Player";
 }
 
 /*

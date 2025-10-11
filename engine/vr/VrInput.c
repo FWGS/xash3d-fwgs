@@ -34,7 +34,7 @@ uint32_t rButtons = 0;
 float deadZone = 0.5f;
 XrActionStateVector2f moveJoystickState[2];
 
-void INVR_Vibrate( float duration, int channel, float intensity ) {
+void IN_VR_Vibrate( float duration, int channel, float intensity ) {
 	if (intensity > 0) {
 		XrHapticVibration vibration = {};
 		vibration.type = XR_TYPE_HAPTIC_VIBRATION;
