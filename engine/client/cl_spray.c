@@ -151,9 +151,11 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 			}
 		}
 
+		// make last palette color black to avoid blueish texture filtering artifacts
 		quant->palette[255 * 3 + 0] = 0;
 		quant->palette[255 * 3 + 1] = 0;
-		quant->palette[255 * 3 + 2] = 255;
+		quant->palette[255 * 3 + 2] = 0;
+
 		memcpy( palette, quant->palette, SPRAY_PALETTE_BYTES );
 		indexed = quant->buffer;
 	}
