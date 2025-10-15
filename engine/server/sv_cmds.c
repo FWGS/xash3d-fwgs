@@ -413,7 +413,7 @@ SV_QuickLoad_f
 */
 static void SV_QuickLoad_f( void )
 {
-	Cbuf_AddText( "echo Quick Loading...; wait; load quick" );
+	Cbuf_AddText( "echo Quick Loading...; wait; load quick\n" );
 }
 
 /*
@@ -451,7 +451,7 @@ SV_QuickSave_f
 */
 static void SV_QuickSave_f( void )
 {
-	Cbuf_AddText( "echo Quick Saving...; wait; save quick" );
+	Cbuf_AddText( "echo Quick Saving...; wait; save quick\n" );
 }
 
 /*
