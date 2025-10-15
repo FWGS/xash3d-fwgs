@@ -237,7 +237,12 @@ static int CL_GetGoldSrcFragmentSize( void *unused, fragsize_t mode )
 		return 1400; // MAX_ROUTABLE_PACKET
 	default:
 		if( cls.state == ca_active )
-			return bound( 16, cl_dlmax.value, 1024 );
+		{
+			// GoldSrc's default value is 512
+			// let's help users to not shoot themselves in the foot,
+			// assuming nobody wants to make this value lower
+			return bound( 512, cl_dlmax.value, 1024 );
+		}
 		return 128;
 	}
 }
