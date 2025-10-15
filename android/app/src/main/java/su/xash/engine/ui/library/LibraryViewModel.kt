@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import su.xash.engine.model.Game
+import su.xash.engine.util.Nomedia
 import java.io.File
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
@@ -38,6 +39,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 				val rootPath = appPreferences.getString("game_path", null)
 					?: (Environment.getExternalStorageDirectory().absolutePath + "/xash")
 				val root = File(rootPath)
+
+				Nomedia.ensureNomedia(root)
 
 				_installedGames.postValue(Game.getGames(ctx, root))
 				_isReloading.postValue(false)
