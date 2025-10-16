@@ -30,6 +30,16 @@ object Nomedia {
 
 			val nomediaFile = File(directory, ".nomedia")
 
+			// if the .nomedia is directory, remove it
+			if (nomediaFile.isDirectory) {
+				// it should be empty to be deleted, but that's good
+				// because this way we're not deleting something important
+				// (who would stash important files in .nomedia directory though...)
+				if (!nomediaFile.delete()) {
+					return false
+				}
+			}
+
 			// it returns false if file already exists, which is fine for us
 			nomediaFile.createNewFile()
 
