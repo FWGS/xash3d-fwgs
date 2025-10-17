@@ -209,16 +209,21 @@ void R_Set2DMode( qboolean enable )
 {
 	if( enable )
 	{
+		matrix4x4 projection_matrix, worldview_matrix;
+
 		if( glState.in2DMode )
 			return;
 
 		// set 2D virtual screen size
 		pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+
 		pglMatrixMode( GL_PROJECTION );
-		pglLoadIdentity();
-		pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+		Matrix4x4_CreateOrtho( projection_matrix, 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+		GL_LoadMatrix( projection_matrix );
+
 		pglMatrixMode( GL_MODELVIEW );
-		pglLoadIdentity();
+		Matrix4x4_LoadIdentity( worldview_matrix );
+		GL_LoadMatrix( worldview_matrix );
 
 		GL_Cull( GL_NONE );
 
