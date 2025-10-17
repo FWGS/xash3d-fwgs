@@ -1938,7 +1938,7 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 		// through fcntl() and MFD_ALLOW_SEALING we could enforce
 		// read-write flags but we don't really care about them yet
 		if( fd < 0 )
-			Con_Printf( S_ERROR "%s: can't create anonymous file %s: %s", __func__, filepath, strerror( errno ));
+			Con_Printf( S_WARN "%s: can't create anonymous file %s: %s\n", __func__, filepath, strerror( errno ));
 		else memfile = true;
 #endif
 		// if it's unsupported, we can open it on disk
