@@ -1025,7 +1025,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			break;
 		case svc_centerprint:
 			str = MSG_ReadString( msg );
-			CL_DispatchUserMessage( "HudText", Q_strlen( str ), (void *)str );
+			CL_DispatchUserMessage( "HudText", Q_strlen( str ) + 1, (void *)str );
 			break;
 		case svc_killedmonster:
 			CL_DispatchQuakeMessage( "KillMonster" ); // just an event
