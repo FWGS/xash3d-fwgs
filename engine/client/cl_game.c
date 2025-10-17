@@ -593,7 +593,7 @@ Template to show hud messages
 void CL_HudMessage( const char *pMessage )
 {
 	if( !COM_CheckString( pMessage )) return;
-	CL_DispatchUserMessage( "HudText", Q_strlen( pMessage ), (void *)pMessage );
+	CL_DispatchUserMessage( "HudText", Q_strlen( pMessage ) + 1, (void *)pMessage );
 }
 
 /*
