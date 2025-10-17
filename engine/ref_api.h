@@ -153,7 +153,7 @@ typedef struct ref_client_s
 	int      playernum;
 	int      maxclients;
 	int      nummodels;
-	model_t *models[MAX_MODELS+1];
+	model_t *models[MAX_MODELS+4];
 	qboolean paused;
 	vec3_t   simorg;
 } ref_client_t;

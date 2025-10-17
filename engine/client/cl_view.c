@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <VrRenderer.h>
 #include "common.h"
 #include "client.h"
 #include "const.h"
@@ -276,6 +277,11 @@ static void V_AdjustFov( float *fov_x, float *fov_y, float width, float height, 
 	*fov_x = V_CalcFov( &y, height, width );
 	if( *fov_x < x ) *fov_x = x;
 	else *fov_y = y;
+
+	*fov_x *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVX) / 90.0f;
+	*fov_y *= VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVY) / 90.0f;
+	Cvar_LazySet("vr_superzoomed", VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVY) / *fov_y > 5.0f ? 1 : 0);
+	Cvar_LazySet("vr_zoomed", VR_GetConfigFloat(VR_CONFIG_VIEWPORT_FOVY) / *fov_y > 1.1f ? 1 : 0);
 }
 
 /*
@@ -552,8 +558,11 @@ void V_PostRender( void )
 
 	SCR_MakeScreenShot();
 	ref.dllFuncs.R_AllowFog( true );
-	Platform_SetTimer( 0.0f );
-	ref.dllFuncs.R_EndFrame();
 
-	V_CheckGammaEnd();
+	qboolean leftEye = Cvar_VariableValue("vr_stereo_side") == 0;
+	if (!leftEye) {
+		Platform_SetTimer( 0.0f );
+		ref.dllFuncs.R_EndFrame();
+		V_CheckGammaEnd();
+	}
 }

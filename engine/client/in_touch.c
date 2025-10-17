@@ -1198,12 +1198,12 @@ static void Touch_InitConfig( void )
 
 	/// TODO: hud font
 	//pfnGetScreenInfo( NULL ); //HACK: update hud screen parameters like iHeight
-	if( FS_FileExists( touch_config_file.string, true ) )
+	/*if( FS_FileExists( touch_config_file.string, true ) )
 	{
 		Cbuf_AddTextf( "exec \"%s\"\n", touch_config_file.string );
 		Cbuf_Execute();
 	}
-	else Touch_LoadDefaults_f();
+	else*/ Touch_LoadDefaults_f();
 
 	Touch_InitEditor();
 	touch.joytexture = ref.dllFuncs.GL_LoadTexture( touch_joy_texture.string, NULL, 0, TF_NOMIPMAP );

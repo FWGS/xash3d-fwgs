@@ -1,0 +1,49 @@
+#! /usr/bin/env python
+# encoding: utf-8
+# mittorn, 2018
+
+from waflib.Configure import conf
+from waflib import Logs
+import os
+
+def options(opt):
+	pass
+
+@conf
+def check_openxr_loader(conf):
+	# this is horribly stupid, rework later (build openxr_loader from source, preferrably)
+	conf.start_msg('Does this architecture support blob openxr_loader?')
+
+	if conf.env.DEST_CPU != 'aarch64':
+		conf.end_msg('no')
+		Logs.warn('openxr_loader is not supported on this CPU: ' + str(conf.env.DEST_CPU))
+		return False
+	else: conf.end_msg('yes')
+
+	conf.start_msg('Does this OS support blob openxr_loader?')
+	if conf.env.DEST_OS not in ['android']:
+		conf.end_msg('no')
+		Logs.warn('openxr_loader is not supported on this OS: ' + str(conf.env.DEST_OS))
+		return False
+	else: conf.end_msg('yes')
+
+	return True
+
+def configure(conf):
+	xr_loader_path = conf.path.path_from(conf.root)
+
+	# even though there is no ready to use blob, allow using bundled headers
+	# i'm sorry that this is also stupid as fuck, to be removed
+	conf.env.INCLUDES_XR_LOADER = [os.path.join(xr_loader_path, 'include')]
+
+	conf.env.NO_XR = not conf.check_openxr_loader()
+
+	if conf.env.NO_XR:
+		return
+
+	# this is all just temporary
+	conf.env.LIB_XR_LOADER = ['openxr_loader']
+	conf.env.LIBPATH_XR_LOADER = [os.path.join(xr_loader_path, 'lib', 'android', 'arm64-v8a')]
+
+def build(bld):
+	pass

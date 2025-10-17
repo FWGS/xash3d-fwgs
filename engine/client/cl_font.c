@@ -236,6 +236,8 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 	rgba_t current_color;
 	int draw_len = 0;
 
+	font = &cls.creditsFont; //Hack to get a better quality font
+
 	if( !font || !font->valid )
 		return 0;
 

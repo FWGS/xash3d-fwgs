@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <stdbool.h>
 #include "common.h"
 #include "client.h"
 #include "net_encode.h"
@@ -66,7 +67,7 @@ CVAR_DEFINE_AUTO( hud_fontrender, "0", FCVAR_ARCHIVE, "hud font render mode (0: 
 CVAR_DEFINE_AUTO( hud_scale, "0", FCVAR_ARCHIVE|FCVAR_LATCH, "scale hud at current resolution" );
 CVAR_DEFINE_AUTO( hud_scale_minimal_width, "640", FCVAR_ARCHIVE|FCVAR_LATCH, "if hud_scale results in a HUD virtual screen smaller than this value, it won't be applied" );
 CVAR_DEFINE_AUTO( cl_solid_players, "1", 0, "Make all players not solid (can't traceline them)" );
-CVAR_DEFINE_AUTO( cl_updaterate, "20", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
+CVAR_DEFINE_AUTO( cl_updaterate, "60", FCVAR_USERINFO|FCVAR_ARCHIVE, "refresh rate of server messages" );
 CVAR_DEFINE_AUTO( cl_showevents, "0", FCVAR_ARCHIVE, "show events playback" );
 CVAR_DEFINE_AUTO( cl_cmdrate, "30", FCVAR_ARCHIVE, "Max number of command packets sent to server per second" );
 CVAR_DEFINE( cl_interp, "ex_interp", "0.1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "Interpolate object positions starting this many seconds in past" );
@@ -3122,6 +3123,11 @@ qboolean CL_PrecacheResources( void )
 		break;
 	}
 
+	// Preload VR models
+	cl.models[MAX_MODELS + 1] = Mod_ForName("models/v_hand.mdl", true, true);
+	cl.models[MAX_MODELS + 2] = Mod_ForName("models/v_shield_r.mdl", true, true);
+	cl.models[MAX_MODELS + 3] = Mod_ForName("models/v_elite_l.mdl", true, true);
+
 	// then we set up all the world submodels
 	for( pRes = cl.resourcesonhand.pNext; pRes && pRes != &cl.resourcesonhand; pRes = pRes->pNext )
 	{
@@ -3547,11 +3553,19 @@ void Host_ClientFrame( void )
 	if( cls.key_dest == key_game && cls.state == ca_active && !Con_Visible() )
 		Platform_SetTimer( cl_maxframetime.value );
 
+	bool leftEye = Cvar_VariableValue("vr_stereo_side") == 0;
+
 	// if running the server remotely, send intentions now after
 	// the incoming messages have been read
-	if( !SV_Active( )) CL_SendCommand ();
+	if( leftEye && !SV_Active( )) CL_SendCommand ();
 
 	clgame.dllFuncs.pfnFrame( host.frametime );
+
+	if (!leftEye) {
+		SCR_UpdateScreen ();
+		SCR_RunCinematic ();
+		return;
+	}
 
 	// remember last received framenum
 	CL_SetLastUpdate ();

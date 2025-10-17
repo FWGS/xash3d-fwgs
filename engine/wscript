@@ -239,6 +239,10 @@ def build(bld):
 		if not bld.env.STATIC:
 			libs += ['DL']
 
+	# VR support
+	includes += ['vr', '../3rdparty/openxr/include']
+	source += bld.path.ant_glob(['vr/*.c'])
+
 	if bld.env.SERVER:
 		# TODO: avoid possible name collision when client is built without launcher
 		# but dedicated server is enabled. They're both called 'xash' in this case
@@ -267,15 +271,14 @@ def build(bld):
 			libs.append('SWSCALE')
 
 		# add client files
-		if not bld.env.DEDICATED:
-			source += bld.path.ant_glob('client/**/*.c')
-			libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
+		source += bld.path.ant_glob('client/**/*.c')
+		libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile', 'XR_LOADER']
 
 		# Android port is linked differently
 		if bld.env.DEST_OS == 'android':
 			f = bld.shlib
 			install_path = bld.env.LIBDIR
-			defines += ['XASH_ENABLE_MAIN=1', 'XASH_SDLMAIN=1']
+			defines += ['XASH_ENABLE_MAIN=1', 'XASH_SDLMAIN=1', 'ANDROID=1']
 		elif not bld.env.LAUNCHER:
 			f = bld.program
 			install_path = bld.env.BINDIR

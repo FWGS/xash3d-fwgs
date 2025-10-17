@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdbool.h>
+
 #endif
 #if XASH_EMSCRIPTEN
 #include <emscripten/emscripten.h>
@@ -779,14 +781,21 @@ void Host_Frame( double time )
 
 	t1 = Sys_DoubleTime();
 
+	if (!Host_VRInitFrame()) {
+		return;
+	}
+
 	if( host.framecount == 0 )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );
 
-	Host_InputFrame ();  // input frame
+	//Host_InputFrame ();  // input frame
+	Host_VRInputFrame ();  // VR input frame
 	Host_ClientBegin (); // begin client
 	Host_GetCommands (); // dedicated in
 	Host_ServerFrame (); // server frame
-	Host_ClientFrame (); // client frame
+    Host_VRClientFrame (); // VR client frame
+    //Host_ClientFrame (); // client frame
+
 	HTTP_Run();			 // both server and client
 
 	host.framecount++;
@@ -1161,6 +1170,8 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	IN_Init();
 	Key_Init();
+
+	Host_VRInit();
 }
 
 static void Host_FreeCommon( void )

@@ -1,6 +1,5 @@
 # Binaries
 *.o
-*.so
 *.a
 *.framework
 

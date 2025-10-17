@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include <SDL.h>
+#include <stdbool.h>
 
 #include "common.h"
 #include "keydefs.h"
@@ -121,6 +122,8 @@ void Platform_SetClipboardText( const char *buffer )
 
 #if !XASH_PSVITA
 
+bool sdl_keyboard_requested = false;
+
 /*
 =============
 SDLash_EnableTextInput
@@ -129,6 +132,7 @@ SDLash_EnableTextInput
 */
 void Platform_EnableTextInput( qboolean enable )
 {
+	sdl_keyboard_requested = enable;
 	enable ? SDL_StartTextInput() : SDL_StopTextInput();
 }
 

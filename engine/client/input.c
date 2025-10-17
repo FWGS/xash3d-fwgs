@@ -327,8 +327,6 @@ void IN_DeactivateMouse( void )
 	in_mouseactive = false;
 }
 
-
-
 /*
 ================
 IN_MouseMove

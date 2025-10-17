@@ -502,7 +502,7 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 
 	SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
 
-	if( window_mode == WINDOW_MODE_BORDERLESS )
+	if( true ) //( window_mode == WINDOW_MODE_BORDERLESS )
 	{
 		if( SDL_GetDesktopDisplayMode( 0, &got ) < 0 )
 		{
@@ -663,7 +663,7 @@ static qboolean RectFitsInDisplay( const SDL_Rect *rect, const SDL_Rect *display
 		&& rect->y >= display->y
 		&& rect->x + rect->w <= display->x + display->w
 		&& rect->y + rect->h <= display->y + display->h;
-}	
+}
 // Function to check if the rectangle fits in any display
 static qboolean RectFitsInAnyDisplay( const SDL_Rect *rect, const SDL_Rect *display_rects, int num_displays )
 {

@@ -186,7 +186,7 @@ typedef struct
 	int		maxclients;
 
 	int		nummodels;
-	model_t		*models[MAX_MODELS+1];		// precached models (plus sentinel slot)
+	model_t		*models[MAX_MODELS+4];		// precached models (plus sentinel and VR models slots)
 
 	qboolean	paused;
 
@@ -881,7 +881,7 @@ static inline cl_entity_t *CL_GetEntityByIndex( int index )
 
 static inline model_t *CL_ModelHandle( int modelindex )
 {
-	return likely( modelindex >= 0 && modelindex < MAX_MODELS ) ? cl.models[modelindex] : NULL;
+	return likely( modelindex >= 0 && modelindex < MAX_MODELS + 4 ) ? cl.models[modelindex] : NULL;
 }
 
 static inline qboolean CL_IsThirdPerson( void )

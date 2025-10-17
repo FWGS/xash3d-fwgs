@@ -53,6 +53,12 @@ class Game(val ctx: Context, val basedir: File) {
 		})
 	}
 
+	fun startXREngine(ctx: Context) {
+		val argv = pref.getString("arguments", "-console -log")
+		val useVolume = pref.getBoolean("use_volume_buttons", false)
+		XashActivity.openVRIntent(ctx, basedir.name, argv, useVolume)
+	}
+
 	private fun parseGameInfo(file: File) {
 		FileInputStream(file).use { inputStream ->
 			inputStream.bufferedReader().use { reader ->

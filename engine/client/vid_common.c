@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <VrRenderer.h>
 #include "common.h"
 #include "client.h"
 #include "mod_local.h"
@@ -59,6 +60,8 @@ void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximiz
 		host.renderinfo_changed = false;
 		return;
 	}
+	VR_GetResolution(VR_GetEngine(), &render_w, &render_h);
+	VR_GetResolution(VR_GetEngine(), &w, &h);
 
 	host.window_center_x = w / 2;
 	host.window_center_y = h / 2;
@@ -66,7 +69,7 @@ void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximiz
 	Cvar_SetValue( "width", w );
 	Cvar_SetValue( "height", h );
 	Cvar_DirectSet( &vid_maximized, maximized ? "1" : "0" );
-	
+
 	// immediately drop changed state or we may trigger
 	// video subsystem to reapply settings
 	host.renderinfo_changed = false;

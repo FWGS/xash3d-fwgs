@@ -154,7 +154,7 @@ const char *Sys_GetCurrentUser( void )
 		return username;
 	}
 #endif
-	return "Player";
+	return "[VR] Player";
 }
 
 /*

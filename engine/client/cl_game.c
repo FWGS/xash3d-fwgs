@@ -300,6 +300,18 @@ void SPR_AdjustSize( float *x, float *y, float *w, float *h )
 	if( refState.width == clgame.scrInfo.iWidth && refState.height == clgame.scrInfo.iHeight )
 		return;
 
+	// In VR mode the graphics needs to be scaled down on the center to be visible
+	bool isNotFullscreen = (*x > 0) || (*y > 0) || (*w < clgame.scrInfo.iWidth) || (*h < clgame.scrInfo.iHeight);
+	if ((Cvar_VariableValue("vr_gamemode") > 0) && isNotFullscreen)
+	{
+		float scale = 0.25f;
+		float offset = (1 - scale) / 2.0f;
+		*x = *x * scale + clgame.scrInfo.iWidth * offset;
+		*y = *y * scale + clgame.scrInfo.iHeight * offset;
+		*w *= scale;
+		*h *= scale;
+	}
+
 	// scale for screen sizes
 	xscale = refState.width / (float)clgame.scrInfo.iWidth;
 	yscale = refState.height / (float)clgame.scrInfo.iHeight;
@@ -407,6 +419,7 @@ called each frame
 void CL_DrawCenterPrint( void )
 {
 	cl_font_t *font = Con_GetCurFont();
+	font = &cls.creditsFont; //Hack to get a better quality font
 	char	*pText;
 	int	i, j, x, y;
 	int	width, lineLength;
@@ -2434,7 +2447,7 @@ static int GAME_EXPORT CL_FindModelIndex( const char *m )
 	Q_strncpy( filepath, m, sizeof( filepath ));
 	COM_FixSlashes( filepath );
 
-	for( i = 0; i < cl.nummodels; i++ )
+	for( i = 0; i < ARRAYSIZE(cl.models); i++ )
 	{
 		if( !cl.models[i+1] )
 			continue;
