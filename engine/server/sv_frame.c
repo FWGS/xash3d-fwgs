@@ -58,8 +58,8 @@ SV_AddEntitiesToPacket
 static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_frame_t *frame, sv_ents_t *ents, qboolean from_client )
 {
 	edict_t		*ent;
-	byte		*clientpvs;
-	byte		*clientphs;
+	byte		*clientpvs = NULL;
+	byte		*clientphs = NULL;
 	qboolean		fullvis = false;
 	sv_client_t	*cl = NULL;
 	qboolean		player;
