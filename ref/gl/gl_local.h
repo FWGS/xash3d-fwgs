@@ -263,6 +263,8 @@ typedef struct
 	uint *screengammatable;
 
 	uint max_entities;
+
+	ref_screen_rotation_t rotation;
 } gl_globals_t;
 
 typedef struct
