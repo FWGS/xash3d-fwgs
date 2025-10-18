@@ -215,10 +215,27 @@ void R_Set2DMode( qboolean enable )
 			return;
 
 		// set 2D virtual screen size
-		pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+		switch( tr.rotation )
+		{
+		case REF_ROTATE_CW:
+			pglViewport( 0, 0, gpGlobals->height, gpGlobals->width );
+			Matrix4x4_CreateOrtho( projection_matrix, 0, gpGlobals->height, gpGlobals->width, 0, -99999, 99999 );
+			Matrix4x4_ConcatRotate( projection_matrix, 90, 0, 0, 1 );
+			Matrix4x4_ConcatTranslate( projection_matrix, 0, -gpGlobals->height, 0 );
+			break;
+		case REF_ROTATE_CCW:
+			pglViewport( 0, 0, gpGlobals->height, gpGlobals->width );
+			Matrix4x4_CreateOrtho( projection_matrix, 0, gpGlobals->height, gpGlobals->width, 0, -99999, 99999 );
+			Matrix4x4_ConcatRotate( projection_matrix, -90, 0, 0, 1 );
+			Matrix4x4_ConcatTranslate( projection_matrix, -gpGlobals->width, 0, 0 );
+			break;
+		default:
+			pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+			Matrix4x4_CreateOrtho( projection_matrix, 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+			break;
+		}
 
 		pglMatrixMode( GL_PROJECTION );
-		Matrix4x4_CreateOrtho( projection_matrix, 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
 		GL_LoadMatrix( projection_matrix );
 
 		pglMatrixMode( GL_MODELVIEW );
