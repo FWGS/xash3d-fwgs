@@ -143,6 +143,9 @@ void VID_SetDisplayTransform( int *render_w, int *render_h )
 {
 	uint rotate = vid_rotate.value;
 
+	if( rotate < REF_ROTATE_NONE || rotate > REF_ROTATE_CCW )
+		rotate = REF_ROTATE_NONE;
+
 	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale.value, vid_scale.value ))
 	{
 		if( rotate & 1 )
@@ -155,10 +158,14 @@ void VID_SetDisplayTransform( int *render_w, int *render_h )
 
 		*render_h /= vid_scale.value;
 		*render_w /= vid_scale.value;
+
+		ref.rotation = rotate;
 	}
 	else
 	{
 		Con_Printf( S_WARN "failed to setup screen transform\n" );
+
+		ref.rotation = REF_ROTATE_NONE;
 	}
 }
 

@@ -30,6 +30,8 @@ struct ref_state_s
 	// depends on build configuration
 	const char    **short_names;
 	const char    **long_names;
+
+	ref_screen_rotation_t rotation;
 };
 
 extern struct ref_state_s ref;
