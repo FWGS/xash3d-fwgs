@@ -1,105 +1,127 @@
-/***
-*
-*	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*
-*	This product contains software technology licensed from Id
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
-*	All Rights Reserved.
-*
-*   Use, distribution, and modification of this source code and/or resulting
-*   object code is restricted to non-commercial enhancements to products from
-*   Valve LLC.  All other use, distribution, or modification is prohibited
-*   without written permission from Valve LLC.
-*
-****/
+/*
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+*/
 
 #ifndef CL_ENTITY_H
 #define CL_ENTITY_H
-
-typedef struct efrag_s
-{
-	struct mleaf_s	*leaf;
-	struct efrag_s	*leafnext;
-	struct cl_entity_s	*entity;
-	struct efrag_s	*entnext;
-} efrag_t;
-
-typedef struct
-{
-	byte		mouthopen;	// 0 = mouth closed, 255 = mouth agape
-	byte		sndcount;		// counter for running average
-	int		sndavg;		// running average
-} mouth_t;
-
-typedef struct
-{
-	float		prevanimtime;
-	float		sequencetime;
-	byte		prevseqblending[2];
-	vec3_t		prevorigin;
-	vec3_t		prevangles;
-
-	int		prevsequence;
-	float		prevframe;
-
-	byte		prevcontroller[4];
-	byte		prevblending[2];
-} latchedvars_t;
-
-typedef struct
-{
-	// Time stamp for this movement
-	float		animtime;
-
-	vec3_t		origin;
-	vec3_t		angles;
-} position_history_t;
-
-typedef struct cl_entity_s cl_entity_t;
-
-#define HISTORY_MAX		64		// Must be power of 2
-#define HISTORY_MASK	( HISTORY_MAX - 1 )
-
-#include "entity_state.h"
+#include "xash3d_types.h"
 #include "event_args.h"
+#include "entity_state.h"
 
-struct cl_entity_s
-{
-	int		index;      	// Index into cl_entities ( should match actual slot, but not necessarily )
-	qboolean		player;     	// True if this entity is a "player"
+#define HISTORY_MAX 64
+#define HISTORY_MASK (HISTORY_MAX - 1)
 
-	entity_state_t	baseline;   	// The original state from which to delta during an uncompressed message
-	entity_state_t	prevstate;  	// The state information from the penultimate message received from the server
-	entity_state_t	curstate;   	// The state information from the last message received from server
+typedef struct mouth_s mouth_t;
+typedef struct efrag_s efrag_t;
+typedef struct cl_entity_s cl_entity_t;
+typedef struct latchedvars_s latchedvars_t;
+typedef struct position_history_s position_history_t;
 
-	int		current_position;	// Last received history update index
-	position_history_t	ph[HISTORY_MAX];	// History of position and angle updates for this player
+struct mouth_s {
+	byte                       mouthopen;            /*     0     1 */
+	byte                       sndcount;             /*     1     1 */
 
-	mouth_t		mouth;		// For synchronizing mouth movements.
+	/* XXX 2 bytes hole, try to pack */
 
-	latchedvars_t	latched;		// Variables used by studio model rendering routines
+	int                        sndavg;               /*     4     4 */
 
-	// Information based on interplocation, extrapolation, prediction, or just copied from last msg received.
-	//
-	float		lastmove;
-
-	// Actual render position and angles
-	vec3_t		origin;
-	vec3_t		angles;
-
-	// Attachment points
-	vec3_t		attachment[4];
-
-	// Other entity local information
-	int		trivial_accept;
-
-	struct model_s	*model;	// cl.model_precache[ curstate.modelindes ];  all visible entities have a model
-	struct efrag_s	*efrag;	// linked list of efrags
-	struct mnode_s	*topnode;	// for bmodels, first world node that splits bmodel, or NULL if not split
-
-	float		syncbase;	// for client-side animations -- used by obsolete alias animation system, remove?
-	int		visframe;	// last frame this entity was found in an active leaf
-	colorVec		cvFloorColor;
+	/* size: 8, cachelines: 1, members: 3 */
+	/* sum members: 6, holes: 1, sum holes: 2 */
+	/* last cacheline: 8 bytes */
 };
 
-#endif//CL_ENTITY_H
+struct efrag_s {
+	struct mleaf_s *           leaf;                 /*     0     4 */
+	struct efrag_s *           leafnext;             /*     4     4 */
+	struct cl_entity_s *       entity;               /*     8     4 */
+	struct efrag_s *           entnext;              /*    12     4 */
+
+	/* size: 16, cachelines: 1, members: 4 */
+	/* last cacheline: 16 bytes */
+};
+
+struct position_history_s {
+	float                      animtime;             /*     0     4 */
+	vec3_t                     origin;               /*     4    12 */
+	vec3_t                     angles;               /*    16    12 */
+
+	/* size: 28, cachelines: 1, members: 3 */
+	/* last cacheline: 28 bytes */
+};
+
+struct latchedvars_s {
+	float                      prevanimtime;         /*     0     4 */
+	float                      sequencetime;         /*     4     4 */
+	byte                       prevseqblending[2];   /*     8     2 */
+
+	/* XXX 2 bytes hole, try to pack */
+
+	vec3_t                     prevorigin;           /*    12    12 */
+	vec3_t                     prevangles;           /*    24    12 */
+	int                        prevsequence;         /*    36     4 */
+	float                      prevframe;            /*    40     4 */
+	byte                       prevcontroller[4];    /*    44     4 */
+	byte                       prevblending[2];      /*    48     2 */
+
+	/* size: 52, cachelines: 1, members: 9 */
+	/* sum members: 48, holes: 1, sum holes: 2 */
+	/* padding: 2 */
+	/* last cacheline: 52 bytes */
+};
+
+struct cl_entity_s {
+	int                        index;                /*     0     4 */
+	qboolean                   player;               /*     4     4 */
+	entity_state_t             baseline;             /*     8   340 */
+	/* --- cacheline 5 boundary (320 bytes) was 28 bytes ago --- */
+	entity_state_t             prevstate;            /*   348   340 */
+	/* --- cacheline 10 boundary (640 bytes) was 48 bytes ago --- */
+	entity_state_t             curstate;             /*   688   340 */
+	/* --- cacheline 16 boundary (1024 bytes) was 4 bytes ago --- */
+	int                        current_position;     /*  1028     4 */
+	position_history_t         ph[HISTORY_MAX];      /*  1032  1792 */
+	/* --- cacheline 44 boundary (2816 bytes) was 8 bytes ago --- */
+	mouth_t                    mouth;                /*  2824     8 */
+	latchedvars_t              latched;              /*  2832    52 */
+	/* --- cacheline 45 boundary (2880 bytes) was 4 bytes ago --- */
+	float                      lastmove;             /*  2884     4 */
+	vec3_t                     origin;               /*  2888    12 */
+	vec3_t                     angles;               /*  2900    12 */
+	vec3_t                     attachment[4];     /*  2912    48 */
+	/* --- cacheline 46 boundary (2944 bytes) was 16 bytes ago --- */
+	int                        trivial_accept;       /*  2960     4 */
+	struct model_s *           model;                /*  2964     4 */
+	struct efrag_s *           efrag;                /*  2968     4 */
+	struct mnode_s *           topnode;              /*  2972     4 */
+	float                      syncbase;             /*  2976     4 */
+	int                        visframe;             /*  2980     4 */
+	colorVec                   cvFloorColor;         /*  2984    16 */
+
+	/* size: 3000, cachelines: 47, members: 20 */
+	/* last cacheline: 56 bytes */
+};
+
+#endif
