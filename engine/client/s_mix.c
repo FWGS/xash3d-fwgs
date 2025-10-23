@@ -26,22 +26,11 @@ enum
 	CPAINTBUFFERS,
 };
 
-enum
-{
-	FILTERTYPE_NONE = 0,
-	FILTERTYPE_LINEAR,
-	FILTERTYPE_CUBIC,
-};
-
 #define CCHANVOLUMES	2
 
 #define SND_SCALE_BITS   7
 #define SND_SCALE_SHIFT  ( 8 - SND_SCALE_BITS )
 #define SND_SCALE_LEVELS ( 1 << SND_SCALE_BITS )
-
-// sound mixing buffer
-#define CPAINTFILTERMEM 3
-#define CPAINTFILTERS   4 // maximum number of consecutive upsample passes per paintbuffer
 
 // fixed point stuff for real-time resampling
 #define FIX_BITS             28
@@ -56,8 +45,6 @@ typedef struct
 {
 	qboolean               factive; // if true, mix to this paintbuffer using flags
 	portable_samplepair_t *pbuf;    // front stereo mix buffer, for 2 or 4 channel mixing
-	int                    ifilter; // current filter memory buffer to use for upsampling pass
-	portable_samplepair_t  fltmem[CPAINTFILTERS][CPAINTFILTERMEM];
 } paintbuffer_t;
 
 static portable_samplepair_t *g_curpaintbuffer;
@@ -179,15 +166,6 @@ static void MIX_DeactivateAllPaintbuffers( void )
 
 	for( i = 0; i < CPAINTBUFFERS; i++ )
 		paintbuffers[i].factive = false;
-}
-
-// set upsampling filter indexes back to 0
-static void MIX_ResetPaintbufferFilterCounters( void )
-{
-	int	i;
-
-	for( i = 0; i < CPAINTBUFFERS; i++ )
-		paintbuffers[i].ifilter = FILTERTYPE_NONE;
 }
 
 // return pointer to front paintbuffer pbuf, given index
@@ -659,147 +637,7 @@ static void MIX_MixChannelsToPaintbuffer( int endtime, int rate, int outputRate 
 	}
 }
 
-// pass in index -1...count+2, return pointer to source sample in either paintbuffer or delay buffer
-static portable_samplepair_t *S_GetNextpFilter( int i, portable_samplepair_t *pbuffer, portable_samplepair_t *pfiltermem )
-{
-	// The delay buffer is assumed to precede the paintbuffer by 6 duplicated samples
-	if( i == -1 ) return (&(pfiltermem[0]));
-	if( i == 0 ) return (&(pfiltermem[1]));
-	if( i == 1 ) return (&(pfiltermem[2]));
-
-	// return from paintbuffer, where samples are doubled.
-	// even samples are to be replaced with interpolated value.
-	return (&(pbuffer[(i-2) * 2 + 1]));
-}
-
-// pass forward over passed in buffer and cubic interpolate all odd samples
-// pbuffer: buffer to filter (in place)
-// prevfilter:  filter memory. NOTE: this must match the filtertype ie: filtercubic[] for FILTERTYPE_CUBIC
-// if NULL then perform no filtering.
-// count: how many samples to upsample. will become count*2 samples in buffer, in place.
-
-static void S_Interpolate2xCubic( portable_samplepair_t *pbuffer, portable_samplepair_t *pfiltermem, int cfltmem, int count )
-{
-
-// implement cubic interpolation on 2x upsampled buffer.   Effectively delays buffer contents by 2 samples.
-// pbuffer: contains samples at 0, 2, 4, 6...
-// temppaintbuffer is temp buffer, same size as paintbuffer, used to store processed values
-// count: number of samples to process in buffer ie: how many samples at 0, 2, 4, 6...
-
-// finpos is the fractional, inpos the integer part.
-//		finpos = 0.5 for upsampling by 2x
-//		inpos is the position of the sample
-
-//		xm1 = x [inpos - 1];
-//		x0 = x [inpos + 0];
-//		x1 = x [inpos + 1];
-//		x2 = x [inpos + 2];
-//		a = (3 * (x0-x1) - xm1 + x2) / 2;
-//		b = 2*x1 + xm1 - (5*x0 + x2) / 2;
-//		c = (x1 - xm1) / 2;
-//		y [outpos] = (((a * finpos) + b) * finpos + c) * finpos + x0;
-
-	int i;
-	const int upCount = Q_min( count << 1, PAINTBUFFER_SIZE );
-	int a, b, c;
-	int xm1, x0, x1, x2;
-	portable_samplepair_t *psamp0;
-	portable_samplepair_t *psamp1;
-	portable_samplepair_t *psamp2;
-	portable_samplepair_t *psamp3;
-	int outpos = 0;
-
-	// pfiltermem holds 6 samples from previous buffer pass
-	// process 'count' samples
-	for( i = 0; i < count; i++)
-	{
-		// get source sample pointer
-		psamp0 = S_GetNextpFilter( i-1, pbuffer, pfiltermem );
-		psamp1 = S_GetNextpFilter( i+0, pbuffer, pfiltermem );
-		psamp2 = S_GetNextpFilter( i+1, pbuffer, pfiltermem );
-		psamp3 = S_GetNextpFilter( i+2, pbuffer, pfiltermem );
-
-		// write out original sample to interpolation buffer
-		temppaintbuffer[outpos++] = *psamp1;
-
-		// get all left samples for interpolation window
-		xm1 = psamp0->left;
-		x0 = psamp1->left;
-		x1 = psamp2->left;
-		x2 = psamp3->left;
-
-		// interpolate
-		a = (3 * (x0-x1) - xm1 + x2) / 2;
-		b = 2*x1 + xm1 - (5*x0 + x2) / 2;
-		c = (x1 - xm1) / 2;
-
-		// write out interpolated sample
-		temppaintbuffer[outpos].left = a/8 + b/4 + c/2 + x0;
-
-		// get all right samples for window
-		xm1 = psamp0->right;
-		x0 = psamp1->right;
-		x1 = psamp2->right;
-		x2 = psamp3->right;
-
-		// interpolate
-		a = (3 * (x0-x1) - xm1 + x2) / 2;
-		b = 2*x1 + xm1 - (5*x0 + x2) / 2;
-		c = (x1 - xm1) / 2;
-
-		// write out interpolated sample, increment output counter
-		temppaintbuffer[outpos++].right = a/8 + b/4 + c/2 + x0;
-
-		if( outpos > ARRAYSIZE( temppaintbuffer ))
-			break;
-	}
-
-	Assert( cfltmem >= 3 );
-
-	// save last 3 samples from paintbuffer
-	pfiltermem[0] = pbuffer[upCount - 5];
-	pfiltermem[1] = pbuffer[upCount - 3];
-	pfiltermem[2] = pbuffer[upCount - 1];
-
-	// copy temppaintbuffer back into paintbuffer
-	memcpy( pbuffer, temppaintbuffer, sizeof( *pbuffer ) * upCount );
-}
-
-// pass forward over passed in buffer and linearly interpolate all odd samples
-// pbuffer: buffer to filter (in place)
-// prevfilter:  filter memory. NOTE: this must match the filtertype ie: filterlinear[] for FILTERTYPE_LINEAR
-// if NULL then perform no filtering.
-// count: how many samples to upsample. will become count*2 samples in buffer, in place.
-static void S_Interpolate2xLinear( portable_samplepair_t *pbuffer, portable_samplepair_t *pfiltermem, int cfltmem, int count )
-{
-	int	i, upCount = count<<1;
-
-	Assert( upCount <= PAINTBUFFER_SIZE );
-	Assert( cfltmem >= 1 );
-
-	// use interpolation value from previous mix
-	pbuffer[0].left = (pfiltermem->left + pbuffer[0].left) >> 1;
-	pbuffer[0].right = (pfiltermem->right + pbuffer[0].right) >> 1;
-
-	for( i = 2; i < upCount; i += 2 )
-	{
-		// use linear interpolation for upsampling
-		pbuffer[i].left = (pbuffer[i].left + pbuffer[i-1].left) >> 1;
-		pbuffer[i].right = (pbuffer[i].right + pbuffer[i-1].right) >> 1;
-	}
-
-	// save last value to be played out in buffer
-	*pfiltermem = pbuffer[upCount - 1];
-}
-
-// upsample by 2x, optionally using interpolation
-// count: how many samples to upsample. will become count*2 samples in buffer, in place.
-// pbuffer: buffer to upsample into (in place)
-// pfiltermem:  filter memory. NOTE: this must match the filtertype ie: filterlinear[] for FILTERTYPE_LINEAR
-// if NULL then perform no filtering.
-// cfltmem: max number of sample pairs filter can use
-// filtertype: FILTERTYPE_NONE, _LINEAR, _CUBIC etc.  Must match prevfilter.
-static void S_MixBufferUpsample2x( int count, portable_samplepair_t *pbuffer, portable_samplepair_t *pfiltermem, int cfltmem, int filtertype )
+static void S_MixBufferUpsample2x( int count, portable_samplepair_t *pbuffer )
 {
 	int	upCount = count<<1;
 	int	i, j;
@@ -809,19 +647,6 @@ static void S_MixBufferUpsample2x( int count, portable_samplepair_t *pbuffer, po
 	{
 		pbuffer[i] = pbuffer[j];
 		pbuffer[i-1] = pbuffer[j];
-	}
-
-	// pass forward through buffer, interpolate all even slots
-	switch( filtertype )
-	{
-	case FILTERTYPE_LINEAR:
-		S_Interpolate2xLinear( pbuffer, pfiltermem, cfltmem, count );
-		break;
-	case FILTERTYPE_CUBIC:
-		S_Interpolate2xCubic( pbuffer, pfiltermem, cfltmem, count );
-		break;
-	default:	// no filter
-		break;
 	}
 }
 
@@ -836,16 +661,6 @@ void MIX_ClearAllPaintBuffers( int SampleCount, qboolean clearFilters )
 	{
 		if( paintbuffers[i].pbuf != NULL )
 			memset( paintbuffers[i].pbuf, 0, (count+1) * sizeof( portable_samplepair_t ));
-
-		if( clearFilters )
-		{
-			memset( paintbuffers[i].fltmem, 0, sizeof( paintbuffers[i].fltmem ));
-		}
-	}
-
-	if( clearFilters )
-	{
-		MIX_ResetPaintbufferFilterCounters();
 	}
 }
 
@@ -912,14 +727,10 @@ static void MIX_CompressPaintbuffer( int ipaint, int count )
 static void S_MixUpsample( int sampleCount, int filtertype )
 {
 	paintbuffer_t	*ppaint = MIX_GetCurrentPaintbufferPtr();
-	int		ifilter = ppaint->ifilter;
 
-	Assert( ifilter < CPAINTFILTERS );
+	(void)filtertype;
 
-	S_MixBufferUpsample2x( sampleCount, ppaint->pbuf, &(ppaint->fltmem[ifilter][0]), CPAINTFILTERMEM, filtertype );
-
-	// make sure on next upsample pass for this paintbuffer, new filter memory is used
-	ppaint->ifilter++;
+	S_MixBufferUpsample2x( sampleCount, ppaint->pbuf );
 }
 
 static void MIX_MixRawSamplesBuffer( int end )
@@ -948,12 +759,12 @@ static void MIX_MixRawSamplesBuffer( int end )
 		if( !ch->leftvol && !ch->rightvol )
 			continue;
 
-		is_voice = (ch->entnum > 0 && ch->entnum <= MAX_CLIENTS) || 
+		is_voice = (ch->entnum > 0 && ch->entnum <= MAX_CLIENTS) ||
 		           (ch->entnum == VOICE_LOOPBACK_INDEX) ||
 		           (ch->entnum == VOICE_LOCALCLIENT_INDEX);
 
 		stream = ch->entnum == S_RAW_SOUND_BACKGROUNDTRACK || CL_IsPlayerIndex( ch->entnum );
-		
+
 		if( is_voice )
 			pbuf = voicebuf;
 		else if( stream )
@@ -994,9 +805,6 @@ static void MIX_UpsampleAllPaintbuffers( int end, int count )
 	// 44khz sounds are mixed into the 3 buffers based on distance from listener, and facing direction
 
 	MIX_DeactivateAllPaintbuffers();
-
-	// set paintbuffer upsample filter indices to 0
-	MIX_ResetPaintbufferFilterCounters();
 
 	// only mix to roombuffer if dsp fx are on KDB: perf
 	MIX_ActivatePaintbuffer( IROOMBUFFER );	// operates on MIX_MixChannelsToPaintbuffer
