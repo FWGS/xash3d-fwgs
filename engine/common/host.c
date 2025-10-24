@@ -1184,6 +1184,12 @@ Host_Main
 */
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func )
 {
+	#if XASH_IOS
+
+	void IOS_LaunchDialog(void);
+	IOS_LaunchDialog();
+	
+	#endif // XASH_IOS
 	static double oldtime;
 	string demoname, exename;
 

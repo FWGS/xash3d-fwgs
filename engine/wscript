@@ -2,7 +2,7 @@
 # encoding: utf-8
 # mittorn, 2018
 
-from waflib import Logs
+from waflib import Logs, TaskGen
 from waflib.extras import pthread
 import os
 from copy import copy
@@ -41,6 +41,9 @@ int main(int argc, char **argv)
 	return 0;
 }
 '''
+@TaskGen.extension('.m')
+def m_hook(self, node):
+	return self.create_compiled_task('c', node)
 
 def options(opt):
 	grp = opt.add_option_group('Engine options')
@@ -205,7 +208,11 @@ def build(bld):
 	# include common POSIX conformant code
 	if bld.env.DEST_OS not in ['win32', 'dos']:
 		source += bld.path.ant_glob('platform/posix/*.c')
-
+	if bld.env.DEST_OS2 == 'ios':
+		source += bld.path.ant_glob('platform/ios/*.c')
+		source += bld.path.ant_glob('platform/ios/*.m')
+		includes += bld.path.ant_glob('platform/ios')
+	
 	# include sources for optional features
 	if bld.get_define('XASH_CUSTOM_SWAP'):
 		source += ['platform/misc/kmalloc.c', 'platform/misc/sbrk.c']

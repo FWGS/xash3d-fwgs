@@ -4,6 +4,7 @@
 
 from waflib import Build, Context, Logs, TaskGen
 from waflib.Tools import waf_unit_test, c_tests
+from waflib.extras import xcode6
 import sys
 import os
 
@@ -86,7 +87,7 @@ SUBDIRS = [
 	Subproject('3rdparty/libbacktrace'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
-	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
+	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android' 'ios'),
 	Subproject('3rdparty/nanogl',       lambda x: x.env.CLIENT and x.env.NANOGL),
 	Subproject('3rdparty/gl-wes-v2',    lambda x: x.env.CLIENT and x.env.GLWES),
 	Subproject('3rdparty/gl4es',        lambda x: x.env.CLIENT and x.env.GL4ES),
@@ -104,7 +105,7 @@ SUBDIRS = [
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 #	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
 	Subproject('stub/client',           lambda x: x.env.CLIENT),
-	Subproject('game_launch',           lambda x: x.env.LAUNCHER),
+	Subproject('game_launch',           lambda x: x.env.LAUNCHER and not x.env.DEST_OS2 == 'ios'),
 	Subproject('engine'), # keep latest for static linking
 
 	# enabled optionally
@@ -127,6 +128,7 @@ REFDLLS = [
 ]
 
 def options(opt):
+	opt.load('xcode6')
 	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msvs subproject ninja')
 
 	grp = opt.add_option_group('Common options')
@@ -207,7 +209,7 @@ def configure(conf):
 		conf.env.MSVC_TARGETS = ['x86']
 
 	# Load compilers early
-	conf.load('xshlib xcompile compiler_c compiler_cxx')
+	conf.load('xshlib xcompile compiler_c compiler_cxx xcode6')
 
 	if not conf.options.WAFCACHE:
 		conf.load('gccdeps')
@@ -242,6 +244,12 @@ def configure(conf):
 
 	# Set default options for some platforms
 	if conf.env.DEST_OS == 'android':
+		conf.options.NANOGL           = True
+		conf.options.GLWES            = False # deprecated
+		conf.options.GL4ES            = True
+		conf.options.GLES3COMPAT      = True
+		conf.options.GL               = False
+	if conf.env.DEST_OS2 == 'ios':
 		conf.options.NANOGL           = True
 		conf.options.GLWES            = False # deprecated
 		conf.options.GL4ES            = True

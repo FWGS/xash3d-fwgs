@@ -45,6 +45,36 @@ PSVITA_ENVVARS = ['VITASDK']
 
 PSP_ENVVARS = ['PSPDEV', 'PSPSDK', 'PSPTOOLCHAIN']
 
+class iOS:
+	ctx = None
+	arch = "arm64"
+	
+	def __init__(self, ctx):
+		self.ctx = ctx
+	
+	def cflags(self, cxx = False):
+	
+		cflags = []
+	
+		cflags += [ '-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk', '--target=darwin-arm64-ios9.0', '-Wno-shorten-64-to-32', '-fpic' ]
+		return cflags
+		
+	def linkflags(self):
+		
+		linkflags = []
+		
+		linkflags += [ '-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk', '--target=darwin-arm64-ios9.0', '-dead_strip', '-fpic', '-lstdc++', '-undefineddynamic_lookup' ]
+		
+		return linkflags
+		
+	def cc(self):
+	
+		return 'clang'
+
+	def cxx(self):
+	
+		return 'clang++'
+
 # This class does support ONLY r10e and r19c/r20 NDK
 class Android:
 	ctx            = None # waf context
@@ -610,6 +640,8 @@ def options(opt):
 		help='enable building for Emscripten')
 	xc.add_option('--psp', action='store', dest='PSP_OPTS', default=None,
 		help='enable building for PlayStation Portable, format: --psp=<module type>,<fw version>,<render type>, example: --psp=prx,660,HW')
+	xc.add_option('--ios', action='store_true', dest='IOS', default=False,
+	help='enable building for iOS [default: %(default)s]')
 
 def configure(conf):
 	if 'CROSS_COMPILE' in conf.environ:
@@ -754,6 +786,19 @@ def configure(conf):
 
 		conf.env.PSP_RENDER_TYPE = psp.render_type
 		conf.env.PSP_BUILD_PRX = psp.build_prx
+	elif conf.options.IOS:
+		conf.ios = ios = iOS(conf)
+		conf.env['FRAMEWORK_ST']     = ['-framework']
+		conf.env['FRAMEWORKPATH_ST'] = '-F%s'
+		conf.env['FRAMEWORK'] = [ 'Foundation', 'UIKit', 'QuartzCore', 'GameController', 'CoreMotion', 'SystemConfiguration', 'CoreFoundation', 'CFNetwork', 'AVFoundation' ]
+
+		conf.environ['CC'] = ios.cc()
+		conf.environ['CXX'] = ios.cxx()
+		
+		conf.env.CFLAGS += ios.cflags()
+		conf.env.CXXFLAGS += ios.cflags()
+		conf.env.LINKFLAGS += ios.linkflags()
+		conf.env.DEST_OS2 = 'ios'
 
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE
