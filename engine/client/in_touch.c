@@ -2071,6 +2071,25 @@ static int Touch_ControlsEvent( touchEventType type, int fingerID, float x, floa
 
 int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy )
 {
+	if( ref.rotation & 1 )
+	{
+		// swap x and y and invert y
+		float temp = x;
+		x = y;
+		if( ref.rotation == REF_ROTATE_CW )
+			y = 1.0f - temp;
+		else
+			y = temp;
+
+		temp = dx;
+		dx = dy;
+		if( ref.rotation == REF_ROTATE_CW )
+			dy = -temp;
+		else
+			dy = temp;
+	}
+
+
 //	Con_Printf("%f %f\n", TO_SCRN_X(x), TO_SCRN_Y(y));
 	// simulate menu mouse click
 	if( cls.key_dest != key_game && !touch_in_menu.value )

@@ -183,11 +183,7 @@ static int Sys_Start( void )
 
 	snprintf( buf, sizeof( buf ), "%s/xash", home );
 	setenv( "XASH3D_BASEDIR", buf, true );
-#if XASH_AURORAOS
-	setenv( "XASH3D_RODIR", "/usr/share/su.xash.Engine/rodir", true );
-#else
 	setenv( "XASH3D_RODIR", "/usr/share/harbour-xash3d-fwgs/rodir", true );
-#endif // XASH_AURORAOS
 #endif // XASH_SAILFISH
 
 	strncpy( szGameDir, XASH_GAMEDIR, sizeof( szGameDir ) - 1 );

@@ -263,6 +263,8 @@ typedef struct
 	uint *screengammatable;
 
 	uint max_entities;
+
+	ref_screen_rotation_t rotation;
 } gl_globals_t;
 
 typedef struct
@@ -764,7 +766,7 @@ static inline int GL_MaxTextureUnits( void )
 {
 	if( GL_Support( GL_SHADER_GLSL100_EXT ))
 		return Q_min( Q_max( glConfig.max_texture_coords, glConfig.max_teximage_units ), MAX_TEXTURE_UNITS );
-	return glConfig.max_texture_units;
+	return Q_min( glConfig.max_texture_units, MAX_TEXTURE_UNITS );
 }
 
 #define WORLDMODEL (gp_cl->models[1])

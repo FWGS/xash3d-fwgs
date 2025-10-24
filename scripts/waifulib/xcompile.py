@@ -634,8 +634,8 @@ def options(opt):
 		help='enable building for Nintendo Switch [default: %(default)s]')
 	xc.add_option('--psvita', action='store_true', dest='PSVITA', default = False,
 		help='enable building for PlayStation Vita [default: %(default)s]')
-	xc.add_option('--sailfish', action='store', dest='SAILFISH', default = None,
-		help='enable building for Sailfish/Aurora')
+	xc.add_option('--sailfish', action='store_true', dest='SAILFISH', default = False,
+		help='enable building for Sailfish')
 	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
 		help='enable building for Emscripten')
 	xc.add_option('--psp', action='store', dest='PSP_OPTS', default=None,

@@ -1098,7 +1098,7 @@ void CL_PredictMovement( qboolean repredicting )
 
 	// now interpolate some fraction of the final frame
 	if( to_cmd->senttime != from_cmd->senttime )
-		f = bound( 0.0, (host.realtime - from_cmd->senttime) / (to_cmd->senttime - from_cmd->senttime) * 0.1, 1.0 );
+		f = bound( 0.0, ( host.realtime - from_cmd->senttime ) / ( to_cmd->senttime - from_cmd->senttime ), 1.0 );
 	else f = 0.0;
 
 	if( CL_PlayerTeleported( from, to ))

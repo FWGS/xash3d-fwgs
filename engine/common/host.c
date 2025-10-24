@@ -1286,11 +1286,11 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #endif
 		// execute startup config and cmdline
 		if( FS_FileExists( va( "%s.rc", progname ), false )) // e.g. valve.rc
-			Cbuf_AddTextf( "exec %s.rc", progname );
+			Cbuf_AddTextf( "exec %s.rc\n", progname );
 		else if( FS_FileExists( va( "%s.rc", exename ), false )) // e.g. quake.rc
-			Cbuf_AddTextf( "exec %s.rc", exename );
+			Cbuf_AddTextf( "exec %s.rc\n", exename );
 		else if( FS_FileExists( va( "%s.rc", GI->gamefolder ), false )) // e.g. game.rc (ran from default launcher)
-			Cbuf_AddTextf( "exec %s.rc", GI->gamefolder );
+			Cbuf_AddTextf( "exec %s.rc\n", GI->gamefolder );
 		Cbuf_Execute();
 
 		if( !host.config_executed )
