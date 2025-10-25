@@ -15,6 +15,7 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import <AVFoundation/AVFoundation.h>
 #import "FtpServer.h"
 #include <sys/stat.h>
 #include "dlfcn.h"
@@ -44,6 +45,19 @@ int szArgc;
 char **szArgv;
 char *g_szLibrarySuffix;
 float g_iOSVer;
+
+int IOS_RequestRecordPerms( void ) {
+	switch ([[AVAudioSession sharedInstance] recordPermission]) {
+		case AVAudioSessionRecordPermissionUndetermined:
+			[[AVAudioSession sharedInstance] requestRecordPermission:^(BOOL granted){}];
+		case AVAudioSessionRecordPermissionGranted:
+			return true;
+			break;
+		case AVAudioSessionRecordPermissionDenied:
+			return false;
+			break;
+		}
+}
 
 const char *IOS_GetDocsDir(void)
 {
@@ -157,6 +171,7 @@ void IOS_LaunchDialog( void )
 	NSLog(@"System Version is %@",[[UIDevice currentDevice] systemVersion]);
 	NSString *ver = [[UIDevice currentDevice] systemVersion];
 	g_iOSVer = [ver floatValue];
+	IOS_RequestRecordPerms();
 	IOS_PrepareView();
 	if( g_iOSVer >= 7.0 )
 	{

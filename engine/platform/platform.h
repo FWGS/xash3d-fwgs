@@ -42,6 +42,7 @@ qboolean Platform_DebuggerPresent( void );
 #if TARGET_OS_IOS
 const char *IOS_GetDocsDir( void );
 void IOS_LaunchDialog( void );
+int IOS_RequestRecordPerms(void);
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX
