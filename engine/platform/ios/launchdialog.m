@@ -40,8 +40,8 @@
 
 
 
-int g_iArgc;
-char **g_pszArgv;
+int szArgc;
+char **szArgv;
 char *g_szLibrarySuffix;
 float g_iOSVer;
 
@@ -276,15 +276,15 @@ void IOS_LaunchDialog( void )
 	
 	int count = [argv count];
 	char *arg1 = "arg1";
-	g_pszArgv = calloc( count + 2, sizeof( char* ) );
+	szArgv = calloc( count + 2, sizeof( char* ) );
 	int i;
-	g_pszArgv[0] = arg1;
+	szArgv[0] = arg1;
 	for( i = 0; i<count; i++ )
 	{
-		g_pszArgv[i + 1] = strdup( [argv[i] UTF8String] );
+		szArgv[i + 1] = strdup( [argv[i] UTF8String] );
 	}
-	g_iArgc = count + 1;
-	g_pszArgv[count + 1] = 0;
+	szArgc = count + 1;
+	szArgv[count + 1] = 0;
 
 	if( [suffix.text length] )
 		g_szLibrarySuffix = strdup([suffix.text UTF8String]);
@@ -305,8 +305,8 @@ void IOS_LaunchDialog( void )
 	{
 		static char *args[32] = { "xash", "-dev", "5", "-log"};
 		
-		g_pszArgv = args;
-		g_iArgc = 3;
+		szArgv = args;
+		szArgc = 3;
 		
 		char cmdlinefile[128];
 		snprintf(cmdlinefile, sizeof(cmdlinefile), "%s/cmdline.txt", IOS_GetDocsDir() );
@@ -324,15 +324,15 @@ void IOS_LaunchDialog( void )
 			
 			int count = [argv count];
 			char *arg1 = "xash";
-			g_pszArgv = calloc( count + 2, sizeof( char* ) );
+			szArgv = calloc( count + 2, sizeof( char* ) );
 			int i;
-			g_pszArgv[0] = arg1;
+			szArgv[0] = arg1;
 			for( i = 0; i<count; i++ )
 			{
-				g_pszArgv[i + 1] = strdup( [argv[i] UTF8String] );
+				szArgv[i + 1] = strdup( [argv[i] UTF8String] );
 			}
-			g_iArgc = count + 1;
-			g_pszArgv[count + 1] = 0;
+			szArgc = count + 1;
+			szArgv[count + 1] = 0;
 			if( strlen(lib) > 1 )
 				g_szLibrarySuffix = lib;
 		}
@@ -351,4 +351,14 @@ char *IOS_GetUDID( void )
 void IOS_Log(const char *text)
 {
 	NSLog(@"Xash: %@", [NSString stringWithUTF8String:text]);
+}
+
+int IOS_SetArgc( void )
+{
+	return szArgc;
+}
+
+char **IOS_SetArgv( void )
+{
+	return szArgv;
 }

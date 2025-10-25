@@ -61,7 +61,11 @@ static int Sys_Start( void )
 #endif // XASH_EMSCRIPTEN
 
 #if XASH_IOS
+	int IOS_SetArgc(void);
+	char **IOS_SetArgv(void);
 	IOS_LaunchDialog();
+	szArgc = IOS_SetArgc();
+	szArgv = IOS_SetArgv();
 #endif // XASH_IOS
 
 	return Host_Main( szArgc, szArgv, szGameDir, 0, Sys_ChangeGame );

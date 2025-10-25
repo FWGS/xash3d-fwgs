@@ -105,7 +105,7 @@ SUBDIRS = [
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 #	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
 	Subproject('stub/client',           lambda x: x.env.CLIENT),
-	Subproject('game_launch',           lambda x: x.env.LAUNCHER and not x.env.DEST_OS2 == 'ios'),
+	Subproject('game_launch',           lambda x: x.env.LAUNCHER),
 	Subproject('engine'), # keep latest for static linking
 
 	# enabled optionally
@@ -252,7 +252,7 @@ def configure(conf):
 	if conf.env.DEST_OS2 == 'ios':
 		conf.options.NANOGL           = True
 		conf.options.GLWES            = False # deprecated
-		conf.options.GL4ES            = True
+		conf.options.GL4ES            = False
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
 	elif conf.env.MAGX:
@@ -407,7 +407,7 @@ def configure(conf):
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
 		conf.env.CLIENT = True
-		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'emscripten'] and not conf.env.MAGX and not conf.env.STATIC_LINKING
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'emscripten'] and conf.env.DEST_OS2 not in ['ios'] and not conf.env.MAGX and not conf.env.STATIC_LINKING
 	else:
 		conf.env.SERVER = True
 		conf.env.CLIENT = False

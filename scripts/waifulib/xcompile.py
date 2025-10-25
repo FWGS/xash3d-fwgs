@@ -63,7 +63,7 @@ class iOS:
 		
 		linkflags = []
 		
-		linkflags += [ '-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk', '--target=darwin-arm64-ios9.0', '-dead_strip', '-fpic', '-lstdc++', '-undefineddynamic_lookup' ]
+		linkflags += [ '-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk', '--target=darwin-arm64-ios9.0', '-dead_strip', '-fpic' ]
 		
 		return linkflags
 		
@@ -788,9 +788,11 @@ def configure(conf):
 		conf.env.PSP_BUILD_PRX = psp.build_prx
 	elif conf.options.IOS:
 		conf.ios = ios = iOS(conf)
-		conf.env['FRAMEWORK_ST']     = ['-framework']
+		conf.env['cshlib_PATTERN'] = 'lib%s.dylib'
+		conf.env['cxxshlib_PATTERN'] = 'lib%s.dylib'
+		conf.env['FRAMEWORK_ST'] = ['-framework']
 		conf.env['FRAMEWORKPATH_ST'] = '-F%s'
-		conf.env['FRAMEWORK'] = [ 'Foundation', 'UIKit', 'QuartzCore', 'GameController', 'CoreMotion', 'SystemConfiguration', 'CoreFoundation', 'CFNetwork', 'AVFoundation' ]
+		conf.env['FRAMEWORK'] = [ 'Foundation', 'UIKit', 'QuartzCore', 'GameController', 'CoreMotion', 'SystemConfiguration', 'CoreFoundation', 'CFNetwork', 'AVFoundation', 'CoreGraphics' ]
 
 		conf.environ['CC'] = ios.cc()
 		conf.environ['CXX'] = ios.cxx()
