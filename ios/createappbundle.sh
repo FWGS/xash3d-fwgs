@@ -14,7 +14,6 @@ cp ref/soft/libref_* ./xash3d.app
 cp ref/gl/libref_* ./xash3d.app
 cp 3rdparty/mainui/libmenu.dylib ./xash3d.app
 
-
 rm -r Payload/
 mkdir Payload
 
