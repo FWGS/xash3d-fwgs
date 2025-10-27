@@ -318,6 +318,11 @@ build-*
 *.includes
 *.files
 
+# ios
+ios/cl_dlls/*
+ios/dlls/*
+ios/*.framework
+
 # Waf
 build_current
 *waf-*/
@@ -339,6 +344,7 @@ __pycache__
 .history/*
 .cache/*
 enc_temp_folder/
+Taskfile.yml
 
 # KDevelop4
 *.kdev4
