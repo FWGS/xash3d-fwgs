@@ -17,7 +17,7 @@ from waflib import Logs, TaskGen
 from waflib.Tools import c_config
 from collections import OrderedDict
 import os
-import sys
+import sys, subprocess
 
 ANDROID_NDK_ENVVARS = ['ANDROID_NDK_HOME', 'ANDROID_NDK']
 ANDROID_NDK_SUPPORTED = [10, 19, 20, 23, 25, 27, 28]
@@ -47,23 +47,36 @@ PSP_ENVVARS = ['PSPDEV', 'PSPSDK', 'PSPTOOLCHAIN']
 
 class iOS:
 	ctx = None
-	arch = "arm64"
+	simulator = None
+	sdkpath = None
+	target = None
 	
-	def __init__(self, ctx):
+	def __init__(self, ctx, simulator):
 		self.ctx = ctx
+
+		if simulator == 'true': sdk = "iphonesimulator"
+		else: sdk = "iphoneos"
+
+		path = subprocess.run(["xcrun", "--show-sdk-path", "--sdk", sdk], stdout=subprocess.PIPE)
+
+		self.sdkpath = path.stdout.decode('utf-8')
+		self.sdkpath = str.rstrip(self.sdkpath)
+
+		self.target = '--target=aarch64-apple-ios'
+		if simulator == 'true': self.target += '-simulator'
 	
 	def cflags(self, cxx = False):
 	
 		cflags = []
 	
-		cflags += [ '-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk', '--target=darwin-arm64-ios9.0', '-Wno-shorten-64-to-32', '-fpic' ]
+		cflags += [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0', '-Wno-shorten-64-to-32', '-fpic' ]
 		return cflags
 		
 	def linkflags(self):
 		
 		linkflags = []
 		
-		linkflags += [ '-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk', '--target=darwin-arm64-ios9.0', '-dead_strip', '-fpic' ]
+		linkflags += [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0', '-dead_strip', '-fpic' ]
 		
 		return linkflags
 		
@@ -640,8 +653,8 @@ def options(opt):
 		help='enable building for Emscripten')
 	xc.add_option('--psp', action='store', dest='PSP_OPTS', default=None,
 		help='enable building for PlayStation Portable, format: --psp=<module type>,<fw version>,<render type>, example: --psp=prx,660,HW')
-	xc.add_option('--ios', action='store_true', dest='IOS', default=False,
-	help='enable building for iOS [default: %(default)s]')
+	xc.add_option('--ios', action='store', dest='IOS_OPTS', default=None, 
+		help='enable building for iOS, format: --ios=<build for simulator>, example: --ios=true [default: %(default)s]')
 
 def configure(conf):
 	if 'CROSS_COMPILE' in conf.environ:
@@ -786,8 +799,15 @@ def configure(conf):
 
 		conf.env.PSP_RENDER_TYPE = psp.render_type
 		conf.env.PSP_BUILD_PRX = psp.build_prx
-	elif conf.options.IOS:
-		conf.ios = ios = iOS(conf)
+	elif conf.options.IOS_OPTS:
+		values = conf.options.IOS_OPTS.split(',')
+		if len(values) != 1:
+			conf.fatal('Invalid --ios paramater value!')
+
+		simulatorvalues = ['true', 'false']
+		if values[0] not in simulatorvalues:
+			conf.fatal("Invalid build for simulator answer, you must answer with true or false!")
+		conf.ios = ios = iOS(conf, values[0])
 		conf.env['cshlib_PATTERN'] = 'lib%s.dylib'
 		conf.env['cxxshlib_PATTERN'] = 'lib%s.dylib'
 		conf.env['FRAMEWORK_ST'] = ['-framework']

@@ -87,7 +87,7 @@ SUBDIRS = [
 	Subproject('3rdparty/libbacktrace'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
-	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android' 'ios'),
+	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
 	Subproject('3rdparty/nanogl',       lambda x: x.env.CLIENT and x.env.NANOGL),
 	Subproject('3rdparty/gl-wes-v2',    lambda x: x.env.CLIENT and x.env.GLWES),
 	Subproject('3rdparty/gl4es',        lambda x: x.env.CLIENT and x.env.GL4ES),
@@ -252,7 +252,7 @@ def configure(conf):
 	if conf.env.DEST_OS2 == 'ios':
 		conf.options.NANOGL           = True
 		conf.options.GLWES            = False # deprecated
-		conf.options.GL4ES            = False
+		conf.options.GL4ES            = False # doesn't compile on ios yet
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
 	elif conf.env.MAGX:
