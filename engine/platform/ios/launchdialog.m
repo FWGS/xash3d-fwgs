@@ -185,6 +185,10 @@ void IOS_LaunchDialog( void )
 	alert.delegate = delegate;
 
 	const char *docsDir = IOS_GetDocsDir();
+
+	//set working directory to documents so logs can be generated there
+	NSString *workingDir = [NSString stringWithUTF8String:IOS_GetDocsDir()];
+	[[NSFileManager defaultManager] changeCurrentDirectoryPath:workingDir];
 	
 	FILE *settingsfile;
 	char settingspath[256];
@@ -290,10 +294,8 @@ void IOS_LaunchDialog( void )
 	NSArray *argv = [ args.text componentsSeparatedByString:@" " ];
 	
 	int count = [argv count];
-	char *arg1 = "arg1";
 	szArgv = calloc( count + 2, sizeof( char* ) );
 	int i;
-	szArgv[0] = arg1;
 	for( i = 0; i<count; i++ )
 	{
 		szArgv[i + 1] = strdup( [argv[i] UTF8String] );
