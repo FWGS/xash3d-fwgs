@@ -29,7 +29,7 @@ GNU General Public License for more details.
 
 #if XASH_APPLE
 	#include <sys/syslimits.h>
-	#define OS_LIB_EXT "dylib"
+	#define OS_LIB_EXT    "dylib"
 	#define OPEN_COMMAND  "open"
 #elif XASH_POSIX
 	#define OS_LIB_EXT    "so"

@@ -152,12 +152,6 @@ Default build-depended cvar and constant values
 	#define DEFAULT_M_IGNORE     "1"
 #endif // !XASH_MOBILE_PLATFORM && !XASH_NSWITCH
 
-/*#if XASH_IOS
-	// this means that libraries are provided with engine, but not in game data
-	// You need add library loading code to library.c when adding new platform
-	#define XASH_INTERNAL_GAMELIBS
-#endif*/ // XASH_IOS
-
 // Defaults
 #ifndef DEFAULT_TOUCH_ENABLE
 	#define DEFAULT_TOUCH_ENABLE "0"

@@ -46,19 +46,6 @@ char **szArgv;
 char *g_szLibrarySuffix;
 float g_iOSVer;
 
-int IOS_RequestRecordPerms( void ) {
-	switch ([[AVAudioSession sharedInstance] recordPermission]) {
-		case AVAudioSessionRecordPermissionUndetermined:
-			[[AVAudioSession sharedInstance] requestRecordPermission:^(BOOL granted){}];
-		case AVAudioSessionRecordPermissionGranted:
-			return true;
-			break;
-		case AVAudioSessionRecordPermissionDenied:
-			return false;
-			break;
-		}
-}
-
 const char *IOS_GetDocsDir(void)
 {
 	if( g_iOSVer >= 8.0 )
@@ -171,7 +158,10 @@ void IOS_LaunchDialog( void )
 	NSLog(@"System Version is %@",[[UIDevice currentDevice] systemVersion]);
 	NSString *ver = [[UIDevice currentDevice] systemVersion];
 	g_iOSVer = [ver floatValue];
-	IOS_RequestRecordPerms();
+
+	//request microphone permissions otherwise we will crash when joining an online server
+	[[AVAudioSession sharedInstance] requestRecordPermission:^(BOOL granted){}];
+
 	IOS_PrepareView();
 	if( g_iOSVer >= 7.0 )
 	{
@@ -370,12 +360,8 @@ void IOS_Log(const char *text)
 	NSLog(@"Xash: %@", [NSString stringWithUTF8String:text]);
 }
 
-int IOS_SetArgc( void )
+int IOS_GetArgs( char ***out )
 {
+	*out = szArgv;
 	return szArgc;
-}
-
-char **IOS_SetArgv( void )
-{
-	return szArgv;
 }

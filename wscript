@@ -4,7 +4,6 @@
 
 from waflib import Build, Context, Logs, TaskGen
 from waflib.Tools import waf_unit_test, c_tests
-from waflib.extras import xcode6
 import sys
 import os
 
@@ -128,7 +127,6 @@ REFDLLS = [
 ]
 
 def options(opt):
-	opt.load('xcode6')
 	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msvs subproject ninja')
 
 	grp = opt.add_option_group('Common options')
@@ -209,7 +207,7 @@ def configure(conf):
 		conf.env.MSVC_TARGETS = ['x86']
 
 	# Load compilers early
-	conf.load('xshlib xcompile compiler_c compiler_cxx xcode6')
+	conf.load('xshlib xcompile compiler_c compiler_cxx')
 
 	if not conf.options.WAFCACHE:
 		conf.load('gccdeps')

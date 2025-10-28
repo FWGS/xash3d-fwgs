@@ -40,9 +40,9 @@ qboolean Platform_DebuggerPresent( void );
 
 // legacy iOS port functions
 #if TARGET_OS_IOS
+int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 void IOS_LaunchDialog( void );
-int IOS_RequestRecordPerms(void);
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX
