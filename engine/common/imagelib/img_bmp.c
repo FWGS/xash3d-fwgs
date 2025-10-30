@@ -102,7 +102,15 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 			bhdr.colors = 256;
 			cbPalBytes = ( 1 << bhdr.bitsPerPixel ) * sizeof( rgba_t );
 		}
-		else cbPalBytes = bhdr.colors * sizeof( rgba_t );
+		else
+		{
+			if( bhdr.colors > 256 )
+			{
+				Con_DPrintf( S_WARN "%s: %s palette have too many colors (%u), clamping to 256\n", __func__, name, bhdr.colors );
+				bhdr.colors = 256;
+			}
+			cbPalBytes = bhdr.colors * sizeof( rgba_t );
+		}
 	}
 
 	estimatedSize = ( buf_p - buffer ) + cbPalBytes;
