@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #cd into script directory
-cd "${0%/*}"
+cd "${0%/*}/../ios"
 
 if [ -d ../build ]; then
     mkdir ../build/xash3d.app

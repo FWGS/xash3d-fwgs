@@ -41,6 +41,9 @@ int main(int argc, char **argv)
 	return 0;
 }
 '''
+
+frameworks = ['Foundation', 'UIKit', 'QuartzCore', 'GameController', 'SystemConfiguration', 'CFNetwork', 'AVFoundation', 'CoreGraphics']
+
 @TaskGen.extension('.m')
 def m_hook(self, node):
 	return self.create_compiled_task('c', node)
@@ -144,6 +147,10 @@ def configure(conf):
 
 	if not conf.env.DEST_OS in ['win32', 'android']:
 		conf.check_pthreads(mode='c')
+	
+	if conf.env.IOS:
+		for i in frameworks :
+			conf.check(features='c cprogram', framework=i, uselib_store=i, msg='Checking for %s framework' % i)
 
 	conf.check_cc(fragment=EXECINFO_TEST, msg='Checking for glibc backtrace()', mandatory=False, define_name='HAVE_EXECINFO')
 
@@ -208,7 +215,7 @@ def build(bld):
 	# include common POSIX conformant code
 	if bld.env.DEST_OS not in ['win32', 'dos']:
 		source += bld.path.ant_glob('platform/posix/*.c')
-	if bld.env.DEST_OS2 == 'ios':
+	if bld.env.IOS:
 		source += bld.path.ant_glob('platform/ios/*.c')
 		source += bld.path.ant_glob('platform/ios/*.m')
 		includes += bld.path.ant_glob('platform/ios')
@@ -283,6 +290,11 @@ def build(bld):
 			f = bld.shlib
 			install_path = bld.env.LIBDIR
 			defines += ['XASH_ENABLE_MAIN=1', 'XASH_SDLMAIN=1']
+		elif bld.env.IOS:
+			f = bld.shlib
+			install_path = None
+			libs += frameworks
+			defines += ['XASH_ENABLE_MAIN=1', 'XASH_SDLMAIN=1']
 		elif not bld.env.LAUNCHER:
 			f = bld.program
 			install_path = bld.env.BINDIR
@@ -290,9 +302,6 @@ def build(bld):
 		else:
 			f = bld.shlib
 			install_path = bld.env.LIBDIR
-		
-		if bld.env.DEST_OS2 == 'ios':
-			defines += ['XASH_SDLMAIN=1']
 
 		if bld.env.DEST_OS in ['nswitch', 'psvita', 'emscripten']:
 			install_path = None
