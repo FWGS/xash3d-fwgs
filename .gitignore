@@ -322,6 +322,7 @@ build-*
 ios/cl_dlls/*
 ios/dlls/*
 ios/*.framework
+scripts/ios/mod-build
 
 # Waf
 build_current

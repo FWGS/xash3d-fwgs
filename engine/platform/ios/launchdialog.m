@@ -162,9 +162,7 @@ void IOS_LaunchDialog( void )
 	//request microphone permissions otherwise we will crash when joining an online server
 	[[AVAudioSession sharedInstance] requestRecordPermission:^(BOOL granted){}];
 
-	IOS_PrepareView();
-	if( g_iOSVer >= 7.0 )
-	{
+	IOS_PrepareView();	
 	int button = -1, bExit, bStart;
 	UIAlertView * alert = [[UIAlertView alloc] init];
 	bExit = [alert addButtonWithTitle:@"Exit"];
@@ -307,43 +305,6 @@ void IOS_LaunchDialog( void )
 	[suffixtitle release];
 
 	[alert release];
-	}
-	else // do not know what wrong with 6.x, just skip launch dialog
-	{
-		static char *args[32] = { "xash", "-console" };
-		
-		szArgv = args;
-		szArgc = 3;
-		
-		char cmdlinefile[128];
-		snprintf(cmdlinefile, sizeof(cmdlinefile), "%s/cmdline.txt", IOS_GetDocsDir() );
-		FILE *f = fopen(cmdlinefile,"rb");
-		if( f )
-		{
-			static char args[1024];
-			static char lib[32];
-			fgets(args, 1024,f);
-			fgets(lib, 32, f);
-			args[strlen(args)-1]=0;
-			fclose(f);
-			args[1023] = 0;
-			NSArray *argv = [ @(args) componentsSeparatedByString:@" " ];
-			
-			int count = [argv count];
-			char *arg1 = "xash";
-			szArgv = calloc( count + 2, sizeof( char* ) );
-			int i;
-			szArgv[0] = arg1;
-			for( i = 0; i<count; i++ )
-			{
-				szArgv[i + 1] = strdup( [argv[i] UTF8String] );
-			}
-			szArgc = count + 1;
-			szArgv[count + 1] = 0;
-			if( strlen(lib) > 1 )
-				g_szLibrarySuffix = lib;
-		}
-	}
 }
 
 char *IOS_GetUDID( void )
