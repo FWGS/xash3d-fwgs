@@ -800,7 +800,6 @@ def configure(conf):
 		conf.env.CFLAGS += ios.cflags()
 		conf.env.CXXFLAGS += ios.cflags()
 		conf.env.LINKFLAGS += ios.linkflags()
-		conf.env.DEST_OS2 = 'ios'
 		conf.env.IOS = 1
 
 	conf.env.MAGX = conf.options.MAGX
