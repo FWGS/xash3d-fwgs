@@ -89,7 +89,7 @@ static qboolean Sound_ParseID3Frame( const did3v2_frame_t *frame, const byte *bu
 		{
 			key_len = Q_strncpy( key, &buffer[1], sizeof( key ));
 			value_len = frame_length - (1 + key_len + 1);
-			if( value_len <= 0 || value_len >= sizeof( value ))
+			if( value_len <= 0 || value_len >= sizeof( value ) - 1 )
 			{
 				Con_Printf( S_ERROR "%s: invalid TXXX description, possibly broken file.\n", __func__ );
 				return false;
