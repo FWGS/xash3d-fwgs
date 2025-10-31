@@ -496,6 +496,7 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 {
 	SDL_DisplayMode got;
 	Uint32 wndFlags = 0;
+	
 	if( vid_highdpi.value )
 		SetBits( wndFlags, SDL_WINDOW_ALLOW_HIGHDPI );
 	SDL_SetWindowBordered( host.hWnd, SDL_FALSE );

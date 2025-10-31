@@ -9,11 +9,11 @@
 	<key>CFBundleExecutable</key>
 	<string>xash</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.ksagameng.xash3d-fwgs-ios</string>
+	<string>su.xash.engine</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>xash3d-fwgs-ios</string>
+	<string>xash3d-fwgs</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
