@@ -18,17 +18,11 @@ if [ -d $BUILDDIR ]; then
     fi
     cp -r $BUILDDIR/SDL2.framework "$BUILDDIR/xash3d.app"
 
-    cd $BUILDDIR
+    cd ../../../../
 
-    if [ ! -e engine/xash ]; then 
-        echo "Couldn't find engine executable, ensure that compiliation finished successfully!"
-        exit 1
-    fi 
-    cp engine/xash "$BUILDDIR/ios/xash3d.app"
-    cp filesystem/filesystem_stdio.dylib "$BUILDDIR/ios/xash3d.app"
-    cp ref/soft/libref_* "$BUILDDIR/ios/xash3d.app"
-    cp ref/gl/libref_* "$BUILDDIR/ios/xash3d.app"
-    cp 3rdparty/mainui/libmenu.dylib "$BUILDDIR/ios/xash3d.app"
+    ./waf install --destdir="$BUILDDIR/ios/xash3d.app"
+
+    cd $BUILDDIR
 
     rm -r "$BUILDDIR/ios/Payload/"
     mkdir "$BUILDDIR/ios/Payload"
