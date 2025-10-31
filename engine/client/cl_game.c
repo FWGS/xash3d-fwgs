@@ -1281,7 +1281,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		Mod_LoadMapSprite( m_pSprite, buf, size, &loaded );
 	else
 	{
-		Mod_LoadSpriteModel( m_pSprite, buf, &loaded );
+		Mod_LoadSpriteModel( m_pSprite, buf, size, &loaded );
 		ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf );
 	}
 
