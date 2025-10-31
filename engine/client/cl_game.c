@@ -1282,7 +1282,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 	else
 	{
 		Mod_LoadSpriteModel( m_pSprite, buf, size, &loaded );
-		ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf );
+		ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf, size );
 	}
 
 	Mem_Free( buf );

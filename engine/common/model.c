@@ -87,7 +87,7 @@ static void Mod_FreeUserData( model_t *mod )
 #if !XASH_DEDICATED
 	else
 	{
-		ref.dllFuncs.Mod_ProcessRenderData( mod, false, NULL );
+		ref.dllFuncs.Mod_ProcessRenderData( mod, false, NULL, 0 );
 	}
 #endif
 }
@@ -334,7 +334,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 #if !XASH_DEDICATED
 		else
 		{
-			loaded2 = ref.dllFuncs.Mod_ProcessRenderData( mod, true, buf );
+			loaded2 = ref.dllFuncs.Mod_ProcessRenderData( mod, true, buf, length );
 		}
 #endif
 	}
