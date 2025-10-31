@@ -20,14 +20,6 @@ cd $MODPATH
 cmake -DCMAKE_SYSTEM_NAME=iOS -DGAMEDIR=$IOSDIR -DCMAKE_BUILD_TYPE=Debug -B build -S .
 cmake --build build --target install
 
-
-#if [ -z $2 ]; then
-#    mv build/cl_dll/client_arm64.dylib ../../../../ios/cl_dlls
-#    mv build/dlls/hl_arm64.dylib ../../../../ios/dlls
-#else
-#    
-#fi
-
 cd ../../
 if [ -d mod-build ]; then
     rm -rf mod-build/
