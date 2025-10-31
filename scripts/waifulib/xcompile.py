@@ -59,17 +59,14 @@ class iOS:
 	
 	def cflags(self, cxx = False):
 	
-		cflags = []
-	
-		cflags += [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' ]
+		cflags = [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' ]
 		return cflags
 		
 	def linkflags(self):
 		
-		linkflags = []
-		
-		linkflags += [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' ]
+		linkflags = [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' ]
 		return linkflags
+	
 	def cc(self):
 		return 'clang'
 
