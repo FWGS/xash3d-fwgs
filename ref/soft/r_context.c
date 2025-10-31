@@ -64,7 +64,7 @@ static void GAME_EXPORT CL_FillRGBA( int rendermode, float _x, float _y, float _
 
 void Mod_UnloadTextures( model_t *mod );
 
-static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
+static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf, size_t buffersize )
 {
 	qboolean loaded = false;
 

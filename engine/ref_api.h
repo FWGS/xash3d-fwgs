@@ -58,7 +58,8 @@ GNU General Public License for more details.
 //    Removed R_DrawTileClear and Mod_LoadMapSprite, as they're implemented on engine side
 //    Removed FillRGBABlend. Now FillRGBA accepts rendermode parameter.
 // 10. Added R_GetWindowHandle to retrieve platform-specific window object.
-#define REF_API_VERSION 10
+// 11. Added size argument to Mod_ProcessRenderData
+#define REF_API_VERSION 11
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -565,7 +566,7 @@ typedef struct ref_interface_s
 
 	// model management
 	// flags ignored for everything except spritemodels
-	qboolean (*Mod_ProcessRenderData)( model_t *mod, qboolean create, const byte *buffer );
+	qboolean (*Mod_ProcessRenderData)( model_t *mod, qboolean create, const byte *buffer, size_t buffersize );
 	void (*Mod_StudioLoadTextures)( model_t *mod, void *data );
 
 	// efx implementation
