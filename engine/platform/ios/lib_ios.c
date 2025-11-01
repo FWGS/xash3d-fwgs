@@ -12,13 +12,14 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-#if TARGET_OS_IPHONE
+#include <string.h>
 #include <SDL.h>
 #include "common.h"
 #include "library.h"
 #include "filesystem.h"
 #include "server.h"
-#include "platform/apple/ios_lib.h"
+#include "platform/ios/lib_ios.h"
+#include <dlfcn.h>
 
 static void *IOS_LoadLibraryInternal( const char *dllname )
 {
@@ -52,20 +53,19 @@ static void *IOS_LoadLibraryInternal( const char *dllname )
 	}
 	return pHandle;
 }
-extern char *g_szLibrarySuffix;
-static void *IOS_LoadLibrary( const char *dllname )
+char *g_szLibrarySuffix;
+void *IOS_LoadLibrary( const char *dllname )
 {
 
 	string name;
 	char *postfix = g_szLibrarySuffix;
 	char *pHandle;
-
-	if( !postfix ) postfix = GI->gamefolder;
-
-	Q_snprintf( name, MAX_STRING, "%s_%s", dllname, postfix );
+	
+	if( !postfix ) postfix = "";
+	
+	Q_snprintf( name, MAX_STRING, "%s%s", dllname, postfix );
 	pHandle = IOS_LoadLibraryInternal( name );
 	if( pHandle )
 		return pHandle;
 	return IOS_LoadLibraryInternal( dllname );
 }
-#endif // TARGET_OS_IPHONE

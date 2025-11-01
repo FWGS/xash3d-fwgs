@@ -45,6 +45,34 @@ PSVITA_ENVVARS = ['VITASDK']
 
 PSP_ENVVARS = ['PSPDEV', 'PSPSDK', 'PSPTOOLCHAIN']
 
+class iOS:
+	ctx = None
+	sdkpath = None
+	target = None
+	
+	def __init__(self, ctx, issim):
+		self.ctx = ctx
+		sdk = 'iphonesimulator' if issim else 'iphoneos'
+		self.sdkpath = ctx.cmd_and_log('xcrun --show-sdk-path --sdk %s' % sdk).strip()
+		self.target = '--target=aarch64-apple-ios'
+		if issim: self.target += '-simulator'
+	
+	def cflags(self, cxx = False):
+	
+		cflags = [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' ]
+		return cflags
+		
+	def linkflags(self):
+		
+		linkflags = [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' ]
+		return linkflags
+	
+	def cc(self):
+		return 'clang'
+
+	def cxx(self):
+		return 'clang++'
+
 # This class does support ONLY r10e and r19c/r20 NDK
 class Android:
 	ctx            = None # waf context
@@ -610,6 +638,10 @@ def options(opt):
 		help='enable building for Emscripten')
 	xc.add_option('--psp', action='store', dest='PSP_OPTS', default=None,
 		help='enable building for PlayStation Portable, format: --psp=<module type>,<fw version>,<render type>, example: --psp=prx,660,HW')
+	xc.add_option('--ios', action='store_true', dest='IOS', default=False, 
+		help='enable building for iOS [default: %(default)s]')
+	xc.add_option('--ios-simulator', action='store_true', dest='IOSSIM', default=False, 
+		help='enable building for iOS Simulator [default: %(default)s]')
 
 def configure(conf):
 	if 'CROSS_COMPILE' in conf.environ:
@@ -754,6 +786,18 @@ def configure(conf):
 
 		conf.env.PSP_RENDER_TYPE = psp.render_type
 		conf.env.PSP_BUILD_PRX = psp.build_prx
+	elif conf.options.IOS or conf.options.IOSSIM:
+		issim = True if conf.options.IOSSIM else False
+
+		conf.ios = ios = iOS(conf, issim)
+
+		conf.environ['CC'] = ios.cc()
+		conf.environ['CXX'] = ios.cxx()
+		
+		conf.env.CFLAGS += ios.cflags()
+		conf.env.CXXFLAGS += ios.cflags()
+		conf.env.LINKFLAGS += ios.linkflags()
+		conf.env.IOS = 1
 
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ack</key>
+	<string>doAck:</string>
+	<key>cdup</key>
+	<string>doCdUp:</string>
+	<key>cwd</key>
+	<string>doCwd:</string>
+	<key>dele</key>
+	<string>doDele:</string>
+	<key>eprt</key>
+	<string>doEprt:</string>
+	<key>epsv</key>
+	<string>doEpsv:</string>
+	<key>feat</key>
+	<string>doFeat:</string>
+	<key>list</key>
+	<string>doList:</string>
+	<key>lprt</key>
+	<string>doLprt:</string>
+	<key>mkd</key>
+	<string>doMkdir:</string>
+	<key>mlst</key>
+	<string>doMlst:</string>
+	<key>nlst</key>
+	<string>doList:</string>
+	<key>noop</key>
+	<string>doNoop:</string>
+	<key>opts</key>
+	<string>doOpts:</string>
+	<key>pass</key>
+	<string>doPass:</string>
+	<key>pasv</key>
+	<string>doPasv:</string>
+	<key>port</key>
+	<string>doPort:</string>
+	<key>pwd</key>
+	<string>doPwd:</string>
+	<key>quit</key>
+	<string>doQuit:</string>
+	<key>retr</key>
+	<string>doRetr:</string>
+	<key>rmd</key>
+	<string>doDele:</string>
+	<key>rnfr</key>
+	<string>doRnfr:</string>
+	<key>rnto</key>
+	<string>doRnto:</string>
+	<key>size</key>
+	<string>doSize:</string>
+	<key>stat</key>
+	<string>doStat:</string>
+	<key>stor</key>
+	<string>doStor:</string>
+	<key>syst</key>
+	<string>doSyst:</string>
+	<key>type</key>
+	<string>doType:</string>
+	<key>user</key>
+	<string>doUser:</string>
+</dict>
+</plist>

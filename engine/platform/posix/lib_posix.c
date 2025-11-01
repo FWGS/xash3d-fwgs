@@ -36,7 +36,7 @@ GNU General Public License for more details.
 #include "filesystem.h"
 #include "server.h"
 #include "platform/android/lib_android.h"
-#include "platform/apple/lib_ios.h"
+#include "platform/ios/lib_ios.h"
 
 #ifdef XASH_NO_LIBDL
 void *dlsym( void *handle, const char *symbol )
