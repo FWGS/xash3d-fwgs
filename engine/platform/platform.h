@@ -40,6 +40,7 @@ qboolean Platform_DebuggerPresent( void );
 
 // legacy iOS port functions
 #if TARGET_OS_IOS
+int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 void IOS_LaunchDialog( void );
 #endif // TARGET_OS_IOS

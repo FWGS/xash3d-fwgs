@@ -98,6 +98,16 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 
 * Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 
+#### iOS/iPadOS
+* Install Xcode from the appstore.
+* Install [Homebrew package manager](https://brew.sh).
+
+* Install build dependencies by running: `brew install python sdl2 freetype opus opusfile libvorbis libogg`.
+
+* Clone the SDL2 repo `$ git clone --recursive https://github.com/libsdl-org/SDL.git -b SDL2` and compile the iOS framework by navigating to SDL/Xcode/SDL and opening the Xcode project.
+
+* Clone this repository: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+
 ### Building
 #### Windows (Visual Studio)
 0) Open command line.
@@ -117,3 +127,10 @@ If compiling 32-bit on amd64, make sure `PKG_CONFIG_PATH` from the previous step
 
 #### Android (Windows/Linux/macOS)
 You can just open the `android` folder in Android Studio and build from here, or use `gradlew` to build from command line.
+
+#### iOS/iPadOS (MacOS only)
+0) (optional) Examine which build options are available: `./waf --help`.
+1) Configure build: `./waf configure --ios --sdl2 (path/to/SDL2.framework)`, set `--ios-simulator` instead of `--ios` if you want to build for simulator.
+2) Compile `./waf build`.
+3) Navigate to `build` and copy your compiled SDL2.framework there, then add your client dylibs to `build/ios/cl_dlls` and any other dylibs to `build/ios/dlls`
+4) Run `scripts/ios/createipa.sh` to create an installable ipa
