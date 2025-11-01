@@ -141,7 +141,9 @@ CONSTANTS GLOBALS
 */
 // a1ba: we never return pointers to these globals
 // so help compiler optimize constants away
+#ifndef __cplusplus
 #define vec3_origin ((vec3_t){ 0.0f, 0.0f, 0.0f })
+#endif // __cplusplus
 
 extern const int       boxpnt[6][4];
 extern const float     m_bytenormals[NUMVERTEXNORMALS][3];
@@ -259,7 +261,6 @@ static inline float SwapFloat( float bf )
 	uint32_t li = Swap32( bi );
 	return UintAsFloat( li );
 }
-#endif // __cplusplus
 
 // isnan implementation is broken on IRIX as reported in https://github.com/FWGS/xash3d-fwgs/pull/1211
 #if defined( XASH_IRIX ) || !defined( isnan )
@@ -271,6 +272,8 @@ static inline int IS_NAN( float x )
 #else
 #define IS_NAN isnan
 #endif
+#endif // __cplusplus
+
 
 static inline float anglemod( float a )
 {
@@ -473,8 +476,9 @@ static inline void Matrix3x4_OriginFromMatrix( const matrix3x4 in, float *out )
 
 static inline void QuaternionAngle( const vec4_t q, vec3_t angles )
 {
-	matrix3x4	mat;
-	Matrix3x4_FromOriginQuat( mat, q, vec3_origin );
+	matrix3x4 mat;
+	vec3_t origin = { 0, 0, 0 };
+	Matrix3x4_FromOriginQuat( mat, q, origin );
 	Matrix3x4_AnglesFromMatrix( mat, angles );
 }
 
