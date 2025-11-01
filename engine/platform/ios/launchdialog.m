@@ -13,6 +13,7 @@
  GNU General Public License for more details.
  */
 
+#include "SDL_syswm.h"
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
@@ -45,6 +46,7 @@ int szArgc;
 char **szArgv;
 char *g_szLibrarySuffix;
 float g_iOSVer;
+bool isdark;
 
 const char *IOS_GetDocsDir(void)
 {
@@ -138,6 +140,7 @@ void IOS_PrepareView(void)
 	[[controller view] setBackgroundColor:[UIColor grayColor]];
 	[window setRootViewController:controller];
 	[window makeKeyAndVisible];
+	if([[controller traitCollection] userInterfaceStyle] == UIUserInterfaceStyleDark && g_iOSVer >= 13.0) isdark = true; else isdark = false;
 #if 0
 	UIButton *button = [[UIButton alloc] initWithFrame:CGRectMake(10, 10, 100, 20)];
 	int button1 = -1;
@@ -195,6 +198,8 @@ void IOS_LaunchDialog( void )
 
 	UITextField *args = [[UITextField alloc] initWithFrame:CGRectMake(0, 30, 300, 30)];
 	[args setBackgroundColor:[[UIColor alloc] initWithRed:1 green:1 blue:1 alpha:1]];
+	if(isdark) [args setBackgroundColor:[[UIColor alloc] initWithRed:0 green:0 blue:0 alpha:1]];
+	
 
 	UILabel *ftptitle = [[UILabel alloc] initWithFrame:CGRectMake(0, 60, 200, 30)];
 	[ftptitle setText:@"FTP Server"];
@@ -204,6 +209,7 @@ void IOS_LaunchDialog( void )
 	
 	UITextField *suffix = [[UITextField alloc] initWithFrame:CGRectMake(140, 90, 160, 30 )];
 	[suffix setBackgroundColor:[[UIColor alloc] initWithRed:1 green:1 blue:1 alpha:1]];
+	if(isdark) [suffix setBackgroundColor:[[UIColor alloc] initWithRed:0 green:0 blue:0 alpha:1]];
 
 	UILabel *suffixtitle = [[UILabel alloc] initWithFrame:CGRectMake(0, 90, 140, 30)];
 	[suffixtitle setText:@"Library suffix"];
