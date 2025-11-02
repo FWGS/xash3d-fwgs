@@ -4,7 +4,7 @@
 
 cd $GITHUB_WORKSPACE || die
 
-./waf configure --enable-utils --enable-lto --ios build install --destdir=build/ios || die_configure
+./waf configure --enable-lto --ios build install --destdir=build/ios || die_configure
 
 cp -vr /Library/Frameworks/SDL2.framework ./build
 
@@ -17,4 +17,4 @@ popd
 
 mkdir -p artifacts/
 mv "build/xash3d.ipa" "build/xash3d-fwgs-ios-arm64.ipa"
-cp "build/xash3d-fwgs-ios-arm64.ipa" artifacts
+mv "build/xash3d-fwgs-ios-arm64.ipa" artifacts
