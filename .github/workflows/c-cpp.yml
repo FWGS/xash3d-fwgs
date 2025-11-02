@@ -66,6 +66,9 @@ jobs:
           - os: macos-14 # arm64 as per github documentation
             targetos: apple
             targetarch: arm64
+          - os: macos-latest
+            targetos: ios
+            targetarch: arm64
           - os: macos-13 # x86 as per github documentation (will they fix it before they deprecate this version?..)
             targetos: apple
             targetarch: amd64
