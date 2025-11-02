@@ -16,5 +16,4 @@ popd
 ./scripts/ios/createipa.sh
 
 mkdir -p artifacts/
-mv "build/xash3d.ipa" "build/xash3d-fwgs-ios-arm64.ipa"
-mv "build/xash3d-fwgs-ios-arm64.ipa" artifacts
+mv "build/xash3d.ipa" "artifacts/xash3d-fwgs-ios-arm64.ipa"
