@@ -805,9 +805,7 @@ static void SV_TestBandWidth( netadr_t from )
 	}
 
 	// quickly reject invalid packets
-	if( !sv_allow_testpacket.value || !svs.testpacket_buf ||
-		( packetsize <= FRAGMENT_MIN_SIZE ) ||
-		( packetsize > FRAGMENT_MAX_SIZE ))
+	if( !sv_allow_testpacket.value || !svs.testpacket_buf || packetsize <= FRAGMENT_MIN_SIZE || packetsize > 1400 )
 	{
 		// skip the test and just get challenge
 		SV_SendChallenge( from );
