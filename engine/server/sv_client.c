@@ -108,7 +108,7 @@ static int SV_GetChallenge( netadr_t from, qboolean *error )
 	return digest[0] | digest[1] << 8 | digest[2] << 16 | digest[3] << 24;
 }
 
-static void SV_SendChallenge( netadr_t from )
+static void SV_SendChallenge( netadr_t from, qboolean skip_bandwidth_test )
 {
 	qboolean error = false;
 	int challenge = SV_GetChallenge( from, &error );
@@ -117,7 +117,7 @@ static void SV_SendChallenge( netadr_t from )
 		return;
 
 	// send it back
-	Netchan_OutOfBandPrint( NS_SERVER, from, S2C_CHALLENGE" %i", challenge );
+	Netchan_OutOfBandPrint( NS_SERVER, from, S2C_CHALLENGE" %i %i", challenge, skip_bandwidth_test ? 0 : 1 );
 }
 
 static int SV_GetFragmentSize( void *pcl, fragsize_t mode )
@@ -804,11 +804,22 @@ static void SV_TestBandWidth( netadr_t from )
 		return;
 	}
 
+	// third argument is the challenge, if it's empty, it means this is an
+	// old client that do not have challenge and testbandwidth swapped
+	if( !Q_strlen( Cmd_Argv( 3 )))
+	{
+		SV_SendChallenge( from, true );
+		return;
+	}
+
+	// require challenge for testpacket
+	if( !SV_CheckChallenge( from, Q_atoi( Cmd_Argv( 3 ))))
+		return;
+
 	// quickly reject invalid packets
 	if( !sv_allow_testpacket.value || !svs.testpacket_buf || packetsize <= FRAGMENT_MIN_SIZE || packetsize > 1400 )
 	{
-		// skip the test and just get challenge
-		SV_SendChallenge( from );
+		SV_SendChallenge( from, true );
 		return;
 	}
 
@@ -816,7 +827,7 @@ static void SV_TestBandWidth( netadr_t from )
 	ofs = packetsize - svs.testpacket_filepos - 1;
 	if(( ofs < 0 ) || ( ofs > svs.testpacket_filelen ))
 	{
-		SV_SendChallenge( from );
+		SV_SendChallenge( from, true );
 		return;
 	}
 
@@ -3205,7 +3216,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( pcmd, C2S_GETCHALLENGE ))
 	{
-		SV_SendChallenge( from );
+		SV_SendChallenge( from, !sv_allow_testpacket.value || !svs.testpacket_buf );
 	}
 	else if( !Q_strcmp( pcmd, C2S_CONNECT ))
 	{
