@@ -1250,6 +1250,7 @@ static void CL_CheckForResend( void )
 {
 	netadr_t adr;
 	net_gai_state_t res;
+	float resend_time;
 
 	if( cls.internetservers_wait )
 	{
@@ -1283,7 +1284,12 @@ static void CL_CheckForResend( void )
 	else if( cl_resend.value > CL_MAX_RESEND_TIME )
 		Cvar_DirectSetValue( &cl_resend, CL_MAX_RESEND_TIME );
 
-	if(( host.realtime - cls.connect_time ) < cl_resend.value )
+	if( cls.bandwidth_test.started && !cls.bandwidth_test.passed && !cls.bandwidth_test.failed )
+		resend_time = 2.0f;
+	else
+		resend_time = cl_resend.value;
+
+	if(( host.realtime - cls.connect_time ) < resend_time )
 		return;
 
 	res = NET_StringToAdrNB( cls.servername, &adr, false );
