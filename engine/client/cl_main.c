@@ -2391,7 +2391,7 @@ static void CL_Challenge( const char *c, netadr_t from )
 	{
 		// when connecting to old server or server that has bandwidth test disabled
 		// it might be more preferrable to have some sane fragment size
-		if( !Q_atoi( Cmd_Argv( 2 ))
+		if( !Q_atoi( Cmd_Argv( 2 )))
 		{
 			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
 			CL_SendConnectPacket( cls.legacymode, cls.bandwidth_test.challenge );
