@@ -69,7 +69,7 @@ jobs:
           - os: macos-latest
             targetos: ios
             targetarch: arm64
-          - os: macos-13 # x86 as per github documentation (will they fix it before they deprecate this version?..)
+          - os: macos-15-intel
             targetos: apple
             targetarch: amd64
     env:
