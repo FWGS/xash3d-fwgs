@@ -306,7 +306,7 @@ def configure(conf):
 			linkflags.append('-lc')
 	elif conf.env.DEST_OS == 'darwin':
 		linkflags.remove('-Wl,--no-undefined')
-		linkflags.append('-Wl,-undefined,-error')
+		linkflags.append('-Wl,-undefined,error')
 	elif conf.env.SAILFISH:
 		conf.define('XASH_SAILFISH', 1)
 
