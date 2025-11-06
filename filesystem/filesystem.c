@@ -1465,7 +1465,7 @@ static qboolean FS_CheckForCrypt( const char *dllname )
 	FS_Read( f, &key, sizeof( key ));
 	FS_Close( f );
 
-	return ( key == 0x12345678 ) ? true : false;
+	return ( key == LittleLong( 0x12345678 )) ? true : false;
 }
 
 static int FS_StripIdiotRelativePath( const char *dllname, const char *gamefolder )

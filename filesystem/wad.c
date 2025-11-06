@@ -305,13 +305,17 @@ static wfile_t *W_Open( const char *filename, int *error, uint flags )
 		return NULL;
 	}
 
-	if( header.ident != IDWAD2HEADER && header.ident != IDWAD3HEADER )
+	if( header.ident != LittleLong( IDWAD2HEADER ) && header.ident != LittleLong( IDWAD3HEADER ))
 	{
 		Con_Reportf( S_ERROR "%s: %s is not a WAD2 or WAD3 file\n", __func__, filename );
 		if( error ) *error = WAD_LOAD_BAD_HEADER;
 		FS_CloseWAD( wad );
 		return NULL;
 	}
+
+	header.ident = LittleLong( header.ident );
+	header.numlumps = LittleLong( header.numlumps );
+	header.infotableofs = LittleLong( header.infotableofs );
 
 	lumpcount = header.numlumps;
 
@@ -351,6 +355,13 @@ static wfile_t *W_Open( const char *filename, int *error, uint flags )
 		Mem_Free( srclumps );
 		FS_CloseWAD( wad );
 		return NULL;
+	}
+
+	for( i = 0; i < lumpcount; i++ )
+	{
+		srclumps[i].filepos = LittleLong( srclumps[i].filepos );
+		srclumps[i].disksize = LittleLong( srclumps[i].disksize );
+		srclumps[i].size = LittleLong( srclumps[i].size );
 	}
 
 	// starting to add lumps
