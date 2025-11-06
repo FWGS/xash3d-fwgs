@@ -305,7 +305,10 @@ def configure(conf):
 		if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
 			linkflags.append('-lc')
 	elif conf.env.DEST_OS == 'darwin':
-		linkflags.remove('-Wl,--no-undefined')
+		try:
+			linkflags.remove('-Wl,--no-undefined')
+		except:
+			pass
 		linkflags.append('-Wl,-undefined,error')
 	elif conf.env.SAILFISH:
 		conf.define('XASH_SAILFISH', 1)
