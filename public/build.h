@@ -206,7 +206,7 @@ Then you can use another oneliner to query all variables:
 #elif defined __e2k__
 	#define XASH_64BIT 1
 	#define XASH_E2K 1
-#elif defined __PPC__ || defined __powerpc__
+#elif defined __PPC__ || defined __powerpc__ || defined __ppc__
 	#define XASH_PPC 1
 	#if defined __PPC64__ || defined __powerpc64__
 		#define XASH_64BIT 1
