@@ -296,18 +296,18 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	// call the apropriate loader
 	switch( *(uint *)buf )
 	{
-	case IDSTUDIOHEADER:
+	case LittleLong( IDSTUDIOHEADER ):
 		Mod_LoadStudioModel( mod, buf, &loaded );
 		break;
-	case IDSPRITEHEADER:
+	case LittleLong( IDSPRITEHEADER ):
 		Mod_LoadSpriteModel( mod, buf, length, &loaded );
 		break;
-	case IDALIASHEADER:
+	case LittleLong( IDALIASHEADER ):
 		Mod_LoadAliasModel( mod, buf, &loaded );
 		break;
-	case Q1BSP_VERSION:
-	case HLBSP_VERSION:
-	case QBSP2_VERSION:
+	case LittleLong( Q1BSP_VERSION ):
+	case LittleLong( HLBSP_VERSION ):
+	case LittleLong( QBSP2_VERSION ):
 		Mod_LoadBrushModel( mod, buf, &loaded );
 		break;
 	default:
