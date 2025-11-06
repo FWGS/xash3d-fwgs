@@ -102,6 +102,7 @@ static pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 	int         numpackfiles;
 	pack_t      *pack;
 	fs_size_t     c;
+	int i;
 
 	// TODO: use FS_Open to allow PK3 to be included into other archives
 	// Currently, it doesn't work with rodir due to FS_FindFile logic
@@ -118,13 +119,17 @@ static pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 
 	c = FS_Read( packhandle, (void *)&header, sizeof( header ));
 
-	if( c != sizeof( header ) || header.ident != IDPACKV1HEADER )
+	if( c != sizeof( header ) || header.ident != LittleLong( IDPACKV1HEADER ))
 	{
 		Con_Reportf( "%s is not a packfile. Ignored.\n", packfile );
 		if( error ) *error = PAK_LOAD_BAD_HEADER;
 		FS_Close( packhandle );
 		return NULL;
 	}
+
+	header.ident = LittleLong( header.ident );
+	header.dirofs = LittleLong( header.dirofs );
+	header.dirlen = LittleLong( header.dirlen );
 
 	if( header.dirlen % sizeof( dpackfile_t ))
 	{
@@ -163,6 +168,12 @@ static pack_t *FS_LoadPackPAK( const char *packfile, int *error )
 		FS_Close( packhandle );
 		Mem_Free( pack );
 		return NULL;
+	}
+
+	for( i = 0; i < numpackfiles; i++ )
+	{
+		pack->files[i].filepos = LittleLong( pack->files[i].filepos );
+		pack->files[i].filelen = LittleLong( pack->files[i].filelen );
 	}
 
 	// TODO: validate directory?
