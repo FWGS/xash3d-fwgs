@@ -553,7 +553,8 @@ static uint Voice_GetGSCompressedData( byte *out, uint maxsize, uint *frames )
 		if( bytes > 0 )
 		{
 			*(uint16_t *)( out + size ) = LittleShort( bytes );
-			*(uint16_t *)( out + size + 2 ) = LittleShort( sequence++ );
+			sequence++;
+			*(uint16_t *)( out + size + 2 ) = LittleShort( sequence );
 
 			size += bytes + sizeof( uint32_t );
 			maxsize -= bytes + sizeof( uint32_t );
