@@ -58,10 +58,6 @@ enum
 int Q_buildnum( void );
 int Q_buildnum_iso( const char *date );
 int Q_buildnum_compat( void );
-const char *Q_PlatformStringByID( const int platform );
-const char *Q_buildos( void );
-const char *Q_ArchitectureStringByID( const int arch, const uint abi, const int endianness, const qboolean is64 );
-const char *Q_buildarch( void );
 extern const char *g_buildcommit;
 extern const char *g_buildbranch;
 extern const char *g_build_date;

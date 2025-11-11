@@ -72,8 +72,7 @@ def get_git_commit_date(conf):
 	return gitversion.run_git(conf, ['log', '-1', '--format=%ci'])
 
 def options(opt):
-	opt.add_option('--validate-target', action='store', dest='VALIDATE_TARGET', default=None,
-		help='development option, needs --enable-tests flag')
+	pass
 
 def configure(conf):
 	# private to libpublic
@@ -82,8 +81,6 @@ def configure(conf):
 	conf.start_msg('Git commit date')
 	conf.env.GIT_COMMIT_DATE = conf.get_git_commit_date()
 	conf.end_msg(conf.env.GIT_COMMIT_DATE)
-
-	conf.env.VALIDATE_TARGET = conf.options.VALIDATE_TARGET
 
 	# need to expose it for everyone using libpublic headers
 	conf.env.EXPORT_DEFINES_LIST = []
@@ -139,7 +136,8 @@ def configure(conf):
 def build(bld):
 	bld(name = 'sdk_includes',
 		export_includes = '. ../common ../pm_shared ../engine',
-		export_defines = bld.env.EXPORT_DEFINES_LIST)
+		export_defines = bld.env.EXPORT_DEFINES_LIST,
+		use = 'library_suffix_includes')
 
 	# build it separately to slightly improve rebuild times
 	bld.stlib(source = 'build_vcs.c',
@@ -151,14 +149,6 @@ def build(bld):
 		use = 'sdk_includes werror build_vcs')
 
 	if bld.env.TESTS:
-		if bld.env.VALIDATE_TARGET:
-			bld.program(features = 'test',
-				source = 'tests/test_validate_target.c',
-				target = 'validate_target',
-				use = 'public',
-				defines = 'VALIDATE_TARGET="%s"' % bld.env.VALIDATE_TARGET,
-				install_path = None)
-
 		tests = {
 			'strings': 'tests/test_strings.c',
 			'build': 'tests/test_build.c',
