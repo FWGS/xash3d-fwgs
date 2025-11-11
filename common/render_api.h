@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #ifndef RENDER_API_H
 #define RENDER_API_H
 
+#include <stdint.h>
 #include "lightstyle.h"
 #include "dlight.h"
 
