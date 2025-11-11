@@ -51,6 +51,8 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #include <sys/types.h> // off_t
 #endif
 
+#include "library_suffix.h"
+
 // configuration
 
 //
