@@ -28,6 +28,8 @@ typedef struct master_s
 
 	uint heartbeat_challenge;
 	double last_heartbeat;
+
+	double resolve_time;
 } master_t;
 
 static struct masterlist_s
@@ -38,7 +40,8 @@ static struct masterlist_s
 
 static CVAR_DEFINE_AUTO( sv_verbose_heartbeats, "0", 0, "print every heartbeat to console" );
 
-#define HEARTBEAT_SECONDS	((sv_nat.value > 0.0f) ? 60.0f : 300.0f)  	// 1 or 5 minutes
+#define HEARTBEAT_SECONDS      ((sv_nat.value > 0.0f) ? 60.0f : 300.0f) // 1 or 5 minutes
+#define RESOLVE_EXPIRE_SECONDS (60.0f) // 1 minute to expire
 
 static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t key, qboolean nat, const char *filter, connprotocol_t proto )
 {
@@ -84,10 +87,21 @@ NET_GetMasterHostByName
 */
 static net_gai_state_t NET_GetMasterHostByName( master_t *m )
 {
-	net_gai_state_t res = NET_StringToAdrNB( m->address, &m->adr, m->v6only );
+	net_gai_state_t res;
+
+	if( host.realtime > m->resolve_time )
+		m->adr.type = 0;
+
+	if( m->adr.type )
+		return NET_EAI_OK;
+
+	res = NET_StringToAdrNB( m->address, &m->adr, m->v6only );
 
 	if( res == NET_EAI_OK )
+	{
+		m->resolve_time = host.realtime + RESOLVE_EXPIRE_SECONDS;
 		return res;
+	}
 
 	m->adr.type = 0;
 	if( res == NET_EAI_NONAME )
@@ -118,9 +132,6 @@ static qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data, 
 
 	for( master = ml.head; master; master = master->next )
 	{
-		if( master->sent )
-			continue;
-
 		if( master->gs )
 		{
 			if( proto != PROTO_GOLDSRC )
@@ -131,6 +142,9 @@ static qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data, 
 			if( proto != PROTO_CURRENT )
 				continue;
 		}
+
+		if( master->sent )
+			continue;
 
 		switch( NET_GetMasterHostByName( master ))
 		{
