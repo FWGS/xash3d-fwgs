@@ -219,13 +219,13 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 				column--;	// ingnore main iterations
 				for( c = 0, k = 128; c < 8; c++, k >>= 1 )
 				{
+					if( ++column >= columns )
+						break;
 					red = green = blue = (!!(alpha & k) == 1 ? 0xFF : 0x00);
 					*pixbuf++ = red;
 					*pixbuf++ = green;
 					*pixbuf++ = blue;
 					*pixbuf++ = 0x00;
-					if( ++column == columns )
-						break;
 				}
 				break;
 			case 4:
