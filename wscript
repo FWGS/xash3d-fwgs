@@ -301,7 +301,7 @@ def configure(conf):
 	# check if we need to use irix linkflags
 	elif conf.env.DEST_OS == 'irix' and conf.env.COMPILER_CC == 'gcc':
 		linkflags.remove('-Wl,--no-undefined')
-		linkflags.append('-Wl,--unresolved-symbols=ignore-all')
+		linkflags.append('-Wl,-u,gl_INTERPRET_END')
 		# check if we're in a sgug environment
 		if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
 			linkflags.append('-lc')
@@ -428,6 +428,9 @@ def configure(conf):
 		# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
 		conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'
 		conf.env.DEFAULT_RPATH = '$ORIGIN'
+	elif conf.env.DEST_OS == 'irix':
+		linkflags.append('-Wl,-rpath-link=/usr/lib32')
+		conf.env.DEFAULT_RPATH = '/usr/lib32:/usr/sgug/lib32'
 	elif conf.env.DEST_OS in ['nswitch', 'psvita']:
 		conf.env.DEFAULT_RPATH = None
 	else:
