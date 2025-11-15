@@ -267,7 +267,7 @@ static inline float SwapFloat( float bf )
 static inline int IS_NAN( float x )
 {
 	int32_t i = FloatAsInt( x ); // only C
-	return i & ( 255 << 23 ) == ( 255 << 23 );
+	return ( i & ( 255 << 23 ) ) == ( 255 << 23 );
 }
 #else
 #define IS_NAN isnan
