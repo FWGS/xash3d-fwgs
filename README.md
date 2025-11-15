@@ -33,7 +33,6 @@ If your CPU is NOT x86 compatible or you're running 64-bit version of the engine
 This repository contains our fork of HLSDK and restored source code for Half-Life expansions and some mods.
 You still needed to copy `valve` directory as all game resources located there.
 3) Run the main executable (`xash3d.exe` or AppImage).
-4) 4) For run in Android Studio you should clone [SDL](https://github.com/libsdl-org/SDL) sdl2 branch and [HLSDK-portable](https://github.com/FWGS/hlsdk-portalbe) mobile-hacks branch repositories to 3dr-party
 
 For additional info, run Xash3D with `-help` command line key.
 
@@ -101,3 +100,6 @@ If compiling 32-bit on amd64, make sure `PKG_CONFIG_PATH` from the previous step
 1) Configure build: `./waf configure` (you need to pass `-8` to compile 64-bit engine on 64-bit x86 processor).
 2) Compile: `./waf build`.
 3) Install: `./waf install --destdir=/path/to/any/output/directory`.
+
+#### Android
+To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` branch and [HLSDK-portable](https://github.com/FWGS/hlsdk-portalbe) `mobile-hacks` branch repositories to 3rdparty folder, after that you should be able to open the project in Android Studio from `android` directory or manually call Gradle to build the APK.
