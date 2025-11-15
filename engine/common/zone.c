@@ -517,6 +517,10 @@ Memory_Init
 */
 void Memory_Init( void )
 {
+	if( poolchain )
+	{
+		Q_free( poolchain );
+	}
 	poolchain = NULL; // init mem chain
 	poolcount = 0;
 }
