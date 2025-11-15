@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #include "library.h"
 #include <winnt.h>
 #include <psapi.h>
-#include STDINT_H
+#include <stdint.h>
 
 #define CALCULATE_ADDRESS( base, offset ) ((uint8_t *)( base ) + (uintptr_t)( offset ))
 

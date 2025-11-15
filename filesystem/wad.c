@@ -46,30 +46,10 @@ file_n:	byte[dwadinfo_t[num]->disksize]
 infotable	dlumpinfo_t[dwadinfo_t->numlumps]
 ========================================================================
 */
-#define WAD3_NAMELEN	16
 #define HINT_NAMELEN	5	// e.g. _mask, _norm
 #define MAX_FILES_IN_WAD	65535	// real limit as above <2Gb size not a lumpcount
 
 #include "const.h"
-
-typedef struct
-{
-	int		ident;		// should be WAD3
-	int		numlumps;		// num files
-	int		infotableofs;	// LUT offset
-} dwadinfo_t;
-
-typedef struct
-{
-	int		filepos;		// file offset in WAD
-	int		disksize;		// compressed or uncompressed
-	int		size;		// uncompressed
-	signed char	type;		// TYP_*
-	signed char	attribs;		// file attribs
-	signed char	pad0;
-	signed char	pad1;
-	char		name[WAD3_NAMELEN];	// must be null terminated
-} dlumpinfo_t;
 
 struct wfile_s
 {
@@ -325,13 +305,17 @@ static wfile_t *W_Open( const char *filename, int *error, uint flags )
 		return NULL;
 	}
 
-	if( header.ident != IDWAD2HEADER && header.ident != IDWAD3HEADER )
+	if( header.ident != LittleLong( IDWAD2HEADER ) && header.ident != LittleLong( IDWAD3HEADER ))
 	{
 		Con_Reportf( S_ERROR "%s: %s is not a WAD2 or WAD3 file\n", __func__, filename );
 		if( error ) *error = WAD_LOAD_BAD_HEADER;
 		FS_CloseWAD( wad );
 		return NULL;
 	}
+
+	header.ident = LittleLong( header.ident );
+	header.numlumps = LittleLong( header.numlumps );
+	header.infotableofs = LittleLong( header.infotableofs );
 
 	lumpcount = header.numlumps;
 
@@ -371,6 +355,13 @@ static wfile_t *W_Open( const char *filename, int *error, uint flags )
 		Mem_Free( srclumps );
 		FS_CloseWAD( wad );
 		return NULL;
+	}
+
+	for( i = 0; i < lumpcount; i++ )
+	{
+		srclumps[i].filepos = LittleLong( srclumps[i].filepos );
+		srclumps[i].disksize = LittleLong( srclumps[i].disksize );
+		srclumps[i].size = LittleLong( srclumps[i].size );
 	}
 
 	// starting to add lumps

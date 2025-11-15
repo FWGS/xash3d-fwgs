@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "ipv6text.h"
 #include "net_ws_private.h"
+#include "server.h" // sv_cheats
 
 #if XASH_SDL == 2
 #include <SDL_thread.h>
@@ -236,7 +237,6 @@ NET_GetHostByName
 */
 static qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_storage *addr )
 {
-#if defined HAVE_GETADDRINFO
 	struct addrinfo *ai = NULL, *cur;
 	struct addrinfo hints;
 	qboolean ret = false;
@@ -266,29 +266,8 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 	}
 
 	return ret;
-#else
-	struct hostent *h;
-
-#if XASH_NO_IPV6_RESOLVE
-	if( family == AF_INET6 )
-		return false;
-#endif
-
-	if(!( h = gethostbyname( hostname )))
-		return false;
-
-	((struct sockaddr_in *)addr)->sin_family = AF_INET;
-	((struct sockaddr_in *)addr)->sin_addr = *(struct in_addr *)h->h_addr_list[0];
-
-	return true;
-#endif
 }
 
-#if !XASH_EMSCRIPTEN && !XASH_DOS4GW && !defined XASH_NO_ASYNC_NS_RESOLVE
-#define CAN_ASYNC_NS_RESOLVE
-#endif // !XASH_EMSCRIPTEN && !XASH_DOS4GW && !defined XASH_NO_ASYNC_NS_RESOLVE
-
-#ifdef CAN_ASYNC_NS_RESOLVE
 static void NET_ResolveThread( void );
 
 #if XASH_SDL == 2
@@ -379,11 +358,7 @@ static void NET_ResolveThread( void )
 
 	RESOLVE_DBG( "[resolve thread] starting resolve for " );
 	RESOLVE_DBG( nsthread.hostname );
-#ifdef HAVE_GETADDRINFO
 	RESOLVE_DBG( " with getaddrinfo\n" );
-#else
-	RESOLVE_DBG( " with gethostbyname\n" );
-#endif
 
 	if(( res = NET_GetHostByName( nsthread.hostname, nsthread.family, &addr )))
 		RESOLVE_DBG( "[resolve thread] success\n" );
@@ -397,8 +372,6 @@ static void NET_ResolveThread( void )
 	mutex_unlock( nsthread.mutexres );
 	RESOLVE_DBG( "[resolve thread] exiting thread\n" );
 }
-#endif // CAN_ASYNC_NS_RESOLVE
-
 
 /*
 =============
@@ -456,7 +429,6 @@ net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sa
 	{
 		qboolean asyncfailed = true;
 
-#ifdef CAN_ASYNC_NS_RESOLVE
 		if( net.threads_initialized && nonblocking )
 		{
 			mutex_lock( nsthread.mutexres );
@@ -498,7 +470,6 @@ net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sa
 
 			mutex_unlock( nsthread.mutexres );
 		}
-#endif // CAN_ASYNC_NS_RESOLVE
 
 		if( asyncfailed )
 			ret = NET_GetHostByName( copy, family, &temp );
@@ -1139,7 +1110,7 @@ static void NET_AdjustLag( void )
 	dt = bound( 0.0, dt, 0.1 );
 	lasttime = host.realtime;
 
-	if( host_developer.value || !net_fakelag.value )
+	if(( host_developer.value && sv_cheats.value ) || !net_fakelag.value )
 	{
 		if( net_fakelag.value != net.fakelag )
 		{
@@ -2081,9 +2052,7 @@ void NET_Init( void )
 	}
 #endif
 
-#ifdef CAN_ASYNC_NS_RESOLVE
 	NET_InitializeCriticalSections();
-#endif
 
 	net.allow_ip = !Sys_CheckParm( "-noip" );
 	net.allow_ip6 = !Sys_CheckParm( "-noip6" );
@@ -2136,9 +2105,7 @@ void NET_Shutdown( void )
 
 	NET_Config( false, false );
 
-#ifdef CAN_ASYNC_NS_RESOLVE
 	NET_DeleteCriticalSections();
-#endif
 
 #if XASH_WIN32
 	WSACleanup();

@@ -81,7 +81,7 @@ void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 const char *COM_OffsetNameForFunction( void *function )
 {
 	static string sname;
-	Q_snprintf( sname, MAX_STRING, "ofs:%zu", ((byte*)function - (byte*)svgame.dllFuncs.pfnGameInit) );
+	Q_snprintf( sname, MAX_STRING, "ofs:%zu", (size_t)((byte*)function - (byte*)svgame.dllFuncs.pfnGameInit ));
 	Con_Reportf( "%s: %s\n", __func__, sname );
 	return sname;
 }
@@ -125,18 +125,6 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 
 =============================================================================
 */
-
-static void COM_GenerateCommonLibraryName( const char *name, const char *ext, char *out, size_t size )
-{
-#if ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86
-	Q_snprintf( out, size, "%s.%s", name, ext );
-#elif ( XASH_WIN32 || XASH_LINUX || XASH_APPLE )
-	Q_snprintf( out, size, "%s_%s.%s", name, Q_buildarch(), ext );
-#else
-	Q_snprintf( out, size, "%s_%s_%s.%s", name, Q_buildos(), Q_buildarch(), ext );
-#endif
-}
-
 /*
 ==============
 COM_GenerateClientLibraryPath
@@ -149,29 +137,12 @@ static void COM_GenerateClientLibraryPath( const char *name, char *out, size_t s
 #ifdef XASH_INTERNAL_GAMELIBS // assuming library loader knows where to get libraries
 	Q_strncpy( out, name, size );
 #else
-	string dllpath;
+	string libname;
 
-	// we don't have any library prefixes, so we can safely append dll_path here
-	Q_snprintf( dllpath, sizeof( dllpath ), "%s/%s", GI->dll_path, name );
+	COM_GenerateCommonLibraryName( name, libname, sizeof( libname ));
 
-	COM_GenerateCommonLibraryName( dllpath, OS_LIB_EXT, out, size );
+	Q_snprintf( out, size, "%s/%s", GI->dll_path, libname );
 #endif
-}
-
-/*
-==============
-COM_StripIntelSuffix
-
-Some modders use _i?86 suffix in game library name
-So strip it to follow library naming for non-Intel CPUs
-==============
-*/
-static inline void COM_StripIntelSuffix( char *out )
-{
-	char *suffix = Q_strrchr( out, '_' );
-
-	if( suffix && Q_stricmpext( "_i?86", suffix ))
-		*suffix = 0;
 }
 
 /*
@@ -181,37 +152,53 @@ COM_GenerateServerLibraryPath
 Generates platform-unique and compatible name for server library
 ==============
 */
-static void COM_GenerateServerLibraryPath( char *out, size_t size )
+static void COM_GenerateServerLibraryPath( const char *alt_dllname, char *out, size_t size )
 {
 #ifdef XASH_INTERNAL_GAMELIBS // assuming library loader knows where to get libraries
 	Q_strncpy( out, "server", size );
-#elif ( XASH_WIN32 || XASH_LINUX || XASH_APPLE ) && XASH_X86
-
-#if XASH_WIN32
+#elif XASH_X86 && XASH_WIN32
 	Q_strncpy( out, GI->game_dll, size );
-#elif XASH_APPLE
+#elif XASH_X86 && XASH_APPLE
 	Q_strncpy( out, GI->game_dll_osx, size );
-#else // XASH_LINUX
+#elif XASH_X86 && XASH_LINUX && !XASH_ANDROID
 	Q_strncpy( out, GI->game_dll_linux, size );
-#endif
+	COM_StripExtension( out );
 
+	// GoldSrc actually strips everything after '_', causing issues for mods that have '_' in the DLL name on Linux
+	// e.g. delta_particles.so becomes delta.so. We're gonna be smarter and just drop the _i?86 if it matches...
+	// ... until somebody complains :)
+	COM_StripIntelSuffix( out );
+	COM_DefaultExtension( out, "." OS_LIB_EXT, size );
 #else
-	string dllpath;
-	const char *ext;
+	string temp, dir, libname;
+	const char *base_dllname;
 
 #if XASH_WIN32
-	Q_strncpy( dllpath, GI->game_dll, sizeof( dllpath ) );
+	Q_strncpy( temp, GI->game_dll, sizeof( temp ));
 #elif XASH_APPLE
-	Q_strncpy( dllpath, GI->game_dll_osx, sizeof( dllpath ) );
-#else // XASH_APPLE
-	Q_strncpy( dllpath, GI->game_dll_linux, sizeof( dllpath ) );
+	Q_strncpy( temp, GI->game_dll_osx, sizeof( temp ));
+#else
+	Q_strncpy( temp, GI->game_dll_linux, sizeof( temp ));
 #endif
 
-	ext = COM_FileExtension( dllpath );
-	COM_StripExtension( dllpath );
-	COM_StripIntelSuffix( dllpath );
+	// path to the dll directory
+	COM_ExtractFilePath( temp, dir );
 
-	COM_GenerateCommonLibraryName( dllpath, ext, out, size );
+	if( alt_dllname )
+	{
+		base_dllname = alt_dllname;
+	}
+	else
+	{
+		// cleaned up dll name
+		COM_StripExtension( temp );
+		COM_StripIntelSuffix( temp );
+		base_dllname = COM_FileWithoutPath( temp );
+	}
+
+	COM_GenerateCommonLibraryName( base_dllname, libname, sizeof( libname ));
+
+	Q_snprintf( out, size, "%s/%s", dir, libname );
 #endif
 }
 
@@ -228,27 +215,31 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 	switch( eLibType )
 	{
 	case LIBRARY_GAMEUI:
-		COM_GenerateClientLibraryPath( "menu", out, size );
+		if( COM_CheckStringEmpty( host.menulib ))
+		{
+			if( host.menulib[0] == '@' )
+				COM_GenerateClientLibraryPath( host.menulib + 1, out, size );
+			else Q_strncpy( out, host.menulib, size );
+		}
+		else COM_GenerateClientLibraryPath( "menu", out, size );
 		break;
 	case LIBRARY_CLIENT:
 		if( COM_CheckStringEmpty( host.clientlib ))
 		{
-			Q_strncpy( out, host.clientlib, size );
+			if( host.clientlib[0] == '@' )
+				COM_GenerateClientLibraryPath( host.clientlib + 1, out, size );
+			else Q_strncpy( out, host.clientlib, size );
 		}
-		else
-		{
-			COM_GenerateClientLibraryPath( "client", out, size );
-		}
+		else COM_GenerateClientLibraryPath( "client", out, size );
 		break;
 	case LIBRARY_SERVER:
 		if( COM_CheckStringEmpty( host.gamedll ))
 		{
-			Q_strncpy( out, host.gamedll, size );
+			if( host.gamedll[0] == '@' )
+				COM_GenerateServerLibraryPath( host.gamedll + 1, out, size );
+			else Q_strncpy( out, host.gamedll, size );
 		}
-		else
-		{
-			COM_GenerateServerLibraryPath( out, size );
-		}
+		else COM_GenerateServerLibraryPath( NULL, out, size );
 		break;
 	default:
 		ASSERT( 0 );

@@ -1030,9 +1030,11 @@ qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged )
 		return true;
 	}
 
+#if !defined( XASH_HASHED_VARS )
 	// check variables
-	if( !v ) // already found in basecmd
-		v = Cvar_FindVar( Cmd_Argv( 0 ));
+	v = Cvar_FindVar( Cmd_Argv( 0 ));
+#endif
+
 	if( !v )
 		return false;
 

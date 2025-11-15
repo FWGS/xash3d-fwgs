@@ -15,39 +15,8 @@ GNU General Public License for more details.
 
 #include "platform/platform.h"
 #include "library.h"
+
 #if XASH_LIB == LIB_STATIC
-#ifdef XASH_NO_LIBDL
-
-void *dlsym(void *handle, const char *symbol )
-{
-	Con_DPrintf( "%s( %p, \"%s\" ): stub\n", __func__, handle, symbol );
-	return NULL;
-}
-
-void *dlopen(const char *name, int flag )
-{
-	Con_DPrintf( "%s( \"%s\", %d ): stub\n", __func__, name, flag );
-	return NULL;
-}
-
-int dlclose(void *handle)
-{
-	Con_DPrintf( "%s( %p ): stub\n", __func__, handle );
-	return 0;
-}
-
-char *dlerror( void )
-{
-	return "Loading ELF libraries not supported in this build!\n";
-}
-
-int dladdr( const void *addr, void *info )
-{
-	return 0;
-}
-#endif // XASH_NO_LIBDL
-
-
 typedef struct table_s
 {
 	const char *name;
@@ -98,4 +67,4 @@ const char *COM_NameForFunction( void *hInstance, void *function )
 	return NULL;
 #endif
 }
-#endif
+#endif // XASH_LIB == LIB_STATIC

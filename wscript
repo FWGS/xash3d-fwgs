@@ -83,15 +83,15 @@ SUBDIRS = [
 	Subproject('public'),
 	Subproject('filesystem'),
 	Subproject('stub/server'),
-	Subproject('dllemu'),
 	Subproject('3rdparty/libbacktrace'),
+	Subproject('3rdparty/library_suffix'),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
 	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
 	Subproject('3rdparty/nanogl',       lambda x: x.env.CLIENT and x.env.NANOGL),
 	Subproject('3rdparty/gl-wes-v2',    lambda x: x.env.CLIENT and x.env.GLWES),
 	Subproject('3rdparty/gl4es',        lambda x: x.env.CLIENT and x.env.GL4ES),
-	Subproject('ref/gl',                lambda x: x.env.CLIENT and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES)),
+	Subproject('ref/gl',                lambda x: x.env.CLIENT and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES or x.env.GLES3COMPAT)),
 	Subproject('ref/soft',              lambda x: x.env.CLIENT and x.env.SOFT),
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
@@ -99,8 +99,8 @@ SUBDIRS = [
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
 	Subproject('3rdparty/opusfile',     lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUSFILE),
-	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT and not x.env.TUI),
 	Subproject('3rdparty/maintui',      lambda x: x.env.CLIENT and x.env.TUI),
+	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT),
 	Subproject('3rdparty/vgui_support', lambda x: x.env.CLIENT),
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 #	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
@@ -123,12 +123,12 @@ REFDLLS = [
 	RefDll('gles1', False, 'NANOGL'),
 	RefDll('gles2', False, 'GLWES'),
 	RefDll('gl4es', False),
-	RefDll('gles3compat', False),
+	RefDll('gles3compat', False, 'GLES3COMPAT'),
 	RefDll('null', False),
 ]
 
 def options(opt):
-	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msdev msvs subproject cmake')
+	opt.load('reconfigure compiler_optimizations xshlib xcompile compiler_cxx compiler_c sdl2 clang_compilation_database strip_on_install waf_unit_test msvs subproject ninja')
 
 	grp = opt.add_option_group('Common options')
 
@@ -171,6 +171,7 @@ def options(opt):
 	# a1ba: special option for me
 	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
 	grp.add_option('--enable-msvcdeps', action='store_true', dest='MSVCDEPS', default=False, help='')
+	grp.add_option('--enable-wafcache', action='store_true', dest='WAFCACHE', default=False, help='')
 
 	grp = opt.add_option_group('Renderers options')
 
@@ -207,10 +208,15 @@ def configure(conf):
 		conf.env.MSVC_TARGETS = ['x86']
 
 	# Load compilers early
-	conf.load('xshlib xcompile compiler_c compiler_cxx gccdeps')
+	conf.load('xshlib xcompile compiler_c compiler_cxx')
 
-	if conf.options.MSVCDEPS:
-		conf.load('msvcdeps')
+	if not conf.options.WAFCACHE:
+		conf.load('gccdeps')
+
+		if conf.options.MSVCDEPS:
+			conf.load('msvcdeps')
+
+	conf.env.WAFCACHE = conf.options.WAFCACHE
 
 	if conf.options.NSWITCH:
 		conf.load('nswitch')
@@ -225,46 +231,41 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs msdev subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic cmake force_32bit')
+	conf.load('msvs subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic force_32bit ninja')
 
+	conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
+	conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
+
+	# Windows XP compatibility
 	if conf.env.MSVC_TARGETS[0] == 'amd64_x86' or conf.env.MSVC_TARGETS[0] == 'x86':
-		conf.env.MSVC_SUBSYSTEM = 'WINDOWS,5.01'
-		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE,5.01'
-	else:
-		conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
-		conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
+		conf.env.MSVC_SUBSYSTEM += ',5.01'
+		conf.env.CONSOLE_SUBSYSTEM += ',5.01'
 
-	enforce_pic = True # modern defaults
-
-	# modify options dictionary early
+	# Set default options for some platforms
 	if conf.env.DEST_OS == 'android':
-		conf.options.NO_VGUI          = True # skip vgui
 		conf.options.NANOGL           = True
 		conf.options.GLWES            = False # deprecated
 		conf.options.GL4ES            = True
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
+	elif conf.env.IOS:
+		conf.options.NANOGL           = True
+		conf.options.GLWES            = False # deprecated
+		conf.options.GL4ES            = False # doesn't compile on ios yet
+		conf.options.GLES3COMPAT      = True
+		conf.options.GL               = False
 	elif conf.env.MAGX:
 		conf.options.SDL12            = True
-		conf.options.NO_VGUI          = True
 		conf.options.GL               = False
 		conf.options.LOW_MEMORY       = 1
-		conf.options.NO_ASYNC_RESOLVE = True
 		enforce_pic = False
-	elif conf.env.DEST_OS == 'nswitch':
-		conf.options.NO_VGUI          = True
-		conf.options.GL               = True
-		conf.options.USE_STBTT        = True
-	elif conf.env.DEST_OS == 'psvita':
-		conf.options.NO_VGUI          = True
-		conf.options.GL               = True
-		conf.options.USE_STBTT        = True
-		# we'll specify -fPIC by hand for shared libraries only
-		enforce_pic                   = False
+	elif conf.env.DEST_OS == 'emscripten':
+		conf.options.BUILD_BUNDLED_DEPS = True
+		conf.options.GLES3COMPAT      = True
+		conf.options.GL               = False
 
-	if conf.env.STATIC_LINKING:
-		enforce_pic = False # PIC may break full static builds
-
+	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
+	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING
 	conf.check_pic(enforce_pic)
 
 	# NOTE: We restrict 64-bit builds ONLY for Win/Linux running on Intel architecture
@@ -278,13 +279,8 @@ def configure(conf):
 	else:
 		force_32bit = conf.options.FORCE32
 
-	# FIXME: move this whole logic to force_32bit.py, and ensure
-	# DEST_SIZEOF_VOID_P is always set
 	if force_32bit:
-		Logs.info('WARNING: will build engine for 32-bit target')
-		conf.force_32bit(True)
-	else:
-		conf.env.DEST_SIZEOF_VOID_P = 4 if conf.check_32bit() else 8
+		conf.force_32bit()
 
 	cflags, linkflags = conf.get_optimization_flags()
 	cxxflags = list(cflags) # optimization flags are common between C and C++ but we need a copy
@@ -309,15 +305,14 @@ def configure(conf):
 		# check if we're in a sgug environment
 		if 'sgug' in os.environ['LD_LIBRARYN32_PATH']:
 			linkflags.append('-lc')
-	elif conf.env.SAILFISH in ['aurora', 'sailfish']:
-		# TODO: enable XASH_MOBILE_PLATFORM
+	elif conf.env.DEST_OS == 'darwin':
+		try:
+			linkflags.remove('-Wl,--no-undefined')
+		except:
+			pass
+		linkflags.append('-Wl,-undefined,error')
+	elif conf.env.SAILFISH:
 		conf.define('XASH_SAILFISH', 1)
-		if conf.env.SAILFISH == 'aurora':
-			conf.define('XASH_AURORAOS', 1)
-
-		# Do not warn us about bug in SDL_Audio headers
-		conf.env.append_unique('CFLAGS', ['-Wno-attributes'])
-		conf.env.append_unique('CXXFLAGS', ['-Wno-attributes'])
 
 	conf.check_cc(cflags=cflags, linkflags=linkflags, msg='Checking for required C flags')
 	conf.check_cxx(cxxflags=cxxflags, linkflags=linkflags, msg='Checking for required C++ flags')
@@ -326,7 +321,10 @@ def configure(conf):
 	conf.env.append_unique('CXXFLAGS', cxxflags)
 	conf.env.append_unique('LINKFLAGS', linkflags)
 
-	if conf.env.COMPILER_CC != 'msvc':
+	if conf.env.COMPILER_CC == 'msvc':
+		opt_cflags = ['/we4013'] # -Werror=implicit-function-declaration
+		conf.env.CFLAGS_werror = conf.filter_cflags(opt_cflags, cflags)
+	else:
 		opt_flags = [
 			# '-Wall', '-Wextra', '-Wpedantic',
 			'-fdiagnostics-color=always',
@@ -363,7 +361,7 @@ def configure(conf):
 			'-Wmisleading-indentation',
 			'-Wmismatched-dealloc',
 			'-Wstringop-overflow',
-			'-Wunintialized',
+			'-Wuninitialized',
 			'-Wno-error=format-nonliteral',
 
 			# disabled, flood
@@ -380,7 +378,8 @@ def configure(conf):
 			]
 
 		opt_cflags = [
-			'-Werror=declaration-after-statement',
+			# disabled, as we're targetting C99 at least
+			# '-Werror=declaration-after-statement',
 			'-Werror=enum-conversion',
 			'-Wno-error=enum-float-conversion', # need this for cvars
 			'-Werror=implicit-int',
@@ -413,7 +412,7 @@ def configure(conf):
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
 		conf.env.CLIENT = True
-		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos'] and not conf.env.MAGX and not conf.env.STATIC_LINKING
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'emscripten'] and not conf.env.IOS and not conf.env.MAGX and not conf.env.STATIC_LINKING
 	else:
 		conf.env.SERVER = True
 		conf.env.CLIENT = False
@@ -423,9 +422,7 @@ def configure(conf):
 
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
 
-	if conf.env.SAILFISH == 'aurora':
-		conf.env.DEFAULT_RPATH = '/usr/share/su.xash.Engine/lib'
-	elif conf.env.DEST_OS == 'darwin':
+	if conf.env.DEST_OS == 'darwin':
 		conf.env.DEFAULT_RPATH = '@loader_path'
 	elif conf.env.DEST_OS == 'openbsd':
 		# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
@@ -454,9 +451,17 @@ def configure(conf):
 		conf.check_cc(lib='vrtld')
 		conf.check_cc(lib='m')
 	elif conf.env.DEST_OS == 'android':
+		# maybe there is some better check?
+		if conf.find_program('termux-info', mandatory=False):
+			conf.env.TERMUX = True
+			conf.define('__TERMUX__', 1)
+
 		conf.check_cc(lib='dl')
 		conf.check_cc(lib='log')
-		# LIB_M added in xcompile!
+		if not conf.options.ANDROID_OPTS:
+			# if we're compiling on device itself
+			conf.check_cc(lib='m')
+		# otherwise LIB_M is defined by xcompile (as it might be libm_hard, depending on NDK configuration)
 	elif conf.env.DEST_OS == 'win32':
 		# Common Win32 libraries
 		# Don't check them more than once, to save time
@@ -493,9 +498,7 @@ def configure(conf):
 	# indicate if we are packaging for Linux/BSD
 	if conf.options.PACKAGING:
 		conf.env.PREFIX = conf.options.prefix
-		if conf.env.SAILFISH == "aurora":
-			conf.env.SHAREDIR = '${PREFIX}/share/su.xash.Engine/rodir'
-		elif conf.env.SAILFISH == "sailfish":
+		if conf.env.SAILFISH:
 			conf.env.SHAREDIR = '${PREFIX}/share/harbour-xash3d-fwgs/rodir'
 		else:
 			conf.env.SHAREDIR = '${PREFIX}/share/xash3d'
@@ -542,6 +545,9 @@ int main(void) { return (int)BZ2_bzlibVersion(); }'''
 		conf.add_subproject(i.name)
 
 def build(bld):
+	if bld.env.WAFCACHE:
+		bld.load('wafcache')
+
 	# guard rails to not let install to root
 	if bld.is_install and not bld.options.PACKAGING and not bld.options.destdir:
 		bld.fatal('Set the install destination directory using --destdir option')

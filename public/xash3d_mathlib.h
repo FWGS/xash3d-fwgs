@@ -119,7 +119,7 @@ CONSTANTS AND HELPER MACROS
 #define VectorLerp( v1, lerp, v2, c ) ((c)[0] = (v1)[0] + (lerp) * ((v2)[0] - (v1)[0]), (c)[1] = (v1)[1] + (lerp) * ((v2)[1] - (v1)[1]), (c)[2] = (v1)[2] + (lerp) * ((v2)[2] - (v1)[2]))
 #define VectorNormalize( v ) { float ilength = (float)sqrt(DotProduct(v, v));if (ilength) ilength = 1.0f / ilength;v[0] *= ilength;v[1] *= ilength;v[2] *= ilength; }
 #define VectorNormalize2( v, dest ) {float ilength = (float)sqrt(DotProduct(v,v));if (ilength) ilength = 1.0f / ilength;dest[0] = v[0] * ilength;dest[1] = v[1] * ilength;dest[2] = v[2] * ilength; }
-#define VectorNormalizeFast( v ) {float	ilength = (float)rsqrt(DotProduct(v,v)); v[0] *= ilength; v[1] *= ilength; v[2] *= ilength; }
+#define VectorNormalizeFast( v ) {float ilength = (float)Q_rsqrt(DotProduct(v,v)); v[0] *= ilength; v[1] *= ilength; v[2] *= ilength; }
 #define VectorNormalizeLength( v ) VectorNormalizeLength2((v), (v))
 #define VectorNegate(x, y) ((y)[0] = -(x)[0], (y)[1] = -(x)[1], (y)[2] = -(x)[2])
 #define VectorM(scale1, b1, c) ((c)[0] = (scale1) * (b1)[0],(c)[1] = (scale1) * (b1)[1],(c)[2] = (scale1) * (b1)[2])
@@ -141,7 +141,9 @@ CONSTANTS GLOBALS
 */
 // a1ba: we never return pointers to these globals
 // so help compiler optimize constants away
+#ifndef __cplusplus
 #define vec3_origin ((vec3_t){ 0.0f, 0.0f, 0.0f })
+#endif // __cplusplus
 
 extern const int       boxpnt[6][4];
 extern const float     m_bytenormals[NUMVERTEXNORMALS][3];
@@ -158,7 +160,7 @@ typedef struct mplane_s mplane_t;
 typedef struct mstudiobone_s mstudiobone_t;
 typedef struct mstudioanim_s mstudioanim_t;
 
-float rsqrt( float number );
+float Q_rsqrt( float number );
 uint16_t FloatToHalf( float v );
 float HalfToFloat( uint16_t h );
 void RoundUpHullSize( vec3_t size );
@@ -252,7 +254,13 @@ static inline float UintAsFloat( uint32_t u )
 	bits.u = u;
 	return bits.fl;
 }
-#endif // __cplusplus
+
+static inline float SwapFloat( float bf )
+{
+	uint32_t bi = FloatAsUint( bf );
+	uint32_t li = Swap32( bi );
+	return UintAsFloat( li );
+}
 
 // isnan implementation is broken on IRIX as reported in https://github.com/FWGS/xash3d-fwgs/pull/1211
 #if defined( XASH_IRIX ) || !defined( isnan )
@@ -264,6 +272,8 @@ static inline int IS_NAN( float x )
 #else
 #define IS_NAN isnan
 #endif
+#endif // __cplusplus
+
 
 static inline float anglemod( float a )
 {
@@ -466,8 +476,9 @@ static inline void Matrix3x4_OriginFromMatrix( const matrix3x4 in, float *out )
 
 static inline void QuaternionAngle( const vec4_t q, vec3_t angles )
 {
-	matrix3x4	mat;
-	Matrix3x4_FromOriginQuat( mat, q, vec3_origin );
+	matrix3x4 mat;
+	vec3_t origin = { 0, 0, 0 };
+	Matrix3x4_FromOriginQuat( mat, q, origin );
 	Matrix3x4_AnglesFromMatrix( mat, angles );
 }
 

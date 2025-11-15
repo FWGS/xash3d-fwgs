@@ -36,6 +36,11 @@ You still needed to copy `valve` directory as all game resources located there.
 
 For additional info, run Xash3D with `-help` command line key.
 
+### Android
+0) Install the APK file.
+1) Copy `valve` directory to a folder named `xash` in the Internal storage.
+2) Run games from within the app.
+
 ## Contributing
 * Before sending an issue, check if someone already reported your issue. Make sure you're following "How To Ask Questions The Smart Way" guide by Eric Steven Raymond. Read more: http://www.catb.org/~esr/faqs/smart-questions.html.
 * Issues are accepted in both English and Russian.
@@ -44,7 +49,7 @@ For additional info, run Xash3D with `-help` command line key.
 ## Build instructions
 We are using Waf build system. If you have some Waf-related questions, I recommend you to read [Waf Book](https://waf.io/book/).
 
-NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependencies we're using!
+**NOTE: NEVER USE GitHub's ZIP ARCHIVES. GitHub doesn't include external dependencies we're using!**
 
 ### Prerequisites
 If your CPU is x86 compatible and you're on Windows or Linux, we are building 32-bit code by default. This was done to maintain compatibility with Steam releases of Half-Life and based on it's engine games.
@@ -76,13 +81,32 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 
 ##### RedHat/Fedora
 * Only for 32-bit engine on 64-bit x86 operating system:
-  * Install development tools: `$ sudo dnf install git gcc gcc-c++ glibc-devel.i686 SDL2-devel.i686 opus-devel.i686 freetype-devel.i686 bzip2-devel.i686 libvorbis-devel.i686 opusfile-devel.i686 libogg-devel.i686`.
+  * Install development tools: `$ sudo dnf install git gcc gcc-c++ glibc-devel.i686 SDL3-devel.i686 sdl2-compat-devel.i686 opus-devel.i686 freetype-devel.i686 bzip2-devel.i686 libvorbis-devel.i686 opusfile-devel.i686 libogg-devel.i686`.
   * Set PKG_CONFIG_PATH environment variable to point at 32-bit libraries: `$ export PKG_CONFIG_PATH=/usr/lib/pkgconfig`.
 
 * For 64-bit engine on 64-bit x86 and other non-x86 systems:
-  * Install development tools: `$ sudo dnf install git gcc gcc-c++ SDL2-devel opus-devel freetype-devel bzip2-devel libvorbis-devel opusfile-devel libogg-devel`.
+  * Install development tools: `$ sudo dnf install git gcc gcc-c++ SDL3-devel sdl2-compat-devel opus-devel freetype-devel bzip2-devel libvorbis-devel opusfile-devel libogg-devel`.
 
 * Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+
+#### Android (Windows/Linux/macOS)
+* Install [Android Studio](https://developer.android.com/studio) (or the command line tools).
+* Install [Python](https://python.org) (at least 2.7, latest is better).
+* Install [Git](https://git-scm.com/download/win).
+* Install [Ninja](https://ninja-build.org/).
+* Install [CMake](https://cmake.org/) (for some dependencies).
+
+* Clone this repostory: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
+
+#### iOS/iPadOS
+* Install Xcode from the appstore.
+* Install [Homebrew package manager](https://brew.sh).
+
+* Install build dependencies by running: `brew install python sdl2 freetype opus opusfile libvorbis libogg`.
+
+* Clone the SDL2 repo `$ git clone --recursive https://github.com/libsdl-org/SDL.git -b SDL2` and compile the iOS framework by navigating to SDL/Xcode/SDL and opening the Xcode project.
+
+* Clone this repository: `$ git clone --recursive https://github.com/FWGS/xash3d-fwgs`.
 
 ### Building
 #### Windows (Visual Studio)
@@ -101,5 +125,12 @@ If compiling 32-bit on amd64, make sure `PKG_CONFIG_PATH` from the previous step
 2) Compile: `./waf build`.
 3) Install: `./waf install --destdir=/path/to/any/output/directory`.
 
-#### Android
+#### Android (Windows/Linux/macOS)
 To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` branch and [HLSDK-portable](https://github.com/FWGS/hlsdk-portalbe) `mobile-hacks` branch repositories to 3rdparty folder, after that you should be able to open the project in Android Studio from `android` directory or manually call Gradle to build the APK.
+
+#### iOS/iPadOS (MacOS only)
+0) (optional) Examine which build options are available: `./waf --help`.
+1) Configure build: `./waf configure --ios --sdl2 (path/to/SDL2.framework)`, set `--ios-simulator` instead of `--ios` if you want to build for simulator.
+2) Compile `./waf build`.
+3) Navigate to `build` and copy your compiled SDL2.framework there, then add your client dylibs to `build/ios/cl_dlls` and any other dylibs to `build/ios/dlls`
+4) Run `scripts/ios/createipa.sh` to create an installable ipa

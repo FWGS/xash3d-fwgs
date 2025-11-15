@@ -973,7 +973,7 @@ void CL_MoveSpectatorCamera( void )
 
 	CL_SetUpPlayerPrediction( false, true );
 	CL_SetSolidPlayers( cl.playernum );
-	CL_RunUsercmd( &cls.spectator_state, &cls.spectator_state, cl.cmd, true, &time, (uint)( time * 100.0 ));
+	CL_RunUsercmd( &cls.spectator_state, &cls.spectator_state, &cl.cmd, true, &time, (uint)( time * 100.0 ));
 
 	VectorCopy( cls.spectator_state.client.velocity, cl.simvel );
 	VectorCopy( cls.spectator_state.client.origin, cl.simorg );
@@ -1098,7 +1098,7 @@ void CL_PredictMovement( qboolean repredicting )
 
 	// now interpolate some fraction of the final frame
 	if( to_cmd->senttime != from_cmd->senttime )
-		f = bound( 0.0, (host.realtime - from_cmd->senttime) / (to_cmd->senttime - from_cmd->senttime) * 0.1, 1.0 );
+		f = bound( 0.0, ( host.realtime - from_cmd->senttime ) / ( to_cmd->senttime - from_cmd->senttime ), 1.0 );
 	else f = 0.0;
 
 	if( CL_PlayerTeleported( from, to ))

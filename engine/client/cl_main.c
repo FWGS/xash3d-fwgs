@@ -27,7 +27,7 @@ GNU General Public License for more details.
 
 #define MAX_CMD_BUFFER        8000
 #define CL_CONNECTION_TIMEOUT 15.0f
-#define CL_CONNECTION_RETRIES 10
+#define CL_CONNECTION_RETRIES 5
 #define CL_TEST_RETRIES       5
 
 CVAR_DEFINE_AUTO( showpause, "1", 0, "show pause logo when paused" );
@@ -72,14 +72,14 @@ CVAR_DEFINE_AUTO( cl_cmdrate, "30", FCVAR_ARCHIVE, "Max number of command packet
 CVAR_DEFINE( cl_interp, "ex_interp", "0.1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "Interpolate object positions starting this many seconds in past" );
 CVAR_DEFINE_AUTO( cl_nointerp, "0", 0, "disable interpolation of entities and players" );
 static CVAR_DEFINE_AUTO( cl_dlmax, "0", FCVAR_USERINFO|FCVAR_ARCHIVE, "max allowed outcoming fragment size" );
-static CVAR_DEFINE_AUTO( cl_upmax, "1200", FCVAR_ARCHIVE, "max allowed incoming fragment size" );
+static CVAR_DEFINE_AUTO( cl_upmax, "508", FCVAR_ARCHIVE, "max allowed incoming fragment size" );
 
 CVAR_DEFINE_AUTO( cl_lw, "1", FCVAR_ARCHIVE|FCVAR_USERINFO, "enable client weapon predicting" );
 CVAR_DEFINE_AUTO( cl_charset, "utf-8", FCVAR_ARCHIVE, "1-byte charset to use (iconv style)" );
-CVAR_DEFINE_AUTO( cl_trace_consistency, "0", FCVAR_ARCHIVE, "enable consistency info tracing (good for developers)" );
-CVAR_DEFINE_AUTO( cl_trace_stufftext, "0", FCVAR_ARCHIVE, "enable stufftext (server-to-client console commands) tracing (good for developers)" );
-CVAR_DEFINE_AUTO( cl_trace_messages, "0", FCVAR_ARCHIVE|FCVAR_CHEAT, "enable message names tracing (good for developers)" );
-CVAR_DEFINE_AUTO( cl_trace_events, "0", FCVAR_ARCHIVE|FCVAR_CHEAT, "enable events tracing (good for developers)" );
+CVAR_DEFINE_AUTO( cl_trace_consistency, "0", 0, "enable consistency info tracing (good for developers)" );
+CVAR_DEFINE_AUTO( cl_trace_stufftext, "0", 0, "enable stufftext (server-to-client console commands) tracing (good for developers)" );
+CVAR_DEFINE_AUTO( cl_trace_messages, "0", FCVAR_CHEAT, "enable message names tracing (good for developers)" );
+CVAR_DEFINE_AUTO( cl_trace_events, "0", FCVAR_CHEAT, "enable events tracing (good for developers)" );
 static CVAR_DEFINE_AUTO( cl_nat, "0", 0, "show servers running under NAT" );
 CVAR_DEFINE_AUTO( hud_utf8, "0", FCVAR_ARCHIVE, "Use utf-8 encoding for hud text" );
 CVAR_DEFINE_AUTO( ui_renderworld, "0", FCVAR_ARCHIVE, "render world when UI is visible" );
@@ -97,12 +97,12 @@ static CVAR_DEFINE_AUTO( bottomcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FI
 CVAR_DEFINE_AUTO( rate, "25000", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
 
 static CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE, "you wouldn't steal a car" );
+static CVAR_DEFINE_AUTO( cl_advertise_engine_in_name, "1", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "add [Xash3D] to the nickname when connecting to GoldSrc servers" );
+static CVAR_DEFINE_AUTO( cl_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
 
 client_t		cl;
 client_static_t	cls;
 clgame_static_t	clgame;
-
-static void CL_SendMasterServerScanRequest( void );
 
 //======================================================================
 int GAME_EXPORT CL_Active( void )
@@ -173,6 +173,22 @@ connprotocol_t CL_Protocol( void )
 	return cls.legacymode;
 }
 
+void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats )
+{
+	if( NET_NetadrType( &cls.netchan.remote_address ) == NA_LOOPBACK )
+		return;
+
+	if( allow_cheats )
+	{
+		Cvar_FullSet( "sv_cheats", "1", FCVAR_READ_ONLY | FCVAR_SERVER );
+	}
+	else
+	{
+		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
+		Cvar_SetCheatState();
+	}
+}
+
 /*
 ===============
 CL_CheckClientState
@@ -195,6 +211,18 @@ static void CL_CheckClientState( void )
 		Cvar_SetValue( "scr_loading", 0.0f );	// reset progress bar
 		Netchan_ReportFlow( &cls.netchan );
 
+		if( cls.legacymode == PROTO_GOLDSRC )
+		{
+			CL_ServerCommand(true, "specmode 4\n");
+			CL_ServerCommand(true, "specmode 4\n");
+			CL_ServerCommand(true, "unpause\n");
+			CL_ServerCommand(true, "unpause\n");
+			CL_ServerCommand(true, "unpause\n");
+			CL_ServerCommand(true, "unpause\n");
+			CL_ServerCommand(true, "specmode 4\n");
+			CL_ServerCommand(true, "specmode 4\n");
+		}
+
 		Con_DPrintf( "client connected at %.2f sec\n", Sys_DoubleTime() - cls.timestart );
 	}
 }
@@ -209,7 +237,12 @@ static int CL_GetGoldSrcFragmentSize( void *unused, fragsize_t mode )
 		return 1400; // MAX_ROUTABLE_PACKET
 	default:
 		if( cls.state == ca_active )
-			return bound( 16, cl_dlmax.value, 1024 );
+		{
+			// GoldSrc's default value is 512
+			// let's help users to not shoot themselves in the foot,
+			// assuming nobody wants to make this value lower
+			return bound( 512, cl_dlmax.value, 1024 );
+		}
 		return 128;
 	}
 }
@@ -673,7 +706,7 @@ static void CL_CreateCmd( void )
 	}
 
 	// demo always have commands so don't overwrite them
-	if( !cls.demoplayback ) cl.cmd = &pcmd->cmd;
+	if( !cls.demoplayback ) cl.cmd = pcmd->cmd;
 
 	// predict all unacknowledged movements
 	CL_PredictMovement( false );
@@ -788,6 +821,7 @@ static void CL_WritePacket( void )
 	{
 		int newcmds, numcmds;
 		int from, i, key;
+		int packet_loss = bound( 0, (int)cls.packet_loss, 100 );
 
 		cls.nextcmdtime = host.realtime + ( 1.0f / cl_cmdrate.value );
 
@@ -807,7 +841,10 @@ static void CL_WritePacket( void )
 		key = MSG_GetRealBytesWritten( &buf );
 		MSG_WriteByte( &buf, 0 );
 
-		MSG_WriteByte( &buf, bound( 0, (int)cls.packet_loss, 100 ));
+		if( proto == PROTO_GOLDSRC && voice_loopback.value )
+			SetBits( packet_loss, BIT( 7 ) ); // set 7-th bit to tell server that we want voice loopback
+
+		MSG_WriteByte( &buf, packet_loss );
 		MSG_WriteByte( &buf, numbackup );
 		MSG_WriteByte( &buf, newcmds );
 
@@ -1029,6 +1066,10 @@ static void CL_WriteSteamTicket( sizebuf_t *send )
 	crc = CRC32_Final( crc );
 	i = GenerateRevEmu2013( buf, s, crc );
 	MSG_WriteBytes( send, buf, i );
+
+	// RevEmu2013: pTicket[1] = revHash (low), pTicket[5] = 0x01100001 (high)
+	*(uint32_t*)cls.steamid = LittleLong( ((uint32_t*)buf)[1] );
+	*(uint32_t*)(cls.steamid + 4) = LittleLong( ((uint32_t*)buf)[5] );
 }
 
 /*
@@ -1063,13 +1104,9 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	input_devices = IN_CollectInputDevices();
 	IN_LockInputDevices( adrtype != NA_LOOPBACK ? true : false );
 
-	// GoldSrc doesn't need sv_cheats set to 0, it's handled by svc_goldsrc_sendextrainfo
-	// it also doesn't need useragent string
+	// GoldSrc doesn't need useragent string
 	if( adrtype != NA_LOOPBACK && proto != PROTO_GOLDSRC )
 	{
-		Cvar_SetCheatState();
-		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
-
 		Info_SetValueForKeyf( protinfo, "d", sizeof( protinfo ),  "%d", input_devices );
 		Info_SetValueForKey( protinfo, "v", XASH_VERSION, sizeof( protinfo ) );
 		Info_SetValueForKeyf( protinfo, "b", sizeof( protinfo ), "%d", Q_buildnum( ));
@@ -1093,7 +1130,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		Info_RemoveKey( cls.userinfo, "cl_maxpayload" );
 
 		name = Info_ValueForKey( cls.userinfo, "name" );
-		if( Q_strnicmp( name, "[Xash3D]", 8 ))
+		if( cl_advertise_engine_in_name.value && Q_strnicmp( name, "[Xash3D]", 8 ))
 			Info_SetValueForKeyf( cls.userinfo, "name", sizeof( cls.userinfo ), "[Xash3D]%s", name );
 
 		MSG_Init( &send, "GoldSrcConnect", send_buf, sizeof( send_buf ));
@@ -1170,10 +1207,28 @@ static int CL_GetTestFragmentSize( void )
 	// it turns out, even if we pass the bandwidth test, it doesn't mean we can use such large fragments
 	// as a temporary solution, use smaller fragment sizes
 	const int fragmentSizes[CL_TEST_RETRIES] = { 1400, 1200, 1000, 800, 508 };
-	if( cls.connect_retry >= 0 && cls.connect_retry < CL_TEST_RETRIES )
-		return bound( FRAGMENT_MIN_SIZE, fragmentSizes[cls.connect_retry], FRAGMENT_MAX_SIZE );
+
+	if( cls.bandwidth_test.retry >= 0 && cls.bandwidth_test.retry < CL_TEST_RETRIES )
+		return bound( FRAGMENT_MIN_SIZE, fragmentSizes[cls.bandwidth_test.retry], FRAGMENT_MAX_SIZE );
 	else
 		return FRAGMENT_MIN_SIZE;
+}
+
+static void CL_SendBandwidthTest( netadr_t to, qboolean start )
+{
+	if( start )
+	{
+		cls.bandwidth_test.started = true;
+		cls.bandwidth_test.retry = 0;
+	}
+	else cls.bandwidth_test.retry++;
+
+	cls.max_fragment_size = CL_GetTestFragmentSize();
+	Con_Printf( "Connecting to %s... (retry #%i, test #%i)\n",
+	    cls.servername, cls.connect_retry, cls.bandwidth_test.retry );
+
+	Netchan_OutOfBandPrint( NS_CLIENT, to, C2S_BANDWIDTHTEST " %i %i %i\n",
+	    PROTOCOL_VERSION, cls.max_fragment_size, cls.bandwidth_test.challenge );
 }
 
 static void CL_SendGetChallenge( netadr_t to )
@@ -1195,11 +1250,16 @@ static void CL_CheckForResend( void )
 {
 	netadr_t adr;
 	net_gai_state_t res;
-	float resendTime;
-	qboolean bandwidthTest;
+	float resend_time;
 
 	if( cls.internetservers_wait )
-		CL_SendMasterServerScanRequest();
+	{
+		cls.internetservers_wait = NET_MasterQuery(
+			cls.internetservers_key,
+			cls.internetservers_nat,
+			cls.internetservers_customfilter
+		);
+	}
 
 	// if the local server is running and we aren't then connect
 	if( cls.state == ca_disconnected && SV_Active( ))
@@ -1224,10 +1284,12 @@ static void CL_CheckForResend( void )
 	else if( cl_resend.value > CL_MAX_RESEND_TIME )
 		Cvar_DirectSetValue( &cl_resend, CL_MAX_RESEND_TIME );
 
-	bandwidthTest = cls.legacymode == PROTO_CURRENT && cl_test_bandwidth.value && cls.connect_retry <= CL_TEST_RETRIES;
-	resendTime = bandwidthTest ? 1.0f : cl_resend.value;
+	if( cls.bandwidth_test.started && !cls.bandwidth_test.passed && !cls.bandwidth_test.failed )
+		resend_time = 2.0f;
+	else
+		resend_time = cl_resend.value;
 
-	if(( host.realtime - cls.connect_time ) < resendTime )
+	if(( host.realtime - cls.connect_time ) < resend_time )
 		return;
 
 	res = NET_StringToAdrNB( cls.servername, &adr, false );
@@ -1244,37 +1306,45 @@ static void CL_CheckForResend( void )
 		return;
 	}
 
-	// only retry so many times before failure.
-	if( cls.connect_retry >= CL_CONNECTION_RETRIES )
-	{
-		Con_DPrintf( S_ERROR "%s: couldn't connect\n", __func__ );
-		CL_Disconnect();
-		return;
-	}
-
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
 
-	if( cls.connect_retry == CL_TEST_RETRIES )
+	if( cls.bandwidth_test.started )
 	{
-		// too many fails use default connection method
-		Con_Printf( "Bandwidth test failed, fallback to default connecting method\n" );
-		Con_Printf( "Connecting to %s... (retry #%i)\n", cls.servername, cls.connect_retry + 1 );
-		CL_SendGetChallenge( adr );
-		Cvar_DirectSetValue( &cl_dlmax, FRAGMENT_MIN_SIZE );
-		cls.connect_time = host.realtime;
+		if( cls.bandwidth_test.retry >= CL_TEST_RETRIES )
+		{
+			Con_DPrintf( S_ERROR "%s: couldn't connect\n", __func__ );
+			CL_Disconnect();
+			return;
+		}
+
+		// retry counter incremented during send
+	}
+	else
+	{
+		// only retry so many times before failure.
+		if( cls.connect_retry >= CL_CONNECTION_RETRIES )
+		{
+			Con_DPrintf( S_ERROR "%s: couldn't connect\n", __func__ );
+			CL_Disconnect();
+			return;
+		}
+
 		cls.connect_retry++;
-		return;
 	}
 
 	cls.serveradr = adr;
-	cls.max_fragment_size = CL_GetTestFragmentSize();
 	cls.connect_time = host.realtime; // for retransmit requests
-	cls.connect_retry++;
 
-	if( bandwidthTest )
+	if( cls.bandwidth_test.started )
 	{
-		Con_Printf( "Connecting to %s... (retry #%i, fragment size %i)\n", cls.servername, cls.connect_retry, cls.max_fragment_size );
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, C2S_BANDWIDTHTEST" %i %i\n", PROTOCOL_VERSION, cls.max_fragment_size );
+		// a1ba: what should we do if the test has been failed?
+		// server might intentionally not implement the test,
+		// but tell us that test is allowed
+		// in this case, just send connect packet and hope for the best
+		if( cls.bandwidth_test.passed || cls.bandwidth_test.failed )
+			CL_SendConnectPacket( cls.legacymode, cls.bandwidth_test.challenge );
+		else
+			CL_SendBandwidthTest( adr, false );
 	}
 	else
 	{
@@ -1312,18 +1382,15 @@ static void CL_CreateResourceList( void )
 	cl.num_resources = 0;
 	memset( rgucMD5_hash, 0, sizeof( rgucMD5_hash ));
 
+	// sanitize cvar value
+	if( Q_strcmp( cl_logoext.string, "bmp" ) && Q_strcmp( cl_logoext.string, "png" ))
+		Cvar_DirectSet( &cl_logoext, "bmp" );
+
+	Q_snprintf( szFileName, sizeof( szFileName ), "logos/remapped.%s", cl_logoext.string );
 	if( cls.legacymode == PROTO_GOLDSRC )
 	{
-		// TODO: actually repack remapped.bmp into a WAD for GoldSrc servers
+		CL_ConvertImageToWAD3( szFileName );
 		Q_strncpy( szFileName, "tempdecal.wad", sizeof( szFileName ));
-	}
-	else
-	{
-		// sanitize cvar value
-		if( Q_strcmp( cl_logoext.string, "bmp" ) && Q_strcmp( cl_logoext.string, "png" ))
-			Cvar_DirectSet( &cl_logoext, "bmp" );
-
-		Q_snprintf( szFileName, sizeof( szFileName ), "logos/remapped.%s", cl_logoext.string );
 	}
 	fp = FS_Open( szFileName, "rb", true );
 
@@ -1411,6 +1478,7 @@ static void CL_Connect_f( void )
 	cls.connect_time = MAX_HEARTBEAT; // CL_CheckForResend() will fire immediately
 	cls.max_fragment_size = FRAGMENT_MAX_SIZE; // guess a we can establish connection with maximum fragment size
 	cls.connect_retry = 0;
+	memset( &cls.bandwidth_test, 0, sizeof( cls.bandwidth_test ));
 	cls.spectator = false;
 	cls.signon = 0;
 }
@@ -1668,9 +1736,10 @@ void CL_Disconnect( void )
 	IN_LockInputDevices( false ); // unlock input devices
 
 	cls.state = ca_disconnected;
-	memset( &cls.serveradr, 0, sizeof( cls.serveradr ) );
+	memset( &cls.serveradr, 0, sizeof( cls.serveradr ));
 	cls.set_lastdemo = false;
 	cls.connect_retry = 0;
+	memset( &cls.bandwidth_test, 0, sizeof( cls.bandwidth_test ));
 	cls.signon = 0;
 	cls.legacymode = PROTO_CURRENT;
 
@@ -1729,83 +1798,47 @@ static void CL_LocalServers_f( void )
 
 /*
 =================
-CL_BuildMasterServerScanRequest
-=================
-*/
-static size_t NONNULL CL_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t *key, qboolean nat, const char *filter )
-{
-	size_t remaining;
-	char *info, temp[32];
-
-	if( unlikely( size < sizeof( MS_SCAN_REQUEST )))
-		return 0;
-
-	Q_strncpy( buf, MS_SCAN_REQUEST, size );
-
-	info = buf + sizeof( MS_SCAN_REQUEST ) - 1;
-	remaining = size - sizeof( MS_SCAN_REQUEST );
-
-	Q_strncpy( info, filter, remaining );
-
-	*key = COM_RandomLong( 0, 0x7FFFFFFF );
-
-#ifndef XASH_ALL_SERVERS
-	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
-#endif
-	// let master know about client version
-	Info_SetValueForKey( info, "clver", XASH_VERSION, remaining );
-	Info_SetValueForKey( info, "nat", nat ? "1" : "0", remaining );
-	Info_SetValueForKey( info, "commit", g_buildcommit, remaining );
-	Info_SetValueForKey( info, "branch", g_buildbranch, remaining );
-	Info_SetValueForKey( info, "os", Q_buildos(), remaining );
-	Info_SetValueForKey( info, "arch", Q_buildarch(), remaining );
-
-	Q_snprintf( temp, sizeof( temp ), "%d", Q_buildnum() );
-	Info_SetValueForKey( info, "buildnum", temp, remaining );
-
-	Q_snprintf( temp, sizeof( temp ), "%x", *key );
-	Info_SetValueForKey( info, "key", temp, remaining );
-
-	return sizeof( MS_SCAN_REQUEST ) + Q_strlen( info );
-}
-
-/*
-=================
-CL_SendMasterServerScanRequest
-=================
-*/
-static void CL_SendMasterServerScanRequest( void )
-{
-	cls.internetservers_wait = NET_SendToMasters( NS_CLIENT,
-		cls.internetservers_query_len, cls.internetservers_query );
-	cls.internetservers_pending = true;
-}
-
-/*
-=================
 CL_InternetServers_f
 =================
 */
 static void CL_InternetServers_f( void )
 {
-	qboolean nat = cl_nat.value != 0.0f;
-	uint32_t key;
-
 	if( Cmd_Argc( ) > 2 || ( Cmd_Argc( ) == 2 && !Info_IsValid( Cmd_Argv( 1 ))))
 	{
 		Con_Printf( S_USAGE "internetservers [filter]\n" );
 		return;
 	}
 
-	cls.internetservers_query_len = CL_BuildMasterServerScanRequest(
-		cls.internetservers_query, sizeof( cls.internetservers_query ),
-		&cls.internetservers_key, nat, Cmd_Argv( 1 ));
-
 	Con_Printf( "Scanning for servers on the internet area...\n" );
 
 	NET_Config( true, true ); // allow remote
 
-	CL_SendMasterServerScanRequest();
+	cls.internetservers_nat = cl_nat.value != 0.0f;
+	cls.internetservers_pending = true;
+	cls.internetservers_key = COM_RandomLong( 0, 0xFFFFFFFF );
+	Q_strncpy( cls.internetservers_customfilter, Cmd_Argv( 1 ), sizeof( cls.internetservers_customfilter ));
+
+	cls.internetservers_wait = NET_MasterQuery(
+		cls.internetservers_key,
+		cls.internetservers_nat,
+		cls.internetservers_customfilter
+	);
+}
+
+static void CL_QueryServer( netadr_t adr, connprotocol_t proto )
+{
+	switch( proto )
+	{
+	case PROTO_GOLDSRC:
+		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), A2S_GOLDSRC_INFO ); // includes null terminator!
+		break;
+	case PROTO_LEGACY:
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_LEGACY_VERSION );
+		break;
+	case PROTO_CURRENT:
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+		break;
+	}
 }
 
 static void CL_QueryServer_f( void )
@@ -1815,7 +1848,7 @@ static void CL_QueryServer_f( void )
 
 	if( Cmd_Argc( ) != 3 )
 	{
-		Con_Printf( S_USAGE "queryserver <adr> <protocol>\n" );
+		Con_Printf( S_USAGE "ui_queryserver <adr> <protocol>\n" );
 		return;
 	}
 
@@ -1833,18 +1866,7 @@ static void CL_QueryServer_f( void )
 	if( !CL_StringToProtocol( Cmd_Argv( 2 ), &proto ))
 		return;
 
-	switch( proto )
-	{
-	case PROTO_GOLDSRC:
-		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), A2S_GOLDSRC_INFO ); // includes null terminator!
-		break;
-	case PROTO_LEGACY:
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_LEGACY_VERSION );
-		break;
-	case PROTO_CURRENT:
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
-		break;
-	}
+	CL_QueryServer( adr, proto );
 }
 
 /*
@@ -1978,10 +2000,7 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
 
 	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
-	{
-		Con_Printf( "^1Server^7: %s, Info: %s\n", NET_AdrToString( from ), infostring );
 		return; // unsupported proto
-	}
 
 	Info_RemoveKey( infostring, "gs" ); // don't let servers pretend they're something else
 
@@ -1990,17 +2009,10 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	{
 		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ));
 		Info_SetValueForKey( infostring, "p", "48", sizeof( infostring ));
-		Con_Printf( "^3Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
 	}
 	else if( !Q_strcmp( p, "48" ))
 	{
 		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ));
-		Con_Printf( "^3Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
-	}
-	else
-	{
-		// more info about servers
-		Con_Printf( "^2Server^7: %s, Game: %s\n", NET_AdrToString( from ), Info_ValueForKey( infostring, "gamedir" ));
 	}
 
 	UI_AddServerToList( from, infostring );
@@ -2009,7 +2021,7 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 {
 	static char	s[512+8];
-	int p, numcl, maxcl, password, remaining;
+	int p, numcl, maxcl, password, remaining, bots;
 	string host, map, gamedir, version;
 	connprotocol_t proto;
 	char *replace;
@@ -2025,11 +2037,15 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 	MSG_ReadShort( msg ); // app id
 	numcl = MSG_ReadByte( msg );
 	maxcl = MSG_ReadByte( msg );
-	MSG_ReadByte( msg ); // bots count
+	bots = MSG_ReadByte( msg ); // bots count
 	MSG_ReadByte( msg ); // dedicated
 	MSG_ReadByte( msg ); // operating system
 	password = MSG_ReadByte( msg );
 	Q_strncpy( version, MSG_ReadString( msg ), sizeof( version ));
+
+	// sanity check
+	if( maxcl > MAX_CLIENTS || numcl > MAX_CLIENTS || bots > MAX_CLIENTS || numcl > maxcl || bots > maxcl )
+		return;
 
 	if( MSG_CheckOverflow( msg ))
 	{
@@ -2037,25 +2053,9 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	// time to figure out protocol
-	if( p == PROTOCOL_VERSION )
-		proto = PROTO_CURRENT;
-	else if( p == PROTOCOL_LEGACY_VERSION )
-	{
-		if( Q_stristr( version, "Stdio" ))
-			proto = PROTO_GOLDSRC;
-		else
-			proto = PROTO_LEGACY;
-	}
-	else
-	{
-		Con_Printf( "%s: unsupported protocol %d from %s\n", __func__, p, NET_AdrToString( from ));
-		return;
-	}
-
 	// now construct infostring for mainui
-	Info_SetValueForKeyf( s, "p", sizeof( s ), "%i", proto == PROTO_CURRENT ? PROTOCOL_VERSION : PROTOCOL_LEGACY_VERSION );
-	Info_SetValueForKey( s, "gs", proto == PROTO_GOLDSRC ? "1" : "0", sizeof( s ));
+	Info_SetValueForKeyf( s, "p", sizeof( s ), "%i", p );
+	Info_SetValueForKey( s, "gs", "1", sizeof( s )); // we only support GoldSrc here, Xash never should reply with this message
 	Info_SetValueForKey( s, "map", map, sizeof( s ));
 	Info_SetValueForKey( s, "dm", "0", sizeof( s )); // obsolete keys
 	Info_SetValueForKey( s, "team", "0", sizeof( s ));
@@ -2277,19 +2277,17 @@ static void CL_HandleTestPacket( netadr_t from, sizebuf_t *msg )
 
 	if( cls.max_fragment_size != MSG_GetMaxBytes( msg ))
 	{
-		if( cls.connect_retry >= CL_TEST_RETRIES )
+		if( cls.bandwidth_test.retry >= CL_TEST_RETRIES )
 		{
 			// too many fails use default connection method
 			Con_Printf( "hi-speed connection is failed, use default method\n" );
-			CL_SendGetChallenge( from );
 			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
-			cls.connect_time = host.realtime;
+			cls.connect_time = MAX_HEARTBEAT;
+			cls.bandwidth_test.failed = true;
 			return;
 		}
 
-		// if we waiting more than cl_timeout or packet was trashed
-		cls.connect_time = MAX_HEARTBEAT;
-		return; // just wait for a next responce
+		return; // just wait for a next response
 	}
 
 	// reading test buffer
@@ -2300,29 +2298,25 @@ static void CL_HandleTestPacket( netadr_t from, sizebuf_t *msg )
 
 	if( crcValue == crcValue2 )
 	{
-		// packet was sucessfully delivered, adjust the fragment size and get challenge
-
+		// packet was sucessfully delivered, adjust the fragment size
 		Con_DPrintf( "CRC %x is matched, get challenge, fragment size %d\n", crcValue, cls.max_fragment_size );
-		CL_SendGetChallenge( from );
 		Cvar_SetValue( "cl_dlmax", cls.max_fragment_size );
-		cls.connect_time = host.realtime;
+		cls.connect_time = MAX_HEARTBEAT;
+		cls.bandwidth_test.passed = true;
 	}
 	else
 	{
-		if( cls.connect_retry >= CL_TEST_RETRIES )
+		if( cls.bandwidth_test.retry >= CL_TEST_RETRIES )
 		{
 			// too many fails use default connection method
 			Con_Printf( "hi-speed connection is failed, use default method\n" );
-			CL_SendGetChallenge( from );
 			Cvar_SetValue( "cl_dlmax", FRAGMENT_MIN_SIZE );
 			cls.connect_time = host.realtime;
+			cls.bandwidth_test.failed = true;
 			return;
 		}
 
 		Msg( "got testpacket, CRC mismatched 0x%08x should be 0x%08x, trying next fragment size %d\n", crcValue2, crcValue, cls.max_fragment_size >> 1 );
-
-		// trying the next size of packet
-		cls.connect_time = MAX_HEARTBEAT;
 	}
 }
 
@@ -2342,16 +2336,24 @@ static void CL_ClientConnect( connprotocol_t proto, const char *c, netadr_t from
 		if( Q_strcmp( c, S2C_GOLDSRC_CONNECTION ))
 		{
 			Con_DPrintf( S_ERROR "GoldSrc client connect expected but wasn't received, ignored\n");
+			CL_Disconnect_f();
 			return;
 		}
 
-		if( Cmd_Argc() > 4 )
-			cls.build_num = Q_atoi( Cmd_Argv( 4 ));
+		cls.build_num = Q_atoi( Cmd_Argv( 4 ));
+		cls.allow_cheats = false; // set by svc_goldsrc_sendextrainfo
 	}
-	else if( !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ))
+	else
 	{
-		Con_DPrintf( S_ERROR "GoldSrc client connect received but wasn't expected, ignored\n");
-		return;
+		if( Q_strcmp( c, S2C_CONNECTION ))
+		{
+			Con_DPrintf( S_ERROR "Xash3D client connect expected but wasn't received, ignored\n");
+			CL_Disconnect_f();
+			return;
+		}
+
+		cls.build_num = 0; // not used in Xash3D protocols
+		cls.allow_cheats = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "cheats" ));
 	}
 
 	CL_Reconnect( true );
@@ -2383,8 +2385,27 @@ static void CL_Challenge( const char *c, netadr_t from )
 	if( !Q_strcmp( c, S2C_GOLDSRC_CHALLENGE ))
 		cls.legacymode = PROTO_GOLDSRC;
 
-	// challenge from the server we are connecting to
-	CL_SendConnectPacket( cls.legacymode, Q_atoi( Cmd_Argv( 1 )));
+	cls.bandwidth_test.challenge = Q_atoi( Cmd_Argv( 1 ));
+
+	if( cls.legacymode == PROTO_CURRENT && cl_test_bandwidth.value && !cls.bandwidth_test.passed )
+	{
+		// when connecting to old server or server that has bandwidth test disabled
+		// it might be more preferrable to have some sane fragment size
+		if( !Q_atoi( Cmd_Argv( 2 )))
+		{
+			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
+			CL_SendConnectPacket( cls.legacymode, cls.bandwidth_test.challenge );
+		}
+		else
+		{
+			CL_SendBandwidthTest( from, true );
+		}
+	}
+	else
+	{
+		// challenge from the server we are connecting to
+		CL_SendConnectPacket( cls.legacymode, cls.bandwidth_test.challenge );
+	}
 }
 
 static void CL_ErrorMsg( const char *c, const char *args, netadr_t from, sizebuf_t *msg )
@@ -2438,29 +2459,34 @@ static void CL_Reject( const char *c, const char *args, netadr_t from )
 
 static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 {
-	if( !NET_IsMasterAdr( from ))
+	connprotocol_t proto;
+
+	if( !NET_IsMasterAdr( from, &proto ))
 	{
 		Con_Printf( S_WARN "unexpected server list packet from %s\n", NET_AdrToString( from ));
 		return;
 	}
 
 	// check the extra header
-	if( MSG_ReadByte( msg ) == 0x7f )
+	if( proto == PROTO_CURRENT )
 	{
-		uint32_t key = MSG_ReadDword( msg );
-
-		if( cls.internetservers_key != key )
+		if( MSG_ReadByte( msg ) == 0x7f )
 		{
-			Con_Printf( S_WARN "unexpected server list packet from %s (invalid key)\n", NET_AdrToString( from ));
+			uint32_t key = MSG_ReadDword( msg );
+
+			if( cls.internetservers_key != key )
+			{
+				Con_Printf( S_WARN "unexpected server list packet from %s (invalid key)\n", NET_AdrToString( from ));
+			return;
+			}
+
+			MSG_ReadByte( msg ); // reserved byte
+		}
+		else
+		{
+			Con_Printf( S_WARN "invalid server list packet from %s (missing extra header)\n", NET_AdrToString( from ));
 			return;
 		}
-
-		MSG_ReadByte( msg ); // reserved byte
-	}
-	else
-	{
-		Con_Printf( S_WARN "invalid server list packet from %s (missing extra header)\n", NET_AdrToString( from ));
-		return;
 	}
 
 	// serverlist got from masterserver
@@ -2487,7 +2513,7 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 			break;
 
 		NET_Config( true, false ); // allow remote
-		Netchan_OutOfBandPrint( NS_CLIENT, servadr, A2A_INFO" %i", PROTOCOL_VERSION );
+		CL_QueryServer( servadr, proto );
 	}
 
 	if( cls.internetservers_pending )
@@ -2517,7 +2543,8 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	Cmd_TokenizeString( args );
 	c = Cmd_Argv( 0 );
 
-	Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), c );
+	if( cl_log_outofband.value )
+		Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), c );
 
 	// server connection
 	if( !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ) || !Q_strcmp( c, S2C_CONNECTION ))
@@ -2583,7 +2610,7 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 			if( len > 0 )
 				Netchan_OutOfBand( NS_SERVER, from, len, (byte *)buf );
 		}
-		else
+		else if( cl_log_outofband.value )
 		{
 			Con_DPrintf( S_ERROR "bad connectionless packet from %s:\n%s\n", NET_AdrToString( from ), args );
 		}
@@ -2757,11 +2784,7 @@ static void CL_ReadPackets( void )
 	CL_ReadNetMessage();
 
 	CL_ApplyAddAngle();
-#if 0
-	// keep cheat cvars are unchanged
-	if( cl.maxclients > 1 && cls.state == ca_active && !host_developer.value )
-		Cvar_SetCheatState();
-#endif
+
 	// hot precache and downloading resources
 	if( cls.signon == SIGNONS && cl.lastresourcecheck < host.realtime )
 	{
@@ -3038,9 +3061,8 @@ void CL_UpdateInfo( const char *key, const char *value )
 		MSG_WriteString( &cls.netchan.message, cls.userinfo );
 		break;
 	case PROTO_GOLDSRC:
-		if( !Q_stricmp( key, "name" ) && Q_strnicmp( value, "[Xash3D]", 8 ))
+		if( cl_advertise_engine_in_name.value && !Q_stricmp( key, "name" ) && Q_strnicmp( value, "[Xash3D]", 8 ))
 		{
-			// always prepend [Xash3D] on GoldSrc protocol :)
 			CL_ServerCommand( true, "setinfo \"%s\" \"[Xash3D]%s\"\n", key, value );
 			break;
 		}
@@ -3125,9 +3147,6 @@ static qboolean CL_ShouldRescanFilesystem( void )
 			retval = true;
 		}
 	}
-
-	if( FBitSet( fs_mount_lv.flags|fs_mount_hd.flags|fs_mount_addon.flags|fs_mount_l10n.flags|ui_language.flags, FCVAR_CHANGED ))
-		retval = true;
 
 	return retval;
 }
@@ -3355,6 +3374,8 @@ static void CL_InitLocal( void )
 	cl.resourcesonhand.pNext = cl.resourcesonhand.pPrev = &cl.resourcesonhand;
 
 	Cvar_RegisterVariable( &cl_ticket_generator );
+	Cvar_RegisterVariable( &cl_advertise_engine_in_name );
+	Cvar_RegisterVariable( &cl_log_outofband );
 
 	Cvar_RegisterVariable( &showpause );
 	Cvar_RegisterVariable( &mp_decals );
@@ -3453,7 +3474,7 @@ static void CL_InitLocal( void )
 	Cmd_AddCommand ("pause", NULL, "pause the game (if the server allows pausing)" );
 	Cmd_AddRestrictedCommand( "localservers", CL_LocalServers_f, "collect info about local servers" );
 	Cmd_AddRestrictedCommand( "internetservers", CL_InternetServers_f, "collect info about internet servers" );
-	Cmd_AddRestrictedCommand( "queryserver", CL_QueryServer_f, "query server info from console" );
+	Cmd_AddRestrictedCommand( "ui_queryserver", CL_QueryServer_f, "query server info from console" );
 	Cmd_AddCommand ("cd", CL_PlayCDTrack_f, "Play cd-track (not real cd-player of course)" );
 	Cmd_AddCommand ("mp3", CL_PlayCDTrack_f, "Play mp3-track (based on virtual cd-player)" );
 	Cmd_AddCommand ("waveplaylen", CL_WavePlayLen_f, "Get approximate length of wave file");
@@ -3462,10 +3483,10 @@ static void CL_InitLocal( void )
 	Cmd_AddRestrictedCommand ("userinfo", CL_SetInfo_f, "examine or change the userinfo string (alias of setinfo)" );
 	Cmd_AddCommand ("physinfo", CL_Physinfo_f, "print current client physinfo" );
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f, "disconnect from server" );
-	Cmd_AddCommand ("record", CL_Record_f, "record a demo" );
+	Cmd_AddRestrictedCommand( "record", CL_Record_f, "record a demo" );
 	Cmd_AddCommand ("playdemo", CL_PlayDemo_f, "play a demo" );
 	Cmd_AddCommand ("timedemo", CL_TimeDemo_f, "demo benchmark" );
-	Cmd_AddCommand ("killdemo", CL_DeleteDemo_f, "delete a specified demo file" );
+	Cmd_AddRestrictedCommand( "killdemo", CL_DeleteDemo_f, "delete a specified demo file" );
 	Cmd_AddCommand ("startdemos", CL_StartDemos_f, "start playing back the selected demos sequentially" );
 	Cmd_AddCommand ("demos", CL_Demos_f, "restart looping demos defined by the last startdemos command" );
 	Cmd_AddCommand ("movie", CL_PlayVideo_f, "play a movie" );
@@ -3651,8 +3672,6 @@ void CL_Init( void )
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
 
-	// IN_TouchInit();
-
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 
 	if( !CL_LoadProgs( libpath ))
@@ -3677,14 +3696,13 @@ void CL_Shutdown( void )
 {
 	Con_Printf( "%s()\n", __func__ );
 
-	if( !host.crashed && cls.initialized )
+	if( host.status != HOST_CRASHED && cls.initialized )
 	{
 		Host_WriteOpenGLConfig ();
 		Host_WriteVideoConfig ();
 		Touch_WriteConfig();
 	}
 
-	// IN_TouchShutdown ();
 	Joy_Shutdown ();
 	CL_CloseDemoHeader ();
 	IN_Shutdown ();

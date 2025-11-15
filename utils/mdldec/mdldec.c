@@ -526,30 +526,32 @@ ShowHelp
 */
 static void ShowHelp( const char *app_name )
 {
-	LogPrintf( "usage: %s [-dhlmuVv] <source_file>", app_name );
-	LogPrintf( "       %s [-dhlmuVv] <source_file> <target_directory>", app_name );
-	LogPutS( "\nnote:");
-	LogPutS( "\tby default this decompiler aimed to support extended MDL10 format from XashXT/PrimeXT/Paranoia2.");
-	LogPutS( "\tif you use an old GoldSource studio model compiler you may be need to edit .qc-file after decompilation.");
-	LogPutS( "\noptions:");
-	LogPutS( "\t-d\tplace smd and texture files to separate directories." );
-	LogPutS( "\t-m\tuse only GoldSource-compatible motion types and ignore deprecated motion types with \"A\" prefix." );
-	LogPutS( "\t-u\tenable UV coords shifting for DoomMusic's and Sven-Coop's studio model compilers.");
-	LogPutS( "\t-V\tignore some validation checks for broken models.");
-	LogPutS( "\t-l\tdo not output logs.");
-	LogPutS( "\t-v\tshow version.");
-	LogPutS( "\t-h\tthis message.");
+	LogPrintf( "usage: %s [-ahlmtuVv] <source_file>", app_name );
+	LogPrintf( "       %s [-ahlmtuVv] <source_file> <target_directory>", app_name );
+	LogPutS( "\nnote:" );
+	LogPutS( "\tby default this decompiler aimed to support extended MDL10 format from XashXT/PrimeXT/Paranoia2." );
+	LogPutS( "\tif you use an old GoldSource studio model compiler you may be need to edit .qc-file after decompilation." );
+	LogPutS( "\noptions:" );
+	LogPutS( "\t-a\tplace files with animations to separate directory." );
+	LogPutS( "\t-l\tdo not output logs." );
+	LogPutS( "\t-m\tuse GoldSource-compatible motion types." );
+	LogPutS( "\t-t\tplace texture files to separate directory." );
+	LogPutS( "\t-u\tenable UV coords shifting for DoomMusic's and Sven-Coop's studio model compilers." );
+	LogPutS( "\t-V\tignore some validation checks for broken models." );
+	LogPutS( "\t-v\tshow version." );
+	LogPutS( "\t-h\tthis message." );
 }
 
 int main( int argc, char *argv[] )
 {
 	int opt, ret = 0 ;
 
-	while( ( opt = getopt( argc, argv, "dhlmuVv" )) != -1 )
+	while( ( opt = getopt( argc, argv, "ahlmtuVv" )) != -1 )
 	{
 		switch( opt )
 		{
-		case 'd': globalsettings |= SETTINGS_SEPARATERESOURCES; break;
+		case 'a': globalsettings |= SETTINGS_SEPARATEANIMSFOLDER; break;
+		case 't': globalsettings |= SETTINGS_SEPARATETEXTURESFOLDER; break;
 		case 'l': globalsettings |= SETTINGS_NOLOGS; break;
 		case 'm': globalsettings |= SETTINGS_LEGACYMOTION; break;
 		case 'u': globalsettings |= SETTINGS_UVSHIFTING; break;

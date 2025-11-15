@@ -194,7 +194,7 @@ static int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
 	return 0;
 }
 
-static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buffer )
+static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buffer, size_t buffersize )
 {
 	return true;
 }

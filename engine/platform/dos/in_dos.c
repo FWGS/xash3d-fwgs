@@ -80,25 +80,9 @@ void Platform_RunEvents( void )
 
 }
 
-void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
-{
-	*x = *y = 0;
-}
-
-
-void GAME_EXPORT Platform_SetMousePos(int x, int y)
-{
-
-}
-
 void Platform_EnableTextInput( qboolean enable )
 {
 	keystate.chars = enable;
-}
-
-void Platform_PreCreateMove( void )
-{
-
 }
 
 void Platform_MouseMove( float *x, float *y )

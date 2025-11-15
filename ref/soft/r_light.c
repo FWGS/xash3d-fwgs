@@ -43,7 +43,7 @@ void CL_RunLightStyles( lightstyle_t *ls )
 	if( !WORLDMODEL )
 		return;
 
-	if( !WORLDMODEL->lightdata )
+	if( r_fullbright->value || !WORLDMODEL->lightdata )
 	{
 		for( i = 0; i < MAX_LIGHTSTYLES; i++ )
 			tr.lightstylevalue[i] = 256 * 256;

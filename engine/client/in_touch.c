@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include "vgui_draw.h"
 #include "mobility_int.h"
 
+#if !XASH_NO_TOUCH
+
 typedef enum
 {
 	touch_command, // just tap a button
@@ -162,7 +164,6 @@ static CVAR_DEFINE_AUTO( touch_joy_radius, "1.0", FCVAR_FILTERABLE, "joy radius 
 static CVAR_DEFINE_AUTO( touch_move_indicator, "0.0", FCVAR_FILTERABLE, "indicate move events (0 to disable)" );
 static CVAR_DEFINE_AUTO( touch_joy_texture, "touch_default/joy", FCVAR_FILTERABLE, "texture for move indicator");
 static CVAR_DEFINE( touch_emulate, "_touch_emulate", "0", FCVAR_PRIVILEGED, "emulate touch with mouse" );
-CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
 
 // code looks smaller with it
 #define TO_SCRN_Y(x) (refState.width * (x) * Touch_AspectRatio())
@@ -527,9 +528,32 @@ static touch_button_t *Touch_FindFirst( touchbuttonlist_t *list, const char *nam
 	return Touch_FindNext( list->first, name, privileged );
 }
 
+static void Touch_DisableEdit_f( void )
+{
+	touch.state = state_none;
+	if( touch.edit )
+		touch.edit->finger = -1;
+	if( touch.selection )
+		touch.selection->finger = -1;
+	touch.edit = touch.selection = NULL;
+	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
+
+	if( touch_in_menu.value )
+		Cvar_DirectSet( &touch_in_menu, "0" );
+	else if( cls.key_dest == key_game )
+		Touch_WriteConfig();
+}
+
 void Touch_SetClientOnly( byte state )
 {
 	// TODO: fix clash with vgui cursors
+	if( touch.clientonly == state )
+		return;
+
+	// a1ba: the way client only touch buttons are used, they might come from
+	// client.dll, locking user in edit state, so disable it first
+	Touch_DisableEdit_f();
+
 	touch.clientonly = state;
 
 	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
@@ -1018,22 +1042,6 @@ static void Touch_EnableEdit_f( void )
 	}
 }
 
-static void Touch_DisableEdit_f( void )
-{
-	touch.state = state_none;
-	if( touch.edit )
-		touch.edit->finger = -1;
-	if( touch.selection )
-		touch.selection->finger = -1;
-	touch.edit = touch.selection = NULL;
-	touch.resize_finger = touch.move_finger = touch.look_finger = touch.wheel_finger = -1;
-
-	if( touch_in_menu.value )
-		Cvar_DirectSet( &touch_in_menu, "0" );
-	else if( cls.key_dest == key_game )
-		Touch_WriteConfig();
-}
-
 static void Touch_DeleteProfile_f( void )
 {
 	if( Cmd_Argc() != 2 )
@@ -1177,7 +1185,6 @@ void Touch_Init( void )
 	Cvar_RegisterVariable( &touch_joy_texture );
 
 	// input devices cvar
-	Cvar_RegisterVariable( &touch_enable );
 	Cvar_RegisterVariable( &touch_emulate );
 
 	touch.initialized = true;
@@ -2064,6 +2071,25 @@ static int Touch_ControlsEvent( touchEventType type, int fingerID, float x, floa
 
 int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx, float dy )
 {
+	if( ref.rotation & 1 )
+	{
+		// swap x and y and invert y
+		float temp = x;
+		x = y;
+		if( ref.rotation == REF_ROTATE_CW )
+			y = 1.0f - temp;
+		else
+			y = temp;
+
+		temp = dx;
+		dx = dy;
+		if( ref.rotation == REF_ROTATE_CW )
+			dy = -temp;
+		else
+			dy = temp;
+	}
+
+
 //	Con_Printf("%f %f\n", TO_SCRN_X(x), TO_SCRN_Y(y));
 	// simulate menu mouse click
 	if( cls.key_dest != key_game && !touch_in_menu.value )
@@ -2253,3 +2279,5 @@ void Touch_Shutdown( void )
 	touch.initialized = false;
 	Mem_FreePool( &touch.mempool );
 }
+
+#endif // !XASH_NO_TOUCH

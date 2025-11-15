@@ -15,39 +15,39 @@ jobs:
         include:
           # Linux build specifically want oldest Ubuntu as possible
           # to be crossdistribution compatible, otherwise use ubuntu-latest
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: amd64
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: i386
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: arm64
             cross: true
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: armhf
             cross: true
-          - os: ubuntu-20.04
+          - os: ubuntu-24.04 # riscv64 would benefit from having latest compilers
             targetos: linux
             targetarch: riscv64
             cross: true
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             targetos: linux
             targetarch: ppc64el
             cross: true
-#          - os: ubuntu-aarch64-20.04
+#          - os: ubuntu-aarch64-22.04
 #            targetos: linux
 #            targetarch: aarch64
+#          - os: ubuntu-latest
+#            targetos: linux
+#            targetarch: e2k-8c
+#            cross: true
           - os: ubuntu-latest
-            targetos: linux
-            targetarch: e2k-8c
-            cross: true
-          - os: ubuntu-20.04
             targetos: android
             targetarch: multiarch
-#          - os: ubuntu-20.04
+#          - os: ubuntu-22.04
 #            targetos: motomagx
 #            targetarch: armv6
 
@@ -60,18 +60,23 @@ jobs:
           - os: windows-latest
             targetos: win32
             targetarch: amd64
-          - os: windows-2019 # always use the oldest possible for 32-bit because of older compilers, and better support of certain legacy OSes
+          - os: windows-2022 # always use the oldest possible for 32-bit because of older compilers, and better support of certain legacy OSes
             targetos: win32
             targetarch: i386
           - os: macos-14 # arm64 as per github documentation
             targetos: apple
             targetarch: arm64
-          - os: macos-13 # x86 as per github documentation (will they fix it before they deprecate this version?..)
+          - os: macos-latest
+            targetos: ios
+            targetarch: arm64
+          - os: macos-15-intel
             targetos: apple
             targetarch: amd64
     env:
-      SDL_VERSION: 2.32.0
+      SDL_VERSION: 2.32.10
+      FFMPEG_VERSION: 7.1
       GH_CPU_ARCH: ${{ matrix.targetarch }}
+      GH_CPU_OS: ${{ matrix.targetos }}
       GH_CROSSCOMPILING: ${{ matrix.cross }}
     steps:
     - name: Checkout
@@ -97,7 +102,7 @@ jobs:
         include:
           - app: su.xash.Engine.Compat.i386
     container:
-      image: bilelmoussaoui/flatpak-github-actions:freedesktop-24.08
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
       options: --privileged
     steps:
     - name: Checkout
@@ -105,7 +110,7 @@ jobs:
       with:
         submodules: recursive
     - name: Build flatpak (Compat.i386)
-      uses: FWGS/flatpak-github-actions/flatpak-builder@v6.3-fix
+      uses: FWGS/flatpak-github-actions/flatpak-builder@v6.5
       with:
         bundle: ${{ matrix.app }}.flatpak
         manifest-path: scripts/flatpak/${{ matrix.app }}.yml
@@ -115,31 +120,10 @@ jobs:
     needs: [build, flatpak]
     if: ${{ github.event_name == 'push' }}
     steps:
+    - name: Checkout
+      uses: actions/checkout@v4
     - name: Remove old release, fetch artifacts, repackage binaries and upload new release
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        RELEASE_TAG: ${{ github.ref_name == 'master' && 'continuous' || format('continuous-{0}', github.ref_name) }}
-      run: |
-        gh release delete "$RELEASE_TAG" \
-          --yes \
-          --cleanup-tag \
-          --repo "$GITHUB_REPOSITORY" || true
-        gh run download "$GITHUB_RUN_ID" \
-          --dir artifacts/ \
-          --repo "$GITHUB_REPOSITORY"
-        pushd artifacts/
-        echo "Found artifacts:"
-        ls
-        for i in $(find -mindepth 1 -maxdepth 1 -type d); do
-          mv "$i"/* .
-          rm -rf "$i"
-        done
-        echo "Repackaged artifacts:"
-        ls -R
-        popd
-        sleep 20s
-        gh release create "$RELEASE_TAG" artifacts/* \
-          --title "Xash3D FWGS Continuous ${{ github.ref_name }} Build" \
-          --target $GITHUB_SHA \
-          --repo "$GITHUB_REPOSITORY" \
-          --prerelease
+        BASE_BUILDNUM_DATE: "2015-04-01"
+      run: bash scripts/gha/make_release.sh "Xash3D FWGS" "${{ github.ref_name }}"

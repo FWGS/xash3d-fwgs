@@ -94,6 +94,7 @@ typedef enum
 	cs_free = 0,	// can be reused for a new connection
 	cs_zombie,	// client has been disconnected, but don't reuse connection for a couple seconds
 	cs_connected,	// has been assigned to a sv_client_t, but not in game yet
+	cs_spawning,	// put in game, but not spawned yet
 	cs_spawned	// client is fully in game
 } cl_state_t;
 
@@ -217,7 +218,6 @@ typedef struct sv_client_s
 	char useragent[MAX_INFO_STRING];
 
 	byte ignorecmdtime_warned; // did we warn our server operator in the log for this batch of commands?
-	byte m_bLoopback;                // does this client want to hear his own voice?
 	uint listeners;   // which other clients does this guy's voice stream go to?
 
 	int ignorecmdtime_warns; // how many times client time was faster than server during this session
@@ -258,6 +258,8 @@ typedef struct sv_client_s
 	double fullupdate_next_calltime;
 	double userinfo_next_changetime;
 	double userinfo_penalty;
+
+	double overflow_warn_time;
 
 	client_frame_t *frames; // updates can be delta'd from here
 	event_state_t  events;  // delta-updated events cycle
@@ -491,7 +493,7 @@ get model by handle
 */
 static inline model_t *GAME_EXPORT SV_ModelHandle( int modelindex )
 {
-	if( modelindex < 0 || modelindex >= MAX_MODELS )
+	if( unlikely( modelindex < 0 || modelindex >= MAX_MODELS ))
 		return NULL;
 	return sv.models[modelindex];
 }

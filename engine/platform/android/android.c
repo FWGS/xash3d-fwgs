@@ -13,9 +13,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include "platform/platform.h"
-
-#if !defined(XASH_DEDICATED)
-
 #include "input.h"
 #include "client.h"
 #include "sound.h"
@@ -25,7 +22,9 @@ GNU General Public License for more details.
 
 #include <android/log.h>
 #include <jni.h>
+#if XASH_SDL
 #include <SDL.h>
+#endif // XASH_SDL
 
 struct jnimethods_s
 {
@@ -39,6 +38,9 @@ struct jnimethods_s
 
 void Android_Init( void )
 {
+	memset( &jni, 0, sizeof( jni ));
+
+#if XASH_SDL
 	jni.env = (JNIEnv *)SDL_AndroidGetJNIEnv();
 	jni.activity = (jobject)SDL_AndroidGetActivity();
 	jni.actcls = (*jni.env)->GetObjectClass( jni.env, jni.activity );
@@ -51,6 +53,7 @@ void Android_Init( void )
 	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0" );
 	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE_PAUSEAUDIO, "0" );
 	SDL_SetHint( SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1" );
+#endif // !XASH_SDL
 }
 
 /*
@@ -90,6 +93,7 @@ const char *Android_GetAndroidID( void )
 	resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
 	Q_strncpy( id, resultCStr, sizeof( id ) );
 	(*jni.env)->ReleaseStringUTFChars( jni.env, resultJNIStr, resultCStr );
+	(*jni.env)->DeleteLocalRef( jni.env, resultJNIStr );
 
 	return id;
 }
@@ -109,6 +113,7 @@ const char *Android_LoadID( void )
 	resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
 	Q_strncpy( id, resultCStr, sizeof( id ) );
 	(*jni.env)->ReleaseStringUTFChars( jni.env, resultJNIStr, resultCStr );
+	(*jni.env)->DeleteLocalRef( jni.env, resultJNIStr );
 
 	return id;
 }
@@ -120,7 +125,9 @@ Android_SaveID
 */
 void Android_SaveID( const char *id )
 {
-	(*jni.env)->CallVoidMethod( jni.env, jni.activity, jni.saveAndroidID, (*jni.env)->NewStringUTF( jni.env, id ) );
+	jstring JStr = (*jni.env)->NewStringUTF( jni.env, id );
+	(*jni.env)->CallVoidMethod( jni.env, jni.activity, jni.saveAndroidID, JStr );
+	(*jni.env)->DeleteLocalRef( jni.env, JStr );
 }
 
 /*
@@ -130,9 +137,7 @@ Android_ShellExecute
 */
 void Platform_ShellExecute( const char *path, const char *parms )
 {
-#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+#if XASH_SDL
 	SDL_OpenURL( path );
-#endif
+#endif // XASH_SDL
 }
-
-#endif // XASH_DEDICATED

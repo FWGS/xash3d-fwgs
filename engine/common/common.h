@@ -51,6 +51,8 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #include <sys/types.h> // off_t
 #endif
 
+#include "library_suffix.h"
+
 // configuration
 
 //
@@ -167,11 +169,6 @@ extern convar_t	cl_filterstuffcmd;
 extern convar_t	rcon_password;
 extern convar_t	hpk_custom_file;
 extern convar_t	con_gamemaps;
-extern convar_t fs_mount_lv;
-extern convar_t fs_mount_hd;
-extern convar_t fs_mount_addon;
-extern convar_t fs_mount_l10n;
-extern convar_t ui_language; // historically used for UI, but now controls mounted localization directory
 
 #define Mod_AllowMaterials() ( host_allow_materials.value != 0.0f && !FBitSet( host.features, ENGINE_DISABLE_HDTEXTURES ))
 
@@ -342,10 +339,6 @@ typedef struct host_parm_s
 	qboolean apply_game_config;   // when true apply only to game cvars and ignore all other commands
 	qboolean apply_opengl_config; // when true apply only to opengl cvars and ignore all other commands
 	qboolean config_executed;     // a bit who indicated was config.cfg already executed e.g. from valve.rc
-	qboolean crashed;             // set to true if crashed
-#if XASH_DLL_LOADER
-	qboolean enabledll;
-#endif
 	qboolean textmode;
 
 	// some settings were changed and needs to global update
@@ -358,6 +351,7 @@ typedef struct host_parm_s
 	int      window_center_y;
 	string   gamedll;
 	string   clientlib;
+	string   menulib;
 } host_parm_t;
 
 extern host_parm_t	host;
@@ -416,12 +410,37 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 void FS_Rescan_f( void );
-void FS_CheckConfig( void );
+void FS_LoadGameInfo( void );
+void FS_SaveVFSConfig( void );
 
 //
 // cmd.c
 //
 typedef struct cmd_s cmd_t;
+
+static inline int GAME_EXPORT Cmd_Argc( void )
+{
+	extern int cmd_argc;
+	return cmd_argc;
+}
+
+static inline const char *GAME_EXPORT RETURNS_NONNULL Cmd_Argv( int arg )
+{
+	extern int cmd_argc;
+	extern char *cmd_argv[MAX_CMD_TOKENS];
+
+	if((uint)arg >= cmd_argc )
+		return "";
+	return cmd_argv[arg];
+}
+
+static inline const char *GAME_EXPORT RETURNS_NONNULL Cmd_Args( void )
+{
+	extern const char *cmd_args;
+
+	return cmd_args;
+}
+
 void Cbuf_Clear( void );
 void Cbuf_AddText( const char *text );
 void Cbuf_AddTextf( const char *text, ... ) FORMAT_CHECK( 1 );
@@ -431,9 +450,6 @@ void Cbuf_InsertTextLen( const char *text, size_t len, size_t requested_len );
 void Cbuf_ExecStuffCmds( void );
 void Cbuf_Execute (void);
 qboolean Cmd_CurrentCommandIsPrivileged( void );
-int Cmd_Argc( void );
-const char *Cmd_Args( void ) RETURNS_NONNULL;
-const char *Cmd_Argv( int arg ) RETURNS_NONNULL;
 void Cmd_Init( void );
 void Cmd_Shutdown( void );
 void Cmd_Unlink( int group );
@@ -563,7 +579,7 @@ void Host_Error( const char *error, ... ) FORMAT_CHECK( 1 );
 void Host_ValidateEngineFeatures( uint32_t mask, uint32_t features );
 void Host_Frame( double time );
 void Host_Credits( void );
-void Host_ExitInMain( void );
+void Host_ExitInMain( void ) NORETURN;
 
 //
 // host_state.c
@@ -666,6 +682,8 @@ void pfnResetTutorMessageDecayData( void );
 void Con_CompleteCommand( field_t *field );
 void Cmd_AutoComplete( char *complete_string );
 void Cmd_AutoCompleteClear( void );
+void Host_InitializeConfig( file_t *f, const char *config, const char *description );
+void Host_FinalizeConfig( file_t *f, const char *config );
 
 //
 // custom.c
@@ -782,8 +800,6 @@ void SCR_Init( void );
 void SCR_UpdateScreen( void );
 void SCR_BeginLoadingPlaque( qboolean is_background );
 void SCR_CheckStartupVids( void );
-int SCR_GetAudioChunk( char *rawdata, int length );
-wavdata_t *SCR_GetMovieInfo( void );
 void SCR_Shutdown( void );
 void Con_Print( const char *txt );
 void Con_NPrintf( int idx, const char *fmt, ... ) FORMAT_CHECK( 2 );
@@ -878,12 +894,12 @@ intptr_t V_GetGammaPtr( int parm );
 //
 void NET_InitMasters( void );
 void NET_SaveMasters( void );
-qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data );
-qboolean NET_IsMasterAdr( netadr_t adr );
+qboolean NET_IsMasterAdr( netadr_t adr, connprotocol_t *proto );
 void NET_MasterHeartbeat( void );
 void NET_MasterClear( void );
 void NET_MasterShutdown( void );
 qboolean NET_GetMaster( netadr_t from, uint *challenge, double *last_heartbeat );
+qboolean NET_MasterQuery( uint32_t key, qboolean net, const char *filter );
 
 //
 // munge.c

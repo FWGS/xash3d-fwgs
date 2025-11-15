@@ -13,16 +13,17 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#if XASH_SDL == 2
+#include <SDL.h>
+#elif XASH_SDL == 3
+#include <SDL3/SDL.h>
+#endif
+
 #include "common.h"
 #include "input.h"
 #include "client.h"
 #include "vgui_draw.h"
 #include "cursor_type.h"
-
-#if XASH_SDL
-#include <SDL.h>
-#endif
-
 #include "platform/platform.h"
 
 void*		in_mousecursor;
@@ -48,6 +49,7 @@ static CVAR_DEFINE_AUTO( cl_backspeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | 
 static CVAR_DEFINE_AUTO( cl_sidespeed, "400", FCVAR_ARCHIVE | FCVAR_CLIENTDLL | FCVAR_FILTERABLE, "Default side move speed"  );
 
 static CVAR_DEFINE_AUTO( m_grab_debug, "0", FCVAR_PRIVILEGED, "show debug messages on mouse state change" );
+CVAR_DEFINE_AUTO( touch_enable, DEFAULT_TOUCH_ENABLE, FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable touch controls" );
 
 /*
 ================
@@ -119,6 +121,7 @@ static void IN_StartupMouse( void )
 	Cvar_RegisterVariable( &look_filter );
 	Cvar_RegisterVariable( &m_rawinput );
 	Cvar_RegisterVariable( &m_grab_debug );
+	Cvar_RegisterVariable( &touch_enable );
 
 	// You can use -nomouse argument to prevent using mouse from client
 	// -noenginemouse will disable all mouse input
@@ -212,20 +215,29 @@ void IN_SetRelativeMouseMode( qboolean set )
 
 	if( set && !s_bRawInput )
 	{
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 		SDL_GetRelativeMouseState( NULL, NULL );
+#if XASH_SDL == 2
 		SDL_SetRelativeMouseMode( SDL_TRUE );
-#endif
+#else // XASH_SDL != 2
+		SDL_SetWindowRelativeMouseMode( host.hWnd, true );
+#endif // XASH_SDL != 2
+#endif // XASH_SDL >= 2
 		s_bRawInput = true;
 		if( verbose )
 			Con_Printf( "%s: true\n", __func__ );
 	}
 	else if( !set && s_bRawInput )
 	{
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 		SDL_GetRelativeMouseState( NULL, NULL );
+#if XASH_SDL == 2
 		SDL_SetRelativeMouseMode( SDL_FALSE );
-#endif
+#else // XASH_SDL != 2
+		SDL_SetWindowRelativeMouseMode( host.hWnd, false );
+#endif // XASH_SDL != 2
+#endif // XASH_SDL >= 2
+
 		s_bRawInput = false;
 		if( verbose )
 			Con_Printf( "%s: false\n", __func__ );
@@ -239,18 +251,15 @@ void IN_SetMouseGrab( qboolean set )
 
 	if( set && !s_bMouseGrab )
 	{
-#if XASH_SDL
-		SDL_SetWindowGrab( host.hWnd, SDL_TRUE );
-#endif
+		Platform_SetMouseGrab( true );
+
 		s_bMouseGrab = true;
 		if( verbose )
 			Con_Printf( "%s: true\n", __func__ );
 	}
 	else if( !set && s_bMouseGrab )
 	{
-#if XASH_SDL
-		SDL_SetWindowGrab( host.hWnd, SDL_FALSE );
-#endif
+		Platform_SetMouseGrab( false );
 
 		s_bMouseGrab = false;
 		if( verbose )

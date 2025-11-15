@@ -25,6 +25,7 @@ ANDROID_NDK_HARDFP_MAX = 11 # latest version that supports hardfp
 ANDROID_NDK_GCC_MAX = 17 # latest NDK that ships with GCC
 ANDROID_NDK_UNIFIED_SYSROOT_MIN = 15
 ANDROID_NDK_SYSROOT_FLAG_MAX = 19 # latest NDK that need --sysroot flag
+ANDROID_NDK_BUGGED_LINKER_MAX = 22
 ANDROID_NDK_API_MIN = {
 	10: 3,
 	19: 16,
@@ -32,7 +33,7 @@ ANDROID_NDK_API_MIN = {
 	23: 16,
 	25: 19,
 	27: 19,
-	28: 19,
+	28: 21,
 } # minimal API level ndk revision supports
 
 ANDROID_STPCPY_API_MIN = 21 # stpcpy() introduced in SDK 21
@@ -41,6 +42,36 @@ ANDROID_64BIT_API_MIN = 21 # minimal API level that supports 64-bit targets
 NSWITCH_ENVVARS = ['DEVKITPRO']
 
 PSVITA_ENVVARS = ['VITASDK']
+
+PSP_ENVVARS = ['PSPDEV', 'PSPSDK', 'PSPTOOLCHAIN']
+
+class iOS:
+	ctx = None
+	sdkpath = None
+	target = None
+	
+	def __init__(self, ctx, issim):
+		self.ctx = ctx
+		sdk = 'iphonesimulator' if issim else 'iphoneos'
+		self.sdkpath = ctx.cmd_and_log('xcrun --show-sdk-path --sdk %s' % sdk).strip()
+		self.target = '--target=aarch64-apple-ios'
+		if issim: self.target += '-simulator'
+	
+	def cflags(self, cxx = False):
+	
+		cflags = [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' ]
+		return cflags
+		
+	def linkflags(self):
+		
+		linkflags = [ '-isysroot' + self.sdkpath, self.target, '-mios-version-min=12.0' ]
+		return linkflags
+	
+	def cc(self):
+		return 'clang'
+
+	def cxx(self):
+		return 'clang++'
 
 # This class does support ONLY r10e and r19c/r20 NDK
 class Android:
@@ -354,6 +385,12 @@ class Android:
 		else: linkflags += ['-no-canonical-prefixes']
 
 		linkflags += ['-Wl,--hash-style=sysv', '-Wl,--no-undefined']
+
+		linkflags += ["-Wl,-z,max-page-size=16384"]
+
+		if self.ndk_rev <= ANDROID_NDK_BUGGED_LINKER_MAX:
+			linkflags += ["-Wl,-z,common-page-size=16384"]
+
 		return linkflags
 
 	def ldflags(self):
@@ -525,6 +562,64 @@ class PSVita:
 		ldflags = []
 		return ldflags
 
+class PSP:
+	ctx               = None # waf context
+	sdk_home          = None
+	psptoolchain_path = None
+	pspsdk_path       = None
+	binutils_path     = None
+	build_prx         = None
+	fw_version        = None
+	render_type       = None
+
+	def __init__(self, ctx, moduletype, fwversion, rendertype):
+		self.ctx = ctx
+		self.build_prx = True if moduletype == 'prx' else False
+		self.fw_version = fwversion
+		self.render_type = rendertype
+
+		for i in PSP_SDK_ENVVARS:
+			self.sdk_home = os.getenv(i)
+			if self.sdk_home != None:
+				break
+		else:
+			ctx.fatal('Set %s environment variable pointing to the root of PSP SDK!' %
+				' or '.join(PSP_SDK_ENVVARS))
+
+		self.psptoolchain_path = os.path.join(self.sdk_home, 'psp')
+		self.pspsdk_path = os.path.join(self.psptoolchain_path, 'sdk')
+		self.binutils_path  = os.path.join(self.sdk_home, 'bin')
+
+	def cflags(self, cxx = False):
+		cflags = []
+		cflags += ['-I%s' % (os.path.join(self.pspsdk_path, 'include'))]
+		cflags += ['-I.']
+		cflags += ['-DNDEBUG', '-D_PSP_FW_VERSION=%s' % self.fw_version, '-G0']
+		return cflags
+
+	# they go before object list
+	def linkflags(self):
+		linkflags = []
+		return linkflags
+
+	def ldflags(self):
+		ldflags = []
+		if self.build_prx:
+			ldflags += ['-specs=%s' % os.path.join(self.pspsdk_path, 'lib/prxspecs')]
+			ldflags += ['-Wl,-q,-T%s' % os.path.join(self.pspsdk_path, 'lib/linkfile.prx')]
+		ldflags += ['-L%s' % os.path.join(self.pspsdk_path, 'lib')]
+		ldflags += ['-L.']
+		return ldflags
+
+	def stdlibs(self):
+		stdlibs = []
+		stdlibs += ['-lpspdisplay', '-lpspgum_vfpu', '-lpspgu','-lpspge', '-lpspvfpu']
+		stdlibs += ['-lpspaudio', '-lpspdmac']
+		stdlibs += ['-lstdc++', '-lc', '-lm']
+		stdlibs += ['-lpspctrl', '-lpspdebug', '-lpsppower', '-lpsputility',  '-lpspsdk', '-lpsprtc']
+		stdlibs += ['-lpspuser', '-lpspkernel']
+		return stdlibs
+
 def options(opt):
 	xc = opt.add_option_group('Cross compile options')
 	xc.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
@@ -537,11 +632,26 @@ def options(opt):
 		help='enable building for Nintendo Switch [default: %(default)s]')
 	xc.add_option('--psvita', action='store_true', dest='PSVITA', default = False,
 		help='enable building for PlayStation Vita [default: %(default)s]')
-	xc.add_option('--sailfish', action='store', dest='SAILFISH', default = None,
-		help='enable building for Sailfish/Aurora')
+	xc.add_option('--sailfish', action='store_true', dest='SAILFISH', default = False,
+		help='enable building for Sailfish')
+	xc.add_option('--emscripten', action='store_true', dest='EMSCRIPTEN', default = None,
+		help='enable building for Emscripten')
+	xc.add_option('--psp', action='store', dest='PSP_OPTS', default=None,
+		help='enable building for PlayStation Portable, format: --psp=<module type>,<fw version>,<render type>, example: --psp=prx,660,HW')
+	xc.add_option('--ios', action='store_true', dest='IOS', default=False, 
+		help='enable building for iOS [default: %(default)s]')
+	xc.add_option('--ios-simulator', action='store_true', dest='IOSSIM', default=False, 
+		help='enable building for iOS Simulator [default: %(default)s]')
 
 def configure(conf):
-	if conf.options.ANDROID_OPTS:
+	if 'CROSS_COMPILE' in conf.environ:
+		toolchain_path = conf.environ['CROSS_COMPILE']
+		conf.environ['CC'] = toolchain_path + 'cc'
+		conf.environ['CXX'] = toolchain_path + 'c++'
+		conf.environ['STRIP'] = toolchain_path + 'strip'
+		conf.environ['OBJDUMP'] = toolchain_path + 'objdump'
+		conf.environ['AR'] = toolchain_path + 'ar'
+	elif conf.options.ANDROID_OPTS:
 		values = conf.options.ANDROID_OPTS.split(',')
 		if len(values) != 3:
 			conf.fatal('Invalid --android paramater value!')
@@ -627,11 +737,72 @@ def configure(conf):
 		conf.env.LIB_M = ['m']
 		conf.env.VRTLD = ['vrtld']
 		conf.env.DEST_OS = 'psvita'
+	elif conf.options.PSP_OPTS:
+		values = conf.options.PSP_OPTS.split(',')
+		if len(values) != 3:
+			conf.fatal('Invalid --psp paramater value!')
+
+		valid_module_type = ['elf', 'prx']
+		valid_render_type = ['SW', 'HW', 'ALL']
+
+		if values[0] not in valid_module_type:
+			conf.fatal('Unknown module type: %s. Supported: %r' % (values[0], ', '.join(valid_module_type)))
+		if values[2] not in valid_render_type:
+			conf.fatal('Unknown render type: %s. Supported: %r' % (values[2], ', '.join(valid_render_type)))
+
+		conf.psp = psp = PSP(conf, values[0], values[1], values[2])
+		conf.environ['CC'] = os.path.join(psp.binutils_path, 'psp-gcc')
+		conf.environ['CXX'] = os.path.join(psp.binutils_path, 'psp-gcc')
+		conf.environ['AS'] = os.path.join(psp.binutils_path, 'psp-gcc')
+		conf.environ['STRIP'] = os.path.join(psp.binutils_path, 'psp-strip')
+		conf.environ['LD'] = os.path.join(psp.binutils_path, 'psp-gcc')
+		conf.environ['AR'] = os.path.join(psp.binutils_path, 'psp-ar')
+		conf.environ['RANLIB'] = os.path.join(psp.binutils_path, 'psp-ranlib')
+		conf.environ['OBJCOPY'] = os.path.join(psp.binutils_path, 'psp-objcopy')
+
+		conf.env.PRXGEN = conf.find_program('psp-prxgen', path_list = psp.binutils_path)
+		conf.env.MKSFO =  conf.find_program('mksfoex', path_list = psp.binutils_path)
+		conf.env.PACK_PBP = conf.find_program('pack-pbp', path_list = psp.binutils_path)
+		conf.env.FIXUP =  conf.find_program('psp-fixup-imports', path_list = psp.binutils_path)
+
+		conf.env.ASFLAGS += psp.cflags()
+		conf.env.CFLAGS += psp.cflags()
+		conf.env.CXXFLAGS += psp.cflags()
+		conf.env.LINKFLAGS += psp.linkflags()
+		conf.env.LDFLAGS += psp.ldflags()
+
+		conf.msg('Selected PSPSDK', '%s' % (psp.sdk_home))
+		# no need to print C/C++ compiler, as it would be printed by compiler_c/cxx
+		conf.msg('... C/C++ flags', ' '.join(psp.cflags()).replace(psp.sdk_home, '$PSPSDK'))
+		conf.msg('... link flags', ' '.join(psp.linkflags()).replace(psp.sdk_home, '$PSPSDK'))
+		conf.msg('... ld flags', ' '.join(psp.ldflags()).replace(psp.sdk_home, '$PSPSDK'))
+		conf.msg('Bulid prx', '%s' % (psp.build_prx))
+
+		if conf.options.PROFILING:
+			conf.env.LDFLAGS += ['-lpspprof']
+			conf.env.CFLAGS += ['-pg']
+			conf.env.CXXFLAGS += ['-pg']
+		conf.env.LDFLAGS += psp.stdlibs()
+
+		conf.env.PSP_RENDER_TYPE = psp.render_type
+		conf.env.PSP_BUILD_PRX = psp.build_prx
+	elif conf.options.IOS or conf.options.IOSSIM:
+		issim = True if conf.options.IOSSIM else False
+
+		conf.ios = ios = iOS(conf, issim)
+
+		conf.environ['CC'] = ios.cc()
+		conf.environ['CXX'] = ios.cxx()
+		
+		conf.env.CFLAGS += ios.cflags()
+		conf.env.CXXFLAGS += ios.cflags()
+		conf.env.LINKFLAGS += ios.linkflags()
+		conf.env.IOS = 1
 
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE
 	conf.env.SAILFISH = conf.options.SAILFISH
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi' })
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten', '__psp__': 'psp' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS

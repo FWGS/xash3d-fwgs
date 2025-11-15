@@ -1,37 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Xash3D FWGS</string>
-    <string name="authority" translatable="false">su.xash.engine.documents</string>
-    <string name="cancel">Cancel</string>
-    <string name="ok">OK</string>
-    <string name="next">Next</string>
-    <string name="browse">Browse</string>
-    <string name="install">Install</string>
-    <string name="library">Library</string>
-    <string name="steam_guard_code">Steam Guard Code</string>
-    <string name="steam_login">Steam Login</string>
-    <string name="login">Login</string>
-    <string name="username">Username</string>
-    <string name="password">Password</string>
-    <string name="steam" translatable="false">Steam</string>
-    <string name="uninstall">Uninstall</string>
-    <string name="dedicated_server">Dedicated</string>
-    <string name="error">Error!</string>
-    <string name="setup">Setup</string>
-    <string name="app_settings">Settings</string>
-    <string name="game_settings">Game Settings</string>
-    <string name="game_settings_command_line">Command-line arguments</string>
-    <string name="game_settings_volume_buttons">Use volume buttons in-game</string>
-    <string name="setup_welcome_title">Welcome to Xash3D FWGS!</string>
-    <string name="setup_welcome_message">Now, we will guide you through the installation process.</string>
-    <string name="setup_location_title">Games</string>
-    <string name="setup_location_message">Select the folder, where your games are located.</string>
-    <string name="setup_location_empty">Selected directory doesn\'t contain any games.</string>
-    <string name="setup_location_invalid">Selected directory is invalid.</string>
-    <string name="preferences_package_name">Libraries package</string>
-    <string name="preferences_separate_libraries">Libraries from separate packages</string>
-    <string name="preferences_client_package">Client package</string>
-    <string name="preferences_server_package">Server package</string>
-    <string name="preferences_use_icons">Use icons instead of backgrounds</string>
-    <string name="library_fragment_no_file_manager">File manager is missing</string>
+	<string name="app_name" translatable="false">Xash3D FWGS</string>
+	<string name="library">Library</string>
+	<string name="dedicated_server">Dedicated</string>
+	<string name="app_settings">Settings</string>
+	<string name="game_settings">Game Settings</string>
+	<string name="game_settings_command_line">Command-line arguments</string>
+	<string name="game_settings_volume_buttons">Use volume buttons in-game</string>
+	<string name="preferences_package_name">Libraries package</string>
+	<string name="preferences_separate_libraries">Libraries from separate packages</string>
+	<string name="preferences_client_package">Client package</string>
+	<string name="preferences_server_package">Server package</string>
+	<string name="preferences_use_icons">Use icons instead of backgrounds</string>
+	<string name="game_data_location">Game data location</string>
+	<string name="file_access_required">All-files access required</string>
+	<string name="file_access_message">All-files access is required for the app to function properly.</string>
+	<string name="select_current_directory">Select current directory</string>
+	<string name="external_storage_required">External storage access required</string>
+	<string name="external_storage_message">External storage access is required for the app to function properly.</string>
 </resources>

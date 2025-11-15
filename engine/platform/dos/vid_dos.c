@@ -27,6 +27,11 @@ GNU General Public License for more details.
 #include <string.h>
 #include <stdlib.h>
 
+void Platform_Minimize_f( void )
+{
+	// stub
+}
+
 /*
 ========================
 Android_SwapBuffers
@@ -536,6 +541,11 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	}
 
 	return true;
+}
+
+ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
+{
+	return REF_WINDOW_TYPE_NULL;
 }
 
 #endif

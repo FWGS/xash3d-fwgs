@@ -135,12 +135,12 @@ static void Mod_UnloadTextures( model_t *mod )
 		Mod_SpriteUnloadTextures( mod->cache.data );
 		break;
 	default:
-		ASSERT( 0 );
+		Assert( 0 );
 		break;
 	}
 }
 
-static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf )
+static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf, size_t buffersize )
 {
 	qboolean loaded = false;
 
@@ -365,11 +365,8 @@ static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
 static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
 {
 	qboolean ret = true;
-	if( rotate > 0 )
-	{
-		gEngfuncs.Con_Printf("rotation transform not supported\n");
-		ret = false;
-	}
+
+	tr.rotation = rotate;
 
 	if( offset_x || offset_y )
 	{

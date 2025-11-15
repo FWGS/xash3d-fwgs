@@ -22,7 +22,8 @@ GNU General Public License for more details.
 #include <stdarg.h>
 
 #if XASH_POSIX
-#define XASHLIB "libxash." OS_LIB_EXT
+#include <dlfcn.h>
+#define XASHLIB OS_LIB_PREFIX "xash." OS_LIB_EXT
 #define FreeLibrary( x ) dlclose( x )
 #elif XASH_WIN32
 #include <shellapi.h> // CommandLineToArgvW
@@ -182,11 +183,7 @@ static int Sys_Start( void )
 
 	snprintf( buf, sizeof( buf ), "%s/xash", home );
 	setenv( "XASH3D_BASEDIR", buf, true );
-#if XASH_AURORAOS
-	setenv( "XASH3D_RODIR", "/usr/share/su.xash.Engine/rodir", true );
-#else
 	setenv( "XASH3D_RODIR", "/usr/share/harbour-xash3d-fwgs/rodir", true );
-#endif // XASH_AURORAOS
 #endif // XASH_SAILFISH
 
 	strncpy( szGameDir, XASH_GAMEDIR, sizeof( szGameDir ) - 1 );

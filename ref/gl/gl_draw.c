@@ -209,16 +209,38 @@ void R_Set2DMode( qboolean enable )
 {
 	if( enable )
 	{
+		matrix4x4 projection_matrix, worldview_matrix;
+
 		if( glState.in2DMode )
 			return;
 
 		// set 2D virtual screen size
-		pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+		switch( tr.rotation )
+		{
+		case REF_ROTATE_CW:
+			pglViewport( 0, 0, gpGlobals->height, gpGlobals->width );
+			Matrix4x4_CreateOrtho( projection_matrix, 0, gpGlobals->height, gpGlobals->width, 0, -99999, 99999 );
+			Matrix4x4_ConcatRotate( projection_matrix, 90, 0, 0, 1 );
+			Matrix4x4_ConcatTranslate( projection_matrix, 0, -gpGlobals->height, 0 );
+			break;
+		case REF_ROTATE_CCW:
+			pglViewport( 0, 0, gpGlobals->height, gpGlobals->width );
+			Matrix4x4_CreateOrtho( projection_matrix, 0, gpGlobals->height, gpGlobals->width, 0, -99999, 99999 );
+			Matrix4x4_ConcatRotate( projection_matrix, -90, 0, 0, 1 );
+			Matrix4x4_ConcatTranslate( projection_matrix, -gpGlobals->width, 0, 0 );
+			break;
+		default:
+			pglViewport( 0, 0, gpGlobals->width, gpGlobals->height );
+			Matrix4x4_CreateOrtho( projection_matrix, 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+			break;
+		}
+
 		pglMatrixMode( GL_PROJECTION );
-		pglLoadIdentity();
-		pglOrtho( 0, gpGlobals->width, gpGlobals->height, 0, -99999, 99999 );
+		GL_LoadMatrix( projection_matrix );
+
 		pglMatrixMode( GL_MODELVIEW );
-		pglLoadIdentity();
+		Matrix4x4_LoadIdentity( worldview_matrix );
+		GL_LoadMatrix( worldview_matrix );
 
 		GL_Cull( GL_NONE );
 
@@ -226,6 +248,9 @@ void R_Set2DMode( qboolean enable )
 		pglDisable( GL_DEPTH_TEST );
 		pglEnable( GL_ALPHA_TEST );
 		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+
+		if( glConfig.max_multisamples > 1 && gl_msaa.value )
+			pglDisable( GL_MULTISAMPLE_ARB );
 
 		glState.in2DMode = true;
 		RI.currententity = NULL;
@@ -242,6 +267,13 @@ void R_Set2DMode( qboolean enable )
 
 		pglMatrixMode( GL_MODELVIEW );
 		GL_LoadMatrix( RI.worldviewMatrix );
+
+		if( glConfig.max_multisamples > 1 )
+		{
+			if( gl_msaa.value )
+				pglEnable( GL_MULTISAMPLE_ARB );
+			else pglDisable( GL_MULTISAMPLE_ARB );
+		}
 
 		GL_Cull( GL_FRONT );
 	}

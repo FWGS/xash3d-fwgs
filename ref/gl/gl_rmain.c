@@ -395,7 +395,14 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	xMax = zNear * tan( RI.fov_x * M_PI_F / 360.0f );
 	xMin = -xMax;
 
-	Matrix4x4_CreateProjection( m, xMax, xMin, yMax, yMin, zNear, zFar );
+	if( tr.rotation & 1 )
+	{
+		Matrix4x4_CreateProjection( m, yMax, yMin, xMax, xMin, zNear, zFar );
+	}
+	else
+	{
+		Matrix4x4_CreateProjection( m, xMax, xMin, yMax, yMin, zNear, zFar );
+	}
 }
 
 /*
@@ -406,9 +413,18 @@ R_SetupModelviewMatrix
 static void R_SetupModelviewMatrix( matrix4x4 m )
 {
 	Matrix4x4_CreateModelview( m );
-	Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
-	Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
-	Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
+	if( tr.rotation & 1 )
+	{
+		Matrix4x4_ConcatRotate( m, anglemod( -RI.viewangles[2] + 90 ), 1, 0, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
+	}
+	else
+	{
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
+	}
 	Matrix4x4_ConcatTranslate( m, -RI.vieworg[0], -RI.vieworg[1], -RI.vieworg[2] );
 }
 
@@ -535,7 +551,7 @@ void R_SetupGL( qboolean set_gl_state )
 
 	if( RP_NORMALPASS( ))
 	{
-		int	x, x2, y, y2;
+		int x, x2, y, y2;
 
 		// set up viewport (main, playersetup)
 		x = floor( RI.viewport[0] * gpGlobals->width / gpGlobals->width );
@@ -543,7 +559,9 @@ void R_SetupGL( qboolean set_gl_state )
 		y = floor( gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height );
 		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] ) * gpGlobals->height / gpGlobals->height );
 
-		pglViewport( x, y2, x2 - x, y - y2 );
+		if( tr.rotation & 1 )
+			pglViewport( y2, x, y - y2, x2 - x );
+		else pglViewport( x, y2, x2 - x, y - y2 );
 	}
 	else
 	{
@@ -1123,14 +1141,6 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 
 	if( gl_finish.value && RI.drawWorld )
 		pglFinish();
-
-	if( glConfig.max_multisamples > 1 && FBitSet( gl_msaa.flags, FCVAR_CHANGED ))
-	{
-		if( gl_msaa.value )
-			pglEnable( GL_MULTISAMPLE_ARB );
-		else pglDisable( GL_MULTISAMPLE_ARB );
-		ClearBits( gl_msaa.flags, FCVAR_CHANGED );
-	}
 
 	// completely override rendering
 	if( gEngfuncs.drawFuncs->GL_RenderFrame != NULL )

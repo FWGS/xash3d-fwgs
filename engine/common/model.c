@@ -87,7 +87,7 @@ static void Mod_FreeUserData( model_t *mod )
 #if !XASH_DEDICATED
 	else
 	{
-		ref.dllFuncs.Mod_ProcessRenderData( mod, false, NULL );
+		ref.dllFuncs.Mod_ProcessRenderData( mod, false, NULL, 0 );
 	}
 #endif
 }
@@ -296,18 +296,18 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	// call the apropriate loader
 	switch( *(uint *)buf )
 	{
-	case IDSTUDIOHEADER:
+	case LittleLong( IDSTUDIOHEADER ):
 		Mod_LoadStudioModel( mod, buf, &loaded );
 		break;
-	case IDSPRITEHEADER:
-		Mod_LoadSpriteModel( mod, buf, &loaded );
+	case LittleLong( IDSPRITEHEADER ):
+		Mod_LoadSpriteModel( mod, buf, length, &loaded );
 		break;
-	case IDALIASHEADER:
+	case LittleLong( IDALIASHEADER ):
 		Mod_LoadAliasModel( mod, buf, &loaded );
 		break;
-	case Q1BSP_VERSION:
-	case HLBSP_VERSION:
-	case QBSP2_VERSION:
+	case LittleLong( Q1BSP_VERSION ):
+	case LittleLong( HLBSP_VERSION ):
+	case LittleLong( QBSP2_VERSION ):
 		Mod_LoadBrushModel( mod, buf, &loaded );
 		break;
 	default:
@@ -334,7 +334,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 #if !XASH_DEDICATED
 		else
 		{
-			loaded2 = ref.dllFuncs.Mod_ProcessRenderData( mod, true, buf );
+			loaded2 = ref.dllFuncs.Mod_ProcessRenderData( mod, true, buf, length );
 		}
 #endif
 	}

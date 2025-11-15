@@ -234,7 +234,7 @@ typedef struct
 	cl_local_data_t	local;
 
 	// player final info
-	usercmd_t		*cmd;			// cl.commands[outgoing_sequence].cmd
+	usercmd_t	cmd;			// cl.commands[outgoing_sequence].cmd
 	vec3_t		viewangles;
 	vec3_t		viewheight;
 	vec3_t		punchangle;
@@ -525,6 +525,15 @@ typedef struct
 	qboolean use_extended_api;
 } gameui_static_t;
 
+typedef struct bandwidth_test_s
+{
+	int challenge;    // saved challenge
+	int retry;        // number of tests
+	qboolean started; // if test has been started
+	qboolean passed;  // if test has been passed successfully
+	qboolean failed;  // if bandwidth test has been failed
+} bandwidth_test_t;
+
 typedef struct
 {
 	connstate_t	state;
@@ -550,6 +559,7 @@ typedef struct
 	double		connect_time;		// for connection retransmits
 	int		max_fragment_size;		// we needs to test a real network bandwidth
 	int		connect_retry;		// how many times we send a connect packet to the server
+	bandwidth_test_t bandwidth_test;
 	qboolean		spectator;		// not a real player, just spectator
 
 	local_state_t	spectator_state;		// init as client startup
@@ -621,11 +631,11 @@ typedef struct
 
 	file_t		*demofile;
 	file_t		*demoheader;		// contain demo startup info in case we record a demo on this level
-	qboolean internetservers_wait;	// internetservers is waiting for dns request
+	qboolean internetservers_wait;    // internetservers is waiting for dns request
 	qboolean internetservers_pending; // if true, clean master server pings
-	uint32_t internetservers_key;       // compare key to validate master server reply
-	char     internetservers_query[512]; // cached query
-	uint32_t internetservers_query_len;
+	qboolean internetservers_nat;
+	string   internetservers_customfilter;
+	uint32_t internetservers_key;     // compare key to validate master server reply
 
 	// multiprotocol support
 	connprotocol_t legacymode;
@@ -638,6 +648,11 @@ typedef struct
 
 	// server's build number (might be zero)
 	int build_num;
+	uint8_t steamid[8];
+
+	// whether server allows cheats or not
+	// set differently depending on protocol and extensions
+	qboolean allow_cheats;
 } client_static_t;
 
 #ifdef __cplusplus
@@ -761,6 +776,7 @@ void CL_UpdateFrameLerp( void );
 int CL_IsDevOverviewMode( void );
 void CL_SignonReply( connprotocol_t proto );
 void CL_ClearState( void );
+void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 
 //
 // cl_demo.c
@@ -846,13 +862,13 @@ qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *
 
 static inline cl_entity_t *CL_EDICT_NUM( int index )
 {
-	if( !clgame.entities ) // not in game yet
+	if( unlikely( !clgame.entities )) // not in game yet
 	{
 		Host_Error( "%s: clgame.entities is NULL\n", __func__ );
 		return NULL;
 	}
 
-	if( index < 0 || index >= clgame.maxEntities )
+	if( unlikely( index < 0 || index >= clgame.maxEntities ))
 	{
 		Host_Error( "%s: bad number %i\n", __func__, index );
 		return NULL;
@@ -863,10 +879,10 @@ static inline cl_entity_t *CL_EDICT_NUM( int index )
 
 static inline cl_entity_t *CL_GetEntityByIndex( int index )
 {
-	if( !clgame.entities ) // not in game yet
+	if( unlikely( !clgame.entities )) // not in game yet
 		return NULL;
 
-	if( index < 0 || index >= clgame.maxEntities )
+	if( unlikely( index < 0 || index >= clgame.maxEntities ))
 		return NULL;
 
 	return clgame.entities + index;
@@ -874,7 +890,7 @@ static inline cl_entity_t *CL_GetEntityByIndex( int index )
 
 static inline model_t *CL_ModelHandle( int modelindex )
 {
-	return modelindex >= 0 && modelindex < MAX_MODELS ? cl.models[modelindex] : NULL;
+	return likely( modelindex >= 0 && modelindex < MAX_MODELS ) ? cl.models[modelindex] : NULL;
 }
 
 static inline qboolean CL_IsThirdPerson( void )
@@ -1048,6 +1064,11 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 lightstyle_t *CL_GetLightStyle( int number );
 int R_FatPVS( const vec3_t org, float radius, byte *visbuffer, qboolean merge, qboolean fullvis );
 const ref_overview_t *GL_GetOverviewParms( void );
+
+//
+// cl_spray.c
+//
+qboolean CL_ConvertImageToWAD3( const char *filename );
 
 //
 // cl_efrag.c

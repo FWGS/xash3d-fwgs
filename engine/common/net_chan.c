@@ -912,30 +912,51 @@ Netchan_CreateFileFragmentsFromBuffer
 */
 void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filename, byte *pbuf, int size )
 {
-	int		chunksize;
-	int		send, pos;
-	int		remaining;
-	int		bufferid = 1;
-	qboolean		firstfragment = true;
-	fragbufwaiting_t	*wait, *p;
-	fragbuf_t 	*buf;
+	int        chunksize;
+	int        send, pos;
+	int        remaining;
+	int        bufferid = 1;
+	qboolean   firstfragment = true;
+	fragbufwaiting_t *wait, *p;
+	fragbuf_t  *buf;
+	uint       originalSize = size;
+	const char *compressor = "";
 
-	if( !size ) return;
+	if( !size )
+		return;
 
 	chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
-	if( !LZSS_IsCompressed( pbuf, size ))
+	if( chan->gs_netchan )
 	{
-		uint	uCompressedSize = 0;
-		byte	*pbOut = LZSS_Compress( pbuf, size, &uCompressedSize );
-
+#if !XASH_DEDICATED
+		uint uCompressedSize = size + 600;
+		byte *pbOut = Mem_Malloc( net_mempool, uCompressedSize );
+		if( BZ2_bzBuffToBuffCompress( pbOut, &uCompressedSize, pbuf, size, 9, 0, 30 ) == BZ_OK && uCompressedSize < size )
+		{
+			Con_DPrintf( "Compressing filebuffer (%s -> %s)\n", Q_memprint( size ), Q_memprint( uCompressedSize ));
+			memcpy( pbuf, pbOut, uCompressedSize );
+			size = uCompressedSize;
+			compressor = "bz2";
+		}
+		Mem_Free( pbOut );
+#else
+		Host_Error( "%s: BZ2 compression is not supported for server\n", __func__ );
+#endif
+	}
+	else
+	{
+		uint uCompressedSize = 0;
+		byte *pbOut = LZSS_Compress( pbuf, size, &uCompressedSize );
 		if( pbOut && uCompressedSize > 0 && uCompressedSize < size )
 		{
 			Con_DPrintf( "Compressing filebuffer (%s -> %s)\n", Q_memprint( size ), Q_memprint( uCompressedSize ));
 			memcpy( pbuf, pbOut, uCompressedSize );
 			size = uCompressedSize;
+			compressor = "lzss";
 		}
-		if( pbOut ) free( pbOut );
+		if( pbOut )
+			free( pbOut );
 	}
 
 	wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
@@ -956,6 +977,13 @@ void Netchan_CreateFileFragmentsFromBuffer( netchan_t *chan, const char *filenam
 		{
 			// write filename
 			MSG_WriteString( &buf->frag_message, filename );
+			
+			// write compressor name and uncompressed size
+			if( chan->gs_netchan )
+			{
+				MSG_WriteString( &buf->frag_message, compressor );
+				MSG_WriteLong( &buf->frag_message, originalSize );
+			}
 
 			// send a bit less on first package
 			send -= MSG_GetNumBytesWritten( &buf->frag_message );
@@ -999,18 +1027,23 @@ Netchan_CreateFileFragments
 */
 int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 {
-	int		chunksize;
-	int		send, pos;
-	int		remaining;
-	int		bufferid = 1;
-	fs_offset_t	filesize = 0;
-	int		compressedFileTime;
-	int		fileTime;
-	qboolean		firstfragment = true;
-	qboolean		bCompressed = false;
-	fragbufwaiting_t	*wait, *p;
-	fragbuf_t		*buf;
-	char		compressedfilename[sizeof( buf->filename ) + 5];
+	int         chunksize;
+	int         send, pos;
+	int         remaining;
+	int         bufferid = 1;
+	fs_offset_t filesize = 0;
+	fs_offset_t originalSize = 0;
+	int         compressedFileTime;
+	int         fileTime;
+	qboolean    firstfragment = true;
+	qboolean    bCompressed = false;
+	fragbufwaiting_t *wait, *p;
+	fragbuf_t   *buf;
+	char        compressedfilename[sizeof( buf->filename ) + 5];
+	const char  *compressor = "";
+	uint        uCompressedSize = 0;
+	byte        *compressed = NULL;
+	byte        *uncompressed = NULL;
 
 	// shouldn't be critical, but just in case
 	if( Q_strlen( filename ) > sizeof( buf->filename ) - 1 )
@@ -1025,6 +1058,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		return 0;
 	}
 
+	originalSize = filesize;
 	chunksize = chan->pfnBlockSize( chan->client, FRAGSIZE_FRAG );
 
 	Q_snprintf( compressedfilename, sizeof( compressedfilename ), "%s.ztmp", filename );
@@ -1043,20 +1077,37 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	}
 	else
 	{
-		uint	uCompressedSize;
-		byte	*uncompressed;
-		byte	*compressed;
-
 		uncompressed = FS_LoadFile( filename, &filesize, false );
-		compressed = LZSS_Compress( uncompressed, filesize, &uCompressedSize );
-
-		if( compressed )
+		if( chan->gs_netchan )
 		{
-			Con_DPrintf( "compressed file %s (%s -> %s)\n", filename, Q_memprint( filesize ), Q_memprint( uCompressedSize ));
-			FS_WriteFile( compressedfilename, compressed, uCompressedSize );
-			filesize = uCompressedSize;
-			bCompressed = true;
-			free( compressed );
+#if !XASH_DEDICATED
+			compressed = Mem_Malloc( net_mempool, filesize + 600 );
+			uCompressedSize = filesize + 600;
+			if( BZ2_bzBuffToBuffCompress( compressed, &uCompressedSize, uncompressed, filesize, 9, 0, 30 ) == BZ_OK && uCompressedSize < filesize )
+			{
+				Con_DPrintf( "compressed file %s (%s -> %s)\n", filename, Q_memprint( filesize ), Q_memprint( uCompressedSize ));
+				FS_WriteFile( compressedfilename, compressed, uCompressedSize );
+				filesize = uCompressedSize;
+				bCompressed = true;
+				compressor = "bz2";
+			}
+			Mem_Free( compressed );
+#else
+			Host_Error( "%s: BZ2 compression is not supported for server\n", __func__ );
+#endif
+		}
+		else
+		{
+			compressed = LZSS_Compress( uncompressed, filesize, &uCompressedSize );
+			if( compressed && uCompressedSize > 0 && uCompressedSize < filesize )
+			{
+				Con_DPrintf( "compressed file %s (%s -> %s)\n", filename, Q_memprint( filesize ), Q_memprint( uCompressedSize ));
+				FS_WriteFile( compressedfilename, compressed, uCompressedSize );
+				filesize = uCompressedSize;
+				bCompressed = true;
+				compressor = "lzss";
+				free( compressed );
+			}
 		}
 		Mem_Free( uncompressed );
 	}
@@ -1079,6 +1130,13 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		{
 			// Write filename
 			MSG_WriteString( &buf->frag_message, filename );
+
+			// write compressor name and uncompressed size
+			if( chan->gs_netchan )
+			{
+				MSG_WriteString( &buf->frag_message, compressor );
+				MSG_WriteLong( &buf->frag_message, (uint)originalSize );
+			}
 
 			// Send a bit less on first package
 			send -= MSG_GetNumBytesWritten( &buf->frag_message );
@@ -1338,7 +1396,14 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		byte *uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
 		Con_DPrintf( "Decompressing file %s (%d -> %d bytes)\n", filename, nsize, uncompressedSize );
-		BZ2_bzBuffToBuffDecompress( uncompressedBuffer, &uncompressedSize, buffer, nsize, 1, 0 );
+		if( BZ2_bzBuffToBuffDecompress( uncompressedBuffer, &uncompressedSize, buffer, nsize, 1, 0 ) != BZ_OK )
+		{
+			Con_DPrintf( S_ERROR "BZ2 decompression failed for %s\n", filename );
+			Mem_Free( buffer );
+			Mem_Free( uncompressedBuffer );
+			Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
+			return false;
+		}
 		Mem_Free( buffer );
 		nsize = uncompressedSize;
 		buffer = uncompressedBuffer;
@@ -1348,7 +1413,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	}
 	else if( chan->use_lzss && LZSS_IsCompressed( buffer, nsize + 1 ))
 	{
-		byte	*uncompressedBuffer;
+		byte *uncompressedBuffer;
 
 		uncompressedSize = LZSS_GetActualSize( buffer, nsize + 1 ) + 1;
 		uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );

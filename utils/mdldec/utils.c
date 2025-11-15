@@ -21,6 +21,11 @@ GNU General Public License for more details.
 #include "xash3d_types.h"
 #include "port.h"
 #include "crtlib.h"
+#if XASH_WIN32
+#include <direct.h>
+#else
+#define _mkdir( x ) mkdir(( x ), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )
+#endif
 #include "settings.h"
 #include "utils.h"
 
@@ -40,7 +45,6 @@ qboolean MakeDirectory( const char *path )
 			// with FS_CreatePath
 #if XASH_WIN32
 		        DWORD   dwFlags = GetFileAttributes( path );
-
 		        return ( dwFlags != -1 ) && ( dwFlags & FILE_ATTRIBUTE_DIRECTORY );
 #else
 		        struct stat buf;
@@ -63,6 +67,9 @@ MakeFullPath
 qboolean MakeFullPath( const char *path )
 {
 	char *p = (char *)path, tmp;
+
+	if( *p == '/' )
+		p++;
 
 	for( ; *p; )
 	{

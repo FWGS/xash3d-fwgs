@@ -14,7 +14,7 @@
 try: from fwgslib import get_flags_by_type, get_flags_by_compiler
 except: from waflib.extras.fwgslib import get_flags_by_type, get_flags_by_compiler
 from waflib.Configure import conf
-from waflib import Logs
+from waflib import Logs, Utils
 
 '''
 Flags can be overriden and new types can be added
@@ -186,6 +186,8 @@ def options(opt):
 def configure(conf):
 	conf.start_msg('Build type')
 
+	conf.options.BUILD_TYPE = conf.options.BUILD_TYPE.lower()
+
 	# legacy naming for default release build
 	# https://chaos.social/@karolherbst/111340511652012860
 	if conf.options.BUILD_TYPE == 'release':
@@ -257,6 +259,20 @@ def get_optimization_flags(conf):
 		# this port don't have stack printing support
 		cflags.remove('-fasynchronous-unwind-tables')
 
+	if conf.env.DEST_CPU == 'riscv' and conf.env.DEST_OS == 'linux' and conf.options.BUILD_TYPE in ['release', 'fast']:
+		# try to guess better flags, as march=native is not supported in my toolchain yet
+		# shoddy work, remove later
+		s = None
+		for line in Utils.readf('/proc/cpuinfo').splitlines():
+			if line.startswith('uarch'):
+				s = line[line.find(':') + 2:]
+				break
+		march = None
+		if s == 'thead,c910':
+			march = '-march=rv64gc_xtheadvector'
+
+		conf.msg('Guessed best -march', march)
+
 	if conf.env.COMPILER_CC in ['gcc', 'clang'] and conf.options.LIMITED_DEBUGINFO:
 		# probably not a good idea to do this, but it should save space on Android builds especially
 		# that are never going to be run under debugger, but we still want that readable fileline
@@ -267,9 +283,7 @@ def get_optimization_flags(conf):
 	if conf.env.COMPILER_CC in ['gcc', 'clang'] and conf.env.DEST_OS not in ['android']:
 		# HLSDK by default compiles with these options under Linux
 		# no reason for us to not do the same
-
-		# TODO: fix DEST_CPU in force 32 bit mode
-		if conf.env.DEST_CPU == 'x86' or (conf.env.DEST_CPU == 'x86_64' and conf.env.DEST_SIZEOF_VOID_P == 4):
+		if conf.env.DEST_CPU == 'x86':
 			cflags.append('-march=pentium-m')
 			cflags.append('-mtune=core2')
 

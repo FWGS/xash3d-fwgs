@@ -102,7 +102,15 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 			bhdr.colors = 256;
 			cbPalBytes = ( 1 << bhdr.bitsPerPixel ) * sizeof( rgba_t );
 		}
-		else cbPalBytes = bhdr.colors * sizeof( rgba_t );
+		else
+		{
+			if( bhdr.colors > 256 )
+			{
+				Con_DPrintf( S_WARN "%s: %s palette have too many colors (%u), clamping to 256\n", __func__, name, bhdr.colors );
+				bhdr.colors = 256;
+			}
+			cbPalBytes = bhdr.colors * sizeof( rgba_t );
+		}
 	}
 
 	estimatedSize = ( buf_p - buffer ) + cbPalBytes;
@@ -211,13 +219,13 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 				column--;	// ingnore main iterations
 				for( c = 0, k = 128; c < 8; c++, k >>= 1 )
 				{
+					if( ++column >= columns )
+						break;
 					red = green = blue = (!!(alpha & k) == 1 ? 0xFF : 0x00);
 					*pixbuf++ = red;
 					*pixbuf++ = green;
 					*pixbuf++ = blue;
 					*pixbuf++ = 0x00;
-					if( ++column == columns )
-						break;
 				}
 				break;
 			case 4:

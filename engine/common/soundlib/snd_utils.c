@@ -14,9 +14,6 @@ GNU General Public License for more details.
 */
 
 #include "soundlib.h"
-#if XASH_SDL
-#include <SDL_audio.h>
-#endif // XASH_SDL
 
 // global sound variables
 sndlib_t	sound;
@@ -383,31 +380,6 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth
 	sc->samples = outcount;
 	if( FBitSet( sc->flags, SOUND_LOOPED ))
 		sc->loopStart = sc->loopStart / stepscale;
-
-#if 0 && XASH_SDL // slow but somewhat accurate (wasn't updated to channel manipulation!!!)
-	{
-		const SDL_AudioFormat infmt  = inwidth  == 1 ? AUDIO_S8 : AUDIO_S16;
-		const SDL_AudioFormat outfmt = outwidth == 1 ? AUDIO_S8 : AUDIO_S16;
-		SDL_AudioCVT cvt;
-
-		// SDL_AudioCVT does conversion in place, original buffer is used for it
-		if( SDL_BuildAudioCVT( &cvt, infmt, inchannels, inrate, outfmt, outchannels, outrate ) > 0 && cvt.needed )
-		{
-			sc->buffer = (byte *)Mem_Realloc( host.soundpool, sc->buffer, oldsize * cvt.len_mult );
-			cvt.len = oldsize;
-			cvt.buf = sc->buffer;
-
-			if( !SDL_ConvertAudio( &cvt ))
-			{
-				t2 = Sys_DoubleTime();
-				Con_Reportf( "Sound_Resample: from [%d bit %d Hz] to [%d bit %d Hz] (took %.3fs through SDL)\n", inwidth * 8, inrate, outwidth * 8, outrate, t2 - t1 );
-				sc->rate = outrate;
-				sc->width = outwidth;
-				return false; // HACKHACK: return false so Sound_Process won't reallocate buffer
-			}
-		}
-	}
-#endif
 
 	sound.tempbuffer = (byte *)Mem_Realloc( host.soundpool, sound.tempbuffer, sc->size );
 

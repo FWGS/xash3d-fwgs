@@ -1,130 +1,140 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.LocalDateTime
 import java.time.Month
 import java.time.temporal.ChronoUnit
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+	alias(libs.plugins.android.application)
+	alias(libs.plugins.kotlin.android)
 }
 
 android {
-    namespace = "su.xash.engine"
-    ndkVersion = "28.0.13004108"
+	namespace = "su.xash.engine"
+	ndkVersion = "28.2.13676358"
+	compileSdk = 35
 
-    defaultConfig {
-        applicationId = "su.xash"
-        applicationIdSuffix = "engine"
-        versionName = "0.21"
-        versionCode = getBuildNum()
-        minSdk = 21
-        targetSdk = 34
-        compileSdk = 34
+	defaultConfig {
+		applicationId = "su.xash.engine"
+		versionName = "0.21-" + getGitHash()
+		versionCode = getBuildNum()
+		minSdk = 21
+		targetSdk = 35
 
-        externalNativeBuild {
-            cmake {
-                abiFilters("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-                arguments("-DANDROID_USE_LEGACY_TOOLCHAIN_FILE=OFF")
-            }
-        }
-    }
+		externalNativeBuild {
+			val engineRoot = projectDir.parentFile.parent
 
-    externalNativeBuild {
-        cmake {
-            version = "3.22.1"
-            path = file("CMakeLists.txt")
-        }
-    }
+			experimentalProperties["ninja.abiFilters"] = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+			experimentalProperties["ninja.path"] = File(engineRoot, "wscript").path
+			experimentalProperties["ninja.configure"] = "run-python"
+			experimentalProperties["ninja.arguments"] = setOf(
+				File(engineRoot, "scripts/configure-ninja.py").path,
+				engineRoot,
+				"--variant=\${ndk.variantName}",
+				"--abi=\${ndk.abi}",
+				"--configuration-dir=\${ndk.buildRoot}",
+				"--ndk-version=\${ndk.moduleNdkVersion}",
+				"--min-sdk-version=\${ndk.minPlatform}",
+				"--ndk-root=${android.ndkDirectory}",
+				// shut up, fake options
+				"-p:Configuration=\${ndk.variantName}",
+				"-p:Platform=\${ndk.abi}"
+			)
+		}
+	}
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
+	compileOptions {
+		sourceCompatibility = JavaVersion.VERSION_11
+		targetCompatibility = JavaVersion.VERSION_11
+	}
 
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
+	kotlin {
+		compilerOptions {
+			jvmTarget = JvmTarget.JVM_11
+		}
+	}
 
-    buildTypes {
-        debug {
-            isMinifyEnabled = false
-            isShrinkResources = false
-            isDebuggable = true
-            applicationIdSuffix = ".test"
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            )
-        }
+	buildFeatures {
+		viewBinding = true
+		buildConfig = true
+	}
 
-        release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            )
-        }
+	lint {
+		abortOnError = false
+	}
 
-        register("asan") {
-            initWith(getByName("debug"))
-        }
+/*
+	androidResources {
+		noCompress += ""
+	}
+*/
 
-        register("continuous") {
-            initWith(getByName("release"))
-            applicationIdSuffix = ".test"
-        }
-    }
+	packaging {
+		jniLibs {
+			keepDebugSymbols.add("**/*.so")
+			useLegacyPackaging = true
+		}
+	}
 
-    sourceSets {
-        getByName("main") {
-            assets.srcDirs("../../3rdparty/extras/xash-extras", "../moddb")
-            java.srcDir("../../3rdparty/SDL/android-project/app/src/main/java")
-        }
-    }
+	sourceSets {
+		getByName("main") {
+			assets.srcDirs("../../3rdparty/extras/xash-extras")
+			java.srcDir("../../3rdparty/SDL/android-project/app/src/main/java")
+		}
+	}
 
-    lint {
-        abortOnError = false
-    }
+	buildTypes {
+		debug {
+			isMinifyEnabled = false
+			isShrinkResources = false
+			isDebuggable = true
+			applicationIdSuffix = ".test"
+			proguardFiles(
+				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+			)
+		}
 
-    buildFeatures {
-        viewBinding = true
-        buildConfig = true
-    }
+		release {
+			isMinifyEnabled = true
+			isShrinkResources = true
+			proguardFiles(
+				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+			)
+		}
 
-    androidResources {
-        noCompress += ""
-    }
+		register("asan") {
+			initWith(getByName("debug"))
+		}
 
-    packaging {
-        jniLibs {
-            useLegacyPackaging = true
-            keepDebugSymbols.add("**/*.so")
-        }
-    }
+		register("continuous") {
+			initWith(getByName("release"))
+			applicationIdSuffix = ".test"
+		}
+	}
 }
 
 dependencies {
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
-    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
-    implementation("androidx.cardview:cardview:1.0.0")
-    implementation("androidx.annotation:annotation:1.7.1")
-    implementation("androidx.fragment:fragment-ktx:1.6.2")
-    implementation("androidx.preference:preference-ktx:1.2.1")
-    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
-//  implementation "androidx.legacy:legacy-support-v4:1.0.0"
+	implementation(libs.material)
 
-    implementation("com.madgag.spongycastle:prov:1.58.0.0")
-    implementation("in.dragonbra:javasteam:1.2.0")
+	implementation(libs.appcompat)
+	implementation(libs.navigation.runtime.ktx)
+	implementation(libs.navigation.fragment.ktx)
+	implementation(libs.navigation.ui.ktx)
+	implementation(libs.preference.ktx)
+	implementation(libs.swiperefreshlayout)
 
-    implementation("ch.acra:acra-http:5.11.2")
+	implementation(libs.acra.http)
 }
 
 fun getBuildNum(): Int {
-    val now = LocalDateTime.now()
-    val releaseDate = LocalDateTime.of(2015, Month.APRIL, 1, 0, 0, 0)
-    val qBuildNum = releaseDate.until(now, ChronoUnit.DAYS)
-    val minuteOfDay = now.hour * 60 + now.minute
-    return (qBuildNum * 10000 + minuteOfDay).toInt()
+	val now = LocalDateTime.now()
+	val releaseDate = LocalDateTime.of(2015, Month.APRIL, 1, 0, 0, 0)
+	val qBuildNum = releaseDate.until(now, ChronoUnit.DAYS)
+	val minuteOfDay = now.hour * 60 + now.minute
+	return (qBuildNum * 10000 + minuteOfDay).toInt()
+}
+
+fun getGitHash(): String {
+	val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD").directory(project.rootDir)
+		.redirectErrorStream(true).start()
+	return process.inputStream.bufferedReader().readText().trim()
 }

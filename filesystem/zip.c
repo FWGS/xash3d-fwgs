@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #endif
 #include <errno.h>
 #include <stddef.h>
-#include STDINT_H
+#include <stdint.h>
 #include "port.h"
 #include "filesystem_internal.h"
 #include "crtlib.h"
@@ -209,7 +209,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 	c = FS_Read( zip->handle, &signature, sizeof( signature ));
 
-	if( c != sizeof( signature ) || signature == ZIP_HEADER_EOCD )
+	if( c != sizeof( signature ) || signature == LittleLong( ZIP_HEADER_EOCD ))
 	{
 		Con_Reportf( S_WARN "%s has no files. Ignored.\n", zipfile );
 
@@ -220,7 +220,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		return NULL;
 	}
 
-	if( signature != ZIP_HEADER_LF )
+	if( signature != LittleLong( ZIP_HEADER_LF ))
 	{
 		Con_Reportf( S_ERROR "%s is not a zip file. Ignored.\n", zipfile );
 
@@ -239,13 +239,13 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		FS_Seek( zip->handle, filepos, SEEK_SET );
 		c = FS_Read( zip->handle, &signature, sizeof( signature ));
 
-		if( c == sizeof( signature ) && signature == ZIP_HEADER_EOCD )
+		if( c == sizeof( signature ) && signature == LittleLong( ZIP_HEADER_EOCD ))
 			break;
 
 		filepos -= sizeof( char ); // step back one byte
 	}
 
-	if( ZIP_HEADER_EOCD != signature )
+	if( signature != LittleLong( ZIP_HEADER_EOCD ))
 	{
 		Con_Reportf( S_ERROR "cannot find EOCD in %s. Zip file corrupted.\n", zipfile );
 
@@ -269,6 +269,14 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 		return NULL;
 	}
 
+	header_eocd.disk_number = LittleShort( header_eocd.disk_number );
+	header_eocd.start_disk_number = LittleShort( header_eocd.start_disk_number );
+	header_eocd.number_central_directory_record = LittleShort( header_eocd.number_central_directory_record );
+	header_eocd.total_central_directory_record = LittleShort( header_eocd.total_central_directory_record );
+	header_eocd.size_of_central_directory = LittleLong( header_eocd.size_of_central_directory );
+	header_eocd.central_directory_offset = LittleLong( header_eocd.central_directory_offset );
+	header_eocd.commentary_len = LittleShort( header_eocd.commentary_len );
+
 	if( header_eocd.total_central_directory_record == 0 ) // refuse to load empty ZIP archives
 	{
 		Con_Reportf( S_WARN "%s has no files (total records is zero). Ignored.\n", zipfile );
@@ -291,7 +299,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	{
 		c = FS_Read( zip->handle, &header_cdf, sizeof( header_cdf ));
 
-		if( c != sizeof( header_cdf ) || header_cdf.signature != ZIP_HEADER_CDF )
+		if( c != sizeof( header_cdf ) || header_cdf.signature != LittleLong( ZIP_HEADER_CDF ))
 		{
 			Con_Reportf( S_ERROR "CDF signature mismatch in %s. Zip file corrupted.\n", zipfile );
 
@@ -301,6 +309,24 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 			FS_CloseZIP( zip );
 			return NULL;
 		}
+
+		header_cdf.signature = LittleLong( header_cdf.signature );
+		header_cdf.version = LittleShort( header_cdf.version );
+		header_cdf.version_need  = LittleShort( header_cdf.version_need );
+		header_cdf.generalPurposeBitFlag = LittleShort( header_cdf.generalPurposeBitFlag );
+		header_cdf.flags = LittleShort( header_cdf.flags );
+		header_cdf.modification_time = LittleShort( header_cdf.modification_time );
+		header_cdf.modification_date = LittleShort( header_cdf.modification_date );
+		header_cdf.crc32 = LittleLong( header_cdf.crc32 );
+		header_cdf.compressed_size = LittleLong( header_cdf.compressed_size );
+		header_cdf.uncompressed_size = LittleLong( header_cdf.uncompressed_size );
+		header_cdf.filename_len = LittleShort( header_cdf.filename_len );
+		header_cdf.extrafield_len = LittleShort( header_cdf.extrafield_len );
+		header_cdf.file_commentary_len = LittleShort( header_cdf.file_commentary_len );
+		header_cdf.disk_start = LittleShort( header_cdf.disk_start );
+		header_cdf.internal_attr = LittleShort( header_cdf.internal_attr );
+		header_cdf.external_attr = LittleLong( header_cdf.external_attr );
+		header_cdf.local_header_offset = LittleLong( header_cdf.local_header_offset );
 
 		if( header_cdf.uncompressed_size && header_cdf.filename_len && header_cdf.filename_len < sizeof( filename_buffer ))
 		{
@@ -364,6 +390,17 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 			FS_CloseZIP( zip );
 			return NULL;
 		}
+
+		header.signature = LittleLong( header.signature );
+		header.version = LittleShort( header.version );
+		header.flags = LittleShort( header.flags );
+		header.compression_flags = LittleShort( header.compression_flags );
+		header.dos_date = LittleLong( header.dos_date );
+		header.crc32 = LittleLong( header.crc32 );
+		header.compressed_size = LittleLong( header.compressed_size );
+		header.uncompressed_size = LittleLong( header.uncompressed_size );
+		header.filename_len = LittleShort( header.filename_len );
+		header.extrafield_len = LittleShort( header.extrafield_len );
 
 		info[i].flags = header.compression_flags;
 		info[i].offset = info[i].offset + header.filename_len + header.extrafield_len + sizeof( header );

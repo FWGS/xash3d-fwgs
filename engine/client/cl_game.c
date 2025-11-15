@@ -13,8 +13,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#if XASH_SDL
+#if XASH_SDL == 2
 #include <SDL.h> // SDL_GetWindowPosition
+#elif XASH_SDL == 3
+#include <SDL3/SDL.h> // SDL_GetWindowPosition
 #endif // XASH_SDL
 
 #include "common.h"
@@ -434,12 +436,15 @@ void CL_DrawCenterPrint( void )
 
 		while( *pText && *pText != '\n' && lineLength < MAX_LINELENGTH )
 		{
-			byte c = *pText;
-			line[lineLength] = c;
-			CL_DrawCharacterLen( font, c, &charWidth, NULL );
+			int number = Con_UtfProcessChar(( byte ) * pText );
+			pText++;
+			if( number == 0 )
+				continue;
+
+			line[lineLength] = number;
+			CL_DrawCharacterLen( font, number, &charWidth, NULL );
 			width += charWidth;
 			lineLength++;
-			pText++;
 		}
 
 		if( lineLength == MAX_LINELENGTH )
@@ -453,7 +458,7 @@ void CL_DrawCenterPrint( void )
 		for( j = 0; j < lineLength; j++ )
 		{
 			if( x >= 0 && y >= 0 && x <= refState.width )
-				x += CL_DrawCharacter( x, y, line[j], colorDefault, font, FONT_DRAW_UTF8 | FONT_DRAW_HUD | FONT_DRAW_NORENDERMODE );
+				x += CL_DrawCharacter( x, y, line[j], colorDefault, font, FONT_DRAW_HUD | FONT_DRAW_NORENDERMODE );
 		}
 		y += charHeight;
 	}
@@ -588,7 +593,7 @@ Template to show hud messages
 void CL_HudMessage( const char *pMessage )
 {
 	if( !COM_CheckString( pMessage )) return;
-	CL_DispatchUserMessage( "HudText", Q_strlen( pMessage ), (void *)pMessage );
+	CL_DispatchUserMessage( "HudText", Q_strlen( pMessage ) + 1, (void *)pMessage );
 }
 
 /*
@@ -1276,8 +1281,8 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		Mod_LoadMapSprite( m_pSprite, buf, size, &loaded );
 	else
 	{
-		Mod_LoadSpriteModel( m_pSprite, buf, &loaded );
-		ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf );
+		Mod_LoadSpriteModel( m_pSprite, buf, size, &loaded );
+		ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf, size );
 	}
 
 	Mem_Free( buf );
@@ -2083,6 +2088,7 @@ GetWindowCenterX
 static int GAME_EXPORT pfnGetWindowCenterX( void )
 {
 	int x = 0;
+
 #if XASH_WIN32
 	if( m_ignore.value )
 	{
@@ -2092,7 +2098,7 @@ static int GAME_EXPORT pfnGetWindowCenterX( void )
 	}
 #endif
 
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 	SDL_GetWindowPosition( host.hWnd, &x, NULL );
 #endif
 
@@ -2108,6 +2114,7 @@ GetWindowCenterY
 static int GAME_EXPORT pfnGetWindowCenterY( void )
 {
 	int y = 0;
+
 #if XASH_WIN32
 	if( m_ignore.value )
 	{
@@ -2117,7 +2124,7 @@ static int GAME_EXPORT pfnGetWindowCenterY( void )
 	}
 #endif
 
-#if XASH_SDL == 2
+#if XASH_SDL >= 2
 	SDL_GetWindowPosition( host.hWnd, NULL, &y );
 #endif
 
@@ -3955,6 +3962,7 @@ qboolean CL_LoadProgs( const char *name )
 	CL_EXPORT_FUNCS	GetClientAPI; // single export
 	qboolean valid_single_export = false;
 	qboolean missed_exports = false;
+	qboolean try_internal_vgui_support = GI->internal_vgui_support;
 	int i;
 
 	if( clgame.hInstance ) CL_UnloadProgs();
@@ -3975,10 +3983,10 @@ qboolean CL_LoadProgs( const char *name )
 
 	// NOTE: important stuff!
 	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS during LoadLibrary
-	if( !GI->internal_vgui_support && VGui_LoadProgs( NULL ))
+	if( !try_internal_vgui_support && VGui_LoadProgs( NULL ))
 		VGui_Startup( refState.width, refState.height );
 	else
-		GI->internal_vgui_support = true; // we failed to load vgui_support, but let's probe client.dll for support anyway
+		try_internal_vgui_support = true; // we failed to load vgui_support, but let's probe client.dll for support anyway
 
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
 
@@ -3986,7 +3994,7 @@ qboolean CL_LoadProgs( const char *name )
 		return false;
 
 	// delayed vgui initialization for internal support
-	if( GI->internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
+	if( try_internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
 		VGui_Startup( refState.width, refState.height );
 
 	// clear exports

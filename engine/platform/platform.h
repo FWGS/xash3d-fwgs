@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+#include <errno.h>
 #include "common.h"
 #include "system.h"
 #include "defaults.h"
@@ -39,6 +40,7 @@ qboolean Platform_DebuggerPresent( void );
 
 // legacy iOS port functions
 #if TARGET_OS_IOS
+int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 void IOS_LaunchDialog( void );
 #endif // TARGET_OS_IOS
@@ -58,6 +60,7 @@ char *Posix_Input( void );
 #if XASH_SDL
 void SDLash_Init( const char *basedir );
 void SDLash_Shutdown( void );
+void SDLash_NanoSleep( int nsec );
 #endif
 
 #if XASH_ANDROID
@@ -171,14 +174,19 @@ static inline void Platform_SetupSigtermHandling( void )
 
 static inline qboolean Platform_NanoSleep( int nsec )
 {
+#if XASH_SDL == 3
+	SDLash_NanoSleep( nsec );
+	return true;
 	// SDL2 doesn't have nanosleep, so use low-level functions here
-	// When this code will be ported to SDL3, use SDL_DelayNS
-#if XASH_POSIX
+#elif XASH_POSIX
 	struct timespec ts = {
 		.tv_sec = 0,
 		.tv_nsec = nsec, // just don't put large numbers here
 	};
-	return nanosleep( &ts, NULL ) == 0;
+	int ret = nanosleep( &ts, NULL );
+	if( ret < 0 )
+		return errno == EINTR; // ignore EINTR error, it just means sleep was interrupted
+	return true;
 #elif XASH_WIN32
 	return Win32_NanoSleep( nsec );
 #else
@@ -207,8 +215,13 @@ static inline void Sys_RestoreCrashHandler( void )
 
 ==============================================================================
 */
+#if XASH_SDL >= 2
 void Platform_Vibrate( float life, char flags ); // left for compatibility
 void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags );
+#else
+static inline void Platform_Vibrate( float life, char flags ) {}
+static inline void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags ) {}
+#endif
 
 /*
 ==============================================================================
@@ -217,51 +230,58 @@ void Platform_Vibrate2( float time, int low_freq, int high_freq, uint flags );
 
 ==============================================================================
 */
-// Gamepad support
-#if XASH_SDL
+#if XASH_SDL // only SDL based backends implements these functions
+void Platform_PreCreateMove( void );
+void GAME_EXPORT Platform_GetMousePos( int *x, int *y );
+void GAME_EXPORT Platform_SetMousePos( int x, int y );
+qboolean Platform_GetMouseGrab( void );
+void Platform_SetMouseGrab( qboolean enable );
+void Platform_SetCursorType( VGUI_DefaultCursor type );
+int Platform_GetClipboardText( char *buffer, size_t size );
+void Platform_SetClipboardText( const char *buffer );
+#else
+static inline void Platform_PreCreateMove( void ) { }
+static inline void GAME_EXPORT Platform_SetMousePos( int x, int y ) { }
+static inline void Platform_SetMouseGrab( qboolean enable ) { }
+static inline void Platform_SetCursorType( VGUI_DefaultCursor type ) { }
+static inline int Platform_GetClipboardText( char *buffer, size_t size ) { return 0; }
+static inline void Platform_SetClipboardText( const char *buffer ) { }
+static inline qboolean Platform_GetMouseGrab( void ) { return false; }
+static inline void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
+{
+	if( x ) *x = 0;
+	if( y ) *y = 0;
+}
+#endif
+
+#if XASH_SDL || XASH_DOS
+void Platform_RunEvents( void );
+void Platform_MouseMove( float *x, float *y );
+#else
+static inline void Platform_RunEvents( void ) { }
+static inline void Platform_MouseMove( float *x, float *y )
+{
+	if( x ) *x = 0.0f;
+	if( y ) *y = 0.0f;
+}
+#endif
+
+#if XASH_SDL >= 2 || XASH_PSVITA || XASH_DOS || XASH_USE_EVDEV
+void Platform_EnableTextInput( qboolean enable );
+#else
+static inline void Platform_EnableTextInput( qboolean enable ) { }
+#endif
+
+#if XASH_SDL >= 2
 int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
 void Platform_JoyShutdown( void );
 void Platform_CalibrateGamepadGyro( void );
-#else
-static inline int Platform_JoyInit( void )
-{
-	return 0;
-}
-
-static inline void Platform_JoyShutdown( void )
-{
-
-}
-
-static inline void Platform_CalibrateGamepadGyro( void )
-{
-
-}
-#endif
-
-// Text input
-void Platform_EnableTextInput( qboolean enable );
 key_modifier_t Platform_GetKeyModifiers( void );
-// System events
-void Platform_RunEvents( void );
-// Mouse
-void Platform_GetMousePos( int *x, int *y );
-void Platform_SetMousePos( int x, int y );
-void Platform_PreCreateMove( void );
-void Platform_MouseMove( float *x, float *y );
-void Platform_SetCursorType( VGUI_DefaultCursor type );
-// Clipboard
-int Platform_GetClipboardText( char *buffer, size_t size );
-void Platform_SetClipboardText( const char *buffer );
-
-#if XASH_SDL == 12
-#define SDL_SetWindowGrab( wnd, state ) SDL_WM_GrabInput( (state) )
-#define SDL_MinimizeWindow( wnd ) SDL_WM_IconifyWindow()
-#define SDL_IsTextInputActive() host.textmode
-#endif
-
-#if !XASH_SDL
-#define SDL_VERSION_ATLEAST( x, y, z ) 0
+#else
+static inline int Platform_JoyInit( void ) { return 0; }
+static inline void Platform_JoyShutdown( void ) { }
+static inline void Platform_CalibrateGamepadGyro( void ) { }
+static inline key_modifier_t Platform_GetKeyModifiers( void ) { return KeyModifier_None; }
 #endif
 
 static inline void Platform_SetTimer( float time )
@@ -299,6 +319,8 @@ typedef enum
 
 struct vidmode_s;
 typedef enum window_mode_e window_mode_t;
+typedef enum ref_window_type_e ref_window_type_t;
+
 // Window
 qboolean  R_Init_Video( const int type );
 void      R_Free_Video( void );
@@ -314,7 +336,8 @@ void GL_SwapBuffers( void );
 void *SW_LockBuffer( void );
 void SW_UnlockBuffer( void );
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
-
+void Platform_Minimize_f( void );
+ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type );
 
 //
 // in_evdev.c

@@ -413,7 +413,7 @@ SV_QuickLoad_f
 */
 static void SV_QuickLoad_f( void )
 {
-	Cbuf_AddText( "echo Quick Loading...; wait; load quick" );
+	Cbuf_AddText( "echo Quick Loading...; wait; load quick\n" );
 }
 
 /*
@@ -451,7 +451,7 @@ SV_QuickSave_f
 */
 static void SV_QuickSave_f( void )
 {
-	Cbuf_AddText( "echo Quick Saving...; wait; save quick" );
+	Cbuf_AddText( "echo Quick Saving...; wait; save quick\n" );
 }
 
 /*
@@ -629,11 +629,13 @@ static void SV_Status_f( void )
 {
 	int		i;
 
+#if !XASH_DEDICATED
 	if( !svs.clients && CL_Active( ))
 	{
 		Cmd_ForwardToServer();
 		return;
 	}
+#endif // XASH_DEDICATED
 
 	if( !svs.clients || sv.background )
 	{
@@ -660,13 +662,15 @@ static void SV_Status_f( void )
 			continue;
 
 		if( cl->state == cs_connected )
-			s = "Cnct";
+			s = "Connect ";
+		else if( cl->state == cs_spawning )
+			s = "Spawning";
 		else if( cl->state == cs_zombie )
-			s = "Zmbi";
+			s = "Zombie  ";
 		else if( FBitSet( cl->flags, FCL_FAKECLIENT ))
-			s = "Bot ";
+			s = "Bot     ";
 		else
-			s = va( "%i", SV_CalcPing( cl ));
+			s = va( "%8i", SV_CalcPing( cl ));
 
 		input_devices = Q_atoi( Info_ValueForKey( cl->useragent, "d" ));
 

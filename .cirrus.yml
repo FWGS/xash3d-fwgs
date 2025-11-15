@@ -4,20 +4,18 @@ task:
     image_family: freebsd-14-2
   setup_script:
     - pkg update
-    - pkg install -y pkgconf git sdl2 python fontconfig libvorbis opusfile bzip2 libbacktrace
+    - pkg install -y pkgconf git sdl2 python freetype2 libvorbis opusfile bzip2 libbacktrace libogg libvorbis
     - git submodule update --init --recursive
   test_script:
-    - ./scripts/cirrus/build_freebsd.sh dedicated
-    - ./scripts/cirrus/build_freebsd.sh full
+    - ./scripts/cirrus/build_freebsd.sh
 
-task:
-  name: freebsd-15-amd64
-  freebsd_instance:
-    image_family: freebsd-15-0-snap
-  setup_script:
-    - pkg update
-    - pkg install -y pkgconf git sdl2 python fontconfig libvorbis opusfile bzip2 libbacktrace
-    - git submodule update --init --recursive
-  test_script:
-    - ./scripts/cirrus/build_freebsd.sh dedicated
-    - ./scripts/cirrus/build_freebsd.sh full
+#task:
+#  name: freebsd-15-amd64
+#  freebsd_instance:
+#    image_family: freebsd-15-0-snap
+#  setup_script:
+#    - pkg update
+#    - pkg install -y pkgconf git sdl2 python freetype2 libvorbis opusfile bzip2 libbacktrace libogg libvorbis
+#    - git submodule update --init --recursive
+#  test_script:
+#    - ./scripts/cirrus/build_freebsd.sh

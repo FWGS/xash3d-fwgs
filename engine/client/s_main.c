@@ -20,8 +20,6 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "platform/platform.h"
 
-#define SND_CLIP_DISTANCE		1000.0f
-
 dma_t		dma;
 poolhandle_t sndpool;
 static soundfade_t	soundfade;
@@ -39,7 +37,7 @@ static CVAR_DEFINE( s_volume, "volume", "0.7", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "
 CVAR_DEFINE( s_musicvolume, "MP3Volume", "1.0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "background music volume" );
 static CVAR_DEFINE( s_mixahead, "_snd_mixahead", "0.12", FCVAR_FILTERABLE, "how much sound to mix ahead of time" );
 static CVAR_DEFINE_AUTO( s_show, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "show playing sounds" );
-CVAR_DEFINE_AUTO( s_lerping, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "apply interpolation to sound output" );
+CVAR_DEFINE_AUTO( s_lerping, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "apply interpolation to sound output (deprecated)" );
 static CVAR_DEFINE( s_ambient_level, "ambient_level", "0.3", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "volume of environment noises (water and wind)" );
 static CVAR_DEFINE( s_ambient_fade, "ambient_fade", "1000", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "rate of volume fading when client is moving" );
 static CVAR_DEFINE_AUTO( s_combine_sounds, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "combine channels with same sounds" );
@@ -1056,6 +1054,8 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 	size_t	raw_samples = 0;
 	rawchan_t	*ch;
 
+	if( !sndpool ) return NULL; // sound is not active
+
 	if( !entnum ) return NULL; // world is unused
 
 	// check for replacement sound, or find the best one to replace
@@ -1111,7 +1111,7 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 S_RawSamplesStereo
 ===================
 */
-static uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
+uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
 {
 	uint	fracstep, samplefrac;
 	uint	src, dst;
@@ -1195,20 +1195,6 @@ void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word chan
 
 /*
 ===================
-S_RawSamples
-===================
-*/
-void S_RawSamples( uint samples, uint rate, word width, word channels, const byte *data, int entnum )
-{
-	int	snd_vol = 128;
-
-	if( entnum < 0 ) snd_vol = 256; // bg track or movie track
-
-	S_RawEntSamples( entnum, samples, rate, width, channels, data, snd_vol );
-}
-
-/*
-===================
 S_FreeIdleRawChannels
 
 Free raw channel that have been idling for too long.
@@ -1226,9 +1212,14 @@ static void S_FreeIdleRawChannels( void )
 
 		if( ch->s_rawend >= paintedtime )
 			continue;
-		
-		if ( ch->entnum > 0 )
+
+		if( ch->entnum > 0 )
+		{
 			SND_ForceCloseMouth( ch->entnum );
+
+			if( ch->entnum <= MAX_CLIENTS )
+				Voice_StopChannel( ch->entnum );
+		}
 
 		if(( paintedtime - ch->s_rawend ) / SOUND_DMA_SPEED >= S_RAW_SOUND_IDLE_SEC )
 		{
@@ -1610,7 +1601,6 @@ void SND_UpdateSound( void )
 	}
 
 	S_StreamBackgroundTrack ();
-	S_StreamSoundTrack ();
 
 	// mix some sound
 	S_UpdateChannels ();
@@ -1816,7 +1806,7 @@ static void S_VoiceRecordStart_f( void )
 {
 	if( cls.state != ca_active )
 		return;
-	
+
 	Voice_RecordStart();
 }
 
@@ -1829,7 +1819,7 @@ static void S_VoiceRecordStop_f( void )
 {
 	if( cls.state != ca_active || !Voice_IsRecording() )
 		return;
-	
+
 	CL_AddVoiceToDatagram();
 	Voice_RecordStop();
 }
