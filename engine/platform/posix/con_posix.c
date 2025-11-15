@@ -19,6 +19,7 @@ GNU General Public License for more details.
 // use with caution, running engine in Qt Creator may cause a freeze in read() call
 // I have never encountered this bug anywhere else, so still enable by default
 #include <sys/select.h>
+#include <sys/time.h>
 
 char *Posix_Input( void )
 {
