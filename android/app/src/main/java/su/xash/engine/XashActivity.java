@@ -24,18 +24,20 @@ public class XashActivity extends SDLActivity {
 	private static final String TAG = "XashActivity";
 
 	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-
-		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-			//getWindow().addFlags(WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES);
-			getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
-		}
-
-		AndroidBug5497Workaround.assistActivity(this);
-	}
-
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_xash); 
+    int appWidth = 999;
+    int appHeight = 999;
+    XashEngine engine = XashEngine.getInstance();
+    engine.cmdExecute("vid_width " + appWidth);
+    engine.cmdExecute("vid_height " + appHeight);
+    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+    }
+    AndroidBug5497Workaround.assistActivity(this);
+}
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
