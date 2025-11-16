@@ -46,6 +46,8 @@ void VID_InitDefaultResolution( void )
 	refState.width = 640;
 	refState.height = 480;
 }
+int vid_width = 999；
+int vid_height = 999；
 
 /*
 =================
