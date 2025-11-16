@@ -217,8 +217,8 @@ static void VID_Mode_f( void )
 			return;
 		}
 
-		w = vidmode->width 700
-		h = vidmode->height 702
+		w = vidmode->width
+		h = vidmode->height
 		break;
 	}
 	case 3:
