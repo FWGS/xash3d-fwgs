@@ -1,4 +1,4 @@
-/*
+*
 vid_common.c - common vid component
 Copyright (C) 2018 a1batross, Uncle Mike
 
@@ -168,6 +168,38 @@ void VID_SetDisplayTransform( int *render_w, int *render_h )
 		Con_Printf( S_WARN "failed to setup screen transform\n" );
 
 		ref.rotation = REF_ROTATE_NONE;
+	}
+}
+
+static void VID_Mode_f( void )
+{
+	int w, h;
+
+	switch( Cmd_Argc() )
+	{
+	case 2:
+	{
+		vidmode_t *vidmode;
+
+		vidmode = R_GetVideoMode( Q_atoi( Cmd_Argv( 1 )) );
+		if( !vidmode )
+		{
+			Con_Printf( S_ERROR "unable to set mode, backend returned null" );
+			return;
+		}
+
+		w = vidmode->width;
+		h = vidmode->height;
+		break;
+	}
+	case 3:
+	{
+		w = Q_atoi( Cmd_Argv( 1 ));
+		h = Q_atoi( Cmd_Argv( 2 ));
+		break;
+	}
+	default:
+		Msg( S_USAGE "vid_mode <modenum>|<width height>\n = REF_ROTATE_NONE;
 	}
 }
 
