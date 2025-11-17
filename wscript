@@ -168,6 +168,9 @@ def options(opt):
 	grp.add_option('--enable-tests', action = 'store_true', dest = 'TESTS', default = False,
 		help = 'enable building standalone tests (does not enable engine tests!) [default: %(default)s]')
 
+	grp.add_option('--disable-rpath', action = 'store_false', dest = 'ENABLE_RPATH', default = True,
+		help = 'disables rpath, duh!')
+
 	# a1ba: special option for me
 	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
 	grp.add_option('--enable-msvcdeps', action='store_true', dest='MSVCDEPS', default=False, help='')
@@ -422,19 +425,18 @@ def configure(conf):
 
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
 
-	if conf.env.DEST_OS == 'darwin':
-		conf.env.DEFAULT_RPATH = '@loader_path'
-	elif conf.env.DEST_OS == 'openbsd':
-		# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
-		conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'
-		conf.env.DEFAULT_RPATH = '$ORIGIN'
-	elif conf.env.DEST_OS == 'irix':
-		linkflags.append('-Wl,-rpath-link=/usr/lib32')
-		conf.env.DEFAULT_RPATH = '/usr/lib32:/usr/sgug/lib32'
-	elif conf.env.DEST_OS in ['nswitch', 'psvita']:
-		conf.env.DEFAULT_RPATH = None
-	else:
-		conf.env.DEFAULT_RPATH = '$ORIGIN'
+	if conf.options.ENABLE_RPATH and conf.env.DEST_OS not in ['nswitch', 'psvita']:
+		if conf.env.DEST_OS == 'openbsd':
+			# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
+			conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'
+			conf.env.DEFAULT_RPATH = '$ORIGIN'
+		elif conf.env.DEST_OS == 'irix':
+			linkflags.append('-Wl,-rpath-link=/usr/lib32')
+			conf.env.DEFAULT_RPATH = '/usr/lib32:/usr/sgug/lib32'
+		elif conf.env.DEST_OS == 'darwin':
+			conf.env.DEFAULT_RPATH = '@loader_path'
+		else:
+			conf.env.DEFAULT_RPATH = '$ORIGIN'
 
 	setattr(conf, 'refdlls', REFDLLS)
 
