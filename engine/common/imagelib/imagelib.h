@@ -85,6 +85,7 @@ typedef struct imglib_s
 	uint			*d_currentpal;	// installed version of internal palette
 	int			d_rendermode;	// palette rendermode
 	byte			*palette;		// palette pointer
+	int                     black_pixel;     // "free" index used for luma textures (0 for Quake as it's black, 255 for Half-Life as it's #0000FF)
 
 	// global parms
 	rgba_t			fogParams;	// some water textures has info about underwater fog
