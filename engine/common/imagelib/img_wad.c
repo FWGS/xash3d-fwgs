@@ -430,7 +430,8 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 				{
 					if( fin[i] > 224 )
 					{
-						image.flags |= IMAGE_HAS_LUMA;
+						SetBits( image.flags, IMAGE_HAS_LUMA );
+						image.black_pixel = 0;
 						break;
 					}
 				}
@@ -464,15 +465,15 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		hl_texture = false;
 
 		// check for luma and alpha pixels
-		if( !image.custom_palette )
+		// don't apply luma to water surfaces because they have no lightmap
+		if( !image.custom_palette && mip.name[0] != '*' && mip.name != '!' )
 		{
 			for( i = 0; i < image.width * image.height; i++ )
 			{
 				if( fin[i] > 224 && fin[i] != 255 )
 				{
-					// don't apply luma to water surfaces because they have no lightmap
-					if( mip.name[0] != '*' && mip.name[0] != '!' )
-						image.flags |= IMAGE_HAS_LUMA;
+					SetBits( image.flags, IMAGE_HAS_LUMA );
+					image.black_pixel = 0;
 					break;
 				}
 			}

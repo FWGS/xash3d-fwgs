@@ -142,6 +142,7 @@ void Image_Reset( void )
 	image.fogParams[1] = 0;
 	image.fogParams[2] = 0;
 	image.fogParams[3] = 0;
+	image.black_pixel = 0;
 
 	// pointers will be saved with prevoius picture struct
 	// don't care about it
