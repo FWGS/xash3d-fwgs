@@ -70,6 +70,7 @@ typedef enum
 	IL_OVERVIEW	= BIT(6),	// overview required some unque operations
 	IL_LOAD_PLAYER_DECAL = BIT(7), // special mode for player decals
 	IL_KTX2_RAW = BIT(8), // renderer can consume raw KTX2 files (e.g. ref_vk)
+	IL_ALLOW_WAD3_LUMA = BIT(9), // allow usage of luma textures in wad3 (tilde textures)
 } ilFlags_t;
 
 // goes into rgbdata_t->encode

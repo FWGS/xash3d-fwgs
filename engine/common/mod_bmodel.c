@@ -2583,6 +2583,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	const mip_t *mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
 	const qboolean usesCustomPalette = Mod_CalcMipTexUsesCustomPalette( mod, bmod, textureIndex );
 	const qboolean iswater = Mod_LooksLikeWaterTexture( mipTex->name );
+	const uint texture_force_flags = r_allow_wad3_luma.value ? IL_ALLOW_WAD3_LUMA : 0;
 
 	// check for multi-layered sky texture (quake1 specific)
 	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
@@ -2633,6 +2634,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 #if !XASH_DEDICATED
 			if( !Host_IsDedicated( ) && pic != NULL )
 			{
+				Image_SetForceFlags( texture_force_flags );
 				texture->gl_texturenum = ref.dllFuncs.GL_LoadTextureFromBuffer( texpath, pic, txFlags, false );
 				FS_FreeImage( pic );
 			}
@@ -2652,6 +2654,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
 
 		Q_snprintf( texName, sizeof( texName ), "#%s:%s.mip", loadstat.name, mipTex->name );
+		Image_SetForceFlags( texture_force_flags );
 		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte *)mipTex, size, txFlags );
 	}
 
@@ -2683,6 +2686,8 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		char texName[64];
 
 		Q_snprintf( texName, sizeof( texName ), "#%s:%s_luma.mip", loadstat.name, mipTex->name );
+
+		Image_SetForceFlags( texture_force_flags );
 
 		if( mipTex->offsets[0] > 0 )
 		{
