@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #define LoadLibrary( x ) dlopen( x, RTLD_NOW )
 #define GetProcAddress( x, y ) dlsym( x, y )
 #define FreeLibrary( x ) dlclose( x )
+#define _mkdir( x ) mkdir(( x ), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH )
 #elif XASH_WIN32
 #include <windows.h>
 #include <direct.h>
