@@ -129,11 +129,12 @@ typedef struct world_static_s
 } world_static_t;
 
 #ifndef REF_DLL
-extern world_static_t	world;
-extern poolhandle_t     com_studiocache;
-extern convar_t		mod_studiocache;
-extern convar_t		r_wadtextures;
-extern convar_t		r_showhull;
+extern world_static_t world;
+extern poolhandle_t   com_studiocache;
+extern convar_t       mod_studiocache;
+extern convar_t       r_wadtextures;
+extern convar_t       r_showhull;
+extern convar_t       r_allow_wad3_luma;
 extern const mclipnode16_t box_clipnodes16[6];
 extern const mclipnode32_t box_clipnodes32[6];
 

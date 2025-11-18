@@ -31,6 +31,7 @@ poolhandle_t      com_studiocache;		// cache for submodels
 CVAR_DEFINE( mod_studiocache, "r_studiocache", "1", FCVAR_ARCHIVE, "enables studio cache for speedup tracing hitboxes" );
 CVAR_DEFINE_AUTO( r_wadtextures, "0", 0, "completely ignore textures in the bsp-file if enabled" );
 CVAR_DEFINE_AUTO( r_showhull, "0", 0, "draw collision hulls 1-3" );
+CVAR_DEFINE_AUTO( r_allow_wad3_luma, "0", FCVAR_ARCHIVE, "allow usage of luma textures in wad3 (tilde textures)" );
 
 /*
 ===============================================================================
@@ -142,6 +143,7 @@ void Mod_Init( void )
 	Cvar_RegisterVariable( &mod_studiocache );
 	Cvar_RegisterVariable( &r_wadtextures );
 	Cvar_RegisterVariable( &r_showhull );
+	Cvar_RegisterVariable( &r_allow_wad3_luma );
 
 	Cmd_AddCommand( "mapstats", Mod_PrintWorldStats_f, "show stats for currently loaded map" );
 	Cmd_AddCommand( "modellist", Mod_Modellist_f, "display loaded models list" );
