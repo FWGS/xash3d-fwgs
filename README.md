@@ -126,7 +126,7 @@ If compiling 32-bit on amd64, make sure `PKG_CONFIG_PATH` from the previous step
 3) Install: `./waf install --destdir=/path/to/any/output/directory`.
 
 #### Android (Windows/Linux/macOS)
-To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` branch and [HLSDK-portable](https://github.com/FWGS/hlsdk-portalbe) `mobile-hacks` branch repositories to 3rdparty folder, after that you should be able to open the project in Android Studio from `android` directory or manually call Gradle to build the APK.
+To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` branch and [HLSDK-portable](https://github.com/FWGS/hlsdk-portable) `mobile-hacks` branch repositories to 3rdparty folder, after that you should be able to open the project in Android Studio from `android` directory or manually call Gradle to build the APK.
 
 #### iOS/iPadOS (MacOS only)
 0) (optional) Examine which build options are available: `./waf --help`.
