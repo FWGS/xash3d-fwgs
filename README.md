@@ -41,10 +41,12 @@ For additional info, run Xash3D with `-help` command line key.
 1) Copy `valve` directory to a folder named `xash` in the Internal storage.
 2) Run games from within the app.
 
-## Contributing
-* Before sending an issue, check if someone already reported your issue. Make sure you're following "How To Ask Questions The Smart Way" guide by Eric Steven Raymond. Read more: http://www.catb.org/~esr/faqs/smart-questions.html.
+## Reporting issues
 * Issues are accepted in both English and Russian.
-* Before sending a PR, check if you followed our contribution guide in CONTRIBUTING.md file.
+* They are only accepted if you run legally acquired product (e.g. Half-Life in Steam).
+
+## Contributing code
+* Check the CONTRIBUTING.md file.
 
 ## Build instructions
 We are using Waf build system. If you have some Waf-related questions, I recommend you to read [Waf Book](https://waf.io/book/).
