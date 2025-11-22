@@ -467,7 +467,7 @@ typedef struct ref_api_s
 	qboolean (*Image_Process)( rgbdata_t **pix, int width, int height, uint flags, float reserved );
 	rgbdata_t *(*FS_LoadImage)( const char *filename, const byte *buffer, size_t size );
 	qboolean (*FS_SaveImage)( const char *filename, rgbdata_t *pix );
-	rgbdata_t *(*FS_CopyImage)( rgbdata_t *in );
+	rgbdata_t *(*FS_CopyImage)( const rgbdata_t *in );
 	void (*FS_FreeImage)( rgbdata_t *pack );
 	void (*Image_SetMDLPointer)( byte *p );
 	const struct bpc_desc_s *(*Image_GetPFDesc)( int idx );

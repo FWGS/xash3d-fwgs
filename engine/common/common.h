@@ -492,7 +492,7 @@ void Image_AddCmdFlags( uint flags );
 void FS_FreeImage( rgbdata_t *pack );
 rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size ) MALLOC_LIKE( FS_FreeImage, 1 ) WARN_UNUSED_RESULT;
 qboolean FS_SaveImage( const char *filename, rgbdata_t *pix );
-rgbdata_t *FS_CopyImage( rgbdata_t *in ) MALLOC_LIKE( FS_FreeImage, 1 ) WARN_UNUSED_RESULT;
+rgbdata_t *FS_CopyImage( const rgbdata_t *in ) MALLOC_LIKE( FS_FreeImage, 1 ) WARN_UNUSED_RESULT;
 extern const bpc_desc_t PFDesc[];	// image get pixelformat
 qboolean Image_Process( rgbdata_t **pix, int width, int height, uint flags, float reserved );
 void Image_PaletteHueReplace( byte *palSrc, int newHue, int start, int end, int pal_size );
