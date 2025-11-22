@@ -52,7 +52,6 @@ static portable_samplepair_t  streambuffer[(PAINTBUFFER_SIZE+1)];
 static portable_samplepair_t  paintbuffer[(PAINTBUFFER_SIZE+1)];
 static portable_samplepair_t  roombuffer[(PAINTBUFFER_SIZE+1)];
 static portable_samplepair_t  voicebuffer[(PAINTBUFFER_SIZE+1)];
-static portable_samplepair_t  temppaintbuffer[(PAINTBUFFER_SIZE+1)];
 static paintbuffer_t          paintbuffers[CPAINTBUFFERS];
 
 static int snd_scaletable[SND_SCALE_LEVELS][256];
