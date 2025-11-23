@@ -88,11 +88,6 @@ void Host_InputFrame( void )
 {
 }
 
-void VID_InitDefaultResolution( void )
-{
-
-}
-
 void Con_Init( void )
 {
 
