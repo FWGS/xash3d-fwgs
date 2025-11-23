@@ -106,6 +106,10 @@ void SDLash_Init( const char *basedir )
 	else
 		SDL_LogSetAllPriority( SDL_LOG_PRIORITY_ERROR );
 
+#if XASH_WIN32
+	SDL_SetHint( SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2" );
+#endif // XASH_WIN32
+
 	if( SDL_Init( SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_EVENTS ) )
 	{
 		Sys_Warn( "SDL_Init failed: %s", SDL_GetError() );
@@ -118,10 +122,6 @@ void SDLash_Init( const char *basedir )
 	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
 #endif // SDL_HINT_MOUSE_TOUCH_EVENTS
 	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
-
-#if XASH_WIN32
-	SDL_SetHint( SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2" );
-#endif // XASH_WIN32
 
 	SDL_StopTextInput();
 
