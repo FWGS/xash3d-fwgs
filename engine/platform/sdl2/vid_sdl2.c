@@ -314,66 +314,6 @@ static void R_FreeVideoModes( void )
 }
 
 #if XASH_WIN32
-typedef enum _XASH_DPI_AWARENESS
-{
-	XASH_DPI_UNAWARE = 0,
-	XASH_SYSTEM_DPI_AWARE = 1,
-	XASH_PER_MONITOR_DPI_AWARE = 2
-} XASH_DPI_AWARENESS;
-
-static void WIN_SetDPIAwareness( void )
-{
-	HMODULE hModule;
-	HRESULT ( __stdcall *pSetProcessDpiAwareness )( XASH_DPI_AWARENESS );
-	BOOL ( __stdcall *pSetProcessDPIAware )( void );
-	BOOL bSuccess = FALSE;
-
-	if( ( hModule = LoadLibraryW( L"shcore.dll" ) ) )
-	{
-		if( ( pSetProcessDpiAwareness = (void*)GetProcAddress( hModule, "SetProcessDpiAwareness" ) ) )
-		{
-			// I hope SDL don't handle WM_DPICHANGED message
-			HRESULT hResult = pSetProcessDpiAwareness( XASH_SYSTEM_DPI_AWARE );
-
-			if( hResult == S_OK )
-			{
-				Con_Reportf( "%s: Success\n", __func__ );
-				bSuccess = TRUE;
-			}
-			else if( hResult == E_INVALIDARG ) Con_Reportf( "%s: Invalid argument\n", __func__ );
-			else if( hResult == E_ACCESSDENIED ) Con_Reportf( "%s: Access Denied\n", __func__ );
-		}
-		else Con_Reportf( "%s: Can't get SetProcessDpiAwareness\n", __func__ );
-		FreeLibrary( hModule );
-	}
-	else Con_Reportf( "%s: Can't load shcore.dll\n", __func__ );
-
-
-	if( !bSuccess )
-	{
-		Con_Reportf( "%s: Trying SetProcessDPIAware...\n", __func__ );
-
-		if( ( hModule = LoadLibraryW( L"user32.dll" ) ) )
-		{
-			if( ( pSetProcessDPIAware = ( void* )GetProcAddress( hModule, "SetProcessDPIAware" ) ) )
-			{
-				// I hope SDL don't handle WM_DPICHANGED message
-				BOOL hResult = pSetProcessDPIAware();
-
-				if( hResult )
-				{
-					Con_Reportf( "%s: Success\n", __func__ );
-					bSuccess = TRUE;
-				}
-				else Con_Reportf( "%s: fail\n", __func__ );
-			}
-			else Con_Reportf( "%s: Can't get SetProcessDPIAware\n", __func__ );
-			FreeLibrary( hModule );
-		}
-		else Con_Reportf( "%s: Can't load user32.dll\n", __func__ );
-	}
-}
-
 static qboolean WIN_SetWindowIcon( HICON ico )
 {
 	SDL_SysWMinfo wminfo;
@@ -957,6 +897,7 @@ qboolean R_Init_Video( const int type )
 #else
 	int displayIndex = 0;
 #endif
+
 	SDL_GetCurrentDisplayMode( displayIndex, &displayMode );
 
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
@@ -978,10 +919,6 @@ qboolean R_Init_Video( const int type )
 	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
 #endif // !XASH_WIN32
 
-	// must be initialized before creating window
-#if XASH_WIN32
-	WIN_SetDPIAwareness();
-#endif
 
 	switch( type )
 	{
