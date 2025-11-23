@@ -824,7 +824,6 @@ uint LZSS_GetActualSize( const byte *source, size_t input_len );
 byte *LZSS_Compress( byte *pInput, int inputLength, uint *pOutputSize );
 uint LZSS_Decompress( const byte *pInput, byte *pOutput, size_t input_len, size_t output_len );
 void GL_FreeImage( const char *name );
-void VID_InitDefaultResolution( void );
 void VID_Init( void );
 void UI_SetActiveMenu( qboolean fActive );
 void UI_ShowConnectionWarning( void );

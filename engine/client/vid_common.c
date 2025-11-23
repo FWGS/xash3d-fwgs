@@ -36,19 +36,6 @@ glwstate_t	glw_state;
 
 /*
 =================
-VID_InitDefaultResolution
-=================
-*/
-void VID_InitDefaultResolution( void )
-{
-	// we need to have something valid here
-	// until video subsystem initialized
-	refState.width = 640;
-	refState.height = 480;
-}
-
-/*
-=================
 R_SaveVideoMode
 =================
 */

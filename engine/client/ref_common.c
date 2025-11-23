@@ -6,7 +6,13 @@
 #include "vid_common.h"
 
 struct ref_state_s ref;
-ref_globals_t refState;
+
+ref_globals_t refState =
+{
+	// just have something valid until video subsystem is finished initializing
+	.width = 640,
+	.height = 480,
+};
 
 static const char* r_skyBoxSuffix[SKYBOX_MAX_SIDES] = { "rt", "bk", "lf", "ft", "up", "dn" };
 

@@ -1074,9 +1074,6 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	// NOTE: this message couldn't be passed into game console but it doesn't matter
 //	Con_Reportf( "Sys_LoadLibrary: Loading xash.dll - ok\n" );
 
-	// get default screen res
-	VID_InitDefaultResolution();
-
 	// init host state machine
 	COM_InitHostState();
 
