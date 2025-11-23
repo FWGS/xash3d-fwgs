@@ -387,7 +387,7 @@ static qboolean WIN_SetWindowIcon( HICON ico )
 		return true;
 	}
 
-	Con_Reportf( S_ERROR "%s: %s", __func__, SDL_GetError( ));
+	Con_Reportf( S_ERROR "%s: %s\n", __func__, SDL_GetError( ));
 	return false;
 }
 #endif
@@ -495,23 +495,18 @@ void VID_SaveWindowSize( int width, int height, qboolean maximized )
 static qboolean VID_SetScreenResolution( int width, int height, window_mode_t window_mode )
 {
 	SDL_DisplayMode got;
-	Uint32 wndFlags = 0;
-	
-	if( vid_highdpi.value )
-		SetBits( wndFlags, SDL_WINDOW_ALLOW_HIGHDPI );
-	SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
 
 	if( window_mode == WINDOW_MODE_BORDERLESS )
 	{
 		if( SDL_GetDesktopDisplayMode( 0, &got ) < 0 )
 		{
-			Con_Printf( S_ERROR "%s: SDL_GetDesktopDisplayMode: %s", __func__, SDL_GetError( ));
+			Con_Printf( S_ERROR "%s: SDL_GetDesktopDisplayMode: %s\n", __func__, SDL_GetError( ));
 			return false;
 		}
 
 		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN_DESKTOP ) < 0 )
 		{
-			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (borderless): %s", __func__, SDL_GetError( ));
+			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (borderless): %s\n", __func__, SDL_GetError( ));
 			return false;
 		}
 	}
@@ -523,22 +518,33 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 
 		if( SDL_GetClosestDisplayMode( 0, &want, &got ) == NULL )
 		{
-			Con_Printf( S_ERROR "%s: SDL_GetClosestDisplayMode: %s", __func__, SDL_GetError( ));
-			return false;
-		}
+			Con_Printf( S_ERROR "%s: SDL_GetClosestDisplayMode: %s\n", __func__, SDL_GetError( ));
 
-		if( got.w != want.w || got.h != want.h )
-			Con_Reportf( S_NOTE "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate );
+			// fall back to native mode
+			if( SDL_GetDesktopDisplayMode( 0, &got ) < 0 )
+			{
+				Con_Printf( S_ERROR "%s: SDL_GetDesktopDisplayMode: %s\n", __func__, SDL_GetError( ));
+				return false;
+			}
+
+			if( got.w != want.w || got.h != want.h )
+				Con_Reportf( S_NOTE "Got desktop display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate );
+		}
+		else
+		{
+			if( got.w != want.w || got.h != want.h )
+				Con_Reportf( S_NOTE "Got closest display mode: %ix%i@%i\n", got.w, got.h, got.refresh_rate );
+		}
 
 		if( SDL_SetWindowDisplayMode( host.hWnd, &got ) < 0 )
 		{
-			Con_Printf( S_ERROR "%s: SDL_SetWindowDisplayMode: %s", __func__, SDL_GetError( ));
+			Con_Printf( S_ERROR "%s: SDL_SetWindowDisplayMode: %s\n", __func__, SDL_GetError( ));
 			return false;
 		}
 
 		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
 		{
-			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s", __func__, SDL_GetError( ));
+			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s\n", __func__, SDL_GetError( ));
 			return false;
 		}
 	}
@@ -1060,7 +1066,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 
 		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) < 0 )
 		{
-			Con_Printf( S_ERROR "SDL_SetWindowFullscreen: %s", SDL_GetError( ));
+			Con_Printf( S_ERROR "SDL_SetWindowFullscreen: %s\n", SDL_GetError( ));
 			return rserr_invalid_fullscreen;
 		}
 #if SDL_VERSION_ATLEAST( 2, 0, 5 )
