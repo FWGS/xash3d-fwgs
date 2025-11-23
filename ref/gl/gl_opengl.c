@@ -673,7 +673,7 @@ static void GL_SetDefaults( void )
 R_RenderInfo_f
 =================
 */
-static void R_RenderInfo_f( void )
+static void R_RenderInfo( qboolean startup )
 {
 	gEngfuncs.Con_Printf( "\n" );
 	gEngfuncs.Con_Printf( "GL_VENDOR: %s\n", glConfig.vendor_string );
@@ -723,9 +723,15 @@ static void R_RenderInfo_f( void )
 	gEngfuncs.Con_Printf( "\n" );
 	gEngfuncs.Con_Printf( "MODE: %ix%i\n", gpGlobals->width, gpGlobals->height );
 	gEngfuncs.Con_Printf( "\n" );
-	gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
+	if( !startup )
+		gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
 	gEngfuncs.Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
 		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
+}
+
+static void R_RenderInfo_f( void )
+{
+	R_RenderInfo( false );
 }
 
 #if XASH_GLES
@@ -1103,7 +1109,7 @@ void GL_InitExtensions( void )
 		gEngfuncs.Cvar_SetValue( "gl_finish", 1 );
 #endif
 
-	R_RenderInfo_f();
+	R_RenderInfo( true );
 
 	tr.framecount = tr.visframecount = 1;
 	glw_state.initialized = true;
