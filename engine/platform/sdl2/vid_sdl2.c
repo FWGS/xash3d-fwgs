@@ -910,15 +910,18 @@ qboolean R_Init_Video( const int type )
 #endif
 
 	if( Sys_CheckParm( "-egl" ) )
+	{
+		// EGL doesn't mean we want GLES context
+		// so force it only on Windows, where GL is usually created via WGL
 #if XASH_WIN32
-		SDL_SetHint( "SDL_OPENGL_ES_DRIVER", "1" );
-#else
-		SDL_SetHint( "SDL_VIDEO_X11_FORCE_EGL", "1" );
+		SDL_SetHint( SDL_HINT_OPENGL_ES_DRIVER, "1" );
+#endif // XASH_WIN32
 
-	SDL_SetHint( "SDL_VIDEO_X11_XRANDR", "1" );
-	SDL_SetHint( "SDL_VIDEO_X11_XVIDMODE", "1" );
-#endif // !XASH_WIN32
+		SDL_SetHint( SDL_HINT_VIDEO_X11_FORCE_EGL, "1" );
+	}
 
+	SDL_SetHint( SDL_HINT_VIDEO_X11_XRANDR, "1" );
+	SDL_SetHint( SDL_HINT_VIDEO_X11_XVIDMODE, "1" );
 
 	switch( type )
 	{
