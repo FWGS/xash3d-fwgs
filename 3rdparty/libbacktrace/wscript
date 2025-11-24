@@ -62,7 +62,7 @@ def options(opt):
 
 def configure(conf):
 	# add unsupported platforms here
-	if conf.env.DEST_OS in ['nswitch', 'psvita', 'dos']:
+	if conf.env.DEST_OS in ['nswitch', 'psvita', 'dos', 'irix']:
 		conf.env.DISABLE_LIBBACKTRACE = True
 		return
 
