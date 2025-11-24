@@ -1105,7 +1105,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 {
 	byte		*buf, *data;
 	size_t		texsize, size;
-	uint		width, height;
+	uint		width, height, depth;
 	uint		i, j, numSides;
 	uint		offset = 0;
 	qboolean		normalMap;
@@ -1174,9 +1174,10 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 			{
 				width = Q_max( 1, ( tex->width >> j ));
 				height = Q_max( 1, ( tex->height >> j ));
-				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
-				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
-				GL_TextureImageCompressed( tex, i, j, width, height, tex->depth, size, buf );
+				depth = Q_max( 1, ( tex->depth >> j ));
+				texsize = GL_CalcTextureSize( tex->format, width, height, depth );
+				size = GL_CalcImageSize( pic->type, width, height, depth );
+				GL_TextureImageCompressed( tex, i, j, width, height, depth, size, buf );
 				tex->size += texsize;
 				buf += size; // move pointer
 				tex->numMips++;
@@ -1190,9 +1191,10 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 			{
 				width = Q_max( 1, ( tex->width >> j ));
 				height = Q_max( 1, ( tex->height >> j ));
-				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
-				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
-				GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, buf );
+				depth = Q_max( 1, ( tex->depth >> j ));
+				texsize = GL_CalcTextureSize( tex->format, width, height, depth );
+				size = GL_CalcImageSize( pic->type, width, height, depth );
+				GL_TextureImageRAW( tex, i, j, width, height, depth, pic->type, buf );
 				tex->size += texsize;
 				buf += size; // move pointer
 				tex->numMips++;
