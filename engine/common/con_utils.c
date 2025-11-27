@@ -55,7 +55,6 @@ Cmd_ListMaps
 */
 int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 {
-	byte   buf[MAX_SYSPATH]; // 1 kb
 	file_t *f;
 	int i, nummaps;
 	string mapname, message, compiler, generator;
@@ -78,24 +77,26 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 
 		if( f )
 		{
-			dheader_t *header;
-			dextrahdr_t	*hdrext;
-			dlump_t entities;
+			dheader_t   *header;
+			dextrahdr_t *hdrext;
+			dlump_t     entities;
+			fs_offset_t filelen;
+			byte        buf[MAX_SYSPATH] = { 0 }; // 1 kb
 
-			memset( buf, 0, sizeof( buf ));
-			FS_Read( f, buf, sizeof( buf ));
-			header = (dheader_t *)buf;
-			ver = header->version;
+			filelen = FS_Read( f, buf, sizeof( buf ));
 
 			// check all the lumps and some other errors
-			if( Mod_TestBmodelLumps( f, t->filenames[i], buf, true, &entities ))
+			if( Mod_TestBmodelLumps( f, t->filenames[i], buf, filelen, true, &entities ))
 			{
 				lumpofs = entities.fileofs;
 				lumplen = entities.filelen;
 				ver = header->version;
 			}
 
+			header = (dheader_t *)buf;
 			hdrext = (dextrahdr_t *)((byte *)buf + sizeof( dheader_t ));
+
+			ver = header->version;
 			if( hdrext->id == IDEXTRAHEADER ) version = hdrext->version;
 
 			Q_strncpy( entfilename, t->filenames[i], sizeof( entfilename ));
@@ -892,7 +893,6 @@ static qboolean Cmd_GetCDList( const char *s, char *completedname, int length )
 static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 {
 	qboolean	use_filter = false;
-	byte	buf[MAX_SYSPATH];
 	string	mpfilter;
 	char	*buffer;
 	size_t	buffersize;
@@ -939,14 +939,15 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 
 		if( f )
 		{
-			qboolean  have_spawnpoints = false;
-			dlump_t   entities;
+			qboolean    have_spawnpoints = false;
+			dlump_t     entities;
+			fs_offset_t filelen;
+			byte        buf[MAX_SYSPATH] = { 0 };
 
-			memset( buf, 0, MAX_SYSPATH );
-			FS_Read( f, buf, MAX_SYSPATH );
+			filelen = FS_Read( f, buf, MAX_SYSPATH );
 
 			// check all the lumps and some other errors
-			if( !Mod_TestBmodelLumps( f, t->filenames[i], buf, true, &entities ))
+			if( !Mod_TestBmodelLumps( f, t->filenames[i], buf, filelen, true, &entities ))
 			{
 				FS_Close( f );
 				continue;

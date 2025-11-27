@@ -805,22 +805,23 @@ Create entity patch for selected map
 */
 void SV_WriteEntityPatch( const char *filename )
 {
-	int		lumpofs = 0, lumplen = 0;
-	byte		buf[MAX_TOKEN]; // 1 kb
-	string		bspfilename;
-	dlump_t entities;
-	file_t		*f;
+	int         lumpofs = 0, lumplen = 0;
+	byte        buf[MAX_TOKEN] = { 0 }; // 1 kb
+	string      bspfilename;
+	dlump_t     entities;
+	file_t      *f;
+	fs_offset_t filelen;
 
 	Q_snprintf( bspfilename, sizeof( bspfilename ), "maps/%s.bsp", filename );
 
 	f = FS_Open( bspfilename, "rb", false );
-	if( !f ) return;
+	if( !f )
+		return;
 
-	memset( buf, 0, MAX_TOKEN );
-	FS_Read( f, buf, MAX_TOKEN );
+	filelen = FS_Read( f, buf, MAX_TOKEN );
 
 	// check all the lumps and some other errors
-	if( !Mod_TestBmodelLumps( f, bspfilename, buf, true, &entities ))
+	if( !Mod_TestBmodelLumps( f, bspfilename, buf, filelen, true, &entities ))
 	{
 		FS_Close( f );
 		return;
@@ -853,27 +854,28 @@ pfnMapIsValid use this
 */
 static char *SV_ReadEntityScript( const char *filename, int *flags )
 {
-	string		bspfilename, entfilename;
-	int		lumpofs = 0, lumplen = 0;
-	byte		buf[MAX_TOKEN];
-	char		*ents = NULL;
-	dlump_t entities;
-	size_t		ft1, ft2;
-	file_t		*f;
+	string      bspfilename, entfilename;
+	int         lumpofs = 0, lumplen = 0;
+	byte        buf[MAX_TOKEN] = { 0 };
+	char        *ents = NULL;
+	dlump_t     entities;
+	size_t      ft1, ft2;
+	file_t      *f;
+	fs_offset_t filelen;
 
 	*flags = 0;
 
 	Q_snprintf( bspfilename, sizeof( bspfilename ), "maps/%s.bsp", filename );
 
 	f = FS_Open( bspfilename, "rb", false );
-	if( !f ) return NULL;
+	if( !f )
+		return NULL;
 
 	SetBits( *flags, MAP_IS_EXIST );
-	memset( buf, 0, MAX_TOKEN );
-	FS_Read( f, buf, MAX_TOKEN );
+	filelen = FS_Read( f, buf, sizeof( buf ));
 
 	// check all the lumps and some other errors
-	if( !Mod_TestBmodelLumps( f, bspfilename, buf, (host_developer.value) ? false : true, &entities ))
+	if( !Mod_TestBmodelLumps( f, bspfilename, buf, filelen, (host_developer.value) ? false : true, &entities ))
 	{
 		SetBits( *flags, MAP_INVALID_VERSION );
 		FS_Close( f );
