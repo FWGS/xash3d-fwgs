@@ -39,7 +39,7 @@
 	url = https://github.com/ianlancetaylor/libbacktrace
 [submodule "3rdparty/maintui"]
 	path = 3rdparty/maintui
-	url = https://github.com/numas13/xash3d-maintui.git
+	url = https://github.com/FWGS/xash3d-maintui.git
 [submodule "3rdparty/library_suffix"]
 	path = 3rdparty/library_suffix
 	url = https://github.com/FWGS/library-suffix.git
