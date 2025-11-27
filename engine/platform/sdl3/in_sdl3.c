@@ -98,24 +98,10 @@ void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 	SDL_GetMouseState( &m_x, &m_y );
 
 	if( x )
-	{
-		if( window_width.value && window_width.value != refState.width )
-		{
-			float factor = refState.width / window_width.value;
-			*x = m_x * factor;
-		}
-		else *x = m_x;
-	}
+		*x = m_x;
 
 	if( y )
-	{
-		if( window_height.value && window_height.value != refState.height )
-		{
-			float factor = refState.height / window_height.value;
-			*y = m_y * factor;
-		}
-		else *y = m_y;
-	}
+		*y = m_y;
 }
 
 void Platform_SetCursorType( VGUI_DefaultCursor type )
