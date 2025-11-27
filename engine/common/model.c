@@ -310,7 +310,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	case LittleLong( Q1BSP_VERSION ):
 	case LittleLong( HLBSP_VERSION ):
 	case LittleLong( QBSP2_VERSION ):
-		Mod_LoadBrushModel( mod, buf, &loaded );
+		Mod_LoadBrushModel( mod, buf, length, &loaded );
 		break;
 	default:
 		Mem_Free( buf );
