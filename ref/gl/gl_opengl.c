@@ -798,7 +798,12 @@ static void GL_InitExtensionsGLES( void )
 				pglGetFloatv( GL_MAX_TEXTURE_LOD_BIAS_EXT, &glConfig.max_texture_lod_bias );
 			break;
 		case GL_ARB_TEXTURE_NPOT_EXT:
-			GL_CheckExtension( "GL_OES_texture_npot", NULL, 0, "gl_texture_npot", extid, 0 );
+			// according to spec, GLES3.0 made NPOT required
+			// thanks lewa_j for advice
+			if( glConfig.version_major >= 3 )
+				GL_SetExtension( extid, true );
+			else
+				GL_CheckExtension( "GL_OES_texture_npot", NULL, 0, "gl_texture_npot", extid, 0 );
 			break;
 #if !XASH_GL_STATIC
 		case GL_SHADER_OBJECTS_EXT:
