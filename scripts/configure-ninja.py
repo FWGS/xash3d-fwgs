@@ -92,7 +92,7 @@ def main():
 
 	waf_exec = [sys.executable, waf_path, "configure", "-t", args.wscript_path, "-o", out_path,
 				"-T", waf_build_type, "--android={},,{}".format(abi, args.min_sdk_version), "-s",
-				sdl_path, "--skip-sdl2-sanity-check", "--enable-bundled-deps", "ninja"]
+				sdl_path, "--skip-sdl2-sanity-check", "--enable-bundled-deps", "--disable-soft", "ninja"]
 
 	process = subprocess.Popen(waf_exec, env=env)
 	process.communicate()
