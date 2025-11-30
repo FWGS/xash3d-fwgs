@@ -1363,18 +1363,13 @@ static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size
 				// Transfer data
 				memcpy( data, buf, ret );
 				*length = ret;
+
 #if !XASH_DEDICATED
-				{
-					connprotocol_t proto = CL_Protocol();
-
-					if( proto == PROTO_LEGACY )
-						return NET_LagPacket( true, sock, from, length, data );
-
-					// check for split message
-					if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
-						return NET_GetLong( data, ret, length, CL_GetSplitSize( ), proto );
-				}
+				// check for split message
+				if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
+					return NET_GetLong( data, ret, length, CL_GetSplitSize( ), CL_Protocol( ));
 #endif
+
 				// lag the packet, if needed
 				return NET_LagPacket( true, sock, from, length, data );
 			}

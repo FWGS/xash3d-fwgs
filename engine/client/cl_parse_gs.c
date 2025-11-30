@@ -467,7 +467,7 @@ static void CL_ParseSoundPacketGS( sizebuf_t *msg )
 
 	chan = MSG_ReadUBitLong( msg, 3 );
 	entnum = MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );
-	if( FBitSet( flags, SND_LEGACY_LARGE_INDEX ))
+	if( FBitSet( flags, SND_GOLDSRC_LARGE_INDEX ))
 		sound = MSG_ReadWord( msg );
 	else sound = MSG_ReadByte( msg );
 	MSG_ReadGSBitVec3Coord( msg, pos );
@@ -478,7 +478,7 @@ static void CL_ParseSoundPacketGS( sizebuf_t *msg )
 
 	MSG_EndBitWriting( msg );
 
-	ClearBits( flags, SND_LEGACY_LARGE_INDEX );
+	ClearBits( flags, SND_GOLDSRC_LARGE_INDEX );
 
 	if( FBitSet( flags, SND_SENTENCE ))
 	{
@@ -769,7 +769,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			CL_ParseExec( msg );
 			break;
 		default:
-			CL_ParseUserMessage( msg, cmd, PROTO_LEGACY );
+			CL_ParseUserMessage( msg, cmd, PROTO_GOLDSRC );
 			cl.frames[cl.parsecountmod].graphdata.usr += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		}

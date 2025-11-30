@@ -57,9 +57,6 @@ const char *CL_MsgInfo( int cmd )
 		case PROTO_CURRENT:
 			svc_string = svc_strings[cmd];
 			break;
-		case PROTO_LEGACY:
-			svc_string = svc_legacy_strings[cmd];
-			break;
 		case PROTO_QUAKE:
 			svc_string = svc_quake_strings[cmd];
 			break;
