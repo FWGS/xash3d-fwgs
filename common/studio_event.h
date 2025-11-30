@@ -1,37 +1,44 @@
-/***
-*
-*	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*
-*	This product contains software technology licensed from Id
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
-*	All Rights Reserved.
-*
-*   Use, distribution, and modification of this source code and/or resulting
-*   object code is restricted to non-commercial enhancements to products from
-*   Valve LLC.  All other use, distribution, or modification is prohibited
-*   without written permission from Valve LLC.
-*
-****/
-#pragma once
+/*
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+*/
+
 #ifndef STUDIO_EVENT_H
 #define STUDIO_EVENT_H
+#define MAXEVENTSTRING 64
 
-#define MAXEVENTSTRING		64
+typedef struct mstudioevent_s mstudioevent_t;
 
-typedef struct mstudioevent_s
-{
-	// the frame at which this animation event occurs
-	int32_t 	frame;
+struct mstudioevent_s {
+	int                        frame;                /*     0     4 */
+	int                        event;                /*     4     4 */
+	int                        type;                 /*     8     4 */
+	char                       options[MAXEVENTSTRING]; /*    12    64 */
 
-	// the script event type
-	int32_t		event;
+	/* size: 76, cachelines: 2, members: 4 */
+	/* last cacheline: 12 bytes */
+};
 
-	// was "type"
-	int32_t		unused;
-
-	// options
-	// could be path to sound WAVE files
-	char		options[MAXEVENTSTRING];
-} mstudioevent_t;
-
-#endif // STUDIO_EVENT_H
+#endif

@@ -1,53 +1,66 @@
-/***
-*
-*	Copyright (c) 1996-2002, Valve LLC. All rights reserved.
-*
-*	This product contains software technology licensed from Id
-*	Software, Inc. ("Id Technology").  Id Technology (c) 1996 Id Software, Inc.
-*	All Rights Reserved.
-*
-*   Use, distribution, and modification of this source code and/or resulting
-*   object code is restricted to non-commercial enhancements to products from
-*   Valve LLC.  All other use, distribution, or modification is prohibited
-*   without written permission from Valve LLC.
-*
-****/
+/*
+This is free and unencumbered software released into the public domain.
 
-#ifndef PARTICLEDEF_H
-#define PARTICLEDEF_H
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
 
-typedef enum
-{
-	pt_static,
-	pt_grav,
-	pt_slowgrav,
-	pt_fire,
-	pt_explode,
-	pt_explode2,
-	pt_blob,
-	pt_blob2,
-	pt_vox_slowgrav,
-	pt_vox_grav,
-	pt_clientcustom	// Must have callback function specified
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>
+*/
+
+#ifndef PARTICLE_H
+#define PARTICLE_H
+#include "xash3d_types.h"
+
+typedef struct particle_s particle_t;
+
+typedef enum {
+	pt_static       = 0,
+	pt_grav         = 1,
+	pt_slowgrav     = 2,
+	pt_fire         = 3,
+	pt_explode      = 4,
+	pt_explode2     = 5,
+	pt_blob         = 6,
+	pt_blob2        = 7,
+	pt_vox_slowgrav = 8,
+	pt_vox_grav     = 9,
+	pt_clientcustom = 10,
 } ptype_t;
 
-typedef struct particle_s
-{
-	vec3_t		org;
-	short		color;
-	short		packedColor;
-	struct particle_s	*next;
-	vec3_t		vel;
-	float		ramp;
-	float		die;
-	ptype_t		type;
-	void		(*deathfunc)( struct particle_s *particle );
+struct particle_s {
+	vec3_t                     org;                  /*     0    12 */
+	short int                  color;                /*    12     2 */
+	short int                  packedColor;          /*    14     2 */
+	struct particle_s *        next;                 /*    16     4 */
+	vec3_t                     vel;                  /*    20    12 */
+	float                      ramp;                 /*    32     4 */
+	float                      die;                  /*    36     4 */
+	ptype_t                    type;                 /*    40     4 */
+	void                       (*deathfunc)(struct particle_s *); /*    44     4 */
+	void                       (*callback)(struct particle_s *, float); /*    48     4 */
+	unsigned char              context;              /*    52     1 */
 
-	// for pt_clientcusttom, we'll call this function each frame
-	void		(*callback)( struct particle_s *particle, float frametime );
+	/* size: 56, cachelines: 1, members: 11 */
+	/* padding: 3 */
+	/* last cacheline: 56 bytes */
+};
 
-	// For deathfunc, etc.
-	unsigned char	context;
-} particle_t;
-
-#endif//PARTICLEDEF_H
+#endif
