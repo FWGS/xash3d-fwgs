@@ -1013,7 +1013,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 		SDL_SetWindowSize( host.hWnd, width, height );
 
-		VID_SaveWindowSize( width, height, true );
+		VID_SaveWindowSize( width, height, FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED ) != 0 );
 	}
 
 	return rserr_ok;
