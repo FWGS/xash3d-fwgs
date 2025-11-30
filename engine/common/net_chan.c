@@ -154,102 +154,6 @@ void bz_internal_error( int errcode )
 #endif // XASH_DEDICATED
 
 /*
-=================================
-
-NETWORK PACKET SPLIT
-
-=================================
-*/
-
-/*
-======================
-NetSplit_GetLong
-
-Collect fragmrnts with signature 0xFFFFFFFE to single packet
-return true when got full packet
-======================
-*/
-qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *length )
-{
-	netsplit_packet_t *packet = (netsplit_packet_t*)data;
-	netsplit_chain_packet_t * p;
-
-	//ASSERT( *length > NETSPLIT_HEADER_SIZE );
-	if( *length <= NETSPLIT_HEADER_SIZE ) return false;
-
-	LittleLongSW(packet->id);
-	LittleLongSW(packet->length);
-	LittleLongSW(packet->part);
-
-	p = &ns->packets[packet->id & NETSPLIT_BACKUP_MASK];
-	// Con_Reportf( S_NOTE "%s: packet from %s, id %d, index %d length %d\n", __func__, NET_AdrToString( *from ), (int)packet->id, (int)packet->index, (int)*length );
-
-	// no packets with this id received
-	if( packet->id != p->id )
-	{
-		// warn if previous packet not received
-		if( p->received < p->count )
-		{
-			UI_ShowConnectionWarning();
-			Con_Reportf( S_WARN "%s: lost packet %d\n", __func__, p->id );
-		}
-
-		p->id = packet->id;
-		p->count = packet->count;
-		p->received = 0;
-		memset( p->recieved_v, 0, 32 );
-	}
-
-	// use bool vector to detect dup packets
-	if( p->recieved_v[packet->index >> 5 ] & ( 1 << ( packet->index & 31 ) ) )
-	{
-		Con_Reportf( S_WARN "%s: dup packet from %s\n", __func__, NET_AdrToString( *from ) );
-		return false;
-	}
-
-	p->received++;
-
-	// mark as received
-	p->recieved_v[packet->index >> 5] |= 1 << ( packet->index & 31 );
-
-	// prevent overflow
-	if( packet->part * packet->index > NET_MAX_PAYLOAD )
-	{
-		Con_Reportf( S_WARN "%s: packet out fo bounds from %s (part %d index %d)\n", __func__, NET_AdrToString( *from ), packet->part, packet->index );
-		return false;
-	}
-
-	if( packet->length > NET_MAX_PAYLOAD )
-	{
-		Con_Reportf( S_WARN "%s: packet out fo bounds from %s (length %d)\n", __func__, NET_AdrToString( *from ), packet->length );
-		return false;
-	}
-
-	memcpy( p->data + packet->part * packet->index, packet->data, *length - 18 );
-
-	// rewrite results of NET_GetPacket
-	if( p->received == packet->count )
-	{
-		//ASSERT( packet->length % packet->part == (*length - NETSPLIT_HEADER_SIZE) % packet->part );
-		size_t len = packet->length;
-
-		ns->total_received += len;
-
-		ns->total_received_uncompressed += len;
-		*length = len;
-
-		// Con_Reportf( S_NOTE "%s: packet from %s, id %d received %d length %d\n", __func__, NET_AdrToString( *from ), (int)packet->id, (int)p->received, (int)packet->length );
-		memcpy( data, p->data, len );
-		return true;
-	}
-	else
-		*length = NETSPLIT_HEADER_SIZE + packet->part;
-
-
-	return false;
-}
-
-/*
 ===============
 Netchan_Init
 ===============
@@ -338,7 +242,6 @@ void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, voi
 	chan->qport = qport;
 	chan->client = client;
 	chan->pfnBlockSize = pfnBlockSize;
-	chan->split = FBitSet( flags, NETCHAN_USE_LEGACY_SPLIT ) ? true : false;
 	chan->use_munge = FBitSet( flags, NETCHAN_USE_MUNGE ) ? true : false;
 	chan->use_bz2 = FBitSet( flags, NETCHAN_USE_BZIP2 ) ? true : false;
 	chan->use_lzss = FBitSet( flags, NETCHAN_USE_LZSS ) ? true : false;

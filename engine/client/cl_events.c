@@ -436,9 +436,8 @@ void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto )
 
 	if( proto == PROTO_GOLDSRC )
 		entity_bits = MAX_GOLDSRC_ENTITY_BITS;
-	else if( proto == PROTO_LEGACY )
-		entity_bits = MAX_LEGACY_ENTITY_BITS;
-	else entity_bits = MAX_ENTITY_BITS;
+	else
+		entity_bits = MAX_ENTITY_BITS;
 
 	// parse events queue
 	for( i = 0 ; i < num_events; i++ )

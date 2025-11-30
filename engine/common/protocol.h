@@ -279,44 +279,11 @@ GNU General Public License for more details.
 #define SU_WEAPON		(1<<14)
 
 extern const char *const svc_strings[svc_lastmsg+1];
-extern const char *const svc_legacy_strings[svc_lastmsg+1];
 extern const char *const svc_quake_strings[svc_lastmsg+1];
 extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 
 // FWGS extensions
 #define NET_EXT_SPLITSIZE (1U<<0) // set splitsize by cl_dlmax
-
-// legacy protocol definitons
-#define PROTOCOL_LEGACY_VERSION		48
-#define svc_legacy_modelindex		31	// [index][modelpath]
-#define svc_legacy_soundindex		28	// [index][soundpath]
-#define svc_legacy_eventindex		34	// [index][eventname]
-#define svc_legacy_ambientsound		29
-#define svc_legacy_chokecount 42		// old client specified count, new just sends svc_choke
-#define svc_legacy_event			27	// playback event queue
-#define svc_legacy_changing			3	// changelevel by server request
-
-#define clc_legacy_userinfo		6	// [[userinfo string]
-
-#define SND_LEGACY_LARGE_INDEX		(1<<2)	// a send sound as short
-#define MAX_LEGACY_ENTITY_BITS		12
-#define MAX_LEGACY_WEAPON_BITS		5
-#define MAX_LEGACY_MODEL_BITS  11
-#define MAX_LEGACY_TOTAL_CMDS  16 // 28 - 16 = 12 real legacy max backup
-#define MAX_LEGACY_BACKUP_CMDS 12
-
-#define MAX_LEGACY_EDICTS (1 << MAX_LEGACY_ENTITY_BITS) // 4096 edicts
-#define MIN_LEGACY_EDICTS 30
-
-// legacy engine features that can be implemented through currently supported features
-#define ENGINE_LEGACY_FEATURES_MASK   \
-	( ENGINE_WRITE_LARGE_COORD    \
-	| ENGINE_LOAD_DELUXEDATA      \
-	| ENGINE_LARGE_LIGHTMAPS      \
-	| ENGINE_COMPENSATE_QUAKE_BUG \
-	| ENGINE_COMPUTE_STUDIO_LERP  )
-
-// Master Server protocol
 
 // GoldSrc protocol definitions
 #define PROTOCOL_GOLDSRC_VERSION 48
@@ -336,6 +303,8 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 #define clc_goldsrc_requestcvarvalue2 11
 #define clc_goldsrc_lastmsg           11
 
+#define SND_GOLDSRC_LARGE_INDEX (1<<2)
+
 #define MAX_GOLDSRC_BACKUP_CMDS   8
 #define MAX_GOLDSRC_TOTAL_CMDS    16
 #define MAX_GOLDSRC_EXTENDED_TOTAL_CMDS 62
@@ -346,9 +315,9 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 #define MAX_GOLDSRC_EDICTS        ( BIT( MAX_ENTITY_BITS ) + ( MAX_CLIENTS * 15 ))
 #define LAST_GOLDSRC_EDICT        ( BIT( MAX_ENTITY_BITS ) - 1 )
 
+// Master Server protocol
 
 // from any to any (must be handled on both server and client)
-
 #define A2A_PING         "ping" // reply with A2A_ACK
 #define A2A_ACK          "ack" // no-op
 #define A2A_INFO         "info" // different format for client and server, see code
