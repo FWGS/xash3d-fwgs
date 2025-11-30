@@ -957,12 +957,6 @@ void CL_BatchResourceRequest( qboolean initialize );
 int CL_EstimateNeededResources( void );
 
 //
-// cl_parse_48.c
-//
-void CL_ParseLegacyServerMessage( sizebuf_t *msg );
-void CL_LegacyPrecache_f( void );
-
-//
 // cl_parse_gs.c
 //
 void CL_ParseGoldSrcServerMessage( sizebuf_t *msg );

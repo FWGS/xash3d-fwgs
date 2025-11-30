@@ -726,8 +726,8 @@ void HPAK_FlushHostQueue( void );
 typedef enum connprotocol_e
 {
 	PROTO_CURRENT = 0, // Xash3D 49
-	PROTO_LEGACY, // Xash3D 48
-	PROTO_QUAKE, // Quake 15
+	// RIP Xash3D 48
+	PROTO_QUAKE = 2, // Quake 15
 	PROTO_GOLDSRC, // GoldSrc 48
 } connprotocol_t;
 

@@ -1899,9 +1899,7 @@ void CL_ParseTempEntity( sizebuf_t *msg, connprotocol_t proto )
 
 	if( proto != PROTO_GOLDSRC )
 	{
-		if( proto == PROTO_LEGACY )
-			iSize = MSG_ReadByte( msg );
-		else iSize = MSG_ReadWord( msg );
+		iSize = MSG_ReadWord( msg );
 
 		// this will probably be fatal anyway
 		if( iSize > sizeof( msg_data ))

@@ -157,13 +157,6 @@ static qboolean CL_EntityCustomLerp( cl_entity_t *e )
 	case MOVETYPE_FLY:
 	case MOVETYPE_COMPOUND:
 		return false;
-
-	// ABSOLUTELY STUPID HACK TO ALLOW MONSTERS
-	// INTERPOLATION IN GRAVGUNMOD COOP
-	// MUST BE REMOVED ONCE WE REMOVE 48 PROTO SUPPORT
-	case MOVETYPE_TOSS:
-		if( cls.legacymode == PROTO_LEGACY && e->model && e->model->type == mod_studio )
-			return false;
 	}
 
 	return true;
@@ -653,18 +646,9 @@ FRAME PARSING
 */
 static qboolean CL_ParseEntityNumFromPacket( sizebuf_t *msg, int *newnum, connprotocol_t proto )
 {
-	if( proto == PROTO_LEGACY )
-	{
-		*newnum = MSG_ReadWord( msg );
-		if( *newnum == 0 )
-			return false;
-	}
-	else
-	{
-		*newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
-		if( *newnum == LAST_EDICT )
-			return false;
-	}
+	*newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+	if( *newnum == LAST_EDICT )
+		return false;
 
 	return true;
 }
@@ -831,9 +815,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta, connprotocol_t proto
 		CL_WriteDemoJumpTime();
 
 	// sentinel count. save it for debug checking
-	if( proto == PROTO_LEGACY )
-		count = MSG_ReadWord( msg );
-	else count = MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS ) + 1;
+	count = MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS ) + 1;
 
 	newframe = &cl.frames[cl.parsecountmod];
 
@@ -1246,16 +1228,6 @@ static void CL_LinkPacketEntities( frame_t *frame )
 				if( !CL_InterpolateModel( ent ))
 					continue;
 			}
-#if 0
-			// ABSOLUTELY STUPID HACK TO ALLOW MONSTERS
-			// INTERPOLATION IN GRAVGUNMOD COOP
-			// MUST BE REMOVED ONCE WE REMOVE 48 PROTO SUPPORT
-			else if( cls.legacymode == PROTO_LEGACY && ent->model->type == mod_studio && ent->curstate.movetype == MOVETYPE_TOSS )
-			{
-				if( !CL_InterpolateModel( ent ))
-					continue;
-			}
-#endif
 			else
 			{
 				// no interpolation right now

@@ -866,10 +866,6 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 
 	switch( proto )
 	{
-	case PROTO_LEGACY:
-		required_version = PROTOCOL_LEGACY_VERSION;
-		Con_Reportf( "Legacy serverdata packet received.\n" );
-		break;
 	case PROTO_GOLDSRC:
 		required_version = PROTOCOL_GOLDSRC_VERSION;
 		Con_Reportf( "GoldSrc serverdata packet received.\n" );
@@ -925,7 +921,7 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 
 		background = false;
 		clgame.maxEntities = GI->max_edicts + (( cl.maxclients - 1 ) * 15 );
-		clgame.maxEntities = bound( MIN_LEGACY_EDICTS, clgame.maxEntities, MAX_GOLDSRC_EDICTS );
+		clgame.maxEntities = Q_min( clgame.maxEntities, MAX_GOLDSRC_EDICTS );
 		clgame.maxModels = 512; // ???
 		Q_strncpy( clgame.maptitle, clgame.mapname, sizeof( clgame.maptitle ));
 
@@ -933,37 +929,22 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	}
 	else
 	{
-		uint32_t mask;
-
 		cl.playernum = MSG_ReadByte( msg );
 		cl.maxclients = MSG_ReadByte( msg );
 		clgame.maxEntities = MSG_ReadWord( msg );
-		if( proto == PROTO_LEGACY )
-		{
-			clgame.maxEntities = bound( MIN_LEGACY_EDICTS, clgame.maxEntities, MAX_LEGACY_EDICTS );
-			clgame.maxModels = 512; // ???
-			mask = ENGINE_LEGACY_FEATURES_MASK;
-		}
-		else
-		{
-			clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
-			clgame.maxModels = MSG_ReadWord( msg );
-			mask = ENGINE_FEATURES_MASK;
-		}
+		clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
+		clgame.maxModels = MSG_ReadWord( msg );
 		Q_strncpy( clgame.mapname, MSG_ReadString( msg ), sizeof( clgame.mapname ));
 		Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
 		background = MSG_ReadOneBit( msg );
 		Q_strncpy( gamefolder, MSG_ReadString( msg ), sizeof( gamefolder ));
-		Host_ValidateEngineFeatures( mask, MSG_ReadDword( msg ));
+		Host_ValidateEngineFeatures( ENGINE_FEATURES_MASK, MSG_ReadDword( msg ));
 
-		if( proto != PROTO_LEGACY )
+		// receive the player hulls
+		for( i = 0; i < MAX_MAP_HULLS * 3; i++ )
 		{
-			// receive the player hulls
-			for( i = 0; i < MAX_MAP_HULLS * 3; i++ )
-			{
-				host.player_mins[i/3][i%3] = MSG_ReadChar( msg );
-				host.player_maxs[i/3][i%3] = MSG_ReadChar( msg );
-			}
+			host.player_mins[i/3][i%3] = MSG_ReadChar( msg );
+			host.player_maxs[i/3][i%3] = MSG_ReadChar( msg );
 		}
 	}
 
@@ -1061,7 +1042,7 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	{
 		CL_ServerCommand( true, "sendres" );
 	}
-	else if( proto != PROTO_LEGACY )
+	else
 	{
 		CL_ServerCommand( true, "sendres %i\n", cl.servercount );
 	}
@@ -1222,7 +1203,7 @@ void CL_ParseClientData( sizebuf_t *msg, connprotocol_t proto )
 		if( !MSG_ReadOneBit( msg )) break;
 
 		// read the weapon idx
-		idx = MSG_ReadUBitLong( msg, proto == PROTO_LEGACY ? MAX_LEGACY_WEAPON_BITS : MAX_WEAPON_BITS );
+		idx = MSG_ReadUBitLong( msg, MAX_WEAPON_BITS );
 
 		if( proto == PROTO_GOLDSRC )
 			Delta_ReadGSFields( msg, DT_WEAPONDATA_T, &from_wd[idx], &to_wd[idx], cl.mtime[0] );
@@ -1255,11 +1236,7 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 		qboolean player;
 		int newnum;
 
-		if( proto == PROTO_LEGACY )
-		{
-			newnum = MSG_ReadWord( msg );
-		}
-		else if( proto == PROTO_GOLDSRC )
+		if( proto == PROTO_GOLDSRC )
 		{
 			uint value = MSG_ReadWord( msg );
 
@@ -1296,26 +1273,18 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 			ent->baseline.entityType = type;
 		}
 		else MSG_ReadDeltaEntity( msg, &nullstate, &ent->baseline, newnum, player, 1.0f );
-
-		if( proto == PROTO_LEGACY )
-			break; // only one baseline allowed in legacy protocol
 	}
 
-	if( proto != PROTO_LEGACY )
+	cl.instanced_baseline_count = MSG_ReadUBitLong( msg, 6 );
+
+	for( int i = 0; i < cl.instanced_baseline_count; i++ )
 	{
-		int i;
-
-		cl.instanced_baseline_count = MSG_ReadUBitLong( msg, 6 );
-
-		for( i = 0; i < cl.instanced_baseline_count; i++ )
+		if( proto == PROTO_GOLDSRC )
+			Delta_ReadGSFields( msg, DT_ENTITY_STATE_T, &nullstate, &cl.instanced_baseline[i], 1.0f );
+		else
 		{
-			if( proto == PROTO_GOLDSRC )
-				Delta_ReadGSFields( msg, DT_ENTITY_STATE_T, &nullstate, &cl.instanced_baseline[i], 1.0f );
-			else
-			{
-				int newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
-				MSG_ReadDeltaEntity( msg, &nullstate, &cl.instanced_baseline[i], newnum, false, 1.0f );
-			}
+			int newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+			MSG_ReadDeltaEntity( msg, &nullstate, &cl.instanced_baseline[i], newnum, false, 1.0f );
 		}
 	}
 }
@@ -1435,7 +1404,7 @@ void CL_RegisterUserMessage( sizebuf_t *msg, connprotocol_t proto )
 	int size;
 	int svc_num = MSG_ReadByte( msg );
 
-	if( proto == PROTO_LEGACY || proto == PROTO_GOLDSRC )
+	if( proto == PROTO_GOLDSRC )
 	{
 		size = MSG_ReadByte( msg );
 		if( size == UINT8_MAX )
@@ -1478,12 +1447,6 @@ void CL_UpdateUserinfo( sizebuf_t *msg, connprotocol_t proto )
 		id = MSG_ReadLong( msg );
 		active = true;
 	}
-	else if( proto == PROTO_LEGACY )
-	{
-		slot = MSG_ReadUBitLong( msg, MAX_CLIENT_BITS );
-		id = 0; // bogus
-		active = MSG_ReadOneBit( msg ) ? true : false;
-	}
 	else
 	{
 		slot = MSG_ReadUBitLong( msg, MAX_CLIENT_BITS );
@@ -1504,8 +1467,7 @@ void CL_UpdateUserinfo( sizebuf_t *msg, connprotocol_t proto )
 		player->topcolor = Q_atoi( Info_ValueForKey( player->userinfo, "topcolor" ));
 		player->bottomcolor = Q_atoi( Info_ValueForKey( player->userinfo, "bottomcolor" ));
 		player->spectator = Q_atoi( Info_ValueForKey( player->userinfo, "*hltv" ));
-		if( proto != PROTO_LEGACY )
-			MSG_ReadBytes( msg, player->hashedcdkey, sizeof( player->hashedcdkey ));
+		MSG_ReadBytes( msg, player->hashedcdkey, sizeof( player->hashedcdkey ));
 
 		if( proto == PROTO_GOLDSRC && ( !COM_CheckStringEmpty( player->userinfo ) || !COM_CheckStringEmpty( player->name )))
 			active = false;
@@ -2254,10 +2216,6 @@ void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext, const connprotocol_t
 			else
 				response = cvar->string;
 		}
-		else if( proto == PROTO_LEGACY )
-		{
-			response = "Not Found";
-		}
 		else
 		{
 			response = "Bad CVAR request";
@@ -2414,7 +2372,7 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num, connprotocol_t proto )
 	// message with variable sizes receive an actual size as first byte
 	if( iSize == -1 )
 	{
-		if( proto == PROTO_GOLDSRC || proto == PROTO_LEGACY )
+		if( proto == PROTO_GOLDSRC )
 			iSize = MSG_ReadByte( msg );
 		else iSize = MSG_ReadWord( msg );
 	}

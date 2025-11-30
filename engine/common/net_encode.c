@@ -1794,7 +1794,7 @@ void MSG_ReadClientData( sizebuf_t *msg, const clientdata_t *from, clientdata_t 
 	pField = dt->pFields;
 	Assert( pField != NULL );
 
-	noChanges = !cls.legacymode && !MSG_ReadOneBit( msg );
+	noChanges = !MSG_ReadOneBit( msg );
 
 	// process fields
 	for( i = 0; i < dt->numFields; i++, pField++ )
@@ -2037,31 +2037,29 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, const entity_state_t *from, entity
 		return false;
 	}
 
-	if( !cls.legacymode )
-	{
-		if( MSG_ReadOneBit( msg ))
-			baseline_offset = MSG_ReadSBitLong( msg, 7 );
+	if( MSG_ReadOneBit( msg ))
+		baseline_offset = MSG_ReadSBitLong( msg, 7 );
 
-		if( baseline_offset != 0 )
+	if( baseline_offset != 0 )
+	{
+		if( delta_type == DELTA_STATIC )
 		{
-			if( delta_type == DELTA_STATIC )
-			{
-				int backup = Q_max( 0, clgame.numStatics - abs( baseline_offset ));
-				from = &clgame.static_entities[backup].baseline;
-			}
-			else if( baseline_offset > 0 )
-			{
-				int backup = cls.next_client_entities - baseline_offset;
-				from = &cls.packet_entities[backup % cls.num_client_entities];
-			}
-			else
-			{
-				baseline_offset = abs( baseline_offset + 1 );
-				if( baseline_offset < cl.instanced_baseline_count )
-					from = &cl.instanced_baseline[baseline_offset];
-			}
+			int backup = Q_max( 0, clgame.numStatics - abs( baseline_offset ));
+			from = &clgame.static_entities[backup].baseline;
+		}
+		else if( baseline_offset > 0 )
+		{
+			int backup = cls.next_client_entities - baseline_offset;
+			from = &cls.packet_entities[backup % cls.num_client_entities];
+		}
+		else
+		{
+			baseline_offset = abs( baseline_offset + 1 );
+			if( baseline_offset < cl.instanced_baseline_count )
+				from = &cl.instanced_baseline[baseline_offset];
 		}
 	}
+
 	// g-cont. probably is redundant
 	*to = *from;
 
@@ -2069,7 +2067,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, const entity_state_t *from, entity
 		to->entityType = MSG_ReadUBitLong( msg, 2 );
 	to->number = number;
 
-	if( cls.legacymode ? ( to->entityType == ENTITY_BEAM ) : FBitSet( to->entityType, ENTITY_BEAM ))
+	if( FBitSet( to->entityType, ENTITY_BEAM ))
 	{
 		dt = Delta_FindStructByIndex( DT_CUSTOM_ENTITY_STATE_T );
 	}

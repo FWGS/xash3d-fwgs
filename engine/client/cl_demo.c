@@ -117,8 +117,6 @@ static int CL_GetDemoNetProtocol( connprotocol_t proto )
 	{
 	case PROTO_CURRENT:
 		return PROTOCOL_VERSION;
-	case PROTO_LEGACY:
-		return PROTOCOL_LEGACY_VERSION;
 	case PROTO_QUAKE:
 		return PROTOCOL_VERSION_QUAKE;
 	case PROTO_GOLDSRC:
@@ -134,8 +132,6 @@ static connprotocol_t CL_GetProtocolFromDemo( int net_protocol )
 	{
 	case PROTOCOL_VERSION:
 		return PROTO_CURRENT;
-	case PROTOCOL_LEGACY_VERSION:
-		return PROTO_LEGACY;
 	case PROTOCOL_VERSION_QUAKE:
 		return PROTO_QUAKE;
 	case PROTOCOL_GOLDSRC_VERSION_DEMO:
@@ -1264,8 +1260,7 @@ int GAME_EXPORT CL_GetDemoComment( const char *demoname, char *comment )
 		return false;
 	}
 
-	if(( demohdr.net_protocol != PROTOCOL_VERSION &&
-		demohdr.net_protocol != PROTOCOL_LEGACY_VERSION ) ||
+	if( demohdr.net_protocol != PROTOCOL_VERSION ||
 		demohdr.dem_protocol != DEMO_PROTOCOL )
 	{
 		FS_Close( demfile );
@@ -1480,10 +1475,10 @@ static qboolean CL_ParseDemoHeader( const char *callee, const char *filename, fi
 		return false;
 	}
 
-	if( hdr->net_protocol != PROTOCOL_VERSION && hdr->net_protocol != PROTOCOL_LEGACY_VERSION && hdr->net_protocol != PROTOCOL_GOLDSRC_VERSION_DEMO )
+	if( hdr->net_protocol != PROTOCOL_VERSION && hdr->net_protocol != PROTOCOL_GOLDSRC_VERSION_DEMO )
 	{
 		Con_Printf( S_ERROR "%s: net protocol outdated (%i should be %i or %i)\n",
-			callee, hdr->net_protocol, PROTOCOL_VERSION, PROTOCOL_LEGACY_VERSION );
+			callee, hdr->net_protocol, PROTOCOL_VERSION, PROTOCOL_GOLDSRC_VERSION );
 		return false;
 	}
 

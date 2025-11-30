@@ -780,10 +780,6 @@ static void CL_WritePacket( void )
 		maxbackup = MAX_GOLDSRC_BACKUP_CMDS;
 		maxcmds = MAX_GOLDSRC_TOTAL_CMDS;
 		break;
-	case PROTO_LEGACY:
-		maxbackup = MAX_LEGACY_BACKUP_CMDS;
-		maxcmds = MAX_LEGACY_TOTAL_CMDS;
-		break;
 	default:
 		maxbackup = MAX_BACKUP_COMMANDS;
 		maxcmds = MAX_TOTAL_CMDS;
@@ -1125,10 +1121,6 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
 		CL_GetCDKey( protinfo, sizeof( protinfo ));
 
-		// remove keys set for legacy protocol
-		Info_RemoveKey( cls.userinfo, "cl_maxpacket" );
-		Info_RemoveKey( cls.userinfo, "cl_maxpayload" );
-
 		name = Info_ValueForKey( cls.userinfo, "name" );
 		if( cl_advertise_engine_in_name.value && Q_strnicmp( name, "[Xash3D]", 8 ))
 			Info_SetValueForKeyf( cls.userinfo, "name", sizeof( cls.userinfo ), "[Xash3D]%s", name );
@@ -1146,27 +1138,6 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		NET_SendPacket( NS_CLIENT, MSG_GetNumBytesWritten( &send ), MSG_GetData( &send ), adr );
 		Con_Printf( "Trying to connect with GoldSrc 48 protocol\n" );
 	}
-	else if( proto == PROTO_LEGACY )
-	{
-		const char *dlmax;
-		int qport = Cvar_VariableInteger( "net_qport" );
-
-		// reset nickname from cvar value
-		Info_SetValueForKey( cls.userinfo, "name", name.string, sizeof( cls.userinfo ));
-
-		// set related userinfo keys
-		dlmax = ( cl_dlmax.value >= 100 && cl_dlmax.value < 40000 ) ? cl_dlmax.string : "1400";
-		Info_SetValueForKey( cls.userinfo, "cl_maxpacket", dlmax, sizeof( cls.userinfo ));
-
-		if( !COM_CheckStringEmpty( Info_ValueForKey( cls.userinfo, "cl_maxpayload" )))
-			Info_SetValueForKey( cls.userinfo, "cl_maxpayload", "1000", sizeof( cls.userinfo ) );
-
-		Info_SetValueForKey( protinfo, "i", key, sizeof( protinfo ));
-
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, C2S_CONNECT" %i %i %i \"%s\" %d \"%s\"\n",
-			PROTOCOL_LEGACY_VERSION, qport, challenge, cls.userinfo, NET_LEGACY_EXT_SPLIT, protinfo );
-		Con_Printf( "Trying to connect with legacy protocol\n" );
-	}
 	else
 	{
 		const char *qport = Cvar_VariableString( "net_qport" );
@@ -1177,10 +1148,6 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 
 		if( cl_dlmax.value > FRAGMENT_MAX_SIZE || cl_dlmax.value < FRAGMENT_MIN_SIZE )
 			Cvar_DirectSetValue( &cl_dlmax, FRAGMENT_DEFAULT_SIZE );
-
-		// remove keys set for legacy protocol
-		Info_RemoveKey( cls.userinfo, "cl_maxpacket" );
-		Info_RemoveKey( cls.userinfo, "cl_maxpayload" );
 
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
@@ -1423,12 +1390,6 @@ static qboolean CL_StringToProtocol( const char *s, connprotocol_t *proto )
 		return true;
 	}
 
-	if( !Q_stricmp( s, "legacy" ) || !Q_strcmp( s, "48" ))
-	{
-		*proto = PROTO_LEGACY;
-		return true;
-	}
-
 	if( !Q_stricmp( s, "goldsrc" ) || !Q_stricmp( s, "gs" ))
 	{
 		*proto = PROTO_GOLDSRC;
@@ -1436,7 +1397,7 @@ static qboolean CL_StringToProtocol( const char *s, connprotocol_t *proto )
 	}
 
 	// quake protocol only used for demos
-	Con_Printf( "Unknown protocol. Supported are: 49 (current), 48 (legacy), gs (goldsrc)\n" );
+	Con_Printf( "Unknown protocol. Supported are: 49 (current), gs (goldsrc)\n" );
 	return false;
 }
 
@@ -1647,13 +1608,6 @@ void CL_SetupNetchanForProtocol( connprotocol_t proto )
 		SetBits( flags, NETCHAN_USE_MUNGE | NETCHAN_USE_BZIP2 | NETCHAN_GOLDSRC );
 		pfnBlockSize = CL_GetGoldSrcFragmentSize;
 		break;
-	case PROTO_LEGACY:
-		if( FBitSet( Q_atoi( Cmd_Argv( 1 )), NET_LEGACY_EXT_SPLIT ))
-		{
-			SetBits( flags, NETCHAN_USE_LEGACY_SPLIT );
-			Con_Reportf( "^2NET_EXT_SPLIT enabled^7 (packet sizes is %d/%d)\n", (int)cl_dlmax.value, 65536 );
-		}
-		break;
 	default:
 		if( !Host_IsLocalClient( ))
 			SetBits( flags, NETCHAN_USE_LZSS );
@@ -1832,9 +1786,6 @@ static void CL_QueryServer( netadr_t adr, connprotocol_t proto )
 	case PROTO_GOLDSRC:
 		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), A2S_GOLDSRC_INFO ); // includes null terminator!
 		break;
-	case PROTO_LEGACY:
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_LEGACY_VERSION );
-		break;
 	case PROTO_CURRENT:
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
 		break;
@@ -1982,14 +1933,6 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	static char	infostring[512+8];
 	char		*s = MSG_ReadString( msg );
 	int i;
-	const char *magic = ": wrong version\n", *p;
-	size_t len = Q_strlen( s ), magiclen = Q_strlen( magic );
-
-	if( len >= magiclen && !Q_strcmp( s + len - magiclen, magic ))
-	{
-		Netchan_OutOfBandPrint( NS_CLIENT, from, A2A_INFO" %i", PROTOCOL_LEGACY_VERSION );
-		return;
-	}
 
 	if( !Info_IsValid( s ))
 	{
@@ -2003,17 +1946,6 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 		return; // unsupported proto
 
 	Info_RemoveKey( infostring, "gs" ); // don't let servers pretend they're something else
-
-	p = Info_ValueForKey( infostring, "p" );
-	if( !COM_CheckStringEmpty( p ))
-	{
-		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ));
-		Info_SetValueForKey( infostring, "p", "48", sizeof( infostring ));
-	}
-	else if( !Q_strcmp( p, "48" ))
-	{
-		Info_SetValueForKey( infostring, "legacy", "1", sizeof( infostring ));
-	}
 
 	UI_AddServerToList( from, infostring );
 }
@@ -2667,9 +2599,6 @@ static void CL_ReadNetMessage( void )
 
 	switch( cls.legacymode )
 	{
-	case PROTO_LEGACY:
-		parsefn = CL_ParseLegacyServerMessage;
-		break;
 	case PROTO_QUAKE:
 		parsefn = CL_ParseQuakeMessage;
 		break;
@@ -2683,14 +2612,6 @@ static void CL_ReadNetMessage( void )
 
 	while( CL_GetMessage( net_message_buffer, &curSize ))
 	{
-		const int split_header = LittleLong( 0xFFFFFFFE );
-		if( cls.legacymode == PROTO_LEGACY && !memcmp( &split_header, net_message_buffer, sizeof( split_header )))
-		{
-			// Will rewrite existing packet by merged
-			if( !NetSplit_GetLong( &cls.netchan.netsplit, &net_from, net_message_buffer, &curSize ) )
-				continue;
-		}
-
 		MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
 
 		// check for connectionless packet (0xffffffff) first
@@ -2902,19 +2823,6 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 		Con_Printf( S_ERROR "server failed to transmit file '%s'\n", CL_CleanFileName( filename ));
 	}
 
-	if( cls.legacymode == PROTO_LEGACY )
-	{
-		if( host.downloadcount > 0 )
-			host.downloadcount--;
-
-		if( !host.downloadcount )
-		{
-			MSG_WriteByte( &cls.netchan.message, clc_stringcmd );
-			MSG_WriteString( &cls.netchan.message, "continueloading" );
-		}
-		return;
-	}
-
 	for( p = cl.resourcesneeded.pNext; p != &cl.resourcesneeded; p = p->pNext )
 	{
 		if( !Q_strnicmp( filename, "!MD5", 4 ))
@@ -3053,13 +2961,6 @@ void CL_UpdateInfo( const char *key, const char *value )
 {
 	switch( cls.legacymode )
 	{
-	case PROTO_LEGACY:
-		if( cls.state != ca_active )
-			break;
-
-		MSG_BeginClientCmd( &cls.netchan.message, clc_legacy_userinfo );
-		MSG_WriteString( &cls.netchan.message, cls.userinfo );
-		break;
 	case PROTO_GOLDSRC:
 		if( cl_advertise_engine_in_name.value && !Q_stricmp( key, "name" ) && Q_strnicmp( value, "[Xash3D]", 8 ))
 		{
@@ -3516,7 +3417,6 @@ static void CL_InitLocal( void )
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
 
 	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
-	Cmd_AddCommand ("precache", CL_LegacyPrecache_f, "legacy server compatibility" );
 
 	Cmd_AddCommand( "richpresence_gamemode", Cmd_Null_f, "compatibility command, does nothing" );
 	Cmd_AddCommand( "richpresence_update", Cmd_Null_f, "compatibility command, does nothing" );

@@ -78,10 +78,6 @@ GNU General Public License for more details.
 #define CMD_MASK			(CMD_BACKUP - 1)
 #define NUM_PACKET_ENTITIES		256	// 170 Mb for multiplayer with 32 players
 #define MAX_CUSTOM_BASELINES		64
-#define NET_LEGACY_EXT_SPLIT		(1U<<1)
-#define NETSPLIT_BACKUP 8
-#define NETSPLIT_BACKUP_MASK (NETSPLIT_BACKUP - 1)
-#define NETSPLIT_HEADER_SIZE 18
 
 #if XASH_LOW_MEMORY == 2
 	#undef MULTIPLAYER_BACKUP
@@ -104,42 +100,6 @@ GNU General Public License for more details.
 	#define MAX_CUSTOM_BASELINES		8
 	#define NET_MAX_FRAGMENT		32768
 #endif
-
-typedef struct netsplit_chain_packet_s
-{
-	// bool vector
-	uint32_t recieved_v[8];
-	// serial number
-	uint32_t id;
-	byte data[NET_MAX_PAYLOAD];
-	byte received;
-	byte count;
-} netsplit_chain_packet_t;
-
-// raw packet format
-typedef struct netsplit_packet_s
-{
-	uint32_t signature; // 0xFFFFFFFE
-	uint32_t length;
-	uint32_t part;
-	uint32_t id;
-	// max 256 parts
-	byte count;
-	byte index;
-	byte data[NET_MAX_PAYLOAD - NETSPLIT_HEADER_SIZE];
-} netsplit_packet_t;
-
-
-typedef struct netsplit_s
-{
-	netsplit_chain_packet_t packets[NETSPLIT_BACKUP];
-	uint64_t total_received;
-	uint64_t total_received_uncompressed;
-} netsplit_t;
-
-// packet splitting
-qboolean NetSplit_GetLong( netsplit_t *ns, netadr_t *from, byte *data, size_t *length );
-
 
 /*
 ==============================================================
@@ -207,7 +167,6 @@ typedef enum fragsize_e
 
 typedef enum netchan_flags_e
 {
-	NETCHAN_USE_LEGACY_SPLIT = BIT( 0 ),
 	NETCHAN_USE_MUNGE = BIT( 1 ),
 	NETCHAN_USE_BZIP2 = BIT( 2 ),
 	NETCHAN_GOLDSRC = BIT( 3 ),
@@ -276,11 +235,7 @@ typedef struct netchan_s
 	// added for net_speeds
 	size_t		total_sended;
 	size_t		total_received;
-	unsigned int	maxpacket;
-	unsigned int	splitid;
-	netsplit_t	netsplit;
 
-	qboolean	split;
 	qboolean	use_munge;
 	qboolean	use_bz2;
 	qboolean	use_lzss;

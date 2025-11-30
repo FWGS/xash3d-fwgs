@@ -197,7 +197,7 @@ static const char *const clc_strings[clc_lastmsg+1] =
 	"clc_stringcmd",
 	"clc_delta",
 	"clc_resourcelist",
-	"clc_legacy_userinfo",
+	"clc_unused6",
 	"clc_fileconsistency",
 	"clc_voicedata",
 	"clc_cvarvalue/clc_goldsrc_hltv",
@@ -267,17 +267,6 @@ const char *const svc_strings[svc_lastmsg+1] =
 	"svc_querycvarvalue",
 	"svc_querycvarvalue2",
 	"svc_exec",
-};
-
-const char *const svc_legacy_strings[svc_lastmsg+1] =
-{
-	[svc_legacy_changing] = "svc_legacy_changing",
-	[svc_legacy_ambientsound] = "svc_legacy_ambientsound",
-	[svc_legacy_soundindex] = "svc_legacy_soundindex",
-	[svc_legacy_ambientsound] = "svc_legacy_ambientsound",
-	[svc_legacy_modelindex] = "svc_legacy_modelindex",
-	[svc_legacy_eventindex] = "svc_legacy_eventindex",
-	[svc_legacy_chokecount] = "svc_legacy_chokecount",
 };
 
 const char *const svc_goldsrc_strings[svc_lastmsg+1] =
