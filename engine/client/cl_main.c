@@ -1932,20 +1932,33 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 {
 	static char	infostring[512+8];
 	char		*s = MSG_ReadString( msg );
-	int i;
+	int numcl, maxcl, i;
 
 	if( !Info_IsValid( s ))
-	{
-		Con_Printf( "^1Server^7: %s, invalid infostring\n", NET_AdrToString( from ));
 		return;
-	}
 
 	CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
 
 	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
 		return; // unsupported proto
 
-	Info_RemoveKey( infostring, "gs" ); // don't let servers pretend they're something else
+	if( !COM_CheckString( Info_ValueForKey( infostring, "host" )))
+		return;
+
+	if( !COM_CheckString( Info_ValueForKey( infostring, "map" )))
+		return;
+
+	// don't let servers pretend they're something else
+	if( COM_CheckString( Info_ValueForKey( infostring, "gs" )))
+		return;
+
+	maxcl = Q_atoi( Info_ValueForKey( infostring, "maxcl" ));
+	numcl = Q_atoi( Info_ValueForKey( infostring, "numcl" ));
+	i = Q_atoi( Info_ValueForKey( infostring, "p" ));
+
+	// sanity check
+	if( maxcl > MAX_CLIENTS || numcl > MAX_CLIENTS || numcl > maxcl || i != PROTOCOL_VERSION )
+		return;
 
 	UI_AddServerToList( from, infostring );
 }
@@ -1955,7 +1968,6 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 	static char	s[512+8];
 	int p, numcl, maxcl, password, remaining, bots;
 	string host, map, gamedir, version;
-	connprotocol_t proto;
 	char *replace;
 
 	// set to beginning but skip header
