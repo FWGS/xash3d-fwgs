@@ -3663,7 +3663,7 @@ void SV_ExecuteClientMessage( sv_client_t *cl, sizebuf_t *msg )
 			SV_ParseCvarValue2( cl, msg );
 			break;
 		default:
-			Con_DPrintf( S_ERROR "%s: clc_bad\n", cl->name );
+			Con_DPrintf( S_ERROR "%s: clc_bad (%d)\n", cl->name, c );
 			SV_DropClient( cl, false );
 			return;
 		}
