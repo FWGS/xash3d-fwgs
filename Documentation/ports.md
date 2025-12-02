@@ -22,6 +22,7 @@ Table is sorted by status and platform.
 | PSVita          | Supported                  | @fgsfdsfgs               |
 | Switch          | Supported                  | @fgsfdsfgs               |
 | Windows         | Supported                  | @a1batross, @SNMetamorph |
+| iOS             | Supported                  | @ksagameng2              |
 | DOS4GW          | Orphaned                   | N/A                      | Haven't been confirmed to work for a very long time
 | Haiku           | Orphaned                   | N/A                      | Was added by #478 and #483
 | IRIX            | Orphaned                   | N/A                      | Undone, compiles but requires big endian port
@@ -35,4 +36,3 @@ Table is sorted by status and platform.
 | Emscripten      | Old Engine                 | N/A                      | 
 | 3DS             | Old Engine fork            | N/A                      | [GitHub Repository](https://github.com/masterfeizz/Xash3DS)
 | Oculus Quest    | Old Engine fork            | N/A                      | [GitHub Repository](https://github.com/DrBeef/Lambda1VR)
-| iOS             | Deprecated                 | N/A                      | See GitHub issue #61
