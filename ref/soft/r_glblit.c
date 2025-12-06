@@ -861,7 +861,7 @@ qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 
 		for( v = 0; v < vid.height; v++ )
 		{
-			uint start = vid.rowbytes * ( vid.height - v );
+			uint start = vid.rowbytes * ( vid.height - v - 1 );
 			uint d = swblit.stride - v - 1;
 
 			for( u = 0; u < vid.width; u++ )
@@ -877,7 +877,7 @@ qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 
 		for( v = 0; v < vid.height; v++ )
 		{
-			uint start = vid.rowbytes * ( vid.height - v );
+			uint start = vid.rowbytes * ( vid.height - v - 1 );
 			uint dstart = swblit.stride * v;
 
 			for( u = 0; u < vid.width; u++ )
