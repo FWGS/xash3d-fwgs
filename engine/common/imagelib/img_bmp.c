@@ -359,9 +359,11 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	case PF_INDEXED_32:
 		pixel_size = 1;
 		break;
+	case PF_BGR_24:
 	case PF_RGB_24:
 		pixel_size = 3;
 		break;
+	case PF_BGRA_32:
 	case PF_RGBA_32:
 		pixel_size = 4;
 		break;
@@ -438,9 +440,11 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 			else
 			{
 				// 24 bit
-				pbBmpBits[i*pixel_size+0] = pb[x*pixel_size+2];
-				pbBmpBits[i*pixel_size+1] = pb[x*pixel_size+1];
-				pbBmpBits[i*pixel_size+2] = pb[x*pixel_size+0];
+				qboolean be = !!( pix->type & (PF_BGR_24|PF_BGRA_32) ); // is it big endian RGB?
+				
+				pbBmpBits[i*pixel_size+(be?2:0)] = pb[x*pixel_size+2];
+				pbBmpBits[i*pixel_size+(be?1:1)] = pb[x*pixel_size+1];
+				pbBmpBits[i*pixel_size+(be?0:2)] = pb[x*pixel_size+0];
 			}
 
 			if( pixel_size == 4 ) // write alpha channel
