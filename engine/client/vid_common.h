@@ -28,7 +28,7 @@ typedef struct
 {
 	void     *context; // handle to GL rendering context
 	ref_safegl_context_t safe;
-	qboolean software;
+	ref_graphic_apis_t type;
 } glwstate_t;
 
 extern glwstate_t glw_state;

@@ -359,7 +359,7 @@ void GL_UpdateSwapInterval( void )
 	{
 		ClearBits( gl_vsync.flags, FCVAR_CHANGED );
 
-		if( SDL_GL_SetSwapInterval( gl_vsync.value ) < 0 )
+		if( glw_state.context && SDL_GL_SetSwapInterval( gl_vsync.value ) < 0 )
 			Con_Reportf( S_ERROR  "SDL_GL_SetSwapInterval: %s\n", SDL_GetError( ));
 	}
 }
@@ -386,7 +386,7 @@ static void VID_GetWindowSizeInPixels( SDL_Window *window, SDL_Renderer *rendere
 #if SDL_VERSION_ATLEAST( 2, 26, 0 )
 	SDL_GetWindowSizeInPixels( window, w, h );
 #else
-	if( glw_state.software )
+	if( glw_state.type != REF_GL )
 		SDL_GetRendererOutputSize( renderer, w, h );
 	else
 		SDL_GL_GetDrawableSize( window, w, h );
@@ -669,7 +669,7 @@ static rserr_t VID_CreateWindow( const int input_width, const int input_height, 
 	SetBits( flags, SDL_WINDOW_ALLOW_HIGHDPI );
 #endif // !XASH_WIN32
 
-	if( !glw_state.software )
+	if( glw_state.type == REF_GL )
 		SetBits( flags, SDL_WINDOW_OPENGL );
 
 	if( vid_maximized.value )
@@ -681,7 +681,7 @@ static rserr_t VID_CreateWindow( const int input_width, const int input_height, 
 
 	if( !host.hWnd )
 	{
-		err = glw_state.software ? rserr_unknown : rserr_invalid_context;
+		err = (glw_state.type == REF_GL) ? rserr_invalid_context : rserr_unknown;
 		goto cleanup;
 	}
 
@@ -698,7 +698,7 @@ static rserr_t VID_CreateWindow( const int input_width, const int input_height, 
 	SDL_ShowWindow( host.hWnd );
 	SDL_RaiseWindow( host.hWnd );
 
-	if( glw_state.software )
+	if( glw_state.type == REF_SOFTWARE )
 	{
 		char cmd[64];
 
@@ -720,7 +720,7 @@ static rserr_t VID_CreateWindow( const int input_width, const int input_height, 
 			Con_Printf( "SDL_Renderer %s initialized\n", info.name );
 		}
 	}
-	else
+	else if( glw_state.type == REF_GL )
 	{
 		glw_state.context = SDL_GL_CreateContext( host.hWnd );
 
@@ -917,10 +917,10 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 	SDL_SetHint( SDL_HINT_VIDEO_X11_XRANDR, "1" );
 	SDL_SetHint( SDL_HINT_VIDEO_X11_XVIDMODE, "1" );
 
+	glw_state.type = type;
 	switch( type )
 	{
 	case REF_SOFTWARE:
-		glw_state.software = true;
 		break;
 	case REF_GL:
 		if( !glw_state.safe && Sys_GetParmFromCmdLine( "-safegl", safe ) )
@@ -934,6 +934,8 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 			Con_Reportf( S_ERROR  "Couldn't initialize OpenGL: %s\n", SDL_GetError());
 			return false;
 		}
+		break;
+	case REF_D3D:
 		break;
 	default:
 		Host_Error( "Can't initialize unknown context type %d!\n", type );
@@ -950,6 +952,7 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		ref.dllFuncs.GL_InitExtensions();
 		break;
 	case REF_SOFTWARE:
+	case REF_D3D:
 	default:
 		break;
 	}

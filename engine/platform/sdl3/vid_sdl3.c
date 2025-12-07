@@ -113,7 +113,7 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 	SDL_Rect rect = { SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, input_width, input_height };
 	Uint32   flags = SDL_WINDOW_RESIZABLE;
 
-	if( !glw_state.software )
+	if( glw_state.type == REF_GL )
 		SetBits( flags, SDL_WINDOW_OPENGL );
 
 	// probe true fullscreen first, if it fails, try borderless next
@@ -168,12 +168,12 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 
 	VID_SetWindowIcon( host.hWnd );
 
-	if( glw_state.software )
+	if( glw_state.type == REF_SOFTWARE )
 	{
 		// no support yet
 		return false;
 	}
-	else
+	else if ( glw_state.type == REF_GL )
 	{
 		glw_state.context = SDL_GL_CreateContext( host.hWnd );
 
@@ -337,10 +337,10 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 	if( Sys_CheckParm( "-egl" ))
 		Con_Printf( S_WARN "%s: -egl option is deprecated\n", __func__ );
 
+	glw_state.type = type;
 	switch( type )
 	{
 	case REF_SOFTWARE:
-		glw_state.software = true;
 		break;
 	case REF_GL:
 	{
@@ -357,6 +357,8 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 
 		break;
 	}
+	case REF_D3D:
+		break;
 	default:
 		Host_Error( "Can't initialize unknown context type %d!\n", type );
 		break;
