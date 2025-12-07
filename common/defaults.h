@@ -174,7 +174,7 @@ Default build-depended cvar and constant values
 #endif // DEFAULT_ALLOWCONSOLE
 
 #ifndef DEFAULT_FULLSCREEN
-	#define DEFAULT_FULLSCREEN "1" // must be a string
+	#define DEFAULT_FULLSCREEN "2" // must be a string
 #endif // DEFAULT_FULLSCREEN
 
 #ifndef DEFAULT_MAX_EDICTS
