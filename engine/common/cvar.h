@@ -36,15 +36,15 @@ cvar_t *Cvar_GetList( void );
 #define Cvar_FindVar( name )	Cvar_FindVarExt( name, 0 )
 convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group );
 void Cvar_RegisterVariable( convar_t *var );
-convar_t *Cvar_Get( const char *var_name, const char *value, int flags, const char *description );
-convar_t *Cvar_Getf( const char *var_name, int flags, const char *description, const char *format, ... ) FORMAT_CHECK( 4 );
+convar_t *Cvar_Get( const char *var_name, const char *value, uint32_t flags, const char *description );
+convar_t *Cvar_Getf( const char *var_name, uint32_t flags, const char *description, const char *format, ... ) FORMAT_CHECK( 4 );
 void Cvar_LookupVars( int checkbit, void *buffer, void *ptr, setpair_t callback );
-void Cvar_FullSet( const char *var_name, const char *value, int flags );
+void Cvar_FullSet( const char *var_name, const char *value, uint32_t flags );
 void Cvar_DirectSet( convar_t *var, const char *value );
 void Cvar_DirectSetValue( convar_t *var, float value );
 void Cvar_Set( const char *var_name, const char *value );
 void Cvar_SetValue( const char *var_name, float value );
-const char *Cvar_BuildAutoDescription( const char *szName, int flags ) RETURNS_NONNULL;
+const char *Cvar_BuildAutoDescription( const char *szName, uint32_t flags ) RETURNS_NONNULL;
 float Cvar_VariableValue( const char *var_name );
 int Cvar_VariableInteger( const char *var_name );
 const char *Cvar_VariableString( const char *var_name ) RETURNS_NONNULL;
@@ -56,9 +56,9 @@ qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged );
 void Cvar_Init( void );
 void Cvar_Shutdown( void );
 void Cvar_PostFSInit( void );
-void Cvar_Unlink( int group );
+void Cvar_Unlink( uint32_t group );
 
-pending_cvar_t *Cvar_PrepareToUnlink( int group );
+pending_cvar_t *Cvar_PrepareToUnlink( uint32_t group );
 void Cvar_UnlinkPendingCvars( pending_cvar_t *pending_cvars );
 
 #endif//CVAR_H

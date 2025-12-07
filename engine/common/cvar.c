@@ -103,7 +103,7 @@ Cvar_BuildAutoDescription
 build cvar auto description that based on the setup flags
 ============
 */
-const char *Cvar_BuildAutoDescription( const char *szName, int flags )
+const char *Cvar_BuildAutoDescription( const char *szName, uint32_t flags )
 {
 	static char	desc[256];
 
@@ -292,7 +292,7 @@ Cvar_UnlinkVar
 unlink the variable
 ============
 */
-static int Cvar_UnlinkVar( const char *var_name, int group )
+static int Cvar_UnlinkVar( const char *var_name, uint32_t group )
 {
 	int	count = 0;
 	convar_t	**prev;
@@ -405,7 +405,7 @@ If the variable already exists, the value will not be set
 The flags will be or'ed in if the variable exists.
 ============
 */
-convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *var_desc )
+convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const char *var_desc )
 {
 	convar_t	*cur, *find, *var;
 
@@ -498,7 +498,7 @@ convar_t *Cvar_Get( const char *name, const char *value, int flags, const char *
 Cvar_Getf
 ============
 */
-convar_t *Cvar_Getf( const char *var_name, int flags, const char *description, const char *format, ... )
+convar_t *Cvar_Getf( const char *var_name, uint32_t flags, const char *description, const char *format, ... )
 {
 	char value[MAX_VA_STRING];
 	va_list args;
@@ -779,7 +779,7 @@ Cvar_FullSet
 can set any protected cvars
 ============
 */
-void Cvar_FullSet( const char *var_name, const char *value, int flags )
+void Cvar_FullSet( const char *var_name, const char *value, uint32_t flags )
 {
 	convar_t *var = Cvar_FindVar( var_name );
 	size_t len = Q_strlen( value ) + 1;
@@ -1225,7 +1225,7 @@ static void Cvar_List_f( void )
 	Con_Printf( "\n%i cvars\n", count );
 }
 
-static qboolean Cvar_ValidateUnlinkGroup( int group )
+static qboolean Cvar_ValidateUnlinkGroup( uint32_t group )
 {
 	if( FBitSet( group, FCVAR_EXTDLL ) && !Cvar_VariableInteger( "host_gameloaded" ))
 		return false;
@@ -1246,7 +1246,7 @@ Cvar_Unlink
 unlink all cvars with specified flag
 ============
 */
-void Cvar_Unlink( int group )
+void Cvar_Unlink( uint32_t group )
 {
 	int	count;
 
@@ -1257,7 +1257,7 @@ void Cvar_Unlink( int group )
 	Con_Reportf( "unlink %i cvars\n", count );
 }
 
-pending_cvar_t *Cvar_PrepareToUnlink( int group )
+pending_cvar_t *Cvar_PrepareToUnlink( uint32_t group )
 {
 	pending_cvar_t *list = NULL;
 	pending_cvar_t *tail = NULL;
