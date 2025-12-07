@@ -125,7 +125,7 @@ typedef struct ref_globals_s
 {
 	qboolean developer;
 
-	// viewport width and height
+	// viewport width and height (physical window size)
 	int      width;
 	int      height;
 
@@ -144,6 +144,10 @@ typedef struct ref_globals_s
 	size_t		visbytes;		// cluster size
 
 	int desktopBitsPixel;
+
+	// scaling factor of physical window size compared to logical
+	float scale_x;
+	float scale_y;
 } ref_globals_t;
 
 typedef struct ref_client_s
