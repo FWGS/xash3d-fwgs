@@ -30,6 +30,8 @@ CVAR_DEFINE( window_width, "width", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "scr
 CVAR_DEFINE( window_height, "height", "0", FCVAR_RENDERINFO|FCVAR_VIDRESTART, "screen height" );
 CVAR_DEFINE( window_xpos, "_window_xpos", "-1", FCVAR_RENDERINFO, "window position by horizontal" );
 CVAR_DEFINE( window_ypos, "_window_ypos", "-1", FCVAR_RENDERINFO, "window position by vertical" );
+CVAR_DEFINE( vid_width, "vid_width", "0", FCVAR_READ_ONLY, "actual window viewport size" );
+CVAR_DEFINE( vid_height, "vid_height", "0", FCVAR_READ_ONLY, "actual window viewport size" );
 
 glwstate_t	glw_state;
 
@@ -40,6 +42,8 @@ R_SaveVideoMode
 */
 void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximized )
 {
+	string temp;
+
 	if( !w || !h || !render_w || !render_h )
 	{
 		host.renderinfo_changed = false;
@@ -49,8 +53,18 @@ void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximiz
 	host.window_center_x = w / 2;
 	host.window_center_y = h / 2;
 
-	Cvar_SetValue( "width", w );
-	Cvar_SetValue( "height", h );
+	Q_snprintf( temp, sizeof( temp ), "%d", w );
+	Cvar_DirectSet( &window_width, temp );
+
+	Q_snprintf( temp, sizeof( temp ), "%d", h );
+	Cvar_DirectSet( &window_height, temp );
+
+	Q_snprintf( temp, sizeof( temp ), "%d", render_w );
+	Cvar_FullSet( "vid_width", temp, vid_width.flags );
+
+	Q_snprintf( temp, sizeof( temp ), "%d", render_h );
+	Cvar_FullSet( "vid_height", temp, vid_width.flags  );
+
 	Cvar_DirectSet( &vid_maximized, maximized ? "1" : "0" );
 	
 	// immediately drop changed state or we may trigger
@@ -64,9 +78,7 @@ void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximiz
 	refState.height = render_h;
 
 	// check for 4:3 or 5:4
-	if( render_w * 3 != render_h * 4 && render_w * 4 != render_h * 5 )
-		refState.wideScreen = true;
-	else refState.wideScreen = false;
+	refState.wideScreen = render_w * 3 != render_h * 4 && render_w * 4 != render_h * 5;
 
 	SCR_VidInit(); // tell client.dll that vid_mode has changed
 }
@@ -201,6 +213,8 @@ void VID_Init( void )
 	Cvar_RegisterVariable( &vid_scale );
 	Cvar_RegisterVariable( &vid_fullscreen );
 	Cvar_RegisterVariable( &vid_maximized );
+	Cvar_RegisterVariable( &vid_width );
+	Cvar_RegisterVariable( &vid_height );
 	Cvar_RegisterVariable( &window_xpos );
 	Cvar_RegisterVariable( &window_ypos );
 
