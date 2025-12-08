@@ -577,11 +577,11 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 #endif
 }
 
-static qboolean VID_CreateWindowWithSafeGL( const char *wndname, int xpos, int ypos, int w, int h, uint32_t flags )
+static qboolean VID_CreateWindowWithSafeGL( const char *wndname, const SDL_Rect *rect, Uint32 flags )
 {
 	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
 	{
-		host.hWnd = SDL_CreateWindow( wndname, xpos, ypos, w, h, flags );
+		host.hWnd = SDL_CreateWindow( wndname, rect->x, rect->y, rect->w, rect->h, flags );
 
 		// we have window, exit loop
 		if( host.hWnd )
@@ -612,16 +612,6 @@ static qboolean RectFitsInDisplay( const SDL_Rect *rect, const SDL_Rect *display
 		&& rect->y >= display->y
 		&& rect->x + rect->w <= display->x + display->w
 		&& rect->y + rect->h <= display->y + display->h;
-}	
-// Function to check if the rectangle fits in any display
-static qboolean RectFitsInAnyDisplay( const SDL_Rect *rect, const SDL_Rect *display_rects, int num_displays )
-{
-	for( int i = 0; i < num_displays; i++ )
-	{
-		if( RectFitsInDisplay( rect, &display_rects[i] ))
-			return true; // Rectangle fits in this display
-	}
-	return false; // Rectangle does not fit in any display
 }
 
 /*
@@ -629,59 +619,58 @@ static qboolean RectFitsInAnyDisplay( const SDL_Rect *rect, const SDL_Rect *disp
 VID_CreateWindow
 =================
 */
-qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
+qboolean VID_CreateWindow( int input_width, int input_height, window_mode_t window_mode )
 {
-	string wndname;
 	qboolean maximized = vid_maximized.value != 0.0f;
 	Uint32 wndFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS | SDL_WINDOW_ALLOW_HIGHDPI;
-	int xpos, ypos;
-	int num_displays = SDL_GetNumVideoDisplays();
-	SDL_Rect rect = { window_xpos.value, window_ypos.value, width, height };
-
-	Q_strncpy( wndname, GI->title, sizeof( wndname ));
+	SDL_Rect rect = { window_xpos.value, window_ypos.value, input_width, input_height };
 
 	if( !glw_state.software )
 		SetBits( wndFlags, SDL_WINDOW_OPENGL );
 
 	if( window_mode == WINDOW_MODE_WINDOWED )
 	{
-		SDL_Rect *display_rects = ( SDL_Rect * )malloc( num_displays * sizeof( SDL_Rect ));
-
 		SetBits( wndFlags, SDL_WINDOW_RESIZABLE );
 		if( maximized )
 			SetBits( wndFlags, SDL_WINDOW_MAXIMIZED );
 
-		if( !display_rects )
+		if( rect.x < 0 || rect.y < 0 )
 		{
-			Con_Printf( S_ERROR "Failed to allocate memory for display rects!\n" );
-			xpos = SDL_WINDOWPOS_UNDEFINED;
-			ypos = SDL_WINDOWPOS_UNDEFINED;
+			rect.x = rect.y = SDL_WINDOWPOS_UNDEFINED;
 		}
 		else
 		{
+			const int num_displays = SDL_GetNumVideoDisplays();
+			qboolean window_fits = false;
+
 			for( int i = 0; i < num_displays; i++ )
 			{
-				if( SDL_GetDisplayBounds( i, &display_rects[i] ) != 0 )
+				SDL_Rect display_bounds;
+
+				if( SDL_GetDisplayBounds( i, &display_bounds ) == 0 )
+				{
+					Con_Reportf( "Display %d: %d %d %d %d\n", i, display_bounds.x, display_bounds.y, display_bounds.w, display_bounds.h );
+				}
+				else
 				{
 					Con_Printf( S_ERROR "Failed to get bounds for display %d! SDL_Error: %s\n", i, SDL_GetError());
-					display_rects[i] = ( SDL_Rect ){ 0, 0, 0, 0 };
+					continue;
+				}
+
+				if( RectFitsInDisplay( &rect, &display_bounds ))
+				{
+					window_fits = true;
+					break;
 				}
 			}
+
 			// Check if the rectangle fits in any display
-			if( !RectFitsInAnyDisplay( &rect, display_rects, num_displays ))
+			if( !window_fits )
 			{
-				// Rectangle doesn't fit in any display, center it
-				xpos = SDL_WINDOWPOS_UNDEFINED;
-				ypos = SDL_WINDOWPOS_UNDEFINED;
-				Con_Printf( S_ERROR "Rectangle does not fit in any display.\n" );
-			}
-			else
-			{
-				xpos = rect.x;
-				ypos = rect.y;
+				Con_Printf( S_ERROR "Window { %d, %d, %d, %d } does not fit on any display\n", rect.x, rect.y, rect.w, rect.h );
+				rect.x = rect.y = SDL_WINDOWPOS_UNDEFINED;
 			}
 		}
-		free( display_rects );
 	}
 	else
 	{
@@ -691,28 +680,20 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 		else
 			SetBits( wndFlags, SDL_WINDOW_FULLSCREEN_DESKTOP );
 		SetBits( wndFlags, SDL_WINDOW_BORDERLESS );
+
 		if ( window_xpos.value < 0 || window_ypos.value < 0 )
-		{
-			xpos = SDL_WINDOWPOS_UNDEFINED;
-			ypos = SDL_WINDOWPOS_UNDEFINED;
-		}
-		else
-		{
-			xpos = window_xpos.value;
-			ypos = window_ypos.value;
-		}
+			rect.x = rect.y = SDL_WINDOWPOS_UNDEFINED;
 	}
 
-	if( !VID_CreateWindowWithSafeGL( wndname, xpos, ypos, width, height, wndFlags ))
+	if( !VID_CreateWindowWithSafeGL( GI->title, &rect, wndFlags ))
 		return false;
 
-	// update window size if it was maximized, just in case
-	if( FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED|SDL_WINDOW_FULLSCREEN_DESKTOP ) != 0 )
-		SDL_GetWindowSize( host.hWnd, &width, &height );
+	// update window size if it was resized
+	SDL_GetWindowSize( host.hWnd, &rect.w, &rect.h );
 
 	if( window_mode != WINDOW_MODE_WINDOWED )
 	{
-		if( !VID_SetScreenResolution( width, height, window_mode ))
+		if( !VID_SetScreenResolution( rect.w, rect.h, window_mode ))
 			return false;
 	}
 	else VID_RestoreScreenResolution( window_mode );
@@ -755,7 +736,7 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 			return false;
 	}
 
-	VID_SaveWindowSize( width, height, maximized );
+	VID_SaveWindowSize( rect.w, rect.h, maximized );
 
 	return true;
 }
