@@ -671,9 +671,9 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 			if( !RectFitsInAnyDisplay( &rect, display_rects, num_displays ))
 			{
 				// Rectangle doesn't fit in any display, center it
-				xpos = SDL_WINDOWPOS_CENTERED;
-				ypos = SDL_WINDOWPOS_CENTERED;
-				Con_Printf( S_ERROR "Rectangle does not fit in any display. Centering window.\n" );
+				xpos = SDL_WINDOWPOS_UNDEFINED;
+				ypos = SDL_WINDOWPOS_UNDEFINED;
+				Con_Printf( S_ERROR "Rectangle does not fit in any display.\n" );
 			}
 			else
 			{
