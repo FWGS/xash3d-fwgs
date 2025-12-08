@@ -105,6 +105,14 @@ typedef enum
 	DEMO_QUAKE1
 } demo_mode;
 
+typedef enum window_mode_e
+{
+	WINDOW_MODE_WINDOWED = 0,
+	WINDOW_MODE_FULLSCREEN,
+	WINDOW_MODE_BORDERLESS,
+	WINDOW_MODE_COUNT,
+} window_mode_t;
+
 typedef enum ref_window_type_e
 {
 	REF_WINDOW_TYPE_NULL = 0,
@@ -129,7 +137,7 @@ typedef struct ref_globals_s
 	int      width;
 	int      height;
 
-	qboolean fullScreen;
+	window_mode_t window_mode;
 	qboolean wideScreen;
 
 	vec3_t vieworg;

@@ -9,14 +9,6 @@ typedef struct vidmode_s
 	int height;
 } vidmode_t;
 
-typedef enum window_mode_e
-{
-	WINDOW_MODE_WINDOWED = 0,
-	WINDOW_MODE_FULLSCREEN,
-	WINDOW_MODE_BORDERLESS,
-	WINDOW_MODE_COUNT,
-} window_mode_t;
-
 typedef struct
 {
 	void     *context; // handle to GL rendering context
