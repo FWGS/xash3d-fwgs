@@ -494,13 +494,13 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 	return true;
 }
 
-void VID_RestoreScreenResolution( void )
+void VID_RestoreScreenResolution( window_mode_t window_mode )
 {
 	// on mobile platform fullscreen is designed to be always on
 	// and code below minimizes our window if we're in full screen
 	// don't do that on mobile devices
 #if !XASH_MOBILE_PLATFORM
-	switch((window_mode_t)vid_fullscreen.value )
+	switch( window_mode )
 	{
 	case WINDOW_MODE_WINDOWED:
 		// TODO: this line is from very old SDL video backend
@@ -711,7 +711,7 @@ qboolean VID_CreateWindow( int width, int height, window_mode_t window_mode )
 		if( !VID_SetScreenResolution( width, height, window_mode ))
 			return false;
 	}
-	else VID_RestoreScreenResolution();
+	else VID_RestoreScreenResolution( window_mode );
 
 	VID_SetWindowIcon( host.hWnd );
 	SDL_ShowWindow( host.hWnd );
@@ -765,7 +765,7 @@ void VID_DestroyWindow( void )
 {
 	GL_DeleteContext();
 
-	VID_RestoreScreenResolution();
+	VID_RestoreScreenResolution( (window_mode_t)vid_fullscreen.value );
 	if( host.hWnd )
 	{
 		SDL_DestroyWindow ( host.hWnd );
@@ -986,7 +986,10 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	}
 
 	refState.fullScreen = window_mode != WINDOW_MODE_WINDOWED;
-	Con_Reportf( "%s: Setting video mode to %dx%d %s\n", __func__, width, height, refState.fullScreen ? "fullscreen" : "windowed" );
+	Con_Reportf( "%s: Setting video mode to %dx%d %s\n", __func__, width, height,
+		window_mode == WINDOW_MODE_BORDERLESS ? "borderless" :
+		window_mode == WINDOW_MODE_WINDOWED ? "windowed" :
+		"fullscreen" );
 
 	if( !host.hWnd )
 	{
@@ -1000,7 +1003,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	}
 	else
 	{
-		VID_RestoreScreenResolution();
+		VID_RestoreScreenResolution( window_mode );
 
 		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) < 0 )
 		{
