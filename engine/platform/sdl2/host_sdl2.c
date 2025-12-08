@@ -263,7 +263,7 @@ static void SDLash_ActiveEvent( int gain )
 		}
 
 		host.force_draw_version_time = host.realtime + 2.0;
-		VID_RestoreScreenResolution();
+		VID_RestoreScreenResolution( (window_mode_t)vid_fullscreen.value );
 	}
 }
 
@@ -401,7 +401,7 @@ static void SDLash_EventHandler( SDL_Event *event )
 		case SDL_WINDOWEVENT_MINIMIZED:
 			host.status = HOST_SLEEP;
 			Cvar_DirectSet( &vid_maximized, "0" );
-			VID_RestoreScreenResolution( );
+			VID_RestoreScreenResolution( (window_mode_t)vid_fullscreen.value );
 			break;
 		case SDL_WINDOWEVENT_RESTORED:
 			host.status = HOST_FRAME;

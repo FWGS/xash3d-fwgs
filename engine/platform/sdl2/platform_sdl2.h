@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #include "platform.h"
 
 // window management
-void VID_RestoreScreenResolution( void );
+void VID_RestoreScreenResolution( window_mode_t window_mode );
 qboolean  VID_CreateWindow( int width, int height, window_mode_t window_mode );
 void      VID_DestroyWindow( void );
 void GL_InitExtensions( void );
