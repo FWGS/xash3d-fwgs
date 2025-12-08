@@ -423,10 +423,14 @@ void VID_SaveWindowSize( int width, int height, qboolean maximized )
 {
 	int render_w = width, render_h = height;
 
-	if( !glw_state.software )
-		SDL_GL_GetDrawableSize( host.hWnd, &render_w, &render_h );
+#if SDL_VERSION_ATLEAST( 2, 26, 0 )
+	SDL_GetWindowSizeInPixels( host.hWnd, &render_w, &render_h );
+#else
+	if( glw_state.software )
+		SDL_GetRendererOutputSize( sw.renderer, &render_w, &render_h );
 	else
-		SDL_RenderSetLogicalSize( sw.renderer, width, height );
+		SDL_GL_GetDrawableSize( host.hWnd, &render_w, &render_h );
+#endif
 
 	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h, maximized );
