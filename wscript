@@ -431,7 +431,6 @@ def configure(conf):
 			conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'
 			conf.env.DEFAULT_RPATH = '$ORIGIN'
 		elif conf.env.DEST_OS == 'irix':
-			linkflags.append('-Wl,-rpath-link=/usr/lib32')
 			conf.env.DEFAULT_RPATH = '/usr/lib32:/usr/sgug/lib32'
 		elif conf.env.DEST_OS == 'darwin':
 			conf.env.DEFAULT_RPATH = '@loader_path'
