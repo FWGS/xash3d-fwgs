@@ -21,7 +21,10 @@ cmake -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DGAMEDIR=$IOSD
 cmake --build build --target install
 
 cd ../../
+./createipa.sh
+
 if [ -d mod-build ]; then
     rm -rf mod-build/
 fi
+
 exit 0
