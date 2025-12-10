@@ -9,7 +9,7 @@ cd $GITHUB_WORKSPACE || die
 cp -vr /Library/Frameworks/SDL2.framework ./build
 
 pushd hlsdk || die
-cmake -DCMAKE_SYSTEM_NAME=iOS -DGAMEDIR=$(realpath ../build/ios) -DCMAKE_BUILD_TYPE=Debug -B build -S .
+cmake -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DGAMEDIR=$(realpath ../build/ios) -DCMAKE_BUILD_TYPE=Debug -B build -S .
 cmake --build build --target install || die
 popd
 
