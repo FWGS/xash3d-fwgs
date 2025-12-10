@@ -104,7 +104,7 @@ This repository contains our fork of HLSDK and restored source code for Half-Lif
 * Install Xcode from the appstore.
 * Install [Homebrew package manager](https://brew.sh).
 
-* Install build dependencies by running: `brew install python sdl2 freetype opus opusfile libvorbis libogg`.
+* Install build dependencies by running: `brew install python`.
 
 * Clone the SDL2 repo `$ git clone --recursive https://github.com/libsdl-org/SDL.git -b SDL2` and compile the iOS framework by navigating to SDL/Xcode/SDL and opening the Xcode project.
 
@@ -132,7 +132,7 @@ To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` b
 
 #### iOS/iPadOS (MacOS only)
 0) (optional) Examine which build options are available: `./waf --help`.
-1) Configure build: `./waf configure --ios --sdl2 (path/to/SDL2.framework)`, set `--ios-simulator` instead of `--ios` if you want to build for simulator.
+1) Configure build: `./waf configure --ios --enable-bundled-deps --sdl2 (path/to/SDL2.framework)`, set `--ios-simulator` instead of `--ios` if you want to build for simulator.
 2) Compile `./waf build`.
-3) Navigate to `build` and copy your compiled SDL2.framework there, then add your client dylibs to `build/ios/cl_dlls` and any other dylibs to `build/ios/dlls`
+3) Navigate to `build` and copy your compiled SDL2.framework there, then add your client dylibs to `build/ios/cl_dlls` and any other dylibs to `build/ios/dlls` (You can also run `scripts/ios/buildhlsdk.sh` instead to automatically create an ipa with hlsdk dylibs)
 4) Run `scripts/ios/createipa.sh` to create an installable ipa
