@@ -141,7 +141,7 @@ void FS_SaveVFSConfig( void )
 	f = FS_Open( "vfs.cfg.new", "w", true );
 	if( !f )
 	{
-		Con_Printf( S_ERROR "%s: couldn't open vfs.cfg for write\n", __func__ );
+		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, "vfs.cfg.new" );
 		return;
 	}
 

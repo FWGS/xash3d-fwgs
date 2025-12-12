@@ -1451,6 +1451,12 @@ static void Con_SaveHistory( con_history_t *self )
 
 	f = FS_Open( "console_history.txt", "wb", true );
 
+	if( !f )
+	{
+		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, "console_history.txt" );
+		return;
+	}
+
 	for( i = historyStart; i < self->next; i++ )
 	{
 		const char *s = self->lines[i % CON_HISTORY].buffer;
