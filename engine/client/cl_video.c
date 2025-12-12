@@ -68,7 +68,11 @@ static void SCR_CreateStartupVids( void )
 	file_t	*f;
 
 	f = FS_Open( DEFAULT_VIDEOLIST_PATH, "w", false );
-	if( !f ) return;
+	if( !f )
+	{
+		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, DEFAULT_VIDEOLIST_PATH );
+		return;
+	}
 
 	// make standard video playlist: sierra, valve
 	FS_Print( f, "media/sierra.avi\n" );

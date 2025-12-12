@@ -112,7 +112,11 @@ static void CL_CreatePlaylist( const char *filename )
 	file_t	*f;
 
 	f = FS_Open( filename, "w", false );
-	if( !f ) return;
+	if( !f )
+	{
+		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, filename );
+		return;
+	}
 
 	// make standard cdaudio playlist
 	FS_Print( f, "blank\n" );		// #1

@@ -388,7 +388,11 @@ static void VID_WriteOverviewScript( void )
 	Q_snprintf( filename, sizeof( filename ), "overviews/%s.txt", clgame.mapname );
 
 	f = FS_Open( filename, "w", false );
-	if( !f ) return;
+	if( !f )
+	{
+		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, filename );
+		return;
+	}
 
 	FS_Printf( f, "// overview description file for %s.bsp\n\n", clgame.mapname );
 	FS_Print( f, "global\n{\n" );
