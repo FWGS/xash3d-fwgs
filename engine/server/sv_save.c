@@ -672,7 +672,7 @@ DirectoryExtract
 extract the HL1-HL3 files from the .sav file
 =============
 */
-static void DirectoryExtract( file_t *pFile, int fileCount )
+static qboolean DirectoryExtract( file_t *pFile, int fileCount )
 {
 	char	szName[MAX_OSPATH];
 	char	fileName[MAX_OSPATH];
@@ -688,9 +688,17 @@ static void DirectoryExtract( file_t *pFile, int fileCount )
 		COM_FixSlashes( fileName );
 
 		pCopy = FS_Open( fileName, "wb", true );
+		if( !pCopy )
+		{
+			Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, fileName );
+			return false;
+		}
+
 		FS_FileCopy( pCopy, pFile, fileSize );
 		FS_Close( pCopy );
 	}
+
+	return true;
 }
 
 /*
@@ -999,7 +1007,7 @@ write out the list of entities that are no longer in the save file for this leve
 (they've been moved to another level)
 =============
 */
-static void EntityPatchWrite( SAVERESTOREDATA *pSaveData, const char *level )
+static qboolean EntityPatchWrite( SAVERESTOREDATA *pSaveData, const char *level )
 {
 	char	name[MAX_QPATH];
 	int	i, size = 0;
@@ -1008,7 +1016,10 @@ static void EntityPatchWrite( SAVERESTOREDATA *pSaveData, const char *level )
 	Q_snprintf( name, sizeof( name ), DEFAULT_SAVE_DIRECTORY "%s.HL3", level );
 
 	if(( pFile = FS_Open( name, "wb", true )) == NULL )
-		return;
+	{
+		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, name );
+		return false;
+	}
 
 	for( i = 0; i < pSaveData->tableCount; i++ )
 	{
@@ -1026,6 +1037,8 @@ static void EntityPatchWrite( SAVERESTOREDATA *pSaveData, const char *level )
 	}
 
 	FS_Close( pFile );
+
+	return true;
 }
 
 /*
@@ -1167,7 +1180,7 @@ SaveClientState
 write out the list of premanent decals for this level
 =============
 */
-static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int changelevel )
+static qboolean SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int changelevel )
 {
 	soundlist_t	soundInfo[MAX_CHANNELS];
 	sv_client_t	*cl = svs.clients;
@@ -1243,7 +1256,10 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 
 	// output to disk
 	if(( pFile = FS_Open( name, "wb", true )) == NULL )
-		return; // something bad is happens
+	{
+		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, name );
+		return false;
+	}
 
 	version = CLIENT_SAVEGAME_VERSION;
 	id = SAVEGAME_HEADER;
@@ -1258,6 +1274,8 @@ static void SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, int 
 	FS_Write( pFile, pTokenData, pSaveData->tokenSize );
 	FS_Write( pFile, pSaveData->pBaseData, pSaveData->size ); // header and globals
 	FS_Close( pFile );
+
+	return true;
 }
 
 /*
@@ -1557,7 +1575,7 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 	// output to disk
 	if(( pFile = FS_Open( name, "wb", true )) == NULL )
 	{
-		// something bad is happens
+		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, name );
 		SaveFinish( pSaveData );
 		return NULL;
 	}
@@ -1581,9 +1599,17 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 	FS_Write( pFile, pSaveData->pBaseData, dataSize );	// and finally store all the other data
 	FS_Close( pFile );
 
-	EntityPatchWrite( pSaveData, sv.name );
+	if( !EntityPatchWrite( pSaveData, sv.name ))
+	{
+		SaveFinish( pSaveData );
+		return NULL;
+	}
 
-	SaveClientState( pSaveData, sv.name, changelevel );
+	if( !SaveClientState( pSaveData, sv.name, changelevel ))
+	{
+		SaveFinish( pSaveData );
+		return NULL;
+	}
 
 	return pSaveData;
 }
@@ -1682,7 +1708,8 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	file_t		*pFile;
 
 	pSaveData = SaveGameState( false );
-	if( !pSaveData ) return false;
+	if( !pSaveData )
+		return false;
 
 	SaveFinish( pSaveData );
 	pSaveData = SaveInit( SAVE_HEAPSIZE, SAVE_HASHSTRINGS ); // re-init the buffer
@@ -1713,7 +1740,7 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	// output to disk
 	if(( pFile = FS_Open( name, "wb", true )) == NULL )
 	{
-		// something bad is happens
+		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, name );
 		SaveFinish( pSaveData );
 		return false;
 	}
@@ -1959,7 +1986,16 @@ static void LoadAdjacentEnts( const char *pOldLevel, const char *pLandmarkName )
 			if( flags ) movedCount = CreateEntityTransitionList( pSaveData, flags );
 
 			// if ents were moved, rewrite entity table to save file
-			if( movedCount ) EntityPatchWrite( pSaveData, currentLevelData.levelList[i].mapName );
+			if( movedCount )
+			{
+				if( !EntityPatchWrite( pSaveData, currentLevelData.levelList[i].mapName ))
+				{
+					SaveFinish( pSaveData );
+
+					Host_Error( "Level transition ERROR\nCan't write entity table for %s while transitioning to %s from %s\n",
+						currentLevelData.levelList[i].mapName, pOldLevel, sv.name );
+				}
+			}
 
 			// move the decals from another level
 			LoadClientState( pSaveData, currentLevelData.levelList[i].mapName, true, true );
@@ -2036,6 +2072,15 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 
 		// save the current level's state
 		pSaveData = SaveGameState( true );
+
+		if( !pSaveData )
+		{
+			// make user notice the error
+			// do not use Host_Error, so the game progress won't be lost
+			Sys_Warn( "Can't write save file for performaing change level; check permissions" );
+			svgame.globals->changelevel = false;
+			return;
+		}
 	}
 
 	SV_InactivateClients ();
@@ -2104,10 +2149,8 @@ qboolean SV_LoadGame( const char *pPath )
 		SV_ClearGameState();
 
 		if( SaveReadHeader( pFile, &gameHeader ))
-		{
-			DirectoryExtract( pFile, gameHeader.mapCount );
-			validload = true;
-		}
+			validload = DirectoryExtract( pFile, gameHeader.mapCount );
+
 		FS_Close( pFile );
 
 		if( validload )
