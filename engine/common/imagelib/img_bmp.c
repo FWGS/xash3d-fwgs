@@ -334,10 +334,8 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 {
 	file_t		*pfile = NULL;
-	size_t		total_size, cur_size;
 	rgba_t		rgrgbPalette[256];
 	dword		cbBmpBits;
-	byte		*clipbuf = NULL;
 	byte		*pb, *pbBmpBits;
 	dword		cbPalBytes;
 	dword		biTrueWidth;
@@ -417,7 +415,8 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 			// some viewers e.g. fimg.exe can show alpha-chanell for it
 			if( pix->type == PF_INDEXED_32 )
 				rgrgbPalette[i][3] = *pb++;
-			else rgrgbPalette[i][3] = 0;
+			else
+				rgrgbPalette[i][3] = 0;
 		}
 
 		// write palette
@@ -430,26 +429,25 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	{
 		i = (hdr.height - 1 - y ) * (hdr.width);
 
-		for( x = 0; x < pix->width; x++ )
+		if( pixel_size == 1 )
 		{
-			if( pixel_size == 1 )
-			{
-				// 8-bit
-				pbBmpBits[i] = pb[x];
-			}
-			else
+			memcpy( &pbBmpBits[i], pb, pix->width );
+		}
+		else
+		{
+			for( x = 0; x < pix->width; x++ )
 			{
 				// 24 bit
 				qboolean be = ImageBigEndian( pix->type );
 
-				pbBmpBits[i*pixel_size+(be?2:0)] = pb[x*pixel_size+2];
-				pbBmpBits[i*pixel_size+(be?1:1)] = pb[x*pixel_size+1];
-				pbBmpBits[i*pixel_size+(be?0:2)] = pb[x*pixel_size+0];
-			}
+				pbBmpBits[i * pixel_size + 0] = be ? pb[x * pixel_size + 0] : pb[x * pixel_size + 2];
+				pbBmpBits[i * pixel_size + 1] = pb[x * pixel_size + 1];
+				pbBmpBits[i * pixel_size + 2] = be ? pb[x * pixel_size + 2] : pb[x * pixel_size + 0];
 
-			if( pixel_size == 4 ) // write alpha channel
-				pbBmpBits[i*pixel_size+3] = pb[x*pixel_size+3];
-			i++;
+				if( pixel_size == 4 ) // write alpha channel
+					pbBmpBits[i * pixel_size + 3] = pb[x * pixel_size + 3];
+				i++;
+			}
 		}
 
 		pb += pix->width * pixel_size;
