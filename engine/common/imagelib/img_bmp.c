@@ -440,8 +440,8 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 			else
 			{
 				// 24 bit
-				qboolean be = !!( pix->type & (PF_BGR_24|PF_BGRA_32) ); // is it big endian RGB?
-				
+				qboolean be = ImageBigEndian( pix->type );
+
 				pbBmpBits[i*pixel_size+(be?2:0)] = pb[x*pixel_size+2];
 				pbBmpBits[i*pixel_size+(be?1:1)] = pb[x*pixel_size+1];
 				pbBmpBits[i*pixel_size+(be?0:2)] = pb[x*pixel_size+0];
