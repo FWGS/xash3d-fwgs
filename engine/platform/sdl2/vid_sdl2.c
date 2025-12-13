@@ -389,8 +389,9 @@ static qboolean GL_DeleteContext( void )
 	return false;
 }
 
-void VID_SaveWindowSize( int width, int height, qboolean maximized )
+void VID_SaveWindowSize( int width, int height )
 {
+	qboolean maximized = FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED );
 	int render_w = width, render_h = height;
 
 #if SDL_VERSION_ATLEAST( 2, 26, 0 )
@@ -523,7 +524,7 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 		window_mode == WINDOW_MODE_BORDERLESS ? "borderless" :
 		window_mode == WINDOW_MODE_FULLSCREEN ? "fullscreen" : "windowed" );
 
-	VID_SaveWindowSize( out_width, out_height, FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED ) != 0 );
+	VID_SaveWindowSize( out_width, out_height );
 
 	return true;
 }
@@ -788,7 +789,7 @@ qboolean VID_CreateWindow( int input_width, int input_height, window_mode_t wind
 
 	// update window size if it was resized
 	SDL_GetWindowSize( host.hWnd, &rect.w, &rect.h );
-	VID_SaveWindowSize( rect.w, rect.h, FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED ));
+	VID_SaveWindowSize( rect.w, rect.h );
 
 	return true;
 }
