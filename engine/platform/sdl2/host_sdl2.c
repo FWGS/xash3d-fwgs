@@ -417,14 +417,7 @@ static void SDLash_EventHandler( SDL_Event *event )
 			SDLash_ActiveEvent( false );
 			break;
 		case SDL_WINDOWEVENT_RESIZED:
-#if !XASH_MOBILE_PLATFORM
-			if( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
-#endif
-			{
-				SDL_Window *wnd = SDL_GetWindowFromID( event->window.windowID );
-				VID_SaveWindowSize( event->window.data1, event->window.data2,
-					FBitSet( SDL_GetWindowFlags( wnd ), SDL_WINDOW_MAXIMIZED ) != 0 );
-			}
+			VID_SaveWindowSize( event->window.data1, event->window.data2 );
 			break;
 		case SDL_WINDOWEVENT_MAXIMIZED:
 			Cvar_DirectSet( &vid_maximized, "1" );
