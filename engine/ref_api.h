@@ -59,6 +59,7 @@ GNU General Public License for more details.
 //    Removed FillRGBABlend. Now FillRGBA accepts rendermode parameter.
 // 10. Added R_GetWindowHandle to retrieve platform-specific window object.
 // 11. Added size argument to Mod_ProcessRenderData
+// 12. Added Image_CalcImageSize
 #define REF_API_VERSION 11
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
@@ -483,6 +484,7 @@ typedef struct ref_api_s
 	void (*FS_FreeImage)( rgbdata_t *pack );
 	void (*Image_SetMDLPointer)( byte *p );
 	const struct bpc_desc_s *(*Image_GetPFDesc)( int idx );
+	size_t (*Image_CalcImageSize)( int type, int width, int height, int depth );
 
 	// client exports
 	void	(*pfnDrawNormalTriangles)( void );
