@@ -988,21 +988,41 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 
 static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, GLint type, const void *data )
 {
-	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
-	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED ) && data != NULL;
-	GLenum	inFormat = gEngfuncs.Image_GetPFDesc( type )->glFormat;
-	GLint	dataType = GL_UNSIGNED_BYTE;
-	GLsizei	samplesCount = 0;
+	const GLuint cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
+	const qboolean subImage = FBitSet( tex->flags, TF_IMG_UPLOADED ) && data != NULL;
+	const rawformat_t rawformat = gEngfuncs.Image_GetPFDesc( type )->rawformat;
+	GLenum inFormat;
+	GLint dataType;
 
 	Assert( tex != NULL );
 
 	if( FBitSet( tex->flags, TF_DEPTHMAP ))
 		inFormat = GL_DEPTH_COMPONENT;
+	else switch( rawformat )
+	{
+	case RF_RGBA:
+		inFormat = GL_RGBA;
+		break;
+	case RF_BGRA:
+		inFormat = GL_BGRA;
+		break;
+	case RF_BGR:
+		inFormat = GL_BGR;
+		break;
+	case RF_LUMINANCE:
+		inFormat = GL_LUMINANCE;
+		break;
+	case RF_COMPRESSED:
+		Assert( 0 );
+		break;
+	}
 
 	if( FBitSet( tex->flags, TF_ARB_16BIT ))
 		dataType = GL_HALF_FLOAT_ARB;
 	else if( FBitSet( tex->flags, TF_ARB_FLOAT ))
 		dataType = GL_FLOAT;
+	else
+		dataType = GL_UNSIGNED_BYTE;
 
 	if( tex->target == GL_TEXTURE_1D )
 	{
@@ -1022,8 +1042,8 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	else if( tex->target == GL_TEXTURE_2D_MULTISAMPLE )
 	{
 #if !defined( XASH_GL_STATIC ) || (!defined( XASH_GLES ) && !defined( XASH_GL4ES ))
-		samplesCount = (GLsizei)gEngfuncs.pfnGetCvarFloat( "gl_msaa_samples" );
-		switch (samplesCount)
+		GLsizei	samplesCount = (GLsizei)gEngfuncs.pfnGetCvarFloat( "gl_msaa_samples" );
+		switch( samplesCount )
 		{
 			case 2:
 			case 4:
