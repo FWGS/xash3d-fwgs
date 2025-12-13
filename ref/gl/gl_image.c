@@ -304,48 +304,6 @@ static int GL_CalcTextureSamples( int flags )
 
 /*
 ==================
-GL_CalcImageSize
-==================
-*/
-static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int depth )
-{
-	size_t	size = 0;
-
-	// check the depth error
-	depth = Q_max( 1, depth );
-
-	switch( format )
-	{
-	case PF_LUMINANCE:
-		size = width * height * depth;
-		break;
-	case PF_RGB_24:
-	case PF_BGR_24:
-		size = width * height * depth * 3;
-		break;
-	case PF_BGRA_32:
-	case PF_RGBA_32:
-		size = width * height * depth * 4;
-		break;
-	case PF_DXT1:
-		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 8) * depth;
-		break;
-	case PF_DXT3:
-	case PF_DXT5:
-	case PF_BC6H_SIGNED:
-	case PF_BC6H_UNSIGNED:
-	case PF_BC7_UNORM:
-	case PF_BC7_SRGB:
-	case PF_ATI2:
-		size = (((width + 3) >> 2) * ((height + 3) >> 2) * 16) * depth;
-		break;
-	}
-
-	return size;
-}
-
-/*
-==================
 GL_CalcTextureSize
 ==================
 */
@@ -1173,7 +1131,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 	buf = pic->buffer;
 	bufend = pic->buffer + pic->size; // total image size include all the layers, cube sides, mipmaps
-	offset = GL_CalcImageSize( pic->type, pic->width, pic->height, pic->depth );
+	offset = gEngfuncs.Image_CalcImageSize( pic->type, pic->width, pic->height, pic->depth );
 	texsize = GL_CalcTextureSize( tex->format, tex->width, tex->height, tex->depth );
 	normalMap = FBitSet( tex->flags, TF_NORMALMAP ) ? true : false;
 	numSides = FBitSet( pic->flags, IMAGE_CUBEMAP ) ? 6 : 1;
@@ -1198,7 +1156,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				height = Q_max( 1, ( tex->height >> j ));
 				depth = texture3d ? Q_max( 1, ( tex->depth >> j )) : tex->depth;
 				texsize = GL_CalcTextureSize( tex->format, width, height, depth );
-				size = GL_CalcImageSize( pic->type, width, height, depth );
+				size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, depth );
 				GL_TextureImageCompressed( tex, i, j, width, height, depth, size, buf );
 				tex->size += texsize;
 				buf += size; // move pointer
@@ -1215,7 +1173,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				height = Q_max( 1, ( tex->height >> j ));
 				depth = texture3d ? Q_max( 1, ( tex->depth >> j )) : tex->depth;
 				texsize = GL_CalcTextureSize( tex->format, width, height, depth );
-				size = GL_CalcImageSize( pic->type, width, height, depth );
+				size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, depth );
 				GL_TextureImageRAW( tex, i, j, width, height, depth, pic->type, buf );
 				tex->size += texsize;
 				buf += size; // move pointer
@@ -1243,7 +1201,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				width = Q_max( 1, ( tex->width >> j ));
 				height = Q_max( 1, ( tex->height >> j ));
 				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
-				size = GL_CalcImageSize( pic->type, width, height, tex->depth );
+				size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, tex->depth );
 				GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
 				if( mipCount > 1 )
 					GL_BuildMipMap( data, width, height, tex->depth, tex->flags );
@@ -1255,7 +1213,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 			// move to next side
 			if( numSides > 1 && ( buf != NULL ))
-				buf += GL_CalcImageSize( pic->type, pic->width, pic->height, 1 );
+				buf += gEngfuncs.Image_CalcImageSize( pic->type, pic->width, pic->height, 1 );
 		}
 	}
 
@@ -1683,7 +1641,7 @@ int GL_LoadTextureArray( const char **names, int flags )
 		{
 			int width = Q_max( 1, ( pic->width >> j ));
 			int height = Q_max( 1, ( pic->height >> j ));
-			mipsize = GL_CalcImageSize( pic->type, width, height, 1 );
+			mipsize = gEngfuncs.Image_CalcImageSize( pic->type, width, height, 1 );
 			memcpy( pic->buffer + dstsize + mipsize * i, src->buffer + srcsize, mipsize );
 			dstsize += mipsize * numLayers;
 			srcsize += mipsize;

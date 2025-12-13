@@ -1,9 +1,25 @@
+/*
+ref_common.c - RefAPI implementation
+Copyright (C) 2025 Xash3D FWGS contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
 #include "common.h"
 #include "client.h"
 #include "library.h"
 #include "cl_tent.h"
 #include "platform/platform.h"
 #include "vid_common.h"
+#include "imagelib.h"
 
 struct ref_state_s ref;
 
@@ -434,6 +450,7 @@ static const ref_api_t gEngfuncs =
 	FS_FreeImage,
 	Image_SetMDLPointer,
 	pfnImage_GetPFDesc,
+	Image_ComputeSize,
 
 	pfnDrawNormalTriangles,
 	pfnDrawTransparentTriangles,

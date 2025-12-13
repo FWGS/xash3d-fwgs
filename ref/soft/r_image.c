@@ -119,42 +119,6 @@ void R_SetTextureParameters( void )
 		GL_UpdateTextureParams( i );
 }
 
-
-/*
-==================
-GL_CalcImageSize
-==================
-*/
-static size_t GL_CalcImageSize( pixformat_t format, int width, int height, int depth )
-{
-	size_t size = 0;
-
-	// check the depth error
-	depth = Q_max( 1, depth );
-
-	switch( format )
-	{
-	case PF_RGB_24:
-	case PF_BGR_24:
-		size = width * height * depth * 3;
-		break;
-	case PF_BGRA_32:
-	case PF_RGBA_32:
-		size = width * height * depth * 4;
-		break;
-	case PF_DXT1:
-		size = ((( width + 3 ) >> 2 ) * (( height + 3 ) >> 2 ) * 8 ) * depth;
-		break;
-	case PF_DXT3:
-	case PF_DXT5:
-	case PF_ATI2:
-		size = ((( width + 3 ) >> 2 ) * (( height + 3 ) >> 2 ) * 16 ) * depth;
-		break;
-	}
-
-	return size;
-}
-
 /*
 ==================
 GL_CalcTextureSize
@@ -563,7 +527,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		width = Q_max( 1, ( tex->width >> j ));
 		height = Q_max( 1, ( tex->height >> j ));
 		texsize = GL_CalcTextureSize( width, height, tex->depth );
-		size = GL_CalcImageSize( pic->type, width, height, tex->depth );
+		size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, tex->depth );
 		// GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
 		// increase size to workaround triangle renderer bugs
 		// it seems to assume memory readable. maybe it was pointed to WAD?
