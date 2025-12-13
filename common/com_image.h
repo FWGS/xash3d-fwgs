@@ -23,6 +23,7 @@ NOTE: number at end of pixelformat name it's a total bitscount e.g. PF_RGB_24 ==
 	|| type == PF_BC7_UNORM \
 	|| type == PF_BC7_SRGB \
 	|| type == PF_KTX2_RAW )
+#define ImageBigEndian( type ) ( type == PF_BGRA_32 || type == PF_BGR_24 )
 
 typedef enum
 {
