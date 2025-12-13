@@ -651,9 +651,14 @@ VID_CreateWindow
 */
 qboolean VID_CreateWindow( int input_width, int input_height, window_mode_t window_mode )
 {
-	Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS | SDL_WINDOW_ALLOW_HIGHDPI;
+	Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
 	SDL_Rect rect = { window_xpos.value, window_ypos.value, input_width, input_height };
 	const qboolean position_undefined = rect.x < 0 || rect.y < 0;
+
+	// TODO: disabled for Windows for now
+#if !XASH_WIN32
+	SetBits( flags, SDL_WINDOW_ALLOW_HIGHDPI );
+#endif // !XASH_WIN32
 
 	if( !glw_state.software )
 		SetBits( flags, SDL_WINDOW_OPENGL );
