@@ -490,11 +490,18 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 			return false;
 		}
 
-		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
+		if( prev_window_mode != WINDOW_MODE_FULLSCREEN )
 		{
-			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s\n", __func__, SDL_GetError( ));
-			return false;
+			if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
+			{
+				Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s\n", __func__, SDL_GetError( ));
+				return false;
+			}
 		}
+
+		// SDL_SetWindowDisplayMode is broken in SDL2, it changes the display mode but doesn't change window size
+		SDL_SetWindowSize( host.hWnd, got.w, got.h );
+
 		break;
 	}
 	case WINDOW_MODE_WINDOWED:
