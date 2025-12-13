@@ -629,9 +629,31 @@ void VID_RestoreScreenResolution( window_mode_t window_mode )
 
 static void VID_SetWindowIcon( SDL_Window *hWnd )
 {
-	rgbdata_t *icon = NULL;
 	char iconpath[MAX_STRING];
-#if XASH_WIN32 // ICO support only for Win32
+
+	Q_strncpy( iconpath, GI->iconpath, sizeof( iconpath ));
+	COM_ReplaceExtension( iconpath, ".tga", sizeof( iconpath ));
+
+	rgbdata_t *icon = FS_LoadImage( iconpath, NULL, 0 );
+
+	if( icon )
+	{
+		SDL_Surface *surface = SDL_CreateRGBSurfaceFrom( icon->buffer,
+			icon->width, icon->height, 32, 4 * icon->width,
+			0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 );
+
+		FS_FreeImage( icon );
+
+		if( surface )
+		{
+			SDL_SetWindowIcon( host.hWnd, surface );
+			SDL_FreeSurface( surface );
+			return;
+		}
+	}
+
+	// ICO support only for Win32
+#if XASH_WIN32
 	const char *disk_iconpath = FS_GetDiskPath( GI->iconpath, true );
 
 	if( disk_iconpath )
@@ -652,29 +674,7 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 				return;
 		}
 	}
-#endif // XASH_WIN32
 
-	Q_strncpy( iconpath, GI->iconpath, sizeof( iconpath ));
-	COM_ReplaceExtension( iconpath, ".tga", sizeof( iconpath ));
-	icon = FS_LoadImage( iconpath, NULL, 0 );
-
-	if( icon )
-	{
-		SDL_Surface *surface = SDL_CreateRGBSurfaceFrom( icon->buffer,
-			icon->width, icon->height, 32, 4 * icon->width,
-			0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 );
-
-		FS_FreeImage( icon );
-
-		if( surface )
-		{
-			SDL_SetWindowIcon( host.hWnd, surface );
-			SDL_FreeSurface( surface );
-			return;
-		}
-	}
-
-#if XASH_WIN32 // ICO support only for Win32
 	WIN_SetWindowIcon( LoadIcon( GetModuleHandle( NULL ), MAKEINTRESOURCE( 101 )));
 #endif
 }
