@@ -499,7 +499,8 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 	}
 	case WINDOW_MODE_WINDOWED:
 	{
-		VID_RestoreScreenResolution( window_mode );
+		if( prev_window_mode != WINDOW_MODE_WINDOWED )
+			SDL_SetWindowPosition( host.hWnd, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED );
 
 		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) < 0 )
 		{
