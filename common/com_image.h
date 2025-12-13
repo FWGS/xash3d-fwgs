@@ -38,11 +38,20 @@ typedef enum
 	PF_TOTALCOUNT,	// must be last
 } pixformat_t;
 
+typedef enum
+{
+	RF_COMPRESSED,
+	RF_RGBA,
+	RF_BGRA,
+	RF_BGR,
+	RF_LUMINANCE
+} rawformat_t;
+
 typedef struct bpc_desc_s
 {
 	int	format;	// pixelformat
 	char	name[16];	// used for debug
-	uint	glFormat;	// RGBA format
+	rawformat_t rawformat;
 	int	bpp;	// channels (e.g. rgb = 3, rgba = 4)
 } bpc_desc_t;
 
