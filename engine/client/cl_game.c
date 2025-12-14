@@ -4005,14 +4005,14 @@ qboolean CL_LoadProgs( const char *name )
 	ClearExports( cdll_exports, ARRAYSIZE( cdll_exports ));
 
 	// trying to get single export
-	if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "GetClientAPI" )) != NULL )
+	if(( GetClientAPI = COM_GetProcAddress( clgame.hInstance, "GetClientAPI" )) != NULL )
 	{
 		Con_Reportf( "%s: found single callback export\n", __func__ );
 
 		// trying to fill interface now
 		GetClientAPI( &clgame.dllFuncs );
 	}
-	else if(( GetClientAPI = (void *)COM_GetProcAddress( clgame.hInstance, "F" )) != NULL )
+	else if(( GetClientAPI = COM_GetProcAddress( clgame.hInstance, "F" )) != NULL )
 	{
 		Con_Reportf( "%s: found single callback export (secured client dlls)\n", __func__ );
 
@@ -4040,6 +4040,11 @@ qboolean CL_LoadProgs( const char *name )
 
 	if( missed_exports )
 	{
+		if( clgame.dllFuncs.pfnInit && clgame.dllFuncs.pfnRedraw && clgame.dllFuncs.pfnReset && clgame.dllFuncs.pfnUpdateClientData && clgame.dllFuncs.pfnVidInit && clgame.dllFuncs.pfnInitialize )
+			COM_PushLibraryError( "missing essential exports; outdated DLL!!!" );
+		else
+			COM_PushLibraryError( "missing essential exports" );
+
 		COM_FreeLibrary( clgame.hInstance );
 		clgame.hInstance = NULL;
 		return false;
@@ -4062,6 +4067,7 @@ qboolean CL_LoadProgs( const char *name )
 
 	if( !clgame.dllFuncs.pfnInitialize( &gEngfuncs, CLDLL_INTERFACE_VERSION ))
 	{
+		COM_PushLibraryError( "can't init client API" );
 		COM_FreeLibrary( clgame.hInstance );
 		Con_Reportf( "%s: can't init client API\n", __func__ );
 		clgame.hInstance = NULL;
