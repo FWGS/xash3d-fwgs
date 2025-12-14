@@ -741,7 +741,7 @@ qboolean SV_InitGame( void )
 
 	if( !SV_LoadProgs( dllpath ))
 	{
-		Con_Printf( S_ERROR "can't initialize %s: %s\n", dllpath, COM_GetLibraryError() );
+		Sys_Warn( "can't initialize %s: %s\n", dllpath, COM_GetLibraryError( ));
 		return false; // failed to loading server.dll
 	}
 
