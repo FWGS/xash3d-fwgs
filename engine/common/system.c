@@ -362,7 +362,7 @@ void Sys_Warn( const char *format, ... )
 
 	Sys_DebugBreak();
 
-	Msg( "%s: %s\n", __func__, text );
+	Con_Printf( "%s: %s\n", __func__, text );
 
 	if( !Host_IsDedicated() ) // dedicated server should not hang on messagebox
 		Platform_MessageBox( "Xash Warning", text, true );

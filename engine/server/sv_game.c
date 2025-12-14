@@ -5228,6 +5228,7 @@ qboolean SV_LoadProgs( const char *name )
 	static globalvars_t		gpGlobals;
 	static playermove_t		gpMove;
 	edict_t			*e;
+	qboolean init_entity_api = false;
 
 	if( svgame.hInstance )
 		return true;
@@ -5264,6 +5265,7 @@ qboolean SV_LoadProgs( const char *name )
 
 	if( !GetEntityAPI && !GetEntityAPI2 )
 	{
+		COM_PushLibraryError( "missing GetEntityAPI and GetEntityAPI2 exports" );
 		COM_FreeLibrary( svgame.hInstance );
 		Con_Printf( S_ERROR "%s: failed to get address of GetEntityAPI proc\n", __func__ );
 		svgame.hInstance = NULL;
@@ -5275,6 +5277,7 @@ qboolean SV_LoadProgs( const char *name )
 
 	if( !GiveFnptrsToDll )
 	{
+		COM_PushLibraryError( "missing GiveFnptrsToDll export" );
 		COM_FreeLibrary( svgame.hInstance );
 		Con_Printf( S_ERROR "%s: failed to get address of GiveFnptrsToDll proc\n", __func__ );
 		svgame.hInstance = NULL;
@@ -5299,35 +5302,31 @@ qboolean SV_LoadProgs( const char *name )
 
 	version = INTERFACE_VERSION;
 
-	if( GetEntityAPI2 )
+	if( GetEntityAPI2 && GetEntityAPI2( &svgame.dllFuncs, &version ))
 	{
-		if( !GetEntityAPI2( &svgame.dllFuncs, &version ))
+		if( INTERFACE_VERSION == version )
 		{
-			if( INTERFACE_VERSION != version )
-				Con_Printf( S_WARN "%s: interface version %i should be %i\n", __func__, INTERFACE_VERSION, version );
-
-			// fallback to old API
-			if( GetEntityAPI && !GetEntityAPI( &svgame.dllFuncs, version ))
-			{
-				COM_FreeLibrary( svgame.hInstance );
-				Con_Printf( S_ERROR "%s: couldn't get entity API\n", __func__ );
-				svgame.hInstance = NULL;
-				Mem_FreePool( &svgame.mempool );
-				return false;
-			}
-			else Con_Reportf( "%s: ^2initailized legacy EntityAPI ^7ver. %i\n", __func__, version );
+			init_entity_api = true;
+			Con_Reportf( "%s: ^2initailized extended EntityAPI ^7ver. %i\n", __func__, version );
 		}
-		else Con_Reportf( "%s: ^2initailized extended EntityAPI ^7ver. %i\n", __func__, version );
+		else Con_Printf( S_WARN "%s: interface version %i should be %i\n", __func__, INTERFACE_VERSION, version );
 	}
-	else if( GetEntityAPI && !GetEntityAPI( &svgame.dllFuncs, version ))
+
+	if( !init_entity_api && GetEntityAPI && GetEntityAPI( &svgame.dllFuncs, version ))
 	{
+		init_entity_api = true;
+		Con_Reportf( "%s: ^2initailized legacy EntityAPI ^7ver. %i\n", __func__, version );
+	}
+
+	if( !init_entity_api )
+	{
+		COM_PushLibraryError( "can't init entity API" );
 		COM_FreeLibrary( svgame.hInstance );
 		Con_Printf( S_ERROR "%s: couldn't get entity API\n", __func__ );
 		svgame.hInstance = NULL;
 		Mem_FreePool( &svgame.mempool );
 		return false;
 	}
-	else Con_Reportf( "%s: ^2initailized legacy EntityAPI ^7ver. %i\n", __func__, version );
 
 	SV_InitOperatorCommands();
 	Mod_InitStudioAPI();
