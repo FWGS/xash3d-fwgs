@@ -1,6 +1,21 @@
-#pragma once
+/*
+vid_common.h - common implementation of platform-specific vid component
+Copyright (C) 2025 Xash3D FWGS contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
 #ifndef VID_COMMON
 #define VID_COMMON
+
+#include "ref_api.h"
 
 typedef struct vidmode_s
 {
@@ -12,8 +27,7 @@ typedef struct vidmode_s
 typedef struct
 {
 	void     *context; // handle to GL rendering context
-	int      safe;
-	int      desktopBitsPixel;
+	ref_safegl_context_t safe;
 	qboolean software;
 } glwstate_t;
 

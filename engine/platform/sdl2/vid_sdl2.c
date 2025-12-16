@@ -488,7 +488,8 @@ static qboolean VID_GetDisplayBounds( int display_index, SDL_Window *hWnd, SDL_R
 
 		return true;
 	}
-	else if( SDL_GetDisplayBounds( display_index, rect ) == 0 )
+
+	if( SDL_GetDisplayBounds( display_index, rect ) == 0 )
 	{
 		rect->x += 100;
 		rect->y += 100;
@@ -566,7 +567,6 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 		{
 			int display_index = VID_GetDisplayIndex( __func__, NULL );
 			SDL_Rect bounds;
-			int xpos, ypos;
 
 			if( VID_GetDisplayBounds( display_index, host.hWnd, &bounds ))
 			{
@@ -721,7 +721,7 @@ static qboolean RectFitsInDisplay( const SDL_Rect *rect, const SDL_Rect *display
 VID_CreateWindow
 =================
 */
-qboolean VID_CreateWindow( int input_width, int input_height, window_mode_t window_mode )
+static qboolean VID_CreateWindow( const int input_width, const int input_height, window_mode_t window_mode )
 {
 	Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
 	SDL_Rect rect = { window_xpos.value, window_ypos.value, input_width, input_height };
@@ -1001,7 +1001,6 @@ R_Init_Video
 qboolean R_Init_Video( const int type )
 {
 	string safe;
-	qboolean retval;
 	SDL_DisplayMode displayMode;
 	const SDL_Point point = { window_xpos.value, window_ypos.value };
 
@@ -1048,10 +1047,8 @@ qboolean R_Init_Video( const int type )
 		break;
 	}
 
-	if( !(retval = VID_SetMode()) )
-	{
-		return retval;
-	}
+	if( !VID_SetMode( ))
+		return false;
 
 	switch( type )
 	{
