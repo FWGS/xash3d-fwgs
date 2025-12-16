@@ -60,7 +60,7 @@ GNU General Public License for more details.
 // 10. Added R_GetWindowHandle to retrieve platform-specific window object.
 // 11. Added size argument to Mod_ProcessRenderData
 // 12. Added Image_CalcImageSize
-#define REF_API_VERSION 11
+#define REF_API_VERSION 12
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
