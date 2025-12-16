@@ -22,9 +22,6 @@ GNU General Public License for more details.
 
 // window management
 void VID_RestoreScreenResolution( window_mode_t window_mode );
-qboolean  VID_CreateWindow( int width, int height, window_mode_t window_mode );
-void      VID_DestroyWindow( void );
-void GL_InitExtensions( void );
 void VID_SaveWindowSize( int width, int height );
 
 //

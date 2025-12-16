@@ -15,8 +15,6 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "platform.h"
-#if XASH_SOUND == SOUND_SDL
-
 #include "sound.h"
 #include "voice.h"
 
@@ -344,5 +342,3 @@ void VoiceCapture_Shutdown( void )
 	SDL_CloseAudioDevice( in_dev );
 	in_dev = 0;
 }
-
-#endif // XASH_SOUND == SOUND_SDL
