@@ -30,9 +30,6 @@ static struct
 	int num_vidmodes;
 } vid_state = { 640, 480 };
 
-#define Con_PrintSDLError( func ) \
-	Con_Printf( S_ERROR "%s: %s: %s\n", __func__, func, SDL_GetError( ));
-
 static void GL_SetupAttributes( ref_safegl_context_t safegl )
 {
 	SDL_GL_ResetAttributes();
@@ -567,7 +564,8 @@ qboolean VID_SetMode( void )
 		return false;
 	}
 
-	return true;}
+	return true;
+}
 
 rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
