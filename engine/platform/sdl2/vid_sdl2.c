@@ -29,7 +29,7 @@ GNU General Public License for more details.
 static vidmode_t *vidmodes = NULL;
 static int num_vidmodes = 0;
 static void GL_SetupAttributes( void );
-struct
+static struct
 {
 	int prev_width, prev_height;
 } sdlState = { 640, 480 };
@@ -464,43 +464,32 @@ static int VID_GetDisplayIndex( const char *caller, const SDL_Point *pt )
 
 static qboolean VID_GetDisplayBounds( int display_index, SDL_Window *hWnd, SDL_Rect *rect )
 {
-	if( SDL_GetDisplayUsableBounds( display_index, rect ) == 0 )
+	if( SDL_GetDisplayUsableBounds( display_index, rect ) != 0 )
 	{
-		wrect_t wrc = { 0 };
+		memset( rect, 0, sizeof( *rect ));
+		return false;
+	}
 
-		if( hWnd )
-		{
-			SDL_GetWindowBordersSize( hWnd, &wrc.top, &wrc.left, &wrc.bottom, &wrc.right );
-		}
-		else
-		{
+	wrect_t wrc = { 0 };
+	if( hWnd )
+	{
+		SDL_GetWindowBordersSize( hWnd, &wrc.top, &wrc.left, &wrc.bottom, &wrc.right );
+	}
+	else
+	{
 #if XASH_WIN32
-			wrc.left = GetSystemMetrics( SM_CYSIZEFRAME );
-			wrc.right = wrc.bottom = wrc.left;
-			wrc.top = GetSystemMetrics( SM_CYSMCAPTION ) + wrc.left;
+		wrc.left = GetSystemMetrics( SM_CYSIZEFRAME );
+		wrc.right = wrc.bottom = wrc.left;
+		wrc.top = GetSystemMetrics( SM_CYSMCAPTION ) + wrc.left;
 #endif // XASH_WIN32
-		}
-
-		rect->x += wrc.left + wrc.right;
-		rect->y += wrc.top + wrc.bottom;
-		rect->w -= ( wrc.left + wrc.right ) * 2;
-		rect->h -= ( wrc.top + wrc.bottom ) * 2;
-
-		return true;
 	}
 
-	if( SDL_GetDisplayBounds( display_index, rect ) == 0 )
-	{
-		rect->x += 100;
-		rect->y += 100;
-		rect->w -= 100;
-		rect->h -= 100;
+	rect->x += wrc.left + wrc.right;
+	rect->y += wrc.top + wrc.bottom;
+	rect->w -= ( wrc.left + wrc.right ) * 2;
+	rect->h -= ( wrc.top + wrc.bottom ) * 2;
 
-		return true;
-	}
-
-	memset( rect, 0, sizeof( *rect ));
-	return false;
+	return true;
 }
 
 static qboolean VID_SetScreenResolution( int width, int height, window_mode_t window_mode, window_mode_t prev_window_mode )
@@ -646,7 +635,7 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 
 		if( surface )
 		{
-			SDL_SetWindowIcon( host.hWnd, surface );
+			SDL_SetWindowIcon( hWnd, surface );
 			SDL_FreeSurface( surface );
 			return;
 		}
@@ -879,7 +868,7 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 VID_DestroyWindow
 =================
 */
-void VID_DestroyWindow( void )
+static void VID_DestroyWindow( void )
 {
 	GL_DeleteContext();
 
