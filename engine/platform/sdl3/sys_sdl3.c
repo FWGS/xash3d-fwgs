@@ -93,6 +93,11 @@ static void SDLCALL SDLash_LogOutputFunction( void *userdata, int category, SDL_
 
 void SDLash_Init( const char *basedir )
 {
+	(void)basedir;
+
+	// TODO: initial state, to be filled from gameinfo!
+	SDL_SetAppMetadata( XASH_ENGINE_NAME, XASH_VERSION, "su.xash.engine" );
+
 	SDL_SetLogOutputFunction( SDLash_LogOutputFunction, NULL );
 
 	if( host_developer.value >= 2 )
