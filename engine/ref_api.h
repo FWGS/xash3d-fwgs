@@ -121,7 +121,8 @@ typedef enum ref_window_type_e
 	REF_WINDOW_TYPE_X11, // Display*
 	REF_WINDOW_TYPE_WAYLAND, // wl_display*
 	REF_WINDOW_TYPE_MACOS, // NSWindow*
-	REF_WINDOW_TYPE_SDL, // SDL_Window*
+	REF_WINDOW_TYPE_SDL2, // SDL2 SDL_Window*
+	REF_WINDOW_TYPE_SDL3, // SDL3 SDL_Window*
 } ref_window_type_t;
 
 typedef struct

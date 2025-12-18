@@ -1158,12 +1158,15 @@ ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
 {
 	SDL_SysWMinfo wmInfo;
 
-	if( type == REF_WINDOW_TYPE_SDL )
+	if( type == REF_WINDOW_TYPE_SDL2 )
 	{
 		if( handle )
 			*handle = (void *)host.hWnd;
-		return REF_WINDOW_TYPE_SDL;
+		return REF_WINDOW_TYPE_SDL2;
 	}
+
+	if( type == REF_WINDOW_TYPE_SDL3 )
+		return REF_WINDOW_TYPE_NULL;
 
 	SDL_VERSION( &wmInfo.version );
 
