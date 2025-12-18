@@ -97,6 +97,7 @@ void SDLash_Init( const char *basedir )
 
 	// TODO: initial state, to be filled from gameinfo!
 	SDL_SetAppMetadata( XASH_ENGINE_NAME, XASH_VERSION, "su.xash.engine" );
+	SDL_SetAppMetadataProperty( SDL_PROP_APP_METADATA_TYPE_STRING, "game" );
 
 	SDL_SetLogOutputFunction( SDLash_LogOutputFunction, NULL );
 
