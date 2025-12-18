@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "ref_common.h"
 #include "xash3d_mathlib.h"
 #include "common.h"
+#include <SDL3/SDL_system.h>
 
 static struct
 {
@@ -94,7 +95,8 @@ static SDL_Window *VID_CreateWindowWithSafeGL( const char *title, SDL_Rect *rect
 static void VID_SaveWindowSize( SDL_Window *hWnd, int width, int height )
 {
 	qboolean maximized = FBitSet( SDL_GetWindowFlags( hWnd ), SDL_WINDOW_MAXIMIZED );
-	int render_w, render_h;
+	int render_w;
+	int render_h;
 
 	if( !SDL_GetWindowSizeInPixels( hWnd, &render_w, &render_h ))
 	{
@@ -325,7 +327,19 @@ qboolean R_Init_Video( const int type )
 
 void R_Free_Video( void )
 {
+	SDL_GL_DestroyContext( glw_state.context );
+	glw_state.context = NULL;
 
+	SDL_DestroyWindow( host.hWnd );
+	host.hWnd = NULL;
+
+	refState.window_mode = WINDOW_MODE_WINDOWED;
+
+	Mem_Free( vid_state.vidmodes );
+	vid_state.vidmodes = NULL;
+	vid_state.num_vidmodes = 0;
+
+	ref.dllFuncs.GL_ClearExtensions();
 }
 
 int GL_SetAttribute( int attr, int val )
@@ -417,7 +431,69 @@ void SW_UnlockBuffer( void )
 
 ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
 {
-	// TODO
+	if( type == REF_WINDOW_TYPE_SDL3 )
+	{
+		if( handle )
+			*handle = host.hWnd;
+		return REF_WINDOW_TYPE_SDL3;
+	}
+
+	if( type == REF_WINDOW_TYPE_SDL2 )
+		return REF_WINDOW_TYPE_NULL;
+
+	const char *driver = SDL_GetCurrentVideoDriver();
+
+	if( !driver )
+	{
+		Con_PrintSDLError( "SDL_GetCurrentVideoDriver" );
+		return REF_WINDOW_TYPE_NULL;
+	}
+
+	SDL_PropertiesID pid = SDL_GetWindowProperties( host.hWnd );
+
+	if( !pid )
+	{
+		Con_PrintSDLError( "SDL_GetWindowProperties" );
+		return REF_WINDOW_TYPE_NULL;
+	}
+
+	if( !Q_strcmp( driver, "windows" ))
+	{
+		if( !type || type == REF_WINDOW_TYPE_WIN32 )
+		{
+			if( handle )
+				*handle = SDL_GetPointerProperty( pid, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL );
+			return REF_WINDOW_TYPE_WIN32;
+		}
+	}
+	else if( !Q_strcmp( driver, "x11" ))
+	{
+		if( !type || type == REF_WINDOW_TYPE_X11 )
+		{
+			if( handle )
+				*handle = SDL_GetPointerProperty( pid, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL );
+			return REF_WINDOW_TYPE_X11;
+		}
+	}
+	else if( !Q_strcmp( driver, "wayland" ))
+	{
+		if( !type || type == REF_WINDOW_TYPE_WAYLAND )
+		{
+			if( handle )
+				*handle = SDL_GetPointerProperty( pid, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL );
+			return REF_WINDOW_TYPE_WAYLAND;
+		}
+	}
+	else if( !Q_strcmp( driver, "cocoa" ))
+	{
+		if( !type || type == REF_WINDOW_TYPE_MACOS )
+		{
+			if( handle )
+				*handle = SDL_GetPointerProperty( pid, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL );
+			return REF_WINDOW_TYPE_MACOS;
+		}
+	}
+
 	*handle = NULL;
 	return REF_WINDOW_TYPE_NULL;
 }
