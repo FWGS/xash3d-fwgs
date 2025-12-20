@@ -808,6 +808,63 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 }
 
 /*
+=============
+R_DrawTriangleOutlines
+=============
+*/
+static void R_DrawTriangleOutlines( void )
+{
+	int		i, j;
+	msurface_t	*surf;
+	glpoly2_t		*p;
+	float		*v;
+
+	if( !gl_wireframe.value )
+		return;
+
+	pglDisable( GL_TEXTURE_2D );
+	pglDisable( GL_DEPTH_TEST );
+	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+	pglPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
+	// render static surfaces first
+	for( i = 0; i < MAX_LIGHTMAPS; i++ )
+	{
+		for( surf = gl_lms.lightmap_surfaces[i]; surf != NULL; surf = surf->info->lightmapchain )
+		{
+			p = surf->polys;
+			for( ; p != NULL; p = p->chain )
+			{
+				pglBegin( GL_POLYGON );
+				v = p->verts[0];
+				for( j = 0; j < p->numverts; j++, v += VERTEXSIZE )
+					pglVertex3fv( v );
+				pglEnd ();
+			}
+		}
+	}
+
+	// render surfaces with dynamic lightmaps
+	for( surf = gl_lms.dynamic_surfaces; surf != NULL; surf = surf->info->lightmapchain )
+	{
+		p = surf->polys;
+
+		for( ; p != NULL; p = p->chain )
+		{
+			pglBegin( GL_POLYGON );
+			v = p->verts[0];
+			for( j = 0; j < p->numverts; j++, v += VERTEXSIZE )
+				pglVertex3fv( v );
+			pglEnd ();
+		}
+	}
+
+	pglPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+	pglEnable( GL_DEPTH_TEST );
+	pglEnable( GL_TEXTURE_2D );
+}
+
+/*
 ================
 DrawGLPoly
 ================
@@ -1754,6 +1811,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	R_BlendLightmaps();
 	R_RenderFullbrights();
 	R_RenderDetails( allow_vbo? 2: 3 );
+	R_DrawTriangleOutlines();
 
 	// restore fog here
 	if( e->curstate.rendermode == kRenderTransAdd )
@@ -3559,63 +3617,6 @@ static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 
 /*
 =============
-R_DrawTriangleOutlines
-=============
-*/
-static void R_DrawTriangleOutlines( void )
-{
-	int		i, j;
-	msurface_t	*surf;
-	glpoly2_t		*p;
-	float		*v;
-
-	if( !gl_wireframe.value )
-		return;
-
-	pglDisable( GL_TEXTURE_2D );
-	pglDisable( GL_DEPTH_TEST );
-	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-	pglPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-
-	// render static surfaces first
-	for( i = 0; i < MAX_LIGHTMAPS; i++ )
-	{
-		for( surf = gl_lms.lightmap_surfaces[i]; surf != NULL; surf = surf->info->lightmapchain )
-		{
-			p = surf->polys;
-			for( ; p != NULL; p = p->chain )
-			{
-				pglBegin( GL_POLYGON );
-				v = p->verts[0];
-				for( j = 0; j < p->numverts; j++, v += VERTEXSIZE )
-					pglVertex3fv( v );
-				pglEnd ();
-			}
-		}
-	}
-
-	// render surfaces with dynamic lightmaps
-	for( surf = gl_lms.dynamic_surfaces; surf != NULL; surf = surf->info->lightmapchain )
-	{
-		p = surf->polys;
-
-		for( ; p != NULL; p = p->chain )
-		{
-			pglBegin( GL_POLYGON );
-			v = p->verts[0];
-			for( j = 0; j < p->numverts; j++, v += VERTEXSIZE )
-				pglVertex3fv( v );
-			pglEnd ();
-		}
-	}
-
-	pglPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-	pglEnable( GL_DEPTH_TEST );
-	pglEnable( GL_TEXTURE_2D );
-}
-
-/*
-=============
 R_DrawWorld
 =============
 */
@@ -3664,6 +3665,7 @@ void R_DrawWorld( void )
 		R_BlendLightmaps();
 		R_RenderFullbrights();
 		R_RenderDetails( R_HasEnabledVBO() ? 2 : 3 );
+		R_DrawTriangleOutlines();
 
 		if( skychain )
 			R_DrawSkyBox();
@@ -3674,8 +3676,6 @@ void R_DrawWorld( void )
 	r_stats.t_world_draw = end - start;
 	tr.num_draw_decals = 0;
 	skychain = NULL;
-
-	R_DrawTriangleOutlines ();
 
 	gEngfuncs.R_DrawWorldHull();
 }
