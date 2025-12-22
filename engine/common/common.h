@@ -537,7 +537,7 @@ typedef enum sndFlags_e
 typedef struct wavdata_s
 {
 	size_t  size;      // for bounds checking
-	uint    loopStart; // offset at this point sound will be looping while playing more than only once
+	uint    loop_start; // offset at this point sound will be looping while playing more than only once
 	uint    samples;   // total samplecount in wav
 	uint    type;      // compression type
 	uint    flags;     // misc sound flags
