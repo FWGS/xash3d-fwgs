@@ -18,8 +18,18 @@ GNU General Public License for more details.
 #include "client.h"
 #include "soundlib.h"
 
-static bg_track_t		s_bgTrack;
-static musicfade_t		musicfade;	// controlled by game dlls
+static struct
+{
+	string    current;  // a currently playing track
+	string    loopName; // may be empty
+	stream_t *stream;
+	int       source;   // may be game, menu, etc
+} s_bgTrack;
+
+static struct
+{
+	float percent;
+} musicfade; // controlled by game dlls
 
 /*
 =================
@@ -41,12 +51,12 @@ void S_PrintBackgroundTrackState( void )
 
 /*
 =================
-S_FadeMusicVolume
+S_MusicFade
 =================
 */
-void S_FadeMusicVolume( float fadePercent )
+void S_MusicFade( float fade_percent )
 {
-	musicfade.percent = bound( 0.0f, fadePercent, 100.0f );
+	musicfade.percent = bound( 0.0f, fade_percent, 100.0f );
 }
 
 /*
@@ -64,7 +74,7 @@ float S_GetMusicVolume( void )
 		return 0.0f;
 	}
 
-	if( !s_listener.inmenu && musicfade.percent != 0 )
+	if( cls.key_dest != key_menu && musicfade.percent != 0 )
 	{
 		scale = bound( 0.0f, musicfade.percent / 100.0f, 1.0f );
 		scale = 1.0f - scale;
@@ -128,7 +138,7 @@ void S_StopBackgroundTrack( void )
 	if( !s_bgTrack.stream ) return;
 
 	FS_FreeStream( s_bgTrack.stream );
-	memset( &s_bgTrack, 0, sizeof( bg_track_t ));
+	memset( &s_bgTrack, 0, sizeof( s_bgTrack ));
 	memset( &musicfade, 0, sizeof( musicfade ));
 }
 
@@ -191,7 +201,7 @@ void S_StreamBackgroundTrack( void )
 		return;
 
 	// don't bother playing anything if musicvolume is 0
-	if( !s_musicvolume.value || s_listener.paused || s_listener.stream_paused )
+	if( !s_musicvolume.value || cl.paused || s_listener.stream_paused )
 		return;
 
 	if( !cl.background )

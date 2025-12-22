@@ -263,7 +263,7 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 	// keep the same semantics, when S_RAW_SOUND_SOUNDTRACK doesn't play if S_StartStreaming wasn't enabled
 	qboolean disable_stream = Avi->entnum == S_RAW_SOUND_SOUNDTRACK ? !s_listener.streaming : false;
 
-	if( !dma.initialized || disable_stream || s_listener.paused || !Avi->cached_audio )
+	if( !dma.initialized || disable_stream || cl.paused || !Avi->cached_audio )
 		return;
 
 	ch = S_FindRawChannel( Avi->entnum, true );

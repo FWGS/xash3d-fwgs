@@ -16,68 +16,46 @@ GNU General Public License for more details.
 #include "common.h"
 #include "sound.h"
 
-//-----------------------------------------------------------------------------
-// Purpose: wrap the position wrt looping
-// Input  : samplePosition - absolute position
-// Output : int - looped position
-//-----------------------------------------------------------------------------
-int S_ConvertLoopedPosition( wavdata_t *pSource, int samplePosition, qboolean use_loop )
+int S_AdjustLoopedSamplePosition( const wavdata_t *source, int current_sample, qboolean enable_looping )
 {
-	// if the wave is looping and we're past the end of the sample
-	// convert to a position within the loop
-	// At the end of the loop, we return a short buffer, and subsequent call
-	// will loop back and get the rest of the buffer
-	if( FBitSet( pSource->flags, SOUND_LOOPED ) && samplePosition >= pSource->samples && use_loop )
+	// check if looping is enabled and we've exceeeded the sample boundary
+	if( enable_looping && FBitSet( source->flags, SOUND_LOOPED ) && current_sample >= source->samples )
 	{
-		// size of loop
-		int	loopSize = pSource->samples - pSource->loopStart;
+		// adjust position relative to loop start
+		current_sample -= source->loop_start;
 
-		// subtract off starting bit of the wave
-		samplePosition -= pSource->loopStart;
-
-		if( loopSize )
-		{
-			// "real" position in memory (mod off extra loops)
-			samplePosition = pSource->loopStart + ( samplePosition % loopSize );
-		}
-		// ERROR? if no loopSize
+		// apply modulo to wrap within loop bounds
+		int loop_range = source->samples - source->loop_start;
+		if( loop_range > 0 )
+			current_sample = source->loop_start + ( current_sample % loop_range );
 	}
 
-	return samplePosition;
+	return current_sample;
 }
 
-int S_GetOutputData( wavdata_t *pSource, void **pData, int samplePosition, int sampleCount, qboolean use_loop )
+int S_RetrieveAudioSamples( const wavdata_t *source, const void **output_buffer, int start_position, int num_samples, qboolean enable_looping )
 {
-	int	totalSampleCount;
-	int	sampleSize;
+	// handle looping
+	start_position = S_AdjustLoopedSamplePosition( source, start_position, enable_looping );
 
-	// handle position looping
-	samplePosition = S_ConvertLoopedPosition( pSource, samplePosition, use_loop );
+	// calculate how many samples are available from current position
+	int available_samples = Q_max( 0, source->samples - start_position );
 
-	// how many samples are available (linearly not counting looping)
-	totalSampleCount = pSource->samples - samplePosition;
+	// limit requested samples to available samples
+	if( num_samples > available_samples )
+		num_samples = available_samples;
 
-	// may be asking for a sample out of range, clip at zero
-	if( totalSampleCount < 0 ) totalSampleCount = 0;
+	// if none, exit early
+	if( num_samples <= 0 )
+		return 0;
 
-	// clip max output samples to max available
-	if( sampleCount > totalSampleCount )
-		sampleCount = totalSampleCount;
+	// calculate the size of each sample frame
+	int frame_size = Q_max( 1, source->width * source->channels );
 
-	sampleSize = pSource->width * pSource->channels;
+	// convert sample position to byte offset
+	start_position *= frame_size;
 
-	// this can never be zero -- other functions divide by this.
-	// This should never happen, but avoid crashing
-	if( sampleSize <= 0 ) sampleSize = 1;
+	*output_buffer = source->buffer + start_position;
 
-	// byte offset in sample database
-	samplePosition *= sampleSize;
-
-	// if we are returning some samples, store the pointer
-	if( sampleCount )
-	{
-		*pData = pSource->buffer + samplePosition;
-	}
-
-	return sampleCount;
+	return num_samples;
 }

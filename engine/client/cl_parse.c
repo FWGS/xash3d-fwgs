@@ -364,15 +364,12 @@ CL_ParseSoundFade
 */
 void CL_ParseSoundFade( sizebuf_t *msg )
 {
-	float	fadePercent, fadeOutSeconds;
-	float	holdTime, fadeInSeconds;
+	int fade_percent = MSG_ReadByte( msg );
+	int hold_time = MSG_ReadByte( msg );
+	int fade_out_seconds = MSG_ReadByte( msg );
+	int fade_in_seconds = MSG_ReadByte( msg );
 
-	fadePercent = (float)MSG_ReadByte( msg );
-	holdTime = (float)MSG_ReadByte( msg );
-	fadeOutSeconds = (float)MSG_ReadByte( msg );
-	fadeInSeconds = (float)MSG_ReadByte( msg );
-
-	S_FadeClientVolume( fadePercent, fadeOutSeconds, holdTime, fadeInSeconds );
+	S_SoundFade( fade_percent, hold_time, fade_out_seconds, fade_in_seconds );
 }
 
 /*
