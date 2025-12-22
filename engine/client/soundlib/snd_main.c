@@ -32,7 +32,7 @@ static MALLOC_LIKE( FS_FreeSound, 1 ) wavdata_t *SoundPack( void )
 	wavdata_t *pack = Mem_Malloc( host.soundpool, sizeof( *pack ) + sound.size );
 
 	pack->size = sound.size;
-	pack->loopStart = sound.loopstart;
+	pack->loop_start = sound.loopstart;
 	pack->samples = sound.samples;
 	pack->type = sound.type;
 	pack->flags = sound.flags;

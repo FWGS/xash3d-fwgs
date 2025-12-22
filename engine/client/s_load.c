@@ -21,14 +21,16 @@ GNU General Public License for more details.
 // than could actually be referenced during gameplay,
 // because we don't want to free anything until we are
 // sure we won't need it.
-#define MAX_SFX		8192
-#define MAX_SFX_HASH	(MAX_SFX/4)
+#define MAX_SFX      8192
+#define MAX_SFX_HASH (MAX_SFX/4)
 
-static int	s_numSfx = 0;
-static sfx_t	s_knownSfx[MAX_SFX];
-static sfx_t	*s_sfxHashList[MAX_SFX_HASH];
-static string	s_sentenceImmediateName;	// keep dummy sentence name
-qboolean		s_registering = false;
+static int      s_numSfx = 0;
+static sfx_t    s_knownSfx[MAX_SFX];
+static sfx_t    *s_sfxHashList[MAX_SFX_HASH];
+static qboolean s_registering = false;
+
+#define SENTENCE_INDEX -99999 // unique sentence index
+static string   s_sentenceImmediateName;	// keep dummy sentence name
 
 /*
 =================
@@ -70,36 +72,6 @@ void S_SoundList_f( void )
 	Con_Printf( "\n" );
 }
 
-// return true if char 'c' is one of 1st 2 characters in pch
-qboolean S_TestSoundChar( const char *pch, char c )
-{
-	char	*pcht = (char *)pch;
-	int	i;
-
-	if( !pch || !*pch )
-		return false;
-
-	// check first 2 characters
-	for( i = 0; i < 2; i++ )
-	{
-		if( *pcht == c )
-			return true;
-		pcht++;
-	}
-	return false;
-}
-
-// return pointer to first valid character in file name
-char *S_SkipSoundChar( const char *pch )
-{
-	char *pcht = (char *)pch;
-
-	// check first character
-	if( *pcht == '!' )
-		pcht++;
-	return pcht;
-}
-
 /*
 =================
 S_CreateDefaultSound
@@ -107,13 +79,13 @@ S_CreateDefaultSound
 */
 static wavdata_t *S_CreateDefaultSound( void )
 {
-	wavdata_t *sc;
 	uint samples = SOUND_DMA_SPEED;
 	uint channels = 1;
 	uint width = 2;
 	size_t size = samples * width * channels;
 
-	sc = Mem_Calloc( sndpool, sizeof( wavdata_t ) + size );
+	wavdata_t *sc = Mem_Calloc( sndpool, sizeof( wavdata_t ) + size );
+
 	sc->width = width;
 	sc->channels = channels;
 	sc->rate = SOUND_DMA_SPEED;
@@ -150,7 +122,8 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 
 		if( sfx->name[0] == '*' )
 			sc = FS_LoadSound( sfx->name + 1, NULL, 0 );
-		else sc = FS_LoadSound( sfx->name, NULL, 0 );
+		else
+			sc = FS_LoadSound( sfx->name, NULL, 0 );
 	}
 
 	if( !sc ) sc = S_CreateDefaultSound();
@@ -167,16 +140,13 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	return sfx->cache;
 }
 
-// =======================================================================
-// Load a sound
-// =======================================================================
 /*
 ==================
 S_FindName
 
 ==================
 */
-sfx_t *S_FindName( const char *pname, int *pfInCache )
+sfx_t *S_FindName( const char *pname, qboolean *pfInCache )
 {
 	sfx_t	*sfx;
 	uint	i, hash;

@@ -279,7 +279,7 @@ static render_api_t gRenderAPI =
 	(void*)CL_ModelHandle,
 	Sys_FloatTime,
 	Cvar_Set,
-	S_FadeMusicVolume,
+	S_MusicFade,
 	COM_SetRandomSeed,
 };
 

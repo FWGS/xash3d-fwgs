@@ -4038,7 +4038,7 @@ qboolean CL_LoadProgs( const char *name )
 	for( i = 0; i < ARRAYSIZE( cdll_exports ); i++ )
 	{
 		if( *(cdll_exports[i].func) != NULL )
-			continue; // already gott through 'F' or 'GetClientAPI'
+			continue; // already got through 'F' or 'GetClientAPI'
 
 		// functions are cleared before all the extensions are evaluated
 		if(( *(cdll_exports[i].func) = (void *)COM_GetProcAddress( clgame.hInstance, cdll_exports[i].name )) == NULL )
