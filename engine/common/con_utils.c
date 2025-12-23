@@ -86,12 +86,14 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len )
 			filelen = FS_Read( f, buf, sizeof( buf ));
 
 			// check all the lumps and some other errors
-			if( Mod_TestBmodelLumps( f, t->filenames[i], buf, filelen, true, &entities ))
+			if( !Mod_TestBmodelLumps( f, t->filenames[i], buf, filelen, true, &entities ))
 			{
-				lumpofs = entities.fileofs;
-				lumplen = entities.filelen;
-				ver = header->version;
+				FS_Close( f );
+				continue;
 			}
+
+			lumpofs = entities.fileofs;
+			lumplen = entities.filelen;
 
 			header = (dheader_t *)buf;
 			hdrext = (dextrahdr_t *)((byte *)buf + sizeof( dheader_t ));
