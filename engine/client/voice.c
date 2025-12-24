@@ -918,8 +918,10 @@ void Voice_Disconnect( void )
 	VoiceCapture_Shutdown();
 	voice.device_opened = false;
 
-
-	Voice_ShutdownOpusDecoder();
+	if( voice.goldsrc )
+		Voice_ShutdownGoldSrcMode();
+	else
+		Voice_ShutdownOpusCustomMode();
 }
 
 /*
@@ -1089,26 +1091,10 @@ Completely shutdown the voice subsystem
 */
 static void Voice_Shutdown( void )
 {
-	int i;
-
-	Voice_RecordStop();
-
-	if( voice.goldsrc )
-		Voice_ShutdownGoldSrcMode();
-	else
-		Voice_ShutdownOpusCustomMode();
-
-	VoiceCapture_Shutdown();
-
-	if( voice.local.talking_ack )
-		Voice_Status( VOICE_LOOPBACK_INDEX, false );
-
-	for( i = 1; i <= MAX_CLIENTS; i++ )
-		Voice_Status( i, false );
+	Voice_Disconnect();
 
 	voice.initialized = false;
 	voice.is_recording = false;
-	voice.device_opened = false;
 	voice.goldsrc = false;
 	voice.start_time = 0.0;
 	voice.samplerate = 0;
