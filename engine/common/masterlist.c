@@ -223,7 +223,7 @@ qboolean NET_MasterQuery( uint32_t key, qboolean nat, const char *filter )
 	if( !nat )
 	{
 		len = NET_BuildMasterServerScanRequest( buf, sizeof( buf ), 0, false, filter, PROTO_GOLDSRC );
-		wait = NET_SendToMasters( NS_CLIENT, len, buf, PROTO_GOLDSRC );
+		wait |= NET_SendToMasters( NS_CLIENT, len, buf, PROTO_GOLDSRC );
 	}
 
 	if( !wait )
