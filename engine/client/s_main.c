@@ -496,6 +496,9 @@ static void SND_Spatialize( channel_t *ch )
 	{
 		ch->leftvol = ch->master_vol;
 		ch->rightvol = ch->master_vol;
+
+		// if playing a word, set volume
+		VOX_SetChanVol( ch );
 		return;
 	}
 
