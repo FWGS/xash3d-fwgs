@@ -461,22 +461,19 @@ static int S_AlterChannel( int entnum, int channel, sfx_t *sfx, int vol, int pit
 S_SpatializeChannel
 =================
 */
-static void S_SpatializeChannel( int *left_vol, int *right_vol, int master_vol, float gain, float dot, float dist )
+static void S_SpatializeChannel( int *left_vol, int *right_vol, int master_vol, float dot, float dist )
 {
-	float	lscale, rscale, scale;
-
-	rscale = 1.0f + dot;
-	lscale = 1.0f - dot;
+	float scale;
 
 	// add in distance effect
-	scale = ( 1.0f - dist ) * rscale;
-	*right_vol = (int)( master_vol * scale );
+	scale = ( 1.0f - dist ) * ( 1.0f + dot );
+	float rvol = round( master_vol * scale );
 
-	scale = ( 1.0f - dist ) * lscale;
-	*left_vol = (int)( master_vol * scale );
+	scale = ( 1.0f - dist ) * ( 1.0f - dot );
+	float lvol = round( master_vol * scale );
 
-	*right_vol = bound( 0, *right_vol, 255 );
-	*left_vol = bound( 0, *left_vol, 255 );
+	*right_vol = (int)( bound( 0.0f, rvol, 255.0f ));
+	*left_vol = (int)( bound( 0.0f, lvol, 255.0f ));
 }
 
 /*
@@ -486,11 +483,6 @@ SND_Spatialize
 */
 static void SND_Spatialize( channel_t *ch )
 {
-	vec3_t	source_vec;
-	float	dist, dot, gain = 1.0f;
-	qboolean	looping = false;
-	wavdata_t	*pSource;
-
 	// anything coming from the view entity will allways be full volume
 	if( S_IsClient( ch->entnum ))
 	{
@@ -501,11 +493,6 @@ static void SND_Spatialize( channel_t *ch )
 		VOX_SetChanVol( ch );
 		return;
 	}
-
-	pSource = ch->sfx->cache;
-
-	if( ch->use_loop && pSource && FBitSet( pSource->flags, SOUND_LOOPED ))
-		looping = true;
 
 	if( !ch->staticsound )
 	{
@@ -519,11 +506,12 @@ static void SND_Spatialize( channel_t *ch )
 
 	// source_vec is vector from listener to sound source
 	// player sounds come from 1' in front of player
+	vec3_t source_vec;
 	VectorSubtract( ch->origin, s_listener.origin, source_vec );
 
 	// normalize source_vec and get distance from listener to source
-	dist = VectorNormalizeLength( source_vec );
-	dot = DotProduct( s_listener.right, source_vec );
+	float dist = VectorNormalizeLength( source_vec );
+	float dot = DotProduct( s_listener.right, source_vec );
 
 	if( !FBitSet( host.bugcomp, BUGCOMP_SPATIALIZE_SOUND_WITH_ATTN_NONE ))
 	{
@@ -532,7 +520,7 @@ static void SND_Spatialize( channel_t *ch )
 	}
 
 	// fill out channel volumes for single location
-	S_SpatializeChannel( &ch->leftvol, &ch->rightvol, ch->master_vol, gain, dot, dist * ch->dist_mult );
+	S_SpatializeChannel( &ch->leftvol, &ch->rightvol, ch->master_vol, dot, dist * ch->dist_mult );
 
 	// if playing a word, set volume
 	VOX_SetChanVol( ch );
@@ -987,28 +975,28 @@ S_UpdateAmbientSounds
 */
 static void S_UpdateAmbientSounds( void )
 {
-	mleaf_t	*leaf;
-	float	vol;
-	int	ambient_channel;
-	channel_t	*chan;
+	int ambient_channel;
 
-	if( !snd_ambient ) return;
+	if( !snd_ambient )
+		return;
 
 	// calc ambient sound levels
-	if( !cl.worldmodel ) return;
+	if( !cl.worldmodel )
+		return;
 
-	leaf = Mod_PointInLeaf( s_listener.origin, cl.worldmodel->nodes, cl.worldmodel );
+	mleaf_t	*leaf = Mod_PointInLeaf( s_listener.origin, cl.worldmodel->nodes, cl.worldmodel );
 
 	if( !leaf || !s_ambient_level.value )
 	{
 		for( ambient_channel = 0; ambient_channel < NUM_AMBIENTS; ambient_channel++ )
 			channels[ambient_channel].sfx = NULL;
+
 		return;
 	}
 
 	for( ambient_channel = 0; ambient_channel < NUM_AMBIENTS; ambient_channel++ )
 	{
-		chan = &channels[ambient_channel];
+		channel_t *chan = &channels[ambient_channel];
 		chan->sfx = S_GetSfxByHandle( ambient_sfx[ambient_channel] );
 
 		// ambient is unused
@@ -1019,19 +1007,22 @@ static void S_UpdateAmbientSounds( void )
 			continue;
 		}
 
-		vol = s_ambient_level.value * leaf->ambient_sound_level[ambient_channel];
-		if( vol < 0 ) vol = 0;
+		float vol = s_ambient_level.value * leaf->ambient_sound_level[ambient_channel];
+		if( vol < 0.0f )
+			vol = 0.0f;
 
 		// don't adjust volume too fast
 		if( chan->master_vol < vol )
 		{
-			chan->master_vol += s_listener.frametime * s_ambient_fade.value;
-			if( chan->master_vol > vol ) chan->master_vol = vol;
+			chan->master_vol += round( s_listener.frametime * s_ambient_fade.value );
+			if( chan->master_vol > vol )
+				chan->master_vol = vol;
 		}
 		else if( chan->master_vol > vol )
 		{
-			chan->master_vol -= s_listener.frametime * s_ambient_fade.value;
-			if( chan->master_vol < vol ) chan->master_vol = vol;
+			chan->master_vol -= round( s_listener.frametime * s_ambient_fade.value );
+			if( chan->master_vol < vol )
+				chan->master_vol = vol;
 		}
 
 		chan->leftvol = chan->rightvol = chan->master_vol;
@@ -1052,20 +1043,20 @@ S_FindRawChannel
 */
 rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 {
-	int	i, free;
-	int	best, best_time;
-	size_t	raw_samples = 0;
-	rawchan_t	*ch;
+	rawchan_t *ch;
 
-	if( !sndpool ) return NULL; // sound is not active
+	if( !sndpool )
+		return NULL; // sound is not active
 
-	if( !entnum ) return NULL; // world is unused
+	if( !entnum )
+		return NULL; // world is unused
 
 	// check for replacement sound, or find the best one to replace
-	best_time = 0x7fffffff;
-	best = free = -1;
+	int best_time = 0x7fffffff;
+	int best = -1;
+	int free = -1;
 
-	for( i = 0; i < MAX_RAW_CHANNELS; i++ )
+	for( int i = 0; i < MAX_RAW_CHANNELS; i++ )
 	{
 		ch = raw_channels[i];
 
@@ -1090,19 +1081,23 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 		}
 	}
 
-	if( !create ) return NULL;
+	if( !create )
+		return NULL;
 
-	if( free >= 0 ) best = free;
-	if( best < 0 ) return NULL; // no free slots
+	if( free >= 0 )
+		best = free;
+
+	if( best < 0 )
+		return NULL; // no free slots
 
 	if( !raw_channels[best] )
 	{
-		raw_samples = MAX_RAW_SAMPLES;
+		size_t raw_samples = MAX_RAW_SAMPLES;
 		raw_channels[best] = Mem_Calloc( sndpool, sizeof( *ch ) + sizeof( portable_samplepair_t ) * raw_samples );
+		raw_channels[best]->max_samples = raw_samples;
 	}
 
 	ch = raw_channels[best];
-	ch->max_samples = raw_samples;
 	ch->entnum = entnum;
 	ch->s_rawend = 0;
 
@@ -1211,7 +1206,8 @@ static void S_FreeIdleRawChannels( void )
 	{
 		rawchan_t	*ch = raw_channels[i];
 
-		if( !ch ) continue;
+		if( !ch )
+			continue;
 
 		if( ch->s_rawend >= paintedtime )
 			continue;
@@ -1220,7 +1216,7 @@ static void S_FreeIdleRawChannels( void )
 		{
 			SND_ForceCloseMouth( ch->entnum );
 
-			if( ch->entnum <= MAX_CLIENTS )
+			if( CL_IsPlayerIndex( ch->entnum ))
 				Voice_StopChannel( ch->entnum );
 		}
 
@@ -1258,15 +1254,12 @@ S_SpatializeRawChannels
 */
 static void S_SpatializeRawChannels( void )
 {
-	int	i;
-
-	for( i = 0; i < MAX_RAW_CHANNELS; i++ )
+	for( int i = 0; i < MAX_RAW_CHANNELS; i++ )
 	{
-		rawchan_t	*ch = raw_channels[i];
-		vec3_t	source_vec;
-		float	dist, dot;
+		rawchan_t *ch = raw_channels[i];
 
-		if( !ch ) continue;
+		if( !ch )
+			continue;
 
 		if( ch->s_rawend < paintedtime )
 		{
@@ -1284,17 +1277,19 @@ static void S_SpatializeRawChannels( void )
 			}
 			else
 			{
+				vec3_t	source_vec;
+
 				VectorSubtract( ch->origin, s_listener.origin, source_vec );
 
 				// normalize source_vec and get distance from listener to source
-				dist = VectorNormalizeLength( source_vec );
-				dot = DotProduct( s_listener.right, source_vec );
+				float dist = VectorNormalizeLength( source_vec );
+				float dot = DotProduct( s_listener.right, source_vec );
 
 				// don't pan sounds with no attenuation
 				if( ch->dist_mult <= 0.0f ) dot = 0.0f;
 
 				// fill out channel volumes for single location
-				S_SpatializeChannel( &ch->leftvol, &ch->rightvol, ch->master_vol, 1.0f, dot, dist * ch->dist_mult );
+				S_SpatializeChannel( &ch->leftvol, &ch->rightvol, ch->master_vol, dot, dist * ch->dist_mult );
 			}
 		}
 		else
