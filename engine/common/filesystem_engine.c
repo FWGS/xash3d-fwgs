@@ -129,8 +129,9 @@ static void FS_LoadVFSConfig( const char *gamedir )
 void FS_SaveVFSConfig( void )
 {
 	file_t *f;
+	const qboolean force_save = !FS_FileExists( "vfs.cfg", true );
 
-	if( !FBitSet( fs_mount_hd.flags|fs_mount_lv.flags|fs_mount_l10n.flags|fs_mount_addon.flags|ui_language.flags, FCVAR_CHANGED ))
+	if( !force_save && !FBitSet( fs_mount_hd.flags|fs_mount_lv.flags|fs_mount_l10n.flags|fs_mount_addon.flags|ui_language.flags, FCVAR_CHANGED ))
 	{
 		Con_Reportf( "%s: no need to save vfs.cfg\n", __func__ );
 		return;
