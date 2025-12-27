@@ -247,7 +247,7 @@ static void SV_Maps_f( void )
 		return;
 	}
 
-	nummaps = Cmd_ListMaps( mapList, NULL, 0 );
+	nummaps = Cmd_ListMaps( mapList, NULL, 0, false );
 
 	Mem_Free( mapList );
 

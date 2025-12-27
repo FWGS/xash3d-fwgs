@@ -33,6 +33,7 @@ static CVAR_DEFINE_AUTO( con_fontnum, "-1", FCVAR_ARCHIVE, "console font number 
 static CVAR_DEFINE_AUTO( con_color, "240 180 24", FCVAR_ARCHIVE, "set a custom console color" );
 static CVAR_DEFINE_AUTO( scr_drawversion, "1", FCVAR_ARCHIVE, "draw version in menu or screenshots, doesn't affect console" );
 static CVAR_DEFINE_AUTO( con_oldfont, "0", 0, "use legacy font from gfx.wad, might be missing or broken" );
+static CVAR_DEFINE_AUTO( con_showcompletion, "1", FCVAR_ARCHIVE, "perform simplified autocompletion while typing" );
 
 static int g_codepage = 0;
 
@@ -130,6 +131,7 @@ typedef struct
 
 	// console input
 	field_t		input;
+	field_t		input_completion;
 
 	// chatfiled
 	field_t		chat;
@@ -786,6 +788,7 @@ void Con_Init( void )
 	Cvar_RegisterVariable( &con_color );
 	Cvar_RegisterVariable( &scr_drawversion );
 	Cvar_RegisterVariable( &con_oldfont );
+	Cvar_RegisterVariable( &con_showcompletion );
 
 	// init the console buffer
 	con.bufsize = CON_TEXTSIZE;
@@ -1261,36 +1264,34 @@ static void Field_CharEvent( field_t *edit, int ch )
 Field_DrawInputLine
 ==================
 */
-static void Field_DrawInputLine( int x, int y, const field_t *edit )
+static int Field_DrawInputLine( int x, int y, const field_t *edit, byte alpha, qboolean cursor )
 {
 	int curPos;
 	char str[MAX_SYSPATH];
-	const byte *colorDefault = g_color_table[ColorIndex( COLOR_DEFAULT )];
+	rgba_t colorDefault;
 	const int prestep = bound( 0, edit->scroll, sizeof( edit->buffer ) - 1 );
 	const int drawLen = bound( 0, edit->widthInChars, sizeof( str ));
 	const int cursorCharPos = bound( 0, edit->cursor - prestep, sizeof( str ));
 
-	str[0] = 0;
+	memcpy( colorDefault, g_color_table[ColorIndex( COLOR_DEFAULT )], 3 * sizeof( colorDefault[0] ));
+	colorDefault[3] = alpha;
+
 	Q_strncpy( str, edit->buffer + prestep, drawLen );
 
 	// draw it
 	CL_DrawString( x, y, str, colorDefault, con.curFont, FONT_DRAW_UTF8 );
 
-	// draw the cursor
-	if((int)( host.realtime * 4 ) & 1 ) return; // off blink
-
 	// calc cursor position
 	str[cursorCharPos] = 0;
 	CL_DrawStringLen( con.curFont, str, &curPos, NULL, FONT_DRAW_UTF8 );
 
-	if( host.key_overstrike )
-	{
-		CL_DrawCharacter( x + curPos, y, '|', colorDefault, con.curFont, 0 );
-	}
-	else
-	{
-		CL_DrawCharacter( x + curPos, y, '_', colorDefault, con.curFont, 0 );
-	}
+	// draw the cursor
+	if( !cursor || (int)( host.realtime * 4 ) & 1 )
+		return curPos; // off blink
+
+	CL_DrawCharacter( x + curPos, y, host.key_overstrike ? '|' : '_', colorDefault, con.curFont, 0 );
+
+	return curPos;
 }
 
 /*
@@ -1479,6 +1480,17 @@ CONSOLE LINE EDITING
 
 =============================================================================
 */
+static void Con_InputCompletion( void )
+{
+	if( !con_showcompletion.value )
+		return;
+
+	// keep a copy of console input
+	con.input_completion = con.input;
+
+	Con_CompleteCommand( &con.input_completion, false );
+}
+
 /*
 ====================
 Key_Console
@@ -1526,6 +1538,7 @@ void Key_Console( int key )
 		Con_ClearField( &con.input );
 		con.input.widthInChars = con.linewidth;
 		Con_Bottom();
+		Con_ClearField( &con.input_completion );
 
 		if( cls.state == ca_disconnected )
 		{
@@ -1538,8 +1551,9 @@ void Key_Console( int key )
 	// command completion
 	if( key == K_TAB || key == K_L2_BUTTON )
 	{
-		Con_CompleteCommand( &con.input );
+		Con_CompleteCommand( &con.input, true );
 		Con_Bottom();
+		Con_ClearField( &con.input_completion );
 		return;
 	}
 
@@ -1547,12 +1561,14 @@ void Key_Console( int key )
 	if(( key == K_MWHEELUP && Key_IsDown( K_SHIFT )) || ( key == K_UPARROW ) || (( Q_tolower(key) == 'p' ) && Key_IsDown( K_CTRL )))
 	{
 		Con_HistoryUp( &con.history, &con.input );
+		Con_InputCompletion();
 		return;
 	}
 
 	if(( key == K_MWHEELDOWN && Key_IsDown( K_SHIFT )) || ( key == K_DOWNARROW ) || (( Q_tolower(key) == 'n' ) && Key_IsDown( K_CTRL )))
 	{
 		Con_HistoryDown( &con.history, &con.input );
+		Con_InputCompletion();
 		return;
 	}
 
@@ -1608,6 +1624,7 @@ void Key_Console( int key )
 
 	// pass to the normal editline routine
 	Field_KeyDownEvent( &con.input, key );
+	Con_InputCompletion();
 }
 
 /*
@@ -1663,7 +1680,7 @@ The input line scrolls horizontally if typing goes beyond the right edge
 */
 static void Con_DrawInput( int lines )
 {
-	int	y;
+	int x, y;
 
 	// don't draw anything (always draw if not active)
 	if( cls.key_dest != key_console || !con.curFont )
@@ -1671,7 +1688,26 @@ static void Con_DrawInput( int lines )
 
 	y = lines - ( con.curFont->charHeight * 2 );
 	CL_DrawCharacter( con.curFont->charWidths[' '], y, ']', g_color_table[7], con.curFont, 0 );
-	Field_DrawInputLine(  con.curFont->charWidths[' ']*2, y, &con.input );
+	x = Field_DrawInputLine( con.curFont->charWidths[' ']*2, y, &con.input, 255, true );
+
+	// HACKHACK: avoid rendering issues when scroll != 0
+	if( con_showcompletion.value && con.input.scroll == 0 )
+	{
+		int len = Q_strlen( con.input.buffer );
+
+		if( FBitSet( con_showcompletion.flags, FCVAR_CHANGED ))
+		{
+			Con_InputCompletion();
+			ClearBits( con_showcompletion.flags, FCVAR_CHANGED );
+		}
+
+		// Con_CompleteCommand destroys the buffer. Need to figure out how to make it append only
+		if( con.input_completion.buffer > len && !Q_strncmp( con.input.buffer, con.input_completion.buffer, len ))
+		{
+			con.input_completion.scroll = len;
+			Field_DrawInputLine( con.curFont->charWidths[' ']*2 + x, y, &con.input_completion, 128, false );
+		}
+	}
 }
 
 /*
@@ -1803,7 +1839,7 @@ static void Con_DrawNotify( void )
 		Con_DrawStringLen( buf, &len, NULL );
 		Con_DrawString( x, y, buf, g_color_table[7] );
 
-		Field_DrawInputLine( x + len, y, &con.chat );
+		Field_DrawInputLine( x + len, y, &con.chat, 255, true );
 	}
 
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
@@ -2150,6 +2186,7 @@ void Con_CharEvent( int key )
 	if( cls.key_dest == key_console )
 	{
 		Field_CharEvent( &con.input, key );
+		Con_InputCompletion();
 	}
 	else if( cls.key_dest == key_message )
 	{
