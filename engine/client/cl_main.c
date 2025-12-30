@@ -681,7 +681,7 @@ static void CL_CreateCmd( void )
 		cmd = &nullcmd;
 	}
 
-	active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback );
+	active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback && !cl.intermission );
 	Platform_PreCreateMove();
 	clgame.dllFuncs.CL_CreateMove( host.frametime, cmd, active );
 	IN_EngineAppendMove( host.frametime, cmd, active );
