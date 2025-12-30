@@ -1859,6 +1859,45 @@ static void CL_Reconnect_f( void )
 
 /*
 =================
+CL_Retry_f
+
+retry connection to last server
+=================
+*/
+static void CL_Retry_f( void )
+{
+	if( !COM_CheckString( cls.servername ))
+	{
+		Con_Printf( "Can't retry, no previous connection.\n" );
+		return;
+	}
+
+	// can't retry when running a server
+	if( SV_Active( ))
+	{
+		Con_Printf( "Can't retry when running a server.\n" );
+		return;
+	}
+
+	NET_Config( true, !cl_nat.value ); // allow remote
+
+	Con_Printf( "Commencing connection retry to %s\n", cls.servername );
+	CL_Disconnect();
+
+	UI_SetActiveMenu( false );
+	Key_SetKeyDest( key_console );
+
+	cls.state = ca_connecting;
+	cls.connect_time = MAX_HEARTBEAT; // CL_CheckForResend() will fire immediately
+	cls.max_fragment_size = FRAGMENT_MAX_SIZE;
+	cls.connect_retry = 0;
+	memset( &cls.bandwidth_test, 0, sizeof( cls.bandwidth_test ));
+	cls.spectator = false;
+	cls.signon = 0;
+}
+
+/*
+=================
 CL_FixupColorStringsForInfoString
 
 all the keys and values must be ends with ^7
@@ -3427,6 +3466,7 @@ static void CL_InitLocal( void )
 
 	Cmd_AddCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
+	Cmd_AddCommand ("retry", CL_Retry_f, "retry connection to last server" );
 
 	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
 
