@@ -263,8 +263,8 @@ void Con_ToggleConsole_f( void )
 
 	SCR_EndLoadingPlaque();
 
-	// show console only in game or by special call from menu
-	if( cls.state != ca_active || cls.key_dest == key_menu )
+	// show console only in game, from menu, or to close console
+	if( cls.state != ca_active && cls.key_dest != key_menu && cls.key_dest != key_console )
 		return;
 
 	Con_ClearTyping();
@@ -272,13 +272,23 @@ void Con_ToggleConsole_f( void )
 
 	if( cls.key_dest == key_console )
 	{
-		if( Cvar_VariableInteger( "sv_background" ) || Cvar_VariableInteger( "cl_background" ))
+		// closing console
+		if( cls.state != ca_active || Cvar_VariableInteger( "sv_background" ) || Cvar_VariableInteger( "cl_background" ))
+		{
+			// not in game or in background mode - return to menu
+			// UI_SetActiveMenu(true) reactivates menu without resetting history
 			UI_SetActiveMenu( true );
-		else UI_SetActiveMenu( false );
+		}
+		else
+		{
+			// in game - return to game
+			UI_SetActiveMenu( false );
+		}
 	}
 	else
 	{
-		UI_SetActiveMenu( false );
+		// opening console - just switch key_dest, don't call UI_SetActiveMenu
+		// which would reset menu state via on_menu_hide()
 		Key_SetKeyDest( key_console );
 	}
 }
