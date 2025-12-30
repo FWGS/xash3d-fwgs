@@ -766,7 +766,7 @@ void GAME_EXPORT Key_Event( int key, int down )
 	}
 
 	// distribute the key down event to the apropriate handler
-	if( cls.key_dest == key_game && !cl.intermission )
+	if( cls.key_dest == key_game )
 	{
 		Key_AddKeyCommands( key, kb, down );
 	}

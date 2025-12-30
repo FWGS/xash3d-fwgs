@@ -686,6 +686,10 @@ static void CL_CreateCmd( void )
 	clgame.dllFuncs.CL_CreateMove( host.frametime, cmd, active );
 	IN_EngineAppendMove( host.frametime, cmd, active );
 
+	// clear all input during intermission regardless of how it was set
+	if( cl.intermission )
+		cmd->buttons = 0;
+
 	CL_PopPMStates();
 
 	if( !cls.demoplayback )
