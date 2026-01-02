@@ -613,11 +613,7 @@ static void GL_SetTextureFormat( gl_texture_t *tex, pixformat_t format, int chan
 		case PF_BC6H_UNSIGNED: tex->format = GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_ARB; break;
 		case PF_BC7_SRGB:
 		case PF_BC7_UNORM: tex->format = GL_COMPRESSED_RGBA_BPTC_UNORM_ARB; break;
-		case PF_ATI2:
-			if( glConfig.hardware_type == GLHW_RADEON )
-				tex->format = GL_COMPRESSED_LUMINANCE_ALPHA_3DC_ATI;
-			else tex->format = GL_COMPRESSED_RED_GREEN_RGTC2_EXT;
-			break;
+		case PF_ATI2: tex->format = GL_COMPRESSED_RED_GREEN_RGTC2_EXT; break;
 		}
 		return;
 	}
