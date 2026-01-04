@@ -288,7 +288,7 @@ static inline char *Q_stristr( const char *s1, const char *s2 )
 char *Q_stristr( const char *s1, const char *s2 );
 #endif // !HAVE_STRCASESTR
 
-#if HAVE_STRCHRNUL
+#if HAVE_STRCHRNUL && !XASH_IOS
 #define Q_strchrnul strchrnul
 #else // !HAVE_STRCHRNUL
 static inline char *Q_strchrnul( const char *s, int c )
