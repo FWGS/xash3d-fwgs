@@ -935,6 +935,9 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 
 	if( !FBitSet( cl->flags, FCL_FAKECLIENT ))
 		SV_SetupMoveInterpolant( cl );
+	
+	if ( sv_usercmd_custom_random_seed.value )
+		random_seed = (int)(Sys_FloatTime() * 1000.0f) & 0x7FFFFFFF;
 
 	svgame.dllFuncs.pfnCmdStart( cl->edict, ucmd, random_seed );
 
