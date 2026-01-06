@@ -247,6 +247,43 @@ static int SV_CheckIPRestrictions( netadr_t from )
 
 /*
 ================
+SV_CheckIPConnectionReuse
+
+Check and limit multiple simultaneous connections from the same IP
+================
+*/
+static int SV_CheckIPConnectionReuse( netadr_t from )
+{
+	int i, count = 0;
+
+	for( i = 0; i < svs.maxclients; i++ )
+	{
+		sv_client_t *cl = &svs.clients[i];
+
+		if( cl->state == cs_connected && cl->state != cs_spawning && NET_CompareBaseAdr( cl->netchan.remote_address, from ) )
+		{
+			count++;
+		}
+	}
+
+	if ( count > (int)sv_maxclients_from_single_ip.value )
+	{
+		Log_Printf( "Too many connect packets from %s (%i>%i)\n", NET_AdrToString( from ), count, (int)sv_maxclients_from_single_ip.value );
+		SV_RejectConnection( from, "Too many connect packets from your ip address\n" );
+		return 0;
+	}
+
+	if (count > 5)
+	{
+		Log_Printf( "Too many connect packets from %s\n", NET_AdrToString( from ) );
+		return 0;
+	}
+
+	return 1;
+}
+
+/*
+================
 SV_FindEmptySlot
 
 Get slot # and set client_t pointer for player, if possible
@@ -397,6 +434,9 @@ static void SV_ConnectClient( netadr_t from )
 			return;
 		}
 	}
+	
+	if ( !SV_CheckIPConnectionReuse( from ))
+		return;
 
 	// build a new connection
 	// accept the new client

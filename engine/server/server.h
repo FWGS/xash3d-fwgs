@@ -450,6 +450,7 @@ extern convar_t		sv_allow_autoaim;
 extern convar_t		sv_aim;
 extern convar_t		sv_allow_testpacket;
 extern convar_t		sv_expose_player_list;
+extern convar_t		sv_maxclients_from_single_ip;
 extern convar_t		sv_usercmd_custom_random_seed;
 
 //===========================================================
