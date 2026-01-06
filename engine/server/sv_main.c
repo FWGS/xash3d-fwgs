@@ -1000,6 +1000,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_log_outofband );
 	Cvar_RegisterVariable( &sv_allow_testpacket );
 	Cvar_RegisterVariable( &sv_expose_player_list );
+	Cvar_RegisterVariable( &sv_usercmd_custom_random_seed );
 
 	// when we in developer-mode automatically turn cheats on
 	if( host_developer.value ) Cvar_SetValue( "sv_cheats", 1.0f );
