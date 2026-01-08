@@ -14,12 +14,13 @@ GNU General Public License for more details.
 */
 #include <string.h>
 #include <SDL.h>
-#include "common.h"
+#include "crtlib.h"
+#include "fscallback.h"
 #include "library.h"
-#include "filesystem.h"
-#include "server.h"
 #include "platform/ios/lib_ios.h"
 #include <dlfcn.h>
+
+#define EXT_LENGTH 5
 
 static void *IOS_LoadLibraryInternal( const char *dllname )
 {
@@ -27,45 +28,47 @@ static void *IOS_LoadLibraryInternal( const char *dllname )
 	string errorstring = "";
 	char path[MAX_SYSPATH];
 
-	// load frameworks from Documents directory
-	// frameworks should be signed with same key with application
-	// Useful for debug to prevent rebuilding app on every library update
-	// NOTE: Apple polices forbids loading code from shared places
-#ifdef ENABLE_FRAMEWORK_SIDELOAD
-	Q_snprintf( path, MAX_SYSPATH, "%s.framework/lib", dllname );
-	if( pHandle = dlopen( path, RTLD_LAZY ) )
-		return pHandle;
-	Q_snprintf( errorstring, MAX_STRING, dlerror() );
-#endif
-
-#ifdef DLOPEN_FRAMEWORKS
-	// load frameworks as it should be located in Xcode builds
-	Q_snprintf( path, MAX_SYSPATH, "%s%s.framework/lib", SDL_GetBasePath(), dllname );
-#else
-	// load libraries from app root to allow re-signing ipa with custom utilities
 	Q_snprintf( path, MAX_SYSPATH, "%s%s", SDL_GetBasePath(), dllname );
-#endif
 	pHandle = dlopen( path, RTLD_LAZY );
+
 	if( !pHandle )
 	{
 		COM_PushLibraryError(errorstring);
 		COM_PushLibraryError(dlerror());
 	}
+
 	return pHandle;
 }
-char *g_szLibrarySuffix;
+const char *g_szLibrarySuffix;
 void *IOS_LoadLibrary( const char *dllname )
 {
+	//Immediately load if the library is filesystem_stdio.dylib or we will crash when accessing gamedir
+	if ( !Q_strcmp( dllname, "filesystem_stdio.dylib" ) )
+	{
+		return IOS_LoadLibraryInternal( dllname );
+	}
 
 	string name;
-	char *postfix = g_szLibrarySuffix;
+	string strippedname;
+	const char *postfix = g_szLibrarySuffix;
 	char *pHandle;
 	
-	if( !postfix ) postfix = "";
+	if( !postfix )
+	{
+		if ( Q_strcmp(FS_Gamedir(), "valve" ) )
+		{
+			postfix = FS_Gamedir( );
+		}
+		else postfix = "";
+	}
+
+	Q_strncpy( strippedname, dllname, strlen(dllname) - EXT_LENGTH );
 	
-	Q_snprintf( name, MAX_STRING, "%s%s", dllname, postfix );
+	Q_snprintf( name, MAX_STRING, "%s_%s.dylib", strippedname, postfix );
 	pHandle = IOS_LoadLibraryInternal( name );
+
 	if( pHandle )
 		return pHandle;
+
 	return IOS_LoadLibraryInternal( dllname );
 }
