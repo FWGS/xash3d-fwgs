@@ -20,8 +20,12 @@ cd $MODPATH
 cmake -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DGAMEDIR=$IOSDIR -DCMAKE_BUILD_TYPE=Debug -B build -S .
 cmake --build build --target install
 
+if [ ! -z $2 ]; then
+    mv $IOSDIR/cl_dlls/client_arm64.dylib $IOSDIR/cl_dlls/client_arm64$2.dylib
+else
 cd ../../
 ./createipa.sh
+fi
 
 if [ -d mod-build ]; then
     rm -rf mod-build/
