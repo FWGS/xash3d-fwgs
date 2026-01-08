@@ -11,7 +11,10 @@ if [ -d $BUILDDIR ]; then
 
     cp -r "$BUILDDIR/ios/dlls" "$BUILDDIR/ios/xash3d.app"
     cp -r "$BUILDDIR/ios/cl_dlls" "$BUILDDIR/ios/xash3d.app"
+    cp -r "$BUILDDIR/ios/cstrike" "$BUILDDIR/ios/xash3d.app"
+    echo "Generating dSYMs for cl_dlls"
     find "$BUILDDIR/ios/xash3d.app/cl_dlls" -name "*.dylib" -type f -exec dsymutil {} \;
+    echo "Generating dSYMS for dlls"
     find "$BUILDDIR/ios/xash3d.app/dlls" -name "*.dylib" -type f -exec dsymutil {} \;
     cp *.plist "$BUILDDIR/ios/xash3d.app"
     if [ ! -d $BUILDDIR/SDL2.framework ]; then
