@@ -478,6 +478,16 @@ static void D3D_PutProcessVertices(void** dst, DWORD flags, WORD start, WORD cou
 	*dst = (void*)(((D3DPROCESSVERTICES*)*dst) + 1);
 }
 
+static void D3D_PutRenderState(void** dst, D3DRENDERSTATETYPE type, DWORD arg)
+{
+	D3DSTATE* s = (D3DSTATE*)*dst;
+
+	s->drstRenderStateType = type;
+	s->dwArg[0] = arg;
+	*dst = (void*)(((D3DSTATE*)*dst) + 1);
+
+}
+
 static void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
 	if (texnum <= 0 || texnum >= MAX_TEXTURES)
@@ -540,6 +550,11 @@ static void R_DrawStretchPic( float x, float y, float w, float h, float s1, floa
 		if (!(((ULONG)cur) & 7)) {
 			D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 0);
 		}
+
+		D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 2);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREHANDLE, tex->d3dHandle);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREMAPBLEND, D3DTBLEND_DECAL);
+
 		D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 2);
 
 		D3DTRIANGLE* tris = (D3DTRIANGLE*)cur;

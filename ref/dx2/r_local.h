@@ -58,6 +58,8 @@ typedef struct dx_texture_s
 
 #endif
 	IDirectDrawSurface *dds;
+	IDirect3DTexture *d3dTex;
+	D3DTEXTUREHANDLE d3dHandle;
 	uint		hashValue;
 	struct dx_texture_s *nextHash;
 } dx_texture_t;

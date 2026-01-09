@@ -518,6 +518,8 @@ static qboolean GL_UploadTexture(dx_texture_t *tex, rgbdata_t *pic)
 #endif
 
 	DXCheck(IDirectDraw_CreateSurface(dxc.pdd, &ddsd, &tex->dds, NULL));
+	DXCheck(IDirectDrawSurface_QueryInterface(tex->dds, &IID_IDirect3DTexture, (void**)&tex->d3dTex));
+	DXCheck(IDirect3DTexture_GetHandle(tex->d3dTex, dxc.pd3dd, &tex->d3dHandle));
 
 	tex->fogParams[0] = pic->fogParams[0];
 	tex->fogParams[1] = pic->fogParams[1];
