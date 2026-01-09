@@ -856,9 +856,24 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 	SDL_GetWindowSize( host.hWnd, &rect.w, &rect.h );
 	VID_SaveWindowSize( rect.w, rect.h );
 
-	SDL_GetWindowPosition( host.hWnd, &rect.x, &rect.y );
-	Cvar_DirectSetValue( &window_xpos, rect.x );
-	Cvar_DirectSetValue( &window_ypos, rect.y );
+	// save position if it was undefined (first launch)
+	if( position_undefined )
+	{
+		int top, left;
+
+		SDL_GetWindowPosition( host.hWnd, &rect.x, &rect.y );
+
+		// adjust for window decorations - SDL reports client area position,
+		// but SDL_CreateWindow positions the frame
+		if( SDL_GetWindowBordersSize( host.hWnd, &top, &left, NULL, NULL ) == 0 )
+		{
+			rect.x -= left;
+			rect.y -= top;
+		}
+
+		Cvar_DirectSetValue( &window_xpos, rect.x );
+		Cvar_DirectSetValue( &window_ypos, rect.y );
+	}
 
 	return true;
 }
@@ -1012,6 +1027,7 @@ qboolean R_Init_Video( const int type )
 	SDL_SetHint( SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "landscape" );
 	SDL_SetHint( SDL_HINT_VIDEO_X11_XRANDR, "1" );
 	SDL_SetHint( SDL_HINT_VIDEO_X11_XVIDMODE, "1" );
+	SDL_SetHint( SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0" );
 
 	switch( type )
 	{
