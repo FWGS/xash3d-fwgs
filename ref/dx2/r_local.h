@@ -169,6 +169,10 @@ struct dx_context_s
 	IDirectDrawSurface *pddsBack;
 	IDirectDrawClipper *pddClipper;
 	IDirectDrawClipper *pddBackClipper;
+	IDirect3D *pd3d;
+	IDirect3DDevice *pd3dd;
+	IDirect3DExecuteBuffer *pd3deb;
+	IDirect3DViewport *viewport;
 
 	int renderMode;
 };
