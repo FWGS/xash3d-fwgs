@@ -311,6 +311,21 @@ static void CL_ProcessEntityUpdate( cl_entity_t *ent )
 	if( FBitSet( ent->curstate.entityType, ENTITY_NORMAL ))
 		COM_NormalizeAngles( ent->curstate.angles );
 
+	// a1ba: follow entities are sent with null origin, grab their aiment origin here
+	//
+	// null origin leads to triggered entity teleport check and subsequent reset of position history
+	// and empty position history doesn't allow entity to render correctly
+	//
+	// it's probably should be done somewhere else, as goldsrc doesn't do this here
+	// it has MoveAiments function but it's called after LinkPacketEntities :shrug:
+	if( ent->curstate.movetype == MOVETYPE_FOLLOW && VectorIsNull( ent->curstate.origin ) && ent->curstate.aiment )
+	{
+		cl_entity_t *aiment = CL_GetEntityByIndex( ent->curstate.aiment );
+
+		if( aiment )
+			VectorCopy( aiment->origin, ent->curstate.origin );
+	}
+
 	parametric = ent->curstate.starttime != 0.0f && ent->curstate.impacttime != 0.0f;
 
 	// allow interpolation on bmodels too
