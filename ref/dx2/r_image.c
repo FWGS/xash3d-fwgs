@@ -718,6 +718,45 @@ void GL_FreeTexture(unsigned int texnum)
 		return;
 
 	gEngfuncs.Con_Printf("GL_FreeTexture(%d) %s\n", texnum, dx_textures[texnum].name);
+
+	dx_texture_t* tex = R_GetTexture(texnum);
+	if (!tex->dds)
+		return;
+
+	// debug
+	if (!tex->name[0])
+	{
+		gEngfuncs.Con_Printf(S_ERROR "%s: trying to free unnamed texture with handle %X\n", __func__, tex->d3dHandle);
+		return;
+	}
+
+	// remove from hash table
+	dx_texture_t **prev = &dx_texturesHashTable[tex->hashValue];
+
+	while (1)
+	{
+		dx_texture_t *cur = *prev;
+		if (!cur) break;
+
+		if (cur == tex)
+		{
+			*prev = cur->nextHash;
+			break;
+		}
+		prev = &cur->nextHash;
+	}
+
+	// TODO invalidate texture state
+
+	// release source
+	if (tex->original)
+		gEngfuncs.FS_FreeImage(tex->original);
+
+	if (tex->d3dTex)
+		IDirect3DTexture_Release(tex->d3dTex);
+	if (tex->dds)
+		IDirectDrawSurface_Release(tex->dds);
+	memset(tex, 0, sizeof(*tex));
 }
 
 void R_OverrideTextureSourceSize(unsigned int textnum, unsigned int srcWidth, unsigned int srcHeight)

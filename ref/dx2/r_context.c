@@ -190,6 +190,10 @@ static qboolean D3D_InitDevice()
 	search.dwSize = sizeof(search);
 	search.dwFlags = D3DFDS_COLORMODEL;
 	search.dcmColorModel = D3DCOLOR_RGB;
+#if 0
+	search.dwFlags |= D3DFDS_HARDWARE;
+	search.bHardware = FALSE;
+#endif
 	D3DFINDDEVICERESULT result = { 0 };
 	memset(&result, 0, sizeof(result));
 	result.dwSize = sizeof(result);
@@ -319,6 +323,8 @@ static qboolean R_Init( void )
 
 void R_Shutdown(void)
 {
+	gEngfuncs.Con_Printf("ref: R_Shutdown()\n");
+
 	Mem_FreePool(&r_temppool);
 
 	gEngfuncs.R_Free_Video();
@@ -516,7 +522,7 @@ static void R_DrawStretchPic( float x, float y, float w, float h, float s1, floa
 	}
 #else
 
-#define DX2_CREATE_EB 1
+#define DX2_CREATE_EB 0
 
 	if (!dxc.pd3dd)
 		return;
