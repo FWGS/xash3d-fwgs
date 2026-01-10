@@ -177,6 +177,8 @@ struct dx_context_s
 	IDirect3DViewport *viewport;
 
 	int renderMode;
+	vec4_t currentColor;
+
 };
 typedef struct dx_context_s dx_context_t;
 

@@ -315,6 +315,7 @@ static qboolean R_Init( void )
 	}
 
 	dxc.renderMode = kRenderNormal;
+	Vector4Set(dxc.currentColor, 1, 1, 1, 1);
 
 	R_InitImages();
 
@@ -553,13 +554,15 @@ static void R_DrawStretchPic( float x, float y, float w, float h, float s1, floa
 		const int vertCount = 4;
 		D3DTLVERTEX* verts = (D3DTLVERTEX*)cur;
 
-		verts[0].color = RGBA_MAKE(250, 10, 10, 255);
+#define VecToD3DCOLOR(v) D3DRGBA(v[0], v[1], v[2], v[3])
+
+		verts[0].color = VecToD3DCOLOR(dxc.currentColor);
 		D3D_SetVert(verts, x, y, 0.5, 1, s1, t1);
-		verts[1].color = RGBA_MAKE(10, 250, 10, 255);
+		verts[1].color = VecToD3DCOLOR(dxc.currentColor);
 		D3D_SetVert(verts + 1, x + w, y, 0.5, 1, s2, t1);
-		verts[2].color = RGBA_MAKE(10, 10, 250, 255);
+		verts[2].color = VecToD3DCOLOR(dxc.currentColor);
 		D3D_SetVert(verts + 2, x + w, y + h, 0.5, 1, s2, t2);
-		verts[3].color = RGBA_MAKE(250, 250, 10, 255);
+		verts[3].color = VecToD3DCOLOR(dxc.currentColor);
 		D3D_SetVert(verts + 3, x, y + h, 0.5, 1, s1, t2);
 
 		cur = (void*)(((D3DTLVERTEX*)cur) + vertCount);
@@ -572,9 +575,9 @@ static void R_DrawStretchPic( float x, float y, float w, float h, float s1, floa
 			D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 0);
 		}
 
-		D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 4);
+		D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 3);
 		D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREHANDLE, tex->d3dHandle);
-		D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREMAPBLEND, D3DTBLEND_DECAL);
+		//D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREMAPBLEND, D3DTBLEND_DECAL);
 
 		if (dxc.renderMode == kRenderTransAlpha)
 		{
@@ -1100,12 +1103,12 @@ static void *R_GetProcAddress( const char *name )
 
 static void Color4f( float r, float g, float b, float a )
 {
-	;
+	Vector4Set(dxc.currentColor, r, g, b, a);
 }
 
 static void Color4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a )
 {
-	;
+	Vector4Set(dxc.currentColor, r/255.f, g/255.f, b/255.f, a/255.f);
 }
 
 static void TexCoord2f( float u, float v )
