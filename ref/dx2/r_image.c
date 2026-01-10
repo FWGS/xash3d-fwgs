@@ -505,15 +505,17 @@ static qboolean GL_UploadTexture(dx_texture_t *tex, rgbdata_t *pic)
 	ddsd.dwWidth = tex->width;
 	ddsd.dwHeight = tex->height;
 
-#if 0
-	//RGBA8
+#if 1
+	//BGRA8
 	ddsd.dwFlags |= DDSD_PIXELFORMAT;
 	ddsd.ddpfPixelFormat.dwSize = sizeof(ddsd.ddpfPixelFormat);
-	ddsd.ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_ALPHAPIXELS;
+	ddsd.ddpfPixelFormat.dwFlags = DDPF_RGB;
+	if(FBitSet(pic->flags, IMAGE_HAS_ALPHA))
+		ddsd.ddpfPixelFormat.dwFlags |= DDPF_ALPHAPIXELS;
 	ddsd.ddpfPixelFormat.dwRGBBitCount = 32;
-	ddsd.ddpfPixelFormat.dwRBitMask = 0xFF;
+	ddsd.ddpfPixelFormat.dwBBitMask = 0xFF;
 	ddsd.ddpfPixelFormat.dwGBitMask = 0xFF00;
-	ddsd.ddpfPixelFormat.dwBBitMask = 0xFF0000;
+	ddsd.ddpfPixelFormat.dwRBitMask = 0xFF0000;
 	ddsd.ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
 #endif
 
