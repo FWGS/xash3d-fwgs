@@ -10,7 +10,7 @@ def configure(conf):
 
 def build(bld):
 	bld.shlib(
-		source   = ['r_context.c', 'r_image.c'],
+		source   = ['r_context.c', 'r_image.c', 'r_d3d.c'],
 		target   = 'ref_dx2',
 		defines  = 'REF_DLL',
 		use      = 'engine_includes sdk_includes werror public USER32 DDRAW',

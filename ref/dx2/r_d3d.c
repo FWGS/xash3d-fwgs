@@ -1,0 +1,333 @@
+/*
+r_d3d.c -- dx2 renderer d3d related code
+Copyright (C) 2025-2026 lewa_j
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
+#include "r_local.h"
+#include "xash3d_mathlib.h"
+
+DEFINE_ENGINE_SHARED_CVAR_LIST()
+
+dx_context_t dxc;
+
+const char *dxResultToStr( HRESULT r )
+{
+	if( r == DD_OK )
+		return "DD_OK";
+	if( r == DDERR_INVALIDPARAMS )
+		return "DDERR_INVALIDPARAMS";
+	if( r == DDERR_INVALIDOBJECT )
+		return "DDERR_INVALIDOBJECT";
+	if( r == DDERR_UNSUPPORTED )
+		return "DDERR_UNSUPPORTED";
+	if( r == DDERR_NOCOOPERATIVELEVELSET )
+		return "DDERR_NOCOOPERATIVELEVELSET";
+	if( r == DDERR_INVALIDCAPS )
+		return "DDERR_INVALIDCAPS";
+	if( r == DDERR_INCOMPATIBLEPRIMARY )
+		return "DDERR_INCOMPATIBLEPRIMARY";
+	if( r == DDERR_NOEXCLUSIVEMODE )
+		return "DDERR_NOEXCLUSIVEMODE";
+	if( r == DDERR_NOFLIPHW )
+		return "DDERR_NOFLIPHW";
+	if( r == DDERR_OUTOFVIDEOMEMORY )
+		return "DDERR_OUTOFVIDEOMEMORY";
+	if( r == DDERR_PRIMARYSURFACEALREADYEXISTS )
+		return "DDERR_PRIMARYSURFACEALREADYEXISTS";
+	if( r == DDERR_UNSUPPORTEDMODE )
+		return "DDERR_UNSUPPORTEDMODE";
+	if( r == DDERR_NOTFOUND )
+		return "DDERR_NOTFOUND";
+	if( r == DDERR_INVALIDRECT )
+		return "DDERR_INVALIDRECT";
+
+	if( r == D3DERR_VIEWPORTDATANOTSET )
+		return "D3DERR_VIEWPORTDATANOTSET";
+	if( r == D3DERR_VIEWPORTHASNODEVICE )
+		return "D3DERR_VIEWPORTHASNODEVICE";
+	if( r == D3DERR_SURFACENOTINVIDMEM )
+		return "D3DERR_SURFACENOTINVIDMEM";
+
+	return "UNKNOWN";
+}
+
+static qboolean DD_CreatePrimarySurface( void )
+{
+	DDSURFACEDESC ddsd = { 0 };
+	memset(&ddsd, 0, sizeof(ddsd));
+	ddsd.dwSize = sizeof(ddsd);
+	ddsd.dwFlags = DDSD_CAPS;
+	ddsd.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+
+	DXCheck(IDirectDraw_CreateSurface(dxc.pdd, &ddsd, &dxc.pddsPrimary, NULL));
+	printf("IDirectDraw::CreateSurface(PRIMARY) %p\n", dxc.pddsPrimary);
+	if (!dxc.pddsPrimary)
+		return false;
+
+	DXCheck(IDirectDraw_CreateClipper(dxc.pdd, 0, &dxc.pddClipper, NULL));
+	gEngfuncs.Con_Printf("IDirectDraw::CreateClipper %p\n", dxc.pddClipper);
+	if (!dxc.pddClipper)
+		return false;
+
+	DXCheck(IDirectDrawClipper_SetHWnd(dxc.pddClipper, 0, dxc.window));
+	DXCheck(IDirectDrawSurface_SetClipper(dxc.pddsPrimary, dxc.pddClipper));
+
+	return true;
+}
+
+static qboolean DD_CreateBackSurface( void )
+{
+	DDSURFACEDESC ddsd = { 0 };
+	memset(&ddsd, 0, sizeof(ddsd));
+	ddsd.dwSize = sizeof(ddsd);
+	ddsd.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT;
+	ddsd.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY;
+	ddsd.dwWidth = dxc.windowWidth;
+	ddsd.dwHeight = dxc.windowHeight;
+
+	DXCheck(IDirectDraw_CreateSurface(dxc.pdd, &ddsd, &dxc.pddsBack, NULL));
+	gEngfuncs.Con_Printf("IDirectDraw::CreateSurface(BACK) %p\n", dxc.pddsBack);
+	if (!dxc.pddsBack)
+		return false;
+
+	DXCheck(IDirectDraw_CreateClipper(dxc.pdd, 0, &dxc.pddBackClipper, NULL));
+	gEngfuncs.Con_Printf("IDirectDraw::CreateClipper(BACK) %p\n", dxc.pddBackClipper);
+	if (!dxc.pddBackClipper)
+		return false;
+
+	struct region_t
+	{
+		RGNDATAHEADER rdh;
+		RECT rect;
+	} region;
+	region.rdh.dwSize = sizeof(region.rdh);
+	region.rdh.iType = RDH_RECTANGLES;
+	region.rdh.nCount = 1;
+	region.rdh.nRgnSize = sizeof(RECT);
+	region.rdh.rcBound.left = 0;
+	region.rdh.rcBound.top = 0;
+	region.rdh.rcBound.right = dxc.windowWidth;
+	region.rdh.rcBound.bottom = dxc.windowHeight;
+	memcpy(&region.rect, &region.rdh.rcBound, sizeof(region.rdh.rcBound));
+
+	DXCheck(IDirectDrawClipper_SetClipList(dxc.pddBackClipper, (RGNDATA *)&region, 0));
+	DXCheck(IDirectDrawSurface_SetClipper(dxc.pddsBack, dxc.pddBackClipper));
+
+	return true;
+}
+
+static qboolean D3D_Init( void )
+{
+	DXCheck(IDirectDraw_QueryInterface(dxc.pdd, &IID_IDirect3D, (void**)&dxc.pd3d));
+	gEngfuncs.Con_Printf("IDirectDraw::QueryInterface(IID_IDirect3D) %p\n", dxc.pd3d);
+
+	if (!dxc.pd3d)
+		return false;
+
+	DXCheck(IDirect3D_CreateViewport(dxc.pd3d, &dxc.viewport, NULL));
+	gEngfuncs.Con_Printf("IDirect3D::CreateViewport %p\n", dxc.viewport);
+
+	if (!dxc.viewport)
+		return false;
+
+	return true;
+}
+
+static qboolean D3D_InitDevice( void )
+{
+	if (!dxc.pd3d)
+		return false;
+
+	D3DFINDDEVICESEARCH search = { 0 };
+	memset(&search, 0, sizeof(search));
+	search.dwSize = sizeof(search);
+	search.dwFlags = D3DFDS_COLORMODEL;
+	search.dcmColorModel = D3DCOLOR_RGB;
+#if 0
+	search.dwFlags |= D3DFDS_HARDWARE;
+	search.bHardware = FALSE;
+#endif
+	D3DFINDDEVICERESULT result = { 0 };
+	memset(&result, 0, sizeof(result));
+	result.dwSize = sizeof(result);
+
+	DXCheck(IDirect3D_FindDevice(dxc.pd3d, &search, &result));
+	DXCheck(IDirectDrawSurface_QueryInterface(dxc.pddsBack, &result.guid, (void**)&dxc.pd3dd));
+	gEngfuncs.Con_Printf("IDirectDrawSurface::QueryInterface(IDirect3DDevice) %p\n", dxc.pd3dd);
+
+	if (!dxc.pd3dd)
+		return false;
+
+	D3DEXECUTEBUFFERDESC ebd = { 0 };
+	memset(&ebd, 0, sizeof(ebd));
+	ebd.dwSize = sizeof(ebd);
+	ebd.dwFlags = D3DDEB_BUFSIZE;
+	ebd.dwBufferSize = 1024 * 64;
+	DXCheck(IDirect3DDevice_CreateExecuteBuffer(dxc.pd3dd, &ebd, &dxc.pd3deb, NULL));
+	gEngfuncs.Con_Printf("IDirect3DDevice::CreateExecuteBuffer %p\n", dxc.pd3deb);
+
+	if (!dxc.pd3deb)
+		return false;
+
+	if (!dxc.viewport)
+		return false;
+
+	DXCheck(IDirect3DDevice_AddViewport(dxc.pd3dd, dxc.viewport));
+
+	DDSURFACEDESC desc = { 0 };
+	memset(&desc, 0, sizeof(desc));
+	desc.dwSize = sizeof(desc);
+	desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT;
+	DXCheck(IDirectDrawSurface_GetSurfaceDesc(dxc.pddsBack, &desc));
+
+	D3DVIEWPORT viewport = { 0 };
+	viewport.dwSize = sizeof(viewport);
+	viewport.dwX = 0;
+	viewport.dwY = 0;
+	viewport.dwWidth = desc.dwWidth;
+	viewport.dwHeight = desc.dwHeight;
+	viewport.dvScaleX = 1;
+	viewport.dvScaleY = 1;
+	viewport.dvMaxX = 1;
+	viewport.dvMaxY = 1;
+	viewport.dvMinZ = 0;
+	viewport.dvMaxZ = 1;
+	DXCheck(IDirect3DViewport_SetViewport(dxc.viewport, &viewport));
+
+	return true;
+}
+
+qboolean R_Init( void )
+{
+	memset(&dxc, 0, sizeof(dxc));
+
+	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
+
+	// init draw stack
+	tr.draw_list = &tr.draw_stack[0];
+	tr.draw_stack_pos = 0;
+
+	r_temppool = Mem_AllocPool("Render Zone");
+
+	// create the window
+	if (!gEngfuncs.R_Init_Video(REF_D3D))
+	{
+		Mem_FreePool(&r_temppool);
+		return false;
+	}
+
+	void *handle = NULL;
+	ref_window_type_t wt = gEngfuncs.R_GetWindowHandle( &handle, REF_WINDOW_TYPE_WIN32 );
+	gEngfuncs.Con_Printf( "R_Init: WindowHandle %p type %d\n", handle, wt );
+	if (wt != REF_WINDOW_TYPE_WIN32 || !handle)
+	{
+		Mem_FreePool(&r_temppool);
+		return false;
+	}
+	dxc.window = (HWND)handle;
+
+	RECT dstRect = {};
+	GetClientRect(dxc.window, &dstRect);
+	dxc.windowWidth = dstRect.right - dstRect.left;
+	dxc.windowHeight = dstRect.bottom - dstRect.top;
+
+	DXCheck(DirectDrawCreate(NULL, &dxc.pdd, NULL));
+	gEngfuncs.Con_Reportf("DirectDrawCreate %p\n", dxc.pdd);
+	if (!dxc.pdd)
+	{
+		Mem_FreePool(&r_temppool);
+		return false;
+	}
+
+	DXCheck(IDirectDraw_SetCooperativeLevel(dxc.pdd, dxc.window, DDSCL_NORMAL));
+
+	if (!DD_CreatePrimarySurface())
+	{
+		Mem_FreePool(&r_temppool);
+		return false;
+	}
+
+	if (!DD_CreateBackSurface())
+	{
+		Mem_FreePool(&r_temppool);
+		return false;
+	}
+
+	if (!D3D_Init())
+	{
+		Mem_FreePool(&r_temppool);
+		return false;
+	}
+
+	if (!D3D_InitDevice())
+	{
+		Mem_FreePool(&r_temppool);
+		return false;
+	}
+
+	dxc.renderMode = kRenderNormal;
+	Vector4Set(dxc.currentColor, 1, 1, 1, 1);
+
+	R_InitImages();
+
+	return true;
+}
+
+void R_Shutdown( void )
+{
+	gEngfuncs.Con_Printf("ref: R_Shutdown()\n");
+
+	Mem_FreePool(&r_temppool);
+
+	gEngfuncs.R_Free_Video();
+}
+
+void D3D_Resize( int width, int height )
+{
+	dxc.windowWidth = width;
+	dxc.windowHeight = height;
+
+	if( dxc.pd3deb )
+		IDirect3DExecuteBuffer_Release(dxc.pd3deb);
+	dxc.pd3deb = NULL;
+	if( dxc.pd3dd )
+		IDirect3DDevice_Release(dxc.pd3dd);
+	dxc.pd3dd = NULL;
+	if( dxc.pddsBack )
+		IDirectDrawSurface_Release(dxc.pddsBack);
+	dxc.pddsBack = NULL;
+	if( dxc.pddBackClipper )
+		IDirectDrawClipper_Release(dxc.pddBackClipper);
+	dxc.pddBackClipper = NULL;
+	if( DD_CreateBackSurface() )
+	{
+		if( D3D_InitDevice() )
+		{
+		}
+	}
+}
+
+void GL_SetupAttributes( int safegl )
+{
+	;
+}
+
+void GL_InitExtensions( void )
+{
+	;
+}
+
+void GL_ClearExtensions( void )
+{
+	;
+}

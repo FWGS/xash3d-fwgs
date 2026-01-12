@@ -14,7 +14,6 @@ GNU General Public License for more details.
 */
 
 #include "r_local.h"
-#include "com_strings.h"
 #include "xash3d_mathlib.h"
 #include "crtlib.h"
 #include "crclib.h"

@@ -1,10 +1,7 @@
 #pragma once
 
-#include "const.h"
-#include "cvardef.h"
 #include "ref_api.h"
-#include "render_api.h"
-#include "com_image.h"
+#include "com_strings.h"
 
 #define DIRECTDRAW_VERSION 0x0200
 #define DIRECT3D_VERSION 0x0500//D3DCOLORMODEL bug
@@ -193,6 +190,14 @@ if (r != DD_OK)\
 }
 
 void GL_SetRenderMode( int mode );
+
+//r_d3d.c
+qboolean R_Init( void );
+void R_Shutdown( void );
+void GL_SetupAttributes( int safegl );
+void GL_InitExtensions( void );
+void GL_ClearExtensions( void );
+void D3D_Resize( int width, int height );
 
 //r_image.c
 void R_InitImages( void );
