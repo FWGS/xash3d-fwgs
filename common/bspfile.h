@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #define BSPFILE_H
 
 #include <stdint.h>
+#include "xash3d_types.h"
 
 /*
 ==============================================================================
