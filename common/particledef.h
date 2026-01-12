@@ -16,6 +16,8 @@
 #ifndef PARTICLEDEF_H
 #define PARTICLEDEF_H
 
+#include "xash3d_types.h"
+
 typedef enum
 {
 	pt_static,
