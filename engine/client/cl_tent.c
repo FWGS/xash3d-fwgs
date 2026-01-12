@@ -3084,7 +3084,7 @@ EFRAGS MANAGEMENT
 */
 /*
 =======================
-R_ClearStaticEntities
+CL_ClearStaticEntities
 
 e.g. by demo request
 =======================
