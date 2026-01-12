@@ -349,12 +349,6 @@ void R_Set2DMode( qboolean enable );
 void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data );
 
 //
-// gl_drawhulls.c
-//
-void R_DrawWorldHull( void );
-void R_DrawModelHull( void );
-
-//
 // gl_image.c
 //
 void R_SetTextureParameters( void );
@@ -426,7 +420,7 @@ void Matrix4x4_CreateModelview( matrix4x4 out );
 //
 // gl_rmisc.c
 //
-void R_ClearStaticEntities( void );
+void R_NewMap( void );
 
 //
 // gl_rsurf.c
@@ -515,7 +509,6 @@ void GL_OnContextCreated( void );
 void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
-void GL_FreeImage( const char *name );
 qboolean VID_ScreenShot( const char *filename, int shot_type );
 qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot );
 void R_GammaChanged( qboolean do_reset_gamma );
@@ -545,7 +538,6 @@ int R_CreateDecalList( decallist_t *pList );
 void R_ClearAllDecals( void );
 byte *Mod_GetCurrentVis( void );
 void Mod_SetOrthoBounds( const float *mins, const float *maxs );
-void R_NewMap( void );
 void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
 
 //

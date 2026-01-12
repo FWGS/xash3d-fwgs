@@ -526,7 +526,6 @@ void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
 void VID_CheckChanges( void );
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
-void GL_FreeImage( const char *name );
 qboolean VID_ScreenShot( const char *filename, int shot_type );
 qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot );
 void R_GammaChanged( qboolean do_reset_gamma );

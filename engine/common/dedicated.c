@@ -108,11 +108,6 @@ void CL_Disconnect( void )
 
 }
 
-void R_ClearStaticEntities( void )
-{
-
-}
-
 void Host_Credits( void )
 {
 
