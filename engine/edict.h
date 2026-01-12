@@ -20,6 +20,7 @@
 #define MAX_ENT_LEAFS_16	48
 
 #include "progdefs.h"
+#include "const.h"
 
 struct edict_s
 {

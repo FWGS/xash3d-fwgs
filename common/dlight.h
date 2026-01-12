@@ -16,6 +16,8 @@
 #ifndef DLIGHT_H
 #define DLIGHT_H
 
+#include "const.h"
+
 typedef struct dlight_s
 {
 	vec3_t		origin;

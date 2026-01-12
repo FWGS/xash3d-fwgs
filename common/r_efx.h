@@ -17,22 +17,22 @@
 #define R_EFX_H
 
 // particle_t
-#if !defined( PARTICLEDEFH )
+#if !defined( PARTICLEDEF_H )
 #include "particledef.h"
 #endif
 
 // BEAM
-#if !defined( BEAMDEFH )
+#if !defined( BEAMDEF_H )
 #include "beamdef.h"
 #endif
 
 // dlight_t
-#if !defined ( DLIGHTH )
+#if !defined ( DLIGHT_H )
 #include "dlight.h"
 #endif
 
 // cl_entity_t
-#if !defined( CL_ENTITYH )
+#if !defined( CL_ENTITY_H )
 #include "cl_entity.h"
 #endif
 

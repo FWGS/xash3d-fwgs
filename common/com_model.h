@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #ifndef COM_MODEL_H
 #define COM_MODEL_H
 
-#include "xash3d_types.h"
+#include "const.h"
 #include "bspfile.h"	// we need some declarations from it
 
 /*

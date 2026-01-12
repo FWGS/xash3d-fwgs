@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #ifndef LIGHTSTYLE_H
 #define LIGHTSTYLE_H
 
+#include "xash3d_types.h"
+
 typedef struct
 {
 	char		pattern[256];

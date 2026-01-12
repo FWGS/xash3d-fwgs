@@ -16,6 +16,8 @@
 #ifndef PROGDEFS_H
 #define PROGDEFS_H
 
+#include "const.h"
+
 typedef struct
 {
 	float		time;

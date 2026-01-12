@@ -26,9 +26,9 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "studio.h"
 #include "r_efx.h"
-#include "com_image.h"
 #include "filesystem.h"
 #include "common/protocol.h"
+#include "cvardef.h"
 
 // RefAPI changelog:
 // 1. Initial release

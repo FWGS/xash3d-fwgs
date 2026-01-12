@@ -16,6 +16,8 @@
 #ifndef REF_PARAMS_H
 #define REF_PARAMS_H
 
+#include "xash3d_types.h"
+
 typedef struct ref_params_s
 {
 	// output
