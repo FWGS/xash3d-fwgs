@@ -466,7 +466,8 @@ static void R_UnloadProgs( void )
 	if( !ref.hInstance ) return;
 
 	// deinitialize renderer
-	ref.dllFuncs.R_Shutdown();
+	if (ref.dllFuncs.R_Shutdown)
+		ref.dllFuncs.R_Shutdown();
 
 	Cvar_FullSet( "host_refloaded", "0", FCVAR_READ_ONLY );
 
