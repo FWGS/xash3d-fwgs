@@ -489,7 +489,7 @@ qboolean VID_SetMode( void )
 	{
 		if( err == rserr_invalid_fullscreen )
 		{
-			Cvar_DirectSet( &vid_fullscreen, "0" );
+			Cvar_DirectSetValue( &vid_fullscreen, WINDOW_MODE_WINDOWED);
 			Con_Reportf( S_ERROR "%s: fullscreen unavailable in this mode\n", __func__ );
 			Sys_Warn( "fullscreen unavailable in this mode!" );
 			if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, WINDOW_MODE_WINDOWED )) == rserr_ok )
