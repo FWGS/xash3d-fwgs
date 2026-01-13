@@ -1019,19 +1019,15 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 		return; // don't send nothing to server: we are a server!
 
 	// forward the command line to the server, so the entity DLL can parse it
-	if( host.type == HOST_NORMAL )
-	{
 #if !XASH_DEDICATED
-		if( cls.state >= ca_connected )
-		{
-			Cmd_ForwardToServer();
-		}
-		else
+	if( cls.state >= ca_connected )
+	{
+		Cmd_ForwardToServer();
+	}
+	else
 #endif // XASH_DEDICATED
-		if( Cvar_VariableInteger( "host_gameloaded" ))
-		{
-			Con_Printf( S_WARN "Unknown command \"%s\"\n", Cmd_Argv( 0 ) );
-		}
+	{
+		Con_Printf( S_WARN "Unknown command \"%s\"\n", Cmd_Argv( 0 ) );
 	}
 }
 
