@@ -1011,6 +1011,11 @@ void CL_PredictMovement( qboolean repredicting )
 	if(( cls.netchan.outgoing_sequence - cls.netchan.incoming_acknowledged ) >= CL_UPDATE_MASK )
 		return;
 
+	// goldsrc checks for intermission here, so it technically allows sending commands
+	// during intermission but completely disables any client updates, predicted or not
+	if( cl.intermission )
+		return;
+
 	// this is the last frame received from the server
 	frame = &cl.frames[cl.parsecountmod];
 
