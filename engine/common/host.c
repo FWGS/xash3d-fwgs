@@ -66,6 +66,9 @@ CVAR_DEFINE( host_developer, "developer", "0", FCVAR_FILTERABLE, "engine is in d
 CVAR_DEFINE_AUTO( sys_timescale, "1.0", FCVAR_FILTERABLE, "scale frame time" );
 
 static CVAR_DEFINE_AUTO( sys_ticrate, "100", FCVAR_SERVER, "framerate in dedicated mode" );
+static CVAR_DEFINE_AUTO( sv_hibernate_when_empty, "1", 0, "lower CPU usage when server has no players" );
+static CVAR_DEFINE_AUTO( sv_hibernate_when_empty_sleep, "500", 0, "sleeptime value when sv_hibernate_when_empty is active" );
+static CVAR_DEFINE_AUTO( sv_hibernate_when_empty_include_bots, "0", 0, "count bots as online players when sv_hibernate_when_empty is active" );
 static CVAR_DEFINE_AUTO( host_serverstate, "0", FCVAR_READ_ONLY, "displays current server state" );
 static CVAR_DEFINE_AUTO( host_gameloaded, "0", FCVAR_READ_ONLY, "inidcates a loaded game.dll" );
 static CVAR_DEFINE_AUTO( host_clientloaded, "0", FCVAR_READ_ONLY, "inidcates a loaded client.dll" );
@@ -352,6 +355,19 @@ static int Host_CalcSleep( void )
 {
 	if( Host_IsDedicated( ))
 	{
+		if( sv_hibernate_when_empty.value )
+		{
+			int players, bots;
+
+			SV_GetPlayerCount( &players, &bots );
+
+			if( sv_hibernate_when_empty_include_bots.value )
+				players += bots;
+
+			if( players == 0 )
+				return sv_hibernate_when_empty_sleep.value;
+		}
+
 		// let the dedicated server some sleep
 		return host_sleeptime.value;
 	}
@@ -656,10 +672,9 @@ static double Host_CalcFPS( void )
 
 static qboolean Host_Autosleep( double dt, double scale )
 {
-	double targetframetime, fps;
+	double targetframetime;
 	int sleep;
-
-	fps = Host_CalcFPS();
+	double fps = Host_CalcFPS();
 
 	if( fps <= 0 )
 		return true;
@@ -669,10 +684,11 @@ static qboolean Host_Autosleep( double dt, double scale )
 
 	if( Host_IsDedicated( ))
 		targetframetime = ( 1.0 / ( fps + 1.0 ));
-	else targetframetime = ( 1.0 / fps );
+	else
+		targetframetime = ( 1.0 / fps );
 
 	sleep = Host_CalcSleep();
-	if( sleep == 0 ) // no sleeps between frames, much simpler code
+	if( sleep <= 0 ) // no sleeps between frames, much simpler code
 	{
 		if( dt < targetframetime * scale )
 			return false;
@@ -716,7 +732,8 @@ static qboolean Host_Autosleep( double dt, double scale )
 
 			if( targetsleeptime > 0 )
 				timewindow = targetsleeptime;
-			else timewindow = 0;
+			else
+				timewindow = 0;
 
 			realsleeptime = sleeptime; // reset in case CPU was too busy
 
@@ -1213,6 +1230,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Cvar_RegisterVariable( &host_limitlocal );
 	Cvar_RegisterVariable( &con_gamemaps );
 	Cvar_RegisterVariable( &sys_timescale );
+	Cvar_RegisterVariable( &sv_hibernate_when_empty );
+	Cvar_RegisterVariable( &sv_hibernate_when_empty_include_bots );
+	Cvar_RegisterVariable( &sv_hibernate_when_empty_sleep );
 
 	Cvar_Getf( "buildnum", FCVAR_READ_ONLY, "returns a current build number", "%i", Q_buildnum_compat());
 	Cvar_Getf( "ver", FCVAR_READ_ONLY, "shows an engine version", "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat());
