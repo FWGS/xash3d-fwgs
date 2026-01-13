@@ -188,7 +188,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	int		i;
 
 	Con_Reportf( "Serverdata packet received.\n" );
-	cls.timestart = Sys_DoubleTime();
+	cls.timestart = Platform_DoubleTime();
 
 	cls.demowaiting = false;	// server is changed
 

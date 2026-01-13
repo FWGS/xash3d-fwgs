@@ -664,7 +664,7 @@ void SV_ActivateServer( int runPhysics )
 	host.movevars_changed = true;
 	Host_SetServerState( ss_active );
 
-	Con_DPrintf( "level loaded at %.2f sec\n", Sys_DoubleTime() - svs.timestart );
+	Con_DPrintf( "level loaded at %.2f sec\n", Platform_DoubleTime() - svs.timestart );
 
 	if( sv.ignored_static_ents )
 		Con_Printf( S_WARN "%i static entities was rejected due buffer overflow\n", sv.ignored_static_ents );
@@ -1027,7 +1027,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Log_Printf( "Loading map \"%s\"\n", mapname );
 	Log_PrintServerVars();
 
-	svs.timestart = Sys_DoubleTime();
+	svs.timestart = Platform_DoubleTime();
 	svs.spawncount++; // any partially connected client will be restarted
 
 	for( i = 0; i < ARRAYSIZE( svs.challenge_salt ); i++ )

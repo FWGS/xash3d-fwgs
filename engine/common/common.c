@@ -886,17 +886,6 @@ int GAME_EXPORT COM_CheckParm( char *parm, char **ppnext )
 	return i;
 }
 
-/*
-=============
-pfnTime
-
-=============
-*/
-float GAME_EXPORT pfnTime( void )
-{
-	return (float)Sys_DoubleTime();
-}
-
 qboolean COM_IsSafeFileToDownload( const char *filename )
 {
 	char		lwrfilename[4096];

@@ -370,7 +370,7 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth
 	if( inrate == outrate && inwidth == outwidth && inchannels == outchannels )
 		return false;
 
-	t1 = Sys_DoubleTime();
+	t1 = Platform_DoubleTime();
 
 	stepscale = (double)inrate / outrate;	// this is usually 0.5, 1, or 2
 	outcount = sc->samples / stepscale;
@@ -404,7 +404,7 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth
 		return false;
 	}
 
-	t2 = Sys_DoubleTime();
+	t2 = Platform_DoubleTime();
 	sc->rate = outrate;
 	sc->width = outwidth;
 
