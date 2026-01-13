@@ -4803,7 +4803,7 @@ static enginefuncs_t gEngfuncs =
 	COM_RandomLong,
 	COM_RandomFloat,
 	pfnSetView,
-	pfnTime,
+	Sys_FloatTime,
 	pfnCrosshairAngle,
 	COM_LoadFileForMe,
 	COM_FreeFile,

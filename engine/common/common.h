@@ -647,7 +647,6 @@ void Con_DPrintf( const char *fmt, ... ) FORMAT_CHECK( 1 );
 void Con_Printf( const char *szFmt, ... ) FORMAT_CHECK( 1 );
 int pfnNumberOfEntities( void );
 int pfnIsInGame( void );
-float pfnTime( void );
 #define copystring( s ) _copystring( host.mempool, s, __FILE__, __LINE__ )
 #define copystringpool( pool, s ) _copystring( pool, s, __FILE__, __LINE__ )
 #define SV_CopyString( s ) _copystring( svgame.stringspool, s, __FILE__, __LINE__ )
