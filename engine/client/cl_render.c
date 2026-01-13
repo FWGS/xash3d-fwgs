@@ -277,7 +277,7 @@ static render_api_t gRenderAPI =
 	pfnCompareFileTime,
 	Host_Error,
 	(void*)CL_ModelHandle,
-	pfnTime,
+	Sys_FloatTime,
 	Cvar_Set,
 	S_FadeMusicVolume,
 	COM_SetRandomSeed,
