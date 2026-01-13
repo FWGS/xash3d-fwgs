@@ -1712,7 +1712,7 @@ static void Con_DrawInput( int lines )
 		}
 
 		// Con_CompleteCommand destroys the buffer. Need to figure out how to make it append only
-		if( con.input_completion.buffer > len && !Q_strncmp( con.input.buffer, con.input_completion.buffer, len ))
+		if( Q_strlen(con.input_completion.buffer) > len && !Q_strncmp( con.input.buffer, con.input_completion.buffer, len ))
 		{
 			con.input_completion.scroll = len;
 			Field_DrawInputLine( con.curFont->charWidths[' ']*2 + x, y, &con.input_completion, 128, false );
