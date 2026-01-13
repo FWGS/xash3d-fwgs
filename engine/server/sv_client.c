@@ -609,8 +609,8 @@ void SV_DropClient( sv_client_t *cl, qboolean crash )
 	Netchan_Clear( &cl->netchan );
 
 	// clean client data on disconnect
-	memset( cl->userinfo, 0, MAX_INFO_STRING );
-	memset( cl->physinfo, 0, MAX_INFO_STRING );
+	memset( cl->userinfo, 0, sizeof( cl->userinfo ));
+	memset( cl->physinfo, 0, sizeof( cl->physinfo ));
 	COM_ClearCustomizationList( &cl->customdata, false );
 
 	// don't send to other clients
@@ -1837,18 +1837,18 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 
 	if( !Q_stricmp( name1, "console" ))
 	{
-		Info_SetValueForKey( cl->userinfo, "name", "unnamed", MAX_INFO_STRING );
+		Info_SetValueForKey( cl->userinfo, "name", "unnamed", sizeof( cl->userinfo ));
 		val = Info_ValueForKey( cl->userinfo, "name" );
 	}
 	else if( Q_strcmp( name1, val ))
 	{
-		Info_SetValueForKey( cl->userinfo, "name", name1, MAX_INFO_STRING );
+		Info_SetValueForKey( cl->userinfo, "name", name1, sizeof( cl->userinfo ));
 		val = Info_ValueForKey( cl->userinfo, "name" );
 	}
 
-	if( !COM_CheckStringEmpty( name1 ) )
+	if( !COM_CheckStringEmpty( name1 ))
 	{
-		Info_SetValueForKey( cl->userinfo, "name", "unnamed", MAX_INFO_STRING );
+		Info_SetValueForKey( cl->userinfo, "name", "unnamed", sizeof( cl->userinfo ));
 		val = Info_ValueForKey( cl->userinfo, "name" );
 		Q_strncpy( name2, "unnamed", sizeof( name2 ));
 		Q_strncpy( name1, "unnamed", sizeof( name1 ));
@@ -1870,7 +1870,7 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 		{
 			// dup name
 			Q_snprintf( name2, sizeof( name2 ), "%s (%u)", name1, dupc++ );
-			Info_SetValueForKey( cl->userinfo, "name", name2, MAX_INFO_STRING );
+			Info_SetValueForKey( cl->userinfo, "name", name2, sizeof( cl->userinfo ));
 			val = Info_ValueForKey( cl->userinfo, "name" );
 			Q_strncpy( cl->name, name2, sizeof( cl->name ));
 		}
@@ -1883,7 +1883,6 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 	}
 
 	// rate command
-	val = Info_ValueForKey( cl->userinfo, "rate" );
 	cl->netchan.rate = Q_atoi( Info_ValueForKey( cl->userinfo, "rate" ));
 	if( cl->netchan.rate <= 0 )
 		cl->netchan.rate = DEFAULT_RATE;
@@ -1915,8 +1914,7 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 	// call prog code to allow overrides
 	svgame.dllFuncs.pfnClientUserInfoChanged( cl->edict, cl->userinfo );
 
-	val = Info_ValueForKey( cl->userinfo, "name" );
-	Q_strncpy( cl->name, val, sizeof( cl->name ));
+	Q_strncpy( cl->name, Info_ValueForKey( cl->userinfo, "name" ), sizeof( cl->name ));
 	ent->v.netname = MAKE_STRING( cl->name );
 }
 
@@ -1927,7 +1925,7 @@ SV_SetInfo_f
 */
 static qboolean SV_SetInfo_f( sv_client_t *cl )
 {
-	Info_SetValueForKey( cl->userinfo, Cmd_Argv( 1 ), Cmd_Argv( 2 ), MAX_INFO_STRING );
+	Info_SetValueForKey( cl->userinfo, Cmd_Argv( 1 ), Cmd_Argv( 2 ), sizeof( cl->userinfo ));
 
 	if( cl->state >= cs_connected )
 		SetBits( cl->flags, FCL_RESEND_USERINFO ); // needs for update client info
@@ -2130,7 +2128,7 @@ static qboolean SV_DownloadFile_f( sv_client_t *cl )
 		byte		*pbuf;
 		int		size;
 
-		memset( &custResource, 0, sizeof( custResource ) );
+		memset( &custResource, 0, sizeof( custResource ));
 		COM_HexConvert( name + 4, 32, md5 );
 
 		if( HPAK_ResourceForHash( hpk_custom_file.string, md5, &custResource ))
