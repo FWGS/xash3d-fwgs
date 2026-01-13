@@ -270,7 +270,7 @@ void GL_UpdateSwapInterval( void )
 	}
 }
 
-qboolean R_Init_Video( const int type )
+qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	qboolean retval = false;
 

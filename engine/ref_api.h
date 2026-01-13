@@ -220,12 +220,12 @@ enum ref_defaultsprite_e
 
 // the order of first three is important!
 // so you can use this value in IEngineStudio.StudioIsHardware
-enum ref_graphic_apis_e
+typedef enum ref_graphic_apis_e
 {
 	REF_SOFTWARE,	// hypothetical: just make a surface to draw on, in software
 	REF_GL,		// create GL context
 	REF_D3D,	// Direct3D
-};
+} ref_graphic_apis_t;
 
 typedef enum
 {
@@ -447,7 +447,7 @@ typedef struct ref_api_s
 	// video init
 	// try to create window
 	// will call GL_SetupAttributes in case of REF_GL
-	qboolean  (*R_Init_Video)( int type ); // will also load and execute renderer config(see R_GetConfigName)
+	qboolean (*R_Init_Video)( ref_graphic_apis_t type ); // will also load and execute renderer config(see R_GetConfigName)
 	void (*R_Free_Video)( void );
 
 	// GL

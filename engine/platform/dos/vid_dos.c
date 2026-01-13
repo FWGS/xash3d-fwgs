@@ -49,7 +49,7 @@ static void DOS_GetScreenRes( int *x, int *y )
 	*y = 200;
 }
 
-qboolean  R_Init_Video( const int type )
+qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	qboolean retval;
 
