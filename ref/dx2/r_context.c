@@ -1,7 +1,7 @@
 /*
 r_context.c -- dx2 renderer context
 Copyright (C) 2023-2024 a1batross
-Copyright (C) 2025 lewa_j
+Copyright (C) 2025-2026 lewa_j
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -51,16 +51,6 @@ static void R_SimpleStubBool( qboolean unused )
 	;
 }
 
-void R_AllowFog(qboolean allowed)
-{
-
-}
-
-void GL_SetRenderMode(int mode)
-{
-	dxc.renderMode = mode;
-}
-
 static const char *R_GetConfigName( void )
 {
 	return "ref_dx2";
@@ -92,16 +82,103 @@ static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_
 	return ret;
 }
 
-static void R_ClearScene(void)
-{
-	tr.draw_list->num_solid_entities = 0;
-	tr.draw_list->num_trans_entities = 0;
-	tr.draw_list->num_beam_entities = 0;
 
-	// clear the scene befor start new frame
-	if (gEngfuncs.drawFuncs->R_ClearScene != NULL)
-		gEngfuncs.drawFuncs->R_ClearScene();
+void R_BeginFrame( qboolean clearScene )
+{
+
+	gEngfuncs.CL_ExtraUpdate();
 }
+
+static void R_RenderScene( void )
+{
+	model_t *worldmodel = gp_cl->models[1];
+	if (!worldmodel && RI.drawWorld)
+		gEngfuncs.Host_Error("%s: NULL worldmodel\n", __func__);
+
+	// frametime is valid only for normal pass
+	if (FBitSet(RI.params, RP_ENVVIEW) == 0)
+		tr.frametime = gp_cl->time - gp_cl->oldtime;
+	else tr.frametime = 0.0;
+
+	// begin a new frame
+	tr.framecount++;
+
+#if 0
+	R_PushDlights();
+
+	R_SetupFrustum();
+	R_SetupFrame();
+	R_SetupGL(true);
+	R_Clear(~0);
+
+	R_MarkLeaves();
+	R_DrawFog();
+	if (RI.drawWorld)
+		R_AnimateRipples();
+
+	R_CheckGLFog();
+	R_DrawWorld();
+	R_CheckFog();
+
+	gEngfuncs.CL_ExtraUpdate();	// don't let sound get messed up if going slow
+
+	R_DrawEntitiesOnList();
+
+	R_DrawWaterSurfaces();
+#endif
+}
+
+void R_EndFrame( void )
+{
+	//swap
+	if (!dxc.window)
+		return;
+
+	if (dxc.pddsBack)
+	{
+		RECT dstRect = {};
+		POINT point = { 0,0 };
+		ClientToScreen(dxc.window, &point);
+		GetClientRect(dxc.window, &dstRect);
+		OffsetRect(&dstRect, point.x, point.y);
+
+		RECT srcRect = { 0,0,dxc.windowWidth,dxc.windowHeight };
+		DXCheck(IDirectDrawSurface_Blt(dxc.pddsPrimary, &dstRect, dxc.pddsBack, &srcRect, DDBLT_WAIT, NULL));
+	}
+
+	//resize
+	RECT rect = {};
+	GetClientRect(dxc.window, &rect);
+	int w = rect.right - rect.left;
+	int h = rect.bottom - rect.top;
+
+	if (w != dxc.windowWidth || h != dxc.windowHeight)
+	{
+		D3D_Resize(w, h);
+	}
+}
+
+void GL_BackendStartFrame( void )
+{
+
+}
+
+void GL_BackendEndFrame( void )
+{
+
+}
+
+
+void R_AllowFog( qboolean allowed )
+{
+
+}
+
+void GL_SetRenderMode( int mode )
+{
+	dxc.renderMode = mode;
+}
+
 
 static qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 {
@@ -139,7 +216,7 @@ static void R_SetupSky( int *skytextures )
 	;
 }
 
-static void R_Set2DMode(qboolean enable)
+static void R_Set2DMode( qboolean enable )
 {
 
 }
@@ -149,7 +226,7 @@ static void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int 
 	;
 }
 
-static void D3D_SetVert(D3DTLVERTEX* v, float x, float y, float z, float w, float tu, float tv)
+static void D3D_SetVert( D3DTLVERTEX* v, float x, float y, float z, float w, float tu, float tv )
 {
 	v->sx = x;
 	v->sy = y;
@@ -160,7 +237,7 @@ static void D3D_SetVert(D3DTLVERTEX* v, float x, float y, float z, float w, floa
 	v->tv = tv;
 }
 
-static void D3D_SetTri(D3DTRIANGLE *t, int v1, int v2, int v3)
+static void D3D_SetTri( D3DTRIANGLE *t, int v1, int v2, int v3 )
 {
 	t->v1 = v1;
 	t->v2 = v2;
@@ -168,7 +245,7 @@ static void D3D_SetTri(D3DTRIANGLE *t, int v1, int v2, int v3)
 	t->wFlags = D3DTRIFLAG_EDGEENABLETRIANGLE;
 }
 
-static void D3D_PutInstruction(void **dst, BYTE opcode, BYTE size, WORD count)
+static void D3D_PutInstruction( void **dst, BYTE opcode, BYTE size, WORD count )
 {
 	D3DINSTRUCTION* inst = (D3DINSTRUCTION*)*dst;
 	inst->bOpcode = opcode;
@@ -177,7 +254,7 @@ static void D3D_PutInstruction(void **dst, BYTE opcode, BYTE size, WORD count)
 	*dst = (void*)(((D3DINSTRUCTION*)*dst) + 1);
 }
 
-static void D3D_PutProcessVertices(void** dst, DWORD flags, WORD start, WORD count)
+static void D3D_PutProcessVertices( void** dst, DWORD flags, WORD start, WORD count )
 {
 	D3D_PutInstruction(dst, D3DOP_PROCESSVERTICES, sizeof(D3DPROCESSVERTICES), 1);
 
@@ -190,7 +267,7 @@ static void D3D_PutProcessVertices(void** dst, DWORD flags, WORD start, WORD cou
 	*dst = (void*)(((D3DPROCESSVERTICES*)*dst) + 1);
 }
 
-static void D3D_PutRenderState(void** dst, D3DRENDERSTATETYPE type, DWORD arg)
+static void D3D_PutRenderState( void** dst, D3DRENDERSTATETYPE type, DWORD arg )
 {
 	D3DSTATE* s = (D3DSTATE*)*dst;
 
@@ -395,7 +472,7 @@ static void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, ve
 	;
 }
 
-void CL_InitStudioAPI(void)
+void CL_InitStudioAPI( void )
 {
 	;
 }
@@ -463,7 +540,7 @@ static qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOn
 	return false;
 }
 
-static int RefGetParm(int parm, int arg)
+static int RefGetParm( int parm, int arg )
 {
 	dx_texture_t *glt;
 
@@ -617,53 +694,8 @@ static struct mstudiotex_s *StudioGetTexture( struct cl_entity_s *e )
 	return NULL;
 }
 
-void R_BeginFrame(qboolean clearScene)
-{
 
-	gEngfuncs.CL_ExtraUpdate();
-}
-
-void R_EndFrame(void)
-{
-	//swap
-	if (!dxc.window)
-		return;
-
-	if( dxc.pddsBack )
-	{
-		RECT dstRect = {};
-		POINT point = { 0, 0 };
-		ClientToScreen( dxc.window, &point );
-		GetClientRect( dxc.window, &dstRect );
-		OffsetRect( &dstRect, point.x, point.y );
-
-		RECT srcRect = { 0, 0, dxc.windowWidth, dxc.windowHeight };
-		DXCheck( IDirectDrawSurface_Blt( dxc.pddsPrimary, &dstRect, dxc.pddsBack, &srcRect, DDBLT_WAIT, NULL ) );
-	}
-
-	//resize
-	RECT rect = {};
-	GetClientRect(dxc.window, &rect);
-	int w = rect.right - rect.left;
-	int h = rect.bottom - rect.top;
-
-	if (w != dxc.windowWidth || h != dxc.windowHeight)
-	{
-		D3D_Resize(w, h);
-	}
-}
-
-void GL_BackendStartFrame(void)
-{
-
-}
-
-void GL_BackendEndFrame(void)
-{
-
-}
-
-static void R_SetupRefParams(const ref_viewpass_t *rvp)
+static void R_SetupRefParams( const ref_viewpass_t *rvp )
 {
 //	RI.params = RP_NONE;
 	RI.drawWorld = FBitSet(rvp->flags, RF_DRAW_WORLD);
@@ -687,45 +719,6 @@ static void R_SetupRefParams(const ref_viewpass_t *rvp)
 	VectorCopy(rvp->vieworigin, RI.vieworg);
 	VectorCopy(rvp->viewangles, RI.viewangles);
 	VectorCopy(rvp->vieworigin, RI.pvsorigin);
-}
-
-static void R_RenderScene(void)
-{
-	model_t *worldmodel = gp_cl->models[1];
-	if (!worldmodel && RI.drawWorld)
-		gEngfuncs.Host_Error("%s: NULL worldmodel\n", __func__);
-
-	// frametime is valid only for normal pass
-	if (FBitSet(RI.params, RP_ENVVIEW) == 0)
-		tr.frametime = gp_cl->time - gp_cl->oldtime;
-	else tr.frametime = 0.0;
-
-	// begin a new frame
-	tr.framecount++;
-
-#if 0
-	R_PushDlights();
-
-	R_SetupFrustum();
-	R_SetupFrame();
-	R_SetupGL(true);
-	R_Clear(~0);
-
-	R_MarkLeaves();
-	R_DrawFog();
-	if (RI.drawWorld)
-		R_AnimateRipples();
-
-	R_CheckGLFog();
-	R_DrawWorld();
-	R_CheckFog();
-
-	gEngfuncs.CL_ExtraUpdate();	// don't let sound get messed up if going slow
-
-	R_DrawEntitiesOnList();
-
-	R_DrawWaterSurfaces();
-#endif
 }
 
 static void R_RenderFrame( const struct ref_viewpass_s *rvp )
@@ -773,11 +766,22 @@ static byte *Mod_GetCurrentVis( void )
 	return NULL;
 }
 
-static void R_NewMap(void)
+static void R_NewMap( void )
 {
 
 	if (gEngfuncs.drawFuncs->R_NewMap != NULL)
 		gEngfuncs.drawFuncs->R_NewMap();
+}
+
+static void R_ClearScene( void )
+{
+	tr.draw_list->num_solid_entities = 0;
+	tr.draw_list->num_trans_entities = 0;
+	tr.draw_list->num_beam_entities = 0;
+
+	// clear the scene befor start new frame
+	if (gEngfuncs.drawFuncs->R_ClearScene != NULL)
+		gEngfuncs.drawFuncs->R_ClearScene();
 }
 
 static void *R_GetProcAddress( const char *name )
@@ -815,7 +819,7 @@ static void Fog( float flFogColor[3], float flStart, float flEnd, int bOn )
 	;
 }
 
-static void ScreenToWorld( const float *screen, float *world  )
+static void ScreenToWorld( const float *screen, float *world )
 {
 	;
 }
