@@ -707,18 +707,18 @@ static qboolean Host_Autosleep( double dt, double scale )
 			{
 				// Platform_Sleep isn't guaranteed to sleep an exact amount of microseconds
 				// so we measure the real sleep time and use it to decrease the window
-				double t1 = Platform_DoubleTime(), t2;
-				Platform_NanoSleep( sleep * 1000 ); // in usec!
-				t2 = Platform_DoubleTime();
-				realsleeptime = t2 - t1;
+				double t = Platform_DoubleTime();
 
+				Platform_NanoSleep( sleep * 1000 * 100 ); // sleeptime 1 ~ 100 usecs
+
+				realsleeptime = Platform_DoubleTime() - t;
 				timewindow -= realsleeptime;
 
 				if( host_sleeptime_debug.value )
 				{
 					counter++;
 
-					Con_NPrintf( counter, "%d: %.4f %.4f", counter, timewindow, realsleeptime );
+					Con_NPrintf( counter, "%d: %.6f %.6f", counter, timewindow, realsleeptime );
 				}
 			}
 
