@@ -46,11 +46,6 @@ static void R_SimpleStubUInt( unsigned int unused )
 	;
 }
 
-static void R_SimpleStubBool( qboolean unused )
-{
-	;
-}
-
 static const char *R_GetConfigName( void )
 {
 	return "ref_dx2";
@@ -82,6 +77,19 @@ static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_
 	return ret;
 }
 
+void R_GammaChanged( qboolean do_reset_gamma )
+{
+	if( do_reset_gamma )
+	{
+		// paranoia cubemap rendering
+		if( gEngfuncs.drawFuncs->GL_BuildLightmaps )
+			gEngfuncs.drawFuncs->GL_BuildLightmaps( );
+	}
+	else
+	{
+		//GL_RebuildLightmaps();
+	}
+}
 
 void R_BeginFrame( qboolean clearScene )
 {
@@ -860,7 +868,7 @@ static const ref_interface_t gReffuncs =
 	.GL_InitExtensions  = GL_InitExtensions,
 	.GL_ClearExtensions = GL_ClearExtensions,
 
-	.R_GammaChanged       = R_SimpleStubBool,
+	.R_GammaChanged       = R_GammaChanged,
 	.R_BeginFrame         = R_BeginFrame,
 	.R_RenderScene        = R_RenderScene,
 	.R_EndFrame           = R_EndFrame,
