@@ -233,7 +233,7 @@ typedef struct sv_client_s
 	double next_messagetime;   // time when we should send next world state update
 	double next_checkpingtime; // time to send all players pings to client
 	double next_sendinfotime;  // time to send info about all players
-	double cl_updaterate;      // client requested updaterate
+	double next_messageinterval; // update rate, clamped
 	double timebase;           // client timebase
 	double connection_started;
 
