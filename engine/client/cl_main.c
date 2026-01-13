@@ -175,16 +175,23 @@ connprotocol_t CL_Protocol( void )
 
 void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats )
 {
+	uint flags;
+
 	if( NET_NetadrType( &cls.netchan.remote_address ) == NA_LOOPBACK )
 		return;
 
+	if( cls.demoplayback )
+		flags = FCVAR_SERVER;
+	else
+		flags = FCVAR_SERVER | FCVAR_READ_ONLY;
+
 	if( allow_cheats )
 	{
-		Cvar_FullSet( "sv_cheats", "1", FCVAR_READ_ONLY | FCVAR_SERVER );
+		Cvar_FullSet( "sv_cheats", "1", flags );
 	}
 	else
 	{
-		Cvar_FullSet( "sv_cheats", "0", FCVAR_READ_ONLY | FCVAR_SERVER );
+		Cvar_FullSet( "sv_cheats", "0", flags );
 		Cvar_SetCheatState();
 	}
 }
