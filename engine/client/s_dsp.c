@@ -935,12 +935,12 @@ static void SX_Profiling_f( void )
 
 	Con_Printf( "Profiling 10000 calls to DSP. Sample count is 512, room_type is %i\n", idsp_room );
 
-	start = Sys_DoubleTime();
+	start = Platform_DoubleTime();
 	for( calls = 10000; calls; calls-- )
 	{
 		DSP_Process( testbuffer, 512 );
 	}
-	end = Sys_DoubleTime();
+	end = Platform_DoubleTime();
 
 	Con_Printf( "----------\nTook %g seconds.\n", end - start );
 

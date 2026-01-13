@@ -1782,7 +1782,7 @@ void Con_DrawDebug( void )
 	{
 		int length;
 		Q_snprintf( dlstring, sizeof( dlstring ), "Downloading [%d remaining]: ^2%s^7 %5.1f%% time %.f secs",
-			host.downloadcount, host.downloadfile, scr_download.value, Sys_DoubleTime() - timeStart );
+			host.downloadcount, host.downloadfile, scr_download.value, Platform_DoubleTime() - timeStart );
 
 		Con_DrawStringLen( dlstring, &length, NULL );
 		length = Q_max( length, 300 );

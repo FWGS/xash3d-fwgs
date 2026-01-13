@@ -876,7 +876,7 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		break;
 	}
 
-	cls.timestart = Sys_DoubleTime();
+	cls.timestart = Platform_DoubleTime();
 	cls.demowaiting = false;	// server is changed
 
 	// wipe the client_t struct

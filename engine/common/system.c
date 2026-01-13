@@ -68,6 +68,16 @@ double GAME_EXPORT Sys_DoubleTime( void )
 }
 
 /*
+===============
+Sys_FloatTime
+===============
+*/
+float GAME_EXPORT Sys_FloatTime( void )
+{
+	return (float)Platform_DoubleTime();
+}
+
+/*
 ================
 Sys_DebugBreak
 ================

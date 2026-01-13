@@ -107,17 +107,17 @@ static const feature_message_t engine_features[] =
 { ENGINE_STEP_POSHISTORY_LERP, "MOVETYPE_STEP Position History Based Lerping" },
 };
 
-static void Sys_MakeVersionString( char *out, size_t len )
+static void Host_MakeVersionString( char *out, size_t len )
 {
 	Q_snprintf( out, len, XASH_ENGINE_NAME " %i/" XASH_VERSION " (%s-%s build %i)", PROTOCOL_VERSION, Q_buildos(), Q_buildarch(), Q_buildnum( ));
 }
 
-static void Sys_PrintUsage( const char *exename )
+static void Host_PrintUsage( const char *exename )
 {
 	string version_str;
 	const char *usage_str;
 
-	Sys_MakeVersionString( version_str, sizeof( version_str ));
+	Host_MakeVersionString( version_str, sizeof( version_str ));
 
 #if XASH_MESSAGEBOX != MSGBOX_STDERR
 	#if XASH_WIN32
@@ -224,14 +224,14 @@ static void Sys_PrintUsage( const char *exename )
 	Sys_Quit( NULL );
 }
 
-static void Sys_PrintBugcompUsage( const char *exename )
+static void Host_PrintBugcompUsage( const char *exename )
 {
 	string version_str;
 	char usage_str[4096];
 	char *p = usage_str;
 	int i;
 
-	Sys_MakeVersionString( version_str, sizeof( version_str ));
+	Host_MakeVersionString( version_str, sizeof( version_str ));
 
 	p += Q_snprintf( p, sizeof( usage_str ) - ( usage_str - p ), "Known bugcomp flags are:\n" );
 	for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
@@ -691,9 +691,9 @@ static qboolean Host_Autosleep( double dt, double scale )
 			{
 				// Platform_Sleep isn't guaranteed to sleep an exact amount of microseconds
 				// so we measure the real sleep time and use it to decrease the window
-				double t1 = Sys_DoubleTime(), t2;
+				double t1 = Platform_DoubleTime(), t2;
 				Platform_NanoSleep( sleep * 1000 ); // in usec!
-				t2 = Sys_DoubleTime();
+				t2 = Platform_DoubleTime();
 				realsleeptime = t2 - t1;
 
 				timewindow -= realsleeptime;
@@ -777,7 +777,7 @@ void Host_Frame( double time )
 	if( !Host_FilterTime( time ))
 		return;
 
-	t1 = Sys_DoubleTime();
+	t1 = Platform_DoubleTime();
 
 	if( host.framecount == 0 )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );
@@ -790,7 +790,7 @@ void Host_Frame( double time )
 	HTTP_Run();			 // both server and client
 
 	host.framecount++;
-	host.pureframetime = Sys_DoubleTime() - t1;
+	host.pureframetime = Platform_DoubleTime() - t1;
 }
 
 /*
@@ -1021,10 +1021,10 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		string arg;
 
 		if( Sys_CheckParm( "-help" ) || Sys_CheckParm( "-h" ) || Sys_CheckParm( "--help" ))
-			Sys_PrintUsage( exename );
+			Host_PrintUsage( exename );
 
 		if( Sys_GetParmFromCmdLine( "-bugcomp", arg ) && !Q_stricmp( arg, "help" ))
-			Sys_PrintBugcompUsage( exename );
+			Host_PrintBugcompUsage( exename );
 	}
 
 	host.change_game = bChangeGame || Sys_CheckParm( "-changegame" );
@@ -1187,7 +1187,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( setjmp( return_from_main_buf ))
 		return error_on_exit;
 
-	host.starttime = Sys_DoubleTime();
+	host.starttime = Platform_DoubleTime();
 
 	pChangeGame = func;	// may be NULL
 
@@ -1306,7 +1306,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	if( Sys_GetParmFromCmdLine( "-timedemo", demoname ))
 		Cbuf_AddTextf( "timedemo %s\n", demoname );
 
-	oldtime = Sys_DoubleTime() - 0.1;
+	oldtime = Platform_DoubleTime() - 0.1;
 
 	if( Host_IsDedicated( ))
 	{
@@ -1333,7 +1333,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	// main window message loop
 	while( host.status != HOST_CRASHED )
 	{
-		double newtime = Sys_DoubleTime();
+		double newtime = Platform_DoubleTime();
 		COM_Frame( newtime - oldtime );
 		oldtime = newtime;
 	}

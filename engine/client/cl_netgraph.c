@@ -172,7 +172,7 @@ get frame data info, like chokes, packet losses, also update graph, packet and c
 static void NetGraph_GetFrameData( float *latency, int *latency_count )
 {
 	int		i, choke_count = 0, loss_count = 0;
-	double		newtime = Sys_DoubleTime();
+	double		newtime = Platform_DoubleTime();
 	static double	nexttime = 0;
 	float		loss, choke;
 

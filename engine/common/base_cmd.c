@@ -298,7 +298,7 @@ void BaseCmd_Test_f( void )
 	stats.valid = true;
 	stats.lookups = 0;
 
-	start = Sys_DoubleTime() * 1000;
+	start = Platform_DoubleTime() * 1000;
 
 	for( i = 0; i < 1000; i++ )
 	{
@@ -328,7 +328,7 @@ void BaseCmd_Test_f( void )
 		Cvar_LookupVars( 0, NULL, &stats.valid, (setpair_t)BaseCmd_CheckCvars );
 	}
 
-	end = Sys_DoubleTime() * 1000;
+	end = Platform_DoubleTime() * 1000;
 
 	dt = end - start;
 

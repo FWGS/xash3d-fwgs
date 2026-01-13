@@ -74,11 +74,11 @@ static void SV_CheckAllEnts( void )
 	if( !sv_check_errors.value || sv.state != ss_active )
 		return;
 
-	if(( nextcheck - Sys_DoubleTime()) > 0.0 )
+	if(( nextcheck - Platform_DoubleTime()) > 0.0 )
 		return;
 
 	// don't check entities every frame (but every 5 secs)
-	nextcheck = Sys_DoubleTime() + 5.0;
+	nextcheck = Platform_DoubleTime() + 5.0;
 
 	// check edicts errors
 	for( i = svs.maxclients + 1; i < svgame.numEntities; i++ )

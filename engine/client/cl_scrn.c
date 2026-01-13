@@ -73,7 +73,7 @@ void SCR_DrawFPS( int height )
 	default: return;
 	}
 
-	newtime = Sys_DoubleTime();
+	newtime = Platform_DoubleTime();
 	if( newtime >= nexttime )
 	{
 		framerate = framecount / (newtime - lasttime);

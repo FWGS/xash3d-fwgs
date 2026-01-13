@@ -223,7 +223,7 @@ static void CL_CheckClientState( void )
 			CL_ServerCommand(true, "specmode 4\n");
 		}
 
-		Con_DPrintf( "client connected at %.2f sec\n", Sys_DoubleTime() - cls.timestart );
+		Con_DPrintf( "client connected at %.2f sec\n", Platform_DoubleTime() - cls.timestart );
 	}
 }
 
@@ -1157,7 +1157,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		Con_Printf( "Trying to connect with modern protocol\n" );
 	}
 
-	cls.timestart = Sys_DoubleTime();
+	cls.timestart = Platform_DoubleTime();
 }
 
 /*
@@ -2740,7 +2740,7 @@ static void CL_ReadPackets( void )
 		return;
 
 	// if in the debugger last frame, don't timeout
-	if( host.frametime > 5.0f ) cls.netchan.last_received = Sys_DoubleTime();
+	if( host.frametime > 5.0f ) cls.netchan.last_received = Platform_DoubleTime();
 
 	// check timeout
 	if( cls.state >= ca_connected && cls.state != ca_cinematic && !cls.demoplayback )

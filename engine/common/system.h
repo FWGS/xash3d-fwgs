@@ -51,7 +51,8 @@ typedef struct dll_info_s
 } dll_info_t;
 
 extern int error_on_exit;
-double Sys_DoubleTime( void );
+double GAME_EXPORT Sys_DoubleTime( void ); // only for binary compatibility, use Platform_DoubleTime instead
+float GAME_EXPORT Sys_FloatTime( void ); // only for binary compatibility, use Platform_DoubleTime instead
 char *Sys_GetClipboardData( void );
 const char *Sys_GetCurrentUser( void );
 int Sys_CheckParm( const char *parm );
