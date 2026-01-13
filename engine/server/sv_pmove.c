@@ -727,16 +727,19 @@ static void SV_SetupMoveInterpolant( sv_client_t *cl )
 
 	if( sv_maxunlag.value != 0.0f )
 	{
-		if (sv_maxunlag.value < 0.0f )
-			Cvar_SetValue( "sv_maxunlag", 0.0f );
+		if( sv_maxunlag.value < 0.0f )
+			Cvar_DirectSetValue( &sv_maxunlag, 0.0f );
+
 		latency = Q_min( latency, sv_maxunlag.value );
 	}
 
 	lerp_msec = cl->lastcmd.lerp_msec * 0.001f;
-	if( lerp_msec > 0.1f ) lerp_msec = 0.1f;
 
-	if( lerp_msec < cl->cl_updaterate )
-		lerp_msec = cl->cl_updaterate;
+	if( lerp_msec > 0.1f )
+		lerp_msec = 0.1f;
+
+	if( lerp_msec < cl->next_messageinterval )
+		lerp_msec = cl->next_messageinterval;
 
 	finalpush = ( host.realtime - latency - lerp_msec ) + sv_unlagpush.value;
 	if( finalpush > host.realtime ) finalpush = host.realtime; // pushed too much ?
