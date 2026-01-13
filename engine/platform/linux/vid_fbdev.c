@@ -50,7 +50,7 @@ void FB_GetScreenRes( int *x, int *y )
 	*y = fb.vinfo.yres;
 }
 
-qboolean  R_Init_Video( const int type )
+qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	qboolean retval;
 	string fbdev = DEFAULT_FBDEV;

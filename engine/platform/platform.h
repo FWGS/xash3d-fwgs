@@ -320,9 +320,10 @@ typedef enum
 struct vidmode_s;
 typedef enum window_mode_e window_mode_t;
 typedef enum ref_window_type_e ref_window_type_t;
+typedef enum ref_graphic_apis_e ref_graphic_apis_t;
 
 // Window
-qboolean  R_Init_Video( const int type );
+qboolean  R_Init_Video( ref_graphic_apis_t type );
 void      R_Free_Video( void );
 qboolean  VID_SetMode( void );
 rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode );

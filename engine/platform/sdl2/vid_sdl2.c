@@ -987,7 +987,7 @@ int GL_GetAttribute( int attr, int *val )
 R_Init_Video
 ==================
 */
-qboolean R_Init_Video( const int type )
+qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	string safe;
 	SDL_DisplayMode displayMode;
