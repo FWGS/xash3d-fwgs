@@ -87,6 +87,9 @@ void SCR_DrawFPS( int height )
 
 	if( calc < 1.0f )
 	{
+		if( calc == 0.0f )
+			return;
+
 		Q_snprintf( fpsstring, sizeof( fpsstring ), "%4i spf", (int)(1.0f / calc + 0.5f));
 		MakeRGBA( color, 255, 0, 0, 255 );
 	}
