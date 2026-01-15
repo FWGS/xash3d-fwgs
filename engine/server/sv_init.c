@@ -694,6 +694,8 @@ void SV_DeactivateServer( void )
 	if( !svs.initialized || sv.state == ss_dead )
 		return;
 
+	SV_InactivateClients();
+
 	svgame.globals->time = sv.time;
 	svgame.dllFuncs.pfnServerDeactivate();
 	Host_SetServerState( ss_dead );
