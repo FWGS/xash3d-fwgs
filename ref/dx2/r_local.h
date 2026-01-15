@@ -1,3 +1,19 @@
+/*
+r_local.h - renderer local declarations
+Copyright (C) 2010 Uncle Mike
+Copyright (C) 2025-2026 lewa_j
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
 #pragma once
 
 #include "ref_api.h"
@@ -8,9 +24,10 @@
 #include <ddraw.h>
 #include <d3d.h>
 
-extern ref_api_t      gEngfuncs;
-
 extern poolhandle_t r_temppool;
+
+extern ref_api_t      gEngfuncs;
+extern ref_client_t *gp_cl;
 
 
 #define MAX_TEXTURES            8192
@@ -154,9 +171,9 @@ typedef struct
 	// get from engine
 	cl_entity_t *entities;
 	uint max_entities;
-} gl_globals_t;
+} dx_globals_t;
 
-extern gl_globals_t	tr;
+extern dx_globals_t	tr;
 
 struct dx_context_s
 {
@@ -199,10 +216,30 @@ void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
 void D3D_Resize( int width, int height );
 
+//r_main.c
+void R_GammaChanged( qboolean do_reset_gamma );
+void R_BeginFrame( qboolean clearScene );
+void R_RenderScene( void );
+void R_EndFrame( void );
+void R_AllowFog( qboolean allowed );
+void R_RenderFrame( const struct ref_viewpass_s *rvp );
+qboolean R_AddEntity( struct cl_entity_s *clent, int type );
+void R_ClearScene( void );
+int WorldToScreen( const vec3_t world, vec3_t screen );
+void ScreenToWorld( const float *screen, float *world );
+
+//r_draw.c
+void R_Set2DMode( qboolean enable );
+void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
+void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
+void FillRGBA( int rendermode, float x, float y, float w, float h, byte r, byte g, byte b, byte a );
+void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite );
+int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame );
+void AVI_UploadRawFrame( int texture, int cols, int rows, int width, int height, const byte *data );
+
 //r_image.c
 void R_InitImages( void );
 dx_texture_t *R_GetTexture( unsigned int texnum );
-
 void R_ShowTextures( void );
 const byte *R_GetTextureOriginalBuffer( unsigned int idx );
 int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
@@ -218,6 +255,13 @@ int GL_LoadTextureArray( const char **names, int flags );
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_FreeTexture( unsigned int texnum );
 void R_OverrideTextureSourceSize( unsigned int textnum, unsigned int srcWidth, unsigned int srcHeight );
+void GL_UpdateTexSize( int texnum, int width, int height, int depth );
+
+//r_surf.c
+void GL_SubdivideSurface( model_t *mod, msurface_t *fa );
+void GL_OrthoBounds( const float *mins, const float *maxs );
+byte *Mod_GetCurrentVis( void );
+
 
 //
 // engine shared convars

@@ -1,5 +1,6 @@
 /*
-r_context.c -- dx2 renderer image
+r_context.c -- dx2 renderer texture uploading and processing
+Copyright (C) 2010 Uncle Mike
 Copyright (C) 2025 lewa_j
 
 This program is free software: you can redistribute it and/or modify
@@ -761,4 +762,9 @@ void GL_FreeTexture(unsigned int texnum)
 void R_OverrideTextureSourceSize(unsigned int textnum, unsigned int srcWidth, unsigned int srcHeight)
 {
 
+}
+
+void GL_UpdateTexSize( int texnum, int width, int height, int depth )
+{
+	;
 }

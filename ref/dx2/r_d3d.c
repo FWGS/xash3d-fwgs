@@ -18,6 +18,9 @@ GNU General Public License for more details.
 
 DEFINE_ENGINE_SHARED_CVAR_LIST()
 
+poolhandle_t r_temppool;
+
+dx_globals_t tr;
 dx_context_t dxc;
 
 const char *dxResultToStr( HRESULT r )
