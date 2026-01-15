@@ -613,9 +613,9 @@ static int RefGetParm( int parm, int arg )
 		return glConfig.context;
 	case PARM_GLES_WRAPPER:
 		return glConfig.wrapper;
-	case PARM_STENCIL_ACTIVE:
-		return glState.stencilEnabled;
 #endif
+	case PARM_STENCIL_ACTIVE:
+		return 0;//No stencil in dx2
 	case PARM_TEX_FILTERING:
 		return 0;
 #if 0
