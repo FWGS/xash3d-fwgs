@@ -1929,6 +1929,8 @@ static int GAME_EXPORT pfnWalkMove( edict_t *ent, float yaw, float dist, int iMo
 		return SV_MoveTest( ent, move, true );
 	case WALKMOVE_CHECKONLY:
 		return SV_MoveStep( ent, move, false);
+	default:
+		Host_Error( "%s: unknown mode %d\n", __func__, iMode );
 	}
 	return 0;
 }
