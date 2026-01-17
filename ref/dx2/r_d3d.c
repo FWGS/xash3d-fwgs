@@ -343,7 +343,7 @@ void GL_SetupAttributes( int safegl )
 
 void GL_InitExtensions( void )
 {
-	;
+	tr.framecount = tr.visframecount = 1;
 }
 
 void GL_ClearExtensions( void )

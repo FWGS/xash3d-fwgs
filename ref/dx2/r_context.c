@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define INITGUID
 #include "r_local.h"
 #include "xash3d_mathlib.h"
+#include "crtlib.h"
 
 //#pragma comment(lib, "ddraw.lib")
 //TODO COM_GetProcAddress
@@ -229,8 +230,10 @@ static int RefGetParm( int parm, int arg )
 	case PARM_TEX_SKYBOX:
 		Assert(arg >= 0 && arg < 6);
 		return tr.skyboxTextures[arg];
+#endif
 	case PARM_TEX_SKYTEXNUM:
 		return tr.skytexturenum;
+#if 0
 	case PARM_TEX_LIGHTMAP:
 		arg = bound(0, arg, MAX_LIGHTMAPS - 1);
 		return tr.lightmapTextures[arg];
@@ -347,6 +350,25 @@ static qboolean R_SpeedsMessage( char *out, size_t size )
 
 static void R_NewMap( void )
 {
+	model_t *WORLDMODEL = (gp_cl->models[1]);
+
+	tr.skytexturenum = -1;
+
+	// clearing texture chains
+	for( int i = 0; i < WORLDMODEL->numtextures; i++ )
+	{
+		if( !WORLDMODEL->textures[i] )
+			continue;
+
+		texture_t *tx = WORLDMODEL->textures[i];
+
+		if( !Q_strncmp( tx->name, "sky", 3 ) && tx->width == ( tx->height * 2 ))
+			tr.skytexturenum = i;
+
+		tx->texturechain = NULL;
+	}
+
+	GL_BuildLightmaps();
 
 	if (gEngfuncs.drawFuncs->R_NewMap != NULL)
 		gEngfuncs.drawFuncs->R_NewMap();

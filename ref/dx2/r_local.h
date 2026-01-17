@@ -168,11 +168,18 @@ typedef struct
 	int		grayTexture;
 	int		blackTexture;
 	int		cinTexture;      	// cinematic texture
+
+	int		skytexturenum; // index into model_t::textures
+
 	// entity lists
 	draw_list_t	draw_stack[MAX_DRAW_STACK];
 	int		draw_stack_pos;
 	draw_list_t *draw_list;
 
+	// matrix states
+	qboolean		modelviewIdentity;
+
+	int		visframecount;	// PVS frame
 	int		realframecount;	// not including viewpasses
 	int		framecount;
 
@@ -180,6 +187,10 @@ typedef struct
 	qboolean		fResetVis;
 
 	double		frametime;	// special frametime for multipass rendering (will set to 0 on a nextview)
+	float		blend;		// global blend value
+
+	// cull info
+	vec3_t		modelorg;		// relative to viewpoint
 
 	// get from engine
 	world_static_t *world;
@@ -218,6 +229,28 @@ extern dx_context_t dxc;
 
 extern ref_api_t      gEngfuncs;
 extern ref_client_t *gp_cl;
+
+
+static inline cl_entity_t *CL_GetEntityByIndex( int index )
+{
+	if( unlikely( index < 0 || index >= tr.max_entities || !tr.entities ))
+		return NULL;
+
+	return &tr.entities[index];
+}
+
+static inline model_t *CL_ModelHandle( int index )
+{
+	if( unlikely( index < 0 || index >= gp_cl->nummodels ))
+		return NULL;
+
+	return gp_cl->models[index];
+}
+
+static inline intptr_t ENGINE_GET_PARM( int parm )
+{
+	return ( *gEngfuncs.EngineGetParm )( ( parm ), 0 );
+}
 
 const char *dxResultToStr( HRESULT r );
 
@@ -306,6 +339,7 @@ void Matrix4x4_CreateModelview( matrix4x4 out );
 void GL_SubdivideSurface( model_t *mod, msurface_t *fa );
 void GL_OrthoBounds( const float *mins, const float *maxs );
 byte *Mod_GetCurrentVis( void );
+void GL_BuildLightmaps( void );
 
 extern convar_t	r_novis;
 extern convar_t	r_nocull;
