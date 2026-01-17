@@ -26,57 +26,6 @@ void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, c
 	;
 }
 
-static void D3D_SetVert( D3DTLVERTEX* v, float x, float y, float z, float w, float tu, float tv )
-{
-	v->sx = x;
-	v->sy = y;
-	v->sz = z;
-	v->rhw = w;
-	//v->color = RGBA_MAKE(250, 10, 10, 255);
-	v->tu = tu;
-	v->tv = tv;
-}
-
-static void D3D_SetTri( D3DTRIANGLE *t, int v1, int v2, int v3 )
-{
-	t->v1 = v1;
-	t->v2 = v2;
-	t->v3 = v3;
-	t->wFlags = D3DTRIFLAG_EDGEENABLETRIANGLE;
-}
-
-static void D3D_PutInstruction( void **dst, BYTE opcode, BYTE size, WORD count )
-{
-	D3DINSTRUCTION* inst = (D3DINSTRUCTION*)*dst;
-	inst->bOpcode = opcode;
-	inst->bSize = size;
-	inst->wCount = count;
-	*dst = (void*)(((D3DINSTRUCTION*)*dst) + 1);
-}
-
-static void D3D_PutProcessVertices( void** dst, DWORD flags, WORD start, WORD count )
-{
-	D3D_PutInstruction(dst, D3DOP_PROCESSVERTICES, sizeof(D3DPROCESSVERTICES), 1);
-
-	D3DPROCESSVERTICES* pv = (D3DPROCESSVERTICES*)*dst;
-	pv->dwFlags = flags;
-	pv->wStart = start;
-	pv->wDest = start;
-	pv->dwCount = count;
-	pv->dwReserved = 0;
-	*dst = (void*)(((D3DPROCESSVERTICES*)*dst) + 1);
-}
-
-static void D3D_PutRenderState( void** dst, D3DRENDERSTATETYPE type, DWORD arg )
-{
-	D3DSTATE* s = (D3DSTATE*)*dst;
-
-	s->drstRenderStateType = type;
-	s->dwArg[0] = arg;
-	*dst = (void*)(((D3DSTATE*)*dst) + 1);
-
-}
-
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
 	if (texnum <= 0 || texnum >= MAX_TEXTURES)
@@ -105,33 +54,15 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 	}
 #else
 
-#define DX2_CREATE_EB 0
-
 	if (!dxc.pd3dd)
 		return;
 
-	IDirect3DExecuteBuffer* pd3deb = NULL;
-#if DX2_CREATE_EB
-	D3DEXECUTEBUFFERDESC ebd = { 0 };
-	memset(&ebd, 0, sizeof(ebd));
-	ebd.dwSize = sizeof(ebd);
-	ebd.dwFlags = D3DDEB_BUFSIZE;
-	ebd.dwBufferSize = 512;
-	DXCheck(IDirect3DDevice_CreateExecuteBuffer(dxc.pd3dd, &ebd, &pd3deb, NULL));
-#else
-	pd3deb = dxc.pd3deb;
-#endif
-
-	if (!pd3deb)
-		return;
+	d3dEBContext_t ebc = { 0 };
 	{
-		D3DEXECUTEBUFFERDESC ebDesc = { 0 };
-		memset(&ebDesc, 0, sizeof(ebDesc));
-		ebDesc.dwSize = sizeof(ebDesc);
-		ebDesc.dwFlags = D3DDEB_LPDATA;
-		DXCheck(IDirect3DExecuteBuffer_Lock(pd3deb, &ebDesc));
+		if( !D3D_StartExecuteBuffer( &ebc ))
+			return;
 
-		void* cur = ebDesc.lpData;
+		void *cur = ebc.data;
 
 		const int vertCount = 4;
 		D3DTLVERTEX* verts = (D3DTLVERTEX*)cur;
@@ -139,25 +70,26 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 #define VecToD3DCOLOR(v) D3DRGBA(v[0], v[1], v[2], v[3])
 
 		verts[0].color = VecToD3DCOLOR(dxc.currentColor);
-		D3D_SetVert(verts, x, y, 0.5, 1, s1, t1);
+		D3D_SetVertTL(verts, x, y, 0.5, 1, s1, t1);
 		verts[1].color = VecToD3DCOLOR(dxc.currentColor);
-		D3D_SetVert(verts + 1, x + w, y, 0.5, 1, s2, t1);
+		D3D_SetVertTL(verts + 1, x + w, y, 0.5, 1, s2, t1);
 		verts[2].color = VecToD3DCOLOR(dxc.currentColor);
-		D3D_SetVert(verts + 2, x + w, y + h, 0.5, 1, s2, t2);
+		D3D_SetVertTL(verts + 2, x + w, y + h, 0.5, 1, s2, t2);
 		verts[3].color = VecToD3DCOLOR(dxc.currentColor);
-		D3D_SetVert(verts + 3, x, y + h, 0.5, 1, s1, t2);
+		D3D_SetVertTL(verts + 3, x, y + h, 0.5, 1, s1, t2);
 
 		cur = (void*)(((D3DTLVERTEX*)cur) + vertCount);
 
 		void* insStart = cur;
 
 		D3D_PutProcessVertices(&cur, D3DPROCESSVERTICES_COPY | D3DPROCESSVERTICES_UPDATEEXTENTS, 0, vertCount);
-		//align
+		// align
 		if (!(((ULONG)cur) & 7)) {
 			D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 0);
 		}
 
 		D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 3);
+		// TODO disable when == tr.whiteTexture
 		D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREHANDLE, tex->d3dHandle);
 		//D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREMAPBLEND, D3DTBLEND_DECAL);
 
@@ -183,7 +115,7 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 			D3D_PutRenderState(&cur, D3DRENDERSTATE_SRCBLEND, D3DBLEND_SRCALPHA);
 			D3D_PutRenderState(&cur, D3DRENDERSTATE_DESTBLEND, D3DBLEND_INVSRCALPHA);
 		}
-		else//kRenderNormal
+		else// if (dxc.renderMode == kRenderNormal)
 		{
 			D3D_PutRenderState(&cur, D3DRENDERSTATE_BLENDENABLE, FALSE);
 			D3D_PutRenderState(&cur, D3DRENDERSTATE_ALPHATESTENABLE, FALSE);
@@ -198,26 +130,19 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 
 		D3D_PutInstruction(&cur, D3DOP_EXIT, 0, 0);
 
-		DXCheck(IDirect3DExecuteBuffer_Unlock(pd3deb));
+		ebc.vertCount = 4;
+		ebc.insOffset = ((char*)insStart - (char*)ebc.data);
+		ebc.insLength = ((char*)cur - (char*)insStart);
 
-		D3DEXECUTEDATA exData = { 0 };
-		memset(&exData, 0, sizeof(exData));
-		exData.dwSize = sizeof(exData);
-		exData.dwVertexCount = vertCount;
-		exData.dwVertexOffset = 0;
-		exData.dwInstructionOffset = ((char*)insStart - (char*)ebDesc.lpData);
-		exData.dwInstructionLength = ((char*)cur - (char*)insStart);
-		DXCheck(IDirect3DExecuteBuffer_SetExecuteData(pd3deb , &exData));
+		if( !D3D_EndExecuteBuffer( &ebc ))
+			return;
 	}
 
 	DXCheck(IDirect3DDevice_BeginScene(dxc.pd3dd));
-	DXCheck(IDirect3DDevice_Execute(dxc.pd3dd, pd3deb, dxc.viewport, D3DEXECUTE_CLIPPED));
+	DXCheck(IDirect3DDevice_Execute(dxc.pd3dd, ebc.pd3deb, dxc.viewport, D3DEXECUTE_CLIPPED));
 	DXCheck(IDirect3DDevice_EndScene(dxc.pd3dd));
 
-#if DX2_CREATE_EB
-	if (pd3deb && pd3deb != dxc.pd3deb)
-		IDirect3DExecuteBuffer_Release(pd3deb);
-#endif
+	D3D_ReleaseExecuteBuffer( &ebc );
 #endif
 }
 

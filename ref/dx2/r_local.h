@@ -78,6 +78,16 @@ typedef struct dx_texture_s
 	struct dx_texture_s *nextHash;
 } dx_texture_t;
 
+typedef struct d3dEBContext_s
+{
+	IDirect3DExecuteBuffer *pd3deb;
+	DWORD bufferSize;
+	void *data;
+	DWORD vertCount;
+	DWORD insOffset;
+	DWORD insLength;
+} d3dEBContext_t;
+
 typedef struct
 {
 	int		params;		// rendering parameters
@@ -200,23 +210,36 @@ extern dx_context_t dxc;
 
 const char *dxResultToStr( HRESULT r );
 
-#define DXCheck(CALL) {\
-HRESULT r = CALL;\
-if (r != DD_OK)\
-	gEngfuncs.Con_Printf( S_ERROR "%s:%d: DirectX error %X(%d 0x%X %d) %s at \"" #CALL "\"\n", __FUNCTION__, __LINE__, r, ( r >> 31 ) & 1, ( r >> 16 ) & 0x7FFF, r & 0xFFFF, dxResultToStr( r ) ); \
+#define DXCheckRet(DST, CALL) \
+(DST) = (CALL);\
+if ((DST) != DD_OK)\
+	gEngfuncs.Con_Printf( S_ERROR "%s():%s:%d: DirectX error %X(%d 0x%X %d) %s at \"" #CALL "\"\n", __FUNCTION__, __FILE__, __LINE__, (DST), ( (DST) >> 31 ) & 1, ( (DST) >> 16 ) & 0x7FFF, (DST) & 0xFFFF, dxResultToStr( r ));
+
+#define DXCheck(CALL) \
+{\
+	HRESULT r = DD_OK;\
+	DXCheckRet(r, CALL)\
 }
 
 void GL_SetRenderMode( int mode );
 
-//r_d3d.c
+// r_d3d.c
 qboolean R_Init( void );
 void R_Shutdown( void );
 void GL_SetupAttributes( int safegl );
 void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
 void D3D_Resize( int width, int height );
+qboolean D3D_StartExecuteBuffer( d3dEBContext_t *ctx );
+qboolean D3D_EndExecuteBuffer( d3dEBContext_t *ctx );
+void D3D_ReleaseExecuteBuffer( d3dEBContext_t *ctx );
+void D3D_SetVertTL( D3DTLVERTEX *v, float x, float y, float z, float w, float tu, float tv );
+void D3D_SetTri( D3DTRIANGLE *t, int v1, int v2, int v3 );
+void D3D_PutInstruction( void **dst, BYTE opcode, BYTE size, WORD count );
+void D3D_PutProcessVertices( void **dst, DWORD flags, WORD start, WORD count );
+void D3D_PutRenderState( void **dst, D3DRENDERSTATETYPE type, DWORD arg );
 
-//r_main.c
+// r_main.c
 void R_GammaChanged( qboolean do_reset_gamma );
 void R_BeginFrame( qboolean clearScene );
 void R_RenderScene( void );
@@ -228,7 +251,7 @@ void R_ClearScene( void );
 int WorldToScreen( const vec3_t world, vec3_t screen );
 void ScreenToWorld( const float *screen, float *world );
 
-//r_draw.c
+// r_draw.c
 void R_Set2DMode( qboolean enable );
 void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
@@ -237,7 +260,7 @@ void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int cu
 int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame );
 void AVI_UploadRawFrame( int texture, int cols, int rows, int width, int height, const byte *data );
 
-//r_image.c
+// r_image.c
 void R_InitImages( void );
 dx_texture_t *R_GetTexture( unsigned int texnum );
 void R_ShowTextures( void );

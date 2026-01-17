@@ -239,7 +239,7 @@ qboolean R_Init( void )
 	}
 	dxc.window = (HWND)handle;
 
-	RECT dstRect = {};
+	RECT dstRect = { 0 };
 	GetClientRect(dxc.window, &dstRect);
 	dxc.windowWidth = dstRect.right - dstRect.left;
 	dxc.windowHeight = dstRect.bottom - dstRect.top;
@@ -333,4 +333,117 @@ void GL_InitExtensions( void )
 void GL_ClearExtensions( void )
 {
 	;
+}
+
+#define DX2_CREATE_EB 0
+
+qboolean D3D_StartExecuteBuffer( d3dEBContext_t *ctx )
+{
+#if DX2_CREATE_EB
+	ctx->pd3deb = NULL;
+	D3DEXECUTEBUFFERDESC ebd = { 0 };
+	memset(&ebd, 0, sizeof(ebd));
+	ebd.dwSize = sizeof(ebd);
+	ebd.dwFlags = D3DDEB_BUFSIZE;
+	ebd.dwBufferSize = 512;
+	DXCheck(IDirect3DDevice_CreateExecuteBuffer(dxc.pd3dd, &ebd, &ctx->pd3deb, NULL));
+#else
+	ctx->pd3deb = dxc.pd3deb;
+#endif
+
+	if (!ctx->pd3deb)
+		return false;
+
+	D3DEXECUTEBUFFERDESC ebDesc = { 0 };
+	memset(&ebDesc, 0, sizeof(ebDesc));
+	ebDesc.dwSize = sizeof(ebDesc);
+	ebDesc.dwFlags = D3DDEB_LPDATA;
+	HRESULT r = D3D_OK;
+	DXCheckRet(r, IDirect3DExecuteBuffer_Lock(ctx->pd3deb, &ebDesc));
+	if (r != D3D_OK)
+		return false;
+
+	//gEngfuncs.Con_Printf("IDirect3DExecuteBuffer_Lock size %lu data %p\n", ebDesc.dwBufferSize, ebDesc.lpData);
+
+	ctx->bufferSize = ebDesc.dwBufferSize;
+	ctx->data = ebDesc.lpData;
+
+	return true;
+}
+
+qboolean D3D_EndExecuteBuffer( d3dEBContext_t *ctx )
+{
+	HRESULT r = D3D_OK;
+	DXCheckRet(r, IDirect3DExecuteBuffer_Unlock(ctx->pd3deb));
+	if( r != D3D_OK )
+		return false;
+
+	D3DEXECUTEDATA exData = { 0 };
+	memset(&exData, 0, sizeof(exData));
+	exData.dwSize = sizeof(exData);
+	exData.dwVertexCount = ctx->vertCount;
+	exData.dwVertexOffset = 0;
+	exData.dwInstructionOffset = ctx->insOffset;
+	exData.dwInstructionLength = ctx->insLength;
+	DXCheckRet(r, IDirect3DExecuteBuffer_SetExecuteData(ctx->pd3deb, &exData));
+
+	return r == D3D_OK;
+}
+
+void D3D_ReleaseExecuteBuffer( d3dEBContext_t *ctx )
+{
+#if DX2_CREATE_EB
+	if( ctx->pd3deb && ctx->pd3deb != dxc.pd3deb )
+		IDirect3DExecuteBuffer_Release( ctx->pd3deb );
+#endif
+}
+
+void D3D_SetVertTL( D3DTLVERTEX* v, float x, float y, float z, float w, float tu, float tv )
+{
+	v->sx = x;
+	v->sy = y;
+	v->sz = z;
+	v->rhw = w;
+	//v->color = RGBA_MAKE(250, 10, 10, 255);
+	v->tu = tu;
+	v->tv = tv;
+}
+
+void D3D_SetTri( D3DTRIANGLE *t, int v1, int v2, int v3 )
+{
+	t->v1 = v1;
+	t->v2 = v2;
+	t->v3 = v3;
+	t->wFlags = D3DTRIFLAG_EDGEENABLETRIANGLE;
+}
+
+void D3D_PutInstruction( void **dst, BYTE opcode, BYTE size, WORD count )
+{
+	D3DINSTRUCTION* inst = (D3DINSTRUCTION*)*dst;
+	inst->bOpcode = opcode;
+	inst->bSize = size;
+	inst->wCount = count;
+	*dst = (void*)(((D3DINSTRUCTION*)*dst) + 1);
+}
+
+void D3D_PutProcessVertices( void** dst, DWORD flags, WORD start, WORD count )
+{
+	D3D_PutInstruction(dst, D3DOP_PROCESSVERTICES, sizeof(D3DPROCESSVERTICES), 1);
+
+	D3DPROCESSVERTICES* pv = (D3DPROCESSVERTICES*)*dst;
+	pv->dwFlags = flags;
+	pv->wStart = start;
+	pv->wDest = start;
+	pv->dwCount = count;
+	pv->dwReserved = 0;
+	*dst = (void*)(((D3DPROCESSVERTICES*)*dst) + 1);
+}
+
+void D3D_PutRenderState( void** dst, D3DRENDERSTATETYPE type, DWORD arg )
+{
+	D3DSTATE* s = (D3DSTATE*)*dst;
+
+	s->drstRenderStateType = type;
+	s->dwArg[0] = arg;
+	*dst = (void*)(((D3DSTATE*)*dst) + 1);
 }
