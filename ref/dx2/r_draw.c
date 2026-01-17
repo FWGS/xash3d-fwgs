@@ -14,7 +14,7 @@ GNU General Public License for more details.
 */
 
 #include "r_local.h"
-
+#include "xash3d_mathlib.h"
 
 void R_Set2DMode( qboolean enable )
 {
@@ -148,11 +148,18 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 
 void FillRGBA( int rendermode, float x, float y, float w, float h, byte r, byte g, byte b, byte a )
 {
+#if 0
 	RECT dstRect = { x, y, x + w, y + h };
 	DDBLTFX bltFx = { 0 };
 	bltFx.dwSize = sizeof(bltFx);
 	bltFx.dwFillColor = RGBA_MAKE(r, g, b, a);
 	DXCheck(IDirectDrawSurface_Blt(dxc.pddsBack, &dstRect, NULL, NULL, DDBLT_WAIT | DDBLT_COLORFILL, &bltFx));
+#else
+	// TODO Restore after?
+	GL_SetRenderMode( (rendermode == kRenderTransAdd) ? rendermode : kRenderTransColor);
+	Vector4Set( dxc.currentColor, r / 255.f, g / 255.f, b / 255.f, a / 255.f );
+	R_DrawStretchPic( x, y, w, h, 0, 0, 0, 0, tr.whiteTexture );
+#endif
 }
 
 
