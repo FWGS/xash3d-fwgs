@@ -278,6 +278,9 @@ qboolean R_Init( void )
 		return false;
 	}
 
+	// see R_ProcessEntData for tr.entities initialization
+	tr.world = (struct world_static_s *)ENGINE_GET_PARM( PARM_GET_WORLD_PTR );
+
 	dxc.renderMode = kRenderNormal;
 	Vector4Set(dxc.currentColor, 1, 1, 1, 1);
 

@@ -19,9 +19,6 @@ GNU General Public License for more details.
 #include "crtlib.h"
 #include "crclib.h"
 
-#define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
-
-
 static dx_texture_t		dx_textures[MAX_TEXTURES];
 static dx_texture_t *dx_texturesHashTable[TEXTURES_HASH_SIZE];
 static uint		dx_numTextures;

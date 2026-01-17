@@ -16,7 +16,10 @@ GNU General Public License for more details.
 
 #pragma once
 
+#include "ref_common.h"
 #include "ref_api.h"
+#include "r_frustum.h"
+#include "mod_local.h"
 #include "com_strings.h"
 
 #define DIRECTDRAW_VERSION 0x0200
@@ -24,10 +27,10 @@ GNU General Public License for more details.
 #include <ddraw.h>
 #include <d3d.h>
 
-extern poolhandle_t r_temppool;
+#define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
-extern ref_api_t      gEngfuncs;
-extern ref_client_t *gp_cl;
+
+extern poolhandle_t r_temppool;
 
 
 #define MAX_TEXTURES            8192
@@ -104,7 +107,7 @@ typedef struct
 	cl_entity_t *currentbeam;	// same as above but for beams
 
 	int		viewport[4];
-	//gl_frustum_t	frustum;
+	gl_frustum_t	frustum;
 
 	mleaf_t *viewleaf;
 	mleaf_t *oldviewleaf;
@@ -179,11 +182,11 @@ typedef struct
 	double		frametime;	// special frametime for multipass rendering (will set to 0 on a nextview)
 
 	// get from engine
+	world_static_t *world;
 	cl_entity_t *entities;
-	uint max_entities;
-} dx_globals_t;
+	int max_entities;
 
-extern dx_globals_t	tr;
+} dx_globals_t;
 
 struct dx_context_s
 {
@@ -206,7 +209,12 @@ struct dx_context_s
 };
 typedef struct dx_context_s dx_context_t;
 
+extern ref_instance_t RI;
+extern dx_globals_t	tr;
 extern dx_context_t dxc;
+
+extern ref_api_t      gEngfuncs;
+extern ref_client_t *gp_cl;
 
 const char *dxResultToStr( HRESULT r );
 
@@ -280,7 +288,17 @@ void GL_FreeTexture( unsigned int texnum );
 void R_OverrideTextureSourceSize( unsigned int textnum, unsigned int srcWidth, unsigned int srcHeight );
 void GL_UpdateTexSize( int texnum, int width, int height, int depth );
 
-//r_surf.c
+// r_math.c
+void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );
+void Matrix4x4_Concat( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 );
+void Matrix4x4_ConcatTranslate( matrix4x4 out, float x, float y, float z );
+void Matrix4x4_ConcatRotate( matrix4x4 out, float angle, float x, float y, float z );
+void Matrix4x4_CreateProjection( matrix4x4 out, float xMax, float xMin, float yMax, float yMin, float zNear, float zFar );
+void Matrix4x4_CreateOrtho( matrix4x4 m, float xLeft, float xRight, float yBottom, float yTop, float zNear, float zFar );
+void Matrix4x4_CreateModelview( matrix4x4 out );
+
+
+// r_surf.c
 void GL_SubdivideSurface( model_t *mod, msurface_t *fa );
 void GL_OrthoBounds( const float *mins, const float *maxs );
 byte *Mod_GetCurrentVis( void );
