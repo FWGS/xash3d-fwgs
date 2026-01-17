@@ -47,22 +47,17 @@ static const char *R_GetConfigName( void )
 
 static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y )
 {
-	return false;
-
 	qboolean ret = true;
-	if (rotate > 0)
-	{
-		gEngfuncs.Con_Printf("rotation transform not supported\n");
-		ret = false;
-	}
 
-	if (offset_x || offset_y)
+	tr.rotation = rotate;
+
+	if( offset_x || offset_y )
 	{
 		gEngfuncs.Con_Printf("offset transform not supported\n");
 		ret = false;
 	}
 
-	if (scale_x != 1.0f || scale_y != 1.0f)
+	if( scale_x != 1.0f || scale_y != 1.0f )
 	{
 		gEngfuncs.Con_Printf("scale transform not supported\n");
 		ret = false;

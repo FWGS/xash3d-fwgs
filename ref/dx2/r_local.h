@@ -186,6 +186,7 @@ typedef struct
 	cl_entity_t *entities;
 	int max_entities;
 
+	ref_screen_rotation_t rotation;
 } dx_globals_t;
 
 struct dx_context_s
