@@ -994,12 +994,22 @@ static void HTTP_Download_f( void )
 HTTP_ParseURL
 ==============
 */
-static httpserver_t *HTTP_ParseURL( const char *url )
+static httpserver_t *HTTP_ParseURL( const char *url_ )
 {
 	httpserver_t *server;
 	int i;
+	const char *url = NULL;
 
-	url = Q_strstr( url, "http://" );
+	url = Q_strstr( url_, "http://" );
+
+	if( url )
+		url += 7;
+	else
+	{
+		url = Q_strstr( url_, "https://" );
+		if( url )
+			url += 8;
+	}
 
 	if( !url )
 		return NULL;
