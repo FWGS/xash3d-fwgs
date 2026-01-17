@@ -3473,7 +3473,7 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 		return;
 
 	ptexture = (mstudiotexture_t *)(((byte *)phdr ) + phdr->textureindex );
-	if( phdr->textureindex > 0 && phdr->numtextures <= MAXSTUDIOSKINS )
+	if( phdr->textureindex > 0 )
 	{
 		for( i = 0; i < phdr->numtextures; i++ )
 			R_StudioLoadTexture( mod, phdr, &ptexture[i] );
