@@ -307,6 +307,10 @@ void GL_SubdivideSurface( model_t *mod, msurface_t *fa );
 void GL_OrthoBounds( const float *mins, const float *maxs );
 byte *Mod_GetCurrentVis( void );
 
+extern convar_t	r_novis;
+extern convar_t	r_nocull;
+extern convar_t	r_lockpvs;
+extern convar_t	r_lockfrustum;
 
 //
 // engine shared convars

@@ -16,6 +16,12 @@ GNU General Public License for more details.
 #include "r_local.h"
 #include "xash3d_mathlib.h"
 
+CVAR_DEFINE_AUTO( r_novis, "0", 0, "ignore vis information (perfomance test)" );
+CVAR_DEFINE_AUTO( r_nocull, "0", 0, "ignore frustrum culling (perfomance test)" );
+CVAR_DEFINE_AUTO( r_lockpvs, "0", FCVAR_CHEAT, "lockpvs area at current point (pvs test)" );
+CVAR_DEFINE_AUTO( r_lockfrustum, "0", FCVAR_CHEAT, "lock frustrum area at current point (cull test)" );
+
+
 DEFINE_ENGINE_SHARED_CVAR_LIST()
 
 poolhandle_t r_temppool;
@@ -217,6 +223,11 @@ qboolean R_Init( void )
 	memset(&dxc, 0, sizeof(dxc));
 
 	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
+
+	gEngfuncs.Cvar_RegisterVariable( &r_novis );
+	gEngfuncs.Cvar_RegisterVariable( &r_nocull );
+	gEngfuncs.Cvar_RegisterVariable( &r_lockpvs );
+	gEngfuncs.Cvar_RegisterVariable( &r_lockfrustum );
 
 	// init draw stack
 	tr.draw_list = &tr.draw_stack[0];
