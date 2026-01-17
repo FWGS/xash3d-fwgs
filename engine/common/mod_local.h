@@ -57,9 +57,10 @@ typedef struct
 } model_info_t;
 
 // values for model_t's needload
-#define NL_UNREFERENCED	0		// this model can be freed after sequence precaching is done
-#define NL_NEEDS_LOADED	1
-#define NL_PRESENT		2
+#define NL_UNREFERENCED 0
+#define NL_NEEDS_LOADED 1
+#define NL_PRESENT      2
+#define NL_FREE_UNUSED  3 // this model can be freed after sequence precaching is done
 
 typedef struct hullnode_s
 {

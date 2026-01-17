@@ -1114,7 +1114,12 @@ void CL_ClearSpriteTextures( void )
 	int	i;
 
 	for( i = 1; i < MAX_CLIENT_SPRITES; i++ )
-		clgame.sprites[i].needload = NL_UNREFERENCED;
+	{
+		if( clgame.sprites[i].needload == NL_UNREFERENCED )
+			continue;
+
+		clgame.sprites[i].needload = NL_FREE_UNUSED;
+	}
 }
 
 // it's a Valve default value for LoadMapSprite (probably must be power of two)
@@ -1348,7 +1353,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 
 	for( i = 0, mod = &clgame.sprites[start]; i < MAX_CLIENT_SPRITES / 2; i++, mod++ )
 	{
-		if( !mod->name[0] )
+		if( mod->needload == NL_UNREFERENCED )
 			break; // this is a valid spot
 	}
 
