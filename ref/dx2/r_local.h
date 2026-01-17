@@ -202,6 +202,8 @@ struct dx_context_s
 	IDirect3DDevice *pd3dd;
 	IDirect3DExecuteBuffer *pd3deb;
 	IDirect3DViewport *viewport;
+	D3DMATRIXHANDLE mtxWorld;
+	D3DMATRIXHANDLE mtxProjection;
 
 	int renderMode;
 	vec4_t currentColor;
@@ -246,6 +248,7 @@ void D3D_SetTri( D3DTRIANGLE *t, int v1, int v2, int v3 );
 void D3D_PutInstruction( void **dst, BYTE opcode, BYTE size, WORD count );
 void D3D_PutProcessVertices( void **dst, DWORD flags, WORD start, WORD count );
 void D3D_PutRenderState( void **dst, D3DRENDERSTATETYPE type, DWORD arg );
+void D3D_PutTransformState( void **dst, D3DTRANSFORMSTATETYPE type, DWORD arg );
 
 // r_main.c
 void R_GammaChanged( qboolean do_reset_gamma );

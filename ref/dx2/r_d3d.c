@@ -207,6 +207,8 @@ static qboolean D3D_InitDevice( void )
 	viewport.dvMaxZ = 1;
 	DXCheck(IDirect3DViewport_SetViewport(dxc.viewport, &viewport));
 
+	DXCheck(IDirect3DDevice_CreateMatrix(dxc.pd3dd, &dxc.mtxWorld));
+
 	return true;
 }
 
@@ -447,6 +449,15 @@ void D3D_PutRenderState( void** dst, D3DRENDERSTATETYPE type, DWORD arg )
 	D3DSTATE* s = (D3DSTATE*)*dst;
 
 	s->drstRenderStateType = type;
+	s->dwArg[0] = arg;
+	*dst = (void*)(((D3DSTATE*)*dst) + 1);
+}
+
+void D3D_PutTransformState( void** dst, D3DTRANSFORMSTATETYPE type, DWORD arg )
+{
+	D3DSTATE* s = (D3DSTATE*)*dst;
+
+	s->dtstTransformStateType = type;
 	s->dwArg[0] = arg;
 	*dst = (void*)(((D3DSTATE*)*dst) + 1);
 }
