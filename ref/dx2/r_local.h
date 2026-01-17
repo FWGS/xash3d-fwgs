@@ -44,6 +44,12 @@ extern poolhandle_t r_temppool;
 
 #define MAX_DRAW_STACK	2		// normal view and menu view
 
+#define CULL_VISIBLE	0		// not culled
+#define CULL_BACKSIDE	1		// backside of transparent wall
+#define CULL_FRUSTUM	2		// culled by frustum
+#define CULL_VISFRAME	3		// culled by PVS
+#define CULL_OTHER		4		// culled by other reason
+
 typedef struct dx_texture_s
 {
 	char		name[256];	// game path, including extension (can be store image programs)
@@ -266,6 +272,7 @@ if ((DST) != DD_OK)\
 }
 
 void GL_SetRenderMode( int mode );
+void GL_Bind( int tmu, unsigned int texnum );
 
 // r_d3d.c
 qboolean R_Init( void );
@@ -295,6 +302,7 @@ qboolean R_AddEntity( struct cl_entity_s *clent, int type );
 void R_ClearScene( void );
 int WorldToScreen( const vec3_t world, vec3_t screen );
 void ScreenToWorld( const float *screen, float *world );
+void R_LoadIdentity( void );
 
 // r_draw.c
 void R_Set2DMode( qboolean enable );
@@ -339,6 +347,8 @@ void Matrix4x4_CreateModelview( matrix4x4 out );
 void GL_SubdivideSurface( model_t *mod, msurface_t *fa );
 void GL_OrthoBounds( const float *mins, const float *maxs );
 byte *Mod_GetCurrentVis( void );
+void R_DrawWorld( void );
+void R_MarkLeaves( void );
 void GL_BuildLightmaps( void );
 
 extern convar_t	r_novis;

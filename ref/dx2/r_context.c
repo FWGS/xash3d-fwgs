@@ -312,7 +312,7 @@ static void R_EntityRemoveDecals( struct model_s *mod )
 }
 
 
-static void GL_Bind( int tmu, unsigned int texnum )
+void GL_Bind( int tmu, unsigned int texnum )
 {
 	;
 }

@@ -20,6 +20,107 @@ GNU General Public License for more details.
 
 ref_instance_t	RI;
 
+static float R_GetFarClip( void )
+{
+#if 0
+	if( WORLDMODEL && RI.drawWorld )
+		return tr.movevars->zmax * 1.73f;
+#endif
+	return 2048.0f;
+}
+
+void R_SetupFrustum( void )
+{
+	const ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
+#if 0
+	if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ) && ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
+	{
+		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97f + sin( gp_cl->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
+		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03f - sin( gp_cl->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
+	}
+#endif
+	// build the transformation matrix for the given view angles
+	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
+
+	if( !r_lockfrustum.value )
+	{
+		VectorCopy( RI.vieworg, RI.cullorigin );
+		VectorCopy( RI.vforward, RI.cull_vforward );
+		VectorCopy( RI.vright, RI.cull_vright );
+		VectorCopy( RI.vup, RI.cull_vup );
+	}
+
+	if( RI.drawOrtho )
+		GL_FrustumInitOrtho( &RI.frustum, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
+	else GL_FrustumInitProj( &RI.frustum, 0.0f, R_GetFarClip(), RI.fov_x, RI.fov_y ); // NOTE: we ignore nearplane here (mirrors only)
+}
+
+
+static void R_SetupProjectionMatrix( matrix4x4 m )
+{
+	float	xMin, xMax, yMin, yMax, zNear, zFar;
+
+	if( RI.drawOrtho )
+	{
+		const ref_overview_t *ov = gEngfuncs.GetOverviewParms();
+		Matrix4x4_CreateOrtho( m, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
+		return;
+	}
+
+	RI.farClip = R_GetFarClip();
+
+	zNear = 4.0f;
+	zFar = Q_max( 256.0f, RI.farClip );
+
+	yMax = zNear * tan( RI.fov_y * M_PI_F / 360.0f );
+	yMin = -yMax;
+
+	xMax = zNear * tan( RI.fov_x * M_PI_F / 360.0f );
+	xMin = -xMax;
+
+	if( tr.rotation & 1 )
+	{
+		Matrix4x4_CreateProjection( m, yMax, yMin, xMax, xMin, zNear, zFar );
+	}
+	else
+	{
+		Matrix4x4_CreateProjection( m, xMax, xMin, yMax, yMin, zNear, zFar );
+	}
+}
+
+/*
+=============
+R_SetupModelviewMatrix
+=============
+*/
+static void R_SetupModelviewMatrix( matrix4x4 m )
+{
+	Matrix4x4_CreateModelview( m );
+	if( tr.rotation & 1 )
+	{
+		Matrix4x4_ConcatRotate( m, anglemod( -RI.viewangles[2] + 90 ), 1, 0, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
+	}
+	else
+	{
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
+	}
+	Matrix4x4_ConcatTranslate( m, -RI.vieworg[0], -RI.vieworg[1], -RI.vieworg[2] );
+}
+
+void R_LoadIdentity( void )
+{
+	if( tr.modelviewIdentity ) return;
+
+	Matrix4x4_LoadIdentity( RI.objectMatrix );
+	Matrix4x4_Copy( RI.modelviewMatrix, RI.worldviewMatrix );
+
+	//TODO GL_LoadMatrix( MODELVIEW, RI.modelviewMatrix );
+	tr.modelviewIdentity = true;
+}
 
 void R_GammaChanged( qboolean do_reset_gamma )
 {
@@ -57,23 +158,27 @@ void R_RenderScene( void )
 
 #if 0
 	R_PushDlights();
-
+#endif
 	R_SetupFrustum();
+#if 0
 	R_SetupFrame();
 	R_SetupGL(true);
 	R_Clear(~0);
-
+#endif
 	R_MarkLeaves();
+#if 0
 	R_DrawFog();
 	if (RI.drawWorld)
 		R_AnimateRipples();
 
 	R_CheckGLFog();
+#endif
 	R_DrawWorld();
-	R_CheckFog();
+
+//	R_CheckFog();
 
 	gEngfuncs.CL_ExtraUpdate();	// don't let sound get messed up if going slow
-
+#if 0
 	R_DrawEntitiesOnList();
 
 	R_DrawWaterSurfaces();
