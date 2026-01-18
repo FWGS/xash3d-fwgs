@@ -696,7 +696,6 @@ int COM_SizeofResourceList( resource_t *pList, resourceinfo_t *ri );
 // cfgscript.c
 //
 int CSCR_LoadDefaultCVars( const char *scriptfilename );
-int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename );
 
 //
 // hpak.c
