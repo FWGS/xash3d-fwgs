@@ -1014,7 +1014,6 @@ static httpserver_t *HTTP_ParseURL( const char *url_ )
 	if( !url )
 		return NULL;
 
-	url += 7;
 	server = Z_Calloc( sizeof( httpserver_t ));
 	i = 0;
 
