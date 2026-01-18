@@ -1522,15 +1522,11 @@ void GAME_EXPORT Host_WriteServerConfig( const char *name )
 
 	Q_snprintf( newconfigfile, MAX_STRING, "%s.new", name );
 
-	// FIXME: move this out until menu parser is done
-	CSCR_LoadDefaultCVars( "settings.scr" );
-
 	if(( f = FS_Open( newconfigfile, "w", false )) != NULL )
 	{
 		Host_InitializeConfig( f, "game.cfg", "multiplayer server temporary config" );
 
 		Cvar_WriteVariables( f, FCVAR_SERVER );
-		CSCR_WriteGameCVars( f, "settings.scr" );
 
 		Host_FinalizeConfig( f, name );
 	}

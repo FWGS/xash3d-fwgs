@@ -264,32 +264,6 @@ finish:
 	return count;
 }
 
-static void CSCR_WriteVariableToFile( scrvardef_t *var, void *file )
-{
-	file_t   *cfg  = (file_t*)file;
-	convar_t *cvar = Cvar_FindVar( var->name );
-
-	if( cvar && !FBitSet( cvar->flags, FCVAR_SERVER|FCVAR_ARCHIVE ))
-	{
-		// cvars will be placed in game.cfg and restored on map start
-		if( var->flags & FCVAR_USERINFO )
-			FS_Printf( cfg, "setinfo %s \"%s\"\n", var->name, cvar->string );
-		else FS_Printf( cfg, "%s \"%s\"\n", var->name, cvar->string );
-	}
-}
-
-/*
-======================
-CSCR_WriteGameCVars
-
-Print all cvars declared in script to game.cfg file
-======================
-*/
-int CSCR_WriteGameCVars( file_t *cfg, const char *scriptfilename )
-{
-	return CSCR_ParseFile( scriptfilename, CSCR_WriteVariableToFile, cfg );
-}
-
 static void CSCR_RegisterVariable( scrvardef_t *var, void *unused )
 {
 	if( !Cvar_FindVar( var->name ))
