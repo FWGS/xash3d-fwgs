@@ -62,7 +62,7 @@ static void Mod_Modellist_f( void )
 	}
 
 	Con_Printf( "-----------------------------------\n" );
-	Con_Printf( "%i total models\n", nummodels );
+	Con_Printf( "%i total models, %i total allocated slots\n", nummodels, mod_numknown );
 	Con_Printf( "\n" );
 }
 
@@ -443,8 +443,8 @@ static void Mod_PurgeStudioCache( void )
 
 		if( mod_known[i].name[0] == '*' )
 			Mod_FreeModel( &mod_known[i] );
-
-		mod_known[i].needload = NL_FREE_UNUSED;
+		else
+			mod_known[i].needload = NL_FREE_UNUSED;
 	}
 
 	Mem_EmptyPool( com_studiocache );
