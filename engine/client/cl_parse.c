@@ -57,13 +57,14 @@ CL_ParseSoundPacket
 
 ==================
 */
-static void CL_ParseSoundPacket( sizebuf_t *msg )
+static void CL_ParseSoundPacket( sizebuf_t *msg, qboolean restore )
 {
 	vec3_t	pos;
 	int 	chan, sound;
 	float 	volume, attn;
-	int	flags, pitch, entnum;
+	int	flags, pitch, entnum, wordIndex = 0;
 	sound_t	handle = 0;
+	double samplePos = 0, forcedEnd = 0;
 
 	flags = MSG_ReadUBitLong( msg, MAX_SND_FLAGS_BITS );
 	sound = MSG_ReadUBitLong( msg, MAX_SOUND_BITS );
@@ -99,80 +100,24 @@ static void CL_ParseSoundPacket( sizebuf_t *msg )
 	}
 	else handle = cl.sound_index[sound];	// see precached sound
 
+	if( restore )
+	{
+		wordIndex = MSG_ReadByte( msg );
+
+		// 16 bytes here
+		MSG_ReadBytes( msg, &samplePos, sizeof( samplePos ));
+		MSG_ReadBytes( msg, &forcedEnd, sizeof( forcedEnd ));
+	}
+
 	if( !cl.audio_prepped )
 		return; // too early
 
-	// g-cont. sound and ambient sound have only difference with channel
-	if( chan == CHAN_STATIC )
-	{
+	if( restore )
+		S_RestoreSound( pos, entnum, chan, handle, volume, attn, pitch, flags, samplePos, forcedEnd, wordIndex );
+	else if( chan == CHAN_STATIC )
 		S_AmbientSound( pos, entnum, handle, volume, attn, pitch, flags );
-	}
 	else
-	{
 		S_StartSound( pos, entnum, chan, handle, volume, attn, pitch, flags );
-	}
-}
-
-/*
-==================
-CL_ParseRestoreSoundPacket
-
-==================
-*/
-void CL_ParseRestoreSoundPacket( sizebuf_t *msg )
-{
-	vec3_t	pos;
-	int 	chan, sound;
-	float 	volume, attn;
-	int	flags, pitch, entnum;
-	double	samplePos, forcedEnd;
-	int	wordIndex;
-	sound_t	handle = 0;
-
-	flags = MSG_ReadUBitLong( msg, MAX_SND_FLAGS_BITS );
-	sound = MSG_ReadUBitLong( msg, MAX_SOUND_BITS );
-	chan = MSG_ReadUBitLong( msg, MAX_SND_CHAN_BITS );
-
-	if( flags & SND_VOLUME )
-		volume = (float)MSG_ReadByte( msg ) / 255.0f;
-	else volume = VOL_NORM;
-
-	if( flags & SND_ATTENUATION )
-		attn = (float)MSG_ReadByte( msg ) / 64.0f;
-	else attn = ATTN_NONE;
-
-	if( flags & SND_PITCH )
-		pitch = MSG_ReadByte( msg );
-	else pitch = PITCH_NORM;
-
-	// entity reletive
-	entnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
-
-	// positioned in space
-	MSG_ReadVec3Coord( msg, pos );
-
-	if( flags & SND_SENTENCE )
-	{
-		char	sentenceName[32];
-
-		if( flags & SND_SEQUENCE )
-			Q_snprintf( sentenceName, sizeof( sentenceName ), "!#%i", sound + MAX_SOUNDS_NONSENTENCE );
-		else Q_snprintf( sentenceName, sizeof( sentenceName ), "!%i", sound );
-
-		handle = S_RegisterSound( sentenceName );
-	}
-	else handle = cl.sound_index[sound]; // see precached sound
-
-	wordIndex = MSG_ReadByte( msg );
-
-	// 16 bytes here
-	MSG_ReadBytes( msg, &samplePos, sizeof( samplePos ));
-	MSG_ReadBytes( msg, &forcedEnd, sizeof( forcedEnd ));
-
-	if( !cl.audio_prepped )
-		return; // too early
-
-	S_RestoreSound( pos, entnum, chan, handle, volume, attn, pitch, flags, samplePos, forcedEnd, wordIndex );
 }
 
 /*
@@ -2566,7 +2511,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			CL_ParseViewEntity( msg );
 			break;
 		case svc_sound:
-			CL_ParseSoundPacket( msg );
+			CL_ParseSoundPacket( msg, false );
 			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_time:
@@ -2621,7 +2566,7 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			CL_ParseParticles( msg, PROTO_CURRENT );
 			break;
 		case svc_restoresound:
-			CL_ParseRestoreSoundPacket( msg );
+			CL_ParseSoundPacket( msg, true );
 			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
 			break;
 		case svc_spawnstatic:
