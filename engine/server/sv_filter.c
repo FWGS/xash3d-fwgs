@@ -290,14 +290,14 @@ static int SV_FilterToString( char *dest, size_t size, qboolean config, ipfilter
 {
 	if( config )
 	{
-		return Q_snprintf( dest, size, "addip 0 %s/%d\n", NET_AdrToString( f->adr ), f->prefixlen );
+		return Q_snprintf( dest, size, "addip 0 %s/%d\n", NET_BaseAdrToString( f->adr ), f->prefixlen );
 	}
 	else if( f->endTime )
 	{
-		return Q_snprintf( dest, size, "%s/%d (%f minutes)", NET_AdrToString( f->adr ), f->prefixlen, f->endTime );
+		return Q_snprintf( dest, size, "%s/%d (%f minutes)", NET_BaseAdrToString( f->adr ), f->prefixlen, f->endTime );
 	}
 
-	return Q_snprintf( dest, size, "%s/%d (permanent)", NET_AdrToString( f->adr ), f->prefixlen );
+	return Q_snprintf( dest, size, "%s/%d (permanent)", NET_BaseAdrToString( f->adr ), f->prefixlen );
 }
 
 static qboolean SV_IPFilterIncludesIPFilter( ipfilter_t *a, ipfilter_t *b )
