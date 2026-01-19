@@ -267,7 +267,11 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	byte		*buf;
 	model_info_t	*p;
 
-	ASSERT( mod != NULL );
+	if( !mod )
+	{
+		Host_Error( "%s: mod == NULL\n", __func__ );
+		return NULL;
+	}
 
 	// check if already loaded (or inline bmodel)
 	if( mod->mempool || mod->name[0] == '*' )
@@ -276,7 +280,11 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		return mod;
 	}
 
-	ASSERT( mod->needload == NL_NEEDS_LOADED );
+	if( mod->needload != NL_NEEDS_LOADED )
+	{
+		Host_Error( "%s: trying to load model not marked for loading (%d)\n", __func__, mod->needload );
+		return NULL;
+	}
 
 	// store modelname to show error
 	Q_strncpy( tempname, mod->name, sizeof( tempname ));
