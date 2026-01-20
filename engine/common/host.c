@@ -1029,7 +1029,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
 	// so we clear all cmd_args, but leave dbg states as well
-	Sys_ParseCommandLine( argc, argv );
+	Sys_ParseCommandLine( argc, (const char **)argv );
 	Host_DetermineExecutableName( exename, exename_size );
 
 	if( !Sys_CheckParm( "-disablehelp" ))
