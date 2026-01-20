@@ -60,7 +60,7 @@ void Sys_Warn( const char *format, ... ) FORMAT_CHECK( 1 );
 void Sys_Error( const char *error, ... ) FORMAT_CHECK( 1 );
 qboolean Sys_LoadLibrary( dll_info_t *dll );
 qboolean Sys_FreeLibrary( dll_info_t *dll );
-void Sys_ParseCommandLine( int argc, char **argv );
+void Sys_ParseCommandLine( int argc, const char **argv );
 void Sys_DebugBreak( void );
 #define Sys_GetParmFromCmdLine( parm, out ) _Sys_GetParmFromCmdLine( parm, out, sizeof( out ))
 qboolean _Sys_GetParmFromCmdLine( const char *parm, char *out, size_t size );
