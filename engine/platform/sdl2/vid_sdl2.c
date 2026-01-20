@@ -248,16 +248,11 @@ vidmode_t *R_GetVideoMode( int num )
 static void R_InitVideoModes( void )
 {
 	char buf[MAX_VA_STRING];
-#if SDL_VERSION_ATLEAST( 2, 24, 0 )
-	SDL_Point point = { window_xpos.value, window_ypos.value };
-	int displayIndex = SDL_GetPointDisplayIndex( &point );
-#else
-	int displayIndex = 0;
-#endif
+	int display_index = 0;
 	int i, modes;
 
 	num_vidmodes = 0;
-	modes = SDL_GetNumDisplayModes( displayIndex );
+	modes = SDL_GetNumDisplayModes( display_index );
 
 	if( !modes )
 		return;
@@ -269,7 +264,7 @@ static void R_InitVideoModes( void )
 		int j;
 		SDL_DisplayMode mode;
 
-		if( SDL_GetDisplayMode( displayIndex, i, &mode ) < 0 )
+		if( SDL_GetDisplayMode( display_index, i, &mode ) < 0 )
 		{
 			Msg( "SDL_GetDisplayMode: %s\n", SDL_GetError() );
 			continue;
@@ -280,12 +275,10 @@ static void R_InitVideoModes( void )
 
 		for( j = 0; j < num_vidmodes; j++ )
 		{
-			if( mode.w == vidmodes[j].width &&
-				mode.h == vidmodes[j].height )
-			{
+			if( mode.w == vidmodes[j].width && mode.h == vidmodes[j].height )
 				break;
-			}
 		}
+
 		if( j != num_vidmodes )
 			continue;
 
@@ -437,29 +430,18 @@ static qboolean VID_GuessFullscreenMode( int display_index, const SDL_DisplayMod
 	return true;
 }
 
-static int VID_GetDisplayIndex( const char *caller, const SDL_Point *pt )
+static int VID_GetDisplayIndex( const char *caller, SDL_Window *window )
 {
 	int display_index;
 
-	if( pt )
-	{
-#if SDL_VERSION_ATLEAST( 2, 24, 0 )
-		display_index = SDL_GetPointDisplayIndex( pt );
-#else
-		display_index = 0;
-#endif
-	}
-	else
-	{
-		if( !host.hWnd )
-			return 0;
+	if( !window )
+		return 0;
 
-		display_index = SDL_GetWindowDisplayIndex( host.hWnd );
-	}
-
+	display_index = SDL_GetWindowDisplayIndex( window );
+	
 	if( display_index < 0 )
 	{
-		Con_Printf( S_ERROR "%s: SDL_Get%sDisplayIndex: %s\n", caller, pt ? "Point" : "Display", SDL_GetError());
+		Con_Printf( S_ERROR "%s: SDL_GetWindowDisplayIndex: %s\n", caller, SDL_GetError());
 		display_index = 0;
 	}
 
@@ -513,7 +495,7 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 	{
 		const SDL_DisplayMode want = { .w = width, .h = height };
 		SDL_DisplayMode got;
-		int display_index = VID_GetDisplayIndex( __func__, NULL );
+		int display_index = VID_GetDisplayIndex( __func__, host.hWnd );
 
 		if( !VID_GuessFullscreenMode( display_index, &want, &got ))
 			return false;
@@ -558,7 +540,7 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 		}
 		else if( prev_window_mode != WINDOW_MODE_WINDOWED )
 		{
-			int display_index = VID_GetDisplayIndex( __func__, NULL );
+			int display_index = VID_GetDisplayIndex( __func__, host.hWnd );
 			SDL_Rect bounds;
 
 			if( VID_GetDisplayBounds( display_index, host.hWnd, &bounds ))
@@ -717,8 +699,7 @@ VID_CreateWindow
 static qboolean VID_CreateWindow( const int input_width, const int input_height, window_mode_t window_mode )
 {
 	Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
-	SDL_Rect rect = { window_xpos.value, window_ypos.value, input_width, input_height };
-	const qboolean position_undefined = rect.x < 0 || rect.y < 0;
+	SDL_Rect rect = { SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, input_width, input_height };
 
 	// TODO: disabled for Windows for now
 #if !XASH_WIN32
@@ -727,9 +708,6 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 
 	if( !glw_state.software )
 		SetBits( flags, SDL_WINDOW_OPENGL );
-
-	if( position_undefined )
-		rect.x = rect.y = SDL_WINDOWPOS_UNDEFINED;
 
 	switch( window_mode )
 	{
@@ -742,42 +720,9 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 		{
 			SetBits( flags, SDL_WINDOW_MAXIMIZED );
 		}
-		else if( position_undefined )
-		{
-			VID_GetDisplayBounds( 0, NULL, &rect );
-		}
 		else
 		{
-			const int num_displays = SDL_GetNumVideoDisplays();
-			qboolean window_fits = false;
-
-			for( int i = 0; i < num_displays; i++ )
-			{
-				SDL_Rect display_bounds;
-
-				if( VID_GetDisplayBounds( i, NULL, &display_bounds ))
-				{
-					Con_Reportf( "Display %d: %d %d %d %d\n", i, display_bounds.x, display_bounds.y, display_bounds.w, display_bounds.h );
-				}
-				else
-				{
-					Con_Printf( S_ERROR "Failed to get bounds for display %d! SDL_Error: %s\n", i, SDL_GetError());
-					continue;
-				}
-
-				if( RectFitsInDisplay( &rect, &display_bounds ))
-				{
-					window_fits = true;
-					break;
-				}
-			}
-
-			// Check if the rectangle fits in any display
-			if( !window_fits )
-			{
-				Con_Printf( S_ERROR "Window { %d, %d, %d, %d } does not fit on any display\n", rect.x, rect.y, rect.w, rect.h );
-				VID_GetDisplayBounds( 0, NULL, &rect );
-			}
+			VID_GetDisplayBounds( 0, NULL, &rect );
 		}
 		break;
 	// in fullscreen modes, we keep positions
@@ -793,13 +738,6 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 		int display_index = 0;
 
 		SetBits( flags, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS );
-
-		if( !position_undefined )
-		{
-			const SDL_Point pt = { .x = rect.x, .y = rect.y };
-
-			display_index = VID_GetDisplayIndex( __func__, &pt );
-		}
 
 		if( VID_GuessFullscreenMode( display_index, &want, &got ))
 		{
@@ -859,25 +797,6 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 	// update window size if it was resized
 	SDL_GetWindowSize( host.hWnd, &rect.w, &rect.h );
 	VID_SaveWindowSize( rect.w, rect.h );
-
-	// save position if it was undefined (first launch)
-	if( position_undefined )
-	{
-		int top, left;
-
-		SDL_GetWindowPosition( host.hWnd, &rect.x, &rect.y );
-
-		// adjust for window decorations - SDL reports client area position,
-		// but SDL_CreateWindow positions the frame
-		if( SDL_GetWindowBordersSize( host.hWnd, &top, &left, NULL, NULL ) == 0 )
-		{
-			rect.x -= left;
-			rect.y -= top;
-		}
-
-		Cvar_DirectSetValue( &window_xpos, rect.x );
-		Cvar_DirectSetValue( &window_ypos, rect.y );
-	}
 
 	VID_Info_f();
 
@@ -1011,12 +930,11 @@ R_Init_Video
 qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	string safe;
-	SDL_DisplayMode displayMode;
-	const SDL_Point point = { window_xpos.value, window_ypos.value };
+	SDL_DisplayMode display_mode;
 
-	SDL_GetCurrentDisplayMode( VID_GetDisplayIndex( __func__, &point ), &displayMode );
-	refState.desktopBitsPixel = SDL_BITSPERPIXEL( displayMode.format );
+	SDL_GetCurrentDisplayMode( VID_GetDisplayIndex( __func__, NULL ), &display_mode );
 
+	refState.desktopBitsPixel = SDL_BITSPERPIXEL( display_mode.format );
 
 	if( Sys_CheckParm( "-egl" ))
 	{

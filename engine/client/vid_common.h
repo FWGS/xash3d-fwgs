@@ -40,8 +40,6 @@ extern convar_t vid_fullscreen;
 extern convar_t vid_maximized;
 extern convar_t window_width;
 extern convar_t window_height;
-extern convar_t window_xpos;
-extern convar_t window_ypos;
 extern convar_t gl_msaa_samples;
 
 void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximized );
