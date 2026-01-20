@@ -339,6 +339,7 @@ void SW_UnlockBuffer( void );
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b );
 void Platform_Minimize_f( void );
 ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type );
+void VID_Info_f( void );
 
 //
 // in_evdev.c

@@ -928,6 +928,8 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 		Cvar_DirectSetValue( &window_ypos, rect.y );
 	}
 
+	VID_Info_f();
+
 	return true;
 }
 
@@ -1314,4 +1316,41 @@ void R_Free_Video( void )
 	R_FreeVideoModes();
 
 	ref.dllFuncs.GL_ClearExtensions();
+}
+
+void VID_Info_f( void )
+{
+	Uint32 flags = SDL_GetWindowFlags( host.hWnd );
+	int width, height;
+	int render_width, render_height;
+	int x, y;
+	int display_index;
+	SDL_DisplayMode dm;	
+
+	SDL_GetWindowSize( host.hWnd, &width, &height );
+	SDL_GetWindowSizeInPixels( host.hWnd, &render_width, &render_height );
+	SDL_GetWindowPosition( host.hWnd, &x, &y );
+
+	Con_Printf( "Video: " S_GREEN "SDL" S_DEFAULT "\n" );
+	Con_Printf( "Video driver: " S_GREEN "%s" S_DEFAULT "\n", SDL_GetCurrentVideoDriver( ));
+	Con_Printf( "Window size: " S_GREEN "%dx%d" S_DEFAULT " (" S_YELLOW"real %dx%d" S_DEFAULT")\n", width, height, render_width, render_height );
+	Con_Printf( "Window position: " S_GREEN "%dx%d" S_DEFAULT "\n", x, y );
+	Con_Printf( "Window mode: %s" S_DEFAULT "\n",
+		FBitSet( flags, SDL_WINDOW_FULLSCREEN_DESKTOP ) ? S_GREEN "fullscreen desktop" :
+		FBitSet( flags, SDL_WINDOW_FULLSCREEN ) ? S_YELLOW "fullscreen" :
+		S_CYAN "windowed" );
+	Con_Printf( "Window bordered: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_BORDERLESS ) ? S_RED "false" : S_GREEN "true" );
+	Con_Printf( "Window resizable: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_RESIZABLE ) ? S_GREEN "true" : S_RED "false" );
+	Con_Printf( "Window maximized: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_MAXIMIZED ) ? S_GREEN "true" : S_RED "false" );
+
+	display_index = SDL_GetWindowDisplayIndex( host.hWnd );
+	if( display_index >= 0 )
+		Con_Printf( "Window display index: " S_GREEN "%d" S_DEFAULT "\n", display_index );
+	else
+		Con_Printf( "Window display index: " S_RED "fail: " S_DEFAULT "%s\n", SDL_GetError( ));
+
+	if( SDL_GetWindowDisplayMode( host.hWnd, &dm ) >= 0 )
+		Con_Printf( "Window display mode: " S_GREEN "%dx%d@%d" S_DEFAULT "\n", dm.w, dm.h, dm.refresh_rate );
+	else
+		Con_Printf( "Window display mode: " S_RED "fail: " S_DEFAULT "%s\n", SDL_GetError( ));
 }
