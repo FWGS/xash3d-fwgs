@@ -385,30 +385,9 @@ static void SDLash_EventHandler( SDL_Event *event )
 		switch( event->window.event )
 		{
 		case SDL_WINDOWEVENT_MOVED:
-		{
-			char val[32];
-			int top, left;
-			int x = event->window.data1;
-			int y = event->window.data2;
-
-			// adjust for window decorations - SDL reports client area position,
-			// but SDL_CreateWindow positions the frame
-			if( SDL_GetWindowBordersSize( host.hWnd, &top, &left, NULL, NULL ) == 0 )
-			{
-				x -= left;
-				y -= top;
-			}
-
-			Q_snprintf( val, sizeof( val ), "%d", x );
-			Cvar_DirectSet( &window_xpos, val );
-
-			Q_snprintf( val, sizeof( val ), "%d", y );
-			Cvar_DirectSet( &window_ypos, val );
-
-			if ( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
+			if( vid_fullscreen.value == WINDOW_MODE_WINDOWED )
 				Cvar_DirectSet( &vid_maximized, "0" );
 			break;
-		}
 		case SDL_WINDOWEVENT_MINIMIZED:
 			host.status = HOST_SLEEP;
 			Cvar_DirectSet( &vid_maximized, "0" );
