@@ -565,6 +565,13 @@ retry:
 		SDL_DisplayMode got;
 		SDL_Rect r;
 
+		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (borderless manual): %s\n", __func__, SDL_GetError( ));
+			window_mode = WINDOW_MODE_BORDERLESS_SDL;
+			goto retry;
+		}
+
 		if( SDL_GetDesktopDisplayMode( display_index, &got ) < 0 )
 		{
 			Con_Printf( S_ERROR "%s: SDL_GetDesktopDisplayMode: %s\n", __func__, SDL_GetError( ));
@@ -580,7 +587,6 @@ retry:
 		}
 
 		SDL_SetWindowPosition( host.hWnd, r.x, r.y );
-		SDL_SetWindowAlwaysOnTop( host.hWnd, SDL_TRUE );
 		SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
 		SDL_SetWindowResizable( host.hWnd, SDL_FALSE );
 		SDL_SetWindowSize( host.hWnd, got.w, got.h );	
@@ -615,7 +621,8 @@ retry:
 	}
 	case WINDOW_MODE_WINDOWED:
 	{
-		qboolean overriden = false;
+		qboolean overriden_size = false;
+		qboolean overriden_pos = false;
 
 		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) < 0 )
 		{
@@ -623,35 +630,41 @@ retry:
 			return false;
 		}
 
-		SDL_SetWindowAlwaysOnTop( host.hWnd, SDL_FALSE );
 		SDL_SetWindowResizable( host.hWnd, SDL_TRUE );
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 
 		if( FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED ))
 		{
 			// no-op
-			overriden = true;
+			overriden_size = overriden_pos = true;
 		}
 		else if( prev_window_mode != WINDOW_MODE_WINDOWED )
 		{
 			int display_index = VID_GetDisplayIndex( __func__, NULL );
-			SDL_Rect bounds;
+			SDL_Rect bounds;			
 
 			if( VID_GetDisplayBounds( display_index, host.hWnd, &bounds ))
 			{
-				if( width > bounds.w || height > bounds.h )
+				int x = window_xpos.value, y = window_ypos.value;
+
+				if( x < bounds.x || x < bounds.y )
 				{
 					SDL_SetWindowPosition( host.hWnd, bounds.x, bounds.y );
+					overriden_pos = true;
+				}				
+
+				if( width > bounds.w || height > bounds.h )
+				{
 					SDL_SetWindowSize( host.hWnd, bounds.w, bounds.h );
-					overriden = true;
+					overriden_size = true;
 				}
 			}
 
-			if( !overriden )
-				SDL_SetWindowPosition( host.hWnd, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED );
+			if( !overriden_pos )
+				SDL_SetWindowPosition( host.hWnd, window_xpos.value, window_ypos.value );
 		}
 
-		if( !overriden )
+		if( !overriden_size )
 			SDL_SetWindowSize( host.hWnd, width, height );
 
 		break;
@@ -691,7 +704,6 @@ void VID_RestoreScreenResolution( window_mode_t window_mode )
 	case WINDOW_MODE_BORDERLESS_MANUAL:
 		SDL_SetWindowBordered( host.hWnd, window_mode == WINDOW_MODE_WINDOWED );
 		SDL_SetWindowResizable( host.hWnd, window_mode == WINDOW_MODE_WINDOWED  );
-		SDL_SetWindowAlwaysOnTop( host.hWnd, window_mode == WINDOW_MODE_BORDERLESS_MANUAL );
 		break;
 	default:
 		// no-op
@@ -821,15 +833,16 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 		SDL_DisplayMode got;
 		SDL_Rect r;
 
+		SetBits( flags, SDL_WINDOW_BORDERLESS );
+
 		if( SDL_GetDisplayBounds( display_index, &r ) < 0 )
 		{
 			Con_Printf( S_ERROR "%s: SDL_GetDisplayBounds: %s\n", __func__, SDL_GetError( ));
-			SetBits( flags, SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_BORDERLESS );
+			SetBits( flags, SDL_WINDOW_FULLSCREEN_DESKTOP );
 		}
 		else
 		{
-			rect = r;
-			SetBits( flags, SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP );
+			rect = r;			
 		}
 
 		break;
