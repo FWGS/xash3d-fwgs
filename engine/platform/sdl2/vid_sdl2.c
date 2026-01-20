@@ -448,159 +448,6 @@ static int VID_GetDisplayIndex( const char *caller, SDL_Window *window )
 	return display_index;
 }
 
-static qboolean VID_GetDisplayBounds( int display_index, SDL_Window *hWnd, SDL_Rect *rect )
-{
-	if( SDL_GetDisplayUsableBounds( display_index, rect ) != 0 )
-	{
-		memset( rect, 0, sizeof( *rect ));
-		return false;
-	}
-
-	wrect_t wrc = { 0 };
-	if( hWnd )
-	{
-		SDL_GetWindowBordersSize( hWnd, &wrc.top, &wrc.left, &wrc.bottom, &wrc.right );
-	}
-	else
-	{
-#if XASH_WIN32
-		wrc.left = GetSystemMetrics( SM_CYSIZEFRAME );
-		wrc.right = wrc.bottom = wrc.left;
-		wrc.top = GetSystemMetrics( SM_CYSMCAPTION ) + wrc.left;
-#endif // XASH_WIN32
-	}
-
-	rect->x += wrc.left + wrc.right;
-	rect->y += wrc.top + wrc.bottom;
-	rect->w -= ( wrc.left + wrc.right ) * 2;
-	rect->h -= ( wrc.top + wrc.bottom ) * 2;
-
-	return true;
-}
-
-static qboolean VID_SetScreenResolution( int width, int height, window_mode_t window_mode, window_mode_t prev_window_mode )
-{
-	int out_width, out_height;
-
-	switch( window_mode )
-	{
-	case WINDOW_MODE_BORDERLESS:
-		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN_DESKTOP ) < 0 )
-		{
-			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (borderless): %s\n", __func__, SDL_GetError( ));
-			return false;
-		}
-		break;
-	case WINDOW_MODE_FULLSCREEN:
-	{
-		const SDL_DisplayMode want = { .w = width, .h = height };
-		SDL_DisplayMode got;
-		int display_index = VID_GetDisplayIndex( __func__, host.hWnd );
-
-		if( !VID_GuessFullscreenMode( display_index, &want, &got ))
-			return false;
-
-		if( SDL_SetWindowDisplayMode( host.hWnd, &got ) < 0 )
-		{
-			Con_Printf( S_ERROR "%s: SDL_SetWindowDisplayMode: %s\n", __func__, SDL_GetError( ));
-			return false;
-		}
-
-		if( prev_window_mode != WINDOW_MODE_FULLSCREEN )
-		{
-			if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
-			{
-				Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s\n", __func__, SDL_GetError( ));
-				return false;
-			}
-		}
-
-		// SDL_SetWindowDisplayMode is broken in SDL2, it changes the display mode but doesn't change window size
-		SDL_SetWindowSize( host.hWnd, got.w, got.h );
-
-		break;
-	}
-	case WINDOW_MODE_WINDOWED:
-	{
-		qboolean overriden = false;
-
-		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) < 0 )
-		{
-			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (windowed): %s\n", __func__, SDL_GetError( ));
-			return false;
-		}
-
-		SDL_SetWindowResizable( host.hWnd, SDL_TRUE );
-		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
-
-		if( FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED ))
-		{
-			// no-op
-			overriden = true;
-		}
-		else if( prev_window_mode != WINDOW_MODE_WINDOWED )
-		{
-			int display_index = VID_GetDisplayIndex( __func__, host.hWnd );
-			SDL_Rect bounds;
-
-			if( VID_GetDisplayBounds( display_index, host.hWnd, &bounds ))
-			{
-				if( width > bounds.w || height > bounds.h )
-				{
-					SDL_SetWindowPosition( host.hWnd, bounds.x, bounds.y );
-					SDL_SetWindowSize( host.hWnd, bounds.w, bounds.h );
-					overriden = true;
-				}
-			}
-
-			if( !overriden )
-				SDL_SetWindowPosition( host.hWnd, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED );
-		}
-
-		if( !overriden )
-			SDL_SetWindowSize( host.hWnd, width, height );
-
-		break;
-	}
-	}
-
-	SDL_GetWindowSize( host.hWnd, &out_width, &out_height );
-
-	Con_Reportf( "%s: Setting video mode to %dx%d %s\n", __func__, out_width, out_height,
-		window_mode == WINDOW_MODE_BORDERLESS ? "borderless" :
-		window_mode == WINDOW_MODE_FULLSCREEN ? "fullscreen" : "windowed" );
-
-	VID_SaveWindowSize( out_width, out_height );
-
-	return true;
-}
-
-void VID_RestoreScreenResolution( window_mode_t window_mode )
-{
-	// on mobile platform fullscreen is designed to be always on
-	// and code below minimizes our window if we're in full screen
-	// don't do that on mobile devices
-#if !XASH_MOBILE_PLATFORM
-	switch( window_mode )
-	{
-	case WINDOW_MODE_WINDOWED:
-		// TODO: this line is from very old SDL video backend
-		// figure out why we need it, because in windowed mode we
-		// always have borders
-		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
-		break;
-	case WINDOW_MODE_BORDERLESS:
-		// in borderless fullscreen we don't change screen resolution, so no-op
-		break;
-	case WINDOW_MODE_FULLSCREEN:
-		// TODO: we might want to not minimize window if current desktop mode
-		// and window mode are the same
-		SDL_MinimizeWindow( host.hWnd );
-		SDL_SetWindowFullscreen( host.hWnd, 0 );
-		break;
-	}
-#endif // !XASH_MOBILE_PLATFORM
-}
 
 static void VID_SetWindowIcon( SDL_Window *hWnd )
 {
@@ -654,6 +501,153 @@ static void VID_SetWindowIcon( SDL_Window *hWnd )
 #endif
 }
 
+static qboolean VID_GetDisplayBounds( int display_index, SDL_Window *hWnd, SDL_Rect *rect )
+{
+	if( SDL_GetDisplayUsableBounds( display_index, rect ) != 0 )
+	{
+		memset( rect, 0, sizeof( *rect ));
+		return false;
+	}
+
+	wrect_t wrc = { 0 };
+	if( hWnd )
+	{
+		SDL_GetWindowBordersSize( hWnd, &wrc.top, &wrc.left, &wrc.bottom, &wrc.right );
+	}
+	else
+	{
+#if XASH_WIN32
+		wrc.left = GetSystemMetrics( SM_CYSIZEFRAME );
+		wrc.right = wrc.bottom = wrc.left;
+		wrc.top = GetSystemMetrics( SM_CYSMCAPTION ) + wrc.left;
+#endif // XASH_WIN32
+	}
+
+	rect->x += wrc.left + wrc.right;
+	rect->y += wrc.top + wrc.bottom;
+	rect->w -= ( wrc.left + wrc.right ) * 2;
+	rect->h -= ( wrc.top + wrc.bottom ) * 2;
+
+	return true;
+}
+
+static qboolean VID_SetScreenResolution( int width, int height, window_mode_t window_mode, window_mode_t prev_window_mode )
+{
+	const int display_index = VID_GetDisplayIndex( __func__, host.hWnd );
+	int out_width, out_height;
+
+	switch( window_mode )
+	{
+	case WINDOW_MODE_BORDERLESS:
+	{
+		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN_DESKTOP ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (borderless): %s\n", __func__, SDL_GetError( ));
+			return false;
+		}
+		break;
+	}
+	case WINDOW_MODE_FULLSCREEN:
+	{
+		const SDL_DisplayMode want = { .w = width, .h = height };
+		SDL_DisplayMode got;
+
+		if( !VID_GuessFullscreenMode( display_index, &want, &got ))
+			return false;
+
+		if( SDL_SetWindowDisplayMode( host.hWnd, &got ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_SetWindowDisplayMode: %s\n", __func__, SDL_GetError( ));
+			return false;
+		}
+
+		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s\n", __func__, SDL_GetError( ));
+			return false;
+		}
+
+		// SDL_SetWindowDisplayMode is broken in SDL2, it changes the display mode but doesn't change window size
+		SDL_SetWindowSize( host.hWnd, got.w, got.h );
+
+		break;
+	}
+	case WINDOW_MODE_WINDOWED:
+		if( SDL_SetWindowFullscreen( host.hWnd, 0 ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (windowed): %s\n", __func__, SDL_GetError( ));
+			return false;
+		}
+
+		SDL_SetWindowResizable( host.hWnd, SDL_TRUE );
+		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
+
+		if( !FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED ))
+		{
+			SDL_DisplayMode dm;
+			qboolean center_window = false;
+
+			if( SDL_GetDesktopDisplayMode( display_index, &dm ) >= 0 && width >= dm.w && height >= dm.h )
+			{
+				SDL_SetWindowSize( host.hWnd, dm.w, dm.h );
+				// Con_Printf( "%s: activating fake fullscreen mode\n", __func__ );
+				center_window = true;
+			}
+			else
+			{
+				SDL_Rect r;
+				int x, y;
+
+				SDL_SetWindowSize( host.hWnd, width, height );
+
+				if( VID_GetDisplayBounds( display_index, host.hWnd, &r ) >= 0 )
+				{
+					SDL_GetWindowPosition( host.hWnd, &x, &y );
+
+					if( x <= r.x || y <= r.y )
+						center_window = true;
+				}
+			}
+
+			if( center_window )
+				SDL_SetWindowPosition( host.hWnd, SDL_WINDOWPOS_CENTERED_DISPLAY( display_index ), SDL_WINDOWPOS_CENTERED_DISPLAY( display_index ));
+		}
+
+		break;
+	}
+
+	SDL_GetWindowSize( host.hWnd, &out_width, &out_height );
+
+	Con_Reportf( "%s: Setting video mode to %dx%d %s\n", __func__, out_width, out_height,
+		window_mode == WINDOW_MODE_BORDERLESS ? "borderless" :
+		window_mode == WINDOW_MODE_FULLSCREEN ? "fullscreen" : "windowed" );
+
+	VID_SaveWindowSize( out_width, out_height );
+
+	// set icon that could've been lost after changing modes
+	VID_SetWindowIcon( host.hWnd );
+
+	return true;
+}
+
+void VID_RestoreScreenResolution( window_mode_t window_mode )
+{
+	// on mobile platform fullscreen is designed to be always on
+	// and code below minimizes our window if we're in full screen
+	// don't do that on mobile devices
+#if !XASH_MOBILE_PLATFORM
+	switch( window_mode )
+	{
+	case WINDOW_MODE_FULLSCREEN:
+		// TODO: we might want to not minimize window if current desktop mode
+		// and window mode are the same
+		SDL_MinimizeWindow( host.hWnd );
+		SDL_SetWindowFullscreen( host.hWnd, 0 );
+		break;
+	}
+#endif // !XASH_MOBILE_PLATFORM
+}
+
 static qboolean VID_CreateWindowWithSafeGL( const char *wndname, const SDL_Rect *rect, Uint32 flags )
 {
 	while( glw_state.safe >= SAFE_NO && glw_state.safe < SAFE_LAST )
@@ -683,14 +677,6 @@ static qboolean VID_CreateWindowWithSafeGL( const char *wndname, const SDL_Rect 
 	return true;
 }
 
-static qboolean RectFitsInDisplay( const SDL_Rect *rect, const SDL_Rect *display )
-{
-	return rect->x >= display->x
-		&& rect->y >= display->y
-		&& rect->x + rect->w <= display->x + display->w
-		&& rect->y + rect->h <= display->y + display->h;
-}
-
 /*
 =================
 VID_CreateWindow
@@ -698,7 +684,7 @@ VID_CreateWindow
 */
 static qboolean VID_CreateWindow( const int input_width, const int input_height, window_mode_t window_mode )
 {
-	Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS;
+	Uint32 flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE;
 	SDL_Rect rect = { SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, input_width, input_height };
 
 	// TODO: disabled for Windows for now
@@ -709,51 +695,20 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 	if( !glw_state.software )
 		SetBits( flags, SDL_WINDOW_OPENGL );
 
-	switch( window_mode )
-	{
-	// in windowed mode, we only want to ensure that
-	// window fits on any display, and if not, reset position
-	case WINDOW_MODE_WINDOWED:
-		SetBits( flags, SDL_WINDOW_RESIZABLE );
-
-		if( vid_maximized.value != 0.0f )
-		{
-			SetBits( flags, SDL_WINDOW_MAXIMIZED );
-		}
-		else
-		{
-			VID_GetDisplayBounds( 0, NULL, &rect );
-		}
-		break;
-	// in fullscreen modes, we keep positions
-	// (as they might indicate chosen display in multimonitor configs)
-	case WINDOW_MODE_BORDERLESS:
-		SetBits( flags, SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_BORDERLESS );
-		break;
-	// in true fullscreen mode, we need to guess better video mode
-	case WINDOW_MODE_FULLSCREEN:
-	{
-		const SDL_DisplayMode want = { .w = rect.w, .h = rect.h };
-		SDL_DisplayMode got;
-		int display_index = 0;
-
-		SetBits( flags, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS );
-
-		if( VID_GuessFullscreenMode( display_index, &want, &got ))
-		{
-			rect.w = got.w;
-			rect.h = got.h;
-		}
-
-		break;
-	}
-	}
+	if( vid_maximized.value )
+		SetBits( flags, SDL_WINDOW_MAXIMIZED );
 
 	if( !VID_CreateWindowWithSafeGL( GI->title, &rect, flags ))
 		return false;
 
+	SDL_SetWindowMinimumSize( host.hWnd, VID_MIN_WIDTH, VID_MIN_HEIGHT );
+
+	if( window_mode != WINDOW_MODE_WINDOWED )
+		VID_SetScreenResolution( input_width, input_height, window_mode, WINDOW_MODE_WINDOWED );
+
 	VID_SetWindowIcon( host.hWnd );
 	SDL_ShowWindow( host.hWnd );
+	SDL_RaiseWindow( host.hWnd );
 
 	if( glw_state.software )
 	{
@@ -1030,11 +985,11 @@ qboolean VID_SetMode( void )
 	rserr_t	err;
 	window_mode_t window_mode;
 
-	iScreenWidth = Cvar_VariableInteger( "width" );
-	iScreenHeight = Cvar_VariableInteger( "height" );
+	iScreenWidth = window_width.value;
+	iScreenHeight = window_height.value;
 
-	if( iScreenWidth < VID_MIN_WIDTH ||
-		iScreenHeight < VID_MIN_HEIGHT )	// trying to get resolution automatically by default
+	// get default resolution if values aren't set
+	if( iScreenWidth < VID_MIN_WIDTH || iScreenHeight < VID_MIN_HEIGHT )
 	{
 #if !defined( DEFAULT_MODE_WIDTH ) || !defined( DEFAULT_MODE_HEIGHT )
 		SDL_DisplayMode mode;
