@@ -407,6 +407,58 @@ void VID_SaveWindowSize( int width, int height )
 	R_SaveVideoMode( width, height, render_w, render_h, maximized );
 }
 
+static void VID_SetWindowIcon( SDL_Window *hWnd )
+{
+	char iconpath[MAX_STRING];
+
+	Q_strncpy( iconpath, GI->iconpath, sizeof( iconpath ));
+	COM_ReplaceExtension( iconpath, ".tga", sizeof( iconpath ));
+
+	rgbdata_t *icon = FS_LoadImage( iconpath, NULL, 0 );
+
+	if( icon )
+	{
+		SDL_Surface *surface = SDL_CreateRGBSurfaceFrom( icon->buffer,
+			icon->width, icon->height, 32, 4 * icon->width,
+			0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 );
+
+		FS_FreeImage( icon );
+
+		if( surface )
+		{
+			SDL_SetWindowIcon( hWnd, surface );
+			SDL_FreeSurface( surface );
+			return;
+		}
+	}
+
+	// ICO support only for Win32
+#if XASH_WIN32
+	const char *disk_iconpath = FS_GetDiskPath( GI->iconpath, true );
+
+	if( disk_iconpath )
+	{
+		int len = MultiByteToWideChar( CP_UTF8, 0, disk_iconpath, -1, NULL, 0 );
+
+		if( len >= 0 )
+		{
+			wchar_t *path = malloc( len * sizeof( *path ));
+			HICON ico;
+
+			MultiByteToWideChar( CP_UTF8, 0, disk_iconpath, -1, path, len );
+			ico = (HICON)LoadImageW( NULL, path, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
+
+			free( path );
+
+			if( ico && WIN_SetWindowIcon( ico ))
+				return;
+		}
+	}
+
+	WIN_SetWindowIcon( LoadIcon( GetModuleHandle( NULL ), MAKEINTRESOURCE( 101 )));
+#endif
+}
+
 static qboolean VID_GuessFullscreenMode( int display_index, const SDL_DisplayMode *want, SDL_DisplayMode *got )
 {
 	if( SDL_GetClosestDisplayMode( display_index, want, got ) == NULL )
@@ -496,15 +548,45 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 {
 	int out_width, out_height;
 
+retry:
 	switch( window_mode )
 	{
-	case WINDOW_MODE_BORDERLESS:
+	case WINDOW_MODE_BORDERLESS_SDL:
 		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN_DESKTOP ) < 0 )
 		{
 			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (borderless): %s\n", __func__, SDL_GetError( ));
 			return false;
 		}
 		break;
+	case WINDOW_MODE_BORDERLESS_MANUAL:
+	{
+		// implement borderless mode manually, for better compatibility with stuff like Xbox Game Bar
+		int display_index = VID_GetDisplayIndex( __func__, NULL );
+		SDL_DisplayMode got;
+		SDL_Rect r;
+
+		if( SDL_GetDesktopDisplayMode( display_index, &got ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_GetDesktopDisplayMode: %s\n", __func__, SDL_GetError( ));
+			window_mode = WINDOW_MODE_BORDERLESS_SDL;
+			goto retry;
+		}
+
+		if( SDL_GetDisplayBounds( display_index, &r ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_GetDisplayBounds: %s\n", __func__, SDL_GetError( ));
+			window_mode = WINDOW_MODE_BORDERLESS_SDL;
+			goto retry;
+		}
+
+		SDL_SetWindowPosition( host.hWnd, r.x, r.y );
+		SDL_SetWindowAlwaysOnTop( host.hWnd, SDL_TRUE );
+		SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
+		SDL_SetWindowResizable( host.hWnd, SDL_FALSE );
+		SDL_SetWindowSize( host.hWnd, got.w, got.h );	
+	
+		break;
+	}
 	case WINDOW_MODE_FULLSCREEN:
 	{
 		const SDL_DisplayMode want = { .w = width, .h = height };
@@ -520,13 +602,10 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 			return false;
 		}
 
-		if( prev_window_mode != WINDOW_MODE_FULLSCREEN )
+		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
 		{
-			if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
-			{
-				Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s\n", __func__, SDL_GetError( ));
-				return false;
-			}
+			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s\n", __func__, SDL_GetError( ));
+			return false;
 		}
 
 		// SDL_SetWindowDisplayMode is broken in SDL2, it changes the display mode but doesn't change window size
@@ -544,6 +623,7 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 			return false;
 		}
 
+		SDL_SetWindowAlwaysOnTop( host.hWnd, SDL_FALSE );
 		SDL_SetWindowResizable( host.hWnd, SDL_TRUE );
 		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
 
@@ -581,10 +661,14 @@ static qboolean VID_SetScreenResolution( int width, int height, window_mode_t wi
 	SDL_GetWindowSize( host.hWnd, &out_width, &out_height );
 
 	Con_Reportf( "%s: Setting video mode to %dx%d %s\n", __func__, out_width, out_height,
-		window_mode == WINDOW_MODE_BORDERLESS ? "borderless" :
+		window_mode == WINDOW_MODE_BORDERLESS_SDL ? "fullscreen desktop" :
+		window_mode == WINDOW_MODE_BORDERLESS_MANUAL ? "borderless fullscreen" :
 		window_mode == WINDOW_MODE_FULLSCREEN ? "fullscreen" : "windowed" );
 
 	VID_SaveWindowSize( out_width, out_height );
+
+	// restore icon, as it gets lost on windows when going back from fullscreen to windowed
+	VID_SetWindowIcon( host.hWnd );
 
 	return true;
 }
@@ -597,75 +681,23 @@ void VID_RestoreScreenResolution( window_mode_t window_mode )
 #if !XASH_MOBILE_PLATFORM
 	switch( window_mode )
 	{
-	case WINDOW_MODE_WINDOWED:
-		// TODO: this line is from very old SDL video backend
-		// figure out why we need it, because in windowed mode we
-		// always have borders
-		SDL_SetWindowBordered( host.hWnd, SDL_TRUE );
-		break;
-	case WINDOW_MODE_BORDERLESS:
-		// in borderless fullscreen we don't change screen resolution, so no-op
-		break;
 	case WINDOW_MODE_FULLSCREEN:
 		// TODO: we might want to not minimize window if current desktop mode
 		// and window mode are the same
 		SDL_MinimizeWindow( host.hWnd );
 		SDL_SetWindowFullscreen( host.hWnd, 0 );
 		break;
+	case WINDOW_MODE_WINDOWED:
+	case WINDOW_MODE_BORDERLESS_MANUAL:
+		SDL_SetWindowBordered( host.hWnd, window_mode == WINDOW_MODE_WINDOWED );
+		SDL_SetWindowResizable( host.hWnd, window_mode == WINDOW_MODE_WINDOWED  );
+		SDL_SetWindowAlwaysOnTop( host.hWnd, window_mode == WINDOW_MODE_BORDERLESS_MANUAL );
+		break;
+	default:
+		// no-op
+		break;
 	}
 #endif // !XASH_MOBILE_PLATFORM
-}
-
-static void VID_SetWindowIcon( SDL_Window *hWnd )
-{
-	char iconpath[MAX_STRING];
-
-	Q_strncpy( iconpath, GI->iconpath, sizeof( iconpath ));
-	COM_ReplaceExtension( iconpath, ".tga", sizeof( iconpath ));
-
-	rgbdata_t *icon = FS_LoadImage( iconpath, NULL, 0 );
-
-	if( icon )
-	{
-		SDL_Surface *surface = SDL_CreateRGBSurfaceFrom( icon->buffer,
-			icon->width, icon->height, 32, 4 * icon->width,
-			0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 );
-
-		FS_FreeImage( icon );
-
-		if( surface )
-		{
-			SDL_SetWindowIcon( hWnd, surface );
-			SDL_FreeSurface( surface );
-			return;
-		}
-	}
-
-	// ICO support only for Win32
-#if XASH_WIN32
-	const char *disk_iconpath = FS_GetDiskPath( GI->iconpath, true );
-
-	if( disk_iconpath )
-	{
-		int len = MultiByteToWideChar( CP_UTF8, 0, disk_iconpath, -1, NULL, 0 );
-
-		if( len >= 0 )
-		{
-			wchar_t *path = malloc( len * sizeof( *path ));
-			HICON ico;
-
-			MultiByteToWideChar( CP_UTF8, 0, disk_iconpath, -1, path, len );
-			ico = (HICON)LoadImageW( NULL, path, IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE );
-
-			free( path );
-
-			if( ico && WIN_SetWindowIcon( ico ))
-				return;
-		}
-	}
-
-	WIN_SetWindowIcon( LoadIcon( GetModuleHandle( NULL ), MAKEINTRESOURCE( 101 )));
-#endif
 }
 
 static qboolean VID_CreateWindowWithSafeGL( const char *wndname, const SDL_Rect *rect, Uint32 flags )
@@ -778,9 +810,30 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 		break;
 	// in fullscreen modes, we keep positions
 	// (as they might indicate chosen display in multimonitor configs)
-	case WINDOW_MODE_BORDERLESS:
+	case WINDOW_MODE_BORDERLESS_SDL:
 		SetBits( flags, SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_BORDERLESS );
 		break;
+	case WINDOW_MODE_BORDERLESS_MANUAL:
+	{
+		// implement borderless mode manually, for better compatibility with stuff like Xbox Game Bar
+		SDL_Point pt = { window_xpos.value, window_ypos.value };
+		int display_index = position_undefined ? 0 : VID_GetDisplayIndex( __func__, &pt );
+		SDL_DisplayMode got;
+		SDL_Rect r;
+
+		if( SDL_GetDisplayBounds( display_index, &r ) < 0 )
+		{
+			Con_Printf( S_ERROR "%s: SDL_GetDisplayBounds: %s\n", __func__, SDL_GetError( ));
+			SetBits( flags, SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_BORDERLESS );
+		}
+		else
+		{
+			rect = r;
+			SetBits( flags, SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP );
+		}
+
+		break;
+	}
 	// in true fullscreen mode, we need to guess better video mode
 	case WINDOW_MODE_FULLSCREEN:
 	{
@@ -1075,6 +1128,15 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
 	SDL_DisplayMode display_mode;
+#if 0
+#if XASH_WIN32
+	if( window_mode == WINDOW_MODE_BORDERLESS_SDL )
+		window_mode = WINDOW_MODE_BORDERLESS_MANUAL;
+#else
+	if( window_mode == WINDOW_MODE_BORDERLESS_MANUAL )
+		window_mode = WINDOW_MODE_BORDERLESS_SDL;
+#endif
+#endif
 
 	if( !host.hWnd )
 	{

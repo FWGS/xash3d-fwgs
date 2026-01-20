@@ -640,7 +640,7 @@ static void SetWidthAndHeightFromCommandLine( void )
 static void SetFullscreenModeFromCommandLine( void )
 {
 	if( Sys_CheckParm( "-borderless" ))
-		Cvar_DirectSetValue( &vid_fullscreen, WINDOW_MODE_BORDERLESS );
+		Cvar_DirectSetValue( &vid_fullscreen, WINDOW_MODE_BORDERLESS_SDL );
 	else if( Sys_CheckParm( "-fullscreen" ))
 		Cvar_DirectSetValue( &vid_fullscreen, WINDOW_MODE_FULLSCREEN );
 	else if( Sys_CheckParm( "-windowed" ))

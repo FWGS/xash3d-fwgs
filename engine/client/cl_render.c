@@ -136,7 +136,7 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 	case PARM_SHADOWDATA:
 		return (intptr_t)world.shadowdata;
 	case PARM_FULLSCREEN:
-		return refState.window_mode == WINDOW_MODE_BORDERLESS || refState.window_mode == WINDOW_MODE_FULLSCREEN;
+		return refState.window_mode != WINDOW_MODE_WINDOWED;
 	case PARM_WIDESCREEN:
 		return refState.wideScreen;
 	case PARM_SCREEN_WIDTH:

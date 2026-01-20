@@ -109,8 +109,16 @@ typedef enum
 typedef enum window_mode_e
 {
 	WINDOW_MODE_WINDOWED = 0,
+
+	// classic fullscreen with display mode change
 	WINDOW_MODE_FULLSCREEN,
-	WINDOW_MODE_BORDERLESS,
+
+	// uses FULLSCREEN_DESKTOP flag
+	WINDOW_MODE_BORDERLESS_SDL,
+
+	// manual set up, only available on certain platforms that allows it (e.g. win32), otherwise it's WINDOW_MODE_BORDERLESS_SDL
+	WINDOW_MODE_BORDERLESS_MANUAL,
+
 	WINDOW_MODE_COUNT,
 } window_mode_t;
 
