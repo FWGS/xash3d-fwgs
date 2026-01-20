@@ -1024,8 +1024,7 @@ Host_InitCommon
 static void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bChangeGame, char *exename, size_t exename_size )
 {
 	const char *basedir = progname[0] == '#' ? progname + 1 : progname;
-	char dev_level[4], ticrate[16];
-	int developer = DEFAULT_DEV;
+	int ticrate, developer = DEFAULT_DEV;
 
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
@@ -1048,6 +1047,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started
 	host.type = HOST_DEDICATED; // predict state
+
 #ifndef XASH_DEDICATED
 	if( !Sys_CheckParm( "-dedicated" ))
 		host.type = HOST_NORMAL;
@@ -1064,11 +1064,8 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		host.allow_console = true;
 		developer = DEV_NORMAL;
 
-		if( Sys_GetParmFromCmdLine( "-dev", dev_level ))
-		{
-			if( Q_isdigit( dev_level ))
-				developer = bound( DEV_NONE, abs( Q_atoi( dev_level )), DEV_EXTENDED );
-		}
+		if( Sys_GetIntFromCmdLine( "-dev", &developer ))
+			developer = bound( DEV_NONE, developer, DEV_EXTENDED );
 	}
 
 #if XASH_ENGINE_TESTS
@@ -1102,15 +1099,11 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Cvar_Init();
 
 	// share developer level across all dlls
-	Q_snprintf( dev_level, sizeof( dev_level ), "%i", developer );
-	Cvar_DirectSet( &host_developer, dev_level );
+	Cvar_DirectSetValue( &host_developer, developer );
 	Cvar_RegisterVariable( &sys_ticrate );
 
-	if( Sys_GetParmFromCmdLine( "-sys_ticrate", ticrate ))
-	{
-		double fps = bound( MIN_FPS, atof( ticrate ), MAX_FPS_HARD );
-		Cvar_SetValue( "sys_ticrate", fps );
-	}
+	if( Sys_GetIntFromCmdLine( "-sys_ticrate", &ticrate ))
+		Cvar_DirectSetValue( &sys_ticrate, bound( MIN_FPS, ticrate, MAX_FPS_HARD ));
 
 	Sys_InitLog();
 	Con_Init(); // early console running to catch all the messages

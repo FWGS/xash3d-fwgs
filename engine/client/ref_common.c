@@ -628,7 +628,7 @@ static void SetWidthAndHeightFromCommandLine( void )
 	Sys_GetIntFromCmdLine( "-width", &width );
 	Sys_GetIntFromCmdLine( "-height", &height );
 
-	if( width < 1 || height < 1 )
+	if( width < VID_MIN_WIDTH || height < VID_MIN_HEIGHT )
 	{
 		// Not specified or invalid, so don't bother.
 		return;
