@@ -544,7 +544,6 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 	pmove->flFallVelocity = clent->v.flFallVelocity;
 	pmove->flSwimTime = clent->v.flSwimTime;
 	VectorCopy( clent->v.punchangle, pmove->punchangle );
-	pmove->flNextPrimaryAttack = 0.0f; // not used by PM_ code
 	pmove->effects = clent->v.effects;
 	pmove->flags = clent->v.flags;
 	pmove->gravity = clent->v.gravity;

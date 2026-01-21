@@ -827,7 +827,6 @@ static void CL_SetupPMove( playermove_t *pmove, const local_state_t *from, const
 	pmove->flFallVelocity = ps->flFallVelocity;
 	pmove->flSwimTime = (float)cd->flSwimTime;
 	VectorCopy( cd->punchangle, pmove->punchangle );
-	pmove->flNextPrimaryAttack = 0.0f; // not used by PM_ code
 	pmove->effects = ps->effects;
 	pmove->flags = cd->flags;
 	pmove->gravity = ps->gravity;
