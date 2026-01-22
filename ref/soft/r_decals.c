@@ -1028,7 +1028,7 @@ void GAME_EXPORT R_DecalRemoveAll( int textureIndex )
 		pdecal = &gDecalPool[i];
 
 		// don't remove permanent decals
-		if( !textureIndex && FBitSet( pdecal->flags, FDECAL_PERMANENT ))
+		if( FBitSet( pdecal->flags, FDECAL_PERMANENT ))
 			continue;
 
 		if( !textureIndex || ( pdecal->texture == textureIndex ))
