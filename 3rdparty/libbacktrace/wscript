@@ -162,8 +162,13 @@ def build(bld):
 	if bld.env.DISABLE_LIBBACKTRACE:
 		return
 
-	# we specifically only want mmap-based allocators because calling malloc is not safe from signal handlers
-	sources = ['atomic.c', 'dwarf.c', 'fileline.c', 'posix.c', 'print.c', 'sort.c', 'state.c', 'backtrace.c', 'simple.c', 'mmap.c', 'mmapio.c']
+	sources = ['atomic.c', 'dwarf.c', 'fileline.c', 'posix.c', 'print.c', 'sort.c', 'state.c', 'backtrace.c', 'simple.c']
+
+	if bld.env.DEST_OS == 'win32':
+		sources += ['read.c', 'alloc.c']
+	else:
+		# we specifically only want mmap-based allocators because calling malloc is not safe from signal handlers
+		sources += ['mmap.c', 'mmapio.c']
 
 	if bld.env.DEST_BINFMT == 'pe':
 		sources += ['pecoff.c']
