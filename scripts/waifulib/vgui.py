@@ -45,7 +45,7 @@ def check_vgui(conf):
 		else: conf.end_msg('yes')
 
 		conf.start_msg('Does this toolchain able to link VGUI?')
-		if conf.env.DEST_OS == 'win32' and conf.env.COMPILER_CXX == 'g++':
+		if conf.env.DEST_OS == 'win32' and conf.env.COMPILER_CXX != 'msvc':
 			conf.end_msg('no')
 			# we have ABI incompatibility ONLY on MinGW
 			Logs.warn('vgui can\'t be linked with MinGW')
