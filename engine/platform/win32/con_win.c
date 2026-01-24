@@ -201,7 +201,7 @@ static void Wcon_Clear_f( void )
 	Wcon_PrintInternal( "\n", 0 );
 }
 
-static void Wcon_EventUpArrow()
+static void Wcon_EventUpArrow( void )
 {
 	int nLastCommandInHistory = s_wcd.inputLine + 1;
 	if( nLastCommandInHistory > s_wcd.totalLines )
@@ -236,7 +236,7 @@ static void Wcon_EventUpArrow()
 	s_wcd.cursorPosition = s_wcd.consoleTextLen;
 }
 
-static void Wcon_EventDownArrow()
+static void Wcon_EventDownArrow( void )
 {
 	if( s_wcd.browseLine == s_wcd.inputLine )
 		return;
@@ -267,7 +267,7 @@ static void Wcon_EventDownArrow()
 	s_wcd.cursorPosition = s_wcd.consoleTextLen;
 }
 
-static void Wcon_EventLeftArrow()
+static void Wcon_EventLeftArrow( void )
 {
 	if( s_wcd.cursorPosition == 0 )
 		return;
@@ -276,7 +276,7 @@ static void Wcon_EventLeftArrow()
 	s_wcd.cursorPosition--;
 }
 
-static void Wcon_EventRightArrow()
+static void Wcon_EventRightArrow( void )
 {
 	if( s_wcd.cursorPosition == s_wcd.consoleTextLen )
 		return;
@@ -285,7 +285,7 @@ static void Wcon_EventRightArrow()
 	s_wcd.cursorPosition++;
 }
 
-static int Wcon_EventNewline()
+static int Wcon_EventNewline( void )
 {
 	int nLen;
 
@@ -315,7 +315,7 @@ static int Wcon_EventNewline()
 	return nLen;
 }
 
-static void Wcon_EventBackspace()
+static void Wcon_EventBackspace( void )
 {
 	int nCount;
 
@@ -347,7 +347,7 @@ static void Wcon_EventBackspace()
 	s_wcd.browseLine = s_wcd.inputLine;
 }
 
-static void Wcon_EventTab()
+static void Wcon_EventTab( void )
 {
 	s_wcd.consoleText[s_wcd.consoleTextLen] = '\0';
 	Cmd_AutoComplete( s_wcd.consoleText );
@@ -385,7 +385,7 @@ static void Wcon_EventCharacter(char c)
 	s_wcd.browseLine = s_wcd.inputLine;
 }
 
-static void Wcon_UpdateStatusLine()
+static void Wcon_UpdateStatusLine( void )
 {
 	COORD coord;
 	WORD wAttrib;
