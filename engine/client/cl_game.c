@@ -2939,10 +2939,15 @@ pfnGetMousePos
 */
 static void GAME_EXPORT pfnGetMousePos( struct tagPOINT *ppt )
 {
+	int x, y;
+
 	if( !ppt )
 		return;
 
-	Platform_GetMousePos( &ppt->x, &ppt->y );
+	Platform_GetMousePos( &x, &y );
+
+	ppt->x = x;
+	ppt->y = y;
 }
 
 /*

@@ -95,7 +95,7 @@ void Sys_DebugBreak( void )
 		Platform_SetMouseGrab( false );
 	}
 
-#if _MSC_VER
+#if XASH_WIN32 // both MSVC and MinGW support it
 	__debugbreak();
 #else // !_MSC_VER
 	INLINE_RAISE( SIGINT );

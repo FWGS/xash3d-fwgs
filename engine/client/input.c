@@ -26,12 +26,14 @@ GNU General Public License for more details.
 #include "cursor_type.h"
 #include "platform/platform.h"
 
-void*		in_mousecursor;
-qboolean	in_mouseactive;				// false when not focus app
-qboolean	in_mouseinitialized;
-qboolean	in_mouse_suspended;
-POINT		in_lastvalidpos;
-qboolean	in_mouse_savedpos;
+static qboolean	in_mouseactive;				// false when not focus app
+static qboolean	in_mouseinitialized;
+static qboolean	in_mouse_suspended;
+static struct
+{
+	int x, y;
+} in_lastvalidpos;
+static qboolean	in_mouse_savedpos;
 static int in_mstate = 0;
 static struct inputstate_s
 {
