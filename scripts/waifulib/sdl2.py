@@ -63,12 +63,18 @@ def sdl2_configure_path(conf, path, libname):
 		conf.env[LIB] = [libname]
 		conf.end_msg('yes: {0}, {1}, {2}'.format(conf.env[LIB], conf.env[LIBPATH], conf.env[INCLUDES]))
 	else:
+		if conf.env.DEST_OS == 'win32' and conf.env.COMPILER_CC != 'msvc':
+			if conf.env.DEST_CPU == 'x86':
+				triplet = 'i686-w64-mingw32'
+			else:
+				triplet = conf.env.DEST_CPU + '-w64-mingw32'
+			path = os.path.abspath(os.path.join(path, triplet))
 		conf.env[INCLUDES] = [
 			os.path.abspath(os.path.join(path, 'include')),
 			os.path.abspath(os.path.join(path, 'include/%s' % libname))
 		]
 		libpath = 'lib'
-		if conf.env.COMPILER_CC == 'msvc':
+		if conf.env.DEST_OS == 'win32' and conf.env.COMPILER_CC == 'msvc':
 			if conf.env.DEST_CPU == 'x86_64':
 				libpath = 'lib/x64'
 			else:
