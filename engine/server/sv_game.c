@@ -32,8 +32,12 @@ static byte fatphs[(MAX_MAP_LEAFS+7)/8];
 static byte clientpvs[(MAX_MAP_LEAFS+7)/8];	// for find client in PVS
 
 // exports
+#if XASH_WIN32
 typedef void (__cdecl *LINK_ENTITY_FUNC)( entvars_t *pev );
-typedef void (__stdcall *GIVEFNPTRSTODLL)( enginefuncs_t* engfuncs, globalvars_t *pGlobals );
+#else
+typedef void (*LINK_ENTITY_FUNC)( entvars_t *pev );
+#endif
+typedef void (DLLEXPORT *GIVEFNPTRSTODLL)( enginefuncs_t* engfuncs, globalvars_t *pGlobals );
 
 #ifndef NDEBUG
 qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
