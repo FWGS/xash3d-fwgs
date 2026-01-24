@@ -82,7 +82,11 @@ typedef struct
 	float	time;
 } SAVE_LIGHTSTYLE;
 
+#if XASH_WIN32
 static void (__cdecl *pfnSaveGameComment)( char *buffer, int max_length ) = NULL;
+#else // XASH_WIN32
+static void (*pfnSaveGameComment)( char *buffer, int max_length ) = NULL;
+#endif // XASH_WIN32
 
 static TYPEDESCRIPTION gGameHeader[] =
 {

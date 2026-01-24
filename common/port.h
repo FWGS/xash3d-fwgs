@@ -52,11 +52,6 @@ GNU General Public License for more details.
 	#define OS_LIB_EXT    "prx"
 #endif
 
-#if !defined( _MSC_VER )
-	#define __cdecl
-	#define __stdcall
-#endif
-
 #if !XASH_WIN32
 	typedef void *HINSTANCE;
 	typedef struct tagPOINT	{ int x, y; } POINT; // one nasty function in cdll_int.h needs it
