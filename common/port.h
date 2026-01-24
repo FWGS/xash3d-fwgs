@@ -37,14 +37,20 @@ GNU General Public License for more details.
 #elif XASH_WIN32
 	#define HSPRITE WINAPI_HSPRITE
 	#define WIN32_LEAN_AND_MEAN
-	#define NOMINMAX
 	#define VC_EXTRALEAN
+	#ifndef NOMINMAX
+		#define NOMINMAX
+	#endif // NOMINMAX
 
 	#include <windows.h>
 	#undef HSPRITE
 	#define open          _open
 	#define read          _read
-	#define alloca        _alloca
+
+	#ifndef alloca
+		#define alloca        _alloca
+	#endif // alloca
+
 	#define OS_LIB_PREFIX ""
 	#define OS_LIB_EXT    "dll"
 	#define OPEN_COMMAND  "open"
