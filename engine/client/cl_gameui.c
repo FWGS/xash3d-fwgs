@@ -37,9 +37,6 @@ void UI_UpdateMenu( float realtime )
 {
 	if( !gameui.hInstance ) return;
 
-	// don't draw menu over console
-	if( cls.key_dest == key_console ) return;
-
 	// if some deferred cmds is waiting
 	if( UI_IsVisible() && COM_CheckString( host.deferred_cmd ))
 	{
