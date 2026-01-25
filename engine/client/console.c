@@ -1515,8 +1515,12 @@ void Key_Console( int key )
 	if( key == K_BACK_BUTTON || key == K_START_BUTTON || key == K_ESCAPE )
 	{
 		if( cls.state == ca_active && !cl.background )
+		{
+			UI_SetActiveMenu( false ); // we are in game, prevent menu from drawing
 			Key_SetKeyDest( key_game );
-		else UI_SetActiveMenu( true );
+		}
+		else
+			UI_SetActiveMenu( true );
 		return;
 	}
 
