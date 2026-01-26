@@ -1,8 +1,8 @@
 file(GLOB LIBPUBLIC_FILES *.c)
 
-execute_process(COMMAND "git show | head -n 1 | cut -f2 -d' ' | head -c 8" OUTPUT_VARIABLE BUILD_COMMIT)
-execute_process(COMMAND "git status | head -n 1 | sed 's/On branch //'" OUTPUT_VARIABLE BUILD_BRANCH)
-execute_process(COMMAND "TODO" OUTPUT_VARIABLE COMMIT_DATE)
+execute_process(COMMAND "git describe --dirty --always" OUTPUT_VARIABLE BUILD_COMMIT)
+execute_process(COMMAND "git rev-parse --abbrev-ref HEAD" OUTPUT_VARIABLE BUILD_BRANCH)
+execute_process(COMMAND "git log -1 --format=%ci" OUTPUT_VARIABLE COMMIT_DATE)
 
 add_library(public STATIC
 	${LIBPUBLIC_FILES}
