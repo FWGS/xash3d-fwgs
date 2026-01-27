@@ -1752,18 +1752,22 @@ CL_LocalServers_f
 */
 static void CL_LocalServers_f( void )
 {
-	netadr_t adr = { 0 };
-
 	Con_Printf( "Scanning for servers on the local network area...\n" );
 	NET_Config( true, true ); // allow remote
 
-	// send a broadcast packet
-	NET_NetadrSetType( &adr, NA_BROADCAST );
-	adr.port = MSG_BigShort( PORT_SERVER );
-	Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+	for( int i = 0; i < 10; i++ )
+	{
+		netadr_t adr =
+		{
+			.port = MSG_BigShort( PORT_SERVER + i ),
+		};
 
-	NET_NetadrSetType( &adr, NA_MULTICAST_IP6 );
-	Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+		NET_NetadrSetType( &adr, NA_BROADCAST );
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+
+		NET_NetadrSetType( &adr, NA_MULTICAST_IP6 );
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+	}
 }
 
 /*
