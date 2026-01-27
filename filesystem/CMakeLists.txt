@@ -8,7 +8,12 @@ add_library(filesystem_stdio SHARED
 
 set_target_properties(filesystem_stdio PROPERTIES PREFIX "")
 
-# TODO: this is very bad and should be fixed
 target_compile_definitions(filesystem_stdio PRIVATE
-	ALLOCA_H=<alloca.h>
+	ALLOCA_H=<alloca.h> # TODO: this is very bad and should be fixed
 )
+
+target_link_libraries(filesystem_stdio
+	library_suffix
+	public
+)
+

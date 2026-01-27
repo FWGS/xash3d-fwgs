@@ -18,6 +18,25 @@ if (SANITIZER)
     add_link_options(-fsanitize=address)
 endif()
 
+add_compile_definitions(
+	HAVE_STRNCASECMP=1
+	HAVE_STRCASECMP=1
+	HAVE_STRCASESTR=1
+	HAVE_STRCHRNUL=1
+	HAVE_STRLCPY=1
+	HAVE_STRLCAT=1
+	HAVE_STRNLEN=1
+	HAVE_LARGEFILE=1
+	XASH_LOW_MEMORY=0
+	HAVE_TGMATH_H=1
+	HAVE_MEMFD_CREATE=1
+	HAVE_DIRENT_D_TYPE=1
+	HAVE_OGG=1
+	HAVE_OPUSFILE=1
+	HAVE_VORBIS=1
+	HAVE_VORBISFILE=1
+)
+
 # Compile each sub-project
 
 # 3rd party mainui is standalone
@@ -44,7 +63,7 @@ add_subdirectory(ref/soft)
 # Externals
 set(MULTIEMULATOR_DIR "3rdparty/MultiEmulator/")
 file(GLOB MULTIEMULATOR_FILES ${MULTIEMULATOR_DIR}/src/*.c)
-add_library(MultiEmulator STATIC
+add_library(MultiEmulator SHARED
 	${MULTIEMULATOR_FILES}
 )
 target_include_directories(MultiEmulator PRIVATE
@@ -57,3 +76,5 @@ set_target_properties(MultiEmulator PROPERTIES
 
 add_subdirectory(ref/gl)
 add_subdirectory(engine)
+add_subdirectory(game_launch)
+
