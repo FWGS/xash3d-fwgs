@@ -331,13 +331,24 @@ static inline int Q_splitstr( char *str, int delim, void *userdata,
 ============
 COM_FixSlashes
 
-Changes all '\' characters into '/' characters, in place.
+Changes all '\' characters into '/' characters and removes duplicate slashes, in place.
 ============
 */
 static inline void COM_FixSlashes( char *pname )
 {
-	while(( pname = Q_strchr( pname, '\\' )))
-		*pname = '/';
+	char *s = pname;
+	int i, j;
+
+	while(( s = Q_strchr( s, '\\' )))
+		*s = '/';
+
+	for( i = 0, j = 0; pname[i]; i++ )
+	{
+		if( pname[i] == '/' && pname[i+1] == '/' )
+			continue;
+		pname[j++] = pname[i];
+	}
+	pname[j] = 0;
 }
 
 #ifdef __cplusplus
