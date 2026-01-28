@@ -55,9 +55,31 @@ static void Mod_Modellist_f( void )
 
 	for( i = nummodels = 0, mod = mod_known; i < mod_numknown; i++, mod++ )
 	{
+		const char *color_str;
+
 		if( mod->needload == NL_UNREFERENCED )
 			continue; // free slot
-		Con_Printf( "%s\n", mod->name );
+
+		switch( mod->type )
+		{
+		case mod_alias:
+			color_str = S_YELLOW;
+			break;
+		case mod_studio:
+			color_str = S_GREEN;
+			break;
+		case mod_sprite:
+			color_str = S_MAGENTA;
+			break;
+		case mod_brush:
+			color_str = mod->name[0] == '*' ? S_CYAN : S_BLUE;
+			break;
+		default:
+			color_str = S_RED;
+			break;
+		}
+
+		Con_Printf( "%3d:\t%s%s\n" S_DEFAULT, i, color_str, mod->name );
 		nummodels++;
 	}
 
@@ -222,7 +244,8 @@ model_t *Mod_FindName( const char *filename, qboolean trackCRC )
 		{
 			if( mod->mempool || mod->name[0] == '*' )
 				mod->needload = NL_PRESENT;
-			else mod->needload = NL_NEEDS_LOADED;
+			else
+				mod->needload = NL_NEEDS_LOADED;
 
 			return mod;
 		}
@@ -438,6 +461,9 @@ static void Mod_PurgeStudioCache( void )
 	// and clear studio sequences
 	for( i = 1; i < mod_numknown; i++ )
 	{
+		if( mod_known[i].needload == NL_UNREFERENCED )
+			continue;
+
 		if( mod_known[i].type == mod_studio )
 			mod_known[i].submodels = NULL;
 
