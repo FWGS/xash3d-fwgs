@@ -45,21 +45,25 @@ void TriRenderMode( int mode )
 	switch( mode )
 	{
 	case kRenderNormal:
+		R_AllowFog( true );
 		pglDisable( GL_BLEND );
 		pglDepthMask( GL_TRUE );
 		break;
 	case kRenderTransAlpha:
+		R_AllowFog( true );
 		pglEnable( GL_BLEND );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 		pglDepthMask( GL_FALSE );
 		break;
 	case kRenderTransColor:
 	case kRenderTransTexture:
+		R_AllowFog( true );
 		pglEnable( GL_BLEND );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 		break;
 	case kRenderGlow:
 	case kRenderTransAdd:
+		R_AllowFog( false );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
 		pglEnable( GL_BLEND );
 		pglDepthMask( GL_FALSE );
