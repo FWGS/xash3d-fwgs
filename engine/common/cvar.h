@@ -42,6 +42,7 @@ void Cvar_LookupVars( int checkbit, void *buffer, void *ptr, setpair_t callback 
 void Cvar_FullSet( const char *var_name, const char *value, uint32_t flags );
 void Cvar_DirectSet( convar_t *var, const char *value );
 void Cvar_DirectSetValue( convar_t *var, float value );
+void Cvar_DirectFullSet( convar_t *var, const char *value, uint32_t flags );
 void Cvar_Set( const char *var_name, const char *value );
 void Cvar_SetValue( const char *var_name, float value );
 const char *Cvar_BuildAutoDescription( const char *szName, uint32_t flags ) RETURNS_NONNULL;
