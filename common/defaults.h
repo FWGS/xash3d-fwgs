@@ -133,7 +133,11 @@ Default build-depended cvar and constant values
 */
 
 // Platform overrides
-#if XASH_NSWITCH
+#if XASH_WIN32
+	// set up windowed by default on Windows to avoid problems with
+	// Xbox Game Bar
+	#define DEFAULT_FULLSCREEN   "0"
+#elif XASH_NSWITCH
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE     "1"
 	#define DEFAULT_MODE_WIDTH   1280
