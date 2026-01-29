@@ -864,7 +864,6 @@ void SV_Init( void )
 
 	Cvar_Getf( "protocol", FCVAR_READ_ONLY, "displays server protocol version", "%i", PROTOCOL_VERSION );
 	Cvar_Get( "suitvolume", "0.25", FCVAR_ARCHIVE, "HEV suit volume" );
-	Cvar_Get( "sv_background", "0", FCVAR_READ_ONLY, "indicate what background map is running" );
 	Cvar_Get( "gamedir", GI->gamefolder, FCVAR_READ_ONLY, "game folder" );
 	Cvar_Get( "sv_alltalk", "1", 0, "allow to talking for all players (legacy, unused)" );
 	Cvar_Get( "sv_allow_PhysX", "1", FCVAR_ARCHIVE, "allow XashXT to usage PhysX engine" );			// XashXT cvar
@@ -1111,7 +1110,7 @@ void SV_Shutdown( const char *finalmsg )
 	}
 
 	// don't forget to reset sv_background state
-	Cvar_FullSet( "sv_background", "0", FCVAR_READ_ONLY );
+	Cvar_DirectFullSet( &sv_background, "0", FCVAR_READ_ONLY );
 
 	if( COM_CheckString( finalmsg ))
 		Con_Printf( "%s", finalmsg );

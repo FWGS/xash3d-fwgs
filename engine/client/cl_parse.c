@@ -938,9 +938,8 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		cl.background = true;
 	else cl.background = background;
 
-	if( cl.background )	// tell the game parts about background state
-		Cvar_FullSet( "cl_background", "1", FCVAR_READ_ONLY );
-	else Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
+	// tell the game parts about background state
+	Cvar_DirectFullSet( &cl_background, cl.background ? "1" : "0", FCVAR_READ_ONLY );
 
 	if( !cls.changelevel )
 	{

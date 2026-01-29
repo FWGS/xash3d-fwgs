@@ -80,6 +80,8 @@ static CVAR_DEFINE( host_sleeptime, "sleeptime", "1", FCVAR_ARCHIVE|FCVAR_FILTER
 static CVAR_DEFINE_AUTO( host_sleeptime_debug, "0", 0, "print sleeps between frames" );
 CVAR_DEFINE_AUTO( host_allow_materials, "0", FCVAR_LATCH|FCVAR_ARCHIVE, "allow texture replacements from materials/ folder" );
 CVAR_DEFINE( con_gamemaps, "con_mapfilter", "1", FCVAR_ARCHIVE, "when true show only maps in game folder" );
+CVAR_DEFINE_AUTO( cl_background, "0", FCVAR_READ_ONLY, "if set to 1, client running a background map" );
+CVAR_DEFINE_AUTO( sv_background, "0", FCVAR_READ_ONLY, "if set to 1, server running a background map" );
 
 typedef struct feature_message_s
 {
@@ -1226,6 +1228,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Cvar_RegisterVariable( &sv_hibernate_when_empty );
 	Cvar_RegisterVariable( &sv_hibernate_when_empty_include_bots );
 	Cvar_RegisterVariable( &sv_hibernate_when_empty_sleep );
+	Cvar_RegisterVariable( &sv_background );
+	Cvar_RegisterVariable( &cl_background );
 
 	Cvar_Getf( "buildnum", FCVAR_READ_ONLY, "returns a current build number", "%i", Q_buildnum_compat());
 	Cvar_Getf( "ver", FCVAR_READ_ONLY, "shows an engine version", "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat());
