@@ -919,7 +919,9 @@ void Delta_Init( void )
 	dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
 
 	Assert( dt != NULL );
-	if( dt->bInitialized ) return;	// "movevars_t" already specified by user
+
+	if( dt->bInitialized )
+		return;	// "movevars_t" already specified by user
 
 	// create movevars_t delta internal
 	Delta_AddField( dt, "gravity", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
@@ -936,9 +938,15 @@ void Delta_Init( void )
 	Delta_AddField( dt, "stepsize", DT_FLOAT|DT_SIGNED, 16, 16.0f, 1.0f );
 	Delta_AddField( dt, "maxvelocity", DT_FLOAT|DT_SIGNED, 16, 8.0f, 1.0f );
 
-	if( FBitSet( host.features, ENGINE_WRITE_LARGE_COORD ))
-		Delta_AddField( dt, "zmax", DT_FLOAT|DT_SIGNED, 18, 1.0f, 1.0f );
-	else Delta_AddField( dt, "zmax", DT_FLOAT|DT_SIGNED, 16, 1.0f, 1.0f );
+	// a1ba: set zmax large enough to fit 3d skybox
+	// this fixes an issue when mapper sets sv_zmax value high enough
+	// to not overflow the variable but not enough to be encoded in delta,
+	// thus being clamped at 16-bit signed integer max.
+	// by removing signed flag (zmax is always positive) and increasing it to
+	// 24 bits, we ensure that even these maps will not have problems with 3d
+	// skyboxes (that virtually have no coordinates limit)
+	// see comment in SV_UpdateMovevars for more details
+	Delta_AddField( dt, "zmax", DT_FLOAT, 24, 1.0f, 1.0f );
 
 	Delta_AddField( dt, "waveHeight", DT_FLOAT|DT_SIGNED, 16, 16.0f, 1.0f );
 	Delta_AddField( dt, "skyName", DT_STRING, 1, 1.0f, 1.0f );
