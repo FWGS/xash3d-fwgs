@@ -600,6 +600,42 @@ static qboolean Cvar_CanSet( const convar_t *cv )
 
 /*
 ============
+Cvar_DirectFullSet
+
+can set any protected cvars
+============
+*/
+void Cvar_DirectFullSet( convar_t *var, const char *value, uint32_t flags )
+{
+	size_t len = Q_strlen( value ) + 1;
+
+	var->string = Mem_Realloc( cvar_pool, var->string, len );
+	Q_strncpy( var->string, value, len );
+	var->value = Q_atof( var->string );
+	SetBits( var->flags, flags );
+
+	// tell engine about changes
+	Cvar_Changed( var );
+}
+
+static void Cvar_SanitizeAndSet( convar_t *var, const char *value )
+{
+	const char *fixed_string = Cvar_ValidateString( var, value );
+
+	// nothing to change
+	if( !Q_strcmp( fixed_string, var->string ))
+		return;
+
+	// fill it cls.userinfo, svs.serverinfo
+	if( !Cvar_UpdateInfo( var, fixed_string, true ))
+		return;
+
+	// and finally change the cvar itself
+	Cvar_DirectFullSet( var, fixed_string, var->flags );
+}
+
+/*
+============
 Cvar_Set2
 ============
 */
@@ -608,8 +644,6 @@ static convar_t *Cvar_Set2( const char *var_name, const char *value )
 	convar_t	*var;
 	qboolean	dll_variable = false;
 	qboolean	force = false;
-	const char *fixed_string;
-	size_t fixed_string_len;
 
 	if( !Cvar_ValidateVarName( var_name, false ))
 	{
@@ -673,24 +707,7 @@ static convar_t *Cvar_Set2( const char *var_name, const char *value )
 			return var;
 	}
 
-	fixed_string = Cvar_ValidateString( var, value );
-
-	// nothing to change
-	if( !Q_strcmp( fixed_string, var->string ))
-		return var;
-
-	// fill it cls.userinfo, svs.serverinfo
-	if( !Cvar_UpdateInfo( var, fixed_string, true ))
-		return var;
-
-	// and finally change the cvar itself
-	fixed_string_len = Q_strlen( fixed_string ) + 1;
-	var->string = Mem_Realloc( cvar_pool, var->string, fixed_string_len );
-	Q_strncpy( var->string, fixed_string, fixed_string_len );
-	var->value = Q_atof( var->string );
-
-	// tell engine about changes
-	Cvar_Changed( var );
+	Cvar_SanitizeAndSet( var, value );
 	return var;
 }
 
@@ -703,9 +720,6 @@ way to change value for many cvars
 */
 void GAME_EXPORT Cvar_DirectSet( convar_t *var, const char *value )
 {
-	const char *fixed_string;
-	size_t fixed_string_len;
-
 	if( unlikely( !var )) return;	// ???
 
 	// lookup for registration
@@ -734,24 +748,7 @@ void GAME_EXPORT Cvar_DirectSet( convar_t *var, const char *value )
 		value = var->def_string; // reset to default value
 	}
 
-	fixed_string = Cvar_ValidateString( var, value );
-
-	// nothing to change
-	if( !Q_strcmp( fixed_string, var->string ))
-		return;
-
-	// fill it cls.userinfo, svs.serverinfo
-	if( !Cvar_UpdateInfo( var, fixed_string, true ))
-		return;
-
-	// and finally change the cvar itself
-	fixed_string_len = Q_strlen( fixed_string ) + 1;
-	var->string = Mem_Realloc( cvar_pool, var->string, fixed_string_len );
-	Q_strncpy( var->string, fixed_string, fixed_string_len );
-	var->value = Q_atof( var->string );
-
-	// tell engine about changes
-	Cvar_Changed( var );
+	Cvar_SanitizeAndSet( var, value );
 }
 
 /*
@@ -782,7 +779,6 @@ can set any protected cvars
 void Cvar_FullSet( const char *var_name, const char *value, uint32_t flags )
 {
 	convar_t *var = Cvar_FindVar( var_name );
-	size_t len = Q_strlen( value ) + 1;
 
 	if( !var )
 	{
@@ -790,13 +786,7 @@ void Cvar_FullSet( const char *var_name, const char *value, uint32_t flags )
 		return;
 	}
 
-	var->string = Mem_Realloc( cvar_pool, var->string, len );
-	Q_strncpy( var->string, value, len );
-	var->value = Q_atof( var->string );
-	SetBits( var->flags, flags );
-
-	// tell engine about changes
-	Cvar_Changed( var );
+	Cvar_DirectFullSet( var, value, var->flags );
 }
 
 /*
