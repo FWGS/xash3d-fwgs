@@ -1213,7 +1213,7 @@ void CL_StopPlayback( void )
 	else
 	{
 		// let game known about demo state
-		Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
+		Cvar_DirectFullSet( &cl_background, "0", FCVAR_READ_ONLY );
 		cls.state = ca_disconnected;
 		memset( &cls.serveradr, 0, sizeof( cls.serveradr ) );
 		cls.set_lastdemo = false;

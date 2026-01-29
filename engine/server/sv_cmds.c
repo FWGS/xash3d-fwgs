@@ -265,6 +265,12 @@ static void SV_MapBackground_f( void )
 {
 	char	mapname[MAX_QPATH];
 
+	if( Host_IsDedicated( ))
+	{
+		Con_Printf( S_ERROR "no background maps are allowed in dedicated mode" );
+		return;
+	}
+
 	if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "map_background <mapname>\n" );

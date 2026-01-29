@@ -1088,17 +1088,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	svgame.globals->coop = coop.value;
 	svgame.globals->maxClients = svs.maxclients;
 
-	if( sv.background )
-	{
-		// tell the game parts about background state
-		Cvar_FullSet( "sv_background", "1", FCVAR_READ_ONLY );
-		Cvar_FullSet( "cl_background", "1", FCVAR_READ_ONLY );
-	}
-	else
-	{
-		Cvar_FullSet( "sv_background", "0", FCVAR_READ_ONLY );
-		Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
-	}
+	// tell the game parts about background state
+	Cvar_DirectFullSet( &sv_background, sv.background ? "1" : "0", FCVAR_READ_ONLY );
+	Cvar_DirectFullSet( &cl_background, sv.background ? "1" : "0", FCVAR_READ_ONLY );
 
 	// force normal player collisions for single player
 	if( svs.maxclients == 1 ) Cvar_SetValue( "sv_clienttrace", 1 );

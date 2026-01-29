@@ -3958,7 +3958,7 @@ void CL_UnloadProgs( void )
 	if( GI->internal_vgui_support )
 		VGui_Shutdown();
 
-	Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
+	Cvar_DirectFullSet( &cl_background, "0", FCVAR_READ_ONLY );
 	Cvar_FullSet( "host_clientloaded", "0", FCVAR_READ_ONLY );
 
 	Cvar_Unlink( FCVAR_CLIENTDLL );
