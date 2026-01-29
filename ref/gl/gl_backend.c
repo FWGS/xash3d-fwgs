@@ -438,26 +438,31 @@ void GL_SetRenderMode( int mode )
 	{
 	case kRenderNormal:
 	default:
+		R_AllowFog( true );
 		pglDisable( GL_BLEND );
 		pglDisable( GL_ALPHA_TEST );
 		break;
 	case kRenderTransColor:
 	case kRenderTransTexture:
+		R_AllowFog( true );
 		pglEnable( GL_BLEND );
 		pglDisable( GL_ALPHA_TEST );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 		break;
 	case kRenderTransAlpha:
+		R_AllowFog( true );
 		pglDisable( GL_BLEND );
 		pglEnable( GL_ALPHA_TEST );
 		break;
 	case kRenderGlow:
 	case kRenderTransAdd:
+		R_AllowFog( false );
 		pglEnable( GL_BLEND );
 		pglDisable( GL_ALPHA_TEST );
 		pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
 		break;
 	case kRenderScreenFadeModulate:
+		R_AllowFog( true );
 		pglEnable( GL_BLEND );
 		pglDisable( GL_ALPHA_TEST );
 		pglBlendFunc( GL_ZERO, GL_SRC_COLOR );

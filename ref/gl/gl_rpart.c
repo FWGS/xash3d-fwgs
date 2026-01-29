@@ -181,6 +181,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 	if( !TriSpriteTexture( gEngfuncs.GetDefaultSprite( REF_DOT_SPRITE ), 0 ))
 		return;
 
+	R_AllowFog( false );
 	pglEnable( GL_BLEND );
 	pglBlendFunc( GL_SRC_ALPHA, GL_ONE );
 	pglDisable( GL_ALPHA_TEST );
@@ -267,6 +268,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 	pglEnd();
 
 	pglDepthMask( GL_TRUE );
+	R_AllowFog( true );
 }
 
 /*
