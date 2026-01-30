@@ -15,7 +15,6 @@ add_library(ref_gl SHARED
 )
 
 target_compile_definitions(ref_gl PRIVATE
-	XASH_GL_STATIC=1
 	REF_DLL=1
 )
 

@@ -1,3 +1,5 @@
+# Cmake project for xash3d. Currently only Linux amd64 is supported, other systems might work but haven't been tested
+
 cmake_minimum_required(VERSION 3.30)
 
 project(xash3d-fwgs
@@ -37,6 +39,10 @@ add_compile_definitions(
 	HAVE_VORBISFILE=1
 )
 
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/)
+
 # Compile each sub-project
 
 # 3rd party mainui is standalone
@@ -69,9 +75,6 @@ add_library(MultiEmulator SHARED
 target_include_directories(MultiEmulator PRIVATE
 	${MULTIEMULATOR_DIR}/src/
 	${MULTIEMULATOR_DIR}/include/
-)
-set_target_properties(MultiEmulator PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${MULTIEMULATOR_DIR}/"
 )
 
 add_subdirectory(ref/gl)

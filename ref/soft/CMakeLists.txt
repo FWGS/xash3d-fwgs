@@ -1,3 +1,5 @@
+# NOTE: There are nullpointer crashes in ref_soft. Its better to use GL instead
+
 file(GLOB REF_SOFT_FILES *.c)
 
 add_library(ref_soft SHARED

@@ -1,8 +1,7 @@
 find_package(SDL2 REQUIRED)
 find_package(ALSA REQUIRED)
 find_package(BZip2 REQUIRED)
-find_package(CURL REQUIRED)
-find_package(Backtrace REQUIRED)
+# find_package(CURL REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(OPUS REQUIRED opus)
@@ -10,6 +9,17 @@ pkg_check_modules(OPUSFILE REQUIRED opusfile)
 pkg_check_modules(VORBIS REQUIRED vorbis)
 pkg_check_modules(VORBISFILE REQUIRED vorbisfile)
 #pkg_check_modules(MPG123 REQUIRED mpg123) #TODO
+
+# Optional backtrace (disabled by default), there are currently compile errors with it enabled
+if (ENABLE_BACKTRACE)
+	find_package(Backtrace REQUIRED)
+	add_compile_definitions(
+		HAVE_LIBBACKTRACE=1
+	)
+	include_directories(
+		${BACKTRACE_INCLUDE_DIRS}
+	)
+endif()
 
 # Game client library
 file(GLOB ENGINE_FILES
@@ -37,8 +47,6 @@ target_compile_definitions(xash PRIVATE
 	XASH_SDL=2
 	XASH_REF_SOFT_ENABLED=1
 	XASH_REF_GL_ENABLED=1
-#	HAVE_LIBBACKTRACE=1
-#	XASH_NO_LIBDL=1
 )
 
 target_include_directories(xash PUBLIC
@@ -57,14 +65,13 @@ target_include_directories(xash PUBLIC
 
 target_link_libraries(xash
 	public
-#	stdc++
-#	m
-#	pthread
+	stdc++
+	m
+	pthread
 	SDL2::SDL2
-#	ALSA::ALSA
+	ALSA::ALSA
 	MultiEmulator
 	BZip2::BZip2
-#	${Backtrace_LIBRARIES}
 #	curl
 	library_suffix
 	${VORBISFILE_LIBRARIES}
@@ -89,27 +96,27 @@ target_compile_definitions(xashded PRIVATE
 	XASH_ENABLE_MAIN=1
 	XASH_DEDICATED=1
 	ENGINE_DLL=1
-	#HAVE_LIBBACKTRACE=1 # TODO: there are compile errors when this is enabled
 )
 
 target_include_directories(xashded PUBLIC
 	./client/
 	./server/
-#	${Backtrace_INCLUDE_DIRS}
 )
 
 target_link_libraries(xashded
-#	stdc++
+	stdc++
 	m
 	public
 	filesystem_stdio
 	library_suffix
 #	curl
-#	pthread
-#	SDL2::SDL2
-#	ALSA::ALSA
-#	MultiEmulator
-#	BZip2::BZip2
-#	${Backtrace_LIBRARIES}
 )
 
+if (ENABLE_BACKTRACE)
+	target_link_libraries(xash
+		${Backtrace_LIBRARIES}
+	)
+	target_link_libraries(xashded
+		${Backtrace_LIBRARIES}
+	)
+endif()
