@@ -8,7 +8,7 @@ pkg_check_modules(OPUS REQUIRED opus)
 pkg_check_modules(OPUSFILE REQUIRED opusfile)
 pkg_check_modules(VORBIS REQUIRED vorbis)
 pkg_check_modules(VORBISFILE REQUIRED vorbisfile)
-pkg_check_modules(MPG123 REQUIRED libmpg123)
+#pkg_check_modules(MPG123 REQUIRED libmpg123)
 
 if(ENABLE_FFMPEG)
 	pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
@@ -58,7 +58,7 @@ file(GLOB ENGINE_FILES
 	platform/sdl2/*.c
 	client/*.c
 	client/soundlib/*.c
-	# client/soundlib/libmpg/*.c # use system libmpg123 instead
+	client/soundlib/libmpg/*.c # TODO: use system libmpg123 instead
 	server/*.c
 )
 
@@ -89,7 +89,7 @@ target_include_directories(xash PUBLIC
 	${OPUS_INCLUDE_DIRS}
 	${OPUSFILE_INCLUDE_DIRS}
 	${VORBIS_INCLUDE_FILES}
-	${MPG123_INCLUDE_DIRS}
+#	${MPG123_INCLUDE_DIRS}
 )
 
 target_link_libraries(xash
@@ -106,7 +106,7 @@ target_link_libraries(xash
 	${VORBISFILE_LIBRARIES}
 	${OPUSFILE_LIBRARIES}
 	${FFMPEG_LIBRARIES}
-	${MPG123_LIBRARIES}
+#	${MPG123_LIBRARIES}
 )
 
 file(GLOB SERVER_FILES
