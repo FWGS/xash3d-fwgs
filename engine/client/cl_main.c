@@ -1548,7 +1548,7 @@ void CL_ClearState( void )
 	memset( &clgame.fade, 0, sizeof( clgame.fade ));
 	memset( &clgame.shake, 0, sizeof( clgame.shake ));
 	clgame.mapname[0] = '\0';
-	Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
+	Cvar_DirectFullSet( &cl_background, "0", FCVAR_READ_ONLY );
 	cl.maxclients = 1; // allow to drawing player in menu
 	cl.mtime[0] = cl.mtime[1] = 1.0f; // because level starts from 1.0f second
 	cls.signon = 0;
@@ -1752,18 +1752,22 @@ CL_LocalServers_f
 */
 static void CL_LocalServers_f( void )
 {
-	netadr_t adr = { 0 };
-
 	Con_Printf( "Scanning for servers on the local network area...\n" );
 	NET_Config( true, true ); // allow remote
 
-	// send a broadcast packet
-	NET_NetadrSetType( &adr, NA_BROADCAST );
-	adr.port = MSG_BigShort( PORT_SERVER );
-	Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+	for( int i = 0; i < 10; i++ )
+	{
+		netadr_t adr =
+		{
+			.port = MSG_BigShort( PORT_SERVER + i ),
+		};
 
-	NET_NetadrSetType( &adr, NA_MULTICAST_IP6 );
-	Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+		NET_NetadrSetType( &adr, NA_BROADCAST );
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+
+		NET_NetadrSetType( &adr, NA_MULTICAST_IP6 );
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
+	}
 }
 
 /*
@@ -3415,7 +3419,6 @@ static void CL_InitLocal( void )
 	Cvar_RegisterVariable( &hud_fontrender );
 	Cvar_RegisterVariable( &hud_scale );
 	Cvar_RegisterVariable( &hud_scale_minimal_width );
-	Cvar_Get( "cl_background", "0", FCVAR_READ_ONLY, "indicate what background map is running" );
 	Cvar_RegisterVariable( &cl_showevents );
 	Cvar_Get( "lastdemo", "", FCVAR_ARCHIVE, "last played demo" );
 	Cvar_RegisterVariable( &ui_renderworld );

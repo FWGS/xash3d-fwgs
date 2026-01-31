@@ -239,9 +239,8 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	}
 	else Cvar_DirectSet( &r_decals, NULL );
 
-	if( cl.background )	// tell the game parts about background state
-		Cvar_FullSet( "cl_background", "1", FCVAR_READ_ONLY );
-	else Cvar_FullSet( "cl_background", "0", FCVAR_READ_ONLY );
+	// tell the game parts about background state
+	Cvar_DirectFullSet( &cl_background, cl.background ? "1" : "0", FCVAR_READ_ONLY );
 
 	S_StopBackgroundTrack ();
 

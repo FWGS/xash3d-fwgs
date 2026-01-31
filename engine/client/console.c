@@ -156,6 +156,16 @@ static void Con_SaveHistory( con_history_t *self );
 
 /*
 ================
+Con_BackgroundMapActive
+================
+*/
+qboolean Con_BackgroundMapActive( void )
+{
+	return sv_background.value != 0.0f || cl.background;
+}
+
+/*
+================
 Con_Clear_f
 ================
 */
@@ -273,7 +283,7 @@ void Con_ToggleConsole_f( void )
 	if( cls.key_dest == key_console )
 	{
 		// closing console
-		if( cls.state != ca_active || Cvar_VariableInteger( "sv_background" ) || Cvar_VariableInteger( "cl_background" ))
+		if( cls.state != ca_active || Con_BackgroundMapActive( ))
 		{
 			// not in game or in background mode - return to menu
 			// UI_SetActiveMenu(true) reactivates menu without resetting history
@@ -1515,8 +1525,12 @@ void Key_Console( int key )
 	if( key == K_BACK_BUTTON || key == K_START_BUTTON || key == K_ESCAPE )
 	{
 		if( cls.state == ca_active && !cl.background )
+		{
+			UI_SetActiveMenu( false ); // we are in game, prevent menu from drawing
 			Key_SetKeyDest( key_game );
-		else UI_SetActiveMenu( true );
+		}
+		else
+			UI_SetActiveMenu( true );
 		return;
 	}
 
@@ -1795,7 +1809,7 @@ void Con_DrawDebug( void )
 		timeStart = host.realtime;
 	}
 
-	if( !host.allow_console || Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" ))
+	if( !host.allow_console || Con_BackgroundMapActive( ))
 		return;
 
 	if( con.draw_notify && !Con_Visible( ))
@@ -1821,7 +1835,7 @@ static void Con_DrawNotify( void )
 
 	x = con.curFont->charWidths[' ']; // offset one space at left screen side
 
-	if( host.allow_console && ( !Cvar_VariableInteger( "cl_background" ) && !Cvar_VariableInteger( "sv_background" )))
+	if( host.allow_console && !Con_BackgroundMapActive( ))
 	{
 		for( i = Q_max( 0, CON_LINES_COUNT - con.num_times ); i < CON_LINES_COUNT; i++ )
 		{
@@ -2011,7 +2025,7 @@ void Con_DrawConsole( void )
 	{
 		if( !cl_allow_levelshots.value && !cls.timedemo )
 		{
-			if( cls.key_dest != key_console && ( Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" )))
+			if( cls.key_dest != key_console && Con_BackgroundMapActive( ))
 				con.vislines = con.showlines = 0;
 			else con.vislines = con.showlines = refState.height;
 		}
@@ -2042,7 +2056,7 @@ void Con_DrawConsole( void )
 		break;
 	case ca_active:
 	case ca_cinematic:
-		if( Cvar_VariableInteger( "cl_background" ) || Cvar_VariableInteger( "sv_background" ))
+		if( Con_BackgroundMapActive( ))
 		{
 			if( cls.key_dest == key_console )
 				Con_DrawSolidConsole( refState.height );
