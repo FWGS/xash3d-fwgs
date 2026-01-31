@@ -1,7 +1,7 @@
 find_package(SDL2 REQUIRED)
 find_package(ALSA REQUIRED)
 find_package(BZip2 REQUIRED)
-# find_package(CURL REQUIRED)
+find_package(CURL REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(OPUS REQUIRED opus)
@@ -9,6 +9,33 @@ pkg_check_modules(OPUSFILE REQUIRED opusfile)
 pkg_check_modules(VORBIS REQUIRED vorbis)
 pkg_check_modules(VORBISFILE REQUIRED vorbisfile)
 #pkg_check_modules(MPG123 REQUIRED mpg123) #TODO
+
+if(ENABLE_FFMPEG)
+	pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+		libavformat
+		libavcodec
+		libswresample
+		libswscale
+		libavutil
+	)
+
+	# Check if the package was found
+	if(FFMPEG_FOUND)
+		message(STATUS "FFmpeg found")
+		message(STATUS "Include Directory: ${FFMPEG_INCLUDE_DIRS}")
+		message(STATUS "enabling AVI FFMPEG Support")
+
+		add_compile_definitions(
+			HAVE_FFMPEG=1
+			ALLOW_UNSUPPORTED_FFMPEG=1
+		)
+
+		include_directories(
+			${FFMPEG_INCLUDE_DIRS}
+		)
+
+	endif()
+endif()
 
 # Optional backtrace (disabled by default), there are currently compile errors with it enabled
 if (ENABLE_BACKTRACE)
@@ -47,6 +74,7 @@ target_compile_definitions(xash PRIVATE
 	XASH_SDL=2
 	XASH_REF_SOFT_ENABLED=1
 	XASH_REF_GL_ENABLED=1
+	HAVE_CURL=1
 )
 
 target_include_directories(xash PUBLIC
@@ -72,10 +100,11 @@ target_link_libraries(xash
 	ALSA::ALSA
 	MultiEmulator
 	BZip2::BZip2
-#	curl
+	curl
 	library_suffix
 	${VORBISFILE_LIBRARIES}
 	${OPUSFILE_LIBRARIES}
+	${FFMPEG_LIBRARIES}
 )
 
 file(GLOB SERVER_FILES
@@ -109,7 +138,7 @@ target_link_libraries(xashded
 	public
 	filesystem_stdio
 	library_suffix
-#	curl
+	curl
 )
 
 if (ENABLE_BACKTRACE)
