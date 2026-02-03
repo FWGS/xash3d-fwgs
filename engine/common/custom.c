@@ -22,12 +22,14 @@ static rgbdata_t *CustomDecal_LoadImage( const char *path, void *raw, int size )
 {
 	const char *testname;
 
-	// this way we limit file types
-	if( !Q_stricmp( COM_FileExtension( path ), "png" ))
-		testname = "#logo.png";
-	else if( !Q_stricmp( COM_FileExtension( path ), "wad" ))
-		testname = "#logo.wad";
-	else testname = "#logo.bmp";
+    // this way we limit file types
+    if( !Q_stricmp( COM_FileExtension( path ), "png" ))
+        testname = "#logo.png";
+    else if( !Q_stricmp( COM_FileExtension( path ), "jpg" ))
+        testname = "#logo.jpg";
+    else if( !Q_stricmp( COM_FileExtension( path ), "bmp" ))
+        testname = "#logo.bmp";
+    else testname = "#logo.wad";
 
 	Image_SetForceFlags( IL_LOAD_PLAYER_DECAL );
 
