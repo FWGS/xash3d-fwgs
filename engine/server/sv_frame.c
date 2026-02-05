@@ -821,7 +821,6 @@ void SV_SendClientMessages( void )
 {
 	sv_client_t *cl;
 	int          i;
-	double       updaterate_time;
 	double       time_until_next_message;
 
 	if( sv.state == ss_dead )

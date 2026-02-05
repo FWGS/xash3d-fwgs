@@ -315,10 +315,15 @@ static screenfade_t *pfnRefGetScreenFade( void )
 
 static qboolean R_Init_Video_( ref_graphic_apis_t type )
 {
-	host.apply_opengl_config = true;
-	Cbuf_AddTextf( "exec %s.cfg\n", ref.dllFuncs.R_GetConfigName());
-	Cbuf_Execute();
-	host.apply_opengl_config = false;
+	const char *config_name = ref.dllFuncs.R_GetConfigName ? ref.dllFuncs.R_GetConfigName() : NULL;
+
+	if( config_name )
+	{
+		host.apply_opengl_config = true;
+		Cbuf_AddTextf( "exec %s.cfg\n", config_name );
+		Cbuf_Execute();
+		host.apply_opengl_config = false;
+	}
 
 	return R_Init_Video( type );
 }
