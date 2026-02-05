@@ -355,6 +355,10 @@ qboolean AVI_Think( movie_state_t *Avi )
 	qboolean decoded = false;
 	qboolean flushing = false;
 	qboolean redraw = false;
+
+	if( !Avi->video_ctx )
+		return false;
+
 	const double timebase = (double)Avi->video_ctx->pkt_timebase.den / Avi->video_ctx->pkt_timebase.num;
 	int64_t curtime = round( Platform_DoubleTime() * timebase );
 
