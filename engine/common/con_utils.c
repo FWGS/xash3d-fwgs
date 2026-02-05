@@ -1542,14 +1542,19 @@ save opengl variables into opengl.cfg
 */
 void Host_WriteOpenGLConfig( void )
 {
+	const char *config_name;
 	string name;
 	file_t	*f;
 
-	if( Sys_CheckParm( "-nowriteconfig" ) )
+	if( Sys_CheckParm( "-nowriteconfig" ) || !ref.dllFuncs.R_GetConfigName )
 		return;
 
-	Q_snprintf( name, sizeof( name ), "%s.cfg", ref.dllFuncs.R_GetConfigName() );
+	config_name = ref.dllFuncs.R_GetConfigName();
 
+	if( !config_name )
+		return;
+
+	Q_snprintf( name, sizeof( name ), "%s.cfg", config_name );
 
 	f = FS_Open( va( "%s.new", name ), "w", false );
 	if( f )
