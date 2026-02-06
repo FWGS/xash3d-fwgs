@@ -388,7 +388,7 @@ qboolean AVI_Think( movie_state_t *Avi )
 
 		if(( res = pav_read_frame( Avi->fmt_ctx, Avi->pkt )) >= 0 )
 		{
-			if( Avi->pkt->stream_index == Avi->audio_stream )
+			if( Avi->pkt->stream_index == Avi->audio_stream && Avi->audio_ctx )
 			{
 				res = pavcodec_send_packet( Avi->audio_ctx, Avi->pkt );
 				if( res < 0 )
