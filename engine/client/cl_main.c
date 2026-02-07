@@ -1054,7 +1054,8 @@ static void CL_GetCDKey( char *protinfo, size_t protinfosize )
 
 static void CL_WriteSteamTicket( sizebuf_t *send )
 {
-	const char *s;
+	string key;
+	netadr_t adr = { .type = NA_LOOPBACK, }; // goldsrc servers don't get unique key as xashid isn't sent raw to them
 	uint32_t crc;
 	char buf[768] = { 0 }; // setti and steamemu return 768
 	int i = sizeof( buf );
@@ -1072,11 +1073,11 @@ static void CL_WriteSteamTicket( sizebuf_t *send )
 	//	return;
 	//}
 
-	s = ID_GetMD5();
+	ID_GetMD5ForAddress( key, adr, sizeof( key ));
 	CRC32_Init( &crc );
-	CRC32_ProcessBuffer( &crc, s, Q_strlen( s ));
+	CRC32_ProcessBuffer( &crc, key, Q_strlen( key ));
 	crc = CRC32_Final( crc );
-	i = GenerateRevEmu2013( buf, s, crc );
+	i = GenerateRevEmu2013( buf, key, crc );
 	MSG_WriteBytes( send, buf, i );
 
 	// RevEmu2013: pTicket[1] = revHash (low), pTicket[5] = 0x01100001 (high)
@@ -1095,7 +1096,6 @@ connect.
 static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 {
 	char protinfo[MAX_INFO_STRING];
-	const char *key = ID_GetMD5();
 	netadr_t adr = { 0 };
 	int input_devices;
 	netadrtype_t adrtype;
@@ -1158,6 +1158,9 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	{
 		const char *qport = Cvar_VariableString( "net_qport" );
 		int extensions = NET_EXT_SPLITSIZE;
+		string key;
+
+		ID_GetMD5ForAddress( key, adr, sizeof( key ));
 
 		// reset nickname from cvar value
 		Info_SetValueForKey( cls.userinfo, "name", name.string, sizeof( cls.userinfo ));
@@ -1167,7 +1170,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
-		Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", extensions);
+		Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", extensions );
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, C2S_CONNECT" %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect with modern protocol\n" );
