@@ -393,7 +393,7 @@ static void NET_AddMaster_f( void )
 	master = NET_AddMaster( Cmd_Argv( 1 ));
 	master->save = true;
 
-	if( Q_stricmp( Cmd_Argv( 2 ), "gs" ))
+	if( !Q_stricmp( Cmd_Argv( 2 ), "gs" ))
 		master->gs = true;
 
 	ml.modified = true; // save config
