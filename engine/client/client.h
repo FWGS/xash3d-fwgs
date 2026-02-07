@@ -1228,7 +1228,7 @@ void OSK_Draw( void );
 // identification.c
 //
 void ID_Init( void );
-const char *ID_GetMD5( void );
+void ID_GetMD5ForAddress( char *key, netadr_t adr, size_t size );
 
 extern rgba_t g_color_table[8];
 extern triangleapi_t gTriApi;
