@@ -14,13 +14,14 @@ GNU General Public License for more details.
 */
 
 #include <inttypes.h>
-#include "common.h"
 #include <fcntl.h>
 #if !XASH_WIN32
 #include <dirent.h>
 #else
 #include <io.h>
 #endif
+#include "common.h"
+#include "client.h"
 
 /*
 ==========================================================
