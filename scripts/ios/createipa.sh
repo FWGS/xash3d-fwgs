@@ -3,7 +3,6 @@
 #cd into script directory
 cd "${0%/*}"
 BUILDDIR=$(realpath ../../build)
-echo $BUILDDIR
 cd "../../engine/platform/ios/bundle"
 
 if [ -d $BUILDDIR ]; then
@@ -12,11 +11,8 @@ if [ -d $BUILDDIR ]; then
     cp -r "$BUILDDIR/ios/dlls" "$BUILDDIR/ios/xash3d.app"
     cp -r "$BUILDDIR/ios/cl_dlls" "$BUILDDIR/ios/xash3d.app"
     cp -r "$BUILDDIR/ios/cstrike" "$BUILDDIR/ios/xash3d.app"
-    echo "Generating dSYMs for cl_dlls"
-    find "$BUILDDIR/ios/xash3d.app/cl_dlls" -name "*.dylib" -type f -exec dsymutil {} \;
-    echo "Generating dSYMS for dlls"
-    find "$BUILDDIR/ios/xash3d.app/dlls" -name "*.dylib" -type f -exec dsymutil {} \;
-    cp *.plist "$BUILDDIR/ios/xash3d.app"
+    cp Info.plist "$BUILDDIR/ios/xash3d.app"
+    cp ftp_commands.plist "$BUILDDIR/ios/xash3d.app"
     if [ ! -d $BUILDDIR/SDL2.framework ]; then
         echo "Couldn't find SDL2.framework, place it in the build directory"
         exit 1
@@ -25,9 +21,10 @@ if [ -d $BUILDDIR ]; then
 
     cd ../../../../
 
-    ./waf install --destdir="$BUILDDIR/ios/xash3d.app"
-    find "$BUILDDIR/ios/xash3d.app" -name "*.dylib" -type f -exec dsymutil {} \;
-    dsymutil "$BUILDDIR/ios/xash3d.app/xash"
+    ./waf build install --destdir="$BUILDDIR/ios/xash3d.app"
+    #echo "Generating dSYMs"
+    #find "$BUILDDIR/ios/xash3d.app" -name "*.dylib" -type f -exec dsymutil {} \;
+    #dsymutil "$BUILDDIR/ios/xash3d.app/xash"
 
     cd $BUILDDIR
 
@@ -37,6 +34,10 @@ if [ -d $BUILDDIR ]; then
     cp -r "$BUILDDIR/ios/xash3d.app" ios/Payload/
     rm -r "$BUILDDIR/ios/xash3d.app"
     cd ios
+    codesign --entitlements $(realpath ../../engine/platform/ios/bundle/entitlements.plist) --sign "-" --force Payload/xash3d.app
+    if [ -e ../xash3d.ipa ]; then
+    rm ../xash3d.ipa
+    fi
     zip -q -r ../xash3d.ipa Payload
     else
     echo "Couldn't find the build directory, compile the engine before running this script!"
