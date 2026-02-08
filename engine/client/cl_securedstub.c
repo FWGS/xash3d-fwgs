@@ -61,6 +61,7 @@ typedef struct cldll_func_src_s
 	void	(*pfnChatInputPosition)( int *x, int *y );
 	int	(*pfnGetPlayerTeam)( int iPlayer );
 	void	*(*pfnClientFactory)( void );
+	qboolean (*pfnVoice_StartChannel)( uint samples, const byte *data, int entnum );
 } cldll_func_src_t;
 
 typedef struct cldll_func_dst_s
@@ -107,6 +108,7 @@ typedef struct cldll_func_dst_s
 	void	(*pfnGetStudioModelInterface)( int *version, struct r_studio_interface_s ***ppinterface, struct engine_studio_api_s **pstudio );
 	void	(*pfnChatInputPosition)( int **x, int **y );
 	void	(*pfnGetPlayerTeam)( int *iPlayer );
+	qboolean (*pfnVoice_StartChannel)( uint *samples, const byte **data, int *entnum );
 } cldll_func_dst_t;
 
 struct cl_enginefunc_dst_s;
@@ -460,4 +462,5 @@ void CL_GetSecuredClientAPI( CL_EXPORT_FUNCS F )
 	clgame.dllFuncs.pfnDirectorMessage = cldllFuncSrc.pfnDirectorMessage;
 	clgame.dllFuncs.pfnGetStudioModelInterface = cldllFuncSrc.pfnGetStudioModelInterface;
 	clgame.dllFuncs.pfnChatInputPosition = cldllFuncSrc.pfnChatInputPosition;
+	clgame.dllFuncs.pfnVoice_StartChannel = cldllFuncSrc.pfnVoice_StartChannel;
 }

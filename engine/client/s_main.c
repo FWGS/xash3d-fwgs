@@ -1179,6 +1179,11 @@ S_RawEntSamples
 */
 void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol )
 {
+	S_RawEntSamplesEx( entnum, samples, rate, width, channels, data, snd_vol, ATTN_NONE );
+}
+
+void S_RawEntSamplesEx( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn )
+{
 	rawchan_t	*ch;
 
 	if( snd_vol < 0 )
@@ -1188,7 +1193,7 @@ void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word chan
 		return;
 
 	ch->master_vol = snd_vol;
-	ch->dist_mult = (ATTN_NONE / SND_CLIP_DISTANCE);
+	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
 	ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples, samples, rate, width, channels, data );
 	ch->leftvol = ch->rightvol = snd_vol;
 }

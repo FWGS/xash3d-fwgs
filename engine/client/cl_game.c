@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "r_efx.h"
 #include "demo_api.h"
 #include "ivoicetweak.h"
+#include "voice.h"
 #include "pm_local.h"
 #include "cl_tent.h"
 #include "input.h"
@@ -96,6 +97,7 @@ static const dllfunc_t cdll_new_exports[] = 	// allowed only in SDK 2.3 and high
 { "IN_ClientTouchEvent", (void **)&clgame.dllFuncs.pfnTouchEvent}, // Xash3D FWGS ext
 { "IN_ClientMoveEvent", (void **)&clgame.dllFuncs.pfnMoveEvent}, // Xash3D FWGS ext
 { "IN_ClientLookEvent", (void **)&clgame.dllFuncs.pfnLookEvent}, // Xash3D FWGS ext
+{ "Voice_StartChannel", (void **)&clgame.dllFuncs.pfnVoice_StartChannel}, // Xash3D FWGS (DarkDemo fork) Voice extension
 };
 
 static void pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc );
@@ -3153,6 +3155,44 @@ static void GAME_EXPORT pfnPlaySoundByNameAtPitch( char *filename, float volume,
 
 /*
 =============
+pfnS_RawEntSamples
+
+=============
+*/
+static void GAME_EXPORT pfnS_RawEntSamples( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn )
+{
+	S_RawEntSamplesEx( entnum, samples, rate, width, channels, data, snd_vol, attn );
+}
+
+/*
+=============
+pfnSND_ForceInitMouth
+
+=============
+*/
+static void GAME_EXPORT pfnSND_ForceInitMouth( int entnum )
+{
+	SND_ForceInitMouth( entnum );
+}
+
+/*
+=============
+pfnGetVoiceAudioInfo
+
+=============
+*/
+static voice_audio_info_t GAME_EXPORT pfnGetVoiceAudioInfo( void )
+{
+	voice_audio_info_t info = { 0 };
+	info.width = voice.width;
+	info.samplerate = voice.samplerate;
+	info.frame_size = voice.frame_size;
+
+	return info;
+}
+
+/*
+=============
 pfnFillRGBABlend
 
 =============
@@ -3923,7 +3963,10 @@ static cl_enginefunc_t gEngfuncs =
 	pfnGetAppID,
 	Cmd_AliasGetList,
 	pfnVguiWrap2_GetMouseDelta,
-	pfnFilteredClientCmd
+	pfnFilteredClientCmd,
+	pfnS_RawEntSamples,
+	pfnSND_ForceInitMouth,
+	pfnGetVoiceAudioInfo
 };
 
 void CL_UnloadProgs( void )

@@ -110,6 +110,13 @@ typedef struct hud_player_info_s
 	uint64_t	m_nSteamID;
 } hud_player_info_t;
 
+typedef struct voice_audio_info_s
+{
+	uint width;
+	uint samplerate;
+	uint frame_size; // in samples
+} voice_audio_info_t;
+
 struct screenfade_s;
 struct tagPOINT;
 struct event_args_s;
@@ -306,6 +313,11 @@ typedef struct cl_enginefuncs_s
 
 	// added in 2019 update, not documented yet
 	int		(*pfnFilteredClientCmd)( const char *cmd );
+
+	// Voice extensions
+	void (*pfnS_RawEntSamples)( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn );
+	void (*pfnSND_ForceInitMouth)( int entnum );
+	voice_audio_info_t (*pfnGetVoiceAudioInfo)( void );
 } cl_enginefunc_t;
 
 #define CLDLL_INTERFACE_VERSION	7

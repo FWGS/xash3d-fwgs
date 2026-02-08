@@ -506,6 +506,7 @@ typedef struct
 	int	(*pfnShouldCollide)( edict_t *pentTouched, edict_t *pentOther );
 	void	(*pfnCvarValue)( const edict_t *pEnt, const char *value );
 	void	(*pfnCvarValue2)( const edict_t *pEnt, int requestID, const char *cvarName, const char *value );
+	qboolean	(*pfnVoiceData)( int clientID, uint frames, uint size, qboolean loopback, const char *received );
 } NEW_DLL_FUNCTIONS;
 typedef int	(*NEW_DLL_FUNCTIONS_FN)( NEW_DLL_FUNCTIONS *pFunctionTable, int *interfaceVersion );
 

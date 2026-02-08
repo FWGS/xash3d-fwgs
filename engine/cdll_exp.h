@@ -74,6 +74,8 @@ typedef struct cldll_func_s
 	int (*pfnTouchEvent)( int type, int fingerID, float x, float y, float dx, float dy );
 	void (*pfnMoveEvent)( float forwardmove, float sidemove );
 	void (*pfnLookEvent)( float relyaw, float relpitch );
+	// Voice extensions
+	qboolean (*pfnVoice_StartChannel)( uint samples, const byte *data, int entnum );
 } cldll_func_t;
 
 #endif//CDLL_EXP_H
