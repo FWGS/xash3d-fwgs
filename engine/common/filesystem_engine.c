@@ -264,7 +264,7 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 		return true;
 	}
 
-#if TARGET_OS_IOS
+#if XASH_IOS
 	Q_strncpy( out, IOS_GetDocsDir(), size );
 	return true;
 #elif XASH_PSVITA
