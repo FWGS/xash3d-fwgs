@@ -811,7 +811,7 @@ Mod_DecompressPVS
 TODO: replace all Mod_DecompressPVS calls by this
 ===================
 */
-static void Mod_DecompressPVSTo( byte *const out, const byte *in, size_t visbytes )
+void Mod_DecompressPVSTo( byte *const out, const byte *in, size_t visbytes )
 {
 	byte *dst = out;
 

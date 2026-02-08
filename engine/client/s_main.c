@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "con_nprint.h"
 #include "pm_local.h"
 #include "platform/platform.h"
+#include "cl_tent.h"
 
 dma_t		dma;
 poolhandle_t sndpool;
@@ -45,6 +46,9 @@ CVAR_DEFINE_AUTO( snd_mute_losefocus, "1", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "sile
 CVAR_DEFINE_AUTO( s_test, "0", 0, "engine developer cvar for quick testing new features" );
 CVAR_DEFINE_AUTO( s_samplecount, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "sample count (0 for default value)" );
 CVAR_DEFINE_AUTO( s_warn_late_precache, "0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "warn about late precached sounds on client-side" );
+CVAR_DEFINE_AUTO( s_occlusion, "1", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "enable audio occlusion (lowpass filter for sounds behind obstacles)" );
+CVAR_DEFINE_AUTO( s_occlusion_cutoff, "2000", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "lowpass filter cutoff frequency in Hz for occluded sounds" );
+CVAR_DEFINE_AUTO( s_occlusion_debug, "0", FCVAR_FILTERABLE, "draw occlusion rays for debugging" );
 
 /*
 =============================================================================
@@ -481,6 +485,115 @@ static void S_SpatializeChannel( int *left_vol, int *right_vol, int master_vol, 
 
 /*
 =================
+S_CheckAudioOcclusion
+Проверка видимости источника звука через множественные raycast'ы в конусе
+Возвращает cutoff частоту для lowpass фильтра (0 = нет фильтра)
+=================
+*/
+static float S_CheckAudioOcclusion( channel_t *ch, float dist )
+{
+	vec3_t camera_pos, source_pos;
+	vec3_t dir, right, up;
+	vec3_t ray_end;
+	vec3_t temp;
+	vec3_t offset;
+	vec3_t target_pos;
+	vec3_t source_offset;
+	vec3_t source_target;
+	pmtrace_t *trace;
+	int hits;
+	int total_rays;
+	int i;
+	float cone_angle_deg;
+	float cone_angle_rad;
+	float cone_radius;
+	float angle, cos_a, sin_a;
+	float occlusion_factor;
+
+	if( !s_occlusion.value || ch->dist_mult <= 0.0f || dist <= 0.0f )
+		return 0.0f;
+
+	hits = 0;
+	total_rays = 9;
+	cone_angle_deg = 25.0f;
+	cone_angle_rad = cone_angle_deg * (M_PI / 180.0f);
+	cone_radius = dist * tan( cone_angle_rad );
+	float source_radius = cone_radius * 0.3f;
+
+	VectorCopy( s_listener.origin, camera_pos );
+	VectorCopy( ch->origin, source_pos );
+
+	VectorSubtract( source_pos, camera_pos, dir );
+	VectorNormalize( dir );
+
+	VectorCopy( s_listener.right, right );
+	VectorCopy( s_listener.up, up );
+
+	if( fabs( DotProduct( right, dir )) > 0.9f )
+	{
+		CrossProduct( up, dir, temp );
+		if( VectorLength( temp ) > 0.1f )
+		{
+			VectorNormalize( temp );
+			VectorCopy( temp, right );
+			CrossProduct( dir, right, up );
+			VectorNormalize( up );
+		}
+	}
+
+	// Central raycast directly to source
+	VectorMA( camera_pos, dist, dir, ray_end );
+	trace = CL_VisTraceLine( camera_pos, ray_end, PM_WORLD_ONLY );
+	if( trace && trace->fraction < 1.0f )
+		hits++;
+	
+	if( s_occlusion_debug.value )
+	{
+		if( trace && trace->fraction < 1.0f )
+			R_ParticleLine( camera_pos, ray_end, 255, 0, 0, 0.1f );
+		else
+			R_ParticleLine( camera_pos, ray_end, 0, 255, 0, 0.1f );
+	}
+
+	// 8 raycasts in a cone: from points around camera to points around source
+	for( i = 0; i < 8; i++ )
+	{
+		angle = (float)i * (M_PI * 2.0f / 8.0f);
+		cos_a = cos( angle );
+		sin_a = sin( angle );
+
+		VectorScale( right, cos_a * cone_radius, offset );
+		VectorMA( offset, sin_a * cone_radius, up, offset );
+		VectorAdd( camera_pos, offset, target_pos );
+
+		VectorScale( right, cos_a * source_radius, source_offset );
+		VectorMA( source_offset, sin_a * source_radius, up, source_offset );
+		VectorAdd( source_pos, source_offset, source_target );
+
+		trace = CL_VisTraceLine( target_pos, source_target, PM_WORLD_ONLY );
+		if( trace && trace->fraction < 1.0f )
+			hits++;
+		
+		if( s_occlusion_debug.value )
+		{
+			if( trace && trace->fraction < 1.0f )
+				R_ParticleLine( target_pos, source_target, 255, 0, 0, 0.1f );
+			else
+				R_ParticleLine( target_pos, source_target, 0, 255, 0, 0.1f );
+		}
+	}
+
+	occlusion_factor = (float)hits / (float)total_rays;
+	if( occlusion_factor == 1.0f )
+	{
+		return s_occlusion_cutoff.value;
+	}
+
+	return 0.0f;
+}
+
+/*
+=================
 SND_Spatialize
 =================
 */
@@ -527,6 +640,9 @@ static void SND_Spatialize( channel_t *ch )
 		// don't pan sounds with no attenuation
 		if( ch->dist_mult <= 0.0f ) dot = 0.0f;
 	}
+
+	// For darkdemo game
+	ch->lowpass_cutoff = S_CheckAudioOcclusion( ch, dist );
 
 	// fill out channel volumes for single location
 	S_SpatializeChannel( &ch->leftvol, &ch->rightvol, ch->master_vol, gain, dot, dist * ch->dist_mult );
@@ -1848,6 +1964,9 @@ qboolean S_Init( void )
 	Cvar_RegisterVariable( &s_test );
 	Cvar_RegisterVariable( &s_samplecount );
 	Cvar_RegisterVariable( &s_warn_late_precache );
+	Cvar_RegisterVariable( &s_occlusion );
+	Cvar_RegisterVariable( &s_occlusion_cutoff );
+	Cvar_RegisterVariable( &s_occlusion_debug );
 
 	if( Sys_CheckParm( "-nosound" ))
 	{

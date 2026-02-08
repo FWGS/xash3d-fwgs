@@ -143,6 +143,10 @@ typedef struct channel_s
 	int       wordIndex;
 	mixer_t  *currentWord; // NULL if sentence is finished
 	voxword_t words[CVOXWORDMAX];
+
+	// Audio Occlusion - lowpass filter state
+	float    lowpass_cutoff;  // cutoff frequency in Hz (0 = no filter)
+	float    lowpass_lp[2];   // lowpass filter state for left/right channels
 } channel_t;
 
 typedef struct
@@ -197,6 +201,8 @@ extern convar_t s_test;  // cvar to test new effects
 extern convar_t s_samplecount;
 extern convar_t s_warn_late_precache;
 extern convar_t snd_mute_losefocus;
+extern convar_t s_occlusion;
+extern convar_t s_occlusion_cutoff;
 
 void S_InitScaletable( void );
 wavdata_t *S_LoadSound( sfx_t *sfx );
