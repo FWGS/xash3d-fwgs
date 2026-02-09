@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #define CUSTOM_MODES 1 // required to correctly link with Opus Custom
 #include <opus_custom.h>
 #include <opus.h>
+#include <math.h>
 #include "common.h"
 #include "client.h"
 #include "voice.h"
@@ -31,6 +32,9 @@ static CVAR_DEFINE_AUTO( voice_transmit_scale, "1.0", FCVAR_PRIVILEGED | FCVAR_A
 static CVAR_DEFINE_AUTO( voice_avggain, "0.5", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "automatic voice gain control (average)" );
 static CVAR_DEFINE_AUTO( voice_maxgain, "5.0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "automatic voice gain control (maximum)" );
 static CVAR_DEFINE_AUTO( voice_inputfromfile, "0", FCVAR_PRIVILEGED, "input voice from voice_input.wav" );
+static CVAR_DEFINE_AUTO( voice_activation, "0", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "enable voice activation by noise level" );
+static CVAR_DEFINE_AUTO( voice_activation_threshold, "0.02", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "noise level threshold for voice activation (0.0-1.0)" );
+static CVAR_DEFINE_AUTO( voice_activation_silence_time, "0.5", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "time in seconds of silence before stopping recording" );
 
 static void Voice_StartChannel( uint samples, byte *data, int entnum );
 
@@ -830,6 +834,124 @@ qboolean Voice_IsRecording( void )
 
 /*
 =========================
+Voice_CheckNoiseLevel
+
+Check noise level in input buffer (RMS calculation)
+Returns normalized volume level (0.0 - 1.0)
+=========================
+*/
+static float Voice_CheckNoiseLevel( const int16_t *pcm_data, int samples )
+{
+	if( samples == 0 )
+		return 0.0f;
+
+	// Calculate RMS (Root Mean Square)
+	long long sum_squares = 0;
+	for( int i = 0; i < samples; i++ )
+	{
+		long long sample = (long long)pcm_data[i];
+		sum_squares += sample * sample;
+	}
+
+	double rms = sqrt( (double)sum_squares / (double)samples );
+	float normalized = (float)(rms / 32767.0);
+	return Q_min( normalized, 1.0f );
+}
+
+/*
+=========================
+Voice_ReadInputData
+
+Read microphone data into input_buffer (for noise detection when not recording)
+This keeps input_buffer filled even when recording is not active
+=========================
+*/
+static void Voice_ReadInputData( void )
+{
+	if( !voice.device_opened || voice.input_file )
+		return;
+
+	if( !Voice_IsRecording() && voice_activation.value )
+	{
+		if( !voice.noise_detection_active )
+		{
+			if( !VoiceCapture_Activate( true ))
+				return;
+			voice.noise_detection_active = true;
+		}
+	}
+
+	VoiceCapture_Lock( true );
+	VoiceCapture_Lock( false );
+}
+
+/*
+=========================
+Voice_CheckNoiseActivation
+
+Check noise level in input_buffer and start/stop recording accordingly
+Called from Voice_Idle after data is read
+=========================
+*/
+static void Voice_CheckNoiseActivation( void )
+{
+	if( !voice_activation.value || !voice.device_opened || voice.input_file )
+		return;
+
+	if( cls.state != ca_active )
+		return;
+
+	double current_time = Sys_DoubleTime();
+	uint frame_size_bytes = voice.frame_size * voice.width;
+	float noise_level = 0.0f;
+	qboolean has_noise = false;
+
+	if( voice.input_buffer_pos < frame_size_bytes )
+		return;
+
+	noise_level = Voice_CheckNoiseLevel( (int16_t *)voice.input_buffer, voice.frame_size );
+	has_noise = noise_level >= voice_activation_threshold.value;
+
+	if( !Voice_IsRecording() )
+	{
+		if( has_noise )
+		{
+			voice.is_recording = true;
+			voice.was_recording_by_noise = true;
+			voice.silence_start_time = 0.0;
+			voice.noise_detection_active = false;
+			Voice_Status( VOICE_LOCALCLIENT_INDEX, true );
+		}
+		else
+		{
+			fs_offset_t remaining = voice.input_buffer_pos - frame_size_bytes;
+			if( remaining > 0 )
+				memmove( voice.input_buffer, voice.input_buffer + frame_size_bytes, remaining );
+			voice.input_buffer_pos = remaining;
+		}
+	}
+	else if( voice.was_recording_by_noise )
+	{
+		if( !has_noise )
+		{
+			if( voice.silence_start_time == 0.0 )
+				voice.silence_start_time = current_time;
+			else if( current_time - voice.silence_start_time >= voice_activation_silence_time.value )
+			{
+				Voice_RecordStop();
+				voice.was_recording_by_noise = false;
+				voice.silence_start_time = 0.0;
+			}
+		}
+		else
+		{
+			voice.silence_start_time = 0.0;
+		}
+	}
+}
+
+/*
+=========================
 Voice_RecordStop
 
 Stop voice recording
@@ -843,13 +965,26 @@ void Voice_RecordStop( void )
 		voice.input_file = NULL;
 	}
 
-	VoiceCapture_Activate( false );
 	voice.is_recording = false;
 
 	Voice_Status( VOICE_LOCALCLIENT_INDEX, false );
 
 	voice.input_buffer_pos = 0;
 	memset( voice.input_buffer, 0, sizeof( voice.input_buffer ));
+
+	voice.silence_start_time = 0.0;
+	voice.was_recording_by_noise = false;
+	voice.input_buffer_pos = 0;
+
+	if( !voice_activation.value || !voice.device_opened || voice.input_file )
+	{
+		VoiceCapture_Activate( false );
+		voice.noise_detection_active = false;
+	}
+	else
+	{
+		voice.noise_detection_active = true;
+	}
 }
 
 /*
@@ -886,7 +1021,14 @@ void Voice_RecordStart( void )
 	}
 
 	if( !Voice_IsRecording( ) && voice.device_opened )
+	{
 		voice.is_recording = VoiceCapture_Activate( true );
+		if( voice.is_recording && voice_activation.value )
+		{
+			voice.was_recording_by_noise = true;
+			voice.noise_detection_active = false;
+		}
+	}
 
 	if( Voice_IsRecording())
 		Voice_Status( VOICE_LOCALCLIENT_INDEX, true );
@@ -917,6 +1059,7 @@ void Voice_Disconnect( void )
 
 	VoiceCapture_Shutdown();
 	voice.device_opened = false;
+	voice.noise_detection_active = false;
 
 
 	Voice_ShutdownOpusDecoder();
@@ -1035,7 +1178,10 @@ void CL_AddVoiceToDatagram( void )
 	byte buffer[VOICE_MAX_DATA_SIZE];
 	uint size, frames;
 
-	if( cls.state != ca_active || !voice.device_opened || !Voice_IsRecording())
+	if( cls.state != ca_active || !voice.device_opened )
+		return;
+
+	if( !Voice_IsRecording() )
 		return;
 
 	if( voice.goldsrc )
@@ -1084,6 +1230,9 @@ void Voice_RegisterCvars( void )
 	Cvar_RegisterVariable( &voice_avggain );
 	Cvar_RegisterVariable( &voice_maxgain );
 	Cvar_RegisterVariable( &voice_inputfromfile );
+	Cvar_RegisterVariable( &voice_activation );
+	Cvar_RegisterVariable( &voice_activation_threshold );
+	Cvar_RegisterVariable( &voice_activation_silence_time );
 }
 
 /*
@@ -1115,6 +1264,7 @@ static void Voice_Shutdown( void )
 	voice.initialized = false;
 	voice.is_recording = false;
 	voice.device_opened = false;
+	voice.noise_detection_active = false;
 	voice.goldsrc = false;
 	voice.start_time = 0.0;
 	voice.samplerate = 0;
@@ -1156,6 +1306,20 @@ void Voice_Idle( double frametime )
 
 	// update local player status first
 	Voice_StatusTimeout( &voice.local, VOICE_LOOPBACK_INDEX, frametime );
+
+	if( voice.initialized && cls.state == ca_active && voice.device_opened )
+	{
+		if( Voice_IsRecording() || (voice_activation.value && !voice.input_file) )
+			Voice_ReadInputData();
+
+		if( voice_activation.value && !voice.input_file )
+			Voice_CheckNoiseActivation();
+		else if( !voice_activation.value && voice.noise_detection_active && !Voice_IsRecording() )
+		{
+			VoiceCapture_Activate( false );
+			voice.noise_detection_active = false;
+		}
+	}
 }
 
 /*
@@ -1172,6 +1336,8 @@ qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit )
 
 	if( !voice_enable.value )
 		return false;
+
+	Con_DPrintf("VoiceInit %s", pszCodecName);
 
 	if( preinit )
 		return true;

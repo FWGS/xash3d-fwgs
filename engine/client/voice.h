@@ -114,6 +114,11 @@ typedef struct voice_state_s
 	fs_offset_t      input_file_pos; // in bytes
 
 	voice_autogain_t autogain;
+
+	// voice activation by noise
+	double silence_start_time; // time when silence started (for auto-stop)
+	qboolean was_recording_by_noise; // was recording started by noise activation
+	qboolean noise_detection_active; // is noise detection currently active (capture active but not recording)
 } voice_state_t;
 
 extern voice_state_t voice;
