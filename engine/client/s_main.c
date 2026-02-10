@@ -490,9 +490,13 @@ S_CheckAudioOcclusion
 Возвращает cutoff частоту для lowpass фильтра (0 = нет фильтра)
 =================
 */
-static float S_CheckAudioOcclusion( channel_t *ch, float dist )
+// Common occlusion check function
+// source_pos: position of sound source
+// dist: distance from listener to source
+// dist_mult: distance multiplier (attenuation/clipK), used to check if occlusion should be applied
+static float S_CheckAudioOcclusionCommon( const vec3_t source_pos, float dist, float dist_mult )
 {
-	vec3_t camera_pos, source_pos;
+	vec3_t camera_pos;
 	vec3_t dir, right, up;
 	vec3_t ray_end;
 	vec3_t temp;
@@ -510,7 +514,7 @@ static float S_CheckAudioOcclusion( channel_t *ch, float dist )
 	float angle, cos_a, sin_a;
 	float occlusion_factor;
 
-	if( !s_occlusion.value || ch->dist_mult <= 0.0f || dist <= 0.0f )
+	if( !s_occlusion.value || dist_mult <= 0.0f || dist <= 0.0f )
 		return 0.0f;
 
 	hits = 0;
@@ -521,7 +525,6 @@ static float S_CheckAudioOcclusion( channel_t *ch, float dist )
 	float source_radius = cone_radius * 0.3f;
 
 	VectorCopy( s_listener.origin, camera_pos );
-	VectorCopy( ch->origin, source_pos );
 
 	VectorSubtract( source_pos, camera_pos, dir );
 	VectorNormalize( dir );
@@ -541,7 +544,6 @@ static float S_CheckAudioOcclusion( channel_t *ch, float dist )
 		}
 	}
 
-	// Central raycast directly to source
 	VectorMA( camera_pos, dist, dir, ray_end );
 	trace = CL_VisTraceLine( camera_pos, ray_end, PM_WORLD_ONLY );
 	if( trace && trace->fraction < 1.0f )
@@ -555,7 +557,6 @@ static float S_CheckAudioOcclusion( channel_t *ch, float dist )
 			R_ParticleLine( camera_pos, ray_end, 0, 255, 0, 0.1f );
 	}
 
-	// 8 raycasts in a cone: from points around camera to points around source
 	for( i = 0; i < 8; i++ )
 	{
 		angle = (float)i * (M_PI * 2.0f / 8.0f);
@@ -590,6 +591,16 @@ static float S_CheckAudioOcclusion( channel_t *ch, float dist )
 	}
 
 	return 0.0f;
+}
+
+static float S_CheckAudioOcclusionRaw( rawchan_t *ch, float dist )
+{
+	return S_CheckAudioOcclusionCommon( ch->origin, dist, ch->dist_mult );
+}
+
+static float S_CheckAudioOcclusion( channel_t *ch, float dist )
+{
+	return S_CheckAudioOcclusionCommon( ch->origin, dist, ch->dist_mult );
 }
 
 /*
@@ -669,6 +680,11 @@ SV_StartSound.
 */
 void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fvol, float attn, int pitch, int flags )
 {
+	if( clgame.soundFuncs.pfnS_StartSound )
+	{
+		clgame.soundFuncs.pfnS_StartSound( pos, ent, chan, handle, fvol, attn, pitch, flags );
+		return;
+	}
 	wavdata_t	*pSource;
 	sfx_t	*sfx = NULL;
 	channel_t	*target_chan, *check;
@@ -782,6 +798,11 @@ Restore a sound effect for the given entity on the given channel
 */
 void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float fvol, float attn, int pitch, int flags, double sample, double end, int wordIndex )
 {
+	if( clgame.soundFuncs.pfnS_RestoreSound )
+	{
+		clgame.soundFuncs.pfnS_RestoreSound( pos, ent, chan, handle, fvol, attn, pitch, flags, sample, end, wordIndex );
+		return;
+	}
 	wavdata_t	*pSource;
 	sfx_t	*sfx = NULL;
 	channel_t	*target_chan;
@@ -895,6 +916,11 @@ NOTE: volume is 0.0 - 1.0 and attenuation is 0.0 - 1.0 when passed in.
 */
 void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, float attn, int pitch, int flags )
 {
+	if( clgame.soundFuncs.pfnS_AmbientSound )
+	{
+		clgame.soundFuncs.pfnS_AmbientSound( pos, ent, handle, fvol, attn, pitch, flags );
+		return;
+	}
 	channel_t	*ch;
 	wavdata_t	*pSource = NULL;
 	sfx_t	*sfx = NULL;
@@ -973,6 +999,11 @@ S_StartLocalSound
 */
 void S_StartLocalSound(  const char *name, float volume, qboolean reliable )
 {
+	if( clgame.soundFuncs.pfnS_StartLocalSound )
+	{
+		clgame.soundFuncs.pfnS_StartLocalSound( name, volume, reliable );
+		return;
+	}
 	sound_t	sfxHandle;
 	int	flags = (SND_LOCALSOUND|SND_STOP_LOOPING);
 	int	channel = CHAN_AUTO;
@@ -1300,6 +1331,11 @@ void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word chan
 
 void S_RawEntSamplesEx( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn )
 {
+	if( clgame.soundFuncs.pfnS_RawEntSamplesEx )
+	{
+		clgame.soundFuncs.pfnS_RawEntSamplesEx( entnum, samples, rate, (unsigned short)width, (unsigned short)channels, data, snd_vol, attn );
+		return;
+	}
 	rawchan_t	*ch;
 
 	if( snd_vol < 0 )
@@ -1310,8 +1346,14 @@ void S_RawEntSamplesEx( int entnum, uint samples, uint rate, word width, word ch
 
 	ch->master_vol = snd_vol;
 	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
+	ch->lowpass_cutoff = 0.0f;
+	ch->lowpass_lp[0] = 0.0f;
+	ch->lowpass_lp[1] = 0.0f;
 	ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples, samples, rate, width, channels, data );
-	ch->leftvol = ch->rightvol = snd_vol;
+
+	if (attn == 0.0f) {
+		ch->leftvol = ch->rightvol = snd_vol;
+	}
 }
 
 /*
@@ -1397,27 +1439,28 @@ static void S_SpatializeRawChannels( void )
 		{
 			if( !CL_GetMovieSpatialization( ch ))
 			{
-				// origin is null and entity not exist on client
 				ch->leftvol = ch->rightvol = 0;
+				ch->lowpass_cutoff = 0.0f;
 			}
 			else
 			{
 				VectorSubtract( ch->origin, s_listener.origin, source_vec );
 
-				// normalize source_vec and get distance from listener to source
 				dist = VectorNormalizeLength( source_vec );
 				dot = DotProduct( s_listener.right, source_vec );
 
-				// don't pan sounds with no attenuation
 				if( ch->dist_mult <= 0.0f ) dot = 0.0f;
 
-				// fill out channel volumes for single location
 				S_SpatializeChannel( &ch->leftvol, &ch->rightvol, ch->master_vol, 1.0f, dot, dist * ch->dist_mult );
+
+				// Check audio occlusion
+				ch->lowpass_cutoff = S_CheckAudioOcclusionRaw( ch, dist );
 			}
 		}
 		else
 		{
 			ch->leftvol = ch->rightvol = ch->master_vol;
+			ch->lowpass_cutoff = 0.0f;
 		}
 	}
 }
@@ -1468,6 +1511,11 @@ stop all sounds for entity on a channel.
 */
 void GAME_EXPORT S_StopSound( int entnum, int channel, const char *soundname )
 {
+	if( clgame.soundFuncs.pfnS_StopSound )
+	{
+		clgame.soundFuncs.pfnS_StopSound( entnum, channel, soundname );
+		return;
+	}
 	sfx_t	*sfx;
 
 	if( !dma.initialized ) return;
@@ -1482,6 +1530,11 @@ S_StopAllSounds
 */
 void S_StopAllSounds( qboolean ambient )
 {
+	if( clgame.soundFuncs.pfnS_StopAllSounds )
+	{
+		clgame.soundFuncs.pfnS_StopAllSounds( ambient );
+		return;
+	}
 	int	i;
 
 	if( !dma.initialized ) return;
@@ -1589,6 +1642,12 @@ Don't let sound skip if going slow
 */
 void S_ExtraUpdate( void )
 {
+	if( clgame.soundFuncs.pfnS_ExtraUpdate )
+	{
+		clgame.soundFuncs.pfnS_ExtraUpdate();
+		return;
+	}
+
 	if( !dma.initialized ) return;
 	S_UpdateChannels ();
 }
@@ -1619,6 +1678,12 @@ Called once each time through the main loop
 */
 void SND_UpdateSound( void )
 {
+	if( clgame.soundFuncs.pfnSND_UpdateSound )
+	{
+		clgame.soundFuncs.pfnSND_UpdateSound();
+		return;
+	}
+
 	int		i, j, total;
 	channel_t		*ch, *combine;
 	con_nprint_t	info;
@@ -1947,6 +2012,37 @@ static void S_VoiceRecordStop_f( void )
 
 /*
 ================
+S_GetSoundWavdata
+================
+Returns wavdata for handle (engine's wavdata_t). Client reads buffer, rate, width, channels, samples.
+*/
+static wavdata_t *S_GetSoundWavdata( sound_t handle )
+{
+	sfx_t *sfx = S_GetSfxByHandle( handle );
+	if( !sfx ) return NULL;
+	return S_LoadSound( sfx );
+}
+
+/*
+================
+S_FillSoundAPI
+================
+*/
+static sound_api_t s_clientSoundAPI;
+
+static void S_FillSoundAPI( sound_api_t *api )
+{
+	memset( api, 0, sizeof( *api ));
+	api->S_RegisterSound = S_RegisterSound;
+	api->Host_Error = Host_Error;
+	api->Cvar_Set = Cvar_Set;
+	api->Con_Printf = Con_Printf;
+	api->Con_Reportf = Con_Reportf;
+	api->GetSoundWavdata = S_GetSoundWavdata;
+}
+
+/*
+================
 S_Init
 ================
 */
@@ -2003,12 +2099,31 @@ qboolean S_Init( void )
 	// clear ambient sounds
 	memset( ambient_sfx, 0, sizeof( ambient_sfx ));
 
-	MIX_InitAllPaintbuffers ();
 	SX_Init ();
-	S_InitScaletable ();
 	S_StopAllSounds ( true );
 	S_InitSounds ();
 	VOX_Init ();
+
+	memset( &clgame.soundFuncs, 0, sizeof( clgame.soundFuncs ));
+
+	if( clgame.dllFuncs.pfnGetSoundInterface )
+	{
+		S_FillSoundAPI( &s_clientSoundAPI );
+		if( clgame.dllFuncs.pfnGetSoundInterface( CL_SOUND_INTERFACE_VERSION, &s_clientSoundAPI, &clgame.soundFuncs ))
+		{
+			if( clgame.soundFuncs.pfnS_Init && clgame.soundFuncs.pfnS_Init( &dma, &s_listener ))
+			{
+				Con_Reportf( "%s: ^2initialized extended SoundAPI ^7ver. %i\n", __func__, CL_SOUND_INTERFACE_VERSION );
+				// Skip mixer initialization - client handles mixing
+				return true;
+			}
+			memset( &clgame.soundFuncs, 0, sizeof( clgame.soundFuncs ));
+		}
+	}
+
+	// No custom sound interface, initialize built-in mixer
+	MIX_InitAllPaintbuffers ();
+	S_InitScaletable ();
 
 	return true;
 }
@@ -2016,10 +2131,13 @@ qboolean S_Init( void )
 // =======================================================================
 // Shutdown sound engine
 // =======================================================================
+// =======================================================================
+// Shutdown sound engine
+// =======================================================================
 void S_Shutdown( void )
 {
 	if( !dma.initialized ) return;
-
+	
 	Cmd_RemoveCommand( "play" );
 	Cmd_RemoveCommand( "playvol" );
 	Cmd_RemoveCommand( "stopsound" );
@@ -2033,6 +2151,15 @@ void S_Shutdown( void )
 	Cmd_RemoveCommand( "speak" );
 	Cmd_RemoveCommand( "spk" );
 
+	// If custom sound interface is active, call its shutdown first
+	if( clgame.soundFuncs.pfnS_Shutdown )
+	{
+		clgame.soundFuncs.pfnS_Shutdown();
+	} else {
+		MIX_FreeAllPaintbuffers ();
+	}
+
+
 	S_StopAllSounds (false);
 	S_FreeRawChannels ();
 	S_FreeSounds ();
@@ -2040,6 +2167,6 @@ void S_Shutdown( void )
 	SX_Free ();
 
 	SNDDMA_Shutdown ();
-	MIX_FreeAllPaintbuffers ();
+
 	Mem_FreePool( &sndpool );
 }

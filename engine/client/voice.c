@@ -1337,8 +1337,6 @@ qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit )
 	if( !voice_enable.value )
 		return false;
 
-	Con_DPrintf("VoiceInit %s", pszCodecName);
-
 	if( preinit )
 		return true;
 

@@ -872,6 +872,7 @@ static inline qboolean Host_IsLocalClient( void )
 
 // soundlib shared exports
 qboolean S_Init( void );
+qboolean S_InitSoundAPI( void );	// after CL_LoadProgs; custom or built-in sound
 void S_Shutdown( void );
 void S_StopSound( int entnum, int channel, const char *soundname );
 int S_GetCurrentStaticSounds( soundlist_t *pout, int size );

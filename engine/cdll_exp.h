@@ -23,6 +23,12 @@ struct mstudioevent_s;
 struct engine_studio_api_s;
 struct r_studio_interface_s;
 
+struct sound_api_s;
+struct sound_interface_s;
+
+typedef struct sound_api_s sound_api_t;
+typedef struct sound_interface_s sound_interface_t;
+
 // NOTE: ordering is important!
 typedef struct cldll_func_s
 {
@@ -69,6 +75,7 @@ typedef struct cldll_func_s
 	void	(*pfnChatInputPosition)( int *x, int *y );
 	// Xash3D extension
 	int	(*pfnGetRenderInterface)( int version, render_api_t *renderfuncs, render_interface_t *callback );
+	int	(*pfnGetSoundInterface)( int version, sound_api_t *soundfuncs, sound_interface_t *callback );
 	void	(*pfnClipMoveToEntity)( struct physent_s *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, struct pmtrace_s *tr );
 	// Xash3D FWGS extension
 	int (*pfnTouchEvent)( int type, int fingerID, float x, float y, float dx, float dy );

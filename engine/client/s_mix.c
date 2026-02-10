@@ -833,8 +833,17 @@ static void MIX_MixRawSamplesBuffer( int end )
 
 		for( j = paintedtime; j < stop; j++ )
 		{
-			pbuf[j-paintedtime].left += ( ch->rawsamples[j & ( ch->max_samples - 1 )].left * ch->leftvol ) >> 8;
-			pbuf[j-paintedtime].right += ( ch->rawsamples[j & ( ch->max_samples - 1 )].right * ch->rightvol ) >> 8;
+			int left_sample = ch->rawsamples[j & ( ch->max_samples - 1 )].left;
+			int right_sample = ch->rawsamples[j & ( ch->max_samples - 1 )].right;
+
+			if( ch->lowpass_cutoff > 0.0f )
+			{
+				left_sample = S_ApplyLowpass( ch->lowpass_cutoff, SOUND_DMA_SPEED, &ch->lowpass_lp[0], left_sample );
+				right_sample = S_ApplyLowpass( ch->lowpass_cutoff, SOUND_DMA_SPEED, &ch->lowpass_lp[1], right_sample );
+			}
+
+			pbuf[j-paintedtime].left += ( left_sample * ch->leftvol ) >> 8;
+			pbuf[j-paintedtime].right += ( right_sample * ch->rightvol ) >> 8;
 		}
 
 		if( ch->entnum > 0 )

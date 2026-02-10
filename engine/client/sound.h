@@ -84,7 +84,7 @@ typedef struct snd_format_s
 	byte channels;
 } snd_format_t;
 
-typedef struct
+typedef struct dma_api_s
 {
 	snd_format_t format;
 	int          samples;     // mono samples in buffer
@@ -115,6 +115,8 @@ typedef struct rawchan_s
 	volatile uint         s_rawend;
 	float                 oldtime;       // catch time jumps
 	size_t                max_samples;   // buffer length
+	float                 lowpass_cutoff; // occlusion lowpass filter cutoff frequency
+	float                 lowpass_lp[2];  // occlusion lowpass filter state (left, right)
 	portable_samplepair_t rawsamples[]; // variable sized
 } rawchan_t;
 
@@ -149,7 +151,7 @@ typedef struct channel_s
 	float    lowpass_lp[2];   // lowpass filter state for left/right channels
 } channel_t;
 
-typedef struct
+typedef struct listener_s
 {
 	vec3_t   origin;   // simorg + view_ofs
 	vec3_t   forward;

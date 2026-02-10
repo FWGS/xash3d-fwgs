@@ -46,6 +46,11 @@ S_FadeMusicVolume
 */
 void S_FadeMusicVolume( float fadePercent )
 {
+	if( clgame.soundFuncs.pfnS_FadeMusicVolume )
+	{
+		clgame.soundFuncs.pfnS_FadeMusicVolume( fadePercent );
+		return;
+	}
 	musicfade.percent = bound( 0.0f, fadePercent, 100.0f );
 }
 
