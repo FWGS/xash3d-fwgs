@@ -836,12 +836,6 @@ static void MIX_MixRawSamplesBuffer( int end )
 			int left_sample = ch->rawsamples[j & ( ch->max_samples - 1 )].left;
 			int right_sample = ch->rawsamples[j & ( ch->max_samples - 1 )].right;
 
-			if( ch->lowpass_cutoff > 0.0f )
-			{
-				left_sample = S_ApplyLowpass( ch->lowpass_cutoff, SOUND_DMA_SPEED, &ch->lowpass_lp[0], left_sample );
-				right_sample = S_ApplyLowpass( ch->lowpass_cutoff, SOUND_DMA_SPEED, &ch->lowpass_lp[1], right_sample );
-			}
-
 			pbuf[j-paintedtime].left += ( left_sample * ch->leftvol ) >> 8;
 			pbuf[j-paintedtime].right += ( right_sample * ch->rightvol ) >> 8;
 		}
@@ -905,15 +899,18 @@ void MIX_PaintChannels( int endtime )
 		count = end - paintedtime;
 
 		MIX_ClearAllPaintBuffers( count, false );
-
-		MIX_UpsampleAllPaintbuffers( end, count );
-
-		if( cls.key_dest != key_menu )
-			DSP_Process( MIX_GetPFrontFromIPaint( IROOMBUFFER ), count );
-
-		MIX_MixPaintbuffers( IPAINTBUFFER, IROOMBUFFER, IPAINTBUFFER, count, S_GetMasterVolume() );
-		MIX_MixPaintbuffers( IPAINTBUFFER, ISTREAMBUFFER, IPAINTBUFFER, count, 1.0f );
-		MIX_MixPaintbuffers( IPAINTBUFFER, IVOICEBUFFER, IPAINTBUFFER, count, 1.0f );
+		if( clgame.soundFuncs.pfnS_PaintChannels ) {
+			clgame.soundFuncs.pfnS_PaintChannels( end, count, paintbuffers[IPAINTBUFFER].pbuf );
+		} else {
+			MIX_UpsampleAllPaintbuffers( end, count );
+	
+			if( cls.key_dest != key_menu )
+				DSP_Process( MIX_GetPFrontFromIPaint( IROOMBUFFER ), count );
+	
+			MIX_MixPaintbuffers( IPAINTBUFFER, IROOMBUFFER, IPAINTBUFFER, count, S_GetMasterVolume() );
+			MIX_MixPaintbuffers( IPAINTBUFFER, ISTREAMBUFFER, IPAINTBUFFER, count, 1.0f );
+			MIX_MixPaintbuffers( IPAINTBUFFER, IVOICEBUFFER, IPAINTBUFFER, count, 1.0f );
+		}
 
 		MIX_CompressPaintbuffer( IPAINTBUFFER, count );
 

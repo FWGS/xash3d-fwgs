@@ -26,37 +26,36 @@ typedef int sound_t;
 struct dma_api_s;
 struct listener_s;
 
-// API from engine to client (client can call these)
-// GetSoundWavdata returns (struct wavdata_s *) — cast in engine; full def in engine/common/common.h
+// Forward decls (full def in engine/client/sound.h)
+struct channel_s;
+struct rawchan_s;
+struct portable_samplepair_s;
+
+// Engine-owned state: client reads only. Filled by engine, passed to pfnS_Init.
+typedef struct snd_interface_state_s
+{
+	const struct listener_s *listener;
+	const struct channel_s  *channels;        // &channels[0], contiguous
+	int                      total_channels;
+	struct rawchan_s *const *raw_channels;   // rawchan_t*[]
+	int                      max_raw_channels;
+} snd_interface_state_t;
+
+// API from engine to client (client calls these)
 typedef struct sound_api_s
 {
 	sound_t  (*S_RegisterSound)( const char *name );
-	void     (*Host_Error)( const char *error, ... );
-	void     (*Cvar_Set)( const char *name, const char *value );
-	void     (*Con_Printf)( const char *fmt, ... );
-	void     (*Con_Reportf)( const char *fmt, ... );
-	void    *(*GetSoundWavdata)( sound_t handle );
-	// ONLY ADD NEW FUNCTIONS TO THE END
 } sound_api_t;
 
 // Callbacks from client to engine (engine calls these when custom sound is active)
-// pfn prefix avoids name clash with S_* declarations in common.h
 typedef struct sound_interface_s
 {
 	int version;
 
-	qboolean (*pfnS_Init)( struct dma_api_s *dma, struct listener_s *listener );
+	qboolean (*pfnS_Init)( snd_interface_state_t *state );
 	void     (*pfnS_Shutdown)( void );
-	void     (*pfnS_StartSound)( const vec3_t pos, int ent, int chan, sound_t handle, float fvol, float attn, int pitch, int flags );
-	void     (*pfnS_StopSound)( int entnum, int channel, const char *soundname );
-	void     (*pfnS_StopAllSounds)( qboolean ambient );
-	void     (*pfnSND_UpdateSound)( void );
-	void     (*pfnS_StartLocalSound)( const char *name, float volume, qboolean reliable );
-	void     (*pfnS_AmbientSound)( const vec3_t pos, int ent, sound_t handle, float fvol, float attn, int pitch, int flags );
-	void     (*pfnS_RestoreSound)( const vec3_t pos, int ent, int chan, sound_t handle, float fvol, float attn, int pitch, int flags, double sample, double end, int wordIndex );
-	void     (*pfnS_RawEntSamplesEx)( int entnum, uint samples, uint rate, unsigned short width, unsigned short channels, const byte *data, int snd_vol, float attn );
-	void     (*pfnS_FadeMusicVolume)( float fadePercent );
-	void     (*pfnS_ExtraUpdate)( void );
+	void     (*pfnS_PaintChannels)( int end, int count, struct portable_samplepair_s *paint_buffer );
+	void     (*pfnS_UpdateChannel)( int ch_idx, const struct channel_s *ch );  // ch=NULL -> channel freed
 } sound_interface_t;
 
 #endif // SOUND_API_H

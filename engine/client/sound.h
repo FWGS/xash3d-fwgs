@@ -45,7 +45,7 @@ extern poolhandle_t sndpool;
 #define S_RAW_SOUND_SOUNDTRACK       -1
 #define S_RAW_SAMPLES_PRECISION_BITS 14
 
-typedef struct
+typedef struct portable_samplepair_s
 {
 	int left;
 	int right;
@@ -151,7 +151,7 @@ typedef struct channel_s
 	float    lowpass_lp[2];   // lowpass filter state for left/right channels
 } channel_t;
 
-typedef struct listener_s
+typedef struct
 {
 	vec3_t   origin;   // simorg + view_ofs
 	vec3_t   forward;
@@ -224,6 +224,7 @@ void MIX_ClearAllPaintBuffers( int SampleCount, qboolean clearFilters );
 void MIX_InitAllPaintbuffers( void );
 void MIX_FreeAllPaintbuffers( void );
 void MIX_PaintChannels( int endtime );
+portable_samplepair_t *MIX_GetPFrontFromIPaint( int ipaintbuffer );
 
 // s_load.c
 qboolean S_TestSoundChar( const char *pch, char c );
