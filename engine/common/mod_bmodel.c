@@ -754,7 +754,7 @@ static void Mod_LoadLump( const void *in, const mlumpinfo_t *info, mlumpstat_t *
 
 	// all checks are passed, store pointers
 	if( info->dataptr )
-		*info->dataptr = (void *)(in + l.fileofs);
+		*info->dataptr = (void *)((byte *)in + l.fileofs);
 
 	if( info->count )
 		*info->count = numelems;
