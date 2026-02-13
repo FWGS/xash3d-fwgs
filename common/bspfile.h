@@ -30,12 +30,14 @@ BRUSH MODELS
 // header
 #define Q1BSP_VERSION 29 // quake1 regular version (beta is 28)
 #define HLBSP_VERSION 30 // half-life regular version
-#define QBSP2_VERSION (( 'B' << 0 ) | ('S' << 8 ) | ( 'P' << 16 ) | ( '2' << 24 ))
+#define QBSP2_VERSION (( 'B' << 0 ) | ( 'S' << 8 ) | ( 'P' << 16 ) | ( '2' << 24 ))
 
-#define IDEXTRAHEADER (( 'X' << 0 ) | ('A' << 8 ) | ( 'S' << 16 ) | ( 'H' << 24 ))
+#define IDEXTRAHEADER (( 'X' << 0 ) | ( 'A' << 8 ) | ( 'S' << 16 ) | ( 'H' << 24 ))
 #define EXTRA_VERSION 4 // ver. 1 was occupied by old versions of XashXT
                         // ver. 2 was occupied by old vesrions of P2:savior
                         // ver. 3 was occupied by experimental versions of P2:savior change fmt
+
+#define IDBSPXHEADER  (( 'B' << 0 ) | ( 'S' << 8 ) | ( 'P' << 16 ) | ( 'X' << 24 ))
 
 #define DELUXEMAP_VERSION 1
 #define IDDELUXEMAPHEADER (( 'Q' << 0 ) | ('L' << 8 ) | ( 'I' << 16 ) | ( 'T' << 24 ))
@@ -165,6 +167,20 @@ typedef struct
 	int32_t version;
 	dlump_t lumps[EXTRA_LUMPS];
 } dextrahdr_t;
+
+typedef struct
+{
+	char    lumpname[24]; // up to 23 chars, zero-padded
+	int32_t fileofs;
+	int32_t filelen;
+} dbspx_lump_t;
+
+typedef struct
+{
+	int32_t      id; // must be little endian BSPX
+	int32_t      numlumps;
+	dbspx_lump_t lumps[];
+} dbspx_hdr_t;
 
 typedef struct
 {
