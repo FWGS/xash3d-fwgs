@@ -769,15 +769,12 @@ static int Mod_ArrayUsage( const char *szItem, int items, int maxitems, int item
 {
 	float	percentage = maxitems ? (items * 100.0f / maxitems) : 0.0f;
 
-	Con_Printf( "%-12s  %7i/%-7i  %8i/%-8i  (%4.1f%%) ", szItem, items, maxitems, items * itemsize, maxitems * itemsize, percentage );
-
-	if( percentage > 99.99f )
-		Con_Printf( "^1SIZE OVERFLOW!!!^7\n" );
-	else if( percentage > 95.0f )
-		Con_Printf( "^3SIZE DANGER!^7\n" );
-	else if( percentage > 80.0f )
-		Con_Printf( "^2VERY FULL!^7\n" );
-	else Con_Printf( "\n" );
+	Con_Printf( "%-12s  %7i/%-7i  %8i/%-8i  (%4.1f%%) %s\n",
+		szItem, items, maxitems, items * itemsize, maxitems * itemsize, percentage,
+		percentage > 99.99f ? "^1SIZE OVERFLOW!!!^7" :
+		percentage > 95.0f ? "^3SIZE DANGER!^7" :
+		percentage > 80.0f ? "^2VERY FULL!^7" :
+		"" );
 
 	return items * itemsize;
 }
@@ -791,15 +788,12 @@ static int Mod_GlobUsage( const char *szItem, int itemstorage, int maxstorage )
 {
 	float	percentage = maxstorage ? (itemstorage * 100.0f / maxstorage) : 0.0f;
 
-	Con_Printf( "%-15s  %-12s  %8i/%-8i  (%4.1f%%) ", szItem, "[variable]", itemstorage, maxstorage, percentage );
-
-	if( percentage > 99.99f )
-		Con_Printf( "^1SIZE OVERFLOW!!!^7\n" );
-	else if( percentage > 95.0f )
-		Con_Printf( "^3SIZE DANGER!^7\n" );
-	else if( percentage > 80.0f )
-		Con_Printf( "^2VERY FULL!^7\n" );
-	else Con_Printf( "\n" );
+	Con_Printf( "%-15s  %-12s  %8i/%-8i  (%4.1f%%) %s\n",
+		szItem, "[variable]", itemstorage, maxstorage, percentage,
+		percentage > 99.99f ? "^1SIZE OVERFLOW!!!^7" :
+		percentage > 95.0f ? "^3SIZE DANGER!^7" :
+		percentage > 80.0f ? "^2VERY FULL!^7" :
+		"" );
 
 	return itemstorage;
 }
@@ -835,7 +829,8 @@ void Mod_PrintWorldStats_f( void )
 
 		if( stat->entrysize == sizeof( byte ))
 			totalmemory += Mod_GlobUsage( stat->lumpname, stat->count, stat->maxcount );
-		else totalmemory += Mod_ArrayUsage( stat->lumpname, stat->count, stat->maxcount, stat->entrysize );
+		else
+			totalmemory += Mod_ArrayUsage( stat->lumpname, stat->count, stat->maxcount, stat->entrysize );
 	}
 
 	Con_Printf( "=== Total BSP file data space used: %s ===\n", Q_memprint( totalmemory ));
@@ -860,10 +855,9 @@ void Mod_PrintWorldStats_f( void )
 ===================
 Mod_DecompressPVS
 
-TODO: replace all Mod_DecompressPVS calls by this
 ===================
 */
-static void Mod_DecompressPVSTo( byte *const out, const byte *in, size_t visbytes )
+static void Mod_DecompressPVS( byte *const out, const byte *in, size_t visbytes )
 {
 	byte *dst = out;
 
@@ -890,17 +884,6 @@ static void Mod_DecompressPVSTo( byte *const out, const byte *in, size_t visbyte
 			dst += c;
 		}
 	}
-}
-
-/*
-===================
-Mod_DecompressPVS
-===================
-*/
-static byte *Mod_DecompressPVS( const byte *in, int visbytes )
-{
-	Mod_DecompressPVSTo( g_visdata, in, visbytes );
-	return g_visdata;
 }
 
 static size_t Mod_CompressPVS( byte *const out, const byte *in, size_t inbytes )
@@ -969,7 +952,11 @@ byte *Mod_GetPVSForPoint( const vec3_t p )
 	leaf = Mod_PointInLeaf( p, worldmodel->nodes, worldmodel );
 
 	if( leaf && leaf->cluster >= 0 )
-		return Mod_DecompressPVS( leaf->compressed_vis, world.visbytes );
+	{
+		Mod_DecompressPVS( g_visdata, leaf->compressed_vis, world.visbytes );
+		return g_visdata;
+	}
+
 	return NULL;
 }
 
@@ -1000,19 +987,17 @@ static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *v
 	// if this leaf is in a cluster, accumulate the vis bits
 	if(((mleaf_t *)node)->cluster >= 0 )
 	{
-		byte *vis;
-
 		if( phs )
 		{
 			int i = ((mleaf_t *)node)->cluster + 1;
-			vis = Mod_DecompressPVS( &world.compressed_phs[world.phsofs[i]], world.visbytes );
+			Mod_DecompressPVS( g_visdata, &world.compressed_phs[world.phsofs[i]], world.visbytes );
 		}
 		else
 		{
-			vis = Mod_DecompressPVS( ((mleaf_t *)node)->compressed_vis, world.visbytes );
+			Mod_DecompressPVS( g_visdata, ((mleaf_t *)node)->compressed_vis, world.visbytes );
 		}
 
-		Q_memor( visbuffer, vis, visbytes );
+		Q_memor( visbuffer, g_visdata, visbytes );
 	}
 }
 
@@ -1227,9 +1212,8 @@ support water transparency
 */
 static qboolean Mod_CheckWaterAlphaSupport( model_t *mod, dbspmodel_t *bmod )
 {
-	mleaf_t		*leaf;
-	int		i, j;
-	const byte	*pvs;
+	mleaf_t *leaf;
+	int     i, j;
 
 	if( bmod->visdatasize <= 0 )
 		return true;
@@ -1240,11 +1224,11 @@ static qboolean Mod_CheckWaterAlphaSupport( model_t *mod, dbspmodel_t *bmod )
 	{
 		if(( leaf->contents == CONTENTS_WATER || leaf->contents == CONTENTS_SLIME ) && leaf->cluster >= 0 )
 		{
-			pvs = Mod_DecompressPVS( leaf->compressed_vis, world.visbytes );
+			Mod_DecompressPVS( g_visdata, leaf->compressed_vis, world.visbytes );
 
 			for( j = 0; j < mod->numleafs; j++ )
 			{
-				if( CHECKVISBIT( pvs, mod->leafs[j].cluster ) && mod->leafs[j].contents == CONTENTS_EMPTY )
+				if( CHECKVISBIT( g_visdata, mod->leafs[j].cluster ) && mod->leafs[j].contents == CONTENTS_EMPTY )
 					return true;
 			}
 		}
@@ -3432,7 +3416,7 @@ static void Mod_CalcPHS( model_t *mod )
 		// uncompress pvs first
 #pragma omp for schedule( static, 256 ) // there might be thousands of leafs, split by 256
 		for( i = 0; i < count; i++ )
-			Mod_DecompressPVSTo( &uncompressed_pvs[rowbytes * i], mod->leafs[i].compressed_vis, world.visbytes );
+			Mod_DecompressPVS( &uncompressed_pvs[rowbytes * i], mod->leafs[i].compressed_vis, world.visbytes );
 
 		// now create phs
 #pragma omp for schedule( static, 256 ) reduction( + : vcount, hcount )
