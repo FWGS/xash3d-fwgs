@@ -313,7 +313,12 @@ Key_LookupBinding
 */
 const char *Key_LookupBinding( const char *pBinding )
 {
-	return Key_KeynumToString( Key_GetKey( pBinding ));
+	int key = Key_GetKey( pBinding );
+
+	if( key == -1 )
+		return NULL;
+
+	return Key_KeynumToString( key );
 }
 
 /*
