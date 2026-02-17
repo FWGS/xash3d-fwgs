@@ -314,7 +314,22 @@ static void R_EntityRemoveDecals( struct model_s *mod )
 
 void GL_Bind( int tmu, unsigned int texnum )
 {
-	;
+	const dx_texture_t *texture;
+
+	// missed or invalid texture?
+	if( texnum <= 0 || texnum >= MAX_TEXTURES )
+	{
+		if( texnum != 0 )
+			gEngfuncs.Con_DPrintf( S_ERROR "%s: invalid texturenum %d\n", __func__, texnum );
+		texnum = tr.defaultTexture;
+	}
+
+	texture = R_GetTexture( texnum );
+
+	//if( dxc.currentTexture == texture->d3dHandle )
+	//	return;
+
+	dxc.currentTexture = texture->d3dHandle;
 }
 
 static void GL_LoadTextureMatrix( const float *glmatrix )

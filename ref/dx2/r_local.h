@@ -225,7 +225,8 @@ struct dx_context_s
 
 	int renderMode;
 	vec4_t currentColor;
-
+	D3DTEXTUREHANDLE currentTexture;
+	D3DTEXTUREHANDLE lastBoundTexture;
 };
 typedef struct dx_context_s dx_context_t;
 
@@ -234,6 +235,7 @@ extern dx_globals_t	tr;
 extern dx_context_t dxc;
 
 extern ref_api_t      gEngfuncs;
+extern ref_globals_t *gpGlobals;
 extern ref_client_t *gp_cl;
 
 
@@ -303,6 +305,7 @@ void R_ClearScene( void );
 int WorldToScreen( const vec3_t world, vec3_t screen );
 void ScreenToWorld( const float *screen, float *world );
 void R_LoadIdentity( void );
+void R_SetupD3D( qboolean set_state );
 
 // r_draw.c
 void R_Set2DMode( qboolean enable );

@@ -205,8 +205,8 @@ static qboolean D3D_InitDevice( void )
 	viewport.dwY = 0;
 	viewport.dwWidth = desc.dwWidth;
 	viewport.dwHeight = desc.dwHeight;
-	viewport.dvScaleX = 1;
-	viewport.dvScaleY = 1;
+	viewport.dvScaleX = 0.5 * viewport.dwWidth;
+	viewport.dvScaleY = 0.5f * viewport.dwHeight;
 	viewport.dvMaxX = 1;
 	viewport.dvMaxY = 1;
 	viewport.dvMinZ = 0;
@@ -214,6 +214,33 @@ static qboolean D3D_InitDevice( void )
 	DXCheck(IDirect3DViewport_SetViewport(dxc.viewport, &viewport));
 
 	DXCheck(IDirect3DDevice_CreateMatrix(dxc.pd3dd, &dxc.mtxWorld));
+	DXCheck(IDirect3DDevice_CreateMatrix(dxc.pd3dd, &dxc.mtxProjection));
+
+	//set transform state
+	{
+		d3dEBContext_t ebc = { 0 };
+		if (!D3D_StartExecuteBuffer(&ebc))
+			return;
+		void *cur = ebc.data;
+
+		D3D_PutInstruction(&cur, D3DOP_STATETRANSFORM, sizeof(D3DSTATE), 2);
+		D3D_PutTransformState(&cur, D3DTRANSFORMSTATE_WORLD, dxc.mtxWorld);
+		D3D_PutTransformState(&cur, D3DTRANSFORMSTATE_PROJECTION, dxc.mtxProjection);
+		D3D_PutInstruction(&cur, D3DOP_EXIT, 0, 0);
+
+		ebc.vertCount = 0;
+		ebc.insOffset = 0;
+		ebc.insLength = ((char *)cur - (char *)ebc.data);
+
+		if (!D3D_EndExecuteBuffer(&ebc))
+			return;
+
+		DXCheck(IDirect3DDevice_BeginScene(dxc.pd3dd));
+		DXCheck(IDirect3DDevice_Execute(dxc.pd3dd, ebc.pd3deb, dxc.viewport, D3DEXECUTE_CLIPPED));
+		DXCheck(IDirect3DDevice_EndScene(dxc.pd3dd));
+
+		D3D_ReleaseExecuteBuffer(&ebc);
+	}
 
 	return true;
 }

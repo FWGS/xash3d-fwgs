@@ -222,9 +222,6 @@ static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 		D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 0);
 	}
 
-	D3D_PutInstruction(&cur, D3DOP_STATETRANSFORM, sizeof(D3DSTATE), 1);
-	D3D_PutTransformState(&cur, D3DTRANSFORMSTATE_WORLD, dxc.mtxWorld);
-
 	D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 4);
 	D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREHANDLE, dxc.currentTexture);
 	D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREMAPBLEND, D3DTBLEND_DECAL);
@@ -253,6 +250,7 @@ static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 	DXCheck(IDirect3DDevice_EndScene(dxc.pd3dd));
 
 	D3D_ReleaseExecuteBuffer( &ebc );
+	//
 
 	//if( FBitSet( p->flags, SURF_DRAWTILED ))
 	//	GL_SetupFogColorForSurfaces();
@@ -268,7 +266,9 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 		return; // already handled
 
 	t = R_TextureAnimation( fa );
-		GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
+
+	GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
+
 	DrawGLPoly( fa->polys, 0.0f, 0.0f );
 }
 
@@ -288,7 +288,6 @@ static void R_DrawTextureChains( void )
 	// restore worldmodel
 	RI.currententity = CL_GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
-
 
 	for( i = 0; i < WORLDMODEL->numtextures; i++ )
 	{

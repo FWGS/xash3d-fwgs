@@ -142,6 +142,12 @@ void R_BeginFrame( qboolean clearScene )
 	gEngfuncs.CL_ExtraUpdate();
 }
 
+static void R_DrawEntitiesOnList( void )
+{
+
+}
+
+
 void R_RenderScene( void )
 {
 	model_t *worldmodel = gp_cl->models[1];
@@ -162,7 +168,9 @@ void R_RenderScene( void )
 	R_SetupFrustum();
 #if 0
 	R_SetupFrame();
-	R_SetupGL(true);
+#endif
+	R_SetupD3D(true);
+#if 0
 	R_Clear(~0);
 #endif
 	R_MarkLeaves();
@@ -178,11 +186,11 @@ void R_RenderScene( void )
 //	R_CheckFog();
 
 	gEngfuncs.CL_ExtraUpdate();	// don't let sound get messed up if going slow
-#if 0
+
 	R_DrawEntitiesOnList();
 
-	R_DrawWaterSurfaces();
-#endif
+//	R_DrawWaterSurfaces();
+
 }
 
 void R_EndFrame( void )
@@ -306,4 +314,67 @@ int WorldToScreen( const vec3_t world, vec3_t screen )
 void ScreenToWorld( const float *screen, float *world )
 {
 	;
+}
+
+void R_SetupD3D( qboolean set_state )
+{
+	R_SetupModelviewMatrix(RI.worldviewMatrix);
+	R_SetupProjectionMatrix(RI.projectionMatrix);
+
+	Matrix4x4_Concat(RI.worldviewProjectionMatrix, RI.projectionMatrix, RI.worldviewMatrix);
+
+	if (!set_state) return;
+
+	D3DVIEWPORT viewport = { 0 };
+	viewport.dwSize = sizeof(viewport);
+
+	if (FBitSet(RI.params, RP_ENVVIEW) == 0)
+	{
+		int x, x2, y, y2;
+
+		// set up viewport (main, playersetup)
+		x = floor(RI.viewport[0] * gpGlobals->width / gpGlobals->width);
+		x2 = ceil((RI.viewport[0] + RI.viewport[2]) * gpGlobals->width / gpGlobals->width);
+		y = floor(gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height);
+		y2 = ceil(gpGlobals->height - (RI.viewport[1] + RI.viewport[3]) * gpGlobals->height / gpGlobals->height);
+
+		if (tr.rotation & 1)
+		{
+			viewport.dwX = y2;
+			viewport.dwY = x;
+			viewport.dwWidth = y - y2;
+			viewport.dwHeight = x2 - x;
+		}
+		else
+		{
+			viewport.dwX = x;
+			viewport.dwY = y2;
+			viewport.dwWidth = x2 - x;
+			viewport.dwHeight = y - y2;
+		}
+	}
+	else
+	{
+		// envpass, mirrorpass
+		viewport.dwX = RI.viewport[0];
+		viewport.dwY = RI.viewport[1];
+		viewport.dwWidth = RI.viewport[2];
+		viewport.dwHeight = RI.viewport[3];
+	}
+
+	viewport.dvScaleX = 0.5f * viewport.dwWidth;
+	viewport.dvScaleY = 0.5f * viewport.dwHeight;
+	viewport.dvMaxX = 1;//calc for partial views
+	viewport.dvMaxY = 1;
+	viewport.dvMinZ = 0;
+	viewport.dvMaxZ = 1;
+	DXCheck(IDirect3DViewport_SetViewport(dxc.viewport, &viewport));
+
+	{
+		float dest[16];
+		Matrix4x4_ToArrayFloatGL(RI.projectionMatrix, dest);
+		DXCheck(IDirect3DDevice_SetMatrix(dxc.pd3dd, dxc.mtxProjection, (D3DMATRIX *)&dest));
+		Matrix4x4_ToArrayFloatGL(RI.worldviewMatrix, dest);
+		DXCheck(IDirect3DDevice_SetMatrix(dxc.pd3dd, dxc.mtxWorld, (D3DMATRIX *)&dest));
+	}
 }
