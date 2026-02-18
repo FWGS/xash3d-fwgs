@@ -115,8 +115,6 @@ typedef struct rawchan_s
 	volatile uint         s_rawend;
 	float                 oldtime;       // catch time jumps
 	size_t                max_samples;   // buffer length
-	float                 lowpass_cutoff; // occlusion lowpass filter cutoff frequency
-	float                 lowpass_lp[2];  // occlusion lowpass filter state (left, right)
 	portable_samplepair_t rawsamples[]; // variable sized
 } rawchan_t;
 
@@ -145,10 +143,6 @@ typedef struct channel_s
 	int       wordIndex;
 	mixer_t  *currentWord; // NULL if sentence is finished
 	voxword_t words[CVOXWORDMAX];
-
-	// Audio Occlusion - lowpass filter state
-	float    lowpass_cutoff;  // cutoff frequency in Hz (0 = no filter)
-	float    lowpass_lp[2];   // lowpass filter state for left/right channels
 } channel_t;
 
 typedef struct
@@ -224,7 +218,6 @@ void MIX_ClearAllPaintBuffers( int SampleCount, qboolean clearFilters );
 void MIX_InitAllPaintbuffers( void );
 void MIX_FreeAllPaintbuffers( void );
 void MIX_PaintChannels( int endtime );
-portable_samplepair_t *MIX_GetPFrontFromIPaint( int ipaintbuffer );
 
 // s_load.c
 qboolean S_TestSoundChar( const char *pch, char c );
@@ -256,6 +249,7 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create );
 uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data );
 void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol );
 void S_RawEntSamplesEx( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn );
+void S_RawEntSamplesExAtLocation( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn, const float *origin );
 void S_StopSound( int entnum, int channel, const char *soundname );
 void S_UpdateFrame( struct ref_viewpass_s *rvp );
 void S_StopAllSounds( qboolean ambient );

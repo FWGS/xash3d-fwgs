@@ -316,6 +316,7 @@ typedef struct cl_enginefuncs_s
 
 	// Voice extensions
 	void (*pfnS_RawEntSamples)( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn );
+	void (*pfnS_RawEntSamplesAtLocation)( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn, const float *origin );
 	void (*pfnSND_ForceInitMouth)( int entnum );
 	voice_audio_info_t (*pfnGetVoiceAudioInfo)( void );
 } cl_enginefunc_t;

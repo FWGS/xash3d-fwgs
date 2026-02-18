@@ -44,7 +44,8 @@ typedef struct snd_interface_state_s
 // API from engine to client (client calls these)
 typedef struct sound_api_s
 {
-	sound_t  (*S_RegisterSound)( const char *name );
+	qboolean      (*CL_GetEntitySpatialization)( struct channel_s *ch );
+	struct sfx_s* (*S_GetSfxByHandle)( sound_t handle );
 } sound_api_t;
 
 // Callbacks from client to engine (engine calls these when custom sound is active)
@@ -54,8 +55,11 @@ typedef struct sound_interface_s
 
 	qboolean (*pfnS_Init)( snd_interface_state_t *state );
 	void     (*pfnS_Shutdown)( void );
+	void     (*pfnS_UpdateSound)( void );
 	void     (*pfnS_PaintChannels)( int end, int count, struct portable_samplepair_s *paint_buffer );
-	void     (*pfnS_UpdateChannel)( int ch_idx, const struct channel_s *ch );  // ch=NULL -> channel freed
+	void     (*pfnS_UpdateChannel)( int ch_idx, const struct channel_s *ch, sound_t handle );  // ch=NULL -> channel freed
+	void     (*pfnS_UpdateRawChannel)( int raw_idx, struct rawchan_s *ch );  // ch=NULL -> channel freed
+	void     (*pfnS_Spatialize)( struct channel_s *ch );
 } sound_interface_t;
 
 #endif // SOUND_API_H

@@ -201,36 +201,11 @@ void MIX_InitAllPaintbuffers( void )
 /*
 ===============================================================================
 
-LOWPASS FILTER FOR AUDIO OCCLUSION
-
-===============================================================================
-*/
-// Simple first-order RC lowpass filter
-// cutoff: cutoff frequency in Hz (0 = disabled)
-// sample_rate: sample rate in Hz
-// state: previous filter value (in/out)
-// sample: input sample
-static inline int S_ApplyLowpass( float cutoff, int sample_rate, float *state, int sample )
-{
-	if( cutoff <= 0.0f || sample_rate <= 0 )
-		return sample;
-
-	// alpha = dt * cutoff / (dt * cutoff + 1), where dt = 1/sample_rate
-	float dt = 1.0f / sample_rate;
-	float alpha = (dt * cutoff) / (dt * cutoff + 1.0f);
-	
-	*state = *state + alpha * ((float)sample - *state);
-	return (int)*state;
-}
-
-/*
-===============================================================================
-
 CHANNEL MIXING
 
 ===============================================================================
 */
-static void S_PaintMonoFrom8( portable_samplepair_t *pbuf, int *volume, byte *pData, int outCount, float lowpass_cutoff, float *lowpass_state )
+static void S_PaintMonoFrom8( portable_samplepair_t *pbuf, int *volume, byte *pData, int outCount )
 {
 	int	*lscale, *rscale;
 	int 	i, data, filtered;
@@ -241,11 +216,6 @@ static void S_PaintMonoFrom8( portable_samplepair_t *pbuf, int *volume, byte *pD
 	for( i = 0; i < outCount; i++ )
 	{
 		data = pData[i];
-		if( lowpass_cutoff > 0.0f )
-		{
-			filtered = S_ApplyLowpass( lowpass_cutoff, SOUND_DMA_SPEED, &lowpass_state[0], (int)((signed char)data) * 256 );
-			data = (byte)(filtered >> 8);
-		}
 		pbuf[i].left += lscale[data];
 		pbuf[i].right += rscale[data];
 	}
@@ -271,7 +241,7 @@ static void S_PaintStereoFrom8( portable_samplepair_t *pbuf, int *volume, byte *
 	}
 }
 
-static void S_PaintMonoFrom16( portable_samplepair_t *pbuf, int *volume, short *pData, int outCount, float lowpass_cutoff, float *lowpass_state )
+static void S_PaintMonoFrom16( portable_samplepair_t *pbuf, int *volume, short *pData, int outCount )
 {
 	int	left, right;
 	int	i, data, filtered;
@@ -279,11 +249,6 @@ static void S_PaintMonoFrom16( portable_samplepair_t *pbuf, int *volume, short *
 	for( i = 0; i < outCount; i++ )
 	{
 		data = pData[i];
-		if( lowpass_cutoff > 0.0f )
-		{
-			filtered = S_ApplyLowpass( lowpass_cutoff, SOUND_DMA_SPEED, &lowpass_state[0], data );
-			data = (short)filtered;
-		}
 		left = ( data * volume[0]) >> 8;
 		right = (data * volume[1]) >> 8;
 		pbuf[i].left += left;
@@ -316,7 +281,7 @@ static void S_Mix8MonoTimeCompress( portable_samplepair_t *pbuf, int *volume, by
 {
 }
 
-static void S_Mix8Mono( portable_samplepair_t *pbuf, int *volume, byte *pData, int inputOffset, uint rateScale, int outCount, int timecompress, float lowpass_cutoff, float *lowpass_state )
+static void S_Mix8Mono( portable_samplepair_t *pbuf, int *volume, byte *pData, int inputOffset, uint rateScale, int outCount, int timecompress )
 {
 	int	i, sampleIndex = 0;
 	uint	sampleFrac = inputOffset;
@@ -331,7 +296,7 @@ static void S_Mix8Mono( portable_samplepair_t *pbuf, int *volume, byte *pData, i
 	// Not using pitch shift?
 	if( rateScale == FIX( 1 ))
 	{
-		S_PaintMonoFrom8( pbuf, volume, pData, outCount, lowpass_cutoff, lowpass_state );
+		S_PaintMonoFrom8( pbuf, volume, pData, outCount );
 		return;
 	}
 
@@ -341,11 +306,6 @@ static void S_Mix8Mono( portable_samplepair_t *pbuf, int *volume, byte *pData, i
 	for( i = 0; i < outCount; i++ )
 	{
 		data = pData[sampleIndex];
-		if( lowpass_cutoff > 0.0f )
-		{
-			filtered = S_ApplyLowpass( lowpass_cutoff, SOUND_DMA_SPEED, lowpass_state, (int)((signed char)data) * 256 );
-			data = (byte)(filtered >> 8);
-		}
 		pbuf[i].left += lscale[data];
 		pbuf[i].right += rscale[data];
 		sampleFrac += rateScale;
@@ -380,7 +340,7 @@ static void S_Mix8Stereo( portable_samplepair_t *pbuf, int *volume, byte *pData,
 	}
 }
 
-static void S_Mix16Mono( portable_samplepair_t *pbuf, int *volume, short *pData, int inputOffset, uint rateScale, int outCount, float lowpass_cutoff, float *lowpass_state )
+static void S_Mix16Mono( portable_samplepair_t *pbuf, int *volume, short *pData, int inputOffset, uint rateScale, int outCount )
 {
 	int	i, sampleIndex = 0;
 	uint	sampleFrac = inputOffset;
@@ -389,18 +349,13 @@ static void S_Mix16Mono( portable_samplepair_t *pbuf, int *volume, short *pData,
 	// Not using pitch shift?
 	if( rateScale == FIX( 1 ))
 	{
-		S_PaintMonoFrom16( pbuf, volume, pData, outCount, lowpass_cutoff, lowpass_state );
+		S_PaintMonoFrom16( pbuf, volume, pData, outCount );
 		return;
 	}
 
 	for( i = 0; i < outCount; i++ )
 	{
 		data = pData[sampleIndex];
-		if( lowpass_cutoff > 0.0f )
-		{
-			filtered = S_ApplyLowpass( lowpass_cutoff, SOUND_DMA_SPEED, lowpass_state, data );
-			data = (short)filtered;
-		}
 		pbuf[i].left += (volume[0] * (int)data)>>8;
 		pbuf[i].right += (volume[1] * (int)data)>>8;
 		sampleFrac += rateScale;
@@ -437,8 +392,6 @@ static void S_MixChannel( channel_t *pChannel, void *pData, int outputOffset, in
 	paintbuffer_t		*ppaint = MIX_GetCurrentPaintbufferPtr();
 	wavdata_t			*pSource = pChannel->sfx->cache;
 	portable_samplepair_t	*pbuf;
-	float			lowpass_cutoff = pChannel->lowpass_cutoff;
-	float			*lowpass_state = pChannel->lowpass_lp;
 
 	Assert( pSource != NULL );
 
@@ -450,21 +403,11 @@ static void S_MixChannel( channel_t *pChannel, void *pData, int outputOffset, in
 	{
 		if( pSource->width == 1 )
 		{
-			if( lowpass_cutoff > 0.0f && fracRate == FIX( 1 ))
-			{
-				S_PaintMonoFrom8( pbuf, pvol, pData, outCount, lowpass_cutoff, lowpass_state );
-				return;
-			}
-			S_Mix8Mono( pbuf, pvol, pData, inputOffset, fracRate, outCount, timecompress, lowpass_cutoff, lowpass_state );
+			S_Mix8Mono( pbuf, pvol, pData, inputOffset, fracRate, outCount, timecompress );
 		}
 		else
 		{
-			if( lowpass_cutoff > 0.0f && fracRate == FIX( 1 ))
-			{
-				S_PaintMonoFrom16( pbuf, pvol, (short *)pData, outCount, lowpass_cutoff, lowpass_state );
-				return;
-			}
-			S_Mix16Mono( pbuf, pvol, (short *)pData, inputOffset, fracRate, outCount, lowpass_cutoff, lowpass_state );
+			S_Mix16Mono( pbuf, pvol, (short *)pData, inputOffset, fracRate, outCount );
 		}
 	}
 	else

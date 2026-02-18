@@ -3167,6 +3167,17 @@ static void GAME_EXPORT pfnS_RawEntSamples( int entnum, uint samples, uint rate,
 
 /*
 =============
+pfnS_RawEntSamplesAtLocation
+
+=============
+*/
+static void GAME_EXPORT pfnS_RawEntSamplesAtLocation( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn, float *origin )
+{
+	S_RawEntSamplesExAtLocation( entnum, samples, rate, width, channels, data, snd_vol, attn, origin );
+}
+
+/*
+=============
 pfnSND_ForceInitMouth
 
 =============
@@ -3966,6 +3977,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnVguiWrap2_GetMouseDelta,
 	pfnFilteredClientCmd,
 	pfnS_RawEntSamples,
+	pfnS_RawEntSamplesAtLocation,
 	pfnSND_ForceInitMouth,
 	pfnGetVoiceAudioInfo
 };
