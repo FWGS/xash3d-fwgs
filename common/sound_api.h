@@ -56,7 +56,8 @@ typedef struct sound_interface_s
 	qboolean (*pfnS_Init)( snd_interface_state_t *state );
 	void     (*pfnS_Shutdown)( void );
 	void     (*pfnS_UpdateSound)( void );
-	void     (*pfnS_PaintChannels)( int end, int count, struct portable_samplepair_s *paint_buffer );
+	/* Full paint: endtime (sample pairs), dma buffer, paintedtime in/out. Client does mix + transfer to dma.buffer. */
+	void     (*pfnS_PaintChannels)( int endtime, struct dma_api_s *dma, int *paintedtime );
 	void     (*pfnS_UpdateChannel)( int ch_idx, const struct channel_s *ch, sound_t handle );  // ch=NULL -> channel freed
 	void     (*pfnS_UpdateRawChannel)( int raw_idx, struct rawchan_s *ch );  // ch=NULL -> channel freed
 	void     (*pfnS_Spatialize)( struct channel_s *ch );

@@ -841,19 +841,15 @@ void MIX_PaintChannels( int endtime )
 		// number of 44khz samples to mix into paintbuffer, up to paintbuffer size
 		count = end - paintedtime;
 
-		MIX_ClearAllPaintBuffers( count, false );
-		if( clgame.soundFuncs.pfnS_PaintChannels ) {
-			clgame.soundFuncs.pfnS_PaintChannels( end, count, paintbuffers[IPAINTBUFFER].pbuf );
-		} else {
-			MIX_UpsampleAllPaintbuffers( end, count );
-	
-			if( cls.key_dest != key_menu )
-				DSP_Process( MIX_GetPFrontFromIPaint( IROOMBUFFER ), count );
-	
-			MIX_MixPaintbuffers( IPAINTBUFFER, IROOMBUFFER, IPAINTBUFFER, count, S_GetMasterVolume() );
-			MIX_MixPaintbuffers( IPAINTBUFFER, ISTREAMBUFFER, IPAINTBUFFER, count, 1.0f );
-			MIX_MixPaintbuffers( IPAINTBUFFER, IVOICEBUFFER, IPAINTBUFFER, count, 1.0f );
-		}
+		MIX_ClearAllPaintBuffers(count, false);
+		MIX_UpsampleAllPaintbuffers(end, count);
+
+		if (cls.key_dest != key_menu)
+			DSP_Process(MIX_GetPFrontFromIPaint(IROOMBUFFER), count);
+
+		MIX_MixPaintbuffers(IPAINTBUFFER, IROOMBUFFER, IPAINTBUFFER, count, S_GetMasterVolume());
+		MIX_MixPaintbuffers(IPAINTBUFFER, ISTREAMBUFFER, IPAINTBUFFER, count, 1.0f);
+		MIX_MixPaintbuffers(IPAINTBUFFER, IVOICEBUFFER, IPAINTBUFFER, count, 1.0f);
 
 		MIX_CompressPaintbuffer( IPAINTBUFFER, count );
 

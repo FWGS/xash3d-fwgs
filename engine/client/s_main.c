@@ -1521,7 +1521,10 @@ static void S_UpdateChannels( void )
 	}
 
 	s_sndState.total_channels = total_channels;
-	MIX_PaintChannels( endtime );
+	if( clgame.soundFuncs.pfnS_PaintChannels )
+		clgame.soundFuncs.pfnS_PaintChannels( endtime, &dma, &paintedtime );
+	else
+		MIX_PaintChannels( endtime );
 
 	SNDDMA_Submit();
 }
