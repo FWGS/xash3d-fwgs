@@ -1030,7 +1030,7 @@ void SV_FinalMessage( const char *message, qboolean reconnect )
 
 	MSG_Init( &msg, "FinalMessage", msg_buf, sizeof( msg_buf ));
 
-	if( COM_CheckString( message ))
+	if( !COM_StringEmptyOrNULL( message ))
 	{
 		MSG_BeginServerCmd( &msg, svc_print );
 		MSG_WriteString( &msg, message );
@@ -1112,7 +1112,7 @@ void SV_Shutdown( const char *finalmsg )
 	// don't forget to reset sv_background state
 	Cvar_DirectFullSet( &sv_background, "0", FCVAR_READ_ONLY );
 
-	if( COM_CheckString( finalmsg ))
+	if( !COM_StringEmptyOrNULL( finalmsg ))
 		Con_Printf( "%s", finalmsg );
 
 	// rcon will be disconnected

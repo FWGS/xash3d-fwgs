@@ -192,7 +192,7 @@ tell the client about this problem
 */
 static void SV_FailDownload( sv_client_t *cl, const char *filename )
 {
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 		return;
 
 	MSG_BeginServerCmd( &cl->netchan.message, svc_filetxferfailed );
@@ -477,7 +477,7 @@ edict_t *GAME_EXPORT SV_FakeConnect( const char *netname )
 
 	userinfo[0] = '\0';
 
-	if( !COM_CheckString( netname ))
+	if( COM_StringEmptyOrNULL( netname ))
 		netname = "Bot";
 
 	// setup fake client params
@@ -766,7 +766,7 @@ sv_client_t *SV_ClientByName( const char *name )
 	sv_client_t *cl;
 	int i;
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return NULL;
 
 	for( i = 0, cl = svs.clients; cl && i < svgame.globals->maxClients; i++, cl++ )
@@ -967,7 +967,7 @@ static void SV_BuildNetAnswer( netadr_t from )
 
 			if( FBitSet( cv->flags, FCVAR_PROTECTED ))
 			{
-				if( COM_CheckStringEmpty( cv->string ) && Q_stricmp( cv->string, "none" ))
+				if( !COM_StringEmpty( cv->string ) && Q_stricmp( cv->string, "none" ))
 					Info_SetValueForKey( string, cv->name, "1", sizeof( string ));
 				else Info_SetValueForKey( string, cv->name, "0", sizeof( string ));
 			}
@@ -1032,7 +1032,7 @@ Rcon_Validate
 */
 static qboolean Rcon_Validate( void )
 {
-	if( !COM_CheckString( rcon_password.string ))
+	if( COM_StringEmptyOrNULL( rcon_password.string ))
 		return false;
 	if( Q_strcmp( Cmd_Argv( 1 ), rcon_password.string ))
 		return false;
@@ -1053,7 +1053,7 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 	const char	*adr;
 	int		i;
 
-	if( !rcon_enable.value || !COM_CheckStringEmpty( rcon_password.string ))
+	if( !rcon_enable.value || COM_StringEmpty( rcon_password.string ))
 		return;
 
 	adr = NET_AdrToString( from );
@@ -1508,7 +1508,7 @@ void SV_TogglePause( const char *msg )
 
 	sv.paused ^= 1;
 
-	if( COM_CheckString( msg ))
+	if( !COM_StringEmptyOrNULL( msg ))
 		SV_BroadcastPrintf( NULL, "%s", msg );
 
 	// send notification to all clients
@@ -1822,7 +1822,7 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 	const char		*val;
 	int ival;
 
-	if( !COM_CheckString( cl->userinfo ))
+	if( COM_StringEmptyOrNULL( cl->userinfo ))
 		return;
 
 	if( !SV_ShouldUpdateUserinfo( cl ))
@@ -1846,7 +1846,7 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 		val = Info_ValueForKey( cl->userinfo, "name" );
 	}
 
-	if( !COM_CheckStringEmpty( name1 ))
+	if( COM_StringEmpty( name1 ))
 	{
 		Info_SetValueForKey( cl->userinfo, "name", "unnamed", sizeof( cl->userinfo ));
 		val = Info_ValueForKey( cl->userinfo, "name" );
@@ -2069,7 +2069,7 @@ static qboolean SV_DownloadFile_f( sv_client_t *cl )
 
 	name = Cmd_Argv( 1 );
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return true;
 
 	if( !COM_IsSafeFileToDownload( name ) || !sv_allow_download.value )
