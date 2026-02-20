@@ -650,6 +650,8 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 {
 	cmd_t  *cmd, *cur, *prev;
 	size_t desc_len;
+	convar_t *cvar;
+	cmdalias_t *alias;
 
 	if( !COM_CheckString( cmd_name ))
 	{
@@ -658,14 +660,14 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 	}
 
 	// fail if the command is a variable name
-	if( Cvar_FindVar( cmd_name ))
+	BaseCmd_FindAll( cmd_name, &cmd, &alias, &cvar );
+	if( cvar )
 	{
 		Con_DPrintf( S_ERROR "%s: %s already defined as a var\n", funcname, cmd_name );
 		return 0;
 	}
 
 	// fail if the command already exists and cannot be overriden
-	cmd = Cmd_Exists( cmd_name );
 	if( cmd )
 	{
 		// some mods register commands that share the name with some engine's commands

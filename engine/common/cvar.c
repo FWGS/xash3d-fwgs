@@ -407,18 +407,20 @@ The flags will be or'ed in if the variable exists.
 */
 convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const char *var_desc )
 {
-	convar_t	*cur, *find, *var;
+	convar_t *cur, *find, *var;
+	cmd_t *cmd;
+	cmdalias_t *alias;
 
 	ASSERT( name && *name );
 
+	BaseCmd_FindAll( name, &cmd, &alias, &var );
+
 	// check for command coexisting
-	if( Cmd_Exists( name ))
+	if( cmd )
 	{
 		Con_DPrintf( S_ERROR "can't register variable '%s', is already defined as command\n", name );
 		return NULL;
 	}
-
-	var = Cvar_FindVar( name );
 
 	if( var )
 	{
@@ -519,12 +521,14 @@ Adds a freestanding variable to the variable list.
 */
 void Cvar_RegisterVariable( convar_t *var )
 {
-	convar_t	*cur, *find, *dup;
+	convar_t *cur, *find, *dup;
+	cmd_t *cmd;
+	cmdalias_t *alias;
 
 	ASSERT( var != NULL );
 
 	// first check to see if it has allready been defined
-	dup = Cvar_FindVar( var->name );
+	BaseCmd_FindAll( var->name, &cmd, &alias, &dup );
 
 	if( dup )
 	{
@@ -539,7 +543,7 @@ void Cvar_RegisterVariable( convar_t *var )
 	}
 
 	// check for overlap with a command
-	if( Cmd_Exists( var->name ))
+	if( cmd )
 	{
 		Con_DPrintf( S_ERROR "can't register variable '%s', is already defined as command\n", var->name );
 		return;
