@@ -69,7 +69,7 @@ Cvar_FindVar
 find the specified variable by name
 ============
 */
-convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group )
+convar_t *Cvar_FindVar( const char *var_name )
 {
 	convar_t *var;
 
@@ -91,7 +91,7 @@ convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group )
 
 	// HACKHACK: HL25 compatibility
 	if( !var && !Q_stricmp( var_name, "gl_widescreen_yfov" ))
-		var = Cvar_FindVarExt( "r_adjust_fov", ignore_group );
+		var = Cvar_FindVar( "r_adjust_fov" );
 
 	return var;
 }

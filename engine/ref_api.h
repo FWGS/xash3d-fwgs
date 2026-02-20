@@ -60,7 +60,8 @@ GNU General Public License for more details.
 // 10. Added R_GetWindowHandle to retrieve platform-specific window object.
 // 11. Added size argument to Mod_ProcessRenderData
 // 12. Added Image_CalcImageSize
-#define REF_API_VERSION 12
+// 13. Removed ignore_flags argument from GetCvarPointer
+#define REF_API_VERSION 13
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -344,7 +345,7 @@ typedef struct ref_api_s
 
 	// cvar handlers
 	cvar_t   *(*Cvar_Get)( const char *szName, const char *szValue, int flags, const char *description );
-	cvar_t   *(*pfnGetCvarPointer)( const char *name, int ignore_flags );
+	cvar_t   *(*pfnGetCvarPointer)( const char *name );
 	float       (*pfnGetCvarFloat)( const char *szName );
 	const char *(*pfnGetCvarString)( const char *szName ) PFN_RETURNS_NONNULL;
 	void        (*Cvar_SetValue)( const char *name, float value );
@@ -681,7 +682,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define DEFINE_ENGINE_SHARED_CVAR( x, y ) cvar_t *x = NULL;
 #define DECLARE_ENGINE_SHARED_CVAR( x, y ) extern cvar_t *x;
 #define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
-	if(!( x = gEngfuncs.pfnGetCvarPointer( #y, 0 ) )) \
+	if(!( x = gEngfuncs.pfnGetCvarPointer( #y ) )) \
 		gEngfuncs.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y );
 #define ENGINE_SHARED_CVAR_NAME( f, x, y ) f( x, y )
 #define ENGINE_SHARED_CVAR( f, x ) ENGINE_SHARED_CVAR_NAME( f, x, x )
