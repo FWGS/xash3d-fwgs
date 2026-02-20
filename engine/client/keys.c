@@ -458,7 +458,7 @@ void Key_WriteBindings( file_t *f )
 
 	for( i = 0; i < 256; i++ )
 	{
-		if( !COM_CheckString( keys[i].binding ))
+		if( COM_StringEmptyOrNULL( keys[i].binding ))
 			continue;
 
 		Cmd_Escape( newCommand, keys[i].binding, sizeof( newCommand ));
@@ -483,7 +483,7 @@ static void Key_Bindlist_f( void )
 
 	for( i = 0; i < 256; i++ )
 	{
-		if( !COM_CheckString( keys[i].binding ))
+		if( COM_StringEmptyOrNULL( keys[i].binding ))
 			continue;
 
 		Con_Printf( "%s \"%s\"\n", Key_KeynumToString( i ), keys[i].binding );

@@ -67,7 +67,7 @@ static void R_EnvShot( const float *vieworg, const char *name, qboolean skyshot,
 {
 	static vec3_t viewPoint;
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return;
 
 	if( cls.scrshot_action != scrshot_inactive )
