@@ -2998,7 +2998,7 @@ int GAME_EXPORT CL_DecalIndexFromName( const char *name )
 {
 	int	i;
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return 0;
 
 	// look through the loaded sprite name list for SpriteName

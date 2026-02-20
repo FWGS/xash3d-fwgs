@@ -543,7 +543,7 @@ static void CL_StartResourceDownloading( const char *pszMessage, qboolean bCusto
 {
 	resourceinfo_t	ri;
 
-	if( COM_CheckString( pszMessage ))
+	if( !COM_StringEmptyOrNULL( pszMessage ))
 		Con_DPrintf( "%s", pszMessage );
 
 	cls.dl.nTotalSize = COM_SizeofResourceList( &cl.resourcesneeded, &ri );
@@ -2212,20 +2212,20 @@ void CL_ParseExec( sizebuf_t *msg )
 
 	is_class = MSG_ReadByte( msg );
 
-	if ( is_class )
+	if( is_class )
 	{
 		class_idx = MSG_ReadByte( msg );
 
-		if ( class_idx >= 0 && class_idx <= 11 && !Q_stricmp( GI->gamefolder, "tfc" ) )
+		if( class_idx >= 0 && class_idx <= 11 && !Q_stricmp( GI->gamefolder, "tfc" ) )
 			Cbuf_AddText( class_cfgs[class_idx] );
 	}
-	else if ( !Q_stricmp( GI->gamefolder, "tfc" ) )
+	else if( !Q_stricmp( GI->gamefolder, "tfc" ) )
 	{
 		Cbuf_AddText( "exec mapdefault.cfg\n" );
 
 		COM_FileBase( clgame.mapname, mapname, sizeof( mapname ));
 
-		if ( COM_CheckString( mapname ) )
+		if( !COM_StringEmptyOrNULL( mapname ) )
 			Cbuf_AddTextf( "exec %s.cfg\n", mapname );
 	}
 }
@@ -2241,7 +2241,7 @@ qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf )
 {
 	int	i;
 
-	if( !COM_CheckString( pszName ))
+	if( COM_StringEmptyOrNULL( pszName ))
 		return false;
 
 	for( i = 0; i < MAX_USER_MESSAGES; i++ )

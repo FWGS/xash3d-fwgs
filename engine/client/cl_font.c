@@ -324,7 +324,7 @@ void CL_DrawStringLen( cl_font_t *font, const char *s, int *width, int *height, 
 	if( width )
 		*width = 0;
 
-	if( !COM_CheckString( s ))
+	if( COM_StringEmptyOrNULL( s ))
 		return;
 
 	if( FBitSet( flags, FONT_DRAW_UTF8 ))

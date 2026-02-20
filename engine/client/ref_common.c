@@ -111,7 +111,7 @@ void R_SetupSky( const char *name )
 	int i, len;
 	qboolean result;
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 	{
 		ref.dllFuncs.R_SetupSky( NULL ); // unload skybox
 		return;
@@ -766,7 +766,7 @@ qboolean R_Init( void )
 	if( Sys_GetParmFromCmdLine( "-ref", requested_cmdline ))
 		success = R_LoadRenderer( requested_cmdline, false );
 
-	if( !success && COM_CheckString( r_refdll.string ) && Q_stricmp( requested_cmdline, r_refdll.string ))
+	if( !success && !COM_StringEmptyOrNULL( r_refdll.string ) && Q_stricmp( requested_cmdline, r_refdll.string ))
 	{
 		Q_strncpy( requested_cvar, r_refdll.string, sizeof( requested_cvar ));
 
