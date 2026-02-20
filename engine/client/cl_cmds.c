@@ -136,10 +136,13 @@ void CL_PlayCDTrack_f( void )
 	}
 	else if( !Q_stricmp( command, "info" ))
 	{
-		int	i, maxTrack;
+		int	maxTrack = 0;
 
-		for( maxTrack = i = 0; i < MAX_CDTRACKS; i++ )
-			if( COM_CheckStringEmpty( clgame.cdtracks[i] ) ) maxTrack++;
+		for( int i = 0; i < MAX_CDTRACKS; i++ )
+		{
+			if( !COM_StringEmpty( clgame.cdtracks[i] ) )
+				maxTrack++;
+		}
 
 		Con_Printf( "%u tracks\n", maxTrack );
 		if( track )

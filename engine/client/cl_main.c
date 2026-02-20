@@ -2372,7 +2372,7 @@ static void CL_Print( const char *c, const char *args, netadr_t from, sizebuf_t 
 
 	s = c[0] == A2C_GOLDSRC_PRINT ? args + 1 : MSG_ReadString( msg );
 
-	if( !COM_CheckStringEmpty( s ))
+	if( COM_StringEmpty( s ))
 		return;
 
 	Con_Printf( "Remote message from %s:\n", NET_AdrToString( from ));
@@ -3325,7 +3325,7 @@ static void CL_ListMessages_f( void )
 	Con_Printf( "num size name\n" );
 	for( i = 0; i < MAX_USER_MESSAGES; i++ )
 	{
-		if( !COM_CheckStringEmpty( clgame.msg[i].name ))
+		if( COM_StringEmpty( clgame.msg[i].name ))
 			break;
 
 		Con_Printf( "%3d\t%3d\t%s\n", clgame.msg[i].number, clgame.msg[i].size, clgame.msg[i].name );
