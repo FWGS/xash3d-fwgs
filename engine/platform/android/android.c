@@ -81,7 +81,8 @@ const char *Android_GetAndroidID( void )
 	jstring resultJNIStr;
 	const char *resultCStr;
 
-	if( COM_CheckString( id ) ) return id;
+	if( !COM_StringEmpty( id ))
+		return id;
 
 	resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getAndroidID );
 	resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
