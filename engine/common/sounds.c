@@ -130,7 +130,7 @@ static qboolean SoundList_ParseGroup( soundlst_t *lst, char **file )
 			Con_Printf( "%s: expected '}' but got '{' during group list parse\n", __func__ );
 			return false;
 		}
-		else if( !COM_CheckStringEmpty( token ))
+		else if( COM_StringEmpty( token ))
 		{
 			Con_Printf( "%s: expected '}' but got EOF during group list parse\n", __func__ );
 			return false;

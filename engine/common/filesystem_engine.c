@@ -258,7 +258,7 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 {
 	const char *path = getenv( "XASH3D_BASEDIR" );
 
-	if( COM_CheckString( path ))
+	if( !COM_StringEmptyOrNULL( path ))
 	{
 		Q_strncpy( out, path, size );
 		return true;
@@ -314,7 +314,7 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 	if( _Sys_GetParmFromCmdLine( "-rodir", out, size ))
 		return true;
 
-	if( COM_CheckString( env_rodir ))
+	if( !COM_StringEmptyOrNULL( env_rodir ))
 	{
 		Q_strncpy( out, env_rodir, size );
 		return true;
@@ -334,7 +334,7 @@ void FS_Init( const char *basedir )
 	char rodir[MAX_OSPATH], rootdir[MAX_OSPATH];
 	rodir[0] = rootdir[0] = 0;
 
-	if( !FS_DetermineRootDirectory( rootdir, sizeof( rootdir )) || !COM_CheckStringEmpty( rootdir ))
+	if( !FS_DetermineRootDirectory( rootdir, sizeof( rootdir )) || COM_StringEmpty( rootdir ))
 	{
 		Sys_Error( "couldn't determine current directory (empty string)" );
 		return;

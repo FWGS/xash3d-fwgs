@@ -106,7 +106,7 @@ static void HPAK_CreatePak( const char *filename, resource_t *pResource, byte *p
 	file_t		*fout;
 	MD5Context_t	ctx = { 0 };
 
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 		return;
 
 	if(( fin != NULL && pData != NULL ) || ( fin == NULL && pData == NULL ))
@@ -393,7 +393,7 @@ static qboolean HPAK_Validate( const char *filename, qboolean quiet, qboolean de
 	if( quiet ) HPAK_FlushHostQueue();
 
 	// not an error - just flush queue
-	if( !COM_CheckString( filename ) )
+	if( COM_StringEmptyOrNULL( filename ) )
 		return true;
 
 	Q_strncpy( pakname, filename, sizeof( pakname ));
@@ -496,7 +496,7 @@ void HPAK_CheckIntegrity( const char *filename )
 {
 	string	pakname;
 
-	if( !COM_CheckString( filename ) )
+	if( COM_StringEmptyOrNULL( filename ) )
 		return;
 
 	Q_strncpy( pakname, filename, sizeof( pakname ));
@@ -513,7 +513,7 @@ void HPAK_CheckSize( const char *filename )
 	maxsize = hpk_maxsize.value;
 	if( maxsize <= 0 ) return;
 
-	if( !COM_CheckString( filename ) )
+	if( COM_StringEmptyOrNULL( filename ) )
 		return;
 
 	Q_strncpy( pakname, filename, sizeof( pakname ));
@@ -536,7 +536,7 @@ qboolean HPAK_ResourceForHash( const char *filename, byte *hash, resource_t *pRe
 	file_t		*f;
 	hash_pack_queue_t	*p;
 
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 		return false;
 
 	for( p = gp_hpak_queue; p != NULL; p = p->next )
@@ -594,7 +594,7 @@ static qboolean HPAK_ResourceForIndex( const char *filename, int index, resource
 	string		pakname;
 	file_t		*f;
 
-	if( !COM_CheckString( filename ) )
+	if( COM_StringEmptyOrNULL( filename ) )
 		return false;
 
 	Q_strncpy( pakname, filename, sizeof( pakname ));
@@ -659,7 +659,7 @@ qboolean HPAK_GetDataPointer( const char *filename, resource_t *pResource, byte 
 	file_t		*f;
 	int		i;
 
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 		return false;
 
 	if( buffer ) *buffer = NULL;
@@ -761,7 +761,7 @@ void HPAK_RemoveLump( const char *name, resource_t *pResource )
 	hpak_info_t	hpak_save;
 	int		i, j;
 
-	if( !COM_CheckString( name ) || !pResource )
+	if( COM_StringEmptyOrNULL( name ) || !pResource )
 		return;
 
 	HPAK_FlushHostQueue();

@@ -117,7 +117,7 @@ void COM_ChangeLevel( char const *pNewLevel, char const *pLandmarkName, qboolean
 	Q_strncpy( GameState->levelName, pNewLevel, sizeof( GameState->levelName ));
 	GameState->backgroundMap = background;
 
-	if( COM_CheckString( pLandmarkName ))
+	if( !COM_StringEmptyOrNULL( pLandmarkName ))
 	{
 		Q_strncpy( GameState->landmarkName, pLandmarkName, sizeof( GameState->landmarkName ));
 		GameState->loadGame = true;

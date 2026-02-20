@@ -122,7 +122,7 @@ qboolean Info_IsValid( const char *s )
 		}
 		*o = 0;
 
-		if( !COM_CheckStringEmpty( value ) )
+		if( COM_StringEmpty( value ) )
 			return false;
 
 		if( *s ) s++;
@@ -439,7 +439,7 @@ qboolean Info_SetValueForStarKey( char *s, const char *key, const char *value, i
 
 	Info_RemoveKey( s, key );
 
-	if( !COM_CheckString( value ) )
+	if( COM_StringEmptyOrNULL( value ) )
 		return true; // just clear variable
 
 	Q_snprintf( new, sizeof( new ), "\\%s\\%s", key, value );

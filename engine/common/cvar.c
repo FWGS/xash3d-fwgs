@@ -220,7 +220,7 @@ static const char *Cvar_ValidateString( convar_t *var, const char *value )
 		pszValue = szNew;
 
 		// g-cont. is this even need?
-		if( !COM_CheckStringEmpty( szNew ) ) Q_strncpy( szNew, "empty", sizeof( szNew ));
+		if( COM_StringEmpty( szNew ) ) Q_strncpy( szNew, "empty", sizeof( szNew ));
 	}
 
 	if( FBitSet( var->flags, FCVAR_NOEXTRAWHITESPACE ))
@@ -418,7 +418,7 @@ convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const c
 			// which executed from the config file. So we don't need to
 			// change value here: we *already* have actual value from config.
 			// in other cases we need to rewrite them
-			if( COM_CheckStringEmpty( var->desc ))
+			if( !COM_StringEmpty( var->desc ))
 			{
 				// directly set value
 				size_t len = Q_strlen( value ) + 1;

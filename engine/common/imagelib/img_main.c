@@ -268,7 +268,7 @@ static const loadpixformat_t *Image_GetLoadFormatForExtension( const char *ext )
 {
 	const loadpixformat_t *format;
 
-	if( !COM_CheckStringEmpty( ext ))
+	if( COM_StringEmpty( ext ))
 		return NULL;
 
 	for( format = image.loadformats; format->ext; format++ )
@@ -503,7 +503,7 @@ writes image as any known format
 qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 {
 	const char	*ext = COM_FileExtension( filename );
-	qboolean		anyformat = !COM_CheckStringEmpty( ext );
+	qboolean		anyformat = COM_StringEmpty( ext );
 	string		path, savename;
 	const savepixformat_t *format;
 
