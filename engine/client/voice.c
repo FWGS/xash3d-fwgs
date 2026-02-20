@@ -56,7 +56,13 @@ static qboolean Voice_IsGoldSrcMode( const char *codec )
 	// it will send an empty codec
 	// however, decoding is still possible
 	// if the voice data contains Opus
-	return( !COM_StringEmptyOrNULL( codec ) == 0 || Q_strstr( codec, "voice_speex" ) != NULL );
+	if( COM_StringEmptyOrNULL( codec ))
+		return true;
+
+	if( Q_strstr( codec, "voice_speex" ))
+		return true;
+
+	return false;
 }
 
 /*
