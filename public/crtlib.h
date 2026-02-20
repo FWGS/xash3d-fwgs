@@ -97,6 +97,10 @@ void COM_PathSlashFix( char *path );
 // return 0 on empty or null string, 1 otherwise
 #define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
 #define COM_CheckStringEmpty( string ) ( ( !*string ) ? 0 : 1 )
+
+#define COM_StringEmpty( string )       (( string )[0] ? false : true )
+#define COM_StringEmptyOrNULL( string ) (( string ) && ( string )[0] ? false : true )
+
 char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int flags, int *len, qboolean *quoted );
 #define COM_ParseFile( data, token, size ) COM_ParseFileSafe( data, token, size, 0, NULL, NULL )
 int matchpattern( const char *in, const char *pattern, qboolean caseinsensitive );
