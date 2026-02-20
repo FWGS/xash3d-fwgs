@@ -649,7 +649,7 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 	convar_t *cvar;
 	cmdalias_t *alias;
 
-	if( !COM_CheckString( cmd_name ))
+	if( COM_StringEmptyOrNULL( cmd_name ))
 	{
 		Con_Reportf( S_ERROR "%s: NULL name\n", funcname );
 		return 0;

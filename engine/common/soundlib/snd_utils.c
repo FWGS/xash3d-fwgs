@@ -447,7 +447,7 @@ qboolean Sound_Process( wavdata_t **wav, int rate, int width, int channels, uint
 qboolean Sound_SupportedFileFormat( const char *fileext )
 {
 	const loadwavfmt_t *format;
-	if( COM_CheckStringEmpty( fileext ))
+	if( !COM_StringEmpty( fileext ))
 	{
 		for( format = sound.loadformats; format && format->ext; format++ )
 		{

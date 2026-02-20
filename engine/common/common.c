@@ -737,7 +737,7 @@ byte *GAME_EXPORT COM_LoadFileForMe( const char *filename, int *pLength )
 	byte	*pfile;
 	fs_offset_t	iLength;
 
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 	{
 		if( pLength )
 			*pLength = 0;
@@ -773,7 +773,7 @@ COM_SaveFile
 int GAME_EXPORT COM_SaveFile( const char *filename, const void *data, int len )
 {
 	// check for empty filename
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 		return false;
 
 	// check for null data
@@ -894,7 +894,7 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 	size_t	len;
 	int		i;
 
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 		return false;
 
 	ext = COM_FileExtension( filename );
@@ -903,7 +903,7 @@ qboolean COM_IsSafeFileToDownload( const char *filename )
 	// only allow extensionless files that start with !MD5
 	if( !Q_strncmp( filename, "!MD5", 4 ))
 	{
-		if( COM_CheckStringEmpty( ext ))
+		if( !COM_StringEmpty( ext ))
 			return false;
 
 		len = Q_strlen( filename );

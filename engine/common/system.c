@@ -151,14 +151,14 @@ const char *Sys_GetCurrentUser( void )
 #elif XASH_PSVITA
 	static string username;
 	sceAppUtilSystemParamGetString( SCE_SYSTEM_PARAM_ID_USERNAME, username, sizeof( username ) - 1 );
-	if( COM_CheckStringEmpty( username ))
+	if( !COM_StringEmpty( username ))
 		return username;
 #elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
 	static string username;
 	struct passwd *pw = getpwuid( geteuid( ));
 
 	// POSIX standard says pw _might_ point to static area, so let's make a copy
-	if( pw && COM_CheckString( pw->pw_name ))
+	if( pw && !COM_StringEmptyOrNULL( pw->pw_name ))
 	{
 		Q_strncpy( username, pw->pw_name, sizeof( username ));
 		return username;
@@ -643,7 +643,7 @@ void *Sys_GetNativeObject( const char *obj )
 {
 	void *ptr;
 
-	if( !COM_CheckString( obj ))
+	if( COM_StringEmptyOrNULL( obj ))
 		return NULL;
 
 	ptr = FS_GetNativeObject( obj );

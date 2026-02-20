@@ -453,7 +453,7 @@ static int Mod_LoadTextureFromWadList( wadlist_t *list, const char *name, rgbdat
 {
 	int i;
 
-	if( !list || !COM_CheckString( name ))
+	if( !list || COM_StringEmptyOrNULL( name ))
 		return -1;
 
 	// check wads in reverse order
@@ -1156,7 +1156,7 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 	qboolean	model_found;
 	qboolean	origin_found;
 
-	if( !entities || !COM_CheckString( modelname ))
+	if( !entities || COM_StringEmptyOrNULL( modelname ))
 		return;
 
 	if( !origin || !VectorIsNull( origin ))
@@ -2117,7 +2117,7 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 
 	*next = '\0';
 
-	if( !COM_CheckStringEmpty( prev ))
+	if( COM_StringEmpty( prev ))
 		return 0;
 
 	COM_FixSlashes( prev );
@@ -3918,7 +3918,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		}
 	}
 
-	if( COM_CheckString( wadvalue ))
+	if( !COM_StringEmptyOrNULL( wadvalue ))
 	{
 		wadvalue[Q_strlen( wadvalue ) - 2] = '\0'; // kill the last semicolon
 		Con_Reportf( "Wad files required to run the map: \"%s\"\n", wadvalue );

@@ -507,7 +507,7 @@ qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen )
 	byte ip6[16];
 	uint len;
 
-	if( !COM_CheckStringEmpty( s ))
+	if( COM_StringEmpty( s ))
 		return false;
 
 	memset( adr, 0, sizeof( *adr ));
@@ -1631,7 +1631,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 				Con_DPrintf( S_WARN "%s: port %d setsockopt IPV6_MULTICAST_LOOP: %s\n", __func__, port, NET_ErrorString( ));
 		}
 
-		if( COM_CheckStringEmpty( net_iface ) && Q_stricmp( net_iface, "localhost" ))
+		if( !COM_StringEmpty( net_iface ) && Q_stricmp( net_iface, "localhost" ))
 			NET_StringToSockaddr( net_iface, &addr, false, AF_INET6 );
 		else ((struct sockaddr_in6 *)&addr)->sin6_addr = in6addr_any;
 
@@ -1668,7 +1668,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 				Con_DPrintf( S_WARN "%s: port %d setsockopt IP_MULTICAST_LOOP: %s\n", __func__, port, NET_ErrorString( ));
 		}
 
-		if( COM_CheckStringEmpty( net_iface ) && Q_stricmp( net_iface, "localhost" ))
+		if( !COM_StringEmpty( net_iface ) && Q_stricmp( net_iface, "localhost" ))
 			NET_StringToSockaddr( net_iface, &addr, false, AF_INET );
 		else ((struct sockaddr_in *)&addr)->sin_addr.s_addr = INADDR_ANY;
 

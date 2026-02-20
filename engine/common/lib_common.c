@@ -215,7 +215,7 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 	switch( eLibType )
 	{
 	case LIBRARY_GAMEUI:
-		if( COM_CheckStringEmpty( host.menulib ))
+		if( !COM_StringEmpty( host.menulib ))
 		{
 			if( host.menulib[0] == '@' )
 				COM_GenerateClientLibraryPath( host.menulib + 1, out, size );
@@ -224,7 +224,7 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 		else COM_GenerateClientLibraryPath( "menu", out, size );
 		break;
 	case LIBRARY_CLIENT:
-		if( COM_CheckStringEmpty( host.clientlib ))
+		if( !COM_StringEmpty( host.clientlib ))
 		{
 			if( host.clientlib[0] == '@' )
 				COM_GenerateClientLibraryPath( host.clientlib + 1, out, size );
@@ -233,7 +233,7 @@ void COM_GetCommonLibraryPath( ECommonLibraryType eLibType, char *out, size_t si
 		else COM_GenerateClientLibraryPath( "client", out, size );
 		break;
 	case LIBRARY_SERVER:
-		if( COM_CheckStringEmpty( host.gamedll ))
+		if( !COM_StringEmpty( host.gamedll ))
 		{
 			if( host.gamedll[0] == '@' )
 				COM_GenerateServerLibraryPath( host.gamedll + 1, out, size );

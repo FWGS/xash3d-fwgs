@@ -431,7 +431,7 @@ model_t *Mod_ForName( const char *name, qboolean crash, qboolean trackCRC )
 {
 	model_t	*mod;
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return NULL;
 
 	mod = Mod_FindName( name, trackCRC );
@@ -575,7 +575,7 @@ void Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 
 	Assert( cu != NULL );
 
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 		return;
 
 	Q_strncpy( modname, filename, sizeof( modname ));
