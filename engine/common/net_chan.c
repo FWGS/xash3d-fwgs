@@ -1224,7 +1224,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		uncompressedSize = MSG_ReadLong( msg );
 	}
 
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 	{
 		Con_Printf( S_ERROR "file fragment received with no filename\nFlushing input queue\n" );
 		Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
@@ -1448,7 +1448,7 @@ void Netchan_UpdateProgress( netchan_t *chan )
 				}
 				*out = '\0';
 
-				if( COM_CheckStringEmpty( sz ) && sz[0] != '!' )
+				if( !COM_StringEmpty( sz ) && sz[0] != '!' )
 					Q_strncpy( host.downloadfile, sz, sizeof( host.downloadfile ));
 			}
 		}

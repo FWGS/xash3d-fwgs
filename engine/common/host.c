@@ -560,7 +560,7 @@ static qboolean Host_RegisterDecal( const char *name, int *count )
 	char	shortname[MAX_QPATH];
 	int	i;
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return 0;
 
 	COM_FileBase( name, shortname, sizeof( shortname ));
@@ -957,7 +957,7 @@ static int Host_CheckBugcomp_splitstr_handler( char *prev, char *next, void *use
 
 	*next = '\0';
 
-	if( !COM_CheckStringEmpty( prev ))
+	if( COM_StringEmpty( prev ))
 		return 0;
 
 	for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )

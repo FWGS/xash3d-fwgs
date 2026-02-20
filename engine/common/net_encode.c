@@ -437,7 +437,7 @@ static delta_info_t *Delta_FindStruct( const char *name )
 {
 	int	i;
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return NULL;
 
 	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
@@ -466,7 +466,7 @@ static delta_info_t *Delta_FindStructByEncoder( const char *encoderName )
 {
 	int	i;
 
-	if( !COM_CheckString( encoderName ) )
+	if( COM_StringEmptyOrNULL( encoderName ) )
 		return NULL;
 
 	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
@@ -596,7 +596,7 @@ static void Delta_WriteTableField( sizebuf_t *msg, int tableIndex, const delta_t
 
 	Assert( pField != NULL );
 
-	if( !COM_CheckString( pField->name ))
+	if( COM_StringEmptyOrNULL( pField->name ))
 		return;// not initialized ?
 
 	dt = Delta_FindStructByIndex( tableIndex );

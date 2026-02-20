@@ -140,7 +140,7 @@ static const char *Mem_CheckFilename( const char *filename )
 {
 	static const char *dummy = "<corrupted>\0";
 
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 		return dummy;
 
 	if( memchr( filename, '\0', MAX_OSPATH ) != NULL )
