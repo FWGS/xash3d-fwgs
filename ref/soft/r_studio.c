@@ -3527,7 +3527,7 @@ static void pfnMod_LoadCacheFile( const char *path, struct cache_user_s *cu )
 
 static cvar_t *pfnGetCvarPointer( const char *name )
 {
-	return (cvar_t *)gEngfuncs.pfnGetCvarPointer( name, 0 );
+	return (cvar_t *)gEngfuncs.pfnGetCvarPointer( name );
 }
 
 static void *pfnMod_Calloc( int number, size_t size )
@@ -3604,7 +3604,7 @@ void GAME_EXPORT CL_InitStudioAPI( void )
 	pStudioDraw = &gStudioDraw;
 
 	// trying to grab them from client.dll
-	cl_righthand = gEngfuncs.pfnGetCvarPointer( "cl_righthand", 0 );
+	cl_righthand = gEngfuncs.pfnGetCvarPointer( "cl_righthand" );
 
 	// Xash will be used internal StudioModelRenderer
 	if( gEngfuncs.pfnGetStudioModelInterface( STUDIO_INTERFACE_VERSION, &pStudioDraw, &gStudioAPI ))

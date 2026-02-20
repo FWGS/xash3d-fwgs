@@ -339,7 +339,7 @@ static const ref_api_t gEngfuncs =
 	pfnEngineGetParm,
 
 	pfnCvar_Get,
-	(void*)Cvar_FindVarExt,
+	(void*)Cvar_FindVar,
 	Cvar_VariableValue,
 	Cvar_VariableString,
 	Cvar_SetValue,

@@ -675,7 +675,7 @@ void R_ShowTextures( void )
 	time -= floor( time );
 	time_cubemap = gp_cl->time * 0.25f;
 	time_cubemap -= floor( time_cubemap );
-	time_cubemap *= 6.2831853f;
+	time_cubemap *= M_PI2_F;
 	SinCos( time_cubemap, &cbm_sin, &cbm_cos );
 
 	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );

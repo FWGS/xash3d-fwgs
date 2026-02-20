@@ -33,8 +33,7 @@ typedef struct pending_cvar_s
 typedef void (*setpair_t)( const char *key, const void *value, const void *buffer, void *numpairs );
 
 cvar_t *Cvar_GetList( void );
-#define Cvar_FindVar( name )	Cvar_FindVarExt( name, 0 )
-convar_t *Cvar_FindVarExt( const char *var_name, int ignore_group );
+convar_t *Cvar_FindVar( const char *var_name );
 void Cvar_RegisterVariable( convar_t *var );
 convar_t *Cvar_Get( const char *var_name, const char *value, uint32_t flags, const char *description );
 convar_t *Cvar_Getf( const char *var_name, uint32_t flags, const char *description, const char *format, ... ) FORMAT_CHECK( 4 );
