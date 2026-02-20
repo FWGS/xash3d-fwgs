@@ -170,6 +170,7 @@ float S_GetMusicVolume( void );
 //
 // s_main.c
 //
+int S_RetrieveAudioSamples( const wavdata_t *source, const void **output_buffer, int start_position, int num_samples, qboolean enable_looping );
 void S_FreeChannel( channel_t *ch );
 
 //
@@ -254,12 +255,6 @@ static inline void SND_CloseMouth( const channel_t *ch )
 void S_StreamBackgroundTrack( void );
 void S_PrintBackgroundTrackState( void );
 void S_MusicFade( float fade_percent );
-
-//
-// s_utils.c
-//
-int S_AdjustLoopedSamplePosition( const wavdata_t *source, int current_sample, qboolean enable_looping );
-int S_RetrieveAudioSamples( const wavdata_t *source, const void **output_buffer, int start_position, int num_samples, qboolean enable_looping );
 
 //
 // s_vox.c
