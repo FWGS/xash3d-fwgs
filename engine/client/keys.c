@@ -462,7 +462,12 @@ void Key_WriteBindings( file_t *f )
 			continue;
 
 		Cmd_Escape( newCommand, keys[i].binding, sizeof( newCommand ));
-		FS_Printf( f, "bind %s \"%s\"\n", Key_KeynumToString( i ), newCommand );
+
+		// NOTE: as TheKingFireS figured out, some particular mods (like CoF) do not
+		// use LookupBinding to find key by it's binding and instead parse config.cfg
+		// to look for bind commands.
+		// CoF expects key to be enclosed in double quotes
+		FS_Printf( f, "bind \"%s\" \"%s\"\n", Key_KeynumToString( i ), newCommand );
 	}
 }
 
