@@ -28,7 +28,7 @@ static void CL_ParseExtraInfo( sizebuf_t *msg )
 	string clientfallback;
 
 	Q_strncpy( clientfallback, MSG_ReadString( msg ), sizeof( clientfallback ));
-	if( COM_CheckStringEmpty( clientfallback ))
+	if( !COM_StringEmpty( clientfallback ))
 		Con_Reportf( S_ERROR "%s: TODO: add fallback directory %s!\n", __func__, clientfallback );
 
 	cls.allow_cheats = MSG_ReadByte( msg ) ? true : false;
@@ -589,7 +589,7 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			break;
 		case svc_disconnect:
 			s = MSG_ReadString( msg );
-			if( COM_CheckStringEmpty( s ))
+			if( !COM_StringEmpty( s ))
 				Con_Printf( "Server issued disconnect. Reason: %s\n", s );
 			CL_Drop ();
 			Host_AbortCurrentFrame ();
