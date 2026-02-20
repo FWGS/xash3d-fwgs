@@ -100,7 +100,7 @@ static signed char W_TypeFromExt( const char *lumpname )
 	int i;
 
 	// we not known about filetype, so match only by filename
-	if( !Q_strcmp( ext, "*" ) || !COM_CheckStringEmpty( ext ))
+	if( !Q_strcmp( ext, "*" ) || COM_StringEmpty( ext ))
 		return TYP_ANY;
 
 	for( i = 0; i < sizeof( wad_types ) / sizeof( wad_types[0] ); i++ )
@@ -439,7 +439,7 @@ static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedn
 
 	COM_ExtractFilePath( path, wadname );
 
-	if( COM_CheckStringEmpty( wadname ))
+	if( !COM_StringEmpty( wadname ))
 	{
 		string wadbasename;
 
@@ -496,7 +496,7 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 	COM_FileBase( pattern, wadpattern, sizeof( wadpattern ));
 	wadfolder[0] = '\0';
 
-	if( COM_CheckStringEmpty( wadname ))
+	if( !COM_StringEmpty( wadname ))
 	{
 		string wadbasename;
 
