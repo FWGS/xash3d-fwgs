@@ -525,6 +525,24 @@ void Sys_Print( const char *pMsg )
 
 /*
 ==================
+Sys_CanRestart
+
+Returns true if execv-like syscall is available
+==================
+*/
+qboolean Sys_CanRestart( void )
+{
+#if XASH_NSWITCH || XASH_PSVITA
+	return true;
+#else
+	int exelen = wai_getExecutablePath( NULL, 0, NULL );
+
+	return exelen > 0;
+#endif
+}
+
+/*
+==================
 Sys_ChangeGame
 
 This is a special function

@@ -38,7 +38,6 @@ GNU General Public License for more details.
 #include "tests.h"
 
 host_parm_t host;	// host parms
-static pfnChangeGame pChangeGame = NULL;
 static jmp_buf return_from_main_buf;
 
 /*
@@ -389,12 +388,10 @@ static int Host_CalcSleep( void )
 
 static void Host_NewInstance( const char *name, const char *finalmsg )
 {
-	if( !pChangeGame ) return;
-
 	host.change_game = true;
 
 	if( !Sys_NewInstance( name, finalmsg ))
-		pChangeGame( name ); // call from hl.exe
+		Con_Printf( S_ERROR "Failed to restart the engine\n" );
 }
 
 /*
@@ -1191,7 +1188,7 @@ static void Sys_Quit_f( void )
 Host_Main
 =================
 */
-int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func )
+int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame pChangeGame )
 {
 	static double oldtime;
 	string demoname, exename;
@@ -1200,8 +1197,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		return error_on_exit;
 
 	host.starttime = Platform_DoubleTime();
-
-	pChangeGame = func;	// may be NULL
 
 	Host_InitCommon( argc, argv, progname, bChangeGame, exename, sizeof( exename ));
 
@@ -1250,7 +1245,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Netchan_Init();
 
 	// allow to change game from the console
-	if( pChangeGame != NULL )
+	if( pChangeGame != NULL && Sys_CanRestart( ))
 	{
 		Cmd_AddRestrictedCommand( "game", Host_ChangeGame_f, "change game" );
 		Cvar_Get( "host_allow_changegame", "1", FCVAR_READ_ONLY, "allows to change games" );
