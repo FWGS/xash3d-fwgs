@@ -550,7 +550,7 @@ void SV_GetPlayerCount( int *clients, int *bots );
 
 static inline qboolean SV_HavePassword( void )
 {
-	if( COM_CheckStringEmpty( sv_password.string ) && Q_stricmp( sv_password.string, "none" ))
+	if( !COM_StringEmpty( sv_password.string ) && Q_stricmp( sv_password.string, "none" ))
 		return true;
 
 	return false;
