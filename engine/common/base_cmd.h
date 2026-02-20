@@ -12,14 +12,8 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
-
-#pragma once
 #ifndef BASE_CMD_H
 #define BASE_CMD_H
-
-#define XASH_HASHED_VARS
-
-#ifdef XASH_HASHED_VARS
 
 #include "common.h"
 #include "cdll_int.h"
@@ -38,11 +32,9 @@ void BaseCmd_Init( void );
 void BaseCmd_Shutdown( void );
 base_command_t *BaseCmd_Find( base_command_type_e type, const char *name );
 void BaseCmd_FindAll( const char *name, cmd_t **cmd, cmdalias_t **alias, convar_t **cvar );
-void BaseCmd_Insert ( base_command_type_e type, base_command_t *basecmd, const char *name );
-void BaseCmd_Remove ( base_command_type_e type, const char *name );
+void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const char *name );
+void BaseCmd_Remove( base_command_type_e type, const char *name );
 void BaseCmd_Stats_f( void ); // to be registered later
 void BaseCmd_Test_f( void ); // to be registered later
-
-#endif // XASH_HASHED_VARS
 
 #endif // BASE_CMD_H

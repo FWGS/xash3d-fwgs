@@ -76,18 +76,7 @@ convar_t *Cvar_FindVar( const char *var_name )
 	if( !var_name )
 		return NULL;
 
-#if defined(XASH_HASHED_VARS) // TODO: ignore_group
 	var = BaseCmd_Find( HM_CVAR, var_name );
-#else
-	for( var = cvar_vars; var; var = var->next )
-	{
-		if( ignore_group && FBitSet( ignore_group, var->flags ))
-			continue;
-
-		if( !Q_stricmp( var_name, var->name ))
-			return var;
-	}
-#endif
 
 	// HACKHACK: HL25 compatibility
 	if( !var && !Q_stricmp( var_name, "gl_widescreen_yfov" ))
@@ -319,9 +308,7 @@ static int Cvar_UnlinkVar( const char *var_name, uint32_t group )
 			continue;
 		}
 
-#if defined(XASH_HASHED_VARS)
 		BaseCmd_Remove( HM_CVAR, var->name );
-#endif
 
 		// unlink variable from list
 		*prev = var->next;
@@ -487,10 +474,8 @@ convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const c
 	// tell engine about changes
 	Cvar_Changed( var );
 
-#if defined(XASH_HASHED_VARS)
 	// add to map
 	BaseCmd_Insert( HM_CVAR, var, var->name );
-#endif
 
 	return var;
 }
@@ -575,10 +560,8 @@ void Cvar_RegisterVariable( convar_t *var )
 	// tell engine about changes
 	Cvar_Changed( var );
 
-#if defined(XASH_HASHED_VARS)
 	// add to map
 	BaseCmd_Insert( HM_CVAR, var, var->name );
-#endif
 }
 
 static qboolean Cvar_CanSet( const convar_t *cv )
@@ -1023,11 +1006,6 @@ qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged )
 		Cvar_SetGL( Cmd_Argv( 0 ), Cmd_Argv( 1 ) );
 		return true;
 	}
-
-#if !defined( XASH_HASHED_VARS )
-	// check variables
-	v = Cvar_FindVar( Cmd_Argv( 0 ));
-#endif
 
 	if( !v )
 		return false;
