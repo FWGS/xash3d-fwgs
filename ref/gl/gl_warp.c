@@ -651,6 +651,8 @@ void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples )
 
 	HALF-LIFE SOFTWARE WATER
 
+https://web.archive.org/web/20160418004149/http://freespace.virgin.net/hugo.elias/graphics/x_water.htm
+
 ============================================================
 */
 void R_ResetRipples( void )
