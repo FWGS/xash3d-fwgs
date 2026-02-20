@@ -138,7 +138,7 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	if( sfx->cache )
 		return sfx->cache;
 
-	if( !COM_CheckString( sfx->name ))
+	if( COM_StringEmptyOrNULL( sfx->name ))
 		return NULL;
 
 	// load it from disk
@@ -182,7 +182,7 @@ sfx_t *S_FindName( const char *pname, int *pfInCache )
 	uint	i, hash;
 	string	name;
 
-	if( !COM_CheckString( pname ) || !dma.initialized )
+	if( COM_StringEmptyOrNULL( pname ) || !dma.initialized )
 		return NULL;
 
 	if( Q_strlen( pname ) >= sizeof( sfx->name ))
@@ -336,7 +336,7 @@ sound_t S_RegisterSound( const char *name )
 {
 	sfx_t	*sfx;
 
-	if( !COM_CheckString( name ) || !dma.initialized )
+	if( COM_StringEmptyOrNULL( name ) || !dma.initialized )
 		return -1;
 
 	if( S_TestSoundChar( name, '!' ))

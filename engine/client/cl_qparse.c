@@ -267,7 +267,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	{
 		pResName = MSG_ReadString( msg );
 
-		if( !COM_CheckString( pResName ))
+		if( COM_StringEmptyOrNULL( pResName ))
 			break; // end of list
 
 		pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
@@ -285,7 +285,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	{
 		pResName = MSG_ReadString( msg );
 
-		if( !COM_CheckString( pResName ))
+		if( COM_StringEmptyOrNULL( pResName ))
 			break; // end of list
 
 		pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
@@ -840,7 +840,7 @@ static void CL_QuakeExecStuff( void )
 	int	argc = 0;
 
 	// check if no commands this frame
-	if( !COM_CheckString( text ))
+	if( COM_StringEmptyOrNULL( text ))
 		return;
 
 	while( 1 )

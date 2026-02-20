@@ -955,7 +955,7 @@ static void CL_BeginUpload_f( void )
 
 	name = Cmd_Argv( 1 );
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return;
 
 	if( !cl_allow_upload.value )
@@ -1478,7 +1478,7 @@ static void CL_Rcon_f( void )
 	netadr_t to;
 	int	i;
 
-	if( !COM_CheckString( rcon_password.string ))
+	if( COM_StringEmptyOrNULL( rcon_password.string ))
 	{
 		Con_Printf( "You must set 'rcon_password' before issuing an rcon command.\n" );
 		return;
@@ -1492,7 +1492,7 @@ static void CL_Rcon_f( void )
 	}
 	else
 	{
-		if( !COM_CheckString( rcon_address.string ))
+		if( COM_StringEmptyOrNULL( rcon_address.string ))
 		{
 			Con_Printf( "You must either be connected or set the 'rcon_address' cvar to issue rcon commands\n" );
 			return;
@@ -1863,7 +1863,7 @@ static void CL_Reconnect_f( void )
 		return;
 	}
 
-	if( COM_CheckString( cls.servername ))
+	if( !COM_StringEmptyOrNULL( cls.servername ))
 	{
 		connprotocol_t proto = cls.legacymode;
 
@@ -1889,7 +1889,7 @@ retry connection to last server
 */
 static void CL_Retry_f( void )
 {
-	if( !COM_CheckString( cls.servername ))
+	if( COM_StringEmptyOrNULL( cls.servername ))
 	{
 		Con_Printf( "Can't retry, no previous connection.\n" );
 		return;
@@ -2001,17 +2001,17 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 
 	CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
 
-	if( !COM_CheckString( Info_ValueForKey( infostring, "gamedir" )))
+	if( COM_StringEmptyOrNULL( Info_ValueForKey( infostring, "gamedir" )))
 		return; // unsupported proto
 
-	if( !COM_CheckString( Info_ValueForKey( infostring, "host" )))
+	if( COM_StringEmptyOrNULL( Info_ValueForKey( infostring, "host" )))
 		return;
 
-	if( !COM_CheckString( Info_ValueForKey( infostring, "map" )))
+	if( COM_StringEmptyOrNULL( Info_ValueForKey( infostring, "map" )))
 		return;
 
 	// don't let servers pretend they're something else
-	if( COM_CheckString( Info_ValueForKey( infostring, "gs" )))
+	if( !COM_StringEmptyOrNULL( Info_ValueForKey( infostring, "gs" )))
 		return;
 
 	maxcl = Q_atoi( Info_ValueForKey( infostring, "maxcl" ));
@@ -2826,7 +2826,7 @@ Replace the displayed name for some resources
 */
 static const char *CL_CleanFileName( const char *filename )
 {
-	if( COM_CheckString( filename ) && filename[0] == '!' )
+	if( !COM_StringEmptyOrNULL( filename ) && filename[0] == '!' )
 		return "customization";
 
 	return filename;
@@ -2881,7 +2881,7 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 	byte		rgucMD5_hash[16];
 	resource_t	*p;
 
-	if( COM_CheckString( filename ) && successfully_received )
+	if( !COM_StringEmptyOrNULL( filename ) && successfully_received )
 	{
 		if( filename[0] != '!' )
 			Con_Printf( "processing %s\n", filename );

@@ -91,13 +91,13 @@ void S_StartBackgroundTrack( const char *introTrack, const char *mainTrack, int 
 	if( mainTrack && *mainTrack == '*' )
 		mainTrack = NULL;
 
-	if( !COM_CheckString( introTrack ) && !COM_CheckString( mainTrack ))
+	if( COM_StringEmptyOrNULL( introTrack ) && COM_StringEmptyOrNULL( mainTrack ))
 		return;
 
 	if( !introTrack ) introTrack = mainTrack;
 	if( !*introTrack ) return;
 
-	if( !COM_CheckString( mainTrack ))
+	if( COM_StringEmptyOrNULL( mainTrack ))
 		s_bgTrack.loopName[0] = '\0';
 	else Q_strncpy( s_bgTrack.loopName, mainTrack, sizeof( s_bgTrack.loopName ));
 

@@ -270,7 +270,7 @@ void CL_CenterPrint( const char *text, float y )
 {
 	cl_font_t *font = Con_GetCurFont();
 
-	if( !COM_CheckString( text ) || !font || !font->valid )
+	if( COM_StringEmptyOrNULL( text ) || !font || !font->valid )
 		return;
 
 	clgame.centerPrint.totalWidth = 0;
@@ -596,7 +596,9 @@ Template to show hud messages
 */
 void CL_HudMessage( const char *pMessage )
 {
-	if( !COM_CheckString( pMessage )) return;
+	if( COM_StringEmptyOrNULL( pMessage ))
+		return;
+
 	CL_DispatchUserMessage( "HudText", Q_strlen( pMessage ) + 1, (void *)pMessage );
 }
 
@@ -1321,7 +1323,7 @@ static model_t *CL_LoadSpriteModel( const char *filename, uint type, uint texFla
 	model_t	*mod;
 	int	i, start;
 
-	if( !COM_CheckString( filename ))
+	if( COM_StringEmptyOrNULL( filename ))
 	{
 		Con_Reportf( S_ERROR "%s: bad name!\n", __func__ );
 		return NULL;
@@ -1840,7 +1842,7 @@ pfnServerCmd
 */
 static int GAME_EXPORT pfnServerCmd( const char *szCmdString )
 {
-	if( !COM_CheckString( szCmdString ))
+	if( COM_StringEmptyOrNULL( szCmdString ))
 		return 0;
 
 	// just like the client typed "cmd xxxxx" at the console
@@ -1858,7 +1860,7 @@ pfnClientCmd
 */
 static int GAME_EXPORT pfnClientCmd( const char *szCmdString )
 {
-	if( !COM_CheckString( szCmdString ))
+	if( COM_StringEmptyOrNULL( szCmdString ))
 		return 0;
 
 	if( cls.initialized )
@@ -1883,7 +1885,7 @@ pfnFilteredClientCmd
 */
 static int GAME_EXPORT pfnFilteredClientCmd( const char *szCmdString )
 {
-	if( !COM_CheckString( szCmdString ))
+	if( COM_StringEmptyOrNULL( szCmdString ))
 		return 0;
 
 	// a1ba:
@@ -2065,7 +2067,7 @@ prints directly into console (can skip notify)
 */
 static void GAME_EXPORT pfnConsolePrint( const char *string )
 {
-	if( !COM_CheckString( string ))
+	if( COM_StringEmptyOrNULL( string ))
 		return;
 
 	// WON GoldSrc behavior
@@ -2437,7 +2439,7 @@ static int GAME_EXPORT CL_FindModelIndex( const char *m )
 	char filepath[MAX_QPATH];
 	int  i;
 
-	if( !COM_CheckString( m ))
+	if( COM_StringEmptyOrNULL( m ))
 		return 0;
 
 	Q_strncpy( filepath, m, sizeof( filepath ));
@@ -2809,7 +2811,7 @@ static int GAME_EXPORT COM_ExpandFilename( const char *fileName, char *nameOutBu
 {
 	char		result[MAX_SYSPATH];
 
-	if( !COM_CheckString( fileName ) || !nameOutBuffer || nameOutBufferSize <= 0 )
+	if( COM_StringEmptyOrNULL( fileName ) || !nameOutBuffer || nameOutBufferSize <= 0 )
 		return 0;
 
 	// filename examples:
@@ -2922,7 +2924,7 @@ pfnServerCmdUnreliable
 */
 static int GAME_EXPORT pfnServerCmdUnreliable( char *szCmdString )
 {
-	if( !COM_CheckString( szCmdString ))
+	if( COM_StringEmptyOrNULL( szCmdString ))
 		return 0;
 
 	MSG_BeginClientCmd( &cls.datagram, clc_stringcmd );

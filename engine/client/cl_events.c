@@ -160,7 +160,7 @@ word CL_EventIndex( const char *name )
 {
 	word	i;
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return 0;
 
 	for( i = 1; i < MAX_EVENTS && cl.event_precache[i][0]; i++ )
