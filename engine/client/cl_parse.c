@@ -858,7 +858,7 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		COM_StripExtension( clgame.mapname );
 
 		s = MSG_ReadString( msg );
-		if( COM_CheckStringEmpty( s ))
+		if( !COM_StringEmpty( s ))
 			Con_Printf( "Server map cycle: %s\n", s ); // VALVEWHY?
 
 		if( MSG_ReadByte( msg ))
@@ -1413,7 +1413,7 @@ void CL_UpdateUserinfo( sizebuf_t *msg, connprotocol_t proto )
 		player->spectator = Q_atoi( Info_ValueForKey( player->userinfo, "*hltv" ));
 		MSG_ReadBytes( msg, player->hashedcdkey, sizeof( player->hashedcdkey ));
 
-		if( proto == PROTO_GOLDSRC && ( !COM_CheckStringEmpty( player->userinfo ) || !COM_CheckStringEmpty( player->name )))
+		if( proto == PROTO_GOLDSRC && ( COM_StringEmpty( player->userinfo ) || COM_StringEmpty( player->name )))
 			active = false;
 
 		if( active && slot == cl.playernum )
