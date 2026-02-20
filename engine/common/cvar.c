@@ -1120,24 +1120,6 @@ static void Cvar_Set_f( void )
 
 /*
 ============
-Cvar_SetGL_f
-
-As Cvar_Set, but also flags it as glconfig
-============
-*/
-static void Cvar_SetGL_f( void )
-{
-	if( Cmd_Argc() != 3 )
-	{
-		Con_Printf( S_USAGE "setgl <variable> <value>\n" );
-		return;
-	}
-
-	Cvar_SetGL( Cmd_Argv( 1 ), Cmd_Argv( 2 ) );
-}
-
-/*
-============
 Cvar_Reset_f
 ============
 */
@@ -1326,7 +1308,6 @@ void Cvar_Init( void )
 	Cvar_RegisterVariable( &cmd_scripting );
 	Cvar_RegisterVariable( &host_developer ); // early registering for dev
 	Cvar_RegisterVariable( &cl_filterstuffcmd );
-	Cmd_AddRestrictedCommand( "setgl", Cvar_SetGL_f, "change the value of a opengl variable" );	// OBSOLETE
 	Cmd_AddRestrictedCommand( "toggle", Cvar_Toggle_f, "toggles a console variable's values (use for more info)" );
 	Cmd_AddRestrictedCommand( "reset", Cvar_Reset_f, "reset any type variable to initial value" );
 	Cmd_AddCommand( "set", Cvar_Set_f, "create or change the value of a console variable" );
