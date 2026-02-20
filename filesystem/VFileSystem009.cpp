@@ -422,7 +422,7 @@ public:
 
 	bool FullPathToRelativePath( const char *path, char *out ) override
 	{
-		if( !COM_CheckString( path ))
+		if( COM_StringEmptyOrNULL( path ))
 		{
 			*out = 0;
 			return false;

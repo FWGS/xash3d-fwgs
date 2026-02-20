@@ -300,7 +300,7 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 		return false;
 
 	// nothing to fix
-	if( !COM_CheckStringEmpty( path ))
+	if( COM_StringEmpty( path ))
 		return true;
 
 	for( prev = path, next = Q_strchrnul( prev, '/' );
