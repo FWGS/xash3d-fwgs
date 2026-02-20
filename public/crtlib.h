@@ -94,10 +94,8 @@ const char *COM_FileWithoutPath( const char *in );
 void COM_StripExtension( char *path );
 void COM_RemoveLineFeed( char *str, size_t bufsize );
 void COM_PathSlashFix( char *path );
-// return 0 on empty or null string, 1 otherwise
-#define COM_CheckString( string ) ( ( !string || !*string ) ? 0 : 1 )
-#define COM_CheckStringEmpty( string ) ( ( !*string ) ? 0 : 1 )
 
+// returns true on empty or NULL string, false otherwise
 #define COM_StringEmpty( string )       (( string )[0] ? false : true )
 #define COM_StringEmptyOrNULL( string ) (( string ) && ( string )[0] ? false : true )
 
