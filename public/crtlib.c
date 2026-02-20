@@ -68,12 +68,12 @@ int Q_atoi( const char *str )
 	int val = 0;
 	int c, sign;
 
-	if( !COM_CheckString( str ))
+	if( COM_StringEmptyOrNULL( str ))
 		return 0;
 
 	str = Q_atoi_strip_whitespace( str );
 
-	if( !COM_CheckString( str ))
+	if( COM_StringEmptyOrNULL( str ))
 		return 0;
 
 	if( *str == '-' )
@@ -107,12 +107,12 @@ float Q_atof( const char *str )
 	double	val = 0;
 	int	c, sign, decimal, total;
 
-	if( !COM_CheckString( str ))
+	if( COM_StringEmptyOrNULL( str ))
 		return 0;
 
 	str = Q_atoi_strip_whitespace( str );
 
-	if( !COM_CheckString( str ))
+	if( COM_StringEmptyOrNULL( str ))
 		return 0;
 
 	if( *str == '-' )
@@ -468,7 +468,7 @@ void COM_FileBase( const char *in, char *out, size_t size )
 	const char *dot, *slash, *s;
 	size_t len;
 
-	if( unlikely( !COM_CheckString( in ) || size <= 1 ))
+	if( unlikely( COM_StringEmptyOrNULL( in ) || size <= 1 ))
 	{
 		out[0] = 0;
 		return;
