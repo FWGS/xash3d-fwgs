@@ -640,7 +640,7 @@ static qboolean GL_CheckTexName( const char *name )
 {
 	int len;
 
-	if( !COM_CheckString( name ))
+	if( COM_StringEmptyOrNULL( name ))
 		return false;
 
 	len = Q_strlen( name );
