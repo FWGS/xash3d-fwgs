@@ -702,11 +702,11 @@ static void SV_Status_f( void )
 		Q_strncpy( arch, Info_ValueForKey( cl->useragent, "a" ), sizeof( arch ));
 		buildnum = Q_atoi( Info_ValueForKey( cl->useragent, "b" ));
 
-		if( !COM_CheckStringEmpty( version ))
+		if( COM_StringEmpty( version ))
 			Q_strncpy( version, "n/a", sizeof( version ));
-		if( !COM_CheckStringEmpty( os ))
+		if( COM_StringEmpty( os ))
 			Q_strncpy( os, "n/a", sizeof( os ));
-		if( !COM_CheckStringEmpty( arch ))
+		if( COM_StringEmpty( arch ))
 			Q_strncpy( arch, "n/a", sizeof( arch ));
 
 		Con_Printf( "%2i %5i %4s %4s %.5f %5i %s (%s-%s %i)\t%8s\t%8s\n",
@@ -1010,7 +1010,7 @@ static void SV_ListMessages_f( void )
 	Con_Printf( "num size name\n" );
 	for( i = 1; i < MAX_USER_MESSAGES; i++ )
 	{
-		if( !COM_CheckStringEmpty( svgame.msg[i].name ))
+		if( COM_StringEmpty( svgame.msg[i].name ))
 			break;
 
 		Con_Printf( "%3d\t%3d\t%s\n", svgame.msg[i].number, svgame.msg[i].size, svgame.msg[i].name );

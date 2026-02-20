@@ -182,7 +182,7 @@ void SV_ParseConsistencyResponse( sv_client_t *cl, sizebuf_t *msg )
 		dropmessage[0] = 0;
 		if( svgame.dllFuncs.pfnInconsistentFile( cl->edict, sv.resources[badresindex - 1].szFileName, dropmessage ))
 		{
-			if( COM_CheckString( dropmessage ))
+			if( !COM_StringEmptyOrNULL( dropmessage ))
 				SV_ClientPrintf( cl, "%s", dropmessage );
 			SV_DropClient( cl, false );
 		}
@@ -562,7 +562,7 @@ void SV_SendResources( sv_client_t *cl, sizebuf_t *msg )
 	MSG_WriteLong( msg, svs.spawncount );
 	MSG_WriteLong( msg, 0 );
 
-	if( COM_CheckString( sv_downloadurl.string ) && Q_strlen( sv_downloadurl.string ) < 256 )
+	if( !COM_StringEmptyOrNULL( sv_downloadurl.string ) && Q_strlen( sv_downloadurl.string ) < 256 )
 	{
 		MSG_BeginServerCmd( msg, svc_resourcelocation );
 		MSG_WriteString( msg, sv_downloadurl.string );

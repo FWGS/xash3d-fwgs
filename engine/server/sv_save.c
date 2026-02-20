@@ -1383,7 +1383,7 @@ static void LoadClientState( SAVERESTOREDATA *pSaveData, const char *level, qboo
 		// restore camera view here
 		edict_t	*pent = pSaveData->pTable[bound( 0, (word)header.viewentity, pSaveData->tableCount )].pent;
 
-		if( COM_CheckStringEmpty( header.introTrack ) )
+		if( !COM_StringEmpty( header.introTrack ))
 		{
 			// NOTE: music is automatically goes across transition, never restore it on changelevel
 			MSG_BeginServerCmd( &sv.signon, svc_stufftext );
@@ -2134,7 +2134,7 @@ qboolean SV_LoadGame( const char *pPath )
 	if( UI_CreditsActive( ))
 		return false;
 
-	if( !COM_CheckString( pPath ))
+	if( COM_StringEmptyOrNULL( pPath ))
 		return false;
 
 	// silently ignore if missed
@@ -2201,7 +2201,7 @@ qboolean SV_SaveGame( const char *pName )
 	char   comment[80];
 	string savename;
 
-	if( !COM_CheckString( pName ))
+	if( COM_StringEmptyOrNULL( pName ))
 		return false;
 
 	// can we save at this point?
@@ -2441,7 +2441,7 @@ int GAME_EXPORT SV_GetSaveComment( const char *savename, char *comment )
 	FS_Close( f );
 
 	// at least mapname should be filled
-	if( COM_CheckStringEmpty( mapName ) )
+	if( !COM_StringEmpty( mapName ))
 	{
 		time_t		fileTime;
 		const struct tm	*file_tm;

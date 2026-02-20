@@ -45,9 +45,10 @@ void Log_Open( void )
 	today = localtime( &ltime );
 	temp = Cvar_VariableString( "logsdir" );
 
-	if( COM_CheckString( temp ) && !Q_strchr( temp, ':' ) && !Q_strstr( temp, ".." ))
+	if( !COM_StringEmptyOrNULL( temp ) && !Q_strchr( temp, ':' ) && !Q_strstr( temp, ".." ))
 		Q_snprintf( szFileBase, sizeof( szFileBase ), "%s/L%02i%02i", temp, today->tm_mon + 1, today->tm_mday );
-	else Q_snprintf( szFileBase, sizeof( szFileBase ), "logs/L%02i%02i", today->tm_mon + 1, today->tm_mday );
+	else
+		Q_snprintf( szFileBase, sizeof( szFileBase ), "logs/L%02i%02i", today->tm_mon + 1, today->tm_mday );
 
 	for ( i = 0; i < 1000; i++ )
 	{
@@ -197,7 +198,7 @@ void SV_SetLogAddress_f( void )
 	}
 
 	s = Cmd_Argv( 1 );
-	if( !COM_CheckString( s ))
+	if( COM_StringEmptyOrNULL( s ))
 	{
 		Con_Printf( "logaddress: unparseable address\n" );
 		return;

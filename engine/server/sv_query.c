@@ -94,7 +94,7 @@ static void SV_SourceQuery_Rules( netadr_t from )
 
 		if( FBitSet( cvar->flags, FCVAR_PROTECTED ))
 		{
-			if( COM_CheckStringEmpty( cvar->string ) && Q_stricmp( cvar->string, "none" ))
+			if( !COM_StringEmpty( cvar->string ) && Q_stricmp( cvar->string, "none" ))
 				MSG_WriteString( &buf, "1" );
 			else MSG_WriteString( &buf, "0" );
 		}
