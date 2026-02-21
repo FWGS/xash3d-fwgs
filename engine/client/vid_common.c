@@ -69,11 +69,11 @@ void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximiz
 	// video subsystem to reapply settings
 	host.renderinfo_changed = false;
 
-	if( refState.width == render_w && refState.height == render_h )
-		return;
-
 	refState.scale_x = (float)render_w / w;
 	refState.scale_y = (float)render_h / h;
+
+	if( refState.width == render_w && refState.height == render_h )
+		return;
 
 	refState.width = render_w;
 	refState.height = render_h;
