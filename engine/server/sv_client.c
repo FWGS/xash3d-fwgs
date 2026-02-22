@@ -589,7 +589,7 @@ void SV_KickPlayer( sv_client_t *cl, const char *fmt, ... )
 	if( buf[0] )
 	{
 		Log_Printf( "Kick: \"%s<%i><%s><>\" was kicked by \"Console\" (message \"%s\")\n", cl->name, cl->userid, clientId, buf );
-		SV_BroadcastPrintf( cl, "%s was kicked with message: \"%s\"\n", cl->name, buf );
+		SV_BroadcastPrintf( cl, "%s was kicked\n", cl->name );
 		SV_ClientPrintf( cl, "You were kicked from the game with message: \"%s\"\n", buf );
 		if( cl->useragent[0] )
 			Netchan_OutOfBandPrint( NS_SERVER, cl->netchan.remote_address, S2C_ERRORMSG"\nKicked with message:\n%s\n", buf );

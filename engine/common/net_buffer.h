@@ -173,25 +173,9 @@ static inline qboolean MSG_Overflow( sizebuf_t *sb, int nBits )
 	return sb->bOverflow;
 }
 
-static inline void MSG_EndBitWriting( sizebuf_t *sb )
-{
-	sb->iAlternateSign--;
-
-	if( sb->iAlternateSign < 0 )
-	{
-		Con_Printf( "%s: non-even MSG_Start/EndBitWriting\n", __func__ );
-		sb->iAlternateSign = 0;
-	}
-
-	// we have native bit ops here, just pad to closest byte
-	if(( sb->iCurBit & 7 ) != 0 )
-		MSG_SeekToBit( sb, 8 - ( sb->iCurBit & 7 ), SEEK_CUR );
-}
-
-static inline void MSG_StartBitWriting( sizebuf_t *sb )
-{
-	sb->iAlternateSign++;
-}
+// MSG_StartBitWriting and MSG_EndBitWriting are now exported functions in net_buffer.c
+void MSG_EndBitWriting( sizebuf_t *sb );
+void MSG_StartBitWriting( sizebuf_t *sb );
 
 void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove );
 

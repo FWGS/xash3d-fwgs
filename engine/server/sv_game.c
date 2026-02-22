@@ -2091,6 +2091,99 @@ void GAME_EXPORT SV_StartSound( edict_t *ent, int chan, const char *sample, floa
 
 /*
 =================
+SV_EmitSound2
+
+Enhanced sound emission with ReHLDS-compatible emitFlags support.
+=================
+*/
+qboolean GAME_EXPORT SV_EmitSound2( edict_t *entity, int recipient, int channel, const char *sample, 
+                                     float volume, float attenuation, int flags, int pitch, 
+                                     int emitFlags, const vec3_t pOrigin )
+{
+	qboolean	filter = false;
+	qboolean	bSendPAS;
+	int		msg_dest;
+	vec3_t		origin;
+	sv_client_t	*cl = NULL;
+	
+	// Validate entity
+	if( !SV_IsValidEdict( entity ))
+		return false;
+	
+	// Determine if we should use PAS or broadcast
+	bSendPAS = ( channel != CHAN_STATIC && !FBitSet( flags, SND_STOP ) && !FBitSet( emitFlags, SND_EMIT2_NOPAS ));
+	
+	// Calculate origin
+	if( pOrigin && FBitSet( emitFlags, SND_EMIT2_USE_ORIGIN ))
+	{
+		VectorCopy( pOrigin, origin );
+	}
+	else if( entity && entity != svgame.edicts )
+	{
+		VectorAverage( entity->v.mins, entity->v.maxs, origin );
+		VectorAdd( origin, entity->v.origin, origin );
+	}
+	else if( pOrigin )
+	{
+		VectorCopy( pOrigin, origin );
+	}
+	else
+	{
+		VectorClear( origin );
+	}
+	
+	// Handle recipient routing
+	if( recipient != 0 )
+	{
+		// Sound directed to specific client
+		cl = SV_ClientFromEdict( EDICT_NUM( recipient ), true );
+		
+		if( !cl || cl->state != cs_spawned || !cl->edict || FBitSet( cl->flags, FCL_FAKECLIENT ))
+			return false;
+		
+		// For single client, skip PAS check (they requested this sound specifically)
+		// Use reliable channel if not using PAS, datagram if using PAS
+		sizebuf_t *pBuffer = bSendPAS ? &cl->datagram : &cl->netchan.message;
+		
+		// Build and send sound message to this one client
+		return SV_BuildSoundMsg( pBuffer, entity, channel, sample, (int)(volume * 255.0f), attenuation, flags, pitch, origin );
+	}
+	else
+	{
+		// Sound for all clients (broadcast)
+		
+		// Determine message destination
+		if( FBitSet( flags, SND_SPAWNING ))
+			msg_dest = MSG_INIT;
+		else if( channel == CHAN_STATIC )
+			msg_dest = MSG_ALL;
+		else if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+			msg_dest = MSG_ALL;
+		else if( FBitSet( emitFlags, SND_EMIT2_INVOKER ))
+			msg_dest = MSG_ONE;
+		else if( bSendPAS )
+			msg_dest = ( svs.maxclients <= 1 ) ? MSG_ALL : MSG_PAS_R;
+		else
+			msg_dest = MSG_ALL;  // NOPAS - broadcast to all
+		
+		// Always broadcast stop commands
+		if( FBitSet( flags, SND_STOP ))
+			msg_dest = MSG_ALL;
+		
+		if( FBitSet( flags, SND_FILTER_CLIENT ))
+			filter = true;
+		
+		// Build and send to multicast
+		if( !SV_BuildSoundMsg( &sv.multicast, entity, channel, sample, (int)(volume * 255.0f), attenuation, flags, pitch, origin ))
+			return false;
+		
+		SV_Multicast( msg_dest, origin, NULL, false, filter );
+		return true;
+	}
+}
+
+/*
+=================
 pfnEmitAmbientSound
 
 =================
@@ -3805,6 +3898,10 @@ static void GAME_EXPORT pfnSetClientMaxspeed( const edict_t *pEdict, float fNewM
 
 	// not spawned clients allowed
 	if(( cl = SV_ClientFromEdict( pEdict, false )) == NULL )
+		return;
+
+	// check if edict is valid to prevent crash during client disconnect
+	if( !cl->edict )
 		return;
 
 	// GoldSrc doesn't bound the value to the movevar here

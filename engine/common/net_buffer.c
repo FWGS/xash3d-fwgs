@@ -858,6 +858,26 @@ void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove )
 	sb->nDataBits -= bitstoremove;
 }
 
+void MSG_StartBitWriting( sizebuf_t *sb )
+{
+	sb->iAlternateSign++;
+}
+
+void MSG_EndBitWriting( sizebuf_t *sb )
+{
+	sb->iAlternateSign--;
+
+	if( sb->iAlternateSign < 0 )
+	{
+		Con_Printf( "%s: non-even MSG_Start/EndBitWriting\n", __func__ );
+		sb->iAlternateSign = 0;
+	}
+
+	// we have native bit ops here, just pad to closest byte
+	if(( sb->iCurBit & 7 ) != 0 )
+		MSG_SeekToBit( sb, 8 - ( sb->iCurBit & 7 ), SEEK_CUR );
+}
+
 #ifdef XASH_ENGINE_TESTS
 #include "tests.h"
 

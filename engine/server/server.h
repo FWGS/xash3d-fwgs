@@ -31,6 +31,11 @@ GNU General Public License for more details.
 
 //=============================================================================
 
+// EmitSound2 flags (ReHLDS compatible)
+#define SND_EMIT2_NOPAS      (1<<0)  // Skip PAS check, broadcast to all
+#define SND_EMIT2_INVOKER    (1<<1)  // Send only to invoker
+#define SND_EMIT2_USE_ORIGIN (1<<2)  // Use provided origin instead of entity position
+
 #define SV_UPDATE_MASK	(SV_UPDATE_BACKUP - 1)
 #if XASH_LOW_MEMORY == 2
 #define SV_UPDATE_BACKUP SINGLEPLAYER_BACKUP
@@ -620,6 +625,7 @@ void SV_PrintStr64Stats_f( void );
 sv_client_t *SV_ClientFromEdict( const edict_t *pEdict, qboolean spawned_only );
 uint SV_MapIsValid( const char *filename, const char *landmark_name );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
+qboolean SV_EmitSound2( edict_t *entity, int recipient, int channel, const char *sample, float volume, float attenuation, int flags, int pitch, int emitFlags, const vec3_t pOrigin );
 edict_t *SV_FindGlobalEntity( string_t classname, string_t globalname );
 qboolean SV_CreateStaticEntity( struct sizebuf_s *msg, int index );
 void SV_SendUserReg( sizebuf_t *msg, sv_user_message_t *user );
