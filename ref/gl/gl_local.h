@@ -328,7 +328,7 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 //
 // gl_cull.c
 //
-int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax );
+qboolean R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax );
 qboolean R_CullBox( const vec3_t mins, const vec3_t maxs );
 int R_CullSurface( msurface_t *surf, gl_frustum_t *frustum, uint clipflags );
 
