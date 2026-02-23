@@ -163,5 +163,5 @@ def build(bld):
 			bld.program(features = 'test',
 				source = tests[i],
 				target = 'test_%s' % i,
-				use = 'public',
+				use = 'public build_vcs',
 				install_path = None)
