@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #include "server.h"
 #include "base_cmd.h"
 
-#define MAX_CMD_BUFFER	32768
+#define MAX_CMD_BUFFER  262144  // Increased from 32768 to 256KB for plugin configs
 #define MAX_CMD_LINE	2048
 #define MAX_ALIAS_NAME	32
 
