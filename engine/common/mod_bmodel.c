@@ -2391,9 +2391,9 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 
 		for( i = 0; i < bmod->nummarkfaces; i++ )
 		{
-			if( LittleLong(in[i]) < 0 || LittleLong(in[i]) >= mod->numsurfaces )
+			if( (int32_t)LittleLong(in[i]) < 0 || (int32_t)LittleLong(in[i]) >= mod->numsurfaces )
 				Host_Error( "%s: bad surface number %i at %i (max %i) in '%s'\n", __func__, in[i], i, mod->numsurfaces, mod->name );
-			out[i] = mod->surfaces + LittleLong(in[i]);
+			out[i] = mod->surfaces + (int32_t)LittleLong(in[i]);
 		}
 	}
 	else
@@ -3033,7 +3033,7 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 		if( miptex < 0 || miptex > mod->numtextures )
 			miptex = 0; // this is possible?
 		out->texture = mod->textures[miptex];
-		out->flags = LittleShort(in->flags);
+		out->flags = (int16_t)LittleShort(in->flags);
 
 		LittleShortSW(in->faceinfo);
 
@@ -3079,13 +3079,13 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		{
 			dface32_t	*in = &bmod->surfaces32[i];
 
-			if(( LittleLong(in->firstedge) + LittleLong(in->numedges) ) > mod->numsurfedges )
+			if(( (int32_t)LittleLong(in->firstedge) + (int32_t)LittleLong(in->numedges) ) > mod->numsurfedges )
 				continue;	// corrupted level?
 			out->firstedge = LittleLong(in->firstedge);
 			out->numedges = LittleLong(in->numedges);
 			if( LittleLong(in->side) ) SetBits( out->flags, SURF_PLANEBACK );
-			out->plane = mod->planes + LittleLong(in->planenum);
-			out->texinfo = mod->texinfo + LittleLong(in->texinfo);
+			out->plane = mod->planes + (int32_t)LittleLong(in->planenum);
+			out->texinfo = mod->texinfo + (int32_t)LittleLong(in->texinfo);
 
 			for( j = 0; j < MAXLIGHTMAPS; j++ )
 				out->styles[j] = in->styles[j];
@@ -3095,17 +3095,17 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		{
 			dface_t	*in = &bmod->surfaces[i];
 
-			if(( LittleLong(in->firstedge) + LittleShort(in->numedges) ) > mod->numsurfedges )
+			if(( (int32_t)LittleLong(in->firstedge) + (int16_t)LittleShort(in->numedges) ) > mod->numsurfedges )
 			{
 				Con_Reportf( S_ERROR "bad surface %i from %zu\n", i, bmod->numsurfaces );
 				continue;
 			}
 
 			out->firstedge = LittleLong(in->firstedge);
-			out->numedges = LittleShort(in->numedges);
+			out->numedges = (int16_t)LittleShort(in->numedges);
 			if( LittleShort(in->side) ) SetBits( out->flags, SURF_PLANEBACK );
 			out->plane = mod->planes + LittleShort(in->planenum);
-			out->texinfo = mod->texinfo + LittleShort(in->texinfo);
+			out->texinfo = mod->texinfo + (int16_t)LittleShort(in->texinfo);
 
 			for( j = 0; j < MAXLIGHTMAPS; j++ )
 				out->styles[j] = in->styles[j];
@@ -3219,13 +3219,13 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 			}
 
 #if !XASH_64BIT
-			if( LittleLong(in->firstface) >= BIT( 24 ))
+			if( (int32_t)LittleLong(in->firstface) >= BIT( 24 ))
 			{
 				Host_Error( "%s: face index limit exceeded on node %i\n", __func__, i );
 				return;
 			}
 
-			if( LittleLong(in->numfaces) >= BIT( 24 ))
+			if( (int32_t)LittleLong(in->numfaces) >= BIT( 24 ))
 			{
 				Host_Error( "%s: face count limit exceeded on node %i\n", __func__, i );
 				return;
@@ -3282,8 +3282,8 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 
 			for( j = 0; j < 3; j++ )
 			{
-				out->minmaxs[j+0] = LittleShort(in->mins[j]);
-				out->minmaxs[j+3] = LittleShort(in->maxs[j]);
+				out->minmaxs[j+0] = (int16_t)LittleShort(in->mins[j]);
+				out->minmaxs[j+3] = (int16_t)LittleShort(in->maxs[j]);
 			}
 
 			p = LittleLong(in->planenum);
@@ -3293,7 +3293,7 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 
 			for( j = 0; j < 2; j++ )
 			{
-				p = LittleShort(in->children[j]);
+				p = (int16_t)LittleShort(in->children[j]);
 				if( p >= 0 ) out->children_[j] = mod->nodes + p;
 				else out->children_[j] = (mnode_t *)(mod->leafs + ( -1 - p ));
 			}
@@ -3344,7 +3344,7 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			for( j = 0; j < 4; j++ )
 				out->ambient_sound_level[j] = in->ambient_level[j];
 
-			out->firstmarksurface = mod->marksurfaces + LittleLong(in->firstmarksurface);
+			out->firstmarksurface = mod->marksurfaces + (int32_t)LittleLong(in->firstmarksurface);
 			out->nummarksurfaces = LittleLong(in->nummarksurfaces);
 		}
 		else
@@ -3353,8 +3353,8 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 
 			for( j = 0; j < 3; j++ )
 			{
-				out->minmaxs[j+0] = LittleShort(in->mins[j]);
-				out->minmaxs[j+3] = LittleShort(in->maxs[j]);
+				out->minmaxs[j+0] = (int16_t)LittleShort(in->mins[j]);
+				out->minmaxs[j+3] = (int16_t)LittleShort(in->maxs[j]);
 			}
 
 			out->contents = LittleLong(in->contents);

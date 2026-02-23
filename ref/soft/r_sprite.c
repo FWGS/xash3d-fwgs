@@ -170,7 +170,7 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded, ui
 		pframetype = ((const byte *)buffer + sizeof( dsprite_q1_t )); // pinq1 + 1
 		gEngfuncs.FS_FreeImage( pal );                                // palette installed, no reason to keep this data
 	}
-	else if( LittleShort((*numi)) <= 256 )
+	else if( (int16_t)LittleShort((*numi)) <= 256 )
 	{
 		const byte	*src = (const byte *)(numi+1);
 		rgbdata_t	*pal;
