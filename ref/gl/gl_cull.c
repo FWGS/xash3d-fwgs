@@ -40,23 +40,20 @@ qboolean R_CullBox( const vec3_t mins, const vec3_t maxs )
 R_CullModel
 =============
 */
-int R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax )
+qboolean R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax )
 {
 	if( e == tr.viewent )
 	{
 		if( ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
-			return 1;
+			return true;
 
 		if( RP_NORMALPASS() && !ENGINE_GET_PARM( PARM_THIRDPERSON ) && CL_IsViewEntityLocalPlayer())
-			return 0;
+			return false;
 
-		return 1;
+		return true;
 	}
 
-	if( R_CullBox( absmin, absmax ))
-		return 1;
-
-	return 0;
+	return R_CullBox( absmin, absmax );
 }
 
 /*

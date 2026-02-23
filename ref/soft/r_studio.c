@@ -211,7 +211,7 @@ static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 		return false;
 
 	// check if we have valid mins\maxs
-	if( !VectorCompare( vec3_origin, RI.currentmodel->mins ))
+	if( !VectorIsNull( RI.currentmodel->mins ) && !VectorIsNull( RI.currentmodel->maxs ))
 	{
 		// clipping bounding box
 		VectorCopy( RI.currentmodel->mins, mins );
