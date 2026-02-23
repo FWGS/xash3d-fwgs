@@ -664,7 +664,7 @@ static void Mod_StudioAccumulateBoneVerts( vec3_t mins, vec3_t maxs, int *numver
 StudioComputeBounds
 ====================
 */
-void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qboolean ignore_sequences )
+static void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qboolean ignore_sequences )
 {
 	int		i, j, k, numseq;
 	studiohdr_t	*pstudiohdr;

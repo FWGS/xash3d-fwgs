@@ -178,21 +178,12 @@ int Mod_SaveLump( const char *filename, const int lump, void *lumpdata, int lump
 mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node, model_t *mod );
 int Mod_SampleSizeForFace( const msurface_t *surf );
 byte *Mod_GetPVSForPoint( const vec3_t p );
-void Mod_UnloadBrushModel( model_t *mod );
 void Mod_PrintWorldStats_f( void );
-
-//
-// mod_dbghulls.c
-//
-void R_DrawWorldHull( void );
-void R_DrawModelHull( model_t *mod );
-void Mod_ReleaseHullPolygons( void );
 
 //
 // mod_studio.c
 //
 void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded );
-void Mod_UnloadStudioModel( model_t *mod );
 void Mod_InitStudioAPI( void );
 void Mod_InitStudioHull( void );
 void Mod_ResetStudioAPI( void );
@@ -202,7 +193,6 @@ void Mod_StudioGetAttachment( const edict_t *e, int iAttachment, float *org, flo
 void Mod_GetBonePosition( const edict_t *e, int iBone, float *org, float *ang );
 hull_t *Mod_HullForStudio( model_t *m, float frame, int seq, vec3_t ang, vec3_t org, vec3_t size, byte *pcnt, byte *pbl, int *hitboxes, edict_t *ed );
 void *R_StudioGetAnim( studiohdr_t *m_pStudioHeader, model_t *m_pSubModel, mstudioseqdesc_t *pseqdesc );
-void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qboolean ignore_sequences );
 int Mod_HitgroupForStudioHull( int index );
 void Mod_ClearStudioCache( void );
 
