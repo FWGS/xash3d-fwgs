@@ -1139,6 +1139,13 @@ void Con_PageDown( int lines );
 void Con_PageUp( int lines );
 
 //
+// mod_dbghulls.c
+//
+void R_DrawWorldHull( void );
+void R_DrawModelHull( model_t *mod );
+void Mod_ReleaseHullPolygons( void );
+
+//
 // s_main.c
 //
 typedef int sound_t;
