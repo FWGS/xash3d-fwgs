@@ -676,21 +676,21 @@ static void Test_VOX_ParseWordParams( void )
 	voxword_t word;
 
 	Q_strncpy( buffer, "heavy!(p80)", sizeof( buffer ));
-	ret = VOX_ParseWordParams( buffer, &word, true );
+	ret = VOX_ParseWordParams( buffer, &word );
 	TASSERT_STR( buffer, "heavy!" );
 	TASSERT( word.pitch == 80 );
 	TASSERT( ret );
 
 	Q_strncpy( buffer, "(p105)", sizeof( buffer ));
-	ret = VOX_ParseWordParams( buffer, &word, false );
+	ret = VOX_ParseWordParams( buffer, &word );
 	TASSERT_STR( buffer, "" );
 	TASSERT( word.pitch == 105 );
 	TASSERT( !ret );
 
 	Q_strncpy( buffer, "quiet(v50)", sizeof( buffer ));
-	ret = VOX_ParseWordParams( buffer, &word, false );
+	ret = VOX_ParseWordParams( buffer, &word );
 	TASSERT_STR( buffer, "quiet" );
-	TASSERT( word.pitch == 105 ); // defaulted
+	TASSERT( word.pitch == 100 ); // defaulted
 	TASSERT( word.volume == 50 );
 	TASSERT( ret );
 }
