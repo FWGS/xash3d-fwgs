@@ -37,7 +37,7 @@ def build(bld):
 
 	# on PSVita do not link any libraries that are already in the main executable, but add the includes target
 	if bld.env.DEST_OS != 'psvita':
-		libs += [ 'public', 'ANDROID', 'library_suffix' ]
+		libs += [ 'public', 'ANDROID', 'library_suffix', 'build_vcs' ]
 
 	bld.shlib(target = 'filesystem_stdio',
 		features = 'seq',

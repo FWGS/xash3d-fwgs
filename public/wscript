@@ -146,7 +146,7 @@ def build(bld):
 
 	bld.stlib(source = bld.path.ant_glob('*.c', excl='build_vcs.c'),
 		target = 'public',
-		use = 'sdk_includes werror build_vcs')
+		use = 'sdk_includes werror')
 
 	if bld.env.TESTS:
 		tests = {

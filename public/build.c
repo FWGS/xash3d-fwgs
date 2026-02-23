@@ -60,19 +60,3 @@ int Q_buildnum( void )
 
 	return b;
 }
-
-/*
-=============
-Q_buildnum_compat
-
-Returns a Xash3D build number. This is left for compability with original Xash3D.
-IMPORTANT: this value must be changed ONLY after updating to newer Xash3D base
-IMPORTANT: this value must be acquired through "build" cvar.
-=============
-*/
-int Q_buildnum_compat( void )
-{
-	// do not touch this! Only author of Xash3D can increase buildnumbers!
-	return 4529;
-}
-
