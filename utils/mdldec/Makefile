@@ -34,7 +34,8 @@ INCLUDE = -I. \
 	  -I../../engine \
 	  -I../../engine/common \
 	  -I../../engine/common/imagelib \
-	  -I../../public
+	  -I../../public \
+	  -I../../3rdparty/library_suffix/include
 
 LIBS = -lm
 
