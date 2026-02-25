@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "particledef.h"
 #include "cl_tent.h"
 #include "shake.h"
-#include "hltv.h"
 #include "input.h"
 #if XASH_LOW_MEMORY != 2
 int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
@@ -1990,6 +1989,8 @@ CL_ParseHLTV
 
 spectator message (hltv)
 sended from game.dll
+
+normal client ignores any of HLTV messages
 ==============
 */
 void CL_ParseHLTV( sizebuf_t *msg )
@@ -2001,21 +2002,16 @@ void CL_ParseHLTV( sizebuf_t *msg )
 		cls.spectator = true;
 		break;
 	case HLTV_STATUS:
-			MSG_ReadLong( msg );
-			MSG_ReadShort( msg );
-			MSG_ReadWord( msg );
-			MSG_ReadLong( msg );
-			MSG_ReadLong( msg );
-			MSG_ReadWord( msg );
+		MSG_ReadLong( msg );
+		MSG_ReadShort( msg );
+		MSG_ReadWord( msg );
+		MSG_ReadLong( msg );
+		MSG_ReadLong( msg );
+		MSG_ReadWord( msg );
 		break;
 	case HLTV_LISTEN:
 		cls.signon = SIGNONS;
-#if 1
 		MSG_ReadString( msg );
-#else
-		NET_StringToAdr( MSG_ReadString( msg ), &cls.hltv_listen_address );
-		NET_JoinGroup( cls.netchan.sock, cls.hltv_listen_address );
-#endif
 		SCR_EndLoadingPlaque();
 		break;
 	default:

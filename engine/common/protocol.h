@@ -371,4 +371,14 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 // from master to any
 #define M2A_SERVERSLIST "f"
 
+//
+// HLTV messages
+//
+enum
+{
+	HLTV_ACTIVE = 0,
+	HLTV_STATUS,
+	HLTV_LISTEN,
+};
+
 #endif//NET_PROTOCOL_H

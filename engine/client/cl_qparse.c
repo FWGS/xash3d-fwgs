@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "particledef.h"
 #include "cl_tent.h"
 #include "shake.h"
-#include "hltv.h"
 #include "input.h"
 #include "base_cmd.h"
 

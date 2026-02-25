@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "particledef.h"
 #include "cl_tent.h"
 #include "shake.h"
-#include "hltv.h"
 #include "input.h"
 
 #define MSG_COUNT		32		// last 32 messages parsed
