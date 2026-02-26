@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "mod_local.h"
 #include "pm_local.h"
-#include "pm_movevars.h"
 #include "enginefeatures.h"
 #include "studio.h"
 #include "world.h"

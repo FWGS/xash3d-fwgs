@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "world.h"
+#include "pmove.h"
 #include "pm_defs.h"
 #include "mod_local.h"
 #include "xash3d_mathlib.h"

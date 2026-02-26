@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #ifndef PM_LOCAL_H
 #define PM_LOCAL_H
 
+#include "pmove.h"
 #include "pm_defs.h"
 
 typedef int (*pfnIgnore)( physent_t *pe );	// custom trace filter
