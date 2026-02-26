@@ -40,7 +40,6 @@ GNU General Public License for more details.
 #endif
 #include "port.h"
 #include "defaults.h"
-#include "const.h"
 #include "crtlib.h"
 #include "crclib.h"
 #include "filesystem.h"
