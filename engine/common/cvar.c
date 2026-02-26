@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #include <math.h>	// fabs...
 #include "common.h"
 #include "base_cmd.h"
-#include "eiface.h" // ARRAYSIZE
 
 static convar_t	*cvar_vars = NULL; // head of list
 static poolhandle_t cvar_pool;

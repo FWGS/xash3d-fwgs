@@ -18,7 +18,6 @@ GNU General Public License for more details.
 
 //#include "common.h"
 #include "edict.h"
-#include "eiface.h"
 #include "ref_api.h"
 #include "studio.h"
 
@@ -53,7 +52,7 @@ typedef struct consistency_s
 typedef struct
 {
 	int		flags;
-	CRC32_t		initialCRC;
+	uint32_t initialCRC;
 } model_info_t;
 
 // values for model_t's needload
@@ -156,7 +155,7 @@ void *Mod_StudioExtradata( model_t *mod );
 model_t *Mod_FindName( const char *name, qboolean trackCRC );
 model_t *Mod_LoadModel( model_t *mod, qboolean crash );
 model_t *Mod_ForName( const char *name, qboolean crash, qboolean trackCRC );
-qboolean Mod_ValidateCRC( const char *name, CRC32_t crc );
+qboolean Mod_ValidateCRC( const char *name, uint32_t crc );
 void Mod_NeedCRC( const char *name, qboolean needCRC );
 void Mod_FreeUnused( void );
 
