@@ -33,7 +33,6 @@ GNU General Public License for more details.
 #include "cl_entity.h"
 #include "render_api.h"
 #include "protocol.h"
-#include "dlight.h"
 #include "ref_api.h"
 #include "com_strings.h"
 #include "crtlib.h"
