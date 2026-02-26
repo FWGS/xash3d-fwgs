@@ -49,8 +49,6 @@ infotable	dlumpinfo_t[dwadinfo_t->numlumps]
 #define HINT_NAMELEN	5	// e.g. _mask, _norm
 #define MAX_FILES_IN_WAD	65535	// real limit as above <2Gb size not a lumpcount
 
-#include "const.h"
-
 struct wfile_s
 {
 	int		infotableofs;

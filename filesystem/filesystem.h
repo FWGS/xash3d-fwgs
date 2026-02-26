@@ -23,7 +23,6 @@ GNU General Public License for more details.
 #include <stddef.h>
 #include <stdio.h>
 #include "xash3d_types.h"
-#include "const.h"
 #include "com_model.h"
 #include "gameinfo.h"
 
