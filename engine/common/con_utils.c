@@ -16,7 +16,6 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 #include "const.h"
-#include "kbutton.h"
 
 #define CON_MAXCMDS		4096	// auto-complete intermediate list
 

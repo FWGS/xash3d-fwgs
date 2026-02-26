@@ -25,7 +25,6 @@ INPUT
 */
 
 #include "keydefs.h"
-#include "usercmd.h"
 
 //
 // input.c

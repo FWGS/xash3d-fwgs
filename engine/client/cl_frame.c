@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "cl_tent.h"
 #include "studio.h"
-#include "dlight.h"
 #include "sound.h"
 #include "input.h"
 

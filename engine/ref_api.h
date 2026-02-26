@@ -29,6 +29,7 @@ GNU General Public License for more details.
 #include "filesystem.h"
 #include "common/protocol.h"
 #include "cvardef.h"
+#include "q_client.h"
 
 // RefAPI changelog:
 // 1. Initial release
@@ -399,7 +400,7 @@ typedef struct ref_api_s
 	void (*CL_ThinkParticle)( double frametime, particle_t *p );
 	void (*R_FreeDeadParticles)( particle_t **ppparticles );
 	particle_t *(*CL_AllocParticleFast)( void ); // unconditionally give new particle pointer from cl_free_particles
-	struct dlight_s *(*CL_AllocElight)( int key );
+	dlight_t *(*CL_AllocElight)( int key );
 	struct model_s *(*GetDefaultSprite)( enum ref_defaultsprite_e spr );
 	void		(*R_StoreEfrags)( struct efrag_s **ppefrag, int framecount );// store efrags for static entities
 
