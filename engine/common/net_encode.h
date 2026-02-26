@@ -16,8 +16,6 @@ GNU General Public License for more details.
 #ifndef NET_ENCODE_H
 #define NET_ENCODE_H
 
-#include "eiface.h"
-
 enum
 {
 	CUSTOM_NONE = 0,
@@ -80,6 +78,7 @@ typedef struct goldsrc_delta_s
 	float postmultiply;
 } goldsrc_delta_t;
 
+typedef struct delta_s delta_t;
 typedef void (*pfnDeltaEncode)( struct delta_s *pFields, const byte *from, const byte *to );
 
 typedef struct

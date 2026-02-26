@@ -15,7 +15,6 @@ GNU General Public License for more details.
 
 #include <math.h>
 #include "imagelib.h"
-#include "eiface.h" // ARRAYSIZE
 
 #define DEBUG_LOOKUPS_COUNT 0
 #define USE_FS_SEARCH_FOR_LOOKUPS 1

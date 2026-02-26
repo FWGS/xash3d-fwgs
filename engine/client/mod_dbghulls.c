@@ -19,7 +19,6 @@ GNU General Public License for more details.
 #include "mod_local.h"
 #include "xash3d_mathlib.h"
 #include "world.h"
-#include "eiface.h" // offsetof
 
 #define MAX_CLIPNODE_DEPTH		256	// should never exceeds
 

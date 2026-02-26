@@ -16,7 +16,7 @@ GNU General Public License for more details.
 #ifndef PHYSINT_H
 #define PHYSINT_H
 
-#include "eiface.h" // offsetof
+#include "xash3d_types.h" // offsetof
 
 #define SV_PHYSICS_INTERFACE_VERSION	6
 
