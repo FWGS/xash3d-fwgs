@@ -20,7 +20,6 @@ GNU General Public License for more details.
 #include "triangleapi.h"
 #include "studio.h"
 #include "pm_local.h"
-#include "pmtrace.h"
 
 #define EVENT_CLIENT	5000	// less than this value it's a server-side studio events
 #define MAX_LOCALLIGHTS	4
@@ -1349,23 +1348,18 @@ static void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 	VectorSet( vecSrc, origin[0], origin[1], origin[2] - lightDir[2] * 8.0f );
 	light.r = light.g = light.b = light.a = 0;
 
-	if(( mv->skycolor_r + mv->skycolor_g + mv->skycolor_b ) != 0 )
+	if(( mv->skycolor[0] + mv->skycolor[1] + mv->skycolor[2] ) != 0 )
 	{
 		msurface_t	*psurf = NULL;
 		pmtrace_t		trace;
+		vec3_t skyvec;
 
 		if( FBitSet( gp_host->features, ENGINE_WRITE_LARGE_COORD ))
-		{
-			vecEnd[0] = origin[0] - mv->skyvec_x * 65536.0f;
-			vecEnd[1] = origin[1] - mv->skyvec_y * 65536.0f;
-			vecEnd[2] = origin[2] - mv->skyvec_z * 65536.0f;
-		}
+			VectorScale( mv->skyvec, 65536.0f, skyvec );
 		else
-		{
-			vecEnd[0] = origin[0] - mv->skyvec_x * 8192.0f;
-			vecEnd[1] = origin[1] - mv->skyvec_y * 8192.0f;
-			vecEnd[2] = origin[2] - mv->skyvec_z * 8192.0f;
-		}
+			VectorScale( mv->skyvec, 8192.0f, skyvec );
+
+		VectorSubtract( origin, skyvec, vecEnd );
 
 		trace = gEngfuncs.CL_TraceLine( vecSrc, vecEnd, PM_WORLD_ONLY );
 		if( trace.ent > 0 ) psurf = gEngfuncs.EV_TraceSurface( trace.ent, vecSrc, vecEnd );
@@ -1373,11 +1367,11 @@ static void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 		if( FBitSet( ent->model->flags, STUDIO_FORCE_SKYLIGHT ) || ( psurf && FBitSet( psurf->flags, SURF_DRAWSKY )))
 		{
-			VectorSet( lightDir, mv->skyvec_x, mv->skyvec_y, mv->skyvec_z );
+			VectorCopy( mv->skyvec, lightDir );
 
-			light.r = mv->skycolor_r;
-			light.g = mv->skycolor_g;
-			light.b = mv->skycolor_b;
+			light.r = mv->skycolor[0];
+			light.g = mv->skycolor[1];
+			light.b = mv->skycolor[2];
 		}
 	}
 

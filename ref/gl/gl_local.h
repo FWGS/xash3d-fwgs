@@ -23,18 +23,17 @@ GNU General Public License for more details.
 #include "cl_entity.h"
 #include "render_api.h"
 #include "protocol.h"
-#include "dlight.h"
 #include "gl_frustum.h"
 #include "ref_api.h"
 #include "xash3d_mathlib.h"
 #include "ref_params.h"
 #include "enginefeatures.h"
 #include "com_strings.h"
-#include "pm_movevars.h"
 #include "cvardef.h"
 #include "gl_export.h"
 #include "wadfile.h"
 #include "common/mod_local.h"
+#include "pmove.h"
 
 #if XASH_PSVITA
 int VGL_ShimInit( void );

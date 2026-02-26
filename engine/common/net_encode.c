@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "net_encode.h"
 #include "event_api.h"
-#include "pm_movevars.h"
 #include "entity_state.h"
 #include "weaponinfo.h"
 #include "event_args.h"
@@ -40,11 +39,12 @@ GNU General Public License for more details.
 
 // helper macroses
 #define UCMD_DEF_( name, x )	#name, offsetof( usercmd_t, x ), sizeof( ((usercmd_t *)0)->x )
+#define PHYS_DEF_( name, x )	#name, offsetof( movevars_t, x ), sizeof( ((movevars_t *)0)->x )
 
 #define ENTS_DEF( x )	#x, offsetof( entity_state_t, x ), sizeof( ((entity_state_t *)0)->x )
 #define UCMD_DEF( x )	UCMD_DEF_( x, x )
 #define EVNT_DEF( x )	#x, offsetof( event_args_t, x ), sizeof( ((event_args_t *)0)->x )
-#define PHYS_DEF( x )	#x, offsetof( movevars_t, x ), sizeof( ((movevars_t *)0)->x )
+#define PHYS_DEF( x )	PHYS_DEF_( x, x )
 #define CLDT_DEF( x )	#x, offsetof( clientdata_t, x ), sizeof( ((clientdata_t *)0)->x )
 #define WPDT_DEF( x )	#x, offsetof( weapon_data_t, x ), sizeof( ((weapon_data_t *)0)->x )
 #define DESC_DEF( x )	#x, offsetof( goldsrc_delta_t, x ), sizeof( ((goldsrc_delta_t *)0)->x )
@@ -93,17 +93,17 @@ static const delta_field_t pm_fields[] =
 { PHYS_DEF( skyName )		},
 { PHYS_DEF( rollangle )		},
 { PHYS_DEF( rollspeed )		},
-{ PHYS_DEF( skycolor_r )		},
-{ PHYS_DEF( skycolor_g )		},
-{ PHYS_DEF( skycolor_b )		},
-{ PHYS_DEF( skyvec_x )		},
-{ PHYS_DEF( skyvec_y )		},
-{ PHYS_DEF( skyvec_z )		},
+{ PHYS_DEF_( skycolor_r, skycolor[0] )		},
+{ PHYS_DEF_( skycolor_g, skycolor[1] )		},
+{ PHYS_DEF_( skycolor_b, skycolor[2] )		},
+{ PHYS_DEF_( skyvec_x, skyvec[0] )		},
+{ PHYS_DEF_( skyvec_y, skyvec[1] )		},
+{ PHYS_DEF_( skyvec_z, skyvec[2] )		},
 { PHYS_DEF( fog_settings )		},
 { PHYS_DEF( wateralpha )		},
-{ PHYS_DEF( skydir_x )		},
-{ PHYS_DEF( skydir_y )		},
-{ PHYS_DEF( skydir_z )		},
+{ PHYS_DEF_( skydir_x, skydir[0] )		},
+{ PHYS_DEF_( skydir_y, skydir[1] )		},
+{ PHYS_DEF_( skydir_z, skydir[2] )		},
 { PHYS_DEF( skyangle )		},
 };
 
