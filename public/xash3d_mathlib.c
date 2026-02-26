@@ -14,16 +14,13 @@ GNU General Public License for more details.
 */
 #include "port.h"
 #include "xash3d_types.h"
-#include "const.h"
 #include "com_model.h"
 #include "xash3d_mathlib.h"
-#include "eiface.h"
 #include "studio.h"
 
-#define NUM_HULL_ROUNDS	ARRAYSIZE( hull_table )
 #define HULL_PRECISION	4
 
-static const word hull_table[] = { 2, 4, 6, 8, 12, 16, 18, 24, 28, 32, 36, 40, 48, 54, 56, 60, 64, 72, 80, 112, 120, 128, 140, 176 };
+static const uint8_t hull_table[] = { 2, 4, 6, 8, 12, 16, 18, 24, 28, 32, 36, 40, 48, 54, 56, 60, 64, 72, 80, 112, 120, 128, 140, 176 };
 
 const int boxpnt[6][4] =
 {
@@ -110,7 +107,7 @@ void RoundUpHullSize( vec3_t size )
 		result = Q_ceil( size[i] );
 
 		// lookup hull table to find nearest supposed value
-		for( j = 0; j < NUM_HULL_ROUNDS; j++ )
+		for( j = 0; j < sizeof( hull_table ) / sizeof( hull_table[0] ); j++ )
 		{
 			if( value > hull_table[j] )
 				continue;	// ceil only
