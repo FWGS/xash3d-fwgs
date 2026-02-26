@@ -15,7 +15,6 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
-#include "kbutton.h"
 
 #if XASH_LOW_MEMORY == 0
 #define NET_TIMINGS			1024

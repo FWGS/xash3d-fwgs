@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "cl_tent.h"
 #include "input.h"
-#include "kbutton.h"
 #include "vgui_draw.h"
 #include "library.h"
 #include "vid_common.h"

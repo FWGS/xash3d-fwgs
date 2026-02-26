@@ -26,11 +26,6 @@
 #include "beamdef.h"
 #endif
 
-// dlight_t
-#if !defined ( DLIGHT_H )
-#include "dlight.h"
-#endif
-
 // cl_entity_t
 #if !defined( CL_ENTITY_H )
 #include "cl_entity.h"
@@ -115,6 +110,7 @@ typedef struct tempent_s
 } TEMPENTITY;
 
 typedef struct efx_api_s efx_api_t;
+struct dlight_s;
 
 struct efx_api_s
 {
@@ -182,8 +178,8 @@ struct efx_api_s
 	BEAM		*(*R_BeamLightning)( float *start, float *end, int modelIndex, float life, float width, float amplitude, float brightness, float speed );
 	BEAM		*(*R_BeamPoints)( float *start, float *end, int modelIndex, float life, float width, float amplitude, float brightness, float speed, int startFrame, float framerate, float r, float g, float b );
 	BEAM		*(*R_BeamRing)( int startEnt, int endEnt, int modelIndex, float life, float width, float amplitude, float brightness, float speed, int startFrame, float framerate, float r, float g, float b );
-	dlight_t		*(*CL_AllocDlight)( int key );
-	dlight_t		*(*CL_AllocElight)( int key );
+	struct dlight_s	*(*CL_AllocDlight)( int key );
+	struct dlight_s *(*CL_AllocElight)( int key );
 	TEMPENTITY	*(*CL_TempEntAlloc)( const float *org, struct model_s *model );
 	TEMPENTITY	*(*CL_TempEntAllocNoModel)( const float *org );
 	TEMPENTITY	*(*CL_TempEntAllocHigh)( const float *org, struct model_s *model );
