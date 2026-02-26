@@ -735,11 +735,6 @@ typedef struct
 	unsigned	r, g, b, a;
 } colorVec;
 
-typedef struct link_s
-{
-	struct link_s	*prev, *next;
-} link_t;
-
 typedef struct edict_s edict_t;
 
 typedef struct
