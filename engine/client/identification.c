@@ -643,7 +643,6 @@ void ID_GetMD5ForAddress( char *key, netadr_t adr, size_t size )
 
 	switch( NET_NetadrType( &adr ))
 	{
-	// local server case
 	case NA_IP:
 		memcpy( buf, adr.ip, sizeof( adr.ip ));
 		bufsize = sizeof( adr.ip );
@@ -656,11 +655,10 @@ void ID_GetMD5ForAddress( char *key, netadr_t adr, size_t size )
 		break;
 	}
 
-	if( bufsize != 0 )
-		value |= BloomFilter_Process( buf, bufsize );
-
 	MD5Init( &ctx );
-	MD5Update( &ctx, (byte *)&value, sizeof( value ));
+	MD5Update( &ctx, (byte *)&id, sizeof( id ));
+	if( bufsize != 0 )
+		MD5Update( &ctx, buf, bufsize );
 	MD5Final( md5, &ctx );
 	Q_strnlwr( MD5_Print( md5 ), key, size );
 }
