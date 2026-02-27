@@ -29,6 +29,8 @@ extern struct tests_stats_s tests_stats;
 	_TASSERT( ( val1 ) != ( val2 ), Msg( S_ERROR "assert failed at %s:%i, \"%d\" != \"%d\"\n", __FILE__, __LINE__, (int)val1, (int)val2 ))
 #define TASSERT_EQp( val1, val2 ) \
 	_TASSERT( ( val1 ) != ( val2 ), Msg( S_ERROR "assert failed at %s:%i, \"%p\" != \"%p\"\n", __FILE__, __LINE__, val1, val2 ))
+#define TASSERT_NEQp( val1, val2 ) \
+	_TASSERT( ( val1 ) == ( val2 ), Msg( S_ERROR "assert failed at %s:%i, \"%p\" == \"%p\"\n", __FILE__, __LINE__, val1, val2 ))
 #define TASSERT_STR( str1, str2 ) \
 	_TASSERT( Q_strcmp(( str1 ), ( str2 )), Msg( S_ERROR "assert failed at %s:%i, \"%s\" != \"%s\"\n", __FILE__, __LINE__, ( str1 ), ( str2 )))
 
@@ -44,6 +46,7 @@ void Test_RunGamma( void );
 void Test_RunDelta( void );
 void Test_RunBuffer( void );
 void Test_RunMunge( void );
+void Test_RunTitles( void );
 
 #define TEST_LIST_0 \
 	Test_RunLibCommon(); \
@@ -63,7 +66,8 @@ void Test_RunMunge( void );
 	Test_RunImagelib();
 
 #define TEST_LIST_1_CLIENT \
-	Test_RunVOX();
+	Test_RunVOX(); \
+	Test_RunTitles();
 
 #endif
 

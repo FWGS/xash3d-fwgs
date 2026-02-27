@@ -851,7 +851,7 @@ void CL_ClearWorld( void );
 void CL_DrawCenterPrint( void );
 void CL_ClearSpriteTextures( void );
 void CL_CenterPrint( const char *text, float y );
-void CL_TextMessageParse( byte *pMemFile, int fileSize );
+client_textmessage_t *CL_TextMessageParse( poolhandle_t mempool, byte *pMemFile, int fileSize, int *numTitles );
 client_textmessage_t *CL_TextMessageGet( const char *pName );
 void NetAPI_CancelAllRequests( void );
 model_t *CL_LoadClientSprite( const char *filename );
