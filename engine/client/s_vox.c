@@ -351,11 +351,9 @@ static int VOX_ParseString( char *psz, char *rgpparseword[CVOXWORDMAX] )
 	return i;
 }
 
-static qboolean VOX_ParseWordParams( char *psz, voxword_t *pvoxword )
+static void VOX_MakeDefaultWordParams( voxword_t *voxword )
 {
-	int len, i;
-	char sznum[8], *pszsave = psz;
-	voxword_t voxwordDefault = {
+	*voxword = (voxword_t) {
 		.volume = 100,
 		.pitch = 100,
 		.start = 0,
@@ -363,8 +361,14 @@ static qboolean VOX_ParseWordParams( char *psz, voxword_t *pvoxword )
 		.timecompress = 0,
 		.in_cache = false,
 	};
+}
 
-	*pvoxword = voxwordDefault;
+static qboolean VOX_ParseWordParams( char *psz, voxword_t *pvoxword, voxword_t *default_voxword )
+{
+	int len, i;
+	char sznum[8], *pszsave = psz;
+
+	*pvoxword = *default_voxword;
 
 	len = Q_strlen( psz );
 
@@ -428,7 +432,7 @@ static qboolean VOX_ParseWordParams( char *psz, voxword_t *pvoxword )
 	// no actual word but new defaults
 	if( Q_strlen( pszsave ) == 0 )
 	{
-		voxwordDefault = *pvoxword;
+		*default_voxword = *pvoxword;
 		return false;
 	}
 
@@ -442,6 +446,7 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 	const char *psz;
 	int i, j;
 	int num_words;
+	voxword_t default_voxword;
 
 	if( !pszin )
 		return;
@@ -472,11 +477,13 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 	Q_strncpy( buffer, psz, sizeof( buffer ));
 	num_words = VOX_ParseString( buffer, rgpparseword );
 
+	VOX_MakeDefaultWordParams( &default_voxword );
+
 	for( i = 0, j = 0; i < num_words; i++ )
 	{
 		char pathbuffer[MAX_SYSPATH];
 
-		if( !VOX_ParseWordParams( rgpparseword[i], &ch->words[j] ))
+		if( !VOX_ParseWordParams( rgpparseword[i], &ch->words[j], &default_voxword ))
 			continue;
 
 		if( Q_snprintf( pathbuffer, sizeof( pathbuffer ), "%s%s", szpath, rgpparseword[i] ) < 0 )
@@ -673,22 +680,25 @@ static void Test_VOX_ParseWordParams( void )
 {
 	string buffer;
 	qboolean ret;
+	voxword_t default_word;
 	voxword_t word;
 
+	VOX_MakeDefaultWordParams( &default_word );
+
 	Q_strncpy( buffer, "heavy!(p80)", sizeof( buffer ));
-	ret = VOX_ParseWordParams( buffer, &word, true );
+	ret = VOX_ParseWordParams( buffer, &word, &default_word );
 	TASSERT_STR( buffer, "heavy!" );
 	TASSERT( word.pitch == 80 );
 	TASSERT( ret );
 
 	Q_strncpy( buffer, "(p105)", sizeof( buffer ));
-	ret = VOX_ParseWordParams( buffer, &word, false );
+	ret = VOX_ParseWordParams( buffer, &word, &default_word );
 	TASSERT_STR( buffer, "" );
 	TASSERT( word.pitch == 105 );
 	TASSERT( !ret );
 
 	Q_strncpy( buffer, "quiet(v50)", sizeof( buffer ));
-	ret = VOX_ParseWordParams( buffer, &word, false );
+	ret = VOX_ParseWordParams( buffer, &word, &default_word );
 	TASSERT_STR( buffer, "quiet" );
 	TASSERT( word.pitch == 105 ); // defaulted
 	TASSERT( word.volume == 50 );
