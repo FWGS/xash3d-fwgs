@@ -708,24 +708,6 @@ char *GAME_EXPORT COM_MemFgets( byte *pMemFile, int fileSize, int *filePos, char
 }
 
 /*
-====================
-Cache_Check
-
-consistency check
-====================
-*/
-void *GAME_EXPORT Cache_Check( poolhandle_t mempool, cache_user_t *c )
-{
-	if( !c->data )
-		return NULL;
-
-	if( !Mem_IsAllocatedExt( mempool, c->data ))
-		return NULL;
-
-	return c->data;
-}
-
-/*
 =============
 COM_LoadFileForMe
 

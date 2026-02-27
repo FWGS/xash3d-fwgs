@@ -87,6 +87,19 @@ void Mod_InitStudioHull( void )
 ===============================================================================
 */
 /*
+===============
+Mod_StudioExtradata
+
+===============
+*/
+void *GAME_EXPORT Mod_StudioExtradata( model_t *mod )
+{
+	if( mod && mod->type == mod_studio )
+		return mod->cache.data;
+	return NULL;
+}
+
+/*
 ====================
 ClearStudioCache
 ====================

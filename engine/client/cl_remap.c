@@ -356,8 +356,9 @@ static void CL_AllocRemapInfo( cl_entity_t *entity, model_t *model, int topcolor
 
 	if( model->type == mod_studio )
 	{
-		phdr = (studiohdr_t *)Mod_StudioExtradata( model );
-		if( !phdr ) return;	// bad model?
+		phdr = (studiohdr_t *)model->cache.data;
+		if( !phdr )
+			return; // bad model?
 
 		src = (mstudiotexture_t *)(((byte *)phdr) + phdr->textureindex);
 
@@ -396,8 +397,9 @@ static void CL_AllocRemapInfo( cl_entity_t *entity, model_t *model, int topcolor
 	}
 	else if( model->type == mod_alias )
 	{
-		ahdr = (aliashdr_t *)Mod_AliasExtradata( model );
-		if( !ahdr ) return;	// bad model?
+		ahdr = (aliashdr_t *)model->cache.data;
+		if( !ahdr )
+			return; // bad model?
 
 		// NOTE: we must copy all the structures 'mstudiotexture_t' for easy access when model is rendering
 		if( !clgame.remap_info[i] || clgame.remap_info[i]->model != model )

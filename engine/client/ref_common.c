@@ -227,14 +227,15 @@ static model_t *pfnGetDefaultSprite( enum ref_defaultsprite_e spr )
 
 static void *pfnMod_Extradata( int type, model_t *m )
 {
-	switch( type )
+	if( type == mod_alias || type == mod_studio )
 	{
-	case mod_alias: return Mod_AliasExtradata( m );
-	case mod_studio: return Mod_StudioExtradata( m );
-	case mod_sprite: // fallthrough
-	case mod_brush: return NULL;
-	default: Host_Error( "%s: unknown type %d\n", __func__, type );
+		if( m && m->type == type )
+			return m->cache.data;
+		return NULL;
 	}
+	else if( type != mod_sprite && type != mod_brush )
+		Host_Error( "%s: unknown type %d\n", __func__, type );
+
 	return NULL;
 }
 
