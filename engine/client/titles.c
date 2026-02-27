@@ -389,7 +389,7 @@ void Test_RunTitles( void )
 	"{\n"
 	"OwO\n"
 	"}\n"
-	"Technically titles can have spaces\n"
+	"Technically titles can have spaces and // can't have comments\n"
 	"{\n"
 	"Oh yeah!\n"
 	"}\n";
@@ -430,7 +430,7 @@ void Test_RunTitles( void )
 	TASSERT_STR( tmessages[0].pName, "TITLE" );
 	TASSERT_STR( tmessages[1].pName, "TITLE2" );
 	TASSERT_STR( tmessages[2].pName, "UwU" );
-	TASSERT_STR( tmessages[3].pName, "Technically titles can have spaces" );
+	TASSERT_STR( tmessages[3].pName, "Technically titles can have spaces and // can't have comments" );
 
 	TASSERT_STR( tmessages[0].pMessage, "Hello to anybody reading test data\nHope you have a good time" );
 	TASSERT_STR( tmessages[1].pMessage, "Still reading that nonsense huh?" );
