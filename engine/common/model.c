@@ -539,13 +539,15 @@ Mod_Calloc
 
 ===============
 */
-void *Mod_Calloc( int number, size_t size )
+void *GAME_EXPORT Mod_Calloc( int number, size_t size )
 {
 	cache_user_t	*cu;
 
-	if( number <= 0 || size <= 0 ) return NULL;
+	if( number <= 0 || size <= 0 )
+		return NULL;
+
 	cu = (cache_user_t *)Mem_Calloc( com_studiocache, sizeof( cache_user_t ) + number * size );
-	cu->data = (void *)cu; // make sure what cu->data is not NULL
+	cu->data = (void *)cu; // make sure that cu->data is not NULL
 
 	return cu;
 }
@@ -556,9 +558,15 @@ Mod_CacheCheck
 
 ===============
 */
-void *Mod_CacheCheck( cache_user_t *c )
+void *GAME_EXPORT Mod_CacheCheck( cache_user_t *c )
 {
-	return Cache_Check( com_studiocache, c );
+	if( !c->data )
+		return NULL;
+
+	if( !Mem_IsAllocatedExt( com_studiocache, c->data ))
+		return NULL;
+
+	return c->data;
 }
 
 /*
@@ -567,7 +575,7 @@ Mod_LoadCacheFile
 
 ===============
 */
-void Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
+void GAME_EXPORT Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 {
 	char	modname[MAX_QPATH];
 	fs_offset_t	size;
@@ -586,32 +594,6 @@ void Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 	cu->data = Mem_Malloc( com_studiocache, size );
 	memcpy( cu->data, buf, size );
 	Mem_Free( buf );
-}
-
-/*
-===============
-Mod_AliasExtradata
-
-===============
-*/
-void *Mod_AliasExtradata( model_t *mod )
-{
-	if( mod && mod->type == mod_alias )
-		return mod->cache.data;
-	return NULL;
-}
-
-/*
-===============
-Mod_StudioExtradata
-
-===============
-*/
-void *Mod_StudioExtradata( model_t *mod )
-{
-	if( mod && mod->type == mod_studio )
-		return mod->cache.data;
-	return NULL;
 }
 
 /*
