@@ -41,12 +41,29 @@ enum
 
 // a1ba: not using BIT macro, so flags can be copypasted into
 // exported APIs headers and will not get warning in case of changing values
-#define PFILE_IGNOREBRACKET (1<<0)
-#define PFILE_HANDLECOLON   (1<<1)
-#define PFILE_IGNOREHASHCMT (1<<2)
 
-#define PFILE_TOKEN_MAX_LENGTH 1024
-#define PFILE_FS_TOKEN_MAX_LENGTH 512
+// do NOT interpret brackets as separate token
+// e.g. (a b) will be parsed as "(a", "b)"
+#define PFILE_NO_BRACKETS_AS_TOKEN     ( 1U << 0 )
+
+// interpret ':' as separate token
+// e.g. a:b will be parsed as "a", ":", "b"
+#define PFILE_COLON_AS_TOKEN           ( 1U << 1 )
+
+// ignore the whole line starting with '#' interpreting it as comment
+#define PFILE_HASH_AS_COMMENT          ( 1U << 2 )
+
+// when encountering double quotes, do not interpret what's inside as single token
+#define PFILE_NO_QUOTED_TOKENS         ( 1U << 3 )
+
+// do NOT interpret ''' as separate token
+#define PFILE_NO_SINGLE_QUOTE_AS_TOKEN ( 1U << 4 )
+
+// do NOT interpret comma as token
+#define PFILE_NO_COMMA_AS_TOKEN        ( 1U << 5 )
+
+// interpret '\n' as separate token
+#define PFILE_NEWLINE_AS_TOKEN         ( 1U << 6 )
 
 #ifdef __cplusplus
 #define restrict

@@ -412,7 +412,8 @@ public:
 		qboolean qquoted;
 		char *p;
 
-		p = COM_ParseFileSafe( buf, token, PFILE_FS_TOKEN_MAX_LENGTH, 0, nullptr, &qquoted );
+		// filesystem_stdio expects 512 byte buffers
+		p = COM_ParseFileSafe( buf, token, 512, 0, nullptr, &qquoted );
 
 		if( quoted )
 			*quoted = qquoted;

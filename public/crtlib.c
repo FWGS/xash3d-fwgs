@@ -666,14 +666,23 @@ interpert this character as single
 */
 static int COM_IsSingleChar( unsigned int flags, char c )
 {
-	if( c == '{' || c == '}' || c == '\'' || c == ',' )
+	switch( c )
+	{
+	case '}':
+	case '{':
 		return true;
-
-	if( !FBitSet( flags, PFILE_IGNOREBRACKET ) && ( c == ')' || c == '(' ))
-		return true;
-
-	if( FBitSet( flags, PFILE_HANDLECOLON ) && c == ':' )
-		return true;
+	case ',':
+		return !FBitSet( flags, PFILE_NO_COMMA_AS_TOKEN );
+	case '\'':
+		return !FBitSet( flags, PFILE_NO_SINGLE_QUOTE_AS_TOKEN );
+	case '(':
+	case ')':
+		return !FBitSet( flags, PFILE_NO_BRACKETS_AS_TOKEN );
+	case ':':
+		return FBitSet( flags, PFILE_COLON_AS_TOKEN );
+	case '\n':
+		return FBitSet( flags, PFILE_NEWLINE_AS_TOKEN );
+	}
 
 	return false;
 }
@@ -707,6 +716,9 @@ char *COM_ParseFileSafe( char *data, char *token, const int size, unsigned int f
 skipwhite:
 	while(( c = ((byte)*data)) <= ' ' )
 	{
+		if( FBitSet( flags, PFILE_NEWLINE_AS_TOKEN ) && c == '\n' )
+			break;
+
 		if( c == 0 )
 		{
 			if( plen ) *plen = overflow ? -1 : len;
@@ -716,7 +728,7 @@ skipwhite:
 	}
 
 	// skip // or #, if requested, comments
-	if(( c == '/' && data[1] == '/' ) || ( c == '#' && FBitSet( flags, PFILE_IGNOREHASHCMT )))
+	if(( c == '/' && data[1] == '/' ) || ( c == '#' && FBitSet( flags, PFILE_HASH_AS_COMMENT )))
 	{
 		while( *data && *data != '\n' )
 			data++;
@@ -724,7 +736,7 @@ skipwhite:
 	}
 
 	// handle quoted strings specially
-	if( c == '\"' )
+	if( c == '\"' && !FBitSet( flags, PFILE_NO_QUOTED_TOKENS ))
 	{
 		if( quoted )
 			*quoted = true;
