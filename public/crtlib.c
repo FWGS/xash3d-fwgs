@@ -887,3 +887,24 @@ int matchpattern_with_separator( const char *in, const char *pattern, qboolean c
 	return 1; // success
 }
 
+void COM_TrimSpace( char *dst, const char *src, size_t size )
+{
+	if( !dst || !src || !size )
+		return;
+
+	// remove spaces from the start
+	for( ; *src && isspace( *src ); src++ );
+
+	int len = Q_strlen( src );
+
+	// remove spaces from the end
+	for( ; len > 0 && isspace( src[len - 1] ); len-- );
+
+	if( len > 0 )
+	{
+		// + 1 to fit null terminator in strlcpy
+		Q_strncpy( dst, src, Q_min( size, len + 1 ));
+	}
+	else
+		dst[0] = 0;
+}
