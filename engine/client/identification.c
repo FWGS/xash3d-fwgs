@@ -657,7 +657,7 @@ void ID_GetMD5ForAddress( char *key, netadr_t adr, size_t size )
 	}
 
 	if( bufsize != 0 )
-		value = BloomFilter_Process( buf, bufsize );
+		value |= BloomFilter_Process( buf, bufsize );
 
 	MD5Init( &ctx );
 	MD5Update( &ctx, (byte *)&value, sizeof( value ));
