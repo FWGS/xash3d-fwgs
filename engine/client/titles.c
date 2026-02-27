@@ -228,7 +228,7 @@ void CL_TextMessageParse( byte *pMemFile, int fileSize )
 
 	while( COM_MemFgets( pMemFile, fileSize, &filePos, buf, 512 ) != NULL )
 	{
-		COM_TrimSpace( buf, trim );
+		COM_TrimSpace( trim, buf, sizeof( trim ));
 
 		switch( mode )
 		{

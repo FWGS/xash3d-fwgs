@@ -1833,7 +1833,7 @@ static void SV_UserinfoChanged( sv_client_t *cl )
 
 	val = Info_ValueForKey( cl->userinfo, "name" );
 	Q_strncpy( name2, val, sizeof( name2 ));
-	COM_TrimSpace( name2, name1 );
+	COM_TrimSpace( name1, name2, sizeof( name1 ));
 
 	if( !Q_stricmp( name1, "console" ))
 	{

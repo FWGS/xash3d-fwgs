@@ -70,6 +70,35 @@ static int Test_FixSlashes( void )
 	return 0;
 }
 
+static int Test_TrimSpace( void )
+{
+	string s;
+
+	// test it removes white space from both sides
+	COM_TrimSpace( s, " \txash is cool \n\t ", sizeof( s ));
+	if( Q_strcmp( s, "xash is cool" ))
+		return 1;
+
+	// check it truncates
+	COM_TrimSpace( s, "\t\t\txashxashxash", 5 );
+	if( Q_strcmp( s, "xash" ))
+		return 2;
+
+	COM_TrimSpace( s, "        ", sizeof( s ));
+	if( Q_strcmp( s, "" ))
+		return 3;
+
+	COM_TrimSpace( s, "s    ", sizeof( s ));
+	if( Q_strcmp( s, "s" ))
+		return 4;
+
+	COM_TrimSpace( s, "    a", sizeof( s ));
+	if( Q_strcmp( s, "a" ))
+		return 5;
+
+	return 0;
+}
+
 int main( void )
 {
 	int ret = Test_Strcpycatcmp();
@@ -83,6 +112,11 @@ int main( void )
 		return ret + 16;
 
 	ret = Test_FixSlashes();
+
+	if( ret > 0 )
+		return ret + 32;
+
+	ret = Test_TrimSpace();
 
 	if( ret > 0 )
 		return ret + 48;
