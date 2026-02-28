@@ -98,6 +98,7 @@ int Q_atoi_hex( int sign, const char *str );
 int Q_atoi( const char *str );
 float Q_atof( const char *str );
 void Q_atov( float *vec, const char *str, size_t siz );
+char *Q_memfgets( byte *data, int data_len, int *data_offset, char *dst, int dst_size );
 #define Q_strchr  strchr
 #define Q_strrchr strrchr
 qboolean Q_stricmpext( const char *pattern, const char *text );

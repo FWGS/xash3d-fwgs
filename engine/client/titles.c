@@ -227,7 +227,7 @@ client_textmessage_t *CL_TextMessageParse( poolhandle_t mempool, byte *pMemFile,
 	lastLinePos = 0;
 	messageCount = 0;
 
-	while( COM_MemFgets( pMemFile, fileSize, &filePos, buf, 512 ) != NULL )
+	while( Q_memfgets( pMemFile, fileSize, &filePos, buf, 512 ) != NULL )
 	{
 		COM_TrimSpace( trim, buf, sizeof( trim ));
 
