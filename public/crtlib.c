@@ -22,6 +22,30 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "crtlib.h"
 
+char *GAME_EXPORT Q_memfgets( byte *data, int data_len, int *data_offset, char *dst, int dst_size )
+{
+	// sanity check
+	if( !data || !data_offset || !dst || *data_offset >= data_len )
+		return NULL;
+
+	const char *start = (const char *)data + *data_offset;
+	int remaining = data_len - *data_offset;
+
+	// do not assume the data is null terminated, as we have data_len anyway :)
+	const char *end = memchr( start, '\n', remaining );
+
+	if( end )
+		remaining = end - start + 1;
+
+	// include null terminator
+	Q_strncpy( dst, start, Q_min( remaining + 1, dst_size ));
+
+	*data_offset += remaining;
+
+	return dst;
+}
+
+
 void Q_strnlwr( const char *in, char *out, size_t size_out )
 {
 	size_t len, i;

@@ -776,7 +776,7 @@ void CL_InitClientMove( void )
 	clgame.pmove->COM_FileSize = COM_FileSize;
 	clgame.pmove->COM_LoadFile = COM_LoadFile;
 	clgame.pmove->COM_FreeFile = COM_FreeFile;
-	clgame.pmove->memfgets = COM_MemFgets;
+	clgame.pmove->memfgets = Q_memfgets;
 	clgame.pmove->PM_PlaySound = pfnPlaySound;
 	clgame.pmove->PM_TraceTexture = PM_CL_TraceTexture;
 	clgame.pmove->PM_PlaybackEventFull = pfnPlaybackEventFull;
