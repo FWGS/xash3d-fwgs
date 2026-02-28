@@ -837,7 +837,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	}
 	else
 	{
-		Con_Printf( "%s: %s", __func__, hosterror1 );
+		Con_Printf( S_RED "%s" S_DEFAULT ": %s", __func__, hosterror1 );
 		if( host.allow_console )
 		{
 			UI_SetActiveMenu( false );
@@ -851,7 +851,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 
 	if( recursive )
 	{
-		Con_Printf( "%sRecursive: %s", __func__, hosterror2 );
+		Con_Printf( S_RED "%sRecursive" S_DEFAULT ": %s", __func__, hosterror2 );
 		Sys_Error( "%s", hosterror1 );
 	}
 
