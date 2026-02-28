@@ -838,7 +838,7 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	else
 	{
 		Con_Printf( S_RED "%s" S_DEFAULT ": %s", __func__, hosterror1 );
-		if( host.allow_console )
+		if( host_developer.value )
 		{
 			UI_SetActiveMenu( false );
 			Key_SetKeyDest( key_console );
