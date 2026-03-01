@@ -748,6 +748,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	{
 	case kRenderTransAlpha:
 		pglDepthMask( GL_FALSE );
+		pglEnable( GL_BLEND );
+		pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 		// fallthrough
 	case kRenderTransColor:
 	case kRenderTransTexture:
@@ -756,6 +758,9 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		break;
 	case kRenderGlow:
 		pglDisable( GL_DEPTH_TEST );
+		pglDepthMask( GL_FALSE );
+		pglBlendFunc( GL_ONE, GL_ONE );
+		pglEnable( GL_BLEND );
 		// fallthrough
 	case kRenderTransAdd:
 		pglEnable( GL_BLEND );
@@ -768,8 +773,11 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		break;
 	}
 
-	// all sprites can have color
-	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+	if( e->curstate.rendermode == kRenderTransColor ) 
+		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_ALPHA );
+	else
+		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+
 	pglEnable( GL_ALPHA_TEST );
 
 	// NOTE: never pass sprites with rendercolor '0 0 0' it's a stupid Valve Hammer Editor bug
