@@ -535,13 +535,11 @@ void S_PaintChannels( int endtime )
 		room_channels += S_MixRawChannels( end );
 
 		// now process DSP and mix result into paintbuffer
-		if( room_channels > 0 )
-		{
-			if( cls.key_dest != key_menu )
-				SX_RoomFX( roombuffer, num_samples );
+		if( cls.key_dest != key_menu )
+			SX_RoomFX( roombuffer, num_samples );
 
+		if( room_channels > 0 || cls.key_dest != key_menu )
 			S_MixBufferWithGain( paintbuffer, roombuffer, num_samples, gain );
-		}
 
 		// transfer out according to DMA format
 		S_TransferPaintBuffer( paintbuffer, end );
