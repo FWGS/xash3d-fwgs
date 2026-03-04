@@ -147,7 +147,7 @@ static void Cbuf_InsertTextToBuffer( cmdbuf_t *buf, const char *text, size_t len
 	}
 }
 
-void Cbuf_InsertTextLen( const char *text, size_t len, size_t requested_len )
+static void Cbuf_InsertTextLen( const char *text, size_t len, size_t requested_len )
 {
 	// sometimes we need to insert more data than we have
 	// but also prevent overflow
@@ -932,44 +932,33 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 
 	BaseCmd_FindAll( cmd_argv[0], &cmd, &a, &cvar );
 
-	if( !host.apply_game_config )
+	// check aliases
+	if( a )
 	{
-		if( a )
-		{
-			size_t len = Q_strlen( a->value );
-			Cbuf_InsertTextToBuffer(
-				isPrivileged ? &cmd_text : &filteredcmd_text,
-				a->value, len, len );
-			return;
-		}
+		size_t len = Q_strlen( a->value );
+		Cbuf_InsertTextToBuffer( isPrivileged ? &cmd_text : &filteredcmd_text, a->value, len, len );
+		return;
 	}
 
-	// special mode for restore game.dll archived cvars
-	if( !host.apply_game_config || !Q_strcmp( cmd_argv[0], "exec" ))
+	// check functions
+	if( cmd && cmd->function )
 	{
-		// check functions
-		if( cmd && cmd->function )
+		if( Cmd_ShouldAllowCommand( cmd, isPrivileged ))
 		{
-			if( Cmd_ShouldAllowCommand( cmd, isPrivileged ))
-			{
-				cmd_currentCommandIsPrivileged = isPrivileged;
-				cmd->function();
-				cmd_currentCommandIsPrivileged = true;
-			}
-			else
-			{
-				Con_Printf( S_WARN "Could not execute privileged command %s\n", cmd->name );
-			}
-
-			return;
+			cmd_currentCommandIsPrivileged = isPrivileged;
+			cmd->function();
+			cmd_currentCommandIsPrivileged = true;
 		}
+		else
+		{
+			Con_Printf( S_WARN "Could not execute privileged command %s\n", cmd->name );
+		}
+		return;
 	}
 
 	// check cvars
-	if( Cvar_CommandWithPrivilegeCheck( cvar, isPrivileged )) return;
-
-	if( host.apply_game_config )
-		return; // don't send nothing to server: we are a server!
+	if( Cvar_CommandWithPrivilegeCheck( cvar, isPrivileged ))
+		return;
 
 	// forward the command line to the server, so the entity DLL can parse it
 #if !XASH_DEDICATED
@@ -1001,7 +990,7 @@ so when they are typed in at the console, they will need to be forwarded.
 #if !XASH_DEDICATED
 void Cmd_ForwardToServer( void )
 {
-	char	str[MAX_CMD_BUFFER];
+	char str[MAX_CMD_BUFFER];
 
 	if( cls.demoplayback )
 	{

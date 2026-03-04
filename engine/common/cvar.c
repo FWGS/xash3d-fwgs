@@ -1019,12 +1019,6 @@ qboolean Cvar_CommandWithPrivilegeCheck( convar_t *v, qboolean isPrivileged )
 		return true;
 	}
 
-	if( host.apply_game_config )
-	{
-		if( !FBitSet( v->flags, FCVAR_EXTDLL ))
-			return true; // only game.dll cvars passed
-	}
-
 	if( FBitSet( v->flags, FCVAR_SPONLY ) && CL_GetMaxClients() > 1 )
 	{
 		Con_Printf( "can't set \"%s\" in multiplayer\n", v->name );
