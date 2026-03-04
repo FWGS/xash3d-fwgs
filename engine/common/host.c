@@ -436,118 +436,6 @@ static void Host_ChangeGame_f( void )
 }
 
 /*
-===============
-Host_Exec_f
-===============
-*/
-static void Host_Exec_f( void )
-{
-	string cfgpath;
-	byte *f;
-	fs_offset_t len;
-
-	if( Cmd_Argc() != 2 )
-	{
-		Con_Printf( S_USAGE "exec <filename>\n" );
-		return;
-	}
-
-	Q_strncpy( cfgpath, Cmd_Argv( 1 ), sizeof( cfgpath ));
-	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath )); // append as default
-
-#ifndef XASH_DEDICATED
-	if( !Cmd_CurrentCommandIsPrivileged() )
-	{
-		const char *unprivilegedWhitelist[] =
-		{
-			NULL, "mapdefault.cfg", "scout.cfg", "sniper.cfg",
-			"soldier.cfg", "demoman.cfg", "medic.cfg", "hwguy.cfg",
-			"pyro.cfg", "spy.cfg", "engineer.cfg", "civilian.cfg"
-		};
-		int i;
-		char temp[MAX_VA_STRING];
-		qboolean allow = false;
-
-		Q_snprintf( temp, sizeof( temp ), "%s.cfg", clgame.mapname );
-		unprivilegedWhitelist[0] = temp;
-
-		for( i = 0; i < ARRAYSIZE( unprivilegedWhitelist ); i++ )
-		{
-			if( !Q_strcmp( cfgpath, unprivilegedWhitelist[i] ))
-			{
-				allow = true;
-				break;
-			}
-		}
-
-		if( !allow )
-		{
-			Con_Printf( "exec %s: not privileged or in whitelist\n", cfgpath );
-			return;
-		}
-	}
-#endif // XASH_DEDICATED
-
-	// don't execute game.cfg in singleplayer
-	if( SV_GetMaxClients() == 1 && !Q_stricmp( "game.cfg", cfgpath ))
-		return;
-
-	f = FS_LoadFile( cfgpath, &len, false );
-	if( !f )
-	{
-		Con_Reportf( "couldn't exec %s\n", Cmd_Argv( 1 ));
-		return;
-	}
-
-	// len is fs_offset_t, which can be larger than size_t
-	if( len >= SIZE_MAX )
-	{
-		Con_Reportf( "%s: %s is too long\n", __func__, Cmd_Argv( 1 ));
-		return;
-	}
-
-	if( !Q_stricmp( "config.cfg", cfgpath ))
-		host.config_executed = true;
-
-	if( !host.apply_game_config )
-		Con_Printf( "execing %s\n", Cmd_Argv( 1 ));
-
-	// adds \n at end of the file
-	// FS_LoadFile always null terminates
-	if( f[len - 1] != '\n' )
-	{
-		Cbuf_InsertTextLen( f, len, len + 1 );
-		Cbuf_InsertTextLen( "\n", 1, 1 );
-	}
-	else Cbuf_InsertTextLen( f, len, len );
-
-	Mem_Free( f );
-}
-
-/*
-===============
-Host_MemStats_f
-===============
-*/
-static void Host_MemStats_f( void )
-{
-	switch( Cmd_Argc( ))
-	{
-	case 1:
-		Mem_PrintList( 1<<30 );
-		Mem_PrintStats();
-		break;
-	case 2:
-		Mem_PrintList( Q_atoi( Cmd_Argv( 1 )) * 1024 );
-		Mem_PrintStats();
-		break;
-	default:
-		Con_Printf( S_USAGE "memlist <all>\n" );
-		break;
-	}
-}
-
-/*
 =================
 Host_RegisterDecal
 =================
@@ -902,27 +790,6 @@ static void Host_Crash_f( void )
 	*(volatile int *)0 = 0xffffffff;
 }
 
-/*
-=================
-Host_Userconfigd_f
-=================
-*/
-static void Host_Userconfigd_f( void )
-{
-	search_t *t;
-	int i;
-
-	t = FS_Search( "userconfig.d/*.cfg", true, false );
-	if( !t ) return;
-
-	for( i = 0; i < t->numfilenames; i++ )
-	{
-		Cbuf_AddTextf( "exec %s\n", t->filenames[i] );
-	}
-
-	Mem_Free( t );
-}
-
 #if XASH_ENGINE_TESTS
 static void Host_RunTests( int stage )
 {
@@ -1136,9 +1003,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	host.bugcomp = Host_CheckBugcomp();
 
-	Cmd_AddCommand( "exec", Host_Exec_f, "execute a script file" );
-	Cmd_AddCommand( "memlist", Host_MemStats_f, "prints memory pool information" );
-	Cmd_AddRestrictedCommand( "userconfigd", Host_Userconfigd_f, "execute all scripts from userconfig.d" );
+	Cmd_AddCommand( "memlist", Mem_Stats_f, "prints memory pool information" );
 
 #if !XASH_DEDICATED
 	Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig, "save current configuration" );
@@ -1301,8 +1166,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			Cbuf_AddText( "exec config.cfg\n" );
 			Cbuf_Execute();
 		}
+
 		// exec all files from userconfig.d
-		Host_Userconfigd_f();
+		Cbuf_AddText( "userconfigd\n" );
+		Cbuf_Execute();
 		break;
 	case HOST_DEDICATED:
 		// allways parse commandline in dedicated-mode

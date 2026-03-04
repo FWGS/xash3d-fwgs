@@ -471,7 +471,7 @@ void Mem_PrintStats( void )
 	Con_Printf( "total allocated size: ^1%s\n", Q_memprint( realsize ));
 }
 
-void Mem_PrintList( size_t minallocationsize )
+static void Mem_PrintList( size_t minallocationsize )
 {
 	mempool_t		*pool;
 	memheader_t	*mem;
@@ -507,6 +507,29 @@ void Mem_PrintList( size_t minallocationsize )
 			if( mem->size >= minallocationsize )
 				Con_Printf( "%10s allocated at %s:%i\n", Q_memprint( mem->size ), mem->filename, mem->fileline );
 		}
+	}
+}
+
+/*
+===============
+Mem_Stats_f
+===============
+*/
+void Mem_Stats_f( void )
+{
+	switch( Cmd_Argc( ))
+	{
+	case 1:
+		Mem_PrintList( 1<<30 );
+		Mem_PrintStats();
+		break;
+	case 2:
+		Mem_PrintList( Q_atoi( Cmd_Argv( 1 )) * 1024 );
+		Mem_PrintStats();
+		break;
+	default:
+		Con_Printf( S_USAGE "memlist <all>\n" );
+		break;
 	}
 }
 
