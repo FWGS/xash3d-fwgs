@@ -639,7 +639,6 @@ void ID_GetMD5ForAddress( char *key, netadr_t adr, size_t size )
 	MD5Context_t ctx;
 	byte buf[32], md5[16];
 	size_t bufsize = 0;
-	bloomfilter_t value = id;
 
 	switch( NET_NetadrType( &adr ))
 	{
