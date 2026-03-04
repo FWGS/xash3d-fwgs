@@ -1,8 +1,7 @@
 [versions]
 acraHttp = "5.12.0"
-agp = "8.11.1"
+agp = "9.0.0"
 appcompat = "1.7.1"
-kotlin = "2.2.0"
 material = "1.12.0"
 navigationRuntimeKtx = "2.9.1"
 preferenceKtx = "1.2.1"
@@ -20,4 +19,3 @@ swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
