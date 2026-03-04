@@ -2686,7 +2686,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// WAD failed, so use internal texture (if present)
 	if( mipTex->offsets[0] > 0 && texture->gl_texturenum == 0 )
 	{
-		char texName[64];
+		string texName;
 		const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
 
 		Q_snprintf( texName, sizeof( texName ), "#%s:%s.mip", loadstat.name, mipTex->name );
@@ -2719,7 +2719,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 
 	if( FBitSet( REF_GET_PARM( PARM_TEX_FLAGS, texture->gl_texturenum ), TF_HAS_LUMA ) && !texture->fb_texturenum )
 	{
-		char texName[64];
+		string texName;
 
 		Q_snprintf( texName, sizeof( texName ), "#%s:%s_luma.mip", loadstat.name, mipTex->name );
 
