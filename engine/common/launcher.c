@@ -29,25 +29,12 @@ GNU General Public License for more details.
 #error "Single-binary or dedicated builds aren't supported for Windows!"
 #endif
 
-static char        szGameDir[128]; // safe place to keep gamedir
-static int         szArgc;
-static char        **szArgv;
+static int  szArgc;
+static char **szArgv;
 
 static void Sys_ChangeGame( const char *progname )
 {
 	// stub
-}
-
-static int Sys_Start( void )
-{
-	Q_strncpy( szGameDir, XASH_GAMEDIR, sizeof( szGameDir ));
-
-#if XASH_IOS
-	IOS_LaunchDialog();
-	szArgc = IOS_GetArgs( &szArgv );
-#endif // XASH_IOS
-
-	return Host_Main( szArgc, szArgv, szGameDir, 0, Sys_ChangeGame );
 }
 
 int main( int argc, char **argv )
@@ -55,10 +42,13 @@ int main( int argc, char **argv )
 #if XASH_PSVITA
 	// inject -dev -console into args if required
 	szArgc = PSVita_GetArgv( argc, argv, &szArgv );
+#elif XASH_IOS
+	IOS_LaunchDialog();
+	szArgc = IOS_GetArgs( &szArgv );
 #else
 	szArgc = argc;
 	szArgv = argv;
 #endif // XASH_PSVITA
-	return Sys_Start();
+	return Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, Sys_ChangeGame );
 }
 #endif // XASH_ENABLE_MAIN

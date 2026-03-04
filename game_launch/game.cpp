@@ -52,7 +52,6 @@ typedef void (*pfnShutdown)( void );
 
 static pfnInit     Host_Main;
 static pfnShutdown Host_Shutdown = NULL;
-static char        szGameDir[128]; // safe place to keep gamedir
 static int         szArgc;
 static char        **szArgv;
 static HINSTANCE   hEngine;
@@ -172,12 +171,8 @@ static int Sys_Start( void )
 	setenv( "XASH3D_RODIR", "/usr/share/harbour-xash3d-fwgs/rodir", true );
 #endif // XASH_SAILFISH
 
-	strncpy( szGameDir, XASH_GAMEDIR, sizeof( szGameDir ) - 1 );
-
 	Sys_LoadEngine();
-
-	ret = Host_Main( szArgc, szArgv, szGameDir, 0, XASH_DISABLE_MENU_CHANGEGAME ? NULL : Sys_ChangeGame );
-
+	ret = Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, XASH_DISABLE_MENU_CHANGEGAME ? NULL : Sys_ChangeGame );
 	Sys_UnloadEngine();
 
 	return ret;
