@@ -1,3 +1,4 @@
+import com.android.build.api.dsl.ApplicationExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.time.LocalDateTime
 import java.time.Month
@@ -5,12 +6,11 @@ import java.time.temporal.ChronoUnit
 
 plugins {
 	alias(libs.plugins.android.application)
-	alias(libs.plugins.kotlin.android)
 }
 
-android {
+extensions.configure<ApplicationExtension> {
 	namespace = "su.xash.engine"
-	ndkVersion = "28.2.13676358"
+	ndkVersion = "29.0.14206865"
 	compileSdk = 35
 
 	defaultConfig {
@@ -34,7 +34,7 @@ android {
 				"--configuration-dir=\${ndk.buildRoot}",
 				"--ndk-version=\${ndk.moduleNdkVersion}",
 				"--min-sdk-version=\${ndk.minPlatform}",
-				"--ndk-root=${android.ndkDirectory}",
+				"--ndk-root=${androidComponents.sdkComponents.ndkDirectory.get()}",
 				// shut up, fake options
 				"-p:Configuration=\${ndk.variantName}",
 				"-p:Platform=\${ndk.abi}"
@@ -77,8 +77,8 @@ android {
 
 	sourceSets {
 		getByName("main") {
-			assets.srcDirs("../../3rdparty/extras/xash-extras")
-			java.srcDir("../../3rdparty/SDL/android-project/app/src/main/java")
+			assets.directories.add("../../3rdparty/extras/xash-extras")
+			java.directories.add("../../3rdparty/SDL/android-project/app/src/main/java")
 		}
 	}
 
