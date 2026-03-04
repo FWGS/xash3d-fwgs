@@ -9,13 +9,6 @@ from copy import copy
 
 top = '.'
 
-EXECINFO_TEST = '''#include <execinfo.h>
-int main(int argc, char **argv)
-{
-	backtrace(0, 0);
-	backtrace_symbols(0, 0);
-}'''
-
 FFMPEG_CHECK_FRAGMENT='''
 #include <libswresample/swresample.h>
 #include <libavformat/avformat.h>
@@ -151,8 +144,6 @@ def configure(conf):
 	if conf.env.IOS:
 		for i in frameworks :
 			conf.check(features='c cprogram', framework=i, uselib_store=i, msg='Checking for %s framework' % i)
-
-	conf.check_cc(fragment=EXECINFO_TEST, msg='Checking for glibc backtrace()', mandatory=False, define_name='HAVE_EXECINFO')
 
 	conf.define('ENGINE_DLL', 1)
 	conf.define_cond('XASH_ENGINE_TESTS', conf.options.ENGINE_TESTS)
