@@ -19,7 +19,3 @@ GNU General Public License for more details.
 int Sys_CrashDetailsLibbacktrace( int logfd, char *message, int len, size_t max_len );
 qboolean Sys_SetupLibbacktrace( const char *argv0 );
 
-//
-// crash_glibc.c
-//
-int Sys_CrashDetailsExecinfo( int logfd, char *message, int len, size_t max_len );

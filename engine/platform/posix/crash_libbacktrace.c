@@ -153,4 +153,4 @@ qboolean Sys_SetupLibbacktrace( const char *argv0 )
 	return g_bt_state != NULL && enable_libbacktrace;
 }
 
-#endif // HAVE_EXECINFO
+#endif // HAVE_LIBBACKTRACE

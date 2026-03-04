@@ -61,14 +61,6 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 	}
 #endif // HAVE_LIBBACKTRACE
 
-#if HAVE_EXECINFO
-	if( !detailed_message )
-	{
-		len = Sys_CrashDetailsExecinfo( logfd, message, len, sizeof( message ));
-		detailed_message = true;
-	}
-#endif // HAVE_EXECINFO
-
 #if !XASH_DEDICATED
 	IN_SetMouseGrab( false );
 #endif
