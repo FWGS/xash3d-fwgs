@@ -24,7 +24,6 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "multi_emulator.h"
 
-#define MAX_CMD_BUFFER        8000
 #define CL_CONNECTION_TIMEOUT 15.0f
 #define CL_CONNECTION_RETRIES 5
 #define CL_TEST_RETRIES       5
@@ -759,6 +758,7 @@ Including both the reliable commands and the usercmds
 */
 static void CL_WritePacket( void )
 {
+	enum { MAX_CMD_BUFFER = 8000 };
 	sizebuf_t buf;
 	byte data[MAX_CMD_BUFFER] = { 0 };
 	runcmd_t *pcmd;

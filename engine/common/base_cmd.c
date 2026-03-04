@@ -25,8 +25,8 @@ struct base_command_hashmap_s
 {
 	base_command_t         *basecmd; // base command: cvar, alias or command
 	base_command_hashmap_t *next;
-	base_command_type_e     type;    // type for faster searching
-	char                    name[]; // key for searching
+	base_command_type_e    type;     // type for faster searching
+	char                   name[];   // key for searching
 };
 
 static base_command_hashmap_t *hashed_cmds[HASH_SIZE];
@@ -237,9 +237,9 @@ BaseCmd_Stats_f
 */
 void BaseCmd_Stats_f( void )
 {
-	int i, minsize = 99999, maxsize = -1, empty = 0;
+	int minsize = 99999, maxsize = -1, empty = 0;
 
-	for( i = 0; i < HASH_SIZE; i++ )
+	for( int i = 0; i < HASH_SIZE; i++ )
 	{
 		base_command_hashmap_t *hm;
 		int len = 0;
@@ -264,15 +264,15 @@ void BaseCmd_Stats_f( void )
 	Con_Printf( "min length: %d, max length: %d, empty: %d\n", minsize, maxsize, empty );
 }
 
-typedef struct
+struct basecmd_test_stats_s
 {
 	qboolean valid;
 	int lookups;
-} basecmd_test_stats_t;
+};
 
 static void BaseCmd_CheckCvars( const char *key, const char *value, const void *unused, void *ptr )
 {
-	basecmd_test_stats_t *stats = ptr;
+	struct basecmd_test_stats_s *stats = ptr;
 
 	stats->lookups++;
 	if( !BaseCmd_Find( HM_CVAR, key ))
@@ -291,16 +291,14 @@ testing order matches cbuf execute
 */
 void BaseCmd_Test_f( void )
 {
-	basecmd_test_stats_t stats;
-	double start, end, dt;
-	int i;
+	struct basecmd_test_stats_s stats =
+	{
+		.valid = true,
+	};
 
-	stats.valid = true;
-	stats.lookups = 0;
+	double start = Platform_DoubleTime() * 1000;
 
-	start = Platform_DoubleTime() * 1000;
-
-	for( i = 0; i < 1000; i++ )
+	for( int i = 0; i < 1000; i++ )
 	{
 		cmdalias_t *a;
 		void *cmd;
@@ -328,9 +326,8 @@ void BaseCmd_Test_f( void )
 		Cvar_LookupVars( 0, NULL, &stats.valid, (setpair_t)BaseCmd_CheckCvars );
 	}
 
-	end = Platform_DoubleTime() * 1000;
-
-	dt = end - start;
+	double end = Platform_DoubleTime() * 1000;
+	double dt = end - start;
 
 	if( !stats.valid )
 		Con_Printf( "BaseCmd is valid\n" );

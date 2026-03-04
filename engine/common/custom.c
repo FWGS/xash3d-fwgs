@@ -27,7 +27,8 @@ static rgbdata_t *CustomDecal_LoadImage( const char *path, void *raw, int size )
 		testname = "#logo.png";
 	else if( !Q_stricmp( COM_FileExtension( path ), "wad" ))
 		testname = "#logo.wad";
-	else testname = "#logo.bmp";
+	else
+		testname = "#logo.bmp";
 
 	Image_SetForceFlags( IL_LOAD_PLAYER_DECAL );
 

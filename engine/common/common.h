@@ -328,25 +328,22 @@ typedef struct host_parm_s
 	// for CL_{Push,Pop}TraceBounds
 	vec3_t player_mins_backup[MAX_MAP_HULLS];
 	vec3_t player_maxs_backup[MAX_MAP_HULLS];
-	qboolean trace_bounds_pushed;
 
-	qboolean allow_console;       // allow console in dev-mode or multiplayer game
-	qboolean allow_console_init;  // initial value to allow the console
-	qboolean key_overstrike;      // key overstrike mode
-	qboolean stuffcmds_pending;   // should execute stuff commands
-	qboolean allow_cheats;        // this host will allow cheating
-	qboolean change_game;         // initialize when game is changed
-	qboolean mouse_visible;       // vgui override cursor control (never change outside Platform_SetCursorType!)
-	qboolean shutdown_issued;     // engine is shutting down
-	qboolean apply_game_config;   // when true apply only to game cvars and ignore all other commands
-	qboolean apply_opengl_config; // when true apply only to opengl cvars and ignore all other commands
-	qboolean config_executed;     // a bit who indicated was config.cfg already executed e.g. from valve.rc
-	qboolean textmode;
-
-	// some settings were changed and needs to global update
-	qboolean userinfo_changed;
-	qboolean movevars_changed;
-	qboolean renderinfo_changed;
+	uint trace_bounds_pushed : 1;
+	uint allow_console       : 1; // allow console in dev-mode or multiplayer game
+	uint allow_console_init  : 1; // initial value to allow the console
+	uint key_overstrike      : 1; // key overstrike mode
+	uint stuffcmds_pending   : 1; // should execute stuff commands
+	uint allow_cheats        : 1; // this host will allow cheating
+	uint change_game         : 1; // initialize when game is changed
+	uint mouse_visible       : 1; // vgui override cursor control (never change outside Platform_SetCursorType!)
+	uint shutdown_issued     : 1; // engine is shutting down
+	uint apply_opengl_config : 1; // when true apply only to opengl cvars and ignore all other commands
+	uint config_executed     : 1; // a bit who indicated was config.cfg already executed e.g. from valve.rc
+	uint textmode            : 1;
+	uint userinfo_changed    : 1; // some settings were changed and needs to global update
+	uint movevars_changed    : 1;
+	uint renderinfo_changed  : 1;
 
 	// for IN_MouseMove() easy access
 	int      window_center_x;
@@ -383,8 +380,8 @@ void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline );
 void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline );
 void _Mem_Check( const char *filename, int fileline );
 qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data );
-void Mem_PrintList( size_t minallocationsize );
 void Mem_PrintStats( void );
+void Mem_Stats_f( void );
 
 #define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
@@ -448,9 +445,8 @@ void Cbuf_AddText( const char *text );
 void Cbuf_AddTextf( const char *text, ... ) FORMAT_CHECK( 1 );
 void Cbuf_AddFilteredText( const char *text );
 void Cbuf_InsertText( const char *text );
-void Cbuf_InsertTextLen( const char *text, size_t len, size_t requested_len );
 void Cbuf_ExecStuffCmds( void );
-void Cbuf_Execute (void);
+void Cbuf_Execute( void );
 qboolean Cmd_CurrentCommandIsPrivileged( void );
 void Cmd_Init( void );
 void Cmd_Shutdown( void );
@@ -475,12 +471,11 @@ static inline int Cmd_AddCommandWithFlags( const char *cmd_name, xcommand_t func
 void Cmd_RemoveCommand( const char *cmd_name );
 cmd_t *Cmd_Exists( const char *cmd_name );
 void Cmd_LookupCmds( void *buffer, void *ptr, setpair_t callback );
-int Cmd_ListMaps( search_t *t , char *lastmapname, size_t len, qboolean silent );
+int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len, qboolean silent );
 void Cmd_TokenizeString( const char *text );
 void Cmd_ExecuteString( const char *text );
 void Cmd_ForwardToServer( void );
 void Cmd_Escape( char *newCommand, const char *oldCommand, int len );
-
 
 //
 // imagelib
