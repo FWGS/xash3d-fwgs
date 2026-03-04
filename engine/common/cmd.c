@@ -24,24 +24,13 @@ GNU General Public License for more details.
 
 typedef struct
 {
-	byte *const data;
-	const int maxsize;
-	int cursize;
+	byte data[MAX_CMD_BUFFER];
+	int  cursize;
 } cmdbuf_t;
 
 static qboolean cmd_wait;
-static byte     cmd_text_buf[MAX_CMD_BUFFER];
-static byte     filteredcmd_text_buf[MAX_CMD_BUFFER];
-static cmdbuf_t cmd_text =
-{
-	.data = cmd_text_buf,
-	.maxsize = ARRAYSIZE( cmd_text_buf ),
-};
-static cmdbuf_t filteredcmd_text =
-{
-	.data = filteredcmd_text_buf,
-	.maxsize = ARRAYSIZE( filteredcmd_text_buf ),
-};
+static cmdbuf_t cmd_text;
+static cmdbuf_t filteredcmd_text;
 static cmdalias_t *cmd_alias;
 static uint cmd_condition;
 static int  cmd_condlevel;
@@ -65,9 +54,8 @@ Cbuf_Clear
 */
 void Cbuf_Clear( void )
 {
-	memset( cmd_text.data, 0, cmd_text.maxsize );
-	memset( filteredcmd_text.data, 0, filteredcmd_text.maxsize );
-	cmd_text.cursize = filteredcmd_text.cursize = 0;
+	memset( &cmd_text, 0, sizeof( cmd_text ));
+	memset( &filteredcmd_text, 0, sizeof( filteredcmd_text ));
 }
 
 /*
@@ -77,9 +65,9 @@ Cbuf_GetSpace
 */
 static void *Cbuf_GetSpace( cmdbuf_t *buf, int length )
 {
-	void    *data;
+	void *data;
 
-	if(( buf->cursize + length ) > buf->maxsize )
+	if(( buf->cursize + length ) >= sizeof( buf->data ))
 	{
 		buf->cursize = 0;
 		Host_Error( "%s: overflow\n", __func__ );
@@ -95,7 +83,7 @@ static void Cbuf_AddTextToBuffer( cmdbuf_t *buf, const char *text )
 {
 	int l = Q_strlen( text );
 
-	if(( buf->cursize + l ) >= buf->maxsize )
+	if(( buf->cursize + l ) >= sizeof( buf->data ))
 	{
 		Con_Reportf( S_WARN "%s: overflow\n", __func__ );
 		return;
@@ -147,7 +135,7 @@ Adds command text immediately after the current command
 */
 static void Cbuf_InsertTextToBuffer( cmdbuf_t *buf, const char *text, size_t len, size_t requested_len )
 {
-	if(( buf->cursize + requested_len ) >= buf->maxsize )
+	if(( buf->cursize + requested_len ) >= sizeof( buf->data ))
 	{
 		Con_Reportf( S_WARN "%s: overflow\n", __func__ );
 	}
