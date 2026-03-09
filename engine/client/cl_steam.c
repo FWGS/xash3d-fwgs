@@ -41,15 +41,22 @@ static struct
 	netadr_t serveradr;
 } broker;
 
-qboolean SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge )
+static qboolean SteamBroker_UpdateBrokerAddress( void )
 {
 	if( NET_NetadrType( &broker.adr ) == NA_UNDEFINED )
 	{
 		if( !NET_StringToAdr( cl_steam_broker_addr.string, &broker.adr ))
-		{
-			Con_Printf( "%s: NET_StringToAdr( %s ) failed\n", __func__, cl_steam_broker_addr.string );
 			return false;
-		}
+	}
+	return true;
+}
+
+qboolean SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge )
+{
+	if( !SteamBroker_UpdateBrokerAddress( ))
+	{
+		Con_Printf( "%s: failed to resolve broker address \"%s\"\n", __func__, cl_steam_broker_addr.string );
+		return false;
 	}
 
 	// only ipv4 supported
@@ -86,6 +93,39 @@ void SteamBroker_TerminateGameConnection( void )
 
 	NET_SendPacket( NS_CLIENT, len, buf, broker.adr );
 	NET_NetadrSetType( &broker.adr, NA_UNDEFINED );
+}
+
+void SteamBroker_AnnounceGameStart( const char *gamedir )
+{
+	if( Q_stricmp( cl_ticket_generator.string, "steam" ) != 0 )
+		return;
+
+	if( !SteamBroker_UpdateBrokerAddress( ))
+	{
+		Con_Printf( "%s: failed to resolve broker address \"%s\"\n", __func__, cl_steam_broker_addr.string );
+		return;
+	}
+
+	NET_Config( true, true ); // initialize sockets to be able to send packets to broker
+
+	char buf[512];
+	int len = Q_snprintf( buf, sizeof( buf ), "sb_gamedir %s", gamedir );
+
+	NET_SendPacket( NS_CLIENT, len, buf, broker.adr );
+}
+
+void SteamBroker_AnnounceGameShutdown( void )
+{
+	if( Q_stricmp( cl_ticket_generator.string, "steam" ) != 0 )
+		return;
+
+	if( !SteamBroker_UpdateBrokerAddress( ))
+	{
+		Con_Printf( "%s: failed to resolve broker address \"%s\"\n", __func__, cl_steam_broker_addr.string );
+		return;
+	}
+
+	NET_SendPacket( NS_CLIENT, sizeof( "sb_terminate" ) - 1, "sb_terminate", broker.adr );
 }
 
 void SteamBroker_HandlePacket( netadr_t from, sizebuf_t *msg )
@@ -127,4 +167,5 @@ void SteamBroker_Init( void )
 
 void SteamBroker_Shutdown( void )
 {
+	SteamBroker_AnnounceGameShutdown();
 }

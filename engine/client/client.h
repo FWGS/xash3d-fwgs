@@ -722,6 +722,7 @@ extern convar_t	scr_loading;
 extern convar_t	v_dark;	// start from dark
 extern convar_t	net_graph;
 extern convar_t	rate;
+extern convar_t cl_ticket_generator;
 extern convar_t	m_ignore;
 extern convar_t	r_showtree;
 extern convar_t	ui_renderworld;
@@ -1212,6 +1213,7 @@ void CL_GetSecuredClientAPI( CL_EXPORT_FUNCS F );
 //
 void SteamBroker_Init( void );
 void SteamBroker_Shutdown( void );
+void SteamBroker_AnnounceGameStart( const char *gamedir );
 void SteamBroker_HandlePacket( netadr_t from, sizebuf_t *msg );
 int SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge );
 void SteamBroker_TerminateGameConnection( void );
