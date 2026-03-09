@@ -3594,6 +3594,8 @@ void Host_ClientBegin( void )
 
 	// if running the server locally, make intentions now
 	if( SV_Active( )) CL_SendCommand ();
+
+	SteamBroker_Frame();
 }
 
 /*
