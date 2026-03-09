@@ -80,9 +80,9 @@ void SteamBroker_TerminateGameConnection( void )
 	if( cls.legacymode != PROTO_GOLDSRC )
 		return;
 
-	// sb_terminate <ip:port> <challenge>
+	// sb_disconnect <ip:port> <challenge>
 	char buf[512];
-	int len = Q_snprintf( buf, sizeof( buf ), "sb_terminate %s %d", NET_AdrToString( cls.serveradr ), broker.challenge );
+	int len = Q_snprintf( buf, sizeof( buf ), "sb_disconnect %s %d", NET_AdrToString( cls.serveradr ), broker.challenge );
 
 	NET_SendPacket( NS_CLIENT, len, buf, broker.adr );
 	NET_NetadrSetType( &broker.adr, NA_UNDEFINED );
