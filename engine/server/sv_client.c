@@ -255,28 +255,27 @@ Check and limit multiple simultaneous connections from the same IP
 static int SV_CheckIPConnectionReuse( netadr_t from )
 {
 	int i, count = 0;
+	int max_from_ip = (int)sv_maxclients_from_single_ip.value;
+
+	// Skip check if disabled
+	if( max_from_ip <= 0 )
+		return 1;
 
 	for( i = 0; i < svs.maxclients; i++ )
 	{
 		sv_client_t *cl = &svs.clients[i];
 
-		if( cl->state == cs_connected && cl->state != cs_spawning && NET_CompareBaseAdr( cl->netchan.remote_address, from ) )
+		// Only count connected or spawning clients
+		if( cl->state >= cs_connected && NET_CompareBaseAdr( cl->netchan.remote_address, from ) )
 		{
 			count++;
+			// Early exit if we already exceeded the limit
+			if( count > max_from_ip )
+			{
+				SV_RejectConnection( from, "Too many connections from your IP address\n" );
+				return 0;
+			}
 		}
-	}
-
-	if ( count > (int)sv_maxclients_from_single_ip.value )
-	{
-		Log_Printf( "Too many connect packets from %s (%i>%i)\n", NET_AdrToString( from ), count, (int)sv_maxclients_from_single_ip.value );
-		SV_RejectConnection( from, "Too many connect packets from your ip address\n" );
-		return 0;
-	}
-
-	if (count > 5)
-	{
-		Log_Printf( "Too many connect packets from %s\n", NET_AdrToString( from ) );
-		return 0;
 	}
 
 	return 1;
