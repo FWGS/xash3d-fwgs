@@ -1265,12 +1265,58 @@ static void Cmd_ExecScript( const char *filename )
 		return;
 	}
 
-	if( f[len - 1] != '\n' )
+	// ReHLDS-style: handle buffer overflow by executing line by line
+	if( Cbuf_GetFreeSpace() > (size_t)len + 2 )
 	{
-		Cbuf_InsertTextLen( f, len, len + 1 );
-		Cbuf_InsertTextLen( "\n", 1, 1 );
+		// Buffer has space - insert entire file
+		if( f[len - 1] != '\n' )
+		{
+			Cbuf_InsertTextLen( f, len, len + 1 );
+			Cbuf_InsertTextLen( "\n", 1, 1 );
+		}
+		else Cbuf_InsertTextLen( f, len, len );
 	}
-	else Cbuf_InsertTextLen( f, len, len );
+	else
+	{
+		// Buffer is full - execute line by line
+		char *pszDataPtr = (char *)f;
+		char *lineStart;
+		char *lineEnd;
+		char savedChar;
+
+		while( pszDataPtr && *pszDataPtr )
+		{
+			// Execute existing commands first to make room
+			Cbuf_Execute();
+
+			// Find end of line
+			lineStart = pszDataPtr;
+			lineEnd = lineStart;
+			while( *lineEnd && *lineEnd != '\n' && *lineEnd != '\r' )
+				lineEnd++;
+
+			// Save and null-terminate
+			savedChar = *lineEnd;
+			*lineEnd = '\0';
+
+			// Insert line if not empty
+			if( lineStart[0] )
+			{
+				Cbuf_InsertText( lineStart );
+				Cbuf_InsertText( "\n" );
+			}
+
+			// Restore and advance
+			*lineEnd = savedChar;
+			if( savedChar == '\0' )
+				break;
+
+			pszDataPtr = lineEnd + 1;
+			// Skip \r if present
+			if( savedChar == '\r' && *pszDataPtr == '\n' )
+				pszDataPtr++;
+		}
+	}
 
 	Mem_Free( f );
 }
