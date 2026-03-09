@@ -252,7 +252,7 @@ SV_CheckIPConnectionReuse
 Check and limit multiple simultaneous connections from the same IP
 ================
 */
-static int SV_CheckIPConnectionReuse( netadr_t from )
+int SV_CheckIPConnectionReuse( netadr_t from )
 {
 	int i, count = 0;
 	int max_from_ip = (int)sv_maxclients_from_single_ip.value;
@@ -302,7 +302,7 @@ static sv_client_t *SV_FindEmptySlot( void )
 	return NULL;
 }
 
-static void SV_MaybeNotifyPlayerCountChange( const sv_client_t *cl, const char *address )
+void SV_MaybeNotifyPlayerCountChange( const sv_client_t *cl, const char *address )
 {
 	int i, count = 0;
 
@@ -328,7 +328,7 @@ SV_ConnectClient
 A connection request that did not come from the master
 ==================
 */
-static void SV_ConnectClient( netadr_t from )
+void SV_ConnectClient( netadr_t from )
 {
 	char userinfo[MAX_INFO_STRING];
 	char protinfo[MAX_INFO_STRING];

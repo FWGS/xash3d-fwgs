@@ -1348,7 +1348,7 @@ NET_QueuePacket
 queue normal and lagged packets
 ==================
 */
-static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *length )
+qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *length )
 {
 	byte		buf[NET_MAX_FRAGMENT];
 	int		ret, protocol;
