@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "event_args.h"
 #include "protocol.h"
 #include "client.h"
+#include <execinfo.h>   // for backtrace
 
 #define DELTA_PATH		"delta.lst"
 
@@ -1936,7 +1937,32 @@ void MSG_WriteDeltaEntity( const entity_state_t *from, const entity_state_t *to,
 	startBit = msg->iCurBit;
 
 	if( to->number < 0 || to->number >= GI->max_edicts )
-		Host_Error( "%s: Bad entity number: %i\n", __func__, to->number );
+	{
+		void *callstack[128];
+		int frames;
+		char **symbols;
+		
+		Con_Printf( "\n=== BAD ENTITY NUMBER DEBUG INFO ===\n" );
+		Con_Printf( "Entity number: %i\n", to->number );
+		Con_Printf( "Max edicts: %d\n", GI->max_edicts );
+		Con_Printf( "entity_state_t pointer: %p\n", (void*)to );
+		Con_Printf( "Called from %s (MSG_WriteDeltaEntity)\n", __func__ );
+		
+		// Print backtrace
+		Con_Printf( "\nCall stack:\n" );
+		frames = backtrace( callstack, 128 );
+		symbols = backtrace_symbols( callstack, frames );
+		if( symbols )
+		{
+			for( int i = 0; i < frames; i++ )
+			{
+				Con_Printf( "  [%d] %s\n", i, symbols[i] );
+			}
+			free( symbols );
+		}
+		Con_Printf( "====================================\n\n" );
+		Host_Error( "%s: Bad entity number: %i (max: %d)\n", __func__, to->number, GI->max_edicts );
+	}
 
 	MSG_WriteUBitLong( msg, to->number, MAX_ENTITY_BITS );
 	MSG_WriteUBitLong( msg, 0, 2 ); // alive

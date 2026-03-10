@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "const.h"
 #include "render_api.h"	// modelstate_t
 #include "ref_common.h" // decals
+#include <execinfo.h>   // for backtrace
 
 // GameAPI functions declarations
 static int GAME_EXPORT pfnModelIndex( const char *m );
@@ -3488,7 +3489,40 @@ int GAME_EXPORT pfnIndexOfEdict( const edict_t *pEdict )
 
 	number = NUM_FOR_EDICT( pEdict );
 	if( number < 0 || number > GI->max_edicts )
-		Host_Error( "bad entity number %d\n", number );
+	{
+		void *callstack[128];
+		int frames;
+		char **symbols;
+		
+		Con_Printf( "\n=== BAD ENTITY NUMBER DEBUG INFO ===\n" );
+		Con_Printf( "Entity number: %d\n", number );
+		Con_Printf( "Max edicts: %d\n", GI->max_edicts );
+		Con_Printf( "pEdict pointer: %p\n", (void*)pEdict );
+		Con_Printf( "svgame.edicts pointer: %p\n", (void*)svgame.edicts );
+		if( pEdict )
+		{
+			Con_Printf( "pEdict->free: %d\n", pEdict->free );
+			Con_Printf( "pEdict->serialnumber: %d\n", pEdict->serialnumber );
+			if( pEdict->v.classname )
+				Con_Printf( "pEdict->v.classname: %s\n", STRING( pEdict->v.classname ) );
+		}
+		Con_Printf( "Called from pfnIndexOfEdict()\n" );
+		
+		// Print backtrace
+		Con_Printf( "\nCall stack:\n" );
+		frames = backtrace( callstack, 128 );
+		symbols = backtrace_symbols( callstack, frames );
+		if( symbols )
+		{
+			for( int i = 0; i < frames; i++ )
+			{
+				Con_Printf( "  [%d] %s\n", i, symbols[i] );
+			}
+			free( symbols );
+		}
+		Con_Printf( "====================================\n\n" );
+		Host_Error( "bad entity number %d (max: %d, pEdict: %p)\n", number, GI->max_edicts, (void*)pEdict );
+	}
 	return number;
 }
 
