@@ -3499,13 +3499,21 @@ int GAME_EXPORT pfnIndexOfEdict( const edict_t *pEdict )
 		Con_Printf( "Max edicts: %d\n", GI->max_edicts );
 		Con_Printf( "pEdict pointer: %p\n", (void*)pEdict );
 		Con_Printf( "svgame.edicts pointer: %p\n", (void*)svgame.edicts );
-		if( pEdict )
+		
+		// Only access pEdict fields if pointer is within valid edict array range
+		// to avoid segfault when pointer is completely corrupted
+		if( pEdict >= svgame.edicts && pEdict < (svgame.edicts + GI->max_edicts) )
 		{
 			Con_Printf( "pEdict->free: %d\n", pEdict->free );
 			Con_Printf( "pEdict->serialnumber: %d\n", pEdict->serialnumber );
 			if( pEdict->v.classname )
 				Con_Printf( "pEdict->v.classname: %s\n", STRING( pEdict->v.classname ) );
 		}
+		else
+		{
+			Con_Printf( "pEdict pointer is outside valid edict array range (corrupted)\n" );
+		}
+		
 		Con_Printf( "Called from pfnIndexOfEdict()\n" );
 		
 		// Print backtrace
