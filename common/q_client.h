@@ -79,4 +79,37 @@ typedef struct
 
 STATIC_CHECK_SIZEOF( kbutton_t, 12, 12 );
 
+typedef enum {
+	// Quake defined types
+	pt_static, pt_grav, pt_slowgrav, pt_fire, pt_explode, pt_explode2, pt_blob, pt_blob2,
+
+	// added in HL
+	pr_4x_slowgrav, // 4 times faster than pt_slowgrav
+	pt_8x_slowgrav, // 8 times faster than pt_slowgrav
+	pt_custom,      // will call think function from particle
+} ptype_t;
+
+// !!! if this is changed, it must be changed in d_ifacea.h too !!!
+typedef struct particle_s
+{
+	// driver-usable fields
+	vec3_t  org;
+	short   color;  // in HL color is defnied by palette
+	short   unused; // not used in hw
+
+	// drivers never touch the following fields
+	struct particle_s *next;
+	vec3_t  vel;
+	float   ramp;
+	float   die;
+	ptype_t type;
+
+	// HL added fields
+	void (*on_die)( struct particle_s *p );
+	void (*think)( struct particle_s *p, float frametime );
+	unsigned char userdata;
+} particle_t;
+
+STATIC_CHECK_SIZEOF( particle_t, 56, 72 );
+
 #endif // QUAKE_CLIENT_H

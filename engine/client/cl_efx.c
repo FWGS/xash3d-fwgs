@@ -200,15 +200,15 @@ particle_t * GAME_EXPORT R_AllocParticle( void (*callback)( particle_t*, float )
 	p->type = pt_static;
 	VectorClear( p->vel );
 	VectorClear( p->org );
-	p->packedColor = 0;
+	p->unused = 0;
 	p->die = cl.time;
 	p->color = 0;
 	p->ramp = 0;
 
 	if( callback )
 	{
-		p->type = pt_clientcustom;
-		p->callback = callback;
+		p->type = pt_custom;
+		p->think = callback;
 	}
 
 	return p;
@@ -254,7 +254,7 @@ static particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life
 	p->die = cl.time + life;
 	p->ramp = tracerlength.value;
 	p->color = TRACER_COLORINDEX_DEFAULT; // select custom color
-	p->packedColor = 255; // alpha
+	p->unused = 255; // alpha
 
 	return p;
 }
@@ -1118,7 +1118,7 @@ void GAME_EXPORT R_ParticleExplosion2( const vec3_t org, int colorStart, int col
 
 		p->die = cl.time + 0.3f;
 		p->color = colorStart + ( colorMod % colorLength );
-		p->packedColor = packedColor;
+		p->unused = packedColor;
 		colorMod++;
 
 		p->type = pt_blob;
@@ -1150,7 +1150,7 @@ void GAME_EXPORT R_BlobExplosion( const vec3_t org )
 		if( !p ) return;
 
 		p->die = cl.time + COM_RandomFloat( 1.0f, 1.4f );
-		p->packedColor = packedColor;
+		p->unused = packedColor;
 
 		if( i & 1 )
 		{
@@ -1232,7 +1232,7 @@ void GAME_EXPORT R_Blood( const vec3_t org, const vec3_t ndir, int pcolor, int s
 
 			p->die = cl.time + 1.5f;
 			p->color = pcolor + COM_RandomLong( 0, 9 );
-			p->type = pt_vox_grav;
+			p->type = pr_4x_slowgrav;
 
 			VectorAddScalar( pos, COM_RandomFloat( -1.0f, 1.0f ), p->org );
 			VectorScale( vec, pspeed, p->vel );
@@ -1263,7 +1263,7 @@ void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t ndir, int pcolor,
 		if( !p ) return;
 
 		p->die = cl.time + 2.0f;
-		p->type = pt_vox_grav;
+		p->type = pt_8x_slowgrav;
 		p->color = pcolor + COM_RandomLong( 0, 9 );
 
 		VectorCopy( org, p->org );
@@ -1284,7 +1284,7 @@ void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t ndir, int pcolor,
 
 		p->die = cl.time + 3.0f;
 		p->color = pcolor + COM_RandomLong( 0, 9 );
-		p->type = pt_vox_slowgrav;
+		p->type = pr_4x_slowgrav;
 
 		VectorCopy( org, p->org );
 		VectorCopy( dir, p->vel );
@@ -1306,7 +1306,7 @@ void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t ndir, int pcolor,
 
 			p->die = cl.time + 3.0f;
 			p->color = pcolor + COM_RandomLong( 0, 9 );
-			p->type = pt_vox_slowgrav;
+			p->type = pr_4x_slowgrav;
 
 			p->org[0] = org[0] + COM_RandomFloat( -1.0f, 1.0f );
 			p->org[1] = org[1] + COM_RandomFloat( -1.0f, 1.0f );
@@ -1898,8 +1898,8 @@ void GAME_EXPORT R_UserTracerParticle( float *org, float *vel, float life, int c
 
 	if(( p = R_AllocTracer( org, vel, life )) != NULL )
 	{
-		p->context = deathcontext;
-		p->deathfunc = deathfunc;
+		p->userdata = deathcontext;
+		p->on_die = deathfunc;
 		p->color = colorIndex;
 		p->ramp = length;
 	}
@@ -1996,9 +1996,9 @@ void R_FreeDeadParticles( particle_t **ppparticles )
 		kill = *ppparticles;
 		if( kill && kill->die < cl.time )
 		{
-			if( kill->deathfunc )
-				kill->deathfunc( kill );
-			kill->deathfunc = NULL;
+			if( kill->on_die )
+				kill->on_die( kill );
+			kill->on_die = NULL;
 			*ppparticles = kill->next;
 			kill->next = cl_free_particles;
 			cl_free_particles = kill;
@@ -2015,9 +2015,9 @@ void R_FreeDeadParticles( particle_t **ppparticles )
 			kill = p->next;
 			if( kill && kill->die < cl.time )
 			{
-				if( kill->deathfunc )
-					kill->deathfunc( kill );
-				kill->deathfunc = NULL;
+				if( kill->on_die )
+					kill->on_die( kill );
+				kill->on_die = NULL;
 				p->next = kill->next;
 				kill->next = cl_free_particles;
 				cl_free_particles = kill;
@@ -2154,7 +2154,7 @@ void CL_ThinkParticle( double frametime, particle_t *p )
 	float		grav = frametime * clgame.movevars.gravity * 0.05f;
 
 
-	if( p->type != pt_clientcustom )
+	if( p->type != pt_custom )
 	{
 		// update position.
 		VectorMA( p->org, frametime, p->vel, p->org );
@@ -2185,7 +2185,7 @@ void CL_ThinkParticle( double frametime, particle_t *p )
 		p->vel[2] -= grav;
 		break;
 	case pt_blob:
-		if( p->packedColor == 255 )
+		if( p->unused == 255 )
 		{
 			// normal blob explosion
 			VectorMA( p->vel, dvel, p->vel, p->vel );
@@ -2194,7 +2194,7 @@ void CL_ThinkParticle( double frametime, particle_t *p )
 		}
 		// intentionally fallthrough
 	case pt_blob2:
-		if( p->packedColor == 255 )
+		if( p->unused == 255 )
 		{
 			// normal blob explosion
 			p->vel[0] -= p->vel[0] * dvel;
@@ -2217,15 +2217,15 @@ void CL_ThinkParticle( double frametime, particle_t *p )
 	case pt_slowgrav:
 		p->vel[2] -= grav;
 		break;
-	case pt_vox_grav:
+	case pt_8x_slowgrav:
 		p->vel[2] -= grav * 8.0f;
 		break;
-	case pt_vox_slowgrav:
+	case pr_4x_slowgrav:
 		p->vel[2] -= grav * 4.0f;
 		break;
-	case pt_clientcustom:
-		if( p->callback )
-			p->callback( p, frametime );
+	case pt_custom:
+		if( p->think )
+			p->think( p, frametime );
 		break;
 	}
 }
