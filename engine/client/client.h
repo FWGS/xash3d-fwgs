@@ -336,6 +336,7 @@ typedef struct
 #define FONT_DRAW_NORENDERMODE BIT( 3 ) // ignore font's default rendermode
 #define FONT_DRAW_NOLF     BIT( 4 ) // ignore \n
 #define FONT_DRAW_RESETCOLORONLF BIT( 5 ) // yet another flag to simulate consecutive Con_DrawString calls...
+#define FONT_DRAW_NOCOLOR  BIT( 6 ) // do not set color to draw this character
 
 typedef struct
 {
@@ -831,6 +832,7 @@ qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float sc
 qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags );
 void CL_FreeFont( cl_font_t *font );
 void CL_SetFontRendermode( cl_font_t *font );
+void CL_SetFontColor( cl_font_t *font, const rgba_t color );
 int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_t *font, int flags );
 int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_t *font, int flags );
 void CL_DrawCharacterLen( cl_font_t *font, int number, int *width, int *height );
