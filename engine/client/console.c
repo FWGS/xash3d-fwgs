@@ -1981,8 +1981,9 @@ static void Con_DrawSolidConsole( int lines )
 			start = con.curFont->charWidths[' ']; // offset one space at left screen side
 
 			// draw red arrows to show the buffer is backscrolled
+			CL_SetFontColor( con.curFont, g_color_table[1] );
 			for( x = 0; x < con.linewidth; x += 4 )
-				CL_DrawCharacter( ( x + 1 ) * start, y, '^', g_color_table[1], con.curFont, 0 );
+				CL_DrawCharacter( ( x + 1 ) * start, y, '^', NULL, con.curFont, FONT_DRAW_NOCOLOR );
 			y -= con.curFont->charHeight;
 		}
 		x = lastline;

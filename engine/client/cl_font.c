@@ -68,6 +68,15 @@ void CL_SetFontRendermode( cl_font_t *font )
 	ref.dllFuncs.GL_SetRenderMode( CL_FontRenderMode( font->rendermode ));
 }
 
+void CL_SetFontColor( cl_font_t *font, const rgba_t color )
+{
+	// don't apply color to fixed fonts it's already colored
+	if( font->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, font->hFontTexture ) == 0x8045 ) // GL_LUMINANCE8_ALPHA8
+		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
+	else
+		ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
+}
+
 qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags )
 {
 	int font_width, i;
@@ -222,10 +231,9 @@ int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_
 	if( !FBitSet( flags, FONT_DRAW_NORENDERMODE ))
 		CL_SetFontRendermode( font );
 
-	// don't apply color to fixed fonts it's already colored
-	if( font->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, font->hFontTexture ) == 0x8045 ) // GL_LUMINANCE8_ALPHA8
-		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
-	else ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
+	if( !FBitSet( flags, FONT_DRAW_NOCOLOR ))
+		CL_SetFontColor( font, color );
+
 	ref.dllFuncs.R_DrawStretchPic( x, y, w, h, s1, t1, s2, t2, font->hFontTexture );
 
 	return font->charWidths[number];
@@ -233,7 +241,6 @@ int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_
 
 int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_t *font, int flags )
 {
-	rgba_t current_color;
 	int draw_len = 0;
 
 	if( !font || !font->valid )
@@ -245,7 +252,9 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 	if( !FBitSet( flags, FONT_DRAW_NORENDERMODE ))
 		CL_SetFontRendermode( font );
 
-	Vector4Copy( color, current_color );
+	CL_SetFontColor( font, color );
+
+	SetBits( flags, FONT_DRAW_NOCOLOR | FONT_DRAW_NORENDERMODE );
 
 	while( *s )
 	{
@@ -264,7 +273,7 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 			}
 
 			if( FBitSet( flags, FONT_DRAW_RESETCOLORONLF ))
-				 Vector4Copy( color, current_color );
+				 CL_SetFontColor( font, color );
 			continue;
 		}
 
@@ -272,14 +281,14 @@ int CL_DrawString( float x, float y, const char *s, const rgba_t color, cl_font_
 		{
 			// don't copy alpha
 			if( !FBitSet( flags, FONT_DRAW_FORCECOL ))
-				VectorCopy( g_color_table[ColorIndex(*( s + 1 ))], current_color );
+				CL_SetFontColor( font, g_color_table[ColorIndex(*( s + 1 ))] );
 
 			s += 2;
 			continue;
 		}
 
 		// skip setting rendermode, it was changed for this string already
-		draw_len += CL_DrawCharacter( x + draw_len, y, (byte)*s, current_color, font, flags | FONT_DRAW_NORENDERMODE );
+		draw_len += CL_DrawCharacter( x + draw_len, y, (byte)*s, NULL, font, flags );
 
 		s++;
 	}
