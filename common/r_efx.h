@@ -16,11 +16,6 @@
 #ifndef R_EFX_H
 #define R_EFX_H
 
-// particle_t
-#if !defined( PARTICLEDEF_H )
-#include "particledef.h"
-#endif
-
 // BEAM
 #if !defined( BEAMDEF_H )
 #include "beamdef.h"
@@ -109,6 +104,7 @@ typedef struct tempent_s
 	// baseline.angles		- angle velocity
 } TEMPENTITY;
 
+typedef struct particle_s particle_t;
 typedef struct efx_api_s efx_api_t;
 struct dlight_s;
 

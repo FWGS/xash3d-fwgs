@@ -17,7 +17,6 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "library.h"
 #include "beamdef.h"
-#include "particledef.h"
 #include "entity_types.h"
 
 
