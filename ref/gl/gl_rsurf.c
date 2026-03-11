@@ -871,24 +871,24 @@ DrawGLPoly
 */
 static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 {
-	float		*v;
-	float		sOffset, sy;
-	float		tOffset, cy;
-	cl_entity_t	*e = RI.currententity;
-	int		i, hasScale = false;
+	float *v;
+	float sOffset, tOffset;
+	int i;
 
-	if( !p ) return;
+	if( !p )
+		return;
 
 	if( FBitSet( p->flags, SURF_DRAWTILED ))
 		GL_ResetFogColor();
 
-	if( p->flags & SURF_CONVEYOR )
+	if( FBitSet( p->flags, SURF_CONVEYOR ))
 	{
-		float		flConveyorSpeed = 0.0f;
-		float		flRate, flAngle;
-		gl_texture_t	*texture;
+		const cl_entity_t *e = RI.currententity;
+		float flConveyorSpeed;
+		float flRate, flAngle, sy, cy;
+		gl_texture_t *texture;
 
-		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && RI.currententity == CL_GetEntityByIndex( 0 ))
+		if( e == CL_GetEntityByIndex( 0 ) && ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
 		{
 			// same as doom speed
 			flConveyorSpeed = -35.0f;
@@ -920,8 +920,7 @@ static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 		sOffset = tOffset = 0.0f;
 	}
 
-	if( xScale != 0.0f && yScale != 0.0f )
-		hasScale = true;
+	const qboolean hasScale = xScale != 0.0f && yScale != 0.0f;
 
 	pglBegin( GL_POLYGON );
 
@@ -949,10 +948,7 @@ Render lightmaps
 */
 static void DrawGLPolyChain( glpoly2_t *p, float soffset, float toffset )
 {
-	qboolean	dynamic = true;
-
-	if( soffset == 0.0f && toffset == 0.0f )
-		dynamic = false;
+	const qboolean dynamic = soffset != 0.0f || toffset != 0.0f;
 
 	for( ; p != NULL; p = p->chain )
 	{
