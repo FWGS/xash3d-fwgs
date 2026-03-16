@@ -29,26 +29,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define FULLY_CLIPPED_CACHED 0x80000000
 #define FRAMECOUNT_MASK      0x7FFFFFFF
 
-unsigned int    cacheoffset;
-
-int             c_faceclip;                                             // number of faces clipped
-
-
-clipplane_t     *entity_clipplanes;
-clipplane_t     world_clipplanes[16];
-
-medge16_t       *r_pedge;
-
-qboolean        r_leftclipped, r_rightclipped;
+static unsigned int cacheoffset;
+static int c_faceclip;                                             // number of faces clipped
+static medge16_t *r_pedge;
+static qboolean r_leftclipped, r_rightclipped;
 static qboolean makeleftedge, makerightedge;
-qboolean        r_nearzionly;
+static qboolean r_nearzionly;
 
 int             sintable[1280];
-int             intsintable[1280];
 int             blanktable[1280];               // PGM
 
-mvertex_t       r_leftenter, r_leftexit;
-mvertex_t       r_rightenter, r_rightexit;
+static mvertex_t r_leftenter, r_leftexit;
+static mvertex_t r_rightenter, r_rightexit;
 
 typedef struct
 {
@@ -56,52 +48,12 @@ typedef struct
 	int   ceilv;
 } evert_t;
 
-int        r_emitted;
-float      r_nearzi;
-float      r_u1, r_v1, r_lzi1;
-int        r_ceilv1;
+static int r_emitted;
+static float r_nearzi;
+static float r_u1, r_v1, r_lzi1;
+static int r_ceilv1;
 
-qboolean   r_lastvertvalid;
-int        r_skyframe;
-
-msurface_t *r_skyfaces;
-mplane_t   r_skyplanes[6];
-mtexinfo_t r_skytexinfo[6];
-mvertex_t  *r_skyverts;
-medge16_t  *r_skyedges;
-int        *r_skysurfedges;
-
-// I just copied this data from a box map...
-int        skybox_planes[12] = {2, -128, 0, -128, 2, 128, 1, 128, 0, 128, 1, -128};
-
-int        box_surfedges[24] = { 1, 2, 3, 4, -1, 5, 6, 7, 8, 9, -6, 10, -2, -7, -9, 11,
-				 12, -3, -11, -8, -12, -10, -5, -4};
-int        box_edges[24] = { 1, 2, 2, 3, 3, 4, 4, 1, 1, 5, 5, 6, 6, 2, 7, 8, 8, 6, 5, 7, 8, 3, 7, 4};
-
-int        box_faces[6] = {0, 0, 2, 2, 2, 0};
-
-vec3_t     box_vecs[6][2] = {
-	{       {0, -1, 0}, {-1, 0, 0} },
-	{ {0, 1, 0}, {0, 0, -1} },
-	{       {0, -1, 0}, {1, 0, 0} },
-	{ {1, 0, 0}, {0, 0, -1} },
-	{ {0, -1, 0}, {0, 0, -1} },
-	{ {-1, 0, 0}, {0, 0, -1} }
-};
-
-float      box_verts[8][3] = {
-	{-1, -1, -1},
-	{-1, 1, -1},
-	{1, 1, -1},
-	{1, -1, -1},
-	{-1, -1, 1},
-	{-1, 1, 1},
-	{1, -1, 1},
-	{1, 1, 1}
-};
-
-// down, west, up, north, east, south
-// {"rt", "bk", "lf", "ft", "up", "dn"};
+static qboolean   r_lastvertvalid;
 
 /*
 ================

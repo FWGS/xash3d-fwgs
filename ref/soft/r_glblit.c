@@ -50,6 +50,7 @@ DebugCallback
 For ARB_debug_output
 ========================
 */
+#if GLDEBUG
 static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLuint severity, GLint length, const GLcharARB *message, GLvoid *userParam )
 {
 	switch( type )
@@ -71,10 +72,9 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		break;
 	}
 }
-
+#endif // GLDEBUG
 
 static unsigned short *glbuf;
-static int tex;
 
 #define LOAD( x ) p ## x = gEngfuncs.GL_GetProcAddress(#x ); \
 	gEngfuncs.Con_Printf(#x " : %p\n", p ## x )
@@ -192,61 +192,12 @@ static void *R_Lock_GL1( void )
 	return glbuf;
 }
 
-static void R_Unlock_GL1( void )
-{
-
-	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, glbuf );
-	// gEngfuncs.Con_Printf("%d\n",pglGetError());
-	pglBegin( GL_QUADS );
-	pglTexCoord2f( 0, 0 );
-	pglVertex2f( 0, 0 );
-
-	pglTexCoord2f( 1, 0 );
-	pglVertex2f( 1, 0 );
-
-	pglTexCoord2f( 1, 1 );
-	pglVertex2f( 1, 1 );
-
-	pglTexCoord2f( 0, 1 );
-	pglVertex2f( 0, 1 );
-	pglEnd();
-	gEngfuncs.GL_SwapBuffers();
-}
-
-
 static void R_Unlock_GLES1( void )
 {
 	pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, vid.width, vid.height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, glbuf );
 	pglDrawArrays( GL_TRIANGLE_FAN, 0, 4 );
 
 	gEngfuncs.GL_SwapBuffers();
-}
-
-static qboolean R_CreateBuffer_GL1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
-{
-	pglViewport( 0, 0, width, height );
-	pglMatrixMode( GL_PROJECTION );
-	pglLoadIdentity();
-	pglOrtho( 0, 1, 1, 0, -99999, 99999 );
-	pglMatrixMode( GL_MODELVIEW );
-	pglLoadIdentity();
-
-	pglEnable( GL_TEXTURE_2D );
-	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-
-	if( glbuf )
-		Mem_Free( glbuf );
-
-	glbuf = Mem_Malloc( r_temppool, width * height * 2 );
-
-	*stride = width;
-	*bpp = 2;
-	*r = MASK( 5 ) << ( 6 + 5 );
-	*g = MASK( 6 ) << 5;
-	*b = MASK( 5 );
-
-	return true;
 }
 
 static qboolean R_CreateBuffer_GLES1( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
@@ -346,49 +297,14 @@ static void R_Unlock_GLES3( void )
 
 static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
 {
-	float  data[] = {
-		// quad verts match texcoords
-		0, 0,
-		1, 0,
-		1, 1,
-		0, 1,
-	};
-	GLuint vbo, pbo, fbo, to;
+	GLuint pbo, fbo, to;
 
 	// shitty fbo does not work without texture objects :(
 	pglGenTextures( 1, &to );
 	pglBindTexture( GL_TEXTURE_2D, to );
 	pglViewport( 0, 0, width, height );
-	/*
-	pglMatrixMode( GL_PROJECTION );
-	pglLoadIdentity();
-	// project 0..1 to screen size
-	pglOrtho( 0, 1, 1, 0, -99999, 99999 );
-	pglMatrixMode( GL_MODELVIEW );
-	pglLoadIdentity();
 
-	pglEnable( GL_TEXTURE_2D );
-	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-	pglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-
-	if( vbo )
-		pglDeleteBuffers( 1,&vbo );
-
-	if( pbo )
-		pglDeleteBuffers( 1,&pbo );
-	*/
-
-	// pglGenBuffers( 1,&vbo );
 	pglGenBuffers( 1, &pbo );
-	// pglBindBuffer( GL_ARRAY_BUFFER_ARB, vbo );
-	// pglBufferData( GL_ARRAY_BUFFER_ARB, sizeof(data), data, GL_STATIC_DRAW_ARB );
-
-	// pglEnableClientState( GL_VERTEX_ARRAY );
-	// pglEnableClientState( GL_TEXTURE_COORD_ARRAY );
-
-	// pglVertexPointer( 2, GL_FLOAT, 8, 0 );
-	// pglTexCoordPointer( 2, GL_FLOAT, 8, 0 );
-	// pglBindBuffer( GL_ARRAY_BUFFER_ARB, 0 );
 
 	pglBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo );
 	pglBufferData( GL_PIXEL_UNPACK_BUFFER, width * height * 2, 0, GL_STREAM_DRAW_ARB );
@@ -399,9 +315,6 @@ static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint 
 	pglFramebufferTexture2D( GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, to, 0 );
 	pglBindFramebuffer( GL_DRAW_FRAMEBUFFER, 0 );
 
-	// pglColor4f( 1, 1, 1, 1 );
-
-
 	*stride = width;
 	*bpp = 2;
 	*r = MASK( 5 ) << ( 6 + 5 );
@@ -410,8 +323,6 @@ static qboolean R_CreateBuffer_GLES3( int width, int height, uint *stride, uint 
 
 	return true;
 }
-
-
 
 static int FIRST_BIT( uint mask )
 {
@@ -502,14 +413,13 @@ static void R_BuildBlendMaps( void )
 {
 	unsigned int r1, g1, b1;
 	unsigned int r2, g2, b2;
-	unsigned int i, j;
+	unsigned int i;
 
 	FOR_EACH_COLOR( 1 ) FOR_EACH_COLOR( 2 )
 	{
 		unsigned int   r, g, b;
 		unsigned short index1 = r1 << ( 2 + 3 ) | g1 << 2 | b1;
 		unsigned short index2 = ( r2 << ( 2 + 3 ) | g2 << 2 | b2 ) << 8;
-		unsigned int   a;
 
 		r = r1 + r2;
 		g = g1 + g2;

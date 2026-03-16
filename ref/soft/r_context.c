@@ -62,7 +62,45 @@ static void GAME_EXPORT CL_FillRGBA( int rendermode, float _x, float _y, float _
 	Draw_Fill( _x, _y, _w, _h );
 }
 
-void Mod_UnloadTextures( model_t *mod );
+static void Mod_BrushUnloadTextures( model_t *mod )
+{
+	int i;
+
+	gEngfuncs.Con_Printf( "Unloading world\n" );
+	tr.map_unload = true;
+
+	for( i = 0; i < mod->numtextures; i++ )
+	{
+		texture_t *tx = mod->textures[i];
+		if( !tx || tx->gl_texturenum == tr.defaultTexture )
+			continue; // free slot
+
+		GL_FreeTexture( tx->gl_texturenum ); // main texture
+		GL_FreeTexture( tx->fb_texturenum ); // luma texture
+	}
+}
+
+static void Mod_UnloadTextures( model_t *mod )
+{
+	Assert( mod != NULL );
+
+	switch( mod->type )
+	{
+	case mod_studio:
+		// Mod_StudioUnloadTextures( mod->cache.data );
+		break;
+	case mod_alias:
+		// Mod_AliasUnloadTextures( mod->cache.data );
+		break;
+	case mod_brush:
+		Mod_BrushUnloadTextures( mod );
+		break;
+	case mod_sprite:
+		Mod_SpriteUnloadTextures( mod->cache.data );
+		break;
+	default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
+	}
+}
 
 static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buf, size_t buffersize )
 {
@@ -173,12 +211,10 @@ static int GL_RefGetParm( int parm, int arg )
 
 static void GAME_EXPORT R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
 {
-	image_t *glt = R_GetTexture( texture );
+	// details are not implemented in ref_soft
 
-	if( xScale )
-		*xScale = glt->xscale;
-	if( yScale )
-		*yScale = glt->yscale;
+	if( xScale ) *xScale = 0.0f;
+	if( yScale ) *yScale = 0.0f;
 }
 
 static void GAME_EXPORT R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
@@ -229,49 +265,6 @@ static const byte * GAME_EXPORT GL_TextureData( unsigned int texnum )
 	if( pic != NULL )
 		return pic->buffer;
 	return NULL;
-}
-
-static void Mod_BrushUnloadTextures( model_t *mod )
-{
-	int i;
-
-
-	gEngfuncs.Con_Printf( "Unloading world\n" );
-	tr.map_unload = true;
-
-	for( i = 0; i < mod->numtextures; i++ )
-	{
-		texture_t *tx = mod->textures[i];
-		if( !tx || tx->gl_texturenum == tr.defaultTexture )
-			continue; // free slot
-
-		GL_FreeTexture( tx->gl_texturenum ); // main texture
-		GL_FreeTexture( tx->fb_texturenum ); // luma texture
-	}
-}
-
-void Mod_UnloadTextures( model_t *mod )
-{
-	int i, j;
-
-	Assert( mod != NULL );
-
-	switch( mod->type )
-	{
-	case mod_studio:
-		// Mod_StudioUnloadTextures( mod->cache.data );
-		break;
-	case mod_alias:
-		// Mod_AliasUnloadTextures( mod->cache.data );
-		break;
-	case mod_brush:
-		Mod_BrushUnloadTextures( mod );
-		break;
-	case mod_sprite:
-		Mod_SpriteUnloadTextures( mod->cache.data );
-		break;
-	default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
-	}
 }
 
 static void GAME_EXPORT R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int max_entities )

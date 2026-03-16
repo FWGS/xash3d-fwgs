@@ -36,7 +36,7 @@ int        alpha;
 D_DrawTurbulent8Span
 =============
 */
-void D_DrawTurbulent8Span( void )
+static void D_DrawTurbulent8Span( void )
 {
 	int sturb, tturb;
 

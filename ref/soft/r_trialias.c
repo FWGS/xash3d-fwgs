@@ -9,9 +9,9 @@ affinetridesc_t r_affinetridesc;
 int           r_aliasblendcolor;
 
 
-float         aliastransform[3][4];
-float         aliasworldtransform[3][4];
-float         aliasoldworldtransform[3][4];
+static float aliastransform[3][4];
+static float aliasworldtransform[3][4];
+static float aliasoldworldtransform[3][4];
 
 float         s_ziscale;
 static vec3_t s_alias_forward, s_alias_right, s_alias_up;
@@ -26,9 +26,6 @@ float r_avertexnormals[NUMVERTEXNORMALS][3] = {
 
 void R_AliasSetUpTransform( void );
 void R_AliasProjectAndClipTestFinalVert( finalvert_t *fv );
-
-void R_AliasTransformFinalVerts( int numpoints, finalvert_t *fv, dtrivertx_t *oldv, dtrivertx_t *newv );
-
 
 /*
 ================

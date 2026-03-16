@@ -257,17 +257,6 @@ R_DrawStretchRaw
 */
 void GAME_EXPORT R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
 {
-	byte    *raw = NULL;
-	image_t *tex;
-
-	raw = (byte *)data;
-
-	// pglDisable( GL_BLEND );
-	// pglDisable( GL_ALPHA_TEST );
-	// pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-
-	tex = R_GetTexture( tr.cinTexture );
-	GL_Bind( XASH_TEXTURE0, tr.cinTexture );
 }
 
 /*
@@ -277,14 +266,6 @@ R_UploadStretchRaw
 */
 void GAME_EXPORT R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data )
 {
-	byte    *raw = NULL;
-	image_t *tex;
-	raw = (byte *)data;
-
-	tex = R_GetTexture( texture );
-	GL_Bind( GL_KEEP_UNIT, texture );
-	tex->width = cols;
-	tex->height = rows;
 }
 
 /*
