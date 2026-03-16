@@ -315,7 +315,6 @@ void GL_SetRenderMode( int mode );
 void GL_EnableTextureUnit( int tmu, qboolean enable );
 void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
-void R_ShowTextures( void );
 void SCR_TimeRefresh_f( void );
 
 //
@@ -352,7 +351,6 @@ void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height,
 //
 void R_SetTextureParameters( void );
 gl_texture_t *R_GetTexture( unsigned int texnum );
-const char *GL_TargetToString( GLenum target );
 #define GL_LoadTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, false )
 #define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
@@ -374,6 +372,7 @@ void R_ShutdownImages( void );
 int GL_TexMemory( void );
 qboolean R_SearchForTextureReplacement( char *out, size_t size, const char *modelname, const char *fmt, ... ) FORMAT_CHECK( 4 );
 void R_TextureReplacementReport( const char *modelname, int gl_texturenum, const char *foundpath );
+void R_ShowTextures( void );
 
 //
 // gl_rlight.c
@@ -544,7 +543,7 @@ void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
 //
 #define GL_CheckForErrors() GL_CheckForErrors_( __FILE__, __LINE__ )
 void GL_CheckForErrors_( const char *filename, const int fileline );
-const char *GL_ErrorString( int err );
+const char *GL_ErrorString( int err ) RETURNS_NONNULL;
 
 //
 // gl_triapi.c

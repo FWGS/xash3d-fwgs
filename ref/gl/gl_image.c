@@ -55,7 +55,7 @@ gl_texture_t *R_GetTexture( unsigned int texnum )
 GL_TargetToString
 =================
 */
-const char *GL_TargetToString( GLenum target )
+static const char *GL_TargetToString( GLenum target )
 {
 	switch( target )
 	{
@@ -2335,4 +2335,192 @@ qboolean R_SearchForTextureReplacement( char *out, size_t size, const char *mode
 
 	R_TextureReplacementReport( modelname, -1, out );
 	return false;
+}
+
+/*
+===============
+R_ShowTextures
+
+Draw all the images to the screen, on top of whatever
+was there.  This is used to test for texture thrashing.
+===============
+*/
+void R_ShowTextures( void )
+{
+	float		w, h;
+	int		start, k;
+	int base_w, base_h;
+	rgba_t		color = { 255, 255, 255, 255 };
+	int		charHeight;
+	static qboolean	showHelp = true;
+	float	time;	//nc add
+	float	time_cubemap;	//nc add
+	float	cbm_cos, cbm_sin;	//nc add
+	int		per_page; //nc add
+	qboolean empty_page;
+	int skipped_empty_pages;
+
+	if( !r_showtextures->value )
+		return;
+
+	if( showHelp )
+	{
+		gEngfuncs.CL_CenterPrint( "use '<-' and '->' keys to change atlas page, ESC to quit", 0.25f );
+		showHelp = false;
+	}
+
+	pglClear( GL_COLOR_BUFFER_BIT );
+
+	w = 200;
+	h = 200;
+
+	time = gp_cl->time * 0.5f;
+	time -= floor( time );
+	time_cubemap = gp_cl->time * 0.25f;
+	time_cubemap -= floor( time_cubemap );
+	time_cubemap *= M_PI2_F;
+	SinCos( time_cubemap, &cbm_sin, &cbm_cos );
+
+	gEngfuncs.Con_DrawStringLen( NULL, NULL, &charHeight );
+
+	base_w = gpGlobals->width / w;
+	base_h = gpGlobals->height / ( h + charHeight * 2 );
+	per_page = base_w * base_h;
+	start = per_page * ( r_showtextures->value - 1 ) + 1; // skip empty null texture
+
+	GL_SetRenderMode( kRenderTransTexture );	// nc changed from normal to trans, Con_DrawString does this anyway
+
+	empty_page = true;
+	skipped_empty_pages = 0;
+	while( empty_page )
+	{
+		for( k = 0; k < per_page; k++ )
+		{
+			const gl_texture_t *image;
+			int i;
+
+			i = k + start;
+			if( i >= MAX_TEXTURES )
+			{
+				empty_page = false;
+				break;
+			}
+
+			image = R_GetTexture( i );
+			if( pglIsTexture( image->texnum ))
+			{
+				empty_page = false;
+				break;
+			}
+		}
+
+		if( empty_page )
+		{
+			start += per_page;
+			skipped_empty_pages++;
+		}
+	}
+
+	if( skipped_empty_pages > 0 )
+	{
+		char text[MAX_VA_STRING];
+		Q_snprintf( text, sizeof( text ), "%s: skipped %d empty texture pages", __func__, skipped_empty_pages );
+		gEngfuncs.CL_CenterPrint( text, 0.25f );
+	}
+
+	for( k = 0; k < per_page; k++ )
+	{
+		const gl_texture_t *image;
+		int textlen, i;
+		char text[MAX_VA_STRING];
+		string shortname;
+		float x, y;
+
+		i = k + start;
+		if ( i >= MAX_TEXTURES )
+			break;
+
+		image = R_GetTexture( i );
+		if( !pglIsTexture( image->texnum ))
+			continue;
+
+		x = k % base_w * gpGlobals->width / base_w;
+		y = k / base_w * gpGlobals->height / base_h;
+
+		pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+		GL_Bind( XASH_TEXTURE0, i );
+
+		if( FBitSet( image->flags, TF_DEPTHMAP ) && !FBitSet( image->flags, TF_NOCOMPARE ))
+			pglTexParameteri( image->target, GL_TEXTURE_COMPARE_MODE_ARB, GL_NONE );
+
+		pglBegin( GL_QUADS );
+
+#if XASH_NANOGL
+#undef pglTexCoord3f
+#define pglTexCoord3f( s, t, u ) pglTexCoord2f( s, t ) // not really correct but it requires nanogl rework
+#endif // XASH_GLES
+
+		if( image->target == GL_TEXTURE_CUBE_MAP_ARB )
+		{
+			pglTexCoord3f( 0.75 * cbm_cos - cbm_sin, 0.75 * cbm_sin + cbm_cos, 1.0 );
+			pglVertex2f( x, y );
+			pglTexCoord3f( 0.75 * cbm_cos + cbm_sin, 0.75 * cbm_sin - cbm_cos, 1.0 );
+			pglVertex2f( x + w, y );
+			pglTexCoord3f( 0.75 * cbm_cos + cbm_sin, 0.75 * cbm_sin - cbm_cos, -1.0 );
+			pglVertex2f( x + w, y + h );
+			pglTexCoord3f( 0.75 * cbm_cos - cbm_sin, 0.75 * cbm_sin + cbm_cos, -1.0 );
+			pglVertex2f( x, y + h );
+		}
+		else if( image->target == GL_TEXTURE_RECTANGLE_EXT )
+		{
+			pglTexCoord2f( 0, 0 );
+			pglVertex2f( x, y );
+			pglTexCoord2f( image->width, 0 );
+			pglVertex2f( x + w, y );
+			pglTexCoord2f( image->width, image->height );
+			pglVertex2f( x + w, y + h );
+			pglTexCoord2f( 0, image->height );
+			pglVertex2f( x, y + h );
+		}
+		else
+		{
+			pglTexCoord3f( 0, 0, time );
+			pglVertex2f( x, y );
+			pglTexCoord3f( 1, 0, time );
+			pglVertex2f( x + w, y );
+			pglTexCoord3f( 1, 1, time );
+			pglVertex2f( x + w, y + h );
+			pglTexCoord3f( 0, 1, time);
+			pglVertex2f( x, y + h );
+		}
+		pglEnd();
+
+		if( FBitSet( image->flags, TF_DEPTHMAP ) && !FBitSet( image->flags, TF_NOCOMPARE ))
+			pglTexParameteri( image->target, GL_TEXTURE_COMPARE_MODE_ARB, GL_COMPARE_R_TO_TEXTURE_ARB );
+
+		COM_FileBase( image->name, shortname, sizeof( shortname ));
+		gEngfuncs.Con_DrawStringLen( shortname, &textlen, NULL );
+
+		if( textlen > w )
+		{
+			// cutoff too long names, it looks ugly
+			shortname[16] = '.';
+			shortname[17] = '.';
+			shortname[18] = '\0';
+		}
+
+		gEngfuncs.Con_DrawString( x + 1, y + h, shortname, color );
+		if( image->target == GL_TEXTURE_3D || image->target == GL_TEXTURE_2D_ARRAY_EXT )
+			Q_snprintf( text, sizeof( text ), "%ix%ix%i %s", image->width, image->height, image->depth, GL_TargetToString( image->target ));
+		else
+			Q_snprintf( text, sizeof( text ), "%ix%i %s", image->width, image->height, GL_TargetToString( image->target ));
+		gEngfuncs.Con_DrawString( x + 1, y + h + charHeight, text, color );
+
+		Q_strncpy( text, Q_memprint( image->size ), sizeof( text ));
+		gEngfuncs.Con_DrawStringLen( text, &textlen, NULL );
+		gEngfuncs.Con_DrawString(( x + w ) - textlen - 1, y + h + charHeight, text, color );
+	}
+
+	gEngfuncs.CL_DrawCenterPrint ();
+	pglFinish();
 }
