@@ -2834,7 +2834,7 @@ FS_Tell
 Give the current position in a file
 ====================
 */
-fs_offset_t FS_Tell( file_t *file )
+fs_offset_t FS_Tell( const file_t *file )
 {
 	if( !file ) return 0;
 	return file->position - file->buff_len + file->buff_ind;
@@ -2847,7 +2847,7 @@ FS_Eof
 indicates at reached end of file
 ====================
 */
-qboolean FS_Eof( file_t *file )
+qboolean FS_Eof( const file_t *file )
 {
 	if( !file ) return true;
 	return (( file->position - file->buff_len + file->buff_ind ) == file->real_length ) ? true : false;
@@ -3161,7 +3161,7 @@ FS_FileLength
 return size of file in bytes
 ==================
 */
-fs_offset_t FS_FileLength( file_t *f )
+fs_offset_t FS_FileLength( const file_t *f )
 {
 	if( !f ) return 0;
 	return f->real_length;
