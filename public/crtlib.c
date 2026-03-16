@@ -288,7 +288,7 @@ void Q_memor( byte *XASH_RESTRICT dst, const byte *XASH_RESTRICT src, size_t len
 		dst[i] |= src[i];
 }
 
-const char* Q_timestamp( int format )
+const char *Q_timestamp( int format )
 {
 	static string	timestamp;
 	time_t		crt_time;
