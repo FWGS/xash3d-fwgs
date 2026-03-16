@@ -127,33 +127,8 @@ check tracer bbox
 */
 static qboolean CL_CullTracer( particle_t *p, const vec3_t start, const vec3_t end )
 {
-	vec3_t mins, maxs;
-	int    i;
+	// culling is undone in ref_soft
 	return false;
-/*
-	// compute the bounding box
-	for( i = 0; i < 3; i++ )
-	{
-		if( start[i] < end[i] )
-		{
-			mins[i] = start[i];
-			maxs[i] = end[i];
-		}
-		else
-		{
-			mins[i] = end[i];
-			maxs[i] = start[i];
-		}
-
-		// don't let it be zero sized
-		if( mins[i] == maxs[i] )
-		{
-			maxs[i] += gTracerSize[p->type] * 2.0f;
-		}
-	}
-
-	// check bbox
-	return R_CullBox( mins, maxs );*/
 }
 
 /*
@@ -297,7 +272,6 @@ void GAME_EXPORT CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean t
 
 	R_SetupRefParams( rvp );
 	R_SetupFrustum();
-//	R_SetupGL( false );	// don't touch GL-states
 
 	// setup PVS for frame
 	memcpy( RI.visbytes, tr.visbytes, gpGlobals->visbytes );

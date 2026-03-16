@@ -24,18 +24,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 drawsurf_t r_drawsurf;
 
-uint       lightleft, sourcesstep, blocksize, sourcetstep;
-uint       lightdelta, lightdeltastep;
-uint       lightright, lightleftstep, lightrightstep, blockdivshift;
-unsigned   blockdivmask;
-void       *prowdestbase;
-pixel_t    *pbasesource;
-int        surfrowbytes;                        // used by ASM files
-unsigned   *r_lightptr;
-int        r_stepback;
-int        r_lightwidth;
-int        r_numhblocks, r_numvblocks;
-pixel_t    *r_source, *r_sourcemax;
+static uint       lightleft, blocksize, sourcetstep;
+static uint       lightright, lightleftstep, lightrightstep, blockdivshift;
+static unsigned   blockdivmask;
+static void       *prowdestbase;
+static pixel_t    *pbasesource;
+static int        surfrowbytes;                        // used by ASM files
+static unsigned   *r_lightptr;
+static int        r_stepback;
+static int        r_lightwidth;
+static int        r_numhblocks, r_numvblocks;
+static pixel_t    *r_source, *r_sourcemax;
 
 void R_DrawSurfaceBlock8_mip0( void );
 void R_DrawSurfaceBlock8_mip1( void );
@@ -56,11 +55,12 @@ static void     (*surfmiptable[4])( void ) = {
 // void R_BuildLightMap (void);
 extern unsigned blocklights[10240]; // allow some very large lightmaps
 
-float           surfscale;
-qboolean        r_cache_thrash;         // set if surface cache is thrashing
+static float           surfscale;
+static qboolean        r_cache_thrash;         // set if surface cache is thrashing
 
-int sc_size;
-surfcache_t     *sc_rover, *sc_base;
+static int sc_size;
+surfcache_t     *sc_rover;
+static surfcache_t *sc_base;
 
 static int      rtable[MOD_FRAMES][MOD_FRAMES];
 
@@ -251,57 +251,6 @@ void GL_InitRandomTable( void )
 	}
 
 	gEngfuncs.COM_SetRandomSeed( 0 );
-}
-
-/*
-===============
-R_TextureAnim
-
-Returns the proper texture for a given time and base texture, do not process random tiling
-===============
-*/
-static texture_t *R_TextureAnim( texture_t *b )
-{
-	texture_t *base = b;
-	int       count, reletive;
-
-	if( RI.currententity->curstate.frame )
-	{
-		if( base->alternate_anims )
-			base = base->alternate_anims;
-	}
-
-	if( !base->anim_total )
-		return base;
-	if( base->name[0] == '-' )
-	{
-		return b; // already tiled
-	}
-	else
-	{
-		int speed;
-
-		// Quake1 textures uses 10 frames per second
-		if( FBitSet( R_GetTexture( base->gl_texturenum )->flags, TF_QUAKEPAL ))
-			speed = 10;
-		else
-			speed = 20;
-
-		reletive = (int)( gp_cl->time * speed ) % base->anim_total;
-	}
-
-
-	count = 0;
-
-	while( base->anim_min > reletive || base->anim_max <= reletive )
-	{
-		base = base->anim_next;
-
-		if( !base || ++count > MOD_FRAMES )
-			return b;
-	}
-
-	return base;
 }
 
 /*

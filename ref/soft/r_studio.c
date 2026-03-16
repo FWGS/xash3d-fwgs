@@ -33,18 +33,6 @@ typedef struct
 
 CVAR_DEFINE_AUTO( r_shadows, "0", 0, "draw ugly shadows" );
 
-static const vec3_t hullcolor[8] =
-{
-	{ 1.0f, 1.0f, 1.0f },
-	{ 1.0f, 0.5f, 0.5f },
-	{ 0.5f, 1.0f, 0.5f },
-	{ 1.0f, 1.0f, 0.5f },
-	{ 0.5f, 0.5f, 1.0f },
-	{ 1.0f, 0.5f, 1.0f },
-	{ 0.5f, 1.0f, 1.0f },
-	{ 1.0f, 1.0f, 1.0f },
-};
-
 typedef struct sortedmesh_s
 {
 	mstudiomesh_t *mesh;
@@ -1548,7 +1536,7 @@ static void R_StudioEntityLight( alight_t *lightinfo )
 	float       minstrength, dist2, f, r2;
 	float       lstrength[MAX_LOCALLIGHTS];
 	cl_entity_t *ent = RI.currententity;
-	vec3_t      mid, origin, pos;
+	vec3_t      mid, origin;
 	dlight_t    *el;
 
 	g_studio.numlocallights = 0;
@@ -1580,7 +1568,6 @@ static void R_StudioEntityLight( alight_t *lightinfo )
 				VectorCopy( ent->origin, el->origin );
 		}
 
-		VectorCopy( el->origin, pos );
 		VectorSubtract( origin, el->origin, mid );
 
 		f = DotProduct( mid, mid );
@@ -1959,7 +1946,6 @@ generic path
 */
 static void R_StudioDrawNormalMesh( short *ptricmds, vec3_t *pstudionorms, float s, float t )
 {
-	float *lv;
 	int   i;
 
 	while(( i = *( ptricmds++ )))
@@ -1993,7 +1979,6 @@ generic path
 */
 static void R_StudioDrawFloatMesh( short *ptricmds, vec3_t *pstudionorms )
 {
-	float *lv;
 	int   i;
 
 	while(( i = *( ptricmds++ )))
@@ -2600,70 +2585,6 @@ Xash3D is always works in hardware mode
 static int pfnIsHardware( void )
 {
 	return 1; // 0 is Software, 1 is OpenGL, 2 is Direct3D
-}
-
-/*
-===============
-R_StudioDrawPointsShadow
-
-===============
-*/
-static void R_StudioDrawPointsShadow( void )
-{
-	float         *av, height;
-	float         vec_x, vec_y;
-	mstudiomesh_t *pmesh;
-	vec3_t        point;
-	int           i, k;
-
-	if( FBitSet( RI.currententity->curstate.effects, EF_NOSHADOW ))
-		return;
-
-	// if( glState.stencilEnabled )
-	// pglEnable( GL_STENCIL_TEST );
-
-	height = g_studio.lightspot[2] + 1.0f;
-	vec_x = -g_studio.lightvec[0] * 8.0f;
-	vec_y = -g_studio.lightvec[1] * 8.0f;
-
-	for( k = 0; k < m_pSubModel->nummesh; k++ )
-	{
-		short *ptricmds;
-
-		pmesh = (mstudiomesh_t *)((byte *)m_pStudioHeader + m_pSubModel->meshindex ) + k;
-		ptricmds = (short *)((byte *)m_pStudioHeader + pmesh->triindex );
-
-		r_stats.c_studio_polys += pmesh->numtris;
-
-		while(( i = *( ptricmds++ )))
-		{
-			if( i < 0 )
-			{
-				TriBegin( TRI_TRIANGLE_FAN );
-				i = -i;
-			}
-			else
-			{
-				TriBegin( TRI_TRIANGLE_STRIP );
-			}
-
-
-			for( ; i > 0; i--, ptricmds += 4 )
-			{
-				av = g_studio.verts[ptricmds[0]];
-				point[0] = av[0] - ( vec_x * ( av[2] - g_studio.lightspot[2] ));
-				point[1] = av[1] - ( vec_y * ( av[2] - g_studio.lightspot[2] ));
-				point[2] = g_studio.lightspot[2] + 1.0f;
-
-				TriVertex3fv( point );
-			}
-
-			TriEnd();
-		}
-	}
-
-	// if( glState.stencilEnabled )
-	// pglDisable( GL_STENCIL_TEST );
 }
 
 /*

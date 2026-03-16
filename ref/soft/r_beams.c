@@ -118,41 +118,8 @@ Cull the beam by bbox
 */
 qboolean GAME_EXPORT R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 {
-	vec3_t mins, maxs;
-	int    i;
+	// culling is undone in ref_soft
 	return false;
-/*
-	for( i = 0; i < 3; i++ )
-	{
-		if( start[i] < end[i] )
-		{
-			mins[i] = start[i];
-			maxs[i] = end[i];
-		}
-		else
-		{
-			mins[i] = end[i];
-			maxs[i] = start[i];
-		}
-
-		// don't let it be zero sized
-		if( mins[i] == maxs[i] )
-			maxs[i] += 1.0f;
-	}
-
-	// check bbox
-	if( gEngfuncs.Mod_BoxVisible( mins, maxs, Mod_GetCurrentVis( )))
-	{
-		if( pvsOnly || !R_CullBox( mins, maxs ))
-		{
-			// beam is visible
-			return false;
-		}
-	}
-
-	// beam is culled
-	return true;
-	*/
 }
 
 /*

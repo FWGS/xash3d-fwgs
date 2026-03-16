@@ -362,16 +362,6 @@ qboolean GAME_EXPORT R_AddEntity( struct cl_entity_s *clent, int type )
 	return true;
 }
 
-/*
-=============
-R_Clear
-=============
-*/
-static void R_Clear( int bitMask )
-{
-	memset( vid.buffer, 0, vid.width * vid.height * 2 );
-}
-
 // =============================================================================
 /*
 ===============
@@ -510,81 +500,6 @@ static void R_SetupFrame( void )
 
 	// setup twice until globals fully refactored
 	R_SetupFrameQ();
-}
-
-/*
-=============
-R_RecursiveFindWaterTexture
-
-using to find source waterleaf with
-watertexture to grab fog values from it
-=============
-*/
-static image_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t *ignore, qboolean down )
-{
-	image_t *tex = NULL;
-	mnode_t *children[2];
-
-	// assure the initial node is not null
-	// we could check it here, but we would rather check it
-	// outside the call to get rid of one additional recursion level
-	Assert( node != NULL );
-
-	// ignore solid nodes
-	if( node->contents == CONTENTS_SOLID )
-		return NULL;
-
-	if( node->contents < 0 )
-	{
-		mleaf_t    *pleaf;
-		msurface_t **mark;
-		int        i, c;
-
-		// ignore non-liquid leaves
-		if( node->contents != CONTENTS_WATER && node->contents != CONTENTS_LAVA && node->contents != CONTENTS_SLIME )
-			return NULL;
-
-		// find texture
-		pleaf = (mleaf_t *)node;
-		mark = pleaf->firstmarksurface;
-		c = pleaf->nummarksurfaces;
-
-		for( i = 0; i < c; i++, mark++ )
-		{
-			if(( *mark )->flags & SURF_DRAWTURB && ( *mark )->texinfo && ( *mark )->texinfo->texture )
-				return R_GetTexture(( *mark )->texinfo->texture->gl_texturenum );
-		}
-
-		// texture not found
-		return NULL;
-	}
-
-	// this is a regular node
-	// traverse children
-	node_children( children, node, WORLDMODEL );
-
-	if( children[0] && ( children[0] != ignore ))
-	{
-		tex = R_RecursiveFindWaterTexture( children[0], node, true );
-		if( tex ) return tex;
-	}
-
-	if( children[1] && ( children[1] != ignore ))
-	{
-		tex = R_RecursiveFindWaterTexture( children[1], node, true );
-		if( tex )	return tex;
-	}
-
-	// for down recursion, return immediately
-	if( down )
-		return NULL;
-
-	// texture not found, step up if any
-	if( node->parent )
-		return R_RecursiveFindWaterTexture( node->parent, node, false );
-
-	// top-level node, bail out
-	return NULL;
 }
 
 /*
@@ -968,7 +883,7 @@ R_DrawBEntitiesOnList
 */
 void R_DrawBrushModel( cl_entity_t *pent )
 {
-	int     i, clipflags;
+	int     clipflags;
 	vec3_t  oldorigin;
 	vec3_t  mins, maxs;
 	float   minmaxs[6];
@@ -1250,10 +1165,6 @@ void GAME_EXPORT R_BeginFrame( qboolean clearScene )
 	// draw buffer stuff
 	// pglDrawBuffer( GL_BACK );
 
-	// update texture parameters
-	// if( FBitSet( gl_texture_nearest->flags|gl_lightmap_nearest->flags|gl_texture_anisotropy->flags|gl_texture_lodbias->flags, FCVAR_CHANGED ))
-	// R_SetTextureParameters();
-
 	gEngfuncs.CL_ExtraUpdate();
 }
 
@@ -1476,7 +1387,6 @@ static void R_InitTurb( void )
 	for( i = 0; i < 1280; i++ )
 	{
 		sintable[i] = AMP + sin( i * 3.14159 * 2 / CYCLE ) * AMP;
-		intsintable[i] = AMP2 + sin( i * 3.14159 * 2 / CYCLE ) * AMP2; // AMP2, not 20
 		blanktable[i] = 0;                                             // PGM
 	}
 }

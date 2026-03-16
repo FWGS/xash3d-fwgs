@@ -334,182 +334,6 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 
 /*
 ================
-R_GetSpriteFrameInterpolant
-
-NOTE: we using prevblending[0] and [1] for holds interval
-between frames where are we lerping
-================
-*/
-static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, mspriteframe_t **curframe )
-{
-	msprite_t      *psprite;
-	mspritegroup_t *pspritegroup;
-	int i, j, numframes, frame;
-	float          lerpFrac, time, jtime, jinterval;
-	float          *pintervals, fullinterval, targettime;
-	int m_fDoInterp;
-
-	psprite = ent->model->cache.data;
-	frame = (int)ent->curstate.frame;
-	lerpFrac = 1.0f;
-
-	// misc info
-	m_fDoInterp = ( ent->curstate.effects & EF_NOINTERP ) ? false : true;
-
-	if( frame < 0 )
-	{
-		frame = 0;
-	}
-	else if( frame >= psprite->numframes )
-	{
-		gEngfuncs.Con_Reportf( S_WARN "%s: no such frame %d (%s)\n", __func__, frame, ent->model->name );
-		frame = psprite->numframes - 1;
-	}
-
-	if( psprite->frames[frame].type == FRAME_SINGLE )
-	{
-		if( m_fDoInterp )
-		{
-			if( ent->latched.prevblending[0] >= psprite->numframes || psprite->frames[ent->latched.prevblending[0]].type != FRAME_SINGLE )
-			{
-				// this can be happens when rendering switched between single and angled frames
-				// or change model on replace delta-entity
-				ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-				ent->latched.sequencetime = gp_cl->time;
-				lerpFrac = 1.0f;
-			}
-
-			if( ent->latched.sequencetime < gp_cl->time )
-			{
-				if( frame != ent->latched.prevblending[1] )
-				{
-					ent->latched.prevblending[0] = ent->latched.prevblending[1];
-					ent->latched.prevblending[1] = frame;
-					ent->latched.sequencetime = gp_cl->time;
-					lerpFrac = 0.0f;
-				}
-				else
-					lerpFrac = ( gp_cl->time - ent->latched.sequencetime ) * 11.0f;
-			}
-			else
-			{
-				ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-				ent->latched.sequencetime = gp_cl->time;
-				lerpFrac = 0.0f;
-			}
-		}
-		else
-		{
-			ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-			lerpFrac = 1.0f;
-		}
-
-		if( ent->latched.prevblending[0] >= psprite->numframes )
-		{
-			// reset interpolation on change model
-			ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-			ent->latched.sequencetime = gp_cl->time;
-			lerpFrac = 0.0f;
-		}
-
-		// get the interpolated frames
-		if( oldframe )
-			*oldframe = psprite->frames[ent->latched.prevblending[0]].frameptr;
-		if( curframe )
-			*curframe = psprite->frames[frame].frameptr;
-	}
-	else if( psprite->frames[frame].type == FRAME_GROUP )
-	{
-		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
-		pintervals = pspritegroup->intervals;
-		numframes = pspritegroup->numframes;
-		fullinterval = pintervals[numframes - 1];
-		jinterval = pintervals[1] - pintervals[0];
-		time = gp_cl->time;
-		jtime = 0.0f;
-
-		// when loading in Mod_LoadSpriteGroup, we guaranteed all interval values
-		// are positive, so we don't have to worry about division by zero
-		targettime = time - ((int)( time / fullinterval )) * fullinterval;
-
-		// LordHavoc: since I can't measure the time properly when it loops from numframes - 1 to 0,
-		// i instead measure the time of the first frame, hoping it is consistent
-		for( i = 0, j = numframes - 1; i < ( numframes - 1 ); i++ )
-		{
-			if( pintervals[i] > targettime )
-				break;
-			j = i;
-			jinterval = pintervals[i] - jtime;
-			jtime = pintervals[i];
-		}
-
-		if( m_fDoInterp )
-			lerpFrac = ( targettime - jtime ) / jinterval;
-		else
-			j = i; // no lerping
-
-		// get the interpolated frames
-		if( oldframe )
-			*oldframe = pspritegroup->frames[j];
-		if( curframe )
-			*curframe = pspritegroup->frames[i];
-	}
-	else if( psprite->frames[frame].type == FRAME_ANGLED )
-	{
-		// e.g. doom-style sprite monsters
-		float yaw = ent->angles[YAW];
-		int   angleframe = (int)( Q_rint(( RI.viewangles[1] - yaw + 45.0f ) / 360 * 8 ) - 4 ) & 7;
-
-		if( m_fDoInterp )
-		{
-			if( ent->latched.prevblending[0] >= psprite->numframes || psprite->frames[ent->latched.prevblending[0]].type != FRAME_ANGLED )
-			{
-				// this can be happens when rendering switched between single and angled frames
-				// or change model on replace delta-entity
-				ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-				ent->latched.sequencetime = gp_cl->time;
-				lerpFrac = 1.0f;
-			}
-
-			if( ent->latched.sequencetime < gp_cl->time )
-			{
-				if( frame != ent->latched.prevblending[1] )
-				{
-					ent->latched.prevblending[0] = ent->latched.prevblending[1];
-					ent->latched.prevblending[1] = frame;
-					ent->latched.sequencetime = gp_cl->time;
-					lerpFrac = 0.0f;
-				}
-				else
-					lerpFrac = ( gp_cl->time - ent->latched.sequencetime ) * ent->curstate.framerate;
-			}
-			else
-			{
-				ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-				ent->latched.sequencetime = gp_cl->time;
-				lerpFrac = 0.0f;
-			}
-		}
-		else
-		{
-			ent->latched.prevblending[0] = ent->latched.prevblending[1] = frame;
-			lerpFrac = 1.0f;
-		}
-
-		pspritegroup = (mspritegroup_t *)psprite->frames[ent->latched.prevblending[0]].frameptr;
-		if( oldframe )
-			*oldframe = pspritegroup->frames[angleframe];
-
-		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
-		if( curframe )
-			*curframe = pspritegroup->frames[angleframe];
-	}
-
-	return lerpFrac;
-}
-
-/*
-================
 R_CullSpriteModel
 
 Cull sprite model by bbox
@@ -616,7 +440,6 @@ R_DrawSpriteQuad
 static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right, vec3_t v_up, float scale )
 {
 	vec3_t  point;
-	image_t *image;
 
 	r_stats.c_sprite_polys++;
 	/*image = R_GetTexture(frame->gl_texturenum);
@@ -644,55 +467,6 @@ static void R_DrawSpriteQuad( mspriteframe_t *frame, vec3_t org, vec3_t v_right,
 	TriEnd();
 }
 
-static qboolean R_SpriteHasLightmap( cl_entity_t *e, int texFormat )
-{
-	if( !r_sprite_lighting->value )
-		return false;
-
-	if( texFormat != SPR_ALPHTEST )
-		return false;
-
-	if( e->curstate.effects & EF_FULLBRIGHT )
-		return false;
-
-	if( e->curstate.renderamt <= 127 )
-		return false;
-
-	switch( e->curstate.rendermode )
-	{
-	case kRenderNormal:
-	case kRenderTransAlpha:
-	case kRenderTransTexture:
-		break;
-	default:
-		return false;
-	}
-
-	return true;
-}
-
-/*
-=================
-R_SpriteAllowLerping
-=================
-*/
-static qboolean R_SpriteAllowLerping( cl_entity_t *e, msprite_t *psprite )
-{
-	if( !r_sprite_lerping->value )
-		return false;
-
-	if( psprite->numframes <= 1 )
-		return false;
-
-	if( psprite->texFormat != SPR_ADDITIVE )
-		return false;
-
-	if( e->curstate.rendermode == kRenderNormal || e->curstate.rendermode == kRenderTransAlpha )
-		return false;
-
-	return true;
-}
-
 /*
 =================
 R_DrawSpriteModel
@@ -700,14 +474,13 @@ R_DrawSpriteModel
 */
 void R_DrawSpriteModel( cl_entity_t *e )
 {
-	mspriteframe_t *frame = NULL, *oldframe = NULL;
+	mspriteframe_t *frame = NULL;
 	msprite_t      *psprite;
 	model_t        *model;
 	int i, type;
-	float          angle, dot, sr, cr;
-	float          lerp = 1.0f, ilerp, scale;
+	float          angle, dot, sr, cr, scale;
 	vec3_t         v_forward, v_right, v_up;
-	vec3_t         origin, color, color2;
+	vec3_t         origin, color;
 
 	if( RI.params & RP_ENVVIEW )
 		return;
@@ -763,21 +536,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		color[2] = 1.0f;
 	}
 
-	if( R_SpriteHasLightmap( e, psprite->texFormat ))
-	{
-		colorVec lightColor = R_LightPoint( origin );
-		// FIXME: collect light from dlights?
-		color2[0] = (float)lightColor.r * ( 1.0f / 255.0f );
-		color2[1] = (float)lightColor.g * ( 1.0f / 255.0f );
-		color2[2] = (float)lightColor.b * ( 1.0f / 255.0f );
-		// NOTE: sprites with 'lightmap' looks ugly when alpha func is GL_GREATER 0.0
-		//	pglAlphaFunc( GL_GREATER, 0.5f );
-	}
-
-	if( R_SpriteAllowLerping( e, psprite ))
-		lerp = R_GetSpriteFrameInterpolant( e, &oldframe, &frame );
-	else
-		frame = oldframe = R_GetSpriteFrame( model, e->curstate.frame, e->angles[YAW] );
+	frame = R_GetSpriteFrame( model, e->curstate.frame, e->angles[YAW] );
 
 	type = psprite->type;
 
@@ -824,31 +583,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	// if( psprite->facecull == SPR_CULL_NONE )
 	// GL_Cull( GL_NONE );
 
-	if( oldframe == frame )
-	{
-		// draw the single non-lerped frame
-		_TriColor4f( color[0], color[1], color[2], tr.blend );
-		GL_Bind( XASH_TEXTURE0, frame->gl_texturenum );
-		R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
-	}
-	else
-	{
-		// draw two combined lerped frames
-		lerp = bound( 0.0f, lerp, 1.0f );
-		ilerp = 1.0f - lerp;
-
-		if( ilerp != 0.0f )
-		{
-			_TriColor4f( color[0], color[1], color[2], tr.blend * ilerp );
-			GL_Bind( XASH_TEXTURE0, oldframe->gl_texturenum );
-			R_DrawSpriteQuad( oldframe, origin, v_right, v_up, scale );
-		}
-
-		if( lerp != 0.0f )
-		{
-			_TriColor4f( color[0], color[1], color[2], tr.blend * lerp );
-			GL_Bind( XASH_TEXTURE0, frame->gl_texturenum );
-			R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
-		}
-	}
+	// draw the single non-lerped frame
+	_TriColor4f( color[0], color[1], color[2], tr.blend );
+	GL_Bind( XASH_TEXTURE0, frame->gl_texturenum );
+	R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 }

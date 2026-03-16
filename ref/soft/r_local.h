@@ -95,26 +95,6 @@ extern poolhandle_t r_temppool;
 #define MOVE_BIT( s, f, t ) ( GET_BIT( s, f ) << t )
 
 
-/*
-  skins will be outline flood filled and mip mapped
-  pics and sprites with alpha will be outline flood filled
-  pic won't be mip mapped
-  model skin
-  sprite frame
-  wall texture
-  pic
-*/
-
-typedef enum
-{
-	it_skin,
-	it_sprite,
-	it_wall,
-	it_pic,
-	it_sky
-} imagetype_t;
-
-
 // ===================================================================
 
 typedef unsigned short pixel_t;
@@ -355,11 +335,6 @@ typedef struct image_s
 	// debug info
 	size_t         size;            // upload size for debug targets
 
-	// detail textures stuff
-	float          xscale;
-	float          yscale;
-
-	imagetype_t    type;
 	pixel_t        *pixels[4];                              // mip levels
 	pixel_t        *alpha_pixels;                           // mip levels
 
@@ -394,7 +369,6 @@ void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height,
 
 // gl_image.c
 //
-void R_SetTextureParameters( void );
 image_t *R_GetTexture( unsigned int texnum );
 #define GL_LoadTextureInternal( name, pic, flags )   GL_LoadTextureFromBuffer( name, pic, flags, false )
 #define GL_UpdateTextureInternal( name, pic, flags ) GL_LoadTextureFromBuffer( name, pic, flags, true )
@@ -406,7 +380,6 @@ int GL_CreateTexture( const char *name, int width, int height, const void *buffe
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );
 void GL_UpdateTexSize( int texnum, int width, int height, int depth );
-void GL_ApplyTextureParams( image_t *tex );
 int GL_FindTexture( const char *name );
 void GL_FreeTexture( unsigned int texnum );
 const char *GL_Target( unsigned int target );
@@ -1008,7 +981,6 @@ extern int     r_screenwidth;
 
 
 extern int     sintable[1280];
-extern int     intsintable[1280];
 extern int     blanktable[1280];                        // PGM
 
 extern surf_t  *surfaces, *surface_p, *surf_max;

@@ -27,11 +27,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 vec3_t r_entorigin; // the currently rendering entity in world
 // coordinates
 
-float  entity_rotation[3][3];
+static float  entity_rotation[3][3];
 
 int    r_currentbkey;
-
-typedef enum {touchessolid, drawnode, nodrawnode} solidstate_t;
 
 #define MAX_BMODEL_VERTS 1000                   // 12K
 #define MAX_BMODEL_EDGES 2000                   // 24K
@@ -39,12 +37,8 @@ typedef enum {touchessolid, drawnode, nodrawnode} solidstate_t;
 static mvertex_t *pbverts;
 static bedge_t   *pbedges;
 static int       numbverts, numbedges;
-
 static mvertex_t *pfrontenter, *pfrontexit;
-
 static qboolean  makeclippededge;
-
-
 
 /*
 ================

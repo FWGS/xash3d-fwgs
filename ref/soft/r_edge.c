@@ -39,15 +39,11 @@ int          r_currentkey;
 
 int          current_iv;
 
-int          edge_head_u_shift20, edge_tail_u_shift20;
+static int edge_head_u_shift20, edge_tail_u_shift20;
 
-static void  (*pdrawfunc)( void );
+static void (*pdrawfunc)( void );
 
-edge_t       edge_head;
-edge_t       edge_tail;
-
-edge_t       edge_aftertail;
-edge_t       edge_sentinel;
+static edge_t edge_head, edge_tail, edge_aftertail, edge_sentinel;
 
 static float fv;
 
@@ -766,16 +762,12 @@ D_CalcGradients
 */
 static void D_CalcGradients( msurface_t *pface )
 {
-	mplane_t *pplane;
 	float    mipscale;
 	vec3_t   p_temp1;
 	vec3_t   p_saxis, p_taxis;
 	float    t;
 
-	pplane = pface->plane;
-
 	mipscale = 1.0f / (float)( 1 << miplevel );
-
 
 	if( pface->texinfo->flags & TEX_WORLD_LUXELS )
 	{

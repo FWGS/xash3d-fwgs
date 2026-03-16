@@ -42,10 +42,7 @@ GL_Bind
 */
 void GAME_EXPORT GL_Bind( int tmu, unsigned int texnum )
 {
-	image_t *image;
-
-	image = &r_images[texnum];
-	// vid.rendermode = kRenderNormal;
+	image_t *image = &r_images[texnum];
 
 	if( vid.rendermode == kRenderNormal )
 	{
@@ -78,48 +75,6 @@ void GAME_EXPORT GL_Bind( int tmu, unsigned int texnum )
 }
 
 /*
-=================
-GL_ApplyTextureParams
-=================
-*/
-void GL_ApplyTextureParams( image_t *tex )
-{
-
-	Assert( tex != NULL );
-}
-
-/*
-=================
-GL_UpdateTextureParams
-=================
-*/
-static void GL_UpdateTextureParams( int iTexture )
-{
-	image_t *tex = &r_images[iTexture];
-
-	Assert( tex != NULL );
-
-	if( !tex->pixels )
-		return;           // free slot
-
-	GL_Bind( XASH_TEXTURE0, iTexture );
-}
-
-/*
-=================
-R_SetTextureParameters
-=================
-*/
-void R_SetTextureParameters( void )
-{
-	int i;
-
-	// change all the existing mipmapped texture objects
-	for( i = 0; i < r_numImages; i++ )
-		GL_UpdateTextureParams( i );
-}
-
-/*
 ==================
 GL_CalcTextureSize
 ==================
@@ -127,32 +82,6 @@ GL_CalcTextureSize
 static size_t GL_CalcTextureSize( int width, int height, int depth )
 {
 	return width * height * 2;
-}
-
-static int GL_CalcMipmapCount( image_t *tex, qboolean haveBuffer )
-{
-	int width, height;
-	int mipcount;
-
-	Assert( tex != NULL );
-
-	if( !haveBuffer )
-		return 1;
-
-	// generate mip-levels by user request
-	if( FBitSet( tex->flags, TF_NOMIPMAP ))
-		return 1;
-
-	// mip-maps can't exceeds 4
-	for( mipcount = 0; mipcount < 4; mipcount++ )
-	{
-		width = Q_max( 1, ( tex->width >> mipcount ));
-		height = Q_max( 1, ( tex->height >> mipcount ));
-		if( width == 1 && height == 1 )
-			break;
-	}
-
-	return mipcount + 1;
 }
 
 /*
@@ -184,38 +113,6 @@ static void GL_SetTextureDimensions( image_t *tex, int width, int height, int de
 	tex->width = Q_max( 1, width );
 	tex->height = Q_max( 1, height );
 	tex->depth = Q_max( 1, depth );
-}
-
-/*
-===============
-GL_SetTextureTarget
-===============
-*/
-static void GL_SetTextureTarget( image_t *tex, rgbdata_t *pic )
-{
-	Assert( pic != NULL );
-	Assert( tex != NULL );
-
-	// correct depth size
-	pic->depth = Q_max( 1, pic->depth );
-	tex->numMips = 0; // begin counting
-
-	// correct mip count
-	pic->numMips = Q_max( 1, pic->numMips );
-}
-
-/*
-===============
-GL_SetTextureFormat
-===============
-*/
-static void GL_SetTextureFormat( image_t *tex, pixformat_t format, int channelMask )
-{
-	qboolean haveColor = ( channelMask & IMAGE_HAS_COLOR );
-	qboolean haveAlpha = ( channelMask & IMAGE_HAS_ALPHA );
-
-	Assert( tex != NULL );
-	// tex->transparent = !!( channelMask & IMAGE_HAS_ALPHA );
 }
 
 /*
@@ -308,78 +205,6 @@ byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int out
 	}
 
 	return scaledImage;
-}
-
-/*
-=================
-GL_BoxFilter3x3
-
-box filter 3x3
-=================
-*/
-static void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
-{
-	int        r = 0, g = 0, b = 0, a = 0;
-	int        count = 0, acount = 0;
-	int        i, j, u, v;
-	const byte *pixel;
-
-	for( i = 0; i < 3; i++ )
-	{
-		u = ( i - 1 ) + x;
-
-		for( j = 0; j < 3; j++ )
-		{
-			v = ( j - 1 ) + y;
-
-			if( u >= 0 && u < w && v >= 0 && v < h )
-			{
-				pixel = &in[( u + v * w ) * 4];
-
-				if( pixel[3] != 0 )
-				{
-					r += pixel[0];
-					g += pixel[1];
-					b += pixel[2];
-					a += pixel[3];
-					acount++;
-				}
-			}
-		}
-	}
-
-	if( acount == 0 )
-		acount = 1;
-
-	out[0] = r / acount;
-	out[1] = g / acount;
-	out[2] = b / acount;
-//	out[3] = (int)( SimpleSpline( ( a / 12.0f ) / 255.0f ) * 255 );
-}
-
-/*
-=================
-GL_ApplyFilter
-
-Apply box-filter to 1-bit alpha
-=================
-*/
-static byte *GL_ApplyFilter( const byte *source, int width, int height )
-{
-	byte *in = (byte *)source;
-	byte *out = (byte *)source;
-	int  i;
-
-	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
-		return in;
-
-	for( i = 0; source && i < width * height; i++, in += 4 )
-	{
-		if( in[0] == 0 && in[1] == 0 && in[2] == 0 && in[3] == 0 )
-			GL_BoxFilter3x3( in, source, width, height, i % width, i / width );
-	}
-
-	return out;
 }
 
 /*
@@ -484,12 +309,10 @@ upload texture into video memory
 static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 {
 	byte       *buf, *data;
-	size_t     texsize, size;
+	size_t     texsize;
 	uint       width, height;
-	uint       i, j, numSides;
-	uint       offset = 0;
+	uint       i, j;
 	qboolean   normalMap = false;
-	const byte *bufend;
 	int        mipCount;
 
 	tex->fogParams[0] = pic->fogParams[0];
@@ -497,7 +320,6 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	tex->fogParams[2] = pic->fogParams[2];
 	tex->fogParams[3] = pic->fogParams[3];
 	GL_SetTextureDimensions( tex, pic->width, pic->height, pic->depth );
-	GL_SetTextureFormat( tex, pic->type, pic->flags );
 
 	// gEngfuncs.Con_Printf("%s %d %d\n", tex->name, tex->width, tex->height );
 
@@ -509,7 +331,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 	buf = pic->buffer;
 
-	mipCount = 4; // GL_CalcMipmapCount( tex, ( buf != NULL ));
+	mipCount = 4;
 
 	// NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
 	if((( pic->width != tex->width ) || ( pic->height != tex->height )))
@@ -517,26 +339,16 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	else
 		data = buf;
 
-	// if( !ImageCompressed( pic->type ) && !FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
-	//	data = GL_ApplyFilter( data, tex->width, tex->height );
-
 	// mips will be auto-generated if desired
 	for( j = 0; j < mipCount; j++ )
 	{
-		int x, y;
 		width = Q_max( 1, ( tex->width >> j ));
 		height = Q_max( 1, ( tex->height >> j ));
 		texsize = GL_CalcTextureSize( width, height, tex->depth );
-		size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, tex->depth );
-		// GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
+
 		// increase size to workaround triangle renderer bugs
 		// it seems to assume memory readable. maybe it was pointed to WAD?
-		// tex->pixels[j] = (byte*)Mem_Calloc( r_temppool, width * height * sizeof(pixel_t) + 1024 ) + 512;
 		tex->pixels[j] = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
-
-
-		// memset( (byte*)tex->pixels[j] - 512, 0xFF, 512 );
-		// memset( (byte*)tex->pixels[j] + width * height * sizeof(pixel_t), 0xFF, 512 );
 
 		if( j == 0 && tex->flags & TF_HAS_ALPHA )
 			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
@@ -571,8 +383,6 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 		tex->size += texsize;
 		tex->numMips++;
-
-		// GL_CheckTexImageError( tex );
 	}
 
 	return true;
@@ -844,7 +654,6 @@ int GAME_EXPORT GL_LoadTexture( const char *name, const byte *buf, size_t size, 
 		return 0;
 	}
 
-	GL_ApplyTextureParams( tex );  // update texture filter, wrap etc
 	gEngfuncs.FS_FreeImage( pic ); // release source texture
 
 	// NOTE: always return texnum as index in array or engine will stop work !!!
@@ -900,7 +709,6 @@ int GAME_EXPORT GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texF
 		return 0;
 	}
 
-	GL_ApplyTextureParams( tex ); // update texture filter, wrap etc
 	return( tex - r_images );
 }
 
@@ -1043,7 +851,6 @@ void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int b
 	gEngfuncs.Image_Process( &pic, topColor, bottomColor, flags, 0.0f );
 
 	GL_UploadTexture( image, pic );
-	GL_ApplyTextureParams( image ); // update texture filter, wrap etc
 
 	gEngfuncs.FS_FreeImage( pic );
 }
@@ -1256,7 +1063,6 @@ void R_InitImages( void )
 	r_numImages = 1;
 
 	// validate cvars
-	R_SetTextureParameters();
 	GL_CreateInternalTextures();
 
 	gEngfuncs.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
