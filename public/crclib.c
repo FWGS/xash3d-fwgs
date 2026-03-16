@@ -13,10 +13,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "crclib.h"
-#include "crtlib.h"
 #include <string.h>
 #include <stdlib.h>
+#include "crclib.h"
+#include "crtlib.h"
 
 #define NUM_BYTES		256
 

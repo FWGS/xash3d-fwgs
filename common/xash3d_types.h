@@ -175,27 +175,27 @@ typedef int qboolean;
 #endif // !defined( PFN_RETURNS_NONNULL )
 
 #if !defined( NORETURN )
-        #define NORETURN
+	#define NORETURN
 #endif // !defined( NORETURN )
 
 #if !defined( NONNULL )
-        #define NONNULL
+	#define NONNULL
 #endif // !defined( NONNULL )
 
 #if !defined( FORMAT_CHECK )
-        #define FORMAT_CHECK( x )
+	#define FORMAT_CHECK( x )
 #endif // !defined( FORMAT_CHECK )
 
 #if !defined( ALLOC_CHECK )
-        #define ALLOC_CHECK( x )
+	#define ALLOC_CHECK( x )
 #endif // !defined( ALLOC_CHECK )
 
 #if !defined( WARN_UNUSED_RESULT )
-        #define WARN_UNUSED_RESULT
+	#define WARN_UNUSED_RESULT
 #endif // !defined( WARN_UNUSED_RESULT )
 
 #if !defined( RENAME_SYMBOL )
-        #define RENAME_SYMBOL( x )
+	#define RENAME_SYMBOL( x )
 #endif // !defined( RENAME_SYMBOL )
 
 #if !defined( unlikely ) || !defined( likely )
