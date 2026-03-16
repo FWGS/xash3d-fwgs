@@ -173,8 +173,8 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize );
 fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize );
 int FS_Seek( file_t *file, fs_offset_t offset, int whence );
-fs_offset_t FS_Tell( file_t *file );
-qboolean FS_Eof( file_t *file );
+fs_offset_t FS_Tell( const file_t *file );
+qboolean FS_Eof( const file_t *file );
 int FS_Flush( file_t *file );
 int FS_Gets( file_t *file, char *string, size_t bufsize );
 int FS_UnGetc( file_t *file, char c );
@@ -182,7 +182,7 @@ int FS_Getc( file_t *file );
 int FS_VPrintf( file_t *file, const char *format, va_list ap );
 int FS_Printf( file_t *file, const char *format, ... ) FORMAT_CHECK( 2 );
 int FS_Print( file_t *file, const char *msg );
-fs_offset_t FS_FileLength( file_t *f );
+fs_offset_t FS_FileLength( const file_t *f );
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
 
 // file buffer ops
