@@ -21,11 +21,11 @@ GNU General Public License for more details.
 
 #define GLARE_FALLOFF	19000.0f
 
-char		sprite_name[MAX_QPATH];
-char		group_suffix[8];
-static uint	r_texFlags = 0;
-static int	sprite_version;
-float		sprite_radius;
+static char  sprite_name[MAX_QPATH];
+static char  group_suffix[8];
+static uint  r_texFlags = 0;
+static int   sprite_version;
+static float sprite_radius;
 
 /*
 ====================
