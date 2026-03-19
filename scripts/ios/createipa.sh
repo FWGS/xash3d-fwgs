@@ -10,7 +10,6 @@ if [ -d $BUILDDIR ]; then
 
     cp -r "$BUILDDIR/ios/dlls" "$BUILDDIR/ios/xash3d.app"
     cp -r "$BUILDDIR/ios/cl_dlls" "$BUILDDIR/ios/xash3d.app"
-    cp -r "$BUILDDIR/ios/cstrike" "$BUILDDIR/ios/xash3d.app"
     cp Info.plist "$BUILDDIR/ios/xash3d.app"
     cp ftp_commands.plist "$BUILDDIR/ios/xash3d.app"
     if [ ! -d $BUILDDIR/SDL2.framework ]; then

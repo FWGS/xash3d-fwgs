@@ -14,7 +14,7 @@ cd $SCRIPTDIR
 ./buildhlsdk.sh dmc _dmc
 ./buildhlsdk.sh eftd _eftd
 #linux only??
-#./buildhlsdk.sh decay-pc _decay
+./buildhlsdk.sh decay-pc _decay
 ./buildhlsdk.sh echoes _echoes
 ./buildhlsdk.sh gravgun _gravgun
 ./buildhlsdk.sh opfor _opfor

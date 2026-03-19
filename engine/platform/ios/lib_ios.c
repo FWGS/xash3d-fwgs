@@ -62,7 +62,8 @@ void *IOS_LoadLibrary( const char *dllname )
 		else postfix = "";
 	}
 
-	Q_strncpy( strippedname, dllname, strlen(dllname) - EXT_LENGTH );
+	Q_strncpy( strippedname, dllname, sizeof( strippedname ) );
+	COM_StripExtension(strippedname);
 	
 	Q_snprintf( name, MAX_STRING, "%s_%s.dylib", strippedname, postfix );
 	pHandle = IOS_LoadLibraryInternal( name );
