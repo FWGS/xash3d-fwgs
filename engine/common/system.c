@@ -534,6 +534,8 @@ qboolean Sys_CanRestart( void )
 {
 #if XASH_NSWITCH || XASH_PSVITA
 	return true;
+#elif XASH_IOS
+	return false;
 #else
 	int exelen = wai_getExecutablePath( NULL, 0, NULL );
 
