@@ -162,3 +162,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define K_MOUSE5     245
 
 #define K_PAUSE 255
+
+//
+// 9 more keys for international keyboards, as defined by SDL2
+//
+#define K_INTERNATIONAL 256
