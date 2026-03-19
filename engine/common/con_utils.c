@@ -568,62 +568,6 @@ static qboolean Cmd_GetItemsList( const char *s, char *completedname, int length
 }
 
 /*
-=====================================
-Cmd_GetKeysList
-
-Autocomplete for bind command
-=====================================
-*/
-static qboolean Cmd_GetKeysList( const char *s, char *completedname, int length, qboolean print_suggestions )
-{
-#if !XASH_DEDICATED
-	size_t i, numkeys;
-	string keys[256];
-	string matchbuf;
-	int len;
-
-	// compare keys list with current keyword
-	len = Q_strlen( s );
-
-	for( i = 0, numkeys = 0; i < 255; i++ )
-	{
-		const char *keyname = Key_KeynumToString( i );
-
-		if(( *s == '*' ) || !Q_strnicmp( keyname, s, len))
-			Q_strncpy( keys[numkeys++], keyname, sizeof( keys[0] ));
-	}
-
-	if( !numkeys ) return false;
-	Q_strncpy( matchbuf, keys[0], sizeof( matchbuf ));
-	if( completedname && length )
-		Q_strncpy( completedname, matchbuf, length );
-	if( numkeys == 1 ) return true;
-
-	for( i = 0; i < numkeys; i++ )
-	{
-		Q_strncpy( matchbuf, keys[i], sizeof( matchbuf ));
-		if( print_suggestions )
-			Con_Printf( "%16s\n", matchbuf );
-	}
-
-	if( print_suggestions )
-		Con_Printf( "\n^3 %zu keys found.\n", numkeys );
-
-	if( completedname && length )
-	{
-		for( i = 0; matchbuf[i]; i++ )
-		{
-			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
-				completedname[i] = 0;
-		}
-	}
-
-	return true;
-#endif // !XASH_DEDICATED
-	return false;
-}
-
-/*
 ===============
 Con_AddCommandToList
 
