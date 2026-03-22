@@ -1027,22 +1027,31 @@ int GAME_EXPORT Cmd_CheckMapsList( int fRefresh )
 // keep this sorted
 static const autocomplete_list_t cmd_list[] =
 {
+#if !XASH_DEDICATED
 { "bind", 1, Cmd_GetKeysList },
 { "bind", 2, Cmd_GetCommandsList },
 { "cd", 1, Cmd_GetCDList },
+#endif
 { "changelevel2", 1, Cmd_GetMapList },
 { "changelevel", 1, Cmd_GetMapList },
+#if !XASH_DEDICATED
 { "drop", 1, Cmd_GetItemsList },
+#endif
 { "entpatch", 1, Cmd_GetMapList },
 { "exec", 1, Cmd_GetConfigList },
 { "game", 1, Cmd_GetGamesList },
+#if !XASH_DEDICATED
 { "give", 1, Cmd_GetItemsList },
+#endif
 { "hpkextract", 1, Cmd_GetCustomList },
 { "hpklist", 1, Cmd_GetCustomList },
 { "hpkval", 1, Cmd_GetCustomList },
+#if !XASH_DEDICATED
 { "listdemo", 1, Cmd_GetDemoList, },
+#endif
 { "load", 1, Cmd_GetSavesList },
 { "map", 1, Cmd_GetMapList },
+#if !XASH_DEDICATED
 { "map_background", 1, Cmd_GetMapList },
 { "movie", 1, Cmd_GetMovieList },
 { "mp3", 1, Cmd_GetCDList },
@@ -1050,12 +1059,17 @@ static const autocomplete_list_t cmd_list[] =
 { "play", 1, Cmd_GetSoundList },
 { "playdemo", 1, Cmd_GetDemoList, },
 { "playvol", 1, Cmd_GetSoundList },
+#endif
 { "reset", 1, Cmd_GetCvarsList },
 { "save", 1, Cmd_GetSavesList },
 { "set", 1, Cmd_GetCvarsList },
+#if !XASH_DEDICATED
 { "timedemo", 1, Cmd_GetDemoList },
+#endif
 { "toggle", 1, Cmd_GetCvarsList },
+#if !XASH_DEDICATED
 { "unbind", 1, Cmd_GetKeysList },
+#endif
 };
 
 /*
