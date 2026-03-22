@@ -24,8 +24,6 @@ GNU General Public License for more details.
 #define LM_SAMPLE_SIZE		16
 #define LM_SAMPLE_EXTRASIZE		8
 
-#define MAX_MAP_WADS		256	// max wads that can be referenced per one map
-
 #define CHECKVISBIT( vis, b )		((b) >= 0 ? (byte)((vis)[(b) >> 3] & (1 << ((b) & 7))) : (byte)false )
 #define SETVISBIT( vis, b )( void )	((b) >= 0 ? (byte)((vis)[(b) >> 3] |= (1 << ((b) & 7))) : (byte)false )
 #define CLEARVISBIT( vis, b )( void )	((b) >= 0 ? (byte)((vis)[(b) >> 3] &= ~(1 << ((b) & 7))) : (byte)false )
@@ -82,50 +80,50 @@ typedef struct
 	uint		num_polys;
 } hull_model_t;
 
-typedef struct wadlist_s
+typedef struct wadentry_s
 {
-	char wadnames[MAX_MAP_WADS][36]; // including .wad extension
-	int  wadusage[MAX_MAP_WADS];
-	int  count;
-} wadlist_t;
+	int    usage;
+	string name; // including .wad extension
+} wadentry_t;
 
 typedef struct world_static_s
 {
-	qboolean		loading;		// true if worldmodel is loading
-	int		flags;		// misc flags
+	qboolean     loading;		// true if worldmodel is loading
+	int          flags;		// misc flags
 
 	// mapstats info
-	char		message[2048];	// just for debug
-	char		compiler[256];	// map compiler
-	char		generator[256];	// map editor
+	char         *message;	// just for debug
+	char         *compiler;	// map compiler
+	char         *generator;	// map editor
 
-	hull_model_t	*hull_models;
-	int		num_hull_models;
+	hull_model_t *hull_models;
+	int          num_hull_models;
 
 	// out pointers to light data
-	color24		*deluxedata;	// deluxemap data pointer
-	byte		*shadowdata;	// occlusion data pointer
+	color24      *deluxedata;	// deluxemap data pointer
+	byte         *shadowdata;	// occlusion data pointer
 
 	// visibility info
-	size_t		visbytes;		// cluster size
-	size_t		fatbytes;		// fatpvs size
+	size_t       visbytes;		// cluster size
+	size_t       fatbytes;		// fatpvs size
 
 	// world bounds
-	vec3_t		mins;		// real accuracy world bounds
-	vec3_t		maxs;
-	vec3_t		size;
+	vec3_t       mins;		// real accuracy world bounds
+	vec3_t       maxs;
+	vec3_t       size;
 
 	// tree visualization stuff
-	int		recursion_level;
-	int		max_recursion;
+	int          recursion_level;
+	int          max_recursion;
 
-	uint32_t version; // BSP version
+	uint32_t     version; // BSP version
 
 	// Potentially Hearable Set
-	byte   *compressed_phs;
-	size_t *phsofs;
+	byte         *compressed_phs;
+	size_t       *phsofs;
 
-	wadlist_t wadlist;
+	wadentry_t   *wadlist;
+	int          wadcount;
 } world_static_t;
 
 #ifndef REF_DLL

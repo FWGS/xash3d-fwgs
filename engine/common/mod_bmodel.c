@@ -449,7 +449,7 @@ static mip_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
 }
 
 // Returns index of WAD that texture was found in, or -1 if not found.
-static int Mod_LoadTextureFromWadList( wadlist_t *list, const char *name, rgbdata_t **pic, char *texpath, size_t texpathlen )
+static int Mod_LoadTextureFromWadList( wadentry_t *list, int count, const char *name, rgbdata_t **pic, char *texpath, size_t texpathlen )
 {
 	int i;
 
@@ -457,11 +457,11 @@ static int Mod_LoadTextureFromWadList( wadlist_t *list, const char *name, rgbdat
 		return -1;
 
 	// check wads in reverse order
-	for( i = list->count - 1; i >= 0; i-- )
+	for( i = count - 1; i >= 0; i-- )
 	{
 		searchpath_t *sp = NULL;
 
-		while(( sp = g_fsapi.GetArchiveByName( list->wadnames[i], sp )))
+		while(( sp = g_fsapi.GetArchiveByName( list[i].name, sp )))
 		{
 			fs_offset_t len;
 			byte *buf;
@@ -475,7 +475,7 @@ static int Mod_LoadTextureFromWadList( wadlist_t *list, const char *name, rgbdat
 				continue;
 
 			if( texpath != NULL )
-				Q_snprintf( texpath, texpathlen, "%s/%s.mip", list->wadnames[i], name );
+				Q_snprintf( texpath, texpathlen, "%s/%s.mip", list[i].name, name );
 
 			if( pic == NULL )
 				return i; // dedicated server don't want to load the textures (why?)
@@ -487,7 +487,7 @@ static int Mod_LoadTextureFromWadList( wadlist_t *list, const char *name, rgbdat
 			}
 
 			// tell imagelib to directly load this texture to save time
-			Q_snprintf( file, sizeof( file ), "#%s/%s.mip", list->wadnames[i], name );
+			Q_snprintf( file, sizeof( file ), "#%s/%s.mip", list[i].name, name );
 			*pic = FS_LoadImage( file, buf, len );
 			Mem_Free( buf );
 			return i; // if file is corrupted, it's fine, we want to tell the user about it
@@ -767,13 +767,18 @@ Mod_ArrayUsage
 */
 static int Mod_ArrayUsage( const char *szItem, int items, int maxitems, int itemsize )
 {
-	float	percentage = maxitems ? (items * 100.0f / maxitems) : 0.0f;
+	float percentage = maxitems ? (items * 100.0f / maxitems) : 0.0f;
+	string s1;
+	string s2;
 
-	Con_Printf( "%-12s  %7i/%-7i  %8i/%-8i  (%4.1f%%) %s\n",
-		szItem, items, maxitems, items * itemsize, maxitems * itemsize, percentage,
-		percentage > 99.99f ? "^1SIZE OVERFLOW!!!^7" :
-		percentage > 95.0f ? "^3SIZE DANGER!^7" :
-		percentage > 80.0f ? "^2VERY FULL!^7" :
+	Q_snprintf( s1, sizeof( s1 ), "%i / %i", items, maxitems );
+	Q_snprintf( s2, sizeof( s2 ), "%s / %s", Q_memprint( items * itemsize ), Q_memprint( maxitems * itemsize ));
+
+	Con_Printf( "%-8s\t%-15s\t%-15s\t(%4.1f%%)\t%s^7\n",
+		szItem, s1, s2, percentage,
+		percentage > 99.99f ? S_RED    "SIZE OVERFLOW!!!" :
+		percentage > 95.0f  ? S_YELLOW "SIZE DANGER!" :
+		percentage > 80.0f  ? S_GREEN  "VERY FULL!" :
 		"" );
 
 	return items * itemsize;
@@ -786,13 +791,16 @@ Mod_GlobUsage
 */
 static int Mod_GlobUsage( const char *szItem, int itemstorage, int maxstorage )
 {
-	float	percentage = maxstorage ? (itemstorage * 100.0f / maxstorage) : 0.0f;
+	float percentage = maxstorage ? (itemstorage * 100.0f / maxstorage) : 0.0f;
+	string s1;
 
-	Con_Printf( "%-15s  %-12s  %8i/%-8i  (%4.1f%%) %s\n",
-		szItem, "[variable]", itemstorage, maxstorage, percentage,
-		percentage > 99.99f ? "^1SIZE OVERFLOW!!!^7" :
-		percentage > 95.0f ? "^3SIZE DANGER!^7" :
-		percentage > 80.0f ? "^2VERY FULL!^7" :
+	Q_snprintf( s1, sizeof( s1 ), "%s / %s", Q_memprint( itemstorage ), Q_memprint( maxstorage ));
+
+	Con_Printf( "%-8s\t%-17s\t%-15s\t(%4.1f%%)\t%s^7\n",
+		szItem, "[variable]", s1, percentage,
+		percentage > 99.99f ? S_RED    "SIZE OVERFLOW!!!" :
+		percentage > 95.0f  ? S_YELLOW "SIZE DANGER!" :
+		percentage > 80.0f  ? S_GREEN  "VERY FULL!" :
 		"" );
 
 	return itemstorage;
@@ -817,8 +825,8 @@ void Mod_PrintWorldStats_f( void )
 	}
 
 	Con_Printf( "\n" );
-	Con_Printf( "Object names  Objects/Maxobjs  Memory / Maxmem  Fullness\n" );
-	Con_Printf( "------------  ---------------  ---------------  --------\n" );
+	Con_Printf( "Lump name\tObjects / MaxObjs\tMemory / MaxMem\tFullness\n" );
+	Con_Printf( "=========\t=================\t===============\t========\n" );
 
 	for( i = 0; i < ARRAYSIZE( worldstats ); i++ )
 	{
@@ -839,9 +847,9 @@ void Mod_PrintWorldStats_f( void )
 	Con_Printf( "Lighting: %s\n", FBitSet( w->flags, MODEL_COLORED_LIGHTING ) ? "colored" : "monochrome" );
 	Con_Printf( "World total leafs: %d\n", worldmodel->numleafs + 1 );
 	Con_Printf( "original name: ^1%s\n", worldmodel->name );
-	Con_Printf( "internal name: ^2%s\n", world.message[0] ? world.message : "none" );
-	Con_Printf( "map compiler: ^3%s\n", world.compiler[0] ? world.compiler : "unknown" );
-	Con_Printf( "map editor: ^2%s\n", world.generator[0] ? world.generator : "unknown" );
+	Con_Printf( "internal name: ^2%s\n", world.message ? world.message : "none" );
+	Con_Printf( "map compiler: ^3%s\n", world.compiler ? world.compiler : "unknown" );
+	Con_Printf( "map editor: ^2%s\n", world.generator ? world.generator : "unknown" );
 }
 
 /*
@@ -2059,9 +2067,8 @@ Mod_LoadSubmodels
 */
 static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 {
-	dmodel_t	*in, *out;
+	dmodel_t *in, *out;
 	int	oldmaxfaces;
-	int	i, j;
 
 	// allocate extradata for each dmodel_t
 	out = Mem_Malloc( mod->mempool, bmod->numsubmodels * sizeof( *out ));
@@ -2074,9 +2081,9 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 		refState.max_surfaces = 0;
 	oldmaxfaces = refState.max_surfaces;
 
-	for( i = 0; i < bmod->numsubmodels; i++, in++, out++ )
+	for( int i = 0; i < bmod->numsubmodels; i++, in++, out++ )
 	{
-		for( j = 0; j < 3; j++ )
+		for( int j = 0; j < 3; j++ )
 		{
 			// reset empty bounds to prevent error
 			if( in->mins[j] == 999999.0f )
@@ -2090,7 +2097,7 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 			out->origin[j] = in->origin[j];
 		}
 
-		for( j = 0; j < MAX_MAP_HULLS; j++ )
+		for( int j = 0; j < MAX_MAP_HULLS; j++ )
 			out->headnode[j] = in->headnode[j];
 
 		out->visleafs = in->visleafs;
@@ -2113,7 +2120,7 @@ static void Mod_LoadSubmodels( model_t *mod, dbspmodel_t *bmod )
 static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *userdata )
 {
 	const char *wad;
-	wadlist_t *wadlist = userdata;
+	world_static_t *w = userdata;
 
 	*next = '\0';
 
@@ -2126,16 +2133,17 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 	if( Q_stricmp( COM_FileExtension( wad ), "wad" ))
 		return 0;
 
-	// make sure that wad is really exist
+	// make sure that wad does really exists
 	if( FS_FileExists( wad, false ))
 	{
-		int num = wadlist->count++;
-		Q_strncpy( wadlist->wadnames[num], wad, sizeof( wadlist->wadnames[0] ));
-		wadlist->wadusage[num] = 0;
-	}
+		int num = w->wadcount++;
 
-	if( wadlist->count >= ARRAYSIZE( wadlist->wadnames ))
-		return 1;
+		// FIXME: that's right, it goes into host.mempool!
+		w->wadlist = Mem_Realloc( host.mempool, w->wadlist, w->wadcount * sizeof( *w->wadlist ));
+
+		Q_strncpy( w->wadlist[num].name, wad, sizeof( w->wadlist[num].name ));
+		w->wadlist[num].usage = 0;
+	}
 
 	return 0;
 }
@@ -2145,12 +2153,14 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 Mod_LoadEntities
 =================
 */
-static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
+static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 {
 	byte   *entpatch = NULL;
 	char   token[MAX_TOKEN];
 	string keyname;
 	char   *pfile;
+	char   *entdata = bmod->entdata;
+	size_t entdatasize = bmod->entdatasize;
 
 	if( bmod->isworld )
 	{
@@ -2175,31 +2185,36 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 			else if(( entpatch = FS_LoadFile( entfilename, &entpatchsize, true )) != NULL )
 			{
 				Con_Printf( "^2Read entity patch:^7 %s\n", entfilename );
-				bmod->entdatasize = entpatchsize;
-				bmod->entdata = entpatch;
+				entdatasize = entpatchsize;
+				entdata = entpatch;
 			}
 		}
 	}
 
 	// make sure that we really have null terminator
-	mod->entities = Mem_Malloc( mod->mempool, bmod->entdatasize + 1 );
-	memcpy( mod->entities, bmod->entdata, bmod->entdatasize ); // moving to private model pool
-	mod->entities[bmod->entdatasize] = 0;
+	mod->entities = Mem_Malloc( mod->mempool, entdatasize + 1 );
+	memcpy( mod->entities, entdata, entdatasize ); // moving to private model pool
+	mod->entities[entdatasize] = 0;
 
-	if( entpatch )
-	{
-		Mem_Free( entpatch ); // release entpatch if present
-		entpatch = NULL;
-	}
+	Mem_Free( entpatch ); // release entpatch if present
+	entpatch = NULL;
 
 	if( !bmod->isworld )
 		return;
 
 	pfile = (char *)mod->entities;
-	world.generator[0] = '\0';
-	world.compiler[0] = '\0';
-	world.message[0] = '\0';
-	world.wadlist.count = 0;
+	Mem_Free( world.generator );
+	world.generator = NULL;
+
+	Mem_Free( world.compiler );
+	world.compiler = NULL;
+
+	Mem_Free( world.message );
+	world.message = NULL;
+
+	Mem_Free( world.wadlist );
+	world.wadlist = NULL;
+	world.wadcount = 0;
 
 	// parse all the wads for loading textures in right ordering
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
@@ -2226,13 +2241,24 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 				Host_Error( "%s: closing brace without data\n", __func__ );
 
 			if( !Q_stricmp( keyname, "wad" ))
-				Q_splitstr( token, ';', &world.wadlist, Mod_LoadEntities_splitstr_handler );
+			{
+				Q_splitstr( token, ';', &world, Mod_LoadEntities_splitstr_handler );
+			}
 			else if( !Q_stricmp( keyname, "message" ))
-				Q_strncpy( world.message, token, sizeof( world.message ));
+			{
+				Mem_Free( world.message );
+				world.message = copystring( token ); // FIXME: owned by host.mempool
+			}
 			else if( !Q_stricmp( keyname, "compiler" ) || !Q_stricmp( keyname, "_compiler" ))
-				Q_strncpy( world.compiler, token, sizeof( world.compiler ));
+			{
+				Mem_Free( world.compiler );
+				world.compiler = copystring( token ); // FIXME: owned by host.mempool
+			}
 			else if( !Q_stricmp( keyname, "generator" ) || !Q_stricmp( keyname, "_generator" ))
-				Q_strncpy( world.generator, token, sizeof( world.generator ));
+			{
+				Mem_Free( world.generator );
+				world.generator = copystring( token );
+			}
 		}
 		return;	// all done
 	}
@@ -2243,7 +2269,7 @@ static void Mod_LoadEntities( model_t *mod, dbspmodel_t *bmod )
 Mod_LoadPlanes
 =================
 */
-static void Mod_LoadPlanes( model_t *mod, dbspmodel_t *bmod )
+static void Mod_LoadPlanes( model_t *mod, const dbspmodel_t *bmod )
 {
 	dplane_t	*in;
 	mplane_t	*out;
@@ -2660,12 +2686,12 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	}
 
 	// Try WAD texture (force while r_wadtextures is 1)
-	if( !texture->gl_texturenum && (( r_wadtextures.value && world.wadlist.count > 0 ) || mipTex->offsets[0] <= 0 ))
+	if( !texture->gl_texturenum && (( r_wadtextures.value && world.wadcount > 0 ) || mipTex->offsets[0] <= 0 ))
 	{
 		rgbdata_t *pic = NULL;
-		int wadIndex = Mod_LoadTextureFromWadList( &world.wadlist, mipTex->name, Host_IsDedicated() ? NULL : &pic, texpath, sizeof( texpath ));
+		int wad_index = Mod_LoadTextureFromWadList( world.wadlist, world.wadcount, mipTex->name, Host_IsDedicated() ? NULL : &pic, texpath, sizeof( texpath ));
 
-		if( wadIndex >= 0 )
+		if( wad_index >= 0 )
 		{
 #if !XASH_DEDICATED
 			if( !Host_IsDedicated( ) && pic != NULL )
@@ -2675,7 +2701,8 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 				FS_FreeImage( pic );
 			}
 #endif // !XASH_DEDICATED
-			world.wadlist.wadusage[wadIndex]++;
+
+			world.wadlist[wad_index].usage++;
 		}
 	}
 
@@ -2732,20 +2759,19 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		}
 		else
 		{
-			int wadIndex;
 			rgbdata_t *pic = NULL;
 
 			// NOTE: We can't load the _luma texture from the WAD as normal because it
 			// doesn't exist there. The original texture is already loaded, but cannot be modified.
 			// Instead, load the original texture again and convert it to luma.
-			wadIndex = Mod_LoadTextureFromWadList( &world.wadlist, texture->name, &pic, NULL, 0 );
+			int wad_index = Mod_LoadTextureFromWadList( world.wadlist, world.wadcount, texture->name, &pic, NULL, 0 );
 
-			if( wadIndex >= 0 && pic != NULL )
+			if( wad_index >= 0 && pic != NULL )
 			{
 				// OK, loading it from wad or hi-res(??) version
 				texture->fb_texturenum = ref.dllFuncs.GL_LoadTextureFromBuffer( texName, pic, TF_MAKELUMA, false );
 				FS_FreeImage( pic );
-				world.wadlist.wadusage[wadIndex]++;
+				world.wadlist[wad_index].usage++;
 			}
 		}
 	}
@@ -3793,7 +3819,6 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	char        wadvalue[2048];
 	size_t      len = 0;
 	int         i, stat_index = 0, ret, flags = 0;
-	qboolean    wadlist_warn = false;
 	fs_offset_t bspx_header_offset;
 
 	// always reset the intermediate struct
@@ -3901,14 +3926,15 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 			Mod_CalcPHS( mod );
 	}
 
-	for( i = 0; i < world.wadlist.count; i++ )
+	qboolean wadlist_warn = false;
+	for( i = 0; i < world.wadcount; i++ )
 	{
-		if( !world.wadlist.wadusage[i] )
+		if( !world.wadlist[i].usage )
 			continue;
 
 		if( !wadlist_warn )
 		{
-			ret = Q_snprintf( &wadvalue[len], sizeof( wadvalue ), "%s; ", world.wadlist.wadnames[i] );
+			ret = Q_snprintf( &wadvalue[len], sizeof( wadvalue ) - len, "%s; ", world.wadlist[i].name );
 			if( ret == -1 )
 			{
 				Con_DPrintf( S_WARN "Too many wad files for output!\n" );

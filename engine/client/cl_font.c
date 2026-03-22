@@ -172,7 +172,7 @@ void CL_FreeFont( cl_font_t *font )
 
 static int CL_CalcTabStop( const cl_font_t *font, int x )
 {
-	int space = font->charWidths[' '];
+	int space = font->charWidths['0'];
 	int tab   = space * 6; // 6 spaces
 	int stop  = tab - x % tab;
 
