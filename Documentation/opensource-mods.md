@@ -16,6 +16,9 @@ Mirrored on github - https://github.com/JoelTroch/am_src_rebirth
 ## Battle Grounds
 Mirrored on github - https://github.com/nekonomicon/BattleGrounds
 
+## Brain Bread
+Official github repository - https://github.com/IronOak-Studios/BrainBread
+
 ## Bubblemod
 Download page on official site(WM snapshot) - [http://www.bubblemod.org/dl_default.php](https://web.archive.org/web/20130717133158/http://www.bubblemod.org/dl_default.php)
 
@@ -50,6 +53,9 @@ Alpha 2.0 - https://www.gamers-desire.de/details/2830
 ## ESHQ
 Official github repository - https://github.com/adslbarxatov/xash3d-for-ESHQ
 
+## Feline
+Available on ModDB - https://www.moddb.com/mods/feline-10/downloads/feline-sdk
+
 ## Flat-Life
 Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/Half-Life_2D_(Flat-Life)
 
@@ -64,6 +70,9 @@ Version 3.0, mirrored on github - https://github.com/nekonomicon/Go-mod30
 ## GT mod
 Available on GamerLab - http://gamer-lab.com/eng/code_mods_goldsrc/GT_mod_(Polnie_ishodniki)
 
+## Half-Force
+Available on ModDB - https://www.moddb.com/mods/half-force/downloads/half-force-v20-sdk
+
 ## Half-Life: Advanced Deathmatch
 Mirrored on github - https://github.com/solidi/hl-mods/tree/master/hla
 
@@ -75,6 +84,9 @@ Available on ModDB - https://www.moddb.com/mods/half-life-echoes
 
 ## Half-Life: Expanded Arsenal
 Available on ModDB - https://www.moddb.com/mods/half-life-expanded-arsenal
+
+## Half-Life: Field Intensity
+Branch **field_intensity_1.7** in halflife-featureful - https://github.com/FreeSlave/halflife-featureful/tree/field_intensity_1.7
 
 ## Half-Life: Gravgun mod
 Branch **gravgun** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/gravgun
@@ -97,6 +109,9 @@ Official github repository - https://github.com/Fograin/hl-subsmod-ex
 ## Half-Life: Rally
 Official gitlab repository - https://gitlab.com/hlrally/src
 
+## Half-Life: RXT
+Available on ModDB - https://www.moddb.com/mods/half-life-rxt/downloads/rxt-source-code-v57
+
 ## Half-Life: Weapon Edition
 Available on ModDB - https://www.moddb.com/mods/half-life-weapon-edition/downloads/half-life-weapon-edition-1508-alpha-open-src
 
@@ -117,6 +132,9 @@ Official github repository - https://github.com/HeathGames/half_rats_parasomnia_
 
 ## Half-Screwed
 Official github repository - https://github.com/desukuran/half-screwed
+
+## Halo: GoldSource
+Available on ModDB - https://www.moddb.com/mods/halo-goldsrc/downloads/halo-gold-source-summer-2025-release-v10-sdk
 
 ## Headcrab Frenzy
 Version 1.3 on ModDB - https://www.moddb.com/mods/headcrab-frenzy/downloads/headcrab-frenzy-13-beta-source-code
@@ -155,6 +173,9 @@ Prealpha, mirrored on github - https://github.com/a1batross/Paranoia2_ancient
 
 Version 1.51, mirrored on github - https://github.com/a1batross/Paranoia2_original
 
+## Public Enemy
+Official github repository - https://github.com/IronOak-Studios/Public-Enemy
+
 ## Raven City
 *Unfinished mod*
 
@@ -185,6 +206,9 @@ Mirrored on code.idtech.space - https://code.idtech.space/vera/halflife-wastelan
 
 ## Wizard Wars
 Download page on official site - http://www.thothie.com/ww/
+
+## Wrong Door
+Available on ModDB - https://www.moddb.com/mods/wrong-door/downloads/wrong-door-sdk
 
 ## XashXT
 Mirrored on github - https://github.com/a1batross/XashXT_original
@@ -355,6 +379,9 @@ Deathmatch Classic: Adrenaline Gamer Edition - https://github.com/martinwebrant/
 Deathmatch Quaked - https://www.moddb.com/games/deathmatch-classic/downloads/dmq2
 
 Branch **dmc** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/dmc
+
+## Delta Particles
+Branch **delta_particles** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/delta_particles
 
 ## Half-Life: Echoes
 Branch **echoes** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/echoes
