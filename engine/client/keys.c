@@ -227,7 +227,7 @@ const char *Key_KeynumToString( int keynum )
 	if( keynum == -1 )
 		return "<KEY NOT FOUND>";
 
-	if( keynum < 0 || keynum > ARRAYSIZE( keys ))
+	if( keynum < 0 || keynum >= ARRAYSIZE( keys ))
 		return "<OUT OF RANGE>";
 
 	// check for printable ascii (don't use quote)
@@ -277,7 +277,8 @@ Key_GetBinding
 */
 const char *Key_GetBinding( int keynum )
 {
-	if( keynum == -1 ) return NULL;
+	if( keynum == -1 )
+		return NULL;
 	return keys[keynum].binding;
 }
 
