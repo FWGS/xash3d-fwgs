@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd $GITHUB_WORKSPACE
+cd "$GITHUB_WORKSPACE" || exit 1
 
 echo "Downloading devkitA64 docker container..."
 
