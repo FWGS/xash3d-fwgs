@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd $GITHUB_WORKSPACE
+cd "$GITHUB_WORKSPACE" || exit 1
 
 # pinning cmake version to 3.28.3, because with cmake 4.x SDL vita fork doesn't building
 # it is known problem and cmake 4.x update breaks many CI pipelines around the world :)
@@ -16,11 +16,11 @@ VITAGL_SRCREV="4d3ab1053424abe3b2164a50d15c5e355e33ed99" # lock vitaGL version t
 
 install_package()
 {
-	./vdpm $1 || exit 1
+	./vdpm "$1" || exit 1
 }
 
 git clone https://github.com/vitasdk/vdpm.git --depth=1 || exit 1
-pushd vdpm
+pushd vdpm || exit 1
 ./bootstrap-vitasdk.sh || exit 1
 install_package taihen
 install_package kubridge
@@ -28,14 +28,14 @@ install_package zlib
 install_package SceShaccCgExt
 install_package vitaShaRK
 install_package libmathneon
-popd
+popd || exit 1
 
 echo "Downloading vitaGL..."
 
 git clone https://github.com/Rinnegatamante/vitaGL.git || exit 1
-pushd vitaGL
+pushd vitaGL || exit 1
 git checkout $VITAGL_SRCREV || exit 1
-popd
+popd || exit 1
 
 echo "Downloading vitaGL fork of SDL2..."
 
