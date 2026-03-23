@@ -5,21 +5,21 @@ export JAVA_HOME=$GITHUB_WORKSPACE/java
 export ANDROID_HOME=$GITHUB_WORKSPACE/sdk
 export PATH=$PATH:$JAVA_HOME/bin:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin
 
-pushd android
+pushd android || exit 1
 
 ./gradlew assembleContinuous --no-daemon || exit 1
 
-pushd app/build/outputs/apk/continuous
+pushd app/build/outputs/apk/continuous || exit 1
 
-$ANDROID_HOME/build-tools/36.0.0/apksigner sign \
-	--ks $GITHUB_WORKSPACE/android/debug.keystore \
+"$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
+	--ks "$GITHUB_WORKSPACE/android/debug.keystore" \
 	--ks-key-alias androiddebugkey \
 	--ks-pass pass:android \
 	--key-pass pass:android \
 	--out app-continuous-signed.apk app-continuous-unsigned.apk || exit 1
 
-popd
-popd
+popd || exit 1
+popd || exit 1
 
 mkdir -p artifacts/
 

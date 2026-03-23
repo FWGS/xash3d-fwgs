@@ -5,7 +5,7 @@
 build_hlsdk()
 {
 	echo "Building HLSDK: $1 branch..."
-	git checkout $1
+	git checkout "$1" || die
 
 	# This is not our bug if HLSDK doesn't build with -Werrors enabled
 	./waf configure -T release --psvita --disable-werror || die_configure
@@ -34,7 +34,7 @@ pushd vita-rtld || die
 cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release || die_configure
 cmake --build build -- -j$JOBS || die
 cmake --install build || die
-popd
+popd || die
 
 echo "Building SDL..."
 
@@ -42,7 +42,7 @@ pushd SDL || die
 cmake -S. -Bbuild -DCMAKE_TOOLCHAIN_FILE=${VITASDK}/share/vita.toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DVIDEO_VITA_VGL=ON -DSDL_RENDER=OFF  || die_configure
 cmake --build build -- -j$JOBS || die
 cmake --install build || die
-popd
+popd || die
 
 echo "Building engine..."
 
@@ -55,16 +55,16 @@ echo "Building HLSDK..."
 pushd hlsdk-portable || die
 build_hlsdk mobile_hacks valve
 build_hlsdk opfor gearbox
-popd
+popd || die
 
 # bshift can be used from mobile_hacks branch
-pushd pkgtemp/data/xash3d
+pushd pkgtemp/data/xash3d || die
 cp -v valve/dlls/hl_psvita_armv7hf.so bshift/dlls/bshift_psvita_armv7hf.so
-popd
+popd || die
 
 echo "Generating default config files..."
 
-pushd pkgtemp/data/xash3d/valve
+pushd pkgtemp/data/xash3d/valve || die
 
 touch config.cfg
 echo 'unbindall'                    >> config.cfg
@@ -91,13 +91,13 @@ echo 'r_refdll "gl"'  >> video.cfg
 touch opengl.cfg
 echo 'gl_nosort "1"'  >> opengl.cfg
 
-cp *.cfg ../gearbox/
-cp *.cfg ../bshift/
+cp ./*.cfg ../gearbox/
+cp ./*.cfg ../bshift/
 
-popd
+popd || die
 
 echo "Packaging artifacts..."
 
 pushd pkgtemp || die
 7z a -t7z ../artifacts/xash3d-fwgs-psvita.7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on -r xash.vpk data/
-popd
+popd || die

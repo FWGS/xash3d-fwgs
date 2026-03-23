@@ -3,14 +3,14 @@
 . scripts/lib.sh
 . /opt/toolchains/motomagx/setenv-z6.sh
 
-cd $GITHUB_WORKSPACE || die
+cd "$GITHUB_WORKSPACE" || die
 
 mkdir -p Xash/valve/cl_dlls
 mkdir -p Xash/valve/dlls
 
 pushd hlsdk || die
 ./waf configure -T fast --enable-magx --enable-simple-mod-hacks build install --destdir=../Xash || die
-popd
+popd || die
 
 ./waf configure -T fast --enable-magx build install --destdir=Xash/ || die
 
