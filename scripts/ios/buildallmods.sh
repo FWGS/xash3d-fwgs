@@ -1,6 +1,8 @@
+#!/bin/bash
+
 #cd into script directory
 SCRIPTDIR=${0%/*}
-cd $SCRIPTDIR
+cd "$SCRIPTDIR" || exit 1
 
 #shouldn't build any mods that are supported by mobile_hacks
 ./buildhlsdk.sh aghl _ag
