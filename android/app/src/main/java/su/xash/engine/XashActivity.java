@@ -153,18 +153,6 @@ public class XashActivity extends SDLActivity {
 		String argv = getIntent().getStringExtra("argv");
 		if (argv == null) argv = "-console -log";
 
-		// stupid check but should be enough
-		if (argv.indexOf(" -dll ") < 0 && gamelibdir == null) {
-			// mobile_hacks hlsdk-portable branch allows us to have few more mods
-			final List<String> mobile_hacks_gamedirs = Arrays.asList(new String[]{
-				"aom", "bdlands", "biglolly", "bshift", "caseclosed",
-				"hl_urbicide", "induction", "redempt", "secret",
-				"sewer_beta", "tot", "vendetta" });
-
-			if (mobile_hacks_gamedirs.contains(gamedir))
-				argv += " -dll @hl";
-		}
-
 		return argv.split(" ");
 	}
 }
