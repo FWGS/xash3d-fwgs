@@ -60,22 +60,26 @@ class LibraryFragment : Fragment(), MenuProvider {
 
 	private fun checkStoragePermissions(): Boolean {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-			if (!Environment.isExternalStorageManager())
+			if (!Environment.isExternalStorageManager()) {
 				MaterialAlertDialogBuilder(requireContext()).apply {
 					setTitle(R.string.file_access_required)
 					setMessage(R.string.file_access_message)
-					setPositiveButton(android.R.string.ok) { _, _ ->
+					setPositiveButton(R.string.open_settings) { _, _ ->
 						startActivityForResult.launch(
 							Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).setData(
 								Uri.fromParts("package", BuildConfig.APPLICATION_ID, null)
 							)
 						)
 					}
+					setNeutralButton(R.string.done_check_permissions) { dialog, _ ->
+						checkStoragePermissions()
+					}
 					setCancelable(false)
 					show()
 
 					return false
-				} else {
+				}
+			} else {
 				return true
 			}
 		} else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -94,7 +98,7 @@ class LibraryFragment : Fragment(), MenuProvider {
 				MaterialAlertDialogBuilder(requireContext()).apply {
 					setTitle(R.string.external_storage_required)
 					setMessage(R.string.external_storage_message)
-					setPositiveButton(android.R.string.ok) { _, _ ->
+					setPositiveButton(R.string.open_settings) { _, _ ->
 						if (showRationale) {
 							requestPermissionLauncher.launch(permissionsNeeded)
 						} else {
@@ -105,6 +109,9 @@ class LibraryFragment : Fragment(), MenuProvider {
 								}
 							startActivity(intent)
 						}
+					}
+					setNeutralButton(R.string.done_check_permissions) { _, _ ->
+						checkStoragePermissions()
 					}
 					setCancelable(false)
 					show()
