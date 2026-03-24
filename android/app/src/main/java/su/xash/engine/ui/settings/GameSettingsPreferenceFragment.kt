@@ -20,6 +20,12 @@ class GameSettingsPreferenceFragment(val game: Game) : PreferenceFragmentCompat(
 			packageList.setValueIndex(0);
 		}
 
+		if (game.basedir.name.equals("cstrike", ignoreCase = true)
+			|| game.basedir.name.equals("czero", ignoreCase = true)) {
+			val enableYaPBBots = findPreference<SwitchPreferenceCompat>("enable_yapb_bots")!!
+			enableYaPBBots.isVisible = true
+		}
+
 		val separatePackages = findPreference<SwitchPreferenceCompat>("separate_libraries")!!
 		val clientPackage = findPreference<ListPreference>("client_package")!!
 		val serverPackage = findPreference<ListPreference>("server_package")!!

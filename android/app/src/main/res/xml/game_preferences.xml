@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto">
 	<EditTextPreference
 		app:defaultValue="-console -log"
 		app:key="arguments"
@@ -11,6 +12,13 @@
 		app:key="use_volume_buttons"
 		app:layout="@layout/switch_preference"
 		app:title="@string/game_settings_volume_buttons" />
+
+	<SwitchPreferenceCompat
+		app:key="enable_yapb_bots"
+		app:layout="@layout/switch_preference"
+		app:title="@string/game_settings_yapb_bots"
+		app:defaultValue="true"
+		app:isPreferenceVisible="false" />
 
 	<SwitchPreferenceCompat
 		app:key="separate_libraries"
