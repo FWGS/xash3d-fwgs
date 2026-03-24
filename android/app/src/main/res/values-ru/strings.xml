@@ -6,6 +6,7 @@
 	<string name="game_settings">Настройки игры</string>
 	<string name="game_settings_command_line">Аргументы командной строки</string>
 	<string name="game_settings_volume_buttons">Использовать кнопки громкости</string>
+	<string name="game_settings_yapb_bots">Включить YaPB ботов (только CS)</string>
 	<string name="preferences_package_name">Пакет библиотек</string>
 	<string name="preferences_separate_libraries">Библиотеки из отдельных пакетов</string>
 	<string name="preferences_client_package">Пакет клиента</string>
@@ -17,4 +18,9 @@
 	<string name="select_current_directory">Выбрать текущую директорию</string>
 	<string name="external_storage_required">Требуется доступ к внешнему хранилищу</string>
 	<string name="external_storage_message">Для правильной работы приложения требуется доступ к внешнему хранилищу.</string>
+	<string name="open_settings">Открыть настройки</string>
+	<string name="done_check_permissions">Готово! Проверить разрешения</string>
+	<string name="game_apk_required">Требуется APK с игровыми библиотеками</string>
+	<string name="game_apk_message">Чтобы запустить эту игру, нужно установить дополнительный APK</string>
+	<string name="game_apk_install">Скачать</string>
 </resources>

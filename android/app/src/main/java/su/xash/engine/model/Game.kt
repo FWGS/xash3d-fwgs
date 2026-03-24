@@ -6,28 +6,36 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.net.Uri
+import androidx.core.net.toUri
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import su.xash.engine.R
 import su.xash.engine.XashActivity
 import java.io.File
 import java.io.FileInputStream
+import java.util.Arrays
+import android.util.Log
 
-
-class Game(val ctx: Context, val basedir: File) {
+class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 	private var iconName = "game.ico"
 	var title = "Unknown Game"
 	var icon: Bitmap? = null
 	var cover: Bitmap? = null
 
+	val mobileHacksGames = arrayOf("aom", "bdlands", "biglolly", "bshift", "caseclosed",
+		"hl_urbicide", "induction", "redempt", "secret",
+		"sewer_beta", "tot", "valve", "vendetta")
+
+	// a1ba: follow the behavior of Xash3D's game_launch.
+	// for hl mods we put `valve` as game directory
+	// for any other game that's not hl this string must be replaced with your
+	// main game directory
+	// mods always use -game command line parameter
+	var defaultGameDir = "valve"
+
 	private val pref = ctx.getSharedPreferences(basedir.name, Context.MODE_PRIVATE)
 
 	init {
-		val gameInfo = File(basedir, "gameinfo.txt")
-		if (gameInfo.exists()) {
-			parseGameInfo(gameInfo)
-		} else {
-			val libListGam = File(basedir, "liblist.gam")
-			if (libListGam.exists()) parseGameInfo(libListGam)
-		}
+		parseGameInfo(gameInfoFile)
 
 		val iconFile = File(basedir, iconName)
 		if (iconFile.exists()) {
@@ -42,14 +50,76 @@ class Game(val ctx: Context, val basedir: File) {
 	}
 
 	fun startEngine(ctx: Context) {
+		val packageNames = getPackageNamesForGameDir(basedir.name)
+		var externalGame = false
+		var commandLineArgs = "";
+
+		if (basedir.name != defaultGameDir)
+			commandLineArgs += "-game ${basedir.name} "
+
+		if (packageNames != null) {
+			if (packageNames.contains("su.xash.engine")) {
+				commandLineArgs += "-dll @hl "
+			} else if (packageNames.contains("su.xash.cs16client")) {
+				if (pref.getBoolean("enable_yapb_bots", true)) {
+					commandLineArgs += "-dll @yapb "
+				}
+				externalGame = true
+			}
+		}
+
+		commandLineArgs += pref.getString("arguments", "-console -log")
+
+		var packageName: String? = null
+		var gameLibDir: String? = null
+		if (externalGame && packageNames != null) {
+			for (pn in packageNames) {
+				gameLibDir = try {
+					getGameLibDir(ctx, pn)
+				} catch(e: PackageManager.NameNotFoundException) {
+					null
+				} catch(e: Exception) {
+					e.printStackTrace()
+					null
+				}
+
+				if (gameLibDir != null) {
+					packageName = pn
+					break
+				}
+			}
+
+			if (gameLibDir == null) {
+				MaterialAlertDialogBuilder(ctx).apply {
+					setTitle(R.string.game_apk_required)
+					setMessage(R.string.game_apk_message)
+					setPositiveButton(R.string.game_apk_install) { _, _ ->
+						val intent = Intent(Intent.ACTION_VIEW,
+							getDownloadPageForGameDir(basedir.name).toUri())
+						ctx.startActivity(intent)
+					}
+					show()
+
+					return
+				}
+			}
+		}
+
 		ctx.startActivity(Intent(ctx, XashActivity::class.java).apply {
 			flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-			putExtra("gamedir", basedir.name)
-			putExtra("argv", pref.getString("arguments", "-console -log"))
+
+			putExtra("gamedir", defaultGameDir)
+			putExtra("argv", commandLineArgs)
 			putExtra("usevolume", pref.getBoolean("use_volume_buttons", false))
 			putExtra("basedir", basedir.parent)
-			//.putExtra("gamelibdir", getGameLibDir(context))
-			//.putExtra("package", getPackageName()) }
+
+			if (gameLibDir != null) {
+				putExtra("gamelibdir", gameLibDir)
+			}
+
+			if (packageName != null) {
+				putExtra("package", packageName)
+			}
 		})
 	}
 
@@ -70,44 +140,50 @@ class Game(val ctx: Context, val basedir: File) {
 		}
 	}
 
-	private fun getPackageName(): String? {
-//        return if (mDbEntry != null) {
-//            mDbEntry.getPackageName()
-//        } else null
+	private fun getPackageNamesForGameDir(gamedir: String): Array<String>? {
+		if (gamedir.equals("cstrike", ignoreCase = true)
+			|| gamedir.equals("czero", ignoreCase = true))
+			return arrayOf("su.xash.cs16client.test", "su.xash.cs16client")
+
+		if (gamedir.equals("tfc", ignoreCase = true))
+			return arrayOf("su.xash.tf15client.test", "su.xash.tf15client")
+
+		// mobile_hacks hlsdk-portable branch allows us to have few more mods out of the box
+		if (mobileHacksGames.any { it.equals(gamedir, ignoreCase = true) })
+			return arrayOf("su.xash.engine")
+
+        // return if (mDbEntry != null) {
+        //    mDbEntry.getPackageName()
+        // } else null
 		return null
 	}
 
-	private fun getGameLibDir(ctx: Context): String? {
-		val pkgName = getPackageName()
-		if (pkgName != null) {
-			val pkgInfo: PackageInfo = try {
-				ctx.packageManager.getPackageInfo(pkgName, 0)
-			} catch (e: PackageManager.NameNotFoundException) {
-				e.printStackTrace()
-				ctx.startActivity(
-					Intent(
-						Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkgName")
-					).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-				)
-				return null
-			}
-			return pkgInfo.applicationInfo?.nativeLibraryDir
-		}
-		return ctx.applicationInfo.nativeLibraryDir
+	private fun getDownloadPageForGameDir(gamedir: String): String {
+		if (gamedir.equals("cstrike", ignoreCase = true)
+			|| gamedir.equals("czero", ignoreCase = true))
+			return "https://github.com/Velaron/cs16-client/releases/download/continuous/CS16Client-Android.apk"
+
+		if (gamedir.equals("tfc", ignoreCase = true))
+			return "https://github.com/Velaron/tf15-client/releases/download/continuous/TF15Client-Android.apk"
+
+		// just so we don't return null
+		return "https://github.com/FWGS/xash3d-fwgs/releases/download/continuous/xash3d-fwgs-android.apk"
+	}
+
+	private fun getGameLibDir(ctx: Context, packageName: String): String? {
+		val packageInfo: PackageInfo = ctx.packageManager.getPackageInfo(packageName, 0)
+		return packageInfo.applicationInfo?.nativeLibraryDir
 	}
 
 	companion object {
-		fun getGames(ctx: Context, file: File): List<Game> {
+		fun getGames(ctx: Context, root: File): List<Game> {
 			val games = mutableListOf<Game>()
 
-			if (checkIfGamedir(file)) {
-				games.add(Game(ctx, file))
-			} else {
-				file.listFiles()?.forEach {
-					if (it.isDirectory) {
-						if (checkIfGamedir(it)) {
-							games.add(Game(ctx, it))
-						}
+			root.listFiles()?.forEach {
+				if (it.isDirectory) {
+					val subDirGameInfoFile = checkIfGamedir(it)
+					if (subDirGameInfoFile != null) {
+						games.add(Game(ctx, it, subDirGameInfoFile))
 					}
 				}
 			}
@@ -115,24 +191,18 @@ class Game(val ctx: Context, val basedir: File) {
 			return games
 		}
 
-		fun checkIfGamedir(file: File): Boolean {
-			if (File(file, "liblist.gam").exists()) return true
-			if (File(file, "gameinfo.txt").exists()) return true
+		fun checkIfGamedir(gamedir: File): File? {
+			gamedir.listFiles()?.forEach {
+				if (it.isFile) {
+					if (it.name.equals("liblist.gam", ignoreCase = true))
+						return it
 
-			return false
+					if (it.name.equals("gameinfo.txt", ignoreCase = true))
+						return it
+				}
+			}
+
+			return null
 		}
 	}
 }
-
-//    Intent intent = new Intent("su.xash.engine.MOD");
-//                for (ResolveInfo info : context.getPackageManager()
-//                        .queryIntentActivities(intent, PackageManager.GET_META_DATA)) {
-//                        String packageName = info.activityInfo.applicationInfo.packageName;
-//                        String gameDir = info.activityInfo.applicationInfo.metaData.getString(
-//                        "su.xash.engine.gamedir");
-//                        Log.d(TAG, "package = " + packageName + " gamedir = " + gameDir);
-//                        }
-
-//public void startEngine(Context context) {
-//    context.startActivity(new Intent(context, XashActivity.class).setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP).putExtra("gamedir", getGameDir()).putExtra("argv", getArguments()).putExtra("usevolume", getVolumeState()).putExtra("gamelibdir", getGameLibDir(context)).putExtra("package", getPackageName()));
-//}
