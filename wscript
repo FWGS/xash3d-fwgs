@@ -100,7 +100,7 @@ SUBDIRS = [
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
 	Subproject('3rdparty/opusfile',     lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUSFILE),
 	Subproject('3rdparty/maintui',      lambda x: x.env.CLIENT and x.env.TUI),
-	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT),
+	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
 	Subproject('3rdparty/vgui_support', lambda x: x.env.CLIENT),
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 #	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
