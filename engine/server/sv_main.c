@@ -1008,7 +1008,7 @@ void SV_Init( void )
 
 	SV_InitFilter();
 	SV_ClearGameState ();	// delete all temporary *.hl files
-	SV_InitGame();
+	SV_InitGame( GI->gamemode != GAME_SINGLEPLAYER_ONLY );
 }
 
 /*

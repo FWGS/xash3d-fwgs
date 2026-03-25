@@ -728,7 +728,7 @@ SV_InitGame
 A brand new game has been started
 ==============
 */
-qboolean SV_InitGame( void )
+qboolean SV_InitGame( qboolean silent )
 {
 	string dllpath;
 
@@ -742,7 +742,10 @@ qboolean SV_InitGame( void )
 
 	if( !SV_LoadProgs( dllpath ))
 	{
-		Sys_Warn( "can't initialize %s: %s\n", dllpath, COM_GetLibraryError( ));
+		if( !silent )
+			Sys_Warn( "can't initialize %s: %s\n", dllpath, COM_GetLibraryError( ));
+		else
+			Con_Printf( S_ERROR "can't initialize %s: %s\n", dllpath, COM_GetLibraryError( ));
 		return false; // failed to loading server.dll
 	}
 
@@ -1015,7 +1018,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	SV_SetupClients();
 
-	if( !SV_InitGame( ))
+	if( !SV_InitGame( false ))
 		return false;
 
 	Delta_Init(); // re-initialize delta

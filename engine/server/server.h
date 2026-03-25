@@ -478,7 +478,7 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent );
 //
 // sv_init.c
 //
-qboolean SV_InitGame( void );
+qboolean SV_InitGame( qboolean silent );
 void SV_ActivateServer( int runPhysics );
 qboolean SV_SpawnServer( const char *server, const char *startspot, qboolean background );
 void SV_DeactivateServer( void );
