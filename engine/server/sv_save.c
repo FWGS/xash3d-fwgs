@@ -2142,7 +2142,7 @@ qboolean SV_LoadGame( const char *pPath )
 		return false;
 
 	// initialize game if needs
-	if( !SV_InitGame( ))
+	if( !SV_InitGame( false ))
 		return false;
 
 	svs.initialized = true;

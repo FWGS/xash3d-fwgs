@@ -1362,7 +1362,6 @@ qboolean UI_LoadProgs( void )
 	UITEXTAPI	GiveTextApi;
 	MENUAPI	GetMenuAPI;
 	string dllpath;
-	int			i;
 
 	if( gameui.hInstance ) UI_UnloadProgs();
 
