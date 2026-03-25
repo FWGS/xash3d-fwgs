@@ -19,6 +19,8 @@ GNU General Public License for more details.
 #include "const.h"
 #include "bspfile.h"	// we need some declarations from it
 
+#include "xash3d_mathlib.h" // mplane_t
+
 /*
 ==============================================================================
 
@@ -45,15 +47,6 @@ typedef enum
 	mod_alias,
 	mod_studio
 } modtype_t;
-
-typedef struct mplane_s
-{
-	vec3_t		normal;
-	float		dist;
-	byte		type;		// for fast side tests
-	byte		signbits;		// signx + (signy<<1) + (signz<<1)
-	byte		pad[2];
-} mplane_t;
 
 typedef struct
 {

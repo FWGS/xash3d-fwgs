@@ -156,7 +156,17 @@ MATH FUNCTIONS
 
 ===========================
 */
-typedef struct mplane_s mplane_t;
+// plane_t structure
+// !!! if this is changed, it must be changed in asm_i386.h too !!!
+typedef struct mplane_s
+{
+	vec3_t  normal;
+	float   dist;
+	byte    type;                   // for texture axis selection and fast side tests
+	byte    signbits;               // signx + signy<<1 + signz<<1
+	byte    pad[2];
+} mplane_t;
+
 typedef struct mstudiobone_s mstudiobone_t;
 typedef struct mstudioanim_s mstudioanim_t;
 
@@ -167,20 +177,44 @@ void RoundUpHullSize( vec3_t size );
 void VectorVectors( const vec3_t forward, vec3_t right, vec3_t up );
 void VectorAngles( const float *forward, float *angles );
 void VectorsAngles( const vec3_t forward, const vec3_t right, const vec3_t up, vec3_t angles );
-void PlaneIntersect( const mplane_t *plane, const vec3_t p0, const vec3_t p1, vec3_t out );
 qboolean SphereIntersect( const vec3_t vSphereCenter, float fSphereRadiusSquared, const vec3_t vLinePt, const vec3_t vLineDir );
 void QuaternionSlerp( const vec4_t p, const vec4_t q, float t, vec4_t qt );
 
 void R_StudioCalcBones( int frame, float s, const mstudiobone_t *pbone, const mstudioanim_t *panim, const float *adj, vec3_t pos, vec4_t q );
 int BoxOnPlaneSide( const vec3_t emins, const vec3_t emaxs, const mplane_t *p );
-#define BOX_ON_PLANE_SIDE( emins, emaxs, p )           \
-	((( p )->type < 3 ) ?                              \
-	(                                                  \
-		((p)->dist <= (emins)[(p)->type]) ? 1 :        \
-		(                                              \
-			((p)->dist >= (emaxs)[(p)->type] ) ? 2 : 3 \
-		)                                              \
-	) : BoxOnPlaneSide(( emins ), ( emaxs ), ( p )))
+
+static inline int BOX_ON_PLANE_SIDE( const vec3_t emins, const vec3_t emaxs, const mplane_t *p )
+{
+	if( p->type < 3 )
+	{
+		if( p->dist <= emins[p->type] )
+			return 1;
+
+		if( p->dist >= emaxs[p->type] )
+			return 2;
+
+		return 3;
+	}
+
+	return BoxOnPlaneSide( emins, emaxs, p );
+}
+
+/*
+=================
+PlaneIntersect
+
+find point where ray
+was intersect with plane
+=================
+*/
+static inline void PlaneIntersect( const mplane_t *plane, const vec3_t p0, const vec3_t p1, vec3_t out )
+{
+	float distToPlane = PlaneDiff( p0, plane );
+	float planeDotRay = DotProduct( plane->normal, p1 );
+	float sect = -(distToPlane) / planeDotRay;
+
+	VectorMA( p0, sect, p1, out );
+}
 
 //
 // matrixlib.c
