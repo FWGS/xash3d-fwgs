@@ -96,7 +96,7 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 	{
 		byte	*pset;
 
-		ent = EDICT_NUM( e );
+		ent = SV_EdictNum( e );
 
 		// don't double add an entity through portals (in case this already added)
 		if( CHECKVISBIT( ents->sended, e ))
@@ -316,7 +316,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 		if( newnum < oldnum )
 		{
 			entity_state_t	*baseline = &svs.baselines[newnum];
-			const char	*classname = SV_ClassName( EDICT_NUM( newnum ));
+			const char	*classname = SV_ClassName( SV_EdictNum( newnum ));
 			int		offset = 0;
 
 			// trying to reduce message by select optimal baseline
@@ -345,7 +345,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 
 		if( newnum > oldnum )
 		{
-			edict_t	*ed = EDICT_NUM( oldent->number );
+			edict_t	*ed = SV_EdictNum( oldent->number );
 			qboolean	force = false;
 
 			// check if entity completely removed from server

@@ -189,7 +189,7 @@ static hull_t *SV_HullForBsp( edict_t *ent, const vec3_t mins, const vec3_t maxs
 	model = SV_ModelHandle( ent->v.modelindex );
 
 	if( !model || model->type != mod_brush )
-		Host_Error( "Entity %i (%s) SOLID_BSP with a non bsp model %s\n", NUM_FOR_EDICT( ent ), SV_ClassName( ent ), STRING( ent->v.model ));
+		Host_Error( "Entity %i (%s) SOLID_BSP with a non bsp model %s\n", NUM_FOR_EDICT( ent ), SV_ClassName( ent ), SV_GetString( ent->v.model ));
 
 	VectorSubtract( maxs, mins, size );
 
@@ -1315,7 +1315,7 @@ trace_t SV_Move( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end,
 {
 	moveclip_t clip = { 0 };
 
-	SV_ClipMoveToEntity( EDICT_NUM( 0 ), start, mins, maxs, end, &clip.trace );
+	SV_ClipMoveToEntity( SV_EdictNum( 0 ), start, mins, maxs, end, &clip.trace );
 
 	if( clip.trace.fraction != 0.0f )
 	{
@@ -1329,7 +1329,7 @@ trace_t SV_Move( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end,
 		clip.type = (type & 0xFF);
 		clip.ignoretrans = type >> 8;
 		clip.monsterclip = false;
-		clip.passedict = (e) ? e : EDICT_NUM( 0 );
+		clip.passedict = (e) ? e : SV_EdictNum( 0 );
 		clip.mins = mins;
 		clip.maxs = maxs;
 
@@ -1372,7 +1372,7 @@ trace_t GAME_EXPORT SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs,
 	float		trace_fraction;
 
 	memset( &clip, 0, sizeof( moveclip_t ));
-	SV_ClipMoveToEntity( EDICT_NUM( 0 ), start, mins, maxs, end, &clip.trace );
+	SV_ClipMoveToEntity( SV_EdictNum( 0 ), start, mins, maxs, end, &clip.trace );
 
 	if( clip.trace.fraction != 0.0f )
 	{
@@ -1384,7 +1384,7 @@ trace_t GAME_EXPORT SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs,
 		clip.type = (type & 0xFF);
 		clip.ignoretrans = type >> 8;
 		clip.monsterclip = false;
-		clip.passedict = (e) ? e : EDICT_NUM( 0 );
+		clip.passedict = (e) ? e : SV_EdictNum( 0 );
 		clip.mins = mins;
 		clip.maxs = maxs;
 

@@ -83,7 +83,7 @@ static void SV_CheckAllEnts( void )
 	// check edicts errors
 	for( i = svs.maxclients + 1; i < svgame.numEntities; i++ )
 	{
-		e = EDICT_NUM( i );
+		e = SV_EdictNum( i );
 
 		if( e->free && e->pvPrivateData != NULL )
 		{
@@ -129,14 +129,14 @@ void SV_CheckVelocity( edict_t *ent )
 		if( IS_NAN( ent->v.velocity[i] ))
 		{
 			if( sv_check_errors.value )
-				Con_Printf( "Got a NaN velocity on %s\n", STRING( ent->v.classname ));
+				Con_Printf( "Got a NaN velocity on %s\n", SV_GetString( ent->v.classname ));
 			ent->v.velocity[i] = 0.0f;
 		}
 
 		if( IS_NAN( ent->v.origin[i] ))
 		{
 			if( sv_check_errors.value )
-				Con_Printf( "Got a NaN origin on %s\n", STRING( ent->v.classname ));
+				Con_Printf( "Got a NaN origin on %s\n", SV_GetString( ent->v.classname ));
 			ent->v.origin[i] = 0.0f;
 		}
 	}
@@ -148,7 +148,7 @@ void SV_CheckVelocity( edict_t *ent )
 	{
 		wishspd = sqrt( wishspd );
 		if( sv_check_errors.value )
-			Con_Printf( "Got a velocity too high on %s ( %.2f > %.2f )\n", STRING( ent->v.classname ), wishspd, sqrt( maxspd ));
+			Con_Printf( "Got a velocity too high on %s ( %.2f > %.2f )\n", SV_GetString( ent->v.classname ), wishspd, sqrt( maxspd ));
 		wishspd = sv_maxvelocity.value / wishspd;
 		VectorScale( ent->v.velocity, wishspd, ent->v.velocity );
 	}
@@ -940,7 +940,7 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 
 	for( e = 1; e < svgame.numEntities; e++ )
 	{
-		check = EDICT_NUM( e );
+		check = SV_EdictNum( e );
 		if( !SV_IsValidEdict( check )) continue;
 
 		// filter movetypes to collide with
@@ -1058,7 +1058,7 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 	// see if any solid entities are inside the final position
 	for( e = 1; e < svgame.numEntities; e++ )
 	{
-		check = EDICT_NUM( e );
+		check = SV_EdictNum( e );
 		if( !SV_IsValidEdict( check ))
 			continue;
 
@@ -1826,7 +1826,7 @@ void SV_Physics( void )
 	// treat each object in turn
 	for( i = 0; i < svgame.numEntities; i++ )
 	{
-		ent = EDICT_NUM( i );
+		ent = SV_EdictNum( i );
 
 		if( !SV_IsValidEdict( ent ))
 			continue;
@@ -1851,7 +1851,7 @@ void SV_Physics( void )
 
 #if 0 // figure out why this causes memory corruption
 	// decrement svgame.numEntities if the highest number entities died
-	for( ; ( ent = EDICT_NUM( svgame.numEntities - 1 )) && ent->free; svgame.numEntities-- );
+	for( ; ( ent = SV_EdictNum( svgame.numEntities - 1 )) && ent->free; svgame.numEntities-- );
 #endif
 }
 

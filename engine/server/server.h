@@ -59,10 +59,6 @@ extern int SV_UPDATE_BACKUP;
 #define SV_IsValidEdict( e )	SV_CheckEdict( e, __FILE__, __LINE__ )
 #endif
 #define NUM_FOR_EDICT(e)	((int)((edict_t *)(e) - svgame.edicts))
-#define EDICT_NUM( num )	SV_EdictNum( num )
-#define STRING( offset )	SV_GetString( offset )
-#define ALLOC_STRING(str)	SV_AllocString( str )
-#define MAKE_STRING(str)	SV_MakeString( str )
 
 #define MAX_PUSHED_ENTS	256
 #define MAX_VIEWENTS	128
@@ -249,7 +245,7 @@ typedef struct sv_client_s
 	float  latency;
 
 	int     ignored_ents; // if visibility list is full we should know how many entities will be ignored
-	edict_t *edict;       // EDICT_NUM(clientnum+1)
+	edict_t *edict;       // SV_EdictNum(clientnum+1)
 	edict_t *pViewEntity; // svc_setview member
 	edict_t *viewentity[MAX_VIEWENTS]; // list of portal cameras in player PVS
 	int     num_viewents; // num of portal cameras that can merge PVS
@@ -606,7 +602,6 @@ void SV_FreeEdict( edict_t *pEdict );
 void SV_InitEdict( edict_t *pEdict );
 const char *SV_ClassName( const edict_t *e );
 void SV_CopyTraceToGlobal( trace_t *trace );
-qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line );
 void SV_SetMinMaxSize( edict_t *e, const float *min, const float *max, qboolean relink );
 void SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word eventindex, float delay, float *origin,
 	float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
@@ -638,6 +633,20 @@ void SV_SetModel( edict_t *ent, const char *name );
 int pfnDecalIndex( const char *m );
 void SV_CreateDecal( sizebuf_t *msg, const float *origin, int decalIndex, int entityIndex, int modelIndex, int flags, float scale );
 qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboolean adjacent );
+
+static inline qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
+{
+	if( !e )
+		return false; // may be NULL
+
+	int n = ((int)((edict_t *)(e) - svgame.edicts));
+
+	if(( n >= 0 ) && ( n < GI->max_edicts ))
+		return !e->free;
+
+	Con_Printf( "bad entity %i (called at %s:%i)\n", n, file, line );
+	return false;
+}
 
 static inline edict_t *SV_EdictNum( int n )
 {
