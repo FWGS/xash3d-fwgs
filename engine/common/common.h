@@ -900,7 +900,6 @@ void COM_Munge( byte *data, size_t len, int seq );
 void COM_UnMunge( byte *data, size_t len, int seq );
 void COM_Munge2( byte *data, size_t len, int seq );
 void COM_UnMunge2( byte *data, size_t len, int seq );
-void COM_Munge3( byte *data, size_t len, int seq );
 void COM_UnMunge3( byte *data, size_t len, int seq );
 
 //

@@ -1187,7 +1187,6 @@ void UI_CharEvent( int key );
 qboolean UI_MouseInRect( void );
 qboolean UI_IsVisible( void );
 void UI_ResetPing( void );
-void UI_ShowUpdateDialog( qboolean preferStore );
 qboolean UI_ShowMessageBox( const char *text );
 void UI_AddTouchButtonToList( const char *name, const char *texture, const char *command, unsigned char *color, int flags );
 void UI_ConnectionProgress_Disconnect( void );

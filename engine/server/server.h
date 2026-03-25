@@ -53,11 +53,7 @@ extern int SV_UPDATE_BACKUP;
 #define GROUP_OP_AND	0
 #define GROUP_OP_NAND	1
 
-#ifdef NDEBUG
-#define SV_IsValidEdict( e )	( e && !e->free )
-#else
 #define SV_IsValidEdict( e )	SV_CheckEdict( e, __FILE__, __LINE__ )
-#endif
 #define NUM_FOR_EDICT(e)	((int)((edict_t *)(e) - svgame.edicts))
 
 #define MAX_PUSHED_ENTS	256
@@ -524,7 +520,6 @@ void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... ) FORMAT_CHECK( 2 );
 //
 // sv_client.c
 //
-void SV_RefreshUserinfo( void );
 void SV_TogglePause( const char *msg );
 qboolean SV_ShouldUpdatePing( sv_client_t *cl );
 const char *SV_GetClientIDString( sv_client_t *cl );

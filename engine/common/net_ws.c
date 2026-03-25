@@ -1908,55 +1908,12 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 
 /*
 ====================
-NET_IsConfigured
-
-Is winsock ip initialized?
-====================
-*/
-qboolean NET_IsConfigured( void )
-{
-	return net.configured;
-}
-
-/*
-====================
 NET_IsActive
 ====================
 */
 qboolean NET_IsActive( void )
 {
 	return net.initialized;
-}
-
-/*
-====================
-NET_Sleep
-
-sleeps msec or until net socket is ready
-====================
-*/
-void NET_Sleep( int msec )
-{
-#ifndef XASH_NO_NETWORK
-	struct timeval	timeout;
-	fd_set		fdset;
-	int		i = 0;
-
-	if( !net.initialized || host.type == HOST_NORMAL )
-		return; // we're not a dedicated server, just run full speed
-
-	FD_ZERO( &fdset );
-
-	if( net.ip_sockets[NS_SERVER] != INVALID_SOCKET )
-	{
-		FD_SET( net.ip_sockets[NS_SERVER], &fdset ); // network socket
-		i = net.ip_sockets[NS_SERVER];
-	}
-
-	timeout.tv_sec = msec / 1000;
-	timeout.tv_usec = (msec % 1000) * 1000;
-	select( i+1, &fdset, NULL, NULL, &timeout );
-#endif
 }
 
 /*

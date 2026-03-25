@@ -1262,24 +1262,6 @@ void SV_FullClientUpdate( sv_client_t *cl, sizebuf_t *msg )
 
 /*
 ===================
-SV_RefreshUserinfo
-
-===================
-*/
-void SV_RefreshUserinfo( void )
-{
-	sv_client_t	*cl;
-	int		i;
-
-	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
-	{
-		if( cl->state >= cs_connected )
-			SetBits( cl->flags, FCL_RESEND_USERINFO );
-	}
-}
-
-/*
-===================
 SV_FullUpdateMovevars
 
 this is send all movevars values when client connected

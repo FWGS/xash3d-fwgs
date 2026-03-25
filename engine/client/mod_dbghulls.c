@@ -54,12 +54,6 @@ static inline void list_add( hullnode_t *newobj, hullnode_t *head )
 	list_add__( newobj, head, head->next );
 }
 
-// add the new entry before the given list entry (list is circular)
-static inline void list_add_tail( hullnode_t *newobj, hullnode_t *head )
-{
-	list_add__( newobj, head->prev, head );
-}
-
 static inline void list_del( hullnode_t *entry )
 {
 	entry->next->prev = entry->prev;
