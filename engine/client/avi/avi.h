@@ -25,7 +25,6 @@ qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *dura
 qboolean AVI_HaveAudioTrack( const movie_state_t *Avi );
 void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audio, int quiet );
 movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio );
-int AVI_TimeToSoundPosition( movie_state_t *Avi, int time );
 void AVI_CloseVideo( movie_state_t *Avi );
 qboolean AVI_IsActive( movie_state_t *Avi );
 void AVI_FreeVideo( movie_state_t *Avi );

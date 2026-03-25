@@ -57,9 +57,7 @@ extern convar_t net_recv_debug;
 
 void NET_Init( void );
 void NET_Shutdown( void );
-void NET_Sleep( int msec );
 qboolean NET_IsActive( void );
-qboolean NET_IsConfigured( void );
 void NET_Config( qboolean net_enable, qboolean changeport );
 const char *NET_AdrToString( const netadr_t a ) RETURNS_NONNULL;
 const char *NET_BaseAdrToString( const netadr_t a ) RETURNS_NONNULL;
