@@ -327,7 +327,7 @@ static void SaveBuildComment( char *text, int maxlength )
 	else
 	{
 		size_t i;
-		const char *mapname = STRING( svgame.globals->mapname );
+		const char *mapname = SV_GetString( svgame.globals->mapname );
 
 		for( i = 0; i < ARRAYSIZE( gTitleComments ); i++ )
 		{
@@ -345,12 +345,12 @@ static void SaveBuildComment( char *text, int maxlength )
 			if( svgame.edicts->v.message != 0 )
 			{
 				// trying to extract message from the world
-				pName = STRING( svgame.edicts->v.message );
+				pName = SV_GetString( svgame.edicts->v.message );
 			}
 			else
 			{
 				// or use mapname
-				pName = STRING( svgame.globals->mapname );
+				pName = SV_GetString( svgame.globals->mapname );
 			}
 		}
 	}
@@ -399,7 +399,7 @@ static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 	for( i = 0; i < entityCount; i++ )
 	{
 		pTable = &pSaveData->pTable[i];
-		pTable->pent = EDICT_NUM( i );
+		pTable->pent = SV_EdictNum( i );
 		pTable->id = i;
 	}
 }
@@ -1433,13 +1433,13 @@ static void CreateEntitiesInRestoreList( SAVERESTOREDATA *pSaveData, int levelMa
 
 				if( pTable->id == 0 && create_world ) // worldspawn
 				{
-					pent = EDICT_NUM( 0 );
+					pent = SV_EdictNum( 0 );
 					SV_InitEdict( pent );
 					pent = SV_CreateNamedEntity( pent, pTable->classname );
 				}
 				else if(( pTable->id > 0 ) && ( pTable->id < svs.maxclients + 1 ))
 				{
-					edict_t	*ed = EDICT_NUM( pTable->id );
+					edict_t	*ed = SV_EdictNum( pTable->id );
 
 					if( !FBitSet( pTable->flags, FENTTABLE_PLAYER ))
 						Con_Printf( S_ERROR "ENTITY IS NOT A PLAYER: %d\n", i );
@@ -1638,7 +1638,7 @@ static int LoadGameState( char const *level, qboolean changelevel )
 
 	// must set mapname before calling into DLL
 	Q_strncpy( sv.name, level, sizeof( sv.name ));
-	svgame.globals->mapname = MAKE_STRING( sv.name );
+	svgame.globals->mapname = SV_MakeString( sv.name );
 
 	ParseSaveTables( pSaveData, &header, true );
 	EntityPatchRead( pSaveData, level );
@@ -1871,7 +1871,7 @@ static int CreateEntityTransitionList( SAVERESTOREDATA *pSaveData, int levelMask
 				// IMPORTANT: we should find the already spawned or local restored global entity
 				pNewEnt = SV_FindGlobalEntity( tmpVars.classname, tmpVars.globalname );
 
-				Con_DPrintf( "Merging changes for global: %s\n", STRING( pTable->classname ));
+				Con_DPrintf( "Merging changes for global: %s\n", SV_GetString( pTable->classname ));
 
 				// -------------------------------------------------------------------------
 				// Pass the "global" flag to the DLL to indicate this entity should only override
@@ -1889,7 +1889,7 @@ static int CreateEntityTransitionList( SAVERESTOREDATA *pSaveData, int levelMask
 			}
 			else
 			{
-				Con_Reportf( "Transferring %s (%d)\n", STRING( pTable->classname ), NUM_FOR_EDICT( pent ));
+				Con_Reportf( "Transferring %s (%d)\n", SV_GetString( pTable->classname ), NUM_FOR_EDICT( pent ));
 
 				if( svgame.dllFuncs.pfnRestore( pent, pSaveData, 0 ) < 0 )
 				{
@@ -1901,7 +1901,7 @@ static int CreateEntityTransitionList( SAVERESTOREDATA *pSaveData, int levelMask
 					{
 						// this can happen during normal processing - PVS is just a guess,
 						// some map areas won't exist in the new map
-						Con_Reportf( "Suppressing %s\n", STRING( pTable->classname ));
+						Con_Reportf( "Suppressing %s\n", SV_GetString( pTable->classname ));
 						SetBits( pent->v.flags, FL_KILLME );
 					}
 					else

@@ -955,25 +955,25 @@ static void SV_EntityInfo_f( void )
 
 	for( i = 0; i < svgame.numEntities; i++ )
 	{
-		ent = EDICT_NUM( i );
+		ent = SV_EdictNum( i );
 		if( !SV_IsValidEdict( ent )) continue;
 
 		Con_Printf( "%5i origin: %.f %.f %.f", i, ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
 
 		if( ent->v.classname )
-			Con_Printf( ", class: %s", STRING( ent->v.classname ));
+			Con_Printf( ", class: %s", SV_GetString( ent->v.classname ));
 
 		if( ent->v.globalname )
-			Con_Printf( ", global: %s", STRING( ent->v.globalname ));
+			Con_Printf( ", global: %s", SV_GetString( ent->v.globalname ));
 
 		if( ent->v.targetname )
-			Con_Printf( ", name: %s", STRING( ent->v.targetname ));
+			Con_Printf( ", name: %s", SV_GetString( ent->v.targetname ));
 
 		if( ent->v.target )
-			Con_Printf( ", target: %s", STRING( ent->v.target ));
+			Con_Printf( ", target: %s", SV_GetString( ent->v.target ));
 
 		if( ent->v.model )
-			Con_Printf( ", model: %s", STRING( ent->v.model ));
+			Con_Printf( ", model: %s", SV_GetString( ent->v.model ));
 
 		Con_Printf( "\n" );
 	}

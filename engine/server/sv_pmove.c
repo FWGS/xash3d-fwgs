@@ -194,7 +194,7 @@ static void SV_AddLinksToPmove( areanode_t *node, const vec3_t pmove_mins, const
 	vec3_t	mins, maxs;
 	physent_t	*pe;
 
-	pl = EDICT_NUM( svgame.pmove->player_index + 1 );
+	pl = SV_EdictNum( svgame.pmove->player_index + 1 );
 	Assert( SV_IsValidEdict( pl ));
 
 	// touch linked edicts
@@ -391,7 +391,7 @@ static void GAME_EXPORT pfnPlaySound( int channel, const char *sample, float vol
 {
 	edict_t	*ent;
 
-	ent = EDICT_NUM( svgame.pmove->player_index + 1 );
+	ent = SV_EdictNum( svgame.pmove->player_index + 1 );
 	if( !SV_IsValidEdict( ent )) return;
 
 	SV_StartSound( ent, channel, sample, volume, attenuation, fFlags|SND_FILTER_CLIENT, pitch );
@@ -402,7 +402,7 @@ static void GAME_EXPORT pfnPlaybackEventFull( int flags, int clientindex, word e
 {
 	edict_t	*ent;
 
-	ent = EDICT_NUM( clientindex + 1 );
+	ent = SV_EdictNum( clientindex + 1 );
 	if( !SV_IsValidEdict( ent )) return;
 
 	// GoldSrc always sets FEV_NOTHOST in PMove version of this function
@@ -644,7 +644,7 @@ static void SV_FinishPMove( playermove_t *pmove, sv_client_t *cl )
 	else if( pmove->onground >= 0 && pmove->onground < pmove->numphysent )
 	{
 		SetBits( clent->v.flags, FL_ONGROUND );
-		clent->v.groundentity = EDICT_NUM( pmove->physents[pmove->onground].info );
+		clent->v.groundentity = SV_EdictNum( pmove->physents[pmove->onground].info );
 	}
 
 	// angles
@@ -988,7 +988,7 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 			for( i = 0; i < svgame.pmove->numtouch; i++ )
 			{
 				pmtrace = &svgame.pmove->touchindex[i];
-				touch = EDICT_NUM( svgame.pmove->physents[pmtrace->ent].info );
+				touch = SV_EdictNum( svgame.pmove->physents[pmtrace->ent].info );
 				VectorCopy( pmtrace->deltavelocity, clent->v.velocity );
 				PM_ConvertTrace( &trace, pmtrace, touch );
 				SV_Impact( touch, clent, &trace );

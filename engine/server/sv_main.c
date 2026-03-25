@@ -552,7 +552,7 @@ static void SV_PrepWorldFrame( void )
 
 	for( i = 1; i < svgame.numEntities; i++ )
 	{
-		ent = EDICT_NUM( i );
+		ent = SV_EdictNum( i );
 		if( ent->free ) continue;
 
 		ClearBits( ent->v.effects, EF_MUZZLEFLASH|EF_NOINTERP );

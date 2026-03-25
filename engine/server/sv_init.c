@@ -474,7 +474,7 @@ static void SV_CreateBaseline( void )
 
 	for( entnum = 0; entnum < svgame.numEntities; entnum++ )
 	{
-		edict_t	*pEdict = EDICT_NUM( entnum );
+		edict_t	*pEdict = SV_EdictNum( entnum );
 
 		if( !SV_IsValidEdict( pEdict ))
 			continue;
@@ -512,7 +512,7 @@ static void SV_CreateBaseline( void )
 
 	for( entnum = 0; entnum < svgame.numEntities; entnum++ )
 	{
-		edict_t	*pEdict = EDICT_NUM( entnum );
+		edict_t	*pEdict = SV_EdictNum( entnum );
 
 		if( !SV_IsValidEdict( pEdict ))
 			continue;
@@ -559,14 +559,14 @@ void SV_FreeOldEntities( void )
 	// at end of frame kill all entities which supposed to it
 	for( i = svs.maxclients + 1; i < svgame.numEntities; i++ )
 	{
-		ent = EDICT_NUM( i );
+		ent = SV_EdictNum( i );
 
 		if( !ent->free && FBitSet( ent->v.flags, FL_KILLME ))
 			SV_FreeEdict( ent );
 	}
 
 	// decrement svgame.numEntities if the highest number entities died
-	for( ; ( ent = EDICT_NUM( svgame.numEntities - 1 )) && ent->free; svgame.numEntities-- );
+	for( ; ( ent = SV_EdictNum( svgame.numEntities - 1 )) && ent->free; svgame.numEntities-- );
 }
 
 /*
@@ -1135,7 +1135,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		if( svs.clients[i].state > cs_connected )
 			svs.clients[i].state = cs_connected;
 
-		ent = EDICT_NUM( i + 1 );
+		ent = SV_EdictNum( i + 1 );
 		svs.clients[i].pViewEntity = NULL;
 		svs.clients[i].edict = ent;
 		SV_InitEdict( ent );
