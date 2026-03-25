@@ -268,23 +268,6 @@ qboolean SphereIntersect( const vec3_t vSphereCenter, float fSphereRadiusSquared
 	return true;
 }
 
-/*
-=================
-PlaneIntersect
-
-find point where ray
-was intersect with plane
-=================
-*/
-void PlaneIntersect( const mplane_t *plane, const vec3_t p0, const vec3_t p1, vec3_t out )
-{
-	float distToPlane = PlaneDiff( p0, plane );
-	float planeDotRay = DotProduct( plane->normal, p1 );
-	float sect = -(distToPlane) / planeDotRay;
-
-	VectorMA( p0, sect, p1, out );
-}
-
 //
 // studio utils
 //
