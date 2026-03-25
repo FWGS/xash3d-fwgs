@@ -3407,7 +3407,7 @@ loc0:
 			if( !FBitSet( clipflags, BIT( i )))
 				continue;
 
-			clipped = BoxOnPlaneSide( node->minmaxs, node->minmaxs + 3, p );
+			clipped = BOX_ON_PLANE_SIDE( node->minmaxs, node->minmaxs + 3, p );
 			if( clipped == 2 ) return;
 			if( clipped == 1 ) ClearBits( clipflags, BIT( i ));
 		}
@@ -3565,7 +3565,7 @@ static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 				if( !FBitSet( clipflags, BIT( i )))
 					continue;
 
-				clipped = BoxOnPlaneSide( node->minmaxs, node->minmaxs + 3, p );
+				clipped = BOX_ON_PLANE_SIDE( node->minmaxs, node->minmaxs + 3, p );
 				if( clipped == 2 ) return;
 				if( clipped == 1 ) ClearBits( clipflags, BIT( i ));
 			}
