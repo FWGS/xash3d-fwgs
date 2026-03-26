@@ -40,7 +40,7 @@ qboolean R_CullBox( const vec3_t mins, const vec3_t maxs )
 R_CullModel
 =============
 */
-qboolean R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax )
+qboolean R_CullModel( const cl_entity_t *e, const vec3_t absmin, const vec3_t absmax )
 {
 	if( e == tr.viewent )
 	{
@@ -63,18 +63,18 @@ R_CullSurface
 cull invisible surfaces
 =================
 */
-int R_CullSurface( msurface_t *surf, gl_frustum_t *frustum, uint clipflags )
+int R_CullSurface( const msurface_t *surf, const gl_frustum_t *frustum, uint clipflags )
 {
 	cl_entity_t	*e = RI.currententity;
 
-	if( !surf || !surf->texinfo || !surf->texinfo->texture )
+	if( !e || !surf || !surf->texinfo || !surf->texinfo->texture )
 		return CULL_OTHER;
 
 	if( r_nocull.value )
 		return CULL_VISIBLE;
 
 	// world surfaces can be culled by vis frame too
-	if( RI.currententity == CL_GetEntityByIndex( 0 ) && surf->visframe != tr.framecount )
+	if( e == CL_GetEntityByIndex( 0 ) && surf->visframe != tr.framecount )
 		return CULL_VISFRAME;
 
 	// only static ents can be culled by frustum
