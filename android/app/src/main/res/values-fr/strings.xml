@@ -7,6 +7,7 @@
 	<string name="game_settings">Paramètres du jeu</string>
 	<string name="game_settings_command_line">Arguments de ligne de commande</string>
 	<string name="game_settings_volume_buttons">Utiliser les boutons de volume dans le jeu</string>
+	<string name="game_settings_yapb_bots">Activer les bots YaPB (Uniquement pour CS)</string>
 	<string name="preferences_package_name">Paquet de bibliothèques</string>
 	<string name="preferences_separate_libraries">Bibliothèques de paquets séparés</string>
 	<string name="preferences_client_package">Paquet client</string>
@@ -18,4 +19,9 @@
 	<string name="select_current_directory">Sélectionner le répertoire actuel</string>
 	<string name="external_storage_required">L\'accès au stockage externe est requis</string>
 	<string name="external_storage_message">L\'accès au stockage externe est requis pour que l\'application fonctionne correctement.</string>
+	<string name="open_settings">Ouvrir les paramètres</string>
+	<string name="done_check_permissions">Terminé ! Vérifier les permissions</string>
+	<string name="game_apk_required">Nécessite un APK de bibliothèques de jeu</string>
+	<string name="game_apk_message">Pour lancer ce jeu, vous devez installer un APK additionnel</string>
+	<string name="game_apk_install">Télécharger</string>
 </resources>
