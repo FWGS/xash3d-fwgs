@@ -17,7 +17,7 @@ GNU General Public License for more details.
 #define XASH3D_MATHLIB_H
 
 #include <math.h>
-#if HAVE_TGMATH_H
+#if HAVE_TGMATH_H && !__cplusplus
 #include <tgmath.h>
 #endif
 #include <string.h>
