@@ -315,6 +315,8 @@ void GL_SetRenderMode( int mode );
 void GL_EnableTextureUnit( int tmu, qboolean enable );
 void GL_TextureTarget( uint target );
 void GL_Cull( GLenum cull );
+void GL_PushPolygonOffset( float factor, float units );
+void GL_PopPolygonOffset( void );
 void SCR_TimeRefresh_f( void );
 
 //
@@ -326,9 +328,9 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 //
 // gl_cull.c
 //
-qboolean R_CullModel( cl_entity_t *e, const vec3_t absmin, const vec3_t absmax );
+qboolean R_CullModel( const cl_entity_t *e, const vec3_t absmin, const vec3_t absmax );
 qboolean R_CullBox( const vec3_t mins, const vec3_t maxs );
-int R_CullSurface( msurface_t *surf, gl_frustum_t *frustum, uint clipflags );
+int R_CullSurface( const msurface_t *surf, const gl_frustum_t *frustum, uint clipflags );
 
 //
 // gl_decals.c
@@ -660,6 +662,12 @@ typedef struct
 	int		prev_height;
 } glconfig_t;
 
+typedef struct polyoffset_state_s
+{
+	float factor;
+	float units;
+} polyoffset_state_t;
+
 typedef struct
 {
 	int		activeTMU;
@@ -675,6 +683,9 @@ typedef struct
 
 	qboolean		stencilEnabled;
 	qboolean		in2DMode;
+
+	polyoffset_state_t polyoffset_state[2];
+	int num_polyoffsets;
 } glstate_t;
 
 typedef struct
@@ -774,6 +785,7 @@ extern convar_t	gl_keeptjunctions;
 extern convar_t	gl_round_down;
 extern convar_t	gl_wireframe;
 extern convar_t	gl_polyoffset;
+extern convar_t	gl_polyoffset_bmodels;
 extern convar_t	gl_finish;
 extern convar_t	gl_nosort;
 extern convar_t	gl_test;		// cvar to testify new effects

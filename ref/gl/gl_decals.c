@@ -919,10 +919,7 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 			GL_Cull( GL_NONE );
 
 		if( gl_polyoffset.value )
-		{
-			pglEnable( GL_POLYGON_OFFSET_FILL );
-			pglPolygonOffset( -1.0f, -gl_polyoffset.value );
-		}
+			GL_PushPolygonOffset( -1.0f, -gl_polyoffset.value );
 	}
 
 	if( FBitSet( fa->flags, SURF_TRANSPARENT ) && glState.stencilEnabled )
@@ -1012,7 +1009,7 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 		}
 
 		if( gl_polyoffset.value )
-			pglDisable( GL_POLYGON_OFFSET_FILL );
+			GL_PopPolygonOffset();
 
 		if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
 			GL_Cull( GL_FRONT );
@@ -1030,8 +1027,8 @@ void DrawSurfaceDecals( msurface_t *fa, qboolean single, qboolean reverse )
 
 void DrawDecalsBatch( void )
 {
-	cl_entity_t	*e;
-	int		i;
+	cl_entity_t *e;
+	int i;
 
 	if( !tr.num_draw_decals )
 		return;
@@ -1050,10 +1047,7 @@ void DrawDecalsBatch( void )
 		GL_Cull( GL_NONE );
 
 	if( gl_polyoffset.value )
-	{
-		pglEnable( GL_POLYGON_OFFSET_FILL );
-		pglPolygonOffset( -1.0f, -gl_polyoffset.value );
-	}
+		GL_PushPolygonOffset( -1.0f, -gl_polyoffset.value );
 
 	for( i = 0; i < tr.num_draw_decals; i++ )
 	{
@@ -1068,7 +1062,7 @@ void DrawDecalsBatch( void )
 	}
 
 	if( gl_polyoffset.value )
-		pglDisable( GL_POLYGON_OFFSET_FILL );
+		GL_PopPolygonOffset();
 
 	if( e->curstate.rendermode == kRenderTransTexture || e->curstate.rendermode == kRenderTransAdd )
 		GL_Cull( GL_FRONT );

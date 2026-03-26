@@ -470,6 +470,57 @@ void GL_SetRenderMode( int mode )
 }
 
 /*
+==============
+GL_PushPolygonOffset
+
+enable polygon offset and push it onto the stack
+==============
+*/
+void GL_PushPolygonOffset( float factor, float units )
+{
+	if( glState.num_polyoffsets >= ARRAYSIZE( glState.polyoffset_state ))
+	{
+		gEngfuncs.Con_Reportf( "%s: overflow\n", __func__ );
+		return;
+	}
+
+	if( glState.num_polyoffsets == 0 )
+		pglEnable( GL_POLYGON_OFFSET_FILL );
+
+	pglPolygonOffset( factor, units );
+
+	glState.polyoffset_state[glState.num_polyoffsets].factor = factor;
+	glState.polyoffset_state[glState.num_polyoffsets].units = units;
+	glState.num_polyoffsets++;
+}
+
+/*
+==============
+GL_PopPolygonOffset
+
+pop polygon offset from the stack and restore previous state
+==============
+*/
+void GL_PopPolygonOffset( void )
+{
+	if( glState.num_polyoffsets <= 0 )
+	{
+		gEngfuncs.Con_Reportf( "%s: underflow\n", __func__ );
+		return;
+	}
+
+	glState.num_polyoffsets--;
+
+	if( glState.num_polyoffsets == 0 )
+		pglDisable( GL_POLYGON_OFFSET_FILL );
+	else
+	{
+		pglPolygonOffset( glState.polyoffset_state[glState.num_polyoffsets].factor,
+			glState.polyoffset_state[glState.num_polyoffsets].units );
+	}
+}
+
+/*
 ==============================================================================
 
 SCREEN SHOTS
