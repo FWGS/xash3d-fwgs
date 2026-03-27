@@ -142,6 +142,8 @@ Version 1.3 on ModDB - https://www.moddb.com/mods/headcrab-frenzy/downloads/head
 ## Heart of Evil
 Mirrored on github - https://github.com/nekonomicon/HeartOfEvil
 
+Mirrored on github (Includes maps and models source files) - https://github.com/malortie/heart-of-evil-source-files
+
 ## Ingram Chillin' Mod
 Official SourceForge repository - https://sourceforge.net/projects/icm-hl/
 
