@@ -515,8 +515,8 @@ void GL_PopPolygonOffset( void )
 		pglDisable( GL_POLYGON_OFFSET_FILL );
 	else
 	{
-		pglPolygonOffset( glState.polyoffset_state[glState.num_polyoffsets].factor,
-			glState.polyoffset_state[glState.num_polyoffsets].units );
+		pglPolygonOffset( glState.polyoffset_state[glState.num_polyoffsets - 1].factor,
+			glState.polyoffset_state[glState.num_polyoffsets - 1].units );
 	}
 }
 
