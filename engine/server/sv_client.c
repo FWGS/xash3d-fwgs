@@ -19,6 +19,9 @@ GNU General Public License for more details.
 #include "net_encode.h"
 #include "net_api.h"
 
+// challenges are valid for two consecutive windows of this size (max lifetime ~10s).
+#define CHALLENGE_WINDOW_SECONDS 5
+
 typedef struct ucmd_s
 {
 	const char	*name;
@@ -67,7 +70,7 @@ flood the server with invalid connection IPs.  With a
 challenge, they must give a valid IP address.
 =================
 */
-static int SV_GetChallenge( netadr_t from, qboolean *error )
+static int SV_GetChallenge( netadr_t from, uint32_t time_window, qboolean *error )
 {
 	const netadrtype_t type = NET_NetadrType( &from );
 	MD5Context_t ctx;
@@ -100,6 +103,7 @@ static int SV_GetChallenge( netadr_t from, qboolean *error )
 	}
 
 	MD5Update( &ctx, (byte *)svs.challenge_salt, sizeof( svs.challenge_salt ));
+	MD5Update( &ctx, (byte *)&time_window, sizeof( time_window ));
 	MD5Final( digest, &ctx );
 
 	return digest[0] | digest[1] << 8 | digest[2] << 16 | digest[3] << 24;
@@ -108,7 +112,8 @@ static int SV_GetChallenge( netadr_t from, qboolean *error )
 static void SV_SendChallenge( netadr_t from, qboolean skip_bandwidth_test )
 {
 	qboolean error = false;
-	int challenge = SV_GetChallenge( from, &error );
+	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
+	int challenge = SV_GetChallenge( from, time_window, &error );
 
 	if( error )
 		return;
@@ -209,15 +214,18 @@ Make sure connecting client is not spoofing
 static int SV_CheckChallenge( netadr_t from, int challenge )
 {
 	qboolean error = false;
-	int challenge2 = SV_GetChallenge( from, &error );
+	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
 
-	if( error || challenge2 != challenge )
-	{
-		SV_RejectConnection( from, "no challenge for your address\n" );
-		return false;
-	}
+	// accept the current window and the previous one so challenges issued just
+	// before a window boundary remain valid for the full expected lifetime
+	if( SV_GetChallenge( from, time_window, &error ) == challenge && !error )
+		return true;
 
-	return true;
+	if( SV_GetChallenge( from, time_window - 1, &error ) == challenge && !error )
+		return true;
+
+	SV_RejectConnection( from, "no challenge for your address\n" );
+	return false;
 }
 
 /*
