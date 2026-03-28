@@ -1232,7 +1232,7 @@ void GAME_EXPORT R_Blood( const vec3_t org, const vec3_t ndir, int pcolor, int s
 
 			p->die = cl.time + 1.5f;
 			p->color = pcolor + COM_RandomLong( 0, 9 );
-			p->type = pr_4x_slowgrav;
+			p->type = pt_8x_slowgrav;
 
 			VectorAddScalar( pos, COM_RandomFloat( -1.0f, 1.0f ), p->org );
 			VectorScale( vec, pspeed, p->vel );
@@ -1284,7 +1284,7 @@ void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t ndir, int pcolor,
 
 		p->die = cl.time + 3.0f;
 		p->color = pcolor + COM_RandomLong( 0, 9 );
-		p->type = pr_4x_slowgrav;
+		p->type = pt_4x_slowgrav;
 
 		VectorCopy( org, p->org );
 		VectorCopy( dir, p->vel );
@@ -1306,7 +1306,7 @@ void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t ndir, int pcolor,
 
 			p->die = cl.time + 3.0f;
 			p->color = pcolor + COM_RandomLong( 0, 9 );
-			p->type = pr_4x_slowgrav;
+			p->type = pt_4x_slowgrav;
 
 			p->org[0] = org[0] + COM_RandomFloat( -1.0f, 1.0f );
 			p->org[1] = org[1] + COM_RandomFloat( -1.0f, 1.0f );
@@ -2220,7 +2220,7 @@ void CL_ThinkParticle( double frametime, particle_t *p )
 	case pt_8x_slowgrav:
 		p->vel[2] -= grav * 8.0f;
 		break;
-	case pr_4x_slowgrav:
+	case pt_4x_slowgrav:
 		p->vel[2] -= grav * 4.0f;
 		break;
 	case pt_custom:
