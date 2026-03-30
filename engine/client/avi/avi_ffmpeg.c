@@ -23,7 +23,6 @@ static qboolean avi_initialized;
 static poolhandle_t avi_mempool;
 
 #if XASH_AVI == AVI_FFMPEG
-#define XASH_FFMPEG_DLOPEN 1
 #include "avi_ffmpeg.h"
 
 struct movie_state_s
