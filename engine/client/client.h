@@ -854,7 +854,6 @@ void CL_ClearWorld( void );
 void CL_DrawCenterPrint( void );
 void CL_ClearSpriteTextures( void );
 void CL_CenterPrint( const char *text, float y );
-client_textmessage_t *CL_TextMessageParse( poolhandle_t mempool, byte *pMemFile, int fileSize, int *numTitles );
 client_textmessage_t *CL_TextMessageGet( const char *pName );
 void NetAPI_CancelAllRequests( void );
 model_t *CL_LoadClientSprite( const char *filename );
@@ -1256,6 +1255,11 @@ qboolean Cmd_GetKeysList( const char *s, char *completedname, int length, qboole
 //
 void ID_Init( void );
 void ID_GetMD5ForAddress( char *key, netadr_t adr, size_t size );
+
+//
+// titles.c
+//
+client_textmessage_t *CL_TextMessageParse( poolhandle_t mempool, char *pMemFile, int fileSize, int *numTitles );
 
 extern rgba_t g_color_table[8];
 extern triangleapi_t gTriApi;

@@ -584,7 +584,7 @@ static void CL_InitTitles( const char *filename )
 	pMemFile = FS_LoadFile( filename, &fileSize, false );
 	if( !pMemFile ) return;
 
-	clgame.titles = CL_TextMessageParse( clgame.mempool, pMemFile, fileSize, &clgame.numTitles );
+	clgame.titles = CL_TextMessageParse( clgame.mempool, (char *)pMemFile, fileSize, &clgame.numTitles );
 	Mem_Free( pMemFile );
 }
 
