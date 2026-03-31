@@ -29,10 +29,11 @@
 
 * This project uses mixed Quake's and HLSDK's C/C++ code style convention. 
 * In short:
-  * Use spaces in parenthesis.
+  * Use spaces in parenthesis, but not when two parentheses are consecutive.
   * Only tabs for indentation.
   * Any brace must have it's own line.
   * Short blocks, if statements and loops on single line are allowed.
+  * Prefer generic utilities from libpublic over rolling your own.
   * Avoid magic numbers.
   * While macros are powerful, it's better to avoid overusing them.
   * If you unsure, try to mimic code style from anywhere else of engine source code.
