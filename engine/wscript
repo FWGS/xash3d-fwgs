@@ -353,4 +353,12 @@ def build(bld):
 				linkflags = linkflags,
 				ut_str = '${SRC[0].abspath()} -dev 2 -runtests',
 			)
-			tg.ut_paths = fs_tg.link_task.outputs[0].parent.abspath() + os.pathsep
+			paths = [fs_tg.link_task.outputs[0].parent.abspath()]
+
+			if bld.env.LIBPATH_SDL2:
+				paths += bld.env.LIBPATH_SDL2
+
+			if bld.env.FRAMEWORKPATH_SDL2:
+				paths += bld.env.FRAMEWORKPATH_SDL2
+
+			tg.ut_paths = os.pathsep.join(paths) + os.pathsep
