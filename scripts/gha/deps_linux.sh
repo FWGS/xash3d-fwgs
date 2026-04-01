@@ -16,15 +16,13 @@ declare -A BASE_BUILD_PACKAGES SDL_BUILD_PACKAGES APPIMAGETOOL RUST_TARGET
 # bzip2 and opus are added from submodules, freetype replaced by stb_truetype in this build, so it's just compiler toolchain
 BASE_BUILD_PACKAGES[common]="desktop-file-utils"
 BASE_BUILD_PACKAGES[amd64]="build-essential"
-BASE_BUILD_PACKAGES[i386]="gcc-multilib g++-multilib"
-#BASE_BUILD_PACKAGES[arm64]="crossbuild-essential-arm64"
 BASE_BUILD_PACKAGES[arm64]="build-essential"
-BASE_BUILD_PACKAGES[armhf]="crossbuild-essential-armhf"
+BASE_BUILD_PACKAGES[i386]="gcc-multilib g++-multilib"
+BASE_BUILD_PACKAGES[armhf]="crossbuild-essential-armhf libc6:armhf libstdc++6:armhf"
 BASE_BUILD_PACKAGES[riscv64]="crossbuild-essential-riscv64"
 BASE_BUILD_PACKAGES[ppc64el]="crossbuild-essential-ppc64el"
 
 SDL_BUILD_PACKAGES[common]="cmake ninja-build"
-# TODO: add libpipewire-0.3-dev and libdecor-0-dev after we migrate from 20.04
 # TODO: figure out how to install fcitx and ibus dev in cross compile environment on gha
 # In theory, we better run this in limited container. Right now, some preinstalled PHP shit breaks libpcre builds
 # and prevents us from installing crosscompiling packages
@@ -32,9 +30,8 @@ SDL_BUILD_PACKAGES[amd64]="libasound2-dev libpulse-dev \
 	libaudio-dev libjack-dev libsndio-dev libsamplerate0-dev libx11-dev libxext-dev \
 	libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libwayland-dev \
 	libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev \
-	libegl1-mesa-dev libdbus-1-dev libudev-dev"
+	libegl1-mesa-dev libdbus-1-dev libudev-dev libpipewire-0.3-dev libdecor-0-dev"
 SDL_BUILD_PACKAGES[i386]="${SDL_BUILD_PACKAGES[amd64]//-dev/-dev:i386} libjack0:i386" # test
-#SDL_BUILD_PACKAGES[arm64]=${SDL_BUILD_PACKAGES[amd64]//-dev/-dev:arm64}
 SDL_BUILD_PACKAGES[arm64]=${SDL_BUILD_PACKAGES[amd64]}
 SDL_BUILD_PACKAGES[armhf]=${SDL_BUILD_PACKAGES[amd64]//-dev/-dev:armhf}
 SDL_BUILD_PACKAGES[riscv64]=${SDL_BUILD_PACKAGES[amd64]//-dev/-dev:riscv64}
@@ -43,10 +40,7 @@ SDL_BUILD_PACKAGES[ppc64el]=${SDL_BUILD_PACKAGES[amd64]//-dev/-dev:ppc64el}
 APPIMAGETOOL[amd64]=https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
 APPIMAGETOOL[i386]=https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-i686.AppImage
 APPIMAGETOOL[arm64]=https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-aarch64.AppImage
-
-# can't run AppImageTool yet because it's compiled for these platforms natively and don't support cross compilation yet
-# uncomment when we will enable qemu-user for tests
-# APPIMAGETOOL[armhf]=https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-armhf.AppImage
+APPIMAGETOOL[armhf]=https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-armhf.AppImage
 
 RUST_TARGET[amd64]=x86_64-unknown-linux-gnu
 RUST_TARGET[i386]=i686-unknown-linux-gnu
@@ -70,7 +64,7 @@ regenerate_sources_list()
 }
 
 if [ "$GH_CPU_ARCH" != "amd64" ] && [ "$GH_CPU_ARCH" != "arm64" ] && [ -n "$GH_CPU_ARCH" ]; then
-	if [ "$GH_CPU_ARCH" != "i386" ]; then
+	if [ "$GH_CPU_ARCH" != "i386" ] && [ "$GH_CPU_ARCH" != "armhf" ]; then
 		regenerate_sources_list
 	fi
 	sudo dpkg --add-architecture "$GH_CPU_ARCH"
