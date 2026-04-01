@@ -2,7 +2,7 @@
 # encoding: utf-8
 # mittorn, 2018
 
-from waflib import Logs, TaskGen
+from waflib import Logs, TaskGen, Utils
 from waflib.extras import pthread
 import os
 from copy import copy
@@ -358,7 +358,8 @@ def build(bld):
 			if bld.env.LIBPATH_SDL2:
 				paths += bld.env.LIBPATH_SDL2
 
-			if bld.env.FRAMEWORKPATH_SDL2:
-				paths += bld.env.FRAMEWORKPATH_SDL2
-
 			tg.ut_paths = os.pathsep.join(paths) + os.pathsep
+
+			# taken from dyld(1) man-page
+			if Utils.unversioned_sys_platform() == 'darwin':
+				tg.ut_env['DYLD_FALLBACK_FRAMEWORK_PATH'] = '/Library/Frameworks:/System/Library/Frameworks'
