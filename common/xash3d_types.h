@@ -122,6 +122,10 @@ typedef int qboolean;
 	#define EXPORT __declspec( dllexport )
 #endif
 
+#ifdef ARRAYSIZE
+#undef ARRAYSIZE
+#endif // ARRAYSIZE
+
 #define ARRAYSIZE( p )	( sizeof(( p ))/ sizeof(( p )[0] ))
 
 #if defined( __SANITIZE_ADDRESS__ )
