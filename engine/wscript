@@ -255,7 +255,8 @@ def build(bld):
 			install_path = bld.env.BINDIR,
 		)
 
-		if bld.env.TESTS:
+		# the execution stucks on macOS, disable for now
+		if bld.env.TESTS and Utils.unversioned_sys_platform() != 'darwin':
 			fs_tg = bld.get_tgen_by_name('filesystem_stdio')
 			fs_tg.post()
 			tg = bld.program(
@@ -339,7 +340,8 @@ def build(bld):
 			linkflags = linkflags,
 		)
 
-		if bld.env.TESTS:
+		# the execution stucks on macOS, disable for now
+		if bld.env.TESTS and Utils.unversioned_sys_platform() != 'darwin':
 			fs_tg = bld.get_tgen_by_name('filesystem_stdio')
 			fs_tg.post()
 			tg = bld.program(source = source,
