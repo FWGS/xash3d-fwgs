@@ -52,8 +52,9 @@ static void BuildGammaTable( const float gamma, const float brightness, const fl
 
 	for( i = 0; i < 256; i++ )
 	{
-		double d = pow( i / 255.0, (double)g2 );
-		int inf = d * 255.0;
+		// keep it float or texgamma test will fail with -ffast-math
+		float d = pow( i / 255.0, (double)g2 );
+		int inf = d * 255.0f;
 		texgammatable[i] = bound( 0, inf, 255 );
 	}
 
