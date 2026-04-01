@@ -961,7 +961,7 @@ static void Test_LZSS( void )
 	};
 	const char decompressed[] = "Do you like what you see?";
 
-#ifdef USING_ASAN
+#ifdef USE_ASAN
 	ASAN_POISON_MEMORY_REGION( poison1, sizeof( poison1 ));
 	ASAN_POISON_MEMORY_REGION( poison2, sizeof( poison2 ));
 	ASAN_POISON_MEMORY_REGION( poison3, sizeof( poison3 ));
