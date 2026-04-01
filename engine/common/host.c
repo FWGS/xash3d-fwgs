@@ -297,27 +297,6 @@ void Host_ValidateEngineFeatures( uint32_t mask, uint32_t features )
 }
 
 /*
-==============
-Host_IsQuakeCompatible
-
-==============
-*/
-qboolean Host_IsQuakeCompatible( void )
-{
-	// feature set
-	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
-		return true;
-
-#if !XASH_DEDICATED
-	// quake demo playing
-	if( cls.demoplayback == DEMO_QUAKE1 )
-		return true;
-#endif // XASH_DEDICATED
-
-	return false;
-}
-
-/*
 ================
 Host_EndGame
 ================
