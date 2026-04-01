@@ -56,9 +56,6 @@ def options(opt):
 	grp.add_option('--enable-static-binary', action = 'store_true', dest = 'STATIC', default = False,
 		help = 'build static binary(not recommended, --single-binary required) [default: %(default)s]')
 
-	grp.add_option('--enable-engine-tests', action = 'store_true', dest = 'ENGINE_TESTS', default = False,
-		help = 'embed tests into the engine, jump into them by -runtests command line switch [default: %(default)s]')
-
 	grp.add_option('--enable-engine-fuzz', action = 'store_true', dest = 'ENGINE_FUZZ', default = False,
 		help = 'add LLVM libFuzzer [default: %(default)s]' )
 
@@ -146,7 +143,6 @@ def configure(conf):
 			conf.check(features='c cprogram', framework=i, uselib_store=i, msg='Checking for %s framework' % i)
 
 	conf.define('ENGINE_DLL', 1)
-	conf.define_cond('XASH_ENGINE_TESTS', conf.options.ENGINE_TESTS)
 
 	if conf.options.FFMPEG:
 		pkgconf_args = '--cflags' if conf.options.FFMPEG_DLOPEN else '--cflags --libs'
@@ -247,15 +243,33 @@ def build(bld):
 	if bld.env.SERVER:
 		# TODO: avoid possible name collision when client is built without launcher
 		# but dedicated server is enabled. They're both called 'xash' in this case
+		server_source = copy(source)
+		server_libs = copy(libs)
 		bld.program(
-			source = copy(source),
+			source = server_source,
 			target = 'xash',
-			use = copy(libs),
+			use = server_libs,
 			includes = includes,
 			defines = 'XASH_ENABLE_MAIN=1 XASH_DEDICATED=1',
 			rpath = bld.env.DEFAULT_RPATH,
 			install_path = bld.env.BINDIR,
 		)
+
+		if bld.env.TESTS:
+			fs_tg = bld.get_tgen_by_name('filesystem_stdio')
+			fs_tg.post()
+			tg = bld.program(
+				source = server_source,
+				target = 'xash_tests_dedicated',
+				use = server_libs,
+				includes = includes,
+				features = 'test',
+				defines = 'XASH_ENABLE_MAIN=1 XASH_DEDICATED=1 XASH_ENGINE_TESTS=1',
+				rpath = bld.env.DEFAULT_RPATH,
+				install_path = None,
+				ut_str = '${SRC[0].abspath()} -dev 2 -runtests',
+			)
+			tg.ut_paths = fs_tg.link_task.outputs[0].parent.abspath() + os.pathsep
 
 	if bld.env.CLIENT:
 		defines = []
@@ -324,3 +338,19 @@ def build(bld):
 			rpath = bld.env.DEFAULT_RPATH,
 			linkflags = linkflags,
 		)
+
+		if bld.env.TESTS:
+			fs_tg = bld.get_tgen_by_name('filesystem_stdio')
+			fs_tg.post()
+			tg = bld.program(source = source,
+				target = 'xash_tests',
+				includes = includes,
+				features = 'cxx c test',
+				use = libs,
+				defines = defines + ['XASH_ENABLE_MAIN=1', 'XASH_ENGINE_TESTS=1'],
+				install_path = None,
+				rpath = bld.env.DEFAULT_RPATH,
+				linkflags = linkflags,
+				ut_str = '${SRC[0].abspath()} -dev 2 -runtests',
+			)
+			tg.ut_paths = fs_tg.link_task.outputs[0].parent.abspath() + os.pathsep
