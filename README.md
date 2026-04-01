@@ -139,11 +139,6 @@ To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` b
 
 ### Running tests
 
-There are two kinds of tests.
+Tests are enabled with `--enable-tests` passed to `./waf configure` and can be run with `./waf --alltests`.
 
-Standalone unit tests are enabled with `--enable-tests` passed to `./waf configure` and can be run with `./waf --alltests`.
-
-Engine-embedded tests are enabled with `--enable-engine-tests`. They require engine context but no game assets. To run them:
-
-0) Install engine: `./waf install --destdir=<directory>`
-1) Run from the install directory: `./xash3d -dev 2 -runtests`
+This builds both standalone unit tests and a separate engine test binary (`xash3d_tests`) that embeds engine-level tests. The engine test binary requires no game assets.
