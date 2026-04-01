@@ -362,4 +362,6 @@ def build(bld):
 
 			# taken from dyld(1) man-page
 			if Utils.unversioned_sys_platform() == 'darwin':
+				if not hasattr(tg, 'ut_env'):
+					setattr(tg, 'ut_env', dict(os.environ))
 				tg.ut_env['DYLD_FALLBACK_FRAMEWORK_PATH'] = '/Library/Frameworks:/System/Library/Frameworks'
