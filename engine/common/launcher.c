@@ -25,10 +25,6 @@ GNU General Public License for more details.
 #define XASH_GAMEDIR "valve" // !!! Replace with your default (base) game directory !!!
 #endif
 
-#if XASH_WIN32
-#error "Single-binary or dedicated builds aren't supported for Windows!"
-#endif
-
 static int  szArgc;
 static char **szArgv;
 
