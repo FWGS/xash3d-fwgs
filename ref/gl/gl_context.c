@@ -86,7 +86,7 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 	if(( name[0] == '*' && Q_stricmp( name, REF_DEFAULT_TEXTURE )) || name[0] == '!' )
 		return true;
 
-	if( !ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
+	if( !FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 	{
 		if( !Q_strncmp( name, "water", 5 ) || !Q_strnicmp( name, "laser", 5 ))
 			return true;

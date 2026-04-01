@@ -888,7 +888,7 @@ static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 		float flRate, flAngle, sy, cy;
 		gl_texture_t *texture;
 
-		if( e == CL_GetEntityByIndex( 0 ) && ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
+		if( e == CL_GetEntityByIndex( 0 ) && FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 		{
 			// same as doom speed
 			flConveyorSpeed = -35.0f;
@@ -1461,7 +1461,7 @@ static void R_DrawTextureChains( void )
 			continue;	// draw translucent water later
 		}
 
-		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && FBitSet( s->flags, SURF_TRANSPARENT ))
+		if( FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ) && FBitSet( s->flags, SURF_TRANSPARENT ))
 		{
 			R_AddToSeparatePass( &draw_alpha_surfaces, i );
 			continue;	// draw transparent surfaces later
@@ -1642,7 +1642,7 @@ static void R_SetRenderMode( cl_entity_t *e )
 	case kRenderTransAlpha:
 		pglEnable( GL_ALPHA_TEST );
 		pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-		if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
+		if( FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 		{
 			pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 			pglColor4f( 1.0f, 1.0f, 1.0f, tr.blend );
@@ -1667,7 +1667,7 @@ static void R_SetRenderMode( cl_entity_t *e )
 
 static int R_SortBrushModelSurfaces( cl_entity_t *e, model_t *clmodel, vec3_t mins )
 {
-	qboolean quake_compatible = ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE );
+	qboolean quake_compatible = FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ) ? true : false;
 	int num_sorted = 0;
 
 	for( int i = 0; i < clmodel->nummodelsurfaces; i++ )
@@ -1766,7 +1766,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 		VectorSubtract( RI.cullorigin, e->origin, tr.modelorg );
 	}
 
-	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
+	if( FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ) && FBitSet( clmodel->flags, MODEL_TRANSPARENT ))
 		e->curstate.rendermode = kRenderTransAlpha;
 
 	e->visframe = tr.realframecount; // visible
