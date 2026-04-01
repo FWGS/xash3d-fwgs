@@ -73,7 +73,7 @@ build_engine()
 	fi
 
 	# shellcheck disable=SC2086
-	./waf configure $WAF_EXTRA_ARGS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stbtt --enable-utils --enable-tui --enable-dedicated || die_configure
+	./waf configure $WAF_EXTRA_ARGS --enable-lto --enable-bundled-deps -s SDL2_linux --enable-stbtt --enable-utils --enable-tui --enable-dedicated --enable-all-renderers || die_configure
 
 	./waf build || die_configure
 }
