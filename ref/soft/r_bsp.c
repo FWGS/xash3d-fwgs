@@ -359,7 +359,7 @@ void R_DrawSolidClippedSubmodelPolygons( model_t *pmodel, mnode_t *topnode )
 
 	for( i = 0; i < numsurfaces; i++, psurf++ )
 	{
-		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
+		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 		{
 			if( psurf->plane->type != PLANE_Z && !FBitSet( RI.currententity->curstate.effects, EF_WATERSIDES ))
 				continue;
@@ -441,7 +441,7 @@ void R_DrawSubmodelPolygons( model_t *pmodel, int clipflags, mnode_t *topnode )
 
 	for( i = 0; i < numsurfaces; i++, psurf++ )
 	{
-		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
+		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 		{
 			if( psurf->plane->type != PLANE_Z && !FBitSet( RI.currententity->curstate.effects, EF_WATERSIDES ))
 				continue;

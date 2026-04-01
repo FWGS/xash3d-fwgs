@@ -345,7 +345,7 @@ void R_SetupFrustum( void )
 {
 	const ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
 
-	if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ) && ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
+	if( RP_NORMALPASS() && FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ) && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ))
 	{
 		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97f + sin( gp_cl->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
 		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03f - sin( gp_cl->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
@@ -696,7 +696,7 @@ static void R_CheckFog( void )
 	int		i, cnt, count;
 
 	// quake global fog
-	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
+	if( FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 	{
 		if( !tr.movevars->fog_settings )
 		{
@@ -824,9 +824,7 @@ void R_DrawFog( void )
 		return;
 
 	pglEnable( GL_FOG );
-	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
-		pglFogi( GL_FOG_MODE, GL_EXP2 );
-	else pglFogi( GL_FOG_MODE, GL_EXP );
+	pglFogi( GL_FOG_MODE, FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ) ? GL_EXP2 : GL_EXP );
 	pglFogf( GL_FOG_DENSITY, RI.fogDensity );
 	pglFogfv( GL_FOG_COLOR, RI.fogColor );
 	pglHint( GL_FOG_HINT, GL_NICEST );

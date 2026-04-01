@@ -837,7 +837,7 @@ static byte *GL_ApplyFilter( const byte *source, int width, int height )
 	byte	*out = (byte *)source;
 	int	i;
 
-	if( ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ) || glConfig.max_multisamples > 1 )
+	if( FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ) || glConfig.max_multisamples > 1 )
 		return in;
 
 	for( i = 0; source && i < width * height; i++, in += 4 )
