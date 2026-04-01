@@ -564,7 +564,11 @@ qboolean Sound_SupportedFileFormat( const char *fileext );
 //
 typedef void( *pfnChangeGame )( const char *progname );
 
-qboolean Host_IsQuakeCompatible( void );
+static inline qboolean Host_IsQuakeCompatible( void )
+{
+	return FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ) ? true : false;
+}
+
 void Host_ShutdownWithReason( const char *reason );
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame func );
 void Host_EndGame( qboolean abort, const char *message, ... ) FORMAT_CHECK( 2 );
