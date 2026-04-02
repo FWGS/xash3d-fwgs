@@ -16,34 +16,11 @@ GNU General Public License for more details.
 #ifndef COMMON_H
 #define COMMON_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/*
-===================================================================================================================================
-Legend:
-
-INTERNAL RESOURCE			- function contain hardcoded path to resource that engine required (optional in most cases)
-OBSOLETE, UNUSED			- this function no longer used and leaved here for keep binary compatibility
-TODO				- some functionality not impemented but planned
-FIXME				- code doesn't working properly in some rare cases
-HACKHACK				- unexpected behavior on some input params (or something like)
-BUGBUG				- code doesn't working properly in most cases!
-TESTTEST				- this code may be unstable and needs to be more tested
-g-cont:				- notes from engine author
-XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
-===================================================================================================================================
-*/
-
-#include "port.h"
-
-#include "backends.h"
-#include "defaults.h"
-
 #include <stdio.h>
 #include <stdlib.h> // rand, adbs
 #include <stdarg.h> // va
+
+#include "build.h"
 
 #if !XASH_WIN32
 #include <stddef.h> // size_t
@@ -51,7 +28,38 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 #include <sys/types.h> // off_t
 #endif
 
+#include "port.h"
+#include "backends.h"
+#include "defaults.h"
 #include "library_suffix.h"
+#include "enginefeatures.h"
+#include "system.h"
+#include "com_model.h"
+#include "com_strings.h"
+#include "crtlib.h"
+#define FSCALLBACK_OVERRIDE_MALLOC_LIKE
+#include "fscallback.h"
+#include "cvar.h"
+#include "con_nprint.h"
+#include "crclib.h"
+#include "ref_api.h"
+#include "com_image.h"
+
+/*
+===================================================================================================================================
+Legend:
+
+INTERNAL RESOURCE - function contain hardcoded path to resource that engine required (optional in most cases)
+OBSOLETE, UNUSED  - this function no longer used and leaved here for keep binary compatibility
+TODO              - some functionality not impemented but planned
+FIXME             - code doesn't working properly in some rare cases
+HACKHACK          - unexpected behavior on some input params (or something like)
+BUGBUG            - code doesn't working properly in most cases!
+TESTTEST          - this code may be unstable and needs to be more tested
+g-cont:           - notes from engine author
+XASH SPECIFIC     - sort of hack that works only in Xash3D not in GoldSrc
+===================================================================================================================================
+*/
 
 // configuration
 
@@ -60,21 +68,19 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 //
 #if XASH_TIMER == TIMER_NULL
 	#error "Please select timer backend"
-#endif
+#endif // XASH_TIMER == TIMER_NULL
 
 #if !XASH_DEDICATED
 	#if XASH_VIDEO == VIDEO_NULL
 		#error "Please select video backend"
-	#endif
-#endif
+	#endif // XASH_VIDEO == VIDEO_NULL
+#endif // !XASH_DEDICATED
 
 #ifndef XASH_SDL
-
-#if XASH_TIMER == TIMER_SDL || XASH_VIDEO == VIDEO_SDL || XASH_SOUND == SOUND_SDL || XASH_INPUT == INPUT_SDL
-#error "SDL backends without XASH_SDL not allowed"
-#endif
-
-#endif
+	#if XASH_TIMER == TIMER_SDL || XASH_VIDEO == VIDEO_SDL || XASH_SOUND == SOUND_SDL || XASH_INPUT == INPUT_SDL
+		#error "SDL backends without XASH_SDL not allowed"
+	#endif // XASH_TIMER == TIMER_SDL || XASH_VIDEO == VIDEO_SDL || XASH_SOUND == SOUND_SDL || XASH_INPUT == INPUT_SDL
+#endif // XASH_SDL
 
 #define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
 
@@ -96,19 +102,6 @@ typedef enum instance_e
 #else
 #define Host_IsDedicated() ( host.type == HOST_DEDICATED )
 #endif
-
-#include "system.h"
-#include "com_model.h"
-#include "com_strings.h"
-#include "crtlib.h"
-#define FSCALLBACK_OVERRIDE_OPEN
-#define FSCALLBACK_OVERRIDE_LOADFILE
-#define FSCALLBACK_OVERRIDE_MALLOC_LIKE
-#include "fscallback.h"
-#include "cvar.h"
-#include "con_nprint.h"
-#include "crclib.h"
-#include "ref_api.h"
 
 // PERFORMANCE INFO
 #define MIN_FPS         20.0f    // host minimum fps value for maxfps.
@@ -480,7 +473,6 @@ void Cmd_Escape( char *newCommand, const char *oldCommand, int len );
 //
 // imagelib
 //
-#include "com_image.h"
 
 void Image_Setup( void );
 void Image_Init( void );
@@ -938,7 +930,4 @@ void SoundList_Shutdown( void );
 #error "common.h in ref_dll"
 #endif
 
-#ifdef __cplusplus
-}
-#endif
 #endif//COMMON_H
