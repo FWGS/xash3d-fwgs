@@ -2340,15 +2340,24 @@ static void R_StudioDrawPoints( void )
 	pstudionorms = (vec3_t *)((byte *)m_pStudioHeader + m_pSubModel->normindex);
 
 	// backface culling for left-handed weapons
-	if( R_AllowFlipViewModel( RI.currententity ))
+	//
+	// there is a bug in GoldSrc that sets backface culling to GL_FRONT
+	// but doesn't check OpenGL state. This allows mod developers to disable
+	// backface culling through TriAPI call
+	//
+	// see https://github.com/FWGS/xash3d-fwgs/issues/2517
+	if( glState.faceCull != GL_NONE )
 	{
-		tr.fFlipViewModel = true;
-		GL_Cull( GL_NONE );
-	}
-	else
-	{
-		tr.fFlipViewModel = false;
-		GL_Cull( GL_FRONT );
+		if( R_AllowFlipViewModel( RI.currententity ))
+		{
+			tr.fFlipViewModel = true;
+			GL_Cull( GL_NONE );
+		}
+		else
+		{
+			tr.fFlipViewModel = false;
+			GL_Cull( GL_FRONT );
+		}
 	}
 
 	for( j = 0; j < m_pSubModel->nummesh; j++ )
