@@ -85,9 +85,9 @@ typedef struct
 typedef struct rawchan_s
 {
 	int                   entnum;
-	int                   master_vol;
-	int                   leftvol;       // 0-255 left volume
-	int                   rightvol;      // 0-255 right volume
+	short                 master_vol;
+	short                 leftvol;       // 0-255 left volume
+	short                 rightvol;      // 0-255 right volume
 	float                 dist_mult;     // distance multiplier (attenuation/clipK)
 	vec3_t                origin;        // only use if fixed_origin is set
 	volatile uint         s_rawend;
@@ -101,14 +101,15 @@ typedef struct channel_s
 	char      name[16];    // keep sentence name
 	sfx_t     *sfx;         // sfx number
 
-	int       leftvol;     // 0-255 left volume
-	int       rightvol;    // 0-255 right volume
+	vec3_t    origin;      // only use if fixed_origin is set
+	float     dist_mult;   // distance multiplier (attenuation/clipK)
 
 	int       entnum;      // entity soundsource
 	int       entchannel;  // sound channel (CHAN_STREAM, CHAN_VOICE, etc.)
-	vec3_t    origin;      // only use if fixed_origin is set
-	float     dist_mult;   // distance multiplier (attenuation/clipK)
-	int       master_vol;  // 0-255 master volume
+	short     master_vol;  // 0-255 master volume
+	short     leftvol;     // 0-255 left volume
+	short     rightvol;    // 0-255 right volume
+	short     basePitch;   // base pitch percent (100% is normal pitch playback)
 	byte      use_loop    : 1; // don't loop default and local sounds
 	byte      staticsound : 1; // use origin instead of fetching entnum's origin
 	byte      localsound  : 1; // it's a local menu sound (not looped, not paused)
@@ -116,11 +117,15 @@ typedef struct channel_s
 	byte      sentence_finished : 1; // if set, finished playing sentence
 	byte      finished : 1; // if set, finished playing single word
 	byte      word_index;
-	short     basePitch;   // base pitch percent (100% is normal pitch playback)
-	voxword_t words[CVOXWORDMAX];
+	// HACKHACK: count when this channel became inaudible
+	// to not free it when it could be respatialized soon
+#define MAX_CHANNEL_INAUDIBLE_TIME 0.1f
+	float     inauduble_free_time;
+
 	double    sample;
 	double    forced_end;
 	wavdata_t *data;
+	voxword_t words[CVOXWORDMAX];
 } channel_t;
 
 typedef struct

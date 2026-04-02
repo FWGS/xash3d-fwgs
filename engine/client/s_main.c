@@ -521,7 +521,7 @@ static int S_AlterChannel( int entnum, int channel, const sfx_t *sfx, int vol, i
 S_SpatializeChannel
 =================
 */
-static void S_SpatializeChannel( int *left_vol, int *right_vol, int master_vol, float dot, float dist )
+static void S_SpatializeChannel( short *left_vol, short *right_vol, int master_vol, float dot, float dist )
 {
 	float scale;
 

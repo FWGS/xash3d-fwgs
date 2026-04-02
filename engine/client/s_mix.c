@@ -284,12 +284,19 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 		// if the sound is unaudible, skip it
 		// if it's also not looping, free it
 		if( ch->leftvol < 8 && ch->rightvol < 8 )
-		{
+		{	
 			if( !FBitSet( sc->flags, SOUND_LOOPED ) || !ch->use_loop )
-				S_FreeChannel( ch );
+			{
+				if( ch->inauduble_free_time == 0.0f )
+					ch->inauduble_free_time = host.realtime + MAX_CHANNEL_INAUDIBLE_TIME;
+				else if( ch->inauduble_free_time > host.realtime )
+					S_FreeChannel( ch );
+			}
 
 			continue;
 		}
+
+		ch->inauduble_free_time = 0.0f;
 
 		if( rate != sc->rate )
 			continue;
