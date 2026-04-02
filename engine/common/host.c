@@ -892,6 +892,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	host.config_executed = false;
 	host.status = HOST_INIT; // initialzation started
 	host.type = HOST_DEDICATED; // predict state
+	Q_strncpy( host.default_gamedir, basedir, sizeof( host.default_gamedir ));
 
 #ifndef XASH_DEDICATED
 	if( !Sys_CheckParm( "-dedicated" ))
@@ -964,8 +965,8 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #if XASH_DEDICATED
 	Platform_SetupSigtermHandling();
 #endif
-	Platform_Init( Host_IsDedicated( ) || developer >= DEV_EXTENDED, basedir );
-	FS_Init( basedir );
+	Platform_Init( Host_IsDedicated( ) || developer >= DEV_EXTENDED );
+	FS_Init();
 
 	// print current developer level to simplify processing users feedback
 	if( developer > 0 )

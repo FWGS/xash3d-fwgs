@@ -27,9 +27,6 @@ extern fs_globals_t *FI;
 #define FS_Gamedir() GI->gamefolder
 #define FS_Title()   GI->title
 
-#define FS_InitStdio     (*g_fsapi.InitStdio)
-#define FS_ShutdownStdio (*g_fsapi.ShutdownStdio)
-
 // search path utils
 #define FS_Rescan (*g_fsapi.Rescan)
 #define FS_ClearSearchPath (*g_fsapi.ClearSearchPath)

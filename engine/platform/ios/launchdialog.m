@@ -21,9 +21,6 @@
 #include <sys/stat.h>
 #include "dlfcn.h"
 
-#ifndef XASH_GAMEDIR
-#define XASH_GAMEDIR "valve" // !!! Replace with your default (base) game directory !!!
-#endif
 #define XASHLIB "@rpath/libxash.dylib"
 
 

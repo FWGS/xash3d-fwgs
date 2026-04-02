@@ -58,7 +58,7 @@ char *Posix_Input( void );
 #endif
 
 #if XASH_SDL
-void SDLash_Init( const char *basedir );
+void SDLash_Init( void );
 void SDLash_Shutdown( void );
 void SDLash_NanoSleep( int nsec );
 #endif
@@ -111,7 +111,7 @@ void Linux_SetTimer( float time );
 int Linux_GetProcessID( void );
 #endif
 
-static inline void Platform_Init( qboolean con_showalways, const char *basedir )
+static inline void Platform_Init( qboolean con_showalways )
 {
 #if XASH_POSIX
 	// daemonize as early as possible, because we need to close our file descriptors
@@ -119,7 +119,7 @@ static inline void Platform_Init( qboolean con_showalways, const char *basedir )
 #endif
 
 #if XASH_SDL
-	SDLash_Init( basedir );
+	SDLash_Init( );
 #endif
 
 #if XASH_ANDROID

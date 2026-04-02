@@ -14,11 +14,11 @@ GNU General Public License for more details.
 */
 #include <string.h>
 #include <SDL.h>
+#include <dlfcn.h>
 #include "crtlib.h"
-#include "fscallback.h"
 #include "library.h"
 #include "platform/ios/lib_ios.h"
-#include <dlfcn.h>
+#include "common.h"
 
 #define EXT_LENGTH 5
 
@@ -55,7 +55,7 @@ void *IOS_LoadLibrary( const char *dllname )
 	
 	if( !postfix )
 	{
-		if ( Q_strcmp(FS_Gamedir(), "valve" ) )
+		if ( Q_strcmp(FS_Gamedir(), host.default_gamedir ) )
 		{
 			postfix = FS_Gamedir( );
 		}

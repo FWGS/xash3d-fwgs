@@ -328,7 +328,7 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 FS_Init
 ================
 */
-void FS_Init( const char *basedir )
+void FS_Init( void )
 {
 	string gamedir;
 	char rodir[MAX_OSPATH], rootdir[MAX_OSPATH];
@@ -352,7 +352,7 @@ void FS_Init( const char *basedir )
 		if( env )
 			Q_strncpy( gamedir, env, sizeof( gamedir ));
 		else
-			Q_strncpy( gamedir, basedir, sizeof( gamedir )); // gamedir == basedir
+			Q_strncpy( gamedir, host.default_gamedir, sizeof( gamedir )); // gamedir == basedir
 	}
 
 	FS_LoadProgs();
@@ -364,7 +364,7 @@ void FS_Init( const char *basedir )
 	// and this better be reworked at some point
 	g_fsapi.SetCurrentDirectory( rootdir );
 
-	if( !g_fsapi.InitStdio( true, rootdir, basedir, gamedir, rodir ))
+	if( !g_fsapi.InitStdio( true, rootdir, host.default_gamedir, gamedir, rodir ))
 	{
 		Sys_Error( "Can't init filesystem_stdio!\n" );
 		return;

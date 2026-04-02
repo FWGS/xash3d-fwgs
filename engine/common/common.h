@@ -344,6 +344,9 @@ typedef struct host_parm_s
 	string   gamedll;
 	string   clientlib;
 	string   menulib;
+
+	// default game directory, passed to us from game launcher
+	string default_gamedir;
 } host_parm_t;
 
 extern host_parm_t	host;
@@ -389,7 +392,7 @@ void Mem_Stats_f( void );
 //
 // filesystem_engine.c
 //
-void FS_Init( const char *basedir );
+void FS_Init( void );
 void FS_Shutdown( void );
 void *FS_GetNativeObject( const char *obj );
 int FS_Close( file_t *file );
