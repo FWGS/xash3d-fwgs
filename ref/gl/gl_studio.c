@@ -2342,7 +2342,7 @@ static void R_StudioDrawPoints( void )
 	// backface culling for left-handed weapons
 	//
 	// there is a bug in GoldSrc that sets backface culling to GL_FRONT
-	// but doesn't check OpenGL state. This allows mod developers to disable
+	// but doesn't enable OpenGL GL_CULL_FACE. This allows mod developers to disable
 	// backface culling through TriAPI call
 	//
 	// see https://github.com/FWGS/xash3d-fwgs/issues/2517
