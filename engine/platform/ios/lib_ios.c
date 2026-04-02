@@ -13,63 +13,83 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #include <string.h>
+#include <unistd.h>
 #include <SDL.h>
 #include <dlfcn.h>
+#include <sys/stat.h>
 #include "crtlib.h"
 #include "library.h"
 #include "platform/ios/lib_ios.h"
 #include "common.h"
 
-#define EXT_LENGTH 5
+const char *g_szLibrarySuffix;
 
 static void *IOS_LoadLibraryInternal( const char *dllname )
 {
 	void *pHandle;
-	string errorstring = "";
 	char path[MAX_SYSPATH];
 
-	Q_snprintf( path, MAX_SYSPATH, "%s%s", SDL_GetBasePath(), dllname );
+	Q_snprintf( path, sizeof( path ), "%s%s", SDL_GetBasePath(), dllname );
 	pHandle = dlopen( path, RTLD_LAZY );
 
 	if( !pHandle )
-	{
-		COM_PushLibraryError(errorstring);
-		COM_PushLibraryError(dlerror());
-	}
+		COM_PushLibraryError(dlerror( ));
 
 	return pHandle;
 }
-const char *g_szLibrarySuffix;
+
+static qboolean IOS_LibraryExistsInternal( const char *name )
+{
+	struct stat buf;
+	char path[MAX_SYSPATH];
+
+	Q_snprintf( path, sizeof( path ), "%s%s", SDL_GetBasePath(), name );
+
+	return stat( path, &buf ) == 0;
+}
+
+static const char *IOS_GetLibraryPostfix( void )
+{
+	if( g_szLibrarySuffix )
+		return g_szLibrarySuffix;
+
+	return Q_strcmp( host.default_gamedir, FS_Gamedir( )) ? FS_Gamedir( ) : "";
+}
+
+static void IOS_PrepareGameLibraryPath( const char *dllname, char *out, size_t outsize )
+{
+	string strippedname;
+
+	Q_strncpy( strippedname, dllname, sizeof( strippedname ));
+	COM_StripExtension( strippedname );
+
+	Q_snprintf( out, outsize, "%s_%s.dylib", strippedname, IOS_GetLibraryPostfix( ));
+}
+
 void *IOS_LoadLibrary( const char *dllname )
 {
-	//Immediately load if the library is filesystem_stdio.dylib or we will crash when accessing gamedir
-	if ( !Q_strcmp( dllname, "filesystem_stdio.dylib" ) )
-	{
+	// filesystem_stdio is a special case, as engine won't work correctly without it
+	// but it's always located at known path
+	if( !Q_strcmp( dllname, "filesystem_stdio.dylib" ))
 		return IOS_LoadLibraryInternal( dllname );
-	}
 
 	string name;
-	string strippedname;
-	const char *postfix = g_szLibrarySuffix;
 	char *pHandle;
-	
-	if( !postfix )
-	{
-		if ( Q_strcmp(FS_Gamedir(), host.default_gamedir ) )
-		{
-			postfix = FS_Gamedir( );
-		}
-		else postfix = "";
-	}
 
-	Q_strncpy( strippedname, dllname, sizeof( strippedname ) );
-	COM_StripExtension(strippedname);
-	
-	Q_snprintf( name, MAX_STRING, "%s_%s.dylib", strippedname, postfix );
+	IOS_PrepareGameLibraryPath( dllname, name, sizeof( name ));
 	pHandle = IOS_LoadLibraryInternal( name );
 
-	if( pHandle )
-		return pHandle;
+	if( !pHandle )
+		pHandle = IOS_LoadLibraryInternal( dllname );
 
-	return IOS_LoadLibraryInternal( dllname );
+	return pHandle;
+}
+
+qboolean IOS_LibraryExists( const char *dllname )
+{
+	string name;
+
+	IOS_PrepareGameLibraryPath( dllname, name, sizeof( name ));
+
+	return IOS_LibraryExistsInternal( name ) || IOS_LibraryExistsInternal( dllname );
 }
