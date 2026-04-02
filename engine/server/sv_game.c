@@ -1284,6 +1284,12 @@ static int GAME_EXPORT pfnPrecacheModel( const char *s )
 	qboolean	optional = false;
 	int	i;
 
+	if( COM_StringEmptyOrNULL( s ))
+	{
+		Host_Error( "%s: NULL pointer or empty string as model name\n", __func__ );
+		return 0;
+	}
+
 	if( *s == '!' )
 	{
 		optional = true;
