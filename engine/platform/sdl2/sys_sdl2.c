@@ -79,20 +79,23 @@ static void SDLCALL SDLash_LogOutputFunction( void *userdata, int category, SDL_
 	case SDL_LOG_PRIORITY_INFO:
 		str = S_NOTE;
 		break;
+	default:
+		str = "";
+		break;
 	}
 
 	Con_Reportf( "%s" S_BLUE "SDL" S_DEFAULT ": [%s] %s\n", str, SDLash_CategoryToString( category ), message );
 }
 
-void SDLash_Init( const char *basedir )
+void SDLash_Init( void )
 {
-#if XASH_APPLE
+#if XASH_IOS
 	char *path = SDL_GetBasePath();
 	if( path != NULL )
 	{
 		char buf[MAX_VA_STRING];
 
-		Q_snprintf( buf, sizeof( buf ), "%s%s/extras.pk3", path, basedir );
+		Q_snprintf( buf, sizeof( buf ), "%s%s/extras.pk3", path, host.default_gamedir );
 		setenv( "XASH3D_EXTRAS_PAK1", buf, true );
 	}
 #endif

@@ -66,10 +66,15 @@ qboolean Platform_DebuggerPresent( void )
 		tracer_pid    = (const byte*)Q_strstr( buf, TracerPid );
 		if( !tracer_pid )
 			return false;
+
 		//printf( "%s\n", tracer_pid );
-		while( *tracer_pid < '0' || *tracer_pid > '9'  )
+
+		while(( *tracer_pid < '0' ) || ( *tracer_pid > '9' ))
+		{
 			if( *tracer_pid++ == '\n' )
 				return false;
+		}
+
 		//printf( "%s\n", tracer_pid );
 		return !!Q_atoi( (const char*)tracer_pid );
 	}
