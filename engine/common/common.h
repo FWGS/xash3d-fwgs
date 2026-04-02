@@ -37,8 +37,6 @@ GNU General Public License for more details.
 #include "com_model.h"
 #include "com_strings.h"
 #include "crtlib.h"
-#define FSCALLBACK_OVERRIDE_MALLOC_LIKE
-#include "fscallback.h"
 #include "cvar.h"
 #include "con_nprint.h"
 #include "crclib.h"

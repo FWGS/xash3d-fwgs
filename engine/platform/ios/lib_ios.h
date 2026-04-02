@@ -20,6 +20,7 @@ GNU General Public License for more details.
 #define Platform_POSIX_LoadLibrary( x ) IOS_LoadLibrary(( x ))
 
 void *IOS_LoadLibrary( const char *dllname );
+qboolean IOS_LibraryExists( const char *name );
 
 #endif // IOS_LIB_H
 #endif // TARGET_OS_IPHONE
