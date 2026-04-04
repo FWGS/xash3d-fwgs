@@ -134,7 +134,7 @@ To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` b
 0) (optional) Examine which build options are available: `./waf --help`.
 1) Configure build: `./waf configure --ios --enable-bundled-deps --sdl2 (path/to/SDL2.framework)`, set `--ios-simulator` instead of `--ios` if you want to build for simulator.
 2) Compile `./waf build`.
-3) Navigate to `build` and copy your compiled SDL2.framework there, then add your client dylibs to `build/ios/cl_dlls` and any other dylibs to `build/ios/dlls` (You can also run `scripts/ios/buildhlsdk.sh` instead to automatically create an ipa with hlsdk dylibs)
+3) Navigate to `build` and copy your compiled SDL2.framework there, then add your game dylibs to `build/ios/libs/(gamedir)/(dlls/cl_dlls)`(You can also run `scripts/ios/buildhlsdk.sh` instead to automatically create an ipa with hlsdk dylibs)
 4) Run `scripts/ios/createipa.sh` to create an installable ipa
 
 ### Running tests
