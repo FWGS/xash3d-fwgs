@@ -36,11 +36,6 @@ GNU General Public License for more details.
 #include "voice.h"
 #include "q_client.h"
 
-// client sprite types
-#define SPR_CLIENT		0	// client sprite for temp-entities or user-textures
-#define SPR_HUDSPRITE	1	// hud sprite
-#define SPR_MAPSPRITE	2	// contain overview.bmp that diced into frames 128x128
-
 //=============================================================================
 typedef struct netbandwithgraph_s
 {
@@ -110,6 +105,8 @@ extern int CL_UPDATE_BACKUP;
 #define MAX_UPDATERATE	102.0f
 
 #define MAX_EX_INTERP	0.1f
+
+#define MAX_TEXTCHANNELS 8 // must be power of two (GoldSrc uses 4 channels)
 
 #define CL_MIN_RESEND_TIME	1.5f		// mininum time gap (in seconds) before a subsequent connection request is sent.
 #define CL_MAX_RESEND_TIME	20.0f		// max time.  The cvar cl_resend is bounded by these.
@@ -309,6 +306,14 @@ typedef enum
 	CL_PAUSED,	// pause when active
 	CL_CHANGELEVEL,	// draw 'loading' during changelevel
 } scrstate_t;
+
+// client sprite types
+enum
+{
+	SPR_CLIENT = 0, // client sprite for temp-entities or user-textures
+	SPR_HUDSPRITE,  // hud sprite
+	SPR_MAPSPRITE,  // contain overview.bmp that diced into frames 128x128
+};
 
 typedef struct
 {
@@ -731,10 +736,7 @@ extern convar_t cl_fixmodelinterpolationartifacts;
 
 //=============================================================================
 
-void CL_SetLightstyle( int style, const char* s, float f );
-void CL_DecayLights( void );
-dlight_t *CL_GetDynamicLight( int number );
-dlight_t *CL_GetEntityLight( int number );
+extern client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS];
 
 //=================================================
 
@@ -1083,6 +1085,10 @@ void R_AddEfrags( cl_entity_t *ent );
 // cl_tent.c
 //
 struct particle_s;
+void CL_SetLightstyle( int style, const char* s, float f );
+void CL_DecayLights( void );
+dlight_t *CL_GetDynamicLight( int number );
+dlight_t *CL_GetEntityLight( int number );
 void CL_WeaponAnim( int iAnim, int body );
 void CL_ClearEffects( void );
 void CL_ClearEfrags( void );
