@@ -12,7 +12,7 @@ else
     git clone --recursive https://github.com/FWGS/hlsdk-portable -b "$1" "$MODPATH"
 fi
 
-mkdir ../../build/ios || exit 1
+mkdir -p ../../build/ios || exit 1
 IOSDIR=$(realpath ../../build/ios)
 cd "$MODPATH" || exit 1
 
