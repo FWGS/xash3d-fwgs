@@ -156,7 +156,7 @@ void TriColor4ub( byte r, byte g, byte b, byte a )
 	ds.triRGBA[2] = b * (1.0f / 255.0f);
 	ds.triRGBA[3] = a * (1.0f / 255.0f);
 
-	_TriColor4f( ds.triRGBA[0], ds.triRGBA[1], ds.triRGBA[2], 1.0f );
+	_TriColor4f( ds.triRGBA[0], ds.triRGBA[1], ds.triRGBA[2], ds.triRGBA[3] );
 }
 
 /*

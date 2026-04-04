@@ -1328,6 +1328,8 @@ static ui_extendedfuncs_t gExtendedfuncs =
 	pfnGetGameInfo,
 	pfnGetModInfo,
 	pfnIsCvarReadOnly,
+	&gTriApi,
+	&ref.dllFuncs,
 };
 
 void UI_UnloadProgs( void )

@@ -49,6 +49,31 @@ static void LM_UploadBlock( qboolean dynamic );
 static qboolean R_AddSurfToVBO( msurface_t *surf, qboolean buildlightmaps );
 static void R_DrawVBO( qboolean drawlightmaps, qboolean drawtextures );
 
+#define PS1_QUANT 1.0f  /* lower = stronger wobble (16-64 typical) */
+/* PS1-style: quantize in clip-space for retro vertex wobble. invMVP from Matrix4x4_Invert_Full. */
+static qboolean R_VertexSnapPS1ClipSpace( const float *in, float *out, const matrix4x4 invMVP )
+{
+	float clip[4];
+	const float (*m)[4] = RI.worldviewProjectionMatrix;
+
+	/* MVP * vec4(x,y,z,1) -> clip space */
+	clip[0] = in[0]*m[0][0] + in[1]*m[0][1] + in[2]*m[0][2] + m[0][3];
+	clip[1] = in[0]*m[1][0] + in[1]*m[1][1] + in[2]*m[1][2] + m[1][3];
+	clip[2] = in[0]*m[2][0] + in[1]*m[2][1] + in[2]*m[2][2] + m[2][3];
+	clip[3] = in[0]*m[3][0] + in[1]*m[3][1] + in[2]*m[3][2] + m[3][3];
+
+	if( clip[3] <= 0.001f )
+		return false;
+
+	clip[0] = (float)(int)( clip[0] * PS1_QUANT + ( clip[0] >= 0.0f ? 0.5f : -0.5f )) / PS1_QUANT;
+	clip[1] = (float)(int)( clip[1] * PS1_QUANT + ( clip[1] >= 0.0f ? 0.5f : -0.5f )) / PS1_QUANT;
+
+	out[0] = clip[0]*invMVP[0][0] + clip[1]*invMVP[0][1] + clip[2]*invMVP[0][2] + clip[3]*invMVP[0][3];
+	out[1] = clip[0]*invMVP[1][0] + clip[1]*invMVP[1][1] + clip[2]*invMVP[1][2] + clip[3]*invMVP[1][3];
+	out[2] = clip[0]*invMVP[2][0] + clip[1]*invMVP[2][1] + clip[2]*invMVP[2][2] + clip[3]*invMVP[2][3];
+	return true;
+}
+
 static inline void R_AddToSeparatePass( separate_pass_t *sp, int num )
 {
 	if( sp->first > num )
@@ -868,14 +893,23 @@ static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 
 	pglBegin( GL_POLYGON );
 
-	for( i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE )
 	{
-		if( hasScale )
-			pglTexCoord2f(( v[3] + sOffset ) * xScale, ( v[4] + tOffset ) * yScale );
-		else pglTexCoord2f( v[3] + sOffset, v[4] + tOffset );
+			matrix4x4 invMVP;
+			qboolean usePS1 = r_ps1_vertex.value && Matrix4x4_Invert_Full( invMVP, RI.worldviewProjectionMatrix );
 
-		pglVertex3fv( v );
-	}
+			for( i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE )
+			{
+				float vert[3];
+				if( hasScale )
+					pglTexCoord2f(( v[3] + sOffset ) * xScale, ( v[4] + tOffset ) * yScale );
+				else pglTexCoord2f( v[3] + sOffset, v[4] + tOffset );
+
+				if( usePS1 && R_VertexSnapPS1ClipSpace( v, vert, invMVP ))
+					pglVertex3fv( vert );
+				else
+					pglVertex3fv( v );
+			}
+		}
 
 	pglEnd();
 
@@ -904,12 +938,21 @@ static void DrawGLPolyChain( glpoly2_t *p, float soffset, float toffset )
 
 		pglBegin( GL_POLYGON );
 
-		v = p->verts[0];
-		for( i = 0; i < p->numverts; i++, v += VERTEXSIZE )
 		{
-			if( !dynamic ) pglTexCoord2f( v[5], v[6] );
-			else pglTexCoord2f( v[5] - soffset, v[6] - toffset );
-			pglVertex3fv( v );
+			matrix4x4 invMVP;
+			qboolean usePS1 = r_ps1_vertex.value && Matrix4x4_Invert_Full( invMVP, RI.worldviewProjectionMatrix );
+
+			v = p->verts[0];
+			for( i = 0; i < p->numverts; i++, v += VERTEXSIZE )
+			{
+				float vert[3];
+				if( !dynamic ) pglTexCoord2f( v[5], v[6] );
+				else pglTexCoord2f( v[5] - soffset, v[6] - toffset );
+				if( usePS1 && R_VertexSnapPS1ClipSpace( v, vert, invMVP ))
+					pglVertex3fv( vert );
+				else
+					pglVertex3fv( v );
+			}
 		}
 		pglEnd ();
 	}
@@ -3587,8 +3630,19 @@ static void R_DrawTriangleOutlines( void )
 			{
 				pglBegin( GL_POLYGON );
 				v = p->verts[0];
-				for( j = 0; j < p->numverts; j++, v += VERTEXSIZE )
-					pglVertex3fv( v );
+				{
+					matrix4x4 invMVP;
+					qboolean usePS1 = r_ps1_vertex.value && Matrix4x4_Invert_Full( invMVP, RI.worldviewProjectionMatrix );
+
+					for( j = 0; j < p->numverts; j++, v += VERTEXSIZE )
+					{
+						float vert[3];
+						if( usePS1 && R_VertexSnapPS1ClipSpace( v, vert, invMVP ))
+							pglVertex3fv( vert );
+						else
+							pglVertex3fv( v );
+					}
+				}
 				pglEnd ();
 			}
 		}
@@ -3603,8 +3657,19 @@ static void R_DrawTriangleOutlines( void )
 		{
 			pglBegin( GL_POLYGON );
 			v = p->verts[0];
-			for( j = 0; j < p->numverts; j++, v += VERTEXSIZE )
-				pglVertex3fv( v );
+			{
+				matrix4x4 invMVP;
+				qboolean usePS1 = r_ps1_vertex.value && Matrix4x4_Invert_Full( invMVP, RI.worldviewProjectionMatrix );
+
+				for( j = 0; j < p->numverts; j++, v += VERTEXSIZE )
+				{
+					float vert[3];
+					if( usePS1 && R_VertexSnapPS1ClipSpace( v, vert, invMVP ))
+						pglVertex3fv( vert );
+					else
+						pglVertex3fv( v );
+				}
+			}
 			pglEnd ();
 		}
 	}

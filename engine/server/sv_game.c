@@ -453,7 +453,9 @@ static int SV_Multicast( int dest, const vec3_t origin, const edict_t *ent, qboo
 		if( filter && cl == sv.current_client && FBitSet( sv.current_client->flags, FCL_PREDICT_MOVEMENT ))
 			continue;
 
-		if( SV_IsValidEdict( ent ) && ent->v.groupinfo && cl->edict->v.groupinfo )
+		// for MSG_ONE/MSG_ONE_UNRELIABLE ent is the recipient; do not filter them out by group
+		if( dest != MSG_ONE && dest != MSG_ONE_UNRELIABLE &&
+		    SV_IsValidEdict( ent ) && ent->v.groupinfo && cl->edict->v.groupinfo )
 		{
 			if( svs.groupop == GROUP_OP_AND && !FBitSet( cl->edict->v.groupinfo, ent->v.groupinfo ))
 				continue;

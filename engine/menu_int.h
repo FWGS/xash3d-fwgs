@@ -21,6 +21,9 @@ GNU General Public License for more details.
 #include "wrect.h"
 #include "net_api.h"
 
+struct triangleapi_s;
+struct ref_interface_s;
+
 // a macro for mainui_cpp, indicating that mainui should be compiled for
 // Xash3D 1.0 interface
 #define NEW_ENGINE_INTERFACE
@@ -227,6 +230,9 @@ typedef struct ui_extendedfuncs_s {
 	// returns 1 if cvar has read-only flag
 	// or -1 if cvar not found
 	int (*pfnIsCvarReadOnly)( const char *name );
+
+	struct triangleapi_s *triapi;
+	struct ref_interface_s *ref;  /* ref.dllFuncs — GL_Bind, R_DrawStretchPic, etc. */
 } ui_extendedfuncs_t;
 
 // deprecated export from old engine
