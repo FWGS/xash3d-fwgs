@@ -41,11 +41,11 @@ void Platform_SetStatus( const char *status );
 qboolean Platform_DebuggerPresent( void );
 
 // legacy iOS port functions
-#if TARGET_OS_IOS
+#if XASH_IOS
 int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
+const char *IOS_GetExecDir( void );
 void IOS_LaunchDialog( void );
-#include "platform/ios/lib_ios.h"
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX
@@ -212,9 +212,7 @@ static inline void Sys_RestoreCrashHandler( void )
 
 static inline qboolean Platform_LibraryExists( const char *name, qboolean gamedironly )
 {
-#if XASH_IOS
-	return IOS_LibraryExists( name );
-#elif XASH_ANDROID
+#if XASH_ANDROID
 	// sorry, unimplemented
 	return false;
 #else

@@ -12,20 +12,19 @@ else
     git clone --recursive https://github.com/FWGS/hlsdk-portable -b "$1" "$MODPATH"
 fi
 
-mkdir -p ../../build/ios || exit 1
-IOSDIR=$(realpath ../../build/ios)
+if [ ! -d ../../build/ios/libs ]; then
+    mkdir ../../build/ios/libs || exit 1
+fi
+
+LIBSDIR=$(realpath ../../build/ios/libs)
 cd "$MODPATH" || exit 1
 
 #compiling hlsdk for ios release is broken, so just build for debug
-cmake -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DGAMEDIR="$IOSDIR" -DCMAKE_BUILD_TYPE=Debug -B build -S .
+cmake -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT=0 -DCMAKE_INSTALL_PREFIX="$LIBSDIR" -DCMAKE_BUILD_TYPE=Debug -B build -S .
 cmake --build build --target install
 
-if [ ! -z "$2" ]; then
-    mv "$IOSDIR/cl_dlls/client_arm64.dylib" "$IOSDIR/cl_dlls/client_arm64$2.dylib"
-else
-    cd ../../
-    ./createipa.sh
-fi
+cd ../../
+./createipa.sh
 
 if [ -d mod-build ]; then
     rm -rf mod-build/
