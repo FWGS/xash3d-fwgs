@@ -37,11 +37,20 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 
 #define MAX_LINELENGTH	80
-#define MAX_TEXTCHANNELS	8		// must be power of two (GoldSrc uses 4 channels)
-#define TEXT_MSGNAME	"TextMessage%i"
+#define TEXT_MSGNAME	"TextMessage"
 
 static char cl_textbuffer[MAX_TEXTCHANNELS][2048];
-static client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS];
+client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS] =
+{
+{ .pName = "TextMessage0", .pMessage = cl_textbuffer[0] },
+{ .pName = "TextMessage1", .pMessage = cl_textbuffer[1] },
+{ .pName = "TextMessage2", .pMessage = cl_textbuffer[2] },
+{ .pName = "TextMessage3", .pMessage = cl_textbuffer[3] },
+{ .pName = "TextMessage4", .pMessage = cl_textbuffer[4] },
+{ .pName = "TextMessage5", .pMessage = cl_textbuffer[5] },
+{ .pName = "TextMessage6", .pMessage = cl_textbuffer[6] },
+{ .pName = "TextMessage7", .pMessage = cl_textbuffer[7] },
+};
 
 static const dllfunc_t cdll_exports[] =
 {
@@ -560,31 +569,18 @@ and hold them into permament memory pool
 */
 static void CL_InitTitles( const char *filename )
 {
-	fs_offset_t	fileSize;
-	byte	*pMemFile;
-	int	i;
-
-	// initialize text messages (game_text)
-	for( i = 0; i < MAX_TEXTCHANNELS; i++ )
-	{
-		char name[MAX_VA_STRING];
-
-		Q_snprintf( name, sizeof( name ), TEXT_MSGNAME, i );
-
-		cl_textmessage[i].pName = copystringpool( clgame.mempool, name );
-		cl_textmessage[i].pMessage = cl_textbuffer[i];
-	}
-
 	// clear out any old data that's sitting around.
-	if( clgame.titles ) Mem_Free( clgame.titles );
+	Mem_Free( clgame.titles );
 
 	clgame.titles = NULL;
 	clgame.numTitles = 0;
 
-	pMemFile = FS_LoadFile( filename, &fileSize, false );
-	if( !pMemFile ) return;
+	fs_offset_t fileSize = 0;
+	char *pMemFile = (char *)FS_LoadFile( filename, &fileSize, false );
+	if( !pMemFile )
+		return;
 
-	clgame.titles = CL_TextMessageParse( clgame.mempool, (char *)pMemFile, fileSize, &clgame.numTitles );
+	clgame.titles = CL_TextMessageParse( clgame.mempool, pMemFile, fileSize, &clgame.numTitles );
 	Mem_Free( pMemFile );
 }
 
@@ -1974,13 +1970,12 @@ client_textmessage_t *CL_TextMessageGet( const char *pName )
 	int	i;
 
 	// first check internal messages
-	for( i = 0; i < MAX_TEXTCHANNELS; i++ )
+	if( Q_strlen( pName ) == sizeof( TEXT_MSGNAME ) // including the digit
+		&& !Q_strncmp( pName, TEXT_MSGNAME, sizeof( TEXT_MSGNAME ) - 1 ))
 	{
-		char name[MAX_VA_STRING];
+		i = pName[sizeof( TEXT_MSGNAME ) - 1] - '0';
 
-		Q_snprintf( name, sizeof( name ), TEXT_MSGNAME, i );
-
-		if( !Q_strcmp( pName, name ))
+		if( i >= 0 && i < MAX_TEXTCHANNELS )
 			return cl_textmessage + i;
 	}
 
@@ -4095,14 +4090,14 @@ qboolean CL_LoadProgs( const char *name )
 
 	CL_InitCDAudio( "media/cdaudio.txt" );
 	CL_InitTitles( "titles.txt" );
-	CL_InitParticles ();
-	CL_InitViewBeams ();
-	CL_InitTempEnts ();
+	CL_InitParticles( );
+	CL_InitViewBeams( );
+	CL_InitTempEnts( );
 
-	if( !R_InitRenderAPI())	// Xash3D extension
+	if( !R_InitRenderAPI( ))	// Xash3D extension
 		Con_Reportf( S_WARN "%s: couldn't get render API\n", __func__ );
 
-	if( !Mobile_Init() ) // Xash3D FWGS extension: mobile interface
+	if( !Mobile_Init( )) // Xash3D FWGS extension: mobile interface
 		Con_Reportf( S_WARN "%s: couldn't get mobility API\n", __func__ );
 
 	CL_InitEdicts( cl.maxclients );		// initailize local player and world
