@@ -232,7 +232,8 @@ void S_FreeSound( sfx_t *sfx )
 		prev = &hashSfx->hashNext;
 	}
 
-	if( clgame.soundFuncs.pfnS_FreeSound ) {
+	if( clgame.soundFuncs.pfnS_FreeSound )
+	{
 		clgame.soundFuncs.pfnS_FreeSound( sfx, sfx - s_knownSfx );
 		return;
 	}
