@@ -38,7 +38,7 @@ extern poolhandle_t sndpool;
 
 #define CLIP16( x ) bound( SHRT_MIN + 8, x, SHRT_MAX - 8 )
 
-typedef struct
+typedef struct portable_samplepair_s
 {
 	int left;
 	int right;
@@ -72,7 +72,7 @@ typedef struct snd_format_s
 	byte channels;
 } snd_format_t;
 
-typedef struct
+typedef struct dma_api_s
 {
 	snd_format_t format;
 	int          samples;     // mono samples in buffer
