@@ -19,6 +19,7 @@ GNU General Public License for more details.
 extern poolhandle_t sndpool;
 
 #include "xash3d_mathlib.h"
+#include "sound_api.h"
 
 // sound engine rate defines
 #define SOUND_11k       11025 // 11khz sample rate
@@ -139,8 +140,6 @@ typedef struct
 	qboolean streaming;     // playing AVI-file
 	qboolean stream_paused; // pause only background track
 } listener_t;
-
-typedef int sound_t;
 
 //====================================================================
 

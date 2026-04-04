@@ -35,7 +35,6 @@ For more information, please refer to <http://unlicense.org/>
 
 #define CL_SOUND_INTERFACE_VERSION	1
 
-// sound handle (same as engine's sound_t)
 typedef int sound_t;
 
 struct dma_api_s;
