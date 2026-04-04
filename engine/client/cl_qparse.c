@@ -930,12 +930,12 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 		// record command for debugging spew on parse problem
 		CL_Parse_RecordCommand( cmd, bufStart );
 
+		if( CL_ParseCommonMessage( msg, PROTO_QUAKE, cmd, bufStart ))
+			continue;
+
 		// other commands
 		switch( cmd )
 		{
-		case svc_nop:
-			// this does nothing
-			break;
 		case svc_disconnect:
 			CL_DemoCompleted ();
 			break;
@@ -946,9 +946,6 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			param1 = MSG_ReadLong( msg );
 			if( param1 != PROTOCOL_VERSION_QUAKE )
 				Host_Error( "Server is protocol %i instead of %i\n", param1, PROTOCOL_VERSION_QUAKE );
-			break;
-		case svc_setview:
-			CL_ParseViewEntity( msg );
 			break;
 		case svc_sound:
 			CL_ParseQuakeSound( msg );
@@ -973,9 +970,6 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 		case svc_serverdata:
 			Cbuf_Execute(); // make sure any stuffed commands are done
 			CL_ParseQuakeServerInfo( msg );
-			break;
-		case svc_lightstyle:
-			CL_ParseLightStyle( msg, PROTO_QUAKE );
 			break;
 		case svc_updatename:
 			param1 = MSG_ReadByte( msg );
@@ -1029,8 +1023,7 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			CL_ParseQuakeSignon( msg );
 			break;
 		case svc_centerprint:
-			str = MSG_ReadString( msg );
-			CL_DispatchUserMessage( "HudText", Q_strlen( str ) + 1, (void *)str );
+			CL_HudMessage( MSG_ReadString( msg ));
 			break;
 		case svc_killedmonster:
 			CL_DispatchQuakeMessage( "KillMonster" ); // just an event
@@ -1040,12 +1033,6 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			break;
 		case svc_spawnstaticsound:
 			CL_ParseQuakeStaticSound( msg );
-			break;
-		case svc_intermission:
-			cl.intermission = 1;
-			break;
-		case svc_finale:
-			CL_ParseFinaleCutscene( msg, 2 );
 			break;
 		case svc_cdtrack:
 			param1 = MSG_ReadByte( msg );
@@ -1059,14 +1046,11 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 		case svc_sellscreen:
 			Cmd_ExecuteString( "help" );	// open quake menu
 			break;
-		case svc_cutscene:
-			CL_ParseFinaleCutscene( msg, 3 );
+		case svc_showlmp:
+			CL_ParseNehahraShowLMP( msg );
 			break;
 		case svc_hidelmp:
 			CL_ParseNehahraHideLMP( msg );
-			break;
-		case svc_showlmp:
-			CL_ParseNehahraShowLMP( msg );
 			break;
 		case svc_skybox:
 			Q_strncpy( clgame.movevars.skyName, MSG_ReadString( msg ), sizeof( clgame.movevars.skyName ));

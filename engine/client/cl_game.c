@@ -650,54 +650,6 @@ void CL_ParseTextMessage( sizebuf_t *msg )
 }
 
 /*
-================
-CL_ParseFinaleCutscene
-
-show display finale or cutscene message
-================
-*/
-void CL_ParseFinaleCutscene( sizebuf_t *msg, int level )
-{
-	static int		msgindex = 0;
-	client_textmessage_t	*text;
-	int			channel;
-
-	cl.intermission = level;
-
-	channel = msgindex;
-	msgindex = (msgindex + 1) & (MAX_TEXTCHANNELS - 1);
-
-	// grab message channel
-	text = &cl_textmessage[channel];
-
-	// NOTE: svc_finale and svc_cutscene has a
-	// predefined settings like Quake-style
-	text->x = -1.0f;
-	text->y = 0.15f;
-	text->effect = 2;	// scan out effect
-	text->r1 = 245;
-	text->g1 = 245;
-	text->b1 = 245;
-	text->a1 = 0;	// unused
-	text->r2 = 0;
-	text->g2 = 0;
-	text->b2 = 0;
-	text->a2 = 0;
-	text->fadein = 0.15f;
-	text->fadeout = 0.0f;
-	text->holdtime = 99999.0f;
-	text->fxtime = 0.0f;
-
-	// to prevent grab too long messages
-	Q_strncpy( (char *)text->pMessage, MSG_ReadString( msg ), 2048 );
-
-	if( *text->pMessage == '\0' )
-		return; // no real text
-
-	CL_HudMessage( text->pName );
-}
-
-/*
 ====================
 CL_GetMaxlients
 
