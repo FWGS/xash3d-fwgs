@@ -3793,7 +3793,7 @@ static fs_offset_t Mod_FindBSPX( const byte *mod_base, size_t bufferlen )
 
 	max_offset = ALIGN( max_offset, 4 ); // force 32-bit boundary
 
-	if( max_offset > bufferlen )
+	if( max_offset + sizeof( dbspx_hdr_t ) > bufferlen )
 		return -1;
 
 	bspx_header = (const dbspx_hdr_t *)( mod_base + max_offset );
