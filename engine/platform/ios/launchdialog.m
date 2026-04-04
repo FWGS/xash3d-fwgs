@@ -78,6 +78,21 @@ const char *IOS_GetDocsDir(void)
 	}
 }
 
+const char *IOS_GetExecDir(void)
+{
+	static const char *dir = NULL;
+	
+	if( dir )
+		return dir;
+	
+	NSString *executableDirctory = [[NSBundle mainBundle] bundlePath];
+	
+	dir = [executableDirctory fileSystemRepresentation];
+	NSLog(@"IOS_GetDocsDir: %s", dir);
+	
+	return dir;
+}
+
 UIBackgroundTaskIdentifier task;
 FtpServer *server = NULL;
 
