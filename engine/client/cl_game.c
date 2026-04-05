@@ -188,7 +188,13 @@ static void CL_InitCDAudio( const char *filename )
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( !Q_stricmp( token, "blank" ))
+		{
 			clgame.cdtracks[c][0] = '\0';
+		}
+		else if( token[0] == '/' ) // allow custom path
+		{
+			Q_strncpy( clgame.cdtracks[c], &token[1], sizeof( clgame.cdtracks[c] ));
+		}
 		else
 		{
 			Q_snprintf( clgame.cdtracks[c], sizeof( clgame.cdtracks[c] ),
