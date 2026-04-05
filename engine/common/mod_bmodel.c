@@ -3599,6 +3599,10 @@ Mod_LoadVisibility
 */
 static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 {
+	// external bmodels have no visibility
+	if( !bmod->visdata || !bmod->visdatasize )
+		return;
+
 	mod->visdata = Mem_Malloc( mod->mempool, bmod->visdatasize );
 	memcpy( mod->visdata, bmod->visdata, bmod->visdatasize );
 }
