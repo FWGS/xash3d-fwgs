@@ -3878,8 +3878,11 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		Mod_LoadLump( mod_base, &extlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSP30EXT, NULL );
 
 	// loading bspx lumps
-	for( i = 0; i < ARRAYSIZE( bspxlumps ); i++, stat_index++ )
-		Mod_LoadLump( mod_base, &bspxlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSPX, mod_base + bspx_header_offset );
+	if( bspx_header_offset >= 0 )
+	{
+		for( i = 0; i < ARRAYSIZE( bspxlumps ); i++, stat_index++ )
+			Mod_LoadLump( mod_base, &bspxlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSPX, mod_base + bspx_header_offset );
+	}
 
 	if( !bmod->isworld ) // a1ba: why world excluded here?
 	{
