@@ -337,7 +337,6 @@ Mod_CreateSkinData
 static rgbdata_t *Mod_CreateSkinData( model_t *mod, const byte *data, int width, int height )
 {
 	static rgbdata_t	skin;
-	char		name[MAX_QPATH];
 	int		i;
 
 	skin.width = width;
@@ -363,10 +362,8 @@ static rgbdata_t *Mod_CreateSkinData( model_t *mod, const byte *data, int width,
 		}
 	}
 
-	COM_FileBase( mod->name, name, sizeof( name ));
-
 	// for alias models only player can have remap textures
-	if( mod != NULL && !Q_stricmp( name, "player" ))
+	if( mod != NULL && !Q_stricmp( mod->name, "player" ))
 	{
 		texture_t	*tx = NULL;
 		int	i, size;
