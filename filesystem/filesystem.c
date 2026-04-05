@@ -747,6 +747,7 @@ static void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir, qboolean
 	if( quake )
 	{
 		Q_strncpy( GameInfo->basedir, "id1", sizeof( GameInfo->basedir ));
+		Q_strncpy( GameInfo->falldir, "qwrap", sizeof( GameInfo->falldir ));
 		Q_strncpy( GameInfo->title, gamedir, sizeof( GameInfo->title ));
 		Q_strncpy( GameInfo->startmap, "start", sizeof( GameInfo->startmap ));
 		Q_strncpy( GameInfo->dll_path, "bin", sizeof( GameInfo->dll_path ));
