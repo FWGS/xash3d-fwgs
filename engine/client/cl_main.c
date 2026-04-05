@@ -3678,8 +3678,6 @@ void CL_Init( void )
 	CL_InitLocal();
 
 	VID_Init();	// init video
-	S_Init();	// init sound
-	Voice_Init( VOICE_DEFAULT_CODEC, 3, true ); // init voice (do not open the device)
 
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
@@ -3688,6 +3686,9 @@ void CL_Init( void )
 
 	if( !CL_LoadProgs( libpath ))
 		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
+
+	S_Init();	// init sound
+	Voice_Init( VOICE_DEFAULT_CODEC, 3, true ); // init voice (do not open the device)
 
 	ID_Init();
 	SteamBroker_Init();

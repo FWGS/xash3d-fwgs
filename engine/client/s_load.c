@@ -232,6 +232,12 @@ void S_FreeSound( sfx_t *sfx )
 		prev = &hashSfx->hashNext;
 	}
 
+	if( clgame.soundFuncs.pfnS_FreeSound )
+	{
+		clgame.soundFuncs.pfnS_FreeSound( sfx, sfx - s_knownSfx );
+		return;
+	}
+
 	if( sfx->cache )
 		FS_FreeSound( sfx->cache );
 	memset( sfx, 0, sizeof( *sfx ));
