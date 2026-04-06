@@ -85,7 +85,8 @@ typedef struct rawchan_s
 	volatile uint         s_rawend;
 	float                 oldtime;       // catch time jumps
 
-	// TODO: add reserved bytes
+	uintptr_t engine_reserved[8]; // only for engine developers
+	uintptr_t game_reserved[8];   // free space for game developers
 
 	size_t                max_samples;   // buffer length
 	portable_samplepair_t rawsamples[]; // variable sized
@@ -124,7 +125,8 @@ typedef struct channel_s
 	wavdata_t *data;
 	voxword_t *words; // dynamically allocated, (num_words + 1) entries, null sfx terminates
 
-	// TODO: add reserved bytes
+	uintptr_t engine_reserved[8]; // only for engine developers
+	uintptr_t game_reserved[8];   // free space for game developers
 } channel_t;
 
 typedef int sound_t;
