@@ -67,15 +67,14 @@ int R_CullSurface( const msurface_t *surf, const gl_frustum_t *frustum, uint cli
 {
 	cl_entity_t	*e = RI.currententity;
 
-	if( unlikely( !e || !surf || !surf->texinfo || !surf->texinfo->texture ))
+	if( surf->visframe != tr.framecount && e == CL_GetEntityByIndex( 0 ))
+		return CULL_VISFRAME;
+
+	if( unlikely( !surf->texinfo || !surf->texinfo->texture ))
 		return CULL_OTHER;
 
 	if( unlikely( r_nocull.value ))
 		return CULL_VISIBLE;
-
-	// world surfaces can be culled by vis frame too
-	if( e == CL_GetEntityByIndex( 0 ) && surf->visframe != tr.framecount )
-		return CULL_VISFRAME;
 
 	// only static ents can be culled by frustum
 	if( !R_StaticEntity( e ))

@@ -165,6 +165,9 @@ qboolean GL_FrustumCullSphere( const gl_frustum_t *out, const vec3_t center, flo
 	if( unlikely( r_nocull.value ))
 		return false;
 
+	if( !iClipFlags )
+		return false;
+
 	for( i = FRUSTUM_PLANES, bit = 1; i > 0; i--, bit <<= 1 )
 	{
 		const mplane_t *p = &out->planes[FRUSTUM_PLANES - i];
