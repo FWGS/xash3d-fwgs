@@ -3403,14 +3403,6 @@ R_RecursiveWorldNode
 */
 static void R_RecursiveWorldNode( mnode_t *node, uint clipflags )
 {
-	int		i, clipped;
-	msurface_t	*surf, **mark;
-	mleaf_t		*pleaf;
-	int		c, side;
-	float		dot;
-	mnode_t *children[2];
-	int numsurfaces, firstsurface;
-
 loc0:
 	if( node->contents == CONTENTS_SOLID )
 		return; // hit a solid leaf
@@ -3420,14 +3412,14 @@ loc0:
 
 	if( clipflags && !r_nocull.value )
 	{
-		for( i = 0; i < 6; i++ )
+		for( int i = 0; i < 6; i++ )
 		{
 			const mplane_t	*p = &RI.frustum.planes[i];
 
 			if( !FBitSet( clipflags, BIT( i )))
 				continue;
 
-			clipped = BOX_ON_PLANE_SIDE( node->minmaxs, node->minmaxs + 3, p );
+			int clipped = BOX_ON_PLANE_SIDE( node->minmaxs, node->minmaxs + 3, p );
 			if( clipped == 2 ) return;
 			if( clipped == 1 ) ClearBits( clipflags, BIT( i ));
 		}
@@ -3436,19 +3428,11 @@ loc0:
 	// if a leaf node, draw stuff
 	if( node->contents < 0 )
 	{
-		pleaf = (mleaf_t *)node;
+		mleaf_t *pleaf = (mleaf_t *)node;
+		msurface_t **mark = pleaf->firstmarksurface;
 
-		mark = pleaf->firstmarksurface;
-		c = pleaf->nummarksurfaces;
-
-		if( c )
-		{
-			do
-			{
-				(*mark)->visframe = tr.framecount;
-				mark++;
-			} while( --c );
-		}
+		for( int i = 0; i < pleaf->nummarksurfaces; i++ )
+			mark[i]->visframe = tr.framecount;
 
 		// deal with model fragments in this leaf
 		if( pleaf->efrags )
@@ -3461,19 +3445,20 @@ loc0:
 	// node is just a decision point, so go down the apropriate sides
 
 	// find which side of the node we are on
-	dot = PlaneDiff( tr.modelorg, node->plane );
-	side = (dot >= 0.0f) ? 0 : 1;
+	float dot = PlaneDiff( tr.modelorg, node->plane );
+	int side = (dot >= 0.0f) ? 0 : 1;
 
 	// recurse down the children, front side first
-	node_children( children, node, WORLDMODEL );
-	R_RecursiveWorldNode( children[side], clipflags );
+	R_RecursiveWorldNode( node_child( node, side, WORLDMODEL ), clipflags );
 
-	firstsurface = node_firstsurface( node, WORLDMODEL );
-	numsurfaces = node_numsurfaces( node, WORLDMODEL );
+	int firstsurface = node_firstsurface( node, WORLDMODEL );
+	int numsurfaces = node_numsurfaces( node, WORLDMODEL );
 
 	// draw stuff
-	for( c = numsurfaces, surf = WORLDMODEL->surfaces + firstsurface; c; c--, surf++ )
+	for( int i = firstsurface; i < firstsurface + numsurfaces; i++ )
 	{
+		msurface_t *surf = &WORLDMODEL->surfaces[i];
+
 		if( R_CullSurface( surf, &RI.frustum, clipflags ))
 			continue;
 
@@ -3491,7 +3476,7 @@ loc0:
 	}
 
 	// recurse down the back side
-	node = children[!side];
+	node = node_child( node, !side, WORLDMODEL );
 	goto loc0;
 }
 
@@ -3567,7 +3552,6 @@ static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 
 	do
 	{
-		mnode_t *children[2];
 		int numsurfaces, firstsurface;
 
 		if( node->contents == CONTENTS_SOLID )
@@ -3625,9 +3609,8 @@ static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 		}
 
 		// recurse down both children, we don't care the order...
-		node_children( children, node, WORLDMODEL );
-		R_DrawWorldTopView( children[0], clipflags );
-		node = children[1];
+		R_DrawWorldTopView( node_child( node, 0, WORLDMODEL ), clipflags );
+		node = node_child( node, 1, WORLDMODEL );
 	} while( node );
 }
 

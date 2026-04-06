@@ -705,10 +705,7 @@ static void R_DecalNodeSurfaces( model_t *model, mnode_t *node, decalinfo_t *dec
 static void R_DecalNode( model_t *model, mnode_t *node, decalinfo_t *decalinfo )
 {
 	mplane_t *splitplane;
-	float    dist;
-	mnode_t  *children[2];
-
-	Assert( node != NULL );
+	float dist;
 
 	if( node->contents < 0 )
 	{
@@ -718,31 +715,22 @@ static void R_DecalNode( model_t *model, mnode_t *node, decalinfo_t *decalinfo )
 
 	splitplane = node->plane;
 	dist = DotProduct( decalinfo->m_Position, splitplane->normal ) - splitplane->dist;
-	node_children( children, node, model );
 
-	// This is arbitrarily set to 10 right now. In an ideal world we'd have the
-	// exact surface but we don't so, this tells me which planes are "sort of
-	// close" to the gunshot -- the gunshot is actually 4 units in front of the
-	// wall (see dlls\weapons.cpp). We also need to check to see if the decal
-	// actually intersects the texture space of the surface, as this method tags
-	// parallel surfaces in the same node always.
-	// JAY: This still tags faces that aren't correct at edges because we don't
-	// have a surface normal
 	if( dist > decalinfo->m_Size )
 	{
-		R_DecalNode( model, children[0], decalinfo );
+		R_DecalNode( model, node_child( node, 0, model ), decalinfo );
 	}
 	else if( dist < -decalinfo->m_Size )
 	{
-		R_DecalNode( model, children[1], decalinfo );
+		R_DecalNode( model, node_child( node, 1, model ), decalinfo );
 	}
 	else
 	{
 		if( dist < DECAL_DISTANCE && dist > -DECAL_DISTANCE )
 			R_DecalNodeSurfaces( model, node, decalinfo );
 
-		R_DecalNode( model, children[0], decalinfo );
-		R_DecalNode( model, children[1], decalinfo );
+		R_DecalNode( model, node_child( node, 0, model ), decalinfo );
+		R_DecalNode( model, node_child( node, 1, model ), decalinfo );
 	}
 }
 

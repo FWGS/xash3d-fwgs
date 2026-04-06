@@ -617,7 +617,6 @@ watertexture to grab fog values from it
 static gl_texture_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mnode_t *ignore, qboolean down )
 {
 	gl_texture_t *tex = NULL;
-	mnode_t *children[2];
 
 	// assure the initial node is not null
 	// we could check it here, but we would rather check it
@@ -655,18 +654,20 @@ static gl_texture_t *R_RecursiveFindWaterTexture( const mnode_t *node, const mno
 
 	// this is a regular node
 	// traverse children
-	node_children( children, node, WORLDMODEL );
+	mnode_t *child = node_child( node, 0, WORLDMODEL );
 
-	if( children[0] && ( children[0] != ignore ))
+	if( child && ( child != ignore ))
 	{
-		tex = R_RecursiveFindWaterTexture( children[0], node, true );
+		tex = R_RecursiveFindWaterTexture( child, node, true );
 		if( tex ) return tex;
 	}
 
-	if( children[1] && ( children[1] != ignore ))
+	child = node_child( node, 1, WORLDMODEL );
+
+	if( child && ( child != ignore ))
 	{
-		tex = R_RecursiveFindWaterTexture( children[1], node, true );
-		if( tex )	return tex;
+		tex = R_RecursiveFindWaterTexture( child, node, true );
+		if( tex ) return tex;
 	}
 
 	// for down recursion, return immediately
