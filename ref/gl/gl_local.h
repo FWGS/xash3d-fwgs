@@ -249,6 +249,7 @@ typedef struct
 	vec3_t		modelorg;		// relative to viewpoint
 
 	// get from engine
+	model_t *worldmodel;
 	world_static_t *world;
 	cl_entity_t *entities;
 	movevars_t *movevars;
@@ -770,7 +771,7 @@ static inline int GL_MaxTextureUnits( void )
 	return Q_min( glConfig.max_texture_units, MAX_TEXTURE_UNITS );
 }
 
-#define WORLDMODEL (gp_cl->models[1])
+#define WORLDMODEL (tr.worldmodel)
 
 //
 // renderer cvars
