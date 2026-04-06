@@ -191,7 +191,7 @@ void VOX_SetChanVol( channel_t *ch )
 {
 	voxword_t *word;
 
-	if( !FBitSet( ch->flags, FL_CHAN_IS_SENTENCE ) || FBitSet( ch->flags, FL_CHAN_SENTENCE_FINISHED ))
+	if( !ch->words || FBitSet( ch->flags, FL_CHAN_SENTENCE_FINISHED ))
 		return;
 
 	word = &ch->words[ch->word_index];
@@ -207,7 +207,7 @@ float VOX_ModifyPitch( channel_t *ch, float pitch )
 {
 	voxword_t *word;
 
-	if( !FBitSet( ch->flags, FL_CHAN_IS_SENTENCE ) || FBitSet( ch->flags, FL_CHAN_SENTENCE_FINISHED ))
+	if( !ch->words || FBitSet( ch->flags, FL_CHAN_SENTENCE_FINISHED ))
 		return pitch;
 
 	word = &ch->words[ch->word_index];
@@ -449,9 +449,17 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 	int i, j;
 	int num_words;
 	voxword_t default_voxword;
+	voxword_t words_buf[CVOXWORDMAX + 1]; // local scratch: parsed words + null terminator
 
 	if( !pszin )
 		return;
+
+	// free any existing words from a previous sentence on this channel
+	if( ch->words )
+	{
+		VOX_FreeWord( ch );
+		Mem_Free2( &ch->words );
+	}
 
 	psz = VOX_LookupString( pszin );
 
@@ -480,12 +488,13 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 	num_words = VOX_ParseString( buffer, rgpparseword );
 
 	VOX_MakeDefaultWordParams( &default_voxword );
+	memset( words_buf, 0, sizeof( words_buf ));
 
 	for( i = 0, j = 0; i < num_words; i++ )
 	{
 		char pathbuffer[MAX_SYSPATH];
 
-		if( !VOX_ParseWordParams( rgpparseword[i], &ch->words[j], &default_voxword ))
+		if( !VOX_ParseWordParams( rgpparseword[i], &words_buf[j], &default_voxword ))
 			continue;
 
 		if( Q_snprintf( pathbuffer, sizeof( pathbuffer ), "%s%s", szpath, rgpparseword[i] ) < 0 )
@@ -495,18 +504,19 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 		}
 
 		qboolean in_cache = false;
-		ch->words[j].sfx = S_FindName( pathbuffer, &in_cache );
+		words_buf[j].sfx = S_FindName( pathbuffer, &in_cache );
 		if( in_cache )
-			SetBits( ch->words[j].flags, FL_VOXWORD_IN_CACHE );
+			SetBits( words_buf[j].flags, FL_VOXWORD_IN_CACHE );
 
 		j++;
 	}
 
-	ch->words[j].sfx = NULL;
+	// words_buf[j].sfx is already NULL from the memset — null terminator
+	ch->words = Mem_Malloc( sndpool, ( j + 1 ) * sizeof( voxword_t ));
+	memcpy( ch->words, words_buf, ( j + 1 ) * sizeof( voxword_t ));
+
 	ch->sfx = ch->words[0].sfx;
 	ch->word_index = 0;
-	SetBits( ch->flags, FL_CHAN_IS_SENTENCE );
-
 	VOX_LoadWord( ch );
 }
 

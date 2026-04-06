@@ -94,7 +94,6 @@ typedef struct rawchan_s
 #define FL_CHAN_USE_LOOP          BIT( 0 ) // don't loop default and local sounds
 #define FL_CHAN_STATIC_SOUND      BIT( 1 ) // use origin instead of fetching entnum's origin
 #define FL_CHAN_LOCAL_SOUND       BIT( 2 ) // it's a local menu sound (not looped, not paused)
-#define FL_CHAN_IS_SENTENCE       BIT( 3 ) // bit indicating vox sentence
 #define FL_CHAN_SENTENCE_FINISHED BIT( 4 ) // if set, finished playing sentence
 #define FL_CHAN_FINISHED          BIT( 5 ) // if set, finished playing single word
 
@@ -123,7 +122,7 @@ typedef struct channel_s
 	double    sample;
 	double    forced_end;
 	wavdata_t *data;
-	voxword_t words[CVOXWORDMAX];
+	voxword_t *words; // dynamically allocated, (num_words + 1) entries, null sfx terminates
 
 	// TODO: add reserved bytes
 } channel_t;
