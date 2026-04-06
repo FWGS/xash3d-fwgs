@@ -868,6 +868,10 @@ void DrawSingleDecal( decal_t *pDecal, msurface_t *fa )
 
 	GL_Bind( XASH_TEXTURE0, pDecal->texture );
 
+	if( FBitSet( R_GetTexture( pDecal->texture )->flags, TF_PREMULTIPLIED ))
+		pglBlendFunc( GL_ONE, GL_ONE_MINUS_SRC_ALPHA );
+	else pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
 	pglBegin( GL_POLYGON );
 
 	for( i = 0; i < numVerts; i++, v += VERTEXSIZE )
