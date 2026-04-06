@@ -2587,7 +2587,7 @@ static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, texture_t *tx, qbo
 	r_temp.palette = NULL;
 
 	// load it in
-	solidskyTexture = GL_LoadTextureInternal( "solid_sky", &r_temp, TF_NOMIPMAP );
+	solidskyTexture = GL_LoadTextureInternal( "solid_sky", &r_temp, TF_NOMIPMAP | TF_ALLOW_NEAREST );
 
 	for( i = 0; i < r_sky->width >> 1; i++ )
 	{
@@ -2610,7 +2610,7 @@ static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, texture_t *tx, qbo
 	r_temp.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
 
 	// load it in
-	alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP );
+	alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP | TF_ALLOW_NEAREST );
 
 	// clean up
 	FS_FreeImage( r_sky );
