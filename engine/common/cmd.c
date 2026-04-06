@@ -1239,32 +1239,66 @@ static void Cmd_MakePrivileged_f( void )
 
 /*
 ===============
+Cmd_ExecScript
+===============
+*/
+static void Cmd_ExecScript( const char *filename, qboolean privileged )
+{
+	byte *f;
+	fs_offset_t len;
+
+	f = FS_LoadFile( filename, &len, false );
+	if( !f )
+	{
+		Con_Reportf( "couldn't exec %s\n", filename );
+		return;
+	}
+
+	// len is fs_offset_t, which can be larger than size_t
+	if( len >= SIZE_MAX )
+	{
+		Con_Reportf( "%s: %s is too long\n", __func__, filename );
+		Mem_Free( f );
+		return;
+	}
+
+	if( f[len - 1] != '\n' )
+	{
+		Cbuf_InsertTextLen( f, len, len + 1 );
+		Cbuf_InsertTextLen( "\n", 1, 1 );
+	}
+	else Cbuf_InsertTextLen( f, len, len );
+
+	Mem_Free( f );
+}
+
+/*
+===============
 Cmd_Exec_f
 ===============
 */
 static void Cmd_Exec_f( void )
 {
 	string cfgpath;
-	byte *f;
-	fs_offset_t len;
 	search_t *search = NULL;
 	int i;
 
 	if( Cmd_Argc() != 2 )
 	{
-		Con_Printf( S_USAGE "exec <filename> *.cfg or <directory>/*.cfg\n" );
-		Con_Printf( "? - ?? - Operator for execute files by number <directory>/<filename>_??.cfg (01 02 03 etc)\n" );
-		Con_Printf( "or <directory>/<filename>_?.cfg (1 2 3 etc)\n" );
-		Con_Printf( "*  - Operator can catch and execute files if found it\n" );
+		Con_Printf( S_USAGE "exec <PATTERN>\n"
+		"PATTERN single file or wildcard pattern to match\n"
+		"Wildcards: * matches any characters, ? matches single character\n"
+		"Example: file.cfg    - single file.cfg\n"
+		"\tdirectory/*        - all .cfg files in directory\n"
+		"\tdirectory/???.cfg  - all .cfg files in directory with 3 character names\n" );
 		return;
 	}
 
 	Q_strncpy( cfgpath, Cmd_Argv( 1 ), sizeof( cfgpath ));
+	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath ));
 
 	if( Q_strpbrk( cfgpath, "*?" ))
 	{
-		COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath ));
-		
 		search = FS_Search( cfgpath, true, false );
 		if( !search || !search->numfilenames )
 		{
@@ -1278,36 +1312,12 @@ static void Cmd_Exec_f( void )
 
 		for( i = 0; i < search->numfilenames; i++ )
 		{
-			f = FS_LoadFile( search->filenames[i], &len, false );
-			if( !f )
-			{
-				Con_Reportf( "couldn't exec %s\n", search->filenames[i] );
-				continue;
-			}
-
-			// len is fs_offset_t, which can be larger than size_t
-			if( len >= SIZE_MAX )
-			{
-				Con_Reportf( "%s: %s is too long\n", __func__, search->filenames[i] );
-				Mem_Free( f );
-				continue;
-			}
-
-			if( f[len - 1] != '\n' )
-			{
-				Cbuf_InsertTextLen( f, len, len + 1 );
-				Cbuf_InsertTextLen( "\n", 1, 1 );
-			}
-			else Cbuf_InsertTextLen( f, len, len );
-
-			Mem_Free( f );
+			Cmd_ExecScript( search->filenames[i], false );
 		}
 
 		Mem_Free( search );
 		return;
 	}
-
-	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath ));
 
 #ifndef XASH_DEDICATED
 	if( !Cmd_CurrentCommandIsPrivileged() && !Q_stricmp( GI->gamefolder, "tfc" ))
@@ -1327,7 +1337,7 @@ static void Cmd_Exec_f( void )
 		{
 			allow = true;
 		}
-		else for( int i = 0; i < ARRAYSIZE( unprivileged_whitelist ); i++ )
+		else for( i = 0; i < ARRAYSIZE( unprivileged_whitelist ); i++ )
 		{
 			if( !Q_strcmp( cfgpath, unprivileged_whitelist[i] ))
 			{
@@ -1348,35 +1358,12 @@ static void Cmd_Exec_f( void )
 	if( SV_GetMaxClients() == 1 && !Q_stricmp( "game.cfg", cfgpath ))
 		return;
 
-	f = FS_LoadFile( cfgpath, &len, false );
-	if( !f )
-	{
-		Con_Reportf( "couldn't exec %s\n", Cmd_Argv( 1 ));
-		return;
-	}
-
-	// len is fs_offset_t, which can be larger than size_t
-	if( len >= SIZE_MAX )
-	{
-		Con_Reportf( "%s: %s is too long\n", __func__, Cmd_Argv( 1 ));
-		return;
-	}
-
 	if( !Q_stricmp( "config.cfg", cfgpath ))
 		host.config_executed = true;
 
 	Con_Printf( "execing " S_GREEN "%s" S_DEFAULT "\n", Cmd_Argv( 1 ));
 
-	// adds \n at end of the file
-	// FS_LoadFile always null terminates
-	if( f[len - 1] != '\n' )
-	{
-		Cbuf_InsertTextLen( f, len, len + 1 );
-		Cbuf_InsertTextLen( "\n", 1, 1 );
-	}
-	else Cbuf_InsertTextLen( f, len, len );
-
-	Mem_Free( f );
+	Cmd_ExecScript( cfgpath, true );
 }
 
 /*
