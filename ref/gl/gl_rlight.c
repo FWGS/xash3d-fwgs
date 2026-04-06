@@ -126,11 +126,13 @@ start:
 		goto start;
 	}
 
+	const float dist_sq = dist * dist;
+
 	// mark the polygons
 	firstsurface = node_firstsurface( node, RI.currentmodel );
 	numsurfaces = node_numsurfaces( node, RI.currentmodel );
 
-	for( i = 0; i < numsurfaces; i++ )
+	for( i = 0; i < numsurfaces && dist_sq < maxdist; i++ )
 	{
 		vec3_t impact;
 		float s, t, l;
@@ -157,7 +159,7 @@ start:
 		t = bound( 0, t, info->lightextents[1] );
 		t = l - t;
 
-		if( s * s + t * t + dist * dist >= maxdist )
+		if( s * s + t * t + dist_sq >= maxdist )
 			continue;
 
 		if( surf->dlightframe != tr.dlightframecount )
