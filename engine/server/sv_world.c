@@ -1518,7 +1518,6 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 	float front, back, frac;
 	int i, side;
 	vec3_t mid;
-	mnode_t *children[2];
 	int numsurfaces, firstsurface;
 
 	// didn't hit anything
@@ -1529,18 +1528,16 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 	front = PlaneDiff( start, node->plane );
 	back = PlaneDiff( end, node->plane );
 
-	node_children( children, node, model );
-
 	side = front < 0.0f;
 	if(( back < 0.0f ) == side )
-		return SV_RecursiveLightPoint( model, children[side], start, end, point_color );
+		return SV_RecursiveLightPoint( model, node_child( node, side, model ), start, end, point_color );
 
 	frac = front / ( front - back );
 
 	VectorLerp( start, frac, end, mid );
 
 	// co down front side
-	if( SV_RecursiveLightPoint( model, children[side], start, mid, point_color ))
+	if( SV_RecursiveLightPoint( model, node_child( node, side, model ), start, mid, point_color ))
 		return true; // hit something
 
 	if(( back < 0.0f ) == side )
@@ -1602,7 +1599,7 @@ static qboolean SV_RecursiveLightPoint( model_t *model, mnode_t *node, const vec
 	}
 
 	// go down back side
-	return SV_RecursiveLightPoint( model, children[!side], mid, end, point_color );
+	return SV_RecursiveLightPoint( model, node_child( node, !side, model ), mid, end, point_color );
 }
 
 /*
