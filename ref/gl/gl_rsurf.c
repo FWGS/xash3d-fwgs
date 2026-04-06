@@ -2085,7 +2085,7 @@ void R_GenerateVBO( void )
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
+				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS | SURF_TRANSPARENT ) )
 					continue;
 
 				if( R_TextureAnimation( surf ) != world->textures[j] )
@@ -2156,7 +2156,7 @@ void R_GenerateVBO( void )
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
+				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS | SURF_TRANSPARENT ) )
 					continue;
 
 				if( R_TextureAnimation( surf ) != world->textures[j] )
