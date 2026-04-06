@@ -662,7 +662,7 @@ static int LM_AllocBlock( int w, int h, int *x, int *y )
 
 	best = BLOCK_SIZE;
 
-	for( i = 0; i < BLOCK_SIZE - w; i++ )
+	for( i = 0; i < BLOCK_SIZE - w; )
 	{
 		best2 = 0;
 
@@ -679,6 +679,12 @@ static int LM_AllocBlock( int w, int h, int *x, int *y )
 			// this is a valid spot
 			*x = i;
 			*y = best = best2;
+			i++;
+		}
+		else
+		{
+			// allocated[i+j] was too tall — no position in [i, i+j] can work
+			i += j + 1;
 		}
 	}
 
