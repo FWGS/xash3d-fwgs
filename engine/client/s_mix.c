@@ -318,7 +318,7 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 
 		num_mixed_channels++;
 
-		if( FBitSet( ch->flags, FL_CHAN_IS_SENTENCE ))
+		if( ch->words )
 		{
 			VOX_MixChannelToBuffer( dst, ch, num_samples, rate, pitch );
 

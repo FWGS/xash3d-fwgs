@@ -171,11 +171,16 @@ S_FreeChannel
 */
 void S_FreeChannel( channel_t *ch )
 {
+	// free the currently loaded word's audio cache before nuking the channel
+	if( ch->words )
+		VOX_FreeWord( ch );
+
 	ch->sfx = NULL;
 	ch->name[0] = '\0';
 	ch->flags = 0;
 	ch->forced_end = ch->sample = 0.0;
 	ch->data = NULL;
+	Mem_Free2( &ch->words );
 
 	SND_CloseMouth( ch );
 }
@@ -256,7 +261,7 @@ static int SND_GetChannelTimeLeft( const channel_t *ch )
 	if( FBitSet( ch->flags, FL_CHAN_FINISHED ) || !ch->sfx || !ch->sfx->cache )
 		return 0;
 
-	if( FBitSet( ch->flags, FL_CHAN_IS_SENTENCE )) // sentences are special, count all remaining words
+	if( ch->words ) // sentences are special, count all remaining words
 	{
 		int i;
 
@@ -268,7 +273,7 @@ static int SND_GetChannelTimeLeft( const channel_t *ch )
 
 		// here we count all remaining words, stopping if no sfx or sound file is available
 		// see VOX_LoadWord
-		for( i = ch->word_index + 1; i < ARRAYSIZE( ch->words ); i++ )
+		for( i = ch->word_index + 1; i < CVOXWORDMAX; i++ )
 		{
 			wavdata_t *sc;
 			int end;
@@ -440,7 +445,7 @@ static qboolean S_MaybeAlterChannel( channel_t *ch, int entnum, int entchannel, 
 	// if no sfx passed, check if it's a sentence
 	if( !sfx )
 	{
-		if( !FBitSet( ch->flags, FL_CHAN_IS_SENTENCE ))
+		if( !ch->words )
 			return false;
 	}
 	else
@@ -876,7 +881,6 @@ void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, floa
 		// load regular or stream sound
 		pSource = S_LoadSound( sfx );
 		ch->sfx = sfx;
-		ClearBits( ch->flags, FL_CHAN_IS_SENTENCE );
 		ch->name[0] = '\0';
 	}
 
@@ -945,7 +949,7 @@ int S_GetCurrentStaticSounds( soundlist_t *pout, int size )
 		if( ch->entchannel != CHAN_STATIC || !ch->sfx || !ch->sfx->name[0] )
 			continue;
 
-		if( FBitSet( ch->flags, FL_CHAN_IS_SENTENCE ) && ch->name[0] )
+		if( ch->words && ch->name[0] )
 			Q_strncpy( pout->name, ch->name, sizeof( pout->name ));
 		else
 			Q_strncpy( pout->name, ch->sfx->name, sizeof( pout->name ));
@@ -995,7 +999,7 @@ int S_GetCurrentDynamicSounds( soundlist_t *pout, int size )
 		if( ch->entchannel == CHAN_STATIC && looped && !Host_IsQuakeCompatible())
 			continue;	// never serialize static looped sounds. It will be restoring in game code
 
-		if( FBitSet( ch->flags, FL_CHAN_IS_SENTENCE ) && ch->name[0] )
+		if( ch->words && ch->name[0] )
 			Q_strncpy( pout->name, ch->name, sizeof( pout->name ));
 		else
 			Q_strncpy( pout->name, ch->sfx->name, sizeof( pout->name ));
