@@ -105,8 +105,8 @@ qboolean SNDDMA_Init( void )
 		return false;
 	}
 
-	dma.format.speed = SOUND_DMA_SPEED;
-	r = dma.format.speed;
+	snd.format.speed = SOUND_DMA_SPEED;
+	r = snd.format.speed;
 
 	if( ( err = snd_pcm_hw_params_set_rate_near( s_alsa.pcm_handle, s_alsa.hw_params, &r, &dir ) ) < 0 )
 	{
@@ -121,14 +121,14 @@ qboolean SNDDMA_Init( void )
 		if( dir != 0 )
 		{
 			Con_Printf( "ALSA: rate %d not supported, using %d\n", SOUND_DMA_SPEED, r );
-			dma.format.speed = r;
+			snd.format.speed = r;
 			dir = 0;
 		}
 	}
 
-	dma.format.channels = 2;
+	snd.format.channels = 2;
 
-	if( ( err = snd_pcm_hw_params_set_channels(s_alsa.pcm_handle, s_alsa.hw_params, dma.format.channels ) ) < 0 )
+	if( ( err = snd_pcm_hw_params_set_channels(s_alsa.pcm_handle, s_alsa.hw_params, snd.format.channels ) ) < 0 )
 	{
 		Con_Printf( "ALSA: cannot set channels %d(%s)\n", 2, snd_strerror( err ) );
 		snd_pcm_hw_params_free( s_alsa.hw_params );
@@ -162,7 +162,7 @@ qboolean SNDDMA_Init( void )
 	}
 	else
 	{
-		// if period is NPOT it cannot be used as dma.samples in Xash3D
+		// if period is NPOT it cannot be used as snd.samples in Xash3D
 		// and need more space to send buffer partially
 		samples = 1;
 		while( samples < p * 4 )
@@ -184,15 +184,15 @@ qboolean SNDDMA_Init( void )
 		return false;
 	}
 
-	dma.buffer = Mem_Calloc( sndpool, samples * 2 );  //allocate pcm frame buffer
-	dma.samplepos = 0;
-	dma.samples = samples;
-	dma.format.width = 2;
-	dma.initialized = 1;
-	dma.backendName = "ALSA";
+	snd.buffer = Mem_Calloc( sndpool, samples * 2 );  //allocate pcm frame buffer
+	snd.samplepos = 0;
+	snd.samples = samples;
+	snd.format.width = 2;
+	snd.initialized = 1;
+	snd.backend_name = "ALSA";
 
 	snd_pcm_prepare( s_alsa.pcm_handle );
-	snd_pcm_writei( s_alsa.pcm_handle, dma.buffer, 2 * s_alsa.period_size );
+	snd_pcm_writei( s_alsa.pcm_handle, snd.buffer, 2 * s_alsa.period_size );
 	snd_pcm_start( s_alsa.pcm_handle );
 
 	return true;
@@ -208,14 +208,14 @@ Closes the ALSA pcm device and frees the dma buffer.
 void SNDDMA_Shutdown(void)
 {
 	Con_Printf( "Shutting down audio.\n" );
-	dma.initialized = false;
+	snd.initialized = false;
 
-	if( dma.buffer )
+	if( snd.buffer )
 	{
 	  snd_pcm_drop( s_alsa.pcm_handle );
 	  snd_pcm_close( s_alsa.pcm_handle );
-	  Mem_Free( dma.buffer );
-	  dma.buffer = NULL;
+	  Mem_Free( snd.buffer );
+	  snd.buffer = NULL;
 	}
 }
 
@@ -240,38 +240,38 @@ void SNDDMA_Submit( void )
 
 		while( avail >= s_alsa.period_size )
 		{
-			int size    = dma.samples << 1;
-			int pos     = dma.samplepos << 1;
+			int size    = snd.samples << 1;
+			int pos     = snd.samplepos << 1;
 			unsigned long  len = s_alsa.period_size * 4;
 			int wrapped = pos + len - size;
 			int  w;
 
 			if( wrapped < 0 )
 			{
-				w = snd_pcm_writei( s_alsa.pcm_handle, dma.buffer + pos, len / 4 );
+				w = snd_pcm_writei( s_alsa.pcm_handle, snd.buffer + pos, len / 4 );
 				if( w < 0 )
 				{
 					snd_pcm_prepare(s_alsa.pcm_handle);
 					return;
 				}
-				dma.samplepos += len >> 1;
+				snd.samplepos += len >> 1;
 			}
 			else
 			{
 				int remaining = size - pos;
-				w = snd_pcm_writei( s_alsa.pcm_handle, dma.buffer + pos, remaining / 4 );
+				w = snd_pcm_writei( s_alsa.pcm_handle, snd.buffer + pos, remaining / 4 );
 				if( w < 0 )
 				{
 					snd_pcm_prepare(s_alsa.pcm_handle);
 					return;
 				}
-				w = snd_pcm_writei( s_alsa.pcm_handle, dma.buffer, wrapped / 4 );
+				w = snd_pcm_writei( s_alsa.pcm_handle, snd.buffer, wrapped / 4 );
 				if( w < 0 )
 				{
 					snd_pcm_prepare(s_alsa.pcm_handle);
 					return;
 				}
-				dma.samplepos = wrapped >> 1;
+				snd.samplepos = wrapped >> 1;
 			}
 
 			avail = snd_pcm_avail_update( s_alsa.pcm_handle );
@@ -282,11 +282,11 @@ void SNDDMA_Submit( void )
 		int s, w, frames;
 		void *start;
 
-		if( !dma.buffer )
+		if( !snd.buffer )
 			return;
 
-		s = dma.samplepos * 2;
-		start = (void *)&dma.buffer[s];
+		s = snd.samplepos * 2;
+		start = (void *)&snd.buffer[s];
 		frames = s_alsa.period_size / 2;
 		// write to card
 		if( ( w = snd_pcm_writei( s_alsa.pcm_handle, start, frames ) ) < 0)
@@ -296,10 +296,10 @@ void SNDDMA_Submit( void )
 			return;
 		}
 
-		dma.samplepos += w * 2;  // mark progress
+		snd.samplepos += w * 2;  // mark progress
 
-		if(dma.samplepos >= dma.samples)
-		  dma.samplepos = 0;  // wrap buffer
+		if(snd.samplepos >= snd.samples)
+		  snd.samplepos = 0;  // wrap buffer
 	}
 }
 
@@ -324,7 +324,7 @@ between a deactivate and an activate.
 */
 void SNDDMA_Activate( qboolean active )
 {
-	if( !dma.initialized )
+	if( !snd.initialized )
 		return;
 
 	s_alsa.paused = !active;

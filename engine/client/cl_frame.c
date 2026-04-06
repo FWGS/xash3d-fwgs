@@ -1381,7 +1381,7 @@ qboolean CL_GetEntitySpatialization( channel_t *ch )
 
 	if( ch->entnum == 0 )
 	{
-		ch->staticsound = true;
+		SetBits( ch->flags, FL_CHAN_STATIC_SOUND );
 		return true; // static sound
 	}
 
