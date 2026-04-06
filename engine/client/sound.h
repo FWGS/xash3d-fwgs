@@ -54,15 +54,17 @@ typedef struct sfx_s
 	struct sfx_s *hashNext;
 } sfx_t;
 
+#define FL_VOXWORD_IN_CACHE BIT( 0 ) // if set, it was loaded prior and shouldn't be freed
+
 typedef struct voxword_s
 {
-	sfx_t *sfx;
-	uint16_t volume;           // volume percent
-	uint16_t pitch;            // pitch shift percent (keep large for extra chipmunk fun)
-	uint16_t timecompress; // percent of skipped data (speeds up playback without pitch shift)
-	uint16_t start : 7;        // percent at which playback starts
-	uint16_t end : 7;          // percent at which playback ends
-	uint16_t in_cache : 1;     // if set to 1, it was loaded prior and shouldn't be freed
+	sfx_t    *sfx;
+	uint16_t volume;       // volume percent
+	uint16_t pitch;        // pitch shift percent (keep large for extra chipmunk fun)
+	uint8_t  timecompress; // percent of skipped data (speeds up playback without pitch shift)
+	uint8_t  start;        // percent at which playback starts
+	uint8_t  end;          // percent at which playback ends
+	uint8_t  flags;
 } voxword_t;
 
 typedef struct snd_format_s
@@ -72,19 +74,9 @@ typedef struct snd_format_s
 	byte channels;
 } snd_format_t;
 
-typedef struct
-{
-	snd_format_t format;
-	int          samples;     // mono samples in buffer
-	int          samplepos;   // in mono samples
-	qboolean     initialized; // sound engine is active
-	byte        *buffer;
-	const char  *backendName;
-} dma_t;
-
 typedef struct rawchan_s
 {
-	int                   entnum;
+	short                 entnum;
 	short                 master_vol;
 	short                 leftvol;       // 0-255 left volume
 	short                 rightvol;      // 0-255 right volume
@@ -92,31 +84,37 @@ typedef struct rawchan_s
 	vec3_t                origin;        // only use if fixed_origin is set
 	volatile uint         s_rawend;
 	float                 oldtime;       // catch time jumps
+
+	// TODO: add reserved bytes
+
 	size_t                max_samples;   // buffer length
 	portable_samplepair_t rawsamples[]; // variable sized
 } rawchan_t;
 
+#define FL_CHAN_USE_LOOP          BIT( 0 ) // don't loop default and local sounds
+#define FL_CHAN_STATIC_SOUND      BIT( 1 ) // use origin instead of fetching entnum's origin
+#define FL_CHAN_LOCAL_SOUND       BIT( 2 ) // it's a local menu sound (not looped, not paused)
+#define FL_CHAN_IS_SENTENCE       BIT( 3 ) // bit indicating vox sentence
+#define FL_CHAN_SENTENCE_FINISHED BIT( 4 ) // if set, finished playing sentence
+#define FL_CHAN_FINISHED          BIT( 5 ) // if set, finished playing single word
+
 typedef struct channel_s
 {
 	char      name[16];    // keep sentence name
-	sfx_t     *sfx;         // sfx number
+	sfx_t     *sfx;        // sfx number
 
 	vec3_t    origin;      // only use if fixed_origin is set
 	float     dist_mult;   // distance multiplier (attenuation/clipK)
 
-	int       entnum;      // entity soundsource
 	int       entchannel;  // sound channel (CHAN_STREAM, CHAN_VOICE, etc.)
+	uint      flags;
+	short     entnum;      // entity soundsource
 	short     master_vol;  // 0-255 master volume
 	short     leftvol;     // 0-255 left volume
 	short     rightvol;    // 0-255 right volume
 	short     basePitch;   // base pitch percent (100% is normal pitch playback)
-	byte      use_loop    : 1; // don't loop default and local sounds
-	byte      staticsound : 1; // use origin instead of fetching entnum's origin
-	byte      localsound  : 1; // it's a local menu sound (not looped, not paused)
-	byte      is_sentence : 1; // bit indicating vox sentence
-	byte      sentence_finished : 1; // if set, finished playing sentence
-	byte      finished : 1; // if set, finished playing single word
 	byte      word_index;
+
 	// HACKHACK: count when this channel became inaudible
 	// to not free it when it could be respatialized soon
 #define MAX_CHANNEL_INAUDIBLE_TIME 0.1f
@@ -126,21 +124,41 @@ typedef struct channel_s
 	double    forced_end;
 	wavdata_t *data;
 	voxword_t words[CVOXWORDMAX];
+
+	// TODO: add reserved bytes
 } channel_t;
 
-typedef struct
-{
-	vec3_t   origin;   // simorg + view_ofs
-	vec3_t   forward;
-	vec3_t   right;
-	vec3_t   up;
-
-	int      entnum;
-	qboolean streaming;     // playing AVI-file
-	qboolean stream_paused; // pause only background track
-} listener_t;
-
 typedef int sound_t;
+
+typedef struct snd_globals_s
+{
+	// dma
+	const char   *backend_name;
+	byte         *buffer;
+	snd_format_t format;
+	qboolean     initialized; // sound engine is active
+	int          samples; // mono samples in buffer
+	int          samplepos; // in mono samples
+
+	int          paintedtime; // total samples that have been mixed at speed
+	int          soundtime; // total samples that have been played out to hardware at dma speed
+
+	// listener (client, camera, etc)
+	vec3_t       origin;
+	vec3_t       forward, right, up;
+	int          entnum;
+	qboolean     streaming; // playing AVI-file
+	qboolean     stream_paused; // pause only background track
+
+	// SoundAPI shared pointers
+	channel_t    *const channels;
+	int          max_channels;
+	int          total_channels;
+	rawchan_t    **const raw_channels;
+	int          max_raw_channels;
+	sound_t      ambient_sfx[NUM_AMBIENTS];
+	qboolean     have_ambient_sfx;
+} snd_globals_t;
 
 //====================================================================
 
@@ -150,16 +168,8 @@ typedef int sound_t;
 #define MAX_RAW_SAMPLES      16384
 #define SND_CLIP_DISTANCE    1000.0f
 
-extern sound_t    ambient_sfx[NUM_AMBIENTS];
-extern qboolean   snd_ambient;
-extern channel_t  channels[MAX_CHANNELS];
-extern rawchan_t *raw_channels[MAX_RAW_CHANNELS];
-extern int        total_channels;
-extern int        paintedtime;
-extern int        soundtime;
-extern listener_t s_listener;
-extern int        idsp_room;
-extern dma_t      dma;
+extern int idsp_room;
+extern snd_globals_t snd;
 
 extern convar_t s_musicvolume;
 extern convar_t s_lerping;

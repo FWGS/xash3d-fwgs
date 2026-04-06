@@ -255,9 +255,9 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 	rawchan_t *ch = NULL;
 
 	// keep the same semantics, when S_RAW_SOUND_SOUNDTRACK doesn't play if S_StartStreaming wasn't enabled
-	qboolean disable_stream = Avi->entnum == S_RAW_SOUND_SOUNDTRACK ? !s_listener.streaming : false;
+	qboolean disable_stream = Avi->entnum == S_RAW_SOUND_SOUNDTRACK ? !snd.streaming : false;
 
-	if( !dma.initialized || disable_stream || cl.paused || !Avi->cached_audio )
+	if( !snd.initialized || disable_stream || cl.paused || !Avi->cached_audio )
 		return;
 
 	ch = S_FindRawChannel( Avi->entnum, true );
@@ -268,14 +268,14 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 	ch->master_vol = Avi->volume;
 	ch->dist_mult = (Avi->attn / SND_CLIP_DISTANCE);
 
-	if( ch->s_rawend < soundtime )
-		ch->s_rawend = soundtime;
+	if( ch->s_rawend < snd.soundtime )
+		ch->s_rawend = snd.soundtime;
 
-	while( ch->s_rawend < soundtime + ch->max_samples )
+	while( ch->s_rawend < snd.soundtime + ch->max_samples )
 	{
 		size_t copy;
 
-		buffer_samples = ch->max_samples - (ch->s_rawend - soundtime);
+		buffer_samples = ch->max_samples - (ch->s_rawend - snd.soundtime);
 
 		file_samples = buffer_samples * ((float)Avi->rate / SOUND_DMA_SPEED);
 		if( file_samples <= 1 ) return; // no more samples need

@@ -92,7 +92,7 @@ void S_StartBackgroundTrack( const char *introTrack, const char *mainTrack, int 
 {
 	S_StopBackgroundTrack();
 
-	if( !dma.initialized ) return;
+	if( !snd.initialized ) return;
 
 	// check for special symbols
 	if( introTrack && *introTrack == '*' )
@@ -132,9 +132,9 @@ S_StopBackgroundTrack
 */
 void S_StopBackgroundTrack( void )
 {
-	s_listener.stream_paused = false;
+	snd.stream_paused = false;
 
-	if( !dma.initialized ) return;
+	if( !snd.initialized ) return;
 	if( !s_bgTrack.stream ) return;
 
 	FS_FreeStream( s_bgTrack.stream );
@@ -149,7 +149,7 @@ S_StreamSetPause
 */
 void S_StreamSetPause( int pause )
 {
-	s_listener.stream_paused = pause;
+	snd.stream_paused = pause;
 }
 
 /*
@@ -197,11 +197,11 @@ void S_StreamBackgroundTrack( void )
 	int	r, fileBytes;
 	rawchan_t	*ch = NULL;
 
-	if( !dma.initialized || !s_bgTrack.stream || s_listener.streaming )
+	if( !snd.initialized || !s_bgTrack.stream || snd.streaming )
 		return;
 
 	// don't bother playing anything if musicvolume is 0
-	if( !s_musicvolume.value || cl.paused || s_listener.stream_paused )
+	if( !s_musicvolume.value || cl.paused || snd.stream_paused )
 		return;
 
 	if( !cl.background )
@@ -218,14 +218,14 @@ void S_StreamBackgroundTrack( void )
 	Assert( ch != NULL );
 
 	// see how many samples should be copied into the raw buffer
-	if( ch->s_rawend < soundtime )
-		ch->s_rawend = soundtime;
+	if( ch->s_rawend < snd.soundtime )
+		ch->s_rawend = snd.soundtime;
 
-	while( ch->s_rawend < soundtime + ch->max_samples )
+	while( ch->s_rawend < snd.soundtime + ch->max_samples )
 	{
 		const stream_t *info = s_bgTrack.stream;
 
-		bufferSamples = ch->max_samples - (ch->s_rawend - soundtime);
+		bufferSamples = ch->max_samples - (ch->s_rawend - snd.soundtime);
 
 		// decide how much data needs to be read from the file
 		fileSamples = bufferSamples * ((float)info->rate / SOUND_DMA_SPEED );
@@ -283,9 +283,9 @@ S_StartStreaming
 */
 void S_StartStreaming( void )
 {
-	if( !dma.initialized ) return;
+	if( !snd.initialized ) return;
 	// begin streaming movie soundtrack
-	s_listener.streaming = true;
+	snd.streaming = true;
 }
 
 /*
@@ -295,6 +295,6 @@ S_StopStreaming
 */
 void S_StopStreaming( void )
 {
-	if( !dma.initialized ) return;
-	s_listener.streaming = false;
+	if( !snd.initialized ) return;
+	snd.streaming = false;
 }
