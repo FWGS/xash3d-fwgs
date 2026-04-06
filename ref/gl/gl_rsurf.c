@@ -1296,70 +1296,59 @@ static void R_RenderDecalsForSurface( msurface_t *fa, int cull_type )
 
 static qboolean R_CheckLightMap( msurface_t *fa )
 {
-	qboolean is_dynamic = false;
 	int maps;
 
-	// check for lightmap modification
+	if( unlikely( !r_dynamic->value ))
+		return false;
+
+	if( fa->dlightframe == tr.framecount )
+		return true; // dlighted surfaces are always dynamic
+
+	// check for light styles
 	for( maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
 	{
-		if( tr.lightstylevalue[fa->styles[maps]] != fa->cached_light[maps] )
-			goto dynamic;
-	}
+		if( tr.lightstylevalue[fa->styles[maps]] == fa->cached_light[maps] )
+			continue;
 
-	// dynamic this frame or dynamic previously
-	if( fa->dlightframe == tr.framecount )
-	{
-dynamic:
-		// NOTE: at this point we have only valid textures
-		if( r_dynamic->value )
-			is_dynamic = true;
-	}
-
-	if( is_dynamic )
-	{
 		const int style = fa->styles[maps];
 
-		if( maps < MAXLIGHTMAPS && ( style >= 32 || style == 0 || style == 20 ) && fa->dlightframe != tr.framecount )
-		{
-			byte		temp[132*132*4];
-			mextrasurf_t	*info = fa->info;
-			int		sample_size;
-			int		smax, tmax;
+		// flickering light styles can go to dynamic chain
+		if( !( style >= 32 || style == 0 || style == 20 ))
+			return true;
 
-			sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
-			smax = ( info->lightextents[0] / sample_size ) + 1;
-			tmax = ( info->lightextents[1] / sample_size ) + 1;
+		byte temp[132*132*4];
+		mextrasurf_t *info = fa->info;
+		int sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
+		int smax = ( info->lightextents[0] / sample_size ) + 1;
+		int tmax = ( info->lightextents[1] / sample_size ) + 1;
 
-			if( smax < 132 && tmax < 132 )
-				R_BuildLightMap( fa, temp, smax * 4, true );
-			else
-			{
-				smax = Q_min( smax, 132 );
-				tmax = Q_min( tmax, 132 );
-				memset( temp, 255, sizeof( temp ));
-				//Host_MapDesignError( "%s: bad surface extents: %d %d", __func__, fa->extents[0], fa->extents[1] );
-			}
-
-			R_SetCacheState( fa );
-
-#if XASH_WES
-			GL_Bind( XASH_TEXTURE1, tr.lightmapTextures[fa->lightmaptexturenum] );
-			pglTexParameteri( GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE );
-#else
-			GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
-#endif
-
-			pglTexSubImage2D( GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_RGBA, GL_UNSIGNED_BYTE, temp );
-
-#if XASH_WES
-			GL_SelectTexture( XASH_TEXTURE0 );
-#endif
-		}
+		if( smax < 132 && tmax < 132 )
+			R_BuildLightMap( fa, temp, smax * 4, true );
 		else
-			return true; // add to dynamic chain
+		{
+			smax = Q_min( smax, 132 );
+			tmax = Q_min( tmax, 132 );
+			memset( temp, 255, sizeof( temp ));
+			//Host_MapDesignError( "%s: bad surface extents: %d %d", __func__, fa->extents[0], fa->extents[1] );
+		}
+
+		R_SetCacheState( fa );
+
+#if XASH_WES
+		GL_Bind( XASH_TEXTURE1, tr.lightmapTextures[fa->lightmaptexturenum] );
+		pglTexParameteri( GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE );
+#else
+		GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
+#endif
+		pglTexSubImage2D( GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_RGBA, GL_UNSIGNED_BYTE, temp );
+
+#if XASH_WES
+		GL_SelectTexture( XASH_TEXTURE0 );
+#endif
+		return false;
 	}
 
-	return false; // updated
+	return false; // no change
 }
 
 static void R_RenderLightmapForSurface( msurface_t *fa )
