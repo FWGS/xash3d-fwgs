@@ -370,8 +370,7 @@ static void Cmd_Wait_f( void )
 	if( Cmd_Argc() > 1 )
 	{
 		frame = Q_atoi( Cmd_Argv( 1 ) );
-		if( frame < 1 )
-			frame = 1;
+		frame = Q_max( 1, frame );
 	}
 	cmd_wait = frame;
 }
@@ -1264,60 +1263,14 @@ static void Cmd_Exec_f( void )
 
 	if( Q_strpbrk( cfgpath, "*?" ))
 	{
-		if( !Q_strrchr( cfgpath, '.' ))
-			Q_strncat( cfgpath, ".cfg", sizeof( cfgpath ));
-
+		COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath ));
+		
 		search = FS_Search( cfgpath, true, false );
 		if( !search || !search->numfilenames )
 		{
 			Con_Printf( "couldn't exec %s\n", Cmd_Argv( 1 ));
 			if( search ) Mem_Free( search );
 			return;
-		}
-
-		qboolean zeropd = ( Q_strstr( cfgpath, "??" ) != NULL );
-
-		for( i = 0; i < search->numfilenames - 1; i++ )
-		{
-			int j;
-			for( j = 0; j < search->numfilenames - i - 1; j++ )
-			{
-				const char *name_a = search->filenames[j];
-				const char *name_b = search->filenames[j+1];
-
-				const char *num_start_a = Q_strrchr( name_a, '_' );
-				const char *num_start_b = Q_strrchr( name_b, '_' );
-				if( !num_start_a ) num_start_a = Q_strrchr( name_a, '/' );
-				if( !num_start_b ) num_start_b = Q_strrchr( name_b, '/' );
-
-				int num_a = -1, num_b = -1;
-
-				if( num_start_a )
-				{
-					num_start_a++;
-					if( zeropd && *num_start_a == '0' ) num_start_a++;
-					num_a = Q_atoi( num_start_a );
-				}
-				if( num_start_b )
-				{
-					num_start_b++;
-					if( zeropd && *num_start_b == '0' ) num_start_b++;
-					num_b = Q_atoi( num_start_b );
-				}
-
-				if( num_a < 0 && num_b >= 0 )
-				{
-					char *tmp = search->filenames[j];
-					search->filenames[j] = search->filenames[j+1];
-					search->filenames[j+1] = tmp;
-				}
-				else if( num_a >= 0 && num_b >= 0 && num_a > num_b )
-				{
-					char *tmp = search->filenames[j];
-					search->filenames[j] = search->filenames[j+1];
-					search->filenames[j+1] = tmp;
-				}
-			}
 		}
 
 		Con_Printf( "execing %d file(s) - " S_GREEN "%s" S_DEFAULT "\n",
@@ -1342,9 +1295,10 @@ static void Cmd_Exec_f( void )
 
 			if( f[len - 1] != '\n' )
 			{
-				Cbuf_AddTextf( "%.*s\n", (int)len, f );
+				Cbuf_InsertTextLen( f, len, len + 1 );
+				Cbuf_InsertTextLen( "\n", 1, 1 );
 			}
-			else Cbuf_AddTextf( "%.*s", (int)len, f );
+			else Cbuf_InsertTextLen( f, len, len );
 
 			Mem_Free( f );
 		}
