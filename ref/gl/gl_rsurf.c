@@ -2775,7 +2775,9 @@ static void R_DrawDlightedDecals( vboarray_t *vbo, msurface_t *newsurf, msurface
 				if( glt->fogParams[3] > 230 )
 					pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 				else pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-				pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+				if( FBitSet( glt->flags, TF_PREMULTIPLIED ))
+					pglBlendFunc( GL_ONE, GL_ONE_MINUS_SRC_ALPHA );
+				else pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 			}
 			else
 			{
@@ -3197,7 +3199,9 @@ static void R_DrawStaticDecals( vboarray_t *vbo, qboolean drawlightmap, int ilig
 				if( glt->fogParams[3] > 230 )
 					pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 				else pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-				pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+				if( FBitSet( glt->flags, TF_PREMULTIPLIED ))
+					pglBlendFunc( GL_ONE, GL_ONE_MINUS_SRC_ALPHA );
+				else pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 			}
 			else
 			{

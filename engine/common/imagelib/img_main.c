@@ -173,6 +173,9 @@ static MALLOC_LIKE( FS_FreeImage, 1 ) rgbdata_t *ImagePack( const char *name )
 
 	Image_ReportLookupsCount( name );
 
+	if( Image_CheckFlag( IL_LOAD_PLAYER_DECAL ))
+		SetBits( image.flags, IMAGE_PLAYERDECAL );
+
 	// clear any force flags
 	image.force_flags = 0;
 

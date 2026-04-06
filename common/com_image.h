@@ -116,6 +116,8 @@ typedef enum
 	IMAGE_MULTILAYER	= BIT(8),		// to differentiate from 3D texture
 	IMAGE_ONEBIT_ALPHA	= BIT(9),		// binary alpha
 	IMAGE_QUAKEPAL	= BIT(10),	// image has quake1 palette
+	IMAGE_PREMULTIPLIED	= BIT(11),
+	IMAGE_PLAYERDECAL	= BIT(12),	// loaded with IL_LOAD_PLAYER_DECAL (custom player spray)
 
 	// Image_Process manipulation flags
 	IMAGE_FLIP_X	= BIT(16),	// flip the image by width
