@@ -20,6 +20,7 @@ GNU General Public License for more details.
 typedef struct
 {
 	int		allocated[BLOCK_SIZE_MAX];
+	int		max_height;		// maximum height currently in use in the block
 	int		current_lightmap_texture;
 	msurface_t	*dynamic_surfaces;
 	msurface_t	*lightmap_surfaces[MAX_LIGHTMAPS];
@@ -653,6 +654,7 @@ static void R_SetCacheState( msurface_t *surf )
 static void LM_InitBlock( void )
 {
 	memset( gl_lms.allocated, 0, sizeof( gl_lms.allocated ));
+	gl_lms.max_height = 0;
 }
 
 static int LM_AllocBlock( int w, int h, int *x, int *y )
@@ -679,6 +681,8 @@ static int LM_AllocBlock( int w, int h, int *x, int *y )
 			// this is a valid spot
 			*x = i;
 			*y = best = best2;
+			if( best == 0 )
+				break; // height 0 is optimal, can't do better
 			i++;
 		}
 		else
@@ -694,20 +698,15 @@ static int LM_AllocBlock( int w, int h, int *x, int *y )
 	for( i = 0; i < w; i++ )
 		gl_lms.allocated[*x + i] = best + h;
 
+	if( best + h > gl_lms.max_height )
+		gl_lms.max_height = best + h;
+
 	return true;
 }
 
 static void LM_UploadDynamicBlock( void )
 {
-	int	height = 0, i;
-
-	for( i = 0; i < BLOCK_SIZE; i++ )
-	{
-		if( gl_lms.allocated[i] > height )
-			height = gl_lms.allocated[i];
-	}
-
-	pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer );
+	pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, gl_lms.max_height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer );
 }
 
 static void LM_UploadBlock( qboolean dynamic )
