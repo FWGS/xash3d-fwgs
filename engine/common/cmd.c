@@ -28,7 +28,7 @@ typedef struct
 	int  cursize;
 } cmdbuf_t;
 
-static qboolean cmd_wait;
+static int cmd_wait;
 static cmdbuf_t cmd_text;
 static cmdbuf_t filteredcmd_text;
 static cmdalias_t *cmd_alias;
@@ -56,6 +56,7 @@ void Cbuf_Clear( void )
 {
 	memset( &cmd_text, 0, sizeof( cmd_text ));
 	memset( &filteredcmd_text, 0, sizeof( filteredcmd_text ));
+	cmd_wait = 0;
 }
 
 /*
@@ -174,6 +175,12 @@ static void Cbuf_ExecuteCommandsFromBuffer( cmdbuf_t *buf, qboolean isPrivileged
 
 	while( buf->cursize )
 	{
+		if( cmd_wait > 0 )
+		{
+			cmd_wait--;
+			break;
+		}
+
 		// limit amount of commands that can be issued
 		if( cmdsToExecute >= 0 )
 		{
@@ -238,14 +245,6 @@ static void Cbuf_ExecuteCommandsFromBuffer( cmdbuf_t *buf, qboolean isPrivileged
 
 		// execute the command line
 		Cmd_ExecuteStringWithPrivilegeCheck( line, isPrivileged );
-
-		if( cmd_wait )
-		{
-			// skip out while text still remains in buffer,
-			// leaving it for next frame
-			cmd_wait = false;
-			break;
-		}
 	}
 }
 
@@ -367,7 +366,14 @@ bind g "cmd use rocket ; +attack ; wait ; -attack ; cmd use blaster"
 */
 static void Cmd_Wait_f( void )
 {
-	cmd_wait = true;
+	int frame = 1;
+	if( Cmd_Argc() > 1 )
+	{
+		frame = Q_atoi( Cmd_Argv( 1 ) );
+		if( frame < 1 )
+			frame = 1;
+	}
+	cmd_wait = frame;
 }
 
 /*
@@ -1242,15 +1248,112 @@ static void Cmd_Exec_f( void )
 	string cfgpath;
 	byte *f;
 	fs_offset_t len;
+	search_t *search = NULL;
+	int i;
 
 	if( Cmd_Argc() != 2 )
 	{
-		Con_Printf( S_USAGE "exec <filename>\n" );
+		Con_Printf( S_USAGE "exec <filename> *.cfg or <directory>/*.cfg\n" );
+		Con_Printf( "? - ?? - Operator for execute files by number <directory>/<filename>_??.cfg (01 02 03 etc)\n" );
+		Con_Printf( "or <directory>/<filename>_?.cfg (1 2 3 etc)\n" );
+		Con_Printf( "*  - Operator can catch and execute files if found it\n" );
 		return;
 	}
 
 	Q_strncpy( cfgpath, Cmd_Argv( 1 ), sizeof( cfgpath ));
-	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath )); // append as default
+
+	if( Q_strpbrk( cfgpath, "*?" ))
+	{
+		if( !Q_strrchr( cfgpath, '.' ))
+			Q_strncat( cfgpath, ".cfg", sizeof( cfgpath ));
+
+		search = FS_Search( cfgpath, true, false );
+		if( !search || !search->numfilenames )
+		{
+			Con_Printf( "couldn't exec %s\n", Cmd_Argv( 1 ));
+			if( search ) Mem_Free( search );
+			return;
+		}
+
+		qboolean zeropd = ( Q_strstr( cfgpath, "??" ) != NULL );
+
+		for( i = 0; i < search->numfilenames - 1; i++ )
+		{
+			int j;
+			for( j = 0; j < search->numfilenames - i - 1; j++ )
+			{
+				const char *name_a = search->filenames[j];
+				const char *name_b = search->filenames[j+1];
+
+				const char *num_start_a = Q_strrchr( name_a, '_' );
+				const char *num_start_b = Q_strrchr( name_b, '_' );
+				if( !num_start_a ) num_start_a = Q_strrchr( name_a, '/' );
+				if( !num_start_b ) num_start_b = Q_strrchr( name_b, '/' );
+
+				int num_a = -1, num_b = -1;
+
+				if( num_start_a )
+				{
+					num_start_a++;
+					if( zeropd && *num_start_a == '0' ) num_start_a++;
+					num_a = Q_atoi( num_start_a );
+				}
+				if( num_start_b )
+				{
+					num_start_b++;
+					if( zeropd && *num_start_b == '0' ) num_start_b++;
+					num_b = Q_atoi( num_start_b );
+				}
+
+				if( num_a < 0 && num_b >= 0 )
+				{
+					char *tmp = search->filenames[j];
+					search->filenames[j] = search->filenames[j+1];
+					search->filenames[j+1] = tmp;
+				}
+				else if( num_a >= 0 && num_b >= 0 && num_a > num_b )
+				{
+					char *tmp = search->filenames[j];
+					search->filenames[j] = search->filenames[j+1];
+					search->filenames[j+1] = tmp;
+				}
+			}
+		}
+
+		Con_Printf( "execing %d file(s) - " S_GREEN "%s" S_DEFAULT "\n",
+			search->numfilenames, Cmd_Argv( 1 ));
+
+		for( i = 0; i < search->numfilenames; i++ )
+		{
+			f = FS_LoadFile( search->filenames[i], &len, false );
+			if( !f )
+			{
+				Con_Reportf( "couldn't exec %s\n", search->filenames[i] );
+				continue;
+			}
+
+			// len is fs_offset_t, which can be larger than size_t
+			if( len >= SIZE_MAX )
+			{
+				Con_Reportf( "%s: %s is too long\n", __func__, search->filenames[i] );
+				Mem_Free( f );
+				continue;
+			}
+
+			if( f[len - 1] != '\n' )
+			{
+				Cbuf_AddTextf( "%.*s\n", (int)len, f );
+			}
+			else Cbuf_AddTextf( "%.*s", (int)len, f );
+
+			Mem_Free( f );
+		}
+
+		Mem_Free( search );
+		return;
+	}
+
+	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath ));
 
 #ifndef XASH_DEDICATED
 	if( !Cmd_CurrentCommandIsPrivileged() && !Q_stricmp( GI->gamefolder, "tfc" ))
@@ -1388,13 +1491,14 @@ void Cmd_Init( void )
 	cmd_pool = Mem_AllocPool( "Console Commands" );
 	cmd_functions = NULL;
 	cmd_condition = 0;
+	cmd_wait = 0;
 	cmd_alias = NULL;
 	cmd_args = NULL;
 	cmd_argc = 0;
 
 	// register our commands
 	Cmd_AddCommand( "echo", Cmd_Echo_f, "print a message to the console (useful in scripts)" );
-	Cmd_AddCommand( "wait", Cmd_Wait_f, "make script execution wait for some rendered frames" );
+	Cmd_AddRestrictedCommand( "wait", Cmd_Wait_f, "make script execution wait for some rendered frames" );
 	Cmd_AddRestrictedCommand( "cmdlist", Cmd_List_f, "display all console commands beginning with the specified prefix" );
 	Cmd_AddRestrictedCommand( "stuffcmds", Cmd_StuffCmds_f, "execute commandline parameters (must be present in .rc script)" );
 	Cmd_AddRestrictedCommand( "apropos", Cmd_Apropos_f, "lists all console variables/commands/aliases containing the specified string in the name or description" );
