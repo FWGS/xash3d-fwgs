@@ -30,8 +30,6 @@ so it can unlock and free the data block after it has been played.
 =======================================================================
 */
 
-dma_t			dma;
-
 void S_Activate( qboolean active )
 {
 }
@@ -86,11 +84,12 @@ Reset the sound device for exiting
 void SNDDMA_Shutdown( void )
 {
 	Con_Printf("Shutting down audio.\n");
-	dma.initialized = false;
+	snd.initialized = false;
 
-	if (dma.buffer) {
-		 Z_Free(dma.buffer);
-		 dma.buffer = NULL;
+	if( snd.buffer )
+	{
+		Mem_Free( snd.buffer );
+		snd.buffer = NULL;
 	}
 }
 

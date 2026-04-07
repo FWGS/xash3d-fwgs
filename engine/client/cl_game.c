@@ -37,11 +37,20 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 
 #define MAX_LINELENGTH	80
-#define MAX_TEXTCHANNELS	8		// must be power of two (GoldSrc uses 4 channels)
-#define TEXT_MSGNAME	"TextMessage%i"
+#define TEXT_MSGNAME	"TextMessage"
 
 static char cl_textbuffer[MAX_TEXTCHANNELS][2048];
-static client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS];
+client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS] =
+{
+{ .pName = "TextMessage0", .pMessage = cl_textbuffer[0] },
+{ .pName = "TextMessage1", .pMessage = cl_textbuffer[1] },
+{ .pName = "TextMessage2", .pMessage = cl_textbuffer[2] },
+{ .pName = "TextMessage3", .pMessage = cl_textbuffer[3] },
+{ .pName = "TextMessage4", .pMessage = cl_textbuffer[4] },
+{ .pName = "TextMessage5", .pMessage = cl_textbuffer[5] },
+{ .pName = "TextMessage6", .pMessage = cl_textbuffer[6] },
+{ .pName = "TextMessage7", .pMessage = cl_textbuffer[7] },
+};
 
 static const dllfunc_t cdll_exports[] =
 {
@@ -180,7 +189,13 @@ static void CL_InitCDAudio( const char *filename )
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( !Q_stricmp( token, "blank" ))
+		{
 			clgame.cdtracks[c][0] = '\0';
+		}
+		else if( token[0] == '/' ) // allow custom path
+		{
+			Q_strncpy( clgame.cdtracks[c], &token[1], sizeof( clgame.cdtracks[c] ));
+		}
 		else
 		{
 			Q_snprintf( clgame.cdtracks[c], sizeof( clgame.cdtracks[c] ),
@@ -561,31 +576,18 @@ and hold them into permament memory pool
 */
 static void CL_InitTitles( const char *filename )
 {
-	fs_offset_t	fileSize;
-	byte	*pMemFile;
-	int	i;
-
-	// initialize text messages (game_text)
-	for( i = 0; i < MAX_TEXTCHANNELS; i++ )
-	{
-		char name[MAX_VA_STRING];
-
-		Q_snprintf( name, sizeof( name ), TEXT_MSGNAME, i );
-
-		cl_textmessage[i].pName = copystringpool( clgame.mempool, name );
-		cl_textmessage[i].pMessage = cl_textbuffer[i];
-	}
-
 	// clear out any old data that's sitting around.
-	if( clgame.titles ) Mem_Free( clgame.titles );
+	Mem_Free( clgame.titles );
 
 	clgame.titles = NULL;
 	clgame.numTitles = 0;
 
-	pMemFile = FS_LoadFile( filename, &fileSize, false );
-	if( !pMemFile ) return;
+	fs_offset_t fileSize = 0;
+	char *pMemFile = (char *)FS_LoadFile( filename, &fileSize, false );
+	if( !pMemFile )
+		return;
 
-	clgame.titles = CL_TextMessageParse( clgame.mempool, (char *)pMemFile, fileSize, &clgame.numTitles );
+	clgame.titles = CL_TextMessageParse( clgame.mempool, pMemFile, fileSize, &clgame.numTitles );
 	Mem_Free( pMemFile );
 }
 
@@ -650,54 +652,6 @@ void CL_ParseTextMessage( sizebuf_t *msg )
 
 	// to prevent grab too long messages
 	Q_strncpy( (char *)text->pMessage, MSG_ReadString( msg ), 2048 );
-
-	CL_HudMessage( text->pName );
-}
-
-/*
-================
-CL_ParseFinaleCutscene
-
-show display finale or cutscene message
-================
-*/
-void CL_ParseFinaleCutscene( sizebuf_t *msg, int level )
-{
-	static int		msgindex = 0;
-	client_textmessage_t	*text;
-	int			channel;
-
-	cl.intermission = level;
-
-	channel = msgindex;
-	msgindex = (msgindex + 1) & (MAX_TEXTCHANNELS - 1);
-
-	// grab message channel
-	text = &cl_textmessage[channel];
-
-	// NOTE: svc_finale and svc_cutscene has a
-	// predefined settings like Quake-style
-	text->x = -1.0f;
-	text->y = 0.15f;
-	text->effect = 2;	// scan out effect
-	text->r1 = 245;
-	text->g1 = 245;
-	text->b1 = 245;
-	text->a1 = 0;	// unused
-	text->r2 = 0;
-	text->g2 = 0;
-	text->b2 = 0;
-	text->a2 = 0;
-	text->fadein = 0.15f;
-	text->fadeout = 0.0f;
-	text->holdtime = 99999.0f;
-	text->fxtime = 0.0f;
-
-	// to prevent grab too long messages
-	Q_strncpy( (char *)text->pMessage, MSG_ReadString( msg ), 2048 );
-
-	if( *text->pMessage == '\0' )
-		return; // no real text
 
 	CL_HudMessage( text->pName );
 }
@@ -1975,13 +1929,12 @@ client_textmessage_t *CL_TextMessageGet( const char *pName )
 	int	i;
 
 	// first check internal messages
-	for( i = 0; i < MAX_TEXTCHANNELS; i++ )
+	if( Q_strlen( pName ) == sizeof( TEXT_MSGNAME ) // including the digit
+		&& !Q_strncmp( pName, TEXT_MSGNAME, sizeof( TEXT_MSGNAME ) - 1 ))
 	{
-		char name[MAX_VA_STRING];
+		i = pName[sizeof( TEXT_MSGNAME ) - 1] - '0';
 
-		Q_snprintf( name, sizeof( name ), TEXT_MSGNAME, i );
-
-		if( !Q_strcmp( pName, name ))
+		if( i >= 0 && i < MAX_TEXTCHANNELS )
 			return cl_textmessage + i;
 	}
 
@@ -4096,14 +4049,14 @@ qboolean CL_LoadProgs( const char *name )
 
 	CL_InitCDAudio( "media/cdaudio.txt" );
 	CL_InitTitles( "titles.txt" );
-	CL_InitParticles ();
-	CL_InitViewBeams ();
-	CL_InitTempEnts ();
+	CL_InitParticles( );
+	CL_InitViewBeams( );
+	CL_InitTempEnts( );
 
-	if( !R_InitRenderAPI())	// Xash3D extension
+	if( !R_InitRenderAPI( ))	// Xash3D extension
 		Con_Reportf( S_WARN "%s: couldn't get render API\n", __func__ );
 
-	if( !Mobile_Init() ) // Xash3D FWGS extension: mobile interface
+	if( !Mobile_Init( )) // Xash3D FWGS extension: mobile interface
 		Con_Reportf( S_WARN "%s: couldn't get mobility API\n", __func__ );
 
 	CL_InitEdicts( cl.maxclients );		// initailize local player and world

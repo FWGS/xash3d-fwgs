@@ -18,6 +18,8 @@ GNU General Public License for more details.
 #define PLATFORM_H
 
 #include <errno.h>
+#define FSCALLBACK_OVERRIDE_MALLOC_LIKE
+#include "fscallback.h"
 #include "common.h"
 #include "system.h"
 #include "defaults.h"
@@ -43,6 +45,7 @@ qboolean Platform_DebuggerPresent( void );
 int IOS_GetArgs( char ***argv );
 const char *IOS_GetDocsDir( void );
 void IOS_LaunchDialog( void );
+#include "platform/ios/lib_ios.h"
 #endif // TARGET_OS_IOS
 
 #if XASH_WIN32 || XASH_LINUX
@@ -206,6 +209,18 @@ static inline void Sys_RestoreCrashHandler( void )
 {
 }
 #endif
+
+static inline qboolean Platform_LibraryExists( const char *name, qboolean gamedironly )
+{
+#if XASH_IOS
+	return IOS_LibraryExists( name );
+#elif XASH_ANDROID
+	// sorry, unimplemented
+	return false;
+#else
+	return g_fsapi.FileExists( name, gamedironly );
+#endif
+}
 
 
 /*

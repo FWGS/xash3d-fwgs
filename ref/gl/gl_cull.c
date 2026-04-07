@@ -67,20 +67,20 @@ int R_CullSurface( const msurface_t *surf, const gl_frustum_t *frustum, uint cli
 {
 	cl_entity_t	*e = RI.currententity;
 
-	if( !e || !surf || !surf->texinfo || !surf->texinfo->texture )
-		return CULL_OTHER;
-
-	if( r_nocull.value )
-		return CULL_VISIBLE;
-
-	// world surfaces can be culled by vis frame too
-	if( e == CL_GetEntityByIndex( 0 ) && surf->visframe != tr.framecount )
+	if( surf->visframe != tr.framecount && e == CL_GetEntityByIndex( 0 ))
 		return CULL_VISFRAME;
 
-	// only static ents can be culled by frustum
-	if( !R_StaticEntity( e )) frustum = NULL;
+	if( unlikely( !surf->texinfo || !surf->texinfo->texture ))
+		return CULL_OTHER;
 
-	if( !VectorIsNull( surf->plane->normal ))
+	if( unlikely( r_nocull.value ))
+		return CULL_VISIBLE;
+
+	// only static ents can be culled by frustum
+	if( !R_StaticEntity( e ))
+		frustum = NULL;
+
+	if( glState.faceCull != GL_NONE && !VectorIsNull( surf->plane->normal ))
 	{
 		float	dist;
 
@@ -95,35 +95,22 @@ int R_CullSurface( const msurface_t *surf, const gl_frustum_t *frustum, uint cli
 		}
 		else dist = PlaneDiff( tr.modelorg, surf->plane );
 
+		if( FBitSet( surf->flags, SURF_PLANEBACK ))
+			dist = -dist;
+
 		if( glState.faceCull == GL_FRONT )
 		{
-			if( FBitSet( surf->flags, SURF_PLANEBACK ))
-			{
-				if( dist >= -BACKFACE_EPSILON )
-					return CULL_BACKSIDE; // wrong side
-			}
-			else
-			{
-				if( dist <= BACKFACE_EPSILON )
-					return CULL_BACKSIDE; // wrong side
-			}
+			if( dist <= BACKFACE_EPSILON )
+				return CULL_BACKSIDE;
 		}
-		else if( glState.faceCull == GL_BACK )
+		else // if( glState.faceCull == GL_BACK )
 		{
-			if( FBitSet( surf->flags, SURF_PLANEBACK ))
-			{
-				if( dist <= BACKFACE_EPSILON )
-					return CULL_BACKSIDE; // wrong side
-			}
-			else
-			{
-				if( dist >= -BACKFACE_EPSILON )
-					return CULL_BACKSIDE; // wrong side
-			}
+			if( dist >= -BACKFACE_EPSILON )
+				return CULL_BACKSIDE;
 		}
 	}
 
-	if( frustum && GL_FrustumCullBox( frustum, surf->info->mins, surf->info->maxs, clipflags ))
+	if( frustum && clipflags && GL_FrustumCullBox( frustum, surf->info->mins, surf->info->maxs, clipflags ))
 		return CULL_FRUSTUM;
 
 	return CULL_VISIBLE;

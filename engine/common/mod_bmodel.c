@@ -2587,7 +2587,7 @@ static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, texture_t *tx, qbo
 	r_temp.palette = NULL;
 
 	// load it in
-	solidskyTexture = GL_LoadTextureInternal( "solid_sky", &r_temp, TF_NOMIPMAP );
+	solidskyTexture = GL_LoadTextureInternal( "solid_sky", &r_temp, TF_NOMIPMAP | TF_ALLOW_NEAREST );
 
 	for( i = 0; i < r_sky->width >> 1; i++ )
 	{
@@ -2610,7 +2610,7 @@ static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, texture_t *tx, qbo
 	r_temp.flags = IMAGE_HAS_COLOR|IMAGE_HAS_ALPHA;
 
 	// load it in
-	alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP );
+	alphaskyTexture = GL_LoadTextureInternal( "alpha_sky", &r_temp, TF_NOMIPMAP | TF_ALLOW_NEAREST );
 
 	// clean up
 	FS_FreeImage( r_sky );
@@ -3599,6 +3599,10 @@ Mod_LoadVisibility
 */
 static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 {
+	// external bmodels have no visibility
+	if( !bmod->visdata || !bmod->visdatasize )
+		return;
+
 	mod->visdata = Mem_Malloc( mod->mempool, bmod->visdatasize );
 	memcpy( mod->visdata, bmod->visdata, bmod->visdatasize );
 }
@@ -3793,7 +3797,7 @@ static fs_offset_t Mod_FindBSPX( const byte *mod_base, size_t bufferlen )
 
 	max_offset = ALIGN( max_offset, 4 ); // force 32-bit boundary
 
-	if( max_offset > bufferlen )
+	if( max_offset + sizeof( dbspx_hdr_t ) > bufferlen )
 		return -1;
 
 	bspx_header = (const dbspx_hdr_t *)( mod_base + max_offset );
@@ -3878,8 +3882,11 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		Mod_LoadLump( mod_base, &extlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSP30EXT, NULL );
 
 	// loading bspx lumps
-	for( i = 0; i < ARRAYSIZE( bspxlumps ); i++, stat_index++ )
-		Mod_LoadLump( mod_base, &bspxlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSPX, mod_base + bspx_header_offset );
+	if( bspx_header_offset >= 0 )
+	{
+		for( i = 0; i < ARRAYSIZE( bspxlumps ); i++, stat_index++ )
+			Mod_LoadLump( mod_base, &bspxlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSPX, mod_base + bspx_header_offset );
+	}
 
 	if( !bmod->isworld ) // a1ba: why world excluded here?
 	{

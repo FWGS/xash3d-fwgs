@@ -1199,6 +1199,9 @@ void Con_CompleteCommand( field_t *field, qboolean print_suggestions )
 	// setup the completion field
 	con.completionField = field;
 
+	if( COM_StringEmpty( con.completionField->buffer ))
+		return;
+
 	// only look at the first token for completion purposes
 	Cmd_TokenizeString( con.completionField->buffer );
 

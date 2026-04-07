@@ -70,11 +70,7 @@ void CL_SetFontRendermode( cl_font_t *font )
 
 void CL_SetFontColor( cl_font_t *font, const rgba_t color )
 {
-	// don't apply color to fixed fonts it's already colored
-	if( font->type != FONT_FIXED || REF_GET_PARM( PARM_TEX_GLFORMAT, font->hFontTexture ) == 0x8045 ) // GL_LUMINANCE8_ALPHA8
-		ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
-	else
-		ref.dllFuncs.Color4ub( 255, 255, 255, color[3] );
+	ref.dllFuncs.Color4ub( color[0], color[1], color[2], color[3] );
 }
 
 qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags )

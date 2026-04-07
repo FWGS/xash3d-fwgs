@@ -120,7 +120,7 @@ static void S_MixAudio( portable_samplepair_t *pbuf, const int *pvol, const void
 
 static int S_AdjustNumSamples( channel_t *chan, int num_samples, double rate, double timecompress_rate )
 {
-	if( chan->finished )
+	if( FBitSet( chan->flags, FL_CHAN_FINISHED ))
 		return 0;
 
 	// if channel is set to end at specific sample,
@@ -132,7 +132,7 @@ static int S_AdjustNumSamples( channel_t *chan, int num_samples, double rate, do
 
 		if( end_sample >= chan->forced_end )
 		{
-			chan->finished = true;
+			SetBits( chan->flags, FL_CHAN_FINISHED );
 			return floor(( chan->forced_end - chan->sample ) / ( rate * timecompress_rate ));
 		}
 	}
@@ -153,7 +153,7 @@ static int S_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan, i
 	// timecompress at 100% is skipping the entire sfx, so mark as finished and exit
 	if( timecompress >= 100 )
 	{
-		chan->finished = true;
+		SetBits( chan->flags, FL_CHAN_FINISHED );
 		return 0;
 	}
 
@@ -173,7 +173,7 @@ static int S_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan, i
 
 		// get sample pointer and also amount of samples available
 		const void *audio = NULL;
-		int available = S_RetrieveAudioSamples( chan->sfx->cache, &audio, chan->sample, request_num_samples, chan->use_loop );
+		int available = S_RetrieveAudioSamples( chan->sfx->cache, &audio, chan->sample, request_num_samples, FBitSet( chan->flags, FL_CHAN_USE_LOOP ));
 
 		// no samples available, exit
 		if( !available )
@@ -196,7 +196,7 @@ static int S_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan, i
 
 	// samples couldn't be retrieved, mark as finished
 	if( num_samples > 0 )
-		chan->finished = true;
+		SetBits( chan->flags, FL_CHAN_FINISHED );
 
 	// total amount of samples mixed
 	return offset - initial_offset;
@@ -206,10 +206,10 @@ static int VOX_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan,
 {
 	int	offset = 0;
 
-	if( chan->sentence_finished )
+	if( FBitSet( chan->flags, FL_CHAN_SENTENCE_FINISHED ))
 		return 0;
 
-	while( num_samples > 0 && !chan->sentence_finished )
+	while( num_samples > 0 && !FBitSet( chan->flags, FL_CHAN_SENTENCE_FINISHED ))
 	{
 		int	outputCount = S_MixChannelToBuffer( pbuf, chan, num_samples, out_rate, pitch, offset, chan->words[chan->word_index].timecompress );
 
@@ -217,13 +217,13 @@ static int VOX_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan,
 		num_samples -= outputCount;
 
 		// if we finished load a next word
-		if( chan->finished )
+		if( FBitSet( chan->flags, FL_CHAN_FINISHED ))
 		{
 			VOX_FreeWord( chan );
 			chan->word_index++;
 			VOX_LoadWord( chan );
 
-			if( !chan->sentence_finished )
+			if( !FBitSet( chan->flags, FL_CHAN_SENTENCE_FINISHED ))
 				chan->sfx = chan->words[chan->word_index].sfx;
 		}
 	}
@@ -235,7 +235,7 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 {
 	const qboolean local = Host_IsLocalGame();
 	const qboolean ingame = CL_IsInGame();
-	const int num_samples = ( end - paintedtime ) / ( SOUND_DMA_SPEED / rate );
+	const int num_samples = ( end - snd.paintedtime ) / ( SOUND_DMA_SPEED / rate );
 
 	// FWGS feature: make everybody sound like chipmunks when we're going fast
 	const float pitch_mult = ( sys_timescale.value + 1 ) / 2;
@@ -248,25 +248,25 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 	if( cl.background && cls.key_dest == key_console )
 		return num_mixed_channels; // no sounds in console with background map
 
-	for( int i = 0; i < total_channels; i++ )
+	for( int i = 0; i < snd.total_channels; i++ )
 	{
-		channel_t *ch = &channels[i];
+		channel_t *ch = &snd.channels[i];
 
 		if( !ch->sfx )
 			continue;
 
 		if( !cl.background )
 		{
-			if( cls.key_dest == key_console && ch->localsound )
+			if( cls.key_dest == key_console && FBitSet( ch->flags, FL_CHAN_LOCAL_SOUND ))
 			{
 				// play, playvol
 			}
-			else if(( cls.key_dest == key_menu || cl.paused ) && !ch->localsound && local )
+			else if(( cls.key_dest == key_menu || cl.paused ) && !FBitSet( ch->flags, FL_CHAN_LOCAL_SOUND ) && local )
 			{
 				// play only local sounds, keep pause for other
 				continue;
 			}
-			else if( cls.key_dest != key_menu && !ingame && !ch->staticsound )
+			else if( cls.key_dest != key_menu && !ingame && !FBitSet( ch->flags, FL_CHAN_STATIC_SOUND ))
 			{
 				// play only ambient sounds, keep pause for other
 				continue;
@@ -285,7 +285,7 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 		// if it's also not looping, free it
 		if( ch->leftvol < 8 && ch->rightvol < 8 )
 		{	
-			if( !FBitSet( sc->flags, SOUND_LOOPED ) || !ch->use_loop )
+			if( !FBitSet( sc->flags, SOUND_LOOPED ) || !FBitSet( ch->flags, FL_CHAN_USE_LOOP ))
 			{
 				if( ch->inauduble_free_time == 0.0f )
 					ch->inauduble_free_time = host.realtime + MAX_CHANNEL_INAUDIBLE_TIME;
@@ -308,9 +308,9 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 			if( ent != NULL )
 			{
 				if( sc->width == 1 )
-					SND_MoveMouth8( &ent->mouth, ch->sample, sc, num_samples, ch->use_loop );
+					SND_MoveMouth8( &ent->mouth, ch->sample, sc, num_samples, FBitSet( ch->flags, FL_CHAN_USE_LOOP ));
 				else
-					SND_MoveMouth16( &ent->mouth, ch->sample, sc, num_samples, ch->use_loop );
+					SND_MoveMouth16( &ent->mouth, ch->sample, sc, num_samples, FBitSet( ch->flags, FL_CHAN_USE_LOOP ));
 			}
 		}
 
@@ -318,18 +318,18 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 
 		num_mixed_channels++;
 
-		if( ch->is_sentence )
+		if( ch->words )
 		{
 			VOX_MixChannelToBuffer( dst, ch, num_samples, rate, pitch );
 
-			if( ch->sentence_finished )
+			if( FBitSet( ch->flags, FL_CHAN_SENTENCE_FINISHED ))
 				S_FreeChannel( ch );
 		}
 		else
 		{
 			S_MixChannelToBuffer( dst, ch, num_samples, rate, pitch, 0, 0 );
 
-			if( ch->finished )
+			if( FBitSet( ch->flags, FL_CHAN_FINISHED ))
 				S_FreeChannel( ch );
 		}
 	}
@@ -375,7 +375,7 @@ static int S_MixNormalChannelsToRoombuffer( int end, int count )
 	// until there is no real usecase, let's keep it simple
 	int num_mixed_channels = S_MixNormalChannels( roombuffer, end, SOUND_11k );
 
-	if( dma.format.speed >= SOUND_22k )
+	if( snd.format.speed >= SOUND_22k )
 	{
 		if( num_mixed_channels > 0 )
 			S_UpsampleBuffer( roombuffer, count / ( SOUND_22k / SOUND_11k ));
@@ -383,7 +383,7 @@ static int S_MixNormalChannelsToRoombuffer( int end, int count )
 		num_mixed_channels += S_MixNormalChannels( roombuffer, end, SOUND_22k );
 	}
 
-	if( dma.format.speed >= SOUND_44k )
+	if( snd.format.speed >= SOUND_44k )
 	{
 		if( num_mixed_channels > 0 )
 			S_UpsampleBuffer( roombuffer, count / ( SOUND_44k / SOUND_22k ));
@@ -402,10 +402,10 @@ static int S_MixRawChannels( int end )
 		return 0;
 
 	// paint in the raw channels
-	for( size_t i = 0; i < ARRAYSIZE( raw_channels ); i++ )
+	for( size_t i = 0; i < snd.max_raw_channels; i++ )
 	{
 		// copy from the streaming sound source
-		rawchan_t *ch = raw_channels[i];
+		rawchan_t *ch = snd.raw_channels[i];
 
 		if( !ch )
 			continue;
@@ -434,7 +434,7 @@ static int S_MixRawChannels( int end )
 		uint stop = (end < ch->s_rawend) ? end : ch->s_rawend;
 		const uint mask = ch->max_samples - 1;
 
-		for( size_t i = 0, j = paintedtime; j < stop; i++, j++ )
+		for( size_t i = 0, j = snd.paintedtime; j < stop; i++, j++ )
 		{
 			pbuf[i].left  += ( ch->rawsamples[j & mask].left * ch->leftvol ) >> 8;
 			pbuf[i].right += ( ch->rawsamples[j & mask].right * ch->rightvol ) >> 8;
@@ -443,8 +443,8 @@ static int S_MixRawChannels( int end )
 		if( ch->entnum > 0 )
 		{
 			cl_entity_t *ent = CL_GetEntityByIndex( ch->entnum );
-			int pos = paintedtime & ( ch->max_samples - 1 );
-			int count = bound( 0, ch->max_samples - pos, stop - paintedtime );
+			int pos = snd.paintedtime & ( ch->max_samples - 1 );
+			int count = bound( 0, ch->max_samples - pos, stop - snd.paintedtime );
 
 			if( ent )
 				SND_MoveMouthRaw( &ent->mouth, &ch->rawsamples[pos], count );
@@ -486,8 +486,8 @@ static void S_WriteLinearBlastStereo16( short *snd_out, const int *snd_p, size_t
 static void S_TransferPaintBuffer( const portable_samplepair_t *src, int endtime )
 {
 	const int *snd_p = (const int *)src;
-	const int sampleMask = ((dma.samples >> 1) - 1);
-	int lpaintedtime = paintedtime;
+	const int sampleMask = ((snd.samples >> 1) - 1);
+	int lpaintedtime = snd.paintedtime;
 
 	SNDDMA_BeginPainting ();
 
@@ -496,9 +496,9 @@ static void S_TransferPaintBuffer( const portable_samplepair_t *src, int endtime
 		// handle recirculating buffer issues
 		int lpos = lpaintedtime & sampleMask;
 
-		short *snd_out = (short *)dma.buffer + (lpos << 1);
+		short *snd_out = (short *)snd.buffer + (lpos << 1);
 
-		int snd_linear_count = (dma.samples>>1) - lpos;
+		int snd_linear_count = (snd.samples>>1) - lpos;
 		if( lpaintedtime + snd_linear_count > endtime )
 			snd_linear_count = endtime - lpaintedtime;
 
@@ -526,14 +526,14 @@ void S_PaintChannels( int endtime )
 {
 	int gain = S_GetMasterVolume() * 256;
 
-	while( paintedtime < endtime )
+	while( snd.paintedtime < endtime )
 	{
 		// if paintbuffer is smaller than DMA buffer
 		int end = endtime;
-		if( end - paintedtime > PAINTBUFFER_SIZE )
-			end = paintedtime + PAINTBUFFER_SIZE;
+		if( end - snd.paintedtime > PAINTBUFFER_SIZE )
+			end = snd.paintedtime + PAINTBUFFER_SIZE;
 
-		const int num_samples = end - paintedtime;
+		const int num_samples = end - snd.paintedtime;
 
 		S_ClearBuffers( num_samples );
 
@@ -550,6 +550,6 @@ void S_PaintChannels( int endtime )
 
 		// transfer out according to DMA format
 		S_TransferPaintBuffer( paintbuffer, end );
-		paintedtime = end;
+		snd.paintedtime = end;
 	}
 }

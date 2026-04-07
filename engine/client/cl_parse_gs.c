@@ -569,22 +569,15 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 		// record command for debugging spew on parse problem
 		CL_Parse_RecordCommand( cmd, bufStart );
 
-		if( CL_ParseCommonDLLMessage( msg, PROTO_GOLDSRC, cmd, bufStart ))
+		if( CL_ParseCommonMessage( msg, PROTO_GOLDSRC, cmd, bufStart ))
+			continue;
+
+		if( CL_ParseCommonHLMessage( msg, PROTO_GOLDSRC, cmd, bufStart ))
 			continue;
 
 		// other commands
 		switch( cmd )
 		{
-		case svc_bad:
-			Host_Error( "svc_bad\n" );
-			break;
-		case svc_nop:
-		case svc_spawnstatic:
-		case svc_goldsrc_damage:
-		case svc_goldsrc_killedmonster:
-		case svc_goldsrc_foundsecret:
-			// this does nothing
-			break;
 		case svc_disconnect:
 			s = MSG_ReadString( msg );
 			if( !COM_StringEmpty( s ))
@@ -603,46 +596,9 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			if( param1 != PROTOCOL_GOLDSRC_VERSION )
 				Host_Error( "Server use invalid protocol (%i should be %i)\n", param1, PROTOCOL_GOLDSRC_VERSION );
 			break;
-		case svc_setview:
-			CL_ParseViewEntity( msg );
-			break;
 		case svc_sound:
 			CL_ParseSoundPacketGS( msg );
 			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
-			break;
-		case svc_time:
-			CL_ParseServerTime( msg, PROTO_GOLDSRC );
-			break;
-		case svc_print:
-			Con_Printf( "%s", MSG_ReadString( msg ));
-			break;
-		case svc_stufftext:
-			s = MSG_ReadString( msg );
-			if( cl_trace_stufftext.value )
-			{
-				size_t len = Q_strlen( s );
-				Con_Printf( "Stufftext: %s%c", s, len && s[len-1] == '\n' ? '\0' : '\n' );
-			}
-
-#ifdef HACKS_RELATED_HLMODS
-			// disable Cry Of Fear antisave protection
-			if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
-				break; // too early
-#endif
-			Cbuf_AddFilteredText( s );
-			break;
-		case svc_setangle:
-			CL_ParseSetAngle( msg );
-			break;
-		case svc_serverdata:
-			Cbuf_Execute(); // make sure any stuffed commands are done
-			CL_ParseServerData( msg, PROTO_GOLDSRC );
-			break;
-		case svc_lightstyle:
-			CL_ParseLightStyle( msg, PROTO_GOLDSRC );
-			break;
-		case svc_updateuserinfo:
-			CL_UpdateUserinfo( msg, PROTO_GOLDSRC );
 			break;
 		case svc_deltatable:
 			Delta_ParseTableField_GS( msg );
@@ -663,8 +619,9 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			CL_UpdateUserPings( msg );
 			MSG_EndBitWriting( msg );
 			break;
-		case svc_particle:
-			CL_ParseParticles( msg, PROTO_GOLDSRC );
+		case svc_goldsrc_damage:
+		case svc_spawnstatic:
+			// this does nothing
 			break;
 		case svc_event_reliable:
 			MSG_StartBitWriting( msg );
@@ -680,34 +637,17 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 		case svc_setpause:
 			cl.paused = ( MSG_ReadByte( msg ) != 0 );
 			break;
-		case svc_signonnum:
-			CL_ParseSignon( msg, PROTO_GOLDSRC );
-			break;
-		case svc_centerprint:
-			CL_CenterPrint( MSG_ReadString( msg ), 0.25f );
+		case svc_goldsrc_killedmonster:
+		case svc_goldsrc_foundsecret:
+			// this does nothing
 			break;
 		case svc_goldsrc_spawnstaticsound:
 			CL_ParseSpawnStaticSound( msg );
-			break;
-		case svc_finale:
-			CL_ParseFinaleCutscene( msg, 2 );
-			break;
-		case svc_restore:
-			CL_ParseRestore( msg );
-			break;
-		case svc_cutscene:
-			CL_ParseFinaleCutscene( msg, 3 );
 			break;
 		case svc_goldsrc_decalname:
 			param1 = MSG_ReadByte( msg );
 			s = MSG_ReadString( msg );
 			Q_strncpy( host.draw_decals[param1], s, sizeof( host.draw_decals[param1] ));
-			break;
-		case svc_addangle:
-			CL_ParseAddAngle( msg );
-			break;
-		case svc_usermessage:
-			CL_RegisterUserMessage( msg, PROTO_GOLDSRC );
 			break;
 		case svc_packetentities:
 			playerbytes = CL_ParsePacketEntitiesGS( msg, false );
@@ -719,10 +659,6 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			cl.frames[cl.parsecountmod].graphdata.players += playerbytes;
 			cl.frames[cl.parsecountmod].graphdata.entities += MSG_GetNumBytesRead( msg ) - bufStart - playerbytes;
 			break;
-		case svc_choke:
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].choked = true;
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].receivedtime = -2.0;
-			break;
 		case svc_resourcelist:
 			MSG_StartBitWriting( msg );
 			CL_ParseResourceList( msg, PROTO_GOLDSRC );
@@ -730,34 +666,6 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			break;
 		case svc_deltamovevars:
 			CL_ParseNewMovevars( msg );
-			break;
-		case svc_resourcerequest:
-			CL_ParseResourceRequest( msg );
-			break;
-		case svc_customization:
-			CL_ParseCustomization( msg );
-			break;
-		case svc_crosshairangle:
-			CL_ParseCrosshairAngle( msg );
-			break;
-		case svc_soundfade:
-			CL_ParseSoundFade( msg );
-			break;
-		case svc_filetxferfailed:
-			CL_ParseFileTransferFailed( msg );
-			break;
-		case svc_hltv:
-			CL_ParseHLTV( msg );
-			break;
-		case svc_voiceinit:
-			CL_ParseVoiceInit( msg );
-			break;
-		case svc_voicedata:
-			CL_ParseVoiceData( msg, PROTO_GOLDSRC );
-			cl.frames[cl.parsecountmod].graphdata.voicebytes += MSG_GetNumBytesRead( msg ) - bufStart;
-			break;
-		case svc_resourcelocation:
-			CL_ParseResLocation( msg );
 			break;
 		case svc_goldsrc_sendextrainfo:
 			CL_ParseExtraInfo( msg );
@@ -767,15 +675,6 @@ void CL_ParseGoldSrcServerMessage( sizebuf_t *msg )
 			// HLTV and demoplayback. Do we really want to have it then if both are out of scope?
 			Con_Reportf( S_ERROR "%s: svc_goldsrc_timescale: implement me!\n", __func__ );
 			MSG_ReadFloat( msg );
-			break;
-		case svc_querycvarvalue:
-			CL_ParseCvarValue( msg, false, PROTO_GOLDSRC );
-			break;
-		case svc_querycvarvalue2:
-			CL_ParseCvarValue( msg, true, PROTO_GOLDSRC );
-			break;
-		case svc_exec:
-			CL_ParseExec( msg );
 			break;
 		default:
 			CL_ParseUserMessage( msg, cmd, PROTO_GOLDSRC );

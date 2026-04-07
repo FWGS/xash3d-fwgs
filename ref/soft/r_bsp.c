@@ -559,7 +559,6 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 	}
 	else
 	{
-		mnode_t    *children[2];
 		int firstsurface;
 
 		// node is just a decision point, so go down the apropriate sides
@@ -589,8 +588,7 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 			side = 1;
 
 		// recurse down the children, front side first
-		node_children( children, node, WORLDMODEL );
-		R_RecursiveWorldNode( children[side], clipflags );
+		R_RecursiveWorldNode( node_child( node, side, WORLDMODEL ), clipflags );
 
 		// draw stuff
 		c = node_numsurfaces( node, WORLDMODEL );
@@ -634,7 +632,7 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 		}
 
 		// recurse down the back side
-		R_RecursiveWorldNode( children[!side], clipflags );
+		R_RecursiveWorldNode( node_child( node, !side, WORLDMODEL ), clipflags );
 	}
 }
 

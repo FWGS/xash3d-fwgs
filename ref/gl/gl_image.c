@@ -46,7 +46,12 @@ acess to array elem
 */
 gl_texture_t *R_GetTexture( unsigned int texnum )
 {
-	Assert( texnum < MAX_TEXTURES );
+	if( texnum >= MAX_TEXTURES )
+	{
+		gEngfuncs.Host_Error( "%s: texnum (%d) >= MAX_TEXTURES (%d)", __func__, texnum, MAX_TEXTURES );
+		texnum = 0;
+	}
+
 	return &gl_textures[texnum];
 }
 

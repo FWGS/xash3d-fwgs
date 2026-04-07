@@ -20,6 +20,7 @@ GNU General Public License for more details.
 typedef struct
 {
 	int		allocated[BLOCK_SIZE_MAX];
+	int		max_height;		// maximum height currently in use in the block
 	int		current_lightmap_texture;
 	msurface_t	*dynamic_surfaces;
 	msurface_t	*lightmap_surfaces[MAX_LIGHTMAPS];
@@ -653,6 +654,7 @@ static void R_SetCacheState( msurface_t *surf )
 static void LM_InitBlock( void )
 {
 	memset( gl_lms.allocated, 0, sizeof( gl_lms.allocated ));
+	gl_lms.max_height = 0;
 }
 
 static int LM_AllocBlock( int w, int h, int *x, int *y )
@@ -662,7 +664,7 @@ static int LM_AllocBlock( int w, int h, int *x, int *y )
 
 	best = BLOCK_SIZE;
 
-	for( i = 0; i < BLOCK_SIZE - w; i++ )
+	for( i = 0; i < BLOCK_SIZE - w; )
 	{
 		best2 = 0;
 
@@ -679,6 +681,14 @@ static int LM_AllocBlock( int w, int h, int *x, int *y )
 			// this is a valid spot
 			*x = i;
 			*y = best = best2;
+			if( best == 0 )
+				break; // height 0 is optimal, can't do better
+			i++;
+		}
+		else
+		{
+			// allocated[i+j] was too tall — no position in [i, i+j] can work
+			i += j + 1;
 		}
 	}
 
@@ -688,20 +698,15 @@ static int LM_AllocBlock( int w, int h, int *x, int *y )
 	for( i = 0; i < w; i++ )
 		gl_lms.allocated[*x + i] = best + h;
 
+	if( best + h > gl_lms.max_height )
+		gl_lms.max_height = best + h;
+
 	return true;
 }
 
 static void LM_UploadDynamicBlock( void )
 {
-	int	height = 0, i;
-
-	for( i = 0; i < BLOCK_SIZE; i++ )
-	{
-		if( gl_lms.allocated[i] > height )
-			height = gl_lms.allocated[i];
-	}
-
-	pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer );
+	pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, gl_lms.max_height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer );
 }
 
 static void LM_UploadBlock( qboolean dynamic )
@@ -1290,70 +1295,59 @@ static void R_RenderDecalsForSurface( msurface_t *fa, int cull_type )
 
 static qboolean R_CheckLightMap( msurface_t *fa )
 {
-	qboolean is_dynamic = false;
 	int maps;
 
-	// check for lightmap modification
+	if( unlikely( !r_dynamic->value ))
+		return false;
+
+	if( fa->dlightframe == tr.framecount )
+		return true; // dlighted surfaces are always dynamic
+
+	// check for light styles
 	for( maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
 	{
-		if( tr.lightstylevalue[fa->styles[maps]] != fa->cached_light[maps] )
-			goto dynamic;
-	}
+		if( tr.lightstylevalue[fa->styles[maps]] == fa->cached_light[maps] )
+			continue;
 
-	// dynamic this frame or dynamic previously
-	if( fa->dlightframe == tr.framecount )
-	{
-dynamic:
-		// NOTE: at this point we have only valid textures
-		if( r_dynamic->value )
-			is_dynamic = true;
-	}
-
-	if( is_dynamic )
-	{
 		const int style = fa->styles[maps];
 
-		if( maps < MAXLIGHTMAPS && ( style >= 32 || style == 0 || style == 20 ) && fa->dlightframe != tr.framecount )
-		{
-			byte		temp[132*132*4];
-			mextrasurf_t	*info = fa->info;
-			int		sample_size;
-			int		smax, tmax;
+		// flickering light styles can go to dynamic chain
+		if( !( style >= 32 || style == 0 || style == 20 ))
+			return true;
 
-			sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
-			smax = ( info->lightextents[0] / sample_size ) + 1;
-			tmax = ( info->lightextents[1] / sample_size ) + 1;
+		byte temp[132*132*4];
+		mextrasurf_t *info = fa->info;
+		int sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
+		int smax = ( info->lightextents[0] / sample_size ) + 1;
+		int tmax = ( info->lightextents[1] / sample_size ) + 1;
 
-			if( smax < 132 && tmax < 132 )
-				R_BuildLightMap( fa, temp, smax * 4, true );
-			else
-			{
-				smax = Q_min( smax, 132 );
-				tmax = Q_min( tmax, 132 );
-				memset( temp, 255, sizeof( temp ));
-				//Host_MapDesignError( "%s: bad surface extents: %d %d", __func__, fa->extents[0], fa->extents[1] );
-			}
-
-			R_SetCacheState( fa );
-
-#if XASH_WES
-			GL_Bind( XASH_TEXTURE1, tr.lightmapTextures[fa->lightmaptexturenum] );
-			pglTexParameteri( GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE );
-#else
-			GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
-#endif
-
-			pglTexSubImage2D( GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_RGBA, GL_UNSIGNED_BYTE, temp );
-
-#if XASH_WES
-			GL_SelectTexture( XASH_TEXTURE0 );
-#endif
-		}
+		if( smax < 132 && tmax < 132 )
+			R_BuildLightMap( fa, temp, smax * 4, true );
 		else
-			return true; // add to dynamic chain
+		{
+			smax = Q_min( smax, 132 );
+			tmax = Q_min( tmax, 132 );
+			memset( temp, 255, sizeof( temp ));
+			//Host_MapDesignError( "%s: bad surface extents: %d %d", __func__, fa->extents[0], fa->extents[1] );
+		}
+
+		R_SetCacheState( fa );
+
+#if XASH_WES
+		GL_Bind( XASH_TEXTURE1, tr.lightmapTextures[fa->lightmaptexturenum] );
+		pglTexParameteri( GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE );
+#else
+		GL_Bind( XASH_TEXTURE0, tr.lightmapTextures[fa->lightmaptexturenum] );
+#endif
+		pglTexSubImage2D( GL_TEXTURE_2D, 0, fa->light_s, fa->light_t, smax, tmax, GL_RGBA, GL_UNSIGNED_BYTE, temp );
+
+#if XASH_WES
+		GL_SelectTexture( XASH_TEXTURE0 );
+#endif
+		return false;
 	}
 
-	return false; // updated
+	return false; // no change
 }
 
 static void R_RenderLightmapForSurface( msurface_t *fa )
@@ -2091,7 +2085,7 @@ void R_GenerateVBO( void )
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
+				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS | SURF_TRANSPARENT ) )
 					continue;
 
 				if( R_TextureAnimation( surf ) != world->textures[j] )
@@ -2162,7 +2156,7 @@ void R_GenerateVBO( void )
 				if( surf->lightmaptexturenum != k )
 					continue;
 
-				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS ) )
+				if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_CONVEYOR | SURF_DRAWTURB_QUADS | SURF_TRANSPARENT ) )
 					continue;
 
 				if( R_TextureAnimation( surf ) != world->textures[j] )
@@ -3403,14 +3397,6 @@ R_RecursiveWorldNode
 */
 static void R_RecursiveWorldNode( mnode_t *node, uint clipflags )
 {
-	int		i, clipped;
-	msurface_t	*surf, **mark;
-	mleaf_t		*pleaf;
-	int		c, side;
-	float		dot;
-	mnode_t *children[2];
-	int numsurfaces, firstsurface;
-
 loc0:
 	if( node->contents == CONTENTS_SOLID )
 		return; // hit a solid leaf
@@ -3420,14 +3406,14 @@ loc0:
 
 	if( clipflags && !r_nocull.value )
 	{
-		for( i = 0; i < 6; i++ )
+		for( int i = 0; i < 6; i++ )
 		{
 			const mplane_t	*p = &RI.frustum.planes[i];
 
 			if( !FBitSet( clipflags, BIT( i )))
 				continue;
 
-			clipped = BOX_ON_PLANE_SIDE( node->minmaxs, node->minmaxs + 3, p );
+			int clipped = BOX_ON_PLANE_SIDE( node->minmaxs, node->minmaxs + 3, p );
 			if( clipped == 2 ) return;
 			if( clipped == 1 ) ClearBits( clipflags, BIT( i ));
 		}
@@ -3436,19 +3422,11 @@ loc0:
 	// if a leaf node, draw stuff
 	if( node->contents < 0 )
 	{
-		pleaf = (mleaf_t *)node;
+		mleaf_t *pleaf = (mleaf_t *)node;
+		msurface_t **mark = pleaf->firstmarksurface;
 
-		mark = pleaf->firstmarksurface;
-		c = pleaf->nummarksurfaces;
-
-		if( c )
-		{
-			do
-			{
-				(*mark)->visframe = tr.framecount;
-				mark++;
-			} while( --c );
-		}
+		for( int i = 0; i < pleaf->nummarksurfaces; i++ )
+			mark[i]->visframe = tr.framecount;
 
 		// deal with model fragments in this leaf
 		if( pleaf->efrags )
@@ -3461,19 +3439,20 @@ loc0:
 	// node is just a decision point, so go down the apropriate sides
 
 	// find which side of the node we are on
-	dot = PlaneDiff( tr.modelorg, node->plane );
-	side = (dot >= 0.0f) ? 0 : 1;
+	float dot = PlaneDiff( tr.modelorg, node->plane );
+	int side = (dot >= 0.0f) ? 0 : 1;
 
 	// recurse down the children, front side first
-	node_children( children, node, WORLDMODEL );
-	R_RecursiveWorldNode( children[side], clipflags );
+	R_RecursiveWorldNode( node_child( node, side, WORLDMODEL ), clipflags );
 
-	firstsurface = node_firstsurface( node, WORLDMODEL );
-	numsurfaces = node_numsurfaces( node, WORLDMODEL );
+	int firstsurface = node_firstsurface( node, WORLDMODEL );
+	int numsurfaces = node_numsurfaces( node, WORLDMODEL );
 
 	// draw stuff
-	for( c = numsurfaces, surf = WORLDMODEL->surfaces + firstsurface; c; c--, surf++ )
+	for( int i = firstsurface; i < firstsurface + numsurfaces; i++ )
 	{
+		msurface_t *surf = &WORLDMODEL->surfaces[i];
+
 		if( R_CullSurface( surf, &RI.frustum, clipflags ))
 			continue;
 
@@ -3491,7 +3470,7 @@ loc0:
 	}
 
 	// recurse down the back side
-	node = children[!side];
+	node = node_child( node, !side, WORLDMODEL );
 	goto loc0;
 }
 
@@ -3567,7 +3546,6 @@ static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 
 	do
 	{
-		mnode_t *children[2];
 		int numsurfaces, firstsurface;
 
 		if( node->contents == CONTENTS_SOLID )
@@ -3625,9 +3603,8 @@ static void R_DrawWorldTopView( mnode_t *node, uint clipflags )
 		}
 
 		// recurse down both children, we don't care the order...
-		node_children( children, node, WORLDMODEL );
-		R_DrawWorldTopView( children[0], clipflags );
-		node = children[1];
+		R_DrawWorldTopView( node_child( node, 0, WORLDMODEL ), clipflags );
+		node = node_child( node, 1, WORLDMODEL );
 	} while( node );
 }
 
