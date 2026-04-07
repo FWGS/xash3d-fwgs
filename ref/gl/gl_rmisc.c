@@ -108,6 +108,8 @@ void R_NewMap( void )
 	texture_t	*tx;
 	int	i;
 
+	tr.worldmodel = gp_cl->models[1];
+
 	R_ClearDecals(); // clear all level decals
 
 	R_StudioResetPlayerModels();

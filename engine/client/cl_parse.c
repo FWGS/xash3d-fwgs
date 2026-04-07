@@ -42,7 +42,7 @@ CL_ParseViewEntity
 
 ==================
 */
-void CL_ParseViewEntity( sizebuf_t *msg )
+static void CL_ParseViewEntity( sizebuf_t *msg )
 {
 	cl.viewentity = MSG_ReadWord( msg );
 
@@ -161,7 +161,7 @@ CL_ParseSignon
 
 ==================
 */
-void CL_ParseSignon( sizebuf_t *msg, connprotocol_t proto )
+static void CL_ParseSignon( sizebuf_t *msg, connprotocol_t proto )
 {
 	int	i = MSG_ReadByte( msg );
 
@@ -209,7 +209,7 @@ CL_ParseParticles
 
 ==================
 */
-void CL_ParseParticles( sizebuf_t *msg, connprotocol_t proto )
+static void CL_ParseParticles( sizebuf_t *msg, connprotocol_t proto )
 {
 	vec3_t		org, dir;
 	int		i, count, color;
@@ -362,7 +362,7 @@ CL_ParseSoundFade
 
 ==================
 */
-void CL_ParseSoundFade( sizebuf_t *msg )
+static void CL_ParseSoundFade( sizebuf_t *msg )
 {
 	int fade_percent = MSG_ReadByte( msg );
 	int hold_time = MSG_ReadByte( msg );
@@ -616,7 +616,7 @@ CL_ParseCustomization
 
 ==================
 */
-void CL_ParseCustomization( sizebuf_t *msg )
+static void CL_ParseCustomization( sizebuf_t *msg )
 {
 	customization_t	*pExistingCustomization;
 	customization_t	*pList;
@@ -704,7 +704,7 @@ CL_ParseResourceRequest
 
 ==================
 */
-void CL_ParseResourceRequest( sizebuf_t *msg )
+static void CL_ParseResourceRequest( sizebuf_t *msg )
 {
 	byte	buffer[MAX_INIT_MSG];
 	int	i, arg, nStartIndex;
@@ -776,7 +776,7 @@ CL_ParseFileTransferFailed
 
 ==================
 */
-void CL_ParseFileTransferFailed( sizebuf_t *msg )
+static void CL_ParseFileTransferFailed( sizebuf_t *msg )
 {
 	const char	*name = MSG_ReadString( msg );
 
@@ -796,7 +796,7 @@ void CL_ParseFileTransferFailed( sizebuf_t *msg )
 CL_ParseServerData
 ==================
 */
-void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
+static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 {
 	char	gamefolder[MAX_QPATH];
 	string	mapfile;
@@ -1234,7 +1234,7 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 CL_ParseLightStyle
 ================
 */
-void CL_ParseLightStyle( sizebuf_t *msg, connprotocol_t proto )
+static void CL_ParseLightStyle( sizebuf_t *msg, connprotocol_t proto )
 {
 	int		style;
 	const char	*s;
@@ -1255,7 +1255,7 @@ CL_ParseSetAngle
 set the view angle to this absolute value
 ================
 */
-void CL_ParseSetAngle( sizebuf_t *msg )
+static void CL_ParseSetAngle( sizebuf_t *msg )
 {
 	MSG_ReadVec3Angles( msg, cl.viewangles );
 }
@@ -1267,7 +1267,7 @@ CL_ParseAddAngle
 add the view angle yaw
 ================
 */
-void CL_ParseAddAngle( sizebuf_t *msg )
+static void CL_ParseAddAngle( sizebuf_t *msg )
 {
 	pred_viewangle_t	*a;
 	float		delta_yaw;
@@ -1296,7 +1296,7 @@ CL_ParseCrosshairAngle
 offset crosshair angles
 ================
 */
-void CL_ParseCrosshairAngle( sizebuf_t *msg )
+static void CL_ParseCrosshairAngle( sizebuf_t *msg )
 {
 	cl.crosshairangle[0] = MSG_ReadChar( msg ) * 0.2f;
 	cl.crosshairangle[1] = MSG_ReadChar( msg ) * 0.2f;
@@ -1310,7 +1310,7 @@ CL_ParseRestore
 reading decals, etc.
 ================
 */
-void CL_ParseRestore( sizebuf_t *msg )
+static void CL_ParseRestore( sizebuf_t *msg )
 {
 	string		filename;
 	int		i, mapCount;
@@ -1337,7 +1337,7 @@ CL_RegisterUserMessage
 register new user message or update existing
 ================
 */
-void CL_RegisterUserMessage( sizebuf_t *msg, connprotocol_t proto )
+static void CL_RegisterUserMessage( sizebuf_t *msg, connprotocol_t proto )
 {
 	char *pszName;
 	char szName[17];
@@ -1375,7 +1375,7 @@ CL_UpdateUserinfo
 collect userinfo from all players
 ================
 */
-void CL_UpdateUserinfo( sizebuf_t *msg, connprotocol_t proto )
+static void CL_UpdateUserinfo( sizebuf_t *msg, connprotocol_t proto )
 {
 	int		slot, id;
 	qboolean		active;
@@ -1898,7 +1898,7 @@ CL_ParseVoiceInit
 
 ==================
 */
-void CL_ParseVoiceInit( sizebuf_t *msg )
+static void CL_ParseVoiceInit( sizebuf_t *msg )
 {
 	char *pszCodec = MSG_ReadString( msg );
 	int quality = MSG_ReadByte( msg );
@@ -1912,7 +1912,7 @@ CL_ParseVoiceData
 
 ==================
 */
-void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto )
+static void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto )
 {
 	int size, idx, frames = 0;
 	byte received[VOICE_MAX_DATA_SIZE];
@@ -1962,7 +1962,7 @@ CL_ParseResLocation
 
 ==================
 */
-void CL_ParseResLocation( sizebuf_t *msg )
+static void CL_ParseResLocation( sizebuf_t *msg )
 {
 	char *data = MSG_ReadString( msg );
 	char token[256];
@@ -1991,7 +1991,7 @@ sended from game.dll
 normal client ignores any of HLTV messages
 ==============
 */
-void CL_ParseHLTV( sizebuf_t *msg )
+static void CL_ParseHLTV( sizebuf_t *msg )
 {
 	switch( MSG_ReadByte( msg ))
 	{
@@ -2025,7 +2025,7 @@ spectator message (director)
 sended from game.dll
 ==============
 */
-void CL_ParseDirector( sizebuf_t *msg )
+static void CL_ParseDirector( sizebuf_t *msg )
 {
 	int	iSize = MSG_ReadByte( msg );
 	byte	pbuf[256];
@@ -2119,7 +2119,7 @@ Find the client cvar value
 and sent it back to the server
 ==============
 */
-void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext, const connprotocol_t proto )
+static void CL_ParseCvarValue( sizebuf_t *msg, const qboolean ext, const connprotocol_t proto )
 {
 	const char *cvarName, *response = NULL;
 	convar_t *cvar;
@@ -2181,7 +2181,7 @@ CL_ParseExec
 Exec map/class specific configs
 ==============
 */
-void CL_ParseExec( sizebuf_t *msg )
+static void CL_ParseExec( sizebuf_t *msg )
 {
 	qboolean is_class;
 	int class_idx;
@@ -2357,25 +2357,150 @@ ACTION MESSAGES
 */
 
 /*
-============
-CL_ParseCommonDLLMessage
+================
+CL_ParseFinaleCutscene
 
-parse a message which structure is enforced by DLL compatibility
-it should always be the same regardless of protocol used
+show display finale or cutscene message
+================
+*/
+static void CL_ParseFinaleCutscene( sizebuf_t *msg, int level )
+{
+	static int		msgindex = 0;
+	client_textmessage_t	*text;
+	int			channel;
+
+	cl.intermission = level;
+
+	channel = msgindex;
+	msgindex = (msgindex + 1) & (MAX_TEXTCHANNELS - 1);
+
+	// grab message channel
+	text = &cl_textmessage[channel];
+
+	// NOTE: svc_finale and svc_cutscene has a
+	// predefined settings like Quake-style
+	text->x = -1.0f;
+	text->y = 0.15f;
+	text->effect = 2;	// scan out effect
+	text->r1 = 245;
+	text->g1 = 245;
+	text->b1 = 245;
+	text->a1 = 0;	// unused
+	text->r2 = 0;
+	text->g2 = 0;
+	text->b2 = 0;
+	text->a2 = 0;
+	text->fadein = 0.15f;
+	text->fadeout = 0.0f;
+	text->holdtime = 99999.0f;
+	text->fxtime = 0.0f;
+
+	// to prevent grab too long messages
+	Q_strncpy( (char *)text->pMessage, MSG_ReadString( msg ), 2048 );
+
+	if( *text->pMessage == '\0' )
+		return; // no real text
+
+	CL_HudMessage( text->pName );
+}
+
+/*
+============
+CL_ParseCommonMessage
+
+parse a message which is the same across all supported protocols
 ============
 */
-qboolean CL_ParseCommonDLLMessage( sizebuf_t *msg, connprotocol_t proto, int svc_num, int startoffset )
+qboolean CL_ParseCommonMessage( sizebuf_t *msg, connprotocol_t proto, int svc_num, int startoffset )
 {
-	int param1, param2;
+	switch( svc_num )
+	{
+	case svc_nop:
+		break;
+	case svc_setview:
+		CL_ParseViewEntity( msg );
+		break;
+	case svc_lightstyle:
+		CL_ParseLightStyle( msg, proto );
+		break;
+	case svc_intermission:
+		cl.intermission = 1;
+		break;
+	case svc_finale:
+		CL_ParseFinaleCutscene( msg, 2 );
+		break;
+	case svc_cutscene:
+		CL_ParseFinaleCutscene( msg, 3 );
+		break;
+	default:
+		return false;
+	}
+
+	return true;
+}
+
+/*
+============
+CL_ParseCommonHLMessage
+
+parse a message which structure is enforced by DLL compatibility
+it should always be the same regardless of HL-based protocol used
+============
+*/
+qboolean CL_ParseCommonHLMessage( sizebuf_t *msg, connprotocol_t proto, int svc_num, int startoffset )
+{
+	const char	*s;
+	int		param1, param2;
 
 	switch( svc_num )
 	{
+	case svc_bad:
+		Host_Error( "svc_bad\n" );
+		break;
+	case svc_time:
+		CL_ParseServerTime( msg, proto );
+		break;
+	case svc_print:
+		Con_Printf( "%s", MSG_ReadString( msg ));
+		break;
+	case svc_stufftext:
+		s = MSG_ReadString( msg );
+		if( cl_trace_stufftext.value )
+		{
+			size_t len = Q_strlen( s );
+			Con_Printf( "Stufftext: %s%c", s, len && s[len-1] == '\n' ? '\0' : '\n' );
+		}
+
+#ifdef HACKS_RELATED_HLMODS
+		// disable Cry Of Fear antisave protection
+		if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
+			break; // too early
+#endif
+
+		Cbuf_AddFilteredText( s );
+		break;
+	case svc_setangle:
+		CL_ParseSetAngle( msg );
+		break;
+	case svc_serverdata:
+		Cbuf_Execute(); // make sure any stuffed commands are done
+		CL_ParseServerData( msg, proto );
+		break;
+	case svc_updateuserinfo:
+		CL_UpdateUserinfo( msg, proto );
+		break;
+	case svc_particle:
+		CL_ParseParticles( msg, proto );
+		break;
 	case svc_temp_entity:
 		CL_ParseTempEntity( msg, proto ); // need protocol because message header differs
 		cl.frames[cl.parsecountmod].graphdata.tentities += MSG_GetNumBytesRead( msg ) - startoffset;
 		break;
-	case svc_intermission:
-		cl.intermission = 1;
+	case svc_signonnum:
+		CL_ParseSignon( msg, proto );
+		break;
+	case svc_centerprint:
+		CL_CenterPrint( MSG_ReadString( msg ), 0.25f );
 		break;
 	case svc_cdtrack:
 		param1 = MSG_ReadByte( msg );
@@ -2383,6 +2508,9 @@ qboolean CL_ParseCommonDLLMessage( sizebuf_t *msg, connprotocol_t proto, int svc
 		param2 = MSG_ReadByte( msg );
 		param2 = bound( 1, param2, MAX_CDTRACKS ); // loopnum
 		S_StartBackgroundTrack( clgame.cdtracks[param1-1], clgame.cdtracks[param2-1], 0, false );
+		break;
+	case svc_restore:
+		CL_ParseRestore( msg );
 		break;
 	case svc_weaponanim:
 		param1 = MSG_ReadByte( msg );	// iAnim
@@ -2393,8 +2521,55 @@ qboolean CL_ParseCommonDLLMessage( sizebuf_t *msg, connprotocol_t proto, int svc
 		param1 = MSG_ReadShort( msg );
 		Cvar_SetValue( "room_type", param1 );
 		break;
+	case svc_addangle:
+		CL_ParseAddAngle( msg );
+		break;
+	case svc_usermessage:
+		CL_RegisterUserMessage( msg, proto );
+		break;
+	case svc_choke:
+		cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].choked = true;
+		cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].receivedtime = -2.0;
+		break;
+	case svc_resourcerequest:
+		CL_ParseResourceRequest( msg );
+		break;
+	case svc_customization:
+		CL_ParseCustomization( msg );
+		break;
+	case svc_crosshairangle:
+		CL_ParseCrosshairAngle( msg );
+		break;
+	case svc_soundfade:
+		CL_ParseSoundFade( msg );
+		break;
+	case svc_filetxferfailed:
+		CL_ParseFileTransferFailed( msg );
+		break;
+	case svc_hltv:
+		CL_ParseHLTV( msg );
+		break;
 	case svc_director:
 		CL_ParseDirector( msg );
+		break;
+	case svc_voiceinit:
+		CL_ParseVoiceInit( msg );
+		break;
+	case svc_voicedata:
+		CL_ParseVoiceData( msg, proto );
+		cl.frames[cl.parsecountmod].graphdata.voicebytes += MSG_GetNumBytesRead( msg ) - startoffset;
+		break;
+	case svc_resourcelocation:
+		CL_ParseResLocation( msg );
+		break;
+	case svc_querycvarvalue:
+		CL_ParseCvarValue( msg, false, proto );
+		break;
+	case svc_querycvarvalue2:
+		CL_ParseCvarValue( msg, true, proto );
+		break;
+	case svc_exec:
+		CL_ParseExec( msg );
 		break;
 	default:
 		return false;
@@ -2415,7 +2590,6 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 	size_t		bufStart, playerbytes;
 	int		cmd;
 	int		old_background;
-	const char	*s;
 
 	// parse the message
 	while( 1 )
@@ -2438,18 +2612,15 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 		// record command for debugging spew on parse problem
 		CL_Parse_RecordCommand( cmd, bufStart );
 
-		if( CL_ParseCommonDLLMessage( msg, PROTO_CURRENT, cmd, bufStart ))
+		if( CL_ParseCommonMessage( msg, PROTO_CURRENT, cmd, bufStart ))
+			continue;
+
+		if( CL_ParseCommonHLMessage( msg, PROTO_CURRENT, cmd, bufStart ))
 			continue;
 
 		// other commands
 		switch( cmd )
 		{
-		case svc_bad:
-			Host_Error( "svc_bad\n" );
-			break;
-		case svc_nop:
-			// this does nothing
-			break;
 		case svc_disconnect:
 			CL_Drop ();
 			Host_AbortCurrentFrame ();
@@ -2497,47 +2668,9 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 				cls.connect_retry = 0;
 			}
 			break;
-		case svc_setview:
-			CL_ParseViewEntity( msg );
-			break;
 		case svc_sound:
 			CL_ParseSoundPacket( msg, false );
 			cl.frames[cl.parsecountmod].graphdata.sound += MSG_GetNumBytesRead( msg ) - bufStart;
-			break;
-		case svc_time:
-			CL_ParseServerTime( msg, PROTO_CURRENT );
-			break;
-		case svc_print:
-			Con_Printf( "%s", MSG_ReadString( msg ));
-			break;
-		case svc_stufftext:
-			s = MSG_ReadString( msg );
-			if( cl_trace_stufftext.value )
-			{
-				size_t len = Q_strlen( s );
-				Con_Printf( "Stufftext: %s%c", s, len && s[len-1] == '\n' ? '\0' : '\n' );
-			}
-
-#ifdef HACKS_RELATED_HLMODS
-			// disable Cry Of Fear antisave protection
-			if( !Q_strnicmp( s, "disconnect", 10 ) && cls.signon != SIGNONS )
-				break; // too early
-#endif
-
-			Cbuf_AddFilteredText( s );
-			break;
-		case svc_setangle:
-			CL_ParseSetAngle( msg );
-			break;
-		case svc_serverdata:
-			Cbuf_Execute(); // make sure any stuffed commands are done
-			CL_ParseServerData( msg, PROTO_CURRENT );
-			break;
-		case svc_lightstyle:
-			CL_ParseLightStyle( msg, PROTO_CURRENT );
-			break;
-		case svc_updateuserinfo:
-			CL_UpdateUserinfo( msg, PROTO_CURRENT );
 			break;
 		case svc_deltatable:
 			Delta_ParseTableField( msg );
@@ -2551,9 +2684,6 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			break;
 		case svc_pings:
 			CL_UpdateUserPings( msg );
-			break;
-		case svc_particle:
-			CL_ParseParticles( msg, PROTO_CURRENT );
 			break;
 		case svc_restoresound:
 			CL_ParseSoundPacket( msg, true );
@@ -2572,29 +2702,8 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 		case svc_setpause:
 			cl.paused = ( MSG_ReadOneBit( msg ) != 0 );
 			break;
-		case svc_signonnum:
-			CL_ParseSignon( msg, PROTO_CURRENT );
-			break;
-		case svc_centerprint:
-			CL_CenterPrint( MSG_ReadString( msg ), 0.25f );
-			break;
-		case svc_finale:
-			CL_ParseFinaleCutscene( msg, 2 );
-			break;
-		case svc_restore:
-			CL_ParseRestore( msg );
-			break;
-		case svc_cutscene:
-			CL_ParseFinaleCutscene( msg, 3 );
-			break;
 		case svc_bspdecal:
 			CL_ParseStaticDecal( msg );
-			break;
-		case svc_addangle:
-			CL_ParseAddAngle( msg );
-			break;
-		case svc_usermessage:
-			CL_RegisterUserMessage( msg, PROTO_CURRENT );
 			break;
 		case svc_packetentities:
 			playerbytes = CL_ParsePacketEntities( msg, false, PROTO_CURRENT );
@@ -2606,52 +2715,11 @@ void CL_ParseServerMessage( sizebuf_t *msg )
 			cl.frames[cl.parsecountmod].graphdata.players += playerbytes;
 			cl.frames[cl.parsecountmod].graphdata.entities += MSG_GetNumBytesRead( msg ) - bufStart - playerbytes;
 			break;
-		case svc_choke:
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].choked = true;
-			cl.frames[cls.netchan.incoming_sequence & CL_UPDATE_MASK].receivedtime = -2.0;
-			break;
 		case svc_resourcelist:
 			CL_ParseResourceList( msg, PROTO_CURRENT );
 			break;
 		case svc_deltamovevars:
 			CL_ParseMovevars( msg );
-			break;
-		case svc_resourcerequest:
-			CL_ParseResourceRequest( msg );
-			break;
-		case svc_customization:
-			CL_ParseCustomization( msg );
-			break;
-		case svc_crosshairangle:
-			CL_ParseCrosshairAngle( msg );
-			break;
-		case svc_soundfade:
-			CL_ParseSoundFade( msg );
-			break;
-		case svc_filetxferfailed:
-			CL_ParseFileTransferFailed( msg );
-			break;
-		case svc_hltv:
-			CL_ParseHLTV( msg );
-			break;
-		case svc_voiceinit:
-			CL_ParseVoiceInit( msg );
-			break;
-		case svc_voicedata:
-			CL_ParseVoiceData( msg, PROTO_CURRENT );
-			cl.frames[cl.parsecountmod].graphdata.voicebytes += MSG_GetNumBytesRead( msg ) - bufStart;
-			break;
-		case svc_resourcelocation:
-			CL_ParseResLocation( msg );
-			break;
-		case svc_querycvarvalue:
-			CL_ParseCvarValue( msg, false, PROTO_CURRENT );
-			break;
-		case svc_querycvarvalue2:
-			CL_ParseCvarValue( msg, true, PROTO_CURRENT );
-			break;
-		case svc_exec:
-			CL_ParseExec( msg );
 			break;
 		default:
 			CL_ParseUserMessage( msg, cmd, PROTO_CURRENT );

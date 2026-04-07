@@ -1174,7 +1174,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	else
 	{
 		const char *qport = Cvar_VariableString( "net_qport" );
-		int extensions = NET_EXT_SPLITSIZE;
+		int extensions = Host_IsLocalGame() ? 0 : NET_EXT_SPLITSIZE;
 		string key;
 
 		ID_GetMD5ForAddress( key, adr, sizeof( key ));

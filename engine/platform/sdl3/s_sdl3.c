@@ -28,35 +28,35 @@ static char sdl_backend_name[32];
 
 static void SDLash_OutputCallback( void *userdata, SDL_AudioStream *stream, int additional_amount, int len )
 {
-	const int size = dma.samples << 1;
+	const int size = snd.samples << 1;
 	int pos;
 	int wrapped;
 
 	(void)userdata;
 	(void)additional_amount;
 
-	pos = dma.samplepos << 1;
+	pos = snd.samplepos << 1;
 	if( pos >= size )
-		pos = dma.samplepos = 0;
+		pos = snd.samplepos = 0;
 
 	wrapped = pos + len - size;
 
 	if( wrapped < 0 )
 	{
-		SDL_PutAudioStreamData( stream, dma.buffer + pos, len );
-		dma.samplepos += len >> 1;
+		SDL_PutAudioStreamData( stream, snd.buffer + pos, len );
+		snd.samplepos += len >> 1;
 	}
 	else
 	{
 		int remaining = size - pos;
 
-		SDL_PutAudioStreamData( stream, dma.buffer + pos, remaining );
-		SDL_PutAudioStreamData( stream, dma.buffer, wrapped );
-		dma.samplepos = wrapped >> 1;
+		SDL_PutAudioStreamData( stream, snd.buffer + pos, remaining );
+		SDL_PutAudioStreamData( stream, snd.buffer, wrapped );
+		snd.samplepos = wrapped >> 1;
 	}
 
-	if( dma.samplepos >= size )
-		dma.samplepos = 0;
+	if( snd.samplepos >= size )
+		snd.samplepos = 0;
 }
 
 /*
@@ -122,18 +122,18 @@ qboolean SNDDMA_Init( void )
 		return false;
 	}
 
-	dma.format.speed = SOUND_DMA_SPEED;
-	dma.format.channels = 2;
-	dma.format.width = 2;
+	snd.format.speed = SOUND_DMA_SPEED;
+	snd.format.channels = 2;
+	snd.format.width = 2;
 	int samplecount = s_samplecount.value;
 	if( !samplecount )
 		samplecount = 0x8000;
-	dma.samples = samplecount * dma.format.channels;
-	dma.buffer = Mem_Calloc( sndpool, dma.samples * dma.format.width );
-	dma.samplepos = 0;
-	dma.initialized = true;
+	snd.samples = samplecount * snd.format.channels;
+	snd.buffer = Mem_Calloc( sndpool, snd.samples * snd.format.width );
+	snd.samplepos = 0;
+	snd.initialized = true;
 	Q_snprintf( sdl_backend_name, sizeof( sdl_backend_name ), "SDL3 (%s)", SDL_GetCurrentAudioDriver( ));
-	dma.backendName = sdl_backend_name;
+	snd.backend_name = sdl_backend_name;
 
 	Con_Printf( "Using audio driver: %s @ %d Hz\n", sdl_backend_name, SOUND_DMA_SPEED );
 
@@ -178,7 +178,7 @@ Reset the sound device for exiting
 void SNDDMA_Shutdown( void )
 {
 	Con_Printf( "Shutting down audio.\n" );
-	dma.initialized = false;
+	snd.initialized = false;
 
 	if( out_stream )
 	{
@@ -189,10 +189,10 @@ void SNDDMA_Shutdown( void )
 
 	SDL_QuitSubSystem( SDL_INIT_AUDIO );
 
-	if( dma.buffer )
+	if( snd.buffer )
 	{
-		Mem_Free( dma.buffer );
-		dma.buffer = NULL;
+		Mem_Free( snd.buffer );
+		snd.buffer = NULL;
 	}
 }
 
@@ -206,7 +206,7 @@ between a deactivate and an activate.
 */
 void SNDDMA_Activate( qboolean active )
 {
-	if( !dma.initialized )
+	if( !snd.initialized )
 		return;
 
 	if( active )

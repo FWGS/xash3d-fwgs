@@ -747,6 +747,7 @@ static void FS_InitGameInfo( gameinfo_t *GameInfo, const char *gamedir, qboolean
 	if( quake )
 	{
 		Q_strncpy( GameInfo->basedir, "id1", sizeof( GameInfo->basedir ));
+		Q_strncpy( GameInfo->falldir, "qwrap", sizeof( GameInfo->falldir ));
 		Q_strncpy( GameInfo->title, gamedir, sizeof( GameInfo->title ));
 		Q_strncpy( GameInfo->startmap, "start", sizeof( GameInfo->startmap ));
 		Q_strncpy( GameInfo->dll_path, "bin", sizeof( GameInfo->dll_path ));
@@ -1123,27 +1124,28 @@ static qboolean FS_CheckForQuakeGameDir( const char *gamedir )
 {
 	// if directory contain quake.rc or progs.dat it's 100% quake gamedir
 	// quake mods probably always archived, so check pak0.pak too
-	const char *files[] = { "progs.dat", "quake.rc" };
-	char buf[MAX_SYSPATH];
+	const char *files[] = { "pak0.pak", "PAK0.PAK", "progs.dat", "quake.rc" };
 	int i;
-
-	// try to read pak0.pak first, most quake mods are archived
-	if( Q_snprintf( buf, sizeof( buf ), "%s/pak0.pak", gamedir ) > 0 )
-	{
-		if( FS_SysFileExists( buf ))
-		{
-			if( FS_CheckForQuakePak( buf, files, sizeof( files ) / sizeof( files[0] )))
-				return true;
-		}
-	}
 
 	// search it in the filesystem
 	for( i = 0; i < sizeof( files ) / sizeof( files[0] ); i++ )
 	{
+		char buf[MAX_SYSPATH];
+
 		if( Q_snprintf( buf, sizeof( buf ), "%s/%s", gamedir, files[i] ) > 0 )
 		{
-			if( FS_SysFileExists( buf ))
+			if( !FS_SysFileExists( buf ))
+				continue;
+
+			if( !Q_stricmp( COM_FileExtension( buf ), "pak" ))
+			{
+				if( FS_CheckForQuakePak( buf, &files[2], sizeof( files ) / sizeof( files[0] ) - 2 ))
+					return true;
+			}
+			else
+			{
 				return true;
+			}
 		}
 	}
 

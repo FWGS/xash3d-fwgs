@@ -36,6 +36,8 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "render_api.h"	// decallist_t
 #include "tests.h"
+#include "library.h"
+#include "platform/platform.h"
 
 host_parm_t host;	// host parms
 static jmp_buf return_from_main_buf;
@@ -861,6 +863,118 @@ static void Host_DetermineExecutableName( char *out, size_t size )
 #endif
 }
 
+static qboolean Host_CollectX86Libraries( ECommonLibraryType lib_type,
+	const char *win_path, const char *lin_path, const char *osx_path,
+	char *found, size_t found_size )
+{
+	string native_path;
+	qboolean has_any = false;
+
+	found[0] = 0;
+
+	COM_GetCommonLibraryPath( lib_type, native_path, sizeof( native_path ));
+	if( Platform_LibraryExists( native_path, true ))
+		return 0;
+
+#if !( XASH_WIN32 && XASH_X86 )
+	if( !COM_StringEmpty( win_path ) && FS_FileExists( win_path, true ))
+	{
+		Q_strncat( found, "Windows (x86)", found_size );
+		has_any = true;
+	}
+#endif
+
+#if !( XASH_LINUX && !XASH_ANDROID && XASH_X86 )
+	if( !COM_StringEmpty( lin_path ) && FS_FileExists( lin_path, true ))
+	{
+		if( has_any )
+			Q_strncat( found, ", ", found_size );
+		Q_strncat( found, "GNU/Linux (x86)", found_size );
+		has_any = true;
+	}
+#endif
+
+#if !( XASH_APPLE && XASH_X86 )
+	if( !COM_StringEmpty( osx_path ) && FS_FileExists( osx_path, true ))
+	{
+		if( has_any )
+			Q_strncat( found, ", ", found_size );
+		Q_strncat( found, "macOS (x86)", found_size );
+		has_any = true;
+	}
+#endif
+
+	return has_any;
+}
+
+static void Host_CheckGameLibraries( void )
+{
+// on Android, game libraries are loaded from APKs and are invisible to FS_FileExists,
+// so the check cannot work there; iOS is handled via Platform_LibraryExists -> IOS_LibraryExists
+#if !defined( XASH_INTERNAL_GAMELIBS ) && !XASH_ANDROID
+	struct
+	{
+		const char *name;
+		ECommonLibraryType type;
+		const char *override; // host.gamedll / host.clientlib / host.menulib
+	} libs[3] = {
+	{ "client", LIBRARY_CLIENT, host.clientlib },
+	{ "server", LIBRARY_SERVER, host.gamedll   },
+	{ "menu",   LIBRARY_GAMEUI, host.menulib   },
+	};
+
+	char details[MAX_VA_STRING];
+	details[0] = 0;
+
+	for( int i = 0; i < ARRAYSIZE( libs ); i++ )
+	{
+		string found;
+		qboolean ret;
+
+		// if the user explicitly set a library path, trust them and skip the check
+		if( !COM_StringEmpty( libs[i].override ))
+			continue;
+
+		if( libs[i].type == LIBRARY_SERVER )
+		{
+			// missing server library is only critical when singleplayer is available
+			// mirrors silent mode in SV_InitGame
+			if( GI->gamemode != GAME_SINGLEPLAYER_ONLY )
+				continue;
+
+			ret = Host_CollectX86Libraries( libs[i].type,
+				GI->game_dll, GI->game_dll_linux, GI->game_dll_osx,
+				found, sizeof( found ));
+		}
+		else
+		{
+			string win, lin, osx;
+			Q_snprintf( win, sizeof( win ), "%s/%s.dll",   GI->dll_path, libs[i].name );
+			Q_snprintf( lin, sizeof( lin ), "%s/%s.so",    GI->dll_path, libs[i].name );
+			Q_snprintf( osx, sizeof( osx ), "%s/%s.dylib", GI->dll_path, libs[i].name );
+			ret = Host_CollectX86Libraries( libs[i].type,
+				win, lin, osx, found, sizeof( found ));
+		}
+
+		if( ret )
+		{
+			size_t len = Q_strlen( details );
+			Q_snprintf( details + len, sizeof( details ) - len, "- %s: %s\n", libs[i].name, found );
+		}
+	}
+
+	if( COM_StringEmpty( details ))
+		return;
+
+	Sys_Warn( "No native game libraries found for current platform (%s-%s),\n"
+		"but found libraries for other platforms:\n"
+		"%s"
+		"The game may fail to load or work incorrectly.\n"
+		"Consider using a mod version built for this platform.",
+		Q_buildos(), Q_buildarch(), details );
+#endif // XASH_INTERNAL_GAMELIBS
+}
+
 /*
 =================
 Host_InitCommon
@@ -998,6 +1112,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #endif
 
 	FS_LoadGameInfo();
+	Host_CheckGameLibraries();
 	Cvar_PostFSInit();
 
 	Image_CheckPaletteQ1 ();

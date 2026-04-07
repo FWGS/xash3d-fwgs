@@ -20,7 +20,7 @@ import os
 import sys
 
 ANDROID_NDK_ENVVARS = ['ANDROID_NDK_HOME', 'ANDROID_NDK']
-ANDROID_NDK_SUPPORTED = [10, 19, 20, 23, 25, 27, 28, 29]
+ANDROID_NDK_SUPPORTED = [10, 19, 20, 23, 25, 27, 28, 29, 30]
 ANDROID_NDK_HARDFP_MAX = 11 # latest version that supports hardfp
 ANDROID_NDK_GCC_MAX = 17 # latest NDK that ships with GCC
 ANDROID_NDK_UNIFIED_SYSROOT_MIN = 15
@@ -35,6 +35,7 @@ ANDROID_NDK_API_MIN = {
 	27: 19,
 	28: 21,
 	29: 21,
+	30: 21,
 } # minimal API level ndk revision supports
 
 ANDROID_STPCPY_API_MIN = 21 # stpcpy() introduced in SDK 21
