@@ -560,8 +560,8 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 #endif
 	}
 
-	Joy_FinalizeMove( forward, side, yaw, pitch );
-	Touch_GetMove( forward, side, yaw, pitch );
+	Joy_FinalizeMove( forward, side, pitch, yaw );
+	Touch_GetMove( forward, side, pitch, yaw );
 
 	if( look_filter.value )
 	{

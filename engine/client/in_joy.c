@@ -62,6 +62,12 @@ static CVAR_DEFINE_AUTO( joy_axis_binding, "sfpyrl", FCVAR_ARCHIVE | FCVAR_FILTE
 CVAR_DEFINE_AUTO( joy_enable, "1", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "enable joystick" );
 static CVAR_DEFINE_AUTO( joy_have_gyro, "0", FCVAR_READ_ONLY, "tells whether current active gamepad has gyroscope or not" );
 static CVAR_DEFINE_AUTO( joy_calibrated, "0", FCVAR_READ_ONLY, "tells whether current active gamepad gyroscope has been calibrated or not" );
+static CVAR_DEFINE_AUTO( joy_gyro_pitch, "1.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope sensitivity for looking up and down" );
+static CVAR_DEFINE_AUTO( joy_gyro_yaw, "1.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope sensitivity for turning left and right" );
+static CVAR_DEFINE_AUTO( joy_gyro_roll, "0.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope sensitivity when tilting the device sideways" );
+
+// stores the latest instantaneous gyroscope rotation rates (in rad/s) from platform input
+static vec3_t joy_gyro_speed;
 
 /*
 ============
@@ -278,7 +284,7 @@ Gyroscope events
 */
 void Joy_GyroEvent( vec3_t data )
 {
-
+	VectorCopy( data, joy_gyro_speed );
 }
 
 /*
@@ -317,8 +323,19 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 
 	*fw     -= joy_forward.value * (float)joyaxis[JOY_AXIS_FWD ].val/(float)SHRT_MAX;  // must be form -1.0 to 1.0
 	*side   += joy_side.value    * (float)joyaxis[JOY_AXIS_SIDE].val/(float)SHRT_MAX;
-	*dpitch -= joy_pitch.value * (float)joyaxis[JOY_AXIS_PITCH].val/(float)SHRT_MAX * host.realframetime;
-	*dyaw   += joy_yaw.value   * (float)joyaxis[JOY_AXIS_YAW  ].val/(float)SHRT_MAX * host.realframetime;
+	*dpitch += joy_pitch.value * (float)joyaxis[JOY_AXIS_PITCH].val/(float)SHRT_MAX * host.realframetime;
+	*dyaw   -= joy_yaw.value   * (float)joyaxis[JOY_AXIS_YAW  ].val/(float)SHRT_MAX * host.realframetime;
+
+	if( joy_have_gyro.value )
+	{
+		float pitch_speed = joy_gyro_speed[0] * ( 180.0f / M_PI );
+		float yaw_speed   = joy_gyro_speed[1] * ( 180.0f / M_PI );
+		float roll_speed  = joy_gyro_speed[2] * ( 180.0f / M_PI );
+
+		*dpitch -= joy_gyro_pitch.value * pitch_speed * host.realframetime;
+		*dyaw   += joy_gyro_yaw.value   * yaw_speed   * host.realframetime;
+		*dyaw   += joy_gyro_roll.value  * roll_speed  * host.realframetime;
+	}
 }
 
 static void Joy_CalibrateGyro_f( void )
@@ -366,6 +383,10 @@ void Joy_Init( void )
 	Cvar_RegisterVariable( &joy_have_gyro );
 	Cvar_RegisterVariable( &joy_calibrated );
 	Cvar_RegisterVariable( &joy_enable );
+
+	Cvar_RegisterVariable( &joy_gyro_pitch );
+	Cvar_RegisterVariable( &joy_gyro_yaw );
+	Cvar_RegisterVariable( &joy_gyro_roll );
 
 	// renamed from -nojoy to -noenginejoy to not conflict with
 	// client.dll's joystick support
