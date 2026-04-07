@@ -2189,12 +2189,12 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 	return Touch_ControlsEvent( type, fingerID, x, y, dx, dy );
 }
 
-void Touch_GetMove( float *forward, float *side, float *yaw, float *pitch )
+void Touch_GetMove( float *forward, float *side, float *pitch, float *yaw )
 {
 	*forward += touch.forward;
 	*side += touch.side;
-	*yaw += touch.yaw;
 	*pitch += touch.pitch;
+	*yaw += touch.yaw;
 	touch.yaw = touch.pitch = 0;
 }
 
