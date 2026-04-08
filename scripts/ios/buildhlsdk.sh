@@ -12,19 +12,19 @@ else
     git clone --recursive https://github.com/FWGS/hlsdk-portable -b "$1" "$MODPATH"
 fi
 
-if [ ! -d ../../build/ios/libs ]; then
-    mkdir ../../build/ios/libs || exit 1
-fi
+mkdir -p ../../build/ios/libs || exit 1
+
 
 LIBSDIR=$(realpath ../../build/ios/libs)
 cd "$MODPATH" || exit 1
 
 #compiling hlsdk for ios release is broken, so just build for debug
-cmake -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT=0 -DCMAKE_INSTALL_PREFIX="$LIBSDIR" -DCMAKE_BUILD_TYPE=Debug -B build -S .
+if [ ! -z $2 ]; then
+    cmake -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT=0 -DCMAKE_INSTALL_PREFIX="$LIBSDIR" -DGAMEDIR="$2" -DCMAKE_BUILD_TYPE=Debug -B build -S .
+else
+    cmake -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT=0 -DCMAKE_INSTALL_PREFIX="$LIBSDIR" -DCMAKE_BUILD_TYPE=Debug -B build -S .
+fi
 cmake --build build --target install
-
-cd ../../
-./createipa.sh
 
 if [ -d mod-build ]; then
     rm -rf mod-build/
