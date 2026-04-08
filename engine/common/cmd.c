@@ -1242,7 +1242,7 @@ static void Cmd_MakePrivileged_f( void )
 Cmd_ExecScript
 ===============
 */
-static void Cmd_ExecScript( const char *filename, qboolean privileged )
+static void Cmd_ExecScript( const char *filename )
 {
 	byte *f;
 	fs_offset_t len;
@@ -1274,53 +1274,25 @@ static void Cmd_ExecScript( const char *filename, qboolean privileged )
 
 /*
 ===============
-Cmd_Exec_f
+Cmd_UnprivilegedExec_f
 ===============
 */
-static void Cmd_Exec_f( void )
+static void Cmd_UnprivilegedExec_f( void )
 {
 	string cfgpath;
-	search_t *search = NULL;
-	int i;
+	qboolean allow = false;
 
 	if( Cmd_Argc() != 2 )
-	{
-		Con_Printf( S_USAGE "exec <PATTERN>\n"
-		"PATTERN single file or wildcard pattern to match\n"
-		"Wildcards: * matches any characters, ? matches single character\n"
-		"Example: file.cfg    - single file.cfg\n"
-		"\tdirectory/*        - all .cfg files in directory\n"
-		"\tdirectory/???.cfg  - all .cfg files in directory with 3 character names\n" );
 		return;
-	}
 
 	Q_strncpy( cfgpath, Cmd_Argv( 1 ), sizeof( cfgpath ));
 	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath ));
 
-	if( Q_strpbrk( cfgpath, "*?" ))
-	{
-		search = FS_Search( cfgpath, true, false );
-		if( !search || !search->numfilenames )
-		{
-			Con_Printf( "couldn't exec %s\n", Cmd_Argv( 1 ));
-			if( search ) Mem_Free( search );
-			return;
-		}
+	if( SV_GetMaxClients() == 1 )
+		allow = true;
 
-		Con_Printf( "execing %d file(s) - " S_GREEN "%s" S_DEFAULT "\n",
-			search->numfilenames, Cmd_Argv( 1 ));
-
-		for( i = 0; i < search->numfilenames; i++ )
-		{
-			Cmd_ExecScript( search->filenames[i], false );
-		}
-
-		Mem_Free( search );
-		return;
-	}
-
-#ifndef XASH_DEDICATED
-	if( !Cmd_CurrentCommandIsPrivileged() && !Q_stricmp( GI->gamefolder, "tfc" ))
+#if !XASH_DEDICATED
+	if( !allow && !Q_stricmp( GI->gamefolder, "tfc" ))
 	{
 		const char *const unprivileged_whitelist[] =
 		{
@@ -1337,7 +1309,7 @@ static void Cmd_Exec_f( void )
 		{
 			allow = true;
 		}
-		else for( i = 0; i < ARRAYSIZE( unprivileged_whitelist ); i++ )
+		else for( int i = 0; i < ARRAYSIZE( unprivileged_whitelist ); i++ )
 		{
 			if( !Q_strcmp( cfgpath, unprivileged_whitelist[i] ))
 			{
@@ -1345,14 +1317,64 @@ static void Cmd_Exec_f( void )
 				break;
 			}
 		}
+	}
+#endif
 
-		if( !allow )
+	if( allow )
+		Cmd_ExecScript( cfgpath );
+	else
+		Con_Printf( "exec %s: not privileged or in whitelist\n", cfgpath );
+}
+
+/*
+===============
+Cmd_Exec_f
+===============
+*/
+static void Cmd_Exec_f( void )
+{
+	string cfgpath;
+
+	// early exit for stuffcmd
+	if( !Cmd_CurrentCommandIsPrivileged())
+	{
+		Cmd_UnprivilegedExec_f();
+		return;
+	}
+
+	if( Cmd_Argc() != 2 )
+	{
+		Con_Printf( S_USAGE "exec <PATTERN>\n"
+			"PATTERN single file or wildcard pattern to match\n"
+			"Wildcards: * matches any characters, ? matches single character\n"
+			"Example: file.cfg   - single file.cfg\n"
+			"\tdirectory/*       - all .cfg files in directory\n"
+			"\tdirectory/???.cfg - all .cfg files in directory with 3 character names\n" );
+		return;
+	}
+
+	Q_strncpy( cfgpath, Cmd_Argv( 1 ), sizeof( cfgpath ));
+	COM_DefaultExtension( cfgpath, ".cfg", sizeof( cfgpath ));
+
+	if( Q_strpbrk( cfgpath, "*?" ))
+	{
+		search_t *search = FS_Search( cfgpath, true, false );
+		if( !search || !search->numfilenames )
 		{
-			Con_Printf( "exec %s: not privileged or in whitelist\n", cfgpath );
+			Con_Printf( "couldn't exec %s\n", Cmd_Argv( 1 ));
+			if( search ) Mem_Free( search );
 			return;
 		}
+
+		Con_Printf( "execing %d file%s from " S_GREEN "%s" S_DEFAULT "\n",
+			search->numfilenames, search->numfilenames > 1 ? "s" : "", Cmd_Argv( 1 ));
+
+		for( int i = 0; i < search->numfilenames; i++ )
+			Cmd_ExecScript( search->filenames[i] );
+
+		Mem_Free( search );
+		return;
 	}
-#endif // XASH_DEDICATED
 
 	// don't execute game.cfg in singleplayer
 	if( SV_GetMaxClients() == 1 && !Q_stricmp( "game.cfg", cfgpath ))
@@ -1363,7 +1385,7 @@ static void Cmd_Exec_f( void )
 
 	Con_Printf( "execing " S_GREEN "%s" S_DEFAULT "\n", Cmd_Argv( 1 ));
 
-	Cmd_ExecScript( cfgpath, true );
+	Cmd_ExecScript( cfgpath );
 }
 
 /*
