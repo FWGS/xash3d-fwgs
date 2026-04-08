@@ -17,7 +17,6 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
-#import "FtpServer.h"
 #include <sys/stat.h>
 #include "dlfcn.h"
 
@@ -93,35 +92,6 @@ const char *IOS_GetExecDir(void)
 	return dir;
 }
 
-UIBackgroundTaskIdentifier task;
-FtpServer *server = NULL;
-
-void IOS_StartBackgroundTask(void)
-{
-	if( !server ) return;
-
-	if( task != UIBackgroundTaskInvalid )
-		return;
-
-	UIApplication*    app = [UIApplication sharedApplication];
-	
-	task = [app beginBackgroundTaskWithExpirationHandler:^{
-		[app endBackgroundTask:task];
-		task = UIBackgroundTaskInvalid;
-	}];
-	
-	// Start the long-running task and return immediately.
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-		UIBackgroundTaskIdentifier local = task;
-
-		// do not keep "zombie" tasks
-		while( 1 )
-			sleep(1);
-	
-		[app endBackgroundTask:local];
-		task = UIBackgroundTaskInvalid;
-	});
-}
 
 #define SETTINGS_MAGIC 111
 
@@ -203,8 +173,6 @@ void IOS_LaunchDialog( void )
 
 	UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 300, 200)];
 
-	UISwitch *ftpswitch = [[UISwitch alloc] initWithFrame:CGRectMake(210,60,80,30)];
-
 	UILabel *argstitle = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 300, 30)];
 	[argstitle setText:@"Command-line arguments:"];
 
@@ -212,12 +180,6 @@ void IOS_LaunchDialog( void )
 	[args setBackgroundColor:[[UIColor alloc] initWithRed:1 green:1 blue:1 alpha:1]];
 	if(isdark) [args setBackgroundColor:[[UIColor alloc] initWithRed:0 green:0 blue:0 alpha:1]];
 	
-
-	UILabel *ftptitle = [[UILabel alloc] initWithFrame:CGRectMake(0, 60, 200, 30)];
-	[ftptitle setText:@"FTP Server"];
-
-
-	UITextField *port = [[UITextField alloc] initWithFrame:CGRectMake(110, 60, 100, 30)];
 	
 	UITextField *suffix = [[UITextField alloc] initWithFrame:CGRectMake(140, 90, 160, 30 )];
 	[suffix setBackgroundColor:[[UIColor alloc] initWithRed:1 green:1 blue:1 alpha:1]];
@@ -229,9 +191,6 @@ void IOS_LaunchDialog( void )
 	[scroll addSubview:argstitle];
 	[scroll addSubview:args];
 	[scroll addSubview:suffix];
-	[scroll addSubview:ftpswitch];
-	[scroll addSubview:ftptitle];
-	[scroll addSubview:port];
 	[scroll addSubview:suffixtitle];
 
 	settingsfile = fopen( settingspath, "rb" );
@@ -240,14 +199,11 @@ void IOS_LaunchDialog( void )
 		settings.args[1023] = 0;
 		settings.suffix[31] = 0;
 		[args setText:@(settings.args)];
-		[port setText:[NSString stringWithFormat:@"%u", settings.port]];
 		[suffix setText:@(settings.suffix)];
-		ftpswitch.on = settings.ftpserver;
 	}
 	else
 	{
 		[args setText:@"-dev 2 -log"];
-		[port setText:@"21135"];
 	}
 
 	scroll.contentSize=CGSizeMake(250, 200);
@@ -263,10 +219,8 @@ void IOS_LaunchDialog( void )
 
 	if( (settingsfile = fopen( settingspath, "wb" )) )
 	{
-		settings.ftpserver = ftpswitch.on;
 		strlcpy(settings.args, [args.text UTF8String], 1024);
 		strlcpy(settings.suffix, [suffix.text UTF8String], 32 );
-		settings.port = [port.text intValue];
 		settings.magic = 111;
 	
 		fwrite(&settings, sizeof(settings), 1, settingsfile);
@@ -276,25 +230,6 @@ void IOS_LaunchDialog( void )
 	{
 		printf("Exit selected\n");
 		exit(0);
-	}
-
-	if( ftpswitch.on )
-	{
-
-		button = -1;
-
-		[[[UIAlertView alloc] initWithTitle:@"Xash3D" message:[NSString stringWithFormat:@"Started FTP server on port %@", port.text] delegate:delegate cancelButtonTitle:@"Ok" otherButtonTitles:nil] show];
-	
-		server = [[ FtpServer alloc ] initWithPort:[port.text integerValue] withDir:@(docsDir) notifyObject:nil ];
-
-		IOS_StartBackgroundTask();
-
-		@autoreleasepool {
-			while( button == -1 ) {
-				[[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
-				IOS_StartBackgroundTask(); // keep running
-			}
-		}
 	}
 
 	NSArray *argv = [ args.text componentsSeparatedByString:@" " ];
@@ -314,11 +249,8 @@ void IOS_LaunchDialog( void )
 
 	alert.delegate = nil;
 
-	[ftpswitch release];
-	[ftptitle release];
 	[args release];
 	[argstitle release];
-	[port release];
 	[suffix release];
 	[suffixtitle release];
 
