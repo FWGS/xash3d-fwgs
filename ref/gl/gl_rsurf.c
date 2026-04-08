@@ -3705,15 +3705,11 @@ void R_MarkLeaves( void )
 	{
 		// merge two leafs that can be a crossed-line contents
 		if( RI.viewleaf->contents == CONTENTS_EMPTY )
-		{
 			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] - 16.0f );
-			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
-		}
 		else
-		{
 			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] + 16.0f );
-			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
-		}
+
+		leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
 
 		if(( leaf->contents != CONTENTS_SOLID ) && ( RI.viewleaf != leaf ))
 			force = true;
