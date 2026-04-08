@@ -1573,7 +1573,7 @@ void Key_Console( int key )
 	}
 
 	// command completion
-	if( key == K_TAB || key == K_L2_BUTTON )
+	if( key == K_TAB || key == K_L2_BUTTON || key == K_LTRIGGER )
 	{
 		Con_CompleteCommand( &con.input, true );
 		Con_Bottom();
