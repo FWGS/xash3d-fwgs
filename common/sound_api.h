@@ -162,8 +162,8 @@ typedef struct snd_globals_s
 // API from engine to client (client calls these)
 typedef struct sound_api_s
 {
-	qboolean      (*CL_GetEntitySpatialization)( struct channel_s *ch );
-	struct sfx_s* (*S_GetSfxByHandle)( sound_t handle );
+	qboolean (*CL_GetEntitySpatialization)( channel_t *ch );
+	sfx_t*   (*S_GetSfxByHandle)( sound_t handle );
 } sound_api_t;
 
 // Callbacks from client to engine (engine calls these when custom sound is active)

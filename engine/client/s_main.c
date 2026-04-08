@@ -1935,7 +1935,7 @@ static void S_VoiceRecordStop_f( void )
 	Voice_RecordStop();
 }
 
-static const sound_api_t s_clientSoundAPI = {
+static const sound_api_t gSoundAPI = {
 	CL_GetEntitySpatialization,
 	S_GetSfxByHandle,
 };
@@ -1952,7 +1952,7 @@ static qboolean S_InitSoundAPI( void )
 
 	if( clgame.dllFuncs.pfnGetSoundInterface )
 	{
-		if( clgame.dllFuncs.pfnGetSoundInterface( CL_SOUND_INTERFACE_VERSION, &s_clientSoundAPI, &clgame.soundFuncs ))
+		if( clgame.dllFuncs.pfnGetSoundInterface( CL_SOUND_INTERFACE_VERSION, &gSoundAPI, &clgame.soundFuncs ))
 		{
 			Con_Reportf( "%s: ^2initailized extended SoundAPI ^7ver. %i\n", __func__, CL_SOUND_INTERFACE_VERSION );
 			return true;
