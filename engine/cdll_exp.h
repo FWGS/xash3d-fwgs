@@ -23,6 +23,12 @@ struct mstudioevent_s;
 struct engine_studio_api_s;
 struct r_studio_interface_s;
 
+struct sound_api_s;
+struct sound_interface_s;
+
+typedef struct sound_api_s sound_api_t;
+typedef struct sound_interface_s sound_interface_t;
+
 // NOTE: ordering is important!
 typedef struct cldll_func_s
 {
@@ -74,6 +80,8 @@ typedef struct cldll_func_s
 	int (*pfnTouchEvent)( int type, int fingerID, float x, float y, float dx, float dy );
 	void (*pfnMoveEvent)( float forwardmove, float sidemove );
 	void (*pfnLookEvent)( float relyaw, float relpitch );
+	// Sound API
+	int (*pfnGetSoundInterface)( int version, const sound_api_t *api, sound_interface_t *callback );
 } cldll_func_t;
 
 #endif//CDLL_EXP_H
