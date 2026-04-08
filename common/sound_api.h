@@ -167,10 +167,10 @@ typedef struct sound_interface_s
 	void     (*pfnS_UpdateSound)( void );
 	/* Full paint: endtime (sample pairs), dma buffer, paintedtime in/out. Client does mix + transfer to dma.buffer. */
 	void     (*pfnS_PaintChannels)( int endtime );
-	void     (*pfnS_UpdateChannel)( int ch_idx, const struct channel_s *ch, sound_t handle );  // ch=NULL -> channel freed
-	void     (*pfnS_UpdateRawChannel)( int raw_idx, struct rawchan_s *ch );  // ch=NULL -> channel freed
-	void     (*pfnS_Spatialize)( struct channel_s *ch );
-	void     (*pfnS_FreeSound)( struct sfx_s *sfx, sound_t handle );
+	void     (*pfnS_UpdateChannel)( int ch_idx, const channel_t *ch, sound_t handle );  // ch=NULL -> channel freed
+	void     (*pfnS_UpdateRawChannel)( int raw_idx, rawchan_t *ch );  // ch=NULL -> channel freed
+	void     (*pfnS_Spatialize)( channel_t *ch );
+	void     (*pfnS_FreeSound)( sfx_t *sfx, sound_t handle );
 } sound_interface_t;
 
 #endif // SOUND_API_H
