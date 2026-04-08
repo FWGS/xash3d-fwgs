@@ -266,6 +266,11 @@ void Joy_AxisMotionEvent( engineAxis_t engineAxis, short value )
 	if( engineAxis >= JOY_AXIS_NULL )
 		return;
 
+	engineAxis = joyaxesmap[engineAxis];
+
+	if( engineAxis >= JOY_AXIS_NULL )
+		return;
+
 	if( value == joyaxis[engineAxis].val )
 		return; // it is not an update
 
