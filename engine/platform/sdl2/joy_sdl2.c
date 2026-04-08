@@ -59,6 +59,7 @@ static struct
 	float  time;
 	vec3_t data;
 	vec3_t calibrated_values;
+	float  data_rate;
 	int    samples;
 } gyrocal;
 
@@ -70,35 +71,30 @@ static void SDLash_RestartCalibration( void )
 
 	gyrocal.time = host.realtime + CALIBRATION_TIME;
 
-	Con_Printf( "Starting gyroscope calibration...\n" );
+#if SDL_VERSION_ATLEAST( 2, 0, 16 )
+	gyrocal.data_rate = SDL_GameControllerGetSensorDataRate( g_current_gamepad, SDL_SENSOR_GYRO );
+#endif
+	if( !gyrocal.data_rate )
+		gyrocal.data_rate = 10.0f;
+
+	Con_Printf( "Starting gyroscope calibration at %g data rate...\n", gyrocal.data_rate );
 }
 
 static void SDLash_FinalizeCalibration( void )
 {
-	float data_rate = 10.0f; // let's say we're polling at 10Hz?
-	int min_samples;
-
-#if SDL_VERSION_ATLEAST( 2, 0, 16 )
-	data_rate = SDL_GameControllerGetSensorDataRate( g_current_gamepad, SDL_SENSOR_GYRO );
-	if( !data_rate )
-		data_rate = 10.0f;
-#endif
-
-	min_samples = Q_rint( CALIBRATION_TIME * data_rate * 0.75f );
+	int min_samples = Q_rint( CALIBRATION_TIME * gyrocal.data_rate * 0.5f );
 
 	// we waited for few seconds and got too few samples
 	if( gyrocal.samples <= min_samples )
 	{
 		Joy_SetCalibrationState( JOY_FAILED_TO_CALIBRATE );
+		Con_Printf( "Calibration failed, got samples %d < %d\n", gyrocal.samples, min_samples );
 		return;
 	}
 
 	VectorScale( gyrocal.data, 1.0f / gyrocal.samples, gyrocal.calibrated_values );
 	Joy_SetCalibrationState( JOY_CALIBRATED );
-
-	Con_Printf( "Calibration done. Result: %f %f %f\n", gyrocal.calibrated_values[0], gyrocal.calibrated_values[1], gyrocal.calibrated_values[2] );
-
-	gyrocal.time = 0.0f;
+	Con_Printf( "Calibration done. Result: %f %f %f at %d samples\n", gyrocal.calibrated_values[0], gyrocal.calibrated_values[1], gyrocal.calibrated_values[2], gyrocal.samples );
 }
 
 static void SDLash_GameControllerAddMappings( const char *name )
@@ -125,7 +121,8 @@ static void SDLash_SetActiveGameController( SDL_JoystickID id )
 
 #if SDL_VERSION_ATLEAST( 2, 0, 14 )
 	// going to change active controller, disable gyro events in old
-	SDL_GameControllerSetSensorEnabled( g_current_gamepad, SDL_SENSOR_GYRO, SDL_FALSE );
+	if( g_current_gamepad )
+		SDL_GameControllerSetSensorEnabled( g_current_gamepad, SDL_SENSOR_GYRO, SDL_FALSE );
 #endif // SDL_VERSION_ATLEAST( 2, 0, 14 )
 
 	g_current_gamepad_id = id;
@@ -242,12 +239,16 @@ static void SDLash_GameControllerSensorUpdate( SDL_ControllerSensorEvent sensor 
 	if( gyrocal.time != 0.0f )
 	{
 		if( host.realtime > gyrocal.time )
+		{
 			SDLash_FinalizeCalibration();
-
-		VectorAdd( gyrocal.data, sensor.data, gyrocal.data );
-		gyrocal.samples++;
-
-		Joy_SetCalibrationState( JOY_CALIBRATING );
+			gyrocal.time = 0.0f;
+		}
+		else
+		{
+			VectorAdd( gyrocal.data, sensor.data, gyrocal.data );
+			gyrocal.samples++;
+			Joy_SetCalibrationState( JOY_CALIBRATING );
+		}
 		return;
 	}
 
@@ -334,6 +335,9 @@ Platform_JoyInit
 int Platform_JoyInit( void )
 {
 	int count, numJoysticks, i;
+
+	SDL_SetHint( SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, "1" );
+	SDL_SetHint( SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, "1" );
 
 	Con_Reportf( "Joystick: SDL GameController API\n" );
 	if( SDL_WasInit( SDL_INIT_GAMECONTROLLER ) != SDL_INIT_GAMECONTROLLER &&
