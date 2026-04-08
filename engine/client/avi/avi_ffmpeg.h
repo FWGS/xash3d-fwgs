@@ -31,11 +31,11 @@ GNU General Public License for more details.
 // ffmpeg guarantees API and ABI compatibility between major versions
 // so complain if this gets compiled against unsupported yet version
 // the same check will be done in runtime to ensure compatibility
-#define SUPPORTED_AVU_VERSION_MAJOR 59
-#define SUPPORTED_AVF_VERSION_MAJOR 61
-#define SUPPORTED_AVC_VERSION_MAJOR 61
-#define SUPPORTED_SWR_VERSION_MAJOR 5
-#define SUPPORTED_SWS_VERSION_MAJOR 8
+#define SUPPORTED_AVU_VERSION_MAJOR 60
+#define SUPPORTED_AVF_VERSION_MAJOR 62
+#define SUPPORTED_AVC_VERSION_MAJOR 62
+#define SUPPORTED_SWR_VERSION_MAJOR 6
+#define SUPPORTED_SWS_VERSION_MAJOR 9
 
 #if SUPPORTED_AVU_VERSION_MAJOR != LIBAVUTIL_VERSION_MAJOR
 #error "unsupported libavutil version"
