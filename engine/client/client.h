@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "pm_defs.h"
 #include "ref_params.h"
 #include "render_api.h"
+#include "sound_api.h"
 #include "cdll_exp.h"
 #include "screenfade.h"
 #include "protocol.h"
@@ -454,6 +455,7 @@ typedef struct
 	void		*hInstance;		// pointer to client.dll
 	cldll_func_t	dllFuncs;			// dll exported funcs
 	render_interface_t	drawFuncs;		// custom renderer support
+	sound_interface_t	soundFuncs;		// custom sound support
 	poolhandle_t      mempool;			// client edicts pool
 	string		mapname;			// map name
 	string		maptitle;			// display map title
