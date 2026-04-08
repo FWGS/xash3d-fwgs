@@ -248,13 +248,6 @@ static void SDLash_ActiveEvent( int gain )
 	}
 	else
 	{
-#if TARGET_OS_IPHONE
-		{
-			// Keep running if ftp server enabled
-			void IOS_StartBackgroundTask( void );
-			IOS_StartBackgroundTask();
-		}
-#endif
 		host.status = HOST_NOFOCUS;
 
 		if( cls.key_dest == key_game )

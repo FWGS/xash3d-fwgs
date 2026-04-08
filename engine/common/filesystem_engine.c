@@ -16,7 +16,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
-#include "xash3d_types.h"
 #if XASH_SDL == 2
 #include <SDL.h> // SDL_GetBasePath
 #elif XASH_SDL == 3
@@ -322,7 +321,7 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 	}
 
 #if XASH_IOS
-	Q_strncpy(out, IOS_GetExecDir(), size);
+	Q_strncpy( out, IOS_GetExecDir(), size );
 	return true;
 #endif
 

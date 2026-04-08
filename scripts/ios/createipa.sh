@@ -12,7 +12,6 @@ if [ -d "$BUILDDIR" ]; then
 
     cp -r "$BUILDDIR/ios/libs/"* "$BUILDDIR/ios/xash3d.app"
     cp Info.plist "$BUILDDIR/ios/xash3d.app"
-    cp ftp_commands.plist "$BUILDDIR/ios/xash3d.app"
     if [ ! -d "$BUILDDIR/SDL2.framework" ]; then
         echo "Couldn't find SDL2.framework, place it in the build directory"
         exit 1
