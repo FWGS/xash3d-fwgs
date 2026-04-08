@@ -44,8 +44,6 @@ snd_globals_t snd =
 	.max_raw_channels = MAX_RAW_CHANNELS,
 };
 
-static snd_interface_state_t s_sndState;
-
 static CVAR_DEFINE( s_volume, "volume", "0.7", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "sound volume" );
 CVAR_DEFINE( s_musicvolume, "MP3Volume", "1.0", FCVAR_ARCHIVE|FCVAR_FILTERABLE, "background music volume" );
 static CVAR_DEFINE( s_mixahead, "_snd_mixahead", "0.12", FCVAR_FILTERABLE, "how much sound to mix ahead of time" );
@@ -185,7 +183,7 @@ S_FreeChannel
 */
 void S_FreeChannel( channel_t *ch )
 {
-	S_NotifyChannelUpdate( ch - channels, NULL, -1 );
+	S_NotifyChannelUpdate( ch - snd.channels, NULL, -1 );
 
 	// free the currently loaded word's audio cache before nuking the channel
 	if( ch->words )
@@ -735,7 +733,7 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 		}
 	}
 
-	S_NotifyChannelUpdate( target_chan - channels, target_chan, handle );
+	S_NotifyChannelUpdate( target_chan - snd.channels, target_chan, handle );
 
 	// Init client entity mouth movement vars
 	SND_InitMouth( ent, chan );
@@ -851,7 +849,7 @@ void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float 
 	target_chan->sample = sample;
 	target_chan->forced_end = end;
 
-	S_NotifyChannelUpdate( target_chan - channels, target_chan, handle );
+	S_NotifyChannelUpdate( target_chan - snd.channels, target_chan, handle );
 
 	// Init client entity mouth movement vars
 	SND_InitMouth( ent, chan );
@@ -946,7 +944,7 @@ void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, floa
 	ch->entchannel = CHAN_STATIC;
 	ch->basePitch = pitch;
 
-	S_NotifyChannelUpdate( ch - channels, ch, handle );
+	S_NotifyChannelUpdate( ch - snd.channels, ch, handle );
 	SND_Spatialize( ch );
 }
 
@@ -1564,9 +1562,8 @@ static void S_UpdateChannels( void )
 		endtime -= ( endtime - snd.paintedtime ) & 0x3;
 	}
 
-	s_sndState.total_channels = total_channels;
 	if( clgame.soundFuncs.pfnS_PaintChannels )
-		clgame.soundFuncs.pfnS_PaintChannels( endtime, &dma, &paintedtime );
+		clgame.soundFuncs.pfnS_PaintChannels( endtime );
 	else
 		S_PaintChannels( endtime );
 
@@ -1938,21 +1935,6 @@ static void S_VoiceRecordStop_f( void )
 	Voice_RecordStop();
 }
 
-/*
-================
-S_FillSndState
-================
-*/
-static void S_FillSndState( snd_interface_state_t *st )
-{
-	memset( st, 0, sizeof( *st ));
-	st->listener = &s_listener;
-	st->channels = channels;
-	st->total_channels = total_channels;
-	st->raw_channels = raw_channels;
-	st->max_raw_channels = MAX_RAW_CHANNELS;
-}
-
 static const sound_api_t s_clientSoundAPI = {
 	CL_GetEntitySpatialization,
 	S_GetSfxByHandle,
@@ -1967,8 +1949,6 @@ static qboolean S_InitSoundAPI( void )
 {
 	// make sure what sound functions is cleared
 	memset( &clgame.soundFuncs, 0, sizeof( clgame.soundFuncs ));
-	
-	S_FillSndState( &s_sndState );
 
 	if( clgame.dllFuncs.pfnGetSoundInterface )
 	{
@@ -2050,7 +2030,7 @@ qboolean S_Init( void )
 	S_InitSoundAPI();
 
 	if( clgame.soundFuncs.pfnS_Init )
-		clgame.soundFuncs.pfnS_Init( &s_sndState );
+		clgame.soundFuncs.pfnS_Init( &snd );
 
 	return true;
 }
