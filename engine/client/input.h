@@ -119,7 +119,7 @@ typedef enum engineAxis_e
 	JOY_AXIS_YAW,
 	JOY_AXIS_RT,
 	JOY_AXIS_LT,
-	JOY_AXIS_NULL
+	MAX_AXES,
 } engineAxis_t;
 
 typedef enum joy_calibration_state_s
@@ -136,6 +136,7 @@ void Joy_SetCalibrationState( joy_calibration_state_t state );
 void Joy_AxisMotionEvent( engineAxis_t engineAxis, short value );
 void Joy_GyroEvent( vec3_t data );
 void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw );
+void Joy_DrawDebug( void );
 void Joy_Init( void );
 void Joy_Shutdown( void );
 
