@@ -301,7 +301,7 @@ Append movement from axis. Called everyframe
 */
 void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 {
-	if( !Joy_IsActive() )
+	if( !Joy_IsActive( ))
 		return;
 
 	if( FBitSet( joy_axis_binding.flags, FCVAR_CHANGED ) )
@@ -331,7 +331,7 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 	*dpitch += joy_pitch.value * (float)joyaxis[JOY_AXIS_PITCH].val/(float)SHRT_MAX * host.realframetime;
 	*dyaw   -= joy_yaw.value   * (float)joyaxis[JOY_AXIS_YAW  ].val/(float)SHRT_MAX * host.realframetime;
 
-	if( joy_have_gyro.value )
+	if( joy_have_gyro.value && (int)joy_calibrated.value == JOY_CALIBRATED )
 	{
 		float pitch_speed = joy_gyro_speed[0] * ( 180.0f / M_PI );
 		float yaw_speed   = joy_gyro_speed[1] * ( 180.0f / M_PI );
