@@ -19,7 +19,6 @@ GNU General Public License for more details.
 
 #define SKYCLOUDS_QUALITY	12
 #define MAX_CLIP_VERTS	128 // skybox clip vertices
-#define TURBSCALE		( 256.0f / ( M_PI2 ))
 
 static const int r_skyTexOrder[SKYBOX_MAX_SIDES] = { 0, 2, 1, 3, 4, 5 };
 
@@ -53,12 +52,6 @@ static const int vec_to_st[SKYBOX_MAX_SIDES][3] =
 { -1,  3, -2 },
 { -2, -1,  3 },
 { -2,  1, -3 }
-};
-
-// speed up sin calculations
-static float r_turbsin[] =
-{
-#include "warpsin.h"
 };
 
 #define RIPPLES_CACHEWIDTH_BITS 7
@@ -561,89 +554,6 @@ void R_DrawClouds( void )
 
 	if( RI.fogEnabled )
 		pglFogf( GL_FOG_DENSITY, RI.fogDensity );
-}
-
-/*
-=============
-EmitWaterPolys
-
-Does a water warp on the pre-fragmented glpoly_t chain
-=============
-*/
-void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples )
-{
-	float	*v, nv, waveHeight;
-	float	s, t, os, ot;
-	glpoly2_t	*p;
-	int	i;
-
-	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS ) && glConfig.context == CONTEXT_TYPE_GL;
-
-	if( !warp->polys ) return;
-
-	// set the current waveheight
-	if( warp->polys->verts[0][2] >= RI.vieworg[2] )
-		waveHeight = -RI.currententity->curstate.scale;
-	else waveHeight = RI.currententity->curstate.scale;
-
-	// reset fog color for nonlightmapped water
-	GL_ResetFogColor();
-
-	if( useQuads )
-		pglBegin( GL_QUADS );
-
-	for( p = warp->polys; p; p = p->next )
-	{
-		if( reverse )
-			v = p->verts[0] + ( p->numverts - 1 ) * VERTEXSIZE;
-		else v = p->verts[0];
-
-		if( !useQuads )
-			pglBegin( GL_POLYGON );
-
-		for( i = 0; i < p->numverts; i++ )
-		{
-			if( waveHeight )
-			{
-				nv = r_turbsin[(int)(gp_cl->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
-				nv = (r_turbsin[(int)(v[0] * 5.0f + gp_cl->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
-				nv = nv * waveHeight + v[2];
-			}
-			else nv = v[2];
-
-			os = v[3];
-			ot = v[4];
-
-			if( !ripples )
-			{
-				s = os + r_turbsin[(int)((ot * 0.125f + gp_cl->time) * TURBSCALE) & 255];
-				t = ot + r_turbsin[(int)((os * 0.125f + gp_cl->time) * TURBSCALE) & 255];
-			}
-			else
-			{
-				s = os;
-				t = ot;
-			}
-
-			s *= ( 1.0f / SUBDIVIDE_SIZE );
-			t *= ( 1.0f / SUBDIVIDE_SIZE );
-
-			pglTexCoord2f( s, t );
-			pglVertex3f( v[0], v[1], nv );
-
-			if( reverse )
-				v -= VERTEXSIZE;
-			else v += VERTEXSIZE;
-		}
-
-		if( !useQuads )
-			pglEnd();
-	}
-
-	if( useQuads )
-		pglEnd();
-
-	GL_SetupFogColorForSurfaces();
 }
 
 /*

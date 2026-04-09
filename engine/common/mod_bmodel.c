@@ -2014,7 +2014,7 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 				SetBits( mod->flags, MODEL_HAS_ORIGIN );
 #ifdef HACKS_RELATED_HLMODS
 			// c2a1 doesn't have origin brush it's just placed at center of the level
-			if( !Q_stricmp( name, "maps/c2a1.bsp" ) && ( i == 11 ))
+			if( i == 11 && !Q_stricmp( name, "maps/c2a1.bsp" ))
 				SetBits( mod->flags, MODEL_HAS_ORIGIN );
 #endif
 		}

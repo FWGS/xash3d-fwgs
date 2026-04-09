@@ -17,6 +17,14 @@ GNU General Public License for more details.
 #include "xash3d_mathlib.h"
 #include "mod_local.h"
 
+#define TURBSCALE		( 256.0f / ( M_PI2 ))
+
+// speed up sin calculations
+static const float r_turbsin[] =
+{
+#include "warpsin.h"
+};
+
 typedef struct
 {
 	int		allocated[BLOCK_SIZE_MAX];
@@ -324,7 +332,8 @@ void GL_SubdivideSurface( model_t *loadmodel, msurface_t *fa )
 	for( i = 0; i < fa->numedges; i++ )
 		R_GetEdgePosition( loadmodel, fa, i, verts[i] );
 
-	SetBits( fa->flags, SURF_DRAWTURB_QUADS ); // predict state
+	if( glConfig.context == CONTEXT_TYPE_GL )
+		SetBits( fa->flags, SURF_DRAWTURB_QUADS ); // predict state
 
 	// do subdivide
 	SubdividePolygon_r( loadmodel, fa, fa->numedges, verts[0] );
@@ -942,6 +951,89 @@ static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 
 	if( FBitSet( p->flags, SURF_DRAWTILED ))
 		GL_SetupFogColorForSurfaces();
+}
+
+/*
+=============
+EmitWaterPolys
+
+Does a water warp on the pre-fragmented glpoly_t chain
+=============
+*/
+void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples )
+{
+	float	*v, nv, waveHeight;
+	float	s, t, os, ot;
+	glpoly2_t	*p;
+	int	i;
+
+	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS ) && glConfig.context == CONTEXT_TYPE_GL;
+
+	if( !warp->polys ) return;
+
+	// set the current waveheight
+	if( warp->polys->verts[0][2] >= RI.vieworg[2] )
+		waveHeight = -RI.currententity->curstate.scale;
+	else waveHeight = RI.currententity->curstate.scale;
+
+	// reset fog color for nonlightmapped water
+	GL_ResetFogColor();
+
+	if( useQuads )
+		pglBegin( GL_QUADS );
+
+	for( p = warp->polys; p; p = p->next )
+	{
+		if( reverse )
+			v = p->verts[0] + ( p->numverts - 1 ) * VERTEXSIZE;
+		else v = p->verts[0];
+
+		if( !useQuads )
+			pglBegin( GL_POLYGON );
+
+		for( i = 0; i < p->numverts; i++ )
+		{
+			if( waveHeight )
+			{
+				nv = r_turbsin[(int)(gp_cl->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				nv = (r_turbsin[(int)(v[0] * 5.0f + gp_cl->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
+				nv = nv * waveHeight + v[2];
+			}
+			else nv = v[2];
+
+			os = v[3];
+			ot = v[4];
+
+			if( !ripples )
+			{
+				s = os + r_turbsin[(int)((ot * 0.125f + gp_cl->time) * TURBSCALE) & 255];
+				t = ot + r_turbsin[(int)((os * 0.125f + gp_cl->time) * TURBSCALE) & 255];
+			}
+			else
+			{
+				s = os;
+				t = ot;
+			}
+
+			s *= ( 1.0f / SUBDIVIDE_SIZE );
+			t *= ( 1.0f / SUBDIVIDE_SIZE );
+
+			pglTexCoord2f( s, t );
+			pglVertex3f( v[0], v[1], nv );
+
+			if( reverse )
+				v -= VERTEXSIZE;
+			else v += VERTEXSIZE;
+		}
+
+		if( !useQuads )
+			pglEnd();
+	}
+
+	if( useQuads )
+		pglEnd();
+
+	GL_SetupFogColorForSurfaces();
 }
 
 /*
@@ -2461,13 +2553,12 @@ static texture_t *R_SetupVBOTexture( texture_t *tex, int number )
 	}
 	else R_DisableDetail();
 
-	GL_Bind( mtst.tmu_gl, r_lightmap->value ?tr.whiteTexture:tex->gl_texturenum );
-	if(number)
+	GL_Bind( mtst.tmu_gl, r_lightmap->value ? tr.whiteTexture : tex->gl_texturenum );
+	if( number )
 		vboarray.itexture = number;
 
 	return tex;
 }
-
 
 static void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qboolean drawtextures )
 {
@@ -2482,7 +2573,6 @@ static void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qbool
 			pglEnableClientState( GL_VERTEX_ARRAY );
 			pglVertexPointer( 3, GL_FLOAT, sizeof( vbovertex_t ), (void*)offsetof(vbovertex_t,pos) );
 		}
-
 
 		// setup multitexture
 		if( drawtextures && vboarray.tstate != VBO_TEXTURE_MAIN )
@@ -2512,11 +2602,8 @@ static void R_SetupVBOArrayStatic( vboarray_t *vbo, qboolean drawlightmap, qbool
 	}
 }
 
-
-
 static void R_SetupVBOArrayDlight( vboarray_t *vbo, texture_t *texture )
 {
-
 	if( vboarray.astate != VBO_ARRAY_DLIGHT )
 	{
 		if( vboarray.astate == VBO_ARRAY_DECAL_DLIGHT )
@@ -2583,7 +2670,6 @@ static void R_SetupVBOArrayDecalDlight( int decalcount )
 	vboarray.tstate = VBO_TEXTURE_DECAL;
 	vboarray.lstate = VBO_LIGHTMAP_DYNAMIC;
 }
-
 
 /*
 ===================
@@ -2652,10 +2738,8 @@ static void R_AdditionalPasses( vboarray_t *vbo, int indexlen, void *indexarray,
 	}
 }
 
-
 #define MINIMIZE_UPLOAD
 #define DISCARD_DLIGHTS
-
 
 static void R_DrawDlightedDecals( vboarray_t *vbo, msurface_t *newsurf, msurface_t *surf, int decalcount, texture_t *texture )
 {
