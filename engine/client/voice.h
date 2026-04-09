@@ -131,5 +131,6 @@ void Voice_Disconnect( void );
 void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames );
 void Voice_StopChannel( int entnum );
 void Voice_LoopbackAck( void ); // sends VOICE_LOOPBACK_INDEX to client, gets disabled on timeout
+voice_audio_info_t Voice_GetAudioInfo( void );
 
 #endif // VOICE_H

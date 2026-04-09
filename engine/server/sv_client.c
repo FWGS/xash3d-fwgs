@@ -3571,7 +3571,16 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 
 	MSG_ReadBytes( msg, received, size );
 
-	if( !sv_voiceenable.value || svs.maxclients <= 1 || cl->state != cs_spawned )
+	if( !sv_voiceenable.value || cl->state != cs_spawned )
+		return;
+
+	if( svgame.physFuncs.pfnVoiceData != NULL )
+	{
+		if( svgame.physFuncs.pfnVoiceData( client, frames, size, loopback, received ))
+			return;
+	}
+
+	if( svs.maxclients <= 1 && sv_voice_singleplayer.value == 0.0f )
 		return;
 
 	for( i = 0; i < svs.maxclients; i++ )

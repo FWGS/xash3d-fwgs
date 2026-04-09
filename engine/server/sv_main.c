@@ -124,6 +124,7 @@ static CVAR_DEFINE_AUTO( violence_agibs, "1", 0, "show alien gib entities" );
 // voice chat
 CVAR_DEFINE_AUTO( sv_voiceenable, "1", FCVAR_ARCHIVE|FCVAR_SERVER, "enable voice support" );
 CVAR_DEFINE_AUTO( sv_voicequality, "3", FCVAR_ARCHIVE, "voice chat quality level, from 0 to 5, higher is better" );
+CVAR_DEFINE_AUTO( sv_voice_singleplayer, "0", FCVAR_ARCHIVE, "enable voice subsystem in singleplayer games (maxclients == 1)" );
 
 // enttools
 CVAR_DEFINE_AUTO( sv_enttools_enable, "0", FCVAR_ARCHIVE|FCVAR_PROTECTED, "enable powerful and dangerous entity tools" );
@@ -975,6 +976,7 @@ void SV_Init( void )
 
 	Cvar_RegisterVariable( &sv_voiceenable );
 	Cvar_RegisterVariable( &sv_voicequality );
+	Cvar_RegisterVariable( &sv_voice_singleplayer );
 	Cvar_RegisterVariable( &sv_trace_messages );
 	Cvar_RegisterVariable( &sv_enttools_enable );
 	Cvar_RegisterVariable( &sv_enttools_maxfire );

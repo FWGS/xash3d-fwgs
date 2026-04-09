@@ -939,8 +939,14 @@ Feed the decoded data to engine sound subsystem
 */
 static void Voice_StartChannel( uint samples, byte *data, int entnum )
 {
+	if( clgame.dllFuncs.pfnVoice_StartChannel != NULL )
+	{
+		if( clgame.dllFuncs.pfnVoice_StartChannel( samples, data, entnum ))
+			return;
+	}
+
 	SND_ForceInitMouth( entnum );
-	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, VOICE_PCM_CHANNELS, data, bound( 0, 255 * voice_scale.value, 255 ));
+	S_RawEntSamples( entnum, samples, voice.samplerate, voice.width, VOICE_PCM_CHANNELS, data, bound( 0, 255 * voice_scale.value, 255 ), ATTN_NONE );
 	Voice_Status( entnum, true );
 }
 
@@ -1193,4 +1199,14 @@ qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit )
 
 	voice.initialized = true;
 	return true;
+}
+
+voice_audio_info_t Voice_GetAudioInfo( void )
+{
+	voice_audio_info_t info;
+
+	info.width = voice.width;
+	info.samplerate = voice.samplerate;
+	info.frame_size = voice.frame_size;
+	return info;
 }

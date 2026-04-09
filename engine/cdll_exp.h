@@ -82,6 +82,7 @@ typedef struct cldll_func_s
 	void (*pfnLookEvent)( float relyaw, float relpitch );
 	// Sound API
 	int (*pfnGetSoundInterface)( int version, const sound_api_t *api, sound_interface_t *callback );
+	int (*pfnVoice_StartChannel)( int samples, byte *data, int entnum );
 } cldll_func_t;
 
 #endif//CDLL_EXP_H

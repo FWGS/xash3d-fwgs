@@ -1287,7 +1287,7 @@ uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint ma
 S_RawEntSamples
 ===================
 */
-void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol )
+void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn )
 {
 	rawchan_t	*ch;
 
@@ -1298,7 +1298,7 @@ void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word chan
 		return;
 
 	ch->master_vol = snd_vol;
-	ch->dist_mult = (ATTN_NONE / SND_CLIP_DISTANCE);
+	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
 	ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples, samples, rate, width, channels, data );
 	ch->leftvol = ch->rightvol = snd_vol;
 }
@@ -1938,6 +1938,9 @@ static void S_VoiceRecordStop_f( void )
 static const sound_api_t gSoundAPI = {
 	CL_GetEntitySpatialization,
 	S_GetSfxByHandle,
+	S_RawEntSamples,
+	SND_ForceInitMouth,
+	Voice_GetAudioInfo,
 };
 
 /*
