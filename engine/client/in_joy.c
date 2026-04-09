@@ -65,6 +65,9 @@ static CVAR_DEFINE_AUTO( joy_calibrated, "0", FCVAR_READ_ONLY, "tells whether cu
 static CVAR_DEFINE_AUTO( joy_gyro_pitch, "1.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope sensitivity for looking up and down" );
 static CVAR_DEFINE_AUTO( joy_gyro_yaw, "1.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope sensitivity for turning left and right" );
 static CVAR_DEFINE_AUTO( joy_gyro_roll, "0.0", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope sensitivity when tilting the device sideways" );
+static CVAR_DEFINE_AUTO( joy_gyro_pitch_deadzone, "0.5", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope pitch axis deadzone (deg/s)" );
+static CVAR_DEFINE_AUTO( joy_gyro_yaw_deadzone, "0.5", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope yaw axis deadzone (deg/s)" );
+static CVAR_DEFINE_AUTO( joy_gyro_roll_deadzone, "0.5", FCVAR_ARCHIVE | FCVAR_FILTERABLE, "gyroscope roll axis deadzone (deg/s)" );
 static CVAR_DEFINE_AUTO( joy_debug, "0", 0, "visualize gamepad axes and buttons" );
 
 // stores the latest instantaneous gyroscope rotation rates (in rad/s) from platform input
@@ -343,6 +346,13 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 		float yaw_speed   = joy_gyro_speed[1] * ( 180.0f / M_PI );
 		float roll_speed  = joy_gyro_speed[2] * ( 180.0f / M_PI );
 
+		if( fabs( pitch_speed ) < joy_gyro_pitch_deadzone.value )
+			pitch_speed = 0.0f;
+		if( fabs( yaw_speed ) < joy_gyro_yaw_deadzone.value )
+			yaw_speed = 0.0f;
+		if( fabs( roll_speed ) < joy_gyro_roll_deadzone.value )
+			roll_speed = 0.0f;
+
 		*dpitch -= joy_gyro_pitch.value * pitch_speed * host.realframetime;
 		*dyaw   += joy_gyro_yaw.value   * yaw_speed   * host.realframetime;
 		*dyaw   += joy_gyro_roll.value  * roll_speed  * host.realframetime;
@@ -467,6 +477,12 @@ void Joy_DrawDebug( void )
 	if( joy_have_gyro.value )
 	{
 		static const char *gyronames[3] = { "GYRO P", "GYRO Y", "GYRO R" };
+		static const convar_t *const gyro_deadzone[3] =
+		{
+			&joy_gyro_pitch_deadzone,
+			&joy_gyro_yaw_deadzone,
+			&joy_gyro_roll_deadzone,
+		};
 
 		for( int i = 0; i < 3; i++ )
 		{
@@ -485,10 +501,22 @@ void Joy_DrawDebug( void )
 			float filled = fval * halfbar_w;
 			ref.dllFuncs.FillRGBA( kRenderTransTexture, center + Q_min( 0, filled ), y, fabs( filled ), bar_h, bar_fillcolor[0], bar_fillcolor[1], bar_fillcolor[2], bar_fillcolor[3] );
 
+			// deadzone in deg/s; display scale is +-5 rad/s
+			float fthreshold = gyro_deadzone[i]->value * ( M_PI / 180.0f ) / 5.0f;
+			fthreshold = bound( 0.0f, fthreshold, 1.0f );
+
+			if( fthreshold > 0.0f )
+			{
+				float thresh_x = fthreshold * halfbar_w;
+				ref.dllFuncs.FillRGBA( kRenderTransTexture, center - thresh_x, y, thresh_x * 2, bar_h, 180, 40, 40, 120 );
+				ref.dllFuncs.FillRGBA( kRenderTransTexture, center + thresh_x, y, 1, bar_h, 255, 200, 0, 220 );
+				ref.dllFuncs.FillRGBA( kRenderTransTexture, center - thresh_x, y, 1, bar_h, 255, 200, 0, 220 );
+			}
+
 			// mark the center
 			ref.dllFuncs.FillRGBA( kRenderTransTexture, center, y, 1, bar_h, 180, 180, 180, 220 );
 
-			// gyro doesn't have deadzones or prevval like axes
+			// gyro doesn't have prevval like axes
 			y += bar_h + 2;
 		}
 	}
@@ -572,6 +600,11 @@ void Joy_Init( void )
 	Cvar_RegisterVariable( &joy_gyro_pitch );
 	Cvar_RegisterVariable( &joy_gyro_yaw );
 	Cvar_RegisterVariable( &joy_gyro_roll );
+
+	Cvar_RegisterVariable( &joy_gyro_pitch_deadzone );
+	Cvar_RegisterVariable( &joy_gyro_yaw_deadzone );
+	Cvar_RegisterVariable( &joy_gyro_roll_deadzone );
+
 	Cvar_RegisterVariable( &joy_debug );
 
 	// renamed from -nojoy to -noenginejoy to not conflict with
