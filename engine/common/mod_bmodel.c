@@ -2216,6 +2216,9 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 	world.wadlist = NULL;
 	world.wadcount = 0;
 
+	world.litwater_minlight = -1;
+	world.litwater_scale = -1.0f;
+
 	// parse all the wads for loading textures in right ordering
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
@@ -2259,6 +2262,15 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 				Mem_Free( world.generator );
 				world.generator = copystring( token );
 			}
+			else if( !Q_stricmp( keyname, "_litwater" ))
+			{
+				if( Q_atoi( token ) != 0 )
+					SetBits( world.flags, FWORLD_HAS_LITWATER );
+			}
+			else if( !Q_stricmp( keyname, "_litwater_minlight" ))
+				world.litwater_minlight = Q_atoi( token );
+			else if( !Q_stricmp( keyname, "_litwater_scale" ))
+				world.litwater_scale = Q_atof( token );
 		}
 		return;	// all done
 	}
