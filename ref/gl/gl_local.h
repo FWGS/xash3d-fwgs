@@ -493,7 +493,6 @@ void R_ClearSkyBox( void );
 void R_DrawSkyBox( void );
 void R_DrawClouds( void );
 void R_UnloadSkybox( void );
-void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples );
 void R_ResetRipples( void );
 void R_AnimateRipples( void );
 qboolean R_UploadRipples( texture_t *image );
