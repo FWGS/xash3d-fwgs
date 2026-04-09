@@ -168,6 +168,8 @@ typedef struct physics_interface_s
 	void		*(*SV_HullForBsp)( edict_t *ent, const float *mins, const float *maxs, float *offset );
 	// handle player custom think function
 	int		(*SV_PlayerThink)( edict_t *ent, float frametime, double time );
+	// voice data
+	qboolean	(*pfnVoiceData)( int client, uint frames, uint size, qboolean loopback, const char *received );
 } physics_interface_t;
 
 #endif//PHYSINT_H

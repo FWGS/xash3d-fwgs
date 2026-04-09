@@ -159,11 +159,22 @@ typedef struct snd_globals_s
 	qboolean     have_ambient_sfx;
 } snd_globals_t;
 
+typedef struct voice_audio_info_s
+{
+	uint width;
+	uint samplerate;
+	uint frame_size; // in samples
+} voice_audio_info_t;
+
 // API from engine to client (client calls these)
 typedef struct sound_api_s
 {
-	qboolean (*CL_GetEntitySpatialization)( channel_t *ch );
-	sfx_t*   (*S_GetSfxByHandle)( sound_t handle );
+	qboolean           (*CL_GetEntitySpatialization)( channel_t *ch );
+	sfx_t*             (*S_GetSfxByHandle)( sound_t handle );
+	// Voice extensions
+	void               (*pfnS_RawEntSamples)( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn );
+	void               (*pfnSND_ForceInitMouth)( int entnum );
+	voice_audio_info_t (*pfnVoice_GetAudioInfo)( void );
 } sound_api_t;
 
 // Callbacks from client to engine (engine calls these when custom sound is active)
