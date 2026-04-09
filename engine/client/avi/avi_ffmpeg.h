@@ -26,6 +26,72 @@ GNU General Public License for more details.
 
 #if XASH_FFMPEG_DLOPEN
 
+// using typeof gives more resilience to function declaration changes
+// but it's only available in GCC and standardized in C23
+#if defined(__GNUC__) || __STDC_VERSION__ >= 202311L
+
+#define SUPPORTED_AVU_VERSION_MAJOR LIBAVUTIL_VERSION_MAJOR
+#define SUPPORTED_AVF_VERSION_MAJOR LIBAVFORMAT_VERSION_MAJOR
+#define SUPPORTED_AVC_VERSION_MAJOR LIBAVCODEC_VERSION_MAJOR
+#define SUPPORTED_SWR_VERSION_MAJOR LIBSWRESAMPLE_VERSION_MAJOR
+#define SUPPORTED_SWS_VERSION_MAJOR LIBSWSCALE_VERSION_MAJOR
+
+#define F( func ) \
+	typedef typeof( func ) func##_t; \
+	func##_t               *p##func
+
+// libavutil
+F( avutil_version );
+F( av_frame_alloc );
+F( av_frame_free );
+F( av_frame_ref );
+F( av_frame_unref );
+F( av_strerror );
+F( av_free );
+F( av_get_bytes_per_sample );
+F( av_get_media_type_string );
+F( av_image_alloc );
+
+// libavformat
+F( avformat_version );
+F( av_find_best_stream );
+F( av_read_frame );
+F( av_seek_frame );
+F( avformat_close_input );
+F( avformat_find_stream_info );
+F( avformat_open_input );
+
+// libavcodec
+F( avcodec_version );
+F( av_packet_alloc );
+F( av_packet_free );
+F( av_packet_unref );
+F( avcodec_alloc_context3 );
+F( avcodec_find_decoder );
+F( avcodec_flush_buffers );
+F( avcodec_free_context );
+F( avcodec_open2 );
+F( avcodec_parameters_to_context );
+F( avcodec_receive_frame );
+F( avcodec_send_packet );
+
+// libswresample
+F( swresample_version );
+F( swr_alloc_set_opts2 );
+F( swr_convert );
+F( swr_free );
+F( swr_init );
+
+// libswscale
+F( swscale_version );
+F( sws_freeContext );
+F( sws_getContext );
+F( sws_scale );
+
+#undef F
+
+#else // !defined(__GNUC__) && __STDC_VERSION__ < 202311L
+
 // the following symbols were taken from ffmpeg public headers
 // on each major ffmpeg uprgade, they must be validated
 // ffmpeg guarantees API and ABI compatibility between major versions
@@ -104,6 +170,8 @@ unsigned          (*pswscale_version)( void );
 void              (*psws_freeContext)( struct SwsContext *swsContext );
 struct SwsContext *(*psws_getContext)( int srcW, int srcH, enum AVPixelFormat srcFormat, int dstW, int dstH, enum AVPixelFormat dstFormat, int flags, SwsFilter *srcFilter, SwsFilter *dstFilter, const double *param );
 int               (*psws_scale)( struct SwsContext *c, const uint8_t *const srcSlice[], const int srcStride[], int srcSliceY, int srcSliceH, uint8_t *const dst[], const int dstStride[] );
+
+#endif // defined(__GNUC__) || __STDC_VERSION__ >= 202311L
 
 #else // !XASH_FFMPEG_DLOPEN
 
