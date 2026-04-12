@@ -2164,8 +2164,11 @@ void Con_RunConsole( void )
 			con.vislines = con.showlines;
 	}
 
-	if( FBitSet( con_charset.flags|con_fontscale.flags|con_fontnum.flags|cl_charset.flags|con_oldfont.flags,  FCVAR_CHANGED ))
+	if( FBitSet( con_charset.flags|con_fontscale.flags|con_fontnum.flags|cl_charset.flags|con_oldfont.flags, FCVAR_CHANGED ))
 	{
+		if( con_fontscale.value < 1.0f )
+			Cvar_DirectSet( &con_fontscale, "1" );
+		
 		// update codepage parameters
 		if( !Q_stricmp( con_charset.string, "cp1251" ))
 		{
