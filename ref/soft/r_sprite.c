@@ -62,16 +62,15 @@ Set sprite brightness factor
 */
 static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, float *pscale )
 {
-	float     dist, brightness;
-	vec3_t    glowDist;
-	pmtrace_t *tr;
+	float  dist, brightness;
+	vec3_t glowDist;
 
 	VectorSubtract( origin, RI.vieworg, glowDist );
 	dist = VectorLength( glowDist );
 
 	if( RP_NORMALPASS( ))
 	{
-		tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow.value ? PM_GLASS_IGNORE : ( PM_GLASS_IGNORE | PM_STUDIO_IGNORE ));
+		pmtrace_t *tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow.value ? PM_GLASS_IGNORE : ( PM_GLASS_IGNORE | PM_STUDIO_IGNORE ));
 
 		if(( 1.0f - tr->fraction ) * dist > 8.0f )
 			return 0.0f;

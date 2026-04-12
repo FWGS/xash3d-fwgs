@@ -52,6 +52,13 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean cl
 #define Mem_FreePool( pool )           gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
 #define Mem_EmptyPool( pool )          gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )
 
+extern dlight_t *gp_dlights;
+
+//
+// ref_common cvars
+//
+extern convar_t r_dlight_virtual_radius;
+
 //
 // ref_math.c
 //
@@ -67,5 +74,7 @@ void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );
 // ref_light.c
 //
 void CL_RunLightStyles_( lightstyle_t *ls, int *lightstylevalue );
+void R_MarkLights( const dlight_t *light, int bit, const mnode_t *node, model_t *model, int dlightframecount );
+int R_PushDlights( model_t *model, int framecount );
 
 #endif // REF_COMMON_H
