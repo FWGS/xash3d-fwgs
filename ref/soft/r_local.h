@@ -272,7 +272,6 @@ typedef struct
 	color24      *palette;
 	cl_entity_t  *viewent;
 	lightstyle_t *lightstyles;
-	dlight_t     *dlights;
 	dlight_t     *elights;
 	byte         *texgammatable;
 	uint         *lightgammatable;
@@ -388,9 +387,7 @@ int R_TexMemory( void );
 // gl_rlight.c
 //
 void CL_RunLightStyles( lightstyle_t *ls );
-void R_PushDlights( void );
 void R_GetLightSpot( vec3_t lightspot );
-void R_MarkLights( dlight_t *light, int bit, mnode_t *node );
 colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec );
 colorVec R_LightPoint( const vec3_t p0 );
 #endif

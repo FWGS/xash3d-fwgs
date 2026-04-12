@@ -23,6 +23,7 @@ ref_globals_t *gpGlobals;
 ref_client_t  *gp_cl;
 ref_host_t    *gp_host;
 uint16_t       rtable[MOD_FRAMES][MOD_FRAMES];
+dlight_t      *gp_dlights;
 
 void _Mem_Free( void *data, const char *filename, int fileline )
 {
@@ -67,8 +68,11 @@ int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, 
 
 	gp_cl = (ref_client_t *)ENGINE_GET_PARM( PARM_GET_CLIENT_PTR );
 	gp_host = (ref_host_t *)ENGINE_GET_PARM( PARM_GET_HOST_PTR );
+	gp_dlights = (dlight_t *)ENGINE_GET_PARM( PARM_GET_DLIGHTS_PTR );
 
 	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
+
+	gEngfuncs.Cvar_RegisterVariable( &r_dlight_virtual_radius );
 
 	return REF_API_VERSION;
 }

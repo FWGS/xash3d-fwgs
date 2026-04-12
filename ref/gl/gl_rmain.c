@@ -998,7 +998,7 @@ void R_RenderScene( void )
 	// begin a new frame
 	tr.framecount++;
 
-	R_PushDlights();
+	tr.dlightframecount = R_PushDlights( WORLDMODEL, tr.framecount );
 
 	R_SetupFrustum();
 	R_SetupFrame();

@@ -842,7 +842,7 @@ static void R_DrawBEntitiesOnList( void )
 		// calculate dynamic lighting for bmodel
 		for( k = 0; k < MAX_DLIGHTS; k++ )
 		{
-			dlight_t *l = &tr.dlights[k];
+			dlight_t *l = &gp_dlights[k];
 			vec3_t   origin_l, oldorigin;
 
 			if( l->die < gp_cl->time || !l->radius )
@@ -852,7 +852,7 @@ static void R_DrawBEntitiesOnList( void )
 			Matrix4x4_CreateFromEntity( RI.objectMatrix, RI.currententity->angles, RI.currententity->origin, 1 );
 			Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
 			VectorCopy( origin_l, l->origin ); // move light in bmodel space
-			R_MarkLights( l, 1 << k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
+			R_MarkLights( l, 1 << k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode, RI.currentmodel, tr.dlightframecount );
 			VectorCopy( oldorigin, l->origin ); // restore lightorigin
 		}
 
@@ -967,7 +967,7 @@ void R_DrawBrushModel( cl_entity_t *pent )
 	// calculate dynamic lighting for bmodel
 	for( k = 0; k < MAX_DLIGHTS; k++ )
 	{
-		dlight_t *l = &tr.dlights[k];
+		dlight_t *l = &gp_dlights[k];
 		vec3_t   origin_l, oldorigin;
 
 		if( l->die < gp_cl->time || !l->radius )
@@ -978,7 +978,7 @@ void R_DrawBrushModel( cl_entity_t *pent )
 		Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
 		tr.modelviewIdentity = false;
 		VectorCopy( origin_l, l->origin );         // move light in bmodel space
-		R_MarkLights( l, 1 << k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode );
+		R_MarkLights( l, 1 << k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode, RI.currentmodel, tr.dlightframecount );
 		VectorCopy( oldorigin, l->origin );         // restore lightorigin*/
 	}
 
@@ -1130,7 +1130,7 @@ void GAME_EXPORT R_RenderScene( void )
 	R_SetupFrustum();
 	R_SetupFrame();
 
-	R_PushDlights();
+	tr.dlightframecount = R_PushDlights( WORLDMODEL, tr.framecount );
 	R_SetupModelviewMatrix( RI.worldviewMatrix );
 	R_SetupProjectionMatrix( RI.projectionMatrix );
 
@@ -1450,8 +1450,7 @@ qboolean GAME_EXPORT R_Init( void )
 	tr.lightgammatable = (uint *)ENGINE_GET_PARM( PARM_GET_LIGHTGAMMATABLE_PTR );
 	tr.screengammatable = (uint *)ENGINE_GET_PARM( PARM_GET_SCREENGAMMATABLE_PTR );
 	tr.lineargammatable = (uint *)ENGINE_GET_PARM( PARM_GET_LINEARGAMMATABLE_PTR );
-	tr.dlights = (dlight_t *)ENGINE_GET_PARM( PARM_GET_DLIGHTS_PTR );
-	tr.elights = (dlight_t *)ENGINE_GET_PARM( PARM_GET_ELIGHTS_PTR );
+		tr.elights = (dlight_t *)ENGINE_GET_PARM( PARM_GET_ELIGHTS_PTR );
 
 	if( !R_InitBlit( glblit ))
 	{

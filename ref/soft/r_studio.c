@@ -1467,7 +1467,7 @@ static void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
 	{
-		dl = &tr.dlights[lnum];
+		dl = &gp_dlights[lnum];
 
 		if( dl->die < g_studio.time || !r_dynamic->value )
 			continue;

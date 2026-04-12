@@ -249,7 +249,6 @@ typedef struct
 	movevars_t *movevars;
 	color24 *palette;
 	cl_entity_t *viewent;
-	dlight_t *dlights;
 	dlight_t *elights;
 	byte *texgammatable;
 	uint *lightgammatable;
@@ -375,9 +374,7 @@ void R_ShowTextures( void );
 // gl_rlight.c
 //
 void CL_RunLightStyles( lightstyle_t *ls );
-void R_PushDlights( void );
 void R_GetLightSpot( vec3_t lightspot );
-void R_MarkLights( const dlight_t *light, int bit, const mnode_t *node );
 colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec );
 colorVec R_LightPoint( const vec3_t p0 );
 
@@ -782,7 +779,6 @@ extern convar_t r_ripple;
 extern convar_t r_ripple_updatetime;
 extern convar_t r_ripple_spawntime;
 extern convar_t r_large_lightmaps;
-extern convar_t r_dlight_virtual_radius;
 
 //
 // engine shared convars
