@@ -538,7 +538,6 @@ int R_CreateDecalList( decallist_t *pList );
 void R_ClearAllDecals( void );
 byte *Mod_GetCurrentVis( void );
 void Mod_SetOrthoBounds( const float *mins, const float *maxs );
-void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
 
 //
 // gl_opengl.c

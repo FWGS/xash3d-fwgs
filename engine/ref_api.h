@@ -62,7 +62,9 @@ GNU General Public License for more details.
 // 11. Added size argument to Mod_ProcessRenderData
 // 12. Added Image_CalcImageSize
 // 13. Removed ignore_flags argument from GetCvarPointer
-#define REF_API_VERSION 13
+// 14. Removed reserved functions, they are leftover from RenderAPI
+//     Removed CL_AddCustomBeam, it's now handled through R_AddEntity
+#define REF_API_VERSION 14
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -533,7 +535,6 @@ typedef struct ref_interface_s
 	void (*GL_SetRenderMode)( int renderMode );
 
 	qboolean (*R_AddEntity)( struct cl_entity_s *clent, int type );
-	void (*CL_AddCustomBeam)( cl_entity_t *pEnvBeam );
 	void (*R_ProcessEntData)( qboolean allocate, cl_entity_t *entities, unsigned int max_entities );
 	void (*R_Flush)( unsigned int flush_flags );
 
@@ -632,8 +633,6 @@ typedef struct ref_interface_s
 	void		(*GL_TextureTarget)( unsigned int target ); // change texture unit mode without bind texture
 	void		(*GL_TexCoordArrayMode)( unsigned int texmode );
 	void		(*GL_UpdateTexSize)( int texnum, int width, int height, int depth ); // recalc statistics
-	void		(*GL_Reserved0)( void );	// for potential interface expansion without broken compatibility
-	void		(*GL_Reserved1)( void );
 
 	// Misc renderer functions
 	void		(*GL_DrawParticles)( const struct ref_viewpass_s *rvp, qboolean trans_pass, float frametime );

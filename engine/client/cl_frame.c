@@ -981,15 +981,8 @@ qboolean CL_AddVisibleEntity( cl_entity_t *ent, int entityType )
 	if( !draw_player )
 		return false;
 
-	if( entityType == ET_BEAM )
-	{
-		ref.dllFuncs.CL_AddCustomBeam( ent );
-		return true;
-	}
-	else if( !ref.dllFuncs.R_AddEntity( ent, entityType ))
-	{
+	if( !ref.dllFuncs.R_AddEntity( ent, entityType ))
 		return false;
-	}
 
 	// because pTemp->entity.curstate.effects
 	// is already occupied by FTENT_FLICKER

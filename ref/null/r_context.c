@@ -75,11 +75,6 @@ static qboolean R_AddEntity( struct cl_entity_s *clent, int type )
 	return true;
 }
 
-static void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
-{
-	;
-}
-
 static void R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int max_entities )
 {
 	;
@@ -460,7 +455,6 @@ static const ref_interface_t gReffuncs =
 	.GL_SetRenderMode = R_SimpleStubInt,
 
 	.R_AddEntity      = R_AddEntity,
-	.CL_AddCustomBeam = CL_AddCustomBeam,
 	.R_ProcessEntData = R_ProcessEntData,
 	.R_Flush          = R_SimpleStubUInt,
 
@@ -539,8 +533,6 @@ static const ref_interface_t gReffuncs =
 	.GL_TextureTarget       = R_SimpleStubUInt,
 	.GL_TexCoordArrayMode   = R_SimpleStubUInt,
 	.GL_UpdateTexSize       = GL_UpdateTexSize,
-	.GL_Reserved0           = NULL,
-	.GL_Reserved1           = NULL,
 
 	.GL_DrawParticles = GL_DrawParticles,
 	.LightVec         = LightVec,

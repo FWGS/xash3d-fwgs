@@ -151,28 +151,6 @@ qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 	return true;
 }
 
-/*
-================
-CL_AddCustomBeam
-
-Add the beam that encoded as custom entity
-================
-*/
-void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
-{
-	if( tr.draw_list->num_beam_entities >= MAX_VISIBLE_PACKET )
-	{
-		gEngfuncs.Con_Printf( S_ERROR "Too many beams %d!\n", tr.draw_list->num_beam_entities );
-		return;
-	}
-
-	if( pEnvBeam )
-	{
-		tr.draw_list->beam_entities[tr.draw_list->num_beam_entities] = pEnvBeam;
-		tr.draw_list->num_beam_entities++;
-	}
-}
-
 
 /*
 ==============================================================
