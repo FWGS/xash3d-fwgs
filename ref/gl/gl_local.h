@@ -787,7 +787,6 @@ extern convar_t r_dlight_virtual_radius;
 //
 // engine shared convars
 //
-DECLARE_ENGINE_SHARED_CVAR_LIST()
 
 //
 // engine callbacks

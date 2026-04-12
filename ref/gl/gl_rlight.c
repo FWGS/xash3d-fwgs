@@ -34,64 +34,7 @@ CL_RunLightStyles
 */
 void CL_RunLightStyles( lightstyle_t *ls )
 {
-	int i;
-	float frametime = (gp_cl->time - gp_cl->oldtime);
-
-	if( !WORLDMODEL )
-		return;
-
-	if( !WORLDMODEL->lightdata )
-	{
-		for( i = 0; i < MAX_LIGHTSTYLES; i++ )
-			tr.lightstylevalue[i] = 256 * 256;
-		return;
-	}
-
-	// light animations
-	// 'm' is normal light, 'a' is no light, 'z' is double bright
-	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
-	{
-		int k, flight, clight;
-		float l, lerpfrac, backlerp;
-
-		if( !gp_cl->paused && frametime <= 0.1f )
-			ls[i].time += frametime; // evaluate local time
-
-		if( !ls[i].length )
-		{
-			tr.lightstylevalue[i] = 256;
-			continue;
-		}
-		else if( ls[i].length == 1 )
-		{
-			// single length style so don't bother interpolating
-			tr.lightstylevalue[i] = ( ls[i].map[0] ) * 22;
-			continue;
-		}
-
-		flight = (int)Q_floor( ls[i].time * 10 );
-
-		if( !ls[i].interp || !cl_lightstyle_lerping->value )
-		{
-			tr.lightstylevalue[i] = ls[i].map[flight%ls[i].length] * 22;
-			continue;
-		}
-
-		clight = (int)Q_ceil( ls[i].time * 10 );
-		lerpfrac = ( ls[i].time * 10 ) - flight;
-		backlerp = 1.0f - lerpfrac;
-
-		// interpolate animating light
-		// frame just gone
-		k = ls[i].map[flight % ls[i].length];
-		l = (float)( k * 22.0f ) * backlerp;
-
-		// upcoming frame
-		k = ls[i].map[clight % ls[i].length];
-		l += (float)( k * 22.0f ) * lerpfrac;
-
-		tr.lightstylevalue[i] = (int)l;
-	}
+	CL_RunLightStyles_( ls, tr.lightstylevalue );
 }
 
 /*

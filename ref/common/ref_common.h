@@ -28,6 +28,8 @@ extern ref_client_t  *gp_cl;
 extern ref_host_t    *gp_host;
 extern const ref_interface_t gReffuncs;
 
+DECLARE_ENGINE_SHARED_CVAR_LIST()
+
 #define Assert( x ) if( !( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
 #define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
@@ -60,5 +62,10 @@ void Matrix4x4_CreateProjection( matrix4x4 out, float xMax, float xMin, float yM
 void Matrix4x4_CreateOrtho( matrix4x4 m, float xLeft, float xRight, float yBottom, float yTop, float zNear, float zFar );
 void Matrix4x4_CreateModelview( matrix4x4 out );
 void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );
+
+//
+// ref_light.c
+//
+void CL_RunLightStyles_( lightstyle_t *ls, int *lightstylevalue );
 
 #endif // REF_COMMON_H

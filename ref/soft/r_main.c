@@ -71,7 +71,6 @@ CVAR_DEFINE_AUTO( sw_texfilt, "0", FCVAR_GLCONFIG, "texture dither" );
 static CVAR_DEFINE_AUTO( r_novis, "0", 0, "" );
 
 
-DEFINE_ENGINE_SHARED_CVAR_LIST()
 
 int r_viewcluster, r_oldviewcluster;
 
@@ -1406,9 +1405,6 @@ static void R_InitTurb( void )
 qboolean GAME_EXPORT R_Init( void )
 {
 	qboolean glblit = false;
-
-	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
-
 
 	gEngfuncs.Cvar_RegisterVariable( &sw_clearcolor );
 	gEngfuncs.Cvar_RegisterVariable( &sw_drawflat );

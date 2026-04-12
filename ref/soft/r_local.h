@@ -528,7 +528,6 @@ void TriCullFace( TRICULLSTYLE mode );
 void TriBrightness( float brightness );
 
 
-DECLARE_ENGINE_SHARED_CVAR_LIST()
 
 //
 // helper funcs

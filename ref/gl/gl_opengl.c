@@ -41,7 +41,6 @@ CVAR_DEFINE_AUTO( r_ripple_spawntime, "0.1", FCVAR_GLCONFIG, "how fast new rippl
 CVAR_DEFINE_AUTO( r_large_lightmaps, "0", FCVAR_GLCONFIG|FCVAR_LATCH, "enable larger lightmap atlas textures (might break custom renderer mods)" );
 CVAR_DEFINE_AUTO( r_dlight_virtual_radius, "3", FCVAR_GLCONFIG, "increase dlight radius virtually by this amount, should help against ugly cut off dlights on highly scaled textures" );
 
-DEFINE_ENGINE_SHARED_CVAR_LIST()
 
 poolhandle_t r_temppool;
 
@@ -1141,8 +1140,6 @@ GL_InitCommands
 */
 static void GL_InitCommands( void )
 {
-	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
-
 	gEngfuncs.Cvar_RegisterVariable( &r_lighting_extended );
 	gEngfuncs.Cvar_RegisterVariable( &r_lighting_ambient );
 	gEngfuncs.Cvar_RegisterVariable( &r_novis );
