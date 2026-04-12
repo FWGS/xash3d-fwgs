@@ -40,7 +40,6 @@ static vec2_t		world_orthohalf;
 static uint		r_blocklights[BLOCK_SIZE_MAX*BLOCK_SIZE_MAX*3];
 static mextrasurf_t		*fullbright_surfaces[MAX_TEXTURES];
 static mextrasurf_t		*detail_surfaces[MAX_TEXTURES];
-static int		rtable[MOD_FRAMES][MOD_FRAMES];
 
 typedef struct
 {
@@ -4008,17 +4007,3 @@ void GL_BuildLightmaps( void )
 	}
 }
 
-void GL_InitRandomTable( void )
-{
-	int	tu, tv;
-
-	for( tu = 0; tu < MOD_FRAMES; tu++ )
-	{
-		for( tv = 0; tv < MOD_FRAMES; tv++ )
-		{
-			rtable[tu][tv] = gEngfuncs.COM_RandomLong( 0, 0x7FFF );
-		}
-	}
-
-	gEngfuncs.COM_SetRandomSeed( 0 );
-}

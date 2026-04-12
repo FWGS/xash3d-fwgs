@@ -19,6 +19,37 @@ ref_api_t      gEngfuncs;
 ref_globals_t *gpGlobals;
 ref_client_t  *gp_cl;
 ref_host_t    *gp_host;
+uint16_t       rtable[MOD_FRAMES][MOD_FRAMES];
+
+void _Mem_Free( void *data, const char *filename, int fileline )
+{
+	gEngfuncs._Mem_Free( data, filename, fileline );
+}
+
+void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	return gEngfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
+}
+
+void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	return gEngfuncs._Mem_Realloc( poolptr, memptr, size, clear, filename, fileline );
+}
+
+void GL_InitRandomTable( void )
+{
+	int tu, tv;
+
+	for( tu = 0; tu < MOD_FRAMES; tu++ )
+	{
+		for( tv = 0; tv < MOD_FRAMES; tv++ )
+		{
+			rtable[tu][tv] = gEngfuncs.COM_RandomLong( 0, 0x7FFF );
+		}
+	}
+
+	gEngfuncs.COM_SetRandomSeed( 0 );
+}
 
 int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
 int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )
