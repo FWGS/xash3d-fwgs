@@ -124,6 +124,10 @@ typedef struct world_static_s
 
 	wadentry_t   *wadlist;
 	int          wadcount;
+
+	// lightmapped water extra info
+	float        litwater_scale;
+	int          litwater_minlight;
 } world_static_t;
 
 #ifndef REF_DLL
