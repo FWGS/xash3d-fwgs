@@ -93,7 +93,7 @@ void CL_RunLightStyles_( lightstyle_t *ls, int *lightstylevalue )
 R_MarkLights
 =============
 */
-void R_MarkLights( const dlight_t *light, int bit, const mnode_t *node, model_t *model, int dlightframecount )
+static void R_MarkLights( const dlight_t *light, int bit, const mnode_t *node, model_t *model, int dlightframecount )
 {
 	const float virtual_radius = light->radius * Q_max( 1.0f, r_dlight_virtual_radius.value );
 	const float maxdist = light->radius * light->radius;
@@ -185,4 +185,23 @@ int R_PushDlights( model_t *model, int framecount )
 	}
 
 	return framecount;
+}
+
+void R_PushDlightsForBmodel( model_t *model, int framecount, const matrix4x4 object_matrix )
+{
+	for( int i = 0; i < MAX_DLIGHTS; i++ )
+	{
+		dlight_t *l = &gp_dlights[i];
+
+		if( l->die < gp_cl->time || !l->radius )
+			continue;
+
+		vec3_t oldorigin;
+		VectorCopy( l->origin, oldorigin );
+
+		Matrix4x4_VectorITransform( object_matrix, oldorigin, l->origin );
+		R_MarkLights( l, 1 << i, model->nodes + model->hulls[0].firstclipnode, model, framecount );
+
+		VectorCopy( oldorigin, l->origin );
+	}
 }

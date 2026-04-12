@@ -1857,20 +1857,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	e->visframe = tr.realframecount; // visible
 
 	// calculate dynamic lighting for bmodel
-	for( int k = 0; k < MAX_DLIGHTS; k++ )
-	{
-		dlight_t *l = &gp_dlights[k];
-		vec3_t origin_l, oldorigin;
-
-		if( l->die < gp_cl->time || !l->radius )
-			continue;
-
-		VectorCopy( l->origin, oldorigin ); // save lightorigin
-		Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
-		VectorCopy( origin_l, l->origin ); // move light in bmodel space
-		R_MarkLights( l, 1<<k, clmodel->nodes + clmodel->hulls[0].firstclipnode, clmodel, tr.dlightframecount );
-		VectorCopy( oldorigin, l->origin ); // restore lightorigin
-	}
+	R_PushDlightsForBmodel( clmodel, tr.dlightframecount, RI.objectMatrix );
 
 	// setup the rendermode
 	R_SetRenderMode( e );
