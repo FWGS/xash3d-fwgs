@@ -23,15 +23,6 @@ GNU General Public License for more details.
 #endif
 
 
-void _Mem_Free( void *data, const char *filename, int fileline )
-{
-	gEngfuncs._Mem_Free( data, filename, fileline );
-}
-
-void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
-{
-	return gEngfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
-}
 
 static void R_ClearScreen( void )
 {
