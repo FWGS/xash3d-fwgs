@@ -14,6 +14,9 @@ GNU General Public License for more details.
 */
 
 #include "ref_common.h"
+#include "com_strings.h"
+
+DEFINE_ENGINE_SHARED_CVAR_LIST()
 
 ref_api_t      gEngfuncs;
 ref_globals_t *gpGlobals;
@@ -64,6 +67,8 @@ int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, 
 
 	gp_cl = (ref_client_t *)ENGINE_GET_PARM( PARM_GET_CLIENT_PTR );
 	gp_host = (ref_host_t *)ENGINE_GET_PARM( PARM_GET_HOST_PTR );
+
+	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
 
 	return REF_API_VERSION;
 }
