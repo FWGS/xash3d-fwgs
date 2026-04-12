@@ -17,7 +17,6 @@ GNU General Public License for more details.
 
 gl_globals_t  tr;
 ref_speeds_t  r_stats;
-poolhandle_t  r_temppool;
 viddef_t      vid;
 
 

@@ -38,8 +38,6 @@ typedef int fixed16_t;
 // make mod_ref.h?
 #define LM_SAMPLE_SIZE 16
 
-extern poolhandle_t r_temppool;
-
 #define BLOCK_SIZE         tr.block_size        // lightmap blocksize
 #define BLOCK_SIZE_DEFAULT 128                  // for keep backward compatibility
 #define BLOCK_SIZE_MAX     1024
@@ -367,7 +365,6 @@ image_t *R_GetTexture( unsigned int texnum );
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 int GL_LoadTextureArray( const char **names, int flags );
 int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
-byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );

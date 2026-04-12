@@ -54,6 +54,7 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean cl
 
 extern dlight_t *gp_dlights;
 extern int g_lightstylevalue[MAX_LIGHTSTYLES];
+extern poolhandle_t r_temppool;
 
 //
 // ref_common cvars
@@ -82,5 +83,9 @@ colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t 
 colorVec R_LightPoint( const vec3_t p0 );
 void R_UpdateSurfaceCachedLight( msurface_t *surf );
 
+//
+// ref_image.c
+//
+byte *GL_ResampleTexture( const byte *source, int in_w, int in_h, int out_w, int out_h, qboolean isNormalMap );
 
 #endif // REF_COMMON_H
