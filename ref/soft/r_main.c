@@ -840,21 +840,8 @@ static void R_DrawBEntitiesOnList( void )
 		R_RotateBmodel();
 
 		// calculate dynamic lighting for bmodel
-		for( k = 0; k < MAX_DLIGHTS; k++ )
-		{
-			dlight_t *l = &gp_dlights[k];
-			vec3_t   origin_l, oldorigin;
-
-			if( l->die < gp_cl->time || !l->radius )
-				continue;
-
-			VectorCopy( l->origin, oldorigin ); // save lightorigin
-			Matrix4x4_CreateFromEntity( RI.objectMatrix, RI.currententity->angles, RI.currententity->origin, 1 );
-			Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
-			VectorCopy( origin_l, l->origin ); // move light in bmodel space
-			R_MarkLights( l, 1 << k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode, RI.currentmodel, tr.dlightframecount );
-			VectorCopy( oldorigin, l->origin ); // restore lightorigin
-		}
+		Matrix4x4_CreateFromEntity( RI.objectMatrix, RI.currententity->angles, RI.currententity->origin, 1 );
+		R_PushDlightsForBmodel( RI.currentmodel, tr.dlightframecount, RI.objectMatrix );
 
 		RI.currententity->topnode = topnode;
 		if( topnode->contents >= 0 )
@@ -965,22 +952,9 @@ void R_DrawBrushModel( cl_entity_t *pent )
 	R_RotateBmodel();
 
 	// calculate dynamic lighting for bmodel
-	for( k = 0; k < MAX_DLIGHTS; k++ )
-	{
-		dlight_t *l = &gp_dlights[k];
-		vec3_t   origin_l, oldorigin;
-
-		if( l->die < gp_cl->time || !l->radius )
-			continue;
-
-		VectorCopy( l->origin, oldorigin );         // save lightorigin
-		Matrix4x4_CreateFromEntity( RI.objectMatrix, RI.currententity->angles, RI.currententity->origin, 1 );
-		Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
-		tr.modelviewIdentity = false;
-		VectorCopy( origin_l, l->origin );         // move light in bmodel space
-		R_MarkLights( l, 1 << k, RI.currentmodel->nodes + RI.currentmodel->hulls[0].firstclipnode, RI.currentmodel, tr.dlightframecount );
-		VectorCopy( oldorigin, l->origin );         // restore lightorigin*/
-	}
+	Matrix4x4_CreateFromEntity( RI.objectMatrix, RI.currententity->angles, RI.currententity->origin, 1 );
+	R_PushDlightsForBmodel( RI.currentmodel, tr.dlightframecount, RI.objectMatrix );
+	tr.modelviewIdentity = false;
 
 	RI.currententity->topnode = topnode;
 	if( topnode->contents >= 0 )

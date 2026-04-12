@@ -74,7 +74,8 @@ void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );
 // ref_light.c
 //
 void CL_RunLightStyles_( lightstyle_t *ls, int *lightstylevalue );
-void R_MarkLights( const dlight_t *light, int bit, const mnode_t *node, model_t *model, int dlightframecount );
+void R_PushDlightsForBmodel( model_t *model, int framecount, const matrix4x4 object_matrix );
 int R_PushDlights( model_t *model, int framecount );
+
 
 #endif // REF_COMMON_H
