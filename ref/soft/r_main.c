@@ -319,9 +319,6 @@ qboolean GAME_EXPORT R_AddEntity( struct cl_entity_s *clent, int type )
 	if( !r_drawentities->value )
 		return false; // not allow to drawing
 
-	if( !clent || !clent->model )
-		return false; // if set to invisible, skip
-
 	if( FBitSet( clent->curstate.effects, EF_NODRAW ))
 		return false; // done
 
@@ -331,7 +328,20 @@ qboolean GAME_EXPORT R_AddEntity( struct cl_entity_s *clent, int type )
 	if( type == ET_FRAGMENTED )
 		r_stats.c_client_ents++;
 
-	if( R_OpaqueEntity( clent ))
+	if( type == ET_BEAM )
+	{
+		if( tr.draw_list->num_beam_entities >= MAX_VISIBLE_PACKET )
+		{
+			gEngfuncs.Con_Printf( S_ERROR "Too many beams %d!\n", tr.draw_list->num_beam_entities );
+			return false;
+		}
+
+		tr.draw_list->beam_entities[tr.draw_list->num_beam_entities] = clent;
+		tr.draw_list->num_beam_entities++;
+
+		return true;
+	}
+	else if( R_OpaqueEntity( clent ))
 	{
 		if( clent->model->type == mod_brush )
 		{
