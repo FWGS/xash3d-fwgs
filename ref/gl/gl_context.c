@@ -452,7 +452,6 @@ static const ref_interface_t gReffuncs =
 	GL_SetRenderMode,
 
 	R_AddEntity,
-	CL_AddCustomBeam,
 	R_ProcessEntData,
 	R_Flush,
 
@@ -531,8 +530,6 @@ static const ref_interface_t gReffuncs =
 	GL_TextureTarget,
 	GL_SetTexCoordArrayMode,
 	GL_UpdateTexSize,
-	NULL,
-	NULL,
 
 	CL_DrawParticlesExternal,
 	R_LightVec,
