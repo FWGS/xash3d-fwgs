@@ -62,7 +62,6 @@ static int sc_size;
 surfcache_t     *sc_rover;
 static surfcache_t *sc_base;
 
-static int      rtable[MOD_FRAMES][MOD_FRAMES];
 
 static void R_BuildLightMap( void );
 /*
@@ -238,20 +237,6 @@ static void R_BuildLightMap( void )
 	}
 }
 
-void GL_InitRandomTable( void )
-{
-	int tu, tv;
-
-	for( tu = 0; tu < MOD_FRAMES; tu++ )
-	{
-		for( tv = 0; tv < MOD_FRAMES; tv++ )
-		{
-			rtable[tu][tv] = gEngfuncs.COM_RandomLong( 0, 0x7FFF );
-		}
-	}
-
-	gEngfuncs.COM_SetRandomSeed( 0 );
-}
 
 /*
 ===============
