@@ -14,6 +14,7 @@ def build(bld):
 		target = 'ref_common',
 		includes = '.',
 		export_includes = '.',
+		defines = 'REF_DLL=1',
 		use = 'engine_includes public werror',
 		subsystem = bld.env.MSVC_SUBSYSTEM
 	)
