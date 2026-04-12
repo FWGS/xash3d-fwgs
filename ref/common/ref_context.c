@@ -25,6 +25,7 @@ ref_host_t    *gp_host;
 uint16_t       rtable[MOD_FRAMES][MOD_FRAMES];
 dlight_t      *gp_dlights;
 int            g_lightstylevalue[MAX_LIGHTSTYLES];
+poolhandle_t   r_temppool;
 
 void _Mem_Free( void *data, const char *filename, int fileline )
 {

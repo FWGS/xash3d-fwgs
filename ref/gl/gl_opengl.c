@@ -40,8 +40,6 @@ CVAR_DEFINE_AUTO( r_ripple_spawntime, "0.1", FCVAR_GLCONFIG, "how fast new rippl
 CVAR_DEFINE_AUTO( r_large_lightmaps, "0", FCVAR_GLCONFIG|FCVAR_LATCH, "enable larger lightmap atlas textures (might break custom renderer mods)" );
 
 
-poolhandle_t r_temppool;
-
 gl_globals_t	tr;
 glconfig_t	glConfig;
 glstate_t	glState;
