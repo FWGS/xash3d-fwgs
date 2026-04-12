@@ -374,13 +374,13 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 		int	w, h;
 
 		// assume we get sizes from image
-		ref.dllFuncs.R_GetSpriteParms( &w, &h, NULL, frame, clgame.ds.pSprite );
+		R_GetSpriteParms( &w, &h, NULL, frame, clgame.ds.pSprite );
 
 		width = w;
 		height = h;
 	}
 
-	texnum = ref.dllFuncs.R_GetSpriteTexture( clgame.ds.pSprite, frame );
+	texnum = R_GetSpriteTexture( clgame.ds.pSprite, frame );
 
 	if( prc )
 	{
@@ -1424,7 +1424,7 @@ int EXPORT pfnSPR_Frames( HSPRITE hPic )
 {
 	int	numFrames = 0;
 
-	ref.dllFuncs.R_GetSpriteParms( NULL, NULL, &numFrames, 0, CL_GetSpritePointer( hPic ));
+	R_GetSpriteParms( NULL, NULL, &numFrames, 0, CL_GetSpritePointer( hPic ));
 
 	return numFrames;
 }
@@ -1439,7 +1439,7 @@ static int GAME_EXPORT pfnSPR_Height( HSPRITE hPic, int frame )
 {
 	int	sprHeight = 0;
 
-	ref.dllFuncs.R_GetSpriteParms( NULL, &sprHeight, NULL, frame, CL_GetSpritePointer( hPic ));
+	R_GetSpriteParms( NULL, &sprHeight, NULL, frame, CL_GetSpritePointer( hPic ));
 
 	return sprHeight;
 }
@@ -1454,7 +1454,7 @@ static int GAME_EXPORT pfnSPR_Width( HSPRITE hPic, int frame )
 {
 	int	sprWidth = 0;
 
-	ref.dllFuncs.R_GetSpriteParms( &sprWidth, NULL, NULL, frame, CL_GetSpritePointer( hPic ));
+	R_GetSpriteParms( &sprWidth, NULL, NULL, frame, CL_GetSpritePointer( hPic ));
 
 	return sprWidth;
 }
@@ -3324,7 +3324,7 @@ int TriSpriteTexture( model_t *pSpriteModel, int frame )
 {
 	int	gl_texturenum;
 
-	if(( gl_texturenum = ref.dllFuncs.R_GetSpriteTexture( pSpriteModel, frame )) <= 0 )
+	if(( gl_texturenum = R_GetSpriteTexture( pSpriteModel, frame )) <= 0 )
 		return 0;
 
 	ref.dllFuncs.GL_Bind( XASH_TEXTURE0, gl_texturenum );

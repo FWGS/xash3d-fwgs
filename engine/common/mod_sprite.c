@@ -17,9 +17,6 @@ GNU General Public License for more details.
 #include "common.h"
 #include "sprite.h"
 #include "studio.h"
-#if !XASH_DEDICATED
-#include "ref_common.h"
-#endif // XASH_DEDICATED
 #include "mod_local.h"
 
 
@@ -147,4 +144,8 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, size_t buffersize, q
 		psprite->numframes = 0;
 		return;
 	}
+
+#if !XASH_DEDICATED
+	Mod_SpriteLoadTextures( mod, buffer );
+#endif
 }

@@ -973,6 +973,13 @@ void SCR_DrawEnts( void );
 void SCR_DrawUserCmd( void );
 
 //
+// cl_sprite.c
+//
+mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw );
+void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite );
+int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame );
+
+//
 // cl_netgraph.c
 //
 void CL_InitNetgraph( void );

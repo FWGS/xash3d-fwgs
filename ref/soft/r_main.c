@@ -1472,7 +1472,6 @@ qboolean GAME_EXPORT R_Init( void )
 	qfrustum.view_clipplanes[1].leftedge = qfrustum.view_clipplanes[2].leftedge = qfrustum.view_clipplanes[3].leftedge = false;
 	qfrustum.view_clipplanes[0].rightedge = qfrustum.view_clipplanes[2].rightedge = qfrustum.view_clipplanes[3].rightedge = false;
 	R_StudioInit();
-	R_SpriteInit();
 	R_InitTurb();
 	GL_InitRandomTable();
 

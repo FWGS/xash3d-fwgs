@@ -172,22 +172,6 @@ static void CL_RunLightStyles( lightstyle_t *ls )
 
 }
 
-static void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
-{
-	if( frameWidth )
-		*frameWidth	= 0;
-
-	if( frameHeight )
-		*frameHeight = 0;
-
-	if( numFrames )
-		*numFrames = 0;
-}
-
-static int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
-{
-	return 0;
-}
 
 static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte *buffer, size_t buffersize )
 {
@@ -489,8 +473,6 @@ static const ref_interface_t gReffuncs =
 	.GL_SubdivideSurface = GL_SubdivideSurface,
 	.CL_RunLightStyles   = CL_RunLightStyles,
 
-	.R_GetSpriteParms    = R_GetSpriteParms,
-	.R_GetSpriteTexture  = R_GetSpriteTexture,
 
 	.Mod_ProcessRenderData  = Mod_ProcessRenderData,
 	.Mod_StudioLoadTextures = Mod_StudioLoadTextures,

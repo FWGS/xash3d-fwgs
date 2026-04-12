@@ -465,6 +465,7 @@ static const ref_api_t gEngfuncs =
 	&g_fsapi,
 
 	R_GetWindowHandle,
+	R_GetSpriteFrame,
 };
 
 static void R_UnloadProgs( void )
