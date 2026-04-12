@@ -15,10 +15,6 @@ GNU General Public License for more details.
 
 #include "r_local.h"
 
-ref_api_t     gEngfuncs;
-ref_globals_t *gpGlobals;
-ref_client_t  *gp_cl;
-ref_host_t    *gp_host;
 gl_globals_t  tr;
 ref_speeds_t  r_stats;
 poolhandle_t  r_temppool;
@@ -413,7 +409,7 @@ static void * GAME_EXPORT R_GetProcAddress( const char *name )
 	return gEngfuncs.GL_GetProcAddress( name );
 }
 
-static const ref_interface_t gReffuncs =
+const ref_interface_t gReffuncs =
 {
 	R_Init,
 	R_Shutdown,
@@ -547,19 +543,3 @@ static const ref_interface_t gReffuncs =
 	VGUI_UploadTextureBlock,
 };
 
-int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
-int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )
-{
-	if( version != REF_API_VERSION )
-		return 0;
-
-	// fill in our callbacks
-	*funcs = gReffuncs;
-	gEngfuncs = *engfuncs;
-	gpGlobals = globals;
-
-	gp_cl = (ref_client_t *)ENGINE_GET_PARM( PARM_GET_CLIENT_PTR );
-	gp_host = (ref_host_t *)ENGINE_GET_PARM( PARM_GET_HOST_PTR );
-
-	return REF_API_VERSION;
-}
