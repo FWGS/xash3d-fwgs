@@ -253,7 +253,6 @@ typedef struct
 	int          max_recursion;
 
 	byte         visbytes[( MAX_MAP_LEAFS + 7 ) / 8]; // member custom PVS
-	int          lightstylevalue[MAX_LIGHTSTYLES];    // value 0 - 65536
 	int          block_size;                          // lightmap blocksize
 
 	double       frametime;         // special frametime for multipass rendering (will set to 0 on a nextview)
@@ -382,15 +381,6 @@ void R_InitImages( void );
 void R_ShutdownImages( void );
 int R_TexMemory( void );
 
-#if 1
-//
-// gl_rlight.c
-//
-void CL_RunLightStyles( lightstyle_t *ls );
-void R_GetLightSpot( vec3_t lightspot );
-colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec );
-colorVec R_LightPoint( const vec3_t p0 );
-#endif
 //
 // gl_rmain.c
 //

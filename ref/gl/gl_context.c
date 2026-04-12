@@ -214,7 +214,7 @@ static int GL_RefGetParm( int parm, int arg )
 		return glState.activeTMU;
 	case PARM_LIGHTSTYLEVALUE:
 		arg = bound( 0, arg, MAX_LIGHTSTYLES - 1 );
-		return tr.lightstylevalue[arg];
+		return g_lightstylevalue[arg];
 	case PARM_MAX_IMAGE_UNITS:
 		return GL_MaxTextureUnits();
 	case PARM_REBUILD_GAMMA:
