@@ -501,6 +501,9 @@ typedef struct ref_api_s
 
 	// for abstracting the engine's rendering
 	ref_window_type_t (*R_GetWindowHandle)( void **handle, ref_window_type_t type );
+
+	// sprites
+	struct mspriteframe_s *(*R_GetSpriteFrame)( const struct model_s *pModel, int frame, float yaw );
 } ref_api_t;
 
 struct mip_s;
@@ -578,9 +581,6 @@ typedef struct ref_interface_s
 	void (*GL_SubdivideSurface)( model_t *mod, msurface_t *fa );
 	void (*CL_RunLightStyles)( lightstyle_t *ls );
 
-	// sprites
-	void (*R_GetSpriteParms)( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite );
-	int (*R_GetSpriteTexture)( const model_t *m_pSpriteModel, int frame );
 
 	// model management
 	// flags ignored for everything except spritemodels

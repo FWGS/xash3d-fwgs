@@ -83,7 +83,6 @@ static void Mod_UnloadTextures( model_t *mod )
 		Mod_BrushUnloadTextures( mod );
 		break;
 	case mod_sprite:
-		Mod_SpriteUnloadTextures( mod->cache.data );
 		break;
 	default: gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
 	}
@@ -109,7 +108,7 @@ static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create
 		loaded = true;
 		break;
 	case mod_sprite:
-		Mod_LoadSpriteModel( mod, buf, &loaded, mod->numtexinfo );
+		loaded = true;
 		break;
 	default:
 		gEngfuncs.Host_Error( "%s: unsupported type %d\n", __func__, mod->type );
@@ -459,8 +458,6 @@ const ref_interface_t gReffuncs =
 	GL_SubdivideSurface,
 	CL_RunLightStyles,
 
-	R_GetSpriteParms,
-	R_GetSpriteTexture,
 
 	Mod_ProcessRenderData,
 	Mod_StudioLoadTextures,

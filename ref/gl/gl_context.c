@@ -119,7 +119,6 @@ static void Mod_UnloadTextures( model_t *mod )
 		Mod_BrushUnloadTextures( mod );
 		break;
 	case mod_sprite:
-		Mod_SpriteUnloadTextures( mod->cache.data );
 		break;
 	default:
 		Assert( 0 );
@@ -146,7 +145,7 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 		loaded = true;
 		break;
 	case mod_sprite:
-		Mod_LoadSpriteModel( mod, buf, &loaded, mod->numtexinfo );
+		loaded = true;
 		break;
 	case mod_alias:
 		Mod_LoadAliasModel( mod, buf, &loaded );
@@ -473,8 +472,6 @@ const ref_interface_t gReffuncs =
 	GL_SubdivideSurface,
 	CL_RunLightStyles,
 
-	R_GetSpriteParms,
-	R_GetSpriteTexture,
 
 	Mod_ProcessRenderData,
 	Mod_StudioLoadTextures,

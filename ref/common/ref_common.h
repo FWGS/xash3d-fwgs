@@ -28,6 +28,8 @@ extern ref_client_t  *gp_cl;
 extern ref_host_t    *gp_host;
 extern const ref_interface_t gReffuncs;
 
+#define Assert( x ) if( !( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
+
 #define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
 #define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( (parm), 0 )
 

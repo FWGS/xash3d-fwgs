@@ -88,6 +88,22 @@ static void Mod_Modellist_f( void )
 	Con_Printf( "\n" );
 }
 
+static void Mod_UnloadRenderData( model_t *mod )
+{
+#if !XASH_DEDICATED
+	switch( mod->type )
+	{
+	case mod_sprite:
+		Mod_SpriteUnloadTextures( mod->cache.data );
+		break;
+	default:
+		break;
+	}
+
+	ref.dllFuncs.Mod_ProcessRenderData( mod, false, NULL, 0 );
+#endif
+}
+
 /*
 ================
 Mod_FreeUserData
@@ -107,12 +123,10 @@ static void Mod_FreeUserData( model_t *mod )
 			svgame.physFuncs.Mod_ProcessUserData( mod, false, NULL );
 		}
 	}
-#if !XASH_DEDICATED
 	else
 	{
-		ref.dllFuncs.Mod_ProcessRenderData( mod, false, NULL, 0 );
+		Mod_UnloadRenderData( mod );
 	}
-#endif
 }
 
 /*
