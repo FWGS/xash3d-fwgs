@@ -684,7 +684,7 @@ static void R_AliasDynamicLight( cl_entity_t *ent, alight_t *plight )
 
 	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
 	{
-		const dlight_t *dl = &tr.dlights[lnum];
+		const dlight_t *dl = &gp_dlights[lnum];
 
 		if( dl->die < g_alias.time || !r_dynamic->value )
 			continue;

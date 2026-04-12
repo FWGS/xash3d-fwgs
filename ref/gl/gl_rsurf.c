@@ -575,7 +575,7 @@ static void R_AddDynamicLights( const msurface_t *surf )
 		if( !FBitSet( surf->dlightbits, BIT( lnum )))
 			continue;	// not lit by this light
 
-		dl = &tr.dlights[lnum];
+		dl = &gp_dlights[lnum];
 
 		// transform light origin to local bmodel space
 		if( !tr.modelviewIdentity )
@@ -1859,7 +1859,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 	// calculate dynamic lighting for bmodel
 	for( int k = 0; k < MAX_DLIGHTS; k++ )
 	{
-		dlight_t *l = &tr.dlights[k];
+		dlight_t *l = &gp_dlights[k];
 		vec3_t origin_l, oldorigin;
 
 		if( l->die < gp_cl->time || !l->radius )
@@ -1868,7 +1868,7 @@ void R_DrawBrushModel( cl_entity_t *e )
 		VectorCopy( l->origin, oldorigin ); // save lightorigin
 		Matrix4x4_VectorITransform( RI.objectMatrix, l->origin, origin_l );
 		VectorCopy( origin_l, l->origin ); // move light in bmodel space
-		R_MarkLights( l, 1<<k, clmodel->nodes + clmodel->hulls[0].firstclipnode );
+		R_MarkLights( l, 1<<k, clmodel->nodes + clmodel->hulls[0].firstclipnode, clmodel, tr.dlightframecount );
 		VectorCopy( oldorigin, l->origin ); // restore lightorigin
 	}
 
