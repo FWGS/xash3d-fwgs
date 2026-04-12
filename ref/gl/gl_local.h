@@ -233,7 +233,6 @@ typedef struct
 	qboolean		fFlipViewModel;
 
 	byte		visbytes[(MAX_MAP_LEAFS+7)/8];	// member custom PVS
-	int		lightstylevalue[MAX_LIGHTSTYLES];	// value 0 - 65536
 	int		block_size;			// lightmap blocksize
 
 	double		frametime;	// special frametime for multipass rendering (will set to 0 on a nextview)
@@ -369,14 +368,6 @@ int GL_TexMemory( void );
 qboolean R_SearchForTextureReplacement( char *out, size_t size, const char *modelname, const char *fmt, ... ) FORMAT_CHECK( 4 );
 void R_TextureReplacementReport( const char *modelname, int gl_texturenum, const char *foundpath );
 void R_ShowTextures( void );
-
-//
-// gl_rlight.c
-//
-void CL_RunLightStyles( lightstyle_t *ls );
-void R_GetLightSpot( vec3_t lightspot );
-colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lightspot, vec3_t lightvec );
-colorVec R_LightPoint( const vec3_t p0 );
 
 //
 // gl_rmain.c
@@ -759,7 +750,6 @@ extern convar_t	gl_stencilbits;
 extern convar_t	gl_overbright;
 extern convar_t gl_fog;
 
-extern convar_t	r_lighting_extended;
 extern convar_t	r_lighting_ambient;
 extern convar_t	r_studio_lambert;
 extern convar_t	r_detailtextures;

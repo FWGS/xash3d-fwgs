@@ -638,21 +638,6 @@ static void R_AddDynamicLights( const msurface_t *surf )
 }
 
 /*
-================
-R_SetCacheState
-================
-*/
-static void R_SetCacheState( msurface_t *surf )
-{
-	int	maps;
-
-	for( maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++ )
-	{
-		surf->cached_light[maps] = tr.lightstylevalue[surf->styles[maps]];
-	}
-}
-
-/*
 =============================================================================
 
   LIGHTMAP ALLOCATION
@@ -782,7 +767,7 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 		if( surf->styles[map] >= 255 )
 			break;
 
-		scale = tr.lightstylevalue[surf->styles[map]];
+		scale = g_lightstylevalue[surf->styles[map]];
 
 		for( i = 0; i < size; i++ )
 		{
@@ -959,7 +944,7 @@ EmitWaterPolys
 Does a water warp on the pre-fragmented glpoly_t chain
 =============
 */
-void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples )
+static void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples )
 {
 	float	*v, nv, waveHeight;
 	float	s, t, os, ot;
@@ -1397,7 +1382,7 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 	// check for light styles
 	for( maps = 0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++ )
 	{
-		if( tr.lightstylevalue[fa->styles[maps]] == fa->cached_light[maps] )
+		if( g_lightstylevalue[fa->styles[maps]] == fa->cached_light[maps] )
 			continue;
 
 		const int style = fa->styles[maps];
@@ -1422,7 +1407,7 @@ static qboolean R_CheckLightMap( msurface_t *fa )
 			//Host_MapDesignError( "%s: bad surface extents: %d %d", __func__, fa->extents[0], fa->extents[1] );
 		}
 
-		R_SetCacheState( fa );
+		R_UpdateSurfaceCachedLight( fa );
 
 #if XASH_WES
 		GL_Bind( XASH_TEXTURE1, tr.lightmapTextures[fa->lightmaptexturenum] );
@@ -3858,7 +3843,7 @@ static void GL_CreateSurfaceLightmap( msurface_t *surf, model_t *loadmodel )
 	base = gl_lms.lightmap_buffer;
 	base += ( surf->light_t * BLOCK_SIZE + surf->light_s ) * 4;
 
-	R_SetCacheState( surf );
+	R_UpdateSurfaceCachedLight( surf );
 	R_BuildLightMap( surf, base, BLOCK_SIZE * 4, false );
 }
 
