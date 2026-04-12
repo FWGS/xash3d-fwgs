@@ -1282,7 +1282,6 @@ qboolean R_Init( void )
 	GL_SetDefaults();
 	R_CheckVBO();
 	R_InitImages();
-	R_SpriteInit();
 	R_StudioInit();
 	R_AliasInit();
 	R_ClearDecals();
