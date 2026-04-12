@@ -56,18 +56,7 @@ R_RecursiveLightPoint
 */
 static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f, float p2f, colorVec *cv, const vec3_t start, const vec3_t end )
 {
-	float		front, back, frac, midf;
-	int		i, map, side, size;
-	float		ds, dt, s, t;
-	int		sample_size;
-	color24		*lm, *dm;
-	mextrasurf_t	*info;
-	msurface_t	*surf;
-	mtexinfo_t	*tex;
-	matrix3x4		tbn;
-	vec3_t		mid;
-	int firstsurface, numsurfaces;
-
+start:
 	// didn't hit anything
 	if( !node || node->contents < 0 )
 	{
@@ -75,21 +64,23 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 		return false;
 	}
 
-	firstsurface = node_firstsurface( node, model );
-	numsurfaces = node_numsurfaces( node, model );
-
 	// calculate mid point
-	front = PlaneDiff( start, node->plane );
-	back = PlaneDiff( end, node->plane );
+	float front = PlaneDiff( start, node->plane );
+	float back = PlaneDiff( end, node->plane );
 
-	side = front < 0;
+	int side = front < 0;
 	if(( back < 0 ) == side )
-		return R_RecursiveLightPoint( model, node_child( node, side, model ), p1f, p2f, cv, start, end );
+	{
+		node = node_child( node, side, model );
+		goto start;
+	}
 
-	frac = front / ( front - back );
+	float frac = front / ( front - back );
 
+	vec3_t mid;
 	VectorLerp( start, frac, end, mid );
-	midf = p1f + ( p2f - p1f ) * frac;
+
+	float midf = p1f + ( p2f - p1f ) * frac;
 
 	// co down front side
 	if( R_RecursiveLightPoint( model, node_child( node, side, model ), p1f, midf, cv, start, mid ))
@@ -102,27 +93,27 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 	}
 
 	// check for impact on this node
-	surf = model->surfaces + firstsurface;
+	int firstsurface = node_firstsurface( node, model );
+	int numsurfaces = node_numsurfaces( node, model );
+
 	VectorCopy( mid, g_trace_lightspot );
 
-	for( i = 0; i < numsurfaces; i++, surf++ )
+	for( int i = 0; i < numsurfaces; i++ )
 	{
-		int	smax, tmax;
-
-		tex = surf->texinfo;
-		info = surf->info;
+		const msurface_t *surf = &model->surfaces[firstsurface + i];
+		const mextrasurf_t *info = surf->info;
 
 		if( FBitSet( surf->flags, SURF_DRAWTILED ))
 			continue;	// no lightmaps
 
-		s = DotProduct( mid, info->lmvecs[0] ) + info->lmvecs[0][3];
-		t = DotProduct( mid, info->lmvecs[1] ) + info->lmvecs[1][3];
+		float s = DotProduct( mid, info->lmvecs[0] ) + info->lmvecs[0][3];
+		float t = DotProduct( mid, info->lmvecs[1] ) + info->lmvecs[1][3];
 
 		if( s < info->lightmapmins[0] || t < info->lightmapmins[1] )
 			continue;
 
-		ds = s - info->lightmapmins[0];
-		dt = t - info->lightmapmins[1];
+		float ds = s - info->lightmapmins[0];
+		float dt = t - info->lightmapmins[1];
 
 		if ( ds > info->lightextents[0] || dt > info->lightextents[1] )
 			continue;
@@ -132,20 +123,24 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 		if( !surf->samples )
 			return true;
 
-		sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-		smax = (info->lightextents[0] / sample_size) + 1;
-		tmax = (info->lightextents[1] / sample_size) + 1;
+		int sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+		int smax = (info->lightextents[0] / sample_size) + 1;
+		int tmax = (info->lightextents[1] / sample_size) + 1;
+
 		ds /= sample_size;
 		dt /= sample_size;
 
-		lm = surf->samples + Q_rint( dt ) * smax + Q_rint( ds );
 		g_trace_fraction = midf;
-		size = smax * tmax;
-		dm = NULL;
+
+		const color24 *lm = surf->samples + Q_rint( dt ) * smax + Q_rint( ds );
+		const color24 *dm = NULL;
+		matrix3x4 tbn;
 
 		if( surf->info->deluxemap )
 		{
 			vec3_t	faceNormal;
+
+			dm = surf->info->deluxemap + Q_rint( dt ) * smax + Q_rint( ds );
 
 			if( FBitSet( surf->flags, SURF_PLANEBACK ))
 				VectorNegate( surf->plane->normal, faceNormal );
@@ -164,10 +159,11 @@ static qboolean R_RecursiveLightPoint( model_t *model, mnode_t *node, float p1f,
 			VectorNormalize( tbn[0] );
 			VectorNormalize( tbn[1] );
 			VectorNormalize( tbn[2] );
-			dm = surf->info->deluxemap + Q_rint( dt ) * smax + Q_rint( ds );
 		}
 
-		for( map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255; map++ )
+		int size = smax * tmax;
+
+		for( int map = 0; map < MAXLIGHTMAPS && surf->styles[map] != 255; map++ )
 		{
 			uint	scale = tr.lightstylevalue[surf->styles[map]];
 
@@ -206,76 +202,68 @@ check bspmodels to get light from
 */
 static colorVec R_LightVecInternal( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec )
 {
-	float	last_fraction;
-	int	i, maxEnts = 1;
-	colorVec	light, cv;
+	if( lspot )
+		VectorClear( lspot );
 
-	if( lspot ) VectorClear( lspot );
-	if( lvec ) VectorClear( lvec );
+	if( lvec )
+		VectorClear( lvec );
 
-	if( WORLDMODEL && WORLDMODEL->lightdata )
+	if( !tr.worldmodel || !tr.worldmodel->lightdata )
+		return (colorVec){ 255, 255, 255, 0 };
+
+	float last_fraction = 1.0f;
+	int max_ents = r_lighting_extended.value ? MAX_PHYSENTS : 1; // get light from bmodels too
+	colorVec light = { 0 };
+
+	// check all the bsp-models
+	for( int i = 0; i < max_ents; i++ )
 	{
-		light.r = light.g = light.b = light.a = 0;
-		last_fraction = 1.0f;
+		const physent_t *pe = gEngfuncs.EV_GetPhysent( i );
 
-		// get light from bmodels too
-		if( r_lighting_extended.value )
-			maxEnts = MAX_PHYSENTS;
+		if( !pe )
+			break;
 
-		// check all the bsp-models
-		for( i = 0; i < maxEnts; i++ )
+		if( !pe->model || pe->model->type != mod_brush )
+			continue; // skip non-bsp models
+
+		mnode_t *pnodes = &pe->model->nodes[pe->model->hulls[0].firstclipnode];
+		vec3_t offset, start_l, end_l;
+
+		VectorSubtract( pe->model->hulls[0].clip_mins, vec3_origin, offset );
+		VectorAdd( offset, pe->origin, offset );
+		VectorSubtract( start, offset, start_l );
+		VectorSubtract( end, offset, end_l );
+
+		// rotate start and end into the models frame of reference
+		if( !VectorIsNull( pe->angles ))
 		{
-			physent_t	*pe = gEngfuncs.EV_GetPhysent( i );
-			vec3_t	offset, start_l, end_l;
-			mnode_t	*pnodes;
-			matrix4x4	matrix;
-
-			if( !pe )
-				break;
-
-			if( !pe->model || pe->model->type != mod_brush )
-				continue; // skip non-bsp models
-
-			pnodes = &pe->model->nodes[pe->model->hulls[0].firstclipnode];
-			VectorSubtract( pe->model->hulls[0].clip_mins, vec3_origin, offset );
-			VectorAdd( offset, pe->origin, offset );
-			VectorSubtract( start, offset, start_l );
-			VectorSubtract( end, offset, end_l );
-
-			// rotate start and end into the models frame of reference
-			if( !VectorIsNull( pe->angles ))
-			{
-				Matrix4x4_CreateFromEntity( matrix, pe->angles, offset, 1.0f );
-				Matrix4x4_VectorITransform( matrix, start, start_l );
-				Matrix4x4_VectorITransform( matrix, end, end_l );
-			}
-
-			VectorClear( g_trace_lightspot );
-			VectorClear( g_trace_lightvec );
-			g_trace_fraction = 1.0f;
-
-			if( !R_RecursiveLightPoint( pe->model, pnodes, 0.0f, 1.0f, &cv, start_l, end_l ))
-				continue;	// didn't hit anything
-
-			if( g_trace_fraction < last_fraction )
-			{
-				if( lspot ) VectorCopy( g_trace_lightspot, lspot );
-				if( lvec ) VectorNormalize2( g_trace_lightvec, lvec );
-
-				light.r = Q_min(( cv.r >> 8 ), 255 );
-				light.g = Q_min(( cv.g >> 8 ), 255 );
-				light.b = Q_min(( cv.b >> 8 ), 255 );
-				last_fraction = g_trace_fraction;
-
-				if(( light.r + light.g + light.b ) != 0 )
-					break; // we get light now
-			}
+			matrix4x4 matrix;
+			Matrix4x4_CreateFromEntity( matrix, pe->angles, offset, 1.0f );
+			Matrix4x4_VectorITransform( matrix, start, start_l );
+			Matrix4x4_VectorITransform( matrix, end, end_l );
 		}
-	}
-	else
-	{
-		light.r = light.g = light.b = 255;
-		light.a = 0;
+
+		VectorClear( g_trace_lightspot );
+		VectorClear( g_trace_lightvec );
+		g_trace_fraction = 1.0f;
+
+		colorVec cv;
+		if( !R_RecursiveLightPoint( pe->model, pnodes, 0.0f, 1.0f, &cv, start_l, end_l ))
+			continue;	// didn't hit anything
+
+		if( g_trace_fraction < last_fraction )
+		{
+			if( lspot ) VectorCopy( g_trace_lightspot, lspot );
+			if( lvec ) VectorNormalize2( g_trace_lightvec, lvec );
+
+			light.r = Q_min(( cv.r >> 8 ), 255 );
+			light.g = Q_min(( cv.g >> 8 ), 255 );
+			light.b = Q_min(( cv.b >> 8 ), 255 );
+			last_fraction = g_trace_fraction;
+
+			if(( light.r + light.g + light.b ) != 0 )
+				break; // we get light now
+		}
 	}
 
 	return light;
