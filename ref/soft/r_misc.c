@@ -87,10 +87,8 @@ void D_ViewChanged( void )
 	/*
 	** clear Z-buffer and color-buffers if we're doing the gallery
 	*/
-	if( !RI.drawWorld )
-	{
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		memset( d_pzbuffer, 0xff, vid.width * vid.height * sizeof( d_pzbuffer[0] ));
-	}
 
 	D_Patch();
 }
@@ -293,7 +291,7 @@ void R_SetupFrameQ( void )
 	// AngleVectors (RI.rvp.viewangles, RI.vforward, RI.vright, RI.vup);
 
 // current viewleaf
-	if( RI.drawWorld )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 		RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes );
 		r_viewcluster = RI.viewleaf->cluster;
