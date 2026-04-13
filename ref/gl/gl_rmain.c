@@ -370,7 +370,7 @@ void R_SetupFrustum( void )
 	}
 	else
 	{
-		GL_FrustumInitProj( &RI.frustum, 0.0f, R_GetFarClip(), RI.fov_x, RI.fov_y ); // NOTE: we ignore nearplane here (mirrors only)
+		GL_FrustumInitProj( &RI.frustum, 0.0f, R_GetFarClip(), RI.rvp.fov_x, RI.rvp.fov_y ); // NOTE: we ignore nearplane here (mirrors only)
 	}
 }
 
@@ -395,10 +395,10 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	zNear = 4.0f;
 	zFar = Q_max( 256.0f, RI.farClip );
 
-	yMax = zNear * tan( RI.fov_y * M_PI_F / 360.0f );
+	yMax = zNear * tan( RI.rvp.fov_y * M_PI_F / 360.0f );
 	yMin = -yMax;
 
-	xMax = zNear * tan( RI.fov_x * M_PI_F / 360.0f );
+	xMax = zNear * tan( RI.rvp.fov_x * M_PI_F / 360.0f );
 	xMin = -xMax;
 
 	if( tr.rotation & 1 )
@@ -560,10 +560,10 @@ void R_SetupGL( qboolean set_gl_state )
 		int x, x2, y, y2;
 
 		// set up viewport (main, playersetup)
-		x = floor( RI.viewport[0] * gpGlobals->width / gpGlobals->width );
-		x2 = ceil(( RI.viewport[0] + RI.viewport[2] ) * gpGlobals->width / gpGlobals->width );
-		y = floor( gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height );
-		y2 = ceil( gpGlobals->height - ( RI.viewport[1] + RI.viewport[3] ) * gpGlobals->height / gpGlobals->height );
+		x = floor( RI.rvp.viewport[0] * gpGlobals->width / gpGlobals->width );
+		x2 = ceil(( RI.rvp.viewport[0] + RI.rvp.viewport[2] ) * gpGlobals->width / gpGlobals->width );
+		y = floor( gpGlobals->height - RI.rvp.viewport[1] * gpGlobals->height / gpGlobals->height );
+		y2 = ceil( gpGlobals->height - ( RI.rvp.viewport[1] + RI.rvp.viewport[3] ) * gpGlobals->height / gpGlobals->height );
 
 		if( tr.rotation & 1 )
 			pglViewport( y2, x, y - y2, x2 - x );
@@ -572,7 +572,7 @@ void R_SetupGL( qboolean set_gl_state )
 	else
 	{
 		// envpass, mirrorpass
-		pglViewport( RI.viewport[0], RI.viewport[1], RI.viewport[2], RI.viewport[3] );
+		pglViewport( RI.rvp.viewport[0], RI.rvp.viewport[1], RI.rvp.viewport[2], RI.rvp.viewport[3] );
 	}
 
 	pglMatrixMode( GL_PROJECTION );
@@ -1080,6 +1080,8 @@ set initial params for renderer
 */
 void R_SetupRefParams( const ref_viewpass_t *rvp )
 {
+	RI.rvp = *rvp;
+
 	RI.params = RP_NONE;
 	RI.drawWorld = FBitSet( rvp->flags, RF_DRAW_WORLD );
 	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
@@ -1094,16 +1096,6 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 		SetBits( RI.params, RP_ENVVIEW );
 		RI.drawOrtho = false;
 	}
-
-	// setup viewport
-	RI.viewport[0] = rvp->viewport[0];
-	RI.viewport[1] = rvp->viewport[1];
-	RI.viewport[2] = rvp->viewport[2];
-	RI.viewport[3] = rvp->viewport[3];
-
-	// calc FOV
-	RI.fov_x = rvp->fov_x;
-	RI.fov_y = rvp->fov_y;
 
 	VectorCopy( rvp->vieworigin, RI.vieworg );
 	VectorCopy( rvp->viewangles, RI.viewangles );
