@@ -643,7 +643,7 @@ R_RenderWorld
 */
 void R_RenderWorld( void )
 {
-	if( !RI.drawWorld )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
 
 	// auto cycle the world frame for texture animation
