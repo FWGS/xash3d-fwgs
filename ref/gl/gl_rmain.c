@@ -535,10 +535,7 @@ static void R_SetupFrame( void )
 
 	// current viewleaf
 	if( RI.drawWorld )
-	{
-		RI.isSkyVisible = false; // unknown at this moment
 		R_FindViewLeaf();
-	}
 }
 
 /*
