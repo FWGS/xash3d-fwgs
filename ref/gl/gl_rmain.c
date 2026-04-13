@@ -101,7 +101,7 @@ static int R_TransEntityCompare( const void *a, const void *b )
 	{
 		VectorAverage( ent1->model->mins, ent1->model->maxs, org );
 		VectorAdd( ent1->origin, org, org );
-		VectorSubtract( RI.vieworg, org, vecLen );
+		VectorSubtract( RI.rvp.vieworigin, org, vecLen );
 		dist1 = DotProduct( vecLen, vecLen );
 	}
 	else dist1 = 1000000000;
@@ -110,7 +110,7 @@ static int R_TransEntityCompare( const void *a, const void *b )
 	{
 		VectorAverage( ent2->model->mins, ent2->model->maxs, org );
 		VectorAdd( ent2->origin, org, org );
-		VectorSubtract( RI.vieworg, org, vecLen );
+		VectorSubtract( RI.rvp.vieworigin, org, vecLen );
 		dist2 = DotProduct( vecLen, vecLen );
 	}
 	else dist2 = 1000000000;
@@ -353,11 +353,11 @@ R_SetupFrustum
 void R_SetupFrustum( void )
 {
 	// build the transformation matrix for the given view angles
-	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
+	AngleVectors( RI.rvp.viewangles, RI.vforward, RI.vright, RI.vup );
 
 	if( !r_lockfrustum.value )
 	{
-		VectorCopy( RI.vieworg, RI.cullorigin );
+		VectorCopy( RI.rvp.vieworigin, RI.cullorigin );
 		VectorCopy( RI.vforward, RI.cull_vforward );
 		VectorCopy( RI.vright, RI.cull_vright );
 		VectorCopy( RI.vup, RI.cull_vup );
@@ -421,17 +421,17 @@ static void R_SetupModelviewMatrix( matrix4x4 m )
 	Matrix4x4_CreateModelview( m );
 	if( tr.rotation & 1 )
 	{
-		Matrix4x4_ConcatRotate( m, anglemod( -RI.viewangles[2] + 90 ), 1, 0, 0 );
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
+		Matrix4x4_ConcatRotate( m, anglemod( -RI.rvp.viewangles[2] + 90 ), 1, 0, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[0], 0, 1, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[1], 0, 0, 1 );
 	}
 	else
 	{
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[2], 1, 0, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[0], 0, 1, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[1], 0, 0, 1 );
 	}
-	Matrix4x4_ConcatTranslate( m, -RI.vieworg[0], -RI.vieworg[1], -RI.vieworg[2] );
+	Matrix4x4_ConcatTranslate( m, -RI.rvp.vieworigin[0], -RI.rvp.vieworigin[1], -RI.rvp.vieworigin[2] );
 }
 
 /*
@@ -511,7 +511,7 @@ R_FindViewLeaf
 void R_FindViewLeaf( void )
 {
 	RI.oldviewleaf = RI.viewleaf;
-	RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.pvsorigin, WORLDMODEL->nodes );
+	RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes );
 }
 
 /*
@@ -522,7 +522,7 @@ R_SetupFrame
 static void R_SetupFrame( void )
 {
 	// setup viewplane dist
-	RI.viewplanedist = DotProduct( RI.vieworg, RI.vforward );
+	RI.viewplanedist = DotProduct( RI.rvp.vieworigin, RI.vforward );
 
 	// NOTE: this request is the fps-killer on some NVidia drivers
 	glState.isFogEnabled = pglIsEnabled( GL_FOG );
@@ -720,7 +720,7 @@ static void R_CheckFog( void )
 		return;
 	}
 
-	ent = gEngfuncs.CL_GetWaterEntity( RI.vieworg );
+	ent = gEngfuncs.CL_GetWaterEntity( RI.rvp.vieworigin );
 	if( ent && ent->model && ent->model->type == mod_brush && ent->curstate.skin < 0 )
 		cnt = ent->curstate.skin;
 	else cnt = RI.viewleaf->contents;
@@ -1096,10 +1096,6 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 		SetBits( RI.params, RP_ENVVIEW );
 		RI.drawOrtho = false;
 	}
-
-	VectorCopy( rvp->vieworigin, RI.vieworg );
-	VectorCopy( rvp->viewangles, RI.viewangles );
-	VectorCopy( rvp->vieworigin, RI.pvsorigin );
 }
 
 /*
@@ -1278,7 +1274,7 @@ int CL_FxBlend( cl_entity_t *e )
 	case kRenderFxHologram:
 	case kRenderFxDistort:
 		VectorCopy( e->origin, tmp );
-		VectorSubtract( tmp, RI.vieworg, tmp );
+		VectorSubtract( tmp, RI.rvp.vieworigin, tmp );
 		dist = DotProduct( tmp, RI.vforward );
 
 		// turn off distance fade

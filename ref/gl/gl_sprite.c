@@ -143,7 +143,7 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 	{
 		// e.g. doom-style sprite monsters
 		float	yaw = ent->angles[YAW];
-		int	angleframe = (int)(Q_rint(( RI.viewangles[1] - yaw + 45.0f ) / 360 * 8) - 4) & 7;
+		int	angleframe = (int)(Q_rint(( RI.rvp.viewangles[1] - yaw + 45.0f ) / 360 * 8) - 4) & 7;
 
 		if( m_fDoInterp )
 		{
@@ -233,12 +233,12 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 	vec3_t	glowDist;
 	pmtrace_t	*tr;
 
-	VectorSubtract( origin, RI.vieworg, glowDist );
+	VectorSubtract( origin, RI.rvp.vieworigin, glowDist );
 	dist = VectorLength( glowDist );
 
 	if( RP_NORMALPASS( ))
 	{
-		tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow.value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
+		tr = gEngfuncs.EV_VisTraceLine( RI.rvp.vieworigin, origin, r_traceglow.value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
 
 		if(( 1.0f - tr->fraction ) * dist > 8.0f )
 			return 0.0f;
@@ -495,7 +495,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		VectorSubtract( origin, v_forward, origin );
 		break;
 	case SPR_FACING_UPRIGHT:
-		VectorSet( v_right, origin[1] - RI.vieworg[1], -(origin[0] - RI.vieworg[0]), 0.0f );
+		VectorSet( v_right, origin[1] - RI.rvp.vieworigin[1], -(origin[0] - RI.rvp.vieworigin[0]), 0.0f );
 		VectorSet( v_up, 0.0f, 0.0f, 1.0f );
 		VectorNormalize( v_right );
 		break;

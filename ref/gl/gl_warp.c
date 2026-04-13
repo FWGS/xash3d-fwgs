@@ -421,7 +421,7 @@ static void R_CloudTexCoord( const vec3_t v, float speed, float *s, float *t )
 	speedscale = gp_cl->time * speed;
 	speedscale -= (int)speedscale & ~127;
 
-	VectorSubtract( v, RI.vieworg, dir );
+	VectorSubtract( v, RI.rvp.vieworigin, dir );
 	dir[2] *= 3.0f; // flatten the sphere
 
 	length = VectorLength( dir );
