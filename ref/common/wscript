@@ -1,8 +1,6 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-top = '.'
-
 def options(opt):
 	pass
 
@@ -10,11 +8,20 @@ def configure(conf):
 	pass
 
 def build(bld):
+	use = ['engine_includes', 'sdk_includes', 'werror']
+
+	# FIXME: figure out why psvita needs it and how can we avoid it
+	if bld.env.DEST_OS == 'psvita':
+		bld.env.CFLAGS_cstlib.remove('-fno-PIC')
+		bld.env.CFLAGS += ['-fPIC']
+	else:
+		use += ['public']
+
 	bld.stlib(source = bld.path.ant_glob('*.c'),
 		target = 'ref_common',
 		includes = '.',
 		export_includes = '.',
 		defines = 'REF_DLL=1',
-		use = 'engine_includes public werror',
+		use = use,
 		subsystem = bld.env.MSVC_SUBSYSTEM
 	)
