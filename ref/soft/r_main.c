@@ -379,7 +379,7 @@ R_GetFarClip
 */
 static float R_GetFarClip( void )
 {
-	if( WORLDMODEL && RI.drawWorld )
+	if( WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return tr.movevars->zmax * 1.73f;
 	return 2048.0f;
 }
@@ -501,7 +501,7 @@ static void R_SetupFrame( void )
 	}
 
 	// current viewleaf
-	if( RI.drawWorld )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		R_FindViewLeaf();
 
 	// setup twice until globals fully refactored
@@ -573,7 +573,7 @@ static void R_DrawEntitiesOnList( void )
 		gEngfuncs.CL_DrawEFX( tr.frametime, false );
 	}
 
-	if( RI.drawWorld )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		gEngfuncs.pfnDrawNormalTriangles();
 
 	d_pdrawspans = R_PolysetDrawSpans8_33;
@@ -616,10 +616,8 @@ static void R_DrawEntitiesOnList( void )
 		}
 	}
 
-	if( RI.drawWorld )
-	{
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		gEngfuncs.pfnDrawTransparentTriangles();
-	}
 
 	if( !RI.onlyClientDraw )
 	{
@@ -887,7 +885,7 @@ void R_DrawBrushModel( cl_entity_t *pent )
 	surf_t  lsurfs[NUMSTACKSURFACES
 		       + (( CACHE_SIZE - 1 ) / sizeof( surf_t )) + 1];
 
-	if( !RI.drawWorld )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
 
 	if( auxedges )
@@ -995,7 +993,7 @@ static void R_EdgeDrawing( void )
 	surf_t lsurfs[NUMSTACKSURFACES
 		      + (( CACHE_SIZE - 1 ) / sizeof( surf_t )) + 1];
 
-	if( !RI.drawWorld )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
 
 	if( auxedges )
@@ -1079,7 +1077,7 @@ R_SetupRefParams must be called right before
 */
 void GAME_EXPORT R_RenderScene( void )
 {
-	if( !WORLDMODEL && RI.drawWorld )
+	if( !WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		gEngfuncs.Host_Error( "%s: NULL worldmodel\n", __func__ );
 
 	// frametime is valid only for normal pass
@@ -1156,7 +1154,6 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 {
 	RI.rvp = *rvp;
 
-	RI.drawWorld = FBitSet( rvp->flags, RF_DRAW_WORLD );
 	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
 
 	if( !FBitSet( rvp->flags, RF_DRAW_CUBEMAP ))
