@@ -61,7 +61,7 @@ void GL_BackendEndFrame( void )
 {
 	mleaf_t	*curleaf;
 
-	if( r_speeds->value <= 0 || !RI.drawWorld )
+	if( r_speeds->value <= 0 || !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
 
 	if( !RI.viewleaf )
@@ -616,7 +616,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	string		basename;
 	int		i = 1, flags, result;
 
-	if( !RI.drawWorld || !WORLDMODEL )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || !WORLDMODEL )
 		return false;
 
 	// make sure the specified size is valid

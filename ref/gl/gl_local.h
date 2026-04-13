@@ -128,7 +128,6 @@ typedef struct
 
 	int		params;		// rendering parameters
 
-	qboolean		drawWorld;	// ignore world for drawing PlayerModel
 	qboolean		onlyClientDraw;	// disabled by client request
 	qboolean		drawOrtho;	// draw world as orthogonal projection
 
