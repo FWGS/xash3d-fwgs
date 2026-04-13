@@ -236,7 +236,7 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 	VectorSubtract( origin, RI.rvp.vieworigin, glowDist );
 	dist = VectorLength( glowDist );
 
-	if( RP_NORMALPASS( ))
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ))
 	{
 		tr = gEngfuncs.EV_VisTraceLine( RI.rvp.vieworigin, origin, r_traceglow.value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
 
@@ -386,7 +386,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	vec3_t		v_forward, v_right, v_up;
 	vec3_t		origin, color, color2 = { 0.0f };
 
-	if( FBitSet( RI.params, RP_ENVVIEW ))
+	if( FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ))
 		return;
 
 	model = e->model;

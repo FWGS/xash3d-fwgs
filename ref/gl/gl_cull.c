@@ -47,7 +47,7 @@ qboolean R_CullModel( const cl_entity_t *e, const vec3_t absmin, const vec3_t ab
 		if( ENGINE_GET_PARM( PARM_DEV_OVERVIEW ))
 			return true;
 
-		if( RP_NORMALPASS() && !ENGINE_GET_PARM( PARM_THIRDPERSON ) && CL_IsViewEntityLocalPlayer())
+		if( !FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ) && !ENGINE_GET_PARM( PARM_THIRDPERSON ) && CL_IsViewEntityLocalPlayer())
 			return false;
 
 		return true;
@@ -85,7 +85,7 @@ int R_CullSurface( const msurface_t *surf, const gl_frustum_t *frustum, uint cli
 		float	dist;
 
 		// can use normal.z for world (optimisation)
-		if( RI.drawOrtho )
+		if( FBitSet( RI.rvp.flags, RF_DRAW_OVERVIEW ))
 		{
 			vec3_t	orthonormal;
 

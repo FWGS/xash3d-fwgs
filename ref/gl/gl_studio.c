@@ -3589,7 +3589,7 @@ R_DrawStudioModel
 */
 void R_DrawStudioModel( cl_entity_t *e )
 {
-	if( FBitSet( RI.params, RP_ENVVIEW ))
+	if( FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ))
 		return;
 
 	R_StudioSetupTimings();
@@ -3644,7 +3644,7 @@ void R_RunViewmodelEvents( void )
 		return;
 
 	// ignore in thirdperson, camera view or client is died
-	if( !RP_NORMALPASS() || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
+	if( FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ) || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
 	RI.currententity = tr.viewent;
@@ -3694,7 +3694,7 @@ void R_DrawViewModel( void )
 		return;
 
 	// ignore in thirdperson, camera view or client is died
-	if( !RP_NORMALPASS() || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
+	if( FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ) || ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 
 	tr.blend = CL_FxBlend( view ) / 255.0f;
