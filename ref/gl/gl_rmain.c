@@ -340,7 +340,7 @@ R_GetFarClip
 */
 static float R_GetFarClip( void )
 {
-	if( WORLDMODEL && RI.drawWorld )
+	if( WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return tr.movevars->zmax * 1.73f;
 	return 2048.0f;
 }
@@ -534,7 +534,7 @@ static void R_SetupFrame( void )
 	}
 
 	// current viewleaf
-	if( RI.drawWorld )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		R_FindViewLeaf();
 }
 
@@ -701,7 +701,7 @@ static void R_CheckFog( void )
 
 	RI.fogEnabled = false;
 
-	if( RI.onlyClientDraw || ENGINE_GET_PARM( PARM_WATER_LEVEL ) < 3 || !RI.drawWorld || !RI.viewleaf )
+	if( RI.onlyClientDraw || ENGINE_GET_PARM( PARM_WATER_LEVEL ) < 3 || !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || !RI.viewleaf )
 	{
 		if( RI.cached_waterlevel == 3 )
 		{
@@ -880,7 +880,7 @@ static void R_DrawEntitiesOnList( void )
 
 	GL_CheckForErrors();
 
-	if( RI.drawWorld )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		gEngfuncs.pfnDrawNormalTriangles();
 
 	GL_CheckForErrors();
@@ -922,7 +922,7 @@ static void R_DrawEntitiesOnList( void )
 
 	GL_CheckForErrors();
 
-	if( RI.drawWorld )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 		pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 		gEngfuncs.pfnDrawTransparentTriangles ();
@@ -957,7 +957,7 @@ R_SetupRefParams must be called right before
 */
 void R_RenderScene( void )
 {
-	if( !WORLDMODEL && RI.drawWorld )
+	if( !WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		gEngfuncs.Host_Error( "%s: NULL worldmodel\n", __func__ );
 
 	// frametime is valid only for normal pass
@@ -977,7 +977,7 @@ void R_RenderScene( void )
 
 	R_MarkLeaves();
 	R_DrawFog ();
-	if( RI.drawWorld )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		R_AnimateRipples();
 
 	R_CheckGLFog();
@@ -1080,7 +1080,6 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 	RI.rvp = *rvp;
 
 	RI.params = RP_NONE;
-	RI.drawWorld = FBitSet( rvp->flags, RF_DRAW_WORLD );
 	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
 	RI.farClip = 0;
 
@@ -1108,7 +1107,7 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 	// setup the initial render params
 	R_SetupRefParams( rvp );
 
-	if( gl_finish.value && RI.drawWorld )
+	if( gl_finish.value && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		pglFinish();
 
 	// completely override rendering

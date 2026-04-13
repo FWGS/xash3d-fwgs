@@ -1610,7 +1610,7 @@ void R_DrawWaterSurfaces( void )
 	msurface_t	*s;
 	texture_t		*t;
 
-	if( !RI.drawWorld || RI.onlyClientDraw )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || RI.onlyClientDraw )
 		return;
 
 	// non-transparent water is already drawed
@@ -1792,7 +1792,8 @@ void R_DrawBrushModel( cl_entity_t *e )
 	qboolean rotated;
 	qboolean allow_vbo = R_HasEnabledVBO();
 
-	if( !RI.drawWorld ) return;
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+		return;
 
 	model_t *clmodel = e->model;
 
@@ -3683,7 +3684,7 @@ void R_DrawWorld( void )
 		return;
 
 	RI.currentmodel = RI.currententity->model;
-	if( !RI.drawWorld || RI.onlyClientDraw )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || RI.onlyClientDraw )
 		return;
 
 	VectorCopy( RI.cullorigin, tr.modelorg );
@@ -3748,7 +3749,8 @@ void R_MarkLeaves( void )
 	vec3_t	test;
 	int	i;
 
-	if( !RI.drawWorld ) return;
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+		return;
 
 	if( FBitSet( r_novis.flags, FCVAR_CHANGED ) || tr.fResetVis )
 	{
