@@ -423,10 +423,10 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	zNear = 4.0f;
 	zFar = Q_max( 256.0f, RI.farClip );
 
-	yMax = zNear * tan( RI.fov_y * M_PI_F / 360.0f );
+	yMax = zNear * tan( RI.rvp.fov_y * M_PI_F / 360.0f );
 	yMin = -yMax;
 
-	xMax = zNear * tan( RI.fov_x * M_PI_F / 360.0f );
+	xMax = zNear * tan( RI.rvp.fov_x * M_PI_F / 360.0f );
 	xMin = -xMax;
 
 	Matrix4x4_CreateProjection( m, xMax, xMin, yMax, yMin, zNear, zFar );
@@ -1157,6 +1157,8 @@ set initial params for renderer
 */
 void R_SetupRefParams( const ref_viewpass_t *rvp )
 {
+	RI.rvp = *rvp;
+
 	RI.drawWorld = FBitSet( rvp->flags, RF_DRAW_WORLD );
 	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
 
@@ -1164,16 +1166,6 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 		RI.drawOrtho = FBitSet( rvp->flags, RF_DRAW_OVERVIEW );
 	else
 		RI.drawOrtho = false;
-
-	// setup viewport
-	RI.viewport[0] = rvp->viewport[0];
-	RI.viewport[1] = rvp->viewport[1];
-	RI.viewport[2] = rvp->viewport[2];
-	RI.viewport[3] = rvp->viewport[3];
-
-	// calc FOV
-	RI.fov_x = rvp->fov_x;
-	RI.fov_y = rvp->fov_y;
 
 	VectorCopy( rvp->vieworigin, RI.vieworg );
 	VectorCopy( rvp->viewangles, RI.viewangles );
