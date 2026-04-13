@@ -517,7 +517,7 @@ static void R_DrawEntitiesOnList( void )
 	d_pdrawspans = R_PolysetFillSpans8;
 	GL_SetRenderMode( kRenderNormal );
 	// first draw solid entities
-	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
+	for( i = 0; i < tr.draw_list->num_solid_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
@@ -545,7 +545,7 @@ static void R_DrawEntitiesOnList( void )
 
 	R_SetUpWorldTransform();
 	// draw sprites seperately, because of alpha blending
-	for( i = 0; i < tr.draw_list->num_solid_entities && !RI.onlyClientDraw; i++ )
+	for( i = 0; i < tr.draw_list->num_solid_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
@@ -561,7 +561,7 @@ static void R_DrawEntitiesOnList( void )
 		}
 	}
 
-	if( !RI.onlyClientDraw )
+	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
 		gEngfuncs.CL_DrawEFX( tr.frametime, false );
 	}
@@ -571,7 +571,7 @@ static void R_DrawEntitiesOnList( void )
 
 	d_pdrawspans = R_PolysetDrawSpans8_33;
 	// then draw translucent entities
-	for( i = 0; i < tr.draw_list->num_trans_entities && !RI.onlyClientDraw; i++ )
+	for( i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		RI.currententity = tr.draw_list->trans_entities[i];
 		RI.currentmodel = RI.currententity->model;
@@ -612,7 +612,7 @@ static void R_DrawEntitiesOnList( void )
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		gEngfuncs.pfnDrawTransparentTriangles();
 
-	if( !RI.onlyClientDraw )
+	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
 		R_AllowFog( false );
 		gEngfuncs.CL_DrawEFX( tr.frametime, true );
@@ -621,7 +621,7 @@ static void R_DrawEntitiesOnList( void )
 
 	GL_SetRenderMode( kRenderNormal );
 	R_SetUpWorldTransform();
-	if( !RI.onlyClientDraw )
+	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 		R_DrawViewModel();
 	gEngfuncs.CL_ExtraUpdate();
 
@@ -792,7 +792,7 @@ static void R_DrawBEntitiesOnList( void )
 	VectorCopy( tr.modelorg, oldorigin );
 	insubmodel = true;
 
-	for( i = 0; i < tr.draw_list->num_edge_entities && !RI.onlyClientDraw; i++ )
+	for( i = 0; i < tr.draw_list->num_edge_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		int k;
 		RI.currententity = tr.draw_list->edge_entities[i];
@@ -1147,7 +1147,6 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 {
 	RI.rvp = *rvp;
 
-	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
 }
 
 /*
@@ -1182,7 +1181,7 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 	}
 
 	tr.fCustomRendering = false;
-	if( !RI.onlyClientDraw )
+	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 		R_RunViewmodelEvents();
 
 	tr.realframecount++; // right called after viewmodel events
