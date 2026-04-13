@@ -124,6 +124,8 @@ typedef struct gltexture_s
 
 typedef struct
 {
+	ref_viewpass_t rvp;
+
 	int		params;		// rendering parameters
 
 	qboolean		drawWorld;	// ignore world for drawing PlayerModel
@@ -131,13 +133,10 @@ typedef struct
 	qboolean		onlyClientDraw;	// disabled by client request
 	qboolean		drawOrtho;	// draw world as orthogonal projection
 
-	float		fov_x, fov_y;	// current view fov
-
 	cl_entity_t	*currententity;
 	model_t		*currentmodel;
 	cl_entity_t	*currentbeam;	// same as above but for beams
 
-	int		viewport[4];
 	gl_frustum_t	frustum;
 
 	mleaf_t		*viewleaf;

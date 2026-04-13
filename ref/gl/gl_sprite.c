@@ -270,9 +270,9 @@ static qboolean R_SpriteOccluded( cl_entity_t *e, vec3_t origin, float *pscale )
 
 		TriWorldToScreen( origin, v );
 
-		if( v[0] < RI.viewport[0] || v[0] > RI.viewport[0] + RI.viewport[2] )
+		if( v[0] < RI.rvp.viewport[0] || v[0] > RI.rvp.viewport[0] + RI.rvp.viewport[2] )
 			return true; // do scissor
-		if( v[1] < RI.viewport[1] || v[1] > RI.viewport[1] + RI.viewport[3] )
+		if( v[1] < RI.rvp.viewport[1] || v[1] > RI.rvp.viewport[1] + RI.rvp.viewport[3] )
 			return true; // do scissor
 
 		blend = R_SpriteGlowBlend( origin, e->curstate.rendermode, e->curstate.renderfx, pscale );
