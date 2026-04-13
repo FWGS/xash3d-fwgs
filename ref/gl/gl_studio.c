@@ -167,7 +167,7 @@ init current time for a given model
 */
 static void R_StudioSetupTimings( void )
 {
-	if( RI.drawWorld )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 		// synchronize with server time
 		g_studio.time = gp_cl->time;
@@ -369,7 +369,7 @@ pfnPlayerInfo
 */
 player_info_t *pfnPlayerInfo( int index )
 {
-	if( !RI.drawWorld )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		index = -1;
 
 	return gEngfuncs.pfnPlayerInfo( index );
@@ -394,7 +394,7 @@ pfnGetPlayerState
 */
 static entity_state_t *R_StudioGetPlayerState( int index )
 {
-	if( !RI.drawWorld )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return &RI.currententity->curstate;
 
 	return gEngfuncs.pfnGetPlayerState( index );
@@ -1328,7 +1328,7 @@ static void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
 	if( !plight || !ent || !ent->model )
 		return;
 
-	if( !RI.drawWorld || r_fullbright->value || FBitSet( ent->curstate.effects, EF_FULLBRIGHT ))
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || r_fullbright->value || FBitSet( ent->curstate.effects, EF_FULLBRIGHT ))
 	{
 		plight->shadelight = 0;
 		plight->ambientlight = 192;
@@ -2662,7 +2662,7 @@ static model_t *R_StudioSetupPlayerModel( int index )
 	state = &g_studio.player_models[index];
 
 	// g-cont: force for "dev-mode", non-local games and menu preview
-	if(( gpGlobals->developer || !ENGINE_GET_PARM( PARM_LOCAL_GAME ) || !RI.drawWorld ) && info->model[0] )
+	if(( gpGlobals->developer || !ENGINE_GET_PARM( PARM_LOCAL_GAME ) || !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) ) && info->model[0] )
 	{
 		if( Q_strcmp( state->name, info->model ))
 		{
@@ -3398,7 +3398,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 	if( flags & STUDIO_RENDER )
 	{
 		// change body if it's a menu entity
-		if( cl_himodels->value && ( RI.currentmodel != RI.currententity->model || !RI.drawWorld ))
+		if( cl_himodels->value && ( RI.currentmodel != RI.currententity->model || !FBitSet( RI.rvp.flags, RF_DRAW_WORLD )))
 		{
 			// show highest resolution multiplayer model
 			RI.currententity->curstate.body = 255;
@@ -3554,7 +3554,7 @@ R_StudioDrawModelInternal
 */
 static void R_StudioDrawModelInternal( cl_entity_t *e, int flags )
 {
-	if( !RI.drawWorld )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 		if( e->player )
 			R_StudioDrawPlayer( flags, &e->curstate );
