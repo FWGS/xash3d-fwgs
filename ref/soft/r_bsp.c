@@ -650,7 +650,7 @@ void R_RenderWorld( void )
 	RI.currententity = CL_GetEntityByIndex( 0 );
 	// RI.currententity->frame = (int)(gp_cl->time*2);
 
-	VectorCopy( RI.vieworg, tr.modelorg );
+	VectorCopy( RI.rvp.vieworigin, tr.modelorg );
 	RI.currentmodel = WORLDMODEL;
 	r_pcurrentvertbase = RI.currentmodel->vertexes;
 
