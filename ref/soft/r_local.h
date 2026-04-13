@@ -125,7 +125,6 @@ typedef struct
 	const ref_viewpass_t rvp;
 
 	qboolean    drawWorld;                  // ignore world for drawing PlayerModel
-	qboolean    isSkyVisible;               // sky is visible
 	qboolean    onlyClientDraw;             // disabled by client request
 	qboolean    drawOrtho;                  // draw world as orthogonal projection
 
