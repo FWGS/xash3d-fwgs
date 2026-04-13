@@ -124,8 +124,6 @@ typedef struct
 {
 	const ref_viewpass_t rvp;
 
-	qboolean    onlyClientDraw;             // disabled by client request
-
 	cl_entity_t *currententity;
 	model_t     *currentmodel;
 	cl_entity_t *currentbeam;       // same as above but for beams
