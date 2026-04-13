@@ -411,13 +411,6 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 {
 	float xMin, xMax, yMin, yMax, zNear, zFar;
 
-	if( RI.drawOrtho )
-	{
-		const ref_overview_t *ov = gEngfuncs.GetOverviewParms();
-		Matrix4x4_CreateOrtho( m, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
-		return;
-	}
-
 	RI.farClip = R_GetFarClip();
 
 	zNear = 4.0f;
@@ -1155,11 +1148,6 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 	RI.rvp = *rvp;
 
 	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
-
-	if( !FBitSet( rvp->flags, RF_DRAW_CUBEMAP ))
-		RI.drawOrtho = FBitSet( rvp->flags, RF_DRAW_OVERVIEW );
-	else
-		RI.drawOrtho = false;
 }
 
 /*
