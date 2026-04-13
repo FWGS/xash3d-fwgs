@@ -68,13 +68,9 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 	VectorSubtract( origin, RI.vieworg, glowDist );
 	dist = VectorLength( glowDist );
 
-	if( RP_NORMALPASS( ))
-	{
-		pmtrace_t *tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow.value ? PM_GLASS_IGNORE : ( PM_GLASS_IGNORE | PM_STUDIO_IGNORE ));
-
-		if(( 1.0f - tr->fraction ) * dist > 8.0f )
-			return 0.0f;
-	}
+	pmtrace_t *tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow.value ? PM_GLASS_IGNORE : ( PM_GLASS_IGNORE | PM_STUDIO_IGNORE ));
+	if(( 1.0f - tr->fraction ) * dist > 8.0f )
+		return 0.0f;
 
 	if( renderfx == kRenderFxNoDissipation )
 		return 1.0f;
@@ -171,9 +167,6 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	float          angle, dot, sr, cr, scale;
 	vec3_t         v_forward, v_right, v_up;
 	vec3_t         origin, color;
-
-	if( RI.params & RP_ENVVIEW )
-		return;
 
 	model = e->model;
 	psprite = (msprite_t *)model->cache.data;

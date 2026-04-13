@@ -61,17 +61,9 @@ typedef int fixed16_t;
 #define SHADE_LAMBERT     1.4953241
 #define DEFAULT_ALPHATEST 0.0f
 
-// refparams
-#define RP_NONE        0
-#define RP_ENVVIEW     BIT( 0 )                 // used for cubemapshot
-#define RP_OLDVIEWLEAF BIT( 1 )
-#define RP_CLIPPLANE   BIT( 2 )
-
-#define RP_NONVIEWERREF ( RP_ENVVIEW )
 #define R_ModelOpaque( rm )   ( rm == kRenderNormal )
 #define R_StaticEntity( ent ) ( VectorIsNull( ent->origin ) && VectorIsNull( ent->angles ))
 #define RP_LOCALCLIENT( e )   (( e ) != NULL && ( e )->index == ( gp_cl->playernum + 1 ) && e->player )
-#define RP_NORMALPASS()       ( FBitSet( RI.params, RP_NONVIEWERREF ) == 0 )
 
 #define CL_IsViewEntityLocalPlayer() ( gp_cl->viewentity == ( gp_cl->playernum + 1 ))
 
@@ -130,8 +122,6 @@ extern viddef_t vid;
 
 typedef struct
 {
-	int         params;             // rendering parameters
-
 	qboolean    drawWorld;                  // ignore world for drawing PlayerModel
 	qboolean    isSkyVisible;               // sky is visible
 	qboolean    onlyClientDraw;             // disabled by client request

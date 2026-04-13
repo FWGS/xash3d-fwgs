@@ -1053,7 +1053,7 @@ static void R_MarkLeaves( void )
 	tr.visframecount++;
 	r_oldviewcluster = r_viewcluster;
 
-	gEngfuncs.R_FatPVS( RI.pvsorigin, r_pvs_radius->value, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), false );
+	gEngfuncs.R_FatPVS( RI.pvsorigin, r_pvs_radius->value, RI.visbytes, false, false );
 	vis = RI.visbytes;
 
 	for( i = 0; i < WORLDMODEL->numleafs; i++ )
@@ -1086,10 +1086,7 @@ void GAME_EXPORT R_RenderScene( void )
 		gEngfuncs.Host_Error( "%s: NULL worldmodel\n", __func__ );
 
 	// frametime is valid only for normal pass
-	if( RP_NORMALPASS( ))
-		tr.frametime = gp_cl->time - gp_cl->oldtime;
-	else
-		tr.frametime = 0.0;
+	tr.frametime = gp_cl->time - gp_cl->oldtime;
 
 	// begin a new frame
 	tr.framecount++;
@@ -1160,7 +1157,6 @@ set initial params for renderer
 */
 void R_SetupRefParams( const ref_viewpass_t *rvp )
 {
-	RI.params = RP_NONE;
 	RI.drawWorld = FBitSet( rvp->flags, RF_DRAW_WORLD );
 	RI.onlyClientDraw = FBitSet( rvp->flags, RF_ONLY_CLIENTDRAW );
 
@@ -1482,43 +1478,31 @@ int CL_FxBlend( cl_entity_t *e )
 		blend = e->curstate.renderamt + 0x10 * sin( gp_cl->time * 8 + offset );
 		break;
 	case kRenderFxFadeSlow:
-		if( RP_NORMALPASS( ))
-		{
-			if( e->curstate.renderamt > 0 )
-				e->curstate.renderamt -= 1;
-			else
-				e->curstate.renderamt = 0;
-		}
+		if( e->curstate.renderamt > 0 )
+			e->curstate.renderamt -= 1;
+		else
+			e->curstate.renderamt = 0;
 		blend = e->curstate.renderamt;
 		break;
 	case kRenderFxFadeFast:
-		if( RP_NORMALPASS( ))
-		{
-			if( e->curstate.renderamt > 3 )
-				e->curstate.renderamt -= 4;
-			else
-				e->curstate.renderamt = 0;
-		}
+		if( e->curstate.renderamt > 3 )
+			e->curstate.renderamt -= 4;
+		else
+			e->curstate.renderamt = 0;
 		blend = e->curstate.renderamt;
 		break;
 	case kRenderFxSolidSlow:
-		if( RP_NORMALPASS( ))
-		{
-			if( e->curstate.renderamt < 255 )
-				e->curstate.renderamt += 1;
-			else
-				e->curstate.renderamt = 255;
-		}
+		if( e->curstate.renderamt < 255 )
+			e->curstate.renderamt += 1;
+		else
+			e->curstate.renderamt = 255;
 		blend = e->curstate.renderamt;
 		break;
 	case kRenderFxSolidFast:
-		if( RP_NORMALPASS( ))
-		{
-			if( e->curstate.renderamt < 252 )
-				e->curstate.renderamt += 4;
-			else
-				e->curstate.renderamt = 255;
-		}
+		if( e->curstate.renderamt < 252 )
+			e->curstate.renderamt += 4;
+		else
+			e->curstate.renderamt = 255;
 		blend = e->curstate.renderamt;
 		break;
 	case kRenderFxStrobeSlow:
