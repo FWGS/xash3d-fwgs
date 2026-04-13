@@ -78,9 +78,9 @@ void R_SetUpWorldTransform( void )
 		aliasoldworldtransform[i][0] = aliasworldtransform[i][2] = s_alias_up[i];
 	}
 
-	aliasworldtransform[0][3] = -RI.vieworg[0];
-	aliasworldtransform[1][3] = -RI.vieworg[1];
-	aliasworldtransform[2][3] = -RI.vieworg[2];
+	aliasworldtransform[0][3] = -RI.rvp.vieworigin[0];
+	aliasworldtransform[1][3] = -RI.rvp.vieworigin[1];
+	aliasworldtransform[2][3] = -RI.rvp.vieworigin[2];
 
 	// aliasoldworldtransform[0][3] = RI.currententity->oldorigin[0]-r_origin[0];
 	// aliasoldworldtransform[1][3] = RI.currententity->oldorigin[1]-r_origin[1];
