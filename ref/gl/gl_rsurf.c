@@ -1610,7 +1610,7 @@ void R_DrawWaterSurfaces( void )
 	msurface_t	*s;
 	texture_t		*t;
 
-	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || RI.onlyClientDraw )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 		return;
 
 	// non-transparent water is already drawed
@@ -3684,7 +3684,7 @@ void R_DrawWorld( void )
 		return;
 
 	RI.currentmodel = RI.currententity->model;
-	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || RI.onlyClientDraw )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 		return;
 
 	VectorCopy( RI.cullorigin, tr.modelorg );
@@ -3700,7 +3700,7 @@ void R_DrawWorld( void )
 	R_ClearSkyBox ();
 
 	start = gEngfuncs.pfnTime();
-	if( RI.drawOrtho )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_OVERVIEW ))
 		R_DrawWorldTopView( WORLDMODEL->nodes, RI.frustum.clipFlags );
 	else R_RecursiveWorldNode( WORLDMODEL->nodes, RI.frustum.clipFlags );
 	end = gEngfuncs.pfnTime();
@@ -3786,7 +3786,7 @@ void R_MarkLeaves( void )
 	RI.oldviewleaf = RI.viewleaf;
 	tr.visframecount++;
 
-	if( r_novis.value || RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
+	if( r_novis.value || FBitSet( RI.rvp.flags, RF_DRAW_OVERVIEW ) || !RI.viewleaf || !WORLDMODEL->visdata )
 		novis = true;
 
 	gEngfuncs.R_FatPVS( RI.rvp.vieworigin, r_pvs_radius->value, RI.visbytes, false, novis );
