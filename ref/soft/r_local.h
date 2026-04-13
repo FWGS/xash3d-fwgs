@@ -125,7 +125,6 @@ typedef struct
 	const ref_viewpass_t rvp;
 
 	qboolean    onlyClientDraw;             // disabled by client request
-	qboolean    drawOrtho;                  // draw world as orthogonal projection
 
 	cl_entity_t *currententity;
 	model_t     *currentmodel;
