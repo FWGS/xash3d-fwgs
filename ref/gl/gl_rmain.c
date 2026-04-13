@@ -583,36 +583,11 @@ void R_SetupGL( qboolean set_gl_state )
 	pglMatrixMode( GL_MODELVIEW );
 	GL_LoadMatrix( RI.worldviewMatrix );
 
-	if( FBitSet( RI.params, RP_CLIPPLANE ))
-	{
-		GLdouble	clip[4];
-		mplane_t	*p = &RI.clipPlane;
-
-		clip[0] = p->normal[0];
-		clip[1] = p->normal[1];
-		clip[2] = p->normal[2];
-		clip[3] = -p->dist;
-
-		pglClipPlane( GL_CLIP_PLANE0, clip );
-		pglEnable( GL_CLIP_PLANE0 );
-	}
-
 	GL_Cull( GL_FRONT );
 
 	pglDisable( GL_BLEND );
 	pglDisable( GL_ALPHA_TEST );
 	pglColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
-}
-
-/*
-=============
-R_EndGL
-=============
-*/
-static void R_EndGL( void )
-{
-	if( RI.params & RP_CLIPPLANE )
-		pglDisable( GL_CLIP_PLANE0 );
 }
 
 /*
@@ -1019,8 +994,6 @@ void R_RenderScene( void )
 	R_DrawEntitiesOnList();
 
 	R_DrawWaterSurfaces();
-
-	R_EndGL();
 }
 
 void R_GammaChanged( qboolean do_reset_gamma )
@@ -1115,8 +1088,14 @@ void R_SetupRefParams( const ref_viewpass_t *rvp )
 	RI.farClip = 0;
 
 	if( !FBitSet( rvp->flags, RF_DRAW_CUBEMAP ))
+	{
 		RI.drawOrtho = FBitSet( rvp->flags, RF_DRAW_OVERVIEW );
-	else RI.drawOrtho = false;
+	}
+	else
+	{
+		SetBits( RI.params, RP_ENVVIEW );
+		RI.drawOrtho = false;
+	}
 
 	// setup viewport
 	RI.viewport[0] = rvp->viewport[0];
