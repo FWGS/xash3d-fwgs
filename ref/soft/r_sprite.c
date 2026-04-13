@@ -65,10 +65,10 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 	float  dist, brightness;
 	vec3_t glowDist;
 
-	VectorSubtract( origin, RI.vieworg, glowDist );
+	VectorSubtract( origin, RI.rvp.vieworigin, glowDist );
 	dist = VectorLength( glowDist );
 
-	pmtrace_t *tr = gEngfuncs.EV_VisTraceLine( RI.vieworg, origin, r_traceglow.value ? PM_GLASS_IGNORE : ( PM_GLASS_IGNORE | PM_STUDIO_IGNORE ));
+	pmtrace_t *tr = gEngfuncs.EV_VisTraceLine( RI.rvp.vieworigin, origin, r_traceglow.value ? PM_GLASS_IGNORE : ( PM_GLASS_IGNORE | PM_STUDIO_IGNORE ));
 	if(( 1.0f - tr->fraction ) * dist > 8.0f )
 		return 0.0f;
 
@@ -235,7 +235,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		VectorSubtract( origin, v_forward, origin );
 		break;
 	case SPR_FACING_UPRIGHT:
-		VectorSet( v_right, origin[1] - RI.vieworg[1], -( origin[0] - RI.vieworg[0] ), 0.0f );
+		VectorSet( v_right, origin[1] - RI.rvp.vieworigin[1], -( origin[0] - RI.rvp.vieworigin[0] ), 0.0f );
 		VectorSet( v_up, 0.0f, 0.0f, 1.0f );
 		VectorNormalize( v_right );
 		break;

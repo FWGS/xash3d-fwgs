@@ -288,14 +288,14 @@ void R_SetupFrameQ( void )
 
 
 // build the transformation matrix for the given view angles
-	VectorCopy( RI.vieworg, tr.modelorg );
+	VectorCopy( RI.rvp.vieworigin, tr.modelorg );
 
-	// AngleVectors (RI.viewangles, RI.vforward, RI.vright, RI.vup);
+	// AngleVectors (RI.rvp.viewangles, RI.vforward, RI.vright, RI.vup);
 
 // current viewleaf
 	if( RI.drawWorld )
 	{
-		RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.vieworg, WORLDMODEL->nodes );
+		RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes );
 		r_viewcluster = RI.viewleaf->cluster;
 	}
 
