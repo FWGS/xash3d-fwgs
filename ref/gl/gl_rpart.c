@@ -73,9 +73,9 @@ void CL_DrawParticles( double frametime, particle_t *cl_active_particles, float 
 			size = partsize; // get initial size of particle
 
 			// scale up to keep particles from disappearing
-			size += (p->org[0] - RI.vieworg[0]) * RI.cull_vforward[0];
-			size += (p->org[1] - RI.vieworg[1]) * RI.cull_vforward[1];
-			size += (p->org[2] - RI.vieworg[2]) * RI.cull_vforward[2];
+			size += (p->org[0] - RI.rvp.vieworigin[0]) * RI.cull_vforward[0];
+			size += (p->org[1] - RI.rvp.vieworigin[1]) * RI.cull_vforward[1];
+			size += (p->org[2] - RI.rvp.vieworigin[2]) * RI.cull_vforward[2];
 
 			if( size < 20.0f ) size = partsize;
 			else size = partsize + size * 0.002f;

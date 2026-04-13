@@ -956,7 +956,7 @@ static void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples
 	if( !warp->polys ) return;
 
 	// set the current waveheight
-	if( warp->polys->verts[0][2] >= RI.vieworg[2] )
+	if( warp->polys->verts[0][2] >= RI.rvp.vieworigin[2] )
 		waveHeight = -RI.currententity->curstate.scale;
 	else waveHeight = RI.currententity->curstate.scale;
 
@@ -3758,15 +3758,15 @@ void R_MarkLeaves( void )
 		RI.viewleaf = NULL;
 	}
 
-	VectorCopy( RI.pvsorigin, test );
+	VectorCopy( RI.rvp.vieworigin, test );
 
 	if( RI.viewleaf != NULL )
 	{
 		// merge two leafs that can be a crossed-line contents
 		if( RI.viewleaf->contents == CONTENTS_EMPTY )
-			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] - 16.0f );
+			VectorSet( test, RI.rvp.vieworigin[0], RI.rvp.vieworigin[1], RI.rvp.vieworigin[2] - 16.0f );
 		else
-			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] + 16.0f );
+			VectorSet( test, RI.rvp.vieworigin[0], RI.rvp.vieworigin[1], RI.rvp.vieworigin[2] + 16.0f );
 
 		leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
 
@@ -3787,7 +3787,7 @@ void R_MarkLeaves( void )
 	if( r_novis.value || RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
 		novis = true;
 
-	gEngfuncs.R_FatPVS( RI.pvsorigin, r_pvs_radius->value, RI.visbytes, false, novis );
+	gEngfuncs.R_FatPVS( RI.rvp.vieworigin, r_pvs_radius->value, RI.visbytes, false, novis );
 	if( force && !novis )
 		gEngfuncs.R_FatPVS( test, r_pvs_radius->value, RI.visbytes, true, novis );
 

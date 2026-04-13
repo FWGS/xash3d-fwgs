@@ -141,9 +141,6 @@ typedef struct
 
 	mleaf_t		*viewleaf;
 	mleaf_t		*oldviewleaf;
-	vec3_t		pvsorigin;
-	vec3_t		vieworg;		// locked vieworigin
-	vec3_t		viewangles;
 	vec3_t		vforward;
 	vec3_t		vright;
 	vec3_t		vup;

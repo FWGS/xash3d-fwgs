@@ -633,7 +633,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	r_side = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
 
 	// use client vieworg
-	if( !vieworg ) vieworg = RI.vieworg;
+	if( !vieworg ) vieworg = RI.rvp.vieworigin;
 
 	for( i = 0; i < 6; i++ )
 	{
