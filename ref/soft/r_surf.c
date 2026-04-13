@@ -53,7 +53,7 @@ static void     (*surfmiptable[4])( void ) = {
 };
 
 // void R_BuildLightMap (void);
-extern unsigned blocklights[10240]; // allow some very large lightmaps
+static unsigned blocklights[10240]; // allow some very large lightmaps
 
 static float           surfscale;
 static qboolean        r_cache_thrash;         // set if surface cache is thrashing
