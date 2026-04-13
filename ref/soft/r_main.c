@@ -1146,7 +1146,6 @@ set initial params for renderer
 void R_SetupRefParams( const ref_viewpass_t *rvp )
 {
 	RI.rvp = *rvp;
-
 }
 
 /*
