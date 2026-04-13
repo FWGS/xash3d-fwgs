@@ -361,6 +361,29 @@ qboolean V_PreRender( void )
 //============================================================================
 
 /*
+====================
+V_ApplyRefUnderwater
+
+apply underwater fov effect
+====================
+*/
+static void V_ApplyRefUnderwater( ref_viewpass_t *rvp )
+{
+	if( !FBitSet( rvp->flags, RF_DRAW_CUBEMAP|RF_DRAW_OVERVIEW ))
+		return;
+
+	if( !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
+		return;
+
+	if( cl.local.waterlevel < 3 )
+		return;
+
+	rvp->fov_x = atan( tan( DEG2RAD( rvp->fov_x ) / 2 ) * ( 0.97f + sin( cl.time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
+	rvp->fov_y = atan( tan( DEG2RAD( rvp->fov_y ) / 2 ) * ( 1.03f - sin( cl.time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
+
+}
+
+/*
 ==================
 V_RenderView
 
@@ -389,6 +412,7 @@ void V_RenderView( void )
 		clgame.dllFuncs.pfnCalcRefdef( &rp );
 		V_GetRefParams( &rp, &rvp );
 		V_RefApplyOverview( &rvp );
+		V_ApplyRefUnderwater( &rvp );
 
 		if( viewnum == 0 && FBitSet( rvp.flags, RF_ONLY_CLIENTDRAW ))
 		{
