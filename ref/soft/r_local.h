@@ -122,7 +122,7 @@ extern viddef_t vid;
 
 typedef struct
 {
-	const ref_viewpass_t rvp;
+	ref_viewpass_t rvp;
 
 	cl_entity_t *currententity;
 	model_t     *currentmodel;
