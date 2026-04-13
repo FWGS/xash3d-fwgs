@@ -339,10 +339,6 @@ R_DrawSkybox
 */
 void R_DrawSkyBox( void )
 {
-	int	i;
-
-	RI.isSkyVisible = true;
-
 	// don't fogging skybox (this fix old Half-Life bug)
 	if( !RI.fogSkybox ) R_AllowFog( false );
 
@@ -353,7 +349,7 @@ void R_DrawSkyBox( void )
 	pglDisable( GL_ALPHA_TEST );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
 
-	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
+	for( int i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		if( RI.skyMins[0][i] >= RI.skyMaxs[0][i] || RI.skyMins[1][i] >= RI.skyMaxs[1][i] )
 			continue;
@@ -533,16 +529,12 @@ Quake-style clouds
 */
 void R_DrawClouds( void )
 {
-	int	i;
-
-	RI.isSkyVisible = true;
-
 	if( RI.fogEnabled )
 		pglFogf( GL_FOG_DENSITY, RI.fogDensity * 0.25f );
 	pglDepthFunc( GL_GEQUAL );
 	pglDepthMask( GL_FALSE );
 
-	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
+	for( int i = 0; i < SKYBOX_MAX_SIDES; i++ )
 	{
 		if( RI.skyMins[0][i] >= RI.skyMaxs[0][i] || RI.skyMins[1][i] >= RI.skyMaxs[1][i] )
 			continue;
