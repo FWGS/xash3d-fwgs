@@ -480,28 +480,25 @@ static void R_UnloadProgs( void )
 	memset( &ref.dllFuncs, 0, sizeof( ref.dllFuncs ));
 }
 
-static void CL_FillTriAPIFromRef( triangleapi_t *dst, const ref_interface_t *src )
+static void CL_FillTriAPI( triangleapi_t *dst )
 {
 	dst->version           = TRI_API_VERSION;
-	dst->Begin             = src->Begin;
 	dst->RenderMode        = TriRenderMode;
-	dst->End               = src->End;
 	dst->Color4f           = TriColor4f;
 	dst->Color4ub          = TriColor4ub;
-	dst->TexCoord2f        = src->TexCoord2f;
-	dst->Vertex3f          = src->Vertex3f;
-	dst->Vertex3fv         = src->Vertex3fv;
 	dst->Brightness        = TriBrightness;
 	dst->CullFace          = TriCullFace;
 	dst->SpriteTexture     = TriSpriteTexture;
 	dst->WorldToScreen     = TriWorldToScreen;
-	dst->Fog               = src->Fog;
-	dst->ScreenToWorld     = src->ScreenToWorld;
-	dst->GetMatrix         = src->GetMatrix;
 	dst->BoxInPVS          = TriBoxInPVS;
 	dst->LightAtPoint      = TriLightAtPoint;
 	dst->Color4fRendermode = TriColor4fRendermode;
-	dst->FogParams         = src->FogParams;
+	dst->Begin             = ref.dllFuncs.Begin;
+	dst->End               = ref.dllFuncs.End;
+	dst->Vertex3f          = ref.dllFuncs.Vertex3f;
+	dst->Vertex3fv         = ref.dllFuncs.Vertex3fv;
+
+	ref.dllFuncs.R_FillTriAPI( dst );
 }
 
 static qboolean R_LoadProgs( const char *name )
@@ -548,7 +545,7 @@ static qboolean R_LoadProgs( const char *name )
 	ref.initialized = true;
 
 	// initialize TriAPI callbacks
-	CL_FillTriAPIFromRef( &gTriApi, &ref.dllFuncs );
+	CL_FillTriAPI( &gTriApi );
 
 	return true;
 }
