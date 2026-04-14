@@ -131,11 +131,6 @@ static void R_SetupSky( int *skytextures )
 	;
 }
 
-static void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
-{
-	;
-}
-
 static void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
 	;
@@ -319,7 +314,7 @@ static void R_EntityRemoveDecals( struct model_s *mod )
 	;
 }
 
-static void AVI_UploadRawFrame( int texture, int cols, int rows, int width, int height, const byte *data )
+static void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt )
 {
 	;
 }
@@ -475,7 +470,6 @@ static const ref_interface_t gReffuncs =
 	.R_SetupSky                 = R_SetupSky,
 
 	.R_Set2DMode      = R_SimpleStubBool,
-	.R_DrawStretchRaw = R_DrawStretchRaw,
 	.R_DrawStretchPic = R_DrawStretchPic,
 	.FillRGBA         = FillRGBA,
 	.WorldToScreen    = WorldToScreen,
@@ -512,6 +506,7 @@ static const ref_interface_t gReffuncs =
 	.R_GetDetailScaleForTexture = R_GetDetailScaleForTexture,
 	.R_SetDetailScaleForTexture = R_SetDetailScaleForTexture,
 
+	.GL_CreateTexture = GL_CreateTexture,
 	.GL_FindTexture  = GL_FindTexture,
 	.GL_TextureName  = GL_TextureName,
 	.GL_TextureData  = GL_TextureData,
@@ -519,7 +514,7 @@ static const ref_interface_t gReffuncs =
 	.GL_FreeTexture  = R_SimpleStubUInt,
 	.R_OverrideTextureSourceSize = R_OverrideTextureSourceSize,
 
-	.AVI_UploadRawFrame = AVI_UploadRawFrame,
+	.GL_UpdateTexture = GL_UpdateTexture,
 
 	.GL_Bind = GL_Bind,
 
