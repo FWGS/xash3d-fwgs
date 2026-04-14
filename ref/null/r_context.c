@@ -59,6 +59,16 @@ static void R_StudioSetDrawInterface( struct r_studio_interface_s *pDraw )
 	;
 }
 
+static void R_FillRenderAPI( render_api_t *api )
+{
+	;
+}
+
+static void R_FillTriAPI( triangleapi_t *api )
+{
+	;
+}
+
 static qboolean R_Init( void )
 {
 	gEngfuncs.R_Init_Video( REF_SOFTWARE );
@@ -493,43 +503,18 @@ static const ref_interface_t gReffuncs =
 	.CL_DrawBeams     = CL_DrawBeams,
 	.R_BeamCull       = R_BeamCull,
 
-	.RefGetParm               = RefGetParm,
-	.GetDetailScaleForTexture = GetDetailScaleForTexture,
-	.GetExtraParmsForTexture  = GetExtraParmsForTexture,
-	.GetFrameTime             = GetFrameTime,
+	.RefGetParm = RefGetParm,
 
-	.R_SetCurrentEntity = R_SetCurrentEntity,
-	.R_SetCurrentModel  = R_SetCurrentModel,
-
-	.GL_FindTexture        = GL_FindTexture,
-	.GL_TextureName        = GL_TextureName,
-	.GL_TextureData        = GL_TextureData,
-	.GL_LoadTexture        = GL_LoadTexture,
-	.GL_CreateTexture      = GL_CreateTexture,
-	.GL_LoadTextureArray   = GL_LoadTextureArray,
-	.GL_CreateTextureArray = GL_CreateTextureArray,
-	.GL_FreeTexture        = R_SimpleStubUInt,
+	.GL_FindTexture  = GL_FindTexture,
+	.GL_TextureName  = GL_TextureName,
+	.GL_TextureData  = GL_TextureData,
+	.GL_LoadTexture  = GL_LoadTexture,
+	.GL_FreeTexture  = R_SimpleStubUInt,
 	.R_OverrideTextureSourceSize = R_OverrideTextureSourceSize,
-
-	.DrawSingleDecal      = DrawSingleDecal,
-	.R_DecalSetupVerts    = R_DecalSetupVerts,
-	.R_EntityRemoveDecals = R_EntityRemoveDecals,
 
 	.AVI_UploadRawFrame = AVI_UploadRawFrame,
 
-	.GL_Bind                = GL_Bind,
-	.GL_SelectTexture       = R_SimpleStubInt,
-	.GL_LoadTextureMatrix   = GL_LoadTextureMatrix,
-	.GL_TexMatrixIdentity   = R_SimpleStub,
-	.GL_CleanUpTextureUnits = R_SimpleStubInt,
-	.GL_TexGen              = GL_TexGen,
-	.GL_TextureTarget       = R_SimpleStubUInt,
-	.GL_TexCoordArrayMode   = R_SimpleStubUInt,
-	.GL_UpdateTexSize       = GL_UpdateTexSize,
-
-	.GL_DrawParticles = GL_DrawParticles,
-	.LightVec         = LightVec,
-	.StudioGetTexture = StudioGetTexture,
+	.GL_Bind = GL_Bind,
 
 	.GL_RenderFrame    = GL_RenderFrame,
 	.GL_OrthoBounds    = GL_OrthoBounds,
@@ -537,21 +522,18 @@ static const ref_interface_t gReffuncs =
 	.Mod_GetCurrentVis = Mod_GetCurrentVis,
 	.R_NewMap          = R_SimpleStub,
 	.R_ClearScene      = R_SimpleStub,
-	.R_GetProcAddress  = R_GetProcAddress,
 
 	.TriRenderMode = R_SimpleStubInt,
 	.Begin         = R_SimpleStubInt,
 	.End           = R_SimpleStub,
 	.Color4f       = Color4f,
 	.Color4ub      = Color4ub,
-	.TexCoord2f    = TexCoord2f,
 	.Vertex3fv     = Vertex3fv,
 	.Vertex3f      = Vertex3f,
-	.Fog           = Fog,
-	.ScreenToWorld = ScreenToWorld,
-	.GetMatrix     = GetMatrix,
-	.FogParams     = FogParams,
 	.CullFace      = CullFace,
+
+	.R_FillRenderAPI = R_FillRenderAPI,
+	.R_FillTriAPI    = R_FillTriAPI,
 
 	.VGUI_SetupDrawing   = VGUI_SetupDrawing,
 	.VGUI_UploadTextureBlock = VGUI_UploadTextureBlock,
