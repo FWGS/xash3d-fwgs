@@ -659,7 +659,20 @@ int GAME_EXPORT GL_CreateTexture( const char *name, int width, int height, const
 		return 0;
 	}
 
-	return GL_LoadTextureInternal( name, &r_empty, flags );
+	int texnum = GL_LoadTextureInternal( name, &r_empty, flags );
+
+	if( !Q_strcmp( name, REF_DEFAULT_TEXTURE ))
+		tr.defaultTexture = texnum;
+	else if( !Q_strcmp( name, REF_PARTICLE_TEXTURE ))
+		tr.particleTexture = texnum;
+	else if( !Q_strcmp( name, REF_WHITE_TEXTURE ))
+		tr.whiteTexture = texnum;
+	else if( !Q_strcmp( name, REF_GRAY_TEXTURE ))
+		tr.grayTexture = texnum;
+	else if( !Q_strcmp( name, REF_BLACK_TEXTURE ))
+		tr.blackTexture = texnum;
+
+	return texnum;
 }
 
 /*
@@ -839,71 +852,6 @@ void R_InitDlightTexture( void )
 }
 
 /*
-==================
-GL_CreateInternalTextures
-==================
-*/
-static void GL_CreateInternalTextures( void )
-{
-	int       dx2, dy, d;
-	int       x, y;
-	rgbdata_t *pic;
-
-	// emo-texture from quake1
-	pic = GL_FakeImage( 16, 16, 1, IMAGE_HAS_COLOR );
-
-	for( y = 0; y < 16; y++ )
-	{
-		for( x = 0; x < 16; x++ )
-		{
-			if(( y < 8 ) ^ ( x < 8 ))
-				((uint *)pic->buffer )[y * 16 + x] = 0xFFFF00FF;
-			else
-				((uint *)pic->buffer )[y * 16 + x] = 0xFF000000;
-		}
-	}
-
-	tr.defaultTexture = GL_LoadTextureInternal( REF_DEFAULT_TEXTURE, pic, TF_COLORMAP );
-
-	// particle texture from quake1
-	pic = GL_FakeImage( 16, 16, 1, IMAGE_HAS_COLOR | IMAGE_HAS_ALPHA );
-
-	for( x = 0; x < 16; x++ )
-	{
-		dx2 = x - 8;
-		dx2 = dx2 * dx2;
-
-		for( y = 0; y < 16; y++ )
-		{
-			dy = y - 8;
-			d = 255 - 35 * sqrt( dx2 + dy * dy );
-			pic->buffer[( y * 16 + x ) * 4 + 3] = bound( 0, d, 255 );
-		}
-	}
-
-	tr.particleTexture = GL_LoadTextureInternal( "*particle", pic, TF_CLAMP );
-
-	// white texture
-	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
-	for( x = 0; x < 16; x++ )
-		((uint *)pic->buffer )[x] = 0xFFFFFFFF;
-	tr.whiteTexture = GL_LoadTextureInternal( REF_WHITE_TEXTURE, pic, TF_COLORMAP );
-
-	// gray texture
-	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
-	for( x = 0; x < 16; x++ )
-		((uint *)pic->buffer )[x] = 0xFF7F7F7F;
-	tr.grayTexture = GL_LoadTextureInternal( REF_GRAY_TEXTURE, pic, TF_COLORMAP );
-
-	// black texture
-	pic = GL_FakeImage( 4, 4, 1, IMAGE_HAS_COLOR );
-	for( x = 0; x < 16; x++ )
-		((uint *)pic->buffer )[x] = 0xFF000000;
-	tr.blackTexture = GL_LoadTextureInternal( REF_BLACK_TEXTURE, pic, TF_COLORMAP );
-
-}
-
-/*
 ===============
 R_TextureList_f
 ===============
@@ -968,7 +916,6 @@ void R_InitImages( void )
 	r_numImages = 1;
 
 	// validate cvars
-	GL_CreateInternalTextures();
 
 	gEngfuncs.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
 }
