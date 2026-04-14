@@ -114,7 +114,7 @@ R_BeamCull
 Cull the beam by bbox
 ==============
 */
-qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
+static qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
 {
 	vec3_t	mins, maxs;
 	int	i;

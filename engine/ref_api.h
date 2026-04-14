@@ -593,7 +593,6 @@ typedef struct ref_interface_s
 	void (*CL_DrawParticles)( double frametime, particle_t *particles, float partsize );
 	void (*CL_DrawTracers)( double frametime, particle_t *tracers );
 	void (*CL_DrawBeams)( int fTrans , BEAM *beams );
-	qboolean (*R_BeamCull)( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 
 	// Xash3D Render Interface
 	int			(*RefGetParm)( int parm, int arg );	// generic

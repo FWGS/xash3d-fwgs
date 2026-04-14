@@ -317,7 +317,6 @@ typedef struct image_s
 // gl_beams.c
 //
 void CL_DrawBeams( int fTrans, BEAM *active_beams );
-qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 
 //
 // gl_decals.c

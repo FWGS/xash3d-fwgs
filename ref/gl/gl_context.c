@@ -567,7 +567,6 @@ const ref_interface_t gReffuncs =
 	CL_DrawParticles,
 	CL_DrawTracers,
 	CL_DrawBeams,
-	R_BeamCull,
 
 	GL_RefGetParm,
 

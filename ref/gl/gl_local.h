@@ -296,7 +296,6 @@ void SCR_TimeRefresh_f( void );
 // gl_beams.c
 //
 void CL_DrawBeams( int fTrans, BEAM *active_beams );
-qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 
 //
 // gl_cull.c
