@@ -295,6 +295,7 @@ qboolean R_InitRenderAPI( void )
 	// make sure what render functions is cleared
 	memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
 
+	gRenderAPI.GetDetailScaleForTexture = ref.dllFuncs.R_GetDetailScaleForTexture;
 	gRenderAPI.GL_FindTexture      = ref.dllFuncs.GL_FindTexture;
 	gRenderAPI.GL_TextureName      = ref.dllFuncs.GL_TextureName;
 	gRenderAPI.GL_TextureData      = ref.dllFuncs.GL_TextureData;

@@ -2989,6 +2989,105 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 	Mod_SequenceAllAnimatedTextures( mod );
 }
 
+#if !XASH_DEDICATED
+static void Mod_ParseDetailTextures( model_t *mod )
+{
+	byte *afile;
+	char *pfile;
+	string	token, texname;
+	string	detail_texname;
+	string	detail_path;
+	float	xScale, yScale;
+	texture_t	*tex;
+	int	i;
+
+	string filepath;
+
+	Q_strncpy( filepath, mod->name, sizeof( filepath ));
+	COM_StripExtension( filepath );
+	Q_strncat( filepath, "_detail.txt", sizeof( filepath ));
+
+	afile = FS_LoadFile( filepath, NULL, false );
+	if( !afile )
+		return;
+
+	pfile = (char *)afile;
+
+	// format: 'texturename' 'detailtexture' 'xScale' 'yScale'
+	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
+	{
+		texname[0] = '\0';
+		detail_texname[0] = '\0';
+
+		// read texname
+		if( token[0] == '{' )
+		{
+			// NOTE: COM_ParseFile handled some symbols seperately
+			// this code will be fix it
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
+			Q_snprintf( texname, sizeof( texname ), "{%s", token );
+		}
+		else
+			Q_strncpy( texname, token, sizeof( texname ));
+
+		// read detailtexture name
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
+		Q_strncpy( detail_texname, token, sizeof( detail_texname ));
+
+		// trying the scales or '{'
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
+
+		// read second part of detailtexture name
+		if( token[0] == '{' )
+		{
+			Q_strncat( detail_texname, token, sizeof( detail_texname ));
+			pfile = COM_ParseFile( pfile, token, sizeof( token )); // read scales
+			Q_strncat( detail_texname, token, sizeof( detail_texname ));
+			pfile = COM_ParseFile( pfile, token, sizeof( token )); // parse scales
+		}
+
+		Q_snprintf( detail_path, sizeof( detail_path ), "gfx/%s", detail_texname );
+
+		// read scales
+		xScale = Q_atof( token );
+
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
+		yScale = Q_atof( token );
+
+		if( xScale <= 0.0f || yScale <= 0.0f )
+			continue;
+
+		// search for existing texture and uploading detail texture
+		for( i = 0; i < mod->numtextures; i++ )
+		{
+			tex = mod->textures[i];
+
+			if( Q_stricmp( tex->name, texname ))
+				continue;
+
+			tex->dt_texturenum = ref.dllFuncs.GL_LoadTexture( detail_path, NULL, 0, TF_FORCE_COLOR|TF_NOFLIP_TGA );
+
+			if( tex->dt_texturenum )
+				ref.dllFuncs.R_SetDetailScaleForTexture( tex->gl_texturenum, xScale, yScale );
+
+			break;
+		}
+	}
+
+	Mem_Free( afile );
+}
+
+void Mod_LoadDetailTextures( model_t *mod )
+{
+	convar_t *r_detailtextures = Cvar_FindVar( "r_detailtextures" );
+
+	if( !r_detailtextures || !r_detailtextures->value )
+		return;
+
+	Mod_ParseDetailTextures( mod );
+}
+#endif // !XASH_DEDICATED
+
 /*
 =================
 Mod_LoadTexInfo

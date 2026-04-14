@@ -59,6 +59,17 @@ static void R_StudioSetDrawInterface( struct r_studio_interface_s *pDraw )
 	;
 }
 
+static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
+{
+	if( xScale ) *xScale = 1.0f;
+	if( yScale ) *yScale = 1.0f;
+}
+
+static void R_SetDetailScaleForTexture( int texture, float xScale, float yScale )
+{
+	;
+}
+
 static void R_FillRenderAPI( render_api_t *api )
 {
 	;
@@ -504,6 +515,9 @@ static const ref_interface_t gReffuncs =
 	.R_BeamCull       = R_BeamCull,
 
 	.RefGetParm = RefGetParm,
+
+	.R_GetDetailScaleForTexture = R_GetDetailScaleForTexture,
+	.R_SetDetailScaleForTexture = R_SetDetailScaleForTexture,
 
 	.GL_FindTexture  = GL_FindTexture,
 	.GL_TextureName  = GL_TextureName,

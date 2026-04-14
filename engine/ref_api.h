@@ -598,6 +598,10 @@ typedef struct ref_interface_s
 	// Xash3D Render Interface
 	int			(*RefGetParm)( int parm, int arg );	// generic
 
+	// detail texture scale
+	void	(*R_GetDetailScaleForTexture)( int texture, float *xScale, float *yScale );
+	void	(*R_SetDetailScaleForTexture)( int texture, float xScale, float yScale );
+
 	// Texture tools (used by engine directly)
 	int		(*GL_FindTexture)( const char *name );
 	const char*	(*GL_TextureName)( unsigned int texnum );

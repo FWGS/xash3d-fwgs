@@ -244,6 +244,14 @@ static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScal
 	if( yScale ) *yScale = glt->yscale;
 }
 
+static void R_SetDetailScaleForTexture( int texture, float xScale, float yScale )
+{
+	gl_texture_t *glt = R_GetTexture( texture );
+
+	glt->xscale = xScale;
+	glt->yscale = yScale;
+}
+
 static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
 {
 	gl_texture_t *glt = R_GetTexture( texture );
@@ -413,9 +421,52 @@ static const char *R_GetConfigName( void )
 	return "opengl";
 }
 
+static void R_NewMap( void )
+{
+	texture_t	*tx;
+	int	i;
+
+	tr.worldmodel = gp_cl->models[1];
+
+	R_ClearDecals(); // clear all level decals
+
+	R_StudioResetPlayerModels();
+
+	// clear out efrags in case the level hasn't been reloaded
+	for( i = 0; i < WORLDMODEL->numleafs; i++ )
+		WORLDMODEL->leafs[i+1].efrags = NULL;
+
+	glState.isFogEnabled = false;
+	tr.skytexturenum = -1;
+	pglDisable( GL_FOG );
+
+	// clearing texture chains
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
+	{
+		if( !WORLDMODEL->textures[i] )
+			continue;
+
+		tx = WORLDMODEL->textures[i];
+
+		if( !Q_strncmp( tx->name, "sky", 3 ) && tx->width == ( tx->height * 2 ))
+			tr.skytexturenum = i;
+
+		tx->texturechain = NULL;
+	}
+
+	GL_BuildLightmaps ();
+
+	R_ClearVBO();
+	if( R_HasEnabledVBO( ))
+		R_GenerateVBO();
+	R_ResetRipples();
+
+	if( gEngfuncs.drawFuncs->R_NewMap != NULL )
+		gEngfuncs.drawFuncs->R_NewMap();
+}
+
 static void R_FillRenderAPI( render_api_t *api )
 {
-	api->GetDetailScaleForTexture = R_GetDetailScaleForTexture;
 	api->GetExtraParmsForTexture  = R_GetExtraParmsForTexture;
 	api->GetFrameTime             = R_GetFrameTime;
 	api->R_SetCurrentEntity       = R_SetCurrentEntity;
@@ -519,6 +570,9 @@ const ref_interface_t gReffuncs =
 	R_BeamCull,
 
 	GL_RefGetParm,
+
+	R_GetDetailScaleForTexture,
+	R_SetDetailScaleForTexture,
 
 	GL_FindTexture,
 	GL_TextureName,
