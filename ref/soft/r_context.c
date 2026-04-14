@@ -451,7 +451,8 @@ const ref_interface_t gReffuncs =
 
 	R_StudioEstimateFrame,
 	R_StudioLerpMovement,
-	CL_InitStudioAPI,
+	R_StudioFillAPI,
+	R_StudioSetDrawInterface,
 
 	R_SetSkyCloudsTextures,
 	GL_SubdivideSurface,

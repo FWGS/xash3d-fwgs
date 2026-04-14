@@ -420,7 +420,8 @@ void R_GatherPlayerLight( void );
 float R_StudioEstimateFrame( cl_entity_t *e, mstudioseqdesc_t *pseqdesc, double time );
 void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
 void R_StudioResetPlayerModels( void );
-void CL_InitStudioAPI( void );
+qboolean R_StudioFillAPI( struct engine_studio_api_s *api, struct r_studio_interface_s *pDefaultDraw );
+void R_StudioSetDrawInterface( struct r_studio_interface_s *pDraw );
 void Mod_StudioLoadTextures( model_t *mod, void *data );
 void Mod_StudioUnloadTextures( void *data );
 

@@ -23,6 +23,8 @@ GNU General Public License for more details.
 #include "client.h"
 #include "const.h"
 #include "triangleapi.h"
+#include "r_studioint.h"
+#include "mod_local.h"
 #include "r_efx.h"
 #include "demo_api.h"
 #include "ivoicetweak.h"
@@ -2173,7 +2175,7 @@ pfnGetViewModel
 
 =============
 */
-static cl_entity_t* GAME_EXPORT CL_GetViewModel( void )
+static cl_entity_t *GAME_EXPORT CL_GetViewModel( void )
 {
 	return &clgame.viewent;
 }
@@ -3929,6 +3931,69 @@ void CL_UnloadProgs( void )
 	memset( &clgame, 0, sizeof( clgame ));
 }
 
+static model_t *pfnStudio_Mod_ForName( const char *name, int crash )
+{
+	return Mod_ForName( name, crash, false );
+}
+
+static void *pfnStudio_Mod_Extradata( model_t *mod )
+{
+	return Mod_StudioExtradata( mod );
+}
+
+static void pfnStudio_GetAliasScale( float *x, float *y )
+{
+	if( x ) *x = 1.0f;
+	if( y ) *y = 1.0f;
+}
+
+static float ***pfnStudio_GetAliasTransform( void )
+{
+	return NULL;
+}
+
+static model_t *pfnStudio_GetChromeSprite( void )
+{
+	return cl_sprite_shell;
+}
+
+static int pfnStudio_IsHardware( void )
+{
+	return 1;
+}
+
+static engine_studio_api_t gStudioAPI =
+{
+	.Mem_Calloc              = Mod_Calloc,
+	.Cache_Check             = Mod_CacheCheck,
+	.LoadCacheFile           = Mod_LoadCacheFile,
+	.Mod_ForName             = pfnStudio_Mod_ForName,
+	.Mod_Extradata           = pfnStudio_Mod_Extradata,
+	.GetModelByIndex         = CL_ModelHandle,
+	.GetCvar                 = pfnCVarGetPointer,
+	.GetChromeSprite         = pfnStudio_GetChromeSprite,
+	.GetAliasScale           = pfnStudio_GetAliasScale,
+	.StudioGetAliasTransform = pfnStudio_GetAliasTransform,
+	.GetViewEntity           = CL_GetViewModel,
+	.IsHardware              = pfnStudio_IsHardware,
+};
+
+static void CL_InitStudioAPI( void )
+{
+	static r_studio_interface_t gDefaultStudioDraw;
+	r_studio_interface_t *pStudioDraw;
+
+	if( !ref.dllFuncs.R_StudioFillAPI( &gStudioAPI, &gDefaultStudioDraw ))
+		return;
+
+	pStudioDraw = &gDefaultStudioDraw;
+
+	if( clgame.dllFuncs.pfnGetStudioModelInterface )
+		clgame.dllFuncs.pfnGetStudioModelInterface( STUDIO_INTERFACE_VERSION, &pStudioDraw, &gStudioAPI );
+
+	ref.dllFuncs.R_StudioSetDrawInterface( pStudioDraw );
+}
+
 qboolean CL_LoadProgs( const char *name )
 {
 	static playermove_t		gpMove;
@@ -4066,7 +4131,7 @@ qboolean CL_LoadProgs( const char *name )
 	// initialize game
 	clgame.dllFuncs.pfnInit();
 
-	ref.dllFuncs.CL_InitStudioAPI();
+	CL_InitStudioAPI();
 
 	return true;
 }
