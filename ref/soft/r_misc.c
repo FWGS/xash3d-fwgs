@@ -293,7 +293,7 @@ void R_SetupFrameQ( void )
 // current viewleaf
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
-		RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes );
+		RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes, WORLDMODEL );
 		r_viewcluster = RI.viewleaf->cluster;
 	}
 
