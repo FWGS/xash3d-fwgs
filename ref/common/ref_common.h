@@ -81,6 +81,7 @@ void R_PushDlightsForBmodel( model_t *model, int framecount, const matrix4x4 obj
 int R_PushDlights( model_t *model, int framecount );
 colorVec R_LightVec( const vec3_t start, const vec3_t end, vec3_t lspot, vec3_t lvec );
 colorVec R_LightPoint( const vec3_t p0 );
+void R_GatherPlayerLight( cl_entity_t *view );
 void R_UpdateSurfaceCachedLight( msurface_t *surf );
 
 //
