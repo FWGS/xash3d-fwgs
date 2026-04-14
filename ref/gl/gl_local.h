@@ -369,10 +369,6 @@ void R_DrawFog( void );
 int CL_FxBlend( cl_entity_t *e );
 
 //
-// gl_rmisc.c
-//
-void R_NewMap( void );
-
 //
 // gl_rsurf.c
 //

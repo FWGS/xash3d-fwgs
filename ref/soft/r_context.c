@@ -198,8 +198,13 @@ static void GAME_EXPORT R_GetDetailScaleForTexture( int texture, float *xScale, 
 {
 	// details are not implemented in ref_soft
 
-	if( xScale ) *xScale = 0.0f;
-	if( yScale ) *yScale = 0.0f;
+	if( xScale ) *xScale = 1.0f;
+	if( yScale ) *yScale = 1.0f;
+}
+
+static void GAME_EXPORT R_SetDetailScaleForTexture( int texture, float xScale, float yScale )
+{
+	// details are not implemented in ref_soft
 }
 
 static void GAME_EXPORT R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
@@ -400,7 +405,6 @@ static void * GAME_EXPORT R_GetProcAddress( const char *name )
 
 static void R_FillRenderAPI( render_api_t *api )
 {
-	api->GetDetailScaleForTexture = R_GetDetailScaleForTexture;
 	api->GetExtraParmsForTexture  = R_GetExtraParmsForTexture;
 	api->GetFrameTime             = R_GetFrameTime;
 	api->R_SetCurrentEntity       = R_SetCurrentEntity;
@@ -504,6 +508,9 @@ const ref_interface_t gReffuncs =
 	R_BeamCull,
 
 	GL_RefGetParm,
+
+	R_GetDetailScaleForTexture,
+	R_SetDetailScaleForTexture,
 
 	GL_FindTexture,
 	GL_TextureName,
