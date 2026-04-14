@@ -66,6 +66,12 @@ GNU General Public License for more details.
 //     Removed CL_AddCustomBeam, it's now handled through R_AddEntity
 // 15. Replaced CL_InitStudioAPI with R_StudioFillAPI + R_StudioSetDrawInterface
 //     Engine now builds engine_studio_api_t and handles client DLL negotiation
+//     Replaced R_DrawStretchRaw and AVI_UploadRawFrame with GL_UpdateTexture
+//     Added GL_CreateTexture, R_GetDetailScaleForTexture, R_SetDetailScaleForTexture
+//     Removed R_Flush, VGUI_UploadTextureBlock, R_BeamCull, pfnGetStudioModelInterface
+//     Moved RenderAPI and TriAPI filling to renderer via R_FillRenderAPI and R_FillTriAPI
+//     Moved detail textures parsing and cinematic texture management to engine
+//     Moved creation of default textures to the engine
 #define REF_API_VERSION 15
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)

@@ -56,8 +56,6 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 /*
 =============
 GL_UpdateTexture
-
-Upload raw BGRA pixel data to an existing texture
 =============
 */
 void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt )
