@@ -540,8 +540,6 @@ typedef struct ref_interface_s
 
 	qboolean (*R_AddEntity)( struct cl_entity_s *clent, int type );
 	void (*R_ProcessEntData)( qboolean allocate, cl_entity_t *entities, unsigned int max_entities );
-	void (*R_Flush)( unsigned int flush_flags );
-
 	// debug
 	void (*R_ShowTextures)( void );
 
@@ -553,7 +551,6 @@ typedef struct ref_interface_s
 
 	// 2D
 	void (*R_Set2DMode)( qboolean enable );
-	void (*R_DrawStretchRaw)( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
 	void (*R_DrawStretchPic)( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
 	void (*FillRGBA)( int rendermode, float x, float y, float w, float h, byte r, byte g, byte b, byte a ); // in screen space
 	int  (*WorldToScreen)( const vec3_t world, vec3_t screen );  // Returns 1 if it's z clipped
@@ -644,7 +641,6 @@ typedef struct ref_interface_s
 
 	// vgui drawing implementation
 	void	(*VGUI_SetupDrawing)( qboolean rect );
-	void	(*VGUI_UploadTextureBlock)( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
 } ref_interface_t;
 
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );
