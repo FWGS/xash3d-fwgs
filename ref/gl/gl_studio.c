@@ -377,17 +377,6 @@ player_info_t *pfnPlayerInfo( int index )
 
 /*
 ===============
-pfnMod_ForName
-
-===============
-*/
-static model_t *pfnMod_ForName( const char *model, int crash )
-{
-	return gEngfuncs.Mod_ForName( model, crash, false );
-}
-
-/*
-===============
 pfnGetPlayerState
 
 ===============
@@ -398,17 +387,6 @@ static entity_state_t *R_StudioGetPlayerState( int index )
 		return &RI.currententity->curstate;
 
 	return gEngfuncs.pfnGetPlayerState( index );
-}
-
-/*
-===============
-pfnGetViewEntity
-
-===============
-*/
-static cl_entity_t *pfnGetViewEntity( void )
-{
-	return tr.viewent;
 }
 
 /*
@@ -440,17 +418,6 @@ static void pfnGetViewInfo( float *origin, float *upv, float *rightv, float *for
 
 /*
 ===============
-R_GetChromeSprite
-
-===============
-*/
-static model_t *R_GetChromeSprite( void )
-{
-	return gEngfuncs.GetDefaultSprite( REF_CHROME_SPRITE );
-}
-
-/*
-===============
 pfnGetModelCounters
 
 ===============
@@ -459,18 +426,6 @@ static void pfnGetModelCounters( int **s, int **a )
 {
 	*s = &g_studio.framecount;
 	*a = &r_stats.c_studio_models_drawn;
-}
-
-/*
-===============
-pfnGetAliasScale
-
-===============
-*/
-static void pfnGetAliasScale( float *x, float *y )
-{
-	if( x ) *x = 1.0f;
-	if( y ) *y = 1.0f;
 }
 
 /*
@@ -493,17 +448,6 @@ pfnStudioGetLightTransform
 static float ****pfnStudioGetLightTransform( void )
 {
 	return (float ****)g_studio.lighttransform;
-}
-
-/*
-===============
-pfnStudioGetAliasTransform
-
-===============
-*/
-static float ***pfnStudioGetAliasTransform( void )
-{
-	return NULL;
 }
 
 /*
@@ -2919,18 +2863,6 @@ static void R_StudioSetChromeOrigin( void )
 
 /*
 ===============
-pfnIsHardware
-
-Xash3D is always works in hardware mode
-===============
-*/
-static int pfnIsHardware( void )
-{
-	return 1;	// 0 is Software, 1 is OpenGL, 2 is Direct3D
-}
-
-/*
-===============
 R_StudioDrawPointsShadow
 
 ===============
@@ -3165,7 +3097,7 @@ static void R_StudioRenderModel( void )
 		R_StudioRenderFinal( );
 
 		R_StudioSetForceFaceFlags( STUDIO_NF_CHROME );
-		TriSpriteTexture( R_GetChromeSprite(), 0 );
+		TriSpriteTexture( gEngfuncs.GetDefaultSprite( REF_CHROME_SPRITE ), 0 );
 		RI.currententity->curstate.renderfx = kRenderFxGlowShell;
 
 		R_StudioRenderFinal( );
@@ -3881,115 +3813,53 @@ void Mod_StudioUnloadTextures( void *data )
 	}
 }
 
-static model_t *pfnModelHandle( int modelindex )
+qboolean R_StudioFillAPI( engine_studio_api_t *api, r_studio_interface_t *pDefaultDraw )
 {
-	if( modelindex < 0 || modelindex >= MAX_MODELS )
-		return NULL;
-	return CL_ModelHandle( modelindex );
-}
-
-static void *pfnMod_CacheCheck( struct cache_user_s *c )
-{
-	return gEngfuncs.Mod_CacheCheck( c );
-}
-
-static void *pfnMod_StudioExtradata( model_t *mod )
-{
-	return gEngfuncs.Mod_Extradata( mod_studio, mod );
-}
-
-static void pfnMod_LoadCacheFile( const char *path, struct cache_user_s *cu )
-{
-	gEngfuncs.Mod_LoadCacheFile( path, cu );
-}
-
-static cvar_t *pfnGetCvarPointer( const char *name )
-{
-	return (cvar_t*)gEngfuncs.pfnGetCvarPointer( name );
-}
-
-static void *pfnMod_Calloc( int number, size_t size )
-{
-	return gEngfuncs.Mod_Calloc( number, size );
-}
-
-static engine_studio_api_t gStudioAPI =
-{
-	pfnMod_Calloc,
-	pfnMod_CacheCheck,
-	pfnMod_LoadCacheFile,
-	pfnMod_ForName,
-	pfnMod_StudioExtradata,
-	pfnModelHandle,
-	pfnGetCurrentEntity,
-	pfnPlayerInfo,
-	R_StudioGetPlayerState,
-	pfnGetViewEntity,
-	pfnGetEngineTimes,
-	pfnGetCvarPointer,
-	pfnGetViewInfo,
-	R_GetChromeSprite,
-	pfnGetModelCounters,
-	pfnGetAliasScale,
-	pfnStudioGetBoneTransform,
-	pfnStudioGetLightTransform,
-	pfnStudioGetAliasTransform,
-	pfnStudioGetRotationMatrix,
-	R_StudioSetupModel,
-	R_StudioCheckBBox,
-	R_StudioDynamicLight,
-	R_StudioEntityLight,
-	R_StudioSetupLighting,
-	R_StudioDrawPoints,
-	R_StudioDrawHulls,
-	R_StudioDrawAbsBBox,
-	R_StudioDrawBones,
-	(void*)R_StudioSetupSkin,
-	R_StudioSetRemapColors,
-	R_StudioSetupPlayerModel,
-	R_StudioClientEvents,
-	R_StudioGetForceFaceFlags,
-	R_StudioSetForceFaceFlags,
-	(void*)R_StudioSetHeader,
-	R_StudioSetRenderModel,
-	R_StudioSetupRenderer,
-	R_StudioRestoreRenderer,
-	R_StudioSetChromeOrigin,
-	pfnIsHardware,
-	GL_StudioDrawShadow,
-	GL_StudioSetRenderMode,
-	R_StudioSetRenderamt,
-	R_StudioSetCullState,
-	R_StudioRenderShadow,
-};
-
-static r_studio_interface_t gStudioDraw =
-{
-	STUDIO_INTERFACE_VERSION,
-	R_StudioDrawModel,
-	R_StudioDrawPlayer,
-};
-
-/*
-===============
-CL_InitStudioAPI
-
-Initialize client studio
-===============
-*/
-void CL_InitStudioAPI( void )
-{
-	pStudioDraw = &gStudioDraw;
-
-	// trying to grab them from client.dll
 	cl_righthand = gEngfuncs.pfnGetCvarPointer( "cl_righthand" );
 
-	// Xash will be used internal StudioModelRenderer
-	if( gEngfuncs.pfnGetStudioModelInterface( STUDIO_INTERFACE_VERSION, &pStudioDraw, &gStudioAPI ))
-		return;
+	api->GetCurrentEntity        = pfnGetCurrentEntity;
+	api->PlayerInfo              = pfnPlayerInfo;
+	api->GetPlayerState          = R_StudioGetPlayerState;
+	api->GetTimes                = pfnGetEngineTimes;
+	api->GetViewInfo             = pfnGetViewInfo;
+	api->GetModelCounters        = pfnGetModelCounters;
+	api->StudioGetBoneTransform  = pfnStudioGetBoneTransform;
+	api->StudioGetLightTransform = pfnStudioGetLightTransform;
+	api->StudioGetRotationMatrix = pfnStudioGetRotationMatrix;
+	api->StudioSetupModel        = R_StudioSetupModel;
+	api->StudioCheckBBox         = R_StudioCheckBBox;
+	api->StudioDynamicLight      = R_StudioDynamicLight;
+	api->StudioEntityLight       = R_StudioEntityLight;
+	api->StudioSetupLighting     = R_StudioSetupLighting;
+	api->StudioDrawPoints        = R_StudioDrawPoints;
+	api->StudioDrawHulls         = R_StudioDrawHulls;
+	api->StudioDrawAbsBBox       = R_StudioDrawAbsBBox;
+	api->StudioDrawBones         = R_StudioDrawBones;
+	api->StudioSetupSkin         = (void *)R_StudioSetupSkin;
+	api->StudioSetRemapColors    = R_StudioSetRemapColors;
+	api->SetupPlayerModel        = R_StudioSetupPlayerModel;
+	api->StudioClientEvents      = R_StudioClientEvents;
+	api->GetForceFaceFlags       = R_StudioGetForceFaceFlags;
+	api->SetForceFaceFlags       = R_StudioSetForceFaceFlags;
+	api->StudioSetHeader         = (void *)R_StudioSetHeader;
+	api->SetRenderModel          = R_StudioSetRenderModel;
+	api->SetupRenderer           = R_StudioSetupRenderer;
+	api->RestoreRenderer         = R_StudioRestoreRenderer;
+	api->SetChromeOrigin         = R_StudioSetChromeOrigin;
+	api->GL_StudioDrawShadow     = GL_StudioDrawShadow;
+	api->GL_SetRenderMode        = GL_StudioSetRenderMode;
+	api->StudioSetRenderamt      = R_StudioSetRenderamt;
+	api->StudioSetCullState      = R_StudioSetCullState;
+	api->StudioRenderShadow      = R_StudioRenderShadow;
 
-	// NOTE: we always return true even if game interface was not correct
-	// because we need Draw our StudioModels
-	// just restore pointer to builtin function
-	pStudioDraw = &gStudioDraw;
+	pDefaultDraw->version         = STUDIO_INTERFACE_VERSION;
+	pDefaultDraw->StudioDrawModel  = R_StudioDrawModel;
+	pDefaultDraw->StudioDrawPlayer = R_StudioDrawPlayer;
+
+	return true;
+}
+
+void R_StudioSetDrawInterface( r_studio_interface_t *pDraw )
+{
+	pStudioDraw = pDraw;
 }

@@ -287,13 +287,6 @@ static entity_state_t *R_StudioGetPlayerState( int index )
 	return &cl.frames[cl.parsecountmod].playerstate[index];
 }
 
-static int pfnGetStudioModelInterface( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio )
-{
-	return clgame.dllFuncs.pfnGetStudioModelInterface ?
-		clgame.dllFuncs.pfnGetStudioModelInterface( version, ppinterface, pstudio ) :
-		0;
-}
-
 static const bpc_desc_t *pfnImage_GetPFDesc( int idx )
 {
 	return &PFDesc[idx];
@@ -411,7 +404,6 @@ static const ref_api_t gEngfuncs =
 	Mod_CacheCheck,
 	Mod_LoadCacheFile,
 	Mod_Calloc,
-	pfnGetStudioModelInterface,
 
 	_Mem_AllocPool,
 	_Mem_FreePool,

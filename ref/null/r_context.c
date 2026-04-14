@@ -49,6 +49,16 @@ static void R_SimpleStubBool( qboolean unused )
 	;
 }
 
+static qboolean R_StudioFillAPI( struct engine_studio_api_s *api, struct r_studio_interface_s *pDefaultDraw )
+{
+	return false;
+}
+
+static void R_StudioSetDrawInterface( struct r_studio_interface_s *pDraw )
+{
+	;
+}
+
 static qboolean R_Init( void )
 {
 	gEngfuncs.R_Init_Video( REF_SOFTWARE );
@@ -467,7 +477,8 @@ static const ref_interface_t gReffuncs =
 
 	.R_StudioEstimateFrame = R_StudioEstimateFrame,
 	.R_StudioLerpMovement  = R_StudioLerpMovement,
-	.CL_InitStudioAPI      = R_SimpleStub,
+	.R_StudioFillAPI          = R_StudioFillAPI,
+	.R_StudioSetDrawInterface = R_StudioSetDrawInterface,
 
 	.R_SetSkyCloudsTextures     = R_SetSkyCloudsTextures,
 	.GL_SubdivideSurface = GL_SubdivideSurface,

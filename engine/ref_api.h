@@ -64,7 +64,9 @@ GNU General Public License for more details.
 // 13. Removed ignore_flags argument from GetCvarPointer
 // 14. Removed reserved functions, they are leftover from RenderAPI
 //     Removed CL_AddCustomBeam, it's now handled through R_AddEntity
-#define REF_API_VERSION 14
+// 15. Replaced CL_InitStudioAPI with R_StudioFillAPI + R_StudioSetDrawInterface
+//     Engine now builds engine_studio_api_t and handles client DLL negotiation
+#define REF_API_VERSION 15
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -223,7 +225,7 @@ enum ref_defaultsprite_e
 };
 
 // the order of first three is important!
-// so you can use this value in IEngineStudio.StudioIsHardware
+// so you can use this value in IEngineStudio.StudioIsHardware (but shouldn't)
 typedef enum ref_graphic_apis_e
 {
 	REF_SOFTWARE,	// hypothetical: just make a surface to draw on, in software
@@ -431,7 +433,6 @@ typedef struct ref_api_s
 	void *(*Mod_CacheCheck)( struct cache_user_s *c );
 	void (*Mod_LoadCacheFile)( const char *path, struct cache_user_s *cu );
 	void *(*Mod_Calloc)( int number, size_t size );
-	int	(*pfnGetStudioModelInterface)( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio );
 
 	// memory
 	poolhandle_t (*_Mem_AllocPool)( const char *name, const char *filename, int fileline )
@@ -574,7 +575,8 @@ typedef struct ref_interface_s
 	// studio interface
 	float (*R_StudioEstimateFrame)( cl_entity_t *e, mstudioseqdesc_t *pseqdesc, double time );
 	void (*R_StudioLerpMovement)( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
-	void (*CL_InitStudioAPI)( void );
+	qboolean (*R_StudioFillAPI)( struct engine_studio_api_s *api, struct r_studio_interface_s *pDefaultDraw );
+	void (*R_StudioSetDrawInterface)( struct r_studio_interface_s *pDraw );
 
 	// bmodel
 	void (*R_SetSkyCloudsTextures)( int solidskyTexture, int alphaskyTexture );
