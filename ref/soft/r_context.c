@@ -263,11 +263,6 @@ static void GAME_EXPORT R_ProcessEntData( qboolean allocate, cl_entity_t *entiti
 	tr.max_entities = max_entities;
 }
 
-static void GAME_EXPORT R_Flush( unsigned int flags )
-{
-	// stub
-}
-
 // stubs
 
 static void GAME_EXPORT GL_SetTexCoordArrayMode( uint mode )
@@ -377,10 +372,6 @@ byte *GAME_EXPORT Mod_GetCurrentVis( void )
 	return NULL;
 }
 
-static void GAME_EXPORT VGUI_UploadTextureBlock( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
-{
-}
-
 static void GAME_EXPORT VGUI_SetupDrawing( qboolean rect )
 {
 }
@@ -464,7 +455,6 @@ const ref_interface_t gReffuncs =
 
 	R_AddEntity,
 	R_ProcessEntData,
-	R_Flush,
 
 	R_ShowTextures,
 
@@ -542,6 +532,5 @@ const ref_interface_t gReffuncs =
 	R_FillTriAPI,
 
 	VGUI_SetupDrawing,
-	VGUI_UploadTextureBlock,
 };
 

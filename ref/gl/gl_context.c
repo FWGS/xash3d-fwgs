@@ -319,11 +319,6 @@ static void R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned
 		gEngfuncs.drawFuncs->R_ProcessEntData( allocate );
 }
 
-static void GAME_EXPORT R_Flush( unsigned int flags )
-{
-	// stub
-}
-
 /*
 =============
 R_SetSkyCloudsTextures
@@ -375,11 +370,6 @@ static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_
 	}
 
 	return ret;
-}
-
-static void GAME_EXPORT VGUI_UploadTextureBlock( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
-{
-	pglTexSubImage2D( GL_TEXTURE_2D, 0, drawX, drawY, blockWidth, blockHeight, GL_RGBA, GL_UNSIGNED_BYTE, rgba );
 }
 
 static void GAME_EXPORT VGUI_SetupDrawing( qboolean rect )
@@ -526,7 +516,6 @@ const ref_interface_t gReffuncs =
 
 	R_AddEntity,
 	R_ProcessEntData,
-	R_Flush,
 
 	R_ShowTextures,
 
@@ -604,6 +593,5 @@ const ref_interface_t gReffuncs =
 	R_FillTriAPI,
 
 	VGUI_SetupDrawing,
-	VGUI_UploadTextureBlock,
 };
 

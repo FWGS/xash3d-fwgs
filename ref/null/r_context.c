@@ -440,11 +440,6 @@ static void VGUI_SetupDrawing( qboolean rect )
 	;
 }
 
-static void VGUI_UploadTextureBlock( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
-{
-	;
-}
-
 static const ref_interface_t gReffuncs =
 {
 	.R_Init                = R_Init,
@@ -471,7 +466,6 @@ static const ref_interface_t gReffuncs =
 
 	.R_AddEntity      = R_AddEntity,
 	.R_ProcessEntData = R_ProcessEntData,
-	.R_Flush          = R_SimpleStubUInt,
 
 	.R_ShowTextures = R_SimpleStub,
 
@@ -549,7 +543,6 @@ static const ref_interface_t gReffuncs =
 	.R_FillTriAPI    = R_FillTriAPI,
 
 	.VGUI_SetupDrawing   = VGUI_SetupDrawing,
-	.VGUI_UploadTextureBlock = VGUI_UploadTextureBlock,
 };
 
 int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
