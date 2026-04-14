@@ -599,6 +599,7 @@ typedef struct ref_interface_s
 	void	(*R_SetDetailScaleForTexture)( int texture, float xScale, float yScale );
 
 	// Texture tools (used by engine directly)
+	int		(*GL_CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 	int		(*GL_FindTexture)( const char *name );
 	const char*	(*GL_TextureName)( unsigned int texnum );
 	const byte*	(*GL_TextureData)( unsigned int texnum ); // may be NULL
@@ -606,8 +607,7 @@ typedef struct ref_interface_s
 	void		(*GL_FreeTexture)( unsigned int texnum );
 	void	(*R_OverrideTextureSourceSize)( unsigned int texnum, unsigned int srcWidth, unsigned int srcHeight ); // used to override decal size for texture replacement
 
-	// AVI
-	void		(*AVI_UploadRawFrame)( int texture, int cols, int rows, int width, int height, const byte *data );
+	void		(*GL_UpdateTexture)( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
 
 	// glState related calls (used by engine directly)
 	void		(*GL_Bind)( int tmu, unsigned int texnum );

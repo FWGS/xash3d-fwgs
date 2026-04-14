@@ -25,6 +25,7 @@ AVI PLAYING
 */
 
 static movie_state_t	*cin_state;
+static int		cin_texture;
 
 /*
 ==================
@@ -281,6 +282,12 @@ void SCR_InitCinematic( void )
 {
 	AVI_Initailize ();
 	cin_state = AVI_GetState( CIN_MAIN );
+	cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 64, 64, NULL, TF_NOMIPMAP|TF_CLAMP );
+}
+
+int SCR_GetCinematicTexture( void )
+{
+	return cin_texture;
 }
 
 /*

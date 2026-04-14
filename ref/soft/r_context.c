@@ -464,7 +464,6 @@ const ref_interface_t gReffuncs =
 	R_SetupSky,
 
 	R_Set2DMode,
-	R_DrawStretchRaw,
 	R_DrawStretchPic,
 	CL_FillRGBA,
 	R_WorldToScreen,
@@ -501,6 +500,7 @@ const ref_interface_t gReffuncs =
 	R_GetDetailScaleForTexture,
 	R_SetDetailScaleForTexture,
 
+	GL_CreateTexture,
 	GL_FindTexture,
 	GL_TextureName,
 	GL_TextureData,
@@ -508,7 +508,7 @@ const ref_interface_t gReffuncs =
 	GL_FreeTexture,
 	R_OverrideTextureSourceSize,
 
-	R_UploadStretchRaw,
+	GL_UpdateTexture,
 
 	GL_Bind,
 

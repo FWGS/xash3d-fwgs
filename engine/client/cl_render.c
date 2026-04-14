@@ -214,6 +214,11 @@ static void pfnAVI_StreamSound( movie_state_t *avi, int entnum, float fvol, floa
 	return; // stub, use AVI_SetParm and AVI_Think to stream AVI sound
 }
 
+static void pfnAVI_UploadRawFrame( int texture, int cols, int rows, int width, int height, const byte *data )
+{
+	ref.dllFuncs.GL_UpdateTexture( texture, cols, rows, width, height, data, PF_BGRA_32 );
+}
+
 static render_api_t gRenderAPI =
 {
 	pfnRenderGetParm, // GL_RenderGetParm,
@@ -243,7 +248,7 @@ static render_api_t gRenderAPI =
 	AVI_GetVideoInfo,
 	AVI_GetVideoFrameNumber,
 	AVI_GetVideoFrame,
-	NULL, // R_UploadStretchRaw,
+	pfnAVI_UploadRawFrame, // AVI_UploadRawFrame
 	AVI_FreeVideo,
 	AVI_IsActive,
 	pfnAVI_StreamSound,
@@ -301,7 +306,6 @@ qboolean R_InitRenderAPI( void )
 	gRenderAPI.GL_TextureData      = ref.dllFuncs.GL_TextureData;
 	gRenderAPI.GL_LoadTexture      = ref.dllFuncs.GL_LoadTexture;
 	gRenderAPI.GL_FreeTexture      = ref.dllFuncs.GL_FreeTexture;
-	gRenderAPI.AVI_UploadRawFrame  = ref.dllFuncs.AVI_UploadRawFrame;
 	gRenderAPI.GL_Bind             = ref.dllFuncs.GL_Bind;
 
 	ref.dllFuncs.R_FillRenderAPI( &gRenderAPI );

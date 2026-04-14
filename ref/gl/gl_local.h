@@ -187,8 +187,6 @@ typedef struct
 	int		lightmapTextures[MAX_LIGHTMAPS];
 	int		dlightTexture;	// custom dlight texture
 	int		skyboxTextures[SKYBOX_MAX_SIDES];	// skybox sides
-	int		cinTexture;      	// cinematic texture
-
 	int		skytexturenum;	// this not a gl_texturenum!
 	int		skyboxbasenum;	// start with 5800
 
@@ -318,7 +316,7 @@ void R_ClearDecals( void );
 // gl_draw.c
 //
 void R_Set2DMode( qboolean enable );
-void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data );
+void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
 
 //
 // gl_image.c
@@ -459,7 +457,6 @@ void R_RenderFrame( const struct ref_viewpass_s *vp );
 void R_EndFrame( void );
 void R_ClearScene( void );
 void R_GetTextureParms( int *w, int *h, int texnum );
-void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
 qboolean R_SpeedsMessage( char *out, size_t size );
 qboolean R_CullBox( const vec3_t mins, const vec3_t maxs );

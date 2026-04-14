@@ -1215,6 +1215,7 @@ void SteamBroker_TerminateGameConnection( void );
 // cl_video.c
 //
 void SCR_InitCinematic( void );
+int SCR_GetCinematicTexture( void );
 void SCR_FreeCinematic( void );
 qboolean SCR_PlayCinematic( const char *name );
 qboolean SCR_DrawCinematic( void );

@@ -901,9 +901,6 @@ static void GL_CreateInternalTextures( void )
 		((uint *)pic->buffer )[x] = 0xFF000000;
 	tr.blackTexture = GL_LoadTextureInternal( REF_BLACK_TEXTURE, pic, TF_COLORMAP );
 
-	// cinematic dummy
-	pic = GL_FakeImage( 640, 100, 1, IMAGE_HAS_COLOR );
-	tr.cinTexture = GL_LoadTextureInternal( "*cintexture", pic, TF_NOMIPMAP | TF_CLAMP );
 }
 
 /*
