@@ -397,7 +397,7 @@ typedef struct ref_api_s
 	// brushes
 	int (*Mod_SampleSizeForFace)( const struct msurface_s *surf );
 	qboolean (*Mod_BoxVisible)( const vec3_t mins, const vec3_t maxs, const byte *visbits );
-	mleaf_t *(*Mod_PointInLeaf)( const vec3_t p, mnode_t *node );
+	mleaf_t *(*Mod_PointInLeaf)( const vec3_t p, mnode_t *node, struct model_s *mod );
 	void (*R_DrawWorldHull)( void );
 	void (*R_DrawModelHull)( model_t *mod );
 
