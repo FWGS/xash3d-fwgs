@@ -476,6 +476,20 @@ colorVec R_LightPoint( const vec3_t p0 )
 }
 
 /*
+=================
+R_GatherPlayerLight
+
+get light level of an entity and set it as player's light level
+=================
+*/
+void R_GatherPlayerLight( cl_entity_t *view )
+{
+	colorVec c = R_LightPoint( view->origin );
+
+	gEngfuncs.SetLocalLightLevel(( c.r + c.g + c.b ) / 3 );
+}
+
+/*
 ================
 R_SetCacheState
 ================

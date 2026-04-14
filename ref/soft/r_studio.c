@@ -3127,20 +3127,6 @@ void R_RunViewmodelEvents( void )
 
 /*
 =================
-R_GatherPlayerLight
-=================
-*/
-void R_GatherPlayerLight( void )
-{
-	cl_entity_t *view = tr.viewent;
-	colorVec    c;
-
-	c = R_LightPoint( view->origin );
-	gEngfuncs.SetLocalLightLevel(( c.r + c.g + c.b ) / 3 );
-}
-
-/*
-=================
 R_DrawViewModel
 =================
 */
@@ -3148,7 +3134,7 @@ void R_DrawViewModel( void )
 {
 	cl_entity_t *view = tr.viewent;
 
-	R_GatherPlayerLight();
+	R_GatherPlayerLight( view );
 
 	if( r_drawviewmodel->value == 0 )
 		return;

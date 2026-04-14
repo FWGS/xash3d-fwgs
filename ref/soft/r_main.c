@@ -1172,7 +1172,7 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 
 		if( gEngfuncs.drawFuncs->GL_RenderFrame( rvp ))
 		{
-			// R_GatherPlayerLight();
+			// R_GatherPlayerLight( tr.viewent );
 			tr.realframecount++;
 			tr.fResetVis = true;
 			return;
