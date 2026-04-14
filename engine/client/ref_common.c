@@ -501,6 +501,63 @@ static void CL_FillTriAPI( triangleapi_t *dst )
 	ref.dllFuncs.R_FillTriAPI( dst );
 }
 
+static const byte dottexture[8][8] =
+{
+	{ 0, 1, 1, 0, 0, 0, 0, 0 },
+	{ 1, 1, 1, 1, 0, 0, 0, 0 },
+	{ 1, 1, 1, 1, 0, 0, 0, 0 },
+	{ 0, 1, 1, 0, 0, 0, 0, 0 },
+	{ 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+
+static void R_CreateBuiltinTextures( void )
+{
+	uint	data4x4[16];
+	uint	data16x16[256];
+	byte	particle[8 * 8 * 4];
+	int	x, y;
+
+	// default checkerboard
+	for( y = 0; y < 16; y++ )
+	{
+		for( x = 0; x < 16; x++ )
+		{
+			if(( y < 8 ) ^ ( x < 8 ))
+				data16x16[y * 16 + x] = 0xFFFF00FF;
+			else
+				data16x16[y * 16 + x] = 0xFF000000;
+		}
+	}
+	ref.dllFuncs.GL_CreateTexture( REF_DEFAULT_TEXTURE, 16, 16, data16x16, TF_COLORMAP );
+
+	// particle texture
+	memset( particle, 0, sizeof( particle ));
+	for( x = 0; x < 8; x++ )
+	{
+		for( y = 0; y < 8; y++ )
+		{
+			if( dottexture[x][y] )
+				particle[( y * 8 + x ) * 4 + 3] = 255;
+		}
+	}
+	ref.dllFuncs.GL_CreateTexture( REF_PARTICLE_TEXTURE, 8, 8, particle, TF_CLAMP );
+
+	// solid colors
+	memset( data4x4, 0xFF, sizeof( data4x4 ));
+	ref.dllFuncs.GL_CreateTexture( REF_WHITE_TEXTURE, 4, 4, data4x4, TF_COLORMAP );
+
+	for( x = 0; x < 16; x++ )
+		data4x4[x] = 0xFF7F7F7F;
+	ref.dllFuncs.GL_CreateTexture( REF_GRAY_TEXTURE, 4, 4, data4x4, TF_COLORMAP );
+
+	for( x = 0; x < 16; x++ )
+		data4x4[x] = 0xFF000000;
+	ref.dllFuncs.GL_CreateTexture( REF_BLACK_TEXTURE, 4, 4, data4x4, TF_COLORMAP );
+}
+
 static qboolean R_LoadProgs( const char *name )
 {
 	static ref_api_t gpEngfuncs;
@@ -544,7 +601,7 @@ static qboolean R_LoadProgs( const char *name )
 	Cvar_FullSet( "host_refloaded", "1", FCVAR_READ_ONLY );
 	ref.initialized = true;
 
-	// initialize TriAPI callbacks
+	R_CreateBuiltinTextures();
 	CL_FillTriAPI( &gTriApi );
 
 	return true;
