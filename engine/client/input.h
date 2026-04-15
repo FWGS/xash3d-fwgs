@@ -39,6 +39,10 @@ void IN_DeactivateMouse( void );
 void IN_MouseSavePos( void );
 void IN_MouseRestorePos( void );
 void IN_ToggleClientMouse( int newstate, int oldstate );
+void IN_GyroInit( void );
+void IN_GyroCheckAvailability( void );
+void IN_GyroEvent( vec3_t data );
+void IN_GyroFinalizeMove( float *fw, float *side, float *dpitch, float *dyaw );
 
 uint IN_CollectInputDevices( void );
 void IN_LockInputDevices( qboolean lock );

@@ -35,5 +35,15 @@ void SDLash_FreeCursors( void );
 //
 void SDLash_HandleGameControllerEvent( SDL_Event *ev );
 
+//
+// sensor_sdl2.c
+//
+void SDLash_InitSensors( void );
+void SDLash_ShutdownSensors( void );
+qboolean SDLash_GyroIsAvailable( void );
+#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+void SDLash_SensorUpdate( SDL_SensorEvent sensor );
+#endif
+
 #endif // XASH_SDL
 #endif // KEYWRAPPER_H

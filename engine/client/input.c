@@ -445,6 +445,8 @@ void IN_Init( void )
 	{
 		IN_StartupMouse( );
 
+		IN_GyroInit();
+
 		Joy_Init(); // common joystick support init
 
 		Touch_Init();
@@ -560,6 +562,7 @@ static void IN_CollectInput( float *forward, float *side, float *pitch, float *y
 #endif
 	}
 
+	IN_GyroFinalizeMove( forward, side, pitch, yaw );
 	Joy_FinalizeMove( forward, side, pitch, yaw );
 	Touch_GetMove( forward, side, pitch, yaw );
 
