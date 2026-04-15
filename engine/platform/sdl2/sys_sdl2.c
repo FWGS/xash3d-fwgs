@@ -146,10 +146,12 @@ void SDLash_Init( void )
 	SDL_StopTextInput();
 
 	SDLash_InitCursors();
+	SDLash_InitSensors();
 }
 
 void SDLash_Shutdown( void )
 {
+	SDLash_ShutdownSensors();
 	SDLash_FreeCursors();
 
 	SDL_Quit();

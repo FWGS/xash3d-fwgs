@@ -368,6 +368,11 @@ static void SDLash_EventHandler( SDL_Event *event )
 #endif
 		SDLash_HandleGameControllerEvent( event );
 		break;
+#if SDL_VERSION_ATLEAST( 2, 0, 14 )
+	case SDL_SENSORUPDATE:
+		SDLash_SensorUpdate( event->sensor );
+		break;
+#endif
 
 	case SDL_WINDOWEVENT:
 		if( event->window.windowID != SDL_GetWindowID( host.hWnd ) )
