@@ -1204,3 +1204,29 @@ void VID_Info_f( void )
 	else
 		Con_Printf( "Window display mode: " S_RED "fail: " S_DEFAULT "%s\n", SDL_GetError( ));
 }
+
+platform_orientation_t Platform_GetDisplayOrientation( void )
+{
+	if( host.hWnd )
+	{
+		int display_index = SDL_GetWindowDisplayIndex( host.hWnd );
+		if( display_index >= 0 )
+		{
+			switch( SDL_GetDisplayOrientation( display_index ) )
+			{
+			case SDL_ORIENTATION_LANDSCAPE:
+				return ORIENTATION_LANDSCAPE;
+			case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+				return ORIENTATION_LANDSCAPE_FLIPPED;
+			case SDL_ORIENTATION_PORTRAIT:
+				return ORIENTATION_PORTRAIT;
+			case SDL_ORIENTATION_PORTRAIT_FLIPPED:
+				return ORIENTATION_PORTRAIT_FLIPPED;
+			default:
+				return ORIENTATION_UNKNOWN;
+			}
+		}
+	}
+
+	return ORIENTATION_UNKNOWN;
+}
