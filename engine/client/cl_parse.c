@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
+#include "mod_local.h"
 #include "net_encode.h"
 #include "cl_tent.h"
 #include "shake.h"
@@ -1737,6 +1738,8 @@ void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto )
 
 			// tell rendering system we have a new set of models.
 			ref.dllFuncs.R_NewMap ();
+
+			Mod_LoadDetailTextures( cl.worldmodel );
 
 			// check if this map must start from dark screen
 			CL_StartDark ();

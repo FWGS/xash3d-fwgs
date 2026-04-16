@@ -244,6 +244,14 @@ static void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScal
 	if( yScale ) *yScale = glt->yscale;
 }
 
+static void R_SetDetailScaleForTexture( int texture, float xScale, float yScale )
+{
+	gl_texture_t *glt = R_GetTexture( texture );
+
+	glt->xscale = xScale;
+	glt->yscale = yScale;
+}
+
 static void R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
 {
 	gl_texture_t *glt = R_GetTexture( texture );
@@ -311,11 +319,6 @@ static void R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned
 		gEngfuncs.drawFuncs->R_ProcessEntData( allocate );
 }
 
-static void GAME_EXPORT R_Flush( unsigned int flags )
-{
-	// stub
-}
-
 /*
 =============
 R_SetSkyCloudsTextures
@@ -369,11 +372,6 @@ static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_
 	return ret;
 }
 
-static void GAME_EXPORT VGUI_UploadTextureBlock( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
-{
-	pglTexSubImage2D( GL_TEXTURE_2D, 0, drawX, drawY, blockWidth, blockHeight, GL_RGBA, GL_UNSIGNED_BYTE, rgba );
-}
-
 static void GAME_EXPORT VGUI_SetupDrawing( qboolean rect )
 {
 	pglEnable( GL_BLEND );
@@ -413,6 +411,85 @@ static const char *R_GetConfigName( void )
 	return "opengl";
 }
 
+static void R_NewMap( void )
+{
+	texture_t	*tx;
+	int	i;
+
+	tr.worldmodel = gp_cl->models[1];
+
+	R_ClearDecals(); // clear all level decals
+
+	R_StudioResetPlayerModels();
+
+	// clear out efrags in case the level hasn't been reloaded
+	for( i = 0; i < WORLDMODEL->numleafs; i++ )
+		WORLDMODEL->leafs[i+1].efrags = NULL;
+
+	glState.isFogEnabled = false;
+	tr.skytexturenum = -1;
+	pglDisable( GL_FOG );
+
+	// clearing texture chains
+	for( i = 0; i < WORLDMODEL->numtextures; i++ )
+	{
+		if( !WORLDMODEL->textures[i] )
+			continue;
+
+		tx = WORLDMODEL->textures[i];
+
+		if( !Q_strncmp( tx->name, "sky", 3 ) && tx->width == ( tx->height * 2 ))
+			tr.skytexturenum = i;
+
+		tx->texturechain = NULL;
+	}
+
+	GL_BuildLightmaps ();
+
+	R_ClearVBO();
+	if( R_HasEnabledVBO( ))
+		R_GenerateVBO();
+	R_ResetRipples();
+
+	if( gEngfuncs.drawFuncs->R_NewMap != NULL )
+		gEngfuncs.drawFuncs->R_NewMap();
+}
+
+static void R_FillRenderAPI( render_api_t *api )
+{
+	api->GetExtraParmsForTexture  = R_GetExtraParmsForTexture;
+	api->GetFrameTime             = R_GetFrameTime;
+	api->R_SetCurrentEntity       = R_SetCurrentEntity;
+	api->R_SetCurrentModel        = R_SetCurrentModel;
+	api->GL_CreateTexture         = GL_CreateTexture;
+	api->GL_LoadTextureArray      = GL_LoadTextureArray;
+	api->GL_CreateTextureArray    = GL_CreateTextureArray;
+	api->DrawSingleDecal          = DrawSingleDecal;
+	api->R_DecalSetupVerts        = R_DecalSetupVerts;
+	api->R_EntityRemoveDecals     = R_EntityRemoveDecals;
+	api->GL_SelectTexture         = GL_SelectTexture;
+	api->GL_LoadTextureMatrix     = GL_LoadTexMatrixExt;
+	api->GL_TexMatrixIdentity     = GL_LoadIdentityTexMatrix;
+	api->GL_CleanUpTextureUnits   = GL_CleanUpTextureUnits;
+	api->GL_TexGen                = GL_TexGen;
+	api->GL_TextureTarget         = GL_TextureTarget;
+	api->GL_TexCoordArrayMode     = GL_SetTexCoordArrayMode;
+	api->GL_UpdateTexSize         = GL_UpdateTexSize;
+	api->GL_DrawParticles         = CL_DrawParticlesExternal;
+	api->LightVec                 = R_LightVec;
+	api->StudioGetTexture         = R_StudioGetTexture;
+	api->GL_GetProcAddress        = R_GetProcAddress;
+}
+
+static void R_FillTriAPI( triangleapi_t *api )
+{
+	api->TexCoord2f    = TriTexCoord2f;
+	api->Fog           = TriFog;
+	api->ScreenToWorld = R_ScreenToWorld;
+	api->GetMatrix     = TriGetMatrix;
+	api->FogParams     = TriFogParams;
+}
+
 const ref_interface_t gReffuncs =
 {
 	R_Init,
@@ -439,7 +516,6 @@ const ref_interface_t gReffuncs =
 
 	R_AddEntity,
 	R_ProcessEntData,
-	R_Flush,
 
 	R_ShowTextures,
 
@@ -449,7 +525,6 @@ const ref_interface_t gReffuncs =
 	R_SetupSky,
 
 	R_Set2DMode,
-	R_DrawStretchRaw,
 	R_DrawStretchPic,
 	CL_FillRGBA,
 	R_WorldToScreen,
@@ -466,7 +541,8 @@ const ref_interface_t gReffuncs =
 
 	R_StudioEstimateFrame,
 	R_StudioLerpMovement,
-	CL_InitStudioAPI,
+	R_StudioFillAPI,
+	R_StudioSetDrawInterface,
 
 	R_SetSkyCloudsTextures,
 	GL_SubdivideSurface,
@@ -479,45 +555,23 @@ const ref_interface_t gReffuncs =
 	CL_DrawParticles,
 	CL_DrawTracers,
 	CL_DrawBeams,
-	R_BeamCull,
 
 	GL_RefGetParm,
+
 	R_GetDetailScaleForTexture,
-	R_GetExtraParmsForTexture,
-	R_GetFrameTime,
+	R_SetDetailScaleForTexture,
 
-	R_SetCurrentEntity,
-	R_SetCurrentModel,
-
+	GL_CreateTexture,
 	GL_FindTexture,
 	GL_TextureName,
 	GL_TextureData,
 	GL_LoadTexture,
-	GL_CreateTexture,
-	GL_LoadTextureArray,
-	GL_CreateTextureArray,
 	GL_FreeTexture,
 	R_OverrideTextureSourceSize,
 
-	DrawSingleDecal,
-	R_DecalSetupVerts,
-	R_EntityRemoveDecals,
-
-	R_UploadStretchRaw,
+	GL_UpdateTexture,
 
 	GL_Bind,
-	GL_SelectTexture,
-	GL_LoadTexMatrixExt,
-	GL_LoadIdentityTexMatrix,
-	GL_CleanUpTextureUnits,
-	GL_TexGen,
-	GL_TextureTarget,
-	GL_SetTexCoordArrayMode,
-	GL_UpdateTexSize,
-
-	CL_DrawParticlesExternal,
-	R_LightVec,
-	R_StudioGetTexture,
 
 	R_RenderFrame,
 	Mod_SetOrthoBounds,
@@ -525,23 +579,19 @@ const ref_interface_t gReffuncs =
 	Mod_GetCurrentVis,
 	R_NewMap,
 	R_ClearScene,
-	R_GetProcAddress,
 
 	TriRenderMode,
 	TriBegin,
 	TriEnd,
 	_TriColor4f,
 	_TriColor4ub,
-	TriTexCoord2f,
 	TriVertex3fv,
 	TriVertex3f,
-	TriFog,
-	R_ScreenToWorld,
-	TriGetMatrix,
-	TriFogParams,
 	TriCullFace,
 
+	R_FillRenderAPI,
+	R_FillTriAPI,
+
 	VGUI_SetupDrawing,
-	VGUI_UploadTextureBlock,
 };
 

@@ -219,19 +219,10 @@ void Draw_Fill( int x, int y, int w, int h )
 
 /*
 =============
-R_DrawStretchRaw
+GL_UpdateTexture
 =============
 */
-void GAME_EXPORT R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
-{
-}
-
-/*
-=============
-R_UploadStretchRaw
-=============
-*/
-void GAME_EXPORT R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data )
+void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt )
 {
 }
 

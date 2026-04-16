@@ -187,8 +187,6 @@ typedef struct
 	int		lightmapTextures[MAX_LIGHTMAPS];
 	int		dlightTexture;	// custom dlight texture
 	int		skyboxTextures[SKYBOX_MAX_SIDES];	// skybox sides
-	int		cinTexture;      	// cinematic texture
-
 	int		skytexturenum;	// this not a gl_texturenum!
 	int		skyboxbasenum;	// start with 5800
 
@@ -296,7 +294,6 @@ void SCR_TimeRefresh_f( void );
 // gl_beams.c
 //
 void CL_DrawBeams( int fTrans, BEAM *active_beams );
-qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 
 //
 // gl_cull.c
@@ -319,7 +316,7 @@ void R_ClearDecals( void );
 // gl_draw.c
 //
 void R_Set2DMode( qboolean enable );
-void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data );
+void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
 
 //
 // gl_image.c
@@ -369,10 +366,6 @@ void R_DrawFog( void );
 int CL_FxBlend( cl_entity_t *e );
 
 //
-// gl_rmisc.c
-//
-void R_NewMap( void );
-
 //
 // gl_rsurf.c
 //
@@ -416,11 +409,11 @@ struct mstudiotex_s *R_StudioGetTexture( cl_entity_t *e );
 int R_GetEntityRenderMode( cl_entity_t *ent );
 void R_DrawStudioModel( cl_entity_t *e );
 player_info_t *pfnPlayerInfo( int index );
-void R_GatherPlayerLight( void );
 float R_StudioEstimateFrame( cl_entity_t *e, mstudioseqdesc_t *pseqdesc, double time );
 void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
 void R_StudioResetPlayerModels( void );
-void CL_InitStudioAPI( void );
+qboolean R_StudioFillAPI( struct engine_studio_api_s *api, struct r_studio_interface_s *pDefaultDraw );
+void R_StudioSetDrawInterface( struct r_studio_interface_s *pDraw );
 void Mod_StudioLoadTextures( model_t *mod, void *data );
 void Mod_StudioUnloadTextures( void *data );
 
@@ -463,7 +456,6 @@ void R_RenderFrame( const struct ref_viewpass_s *vp );
 void R_EndFrame( void );
 void R_ClearScene( void );
 void R_GetTextureParms( int *w, int *h, int texnum );
-void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
 qboolean R_SpeedsMessage( char *out, size_t size );
 qboolean R_CullBox( const vec3_t mins, const vec3_t maxs );

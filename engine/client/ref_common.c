@@ -287,13 +287,6 @@ static entity_state_t *R_StudioGetPlayerState( int index )
 	return &cl.frames[cl.parsecountmod].playerstate[index];
 }
 
-static int pfnGetStudioModelInterface( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio )
-{
-	return clgame.dllFuncs.pfnGetStudioModelInterface ?
-		clgame.dllFuncs.pfnGetStudioModelInterface( version, ppinterface, pstudio ) :
-		0;
-}
-
 static const bpc_desc_t *pfnImage_GetPFDesc( int idx )
 {
 	return &PFDesc[idx];
@@ -329,11 +322,6 @@ static qboolean R_Init_Video_( ref_graphic_apis_t type )
 	return R_Init_Video( type );
 }
 
-static mleaf_t *pfnMod_PointInLeaf( const vec3_t p, mnode_t *node )
-{
-	// FIXME: get rid of this on next RefAPI update
-	return Mod_PointInLeaf( p, node, cl.models[1] );
-}
 
 static const ref_api_t gEngfuncs =
 {
@@ -375,7 +363,7 @@ static const ref_api_t gEngfuncs =
 
 	Mod_SampleSizeForFace,
 	Mod_BoxVisible,
-	pfnMod_PointInLeaf,
+	Mod_PointInLeaf,
 	R_DrawWorldHull,
 	R_DrawModelHull,
 
@@ -411,7 +399,6 @@ static const ref_api_t gEngfuncs =
 	Mod_CacheCheck,
 	Mod_LoadCacheFile,
 	Mod_Calloc,
-	pfnGetStudioModelInterface,
 
 	_Mem_AllocPool,
 	_Mem_FreePool,
@@ -488,28 +475,82 @@ static void R_UnloadProgs( void )
 	memset( &ref.dllFuncs, 0, sizeof( ref.dllFuncs ));
 }
 
-static void CL_FillTriAPIFromRef( triangleapi_t *dst, const ref_interface_t *src )
+static void CL_FillTriAPI( triangleapi_t *dst )
 {
 	dst->version           = TRI_API_VERSION;
-	dst->Begin             = src->Begin;
 	dst->RenderMode        = TriRenderMode;
-	dst->End               = src->End;
 	dst->Color4f           = TriColor4f;
 	dst->Color4ub          = TriColor4ub;
-	dst->TexCoord2f        = src->TexCoord2f;
-	dst->Vertex3f          = src->Vertex3f;
-	dst->Vertex3fv         = src->Vertex3fv;
 	dst->Brightness        = TriBrightness;
 	dst->CullFace          = TriCullFace;
 	dst->SpriteTexture     = TriSpriteTexture;
 	dst->WorldToScreen     = TriWorldToScreen;
-	dst->Fog               = src->Fog;
-	dst->ScreenToWorld     = src->ScreenToWorld;
-	dst->GetMatrix         = src->GetMatrix;
 	dst->BoxInPVS          = TriBoxInPVS;
 	dst->LightAtPoint      = TriLightAtPoint;
 	dst->Color4fRendermode = TriColor4fRendermode;
-	dst->FogParams         = src->FogParams;
+	dst->Begin             = ref.dllFuncs.Begin;
+	dst->End               = ref.dllFuncs.End;
+	dst->Vertex3f          = ref.dllFuncs.Vertex3f;
+	dst->Vertex3fv         = ref.dllFuncs.Vertex3fv;
+
+	ref.dllFuncs.R_FillTriAPI( dst );
+}
+
+static const byte dottexture[8][8] =
+{
+	{ 0, 1, 1, 0, 0, 0, 0, 0 },
+	{ 1, 1, 1, 1, 0, 0, 0, 0 },
+	{ 1, 1, 1, 1, 0, 0, 0, 0 },
+	{ 0, 1, 1, 0, 0, 0, 0, 0 },
+	{ 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 0, 0, 0, 0, 0, 0, 0, 0 },
+};
+
+static void R_CreateBuiltinTextures( void )
+{
+	uint	data4x4[16];
+	uint	data16x16[256];
+	byte	particle[8 * 8 * 4];
+	int	x, y;
+
+	// default checkerboard
+	for( y = 0; y < 16; y++ )
+	{
+		for( x = 0; x < 16; x++ )
+		{
+			if(( y < 8 ) ^ ( x < 8 ))
+				data16x16[y * 16 + x] = 0xFFFF00FF;
+			else
+				data16x16[y * 16 + x] = 0xFF000000;
+		}
+	}
+	ref.dllFuncs.GL_CreateTexture( REF_DEFAULT_TEXTURE, 16, 16, data16x16, TF_COLORMAP );
+
+	// particle texture
+	memset( particle, 0, sizeof( particle ));
+	for( x = 0; x < 8; x++ )
+	{
+		for( y = 0; y < 8; y++ )
+		{
+			if( dottexture[x][y] )
+				particle[( y * 8 + x ) * 4 + 3] = 255;
+		}
+	}
+	ref.dllFuncs.GL_CreateTexture( REF_PARTICLE_TEXTURE, 8, 8, particle, TF_CLAMP );
+
+	// solid colors
+	memset( data4x4, 0xFF, sizeof( data4x4 ));
+	ref.dllFuncs.GL_CreateTexture( REF_WHITE_TEXTURE, 4, 4, data4x4, TF_COLORMAP );
+
+	for( x = 0; x < 16; x++ )
+		data4x4[x] = 0xFF7F7F7F;
+	ref.dllFuncs.GL_CreateTexture( REF_GRAY_TEXTURE, 4, 4, data4x4, TF_COLORMAP );
+
+	for( x = 0; x < 16; x++ )
+		data4x4[x] = 0xFF000000;
+	ref.dllFuncs.GL_CreateTexture( REF_BLACK_TEXTURE, 4, 4, data4x4, TF_COLORMAP );
 }
 
 static qboolean R_LoadProgs( const char *name )
@@ -555,8 +596,8 @@ static qboolean R_LoadProgs( const char *name )
 	Cvar_FullSet( "host_refloaded", "1", FCVAR_READ_ONLY );
 	ref.initialized = true;
 
-	// initialize TriAPI callbacks
-	CL_FillTriAPIFromRef( &gTriApi, &ref.dllFuncs );
+	R_CreateBuiltinTextures();
+	CL_FillTriAPI( &gTriApi );
 
 	return true;
 }

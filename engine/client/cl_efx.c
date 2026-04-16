@@ -849,6 +849,31 @@ BEAM * GAME_EXPORT R_BeamEnts( int startEnt, int endEnt, int modelIndex, float l
 	return pbeam;
 }
 
+static qboolean R_BeamVisible( const vec3_t start, const vec3_t end )
+{
+	vec3_t mins, maxs;
+
+	for( int i = 0; i < 3; i++ )
+	{
+		if( start[i] < end[i] )
+		{
+			mins[i] = start[i];
+			maxs[i] = end[i];
+		}
+		else
+		{
+			mins[i] = end[i];
+			maxs[i] = start[i];
+		}
+
+		// don't let it be zero sized
+		if( mins[i] == maxs[i] )
+			maxs[i] += 1.0f;
+	}
+
+	return Mod_BoxVisible( mins, maxs, ref.dllFuncs.Mod_GetCurrentVis( ));
+}
+
 /*
 ==============
 R_BeamPoints
@@ -861,7 +886,7 @@ BEAM * GAME_EXPORT R_BeamPoints( vec3_t start, vec3_t end, int modelIndex, float
 {
 	BEAM	*pbeam;
 
-	if( life != 0 && ref.dllFuncs.R_BeamCull( start, end, true ))
+	if( life != 0 && !R_BeamVisible( start, end ))
 		return NULL;
 
 	pbeam = R_BeamAlloc();

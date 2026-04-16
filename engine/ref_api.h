@@ -64,7 +64,15 @@ GNU General Public License for more details.
 // 13. Removed ignore_flags argument from GetCvarPointer
 // 14. Removed reserved functions, they are leftover from RenderAPI
 //     Removed CL_AddCustomBeam, it's now handled through R_AddEntity
-#define REF_API_VERSION 14
+// 15. Replaced CL_InitStudioAPI with R_StudioFillAPI + R_StudioSetDrawInterface
+//     Engine now builds engine_studio_api_t and handles client DLL negotiation
+//     Replaced R_DrawStretchRaw and AVI_UploadRawFrame with GL_UpdateTexture
+//     Added GL_CreateTexture, R_GetDetailScaleForTexture, R_SetDetailScaleForTexture
+//     Removed R_Flush, VGUI_UploadTextureBlock, R_BeamCull, pfnGetStudioModelInterface
+//     Moved RenderAPI and TriAPI filling to renderer via R_FillRenderAPI and R_FillTriAPI
+//     Moved detail textures parsing and cinematic texture management to engine
+//     Moved creation of default textures to the engine
+#define REF_API_VERSION 15
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -223,7 +231,7 @@ enum ref_defaultsprite_e
 };
 
 // the order of first three is important!
-// so you can use this value in IEngineStudio.StudioIsHardware
+// so you can use this value in IEngineStudio.StudioIsHardware (but shouldn't)
 typedef enum ref_graphic_apis_e
 {
 	REF_SOFTWARE,	// hypothetical: just make a surface to draw on, in software
@@ -389,7 +397,7 @@ typedef struct ref_api_s
 	// brushes
 	int (*Mod_SampleSizeForFace)( const struct msurface_s *surf );
 	qboolean (*Mod_BoxVisible)( const vec3_t mins, const vec3_t maxs, const byte *visbits );
-	mleaf_t *(*Mod_PointInLeaf)( const vec3_t p, mnode_t *node );
+	mleaf_t *(*Mod_PointInLeaf)( const vec3_t p, mnode_t *node, struct model_s *mod );
 	void (*R_DrawWorldHull)( void );
 	void (*R_DrawModelHull)( model_t *mod );
 
@@ -431,7 +439,6 @@ typedef struct ref_api_s
 	void *(*Mod_CacheCheck)( struct cache_user_s *c );
 	void (*Mod_LoadCacheFile)( const char *path, struct cache_user_s *cu );
 	void *(*Mod_Calloc)( int number, size_t size );
-	int	(*pfnGetStudioModelInterface)( int version, struct r_studio_interface_s **ppinterface, struct engine_studio_api_s *pstudio );
 
 	// memory
 	poolhandle_t (*_Mem_AllocPool)( const char *name, const char *filename, int fileline )
@@ -539,8 +546,6 @@ typedef struct ref_interface_s
 
 	qboolean (*R_AddEntity)( struct cl_entity_s *clent, int type );
 	void (*R_ProcessEntData)( qboolean allocate, cl_entity_t *entities, unsigned int max_entities );
-	void (*R_Flush)( unsigned int flush_flags );
-
 	// debug
 	void (*R_ShowTextures)( void );
 
@@ -552,7 +557,6 @@ typedef struct ref_interface_s
 
 	// 2D
 	void (*R_Set2DMode)( qboolean enable );
-	void (*R_DrawStretchRaw)( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
 	void (*R_DrawStretchPic)( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
 	void (*FillRGBA)( int rendermode, float x, float y, float w, float h, byte r, byte g, byte b, byte a ); // in screen space
 	int  (*WorldToScreen)( const vec3_t world, vec3_t screen );  // Returns 1 if it's z clipped
@@ -574,7 +578,8 @@ typedef struct ref_interface_s
 	// studio interface
 	float (*R_StudioEstimateFrame)( cl_entity_t *e, mstudioseqdesc_t *pseqdesc, double time );
 	void (*R_StudioLerpMovement)( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
-	void (*CL_InitStudioAPI)( void );
+	qboolean (*R_StudioFillAPI)( struct engine_studio_api_s *api, struct r_studio_interface_s *pDefaultDraw );
+	void (*R_StudioSetDrawInterface)( struct r_studio_interface_s *pDraw );
 
 	// bmodel
 	void (*R_SetSkyCloudsTextures)( int solidskyTexture, int alphaskyTexture );
@@ -591,53 +596,27 @@ typedef struct ref_interface_s
 	void (*CL_DrawParticles)( double frametime, particle_t *particles, float partsize );
 	void (*CL_DrawTracers)( double frametime, particle_t *tracers );
 	void (*CL_DrawBeams)( int fTrans , BEAM *beams );
-	qboolean (*R_BeamCull)( const vec3_t start, const vec3_t end, qboolean pvsOnly );
 
 	// Xash3D Render Interface
-	// Get renderer info (doesn't changes engine state at all)
 	int			(*RefGetParm)( int parm, int arg );	// generic
-	void		(*GetDetailScaleForTexture)( int texture, float *xScale, float *yScale );
-	void		(*GetExtraParmsForTexture)( int texture, byte *red, byte *green, byte *blue, byte *alpha );
-	float		(*GetFrameTime)( void );
 
-	// Set renderer info (tell engine about changes)
-	void		(*R_SetCurrentEntity)( struct cl_entity_s *ent ); // tell engine about both currententity and currentmodel
-	void		(*R_SetCurrentModel)( struct model_s *mod );	// change currentmodel but leave currententity unchanged
+	// detail texture scale
+	void	(*R_GetDetailScaleForTexture)( int texture, float *xScale, float *yScale );
+	void	(*R_SetDetailScaleForTexture)( int texture, float xScale, float yScale );
 
-	// Texture tools
+	// Texture tools (used by engine directly)
+	int		(*GL_CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
 	int		(*GL_FindTexture)( const char *name );
 	const char*	(*GL_TextureName)( unsigned int texnum );
 	const byte*	(*GL_TextureData)( unsigned int texnum ); // may be NULL
 	int		(*GL_LoadTexture)( const char *name, const byte *buf, size_t size, int flags );
-	int		(*GL_CreateTexture)( const char *name, int width, int height, const void *buffer, texFlags_t flags );
-	int		(*GL_LoadTextureArray)( const char **names, int flags );
-	int		(*GL_CreateTextureArray)( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 	void		(*GL_FreeTexture)( unsigned int texnum );
 	void	(*R_OverrideTextureSourceSize)( unsigned int texnum, unsigned int srcWidth, unsigned int srcHeight ); // used to override decal size for texture replacement
 
-	// Decals manipulating (draw & remove)
-	void		(*DrawSingleDecal)( struct decal_s *pDecal, struct msurface_s *fa );
-	float		*(*R_DecalSetupVerts)( struct decal_s *pDecal, struct msurface_s *surf, int texture, int *outCount );
-	void		(*R_EntityRemoveDecals)( struct model_s *mod ); // remove all the decals from specified entity (BSP only)
+	void		(*GL_UpdateTexture)( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
 
-	// AVI
-	void		(*AVI_UploadRawFrame)( int texture, int cols, int rows, int width, int height, const byte *data );
-
-	// glState related calls (must use this instead of normal gl-calls to prevent de-synchornize local states between engine and the client)
+	// glState related calls (used by engine directly)
 	void		(*GL_Bind)( int tmu, unsigned int texnum );
-	void		(*GL_SelectTexture)( int tmu );
-	void		(*GL_LoadTextureMatrix)( const float *glmatrix );
-	void		(*GL_TexMatrixIdentity)( void );
-	void		(*GL_CleanUpTextureUnits)( int last );	// pass 0 for clear all the texture units
-	void		(*GL_TexGen)( unsigned int coord, unsigned int mode );
-	void		(*GL_TextureTarget)( unsigned int target ); // change texture unit mode without bind texture
-	void		(*GL_TexCoordArrayMode)( unsigned int texmode );
-	void		(*GL_UpdateTexSize)( int texnum, int width, int height, int depth ); // recalc statistics
-
-	// Misc renderer functions
-	void		(*GL_DrawParticles)( const struct ref_viewpass_s *rvp, qboolean trans_pass, float frametime );
-	colorVec		(*LightVec)( const float *start, const float *end, float *lightspot, float *lightvec );
-	struct mstudiotex_s *( *StudioGetTexture )( struct cl_entity_s *e );
 
 	// passed through R_RenderFrame (0 - use engine renderer, 1 - use custom client renderer)
 	void		(*GL_RenderFrame)( const struct ref_viewpass_s *rvp );
@@ -651,28 +630,23 @@ typedef struct ref_interface_s
 	void		(*R_NewMap)( void );
 	// clear the render entities before each frame
 	void		(*R_ClearScene)( void );
-	// GL_GetProcAddress for client renderer
-	void*		(*R_GetProcAddress)( const char *name );
 
-	// TriAPI Interface
-	// NOTE: implementation isn't required to be compatible
+	// TriAPI Interface (functions used by engine wrappers)
 	void	(*TriRenderMode)( int mode );
 	void	(*Begin)( int primitiveCode );
 	void	(*End)( void );
 	void	(*Color4f)( float r, float g, float b, float a ); // real glColor4f
 	void	(*Color4ub)( unsigned char r, unsigned char g, unsigned char b, unsigned char a ); // real glColor4ub
-	void	(*TexCoord2f)( float u, float v );
 	void	(*Vertex3fv)( const float *worldPnt );
 	void	(*Vertex3f)( float x, float y, float z );
-	void	(*Fog)( float flFogColor[3], float flStart, float flEnd, int bOn ); //Works just like GL_FOG, flFogColor is r/g/b.
-	void	(*ScreenToWorld)( const float *screen, float *world  );
-	void	(*GetMatrix)( const int pname, float *matrix );
-	void	(*FogParams)( float flDensity, int iFogSkybox );
 	void    (*CullFace)( TRICULLSTYLE mode );
+
+	// fill render_api_t and triangleapi_t with renderer-specific functions
+	void	(*R_FillRenderAPI)( struct render_api_s *api );
+	void	(*R_FillTriAPI)( struct triangleapi_s *api );
 
 	// vgui drawing implementation
 	void	(*VGUI_SetupDrawing)( qboolean rect );
-	void	(*VGUI_UploadTextureBlock)( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight );
 } ref_interface_t;
 
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );

@@ -874,7 +874,6 @@ struct msurface_s *pfnTraceSurface( int ground, float *vstart, float *vend );
 void CL_EnableScissor( scissor_state_t *scissor, int x, int y, int width, int height );
 void CL_DisableScissor( scissor_state_t *scissor );
 qboolean CL_Scissor( const scissor_state_t *scissor, float *x, float *y, float *width, float *height, float *u0, float *v0, float *u1, float *v1 );
-
 static inline cl_entity_t *CL_EDICT_NUM( int index )
 {
 	if( unlikely( !clgame.entities )) // not in game yet
@@ -1216,6 +1215,7 @@ void SteamBroker_TerminateGameConnection( void );
 // cl_video.c
 //
 void SCR_InitCinematic( void );
+int SCR_GetCinematicTexture( void );
 void SCR_FreeCinematic( void );
 qboolean SCR_PlayCinematic( const char *name );
 qboolean SCR_DrawCinematic( void );

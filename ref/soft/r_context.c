@@ -198,8 +198,13 @@ static void GAME_EXPORT R_GetDetailScaleForTexture( int texture, float *xScale, 
 {
 	// details are not implemented in ref_soft
 
-	if( xScale ) *xScale = 0.0f;
-	if( yScale ) *yScale = 0.0f;
+	if( xScale ) *xScale = 1.0f;
+	if( yScale ) *yScale = 1.0f;
+}
+
+static void GAME_EXPORT R_SetDetailScaleForTexture( int texture, float xScale, float yScale )
+{
+	// details are not implemented in ref_soft
 }
 
 static void GAME_EXPORT R_GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *density )
@@ -256,11 +261,6 @@ static void GAME_EXPORT R_ProcessEntData( qboolean allocate, cl_entity_t *entiti
 {
 	tr.entities = entities;
 	tr.max_entities = max_entities;
-}
-
-static void GAME_EXPORT R_Flush( unsigned int flags )
-{
-	// stub
 }
 
 // stubs
@@ -372,10 +372,6 @@ byte *GAME_EXPORT Mod_GetCurrentVis( void )
 	return NULL;
 }
 
-static void GAME_EXPORT VGUI_UploadTextureBlock( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
-{
-}
-
 static void GAME_EXPORT VGUI_SetupDrawing( qboolean rect )
 {
 }
@@ -396,6 +392,41 @@ static const char *R_GetConfigName( void )
 static void * GAME_EXPORT R_GetProcAddress( const char *name )
 {
 	return gEngfuncs.GL_GetProcAddress( name );
+}
+
+static void R_FillRenderAPI( render_api_t *api )
+{
+	api->GetExtraParmsForTexture  = R_GetExtraParmsForTexture;
+	api->GetFrameTime             = R_GetFrameTime;
+	api->R_SetCurrentEntity       = R_SetCurrentEntity;
+	api->R_SetCurrentModel        = R_SetCurrentModel;
+	api->GL_CreateTexture         = GL_CreateTexture;
+	api->GL_LoadTextureArray      = GL_LoadTextureArray;
+	api->GL_CreateTextureArray    = GL_CreateTextureArray;
+	api->DrawSingleDecal          = DrawSingleDecal;
+	api->R_DecalSetupVerts        = R_DecalSetupVerts;
+	api->R_EntityRemoveDecals     = R_EntityRemoveDecals;
+	api->GL_SelectTexture         = GL_SelectTexture;
+	api->GL_LoadTextureMatrix     = GL_LoadTexMatrixExt;
+	api->GL_TexMatrixIdentity     = GL_LoadIdentityTexMatrix;
+	api->GL_CleanUpTextureUnits   = GL_CleanUpTextureUnits;
+	api->GL_TexGen                = GL_TexGen;
+	api->GL_TextureTarget         = GL_TextureTarget;
+	api->GL_TexCoordArrayMode     = GL_SetTexCoordArrayMode;
+	api->GL_UpdateTexSize         = GL_UpdateTexSize;
+	api->GL_DrawParticles         = CL_DrawParticlesExternal;
+	api->LightVec                 = R_LightVec;
+	api->StudioGetTexture         = R_StudioGetTexture;
+	api->GL_GetProcAddress        = R_GetProcAddress;
+}
+
+static void R_FillTriAPI( triangleapi_t *api )
+{
+	api->TexCoord2f    = TriTexCoord2f;
+	api->Fog           = TriFog;
+	api->ScreenToWorld = R_ScreenToWorld;
+	api->GetMatrix     = TriGetMatrix;
+	api->FogParams     = TriFogParams;
 }
 
 const ref_interface_t gReffuncs =
@@ -424,7 +455,6 @@ const ref_interface_t gReffuncs =
 
 	R_AddEntity,
 	R_ProcessEntData,
-	R_Flush,
 
 	R_ShowTextures,
 
@@ -434,7 +464,6 @@ const ref_interface_t gReffuncs =
 	R_SetupSky,
 
 	R_Set2DMode,
-	R_DrawStretchRaw,
 	R_DrawStretchPic,
 	CL_FillRGBA,
 	R_WorldToScreen,
@@ -451,7 +480,8 @@ const ref_interface_t gReffuncs =
 
 	R_StudioEstimateFrame,
 	R_StudioLerpMovement,
-	CL_InitStudioAPI,
+	R_StudioFillAPI,
+	R_StudioSetDrawInterface,
 
 	R_SetSkyCloudsTextures,
 	GL_SubdivideSurface,
@@ -464,45 +494,23 @@ const ref_interface_t gReffuncs =
 	CL_DrawParticles,
 	CL_DrawTracers,
 	CL_DrawBeams,
-	R_BeamCull,
 
 	GL_RefGetParm,
+
 	R_GetDetailScaleForTexture,
-	R_GetExtraParmsForTexture,
-	R_GetFrameTime,
+	R_SetDetailScaleForTexture,
 
-	R_SetCurrentEntity,
-	R_SetCurrentModel,
-
+	GL_CreateTexture,
 	GL_FindTexture,
 	GL_TextureName,
 	GL_TextureData,
 	GL_LoadTexture,
-	GL_CreateTexture,
-	GL_LoadTextureArray,
-	GL_CreateTextureArray,
 	GL_FreeTexture,
 	R_OverrideTextureSourceSize,
 
-	DrawSingleDecal,
-	R_DecalSetupVerts,
-	R_EntityRemoveDecals,
-
-	R_UploadStretchRaw,
+	GL_UpdateTexture,
 
 	GL_Bind,
-	GL_SelectTexture,
-	GL_LoadTexMatrixExt,
-	GL_LoadIdentityTexMatrix,
-	GL_CleanUpTextureUnits,
-	GL_TexGen,
-	GL_TextureTarget,
-	GL_SetTexCoordArrayMode,
-	GL_UpdateTexSize,
-
-	CL_DrawParticlesExternal,
-	R_LightVec,
-	R_StudioGetTexture,
 
 	R_RenderFrame,
 	Mod_SetOrthoBounds,
@@ -510,23 +518,19 @@ const ref_interface_t gReffuncs =
 	Mod_GetCurrentVis,
 	R_NewMap,
 	R_ClearScene,
-	R_GetProcAddress,
 
 	TriRenderMode,
 	TriBegin,
 	TriEnd,
 	_TriColor4f,
 	_TriColor4ub,
-	TriTexCoord2f,
 	TriVertex3fv,
 	TriVertex3f,
-	TriFog,
-	R_ScreenToWorld,
-	TriGetMatrix,
-	TriFogParams,
 	TriCullFace,
 
+	R_FillRenderAPI,
+	R_FillTriAPI,
+
 	VGUI_SetupDrawing,
-	VGUI_UploadTextureBlock,
 };
 
