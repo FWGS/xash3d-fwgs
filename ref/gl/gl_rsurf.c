@@ -3770,7 +3770,7 @@ void R_MarkLeaves( void )
 		else
 			VectorSet( test, RI.rvp.vieworigin[0], RI.rvp.vieworigin[1], RI.rvp.vieworigin[2] + 16.0f );
 
-		leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
+		leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes, WORLDMODEL );
 
 		if(( leaf->contents != CONTENTS_SOLID ) && ( RI.viewleaf != leaf ))
 			force = true;

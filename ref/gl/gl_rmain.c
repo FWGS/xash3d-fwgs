@@ -511,7 +511,7 @@ R_FindViewLeaf
 void R_FindViewLeaf( void )
 {
 	RI.oldviewleaf = RI.viewleaf;
-	RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes );
+	RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes, WORLDMODEL );
 }
 
 /*
@@ -1105,7 +1105,7 @@ void R_RenderFrame( const ref_viewpass_t *rvp )
 
 		if( gEngfuncs.drawFuncs->GL_RenderFrame( rvp ))
 		{
-			R_GatherPlayerLight();
+			R_GatherPlayerLight( tr.viewent );
 			tr.realframecount++;
 			tr.fResetVis = true;
 			return;

@@ -55,120 +55,69 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 
 /*
 =============
-R_DrawStretchRaw
+GL_UpdateTexture
 =============
 */
-void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
+void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt )
 {
 	byte		*raw = NULL;
 	gl_texture_t	*tex;
+	GLenum		gl_format;
+
+	switch( fmt )
+	{
+	case PF_RGBA_32:
+		gl_format = GL_RGBA;
+		break;
+	case PF_BGRA_32:
+		gl_format = GL_BGRA;
+		break;
+	case PF_RGB_24:
+		gl_format = GL_RGB;
+		break;
+	case PF_BGR_24:
+		gl_format = GL_BGR;
+		break;
+	case PF_LUMINANCE:
+		gl_format = GL_LUMINANCE;
+		break;
+	default:
+		gEngfuncs.Con_DPrintf( S_ERROR "%s: unsupported pixel format %i\n", __func__, fmt );
+		return;
+	}
 
 	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
 	{
-		int	width = 1, height = 1;
-
-		// check the dimensions
-		width = NearestPOW( cols, true );
-		height = NearestPOW( rows, false );
-
-		if( cols != width || rows != height )
-		{
-			raw = GL_ResampleTexture( data, cols, rows, width, height, false );
-			cols = width;
-			rows = height;
-		}
-	}
-	else
-	{
-		raw = (byte *)data;
-	}
-
-	if( cols > glConfig.max_2d_texture_size )
-		gEngfuncs.Host_Error( "%s: size %i exceeds hardware limits\n", __func__, cols );
-	if( rows > glConfig.max_2d_texture_size )
-		gEngfuncs.Host_Error( "%s: size %i exceeds hardware limits\n", __func__, rows );
-
-	pglDisable( GL_BLEND );
-	pglDisable( GL_ALPHA_TEST );
-	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE );
-
-	tex = R_GetTexture( tr.cinTexture );
-	GL_Bind( XASH_TEXTURE0, tr.cinTexture );
-
-	if( cols == tex->width && rows == tex->height )
-	{
-		if( dirty )
-		{
-			pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cols, rows, GL_BGRA, GL_UNSIGNED_BYTE, raw );
-		}
-	}
-	else
-	{
-		tex->size = cols * rows * 4;
-		tex->width = cols;
-		tex->height = rows;
-		if( dirty )
-		{
-			pglTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, cols, rows, 0, GL_BGRA, GL_UNSIGNED_BYTE, raw );
-		}
-	}
-
-	pglBegin( GL_QUADS );
-	pglTexCoord2f( 0, 0 );
-	pglVertex2f( x, y );
-	pglTexCoord2f( 1, 0 );
-	pglVertex2f( x + w, y );
-	pglTexCoord2f( 1, 1 );
-	pglVertex2f( x + w, y + h );
-	pglTexCoord2f( 0, 1 );
-	pglVertex2f( x, y + h );
-	pglEnd();
-}
-
-/*
-=============
-R_UploadStretchRaw
-=============
-*/
-void R_UploadStretchRaw( int texture, int cols, int rows, int width, int height, const byte *data )
-{
-	byte		*raw = NULL;
-	gl_texture_t	*tex;
-
-	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
-	{
-		// check the dimensions
 		width = NearestPOW( width, true );
 		height = NearestPOW( height, false );
-	}
-	else
-	{
-		width = bound( 128, width, glConfig.max_2d_texture_size );
-		height = bound( 128, height, glConfig.max_2d_texture_size );
 	}
 
 	if( cols != width || rows != height )
 	{
-		raw = GL_ResampleTexture( data, cols, rows, width, height, false );
+		raw = GL_ResampleTexture( buffer, cols, rows, width, height, false );
 		cols = width;
 		rows = height;
 	}
 	else
-	{
-		raw = (byte *)data;
-	}
+		raw = (byte *)buffer;
 
 	if( cols > glConfig.max_2d_texture_size )
 		gEngfuncs.Host_Error( "%s: size %i exceeds hardware limits\n", __func__, cols );
 	if( rows > glConfig.max_2d_texture_size )
 		gEngfuncs.Host_Error( "%s: size %i exceeds hardware limits\n", __func__, rows );
 
-	tex = R_GetTexture( texture );
-	GL_Bind( GL_KEEP_UNIT, texture );
-	tex->width = cols;
-	tex->height = rows;
+	tex = R_GetTexture( texnum );
+	GL_Bind( GL_KEEP_UNIT, texnum );
 
-	pglTexImage2D( GL_TEXTURE_2D, 0, tex->format, cols, rows, 0, GL_BGRA, GL_UNSIGNED_BYTE, raw );
+	if( cols == tex->width && rows == tex->height )
+		pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cols, rows, gl_format, GL_UNSIGNED_BYTE, raw );
+	else
+	{
+		tex->width = cols;
+		tex->height = rows;
+		pglTexImage2D( GL_TEXTURE_2D, 0, tex->format, cols, rows, 0, gl_format, GL_UNSIGNED_BYTE, raw );
+	}
+
 	GL_ApplyTextureParams( tex );
 }
 

@@ -444,13 +444,16 @@ qboolean AVI_Think( movie_state_t *Avi )
 
 	if( Avi->texture == 0 )
 	{
+		int cinTexture = SCR_GetCinematicTexture();
 		int w = Avi->w >= 0 ? Avi->w : refState.width;
 		int h = Avi->h >= 0 ? Avi->h : refState.height;
 
-		ref.dllFuncs.R_DrawStretchRaw( Avi->x, Avi->y, w, h, Avi->xres, Avi->yres, Avi->dst, redraw );
+		if( redraw )
+			ref.dllFuncs.GL_UpdateTexture( cinTexture, Avi->xres, Avi->yres, Avi->xres, Avi->yres, Avi->dst, PF_BGRA_32 );
+		ref.dllFuncs.R_DrawStretchPic( Avi->x, Avi->y, w, h, 0, 0, 1, 1, cinTexture );
 	}
 	else if( redraw && Avi->texture > 0 )
-		ref.dllFuncs.AVI_UploadRawFrame( Avi->texture, Avi->xres, Avi->yres, Avi->w, Avi->h, Avi->dst );
+		ref.dllFuncs.GL_UpdateTexture( Avi->texture, Avi->xres, Avi->yres, Avi->w, Avi->h, Avi->dst, PF_BGRA_32 );
 
 	if( flushing && !decoded )
 		return false; // probably hit an EOF
