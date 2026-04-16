@@ -224,11 +224,6 @@ static void CL_DrawBeams( int fTrans, BEAM *beams )
 	;
 }
 
-static qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
-{
-	return false;
-}
-
 static int RefGetParm( int parm, int arg )
 {
 	return 0;
