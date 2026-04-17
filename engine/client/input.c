@@ -447,6 +447,8 @@ void IN_Init( void )
 
 		IN_GyroInit();
 
+		OSK_Init();
+
 		Joy_Init(); // common joystick support init
 
 		Touch_Init();

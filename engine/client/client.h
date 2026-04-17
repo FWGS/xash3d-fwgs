@@ -1241,7 +1241,6 @@ void Key_EnumCmds_f( void );
 void Key_SetKeyDest( int key_dest );
 void Key_EnableTextInput( qboolean enable, qboolean force );
 int Key_ToUpper( int key );
-void OSK_Draw( void );
 qboolean Cmd_GetKeysList( const char *s, char *completedname, int length, qboolean print_suggestions );
 
 //
