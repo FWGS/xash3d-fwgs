@@ -185,10 +185,10 @@ void Touch_NotifyResize( void )
 
 static inline float Touch_AspectRatio( void )
 {
-	if( touch.config_aspect_ratio )
+	if( touch.config_aspect_ratio >= 0.25f )
 		return touch.config_aspect_ratio;
 
-	if( touch.actual_aspect_ratio )
+	if( touch.actual_aspect_ratio >= 0.25f )
 		return touch.actual_aspect_ratio;
 
 	if( refState.width && refState.height )
@@ -369,7 +369,7 @@ static void Touch_ExportConfig_f( void )
 		string profilebase;
 
 		COM_FileBase( name, profilebase, sizeof( profilebase ));
-		Q_snprintf( profilename, sizeof( profilebase ), "touch_profiles/%s (copy).cfg", profilebase );
+		Q_snprintf( profilename, sizeof( profilename ), "touch_profiles/%s (copy).cfg", profilebase );
 	}
 	else Q_strncpy( profilename, name, sizeof( profilename ));
 
@@ -588,7 +588,7 @@ static void Touch_RemoveButtonFromList( touchbuttonlist_t *list, const char *nam
 
 	IN_TouchEditClear();
 
-	while(( button = Touch_FindFirst( &touch.list_user, name, privileged )))
+	while(( button = Touch_FindFirst( list, name, privileged )))
 	{
 		if( button->prev )
 			button->prev->next = button->next;
@@ -860,8 +860,7 @@ void Touch_AddClientButton( const char *name, const char *texture, const char *c
 	if( !touch.initialized )
 		return;
 
-	if( round )
-		IN_TouchCheckCoords( &x1, &y1, &x2, &y2 );
+	IN_TouchCheckCoords( &x1, &y1, &x2, &y2 );
 
 	if( round == round_aspect )
 		y2 = y1 + ( x2 - x1 ) / (Touch_AspectRatio()) * aspect;
@@ -1068,7 +1067,7 @@ static void Touch_InitEditor( void )
 	temp = Touch_AddButton( &touch.list_edit, "close", "touch_default/edit_close", "touch_disableedit", 0, y, x, y + 0.1f, color, true );
 	SetBits( temp->flags, TOUCH_FL_NOEDIT );
 
-	temp = Touch_AddButton( &touch.list_edit, "close", "#Close and save", "", x, y, x + 0.2f, y + 0.1f, color, true );
+	temp = Touch_AddButton( &touch.list_edit, "close_label", "#Close and save", "", x, y, x + 0.2f, y + 0.1f, color, true );
 	SetBits( temp->flags, TOUCH_FL_NOEDIT );
 
 	y += 0.2f;
@@ -1076,7 +1075,7 @@ static void Touch_InitEditor( void )
 	temp = Touch_AddButton( &touch.list_edit, "cancel", "touch_default/edit_reset", "touch_reloadconfig", 0, y, x, y + 0.1f, color, true );
 	SetBits( temp->flags, TOUCH_FL_NOEDIT );
 
-	temp = Touch_AddButton( &touch.list_edit, "close", "#Cancel and reset", "", x, y, x + 0.2f, y + 0.1f, color, true );
+	temp = Touch_AddButton( &touch.list_edit, "cancel_label", "#Cancel and reset", "", x, y, x + 0.2f, y + 0.1f, color, true );
 	SetBits( temp->flags, TOUCH_FL_NOEDIT );
 
 	y += 0.2f;
@@ -1256,12 +1255,21 @@ static void Touch_DrawTexture( float x1, float y1, float x2, float y2, int textu
 		0, 0, 1, 1, texture );
 }
 
-#define GRID_COUNT_X ((int)touch_grid_count.value )
-#define GRID_COUNT_Y (((int)touch_grid_count.value ) * Touch_AspectRatio( ))
-#define GRID_X ( 1.0f / GRID_COUNT_X )
-#define GRID_Y ( 1.0f / Touch_AspectRatio() / GRID_COUNT_X )
-#define GRID_ROUND_X( x ) ((float)round(( x ) * GRID_COUNT_X ) / GRID_COUNT_X )
-#define GRID_ROUND_Y( x ) ((float)round(( x ) * GRID_COUNT_Y ) / GRID_COUNT_Y )
+static inline int Touch_GridCountX( void )
+{
+	return Q_max((int)touch_grid_count.value, 1 );
+}
+
+static inline int Touch_GridCountY( void )
+{
+	float grid_count_y = touch_grid_count.value * Touch_AspectRatio();
+	return Q_max((int)grid_count_y, 1 );
+}
+
+#define GRID_X ( 1.0f / Touch_GridCountX( ))
+#define GRID_Y ( 1.0f / Touch_GridCountY( ))
+#define GRID_ROUND_X( x ) ((float)round(( x ) * Touch_GridCountX() ) / Touch_GridCountX())
+#define GRID_ROUND_Y( x ) ((float)round(( x ) * Touch_GridCountY() ) / Touch_GridCountY())
 
 static void IN_TouchCheckCoords( float *x1, float *y1, float *x2, float *y2  )
 {
