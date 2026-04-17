@@ -102,7 +102,7 @@ void IN_GyroFinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 	// Y axis rotation becomes Pitch (up/down)
 	// X axis rotation becomes Yaw (left/right)
 	float pitch_speed = -orient_scale * gyro_speed[1] * ( 180.0f / M_PI );
-	float yaw_speed   = -orient_scale * gyro_speed[0] * ( 180.0f / M_PI );
+	float yaw_speed   = orient_scale * gyro_speed[0] * ( 180.0f / M_PI );
 	float roll_speed  = orient_scale * gyro_speed[2] * ( 180.0f / M_PI );
 
 	if( fabs( pitch_speed ) < gyro_pitch_deadzone.value )
