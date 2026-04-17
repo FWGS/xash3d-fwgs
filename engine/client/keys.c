@@ -527,7 +527,7 @@ qboolean Cmd_GetKeysList( const char *s, char *completedname, int length, qboole
 		const char *keyname = Key_KeynumToString( i );
 
 		if(( *s == '*' ) || !Q_strnicmp( keyname, s, len ))
-			Q_strncpy( keys_strings[numkeys++], keyname, sizeof( keys[0] ));
+			Q_strncpy( keys_strings[numkeys++], keyname, sizeof( keys_strings[0] ));
 	}
 
 	if( !numkeys ) return false;
