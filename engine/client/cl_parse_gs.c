@@ -514,16 +514,25 @@ static void CL_ParseSoundPacketGS( sizebuf_t *msg )
 static void CL_ParseSpawnStaticSound( sizebuf_t *msg )
 {
 	vec3_t pos;
-	int handle, entnum, pitch, flags;
+	int sound, entnum, pitch, flags;
 	float volume, attn;
+	sound_t handle = 0;
 
 	MSG_ReadVec3Coord( msg, pos );
-	handle = MSG_ReadShort( msg );
+	sound  = MSG_ReadShort( msg );
 	volume = MSG_ReadByte( msg ) * ( 1.0f / 255.0f );
 	attn   = MSG_ReadByte( msg ) * ( 1.0f / 64.0f );
 	entnum = MSG_ReadShort( msg );
 	pitch  = MSG_ReadByte( msg );
 	flags  = MSG_ReadByte( msg );
+
+	if( FBitSet( flags, SND_SENTENCE ))
+	{
+		char	sentenceName[32];
+		Q_snprintf( sentenceName, sizeof( sentenceName ), "!%i", sound );
+		handle = S_RegisterSound( sentenceName );
+	}
+	else handle = cl.sound_index[sound];	// see precached sound
 
 	S_AmbientSound( pos, entnum, handle, volume, attn, pitch, flags );
 }
