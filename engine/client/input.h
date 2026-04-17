@@ -100,6 +100,15 @@ void Touch_NotifyResize( void );
 #endif
 
 //
+// in_osk.c
+//
+extern convar_t osk_enable;
+void OSK_Init( void );
+qboolean OSK_KeyEvent( int key, int down );
+void OSK_EnableTextInput( qboolean enable, qboolean force );
+void OSK_Draw( void );
+
+//
 // in_joy.c
 //
 enum
