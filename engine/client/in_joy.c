@@ -197,7 +197,7 @@ static int Joy_GetHatValueForAxis( const engineAxis_t engineAxis )
 		positive = JOY_HAT_RIGHT;
 		break;
 	case JOY_AXIS_FWD:
-		threshold = joy_side_key_threshold.value;
+		threshold = joy_forward_key_threshold.value;
 		negative = JOY_HAT_UP;
 		positive = JOY_HAT_DOWN;
 		break;
@@ -318,7 +318,7 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 		const char *bind = joy_axis_binding.string;
 		size_t i;
 
-		for( i = 0; bind[i]; i++ )
+		for( i = 0; bind[i] && i < MAX_AXES; i++ )
 		{
 			switch( bind[i] )
 			{
