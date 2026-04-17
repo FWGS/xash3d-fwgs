@@ -200,7 +200,14 @@ static int Key_StringToKeynum( const char *str )
 
 	// check for hex code
 	if( str[0] == '0' && str[1] == 'x' )
-		return Q_atoi( str );
+	{
+		int key = Q_atoi( str );
+
+		if( key >= ARRAYSIZE( keys ))
+			return -1;
+
+		return key;
+	}
 
 	// scan for a text match
 	for( i = 0; i < ARRAYSIZE( keynames ); i++ )
