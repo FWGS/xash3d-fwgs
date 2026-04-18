@@ -21,8 +21,6 @@ GNU General Public License for more details.
 
 #define GLARE_FALLOFF 19000.0f
 
-static float sprite_radius;
-
 /*
 ================
 R_CullSpriteModel
@@ -44,8 +42,6 @@ static qboolean R_CullSpriteModel( cl_entity_t *e, vec3_t origin )
 	// scale original bbox (no rotation for sprites)
 	VectorScale( e->model->mins, scale, sprite_mins );
 	VectorScale( e->model->maxs, scale, sprite_maxs );
-
-	sprite_radius = RadiusFromBounds( sprite_mins, sprite_maxs );
 
 	VectorAdd( sprite_mins, origin, sprite_mins );
 	VectorAdd( sprite_maxs, origin, sprite_maxs );
