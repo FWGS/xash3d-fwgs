@@ -1277,197 +1277,6 @@ static int R_StudioCheckBBox( void )
 
 /*
 ===============
-R_StudioDynamicLight
-
-===============
-*/
-static void R_StudioDynamicLight( cl_entity_t *ent, alight_t *plight )
-{
-	movevars_t *mv = tr.movevars;
-	vec3_t     lightDir, vecSrc, vecEnd;
-	vec3_t     origin, dist, finalLight;
-	float      add, radius, total;
-	colorVec   light;
-	uint       lnum;
-	dlight_t   *dl;
-
-	if( !plight || !ent || !ent->model )
-		return;
-
-	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || r_fullbright->value || FBitSet( ent->curstate.effects, EF_FULLBRIGHT ))
-	{
-		plight->shadelight = 0;
-		plight->ambientlight = 192;
-
-		VectorSet( plight->plightvec, 0.0f, 0.0f, -1.0f );
-		VectorSet( plight->color, 1.0f, 1.0f, 1.0f );
-		return;
-	}
-
-	// determine plane to get lightvalues from: ceil or floor
-	if( FBitSet( ent->curstate.effects, EF_INVLIGHT ))
-		VectorSet( lightDir, 0.0f, 0.0f, 1.0f );
-	else
-		VectorSet( lightDir, 0.0f, 0.0f, -1.0f );
-
-	VectorCopy( ent->origin, origin );
-
-	VectorSet( vecSrc, origin[0], origin[1], origin[2] - lightDir[2] * 8.0f );
-	light.r = light.g = light.b = light.a = 0;
-
-	if(( mv->skycolor[0] + mv->skycolor[1] + mv->skycolor[2] ) != 0 )
-	{
-		msurface_t	*psurf = NULL;
-		pmtrace_t		trace;
-		vec3_t skyvec;
-
-		if( FBitSet( gp_host->features, ENGINE_WRITE_LARGE_COORD ))
-			VectorScale( mv->skyvec, 65536.0f, skyvec );
-		else
-			VectorScale( mv->skyvec, 8192.0f, skyvec );
-
-		VectorSubtract( origin, skyvec, vecEnd );
-
-		trace = gEngfuncs.CL_TraceLine( vecSrc, vecEnd, PM_WORLD_ONLY );
-		if( trace.ent > 0 ) psurf = gEngfuncs.EV_TraceSurface( trace.ent, vecSrc, vecEnd );
-		else psurf = gEngfuncs.EV_TraceSurface( 0, vecSrc, vecEnd );
-
-		if( FBitSet( ent->model->flags, STUDIO_FORCE_SKYLIGHT ) || ( psurf && FBitSet( psurf->flags, SURF_DRAWSKY )))
-		{
-			VectorCopy( mv->skyvec, lightDir );
-
-			light.r = mv->skycolor[0];
-			light.g = mv->skycolor[1];
-			light.b = mv->skycolor[2];
-		}
-	}
-
-	if(( light.r + light.g + light.b ) == 0 )
-	{
-		colorVec gcolor;
-		float    grad[4];
-
-		VectorScale( lightDir, 2048.0f, vecEnd );
-		VectorAdd( vecEnd, vecSrc, vecEnd );
-
-		light = R_LightVec( vecSrc, vecEnd, g_studio.lightspot, g_studio.lightvec );
-
-		if( VectorIsNull( g_studio.lightvec ))
-		{
-			vecSrc[0] -= 16.0f;
-			vecSrc[1] -= 16.0f;
-			vecEnd[0] -= 16.0f;
-			vecEnd[1] -= 16.0f;
-
-			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
-			grad[0] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
-
-			vecSrc[0] += 32.0f;
-			vecEnd[0] += 32.0f;
-
-			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
-			grad[1] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
-
-			vecSrc[1] += 32.0f;
-			vecEnd[1] += 32.0f;
-
-			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
-			grad[2] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
-
-			vecSrc[0] -= 32.0f;
-			vecEnd[0] -= 32.0f;
-
-			gcolor = R_LightVec( vecSrc, vecEnd, NULL, NULL );
-			grad[3] = ( gcolor.r + gcolor.g + gcolor.b ) / 768.0f;
-
-			lightDir[0] = grad[0] - grad[1] - grad[2] + grad[3];
-			lightDir[1] = grad[1] + grad[0] - grad[2] - grad[3];
-			VectorNormalize( lightDir );
-		}
-		else
-		{
-			VectorCopy( g_studio.lightvec, lightDir );
-		}
-	}
-
-	if( ent->curstate.renderfx == kRenderFxLightMultiplier && ent->curstate.iuser4 != 10 )
-	{
-		light.r *= ent->curstate.iuser4 / 10.0f;
-		light.g *= ent->curstate.iuser4 / 10.0f;
-		light.b *= ent->curstate.iuser4 / 10.0f;
-	}
-
-	VectorSet( finalLight, light.r, light.g, light.b );
-	ent->cvFloorColor = light;
-
-	total = Q_max( Q_max( light.r, light.g ), light.b );
-	if( total == 0.0f )
-		total = 1.0f;
-
-	// scale lightdir by light intentsity
-	VectorScale( lightDir, total, lightDir );
-
-	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
-	{
-		dl = &gp_dlights[lnum];
-
-		if( dl->die < g_studio.time || !r_dynamic->value )
-			continue;
-
-		VectorSubtract( ent->origin, dl->origin, dist );
-
-		radius = VectorLength( dist );
-		add = ( dl->radius - radius );
-
-		if( add > 0.0f )
-		{
-			total += add;
-
-			if( radius > 1.0f )
-				VectorScale( dist, ( add / radius ), dist );
-			else
-				VectorScale( dist, add, dist );
-
-			VectorAdd( lightDir, dist, lightDir );
-
-			finalLight[0] += dl->color.r * ( add / 256.0f );
-			finalLight[1] += dl->color.g * ( add / 256.0f );
-			finalLight[2] += dl->color.b * ( add / 256.0f );
-		}
-	}
-
-	if( FBitSet( ent->model->flags, STUDIO_AMBIENT_LIGHT ))
-		add = 0.6f;
-	else
-		add = bound( 0.75f, v_direct->value, 1.0f );
-
-	VectorScale( lightDir, add, lightDir );
-
-	plight->shadelight = VectorLength( lightDir );
-	plight->ambientlight = total - plight->shadelight;
-
-	total = Q_max( Q_max( finalLight[0], finalLight[1] ), finalLight[2] );
-
-	if( total > 0.0f )
-	{
-		plight->color[0] = finalLight[0] * ( 1.0f / total );
-		plight->color[1] = finalLight[1] * ( 1.0f / total );
-		plight->color[2] = finalLight[2] * ( 1.0f / total );
-	}
-	else
-		VectorSet( plight->color, 1.0f, 1.0f, 1.0f );
-
-	if( plight->ambientlight > 128 )
-		plight->ambientlight = 128;
-
-	if( plight->ambientlight + plight->shadelight > 255 )
-		plight->shadelight = 255 - plight->ambientlight;
-
-	VectorNormalize2( lightDir, plight->plightvec );
-}
-
-/*
-===============
 pfnStudioEntityLight
 
 ===============
@@ -2866,7 +2675,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 			RI.currententity->curstate.body = 1; // force helmet
 
 		lighting.plightvec = dir;
-		R_StudioDynamicLight( RI.currententity, &lighting );
+		R_EntityDynamicLight( RI.currententity, &lighting, FBitSet( RI.rvp.flags, RF_DRAW_WORLD ), g_studio.time, g_studio.lightspot, g_studio.lightvec );
 
 		R_StudioEntityLight( &lighting );
 
@@ -2991,7 +2800,7 @@ static int R_StudioDrawModel( int flags )
 	if( flags & STUDIO_RENDER )
 	{
 		lighting.plightvec = dir;
-		R_StudioDynamicLight( RI.currententity, &lighting );
+		R_EntityDynamicLight( RI.currententity, &lighting, FBitSet( RI.rvp.flags, RF_DRAW_WORLD ), g_studio.time, g_studio.lightspot, g_studio.lightvec );
 
 		R_StudioEntityLight( &lighting );
 
@@ -3331,6 +3140,11 @@ void Mod_StudioUnloadTextures( void *data )
 	}
 }
 
+static void pfnStudioDynamicLight( cl_entity_t *ent, alight_t *plight )
+{
+	R_EntityDynamicLight( ent, plight, FBitSet( RI.rvp.flags, RF_DRAW_WORLD ), g_studio.time, g_studio.lightspot, g_studio.lightvec );
+}
+
 qboolean R_StudioFillAPI( engine_studio_api_t *api, r_studio_interface_t *pDefaultDraw )
 {
 	cl_righthand = gEngfuncs.pfnGetCvarPointer( "cl_righthand" );
@@ -3346,7 +3160,7 @@ qboolean R_StudioFillAPI( engine_studio_api_t *api, r_studio_interface_t *pDefau
 	api->StudioGetRotationMatrix = pfnStudioGetRotationMatrix;
 	api->StudioSetupModel        = R_StudioSetupModel;
 	api->StudioCheckBBox         = R_StudioCheckBBox;
-	api->StudioDynamicLight      = R_StudioDynamicLight;
+	api->StudioDynamicLight      = pfnStudioDynamicLight;
 	api->StudioEntityLight       = R_StudioEntityLight;
 	api->StudioSetupLighting     = R_StudioSetupLighting;
 	api->StudioDrawPoints        = R_StudioDrawPoints;

@@ -380,7 +380,7 @@ R_GetFarClip
 static float R_GetFarClip( void )
 {
 	if( WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
-		return tr.movevars->zmax * 1.73f;
+		return gp_movevars->zmax * 1.73f;
 	return 2048.0f;
 }
 
@@ -1381,7 +1381,6 @@ qboolean GAME_EXPORT R_Init( void )
 	}
 
 	// see R_ProcessEntData for tr.entities initialization
-	tr.movevars = (movevars_t *)ENGINE_GET_PARM( PARM_GET_MOVEVARS_PTR );
 	tr.palette = (color24 *)ENGINE_GET_PARM( PARM_GET_PALETTE_PTR );
 	tr.viewent = (cl_entity_t *)ENGINE_GET_PARM( PARM_GET_VIEWENT_PTR );
 	tr.texgammatable = (byte *)ENGINE_GET_PARM( PARM_GET_TEXGAMMATABLE_PTR );

@@ -245,7 +245,6 @@ typedef struct
 
 	// get from engine
 	cl_entity_t  *entities;
-	movevars_t   *movevars;
 	color24      *palette;
 	cl_entity_t  *viewent;
 	lightstyle_t *lightstyles;

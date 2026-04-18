@@ -223,7 +223,6 @@ typedef struct
 	model_t *worldmodel;
 	world_static_t *world;
 	cl_entity_t *entities;
-	movevars_t *movevars;
 	color24 *palette;
 	cl_entity_t *viewent;
 	dlight_t *elights;

@@ -1525,7 +1525,7 @@ static void R_DrawTextureChains( void )
 		if( !s || ( i == tr.skytexturenum ))
 			continue;
 
-		if(( s->flags & SURF_DRAWTURB ) && tr.movevars->wateralpha < 1.0f )
+		if(( s->flags & SURF_DRAWTURB ) && gp_movevars->wateralpha < 1.0f )
 		{
 			R_AddToSeparatePass( &draw_wateralpha, i );
 			continue;	// draw translucent water later
@@ -1629,7 +1629,7 @@ void R_DrawWaterSurfaces( void )
 	pglDisable( GL_ALPHA_TEST );
 	pglBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-	pglColor4f( 1.0f, 1.0f, 1.0f, tr.movevars->wateralpha );
+	pglColor4f( 1.0f, 1.0f, 1.0f, gp_movevars->wateralpha );
 
 	for( i = draw_wateralpha.first; i <= draw_wateralpha.last; i++ )
 	{
