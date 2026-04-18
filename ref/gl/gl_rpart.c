@@ -187,7 +187,7 @@ void CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 	pglDisable( GL_ALPHA_TEST );
 	pglDepthMask( GL_FALSE );
 
-	gravity = frametime * tr.movevars->gravity;
+	gravity = frametime * gp_movevars->gravity;
 	scale = 1.0 - (frametime * 0.9);
 	if( scale < 0.0f ) scale = 0.0f;
 

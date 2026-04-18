@@ -22,6 +22,7 @@ ref_api_t      gEngfuncs;
 ref_globals_t *gpGlobals;
 ref_client_t  *gp_cl;
 ref_host_t    *gp_host;
+struct movevars_s *gp_movevars;
 uint16_t       rtable[MOD_FRAMES][MOD_FRAMES];
 dlight_t      *gp_dlights;
 int            g_lightstylevalue[MAX_LIGHTSTYLES];
@@ -70,6 +71,7 @@ int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, 
 
 	gp_cl = (ref_client_t *)ENGINE_GET_PARM( PARM_GET_CLIENT_PTR );
 	gp_host = (ref_host_t *)ENGINE_GET_PARM( PARM_GET_HOST_PTR );
+	gp_movevars = (struct movevars_s *)ENGINE_GET_PARM( PARM_GET_MOVEVARS_PTR );
 	gp_dlights = (dlight_t *)ENGINE_GET_PARM( PARM_GET_DLIGHTS_PTR );
 
 	RETRIEVE_ENGINE_SHARED_CVAR_LIST();

@@ -1260,7 +1260,6 @@ qboolean R_Init( void )
 
 	// see R_ProcessEntData for tr.entities initialization
 	tr.world = (struct world_static_s *)ENGINE_GET_PARM( PARM_GET_WORLD_PTR );
-	tr.movevars = (movevars_t *)ENGINE_GET_PARM( PARM_GET_MOVEVARS_PTR );
 	tr.palette = (color24 *)ENGINE_GET_PARM( PARM_GET_PALETTE_PTR );
 	tr.viewent = (cl_entity_t *)ENGINE_GET_PARM( PARM_GET_VIEWENT_PTR );
 	tr.texgammatable = (byte *)ENGINE_GET_PARM( PARM_GET_TEXGAMMATABLE_PTR );

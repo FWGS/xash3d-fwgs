@@ -341,7 +341,7 @@ R_GetFarClip
 static float R_GetFarClip( void )
 {
 	if( WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
-		return tr.movevars->zmax * 1.73f;
+		return gp_movevars->zmax * 1.73f;
 	return 2048.0f;
 }
 
@@ -678,7 +678,7 @@ static void R_CheckFog( void )
 	// quake global fog
 	if( FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 	{
-		if( !tr.movevars->fog_settings )
+		if( !gp_movevars->fog_settings )
 		{
 			if( pglIsEnabled( GL_FOG ))
 				pglDisable( GL_FOG );
@@ -687,10 +687,10 @@ static void R_CheckFog( void )
 		}
 
 		// quake-style global fog
-		RI.fogColor[0] = ((tr.movevars->fog_settings & 0xFF000000) >> 24) / 255.0f;
-		RI.fogColor[1] = ((tr.movevars->fog_settings & 0xFF0000) >> 16) / 255.0f;
-		RI.fogColor[2] = ((tr.movevars->fog_settings & 0xFF00) >> 8) / 255.0f;
-		RI.fogDensity = ((tr.movevars->fog_settings & 0xFF) / 255.0f) * 0.01f;
+		RI.fogColor[0] = ((gp_movevars->fog_settings & 0xFF000000) >> 24) / 255.0f;
+		RI.fogColor[1] = ((gp_movevars->fog_settings & 0xFF0000) >> 16) / 255.0f;
+		RI.fogColor[2] = ((gp_movevars->fog_settings & 0xFF00) >> 8) / 255.0f;
+		RI.fogDensity = ((gp_movevars->fog_settings & 0xFF) / 255.0f) * 0.01f;
 		RI.fogStart = RI.fogEnd = 0.0f;
 		RI.fogColor[3] = 1.0f;
 		RI.fogCustom = false;
