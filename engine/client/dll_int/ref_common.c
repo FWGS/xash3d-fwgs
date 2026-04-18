@@ -496,29 +496,13 @@ static void CL_FillTriAPI( triangleapi_t *dst )
 	ref.dllFuncs.R_FillTriAPI( dst );
 }
 
-static const byte dottexture[8][8] =
-{
-	{ 0, 1, 1, 0, 0, 0, 0, 0 },
-	{ 1, 1, 1, 1, 0, 0, 0, 0 },
-	{ 1, 1, 1, 1, 0, 0, 0, 0 },
-	{ 0, 1, 1, 0, 0, 0, 0, 0 },
-	{ 0, 0, 0, 0, 0, 0, 0, 0 },
-	{ 0, 0, 0, 0, 0, 0, 0, 0 },
-	{ 0, 0, 0, 0, 0, 0, 0, 0 },
-	{ 0, 0, 0, 0, 0, 0, 0, 0 },
-};
-
 static void R_CreateBuiltinTextures( void )
 {
-	uint	data4x4[16];
-	uint	data16x16[256];
-	byte	particle[8 * 8 * 4];
-	int	x, y;
-
 	// default checkerboard
-	for( y = 0; y < 16; y++ )
+	uint data16x16[256];
+	for( int y = 0; y < 16; y++ )
 	{
-		for( x = 0; x < 16; x++ )
+		for( int x = 0; x < 16; x++ )
 		{
 			if(( y < 8 ) ^ ( x < 8 ))
 				data16x16[y * 16 + x] = 0xFFFF00FF;
@@ -526,31 +510,34 @@ static void R_CreateBuiltinTextures( void )
 				data16x16[y * 16 + x] = 0xFF000000;
 		}
 	}
-	ref.dllFuncs.GL_CreateTexture( REF_DEFAULT_TEXTURE, 16, 16, data16x16, TF_COLORMAP );
+	ref.dllFuncs.GL_CreateTexture( REF_DEFAULT_TEXTURE, 16, 16, data16x16, 0 );
 
 	// particle texture
-	memset( particle, 0, sizeof( particle ));
-	for( x = 0; x < 8; x++ )
+	uint particle[64] = { 0 };
+	for( int y = 0; y < 4; y++ )
 	{
-		for( y = 0; y < 8; y++ )
+		for( int x = 0; x < 4; x++ )
 		{
-			if( dottexture[x][y] )
-				particle[( y * 8 + x ) * 4 + 3] = 255;
+			if(( x == 0 || x == 3 ) && ( y == 0 || y == 3 ))
+				continue;
+
+			particle[y * 8 + x] = 0xFF000000;
 		}
 	}
-	ref.dllFuncs.GL_CreateTexture( REF_PARTICLE_TEXTURE, 8, 8, particle, TF_CLAMP );
+	ref.dllFuncs.GL_CreateTexture( REF_PARTICLE_TEXTURE, 8, 8, particle, TF_CLAMP|TF_HAS_ALPHA );
 
 	// solid colors
+	uint data4x4[16];
 	memset( data4x4, 0xFF, sizeof( data4x4 ));
-	ref.dllFuncs.GL_CreateTexture( REF_WHITE_TEXTURE, 4, 4, data4x4, TF_COLORMAP );
+	ref.dllFuncs.GL_CreateTexture( REF_WHITE_TEXTURE, 4, 4, data4x4, 0 );
 
-	for( x = 0; x < 16; x++ )
+	for( int x = 0; x < 16; x++ )
 		data4x4[x] = 0xFF7F7F7F;
-	ref.dllFuncs.GL_CreateTexture( REF_GRAY_TEXTURE, 4, 4, data4x4, TF_COLORMAP );
+	ref.dllFuncs.GL_CreateTexture( REF_GRAY_TEXTURE, 4, 4, data4x4, 0 );
 
-	for( x = 0; x < 16; x++ )
+	for( int x = 0; x < 16; x++ )
 		data4x4[x] = 0xFF000000;
-	ref.dllFuncs.GL_CreateTexture( REF_BLACK_TEXTURE, 4, 4, data4x4, TF_COLORMAP );
+	ref.dllFuncs.GL_CreateTexture( REF_BLACK_TEXTURE, 4, 4, data4x4, 0 );
 }
 
 static qboolean R_LoadProgs( const char *name )
