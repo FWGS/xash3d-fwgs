@@ -22,6 +22,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef QUAKE_CLIENT_H
 #define QUAKE_CLIENT_H
 
+#include <stdint.h>
+#include "xash3d_types.h"
+
 // Definitions originally taken from Quake, modified for binary compatibility
 
 typedef struct usercmd_s
