@@ -1239,8 +1239,8 @@ particle spray
 void GAME_EXPORT R_Blood( const vec3_t org, const vec3_t ndir, int pcolor, int speed )
 {
 	vec3_t		pos, dir, vec;
-	float		pspeed = speed * 3.0f;
 	int		i, j;
+	int		pspeed = speed * 3;
 	particle_t	*p;
 
 	VectorNormalize2( ndir, dir );
@@ -1250,7 +1250,7 @@ void GAME_EXPORT R_Blood( const vec3_t org, const vec3_t ndir, int pcolor, int s
 		VectorAddScalar( org, COM_RandomFloat( -3.0f, 3.0f ), pos );
 		VectorAddScalar( dir, COM_RandomFloat( -0.06f, 0.06f ), vec );
 
-		for( j = 0; j < 7; j++ )
+		for( j = 0; j < 8; j++ )
 		{
 			p = R_AllocParticle( NULL );
 			if( !p ) return;
@@ -1262,6 +1262,8 @@ void GAME_EXPORT R_Blood( const vec3_t org, const vec3_t ndir, int pcolor, int s
 			VectorAddScalar( pos, COM_RandomFloat( -1.0f, 1.0f ), p->org );
 			VectorScale( vec, pspeed, p->vel );
 		}
+
+		pspeed -= speed;
 	}
 }
 
@@ -1333,10 +1335,7 @@ void GAME_EXPORT R_BloodStream( const vec3_t org, const vec3_t ndir, int pcolor,
 			p->color = pcolor + COM_RandomLong( 0, 9 );
 			p->type = pt_4x_slowgrav;
 
-			p->org[0] = org[0] + COM_RandomFloat( -1.0f, 1.0f );
-			p->org[1] = org[1] + COM_RandomFloat( -1.0f, 1.0f );
-			p->org[2] = org[2] + COM_RandomFloat( -1.0f, 1.0f );
-
+			VectorAddScalar( org, COM_RandomFloat( -1.0f, 1.0f ), p->org );
 			VectorCopy( dir, p->vel );
 			p->vel[2] -= arc;
 
