@@ -617,7 +617,10 @@ void Netchan_AddBufferToList( fragbuf_t **pplist, fragbuf_t *pbuf )
 		if( id1 > id2 )
 		{
 			// insert here
-			pbuf->next = n->next;
+			// pbuf->next = n->next;
+
+			// a1ba: this seems to be incorrect insertion, as `n` gets removed from list and effectively leaked
+			pbuf->next = n;
 			pprev->next = pbuf;
 			return;
 		}
