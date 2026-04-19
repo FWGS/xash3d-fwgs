@@ -513,15 +513,24 @@ static void R_CreateBuiltinTextures( void )
 	ref.dllFuncs.GL_CreateTexture( REF_DEFAULT_TEXTURE, 16, 16, data16x16, 0 );
 
 	// particle texture
-	uint particle[64] = { 0 };
-	for( int y = 0; y < 4; y++ )
+	uint particle[64];
+	for( int y = 0; y < 8; y++ )
 	{
-		for( int x = 0; x < 4; x++ )
+		for( int x = 0; x < 8; x++ )
+			particle[y * 8 + x] = 0x00FFFFFF; // fill it with invisible white
+	}
+
+	// a1ba: moved one pixel down and to the right to make it look better with linear interpolation
+	// set to 0 to make it look like in goldsrc
+	const int corner = 1;
+	for( int y = corner; y < 4 + corner; y++ )
+	{
+		for( int x = corner; x < 4 + corner; x++ )
 		{
-			if(( x == 0 || x == 3 ) && ( y == 0 || y == 3 ))
+			if(( x == corner || x == 3 + corner ) && ( y == corner || y == 3 + corner ))
 				continue;
 
-			particle[y * 8 + x] = 0xFF000000;
+			particle[y * 8 + x] = 0xFFFFFFFF;
 		}
 	}
 	ref.dllFuncs.GL_CreateTexture( REF_PARTICLE_TEXTURE, 8, 8, particle, TF_CLAMP|TF_HAS_ALPHA );
