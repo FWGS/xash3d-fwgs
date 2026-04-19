@@ -1385,6 +1385,10 @@ static void CL_CreateResourceList( void )
 	cl.num_resources = 0;
 	memset( rgucMD5_hash, 0, sizeof( rgucMD5_hash ));
 
+	ClearBits( cl_logofile.flags, FCVAR_CHANGED );
+	ClearBits( cl_logocolor.flags, FCVAR_CHANGED );
+	ClearBits( cl_logoext.flags, FCVAR_CHANGED );
+
 	// sanitize cvar value
 	if( Q_strcmp( cl_logoext.string, "bmp" ) && Q_strcmp( cl_logoext.string, "png" ))
 		Cvar_DirectSet( &cl_logoext, "bmp" );
@@ -1400,7 +1404,6 @@ static void CL_CreateResourceList( void )
 	if( !fp )
 		return;
 
-	MD5_HashFile( rgucMD5_hash, szFileName, NULL );
 	nSize = FS_FileLength( fp );
 
 	if( nSize != 0 )
@@ -1409,6 +1412,7 @@ static void CL_CreateResourceList( void )
 
 		if( pNewResource )
 		{
+			MD5_HashFile( rgucMD5_hash, szFileName, NULL );
 			SetBits( pNewResource->ucFlags, RES_CUSTOM );
 			memcpy( pNewResource->rgucMD5_hash, rgucMD5_hash, 16 );
 			HPAK_AddLump( false, hpk_custom_file.string, pNewResource, NULL, fp );
@@ -1416,6 +1420,42 @@ static void CL_CreateResourceList( void )
 	}
 
 	FS_Close( fp );
+}
+
+/*
+==================
+CL_CheckLogoChanged
+
+==================
+*/
+static void CL_CheckLogoChanged( void )
+{
+	player_info_t	*player;
+	int		i;
+
+	if( cls.state != ca_active )
+		return;
+
+	if( !FBitSet( cl_logofile.flags | cl_logocolor.flags | cl_logoext.flags, FCVAR_CHANGED ))
+		return;
+
+	CL_CreateResourceList();
+
+	if( cl.num_resources == 0 )
+		return;
+
+	player = &cl.players[cl.playernum];
+	COM_ClearCustomizationList( &player->customdata, true );
+
+	for( i = 0; i < cl.num_resources; i++ )
+	{
+		resource_t *pResource = &cl.resourcelist[i];
+
+		if( !COM_CreateCustomization( &player->customdata, pResource, cl.playernum, 0, NULL, NULL ))
+			Con_Printf( "Unable to create custom decal\n" );
+	}
+
+	CL_SendResourceList( cl.resourcelist, cl.num_resources );
 }
 
 static qboolean CL_StringToProtocol( const char *s, connprotocol_t *proto )
@@ -3588,6 +3628,9 @@ void Host_ClientBegin( void )
 
 	// finalize connection process if needs
 	CL_CheckClientState();
+
+	// check if logo cvars changed and re-upload if needed
+	CL_CheckLogoChanged();
 
 	// tell the client.dll about client data
 	CL_UpdateClientData();

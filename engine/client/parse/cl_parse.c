@@ -705,13 +705,35 @@ CL_ParseResourceRequest
 
 ==================
 */
-static void CL_ParseResourceRequest( sizebuf_t *msg )
+void CL_SendResourceList( const resource_t *list, int count )
 {
 	byte	buffer[MAX_INIT_MSG];
-	int	i, arg, nStartIndex;
 	sizebuf_t	sbuf;
+	int	i;
 
 	MSG_Init( &sbuf, "ResourceBlock", buffer, sizeof( buffer ));
+	MSG_BeginClientCmd( &sbuf, clc_resourcelist );
+	MSG_WriteShort( &sbuf, count );
+
+	for( i = 0; i < count; i++ )
+	{
+		MSG_WriteString( &sbuf, list[i].szFileName );
+		MSG_WriteByte( &sbuf, list[i].type );
+		MSG_WriteShort( &sbuf, list[i].nIndex );
+		MSG_WriteLong( &sbuf, list[i].nDownloadSize );
+		MSG_WriteByte( &sbuf, list[i].ucFlags );
+
+		if( FBitSet( list[i].ucFlags, RES_CUSTOM ))
+			MSG_WriteBytes( &sbuf, list[i].rgucMD5_hash, 16 );
+	}
+
+	Netchan_CreateFragments( &cls.netchan, &sbuf );
+	Netchan_FragSend( &cls.netchan );
+}
+
+static void CL_ParseResourceRequest( sizebuf_t *msg )
+{
+	int	arg, nStartIndex;
 
 	arg = MSG_ReadLong( msg );
 	nStartIndex = MSG_ReadLong( msg );
@@ -719,31 +741,10 @@ static void CL_ParseResourceRequest( sizebuf_t *msg )
 	if( cl.servercount != arg )
 		return;
 
-	if( nStartIndex < 0 && nStartIndex > cl.num_resources )
+	if( nStartIndex < 0 || nStartIndex >= cl.num_resources )
 		return;
 
-	MSG_BeginClientCmd( &sbuf, clc_resourcelist );
-	MSG_WriteShort( &sbuf, cl.num_resources );
-
-	for( i = nStartIndex; i < cl.num_resources; i++ )
-	{
-		MSG_WriteString( &sbuf, cl.resourcelist[i].szFileName );
-		MSG_WriteByte( &sbuf, cl.resourcelist[i].type );
-		MSG_WriteShort( &sbuf, cl.resourcelist[i].nIndex );
-		MSG_WriteLong( &sbuf, cl.resourcelist[i].nDownloadSize );
-		MSG_WriteByte( &sbuf, cl.resourcelist[i].ucFlags );
-
-		if( FBitSet( cl.resourcelist[i].ucFlags, RES_CUSTOM ))
-			MSG_WriteBytes( &sbuf, cl.resourcelist[i].rgucMD5_hash, 16 );
-	}
-
-	// a1ba: useless check? MSG_BeginClientCmd and MSG_WriteShort will always
-	// write to the buffer
-	// if( MSG_GetNumBytesWritten( &sbuf ) > 0 )
-	{
-		Netchan_CreateFragments( &cls.netchan, &sbuf );
-		Netchan_FragSend( &cls.netchan );
-	}
+	CL_SendResourceList( &cl.resourcelist[nStartIndex], cl.num_resources - nStartIndex );
 }
 
 /*
