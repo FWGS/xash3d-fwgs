@@ -2167,7 +2167,7 @@ static qboolean SV_Spawn_f( sv_client_t *cl )
 	if( sv.paused )
 	{
 		MSG_BeginServerCmd( &sv.reliable_datagram, svc_setpause );
-		MSG_WriteByte( &sv.reliable_datagram, sv.paused );
+		MSG_WriteOneBit( &sv.reliable_datagram, sv.paused );
 		SV_ClientPrintf( cl, "Server is paused.\n" );
 	}
 	return true;
