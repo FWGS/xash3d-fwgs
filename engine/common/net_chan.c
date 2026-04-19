@@ -1317,14 +1317,14 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		Host_Error( "%s: BZ2 compression is not supported for server", __func__ );
 #endif
 	}
-	else if( chan->use_lzss && LZSS_IsCompressed( buffer, nsize + 1 ))
+	else if( chan->use_lzss && LZSS_IsCompressed( buffer, nsize ))
 	{
 		byte *uncompressedBuffer;
 
-		uncompressedSize = LZSS_GetActualSize( buffer, nsize + 1 ) + 1;
+		uncompressedSize = LZSS_GetActualSize( buffer, nsize );
 		uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
-		nsize = LZSS_Decompress( buffer, uncompressedBuffer, nsize + 1, uncompressedSize );
+		nsize = LZSS_Decompress( buffer, uncompressedBuffer, nsize, uncompressedSize );
 		Mem_Free( buffer );
 		buffer = uncompressedBuffer;
 	}
