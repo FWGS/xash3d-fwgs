@@ -331,7 +331,7 @@ static void GAME_EXPORT pfnParticle( const float *origin, int color, float life,
 		return;
 	}
 
-	MSG_WriteByte( &sv.reliable_datagram, svc_particle );
+	MSG_BeginServerCmd( &sv.reliable_datagram, svc_particle );
 	MSG_WriteVec3Coord( &sv.reliable_datagram, origin );
 	MSG_WriteChar( &sv.reliable_datagram, 0 ); // no x-vel
 	MSG_WriteChar( &sv.reliable_datagram, 0 ); // no y-vel
