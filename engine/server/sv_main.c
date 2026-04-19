@@ -55,6 +55,7 @@ CVAR_DEFINE( sv_allow_upload, "sv_allowupload", "1", FCVAR_SERVER, "allow upload
 CVAR_DEFINE( sv_allow_download, "sv_allowdownload", "1", FCVAR_SERVER, "allow downloading custom resources to the client" );
 static CVAR_DEFINE_AUTO( sv_allow_dlfile, "1", 0, "compatibility cvar, does nothing" );
 CVAR_DEFINE_AUTO( sv_uploadmax, "0.5", FCVAR_SERVER, "max size to upload custom resources (500 kB as default)" );
+CVAR_DEFINE_AUTO( sv_upload_penalty_time, "60", FCVAR_ARCHIVE, "allow custom resource updates only once in this timewindow (set 0 to disable)" );
 CVAR_DEFINE_AUTO( sv_downloadurl, "", FCVAR_PROTECTED, "location from which clients can download missing files" );
 CVAR_DEFINE( sv_consistency, "mp_consistency", "1", FCVAR_SERVER, "enbale consistency check in multiplayer" );
 CVAR_DEFINE_AUTO( mp_logecho, "1", 0, "log multiplayer frags to server logfile" );
@@ -941,6 +942,7 @@ void SV_Init( void )
 	Cvar_RegisterVariable( &sv_send_logos );
 	Cvar_RegisterVariable( &sv_send_resources );
 	Cvar_RegisterVariable( &sv_uploadmax );
+	Cvar_RegisterVariable( &sv_upload_penalty_time );
 	Cvar_RegisterVariable( &sv_version );
 	Cvar_RegisterVariable( &sv_instancedbaseline );
 	Cvar_RegisterVariable( &sv_contact );

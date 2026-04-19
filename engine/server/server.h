@@ -252,6 +252,7 @@ typedef struct sv_client_s
 	double userinfo_penalty;
 
 	double overflow_warn_time;
+	double resourcelist_next_changetime;
 
 	client_frame_t *frames; // updates can be delta'd from here
 	event_state_t  events;  // delta-updated events cycle
@@ -419,6 +420,7 @@ extern convar_t		sv_skyvec_z;
 extern convar_t		sv_consistency;
 extern convar_t		sv_password;
 extern convar_t		sv_uploadmax;
+extern convar_t		sv_upload_penalty_time;
 extern convar_t		sv_trace_messages;
 extern convar_t		sv_enttools_enable;
 extern convar_t		sv_enttools_maxfire;

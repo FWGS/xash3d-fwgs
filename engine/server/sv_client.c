@@ -3465,6 +3465,16 @@ static void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 		SV_AddToResourceList( resource, &cl->resourcesneeded );
 	}
 
+	if( host.realtime < cl->resourcelist_next_changetime )
+	{
+		Con_Reportf( "%s: ignoring resource list update from %s: too soon\n", __func__, cl->name );
+		SV_ClearResourceList( &cl->resourcesneeded );
+		SV_ClearResourceList( &cl->resourcesonhand );
+		return;
+	}
+
+	cl->resourcelist_next_changetime = host.realtime + sv_upload_penalty_time.value;
+
 	totalsize = COM_SizeofResourceList( &cl->resourcesneeded, &ri );
 
 	if( totalsize != 0 && sv_allow_upload.value )
