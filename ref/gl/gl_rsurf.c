@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "gl_local.h"
 #include "xash3d_mathlib.h"
 #include "mod_local.h"
+#include "atlas.h"
 
 #define TURBSCALE		( 256.0f / ( M_PI2 ))
 
@@ -27,8 +28,7 @@ static const float r_turbsin[] =
 
 typedef struct
 {
-	int		allocated[BLOCK_SIZE_MAX];
-	int		max_height;		// maximum height currently in use in the block
+	atlas_t		atlas;
 	int		current_lightmap_texture;
 	msurface_t	*dynamic_surfaces;
 	msurface_t	*lightmap_surfaces[MAX_LIGHTMAPS];
@@ -646,60 +646,17 @@ static void R_AddDynamicLights( const msurface_t *surf )
 */
 static void LM_InitBlock( void )
 {
-	memset( gl_lms.allocated, 0, sizeof( gl_lms.allocated ));
-	gl_lms.max_height = 0;
+	Atlas_Init( &gl_lms.atlas, BLOCK_SIZE );
 }
 
-static int LM_AllocBlock( int w, int h, int *x, int *y )
+static qboolean LM_AllocBlock( int w, int h, int *x, int *y )
 {
-	int	i, j;
-	int	best, best2;
-
-	best = BLOCK_SIZE;
-
-	for( i = 0; i < BLOCK_SIZE - w; )
-	{
-		best2 = 0;
-
-		for( j = 0; j < w; j++ )
-		{
-			if( gl_lms.allocated[i+j] >= best )
-				break;
-			if( gl_lms.allocated[i+j] > best2 )
-				best2 = gl_lms.allocated[i+j];
-		}
-
-		if( j == w )
-		{
-			// this is a valid spot
-			*x = i;
-			*y = best = best2;
-			if( best == 0 )
-				break; // height 0 is optimal, can't do better
-			i++;
-		}
-		else
-		{
-			// allocated[i+j] was too tall — no position in [i, i+j] can work
-			i += j + 1;
-		}
-	}
-
-	if( best + h > BLOCK_SIZE )
-		return false;
-
-	for( i = 0; i < w; i++ )
-		gl_lms.allocated[*x + i] = best + h;
-
-	if( best + h > gl_lms.max_height )
-		gl_lms.max_height = best + h;
-
-	return true;
+	return Atlas_AllocBlock( &gl_lms.atlas, w, h, x, y );
 }
 
 static void LM_UploadDynamicBlock( void )
 {
-	pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, gl_lms.max_height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer );
+	pglTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, BLOCK_SIZE, gl_lms.atlas.max_height, GL_RGBA, GL_UNSIGNED_BYTE, gl_lms.lightmap_buffer );
 }
 
 static void LM_UploadBlock( qboolean dynamic )
