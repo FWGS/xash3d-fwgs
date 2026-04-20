@@ -615,8 +615,11 @@ void Cmd_TokenizeString( const char *text )
 		if( !*text )
 			return;
 
-		if( cmd_argc == 1 )
-			 cmd_args = text;
+		switch( cmd_argc )
+		{
+		case 0: cmd_args = "";   break;
+		case 1: cmd_args = text; break;
+		}
 
 		text = COM_ParseFileSafe( (char*)text, cmd_token, sizeof( cmd_token ), PFILE_IGNOREBRACKET, NULL, NULL );
 
