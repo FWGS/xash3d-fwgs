@@ -802,35 +802,6 @@ INTERNAL TEXTURES
 */
 /*
 ==================
-GL_FakeImage
-==================
-*/
-static rgbdata_t *GL_FakeImage( int width, int height, int depth, int flags )
-{
-	static byte      data2D[1024]; // 16x16x4
-	static rgbdata_t r_image;
-
-	// also use this for bad textures, but without alpha
-	r_image.width = Q_max( 1, width );
-	r_image.height = Q_max( 1, height );
-	r_image.depth = Q_max( 1, depth );
-	r_image.flags = flags;
-	r_image.type = PF_RGBA_32;
-	r_image.size = r_image.width * r_image.height * r_image.depth * 4;
-	r_image.buffer = ( r_image.size > sizeof( data2D )) ? NULL : data2D;
-	r_image.palette = NULL;
-	r_image.numMips = 1;
-	r_image.encode = 0;
-
-	if( FBitSet( r_image.flags, IMAGE_CUBEMAP ))
-		r_image.size *= 6;
-	memset( data2D, 0xFF, sizeof( data2D ));
-
-	return &r_image;
-}
-
-/*
-==================
 R_InitDlightTexture
 ==================
 */

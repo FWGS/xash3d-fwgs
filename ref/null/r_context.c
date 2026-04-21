@@ -229,31 +229,6 @@ static int RefGetParm( int parm, int arg )
 	return 0;
 }
 
-static void GetDetailScaleForTexture( int texture, float *xScale, float *yScale )
-{
-	*xScale = *yScale = 1.0f;
-}
-
-static void GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *alpha )
-{
-	*red = *green = *blue = *alpha = 0;
-}
-
-static float GetFrameTime( void )
-{
-	return 0.0f;
-}
-
-static void R_SetCurrentEntity( struct cl_entity_s *ent )
-{
-	;
-}
-
-static void R_SetCurrentModel( struct model_s *mod )
-{
-	;
-}
-
 static int GL_FindTexture( const char *name )
 {
 	return 0;
@@ -279,34 +254,9 @@ static int GL_CreateTexture( const char *name, int width, int height, const void
 	return 0;
 }
 
-static int GL_LoadTextureArray( const char **names, int flags )
-{
-	return 0;
-}
-
-static int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags )
-{
-	return 0;
-}
-
 static void R_OverrideTextureSourceSize( unsigned int textnum, unsigned int srcWidth, unsigned int srcHeight )
 {
 
-}
-
-static void DrawSingleDecal( struct decal_s *pDecal, struct msurface_s *fa )
-{
-	;
-}
-
-static float *R_DecalSetupVerts( struct decal_s *pDecal, struct msurface_s *surf, int texture, int *outCount )
-{
-	return NULL;
-}
-
-static void R_EntityRemoveDecals( struct model_s *mod )
-{
-	;
 }
 
 static void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt )
@@ -317,37 +267,6 @@ static void GL_UpdateTexture( int texnum, int cols, int rows, int width, int hei
 static void GL_Bind( int tmu, unsigned int texnum )
 {
 	;
-}
-
-static void GL_LoadTextureMatrix( const float *glmatrix )
-{
-	;
-}
-
-static void GL_TexGen( unsigned int coord, unsigned int mode )
-{
-	;
-}
-
-static void GL_UpdateTexSize( int texnum, int width, int height, int depth )
-{
-	;
-}
-
-static void GL_DrawParticles( const struct ref_viewpass_s *rvp, qboolean trans_pass, float frametime )
-{
-	;
-}
-
-static colorVec LightVec( const float *start, const float *end, float *lightspot, float *lightvec )
-{
-	colorVec c = { 0 };
-	return c;
-}
-
-static struct mstudiotex_s *StudioGetTexture( struct cl_entity_s *e )
-{
-	return NULL;
 }
 
 static void GL_RenderFrame( const struct ref_viewpass_s *rvp )
@@ -370,11 +289,6 @@ static byte *Mod_GetCurrentVis( void )
 	return NULL;
 }
 
-static void *R_GetProcAddress( const char *name )
-{
-	return NULL;
-}
-
 static void Color4f( float r, float g, float b, float a )
 {
 	;
@@ -385,37 +299,12 @@ static void Color4ub( unsigned char r, unsigned char g, unsigned char b, unsigne
 	;
 }
 
-static void TexCoord2f( float u, float v )
-{
-	;
-}
-
 static void Vertex3fv( const float *worldPnt )
 {
 	;
 }
 
 static void Vertex3f( float x, float y, float z )
-{
-	;
-}
-
-static void Fog( float flFogColor[3], float flStart, float flEnd, int bOn )
-{
-	;
-}
-
-static void ScreenToWorld( const float *screen, float *world  )
-{
-	;
-}
-
-static void GetMatrix( const int pname, float *matrix )
-{
-	;
-}
-
-static void FogParams( float flDensity, int iFogSkybox )
 {
 	;
 }

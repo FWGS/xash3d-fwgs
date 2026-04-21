@@ -428,6 +428,7 @@ DebugCallback
 For ARB_debug_output
 ========================
 */
+#if !XASH_GL4ES // GL4ES doesn't provide glDebug functions, even as stubs
 static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLuint severity, GLint length, const GLcharARB *message, GLvoid *userParam )
 {
 	switch( type )
@@ -449,6 +450,7 @@ static void APIENTRY GL_DebugOutput( GLuint source, GLuint type, GLuint id, GLui
 		break;
 	}
 }
+#endif // !XASH_GL4ES
 
 /*
 =================
@@ -1076,7 +1078,8 @@ void GL_InitExtensions( void )
 
 	pglGetIntegerv( GL_MAX_TEXTURE_SIZE, &glConfig.max_2d_texture_size );
 	if( glConfig.max_2d_texture_size <= 0 ) glConfig.max_2d_texture_size = 256;
-#if !XASH_GL4ES
+
+#if !XASH_GL4ES // GL4ES doesn't provide glDebugMessage functions, even as stubs
 	// enable gldebug if allowed
 	if( GL_Support( GL_DEBUG_OUTPUT ))
 	{
@@ -1093,7 +1096,8 @@ void GL_InitExtensions( void )
 		// enable all the low priority messages
 		pglDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, true );
 	}
-#endif
+#endif // !XASH_GL4ES
+
 	if( GL_Support( GL_TEXTURE_2D_RECT_EXT ))
 		pglGetIntegerv( GL_MAX_RECTANGLE_TEXTURE_SIZE_EXT, &glConfig.max_2d_rectangle_size );
 
