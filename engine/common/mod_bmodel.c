@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "client.h"
 #include "server.h"			// LUMP_ error codes
+#include "swaplib.h"
 #include "ref_common.h"
 #if defined( HAVE_OPENMP )
 #include <omp.h>
@@ -186,7 +187,161 @@ typedef struct
 	const char   *loadname;
 	const void   **dataptr;
 	size_t       *count;
+#if XASH_BIG_ENDIAN // do not waste memory on little endian
+	const swap_struct_def_t *swap;
+	size_t       swaplen;
+	const swap_struct_def_t *swap32;
+	size_t       swaplen32;
+#endif
 } mlumpinfo_t;
+
+// all these macros are ugly af
+#if XASH_BIG_ENDIAN
+	#define LUMP_SWAP( x )       .swap = x, .swaplen = ARRAYSIZE( x )
+	#define LUMP_SWAP32( x, y )  .swap = x, .swaplen = ARRAYSIZE( x ), .swap32 = y, .swaplen32 = ARRAYSIZE( y )
+#else
+	#define LUMP_SWAP( x )
+	#define LUMP_SWAP32( x, y )
+#endif
+
+le_struct_begin( dlump_swap )
+	le_struct_field( dlump_t, fileofs )
+	le_struct_field( dlump_t, filelen )
+le_struct_end();
+
+le_struct_begin( dheader_swap )
+	le_struct_field( dheader_t, version )
+	le_struct_array_child( dheader_t, lumps, dlump_swap, HEADER_LUMPS )
+le_struct_end();
+
+le_struct_begin( dextrahdr_swap )
+	le_struct_field( dextrahdr_t, id )
+	le_struct_field( dextrahdr_t, version )
+	le_struct_array_child( dextrahdr_t, lumps, dlump_swap, EXTRA_LUMPS )
+le_struct_end();
+
+le_struct_begin( dbspx_hdr_swap )
+	le_struct_field( dbspx_lump_t, id )
+	le_struct_field( dbspx_lump_t, numlumps )
+	// flexible array member omitted
+le_struct_end();
+
+le_struct_begin( dbspx_lump_swap )
+	le_struct_field( dbspx_lump_t, fileofs )
+	le_struct_field( dbspx_lump_t, filelen )
+le_struct_end();
+
+le_struct_begin( dplane_swap )
+	le_struct_array( dplane_t, normal, 3 )
+	le_struct_field( dplane_t, dist )
+	le_struct_field( dplane_t, type )
+le_struct_end();
+
+le_struct_begin( dvertex_swap )
+	le_struct_array( dvertex_t, point, 3 )
+le_struct_end();
+
+le_struct_begin( dnode_swap )
+	le_struct_field( dnode_t, planenum )
+	le_struct_array( dnode_t, children, 2 )
+	le_struct_array( dnode_t, mins, 3 )
+	le_struct_array( dnode_t, maxs, 3 )
+	le_struct_field( dnode_t, firstface )
+	le_struct_field( dnode_t, numfaces )
+le_struct_end();
+
+le_struct_begin( dnode32_swap )
+	le_struct_field( dnode32_t, planenum )
+	le_struct_array( dnode32_t, children, 2 )
+	le_struct_array( dnode32_t, mins, 3 )
+	le_struct_array( dnode32_t, maxs, 3 )
+	le_struct_field( dnode32_t, firstface )
+	le_struct_field( dnode32_t, numfaces )
+le_struct_end();
+
+le_struct_begin( dtexinfo_swap )
+	le_struct_array( dtexinfo_t, vecs[0], 4 )
+	le_struct_array( dtexinfo_t, vecs[1], 4 )
+	le_struct_field( dtexinfo_t, miptex )
+	le_struct_field( dtexinfo_t, flags )
+	le_struct_field( dtexinfo_t, faceinfo )
+le_struct_end();
+
+le_struct_begin( dface_swap )
+	le_struct_field( dface_t, planenum )
+	le_struct_field( dface_t, side )
+	le_struct_field( dface_t, firstedge )
+	le_struct_field( dface_t, numedges )
+	le_struct_field( dface_t, texinfo )
+	le_struct_field( dface_t, lightofs )
+le_struct_end();
+
+le_struct_begin( dface32_swap )
+	le_struct_field( dface32_t, planenum )
+	le_struct_field( dface32_t, side )
+	le_struct_field( dface32_t, firstedge )
+	le_struct_field( dface32_t, numedges )
+	le_struct_field( dface32_t, texinfo )
+	le_struct_field( dface32_t, lightofs )
+le_struct_end();
+
+le_struct_begin( dclipnode_swap )
+	le_struct_field( dclipnode_t, planenum )
+	le_struct_array( dclipnode_t, children, 2 )
+le_struct_end();
+
+le_struct_begin( dclipnode32_swap )
+	le_struct_field( dclipnode32_t, planenum )
+	le_struct_array( dclipnode32_t, children, 2 )
+le_struct_end();
+
+le_struct_begin( dleaf_swap )
+	le_struct_field( dleaf_t, contents )
+	le_struct_field( dleaf_t, visofs )
+	le_struct_array( dleaf_t, mins, 3 )
+	le_struct_array( dleaf_t, maxs, 3 )
+	le_struct_field( dleaf_t, firstmarksurface )
+	le_struct_field( dleaf_t, nummarksurfaces )
+le_struct_end();
+
+le_struct_begin( dleaf32_swap )
+	le_struct_field( dleaf32_t, contents )
+	le_struct_field( dleaf32_t, visofs )
+	le_struct_array( dleaf32_t, mins, 3 )
+	le_struct_array( dleaf32_t, maxs, 3 )
+	le_struct_field( dleaf32_t, firstmarksurface )
+	le_struct_field( dleaf32_t, nummarksurfaces )
+le_struct_end();
+
+le_struct_begin( dedge_swap )
+	le_struct_array( dedge_t, v, 2 )
+le_struct_end();
+
+le_struct_begin( dedge32_swap )
+	le_struct_array( dedge32_t, v, 2 )
+le_struct_end();
+
+le_struct_begin( dmodel_swap )
+	le_struct_array( dmodel_t, mins, 3 )
+	le_struct_array( dmodel_t, maxs, 3 )
+	le_struct_array( dmodel_t, origin, 3 )
+	le_struct_array( dmodel_t, headnode, MAX_MAP_HULLS )
+	le_struct_field( dmodel_t, visleafs )
+	le_struct_field( dmodel_t, firstface )
+	le_struct_field( dmodel_t, numfaces )
+le_struct_end();
+
+le_struct_begin( dfaceinfo_swap )
+	le_struct_field( dfaceinfo_t, texture_step )
+	le_struct_field( dfaceinfo_t, max_extent )
+	le_struct_field( dfaceinfo_t, groupid )
+le_struct_end();
+
+le_struct_begin( mip_swap )
+	le_struct_field( mip_t, width )
+	le_struct_field( mip_t, height )
+	le_struct_array( mip_t, offsets, 4 )
+le_struct_end();
 
 world_static_t     world;
 static dbspmodel_t srcmodel;
@@ -212,6 +367,7 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.loadname    = "planes",
 		.dataptr     = (const void **)&srcmodel.planes,
 		.count       = &srcmodel.numplanes,
+		LUMP_SWAP( dplane_swap )
 	},
 	{
 		.lumpnumber  = LUMP_TEXTURES,
@@ -229,6 +385,7 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.loadname    = "vertexes",
 		.dataptr     = (const void **)&srcmodel.vertexes,
 		.count       = &srcmodel.numvertexes,
+		LUMP_SWAP( dvertex_swap )
 	},
 	{
 		.lumpnumber  = LUMP_VISIBILITY,
@@ -248,6 +405,7 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.flags       = CHECK_OVERFLOW,
 		.dataptr     = (const void **)&srcmodel.nodes,
 		.count       = &srcmodel.numnodes,
+		LUMP_SWAP32( dnode_swap, dnode32_swap )
 	},
 	{
 		.lumpnumber  = LUMP_TEXINFO,
@@ -258,6 +416,7 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.flags       = CHECK_OVERFLOW,
 		.dataptr     = (const void **)&srcmodel.texinfo,
 		.count       = &srcmodel.numtexinfo,
+		LUMP_SWAP( dtexinfo_swap )
 	},
 	{
 		.lumpnumber  = LUMP_FACES,
@@ -269,6 +428,7 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.flags       = CHECK_OVERFLOW,
 		.dataptr     = (const void **)&srcmodel.surfaces,
 		.count       = &srcmodel.numsurfaces,
+		LUMP_SWAP32( dface_swap, dface32_swap )
 	},
 	{
 		.lumpnumber  = LUMP_LIGHTING,
@@ -290,6 +450,7 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.flags       = 0,
 		.dataptr     = (const void **)&srcmodel.clipnodes,
 		.count       = &srcmodel.numclipnodes,
+		LUMP_SWAP32( dclipnode_swap, dclipnode32_swap )
 	},
 	{
 		.lumpnumber  = LUMP_LEAFS,
@@ -301,6 +462,7 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.flags       = CHECK_OVERFLOW,
 		.dataptr     = (const void **)&srcmodel.leafs,
 		.count       = &srcmodel.numleafs,
+		LUMP_SWAP32( dleaf_swap, dleaf32_swap )
 	},
 	{
 		.lumpnumber  = LUMP_MARKSURFACES,
@@ -323,6 +485,7 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.flags       = 0,
 		.dataptr     = (const void **)&srcmodel.edges,
 		.count       = &srcmodel.numedges,
+		LUMP_SWAP32( dedge_swap, dedge32_swap )
 	},
 	{
 		.lumpnumber  = LUMP_SURFEDGES,
@@ -343,6 +506,7 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.flags       = CHECK_OVERFLOW,
 		.dataptr     = (const void **)&srcmodel.submodels,
 		.count       = &srcmodel.numsubmodels,
+		LUMP_SWAP( dmodel_swap )
 	},
 };
 
@@ -366,6 +530,7 @@ static const mlumpinfo_t extlumps[EXTRA_LUMPS] =
 		.flags       = CHECK_OVERFLOW,
 		.dataptr     = (const void **)&srcmodel.faceinfo,
 		.count       = &srcmodel.numfaceinfo,
+		LUMP_SWAP( dfaceinfo_swap )
 	},
 	{
 		.lumpnumber  = LUMP_SHADOWMAP,
@@ -758,6 +923,29 @@ static void Mod_LoadLump( const void *in, const mlumpinfo_t *info, mlumpstat_t *
 
 	if( info->count )
 		*info->count = numelems;
+
+	// finally, process the data
+#if XASH_BIG_ENDIAN
+	const swap_struct_def_t *swap = real_entrysize == info->entrysize32 ? info->swap32 : info->swap;
+	size_t swaplen = real_entrysize == info->entrysize32 ? info->swaplen32 : info->swaplen;
+
+	if( info->dataptr && *info->dataptr )
+	{
+		byte *data = (byte *)*info->dataptr;
+
+		if( swap )
+		{
+			for( size_t j = 0; j < numelems; j++ )
+				swap_struct_( swap, swaplen, data + j * real_entrysize );
+		}
+		// some lumps don't need a swapdef, as all needed data in the lump info
+		else if( real_entrysize > 1 )
+		{
+			for( size_t j = 0; j < numelems; j++ )
+				swap_field_( data + j * real_entrysize, real_entrysize );
+		}
+	}
+#endif
 }
 
 /*
@@ -2975,6 +3163,24 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 
 	lump = bmod->textures;
 
+#if XASH_BIG_ENDIAN
+	if( lump )
+	{
+		lump->nummiptex = LittleLong( lump->nummiptex );
+
+		for( int i = 0; i < lump->nummiptex; i++ )
+		{
+			lump->dataofs[i] = LittleLong( lump->dataofs[i] );
+
+			if( lump->dataofs[i] >= 0 )
+			{
+				mip_t *mt = (mip_t *)((byte *)lump + lump->dataofs[i]);
+				le_struct_swap( mip_swap, mt );
+			}
+		}
+	}
+#endif
+
 	if( bmod->texdatasize < 1 || !lump || lump->nummiptex < 1 )
 	{
 		// no textures
@@ -3845,6 +4051,22 @@ static int Mod_LumpLooksLikeEntities( const char *lump, const size_t lumplen )
 	return Q_memmem( lump, lumplen, "\"classname\"", sizeof( "\"classname\"" ) - 1 ) != NULL ? 1 : 0;
 }
 
+static void Mod_SwapBSPLumps( byte *mod_base, size_t bufferlen )
+{
+	dheader_t *header = (dheader_t *)mod_base;
+
+	le_struct_swap( dheader_swap, header );
+
+	// BSP30ext pass
+	if( header->version == HLBSP_VERSION && bufferlen > sizeof( *header ) + sizeof( dextrahdr_t ))
+	{
+		dextrahdr_t *ext = (dextrahdr_t *)( mod_base + sizeof( *header ));
+
+		if( ext->id == LittleLong( IDEXTRAHEADER ))
+			le_struct_swap( dextrahdr_swap, ext );
+	}
+}
+
 /*
 =================
 Mod_FindEndOfBSPFile
@@ -3889,19 +4111,25 @@ Mod_FindBSPX
 find BSPX header position, returns -1 on error
 =================
 */
-static fs_offset_t Mod_FindBSPX( const byte *mod_base, size_t bufferlen )
+static fs_offset_t Mod_FindBSPX( byte *mod_base, size_t bufferlen )
 {
 	fs_offset_t max_offset = Mod_FindEndOfBSPFile( mod_base, bufferlen );
-	const dbspx_hdr_t *bspx_header;
 
 	max_offset = ALIGN( max_offset, 4 ); // force 32-bit boundary
 
 	if( max_offset + sizeof( dbspx_hdr_t ) > bufferlen )
 		return -1;
 
-	bspx_header = (const dbspx_hdr_t *)( mod_base + max_offset );
+	dbspx_hdr_t *bspx_header = (dbspx_hdr_t *)( mod_base + max_offset );
+
 	if( bspx_header->id != LittleLong( IDBSPXHEADER ))
 		return -1;
+
+	bspx_header->id = LittleLong( bspx_header->id );
+	bspx_header->numlumps = LittleLong( bspx_header->numlumps );
+
+	for( int i = 0; i < bspx_header->numlumps; i++ )
+		le_struct_swap( dbspx_lump_swap, &bspx_header->lumps[i] );
 
 	Con_DPrintf( "Found valid BSPX signature at %lld\n", (long long)max_offset );
 	return max_offset;
@@ -3930,6 +4158,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 
 	Q_strncpy( loadstat.name, mod->name, sizeof( loadstat.name ));
 	wadvalue[0] = '\0';
+
+	// byte-swap BSP header and lump directory from little-endian
+	Mod_SwapBSPLumps( mod_base, bufferlen );
 
 	// restore default lump numbers
 	srclumps[0].lumpnumber = LUMP_ENTITIES;
@@ -4110,6 +4341,9 @@ qboolean Mod_TestBmodelLumps( file_t *f, const char *name, byte *mod_base, size_
 
 	if( buffersize < sizeof( *header ))
 		return false;
+
+	// byte-swap BSP header and lump directory from little-endian
+	Mod_SwapBSPLumps( mod_base, buffersize );
 
 	// restore default lump numbers
 	srclumps[0].lumpnumber = LUMP_ENTITIES;
