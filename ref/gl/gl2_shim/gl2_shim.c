@@ -1681,10 +1681,12 @@ static void APIENTRY GL2_BindBufferARB( GLenum buf, GLuint obj )
 	rpglBindBufferARB( buf, obj );
 }
 
+#if 0
 static void APIENTRY GL2_ActiveTextureARB( GLenum tex )
 {
 	//gl2wrap_arrays.texture = GL_TEXTURE0_ARB - tex;
 }
+#endif
 
 static void APIENTRY GL2_ClientActiveTextureARB( GLenum tex )
 {
@@ -1736,6 +1738,7 @@ static void APIENTRY GL2_ShadeModel(GLenum mode)
 {
 }
 
+#if XASH_GLES
 static void APIENTRY GL2_PolygonMode(GLenum face, GLenum mode)
 {
 }
@@ -1747,6 +1750,7 @@ static void APIENTRY GL2_PointSize(GLfloat size)
 static void APIENTRY GL2_DrawBuffer(GLenum mode)
 {
 }
+#endif
 
 #if XASH_EMSCRIPTEN
 static void GL2_PolygonOffset( GLfloat factor, GLfloat units )
@@ -1783,10 +1787,12 @@ void GL2_ShimInstall( void )
 	GL2_OVERRIDE_PTR( TexEnvi )
 	GL2_OVERRIDE_PTR( TexEnvf )
 	GL2_OVERRIDE_PTR( ClientActiveTextureARB )
-	//GL2_OVERRIDE_PTR( ActiveTextureARB )
+#if 0 // FIXME: figure out why it's disabled
+	GL2_OVERRIDE_PTR( ActiveTextureARB )
+#endif
 	GL2_OVERRIDE_PTR( Fogi )
 	GL2_OVERRIDE_PTR( ShadeModel )
-#ifdef XASH_GLES
+#if XASH_GLES
 	_pglDepthRangef = gEngfuncs.GL_GetProcAddress( "glDepthRangef" );
 	GL2_OVERRIDE_PTR( PolygonMode )
 	GL2_OVERRIDE_PTR( PointSize )
