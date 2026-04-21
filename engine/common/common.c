@@ -227,7 +227,7 @@ qboolean LZSS_IsCompressed( const byte *source, size_t input_len )
 
 	phdr = (const lzss_header_t *)source;
 
-	if( phdr && phdr->id == LZSS_ID )
+	if( phdr && phdr->id == LittleLong( LZSS_ID ))
 		return true;
 	return false;
 }
@@ -241,8 +241,8 @@ uint LZSS_GetActualSize( const byte *source, size_t input_len )
 
 	phdr = (const lzss_header_t *)source;
 
-	if( phdr && phdr->id == LZSS_ID )
-		return phdr->size;
+	if( phdr && phdr->id == LittleLong( LZSS_ID ))
+		return LittleLong( phdr->size );
 
 	return 0;
 }
@@ -296,8 +296,8 @@ static byte *LZSS_CompressNoAlloc( lzss_state_t *state, byte *pInput, int input_
 		return NULL;
 
 	// set LZSS header
-	header->id = LZSS_ID;
-	header->size = input_length;
+	header->id = LittleLong( LZSS_ID );
+	header->size = LittleLong( input_length );
 
 	// create the compression work buffers, small enough (~64K) for stack
 	state->hash_table = (lzss_list_t *)alloca( 256 * sizeof( lzss_list_t ));
@@ -967,8 +967,8 @@ static void Test_LZSS( void )
 	ASAN_POISON_MEMORY_REGION( poison3, sizeof( poison3 ));
 #endif
 
-	hdr->size = sizeof( in ) - sizeof( *hdr );
-	hdr->id = LZSS_ID;
+	hdr->size = LittleLong( sizeof( in ) - sizeof( *hdr ));
+	hdr->id = LittleLong( LZSS_ID );
 
 	memset( in + sizeof( *hdr ), 0xff, sizeof( in ) - sizeof( *hdr ));
 	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
@@ -978,18 +978,18 @@ static void Test_LZSS( void )
 	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
 	TASSERT_EQi( result, 0 );
 
-	hdr->size = 1;
-	hdr->id = LZSS_ID;
+	hdr->size = LittleLong( 1 );
+	hdr->id = LittleLong( LZSS_ID );
 	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
 	TASSERT_EQi( result, 0 );
 
-	hdr->size = 999;
-	hdr->id = LZSS_ID;
+	hdr->size = LittleLong( 999 );
+	hdr->id = LittleLong( LZSS_ID );
 	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
 	TASSERT_EQi( result, 0 );
 
-	hdr->size = sizeof( in ) - sizeof( *hdr );
-	hdr->id = 0xa1ba;
+	hdr->size = LittleLong( sizeof( in ) - sizeof( *hdr ));
+	hdr->id = LittleLong( 0xa1ba );
 	result = LZSS_Decompress( in, out, sizeof( in ), sizeof( out ));
 	TASSERT_EQi( result, 0 );
 
