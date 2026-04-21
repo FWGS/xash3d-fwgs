@@ -400,7 +400,8 @@ qboolean MSG_WriteBits( sizebuf_t *sb, const void *pData, int nBits )
 	// read dwords.
 	while( nBitsLeft >= 32 )
 	{
-		MSG_WriteUBitLong( sb, *(( uint32_t *)pOut ), 32 );
+		uint32_t dword = *((uint32_t *)pOut);
+		MSG_WriteUBitLong( sb, LittleLong( dword ), 32 );
 
 		pOut += sizeof( uint32_t );
 		nBitsLeft -= 32;
@@ -637,7 +638,8 @@ qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits )
 	// read dwords.
 	while( nBitsLeft >= 32 )
 	{
-		*((uint32_t *)pOut) = MSG_ReadUBitLong( sb, 32 );
+		uint32_t dword = MSG_ReadUBitLong( sb, 32 );
+		*((uint32_t *)pOut) = LittleLong( dword );
 		pOut += sizeof( uint32_t );
 		nBitsLeft -= 32;
 	}
