@@ -321,8 +321,10 @@ void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 	}
 
 	iCurBitMasked = iCurBit & 31;
-	((uint32_t *)sb->pData)[iDWord] &= BitWriteMasks[iCurBitMasked][nBitsLeft-1];
-	((uint32_t *)sb->pData)[iDWord] |= curData << iCurBitMasked;
+	uint32_t dword = LittleLong(((uint32_t *)sb->pData)[iDWord] );
+	dword &= BitWriteMasks[iCurBitMasked][nBitsLeft-1];
+	dword |= curData << iCurBitMasked;
+	((uint32_t *)sb->pData)[iDWord] = LittleLong( dword );
 
 	// did it span a dword?
 	nBitsWritten = 32 - iCurBitMasked;
@@ -334,8 +336,10 @@ void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 		curData >>= nBitsWritten;
 
 		iCurBitMasked = iCurBit & 31;
-		((uint32_t *)sb->pData)[iDWord+1] &= BitWriteMasks[iCurBitMasked][nBitsLeft-1];
-		((uint32_t *)sb->pData)[iDWord+1] |= curData << iCurBitMasked;
+		uint32_t dword2 = LittleLong(((uint32_t *)sb->pData)[iDWord+1] );
+		dword2 &= BitWriteMasks[iCurBitMasked][nBitsLeft-1];
+		dword2 |= curData << iCurBitMasked;
+		((uint32_t *)sb->pData)[iDWord+1] = LittleLong( dword2 );
 	}
 	sb->iCurBit += numbits;
 }
@@ -593,7 +597,7 @@ uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 
 	// Read the current dword.
 	idword1 = sb->iCurBit >> 5;
-	dword1 = ((uint *)sb->pData)[idword1];
+	dword1 = LittleLong(((uint *)sb->pData)[idword1] );
 	dword1 >>= ( sb->iCurBit & 31 );	// get the bits we're interested in.
 
 	sb->iCurBit += numbits;
@@ -608,7 +612,7 @@ uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 	else
 	{
 		int	nExtraBits = sb->iCurBit & 31;
-		uint	dword2 = ((uint *)sb->pData)[idword1+1] & ExtraMasks[nExtraBits];
+		uint	dword2 = LittleLong(((uint *)sb->pData)[idword1+1] ) & ExtraMasks[nExtraBits];
 
 		// no need to mask since we hit the end of the dword.
 		// shift the second dword's part into the high bits.
