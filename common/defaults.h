@@ -49,6 +49,14 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_REDUCE_FD 1
 		#define XASH_NO_TOUCH  1
 		#define XASH_NO_ZIP    1
+	#elif XASH_WII
+	//Most stuff should "work" with SDL
+		#define XASH_SDL       2
+		#define XASH_VIDEO     VIDEO_SDL
+		//static link everything
+		#define XASH_LIB       LIB_STATIC
+		#define XASH_STATIC_LIBS 1
+		#define XASH_GL_STATIC 1
 	#endif
 #endif // !XASH_DEDICATED
 
@@ -154,6 +162,9 @@ Default build-depended cvar and constant values
 #elif XASH_MOBILE_PLATFORM
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE     "1"
+#elif XASH_WII
+	#define DEFAULT_MODE_WIDTH   640
+	#define DEFAULT_MODE_HEIGHT  480
 #endif // !XASH_MOBILE_PLATFORM && !XASH_NSWITCH
 
 // Defaults

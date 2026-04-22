@@ -12,6 +12,9 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
+#ifdef XASH_WII
+	#include <network.h>
+#endif
 
 #include "common.h"
 #include "client.h" // ConnectionProgress
@@ -248,7 +251,8 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 
 	memset( &hints, 0, sizeof( hints ));
 	hints.ai_family = family;
-
+// 	HL_WII
+	/*
 	if( !getaddrinfo( hostname, NULL, &hints, &ai ))
 	{
 		for( cur = ai; cur; cur = cur->ai_next )
@@ -264,7 +268,7 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 		if( ai )
 			freeaddrinfo( ai );
 	}
-
+	*/
 	return ret;
 }
 
@@ -1564,7 +1568,8 @@ NET_SendPacket
 */
 void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to )
 {
-	NET_SendPacketEx( sock, length, data, to, 0 );
+// 	HL_WII
+	//NET_SendPacketEx( sock, length, data, to, 0 );
 }
 
 /*
@@ -1590,7 +1595,8 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 			Con_DPrintf( S_WARN "%s: port: %d socket: %s\n", __func__, port, NET_ErrorString( ));
 		return INVALID_SOCKET;
 	}
-
+// HL_WII
+/*
 	if( NET_IsSocketError( ioctlsocket( net_socket, FIONBIO, (void*)&_true )))
 	{
 		struct timeval timeout;
@@ -1600,7 +1606,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		timeout.tv_sec = timeout.tv_usec = 0;
 		setsockopt( net_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 	}
-
+*/
 	// make it broadcast capable
 	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_BROADCAST, (char *)&_true, sizeof( _true ))))
 	{
@@ -1630,11 +1636,12 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 			if( NET_IsSocketError( setsockopt( net_socket, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, (char *)&_true, sizeof( _true ))))
 				Con_DPrintf( S_WARN "%s: port %d setsockopt IPV6_MULTICAST_LOOP: %s\n", __func__, port, NET_ErrorString( ));
 		}
-
+// 		HL_WII
+		/*
 		if( !COM_StringEmpty( net_iface ) && Q_stricmp( net_iface, "localhost" ))
 			NET_StringToSockaddr( net_iface, &addr, false, AF_INET6 );
 		else ((struct sockaddr_in6 *)&addr)->sin6_addr = in6addr_any;
-
+		*/
 		if( port == PORT_ANY ) ((struct sockaddr_in6 *)&addr)->sin6_port = 0;
 		else ((struct sockaddr_in6 *)&addr)->sin6_port = htons((short)port);
 
@@ -1778,8 +1785,8 @@ static void NET_DetermineLocalAddress( void )
 		Con_Printf( "TCP/IP Disabled.\n" );
 		return;
 	}
-
-	gethostname( hostname, sizeof( hostname ));
+// 	HL_WII
+	//gethostname( hostname, sizeof( hostname ));
 	hostname[sizeof(hostname) - 1] = 0;
 
 	if( net.allow_ip )

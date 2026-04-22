@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 #include "menu_int.h"
 
-#if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA
+#if !XASH_ANDROID && !XASH_NSWITCH && !XASH_PSVITA && !XASH_WII
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	const char *argv[] = { OPEN_COMMAND, path, NULL };

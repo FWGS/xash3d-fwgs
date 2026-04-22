@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #define VIDEO_PSP     2
 #define VIDEO_FBDEV   3
 #define VIDEO_DOS     4
+#define VIDEO_WII     5
 
 // audio backends (XASH_SOUND)
 #define SOUND_NULL     0

@@ -260,14 +260,15 @@ static int HTTP_FileCreateSocket( httpfile_t *file )
 		HTTP_FreeFile( file, true );
 		return 0;
 	}
-
+// 	HL_WII
+/*
 	if( ioctlsocket( file->socket, FIONBIO, (void *)&mode ) < 0 )
 	{
 		Con_Printf( S_ERROR "%s: ioctl() returned %s\n", __func__, NET_ErrorString());
 		HTTP_FreeFile( file, true );
 		return 0;
 	}
-
+*/
 #if XASH_LINUX
 
 	res = fcntl( file->socket, F_GETFL, 0 );

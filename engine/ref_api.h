@@ -15,7 +15,6 @@ GNU General Public License for more details.
 #pragma once
 #ifndef REF_API
 #define REF_API
-
 #include <stdarg.h>
 #include "com_image.h"
 #include "vgui_api.h"
@@ -681,9 +680,17 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #ifdef REF_DLL
 #define DEFINE_ENGINE_SHARED_CVAR( x, y ) cvar_t *x = NULL;
 #define DECLARE_ENGINE_SHARED_CVAR( x, y ) extern cvar_t *x;
+
+/*#if XASH_WII
+#define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
+	if(!( x = gEngfuncs_gl.pfnGetCvarPointer( #y, 0 ) )) \
+		gEngfuncs_gl.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y ); */
+//#else
 #define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
 	if(!( x = gEngfuncs.pfnGetCvarPointer( #y ) )) \
 		gEngfuncs.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y );
+//#endif // based on XASH_DREAMCAST
+
 #define ENGINE_SHARED_CVAR_NAME( f, x, y ) f( x, y )
 #define ENGINE_SHARED_CVAR( f, x ) ENGINE_SHARED_CVAR_NAME( f, x, x )
 

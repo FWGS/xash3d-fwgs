@@ -153,7 +153,7 @@ const char *Sys_GetCurrentUser( void )
 	sceAppUtilSystemParamGetString( SCE_SYSTEM_PARAM_ID_USERNAME, username, sizeof( username ) - 1 );
 	if( !COM_StringEmpty( username ))
 		return username;
-#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH
+#elif XASH_POSIX && !XASH_ANDROID && !XASH_NSWITCH && !XASH_WII
 	static string username;
 	struct passwd *pw = getpwuid( geteuid( ));
 
@@ -632,8 +632,8 @@ qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg )
 		exe = malloc( exelen + 1 );
 		wai_getExecutablePath( exe, exelen, NULL );
 		exe[exelen] = 0;
-
-		execv( exe, newargs );
+// 		HL_WII
+		//execv( exe, newargs );
 
 		// if execv returned, it's probably an error
 		printf( "execv failed: %s", strerror( errno ));

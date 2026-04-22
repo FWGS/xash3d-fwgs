@@ -217,9 +217,9 @@ void IN_SetRelativeMouseMode( qboolean set )
 
 	if( set && !s_bRawInput )
 	{
-#if XASH_SDL >= 2
+#if XASH_SDL >= 2 && !XASH_WII
 		SDL_GetRelativeMouseState( NULL, NULL );
-#if XASH_SDL == 2
+#if XASH_SDL == 2 && !XASH_WII
 		SDL_SetRelativeMouseMode( SDL_TRUE );
 #else // XASH_SDL != 2
 		SDL_SetWindowRelativeMouseMode( host.hWnd, true );
@@ -231,9 +231,9 @@ void IN_SetRelativeMouseMode( qboolean set )
 	}
 	else if( !set && s_bRawInput )
 	{
-#if XASH_SDL >= 2
+#if XASH_SDL >= 2 && !XASH_WII
 		SDL_GetRelativeMouseState( NULL, NULL );
-#if XASH_SDL == 2
+#if XASH_SDL == 2 && !XASH_WII
 		SDL_SetRelativeMouseMode( SDL_FALSE );
 #else // XASH_SDL != 2
 		SDL_SetWindowRelativeMouseMode( host.hWnd, false );

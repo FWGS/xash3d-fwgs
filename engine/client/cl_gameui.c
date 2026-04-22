@@ -1103,8 +1103,8 @@ static void GAME_EXPORT UI_ShellExecute( const char *path, const char *parms, in
 {
 	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
 		path = DEFAULT_UPDATE_PAGE;
-
-	Platform_ShellExecute( path, parms );
+	//HL_WII
+	//Platform_ShellExecute( path, parms );
 
 	if( shouldExit )
 		Sys_Quit( __func__ );
