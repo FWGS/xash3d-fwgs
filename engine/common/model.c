@@ -347,7 +347,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	switch( *(uint *)buf )
 	{
 	case LittleLong( IDSTUDIOHEADER ):
-		Mod_LoadStudioModel( mod, buf, &loaded );
+		Mod_LoadStudioModel( mod, buf, length, &loaded );
 		break;
 	case LittleLong( IDSPRITEHEADER ):
 		Mod_LoadSpriteModel( mod, buf, length, &loaded );

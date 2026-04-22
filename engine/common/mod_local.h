@@ -181,7 +181,7 @@ void Mod_PrintWorldStats_f( void );
 //
 // mod_studio.c
 //
-void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded );
+void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded );
 void Mod_InitStudioAPI( void );
 void Mod_InitStudioHull( void );
 void Mod_ResetStudioAPI( void );
