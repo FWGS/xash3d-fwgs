@@ -18,7 +18,165 @@ GNU General Public License for more details.
 #include "sprite.h"
 #include "studio.h"
 #include "mod_local.h"
+#include "swaplib.h"
 
+le_struct_begin( dsprite_q1_swap )
+	le_struct_field( dsprite_q1_t, ident )
+	le_struct_field( dsprite_q1_t, version )
+	le_struct_field( dsprite_q1_t, type )
+	le_struct_field( dsprite_q1_t, boundingradius )
+	le_struct_array( dsprite_q1_t, bounds, 2 )
+	le_struct_field( dsprite_q1_t, numframes )
+	le_struct_field( dsprite_q1_t, beamlength )
+	le_struct_field( dsprite_q1_t, synctype )
+le_struct_end();
+
+le_struct_begin( dsprite_hl_swap )
+	le_struct_field( dsprite_hl_t, ident )
+	le_struct_field( dsprite_hl_t, version )
+	le_struct_field( dsprite_hl_t, type )
+	le_struct_field( dsprite_hl_t, texFormat )
+	le_struct_field( dsprite_hl_t, boundingradius )
+	le_struct_array( dsprite_hl_t, bounds, 2 )
+	le_struct_field( dsprite_hl_t, numframes )
+	le_struct_field( dsprite_hl_t, facetype )
+	le_struct_field( dsprite_hl_t, synctype )
+le_struct_end();
+
+le_struct_begin( dspriteframe_swap )
+	le_struct_array( dspriteframe_t, origin, 2 )
+	le_struct_field( dspriteframe_t, width )
+	le_struct_field( dspriteframe_t, height )
+le_struct_end();
+
+static byte *Mod_SwapSpriteFrame( byte *p, byte *end, int bytes )
+{
+	dspriteframe_t *frame;
+
+	if( p + sizeof( *frame ) > end )
+		return NULL;
+
+	frame = (dspriteframe_t *)p;
+	le_struct_swap( dspriteframe_swap, frame );
+	p += sizeof( *frame );
+
+	// skip pixel data
+	if( p + frame->width * frame->height * bytes > end )
+		return NULL;
+
+	p += frame->width * frame->height * bytes;
+	return p;
+}
+
+static byte *Mod_SwapSpriteGroup( byte *p, byte *end, int bytes )
+{
+	dspritegroup_t *group;
+
+	if( p + sizeof( *group ) > end )
+		return NULL;
+
+	group = (dspritegroup_t *)p;
+	group->numframes = LittleLong( group->numframes );
+	p += sizeof( *group );
+
+	// swap intervals
+	int numframes = group->numframes;
+
+	if( p + numframes * sizeof( dspriteinterval_t ) > end )
+		return NULL;
+
+	for( int i = 0; i < numframes; i++ )
+	{
+		dspriteinterval_t *interval = (dspriteinterval_t *)p;
+		interval->interval = LittleFloat( interval->interval );
+		p += sizeof( *interval );
+	}
+
+	// swap each frame in the group
+	for( int i = 0; i < numframes; i++ )
+	{
+		p = Mod_SwapSpriteFrame( p, end, bytes );
+		if( !p )
+			return NULL;
+	}
+
+	return p;
+}
+
+static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_version )
+{
+	byte *end = (byte *)buffer + buffersize;
+	int version, numframes, bytes;
+	byte *p;
+
+	if( buffersize < sizeof( dsprite_t ))
+		return false;
+
+	// peek at ident + version before full swap
+	version = LittleLong(((dsprite_t *)buffer)->version );
+
+	switch( version )
+	{
+	case SPRITE_VERSION_Q1:
+	case SPRITE_VERSION_32:
+		if( buffersize < sizeof( dsprite_q1_t ))
+			return false;
+		le_struct_swap( dsprite_q1_swap, buffer );
+		numframes = ((dsprite_q1_t *)buffer)->numframes;
+		p = (byte *)buffer + sizeof( dsprite_q1_t );
+		break;
+	case SPRITE_VERSION_HL:
+	{
+		if( buffersize < sizeof( dsprite_hl_t ))
+			return false;
+		le_struct_swap( dsprite_hl_swap, buffer );
+		numframes = ((dsprite_hl_t *)buffer)->numframes;
+		p = (byte *)buffer + sizeof( dsprite_hl_t );
+
+		// HL sprites have a palette count (short) + palette data
+		if( p + sizeof( short ) > end )
+			return false;
+
+		short numi = LittleShort( *(short *)p );
+		*(short *)p = numi;
+		p += sizeof( short ) + numi * 3;
+		break;
+	}
+	default:
+		return false;
+	}
+
+	*out_version = version;
+	bytes = ( version == SPRITE_VERSION_32 ) ? 4 : 1;
+
+	// swap all frames
+	for( int i = 0; i < numframes && p && p < end; i++ )
+	{
+		dframetype_t *frametype;
+
+		if( p + sizeof( *frametype ) > end )
+			return false;
+
+		frametype = (dframetype_t *)p;
+		frametype->type = LittleLong( frametype->type );
+		p += sizeof( *frametype );
+
+		switch( frametype->type )
+		{
+		case FRAME_SINGLE:
+			p = Mod_SwapSpriteFrame( p, end, bytes );
+			break;
+		case FRAME_GROUP:
+		case FRAME_ANGLED:
+			p = Mod_SwapSpriteGroup( p, end, bytes );
+			break;
+		default:
+			return false;
+		}
+	}
+
+	return true;
+}
 
 /*
 ====================
@@ -27,46 +185,18 @@ Mod_LoadSpriteModel
 load sprite model
 ====================
 */
-void Mod_LoadSpriteModel( model_t *mod, const void *buffer, size_t buffersize, qboolean *loaded )
+void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded )
 {
-	const dsprite_t *pin = buffer;
 	msprite_t *psprite;
 	char poolname[MAX_VA_STRING];
+	int version;
 
 	if( loaded )
 		*loaded = false;
 
-	if( buffersize < sizeof( dsprite_t ))
+	if( !Mod_SwapSprite( buffer, buffersize, &version ))
 	{
-		Con_DPrintf( S_ERROR "%s: %s have incorrect file size %zu should be greater than %zu (%s)\n", __func__, mod->name, buffersize, sizeof( dsprite_t ), "basic header" );
-		return;
-	}
-
-	if( pin->ident != IDSPRITEHEADER )
-	{
-		Con_DPrintf( S_ERROR "%s: %s has wrong id (0x%x should be 0x%x)\n", __func__, mod->name, pin->ident, IDSPRITEHEADER );
-		return;
-	}
-
-	switch( pin->version )
-	{
-	case SPRITE_VERSION_Q1:
-	case SPRITE_VERSION_32:
-		if( buffersize < sizeof( dsprite_q1_t ))
-		{
-			Con_DPrintf( S_ERROR "%s: %s have incorrect file size %zu should be greater than %zu (%s)\n", __func__, mod->name, buffersize, sizeof( dsprite_q1_t ), "q1 header" );
-			return;
-		}
-		break;
-	case SPRITE_VERSION_HL:
-		if( buffersize < sizeof( dsprite_hl_t ))
-		{
-			Con_DPrintf( S_ERROR "%s: %s have incorrect file size %zu should be greater than %zu (%s)\n", __func__, mod->name, buffersize, sizeof( dsprite_hl_t ), "hl header" );
-			return;
-		}
-		break;
-	default:
-		Con_DPrintf( S_ERROR "%s: %s has wrong version number (%i should be %i, %i or %i)\n", __func__, mod->name, pin->version, SPRITE_VERSION_Q1, SPRITE_VERSION_32, SPRITE_VERSION_HL );
+		Con_DPrintf( S_ERROR "%s: %s is not a valid sprite\n", __func__, mod->name );
 		return;
 	}
 
@@ -74,9 +204,9 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, size_t buffersize, q
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
 	mod->mempool = Mem_AllocPool( poolname );
 
-	if( pin->version == SPRITE_VERSION_Q1 || pin->version == SPRITE_VERSION_32 )
+	if( version == SPRITE_VERSION_Q1 || version == SPRITE_VERSION_32 )
 	{
-		const dsprite_q1_t *pinq1 = buffer;
+		dsprite_q1_t *pinq1 = buffer;
 		size_t size;
 
 		if( pinq1->numframes == 0 )
@@ -106,9 +236,9 @@ void Mod_LoadSpriteModel( model_t *mod, const void *buffer, size_t buffersize, q
 		mod->mins[2] = -pinq1->bounds[1] * 0.5f;
 		mod->maxs[2] = pinq1->bounds[1] * 0.5f;
 	}
-	else // if( pin->version == SPRITE_VERSION_HL )
+	else // if( version == SPRITE_VERSION_HL )
 	{
-		const dsprite_hl_t *pinhl = buffer;
+		dsprite_hl_t *pinhl = buffer;
 		size_t size;
 
 		if( pinhl->numframes == 0 )
