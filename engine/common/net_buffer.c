@@ -524,7 +524,7 @@ void MSG_WriteDword( sizebuf_t *sb, uint val )
 
 void MSG_WriteFloat( sizebuf_t *sb, float val )
 {
-	MSG_WriteBits( sb, &val, sizeof( val ) << 3 );
+	MSG_WriteUBitLong( sb, FloatAsUint( val ), sizeof( val ) << 3 );
 }
 
 qboolean MSG_WriteBytes( sizebuf_t *sb, const void *pBuf, int nBytes )
@@ -796,11 +796,7 @@ uint MSG_ReadDword( sizebuf_t *sb )
 
 float MSG_ReadFloat( sizebuf_t *sb )
 {
-	float	ret;
-
-	MSG_ReadBits( sb, &ret, sizeof( ret ) << 3 );
-
-	return ret;
+	return UintAsFloat( MSG_ReadUBitLong( sb, sizeof( float ) << 3 ));
 }
 
 qboolean MSG_ReadBytes( sizebuf_t *sb, void *pOut, int nBytes )
