@@ -4069,6 +4069,87 @@ static void Mod_SwapBSPLumps( byte *mod_base, size_t bufferlen )
 
 /*
 =================
+CRC32_MapFile
+
+compute CRC for the map lump data
+=================
+*/
+qboolean CRC32_MapFile( dword *crcvalue, const char *filename, qboolean multiplayer )
+{
+	byte headbuf[sizeof( dheader_t )];
+	char buffer[1024];
+	int i, num_bytes, lumplen;
+	dheader_t *header;
+	file_t *f;
+
+	if( !crcvalue )
+		return false;
+
+	// always calc same checksum for singleplayer
+	if( multiplayer == false )
+	{
+		*crcvalue = (('H'<<24)+('S'<<16)+('A'<<8)+'X');
+		return true;
+	}
+
+	f = FS_Open( filename, "rb", false );
+	if( !f )
+		return false;
+
+	num_bytes = FS_Read( f, headbuf, sizeof( headbuf ));
+
+	if( num_bytes != sizeof( headbuf ))
+	{
+		FS_Close( f );
+		return false;
+	}
+
+	header = (dheader_t *)headbuf;
+	le_struct_swap( dheader_swap, header );
+
+	switch( header->version )
+	{
+	case Q1BSP_VERSION:
+	case HLBSP_VERSION:
+	case QBSP2_VERSION:
+		break;
+	default:
+		FS_Close( f );
+		return false;
+	}
+
+	CRC32_Init( crcvalue );
+
+	for( i = LUMP_PLANES; i < HEADER_LUMPS; i++ )
+	{
+		lumplen = header->lumps[i].filelen;
+		FS_Seek( f, header->lumps[i].fileofs, SEEK_SET );
+
+		while( lumplen > 0 )
+		{
+			if( lumplen >= sizeof( buffer ))
+				num_bytes = FS_Read( f, buffer, sizeof( buffer ));
+			else
+				num_bytes = FS_Read( f, buffer, lumplen );
+
+			if( num_bytes > 0 )
+			{
+				lumplen -= num_bytes;
+				CRC32_ProcessBuffer( crcvalue, buffer, num_bytes );
+			}
+
+			if( FS_Eof( f ))
+				break;
+		}
+	}
+
+	FS_Close( f );
+
+	return true;
+}
+
+/*
+=================
 Mod_FindEndOfBSPFile
 
 scans all lumps to find the factual end of file
