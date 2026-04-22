@@ -197,7 +197,7 @@ void Mod_ClearStudioCache( void );
 //
 // mod_sprite.c
 //
-void Mod_LoadSpriteModel( model_t *mod, const void *buffer, size_t buffersize, qboolean *loaded );
+void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded );
 void Mod_SpriteLoadTextures( model_t *mod, const void *buffer );
 void Mod_SpriteUnloadTextures( void *data );
 
