@@ -15,14 +15,7 @@ GNU General Public License for more details.
 
 #include "common.h"
 
-// while this is mostly POSIX-compatible functions
-// the contents of ucontext_t is platform-dependent
-// before adding new OS here, check platform.h
-#define _XOPEN_SOURCE 1 // required for ucontext
 #if XASH_FREEBSD || XASH_NETBSD || XASH_OPENBSD || XASH_ANDROID || XASH_LINUX || XASH_APPLE
-#ifndef XASH_OPENBSD
-	#include <ucontext.h>
-#endif
 #include <signal.h>
 #include <sys/mman.h>
 #include "library.h"
