@@ -2673,7 +2673,7 @@ static void GAME_EXPORT pfnMessageEnd( void )
 				return;
 			}
 
-			realsize = svgame.msg_realsize;
+			realsize = LittleShort( svgame.msg_realsize );
 			memcpy( &sv.multicast.pData[svgame.msg_size_index], &realsize, sizeof( realsize ));
 		}
 	}
@@ -2706,7 +2706,7 @@ static void GAME_EXPORT pfnMessageEnd( void )
 			return;
 		}
 
-		realsize = svgame.msg_realsize;
+		realsize = LittleShort( svgame.msg_realsize );
 		memcpy( &sv.multicast.pData[svgame.msg_size_index], &realsize, sizeof( realsize ));
 	}
 	else
