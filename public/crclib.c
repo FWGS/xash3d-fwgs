@@ -173,6 +173,12 @@ byte CRC32_BlockSequence( byte *base, int length, int sequence )
 
 void MD5Transform( uint buf[4], const uint in[16] );
 
+static void MD5SwapBlock( uint *block, int count )
+{
+	for( int i = 0; i < count; i++ )
+		block[i] = LittleLong( block[i] );
+}
+
 /*
 ===================
 MD5Update
@@ -206,6 +212,7 @@ void MD5Update( MD5Context_t *ctx, const byte *buf, uint len )
 		}
 
 		memcpy( p, buf, t );
+		MD5SwapBlock( ctx->in, 16 );
 		MD5Transform( ctx->buf, ctx->in );
 		buf += t;
 		len -= t;
@@ -215,6 +222,7 @@ void MD5Update( MD5Context_t *ctx, const byte *buf, uint len )
 	while( len >= 64 )
 	{
 		memcpy( ctx->in, buf, 64 );
+		MD5SwapBlock( ctx->in, 16 );
 		MD5Transform( ctx->buf, ctx->in );
 		buf += 64;
 		len -= 64;
@@ -254,6 +262,7 @@ void MD5Final( byte digest[16], MD5Context_t *ctx )
 
 		// two lots of padding: pad the first block to 64 bytes
 		memset( p, 0, count );
+		MD5SwapBlock( ctx->in, 16 );
 		MD5Transform( ctx->buf, ctx->in );
 
 		// now fill the next block with 56 bytes
@@ -265,11 +274,16 @@ void MD5Final( byte digest[16], MD5Context_t *ctx )
 		memset( p, 0, count - 8 );
 	}
 
+	MD5SwapBlock( ctx->in, 14 );
+
 	// append length in bits and transform
 	ctx->in[14] = ctx->bits[0];
 	ctx->in[15] = ctx->bits[1];
 
 	MD5Transform( ctx->buf, ctx->in );
+
+	// output digest in little-endian byte order
+	MD5SwapBlock( ctx->buf, 4 );
 	memcpy( digest, ctx->buf, 16 );
 	memset( ctx, 0, sizeof( *ctx ));	// in case it's sensitive
 }
