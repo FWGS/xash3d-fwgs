@@ -148,19 +148,19 @@ For proxy protecting
 byte CRC32_BlockSequence( byte *base, int length, int sequence )
 {
 	uint32_t	CRC;
-	char	*ptr;
 	char	buffer[64];
+	int	off;
+	uint32_t	le[2];
 
 	if( sequence < 0 ) sequence = abs( sequence );
-	ptr = (char *)crc32table + (sequence % 0x3FC);
 
 	if( length > 60 ) length = 60;
 	memcpy( buffer, base, length );
 
-	buffer[length+0] = ptr[0];
-	buffer[length+1] = ptr[1];
-	buffer[length+2] = ptr[2];
-	buffer[length+3] = ptr[3];
+	off = sequence % 0x3FC;
+	le[0] = LittleLong( crc32table[off / 4] );
+	le[1] = LittleLong( crc32table[off / 4 + 1] );
+	memcpy( buffer + length, (char *)le + ( off & 3 ), 4 );
 
 	length += 4;
 
