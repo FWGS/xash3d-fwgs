@@ -57,11 +57,12 @@ static inline void swap_field_( byte *p, int32_t size )
 	}
 }
 
+// this potentially breaks strict aliasing
 static inline void swap_struct_( const swap_struct_def_t *def, size_t len, byte *data )
 {
 	for( size_t i = 0; i < len; i++ )
 	{
-		if( def[i].size < 0 )
+		if( def[i].size < 0 ) // negative size is reserved to reference other swap defs
 		{
 			uint32_t count = def[i].count ? def[i].count : 1;
 			for( uint32_t j = 0; j < count; j++ )
@@ -69,25 +70,37 @@ static inline void swap_struct_( const swap_struct_def_t *def, size_t len, byte 
 			continue;
 		}
 
-		if( def[i].count > 0 )
+		if( def[i].count > 0 ) // go over array of elements
 		{
 			for( uint32_t j = 0; j < def[i].count; j++ )
 				swap_field_( &data[def[i].offset + j * def[i].stride], def[i].size );
 			continue;
 		}
 
+		// process single field
 		swap_field_( &data[def[i].offset], def[i].size );
 	}
 }
 
+// do not use these macros, they will swap structs unconditionally
+// you might want to use le_/be_ macros instead
 #define swap_struct( swapdef, ptr ) swap_struct_(( swapdef ), sizeof( swapdef ) / sizeof( swapdef[0] ), (byte *)( ptr ))
 
-#define swap_struct_begin( swapdef )              static swap_struct_def_t swapdef[] = {
+#define swap_struct_begin( swapdef ) static swap_struct_def_t swapdef[] = {
+#define swap_struct_end() }
+
+// declare a single field
 #define swap_struct_field( record, field )         { .offset = offsetof( record, field ), .size = sizeof(((record *)0)->field) },
+
+// declare a struct, defined by another swap_struct
 #define swap_struct_child( record, field, child )  { .offset = offsetof( record, field ), .size = -(int32_t)(sizeof( child ) / sizeof( child[0] )), .subdef = child },
-#define swap_struct_array( record, field, cnt )             { .offset = offsetof( record, field ), .size = sizeof(((record *)0)->field[0]), .count = cnt, .stride = sizeof(((record *)0)->field[0]) },
+
+// declare an array of fields, doesn't work with flexible array members
+#define swap_struct_array( record, field, cnt )    { .offset = offsetof( record, field ), .size = sizeof(((record *)0)->field[0]), .count = cnt, .stride = sizeof(((record *)0)->field[0]) },
+
+// combined swap_struct_child and swap_struct_array
 #define swap_struct_array_child( record, field, child, cnt ) { .offset = offsetof( record, field ), .size = -(int32_t)(sizeof( child ) / sizeof( child[0] )), .subdef = child, .count = cnt, .stride = sizeof(((record *)0)->field[0]) },
-#define swap_struct_end()                          }
+
 
 // this is done in macros so we can completely avoid defining this
 // in little endian targets
@@ -104,9 +117,16 @@ static inline void swap_struct_( const swap_struct_def_t *def, size_t len, byte 
 	#define le_struct_child( x, y, z )
 	#define le_struct_array( x, y, z )
 	#define le_struct_array_child( x, y, z, w )
-	#define le_struct_end()
+	#define le_struct_end()                   extern int _le_struct_end_dummy // define as extern variable, to let end() end with ;
 	#define le_struct_swap( x, y )            (void)(y)
 #else
+	#define be_struct_begin( x )
+	#define be_struct_field( x, y )
+	#define be_struct_child( x, y, z )
+	#define be_struct_array( x, y, z )
+	#define be_struct_array_child( x, y, z, w )
+	#define be_struct_end()                   extern int _le_struct_end_dummy
+	#define be_struct_swap( x, y )            (void)(y)
 	#define le_struct_begin( x )              swap_struct_begin( x )
 	#define le_struct_field( x, y )           swap_struct_field( x, y )
 	#define le_struct_child( x, y, z )        swap_struct_child( x, y, z )
@@ -114,13 +134,6 @@ static inline void swap_struct_( const swap_struct_def_t *def, size_t len, byte 
 	#define le_struct_array_child( x, y, z, w ) swap_struct_array_child( x, y, z, w )
 	#define le_struct_end()                   swap_struct_end()
 	#define le_struct_swap( x, y )            swap_struct( x, y )
-	#define be_struct_begin( x )
-	#define be_struct_field( x, y )
-	#define be_struct_child( x, y, z )
-	#define be_struct_array( x, y, z )
-	#define be_struct_array_child( x, y, z, w )
-	#define be_struct_end()
-	#define be_struct_swap( x, y )            (void)(y)
 #endif
 
 
