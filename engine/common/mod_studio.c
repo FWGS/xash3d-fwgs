@@ -94,19 +94,6 @@ le_struct_begin( studiohdr_swap )
 	le_struct_field( studiohdr_t, transitionindex )
 le_struct_end();
 
-le_struct_begin( studiohdr2_swap )
-	le_struct_field( studiohdr2_t, numposeparameters )
-	le_struct_field( studiohdr2_t, poseparamindex )
-	le_struct_field( studiohdr2_t, numikautoplaylocks )
-	le_struct_field( studiohdr2_t, ikautoplaylockindex )
-	le_struct_field( studiohdr2_t, numikchains )
-	le_struct_field( studiohdr2_t, ikchainindex )
-	le_struct_field( studiohdr2_t, keyvalueindex )
-	le_struct_field( studiohdr2_t, keyvaluesize )
-	le_struct_field( studiohdr2_t, numhitboxsets )
-	le_struct_field( studiohdr2_t, hitboxsetindex )
-le_struct_end();
-
 le_struct_begin( mstudiobone_swap )
 	le_struct_field( mstudiobone_t, parent )
 	le_struct_field( mstudiobone_t, unused )
@@ -132,6 +119,7 @@ le_struct_begin( mstudiobbox_swap )
 le_struct_end();
 
 le_struct_begin( mstudioseqgroup_swap )
+	// should we even swap seqgroup?
 	le_struct_field( mstudioseqgroup_t, unused )
 	le_struct_field( mstudioseqgroup_t, unused2 )
 le_struct_end();
@@ -174,9 +162,7 @@ le_struct_begin( mstudioattachment_swap )
 	le_struct_field( mstudioattachment_t, flags )
 	le_struct_field( mstudioattachment_t, bone )
 	le_struct_array( mstudioattachment_t, org, 3 )
-	le_struct_array( mstudioattachment_t, vectors[0], 3 )
-	le_struct_array( mstudioattachment_t, vectors[1], 3 )
-	le_struct_array( mstudioattachment_t, vectors[2], 3 )
+	le_struct_array( mstudioattachment_t, vectors, 3 * 3 )
 le_struct_end();
 
 le_struct_begin( mstudiobodyparts_swap )
@@ -217,29 +203,6 @@ le_struct_end();
 
 le_struct_begin( mstudioanim_swap )
 	le_struct_array( mstudioanim_t, offset, 6 )
-le_struct_end();
-
-le_struct_begin( mstudioposeparamdesc_swap )
-	le_struct_field( mstudioposeparamdesc_t, flags )
-	le_struct_field( mstudioposeparamdesc_t, start )
-	le_struct_field( mstudioposeparamdesc_t, end )
-	le_struct_field( mstudioposeparamdesc_t, loop )
-le_struct_end();
-
-le_struct_begin( mstudioikchain_swap )
-	le_struct_field( mstudioikchain_t, linktype )
-	le_struct_field( mstudioikchain_t, numlinks )
-	le_struct_field( mstudioikchain_t, linkindex )
-le_struct_end();
-
-le_struct_begin( mstudioiklink_swap )
-	le_struct_field( mstudioiklink_t, bone )
-	le_struct_array( mstudioiklink_t, kneeDir, 3 )
-le_struct_end();
-
-le_struct_begin( mstudiohitboxset_swap )
-	le_struct_field( mstudiohitboxset_t, numhitboxes )
-	le_struct_field( mstudiohitboxset_t, hitboxindex )
 le_struct_end();
 
 /*
@@ -1004,7 +967,7 @@ static int Mod_StudioBodyVariations( model_t *mod )
 	return count;
 }
 
-static qboolean Mod_SwapStudioModel( void *buffer, size_t buffersize )
+static qboolean Mod_SwapStudioModel( const char *name, void *buffer, size_t buffersize )
 {
 	studiohdr_t *phdr = buffer;
 	byte *mod_base = buffer;
@@ -1016,6 +979,14 @@ static qboolean Mod_SwapStudioModel( void *buffer, size_t buffersize )
 
 	if( phdr->ident != IDSTUDIOHEADER || phdr->version != STUDIO_VERSION )
 		return false;
+
+#if XASH_BIG_ENDIAN
+	if( phdr->studiohdr2index > 0 && phdr->studiohdr2index < phdr->length )
+	{
+		Con_Printf( S_ERROR "byteswapping extended studio model \"%s\" is unsupoprted\n", name );
+		return false;
+	}
+#endif
 
 	for( int i = 0; i < phdr->numbones; i++ )
 		le_struct_swap( mstudiobone_swap, (mstudiobone_t *)( mod_base + phdr->boneindex ) + i );
@@ -1065,27 +1036,6 @@ static qboolean Mod_SwapStudioModel( void *buffer, size_t buffersize )
 	for( int i = 0; i < phdr->numskinfamilies * phdr->numskinref; i++ )
 		pskinref[i] = LittleShort( pskinref[i] );
 
-	if( phdr->studiohdr2index > 0 && phdr->studiohdr2index < phdr->length )
-	{
-		studiohdr2_t *phdr2 = (studiohdr2_t *)( mod_base + phdr->studiohdr2index );
-		le_struct_swap( studiohdr2_swap, phdr2 );
-
-		for( int i = 0; i < phdr2->numposeparameters; i++ )
-			le_struct_swap( mstudioposeparamdesc_swap, (mstudioposeparamdesc_t *)( mod_base + phdr2->poseparamindex ) + i );
-
-		for( int i = 0; i < phdr2->numhitboxsets; i++ )
-			le_struct_swap( mstudiohitboxset_swap, (mstudiohitboxset_t *)( mod_base + phdr2->hitboxsetindex ) + i );
-
-		for( int i = 0; i < phdr2->numikchains; i++ )
-		{
-			mstudioikchain_t *pikchain = (mstudioikchain_t *)( mod_base + phdr2->ikchainindex ) + i;
-			le_struct_swap( mstudioikchain_swap, pikchain );
-
-			for( int j = 0; j < pikchain->numlinks; j++ )
-				le_struct_swap( mstudioiklink_swap, (mstudioiklink_t *)( mod_base + pikchain->linkindex ) + j );
-		}
-	}
-
 	return true;
 }
 
@@ -1101,7 +1051,7 @@ static studiohdr_t *R_StudioLoadHeader( model_t *mod, void *buffer, size_t buffe
 	if( !buffer )
 		return NULL;
 
-	if( !Mod_SwapStudioModel( buffer, buffersize ))
+	if( !Mod_SwapStudioModel( mod->name, buffer, buffersize ))
 	{
 		phdr = (studiohdr_t *)buffer;
 		Con_Printf( S_ERROR "%s has wrong version number (%i should be %i)\n", mod->name, phdr->version, STUDIO_VERSION );
