@@ -690,7 +690,6 @@ static void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qbo
 	vec3_t		bone_mins, bone_maxs;
 	vec3_t		vert_mins, vert_maxs;
 	int		vert_count, bone_count;
-	int		bodyCount = 0;
 	vec3_t		pos, *pverts;
 
 	vert_count = bone_count = 0;
@@ -706,18 +705,16 @@ static void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qbo
 	// each body part has nummodels variations so there are as many total variations as there
 	// are in a matrix of each part by each other part
 	for( i = 0; i < pstudiohdr->numbodyparts; i++ )
-		bodyCount += pbodypart[i].nummodels;
-
-	// The studio models we want are vec3_t mins, vec3_t maxsight after the bodyparts (still need to
-	// find a detailed breakdown of the mdl format).  Move pointer there.
-	m_pSubModel = (mstudiomodel_t *)(&pbodypart[pstudiohdr->numbodyparts]);
-
-	for( i = 0; i < bodyCount; i++ )
 	{
-		pverts = (vec3_t *)((byte *)pstudiohdr + m_pSubModel[i].vertindex);
+		m_pSubModel = (mstudiomodel_t *)((byte *)pstudiohdr + pbodypart[i].modelindex);
 
-		for( j = 0; j < m_pSubModel[i].numverts; j++ )
-			Mod_StudioBoundVertex( bone_mins, bone_maxs, &vert_count, pverts[j] );
+		for( j = 0; j < pbodypart[i].nummodels; j++ )
+		{
+			pverts = (vec3_t *)((byte *)pstudiohdr + m_pSubModel[j].vertindex);
+
+			for( k = 0; k < m_pSubModel[j].numverts; k++ )
+				Mod_StudioBoundVertex( bone_mins, bone_maxs, &vert_count, pverts[k] );
+		}
 	}
 
 	pbones = (mstudiobone_t *)((byte *)pstudiohdr + pstudiohdr->boneindex);
