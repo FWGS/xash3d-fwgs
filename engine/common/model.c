@@ -608,6 +608,31 @@ void GAME_EXPORT Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 	cu->data = Mem_Malloc( com_studiocache, size );
 	memcpy( cu->data, buf, size );
 	Mem_Free( buf );
+
+	// this handles when studio model renderer tries to load sequence files on it's own
+	// which is what they always do in HLSDK
+#if XASH_BIG_ENDIAN
+	if( size >= sizeof( int ) && LittleLong( IDSEQGRPHEADER ) == *(uint *)cu->data )
+	{
+		studiohdr_t *phdr = (studiohdr_t *)(intptr_t)REF_GET_PARM( PARM_GET_STUDIO_HDR, 0 );
+		if( !phdr )
+			return;
+
+		mstudioseqdesc_t *pseq = (mstudioseqdesc_t *)((byte *)phdr + phdr->seqindex );
+
+		for( int i = 0; i < phdr->numseq; i++ )
+		{
+			if( pseq[i].seqgroup == 0 )
+				continue;
+
+			mstudioseqgroup_t *pgrp = (mstudioseqgroup_t *)((byte *)phdr + phdr->seqgroupindex ) + pseq[i].seqgroup;
+
+			// assuming filename passes seqgroup's name
+			if( !Q_stricmp( pgrp->name, filename ))
+				Mod_SwapStudioSeqGroupAnims( phdr, &pseq[i], (byte *)cu->data );
+		}
+	}
+#endif
 }
 
 /*
