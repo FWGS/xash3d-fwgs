@@ -437,7 +437,8 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 
 	memcpy( &mip, buffer, sizeof( mip ));
-	le_struct_swap( mip_swap, &mip );
+	if( !Image_CheckFlag( IL_HOST_ENDIAN ))
+		le_struct_swap( mip_swap, &mip );
 	image.width = mip.width;
 	image.height = mip.height;
 

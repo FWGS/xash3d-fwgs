@@ -2723,6 +2723,7 @@ static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, texture_t *tx, qbo
 		if( custom_palette )
 			size += sizeof( short ) + 768;
 
+		Image_SetForceFlags( IL_HOST_ENDIAN );
 		r_sky = FS_LoadImage( texname, (byte *)mt, size );
 	}
 	else
@@ -2905,7 +2906,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
 
 		Q_snprintf( texName, sizeof( texName ), "#%s:%s.mip", loadstat.name, mipTex->name );
-		Image_SetForceFlags( texture_force_flags );
+		Image_SetForceFlags( texture_force_flags | IL_HOST_ENDIAN );
 		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte *)mipTex, size, txFlags );
 	}
 
@@ -2938,7 +2939,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 
 		Q_snprintf( texName, sizeof( texName ), "#%s:%s_luma.mip", loadstat.name, mipTex->name );
 
-		Image_SetForceFlags( texture_force_flags );
+		Image_SetForceFlags( texture_force_flags | IL_HOST_ENDIAN );
 
 		if( mipTex->offsets[0] > 0 )
 		{
