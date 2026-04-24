@@ -188,6 +188,8 @@ static int GL_RefGetParm( int parm, int arg )
 		return 0; // ref_soft doesn't support sky sphere
 	case PARM_TEX_FILTERING:
 		return 0; // ref_soft doesn't do filtering in general
+	case PARM_GET_STUDIO_HDR:
+		return (intptr_t)R_StudioGetHeader();
 	default:
 		return ENGINE_GET_PARM_( parm, arg );
 	}

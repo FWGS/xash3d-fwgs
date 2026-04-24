@@ -342,6 +342,7 @@ typedef enum
 	PARM_GET_LIGHTSTYLES_PTR = -20,
 	PARM_GET_DLIGHTS_PTR = -21,
 	PARM_GET_ELIGHTS_PTR = -22,
+	PARM_GET_STUDIO_HDR = -23, // current m_pStudioHeader in renderer
 
 	// implemented by ref_dll
 
