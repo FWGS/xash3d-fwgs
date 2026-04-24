@@ -53,16 +53,10 @@ static void Sys_AppendPrint( struct print_data *pd, const char *fmt, ... )
 
 	if( len > 0 )
 	{
-		char ch = '\n';
-
 		if( pd->logfd >= 0 )
-		{
 			write( pd->logfd, pd->message, len );
-			write( pd->logfd, &ch, 1 );
-		}
 
 		write( STDERR_FILENO, pd->message, len );
-		write( STDERR_FILENO, &ch, 1 );
 
 		pd->message += len;
 		pd->len += len;
