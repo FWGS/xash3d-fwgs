@@ -27,15 +27,10 @@ static qboolean enable_libbacktrace;
 
 static void Sys_BacktraceError( void *data, const char *msg, int errnum )
 {
-	if( errnum < 0 )
-	{
-		Con_Printf( S_ERROR "no symbol info, no libbacktrace\n" );
-		return;
-	}
+	Con_Printf( S_ERROR "libbacktrace: %s (%d)\n", msg, errnum );
 
-	Con_Printf( S_ERROR "libbacktrace error: %s (%d)\n", msg, errnum );
-
-	enable_libbacktrace = false;
+	if( errnum > 0 )
+		enable_libbacktrace = false;
 }
 
 struct print_data
@@ -136,7 +131,7 @@ int Sys_CrashDetailsLibbacktrace( int logfd, char *message, int len, size_t max_
 	struct print_data pd =
 	{
 		.message = message + len,
-		.message_size = sizeof( message ) - len,
+		.message_size = max_len - len,
 		.logfd = logfd,
 		.len = len,
 	};
