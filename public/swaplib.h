@@ -82,9 +82,16 @@ static inline void swap_struct_( const swap_struct_def_t *def, size_t len, byte 
 	}
 }
 
+static inline void swap_array_( byte *data, int32_t elem_size, uint32_t count )
+{
+	for( uint32_t i = 0; i < count; i++ )
+		swap_field_( &data[i * elem_size], elem_size );
+}
+
 // do not use these macros, they will swap structs unconditionally
 // you might want to use le_/be_ macros instead
 #define swap_struct( swapdef, ptr ) swap_struct_(( swapdef ), sizeof( swapdef ) / sizeof( swapdef[0] ), (byte *)( ptr ))
+#define swap_array( ptr, count ) swap_array_((byte *)( ptr ), sizeof( *( ptr )), ( count ))
 
 #define swap_struct_begin( swapdef ) static swap_struct_def_t swapdef[] = {
 #define swap_struct_end() }
@@ -112,6 +119,7 @@ static inline void swap_struct_( const swap_struct_def_t *def, size_t len, byte 
 	#define be_struct_array_child( x, y, z, w ) swap_struct_array_child( x, y, z, w )
 	#define be_struct_end()                   swap_struct_end()
 	#define be_struct_swap( x, y )            swap_struct( x, y )
+	#define be_array_swap( x, y )             swap_array( x, y )
 	#define le_struct_begin( x )
 	#define le_struct_field( x, y )
 	#define le_struct_child( x, y, z )
@@ -119,6 +127,7 @@ static inline void swap_struct_( const swap_struct_def_t *def, size_t len, byte 
 	#define le_struct_array_child( x, y, z, w )
 	#define le_struct_end()                   extern int _le_struct_end_dummy // define as extern variable, to let end() end with ;
 	#define le_struct_swap( x, y )            (void)(y)
+	#define le_array_swap( x, y )             (void)(x)
 #else
 	#define be_struct_begin( x )
 	#define be_struct_field( x, y )
@@ -127,6 +136,7 @@ static inline void swap_struct_( const swap_struct_def_t *def, size_t len, byte 
 	#define be_struct_array_child( x, y, z, w )
 	#define be_struct_end()                   extern int _le_struct_end_dummy
 	#define be_struct_swap( x, y )            (void)(y)
+	#define be_array_swap( x, y )             (void)(x)
 	#define le_struct_begin( x )              swap_struct_begin( x )
 	#define le_struct_field( x, y )           swap_struct_field( x, y )
 	#define le_struct_child( x, y, z )        swap_struct_child( x, y, z )
@@ -134,6 +144,7 @@ static inline void swap_struct_( const swap_struct_def_t *def, size_t len, byte 
 	#define le_struct_array_child( x, y, z, w ) swap_struct_array_child( x, y, z, w )
 	#define le_struct_end()                   swap_struct_end()
 	#define le_struct_swap( x, y )            swap_struct( x, y )
+	#define le_array_swap( x, y )             swap_array( x, y )
 #endif
 
 

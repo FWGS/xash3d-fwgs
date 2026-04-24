@@ -162,7 +162,6 @@ le_struct_begin( mstudioattachment_swap )
 	le_struct_field( mstudioattachment_t, flags )
 	le_struct_field( mstudioattachment_t, bone )
 	le_struct_array( mstudioattachment_t, org, 3 )
-	le_struct_array( mstudioattachment_t, vectors, 3 * 3 )
 le_struct_end();
 
 le_struct_begin( mstudiobodyparts_swap )
@@ -977,6 +976,9 @@ static qboolean Mod_SwapStudioModel( const char *name, void *buffer, size_t buff
 	if( phdr->ident != IDSTUDIOHEADER || phdr->version != STUDIO_VERSION )
 		return false;
 
+
+
+
 #if XASH_BIG_ENDIAN
 	if( phdr->studiohdr2index > 0 && phdr->studiohdr2index < phdr->length )
 	{
@@ -998,7 +1000,11 @@ static qboolean Mod_SwapStudioModel( const char *name, void *buffer, size_t buff
 		le_struct_swap( mstudioseqgroup_swap, (mstudioseqgroup_t *)( mod_base + phdr->seqgroupindex ) + i );
 
 	for( int i = 0; i < phdr->numattachments; i++ )
-		le_struct_swap( mstudioattachment_swap, (mstudioattachment_t *)( mod_base + phdr->attachmentindex ) + i );
+	{
+		mstudioattachment_t *pattach = (mstudioattachment_t *)( mod_base + phdr->attachmentindex ) + i;
+		le_struct_swap( mstudioattachment_swap, pattach );
+		le_array_swap((float *)pattach->vectors, 3 * 3 );
+	}
 
 	for( int i = 0; i < phdr->numtextures; i++ )
 		le_struct_swap( mstudiotexture_swap, (mstudiotexture_t *)( mod_base + phdr->textureindex ) + i );
@@ -1013,6 +1019,38 @@ static qboolean Mod_SwapStudioModel( const char *name, void *buffer, size_t buff
 
 		for( int j = 0; j < pseq->numevents; j++ )
 			le_struct_swap( mstudioevent_swap, (mstudioevent_t *)( mod_base + pseq->eventindex ) + j );
+
+		if( pseq->seqgroup != 0 )
+			continue;
+
+		mstudioanim_t *panim = (mstudioanim_t *)( mod_base + pseq->animindex );
+		int numanims = pseq->numblends * phdr->numbones;
+
+		for( int j = 0; j < numanims; j++, panim++ )
+		{
+			le_struct_swap( mstudioanim_swap, panim );
+
+			for( int k = 0; k < 6; k++ )
+			{
+				if( panim->offset[k] == 0 )
+					continue;
+
+				mstudioanimvalue_t *panimvalue = (mstudioanimvalue_t *)((byte *)panim + panim->offset[k] );
+
+				int frames = pseq->numframes;
+				while( frames > 0 )
+				{
+					int valid = panimvalue->num.valid;
+					int total = panimvalue->num.total;
+
+					for( int l = 1; l <= valid; l++ )
+						panimvalue[l].value = LittleShort( panimvalue[l].value );
+
+					panimvalue += valid + 1;
+					frames -= total;
+				}
+			}
+		}
 	}
 
 	for( int i = 0; i < phdr->numbodyparts; i++ )
@@ -1024,8 +1062,25 @@ static qboolean Mod_SwapStudioModel( const char *name, void *buffer, size_t buff
 			mstudiomodel_t *pmodel = (mstudiomodel_t *)( mod_base + pbodypart->modelindex ) + j;
 			le_struct_swap( mstudiomodel_swap, pmodel );
 
+			le_array_swap((float *)( mod_base + pmodel->vertindex ), pmodel->numverts * 3 );
+			le_array_swap((float *)( mod_base + pmodel->normindex ), pmodel->numnorms * 3 );
+
 			for( int k = 0; k < pmodel->nummesh; k++ )
-				le_struct_swap( mstudiomesh_swap, (mstudiomesh_t *)( mod_base + pmodel->meshindex ) + k );
+			{
+				mstudiomesh_t *pmesh = (mstudiomesh_t *)( mod_base + pmodel->meshindex ) + k;
+				le_struct_swap( mstudiomesh_swap, pmesh );
+
+				short *ptricmds = (short *)( mod_base + pmesh->triindex );
+				short n;
+				while(( n = LittleShort( *ptricmds )))
+				{
+					*ptricmds++ = n;
+					int count = abs( n ) * 4;
+					for( int l = 0; l < count; l++, ptricmds++ )
+						*ptricmds = LittleShort( *ptricmds );
+				}
+				*ptricmds = 0;
+			}
 		}
 	}
 
