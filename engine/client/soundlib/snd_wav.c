@@ -319,6 +319,15 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 
 	memcpy( sound.wav, buffer + (iff_dataPtr - buffer), sound.size );
 
+	// swap 16-bit samples from little endian to native
+	if( sound.width == 2 )
+	{
+		short *p = (short *)sound.wav;
+		int count = sound.size / 2;
+		for( int i = 0; i < count; i++ )
+			p[i] = LittleShort( p[i] );
+	}
+
 	// now convert 8-bit sounds to signed
 	if( sound.width == 1 )
 	{
@@ -461,6 +470,14 @@ int Stream_ReadWAV( stream_t *stream, int bytes, void *buffer )
 
 	stream->pos += bytes;
 	FS_Read( stream->file, buffer, bytes );
+
+	if( stream->width == 2 )
+	{
+		short *p = (short *)buffer;
+		int count = bytes / 2;
+		for( int i = 0; i < count; i++ )
+			p[i] = LittleShort( p[i] );
+	}
 
 	return bytes;
 }
