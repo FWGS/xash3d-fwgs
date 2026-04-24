@@ -55,8 +55,11 @@ static void Sys_AppendPrint( struct print_data *pd, const char *fmt, ... )
 	{
 		char ch = '\n';
 
-		write( pd->logfd, pd->message, len );
-		write( pd->logfd, &ch, 1 );
+		if( pd->logfd >= 0 )
+		{
+			write( pd->logfd, pd->message, len );
+			write( pd->logfd, &ch, 1 );
+		}
 
 		write( STDERR_FILENO, pd->message, len );
 		write( STDERR_FILENO, &ch, 1 );
