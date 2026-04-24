@@ -1405,6 +1405,12 @@ void GL_SetupAttributes( int safegl )
 		glw_state.extended = true;
 	}
 
+	if( gEngfuncs.Sys_CheckParm( "-glnoerr" ))
+	{
+		gEngfuncs.Con_Reportf( "Creating a no-error GL context...\n" );
+		gEngfuncs.GL_SetAttribute( REF_GL_CONTEXT_NO_ERROR, 1 );
+	}
+
 	if( safegl > SAFE_DONTCARE )
 	{
 		safegl = -1; // can't retry anymore, can only shutdown engine
