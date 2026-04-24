@@ -61,6 +61,8 @@ SYSTEM LOG
 */
 int Sys_LogFileNo( void )
 {
+	if( !s_ld.logfile )
+		return -1;
 	return s_ld.logfileno;
 }
 

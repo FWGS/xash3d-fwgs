@@ -44,7 +44,8 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 
 	// now get log fd and write trace directly to log
 	logfd = Sys_LogFileNo();
-	write( logfd, message, len );
+	if( logfd >= 0 )
+		write( logfd, message, len );
 
 #if HAVE_LIBBACKTRACE
 	if( have_libbacktrace && !detailed_message )
