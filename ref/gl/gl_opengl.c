@@ -962,8 +962,17 @@ static void GL_InitExtensionsBigGL( void )
 		pglGetIntegerv( GL_MAX_VERTEX_UNIFORM_COMPONENTS_ARB, &glConfig.max_vertex_uniforms );
 		pglGetIntegerv( GL_MAX_VERTEX_ATTRIBS_ARB, &glConfig.max_vertex_attribs );
 
+		// GLSL sanity check
+		if( glConfig.max_vertex_uniforms <= 0 || glConfig.max_texture_coords < glConfig.max_texture_units || glConfig.max_teximage_units < glConfig.max_texture_units )
+		{
+			gEngfuncs.Con_Reportf( S_NOTE "driver supports GL_ARB_shading_language_100 but has bogus limits, ignoring\n" );
+			GL_SetExtension( GL_SHADER_GLSL100_EXT, false );
+			glConfig.max_texture_coords = glConfig.max_teximage_units = glConfig.max_texture_units;
+			glConfig.max_vertex_uniforms = 0;
+			glConfig.max_vertex_attribs = 0;
+		}
 #if XASH_WIN32 // Win32 only drivers?
-		if( glConfig.hardware_type == GLHW_RADEON && glConfig.max_vertex_uniforms > 512 )
+		else if( glConfig.hardware_type == GLHW_RADEON && glConfig.max_vertex_uniforms > 512 )
 			glConfig.max_vertex_uniforms /= 4; // radeon returns not correct info
 #endif
 	}
