@@ -2583,7 +2583,7 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 			MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ));	// 4 bytes for IP
 			NET_NetadrSetType( &servadr, NA_IP );
 		}
-		servadr.port = MSG_ReadShort( msg );			// 2 bytes for Port
+		MSG_ReadBytes( msg, &servadr.port, sizeof( servadr.port ));	// 2 bytes for Port, in network byte order
 
 		// list is ends here
 		if( !servadr.port )
