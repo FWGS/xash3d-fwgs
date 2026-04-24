@@ -556,6 +556,10 @@ int main(void) { return (int)BZ2_bzlibVersion(); }'''
 		conf.add_subproject(i.name)
 
 def build(bld):
+	# enable progress bar mode if stdout is a terminal
+	if not bld.progress_bar and sys.stdout.isatty():
+		bld.progress_bar = 1
+
 	if bld.env.WAFCACHE:
 		bld.load('wafcache')
 
