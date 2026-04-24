@@ -505,9 +505,9 @@ static void R_CreateBuiltinTextures( void )
 		for( int x = 0; x < 16; x++ )
 		{
 			if(( y < 8 ) ^ ( x < 8 ))
-				data16x16[y * 16 + x] = 0xFFFF00FF;
+				data16x16[y * 16 + x] = HostFourCC( 255, 0, 255, 255 );
 			else
-				data16x16[y * 16 + x] = 0xFF000000;
+				data16x16[y * 16 + x] = HostFourCC( 0, 0, 0, 255 );
 		}
 	}
 	ref.dllFuncs.GL_CreateTexture( REF_DEFAULT_TEXTURE, 16, 16, data16x16, 0 );
@@ -517,7 +517,7 @@ static void R_CreateBuiltinTextures( void )
 	for( int y = 0; y < 8; y++ )
 	{
 		for( int x = 0; x < 8; x++ )
-			particle[y * 8 + x] = 0x00FFFFFF; // fill it with invisible white
+			particle[y * 8 + x] = HostFourCC( 255, 255, 255, 0 ); // fill it with invisible white
 	}
 
 	// a1ba: moved one pixel down and to the right to make it look better with linear interpolation
@@ -530,7 +530,7 @@ static void R_CreateBuiltinTextures( void )
 			if(( x == corner || x == 3 + corner ) && ( y == corner || y == 3 + corner ))
 				continue;
 
-			particle[y * 8 + x] = 0xFFFFFFFF;
+			particle[y * 8 + x] = HostFourCC( 255, 255, 255, 255 );
 		}
 	}
 	ref.dllFuncs.GL_CreateTexture( REF_PARTICLE_TEXTURE, 8, 8, particle, TF_CLAMP|TF_HAS_ALPHA );
@@ -541,11 +541,11 @@ static void R_CreateBuiltinTextures( void )
 	ref.dllFuncs.GL_CreateTexture( REF_WHITE_TEXTURE, 4, 4, data4x4, 0 );
 
 	for( int x = 0; x < 16; x++ )
-		data4x4[x] = 0xFF7F7F7F;
+		data4x4[x] = HostFourCC( 127, 127, 127, 255 );
 	ref.dllFuncs.GL_CreateTexture( REF_GRAY_TEXTURE, 4, 4, data4x4, 0 );
 
 	for( int x = 0; x < 16; x++ )
-		data4x4[x] = 0xFF000000;
+		data4x4[x] = HostFourCC( 0, 0, 0, 255 );
 	ref.dllFuncs.GL_CreateTexture( REF_BLACK_TEXTURE, 4, 4, data4x4, 0 );
 }
 
