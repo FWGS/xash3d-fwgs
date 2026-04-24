@@ -111,7 +111,7 @@ static inline void swap_array_( byte *data, int32_t elem_size, uint32_t count )
 
 // this is done in macros so we can completely avoid defining this
 // in little endian targets
-#ifdef XASH_LITTLE_ENDIAN
+#if XASH_LITTLE_ENDIAN
 	#define be_struct_begin( x )              swap_struct_begin( x )
 	#define be_struct_field( x, y )           swap_struct_field( x, y )
 	#define be_struct_child( x, y, z )        swap_struct_child( x, y, z )
