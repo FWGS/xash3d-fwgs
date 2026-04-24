@@ -17,6 +17,20 @@ GNU General Public License for more details.
 #include "filesystem.h"
 #include "client.h"
 #include "qfont.h"
+#include "swaplib.h"
+
+le_struct_begin( charinfo_swap )
+	le_struct_field( charinfo, startoffset )
+	le_struct_field( charinfo, charwidth )
+le_struct_end();
+
+le_struct_begin( qfont_swap )
+	le_struct_field( qfont_t, width )
+	le_struct_field( qfont_t, height )
+	le_struct_field( qfont_t, rowcount )
+	le_struct_field( qfont_t, rowheight )
+	le_struct_array_child( qfont_t, fontinfo, charinfo_swap, NUM_GLYPHS )
+le_struct_end();
 
 qboolean CL_FixedFont( cl_font_t *font )
 {
@@ -130,6 +144,7 @@ qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float
 	}
 
 	memcpy( &src, pfile, sizeof( src ));
+	le_struct_swap( qfont_swap, &src );
 	Mem_Free( pfile );
 
 	font->hFontTexture = CL_LoadFontTexture( fontname, texFlags, &font_width );
