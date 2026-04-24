@@ -40,7 +40,15 @@ struct print_data
 	int len;
 	int idx;
 	int logfd;
+	qboolean skip_wrappers;
 };
+
+static qboolean Sys_IsCrashHandlerFrame( const char *name )
+{
+	if( !name )
+		return false;
+	return !Q_strcmp( name, "Sys_Crash" ) || !Q_strcmp( name, "Sys_CrashDetailsLibbacktrace" );
+}
 
 static void Sys_AppendPrint( struct print_data *pd, const char *fmt, ... )
 {
@@ -76,6 +84,13 @@ static void Sys_BacktracePrintSyminfo( void *data, uintptr_t pc, const char *sym
 	Dl_info dlinfo = { 0 };
 	const char *module_name;
 
+	if( pd->skip_wrappers )
+	{
+		if( Sys_IsCrashHandlerFrame( symname ))
+			return;
+		pd->skip_wrappers = false;
+	}
+
 	if( dladdr((void *)pc, &dlinfo ))
 		module_name = dlinfo.dli_fname;
 	else module_name = NULL;
@@ -101,6 +116,13 @@ static int Sys_BacktracePrintFull( void *data, uintptr_t pc, const char *filenam
 	struct print_data *pd = data;
 	Dl_info dlinfo = { 0 };
 	const char *module_name;
+
+	if( pd->skip_wrappers )
+	{
+		if( Sys_IsCrashHandlerFrame( function ))
+			return 0;
+		pd->skip_wrappers = false;
+	}
 
 	if( dladdr((void *)pc, &dlinfo ))
 		module_name = dlinfo.dli_fname;
@@ -131,9 +153,10 @@ int Sys_CrashDetailsLibbacktrace( int logfd, char *message, int len, size_t max_
 		.message_size = max_len - len,
 		.logfd = logfd,
 		.len = len,
+		.skip_wrappers = true,
 	};
 
-	backtrace_full( g_bt_state, 1, Sys_BacktracePrintFull, Sys_BacktracePrintError, &pd );
+	backtrace_full( g_bt_state, 0, Sys_BacktracePrintFull, Sys_BacktracePrintError, &pd );
 
 	return pd.len;
 }
