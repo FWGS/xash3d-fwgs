@@ -20,10 +20,10 @@ int main (void) {
 }'''
 
 FRAGMENT_GETPAGESIZE='''#include <unistd.h>
-int main(void) { return getpagesize() }'''
+int main(void) { return getpagesize(); }'''
 
 FRAGMENT_GETEXECNAME='''#include <stdlib.h>
-int main(void) { return getexecname() != 0 }'''
+int main(void) { return getexecname() != 0; }'''
 
 FRAGMENT_STRNLEN='''#include <string.h>
 int main(int argc, char **argv) { return (int)strnlen(argv[0], 10); }'''
@@ -120,8 +120,8 @@ def configure(conf):
 		check_frag(FRAGMENT_SYNC, ' __sync extensions', 'HAVE_SYNC_FUNCTIONS'),
 		check_frag(FRAGMENT_GETPAGESIZE, ' getpagesize function', 'HAVE_DECL_GETPAGESIZE'),
 		check_frag(FRAGMENT_STRNLEN, ' strnlen function', 'HAVE_DECL_STRNLEN'),
-		check_frag(FRAGMENT_DL_ITERATE_PHDR % 'link.h', ' dl_iterate_phdr function in link.h', 'HAVE_DL_ITERATE_PHDR', after_tests=['link.h']),
-		check_frag(FRAGMENT_DL_ITERATE_PHDR % 'sys/link.h', ' dl_iterate_phdr function in sys/link.h', 'HAVE_DL_ITERATE_PHDR', after_tests=['sys/link.h']),
+		check_frag(FRAGMENT_DL_ITERATE_PHDR % 'link.h', ' dl_iterate_phdr function in link.h', 'HAVE_DL_ITERATE_PHDR_LINK_H', after_tests=['link.h']),
+		check_frag(FRAGMENT_DL_ITERATE_PHDR % 'sys/link.h', ' dl_iterate_phdr function in sys/link.h', 'HAVE_DL_ITERATE_PHDR_SYS_LINK_H', after_tests=['sys/link.h']),
 		check_frag(FRAGMENT_FCNTL, 'fnctl function', 'HAVE_FCNTL'),
 		check_frag(FRAGMENT_GETEXECNAME, 'getexecname function','HAVE_GETEXECNAME'),
 		check_frag(FRAGMENT_GETIPINFO, '_Unwind_GetIPInfo function', 'HAVE_GETIPINFO'),
@@ -136,6 +136,9 @@ def configure(conf):
 #		{'lib':'zstd', 'define_name':'HAVE_ZSTD', 'uselib_store':'zstd', 'msg':'... zstd library', 'mandatory':False},
 		msg='Checking for in parallel'
 	)
+
+	if conf.is_defined('HAVE_DL_ITERATE_PHDR_LINK_H') or conf.is_defined('HAVE_DL_ITERATE_PHDR_SYS_LINK_H'):
+		conf.define('HAVE_DL_ITERATE_PHDR', 1)
 
 	conf.env[DEFKEYS].sort()
 
@@ -181,7 +184,8 @@ def build(bld):
 
 	task = bld.stlib(
 		source = ['libbacktrace/' + i for i in sources],
-		target = 'backtrace',
+		# while we're using upstream libbacktrace, sometimes compiler picks up it's own version that isn't built with required options
+		target = 'backtrace_custom',
 		features = 'frandomseed' if bld.env.HAVE_FRANDOM_SEED else '',
 		use = 'EXTRAFLAGS lzma z zstd',
 		includes = '. libbacktrace/',
