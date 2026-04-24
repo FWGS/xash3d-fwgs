@@ -16,6 +16,49 @@ GNU General Public License for more details.
 #include "imagelib.h"
 #include "xash3d_mathlib.h"
 #include "img_dds.h"
+#include "swaplib.h"
+
+le_struct_begin( dds_pixf_swap )
+	le_struct_field( dds_pixf_t, dwSize )
+	le_struct_field( dds_pixf_t, dwFlags )
+	le_struct_field( dds_pixf_t, dwFourCC )
+	le_struct_field( dds_pixf_t, dwRGBBitCount )
+	le_struct_field( dds_pixf_t, dwRBitMask )
+	le_struct_field( dds_pixf_t, dwGBitMask )
+	le_struct_field( dds_pixf_t, dwBBitMask )
+	le_struct_field( dds_pixf_t, dwABitMask )
+le_struct_end();
+
+le_struct_begin( dds_caps_swap )
+	le_struct_field( dds_caps_t, dwCaps1 )
+	le_struct_field( dds_caps_t, dwCaps2 )
+	le_struct_field( dds_caps_t, dwCaps3 )
+	le_struct_field( dds_caps_t, dwCaps4 )
+le_struct_end();
+
+le_struct_begin( dds_swap )
+	le_struct_field( dds_t, dwIdent )
+	le_struct_field( dds_t, dwSize )
+	le_struct_field( dds_t, dwFlags )
+	le_struct_field( dds_t, dwHeight )
+	le_struct_field( dds_t, dwWidth )
+	le_struct_field( dds_t, dwLinearSize )
+	le_struct_field( dds_t, dwDepth )
+	le_struct_field( dds_t, dwMipMapCount )
+	le_struct_field( dds_t, dwAlphaBitDepth )
+	le_struct_array( dds_t, dwReserved1, 10 )
+	le_struct_child( dds_t, dsPixelFormat, dds_pixf_swap )
+	le_struct_child( dds_t, dsCaps, dds_caps_swap )
+	le_struct_field( dds_t, dwTextureStage )
+le_struct_end();
+
+le_struct_begin( dds_dxt10_swap )
+	le_struct_field( dds_header_dxt10_t, dxgiFormat )
+	le_struct_field( dds_header_dxt10_t, resourceDimension )
+	le_struct_field( dds_header_dxt10_t, miscFlag )
+	le_struct_field( dds_header_dxt10_t, arraySize )
+	le_struct_field( dds_header_dxt10_t, miscFlags2 )
+le_struct_end();
 
 static qboolean Image_CheckDXT3Alpha( dds_t *hdr, byte *fin )
 {
@@ -295,6 +338,7 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 
 	memcpy( &header, buffer, sizeof( header ));
+	le_struct_swap( dds_swap, &header );
 
 	if( header.dwIdent != DDSHEADER )
 		return false; // it's not a dds file, just skip it
@@ -315,6 +359,7 @@ qboolean Image_LoadDDS( const char *name, const byte *buffer, fs_offset_t filesi
 	if( header.dsPixelFormat.dwFourCC == TYPE_DX10 )
 	{
 		memcpy( &header2, buffer + sizeof( header ), sizeof( header2 ));
+		le_struct_swap( dds_dxt10_swap, &header2 );
 		headersOffset += sizeof( header2 );
 	}
 

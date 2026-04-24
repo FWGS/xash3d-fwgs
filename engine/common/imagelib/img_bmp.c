@@ -16,6 +16,24 @@ GNU General Public License for more details.
 #include "imagelib.h"
 #include "xash3d_mathlib.h"
 #include "img_bmp.h"
+#include "swaplib.h"
+
+le_struct_begin( bmp_swap )
+	le_struct_field( bmp_t, fileSize )
+	le_struct_field( bmp_t, reserved0 )
+	le_struct_field( bmp_t, bitmapDataOffset )
+	le_struct_field( bmp_t, bitmapHeaderSize )
+	le_struct_field( bmp_t, width )
+	le_struct_field( bmp_t, height )
+	le_struct_field( bmp_t, planes )
+	le_struct_field( bmp_t, bitsPerPixel )
+	le_struct_field( bmp_t, compression )
+	le_struct_field( bmp_t, bitmapDataSize )
+	le_struct_field( bmp_t, hRes )
+	le_struct_field( bmp_t, vRes )
+	le_struct_field( bmp_t, colors )
+	le_struct_field( bmp_t, importantColors )
+le_struct_end();
 
 /*
 =============
@@ -41,6 +59,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 
 	buf_p = (byte *)buffer;
 	memcpy( &bhdr, buf_p, sizeof( bmp_t ));
+	le_struct_swap( bmp_swap, &bhdr );
 	buf_p += BI_FILE_HEADER_SIZE + bhdr.bitmapHeaderSize;
 
 	// bogus file header check
@@ -282,7 +301,8 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 				}
 				break;
 			case 16:
-				shortPixel = *(word *)buf_p, buf_p += 2;
+				shortPixel = buf_p[0] | (buf_p[1] << 8);
+				buf_p += 2;
 				*pixbuf++ = blue = (shortPixel & ( 31 << 10 )) >> 7;
 				*pixbuf++ = green = (shortPixel & ( 31 << 5 )) >> 2;
 				*pixbuf++ = red = (shortPixel & ( 31 )) << 3;
@@ -396,7 +416,9 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	hdr.colors = ( pixel_size == 1 ) ? 256 : 0;
 	hdr.importantColors = 0;
 
+	le_struct_swap( bmp_swap, &hdr );
 	FS_Write( pfile, &hdr, sizeof( bmp_t ));
+	le_struct_swap( bmp_swap, &hdr );
 
 	pbBmpBits = Mem_Malloc( host.imagepool, cbBmpBits );
 

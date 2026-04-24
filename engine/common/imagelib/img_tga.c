@@ -16,6 +16,16 @@ GNU General Public License for more details.
 #include "imagelib.h"
 #include "xash3d_mathlib.h"
 #include "img_tga.h"
+#include "swaplib.h"
+
+le_struct_begin( tga_swap )
+	le_struct_field( tga_t, colormap_index )
+	le_struct_field( tga_t, colormap_length )
+	le_struct_field( tga_t, x_origin )
+	le_struct_field( tga_t, y_origin )
+	le_struct_field( tga_t, width )
+	le_struct_field( tga_t, height )
+le_struct_end();
 
 /*
 =============
@@ -44,10 +54,10 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 	targa_header.colormap_index = buf_p[0] + buf_p[1] * 256;		buf_p += 2;
 	targa_header.colormap_length = buf_p[0] + buf_p[1] * 256;		buf_p += 2;
 	targa_header.colormap_size = *buf_p;				buf_p += 1;
-	targa_header.x_origin = *(short *)buf_p;			buf_p += 2;
-	targa_header.y_origin = *(short *)buf_p;			buf_p += 2;
-	targa_header.width = image.width = *(short *)buf_p;		buf_p += 2;
-	targa_header.height = image.height = *(short *)buf_p;		buf_p += 2;
+	targa_header.x_origin = buf_p[0] + buf_p[1] * 256;		buf_p += 2;
+	targa_header.y_origin = buf_p[0] + buf_p[1] * 256;		buf_p += 2;
+	targa_header.width = image.width = buf_p[0] + buf_p[1] * 256;	buf_p += 2;
+	targa_header.height = image.height = buf_p[0] + buf_p[1] * 256;	buf_p += 2;
 	targa_header.pixel_size = *buf_p++;
 	targa_header.attributes = *buf_p++;
 	if( targa_header.id_length != 0 ) buf_p += targa_header.id_length;	// skip TARGA image comment
@@ -284,6 +294,7 @@ qboolean Image_SaveTGA( const char *name, rgbdata_t *pix )
 
 	out = buffer;
 
+	le_struct_swap( tga_swap, &targa_header );
 	memcpy( out, &targa_header, sizeof( tga_t ) );
 	out += sizeof( tga_t );
 
