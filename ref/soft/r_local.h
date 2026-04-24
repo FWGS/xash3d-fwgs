@@ -392,6 +392,7 @@ void R_DrawSpriteModel( cl_entity_t *e );
 // gl_studio.c
 //
 void R_StudioInit( void );
+studiohdr_t *R_StudioGetHeader( void );
 void Mod_LoadStudioModel( model_t *mod, const void *buffer, qboolean *loaded );
 void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, vec3_t angles );
 struct mstudiotex_s *R_StudioGetTexture( cl_entity_t *e );

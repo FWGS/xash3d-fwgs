@@ -550,7 +550,7 @@ static void Mod_StudioCalcRotations( int boneused[], int numbones, const byte *p
 }
 
 
-static void Mod_SwapStudioSeqGroupAnims( studiohdr_t *phdr, mstudioseqdesc_t *pseq, byte *buf )
+void Mod_SwapStudioSeqGroupAnims( studiohdr_t *phdr, mstudioseqdesc_t *pseq, byte *buf )
 {
 	mstudioanim_t *panim = (mstudioanim_t *)( buf + pseq->animindex );
 	int numanims = pseq->numblends * phdr->numbones;

@@ -2267,6 +2267,11 @@ static void R_StudioSetHeader( studiohdr_t *pheader )
 	m_fDoRemap = false;
 }
 
+studiohdr_t *R_StudioGetHeader( void )
+{
+	return m_pStudioHeader;
+}
+
 /*
 ===============
 R_StudioSetRenderModel

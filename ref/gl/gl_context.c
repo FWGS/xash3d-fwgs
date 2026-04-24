@@ -230,6 +230,8 @@ static int GL_RefGetParm( int parm, int arg )
 			return gl_texture_nearest.value == 0.0f;
 
 		return GL_TextureFilteringEnabled( R_GetTexture( arg ));
+	case PARM_GET_STUDIO_HDR:
+		return (intptr_t)R_StudioGetHeader();
 	default:
 		return ENGINE_GET_PARM_( parm, arg );
 	}
