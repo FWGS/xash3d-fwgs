@@ -16,6 +16,34 @@ GNU General Public License for more details.
 #include "imagelib.h"
 #include "xash3d_mathlib.h"
 #include "img_ktx2.h"
+#include "swaplib.h"
+
+le_struct_begin( ktx2_header_swap )
+	le_struct_field( ktx2_header_t, vkFormat )
+	le_struct_field( ktx2_header_t, typeSize )
+	le_struct_field( ktx2_header_t, pixelWidth )
+	le_struct_field( ktx2_header_t, pixelHeight )
+	le_struct_field( ktx2_header_t, pixelDepth )
+	le_struct_field( ktx2_header_t, layerCount )
+	le_struct_field( ktx2_header_t, faceCount )
+	le_struct_field( ktx2_header_t, levelCount )
+	le_struct_field( ktx2_header_t, supercompressionScheme )
+le_struct_end();
+
+le_struct_begin( ktx2_index_swap )
+	le_struct_field( ktx2_index_t, dfdByteOffset )
+	le_struct_field( ktx2_index_t, dfdByteLength )
+	le_struct_field( ktx2_index_t, kvdByteOffset )
+	le_struct_field( ktx2_index_t, kvdByteLength )
+	le_struct_field( ktx2_index_t, sgdByteOffset )
+	le_struct_field( ktx2_index_t, sgdByteLength )
+le_struct_end();
+
+le_struct_begin( ktx2_level_swap )
+	le_struct_field( ktx2_level_t, byteOffset )
+	le_struct_field( ktx2_level_t, byteLength )
+	le_struct_field( ktx2_level_t, uncompressedByteLength )
+le_struct_end();
 
 static void Image_KTX2Format( uint32_t ktx2_format )
 {
@@ -125,6 +153,7 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 	}
 
 	memcpy( &index, buffer + KTX2_IDENTIFIER_SIZE + sizeof( ktx2_header_t ), sizeof( index ));
+	le_struct_swap( ktx2_index_swap, &index );
 
 	for( mip = 0; mip < header->levelCount; ++mip )
 	{
@@ -134,6 +163,7 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 
 		ktx2_level_t level;
 		memcpy( &level, levels_begin + mip * sizeof( level ), sizeof( level ));
+		le_struct_swap( ktx2_level_swap, &level );
 
 		if( mip_size != level.byteLength )
 		{
@@ -159,6 +189,7 @@ static qboolean Image_KTX2Parse( const ktx2_header_t *header, const byte *buffer
 	{
 		ktx2_level_t level;
 		memcpy( &level, levels_begin + mip * sizeof( level ), sizeof( level ));
+		le_struct_swap( ktx2_level_swap, &level );
 		memcpy( image.rgba + cursor, buffer + level.byteOffset, level.byteLength );
 		cursor += level.byteLength;
 	}
@@ -180,6 +211,7 @@ qboolean Image_LoadKTX2( const char *name, const byte *buffer, fs_offset_t files
 	}
 
 	memcpy( &header, buffer + KTX2_IDENTIFIER_SIZE, sizeof( header ));
+	le_struct_swap( ktx2_header_swap, &header );
 
 	image.width = header.pixelWidth;
 	image.height = header.pixelHeight;
