@@ -3219,9 +3219,11 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	if( !Q_strcmp( pcmd, A2S_GOLDSRC_INFO ) || pcmd[0] == A2S_GOLDSRC_PLAYERS || pcmd[0] == A2S_GOLDSRC_RULES )
+	// Must check `args` because A2S_GOLDSRC_INFO contains spaces.
+	// `pcmd` points only to the first word from the query string.
+	if( !Q_strcmp( args, A2S_GOLDSRC_INFO ) || pcmd[0] == A2S_GOLDSRC_PLAYERS || pcmd[0] == A2S_GOLDSRC_RULES )
 	{
-		SV_SourceQuery_HandleConnnectionlessPacket( pcmd, from );
+		SV_SourceQuery_HandleConnnectionlessPacket( args, from );
 	}
 	else if( !Q_strcmp( pcmd, A2A_NETINFO ))
 	{
