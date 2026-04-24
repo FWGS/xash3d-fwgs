@@ -84,37 +84,37 @@ void Sound_Shutdown( void )
 
 uint GAME_EXPORT Sound_GetApproxWavePlayLen( const char *filepath )
 {
-	string    name;
-	file_t    *f;
-	wavehdr_t wav;
-	size_t    filesize;
-	uint      msecs;
-
+	string name;
 	Q_strncpy( name, filepath, sizeof( name ));
 	COM_FixSlashes( name );
 
-	f = FS_Open( name, "rb", false );
+	file_t *f = FS_Open( name, "rb", false );
 	if( !f )
 		return 0;
 
+	wavehdr_t wav;
 	if( FS_Read( f, &wav, sizeof( wav )) != sizeof( wav ))
 	{
 		FS_Close( f );
 		return 0;
 	}
 
-	filesize = FS_FileLength( f );
-	filesize -= 128; // magic number from GoldSrc, seems to be header size
+	// magic number from GoldSrc, seems to be header size
+	size_t filesize = FS_FileLength( f ) - 128;
 
 	FS_Close( f );
 
 	// is real wav file ?
-	if( wav.riff_id != RIFFHEADER || wav.wave_id != WAVEHEADER || wav.fmt_id != FORMHEADER )
+	if( wav.riff_id != LittleLong( RIFFHEADER ) || wav.wave_id != LittleLong( WAVEHEADER ) || wav.fmt_id != LittleLong( FORMHEADER ))
 		return 0;
 
-	if( wav.nAvgBytesPerSec >= 1000 )
-		msecs = (uint)((float)filesize / ((float)wav.nAvgBytesPerSec / 1000.0f));
-	else msecs = (uint)(((float)filesize / (float)wav.nAvgBytesPerSec) * 1000.0f);
+	int avgBytes = LittleLong( wav.nAvgBytesPerSec );
+	uint msecs;
+
+	if( avgBytes >= 1000 )
+		msecs = (uint)((float)filesize / ((float)avgBytes / 1000.0f));
+	else
+		msecs = (uint)(((float)filesize / (float)avgBytes) * 1000.0f);
 
 	return msecs;
 }
