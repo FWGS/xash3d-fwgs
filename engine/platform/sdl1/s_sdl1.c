@@ -106,7 +106,7 @@ qboolean SNDDMA_Init( void )
 
 	memset( &desired, 0, sizeof( desired ) );
 	desired.freq     = SOUND_DMA_SPEED;
-	desired.format   = AUDIO_S16LSB;
+	desired.format   = AUDIO_S16SYS;
 	desired.samples  = 1024;
 	desired.channels = 2;
 	desired.callback = SDL_SoundCallback;
@@ -119,7 +119,7 @@ qboolean SNDDMA_Init( void )
 		return false;
 	}
 
-	if( obtained.format != AUDIO_S16LSB )
+	if( obtained.format != AUDIO_S16SYS )
 	{
 		Con_Printf( "SDL audio format %d unsupported.\n", obtained.format );
 		goto fail;
