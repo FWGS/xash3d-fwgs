@@ -221,8 +221,8 @@ le_struct_begin( dextrahdr_swap )
 le_struct_end();
 
 le_struct_begin( dbspx_hdr_swap )
-	le_struct_field( dbspx_lump_t, id )
-	le_struct_field( dbspx_lump_t, numlumps )
+	le_struct_field( dbspx_hdr_t, id )
+	le_struct_field( dbspx_hdr_t, numlumps )
 	// flexible array member omitted
 le_struct_end();
 
