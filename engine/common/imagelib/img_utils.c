@@ -285,66 +285,34 @@ int Image_ComparePalette( const byte *pal )
 
 static void Image_SetPalette( const byte *pal, uint *d_table )
 {
-	byte	rgba[4];
-	uint uirgba; // TODO: palette looks byte-swapped on big-endian
-	int	i;
-
-	// setup palette
 	switch( image.d_rendermode )
 	{
 	case LUMP_NORMAL:
-		for( i = 0; i < 256; i++ )
-		{
-			memcpy( rgba, &pal[i * 3], 3 );
-			rgba[3] = 0xFF;
-			memcpy( &uirgba, rgba, sizeof( uirgba ));
-			d_table[i] = uirgba;
-		}
+		for( int i = 0; i < 256; i++ )
+			d_table[i] = HostFourCC( pal[i * 3 + 0], pal[i * 3 + 1], pal[i * 3 + 2], 0xFF );
 		break;
 	case LUMP_TEXGAMMA:
-		for( i = 0; i < 256; i++ )
+		for( int i = 0; i < 256; i++ )
 		{
-			rgba[0] = TextureToGamma( pal[i * 3 + 0] );
-			rgba[1] = TextureToGamma( pal[i * 3 + 1] );
-			rgba[2] = TextureToGamma( pal[i * 3 + 2] );
-			rgba[3] = 0xFF;
-			memcpy( &uirgba, rgba, sizeof( uirgba ));
-			d_table[i] = uirgba;
+			d_table[i] = HostFourCC(
+				TextureToGamma( pal[i * 3 + 0] ),
+				TextureToGamma( pal[i * 3 + 1] ),
+				TextureToGamma( pal[i * 3 + 2] ),
+				0xFF );
 		}
 		break;
 	case LUMP_GRADIENT:
-		for( i = 0; i < 256; i++ )
-		{
-			rgba[0] = pal[765];
-			rgba[1] = pal[766];
-			rgba[2] = pal[767];
-			rgba[3] = i;
-			memcpy( &uirgba, rgba, sizeof( uirgba ));
-			d_table[i] = uirgba;
-		}
+		for( int i = 0; i < 256; i++ )
+			d_table[i] = HostFourCC( pal[765], pal[766], pal[767], i );
 		break;
 	case LUMP_MASKED:
-		for( i = 0; i < 255; i++ )
-		{
-			rgba[0] = pal[i*3+0];
-			rgba[1] = pal[i*3+1];
-			rgba[2] = pal[i*3+2];
-			rgba[3] = 0xFF;
-			memcpy( &uirgba, rgba, sizeof( uirgba ));
-			d_table[i] = uirgba;
-		}
+		for( int i = 0; i < 255; i++ )
+			d_table[i] = HostFourCC( pal[i * 3 + 0], pal[i * 3 + 1], pal[i * 3 + 2], 0xFF );
 		d_table[255] = 0;
 		break;
 	case LUMP_EXTENDED:
-		for( i = 0; i < 256; i++ )
-		{
-			rgba[0] = pal[i*4+0];
-			rgba[1] = pal[i*4+1];
-			rgba[2] = pal[i*4+2];
-			rgba[3] = pal[i*4+3];
-			memcpy( &uirgba, rgba, sizeof( uirgba ));
-			d_table[i] = uirgba;
-		}
+		for( int i = 0; i < 256; i++ )
+			d_table[i] = HostFourCC( pal[i * 4 + 0], pal[i * 4 + 1], pal[i * 4 + 2], pal[i * 4 + 3] );
 		break;
 	}
 }
