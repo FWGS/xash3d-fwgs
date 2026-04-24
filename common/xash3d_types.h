@@ -243,7 +243,7 @@ typedef int qboolean;
 #define Swap32Store( x ) ( x = Swap32( x ))
 #define Swap16Store( x ) ( x = Swap16( x ))
 
-#ifdef XASH_BIG_ENDIAN
+#if XASH_BIG_ENDIAN
 	#define LittleLong( x )    Swap32( x )
 	#define LittleShort( x )   Swap16( x )
 	#define LittleLongSW( x )  Swap32Store( x )
