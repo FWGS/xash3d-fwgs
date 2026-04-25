@@ -1166,7 +1166,7 @@ static void CL_FinishTimeDemo( void )
 	if( !time ) time = 1.0;
 
 	host.allow_console = true;
-	Con_Printf( "timedemo result: %i frames %5.3f seconds %5.3f fps %.2fx from demotime\n", frames, time, frames / time, CL_GetDemoPlaybackClock() / time );
+	Con_Printf( "timedemo result: %i frames %5.3f seconds %5.3f fps\n", frames, time, frames / time );
 	host.allow_console = temp;
 
 	if( Sys_CheckParm( "-timedemo" ))
