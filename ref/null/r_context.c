@@ -224,7 +224,7 @@ static void CL_DrawBeams( int fTrans, BEAM *beams )
 	;
 }
 
-static int RefGetParm( int parm, int arg )
+static intptr_t RefGetParm( int parm, int arg )
 {
 	return 0;
 }

@@ -72,7 +72,8 @@ GNU General Public License for more details.
 //     Moved RenderAPI and TriAPI filling to renderer via R_FillRenderAPI and R_FillTriAPI
 //     Moved detail textures parsing and cinematic texture management to engine
 //     Moved creation of default textures to the engine
-#define REF_API_VERSION 15
+// 16. RefGetParm return type changed from int to intptr_t.
+#define REF_API_VERSION 16
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -599,7 +600,7 @@ typedef struct ref_interface_s
 	void (*CL_DrawBeams)( int fTrans , BEAM *beams );
 
 	// Xash3D Render Interface
-	int			(*RefGetParm)( int parm, int arg );	// generic
+	intptr_t		(*RefGetParm)( int parm, int arg );	// generic
 
 	// detail texture scale
 	void	(*R_GetDetailScaleForTexture)( int texture, float *xScale, float *yScale );

@@ -614,7 +614,7 @@ void GAME_EXPORT Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 #if XASH_BIG_ENDIAN
 	if( size >= sizeof( int ) && LittleLong( IDSEQGRPHEADER ) == *(uint *)cu->data )
 	{
-		studiohdr_t *phdr = (studiohdr_t *)(intptr_t)REF_GET_PARM( PARM_GET_STUDIO_HDR, 0 );
+		studiohdr_t *phdr = (studiohdr_t *)REF_GET_PARM( PARM_GET_STUDIO_HDR, 0 );
 		if( !phdr )
 			return;
 
