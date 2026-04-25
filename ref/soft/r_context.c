@@ -120,7 +120,7 @@ static qboolean GAME_EXPORT Mod_ProcessRenderData( model_t *mod, qboolean create
 	return loaded;
 }
 
-static int GL_RefGetParm( int parm, int arg )
+static intptr_t GL_RefGetParm( int parm, int arg )
 {
 	image_t *glt;
 
