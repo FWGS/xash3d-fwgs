@@ -987,8 +987,7 @@ static void GL_InitExtensionsBigGL( void )
 
 	if( !GL_CheckExtension( "glDrawRangeElements", drawrangeelementsfuncs, ARRAYSIZE( drawrangeelementsfuncs ), "gl_drawrangeelements", GL_DRAW_RANGEELEMENTS_EXT, 0 ) )
 	{
-		if( GL_CheckExtension( "glDrawRangeElementsEXT", drawrangeelementsextfuncs, ARRAYSIZE( drawrangeelementsextfuncs ),
-			"gl_drawrangelements", GL_DRAW_RANGEELEMENTS_EXT, 0 ))
+		if( GL_CheckExtension( "glDrawRangeElementsEXT", drawrangeelementsextfuncs, ARRAYSIZE( drawrangeelementsextfuncs ), "gl_drawrangeelements", GL_DRAW_RANGEELEMENTS_EXT, 0 ))
 		{
 #if !XASH_GL_STATIC
 			pglDrawRangeElements = pglDrawRangeElementsEXT;
