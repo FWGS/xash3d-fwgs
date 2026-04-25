@@ -161,7 +161,7 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 	return loaded;
 }
 
-static int GL_RefGetParm( int parm, int arg )
+static intptr_t GL_RefGetParm( int parm, int arg )
 {
 	gl_texture_t *glt;
 
