@@ -166,32 +166,32 @@ typedef enum
 	LOADLUMP_BSPX,     // ... from BSPX data
 } loadlump_source_t;
 
-#define LUMP_SAVESTATS  BIT( 0 )
-#define LUMP_TESTONLY   BIT( 1 )
-#define LUMP_SILENT     BIT( 2 )
-#define LUMP_BSP30EXT   BIT( 3 ) // extra marker for Mod_LoadLump
-#define LUMP_BSPX       BIT( 4 )
+#define LUMP_SAVESTATS   BIT( 0 )
+#define LUMP_BSHIFT_SWAP BIT( 1 )
+#define LUMP_SILENT      BIT( 2 )
+#define LUMP_BSP30EXT    BIT( 3 ) // extra marker for Mod_LoadLump
+#define LUMP_BSPX        BIT( 4 )
 
 typedef struct
 {
-	int          lumpnumber;
+	const int    lumpnumber;
 
 	// BSPX
 	const char   lumpname[24];
 
-	int          flags;
+	const int    flags;
 	const size_t mincount;
 	const size_t maxcount;
 	const int    entrysize;
 	const int    entrysize32; // extended size (0 if not available)
 	const char   *loadname;
-	const void   **dataptr;
-	size_t       *count;
+	const size_t dataofs;  // offsetof into dbspmodel_t for data pointer
+	const size_t countofs; // offsetof into dbspmodel_t for count/size
 #if XASH_BIG_ENDIAN // do not waste memory on little endian
 	const swap_struct_def_t *swap;
-	size_t       swaplen;
+	const size_t swaplen;
 	const swap_struct_def_t *swap32;
-	size_t       swaplen32;
+	const size_t swaplen32;
 #endif
 } mlumpinfo_t;
 
@@ -344,11 +344,10 @@ le_struct_begin( mip_swap )
 le_struct_end();
 
 world_static_t     world;
-static dbspmodel_t srcmodel;
 static loadstat_t  loadstat;
 static model_t     *worldmodel;
 static byte        g_visdata[(MAX_MAP_LEAFS+7)/8];	// intermediate buffer
-static mlumpinfo_t srclumps[HEADER_LUMPS] =
+static const mlumpinfo_t srclumps[HEADER_LUMPS] =
 {
 	{
 		.lumpnumber  = LUMP_ENTITIES,
@@ -356,8 +355,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.maxcount    = MAX_MAP_ENTSTRING,
 		.entrysize   = sizeof( byte ),
 		.loadname    = "entities",
-		.dataptr     = (const void **)&srcmodel.entdata,
-		.count       = &srcmodel.entdatasize,
+		.dataofs     = offsetof( dbspmodel_t, entdata ),
+		.countofs    = offsetof( dbspmodel_t, entdatasize ),
 	},
 	{
 		.lumpnumber  = LUMP_PLANES,
@@ -365,8 +364,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.maxcount    = MAX_MAP_PLANES,
 		.entrysize   = sizeof( dplane_t ),
 		.loadname    = "planes",
-		.dataptr     = (const void **)&srcmodel.planes,
-		.count       = &srcmodel.numplanes,
+		.dataofs     = offsetof( dbspmodel_t, planes ),
+		.countofs    = offsetof( dbspmodel_t, numplanes ),
 		LUMP_SWAP( dplane_swap )
 	},
 	{
@@ -375,16 +374,16 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.maxcount    = MAX_MAP_MIPTEX,
 		.entrysize   = sizeof( byte ),
 		.loadname    = "textures",
-		.dataptr     = (const void **)&srcmodel.textures,
-		.count       = &srcmodel.texdatasize,
+		.dataofs     = offsetof( dbspmodel_t, textures ),
+		.countofs    = offsetof( dbspmodel_t, texdatasize ),
 	},
 	{
 		.lumpnumber  = LUMP_VERTEXES,
 		.maxcount    = MAX_MAP_VERTS,
 		.entrysize   = sizeof( dvertex_t ),
 		.loadname    = "vertexes",
-		.dataptr     = (const void **)&srcmodel.vertexes,
-		.count       = &srcmodel.numvertexes,
+		.dataofs     = offsetof( dbspmodel_t, vertexes ),
+		.countofs    = offsetof( dbspmodel_t, numvertexes ),
 		LUMP_SWAP( dvertex_swap )
 	},
 	{
@@ -392,8 +391,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.maxcount    = MAX_MAP_VISIBILITY,
 		.entrysize   = sizeof( byte ),
 		.loadname    = "visibility",
-		.dataptr     = (const void **)&srcmodel.visdata,
-		.count       = &srcmodel.visdatasize,
+		.dataofs     = offsetof( dbspmodel_t, visdata ),
+		.countofs    = offsetof( dbspmodel_t, visdatasize ),
 	},
 	{
 		.lumpnumber  = LUMP_NODES,
@@ -403,8 +402,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize32 = sizeof( dnode32_t ),
 		.loadname    = "nodes",
 		.flags       = CHECK_OVERFLOW,
-		.dataptr     = (const void **)&srcmodel.nodes,
-		.count       = &srcmodel.numnodes,
+		.dataofs     = offsetof( dbspmodel_t, nodes ),
+		.countofs    = offsetof( dbspmodel_t, numnodes ),
 		LUMP_SWAP32( dnode_swap, dnode32_swap )
 	},
 	{
@@ -414,8 +413,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize   = sizeof( dtexinfo_t ),
 		.loadname    = "texinfo",
 		.flags       = CHECK_OVERFLOW,
-		.dataptr     = (const void **)&srcmodel.texinfo,
-		.count       = &srcmodel.numtexinfo,
+		.dataofs     = offsetof( dbspmodel_t, texinfo ),
+		.countofs    = offsetof( dbspmodel_t, numtexinfo ),
 		LUMP_SWAP( dtexinfo_swap )
 	},
 	{
@@ -426,8 +425,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize32 = sizeof( dface32_t ),
 		.loadname    = "faces",
 		.flags       = CHECK_OVERFLOW,
-		.dataptr     = (const void **)&srcmodel.surfaces,
-		.count       = &srcmodel.numsurfaces,
+		.dataofs     = offsetof( dbspmodel_t, surfaces ),
+		.countofs    = offsetof( dbspmodel_t, numsurfaces ),
 		LUMP_SWAP32( dface_swap, dface32_swap )
 	},
 	{
@@ -437,8 +436,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize   = sizeof( byte ),
 		.loadname    = "lightmaps",
 		.flags       = 0,
-		.dataptr     = (const void **)&srcmodel.lightdata,
-		.count       = &srcmodel.lightdatasize,
+		.dataofs     = offsetof( dbspmodel_t, lightdata ),
+		.countofs    = offsetof( dbspmodel_t, lightdatasize ),
 	},
 	{
 		.lumpnumber  = LUMP_CLIPNODES,
@@ -448,8 +447,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize32 = sizeof( dclipnode32_t ),
 		.loadname    = "clipnodes",
 		.flags       = 0,
-		.dataptr     = (const void **)&srcmodel.clipnodes,
-		.count       = &srcmodel.numclipnodes,
+		.dataofs     = offsetof( dbspmodel_t, clipnodes ),
+		.countofs    = offsetof( dbspmodel_t, numclipnodes ),
 		LUMP_SWAP32( dclipnode_swap, dclipnode32_swap )
 	},
 	{
@@ -460,8 +459,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize32 = sizeof( dleaf32_t ),
 		.loadname    = "leafs",
 		.flags       = CHECK_OVERFLOW,
-		.dataptr     = (const void **)&srcmodel.leafs,
-		.count       = &srcmodel.numleafs,
+		.dataofs     = offsetof( dbspmodel_t, leafs ),
+		.countofs    = offsetof( dbspmodel_t, numleafs ),
 		LUMP_SWAP32( dleaf_swap, dleaf32_swap )
 	},
 	{
@@ -472,8 +471,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize32 = sizeof( dmarkface32_t ),
 		.loadname    = "markfaces",
 		.flags       = 0,
-		.dataptr     = (const void **)&srcmodel.markfaces,
-		.count       = &srcmodel.nummarkfaces,
+		.dataofs     = offsetof( dbspmodel_t, markfaces ),
+		.countofs    = offsetof( dbspmodel_t, nummarkfaces ),
 	},
 	{
 		.lumpnumber  = LUMP_EDGES,
@@ -483,8 +482,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize32 = sizeof( dedge32_t ),
 		.loadname    = "edges",
 		.flags       = 0,
-		.dataptr     = (const void **)&srcmodel.edges,
-		.count       = &srcmodel.numedges,
+		.dataofs     = offsetof( dbspmodel_t, edges ),
+		.countofs    = offsetof( dbspmodel_t, numedges ),
 		LUMP_SWAP32( dedge_swap, dedge32_swap )
 	},
 	{
@@ -494,8 +493,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize   = sizeof( dsurfedge_t ),
 		.loadname    = "surfedges",
 		.flags       = 0,
-		.dataptr     = (const void **)&srcmodel.surfedges,
-		.count       = &srcmodel.numsurfedges,
+		.dataofs     = offsetof( dbspmodel_t, surfedges ),
+		.countofs    = offsetof( dbspmodel_t, numsurfedges ),
 	},
 	{
 		.lumpnumber  = LUMP_MODELS,
@@ -504,8 +503,8 @@ static mlumpinfo_t srclumps[HEADER_LUMPS] =
 		.entrysize   = sizeof( dmodel_t ),
 		.loadname    = "models",
 		.flags       = CHECK_OVERFLOW,
-		.dataptr     = (const void **)&srcmodel.submodels,
-		.count       = &srcmodel.numsubmodels,
+		.dataofs     = offsetof( dbspmodel_t, submodels ),
+		.countofs    = offsetof( dbspmodel_t, numsubmodels ),
 		LUMP_SWAP( dmodel_swap )
 	},
 };
@@ -518,8 +517,8 @@ static const mlumpinfo_t extlumps[EXTRA_LUMPS] =
 		.maxcount    = MAX_MAP_LIGHTING,
 		.entrysize   = sizeof( byte ),
 		.loadname    = "deluxmaps",
-		.dataptr     = (const void **)&srcmodel.deluxdata,
-		.count       = &srcmodel.deluxdatasize,
+		.dataofs     = offsetof( dbspmodel_t, deluxdata ),
+		.countofs    = offsetof( dbspmodel_t, deluxdatasize ),
 	},
 	{
 		.lumpnumber  = LUMP_FACEINFO,
@@ -528,8 +527,8 @@ static const mlumpinfo_t extlumps[EXTRA_LUMPS] =
 		.entrysize   = sizeof( dfaceinfo_t ),
 		.loadname    = "faceinfos",
 		.flags       = CHECK_OVERFLOW,
-		.dataptr     = (const void **)&srcmodel.faceinfo,
-		.count       = &srcmodel.numfaceinfo,
+		.dataofs     = offsetof( dbspmodel_t, faceinfo ),
+		.countofs    = offsetof( dbspmodel_t, numfaceinfo ),
 		LUMP_SWAP( dfaceinfo_swap )
 	},
 	{
@@ -538,8 +537,8 @@ static const mlumpinfo_t extlumps[EXTRA_LUMPS] =
 		.maxcount    = MAX_MAP_LIGHTING / 3,
 		.entrysize   = sizeof( byte ),
 		.loadname    = "shadowmap",
-		.dataptr     = (const void **)&srcmodel.shadowdata,
-		.count       = &srcmodel.shadowdatasize,
+		.dataofs     = offsetof( dbspmodel_t, shadowdata ),
+		.countofs    = offsetof( dbspmodel_t, shadowdatasize ),
 	},
 };
 
@@ -550,16 +549,16 @@ static const mlumpinfo_t bspxlumps[] =
 		.maxcount    = MAX_MAP_LIGHTING,
 		.entrysize   = sizeof( byte ),
 		.loadname    = "rgblighting",
-		.dataptr     = (const void **)&srcmodel.rgblightdata,
-		.count       = &srcmodel.rgblightdatasize,
+		.dataofs     = offsetof( dbspmodel_t, rgblightdata ),
+		.countofs    = offsetof( dbspmodel_t, rgblightdatasize ),
 	},
 	{
 		.lumpname    = "LIGHTINGDIR",
 		.maxcount    = MAX_MAP_LIGHTING,
 		.entrysize   = sizeof( byte ),
 		.loadname    = "lightingdir",
-		.dataptr     = (const void **)&srcmodel.deluxdata,
-		.count       = &srcmodel.deluxdatasize,
+		.dataofs     = offsetof( dbspmodel_t, deluxdata ),
+		.countofs    = offsetof( dbspmodel_t, deluxdatasize ),
 	},
 };
 
@@ -758,7 +757,7 @@ Mod_LoadLump
 generic loader
 =================
 */
-static void Mod_LoadLump( const void *in, const mlumpinfo_t *info, mlumpstat_t *stat, int flags, loadlump_source_t source, const void *bspx_data )
+static void Mod_LoadLump( const void *in, const mlumpinfo_t *info, mlumpstat_t *stat, int flags, loadlump_source_t source, const void *bspx_data, dbspmodel_t *bmod )
 {
 	int     version = ((const dheader_t *)in)->version, i;
 	size_t  numelems, real_entrysize;
@@ -769,7 +768,16 @@ static void Mod_LoadLump( const void *in, const mlumpinfo_t *info, mlumpstat_t *
 	case LOADLUMP_STANDARD:
 	{
 		const dheader_t *header = in;
-		l = header->lumps[info->lumpnumber];
+		int lumpnumber = info->lumpnumber;
+
+		if( FBitSet( flags, LUMP_BSHIFT_SWAP ))
+		{
+			if( lumpnumber == LUMP_ENTITIES )
+				lumpnumber = LUMP_PLANES;
+			else if( lumpnumber == LUMP_PLANES )
+				lumpnumber = LUMP_ENTITIES;
+		}
+		l = header->lumps[lumpnumber];
 		break;
 	}
 	case LOADLUMP_BSP30EXT:
@@ -836,7 +844,7 @@ static void Mod_LoadLump( const void *in, const mlumpinfo_t *info, mlumpstat_t *
 	}
 
 	// bmodels not required the visibility
-	if( !FBitSet( flags, LUMP_TESTONLY ) && !world.loading && info->lumpnumber == LUMP_VISIBILITY )
+	if( info->lumpnumber == LUMP_VISIBILITY && !world.loading && bmod )
 		SetBits( flags, LUMP_SILENT ); // shut up warning
 
 	// fill the stats for world
@@ -914,36 +922,31 @@ static void Mod_LoadLump( const void *in, const mlumpinfo_t *info, mlumpstat_t *
 		}
 	}
 
-	if( FBitSet( flags, LUMP_TESTONLY ))
-		return; // don't fill the intermediate struct
+	// if no bmod is passed, we are only testing if BSP lumps are not corrupted
+	if( !bmod )
+		return;
+
+	byte *data = (byte *)in + l.fileofs;
 
 	// all checks are passed, store pointers
-	if( info->dataptr )
-		*info->dataptr = (void *)((byte *)in + l.fileofs);
-
-	if( info->count )
-		*info->count = numelems;
+	*(byte **)((byte *)bmod + info->dataofs) = data;
+	*(size_t *)((byte *)bmod + info->countofs) = numelems;
 
 	// finally, process the data
 #if XASH_BIG_ENDIAN
 	const swap_struct_def_t *swap = real_entrysize == info->entrysize32 ? info->swap32 : info->swap;
 	size_t swaplen = real_entrysize == info->entrysize32 ? info->swaplen32 : info->swaplen;
 
-	if( info->dataptr && *info->dataptr )
+	if( swap )
 	{
-		byte *data = (byte *)*info->dataptr;
-
-		if( swap )
-		{
-			for( size_t j = 0; j < numelems; j++ )
-				swap_struct_( swap, swaplen, data + j * real_entrysize );
-		}
-		// some lumps don't need a swapdef, as all needed data in the lump info
-		else if( real_entrysize > 1 )
-		{
-			for( size_t j = 0; j < numelems; j++ )
-				swap_field_( data + j * real_entrysize, real_entrysize );
-		}
+		for( size_t j = 0; j < numelems; j++ )
+			swap_struct_( swap, swaplen, data + j * real_entrysize );
+	}
+	// some lumps don't need a swapdef, as all needed data in the lump info
+	else if( real_entrysize > 1 )
+	{
+		for( size_t j = 0; j < numelems; j++ )
+			swap_field_( data + j * real_entrysize, real_entrysize );
 	}
 #endif
 }
@@ -4228,14 +4231,12 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 {
 	dheader_t   *header = (dheader_t *)mod_base;
 	int         *extident = (int *)(mod_base + sizeof( dheader_t ));
-	dbspmodel_t *bmod = &srcmodel;
 	char        wadvalue[2048];
 	size_t      len = 0;
 	int         i, stat_index = 0, ret, flags = 0;
 	fs_offset_t bspx_header_offset;
 
 	// always reset the intermediate struct
-	memset( bmod, 0, sizeof( *bmod ));
 	memset( &loadstat, 0, sizeof( loadstat ));
 
 	Q_strncpy( loadstat.name, mod->name, sizeof( loadstat.name ));
@@ -4243,10 +4244,6 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 
 	// byte-swap BSP header and lump directory from little-endian
 	Mod_SwapBSPLumps( mod_base, bufferlen );
-
-	// restore default lump numbers
-	srclumps[0].lumpnumber = LUMP_ENTITIES;
-	srclumps[1].lumpnumber = LUMP_PLANES;
 
 	switch( header->version )
 	{
@@ -4260,8 +4257,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 			 Mod_LumpLooksLikeEntities( mod_base + header->lumps[LUMP_PLANES].fileofs, header->lumps[LUMP_PLANES].filelen ))
 		{
 			// blue-shift swapped lumps
-			srclumps[0].lumpnumber = LUMP_PLANES;
-			srclumps[1].lumpnumber = LUMP_ENTITIES;
+			SetBits( flags, LUMP_BSHIFT_SWAP );
 		}
 		break;
 	case Q1BSP_VERSION:
@@ -4275,6 +4271,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		return false;
 	}
 
+	dbspmodel_t *bmod = Mem_Calloc( mod->mempool, sizeof( *bmod ));
 	bmod->version = header->version;	// share up global
 	if( isworld )
 	{
@@ -4287,17 +4284,17 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 
 	// loading base lumps
 	for( i = 0; i < ARRAYSIZE( srclumps ); i++, stat_index++ )
-		Mod_LoadLump( mod_base, &srclumps[i], &worldstats[stat_index], flags, LOADLUMP_STANDARD, NULL );
+		Mod_LoadLump( mod_base, &srclumps[i], &worldstats[stat_index], flags, LOADLUMP_STANDARD, NULL, bmod );
 
 	// loading extralumps
 	for( i = 0; i < ARRAYSIZE( extlumps ); i++, stat_index++ )
-		Mod_LoadLump( mod_base, &extlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSP30EXT, NULL );
+		Mod_LoadLump( mod_base, &extlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSP30EXT, NULL, bmod );
 
 	// loading bspx lumps
 	if( bspx_header_offset >= 0 )
 	{
 		for( i = 0; i < ARRAYSIZE( bspxlumps ); i++, stat_index++ )
-			Mod_LoadLump( mod_base, &bspxlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSPX, mod_base + bspx_header_offset );
+			Mod_LoadLump( mod_base, &bspxlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSPX, mod_base + bspx_header_offset, bmod );
 	}
 
 	if( !bmod->isworld ) // a1ba: why world excluded here?
@@ -4305,6 +4302,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		if( loadstat.numerrors )
 		{
 			Con_DPrintf( "%s: %i error(s), %i warning(s)\n", __func__, loadstat.numerrors, loadstat.numwarnings );
+			Mem_Free( bmod );
 			return false; // there were errors, we can't load this map
 		}
 
@@ -4369,6 +4367,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 		Con_Reportf( "Wad files required to run the map: \"%s\"\n", wadvalue );
 	}
 
+	Mem_Free( bmod );
 	return true;
 }
 
@@ -4411,7 +4410,7 @@ qboolean Mod_TestBmodelLumps( file_t *f, const char *name, byte *mod_base, size_
 {
 	dheader_t   *header = (dheader_t *)mod_base;
 	int         *extident = (int *)( mod_base + sizeof( dheader_t ));
-	int         i, flags = LUMP_TESTONLY, stat_index = 0;
+	int         i, flags = 0, stat_index = 0;
 
 	// always reset the intermediate struct
 	memset( &loadstat, 0, sizeof( loadstat_t ));
@@ -4426,10 +4425,6 @@ qboolean Mod_TestBmodelLumps( file_t *f, const char *name, byte *mod_base, size_
 
 	// byte-swap BSP header and lump directory from little-endian
 	Mod_SwapBSPLumps( mod_base, buffersize );
-
-	// restore default lump numbers
-	srclumps[0].lumpnumber = LUMP_ENTITIES;
-	srclumps[1].lumpnumber = LUMP_PLANES;
 
 	switch( header->version )
 	{
@@ -4452,11 +4447,7 @@ qboolean Mod_TestBmodelLumps( file_t *f, const char *name, byte *mod_base, size_
 					return false;
 
 				if( ret )
-				{
-					// blue-shift swapped lumps
-					srclumps[0].lumpnumber = LUMP_PLANES;
-					srclumps[1].lumpnumber = LUMP_ENTITIES;
-				}
+					SetBits( flags, LUMP_BSHIFT_SWAP );
 			}
 		}
 		break;
@@ -4472,15 +4463,15 @@ qboolean Mod_TestBmodelLumps( file_t *f, const char *name, byte *mod_base, size_
 	}
 
 	// get entities lump to caller
-	*entities = header->lumps[srclumps[0].lumpnumber];
+	*entities = header->lumps[FBitSet( flags, LUMP_BSHIFT_SWAP ) ? LUMP_PLANES : LUMP_ENTITIES];
 
 	// loading base lumps
 	for( i = 0; i < ARRAYSIZE( srclumps ); i++, stat_index++ )
-		Mod_LoadLump( mod_base, &srclumps[i], &worldstats[stat_index], flags, LOADLUMP_STANDARD, NULL );
+		Mod_LoadLump( mod_base, &srclumps[i], &worldstats[stat_index], flags, LOADLUMP_STANDARD, NULL, NULL );
 
 	// loading extralumps
 	for( i = 0; i < ARRAYSIZE( extlumps ); i++, stat_index++ )
-		Mod_LoadLump( mod_base, &extlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSP30EXT, NULL );
+		Mod_LoadLump( mod_base, &extlumps[i], &worldstats[stat_index], flags, LOADLUMP_BSP30EXT, NULL, NULL );
 
 	// FIXME: BSPX testing
 
