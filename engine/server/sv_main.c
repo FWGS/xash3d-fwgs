@@ -801,7 +801,7 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 	{
 		char c = id[i];
 
-		if( !isdigit( id[i] ) && !( c >= 'a' && c <= 'f' ))
+		if( !isdigit((byte)id[i] ) && !( c >= 'a' && c <= 'f' ))
 		{
 			SV_RejectConnection( from, "invalid authentication certificate\n" );
 			return false;
