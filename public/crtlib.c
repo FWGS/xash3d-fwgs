@@ -929,12 +929,12 @@ void COM_TrimSpace( char *dst, const char *src, size_t size )
 		return;
 
 	// remove spaces from the start
-	for( ; *src && isspace( *src ); src++ );
+	for( ; *src && isspace((byte)*src ); src++ );
 
 	int len = Q_strlen( src );
 
 	// remove spaces from the end
-	for( ; len > 0 && isspace( src[len - 1] ); len-- );
+	for( ; len > 0 && isspace((byte)src[len - 1] ); len-- );
 
 	if( len > 0 )
 	{
