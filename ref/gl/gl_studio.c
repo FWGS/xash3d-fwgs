@@ -582,7 +582,7 @@ float R_StudioEstimateFrame( cl_entity_t *e, mstudioseqdesc_t *pseqdesc, double 
 	if( pseqdesc->flags & STUDIO_LOOPING )
 	{
 		if( pseqdesc->numframes > 1 )
-			f -= (int)(f / (pseqdesc->numframes - 1)) *  (pseqdesc->numframes - 1);
+			f -= (int)(f / (pseqdesc->numframes - 1)) * (pseqdesc->numframes - 1);
 		if( f < 0 ) f += (pseqdesc->numframes - 1);
 	}
 	else
@@ -2346,7 +2346,7 @@ static void R_StudioDrawAttachments( void )
 	int	i;
 
 	pglDisable( GL_TEXTURE_2D );
-	pglDisable( GL_DEPTH_TEST );
+	pglDisable(  );
 
 	for( i = 0; i < m_pStudioHeader->numattachments; i++ )
 	{
@@ -2383,7 +2383,7 @@ static void R_StudioDrawAttachments( void )
 	}
 
 	pglEnable( GL_TEXTURE_2D );
-	pglEnable( GL_DEPTH_TEST );
+	pglEnable(  );
 }
 
 /*
@@ -2867,7 +2867,7 @@ static void R_StudioRenderFinal( void )
 		vec3_t	origin;
 
 		pglDisable( GL_TEXTURE_2D );
-		pglDisable( GL_DEPTH_TEST );
+		pglDisable(  );
 
 		Matrix3x4_OriginFromMatrix( g_studio.rotationmatrix, origin );
 
@@ -2891,7 +2891,7 @@ static void R_StudioRenderFinal( void )
 		pglEnd();
 		pglPointSize( 1.0f );
 
-		pglEnable( GL_DEPTH_TEST );
+		pglEnable(  );
 		pglEnable( GL_TEXTURE_2D );
 	}
 
@@ -3070,14 +3070,22 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 	alight_t	lighting;
 	vec3_t	dir;
 
+	pglDisable( GL_DEPTH_TEST );
+
 	m_nPlayerIndex = pplayer->number - 1;
 
 	if( m_nPlayerIndex < 0 || m_nPlayerIndex >= gp_cl->maxclients )
+	{
+		pglEnable( GL_DEPTH_TEST );
 		return 0;
+	}
 
 	RI.currentmodel = R_StudioSetupPlayerModel( m_nPlayerIndex );
 	if( RI.currentmodel == NULL )
+	{
+		pglEnable( GL_DEPTH_TEST );
 		return 0;
+	}
 
 	R_StudioSetHeader((studiohdr_t *)gEngfuncs.Mod_Extradata( mod_studio, RI.currentmodel ));
 
@@ -3115,15 +3123,20 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 
 	if( flags & STUDIO_RENDER )
 	{
-		// see if the bounding box lets us trivially reject, also sets
 		if( !R_StudioCheckBBox( ))
+		{
+			pglEnable( GL_DEPTH_TEST );
 			return 0;
+		}
 
 		r_stats.c_studio_models_drawn++;
-		g_studio.framecount++; // render data cache cookie
+		g_studio.framecount++; 
 
 		if( m_pStudioHeader->numbodyparts == 0 )
+		{
+			pglEnable( GL_DEPTH_TEST );
 			return 1;
+		}
 	}
 
 	m_pPlayerInfo = pfnPlayerInfo( m_nPlayerIndex );
@@ -3138,7 +3151,6 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 		R_StudioCalcAttachments( );
 		R_StudioClientEvents( );
 
-		// copy attachments into global entity array
 		if( RI.currententity->index > 0 )
 		{
 			cl_entity_t *ent = CL_GetEntityByIndex( RI.currententity->index );
@@ -3148,27 +3160,22 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 
 	if( flags & STUDIO_RENDER )
 	{
-		// change body if it's a menu entity
 		if( cl_himodels->value && ( RI.currentmodel != RI.currententity->model || !FBitSet( RI.rvp.flags, RF_DRAW_WORLD )))
 		{
-			// show highest resolution multiplayer model
 			RI.currententity->curstate.body = 255;
 		}
 
 		if( !( !gpGlobals->developer && gp_cl->maxclients == 1 ) && ( RI.currentmodel == RI.currententity->model ))
-			RI.currententity->curstate.body = 1; // force helmet
+			RI.currententity->curstate.body = 1; 
 
 		lighting.plightvec = dir;
 		R_EntityDynamicLight( RI.currententity, &lighting, FBitSet( RI.rvp.flags, RF_DRAW_WORLD ), g_studio.time, g_studio.lightspot, g_studio.lightvec );
 
 		R_StudioEntityLight( &lighting );
-
-		// model and frame independant
 		R_StudioSetupLighting( &lighting );
 
 		m_pPlayerInfo = pfnPlayerInfo( m_nPlayerIndex );
 
-		// get remap colors
 		g_nTopColor = m_pPlayerInfo->topcolor;
 		g_nBottomColor = m_pPlayerInfo->bottomcolor;
 
@@ -3198,6 +3205,7 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 		}
 	}
 
+	pglEnable( GL_DEPTH_TEST );
 	return 1;
 }
 
@@ -3212,6 +3220,8 @@ static int R_StudioDrawModel( int flags )
 	alight_t	lighting;
 	vec3_t	dir;
 
+	pglDisable( GL_DEPTH_TEST );
+
 	if( RI.currententity->curstate.renderfx == kRenderFxDeadPlayer )
 	{
 		entity_state_t	deadplayer;
@@ -3219,12 +3229,13 @@ static int R_StudioDrawModel( int flags )
 
 		if( RI.currententity->curstate.renderamt <= 0 ||
 			RI.currententity->curstate.renderamt > gp_cl->maxclients )
+		{
+			pglEnable( GL_DEPTH_TEST );
 			return 0;
+		}
 
-		// get copy of player
 		deadplayer = *R_StudioGetPlayerState( RI.currententity->curstate.renderamt - 1 );
 
-		// clear weapon, movement state
 		deadplayer.number = RI.currententity->curstate.renderamt;
 		deadplayer.weaponmodel = 0;
 		deadplayer.gaitsequence = 0;
@@ -3234,9 +3245,10 @@ static int R_StudioDrawModel( int flags )
 		VectorCopy( RI.currententity->curstate.origin, deadplayer.origin );
 
 		g_studio.interpolate = false;
-		result = R_StudioDrawPlayer( flags, &deadplayer ); // draw as though it were a player
+		result = R_StudioDrawPlayer( flags, &deadplayer ); 
 		g_studio.interpolate = true;
 
+		pglEnable( GL_DEPTH_TEST );
 		return result;
 	}
 
@@ -3246,15 +3258,20 @@ static int R_StudioDrawModel( int flags )
 
 	if( flags & STUDIO_RENDER )
 	{
-		// see if the bounding box lets us trivially reject, also sets
 		if( !R_StudioCheckBBox( ))
+		{
+			pglEnable( GL_DEPTH_TEST );
 			return 0;
+		}
 
 		r_stats.c_studio_models_drawn++;
-		g_studio.framecount++; // render data cache cookie
+		g_studio.framecount++; 
 
 		if( m_pStudioHeader->numbodyparts == 0 )
+		{
+			pglEnable( GL_DEPTH_TEST );
 			return 1;
+		}
 	}
 
 	if( RI.currententity->curstate.movetype == MOVETYPE_FOLLOW )
@@ -3268,7 +3285,6 @@ static int R_StudioDrawModel( int flags )
 		R_StudioCalcAttachments( );
 		R_StudioClientEvents( );
 
-		// copy attachments into global entity array
 		if( RI.currententity->index > 0 )
 		{
 			cl_entity_t *ent = CL_GetEntityByIndex( RI.currententity->index );
@@ -3295,6 +3311,7 @@ static int R_StudioDrawModel( int flags )
 		R_StudioRenderModel();
 	}
 
+	pglEnable( GL_DEPTH_TEST );
 	return 1;
 }
 
