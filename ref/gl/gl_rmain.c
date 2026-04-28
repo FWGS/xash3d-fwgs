@@ -1035,14 +1035,6 @@ static void R_CheckCvars( void )
 		rebuild = true;
 	}
 
-	// we only recalculate lightmap on the fly if map hasn't declared support for lightmapped water
-	if( !FBitSet( tr.world->flags, FWORLD_HAS_LITWATER ) && FBitSet( gl_litwater_scale.flags|gl_litwater_minlight.flags, FCVAR_CHANGED ))
-	{
-		rebuild = true;
-		ClearBits( gl_litwater_scale.flags, FCVAR_CHANGED );
-		ClearBits( gl_litwater_minlight.flags, FCVAR_CHANGED );
-	}
-
 	if( rebuild )
 		R_GammaChanged( false );
 }

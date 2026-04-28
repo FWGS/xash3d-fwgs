@@ -92,11 +92,9 @@ static int Mod_LightmappedWaterMinlight( void )
 	{
 		if( tr.world->litwater_minlight >= 0 )
 			return tr.world->litwater_minlight;
-
-		return 0;
 	}
 
-	return Q_max( (int)gl_litwater_minlight.value, 0 );
+	return 0;
 }
 
 static float Mod_LightmappedWaterScale( void )
@@ -106,10 +104,9 @@ static float Mod_LightmappedWaterScale( void )
 		if( tr.world->litwater_scale >= 0.0f )
 			return tr.world->litwater_scale;
 
-		return 1.0f;
 	}
 
-	return gl_litwater_scale.value;
+	return 1.0f;
 }
 
 byte *Mod_GetCurrentVis( void )
@@ -1054,7 +1051,7 @@ static void EmitWaterLightPolys( msurface_t *warp, float soffset, float toffset,
 	float waveHeight = RI.currententity->curstate.scale;
 
 	// set the current waveheight
-	if( warp->polys->verts[0][2] >= RI.vieworg[2] )
+	if( warp->polys->verts[0][2] >= RI.rvp.vieworigin[2] )
 		waveHeight = -waveHeight;
 
 	if( useQuads )
