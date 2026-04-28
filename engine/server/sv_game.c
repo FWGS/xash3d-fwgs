@@ -1286,7 +1286,8 @@ static int GAME_EXPORT pfnPrecacheModel( const char *s )
 
 	if( COM_StringEmptyOrNULL( s ))
 	{
-		Host_Error( "%s: NULL pointer or empty string as model name\n", __func__ );
+		// GoldSrc does Host_Error here, we are returning world as that's safe and doesn't break existing Xash games
+		Con_Printf( S_WARN "%s: NULL pointer or empty string as model name, returning world...\n", __func__ );
 		return 0;
 	}
 
