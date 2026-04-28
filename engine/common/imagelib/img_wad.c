@@ -514,7 +514,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 				// three checks here: check if we can load luma, check the texture name and, finally,
 				// validate that palette isn't NULL
 				if( Image_CheckFlag( IL_ALLOW_WAD3_LUMA )
-					&& ( mip.name[0] == '~' || ( mip.name[0] == '+' && isdigit( mip.name[1] ) && mip.name[2] == '~' ))
+					&& ( mip.name[0] == '~' || ( mip.name[0] == '+' && isdigit((byte)mip.name[1] ) && mip.name[2] == '~' ))
 					&& pal != NULL )
 				{
 					SetBits( image.flags, IMAGE_HAS_LUMA );
