@@ -2624,10 +2624,6 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), c );
 
 	// server connection
-	if( !Q_strcmp( c, "sb_connect" ))
-	{
-		SteamBroker_HandlePacket( from, msg );
-	}
 	if( !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ) || !Q_strcmp( c, S2C_CONNECTION ))
 	{
 		CL_ClientConnect( cls.legacymode, c, from );
