@@ -101,3 +101,5 @@ static inline socklen_t NET_SockAddrLen( const struct sockaddr_storage *addr )
 }
 
 net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, qboolean nonblocking, int family );
+void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s );
+void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a );
