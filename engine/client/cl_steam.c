@@ -129,7 +129,7 @@ static qboolean SteamBroker_ConnectImpl( void )
 	broker.socket = socket( addr_family, SOCK_STREAM, IPPROTO_TCP );
 	if( !NET_IsSocketValid( broker.socket ))
 	{
-		Con_Printf( "%s: failed to create socket\n", __func__ );
+		Con_Printf( S_ERROR "%s: failed to create socket\n", __func__ );
 		return false;
 	}
 
@@ -165,7 +165,7 @@ static qboolean SteamBroker_SendFrame( const char *payload, uint32_t payload_siz
 {
 	if( payload_size > SBRK_MAX_FRAME_SIZE )
 	{
-		Con_Printf( "%s: payload too large (%u > %u)\n", __func__, payload_size, SBRK_MAX_FRAME_SIZE );
+		Con_Printf( S_WARN "%s: payload too large (%u > %u)\n", __func__, payload_size, SBRK_MAX_FRAME_SIZE );
 		return false;
 	}
 
@@ -192,7 +192,7 @@ static qboolean SteamBroker_SendFrame( const char *payload, uint32_t payload_siz
 		int err = WSAGetLastError();
 		if( err != WSAEWOULDBLOCK && err != WSAEALREADY )
 		{
-			Con_Printf( "%s: send error %s\n", __func__, NET_ErrorString( ));
+			Con_Printf( S_ERROR "%s: send error %s\n", __func__, NET_ErrorString( ));
 			SteamBroker_Disconnect( );
 			return false;
 		}
@@ -206,7 +206,7 @@ static qboolean SteamBroker_SendFrame( const char *payload, uint32_t payload_siz
 		uint32_t available = sizeof( broker.tx_buffer ) - broker.tx_buffer_pos;
 		if( available < unsent )
 		{
-			Con_Printf( "%s: transmit buffer overflow (%u > %u)\n", __func__, unsent, available );
+			Con_Printf( S_ERROR "%s: transmit buffer overflow (%u > %u)\n", __func__, unsent, available );
 			SteamBroker_Disconnect( );
 			return false;
 		}
@@ -227,7 +227,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 
 	if( memcmp( p, SBRK_FRAME_HEADER, SBRK_FRAME_HEADER_SIZE ) != 0 )
 	{
-		Con_Printf( "%s: invalid frame header\n", __func__ );
+		Con_Printf( S_ERROR "%s: invalid frame header\n", __func__ );
 		SteamBroker_Disconnect( );
 		return false;
 	}
@@ -258,7 +258,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 
 				if( broker.challenge != challenge )
 				{
-					Con_Printf( "%s: challenge mismatch\n", __func__ );
+					Con_Printf( S_ERROR "%s: challenge mismatch\n", __func__ );
 					memmove( broker.rx_buffer, broker.rx_buffer + frame_size, broker.rx_buffer_pos - frame_size );
 					broker.rx_buffer_pos -= frame_size;
 					return false;
@@ -272,7 +272,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 
 				if( ticket_size > 2048 || response_size - 4 - 8 - 4 != ticket_size )
 				{
-					Con_Printf( "%s: invalid ticket size (%u)\n", __func__, ticket_size );
+					Con_Printf( S_ERROR "%s: invalid ticket size (%u)\n", __func__, ticket_size );
 					memmove( broker.rx_buffer, broker.rx_buffer + frame_size, broker.rx_buffer_pos - frame_size );
 					broker.rx_buffer_pos -= frame_size;
 					return false;
@@ -305,7 +305,7 @@ static void SteamBroker_HandleDataTx( void )
 		int err = WSAGetLastError();
 		if( err != WSAEWOULDBLOCK && err != WSAEALREADY )
 		{
-			Con_Printf( "%s: send error %s\n", __func__, NET_ErrorString( ));
+			Con_Printf( S_ERROR "%s: send error %s\n", __func__, NET_ErrorString( ));
 			SteamBroker_Disconnect( );
 		}
 		return;
@@ -324,7 +324,7 @@ static void SteamBroker_HandleDataRx( void )
 	int available = sizeof(broker.rx_buffer) - broker.rx_buffer_pos;
 	if( available <= 0 )
 	{
-		Con_Printf( "%s: receive buffer overflow\n", __func__ );
+		Con_Printf( S_ERROR "%s: receive buffer overflow\n", __func__ );
 		SteamBroker_Disconnect( );
 		return;
 	}
@@ -335,7 +335,7 @@ static void SteamBroker_HandleDataRx( void )
 		int err = WSAGetLastError();
 		if( err != WSAEWOULDBLOCK && err != WSAEALREADY )
 		{
-			Con_Printf( "%s: recv error %s\n", __func__, NET_ErrorString( ));
+			Con_Printf( S_ERROR "%s: recv error %s\n", __func__, NET_ErrorString( ));
 			SteamBroker_Disconnect( );
 		}
 		return;
@@ -343,7 +343,7 @@ static void SteamBroker_HandleDataRx( void )
 
 	if( received == 0 )
 	{
-		Con_Printf( "%s: connection closed by broker\n", __func__ );
+		Con_Printf( S_NOTE "%s: connection closed by broker\n", __func__ );
 		SteamBroker_Disconnect( );
 		return;
 	}
@@ -363,7 +363,7 @@ static void SteamBroker_UpdateIdle( void )
 		}
 		else
 		{
-			Con_Printf( "%s: failed to resolve broker address \"%s\"\n", __func__, cl_steam_broker_addr.string );
+			Con_Printf( S_ERROR "%s: failed to resolve broker address \"%s\"\n", __func__, cl_steam_broker_addr.string );
 		}
 		broker.idle_cycle_timeout = Platform_DoubleTime() + SBRK_CONNECT_RETRY_DELAY;
 	}
@@ -399,7 +399,7 @@ static void SteamBroker_UpdateConnecting( void )
 {
 	if( Platform_DoubleTime() > broker.connection_timeout )
 	{
-		Con_Printf( "%s: connection to %s timed out\n", __func__, cl_steam_broker_addr.string );
+		Con_Printf( S_WARN "%s: connection to %s timed out\n", __func__, cl_steam_broker_addr.string );
 		SteamBroker_Disconnect();
 		return;
 	}
@@ -419,7 +419,7 @@ static void SteamBroker_UpdateConnecting( void )
 #endif
 	if( select_result == SOCKET_ERROR )
 	{
-		Con_Printf( "%s: select() failed\n", __func__ );
+		Con_Printf( S_ERROR "%s: select() failed\n", __func__ );
 		return;
 	}
 
@@ -430,18 +430,18 @@ static void SteamBroker_UpdateConnecting( void )
 		int err_len = sizeof( err );
 		if( NET_IsSocketError( getsockopt( broker.socket, SOL_SOCKET, SO_ERROR, (char *)&err, &err_len )))
 		{
-			Con_Printf( "%s: getsockopt() failed\n", __func__ );
+			Con_Printf( S_ERROR "%s: getsockopt() failed\n", __func__ );
 			return;
 		}
 		else if( err != 0 )
 		{
-			Con_Printf( "%s: connection failed with error %d\n", __func__, err );
+			Con_Printf( S_ERROR "%s: connection failed with error %d\n", __func__, err );
 			return;
 		}
 		else
 		{
-			// connection successful
 			broker.connection_timeout = 0;
+			Con_Printf( S_NOTE "%s: connected to broker at %s\n", __func__, cl_steam_broker_addr.string );
 			SteamBroker_SetState( SBRK_STATE_CONNECTED );
 			SteamBroker_AnnounceGameStart( GI->gamefolder );
 		}
@@ -462,7 +462,7 @@ int SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge )
 
 	if( broker.state != SBRK_STATE_CONNECTED )
 	{
-		Con_Printf( "%s: broker not connected\n", __func__ );
+		Con_Printf( S_WARN "%s: broker not connected\n", __func__ );
 		return false;
 	}
 
