@@ -36,13 +36,14 @@ GNU General Public License for more details.
 
 // Protocol constants
 #define SBRK_FRAME_HEADER			"SBRK"
-#define SBRK_FRAME_HEADER_SIZE		4
+#define SBRK_FRAME_HEADER_SIZE		(sizeof(SBRK_FRAME_HEADER) - 1)
 #define SBRK_FRAME_LENGTH_SIZE		2
 #define SBRK_RESPONSE_HEADER		"sb_connect\n"
-#define SBRK_RESPONSE_HEADER_SIZE	11
+#define SBRK_RESPONSE_HEADER_SIZE	(sizeof(SBRK_RESPONSE_HEADER) - 1)
 #define SBRK_MAX_FRAME_SIZE			4096
 #define SBRK_CONNECT_TIMEOUT		10.0
 #define SBRK_CONNECT_RETRY_DELAY	5.0
+#define SBRK_TICKET_SIZE_MAX 		2048
 
 static CVAR_DEFINE_AUTO( cl_steam_broker_addr, "127.0.0.1:27420", FCVAR_ARCHIVE, "address of steam broker instance" );
 
@@ -161,31 +162,24 @@ static qboolean SteamBroker_ConnectImpl( void )
 	return true;
 }
 
-static qboolean SteamBroker_SendFrame( const char *payload, uint32_t payload_size )
+static qboolean SteamBroker_SendFrame( const char *payload, size_t payload_size )
 {
 	if( payload_size > SBRK_MAX_FRAME_SIZE )
 	{
-		Con_Printf( S_WARN "%s: payload too large (%u > %u)\n", __func__, payload_size, SBRK_MAX_FRAME_SIZE );
+		Con_Printf( S_WARN "%s: payload too large (%zu > %u)\n", __func__, payload_size, SBRK_MAX_FRAME_SIZE );
 		return false;
 	}
 
 	uint8_t frame[SBRK_MAX_FRAME_SIZE + 6];
-	uint8_t *p = frame;
+	sizebuf_t sb;
 
-	// write header
-	memcpy( p, SBRK_FRAME_HEADER, SBRK_FRAME_HEADER_SIZE );
-	p += SBRK_FRAME_HEADER_SIZE;
+	MSG_Init( &sb, "SteamBroker_SendFrame", frame, sizeof( frame ));
 
-	// write length (little-endian uint16_t)
-	uint16_t length = (uint16_t)payload_size;
-	*p++ = length & 0xFF;
-	*p++ = (length >> 8) & 0xFF;
+	MSG_WriteBytes( &sb, SBRK_FRAME_HEADER, SBRK_FRAME_HEADER_SIZE );
+	MSG_WriteShort( &sb, payload_size );
+	MSG_WriteBytes( &sb, payload, payload_size );
 
-	// write payload
-	memcpy( p, payload, payload_size );
-	p += payload_size;
-
-	uint32_t frame_size = p - frame;
+	size_t frame_size = MSG_GetRealBytesWritten( &sb );
 	int sent = send( broker.socket, (const char *)frame, frame_size, 0 );
 	if( NET_IsSocketError( sent ))
 	{
@@ -200,13 +194,13 @@ static qboolean SteamBroker_SendFrame( const char *payload, uint32_t payload_siz
 	}
 
 	// bufferize unsent data for deferred sending
-	uint32_t unsent = frame_size - sent;
+	size_t unsent = frame_size - sent;
 	if( unsent > 0 )
 	{
-		uint32_t available = sizeof( broker.tx_buffer ) - broker.tx_buffer_pos;
+		size_t available = sizeof( broker.tx_buffer ) - broker.tx_buffer_pos;
 		if( available < unsent )
 		{
-			Con_Printf( S_ERROR "%s: transmit buffer overflow (%u > %u)\n", __func__, unsent, available );
+			Con_Printf( S_ERROR "%s: transmit buffer overflow (%zu > %zu)\n", __func__, unsent, available );
 			SteamBroker_Disconnect( );
 			return false;
 		}
@@ -223,75 +217,71 @@ static qboolean SteamBroker_ProcessFrame( void )
 	if( broker.rx_buffer_pos < SBRK_FRAME_HEADER_SIZE + SBRK_FRAME_LENGTH_SIZE )
 		return false;
 
-	uint8_t *p = broker.rx_buffer;
+	sizebuf_t sb;
+	MSG_Init( &sb, "SteamBroker_ProcessFrame", broker.rx_buffer, broker.rx_buffer_pos );
 
-	if( memcmp( p, SBRK_FRAME_HEADER, SBRK_FRAME_HEADER_SIZE ) != 0 )
+	// verify frame header
+	char header[SBRK_FRAME_HEADER_SIZE];
+	if( !MSG_ReadBytes( &sb, header, SBRK_FRAME_HEADER_SIZE ))
+		return false;
+
+	if( memcmp( header, SBRK_FRAME_HEADER, SBRK_FRAME_HEADER_SIZE ) != 0 )
 	{
 		Con_Printf( S_ERROR "%s: invalid frame header\n", __func__ );
 		SteamBroker_Disconnect( );
 		return false;
 	}
 
-	p += SBRK_FRAME_HEADER_SIZE;
+	uint16_t payload_size = MSG_ReadShort( &sb );
+	uint32_t frame_size = SBRK_FRAME_HEADER_SIZE + SBRK_FRAME_LENGTH_SIZE + payload_size;
 
-	// read length (little-endian uint16_t)
-	uint16_t length = *p | (*(p + 1) << 8);
-	p += SBRK_FRAME_LENGTH_SIZE;
-
-	uint32_t frame_size = SBRK_FRAME_HEADER_SIZE + SBRK_FRAME_LENGTH_SIZE + length;
-
-	if( broker.rx_buffer_pos < frame_size )
+	if( MSG_GetNumBytesLeft( &sb ) < payload_size )
 		return false; // need more data
 
 	// process response if this is a sb_connect response
-	if( length >= SBRK_RESPONSE_HEADER_SIZE + 4 + 8 + 4 )
+	qboolean success_flag = false;
+	char response_header[SBRK_RESPONSE_HEADER_SIZE];
+
+	if( MSG_ReadBytes( &sb, response_header, SBRK_RESPONSE_HEADER_SIZE ))
 	{
-		if( memcmp( p, SBRK_RESPONSE_HEADER, SBRK_RESPONSE_HEADER_SIZE ) == 0 )
+		if( memcmp( response_header, SBRK_RESPONSE_HEADER, SBRK_RESPONSE_HEADER_SIZE ) == 0 )
 		{
-			uint8_t *response_data = p + SBRK_RESPONSE_HEADER_SIZE;
-			uint32_t response_size = length - SBRK_RESPONSE_HEADER_SIZE;
-
-			if( response_size >= 4 + 8 + 4 )
+			int32_t challenge = MSG_ReadLong( &sb );
+			if( broker.challenge != challenge )
 			{
-				int32_t challenge = *(int32_t *)response_data;
-				response_data += 4;
+				Con_Printf( S_ERROR "%s: challenge mismatch\n", __func__ );
+			}
+			else
+			{
+				uint64_t steam_id;
+				MSG_ReadBytes( &sb, &steam_id, sizeof( steam_id ));
+				uint32_t ticket_size = MSG_ReadDword( &sb );
 
-				if( broker.challenge != challenge )
-				{
-					Con_Printf( S_ERROR "%s: challenge mismatch\n", __func__ );
-					memmove( broker.rx_buffer, broker.rx_buffer + frame_size, broker.rx_buffer_pos - frame_size );
-					broker.rx_buffer_pos -= frame_size;
-					return false;
-				}
-
-				uint64_t steamid = *(uint64_t *)response_data;
-				response_data += 8;
-
-				uint32_t ticket_size = *(uint32_t *)response_data;
-				response_data += 4;
-
-				if( ticket_size > 2048 || response_size - 4 - 8 - 4 != ticket_size )
+				if( ticket_size > SBRK_TICKET_SIZE_MAX || ticket_size < MSG_GetNumBytesLeft( &sb ))
 				{
 					Con_Printf( S_ERROR "%s: invalid ticket size (%u)\n", __func__, ticket_size );
-					memmove( broker.rx_buffer, broker.rx_buffer + frame_size, broker.rx_buffer_pos - frame_size );
-					broker.rx_buffer_pos -= frame_size;
-					return false;
 				}
+				else
+				{
+					uint8_t ticket_data[SBRK_TICKET_SIZE_MAX];
+					MSG_ReadBytes( &sb, ticket_data, ticket_size );
 
-				Con_Printf( "%s: SteamID: %"PRIu64", ticket: [%d, %d, %d, %d...]\n", __func__, steamid, response_data[0], response_data[1], response_data[2], response_data[3] );
+					Con_Printf( "%s: SteamID: %"PRIu64", ticket: [%d, %d, %d, %d...]\n", __func__, steam_id, ticket_data[0], ticket_data[1], ticket_data[2], ticket_data[3] );
 
-				memcpy( cls.steamid, &steamid, sizeof( cls.steamid ));
-				CL_SendGoldSrcConnectPacket( broker.serveradr, broker.challenge, response_data, ticket_size );
-				cls.broker_wait = false;
+					memcpy( cls.steamid, &steam_id, sizeof( cls.steamid ));
+					CL_SendGoldSrcConnectPacket( broker.serveradr, broker.challenge, ticket_data, ticket_size );
+					cls.broker_wait = false;
+					success_flag = true;
+				}
 			}
 		}
 	}
-
+	
 	// remove processed frame from buffer
 	memmove( broker.rx_buffer, broker.rx_buffer + frame_size, broker.rx_buffer_pos - frame_size );
 	broker.rx_buffer_pos -= frame_size;
 
-	return true;
+	return success_flag;
 }
 
 static void SteamBroker_HandleDataTx( void )
@@ -321,7 +311,7 @@ static void SteamBroker_HandleDataTx( void )
 
 static void SteamBroker_HandleDataRx( void )
 {
-	int available = sizeof(broker.rx_buffer) - broker.rx_buffer_pos;
+	int available = sizeof( broker.rx_buffer ) - broker.rx_buffer_pos;
 	if( available <= 0 )
 	{
 		Con_Printf( S_ERROR "%s: receive buffer overflow\n", __func__ );
