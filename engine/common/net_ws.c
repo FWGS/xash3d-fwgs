@@ -99,6 +99,7 @@ typedef struct
 	int		sequence_number;
 	int		ip_sockets[NS_COUNT];
 	int		ip6_sockets[NS_COUNT];
+	qboolean		rr_state[NS_COUNT];
 	qboolean		initialized;
 	qboolean		threads_initialized;
 	qboolean		configured;
@@ -1348,26 +1349,18 @@ NET_QueuePacket
 queue normal and lagged packets
 ==================
 */
-static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *length )
+static qboolean NET_QueuePacket( int net_socket, netsrc_t sock, netadr_t *from, byte *data, size_t *length )
 {
 	byte		buf[NET_MAX_FRAGMENT];
-	int		ret, protocol;
-	int		net_socket;
+	int		ret;
 	WSAsize_t	addr_len;
 	struct sockaddr_storage	addr = { 0 };
 
 	*length = 0;
 
-	for( protocol = 0; protocol < 2; protocol++ )
 	{
-		switch( protocol )
-		{
-		case 0: net_socket = net.ip_sockets[sock]; break;
-		case 1: net_socket = net.ip6_sockets[sock]; break;
-		}
-
 		if( !NET_IsSocketValid( net_socket ))
-			continue;
+			return NET_LagPacket( false, sock, from, length, data );
 
 		addr_len = sizeof( addr );
 		ret = recvfrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
@@ -1438,7 +1431,20 @@ qboolean NET_GetPacket( netsrc_t sock, netadr_t *from, byte *data, size_t *lengt
 	}
 	else
 	{
-		return NET_QueuePacket( sock, from, data, length );
+		// Round-robin the socket to prevent constant activity on one starving the other.
+		int i = net.rr_state[sock];
+		int net_socket = i ? net.ip_sockets[sock] : net.ip6_sockets[sock];
+
+		if( NET_QueuePacket( net_socket, sock, from, data, length ))
+		{
+			net.rr_state[sock] = !i;
+			return true;
+		}
+
+		// try the other one before giving up
+		net_socket = i ? net.ip6_sockets[sock] : net.ip_sockets[sock];
+		net.rr_state[sock] = !i;
+		return NET_QueuePacket( net_socket, sock, from, data, length );
 	}
 }
 
@@ -2012,6 +2018,7 @@ void NET_Init( void )
 		net.lagdata[i].next = &net.lagdata[i];
 		net.ip_sockets[i]  = INVALID_SOCKET;
 		net.ip6_sockets[i] = INVALID_SOCKET;
+		net.rr_state[i] = false;
 	}
 
 #if XASH_WIN32
