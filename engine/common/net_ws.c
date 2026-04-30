@@ -1358,53 +1358,51 @@ static qboolean NET_QueuePacket( int net_socket, netsrc_t sock, netadr_t *from, 
 
 	*length = 0;
 
+	if( !NET_IsSocketValid( net_socket ))
+		return NET_LagPacket( false, sock, from, length, data );
+
+	addr_len = sizeof( addr );
+	ret = recvfrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
+
+	NET_SockadrToNetadr( &addr, from );
+
+	if( !NET_IsSocketError( ret ))
 	{
-		if( !NET_IsSocketValid( net_socket ))
-			return NET_LagPacket( false, sock, from, length, data );
-
-		addr_len = sizeof( addr );
-		ret = recvfrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
-
-		NET_SockadrToNetadr( &addr, from );
-
-		if( !NET_IsSocketError( ret ))
+		if( ret < NET_MAX_FRAGMENT )
 		{
-			if( ret < NET_MAX_FRAGMENT )
-			{
-				// Transfer data
-				memcpy( data, buf, ret );
-				*length = ret;
+			// Transfer data
+			memcpy( data, buf, ret );
+			*length = ret;
 
 #if !XASH_DEDICATED
-				// check for split message
-				if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
-					return NET_GetLong( data, ret, length, CL_GetSplitSize( ), CL_Protocol( ));
+			// check for split message
+			if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
+				return NET_GetLong( data, ret, length, CL_GetSplitSize( ), CL_Protocol( ));
 #endif
 
-				// lag the packet, if needed
-				return NET_LagPacket( true, sock, from, length, data );
-			}
-			else
-			{
-				Con_Reportf( "%s: oversize packet from %s\n", __func__, NET_AdrToString( *from ));
-			}
+			// lag the packet, if needed
+			return NET_LagPacket( true, sock, from, length, data );
 		}
 		else
 		{
-			int	err = WSAGetLastError();
+			Con_Reportf( "%s: oversize packet from %s\n", __func__, NET_AdrToString( *from ));
+		}
+	}
+	else
+	{
+		int	err = WSAGetLastError();
 
-			switch( err )
-			{
-			case WSAEWOULDBLOCK:
-			case WSAECONNRESET:
-			case WSAECONNREFUSED:
-			case WSAEMSGSIZE:
-			case WSAETIMEDOUT:
-				break;
-			default:	// let's continue even after errors
-				Con_DPrintf( S_ERROR "%s: %s from %s\n", __func__, NET_ErrorString(), NET_AdrToString( *from ));
-				break;
-			}
+		switch( err )
+		{
+		case WSAEWOULDBLOCK:
+		case WSAECONNRESET:
+		case WSAECONNREFUSED:
+		case WSAEMSGSIZE:
+		case WSAETIMEDOUT:
+			break;
+		default:	// let's continue even after errors
+			Con_DPrintf( S_ERROR "%s: %s from %s\n", __func__, NET_ErrorString(), NET_AdrToString( *from ));
+			break;
 		}
 	}
 
