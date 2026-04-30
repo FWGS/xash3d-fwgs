@@ -406,6 +406,19 @@ void VID_SaveWindowSize( int width, int height )
 
 static qboolean VID_GuessFullscreenMode( int display_index, const SDL_DisplayMode *want, SDL_DisplayMode *got )
 {
+#if XASH_MOBILE_PLATFORM
+	*got = *want;
+
+	// fetch format and refresh rate from desktop mode
+	SDL_DisplayMode dm;
+	if( SDL_GetDesktopDisplayMode( display_index, &dm ) >= 0 )
+	{
+		got->format = dm.format;
+		got->refresh_rate = dm.refresh_rate;
+	}
+
+	return true;
+#else
 	if( SDL_GetClosestDisplayMode( display_index, want, got ) == NULL )
 	{
 		Con_Printf( S_ERROR "%s: SDL_GetClosestDisplayMode: %s\n", __func__, SDL_GetError( ));
@@ -428,6 +441,7 @@ static qboolean VID_GuessFullscreenMode( int display_index, const SDL_DisplayMod
 	}
 
 	return true;
+#endif // XASH_MOBILE_PLATFORM
 }
 
 static int VID_GetDisplayIndex( const char *caller, SDL_Window *window )
@@ -562,11 +576,13 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 		if( !VID_GuessFullscreenMode( display_index, &want, &got ))
 			return appropriate_err;
 
+#if !XASH_MOBILE_PLATFORM
 		if( SDL_SetWindowDisplayMode( host.hWnd, &got ) < 0 )
 		{
 			Con_Printf( S_ERROR "%s: SDL_SetWindowDisplayMode: %s\n", __func__, SDL_GetError( ));
 			return appropriate_err;
 		}
+#endif // !XASH_MOBILE_PLATFORM
 
 		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
 		{
