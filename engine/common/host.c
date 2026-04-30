@@ -833,7 +833,7 @@ static uint32_t Host_CheckBugcomp( void )
 	if( !Sys_CheckParm( "-bugcomp" ))
 		return 0;
 
-	if( Sys_GetParmFromCmdLine( "-bugcomp", args ) && isalpha( args[0] ))
+	if( Sys_GetParmFromCmdLine( "-bugcomp", args ) && isalpha((byte)args[0] ))
 	{
 		Q_splitstr( args, '+', &flags, Host_CheckBugcomp_splitstr_handler );
 	}

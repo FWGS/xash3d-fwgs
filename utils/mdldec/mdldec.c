@@ -49,12 +49,12 @@ IsValidName
 */
 static qboolean IsValidName( char *name )
 {
-	if( !( isalpha( *name ) || isdigit( *name )))
+	if( !( isalpha((byte)*name ) || isdigit((byte)*name )))
 		return false;
 
 	while( *( ++name ))
 	{
-		if( isalpha( *name ) || isdigit( *name )
+		if( isalpha((byte)*name ) || isdigit((byte)*name )
 		    || *name == '.' || *name == '-' || *name == '_'
 		    || *name == ' ' || *name == '(' || *name == ')'
 		    || *name == '[' || *name == ']')

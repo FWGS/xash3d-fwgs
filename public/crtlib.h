@@ -170,9 +170,15 @@ static inline qboolean Q_istype( const char *str, int (*istype)( int c ))
 {
 	if( likely( str && *str ))
 	{
-		while( istype( *str )) str++;
-		if( !*str ) return true;
+		// a1ba: explicitly cast char to unsigned char to not trigger UB
+		// in ctype functions
+		while( istype((byte)*str ))
+			str++;
+
+		if( !*str )
+			return true;
 	}
+
 	return false;
 }
 

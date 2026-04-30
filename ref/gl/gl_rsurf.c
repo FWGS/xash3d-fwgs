@@ -76,6 +76,39 @@ static inline qboolean R_SeparatePassActive( const separate_pass_t *sp )
 	return sp->last >= 0 ? true : false;
 }
 
+static qboolean Mod_HaveLightmappedWater( void )
+{
+	// if this flag set, it's level designer's job to ensure water has been properly lit
+	if( FBitSet( tr.world->flags, FWORLD_HAS_LITWATER ))
+		return true;
+
+	// otherwise, check user preference, as some maps have lightmapped water
+	return gl_litwater_force.value ? true : false;
+}
+
+static int Mod_LightmappedWaterMinlight( void )
+{
+	if( FBitSet( tr.world->flags, FWORLD_HAS_LITWATER ))
+	{
+		if( tr.world->litwater_minlight >= 0 )
+			return tr.world->litwater_minlight;
+	}
+
+	return 0;
+}
+
+static float Mod_LightmappedWaterScale( void )
+{
+	if( FBitSet( tr.world->flags, FWORLD_HAS_LITWATER ))
+	{
+		if( tr.world->litwater_scale >= 0.0f )
+			return tr.world->litwater_scale;
+
+	}
+
+	return 1.0f;
+}
+
 byte *Mod_GetCurrentVis( void )
 {
 	if( gEngfuncs.drawFuncs->Mod_GetCurrentVis && tr.fCustomRendering )
@@ -252,12 +285,29 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 	{
 		VectorCopy( verts, poly->verts[i] );
 		R_TextureCoord( verts, warpface, &poly->verts[i][3] );
+		// lightmap texcoords for subdivided surfaces will be calculated later
+	}
+}
 
-		// for speed reasons
-		if( !FBitSet( warpface->flags, SURF_DRAWTURB ))
+static void GL_BuildLightmapWater( model_t *mod, msurface_t *fa )
+{
+	float sample_size;
+	glpoly2_t *poly;
+
+	if( !mod || !fa->texinfo || !fa->texinfo->texture )
+		return; // bad polygon?
+
+	sample_size = gEngfuncs.Mod_SampleSizeForFace( fa );
+
+	for( poly = fa->polys; poly; poly = poly->next )
+	{
+		int i;
+
+		for( i = 0; i < poly->numverts; i++ )
 		{
-			// lightmap texture coordinates
-			R_LightmapCoord( verts, warpface, sample_size, &poly->verts[i][5] );
+			vec3_t vec;
+			VectorCopy( poly->verts[i], vec );
+			R_LightmapCoord( vec, fa, sample_size, &poly->verts[i][5] );
 		}
 	}
 }
@@ -703,6 +753,8 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 	const mextrasurf_t *info = surf->info;
 	int lightscale;
 
+	const int litwater_minlight = Mod_LightmappedWaterMinlight();
+	const float litwater_scale = Mod_LightmappedWaterScale();
 	const int sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
 	const int smax = ( info->lightextents[0] / sample_size ) + 1;
 	const int tmax = ( info->lightextents[1] / sample_size ) + 1;
@@ -751,6 +803,14 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 			for( i = 0; i < 3; i++ )
 			{
 				int t = bl[i] * lightscale >> 14;
+
+				// amp up water lightmap to avoid too dark water
+				// when the it wasn't properly lit by the level designer
+				if( FBitSet( surf->flags, SURF_DRAWTURB ))
+				{
+					float ft = t * litwater_scale;
+					t = Q_max( Q_rint( ft ), litwater_minlight );
+				}
 
 				if( t > 1023 )
 					t = 1023;
@@ -979,14 +1039,72 @@ static void EmitWaterPolys( msurface_t *warp, qboolean reverse, qboolean ripples
 
 /*
 ================
+EmitWaterLightPolys
+
+Render water lightmaps
+================
+*/
+static void EmitWaterLightPolys( msurface_t *warp, float soffset, float toffset, qboolean dynamic )
+{
+	const qboolean useQuads = FBitSet( warp->flags, SURF_DRAWTURB_QUADS );
+	glpoly2_t *p;
+	float waveHeight = RI.currententity->curstate.scale;
+
+	// set the current waveheight
+	if( warp->polys->verts[0][2] >= RI.rvp.vieworigin[2] )
+		waveHeight = -waveHeight;
+
+	if( useQuads )
+		pglBegin( GL_QUADS );
+
+	for( p = warp->polys; p; p = p->next )
+	{
+		float	*v = p->verts[0];
+		int i;
+
+		if( !useQuads )
+			pglBegin( GL_POLYGON );
+
+		for( i = 0; i < p->numverts; i++, v += VERTEXSIZE )
+		{
+			if( !dynamic ) pglTexCoord2f( v[5], v[6] );
+			else pglTexCoord2f( v[5] - soffset, v[6] - toffset );
+
+			if( waveHeight )
+			{
+				float nv = r_turbsin[(int)(gp_cl->time * 160.0f + v[1] + v[0]) & 255] + 8.0f;
+				nv = (r_turbsin[(int)(v[0] * 5.0f + gp_cl->time * 171.0f - v[1]) & 255] + 8.0f ) * 0.8f + nv;
+				nv = nv * waveHeight + v[2];
+
+				pglVertex3f( v[0], v[1], nv );
+			}
+			else pglVertex3fv( v );
+		}
+
+		if( !useQuads )
+			pglEnd ();
+	}
+
+	if( useQuads )
+		pglEnd();
+}
+
+/*
+================
 DrawGLPolyChain
 
 Render lightmaps
 ================
 */
-static void DrawGLPolyChain( glpoly2_t *p, float soffset, float toffset )
+static void DrawGLPolyChain( glpoly2_t *p, float soffset, float toffset, msurface_t *surf )
 {
 	const qboolean dynamic = soffset != 0.0f || toffset != 0.0f;
+
+	if( FBitSet( surf->flags, SURF_DRAWTURB ))
+	{
+		EmitWaterLightPolys( surf, soffset, toffset, dynamic );
+		return;
+	}
 
 	for( ; p != NULL; p = p->chain )
 	{
@@ -1020,6 +1138,8 @@ static qboolean R_HasLightmap( void )
 		switch( RI.currententity->curstate.rendermode )
 		{
 		case kRenderTransTexture:
+			return FBitSet( RI.currentmodel->flags, MODEL_LIQUID ) ? true : false;
+
 		case kRenderTransColor:
 		case kRenderTransAdd:
 		case kRenderGlow:
@@ -1049,21 +1169,29 @@ static void R_BlendLightmaps( void )
 		pglEnable( GL_BLEND );
 	else pglDisable( GL_BLEND );
 
-	// lightmapped solid surfaces
-	pglDepthMask( GL_FALSE );
-	pglDepthFunc( GL_EQUAL );
-
 	pglDisable( GL_ALPHA_TEST );
-	if( gl_overbright.value )
+
+	if( RI.currententity->curstate.rendermode == kRenderTransTexture )
 	{
-		pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
-		if(!( R_HasEnabledVBO() && !r_vbo_overbrightmode.value ))
-			pglColor4f( 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f );
+		pglBlendFunc( GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA );
 	}
 	else
 	{
-		pglBlendFunc( GL_ZERO, GL_SRC_COLOR );
+		// lightmapped solid surfaces
+		pglDepthMask( GL_FALSE );
+		pglDepthFunc( GL_EQUAL );
+		if( gl_overbright.value )
+		{
+			pglBlendFunc( GL_DST_COLOR, GL_SRC_COLOR );
+			if(!( R_HasEnabledVBO() && !r_vbo_overbrightmode.value ))
+				pglColor4f( 128.0f / 192.0f, 128.0f / 192.0f, 128.0f / 192.0f, 1.0f );
+		}
+		else
+		{
+			pglBlendFunc( GL_ZERO, GL_SRC_COLOR );
+		}
 	}
+
 	pglTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
 	// render static lightmaps first
@@ -1075,7 +1203,7 @@ static void R_BlendLightmaps( void )
 
 			for( surf = gl_lms.lightmap_surfaces[i]; surf != NULL; surf = surf->info->lightmapchain )
 			{
-				if( surf->polys ) DrawGLPolyChain( surf->polys, 0.0f, 0.0f );
+				DrawGLPolyChain( surf->polys, 0.0f, 0.0f, surf );
 			}
 		}
 	}
@@ -1116,12 +1244,10 @@ static void R_BlendLightmaps( void )
 				// draw all surfaces that use this lightmap
 				for( drawsurf = newsurf; drawsurf != surf; drawsurf = drawsurf->info->lightmapchain )
 				{
-					if( drawsurf->polys )
-					{
-						DrawGLPolyChain( drawsurf->polys,
+					DrawGLPolyChain( drawsurf->polys,
 						( drawsurf->light_s - drawsurf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ),
-						( drawsurf->light_t - drawsurf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ));
-					}
+						( drawsurf->light_t - drawsurf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ),
+						drawsurf );
 				}
 
 				newsurf = drawsurf;
@@ -1145,12 +1271,10 @@ static void R_BlendLightmaps( void )
 
 		for( surf = newsurf; surf != NULL; surf = surf->info->lightmapchain )
 		{
-			if( surf->polys )
-			{
-				DrawGLPolyChain( surf->polys,
+			DrawGLPolyChain( surf->polys,
 				( surf->light_s - surf->info->dlight_s ) * ( 1.0f / (float)BLOCK_SIZE ),
-				( surf->light_t - surf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ));
-			}
+				( surf->light_t - surf->info->dlight_t ) * ( 1.0f / (float)BLOCK_SIZE ),
+				surf );
 		}
 	}
 
@@ -1418,8 +1542,13 @@ static void R_RenderBrushPoly( msurface_t *fa, int cull_type )
 
 	if( FBitSet( fa->flags, SURF_DRAWTURB ))
 	{
-		// warp texture, no lightmaps
+		// warp texture
 		EmitWaterPolys( fa, cull_type == CULL_BACKSIDE, R_UploadRipples( t ));
+
+		// add lightmaps if requested
+		if( Mod_HaveLightmappedWater( ))
+			R_RenderLightmapForSurface( fa );
+
 		return;
 	}
 	else GL_Bind( XASH_TEXTURE0, t->gl_texturenum );
@@ -1600,10 +1729,19 @@ void R_DrawWaterSurfaces( void )
 			continue;
 
 		for( ; s; s = s->texturechain )
+		{
 			EmitWaterPolys( s, false, R_UploadRipples( t ));
+
+			if( Mod_HaveLightmappedWater( ))
+				R_RenderLightmapForSurface( s );
+		}
 
 		t->texturechain = NULL;
 	}
+
+// litwater: not sure if needed
+	GL_ResetFogColor();
+	R_BlendLightmaps();
 
 	R_ResetSeparatePass( &draw_wateralpha );
 
@@ -1717,8 +1855,16 @@ static int R_SortBrushModelSurfaces( cl_entity_t *e, model_t *clmodel, vec3_t mi
 
 		if( cull_type == CULL_BACKSIDE )
 		{
-			if( !FBitSet( psurf->flags, SURF_DRAWTURB ) && !( psurf->pdecals && e->curstate.rendermode == kRenderTransTexture ))
-				continue;
+			if( FBitSet( psurf->flags, SURF_DRAWTURB ))
+			{
+				if( Mod_HaveLightmappedWater( ))
+					continue; // we don't want back faces when drawing lightmaps to avoid Z fighting
+			}
+			else
+			{
+				if( !( psurf->pdecals && e->curstate.rendermode == kRenderTransTexture ))
+					continue;
+			}
 		}
 
 		if( num_sorted < gpGlobals->max_surfaces )
@@ -3917,7 +4063,10 @@ void GL_BuildLightmaps( void )
 			GL_CreateSurfaceLightmap( m->surfaces + j, m );
 
 			if( m->surfaces[j].flags & SURF_DRAWTURB )
+			{
+				GL_BuildLightmapWater( m, m->surfaces + j );
 				continue;
+			}
 
 			nColinElim += GL_BuildPolygonFromSurface( m, m->surfaces + j );
 		}

@@ -403,11 +403,11 @@ static qboolean VOX_ParseWordParams( char *psz, voxword_t *pvoxword, voxword_t *
 
 		command = *psz++;
 
-		if( !isdigit( *psz ))
+		if( !isdigit((byte)*psz ))
 			break;
 
 		memset( sznum, 0, sizeof( sznum ));
-		for( i = 0; i < sizeof( sznum ) - 1 && isdigit( *psz ); i++, psz++ )
+		for( i = 0; i < sizeof( sznum ) - 1 && isdigit((byte)*psz ); i++, psz++ )
 			sznum[i] = *psz;
 
 		i = Q_atoi( sznum );
