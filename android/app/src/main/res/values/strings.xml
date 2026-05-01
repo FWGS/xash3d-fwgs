@@ -40,4 +40,8 @@
     <string name="render_resolution_dialog">Enter render resolution</string>
     <string name="stretch_resolution">Stretch render resolution</string>
     <string name="stretch_resolution_summary">Scale the selected render resolution to fill the screen</string>
+    <string name="keyboard_resizes_screen">Keyboard resizes screen</string>
+    <string name="keyboard_resizes_screen_summary">Resize the game window when the keyboard is shown</string>
+    <string name="fix_font">Fix font</string>
+    <string name="fix_font_summary">Force con_oldfont 0 and fix con_fontscale behavior</string>
 </resources>

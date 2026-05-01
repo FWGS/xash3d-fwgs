@@ -50,7 +50,12 @@ public class XashActivity extends SDLActivity {
 
         parseFixedResolution(getFinalArgv());
         applyFixedSurfaceSize();
-        AndroidBug5497Workaround.assistActivity(this);
+
+        if (getBooleanPreference("keyboard_resizes_screen", true)) {
+            AndroidBug5497Workaround.assistActivity(this);
+        } else {
+            getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
+        }
     }
 
     @Override
@@ -242,6 +247,10 @@ public class XashActivity extends SDLActivity {
 
         if (getBooleanPreference("stretch_resolution", false) && !hasArgument(argv, "-stretch_resolution")) {
             argv += " -stretch_resolution";
+        }
+
+        if (getBooleanPreference("fix_font", false) && !hasArgument(argv, "-fixfont")) {
+            argv += " -fixfont";
         }
 
         if (argv.indexOf(" -dll ") < 0 && gamelibdir == null) {

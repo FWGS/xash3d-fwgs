@@ -33,6 +33,7 @@ static CVAR_DEFINE_AUTO( con_fontnum, "-1", FCVAR_ARCHIVE, "console font number 
 static CVAR_DEFINE_AUTO( con_color, "240 180 24", FCVAR_ARCHIVE, "set a custom console color" );
 static CVAR_DEFINE_AUTO( scr_drawversion, "1", FCVAR_ARCHIVE, "draw version in menu or screenshots, doesn't affect console" );
 static CVAR_DEFINE_AUTO( con_oldfont, "0", 0, "use legacy font from gfx.wad, might be missing or broken" );
+static CVAR_DEFINE_AUTO( con_fixfont, "0", 0, "force con_oldfont 0 and fix con_fontscale behavior" );
 static CVAR_DEFINE_AUTO( con_showcompletion, "1", FCVAR_ARCHIVE, "perform simplified autocompletion while typing" );
 
 static int g_codepage = 0;
@@ -808,7 +809,11 @@ void Con_Init( void )
 	Cvar_RegisterVariable( &con_color );
 	Cvar_RegisterVariable( &scr_drawversion );
 	Cvar_RegisterVariable( &con_oldfont );
+	Cvar_RegisterVariable( &con_fixfont );
 	Cvar_RegisterVariable( &con_showcompletion );
+
+	if( Sys_CheckParm( "-fixfont" ))
+		Cvar_DirectSet( &con_fixfont, "1" );
 
 	// init the console buffer
 	con.bufsize = CON_TEXTSIZE;
@@ -2135,6 +2140,18 @@ void Con_RunConsole( void )
 	float	lines_per_frame;
 
 	Con_SetColor( );
+
+	if( con_fixfont.value )
+	{
+		if( FBitSet( con_fontscale.flags, FCVAR_CHANGED ))
+		{
+			Cbuf_AddText( "con_oldfont 1; wait; con_oldfont 0\n" );
+		}
+		else if( con_oldfont.value != 0.0f && !FBitSet( con_oldfont.flags, FCVAR_CHANGED ))
+		{
+			Cvar_DirectSet( &con_oldfont, "0" );
+		}
+	}
 
 	// decide on the destination height of the console
 	if( host.allow_console && cls.key_dest == key_console )

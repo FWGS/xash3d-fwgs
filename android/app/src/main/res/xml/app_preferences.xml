@@ -32,6 +32,18 @@
             app:title="@string/stretch_resolution"
             app:summary="@string/stretch_resolution_summary"
             app:defaultValue="false" />
+
+        <SwitchPreferenceCompat
+            app:key="keyboard_resizes_screen"
+            app:title="@string/keyboard_resizes_screen"
+            app:summary="@string/keyboard_resizes_screen_summary"
+            app:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            app:key="fix_font"
+            app:title="@string/fix_font"
+            app:summary="@string/fix_font_summary"
+            app:defaultValue="false" />
     </PreferenceCategory>
 
 </PreferenceScreen>
