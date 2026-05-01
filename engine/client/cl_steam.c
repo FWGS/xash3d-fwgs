@@ -137,8 +137,7 @@ static qboolean SteamBroker_ConnectImpl( void )
 	if( !NET_MakeSocketNonBlocking( broker.socket ))
 	{
 		Con_Printf( S_ERROR "%s: failed to set non-blocking mode, error %s\n", __func__, NET_ErrorString( ));
-		closesocket( broker.socket );
-		broker.socket = INVALID_SOCKET;
+		SteamBroker_CloseSocket();
 		return false;
 	}
 
@@ -151,8 +150,7 @@ static qboolean SteamBroker_ConnectImpl( void )
 		if( err != WSAEWOULDBLOCK && err != WSAEALREADY && err != WSAEINPROGRESS )
 		{
 			Con_Printf( S_ERROR "%s: failed to connect to broker at %s with error %s\n", __func__, cl_steam_broker_addr.string, NET_ErrorString( ));
-			closesocket( broker.socket );
-			broker.socket = INVALID_SOCKET;
+			SteamBroker_CloseSocket();
 			return false;
 		}
 	}
@@ -238,10 +236,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 	if( MSG_GetNumBytesLeft( &sb ) < payload_size )
 		return false; // need more data
 
-	// process response if this is a sb_connect response
-	qboolean success_flag = false;
 	char response_header[SBRK_RESPONSE_HEADER_SIZE];
-
 	if( MSG_ReadBytes( &sb, response_header, SBRK_RESPONSE_HEADER_SIZE ))
 	{
 		if( memcmp( response_header, SBRK_RESPONSE_HEADER, SBRK_RESPONSE_HEADER_SIZE ) == 0 )
@@ -256,22 +251,23 @@ static qboolean SteamBroker_ProcessFrame( void )
 				uint64_t steam_id;
 				MSG_ReadBytes( &sb, &steam_id, sizeof( steam_id ));
 				uint32_t ticket_size = MSG_ReadDword( &sb );
+				uint8_t ticket_data[SBRK_TICKET_SIZE_MAX];
 
-				if( ticket_size > SBRK_TICKET_SIZE_MAX || ticket_size < MSG_GetNumBytesLeft( &sb ))
+				if( ticket_size > SBRK_TICKET_SIZE_MAX )
 				{
-					Con_Printf( S_ERROR "%s: invalid ticket size (%u)\n", __func__, ticket_size );
+					Con_Printf( S_ERROR "%s: ticket size exceeds limit (%u)\n", __func__, ticket_size );
 				}
-				else
+				else if( MSG_ReadBytes( &sb, ticket_data, ticket_size ))
 				{
-					uint8_t ticket_data[SBRK_TICKET_SIZE_MAX];
-					MSG_ReadBytes( &sb, ticket_data, ticket_size );
-
 					Con_Printf( "%s: SteamID: %"PRIu64", ticket: [%d, %d, %d, %d...]\n", __func__, steam_id, ticket_data[0], ticket_data[1], ticket_data[2], ticket_data[3] );
 
 					memcpy( cls.steamid, &steam_id, sizeof( cls.steamid ));
 					CL_SendGoldSrcConnectPacket( broker.serveradr, broker.challenge, ticket_data, ticket_size );
 					cls.broker_wait = false;
-					success_flag = true;
+				}
+				else
+				{
+					Con_Printf( S_ERROR "%s: failed to read ticket data\n", __func__ );
 				}
 			}
 		}
@@ -281,7 +277,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 	memmove( broker.rx_buffer, broker.rx_buffer + frame_size, broker.rx_buffer_pos - frame_size );
 	broker.rx_buffer_pos -= frame_size;
 
-	return success_flag;
+	return true;
 }
 
 static void SteamBroker_HandleDataTx( void )
@@ -371,7 +367,8 @@ void SteamBroker_AnnounceGameStart( const char *gamedir )
 	char buf[512];
 	int len = Q_snprintf( buf, sizeof( buf ), "sb_gamedir %s", gamedir );
 
-	SteamBroker_SendFrame( buf, len );
+	if( len > 0 )
+		SteamBroker_SendFrame( buf, len );
 }
 
 void SteamBroker_AnnounceGameShutdown( void )
@@ -402,7 +399,7 @@ static void SteamBroker_UpdateConnecting( void )
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 
-#if XASH_WIN32 == 1
+#if XASH_WIN32
 	int select_result = select( 0, NULL, &writefds, NULL, &tv );
 #else
 	int select_result = select( broker.socket + 1, NULL, &writefds, NULL, &tv );
@@ -410,6 +407,7 @@ static void SteamBroker_UpdateConnecting( void )
 	if( select_result == SOCKET_ERROR )
 	{
 		Con_Printf( S_ERROR "%s: select() failed\n", __func__ );
+		SteamBroker_Disconnect();
 		return;
 	}
 
@@ -417,15 +415,17 @@ static void SteamBroker_UpdateConnecting( void )
 	{
 		// socket is writable - connection established or failed
 		int err = 0;
-		int err_len = sizeof( err );
+		socklen_t err_len = sizeof( err );
 		if( NET_IsSocketError( getsockopt( broker.socket, SOL_SOCKET, SO_ERROR, (char *)&err, &err_len )))
 		{
 			Con_Printf( S_ERROR "%s: getsockopt() failed\n", __func__ );
+			SteamBroker_Disconnect();
 			return;
 		}
 		else if( err != 0 )
 		{
 			Con_Printf( S_ERROR "%s: connection failed with error %d\n", __func__, err );
+			SteamBroker_Disconnect();
 			return;
 		}
 		else
@@ -444,7 +444,7 @@ static void SteamBroker_UpdateConnected( void )
 	SteamBroker_HandleDataRx( );
 }
 
-int SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge )
+qboolean SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge )
 {
 	// only ipv4 supported
 	if( NET_NetadrType( &serveradr ) != NA_IP )
