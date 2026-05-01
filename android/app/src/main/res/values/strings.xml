@@ -35,4 +35,7 @@
     <string name="global_command_line">Global Command-line Arguments</string>
     <string name="global_command_line_summary">Always applied to all games</string>
     <string name="global_command_line_dialog">Enter command-line arguments</string>
+    <string name="render_resolution">Render resolution</string>
+    <string name="render_resolution_summary">Native display resolution</string>
+    <string name="render_resolution_dialog">Enter render resolution</string>
 </resources>

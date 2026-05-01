@@ -11,6 +11,9 @@ import android.content.SharedPreferences;
 import android.provider.Settings.Secure;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.SurfaceView;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 
 import org.libsdl.app.SDLActivity;
@@ -25,20 +28,41 @@ public class XashActivity extends SDLActivity {
     private boolean mUseVolumeKeys;
     private String mPackageName;
     private static final String TAG = "XashActivity";
+    private static final int MIN_SURFACE_WIDTH = 320;
+    private static final int MIN_SURFACE_HEIGHT = 200;
     private SharedPreferences mPreferences;
+    private String mCachedArgv;
+    private int mFixedSurfaceWidth;
+    private int mFixedSurfaceHeight;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        ensurePreferences();
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         }
 
+        parseFixedResolution(getFinalArgv());
+        applyFixedSurfaceSize();
         AndroidBug5497Workaround.assistActivity(this);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        applyFixedSurfaceSize();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            applyFixedSurfaceSize();
+        }
     }
 
     @Override
@@ -114,11 +138,18 @@ public class XashActivity extends SDLActivity {
     }
 
     private String getGlobalArguments() {
+        ensurePreferences();
         String globalArgs = mPreferences.getString("global_arguments", "");
         if (globalArgs != null && !globalArgs.trim().isEmpty()) {
             return globalArgs.trim();
         }
         return "";
+    }
+
+    private void ensurePreferences() {
+        if (mPreferences == null) {
+            mPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        }
     }
 
     private String combineArguments(String originalArgs, String globalArgs) {
@@ -156,8 +187,13 @@ public class XashActivity extends SDLActivity {
         }
     }
 
-    @Override
-    protected String[] getArguments() {
+    private String getFinalArgv() {
+        if (mCachedArgv != null) {
+            return mCachedArgv;
+        }
+
+        ensurePreferences();
+
         String gamedir = getIntent().getStringExtra("gamedir");
         if (gamedir == null) gamedir = "valve";
         
@@ -196,6 +232,11 @@ public class XashActivity extends SDLActivity {
             Log.d(TAG, "Added -game parameter to argv: " + argv);
         }
 
+        String resolutionArgs = getRenderResolutionArguments(argv);
+        if (!resolutionArgs.isEmpty()) {
+            argv += " " + resolutionArgs;
+        }
+
         if (argv.indexOf(" -dll ") < 0 && gamelibdir == null) {
             final List<String> mobile_hacks_gamedirs = Arrays.asList(new String[]{
                 "aom", "bdlands", "biglolly", "bshift", "caseclosed",
@@ -207,6 +248,127 @@ public class XashActivity extends SDLActivity {
         }
 
         Log.d(TAG, "Final argv: " + argv);
-        return argv.split(" ");
+        mCachedArgv = argv.trim();
+        return mCachedArgv;
+    }
+
+    private String getRenderResolutionArguments(String argv) {
+        if (hasArgument(argv, "-width") || hasArgument(argv, "-height")) {
+            return "";
+        }
+
+        String resolution = mPreferences.getString("render_resolution", "");
+        if (resolution == null || resolution.trim().isEmpty()) {
+            return "";
+        }
+
+        String[] parts = resolution.trim().split("[xX,\\s]+");
+        if (parts.length < 2) {
+            Log.w(TAG, "Invalid render resolution: " + resolution);
+            return "";
+        }
+
+        try {
+            int width = Integer.parseInt(parts[0]);
+            int height = Integer.parseInt(parts[1]);
+
+            if (width < MIN_SURFACE_WIDTH || height < MIN_SURFACE_HEIGHT) {
+                Log.w(TAG, "Render resolution is too small: " + resolution);
+                return "";
+            }
+
+            return "-width " + width + " -height " + height;
+        } catch (NumberFormatException e) {
+            Log.w(TAG, "Invalid render resolution: " + resolution);
+            return "";
+        }
+    }
+
+    private boolean hasArgument(String argv, String name) {
+        if (argv == null || argv.isEmpty()) {
+            return false;
+        }
+
+        String[] args = argv.trim().split("\\s+");
+        for (String arg : args) {
+            if (name.equals(arg)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void parseFixedResolution(String argv) {
+        mFixedSurfaceWidth = 0;
+        mFixedSurfaceHeight = 0;
+
+        if (argv == null || argv.isEmpty()) {
+            return;
+        }
+
+        String[] args = argv.trim().split("\\s+");
+        int width = getIntArgument(args, "-width");
+        int height = getIntArgument(args, "-height");
+
+        if (width >= MIN_SURFACE_WIDTH && height >= MIN_SURFACE_HEIGHT) {
+            mFixedSurfaceWidth = width;
+            mFixedSurfaceHeight = height;
+            Log.d(TAG, "Using fixed Android surface size: " + width + "x" + height);
+        }
+    }
+
+    private int getIntArgument(String[] args, String name) {
+        for (int i = 0; i < args.length - 1; i++) {
+            if (name.equals(args[i])) {
+                try {
+                    return Integer.parseInt(args[i + 1]);
+                } catch (NumberFormatException e) {
+                    Log.w(TAG, "Invalid " + name + " value: " + args[i + 1]);
+                    return 0;
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    private void applyFixedSurfaceSize() {
+        if (mFixedSurfaceWidth <= 0 || mFixedSurfaceHeight <= 0) {
+            return;
+        }
+
+        SurfaceView surfaceView = findSurfaceView(getWindow().getDecorView());
+        if (surfaceView == null) {
+            Log.w(TAG, "SDL surface not found; fixed resolution will be applied later if possible");
+            return;
+        }
+
+        surfaceView.getHolder().setFixedSize(mFixedSurfaceWidth, mFixedSurfaceHeight);
+    }
+
+    private SurfaceView findSurfaceView(View view) {
+        if (view instanceof SurfaceView) {
+            return (SurfaceView)view;
+        }
+
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup)view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                SurfaceView surface = findSurfaceView(group.getChildAt(i));
+                if (surface != null) {
+                    return surface;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    protected String[] getArguments() {
+        String argv = getFinalArgv();
+        parseFixedResolution(argv);
+        return argv.isEmpty() ? new String[]{} : argv.split("\\s+");
     }
 }

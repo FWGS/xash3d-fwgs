@@ -16,6 +16,7 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
     private lateinit var preferences: SharedPreferences
     private lateinit var gamePathPreference: Preference
     private lateinit var globalArgsPreference: Preference
+    private lateinit var renderResolutionPreference: Preference
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.sharedPreferencesName = "app_preferences"
@@ -26,14 +27,21 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
 
         gamePathPreference = findPreference("game_path") ?: return
         globalArgsPreference = findPreference("global_arguments") ?: return
+        renderResolutionPreference = findPreference("render_resolution") ?: return
 
         globalArgsPreference.setOnPreferenceClickListener {
             showGlobalArgumentsDialog()
             true
         }
 
+        renderResolutionPreference.setOnPreferenceClickListener {
+            showRenderResolutionDialog()
+            true
+        }
+
         updateGamePathSummary()
         updateGlobalArgsSummary()
+        updateRenderResolutionSummary()
     }
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
@@ -43,6 +51,9 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
             }
             "global_arguments" -> {
                 updateGlobalArgsSummary()
+            }
+            "render_resolution" -> {
+                updateRenderResolutionSummary()
             }
         }
     }
@@ -66,6 +77,15 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
             globalArgsPreference.summary = "No global arguments set"
         } else {
             globalArgsPreference.summary = globalArgs
+        }
+    }
+
+    private fun updateRenderResolutionSummary() {
+        val resolution = preferences.getString("render_resolution", "")
+        if (resolution.isNullOrEmpty()) {
+            renderResolutionPreference.summary = getString(R.string.render_resolution_summary)
+        } else {
+            renderResolutionPreference.summary = resolution
         }
     }
 
@@ -93,11 +113,36 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
             .show()
     }
 
+    private fun showRenderResolutionDialog() {
+        val currentResolution = preferences.getString("render_resolution", "") ?: ""
+
+        val editText = EditText(requireContext())
+        editText.setText(currentResolution)
+        editText.hint = "e.g., 640x480"
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.render_resolution_dialog)
+            .setMessage("Leave empty to use native display resolution")
+            .setView(editText)
+            .setPositiveButton("OK") { dialog, which ->
+                val newResolution = editText.text.toString().trim()
+                preferences.edit().putString("render_resolution", newResolution).commit()
+                updateRenderResolutionSummary()
+            }
+            .setNegativeButton("Cancel", null)
+            .setNeutralButton("Clear") { dialog, which ->
+                preferences.edit().putString("render_resolution", "").commit()
+                updateRenderResolutionSummary()
+            }
+            .show()
+    }
+
     override fun onResume() {
         super.onResume()
         preferences.registerOnSharedPreferenceChangeListener(this)
         updateGamePathSummary()
         updateGlobalArgsSummary()
+        updateRenderResolutionSummary()
     }
 
     override fun onPause() {

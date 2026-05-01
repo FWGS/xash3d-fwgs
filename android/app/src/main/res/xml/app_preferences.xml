@@ -21,6 +21,11 @@
             app:key="global_arguments"
             app:title="@string/global_command_line"
             app:summary="set any arguments" />
+
+        <Preference
+            app:key="render_resolution"
+            app:title="@string/render_resolution"
+            app:summary="@string/render_resolution_summary" />
     </PreferenceCategory>
 
 </PreferenceScreen>
