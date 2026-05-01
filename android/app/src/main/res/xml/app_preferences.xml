@@ -43,7 +43,7 @@
             app:key="fix_font"
             app:title="@string/fix_font"
             app:summary="@string/fix_font_summary"
-            app:defaultValue="false" />
+            app:defaultValue="true" />
     </PreferenceCategory>
 
 </PreferenceScreen>
