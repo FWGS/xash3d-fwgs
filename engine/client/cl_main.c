@@ -80,6 +80,8 @@ CVAR_DEFINE_AUTO( cl_trace_messages, "0", FCVAR_CHEAT, "enable message names tra
 CVAR_DEFINE_AUTO( cl_trace_events, "0", FCVAR_CHEAT, "enable events tracing (good for developers)" );
 static CVAR_DEFINE_AUTO( cl_nat, "0", 0, "show servers running under NAT" );
 CVAR_DEFINE_AUTO( hud_utf8, "0", FCVAR_ARCHIVE, "Use utf-8 encoding for hud text" );
+CVAR_DEFINE_AUTO( hud_truetype, "0", FCVAR_ARCHIVE | FCVAR_VIDRESTART, "use mainui font rendering for on-screen text if available" );
+CVAR_DEFINE_AUTO( hud_truetype_size, "16", FCVAR_ARCHIVE | FCVAR_VIDRESTART, "font height for hud_truetype text" );
 CVAR_DEFINE_AUTO( ui_renderworld, "0", FCVAR_ARCHIVE, "render world when UI is visible" );
 static CVAR_DEFINE_AUTO( cl_maxframetime, "0", 0, "set deadline timer for client rendering to catch freezes" );
 CVAR_DEFINE_AUTO( cl_fixmodelinterpolationartifacts, "1", 0, "try to fix up models interpolation on a moving platforms (monsters on trains for example)" );
@@ -3453,6 +3455,8 @@ static void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_timeout );
 	Cvar_RegisterVariable( &cl_charset );
 	Cvar_RegisterVariable( &hud_utf8 );
+	Cvar_RegisterVariable( &hud_truetype );
+	Cvar_RegisterVariable( &hud_truetype_size );
 
 	Cvar_RegisterVariable( &rcon_address );
 

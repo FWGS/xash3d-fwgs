@@ -246,6 +246,9 @@ typedef struct
 	void (*pfnConnectionProgress_Connect)( const char *server ); // NULL for local server
 	void (*pfnConnectionProgress_ChangeLevel)( void );
 	void (*pfnConnectionProgress_ParseServerInfo)( const char *server );
+	int (*pfnDrawHudCharacter)( int x, int y, int ch, int r, int g, int b );
+	int (*pfnGetHudFontHeight)( void );
+	int (*pfnGetHudCharWidth)( int ch );
 } UI_EXTENDED_FUNCTIONS;
 
 typedef int (*MENUAPI)( UI_FUNCTIONS *pFunctionTable, ui_enginefuncs_t* engfuncs, ui_globalvars_t *pGlobals );
