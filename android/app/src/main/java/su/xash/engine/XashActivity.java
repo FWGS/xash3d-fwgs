@@ -10,8 +10,8 @@ import android.preference.PreferenceManager;
 import android.content.SharedPreferences;
 import android.provider.Settings.Secure;
 import android.util.Log;
-import android.util.DisplayMetrics;
 import android.view.KeyEvent;
+import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,6 +36,8 @@ public class XashActivity extends SDLActivity {
     private int mFixedSurfaceWidth;
     private int mFixedSurfaceHeight;
     private boolean mStretchFixedSurface;
+    private boolean mSurfaceCallbackRegistered;
+    private boolean mSurfaceResizeInProgress;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -288,24 +290,7 @@ public class XashActivity extends SDLActivity {
     }
 
     private void setStretchResolutionEnvironment() {
-        boolean stretch = mPreferences.getBoolean("stretch_resolution", false);
-        nativeSetenv("XASH3D_STRETCH_RESOLUTION", stretch ? "1" : "0");
-
-        if (!stretch) {
-            return;
-        }
-
-        DisplayMetrics metrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
-
-        int nativeWidth = Math.max(metrics.widthPixels, metrics.heightPixels);
-        int nativeHeight = Math.min(metrics.widthPixels, metrics.heightPixels);
-
-        if (nativeWidth >= MIN_SURFACE_WIDTH && nativeHeight >= MIN_SURFACE_HEIGHT) {
-            nativeSetenv("XASH3D_NATIVE_WIDTH", String.valueOf(nativeWidth));
-            nativeSetenv("XASH3D_NATIVE_HEIGHT", String.valueOf(nativeHeight));
-            Log.d(TAG, "Using native stretch size: " + nativeWidth + "x" + nativeHeight);
-        }
+        nativeSetenv("XASH3D_STRETCH_RESOLUTION", "0");
     }
 
     private boolean hasArgument(String argv, String name) {
@@ -372,13 +357,68 @@ public class XashActivity extends SDLActivity {
         }
 
         if (mStretchFixedSurface) {
+            surfaceView.getHolder().setFixedSize(mFixedSurfaceWidth, mFixedSurfaceHeight);
             stretchSurfaceToScreen(surfaceView);
+            registerStretchSurfaceCallback(surfaceView);
         } else {
             surfaceView.getHolder().setFixedSize(mFixedSurfaceWidth, mFixedSurfaceHeight);
         }
     }
 
+    private void registerStretchSurfaceCallback(SurfaceView surfaceView) {
+        if (mSurfaceCallbackRegistered) {
+            return;
+        }
+
+        surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(SurfaceHolder holder) {
+            }
+
+            @Override
+            public void surfaceDestroyed(SurfaceHolder holder) {
+            }
+
+            @Override
+            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                if (!mStretchFixedSurface || mFixedSurfaceWidth <= 0 || mFixedSurfaceHeight <= 0) {
+                    return;
+                }
+
+                if (width == mFixedSurfaceWidth && height == mFixedSurfaceHeight) {
+                    mSurfaceResizeInProgress = false;
+                    return;
+                }
+
+                if (mSurfaceResizeInProgress) {
+                    return;
+                }
+
+                mSurfaceResizeInProgress = true;
+                holder.setFixedSize(mFixedSurfaceWidth, mFixedSurfaceHeight);
+            }
+        });
+
+        mSurfaceCallbackRegistered = true;
+    }
+
     private void stretchSurfaceToScreen(SurfaceView surfaceView) {
+        View view = surfaceView;
+        while (view != null) {
+            ViewGroup.LayoutParams params = view.getLayoutParams();
+            if (params != null && (params.width != ViewGroup.LayoutParams.MATCH_PARENT || params.height != ViewGroup.LayoutParams.MATCH_PARENT)) {
+                params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+                view.setLayoutParams(params);
+            }
+
+            if (!(view.getParent() instanceof View)) {
+                break;
+            }
+
+            view = (View)view.getParent();
+        }
+
         ViewGroup.LayoutParams params = surfaceView.getLayoutParams();
         if (params != null && (params.width != ViewGroup.LayoutParams.MATCH_PARENT || params.height != ViewGroup.LayoutParams.MATCH_PARENT)) {
             params.width = ViewGroup.LayoutParams.MATCH_PARENT;
