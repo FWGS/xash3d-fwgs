@@ -723,6 +723,8 @@ extern convar_t	cl_trace_stufftext;
 extern convar_t	cl_trace_messages;
 extern convar_t	cl_trace_events;
 extern convar_t	hud_utf8;
+extern convar_t	hud_truetype;
+extern convar_t hud_truetype_size;
 extern convar_t	cl_showevents;
 extern convar_t	scr_centertime;
 extern convar_t	scr_viewsize;
