@@ -19,7 +19,6 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
     private lateinit var renderResolutionPreference: Preference
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        preferenceManager.sharedPreferencesName = "app_preferences"
         setPreferencesFromResource(R.xml.app_preferences, rootKey)
 
         preferences = PreferenceManager.getDefaultSharedPreferences(requireContext())

@@ -400,7 +400,8 @@ static qboolean VID_StretchResolutionEnabled( void )
 {
 	const char *enabled = SDL_getenv( "XASH3D_STRETCH_RESOLUTION" );
 
-	return enabled && ( !Q_stricmp( enabled, "1" ) || !Q_stricmp( enabled, "true" ));
+	return Sys_CheckParm( "-stretch_resolution" ) ||
+		( enabled && ( !Q_stricmp( enabled, "1" ) || !Q_stricmp( enabled, "true" )));
 }
 
 static qboolean VID_GetStretchWindowSize( int *width, int *height )

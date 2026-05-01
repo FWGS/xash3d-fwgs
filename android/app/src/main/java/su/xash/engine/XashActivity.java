@@ -240,6 +240,10 @@ public class XashActivity extends SDLActivity {
             argv += " " + resolutionArgs;
         }
 
+        if (getBooleanPreference("stretch_resolution", false) && !hasArgument(argv, "-stretch_resolution")) {
+            argv += " -stretch_resolution";
+        }
+
         if (argv.indexOf(" -dll ") < 0 && gamelibdir == null) {
             final List<String> mobile_hacks_gamedirs = Arrays.asList(new String[]{
                 "aom", "bdlands", "biglolly", "bshift", "caseclosed",
@@ -288,7 +292,7 @@ public class XashActivity extends SDLActivity {
     }
 
     private void setStretchResolutionEnvironment() {
-        boolean stretch = mPreferences.getBoolean("stretch_resolution", false);
+        boolean stretch = getBooleanPreference("stretch_resolution", false);
         nativeSetenv("XASH3D_STRETCH_RESOLUTION", stretch ? "1" : "0");
 
         if (!stretch) {
@@ -363,7 +367,7 @@ public class XashActivity extends SDLActivity {
         }
 
         ensurePreferences();
-        mStretchFixedSurface = mPreferences.getBoolean("stretch_resolution", false);
+        mStretchFixedSurface = getBooleanPreference("stretch_resolution", false);
 
         SurfaceView surfaceView = findSurfaceView(getWindow().getDecorView());
         if (surfaceView == null) {
@@ -425,6 +429,19 @@ public class XashActivity extends SDLActivity {
         }
 
         return null;
+    }
+
+    private boolean getBooleanPreference(String key, boolean defaultValue) {
+        if (mPreferences != null && mPreferences.contains(key)) {
+            return mPreferences.getBoolean(key, defaultValue);
+        }
+
+        SharedPreferences appPreferences = getSharedPreferences("app_preferences", MODE_PRIVATE);
+        if (appPreferences.contains(key)) {
+            return appPreferences.getBoolean(key, defaultValue);
+        }
+
+        return defaultValue;
     }
 
     @Override
