@@ -2143,13 +2143,46 @@ void Con_RunConsole( void )
 
 	if( con_fixfont.value )
 	{
+		static float last_intended_oldfont = -999.0f;
+
 		if( FBitSet( con_fontscale.flags, FCVAR_CHANGED ))
 		{
-			Cbuf_AddText( "con_oldfont 1; wait; con_oldfont 0\n" );
+			if( con_oldfont.value >= 1.0f )
+			{
+				Cbuf_AddText( "con_oldfont 2; wait; con_oldfont 1\n" );
+				last_intended_oldfont = 1.0f;
+			}
+			else
+			{
+				Cbuf_AddText( "con_oldfont -1; wait; con_oldfont 0\n" );
+				last_intended_oldfont = 0.0f;
+			}
 		}
-		else if( con_oldfont.value != 0.0f && !FBitSet( con_oldfont.flags, FCVAR_CHANGED ))
+
+		if( FBitSet( con_oldfont.flags, FCVAR_CHANGED ))
 		{
-			Cvar_DirectSet( &con_oldfont, "0" );
+			float val = con_oldfont.value;
+			if( val == 2.0f || val == -1.0f )
+			{
+				// ignore temporary values
+			}
+			else if( val == last_intended_oldfont )
+			{
+				last_intended_oldfont = -999.0f;
+			}
+			else
+			{
+				if( val >= 1.0f )
+				{
+					Cbuf_AddText( "con_oldfont 2; wait; con_oldfont 1\n" );
+					last_intended_oldfont = 1.0f;
+				}
+				else
+				{
+					Cbuf_AddText( "con_oldfont -1; wait; con_oldfont 0\n" );
+					last_intended_oldfont = 0.0f;
+				}
+			}
 		}
 	}
 
