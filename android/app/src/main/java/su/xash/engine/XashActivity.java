@@ -10,6 +10,7 @@ import android.preference.PreferenceManager;
 import android.content.SharedPreferences;
 import android.provider.Settings.Secure;
 import android.util.Log;
+import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.SurfaceView;
 import android.view.View;
@@ -194,7 +195,7 @@ public class XashActivity extends SDLActivity {
         }
 
         ensurePreferences();
-        nativeSetenv("XASH3D_STRETCH_RESOLUTION", mPreferences.getBoolean("stretch_resolution", false) ? "1" : "0");
+        setStretchResolutionEnvironment();
 
         String gamedir = getIntent().getStringExtra("gamedir");
         if (gamedir == null) gamedir = "valve";
@@ -283,6 +284,27 @@ public class XashActivity extends SDLActivity {
         } catch (NumberFormatException e) {
             Log.w(TAG, "Invalid render resolution: " + resolution);
             return "";
+        }
+    }
+
+    private void setStretchResolutionEnvironment() {
+        boolean stretch = mPreferences.getBoolean("stretch_resolution", false);
+        nativeSetenv("XASH3D_STRETCH_RESOLUTION", stretch ? "1" : "0");
+
+        if (!stretch) {
+            return;
+        }
+
+        DisplayMetrics metrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
+
+        int nativeWidth = Math.max(metrics.widthPixels, metrics.heightPixels);
+        int nativeHeight = Math.min(metrics.widthPixels, metrics.heightPixels);
+
+        if (nativeWidth >= MIN_SURFACE_WIDTH && nativeHeight >= MIN_SURFACE_HEIGHT) {
+            nativeSetenv("XASH3D_NATIVE_WIDTH", String.valueOf(nativeWidth));
+            nativeSetenv("XASH3D_NATIVE_HEIGHT", String.valueOf(nativeHeight));
+            Log.d(TAG, "Using native stretch size: " + nativeWidth + "x" + nativeHeight);
         }
     }
 

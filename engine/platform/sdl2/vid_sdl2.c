@@ -403,6 +403,23 @@ static qboolean VID_StretchResolutionEnabled( void )
 	return enabled && ( !Q_stricmp( enabled, "1" ) || !Q_stricmp( enabled, "true" ));
 }
 
+static qboolean VID_GetStretchWindowSize( int *width, int *height )
+{
+	const char *native_width = SDL_getenv( "XASH3D_NATIVE_WIDTH" );
+	const char *native_height = SDL_getenv( "XASH3D_NATIVE_HEIGHT" );
+
+	if( native_width && native_height )
+	{
+		*width = Q_atoi( native_width );
+		*height = Q_atoi( native_height );
+
+		if( *width >= VID_MIN_WIDTH && *height >= VID_MIN_HEIGHT )
+			return true;
+	}
+
+	return false;
+}
+
 void VID_SaveWindowSize( int width, int height )
 {
 	qboolean maximized = FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED );
@@ -599,6 +616,16 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			// no video mode change to begin with
 			return rserr_invalid_fullscreen;
 		}
+
+#if XASH_MOBILE_PLATFORM
+		if( sdlState.stretch_resolution )
+		{
+			SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
+			SDL_SetWindowResizable( host.hWnd, SDL_FALSE );
+			SDL_SetWindowPosition( host.hWnd, 0, 0 );
+			SDL_SetWindowSize( host.hWnd, width, height );
+		}
+#endif
 		break;
 	}
 	case WINDOW_MODE_FULLSCREEN:
@@ -629,6 +656,16 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 
 		// SDL_SetWindowDisplayMode is broken in SDL2, it changes the display mode but doesn't change window size
 		SDL_SetWindowSize( host.hWnd, got.w, got.h );
+
+#if XASH_MOBILE_PLATFORM
+		if( sdlState.stretch_resolution )
+		{
+			SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
+			SDL_SetWindowResizable( host.hWnd, SDL_FALSE );
+			SDL_SetWindowPosition( host.hWnd, 0, 0 );
+			SDL_SetWindowSize( host.hWnd, width, height );
+		}
+#endif
 
 		break;
 	}
@@ -1087,14 +1124,28 @@ qboolean VID_SetMode( void )
 	if( VID_StretchResolutionEnabled() )
 	{
 		SDL_DisplayMode mode;
+		int stretch_width = 0, stretch_height = 0;
 
-		if( SDL_GetDesktopDisplayMode( 0, &mode ) >= 0 &&
-			mode.w >= VID_MIN_WIDTH && mode.h >= VID_MIN_HEIGHT &&
-			( requested_width != mode.w || requested_height != mode.h ))
+		if( !VID_GetStretchWindowSize( &stretch_width, &stretch_height ))
+		{
+			if( SDL_GetCurrentDisplayMode( 0, &mode ) >= 0 )
+			{
+				stretch_width = mode.w;
+				stretch_height = mode.h;
+			}
+			else if( SDL_GetDesktopDisplayMode( 0, &mode ) >= 0 )
+			{
+				stretch_width = mode.w;
+				stretch_height = mode.h;
+			}
+		}
+
+		if( stretch_width >= VID_MIN_WIDTH && stretch_height >= VID_MIN_HEIGHT &&
+			( requested_width != stretch_width || requested_height != stretch_height ))
 		{
 			sdlState.stretch_resolution = true;
-			width = mode.w;
-			height = mode.h;
+			width = stretch_width;
+			height = stretch_height;
 		}
 	}
 #endif
