@@ -253,6 +253,10 @@ public class XashActivity extends SDLActivity {
             argv += " -fixfont";
         }
 
+        if (!getBooleanPreference("keyboard_resizes_screen", true) && !hasArgument(argv, "-noresize")) {
+            argv += " -noresize";
+        }
+
         if (argv.indexOf(" -dll ") < 0 && gamelibdir == null) {
             final List<String> mobile_hacks_gamedirs = Arrays.asList(new String[]{
                 "aom", "bdlands", "biglolly", "bshift", "caseclosed",

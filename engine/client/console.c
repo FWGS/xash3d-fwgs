@@ -34,6 +34,7 @@ static CVAR_DEFINE_AUTO( con_color, "240 180 24", FCVAR_ARCHIVE, "set a custom c
 static CVAR_DEFINE_AUTO( scr_drawversion, "1", FCVAR_ARCHIVE, "draw version in menu or screenshots, doesn't affect console" );
 static CVAR_DEFINE_AUTO( con_oldfont, "0", 0, "use legacy font from gfx.wad, might be missing or broken" );
 static CVAR_DEFINE_AUTO( con_fixfont, "0", 0, "force con_oldfont 0 and fix con_fontscale behavior" );
+static CVAR_DEFINE_AUTO( con_noresize, "0", 0, "prevent window resize and use half-screen console in game" );
 static CVAR_DEFINE_AUTO( con_showcompletion, "1", FCVAR_ARCHIVE, "perform simplified autocompletion while typing" );
 
 static int g_codepage = 0;
@@ -810,10 +811,14 @@ void Con_Init( void )
 	Cvar_RegisterVariable( &scr_drawversion );
 	Cvar_RegisterVariable( &con_oldfont );
 	Cvar_RegisterVariable( &con_fixfont );
+	Cvar_RegisterVariable( &con_noresize );
 	Cvar_RegisterVariable( &con_showcompletion );
 
 	if( Sys_CheckParm( "-fixfont" ))
 		Cvar_DirectSet( &con_fixfont, "1" );
+
+	if( Sys_CheckParm( "-noresize" ))
+		Cvar_DirectSet( &con_noresize, "1" );
 
 	// init the console buffer
 	con.bufsize = CON_TEXTSIZE;
@@ -2144,6 +2149,22 @@ void Con_RunConsole( void )
 	if( con_fixfont.value )
 	{
 		static float last_intended_oldfont = -999.0f;
+		static qboolean first_run = true;
+
+		if( first_run )
+		{
+			if( con_oldfont.value >= 1.0f )
+			{
+				Cbuf_AddText( "con_oldfont 2; wait; con_oldfont 1\n" );
+				last_intended_oldfont = 1.0f;
+			}
+			else
+			{
+				Cbuf_AddText( "con_oldfont -1; wait; con_oldfont 0\n" );
+				last_intended_oldfont = 0.0f;
+			}
+			first_run = false;
+		}
 
 		if( FBitSet( con_fontscale.flags, FCVAR_CHANGED ))
 		{
@@ -2190,7 +2211,9 @@ void Con_RunConsole( void )
 	if( host.allow_console && cls.key_dest == key_console )
 	{
 #if XASH_MOBILE_PLATFORM
-		con.showlines = refState.height; // always full screen on mobile devices
+		if( con_noresize.value && cls.state >= ca_active && !cl.background )
+			con.showlines = (refState.height >> 1);	// half screen
+		else con.showlines = refState.height; // always full screen on mobile devices
 #else
 		if( cls.state < ca_active || cl.first_frame )
 			con.showlines = refState.height;	// full screen
