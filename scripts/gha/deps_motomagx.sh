@@ -12,4 +12,4 @@ pushd /opt/toolchains/ || exit 1
 sudo git clone https://github.com/a1batross/motomagx_toolchain motomagx --depth=1
 popd || exit 1
 
-git clone https://github.com/FWGS/hlsdk-xash3d hlsdk -b mobile_hacks --depth=1
+git clone https://github.com/FWGS/hlsdk-portable hlsdk -b mobile_hacks --depth=1

@@ -22,7 +22,7 @@ The other yet unsupported configuration is the big endian.
 
 2) Open `public/build.h` file. Add appropriate checks for your operating system and/or CPU architecture. It shouldn't be hard.
 
-Also, you'll need to build [Half-Life SDK](https://github.com/FWGS/hlsdk-xash3d/). It has same `public/build.h` so reflect changes into it. Note that to be compatible with HLSDK proprietary license, it's relicensed as public domain under [Unlicense](https://unlicense.org).
+Also, you'll need to build [Half-Life SDK](https://github.com/FWGS/hlsdk-portable/). It has same `public/build.h` so reflect changes into it. Note that to be compatible with HLSDK proprietary license, it's relicensed as public domain under [Unlicense](https://unlicense.org).
 
 We have a library naming scheme that allows us and game creators to distribute binaries for different platforms in one archive. Read `Documentation/extensions/library-naming.md` for more information.
 
