@@ -152,12 +152,17 @@ qboolean NET_IsSocketValid( int socket )
 
 qboolean NET_MakeSocketNonBlocking( int socket_fd )
 {
-#if XASH_WIN32 || XASH_PSVITA
-	u_long flag = 1;
-	if( NET_IsSocketError( ioctlsocket( socket_fd, FIONBIO, &flag )))
+#if XASH_LINUX
+	int res = fcntl( socket_fd, F_GETFL, 0 );
+	if( NET_IsSocketError( res ))
+		return false;
+
+	// SOCK_NONBLOCK is not portable, so use fcntl
+	if( NET_IsSocketError( fcntl( socket_fd, F_SETFL, res | O_NONBLOCK )))
 		return false;
 #else
-	if( NET_IsSocketError( fcntl( socket_fd, F_SETFL, O_NONBLOCK )))
+	uint mode = 1;
+	if( NET_IsSocketError( ioctlsocket( socket_fd, FIONBIO, (void*)&mode )))
 		return false;
 #endif
 	return true;
@@ -1604,7 +1609,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		return INVALID_SOCKET;
 	}
 
-	if( NET_IsSocketError( ioctlsocket( net_socket, FIONBIO, (void*)&_true )))
+	if( !NET_MakeSocketNonBlocking( net_socket ))
 	{
 		struct timeval timeout;
 
