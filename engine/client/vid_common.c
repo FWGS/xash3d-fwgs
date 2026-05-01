@@ -140,12 +140,17 @@ notify ref dll about screen transformations
 */
 void VID_SetDisplayTransform( int *render_w, int *render_h )
 {
+	VID_SetDisplayTransformScale( render_w, render_h, vid_scale.value, vid_scale.value );
+}
+
+void VID_SetDisplayTransformScale( int *render_w, int *render_h, float scale_x, float scale_y )
+{
 	uint rotate = vid_rotate.value;
 
 	if( rotate < REF_ROTATE_NONE || rotate > REF_ROTATE_CCW )
 		rotate = REF_ROTATE_NONE;
 
-	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, vid_scale.value, vid_scale.value ))
+	if( ref.dllFuncs.R_SetDisplayTransform( rotate, 0, 0, scale_x, scale_y ))
 	{
 		if( rotate & 1 )
 		{

@@ -358,6 +358,8 @@ static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_
 	qboolean ret = true;
 
 	tr.rotation = rotate;
+	tr.scale_x = scale_x;
+	tr.scale_y = scale_y;
 
 	if( offset_x || offset_y )
 	{
@@ -365,9 +367,10 @@ static qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_
 		ret = false;
 	}
 
-	if( scale_x != 1.0f || scale_y != 1.0f )
+	if( scale_x <= 0.0f || scale_y <= 0.0f )
 	{
-		gEngfuncs.Con_Printf("scale transform not supported\n");
+		gEngfuncs.Con_Printf("invalid scale transform\n");
+		tr.scale_x = tr.scale_y = 1.0f;
 		ret = false;
 	}
 
@@ -596,4 +599,3 @@ const ref_interface_t gReffuncs =
 
 	VGUI_SetupDrawing,
 };
-

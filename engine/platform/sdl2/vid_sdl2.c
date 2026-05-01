@@ -32,6 +32,8 @@ static void GL_SetupAttributes( void );
 static struct
 {
 	int prev_width, prev_height;
+	int requested_width, requested_height;
+	qboolean stretch_resolution;
 } sdlState = { 640, 480 };
 
 struct
@@ -394,12 +396,47 @@ static void VID_GetWindowSizeInPixels( SDL_Window *window, SDL_Renderer *rendere
 #endif
 }
 
+static qboolean VID_StretchResolutionEnabled( void )
+{
+	const char *enabled = SDL_getenv( "XASH3D_STRETCH_RESOLUTION" );
+
+	return enabled && ( !Q_stricmp( enabled, "1" ) || !Q_stricmp( enabled, "true" ));
+}
+
 void VID_SaveWindowSize( int width, int height )
 {
 	qboolean maximized = FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED );
 	int render_w = width, render_h = height;
 
 	VID_GetWindowSizeInPixels( host.hWnd, sw.renderer, &render_w, &render_h );
+
+	if( sdlState.stretch_resolution &&
+		sdlState.requested_width >= VID_MIN_WIDTH &&
+		sdlState.requested_height >= VID_MIN_HEIGHT &&
+		( render_w != sdlState.requested_width || render_h != sdlState.requested_height ))
+	{
+		const int window_w = render_w;
+		const int window_h = render_h;
+		string temp;
+
+		render_w = sdlState.requested_width;
+		render_h = sdlState.requested_height;
+
+		if( glw_state.software )
+			VID_SetDisplayTransform( &render_w, &render_h );
+		else
+			VID_SetDisplayTransformScale( &render_w, &render_h, (float)window_w / render_w, (float)window_h / render_h );
+
+		R_SaveVideoMode( width, height, render_w, render_h, maximized );
+
+		Q_snprintf( temp, sizeof( temp ), "%d", sdlState.requested_width );
+		Cvar_DirectSet( &window_width, temp );
+
+		Q_snprintf( temp, sizeof( temp ), "%d", sdlState.requested_height );
+		Cvar_DirectSet( &window_height, temp );
+		return;
+	}
+
 	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h, maximized );
 }
@@ -1011,6 +1048,7 @@ Set the described video mode
 qboolean VID_SetMode( void )
 {
 	int width, height;
+	int requested_width, requested_height;
 	rserr_t	err;
 	window_mode_t window_mode;
 
@@ -1033,11 +1071,31 @@ qboolean VID_SetMode( void )
 #endif
 	}
 
+	requested_width = width;
+	requested_height = height;
+	sdlState.requested_width = requested_width;
+	sdlState.requested_height = requested_height;
+	sdlState.stretch_resolution = false;
+
 #if XASH_MOBILE_PLATFORM
 	if( Q_strcmp( vid_fullscreen.string, DEFAULT_FULLSCREEN ))
 	{
 		Cvar_DirectSet( &vid_fullscreen, DEFAULT_FULLSCREEN );
 		Con_Reportf( S_ERROR "%s: windowed unavailable on this platform\n", __func__ );
+	}
+
+	if( VID_StretchResolutionEnabled() )
+	{
+		SDL_DisplayMode mode;
+
+		if( SDL_GetDesktopDisplayMode( 0, &mode ) >= 0 &&
+			mode.w >= VID_MIN_WIDTH && mode.h >= VID_MIN_HEIGHT &&
+			( requested_width != mode.w || requested_height != mode.h ))
+		{
+			sdlState.stretch_resolution = true;
+			width = mode.w;
+			height = mode.h;
+		}
 	}
 #endif
 

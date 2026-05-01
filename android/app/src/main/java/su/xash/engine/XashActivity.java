@@ -194,6 +194,7 @@ public class XashActivity extends SDLActivity {
         }
 
         ensurePreferences();
+        nativeSetenv("XASH3D_STRETCH_RESOLUTION", mPreferences.getBoolean("stretch_resolution", false) ? "1" : "0");
 
         String gamedir = getIntent().getStringExtra("gamedir");
         if (gamedir == null) gamedir = "valve";
@@ -348,10 +349,10 @@ public class XashActivity extends SDLActivity {
             return;
         }
 
-        surfaceView.getHolder().setFixedSize(mFixedSurfaceWidth, mFixedSurfaceHeight);
-
         if (mStretchFixedSurface) {
             stretchSurfaceToScreen(surfaceView);
+        } else {
+            surfaceView.getHolder().setFixedSize(mFixedSurfaceWidth, mFixedSurfaceHeight);
         }
     }
 

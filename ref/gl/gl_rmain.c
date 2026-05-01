@@ -563,8 +563,15 @@ void R_SetupGL( qboolean set_gl_state )
 		y2 = ceil( gpGlobals->height - ( RI.rvp.viewport[1] + RI.rvp.viewport[3] ) * gpGlobals->height / gpGlobals->height );
 
 		if( tr.rotation & 1 )
-			pglViewport( y2, x, y - y2, x2 - x );
-		else pglViewport( x, y2, x2 - x, y - y2 );
+		{
+			pglViewport( (int)( y2 * tr.scale_y ), (int)( x * tr.scale_x ),
+				(int)(( y - y2 ) * tr.scale_y ), (int)(( x2 - x ) * tr.scale_x ) );
+		}
+		else
+		{
+			pglViewport( (int)( x * tr.scale_x ), (int)( y2 * tr.scale_y ),
+				(int)(( x2 - x ) * tr.scale_x ), (int)(( y - y2 ) * tr.scale_y ) );
+		}
 	}
 	else
 	{

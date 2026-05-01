@@ -44,6 +44,7 @@ extern convar_t gl_msaa_samples;
 
 void R_SaveVideoMode( int w, int h, int render_w, int render_h, qboolean maximized );
 void VID_SetDisplayTransform( int *render_w, int *render_h );
+void VID_SetDisplayTransformScale( int *render_w, int *render_h, float scale_x, float scale_y );
 void VID_CheckChanges( void );
 const char *VID_GetModeString( int vid_mode );
 

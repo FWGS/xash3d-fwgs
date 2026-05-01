@@ -1257,6 +1257,8 @@ qboolean R_Init( void )
 	GL_InitCommands();
 	GL_InitRandomTable();
 
+	tr.scale_x = tr.scale_y = 1.0f;
+
 	GL_SetDefaultState();
 
 	r_temppool = Mem_AllocPool( "Render Zone" );
