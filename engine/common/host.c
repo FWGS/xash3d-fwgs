@@ -1025,7 +1025,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 		developer = DEV_NORMAL;
 
 		if( Sys_GetIntFromCmdLine( "-dev", &developer ))
-			developer = bound( DEV_NONE, developer, DEV_EXTENDED );
+			developer = bound( DEV_NONE, developer, 9 );
 	}
 
 #if XASH_ENGINE_TESTS
