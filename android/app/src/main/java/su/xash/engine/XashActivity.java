@@ -34,6 +34,7 @@ public class XashActivity extends SDLActivity {
     private String mCachedArgv;
     private int mFixedSurfaceWidth;
     private int mFixedSurfaceHeight;
+    private boolean mStretchFixedSurface;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -338,6 +339,9 @@ public class XashActivity extends SDLActivity {
             return;
         }
 
+        ensurePreferences();
+        mStretchFixedSurface = mPreferences.getBoolean("stretch_resolution", false);
+
         SurfaceView surfaceView = findSurfaceView(getWindow().getDecorView());
         if (surfaceView == null) {
             Log.w(TAG, "SDL surface not found; fixed resolution will be applied later if possible");
@@ -345,6 +349,25 @@ public class XashActivity extends SDLActivity {
         }
 
         surfaceView.getHolder().setFixedSize(mFixedSurfaceWidth, mFixedSurfaceHeight);
+
+        if (mStretchFixedSurface) {
+            stretchSurfaceToScreen(surfaceView);
+        }
+    }
+
+    private void stretchSurfaceToScreen(SurfaceView surfaceView) {
+        ViewGroup.LayoutParams params = surfaceView.getLayoutParams();
+        if (params != null && (params.width != ViewGroup.LayoutParams.MATCH_PARENT || params.height != ViewGroup.LayoutParams.MATCH_PARENT)) {
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+            surfaceView.setLayoutParams(params);
+        }
+
+        surfaceView.setPivotX(0.0f);
+        surfaceView.setPivotY(0.0f);
+        surfaceView.setScaleX(1.0f);
+        surfaceView.setScaleY(1.0f);
+        surfaceView.requestLayout();
     }
 
     private SurfaceView findSurfaceView(View view) {

@@ -26,6 +26,12 @@
             app:key="render_resolution"
             app:title="@string/render_resolution"
             app:summary="@string/render_resolution_summary" />
+
+        <SwitchPreferenceCompat
+            app:key="stretch_resolution"
+            app:title="@string/stretch_resolution"
+            app:summary="@string/stretch_resolution_summary"
+            app:defaultValue="false" />
     </PreferenceCategory>
 
 </PreferenceScreen>
