@@ -1225,6 +1225,8 @@ GL_InitCommands
 */
 static void GL_InitCommands( void )
 {
+	int i;
+
 	gEngfuncs.Cvar_RegisterVariable( &r_lighting_ambient );
 	gEngfuncs.Cvar_RegisterVariable( &r_novis );
 	gEngfuncs.Cvar_RegisterVariable( &r_nocull );
