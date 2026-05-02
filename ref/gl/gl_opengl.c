@@ -9,6 +9,7 @@ CVAR_DEFINE( gl_extensions, "gl_allow_extensions", "1", FCVAR_GLCONFIG|FCVAR_REA
 CVAR_DEFINE( gl_texture_anisotropy, "gl_anisotropy", "8", FCVAR_GLCONFIG, "textures anisotropic filter" );
 CVAR_DEFINE_AUTO( gl_texture_lodbias, "0.0", FCVAR_GLCONFIG, "LOD bias for mipmapped textures (perfomance|quality)" );
 CVAR_DEFINE_AUTO( gl_texture_nearest, "0", FCVAR_GLCONFIG, "disable texture filter" );
+CVAR_DEFINE_AUTO( gl_texturemode, "GL_LINEAR_MIPMAP_LINEAR", FCVAR_GLCONFIG, "sets the texture filtering mode" );
 CVAR_DEFINE_AUTO( gl_lightmap_nearest, "0", FCVAR_GLCONFIG, "disable lightmap filter" );
 CVAR_DEFINE_AUTO( gl_keeptjunctions, "1", FCVAR_GLCONFIG, "removing tjuncs causes blinking pixels" );
 CVAR_DEFINE_AUTO( gl_check_errors, "1", FCVAR_GLCONFIG, "ignore video engine errors" );
@@ -46,6 +47,9 @@ gl_globals_t	tr;
 glconfig_t	glConfig;
 glstate_t	glState;
 glwstate_t	glw_state;
+
+int		gl_filter_min = GL_LINEAR_MIPMAP_LINEAR;
+int		gl_filter_mag = GL_LINEAR;
 
 #if XASH_GL_STATIC
 	#define GL_CALL( x ) #x, NULL
@@ -727,12 +731,81 @@ static void R_RenderInfo( qboolean startup )
 		gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
 	gEngfuncs.Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
 		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
-	gEngfuncs.Con_Printf( "gl_picmip: %d, gl_round_down: %d\n", (int)gEngfuncs.pfnGetCvarFloat( "gl_picmip" ), (int)gEngfuncs.pfnGetCvarFloat( "gl_round_down" ));
+	gEngfuncs.Con_Printf( "gl_picmip: %d, gl_round_down: %d, gl_texture_lodbias: %.1f\n",
+		(int)gEngfuncs.pfnGetCvarFloat( "gl_picmip" ), (int)gEngfuncs.pfnGetCvarFloat( "gl_round_down" ),
+		gEngfuncs.pfnGetCvarFloat( "gl_texture_lodbias" ));
+	gEngfuncs.Con_Printf( "gl_texturemode: %s\n", gl_texturemode.string );
 }
 
 static void R_RenderInfo_f( void )
 {
 	R_RenderInfo( false );
+}
+
+typedef struct
+{
+	const char	*name;
+	int	minfilter;
+	int	magfilter;
+} textureMode_t;
+
+static textureMode_t modes[] =
+{
+	{ "GL_NEAREST", GL_NEAREST, GL_NEAREST },
+	{ "GL_LINEAR", GL_LINEAR, GL_LINEAR },
+	{ "GL_NEAREST_MIPMAP_NEAREST", GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST },
+	{ "GL_LINEAR_MIPMAP_NEAREST", GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR },
+	{ "GL_NEAREST_MIPMAP_LINEAR", GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST },
+	{ "GL_LINEAR_MIPMAP_LINEAR", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR }
+};
+
+static const char *GL_FilterToString( int filter )
+{
+	switch( filter )
+	{
+	case GL_NEAREST: return "GL_NEAREST";
+	case GL_LINEAR: return "GL_LINEAR";
+	case GL_NEAREST_MIPMAP_NEAREST: return "GL_NEAREST_MIPMAP_NEAREST";
+	case GL_LINEAR_MIPMAP_NEAREST: return "GL_LINEAR_MIPMAP_NEAREST";
+	case GL_NEAREST_MIPMAP_LINEAR: return "GL_NEAREST_MIPMAP_LINEAR";
+	case GL_LINEAR_MIPMAP_LINEAR: return "GL_LINEAR_MIPMAP_LINEAR";
+	}
+	return "unknown";
+}
+
+static void GL_TextureMode_f( void )
+{
+	int	i;
+
+	if( gEngfuncs.Cmd_Argc() != 2 )
+	{
+		gEngfuncs.Con_Printf( "usage: gl_texturemode [type]\n" );
+		gEngfuncs.Con_Printf( "current: %s\n", gl_texturemode.string );
+		return;
+	}
+
+	for( i = 0; i < ARRAYSIZE( modes ); i++ )
+	{
+		if( !Q_stricmp( modes[i].name, gEngfuncs.Cmd_Argv( 1 )))
+			break;
+	}
+
+	if( i == ARRAYSIZE( modes ))
+	{
+		gEngfuncs.Con_Printf( "bad texture mode\n" );
+		return;
+	}
+
+	gEngfuncs.Cvar_Set( "gl_texturemode", modes[i].name );
+
+	gl_filter_min = modes[i].minfilter;
+	gl_filter_mag = modes[i].magfilter;
+
+	gEngfuncs.Con_Printf( "Texture mode: %s (min: %s, mag: %s)\n", modes[i].name,
+		GL_FilterToString( gl_filter_min ), GL_FilterToString( gl_filter_mag ));
+
+	// update all textures
+	R_SetTextureParameters();
 }
 
 #if XASH_GLES
@@ -1173,6 +1246,20 @@ static void GL_InitCommands( void )
 
 	gEngfuncs.Cvar_RegisterVariable( &gl_extensions );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_nearest );
+	gEngfuncs.Cvar_RegisterVariable( &gl_texturemode );
+
+	for( i = 0; i < ARRAYSIZE( modes ); i++ )
+	{
+		if( !Q_stricmp( modes[i].name, gl_texturemode.string ))
+			break;
+	}
+
+	if( i < ARRAYSIZE( modes ))
+	{
+		gl_filter_min = modes[i].minfilter;
+		gl_filter_mag = modes[i].magfilter;
+	}
+
 	gEngfuncs.Cvar_RegisterVariable( &gl_lightmap_nearest );
 	gEngfuncs.Cvar_RegisterVariable( &gl_check_errors );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_anisotropy );
@@ -1197,6 +1284,7 @@ static void GL_InitCommands( void )
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
 
 	gEngfuncs.Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
+	gEngfuncs.Cmd_AddCommand( "gl_texturemode", GL_TextureMode_f, "set texture filtering mode" );
 	gEngfuncs.Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
 }
 

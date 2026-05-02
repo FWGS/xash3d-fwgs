@@ -119,8 +119,19 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 	}
 	else
 	{
-		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR );
-		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+		int min_filter = gl_filter_min;
+		int mag_filter = gl_filter_mag;
+
+		if( nomipmap )
+		{
+			if( min_filter == GL_NEAREST_MIPMAP_NEAREST || min_filter == GL_NEAREST_MIPMAP_LINEAR )
+				min_filter = GL_NEAREST;
+			else if( min_filter == GL_LINEAR_MIPMAP_NEAREST || min_filter == GL_LINEAR_MIPMAP_LINEAR )
+				min_filter = GL_LINEAR;
+		}
+
+		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, min_filter );
+		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, mag_filter );
 	}
 
 	if( FBitSet( tex->flags, TF_DEPTHMAP ))
@@ -242,8 +253,19 @@ static void GL_UpdateTextureParams( int iTexture )
 	}
 	else
 	{
-		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR );
-		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+		int min_filter = gl_filter_min;
+		int mag_filter = gl_filter_mag;
+
+		if( nomipmap )
+		{
+			if( min_filter == GL_NEAREST_MIPMAP_NEAREST || min_filter == GL_NEAREST_MIPMAP_LINEAR )
+				min_filter = GL_NEAREST;
+			else if( min_filter == GL_LINEAR_MIPMAP_NEAREST || min_filter == GL_LINEAR_MIPMAP_LINEAR )
+				min_filter = GL_LINEAR;
+		}
+
+		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, min_filter );
+		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, mag_filter );
 	}
 }
 
@@ -1059,37 +1081,62 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 		if( ImageCompressed( pic->type ))
 		{
+			int picmip = (int)gEngfuncs.pfnGetCvarFloat( "gl_picmip" );
+			int skip = 0;
+
+			if( picmip > 0 && !FBitSet( tex->flags, TF_NOMIPMAP ))
+				skip = picmip;
+
 			for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
 			{
-				width = Q_max( 1, ( tex->width >> j ));
-				height = Q_max( 1, ( tex->height >> j ));
-				depth = texture3d ? Q_max( 1, ( tex->depth >> j )) : tex->depth;
-				texsize = GL_CalcTextureSize( tex->format, width, height, depth );
+				width = Q_max( 1, ( pic->width >> j ));
+				height = Q_max( 1, ( pic->height >> j ));
+				depth = texture3d ? Q_max( 1, ( pic->depth >> j )) : pic->depth;
 				size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, depth );
-				GL_TextureImageCompressed( tex, i, j, width, height, depth, size, buf );
-				tex->size += texsize;
-				buf += size; // move pointer
-				tex->numMips++;
 
-				GL_CheckTexImageError( tex );
+				if( j >= skip )
+				{
+					uint uploadW = Q_max( 1, ( tex->width >> ( j - skip )));
+					uint uploadH = Q_max( 1, ( tex->height >> ( j - skip )));
+					uint uploadD = texture3d ? Q_max( 1, ( tex->depth >> ( j - skip ))) : tex->depth;
+					texsize = GL_CalcTextureSize( tex->format, uploadW, uploadH, uploadD );
+
+					GL_TextureImageCompressed( tex, i, j - skip, uploadW, uploadH, uploadD, size, buf );
+					tex->size += texsize;
+					tex->numMips++;
+					GL_CheckTexImageError( tex );
+				}
+				buf += size; // move pointer
 			}
 		}
 		else if( Q_max( 1, pic->numMips ) > 1 )	// not-compressed DDS
 		{
+			int picmip = (int)gEngfuncs.pfnGetCvarFloat( "gl_picmip" );
+			int skip = 0;
+
+			if( picmip > 0 && !FBitSet( tex->flags, TF_NOMIPMAP ))
+				skip = picmip;
+
 			for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
 			{
-				width = Q_max( 1, ( tex->width >> j ));
-				height = Q_max( 1, ( tex->height >> j ));
-				depth = texture3d ? Q_max( 1, ( tex->depth >> j )) : tex->depth;
-				texsize = GL_CalcTextureSize( tex->format, width, height, depth );
+				width = Q_max( 1, ( pic->width >> j ));
+				height = Q_max( 1, ( pic->height >> j ));
+				depth = texture3d ? Q_max( 1, ( pic->depth >> j )) : pic->depth;
 				size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, depth );
-				GL_TextureImageRAW( tex, i, j, width, height, depth, pic->type, buf );
-				tex->size += texsize;
+
+				if( j >= skip )
+				{
+					uint uploadW = Q_max( 1, ( tex->width >> ( j - skip )));
+					uint uploadH = Q_max( 1, ( tex->height >> ( j - skip )));
+					uint uploadD = texture3d ? Q_max( 1, ( tex->depth >> ( j - skip ))) : tex->depth;
+					texsize = GL_CalcTextureSize( tex->format, uploadW, uploadH, uploadD );
+
+					GL_TextureImageRAW( tex, i, j - skip, uploadW, uploadH, uploadD, pic->type, buf );
+					tex->size += texsize;
+					tex->numMips++;
+					GL_CheckTexImageError( tex );
+				}
 				buf += size; // move pointer
-				tex->numMips++;
-
-				GL_CheckTexImageError( tex );
-
 			}
 		}
 		else // RGBA32
@@ -1112,7 +1159,7 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 				texsize = GL_CalcTextureSize( tex->format, width, height, tex->depth );
 				size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, tex->depth );
 				GL_TextureImageRAW( tex, i, j, width, height, tex->depth, pic->type, data );
-				if( mipCount > 1 )
+				if( j < mipCount - 1 )
 					GL_BuildMipMap( data, width, height, tex->depth, tex->flags );
 				tex->size += texsize;
 				tex->numMips++;
