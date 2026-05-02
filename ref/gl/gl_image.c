@@ -471,18 +471,21 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 	tex->srcWidth = width;
 	tex->srcHeight = height;
 
-	if( gl_picmip.value > 0 && !FBitSet( tex->flags, TF_NOMIPMAP ) && tex->target != GL_TEXTURE_RECTANGLE_EXT )
 	{
-		int picmip = (int)gl_picmip.value;
-		width >>= picmip;
-		height >>= picmip;
-		if( width < 1 ) width = 1;
-		if( height < 1 ) height = 1;
+		float picmip_val = gEngfuncs.pfnGetCvarFloat( "gl_picmip" );
+		if( picmip_val > 0 && !FBitSet( tex->flags, TF_NOMIPMAP ) && tex->target != GL_TEXTURE_RECTANGLE_EXT )
+		{
+			int picmip = (int)picmip_val;
+			width >>= picmip;
+			height >>= picmip;
+			if( width < 1 ) width = 1;
+			if( height < 1 ) height = 1;
+		}
 	}
 
-	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
+	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ) || gEngfuncs.pfnGetCvarFloat( "gl_round_down" ) == 0 )
 	{
-		int	step = (int)gl_round_down.value;
+		int	step = (int)gEngfuncs.pfnGetCvarFloat( "gl_round_down" );
 		int	scaled_width, scaled_height;
 
 		for( scaled_width = 1; scaled_width < width; scaled_width <<= 1 );

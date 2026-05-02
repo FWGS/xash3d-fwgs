@@ -727,6 +727,7 @@ static void R_RenderInfo( qboolean startup )
 		gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
 	gEngfuncs.Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
 		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
+	gEngfuncs.Con_Printf( "gl_picmip: %d, gl_round_down: %d\n", (int)gEngfuncs.pfnGetCvarFloat( "gl_picmip" ), (int)gEngfuncs.pfnGetCvarFloat( "gl_round_down" ));
 }
 
 static void R_RenderInfo_f( void )
