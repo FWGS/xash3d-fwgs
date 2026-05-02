@@ -82,13 +82,10 @@ qboolean GL_TextureFilteringEnabled( const gl_texture_t *tex )
 		if( FBitSet( tex->flags, TF_ATLAS_PAGE ))
 			return gl_lightmap_nearest.value == 0.0f;
 
-		if( FBitSet( tex->flags, TF_ALLOW_NEAREST ))
-			return gl_texture_nearest.value == 0.0f;
-
 		return true;
 	}
 
-	return gl_texture_nearest.value == 0.0f;
+	return true;
 }
 
 /*
@@ -505,7 +502,7 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 		}
 	}
 
-	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ) || gEngfuncs.pfnGetCvarFloat( "gl_round_down" ) == 0 )
+	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ) || gEngfuncs.pfnGetCvarFloat( "gl_texture_npot" ) == 0.0f )
 	{
 		int	step = (int)gEngfuncs.pfnGetCvarFloat( "gl_round_down" );
 		int	scaled_width, scaled_height;

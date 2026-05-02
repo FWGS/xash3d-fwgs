@@ -8,7 +8,6 @@
 CVAR_DEFINE( gl_extensions, "gl_allow_extensions", "1", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "allow gl_extensions" );
 CVAR_DEFINE( gl_texture_anisotropy, "gl_anisotropy", "8", FCVAR_GLCONFIG, "textures anisotropic filter" );
 CVAR_DEFINE_AUTO( gl_texture_lodbias, "0.0", FCVAR_GLCONFIG, "LOD bias for mipmapped textures (perfomance|quality)" );
-CVAR_DEFINE_AUTO( gl_texture_nearest, "0", FCVAR_GLCONFIG, "disable texture filter" );
 CVAR_DEFINE_AUTO( gl_texturemode, "GL_LINEAR_MIPMAP_LINEAR", FCVAR_GLCONFIG, "sets the texture filtering mode" );
 CVAR_DEFINE_AUTO( gl_lightmap_nearest, "0", FCVAR_GLCONFIG, "disable lightmap filter" );
 CVAR_DEFINE_AUTO( gl_keeptjunctions, "1", FCVAR_GLCONFIG, "removing tjuncs causes blinking pixels" );
@@ -32,6 +31,7 @@ CVAR_DEFINE_AUTO( r_lockpvs, "0", 0, "lockpvs area at current point (pvs test)" 
 CVAR_DEFINE_AUTO( r_lockfrustum, "0", 0, "lock frustrum area at current point (cull test)" );
 CVAR_DEFINE_AUTO( r_traceglow, "0", FCVAR_GLCONFIG, "cull flares behind models" );
 CVAR_DEFINE_AUTO( gl_round_down, "2", FCVAR_GLCONFIG, "round texture sizes to nearest POT value" );
+CVAR_DEFINE_AUTO( gl_texture_npot, "1", FCVAR_GLCONFIG, "use non-power-of-two textures if supported" );
 CVAR_DEFINE_AUTO( gl_picmip, "0", FCVAR_GLCONFIG, "reduce texture resolution by 2^picmip" );
 CVAR_DEFINE( r_vbo, "gl_vbo", "0", FCVAR_GLCONFIG, "draw world using VBO (known to be glitchy)" );
 CVAR_DEFINE( r_vbo_detail, "gl_vbo_detail", "0", FCVAR_GLCONFIG, "detail vbo mode (0: disable, 1: multipass, 2: singlepass, broken decal dlights)" );
@@ -731,9 +731,9 @@ static void R_RenderInfo( qboolean startup )
 		gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
 	gEngfuncs.Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
 		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
-	gEngfuncs.Con_Printf( "gl_picmip: %d, gl_round_down: %d, gl_texture_lodbias: %.1f\n",
+	gEngfuncs.Con_Printf( "gl_picmip: %d, gl_round_down: %d, gl_texture_npot: %d, gl_texture_lodbias: %.1f\n",
 		(int)gEngfuncs.pfnGetCvarFloat( "gl_picmip" ), (int)gEngfuncs.pfnGetCvarFloat( "gl_round_down" ),
-		gEngfuncs.pfnGetCvarFloat( "gl_texture_lodbias" ));
+		(int)gEngfuncs.pfnGetCvarFloat( "gl_texture_npot" ), gEngfuncs.pfnGetCvarFloat( "gl_texture_lodbias" ));
 	gEngfuncs.Con_Printf( "gl_texturemode: %s\n", gl_texturemode.string );
 }
 
@@ -773,9 +773,27 @@ static const char *GL_FilterToString( int filter )
 	return "unknown";
 }
 
+static void GL_TextureNearest_f( void )
+{
+	if( gEngfuncs.Cmd_Argc() != 2 )
+	{
+		gEngfuncs.Con_Printf( "usage: gl_texture_nearest [0/1]\n" );
+		return;
+	}
+
+	if( Q_atoi( gEngfuncs.Cmd_Argv( 1 )) )
+		gEngfuncs.Cvar_Set( "gl_texturemode", "GL_NEAREST_MIPMAP_NEAREST" );
+	else
+		gEngfuncs.Cvar_Set( "gl_texturemode", "GL_LINEAR_MIPMAP_LINEAR" );
+
+	// Call texturemode logic
+	gEngfuncs.Cmd_ExecuteString( "gl_texturemode %s", gEngfuncs.pfnGetCvarString( "gl_texturemode" ) );
+}
+
 static void GL_TextureMode_f( void )
 {
 	int	i;
+	const char *arg;
 
 	if( gEngfuncs.Cmd_Argc() != 2 )
 	{
@@ -784,9 +802,15 @@ static void GL_TextureMode_f( void )
 		return;
 	}
 
+	arg = gEngfuncs.Cmd_Argv( 1 );
+
+	// handle numeric for compatibility
+	if( !Q_stricmp( arg, "1" )) arg = "GL_NEAREST_MIPMAP_NEAREST";
+	else if( !Q_stricmp( arg, "0" )) arg = "GL_LINEAR_MIPMAP_LINEAR";
+
 	for( i = 0; i < ARRAYSIZE( modes ); i++ )
 	{
-		if( !Q_stricmp( modes[i].name, gEngfuncs.Cmd_Argv( 1 )))
+		if( !Q_stricmp( modes[i].name, arg ))
 			break;
 	}
 
@@ -1247,7 +1271,6 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &r_large_lightmaps );
 
 	gEngfuncs.Cvar_RegisterVariable( &gl_extensions );
-	gEngfuncs.Cvar_RegisterVariable( &gl_texture_nearest );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texturemode );
 
 	for( i = 0; i < ARRAYSIZE( modes ); i++ )
@@ -1274,6 +1297,7 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &gl_msaa );
 	gEngfuncs.Cvar_RegisterVariable( &gl_stencilbits );
 	gEngfuncs.Cvar_RegisterVariable( &gl_round_down );
+	gEngfuncs.Cvar_RegisterVariable( &gl_texture_npot );
 	gEngfuncs.Cvar_RegisterVariable( &gl_picmip );
 	gEngfuncs.Cvar_RegisterVariable( &gl_overbright );
 	gEngfuncs.Cvar_RegisterVariable( &gl_fog );
@@ -1287,6 +1311,7 @@ static void GL_InitCommands( void )
 
 	gEngfuncs.Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
 	gEngfuncs.Cmd_AddCommand( "gl_texturemode", GL_TextureMode_f, "set texture filtering mode" );
+	gEngfuncs.Cmd_AddCommand( "gl_texture_nearest", GL_TextureNearest_f, "disable texture filter (legacy)" );
 	gEngfuncs.Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
 }
 
