@@ -471,6 +471,15 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 	tex->srcWidth = width;
 	tex->srcHeight = height;
 
+	if( gl_picmip.value > 0 && !FBitSet( tex->flags, TF_NOMIPMAP ) && tex->target != GL_TEXTURE_RECTANGLE_EXT )
+	{
+		int picmip = (int)gl_picmip.value;
+		width >>= picmip;
+		height >>= picmip;
+		if( width < 1 ) width = 1;
+		if( height < 1 ) height = 1;
+	}
+
 	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
 	{
 		int	step = (int)gl_round_down.value;
