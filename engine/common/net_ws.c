@@ -132,7 +132,7 @@ static CVAR_DEFINE_AUTO( net6_address, "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "c
 
 static void NET_ClearLagData( qboolean bClient, qboolean bServer );
 
-static inline qboolean NET_IsSocketError( int retval )
+qboolean NET_IsSocketError( int retval )
 {
 #if XASH_WIN32 || XASH_DOS4GW
 	return retval == SOCKET_ERROR ? true : false;
@@ -141,13 +141,31 @@ static inline qboolean NET_IsSocketError( int retval )
 #endif
 }
 
-static inline qboolean NET_IsSocketValid( int socket )
+qboolean NET_IsSocketValid( int socket )
 {
 #if XASH_WIN32 || XASH_DOS4GW
 	return socket != INVALID_SOCKET;
 #else
 	return socket >= 0;
 #endif
+}
+
+qboolean NET_MakeSocketNonBlocking( int socket_fd )
+{
+#if XASH_LINUX
+	int res = fcntl( socket_fd, F_GETFL, 0 );
+	if( NET_IsSocketError( res ))
+		return false;
+
+	// SOCK_NONBLOCK is not portable, so use fcntl
+	if( NET_IsSocketError( fcntl( socket_fd, F_SETFL, res | O_NONBLOCK )))
+		return false;
+#else
+	uint mode = 1;
+	if( NET_IsSocketError( ioctlsocket( socket_fd, FIONBIO, (void*)&mode )))
+		return false;
+#endif
+	return true;
 }
 
 void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr )
@@ -177,7 +195,7 @@ static int NET_NetadrIP6Compare( const netadr_t *a, const netadr_t *b )
 NET_NetadrToSockadr
 ====================
 */
-static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
+void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 {
 	netadrtype_t type = NET_NetadrType( a );
 
@@ -214,7 +232,7 @@ static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 NET_SockadrToNetAdr
 ====================
 */
-static void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
+void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
 {
 	if( s->ss_family == AF_INET )
 	{
@@ -1591,7 +1609,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		return INVALID_SOCKET;
 	}
 
-	if( NET_IsSocketError( ioctlsocket( net_socket, FIONBIO, (void*)&_true )))
+	if( !NET_MakeSocketNonBlocking( net_socket ))
 	{
 		struct timeval timeout;
 

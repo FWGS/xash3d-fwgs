@@ -1208,8 +1208,7 @@ void CL_GetSecuredClientAPI( CL_EXPORT_FUNCS F );
 void SteamBroker_Init( void );
 void SteamBroker_Shutdown( void );
 void SteamBroker_Frame( void );
-void SteamBroker_HandlePacket( netadr_t from, sizebuf_t *msg );
-int SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge );
+qboolean SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge );
 void SteamBroker_TerminateGameConnection( void );
 
 //

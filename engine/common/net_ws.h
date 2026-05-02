@@ -74,6 +74,9 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t to, size_t splitsize );
 void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 );
 void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr );
+qboolean NET_IsSocketError( int retval );
+qboolean NET_IsSocketValid( int socket );
+qboolean NET_MakeSocketNonBlocking( int socket_fd );
 
 static inline qboolean NET_IsLocalAddress( netadr_t adr )
 {

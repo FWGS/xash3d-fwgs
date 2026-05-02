@@ -249,9 +249,6 @@ static int HTTP_FileResolveNS( httpfile_t *file )
 
 static int HTTP_FileCreateSocket( httpfile_t *file )
 {
-	uint mode = 1;
-	int res;
-
 	file->socket = socket( file->addr.ss_family, SOCK_STREAM, IPPROTO_TCP );
 
 	if( file->socket < 0 )
@@ -261,32 +258,12 @@ static int HTTP_FileCreateSocket( httpfile_t *file )
 		return 0;
 	}
 
-	if( ioctlsocket( file->socket, FIONBIO, (void *)&mode ) < 0 )
+	if( !NET_MakeSocketNonBlocking( file->socket ))
 	{
-		Con_Printf( S_ERROR "%s: ioctl() returned %s\n", __func__, NET_ErrorString());
+		Con_Printf( S_ERROR "%s: failed to make socket non-blocking, error %s\n", __func__, NET_ErrorString());
 		HTTP_FreeFile( file, true );
 		return 0;
 	}
-
-#if XASH_LINUX
-
-	res = fcntl( file->socket, F_GETFL, 0 );
-
-	if( res < 0 )
-	{
-		Con_Printf( S_ERROR "%s: fcntl( F_GETFL ) returned %s\n", __func__, NET_ErrorString());
-		HTTP_FreeFile( file, true );
-		return 0;
-	}
-
-	// SOCK_NONBLOCK is not portable, so use fcntl
-	if( fcntl( file->socket, F_SETFL, res | O_NONBLOCK ) < 0 )
-	{
-		Con_Printf( S_ERROR "%s: fcntl( F_SETFL ) returned %s\n", __func__, NET_ErrorString());
-		HTTP_FreeFile( file, true );
-		return 0;
-	}
-#endif
 
 	http.active_count++;
 	file->pfn_process = HTTP_FileConnect;
