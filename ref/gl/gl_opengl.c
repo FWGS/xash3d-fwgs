@@ -773,36 +773,9 @@ static const char *GL_FilterToString( int filter )
 	return "unknown";
 }
 
-static void GL_TextureNearest_f( void )
+static void GL_TextureMode( const char *arg )
 {
-	if( gEngfuncs.Cmd_Argc() != 2 )
-	{
-		gEngfuncs.Con_Printf( "usage: gl_texture_nearest [0/1]\n" );
-		return;
-	}
-
-	if( Q_atoi( gEngfuncs.Cmd_Argv( 1 )) )
-		gEngfuncs.Cvar_Set( "gl_texturemode", "GL_NEAREST_MIPMAP_NEAREST" );
-	else
-		gEngfuncs.Cvar_Set( "gl_texturemode", "GL_LINEAR_MIPMAP_LINEAR" );
-
-	// Call texturemode logic
-	gEngfuncs.Cmd_ExecuteString( "gl_texturemode %s", gEngfuncs.pfnGetCvarString( "gl_texturemode" ) );
-}
-
-static void GL_TextureMode_f( void )
-{
-	int	i;
-	const char *arg;
-
-	if( gEngfuncs.Cmd_Argc() != 2 )
-	{
-		gEngfuncs.Con_Printf( "usage: gl_texturemode [type]\n" );
-		gEngfuncs.Con_Printf( "current: %s\n", gl_texturemode.string );
-		return;
-	}
-
-	arg = gEngfuncs.Cmd_Argv( 1 );
+	int i;
 
 	// handle numeric for compatibility
 	if( !Q_stricmp( arg, "1" )) arg = "GL_NEAREST_MIPMAP_NEAREST";
@@ -830,6 +803,29 @@ static void GL_TextureMode_f( void )
 
 	// update all textures
 	R_SetTextureParameters();
+}
+
+static void GL_TextureNearest_f( void )
+{
+	if( gEngfuncs.Cmd_Argc() != 2 )
+	{
+		gEngfuncs.Con_Printf( "usage: gl_texture_nearest [0/1]\n" );
+		return;
+	}
+
+	GL_TextureMode( Q_atoi( gEngfuncs.Cmd_Argv( 1 )) ? "GL_NEAREST_MIPMAP_NEAREST" : "GL_LINEAR_MIPMAP_LINEAR" );
+}
+
+static void GL_TextureMode_f( void )
+{
+	if( gEngfuncs.Cmd_Argc() != 2 )
+	{
+		gEngfuncs.Con_Printf( "usage: gl_texturemode [type]\n" );
+		gEngfuncs.Con_Printf( "current: %s\n", gl_texturemode.string );
+		return;
+	}
+
+	GL_TextureMode( gEngfuncs.Cmd_Argv( 1 ));
 }
 
 #if XASH_GLES

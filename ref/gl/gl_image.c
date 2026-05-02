@@ -293,7 +293,7 @@ void R_SetTextureParameters( void )
 
 	ClearBits( gl_texture_anisotropy.flags, FCVAR_CHANGED );
 	ClearBits( gl_texture_lodbias.flags, FCVAR_CHANGED );
-	ClearBits( gl_texture_nearest.flags, FCVAR_CHANGED );
+	ClearBits( gl_texturemode.flags, FCVAR_CHANGED );
 	ClearBits( gl_lightmap_nearest.flags, FCVAR_CHANGED );
 
 	// change all the existing mipmapped texture objects

@@ -227,7 +227,7 @@ static intptr_t GL_RefGetParm( int parm, int arg )
 		return glState.stencilEnabled;
 	case PARM_TEX_FILTERING:
 		if( arg < 0 )
-			return gl_texture_nearest.value == 0.0f;
+			return gl_filter_min != GL_NEAREST;
 
 		return GL_TextureFilteringEnabled( R_GetTexture( arg ));
 	case PARM_GET_STUDIO_HDR:
