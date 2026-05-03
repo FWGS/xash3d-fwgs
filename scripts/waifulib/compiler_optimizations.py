@@ -53,7 +53,9 @@ LINKFLAGS = {
 		'msvc': ['/SAFESEH:NO']
 	},
 	'debug': {
-		'msvc': ['/INCREMENTAL', '/SAFESEH:NO']
+		'msvc': ['/INCREMENTAL', '/SAFESEH:NO'],
+		'gcc':  ['-no-pie'],
+		'clang':['-no-pie']
 	}
 }
 
@@ -92,8 +94,10 @@ CFLAGS = {
 		'default': ['-O3']
 	},
 	'debug': {
-		'msvc':    ['/Od', '/ZI'],
-		'owcc':    ['-O0', '-fno-omit-frame-pointer', '-funwind-tables', '-fno-omit-leaf-frame-pointer'],
+		'msvc': ['/Od', '/ZI'],
+		'owcc': ['-O0', '-fno-omit-frame-pointer', '-funwind-tables', '-fno-omit-leaf-frame-pointer'],
+		'gcc':  ['-O0', '-g', '-fno-omit-frame-pointer', '-fno-pie'],
+		'clang':['-O0', '-g', '-fno-omit-frame-pointer', '-fno-pie'],
 		'default': ['-O0']
 	},
 	'msan': {
