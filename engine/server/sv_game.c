@@ -302,11 +302,14 @@ Check visibility through client camera, portal camera, etc
 */
 static qboolean SV_CheckClientVisiblity( sv_client_t *cl, const byte *mask )
 {
-	int	i;
+	int	i, clientnum;
 	vec3_t	vieworg;
 	mleaf_t	*leaf;
 
 	if( !mask ) return true; // GoldSrc rules
+
+	clientnum = cl - svs.clients;
+	(void)clientnum; // suppress unused warning; kept for ABI/debug compatibility
 
 	// Invasion issues: wrong camera position received in ENGINE_SET_PVS
 	if( cl->pViewEntity )
