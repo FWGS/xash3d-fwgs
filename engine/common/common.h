@@ -445,6 +445,7 @@ void Cbuf_AddFilteredText( const char *text );
 void Cbuf_InsertText( const char *text );
 void Cbuf_ExecStuffCmds( void );
 void Cbuf_Execute( void );
+size_t Cbuf_GetFreeSpace( void );
 qboolean Cmd_CurrentCommandIsPrivileged( void );
 void Cmd_Init( void );
 void Cmd_Shutdown( void );
