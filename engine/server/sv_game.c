@@ -302,7 +302,7 @@ Check visibility through client camera, portal camera, etc
 */
 static qboolean SV_CheckClientVisiblity( sv_client_t *cl, const byte *mask )
 {
-	int	i, clientnum;
+	int	i;
 	vec3_t	vieworg;
 	mleaf_t	*leaf;
 
@@ -2137,7 +2137,7 @@ qboolean GAME_EXPORT SV_EmitSound2( edict_t *entity, int recipient, int channel,
 	if( recipient != 0 )
 	{
 		// Sound directed to specific client
-		cl = SV_ClientFromEdict( EDICT_NUM( recipient ), true );
+		cl = SV_ClientFromEdict( SV_EdictNum( recipient ), true );
 		
 		if( !cl || cl->state != cs_spawned || !cl->edict || FBitSet( cl->flags, FCL_FAKECLIENT ))
 			return false;
@@ -3507,7 +3507,7 @@ int GAME_EXPORT pfnIndexOfEdict( const edict_t *pEdict )
 			Con_Printf( "pEdict->free: %d\n", pEdict->free );
 			Con_Printf( "pEdict->serialnumber: %d\n", pEdict->serialnumber );
 			if( pEdict->v.classname )
-				Con_Printf( "pEdict->v.classname: %s\n", STRING( pEdict->v.classname ) );
+				Con_Printf( "pEdict->v.classname: %s\n", SV_GetString( pEdict->v.classname ) );
 		}
 		else
 		{

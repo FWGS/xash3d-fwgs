@@ -548,6 +548,10 @@ void SV_UpdateServerInfo( void );
 void SV_EndRedirect( host_redirect_t *rd );
 void SV_RejectConnection( netadr_t from, const char *fmt, ... ) FORMAT_CHECK( 2 );
 void SV_GetPlayerCount( int *clients, int *bots );
+// Orpheu-exported functions (non-static for symbol visibility)
+void SV_ConnectClient( netadr_t from );
+void SV_MaybeNotifyPlayerCountChange( const sv_client_t *cl, const char *address );
+int SV_CheckIPConnectionReuse( netadr_t from );
 
 static inline qboolean SV_HavePassword( void )
 {
@@ -612,6 +616,12 @@ void SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word eventindex, 
 	float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 );
 int SV_BuildSoundMsg( sizebuf_t *msg, edict_t *ent, int chan, const char *sample, int vol, float attn, int flags, int pitch, const vec3_t pos );
 qboolean SV_BoxInPVS( const vec3_t org, const vec3_t absmin, const vec3_t absmax );
+
+// Orpheu-exported functions (non-static for symbol visibility)
+void GAME_EXPORT pfnEmitAmbientSound( edict_t *ent, float *pos, const char *sample, float vol, float attn, int flags, int pitch );
+void GAME_EXPORT pfnMessageBegin( int msg_dest, int msg_num, const float *pOrigin, edict_t *ed );
+void GAME_EXPORT pfnWriteString( const char *src );
+word GAME_EXPORT pfnPrecacheEvent( int type, const char *psz );
 void SV_QueueChangeLevel( const char *level, const char *landname );
 void SV_WriteEntityPatch( const char *filename );
 void SV_SpawnEntities( const char *mapname );
