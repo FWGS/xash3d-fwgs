@@ -61,8 +61,8 @@ CFLAGS = {
 	'common': {
 		# disable thread-safe local static initialization for C++11 code, as it cause crashes on Windows XP
 		'msvc':    ['/D_USING_V110_SDK71_', '/FS', '/Zc:threadSafeInit-', '/MT', '/MP', '/Zc:__cplusplus'],
-		'clang':   ['-g', '-gdwarf-2', '-fvisibility=hidden', '-fno-threadsafe-statics', '-fasynchronous-unwind-tables'],
-		'gcc':     ['-g', '-fvisibility=hidden', '-fasynchronous-unwind-tables'],
+		'clang':   ['-g', '-gdwarf-2', '-fvisibility=default', '-fno-threadsafe-statics', '-fasynchronous-unwind-tables'],
+		'gcc':     ['-g', '-fvisibility=default', '-fasynchronous-unwind-tables'],
 		'owcc':	   ['-fno-short-enum', '-ffloat-store', '-g3']
 	},
 	'fast': {
@@ -255,7 +255,8 @@ def get_optimization_flags(conf):
 		# this optimization is broken in vitasdk
 		cflags.append('-fno-optimize-sibling-calls')
 		# remove fvisibility to allow everything to be exported by default
-		cflags.remove('-fvisibility=hidden')
+		if '-fvisibility=hidden' in cflags:
+			cflags.remove('-fvisibility=hidden')
 		# this port don't have stack printing support
 		cflags.remove('-fasynchronous-unwind-tables')
 
