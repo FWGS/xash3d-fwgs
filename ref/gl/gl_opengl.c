@@ -8,7 +8,7 @@
 CVAR_DEFINE( gl_extensions, "gl_allow_extensions", "1", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "allow gl_extensions" );
 CVAR_DEFINE( gl_texture_anisotropy, "gl_anisotropy", "8", FCVAR_GLCONFIG, "textures anisotropic filter" );
 CVAR_DEFINE_AUTO( gl_texture_lodbias, "0.0", FCVAR_GLCONFIG, "LOD bias for mipmapped textures (perfomance|quality)" );
-CVAR_DEFINE_AUTO( gl_texturemode, "GL_LINEAR_MIPMAP_LINEAR", FCVAR_GLCONFIG, "sets the texture filtering mode" );
+CVAR_DEFINE_AUTO( gl_texture_nearest, "0", FCVAR_GLCONFIG, "disable texture filter" );
 CVAR_DEFINE_AUTO( gl_lightmap_nearest, "0", FCVAR_GLCONFIG, "disable lightmap filter" );
 CVAR_DEFINE_AUTO( gl_keeptjunctions, "1", FCVAR_GLCONFIG, "removing tjuncs causes blinking pixels" );
 CVAR_DEFINE_AUTO( gl_check_errors, "1", FCVAR_GLCONFIG, "ignore video engine errors" );
@@ -30,9 +30,7 @@ CVAR_DEFINE_AUTO( r_nocull, "0", 0, "ignore frustrum culling (perfomance test)" 
 CVAR_DEFINE_AUTO( r_lockpvs, "0", 0, "lockpvs area at current point (pvs test)" );
 CVAR_DEFINE_AUTO( r_lockfrustum, "0", 0, "lock frustrum area at current point (cull test)" );
 CVAR_DEFINE_AUTO( r_traceglow, "0", FCVAR_GLCONFIG, "cull flares behind models" );
-CVAR_DEFINE_AUTO( gl_round_down, "2", FCVAR_GLCONFIG, "round texture sizes to nearest POT value" );
-CVAR_DEFINE_AUTO( gl_texture_npot, "1", FCVAR_GLCONFIG, "use non-power-of-two textures if supported" );
-CVAR_DEFINE_AUTO( gl_picmip, "0", FCVAR_GLCONFIG, "reduce texture resolution by 2^picmip" );
+CVAR_DEFINE_AUTO( gl_round_down, "2", FCVAR_GLCONFIG|FCVAR_READ_ONLY, "round texture sizes to nearest POT value" );
 CVAR_DEFINE( r_vbo, "gl_vbo", "0", FCVAR_GLCONFIG, "draw world using VBO (known to be glitchy)" );
 CVAR_DEFINE( r_vbo_detail, "gl_vbo_detail", "0", FCVAR_GLCONFIG, "detail vbo mode (0: disable, 1: multipass, 2: singlepass, broken decal dlights)" );
 CVAR_DEFINE( r_vbo_dlightmode, "gl_vbo_dlightmode", "1", FCVAR_GLCONFIG, "vbo dlight rendering mode (0-1)" );
@@ -47,9 +45,6 @@ gl_globals_t	tr;
 glconfig_t	glConfig;
 glstate_t	glState;
 glwstate_t	glw_state;
-
-int		gl_filter_min = GL_LINEAR_MIPMAP_LINEAR;
-int		gl_filter_mag = GL_LINEAR;
 
 #if XASH_GL_STATIC
 	#define GL_CALL( x ) #x, NULL
@@ -731,101 +726,11 @@ static void R_RenderInfo( qboolean startup )
 		gEngfuncs.Con_Printf( "VERTICAL SYNC: %s\n", gl_vsync->value ? "enabled" : "disabled" );
 	gEngfuncs.Con_Printf( "Color %d bits, Alpha %d bits, Depth %d bits, Stencil %d bits\n", glConfig.color_bits,
 		glConfig.alpha_bits, glConfig.depth_bits, glConfig.stencil_bits );
-	gEngfuncs.Con_Printf( "gl_picmip: %d, gl_round_down: %d, gl_texture_npot: %d, gl_texture_lodbias: %.1f\n",
-		(int)gEngfuncs.pfnGetCvarFloat( "gl_picmip" ), (int)gEngfuncs.pfnGetCvarFloat( "gl_round_down" ),
-		(int)gEngfuncs.pfnGetCvarFloat( "gl_texture_npot" ), gEngfuncs.pfnGetCvarFloat( "gl_texture_lodbias" ));
-	gEngfuncs.Con_Printf( "gl_texturemode: %s\n", gl_texturemode.string );
 }
 
 static void R_RenderInfo_f( void )
 {
 	R_RenderInfo( false );
-}
-
-typedef struct
-{
-	const char	*name;
-	int	minfilter;
-	int	magfilter;
-} textureMode_t;
-
-static textureMode_t modes[] =
-{
-	{ "GL_NEAREST", GL_NEAREST, GL_NEAREST },
-	{ "GL_LINEAR", GL_LINEAR, GL_LINEAR },
-	{ "GL_NEAREST_MIPMAP_NEAREST", GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST },
-	{ "GL_LINEAR_MIPMAP_NEAREST", GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR },
-	{ "GL_NEAREST_MIPMAP_LINEAR", GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST },
-	{ "GL_LINEAR_MIPMAP_LINEAR", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR }
-};
-
-static const char *GL_FilterToString( int filter )
-{
-	switch( filter )
-	{
-	case GL_NEAREST: return "GL_NEAREST";
-	case GL_LINEAR: return "GL_LINEAR";
-	case GL_NEAREST_MIPMAP_NEAREST: return "GL_NEAREST_MIPMAP_NEAREST";
-	case GL_LINEAR_MIPMAP_NEAREST: return "GL_LINEAR_MIPMAP_NEAREST";
-	case GL_NEAREST_MIPMAP_LINEAR: return "GL_NEAREST_MIPMAP_LINEAR";
-	case GL_LINEAR_MIPMAP_LINEAR: return "GL_LINEAR_MIPMAP_LINEAR";
-	}
-	return "unknown";
-}
-
-static void GL_TextureMode( const char *arg )
-{
-	int i;
-
-	// handle numeric for compatibility
-	if( !Q_stricmp( arg, "1" )) arg = "GL_NEAREST_MIPMAP_NEAREST";
-	else if( !Q_stricmp( arg, "0" )) arg = "GL_LINEAR_MIPMAP_LINEAR";
-
-	for( i = 0; i < ARRAYSIZE( modes ); i++ )
-	{
-		if( !Q_stricmp( modes[i].name, arg ))
-			break;
-	}
-
-	if( i == ARRAYSIZE( modes ))
-	{
-		gEngfuncs.Con_Printf( "bad texture mode\n" );
-		return;
-	}
-
-	gEngfuncs.Cvar_Set( "gl_texturemode", modes[i].name );
-
-	gl_filter_min = modes[i].minfilter;
-	gl_filter_mag = modes[i].magfilter;
-
-	gEngfuncs.Con_Printf( "Texture mode: %s (min: %s, mag: %s)\n", modes[i].name,
-		GL_FilterToString( gl_filter_min ), GL_FilterToString( gl_filter_mag ));
-
-	// update all textures
-	R_SetTextureParameters();
-}
-
-static void GL_TextureNearest_f( void )
-{
-	if( gEngfuncs.Cmd_Argc() != 2 )
-	{
-		gEngfuncs.Con_Printf( "usage: gl_texture_nearest [0/1]\n" );
-		return;
-	}
-
-	GL_TextureMode( Q_atoi( gEngfuncs.Cmd_Argv( 1 )) ? "GL_NEAREST_MIPMAP_NEAREST" : "GL_LINEAR_MIPMAP_LINEAR" );
-}
-
-static void GL_TextureMode_f( void )
-{
-	if( gEngfuncs.Cmd_Argc() != 2 )
-	{
-		gEngfuncs.Con_Printf( "usage: gl_texturemode [type]\n" );
-		gEngfuncs.Con_Printf( "current: %s\n", gl_texturemode.string );
-		return;
-	}
-
-	GL_TextureMode( gEngfuncs.Cmd_Argv( 1 ));
 }
 
 #if XASH_GLES
@@ -1012,8 +917,7 @@ static void GL_InitExtensionsBigGL( void )
 		GL_CheckExtension( "GL_ARB_seamless_cube_map", NULL, 0, "gl_texture_cubemap_seamless", GL_ARB_SEAMLESS_CUBEMAP, 0 );
 	}
 
-	if( !GL_CheckExtension( "GL_ARB_texture_non_power_of_two", NULL, 0, "gl_texture_npot", GL_ARB_TEXTURE_NPOT_EXT, 0 ))
-		GL_CheckExtension( "GL_OES_texture_npot", NULL, 0, "gl_texture_npot", GL_ARB_TEXTURE_NPOT_EXT, 0 );
+	GL_CheckExtension( "GL_ARB_texture_non_power_of_two", NULL, 0, "gl_texture_npot", GL_ARB_TEXTURE_NPOT_EXT, 0 );
 	GL_CheckExtension( "GL_ARB_texture_compression", texturecompressionfuncs, ARRAYSIZE( texturecompressionfuncs ), "gl_texture_dxt_compression", GL_TEXTURE_COMPRESSION_EXT, 0 );
 	if( !GL_CheckExtension( "GL_EXT_texture_edge_clamp", NULL, 0, "gl_clamp_to_edge", GL_CLAMPTOEDGE_EXT, 2.0 )) // present in ES2
 		GL_CheckExtension( "GL_SGIS_texture_edge_clamp", NULL, 0, "gl_clamp_to_edge", GL_CLAMPTOEDGE_EXT, 0 );
@@ -1245,8 +1149,6 @@ GL_InitCommands
 */
 static void GL_InitCommands( void )
 {
-	int i;
-
 	gEngfuncs.Cvar_RegisterVariable( &r_lighting_ambient );
 	gEngfuncs.Cvar_RegisterVariable( &r_novis );
 	gEngfuncs.Cvar_RegisterVariable( &r_nocull );
@@ -1267,20 +1169,7 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &r_large_lightmaps );
 
 	gEngfuncs.Cvar_RegisterVariable( &gl_extensions );
-	gEngfuncs.Cvar_RegisterVariable( &gl_texturemode );
-
-	for( i = 0; i < ARRAYSIZE( modes ); i++ )
-	{
-		if( !Q_stricmp( modes[i].name, gl_texturemode.string ))
-			break;
-	}
-
-	if( i < ARRAYSIZE( modes ))
-	{
-		gl_filter_min = modes[i].minfilter;
-		gl_filter_mag = modes[i].magfilter;
-	}
-
+	gEngfuncs.Cvar_RegisterVariable( &gl_texture_nearest );
 	gEngfuncs.Cvar_RegisterVariable( &gl_lightmap_nearest );
 	gEngfuncs.Cvar_RegisterVariable( &gl_check_errors );
 	gEngfuncs.Cvar_RegisterVariable( &gl_texture_anisotropy );
@@ -1293,8 +1182,6 @@ static void GL_InitCommands( void )
 	gEngfuncs.Cvar_RegisterVariable( &gl_msaa );
 	gEngfuncs.Cvar_RegisterVariable( &gl_stencilbits );
 	gEngfuncs.Cvar_RegisterVariable( &gl_round_down );
-	gEngfuncs.Cvar_RegisterVariable( &gl_texture_npot );
-	gEngfuncs.Cvar_RegisterVariable( &gl_picmip );
 	gEngfuncs.Cvar_RegisterVariable( &gl_overbright );
 	gEngfuncs.Cvar_RegisterVariable( &gl_fog );
 	gEngfuncs.Cvar_RegisterVariable( &gl_litwater_force );
@@ -1306,8 +1193,6 @@ static void GL_InitCommands( void )
 	SetBits( gl_vsync->flags, FCVAR_CHANGED );
 
 	gEngfuncs.Cmd_AddCommand( "r_info", R_RenderInfo_f, "display renderer info" );
-	gEngfuncs.Cmd_AddCommand( "gl_texturemode", GL_TextureMode_f, "set texture filtering mode" );
-	gEngfuncs.Cmd_AddCommand( "gl_texture_nearest", GL_TextureNearest_f, "disable texture filter (legacy)" );
 	gEngfuncs.Cmd_AddCommand( "timerefresh", SCR_TimeRefresh_f, "turn quickly and print rendering statistcs" );
 }
 

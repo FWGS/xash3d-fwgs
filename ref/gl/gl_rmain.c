@@ -1069,7 +1069,7 @@ void R_BeginFrame( qboolean clearScene )
 	pglDrawBuffer( GL_BACK );
 
 	// update texture parameters
-	if( FBitSet( gl_texturemode.flags|gl_lightmap_nearest.flags|gl_texture_anisotropy.flags|gl_texture_lodbias.flags, FCVAR_CHANGED ))
+	if( FBitSet( gl_texture_nearest.flags|gl_lightmap_nearest.flags|gl_texture_anisotropy.flags|gl_texture_lodbias.flags, FCVAR_CHANGED ))
 		R_SetTextureParameters();
 
 	gEngfuncs.CL_ExtraUpdate ();
