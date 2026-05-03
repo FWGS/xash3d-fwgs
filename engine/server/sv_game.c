@@ -308,8 +308,6 @@ static qboolean SV_CheckClientVisiblity( sv_client_t *cl, const byte *mask )
 
 	if( !mask ) return true; // GoldSrc rules
 
-	clientnum = cl - svs.clients;
-
 	// Invasion issues: wrong camera position received in ENGINE_SET_PVS
 	if( cl->pViewEntity )
 		VectorCopy( cl->pViewEntity->v.origin, vieworg );
