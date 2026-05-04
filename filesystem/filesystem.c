@@ -1314,7 +1314,7 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 
 	if( isGameDir )
 	{
-		Q_snprintf( buf, sizeof( buf ), "%s/" DEFAULT_DOWNLOADED_DIRECTORY, dir );
+		Q_snprintf( buf, sizeof( buf ), "%s" DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX "/", dir );
 		FS_AddGameDirectory( buf, FS_NOWRITE_PATH|FS_CUSTOM_PATH );
 	}
 	Q_snprintf( buf, sizeof( buf ), "%s/", dir );
