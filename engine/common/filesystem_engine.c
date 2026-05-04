@@ -39,7 +39,6 @@ static CVAR_DEFINE_AUTO( ui_language, "english", FCVAR_PRIVILEGED, "selected gam
 
 fs_api_t g_fsapi;
 fs_globals_t *FI;
-
 static pfnCreateInterface_t fs_pfnCreateInterface;
 static HINSTANCE fs_hInstance;
 
@@ -67,7 +66,6 @@ byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 {
 	return g_fsapi.LoadDirectFile( path, filesizeptr );
 }
-
 static void COM_StripDirectorySlash( char *pname )
 {
 	size_t len;
@@ -210,6 +208,8 @@ static void FS_UnloadProgs( void )
 
 #ifdef XASH_INTERNAL_GAMELIBS
 #define FILESYSTEM_STDIO_DLL "filesystem_stdio"
+#elif XASH_WII //Why aren't macros macroing'
+#define FILESYSTEM_STDIO_DLL "filesystem_stdio"
 #elif XASH_ANDROID
 #define FILESYSTEM_STDIO_DLL "libfilesystem_stdio.so"
 #else
@@ -272,7 +272,14 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 		return true;
 	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
 	return false;
-#elif ( XASH_SDL >= 2 ) && !XASH_NSWITCH /* GetBasePath not impl'd in switch-sdl2 */ && !XASH_WII
+#elif XASH_WII
+	if (fatInitDefault()) {
+	Q_strncpy( out, "sd:/xash3d", size);
+		return true;
+	}
+	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
+	return false;
+#elif ( XASH_SDL >= 2 ) && !XASH_NSWITCH /* GetBasePath not impl'd in switch-sdl2 */
 	path = SDL_GetBasePath();
 
 #if XASH_APPLE
