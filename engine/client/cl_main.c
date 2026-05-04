@@ -2854,7 +2854,7 @@ static void CL_ReadPackets( void )
 	// hot precache and downloading resources
 	if( cls.signon == SIGNONS && cl.lastresourcecheck < host.realtime )
 	{
-		double checktime = Host_IsLocalGame() ? 0.1 : 1.0;
+		double checktime = Host_IsLocalClient() ? 0.1 : 1.0;
 
 		if( !cls.dl.custom && cl.resourcesneeded.pNext != &cl.resourcesneeded )
 		{
