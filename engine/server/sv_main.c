@@ -262,7 +262,7 @@ static void SV_CheckCmdTimes( void )
 			Cvar_SetValue( "sv_fps", MAX_FPS_HARD );
 	}
 
-	if( Host_IsLocalGame( ))
+	if( Host_IsSinglePlayerGame( ))
 		return;
 
 	if(( host.realtime - lastreset ) < 1.0 )

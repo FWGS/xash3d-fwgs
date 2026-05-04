@@ -172,8 +172,8 @@ intptr_t CL_RenderGetParm( const int parm, const int arg, const qboolean checkRe
 			return cl.local.waterlevel;
 		case PARM_LOCAL_HEALTH:
 			return cl.local.health;
-		case PARM_LOCAL_GAME:
-			return Host_IsLocalGame();
+		case PARM_SINGLEPLAYER_GAME:
+			return Host_IsSinglePlayerGame();
 		case PARM_NUMENTITIES:
 			return pfnNumberOfEntities();
 		case PARM_GET_CLIENT_PTR:

@@ -513,7 +513,7 @@ static double Host_CalcFPS( void )
 	{
 		fps = CL_GetDemoFramerate();
 	}
-	else if( Host_IsLocalGame( ))
+	else if( Host_IsSinglePlayerGame( ))
 	{
 		if( !gl_vsync.value )
 			fps = host_maxfps.value;
@@ -642,9 +642,10 @@ static qboolean Host_FilterTime( double time )
 	oldtime = host.realtime;
 
 	// NOTE: allow only in singleplayer while demos are not active
-	if( host_framerate.value > 0.0f && Host_IsLocalGame() && !CL_IsPlaybackDemo() && !CL_IsRecordDemo( ))
+	if( host_framerate.value > 0.0f && Host_IsSinglePlayerGame() && !CL_IsPlaybackDemo() && !CL_IsRecordDemo( ))
 		host.frametime = bound( MIN_FRAMETIME, host_framerate.value * scale, MAX_FRAMETIME );
-	else host.frametime = bound( MIN_FRAMETIME, host.frametime, MAX_FRAMETIME );
+	else
+		host.frametime = bound( MIN_FRAMETIME, host.frametime, MAX_FRAMETIME );
 
 	return true;
 }

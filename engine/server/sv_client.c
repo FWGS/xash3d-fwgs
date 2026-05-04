@@ -1724,7 +1724,7 @@ static qboolean SV_ShouldUpdateUserinfo( sv_client_t *cl )
 	if( FBitSet( cl->flags, FCL_FAKECLIENT ))
 		return allow;
 
-	if( Host_IsLocalGame( ))
+	if( Host_IsSinglePlayerGame( ))
 		return allow;
 
 	// start from 1 second
