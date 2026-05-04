@@ -3723,14 +3723,15 @@ void CL_Init( void )
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 
-	if( !CL_LoadProgs( libpath ))
-		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
-
 	S_Init();	// init sound
 	Voice_Init( VOICE_DEFAULT_CODEC, 3, true ); // init voice (do not open the device)
 
 	ID_Init();
 	SteamBroker_Init();
+
+	// client must be always initialized last so it can fetch all cvars
+	if( !CL_LoadProgs( libpath ))
+		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
 
 	cls.build_num = 0;
 	cls.initialized = true;
