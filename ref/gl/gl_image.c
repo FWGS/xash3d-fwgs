@@ -471,6 +471,16 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 	tex->srcWidth = width;
 	tex->srcHeight = height;
 
+	// apply gl_picmip to reduce texture resolution
+	if( gl_picmip.value > 0 && !FBitSet( tex->flags, TF_NOMIPMAP ) && tex->target != GL_TEXTURE_RECTANGLE_EXT )
+	{
+		int picmip = (int)gl_picmip.value;
+		width >>= picmip;
+		height >>= picmip;
+		if( width < 1 ) width = 1;
+		if( height < 1 ) height = 1;
+	}
+
 	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
 	{
 		int	step = (int)gl_round_down.value;
@@ -1047,37 +1057,62 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 		if( ImageCompressed( pic->type ))
 		{
+			int picmip = (int)gl_picmip.value;
+			int skip = 0;
+
+			if( picmip > 0 && !FBitSet( tex->flags, TF_NOMIPMAP ))
+				skip = picmip;
+
 			for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
 			{
-				width = Q_max( 1, ( tex->width >> j ));
-				height = Q_max( 1, ( tex->height >> j ));
-				depth = texture3d ? Q_max( 1, ( tex->depth >> j )) : tex->depth;
-				texsize = GL_CalcTextureSize( tex->format, width, height, depth );
+				width = Q_max( 1, ( pic->width >> j ));
+				height = Q_max( 1, ( pic->height >> j ));
+				depth = texture3d ? Q_max( 1, ( pic->depth >> j )) : pic->depth;
 				size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, depth );
-				GL_TextureImageCompressed( tex, i, j, width, height, depth, size, buf );
-				tex->size += texsize;
-				buf += size; // move pointer
-				tex->numMips++;
 
-				GL_CheckTexImageError( tex );
+				if( j >= skip )
+				{
+					uint uploadW = Q_max( 1, ( tex->width >> ( j - skip )));
+					uint uploadH = Q_max( 1, ( tex->height >> ( j - skip )));
+					uint uploadD = texture3d ? Q_max( 1, ( tex->depth >> ( j - skip ))) : tex->depth;
+					texsize = GL_CalcTextureSize( tex->format, uploadW, uploadH, uploadD );
+
+					GL_TextureImageCompressed( tex, i, j - skip, uploadW, uploadH, uploadD, size, buf );
+					tex->size += texsize;
+					tex->numMips++;
+					GL_CheckTexImageError( tex );
+				}
+				buf += size; // move pointer
 			}
 		}
 		else if( Q_max( 1, pic->numMips ) > 1 )	// not-compressed DDS
 		{
+			int picmip = (int)gl_picmip.value;
+			int skip = 0;
+
+			if( picmip > 0 && !FBitSet( tex->flags, TF_NOMIPMAP ))
+				skip = picmip;
+
 			for( j = 0; j < Q_max( 1, pic->numMips ); j++ )
 			{
-				width = Q_max( 1, ( tex->width >> j ));
-				height = Q_max( 1, ( tex->height >> j ));
-				depth = texture3d ? Q_max( 1, ( tex->depth >> j )) : tex->depth;
-				texsize = GL_CalcTextureSize( tex->format, width, height, depth );
+				width = Q_max( 1, ( pic->width >> j ));
+				height = Q_max( 1, ( pic->height >> j ));
+				depth = texture3d ? Q_max( 1, ( pic->depth >> j )) : pic->depth;
 				size = gEngfuncs.Image_CalcImageSize( pic->type, width, height, depth );
-				GL_TextureImageRAW( tex, i, j, width, height, depth, pic->type, buf );
-				tex->size += texsize;
+
+				if( j >= skip )
+				{
+					uint uploadW = Q_max( 1, ( tex->width >> ( j - skip )));
+					uint uploadH = Q_max( 1, ( tex->height >> ( j - skip )));
+					uint uploadD = texture3d ? Q_max( 1, ( tex->depth >> ( j - skip ))) : tex->depth;
+					texsize = GL_CalcTextureSize( tex->format, uploadW, uploadH, uploadD );
+
+					GL_TextureImageRAW( tex, i, j - skip, uploadW, uploadH, uploadD, pic->type, buf );
+					tex->size += texsize;
+					tex->numMips++;
+					GL_CheckTexImageError( tex );
+				}
 				buf += size; // move pointer
-				tex->numMips++;
-
-				GL_CheckTexImageError( tex );
-
 			}
 		}
 		else // RGBA32
