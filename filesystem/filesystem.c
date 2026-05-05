@@ -3204,22 +3204,20 @@ qboolean FS_Rename( const char *oldname, const char *newname )
 	if( FS_CheckNastyPath( oldname ) || FS_CheckNastyPath( newname ))
 		return false;
 
-	if( !fs_writepath )
-		return false;
-
-	if( COM_StringEmptyOrNULL( oldname ) || COM_StringEmptyOrNULL( newname ))
-		return false;
-
-	// no work done
-	if( !Q_stricmp( oldname, newname ))
-		return true;
-
 	// fix up slashes
 	Q_strncpy( oldname2, oldname, sizeof( oldname2 ));
 	Q_strncpy( newname2, newname, sizeof( newname2 ));
 
 	COM_FixSlashes( oldname2 );
 	COM_FixSlashes( newname2 );
+
+	// no work done
+	if( !Q_stricmp( oldname2, newname2 ))
+		return true;
+
+	// no writing directory is set, no changes should be made
+	if( !fs_writepath )
+		return false;
 
 	// file does not exist
 	if( !FS_FixFileCase( fs_writepath->dir, oldname2, oldpath, sizeof( oldpath ), false ))
@@ -3256,7 +3254,7 @@ qboolean GAME_EXPORT FS_Delete( const char *path )
 	if( FS_CheckNastyPath( path ))
 		return false;
 
-	if( !fs_writepath || COM_StringEmptyOrNULL( path ))
+	if( !fs_writepath )
 		return false;
 
 	Q_strncpy( path2, path, sizeof( path2 ));
