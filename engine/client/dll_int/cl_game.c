@@ -292,7 +292,7 @@ void CL_CenterPrint( const char *text, float y )
 	if( COM_StringEmptyOrNULL( text ))
 		return;
 
-	if( hud_truetype.value && hud_truetype_size.value && gameui.dllFuncs2.pfnGetHudFontHeight && ( hudFontHeightReal = gameui.dllFuncs2.pfnGetHudFontHeight() ) > 0 )
+	if( cls.creditsFont.ttfont && ( hudFontHeightReal = TTF_GetHeight( cls.creditsFont.ttfont )) > 0 )
 	{
 		// measure layout in scrInfo space so CL_AdjustYPos works correctly
 		const char *p;
@@ -471,12 +471,12 @@ void CL_DrawCenterPrint( void )
 	colorDefault = g_color_table[7];
 	pText = clgame.centerPrint.message;
 
-	if( hud_truetype.value && hud_truetype_size.value && gameui.dllFuncs2.pfnGetHudFontHeight && gameui.dllFuncs2.pfnGetHudCharWidth && gameui.dllFuncs2.pfnDrawHudCharacter )
+	if( cls.creditsFont.ttfont )
 	{
 		// truetype - operate in real screen pixels
 		int ry, lineWidthPx, rx;
 		ry = (int)( y * refState.height / (float)clgame.scrInfo.iHeight + 0.5f );
-		charHeight = gameui.dllFuncs2.pfnGetHudFontHeight();
+		charHeight = TTF_GetHeight( cls.creditsFont.ttfont );
 
 		for( i = 0; i < clgame.centerPrint.lines; i++ )
 		{
@@ -490,7 +490,7 @@ void CL_DrawCenterPrint( void )
 				if( number == 0 )
 					continue;
 				line[lineLength++] = number;
-				lineWidthPx += gameui.dllFuncs2.pfnGetHudCharWidth( number );
+				lineWidthPx += TTF_GetCharWidth( cls.creditsFont.ttfont, number );
 			}
 
 			if( lineLength == MAX_LINELENGTH )
@@ -501,7 +501,7 @@ void CL_DrawCenterPrint( void )
 
 			rx = ( refState.width - lineWidthPx ) / 2;
 			for( j = 0; j < lineLength; j++ )
-				rx += gameui.dllFuncs2.pfnDrawHudCharacter( rx, ry, line[j], colorDefault[0], colorDefault[1], colorDefault[2] );
+				rx += TTF_DrawChar( cls.creditsFont.ttfont, rx, ry, line[j], colorDefault[0], colorDefault[1], colorDefault[2], 255 );
 
 			ry += charHeight;
 		}
@@ -1769,14 +1769,14 @@ int GAME_EXPORT CL_GetScreenInfo( SCREENINFO *pscrinfo )
 	// copy screeninfo out
 	memcpy( pscrinfo, &clgame.scrInfo, clgame.scrInfo.iSize );
 
-	if( hud_truetype.value && hud_truetype_size.value && gameui.dllFuncs2.pfnGetHudFontHeight && gameui.dllFuncs2.pfnGetHudCharWidth )
+	if( cls.creditsFont.ttfont )
 	{
 		// override font metrics with truetype values for correct widths
 		int i;
 		float toScrInfo = clgame.scrInfo.iWidth / (float)refState.width;
-		pscrinfo->iCharHeight = (int)( gameui.dllFuncs2.pfnGetHudFontHeight() * toScrInfo + 0.5f );
+		pscrinfo->iCharHeight = (int)( TTF_GetHeight( cls.creditsFont.ttfont ) * toScrInfo + 0.5f );
 		for( i = 0; i < 256; i++ )
-			pscrinfo->charWidths[i] = (short)( gameui.dllFuncs2.pfnGetHudCharWidth( i ) * toScrInfo + 0.5f );
+			pscrinfo->charWidths[i] = (short)( TTF_GetCharWidth( cls.creditsFont.ttfont, i ) * toScrInfo + 0.5f );
 	}
 
 	return 1;
@@ -2027,12 +2027,12 @@ returns drawed chachter width (in real screen pixels)
 */
 static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g, int b )
 {
-	if( hud_truetype.value && hud_truetype_size.value && gameui.dllFuncs2.pfnDrawHudCharacter )
+	if( cls.creditsFont.ttfont )
 	{
 		// convert scrInfo coords to real pixels, draw, then convert advance back
 		float fx = x, fy = y, fw = 1.0f, fh = 1.0f;
 		SPR_AdjustSize( &fx, &fy, &fw, &fh );
-		int advance = gameui.dllFuncs2.pfnDrawHudCharacter( (int)fx, (int)fy, number, r, g, b );
+		int advance = TTF_DrawChar( cls.creditsFont.ttfont, (int)fx, (int)fy, number, r, g, b, 255 );
 		return (int)( advance * clgame.scrInfo.iWidth / (float)refState.width + 0.5f );
 	}
 

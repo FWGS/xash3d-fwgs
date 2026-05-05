@@ -65,7 +65,7 @@ static inline void MSG_Clear( sizebuf_t *sb )
 
 static inline void MSG_InitExt( sizebuf_t *sb, const char *pDebugName, void *pData, int nBytes, int nBits )
 {
-	sb->pData = pData;
+	sb->pData = (byte *)pData;
 	MSG_Clear( sb );
 
 	if( nBits < 0 )

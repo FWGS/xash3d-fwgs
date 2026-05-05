@@ -757,6 +757,32 @@ void SCR_LoadCreditsFont( void )
 			clgame.scrInfo.charWidths[i] = cls.creditsFont.charWidths[i];
 	}
 	else Con_DPrintf( S_ERROR "failed to load HUD font\n" );
+
+	if( success && hud_truetype.value && hud_truetype_size.value > 0 )
+	{
+		float hudScale = 1.0f;
+
+		if( hud_scale.value >= 320.0f && hud_scale.value >= hud_scale_minimal_width.value )
+		{
+			hudScale = refState.width / hud_scale.value;
+			if( hudScale < 1.0f ) hudScale = 1.0f;
+		}
+		else if( hud_scale.value && hud_scale.value != 1.0f )
+		{
+			float scaled_width = refState.width / hud_scale.value;
+			if( scaled_width >= hud_scale_minimal_width.value )
+				hudScale = hud_scale.value;
+		}
+
+		const char *fontName = COM_StringEmptyOrNULL( hud_truetype_name.string ) ? DEFAULT_MENUFONT : hud_truetype_name.string;
+		font->ttfont = TTF_Create( fontName, (int)( hud_truetype_size.value * hudScale + 0.5f ), DEFAULT_WEIGHT, 0 );
+
+		if( !font->ttfont && fontName != DEFAULT_MENUFONT )
+		{
+			Con_Printf( S_WARN "Failed to load hud_truetype font '%s', falling back to '%s'\n", fontName, DEFAULT_MENUFONT );
+			font->ttfont = TTF_Create( DEFAULT_MENUFONT, (int)( hud_truetype_size.value * hudScale + 0.5f ), DEFAULT_WEIGHT, 0 );
+		}
+	}
 }
 
 /*
@@ -903,6 +929,9 @@ void SCR_VidInit( void )
 	}
 
 	CL_ClearSpriteTextures(); // now all hud sprites are invalid
+
+	CL_FreeFont( &cls.creditsFont );
+	SCR_LoadCreditsFont();
 
 	// vid_state has changed
 	if( gameui.hInstance ) gameui.dllFuncs.pfnVidInit();
