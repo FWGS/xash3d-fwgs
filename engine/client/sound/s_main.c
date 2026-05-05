@@ -1948,7 +1948,7 @@ static const sound_api_t gSoundAPI = {
 S_InitSoundAPI
 ================
 */
-static qboolean S_InitSoundAPI( void )
+qboolean S_InitSoundAPI( void )
 {
 	// make sure what sound functions is cleared
 	memset( &clgame.soundFuncs, 0, sizeof( clgame.soundFuncs ));
@@ -1966,6 +1966,9 @@ static qboolean S_InitSoundAPI( void )
 		// make sure what sound functions is cleared
 		memset( &clgame.soundFuncs, 0, sizeof( clgame.soundFuncs ));
 	}
+
+	if( clgame.soundFuncs.pfnS_Init )
+		clgame.soundFuncs.pfnS_Init( &snd );
 
 	return false;
 }
@@ -2030,17 +2033,15 @@ qboolean S_Init( void )
 	S_InitSounds ();
 	VOX_Init ();
 
-	S_InitSoundAPI();
-
-	if( clgame.soundFuncs.pfnS_Init )
-		clgame.soundFuncs.pfnS_Init( &snd );
-
 	return true;
 }
 
-// =======================================================================
-// Shutdown sound engine
-// =======================================================================
+/*
+============
+S_Shutdown
+
+============
+*/
 void S_Shutdown( void )
 {
 	if( !snd.initialized ) return;

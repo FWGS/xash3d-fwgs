@@ -852,13 +852,15 @@ static inline connprotocol_t CL_Protocol( void )
 }
 #endif
 
-static inline qboolean Host_IsLocalGame( void )
+// true in singleplayer only but not specific to local game
+static inline qboolean Host_IsSinglePlayerGame( void )
 {
 	if( SV_Active( ))
 		return SV_GetMaxClients() == 1 ? true : false;
 	return CL_GetMaxClients() == 1 ? true : false;
 }
 
+// true when both server and client running on the same host
 static inline qboolean Host_IsLocalClient( void )
 {
 	return CL_Initialized( ) && SV_Initialized( ) ? true : false;

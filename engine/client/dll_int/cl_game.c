@@ -4132,6 +4132,7 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.dllFuncs.pfnInit();
 
 	CL_InitStudioAPI();
+	S_InitSoundAPI();
 
 	return true;
 }

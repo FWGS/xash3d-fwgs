@@ -188,7 +188,7 @@ void UI_ShowConnectionWarning( void )
 	if( cls.state != ca_connected )
 		return;
 
-	if( Host_IsLocalClient() )
+	if( Host_IsLocalClient( ))
 		return;
 
 	if( ++cl.lostpackets == 8 )

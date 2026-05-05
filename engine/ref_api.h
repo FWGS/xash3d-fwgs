@@ -330,7 +330,7 @@ typedef enum
 	PARM_WATER_LEVEL       = -8, // cl.local.water_level
 	PARM_GET_WORLD_PTR     = -9, // world
 	PARM_LOCAL_HEALTH      = -10, // cl.local.health
-	PARM_LOCAL_GAME        = -11,
+	PARM_SINGLEPLAYER_GAME = -11, // was PARM_LOCAL_GAME
 	PARM_NUMENTITIES       = -12, // local game only
 	PARM_GET_MOVEVARS_PTR  = -13, // clgame.movevars
 	PARM_GET_PALETTE_PTR   = -14, // clgame.palette

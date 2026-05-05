@@ -233,7 +233,7 @@ static int VOX_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan,
 
 static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 {
-	const qboolean local = Host_IsLocalGame();
+	const qboolean local = Host_IsLocalClient();
 	const qboolean ingame = CL_IsInGame();
 	const int num_samples = ( end - snd.paintedtime ) / ( SOUND_DMA_SPEED / rate );
 

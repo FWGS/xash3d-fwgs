@@ -1174,7 +1174,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	else
 	{
 		const char *qport = Cvar_VariableString( "net_qport" );
-		int extensions = Host_IsLocalGame() ? 0 : NET_EXT_SPLITSIZE;
+		int extensions = adrtype == NA_LOOPBACK ? 0 : NET_EXT_SPLITSIZE;
 		string key;
 
 		ID_GetMD5ForAddress( key, adr, sizeof( key ));
@@ -2854,7 +2854,7 @@ static void CL_ReadPackets( void )
 	// hot precache and downloading resources
 	if( cls.signon == SIGNONS && cl.lastresourcecheck < host.realtime )
 	{
-		double checktime = Host_IsLocalGame() ? 0.1 : 1.0;
+		double checktime = Host_IsLocalClient() ? 0.1 : 1.0;
 
 		if( !cls.dl.custom && cl.resourcesneeded.pNext != &cl.resourcesneeded )
 		{
@@ -3723,14 +3723,15 @@ void CL_Init( void )
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 
-	if( !CL_LoadProgs( libpath ))
-		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
-
 	S_Init();	// init sound
 	Voice_Init( VOICE_DEFAULT_CODEC, 3, true ); // init voice (do not open the device)
 
 	ID_Init();
 	SteamBroker_Init();
+
+	// client must be always initialized last so it can fetch all cvars
+	if( !CL_LoadProgs( libpath ))
+		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
 
 	cls.build_num = 0;
 	cls.initialized = true;
