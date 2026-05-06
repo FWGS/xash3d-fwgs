@@ -261,6 +261,11 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 			{
 				// play, playvol
 			}
+			else if( cls.key_dest == key_menu && cl.maxclients > 1 && !FBitSet( ch->flags, FL_CHAN_LOCAL_SOUND ) )
+			{
+				// mute non-local sounds in multiplayer
+				ch->leftvol = ch->rightvol = 0;
+			}
 			else if(( cls.key_dest == key_menu || cl.paused ) && !FBitSet( ch->flags, FL_CHAN_LOCAL_SOUND ) && local )
 			{
 				// play only local sounds, keep pause for other
@@ -285,7 +290,10 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 		// if it's also not looping, free it
 		if( ch->leftvol < 8 && ch->rightvol < 8 )
 		{	
-			if( !FBitSet( sc->flags, SOUND_LOOPED ) || !FBitSet( ch->flags, FL_CHAN_USE_LOOP ))
+			// Don't free channels that are intentionally muted when the menu is open in multiplayer
+			qboolean is_menu_muted = ( cls.key_dest == key_menu && cl.maxclients > 1 && !FBitSet( ch->flags, FL_CHAN_LOCAL_SOUND ));
+			
+			if( !is_menu_muted && ( !FBitSet( sc->flags, SOUND_LOOPED ) || !FBitSet( ch->flags, FL_CHAN_USE_LOOP )))
 			{
 				if( ch->inauduble_free_time == 0.0f )
 					ch->inauduble_free_time = host.realtime + MAX_CHANNEL_INAUDIBLE_TIME;
@@ -293,7 +301,8 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 					S_FreeChannel( ch );
 			}
 
-			continue;
+			if( !is_menu_muted )
+				continue;
 		}
 
 		ch->inauduble_free_time = 0.0f;

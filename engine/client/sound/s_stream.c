@@ -80,6 +80,10 @@ float S_GetMusicVolume( void )
 		scale = 1.0f - scale;
 	}
 
+	// In multiplayer, mute background music when menu is open
+	if( cls.key_dest == key_menu && cl.maxclients > 1 )
+		return 0.0f;
+
 	return s_musicvolume.value * scale;
 }
 
@@ -207,7 +211,8 @@ void S_StreamBackgroundTrack( void )
 	if( !cl.background )
 	{
 		// pause music by source type
-		if( s_bgTrack.source == key_game && cls.key_dest == key_menu ) return;
+		// In multiplayer, allow game-source music to continue muted instead of pausing
+		if( s_bgTrack.source == key_game && cls.key_dest == key_menu && cl.maxclients <= 1 ) return; // pause in singleplayer
 		if( s_bgTrack.source == key_menu && cls.key_dest != key_menu ) return;
 	}
 	else if( cls.key_dest == key_console )
