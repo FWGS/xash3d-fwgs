@@ -233,7 +233,7 @@ static int VOX_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan,
 
 static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 {
-	const qboolean local = Host_IsLocalClient();
+	const qboolean sp = Host_IsSinglePlayerGame();
 	const qboolean ingame = CL_IsInGame();
 	const int num_samples = ( end - snd.paintedtime ) / ( SOUND_DMA_SPEED / rate );
 
@@ -261,7 +261,7 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 			{
 				// play, playvol
 			}
-			else if(( cls.key_dest == key_menu || cl.paused ) && !FBitSet( ch->flags, FL_CHAN_LOCAL_SOUND ) && local )
+			else if(( cls.key_dest == key_menu || cl.paused ) && !FBitSet( ch->flags, FL_CHAN_LOCAL_SOUND ) && sp )
 			{
 				// play only local sounds, keep pause for other
 				continue;
