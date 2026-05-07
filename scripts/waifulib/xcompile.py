@@ -332,8 +332,10 @@ class Android:
 					'-isystem', '%s/usr/include/' % (self.sysroot())
 				]
 
-		cflags += ['-I%s' % (self.system_stl())]
+		# only use provided STL implementations with GCC-based NDKs
+		# newer Clang based do everything we need automatically
 		if not self.is_clang():
+			cflags += ['-I%s' % (self.system_stl())]
 			cflags += ['-DANDROID', '-D__ANDROID__']
 
 		if cxx and not self.is_clang() and self.toolchain not in ['4.8','4.9']:
