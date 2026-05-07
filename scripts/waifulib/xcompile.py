@@ -560,6 +560,8 @@ class PSVita:
 		linkflags = ['-Wl,--hash-style=sysv', '-Wl,-q', '-Wl,-z,nocopyreloc', '-mtune=cortex-a9', '-mfpu=neon']
 		# enforce no-short-enums again
 		linkflags += ['-Wl,-no-enum-size-warning', '-fno-short-enums']
+		# try to avoid the "vita-elf-create: Cannot allocate 20084 bytes for SCE data at end of segment 0; segment 1 overlaps" error
+		linkflags += ['-Wl,-z,max-page-size=0x10000']
 		return linkflags
 
 	def ldflags(self):
