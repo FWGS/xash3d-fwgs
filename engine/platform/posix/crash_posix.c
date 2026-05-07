@@ -23,34 +23,34 @@ GNU General Public License for more details.
 #include "crash.h"
 
 static qboolean have_libbacktrace = false;
+static char crash_message[8192];
 
 static void Sys_Crash( int signal, siginfo_t *si, void *context )
 {
-	char message[8192];
 	int len, logfd, i = 0;
 	qboolean detailed_message = false;
 
 	// safe actions first, stack and memory may be corrupted
-	len = Q_snprintf( message, sizeof( message ), "Ver: " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s-%s, %s-%s)\n",
+	len = Q_snprintf( crash_message, sizeof( crash_message ), "Ver: " XASH_ENGINE_NAME " " XASH_VERSION " (build %i-%s-%s, %s-%s)\n",
 		Q_buildnum(), g_buildcommit, g_buildbranch, Q_buildos(), Q_buildarch() );
 
 #if !XASH_FREEBSD && !XASH_NETBSD && !XASH_OPENBSD && !XASH_APPLE
-	len += Q_snprintf( message + len, sizeof( message ) - len, "Crash: signal %d errno %d with code %d at %p %p\n", signal, si->si_errno, si->si_code, si->si_addr, si->si_ptr );
+	len += Q_snprintf( crash_message + len, sizeof( crash_message ) - len, "Crash: signal %d errno %d with code %d at %p %p\n", signal, si->si_errno, si->si_code, si->si_addr, si->si_ptr );
 #else
-	len += Q_snprintf( message + len, sizeof( message ) - len, "Crash: signal %d errno %d with code %d at %p\n", signal, si->si_errno, si->si_code, si->si_addr );
+	len += Q_snprintf( crash_message + len, sizeof( crash_message ) - len, "Crash: signal %d errno %d with code %d at %p\n", signal, si->si_errno, si->si_code, si->si_addr );
 #endif
 
-	write( STDERR_FILENO, message, len );
+	write( STDERR_FILENO, crash_message, len );
 
 	// now get log fd and write trace directly to log
 	logfd = Sys_LogFileNo();
 	if( logfd >= 0 )
-		write( logfd, message, len );
+		write( logfd, crash_message, len );
 
 #if HAVE_LIBBACKTRACE
 	if( have_libbacktrace && !detailed_message )
 	{
-		len = Sys_CrashDetailsLibbacktrace( logfd, message, len, sizeof( message ));
+		len = Sys_CrashDetailsLibbacktrace( logfd, crash_message, len, sizeof( crash_message ));
 		detailed_message = true;
 	}
 #endif // HAVE_LIBBACKTRACE
@@ -61,7 +61,7 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 	host.status = HOST_CRASHED;
 
 	// put MessageBox as Sys_Error
-	Platform_MessageBox( "Xash Error", message, false );
+	Platform_MessageBox( "Xash Error", crash_message, false );
 
 	// log saved, now we can try to save configs and close log correctly, it may crash
 	if( host.type == HOST_NORMAL )
