@@ -53,7 +53,14 @@ class GameLibDownloader(private val context: Context) {
 		val modKey: String,
 		val platformArch: String,
 		val filename: String,
-		val sha256: String
+		val sha256: String,
+		val sourceJson: String?
+	)
+
+	data class SourceInfo(
+		val url: String?,
+		val branch: String?,
+		val commit: String?
 	)
 
 	private fun manifestCacheFile(): File = File(context.cacheDir, "hlsdk-manifest.json")
@@ -140,8 +147,26 @@ class GameLibDownloader(private val context: Context) {
 		if (filename.isEmpty() || sha256.isEmpty())
 			return null
 
-		return ManifestEntry(modKey, platformArch, filename, sha256.lowercase())
+		val sourceJson = build.optJSONObject("source")?.toString()
+		return ManifestEntry(modKey, platformArch, filename, sha256.lowercase(), sourceJson)
 	}
+
+	fun getSourceInfo(gamedir: String): SourceInfo? {
+		val raw = prefs.getString("${gamedir}_source", null) ?: return null
+		return try {
+			val o = JSONObject(raw)
+			SourceInfo(
+				url = o.optString("url").ifEmpty { null },
+				branch = o.optString("branch").ifEmpty { null },
+				commit = o.optString("commit").ifEmpty { null },
+			)
+		} catch (_: Exception) {
+			null
+		}
+	}
+
+	fun getDownloadTime(gamedir: String): Long =
+		prefs.getLong("${gamedir}_download_time", 0L)
 
 	sealed class Lookup {
 		data class Available(val entry: ManifestEntry) : Lookup()
@@ -282,6 +307,7 @@ class GameLibDownloader(private val context: Context) {
 				prefs.edit()
 					.putString("${gamedir}_sha256", entry.sha256)
 					.putString("${gamedir}_filename", entry.filename)
+					.putString("${gamedir}_source", entry.sourceJson)
 					.putLong("${gamedir}_download_time", System.currentTimeMillis())
 					.apply()
 
