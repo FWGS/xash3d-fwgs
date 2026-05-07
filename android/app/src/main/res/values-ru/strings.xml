@@ -23,4 +23,11 @@
 	<string name="game_apk_required">Требуется APK с игровыми библиотеками</string>
 	<string name="game_apk_message">Чтобы запустить эту игру, нужно установить дополнительный APK</string>
 	<string name="game_apk_install">Скачать</string>
+	<string name="crash_dialog_title">Xash3D FWGS аварийно завершился в прошлый раз</string>
+	<string name="crash_send_to_developers">Отправить разработчикам</string>
+	<string name="crash_share">Поделиться</string>
+	<string name="crash_dismiss">Закрыть</string>
+	<string name="crash_logs">Журналы сбоев</string>
+	<string name="crash_logs_empty">Нет сохранённых журналов сбоев</string>
+	<string name="crash_log_delete">Удалить</string>
 </resources>

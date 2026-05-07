@@ -15,6 +15,7 @@ import org.libsdl.app.SDLActivity;
 
 import su.xash.engine.util.AndroidBug5497Workaround;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
@@ -123,6 +124,10 @@ public class XashActivity extends SDLActivity {
 	// TODO: REMOVE LATER, temporary launchers support?
 	@Override
 	protected String[] getArguments() {
+		File crashDir = new File(getFilesDir(), "crashes");
+		crashDir.mkdirs();
+		nativeSetenv("XASH3D_CRASH_DIR", crashDir.getAbsolutePath());
+
 		String gamedir = getIntent().getStringExtra("gamedir");
 		if (gamedir == null) gamedir = "valve";
 		nativeSetenv("XASH3D_GAME", gamedir);

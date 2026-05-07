@@ -24,4 +24,12 @@
 	<string name="game_apk_required">Game code APK required</string>
 	<string name="game_apk_message">To launch this game, you need additional APK installed</string>
 	<string name="game_apk_install">Download</string>
+	<string name="crash_dialog_title">Xash3D FWGS crashed last time</string>
+	<string name="crash_send_to_developers">Send to developers</string>
+	<string name="crash_share">Share</string>
+	<string name="crash_dismiss">Dismiss</string>
+	<string name="crash_logs">Crash logs</string>
+	<string name="crash_logs_empty">No crash logs recorded</string>
+	<string name="crash_log_delete">Delete</string>
+	<string name="crash_email_subject" translatable="false">Xash3D FWGS crash report</string>
 </resources>

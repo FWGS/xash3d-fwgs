@@ -11,4 +11,8 @@
 		app:key="use_icons"
 		app:layout="@layout/switch_preference"
 		app:title="@string/preferences_use_icons" />
+
+	<Preference
+		app:key="crash_logs"
+		app:title="@string/crash_logs" />
 </PreferenceScreen>
