@@ -42,4 +42,8 @@
 	<string name="manifest_error_title">Не удалось связаться с сервером игровых библиотек</string>
 	<string name="manifest_error_message">Не удалось загрузить манифест сборок:\n\n%1$s\n\nИгровые библиотеки сейчас недоступны для загрузки. Можно запустить движок и без них, но он, скорее всего, не найдёт игровые DLL.</string>
 	<string name="launch_anyway">Запустить всё равно</string>
+	<string name="source_repo">Репозиторий исходников</string>
+	<string name="source_branch">Ветка</string>
+	<string name="source_commit">Коммит</string>
+	<string name="downloaded_at">Загружено</string>
 </resources>
