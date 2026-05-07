@@ -1009,9 +1009,6 @@ static qboolean Mod_SwapStudioModel( const char *name, void *buffer, size_t buff
 	if( phdr->ident != IDSTUDIOHEADER || phdr->version != STUDIO_VERSION )
 		return false;
 
-
-
-
 #if XASH_BIG_ENDIAN
 	if( phdr->studiohdr2index > 0 && phdr->studiohdr2index < phdr->length )
 	{

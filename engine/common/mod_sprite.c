@@ -51,20 +51,23 @@ le_struct_end();
 
 static byte *Mod_SwapSpriteFrame( byte *p, byte *end, int bytes )
 {
-	dspriteframe_t *frame;
+	dspriteframe_t frame;
 
-	if( p + sizeof( *frame ) > end )
+	if( p + sizeof( frame ) > end )
 		return NULL;
 
-	frame = (dspriteframe_t *)p;
-	le_struct_swap( dspriteframe_swap, frame );
-	p += sizeof( *frame );
+	memcpy( &frame, p, sizeof( frame ));
+	le_struct_swap( dspriteframe_swap, &frame );
+#if XASH_BIG_ENDIAN
+	memcpy( p, &frame, sizeof( frame ));
+#endif
+	p += sizeof( frame );
 
 	// skip pixel data
-	if( p + frame->width * frame->height * bytes > end )
+	if( p + frame.width * frame.height * bytes > end )
 		return NULL;
 
-	p += frame->width * frame->height * bytes;
+	p += frame.width * frame.height * bytes;
 	return p;
 }
 
