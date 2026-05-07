@@ -6,14 +6,19 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.view.LayoutInflater
+import android.widget.TextView
 import androidx.core.net.toUri
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.progressindicator.LinearProgressIndicator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import su.xash.engine.R
 import su.xash.engine.XashActivity
 import java.io.File
 import java.io.FileInputStream
-import java.util.Arrays
-import android.util.Log
 
 class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 	private var iconName = "game.ico"
@@ -52,7 +57,7 @@ class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 	fun startEngine(ctx: Context) {
 		val packageNames = getPackageNamesForGameDir(basedir.name)
 		var externalGame = false
-		var commandLineArgs = "";
+		var commandLineArgs = ""
 
 		if (basedir.name != defaultGameDir)
 			commandLineArgs += "-game ${basedir.name} "
@@ -68,17 +73,18 @@ class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 			}
 		}
 
-		commandLineArgs += pref.getString("arguments", "-console -log")
+		commandLineArgs += pref.getString("arguments", "-console -log") ?: ""
 
-		var packageName: String? = null
-		var gameLibDir: String? = null
 		if (externalGame && packageNames != null) {
+			var packageName: String? = null
+			var gameLibDir: String? = null
+
 			for (pn in packageNames) {
 				gameLibDir = try {
 					getGameLibDir(ctx, pn)
-				} catch(e: PackageManager.NameNotFoundException) {
+				} catch (e: PackageManager.NameNotFoundException) {
 					null
-				} catch(e: Exception) {
+				} catch (e: Exception) {
 					e.printStackTrace()
 					null
 				}
@@ -99,12 +105,95 @@ class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 						ctx.startActivity(intent)
 					}
 					show()
-
-					return
 				}
+				return
+			}
+
+			launchEngine(ctx, commandLineArgs, packageName = packageName, gameLibDir = gameLibDir)
+			return
+		}
+
+		if (packageNames == null) {
+			// Unknown game — try to use downloaded libraries from hlsdk-mega-build
+			val downloader = GameLibDownloader(ctx)
+			val args = commandLineArgs
+
+			if (downloader.isDownloaded(basedir.name)) {
+				downloader.logExistingLibs(basedir.name)
+				launchEngine(ctx, args)
+				return
+			}
+
+			val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+			scope.launch {
+				when (val r = downloader.lookupBuild(basedir.name)) {
+					is GameLibDownloader.Lookup.Available -> showDownloadDialog(ctx, downloader, args)
+					is GameLibDownloader.Lookup.NotInManifest -> launchEngine(ctx, args)
+					is GameLibDownloader.Lookup.Error -> showManifestErrorDialog(ctx, args, r.cause)
+				}
+			}
+			return
+		}
+
+		launchEngine(ctx, commandLineArgs)
+	}
+
+	private fun showDownloadDialog(ctx: Context, downloader: GameLibDownloader, commandLineArgs: String) {
+		val view = LayoutInflater.from(ctx).inflate(R.layout.dialog_download_progress, null)
+		val progressBar = view.findViewById<LinearProgressIndicator>(R.id.downloadProgress)
+		val statusText = view.findViewById<TextView>(R.id.downloadStatus)
+
+		val dialog = MaterialAlertDialogBuilder(ctx)
+			.setTitle(R.string.downloading_game_libs)
+			.setView(view)
+			.setCancelable(true)
+			.setNegativeButton(android.R.string.cancel) { d, _ -> d.dismiss() }
+			.create()
+
+		dialog.show()
+
+		val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+		val job = scope.launch {
+			val result = downloader.download(basedir.name) { progress ->
+				progressBar.isIndeterminate = false
+				progressBar.progress = (progress * 100).toInt()
+				statusText.text = ctx.getString(R.string.download_progress, (progress * 100).toInt())
+			}
+
+			if (!dialog.isShowing) return@launch
+
+			dialog.dismiss()
+
+			if (result.isSuccess) {
+				launchEngine(ctx, commandLineArgs)
+			} else {
+				MaterialAlertDialogBuilder(ctx)
+					.setTitle(R.string.download_failed)
+					.setMessage(result.exceptionOrNull()?.message
+						?: ctx.getString(R.string.download_error))
+					.setPositiveButton(android.R.string.ok, null)
+					.show()
 			}
 		}
 
+		dialog.setOnDismissListener { job.cancel() }
+	}
+
+	private fun showManifestErrorDialog(ctx: Context, commandLineArgs: String, cause: Throwable) {
+		MaterialAlertDialogBuilder(ctx)
+			.setTitle(R.string.manifest_error_title)
+			.setMessage(ctx.getString(R.string.manifest_error_message, cause.message ?: cause.javaClass.simpleName))
+			.setPositiveButton(R.string.launch_anyway) { _, _ -> launchEngine(ctx, commandLineArgs) }
+			.setNegativeButton(android.R.string.cancel, null)
+			.show()
+	}
+
+	private fun launchEngine(
+		ctx: Context,
+		commandLineArgs: String,
+		packageName: String? = null,
+		gameLibDir: String? = null
+	) {
 		ctx.startActivity(Intent(ctx, XashActivity::class.java).apply {
 			flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
 
@@ -113,13 +202,8 @@ class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 			putExtra("usevolume", pref.getBoolean("use_volume_buttons", false))
 			putExtra("basedir", basedir.parent)
 
-			if (gameLibDir != null) {
-				putExtra("gamelibdir", gameLibDir)
-			}
-
-			if (packageName != null) {
-				putExtra("package", packageName)
-			}
+			if (gameLibDir != null) putExtra("gamelibdir", gameLibDir)
+			if (packageName != null) putExtra("package", packageName)
 		})
 	}
 
@@ -152,9 +236,6 @@ class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 		if (mobileHacksGames.any { it.equals(gamedir, ignoreCase = true) })
 			return arrayOf("su.xash.engine")
 
-        // return if (mDbEntry != null) {
-        //    mDbEntry.getPackageName()
-        // } else null
 		return null
 	}
 

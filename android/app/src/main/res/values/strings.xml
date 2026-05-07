@@ -32,4 +32,16 @@
 	<string name="crash_logs_empty">No crash logs recorded</string>
 	<string name="crash_log_delete">Delete</string>
 	<string name="crash_email_subject" translatable="false">Xash3D FWGS crash report</string>
+	<string name="downloading_game_libs">Downloading Game Libraries</string>
+	<string name="downloading">Downloading…</string>
+	<string name="download_progress">Downloading… %1$d%%</string>
+	<string name="download_failed">Download Failed</string>
+	<string name="download_error">An error occurred while downloading game libraries.</string>
+	<string name="update_available">Update Available</string>
+	<string name="update_available_message">A newer version of the game libraries is available. Download the update?</string>
+	<string name="update_download">Update</string>
+	<string name="update_skip">Skip</string>
+	<string name="manifest_error_title">Cannot reach game library server</string>
+	<string name="manifest_error_message">Failed to download the build manifest:\n\n%1$s\n\nGame libraries cannot be downloaded right now. You can launch the engine anyway, but it likely won\'t find the game DLLs.</string>
+	<string name="launch_anyway">Launch anyway</string>
 </resources>
