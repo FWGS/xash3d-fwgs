@@ -106,7 +106,17 @@ void Sys_InitLog( void )
 	// create log if needed
 	if( s_ld.log_active )
 	{
-		s_ld.logfile = fopen( s_ld.log_path, mode );
+		const char *basedir = getenv( "XASH3D_BASEDIR" );
+
+		if( !COM_StringEmptyOrNULL( basedir ) && s_ld.log_path[0] != '/' )
+		{
+			char fullpath[MAX_SYSPATH];
+			Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", basedir, s_ld.log_path );
+			s_ld.logfile = fopen( fullpath, mode );
+		}
+
+		if( !s_ld.logfile )
+			s_ld.logfile = fopen( s_ld.log_path, mode );
 
 		if ( !s_ld.logfile )
 		{
