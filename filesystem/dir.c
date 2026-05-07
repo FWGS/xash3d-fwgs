@@ -292,8 +292,6 @@ static inline qboolean FS_AppendToPath( char *dst, size_t *pi, const size_t len,
 
 qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t len, qboolean createpath )
 {
-	const char *prev;
-	const char *next;
 	size_t i = 0;
 
 	if( !FS_AppendToPath( dst, &i, len, dir->name, path, "init" ))
@@ -303,7 +301,19 @@ qboolean FS_FixFileCase( dir_t *dir, const char *path, char *dst, const size_t l
 	if( COM_StringEmpty( path ))
 		return true;
 
-	for( prev = path, next = Q_strchrnul( prev, '/' );
+	// we can't and shouldn't track parent directories to not track the whole filesystem
+	// exit early for this case
+	// FIXME: track the path to catch other cases
+	if( !Q_strncmp( path, "..", 2 ) && ( path[2] == '\0' || path[2] == '/' ))
+	{
+		if( !FS_AppendToPath( dst, &i, len, path, path, "escape to parent directory" ))
+			return false;
+
+		// check file existense
+		return createpath ? true : FS_SysFileOrFolderExists( dst );
+	}
+
+	for( const char *prev = path, *next = Q_strchrnul( prev, '/' );
 		  ;
 		  prev = next + 1, next = Q_strchrnul( prev, '/' ))
 	{

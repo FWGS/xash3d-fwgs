@@ -101,6 +101,13 @@ static int HTTP_FileResolveNS( httpfile_t *file );
 static int HTTP_FileSendRequest( httpfile_t *file );
 static int HTTP_FileDecompress( httpfile_t *file );
 
+static const char *HTTP_DownloadPath( char *buf, size_t buflen, const char *path, qboolean incomplete )
+{
+	Q_snprintf( buf, buflen, "../%s" DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX "/%s%s",
+		GI->gamefolder, path, incomplete ? ".incomplete" : "" );
+	return buf;
+}
+
 /*
 ==============
 HTTP_FreeFile
@@ -110,7 +117,7 @@ Skip to next server/file
 */
 static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 {
-	char incname[MAX_SYSPATH + 64]; // plus downloaded/ plus .incomplete
+	char incname[MAX_SYSPATH + 64]; // plus ../{gamedir}_downloads/ plus .incomplete
 	qboolean was_open = false;
 
 	file->blocktime = 0;
@@ -132,7 +139,7 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 
 	file->socket = -1;
 
-	Q_snprintf( incname, sizeof( incname ), DEFAULT_DOWNLOADED_DIRECTORY "%s.incomplete", file->path );
+	HTTP_DownloadPath( incname, sizeof( incname ), file->path, true );
 
 	if( error )
 	{
@@ -149,7 +156,9 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		if( http_autoremove.value == 1 ) // remove broken file
 		{
 			Con_Printf( S_ERROR "no servers to download %s\n", file->path );
+			FS_AllowDirectPaths( true );
 			FS_Delete( incname );
+			FS_AllowDirectPaths( false );
 		}
 		else // autoremove disabled, keep file
 		{
@@ -161,14 +170,18 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 	{
 		if( file->compressed )
 		{
+			FS_AllowDirectPaths( true );
 			FS_Delete( incname );
+			FS_AllowDirectPaths( false );
 		}
 		else
 		{
 			// Success, rename and process file
 			char name[MAX_SYSPATH];
-			Q_snprintf( name, sizeof( name ), DEFAULT_DOWNLOADED_DIRECTORY "%s", file->path );
+			HTTP_DownloadPath( name, sizeof( name ), file->path, false );
+			FS_AllowDirectPaths( true );
 			FS_Rename( incname, name );
+			FS_AllowDirectPaths( false );
 		}
 	}
 
@@ -195,9 +208,13 @@ static int HTTP_FileQueue( httpfile_t *file )
 	}
 
 	Con_Reportf( "HTTP: Starting download %s from %s:%d\n", file->path, file->server->host, file->server->port );
-	Q_snprintf( name, sizeof( name ), DEFAULT_DOWNLOADED_DIRECTORY "%s.incomplete", file->path );
+	HTTP_DownloadPath( name, sizeof( name ), file->path, true );
 
-	if( !( file->file = FS_Open( name, "wb+", true )))
+	FS_AllowDirectPaths( true );
+	file->file = FS_Open( name, "wb+", true );
+	FS_AllowDirectPaths( false );
+
+	if( !file->file )
 	{
 		Con_Printf( S_ERROR "HTTP: cannot open %s!\n", name );
 		HTTP_FreeFile( file, true );
@@ -458,7 +475,7 @@ static int HTTP_FileDecompress( httpfile_t *file )
 	data_in = Mem_Malloc( host.mempool, compressed_len + 1 );
 	data_out = Mem_Malloc( host.mempool, decompressed_len + 1 );
 
-	Q_snprintf( name, sizeof( name ), DEFAULT_DOWNLOADED_DIRECTORY "%s", file->path );
+	HTTP_DownloadPath( name, sizeof( name ), file->path, false );
 
 	memset( &decompress_stream, 0, sizeof( decompress_stream ));
 	decompress_stream.total_in = decompress_stream.avail_in = compressed_len;
@@ -483,7 +500,9 @@ static int HTTP_FileDecompress( httpfile_t *file )
 
 	if( zlib_result == Z_OK || zlib_result == Z_STREAM_END )
 	{
+		FS_AllowDirectPaths( true );
 		g_fsapi.WriteFile( name, data_out, decompressed_len );
+		FS_AllowDirectPaths( false );
 		HTTP_FreeFile( file, false );
 	}
 	else HTTP_FreeFile( file, true );
