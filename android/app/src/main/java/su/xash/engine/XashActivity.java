@@ -135,6 +135,14 @@ public class XashActivity extends SDLActivity {
 		String gamelibdir = getIntent().getStringExtra("gamelibdir");
 		if (gamelibdir != null) nativeSetenv("XASH3D_GAMELIBDIR", gamelibdir);
 
+		String rodir = System.getenv("XASH3D_RODIR");
+		if (rodir == null) {
+			// FIXME: we are using rodir as a supplier for downloaded game libraries
+			rodir = getFilesDir().getAbsolutePath() + "/gamelibs";
+			nativeSetenv("XASH3D_RODIR", rodir);
+		}
+		Log.i(TAG, "XASH3D_RODIR = " + rodir);
+
 		String pakfile = getIntent().getStringExtra("pakfile");
 		if (pakfile != null) nativeSetenv("XASH3D_EXTRAS_PAK2", pakfile);
 

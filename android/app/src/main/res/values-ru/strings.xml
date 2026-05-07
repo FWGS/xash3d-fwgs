@@ -30,4 +30,16 @@
 	<string name="crash_logs">Журналы сбоев</string>
 	<string name="crash_logs_empty">Нет сохранённых журналов сбоев</string>
 	<string name="crash_log_delete">Удалить</string>
+	<string name="downloading_game_libs">Загрузка игровых библиотек</string>
+	<string name="downloading">Загрузка…</string>
+	<string name="download_progress">Загрузка… %1$d%%</string>
+	<string name="download_failed">Ошибка загрузки</string>
+	<string name="download_error">Произошла ошибка при загрузке игровых библиотек.</string>
+	<string name="update_available">Доступно обновление</string>
+	<string name="update_available_message">Доступна более новая версия игровых библиотек. Загрузить обновление?</string>
+	<string name="update_download">Обновить</string>
+	<string name="update_skip">Пропустить</string>
+	<string name="manifest_error_title">Не удалось связаться с сервером игровых библиотек</string>
+	<string name="manifest_error_message">Не удалось загрузить манифест сборок:\n\n%1$s\n\nИгровые библиотеки сейчас недоступны для загрузки. Можно запустить движок и без них, но он, скорее всего, не найдёт игровые DLL.</string>
+	<string name="launch_anyway">Запустить всё равно</string>
 </resources>
