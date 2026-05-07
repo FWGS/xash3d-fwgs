@@ -910,9 +910,7 @@ static qboolean Host_CollectX86Libraries( ECommonLibraryType lib_type,
 
 static void Host_CheckGameLibraries( void )
 {
-// on Android, game libraries are loaded from APKs and are invisible to FS_FileExists,
-// so the check cannot work there; iOS is handled via Platform_LibraryExists -> IOS_LibraryExists
-#if !defined( XASH_INTERNAL_GAMELIBS ) && !XASH_ANDROID
+#if !defined( XASH_INTERNAL_GAMELIBS )
 	struct
 	{
 		const char *name;
@@ -935,6 +933,11 @@ static void Host_CheckGameLibraries( void )
 		// if the user explicitly set a library path, trust them and skip the check
 		if( !COM_StringEmpty( libs[i].override ))
 			continue;
+
+#if XASH_ANDROID
+		if( libs[i].type == LIBRARY_CLIENT )
+			continue;
+#endif
 
 		if( libs[i].type == LIBRARY_SERVER )
 		{
