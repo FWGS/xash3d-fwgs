@@ -1126,6 +1126,24 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 
 	MSG_Init( msg, "NetMessage", net_message_buffer, sizeof( net_message_buffer ));
 
+	// Validate total assembled size before writing to prevent overflow
+	{
+		size_t totalSize = 0;
+		fragbuf_t *check = p;
+		while( check )
+		{
+			totalSize += MSG_GetNumBytesWritten( &check->frag_message );
+			if( totalSize > sizeof( net_message_buffer ))
+			{
+				Con_Printf( S_ERROR "Netchan_CopyNormalFragments: assembled fragments exceed buffer (%zu bytes) from %s, dropping\n",
+					totalSize, NET_AdrToString( chan->remote_address ));
+				Netchan_FlushIncoming( chan, FRAG_NORMAL_STREAM );
+				return false;
+			}
+			check = check->next;
+		}
+	}
+
 	while( p )
 	{
 		n = p->next;
@@ -1944,6 +1962,25 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 
 					size = MSG_GetNumBitsRead( msg ) + frag_offset[i];
 					bits = frag_length[i];
+
+					// Validate fragment size to prevent heap/stack overflow
+					// A crafted packet with oversized frag_length corrupts memory
+					if( bits <= 0 || bits > (int)( NET_MAX_FRAGMENT << 3 ))
+					{
+						Con_Printf( S_ERROR "Netchan_Process: invalid fragment size %d bits from %s, dropping\n",
+							bits, NET_AdrToString( chan->remote_address ));
+						Netchan_FlushIncoming( chan, i );
+						return false;
+					}
+
+					// Also validate that the read offset + length doesn't exceed the message
+					if( size < 0 || ( size + bits ) > (int)( MSG_GetMaxBytes( msg ) << 3 ))
+					{
+						Con_Printf( S_ERROR "Netchan_Process: fragment read out of bounds from %s, dropping\n",
+							NET_AdrToString( chan->remote_address ));
+						Netchan_FlushIncoming( chan, i );
+						return false;
+					}
 
 					// copy in data
 					MSG_Clear( &pbuf->frag_message );
