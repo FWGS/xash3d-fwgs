@@ -81,8 +81,9 @@ typedef struct fs_archive_s
 	const char *ext;
 	int type;
 	FS_ADDARCHIVE_FULLPATH pfnAddArchive_Fullpath;
-	qboolean load_wads; // load wads from this archive
-	qboolean real_archive;
+	qboolean load_wads;    // load wads from this archive
+	qboolean real_archive; // not a simulated archive like pk3dir
+	qboolean allow_exec;   // only PAK are allowed to carry executables
 } fs_archive_t;
 
 // add archives in specific order PAK -> PK3 -> WAD
@@ -95,6 +96,7 @@ static const fs_archive_t g_archives[] =
 		.pfnAddArchive_Fullpath = FS_AddPak_Fullpath,
 		.load_wads = true,
 		.real_archive = true,
+		.allow_exec = true,
 	}, {
 		.ext = "pk3",
 		.type = SEARCHPATH_ZIP,
@@ -106,12 +108,10 @@ static const fs_archive_t g_archives[] =
 		.type = SEARCHPATH_PK3DIR,
 		.pfnAddArchive_Fullpath = FS_AddDir_Fullpath,
 		.load_wads = true,
-		.real_archive = false,
 	}, {
 		.ext = "wad",
 		.type = SEARCHPATH_WAD,
 		.pfnAddArchive_Fullpath = FS_AddWad_Fullpath,
-		.load_wads = false,
 		.real_archive = true,
 	},
 };
@@ -121,6 +121,7 @@ static const fs_archive_t g_directory_archive =
 {
 	.type = SEARCHPATH_PLAIN,
 	.pfnAddArchive_Fullpath = FS_AddDir_Fullpath,
+	.allow_exec = true,
 };
 
 #if XASH_ANDROID
@@ -411,6 +412,14 @@ static searchpath_t *FS_AddArchive_Fullpath( const fs_archive_t *archive, const 
 			return search; // already loaded
 	}
 
+	// remove exec flag from archives
+	if( !archive->allow_exec )
+		ClearBits( flags, FS_EXEC_PATH );
+
+	// speed up lookups, can't modify archives anyway
+	if( archive->real_archive )
+		SetBits( flags, FS_NOWRITE_PATH );
+
 	search = archive->pfnAddArchive_Fullpath( file, flags );
 
 	if( !search )
@@ -428,6 +437,10 @@ static searchpath_t *FS_AddArchive_Fullpath( const fs_archive_t *archive, const 
 		stringlistinit( &list );
 		search->pfnSearch( search, &list, "*.wad", true );
 		stringlistsort( &list ); // keep always sorted
+
+		// wad files can't have executables
+		ClearBits( flags, FS_EXEC_PATH );
+		SetBits( flags, FS_NOWRITE_PATH );
 
 		for( i = 0; i < list.numstrings; i++ )
 		{
@@ -1788,19 +1801,21 @@ void FS_Path_f( void )
 
 	for( s = fs_searchpaths; s; s = s->next )
 	{
+		string fl;
 		string info;
 
-		s->pfnPrintInfo( s, info, sizeof(info) );
+		s->pfnPrintInfo( s, info, sizeof( info ));
 
-		Con_Printf( "%s", info );
+		fl[0] = 0;
+		Q_strncat( fl, FBitSet( s->flags, FS_GAMERODIR_PATH ) ? "^1R" : "^7-", sizeof( fl ));
+		Q_strncat( fl, FBitSet( s->flags, FS_NOWRITE_PATH )   ? "^7-" : "^2W", sizeof( fl ));
+		Q_strncat( fl, FBitSet( s->flags, FS_EXEC_PATH )      ? "^3X" : "^7-", sizeof( fl ));
+		Q_strncat( fl, FBitSet( s->flags, FS_GAMEDIR_PATH )   ? "^4G" : "^7-", sizeof( fl ));
+		Q_strncat( fl, FBitSet( s->flags, FS_CUSTOM_PATH )    ? "^5C" : "^7-", sizeof( fl ));
+		Q_strncat( fl, FBitSet( s->flags, FS_STATIC_PATH )    ? "^6S" : "^7-", sizeof( fl ));
+		Q_strncat( fl, "^7", sizeof( fl ));
 
-		if( s->flags & FS_GAMERODIR_PATH ) Con_Printf( " ^2rodir^7" );
-		if( s->flags & FS_GAMEDIR_PATH ) Con_Printf( " ^2gamedir^7" );
-		if( s->flags & FS_CUSTOM_PATH ) Con_Printf( " ^2custom^7" );
-		if( s->flags & FS_NOWRITE_PATH ) Con_Printf( " ^2nowrite^7" );
-		if( s->flags & FS_STATIC_PATH ) Con_Printf( " ^2static^7" );
-
-		Con_Printf( "\n" );
+		Con_Printf( "%s\t%s\n", fl, info );
 	}
 }
 
