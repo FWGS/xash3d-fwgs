@@ -31,8 +31,8 @@ extern "C"
 {
 #endif // __cplusplus
 
-#define FS_API_VERSION 4 // not stable yet!
-#define FS_API_CREATEINTERFACE_TAG   "XashFileSystem004" // follow FS_API_VERSION!!!
+#define FS_API_VERSION 5 // not stable yet!
+#define FS_API_CREATEINTERFACE_TAG   "XashFileSystem005" // follow FS_API_VERSION!!!
 #define FILESYSTEM_INTERFACE_VERSION "VFileSystem009" // never change this!
 
 // search path flags
@@ -43,14 +43,17 @@ enum
 	FS_GAMEDIR_PATH   = BIT( 2 ), // just a marker for gamedir path
 	FS_CUSTOM_PATH    = BIT( 3 ), // gamedir but with custom/mod data
 	FS_GAMERODIR_PATH = BIT( 4 ), // gamedir but read-only
+	FS_EXEC_PATH      = BIT( 5 ), // this directory is allowed to have executable code
 
-	FS_SKIP_ARCHIVED_WADS = BIT( 5 ), // don't mount wads inside archives automatically
-	FS_LOAD_PACKED_WAD = BIT( 6 ), // this wad is packed inside other archive
+	FS_SKIP_ARCHIVED_WADS = BIT( 16 ), // don't mount wads inside archives automatically
+	FS_LOAD_PACKED_WAD    = BIT( 17 ), // this wad is packed inside other archive
 
-	FS_MOUNT_HD    = BIT( 7 ), // mount high definition content folder
-	FS_MOUNT_LV    = BIT( 8 ), // mount low violence content folder
-	FS_MOUNT_ADDON = BIT( 9 ), // mount addon folder
-	FS_MOUNT_L10N  = BIT( 10 ), // mount localization folder
+	FS_MOUNT_HD    = BIT( 24 ), // mount high definition content folder
+	FS_MOUNT_LV    = BIT( 25 ), // mount low violence content folder
+	FS_MOUNT_ADDON = BIT( 26 ), // mount addon folder
+	FS_MOUNT_L10N  = BIT( 27 ), // mount localization folder
+
+	FS_MOUNT_FLAGS = FS_MOUNT_HD | FS_MOUNT_LV | FS_MOUNT_ADDON | FS_MOUNT_L10N,
 
 	FS_GAMEDIRONLY_SEARCH_FLAGS = FS_GAMEDIR_PATH | FS_CUSTOM_PATH | FS_GAMERODIR_PATH
 };
