@@ -344,6 +344,18 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 		}
 	}
 
+	// silence known-broken WAVs that contain stray non-zero samples masquerading as silence
+	if( Q_stristr( name, "null.wav" ))
+	{
+		uint32_t crc;
+		CRC32_Init( &crc );
+		CRC32_ProcessBuffer( &crc, buffer, filesize );
+		crc = CRC32_Final( crc );
+
+		if( crc == 0x14a36f29 ) // common/null.wav (Half-Life)
+			memset( sound.wav, 0, sound.size );
+	}
+
 	return true;
 }
 
