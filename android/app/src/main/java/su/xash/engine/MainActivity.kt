@@ -43,26 +43,36 @@ class MainActivity : AppCompatActivity() {
 	}
 
 	private fun showPendingCrashReport() {
-		val pending = CrashReports.pendingFile(this)
+		val pending = CrashReports.pendingStacktrace(this)
 		if (!pending.exists() || pending.length() == 0L)
 			return
 
 		val historyDir = CrashReports.historyDir(this).apply { mkdirs() }
 		val ts = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-		val archived = File(historyDir, "crash-$ts.log")
-		if (!pending.renameTo(archived)) {
-			// fall back to in-place read if move failed; still consume the file
-			archived.writeText(pending.readText())
-			pending.delete()
-		}
+		val entryDir = File(historyDir, "crash-$ts").apply { mkdirs() }
 
-		val content = archived.readText()
+		moveOrCopy(pending, File(entryDir, CrashReports.STACKTRACE_NAME))
+		moveOrCopy(CrashReports.pendingSysinfo(this), File(entryDir, CrashReports.SYSINFO_NAME))
+		moveOrCopy(CrashReports.pendingIntent(this), File(entryDir, CrashReports.INTENT_NAME))
+
+		val entry = CrashReports.Entry(entryDir)
 		AlertDialog.Builder(this)
 			.setTitle(R.string.crash_dialog_title)
-			.setView(CrashReports.buildContentView(this, content))
-			.setPositiveButton(R.string.crash_send_to_developers) { _, _ -> CrashReports.sendByEmail(this, content) }
-			.setNeutralButton(R.string.crash_share) { _, _ -> CrashReports.share(this, archived) }
+			.setView(CrashReports.buildContentView(this, entry.summary()))
+			.setPositiveButton(R.string.crash_send_to_developers) { _, _ -> CrashReports.sendByEmail(this, entry) }
+			.setNeutralButton(R.string.crash_share) { _, _ -> CrashReports.share(this, entry) }
 			.setNegativeButton(R.string.crash_dismiss, null)
 			.show()
+	}
+
+	private fun moveOrCopy(src: File, dst: File) {
+		if (!src.exists())
+			return
+
+		if (src.renameTo(dst))
+			return
+
+		dst.writeText(src.readText())
+		src.delete()
 	}
 }
