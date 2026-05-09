@@ -215,13 +215,15 @@ void CTrueTypeFont::UploadGlyphsForRanges(charRange_t *range, int rangeSize)
 				}
 			}
 
-			// move xstart
-			xstart += drawSize.w;
+		// move xstart
+		xstart += drawSize.w + 1;
 
 			glyph_t glyph;
 			glyph.ch = ch;
 			glyph.rect = rect;
 			glyph.texture = 0; // will be acquired later
+			glyph.offX = m_iBlur + m_iOutlineSize;
+			glyph.offY = m_iBlur + m_iOutlineSize;
 
 			m_glyphs.Insert( glyph );
 		}
@@ -414,9 +416,9 @@ void CTrueTypeFont::ApplyOutline(Point pt, Size rgbaSz, byte *rgba)
 	uint *tmp = new uint[rgbaSz.w * rgbaSz.h]; // matrix where we accumulate alpha values
 	memset( tmp, 0, sizeof( *tmp ) * rgbaSz.w * rgbaSz.h );
 
-	for( int y = pt.x; y < rgbaSz.h; y++ )
+	for( int y = pt.y; y < rgbaSz.h; y++ )
 	{
-		for( int x = pt.y; x < rgbaSz.w; x++ )
+		for( int x = pt.x; x < rgbaSz.w; x++ )
 		{
 			byte *src = &rgba[(x + (y * rgbaSz.w)) * 4];
 
@@ -436,11 +438,11 @@ void CTrueTypeFont::ApplyOutline(Point pt, Size rgbaSz, byte *rgba)
 	}
 
 	// find total amount of adjacent pixels
-	int total = m_iOutlineSize * 4 + m_iOutlineSize * m_iOutlineSize * 4;
+	int total = ( m_iOutlineSize * 2 + 1 ) * ( m_iOutlineSize * 2 + 1 );
 
-	for( int y = pt.x; y < rgbaSz.h; y++ )
+	for( int y = pt.y; y < rgbaSz.h; y++ )
 	{
-		for( int x = pt.y; x < rgbaSz.w; x++ )
+		for( int x = pt.x; x < rgbaSz.w; x++ )
 		{
 			byte *src = &rgba[(x + (y * rgbaSz.w)) * 4];
 			uint *dst = &tmp[(x + (y * rgbaSz.w))];
@@ -548,16 +550,18 @@ int CTrueTypeFont::DrawCharacter(int ch, Point pt, int charH, const unsigned int
 		if( charH > 0 )
 		{
 			charSize.w = (glyph.rect.right - glyph.rect.left) * factor + 0.5f;
-			charSize.h = GetHeight() * factor + 0.5f;
+			charSize.h = (glyph.rect.bottom - glyph.rect.top) * factor + 0.5f;
+			pt.x += a - (int)(glyph.offX * factor);
+			pt.y -= (int)(glyph.offY * factor);
 		}
 		else
 #endif
 		{
 			charSize.w = glyph.rect.right - glyph.rect.left;
-			charSize.h = GetHeight();
+			charSize.h = glyph.rect.bottom - glyph.rect.top;
+			pt.x += a - glyph.offX;
+			pt.y -= glyph.offY;
 		}
-
-		pt.x += a;
 
 		int texW, texH;
 		R_GetTextureParms( &texW, &texH, glyph.texture );
@@ -586,14 +590,15 @@ int CTrueTypeFont::DrawCharacter(int ch, Point pt, int charH, const unsigned int
 #define CACHED_FONT_IDENT \
 	(('T'<<24)+('F'<<16)+('I'<<8)+'U') // little-endian "UIFT"
 
-// Version 2. Font blur has been changed, force font regeneration
-#define CACHED_FONT_VERSION 2
+// Version 3. Ported to engine from mainui, force font regeneration
+#define CACHED_FONT_VERSION 3
 
 struct char_data_t
 {
 	uint32_t ch;
 	int32_t a, b, c;
 	uint32_t left, right, top, bottom;
+	int32_t offX, offY;
 };
 
 struct cached_font_t
@@ -727,6 +732,8 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 			glyph.rect.right = ch->right;
 			glyph.rect.top = ch->top;
 			glyph.texture = hImage;
+			glyph.offX = ch->offX;
+			glyph.offY = ch->offY;
 
 			m_glyphs.Insert( glyph );
 
@@ -793,6 +800,8 @@ void CTrueTypeFont::SaveToCache( const char *filename, charRange_t *range, size_
 			ch.right  = glyph.rect.right;
 			ch.bottom = glyph.rect.bottom;
 			ch.top    = glyph.rect.top;
+			ch.offX   = glyph.offX;
+			ch.offY   = glyph.offY;
 
 			memcpy( buf_p, &ch, sizeof( ch ));
 			buf_p += sizeof( ch );
@@ -805,7 +814,8 @@ void CTrueTypeFont::SaveToCache( const char *filename, charRange_t *range, size_
 		Host_Error( "%s: %i: buf_p + bmpSize - data != size", __FILE__, __LINE__ );
 
 	Q_snprintf( path, sizeof( path ), ".fontcache/%s", filename );
-	COM_SaveFile( path, data, size );
+	if( !COM_SaveFile( path, data, size ) )
+		Con_Printf( S_WARN "Failed to write font cache to %s\n", path );
 
 	delete[] data;
 }
@@ -824,7 +834,7 @@ CTrueTypeFontManager::~CTrueTypeFontManager()
 		Mem_Free( m_FontFiles[i].data );
 }
 
-CTrueTypeFont *CTrueTypeFontManager::CreateFont( const char *name, int tall, int weight, int flags )
+CTrueTypeFont *CTrueTypeFontManager::CreateFont( const char *name, int tall, int weight, int flags, int outlineSize )
 {
 #if defined( XASH_ENGINE_FONT_STB )
 	CStbFont *font = new CStbFont();
@@ -836,7 +846,7 @@ CTrueTypeFont *CTrueTypeFontManager::CreateFont( const char *name, int tall, int
 	return NULL;
 #endif
 
-	if( !font->Create( name, tall, weight, 0, 0.0f, 0, 0, 1.0f, flags ))
+	if( !font->Create( name, tall, weight, 0, 0.0f, outlineSize, 0, 1.0f, flags ))
 	{
 		delete font;
 		return NULL;
@@ -849,6 +859,8 @@ CTrueTypeFont *CTrueTypeFontManager::CreateFont( const char *name, int tall, int
 		{ 0x0400, 0x0460, NULL, 0 },
 	};
 	font->UploadGlyphsForRanges( (charRange_t *)ranges, ARRAYSIZE( ranges ));
+
+	Con_DPrintf( "Loaded truetype font: %s %ipx weight %i (%s)\n", name, tall, weight, font->GetBackendName() );
 
 	return font;
 }
@@ -904,11 +916,11 @@ byte *CTrueTypeFontManager::LoadFontDataFile( const char *vfspath, int *plen )
 extern "C"
 {
 
-void *TTF_Create( const char *name, int tall, int weight, int flags )
+void *TTF_Create( const char *name, int tall, int weight, int flags, int outlineSize )
 {
 	if( !g_TTFontMgr )
 		return NULL;
-	return (void *)g_TTFontMgr->CreateFont( name, tall, weight, flags );
+	return (void *)g_TTFontMgr->CreateFont( name, tall, weight, flags, outlineSize );
 }
 
 void TTF_Destroy( void *font )

@@ -33,6 +33,7 @@ GNU General Public License for more details.
 
 #if defined(_WIN32)
 #undef GetCharABCWidths
+#undef CreateFont
 #endif // defined(_WIN32)
 
 // packed color helpers
@@ -146,11 +147,13 @@ private:
 
 	struct glyph_t
 	{
-		glyph_t() : ch( 0 ), texture( 0 ), rect() { }
-		glyph_t( int ch ) : ch( ch ), texture( 0 ), rect() { }
+		glyph_t() : ch( 0 ), texture( 0 ), rect(), offX( 0 ), offY( 0 ) { }
+		glyph_t( int ch ) : ch( ch ), texture( 0 ), rect(), offX( 0 ), offY( 0 ) { }
 		int ch;
 		int texture; // engine GL texture handle
 		wrect_t rect;
+		int offX; // pixels from rect left to glyph origin
+		int offY; // pixels from rect top to glyph baseline
 
 		bool operator< (const glyph_t &a) const
 		{
@@ -182,7 +185,7 @@ public:
 	CTrueTypeFontManager();
 	~CTrueTypeFontManager();
 
-	CTrueTypeFont *CreateFont( const char *name, int tall, int weight, int flags );
+	CTrueTypeFont *CreateFont( const char *name, int tall, int weight, int flags, int outlineSize = 0 );
 	void      FreeFont( CTrueTypeFont *font );
 
 	bool FindFontDataFile( const char *name, int tall, int weight, int flags, char *dataFile, size_t dataFileChars );

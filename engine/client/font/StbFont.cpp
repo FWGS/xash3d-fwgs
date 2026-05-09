@@ -145,8 +145,9 @@ void CStbFont::GetCharRGBA(int ch, Point pt, Size sz, unsigned char *rgba, Size 
 		{
 			if( buf[i] > 0 )
 			{
-				// paint white and alpha
-				*xdst = TTF_PackRGBA( 0xFF, 0xFF, 0xFF, buf[i] );
+				// paint white and gamma-corrected alpha
+				byte a = (byte)(powf( buf[i] / 255.0f, 1.0f / 2.2f ) * 255.0f + 0.5f);
+				*xdst = TTF_PackRGBA( 0xFF, 0xFF, 0xFF, a );
 			}
 			else
 			{

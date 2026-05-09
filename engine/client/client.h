@@ -854,7 +854,7 @@ extern "C" {
 #endif
 void  TTF_Init( void );
 void  TTF_Shutdown( void );
-void *TTF_Create( const char *name, int tall, int weight, int flags );
+void *TTF_Create( const char *name, int tall, int weight, int flags, int outlineSize );
 void  TTF_Destroy( void *font );
 int   TTF_DrawChar( void *font, int x, int y, int ch, int r, int g, int b, int a );
 int   TTF_GetHeight( void *font );

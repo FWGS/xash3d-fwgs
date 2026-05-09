@@ -22,6 +22,7 @@ extern "C" {
 #include "WinAPIFont.h"
 
 #include <malloc.h>
+#include <math.h>
 
 
 CWinAPIFont::CWinAPIFont( ) : CTrueTypeFont( )
@@ -79,7 +80,7 @@ bool CWinAPIFont::Create( const char *name, int tall, int weight, int blur, floa
 		m_iFlags & TTF_UNDERLINE,
 		m_iFlags & TTF_STRIKEOUT,
 		charset, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-		PROOF_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font.lfFaceName );
+		CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font.lfFaceName );
 
 	if( !m_hFont )
 	{
@@ -184,7 +185,8 @@ void CWinAPIFont::GetCharRGBA( int ch, Point pt, Size sz, unsigned char *rgba, S
 					if( grayscale )
 					{
 						r = g = b = 1.0f;
-						a = ( grayscale + 0 ) / 64.0f;
+						a = grayscale / 64.0f;
+						a = powf( a, 1.0f / 2.2f );
 						if( a > 1.0f ) a = 1.0f;
 					}
 					else
@@ -264,7 +266,8 @@ void CWinAPIFont::GetCharRGBA( int ch, Point pt, Size sz, unsigned char *rgba, S
 					dst[0] = r;
 					dst[1] = g;
 					dst[2] = b;
-					dst[3] = ( unsigned char )( ( float )r * 0.34f + ( float )g * 0.55f + ( float )b * 0.11f );
+					float lum = ( float )r * 0.34f + ( float )g * 0.55f + ( float )b * 0.11f;
+					dst[3] = ( unsigned char )( powf( lum / 255.0f, 1.0f / 2.2f ) * 255.0f + 0.5f );
 				}
 			}
 		}

@@ -19,6 +19,7 @@ extern "C" {
 }
 
 #include "FreeTypeFont.h"
+#include <math.h>
 
 FT_Library CFreeTypeFont::m_Library;
 
@@ -105,7 +106,7 @@ void CFreeTypeFont::GetCharRGBA(int ch, Point pt, Size sz, unsigned char *rgba, 
 		GetCharABCWidths( ch, a, b, c );
 	}
 
-	if(( error = FT_Load_Glyph( face, idx, FT_LOAD_RENDER | FT_LOAD_TARGET_NORMAL )))
+	if(( error = FT_Load_Glyph( face, idx, FT_LOAD_RENDER | FT_LOAD_TARGET_LIGHT )))
 	{
 		Con_Printf( "Error in FT_Load_Glyph: %x\n", error );
 		return;
@@ -151,8 +152,11 @@ void CFreeTypeFont::GetCharRGBA(int ch, Point pt, Size sz, unsigned char *rgba, 
 			}
 			else if( slot->bitmap.pixel_mode == FT_PIXEL_MODE_GRAY )
 			{
-				if( buf[i] > 0 ) // paint white and alpha
-					*xdst = TTF_PackRGBA( 0xFF, 0xFF, 0xFF, buf[i] );
+				if( buf[i] > 0 ) // paint white and gamma-corrected alpha
+				{
+					byte a = (byte)(powf( buf[i] / 255.0f, 1.0f / 2.2f ) * 255.0f + 0.5f);
+					*xdst = TTF_PackRGBA( 0xFF, 0xFF, 0xFF, a );
+				}
 			}
 			else
 			{
