@@ -590,21 +590,13 @@ COM_StripExtension
 */
 void COM_StripExtension( char *path )
 {
-	size_t	length;
+	const char *ext = COM_FileExtension( path );
 
-	length = Q_strlen( path );
+	if( COM_StringEmptyOrNULL( ext ))
+		return; // no extension
 
-	if( length > 0 )
-		length--;
-
-	while( length > 0 && path[length] != '.' )
-	{
-		length--;
-		if( path[length] == '/' || path[length] == '\\' || path[length] == ':' )
-			return; // no extension
-	}
-
-	if( length ) path[length] = 0;
+	// ext points one past the dot
+	path[ext - path - 1] = 0;
 }
 
 /*
@@ -614,21 +606,14 @@ COM_DefaultExtension
 */
 void COM_DefaultExtension( char *path, const char *extension, size_t size )
 {
-	const char	*src;
-	size_t		 len;
+	size_t len;
 
 	// if path doesn't have a .EXT, append extension
 	// (extension should include the .)
+	if( !COM_StringEmptyOrNULL( COM_FileExtension( path )))
+		return;
+
 	len = Q_strlen( path );
-	src = path + len - 1;
-
-	while( *src != '/' && src != path )
-	{
-		// it has an extension
-		if( *src == '.' ) return;
-		src--;
-	}
-
 	Q_strncpy( &path[len], extension, size - len );
 }
 
