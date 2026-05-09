@@ -6,7 +6,6 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import su.xash.engine.R
 import su.xash.engine.util.CrashReports
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -26,9 +25,12 @@ class CrashLogsFragment : PreferenceFragmentCompat() {
 		val ctx = requireContext()
 		preferenceScreen.removeAll()
 
-		val files = CrashReports.historyDir(ctx).listFiles()?.sortedByDescending { it.lastModified() } ?: emptyList()
+		val dirs = CrashReports.historyDir(ctx).listFiles()
+			?.filter { it.isDirectory }
+			?.sortedByDescending { it.lastModified() }
+			?: emptyList()
 
-		if (files.isEmpty()) {
+		if (dirs.isEmpty()) {
 			preferenceScreen.addPreference(Preference(ctx).apply {
 				setTitle(R.string.crash_logs_empty)
 				isSelectable = false
@@ -37,28 +39,27 @@ class CrashLogsFragment : PreferenceFragmentCompat() {
 		}
 
 		val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-		files.forEach { file ->
+		dirs.forEach { dir ->
 			preferenceScreen.addPreference(Preference(ctx).apply {
-				title = fmt.format(Date(file.lastModified()))
-				summary = file.name
+				title = fmt.format(Date(dir.lastModified()))
+				summary = dir.name
 				setOnPreferenceClickListener {
-					showCrashLog(file)
+					showCrashLog(CrashReports.Entry(dir))
 					true
 				}
 			})
 		}
 	}
 
-	private fun showCrashLog(file: File) {
+	private fun showCrashLog(entry: CrashReports.Entry) {
 		val ctx = requireContext()
-		val content = file.readText()
 		AlertDialog.Builder(ctx)
-			.setTitle(file.name)
-			.setView(CrashReports.buildContentView(ctx, content))
-			.setPositiveButton(R.string.crash_send_to_developers) { _, _ -> CrashReports.sendByEmail(ctx, content) }
-			.setNeutralButton(R.string.crash_share) { _, _ -> CrashReports.share(ctx, file) }
+			.setTitle(entry.name)
+			.setView(CrashReports.buildContentView(ctx, entry.summary()))
+			.setPositiveButton(R.string.crash_send_to_developers) { _, _ -> CrashReports.sendByEmail(ctx, entry) }
+			.setNeutralButton(R.string.crash_share) { _, _ -> CrashReports.share(ctx, entry) }
 			.setNegativeButton(R.string.crash_log_delete) { _, _ ->
-				file.delete()
+				entry.dir.deleteRecursively()
 				populate()
 			}
 			.show()

@@ -1,6 +1,7 @@
 package su.xash.engine;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
 import android.os.Build;
@@ -14,6 +15,7 @@ import android.view.WindowManager;
 import org.libsdl.app.SDLActivity;
 
 import su.xash.engine.util.AndroidBug5497Workaround;
+import su.xash.engine.util.CrashReports;
 
 import java.io.File;
 import java.util.Arrays;
@@ -121,12 +123,53 @@ public class XashActivity extends SDLActivity {
 		return getWindow().superDispatchKeyEvent(event);
 	}
 
+	private static void appendStringExtra(StringBuilder sb, Intent intent, String key) {
+		String value = intent.getStringExtra(key);
+		if (value != null)
+			sb.append("  ").append(key).append(" = ").append(value).append('\n');
+	}
+
+	// record intent info, so that it could be consumed later for crash reporting
+	private void recordLaunchInfo() {
+		// do not overwrite current launch info with pending crash log, shouldn't happen but might
+		File pendingCrash = new File(getFilesDir(), "crashes/" + CrashReports.STACKTRACE_NAME);
+		if (pendingCrash.exists() && pendingCrash.length() > 0)
+			return;
+
+		// write Android version, fingerprint, supported abis, etc
+		CrashReports.writeSystemInfo(this);
+
+		// now create intent info and pass it to crash reporting
+		Intent intent = getIntent();
+		if (intent == null)
+			return;
+		StringBuilder sb = new StringBuilder();
+		sb.append("Action: ").append(intent.getAction()).append('\n');
+		sb.append("Data: ").append(intent.getDataString()).append('\n');
+		sb.append("Calling package: ").append(getCallingPackage()).append('\n');
+		sb.append("Extras:\n");
+		// only write intent extras that we care about
+		appendStringExtra(sb, intent, "gamedir");
+		appendStringExtra(sb, intent, "gamelibdir");
+		appendStringExtra(sb, intent, "pakfile");
+		appendStringExtra(sb, intent, "basedir");
+		appendStringExtra(sb, intent, "package");
+		appendStringExtra(sb, intent, "argv");
+		sb.append("  usevolume = ").append(intent.getBooleanExtra("usevolume", false)).append('\n');
+		String[] env = intent.getStringArrayExtra("env");
+		if (env != null)
+			sb.append("  env = ").append(Arrays.toString(env)).append('\n');
+		CrashReports.writeIntentInfo(this, sb.toString());
+	}
+
 	// TODO: REMOVE LATER, temporary launchers support?
 	@Override
 	protected String[] getArguments() {
 		File crashDir = new File(getFilesDir(), "crashes");
 		crashDir.mkdirs();
 		nativeSetenv("XASH3D_CRASH_DIR", crashDir.getAbsolutePath());
+
+		recordLaunchInfo();
 
 		String gamedir = getIntent().getStringExtra("gamedir");
 		if (gamedir == null) gamedir = "valve";

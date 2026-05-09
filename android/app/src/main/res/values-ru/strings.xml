@@ -30,6 +30,9 @@
 	<string name="crash_logs">Журналы сбоев</string>
 	<string name="crash_logs_empty">Нет сохранённых журналов сбоев</string>
 	<string name="crash_log_delete">Удалить</string>
+	<string name="crash_email_body">К письму прикреплены подробности сбоя. Опишите, пожалуйста, как можно подробнее, что вы делали, когда игра вылетела — любая мелочь поможет нам исправить ошибку!</string>
+	<string name="crash_no_mail_app_title">Почтовое приложение не найдено</string>
+	<string name="crash_no_mail_app_message">На этом устройстве нет почтового клиента. Установите его (или воспользуйтесь кнопкой «Поделиться», чтобы отправить отчёт другим способом) и попробуйте снова.</string>
 	<string name="downloading_game_libs">Загрузка игровых библиотек</string>
 	<string name="downloading">Загрузка…</string>
 	<string name="download_progress">Загрузка… %1$d%%</string>

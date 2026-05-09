@@ -32,6 +32,9 @@
 	<string name="crash_logs_empty">No crash logs recorded</string>
 	<string name="crash_log_delete">Delete</string>
 	<string name="crash_email_subject" translatable="false">Xash3D FWGS crash report</string>
+	<string name="crash_email_body">Crash details are attached. Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!</string>
+	<string name="crash_no_mail_app_title">No mail app found</string>
+	<string name="crash_no_mail_app_message">No email client is installed on this device. Install one (or use Share to send the report another way) and try again.</string>
 	<string name="downloading_game_libs">Downloading Game Libraries</string>
 	<string name="downloading">Downloading…</string>
 	<string name="download_progress">Downloading… %1$d%%</string>
