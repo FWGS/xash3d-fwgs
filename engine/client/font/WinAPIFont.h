@@ -21,7 +21,7 @@ GNU General Public License for more details.
 #include <windows.h>
 #undef GetCharABCWidths
 
-#include "BaseFontBackend.h"
+#include "TrueTypeFont.h"
 
 class CWinAPIFont : public CTrueTypeFont
 {

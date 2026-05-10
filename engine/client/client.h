@@ -835,7 +835,7 @@ word CL_EventIndex( const char *name );
 void CL_FireEvents( void );
 
 //
-// font/BaseFontBackend.cpp
+// font/TrueTypeFont.cpp
 //
 
 // default font names and weights

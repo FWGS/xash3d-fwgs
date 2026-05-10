@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 #if defined( XASH_ENGINE_FONT_FREETYPE )
 
-#include "BaseFontBackend.h"
+#include "TrueTypeFont.h"
 
 extern "C"
 {

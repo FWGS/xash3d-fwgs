@@ -5,7 +5,7 @@ Copyright (C) 2017 a1batross
 #pragma once
 
 #if defined( XASH_ENGINE_FONT_STB )
-#include "BaseFontBackend.h"
+#include "TrueTypeFont.h"
 #include "stb_truetype.h"
 
 class CStbFont : public CTrueTypeFont
@@ -31,7 +31,7 @@ private:
 
 	double scale;
 
-	friend class CFontManager;
+	friend class CTrueTypeFontManager;
 };
 
 #endif // XASH_ENGINE_FONT_STB

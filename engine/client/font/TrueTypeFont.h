@@ -1,5 +1,5 @@
 /*
-BaseFontBackend.h - engine truetype font backend
+TrueTypeFont.h - engine truetype font
 Copyright (C) 2017 a1batross
 
 This program is free software: you can redistribute it and/or modify
@@ -13,8 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 #pragma once
-#ifndef BASEFONTBACKEND_H
-#define BASEFONTBACKEND_H
+#ifndef TRUETYPEFONT_H
+#define TRUETYPEFONT_H
 
 #include "xash3d_types.h"
 #include "wrect.h"
@@ -108,10 +108,6 @@ public:
 	inline int GetWeight() const       { return m_iWeight; }
 	inline int GetEfxOffset() const    { return m_iBlur + m_iOutlineSize; }
 
-	bool IsEqualTo( const char *name, int tall, int weight, int blur, int flags ) const;
-
-	void DebugDraw();
-
 	void GetTextureName(char *dst, size_t len) const;
 
 	inline int GetEllipsisWide( ) { return m_iEllipsisWide; }
@@ -185,13 +181,18 @@ public:
 	CTrueTypeFontManager();
 	~CTrueTypeFontManager();
 
+	void DeleteAllFonts();
+	void DeleteFont( CTrueTypeFont *font );
+
 	CTrueTypeFont *CreateFont( const char *name, int tall, int weight, int flags, int outlineSize = 0 );
-	void      FreeFont( CTrueTypeFont *font );
+	void UploadTextureForFont( CTrueTypeFont *font );
 
 	bool FindFontDataFile( const char *name, int tall, int weight, int flags, char *dataFile, size_t dataFileChars );
 	byte *LoadFontDataFile( const char *vfspath, int *plen );
 
 private:
+	CUtlVector<CTrueTypeFont*> m_Fonts;
+
 	// cached TTF file bytes to avoid double-loading the same .ttf
 	struct fontfile_t
 	{
@@ -202,7 +203,6 @@ private:
 	CUtlVector<fontfile_t> m_FontFiles;
 };
 
-extern CTrueTypeFontManager *g_TTFontMgr; // global instance, created in BaseFontBackend.cpp
+extern CTrueTypeFontManager *g_TTFontMgr; // global instance, created in TrueTypeFont.cpp
 
-
-#endif // BASEFONTBACKEND_H
+#endif // TRUETYPEFONT_H

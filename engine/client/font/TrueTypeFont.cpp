@@ -1,5 +1,5 @@
 /*
-BaseFontBackend.cpp - engine truetype font backend
+TrueTypeFont.cpp - engine truetype font
 Copyright (C) 2017 a1batross
 
 This program is free software: you can redistribute it and/or modify
@@ -17,23 +17,17 @@ extern "C" {
 #include "filesystem.h"
 #include "client.h"
 }
-#include "BaseFontBackend.h"
+#include "TrueTypeFont.h"
 #include <math.h>
 #include <new>
 
-// backend includes — only one is compiled depending on platform defines
 #if defined( XASH_ENGINE_FONT_STB )
 #include "StbFont.h"
 #elif defined( XASH_ENGINE_FONT_FREETYPE )
 #include "FreeTypeFont.h"
 #elif defined( _WIN32 )
 #include "WinAPIFont.h"
-#else
-// no backend available — CreateFont will return NULL
-#define TTF_NO_BACKEND
 #endif
-
-CTrueTypeFontManager *g_TTFontMgr;
 
 // ============================================================
 // CTrueTypeFont
@@ -284,63 +278,6 @@ void CTrueTypeFont::GetCharABCWidths( int ch, int &a, int &b, int &c )
 	c = find.c;
 
 	m_ABCCache.Insert( find );
-}
-
-bool CTrueTypeFont::IsEqualTo(const char *name, int tall, int weight, int blur, int flags)  const
-{
-	if( Q_stricmp( name, m_szName ))
-		return false;
-
-	if( m_iTall != tall )
-		return false;
-
-	if( m_iWeight != weight )
-		return false;
-
-	if( m_iBlur != blur )
-		return false;
-
-	if( m_iFlags != flags )
-		return false;
-
-	return true;
-}
-
-void CTrueTypeFont::DebugDraw()
-{
-	int hImage = ref.dllFuncs.GL_FindTexture( m_szTextureName );
-	int w = 0, h = 0;
-	R_GetTextureParms( &w, &h, hImage );
-
-	int x = 0;
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
-	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-	ref.dllFuncs.R_DrawStretchPic( x, 0, w, h, 0, 0, 1, 1, hImage );
-
-	for( int i = m_glyphs.FirstInorder();; i = m_glyphs.NextInorder( i ) )
-	{
-		if( m_glyphs[i].texture == hImage )
-		{
-			Point pt;
-			Size sz;
-			pt.x = x + m_glyphs[i].rect.left;
-			pt.y = m_glyphs[i].rect.top;
-			sz.w = m_glyphs[i].rect.right - m_glyphs[i].rect.left;
-			sz.h = m_glyphs[i].rect.bottom - pt.y;
-
-			int a, b, c;
-			GetCharABCWidths( m_glyphs[i].ch, a, b, c );
-
-			pt.x -= a;
-			sz.w += c + a;
-
-			const int ascender = GetAscent();
-			pt.y += ascender;
-		}
-
-		if( i == m_glyphs.LastInorder() )
-			break;
-	}
 }
 
 void CTrueTypeFont::ApplyBlur(Size rgbaSz, byte *rgba)
@@ -820,18 +757,52 @@ void CTrueTypeFont::SaveToCache( const char *filename, charRange_t *range, size_
 	delete[] data;
 }
 
+CTrueTypeFontManager *g_TTFontMgr;
+
 // ============================================================
 // CTrueTypeFontManager
 // ============================================================
 
 CTrueTypeFontManager::CTrueTypeFontManager()
 {
+#if defined( XASH_ENGINE_FONT_FREETYPE )
+	CFreeTypeFont::InitLibrary();
+#endif
+	m_Fonts.EnsureCapacity( 4 );
+	m_FontFiles.EnsureCapacity( 2 );
 }
 
 CTrueTypeFontManager::~CTrueTypeFontManager()
 {
+	DeleteAllFonts();
+#if defined( XASH_ENGINE_FONT_FREETYPE )
+	CFreeTypeFont::DoneLibrary();
+#endif
+
 	for( int i = 0; i < m_FontFiles.Count(); i++ )
 		Mem_Free( m_FontFiles[i].data );
+}
+
+void CTrueTypeFontManager::DeleteAllFonts()
+{
+	for( int i = 0; i < m_Fonts.Count(); i++ )
+	{
+		delete m_Fonts[i];
+	}
+	m_Fonts.RemoveAll();
+}
+
+void CTrueTypeFontManager::DeleteFont( CTrueTypeFont *font )
+{
+	for( int i = 0; i < m_Fonts.Count(); i++ )
+	{
+		if( m_Fonts[i] == font )
+		{
+			m_Fonts[i] = NULL;
+			delete font;
+			return;
+		}
+	}
 }
 
 CTrueTypeFont *CTrueTypeFontManager::CreateFont( const char *name, int tall, int weight, int flags, int outlineSize )
@@ -852,22 +823,18 @@ CTrueTypeFont *CTrueTypeFontManager::CreateFont( const char *name, int tall, int
 		return NULL;
 	}
 
-	// upload ASCII + Latin supplement + Cyrillic
+	m_Fonts.AddToTail( font );
+	return font;
+}
+
+void CTrueTypeFontManager::UploadTextureForFont( CTrueTypeFont *font )
+{
 	static const charRange_t ranges[] = {
 		{ 0x0021, 0x007F, NULL, 0 },
 		{ 0x00C0, 0x0100, NULL, 0 },
 		{ 0x0400, 0x0460, NULL, 0 },
 	};
 	font->UploadGlyphsForRanges( (charRange_t *)ranges, ARRAYSIZE( ranges ));
-
-	Con_DPrintf( "Loaded truetype font: %s %ipx weight %i (%s)\n", name, tall, weight, font->GetBackendName() );
-
-	return font;
-}
-
-void CTrueTypeFontManager::FreeFont( CTrueTypeFont *font )
-{
-	delete font;
 }
 
 bool CTrueTypeFontManager::FindFontDataFile( const char *name, int tall, int weight, int flags, char *dataFile, size_t dataFileChars )
@@ -877,10 +844,13 @@ bool CTrueTypeFontManager::FindFontDataFile( const char *name, int tall, int wei
 		Q_strncpy( dataFile, "gfx/fonts/FiraSans-Regular.ttf", dataFileChars );
 		return true;
 	}
+	else if( !Q_strcmp( name, "Tahoma" ))
+	{
+		Q_strncpy( dataFile, "gfx/fonts/tahoma.ttf", dataFileChars );
+		return true;
+	}
 
-	// default: map to tahoma
-	Q_strncpy( dataFile, "gfx/fonts/tahoma.ttf", dataFileChars );
-	return true;
+	return false;
 }
 
 byte *CTrueTypeFontManager::LoadFontDataFile( const char *vfspath, int *plen )
@@ -920,14 +890,23 @@ void *TTF_Create( const char *name, int tall, int weight, int flags, int outline
 {
 	if( !g_TTFontMgr )
 		return NULL;
-	return (void *)g_TTFontMgr->CreateFont( name, tall, weight, flags, outlineSize );
+
+	CTrueTypeFont *font = g_TTFontMgr->CreateFont( name, tall, weight, flags, outlineSize );
+
+	if( font )
+	{
+		g_TTFontMgr->UploadTextureForFont( font );
+		Con_DPrintf( "Loaded truetype font: %s %ipx weight %i (%s)\n", name, tall, weight, font->GetBackendName() );
+	}
+
+	return (void *)font;
 }
 
 void TTF_Destroy( void *font )
 {
 	if( !g_TTFontMgr || !font )
 		return;
-	g_TTFontMgr->FreeFont( (CTrueTypeFont *)font );
+	g_TTFontMgr->DeleteFont( (CTrueTypeFont *)font );
 }
 
 int TTF_DrawChar( void *font, int x, int y, int ch, int r, int g, int b, int a )
@@ -954,9 +933,6 @@ int TTF_GetCharWidth( void *font, int ch )
 
 void TTF_Init( void )
 {
-#if defined( XASH_ENGINE_FONT_FREETYPE )
-	CFreeTypeFont::InitLibrary();
-#endif
 	g_TTFontMgr = new CTrueTypeFontManager();
 }
 
@@ -964,9 +940,6 @@ void TTF_Shutdown( void )
 {
 	delete g_TTFontMgr;
 	g_TTFontMgr = NULL;
-#if defined( XASH_ENGINE_FONT_FREETYPE )
-	CFreeTypeFont::DoneLibrary();
-#endif
 }
 
 } // extern "C"

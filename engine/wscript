@@ -323,7 +323,7 @@ def build(bld):
 
 			# engine truetype font backend
 			font_sources = [
-				'client/font/BaseFontBackend.cpp',
+				'client/font/TrueTypeFont.cpp',
 				'client/font/BMPUtils.cpp',
 				'../3rdparty/miniutl/utlmemory.cpp',
 			]
