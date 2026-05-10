@@ -1,26 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+	<string name="app_name" translatable="false">Xash3D FWGS</string>
 	<string name="library">库</string>
 	<string name="dedicated_server">专用服务器</string>
 	<string name="app_settings">设置</string>
 	<string name="game_settings">游戏设置</string>
 	<string name="game_settings_command_line">命令行参数</string>
 	<string name="game_settings_volume_buttons">在游戏中使用音量按钮</string>
-	<string name="game_settings_yapb_bots">启用yapb机器人(仅限CS)</string>
 	<string name="preferences_package_name">数据包</string>
 	<string name="preferences_separate_libraries">来自独立包的库</string>
 	<string name="preferences_client_package">客户端包</string>
 	<string name="preferences_server_package">服务器包</string>
 	<string name="preferences_use_icons">使用图标代替背景</string>
-	<string name="game_data_location">游戏数据包路径位置</string>
+	<string name="game_data_location">游戏数据包目录位置</string>
 	<string name="file_access_required">需要所有文件访问权限</string>
 	<string name="file_access_message">应用程序需要所有文件访问权限才能正常运行</string>
 	<string name="select_current_directory">选择当前目录</string>
 	<string name="external_storage_required">需要外部存储访问权限</string>
 	<string name="external_storage_message">应用程序需要外部存储访问权限才能正常运行</string>
-	<string name="open_settings">打开设置</string>
-	<string name="done_check_permissions">准备好了！检查权限</string>
-	<string name="game_apk_required">需要带有游戏库的APK</string>
-	<string name="game_apk_message">要运行此游戏，您需要安装额外的APK</string>
-	<string name="game_apk_install">下载</string>
+	<string name="game_settings_yapb_bots">启用yapb机器人(仅限CS)</string>
+	<string name="crash_dialog_title">Xash3D FWGS上次崩溃了</string>
+	<string name="crash_send_to_developers">发送给开发者</string>
+	<string name="crash_share">分享</string>
+	<string name="crash_dismiss">忽略</string>
+	<string name="crash_logs">崩溃日志</string>
+	<string name="crash_logs_empty">没有记录的崩溃日志</string>
+	<string name="crash_log_delete">删除</string>
+	<string name="crash_email_body">崩溃详情已附加。请尽可能详细地描述游戏崩溃时您正在做什么——每一个细节都有助于我们修复它！</string>
+	<string name="crash_no_mail_app_title">未找到邮件应用</string>
+	<string name="crash_no_mail_app_message">此设备上未安装电子邮件客户端。安装一个（或使用分享以其他方式发送报告），然后重试。</string>
+	<string name="downloading_game_libs">正在下载游戏库</string>
+	<string name="downloading">正在下载…</string>
+	<string name="download_progress">正在下载… %1$d%%</string>
+	<string name="download_failed">下载失败</string>
+	<string name="download_error">下载游戏库时发生错误。</string>
+	<string name="update_available">有可用更新</string>
+	<string name="update_available_message">有更新版本的游戏库可用。下载更新？</string>
+	<string name="update_download">更新</string>
+	<string name="update_skip">跳过</string>
+	<string name="manifest_error_title">无法连接到游戏库服务器</string>
+	<string name="manifest_error_message">无法下载构建清单：\n\n%1$s\n\n游戏库目前无法下载。您仍然可以启动引擎，但它很可能找不到游戏DLL。</string>
+	<string name="launch_anyway">仍然启动</string>
+	<string name="source_repo">源代码仓库</string>
+	<string name="source_branch">分支</string>
+	<string name="source_commit">提交</string>
+	<string name="downloaded_at">已下载</string>
 </resources>
