@@ -2956,12 +2956,6 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 	{
 		if( filename[0] != '!' )
 			Con_Printf( "processing %s\n", filename );
-
-		if( !Q_strnicmp( filename, DEFAULT_DOWNLOADED_DIRECTORY, sizeof( DEFAULT_DOWNLOADED_DIRECTORY ) - 1 ))
-		{
-			// skip "downloaded/" part to avoid mismatch with needed resources list
-			filename += sizeof( DEFAULT_DOWNLOADED_DIRECTORY ) - 1;
-		}
 	}
 	else if( !successfully_received )
 	{

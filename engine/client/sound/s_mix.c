@@ -71,6 +71,39 @@ static portable_samplepair_t roombuffer[(PAINTBUFFER_SIZE+1)], paintbuffer[(PAIN
 		} \
 	} \
 
+#define S_MakeMixMonoLerp( x ) \
+	static void S_MixMonoLerp ## x( portable_samplepair_t *pbuf, const int *volume, const void *buf, double offset_frac, double rate_scale, int num_samples ) \
+	{ \
+		const int##x##_t *data = buf; \
+		uint sample_idx = 0; \
+		for( int i = 0; i < num_samples; i++ ) \
+		{ \
+			int s = (int)( data[sample_idx] * ( 1.0 - offset_frac ) + data[sample_idx + 1] * offset_frac ); \
+			pbuf[i].left  += ( s * volume[0] ) >> ( x - 8 ); \
+			pbuf[i].right += ( s * volume[1] ) >> ( x - 8 ); \
+			offset_frac += rate_scale; \
+			sample_idx += (uint)offset_frac; \
+			offset_frac -= (uint)offset_frac; \
+		} \
+	} \
+
+#define S_MakeMixStereoLerp( x ) \
+	static void S_MixStereoLerp ## x( portable_samplepair_t *pbuf, const int *volume, const void *buf, double offset_frac, double rate_scale, int num_samples ) \
+	{ \
+		const int##x##_t *data = buf; \
+		uint sample_idx = 0; \
+		for( int i = 0; i < num_samples; i++ ) \
+		{ \
+			int sl = (int)( data[sample_idx + 0] * ( 1.0 - offset_frac ) + data[sample_idx + 2] * offset_frac ); \
+			int sr = (int)( data[sample_idx + 1] * ( 1.0 - offset_frac ) + data[sample_idx + 3] * offset_frac ); \
+			pbuf[i].left  += ( sl * volume[0] ) >> ( x - 8 ); \
+			pbuf[i].right += ( sr * volume[1] ) >> ( x - 8 ); \
+			offset_frac += rate_scale; \
+			sample_idx += (uint)offset_frac << 1; \
+			offset_frac -= (uint)offset_frac; \
+		} \
+	} \
+
 S_MakeMixMono( 8 )
 S_MakeMixMono( 16 )
 S_MakeMixStereo( 8 )
@@ -79,10 +112,14 @@ S_MakeMixMonoPitch( 8 )
 S_MakeMixMonoPitch( 16 )
 S_MakeMixStereoPitch( 8 )
 S_MakeMixStereoPitch( 16 )
+S_MakeMixMonoLerp( 8 )
+S_MakeMixMonoLerp( 16 )
+S_MakeMixStereoLerp( 8 )
+S_MakeMixStereoLerp( 16 )
 
-static void S_MixAudio( portable_samplepair_t *pbuf, const int *pvol, const void *buf, int channels, int width, double offset_frac, double rate_scale, int num_samples )
+static void S_MixAudio( portable_samplepair_t *pbuf, const int *pvol, const void *buf, int channels, int width, double offset_frac, double rate_scale, int num_samples, qboolean lerp )
 {
-	if( Q_equal( rate_scale, 1.0 ))
+	if( Q_equal( rate_scale, 1.0 ) && Q_equal( offset_frac, 0.0 ))
 	{
 		if( channels == 1 )
 		{
@@ -97,6 +134,23 @@ static void S_MixAudio( portable_samplepair_t *pbuf, const int *pvol, const void
 				S_MixStereo8( pbuf, pvol, buf, num_samples );
 			else
 				S_MixStereo16( pbuf, pvol, buf, num_samples );
+		}
+	}
+	else if( lerp )
+	{
+		if( channels == 1 )
+		{
+			if( width == 1 )
+				S_MixMonoLerp8( pbuf, pvol, buf, offset_frac, rate_scale, num_samples );
+			else
+				S_MixMonoLerp16( pbuf, pvol, buf, offset_frac, rate_scale, num_samples );
+		}
+		else
+		{
+			if( width == 1 )
+				S_MixStereoLerp8( pbuf, pvol, buf, offset_frac, rate_scale, num_samples );
+			else
+				S_MixStereoLerp16( pbuf, pvol, buf, offset_frac, rate_scale, num_samples );
 		}
 	}
 	else
@@ -163,13 +217,16 @@ static int S_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan, i
 	if( num_samples == 0 )
 		return 0;
 
+	// linear interpolation needs one sample of lookahead beyond the last read position
+	const int lookahead = s_lerping.value ? 1 : 0;
+
 	while( num_samples > 0 )
 	{
 		// calculate the last sample position
 		double end_sample = chan->sample + rate * num_samples * timecompress_rate;
 
-		// and get total amount of samples we want
-		int	request_num_samples = (int)(ceil( end_sample ) - floor( chan->sample ));
+		// and get total amount of samples we want, including lookahead for interpolation
+		int request_num_samples = (int)(ceil( end_sample ) - floor( chan->sample )) + lookahead;
 
 		// get sample pointer and also amount of samples available
 		const void *audio = NULL;
@@ -181,13 +238,30 @@ static int S_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan, i
 
 		double sample_frac = chan->sample - floor( chan->sample );
 
+		// can interpolate only when at least two source samples are available
+		qboolean lerp = lookahead && available >= 2;
+
 		// this is how much data we output
 		int out_count = num_samples;
-		if( request_num_samples > available ) // but we can't write more than we have
-			out_count = (int)ceil(( available - sample_frac ) / ( rate ));
+		if( request_num_samples > available )
+		{
+			// lerp needs sample_idx + 1 to stay within available, so cap by available - 1
+			if( lerp )
+				out_count = (int)floor(( available - 1 - sample_frac ) / rate );
+			else
+				out_count = (int)ceil(( available - sample_frac ) / rate );
+		}
+
+		// near a buffer boundary (e.g. just before a loop wrap) lerp may yield zero;
+		// fall back to nearest for one sample to keep chan->sample advancing
+		if( out_count <= 0 )
+		{
+			lerp = false;
+			out_count = 1;
+		}
 
 		const wavdata_t *wav = chan->sfx->cache;
-		S_MixAudio( pbuf + offset, pvol, audio, wav->channels, wav->width, sample_frac, rate, out_count );
+		S_MixAudio( pbuf + offset, pvol, audio, wav->channels, wav->width, sample_frac, rate, out_count, lerp );
 
 		chan->sample += out_count * rate * timecompress_rate;
 		offset += out_count;
@@ -231,11 +305,12 @@ static int VOX_MixChannelToBuffer( portable_samplepair_t *pbuf, channel_t *chan,
 	return offset;
 }
 
-static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
+static int S_MixNormalChannelsToRoombuffer( portable_samplepair_t *dst, int end )
 {
-	const qboolean local = Host_IsLocalClient();
+	const qboolean sp = Host_IsSinglePlayerGame();
 	const qboolean ingame = CL_IsInGame();
-	const int num_samples = ( end - snd.paintedtime ) / ( SOUND_DMA_SPEED / rate );
+	const int out_rate = snd.format.speed;
+	const int num_samples = end - snd.paintedtime;
 
 	// FWGS feature: make everybody sound like chipmunks when we're going fast
 	const float pitch_mult = ( sys_timescale.value + 1 ) / 2;
@@ -261,7 +336,7 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 			{
 				// play, playvol
 			}
-			else if(( cls.key_dest == key_menu || cl.paused ) && !FBitSet( ch->flags, FL_CHAN_LOCAL_SOUND ) && local )
+			else if(( cls.key_dest == key_menu || cl.paused ) && !FBitSet( ch->flags, FL_CHAN_LOCAL_SOUND ) && sp )
 			{
 				// play only local sounds, keep pause for other
 				continue;
@@ -284,7 +359,7 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 		// if the sound is unaudible, skip it
 		// if it's also not looping, free it
 		if( ch->leftvol < 8 && ch->rightvol < 8 )
-		{	
+		{
 			if( !FBitSet( sc->flags, SOUND_LOOPED ) || !FBitSet( ch->flags, FL_CHAN_USE_LOOP ))
 			{
 				if( ch->inauduble_free_time == 0.0f )
@@ -298,19 +373,18 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 
 		ch->inauduble_free_time = 0.0f;
 
-		if( rate != sc->rate )
-			continue;
-
 		if( ch->entchannel == CHAN_VOICE || ch->entchannel == CHAN_STREAM )
 		{
 			cl_entity_t *ent = CL_GetEntityByIndex( ch->entnum );
 
 			if( ent != NULL )
 			{
+				int mouth_count = (int)( num_samples * (double)sc->rate / out_rate );
+
 				if( sc->width == 1 )
-					SND_MoveMouth8( &ent->mouth, ch->sample, sc, num_samples, FBitSet( ch->flags, FL_CHAN_USE_LOOP ));
+					SND_MoveMouth8( &ent->mouth, ch->sample, sc, mouth_count, FBitSet( ch->flags, FL_CHAN_USE_LOOP ));
 				else
-					SND_MoveMouth16( &ent->mouth, ch->sample, sc, num_samples, FBitSet( ch->flags, FL_CHAN_USE_LOOP ));
+					SND_MoveMouth16( &ent->mouth, ch->sample, sc, mouth_count, FBitSet( ch->flags, FL_CHAN_USE_LOOP ));
 			}
 		}
 
@@ -320,75 +394,18 @@ static int S_MixNormalChannels( portable_samplepair_t *dst, int end, int rate )
 
 		if( ch->words )
 		{
-			VOX_MixChannelToBuffer( dst, ch, num_samples, rate, pitch );
+			VOX_MixChannelToBuffer( dst, ch, num_samples, out_rate, pitch );
 
 			if( FBitSet( ch->flags, FL_CHAN_SENTENCE_FINISHED ))
 				S_FreeChannel( ch );
 		}
 		else
 		{
-			S_MixChannelToBuffer( dst, ch, num_samples, rate, pitch, 0, 0 );
+			S_MixChannelToBuffer( dst, ch, num_samples, out_rate, pitch, 0, 0 );
 
 			if( FBitSet( ch->flags, FL_CHAN_FINISHED ))
 				S_FreeChannel( ch );
 		}
-	}
-
-	return num_mixed_channels;
-}
-
-static int S_AverageSample( int a, int b )
-{
-	return ( a >> 1 ) + ( b >> 1 ) + ((( a & 1 ) + ( b & 1 )) >> 1 );
-}
-
-static void S_UpsampleBuffer( portable_samplepair_t *dst, size_t num_samples )
-{
-	if( s_lerping.value )
-	{
-		// copy even positions and average odd
-		for( size_t i = num_samples - 1; i > 0; i-- )
-		{
-			dst[i * 2] = dst[i];
-
-			dst[i * 2 + 1].left = S_AverageSample( dst[i].left, dst[i - 1].left );
-			dst[i * 2 + 1].right = S_AverageSample( dst[i].right, dst[i - 1].right );
-		}
-	}
-	else
-	{
-		// copy into even and odd positions
-		for( size_t i = num_samples - 1; i > 0; i-- )
-		{
-			dst[i * 2] = dst[i];
-			dst[i * 2 + 1] = dst[i];
-		}
-	}
-
-	dst[1] = dst[0];
-}
-
-static int S_MixNormalChannelsToRoombuffer( int end, int count )
-{
-	// for room buffer we only support CD rates like 11k, 22k, and 44k
-	// TODO: 48k output would require support from platform-specific backends first
-	// until there is no real usecase, let's keep it simple
-	int num_mixed_channels = S_MixNormalChannels( roombuffer, end, SOUND_11k );
-
-	if( snd.format.speed >= SOUND_22k )
-	{
-		if( num_mixed_channels > 0 )
-			S_UpsampleBuffer( roombuffer, count / ( SOUND_22k / SOUND_11k ));
-
-		num_mixed_channels += S_MixNormalChannels( roombuffer, end, SOUND_22k );
-	}
-
-	if( snd.format.speed >= SOUND_44k )
-	{
-		if( num_mixed_channels > 0 )
-			S_UpsampleBuffer( roombuffer, count / ( SOUND_44k / SOUND_22k ));
-
-		num_mixed_channels += S_MixNormalChannels( roombuffer, end, SOUND_44k );
 	}
 
 	return num_mixed_channels;
@@ -537,7 +554,7 @@ void S_PaintChannels( int endtime )
 
 		S_ClearBuffers( num_samples );
 
-		int room_channels = S_MixNormalChannelsToRoombuffer( end, num_samples );
+		int room_channels = S_MixNormalChannelsToRoombuffer( roombuffer, end );
 
 		room_channels += S_MixRawChannels( end );
 

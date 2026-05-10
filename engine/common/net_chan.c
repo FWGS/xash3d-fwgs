@@ -1240,20 +1240,24 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		return false;
 	}
 
-	if( filename[0] != '!' )
-	{
-		string temp_filename;
-		Q_snprintf( temp_filename, sizeof( temp_filename ), DEFAULT_DOWNLOADED_DIRECTORY "%s", filename );
-		Q_strncpy( filename, temp_filename, sizeof( filename ));
-	}
-
 	Q_strncpy( chan->incomingfilename, filename, sizeof( chan->incomingfilename ));
 
-	if( filename[0] != '!' && FS_FileExists( filename, false ))
+	if( filename[0] != '!' )
 	{
-		Con_Printf( S_ERROR "can't download %s, already exists\n", filename );
-		Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
-		return true;
+		string write_path;
+		Q_snprintf( write_path, sizeof( write_path ), "../%s" DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX "/%s", GI->gamefolder, filename );
+		Q_strncpy( filename, write_path, sizeof( filename ));
+
+		FS_AllowDirectPaths( true );
+		qboolean exists = FS_FileExists( filename, false );
+		FS_AllowDirectPaths( false );
+
+		if( exists )
+		{
+			Con_Printf( S_ERROR "can't download %s, already exists\n", filename );
+			Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
+			return true;
+		}
 	}
 
 	// create file from buffers
@@ -1339,8 +1343,9 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	}
 	else
 	{
-		// g-cont. it's will be stored downloaded files directly into game folder
+		FS_AllowDirectPaths( true );
 		FS_WriteFile( filename, buffer, nsize );
+		FS_AllowDirectPaths( false );
 		Mem_Free( buffer );
 	}
 
