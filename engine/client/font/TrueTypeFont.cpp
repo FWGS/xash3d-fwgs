@@ -509,7 +509,8 @@ int CTrueTypeFont::DrawCharacter(int ch, Point pt, int charH, const unsigned int
 			float s2 = (float)glyph.rect.right  / texW;
 			float t2 = (float)glyph.rect.bottom / texH;
 
-			ref.dllFuncs.GL_SetRenderMode( forceAdditive ? kRenderTransAdd : kRenderTransTexture );
+			if( forceAdditive )
+				ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 			ref.dllFuncs.Color4ub( r, g, b, alpha );
 			ref.dllFuncs.R_DrawStretchPic( pt.x, pt.y, charSize.w, charSize.h, s1, t1, s2, t2, glyph.texture );
 		}

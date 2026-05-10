@@ -224,6 +224,9 @@ int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_
 			return 0;
 		}
 
+		if( !FBitSet( flags, FONT_DRAW_NORENDERMODE ) && font->rendermode )
+			CL_SetFontRendermode( font );
+
 		if( FBitSet( flags, FONT_DRAW_HUD ))
 		{
 			float fx = x, fy = y, fw = (float)TTF_GetCharWidth( font->ttfont, number ), fh = (float)TTF_GetHeight( font->ttfont );

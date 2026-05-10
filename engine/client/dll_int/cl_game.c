@@ -474,7 +474,20 @@ void CL_DrawCenterPrint( void )
 	if( cls.creditsFont.ttfont )
 	{
 		// truetype - operate in real screen pixels
+		CL_SetFontRendermode( &cls.creditsFont );
+		CL_SetFontColor( &cls.creditsFont, colorDefault );
+
 		int ry, lineWidthPx, rx;
+		float elapsedTime = cl.time - clgame.centerPrint.time;
+		float fadeTime = Q_max( scr_centertime.value * 0.25f, 0.5f ); // fade for last 25% of display time up to 0.5s
+		int alpha = 255;
+
+		if( elapsedTime > scr_centertime.value - fadeTime )
+		{
+			float fadeProgress = (elapsedTime - (scr_centertime.value - fadeTime)) / fadeTime;
+			alpha = (int)( 255.0f * (1.0f - fadeProgress) + 0.5f );
+		}
+
 		ry = (int)( y * refState.height / (float)clgame.scrInfo.iHeight + 0.5f );
 		charHeight = TTF_GetHeight( cls.creditsFont.ttfont );
 
@@ -501,7 +514,7 @@ void CL_DrawCenterPrint( void )
 
 			rx = ( refState.width - lineWidthPx ) / 2;
 			for( j = 0; j < lineLength; j++ )
-				rx += TTF_DrawChar( cls.creditsFont.ttfont, rx, ry, line[j], colorDefault[0], colorDefault[1], colorDefault[2], 255 );
+				rx += TTF_DrawChar( cls.creditsFont.ttfont, rx, ry, line[j], colorDefault[0], colorDefault[1], colorDefault[2], alpha );
 
 			ry += charHeight;
 		}
@@ -2030,6 +2043,7 @@ static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g,
 	if( cls.creditsFont.ttfont )
 	{
 		// convert scrInfo coords to real pixels, draw, then convert advance back
+		CL_SetFontRendermode( &cls.creditsFont );
 		float fx = x, fy = y, fw = 1.0f, fh = 1.0f;
 		SPR_AdjustSize( &fx, &fy, &fw, &fh );
 		int advance = TTF_DrawChar( cls.creditsFont.ttfont, (int)fx, (int)fy, number, r, g, b, 255 );
