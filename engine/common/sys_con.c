@@ -106,19 +106,17 @@ void Sys_InitLog( void )
 	// create log if needed
 	if( s_ld.log_active )
 	{
-#if XASH_ANDROID
-		if( s_ld.log_path[0] != '/' )
+		const char *basedir = getenv( "XASH3D_BASEDIR" );
+
+		if( !COM_StringEmptyOrNULL( basedir ) && s_ld.log_path[0] != '/' )
 		{
-			const char *basedir = getenv( "XASH3D_BASEDIR" );
-			if( basedir )
-			{
-				char tmp[MAX_SYSPATH];
-				Q_snprintf( tmp, sizeof( tmp ), "%s/%s", basedir, s_ld.log_path );
-				Q_strncpy( s_ld.log_path, tmp, sizeof( s_ld.log_path ));
-			}
+			char fullpath[MAX_SYSPATH];
+			Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", basedir, s_ld.log_path );
+			s_ld.logfile = fopen( fullpath, mode );
 		}
-#endif
-		s_ld.logfile = fopen( s_ld.log_path, mode );
+
+		if( !s_ld.logfile )
+			s_ld.logfile = fopen( s_ld.log_path, mode );
 
 		if ( !s_ld.logfile )
 		{
