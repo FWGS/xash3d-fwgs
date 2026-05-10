@@ -79,7 +79,7 @@ jobs:
       with:
         submodules: recursive
     - name: Install dependencies
-      run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
+      run: chmod 777 -R . & bash scripts/gha/deps_${{ matrix.targetos }}.sh
     - name: Build engine
       env:
         FWGS_PFX_PASSWORD: ${{ secrets.FWGS_PFX_PASSWORD }}
