@@ -27,6 +27,18 @@ struct Rect
 	int x, y, w, h;
 };
 
+static Rect MakeRect( int x, int y, int w, int h )
+{
+	Rect rect = { x, y, w, h };
+	return rect;
+}
+
+static Color4 MakeColor( int r, int g, int b, int a )
+{
+	Color4 color = { r, g, b, a };
+	return color;
+}
+
 struct ResourceNode
 {
 	std::string name;
@@ -611,22 +623,22 @@ static void DrawServerBrowser( void )
 	const std::vector<ServerEntry*> visible = CollectVisibleServers();
 
 	g_ui.engfuncs.pfnFillRGBA( x, y, w, h, 10, 12, 16, 228 );
-	DrawTextInRect((Rect){ x, y + ScaleY( 8 ), w, ScaleY( 24 ) }, (Color4){ 255, 220, 160, 255 }, "Server Browser", true );
+	DrawTextInRect( MakeRect( x, y + ScaleY( 8 ), w, ScaleY( 24 ) ), MakeColor( 255, 220, 160, 255 ), "Server Browser", true );
 
 	for( int i = 0; i < SERVERTAB_COUNT; ++i )
 	{
 		const int tx = x + ScaleX( 8 ) + i * tabW;
 		const int selected = i == g_ui.serverTab;
 		g_ui.engfuncs.pfnFillRGBA( tx, y + ScaleY( 34 ), tabW - ScaleX( 4 ), ScaleY( 24 ), selected ? 60 : 28, selected ? 56 : 30, 34, 220 );
-		DrawTextInRect((Rect){ tx, y + ScaleY( 36 ), tabW - ScaleX( 4 ), ScaleY( 20 ) }, selected ? (Color4){ 255, 255, 255, 255 } : (Color4){ 220, 200, 160, 255 }, tabs[i], true );
+		DrawTextInRect( MakeRect( tx, y + ScaleY( 36 ), tabW - ScaleX( 4 ), ScaleY( 20 ) ), selected ? MakeColor( 255, 255, 255, 255 ) : MakeColor( 220, 200, 160, 255 ), tabs[i], true );
 	}
 
 	g_ui.engfuncs.pfnFillRGBA( x + ScaleX( 8 ), y + ScaleY( 66 ), w - ScaleX( 16 ), 1, 255, 220, 160, 255 );
-	DrawTextInRect((Rect){ x + ScaleX( 16 ), y + ScaleY( 72 ), ScaleX( 220 ), rowH }, (Color4){ 255, 220, 160, 255 }, "Name", false );
-	DrawTextInRect((Rect){ x + ScaleX( 260 ), y + ScaleY( 72 ), ScaleX( 120 ), rowH }, (Color4){ 255, 220, 160, 255 }, "Map", false );
-	DrawTextInRect((Rect){ x + ScaleX( 388 ), y + ScaleY( 72 ), ScaleX( 80 ), rowH }, (Color4){ 255, 220, 160, 255 }, "Players", false );
-	DrawTextInRect((Rect){ x + ScaleX( 474 ), y + ScaleY( 72 ), ScaleX( 48 ), rowH }, (Color4){ 255, 220, 160, 255 }, "Ping", false );
-	DrawTextInRect((Rect){ x + ScaleX( 524 ), y + ScaleY( 72 ), ScaleX( 60 ), rowH }, (Color4){ 255, 220, 160, 255 }, "Addr", false );
+	DrawTextInRect( MakeRect( x + ScaleX( 16 ), y + ScaleY( 72 ), ScaleX( 220 ), rowH ), MakeColor( 255, 220, 160, 255 ), "Name", false );
+	DrawTextInRect( MakeRect( x + ScaleX( 260 ), y + ScaleY( 72 ), ScaleX( 120 ), rowH ), MakeColor( 255, 220, 160, 255 ), "Map", false );
+	DrawTextInRect( MakeRect( x + ScaleX( 388 ), y + ScaleY( 72 ), ScaleX( 80 ), rowH ), MakeColor( 255, 220, 160, 255 ), "Players", false );
+	DrawTextInRect( MakeRect( x + ScaleX( 474 ), y + ScaleY( 72 ), ScaleX( 48 ), rowH ), MakeColor( 255, 220, 160, 255 ), "Ping", false );
+	DrawTextInRect( MakeRect( x + ScaleX( 524 ), y + ScaleY( 72 ), ScaleX( 60 ), rowH ), MakeColor( 255, 220, 160, 255 ), "Addr", false );
 
 	for( size_t i = 0; i < visible.size() && i < 12; ++i )
 	{
@@ -637,14 +649,14 @@ static void DrawServerBrowser( void )
 		if( selected )
 			g_ui.engfuncs.pfnFillRGBA( x + ScaleX( 10 ), yy, w - ScaleX( 20 ), rowH, 44, 40, 28, 220 );
 
-		DrawTextInRect((Rect){ x + ScaleX( 16 ), yy, ScaleX( 236 ), rowH }, selected ? (Color4){ 255, 255, 255, 255 } : (Color4){ 220, 220, 220, 255 }, server.name.c_str(), false );
-		DrawTextInRect((Rect){ x + ScaleX( 260 ), yy, ScaleX( 120 ), rowH }, (Color4){ 200, 200, 200, 255 }, server.map.c_str(), false );
-		DrawTextInRect((Rect){ x + ScaleX( 388 ), yy, ScaleX( 80 ), rowH }, (Color4){ 200, 200, 200, 255 }, server.players.c_str(), false );
-		DrawTextInRect((Rect){ x + ScaleX( 474 ), yy, ScaleX( 48 ), rowH }, (Color4){ 200, 200, 200, 255 }, server.ping.c_str(), false );
-		DrawTextInRect((Rect){ x + ScaleX( 524 ), yy, ScaleX( 60 ), rowH }, (Color4){ 200, 200, 200, 255 }, server.address.c_str(), false );
+		DrawTextInRect( MakeRect( x + ScaleX( 16 ), yy, ScaleX( 236 ), rowH ), selected ? MakeColor( 255, 255, 255, 255 ) : MakeColor( 220, 220, 220, 255 ), server.name.c_str(), false );
+		DrawTextInRect( MakeRect( x + ScaleX( 260 ), yy, ScaleX( 120 ), rowH ), MakeColor( 200, 200, 200, 255 ), server.map.c_str(), false );
+		DrawTextInRect( MakeRect( x + ScaleX( 388 ), yy, ScaleX( 80 ), rowH ), MakeColor( 200, 200, 200, 255 ), server.players.c_str(), false );
+		DrawTextInRect( MakeRect( x + ScaleX( 474 ), yy, ScaleX( 48 ), rowH ), MakeColor( 200, 200, 200, 255 ), server.ping.c_str(), false );
+		DrawTextInRect( MakeRect( x + ScaleX( 524 ), yy, ScaleX( 60 ), rowH ), MakeColor( 200, 200, 200, 255 ), server.address.c_str(), false );
 	}
 
-	DrawTextInRect((Rect){ x + ScaleX( 14 ), y + h - ScaleY( 28 ), ScaleX( 560 ), ScaleY( 20 ) }, (Color4){ 180, 180, 180, 255 }, "[Enter] Join  [R] Refresh  [Tab] Change tab  [F] Favorite  [Esc] Back", false );
+	DrawTextInRect( MakeRect( x + ScaleX( 14 ), y + h - ScaleY( 28 ), ScaleX( 560 ), ScaleY( 20 ) ), MakeColor( 180, 180, 180, 255 ), "[Enter] Join  [R] Refresh  [Tab] Change tab  [F] Favorite  [Esc] Back", false );
 }
 
 static void DrawWidget( Widget &widget, int &buttonIndex )
@@ -927,14 +939,14 @@ static void DrawMotd( void )
 	g_ui.engfuncs.pfnFillRGBA( x, y, w, h, 12, 14, 18, 230 );
 	g_ui.engfuncs.pfnFillRGBA( x, y, w, 2, 255, 220, 160, 255 );
 	g_ui.engfuncs.pfnFillRGBA( x, y + h - 2, w, 2, 255, 220, 160, 255 );
-	DrawTextInRect((Rect){ x, y + ScaleY( 8 ), w, ScaleY( 24 ) }, (Color4){ 255, 220, 160, 255 }, "MOTD", true );
+	DrawTextInRect( MakeRect( x, y + ScaleY( 8 ), w, ScaleY( 24 ) ), MakeColor( 255, 220, 160, 255 ), "MOTD", true );
 
 	while( start < g_ui.motdText.size() && y + ScaleY( 40 ) + line * lineHeight < y + h - ScaleY( 20 ) )
 	{
 		size_t end = g_ui.motdText.find( '\n', start );
 		std::string row = g_ui.motdText.substr( start, end == std::string::npos ? std::string::npos : end - start );
 
-		DrawTextInRect((Rect){ x + ScaleX( 16 ), y + ScaleY( 40 ) + line * lineHeight, w - ScaleX( 32 ), lineHeight }, (Color4){ 220, 220, 220, 255 }, row.c_str(), false );
+		DrawTextInRect( MakeRect( x + ScaleX( 16 ), y + ScaleY( 40 ) + line * lineHeight, w - ScaleX( 32 ), lineHeight ), MakeColor( 220, 220, 220, 255 ), row.c_str(), false );
 
 		if( end == std::string::npos )
 			break;
