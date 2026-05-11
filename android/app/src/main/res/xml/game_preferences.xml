@@ -39,4 +39,28 @@
 		app:title="@string/preferences_server_package"
 		app:useSimpleSummaryProvider="true"
 		app:isPreferenceVisible="false" />
+
+	<Preference
+		app:key="source_url"
+		app:layout="@layout/edit_text_preference"
+		app:title="@string/source_repo"
+		app:isPreferenceVisible="false" />
+
+	<Preference
+		app:key="source_branch"
+		app:layout="@layout/edit_text_preference"
+		app:title="@string/source_branch"
+		app:isPreferenceVisible="false" />
+
+	<Preference
+		app:key="source_commit"
+		app:layout="@layout/edit_text_preference"
+		app:title="@string/source_commit"
+		app:isPreferenceVisible="false" />
+
+	<Preference
+		app:key="downloaded_at"
+		app:layout="@layout/edit_text_preference"
+		app:title="@string/downloaded_at"
+		app:isPreferenceVisible="false" />
 </PreferenceScreen>

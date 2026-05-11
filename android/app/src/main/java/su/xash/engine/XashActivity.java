@@ -202,6 +202,10 @@ public class XashActivity extends SDLActivity {
         ensurePreferences();
         setStretchResolutionEnvironment();
 
+        String rodir = getFilesDir().getAbsolutePath() + "/gamelibs";
+        nativeSetenv("XASH3D_RODIR", rodir);
+        Log.i(TAG, "XASH3D_RODIR = " + rodir);
+
         String gamedir = getIntent().getStringExtra("gamedir");
         if (gamedir == null) gamedir = "valve";
         

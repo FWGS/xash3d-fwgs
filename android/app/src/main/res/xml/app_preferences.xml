@@ -44,6 +44,12 @@
             app:title="@string/fix_font"
             app:summary="@string/fix_font_summary"
             app:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            app:key="enable_downloader"
+            app:title="@string/enable_downloader"
+            app:summary="@string/enable_downloader_summary"
+            app:defaultValue="false" />
     </PreferenceCategory>
 
 </PreferenceScreen>
