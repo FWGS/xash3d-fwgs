@@ -3,18 +3,17 @@ package su.xash.engine.adapters
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.navigation.findNavController
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import su.xash.engine.R
 import su.xash.engine.databinding.CardGameBinding
 import su.xash.engine.model.Game
+import su.xash.engine.ui.library.LibraryViewModel
 
 
-class GameAdapter(
-	private val onLaunchGame: (Game) -> Unit,
-	private val onSettingsClick: (Game) -> Unit
-) :
+class GameAdapter(private val libraryViewModel: LibraryViewModel) :
 	ListAdapter<Game, GameAdapter.GameViewHolder>(DiffCallback()) {
 
 	override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GameAdapter.GameViewHolder {
@@ -56,12 +55,14 @@ class GameAdapter(
 				}
 
 				settingsButton.setOnClickListener {
-					onSettingsClick(game)
+					libraryViewModel.setSelectedGame(game)
+					it.findNavController()
+						.navigate(R.id.action_libraryFragment_to_gameSettingsFragment)
 				}
 
-				root.setOnClickListener { onLaunchGame(game) }
+				root.setOnClickListener { libraryViewModel.startEngine(it.context, game) }
 				launchButton.setOnClickListener {
-					onLaunchGame(game)
+					libraryViewModel.startEngine(it.context, game)
 				}
 			}
 		}

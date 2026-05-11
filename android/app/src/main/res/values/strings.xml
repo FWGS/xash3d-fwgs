@@ -44,35 +44,4 @@
     <string name="keyboard_resizes_screen_summary">Resize the game window when the keyboard is shown</string>
     <string name="fix_font">Fix font</string>
     <string name="fix_font_summary">Fix con_oldfont and con_fontscale behavior</string>
-
-    <string name="crash_dialog_title">Xash3D FWGS crashed last time</string>
-    <string name="crash_send_to_developers">Send to developers</string>
-    <string name="crash_share">Share</string>
-    <string name="crash_dismiss">Dismiss</string>
-    <string name="crash_logs">Crash logs</string>
-    <string name="crash_logs_empty">No crash logs recorded</string>
-    <string name="crash_log_delete">Delete</string>
-    <string name="crash_email_subject" translatable="false">Xash3D FWGS crash report</string>
-    <string name="crash_email_body">Crash details are attached. Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!</string>
-    <string name="crash_no_mail_app_title">No mail app found</string>
-    <string name="crash_no_mail_app_message">No email client is installed on this device. Install one (or use Share to send the report another way) and try again.</string>
-
-    <string name="enable_gamelib_downloader">Download game libraries</string>
-    <string name="enable_gamelib_downloader_summary">Automatically download Half-Life SDK game libraries from the internet</string>
-    <string name="downloading_game_libs">Downloading Game Libraries</string>
-    <string name="downloading">Downloading…</string>
-    <string name="download_progress">Downloading… %1$d%%</string>
-    <string name="download_failed">Download Failed</string>
-    <string name="download_error">An error occurred while downloading game libraries.</string>
-    <string name="update_available">Update Available</string>
-    <string name="update_available_message">A newer version of the game libraries is available. Download the update?</string>
-    <string name="update_download">Update</string>
-    <string name="update_skip">Skip</string>
-    <string name="manifest_error_title">Cannot reach game library server</string>
-    <string name="manifest_error_message">Failed to download the build manifest:\n\n%1$s\n\nGame libraries cannot be downloaded right now. You can launch the engine anyway, but it likely won\'t find the game DLLs.</string>
-    <string name="launch_anyway">Launch anyway</string>
-    <string name="source_repo">Source repository</string>
-    <string name="source_branch">Branch</string>
-    <string name="source_commit">Commit</string>
-    <string name="downloaded_at">Downloaded</string>
 </resources>

@@ -3,7 +3,6 @@ package su.xash.engine.ui.settings
 import android.app.AlertDialog
 import android.os.Bundle
 import android.widget.EditText
-import androidx.navigation.fragment.findNavController
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import su.xash.engine.MainActivity
@@ -28,12 +27,6 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
         gamePathPreference = findPreference("game_path") ?: return
         globalArgsPreference = findPreference("global_arguments") ?: return
         renderResolutionPreference = findPreference("render_resolution") ?: return
-
-        val crashLogsPreference = findPreference<Preference>("crash_logs")
-        crashLogsPreference?.setOnPreferenceClickListener {
-            findNavController().navigate(R.id.action_appSettingsFragment_to_crashLogsFragment)
-            true
-        }
 
         globalArgsPreference.setOnPreferenceClickListener {
             showGlobalArgumentsDialog()

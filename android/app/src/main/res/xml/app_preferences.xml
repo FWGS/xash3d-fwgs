@@ -17,12 +17,6 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/global_settings">
-        <SwitchPreferenceCompat
-            app:key="enable_gamelib_downloader"
-            app:title="@string/enable_gamelib_downloader"
-            app:summary="@string/enable_gamelib_downloader_summary"
-            app:defaultValue="false" />
-
         <Preference
             app:key="global_arguments"
             app:title="@string/global_command_line"
@@ -50,10 +44,6 @@
             app:title="@string/fix_font"
             app:summary="@string/fix_font_summary"
             app:defaultValue="true" />
-
-        <Preference
-            app:key="crash_logs"
-            app:title="@string/crash_logs" />
     </PreferenceCategory>
 
 </PreferenceScreen>
