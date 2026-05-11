@@ -20,7 +20,6 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
     private lateinit var renderResolutionPreference: Preference
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        preferenceManager.sharedPreferencesName = "app_preferences"
         setPreferencesFromResource(R.xml.app_preferences, rootKey)
 
         preferences = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -30,6 +29,12 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
         globalArgsPreference = findPreference("global_arguments") ?: return
         renderResolutionPreference = findPreference("render_resolution") ?: return
 
+        val crashLogsPreference = findPreference<Preference>("crash_logs")
+        crashLogsPreference?.setOnPreferenceClickListener {
+            findNavController().navigate(R.id.action_appSettingsFragment_to_crashLogsFragment)
+            true
+        }
+
         globalArgsPreference.setOnPreferenceClickListener {
             showGlobalArgumentsDialog()
             true
@@ -37,11 +42,6 @@ class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
 
         renderResolutionPreference.setOnPreferenceClickListener {
             showRenderResolutionDialog()
-            true
-        }
-
-        findPreference<Preference>("crash_logs")?.setOnPreferenceClickListener {
-            findNavController().navigate(R.id.action_appSettingsFragment_to_crashLogsFragment)
             true
         }
 

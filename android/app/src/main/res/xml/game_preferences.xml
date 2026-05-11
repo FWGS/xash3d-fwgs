@@ -14,13 +14,6 @@
 		app:title="@string/game_settings_volume_buttons" />
 
 	<SwitchPreferenceCompat
-		app:key="enable_yapb_bots"
-		app:layout="@layout/switch_preference"
-		app:title="@string/game_settings_yapb_bots"
-		app:defaultValue="true"
-		app:isPreferenceVisible="false" />
-
-	<SwitchPreferenceCompat
 		app:key="separate_libraries"
 		app:layout="@layout/switch_preference"
 		app:title="@string/preferences_separate_libraries"
@@ -45,29 +38,5 @@
 		app:layout="@layout/list_preference"
 		app:title="@string/preferences_server_package"
 		app:useSimpleSummaryProvider="true"
-		app:isPreferenceVisible="false" />
-
-	<Preference
-		app:key="source_url"
-		app:layout="@layout/edit_text_preference"
-		app:title="@string/source_repo"
-		app:isPreferenceVisible="false" />
-
-	<Preference
-		app:key="source_branch"
-		app:layout="@layout/edit_text_preference"
-		app:title="@string/source_branch"
-		app:isPreferenceVisible="false" />
-
-	<Preference
-		app:key="source_commit"
-		app:layout="@layout/edit_text_preference"
-		app:title="@string/source_commit"
-		app:isPreferenceVisible="false" />
-
-	<Preference
-		app:key="downloaded_at"
-		app:layout="@layout/edit_text_preference"
-		app:title="@string/downloaded_at"
 		app:isPreferenceVisible="false" />
 </PreferenceScreen>

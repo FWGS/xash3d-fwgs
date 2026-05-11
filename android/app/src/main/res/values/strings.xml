@@ -45,8 +45,6 @@
     <string name="fix_font">Fix font</string>
     <string name="fix_font_summary">Fix con_oldfont and con_fontscale behavior</string>
 
-    <string name="game_settings_yapb_bots">Enable YaPB bots (CS only)</string>
-
     <string name="crash_dialog_title">Xash3D FWGS crashed last time</string>
     <string name="crash_send_to_developers">Send to developers</string>
     <string name="crash_share">Share</string>
@@ -58,6 +56,9 @@
     <string name="crash_email_body">Crash details are attached. Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!</string>
     <string name="crash_no_mail_app_title">No mail app found</string>
     <string name="crash_no_mail_app_message">No email client is installed on this device. Install one (or use Share to send the report another way) and try again.</string>
+
+    <string name="enable_gamelib_downloader">Download game libraries</string>
+    <string name="enable_gamelib_downloader_summary">Automatically download Half-Life SDK game libraries from the internet</string>
     <string name="downloading_game_libs">Downloading Game Libraries</string>
     <string name="downloading">Downloading…</string>
     <string name="download_progress">Downloading… %1$d%%</string>

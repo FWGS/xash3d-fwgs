@@ -17,6 +17,12 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/global_settings">
+        <SwitchPreferenceCompat
+            app:key="enable_gamelib_downloader"
+            app:title="@string/enable_gamelib_downloader"
+            app:summary="@string/enable_gamelib_downloader_summary"
+            app:defaultValue="false" />
+
         <Preference
             app:key="global_arguments"
             app:title="@string/global_command_line"

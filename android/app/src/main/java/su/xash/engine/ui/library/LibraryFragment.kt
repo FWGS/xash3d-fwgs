@@ -17,18 +17,22 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.launch
 import su.xash.engine.BuildConfig
 import su.xash.engine.R
 import su.xash.engine.adapters.GameAdapter
 import su.xash.engine.databinding.FragmentLibraryBinding
+import su.xash.engine.model.GameLibDownloader
 
 class LibraryFragment : Fragment(), MenuProvider {
     private var _binding: FragmentLibraryBinding? = null
@@ -140,7 +144,13 @@ class LibraryFragment : Fragment(), MenuProvider {
         // Preferences'ı yükle
         preferences = PreferenceManager.getDefaultSharedPreferences(requireContext())
 
-        val adapter = GameAdapter(libraryViewModel)
+        val adapter = GameAdapter(
+            onLaunchGame = { game -> onGameLaunch(game) },
+            onSettingsClick = { game ->
+                libraryViewModel.setSelectedGame(game)
+                findNavController().navigate(R.id.action_libraryFragment_to_gameSettingsFragment)
+            }
+        )
         binding.gamesList.adapter = adapter
 
         requireActivity().addMenuProvider(this, viewLifecycleOwner, Lifecycle.State.RESUMED)
@@ -183,6 +193,99 @@ class LibraryFragment : Fragment(), MenuProvider {
         }
 
         return false
+    }
+
+    private fun onGameLaunch(game: su.xash.engine.model.Game) {
+        val ctx = requireContext()
+        if (!preferences.getBoolean("enable_gamelib_downloader", false)) {
+            libraryViewModel.startEngine(ctx, game)
+            return
+        }
+
+        val downloader = GameLibDownloader(ctx)
+        if (downloader.isDownloaded(game.basedir.name)) {
+            lifecycleScope.launch {
+                if (downloader.isUpdateAvailable(game.basedir.name)) {
+                    AlertDialog.Builder(ctx)
+                        .setTitle(R.string.update_available)
+                        .setMessage(R.string.update_available_message)
+                        .setPositiveButton(R.string.update_download) { _, _ ->
+                            performDownloadAndLaunch(game, downloader)
+                        }
+                        .setNegativeButton(R.string.update_skip) { _, _ ->
+                            libraryViewModel.startEngine(ctx, game)
+                        }
+                        .show()
+                } else {
+                    libraryViewModel.startEngine(ctx, game)
+                }
+            }
+            return
+        }
+
+        lifecycleScope.launch {
+            val lookup = downloader.lookupBuild(game.basedir.name)
+            when (lookup) {
+                is GameLibDownloader.Lookup.Available -> {
+                    AlertDialog.Builder(ctx)
+                        .setTitle(R.string.downloading_game_libs)
+                        .setMessage(ctx.getString(R.string.game_apk_message))
+                        .setPositiveButton(R.string.game_apk_install) { _, _ ->
+                            performDownloadAndLaunch(game, downloader)
+                        }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                }
+                is GameLibDownloader.Lookup.NotInManifest -> {
+                    libraryViewModel.startEngine(ctx, game)
+                }
+                is GameLibDownloader.Lookup.Error -> {
+                    AlertDialog.Builder(ctx)
+                        .setTitle(R.string.manifest_error_title)
+                        .setMessage(ctx.getString(R.string.manifest_error_message, lookup.cause.message))
+                        .setPositiveButton(R.string.launch_anyway) { _, _ ->
+                            libraryViewModel.startEngine(ctx, game)
+                        }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun performDownloadAndLaunch(game: su.xash.engine.model.Game, downloader: GameLibDownloader) {
+        val ctx = requireContext()
+        val dialogView = LayoutInflater.from(ctx).inflate(R.layout.dialog_download_progress, null)
+        val dialog = AlertDialog.Builder(ctx)
+            .setTitle(R.string.downloading_game_libs)
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+        dialog.show()
+
+        lifecycleScope.launch {
+            val result = downloader.download(game.basedir.name) { progress ->
+                dialogView.findViewById<com.google.android.material.progressindicator.LinearProgressIndicator>(
+                    R.id.downloadProgress
+                )?.setProgress((progress * 100).toInt())
+                dialogView.findViewById<com.google.android.material.textview.MaterialTextView>(
+                    R.id.downloadStatus
+                )?.text = ctx.getString(R.string.download_progress, (progress * 100).toInt())
+            }
+            dialog.dismiss()
+            result.onSuccess {
+                libraryViewModel.startEngine(ctx, game)
+            }.onFailure { error ->
+                AlertDialog.Builder(ctx)
+                    .setTitle(R.string.download_failed)
+                    .setMessage(ctx.getString(R.string.download_error) + "\n\n" + error.message)
+                    .setPositiveButton(R.string.launch_anyway) { _, _ ->
+                        libraryViewModel.startEngine(ctx, game)
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+        }
     }
 
     override fun onResume() {

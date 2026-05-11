@@ -26,8 +26,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     val selectedItem: LiveData<Game> get() = _selectedItem
     private val _selectedItem = MutableLiveData<Game>()
 
-    private val appPreferences: SharedPreferences =
-        application.getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
+    private val defaultPreferences: SharedPreferences =
+        PreferenceManager.getDefaultSharedPreferences(application)
 
     fun reloadGames(ctx: Context) {
         if (isReloading.value == true) return
@@ -36,35 +36,28 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 val games = mutableListOf<Game>()
-
-                val rootPath = appPreferences.getString("game_path", null)
-                if (rootPath != null) {
-                    val root = File(rootPath)
-                    Nomedia.ensureNomedia(root)
-                    games.addAll(Game.getGames(ctx, root))
-                } else {
-                    val internalPath = ctx.getExternalFilesDir(null)?.absolutePath
-                    val internalDir = File(internalPath ?: "")
-
-                    val externalPath = Environment.getExternalStorageDirectory().absolutePath + "/xash"
-                    val externalDir = File(externalPath)
-
-                    Nomedia.ensureNomedia(externalDir)
-
-                    if (internalDir.exists() && internalDir.isDirectory) {
-                        games.addAll(Game.getGames(ctx, internalDir))
-                    }
-
-                    if (externalDir.exists() && externalDir.isDirectory) {
-                        val externalGames = Game.getGames(ctx, externalDir)
-                        externalGames.forEach { externalGame ->
-                            if (!games.any { it.basedir.name == externalGame.basedir.name }) {
-                                games.add(externalGame)
-                            }
+                
+                val internalPath = ctx.getExternalFilesDir(null)?.absolutePath
+                val internalDir = File(internalPath ?: "")
+                
+                val externalPath = Environment.getExternalStorageDirectory().absolutePath + "/xash"
+                val externalDir = File(externalPath)
+                
+                Nomedia.ensureNomedia(externalDir)
+                
+                if (internalDir.exists() && internalDir.isDirectory) {
+                    games.addAll(Game.getGames(ctx, internalDir))
+                }
+                
+                if (externalDir.exists() && externalDir.isDirectory) {
+                    val externalGames = Game.getGames(ctx, externalDir)
+                    externalGames.forEach { externalGame ->
+                        if (!games.any { it.basedir.name == externalGame.basedir.name }) {
+                            games.add(externalGame)
                         }
                     }
                 }
-
+                
                 _installedGames.postValue(games)
                 _isReloading.postValue(false)
             }
