@@ -1,0 +1,24 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def options(opt):
+	return
+
+def configure(conf):
+	conf.load('fwgslib cxx11')
+
+def build(bld):
+	bld.shlib(
+		source = ['vgui_menu.cpp'],
+		target = 'menu_vgui',
+		includes = [
+			'.',
+			'../mainui',
+			'../mainui/sdk_includes/public',
+			'../../common',
+			'../../engine',
+		],
+		use = 'werror',
+		install_path = bld.env.LIBDIR,
+		cmake_skip = True
+	)
