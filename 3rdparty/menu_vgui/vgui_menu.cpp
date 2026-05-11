@@ -76,13 +76,20 @@ struct UiState
 	int mouseX;
 	int mouseY;
 	int hoveredButton;
+	int lastHoveredButton;
 	int activeButton;
 	int screenW;
 	int screenH;
 	int selectedServer;
 	int serverTab;
-	int pendingServerTab;
 	Page page;
+	int serverWindowX;
+	int serverWindowY;
+	int motdWindowX;
+	int motdWindowY;
+	int dragOffsetX;
+	int dragOffsetY;
+	int dragTarget;
 	std::string motdText;
 	std::string motdSource;
 	bool motdVisible;
@@ -96,6 +103,13 @@ enum
 	SERVERTAB_LAN,
 	SERVERTAB_NAT,
 	SERVERTAB_COUNT
+};
+
+enum
+{
+	DRAG_NONE,
+	DRAG_SERVER,
+	DRAG_MOTD
 };
 
 struct ServerEntry
@@ -123,6 +137,22 @@ static int Clamp255( int value )
 	if( value < 0 ) return 0;
 	if( value > 255 ) return 255;
 	return value;
+}
+
+static void PlayUISound( const char *sound )
+{
+	if( sound && sound[0] )
+		g_ui.engfuncs.pfnPlayLocalSound( sound );
+}
+
+static void PlayHoverSound( void )
+{
+	PlayUISound( "media/launch_glow1.wav" );
+}
+
+static void PlayClickSound( void )
+{
+	PlayUISound( "media/launch_select2.wav" );
 }
 
 static Color4 ParseColor( const std::string &text, int ar, int ag, int ab, int aa )
@@ -560,14 +590,19 @@ static void OpenServersPage( int tab )
 	g_ui.page = UiState::PAGE_SERVERS;
 	g_ui.visible = true;
 	g_ui.serverTab = tab;
+	if( g_ui.serverWindowX <= 0 )
+	{
+		g_ui.serverWindowX = ScaleX( 24 );
+		g_ui.serverWindowY = ScaleY( 40 );
+	}
 	RefreshServers();
 }
 
 static void DrawServerBrowser( void )
 {
 	static const char *tabs[SERVERTAB_COUNT] = { "Direct", "Favorites", "History", "LAN", "NAT" };
-	const int x = ScaleX( 24 );
-	const int y = ScaleY( 40 );
+	const int x = g_ui.serverWindowX > 0 ? g_ui.serverWindowX : ScaleX( 24 );
+	const int y = g_ui.serverWindowY > 0 ? g_ui.serverWindowY : ScaleY( 40 );
 	const int w = ScaleX( 592 );
 	const int h = ScaleY( 400 );
 	const int tabW = ScaleX( 96 );
@@ -881,8 +916,8 @@ static void DrawMotd( void )
 	if( !g_ui.motdVisible )
 		return;
 
-	const int x = ScaleX( 60 );
-	const int y = ScaleY( 50 );
+	const int x = g_ui.motdWindowX > 0 ? g_ui.motdWindowX : ScaleX( 60 );
+	const int y = g_ui.motdWindowY > 0 ? g_ui.motdWindowY : ScaleY( 50 );
 	const int w = ScaleX( 520 );
 	const int h = ScaleY( 360 );
 	const int lineHeight = ScaleY( 14 );
@@ -956,7 +991,13 @@ static void UI_Init( void )
 	g_ui.initialized = true;
 	g_ui.visible = true;
 	g_ui.hoveredButton = -1;
+	g_ui.lastHoveredButton = -1;
 	g_ui.activeButton = -1;
+	g_ui.serverWindowX = ScaleX( 24 );
+	g_ui.serverWindowY = ScaleY( 40 );
+	g_ui.motdWindowX = ScaleX( 60 );
+	g_ui.motdWindowY = ScaleY( 50 );
+	g_ui.dragTarget = DRAG_NONE;
 
 	g_ui.engfuncs.pfnAddCommand( "vgui_reload", VGUI_Reload_f );
 	g_ui.engfuncs.pfnAddCommand( "vgui_showmenu", VGUI_ShowMenu_f );
@@ -1014,6 +1055,7 @@ static void UI_KeyEvent( int key, int down )
 		}
 
 		g_ui.activeButton = -1;
+		g_ui.dragTarget = DRAG_NONE;
 		return;
 	}
 
@@ -1083,6 +1125,27 @@ static void UI_KeyEvent( int key, int down )
 	{
 		g_ui.mouseDown = true;
 		g_ui.activeButton = g_ui.hoveredButton;
+		if( g_ui.motdVisible )
+		{
+			const Rect title = { g_ui.motdWindowX, g_ui.motdWindowY, ScaleX( 520 ), ScaleY( 28 ) };
+			if( PointInRect( g_ui.mouseX, g_ui.mouseY, title ) )
+			{
+				g_ui.dragTarget = DRAG_MOTD;
+				g_ui.dragOffsetX = g_ui.mouseX - g_ui.motdWindowX;
+				g_ui.dragOffsetY = g_ui.mouseY - g_ui.motdWindowY;
+			}
+		}
+		else if( g_ui.page == UiState::PAGE_SERVERS )
+		{
+			const Rect title = { g_ui.serverWindowX, g_ui.serverWindowY, ScaleX( 592 ), ScaleY( 28 ) };
+			if( PointInRect( g_ui.mouseX, g_ui.mouseY, title ) )
+			{
+				g_ui.dragTarget = DRAG_SERVER;
+				g_ui.dragOffsetX = g_ui.mouseX - g_ui.serverWindowX;
+				g_ui.dragOffsetY = g_ui.mouseY - g_ui.serverWindowY;
+			}
+		}
+		PlayClickSound();
 		return;
 	}
 
@@ -1097,7 +1160,26 @@ static void UI_MouseMove( int x, int y )
 {
 	g_ui.mouseX = x;
 	g_ui.mouseY = y;
+
+	if( g_ui.dragTarget == DRAG_SERVER )
+	{
+		g_ui.serverWindowX = x - g_ui.dragOffsetX;
+		g_ui.serverWindowY = y - g_ui.dragOffsetY;
+	}
+	else if( g_ui.dragTarget == DRAG_MOTD )
+	{
+		g_ui.motdWindowX = x - g_ui.dragOffsetX;
+		g_ui.motdWindowY = y - g_ui.dragOffsetY;
+	}
+
 	RecalculateHover();
+
+	if( g_ui.hoveredButton != g_ui.lastHoveredButton )
+	{
+		if( g_ui.hoveredButton >= 0 )
+			PlayHoverSound();
+		g_ui.lastHoveredButton = g_ui.hoveredButton;
+	}
 }
 
 static void UI_SetActiveMenu( int active )
