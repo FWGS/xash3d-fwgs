@@ -394,9 +394,6 @@ void FS_Init( void )
 
 	if( !Sys_GetParmFromCmdLine( "-menulib", host.menulib ))
 		host.menulib[0] = 0;
-
-	if( !host.menulib[0] && COM_CheckParm( "-vgui", NULL ))
-		Q_strncpy( host.menulib, "@menu_vgui", sizeof( host.menulib ));
 }
 
 /*
