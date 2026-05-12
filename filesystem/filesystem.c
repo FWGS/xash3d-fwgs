@@ -1546,7 +1546,7 @@ static int FS_StripIdiotRelativePath( const char *dllname, const char *gamefolde
 	return 0;
 }
 
-static poolhandle_t Mem_AllocPoolStub( const char *name, const char *filename, int fileline )
+static poolhandle_t Mem_AllocPoolStub( const char *name, unsigned int flags, const char *filename, int fileline )
 {
 	return (poolhandle_t)0xDEADC0DE;
 }
