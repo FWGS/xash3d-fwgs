@@ -779,6 +779,7 @@ void CL_ParticleManInit( void );
 void CL_ParticleManClear( void );
 void CL_ParticleManNewMap( void );
 void CL_ParticleManUpdate( void );
+void CL_ParticleManApplyFog( const ref_viewpass_t *rvp );
 
 //
 // cl_main.c

@@ -413,6 +413,7 @@ void V_RenderView( void )
 		V_GetRefParams( &rp, &rvp );
 		V_RefApplyOverview( &rvp );
 		V_ApplyRefUnderwater( &rvp );
+		CL_ParticleManApplyFog( &rvp );
 
 		if( viewnum == 0 && FBitSet( rvp.flags, RF_ONLY_CLIENTDRAW ))
 		{

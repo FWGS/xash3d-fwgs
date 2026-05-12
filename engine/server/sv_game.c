@@ -4876,6 +4876,20 @@ static void SV_FreeKeyValueStrings( KeyValueData *kvd, int numpairs )
 	}
 }
 
+static qboolean SV_IsParticleManCompatEntity( const char *classname )
+{
+	if( !Sys_CheckParm( "-particleman" ) || COM_StringEmpty( classname ))
+		return false;
+
+	return !Q_stricmp( classname, "env_fog" ) ||
+		!Q_stricmp( classname, "env_snow" ) ||
+		!Q_stricmp( classname, "func_snow" ) ||
+		!Q_stricmp( classname, "env_rain" ) ||
+		!Q_stricmp( classname, "func_rain" ) ||
+		!Q_stricmp( classname, "env_smoker" ) ||
+		!Q_stricmp( classname, "env_smoke" );
+}
+
 /*
 ====================
 SV_ParseEdict
@@ -4888,6 +4902,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 {
 	KeyValueData	pkvd[256]; // per one entity
 	qboolean		adjust_origin = false, customentity;
+	qboolean		particleman_compat = false;
 	int		i, numpairs = 0;
 	const char	*classname = NULL;
 
@@ -4942,7 +4957,16 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 			// throw an error for now, improve the logic if it causes
 			// compatibility issues with Xash-based games
 			if( !kvd.fHandled )
+			{
+				if( SV_IsParticleManCompatEntity( value ))
+				{
+					classname = value;
+					particleman_compat = true;
+					continue;
+				}
+
 				Host_Error( "%s: game didn't handled \"%s\" classname\n", __func__,	value );
+			}
 
 			// this lets game dll override custom entity classname
 			// to something bogus that's exported in game dll
@@ -4975,6 +4999,12 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 	if( classname == NULL )
 	{
 		// release allocated strings
+		SV_FreeKeyValueStrings( pkvd, numpairs );
+		return false;
+	}
+
+	if( particleman_compat || SV_IsParticleManCompatEntity( classname ))
+	{
 		SV_FreeKeyValueStrings( pkvd, numpairs );
 		return false;
 	}
