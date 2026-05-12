@@ -345,15 +345,28 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	// silence known-broken WAVs that contain stray non-zero samples masquerading as silence
-	if( Q_stristr( name, "null.wav" ))
+	if( Q_stristr( name, "null.wav" ) || Q_stristr( name, "_period.wav" ) || Q_stristr( name, "_comma.wav" ))
 	{
+		static const uint32_t broken_crcs[] =
+		{
+			0x14a36f29, // common/null.wav (HL1/Q1)
+			0x005a43ab, // vox/_period.wav (HL1)
+			0x7749ed15, // vox/_comma.wav (HL1)
+		};
 		uint32_t crc;
+
 		CRC32_Init( &crc );
 		CRC32_ProcessBuffer( &crc, buffer, filesize );
 		crc = CRC32_Final( crc );
 
-		if( crc == 0x14a36f29 ) // common/null.wav (Half-Life)
-			memset( sound.wav, 0, sound.size );
+		for( size_t i = 0; i < ARRAYSIZE( broken_crcs ); i++ )
+		{
+			if( crc == broken_crcs[i] )
+			{
+				memset( sound.wav, 0, sound.size );
+				break;
+			}
+		}
 	}
 
 	return true;
