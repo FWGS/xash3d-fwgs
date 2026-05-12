@@ -1454,7 +1454,7 @@ Cmd_Init
 */
 void Cmd_Init( void )
 {
-	cmd_pool = Mem_AllocPool( "Console Commands" );
+	cmd_pool = Mem_AllocPoolExt( "Console Commands", MEM_SMALL_ALLOC_OPT );
 	cmd_functions = NULL;
 	cmd_condition = 0;
 	cmd_wait = 0;

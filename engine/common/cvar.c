@@ -1295,7 +1295,7 @@ Reads in all archived cvars
 */
 void Cvar_Init( void )
 {
-	cvar_pool = Mem_AllocPool( "Console Variables" );
+	cvar_pool = Mem_AllocPoolExt( "Console Variables", MEM_SMALL_ALLOC_OPT );
 	cvar_vars = NULL;
 	cvar_active_filter_quirks = NULL;
 	Cvar_RegisterVariable( &cmd_scripting );
