@@ -4116,6 +4116,7 @@ qboolean CL_LoadProgs( const char *name )
 	CL_InitCDAudio( "media/cdaudio.txt" );
 	CL_InitTitles( "titles.txt" );
 	CL_InitParticles( );
+	CL_ParticleManInit();
 	CL_InitViewBeams( );
 	CL_InitTempEnts( );
 

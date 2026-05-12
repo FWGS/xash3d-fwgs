@@ -1746,6 +1746,7 @@ void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto )
 			CL_StartDark ();
 
 			CL_SetupOverviewParams();
+			CL_ParticleManNewMap();
 
 			// release unused SpriteTextures
 			for( i = 1, mod = clgame.sprites; i < MAX_CLIENT_SPRITES; i++, mod++ )

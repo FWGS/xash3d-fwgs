@@ -775,6 +775,10 @@ void CL_ResetFrame( frame_t *frame );
 // cl_efx.c
 //
 void CL_Particle( const vec3_t org, int color, float life, int zpos, int zvel );
+void CL_ParticleManInit( void );
+void CL_ParticleManClear( void );
+void CL_ParticleManNewMap( void );
+void CL_ParticleManUpdate( void );
 
 //
 // cl_main.c

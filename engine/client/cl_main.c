@@ -1597,6 +1597,7 @@ void CL_ClearState( void )
 
 	S_StopAllSounds ( true );
 	CL_ClearEffects ();
+	CL_ParticleManClear();
 	CL_FreeEdicts ();
 
 	PM_ClearPhysEnts( clgame.pmove );
