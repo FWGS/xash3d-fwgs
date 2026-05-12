@@ -6,6 +6,7 @@ typedef enum
 {
 	PM_WEATHER_NONE = 0,
 	PM_WEATHER_SNOW,
+	PM_WEATHER_RAIN,
 } pm_weather_type_t;
 
 typedef struct
@@ -90,6 +91,30 @@ static void PM_SpawnSnowResidue( const vec3_t origin )
 	}
 }
 
+static void PM_SpawnRainSplash( const vec3_t origin )
+{
+	int i;
+	int color = R_LookupColor( 170, 190, 220 );
+
+	for( i = 0; i < 4; i++ )
+	{
+		particle_t *p = R_AllocParticle( NULL );
+
+		if( !p )
+			return;
+
+		p->type = pt_slowgrav;
+		p->die = cl.time + COM_RandomFloat( 0.08f, 0.16f );
+		p->color = color;
+		p->org[0] = origin[0] + COM_RandomFloat( -2.0f, 2.0f );
+		p->org[1] = origin[1] + COM_RandomFloat( -2.0f, 2.0f );
+		p->org[2] = origin[2] + COM_RandomFloat( 0.0f, 1.5f );
+		p->vel[0] = COM_RandomFloat( -24.0f, 24.0f );
+		p->vel[1] = COM_RandomFloat( -24.0f, 24.0f );
+		p->vel[2] = COM_RandomFloat( 18.0f, 42.0f );
+	}
+}
+
 static void PM_SnowThink( particle_t *p, float frametime )
 {
 	vec3_t oldorg, nextorg;
@@ -118,6 +143,36 @@ static void PM_SnowThink( particle_t *p, float frametime )
 
 	VectorCopy( nextorg, p->org );
 	p->ramp = phase;
+
+	if( p->org[2] < ( cl.simorg[2] - 192.0f ))
+		p->die = -1.0f;
+}
+
+static void PM_RainThink( particle_t *p, float frametime )
+{
+	vec3_t oldorg, nextorg;
+	pmtrace_t tr;
+
+	if( !p )
+		return;
+
+	VectorCopy( p->org, oldorg );
+	VectorCopy( oldorg, nextorg );
+
+	nextorg[0] += ( p->vel[0] + cl_pmweather.drift ) * frametime;
+	nextorg[1] += p->vel[1] * frametime;
+	nextorg[2] += p->vel[2] * frametime;
+
+	tr = CL_TraceLine( oldorg, nextorg, PM_STUDIO_IGNORE|PM_GLASS_IGNORE|PM_WORLD_ONLY );
+
+	if( tr.fraction < 1.0f )
+	{
+		PM_SpawnRainSplash( tr.endpos );
+		p->die = -1.0f;
+		return;
+	}
+
+	VectorCopy( nextorg, p->org );
 
 	if( p->org[2] < ( cl.simorg[2] - 192.0f ))
 		p->die = -1.0f;
@@ -171,6 +226,30 @@ static void PM_SpawnSnowParticle( void )
 	p->vel[2] = -base_speed;
 	p->die = cl.time + 8.0f;
 	p->ramp = COM_RandomFloat( 0.0f, (float)M_PI * 2.0f );
+}
+
+static void PM_SpawnRainParticle( void )
+{
+	particle_t *p;
+	vec3_t origin;
+	float base_speed;
+
+	if( !PM_FindSkySpawn( origin ))
+		return;
+
+	p = R_AllocParticle( PM_RainThink );
+	if( !p )
+		return;
+
+	base_speed = cl_pmweather.speed + COM_RandomFloat( -60.0f, 60.0f );
+
+	VectorCopy( origin, p->org );
+	p->color = R_LookupColor( cl_pmweather.color[0], cl_pmweather.color[1], cl_pmweather.color[2] );
+	p->vel[0] = COM_RandomFloat( -12.0f, 12.0f );
+	p->vel[1] = COM_RandomFloat( -12.0f, 12.0f );
+	p->vel[2] = -Q_max( 220.0f, base_speed );
+	p->die = cl.time + 4.0f;
+	p->ramp = 0.0f;
 }
 
 static void PM_ParseCompatEntity( char **pdata )
@@ -286,6 +365,30 @@ static void PM_ParseCompatEntity( char **pdata )
 			cl_pmweather.spawn_rate = Q_max( burst_size / update_time, 6.0f );
 		else cl_pmweather.spawn_rate = 48.0f;
 	}
+
+	if(( !Q_stricmp( classname, "env_rain" ) || !Q_stricmp( classname, "func_rain" )) && !( spawnflags & 1 ))
+	{
+		cl_pmweather.type = PM_WEATHER_RAIN;
+		cl_pmweather.enabled = true;
+		cl_pmweather.speed = Q_max( 360.0f, drip_speed * 2.4f );
+		cl_pmweather.drift = COM_RandomFloat( -18.0f, 18.0f );
+		if( color[0] == 255 && color[1] == 255 && color[2] == 255 )
+		{
+			cl_pmweather.color[0] = 170;
+			cl_pmweather.color[1] = 190;
+			cl_pmweather.color[2] = 220;
+		}
+		else
+		{
+			cl_pmweather.color[0] = color[0];
+			cl_pmweather.color[1] = color[1];
+			cl_pmweather.color[2] = color[2];
+		}
+
+		if( burst_size > 0.0f && update_time > 0.0f )
+			cl_pmweather.spawn_rate = Q_max( burst_size / update_time, 18.0f );
+		else cl_pmweather.spawn_rate = 72.0f;
+	}
 }
 
 void CL_ParticleManInit( void )
@@ -329,7 +432,7 @@ void CL_ParticleManUpdate( void )
 	int count;
 	float frametime;
 
-	if( !cl_pmweather.enabled || cl_pmweather.type != PM_WEATHER_SNOW )
+	if( !cl_pmweather.enabled || cl_pmweather.type == PM_WEATHER_NONE )
 		return;
 
 	frametime = cl_clientframetime();
@@ -341,7 +444,19 @@ void CL_ParticleManUpdate( void )
 	cl_pmweather.accumulator -= count;
 
 	while( count-- > 0 )
-		PM_SpawnSnowParticle();
+	{
+		switch( cl_pmweather.type )
+		{
+		case PM_WEATHER_SNOW:
+			PM_SpawnSnowParticle();
+			break;
+		case PM_WEATHER_RAIN:
+			PM_SpawnRainParticle();
+			break;
+		default:
+			return;
+		}
+	}
 }
 
 void CL_ParticleManApplyFog( const ref_viewpass_t *rvp )
