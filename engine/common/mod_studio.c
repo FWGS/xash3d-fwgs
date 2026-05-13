@@ -862,7 +862,6 @@ static void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qbo
 	studiohdr_t	*pstudiohdr;
 	mstudiobodyparts_t	*pbodypart;
 	mstudiomodel_t	*m_pSubModel;
-	mstudioseqgroup_t	*pseqgroup;
 	mstudioseqdesc_t	*pseqdesc;
 	mstudiobone_t	*pbones;
 	mstudioanim_t	*panim;
@@ -902,7 +901,6 @@ static void Mod_StudioComputeBounds( void *buffer, vec3_t mins, vec3_t maxs, qbo
 	for( i = 0; i < numseq; i++ )
 	{
 		pseqdesc = (mstudioseqdesc_t *)((byte *)pstudiohdr + pstudiohdr->seqindex) + i;
-		pseqgroup = (mstudioseqgroup_t *)((byte *)pstudiohdr + pstudiohdr->seqgroupindex) + pseqdesc->seqgroup;
 
 		if( pseqdesc->seqgroup == 0 )
 			panim = (mstudioanim_t *)((byte *)pstudiohdr + pseqdesc->animindex);

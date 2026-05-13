@@ -91,7 +91,14 @@ const char *SoundList_Get( enum soundlst_group_e group, int i )
 	switch( lst->type )
 	{
 	case SoundList_Range:
+#if __GNUC__ || __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#endif
 		Q_snprintf( temp, sizeof( temp ), lst->snd, lst->min + i );
+#if __GNUC__ || __clang__
+#pragma GCC diagnostic pop
+#endif
 		return temp;
 	case SoundList_List:
 		return &lst->snd[i * lst->min];

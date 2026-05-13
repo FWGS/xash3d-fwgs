@@ -1809,7 +1809,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	int	frag_offset[MAX_STREAMS] = { 0, 0 };
 	int	frag_length[MAX_STREAMS] = { 0, 0 };
 	qboolean	message_contains_fragments;
-	int	i, qport, statId;
+	int	i, statId;
 
 	// get sequence numbers
 	MSG_Clear( msg );
@@ -1821,7 +1821,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 
 	// read the qport if we are a server
 	if( chan->sock == NS_SERVER )
-		qport = MSG_ReadShort( msg );
+		MSG_ReadShort( msg );
 
 	reliable_message = sequence >> 31;
 	reliable_ack = sequence_ack >> 31;
@@ -1925,7 +1925,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	{
 		for( i = 0; i < MAX_STREAMS; i++ )
 		{
-			int	j, inbufferid;
+			int	j;
 			int	intotalbuffers;
 			int	oldpos, curbit;
 			int	numbitstoremove;
@@ -1934,7 +1934,6 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 			if( !frag_message[i] )
 				continue;
 
-			inbufferid = FRAG_GETID( fragid[i] );
 			intotalbuffers = FRAG_GETCOUNT( fragid[i] );
 
 			if( fragid[i] != 0 )
