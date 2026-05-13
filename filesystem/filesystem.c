@@ -483,7 +483,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 {
 	stringlist_t list;
 	searchpath_t *search;
-	int i, j;
+	int j;
 
 	stringlistinit( &list );
 	listdirectory( &list, dir, false );
