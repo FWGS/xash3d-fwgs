@@ -1335,6 +1335,14 @@ void UI_UnloadProgs( void )
 	memset( &gameui, 0, sizeof( gameui ));
 }
 
+void *UI_GetMenuFactory( void )
+{
+	if( !gameui.hInstance )
+		return NULL;
+
+	return COM_GetProcAddress( gameui.hInstance, "CreateInterface" );
+}
+
 qboolean UI_LoadProgs( void )
 {
 	static ui_enginefuncs_t	gpEngfuncs;
