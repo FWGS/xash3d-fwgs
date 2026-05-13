@@ -1361,9 +1361,7 @@ void CL_WeaponListFix_Draw( void )
 
 		CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, ( slot == selected_slot ) ? 160 : 72 );
 
-		if( slot == selected_slot )
-			slot_color = &color;
-		else if( has_weapon )
+		if( has_weapon )
 			slot_color = &light_blue;
 		else
 			slot_color = &dim;
@@ -1389,10 +1387,7 @@ void CL_WeaponListFix_Draw( void )
 		if( cl_weaponlistfix_state.selected_weapon == weapon->id || cl_weaponlistfix_state.active_weapon == weapon->id )
 			CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, 160 );
 
-		if( cl_weaponlistfix_state.selected_weapon == weapon->id )
-			CL_WeaponListFix_DrawLabel( x, y, weapon->name, color );
-		else
-			CL_WeaponListFix_DrawLabel( x, y, weapon->name, dim );
+		CL_WeaponListFix_DrawLabel( x, y, weapon->name, light_blue );
 		y += line_height;
 	}
 }
