@@ -67,9 +67,6 @@ static winding_t * winding_alloc( uint numpoints )
 
 static void free_winding( winding_t *w )
 {
-	// simple sentinel by Carmack
-	if( *(unsigned *)w == 0xDEADC0DE )
-		Host_Error( "%s: freed a freed winding\n", __func__ );
 	*(unsigned *)w = 0xDEADC0DE;
 	free( w );
 }
