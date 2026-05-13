@@ -220,7 +220,7 @@ initialize base command hashmap system
 */
 void BaseCmd_Init( void )
 {
-	basecmd_pool = Mem_AllocPool( "BaseCmd" );
+	basecmd_pool = Mem_AllocPoolExt( "BaseCmd", MEM_SMALL_ALLOC_OPT );
 	memset( hashed_cmds, 0, sizeof( hashed_cmds ) );
 }
 

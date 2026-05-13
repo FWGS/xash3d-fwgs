@@ -1618,7 +1618,6 @@ static void Cmd_Exec_f( void )
 			"scout.cfg", "sniper.cfg", "soldier.cfg", "spy.cfg",
 		};
 		char mapcfg[MAX_VA_STRING];
-		qboolean allow = false;
 
 		Q_snprintf( mapcfg, sizeof( mapcfg ), "%s.cfg", clgame.mapname );
 
@@ -1718,7 +1717,7 @@ Cmd_Init
 */
 void Cmd_Init( void )
 {
-	cmd_pool = Mem_AllocPool( "Console Commands" );
+	cmd_pool = Mem_AllocPoolExt( "Console Commands", MEM_SMALL_ALLOC_OPT );
 	cmd_functions = NULL;
 	cmd_condition = 0;
 	cmd_wait = 0;

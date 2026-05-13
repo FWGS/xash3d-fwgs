@@ -18,8 +18,11 @@ GNU General Public License for more details.
 
 #include "common.h"
 
-#define MEMHEADER_SENTINEL1	0xA1BAU
-#define MEMHEADER_SENTINEL2	0xDFU
+#define MEMHEADER_SENTINEL_BIG   0xA1BAU
+#define MEMHEADER_SENTINEL_SMALL 0xAD1EU
+#define MEMHEADER_SENTINEL2      0xDFU
+
+#define MEM_SMALL_MAX UINT8_MAX
 
 #ifdef XASH_CUSTOM_SWAP
 #include "platform/swap/swap.h"
@@ -51,9 +54,9 @@ static void *Q_realloc( void *mem, size_t size )
 #define Q_realloc realloc
 #endif
 
-// keep this structure as compact as possible while keeping it aligned
-// on ILP32 it's 24 bytes, which is aligned to 8 byte boundary
-// on LP64 it's 40 bytes, which is also aligned to 8 byte boundary
+// big header: full debug info, used for every allocation in pools without MEM_SMALL_ALLOC_OPT,
+// and for allocations >MEM_SMALL_MAX in pools that opted in.
+// on ILP32 it's 24 bytes, on LP64 it's 40 bytes
 typedef struct memheader_s
 {
 	struct memheader_s *next, *prev; // next and previous memheaders in chain belonging to pool
@@ -61,20 +64,36 @@ typedef struct memheader_s
 	size_t             size;         // size of the memory after the header (excluding header and sentinel2)
 	poolhandle_t       poolptr;      // pool this memheader belongs to
 	uint16_t           fileline;
-	uint16_t           sentinel1;    // must be equal to MEMHEADER_SENTINEL1
+	uint16_t           sentinel1;    // must be MEMHEADER_SENTINEL_BIG
 	// immediately followed by data, which is followed by a MEMHEADER_SENTINEL2 byte
 } memheader_t;
 
 STATIC_CHECK_SIZEOF( memheader_t, 24, 40 );
 
+// compact header: used in MEM_SMALL_ALLOC_OPT pools for allocations up to MEM_SMALL_MAX bytes.
+// no filename/fileline; size is a single byte.
+// on ILP32 it's 16 bytes, on LP64 it's 24 bytes
+typedef struct memheader_small_s
+{
+	struct memheader_small_s *next, *prev;
+	poolhandle_t              poolptr;
+	uint8_t                   size;
+	uint8_t                   pad;
+	uint16_t                  sentinel1; // must be MEMHEADER_SENTINEL_SMALL
+} memheader_small_t;
+
+STATIC_CHECK_SIZEOF( memheader_small_t, 16, 24 );
+
 typedef struct mempool_s
 {
-	struct memheader_s *chain;        // chain of individual memory allocations
+	struct memheader_s       *chain;        // big allocations
+	struct memheader_small_s *chain_small;  // compact allocations (only used if MEM_SMALL_ALLOC_OPT)
 	size_t             totalsize;     // total memory allocated in this pool (inside memheaders)
 	size_t             realsize;      // total memory allocated in this pool (actual malloc total)
 	size_t             lastchecksize; // updated each time the pool is displayed by memlist
 	const char         *filename;     // file name and line where Mem_AllocPool was called
 	int                fileline;
+	uint               flags;         // MEM_SMALL_ALLOC_OPT, etc.
 	char               name[64];      // name of the pool
 } mempool_t;
 
@@ -93,24 +112,31 @@ static mempool_t *Mem_FindPool( poolhandle_t poolptr )
 	return NULL;
 }
 
+static const char *Mem_PoolName( poolhandle_t poolptr )
+{
+	if( poolptr > 0 && poolptr <= poolcount && poolchain[poolptr - 1].filename )
+		return poolchain[poolptr - 1].name;
+	return "<unknown pool>";
+}
+
 static poolhandle_t Mem_PoolIndex( mempool_t *mempool )
 {
 	return (poolhandle_t)(mempool - poolchain) + 1;
 }
 
-static inline void Mem_PoolAdd( mempool_t *pool, size_t size )
+static inline void Mem_PoolAdd( mempool_t *pool, size_t paysize, size_t blocksize )
 {
-	pool->totalsize += size;
-	pool->realsize += sizeof( memheader_t ) + size + sizeof( byte );
+	pool->totalsize += paysize;
+	pool->realsize += blocksize;
 }
 
-static inline void Mem_PoolSubtract( mempool_t *pool, size_t size )
+static inline void Mem_PoolSubtract( mempool_t *pool, size_t paysize, size_t blocksize )
 {
-	pool->totalsize -= size;
-	pool->realsize -= sizeof( memheader_t ) + size + sizeof( byte );
+	pool->totalsize -= paysize;
+	pool->realsize -= blocksize;
 }
 
-static inline void Mem_PoolLinkAlloc( mempool_t *pool, memheader_t *mem )
+static inline void Mem_PoolLinkAllocBig( mempool_t *pool, memheader_t *mem )
 {
 	mem->next = pool->chain;
 	if( mem->next ) mem->next->prev = mem;
@@ -119,7 +145,7 @@ static inline void Mem_PoolLinkAlloc( mempool_t *pool, memheader_t *mem )
 	mem->poolptr = Mem_PoolIndex( pool );
 }
 
-static inline void Mem_PoolUnlinkAlloc( mempool_t *pool, memheader_t *mem )
+static inline void Mem_PoolUnlinkAllocBig( mempool_t *pool, memheader_t *mem )
 {
 	if( mem->next ) mem->next->prev = mem->prev;
 	if( mem->prev ) mem->prev->next = mem->next;
@@ -127,43 +153,85 @@ static inline void Mem_PoolUnlinkAlloc( mempool_t *pool, memheader_t *mem )
 	mem->poolptr = 0;
 }
 
-static inline void Mem_InitAlloc( memheader_t *mem, size_t size, const char *filename, int fileline )
+static inline void Mem_InitAllocBig( memheader_t *mem, size_t size, const char *filename, int fileline )
 {
 	mem->size = size;
 	mem->filename = filename;
 	mem->fileline = fileline;
-	mem->sentinel1 = MEMHEADER_SENTINEL1;
-	*((byte *)mem + sizeof( memheader_t ) + mem->size ) = MEMHEADER_SENTINEL2;
+	mem->sentinel1 = MEMHEADER_SENTINEL_BIG;
+	*((byte *)mem + sizeof( memheader_t ) + size ) = MEMHEADER_SENTINEL2;
+}
+
+static inline void Mem_PoolLinkAllocSmall( mempool_t *pool, memheader_small_t *mem )
+{
+	mem->next = pool->chain_small;
+	if( mem->next ) mem->next->prev = mem;
+	pool->chain_small = mem;
+	mem->prev = NULL;
+	mem->poolptr = Mem_PoolIndex( pool );
+}
+
+static inline void Mem_PoolUnlinkAllocSmall( mempool_t *pool, memheader_small_t *mem )
+{
+	if( mem->next ) mem->next->prev = mem->prev;
+	if( mem->prev ) mem->prev->next = mem->next;
+	else pool->chain_small = mem->next;
+	mem->poolptr = 0;
+}
+
+static inline void Mem_InitAllocSmall( memheader_small_t *mem, size_t size )
+{
+	mem->size = (uint8_t)size;
+	mem->sentinel1 = MEMHEADER_SENTINEL_SMALL;
+	*((byte *)mem + sizeof( memheader_small_t ) + size ) = MEMHEADER_SENTINEL2;
+}
+
+static uint16_t Mem_ReadSentinel( const void *data )
+{
+	return ((const uint16_t *)data)[-1];
 }
 
 static const char *Mem_CheckFilename( const char *filename )
 {
-	static const char *dummy = "<corrupted>\0";
-
 	if( COM_StringEmptyOrNULL( filename ))
-		return dummy;
+		return "<corrupted>";
 
 	if( memchr( filename, '\0', MAX_OSPATH ) != NULL )
 		return filename;
 
-	return dummy;
+	return "<corrupted>";
 }
 
-static qboolean Mem_CheckAllocHeader( const char *func, const memheader_t *mem, const char *filename, int fileline )
+static qboolean Mem_CheckAllocHeaderBig( const char *func, const memheader_t *mem, const char *filename, int fileline )
 {
-	const char *memfilename;
-
-	if( mem->sentinel1 != MEMHEADER_SENTINEL1 )
+	if( mem->sentinel1 != MEMHEADER_SENTINEL_BIG )
 	{
-		memfilename = Mem_CheckFilename( mem->filename );
+		const char *memfilename = Mem_CheckFilename( mem->filename );
 		Sys_Error( "%s: trashed header sentinel 1 (alloc at %s:%i, check at %s:%i)\n", func, memfilename, mem->fileline, filename, fileline );
 		return false;
 	}
 
-	if( *((byte *)mem + sizeof( memheader_t ) + mem->size ) != MEMHEADER_SENTINEL2 )
+	if( *((const byte *)mem + sizeof( memheader_t ) + mem->size ) != MEMHEADER_SENTINEL2 )
 	{
-		memfilename = Mem_CheckFilename( mem->filename ); // make sure what we don't crash var_args
+		const char *memfilename = Mem_CheckFilename( mem->filename );
 		Sys_Error( "%s: trashed header sentinel 2 (alloc at %s:%i, check at %s:%i)\n", func, memfilename, mem->fileline, filename, fileline );
+		return false;
+	}
+
+	return true;
+}
+
+static qboolean Mem_CheckAllocHeaderSmall( const char *func, const memheader_small_t *mem, const char *filename, int fileline )
+{
+	if( mem->sentinel1 != MEMHEADER_SENTINEL_SMALL )
+	{
+		Sys_Error( "%s: trashed small header sentinel 1 (pool \"%s\", check at %s:%i)\n", func, Mem_PoolName( mem->poolptr ), filename, fileline );
+		return false;
+	}
+
+	if( *((const byte *)mem + sizeof( memheader_small_t ) + mem->size ) != MEMHEADER_SENTINEL2 )
+	{
+		Sys_Error( "%s: trashed small header sentinel 2 (pool \"%s\", check at %s:%i)\n", func, Mem_PoolName( mem->poolptr ), filename, fileline );
 		return false;
 	}
 
@@ -172,9 +240,6 @@ static qboolean Mem_CheckAllocHeader( const char *func, const memheader_t *mem, 
 
 void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
-	memheader_t *mem;
-	mempool_t   *pool;
-
 	if( size <= 0 )
 		return NULL;
 
@@ -184,48 +249,90 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 		return NULL;
 	}
 
-	pool = Mem_FindPool( poolptr );
+	mempool_t *pool = Mem_FindPool( poolptr );
 	if( !pool )
 		return NULL;
 
-	mem = (memheader_t *)Q_malloc( sizeof( memheader_t ) + size + sizeof( byte ));
-	if( mem == NULL )
+	if( FBitSet( pool->flags, MEM_SMALL_ALLOC_OPT ) && size <= MEM_SMALL_MAX )
 	{
-		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
-		return NULL;
+		size_t blocksize = sizeof( memheader_small_t ) + size + sizeof( byte );
+		memheader_small_t *mem = Q_malloc( blocksize );
+
+		if( mem == NULL )
+		{
+			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
+
+		Mem_InitAllocSmall( mem, size );
+		Mem_PoolAdd( pool, size, blocksize );
+		Mem_PoolLinkAllocSmall( pool, mem );
+
+		if( clear )
+			memset((byte *)mem + sizeof( memheader_small_t ), 0, size );
+
+		return (byte *)mem + sizeof( memheader_small_t );
 	}
+	else
+	{
+		size_t blocksize = sizeof( memheader_t ) + size + sizeof( byte );
+		memheader_t *mem = Q_malloc( blocksize );
 
-	Mem_InitAlloc( mem, size, filename, fileline );
+		if( mem == NULL )
+		{
+			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
 
-	Mem_PoolAdd( pool, size );
-	Mem_PoolLinkAlloc( pool, mem );
+		Mem_InitAllocBig( mem, size, filename, fileline );
+		Mem_PoolAdd( pool, size, blocksize );
+		Mem_PoolLinkAllocBig( pool, mem );
 
-	if( clear )
-		memset((void *)((byte *)mem + sizeof( memheader_t )), 0, mem->size );
+		if( clear )
+			memset((byte *)mem + sizeof( memheader_t ), 0, size );
 
-	return (void *)((byte *)mem + sizeof( memheader_t ));
+		return (byte *)mem + sizeof( memheader_t );
+	}
 }
 
-static void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline )
+static void Mem_FreeBlockBig( memheader_t *mem, const char *filename, int fileline )
 {
-	mempool_t		*pool;
-
-	if( !Mem_CheckAllocHeader( __func__, mem, filename, fileline ))
+	if( !Mem_CheckAllocHeaderBig( __func__, mem, filename, fileline ))
 		return;
 
-	pool = Mem_FindPool( mem->poolptr );
+	mempool_t *pool = Mem_FindPool( mem->poolptr );
 	if( !pool )
 		return;
 
-	// unlink memheader from doubly linked list
 	if(( mem->prev ? mem->prev->next != mem : pool->chain != mem ) || ( mem->next && mem->next->prev != mem ))
 	{
 		Sys_Error( "%s: not allocated or double freed (free at %s:%i)\n", __func__, filename, fileline );
 		return;
 	}
 
-	Mem_PoolSubtract( pool, mem->size );
-	Mem_PoolUnlinkAlloc( pool, mem );
+	Mem_PoolSubtract( pool, mem->size, sizeof( memheader_t ) + mem->size + sizeof( byte ));
+	Mem_PoolUnlinkAllocBig( pool, mem );
+
+	Q_free( mem );
+}
+
+static void Mem_FreeBlockSmall( memheader_small_t *mem, const char *filename, int fileline )
+{
+	if( !Mem_CheckAllocHeaderSmall( __func__, mem, filename, fileline ))
+		return;
+
+	mempool_t *pool = Mem_FindPool( mem->poolptr );
+	if( !pool )
+		return;
+
+	if(( mem->prev ? mem->prev->next != mem : pool->chain_small != mem ) || ( mem->next && mem->next->prev != mem ))
+	{
+		Sys_Error( "%s: not allocated or double freed (free at %s:%i)\n", __func__, filename, fileline );
+		return;
+	}
+
+	Mem_PoolSubtract( pool, mem->size, sizeof( memheader_small_t ) + mem->size + sizeof( byte ));
+	Mem_PoolUnlinkAllocSmall( pool, mem );
 
 	Q_free( mem );
 }
@@ -235,31 +342,40 @@ void _Mem_Free( void *data, const char *filename, int fileline )
 	if( data == NULL )
 		return;
 
-	Mem_FreeBlock((memheader_t *)((byte *)data - sizeof( memheader_t )), filename, fileline );
+	if( Mem_ReadSentinel( data ) == MEMHEADER_SENTINEL_SMALL )
+		Mem_FreeBlockSmall((memheader_small_t *)((byte *)data - sizeof( memheader_small_t )), filename, fileline );
+	else
+		Mem_FreeBlockBig((memheader_t *)((byte *)data - sizeof( memheader_t )), filename, fileline );
 }
 
-static void Mem_MigratePool( poolhandle_t newpoolptr, memheader_t *mem, const char *filename, int fileline )
+static void Mem_MigratePoolBig( poolhandle_t newpoolptr, memheader_t *mem )
 {
 	mempool_t *oldpool = Mem_FindPool( mem->poolptr );
 	mempool_t *newpool = Mem_FindPool( newpoolptr );
+	size_t blocksize = sizeof( memheader_t ) + mem->size + sizeof( byte );
 
-	// dettach allocation from one pool and reattach it to new pool
-	// might be made into public function at some point
+	Mem_PoolUnlinkAllocBig( oldpool, mem );
+	Mem_PoolSubtract( oldpool, mem->size, blocksize );
 
-	Mem_PoolUnlinkAlloc( oldpool, mem );
-	Mem_PoolSubtract( oldpool, mem->size );
+	Mem_PoolLinkAllocBig( newpool, mem );
+	Mem_PoolAdd( newpool, mem->size, blocksize );
+}
 
-	Mem_PoolLinkAlloc( newpool, mem );
-	Mem_PoolAdd( newpool, mem->size );
+static void Mem_MigratePoolSmall( poolhandle_t newpoolptr, memheader_small_t *mem )
+{
+	mempool_t *oldpool = Mem_FindPool( mem->poolptr );
+	mempool_t *newpool = Mem_FindPool( newpoolptr );
+	size_t blocksize = sizeof( memheader_small_t ) + mem->size + sizeof( byte );
+
+	Mem_PoolUnlinkAllocSmall( oldpool, mem );
+	Mem_PoolSubtract( oldpool, mem->size, blocksize );
+
+	Mem_PoolLinkAllocSmall( newpool, mem );
+	Mem_PoolAdd( newpool, mem->size, blocksize );
 }
 
 void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clear, const char *filename, int fileline )
 {
-	memheader_t *mem;
-	uintptr_t oldmem;
-	mempool_t *pool;
-	size_t oldsize;
-
 	if( size <= 0 )
 		return data; // no need to reallocate
 
@@ -272,79 +388,135 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 	if( !data )
 		return _Mem_Alloc( poolptr, size, clear, filename, fileline );
 
-	mem = (memheader_t *)((byte *)data - sizeof( memheader_t ));
+	mempool_t *pool = Mem_FindPool( poolptr );
 
-	if( !Mem_CheckAllocHeader( __func__, mem, filename, fileline ))
-		return NULL;
-
-	// migrate pool if requested, even if no reallocation needed
-	if( mem->poolptr != poolptr )
-		Mem_MigratePool( poolptr, mem, filename, fileline );
-
-	oldsize = mem->size;
-	if( size == oldsize )
-		return data;
-
-	pool = Mem_FindPool( poolptr );
-
-	oldmem = (uintptr_t)mem;
-	mem = Q_realloc( mem, sizeof( memheader_t ) + size + sizeof( byte ));
-
-	if( mem == NULL )
+	if( Mem_ReadSentinel( data ) == MEMHEADER_SENTINEL_SMALL )
 	{
-		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
-		return NULL;
+		memheader_small_t *mem = (memheader_small_t *)((byte *)data - sizeof( memheader_small_t ));
+
+		if( !Mem_CheckAllocHeaderSmall( __func__, mem, filename, fileline ))
+			return NULL;
+
+		size_t oldsize = mem->size;
+
+		// promote to big header if target pool doesn't opt in, or new size doesn't fit
+		if( size > MEM_SMALL_MAX || !FBitSet( pool->flags, MEM_SMALL_ALLOC_OPT ))
+		{
+			void *newdata = _Mem_Alloc( poolptr, size, false, filename, fileline );
+			if( !newdata )
+				return NULL;
+
+			memcpy( newdata, data, Q_min( oldsize, size ));
+			if( clear && size > oldsize )
+				memset((byte *)newdata + oldsize, 0, size - oldsize );
+
+			Mem_FreeBlockSmall( mem, filename, fileline );
+			return newdata;
+		}
+
+		if( mem->poolptr != poolptr )
+			Mem_MigratePoolSmall( poolptr, mem );
+
+		if( size == oldsize )
+			return data;
+
+		// stays small, shrink/grow within the small layout
+		uintptr_t oldmem = (uintptr_t)mem;
+		mem = Q_realloc( mem, sizeof( memheader_small_t ) + size + sizeof( byte ));
+
+		if( mem == NULL )
+		{
+			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
+
+		Mem_InitAllocSmall( mem, size );
+
+		if( size > oldsize )
+		{
+			Mem_PoolAdd( pool, size - oldsize, size - oldsize );
+
+			if( clear )
+				memset((byte *)mem + sizeof( memheader_small_t ) + oldsize, 0, size - oldsize );
+		}
+		else Mem_PoolSubtract( pool, oldsize - size, oldsize - size );
+
+		if( oldmem != (uintptr_t)mem )
+		{
+			if( mem->next ) mem->next->prev = mem;
+			if( mem->prev ) mem->prev->next = mem;
+			else pool->chain_small = mem;
+		}
+
+		return (byte *)mem + sizeof( memheader_small_t );
 	}
-
-	// Con_Printf( S_NOTE "%s: mem %s oldmem, size before %zu now %zu (alloc at %s:%i)\n",
-	// __func__, (uintptr_t)mem != oldmem ? "!=" : "==", oldsize, size, filename, fileline );
-
-	Mem_InitAlloc( mem, size, filename, fileline );
-
-	if( size > oldsize )
+	else
 	{
-		Mem_PoolAdd( pool, size - oldsize );
+		memheader_t *mem = (memheader_t *)((byte *)data - sizeof( memheader_t ));
 
-		if( clear )
-			memset((byte *)mem + sizeof( memheader_t ) + oldsize, 0, size - oldsize );
+		if( !Mem_CheckAllocHeaderBig( __func__, mem, filename, fileline ))
+			return NULL;
+
+		if( mem->poolptr != poolptr )
+			Mem_MigratePoolBig( poolptr, mem );
+
+		size_t oldsize = mem->size;
+		if( size == oldsize )
+			return data;
+
+		uintptr_t oldmem = (uintptr_t)mem;
+		mem = Q_realloc( mem, sizeof( memheader_t ) + size + sizeof( byte ));
+
+		if( mem == NULL )
+		{
+			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
+
+		Mem_InitAllocBig( mem, size, filename, fileline );
+
+		if( size > oldsize )
+		{
+			Mem_PoolAdd( pool, size - oldsize, size - oldsize );
+
+			if( clear )
+				memset((byte *)mem + sizeof( memheader_t ) + oldsize, 0, size - oldsize );
+		}
+		else Mem_PoolSubtract( pool, oldsize - size, oldsize - size );
+
+		if( oldmem != (uintptr_t)mem )
+		{
+			if( mem->next ) mem->next->prev = mem;
+			if( mem->prev ) mem->prev->next = mem;
+			else pool->chain = mem;
+		}
+
+		return (byte *)mem + sizeof( memheader_t );
 	}
-	else Mem_PoolSubtract( pool, oldsize - size );
-
-	if( oldmem != (uintptr_t)mem ) // just relink pointers
-	{
-		if( mem->next ) mem->next->prev = mem;
-		if( mem->prev ) mem->prev->next = mem;
-		else pool->chain = mem;
-	}
-
-	return (void *)((byte *)mem + sizeof( memheader_t ));
 }
 
-static poolhandle_t Mem_InitPool( mempool_t *pool, const char *name, const char *filename, int fileline )
+static poolhandle_t Mem_InitPool( mempool_t *pool, const char *name, unsigned int flags, const char *filename, int fileline )
 {
 	memset( pool, 0, sizeof( *pool ));
 
-	// fill header
 	pool->filename = filename;
 	pool->fileline = fileline;
+	pool->flags = flags;
 	pool->realsize = sizeof( mempool_t );
 	Q_strncpy( pool->name, name, sizeof( pool->name ));
 
 	return Mem_PoolIndex( pool );
 }
 
-poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int fileline )
+poolhandle_t _Mem_AllocPool( const char *name, unsigned int flags, const char *filename, int fileline )
 {
-	mempool_t *pool;
-	size_t i;
-
-	for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
+	for( size_t i = 0; i < poolcount; i++ )
 	{
-		if( pool->filename == NULL )
-			return Mem_InitPool( pool, name, filename, fileline );
+		if( poolchain[i].filename == NULL )
+			return Mem_InitPool( &poolchain[i], name, flags, filename, fileline );
 	}
 
-	pool = (mempool_t *)Q_realloc( poolchain, sizeof( *poolchain ) * ( poolcount + 1 ));
+	mempool_t *pool = (mempool_t *)Q_realloc( poolchain, sizeof( *poolchain ) * ( poolcount + 1 ));
 	if( pool == NULL )
 	{
 		Sys_Error( "%s: out of memory (allocpool at %s:%i)\n", __func__, filename, fileline );
@@ -353,68 +525,80 @@ poolhandle_t _Mem_AllocPool( const char *name, const char *filename, int filelin
 
 	poolchain = pool;
 	pool = &poolchain[poolcount++];
-	return Mem_InitPool( pool, name, filename, fileline );
-}
-
-void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
-{
-	mempool_t	*pool;
-
-	if( *poolptr && ( pool = Mem_FindPool( *poolptr )))
-	{
-		if( !pool->filename )
-		{
-			Sys_Error( "%s: pool already free (freepool at %s:%i)\n", __func__, filename, fileline );
-			*poolptr = 0;
-			return;
-		}
-
-		// free memory owned by the pool
-		while( pool->chain )
-			Mem_FreeBlock( pool->chain, filename, fileline );
-
-		// free the pool itself
-		memset( pool, 0xBF, sizeof( mempool_t ));
-		pool->chain = NULL;
-		pool->filename = NULL; // mark as reusable
-		*poolptr = 0;
-	}
+	return Mem_InitPool( pool, name, flags, filename, fileline );
 }
 
 void _Mem_EmptyPool( poolhandle_t poolptr, const char *filename, int fileline )
 {
-	mempool_t *pool;
 	if( unlikely( !poolptr ))
 	{
 		Sys_Error( "%s: pool == NULL (emptypool at %s:%i)\n", __func__, filename, fileline );
 		return;
 	}
 
-	pool = Mem_FindPool( poolptr );
+	mempool_t *pool = Mem_FindPool( poolptr );
 	if( !pool )
 		return;
 
-	// free memory owned by the pool
-	while( pool->chain ) Mem_FreeBlock( pool->chain, filename, fileline );
+	while( pool->chain )
+		Mem_FreeBlockBig( pool->chain, filename, fileline );
+
+	while( pool->chain_small )
+		Mem_FreeBlockSmall( pool->chain_small, filename, fileline );
+}
+
+void _Mem_FreePool( poolhandle_t *poolptr, const char *filename, int fileline )
+{
+	if( !*poolptr )
+		return;
+
+	mempool_t *pool = Mem_FindPool( *poolptr );
+	if( !pool )
+		return;
+
+	if( !pool->filename )
+	{
+		Sys_Error( "%s: pool already freed (freepool at %s:%i)\n", __func__, filename, fileline );
+		*poolptr = 0;
+		return;
+	}
+
+	_Mem_EmptyPool( *poolptr, filename, fileline );
+
+	memset( pool, 0xBF, sizeof( mempool_t ));
+	pool->chain = NULL;
+	pool->chain_small = NULL;
+	pool->filename = NULL;
+	*poolptr = 0;
 }
 
 static qboolean Mem_CheckAlloc( mempool_t *pool, void *data )
 {
-	memheader_t *header, *target;
-
 	if( pool )
 	{
-		// search only one pool
-		target = (memheader_t *)((byte *)data - sizeof( memheader_t ));
-		for( header = pool->chain; header; header = header->next )
+		if( Mem_ReadSentinel( data ) == MEMHEADER_SENTINEL_SMALL )
 		{
-			if( header == target )
-				return true;
+			memheader_small_t *target = (memheader_small_t *)((byte *)data - sizeof( memheader_small_t ));
+
+			for( memheader_small_t *header = pool->chain_small; header; header = header->next )
+			{
+				if( header == target )
+					return true;
+			}
+		}
+		else
+		{
+			memheader_t *target = (memheader_t *)((byte *)data - sizeof( memheader_t ));
+
+			for( memheader_t *header = pool->chain; header; header = header->next )
+			{
+				if( header == target )
+					return true;
+			}
 		}
 	}
 	else
 	{
-		// search all pools
 		size_t i;
 		for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
 		{
@@ -425,14 +609,9 @@ static qboolean Mem_CheckAlloc( mempool_t *pool, void *data )
 	return false;
 }
 
-/*
-========================
-Check pointer for memory
-========================
-*/
 qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data )
 {
-	mempool_t	*pool = NULL;
+	mempool_t *pool = NULL;
 
 	if( poolptr )
 		pool = Mem_FindPool( poolptr );
@@ -442,18 +621,22 @@ qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data )
 
 void _Mem_Check( const char *filename, int fileline )
 {
-	memheader_t *mem;
-	mempool_t   *pool;
+	mempool_t *pool;
 	size_t i;
 
 	for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
-		for( mem = pool->chain; mem; mem = mem->next )
-			Mem_CheckAllocHeader( __func__, mem, filename, fileline );
+	{
+		for( memheader_t *mem = pool->chain; mem; mem = mem->next )
+			Mem_CheckAllocHeaderBig( __func__, mem, filename, fileline );
+
+		for( memheader_small_t *mem = pool->chain_small; mem; mem = mem->next )
+			Mem_CheckAllocHeaderSmall( __func__, mem, filename, fileline );
+	}
 }
 
 void Mem_PrintStats( void )
 {
-	size_t    count = 0, size = 0, realsize = 0, i;
+	size_t count = 0, size = 0, realsize = 0, i;
 	mempool_t *pool;
 
 	Mem_Check();
@@ -473,8 +656,7 @@ void Mem_PrintStats( void )
 
 static void Mem_PrintList( size_t minallocationsize )
 {
-	mempool_t		*pool;
-	memheader_t	*mem;
+	mempool_t *pool;
 	size_t i;
 
 	Mem_Check();
@@ -483,15 +665,14 @@ static void Mem_PrintList( size_t minallocationsize )
 	Con_Printf( "\t^3size\t\t\t\tname\n");
 	for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
 	{
-		long	changed_size = (long)pool->totalsize - (long)pool->lastchecksize;
+		long changed_size = (long)pool->totalsize - (long)pool->lastchecksize;
 
 		if( !pool->filename )
 			continue;
 
-		// poolnames can contain color symbols, make sure what color is reset
 		if( pool->lastchecksize != 0 && changed_size != 0 )
 		{
-			char	sign = (changed_size < 0) ? '-' : '+';
+			char sign = (changed_size < 0) ? '-' : '+';
 
 			Con_Printf( "%10s (%10s real)\t%s (^7%c%s change)\n", Q_memprint( pool->totalsize ), Q_memprint( pool->realsize ),
 				pool->name, sign, Q_memprint( abs( changed_size )));
@@ -502,10 +683,17 @@ static void Mem_PrintList( size_t minallocationsize )
 		}
 
 		pool->lastchecksize = pool->totalsize;
-		for( mem = pool->chain; mem; mem = mem->next )
+
+		for( memheader_t *mem = pool->chain; mem; mem = mem->next )
 		{
 			if( mem->size >= minallocationsize )
 				Con_Printf( "%10s allocated at %s:%i\n", Q_memprint( mem->size ), mem->filename, mem->fileline );
+		}
+
+		for( memheader_small_t *mem = pool->chain_small; mem; mem = mem->next )
+		{
+			if( mem->size >= minallocationsize )
+				Con_Printf( "%10s allocated at <small>\n", Q_memprint( mem->size ));
 		}
 	}
 }
@@ -541,9 +729,8 @@ Memory_Init
 void Memory_Init( void )
 {
 	if( poolchain )
-	{
 		Q_free( poolchain );
-	}
-	poolchain = NULL; // init mem chain
+
+	poolchain = NULL;
 	poolcount = 0;
 }

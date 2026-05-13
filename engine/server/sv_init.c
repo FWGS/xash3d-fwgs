@@ -909,13 +909,11 @@ static void SV_GenerateTestPacket( void )
 	// TODO: shrink to minimum!
 	for( i = 0; i < svs.testpacket_filelen; i++ )
 	{
-		uint32_t crc2;
-
 		CRC32_ProcessByte( &crc, filepos[i] );
 		svs.testpacket_crcs[i] = crc;
 #if 0
 		// test
-		crc2 = 0;
+		uint32_t crc2 = 0;
 		CRC32_ProcessBuffer( &crc2, filepos, i + 1 );
 		if( svs.testpacket_crcs[i] != crc2 )
 		{

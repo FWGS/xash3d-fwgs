@@ -852,7 +852,7 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 	if(( size <= 0 ) || ( size > 0x10000000 ))
 		gEngfuncs.Host_Error( "%s: bad cache size %d\n", __func__, size );
 
-	size = (int)&((surfcache_t *)0 )->data[size];
+	size = offsetof( surfcache_t, data ) + size;
 	size = ( size + 3 ) & ~3;
 	if( size > sc_size )
 		gEngfuncs.Host_Error( "%s: %i > cache size of %i", __func__, size, sc_size );

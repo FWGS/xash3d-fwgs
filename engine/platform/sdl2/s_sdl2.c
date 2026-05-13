@@ -79,7 +79,6 @@ qboolean SNDDMA_Init( void )
 {
 	SDL_AudioSpec desired, obtained;
 	int samplecount;
-	const char *driver = NULL;
 
 	// Modders often tend to use proprietary crappy solutions
 	// like FMOD to play music, sometimes even with versions outdated by a few decades!
@@ -98,7 +97,7 @@ qboolean SNDDMA_Init( void )
 	// reference SDL audio functions there. It's probably has DirectSound backend, that's
 	// why modders never stumble upon this bug.
 #if XASH_WIN32
-	driver = "directsound";
+	const char *driver = "directsound";
 
 	if( SDL_getenv( "SDL_AUDIODRIVER" ))
 		driver = NULL; // let SDL2 and user decide

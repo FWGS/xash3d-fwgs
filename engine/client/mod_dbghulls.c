@@ -67,9 +67,6 @@ static winding_t * winding_alloc( uint numpoints )
 
 static void free_winding( winding_t *w )
 {
-	// simple sentinel by Carmack
-	if( *(unsigned *)w == 0xDEADC0DE )
-		Host_Error( "%s: freed a freed winding\n", __func__ );
 	*(unsigned *)w = 0xDEADC0DE;
 	free( w );
 }
@@ -725,7 +722,7 @@ static void R_DrawHull( hull_model_t *hull )
 	{
 		int i;
 
-		srand((unsigned int)poly );
+		srand((unsigned int)(uintptr_t)poly );
 		ref.dllFuncs.Color4ub( rand() & 255, rand() & 255, rand() & 255, 255 );
 
 		ref.dllFuncs.Begin( TRI_POLYGON );

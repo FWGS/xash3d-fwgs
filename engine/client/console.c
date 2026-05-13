@@ -161,7 +161,7 @@ static void Con_SaveHistory( con_history_t *self );
 Con_BackgroundMapActive
 ================
 */
-qboolean Con_BackgroundMapActive( void )
+static qboolean Con_BackgroundMapActive( void )
 {
 	return sv_background.value != 0.0f || cl.background;
 }
@@ -477,7 +477,7 @@ If the line width has changed, reformat the buffer.
 static void Con_CheckResize( void )
 {
 	int	charWidth = 8;
-	int	i, width;
+	int	width;
 
 	if( con.curFont && con.curFont->hFontTexture )
 		charWidth = con.curFont->charWidths['O'] - 1;
@@ -1115,7 +1115,7 @@ static void Con_ClearField( field_t *edit )
 Field_Set
 ================
 */
-static void Field_Set( field_t *f, const char *string )
+MAYBE_UNUSED static void Field_Set( field_t *f, const char *string )
 {
 	f->scroll = 0;
 	f->cursor = Q_strncpy( f->buffer, string, sizeof( f->buffer ));
@@ -1945,10 +1945,10 @@ Draws the console with the solid background
 */
 static void Con_DrawSolidConsole( int lines )
 {
-	int	i, x, y;
+	int	x, y;
 	float	fraction;
 	int	start;
-	int	stringLen, width = 0, charH;
+	int	stringLen, charH;
 	string	curbuild;
 	byte	color[4];
 

@@ -483,7 +483,7 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 {
 	stringlist_t list;
 	searchpath_t *search;
-	int i, j;
+	int j;
 
 	stringlistinit( &list );
 	listdirectory( &list, dir, false );
@@ -1546,7 +1546,7 @@ static int FS_StripIdiotRelativePath( const char *dllname, const char *gamefolde
 	return 0;
 }
 
-static poolhandle_t Mem_AllocPoolStub( const char *name, const char *filename, int fileline )
+static poolhandle_t Mem_AllocPoolStub( const char *name, unsigned int flags, const char *filename, int fileline )
 {
 	return (poolhandle_t)0xDEADC0DE;
 }

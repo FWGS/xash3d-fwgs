@@ -769,7 +769,6 @@ void GL2_ShimEndFrame( void )
 
 static void APIENTRY GL2_Begin( GLenum prim )
 {
-	int i;
 	if( gl2wrap.begin + MAX_BEGINEND_VERTS > GL2_MAX_VERTS )
 		GL2_ResetPersistentBuffer();
 
@@ -978,7 +977,6 @@ leave_label:
 
 static void APIENTRY GL2_End( void )
 {
-	int i;
 #ifdef QUAD_BATCH
 	if( gl2wrap.prim == GL_QUADS )
 	{

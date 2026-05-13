@@ -594,7 +594,7 @@ qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg )
 	exit( 0 );
 #else
 	int exelen;
-	char *exe, **newargs;
+	char *exe = NULL, **newargs;
 
 	// don't use engine allocation utils here
 	// they will be freed after Host_Shutdown

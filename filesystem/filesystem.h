@@ -31,8 +31,8 @@ extern "C"
 {
 #endif // __cplusplus
 
-#define FS_API_VERSION 5 // not stable yet!
-#define FS_API_CREATEINTERFACE_TAG   "XashFileSystem005" // follow FS_API_VERSION!!!
+#define FS_API_VERSION 6 // not stable yet!
+#define FS_API_CREATEINTERFACE_TAG   "XashFileSystem006" // follow FS_API_VERSION!!!
 #define FILESYSTEM_INTERFACE_VERSION "VFileSystem009" // never change this!
 
 // search path flags
@@ -253,7 +253,7 @@ typedef struct fs_interface_t
 	void    (*_Sys_Error)( const char *fmt, ... ) FORMAT_CHECK( 1 );
 
 	// memory
-	poolhandle_t (*_Mem_AllocPool)( const char *name, const char *filename, int fileline );
+	poolhandle_t (*_Mem_AllocPool)( const char *name, unsigned int flags, const char *filename, int fileline );
 	void  (*_Mem_FreePool)( poolhandle_t *poolptr, const char *filename, int fileline );
 	void *(*_Mem_Alloc)( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 		ALLOC_CHECK( 2 ) WARN_UNUSED_RESULT;

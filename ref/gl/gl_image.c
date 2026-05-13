@@ -698,7 +698,7 @@ box filter 3x3
 static void GL_BoxFilter3x3( byte *out, const byte *in, int w, int h, int x, int y )
 {
 	int		r = 0, g = 0, b = 0, a = 0;
-	int		count = 0, acount = 0;
+	int		acount = 0;
 	int		i, j, u, v;
 	const byte	*pixel;
 
@@ -856,7 +856,7 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	const GLuint cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
 	const qboolean subImage = FBitSet( tex->flags, TF_IMG_UPLOADED ) && data != NULL;
 	const rawformat_t rawformat = gEngfuncs.Image_GetPFDesc( type )->rawformat;
-	GLenum inFormat;
+	GLenum inFormat = 0;
 	GLint dataType;
 
 	Assert( tex != NULL );
@@ -932,8 +932,8 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 
 static void GL_TextureImageCompressed( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, size_t size, const void *data )
 {
-	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
-	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED );
+	GLuint   cubeTarget MAYBE_UNUSED = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
+	qboolean subImage MAYBE_UNUSED = FBitSet( tex->flags, TF_IMG_UPLOADED );
 
 	Assert( tex != NULL );
 
@@ -992,7 +992,6 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 	size_t		texsize, size;
 	uint		width, height, depth;
 	uint		i, j, numSides;
-	uint		offset = 0;
 	qboolean		normalMap;
 	qboolean		texture3d;
 	const byte	*bufend;
@@ -1038,7 +1037,6 @@ static qboolean GL_UploadTexture( gl_texture_t *tex, rgbdata_t *pic )
 
 	buf = pic->buffer;
 	bufend = pic->buffer + pic->size; // total image size include all the layers, cube sides, mipmaps
-	offset = gEngfuncs.Image_CalcImageSize( pic->type, pic->width, pic->height, pic->depth );
 	texsize = GL_CalcTextureSize( tex->format, tex->width, tex->height, tex->depth );
 	normalMap = FBitSet( tex->flags, TF_NORMALMAP ) ? true : false;
 	numSides = FBitSet( pic->flags, IMAGE_CUBEMAP ) ? 6 : 1;
@@ -1493,7 +1491,6 @@ int GL_LoadTextureArray( const char **names, int flags )
 	rgbdata_t		*pic, *src;
 	char		basename[256];
 	uint		numLayers = 0;
-	uint		picFlags = 0;
 	char		name[256];
 	gl_texture_t	*tex;
 	size_t		len = 0;
