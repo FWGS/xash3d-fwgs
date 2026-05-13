@@ -401,6 +401,22 @@ qboolean CL_WeaponListFix_DispatchCommand( const char *cmd_name )
 	return false;
 }
 
+static int CL_WeaponListFix_CompareWeapons( const void *a, const void *b )
+{
+	int id1 = *(const int *)a;
+	int id2 = *(const int *)b;
+	cl_weaponlistfix_weapon_t *w1 = &cl_weaponlistfix_state.weapons[id1];
+	cl_weaponlistfix_weapon_t *w2 = &cl_weaponlistfix_state.weapons[id2];
+	int slot1, pos1, slot2, pos2;
+
+	CL_WeaponListFix_GetLayout( w1, &slot1, &pos1 );
+	CL_WeaponListFix_GetLayout( w2, &slot2, &pos2 );
+
+	if( slot1 != slot2 )
+		return slot1 - slot2;
+	return pos1 - pos2;
+}
+
 void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf )
 {
 	if( !Q_stricmp( pszName, "WeaponList" ))
@@ -444,6 +460,9 @@ void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf 
 		weapon->max2 = ( max2 == 255 ) ? -1 : max2;
 		weapon->flags = flags;
 		Q_strncpy( weapon->name, name, sizeof( weapon->name ));
+
+		// sort weapons by slot and pos for better navigation
+		qsort( cl_weaponlistfix_state.order, cl_weaponlistfix_state.count, sizeof( int ), CL_WeaponListFix_CompareWeapons );
 		return;
 	}
 
@@ -1322,6 +1341,7 @@ void CL_WeaponListFix_Draw( void )
 	rgba_t color = { 255, 255, 255, 255 };
 	rgba_t dim = { 210, 210, 210, 255 };
 	rgba_t light_blue = { 100, 160, 255, 255 };
+	rgba_t light_grey = { 180, 180, 180, 255 };
 	int slot, width, height, x, y;
 	int line_height = cls.creditsFont.charHeight + 4;
 	int margin_x = 12;
@@ -1359,7 +1379,7 @@ void CL_WeaponListFix_Draw( void )
 		x = margin_x;
 		y = margin_y + slot * line_height;
 
-		CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, ( slot == selected_slot ) ? 160 : 72 );
+		CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, ( slot == selected_slot ) ? 165 : 77 );
 
 		if( has_weapon )
 			slot_color = &light_blue;
@@ -1385,9 +1405,15 @@ void CL_WeaponListFix_Draw( void )
 		CL_DrawStringLen( &cls.creditsFont, weapon->name, &width, &height, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
 
 		if( cl_weaponlistfix_state.selected_weapon == weapon->id || cl_weaponlistfix_state.active_weapon == weapon->id )
-			CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, 160 );
+		{
+			CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, 165 );
+			CL_WeaponListFix_DrawLabel( x, y, weapon->name, light_grey );
+		}
+		else
+		{
+			CL_WeaponListFix_DrawLabel( x, y, weapon->name, light_blue );
+		}
 
-		CL_WeaponListFix_DrawLabel( x, y, weapon->name, light_blue );
 		y += line_height;
 	}
 }
