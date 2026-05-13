@@ -92,7 +92,7 @@ void COM_UnMunge2( byte *data, size_t len, int seq )
 }
 
 #if XASH_ENGINE_TESTS // not used in client, keep for tests only
-void COM_Munge3( byte *data, size_t len, int seq )
+static void COM_Munge3( byte *data, size_t len, int seq )
 {
 	COM_GenericMunge( data, len, seq, mungify_table3, false );
 }

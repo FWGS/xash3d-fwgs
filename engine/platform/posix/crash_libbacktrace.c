@@ -61,10 +61,12 @@ static void Sys_AppendPrint( struct print_data *pd, const char *fmt, ... )
 
 	if( len > 0 )
 	{
+		ssize_t unused;
 		if( pd->logfd >= 0 )
-			write( pd->logfd, pd->message, len );
+			unused = write( pd->logfd, pd->message, len );
 
-		write( STDERR_FILENO, pd->message, len );
+		unused = write( STDERR_FILENO, pd->message, len );
+		(void)unused;
 
 		pd->message += len;
 		pd->len += len;

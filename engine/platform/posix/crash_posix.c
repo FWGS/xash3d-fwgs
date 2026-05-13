@@ -46,7 +46,7 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 	len += Q_snprintf( crash_message + len, sizeof( crash_message ) - len, "Crash: signal %d errno %d with code %d at %p\n", signal, si->si_errno, si->si_code, si->si_addr );
 #endif
 
-	write( STDERR_FILENO, crash_message, len );
+	ssize_t unused = write( STDERR_FILENO, crash_message, len );
 
 #if XASH_ANDROID
 	__android_log_write( ANDROID_LOG_FATAL, "Xash", crash_message );
@@ -55,7 +55,8 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 	// now get log fd and write trace directly to log
 	int logfd = Sys_LogFileNo();
 	if( logfd >= 0 )
-		write( logfd, crash_message, len );
+		unused = write( logfd, crash_message, len );
+	(void)unused;
 
 #if HAVE_LIBBACKTRACE
 	qboolean detailed_message = false;
