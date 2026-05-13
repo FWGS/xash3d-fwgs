@@ -56,7 +56,7 @@ client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS] =
 
 #define CL_WEAPONLISTFIX_DEFAULT_SLOTS 5
 #define CL_WEAPONLISTFIX_EXTENDED_SLOTS 7
-#define CL_WEAPONLISTFIX_MENU_LIFETIME 3.0f
+#define CL_WEAPONLISTFIX_MENU_LIFETIME 1.5f
 #define CL_WEAPONLISTFIX_SUIT_ID 31
 #define CL_WEAPONLISTFIX_HIDEHUD_WEAPONS BIT( 0 )
 #define CL_WEAPONLISTFIX_HIDEHUD_ALL BIT( 2 )
@@ -476,9 +476,6 @@ void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf 
 		if( state > 0 )
 		{
 			cl_weaponlistfix_state.active_weapon = id;
-
-			if( cl_weaponlistfix_state.selected_weapon < 0 || cl_weaponlistfix_state.expire_time <= cl.time )
-				CL_WeaponListFix_ShowMenu( weapon );
 		}
 
 		return;
@@ -1301,10 +1298,30 @@ static void CL_WeaponListFix_DrawLabel( int x, int y, const char *text, const rg
 	CL_DrawString( x, y, text, color, &cls.creditsFont, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
 }
 
+static qboolean CL_WeaponListFix_SlotHasWeapon( int slot )
+{
+	int i;
+
+	for( i = 0; i < cl_weaponlistfix_state.count; i++ )
+	{
+		int weapon_slot;
+		cl_weaponlistfix_weapon_t *weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.order[i] );
+
+		if( !weapon || !CL_WeaponListFix_GetLayout( weapon, &weapon_slot, NULL ) || weapon_slot != slot )
+			continue;
+
+		if( CL_WeaponListFix_HasWeapon( weapon ))
+			return true;
+	}
+
+	return false;
+}
+
 void CL_WeaponListFix_Draw( void )
 {
 	rgba_t color = { 255, 255, 255, 255 };
 	rgba_t dim = { 210, 210, 210, 255 };
+	rgba_t light_blue = { 100, 160, 255, 255 };
 	int slot, width, height, x, y;
 	int line_height = cls.creditsFont.charHeight + 4;
 	int margin_x = 12;
@@ -1333,6 +1350,8 @@ void CL_WeaponListFix_Draw( void )
 	for( slot = 0; slot < slot_count; slot++ )
 	{
 		char label[32];
+		rgba_t *slot_color;
+		qboolean has_weapon = CL_WeaponListFix_SlotHasWeapon( slot );
 
 		Q_snprintf( label, sizeof( label ), "[%d] SLOT", slot + 1 );
 		CL_DrawStringLen( &cls.creditsFont, label, &width, &height, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
@@ -1341,10 +1360,15 @@ void CL_WeaponListFix_Draw( void )
 		y = margin_y + slot * line_height;
 
 		CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, ( slot == selected_slot ) ? 160 : 72 );
+
 		if( slot == selected_slot )
-			CL_WeaponListFix_DrawLabel( x, y, label, color );
+			slot_color = &color;
+		else if( has_weapon )
+			slot_color = &light_blue;
 		else
-			CL_WeaponListFix_DrawLabel( x, y, label, dim );
+			slot_color = &dim;
+
+		CL_WeaponListFix_DrawLabel( x, y, label, *slot_color );
 	}
 
 	y = margin_y + selected_slot * line_height;
