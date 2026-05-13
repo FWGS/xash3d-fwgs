@@ -794,7 +794,6 @@ static void R_DrawBEntitiesOnList( void )
 
 	for( i = 0; i < tr.draw_list->num_edge_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
-		int k;
 		RI.currententity = tr.draw_list->edge_entities[i];
 		RI.currentmodel = RI.currententity->model;
 		if( !RI.currentmodel )
@@ -872,7 +871,6 @@ void R_DrawBrushModel( cl_entity_t *pent )
 	vec3_t  mins, maxs;
 	float   minmaxs[6];
 	mnode_t *topnode;
-	int     k;
 	edge_t  ledges[NUMSTACKEDGES
 		       + (( CACHE_SIZE - 1 ) / sizeof( edge_t )) + 1];
 	surf_t  lsurfs[NUMSTACKSURFACES
