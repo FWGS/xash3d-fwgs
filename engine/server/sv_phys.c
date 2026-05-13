@@ -899,7 +899,7 @@ SV_PushMove
 static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 {
 	int		i, e, block;
-	int		num_moved, oldsolid;
+	int		oldsolid;
 	vec3_t		mins, maxs, lmove;
 	sv_pushed_t	*p, *pushed_p;
 	edict_t		*check;
@@ -936,8 +936,6 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 		return NULL;
 
 	// see if any solid entities are inside the final position
-	num_moved = 0;
-
 	for( e = 1; e < svgame.numEntities; e++ )
 	{
 		check = SV_EdictNum( e );

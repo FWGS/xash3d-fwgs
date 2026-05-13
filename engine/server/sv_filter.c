@@ -493,7 +493,6 @@ static void SV_RemoveIP_f( void )
 	const char *adr = Cmd_Argv( 1 );
 	qboolean removeAll;
 	ipfilter_t filter;
-	int i;
 
 	if( Cmd_Argc() != 2 && Cmd_Argc() != 3 )
 	{
