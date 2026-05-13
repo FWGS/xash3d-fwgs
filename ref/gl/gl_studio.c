@@ -1265,7 +1265,7 @@ static void R_StudioEntityLight( alight_t *lightinfo )
 	float		minstrength, dist2, f, r2;
 	float		lstrength[MAX_LOCALLIGHTS];
 	cl_entity_t	*ent = RI.currententity;
-	vec3_t		mid, origin, pos;
+	vec3_t		mid, origin;
 
 	g_studio.numlocallights = 0;
 
@@ -1294,7 +1294,6 @@ static void R_StudioEntityLight( alight_t *lightinfo )
 			else VectorCopy( ent->origin, el->origin );
 		}
 
-		VectorCopy( el->origin, pos );
 		VectorSubtract( origin, el->origin, mid );
 
 		f = DotProduct( mid, mid );
@@ -1810,9 +1809,7 @@ generic path
 */
 static void R_StudioBuildArrayNormalMesh( short *ptricmds, vec3_t *pstudionorms, float s, float t )
 {
-	float	*lv;
 	int	i;
-	float alpha = tr.blend;
 
 	while(( i = *( ptricmds++ )))
 	{
@@ -1829,7 +1826,6 @@ static void R_StudioBuildArrayNormalMesh( short *ptricmds, vec3_t *pstudionorms,
 		{
 			GLubyte *cl;
 			cl = g_studio.arraycolor[g_studio.numverts];
-			lv = (float *)g_studio.lightvalues[ptricmds[1]];
 
 			vertexState = R_StudioBuildIndices( tri_strip, vertexState );
 
@@ -1853,9 +1849,7 @@ generic path
 */
 static void R_StudioBuildArrayFloatMesh( short *ptricmds, vec3_t *pstudionorms )
 {
-	float	*lv;
 	int	i;
-	float alpha = tr.blend;
 
 	while(( i = *( ptricmds++ )))
 	{
@@ -1872,7 +1866,6 @@ static void R_StudioBuildArrayFloatMesh( short *ptricmds, vec3_t *pstudionorms )
 		{
 			GLubyte *cl;
 			cl = g_studio.arraycolor[g_studio.numverts];
-			lv = (float *)g_studio.lightvalues[ptricmds[1]];
 
 			vertexState = R_StudioBuildIndices( tri_strip, vertexState );
 
@@ -1900,7 +1893,6 @@ static void R_StudioBuildArrayChromeMesh( short *ptricmds, vec3_t *pstudionorms,
 	int	i, idx;
 	qboolean	glowShell = (scale > 0.0f) ? true : false;
 	vec3_t	vert;
-	float alpha = tr.blend;
 
 	while(( i = *( ptricmds++ )))
 	{
@@ -2688,7 +2680,7 @@ R_StudioDrawPointsShadow
 */
 static void R_StudioDrawPointsShadow( void )
 {
-	float		*av, height;
+	float		*av;
 	float		vec_x, vec_y;
 	mstudiomesh_t	*pmesh;
 	vec3_t		point;
@@ -2700,7 +2692,6 @@ static void R_StudioDrawPointsShadow( void )
 	if( glState.stencilEnabled )
 		pglEnable( GL_STENCIL_TEST );
 
-	height = g_studio.lightspot[2] + 1.0f;
 	vec_x = -g_studio.lightvec[0] * 8.0f;
 	vec_y = -g_studio.lightvec[1] * 8.0f;
 

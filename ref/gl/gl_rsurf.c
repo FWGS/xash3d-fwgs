@@ -209,14 +209,12 @@ static void SubdividePolygon_r( model_t *loadmodel, msurface_t *warpface, int nu
 	float		dist[SUBDIVIDE_SIZE];
 	float		m, frac, *v;
 	int		i, j, k, f, b;
-	float		sample_size;
 	vec3_t		mins, maxs;
 	glpoly2_t		*poly;
 
 	if( numverts > ( SUBDIVIDE_SIZE - 4 ))
 		gEngfuncs.Host_Error( "%s: too many vertexes on face ( %i )\n", __func__, numverts );
 
-	sample_size = gEngfuncs.Mod_SampleSizeForFace( warpface );
 	BoundPoly( numverts, verts, mins, maxs );
 
 	for( i = 0; i < 3; i++ )

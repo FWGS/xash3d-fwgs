@@ -704,7 +704,6 @@ static void GL_DrawAliasShadow( aliashdr_t *paliashdr )
 	float		vec_x, vec_y;
 	vec3_t		av, point;
 	int		*order;
-	float		height;
 	int		count;
 
 	if( FBitSet( RI.currententity->curstate.effects, EF_NOSHADOW ))
@@ -713,7 +712,6 @@ static void GL_DrawAliasShadow( aliashdr_t *paliashdr )
 	if( glState.stencilEnabled )
 		pglEnable( GL_STENCIL_TEST );
 
-	height = g_alias.lightspot[2] + 1.0f;
 	vec_x = -g_alias.lightvec[0] * 8.0f;
 	vec_y = -g_alias.lightvec[1] * 8.0f;
 
