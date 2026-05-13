@@ -846,7 +846,7 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 	const GLuint cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
 	const qboolean subImage = FBitSet( tex->flags, TF_IMG_UPLOADED ) && data != NULL;
 	const rawformat_t rawformat = gEngfuncs.Image_GetPFDesc( type )->rawformat;
-	GLenum inFormat;
+	GLenum inFormat = 0;
 	GLint dataType;
 
 	Assert( tex != NULL );
