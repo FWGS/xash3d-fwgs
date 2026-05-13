@@ -14,6 +14,10 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
+
+#if !XASH_DEDICATED
+extern qboolean CL_WeaponListFix_DispatchCommand( const char *cmd_name );
+#endif
 #include "client.h"
 #include "server.h"
 #include "base_cmd.h"
@@ -1223,6 +1227,11 @@ static void Cmd_ExecuteStringWithPrivilegeCheck( const char *text, qboolean isPr
 	Cmd_TokenizeString( text );
 
 	if( !Cmd_Argc( )) return; // no tokens
+
+#if !XASH_DEDICATED
+	if( CL_WeaponListFix_DispatchCommand( Cmd_Argv( 0 )))
+		return;
+#endif
 
 	BaseCmd_FindAll( cmd_argv[0], &cmd, &a, &cvar );
 

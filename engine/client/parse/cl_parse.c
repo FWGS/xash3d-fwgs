@@ -2264,6 +2264,8 @@ qboolean CL_DispatchUserMessage( const char *pszName, int iSize, void *pbuf )
 		Con_DPrintf( S_ERROR "UserMsg: No pfn %s %d\n", clgame.msg[i].name, clgame.msg[i].number );
 		clgame.msg[i].func = CL_UserMsgStub; // throw warning only once
 	}
+
+	CL_WeaponListFix_OnUserMessage( pszName, iSize, pbuf );
 	return true;
 }
 
@@ -2353,6 +2355,8 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num, connprotocol_t proto )
 		Con_DPrintf( S_ERROR "%s: No pfn %s %d\n", __func__, clgame.msg[i].name, clgame.msg[i].number );
 		clgame.msg[i].func = CL_UserMsgStub; // throw warning only once
 	}
+
+	CL_WeaponListFix_OnUserMessage( clgame.msg[i].name, iSize, pbuf );
 }
 
 /*

@@ -83,6 +83,7 @@ CVAR_DEFINE_AUTO( hud_utf8, "0", FCVAR_ARCHIVE, "Use utf-8 encoding for hud text
 CVAR_DEFINE_AUTO( ui_renderworld, "0", FCVAR_ARCHIVE, "render world when UI is visible" );
 static CVAR_DEFINE_AUTO( cl_maxframetime, "0", 0, "set deadline timer for client rendering to catch freezes" );
 CVAR_DEFINE_AUTO( cl_fixmodelinterpolationartifacts, "1", 0, "try to fix up models interpolation on a moving platforms (monsters on trains for example)" );
+CVAR_DEFINE_AUTO( cl_weaponlistfix, "0", FCVAR_ARCHIVE, "let the engine drive a fallback 5-slot inventory (weapon_name finder)" );
 
 //
 // userinfo
@@ -1607,6 +1608,7 @@ void CL_ClearState( void )
 	MSG_Clear( &cls.netchan.message );
 	memset( &clgame.fade, 0, sizeof( clgame.fade ));
 	memset( &clgame.shake, 0, sizeof( clgame.shake ));
+	CL_WeaponListFix_Reset();
 	clgame.mapname[0] = '\0';
 	Cvar_DirectFullSet( &cl_background, "0", FCVAR_READ_ONLY );
 	cl.maxclients = 1; // allow to drawing player in menu
@@ -3489,6 +3491,7 @@ static void CL_InitLocal( void )
 	Cvar_RegisterVariable( &ui_renderworld );
 	Cvar_RegisterVariable( &cl_maxframetime );
 	Cvar_RegisterVariable( &cl_fixmodelinterpolationartifacts );
+	Cvar_RegisterVariable( &cl_weaponlistfix );
 
 	// server commands
 	Cmd_AddCommand ("noclip", NULL, "enable or disable no clipping mode" );

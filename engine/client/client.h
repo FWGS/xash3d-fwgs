@@ -736,6 +736,7 @@ extern convar_t	r_showtree;
 extern convar_t	ui_renderworld;
 extern convar_t cl_fixmodelinterpolationartifacts;
 extern convar_t cl_screenfade;
+extern convar_t cl_weaponlistfix;
 //=============================================================================
 
 extern client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS];
@@ -752,6 +753,10 @@ void CL_LevelShot_f( void );
 void CL_SetSky_f( void );
 void SCR_Viewpos_f( void );
 void CL_WavePlayLen_f( void );
+qboolean CL_WeaponListFix_DispatchCommand( const char *cmd_name );
+void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf );
+void CL_WeaponListFix_Draw( void );
+void CL_WeaponListFix_Reset( void );
 
 //
 // cl_custom.c

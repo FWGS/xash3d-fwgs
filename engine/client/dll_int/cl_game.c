@@ -54,6 +54,43 @@ client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS] =
 { .pName = "TextMessage7", .pMessage = cl_textbuffer[7] },
 };
 
+#define CL_WEAPONLISTFIX_SLOTS 5
+#define CL_WEAPONLISTFIX_MAX_POSITIONS ((MAX_WEAPONS + CL_WEAPONLISTFIX_SLOTS - 1) / CL_WEAPONLISTFIX_SLOTS)
+#define CL_WEAPONLISTFIX_MENU_LIFETIME 3.0f
+#define CL_WEAPONLISTFIX_SUIT_ID 31
+#define CL_WEAPONLISTFIX_HIDEHUD_WEAPONS BIT( 0 )
+#define CL_WEAPONLISTFIX_HIDEHUD_ALL BIT( 2 )
+
+typedef struct
+{
+	qboolean valid;
+	qboolean owned_hint;
+	char name[64];
+	int ammo1;
+	int max1;
+	int ammo2;
+	int max2;
+	int slot;
+	int slot_pos;
+	int id;
+	int flags;
+	int clip;
+} cl_weaponlistfix_weapon_t;
+
+typedef struct
+{
+	cl_weaponlistfix_weapon_t weapons[MAX_WEAPONS];
+	int order[MAX_WEAPONS];
+	int count;
+	int active_weapon;
+	int selected_weapon;
+	int display_slot;
+	int hidehud_bits;
+	float expire_time;
+} cl_weaponlistfix_t;
+
+static cl_weaponlistfix_t cl_weaponlistfix_state;
+
 static const dllfunc_t cdll_exports[] =
 {
 { "Initialize", (void **)&clgame.dllFuncs.pfnInitialize },
@@ -112,6 +149,285 @@ static const dllfunc_t cdll_new_exports[] = 	// allowed only in SDK 2.3 and high
 };
 
 static void pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc );
+
+static qboolean CL_WeaponListFix_IsUsefulWeapon( const char *name, int id )
+{
+	if( id <= 0 || id >= MAX_WEAPONS )
+		return false;
+	if( COM_StringEmpty( name ))
+		return false;
+	if( id == CL_WEAPONLISTFIX_SUIT_ID )
+		return false;
+	if( !Q_stricmp( name, "weapon_suit" ))
+		return false;
+	return true;
+}
+
+static cl_weaponlistfix_weapon_t *CL_WeaponListFix_GetWeapon( int id )
+{
+	if( id < 0 || id >= MAX_WEAPONS )
+		return NULL;
+	if( !cl_weaponlistfix_state.weapons[id].valid )
+		return NULL;
+	return &cl_weaponlistfix_state.weapons[id];
+}
+
+static qboolean CL_WeaponListFix_HasWeapon( const cl_weaponlistfix_weapon_t *weapon )
+{
+	if( !weapon || !weapon->valid )
+		return false;
+	if( cl_weaponlistfix_state.active_weapon == weapon->id )
+		return true;
+	if( weapon->id >= 0 && weapon->id < 32 )
+		return FBitSet( cl.local.weapons, BIT( weapon->id )) ? true : false;
+	return weapon->owned_hint;
+}
+
+static cl_weaponlistfix_weapon_t *CL_WeaponListFix_FindInSlot( int slot, int current_id )
+{
+	int i, start = 0;
+
+	if( slot < 0 || slot >= CL_WEAPONLISTFIX_SLOTS || cl_weaponlistfix_state.count <= 0 )
+		return NULL;
+
+	if( current_id > 0 )
+	{
+		for( i = 0; i < cl_weaponlistfix_state.count; i++ )
+		{
+			if( cl_weaponlistfix_state.order[i] == current_id )
+			{
+				start = i + 1;
+				break;
+			}
+		}
+	}
+
+	for( i = 0; i < cl_weaponlistfix_state.count; i++ )
+	{
+		int idx = ( start + i ) % cl_weaponlistfix_state.count;
+		cl_weaponlistfix_weapon_t *weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.order[idx] );
+
+		if( !weapon || weapon->slot != slot )
+			continue;
+		if( !CL_WeaponListFix_HasWeapon( weapon ))
+			continue;
+		return weapon;
+	}
+
+	return NULL;
+}
+
+static cl_weaponlistfix_weapon_t *CL_WeaponListFix_FindRelative( int current_id, int direction )
+{
+	int i, start = 0;
+
+	if( cl_weaponlistfix_state.count <= 0 || direction == 0 )
+		return NULL;
+
+	if( current_id > 0 )
+	{
+		for( i = 0; i < cl_weaponlistfix_state.count; i++ )
+		{
+			if( cl_weaponlistfix_state.order[i] == current_id )
+			{
+				start = i;
+				break;
+			}
+		}
+	}
+
+	for( i = 1; i <= cl_weaponlistfix_state.count; i++ )
+	{
+		int idx = ( start + ( direction > 0 ? i : -i ) + cl_weaponlistfix_state.count ) % cl_weaponlistfix_state.count;
+		cl_weaponlistfix_weapon_t *weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.order[idx] );
+
+		if( !CL_WeaponListFix_HasWeapon( weapon ))
+			continue;
+		return weapon;
+	}
+
+	return NULL;
+}
+
+static void CL_WeaponListFix_ShowMenu( const cl_weaponlistfix_weapon_t *weapon )
+{
+	if( !weapon )
+		return;
+
+	cl_weaponlistfix_state.selected_weapon = weapon->id;
+	cl_weaponlistfix_state.display_slot = weapon->slot;
+	cl_weaponlistfix_state.expire_time = cl.time + CL_WEAPONLISTFIX_MENU_LIFETIME;
+}
+
+static void CL_WeaponListFix_SelectWeapon( cl_weaponlistfix_weapon_t *weapon )
+{
+	if( !weapon || COM_StringEmpty( weapon->name ))
+		return;
+
+	CL_WeaponListFix_ShowMenu( weapon );
+
+	if( cls.state >= ca_connected )
+		Cbuf_AddTextf( "cmd %s\n", weapon->name );
+}
+
+void CL_WeaponListFix_Reset( void )
+{
+	memset( &cl_weaponlistfix_state, 0, sizeof( cl_weaponlistfix_state ));
+	cl_weaponlistfix_state.active_weapon = -1;
+	cl_weaponlistfix_state.selected_weapon = -1;
+	cl_weaponlistfix_state.display_slot = -1;
+}
+
+qboolean CL_WeaponListFix_DispatchCommand( const char *cmd_name )
+{
+	cl_weaponlistfix_weapon_t *weapon = NULL;
+	int slot = -1;
+
+	if( !cl_weaponlistfix.value )
+		return false;
+	if( COM_StringEmpty( cmd_name ))
+		return false;
+	if( cls.state < ca_connected )
+		return false;
+
+	if( !Q_strnicmp( cmd_name, "slot", 4 ) && Q_strlen( cmd_name ) == 5 && Q_isdigit( cmd_name[4] ))
+	{
+		slot = cmd_name[4] - '1';
+
+		if( slot < 0 || slot >= CL_WEAPONLISTFIX_SLOTS )
+			return false;
+
+		weapon = CL_WeaponListFix_FindInSlot( slot,
+			( cl_weaponlistfix_state.display_slot == slot ) ? cl_weaponlistfix_state.selected_weapon : -1 );
+		if( weapon )
+			CL_WeaponListFix_SelectWeapon( weapon );
+		return true;
+	}
+
+	if( !Q_stricmp( cmd_name, "invnext" ))
+	{
+		int current = cl_weaponlistfix_state.selected_weapon > 0 ? cl_weaponlistfix_state.selected_weapon : cl_weaponlistfix_state.active_weapon;
+		weapon = CL_WeaponListFix_FindRelative( current, 1 );
+		if( weapon )
+			CL_WeaponListFix_SelectWeapon( weapon );
+		return true;
+	}
+
+	if( !Q_stricmp( cmd_name, "invprev" ))
+	{
+		int current = cl_weaponlistfix_state.selected_weapon > 0 ? cl_weaponlistfix_state.selected_weapon : cl_weaponlistfix_state.active_weapon;
+		weapon = CL_WeaponListFix_FindRelative( current, -1 );
+		if( weapon )
+			CL_WeaponListFix_SelectWeapon( weapon );
+		return true;
+	}
+
+	return false;
+}
+
+void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf )
+{
+	if( !Q_stricmp( pszName, "WeaponList" ))
+	{
+		const char *name;
+		cl_weaponlistfix_weapon_t *weapon;
+		int ammo1, max1, ammo2, max2, flags;
+		int id;
+
+		BEGIN_READ( pbuf, iSize );
+
+		name = READ_STRING();
+		ammo1 = READ_CHAR();
+		max1 = READ_BYTE();
+		ammo2 = READ_CHAR();
+		max2 = READ_BYTE();
+		READ_CHAR();
+		READ_CHAR();
+		id = READ_CHAR();
+		flags = READ_BYTE();
+
+		if( !CL_WeaponListFix_IsUsefulWeapon( name, id ))
+			return;
+
+		weapon = &cl_weaponlistfix_state.weapons[id];
+
+		if( !weapon->valid )
+		{
+			if( cl_weaponlistfix_state.count >= MAX_WEAPONS )
+				return;
+
+			weapon->slot = cl_weaponlistfix_state.count % CL_WEAPONLISTFIX_SLOTS;
+			weapon->slot_pos = cl_weaponlistfix_state.count / CL_WEAPONLISTFIX_SLOTS;
+			cl_weaponlistfix_state.order[cl_weaponlistfix_state.count++] = id;
+		}
+
+		weapon->valid = true;
+		weapon->id = id;
+		weapon->ammo1 = ammo1;
+		weapon->max1 = ( max1 == 255 ) ? -1 : max1;
+		weapon->ammo2 = ammo2;
+		weapon->max2 = ( max2 == 255 ) ? -1 : max2;
+		weapon->flags = flags;
+		Q_strncpy( weapon->name, name, sizeof( weapon->name ));
+		return;
+	}
+
+	if( !Q_stricmp( pszName, "CurWeapon" ))
+	{
+		int state;
+		int id;
+		int clip;
+		cl_weaponlistfix_weapon_t *weapon;
+
+		BEGIN_READ( pbuf, iSize );
+		state = READ_BYTE();
+		id = READ_CHAR();
+		clip = READ_CHAR();
+
+		if( id < 1 )
+		{
+			cl_weaponlistfix_state.active_weapon = -1;
+			return;
+		}
+
+		weapon = CL_WeaponListFix_GetWeapon( id );
+		if( !weapon )
+			return;
+
+		weapon->owned_hint = true;
+		weapon->clip = ( clip < -1 ) ? abs( clip ) : clip;
+
+		if( state > 0 )
+		{
+			cl_weaponlistfix_state.active_weapon = id;
+
+			if( cl_weaponlistfix_state.selected_weapon < 0 || cl_weaponlistfix_state.expire_time <= cl.time )
+				CL_WeaponListFix_ShowMenu( weapon );
+		}
+
+		return;
+	}
+
+	if( !Q_stricmp( pszName, "WeapPickup" ))
+	{
+		int id;
+		cl_weaponlistfix_weapon_t *weapon;
+
+		BEGIN_READ( pbuf, iSize );
+		id = READ_BYTE();
+		weapon = CL_WeaponListFix_GetWeapon( id );
+
+		if( weapon )
+			weapon->owned_hint = true;
+		return;
+	}
+
+	if( !Q_stricmp( pszName, "HideWeapon" ))
+	{
+		BEGIN_READ( pbuf, iSize );
+		cl_weaponlistfix_state.hidehud_bits = READ_BYTE();
+	}
+}
 
 /*
 ====================
@@ -901,6 +1217,81 @@ static void CL_DrawLoadingOrPaused( int tex )
 	ref.dllFuncs.R_DrawStretchPic( x, y, width, height, 0, 0, 1, 1, tex );
 }
 
+static void CL_WeaponListFix_DrawLabel( int x, int y, const char *text, const rgba_t color )
+{
+	CL_DrawString( x, y, text, color, &cls.creditsFont, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
+}
+
+void CL_WeaponListFix_Draw( void )
+{
+	rgba_t color = { 255, 255, 255, 255 };
+	rgba_t dim = { 210, 210, 210, 255 };
+	int slot, width, height, x, y;
+	int line_height = cls.creditsFont.charHeight + 4;
+	int margin_x = 12;
+	int margin_y = 24;
+	int selected_slot = cl_weaponlistfix_state.display_slot;
+	cl_weaponlistfix_weapon_t *selected_weapon;
+
+	if( !cl_weaponlistfix.value )
+		return;
+	if( cl_weaponlistfix_state.expire_time <= cl.time )
+		return;
+	if( FBitSet( cl_weaponlistfix_state.hidehud_bits, CL_WEAPONLISTFIX_HIDEHUD_WEAPONS|CL_WEAPONLISTFIX_HIDEHUD_ALL ))
+		return;
+	if( !FBitSet( cl.local.weapons, BIT( CL_WEAPONLISTFIX_SUIT_ID )))
+		return;
+	if( !cls.creditsFont.valid )
+		return;
+
+	selected_weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.selected_weapon );
+	if( selected_slot < 0 && selected_weapon )
+		selected_slot = selected_weapon->slot;
+	if( selected_slot < 0 )
+		selected_slot = 0;
+
+	for( slot = 0; slot < CL_WEAPONLISTFIX_SLOTS; slot++ )
+	{
+		char label[32];
+
+		Q_snprintf( label, sizeof( label ), "[%d] SLOT", slot + 1 );
+		CL_DrawStringLen( &cls.creditsFont, label, &width, &height, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
+
+		x = margin_x;
+		y = margin_y + slot * line_height;
+
+		CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, ( slot == selected_slot ) ? 160 : 72 );
+		if( slot == selected_slot )
+			CL_WeaponListFix_DrawLabel( x, y, label, color );
+		else
+			CL_WeaponListFix_DrawLabel( x, y, label, dim );
+	}
+
+	y = margin_y + selected_slot * line_height;
+	x = margin_x + 120;
+
+	for( slot = 0; slot < cl_weaponlistfix_state.count; slot++ )
+	{
+		cl_weaponlistfix_weapon_t *weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.order[slot] );
+
+		if( !weapon || weapon->slot != selected_slot )
+			continue;
+		if( !CL_WeaponListFix_HasWeapon( weapon ))
+			continue;
+
+		CL_DrawStringLen( &cls.creditsFont, weapon->name, &width, &height, FONT_DRAW_UTF8 | FONT_DRAW_HUD );
+
+		if( cl_weaponlistfix_state.selected_weapon == weapon->id || cl_weaponlistfix_state.active_weapon == weapon->id )
+			CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, 160 );
+
+		if( cl_weaponlistfix_state.selected_weapon == weapon->id )
+			CL_WeaponListFix_DrawLabel( x, y, weapon->name, color );
+		else
+			CL_WeaponListFix_DrawLabel( x, y, weapon->name, dim );
+		y += line_height;
+	}
+}
+
 void CL_DrawHUD( int state )
 {
 	if( state == CL_ACTIVE && !cl.video_prepped )
@@ -917,6 +1308,7 @@ void CL_DrawHUD( int state )
 		CL_DrawCrosshair ();
 		CL_DrawCenterPrint ();
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
+		CL_WeaponListFix_Draw();
 		if( cl.intermission ) CL_DrawScreenFade ();
 		break;
 	case CL_PAUSED:
@@ -924,6 +1316,7 @@ void CL_DrawHUD( int state )
 		CL_DrawCrosshair ();
 		CL_DrawCenterPrint ();
 		clgame.dllFuncs.pfnRedraw( cl.time, cl.intermission );
+		CL_WeaponListFix_Draw();
 		if( showpause.value )
 		{
 			if( !cls.pauseIcon )
