@@ -46,8 +46,12 @@ CONSTANTS AND HELPER MACROS
 #define M_PI_F  ((float)(M_PI))
 #define M_PI2_F ((float)(M_PI2))
 
+#ifndef RAD2DEG
 #define RAD2DEG( x ) ((double)(x) * (double)(180.0 / M_PI))
+#endif
+#ifndef DEG2RAD
 #define DEG2RAD( x ) ((double)(x) * (double)(M_PI / 180.0))
+#endif
 
 #define NUMVERTEXNORMALS 162
 
@@ -74,8 +78,12 @@ CONSTANTS AND HELPER MACROS
 #define INV255F          ( 1.0f / 255.0f )
 #define MAKE_SIGNED( x ) ((( x ) * INV127F ) - 1.0f )
 
+#ifndef Q_min
 #define Q_min( a, b ) (((a) < (b)) ? (a) : (b))
+#endif
+#ifndef Q_max
 #define Q_max( a, b ) (((a) > (b)) ? (a) : (b))
+#endif
 #define Q_equal_e( a, b, e ) (((a) >= ((b) - (e))) && ((a) <= ((b) + (e))))
 #define Q_equal( a, b ) Q_equal_e( a, b, EQUAL_EPSILON )
 #define Q_floor( a )    ((float)(int)(a))
