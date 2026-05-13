@@ -1986,8 +1986,6 @@ all the keys and values must be ends with ^7
 */
 static void CL_FixupColorStringsForInfoString( const char *in, char *out, size_t len )
 {
-	qboolean	hasPrefix = false;
-	qboolean	endOfKeyVal = false;
 	int	color = 7;
 	int	count = 0;
 
@@ -2163,7 +2161,6 @@ static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
 	int		i, context, type;
 	int		errorBits = 0;
 	const char		*val;
-	size_t slen;
 
 	context = Q_atoi( Cmd_Argv( 1 ));
 	type = Q_atoi( Cmd_Argv( 2 ));

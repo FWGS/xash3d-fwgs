@@ -1669,15 +1669,12 @@ void GAME_EXPORT R_PlayerSprites( int client, int modelIndex, int count, int siz
 	cl_entity_t	*pEnt;
 	vec3_t		position;
 	vec3_t		dir;
-	float		vel;
 	int		i;
 
 	pEnt = CL_GetEntityByIndex( client );
 
 	if( !pEnt || !pEnt->player )
 		return;
-
-	vel = 128;
 
 	for( i = 0; i < count; i++ )
 	{

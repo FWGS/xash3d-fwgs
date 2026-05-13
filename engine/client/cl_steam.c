@@ -355,7 +355,7 @@ static void SteamBroker_UpdateIdle( void )
 	}
 }
 
-void SteamBroker_AnnounceGameStart( const char *gamedir )
+static void SteamBroker_AnnounceGameStart( const char *gamedir )
 {
 	if( Q_stricmp( cl_ticket_generator.string, "steam" ) != 0 )
 		return;
@@ -371,7 +371,7 @@ void SteamBroker_AnnounceGameStart( const char *gamedir )
 		SteamBroker_SendFrame( buf, len );
 }
 
-void SteamBroker_AnnounceGameShutdown( void )
+static void SteamBroker_AnnounceGameShutdown( void )
 {
 	if( Q_stricmp( cl_ticket_generator.string, "steam" ) != 0 )
 		return;

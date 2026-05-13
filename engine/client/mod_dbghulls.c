@@ -725,7 +725,7 @@ static void R_DrawHull( hull_model_t *hull )
 	{
 		int i;
 
-		srand((unsigned int)poly );
+		srand((unsigned int)(uintptr_t)poly );
 		ref.dllFuncs.Color4ub( rand() & 255, rand() & 255, rand() & 255, 255 );
 
 		ref.dllFuncs.Begin( TRI_POLYGON );

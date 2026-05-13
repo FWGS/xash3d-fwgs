@@ -601,7 +601,6 @@ static int Voice_ProcessGSData( int ent, const uint8_t *data, uint32_t size )
 	uint32_t    crc;
 	size_t      offset;
 	size_t      samples;
-	uint16_t    sample_rate;
 	uint8_t     vpc_type;
 	uint16_t    data_len;
 	OpusDecoder *decoder;
@@ -637,7 +636,6 @@ static int Voice_ProcessGSData( int ent, const uint8_t *data, uint32_t size )
 	if( offset + sizeof( uint32_t ) > size - sizeof( uint32_t ))
 		return 0;
 
-	sample_rate = LittleShort( *(uint16_t *)( data + offset ));
 	offset += sizeof( uint16_t );
 
 	vpc_type = data[offset++];
@@ -987,7 +985,6 @@ void Voice_AddIncomingData( int ent, const byte *data, uint size, uint frames )
 	const int playernum = ent - 1;
 	int samples = 0;
 	int ofs = 0;
-	voice_status_t *status = NULL;
 
 	if( !voice.initialized || !voice_enable.value )
 		return;
@@ -1041,7 +1038,7 @@ Encode our voice data and send it to server
 void CL_AddVoiceToDatagram( void )
 {
 	byte buffer[VOICE_MAX_DATA_SIZE];
-	uint size, frames;
+	uint size, frames = 0;
 
 	if( cls.state != ca_active || !voice.device_opened || !Voice_IsRecording())
 		return;
@@ -1131,8 +1128,6 @@ Run timeout for clients
 */
 void Voice_Idle( double frametime )
 {
-	int i;
-
 	if( FBitSet( voice_enable.flags, FCVAR_CHANGED ))
 	{
 		ClearBits( voice_enable.flags, FCVAR_CHANGED );

@@ -253,7 +253,6 @@ NetGraph_DrawTimes
 static void NetGraph_DrawTimes( wrect_t rect, int x, int w )
 {
 	int	i, j, extrap_point = NETGRAPH_LERP_HEIGHT / 3, a, h;
-	rgba_t	colors = { 0.9 * 255, 0.9 * 255, 0.7 * 255, 255 };
 	wrect_t	fill;
 
 	for( a = 0; a < w; a++ )
