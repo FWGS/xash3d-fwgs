@@ -943,11 +943,11 @@ void GAME_EXPORT pfnResetTutorMessageDecayData( void )
 
 static void Test_LZSS( void )
 {
-	char poison1[8192];
+	char poison1[8192] MAYBE_UNUSED;
 	byte in[256];
-	char poison2[8192];
+	char poison2[8192] MAYBE_UNUSED;
 	byte out[256];
-	char poison3[8192];
+	char poison3[8192] MAYBE_UNUSED;
 
 	lzss_header_t *hdr = (lzss_header_t *)in;
 	uint result;
