@@ -2988,7 +2988,7 @@ static struct str64_s
 	size_t numdups;
 	size_t numoverflows;
 	size_t totalalloc;
-} str64;
+} str64 MAYBE_UNUSED;
 
 /*
 ==================
