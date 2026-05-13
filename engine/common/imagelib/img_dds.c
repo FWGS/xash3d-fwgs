@@ -95,7 +95,7 @@ static qboolean Image_CheckDXT3Alpha( dds_t *hdr, byte *fin )
 
 static qboolean Image_CheckDXT5Alpha( dds_t *hdr, byte *fin )
 {
-	uint	bits, bitmask;
+	uint	bits;
 	byte	*alphamask;
 	int	x, y, i, j;
 
@@ -108,8 +108,6 @@ static qboolean Image_CheckDXT5Alpha( dds_t *hdr, byte *fin )
 
 			alphamask = fin + 2;
 			fin += 8;
-
-			bitmask = ((uint *)fin)[1];
 			fin += 8;
 
 			// last three bytes
@@ -278,9 +276,6 @@ static size_t Image_DXTCalcMipmapSize( dds_t *hdr )
 static uint Image_DXTCalcSize( const char *name, dds_t *hdr, size_t filesize )
 {
 	size_t buffsize = 0;
-	int w = image.width;
-	int h = image.height;
-	int d = image.depth;
 
 	if( hdr->dsCaps.dwCaps2 & DDS_CUBEMAP )
 	{

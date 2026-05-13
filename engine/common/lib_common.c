@@ -40,18 +40,15 @@ void COM_PushLibraryError( const char *error )
 
 void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 {
-	char **funcs = NULL;
-	size_t numfuncs, i;
-	void *f = NULL;
-	const char *func = NULL;
-
 #ifdef XASH_ALLOW_SAVERESTORE_OFFSETS
 	if( !memcmp( pName, "ofs:", 4 ))
 		return (byte*)svgame.dllFuncs.pfnGameInit + Q_atoi( pName + 4 );
 #endif
 
 #if XASH_POSIX
-	funcs = COM_ConvertToLocalPlatform( MANGLE_ITANIUM, pName, &numfuncs );
+	size_t numfuncs, i;
+	void *f = NULL;
+	char **funcs = COM_ConvertToLocalPlatform( MANGLE_ITANIUM, pName, &numfuncs );
 
 	if( funcs )
 	{
@@ -69,7 +66,7 @@ void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 	// TODO: COM_ConvertToLocalPlatform doesn't support MSVC yet
 	// also custom loader strips always MSVC mangling, so Win32
 	// platforms already use platform-neutral names
-	func = COM_GetPlatformNeutralName( pName );
+	const char *func = COM_GetPlatformNeutralName( pName );
 
 	if( func )
 		return COM_FunctionFromName( hInstance, func );

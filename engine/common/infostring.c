@@ -364,7 +364,7 @@ static char *Info_FindLargestKey( char *s )
 	char	value[MAX_KV_SIZE];
 	static	char largest_key[128];
 	int	largest_size = 0;
-	int	l, count;
+	int	count;
 	char	*o;
 
 	*largest_key = 0;
@@ -384,7 +384,6 @@ static char *Info_FindLargestKey( char *s )
 			count++;
 		}
 
-		l = o - key;
 		*o = 0;
 		size = Q_strlen( key );
 
