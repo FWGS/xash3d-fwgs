@@ -406,7 +406,7 @@ static const dllfunc_t vaofuncs[] =
 { GL_CALL( glIsVertexArray ) },
 };
 
-static const dllfunc_t multitexturefuncs_es[] =
+static const dllfunc_t multitexturefuncs_es[] MAYBE_UNUSED =
 {
 { GL_CALL( glActiveTexture ) },
 { GL_CALL( glActiveTextureARB ) },
@@ -414,7 +414,7 @@ static const dllfunc_t multitexturefuncs_es[] =
 { GL_CALL( glClientActiveTextureARB ) },
 };
 
-static const dllfunc_t multitexturefuncs_es2[] =
+static const dllfunc_t multitexturefuncs_es2[] MAYBE_UNUSED =
 {
 { GL_CALL( glActiveTexture ) },
 { GL_CALL( glActiveTextureARB ) },
