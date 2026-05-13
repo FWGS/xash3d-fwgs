@@ -922,8 +922,8 @@ static void GL_TextureImageRAW( gl_texture_t *tex, GLint side, GLint level, GLin
 
 static void GL_TextureImageCompressed( gl_texture_t *tex, GLint side, GLint level, GLint width, GLint height, GLint depth, size_t size, const void *data )
 {
-	GLuint	cubeTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
-	qboolean	subImage = FBitSet( tex->flags, TF_IMG_UPLOADED );
+	GLuint   cubeTarget MAYBE_UNUSED = GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB;
+	qboolean subImage MAYBE_UNUSED = FBitSet( tex->flags, TF_IMG_UPLOADED );
 
 	Assert( tex != NULL );
 
