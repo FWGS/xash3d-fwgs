@@ -2154,8 +2154,6 @@ static void CL_FreeDeadBeams( void )
 
 void CL_DrawEFX( float time, qboolean fTrans )
 {
-	if( fTrans )
-		CL_ParticleManUpdate();
 	CL_FreeDeadBeams();
 	if( cl_draw_beams.value )
 		ref.dllFuncs.CL_DrawBeams( fTrans, cl_active_beams );
