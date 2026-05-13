@@ -1562,10 +1562,10 @@ static void Cmd_ExecScript( const char *filename, qboolean privileged )
 
 	if( f[len - 1] != '\n' )
 	{
-		Cbuf_InsertTextLen( f, len, len + 1 );
+		Cbuf_InsertTextLen( (const char *)f, len, len + 1 );
 		Cbuf_InsertTextLen( "\n", 1, 1 );
 	}
-	else Cbuf_InsertTextLen( f, len, len );
+	else Cbuf_InsertTextLen( (const char *)f, len, len );
 
 	Mem_Free( f );
 }
@@ -1579,6 +1579,7 @@ static void Cmd_Exec_f( void )
 {
 	string cfgpath;
 	search_t *search = NULL;
+	qboolean allow = false;
 	int i;
 
 	if( Cmd_Argc() != 2 )
