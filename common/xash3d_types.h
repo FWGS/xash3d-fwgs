@@ -114,6 +114,7 @@ typedef int qboolean;
 	#define FORMAT_CHECK( x )  __attribute__(( format( printf, x, x + 1 )))
 	#define ALLOC_CHECK( x )   __attribute__(( alloc_size( x )))
 	#define WARN_UNUSED_RESULT __attribute__(( warn_unused_result ))
+	#define MAYBE_UNUSED       __attribute__(( unused ))
 	#define RENAME_SYMBOL( x ) asm( x )
 	#if !defined( offsetof )
 		#define offsetof( s, m )   __builtin_offsetof( s, m )
@@ -197,6 +198,10 @@ typedef int qboolean;
 #if !defined( WARN_UNUSED_RESULT )
 	#define WARN_UNUSED_RESULT
 #endif // !defined( WARN_UNUSED_RESULT )
+
+#if !defined( MAYBE_UNUSED )
+	#define MAYBE_UNUSED
+#endif // !defined( MAYBE_UNUSED )
 
 #if !defined( RENAME_SYMBOL )
 	#define RENAME_SYMBOL( x )
