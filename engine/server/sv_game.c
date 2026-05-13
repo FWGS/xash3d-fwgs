@@ -5003,7 +5003,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		return false;
 	}
 
-	if( particleman_compat || SV_IsParticleManCompatEntity( classname ))
+	if( particleman_compat )
 	{
 		SV_FreeKeyValueStrings( pkvd, numpairs );
 		return false;
