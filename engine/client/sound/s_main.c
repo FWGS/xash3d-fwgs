@@ -627,8 +627,8 @@ void S_StartSound( const vec3_t pos, int ent, int chan, sound_t handle, float fv
 {
 	wavdata_t	*pSource;
 	sfx_t	*sfx = NULL;
-	channel_t	*target_chan, *check;
-	int	vol, ch_idx;
+	channel_t	*target_chan;
+	int	vol;
 	qboolean	bIgnore = false;
 
 	if( !snd.initialized ) return;
@@ -874,7 +874,7 @@ void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, floa
 	channel_t	*ch;
 	wavdata_t	*pSource = NULL;
 	sfx_t	*sfx = NULL;
-	int	vol, fvox = 0;
+	int	vol;
 
 	if( !snd.initialized ) return;
 	sfx = S_GetSfxByHandle( handle );
@@ -911,7 +911,6 @@ void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, floa
 		Q_strncpy( ch->name, sfx->name, sizeof( ch->name ));
 		sfx = ch->sfx;
 		if( sfx ) pSource = sfx->cache;
-		fvox = 1;
 	}
 	else
 	{
@@ -1085,8 +1084,6 @@ S_UpdateAmbientSounds
 */
 static void S_UpdateAmbientSounds( void )
 {
-	int ambient_channel;
-
 	if( !snd.have_ambient_sfx )
 		return;
 
@@ -1117,7 +1114,7 @@ static void S_UpdateAmbientSounds( void )
 			continue;
 		}
 
-		float vol = s_ambient_level.value * leaf->ambient_sound_level[ambient_channel];
+		float vol = s_ambient_level.value * leaf->ambient_sound_level[i];
 		if( vol < 0.0f )
 			vol = 0.0f;
 
@@ -1863,8 +1860,8 @@ static void S_SoundFade_f( void )
 	int c = Cmd_Argc();
 	int fade_percent;
 	int hold_time;
-	int fade_out_seconds;
-	int fade_in_seconds;
+	int fade_out_seconds = 0;
+	int fade_in_seconds = 0;
 
 	if( c != 3 && c != 5 )
 	{

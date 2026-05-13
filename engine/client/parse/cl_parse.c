@@ -256,7 +256,7 @@ static client entity
 */
 static void CL_ParseStaticEntity( sizebuf_t *msg )
 {
-	int		i, newnum;
+	int		i;
 	const entity_state_t from = { 0 };
 	entity_state_t to;
 	cl_entity_t	*ent;
@@ -264,7 +264,7 @@ static void CL_ParseStaticEntity( sizebuf_t *msg )
 	if( !clgame.static_entities )
 		clgame.static_entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * MAX_STATIC_ENTITIES );
 
-	newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
+	MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
 	MSG_ReadDeltaEntity( msg, &from, &to, 0, DELTA_STATIC, cl.mtime[0] );
 
 	i = clgame.numStatics;

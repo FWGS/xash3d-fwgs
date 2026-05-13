@@ -28,7 +28,6 @@ GNU General Public License for more details.
 
 static qboolean	in_mouseactive;				// false when not focus app
 static qboolean	in_mouseinitialized;
-static qboolean	in_mouse_suspended;
 static struct
 {
 	int x, y;
