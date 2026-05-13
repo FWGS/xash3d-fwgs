@@ -54,8 +54,8 @@ client_textmessage_t cl_textmessage[MAX_TEXTCHANNELS] =
 { .pName = "TextMessage7", .pMessage = cl_textbuffer[7] },
 };
 
-#define CL_WEAPONLISTFIX_SLOTS 5
-#define CL_WEAPONLISTFIX_MAX_POSITIONS ((MAX_WEAPONS + CL_WEAPONLISTFIX_SLOTS - 1) / CL_WEAPONLISTFIX_SLOTS)
+#define CL_WEAPONLISTFIX_DEFAULT_SLOTS 5
+#define CL_WEAPONLISTFIX_EXTENDED_SLOTS 7
 #define CL_WEAPONLISTFIX_MENU_LIFETIME 3.0f
 #define CL_WEAPONLISTFIX_SUIT_ID 31
 #define CL_WEAPONLISTFIX_HIDEHUD_WEAPONS BIT( 0 )
@@ -70,8 +70,7 @@ typedef struct
 	int max1;
 	int ammo2;
 	int max2;
-	int slot;
-	int slot_pos;
+	int order_index;
 	int id;
 	int flags;
 	int clip;
@@ -149,6 +148,76 @@ static const dllfunc_t cdll_new_exports[] = 	// allowed only in SDK 2.3 and high
 };
 
 static void pfnSPR_DrawHoles( int frame, int x, int y, const wrect_t *prc );
+static void GAME_EXPORT CL_FillRGBABlend( int x, int y, int w, int h, int r, int g, int b, int a );
+
+typedef struct
+{
+	const byte *data;
+	int size;
+	int pos;
+} cl_weaponlistfix_msg_t;
+
+static void CL_WeaponListFix_MsgInit( cl_weaponlistfix_msg_t *msg, const void *data, int size )
+{
+	msg->data = data;
+	msg->size = size;
+	msg->pos = 0;
+}
+
+static int CL_WeaponListFix_ReadByte( cl_weaponlistfix_msg_t *msg )
+{
+	if( msg->pos >= msg->size )
+		return 0;
+	return msg->data[msg->pos++];
+}
+
+static int CL_WeaponListFix_ReadChar( cl_weaponlistfix_msg_t *msg )
+{
+	return (signed char)CL_WeaponListFix_ReadByte( msg );
+}
+
+static const char *CL_WeaponListFix_ReadString( cl_weaponlistfix_msg_t *msg, char *buffer, size_t size )
+{
+	size_t i = 0;
+
+	if( !size )
+		return buffer;
+
+	while( msg->pos < msg->size )
+	{
+		char c = msg->data[msg->pos++];
+
+		if( !c )
+			break;
+		if( i + 1 < size )
+			buffer[i++] = c;
+	}
+
+	buffer[i] = '\0';
+	return buffer;
+}
+
+static int CL_WeaponListFix_GetSlotCount( void )
+{
+	return cl_weaponlistfix.value >= 2.0f ? CL_WEAPONLISTFIX_EXTENDED_SLOTS : CL_WEAPONLISTFIX_DEFAULT_SLOTS;
+}
+
+static qboolean CL_WeaponListFix_GetLayout( const cl_weaponlistfix_weapon_t *weapon, int *slot, int *slot_pos )
+{
+	int slot_count;
+
+	if( !weapon || !weapon->valid || weapon->order_index < 0 )
+		return false;
+
+	slot_count = CL_WeaponListFix_GetSlotCount();
+
+	if( slot )
+		*slot = weapon->order_index % slot_count;
+	if( slot_pos )
+		*slot_pos = weapon->order_index / slot_count;
+
+	return true;
+}
 
 static qboolean CL_WeaponListFix_IsUsefulWeapon( const char *name, int id )
 {
@@ -187,7 +256,7 @@ static cl_weaponlistfix_weapon_t *CL_WeaponListFix_FindInSlot( int slot, int cur
 {
 	int i, start = 0;
 
-	if( slot < 0 || slot >= CL_WEAPONLISTFIX_SLOTS || cl_weaponlistfix_state.count <= 0 )
+	if( slot < 0 || slot >= CL_WeaponListFix_GetSlotCount() || cl_weaponlistfix_state.count <= 0 )
 		return NULL;
 
 	if( current_id > 0 )
@@ -205,9 +274,10 @@ static cl_weaponlistfix_weapon_t *CL_WeaponListFix_FindInSlot( int slot, int cur
 	for( i = 0; i < cl_weaponlistfix_state.count; i++ )
 	{
 		int idx = ( start + i ) % cl_weaponlistfix_state.count;
+		int weapon_slot;
 		cl_weaponlistfix_weapon_t *weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.order[idx] );
 
-		if( !weapon || weapon->slot != slot )
+		if( !weapon || !CL_WeaponListFix_GetLayout( weapon, &weapon_slot, NULL ) || weapon_slot != slot )
 			continue;
 		if( !CL_WeaponListFix_HasWeapon( weapon ))
 			continue;
@@ -255,7 +325,7 @@ static void CL_WeaponListFix_ShowMenu( const cl_weaponlistfix_weapon_t *weapon )
 		return;
 
 	cl_weaponlistfix_state.selected_weapon = weapon->id;
-	cl_weaponlistfix_state.display_slot = weapon->slot;
+	CL_WeaponListFix_GetLayout( weapon, &cl_weaponlistfix_state.display_slot, NULL );
 	cl_weaponlistfix_state.expire_time = cl.time + CL_WEAPONLISTFIX_MENU_LIFETIME;
 }
 
@@ -272,7 +342,13 @@ static void CL_WeaponListFix_SelectWeapon( cl_weaponlistfix_weapon_t *weapon )
 
 void CL_WeaponListFix_Reset( void )
 {
+	int i;
+
 	memset( &cl_weaponlistfix_state, 0, sizeof( cl_weaponlistfix_state ));
+
+	for( i = 0; i < MAX_WEAPONS; i++ )
+		cl_weaponlistfix_state.weapons[i].order_index = -1;
+
 	cl_weaponlistfix_state.active_weapon = -1;
 	cl_weaponlistfix_state.selected_weapon = -1;
 	cl_weaponlistfix_state.display_slot = -1;
@@ -290,11 +366,11 @@ qboolean CL_WeaponListFix_DispatchCommand( const char *cmd_name )
 	if( cls.state < ca_connected )
 		return false;
 
-	if( !Q_strnicmp( cmd_name, "slot", 4 ) && Q_strlen( cmd_name ) == 5 && Q_isdigit( cmd_name[4] ))
+	if( !Q_strnicmp( cmd_name, "slot", 4 ) && Q_strlen( cmd_name ) == 5 && cmd_name[4] >= '1' && cmd_name[4] <= '7' )
 	{
 		slot = cmd_name[4] - '1';
 
-		if( slot < 0 || slot >= CL_WEAPONLISTFIX_SLOTS )
+		if( slot < 0 || slot >= CL_WeaponListFix_GetSlotCount() )
 			return false;
 
 		weapon = CL_WeaponListFix_FindInSlot( slot,
@@ -329,22 +405,22 @@ void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf 
 {
 	if( !Q_stricmp( pszName, "WeaponList" ))
 	{
-		const char *name;
+		cl_weaponlistfix_msg_t msg;
+		char name[64];
 		cl_weaponlistfix_weapon_t *weapon;
 		int ammo1, max1, ammo2, max2, flags;
 		int id;
 
-		BEGIN_READ( pbuf, iSize );
-
-		name = READ_STRING();
-		ammo1 = READ_CHAR();
-		max1 = READ_BYTE();
-		ammo2 = READ_CHAR();
-		max2 = READ_BYTE();
-		READ_CHAR();
-		READ_CHAR();
-		id = READ_CHAR();
-		flags = READ_BYTE();
+		CL_WeaponListFix_MsgInit( &msg, pbuf, iSize );
+		CL_WeaponListFix_ReadString( &msg, name, sizeof( name ));
+		ammo1 = CL_WeaponListFix_ReadChar( &msg );
+		max1 = CL_WeaponListFix_ReadByte( &msg );
+		ammo2 = CL_WeaponListFix_ReadChar( &msg );
+		max2 = CL_WeaponListFix_ReadByte( &msg );
+		CL_WeaponListFix_ReadChar( &msg );
+		CL_WeaponListFix_ReadChar( &msg );
+		id = CL_WeaponListFix_ReadChar( &msg );
+		flags = CL_WeaponListFix_ReadByte( &msg );
 
 		if( !CL_WeaponListFix_IsUsefulWeapon( name, id ))
 			return;
@@ -356,8 +432,7 @@ void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf 
 			if( cl_weaponlistfix_state.count >= MAX_WEAPONS )
 				return;
 
-			weapon->slot = cl_weaponlistfix_state.count % CL_WEAPONLISTFIX_SLOTS;
-			weapon->slot_pos = cl_weaponlistfix_state.count / CL_WEAPONLISTFIX_SLOTS;
+			weapon->order_index = cl_weaponlistfix_state.count;
 			cl_weaponlistfix_state.order[cl_weaponlistfix_state.count++] = id;
 		}
 
@@ -374,15 +449,16 @@ void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf 
 
 	if( !Q_stricmp( pszName, "CurWeapon" ))
 	{
+		cl_weaponlistfix_msg_t msg;
 		int state;
 		int id;
 		int clip;
 		cl_weaponlistfix_weapon_t *weapon;
 
-		BEGIN_READ( pbuf, iSize );
-		state = READ_BYTE();
-		id = READ_CHAR();
-		clip = READ_CHAR();
+		CL_WeaponListFix_MsgInit( &msg, pbuf, iSize );
+		state = CL_WeaponListFix_ReadByte( &msg );
+		id = CL_WeaponListFix_ReadChar( &msg );
+		clip = CL_WeaponListFix_ReadChar( &msg );
 
 		if( id < 1 )
 		{
@@ -410,11 +486,12 @@ void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf 
 
 	if( !Q_stricmp( pszName, "WeapPickup" ))
 	{
+		cl_weaponlistfix_msg_t msg;
 		int id;
 		cl_weaponlistfix_weapon_t *weapon;
 
-		BEGIN_READ( pbuf, iSize );
-		id = READ_BYTE();
+		CL_WeaponListFix_MsgInit( &msg, pbuf, iSize );
+		id = CL_WeaponListFix_ReadByte( &msg );
 		weapon = CL_WeaponListFix_GetWeapon( id );
 
 		if( weapon )
@@ -424,8 +501,10 @@ void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf 
 
 	if( !Q_stricmp( pszName, "HideWeapon" ))
 	{
-		BEGIN_READ( pbuf, iSize );
-		cl_weaponlistfix_state.hidehud_bits = READ_BYTE();
+		cl_weaponlistfix_msg_t msg;
+
+		CL_WeaponListFix_MsgInit( &msg, pbuf, iSize );
+		cl_weaponlistfix_state.hidehud_bits = CL_WeaponListFix_ReadByte( &msg );
 	}
 }
 
@@ -1230,6 +1309,7 @@ void CL_WeaponListFix_Draw( void )
 	int line_height = cls.creditsFont.charHeight + 4;
 	int margin_x = 12;
 	int margin_y = 24;
+	int slot_count = CL_WeaponListFix_GetSlotCount();
 	int selected_slot = cl_weaponlistfix_state.display_slot;
 	cl_weaponlistfix_weapon_t *selected_weapon;
 
@@ -1246,11 +1326,11 @@ void CL_WeaponListFix_Draw( void )
 
 	selected_weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.selected_weapon );
 	if( selected_slot < 0 && selected_weapon )
-		selected_slot = selected_weapon->slot;
-	if( selected_slot < 0 )
+		CL_WeaponListFix_GetLayout( selected_weapon, &selected_slot, NULL );
+	if( selected_slot < 0 || selected_slot >= slot_count )
 		selected_slot = 0;
 
-	for( slot = 0; slot < CL_WEAPONLISTFIX_SLOTS; slot++ )
+	for( slot = 0; slot < slot_count; slot++ )
 	{
 		char label[32];
 
@@ -1272,9 +1352,10 @@ void CL_WeaponListFix_Draw( void )
 
 	for( slot = 0; slot < cl_weaponlistfix_state.count; slot++ )
 	{
+		int weapon_slot;
 		cl_weaponlistfix_weapon_t *weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.order[slot] );
 
-		if( !weapon || weapon->slot != selected_slot )
+		if( !weapon || !CL_WeaponListFix_GetLayout( weapon, &weapon_slot, NULL ) || weapon_slot != selected_slot )
 			continue;
 		if( !CL_WeaponListFix_HasWeapon( weapon ))
 			continue;
