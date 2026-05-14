@@ -417,6 +417,73 @@ static int CL_WeaponListFix_CompareWeapons( const void *a, const void *b )
 	return pos1 - pos2;
 }
 
+static cl_weaponlistfix_weapon_t *CL_WeaponListFix_AutoRegister( int id )
+{
+	cl_weaponlistfix_weapon_t *weapon;
+	static const struct { int id; const char *name; } fallbacks[] = {
+		{ 1, "weapon_p228" }, { 3, "weapon_scout" }, { 4, "weapon_hegrenade" },
+		{ 5, "weapon_xm1014" }, { 6, "weapon_c4" }, { 7, "weapon_mac10" },
+		{ 8, "weapon_aug" }, { 9, "weapon_smokegrenade" }, { 10, "weapon_elite" },
+		{ 11, "weapon_fiveseven" }, { 12, "weapon_ump45" }, { 13, "weapon_sg550" },
+		{ 14, "weapon_galil" }, { 15, "weapon_famas" }, { 16, "weapon_usp" },
+		{ 17, "weapon_glock18" }, { 18, "weapon_awp" }, { 19, "weapon_mp5navy" },
+		{ 20, "weapon_m249" }, { 21, "weapon_m3" }, { 22, "weapon_m4a1" },
+		{ 23, "weapon_tmp" }, { 24, "weapon_g3sg1" }, { 25, "weapon_flashbang" },
+		{ 26, "weapon_deagle" }, { 27, "weapon_sg552" }, { 28, "weapon_ak47" },
+		{ 29, "weapon_knife" }, { 30, "weapon_p90" },
+		// Half-Life fallbacks
+		{ 31, "weapon_crowbar" }, { 32, "weapon_glock" }, { 33, "weapon_9mmhandgun" },
+		{ 34, "weapon_python" }, { 35, "weapon_357" }, { 36, "weapon_9mmAR" },
+		{ 37, "weapon_mp5" }, { 38, "weapon_shotgun" }, { 39, "weapon_crossbow" },
+		{ 40, "weapon_rpg" }, { 41, "weapon_gauss" }, { 42, "weapon_egon" },
+		{ 43, "weapon_hornetgun" }, { 44, "weapon_handgrenade" }, { 45, "weapon_tripmine" },
+		{ 46, "weapon_satchel" }, { 47, "weapon_snark" }
+	};
+
+	if( id <= 0 || id >= MAX_WEAPONS )
+		return NULL;
+
+	weapon = &cl_weaponlistfix_state.weapons[id];
+
+	if( !weapon->valid )
+	{
+		if( cl_weaponlistfix_state.count >= MAX_WEAPONS )
+			return NULL;
+
+		weapon->valid = true;
+		weapon->id = id;
+		weapon->order_index = cl_weaponlistfix_state.count;
+		cl_weaponlistfix_state.order[cl_weaponlistfix_state.count++] = id;
+
+		// auto-generate name if we don't have one
+		if( COM_StringEmpty( weapon->name ))
+		{
+			int i;
+			qboolean found = false;
+
+			for( i = 0; i < ARRAYSIZE( fallbacks ); i++ )
+			{
+				if( fallbacks[i].id == id )
+				{
+					Q_strncpy( weapon->name, fallbacks[i].name, sizeof( weapon->name ));
+					found = true;
+					break;
+				}
+			}
+
+			if( !found )
+			{
+				Q_snprintf( weapon->name, sizeof( weapon->name ), "weapon_%d", id );
+			}
+		}
+
+		// sort weapons by slot and pos for better navigation
+		qsort( cl_weaponlistfix_state.order, cl_weaponlistfix_state.count, sizeof( int ), CL_WeaponListFix_CompareWeapons );
+	}
+
+	return weapon;
+}
+
 void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf )
 {
 	if( !Q_stricmp( pszName, "WeaponList" ))
@@ -487,6 +554,12 @@ void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf 
 
 		weapon = CL_WeaponListFix_GetWeapon( id );
 		if( !weapon )
+		{
+			// Auto-discovery: register weapon if we haven't seen it in WeaponList
+			weapon = CL_WeaponListFix_AutoRegister( id );
+		}
+
+		if( !weapon )
 			return;
 
 		weapon->owned_hint = true;
@@ -509,6 +582,11 @@ void CL_WeaponListFix_OnUserMessage( const char *pszName, int iSize, void *pbuf 
 		CL_WeaponListFix_MsgInit( &msg, pbuf, iSize );
 		id = CL_WeaponListFix_ReadByte( &msg );
 		weapon = CL_WeaponListFix_GetWeapon( id );
+		if( !weapon )
+		{
+			// Auto-discovery: register weapon if we haven't seen it in WeaponList
+			weapon = CL_WeaponListFix_AutoRegister( id );
+		}
 
 		if( weapon )
 			weapon->owned_hint = true;
