@@ -245,11 +245,18 @@ static qboolean CL_WeaponListFix_HasWeapon( const cl_weaponlistfix_weapon_t *wea
 {
 	if( !weapon || !weapon->valid )
 		return false;
+
+	// proven by CurWeapon or WeapPickup
+	if( weapon->owned_hint )
+		return true;
+
 	if( cl_weaponlistfix_state.active_weapon == weapon->id )
 		return true;
+
 	if( weapon->id >= 0 && weapon->id < 32 )
 		return FBitSet( cl.local.weapons, BIT( weapon->id )) ? true : false;
-	return weapon->owned_hint;
+
+	return false;
 }
 
 static cl_weaponlistfix_weapon_t *CL_WeaponListFix_FindInSlot( int slot, int current_id )
@@ -421,6 +428,7 @@ static cl_weaponlistfix_weapon_t *CL_WeaponListFix_AutoRegister( int id )
 {
 	cl_weaponlistfix_weapon_t *weapon;
 	static const struct { int id; const char *name; } fallbacks[] = {
+		// CS/CZ fallbacks (1-30)
 		{ 1, "weapon_p228" }, { 3, "weapon_scout" }, { 4, "weapon_hegrenade" },
 		{ 5, "weapon_xm1014" }, { 6, "weapon_c4" }, { 7, "weapon_mac10" },
 		{ 8, "weapon_aug" }, { 9, "weapon_smokegrenade" }, { 10, "weapon_elite" },
@@ -431,13 +439,15 @@ static cl_weaponlistfix_weapon_t *CL_WeaponListFix_AutoRegister( int id )
 		{ 23, "weapon_tmp" }, { 24, "weapon_g3sg1" }, { 25, "weapon_flashbang" },
 		{ 26, "weapon_deagle" }, { 27, "weapon_sg552" }, { 28, "weapon_ak47" },
 		{ 29, "weapon_knife" }, { 30, "weapon_p90" },
+		// CZ:DS extra fallbacks
+		{ 31, "weapon_m60" }, { 32, "weapon_law" }, { 33, "weapon_m79" },
+		{ 34, "weapon_chainsaw" },
 		// Half-Life fallbacks
-		{ 31, "weapon_crowbar" }, { 32, "weapon_glock" }, { 33, "weapon_9mmhandgun" },
-		{ 34, "weapon_python" }, { 35, "weapon_357" }, { 36, "weapon_9mmAR" },
-		{ 37, "weapon_mp5" }, { 38, "weapon_shotgun" }, { 39, "weapon_crossbow" },
-		{ 40, "weapon_rpg" }, { 41, "weapon_gauss" }, { 42, "weapon_egon" },
-		{ 43, "weapon_hornetgun" }, { 44, "weapon_handgrenade" }, { 45, "weapon_tripmine" },
-		{ 46, "weapon_satchel" }, { 47, "weapon_snark" }
+		{ 35, "weapon_python" }, { 36, "weapon_9mmAR" }, { 37, "weapon_mp5" },
+		{ 38, "weapon_shotgun" }, { 39, "weapon_crossbow" }, { 40, "weapon_rpg" },
+		{ 41, "weapon_gauss" }, { 42, "weapon_egon" }, { 43, "weapon_hornetgun" },
+		{ 44, "weapon_handgrenade" }, { 45, "weapon_tripmine" }, { 46, "weapon_satchel" },
+		{ 47, "weapon_snark" }
 	};
 
 	if( id <= 0 || id >= MAX_WEAPONS )
@@ -1437,6 +1447,31 @@ void CL_WeaponListFix_Draw( void )
 		return;
 	if( !cls.creditsFont.valid )
 		return;
+
+	// Viewmodel-based name auto-discovery
+	if( cl_weaponlistfix_state.active_weapon > 0 )
+	{
+		cl_weaponlistfix_weapon_t *active = &cl_weaponlistfix_state.weapons[cl_weaponlistfix_state.active_weapon];
+		if( active->valid && ( COM_StringEmpty( active->name ) || !Q_strnicmp( active->name, "weapon_", 7 ) && isdigit( active->name[7] )))
+		{
+			// Try to extract name from viewmodel
+			int vm_idx = cl.local.viewmodel;
+			if( vm_idx > 0 && vm_idx <= cl.nummodels && cl.models[vm_idx] )
+			{
+				const char *modelname = cl.models[vm_idx]->name;
+				const char *v = Q_stristr( modelname, "/v_" );
+				if( !v ) v = Q_stristr( modelname, "\\v_" );
+				
+				if( v )
+				{
+					char weapon_name[64];
+					Q_strncpy( weapon_name, v + 3, sizeof( weapon_name ));
+					COM_StripExtension( weapon_name );
+					Q_snprintf( active->name, sizeof( active->name ), "weapon_%s", weapon_name );
+				}
+			}
+		}
+	}
 
 	// fade effect
 	remaining = cl_weaponlistfix_state.expire_time - cl.time;
