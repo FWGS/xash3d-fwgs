@@ -90,47 +90,7 @@ typedef struct
 
 static cl_weaponlistfix_t cl_weaponlistfix_state;
 
-// Common weapon name mapping based on CS1.6 SDK weapon IDs
-static const struct
-{
-	int id;
-	const char *name;
-} cl_weaponlistfix_common_names[] =
-{
-	{ 1, "weapon_p228" },
-	{ 2, "weapon_scout" },
-	{ 3, "weapon_hegrenade" },
-	{ 4, "weapon_xm1014" },
-	{ 5, "weapon_c4" },
-	{ 6, "weapon_mac10" },
-	{ 7, "weapon_aug" },
-	{ 8, "weapon_smokegrenade" },
-	{ 9, "weapon_elite" },
-	{ 10, "weapon_fiveseven" },
-	{ 11, "weapon_ump45" },
-	{ 12, "weapon_sg550" },
-	{ 13, "weapon_galil" },
-	{ 14, "weapon_famas" },
-	{ 15, "weapon_usp" },
-	{ 16, "weapon_glock18" },
-	{ 17, "weapon_awp" },
-	{ 18, "weapon_mp5navy" },
-	{ 19, "weapon_m249" },
-	{ 20, "weapon_m3" },
-	{ 21, "weapon_m4a1" },
-	{ 22, "weapon_tmp" },
-	{ 23, "weapon_g3sg1" },
-	{ 24, "weapon_flashbang" },
-	{ 25, "weapon_deagle" },
-	{ 26, "weapon_sg552" },
-	{ 27, "weapon_ak47" },
-	{ 28, "weapon_knife" },
-	{ 29, "weapon_p90" },
-	{ 30, "weapon_shield" },
-	// CZ/Custom weapons
-	{ 31, "weapon_m60" },
-	{ 32, "weapon_smg" },
-};
+static int CL_WeaponListFix_CompareWeapons( const void *a, const void *b );
 
 static const dllfunc_t cdll_exports[] =
 {
@@ -294,26 +254,10 @@ static qboolean CL_WeaponListFix_HasWeapon( const cl_weaponlistfix_weapon_t *wea
 	return weapon->owned_hint;
 }
 
-static const char *CL_WeaponListFix_GetWeaponName( int id )
-{
-	size_t i;
-
-	// Check common weapon name mapping table
-	for( i = 0; i < ARRAYSIZE( cl_weaponlistfix_common_names ); i++ )
-	{
-		if( cl_weaponlistfix_common_names[i].id == id )
-			return cl_weaponlistfix_common_names[i].name;
-	}
-
-	// Fallback to generic name
-	return NULL;
-}
-
 static void CL_WeaponListFix_AddUnknownWeapon( int id )
 {
 	cl_weaponlistfix_weapon_t *weapon;
 	char name[64];
-	const char *mapped_name;
 
 	if( id <= 0 || id >= MAX_WEAPONS )
 		return;
@@ -322,17 +266,8 @@ static void CL_WeaponListFix_AddUnknownWeapon( int id )
 	if( cl_weaponlistfix_state.count >= MAX_WEAPONS )
 		return;
 
-	// Try to get weapon name from mapping table
-	mapped_name = CL_WeaponListFix_GetWeaponName( id );
-	if( mapped_name )
-	{
-		Q_strncpy( name, mapped_name, sizeof( name ));
-	}
-	else
-	{
-		// Generate weapon name based on ID as fallback
-		Q_snprintf( name, sizeof( name ), "weapon_%d", id );
-	}
+	// Generate weapon name based on ID
+	Q_snprintf( name, sizeof( name ), "weapon_%d", id );
 
 	weapon = &cl_weaponlistfix_state.weapons[id];
 	weapon->valid = true;
