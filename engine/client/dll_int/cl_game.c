@@ -1349,6 +1349,7 @@ void CL_WeaponListFix_Draw( void )
 	int slot_count = CL_WeaponListFix_GetSlotCount();
 	int selected_slot = cl_weaponlistfix_state.display_slot;
 	cl_weaponlistfix_weapon_t *selected_weapon;
+	float remaining, alpha_scale = 1.0f;
 
 	if( !cl_weaponlistfix.value )
 		return;
@@ -1356,10 +1357,18 @@ void CL_WeaponListFix_Draw( void )
 		return;
 	if( FBitSet( cl_weaponlistfix_state.hidehud_bits, CL_WEAPONLISTFIX_HIDEHUD_WEAPONS|CL_WEAPONLISTFIX_HIDEHUD_ALL ))
 		return;
-	if( !FBitSet( cl.local.weapons, BIT( CL_WEAPONLISTFIX_SUIT_ID )))
-		return;
 	if( !cls.creditsFont.valid )
 		return;
+
+	// fade effect
+	remaining = cl_weaponlistfix_state.expire_time - cl.time;
+	if( remaining < 0.5f )
+		alpha_scale = remaining / 0.5f;
+
+	color.a = (byte)( color.a * alpha_scale );
+	dim.a = (byte)( dim.a * alpha_scale );
+	light_blue.a = (byte)( light_blue.a * alpha_scale );
+	light_grey.a = (byte)( light_grey.a * alpha_scale );
 
 	selected_weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.selected_weapon );
 	if( selected_slot < 0 && selected_weapon )
@@ -1379,7 +1388,7 @@ void CL_WeaponListFix_Draw( void )
 		x = margin_x;
 		y = margin_y + slot * line_height;
 
-		CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, ( slot == selected_slot ) ? 165 : 77 );
+		CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, (int)(( slot == selected_slot ? 165 : 77 ) * alpha_scale ));
 
 		if( has_weapon )
 			slot_color = &light_blue;
@@ -1406,7 +1415,7 @@ void CL_WeaponListFix_Draw( void )
 
 		if( cl_weaponlistfix_state.selected_weapon == weapon->id || cl_weaponlistfix_state.active_weapon == weapon->id )
 		{
-			CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, 165 );
+			CL_FillRGBABlend( x - 6, y - 2, width + 12, line_height, 0, 0, 0, (int)( 165 * alpha_scale ));
 			CL_WeaponListFix_DrawLabel( x, y, weapon->name, light_grey );
 		}
 		else
