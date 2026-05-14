@@ -1365,10 +1365,10 @@ void CL_WeaponListFix_Draw( void )
 	if( remaining < 0.5f )
 		alpha_scale = remaining / 0.5f;
 
-	color.a = (byte)( color.a * alpha_scale );
-	dim.a = (byte)( dim.a * alpha_scale );
-	light_blue.a = (byte)( light_blue.a * alpha_scale );
-	light_grey.a = (byte)( light_grey.a * alpha_scale );
+	color[3] = (byte)( color[3] * alpha_scale );
+	dim[3] = (byte)( dim[3] * alpha_scale );
+	light_blue[3] = (byte)( light_blue[3] * alpha_scale );
+	light_grey[3] = (byte)( light_grey[3] * alpha_scale );
 
 	selected_weapon = CL_WeaponListFix_GetWeapon( cl_weaponlistfix_state.selected_weapon );
 	if( selected_slot < 0 && selected_weapon )
