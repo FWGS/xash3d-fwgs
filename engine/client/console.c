@@ -23,8 +23,8 @@ GNU General Public License for more details.
 #include "input.h"
 #include "utflib.h"
 
-static CVAR_DEFINE_AUTO( scr_conspeed, "600", FCVAR_ARCHIVE, "console moving speed" );
-static CVAR_DEFINE_AUTO( con_notifytime, "3", FCVAR_ARCHIVE, "notify time to live" );
+static CVAR_DEFINE_AUTO( scr_conspeed, "700", FCVAR_ARCHIVE, "console moving speed" );
+static CVAR_DEFINE_AUTO( con_notifytime, "-1", FCVAR_ARCHIVE, "notify time to live" );
 CVAR_DEFINE_AUTO( con_fontsize, "1", FCVAR_ARCHIVE, "console font number (0, 1 or 2)" );
 static CVAR_DEFINE_AUTO( con_fontrender, "2", FCVAR_ARCHIVE, "console font render mode (0: additive, 1: holes, 2: trans)" );
 static CVAR_DEFINE_AUTO( con_charset, "cp1251", FCVAR_ARCHIVE, "console font charset (only cp1251 supported now)" );
