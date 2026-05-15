@@ -496,6 +496,7 @@ int mz_inflate(mz_streamp pStream, int flush)
     if (pState->m_dict_avail)
     {
         n = MZ_MIN(pState->m_dict_avail, pStream->avail_out);
+        n = MZ_MIN(n, TINFL_LZ_DICT_SIZE - pState->m_dict_ofs);
         memcpy(pStream->next_out, pState->m_dict + pState->m_dict_ofs, n);
         pStream->next_out += n;
         pStream->avail_out -= n;
@@ -521,6 +522,7 @@ int mz_inflate(mz_streamp pStream, int flush)
         pState->m_dict_avail = (mz_uint)out_bytes;
 
         n = MZ_MIN(pState->m_dict_avail, pStream->avail_out);
+        n = MZ_MIN(n, TINFL_LZ_DICT_SIZE - pState->m_dict_ofs);
         memcpy(pStream->next_out, pState->m_dict + pState->m_dict_ofs, n);
         pStream->next_out += n;
         pStream->avail_out -= n;
