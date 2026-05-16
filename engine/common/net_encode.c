@@ -460,6 +460,8 @@ static int Delta_NumTables( void )
 
 static delta_info_t *Delta_FindStructByIndex( int index )
 {
+	if( index < 0 || index >= ARRAYSIZE( dt_info ))
+		return NULL;
 	return &dt_info[index];
 }
 
