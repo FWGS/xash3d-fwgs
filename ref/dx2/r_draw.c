@@ -62,6 +62,10 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 		const int vertCount = 4;
 		D3DTLVERTEX* verts = (D3DTLVERTEX*)cur;
 
+		// fix for half coordinate pixel centers in d3d compared to gl
+		x -= 0.5;
+		y -= 0.5;
+
 #define VecToD3DCOLOR(v) D3DRGBA(v[0], v[1], v[2], v[3])
 
 		verts[0].color = VecToD3DCOLOR(dxc.currentColor);
