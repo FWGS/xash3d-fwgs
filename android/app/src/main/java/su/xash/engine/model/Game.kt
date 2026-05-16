@@ -6,17 +6,15 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.view.LayoutInflater
-import android.widget.TextView
 import androidx.core.net.toUri
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.progressindicator.LinearProgressIndicator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import su.xash.engine.R
 import su.xash.engine.XashActivity
+import su.xash.engine.util.showDownloadProgressDialog
 import java.io.File
 import java.io.FileInputStream
 
@@ -139,44 +137,14 @@ class Game(val ctx: Context, val basedir: File, val gameInfoFile: File) {
 	}
 
 	private fun showDownloadDialog(ctx: Context, downloader: GameLibDownloader, commandLineArgs: String) {
-		val view = LayoutInflater.from(ctx).inflate(R.layout.dialog_download_progress, null)
-		val progressBar = view.findViewById<LinearProgressIndicator>(R.id.downloadProgress)
-		val statusText = view.findViewById<TextView>(R.id.downloadStatus)
-
-		val dialog = MaterialAlertDialogBuilder(ctx)
-			.setTitle(R.string.downloading_game_libs)
-			.setView(view)
-			.setCancelable(true)
-			.setNegativeButton(android.R.string.cancel) { d, _ -> d.dismiss() }
-			.create()
-
-		dialog.show()
-
-		val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-		val job = scope.launch {
-			val result = downloader.download(basedir.name) { progress ->
-				progressBar.isIndeterminate = false
-				progressBar.progress = (progress * 100).toInt()
-				statusText.text = ctx.getString(R.string.download_progress, (progress * 100).toInt())
-			}
-
-			if (!dialog.isShowing) return@launch
-
-			dialog.dismiss()
-
-			if (result.isSuccess) {
-				launchEngine(ctx, commandLineArgs)
-			} else {
-				MaterialAlertDialogBuilder(ctx)
-					.setTitle(R.string.download_failed)
-					.setMessage(result.exceptionOrNull()?.message
-						?: ctx.getString(R.string.download_error))
-					.setPositiveButton(android.R.string.ok, null)
-					.show()
-			}
-		}
-
-		dialog.setOnDismissListener { job.cancel() }
+		showDownloadProgressDialog(
+			ctx = ctx,
+			titleRes = R.string.downloading_game_libs,
+			cancelable = true,
+			scope = CoroutineScope(Dispatchers.Main + SupervisorJob()),
+			download = { onProgress -> downloader.download(basedir.name, onProgress) },
+			onSuccess = { launchEngine(ctx, commandLineArgs) },
+		)
 	}
 
 	private fun showManifestErrorDialog(ctx: Context, commandLineArgs: String, cause: Throwable) {

@@ -48,6 +48,8 @@
 	<uses-permission android:name="android.permission.INTERNET" />
 	<!-- Dedicated server -->
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+	<!-- Self-update: install downloaded APK -->
+	<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
 	<application
 		android:name=".MainApplication"
@@ -76,8 +78,16 @@
 			android:grantUriPermissions="true">
 			<meta-data
 				android:name="android.support.FILE_PROVIDER_PATHS"
-				android:resource="@xml/provider_paths" />
+				android:resource="@xml/paths" />
 		</provider>
+		<receiver
+			android:name=".model.InstallStatusReceiver"
+			android:exported="false">
+			<intent-filter>
+				<action android:name="su.xash.engine.INSTALL_RESULT" />
+			</intent-filter>
+		</receiver>
+
 		<activity
 			android:name=".XashActivity"
 			android:alwaysRetainTaskState="true"
