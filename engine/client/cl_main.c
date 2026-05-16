@@ -1657,9 +1657,9 @@ static void CL_SendDisconnectMessage( connprotocol_t proto )
 	Netchan_TransmitBits( &cls.netchan, MSG_GetNumBitsWritten( &buf ), MSG_GetData( &buf ));
 }
 
-int CL_GetSplitSize( void )
+size_t CL_GetSplitSize( void )
 {
-	int splitsize = (int)cl_dlmax.value;
+	size_t splitsize = (int)cl_dlmax.value;
 
 	if( !FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 		return 1400;
@@ -1670,7 +1670,7 @@ int CL_GetSplitSize( void )
 		return FRAGMENT_DEFAULT_SIZE;
 	}
 
-	return (int)cl_dlmax.value;
+	return splitsize;
 }
 
 void CL_SetupNetchanForProtocol( connprotocol_t proto )
