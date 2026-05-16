@@ -361,3 +361,16 @@ cmake-build-*
 3rdparty/SDL
 3rdparty/hlsdk-portable
 !scripts/build-ninja.py
+
+# slop
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.claude/
+.gemini/
+.cursor*
+.windsurf*
+.aider*
+.continue/
+.codeium/
+.github/copilot-instructions.md

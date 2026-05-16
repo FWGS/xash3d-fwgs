@@ -666,6 +666,9 @@ void *Sys_GetNativeObject( const char *obj )
 	if( COM_StringEmptyOrNULL( obj ))
 		return NULL;
 
+	if( !Q_strcmp( obj, "MenuFactory" ))
+		return UI_GetMenuFactory();
+
 	ptr = FS_GetNativeObject( obj );
 
 	if( ptr )
