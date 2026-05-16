@@ -37,7 +37,8 @@
 	<string name="crash_no_mail_app_message">No email client is installed on this device. Install one (or use Share to send the report another way) and try again.</string>
 	<string name="downloading_game_libs">Downloading Game Libraries</string>
 	<string name="downloading">Downloading…</string>
-	<string name="download_progress">Downloading… %1$d%%</string>
+	<string name="download_progress">Downloading… %1$s / %2$s</string>
+	<string name="download_progress_unknown">Downloading… %1$s</string>
 	<string name="download_failed">Download Failed</string>
 	<string name="download_error">An error occurred while downloading game libraries.</string>
 	<string name="update_available">Update Available</string>
@@ -51,4 +52,15 @@
 	<string name="source_branch">Branch</string>
 	<string name="source_commit">Commit</string>
 	<string name="downloaded_at">Downloaded</string>
+	<string name="engine_update_available">Engine Update Available</string>
+	<string name="engine_update_message">Build %1$d is available. Update now?</string>
+	<string name="engine_update_changelog_header">Changes since your build:</string>
+	<string name="engine_update_changelog_more">+ %1$d more commits</string>
+	<string name="engine_update_download">Update</string>
+	<string name="engine_update_later">Later</string>
+	<string name="engine_update_downloading">Downloading Update</string>
+	<string name="engine_update_permission_needed">Permission Required</string>
+	<string name="engine_update_permission_message">To install the update, allow Xash3D FWGS to install unknown apps in system settings.</string>
+	<string name="engine_update_open_settings">Open settings</string>
+	<string name="engine_install_failed">Update install failed: %1$s</string>
 </resources>

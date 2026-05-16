@@ -199,7 +199,7 @@ class GameLibDownloader(private val context: Context) {
 	private suspend fun tryDownload(
 		url: String,
 		dest: File,
-		onProgress: (Float) -> Unit
+		onProgress: (Long, Long) -> Unit
 	): Exception? {
 		var connection: HttpURLConnection? = null
 		try {
@@ -215,6 +215,7 @@ class GameLibDownloader(private val context: Context) {
 
 			val total = connection.contentLengthLong
 			var downloaded = 0L
+			var lastEmit = 0L
 
 			connection.inputStream.use { input ->
 				FileOutputStream(dest).use { output ->
@@ -226,13 +227,15 @@ class GameLibDownloader(private val context: Context) {
 							break
 						output.write(buffer, 0, read)
 						downloaded += read
-						if (total > 0) {
-							val progress = downloaded.toFloat() / total
-							withContext(Dispatchers.Main) { onProgress(progress) }
+						val now = System.currentTimeMillis()
+						if (now - lastEmit >= PROGRESS_INTERVAL_MS) {
+							lastEmit = now
+							withContext(Dispatchers.Main) { onProgress(downloaded, total) }
 						}
 					}
 				}
 			}
+			withContext(Dispatchers.Main) { onProgress(downloaded, total) }
 
 			return null
 		} catch (e: Exception) {
@@ -242,7 +245,7 @@ class GameLibDownloader(private val context: Context) {
 		}
 	}
 
-	suspend fun download(gamedir: String, onProgress: (Float) -> Unit): Result<Unit> {
+	suspend fun download(gamedir: String, onProgress: (Long, Long) -> Unit): Result<Unit> {
 		return withContext(Dispatchers.IO) {
 			val manifest = fetchManifest()
 				?: return@withContext Result.failure(IOException("Failed to fetch manifest"))
@@ -364,6 +367,7 @@ class GameLibDownloader(private val context: Context) {
 
 	companion object {
 		private const val TAG = "GameLibDownloader"
+		private const val PROGRESS_INTERVAL_MS = 100L
 		private const val RELEASE_BASE_URL =
 			"https://github.com/FWGS/hlsdk-mega-build/releases/download/continuous"
 		private const val MANIFEST_URL =

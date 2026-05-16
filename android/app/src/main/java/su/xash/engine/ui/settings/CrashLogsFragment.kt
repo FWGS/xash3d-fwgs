@@ -6,6 +6,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import su.xash.engine.R
 import su.xash.engine.util.CrashReports
+import su.xash.engine.util.monospaceTextView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,7 +56,7 @@ class CrashLogsFragment : PreferenceFragmentCompat() {
 		val ctx = requireContext()
 		AlertDialog.Builder(ctx)
 			.setTitle(entry.name)
-			.setView(CrashReports.buildContentView(ctx, entry.summary()))
+			.setView(monospaceTextView(ctx, entry.summary()))
 			.setPositiveButton(R.string.crash_send_to_developers) { _, _ -> CrashReports.sendByEmail(ctx, entry) }
 			.setNeutralButton(R.string.crash_share) { _, _ -> CrashReports.share(ctx, entry) }
 			.setNegativeButton(R.string.crash_log_delete) { _, _ ->

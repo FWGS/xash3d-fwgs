@@ -12,3 +12,4 @@ release/
 *.hprof
 .vscode/
 *.bak
+.kotlin/

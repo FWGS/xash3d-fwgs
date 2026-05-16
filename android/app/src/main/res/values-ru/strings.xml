@@ -35,7 +35,8 @@
 	<string name="crash_no_mail_app_message">На этом устройстве нет почтового клиента. Установите его (или воспользуйтесь кнопкой «Поделиться», чтобы отправить отчёт другим способом) и попробуйте снова.</string>
 	<string name="downloading_game_libs">Загрузка игровых библиотек</string>
 	<string name="downloading">Загрузка…</string>
-	<string name="download_progress">Загрузка… %1$d%%</string>
+	<string name="download_progress">Загрузка… %1$s / %2$s</string>
+	<string name="download_progress_unknown">Загрузка… %1$s</string>
 	<string name="download_failed">Ошибка загрузки</string>
 	<string name="download_error">Произошла ошибка при загрузке игровых библиотек.</string>
 	<string name="update_available">Доступно обновление</string>
@@ -49,4 +50,15 @@
 	<string name="source_branch">Ветка</string>
 	<string name="source_commit">Коммит</string>
 	<string name="downloaded_at">Загружено</string>
+	<string name="engine_update_available">Доступно обновление движка</string>
+	<string name="engine_update_message">Доступна сборка %1$d. Обновить?</string>
+	<string name="engine_update_changelog_header">Изменения с вашей сборки:</string>
+	<string name="engine_update_changelog_more">+ ещё %1$d коммитов</string>
+	<string name="engine_update_download">Обновить</string>
+	<string name="engine_update_later">Позже</string>
+	<string name="engine_update_downloading">Загрузка обновления</string>
+	<string name="engine_update_permission_needed">Нужно разрешение</string>
+	<string name="engine_update_permission_message">Чтобы установить обновление, разрешите Xash3D FWGS устанавливать неизвестные приложения в настройках системы.</string>
+	<string name="engine_update_open_settings">Открыть настройки</string>
+	<string name="engine_install_failed">Не удалось установить обновление: %1$s</string>
 </resources>

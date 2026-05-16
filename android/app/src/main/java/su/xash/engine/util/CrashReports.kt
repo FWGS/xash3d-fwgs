@@ -2,13 +2,8 @@ package su.xash.engine.util
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
-import android.util.TypedValue
-import android.view.View
-import android.widget.ScrollView
-import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import su.xash.engine.BuildConfig
@@ -162,18 +157,6 @@ object CrashReports {
 		val chooser = Intent.createChooser(targeted[0], ctx.getString(R.string.crash_send_to_developers))
 		chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, targeted.drop(1).toTypedArray())
 		ctx.startActivity(chooser)
-	}
-
-	fun buildContentView(ctx: Context, content: String): View {
-		val pad = (16 * ctx.resources.displayMetrics.density).toInt()
-		val text = TextView(ctx).apply {
-			text = content
-			typeface = Typeface.MONOSPACE
-			setTextIsSelectable(true)
-			setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-			setPadding(pad, pad, pad, pad)
-		}
-		return ScrollView(ctx).apply { addView(text) }
 	}
 
 	fun share(ctx: Context, entry: Entry) {
