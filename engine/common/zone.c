@@ -576,25 +576,19 @@ static qboolean Mem_CheckAlloc( mempool_t *pool, void *data )
 {
 	if( pool )
 	{
-		if( Mem_ReadSentinel( data ) == MEMHEADER_SENTINEL_SMALL )
-		{
-			memheader_small_t *target = (memheader_small_t *)((byte *)data - sizeof( memheader_small_t ));
+		memheader_t *target_big = (memheader_t *)((byte *)data - sizeof( memheader_t ));
+		memheader_small_t *target_small = (memheader_small_t *)((byte *)data - sizeof( memheader_small_t ));
 
-			for( memheader_small_t *header = pool->chain_small; header; header = header->next )
-			{
-				if( header == target )
-					return true;
-			}
+		for( memheader_t *header = pool->chain; header; header = header->next )
+		{
+			if( header == target_big )
+				return true;
 		}
-		else
-		{
-			memheader_t *target = (memheader_t *)((byte *)data - sizeof( memheader_t ));
 
-			for( memheader_t *header = pool->chain; header; header = header->next )
-			{
-				if( header == target )
-					return true;
-			}
+		for( memheader_small_t *header = pool->chain_small; header; header = header->next )
+		{
+			if( header == target_small )
+				return true;
 		}
 	}
 	else
