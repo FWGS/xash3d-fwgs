@@ -973,12 +973,21 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 			break;
 		case svc_updatename:
 			param1 = MSG_ReadByte( msg );
+			if( param1 >= ARRAYSIZE( cl.players ))
+			{
+				MSG_ReadString( msg );
+				break;
+			}
+
 			Q_strncpy( cl.players[param1].name, MSG_ReadString( msg ), sizeof( cl.players[0].name ));
 			Q_strncpy( cl.players[param1].model, "player", sizeof( cl.players[0].name ));
 			break;
 		case svc_updatefrags:
 			param1 = MSG_ReadByte( msg );
 			param2 = MSG_ReadShort( msg );
+			if( param1 >= ARRAYSIZE( cl.players ))
+				break;
+
 			// HACKHACK: store frags into spectator
 			cl.players[param1].spectator = param2;
 			break;
@@ -994,6 +1003,9 @@ void CL_ParseQuakeMessage( sizebuf_t *msg )
 		case svc_updatecolors:
 			param1 = MSG_ReadByte( msg );
 			param2 = MSG_ReadByte( msg );
+			if( param1 >= ARRAYSIZE( cl.players ) || param2 >= ARRAYSIZE( cl.players ))
+				break;
+
 			cl.players[param1].topcolor = param2 & 0xF;
 			cl.players[param1].bottomcolor = (param2 & 0xF0) >> 4;
 			break;
