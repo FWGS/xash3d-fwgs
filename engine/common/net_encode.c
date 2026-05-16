@@ -1497,7 +1497,7 @@ static void Delta_ParseGSFields( sizebuf_t *msg, const delta_info_t *dt, const v
 
 	for( i = 0, pField = dt->pFields; i < dt->numFields; i++, pField++ )
 	{
-		int b = i >> 3;
+		int b = Q_min( i >> 3, (int)sizeof( bits ) - 1 );
 		int n = 1 << ( i & 7 );
 
 		if( FBitSet( bits[b], n ))
@@ -1526,7 +1526,7 @@ void Delta_WriteGSFields( sizebuf_t *msg, int index, const void *from, const voi
 	{
 		if( !Delta_CompareField( pField, from, to ))
 		{
-			int b = i >> 3;
+			int b = Q_min( i >> 3, (int)sizeof( bits ) - 1 );
 			int n = 1 << ( i & 7 );
 
 			SetBits( bits[b], n );
@@ -1540,7 +1540,7 @@ void Delta_WriteGSFields( sizebuf_t *msg, int index, const void *from, const voi
 
 	for( i = 0, pField = dt->pFields; i < dt->numFields; i++, pField++ )
 	{
-		int b = i >> 3;
+		int b = Q_min( i >> 3, (int)sizeof( bits ) - 1 );
 		int n = 1 << ( i & 7 );
 
 		if( FBitSet( bits[b], n ))
