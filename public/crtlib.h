@@ -122,6 +122,7 @@ void COM_StripExtension( char *path );
 void COM_RemoveLineFeed( char *str, size_t bufsize );
 void COM_PathSlashFix( char *path );
 void COM_TrimSpace( char *dst, const char *src, size_t size );
+int COM_CheckNastyPath( const char *path );
 
 // returns true on empty or NULL string, false otherwise
 #define COM_StringEmpty( string )       (( string )[0] ? false : true )
