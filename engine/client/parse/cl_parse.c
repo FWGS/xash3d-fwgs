@@ -891,6 +891,15 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		}
 	}
 
+	if( cl.playernum < 0 || cl.playernum >= MAX_CLIENTS || cl.maxclients < 0 || cl.maxclients >= MAX_CLIENTS )
+	{
+		Con_Printf( S_ERROR "%s: invalid playernum or maxclients (%d and %d must be less than %d)\n", __func__,
+			cl.playernum, cl.maxclients, MAX_CLIENTS );
+		CL_Disconnect_f();
+		Host_AbortCurrentFrame();
+		return;
+	}
+
 	Q_snprintf( mapfile, sizeof( mapfile ), "maps/%s.bsp", clgame.mapname );
 	if( CRC32_MapFile( &cl.worldmapCRC, mapfile, cl.maxclients > 1 ))
 	{
