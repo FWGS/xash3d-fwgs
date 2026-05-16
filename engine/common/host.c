@@ -700,29 +700,32 @@ void GAME_EXPORT Host_Error( const char *error, ... )
 	if( host.framecount < 3 )
 	{
 		Sys_Error( "%sInit: %s", __func__, hosterror1 );
-	}
-	else if( host.framecount == host.errorframe )
-	{
-		Sys_Error( "%sMulti: %s", __func__, hosterror2 );
-	}
-	else
-	{
-		Con_Printf( S_RED "%s" S_DEFAULT ": %s", __func__, hosterror1 );
-		if( host_developer.value )
-		{
-			UI_SetActiveMenu( false );
-			Key_SetKeyDest( key_console );
-		}
-		else Platform_MessageBox( "Host Error", hosterror1, true );
+		return;
 	}
 
+	if( host.framecount == host.errorframe )
+	{
+		Sys_Error( "%sMulti: %s", __func__, hosterror2 );
+		return;
+	}
+
+	Con_Printf( S_RED "%s" S_DEFAULT ": %s", __func__, hosterror1 );
+	if( host_developer.value )
+	{
+		UI_SetActiveMenu( false );
+		Key_SetKeyDest( key_console );
+	}
+	else Platform_MessageBox( "Host Error", hosterror1, true );
+
 	// host is shutting down. don't invoke infinite loop
-	if( host.status == HOST_SHUTDOWN ) return;
+	if( host.status == HOST_SHUTDOWN || host.status == HOST_ERR_FATAL )
+		return;
 
 	if( recursive )
 	{
 		Con_Printf( S_RED "%sRecursive" S_DEFAULT ": %s", __func__, hosterror2 );
 		Sys_Error( "%s", hosterror1 );
+		return;
 	}
 
 	recursive = true;
