@@ -555,48 +555,16 @@ void FS_ClearSearchPath( void )
 	}
 }
 
-/*
-====================
-FS_CheckNastyPath
-Return true if the path should be rejected due to one of the following:
-1: path elements that are non-portable
-2: path elements that would allow access to files outside the game directory,
-	or are just not a good idea for a mod to be using.
-====================
-*/
 static int FS_CheckNastyPath( const char *path )
 {
 	// all: never allow an empty path, as for gamedir it would access the parent directory and a non-gamedir path it is just useless
-	if( COM_StringEmptyOrNULL( path )) return 2;
+	if( COM_StringEmptyOrNULL( path ))
+		return 2;
 
-	if( fs_ext_path ) return 0;     // allow any path
+	if( fs_ext_path )
+		return 0; // allow any path
 
-	// Mac: don't allow Mac-only filenames - : is a directory separator
-	// instead of /, but we rely on / working already, so there's no reason to
-	// support a Mac-only path
-	// Amiga and Windows: : tries to go to root of drive
-	if( Q_strchr( path, ':' )) return 1; // non-portable attempt to go to root of drive
-
-	// Amiga: // is parent directory
-	if( Q_strstr( path, "//")) return 1; // non-portable attempt to go to parent directory
-
-	// all: don't allow going to parent directory (../ or /../)
-	if( Q_strstr( path, "..")) return 2; // attempt to go outside the game directory
-
-	// Windows and UNIXes: don't allow absolute paths
-	if( path[0] == '/') return 2; // attempt to go outside the game directory
-
-#if 0
-	// all: forbid trailing slash on gamedir
-	if( isgamedir && path[Q_strlen(path)-1] == '/' ) return 2;
-#endif
-
-	// all: forbid leading dot on any filename for any reason
-	if( Q_strstr(path, "/.")) return 2; // attempt to go outside the game directory
-
-	// after all these checks we're pretty sure it's a / separated filename
-	// and won't do much if any harm
-	return false;
+	return COM_CheckNastyPath( path );
 }
 
 /*
