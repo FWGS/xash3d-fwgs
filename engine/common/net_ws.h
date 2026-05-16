@@ -86,7 +86,7 @@ static inline qboolean NET_IsLocalAddress( netadr_t adr )
 void NET_GetLocalAddress( netadr_t *ip4, netadr_t *ip6 );
 
 #if !XASH_DEDICATED
-int CL_GetSplitSize( void );
+size_t CL_GetSplitSize( void );
 #endif
 
 void HTTP_AddCustomServer( const char *url );
