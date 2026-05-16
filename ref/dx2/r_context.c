@@ -18,13 +18,11 @@ GNU General Public License for more details.
 #include "r_local.h"
 #include "xash3d_mathlib.h"
 #include "crtlib.h"
+#include "r_studioint.h"
 
 //#pragma comment(lib, "ddraw.lib")
 //TODO COM_GetProcAddress
 
-ref_api_t      gEngfuncs;
-ref_globals_t *gpGlobals;
-ref_client_t  *gp_cl;
 
 static void R_SimpleStub( void )
 {
@@ -82,11 +80,6 @@ void GL_SetRenderMode( int mode )
 	dxc.renderMode = mode;
 }
 
-
-static void CL_AddCustomBeam( cl_entity_t *pEnvBeam )
-{
-	;
-}
 
 static void R_ProcessEntData( qboolean allocate, cl_entity_t *entities, unsigned int max_entities )
 {
@@ -150,9 +143,16 @@ static void R_StudioLerpMovement( cl_entity_t *e, double time, vec3_t origin, ve
 	;
 }
 
-void CL_InitStudioAPI( void )
+static qboolean R_StudioFillAPI( struct engine_studio_api_s *api, struct r_studio_interface_s *pDefaultDraw )
 {
-	;
+	return false;
+}
+
+static r_studio_interface_t *pStudioDraw;
+
+static void R_StudioSetDrawInterface( struct r_studio_interface_s *pDraw )
+{
+	pStudioDraw = pDraw;
 }
 
 static void R_SetSkyCloudsTextures( int solidskyTexture, int alphaskyTexture )
@@ -191,12 +191,7 @@ static void CL_DrawBeams( int fTrans, BEAM *beams )
 	;
 }
 
-static qboolean R_BeamCull( const vec3_t start, const vec3_t end, qboolean pvsOnly )
-{
-	return false;
-}
-
-static int RefGetParm( int parm, int arg )
+static intptr_t RefGetParm( int parm, int arg )
 {
 	dx_texture_t *glt;
 
@@ -252,9 +247,11 @@ static int RefGetParm( int parm, int arg )
 		return GL_TexMemory();
 	case PARM_ACTIVE_TMU:
 		return glState.activeTMU;
+#endif
 	case PARM_LIGHTSTYLEVALUE:
 		arg = bound(0, arg, MAX_LIGHTSTYLES - 1);
-		return tr.lightstylevalue[arg];
+		return g_lightstylevalue[arg];
+#if 0
 	case PARM_MAX_IMAGE_UNITS:
 		return GL_MaxTextureUnits();
 	case PARM_REBUILD_GAMMA:
@@ -274,41 +271,13 @@ static int RefGetParm( int parm, int arg )
 
 		return GL_TextureFilteringEnabled(R_GetTexture(arg));
 #endif
+	case PARM_GET_STUDIO_HDR:
+		//return (intptr_t)R_StudioGetHeader();
+		return 0;
 	default:
 		return (*gEngfuncs.EngineGetParm)(parm, arg);
 	}
 	return 0;
-}
-
-
-static float GetFrameTime( void )
-{
-	return 0.0f;
-}
-
-static void R_SetCurrentEntity( struct cl_entity_s *ent )
-{
-	;
-}
-
-static void R_SetCurrentModel( struct model_s *mod )
-{
-	;
-}
-
-static void DrawSingleDecal( struct decal_s *pDecal, struct msurface_s *fa )
-{
-	;
-}
-
-static float *R_DecalSetupVerts( struct decal_s *pDecal, struct msurface_s *surf, int texture, int *outCount )
-{
-	return NULL;
-}
-
-static void R_EntityRemoveDecals( struct model_s *mod )
-{
-	;
 }
 
 
@@ -332,32 +301,6 @@ void GL_Bind( int tmu, unsigned int texnum )
 	dxc.currentTexture = texture->d3dHandle;
 }
 
-static void GL_LoadTextureMatrix( const float *glmatrix )
-{
-	;
-}
-
-static void GL_TexGen( unsigned int coord, unsigned int mode )
-{
-	;
-}
-
-static void GL_DrawParticles( const struct ref_viewpass_s *rvp, qboolean trans_pass, float frametime )
-{
-	;
-}
-
-static colorVec LightVec( const float *start, const float *end, float *lightspot, float *lightvec )
-{
-	colorVec c = { 0 };
-	return c;
-}
-
-static struct mstudiotex_s *StudioGetTexture( struct cl_entity_s *e )
-{
-	return NULL;
-}
-
 static qboolean R_SpeedsMessage( char *out, size_t size )
 {
 	return false;
@@ -365,17 +308,21 @@ static qboolean R_SpeedsMessage( char *out, size_t size )
 
 static void R_NewMap( void )
 {
-	model_t *WORLDMODEL = (gp_cl->models[1]);
+	tr.worldmodel = gp_cl->models[1];
+
+	// clear out efrags in case the level hasn't been reloaded
+	for( int i = 0; i < tr.worldmodel->numleafs; i++ )
+		tr.worldmodel->leafs[i+1].efrags = NULL;
 
 	tr.skytexturenum = -1;
 
 	// clearing texture chains
-	for( int i = 0; i < WORLDMODEL->numtextures; i++ )
+	for( int i = 0; i < tr.worldmodel->numtextures; i++ )
 	{
-		if( !WORLDMODEL->textures[i] )
+		if( !tr.worldmodel->textures[i] )
 			continue;
 
-		texture_t *tx = WORLDMODEL->textures[i];
+		texture_t *tx = tr.worldmodel->textures[i];
 
 		if( !Q_strncmp( tx->name, "sky", 3 ) && tx->width == ( tx->height * 2 ))
 			tr.skytexturenum = i;
@@ -385,13 +332,8 @@ static void R_NewMap( void )
 
 	GL_BuildLightmaps();
 
-	if (gEngfuncs.drawFuncs->R_NewMap != NULL)
+	if( gEngfuncs.drawFuncs->R_NewMap != NULL )
 		gEngfuncs.drawFuncs->R_NewMap();
-}
-
-static void *R_GetProcAddress( const char *name )
-{
-	return NULL;
 }
 
 static void Color4f( float r, float g, float b, float a )
@@ -404,32 +346,12 @@ static void Color4ub( unsigned char r, unsigned char g, unsigned char b, unsigne
 	Vector4Set(dxc.currentColor, r/255.f, g/255.f, b/255.f, a/255.f);
 }
 
-static void TexCoord2f( float u, float v )
-{
-	;
-}
-
 static void Vertex3fv( const float *worldPnt )
 {
 	;
 }
 
 static void Vertex3f( float x, float y, float z )
-{
-	;
-}
-
-static void Fog( float flFogColor[3], float flStart, float flEnd, int bOn )
-{
-	;
-}
-
-static void GetMatrix( const int pname, float *matrix )
-{
-	;
-}
-
-static void FogParams( float flDensity, int iFogSkybox )
 {
 	;
 }
@@ -444,12 +366,17 @@ static void VGUI_SetupDrawing( qboolean rect )
 	;
 }
 
-static void VGUI_UploadTextureBlock( int drawX, int drawY, const byte *rgba, int blockWidth, int blockHeight )
+static void R_FillRenderAPI( render_api_t *api )
 {
 	;
 }
 
-static const ref_interface_t gReffuncs =
+static void R_FillTriAPI( triangleapi_t *api )
+{
+	;
+}
+
+const ref_interface_t gReffuncs =
 {
 	.R_Init                = R_Init,
 	.R_Shutdown            = R_Shutdown,
@@ -474,9 +401,7 @@ static const ref_interface_t gReffuncs =
 	.GL_SetRenderMode = GL_SetRenderMode,
 
 	.R_AddEntity      = R_AddEntity,
-	.CL_AddCustomBeam = CL_AddCustomBeam,
 	.R_ProcessEntData = R_ProcessEntData,
-	.R_Flush          = R_SimpleStubUInt,
 
 	.R_ShowTextures = R_ShowTextures,
 
@@ -486,7 +411,6 @@ static const ref_interface_t gReffuncs =
 	.R_SetupSky                 = R_SetupSky,
 
 	.R_Set2DMode      = R_Set2DMode,
-	.R_DrawStretchRaw = R_DrawStretchRaw,
 	.R_DrawStretchPic = R_DrawStretchPic,
 	.FillRGBA         = FillRGBA,
 	.WorldToScreen    = WorldToScreen,
@@ -503,14 +427,12 @@ static const ref_interface_t gReffuncs =
 
 	.R_StudioEstimateFrame = R_StudioEstimateFrame,
 	.R_StudioLerpMovement  = R_StudioLerpMovement,
-	.CL_InitStudioAPI      = CL_InitStudioAPI,
+	.R_StudioFillAPI = R_StudioFillAPI,
+	.R_StudioSetDrawInterface = R_StudioSetDrawInterface,
 
 	.R_SetSkyCloudsTextures     = R_SetSkyCloudsTextures,
 	.GL_SubdivideSurface = GL_SubdivideSurface,
 	.CL_RunLightStyles   = CL_RunLightStyles,
-
-	.R_GetSpriteParms    = R_GetSpriteParms,
-	.R_GetSpriteTexture  = R_GetSpriteTexture,
 
 	.Mod_ProcessRenderData  = Mod_ProcessRenderData,
 	.Mod_StudioLoadTextures = Mod_StudioLoadTextures,
@@ -518,47 +440,22 @@ static const ref_interface_t gReffuncs =
 	.CL_DrawParticles = CL_DrawParticles,
 	.CL_DrawTracers   = CL_DrawTracers,
 	.CL_DrawBeams     = CL_DrawBeams,
-	.R_BeamCull       = R_BeamCull,
 
-	.RefGetParm               = RefGetParm,
-	.GetDetailScaleForTexture = GetDetailScaleForTexture,
-	.GetExtraParmsForTexture  = GetExtraParmsForTexture,
-	.GetFrameTime             = GetFrameTime,
+	.RefGetParm = RefGetParm,
 
-	.R_SetCurrentEntity = R_SetCurrentEntity,
-	.R_SetCurrentModel  = R_SetCurrentModel,
+	.R_GetDetailScaleForTexture = R_GetDetailScaleForTexture,
+	.R_SetDetailScaleForTexture = R_SetDetailScaleForTexture,
 
-	.GL_FindTexture        = GL_FindTexture,
-	.GL_TextureName        = GL_TextureName,
-	.GL_TextureData        = GL_TextureData,
-	.GL_LoadTexture        = GL_LoadTexture,
-	.GL_CreateTexture      = GL_CreateTexture,
-	.GL_LoadTextureArray   = GL_LoadTextureArray,
-	.GL_CreateTextureArray = GL_CreateTextureArray,
-	.GL_FreeTexture        = GL_FreeTexture,
+	.GL_CreateTexture = GL_CreateTexture,
+	.GL_FindTexture = GL_FindTexture,
+	.GL_TextureName = GL_TextureName,
+	.GL_TextureData = GL_TextureData,
+	.GL_LoadTexture = GL_LoadTexture,
+	.GL_FreeTexture = GL_FreeTexture,
 	.R_OverrideTextureSourceSize = R_OverrideTextureSourceSize,
+	.GL_UpdateTexture = GL_UpdateTexture,
 
-	.DrawSingleDecal      = DrawSingleDecal,
-	.R_DecalSetupVerts    = R_DecalSetupVerts,
-	.R_EntityRemoveDecals = R_EntityRemoveDecals,
-
-	.AVI_UploadRawFrame = AVI_UploadRawFrame,
-
-	.GL_Bind                = GL_Bind,
-	.GL_SelectTexture       = R_SimpleStubInt,
-	.GL_LoadTextureMatrix   = GL_LoadTextureMatrix,
-	.GL_TexMatrixIdentity   = R_SimpleStub,
-	.GL_CleanUpTextureUnits = R_SimpleStubInt,
-	.GL_TexGen              = GL_TexGen,
-	.GL_TextureTarget       = R_SimpleStubUInt,
-	.GL_TexCoordArrayMode   = R_SimpleStubUInt,
-	.GL_UpdateTexSize       = GL_UpdateTexSize,
-	.GL_Reserved0           = NULL,
-	.GL_Reserved1           = NULL,
-
-	.GL_DrawParticles = GL_DrawParticles,
-	.LightVec         = LightVec,
-	.StudioGetTexture = StudioGetTexture,
+	.GL_Bind = GL_Bind,
 
 	.GL_RenderFrame    = R_RenderFrame,
 	.GL_OrthoBounds    = GL_OrthoBounds,
@@ -566,37 +463,19 @@ static const ref_interface_t gReffuncs =
 	.Mod_GetCurrentVis = Mod_GetCurrentVis,
 	.R_NewMap          = R_NewMap,
 	.R_ClearScene      = R_ClearScene,
-	.R_GetProcAddress  = R_GetProcAddress,
 
 	.TriRenderMode = R_SimpleStubInt,
 	.Begin         = R_SimpleStubInt,
 	.End           = R_SimpleStub,
 	.Color4f       = Color4f,
 	.Color4ub      = Color4ub,
-	.TexCoord2f    = TexCoord2f,
 	.Vertex3fv     = Vertex3fv,
 	.Vertex3f      = Vertex3f,
-	.Fog           = Fog,
-	.ScreenToWorld = ScreenToWorld,
-	.GetMatrix     = GetMatrix,
-	.FogParams     = FogParams,
 	.CullFace      = CullFace,
 
+	.R_FillRenderAPI = R_FillRenderAPI,
+	.R_FillTriAPI    = R_FillTriAPI,
+
 	.VGUI_SetupDrawing   = VGUI_SetupDrawing,
-	.VGUI_UploadTextureBlock = VGUI_UploadTextureBlock,
 };
 
-int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
-int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals )
-{
-	if( version != REF_API_VERSION )
-		return 0;
-
-	// fill in our callbacks
-	*funcs = gReffuncs;
-	gEngfuncs = *engfuncs;
-	gpGlobals = globals;
-	gp_cl = (ref_client_t *)gEngfuncs.EngineGetParm(PARM_GET_CLIENT_PTR, 0);
-
-	return REF_API_VERSION;
-}

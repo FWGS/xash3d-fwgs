@@ -21,11 +21,6 @@ CVAR_DEFINE_AUTO( r_nocull, "0", 0, "ignore frustrum culling (perfomance test)" 
 CVAR_DEFINE_AUTO( r_lockpvs, "0", FCVAR_CHEAT, "lockpvs area at current point (pvs test)" );
 CVAR_DEFINE_AUTO( r_lockfrustum, "0", FCVAR_CHEAT, "lock frustrum area at current point (cull test)" );
 
-
-DEFINE_ENGINE_SHARED_CVAR_LIST()
-
-poolhandle_t r_temppool;
-
 dx_globals_t tr;
 dx_context_t dxc;
 
@@ -220,7 +215,7 @@ static qboolean D3D_InitDevice( void )
 	{
 		d3dEBContext_t ebc = { 0 };
 		if (!D3D_StartExecuteBuffer(&ebc))
-			return;
+			return false;
 		void *cur = ebc.data;
 
 		D3D_PutInstruction(&cur, D3DOP_STATETRANSFORM, sizeof(D3DSTATE), 2);
@@ -233,7 +228,7 @@ static qboolean D3D_InitDevice( void )
 		ebc.insLength = ((char *)cur - (char *)ebc.data);
 
 		if (!D3D_EndExecuteBuffer(&ebc))
-			return;
+			return false;
 
 		DXCheck(IDirect3DDevice_BeginScene(dxc.pd3dd));
 		DXCheck(IDirect3DDevice_Execute(dxc.pd3dd, ebc.pd3deb, dxc.viewport, D3DEXECUTE_CLIPPED));
@@ -248,8 +243,6 @@ static qboolean D3D_InitDevice( void )
 qboolean R_Init( void )
 {
 	memset(&dxc, 0, sizeof(dxc));
-
-	RETRIEVE_ENGINE_SHARED_CVAR_LIST();
 
 	gEngfuncs.Cvar_RegisterVariable( &r_novis );
 	gEngfuncs.Cvar_RegisterVariable( &r_nocull );
@@ -320,6 +313,7 @@ qboolean R_Init( void )
 
 	// see R_ProcessEntData for tr.entities initialization
 	tr.world = (struct world_static_s *)ENGINE_GET_PARM( PARM_GET_WORLD_PTR );
+	tr.viewent = (cl_entity_t *)ENGINE_GET_PARM( PARM_GET_VIEWENT_PTR );
 
 	dxc.renderMode = kRenderNormal;
 	Vector4Set(dxc.currentColor, 1, 1, 1, 1);

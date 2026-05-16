@@ -19,28 +19,18 @@ GNU General Public License for more details.
 #include "ref_common.h"
 #include "ref_api.h"
 #include "r_frustum.h"
+#include "ref_params.h"
 #include "mod_local.h"
 #include "com_strings.h"
+#include "pmove.h"
 
 #define DIRECTDRAW_VERSION 0x0200
 #define DIRECT3D_VERSION 0x0500//D3DCOLORMODEL bug
 #include <ddraw.h>
 #include <d3d.h>
 
-#define Assert(x) if(!( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
-
-
-extern poolhandle_t r_temppool;
-
-
 #define MAX_TEXTURES            8192
 #define TEXTURES_HASH_SIZE	(MAX_TEXTURES >> 2)
-
-// refparams
-#define RP_NONE		0
-#define RP_ENVVIEW		BIT( 0 )	// used for cubemapshot
-#define RP_OLDVIEWLEAF	BIT( 1 )
-#define RP_CLIPPLANE	BIT( 2 )
 
 #define MAX_DRAW_STACK	2		// normal view and menu view
 
@@ -99,27 +89,16 @@ typedef struct d3dEBContext_s
 
 typedef struct
 {
-	int		params;		// rendering parameters
-
-	qboolean		drawWorld;	// ignore world for drawing PlayerModel
-	qboolean		isSkyVisible;	// sky is visible
-	qboolean		onlyClientDraw;	// disabled by client request
-	qboolean		drawOrtho;	// draw world as orthogonal projection
-
-	float		fov_x, fov_y;	// current view fov
+	ref_viewpass_t rvp;
 
 	cl_entity_t *currententity;
 	model_t *currentmodel;
 	cl_entity_t *currentbeam;	// same as above but for beams
 
-	int		viewport[4];
 	gl_frustum_t	frustum;
 
 	mleaf_t *viewleaf;
 	mleaf_t *oldviewleaf;
-	vec3_t		pvsorigin;
-	vec3_t		vieworg;		// locked vieworigin
-	vec3_t		viewangles;
 	vec3_t		vforward;
 	vec3_t		vright;
 	vec3_t		vup;
@@ -173,7 +152,6 @@ typedef struct
 	int		whiteTexture;
 	int		grayTexture;
 	int		blackTexture;
-	int		cinTexture;      	// cinematic texture
 
 	int		skytexturenum; // index into model_t::textures
 
@@ -186,6 +164,7 @@ typedef struct
 	qboolean		modelviewIdentity;
 
 	int		visframecount;	// PVS frame
+	int		dlightframecount;	// dynamic light frame
 	int		realframecount;	// not including viewpasses
 	int		framecount;
 
@@ -199,9 +178,12 @@ typedef struct
 	vec3_t		modelorg;		// relative to viewpoint
 
 	// get from engine
+	model_t *worldmodel;
 	world_static_t *world;
 	cl_entity_t *entities;
-	int max_entities;
+	cl_entity_t *viewent;
+
+	uint max_entities;
 
 	ref_screen_rotation_t rotation;
 } dx_globals_t;
@@ -234,10 +216,6 @@ extern ref_instance_t RI;
 extern dx_globals_t	tr;
 extern dx_context_t dxc;
 
-extern ref_api_t      gEngfuncs;
-extern ref_globals_t *gpGlobals;
-extern ref_client_t *gp_cl;
-
 
 static inline cl_entity_t *CL_GetEntityByIndex( int index )
 {
@@ -253,11 +231,6 @@ static inline model_t *CL_ModelHandle( int index )
 		return NULL;
 
 	return gp_cl->models[index];
-}
-
-static inline intptr_t ENGINE_GET_PARM( int parm )
-{
-	return ( *gEngfuncs.EngineGetParm )( ( parm ), 0 );
 }
 
 const char *dxResultToStr( HRESULT r );
@@ -303,18 +276,13 @@ void R_RenderFrame( const struct ref_viewpass_s *rvp );
 qboolean R_AddEntity( struct cl_entity_s *clent, int type );
 void R_ClearScene( void );
 int WorldToScreen( const vec3_t world, vec3_t screen );
-void ScreenToWorld( const float *screen, float *world );
 void R_LoadIdentity( void );
 void R_SetupD3D( qboolean set_state );
 
 // r_draw.c
 void R_Set2DMode( qboolean enable );
-void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty );
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum );
 void FillRGBA( int rendermode, float x, float y, float w, float h, byte r, byte g, byte b, byte a );
-void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite );
-int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame );
-void AVI_UploadRawFrame( int texture, int cols, int rows, int width, int height, const byte *data );
 
 // r_image.c
 void R_InitImages( void );
@@ -323,28 +291,16 @@ void R_ShowTextures( void );
 const byte *R_GetTextureOriginalBuffer( unsigned int idx );
 int GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texFlags_t flags, qboolean update );
 void GL_ProcessTexture( int texnum, float gamma, int topColor, int bottomColor );
-void GetDetailScaleForTexture( int texture, float *xScale, float *yScale );
-void GetExtraParmsForTexture( int texture, byte *red, byte *green, byte *blue, byte *alpha );
+void R_GetDetailScaleForTexture( int texture, float *xScale, float *yScale );
+void R_SetDetailScaleForTexture( int texture, float xScale, float yScale );
 int GL_FindTexture( const char *name );
 const char *GL_TextureName( unsigned int texnum );
 const byte *GL_TextureData( unsigned int texnum );
 int GL_LoadTexture( const char *name, const byte *buf, size_t size, int flags );
 int GL_CreateTexture( const char *name, int width, int height, const void *buffer, texFlags_t flags );
-int GL_LoadTextureArray( const char **names, int flags );
-int GL_CreateTextureArray( const char *name, int width, int height, int depth, const void *buffer, texFlags_t flags );
 void GL_FreeTexture( unsigned int texnum );
 void R_OverrideTextureSourceSize( unsigned int textnum, unsigned int srcWidth, unsigned int srcHeight );
-void GL_UpdateTexSize( int texnum, int width, int height, int depth );
-
-// r_math.c
-void Matrix4x4_ToArrayFloatGL( const matrix4x4 in, float out[16] );
-void Matrix4x4_Concat( matrix4x4 out, const matrix4x4 in1, const matrix4x4 in2 );
-void Matrix4x4_ConcatTranslate( matrix4x4 out, float x, float y, float z );
-void Matrix4x4_ConcatRotate( matrix4x4 out, float angle, float x, float y, float z );
-void Matrix4x4_CreateProjection( matrix4x4 out, float xMax, float xMin, float yMax, float yMin, float zNear, float zFar );
-void Matrix4x4_CreateOrtho( matrix4x4 m, float xLeft, float xRight, float yBottom, float yTop, float zNear, float zFar );
-void Matrix4x4_CreateModelview( matrix4x4 out );
-
+void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
 
 // r_surf.c
 void GL_SubdivideSurface( model_t *mod, msurface_t *fa );
@@ -359,15 +315,3 @@ extern convar_t	r_nocull;
 extern convar_t	r_lockpvs;
 extern convar_t	r_lockfrustum;
 
-//
-// engine shared convars
-//
-DECLARE_ENGINE_SHARED_CVAR_LIST( )
-
-#define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
-#define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
-#define Mem_Realloc( pool, ptr, size ) gEngfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
-#define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
-#define Mem_AllocPool( name ) gEngfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
-#define Mem_FreePool( pool ) gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
-#define Mem_EmptyPool( pool ) gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )

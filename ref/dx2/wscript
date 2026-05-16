@@ -13,6 +13,6 @@ def build(bld):
 		source   = ['r_context.c', 'r_image.c', 'r_d3d.c', 'r_main.c', 'r_draw.c', 'r_surf.c', 'r_frustum.c'],
 		target   = 'ref_dx2',
 		defines  = 'REF_DLL',
-		use      = 'engine_includes sdk_includes werror public USER32 DDRAW',
+		use      = 'ref_common engine_includes sdk_includes werror public USER32 DDRAW',
 		install_path = bld.env.LIBDIR
 	)

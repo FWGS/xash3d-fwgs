@@ -22,45 +22,41 @@ ref_instance_t	RI;
 
 static float R_GetFarClip( void )
 {
-#if 0
-	if( WORLDMODEL && RI.drawWorld )
-		return tr.movevars->zmax * 1.73f;
-#endif
+	if( tr.worldmodel && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) )
+		return gp_movevars->zmax * 1.73f;
+
 	return 2048.0f;
 }
 
 void R_SetupFrustum( void )
 {
-	const ref_overview_t	*ov = gEngfuncs.GetOverviewParms();
-#if 0
-	if( RP_NORMALPASS() && ( ENGINE_GET_PARM( PARM_WATER_LEVEL ) >= 3 ) && ENGINE_GET_PARM( PARM_QUAKE_COMPATIBLE ))
-	{
-		RI.fov_x = atan( tan( DEG2RAD( RI.fov_x ) / 2 ) * ( 0.97f + sin( gp_cl->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
-		RI.fov_y = atan( tan( DEG2RAD( RI.fov_y ) / 2 ) * ( 1.03f - sin( gp_cl->time * 1.5f ) * 0.03f )) * 2 / (M_PI_F / 180.0f);
-	}
-#endif
 	// build the transformation matrix for the given view angles
-	AngleVectors( RI.viewangles, RI.vforward, RI.vright, RI.vup );
+	AngleVectors( RI.rvp.viewangles, RI.vforward, RI.vright, RI.vup );
 
 	if( !r_lockfrustum.value )
 	{
-		VectorCopy( RI.vieworg, RI.cullorigin );
+		VectorCopy( RI.rvp.vieworigin, RI.cullorigin );
 		VectorCopy( RI.vforward, RI.cull_vforward );
 		VectorCopy( RI.vright, RI.cull_vright );
 		VectorCopy( RI.vup, RI.cull_vup );
 	}
 
-	if( RI.drawOrtho )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_OVERVIEW ))
+	{
+		const ref_overview_t *ov = gEngfuncs.GetOverviewParms();
 		GL_FrustumInitOrtho( &RI.frustum, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
-	else GL_FrustumInitProj( &RI.frustum, 0.0f, R_GetFarClip(), RI.fov_x, RI.fov_y ); // NOTE: we ignore nearplane here (mirrors only)
+	}
+	else
+	{
+		GL_FrustumInitProj( &RI.frustum, 0.0f, R_GetFarClip(), RI.rvp.fov_x, RI.rvp.fov_y ); // NOTE: we ignore nearplane here (mirrors only)
+	}
 }
-
 
 static void R_SetupProjectionMatrix( matrix4x4 m )
 {
 	float	xMin, xMax, yMin, yMax, zNear, zFar;
 
-	if( RI.drawOrtho )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_OVERVIEW ))
 	{
 		const ref_overview_t *ov = gEngfuncs.GetOverviewParms();
 		Matrix4x4_CreateOrtho( m, ov->xLeft, ov->xRight, ov->yTop, ov->yBottom, ov->zNear, ov->zFar );
@@ -72,10 +68,10 @@ static void R_SetupProjectionMatrix( matrix4x4 m )
 	zNear = 4.0f;
 	zFar = Q_max( 256.0f, RI.farClip );
 
-	yMax = zNear * tan( RI.fov_y * M_PI_F / 360.0f );
+	yMax = zNear * tan( RI.rvp.fov_y * M_PI_F / 360.0f );
 	yMin = -yMax;
 
-	xMax = zNear * tan( RI.fov_x * M_PI_F / 360.0f );
+	xMax = zNear * tan( RI.rvp.fov_x * M_PI_F / 360.0f );
 	xMin = -xMax;
 
 	if( tr.rotation & 1 )
@@ -98,17 +94,17 @@ static void R_SetupModelviewMatrix( matrix4x4 m )
 	Matrix4x4_CreateModelview( m );
 	if( tr.rotation & 1 )
 	{
-		Matrix4x4_ConcatRotate( m, anglemod( -RI.viewangles[2] + 90 ), 1, 0, 0 );
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
+		Matrix4x4_ConcatRotate( m, anglemod( -RI.rvp.viewangles[2] + 90 ), 1, 0, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[0], 0, 1, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[1], 0, 0, 1 );
 	}
 	else
 	{
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[2], 1, 0, 0 );
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[0], 0, 1, 0 );
-		Matrix4x4_ConcatRotate( m, -RI.viewangles[1], 0, 0, 1 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[2], 1, 0, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[0], 0, 1, 0 );
+		Matrix4x4_ConcatRotate( m, -RI.rvp.viewangles[1], 0, 0, 1 );
 	}
-	Matrix4x4_ConcatTranslate( m, -RI.vieworg[0], -RI.vieworg[1], -RI.vieworg[2] );
+	Matrix4x4_ConcatTranslate( m, -RI.rvp.vieworigin[0], -RI.rvp.vieworigin[1], -RI.rvp.vieworigin[2] );
 }
 
 void R_LoadIdentity( void )
@@ -150,21 +146,19 @@ static void R_DrawEntitiesOnList( void )
 
 void R_RenderScene( void )
 {
-	model_t *worldmodel = gp_cl->models[1];
-	if (!worldmodel && RI.drawWorld)
+	if( !tr.worldmodel && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) )
 		gEngfuncs.Host_Error("%s: NULL worldmodel\n", __func__);
 
 	// frametime is valid only for normal pass
-	if (FBitSet(RI.params, RP_ENVVIEW) == 0)
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ))
 		tr.frametime = gp_cl->time - gp_cl->oldtime;
 	else tr.frametime = 0.0;
 
 	// begin a new frame
 	tr.framecount++;
 
-#if 0
-	R_PushDlights();
-#endif
+	tr.dlightframecount = R_PushDlights( tr.worldmodel, tr.framecount );
+
 	R_SetupFrustum();
 #if 0
 	R_SetupFrame();
@@ -176,7 +170,7 @@ void R_RenderScene( void )
 	R_MarkLeaves();
 #if 0
 	R_DrawFog();
-	if (RI.drawWorld)
+	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		R_AnimateRipples();
 
 	R_CheckGLFog();
@@ -232,47 +226,28 @@ void R_AllowFog( qboolean allowed )
 
 static void R_SetupRefParams( const ref_viewpass_t *rvp )
 {
-//	RI.params = RP_NONE;
-	RI.drawWorld = FBitSet(rvp->flags, RF_DRAW_WORLD);
-	RI.onlyClientDraw = FBitSet(rvp->flags, RF_ONLY_CLIENTDRAW);
+	RI.rvp = *rvp;
+
 	RI.farClip = 0;
-
-	if (!FBitSet(rvp->flags, RF_DRAW_CUBEMAP))
-		RI.drawOrtho = FBitSet(rvp->flags, RF_DRAW_OVERVIEW);
-	else RI.drawOrtho = false;
-
-	// setup viewport
-	RI.viewport[0] = rvp->viewport[0];
-	RI.viewport[1] = rvp->viewport[1];
-	RI.viewport[2] = rvp->viewport[2];
-	RI.viewport[3] = rvp->viewport[3];
-
-	// calc FOV
-	RI.fov_x = rvp->fov_x;
-	RI.fov_y = rvp->fov_y;
-
-	VectorCopy(rvp->vieworigin, RI.vieworg);
-	VectorCopy(rvp->viewangles, RI.viewangles);
-	VectorCopy(rvp->vieworigin, RI.pvsorigin);
 }
 
 
-void R_RenderFrame( const struct ref_viewpass_s *rvp )
+void R_RenderFrame( const ref_viewpass_t *rvp )
 {
-	if (r_norefresh->value)
+	if( r_norefresh->value )
 		return;
 
 	// setup the initial render params
-	R_SetupRefParams(rvp);
+	R_SetupRefParams( rvp );
 
 	// completely override rendering
-	if (gEngfuncs.drawFuncs->GL_RenderFrame != NULL)
+	if( gEngfuncs.drawFuncs->GL_RenderFrame != NULL )
 	{
 		tr.fCustomRendering = true;
 
-		if (gEngfuncs.drawFuncs->GL_RenderFrame(rvp))
+		if( gEngfuncs.drawFuncs->GL_RenderFrame( rvp ))
 		{
-			//R_GatherPlayerLight();
+			R_GatherPlayerLight( tr.viewent );
 			tr.realframecount++;
 			tr.fResetVis = true;
 			return;
@@ -280,8 +255,10 @@ void R_RenderFrame( const struct ref_viewpass_s *rvp )
 	}
 
 	tr.fCustomRendering = false;
-	//if (!RI.onlyClientDraw)
-	//	R_RunViewmodelEvents();
+#if 0
+	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
+		R_RunViewmodelEvents();
+#endif
 
 	tr.realframecount++; // right called after viewmodel events
 	R_RenderScene();
@@ -311,34 +288,29 @@ int WorldToScreen( const vec3_t world, vec3_t screen )
 	return 0;
 }
 
-void ScreenToWorld( const float *screen, float *world )
-{
-	;
-}
-
 void R_SetupD3D( qboolean set_state )
 {
-	R_SetupModelviewMatrix(RI.worldviewMatrix);
-	R_SetupProjectionMatrix(RI.projectionMatrix);
+	R_SetupModelviewMatrix( RI.worldviewMatrix );
+	R_SetupProjectionMatrix( RI.projectionMatrix );
 
-	Matrix4x4_Concat(RI.worldviewProjectionMatrix, RI.projectionMatrix, RI.worldviewMatrix);
+	Matrix4x4_Concat( RI.worldviewProjectionMatrix, RI.projectionMatrix, RI.worldviewMatrix );
 
-	if (!set_state) return;
+	if( !set_state ) return;
 
 	D3DVIEWPORT viewport = { 0 };
 	viewport.dwSize = sizeof(viewport);
 
-	if (FBitSet(RI.params, RP_ENVVIEW) == 0)
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ))
 	{
 		int x, x2, y, y2;
 
 		// set up viewport (main, playersetup)
-		x = floor(RI.viewport[0] * gpGlobals->width / gpGlobals->width);
-		x2 = ceil((RI.viewport[0] + RI.viewport[2]) * gpGlobals->width / gpGlobals->width);
-		y = floor(gpGlobals->height - RI.viewport[1] * gpGlobals->height / gpGlobals->height);
-		y2 = ceil(gpGlobals->height - (RI.viewport[1] + RI.viewport[3]) * gpGlobals->height / gpGlobals->height);
+		x = floor( RI.rvp.viewport[0] * gpGlobals->width / gpGlobals->width );
+		x2 = ceil( (RI.rvp.viewport[0] + RI.rvp.viewport[2]) * gpGlobals->width / gpGlobals->width );
+		y = floor( gpGlobals->height - RI.rvp.viewport[1] * gpGlobals->height / gpGlobals->height );
+		y2 = ceil( gpGlobals->height - (RI.rvp.viewport[1] + RI.rvp.viewport[3]) * gpGlobals->height / gpGlobals->height );
 
-		if (tr.rotation & 1)
+		if( tr.rotation & 1 )
 		{
 			viewport.dwX = y2;
 			viewport.dwY = x;
@@ -356,10 +328,10 @@ void R_SetupD3D( qboolean set_state )
 	else
 	{
 		// envpass, mirrorpass
-		viewport.dwX = RI.viewport[0];
-		viewport.dwY = RI.viewport[1];
-		viewport.dwWidth = RI.viewport[2];
-		viewport.dwHeight = RI.viewport[3];
+		viewport.dwX = RI.rvp.viewport[0];
+		viewport.dwY = RI.rvp.viewport[1];
+		viewport.dwWidth = RI.rvp.viewport[2];
+		viewport.dwHeight = RI.rvp.viewport[3];
 	}
 
 	viewport.dvScaleX = 0.5f * viewport.dwWidth;

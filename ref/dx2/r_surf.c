@@ -277,7 +277,6 @@ static void R_DrawTextureChains( void )
 	int		i;
 	msurface_t	*s;
 	texture_t		*t;
-	model_t *WORLDMODEL = (gp_cl->models[1]);
 
 	// make sure what color is reset
 	Vector4Set( dxc.currentColor, 1, 1, 1, 1 );
@@ -289,9 +288,9 @@ static void R_DrawTextureChains( void )
 	RI.currententity = CL_GetEntityByIndex( 0 );
 	RI.currentmodel = RI.currententity->model;
 
-	for( i = 0; i < WORLDMODEL->numtextures; i++ )
+	for( i = 0; i < tr.worldmodel->numtextures; i++ )
 	{
-		t = WORLDMODEL->textures[i];
+		t = tr.worldmodel->textures[i];
 		if( !t ) continue;
 
 		s = t->texturechain;
@@ -332,7 +331,6 @@ static void R_RecursiveWorldNode( mnode_t *node, uint clipflags )
 	float		dot;
 	mnode_t *children[2];
 	int numsurfaces, firstsurface;
-	model_t *WORLDMODEL = (gp_cl->models[1]);
 
 loc0:
 	if( node->contents == CONTENTS_SOLID )
@@ -388,14 +386,14 @@ loc0:
 	side = (dot >= 0.0f) ? 0 : 1;
 
 	// recurse down the children, front side first
-	node_children( children, node, WORLDMODEL );
+	node_children( children, node, tr.worldmodel );
 	R_RecursiveWorldNode( children[side], clipflags );
 
-	firstsurface = node_firstsurface( node, WORLDMODEL );
-	numsurfaces = node_numsurfaces( node, WORLDMODEL );
+	firstsurface = node_firstsurface( node, tr.worldmodel );
+	numsurfaces = node_numsurfaces( node, tr.worldmodel );
 
 	// draw stuff
-	for( c = numsurfaces, surf = WORLDMODEL->surfaces + firstsurface; c; c--, surf++ )
+	for( c = numsurfaces, surf = tr.worldmodel->surfaces + firstsurface; c; c--, surf++ )
 	{
 		if( R_CullSurface( surf, &RI.frustum, clipflags ))
 			continue;
@@ -424,7 +422,6 @@ loc0:
 void R_DrawWorld( void )
 {
 	double	start, end;
-	model_t *WORLDMODEL = (gp_cl->models[1]);
 
 	// paranoia issues: when gl_renderer is "0" we need have something valid for currententity
 	// to prevent crashing until HeadShield drawing.
@@ -433,7 +430,7 @@ void R_DrawWorld( void )
 		return;
 
 	RI.currentmodel = RI.currententity->model;
-	if( !RI.drawWorld || RI.onlyClientDraw )
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 		return;
 
 	VectorCopy( RI.cullorigin, tr.modelorg );
@@ -447,11 +444,11 @@ void R_DrawWorld( void )
 	//R_ClearSkyBox ();
 
 	start = gEngfuncs.pfnTime();
-	if( RI.drawOrtho )
+	if( FBitSet( RI.rvp.flags, RF_DRAW_OVERVIEW ))
 	{
-		//R_DrawWorldTopView( WORLDMODEL->nodes, RI.frustum.clipFlags );
+		//R_DrawWorldTopView( tr.worldmodel->nodes, RI.frustum.clipFlags );
 	}
-	else R_RecursiveWorldNode( WORLDMODEL->nodes, RI.frustum.clipFlags );
+	else R_RecursiveWorldNode( tr.worldmodel->nodes, RI.frustum.clipFlags );
 	end = gEngfuncs.pfnTime();
 
 	//r_stats.t_world_node = end - start;
@@ -484,9 +481,8 @@ void R_MarkLeaves( void )
 	mnode_t	*node;
 	vec3_t	test;
 	int	i;
-	model_t *WORLDMODEL = (gp_cl->models[1]);
 
-	if( !RI.drawWorld ) return;
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) ) return;
 
 	if( FBitSet( r_novis.flags, FCVAR_CHANGED ) || tr.fResetVis )
 	{
@@ -496,21 +492,17 @@ void R_MarkLeaves( void )
 		RI.viewleaf = NULL;
 	}
 
-	VectorCopy( RI.pvsorigin, test );
+	VectorCopy( RI.rvp.vieworigin, test );
 
 	if( RI.viewleaf != NULL )
 	{
 		// merge two leafs that can be a crossed-line contents
 		if( RI.viewleaf->contents == CONTENTS_EMPTY )
-		{
-			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] - 16.0f );
-			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
-		}
+			VectorSet( test, RI.rvp.vieworigin[0], RI.rvp.vieworigin[1], RI.rvp.vieworigin[2] - 16.0f );
 		else
-		{
-			VectorSet( test, RI.pvsorigin[0], RI.pvsorigin[1], RI.pvsorigin[2] + 16.0f );
-			leaf = gEngfuncs.Mod_PointInLeaf( test, WORLDMODEL->nodes );
-		}
+			VectorSet( test, RI.rvp.vieworigin[0], RI.rvp.vieworigin[1], RI.rvp.vieworigin[2] + 16.0f );
+
+		leaf = gEngfuncs.Mod_PointInLeaf( test, tr.worldmodel->nodes, tr.worldmodel );
 
 		if(( leaf->contents != CONTENTS_SOLID ) && ( RI.viewleaf != leaf ))
 			force = true;
@@ -526,18 +518,18 @@ void R_MarkLeaves( void )
 	RI.oldviewleaf = RI.viewleaf;
 	tr.visframecount++;
 
-	if( r_novis.value || RI.drawOrtho || !RI.viewleaf || !WORLDMODEL->visdata )
+	if( r_novis.value || FBitSet( RI.rvp.flags, RF_DRAW_OVERVIEW ) || !RI.viewleaf || !tr.worldmodel->visdata )
 		novis = true;
 
-	gEngfuncs.R_FatPVS( RI.pvsorigin, r_pvs_radius->value, RI.visbytes, FBitSet( RI.params, RP_OLDVIEWLEAF ), novis );
+	gEngfuncs.R_FatPVS( RI.rvp.vieworigin, r_pvs_radius->value, RI.visbytes, false, novis );
 	if( force && !novis )
 		gEngfuncs.R_FatPVS( test, r_pvs_radius->value, RI.visbytes, true, novis );
 
-	for( i = 0; i < WORLDMODEL->numleafs; i++ )
+	for( i = 0; i < tr.worldmodel->numleafs; i++ )
 	{
 		if( CHECKVISBIT( RI.visbytes, i ))
 		{
-			node = (mnode_t *)&WORLDMODEL->leafs[i+1];
+			node = (mnode_t *)&tr.worldmodel->leafs[i+1];
 			do
 			{
 				if( node->visframe == tr.visframecount )

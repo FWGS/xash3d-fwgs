@@ -21,11 +21,6 @@ void R_Set2DMode( qboolean enable )
 
 }
 
-void R_DrawStretchRaw( float x, float y, float w, float h, int cols, int rows, const byte *data, qboolean dirty )
-{
-	;
-}
-
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
 	if (texnum <= 0 || texnum >= MAX_TEXTURES)
@@ -162,25 +157,3 @@ void FillRGBA( int rendermode, float x, float y, float w, float h, byte r, byte 
 #endif
 }
 
-
-void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int currentFrame, const model_t *pSprite )
-{
-	if( frameWidth )
-		*frameWidth	= 0;
-
-	if( frameHeight )
-		*frameHeight = 0;
-
-	if( numFrames )
-		*numFrames = 0;
-}
-
-int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
-{
-	return 0;
-}
-
-void AVI_UploadRawFrame( int texture, int cols, int rows, int width, int height, const byte *data )
-{
-	;
-}
