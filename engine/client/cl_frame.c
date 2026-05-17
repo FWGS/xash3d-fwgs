@@ -43,7 +43,7 @@ static void CL_UpdatePositions( cl_entity_t *ent )
 {
 	position_history_t	*ph, *prev;
 
-	prev = &ent->ph[ent->current_position];
+	prev = &ent->ph[ent->current_position & HISTORY_MASK];
 
 	ent->current_position = (ent->current_position + 1) & HISTORY_MASK;
 	ph = &ent->ph[ent->current_position];
@@ -74,11 +74,10 @@ Interpolation init or reset after teleporting
 */
 static void CL_ResetPositions( cl_entity_t *ent )
 {
-	position_history_t	store;
+	if( !ent )
+		return;
 
-	if( !ent ) return;
-
-	store = ent->ph[ent->current_position];
+	position_history_t store = ent->ph[ent->current_position & HISTORY_MASK];
 	ent->current_position = 1;
 
 	memset( ent->ph, 0, sizeof( position_history_t ) * HISTORY_MAX );
