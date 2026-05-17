@@ -662,6 +662,7 @@ void Host_Frame( double time )
 	Host_ServerFrame (); // server frame
 	Host_ClientFrame (); // client frame
 	HTTP_Run();			 // both server and client
+	XRcon_Frame();
 
 	host.framecount++;
 	host.pureframetime = Platform_DoubleTime() - t1;
@@ -1082,6 +1083,8 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Sys_InitLog();
 	Con_Init(); // early console running to catch all the messages
 
+	XRcon_Init();
+
 	if( !Sys_CheckParm( "-noch" ))
 		Sys_SetupCrashHandler( argv[0] );
 
@@ -1369,6 +1372,7 @@ void Host_ShutdownWithReason( const char *reason )
 
 	SoundList_Shutdown();
 	Mod_Shutdown();
+	XRcon_Shutdown();
 	NET_Shutdown();
 	HTTP_Shutdown();
 	Host_FreeCommon();
