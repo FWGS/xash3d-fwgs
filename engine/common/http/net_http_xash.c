@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #include "client.h" // ConnectionProgress
 #include "netchan.h"
 #include "xash3d_mathlib.h"
-#include "ipv6text.h"
 #include "net_ws_private.h"
 #include "miniz.h"
 
@@ -942,6 +941,12 @@ Add new download to end of queue
 void HTTP_AddDownload( const char *path, int size, qboolean process, resource_t *res )
 {
 	httpfile_t *httpfile;
+
+	if( COM_CheckNastyPath( path ))
+	{
+		Con_Printf( S_ERROR "%s: refused to download %s, nasty path\n", __func__, path );
+		return;
+	}
 
 	if( !http.first_server )
 	{
