@@ -14,13 +14,6 @@
 		app:title="@string/game_settings_volume_buttons" />
 
 	<SwitchPreferenceCompat
-		app:key="enable_yapb_bots"
-		app:layout="@layout/switch_preference"
-		app:title="@string/game_settings_yapb_bots"
-		app:defaultValue="true"
-		app:isPreferenceVisible="false" />
-
-	<SwitchPreferenceCompat
 		app:key="separate_libraries"
 		app:layout="@layout/switch_preference"
 		app:title="@string/preferences_separate_libraries"

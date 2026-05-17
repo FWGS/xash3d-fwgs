@@ -20,8 +20,6 @@ extensions.configure<ApplicationExtension> {
 		minSdk = 21
 		targetSdk = 35
 
-		buildConfigField("String", "GIT_HASH", "\"${getGitHash()}\"")
-
 		externalNativeBuild {
 			val engineRoot = projectDir.parentFile.parent
 
@@ -60,15 +58,6 @@ extensions.configure<ApplicationExtension> {
 		buildConfig = true
 	}
 
-	signingConfigs {
-		create("androidDebugKey") {
-			storeFile = File(projectDir.parentFile, "debug.keystore")
-			storePassword = "android"
-			keyAlias = "androiddebugkey"
-			keyPassword = "android"
-		}
-	}
-
 	lint {
 		abortOnError = false
 	}
@@ -102,7 +91,6 @@ extensions.configure<ApplicationExtension> {
 			proguardFiles(
 				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
 			)
-			buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "false")
 		}
 
 		release {
@@ -111,7 +99,6 @@ extensions.configure<ApplicationExtension> {
 			proguardFiles(
 				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
 			)
-			buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "false")
 		}
 
 		register("asan") {
@@ -121,8 +108,6 @@ extensions.configure<ApplicationExtension> {
 		register("continuous") {
 			initWith(getByName("release"))
 			applicationIdSuffix = ".test"
-			buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "true")
-			signingConfig = signingConfigs.getByName("androidDebugKey")
 		}
 	}
 }

@@ -7,7 +7,6 @@
 	<string name="game_settings">Paramètres du jeu</string>
 	<string name="game_settings_command_line">Arguments de ligne de commande</string>
 	<string name="game_settings_volume_buttons">Utiliser les boutons de volume dans le jeu</string>
-	<string name="game_settings_yapb_bots">Activer les bots YaPB (Uniquement pour CS)</string>
 	<string name="preferences_package_name">Paquet de bibliothèques</string>
 	<string name="preferences_separate_libraries">Bibliothèques de paquets séparés</string>
 	<string name="preferences_client_package">Paquet client</string>

@@ -1,18 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-	xmlns:app="http://schemas.android.com/apk/res-auto">
-	<Preference
-		app:key="game_path"
-		app:layout="@layout/edit_text_preference"
-		app:title="@string/game_data_location"
-		android:summary="/storage/emulated/0/xash" />
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
-	<SwitchPreferenceCompat
-		app:key="use_icons"
-		app:layout="@layout/switch_preference"
-		app:title="@string/preferences_use_icons" />
+    <PreferenceCategory app:title="@string/storage_settings">
+        <Preference
+            app:key="game_path"
+            app:title="@string/game_data_location"
+            app:summary="Storage path will be updated automatically" />
+            
+        <SwitchPreferenceCompat
+            app:key="storage_toggle"
+            app:title="@string/toggle_storage_location"
+            app:summaryOn="@string/using_internal_storage"
+            app:summaryOff="@string/using_external_storage"
+            app:defaultValue="false" />
+    </PreferenceCategory>
 
-	<Preference
-		app:key="crash_logs"
-		app:title="@string/crash_logs" />
+    <PreferenceCategory app:title="@string/global_settings">
+        <Preference
+            app:key="global_arguments"
+            app:title="@string/global_command_line"
+            app:summary="set any arguments" />
+
+        <Preference
+            app:key="render_resolution"
+            app:title="@string/render_resolution"
+            app:summary="@string/render_resolution_summary" />
+
+        <SwitchPreferenceCompat
+            app:key="stretch_resolution"
+            app:title="@string/stretch_resolution"
+            app:summary="@string/stretch_resolution_summary"
+            app:defaultValue="false" />
+
+        <SwitchPreferenceCompat
+            app:key="keyboard_resizes_screen"
+            app:title="@string/keyboard_resizes_screen"
+            app:summary="@string/keyboard_resizes_screen_summary"
+            app:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            app:key="fix_font"
+            app:title="@string/fix_font"
+            app:summary="@string/fix_font_summary"
+            app:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            app:key="enable_downloader"
+            app:title="@string/enable_downloader"
+            app:summary="@string/enable_downloader_summary"
+            app:defaultValue="false" />
+    </PreferenceCategory>
+
 </PreferenceScreen>
