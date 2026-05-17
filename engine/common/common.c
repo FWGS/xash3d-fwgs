@@ -31,6 +31,8 @@ static const char *const file_exts[] =
 	// ban Windows code
 	"exe", "vbs", "com", "bat",
 	"dll", "sys", "ps1",
+	"lnk", "scr", "cpl", "msi",
+	"url", "jar",
 
 	// ban common unix code
 	// NOTE: in unix anything can be executed as long it has access flag
