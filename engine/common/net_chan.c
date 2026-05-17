@@ -28,6 +28,8 @@ GNU General Public License for more details.
 
 #define UDP_HEADER_SIZE		28
 
+#define MAX_NETCHAN_FRAGBUFS_PER_STREAM	8192
+
 #define FLOW_AVG			( 2.0f / 3.0f )	// how fast to converge flow estimates
 #define FLOW_INTERVAL		0.1		// don't compute more often than this
 #define MAX_RELIABLE_PAYLOAD		1400		// biggest packet that has frag and or reliable data
@@ -750,17 +752,25 @@ static fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean a
 {
 	fragbuf_t	*list = *pplist;
 	fragbuf_t	*pnewbuf;
+	int		count = 0;
 
 	while( list )
 	{
 		if( list->bufferid == id )
 			return list;
 
+		count++;
 		list = list->next;
 	}
 
 	if( !allocate )
 		return NULL;
+
+	if( count >= MAX_NETCHAN_FRAGBUFS_PER_STREAM )
+	{
+		Con_DPrintf( S_ERROR "%s: too many pending fragments (%d), dropping new fragid %d\n", __func__, count, id );
+		return NULL;
+	}
 
 	// create new entry
 	pnewbuf = Netchan_AllocFragbuf( NET_MAX_FRAGMENT );
