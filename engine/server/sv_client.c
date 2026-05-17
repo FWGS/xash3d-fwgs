@@ -1041,7 +1041,7 @@ static qboolean Rcon_Validate( void )
 {
 	if( COM_StringEmptyOrNULL( rcon_password.string ))
 		return false;
-	if( Q_strcmp( Cmd_Argv( 1 ), rcon_password.string ))
+	if( Q_strcmp_constant_time( Cmd_Argv( 1 ), rcon_password.string ))
 		return false;
 	return true;
 }
@@ -1065,14 +1065,14 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 
 	adr = NET_AdrToString( from );
 
-	Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
-	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
-
 	if( Rcon_Validate( ))
 	{
 		static char	outputbuf[2048];
 		char remaining[1024];
 		char *p = remaining;
+
+		Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
+		Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
 
 		remaining[0] = 0;
 		for( i = 2; i < Cmd_Argc(); i++ )
@@ -1086,7 +1086,11 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 		Cmd_ExecuteString( remaining );
 		SV_EndRedirect( &host.rd );
 	}
-	else Con_Printf( S_ERROR "Bad rcon_password.\n" );
+	else
+	{
+		Con_Printf( S_ERROR "Bad rcon_password from %s\n", adr );
+		Log_Printf( "Bad Rcon from \"%s\"\n", adr );
+	}
 }
 
 /*
