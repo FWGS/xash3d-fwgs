@@ -3549,11 +3549,11 @@ static void CL_InitLocal( void )
 	Cmd_AddCommand ("levelshot", CL_LevelShot_f, "same as \"screenshot\", used for create plaque images" );
 	Cmd_AddCommand ("saveshot", CL_GenericShot_f, "used for create save previews with LoadGame menu" );
 
-	Cmd_AddCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
+	Cmd_AddRestrictedCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
 	Cmd_AddCommand ("retry", CL_Retry_f, "retry connection to last server" );
 
-	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
+	Cmd_AddRestrictedCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
 
 	Cmd_AddCommand( "richpresence_gamemode", Cmd_Null_f, "compatibility command, does nothing" );
 	Cmd_AddCommand( "richpresence_update", Cmd_Null_f, "compatibility command, does nothing" );
