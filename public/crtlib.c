@@ -686,8 +686,10 @@ int COM_CheckNastyPath( const char *path )
 	// Amiga and Windows: : tries to go to root of drive
 	if( Q_strchr( path, ':' )) return 1; // non-portable attempt to go to root of drive
 
+#if 0
 	// Amiga: // is parent directory
 	if( Q_strstr( path, "//")) return 1; // non-portable attempt to go to parent directory
+#endif
 
 	// all: don't allow going to parent directory (../ or /../)
 	if( Q_strstr( path, "..")) return 2; // attempt to go outside the game directory
