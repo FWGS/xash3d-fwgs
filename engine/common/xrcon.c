@@ -487,6 +487,12 @@ void XRcon_Print( const char *msg )
 				xrcon.print_flush_time = Platform_DoubleTime() + XRCON_FLUSH_INTERVAL;
 			}
 		}
+		else if( msg[i] == '^' && i + 1 < len )
+		{
+			char color_code = msg[i + 1];
+			if( color_code >= '0' && color_code <= '9' )
+				i++; // skip color code, client does not supports them at the moment
+		}
 		else if( msg[i] >= ' ' || msg[i] == '\t' )
 		{
 			if( xrcon.print_pos < sizeof( xrcon.print_buffer ) - 1 )
