@@ -891,7 +891,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		}
 	}
 
-	if( cl.playernum < 0 || cl.playernum >= MAX_CLIENTS || cl.maxclients < 0 || cl.maxclients >= MAX_CLIENTS )
+	if( cl.playernum < 0 || cl.playernum >= MAX_CLIENTS || cl.maxclients <= 0 || cl.maxclients > MAX_CLIENTS )
 	{
 		Con_Printf( S_ERROR "%s: invalid playernum or maxclients (%d and %d must be less than %d)\n", __func__,
 			cl.playernum, cl.maxclients, MAX_CLIENTS );
