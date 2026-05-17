@@ -45,7 +45,7 @@ GNU General Public License for more details.
 #define SBRK_CONNECT_RETRY_DELAY	5.0
 #define SBRK_TICKET_SIZE_MAX 		2048
 
-static CVAR_DEFINE_AUTO( cl_steam_broker_addr, "127.0.0.1:27420", FCVAR_ARCHIVE, "address of steam broker instance" );
+static CVAR_DEFINE_AUTO( cl_steam_broker_addr, "127.0.0.1:27420", FCVAR_PRIVILEGED|FCVAR_ARCHIVE, "address of steam broker instance" );
 
 typedef enum
 {
