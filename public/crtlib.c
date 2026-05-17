@@ -261,6 +261,21 @@ qboolean Q_stricmpext( const char *pattern, const char *text )
 	return Q_strnicmpext( pattern, text, ~((size_t)0) );
 }
 
+int Q_strcmp_constant_time( const char *s1, const char *s2 )
+{
+	if( !s1 || !s2 )
+		return ( s1 ? 1 : 0 ) - ( s2 ? 1 : 0 );
+
+	size_t l1 = strlen( s1 );
+	size_t l2 = strlen( s2 );
+	size_t diff = l1 ^ l2;
+
+	for( size_t i = 0; i < l1 && i < l2; i++ )
+		diff |= s1[i] ^ s2[i];
+
+	return diff != 0;
+}
+
 const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *needle, size_t needlelen )
 {
 	const byte *i;
