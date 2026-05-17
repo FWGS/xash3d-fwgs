@@ -361,7 +361,7 @@ static void SV_ConnectClient( netadr_t from )
 	// check connection password (don't verify local client)
 	if( !NET_IsLocalAddress( from ) && SV_HavePassword( ))
 	{
-		if( Q_stricmp( sv_password.string, Info_ValueForKey( userinfo, "password" )))
+		if( Q_strcmp_constant_time( sv_password.string, Info_ValueForKey( userinfo, "password" )))
 		{
 			SV_RejectConnection( from, "invalid password\n" );
 			return;
