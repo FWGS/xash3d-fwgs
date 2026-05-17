@@ -891,6 +891,15 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		}
 	}
 
+	if( cl.playernum < 0 || cl.playernum >= MAX_CLIENTS || cl.maxclients <= 0 || cl.maxclients > MAX_CLIENTS )
+	{
+		Con_Printf( S_ERROR "%s: invalid playernum or maxclients (%d and %d must be less than %d)\n", __func__,
+			cl.playernum, cl.maxclients, MAX_CLIENTS );
+		CL_Disconnect_f();
+		Host_AbortCurrentFrame();
+		return;
+	}
+
 	Q_snprintf( mapfile, sizeof( mapfile ), "maps/%s.bsp", clgame.mapname );
 	if( CRC32_MapFile( &cl.worldmapCRC, mapfile, cl.maxclients > 1 ))
 	{
@@ -1456,31 +1465,31 @@ void CL_ParseResource( sizebuf_t *msg )
 	if( MSG_ReadOneBit( msg ))
 		MSG_ReadBytes( msg, pResource->rguc_reserved, sizeof( pResource->rguc_reserved ));
 
-	if( pResource->type == t_sound && pResource->nIndex > MAX_SOUNDS )
+	if( pResource->type == t_sound && pResource->nIndex >= MAX_SOUNDS )
 	{
 		Mem_Free( pResource );
 		Host_Error( "bad sound index\n" );
 	}
 
-	if( pResource->type == t_model && pResource->nIndex > MAX_MODELS )
+	if( pResource->type == t_model && pResource->nIndex >= MAX_MODELS )
 	{
 		Mem_Free( pResource );
 		Host_Error( "bad model index\n" );
 	}
 
-	if( pResource->type == t_eventscript && pResource->nIndex > MAX_EVENTS )
+	if( pResource->type == t_eventscript && pResource->nIndex >= MAX_EVENTS )
 	{
 		Mem_Free( pResource );
 		Host_Error( "bad event index\n" );
 	}
 
-	if( pResource->type == t_generic && pResource->nIndex > MAX_CUSTOM )
+	if( pResource->type == t_generic && pResource->nIndex >= MAX_CUSTOM )
 	{
 		Mem_Free( pResource );
 		Host_Error( "bad file index\n" );
 	}
 
-	if( pResource->type == t_decal && pResource->nIndex > MAX_DECALS )
+	if( pResource->type == t_decal && pResource->nIndex >= MAX_DECALS )
 	{
 		Mem_Free( pResource );
 		Host_Error( "bad decal index\n" );

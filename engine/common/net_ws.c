@@ -1239,25 +1239,21 @@ NET_GetLong
 receive long packet from network
 ==================
 */
-static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize, connprotocol_t proto )
+static qboolean NET_GetLong( byte *pData, size_t size, size_t *outSize, size_t splitsize, connprotocol_t proto )
 {
-	int		i, sequence_number, offset;
-	int		packet_number;
-	int		packet_count;
-	short		packet_id;
-	size_t header_size = proto == PROTO_GOLDSRC ? sizeof( SPLITPACKETGS ) : sizeof( SPLITPACKET );
-	int body_size = splitsize - header_size;
-	int max_splits;
+	const size_t header_size = proto == PROTO_GOLDSRC ? sizeof( SPLITPACKETGS ) : sizeof( SPLITPACKET );
 
-	if( body_size < 0 )
+	if( splitsize < header_size )
 		return false;
 
 	if( size < header_size )
 	{
-		Con_Printf( S_ERROR "invalid split packet length %i\n", size );
+		Con_Printf( S_ERROR "invalid split packet length %zu\n", size );
 		return false;
 	}
 
+	int   sequence_number, packet_count, packet_number, max_splits;
+	short packet_id;
 	if( proto == PROTO_GOLDSRC )
 	{
 		SPLITPACKETGS *pHeader = (SPLITPACKETGS *)pData;
@@ -1281,7 +1277,7 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 		max_splits = ARRAYSIZE( net.split_flags );
 	}
 
-	if( packet_number >= max_splits || packet_count > max_splits )
+	if( packet_number < 0 || packet_count <= 0 || packet_number >= max_splits || packet_count > max_splits || packet_number >= packet_count )
 	{
 		Con_Printf( S_ERROR "malformed packet number (%i/%i)\n", packet_number + 1, packet_count );
 		return false;
@@ -1294,7 +1290,7 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 		net.split.total_size = 0;
 
 		// clear part's sequence
-		for( i = 0; i < ARRAYSIZE( net.split_flags ); i++ )
+		for( int i = 0; i < ARRAYSIZE( net.split_flags ); i++ )
 			net.split_flags[i] = -1;
 
 		if( net_showpackets.value == 4.0f )
@@ -1302,6 +1298,15 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 	}
 
 	size -= header_size;
+
+	size_t body_size = splitsize - header_size;
+	size_t offset = (size_t)packet_number * body_size;
+	if( offset + size > sizeof( net.split.buffer ))
+	{
+		Con_Printf( S_ERROR "%s: split packet would overflow reassembly buffer (offset %zu + size %zu > %zu)\n",
+			__func__, offset, size, sizeof( net.split.buffer ));
+		return false;
+	}
 
 	if( net.split_flags[packet_number] != sequence_number )
 	{
@@ -1312,14 +1317,13 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 		net.split_flags[packet_number] = sequence_number;
 
 		if( net_showpackets.value == 4.0f )
-			Con_Printf( "<-- Split packet %i of %i, %i bytes %i seq\n", packet_number + 1, packet_count, size, sequence_number );
+			Con_Printf( "<-- Split packet %i of %i, %zu bytes %i seq\n", packet_number + 1, packet_count, size, sequence_number );
 	}
 	else
 	{
-		Con_DPrintf( "%s: Ignoring duplicated split packet %i of %i ( %i bytes )\n", __func__, packet_number + 1, packet_count, size );
+		Con_DPrintf( "%s: Ignoring duplicated split packet %i of %i ( %zu bytes )\n", __func__, packet_number + 1, packet_count, size );
 	}
 
-	offset = (packet_number * body_size);
 	memcpy( net.split.buffer + offset, pData + header_size, size );
 
 	// have we received all of the pieces to the packet?

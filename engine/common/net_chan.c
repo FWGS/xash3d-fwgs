@@ -28,6 +28,9 @@ GNU General Public License for more details.
 
 #define UDP_HEADER_SIZE		28
 
+#define MAX_NETCHAN_DECOMPRESSED_SIZE	( 64 * 1024 * 1024 )
+#define MAX_NETCHAN_FRAGBUFS_PER_STREAM	8192
+
 #define FLOW_AVG			( 2.0f / 3.0f )	// how fast to converge flow estimates
 #define FLOW_INTERVAL		0.1		// don't compute more often than this
 #define MAX_RELIABLE_PAYLOAD		1400		// biggest packet that has frag and or reliable data
@@ -750,17 +753,25 @@ static fragbuf_t *Netchan_FindBufferById( fragbuf_t **pplist, int id, qboolean a
 {
 	fragbuf_t	*list = *pplist;
 	fragbuf_t	*pnewbuf;
+	int		count = 0;
 
 	while( list )
 	{
 		if( list->bufferid == id )
 			return list;
 
+		count++;
 		list = list->next;
 	}
 
 	if( !allocate )
 		return NULL;
+
+	if( count >= MAX_NETCHAN_FRAGBUFS_PER_STREAM )
+	{
+		Con_DPrintf( S_ERROR "%s: too many pending fragments (%d), dropping new fragid %d\n", __func__, count, id );
+		return NULL;
+	}
 
 	// create new entry
 	pnewbuf = Netchan_AllocFragbuf( NET_MAX_FRAGMENT );
@@ -1233,7 +1244,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
 		return false;
 	}
-	else if( filename[0] != '!' && !COM_IsSafeFileToDownload( filename ))
+	else if( filename[0] != '!' && ( COM_CheckNastyPath( filename ) || !COM_IsSafeFileToDownload( filename )))
 	{
 		Con_Printf( S_ERROR "file fragment received with bad path, ignoring\n" );
 		Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
@@ -1303,7 +1314,17 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	if( chan->gs_netchan && chan->use_bz2 && !Q_stricmp( compressor, "bz2" ))
 	{
 #if !XASH_DEDICATED
-		byte *uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
+		byte *uncompressedBuffer;
+
+		if( uncompressedSize == 0 || uncompressedSize > MAX_NETCHAN_DECOMPRESSED_SIZE )
+		{
+			Con_Printf( S_ERROR "BZ2 fragment uncompressed size out of range: %u for %s\n", uncompressedSize, filename );
+			Mem_Free( buffer );
+			Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
+			return false;
+		}
+
+		uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
 		Con_DPrintf( "Decompressing file %s (%d -> %d bytes)\n", filename, nsize, uncompressedSize );
 		if( BZ2_bzBuffToBuffDecompress( uncompressedBuffer, &uncompressedSize, buffer, nsize, 1, 0 ) != BZ_OK )
@@ -1326,6 +1347,15 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		byte *uncompressedBuffer;
 
 		uncompressedSize = LZSS_GetActualSize( buffer, nsize );
+
+		if( uncompressedSize == 0 || uncompressedSize > MAX_NETCHAN_DECOMPRESSED_SIZE )
+		{
+			Con_Printf( S_ERROR "LZSS fragment uncompressed size out of range: %u for %s\n", uncompressedSize, filename );
+			Mem_Free( buffer );
+			Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
+			return false;
+		}
+
 		uncompressedBuffer = Mem_Calloc( net_mempool, uncompressedSize );
 
 		nsize = LZSS_Decompress( buffer, uncompressedBuffer, nsize, uncompressedSize );

@@ -261,6 +261,21 @@ qboolean Q_stricmpext( const char *pattern, const char *text )
 	return Q_strnicmpext( pattern, text, ~((size_t)0) );
 }
 
+int Q_strcmp_constant_time( const char *s1, const char *s2 )
+{
+	if( !s1 || !s2 )
+		return ( s1 ? 1 : 0 ) - ( s2 ? 1 : 0 );
+
+	size_t l1 = strlen( s1 );
+	size_t l2 = strlen( s2 );
+	size_t diff = l1 ^ l2;
+
+	for( size_t i = 0; i < l1 && i < l2; i++ )
+		diff |= s1[i] ^ s2[i];
+
+	return diff != 0;
+}
+
 const byte *Q_memmem( const byte *haystack, size_t haystacklen, const byte *needle, size_t needlelen )
 {
 	const byte *i;
@@ -664,6 +679,50 @@ void COM_PathSlashFix( char *path )
 		path[len] = '/';
 		path[len + 1] = '\0';
 	}
+}
+
+/*
+====================
+COM_CheckNastyPath
+Return true if the path should be rejected due to one of the following:
+1: path elements that are non-portable
+2: path elements that would allow access to files outside the game directory,
+	or are just not a good idea for a mod to be using.
+====================
+*/
+int COM_CheckNastyPath( const char *path )
+{
+	// all: never allow an empty path, as for gamedir it would access the parent directory and a non-gamedir path it is just useless
+	if( COM_StringEmptyOrNULL( path )) return 2;
+
+	// Mac: don't allow Mac-only filenames - : is a directory separator
+	// instead of /, but we rely on / working already, so there's no reason to
+	// support a Mac-only path
+	// Amiga and Windows: : tries to go to root of drive
+	if( Q_strchr( path, ':' )) return 1; // non-portable attempt to go to root of drive
+
+#if 0
+	// Amiga: // is parent directory
+	if( Q_strstr( path, "//")) return 1; // non-portable attempt to go to parent directory
+#endif
+
+	// all: don't allow going to parent directory (../ or /../)
+	if( Q_strstr( path, "..")) return 2; // attempt to go outside the game directory
+
+	// Windows and UNIXes: don't allow absolute paths
+	if( path[0] == '/') return 2; // attempt to go outside the game directory
+
+#if 0
+	// all: forbid trailing slash on gamedir
+	if( isgamedir && path[Q_strlen(path)-1] == '/' ) return 2;
+#endif
+
+	// all: forbid leading dot on any filename for any reason
+	if( Q_strstr(path, "/.")) return 2; // attempt to go outside the game directory
+
+	// after all these checks we're pretty sure it's a / separated filename
+	// and won't do much if any harm
+	return false;
 }
 
 /*

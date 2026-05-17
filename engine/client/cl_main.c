@@ -1659,9 +1659,9 @@ static void CL_SendDisconnectMessage( connprotocol_t proto )
 	Netchan_TransmitBits( &cls.netchan, MSG_GetNumBitsWritten( &buf ), MSG_GetData( &buf ));
 }
 
-int CL_GetSplitSize( void )
+size_t CL_GetSplitSize( void )
 {
-	int splitsize = (int)cl_dlmax.value;
+	size_t splitsize = (int)cl_dlmax.value;
 
 	if( !FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 		return 1400;
@@ -1672,7 +1672,7 @@ int CL_GetSplitSize( void )
 		return FRAGMENT_DEFAULT_SIZE;
 	}
 
-	return (int)cl_dlmax.value;
+	return splitsize;
 }
 
 void CL_SetupNetchanForProtocol( connprotocol_t proto )
@@ -3552,11 +3552,11 @@ static void CL_InitLocal( void )
 	Cmd_AddCommand ("levelshot", CL_LevelShot_f, "same as \"screenshot\", used for create plaque images" );
 	Cmd_AddCommand ("saveshot", CL_GenericShot_f, "used for create save previews with LoadGame menu" );
 
-	Cmd_AddCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
+	Cmd_AddRestrictedCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
 	Cmd_AddCommand ("retry", CL_Retry_f, "retry connection to last server" );
 
-	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
+	Cmd_AddRestrictedCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
 
 	Cmd_AddCommand( "richpresence_gamemode", Cmd_Null_f, "compatibility command, does nothing" );
 	Cmd_AddCommand( "richpresence_update", Cmd_Null_f, "compatibility command, does nothing" );

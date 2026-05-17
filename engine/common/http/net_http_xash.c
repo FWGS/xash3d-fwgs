@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #include "client.h" // ConnectionProgress
 #include "netchan.h"
 #include "xash3d_mathlib.h"
-#include "ipv6text.h"
 #include "net_ws_private.h"
 #include "miniz.h"
 
@@ -31,6 +30,7 @@ HTTP downloader
 */
 
 #define MAX_HTTP_BUFFER_SIZE (BIT( 16 ))
+#define MAX_HTTP_DECOMPRESSED_SIZE ( 64 * 1024 * 1024 )
 
 typedef struct httpserver_s
 {
@@ -472,6 +472,13 @@ static int HTTP_FileDecompress( httpfile_t *file )
 		decompressed_len = data[0] | data[1] << 8 | data[2] << 16 | data[3] << 24;
 	}
 
+	if( decompressed_len == 0 || decompressed_len > MAX_HTTP_DECOMPRESSED_SIZE )
+	{
+		Con_Printf( S_ERROR "%s: refusing to decompress %s, claimed size out of range (%zu)\n", __func__, file->path, decompressed_len );
+		HTTP_FreeFile( file, true );
+		return 0;
+	}
+
 	data_in = Mem_Malloc( host.mempool, compressed_len + 1 );
 	data_out = Mem_Malloc( host.mempool, decompressed_len + 1 );
 
@@ -501,7 +508,7 @@ static int HTTP_FileDecompress( httpfile_t *file )
 	if( zlib_result == Z_OK || zlib_result == Z_STREAM_END )
 	{
 		FS_AllowDirectPaths( true );
-		g_fsapi.WriteFile( name, data_out, decompressed_len );
+		g_fsapi.WriteFile( name, data_out, decompress_stream.total_out );
 		FS_AllowDirectPaths( false );
 		HTTP_FreeFile( file, false );
 	}
@@ -942,6 +949,12 @@ Add new download to end of queue
 void HTTP_AddDownload( const char *path, int size, qboolean process, resource_t *res )
 {
 	httpfile_t *httpfile;
+
+	if( COM_CheckNastyPath( path ))
+	{
+		Con_Printf( S_ERROR "%s: refused to download %s, nasty path\n", __func__, path );
+		return;
+	}
 
 	if( !http.first_server )
 	{

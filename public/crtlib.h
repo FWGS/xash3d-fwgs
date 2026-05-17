@@ -92,6 +92,7 @@ static inline int Q_buildnum_compat( void )
 //
 // crtlib.c
 //
+int Q_strcmp_constant_time( const char *s1, const char *s2 );
 void Q_strnlwr( const char *in, char *out, size_t size_out );
 #define Q_strlen( str ) (( str ) ? strlen(( str )) : 0 )
 int Q_atoi_hex( int sign, const char *str );
@@ -122,6 +123,7 @@ void COM_StripExtension( char *path );
 void COM_RemoveLineFeed( char *str, size_t bufsize );
 void COM_PathSlashFix( char *path );
 void COM_TrimSpace( char *dst, const char *src, size_t size );
+int COM_CheckNastyPath( const char *path );
 
 // returns true on empty or NULL string, false otherwise
 #define COM_StringEmpty( string )       (( string )[0] ? false : true )
