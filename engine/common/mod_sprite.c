@@ -58,9 +58,7 @@ static byte *Mod_SwapSpriteFrame( byte *p, byte *end, int bytes )
 
 	memcpy( &frame, p, sizeof( frame ));
 	le_struct_swap( dspriteframe_swap, &frame );
-#if XASH_BIG_ENDIAN
 	memcpy( p, &frame, sizeof( frame ));
-#endif
 	p += sizeof( frame );
 
 	// skip pixel data
@@ -73,26 +71,30 @@ static byte *Mod_SwapSpriteFrame( byte *p, byte *end, int bytes )
 
 static byte *Mod_SwapSpriteGroup( byte *p, byte *end, int bytes )
 {
-	dspritegroup_t *group;
+	dspritegroup_t group;
 
-	if( p + sizeof( *group ) > end )
+	if( p + sizeof( group ) > end )
 		return NULL;
 
-	group = (dspritegroup_t *)p;
-	group->numframes = LittleLong( group->numframes );
-	p += sizeof( *group );
+	memcpy( &group, p, sizeof( group ));
+	group.numframes = LittleLong( group.numframes );
+	memcpy( p, &group, sizeof( group ));
+	p += sizeof( group );
 
 	// swap intervals
-	int numframes = group->numframes;
+	int numframes = group.numframes;
 
 	if( p + numframes * sizeof( dspriteinterval_t ) > end )
 		return NULL;
 
 	for( int i = 0; i < numframes; i++ )
 	{
-		dspriteinterval_t *interval = (dspriteinterval_t *)p;
-		interval->interval = LittleFloat( interval->interval );
-		p += sizeof( *interval );
+		dspriteinterval_t interval;
+
+		memcpy( &interval, p, sizeof( interval ));
+		interval.interval = LittleFloat( interval.interval );
+		memcpy( p, &interval, sizeof( interval ));
+		p += sizeof( interval );
 	}
 
 	// swap each frame in the group
@@ -155,16 +157,17 @@ static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_versio
 	// swap all frames
 	for( int i = 0; i < numframes && p && p < end; i++ )
 	{
-		dframetype_t *frametype;
+		dframetype_t frametype;
 
-		if( p + sizeof( *frametype ) > end )
+		if( p + sizeof( frametype ) > end )
 			return false;
 
-		frametype = (dframetype_t *)p;
-		frametype->type = LittleLong( frametype->type );
-		p += sizeof( *frametype );
+		memcpy( &frametype, p, sizeof( frametype ));
+		frametype.type = LittleLong( frametype.type );
+		memcpy( p, &frametype, sizeof( frametype ));
+		p += sizeof( frametype );
 
-		switch( frametype->type )
+		switch( frametype.type )
 		{
 		case FRAME_SINGLE:
 			p = Mod_SwapSpriteFrame( p, end, bytes );
