@@ -122,12 +122,12 @@ typedef struct searchpath_s
 
 typedef searchpath_t *(*FS_ADDARCHIVE_FULLPATH)( const char *path, int flags );
 
-extern fs_globals_t  FI;
-extern searchpath_t *fs_writepath;
-extern poolhandle_t  fs_mempool;
+extern char fs_rootdir[MAX_SYSPATH], fs_basedir[MAX_SYSPATH], fs_rodir[MAX_SYSPATH];
+extern fs_globals_t FI;
+extern searchpath_t *fs_writepath, *fs_searchpaths;
+extern poolhandle_t fs_mempool;
 extern fs_interface_t g_engfuncs;
-extern char          fs_rootdir[MAX_SYSPATH];
-extern const fs_api_t     g_api;
+extern const fs_api_t g_api;
 
 #define GI FI.GameInfo
 
@@ -148,82 +148,94 @@ extern const fs_api_t     g_api;
 //
 // filesystem.c
 //
-qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
-void FS_ShutdownStdio( void );
-searchpath_t *FS_MountArchive_Fullpath( const char *file, int flags );
+void FS_InitMemory( void );
 void _Mem_Free( void *data, const char *filename, int fileline );
 void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+void FS_EnsureOpenFile( file_t *file );
+void FS_BackupFileName( file_t *file, const char *path, uint options );
 
-// search path utils
-void FS_Rescan( uint32_t flags, const char *language );
-void FS_ClearSearchPath( void );
-void FS_AllowDirectPaths( qboolean enable );
+//
+// searchpath.c
+//
+searchpath_t *FS_MountArchive_Fullpath( const char *file, int flags );
 void FS_AddGameDirectory( const char *dir, uint flags );
+void FS_ClearSearchPath( void );
+int FS_CheckNastyPath( const char *path );
 void FS_AddGameHierarchy( const char *dir, uint flags );
-search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
-	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
-int FS_SetCurrentDirectory( const char *path );
-qboolean FS_GetRootDirectory( char *path, size_t size );
+void FS_Rescan( uint32_t flags, const char *language );
+const char *FS_Gamedir( void );
+void FS_LoadGameInfo( uint32_t flags, const char *language );
+qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
+void FS_AllowDirectPaths( qboolean enable );
+void FS_ShutdownStdio( void );
 void FS_Path_f( void );
+searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t len, uint32_t flags );
+qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dllinfo_t *dllInfo );
+qboolean FS_FullPathToRelativePath( char *dst, const char *src, size_t size );
+search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+qboolean FS_IsArchiveExtensionSupported( const char *ext, uint flags );
+searchpath_t *FS_GetArchiveByName( const char *name, searchpath_t *prev );
+int FS_FindFileInArchive( searchpath_t *sp, const char *path, char *truepath, size_t len );
+file_t *FS_OpenFileFromArchive( searchpath_t *sp, const char *path, const char *mode, int pack_ind );
 
-// file ops
-int FS_Close( file_t *file );
-file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
-	MALLOC_LIKE( FS_Close, 1 ) WARN_UNUSED_RESULT;
-fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize );
-fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize );
-int FS_Seek( file_t *file, fs_offset_t offset, int whence );
-fs_offset_t FS_Tell( const file_t *file );
-qboolean FS_Eof( const file_t *file );
-int FS_Flush( file_t *file );
-int FS_Gets( file_t *file, char *string, size_t bufsize );
-int FS_UnGetc( file_t *file, char c );
-int FS_Getc( file_t *file );
-int FS_VPrintf( file_t *file, const char *format, va_list ap );
-int FS_Printf( file_t *file, const char *format, ... ) FORMAT_CHECK( 2 );
-int FS_Print( file_t *file, const char *msg );
-fs_offset_t FS_FileLength( const file_t *f );
-qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
+//
+// gameinfo.c
+//
+void FS_MakeGameInfo( void );
+qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo, qboolean rodir );
 
-// file buffer ops
-byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
-	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
-byte *FS_LoadFileMalloc( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
-	MALLOC_LIKE( free, 1 ) WARN_UNUSED_RESULT;
-byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
-	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
-qboolean FS_WriteFile( const char *filename, const void *data, fs_offset_t len );
-
-// file hashing
-qboolean CRC32_File( dword *crcvalue, const char *filename );
-qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] );
-
-// stringlist ops
+//
+// sys.c
+//
 void stringlistinit( stringlist_t *list );
 void stringlistfreecontents( stringlist_t *list );
 void stringlistappend( stringlist_t *list, const char *text );
 void stringlistsort( stringlist_t *list );
 void listdirectory( stringlist_t *list, const char *path, qboolean dirs_only );
-
-// filesystem ops
-int FS_FileExists( const char *filename, int gamedironly );
-int FS_FileTime( const char *filename, qboolean gamedironly );
-fs_offset_t FS_FileSize( const char *filename, qboolean gamedironly );
-qboolean FS_Rename( const char *oldname, const char *newname );
-qboolean FS_Delete( const char *path );
-qboolean FS_SysFileExists( const char *path );
-const char *FS_GetDiskPath( const char *name, qboolean gamedironly );
-qboolean FS_GetFullDiskPath( char *buffer, size_t size, const char *name, qboolean gamedironly );
 void FS_CreatePath( char *path );
+int FS_SysFileTime( const char *filename );
+file_t *FS_SysOpen( const char *filepath, const char *mode );
+file_t *FS_OpenHandle( searchpath_t *search, int handle, fs_offset_t offset, fs_offset_t len );
+qboolean FS_SysFileExists( const char *path );
 qboolean FS_SysFolderExists( const char *path );
 qboolean FS_SysFileOrFolderExists( const char *path );
-file_t  *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedironly );
+int FS_SetCurrentDirectory( const char *path );
 
-int FS_SysFileTime( const char *filename );
-file_t *FS_OpenHandle( searchpath_t *search, int handle, fs_offset_t offset, fs_offset_t len );
-file_t *FS_SysOpen( const char *filepath, const char *mode );
-qboolean FS_FullPathToRelativePath( char *dst, const char *src, size_t size );
+//
+// io.c
+//
+file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedironly );
+int FS_Close( file_t *file );
+file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly ) MALLOC_LIKE( FS_Close, 1 ) WARN_UNUSED_RESULT;
+int FS_Flush( file_t *file );
+fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize );
+fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize );
+int FS_Print( file_t *file, const char *msg );
+int FS_Printf( file_t *file, const char *format, ... ) FORMAT_CHECK( 2 );
+int FS_VPrintf( file_t *file, const char *format, va_list ap );
+int FS_Getc( file_t *file );
+int FS_UnGetc( file_t *file, char c );
+int FS_Gets( file_t *file, char *string, size_t bufsize );
+int FS_Seek( file_t *file, fs_offset_t offset, int whence );
+fs_offset_t FS_Tell( const file_t *file );
+qboolean FS_Eof( const file_t *file );
+byte *FS_LoadFileFromArchive( searchpath_t *sp, const char *path, int pack_ind, fs_offset_t *filesizeptr, const qboolean sys_malloc );
+byte *FS_LoadFileMalloc( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly ) MALLOC_LIKE( free, 1 ) WARN_UNUSED_RESULT;
+byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+qboolean CRC32_File( dword *crcvalue, const char *filename );
+qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] );
+byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+qboolean FS_WriteFile( const char *filename, const void *data, fs_offset_t len );
+int FS_FileExists( const char *filename, int gamedironly );
+const char *FS_GetDiskPath( const char *name, qboolean gamedironly );
+qboolean FS_GetFullDiskPath( char *buffer, size_t size, const char *name, qboolean gamedironly );
+fs_offset_t FS_FileSize( const char *filename, qboolean gamedironly );
+fs_offset_t FS_FileLength( const file_t *f );
+int FS_FileTime( const char *filename, qboolean gamedironly );
+qboolean FS_Rename( const char *oldname, const char *newname );
+qboolean FS_Delete( const char *path );
+qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
 
 //
 // pak.c

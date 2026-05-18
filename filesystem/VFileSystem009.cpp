@@ -433,7 +433,7 @@ public:
 
 	bool GetCurrentDirectory( char *p, int size ) override
 	{
-		return FS_GetRootDirectory( p, size );
+		return g_api.GetRootDirectory( p, size );
 	}
 
 	void PrintOpenedFiles() override
