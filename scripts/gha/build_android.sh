@@ -9,20 +9,10 @@ pushd android || exit 1
 
 ./gradlew assembleContinuous --no-daemon || exit 1
 
-pushd app/build/outputs/apk/continuous || exit 1
-
-"$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
-	--ks "$GITHUB_WORKSPACE/android/debug.keystore" \
-	--ks-key-alias androiddebugkey \
-	--ks-pass pass:android \
-	--key-pass pass:android \
-	--out app-continuous-signed.apk app-continuous-unsigned.apk || exit 1
-
-popd || exit 1
 popd || exit 1
 
 mkdir -p artifacts/
 
-mv android/app/build/outputs/apk/continuous/app-continuous-signed.apk artifacts/xash3d-fwgs-android.apk
+mv android/app/build/outputs/apk/continuous/app-continuous.apk artifacts/xash3d-fwgs-android.apk
 tar -cJvf artifacts/xash3d-fwgs-android-mappings.tar.zst -C android/app/build/outputs/mapping/continuous '.'
 
