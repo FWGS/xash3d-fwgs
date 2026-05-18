@@ -318,6 +318,12 @@ static void SV_ProcessFile( sv_client_t *cl, const char *filename )
 		return;
 	}
 
+	if( Q_strlen( filename ) < 36 )
+	{
+		Con_Printf( "%s: Malformed customization filename from %s (too short)\n", __func__, cl->name );
+		return;
+	}
+
 	COM_HexConvert( filename + 4, 32, md5 );
 
 	for( resource = cl->resourcesneeded.pNext; resource != &cl->resourcesneeded; resource = next )
