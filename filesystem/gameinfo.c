@@ -39,8 +39,8 @@ assume GameInfo is valid
 */
 static qboolean FS_WriteGameInfo( const char *filepath, const gameinfo_t *GameInfo )
 {
-	file_t	*f = FS_Open( filepath, "w", false ); // we in binary-mode
-	int	i, write_ambients = false;
+	file_t *f = FS_Open( filepath, "w", false ); // we in binary-mode
+	int write_ambients = false;
 
 	if( !f )
 		return false;
@@ -128,7 +128,7 @@ static qboolean FS_WriteGameInfo( const char *filepath, const gameinfo_t *GameIn
 	if( GameInfo->max_particles > 0 )
 		FS_Printf( f, "max_particles\t%i\n", GameInfo->max_particles );
 
-	for( i = 0; i < NUM_AMBIENTS; i++ )
+	for( int i = 0; i < NUM_AMBIENTS; i++ )
 	{
 		if( *GameInfo->ambientsound[i] )
 		{
@@ -421,7 +421,7 @@ static void FS_ParseGenericGameInfo( gameinfo_t *GameInfo, const char *buf, cons
 			}
 			else if( !Q_strnicmp( token, "ambient", 7 ))
 			{
-				int	ambientNum = Q_atoi( token + 7 );
+				int ambientNum = Q_atoi( token + 7 );
 
 				if( ambientNum < 0 || ambientNum >= NUM_AMBIENTS )
 					ambientNum = 0;
@@ -569,10 +569,9 @@ static qboolean FS_CheckForQuakeGameDir( const char *gamedir )
 	// if directory contain quake.rc or progs.dat it's 100% quake gamedir
 	// quake mods probably always archived, so check pak0.pak too
 	const char *files[] = { "pak0.pak", "PAK0.PAK", "progs.dat", "quake.rc" };
-	int i;
 
 	// search it in the filesystem
-	for( i = 0; i < sizeof( files ) / sizeof( files[0] ); i++ )
+	for( int i = 0; i < sizeof( files ) / sizeof( files[0] ); i++ )
 	{
 		char buf[MAX_SYSPATH];
 
@@ -607,9 +606,8 @@ static qboolean FS_CheckForXashGameDir( const char *gamedir )
 {
 	// if directory contain gameinfo.txt or liblist.gam it's 100% gamedir
 	const char *files[] = { "gameinfo.txt", "liblist.gam" };
-	int i;
 
-	for( i = 0; i < sizeof( files ) / sizeof( files[0] ); i++ )
+	for( int i = 0; i < sizeof( files ) / sizeof( files[0] ); i++ )
 	{
 		char buf[MAX_SYSPATH];
 
@@ -633,8 +631,8 @@ qboolean FS_ParseGameInfo( const char *gamedir, gameinfo_t *GameInfo, qboolean r
 	char liblist_path[MAX_SYSPATH];
 	char gameinfo_path[MAX_SYSPATH];
 	char gamedir_path[MAX_SYSPATH];
-	time_t liblist_mtime = -1;
-	time_t gameinfo_mtime = -1;
+	time_t liblist_mtime;
+	time_t gameinfo_mtime;
 
 	if( rodir )
 		Q_snprintf( gamedir_path, sizeof( gamedir_path ), "%s/%s", fs_rodir, gamedir );

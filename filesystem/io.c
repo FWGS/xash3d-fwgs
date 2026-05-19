@@ -62,11 +62,9 @@ Look for a file in the search paths and open it in read-only mode
 */
 file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedironly )
 {
-	searchpath_t *search;
 	char netpath[MAX_SYSPATH];
 	int pack_ind;
-
-	search = FS_FindFile( filename, &pack_ind, netpath, sizeof( netpath ), gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 );
+	searchpath_t *search = FS_FindFile( filename, &pack_ind, netpath, sizeof( netpath ), gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 );
 
 	// not found?
 	if( search == NULL )
@@ -100,7 +98,7 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 	// if the file is opened in "write", "append", or "read/write" mode
 	if( mode[0] == 'w' || mode[0] == 'a'|| mode[0] == 'e' || Q_strchr( mode, '+' ))
 	{
-		char	real_path[MAX_SYSPATH];
+		char real_path[MAX_SYSPATH];
 
 		// open the file on disk directly
 		if( !FS_FixFileCase( fs_writepath->dir, filepath, real_path, sizeof( real_path ), true ))
@@ -179,7 +177,7 @@ Write "datasize" bytes into a file
 */
 fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize )
 {
-	fs_offset_t	result;
+	fs_offset_t result;
 
 	if( !file ) return 0;
 
@@ -211,9 +209,9 @@ Read up to "buffersize" bytes from a file
 */
 fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 {
-	fs_offset_t	done;
-	fs_offset_t	nb;
-	fs_offset_t	count;
+	fs_offset_t done;
+	fs_offset_t nb;
+	fs_offset_t count;
 
 	// nothing to copy
 	if( buffersize == 0 ) return 1;
@@ -395,8 +393,8 @@ Print a string into a file
 */
 int FS_Printf( file_t *file, const char *format, ... )
 {
-	int	result;
-	va_list	args;
+	int result;
+	va_list args;
 
 	va_start( args, format );
 	result = FS_VPrintf( file, format, args );
@@ -414,9 +412,9 @@ Print a string into a file
 */
 int FS_VPrintf( file_t *file, const char *format, va_list ap )
 {
-	int	len;
-	fs_offset_t	buff_size = MAX_SYSPATH;
-	char	*tempbuff;
+	int len;
+	fs_offset_t buff_size = MAX_SYSPATH;
+	char *tempbuff;
 
 	if( !file ) return 0;
 
@@ -447,7 +445,7 @@ Get the next character of a file
 */
 int FS_Getc( file_t *file )
 {
-	char	c;
+	char c;
 
 	if( FS_Read( file, &c, 1 ) != 1 )
 		return EOF;
@@ -481,7 +479,7 @@ Same as fgets
 */
 int FS_Gets( file_t *file, char *string, size_t bufsize )
 {
-	int	c, end = 0;
+	int c, end = 0;
 
 	while( 1 )
 	{
@@ -636,11 +634,11 @@ FS_LoadFileFromArchive
 */
 byte *FS_LoadFileFromArchive( searchpath_t *sp, const char *path, int pack_ind, fs_offset_t *filesizeptr, const qboolean sys_malloc )
 {
-	fs_offset_t	filesize;
-	file_t *file;
-	byte *buf;
 	void *( *pfnAlloc )( size_t ) = sys_malloc ? malloc : FS_CustomAlloc;
 	void ( *pfnFree )( void * ) = sys_malloc ? free : FS_CustomFree;
+	fs_offset_t filesize;
+	file_t *file;
+	byte *buf;
 
 	// custom load file function for compressed files
 	if( sp->pfnLoadFile )
@@ -679,9 +677,9 @@ Always appends a 0 byte.
 */
 static byte *FS_LoadFile_( const char *path, fs_offset_t *filesizeptr, const qboolean gamedironly, const qboolean custom_alloc )
 {
-	searchpath_t *search;
 	char netpath[MAX_SYSPATH];
 	int pack_ind;
+	searchpath_t *search;
 
 	// some mappers used leading '/' or '\' in path to models or sounds
 	if( path[0] == '/' || path[0] == '\\' )
@@ -719,18 +717,16 @@ CRC32_File
 */
 qboolean CRC32_File( dword *crcvalue, const char *filename )
 {
-	char	buffer[1024];
-	int	num_bytes;
-	file_t	*f;
+	char buffer[1024];
+	file_t *f = FS_Open( filename, "rb", false );
 
-	f = FS_Open( filename, "rb", false );
 	if( !f ) return false;
 
 	CRC32_Init( crcvalue );
 
 	while( 1 )
 	{
-		num_bytes = FS_Read( f, buffer, sizeof( buffer ));
+		int num_bytes = FS_Read( f, buffer, sizeof( buffer ));
 
 		if( num_bytes > 0 )
 			CRC32_ProcessBuffer( crcvalue, buffer, num_bytes );
@@ -750,10 +746,10 @@ MD5_HashFile
 */
 qboolean MD5_HashFile( byte digest[16], const char *pszFileName, uint seed[4] )
 {
-	file_t		*file;
-	MD5Context_t	MD5_Hash = { 0 };
+	file_t *file = FS_Open( pszFileName, "rb", false );
+	MD5Context_t MD5_Hash = { 0 };
 
-	if(( file = FS_Open( pszFileName, "rb", false )) == NULL )
+	if( !file )
 		return false;
 
 	MD5Init( &MD5_Hash );
@@ -787,11 +783,9 @@ FS_LoadDirectFile
 */
 byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 {
-	file_t		*file;
-	byte		*buf = NULL;
-	fs_offset_t	filesize = 0;
-
-	file = FS_SysOpen( path, "rb" );
+	file_t *file = FS_SysOpen( path, "rb" );
+	fs_offset_t filesize;
+	byte *buf;
 
 	if( !file )
 		return NULL;
@@ -819,9 +813,7 @@ The filename will be prefixed by the current game directory
 */
 qboolean FS_WriteFile( const char *filename, const void *data, fs_offset_t len )
 {
-	file_t *file;
-
-	file = FS_Open( filename, "wb", false );
+	file_t *file = FS_Open( filename, "wb", false );
 
 	if( !file )
 	{
@@ -875,10 +867,8 @@ return false for file in pack
 */
 qboolean FS_GetFullDiskPath( char *buffer, size_t size, const char *name, qboolean gamedironly )
 {
-	searchpath_t *search;
 	char temp[MAX_SYSPATH];
-
-	search = FS_FindFile( name, NULL, temp, sizeof( temp ), gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 );
+	searchpath_t *search = FS_FindFile( name, NULL, temp, sizeof( temp ), gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 );
 
 	if( search && search->type == SEARCHPATH_PLAIN )
 	{
@@ -898,10 +888,8 @@ return size of file in bytes
 */
 fs_offset_t FS_FileSize( const char *filename, qboolean gamedironly )
 {
-	int	length = -1; // in case file was missed
-	file_t	*fp;
-
-	fp = FS_Open( filename, "rb", gamedironly );
+	int length = -1; // in case file was missed
+	file_t *fp = FS_Open( filename, "rb", gamedironly );
 
 	if( fp )
 	{
@@ -936,11 +924,10 @@ return time of creation file in seconds
 */
 int FS_FileTime( const char *filename, qboolean gamedironly )
 {
-	searchpath_t *search;
 	char netpath[MAX_SYSPATH];
 	int pack_ind;
+	searchpath_t *search = FS_FindFile( filename, &pack_ind, netpath, sizeof( netpath ), gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 );
 
-	search = FS_FindFile( filename, &pack_ind, netpath, sizeof( netpath ), gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 );
 	if( !search )
 		return -1; // doesn't exist
 
@@ -1040,9 +1027,9 @@ FS_FileCopy
 */
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize )
 {
-	char	*buf = Mem_Malloc( fs_mempool, FILE_COPY_SIZE );
-	int	size, readSize;
-	qboolean	done = true;
+	char *buf = Mem_Malloc( fs_mempool, FILE_COPY_SIZE );
+	int size, readSize;
+	qboolean done = true;
 
 	while( fileSize > 0 )
 	{
