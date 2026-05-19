@@ -72,19 +72,16 @@ R_AddDynamicLights
 static void R_AddDynamicLights( const msurface_t *surf )
 {
 	const mextrasurf_t *info = surf->info;
-	int        lnum, smax, tmax;
-	int        sample_frac = 1.0;
-	float      sample_size;
-	mtexinfo_t *tex;
+	int sample_frac = 1.0;
 
 	// no dlighted surfaces here
 	if( !surf->dlightbits )
 		return;
 
-	sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-	smax = ( info->lightextents[0] / sample_size ) + 1;
-	tmax = ( info->lightextents[1] / sample_size ) + 1;
-	tex = surf->texinfo;
+	float      sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
+	int        smax = ( info->lightextents[0] / sample_size ) + 1;
+	int        tmax = ( info->lightextents[1] / sample_size ) + 1;
+	mtexinfo_t *tex = surf->texinfo;
 
 	if( FBitSet( tex->flags, TEX_WORLD_LUXELS ))
 	{
@@ -96,18 +93,15 @@ static void R_AddDynamicLights( const msurface_t *surf )
 			sample_frac = LM_SAMPLE_SIZE;
 	}
 
-	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
+	for( int lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
 	{
-		dlight_t *dl;
-		vec3_t   impact, origin_l;
-		float    dist, rad, minlight;
-		float    sl, tl;
-		int      t, monolight;
+		vec3_t impact, origin_l;
+		float  dist;
 
 		if( !FBitSet( surf->dlightbits, BIT( lnum )))
 			continue; // not lit by this light
 
-		dl = &gp_dlights[lnum];
+		dlight_t *dl = &gp_dlights[lnum];
 
 		// transform light origin to local bmodel space
 		if( !tr.modelviewIdentity )
@@ -115,12 +109,12 @@ static void R_AddDynamicLights( const msurface_t *surf )
 		else
 			VectorCopy( dl->origin, origin_l );
 
-		rad = dl->radius;
+		float rad = dl->radius;
 		dist = PlaneDiff( origin_l, surf->plane );
 		rad -= fabs( dist );
 
 		// rad is now the highest intensity on the plane
-		minlight = dl->minlight;
+		float minlight = dl->minlight;
 		if( rad < minlight )
 			continue;
 
@@ -134,20 +128,19 @@ static void R_AddDynamicLights( const msurface_t *surf )
 		else
 			VectorMA( origin_l, -dist, surf->plane->normal, impact );
 
-		sl = DotProduct( impact, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
-		tl = DotProduct( impact, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
+		float sl = DotProduct( impact, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
+		float tl = DotProduct( impact, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
 
-		monolight = LightToTexGamma(( dl->color.r + dl->color.g + dl->color.b ) / 3 * 4 ) * 3;
+		int monolight = LightToTexGamma(( dl->color.r + dl->color.g + dl->color.b ) / 3 * 4 ) * 3;
 
-		for( t = 0; t < tmax; t++ )
+		for( int t = 0; t < tmax; t++ )
 		{
 			int td = ( tl - sample_size * t ) * sample_frac;
-			int s;
 
 			if( td < 0 )
 				td = -td;
 
-			for( s = 0; s < smax; s++ )
+			for( int s = 0; s < smax; s++ )
 			{
 				int   sd = ( sl - sample_size * s ) * sample_frac;
 				float dist;
@@ -180,7 +173,6 @@ format in r_blocklights
 */
 static void R_BuildLightMap( void )
 {
-	int                map, t, i;
 	const msurface_t   *surf = r_drawsurf.surf;
 	const mextrasurf_t *info = surf->info;
 	const int          sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
@@ -199,18 +191,16 @@ static void R_BuildLightMap( void )
 	memset( blocklights, 0, sizeof( uint ) * size );
 
 	// add all the lightmaps
-	for( map = 0; map < MAXLIGHTMAPS && surf->samples; map++ )
+	for( int map = 0; map < MAXLIGHTMAPS && surf->samples; map++ )
 	{
 		const color24 *lm = &surf->samples[map * size];
-		uint          scale;
-		int           i;
 
 		if( surf->styles[map] >= 255 )
 			break;
 
-		scale = g_lightstylevalue[surf->styles[map]];
+		uint scale = g_lightstylevalue[surf->styles[map]];
 
-		for( i = 0; i < size; i++ )
+		for( int i = 0; i < size; i++ )
 			blocklights[i] += ( lm[i].r + lm[i].g + lm[i].b ) * scale;
 	}
 
@@ -219,8 +209,9 @@ static void R_BuildLightMap( void )
 		R_AddDynamicLights( surf );
 
 	// bound, invert, and shift
-	for( i = 0; i < size; i++ )
+	for( int i = 0; i < size; i++ )
 	{
+		int t;
 		if( blocklights[i] < 65280 )
 			t = LightToTexGamma( blocklights[i] >> 6 ) << 6;
 		else
@@ -248,7 +239,7 @@ Returns the proper texture for a given time and surface
 static texture_t *R_TextureAnimation( msurface_t *s )
 {
 	texture_t *base = s->texinfo->texture;
-	int       count, reletive;
+	int       reletive;
 
 	if( RI.currententity && RI.currententity->curstate.frame )
 	{
@@ -279,7 +270,7 @@ static texture_t *R_TextureAnimation( msurface_t *s )
 		reletive = (int)( gp_cl->time * speed ) % base->anim_total;
 	}
 
-	count = 0;
+	int count = 0;
 
 	while( base->anim_min > reletive || base->anim_max <= reletive )
 	{
@@ -818,12 +809,10 @@ D_FlushCaches
 */
 void D_FlushCaches( void )
 {
-	surfcache_t *c;
-
 	// if newmap, surfaces already freed
 	if( !tr.map_unload )
 	{
-		for( c = sc_base; c; c = c->next )
+		for( surfcache_t *c = sc_base; c; c = c->next )
 		{
 			if( c->owner )
 				*c->owner = NULL;
@@ -925,9 +914,8 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 static void R_DrawSurfaceDecals( void )
 {
 	msurface_t *fa = r_drawsurf.surf;
-	decal_t    *p;
 
-	for( p = fa->pdecals; p; p = p->pnext )
+	for( decal_t *p = fa->pdecals; p; p = p->pnext )
 	{
 		pixel_t      *dest, *source;
 		vec4_t       textureU, textureV;
@@ -1066,7 +1054,6 @@ D_CacheSurface
 surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 {
 	surfcache_t *cache;
-	int         maps;
 //
 // if the surface is animating or flashing, flush the cache
 //
@@ -1101,7 +1088,7 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	cache = CACHESPOT( surface )[miplevel];
 
 	// check for lightmap modification
-	for( maps = 0; maps < MAXLIGHTMAPS && surface->styles[maps] != 255; maps++ )
+	for( int maps = 0; maps < MAXLIGHTMAPS && surface->styles[maps] != 255; maps++ )
 	{
 		if( g_lightstylevalue[surface->styles[maps]] != surface->cached_light[maps] )
 		{
@@ -1120,9 +1107,8 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 	if( surface->dlightframe == tr.framecount )
 	{
-		int i;
 		// invalidate dlight cache
-		for( i = 0; i < 4; i++ )
+		for( int i = 0; i < 4; i++ )
 		{
 			if( CACHESPOT( surface )[i] )
 				CACHESPOT( surface )[i]->image = NULL;
