@@ -157,15 +157,12 @@ R_DrawSpriteModel
 void R_DrawSpriteModel( cl_entity_t *e )
 {
 	mspriteframe_t *frame = NULL;
-	msprite_t      *psprite;
-	model_t        *model;
-	int i, type;
-	float          angle, dot, sr, cr, scale;
+	float          angle, dot, sr, cr;
 	vec3_t         v_forward, v_right, v_up;
 	vec3_t         origin, color;
 
-	model = e->model;
-	psprite = (msprite_t *)model->cache.data;
+	model_t   *model = e->model;
+	msprite_t *psprite = (msprite_t *)model->cache.data;
 	VectorCopy( e->origin, origin ); // set render origin
 
 	// do movewith
@@ -187,7 +184,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		}
 	}
 
-	scale = e->curstate.scale;
+	float scale = e->curstate.scale;
 	if( !scale )
 		scale = 1.0f;
 
@@ -217,7 +214,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 
 	frame = gEngfuncs.R_GetSpriteFrame( model, e->curstate.frame, e->angles[YAW] );
 
-	type = psprite->type;
+	int type = psprite->type;
 
 	// automatically roll parallel sprites if requested
 	if( e->angles[ROLL] != 0.0f && type == SPR_FWD_PARALLEL )
@@ -246,7 +243,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	case SPR_FWD_PARALLEL_ORIENTED:
 		angle = e->angles[ROLL] * ( M_PI2 / 360.0f );
 		SinCos( angle, &sr, &cr );
-		for( i = 0; i < 3; i++ )
+		for( int i = 0; i < 3; i++ )
 		{
 			v_right[i] = ( RI.vright[i] * cr + RI.vup[i] * sr );
 			v_up[i] = RI.vright[i] * -sr + RI.vup[i] * cr;

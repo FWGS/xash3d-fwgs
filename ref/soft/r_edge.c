@@ -80,8 +80,6 @@ R_BeginEdgeFrame
 */
 void R_BeginEdgeFrame( void )
 {
-	int v;
-
 	edge_p = r_edges;
 	edge_max = &r_edges[r_numallocatededges];
 
@@ -105,7 +103,7 @@ void R_BeginEdgeFrame( void )
 	}
 
 // FIXME: set with memset
-	for( v = RI.vrect.y; v < RI.vrectbottom; v++ )
+	for( int v = RI.vrect.y; v < RI.vrectbottom; v++ )
 	{
 		newedges[v] = removeedges[v] = NULL;
 	}
@@ -250,17 +248,13 @@ R_CleanupSpan
 */
 static void R_CleanupSpan( void )
 {
-	surf_t  *surf;
-	int     iu;
-	espan_t *span;
-
 // now that we've reached the right edge of the screen, we're done with any
 // unfinished surfaces, so emit a span for whatever's on top
-	surf = surfaces[1].next;
-	iu = edge_tail_u_shift20;
+	surf_t *surf = surfaces[1].next;
+	int    iu = edge_tail_u_shift20;
 	if( iu > surf->last_u )
 	{
-		span = span_p++;
+		espan_t *span = span_p++;
 		span->u = surf->last_u;
 		span->count = iu - span->u;
 		span->v = current_iv;
@@ -285,12 +279,11 @@ R_LeadingEdgeBackwards
 */
 void R_LeadingEdgeBackwards( edge_t *edge )
 {
-	espan_t *span;
-	surf_t  *surf, *surf2;
-	int     iu;
+	surf_t *surf2;
+	int    iu;
 
 // it's adding a new surface in, so find the correct place
-	surf = &surfaces[edge->surfs[1]];
+	surf_t *surf = &surfaces[edge->surfs[1]];
 
 // don't start a span if this is an inverted span, with the end
 // edge preceding the start edge (that is, we've already seen the
@@ -338,7 +331,7 @@ newtop:
 
 		if( iu > surf2->last_u )
 		{
-			span = span_p++;
+			espan_t *span = span_p++;
 			span->u = surf2->last_u;
 			span->count = iu - span->u;
 			span->v = current_iv;
@@ -366,9 +359,6 @@ R_TrailingEdge
 */
 void R_TrailingEdge( surf_t *surf, edge_t *edge )
 {
-	espan_t *span;
-	int     iu;
-
 // don't generate a span if this is an inverted span, with the end
 // edge preceding the start edge (that is, we haven't seen the
 // start edge yet)
@@ -377,10 +367,10 @@ void R_TrailingEdge( surf_t *surf, edge_t *edge )
 		if( surf == surfaces[1].next )
 		{
 			// emit a span (current top going away)
-			iu = edge->u >> 20;
+			int iu = edge->u >> 20;
 			if( iu > surf->last_u )
 			{
-				span = span_p++;
+				espan_t *span = span_p++;
 				span->u = surf->last_u;
 				span->count = iu - span->u;
 				span->v = current_iv;
@@ -530,20 +520,17 @@ R_GenerateSpans
 */
 void R_GenerateSpans( void )
 {
-	edge_t *edge;
-	surf_t *surf;
-
 // clear active surfaces to just the background surface
 	surfaces[1].next = surfaces[1].prev = &surfaces[1];
 	surfaces[1].last_u = edge_head_u_shift20;
 
 // generate spans
-	for( edge = edge_head.next; edge != &edge_tail; edge = edge->next )
+	for( edge_t *edge = edge_head.next; edge != &edge_tail; edge = edge->next )
 	{
 		if( edge->surfs[0] )
 		{
 			// it has a left surface, so a surface is going away for this span
-			surf = &surfaces[edge->surfs[0]];
+			surf_t *surf = &surfaces[edge->surfs[0]];
 
 			R_TrailingEdge( surf, edge );
 
@@ -564,14 +551,12 @@ R_GenerateSpansBackward
 */
 void R_GenerateSpansBackward( void )
 {
-	edge_t *edge;
-
 // clear active surfaces to just the background surface
 	surfaces[1].next = surfaces[1].prev = &surfaces[1];
 	surfaces[1].last_u = edge_head_u_shift20;
 
 // generate spans
-	for( edge = edge_head.next; edge != &edge_tail; edge = edge->next )
+	for( edge_t *edge = edge_head.next; edge != &edge_tail; edge = edge->next )
 	{
 		if( edge->surfs[0] )
 			R_TrailingEdge( &surfaces[edge->surfs[0]], edge );
@@ -598,13 +583,11 @@ Each surface has a linked list of its visible spans
 */
 void R_ScanEdges( void )
 {
-	int     iv, bottom;
-	byte    basespans[MAXSPANS * sizeof( espan_t ) + CACHE_SIZE];
-	espan_t *basespan_p;
-	surf_t  *s;
+	int  iv;
+	byte basespans[MAXSPANS * sizeof( espan_t ) + CACHE_SIZE];
 
-	basespan_p = (espan_t *)
-		     ((uintptr_t)( basespans + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
+	espan_t *basespan_p = (espan_t *)
+			      ((uintptr_t)( basespans + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
 	max_span_p = &basespan_p[MAXSPANS - RI.vrect.width];
 
 	span_p = basespan_p;
@@ -639,7 +622,7 @@ void R_ScanEdges( void )
 //
 // process all scan lines
 //
-	bottom = RI.vrectbottom - 1;
+	int bottom = RI.vrectbottom - 1;
 
 	for( iv = 0; iv < bottom; iv++ )
 	{
@@ -662,7 +645,7 @@ void R_ScanEdges( void )
 			D_DrawSurfaces();
 
 			// clear the surface span pointers
-			for( s = &surfaces[1]; s < surface_p; s++ )
+			for( surf_t *s = &surfaces[1]; s < surface_p; s++ )
 				s->spans = NULL;
 
 			span_p = basespan_p;
@@ -740,16 +723,11 @@ Simple single color fill with no texture mapping
 */
 static void D_FlatFillSurface( surf_t *surf, int color )
 {
-	espan_t *span;
-	pixel_t *pdest;
-	int     u, u2;
-
-	for( span = surf->spans; span; span = span->pnext )
+	for( espan_t *span = surf->spans; span; span = span->pnext )
 	{
-		pdest = d_viewbuffer + r_screenwidth * span->v;
-		u = span->u;
-		u2 = span->u + span->count - 1;
-		for( ; u <= u2; u++ )
+		pixel_t *pdest = d_viewbuffer + r_screenwidth * span->v;
+		int     u2 = span->u + span->count - 1;
+		for( int u = span->u; u <= u2; u++ )
 			pdest[u] = color;
 	}
 }
@@ -762,12 +740,11 @@ D_CalcGradients
 */
 static void D_CalcGradients( msurface_t *pface )
 {
-	float    mipscale;
-	vec3_t   p_temp1;
-	vec3_t   p_saxis, p_taxis;
-	float    t;
+	vec3_t p_temp1;
+	vec3_t p_saxis, p_taxis;
+	float  t;
 
-	mipscale = 1.0f / (float)( 1 << miplevel );
+	float mipscale = 1.0f / (float)( 1 << miplevel );
 
 	if( pface->texinfo->flags & TEX_WORLD_LUXELS )
 	{
@@ -926,8 +903,6 @@ Normal surface cached, texture mapped surface
 */
 static void D_AlphaSurf( surf_t *s )
 {
-	int alpha;
-
 	d_zistepu = s->d_zistepu;
 	d_zistepv = s->d_zistepv;
 	d_ziorigin = s->d_ziorigin;
@@ -958,7 +933,7 @@ static void D_AlphaSurf( surf_t *s )
 	else
 		miplevel = 0;
 
-	alpha = RI.currententity->curstate.renderamt * 7 / 255;
+	int alpha = RI.currententity->curstate.renderamt * 7 / 255;
 	if( alpha <= 0 && RI.currententity->curstate.renderamt > 0 )
 		alpha = 1;
 
@@ -1092,9 +1067,7 @@ To allow developers to see the polygon carving of the world
 */
 static void D_DrawflatSurfaces( void )
 {
-	surf_t *s;
-
-	for( s = &surfaces[1]; s < surface_p; s++ )
+	for( surf_t *s = &surfaces[1]; s < surface_p; s++ )
 	{
 		if( !s->spans )
 			continue;
@@ -1120,8 +1093,6 @@ May be called more than once a frame if the surf list overflows (higher res)
 */
 void D_DrawSurfaces( void )
 {
-	surf_t *s;
-
 //	currententity = NULL;	//&r_worldentity;
 	VectorSubtract( RI.rvp.vieworigin, vec3_origin, tr.modelorg );
 	TransformVector( tr.modelorg, transformed_modelorg );
@@ -1129,7 +1100,7 @@ void D_DrawSurfaces( void )
 
 	if( !sw_drawflat.value )
 	{
-		for( s = &surfaces[1]; s < surface_p; s++ )
+		for( surf_t *s = &surfaces[1]; s < surface_p; s++ )
 		{
 			if( !s->spans )
 				continue;

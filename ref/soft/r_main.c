@@ -156,16 +156,13 @@ Sorting translucent entities by rendermode then by distance
 */
 static int R_TransEntityCompare( const cl_entity_t **a, const cl_entity_t **b )
 {
-	cl_entity_t *ent1, *ent2;
-	vec3_t      vecLen, org;
-	float       dist1, dist2;
-	int         rendermode1;
-	int         rendermode2;
+	vec3_t vecLen, org;
+	float  dist1, dist2;
 
-	ent1 = (cl_entity_t *)*a;
-	ent2 = (cl_entity_t *)*b;
-	rendermode1 = R_GetEntityRenderMode( ent1 );
-	rendermode2 = R_GetEntityRenderMode( ent2 );
+	cl_entity_t *ent1 = (cl_entity_t *)*a;
+	cl_entity_t *ent2 = (cl_entity_t *)*b;
+	int rendermode1 = R_GetEntityRenderMode( ent1 );
+	int rendermode2 = R_GetEntityRenderMode( ent2 );
 
 	// sort by distance
 	if(( ent1->model && ent1->model->type != mod_brush ) || rendermode1 != kRenderTransAlpha )
@@ -214,7 +211,6 @@ int R_WorldToScreen( const vec3_t point, vec3_t screen )
 {
 	matrix4x4 worldToScreen;
 	qboolean  behind;
-	float     w;
 
 	if( !point || !screen )
 		return true;
@@ -222,7 +218,7 @@ int R_WorldToScreen( const vec3_t point, vec3_t screen )
 	Matrix4x4_Copy( worldToScreen, RI.worldviewProjectionMatrix );
 	screen[0] = worldToScreen[0][0] * point[0] + worldToScreen[0][1] * point[1] + worldToScreen[0][2] * point[2] + worldToScreen[0][3];
 	screen[1] = worldToScreen[1][0] * point[0] + worldToScreen[1][1] * point[1] + worldToScreen[1][2] * point[2] + worldToScreen[1][3];
-	w = worldToScreen[3][0] * point[0] + worldToScreen[3][1] * point[1] + worldToScreen[3][2] * point[2] + worldToScreen[3][3];
+	float w = worldToScreen[3][0] * point[0] + worldToScreen[3][1] * point[1] + worldToScreen[3][2] * point[2] + worldToScreen[3][3];
 	screen[2] = 0.0f; // just so we have something valid here
 
 	if( w < 0.001f )
@@ -250,7 +246,6 @@ Convert a given point from screen into world space
 void GAME_EXPORT R_ScreenToWorld( const vec3_t screen, vec3_t point )
 {
 	matrix4x4 screenToWorld;
-	float     w;
 
 	if( !point || !screen )
 		return;
@@ -260,7 +255,7 @@ void GAME_EXPORT R_ScreenToWorld( const vec3_t screen, vec3_t point )
 	point[0] = screen[0] * screenToWorld[0][0] + screen[1] * screenToWorld[0][1] + screen[2] * screenToWorld[0][2] + screenToWorld[0][3];
 	point[1] = screen[0] * screenToWorld[1][0] + screen[1] * screenToWorld[1][1] + screen[2] * screenToWorld[1][2] + screenToWorld[1][3];
 	point[2] = screen[0] * screenToWorld[2][0] + screen[1] * screenToWorld[2][1] + screen[2] * screenToWorld[2][2] + screenToWorld[2][3];
-	w = screen[0] * screenToWorld[3][0] + screen[1] * screenToWorld[3][1] + screen[2] * screenToWorld[3][2] + screenToWorld[3][3];
+	float w = screen[0] * screenToWorld[3][0] + screen[1] * screenToWorld[3][1] + screen[2] * screenToWorld[3][2] + screenToWorld[3][3];
 	if( w != 0.0f )
 		VectorScale( point, ( 1.0f / w ), point );
 }
@@ -508,7 +503,6 @@ R_DrawEntitiesOnList
 */
 static void R_DrawEntitiesOnList( void )
 {
-	int i;
 	// extern int d_aflatcolor;
 	// d_aflatcolor = 0;
 	tr.blend = 1.0f;
@@ -517,7 +511,7 @@ static void R_DrawEntitiesOnList( void )
 	d_pdrawspans = R_PolysetFillSpans8;
 	GL_SetRenderMode( kRenderNormal );
 	// first draw solid entities
-	for( i = 0; i < tr.draw_list->num_solid_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
+	for( int i = 0; i < tr.draw_list->num_solid_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
@@ -545,7 +539,7 @@ static void R_DrawEntitiesOnList( void )
 
 	R_SetUpWorldTransform();
 	// draw sprites seperately, because of alpha blending
-	for( i = 0; i < tr.draw_list->num_solid_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
+	for( int i = 0; i < tr.draw_list->num_solid_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
@@ -571,7 +565,7 @@ static void R_DrawEntitiesOnList( void )
 
 	d_pdrawspans = R_PolysetDrawSpans8_33;
 	// then draw translucent entities
-	for( i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
+	for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		RI.currententity = tr.draw_list->trans_entities[i];
 		RI.currentmodel = RI.currententity->model;
@@ -636,19 +630,18 @@ R_BmodelCheckBBox
 */
 int R_BmodelCheckBBox( float *minmaxs )
 {
-	int    i, *pindex, clipflags;
 	vec3_t acceptpt, rejectpt;
 	float  d;
 
-	clipflags = 0;
+	int clipflags = 0;
 
-	for( i = 0; i < 4; i++ )
+	for( int i = 0; i < 4; i++ )
 	{
 		// generate accept and reject points
 		// FIXME: do with fast look-ups or integer tests based on the sign bit
 		// of the floating point values
 
-		pindex = qfrustum.pfrustum_indexes[i];
+		int *pindex = qfrustum.pfrustum_indexes[i];
 
 		rejectpt[0] = minmaxs[pindex[0]];
 		rejectpt[1] = minmaxs[pindex[1]];
@@ -681,11 +674,7 @@ R_FindTopNode
 */
 static mnode_t *R_FindTopnode( vec3_t mins, vec3_t maxs )
 {
-	mplane_t *splitplane;
-	int      sides;
-	mnode_t  *node;
-
-	node = WORLDMODEL->nodes;
+	mnode_t *node = WORLDMODEL->nodes;
 
 	while( 1 )
 	{
@@ -700,8 +689,8 @@ static mnode_t *R_FindTopnode( vec3_t mins, vec3_t maxs )
 			return NULL;                            // in solid, so not visible
 		}
 
-		splitplane = node->plane;
-		sides = BOX_ON_PLANE_SIDE( mins, maxs, splitplane );
+		mplane_t *splitplane = node->plane;
+		int      sides = BOX_ON_PLANE_SIDE( mins, maxs, splitplane );
 
 		if( sides == 3 )
 			return node;                            // this is the splitter
@@ -725,7 +714,6 @@ Returns an axially aligned box that contains the input box at the given rotation
 void RotatedBBox( vec3_t mins, vec3_t maxs, vec3_t angles, vec3_t tmins, vec3_t tmaxs )
 {
 	vec3_t tmp, v;
-	int    i, j;
 	vec3_t forward, right, up;
 
 	if( !angles[0] && !angles[1] && !angles[2] )
@@ -735,7 +723,7 @@ void RotatedBBox( vec3_t mins, vec3_t maxs, vec3_t angles, vec3_t tmins, vec3_t 
 		return;
 	}
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		tmins[i] = 99999;
 		tmaxs[i] = -99999;
@@ -743,7 +731,7 @@ void RotatedBBox( vec3_t mins, vec3_t maxs, vec3_t angles, vec3_t tmins, vec3_t 
 
 	AngleVectors( angles, forward, right, up );
 
-	for( i = 0; i < 8; i++ )
+	for( int i = 0; i < 8; i++ )
 	{
 		if( i & 1 )
 			tmp[0] = mins[0];
@@ -765,7 +753,7 @@ void RotatedBBox( vec3_t mins, vec3_t maxs, vec3_t angles, vec3_t tmins, vec3_t 
 		VectorMA( v, -tmp[1], right, v );
 		VectorMA( v, tmp[2], up, v );
 
-		for( j = 0; j < 3; j++ )
+		for( int j = 0; j < 3; j++ )
 		{
 			if( v[j] < tmins[j] )
 				tmins[j] = v[j];
@@ -783,16 +771,14 @@ R_DrawBEntitiesOnList
 */
 static void R_DrawBEntitiesOnList( void )
 {
-	int     i, clipflags;
-	vec3_t  oldorigin;
-	vec3_t  mins, maxs;
-	float   minmaxs[6];
-	mnode_t *topnode;
+	vec3_t oldorigin;
+	vec3_t mins, maxs;
+	float  minmaxs[6];
 
 	VectorCopy( tr.modelorg, oldorigin );
 	insubmodel = true;
 
-	for( i = 0; i < tr.draw_list->num_edge_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
+	for( int i = 0; i < tr.draw_list->num_edge_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		RI.currententity = tr.draw_list->edge_entities[i];
 		RI.currentmodel = RI.currententity->model;
@@ -809,12 +795,12 @@ static void R_DrawBEntitiesOnList( void )
 		VectorAdd( mins, RI.currententity->origin, minmaxs );
 		VectorAdd( maxs, RI.currententity->origin, ( minmaxs + 3 ));
 
-		clipflags = R_BmodelCheckBBox( minmaxs );
+		int clipflags = R_BmodelCheckBBox( minmaxs );
 		if( clipflags == BMODEL_FULLY_CLIPPED )
 			continue; // off the edge of the screen
 		// clipflags = 0;
 
-		topnode = R_FindTopnode( minmaxs, minmaxs + 3 );
+		mnode_t *topnode = R_FindTopnode( minmaxs, minmaxs + 3 );
 		if( !topnode )
 			continue; // no part in a visible leaf
 
@@ -866,15 +852,13 @@ R_DrawBEntitiesOnList
 */
 void R_DrawBrushModel( cl_entity_t *pent )
 {
-	int     clipflags;
-	vec3_t  oldorigin;
-	vec3_t  mins, maxs;
-	float   minmaxs[6];
-	mnode_t *topnode;
-	edge_t  ledges[NUMSTACKEDGES
-		       + (( CACHE_SIZE - 1 ) / sizeof( edge_t )) + 1];
-	surf_t  lsurfs[NUMSTACKSURFACES
-		       + (( CACHE_SIZE - 1 ) / sizeof( surf_t )) + 1];
+	vec3_t oldorigin;
+	vec3_t mins, maxs;
+	float  minmaxs[6];
+	edge_t ledges[NUMSTACKEDGES
+		      + (( CACHE_SIZE - 1 ) / sizeof( edge_t )) + 1];
+	surf_t lsurfs[NUMSTACKSURFACES
+		      + (( CACHE_SIZE - 1 ) / sizeof( surf_t )) + 1];
 
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
@@ -919,12 +903,12 @@ void R_DrawBrushModel( cl_entity_t *pent )
 	VectorAdd( mins, RI.currententity->origin, minmaxs );
 	VectorAdd( maxs, RI.currententity->origin, ( minmaxs + 3 ));
 
-	clipflags = R_BmodelCheckBBox( minmaxs );
+	int clipflags = R_BmodelCheckBBox( minmaxs );
 	if( clipflags == BMODEL_FULLY_CLIPPED )
 		return;         // off the edge of the screen
 	// clipflags = 0;
 
-	topnode = R_FindTopnode( minmaxs, minmaxs + 3 );
+	mnode_t *topnode = R_FindTopnode( minmaxs, minmaxs + 3 );
 	if( !topnode )
 		return;         // no part in a visible leaf
 
@@ -1029,10 +1013,6 @@ R_MarkLeaves
 */
 static void R_MarkLeaves( void )
 {
-	byte    *vis;
-	mnode_t *node;
-	int     i;
-
 	if( r_oldviewcluster == r_viewcluster && !r_novis.value && r_viewcluster != -1 )
 		return;
 
@@ -1040,13 +1020,13 @@ static void R_MarkLeaves( void )
 	r_oldviewcluster = r_viewcluster;
 
 	gEngfuncs.R_FatPVS( RI.rvp.vieworigin, r_pvs_radius->value, RI.visbytes, false, false );
-	vis = RI.visbytes;
+	byte *vis = RI.visbytes;
 
-	for( i = 0; i < WORLDMODEL->numleafs; i++ )
+	for( int i = 0; i < WORLDMODEL->numleafs; i++ )
 	{
 		if( vis[i >> 3] & ( 1 << ( i & 7 )))
 		{
-			node = (mnode_t *) &WORLDMODEL->leafs[i + 1];
+			mnode_t *node = (mnode_t *) &WORLDMODEL->leafs[i + 1];
 			do
 			{
 				if( node->visframe == tr.visframecount )
@@ -1235,7 +1215,6 @@ R_NewMap
 */
 void GAME_EXPORT R_NewMap( void )
 {
-	int     i;
 	model_t *world = WORLDMODEL;
 
 	r_viewcluster = -1;
@@ -1290,12 +1269,12 @@ void GAME_EXPORT R_NewMap( void )
 	}
 
 	// clear out efrags in case the level hasn't been reloaded
-	for( i = 0; i < world->numleafs; i++ )
+	for( int i = 0; i < world->numleafs; i++ )
 		world->leafs[i + 1].efrags = NULL;
 
 	tr.sample_size = gEngfuncs.Mod_SampleSizeForFace( &world->surfaces[0] );
 
-	for( i = 1; i < world->numsurfaces; i++ )
+	for( int i = 1; i < world->numsurfaces; i++ )
 	{
 		int sample_size = gEngfuncs.Mod_SampleSizeForFace( &world->surfaces[i] );
 		if( sample_size != tr.sample_size )
@@ -1308,11 +1287,9 @@ void GAME_EXPORT R_NewMap( void )
 
 	if( tr.sample_size != -1 )
 	{
-		uint sample_pot;
-
 		tr.sample_bits = 0;
 
-		for( sample_pot = 1; sample_pot < tr.sample_size; sample_pot <<= 1, tr.sample_bits++ )
+		for( uint sample_pot = 1; sample_pot < tr.sample_size; sample_pot <<= 1, tr.sample_bits++ )
 			;
 	}
 
@@ -1327,9 +1304,7 @@ R_InitTurb
 */
 static void R_InitTurb( void )
 {
-	int i;
-
-	for( i = 0; i < 1280; i++ )
+	for( int i = 0; i < 1280; i++ )
 	{
 		sintable[i] = AMP + sin( i * 3.14159 * 2 / CYCLE ) * AMP;
 		blanktable[i] = 0;                                             // PGM
@@ -1423,10 +1398,10 @@ CL_FxBlend
 int CL_FxBlend( cl_entity_t *e )
 {
 	int    blend = 0;
-	float  offset, dist;
+	float  dist;
 	vec3_t tmp;
 
-	offset = ((int)e->index ) * 363.0f; // Use ent index to de-sync these fx
+	float offset = ((int)e->index ) * 363.0f; // Use ent index to de-sync these fx
 
 	switch( e->curstate.renderfx )
 	{
