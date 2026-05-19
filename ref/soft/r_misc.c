@@ -54,8 +54,6 @@ D_ViewChanged
 
 void D_ViewChanged( void )
 {
-	int i;
-
 	scale_for_mip = xscale;
 	if( yscale > xscale )
 		scale_for_mip = yscale;
@@ -78,7 +76,7 @@ void D_ViewChanged( void )
 	// d_vrectbottom_particle =
 	//	gpGlobals->height - d_pix_max;
 
-	for( i = 0; i < vid.height; i++ )
+	for( int i = 0; i < vid.height; i++ )
 	{
 		d_scantable[i] = i * r_screenwidth;
 		zspantable[i] = d_pzbuffer + i * d_zwidth;
@@ -102,11 +100,10 @@ R_TransformFrustum
 */
 void R_TransformFrustum( void )
 {
-	int    i;
-	vec3_t v, v2;
-
-	for( i = 0; i < 4; i++ )
+	for( int i = 0; i < 4; i++ )
 	{
+		vec3_t v, v2;
+
 		v[0] = qfrustum.screenedge[i].normal[2];
 		v[1] = -qfrustum.screenedge[i].normal[0];
 		v[2] = qfrustum.screenedge[i].normal[1];
@@ -141,13 +138,11 @@ R_SetUpFrustumIndexes
 */
 static void R_SetUpFrustumIndexes( void )
 {
-	int i, j, *pindex;
+	int *pindex = qfrustum.frustum_indexes;
 
-	pindex = qfrustum.frustum_indexes;
-
-	for( i = 0; i < 4; i++ )
+	for( int i = 0; i < 4; i++ )
 	{
-		for( j = 0; j < 3; j++ )
+		for( int j = 0; j < 3; j++ )
 		{
 			if( qfrustum.view_clipplanes[i].normal[j] < 0 )
 			{
@@ -177,13 +172,10 @@ Guaranteed to be called before the first refresh
 */
 static void R_ViewChanged( vrect_t *vr )
 {
-	int   i;
-	float verticalFieldOfView, horizontalFieldOfView, xOrigin, yOrigin;
-
 	RI.vrect = *vr;
 
-	horizontalFieldOfView = 2 * tan((float)RI.rvp.fov_x / 360.0f * M_PI_F );
-	verticalFieldOfView = 2 * tan((float)RI.rvp.fov_y / 360.0f * M_PI_F );
+	float horizontalFieldOfView = 2 * tan((float)RI.rvp.fov_x / 360.0f * M_PI_F );
+	float verticalFieldOfView = 2 * tan((float)RI.rvp.fov_y / 360.0f * M_PI_F );
 
 	RI.fvrectx = (float)RI.vrect.x;
 	RI.fvrectx_adj = (float)RI.vrect.x - 0.5f;
@@ -208,8 +200,8 @@ static void R_ViewChanged( vrect_t *vr )
 	RI.aliasvrectbottom = RI.aliasvrect.y
 			      + RI.aliasvrect.height;
 
-	xOrigin = XCENTERING;
-	yOrigin = YCENTERING;
+	float xOrigin = XCENTERING;
+	float yOrigin = YCENTERING;
 #define PLANE_ANYZ 5
 // values for perspective projection
 // if math were exact, the values would range from 0.5 to to range+0.5
@@ -259,7 +251,7 @@ static void R_ViewChanged( vrect_t *vr )
 	qfrustum.screenedge[3].normal[2] = 1;
 	qfrustum.screenedge[3].type = PLANE_ANYZ;
 
-	for( i = 0; i < 4; i++ )
+	for( int i = 0; i < 4; i++ )
 		VectorNormalize( qfrustum.screenedge[i].normal );
 
 	D_ViewChanged();
@@ -273,7 +265,6 @@ R_SetupFrame
 */
 void R_SetupFrameQ( void )
 {
-	int     i;
 	vrect_t vrect;
 
 	if( r_fullbright->flags & FCVAR_CHANGED )
@@ -344,7 +335,7 @@ void R_SetupFrameQ( void )
 	else if( d_minmip < 0 )
 		d_minmip = 0;
 
-	for( i = 0; i < ( NUM_MIPS - 1 ); i++ )
+	for( int i = 0; i < ( NUM_MIPS - 1 ); i++ )
 		d_scalemip[i] = basemip[i] * sw_mipscale.value;
 
 	// d_aflatcolor = 0;

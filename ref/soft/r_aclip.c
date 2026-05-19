@@ -43,10 +43,8 @@ pfv0 is the unclipped vertex, pfv1 is the z-clipped vertex
 */
 static void R_Alias_clip_z( finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out )
 {
-	float scale;
-
-	scale = ( ALIAS_Z_CLIP_PLANE - pfv0->xyz[2] )
-		/ ( pfv1->xyz[2] - pfv0->xyz[2] );
+	float scale = ( ALIAS_Z_CLIP_PLANE - pfv0->xyz[2] )
+		      / ( pfv1->xyz[2] - pfv0->xyz[2] );
 
 	out->xyz[0] = pfv0->xyz[0] + ( pfv1->xyz[0] - pfv0->xyz[0] ) * scale;
 	out->xyz[1] = pfv0->xyz[1] + ( pfv1->xyz[1] - pfv0->xyz[1] ) * scale;
@@ -177,15 +175,13 @@ void R_Alias_clip_bottom( finalvert_t *pfv0, finalvert_t *pfv1,
 static int R_AliasClip( finalvert_t *in, finalvert_t *out, int flag, int count,
 			void ( *clip )( finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out ))
 {
-	int i, j, k;
-	int flags, oldflags;
+	int j = count - 1;
+	int k = 0;
 
-	j = count - 1;
-	k = 0;
-	for( i = 0; i < count; j = i, i++ )
+	for( int i = 0; i < count; j = i, i++ )
 	{
-		oldflags = in[j].flags & flag;
-		flags = in[i].flags & flag;
+		int oldflags = in[j].flags & flag;
+		int flags = in[i].flags & flag;
 
 		if( flags && oldflags )
 			continue;
@@ -220,7 +216,7 @@ R_AliasClipTriangle
 */
 void R_AliasClipTriangle( finalvert_t *index0, finalvert_t *index1, finalvert_t *index2 )
 {
-	int      i, k, pingpong;
+	int      k, pingpong;
 	unsigned clipflags;
 
 // copy vertexes and fix seam texture coordinates
@@ -286,7 +282,7 @@ void R_AliasClipTriangle( finalvert_t *index0, finalvert_t *index1, finalvert_t 
 		pingpong ^= 1;
 	}
 
-	for( i = 0; i < k; i++ )
+	for( int i = 0; i < k; i++ )
 	{
 		if( fv[pingpong][i].u < RI.aliasvrect.x )
 			fv[pingpong][i].u = RI.aliasvrect.x;
@@ -302,7 +298,7 @@ void R_AliasClipTriangle( finalvert_t *index0, finalvert_t *index1, finalvert_t 
 	}
 
 // draw triangles
-	for( i = 1; i < k - 1; i++ )
+	for( int i = 1; i < k - 1; i++ )
 	{
 		aliastriangleparms.a = &fv[pingpong][0];
 		aliastriangleparms.b = &fv[pingpong][i];

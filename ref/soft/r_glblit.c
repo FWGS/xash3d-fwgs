@@ -346,7 +346,6 @@ static int COUNT_BITS( uint mask )
 
 static void R_BuildScreenMap( void )
 {
-	int  i;
 	uint rshift = FIRST_BIT( swblit.rmask ), gshift = FIRST_BIT( swblit.gmask ), bshift = FIRST_BIT( swblit.bmask );
 	uint rbits = COUNT_BITS( swblit.rmask ), gbits = COUNT_BITS( swblit.gmask ), bbits = COUNT_BITS( swblit.bmask );
 	uint rmult = BIT( rbits ), gmult = BIT( gbits ), bmult = BIT( bbits );
@@ -355,7 +354,7 @@ static void R_BuildScreenMap( void )
 	gEngfuncs.Con_Printf( "Blit table: %d %d %d %d %d %d\n", rmult, gmult, bmult, rdiv, gdiv, bdiv );
 
 #ifdef SEPARATE_BLIT
-	for( i = 0; i < 256; i++ )
+	for( int i = 0; i < 256; i++ )
 	{
 		unsigned int r, g, b;
 
@@ -374,7 +373,7 @@ static void R_BuildScreenMap( void )
 
 	}
 #else
-	for( i = 0; i < 256; i++ )
+	for( int i = 0; i < 256; i++ )
 	{
 		unsigned int r, g, b, major, j;
 
@@ -413,7 +412,6 @@ static void R_BuildBlendMaps( void )
 {
 	unsigned int r1, g1, b1;
 	unsigned int r2, g2, b2;
-	unsigned int i;
 
 	FOR_EACH_COLOR( 1 ) FOR_EACH_COLOR( 2 )
 	{
@@ -439,7 +437,7 @@ static void R_BuildBlendMaps( void )
 
 		vid.modmap[index2 | index1] = r << ( 2 + 3 ) | g << 2 | b;
 	}
-	for( i = 0; i < 8192; i++ )
+	for( unsigned int i = 0; i < 8192; i++ )
 	{
 		unsigned int   r, g, b;
 		uint           color = i << 3;
@@ -471,7 +469,7 @@ static void R_BuildBlendMaps( void )
 		}
 	}
 
-	for( i = 0; i < 1024; i++ )
+	for( unsigned int i = 0; i < 1024; i++ )
 	{
 		unsigned int   r, g, b;
 		uint           color = i << 6 | BIT( 5 ) | BIT( 4 ) | BIT( 3 );
@@ -592,7 +590,6 @@ static qboolean R_AllocScreen( void )
 
 void R_BlitScreen( void )
 {
-	int  u, v;
 	void *buffer = swblit.pLockBuffer();
 //	gEngfuncs.Con_Printf("blit begin\n");
 	// memset( vid.buffer, 10, vid.width * vid.height );
@@ -614,12 +611,12 @@ void R_BlitScreen( void )
 		if( swblit.bpp == 2 )
 		{
 			unsigned short *pbuf = buffer;
-			for( v = 0; v < vid.height; v++ )
+			for( int v = 0; v < vid.height; v++ )
 			{
 				uint start = vid.rowbytes * v;
 				uint d = swblit.stride - v - 1;
 
-				for( u = 0; u < vid.width; u++ )
+				for( int u = 0; u < vid.width; u++ )
 				{
 					unsigned int s = vid.screen[vid.buffer[start + u]];
 					pbuf[d] = s;
@@ -631,12 +628,12 @@ void R_BlitScreen( void )
 		{
 			unsigned int *pbuf = buffer;
 
-			for( v = 0; v < vid.height; v++ )
+			for( int v = 0; v < vid.height; v++ )
 			{
 				uint start = vid.rowbytes * v;
 				uint d = swblit.stride - v - 1;
 
-				for( u = 0; u < vid.width; u++ )
+				for( int u = 0; u < vid.width; u++ )
 				{
 					unsigned int s = vid.screen32[vid.buffer[start + u]];
 					pbuf[d] = s;
@@ -647,12 +644,12 @@ void R_BlitScreen( void )
 		else if( swblit.bpp == 3 )
 		{
 			byte *pbuf = buffer;
-			for( v = 0; v < vid.height; v++ )
+			for( int v = 0; v < vid.height; v++ )
 			{
 				uint start = vid.rowbytes * v;
 				uint d = swblit.stride - v - 1;
 
-				for( u = 0; u < vid.width; u++ )
+				for( int u = 0; u < vid.width; u++ )
 				{
 					unsigned int s = vid.screen32[vid.buffer[start + u]];
 					pbuf[( d ) * 3] = s;
@@ -670,12 +667,12 @@ void R_BlitScreen( void )
 		if( swblit.bpp == 2 )
 		{
 			unsigned short *pbuf = buffer;
-			for( v = 0; v < vid.height; v++ )
+			for( int v = 0; v < vid.height; v++ )
 			{
 				uint start = vid.rowbytes * v;
 				uint dstart = swblit.stride * v;
 
-				for( u = 0; u < vid.width; u++ )
+				for( int u = 0; u < vid.width; u++ )
 				{
 					unsigned int s = vid.screen[vid.buffer[start + u]];
 					pbuf[dstart + u] = s;
@@ -686,12 +683,12 @@ void R_BlitScreen( void )
 		{
 			unsigned int *pbuf = buffer;
 
-			for( v = 0; v < vid.height; v++ )
+			for( int v = 0; v < vid.height; v++ )
 			{
 				uint start = vid.rowbytes * v;
 				uint dstart = swblit.stride * v;
 
-				for( u = 0; u < vid.width; u++ )
+				for( int u = 0; u < vid.width; u++ )
 				{
 					unsigned int s = vid.screen32[vid.buffer[start + u]];
 					pbuf[dstart + u] = s;
@@ -701,12 +698,12 @@ void R_BlitScreen( void )
 		else if( swblit.bpp == 3 )
 		{
 			byte *pbuf = buffer;
-			for( v = 0; v < vid.height; v++ )
+			for( int v = 0; v < vid.height; v++ )
 			{
 				uint start = vid.rowbytes * v;
 				uint dstart = swblit.stride * v;
 
-				for( u = 0; u < vid.width; u++ )
+				for( int u = 0; u < vid.width; u++ )
 				{
 					unsigned int s = vid.screen32[vid.buffer[start + u]];
 					pbuf[( dstart + u ) * 3] = s;
@@ -750,12 +747,10 @@ static uint32_t Get8888PixelAt( int u, int start )
 
 qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 {
-	rgbdata_t *r_shot;
-	uint      flags = IMAGE_FLIP_Y;
-	int       width = 0, height = 0, u, v;
-	qboolean  result;
+	uint flags = IMAGE_FLIP_Y;
+	int  width = 0, height = 0;
 
-	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
+	rgbdata_t *r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
 	r_shot->width = ( vid.width + 3 ) & ~3;
 	r_shot->height = ( vid.height + 3 ) & ~3;
 	r_shot->flags = IMAGE_HAS_COLOR;
@@ -769,12 +764,12 @@ qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 	{
 		uint32_t *pbuf = (uint32_t *)r_shot->buffer;
 
-		for( v = 0; v < vid.height; v++ )
+		for( int v = 0; v < vid.height; v++ )
 		{
 			uint start = vid.rowbytes * ( vid.height - v - 1 );
 			uint d = swblit.stride - v - 1;
 
-			for( u = 0; u < vid.width; u++ )
+			for( int u = 0; u < vid.width; u++ )
 			{
 				pbuf[d] = Get8888PixelAt( u, start );
 				d += swblit.stride;
@@ -785,12 +780,12 @@ qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 	{
 		uint32_t *pbuf = (uint32_t *)r_shot->buffer;
 
-		for( v = 0; v < vid.height; v++ )
+		for( int v = 0; v < vid.height; v++ )
 		{
 			uint start = vid.rowbytes * ( vid.height - v - 1 );
 			uint dstart = swblit.stride * v;
 
-			for( u = 0; u < vid.width; u++ )
+			for( int u = 0; u < vid.width; u++ )
 			{
 				pbuf[dstart + u] = Get8888PixelAt( u, start );
 			}
@@ -820,7 +815,7 @@ qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 	gEngfuncs.Image_Process( &r_shot, width, height, flags, 0.0f );
 
 	// write image
-	result = gEngfuncs.FS_SaveImage( filename, r_shot );
+	qboolean result = gEngfuncs.FS_SaveImage( filename, r_shot );
 	gEngfuncs.fsapi->AllowDirectPaths( false ); // always reset after store screenshot
 	gEngfuncs.FS_FreeImage( r_shot );
 

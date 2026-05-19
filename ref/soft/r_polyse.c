@@ -106,9 +106,7 @@ R_PolysetSetEdgeTable
 */
 static void R_PolysetSetEdgeTable( void )
 {
-	int edgetableindex;
-
-	edgetableindex = 0; // assume the vertices are already in
+	int edgetableindex = 0; // assume the vertices are already in
 	//  top to bottom order
 
 //
@@ -392,18 +390,16 @@ R_RasterizeAliasPolySmooth
 */
 static void R_RasterizeAliasPolySmooth( void )
 {
-	int initialleftheight, initialrightheight;
-	int *plefttop, *prighttop, *pleftbottom, *prightbottom;
 	int working_lstepx, originalcount;
 
-	plefttop = pedgetable->pleftedgevert0;
-	prighttop = pedgetable->prightedgevert0;
+	int *plefttop = pedgetable->pleftedgevert0;
+	int *prighttop = pedgetable->prightedgevert0;
 
-	pleftbottom = pedgetable->pleftedgevert1;
-	prightbottom = pedgetable->prightedgevert1;
+	int *pleftbottom = pedgetable->pleftedgevert1;
+	int *prightbottom = pedgetable->prightedgevert1;
 
-	initialleftheight = pleftbottom[1] - plefttop[1];
-	initialrightheight = prightbottom[1] - prighttop[1];
+	int initialleftheight = pleftbottom[1] - plefttop[1];
+	int initialrightheight = prightbottom[1] - prighttop[1];
 
 //
 // set the s, t, and light gradients, which are consistent across the triangle
@@ -641,22 +637,19 @@ void R_DrawTriangle( void )
 {
 	spanpackage_t spans[DPS_MAXSPANS];
 
-	int           dv1_ab, dv0_ac;
-	int           dv0_ab, dv1_ac;
-
 	/*
 	d_xdenom = ( aliastriangleparms.a->v[1] - aliastriangleparms.b->v[1] ) * ( aliastriangleparms.a->v[0] - aliastriangleparms.c->v[0] ) -
 			   ( aliastriangleparms.a->v[0] - aliastriangleparms.b->v[0] ) * ( aliastriangleparms.a->v[1] - aliastriangleparms.c->v[1] );
 	*/
 
-	dv0_ab = aliastriangleparms.a->u - aliastriangleparms.b->u;
-	dv1_ab = aliastriangleparms.a->v - aliastriangleparms.b->v;
+	int dv0_ab = aliastriangleparms.a->u - aliastriangleparms.b->u;
+	int dv1_ab = aliastriangleparms.a->v - aliastriangleparms.b->v;
 
 	if( !( dv0_ab | dv1_ab ))
 		return;
 
-	dv0_ac = aliastriangleparms.a->u - aliastriangleparms.c->u;
-	dv1_ac = aliastriangleparms.a->v - aliastriangleparms.c->v;
+	int dv0_ac = aliastriangleparms.a->u - aliastriangleparms.c->u;
+	int dv1_ac = aliastriangleparms.a->v - aliastriangleparms.c->v;
 
 	if( !( dv0_ac | dv1_ac ))
 		return;

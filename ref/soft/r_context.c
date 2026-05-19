@@ -50,12 +50,10 @@ static void GAME_EXPORT CL_FillRGBA( int rendermode, float _x, float _y, float _
 
 static void Mod_BrushUnloadTextures( model_t *mod )
 {
-	int i;
-
 	gEngfuncs.Con_Printf( "Unloading world\n" );
 	tr.map_unload = true;
 
-	for( i = 0; i < mod->numtextures; i++ )
+	for( int i = 0; i < mod->numtextures; i++ )
 	{
 		texture_t *tx = mod->textures[i];
 		if( !tx || tx->gl_texturenum == tr.defaultTexture )
@@ -297,13 +295,11 @@ static void GAME_EXPORT R_ShowTextures( void )
 
 static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
 {
-	int i;
-
 	// TODO: R_UnloadSkybox();
 	if( !skyboxTextures )
 		return;
 
-	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
+	for( int i = 0; i < SKYBOX_MAX_SIDES; i++ )
 		tr.skyboxTextures[i] = skyboxTextures[i];
 }
 

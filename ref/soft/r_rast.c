@@ -362,9 +362,7 @@ R_EmitCachedEdge
 */
 static void R_EmitCachedEdge( void )
 {
-	edge_t *pedge_t;
-
-	pedge_t = (edge_t *)((uintptr_t)r_edges + r_pedge->cachededgeoffset );
+	edge_t *pedge_t = (edge_t *)((uintptr_t)r_edges + r_pedge->cachededgeoffset );
 
 	if( !pedge_t->surfs[0] )
 		pedge_t->surfs[0] = surface_p - surfaces;
@@ -385,13 +383,9 @@ R_RenderFace
 */
 void R_RenderFace( msurface_t *fa, int clipflags )
 {
-	int         i, lindex;
-	unsigned    mask;
-	mplane_t    *pplane;
-	float       distinv;
-	vec3_t      p_normal;
-	medge16_t   *pedges, tedge;
-	clipplane_t *pclip;
+	int       lindex;
+	vec3_t    p_normal;
+	medge16_t *pedges, tedge;
 
 	// translucent surfaces are not drawn by the edge renderer
 	if( fa->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT ))
@@ -426,9 +420,9 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 	c_faceclip++;
 
 // set up clip planes
-	pclip = NULL;
+	clipplane_t *pclip = NULL;
 
-	for( i = 3, mask = 0x08; i >= 0; i--, mask >>= 1 )
+	for( int i = 3, mask = 0x08; i >= 0; i--, mask >>= 1 )
 	{
 		if( clipflags & mask )
 		{
@@ -445,7 +439,7 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 	pedges = RI.currentmodel->edges16;
 	r_lastvertvalid = false;
 
-	for( i = 0; i < fa->numedges; i++ )
+	for( int i = 0; i < fa->numedges; i++ )
 	{
 		lindex = RI.currentmodel->surfedges[fa->firstedge + i];
 
@@ -575,11 +569,11 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 	surface_p->key = r_currentkey++;
 	surface_p->spans = NULL;
 
-	pplane = fa->plane;
+	mplane_t *pplane = fa->plane;
 // FIXME: cache this?
 	TransformVector( pplane->normal, p_normal );
 // FIXME: cache this?
-	distinv = 1.0f / ( pplane->dist - DotProduct( tr.modelorg, pplane->normal ));
+	float distinv = 1.0f / ( pplane->dist - DotProduct( tr.modelorg, pplane->normal ));
 
 	surface_p->d_zistepu = p_normal[0] * xscaleinv * distinv;
 	surface_p->d_zistepv = -p_normal[1] * yscaleinv * distinv;
@@ -598,13 +592,8 @@ R_RenderBmodelFace
 */
 void R_RenderBmodelFace( bedge_t *pedges, msurface_t *psurf )
 {
-	int         i;
-	unsigned    mask;
-	mplane_t    *pplane;
-	float       distinv;
-	vec3_t      p_normal;
-	medge16_t   tedge;
-	clipplane_t *pclip;
+	vec3_t    p_normal;
+	medge16_t tedge;
 
 	/*if (psurf->texinfo->flags & (SURF_TRANS33|SURF_TRANS66))
 	{
@@ -633,9 +622,9 @@ void R_RenderBmodelFace( bedge_t *pedges, msurface_t *psurf )
 	r_pedge = &tedge;
 
 // set up clip planes
-	pclip = NULL;
+	clipplane_t *pclip = NULL;
 
-	for( i = 3, mask = 0x08; i >= 0; i--, mask >>= 1 )
+	for( int i = 3, mask = 0x08; i >= 0; i--, mask >>= 1 )
 	{
 		if( r_clipflags & mask )
 		{
@@ -696,11 +685,11 @@ void R_RenderBmodelFace( bedge_t *pedges, msurface_t *psurf )
 	surface_p->key = r_currentbkey;
 	surface_p->spans = NULL;
 
-	pplane = psurf->plane;
+	mplane_t *pplane = psurf->plane;
 // FIXME: cache this?
 	TransformVector( pplane->normal, p_normal );
 // FIXME: cache this?
-	distinv = 1.0f / ( pplane->dist - DotProduct( tr.modelorg, pplane->normal ));
+	float distinv = 1.0f / ( pplane->dist - DotProduct( tr.modelorg, pplane->normal ));
 
 	surface_p->d_zistepu = p_normal[0] * xscaleinv * distinv;
 	surface_p->d_zistepv = -p_normal[1] * yscaleinv * distinv;
