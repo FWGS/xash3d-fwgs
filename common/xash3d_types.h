@@ -273,4 +273,11 @@ typedef int qboolean;
 	#define HostFourCC( a, b, c, d ) LittleFourCC( a, b, c, d )
 #endif
 
+static inline short UnalignedShort( short *x )
+{
+	short y;
+	memcpy( &y, x, sizeof( y ) );
+	return y;
+}
+
 #endif // XASH_TYPES_H
