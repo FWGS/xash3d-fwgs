@@ -229,11 +229,9 @@ float SV_VecToYaw( const vec3_t src )
 
 qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 {
-	int	i;
 	trace_t	trace;
 	vec3_t	oldorg, neworg, end;
 	qboolean	monsterClip;
-	edict_t	*enemy;
 	float	dz;
 
 	VectorCopy( ent->v.origin, oldorg );
@@ -243,8 +241,10 @@ qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 	// well, try it.  Flying and swimming monsters are easiest.
 	if( FBitSet( ent->v.flags, FL_SWIM|FL_FLY ))
 	{
+		edict_t	*enemy = NULL;
+
 		// try one move with vertical motion, then one without
-		for( i = 0; i < 2; i++ )
+		for( int i = 0; i < 2; i++ )
 		{
 			VectorAdd( ent->v.origin, move, neworg );
 

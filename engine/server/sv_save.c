@@ -389,16 +389,13 @@ reserve space for ETABLE's
 */
 static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 {
-	ENTITYTABLE	*pTable;
-	int		i;
-
 	pSaveData->pTable = Mem_Calloc( host.mempool, sizeof( ENTITYTABLE ) * entityCount );
 	pSaveData->tableCount = entityCount;
 
 	// setup entitytable
-	for( i = 0; i < entityCount; i++ )
+	for( int i = 0; i < entityCount; i++ )
 	{
-		pTable = &pSaveData->pTable[i];
+		ENTITYTABLE *pTable = &pSaveData->pTable[i];
 		pTable->pent = SV_EdictNum( i );
 		pTable->id = i;
 	}
@@ -413,9 +410,7 @@ check level in transition list
 */
 static int EntryInTable( SAVERESTOREDATA *pSaveData, const char *pMapName, int index )
 {
-	int	i;
-
-	for( i = index + 1; i < pSaveData->connectionCount; i++ )
+	for( int i = index + 1; i < pSaveData->connectionCount; i++ )
 	{
 		if ( !Q_stricmp( pSaveData->levelList[i].mapName, pMapName ))
 			return i;
@@ -451,9 +446,7 @@ find global offset for a given landmark
 */
 static void LandmarkOrigin( SAVERESTOREDATA *pSaveData, vec3_t output, const char *pLandmarkName )
 {
-	int	i;
-
-	for( i = 0; i < pSaveData->connectionCount; i++ )
+	for( int i = 0; i < pSaveData->connectionCount; i++ )
 	{
 		if( !Q_strcmp( pSaveData->levelList[i].landmarkName, pLandmarkName ))
 		{
@@ -499,13 +492,12 @@ remove all the temp files HL1-HL3
 static void ClearSaveDir( void )
 {
 	search_t	*t;
-	int	i;
 
 	// just delete all HL? files
 	t = FS_Search( DEFAULT_SAVE_DIRECTORY "*.HL?", true, true );
 	if( !t ) return; // already empty
 
-	for( i = 0; i < t->numfilenames; i++ )
+	for( int i = 0; i < t->numfilenames; i++ )
 		FS_Delete( t->filenames[i] );
 
 	Mem_Free( t );
@@ -646,18 +638,16 @@ put the HL1-HL3 files into .sav file
 */
 static void DirectoryCopy( const char *pPath, file_t *pFile )
 {
-	char	szName[MAX_OSPATH];
-	int	i, fileSize;
-	file_t	*pCopy;
 	search_t	*t;
 
 	t = FS_Search( pPath, true, true );
 	if( !t ) return; // nothing to copy ?
 
-	for( i = 0; i < t->numfilenames; i++ )
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
-		pCopy = FS_Open( t->filenames[i], "rb", true );
-		fileSize = FS_FileLength( pCopy );
+		char	szName[MAX_OSPATH];
+		file_t	*pCopy = FS_Open( t->filenames[i], "rb", true );
+		int	fileSize = FS_FileLength( pCopy );
 
 		memset( szName, 0, sizeof( szName )); // clearing the string to prevent garbage in output file
 		Q_strncpy( szName, COM_FileWithoutPath( t->filenames[i] ), sizeof( szName ));
@@ -678,13 +668,13 @@ extract the HL1-HL3 files from the .sav file
 */
 static qboolean DirectoryExtract( file_t *pFile, int fileCount )
 {
-	char	szName[MAX_OSPATH];
-	char	fileName[MAX_OSPATH];
-	int	i, fileSize;
-	file_t	*pCopy;
-
-	for( i = 0; i < fileCount; i++ )
+	for( int i = 0; i < fileCount; i++ )
 	{
+		char	szName[MAX_OSPATH];
+		char	fileName[MAX_OSPATH];
+		int	fileSize;
+		file_t	*pCopy;
+
 		// filename can only be as long as a map name + extension
 		FS_Read( pFile, szName, MAX_OSPATH );
 		FS_Read( pFile, &fileSize, sizeof( int ));
@@ -792,12 +782,11 @@ write the stringtable into file
 static char *StoreHashTable( SAVERESTOREDATA *pSaveData )
 {
 	char	*pTokenData = pSaveData->pCurrentData;
-	int	i;
 
 	// Write entity string token table
 	if( pSaveData->pTokens )
 	{
-		for( i = 0; i < pSaveData->tokenCount; i++ )
+		for( int i = 0; i < pSaveData->tokenCount; i++ )
 		{
 			const char *pszToken = pSaveData->pTokens[i] ? pSaveData->pTokens[i] : "";
 
@@ -823,7 +812,6 @@ build the stringtable from buffer
 static void BuildHashTable( SAVERESTOREDATA *pSaveData, file_t *pFile )
 {
 	char	*pszTokenList = pSaveData->pBaseData;
-	int	i;
 
 	// Parse the symbol table
 	if( pSaveData->tokenSize > 0 )
@@ -831,7 +819,7 @@ static void BuildHashTable( SAVERESTOREDATA *pSaveData, file_t *pFile )
 		FS_Read( pFile, pszTokenList, pSaveData->tokenSize );
 
 		// make sure the token strings pointed to by the pToken hashtable.
-		for( i = 0; i < pSaveData->tokenCount; i++ )
+		for( int i = 0; i < pSaveData->tokenCount; i++ )
 		{
 			pSaveData->pTokens[i] = *pszTokenList ? pszTokenList : NULL;
 			while( *pszTokenList++ );	// Find next token (after next null)
@@ -1056,7 +1044,7 @@ read the list of entities that are no longer in the save file for this level
 static void EntityPatchRead( SAVERESTOREDATA *pSaveData, const char *level )
 {
 	char	name[MAX_QPATH];
-	int	i, size, entityId;
+	int	size;
 	file_t	*pFile;
 
 	Q_snprintf( name, sizeof( name ), DEFAULT_SAVE_DIRECTORY "%s.HL3", level );
@@ -1067,8 +1055,10 @@ static void EntityPatchRead( SAVERESTOREDATA *pSaveData, const char *level )
 	// patch count
 	FS_Read( pFile, &size, sizeof( int ));
 
-	for( i = 0; i < size; i++ )
+	for( int i = 0; i < size; i++ )
 	{
+		int	entityId;
+
 		FS_Read( pFile, &entityId, sizeof( int ));
 		pSaveData->pTable[entityId].flags = FENTTABLE_REMOVED;
 	}
@@ -1189,7 +1179,7 @@ static qboolean SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, 
 	soundlist_t	soundInfo[MAX_CHANNELS];
 	sv_client_t	*cl = svs.clients;
 	char		name[MAX_QPATH];
-	int		i, id, version;
+	int		i;
 	char		*pTokenData;
 	decallist_t	*decalList = NULL;
 	SAVE_CLIENT	header = { 0 };
@@ -1265,8 +1255,8 @@ static qboolean SaveClientState( SAVERESTOREDATA *pSaveData, const char *level, 
 		return false;
 	}
 
-	version = CLIENT_SAVEGAME_VERSION;
-	id = SAVEGAME_HEADER;
+	int version = CLIENT_SAVEGAME_VERSION;
+	int id = SAVEGAME_HEADER;
 
 	FS_Write( pFile, &id, sizeof( id ));
 	FS_Write( pFile, &version, sizeof( version ));
@@ -1628,10 +1618,7 @@ load current game state
 static int LoadGameState( char const *level, qboolean changelevel )
 {
 	SAVERESTOREDATA	*pSaveData;
-	ENTITYTABLE	*pTable;
 	SAVE_HEADER	header;
-	edict_t		*pent;
-	int		i;
 
 	pSaveData = LoadSaveData( level );
 	if( !pSaveData ) return 0; // couldn't load the file
@@ -1661,9 +1648,11 @@ static int LoadGameState( char const *level, qboolean changelevel )
 	CreateEntitiesInRestoreList( pSaveData, 0, true );
 
 	// now spawn entities
-	for( i = 0; i < pSaveData->tableCount; i++ )
+	for( int i = 0; i < pSaveData->tableCount; i++ )
 	{
-		pTable = &pSaveData->pTable[i];
+		ENTITYTABLE	*pTable = &pSaveData->pTable[i];
+		edict_t		*pent;
+
 		pSaveData->pCurrentData = pSaveData->pBaseData + pTable->location;
 		pSaveData->size = pTable->location;
 		pSaveData->currentIndex = i;
@@ -1705,7 +1694,6 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 {
 	char		hlPath[MAX_QPATH];
 	char		name[MAX_QPATH];
-	int		id, version;
 	char		*pTokenData;
 	SAVERESTOREDATA	*pSaveData;
 	GAME_HEADER	gameHeader;
@@ -1753,8 +1741,8 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	Cbuf_AddTextf( "saveshot \"%s\"\n", pSaveName );
 	Con_Printf( "Saving game to %s...\n", name );
 
-	version = SAVEGAME_VERSION;
-	id = SAVEGAME_HEADER;
+	int version = SAVEGAME_VERSION;
+	int id = SAVEGAME_HEADER;
 
 	FS_Write( pFile, &id, sizeof( id ));
 	FS_Write( pFile, &version, sizeof( version ));
@@ -1835,9 +1823,7 @@ moving edicts to another level
 */
 static int CreateEntityTransitionList( SAVERESTOREDATA *pSaveData, int levelMask )
 {
-	int		i, movedCount;
-	ENTITYTABLE	*pTable;
-	edict_t		*pent;
+	int		movedCount;
 
 	movedCount = 0;
 
@@ -1845,9 +1831,11 @@ static int CreateEntityTransitionList( SAVERESTOREDATA *pSaveData, int levelMask
 	CreateEntitiesInRestoreList( pSaveData, levelMask, false );
 
 	// now spawn entities
-	for( i = 0; i < pSaveData->tableCount; i++ )
+	for( int i = 0; i < pSaveData->tableCount; i++ )
 	{
-		pTable = &pSaveData->pTable[i];
+		ENTITYTABLE	*pTable = &pSaveData->pTable[i];
+		edict_t		*pent;
+
 		pSaveData->pCurrentData = pSaveData->pBaseData + pTable->location;
 		pSaveData->size = pTable->location;
 		pSaveData->currentIndex = i;
@@ -2261,16 +2249,16 @@ used for reload game after player death
 const char *SV_GetLatestSave( void )
 {
 	static char	savename[MAX_QPATH];
-	int		newest = 0, ft;
-	int		i, found = 0;
+	int		newest = 0;
+	int		found = 0;
 	search_t		*t;
 
 	if(( t = FS_Search( DEFAULT_SAVE_DIRECTORY "*.sav" , true, true )) == NULL )
 		return NULL;
 
-	for( i = 0; i < t->numfilenames; i++ )
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
-		ft = FS_FileTime( t->filenames[i], true );
+		int	ft = FS_FileTime( t->filenames[i], true );
 
 		// found a match?
 		if( ft > 0 )

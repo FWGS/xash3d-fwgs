@@ -164,12 +164,10 @@ update entity bounds, relink into world
 */
 void SV_SetMinMaxSize( edict_t *e, const float *mins, const float *maxs, qboolean relink )
 {
-	int	i;
-
 	if( !SV_IsValidEdict( e ))
 		return;
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		if( mins[i] > maxs[i] )
 		{
@@ -301,7 +299,6 @@ Check visibility through client camera, portal camera, etc
 */
 static qboolean SV_CheckClientVisiblity( sv_client_t *cl, const byte *mask )
 {
-	int	i;
 	vec3_t	vieworg;
 	mleaf_t	*leaf;
 
@@ -319,7 +316,7 @@ static qboolean SV_CheckClientVisiblity( sv_client_t *cl, const byte *mask )
 		return true; // visible from player view or camera view
 
 	// now check all the portal cameras
-	for( i = 0; i < cl->num_viewents; i++ )
+	for( int i = 0; i < cl->num_viewents; i++ )
 	{
 		edict_t	*view = cl->viewentity[i];
 
@@ -532,7 +529,6 @@ qboolean SV_CreateStaticEntity( sizebuf_t *msg, int index )
 {
 	entity_state_t	nullstate, *baseline;
 	entity_state_t	*state;
-	int		offset;
 
 	if( index >= ( MAX_STATIC_ENTITIES - 1 ))
 	{
@@ -563,7 +559,7 @@ qboolean SV_CreateStaticEntity( sizebuf_t *msg, int index )
 	state->number = 0;
 
 	// trying to compress with previous delta's
-	offset = SV_FindBestBaseline( index, &baseline, state, NULL, false );
+	int offset = SV_FindBestBaseline( index, &baseline, state, NULL, false );
 
 	MSG_BeginServerCmd( msg, svc_spawnstatic );
 	MSG_WriteDeltaEntity( baseline, state, msg, true, DELTA_STATIC, sv.time, offset );
@@ -580,13 +576,11 @@ Write all the static ents into demo
 */
 void SV_RestartStaticEnts( void )
 {
-	int	i;
-
 	// remove all the static entities on the client
 	CL_ClearStaticEntities();
 
 	// resend them again
-	for( i = 0; i < sv.num_static_entities; i++ )
+	for( int i = 0; i < sv.num_static_entities; i++ )
 		SV_CreateStaticEntity( &sv.reliable_datagram, i );
 }
 
@@ -617,7 +611,7 @@ void SV_RestartAmbientSounds( void )
 #if !XASH_DEDICATED
 	soundlist_t	soundInfo[256];
 	string		curtrack, looptrack;
-	int		i, nSounds;
+	int		nSounds;
 	int		position;
 
 	if( !SV_Active( ) || Host_IsDedicated( ))
@@ -625,7 +619,7 @@ void SV_RestartAmbientSounds( void )
 
 	nSounds = S_GetCurrentStaticSounds( soundInfo, 256 );
 
-	for( i = 0; i < nSounds; i++ )
+	for( int i = 0; i < nSounds; i++ )
 	{
 		soundlist_t *si = &soundInfo[i];
 
@@ -657,10 +651,8 @@ void SV_RestartDecals( void )
 	// and better be reimplemented on client side
 #if !XASH_DEDICATED
 	decallist_t	*list;
-	int		decalIndex;
-	int		modelIndex;
 	sizebuf_t		*msg;
-	int		i, numdecals;
+	int		numdecals;
 
 	if( !SV_Active( ) || Host_IsDedicated( ))
 		return;
@@ -677,16 +669,16 @@ void SV_RestartDecals( void )
 	msg = SV_GetReliableDatagram();
 
 	// restore decals and write them into network message
-	for( i = 0; i < numdecals; i++ )
+	for( int i = 0; i < numdecals; i++ )
 	{
 		decallist_t *entry = &list[i];
-		modelIndex = SV_PEntityOfEntIndex( entry->entityIndex, true )->v.modelindex;
+		int modelIndex = SV_PEntityOfEntIndex( entry->entityIndex, true )->v.modelindex;
 
 		// game override
 		if( SV_RestoreCustomDecal( entry, SV_PEntityOfEntIndex( entry->entityIndex, true ), false ))
 			continue;
 
-		decalIndex = pfnDecalIndex( entry->name );
+		int decalIndex = pfnDecalIndex( entry->name );
 
 		// studiodecals will be restored at game-side
 		if( !FBitSet( entry->flags, FDECAL_STUDIO ))
@@ -1164,12 +1156,9 @@ release all the edicts from server
 */
 void SV_FreeEdicts( void )
 {
-	int	i = 0;
-	edict_t	*ent;
-
-	for( i = 0; i < svgame.numEntities; i++ )
+	for( int i = 0; i < svgame.numEntities; i++ )
 	{
-		ent = SV_EdictNum( i );
+		edict_t *ent = SV_EdictNum( i );
 		if( ent->free ) continue;
 		SV_FreeEdict( ent );
 	}
@@ -1315,7 +1304,6 @@ pfnModelIndex
 static int GAME_EXPORT pfnModelIndex( const char *m )
 {
 	char	name[MAX_QPATH];
-	int	i;
 
 	if( COM_StringEmptyOrNULL( m ))
 		return 0;
@@ -1324,7 +1312,7 @@ static int GAME_EXPORT pfnModelIndex( const char *m )
 	Q_strncpy( name, m, sizeof( name ));
 	COM_FixSlashes( name );
 
-	for( i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
+	for( int i = 1; i < MAX_MODELS && sv.model_precache[i][0]; i++ )
 	{
 		if( !Q_stricmp( sv.model_precache[i], name ))
 			return i;
@@ -1484,17 +1472,15 @@ SV_FindEntityByString
 */
 static edict_t *GAME_EXPORT SV_FindEntityByString( edict_t *pStartEdict, const char *pszField, const char *pszValue )
 {
-	int		i = 0, e = 0;
+	int		e = 0;
 	const TYPEDESCRIPTION	*desc = NULL;
-	edict_t		*ed;
-	const char	*t;
 
 	if( COM_StringEmptyOrNULL( pszValue ))
 		return svgame.edicts;
 
 	if( pStartEdict ) e = NUM_FOR_EDICT( pStartEdict );
 
-	for( i = 0; i < ARRAYSIZE( gEntvarsDescription ); i++ )
+	for( int i = 0; i < ARRAYSIZE( gEntvarsDescription ); i++ )
 	{
 		if( !Q_strcmp( pszField, gEntvarsDescription[i].fieldName ))
 		{
@@ -1511,7 +1497,9 @@ static edict_t *GAME_EXPORT SV_FindEntityByString( edict_t *pStartEdict, const c
 
 	for( e++; e < svgame.numEntities; e++ )
 	{
-		ed = SV_EdictNum( e );
+		edict_t *ed = SV_EdictNum( e );
+		const char *t;
+
 		if( !SV_IsValidEdict( ed )) continue;
 
 		if( e <= svs.maxclients && !SV_ClientFromEdict( ed, ( svs.maxclients != 1 )))
@@ -1568,10 +1556,7 @@ find the entity in sphere
 */
 static edict_t *GAME_EXPORT pfnFindEntityInSphere( edict_t *pStartEdict, const float *org, float flRadius )
 {
-	float	distSquared;
-	int	j, e = 0;
-	float	eorg;
-	edict_t	*ent;
+	int	e = 0;
 
 	flRadius *= flRadius;
 
@@ -1580,7 +1565,8 @@ static edict_t *GAME_EXPORT pfnFindEntityInSphere( edict_t *pStartEdict, const f
 
 	for( e++; e < svgame.numEntities; e++ )
 	{
-		ent = SV_EdictNum( e );
+		edict_t *ent = SV_EdictNum( e );
+		float distSquared = 0.0f;
 
 		if( !SV_IsValidEdict( ent ))
 			continue;
@@ -1589,10 +1575,10 @@ static edict_t *GAME_EXPORT pfnFindEntityInSphere( edict_t *pStartEdict, const f
 		if( e <= svs.maxclients && !SV_ClientFromEdict( ent, true ))
 			continue;
 
-		distSquared = 0.0f;
-
-		for( j = 0; j < 3 && distSquared <= flRadius; j++ )
+		for( int j = 0; j < 3 && distSquared <= flRadius; j++ )
 		{
+			float eorg;
+
 			if( org[j] < ent->v.absmin[j] )
 				eorg = org[j] - ent->v.absmin[j];
 			else if( org[j] > ent->v.absmax[j] )
@@ -1621,7 +1607,7 @@ static int SV_CheckClientPVS( int check, qboolean bMergePVS )
 	byte		*pvs;
 	vec3_t		vieworg;
 	sv_client_t	*cl;
-	int		i, j, k;
+	int		i;
 	edict_t		*ent = NULL;
 
 	// cycle to the next one
@@ -1658,7 +1644,7 @@ static int SV_CheckClientPVS( int check, qboolean bMergePVS )
 	if( !cl ) return i;
 
 	// now merge PVS with all the portal cameras
-	for( k = 0; k < cl->num_viewents && bMergePVS; k++ )
+	for( int k = 0; k < cl->num_viewents && bMergePVS; k++ )
 	{
 		edict_t	*view = cl->viewentity[k];
 
@@ -1668,7 +1654,7 @@ static int SV_CheckClientPVS( int check, qboolean bMergePVS )
 		VectorAdd( view->v.origin, view->v.view_ofs, vieworg );
 		pvs = Mod_GetPVSForPoint( vieworg );
 
-		for( j = 0; j < world.visbytes && pvs; j++ )
+		for( int j = 0; j < world.visbytes && pvs; j++ )
 			SetBits( clientpvs[j], pvs[j] );
 	}
 
@@ -1742,10 +1728,8 @@ pfnEntitiesInPVS
 */
 static edict_t *pfnEntitiesInPVS( edict_t *pview )
 {
-	edict_t	*pchain, *ptest;
+	edict_t	*pchain;
 	vec3_t	viewpoint;
-	edict_t	*pent;
-	int	i;
 
 	if( !SV_IsValidEdict( pview ))
 		return NULL;
@@ -1753,9 +1737,10 @@ static edict_t *pfnEntitiesInPVS( edict_t *pview )
 	VectorAdd( pview->v.origin, pview->v.view_ofs, viewpoint );
 	pchain = SV_EdictNum( 0 );
 
-	for( i = 1; i < svgame.numEntities; i++ )
+	for( int i = 1; i < svgame.numEntities; i++ )
 	{
-		pent = SV_EdictNum( i );
+		edict_t *pent = SV_EdictNum( i );
+		edict_t *ptest;
 
 		if( !SV_IsValidEdict( pent ))
 			continue;
@@ -2270,8 +2255,7 @@ static void GAME_EXPORT pfnGetAimVector( edict_t* ent, float speed, float *rgflR
 {
 	edict_t		*check;
 	vec3_t		start, dir, end, bestdir;
-	float		dist, bestdist;
-	int		i, j;
+	float		bestdist;
 	trace_t		tr;
 
 	VectorCopy( svgame.globals->v_forward, rgflReturn );	// assume failure if it returns early
@@ -2298,8 +2282,10 @@ static void GAME_EXPORT pfnGetAimVector( edict_t* ent, float speed, float *rgflR
 	else bestdist = 0;
 
 	check = SV_EdictNum( 1 ); // start at first client
-	for( i = 1; i < svgame.numEntities; i++, check++ )
+	for( int i = 1; i < svgame.numEntities; i++, check++ )
 	{
+		float dist;
+
 		if( check->v.takedamage != DAMAGE_AIM )
 			continue;
 
@@ -2312,7 +2298,7 @@ static void GAME_EXPORT pfnGetAimVector( edict_t* ent, float speed, float *rgflR
 		if( check == ent )
 			continue;
 
-		for( j = 0; j < 3; j++ )
+		for( int j = 0; j < 3; j++ )
 			end[j] = check->v.origin[j] + 0.5f * (check->v.mins[j] + check->v.maxs[j]);
 
 		VectorSubtract( end, start, dir );
@@ -2455,12 +2441,10 @@ register decal name on client
 */
 int GAME_EXPORT pfnDecalIndex( const char *m )
 {
-	int	i;
-
 	if( COM_StringEmptyOrNULL( m ))
 		return -1;
 
-	for( i = 1; i < MAX_DECALS && host.draw_decals[i][0]; i++ )
+	for( int i = 1; i < MAX_DECALS && host.draw_decals[i][0]; i++ )
 	{
 		if( !Q_stricmp( host.draw_decals[i], m ))
 			return i;
@@ -2533,7 +2517,7 @@ pfnMessageBegin
 */
 static void GAME_EXPORT pfnMessageBegin( int msg_dest, int msg_num, const float *pOrigin, edict_t *ed )
 {
-	int	i, iSize;
+	int	iSize;
 
 	if( svgame.msg_started )
 		Host_Error( "%s: New message started when msg '%s' has not been sent yet\n", __func__, svgame.msg_name );
@@ -2567,6 +2551,8 @@ static void GAME_EXPORT pfnMessageBegin( int msg_dest, int msg_num, const float 
 	}
 	else
 	{
+		int i;
+
 		// check for existing
 		for( i = 1; i < MAX_USER_MESSAGES && svgame.msg[i].name[0]; i++ )
 		{
@@ -3387,11 +3373,9 @@ pfnIndexOfEdict
 */
 int GAME_EXPORT pfnIndexOfEdict( const edict_t *pEdict )
 {
-	int	number;
-
 	if( !pEdict ) return 0; // world ?
 
-	number = NUM_FOR_EDICT( pEdict );
+	int number = NUM_FOR_EDICT( pEdict );
 	if( number < 0 || number > GI->max_edicts )
 		Host_Error( "bad entity number %d\n", number );
 	return number;
@@ -3429,15 +3413,12 @@ debug thing
 */
 static edict_t *GAME_EXPORT pfnFindEntityByVars( entvars_t *pvars )
 {
-	edict_t	*pEdict;
-	int	i;
-
 	// don't pass invalid arguments
 	if( !pvars ) return NULL;
 
-	for( i = 0; i < GI->max_edicts; i++ )
+	for( int i = 0; i < GI->max_edicts; i++ )
 	{
-		pEdict = SV_EdictNum( i );
+		edict_t *pEdict = SV_EdictNum( i );
 
 		// g-cont: we should compare pointers
 		if( &pEdict->v == pvars )
@@ -3863,9 +3844,9 @@ returns actual entity count
 */
 int GAME_EXPORT pfnNumberOfEntities( void )
 {
-	int	i, total = 0;
+	int	total = 0;
 
-	for( i = 0; i < svgame.numEntities; i++ )
+	for( int i = 0; i < svgame.numEntities; i++ )
 	{
 		if( svgame.edicts[i].free )
 			continue;
@@ -4030,7 +4011,7 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 	event_state_t	*es;
 	event_args_t	args;
 	event_info_t	*ei = NULL;
-	int		j, slot, bestslot;
+	int		j, bestslot;
 	int		invokerIndex;
 	byte		*mask = NULL;
 	vec3_t		pvspoint;
@@ -4138,7 +4119,8 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 	}
 
 	// process all the clients
-	for( slot = 0, cl = svs.clients; slot < svs.maxclients; slot++, cl++ )
+	cl = svs.clients;
+	for( int slot = 0; slot < svs.maxclients; slot++, cl++ )
 	{
 		if( cl->state != cs_spawned || !cl->edict || FBitSet( cl->flags, FCL_FAKECLIENT ))
 			continue;
@@ -4328,7 +4310,7 @@ pfnCheckVisibility
 */
 static int GAME_EXPORT pfnCheckVisibility( const edict_t *ent, byte *pset )
 {
-	int	i, leafnum;
+	int	i;
 	qboolean large_leafs = FBitSet( sv.worldmodel->flags, MODEL_QBSP2 );
 
 	if( !SV_IsValidEdict( ent ))
@@ -4361,6 +4343,8 @@ static int GAME_EXPORT pfnCheckVisibility( const edict_t *ent, byte *pset )
 	}
 	else
 	{
+		int leafnum;
+
 		for( i = 0; i < MAX_ENT_LEAFS( large_leafs ); i++ )
 		{
 			if( large_leafs )
@@ -4496,17 +4480,14 @@ pfnForceUnmodified
 */
 static void GAME_EXPORT pfnForceUnmodified( FORCE_TYPE type, float *mins, float *maxs, const char *filename )
 {
-	consistency_t	*pc;
-	int		i;
-
 	if( COM_StringEmptyOrNULL( filename ))
 		return;
 
 	if( sv.state == ss_loading )
 	{
-		for( i = 0; i < MAX_MODELS; i++ )
+		for( int i = 0; i < MAX_MODELS; i++ )
 		{
-			pc = &sv.consistency_list[i];
+			consistency_t *pc = &sv.consistency_list[i];
 
 			if( !pc->filename )
 			{
@@ -4523,9 +4504,9 @@ static void GAME_EXPORT pfnForceUnmodified( FORCE_TYPE type, float *mins, float 
 	}
 	else
 	{
-		for( i = 0; i < MAX_MODELS; i++ )
+		for( int i = 0; i < MAX_MODELS; i++ )
 		{
-			pc = &sv.consistency_list[i];
+			consistency_t *pc = &sv.consistency_list[i];
 			if( !pc->filename ) continue;
 
 			if( !Q_strcmp( filename, pc->filename ))
@@ -4886,7 +4867,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 {
 	KeyValueData	pkvd[256]; // per one entity
 	qboolean		adjust_origin = false, customentity;
-	int		i, numpairs = 0;
+	int		numpairs = 0;
 	const char	*classname = NULL;
 
 	// go through all the dictionary pairs
@@ -5008,7 +4989,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 	}
 #endif
 
-	for( i = 0; i < numpairs; i++ )
+	for( int i = 0; i < numpairs; i++ )
 	{
 		char *keyname, *value;
 		char temp[MAX_VA_STRING];
@@ -5080,7 +5061,6 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 {
 	char	token[2048];
 	qboolean	create_world = true;
-	int	inhibited;
 	edict_t	*ent;
 
 	Assert( entities != NULL );
@@ -5088,7 +5068,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	// user dll can override spawn entities function (Xash3D extension)
 	if( !svgame.physFuncs.SV_LoadEntities || !svgame.physFuncs.SV_LoadEntities( mapname, entities ))
 	{
-		inhibited = 0;
+		int inhibited = 0;
 
 		// parse ents
 		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
@@ -5213,7 +5193,7 @@ void SV_UnloadProgs( void )
 
 qboolean SV_LoadProgs( const char *name )
 {
-	int			i, version;
+	int			version;
 	static APIFUNCTION		GetEntityAPI;
 	static APIFUNCTION2		GetEntityAPI2;
 	static GIVEFNPTRSTODLL	GiveFnptrsToDll;
@@ -5221,7 +5201,6 @@ qboolean SV_LoadProgs( const char *name )
 	static enginefuncs_t	gpEngfuncs;
 	static globalvars_t		gpGlobals;
 	static playermove_t		gpMove;
-	edict_t			*e;
 	qboolean init_entity_api = false;
 
 	if( svgame.hInstance )
@@ -5342,8 +5321,8 @@ qboolean SV_LoadProgs( const char *name )
 	svs.baselines = Z_Calloc( sizeof( entity_state_t ) * GI->max_edicts );
 	svgame.numEntities = svs.maxclients + 1; // clients + world
 
-	for( i = 0, e = svgame.edicts; i < GI->max_edicts; i++, e++ )
-		e->free = true; // mark all edicts as freed
+	for( int i = 0; i < GI->max_edicts; i++ )
+		svgame.edicts[i].free = true; // mark all edicts as freed
 
 	Cvar_FullSet( "host_gameloaded", "1", FCVAR_READ_ONLY );
 	SV_AllocStringPool();

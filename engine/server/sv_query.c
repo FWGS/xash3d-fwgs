@@ -71,7 +71,6 @@ SV_SourceQuery_Rules
 */
 static void SV_SourceQuery_Rules( netadr_t from )
 {
-	const cvar_t *cvar;
 	sizebuf_t buf;
 	char answer[MAX_PRINT_MSG - 4];
 	int pos;
@@ -85,7 +84,7 @@ static void SV_SourceQuery_Rules( netadr_t from )
 	pos = MSG_GetNumBitsWritten( &buf );
 	MSG_WriteShort( &buf, 0 );
 
-	for( cvar = Cvar_GetList( ); cvar; cvar = cvar->next )
+	for( const cvar_t *cvar = Cvar_GetList( ); cvar; cvar = cvar->next )
 	{
 		if( !FBitSet( cvar->flags, FCVAR_SERVER ))
 			continue;
@@ -123,7 +122,7 @@ static void SV_SourceQuery_Players( netadr_t from )
 {
 	sizebuf_t buf;
 	char answer[MAX_PRINT_MSG - 4];
-	int i, count = 0;
+	int count = 0;
 	int pos;
 
 	// respect players privacy
@@ -138,7 +137,7 @@ static void SV_SourceQuery_Players( netadr_t from )
 	pos = MSG_GetNumBitsWritten( &buf );
 	MSG_WriteByte( &buf, 0 );
 
-	for( i = 0; i < svs.maxclients; i++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		const sv_client_t *cl = &svs.clients[i];
 

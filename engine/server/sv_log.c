@@ -18,12 +18,9 @@ GNU General Public License for more details.
 
 void Log_Open( void )
 {
-	time_t		ltime;
-	struct tm		*today;
 	char		szFileBase[ MAX_OSPATH ];
 	char		szTestFile[ MAX_OSPATH ];
 	file_t		*fp = NULL;
-	const char		*temp;
 	int		i;
 
 	if( !svs.log.active )
@@ -41,9 +38,10 @@ void Log_Open( void )
 	Log_Close();
 
 	// Find a new log file slot
+	time_t ltime;
 	time( &ltime );
-	today = localtime( &ltime );
-	temp = Cvar_VariableString( "logsdir" );
+	const struct tm *today = localtime( &ltime );
+	const char *temp = Cvar_VariableString( "logsdir" );
 
 	if( !COM_StringEmptyOrNULL( temp ) && !Q_strchr( temp, ':' ) && !Q_strstr( temp, ".." ))
 		Q_snprintf( szFileBase, sizeof( szFileBase ), "%s/L%02i%02i", temp, today->tm_mon + 1, today->tm_mday );
@@ -102,21 +100,18 @@ void Log_Printf( const char *fmt, ... )
 {
 	va_list		argptr;
 	static char	string[1024];
-	char		*p;
-	time_t		ltime;
-	struct tm	*today;
-	int		len;
 
 	if( !svs.log.net_log && !svs.log.active )
 		return;
 
+	time_t ltime;
 	time( &ltime );
-	today = localtime( &ltime );
+	const struct tm *today = localtime( &ltime );
 
-	len = Q_snprintf( string, sizeof( string ), "%02i/%02i/%04i - %02i:%02i:%02i: ",
+	const int len = Q_snprintf( string, sizeof( string ), "%02i/%02i/%04i - %02i:%02i:%02i: ",
 		today->tm_mon+1, today->tm_mday, 1900 + today->tm_year, today->tm_hour, today->tm_min, today->tm_sec );
 
-	p = string + len;
+	char *p = string + len;
 
 	va_start( argptr, fmt );
 	Q_vsnprintf( p, sizeof( string ) - len, fmt, argptr );
@@ -166,10 +161,6 @@ SV_SetLogAddress_f
 */
 void SV_SetLogAddress_f( void )
 {
-	const char *s;
-	int port;
-	string addr;
-
 	if( svs.log.net_log && Cmd_Argc() == 2 && !Q_strcmp( Cmd_Argv( 1 ), "off" )) 
 	{
 		svs.log.net_log = false;
@@ -190,20 +181,21 @@ void SV_SetLogAddress_f( void )
 		return;
 	}
 
-	port = Q_atoi( Cmd_Argv( 2 ));
+	const int port = Q_atoi( Cmd_Argv( 2 ));
 	if( !port )
 	{
 		Con_Printf( "logaddress: must specify a valid port\n" );
 		return;
 	}
 
-	s = Cmd_Argv( 1 );
+	const char *s = Cmd_Argv( 1 );
 	if( COM_StringEmptyOrNULL( s ))
 	{
 		Con_Printf( "logaddress: unparseable address\n" );
 		return;
 	}
 
+	string addr;
 	Q_snprintf( addr, sizeof( addr ), "%s:%i", s, port );
 	if( !NET_StringToAdr( addr, &svs.log.net_address ))
 	{
