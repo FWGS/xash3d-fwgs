@@ -17,15 +17,13 @@ GNU General Public License for more details.
 
 qboolean Atlas_AllocBlock( atlas_t *atlas, int w, int h, int *x, int *y )
 {
-	int i, j;
-	int best, best2;
 	int size = atlas->size;
+	int best = size;
+	int j;
 
-	best = size;
-
-	for( i = 0; i <= size - w; )
+	for( int i = 0; i <= size - w; )
 	{
-		best2 = 0;
+		int best2 = 0;
 
 		for( j = 0; j < w; j++ )
 		{
@@ -52,7 +50,7 @@ qboolean Atlas_AllocBlock( atlas_t *atlas, int w, int h, int *x, int *y )
 	if( best + h > size )
 		return false;
 
-	for( i = 0; i < w; i++ )
+	for( int i = 0; i < w; i++ )
 		atlas->allocated[*x + i] = best + h;
 
 	if( best + h > atlas->max_height )
