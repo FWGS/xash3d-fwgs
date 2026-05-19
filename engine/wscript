@@ -26,6 +26,14 @@ int main(int argc, char **argv)
 }
 '''
 
+FT2_CHECK_FRAGMENT='''
+extern "C" {
+#include <ft2build.h>
+#include FT_FREETYPE_H
+}
+int main() { return FT_Init_FreeType( NULL ); }
+'''
+
 CURL_CHECK_FRAGMENT='''
 #include <curl/curl.h>
 int main(int argc, char **argv)
@@ -58,6 +66,9 @@ def options(opt):
 
 	grp.add_option('--enable-engine-fuzz', action = 'store_true', dest = 'ENGINE_FUZZ', default = False,
 		help = 'add LLVM libFuzzer [default: %(default)s]' )
+
+	grp.add_option('--engine-font-stb', action = 'store_true', dest = 'ENGINE_FONT_STB', default = False,
+		help = 'use stb_truetype for engine font rendering instead of FreeType/WinAPI [default: %(default)s]')
 
 	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
 		help = 'enable ffmpeg based movie playback [default: %(default)s')
@@ -175,6 +186,25 @@ def configure(conf):
 		conf.env.CURL=True
 		conf.define('HAVE_CURL', True)
 
+	# Engine truetype font backend selection
+	if conf.env.CLIENT:
+		force_stb = conf.env.DEST_OS in ['android', 'nswitch', 'psvita', 'emscripten']
+		use_stb   = conf.options.ENGINE_FONT_STB or force_stb
+
+		if not use_stb and conf.env.DEST_OS not in ['win32', 'dos']:
+			try:
+				conf.check_cfg(package='freetype2', uselib_store='FT2', args='--cflags --libs')
+				conf.check(features='cxx cprogram', fragment=FT2_CHECK_FRAGMENT, use='FT2', msg='Checking for freetype2 sanity')
+				conf.define('XASH_ENGINE_FONT_FREETYPE', 1)
+				conf.env.ENGINE_FONT_FREETYPE = True
+			except:
+				Logs.warn('freetype2 not found, falling back to stb_truetype for engine font rendering')
+				use_stb = True
+
+		if use_stb:
+			conf.define('XASH_ENGINE_FONT_STB', 1)
+			conf.env.ENGINE_FONT_STB = True
+
 	conf.define_cond('XASH_STATIC_LIBS', conf.env.STATIC_LINKING)
 	conf.define_cond('XASH_CUSTOM_SWAP', conf.options.CUSTOM_SWAP)
 	conf.define_cond('PSAPI_VERSION', conf.env.DEST_OS == 'win32') # will be defined as 1
@@ -290,6 +320,23 @@ def build(bld):
 		if not bld.env.DEDICATED:
 			source += bld.path.ant_glob('client/**/*.c')
 			libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
+
+			# engine truetype font backend
+			font_sources = [
+				'client/font/TrueTypeFont.cpp',
+				'client/font/BMPUtils.cpp',
+				'../3rdparty/miniutl/utlmemory.cpp',
+			]
+			if bld.get_define('XASH_ENGINE_FONT_STB'):
+				font_sources += ['client/font/StbFont.cpp']
+			elif bld.get_define('XASH_ENGINE_FONT_FREETYPE'):
+				font_sources += ['client/font/FreeTypeFont.cpp']
+				libs += ['FT2']
+			else:
+				# Windows WinAPI backend
+				font_sources += ['client/font/WinAPIFont.cpp']
+			source += font_sources
+			includes += ['client/font', '../3rdparty/miniutl']
 
 		# Android port is linked differently
 		if bld.env.DEST_OS == 'android':

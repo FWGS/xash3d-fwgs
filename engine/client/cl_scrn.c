@@ -746,6 +746,9 @@ void SCR_LoadCreditsFont( void )
 	if( !success )
 		success = Con_LoadFixedWidthFont( "gfx/conchars", font, scale, &hud_fontrender, TF_FONT|TF_NEAREST );
 
+	if( success )
+		Con_DPrintf( "Loaded HUD bitmap font (scale %.1f)\n", scale );
+
 	// copy font size for client.dll
 	if( success )
 	{
@@ -757,6 +760,39 @@ void SCR_LoadCreditsFont( void )
 			clgame.scrInfo.charWidths[i] = cls.creditsFont.charWidths[i];
 	}
 	else Con_DPrintf( S_ERROR "failed to load HUD font\n" );
+
+	if( success && hud_truetype.value && hud_truetype_size.value > 0 )
+	{
+		float hudScale = 1.0f;
+		int ttfSize;
+
+		if( hud_scale.value >= 320.0f && hud_scale.value >= hud_scale_minimal_width.value )
+		{
+			hudScale = refState.width / hud_scale.value;
+			if( hudScale < 1.0f ) hudScale = 1.0f;
+		}
+		else if( hud_scale.value && hud_scale.value != 1.0f )
+		{
+			float scaled_width = refState.width / hud_scale.value;
+			if( scaled_width >= hud_scale_minimal_width.value )
+				hudScale = hud_scale.value;
+		}
+
+		ttfSize = (int)( hud_truetype_size.value * hudScale + 0.5f );
+		const char *fontName = COM_StringEmptyOrNULL( hud_truetype_name.string ) ? DEFAULT_MENUFONT : hud_truetype_name.string;
+		font->ttfont = TTF_Create( fontName, ttfSize, DEFAULT_WEIGHT, 0, 0 );
+
+		if( !font->ttfont && fontName != DEFAULT_MENUFONT )
+		{
+			Con_Printf( S_WARN "Failed to load hud_truetype font '%s', falling back to '%s'\n", fontName, DEFAULT_MENUFONT );
+			font->ttfont = TTF_Create( DEFAULT_MENUFONT, ttfSize, DEFAULT_WEIGHT, 0, 0 );
+		}
+
+		if( font->ttfont )
+			Con_DPrintf( "Loaded HUD truetype font '%s' size %i\n", fontName, ttfSize );
+		else
+			Con_Printf( S_ERROR "Failed to load HUD truetype font '%s'\n", fontName );
+	}
 }
 
 /*
@@ -903,6 +939,9 @@ void SCR_VidInit( void )
 	}
 
 	CL_ClearSpriteTextures(); // now all hud sprites are invalid
+
+	CL_FreeFont( &cls.creditsFont );
+	SCR_LoadCreditsFont();
 
 	// vid_state has changed
 	if( gameui.hInstance ) gameui.dllFuncs.pfnVidInit();

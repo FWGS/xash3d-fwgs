@@ -354,6 +354,7 @@ typedef struct
 	int      type;            // fixed width font or variable
 	convar_t *rendermode;     // user-defined default rendermode
 	qboolean	valid;           // all rectangles are valid
+	void    *ttfont;         // CTrueTypeFont* when truetype is active, NULL otherwise
 } cl_font_t;
 
 typedef struct scissor_state_s
@@ -723,6 +724,9 @@ extern convar_t	cl_trace_stufftext;
 extern convar_t	cl_trace_messages;
 extern convar_t	cl_trace_events;
 extern convar_t	hud_utf8;
+extern convar_t	hud_truetype;
+extern convar_t hud_truetype_size;
+extern convar_t hud_truetype_name;
 extern convar_t	cl_showevents;
 extern convar_t	scr_centertime;
 extern convar_t	scr_viewsize;
@@ -829,6 +833,35 @@ void CL_RegisterEvent( int lastnum, const char *szEvName, pfnEventHook func );
 void CL_ResetEvent( event_info_t *ei );
 word CL_EventIndex( const char *name );
 void CL_FireEvents( void );
+
+//
+// font/TrueTypeFont.cpp
+//
+
+// default font names and weights
+#define DEFAULT_MENUFONT "Trebuchet MS"
+#define DEFAULT_CONFONT  "Tahoma"
+#define DEFAULT_WEIGHT   500
+
+// default font sizes
+#define TTF_CONSOLE_CHAR_HEIGHT 18
+#define TTF_SMALL_CHAR_HEIGHT   20
+#define TTF_MED_CHAR_HEIGHT     26
+#define TTF_BIG_CHAR_HEIGHT     40
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+void  TTF_Init( void );
+void  TTF_Shutdown( void );
+void *TTF_Create( const char *name, int tall, int weight, int flags, int outlineSize );
+void  TTF_Destroy( void *font );
+int   TTF_DrawChar( void *font, int x, int y, int ch, int r, int g, int b, int a );
+int   TTF_GetHeight( void *font );
+int   TTF_GetCharWidth( void *font, int ch );
+#ifdef __cplusplus
+}
+#endif
 
 //
 // cl_font.c
