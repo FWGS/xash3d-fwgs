@@ -84,9 +84,7 @@ void stringlistinit( stringlist_t *list )
 
 void stringlistfreecontents( stringlist_t *list )
 {
-	int	i;
-
-	for( i = 0; i < list->numstrings; i++ )
+	for( int i = 0; i < list->numstrings; i++ )
 	{
 		if( list->strings[i] )
 			Mem_Free( list->strings[i] );
@@ -103,7 +101,7 @@ void stringlistfreecontents( stringlist_t *list )
 
 void stringlistappend( stringlist_t *list, const char *text )
 {
-	size_t	textlen;
+	size_t textlen;
 
 	if( !Q_strcmp( text, "." ) || !Q_strcmp( text, ".." ))
 		return; // ignore the virtual directories
@@ -122,17 +120,14 @@ void stringlistappend( stringlist_t *list, const char *text )
 
 void stringlistsort( stringlist_t *list )
 {
-	char	*temp;
-	int	i, j;
-
 	// this is a selection sort (finds the best entry for each slot)
-	for( i = 0; i < list->numstrings - 1; i++ )
+	for( int i = 0; i < list->numstrings - 1; i++ )
 	{
-		for( j = i + 1; j < list->numstrings; j++ )
+		for( int j = i + 1; j < list->numstrings; j++ )
 		{
 			if( Q_strcmp( list->strings[i], list->strings[j] ) > 0 )
 			{
-				temp = list->strings[i];
+				char *temp = list->strings[i];
 				list->strings[i] = list->strings[j];
 				list->strings[j] = temp;
 			}
@@ -143,12 +138,9 @@ void stringlistsort( stringlist_t *list )
 // convert names to lowercase because dos doesn't care, but pattern matching code often does
 MAYBE_UNUSED static void listlowercase( stringlist_t *list )
 {
-	char	*c;
-	int	i;
-
-	for( i = 0; i < list->numstrings; i++ )
+	for( int i = 0; i < list->numstrings; i++ )
 	{
-		for( c = list->strings[i]; *c; c++ )
+		for( char *c = list->strings[i]; *c; c++ )
 			*c = Q_tolower( *c );
 	}
 }
@@ -231,14 +223,12 @@ Only used for FS_Open.
 */
 void FS_CreatePath( char *path )
 {
-	char *ofs, save;
-
-	for( ofs = path + 1; *ofs; ofs++ )
+	for( char *ofs = path + 1; *ofs; ofs++ )
 	{
 		if( *ofs == '/' || *ofs == '\\' )
 		{
 			// create the directory
-			save = *ofs;
+			char save = *ofs;
 			*ofs = 0;
 #if XASH_WIN32
 			_mkdir( path ); // use _wmkdir maybe?

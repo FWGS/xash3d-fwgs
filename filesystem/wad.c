@@ -95,13 +95,12 @@ Extracts file type from extension
 static signed char W_TypeFromExt( const char *lumpname )
 {
 	const char *ext = COM_FileExtension( lumpname );
-	int i;
 
 	// we not known about filetype, so match only by filename
 	if( !Q_strcmp( ext, "*" ) || COM_StringEmpty( ext ))
 		return TYP_ANY;
 
-	for( i = 0; i < sizeof( wad_types ) / sizeof( wad_types[0] ); i++ )
+	for( int i = 0; i < sizeof( wad_types ) / sizeof( wad_types[0] ); i++ )
 	{
 		if( !Q_stricmp( ext, wad_types[i].ext ))
 			return wad_types[i].type;
@@ -119,13 +118,11 @@ Convert type to extension
 */
 static const char *W_ExtFromType( signed char lumptype )
 {
-	int i;
-
 	// we not known aboyt filetype, so match only by filename
 	if( lumptype == TYP_NONE || lumptype == TYP_ANY )
 		return "";
 
-	for( i = 0; i < sizeof( wad_types ) / sizeof( wad_types[0] ); i++ )
+	for( int i = 0; i < sizeof( wad_types ) / sizeof( wad_types[0] ); i++ )
 	{
 		if( lumptype == wad_types[i].type )
 			return wad_types[i].ext;
@@ -143,7 +140,7 @@ Serach for already existed lump
 */
 static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const signed char matchtype )
 {
-	int	left, right;
+	int left, right;
 
 	if( !wad || !wad->lumps || matchtype == TYP_NONE )
 		return NULL;
@@ -154,8 +151,8 @@ static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const signed cha
 
 	while( left <= right )
 	{
-		int	middle = (left + right) / 2;
-		int	diff = Q_stricmp( wad->lumps[middle].name, name );
+		int middle = (left + right) / 2;
+		int diff = Q_stricmp( wad->lumps[middle].name, name );
 
 		if( !diff )
 		{
@@ -186,17 +183,16 @@ and sort LAT in alpha-bethical order
 */
 static dlumpinfo_t *W_AddFileToWad( const char *wadfile, const char *name, wfile_t *wad, dlumpinfo_t *newlump )
 {
-	int		left, right;
-	dlumpinfo_t	*plump;
+	dlumpinfo_t *plump;
 
 	// look for the slot we should put that file into (binary search)
-	left = 0;
-	right = wad->numlumps - 1;
+	int left = 0;
+	int right = wad->numlumps - 1;
 
 	while( left <= right )
 	{
-		int	middle = ( left + right ) / 2;
-		int	diff = Q_stricmp( wad->lumps[middle].name, name );
+		int middle = ( left + right ) / 2;
+		int diff = Q_stricmp( wad->lumps[middle].name, name );
 
 		if( !diff )
 		{
@@ -267,11 +263,11 @@ open the wad for reading & writing
 */
 static wfile_t *W_Open( const char *filename, int *error, uint flags )
 {
-	wfile_t		*wad = (wfile_t *)Mem_Calloc( fs_mempool, sizeof( wfile_t ));
-	int		i, lumpcount;
-	dlumpinfo_t	*srclumps;
-	size_t		lat_size;
-	dwadinfo_t	header;
+	wfile_t *wad = (wfile_t *)Mem_Calloc( fs_mempool, sizeof( wfile_t ));
+	int lumpcount;
+	dlumpinfo_t *srclumps;
+	size_t lat_size;
+	dwadinfo_t header;
 
 	if( FBitSet( flags, FS_LOAD_PACKED_WAD ))
 	{
@@ -355,7 +351,7 @@ static wfile_t *W_Open( const char *filename, int *error, uint flags )
 		return NULL;
 	}
 
-	for( i = 0; i < lumpcount; i++ )
+	for( int i = 0; i < lumpcount; i++ )
 	{
 		srclumps[i].filepos = LittleLong( srclumps[i].filepos );
 		srclumps[i].disksize = LittleLong( srclumps[i].disksize );
@@ -367,10 +363,10 @@ static wfile_t *W_Open( const char *filename, int *error, uint flags )
 	wad->numlumps = 0;
 
 	// sort lumps for binary search
-	for( i = 0; i < lumpcount; i++ )
+	for( int i = 0; i < lumpcount; i++ )
 	{
-		char	name[16];
-		int	k;
+		char name[16];
+		int k;
 
 		// cleanup lumpname
 		Q_strnlwr( srclumps[i].name, name, sizeof( srclumps[i].name ));
@@ -425,11 +421,11 @@ FS_FindFile_WAD
 */
 static int FS_FindFile_WAD( searchpath_t *search, const char *path, char *fixedname, size_t len )
 {
-	dlumpinfo_t	*lump;
-	signed char		type = W_TypeFromExt( path );
-	qboolean		anywadname = true;
-	string		wadname;
-	string		shortname;
+	dlumpinfo_t *lump;
+	signed char type = W_TypeFromExt( path );
+	qboolean anywadname = true;
+	string wadname;
+	string shortname;
 
 	// quick reject by filetype
 	if( type == TYP_NONE )
@@ -478,12 +474,10 @@ FS_Search_WAD
 */
 static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
-	string	wadpattern, wadname, temp2;
-	signed char	type = W_TypeFromExt( pattern );
-	qboolean	anywadname = true;
-	string	wadfolder, temp;
-	int j, i;
-	const char *slash, *backslash, *colon, *separator;
+	string wadpattern, wadname, temp2;
+	signed char type = W_TypeFromExt( pattern );
+	qboolean anywadname = true;
+	string wadfolder, temp;
 	char buf[MAX_VA_STRING];
 
 	// quick reject by filetype
@@ -513,7 +507,7 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 	if( !anywadname && Q_stricmp( wadname, temp2 ))
 		return;
 
-	for( i = 0; i < search->wad->numlumps; i++ )
+	for( int i = 0; i < search->wad->numlumps; i++ )
 	{
 		// if type not matching, we already have no chance ...
 		if( type != TYP_ANY && search->wad->lumps[i].type != type )
@@ -524,8 +518,12 @@ static void FS_Search_WAD( searchpath_t *search, stringlist_t *list, const char 
 
 		while( temp[0] )
 		{
+			const char *slash, *backslash, *colon, *separator;
+
 			if( matchpattern( temp, wadpattern, true ))
 			{
+				int j;
+
 				for( j = 0; j < list->numstrings; j++ )
 				{
 					if( !Q_strcmp( list->strings[j], temp ))
@@ -571,8 +569,8 @@ static byte *W_ReadLump( searchpath_t *search, const char *path, int pack_ind, f
 {
 	const wfile_t *wad = search->wad;
 	const dlumpinfo_t *lump = &wad->lumps[pack_ind];
-	size_t	oldpos, size = 0;
-	byte	*buf;
+	size_t oldpos, size;
+	byte *buf;
 
 	// assume error
 	if( lumpsizeptr ) *lumpsizeptr = 0;
@@ -620,10 +618,8 @@ FS_AddWad_Fullpath
 searchpath_t *FS_AddWad_Fullpath( const char *wadfile, int flags )
 {
 	searchpath_t *search;
-	wfile_t *wad;
 	int errorcode = WAD_LOAD_COULDNT_OPEN;
-
-	wad = W_Open( wadfile, &errorcode, flags );
+	wfile_t *wad = W_Open( wadfile, &errorcode, flags );
 
 	if( !wad )
 	{

@@ -169,15 +169,15 @@ FS_LoadZip
 */
 static zip_t *FS_LoadZip( const char *zipfile, int *error )
 {
-	int		  numpackfiles = 0, i;
-	zip_cdf_header_t  header_cdf;
+	int numpackfiles = 0;
+	zip_cdf_header_t header_cdf;
 	zip_header_eocd_t header_eocd;
-	uint32_t          signature;
-	fs_offset_t	  filepos = 0;
-	zipfile_t	  *info = NULL;
-	char		  filename_buffer[MAX_SYSPATH];
-	zip_t         *zip = (zip_t *)Mem_Calloc( fs_mempool, sizeof( *zip ));
-	fs_size_t       c;
+	uint32_t signature;
+	fs_offset_t filepos;
+	zipfile_t *info = NULL;
+	char filename_buffer[MAX_SYSPATH];
+	zip_t *zip = (zip_t *)Mem_Calloc( fs_mempool, sizeof( *zip ));
+	fs_size_t c;
 
 	// TODO: use FS_Open to allow PK3 to be included into other archives
 	// Currently, it doesn't work with rodir due to FS_FindFile logic
@@ -295,7 +295,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	zip = (zip_t *)Mem_Realloc( fs_mempool, zip, sizeof( *zip ) + sizeof( *info ) * header_eocd.total_central_directory_record );
 	info = zip->files;
 
-	for( i = 0; i < header_eocd.total_central_directory_record; i++ )
+	for( int i = 0; i < header_eocd.total_central_directory_record; i++ )
 	{
 		c = FS_Read( zip->handle, &header_cdf, sizeof( header_cdf ));
 
@@ -373,7 +373,7 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 	}
 
 	// recalculate offsets
-	for( i = 0; i < numpackfiles; i++ )
+	for( int i = 0; i < numpackfiles; i++ )
 	{
 		zip_header_t header;
 
@@ -472,18 +472,14 @@ FS_LoadZIPFile
 */
 static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_ind, fs_offset_t *sizeptr, void *( *pfnAlloc )( size_t ), void ( *pfnFree )( void * ))
 {
-	zipfile_t *file;
-	byte		*compressed_buffer = NULL, *decompressed_buffer = NULL;
-	int		zlib_result = 0;
-	z_stream	decompress_stream;
-	size_t      c;
+	zipfile_t *file = &search->zip->files[pack_ind];
+	byte *compressed_buffer = NULL, *decompressed_buffer;
+	size_t c;
 #ifdef ENABLE_CRC_CHECK
-	dword		test_crc, final_crc;
+	dword test_crc, final_crc;
 #endif // ENABLE_CRC_CHECK
 
 	if( sizeptr ) *sizeptr = 0;
-
-	file = &search->zip->files[pack_ind];
 
 	if( FS_Seek( search->zip->handle, file->offset, SEEK_SET ) == -1 )
 		return NULL;
@@ -534,6 +530,9 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	}
 	else if( file->flags == ZIP_COMPRESSION_DEFLATED )
 	{
+		z_stream decompress_stream;
+		int zlib_result;
+
 		compressed_buffer = (byte *)Mem_Malloc( fs_mempool, file->compressed_size + 1 );
 
 		c = FS_Read( search->zip->handle, compressed_buffer, file->compressed_size );
@@ -636,17 +635,14 @@ FS_FindFile_ZIP
 */
 static int FS_FindFile_ZIP( searchpath_t *search, const char *path, char *fixedname, size_t len )
 {
-	int	left, right, middle;
-
 	// look for the file (binary search)
-	left = 0;
-	right = search->zip->numfiles - 1;
+	int left = 0;
+	int right = search->zip->numfiles - 1;
+
 	while( left <= right )
 	{
-		int	diff;
-
-		middle = (left + right) / 2;
-		diff = Q_stricmp( search->zip->files[middle].name, path );
+		int middle = (left + right) / 2;
+		int diff = Q_stricmp( search->zip->files[middle].name, path );
 
 		// Found it
 		if( !diff )
@@ -674,16 +670,18 @@ FS_Search_ZIP
 static void FS_Search_ZIP( searchpath_t *search, stringlist_t *list, const char *pattern, int caseinsensitive )
 {
 	string temp;
-	const char *slash, *backslash, *colon, *separator;
-	int j, i;
 
-	for( i = 0; i < search->zip->numfiles; i++ )
+	for( int i = 0; i < search->zip->numfiles; i++ )
 	{
 		Q_strncpy( temp, search->zip->files[i].name, sizeof( temp ));
 		while( temp[0] )
 		{
+			const char *slash, *backslash, *colon, *separator;
+
 			if( matchpattern( temp, pattern, true ))
 			{
+				int j;
+
 				for( j = 0; j < list->numstrings; j++ )
 				{
 					if( !Q_strcmp( list->strings[j], temp ))
@@ -720,10 +718,8 @@ FS_AddZip_Fullpath
 searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags )
 {
 	searchpath_t *search;
-	zip_t *zip;
 	int errorcode = ZIP_LOAD_COULDNT_OPEN;
-
-	zip = FS_LoadZip( zipfile, &errorcode );
+	zip_t *zip = FS_LoadZip( zipfile, &errorcode );
 
 	if( !zip )
 	{
