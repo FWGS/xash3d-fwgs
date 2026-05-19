@@ -175,12 +175,8 @@ public:
 
 	FileHandle_t Open( const char *path, const char *mode, const char *id ) override
 	{
-		file_t *fd;
-
 		FixupPath( p, path );
-		fd = FS_Open( p, mode, IsIdGamedir( id ));
-
-		return fd;
+		return FS_Open( p, mode, IsIdGamedir( id ));
 	}
 
 	void Close( FileHandle_t handle ) override
@@ -304,19 +300,16 @@ public:
 
 	const char *FindFirst( const char *pattern, FileFindHandle_t *handle, const char *id ) override
 	{
-		CSearchState *state;
-		search_t *search;
-
 		if( !handle || !pattern )
 			return nullptr;
 
 		FixupPath( p, pattern );
-		search = FS_Search( p, true, IsIdGamedir( id ));
+		search_t *search = FS_Search( p, true, IsIdGamedir( id ));
 
 		if( !search )
 			return nullptr;
 
-		state = new CSearchState( &searchHead, search );
+		CSearchState *state = new CSearchState( &searchHead, search );
 		if( !state )
 		{
 			Mem_Free( search );
@@ -378,8 +371,6 @@ public:
 
 	const char *GetLocalPath( const char *name, char *buf, int size ) override
 	{
-		const char *fullpath;
-
 		if( !name )
 			return nullptr;
 
@@ -396,7 +387,7 @@ public:
 			return buf;
 		}
 
-		fullpath = FS_GetDiskPath( p, false );
+		const char *fullpath = FS_GetDiskPath( p, false );
 		if( !fullpath )
 			return nullptr;
 
@@ -407,10 +398,8 @@ public:
 	char *ParseFile( char *buf, char *token, bool *quoted ) override
 	{
 		qboolean qquoted;
-		char *p;
-
 		// filesystem_stdio expects 512 byte buffers
-		p = COM_ParseFileSafe( buf, token, 512, 0, nullptr, &qquoted );
+		char *p = COM_ParseFileSafe( buf, token, 512, 0, nullptr, &qquoted );
 
 		if( quoted )
 			*quoted = qquoted;

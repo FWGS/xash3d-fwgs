@@ -65,9 +65,8 @@ static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 	return true;
 #elif XASH_LINUX && defined( FS_IOC_GETFLAGS )
 	int flags = 0;
-	int fd;
+	int fd = open( dir, O_RDONLY | O_NONBLOCK );
 
-	fd = open( dir, O_RDONLY | O_NONBLOCK );
 	if( fd < 0 )
 		return true;
 
@@ -96,8 +95,7 @@ static void FS_FreeDirEntries( dir_t *dir )
 {
 	if( dir->entries )
 	{
-		int i;
-		for( i = 0; i < dir->numentries; i++ )
+		for( int i = 0; i < dir->numentries; i++ )
 			FS_FreeDirEntries( &dir->entries[i] );
 		dir->entries = NULL;
 	}
@@ -107,12 +105,10 @@ static void FS_FreeDirEntries( dir_t *dir )
 
 static void FS_InitDirEntries( dir_t *dir, const stringlist_t *list )
 {
-	int i;
-
 	dir->numentries = list->numstrings;
 	dir->entries = Mem_Malloc( fs_mempool, sizeof( dir_t ) * dir->numentries );
 
-	for( i = 0; i < list->numstrings; i++ )
+	for( int i = 0; i < list->numstrings; i++ )
 	{
 		dir_t *entry = &dir->entries[i];
 
@@ -158,18 +154,14 @@ static void FS_PopulateDirEntries( dir_t *dir, const char *path )
 
 static int FS_FindDirEntry( dir_t *dir, const char *name )
 {
-	int left, right;
-
 	// look for the file (binary search)
-	left = 0;
-	right = dir->numentries - 1;
+	int left = 0;
+	int right = dir->numentries - 1;
 
 	while( left <= right )
 	{
-		int   middle = (left + right) / 2;
-		int	diff;
-
-		diff = Q_stricmp( dir->entries[middle].name, name );
+		int middle = (left + right) / 2;
+		int diff = Q_stricmp( dir->entries[middle].name, name );
 
 		// found it
 		if( !diff )
@@ -185,7 +177,6 @@ static int FS_FindDirEntry( dir_t *dir, const char *name )
 
 static void FS_MergeDirEntries( dir_t *dir, const stringlist_t *list )
 {
-	int i;
 	dir_t temp;
 
 	// glorified realloc for sorted dir entries
@@ -194,7 +185,7 @@ static void FS_MergeDirEntries( dir_t *dir, const stringlist_t *list )
 
 	FS_InitDirEntries( &temp, list );
 
-	for( i = 0; i < dir->numentries; i++ )
+	for( int i = 0; i < dir->numentries; i++ )
 	{
 		dir_t *oldentry = &dir->entries[i];
 		dir_t *newentry;
@@ -417,15 +408,13 @@ static void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char 
 {
 	string netpath, temp;
 	stringlist_t dirlist;
-	const char *slash, *backslash, *colon, *separator;
-	int basepathlength, dirlistindex, resultlistindex;
+	const char *slash = Q_strrchr( pattern, '/' );
+	const char *backslash = Q_strrchr( pattern, '\\' );
+	const char *colon = Q_strrchr( pattern, ':' );
+	const char *separator = Q_max( slash, backslash );
+	int basepathlength, dirlistindex;
 	char *basepath;
 
-	slash = Q_strrchr( pattern, '/' );
-	backslash = Q_strrchr( pattern, '\\' );
-	colon = Q_strrchr( pattern, ':' );
-
-	separator = Q_max( slash, backslash );
 	separator = Q_max( separator, colon );
 
 	basepathlength = separator ? (separator + 1 - pattern) : 0;
@@ -450,6 +439,8 @@ static void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char 
 
 		if( matchpattern( temp, (char *)pattern, true ) )
 		{
+			int resultlistindex;
+
 			for( resultlistindex = 0; resultlistindex < list->numstrings; resultlistindex++ )
 			{
 				if( !Q_strcmp( list->strings[resultlistindex], temp ) )
@@ -476,8 +467,8 @@ static int FS_FileTime_DIR( searchpath_t *search, const char *filename )
 
 static file_t *FS_OpenFile_DIR( searchpath_t *search, const char *filename, const char *mode, int pack_ind )
 {
-	file_t *f;
 	char path[MAX_SYSPATH];
+	file_t *f;
 
 	Q_snprintf( path, sizeof( path ), "%s%s", search->filename, filename );
 	f = FS_SysOpen( path, mode );
@@ -515,9 +506,8 @@ void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int fla
 
 searchpath_t *FS_AddDir_Fullpath( const char *path, int flags )
 {
-	searchpath_t *search;
+	searchpath_t *search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
 
-	search = (searchpath_t *)Mem_Calloc( fs_mempool, sizeof( searchpath_t ));
 	FS_InitDirectorySearchpath( search, path, flags );
 	Con_Printf( "Adding directory: %s\n", path );
 
