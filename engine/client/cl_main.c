@@ -36,7 +36,7 @@ CVAR_DEFINE( cl_allow_download, "cl_allowdownload", "1", FCVAR_ARCHIVE, "allow t
 static CVAR_DEFINE( cl_allow_upload, "cl_allowupload", "1", FCVAR_ARCHIVE, "allow to uploading resources to the server" );
 CVAR_DEFINE_AUTO( cl_download_ingame, "1", FCVAR_ARCHIVE, "allow to downloading resources while client is active" );
 static CVAR_DEFINE_AUTO( cl_logofile, "lambda", FCVAR_ARCHIVE, "player logo name" );
-static CVAR_DEFINE_AUTO( cl_logocolor, "orange", FCVAR_ARCHIVE, "player logo color" );
+static CVAR_DEFINE_AUTO( cl_logocolor, "255 120 24", FCVAR_ARCHIVE, "player logo color" );
 static CVAR_DEFINE_AUTO( cl_logoext, "bmp", FCVAR_ARCHIVE, "temporary cvar to tell engine which logo must be packed" );
 CVAR_DEFINE_AUTO( cl_logomaxdim, "96", FCVAR_ARCHIVE, "maximum decal dimension" );
 static CVAR_DEFINE_AUTO( cl_test_bandwidth, "1", FCVAR_ARCHIVE, "test network bandwith before connection" );
