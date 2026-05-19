@@ -97,11 +97,13 @@ void GAME_EXPORT CRC32_ProcessByte( uint32_t *pulCRC, byte ch )
 
 void GAME_EXPORT CRC32_ProcessBuffer( uint32_t *pulCRC, const void *pBuffer, int nBuffer )
 {
-	uint32_t	ulCrc = *pulCRC, tmp;
-	byte	*pb = (byte *)pBuffer;
+	uint32_t ulCrc = *pulCRC;
+	byte *pb = (byte *)pBuffer;
 
 	while( nBuffer >= sizeof( uint64_t ))
 	{
+		uint32_t tmp;
+
 		memcpy( &tmp, pb, sizeof( tmp ));
 		ulCrc ^= LittleLong( tmp );
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
@@ -120,6 +122,8 @@ void GAME_EXPORT CRC32_ProcessBuffer( uint32_t *pulCRC, const void *pBuffer, int
 
 	if( nBuffer & sizeof( uint32_t ))
 	{
+		uint32_t tmp;
+
 		memcpy( &tmp, pb, sizeof( tmp ));
 		ulCrc ^= LittleLong( tmp );
 		ulCrc  = crc32table[(byte)ulCrc] ^ (ulCrc >> 8);
@@ -147,23 +151,22 @@ For proxy protecting
 */
 byte CRC32_BlockSequence( byte *base, int length, int sequence )
 {
-	uint32_t	CRC;
-	char	buffer[64];
-	int	off;
-	uint32_t	le[2];
+	char buffer[64];
 
 	if( sequence < 0 ) sequence = abs( sequence );
 
 	if( length > 60 ) length = 60;
 	memcpy( buffer, base, length );
 
-	off = sequence % 0x3FC;
+	int off = sequence % 0x3FC;
+	uint32_t le[2];
 	le[0] = LittleLong( crc32table[off / 4] );
 	le[1] = LittleLong( crc32table[off / 4 + 1] );
 	memcpy( buffer + length, (char *)le + ( off & 3 ), 4 );
 
 	length += 4;
 
+	uint32_t CRC;
 	CRC32_Init( &CRC );
 	CRC32_ProcessBuffer( &CRC, buffer, length );
 	CRC = CRC32_Final( CRC );
@@ -188,10 +191,8 @@ Update context to reflect the concatenation of another buffer full of bytes.
 */
 void MD5Update( MD5Context_t *ctx, const byte *buf, uint len )
 {
-	uint	t;
-
 	// update bitcount
-	t = ctx->bits[0];
+	uint t = ctx->bits[0];
 
 	if(( ctx->bits[0] = t + ((uint) len << 3 )) < t )
 		ctx->bits[1]++;	// carry from low to high
@@ -242,15 +243,12 @@ Final wrapup - pad to 64-byte boundary with the bit pattern
 */
 void MD5Final( byte digest[16], MD5Context_t *ctx )
 {
-	uint	count;
-	byte	*p;
-
 	// compute number of bytes mod 64
-	count = ( ctx->bits[0] >> 3 ) & 0x3F;
+	uint count = ( ctx->bits[0] >> 3 ) & 0x3F;
 
 	// set the first char of padding to 0x80.
 	// this is safe since there is always at least one byte free
-	p = (byte*)ctx->in + count;
+	byte *p = (byte*)ctx->in + count;
 	*p++ = 0x80;
 
 	// bytes of padding needed to make 64 bytes
@@ -308,12 +306,10 @@ the data and converts bytes into longwords for this routine.
 */
 void MD5Transform( uint buf[4], const uint in[16] )
 {
-	register uint	a, b, c, d;
-
-	a = buf[0];
-	b = buf[1];
-	c = buf[2];
-	d = buf[3];
+	register uint a = buf[0];
+	register uint b = buf[1];
+	register uint c = buf[2];
+	register uint d = buf[3];
 
 	MD5STEP( F1, a, b, c, d, in[0] + 0xd76aa478, 7 );
 	MD5STEP( F1, d, a, b, c, in[1] + 0xe8c7b756, 12 );
@@ -425,12 +421,11 @@ transform hash to hexadecimal printable symbols
 */
 char *MD5_Print( byte hash[16] )
 {
-	static char	szReturn[64];
-	int		i;
+	static char szReturn[64];
 
 	memset( szReturn, 0, 64 );
 
-	for( i = 0; i < 16; i++ )
+	for( int i = 0; i < 16; i++ )
 		COM_Hex2String( hash[i], &szReturn[i * 2] );
 
 	return szReturn;
