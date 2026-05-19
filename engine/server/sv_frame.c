@@ -35,10 +35,8 @@ SV_EntityNumbers
 */
 static int SV_EntityNumbers( const void *a, const void *b )
 {
-	int	ent1, ent2;
-
-	ent1 = ((entity_state_t *)a)->number;
-	ent2 = ((entity_state_t *)b)->number;
+	int	ent1 = ((entity_state_t *)a)->number;
+	int	ent2 = ((entity_state_t *)b)->number;
 
 	// watcom libc compares ents with itself
 	if( ent1 == ent2 )
@@ -57,14 +55,10 @@ SV_AddEntitiesToPacket
 */
 static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_frame_t *frame, sv_ents_t *ents, qboolean from_client )
 {
-	edict_t		*ent;
 	byte		*clientpvs = NULL;
 	byte		*clientphs = NULL;
 	qboolean		fullvis = false;
 	sv_client_t	*cl = NULL;
-	qboolean		player;
-	entity_state_t	*state;
-	int		e;
 
 	// during an error shutdown message we may need to transmit
 	// the shutdown message after the server has shutdown, so
@@ -92,11 +86,12 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 	if( !clientpvs ) fullvis = true;
 
 	// g-cont: of course we can send world but not want to do it :-)
-	for( e = 1; e < svgame.numEntities; e++ )
+	for( int e = 1; e < svgame.numEntities; e++ )
 	{
 		byte	*pset;
-
-		ent = SV_EdictNum( e );
+		edict_t	*ent = SV_EdictNum( e );
+		qboolean	player;
+		entity_state_t	*state;
 
 		// don't double add an entity through portals (in case this already added)
 		if( CHECKVISBIT( ents->sended, e ))
@@ -184,14 +179,13 @@ set frame to NULL to check for static entities
 int SV_FindBestBaseline( int index, entity_state_t **baseline, entity_state_t *to, client_frame_t *frame, qboolean player )
 {
 	int	bestBitCount;
-	int	i, bitCount;
 	int	bestfound, j;
 
 	bestBitCount = j = Delta_TestBaseline( *baseline, to, player, sv.time );
 	bestfound = index;
 
 	// lookup backward for previous 64 states and try to interpret current delta as baseline
-	for( i = index - 1; bestBitCount > 0 && i >= 0 && ( index - i ) < ( MAX_CUSTOM_BASELINES - 1 ); i-- )
+	for( int i = index - 1; bestBitCount > 0 && i >= 0 && ( index - i ) < ( MAX_CUSTOM_BASELINES - 1 ); i-- )
 	{
 		// don't worry about underflow in circular buffer
 		entity_state_t *test;
@@ -204,7 +198,7 @@ int SV_FindBestBaseline( int index, entity_state_t **baseline, entity_state_t *t
 
 		if( to->entityType == test->entityType )
 		{
-			bitCount = Delta_TestBaseline( test, to, player, sv.time );
+			int	bitCount = Delta_TestBaseline( test, to, player, sv.time );
 
 			if( bitCount < bestBitCount )
 			{
@@ -236,7 +230,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 {
 	entity_state_t	*oldent, *newent;
 	int		oldindex, newindex;
-	int		i, oldnum, newnum;
+	int		oldnum, newnum;
 	qboolean		player;
 	int		oldmax;
 	client_frame_t	*from;
@@ -326,7 +320,7 @@ static void SV_EmitPacketEntities( sv_client_t *cl, client_frame_t *to, sizebuf_
 			}
 			else
 			{
-				for( i = 0; i < sv.num_instanced; i++ )
+				for( int i = 0; i < sv.num_instanced; i++ )
 				{
 					if( !Q_strcmp( classname, sv.instanced[i].classname ))
 					{
@@ -372,17 +366,16 @@ static void SV_EmitEvents( sv_client_t *cl, client_frame_t *to, sizebuf_t *msg )
 {
 	event_state_t	*es;
 	event_info_t	*info;
-	entity_state_t	*state;
 	event_args_t	nullargs;
 	int		ev_count = 0;
 	int		count, ent_index;
-	int		i, j, ev;
+	int		i, j;
 
 	memset( &nullargs, 0, sizeof( nullargs ));
 	es = &cl->events;
 
 	// count events
-	for( ev = 0; ev < MAX_EVENT_QUEUE; ev++ )
+	for( int ev = 0; ev < MAX_EVENT_QUEUE; ev++ )
 	{
 		if( es->ei[ev].index )
 			ev_count++;
@@ -404,7 +397,7 @@ static void SV_EmitEvents( sv_client_t *cl, client_frame_t *to, sizebuf_t *msg )
 
 		for( j = 0; j < to->num_entities; j++ )
 		{
-			state = &svs.packet_entities[(to->first_entity+j) % svs.num_client_entities];
+			entity_state_t	*state = &svs.packet_entities[(to->first_entity+j) % svs.num_client_entities];
 			if( state->number == ent_index )
 				break;
 		}
@@ -531,7 +524,6 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 	weapon_data_t	*from_wd, *to_wd;
 	client_frame_t	*frame;
 	edict_t		*clent;
-	int		i;
 
 	memset( &nullcd, 0, sizeof( nullcd ));
 	frame = &cl->frames[cl->netchan.outgoing_sequence & SV_UPDATE_MASK];
@@ -590,7 +582,7 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 	{
 		memset( &nullwd, 0, sizeof( nullwd ));
 
-		for( i = 0; i < MAX_LOCAL_WEAPONS; i++ )
+		for( int i = 0; i < MAX_LOCAL_WEAPONS; i++ )
 		{
 			if( cl->delta_sequence == -1 ) from_wd = &nullwd;
 			else from_wd = &cl->frames[cl->delta_sequence & SV_UPDATE_MASK].weapondata[i];
@@ -613,9 +605,8 @@ SV_WriteEntitiesToClient
 static void SV_WriteEntitiesToClient( sv_client_t *cl, sizebuf_t *msg )
 {
 	client_frame_t	*frame;
-	entity_state_t	*state;
 	static sv_ents_t	frame_ents;
-	int		i, send_pings;
+	int		send_pings;
 
 	frame = &cl->frames[cl->netchan.outgoing_sequence & SV_UPDATE_MASK];
 	send_pings = SV_ShouldUpdatePing( cl );
@@ -656,10 +647,10 @@ static void SV_WriteEntitiesToClient( sv_client_t *cl, sizebuf_t *msg )
 	frame->first_entity = svs.next_client_entities;
 	frame->num_entities = 0;
 
-	for( i = 0; i < frame_ents.num_entities; i++ )
+	for( int i = 0; i < frame_ents.num_entities; i++ )
 	{
 		// add it to the circular packet_entities array
-		state = &svs.packet_entities[svs.next_client_entities % svs.num_client_entities];
+		entity_state_t	*state = &svs.packet_entities[svs.next_client_entities % svs.num_client_entities];
 		*state = frame_ents.entities[i];
 		svs.next_client_entities++;
 		frame->num_entities++;
@@ -821,7 +812,6 @@ void SV_SendClientMessages( void )
 {
 	sv_client_t *cl;
 	int          i;
-	double       time_until_next_message;
 
 	if( sv.state == ss_dead )
 		return;
@@ -851,7 +841,7 @@ void SV_SendClientMessages( void )
 			// If the target time for sending is within the next frame interval ( based on last frame ),
 			// trigger the send now. Note that in single player,
 			// FCL_SEND_NET_MESSAGE flag is also set any time a packet arrives from the client.
-			time_until_next_message = cl->next_messagetime - ( host.realtime + sv.frametime );
+			double	time_until_next_message = cl->next_messagetime - ( host.realtime + sv.frametime );
 			if( time_until_next_message <= 0.0 )
 				SetBits( cl->flags, FCL_SEND_NET_MESSAGE );
 			else if( time_until_next_message > 2.0 ) // something got hosed
