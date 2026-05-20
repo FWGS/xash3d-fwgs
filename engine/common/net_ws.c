@@ -257,7 +257,6 @@ NET_GetHostByName
 static qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_storage *addr )
 {
 	struct addrinfo *ai = NULL, *cur;
-	struct addrinfo hints;
 	qboolean ret = false;
 
 #if XASH_NO_IPV6_RESOLVE
@@ -265,8 +264,10 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 		return false;
 #endif
 
-	memset( &hints, 0, sizeof( hints ));
-	hints.ai_family = family;
+	struct addrinfo hints =
+	{
+		.ai_family = family,
+	};
 
 	if( !getaddrinfo( hostname, NULL, &hints, &ai ))
 	{

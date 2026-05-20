@@ -395,9 +395,7 @@ static void SteamBroker_UpdateConnecting( void )
 	FD_ZERO( &writefds );
 	FD_SET( broker.socket, &writefds );
 
-	struct timeval tv;
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
+	struct timeval tv = { 0 };
 
 #if XASH_WIN32
 	int select_result = select( 0, NULL, &writefds, NULL, &tv );

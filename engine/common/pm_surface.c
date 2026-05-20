@@ -303,11 +303,11 @@ loc0:
 
 int PM_TestLineExt( playermove_t *pmove, physent_t *ents, int numents, const vec3_t start, const vec3_t end, int flags )
 {
-	linetrace_t trace;
-
-	trace.contents = CONTENTS_EMPTY;
-	trace.fraction = 1.0f;
-	trace.surface = NULL;
+	linetrace_t trace =
+	{
+		.contents = CONTENTS_EMPTY,
+		.fraction = 1.0f,
+	};
 
 	for( int i = 0; i < numents; i++ )
 	{
@@ -346,10 +346,11 @@ int PM_TestLineExt( playermove_t *pmove, physent_t *ents, int numents, const vec
 			VectorSubtract( end, pe->origin, end_l );
 		}
 
-		linetrace_t trace_bbox;
-		trace_bbox.contents = CONTENTS_EMPTY;
-		trace_bbox.fraction = 1.0f;
-		trace_bbox.surface = NULL;
+		linetrace_t trace_bbox =
+		{
+			.contents = CONTENTS_EMPTY,
+			.fraction = 1.0f,
+		};
 
 		PM_TestLine_r( pe->model, &pe->model->nodes[hull->firstclipnode], 0.0f, 1.0f, start_l, end_l, &trace_bbox );
 

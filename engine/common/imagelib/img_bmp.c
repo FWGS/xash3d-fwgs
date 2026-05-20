@@ -355,7 +355,6 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	rgba_t		rgrgbPalette[256];
 	byte		*pb;
 	int		pixel_size;
-	bmp_t	hdr;
 
 	if( FS_FileExists( name, false ) && !Image_CheckFlag( IL_ALLOW_OVERWRITE ) )
 		return false; // already existed
@@ -394,22 +393,20 @@ qboolean Image_SaveBMP( const char *name, rgbdata_t *pix )
 	dword cbPalBytes = ( pixel_size == 1 ) ? 256 * sizeof( rgba_t ) : 0;
 
 	// Bogus file header check
-	hdr.id[0] = 'B';
-	hdr.id[1] = 'M';
-	hdr.fileSize =  sizeof( hdr ) + cbBmpBits + cbPalBytes;
-	hdr.reserved0 = 0;
-	hdr.bitmapDataOffset = sizeof( hdr ) + cbPalBytes;
-	hdr.bitmapHeaderSize = BI_SIZE;
-	hdr.width = biTrueWidth;
-	hdr.height = pix->height;
-	hdr.planes = 1;
-	hdr.bitsPerPixel = pixel_size * 8;
-	hdr.compression = BI_RGB;
-	hdr.bitmapDataSize = cbBmpBits;
-	hdr.hRes = 0;
-	hdr.vRes = 0;
-	hdr.colors = ( pixel_size == 1 ) ? 256 : 0;
-	hdr.importantColors = 0;
+	bmp_t hdr =
+	{
+		.id = { 'B', 'M' },
+		.fileSize = sizeof( hdr ) + cbBmpBits + cbPalBytes,
+		.bitmapDataOffset = sizeof( hdr ) + cbPalBytes,
+		.bitmapHeaderSize = BI_SIZE,
+		.width = biTrueWidth,
+		.height = pix->height,
+		.planes = 1,
+		.bitsPerPixel = pixel_size * 8,
+		.compression = BI_RGB,
+		.bitmapDataSize = cbBmpBits,
+		.colors = ( pixel_size == 1 ) ? 256 : 0,
+	};
 
 	le_struct_swap( bmp_swap, &hdr );
 	FS_Write( pfile, &hdr, sizeof( bmp_t ));

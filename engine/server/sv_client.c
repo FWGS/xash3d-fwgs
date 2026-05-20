@@ -2659,16 +2659,17 @@ static qboolean SV_EntFire_f( sv_client_t *cl )
 		{
 			string keyname;
 			string value;
-			KeyValueData	pkvd;
 			if( Cmd_Argc() != 5 )
 				return false;
 
-			pkvd.szClassName = (char*)SV_GetString( ent->v.classname );
 			Q_strncpy( keyname, Cmd_Argv( 3 ), sizeof( keyname ));
 			Q_strncpy( value, Cmd_Argv( 4 ), sizeof( value ));
-			pkvd.szKeyName = keyname;
-			pkvd.szValue = value;
-			pkvd.fHandled = false;
+			KeyValueData pkvd =
+			{
+				.szClassName = (char*)SV_GetString( ent->v.classname ),
+				.szKeyName = keyname,
+				.szValue = value,
+			};
 			svgame.dllFuncs.pfnKeyValue( ent, &pkvd );
 
 			if( pkvd.fHandled )
@@ -2951,7 +2952,6 @@ static qboolean SV_EntCreate_f( sv_client_t *cl )
 		{
 			string keyname;
 			string value;
-			KeyValueData pkvd;
 
 			// allow split keyvalues to prespawn and postspawn
 			if( !Q_strcmp( Cmd_Argv( i ), "|" ) )
@@ -2959,10 +2959,12 @@ static qboolean SV_EntCreate_f( sv_client_t *cl )
 
 			Q_strncpy( keyname, Cmd_Argv( i++ ), sizeof( keyname ));
 			Q_strncpy( value, Cmd_Argv( i ), sizeof( value ));
-			pkvd.fHandled = false;
-			pkvd.szClassName = (char*)SV_GetString( ent->v.classname );
-			pkvd.szKeyName = keyname;
-			pkvd.szValue = value;
+			KeyValueData pkvd =
+			{
+				.szClassName = (char*)SV_GetString( ent->v.classname ),
+				.szKeyName = keyname,
+				.szValue = value,
+			};
 			svgame.dllFuncs.pfnKeyValue( ent, &pkvd );
 
 			if( pkvd.fHandled )
@@ -3018,14 +3020,15 @@ static qboolean SV_EntCreate_f( sv_client_t *cl )
 		{
 			string keyname;
 			string value;
-			KeyValueData pkvd;
 
 			Q_strncpy( keyname, Cmd_Argv( i++ ), sizeof( keyname ));
 			Q_strncpy( value, Cmd_Argv( i ), sizeof( value ));
-			pkvd.fHandled = false;
-			pkvd.szClassName = (char*)SV_GetString( ent->v.classname );
-			pkvd.szKeyName = keyname;
-			pkvd.szValue = value;
+			KeyValueData pkvd =
+			{
+				.szClassName = (char*)SV_GetString( ent->v.classname ),
+				.szKeyName = keyname,
+				.szValue = value,
+			};
 			svgame.dllFuncs.pfnKeyValue( ent, &pkvd );
 
 			if( pkvd.fHandled )

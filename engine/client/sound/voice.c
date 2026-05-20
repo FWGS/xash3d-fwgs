@@ -1185,10 +1185,12 @@ qboolean Voice_Init( const char *pszCodecName, int quality, qboolean preinit )
 
 voice_audio_info_t Voice_GetAudioInfo( void )
 {
-	voice_audio_info_t info;
+	voice_audio_info_t info =
+	{
+		.width = voice.width,
+		.samplerate = voice.samplerate,
+		.frame_size = voice.frame_size,
+	};
 
-	info.width = voice.width;
-	info.samplerate = voice.samplerate;
-	info.frame_size = voice.frame_size;
 	return info;
 }

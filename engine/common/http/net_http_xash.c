@@ -399,7 +399,6 @@ static int HTTP_FileDecompress( httpfile_t *file )
 		GZFLG_FCOMMENT = BIT( 4 )
 	};
 
-	z_stream decompress_stream;
 	char name[MAX_SYSPATH];
 
 	g_fsapi.Seek( file->file, 0, SEEK_END );
@@ -475,11 +474,15 @@ static int HTTP_FileDecompress( httpfile_t *file )
 
 	HTTP_DownloadPath( name, sizeof( name ), file->path, false );
 
-	memset( &decompress_stream, 0, sizeof( decompress_stream ));
-	decompress_stream.total_in = decompress_stream.avail_in = compressed_len;
-	decompress_stream.next_in = data_in;
-	decompress_stream.total_out = decompress_stream.avail_out = decompressed_len;
-	decompress_stream.next_out = data_out;
+	z_stream decompress_stream =
+	{
+		.total_in = compressed_len,
+		.avail_in = compressed_len,
+		.next_in = data_in,
+		.total_out = decompressed_len,
+		.avail_out = decompressed_len,
+		.next_out = data_out,
+	};
 
 	g_fsapi.Seek( file->file, deflate_pos, SEEK_SET );
 	g_fsapi.Read( file->file, data_in, compressed_len );

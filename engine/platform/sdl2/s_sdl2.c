@@ -74,7 +74,7 @@ Returns false if nothing is found.
 */
 qboolean SNDDMA_Init( void )
 {
-	SDL_AudioSpec desired, obtained;
+	SDL_AudioSpec obtained;
 	int samplecount;
 
 	// Modders often tend to use proprietary crappy solutions
@@ -117,12 +117,14 @@ qboolean SNDDMA_Init( void )
 		return false;
 	}
 
-	memset( &desired, 0, sizeof( desired ) );
-	desired.freq     = SOUND_DMA_SPEED;
-	desired.format   = AUDIO_S16SYS;
-	desired.samples  = 1024;
-	desired.channels = 2;
-	desired.callback = SDL_SoundCallback;
+	SDL_AudioSpec desired =
+	{
+		.freq = SOUND_DMA_SPEED,
+		.format = AUDIO_S16SYS,
+		.samples = 1024,
+		.channels = 2,
+		.callback = SDL_SoundCallback,
+	};
 
 	sdl_dev = SDL_OpenAudioDevice( NULL, 0, &desired, &obtained, 0 );
 
