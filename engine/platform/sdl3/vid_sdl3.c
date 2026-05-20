@@ -119,8 +119,8 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 	if( window_mode == WINDOW_MODE_FULLSCREEN )
 	{
 		SDL_DisplayID display = SDL_GetPrimaryDisplay();
-		SDL_DisplayMode dm;
 
+		SDL_DisplayMode dm;
 		if( SDL_GetClosestFullscreenDisplayMode( display, rect.w, rect.h, 0.0f, true, &dm ))
 		{
 			SetBits( flags, SDL_WINDOW_FULLSCREEN );
@@ -139,9 +139,7 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 	if( window_mode == WINDOW_MODE_BORDERLESS )
 	{
 		SDL_DisplayID display = SDL_GetPrimaryDisplay();
-		const SDL_DisplayMode *dm;
-
-		dm = SDL_GetDesktopDisplayMode( display );
+		const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode( display );
 
 		if( dm )
 		{
@@ -510,10 +508,8 @@ struct vidmode_s *R_GetVideoMode( int num )
 
 qboolean VID_SetMode( void )
 {
-	window_mode_t window_mode;
 	int screen_width = Cvar_VariableInteger( "width" );
 	int screen_height = Cvar_VariableInteger( "height" );
-	rserr_t err;
 
 	if( screen_width < VID_MIN_WIDTH || screen_height < VID_MIN_HEIGHT )
 	{
@@ -529,10 +525,10 @@ qboolean VID_SetMode( void )
 	}
 #endif
 
-	window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
+	window_mode_t window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
 	SetBits( gl_vsync.flags, FCVAR_CHANGED );
 
-	err = R_ChangeDisplaySettings( screen_width, screen_height, window_mode );
+	rserr_t err = R_ChangeDisplaySettings( screen_width, screen_height, window_mode );
 
 	switch( err )
 	{

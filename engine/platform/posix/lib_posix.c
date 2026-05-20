@@ -75,10 +75,6 @@ qboolean COM_CheckLibraryDirectDependency( const char *name, const char *depname
 
 void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
 {
-	dll_user_t *hInst = NULL;
-	void *pHandle = NULL;
-	char buf[MAX_VA_STRING];
-
 	COM_ResetLibraryError();
 
 	// platforms where gameinfo mechanism is impossible
@@ -88,21 +84,20 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 
 	// platforms where gameinfo mechanism is working goes here
 	// and use FS_FindLibrary
-	hInst = FS_FindLibrary( dllname, directpath );
+	dll_user_t *hInst = FS_FindLibrary( dllname, directpath );
+	char buf[MAX_VA_STRING];
+
 	if( !hInst )
 	{
 		// try to find by linker(LD_LIBRARY_PATH, DYLD_LIBRARY_PATH, LD_32_LIBRARY_PATH and so on...)
-		if( !pHandle )
-		{
-			pHandle = dlopen( dllname, RTLD_NOW );
-			if( pHandle )
-				return pHandle;
+		void *pHandle = dlopen( dllname, RTLD_NOW );
+		if( pHandle )
+			return pHandle;
 
-			Q_snprintf( buf, sizeof( buf ), "Failed to find library %s", dllname );
-			COM_PushLibraryError( buf );
-			COM_PushLibraryError( dlerror() );
-			return NULL;
-		}
+		Q_snprintf( buf, sizeof( buf ), "Failed to find library %s", dllname );
+		COM_PushLibraryError( buf );
+		COM_PushLibraryError( dlerror() );
+		return NULL;
 	}
 
 	if( hInst->custom_loader )
@@ -120,7 +115,7 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 		return NULL;
 	}
 
-	pHandle = hInst->hInstance;
+	void *pHandle = hInst->hInstance;
 
 	Mem_Free( hInst );
 

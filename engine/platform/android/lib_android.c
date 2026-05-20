@@ -23,7 +23,6 @@ GNU General Public License for more details.
 void *ANDROID_LoadLibrary( const char *path )
 {
 	const char *name = COM_FileWithoutPath( path );
-	void *handle;
 
 	Con_Reportf( "%s: loading \"%s\" (name: \"%s\")\n", __func__, path, name );
 
@@ -36,7 +35,7 @@ void *ANDROID_LoadLibrary( const char *path )
 
 		Con_Reportf( "%s: trying APK path \"%s\"\n", __func__, fullpath );
 
-		handle = dlopen( fullpath, RTLD_NOW );
+		void *handle = dlopen( fullpath, RTLD_NOW );
 		if( handle )
 		{
 			Con_Reportf( "%s: loaded from APK path\n", __func__ );
@@ -58,7 +57,7 @@ void *ANDROID_LoadLibrary( const char *path )
 			Q_strncpy( libpath, hInst->fullPath, sizeof( libpath ));
 			Mem_Free( hInst );
 
-			handle = dlopen( libpath, RTLD_NOW );
+			void *handle = dlopen( libpath, RTLD_NOW );
 			if( handle )
 			{
 				Con_Reportf( "%s: loaded from VFS path\n", __func__ );
@@ -77,7 +76,7 @@ void *ANDROID_LoadLibrary( const char *path )
 
 	// find in system search path (APK's LD_LIBRARY_PATH)
 	Con_Reportf( "%s: trying LD_LIBRARY_PATH for \"%s\"\n", __func__, name );
-	handle = dlopen( name, RTLD_NOW );
+	void *handle = dlopen( name, RTLD_NOW );
 	if( handle )
 	{
 		Con_Reportf( "%s: loaded from LD_LIBRARY_PATH\n", __func__ );

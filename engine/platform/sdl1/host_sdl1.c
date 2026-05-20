@@ -221,12 +221,7 @@ SDLash_MouseEvent
 */
 static void SDLash_MouseEvent( SDL_MouseButtonEvent button )
 {
-	int down;
-
-	if( button.state == SDL_RELEASED )
-		down = 0;
-	else
-		down = 1;
+	const int down = button.state != SDL_RELEASED;
 
 	switch( button.button )
 	{

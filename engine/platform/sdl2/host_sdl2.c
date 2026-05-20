@@ -215,11 +215,9 @@ SDLash_InputEvent
 */
 static void SDLash_InputEvent( SDL_TextInputEvent input )
 {
-	const char *text;
-
 	VGui_ReportTextInput( input.text );
 
-	for( text = input.text; *text; text++ )
+	for( const char *text = input.text; *text; text++ )
 	{
 		int ch = (byte)*text;
 
