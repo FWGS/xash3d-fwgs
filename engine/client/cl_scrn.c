@@ -50,9 +50,7 @@ SCR_DrawFPS
 */
 void SCR_DrawFPS( int height )
 {
-	float		calc;
 	rgba_t		color;
-	double		newtime;
 	static double	nexttime = 0, lasttime = 0;
 	static double	framerate = 0;
 	static int	framecount = 0;
@@ -73,7 +71,7 @@ void SCR_DrawFPS( int height )
 	default: return;
 	}
 
-	newtime = Platform_DoubleTime();
+	double newtime = Platform_DoubleTime();
 	if( newtime >= nexttime )
 	{
 		framerate = framecount / (newtime - lasttime);
@@ -82,7 +80,7 @@ void SCR_DrawFPS( int height )
 		framecount = 0;
 	}
 
-	calc = framerate;
+	float calc = framerate;
 	framecount++;
 
 	if( calc < 1.0f )
@@ -120,15 +118,13 @@ Draw local player position, angles and velocity
 void SCR_DrawPos( void )
 {
 	static char     msg[MAX_SYSPATH];
-	float speed;
-	cl_entity_t *ent;
 	rgba_t color;
 
 	if( cls.state != ca_active || !cl_showpos.value || cl.background )
 		return;
 
-	ent = CL_GetLocalPlayer();
-	speed = VectorLength( cl.simvel );
+	cl_entity_t *ent = CL_GetLocalPlayer();
+	float speed = VectorLength( cl.simvel );
 
 	Q_snprintf( msg, MAX_SYSPATH,
 		"pos: %.2f %.2f %.2f\n"
@@ -153,14 +149,13 @@ SCR_DrawEnts
 void SCR_DrawEnts( void )
 {
 	rgba_t color = { 255, 255, 255, 255 };
-	int i;
 
 	if( cls.state != ca_active || !cl_showents.value || ( cl.maxclients > 1 && !cls.demoplayback ))
 		return;
 
 	// this probably better hook CL_AddVisibleEntities
 	// as entities might get added by client.dll
-	for( i = 0; i < clgame.maxEntities; i++ )
+	for( int i = 0; i < clgame.maxEntities; i++ )
 	{
 		const cl_entity_t *ent = &clgame.entities[i];
 		string msg;
@@ -241,12 +236,12 @@ void SCR_DrawUserCmd( void )
 	};
 	cl_font_t *font = Con_GetCurFont();
 	string msg;
-	int i, ypos = 100;
+	int ypos = 100;
 
 	if( cls.state != ca_active || !cl_showcmd.value )
 		return;
 
-	for( i = 0; i < ARRAYSIZE( buttons ); i++ )
+	for( int i = 0; i < ARRAYSIZE( buttons ); i++ )
 	{
 		rgba_t rgba;
 
@@ -280,7 +275,6 @@ same as r_speeds but for network channel
 void SCR_NetSpeeds( void )
 {
 	static char	msg[MAX_SYSPATH];
-	int		x, y;
 	float		time = cl.mtime[0];
 	static int	min_svfps = 100;
 	static int	max_svfps = 0;
@@ -326,8 +320,8 @@ void SCR_NetSpeeds( void )
 		Q_memprint( cls.netchan.total_sended )
 	);
 
-	x = refState.width - 320 * font->scale;
-	y = 384;
+	int x = refState.width - 320 * font->scale;
+	int y = 384;
 
 	MakeRGBA( color, 255, 255, 255, 255 );
 	CL_DrawString( x, y, msg, color, font, FONT_DRAW_RESETCOLORONLF );
@@ -347,12 +341,11 @@ void SCR_RSpeeds( void )
 
 	if( ref.dllFuncs.R_SpeedsMessage( msg, sizeof( msg )))
 	{
-		int	x, y;
 		rgba_t	color;
 		cl_font_t *font = Con_GetCurFont();
 
-		x = refState.width - 340 * font->scale;
-		y = 64;
+		int x = refState.width - 340 * font->scale;
+		int y = 64;
 
 		MakeRGBA( color, 255, 255, 255, 255 );
 		CL_DrawString( x, y, msg, color, font, FONT_DRAW_RESETCOLORONLF );
@@ -386,11 +379,10 @@ static void VID_WriteOverviewScript( void )
 {
 	ref_overview_t	*ov = &clgame.overView;
 	string		filename;
-	file_t		*f;
 
 	Q_snprintf( filename, sizeof( filename ), "overviews/%s.txt", clgame.mapname );
 
-	f = FS_Open( filename, "w", false );
+	file_t		*f = FS_Open( filename, "w", false );
 	if( !f )
 	{
 		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, filename );
@@ -586,7 +578,6 @@ void SCR_TileClear( void )
 {
 	int	i, top, bottom, left, right, texnum;
 	dirty_t	clear;
-	float tw, th;
 
 	if( likely( scr_viewsize.value >= 120 ))
 		return; // full screen rendering
@@ -634,8 +625,8 @@ void SCR_TileClear( void )
 	left = clgame.viewport[0];
 	right = left + clgame.viewport[2] - 1;
 
-	tw = REF_GET_PARM( PARM_TEX_SRC_WIDTH, texnum );
-	th = REF_GET_PARM( PARM_TEX_SRC_HEIGHT, texnum );
+	float tw = REF_GET_PARM( PARM_TEX_SRC_WIDTH, texnum );
+	float th = REF_GET_PARM( PARM_TEX_SRC_HEIGHT, texnum );
 
 	if( clear.y1 < top )
 	{
@@ -749,11 +740,9 @@ void SCR_LoadCreditsFont( void )
 	// copy font size for client.dll
 	if( success )
 	{
-		int i;
-
 		clgame.scrInfo.iCharHeight = cls.creditsFont.charHeight;
 
-		for( i = 0; i < ARRAYSIZE( cls.creditsFont.charWidths ); i++ )
+		for( int i = 0; i < ARRAYSIZE( cls.creditsFont.charWidths ); i++ )
 			clgame.scrInfo.charWidths[i] = cls.creditsFont.charWidths[i];
 	}
 	else Con_DPrintf( S_ERROR "failed to load HUD font\n" );

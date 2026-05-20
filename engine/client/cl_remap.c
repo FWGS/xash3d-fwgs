@@ -43,7 +43,6 @@ return true if equal
 */
 static qboolean CL_CmpStudioTextures( int numtexs, mstudiotexture_t *p1, remap_info_t *remap )
 {
-	int	i;
 	mstudiotexture_t *p2;
 
 	if( !p1 ) // no textures
@@ -60,7 +59,7 @@ static qboolean CL_CmpStudioTextures( int numtexs, mstudiotexture_t *p1, remap_i
 
 	p2 = remap->ptexture;
 
-	for( i = 0; i < numtexs; i++, p1++, p2++ )
+	for( int i = 0; i < numtexs; i++, p1++, p2++ )
 	{
 		if( p1->flags & STUDIO_NF_COLORMAP )
 			continue;	// colormaps always has different indexes
@@ -116,18 +115,17 @@ static void CL_DuplicateTexture( cl_entity_t *entity, model_t *model, mstudiotex
 	const char *name;
 	texture_t		*tx = NULL;
 	char		texname[128];
-	int		i, index;
 	size_t size;
 	byte		paletteBackup[768];
 	byte		*raw, *pal;
+	int		index = ptexture->index;
 
 	// save off the real texture index
-	index = ptexture->index;
 	name = ref.dllFuncs.GL_TextureName( index );
 	Q_snprintf( texname, sizeof( texname ), "#%i_%s", entity->curstate.number, name + 1 );
 
 	// search for pixels
-	for( i = 0; i < model->numtextures; i++ )
+	for( int i = 0; i < model->numtextures; i++ )
 	{
 		tx = model->textures[i];
 		if( tx->gl_texturenum == index )
@@ -161,7 +159,7 @@ static void CL_UpdateStudioTexture( cl_entity_t *entity, mstudiotexture_t *ptext
 	texture_t		*tx = NULL;
 	char		texname[128], name[128], mdlname[128];
 	const char	*origtexname;
-	int		i, index;
+	int		index;
 	size_t size;
 	byte		paletteBackup[768];
 	byte		*raw, *pal;
@@ -180,7 +178,7 @@ static void CL_UpdateStudioTexture( cl_entity_t *entity, mstudiotexture_t *ptext
 		return; // couldn't find texture
 
 	// search for pixels
-	for( i = 0; i < entity->model->numtextures; i++ )
+	for( int i = 0; i < entity->model->numtextures; i++ )
 	{
 		tx = entity->model->textures[i];
 		if( tx->gl_texturenum == index )
@@ -259,12 +257,10 @@ Release remap info per entity
 */
 static void CL_FreeRemapInfo( remap_info_t *info )
 {
-	int	i;
-
 	Assert( info != NULL );
 
 	// release all colormap texture copies
-	for( i = 0; i < info->numtextures; i++ )
+	for( int i = 0; i < info->numtextures; i++ )
 	{
 		if( info->ptexture != NULL )
 		{
@@ -438,11 +434,9 @@ Release all remap infos
 */
 void CL_ClearAllRemaps( void )
 {
-	int	i;
-
 	if( clgame.remap_info )
 	{
-		for( i = 0; i < clgame.maxRemapInfos; i++ )
+		for( int i = 0; i < clgame.maxRemapInfos; i++ )
 		{
 			if( clgame.remap_info[i] )
 				CL_FreeRemapInfo( clgame.remap_info[i] );

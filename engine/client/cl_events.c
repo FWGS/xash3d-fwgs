@@ -42,10 +42,6 @@ compute velocity for a given client
 */
 static void CL_CalcPlayerVelocity( int idx, vec3_t velocity )
 {
-	clientdata_t	*pcd;
-	vec3_t		delta;
-	double		dt;
-
 	VectorClear( velocity );
 
 	if( idx <= 0 || idx > cl.maxclients )
@@ -53,15 +49,16 @@ static void CL_CalcPlayerVelocity( int idx, vec3_t velocity )
 
 	if( idx == cl.playernum + 1 )
 	{
-		pcd = &cl.frames[cl.parsecountmod].clientdata;
+		clientdata_t *pcd = &cl.frames[cl.parsecountmod].clientdata;
 		VectorCopy( pcd->velocity, velocity );
 	}
 	else
 	{
-		dt = clgame.entities[idx].curstate.animtime - clgame.entities[idx].prevstate.animtime;
+		double dt = clgame.entities[idx].curstate.animtime - clgame.entities[idx].prevstate.animtime;
 
 		if( dt != 0.0 )
 		{
+			vec3_t delta;
 			VectorSubtract( clgame.entities[idx].curstate.velocity, clgame.entities[idx].prevstate.velocity, delta );
 			VectorScale( delta, 1.0f / dt, velocity );
 		}
@@ -130,16 +127,13 @@ CL_SetEventIndex
 */
 void CL_SetEventIndex( const char *szEvName, int ev_index )
 {
-	cl_user_event_t	*ev;
-	int		i;
-
 	if( !szEvName || !*szEvName )
 		return; // ignore blank names
 
 	// search event by name to link with
-	for( i = 0; i < MAX_EVENTS; i++ )
+	for( int i = 0; i < MAX_EVENTS; i++ )
 	{
-		ev = clgame.events[i];
+		cl_user_event_t *ev = clgame.events[i];
 		if( !ev ) break;
 
 		if( !Q_stricmp( ev->name, szEvName ))
@@ -158,12 +152,10 @@ CL_EventIndex
 */
 word CL_EventIndex( const char *name )
 {
-	word	i;
-
 	if( COM_StringEmptyOrNULL( name ))
 		return 0;
 
-	for( i = 1; i < MAX_EVENTS && cl.event_precache[i][0]; i++ )
+	for( word i = 1; i < MAX_EVENTS && cl.event_precache[i][0]; i++ )
 	{
 		if( !Q_stricmp( cl.event_precache[i], name ))
 			return i;
@@ -204,28 +196,24 @@ CL_FireEvent
 */
 static qboolean CL_FireEvent( event_info_t *ei, int slot )
 {
-	cl_user_event_t	*ev;
-	const char	*name;
-	int		i, idx;
-
 	if( !ei || !ei->index )
 		return false;
 
 	// get the func pointer
-	for( i = 0; i < MAX_EVENTS; i++ )
+	for( int i = 0; i < MAX_EVENTS; i++ )
 	{
-		ev = clgame.events[i];
+		cl_user_event_t *ev = clgame.events[i];
 
 		if( !ev )
 		{
-			idx = bound( 1, ei->index, ( MAX_EVENTS - 1 ));
+			int idx = bound( 1, ei->index, ( MAX_EVENTS - 1 ));
 			Con_Reportf( S_ERROR "%s: %s not precached\n", __func__, cl.event_precache[idx] );
 			break;
 		}
 
 		if( ev->index == ei->index )
 		{
-			name = cl.event_precache[ei->index];
+			const char *name = cl.event_precache[ei->index];
 
 			if( cl_trace_events.value )
 			{
@@ -261,15 +249,11 @@ called right before draw frame
 */
 void CL_FireEvents( void )
 {
-	event_state_t	*es;
-	event_info_t	*ei;
-	int		i;
+	event_state_t *es = &cl.events;
 
-	es = &cl.events;
-
-	for( i = 0; i < MAX_EVENT_QUEUE; i++ )
+	for( int i = 0; i < MAX_EVENT_QUEUE; i++ )
 	{
-		ei = &es->ei[i];
+		event_info_t *ei = &es->ei[i];
 
 		if( ei->index == 0 )
 			continue;
@@ -294,16 +278,12 @@ find first empty event
 */
 static event_info_t *CL_FindEmptyEvent( void )
 {
-	int		i;
-	event_state_t	*es;
-	event_info_t	*ei;
-
-	es = &cl.events;
+	event_state_t *es = &cl.events;
 
 	// look for first slot where index is != 0
-	for( i = 0; i < MAX_EVENT_QUEUE; i++ )
+	for( int i = 0; i < MAX_EVENT_QUEUE; i++ )
 	{
-		ei = &es->ei[i];
+		event_info_t *ei = &es->ei[i];
 		if( ei->index != 0 )
 			continue;
 		return ei;
@@ -322,15 +302,11 @@ replace only unreliable events
 */
 static event_info_t *CL_FindUnreliableEvent( void )
 {
-	event_state_t	*es;
-	event_info_t	*ei;
-	int		i;
+	event_state_t *es = &cl.events;
 
-	es = &cl.events;
-
-	for ( i = 0; i < MAX_EVENT_QUEUE; i++ )
+	for ( int i = 0; i < MAX_EVENT_QUEUE; i++ )
 	{
-		ei = &es->ei[i];
+		event_info_t *ei = &es->ei[i];
 		if( ei->index != 0 )
 		{
 			// it's reliable, so skip it
@@ -423,16 +399,10 @@ CL_ParseEvent
 */
 void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto )
 {
-	int		event_index;
-	int		i, num_events;
-	int		packet_index;
 	const event_args_t nullargs = { 0 };
 	event_args_t args = { 0 };
-	entity_state_t	*state;
-	float		delay;
 	int		entity_bits;
-
-	num_events = MSG_ReadUBitLong( msg, 5 );
+	int		num_events = MSG_ReadUBitLong( msg, 5 );
 
 	if( proto == PROTO_GOLDSRC )
 		entity_bits = MAX_GOLDSRC_ENTITY_BITS;
@@ -440,9 +410,11 @@ void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto )
 		entity_bits = MAX_ENTITY_BITS;
 
 	// parse events queue
-	for( i = 0 ; i < num_events; i++ )
+	for( int i = 0 ; i < num_events; i++ )
 	{
-		event_index = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
+		int packet_index;
+		float delay;
+		int event_index = MSG_ReadUBitLong( msg, MAX_EVENT_BITS );
 
 		if( MSG_ReadOneBit( msg ))
 		{
@@ -467,7 +439,7 @@ void CL_ParseEvent( sizebuf_t *msg, connprotocol_t proto )
 
 			if( packet_index < frame->num_entities )
 			{
-				state = &cls.packet_entities[(frame->first_entity+packet_index)%cls.num_client_entities];
+				entity_state_t *state = &cls.packet_entities[(frame->first_entity+packet_index)%cls.num_client_entities];
 				args.entindex = state->number;
 
 				if( VectorIsNull( args.origin ))

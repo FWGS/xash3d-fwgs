@@ -91,11 +91,11 @@ VID_GetModeString
 */
 const char *VID_GetModeString( int vid_mode )
 {
-	vidmode_t *vidmode;
 	if( vid_mode < 0 || vid_mode >= R_MaxVideoModes() )
 		return NULL;
 
-	if( !( vidmode = R_GetVideoMode( vid_mode ) ) )
+	vidmode_t *vidmode = R_GetVideoMode( vid_mode );
+	if( !vidmode )
 		return NULL;
 
 	return vidmode->desc;
@@ -176,9 +176,7 @@ static void VID_Mode_f( void )
 	{
 	case 2:
 	{
-		vidmode_t *vidmode;
-
-		vidmode = R_GetVideoMode( Q_atoi( Cmd_Argv( 1 )) );
+		vidmode_t *vidmode = R_GetVideoMode( Q_atoi( Cmd_Argv( 1 )) );
 		if( !vidmode )
 		{
 			Con_Printf( S_ERROR "unable to set mode, backend returned null\n" );

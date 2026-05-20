@@ -88,13 +88,12 @@ Apply gyro movement to view angles
 */
 void IN_GyroFinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 {
-	platform_orientation_t orient;
 	float orient_scale = 1.0f;
 
 	if( !gyro_enable.value || !gyro_available.value )
 		return;
 
-	orient = Platform_GetDisplayOrientation();
+	platform_orientation_t orient = Platform_GetDisplayOrientation();
 	if( orient == ORIENTATION_LANDSCAPE_FLIPPED )
 		orient_scale = -1.0f;
 

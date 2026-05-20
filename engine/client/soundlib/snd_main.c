@@ -59,7 +59,6 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 	const char *ext = COM_FileExtension( filename );
 	string loadname;
 	qboolean anyformat = true;
-	const loadwavfmt_t *format;
 
 	Sound_Reset(); // clear old sounddata
 	Q_strncpy( loadname, filename, sizeof( loadname ));
@@ -68,7 +67,7 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 	{
 		// we needs to compare file extension with list of supported formats
 		// and be sure what is real extension, not a filename with dot
-		for( format = sound.loadformats; format && format->ext; format++ )
+		for( const loadwavfmt_t *format = sound.loadformats; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( format->ext, ext ))
 			{
@@ -84,18 +83,17 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 		goto load_internal;
 
 	// now try all the formats in the selected list
-	for( format = sound.loadformats; format && format->ext; format++)
+	for( const loadwavfmt_t *format = sound.loadformats; format && format->ext; format++)
 	{
 		if( anyformat || !Q_stricmp( ext, format->ext ))
 		{
 			qboolean success = false;
 			fs_offset_t filesize = 0;
-			byte *f;
 			string path;
 
 			Q_snprintf( path, sizeof( path ), DEFAULT_SOUNDPATH "%s.%s", loadname, format->ext );
 
-			f = FS_LoadFile( path, &filesize, false );
+			byte *f = FS_LoadFile( path, &filesize, false );
 			if( f && filesize > 0 )
 			{
 				success = format->loadfunc( path, f, filesize );
@@ -119,7 +117,7 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 	}
 
 load_internal:
-	for( format = sound.loadformats; format && format->ext; format++ )
+	for( const loadwavfmt_t *format = sound.loadformats; format && format->ext; format++ )
 	{
 		if( anyformat || !Q_stricmp( ext, format->ext ))
 		{
@@ -162,7 +160,6 @@ stream_t *FS_OpenStream( const char *filename )
 	const char	*ext = COM_FileExtension( filename );
 	string		loadname;
 	qboolean		anyformat = true;
-	const streamfmt_t	*format;
 	stream_t		*stream = NULL;
 
 	Sound_Reset(); // clear old streaminfo
@@ -172,7 +169,7 @@ stream_t *FS_OpenStream( const char *filename )
 	{
 		// we needs to compare file extension with list of supported formats
 		// and be sure what is real extension, not a filename with dot
-		for( format = sound.streamformat; format && format->ext; format++ )
+		for( const streamfmt_t *format = sound.streamformat; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( format->ext, ext ))
 			{
@@ -184,7 +181,7 @@ stream_t *FS_OpenStream( const char *filename )
 	}
 
 	// now try all the formats in the selected list
-	for( format = sound.streamformat; format && format->ext; format++)
+	for( const streamfmt_t *format = sound.streamformat; format && format->ext; format++)
 	{
 		if( anyformat || !Q_stricmp( ext, format->ext ))
 		{
