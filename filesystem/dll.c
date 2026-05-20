@@ -222,6 +222,7 @@ const fs_api_t g_api =
 	FS_GetRootDirectory,
 
 	FS_MakeGameInfo,
+	FS_FindFile_f,
 };
 
 int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs );
