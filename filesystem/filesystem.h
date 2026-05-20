@@ -241,6 +241,7 @@ typedef struct fs_api_t
 	qboolean (*GetRootDirectory)( char *path, size_t size );
 
 	void (*MakeGameInfo)( void );
+	void (*FindFile_f)( const char *filename );
 } fs_api_t;
 
 typedef struct fs_interface_t
