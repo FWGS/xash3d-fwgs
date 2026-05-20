@@ -487,8 +487,6 @@ CL_PlaybackEvent
 void GAME_EXPORT CL_PlaybackEvent( int flags, const edict_t *pInvoker, word eventindex, float delay, float *origin,
 	float *angles, float fparam1, float fparam2, int iparam1, int iparam2, int bparam1, int bparam2 )
 {
-	event_args_t	args;
-
 	if( FBitSet( flags, FEV_SERVER ))
 		return;
 
@@ -510,20 +508,20 @@ void GAME_EXPORT CL_PlaybackEvent( int flags, const edict_t *pInvoker, word even
 	ClearBits( flags, FEV_NOTHOST|FEV_HOSTONLY|FEV_GLOBAL );
 	if( delay < 0.0f ) delay = 0.0f; // fixup negative delays
 
-	memset( &args, 0, sizeof( args ));
-
-	VectorCopy( origin, args.origin );
-	VectorCopy( angles, args.angles );
-	VectorCopy( cl.simvel, args.velocity );
-	args.entindex = cl.playernum + 1;
-	args.ducking = ( cl.local.usehull == 1 );
-
-	args.fparam1 = fparam1;
-	args.fparam2 = fparam2;
-	args.iparam1 = iparam1;
-	args.iparam2 = iparam2;
-	args.bparam1 = bparam1;
-	args.bparam2 = bparam2;
+	event_args_t	args =
+	{
+		.origin = Vec3( origin ),
+		.angles = Vec3( angles ),
+		.velocity = Vec3( cl.simvel ),
+		.entindex = cl.playernum + 1,
+		.ducking = ( cl.local.usehull == 1 ),
+		.fparam1 = fparam1,
+		.fparam2 = fparam2,
+		.iparam1 = iparam1,
+		.iparam2 = iparam2,
+		.bparam1 = bparam1,
+		.bparam2 = bparam2,
+	};
 
 	CL_QueueEvent( flags, eventindex, delay, &args );
 }

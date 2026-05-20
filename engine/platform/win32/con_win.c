@@ -164,9 +164,6 @@ static void Wcon_SetInputText( const char *inputText )
 static void Wcon_Clear_f( void )
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
-	SMALL_RECT scrollRect;
-	COORD scrollTarget;
-	CHAR_INFO fill;
 
 	if( host.type != HOST_DEDICATED )
 		return;
@@ -176,14 +173,20 @@ static void Wcon_Clear_f( void )
 		return;
 	}
 
-	scrollRect.Left = 0;
-	scrollRect.Top = 0;
-	scrollRect.Right = csbi.dwSize.X;
-	scrollRect.Bottom = csbi.dwSize.Y;
-	scrollTarget.X = 0;
-	scrollTarget.Y = (SHORT)(0 - csbi.dwSize.Y);
-	fill.Char.UnicodeChar = TEXT(' ');
-	fill.Attributes = csbi.wAttributes;
+	SMALL_RECT scrollRect =
+	{
+		.Right = csbi.dwSize.X,
+		.Bottom = csbi.dwSize.Y,
+	};
+	COORD scrollTarget =
+	{
+		.Y = (SHORT)(0 - csbi.dwSize.Y),
+	};
+	CHAR_INFO fill =
+	{
+		.Char.UnicodeChar = TEXT(' '),
+		.Attributes = csbi.wAttributes,
+	};
 	ScrollConsoleScreenBuffer( s_wcd.hOutput, &scrollRect, NULL, scrollTarget, &fill );
 
 	csbi.dwCursorPosition.X = 0;
@@ -379,11 +382,9 @@ static void Wcon_EventCharacter(char c)
 
 static void Wcon_UpdateStatusLine( void )
 {
-	COORD coord;
+	COORD coord = { 0 };
 	DWORD dwWritten;
 
-	coord.X = 0;
-	coord.Y = 0;
 	WORD wAttrib = g_color_table[5] | FOREGROUND_INTENSITY | BACKGROUND_INTENSITY;
 
 	FillConsoleOutputCharacter( s_wcd.hOutput, ' ', 80, coord, &dwWritten );
