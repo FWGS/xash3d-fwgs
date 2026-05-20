@@ -632,7 +632,6 @@ static void CL_CreateCmd( void )
 {
 	usercmd_t nullcmd = { 0 }, *cmd;
 	runcmd_t  *pcmd;
-	vec3_t    angles;
 	int       input_override;
 	int       ms;
 
@@ -640,7 +639,7 @@ static void CL_CreateCmd( void )
 		return;
 
 	// store viewangles in case it's will be freeze
-	VectorCopy( cl.viewangles, angles );
+	vec3_t angles = Vec3( cl.viewangles );
 	input_override = 0;
 
 	// fix rounding error and framerate depending player move

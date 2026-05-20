@@ -159,12 +159,12 @@ void SCR_DrawEnts( void )
 	{
 		const cl_entity_t *ent = &clgame.entities[i];
 		string msg;
-		vec3_t screen, pos;
+		vec3_t screen;
 
 		if( ent->curstate.messagenum != cl.parsecount )
 			continue;
 
-		VectorCopy( ent->origin, pos );
+		vec3_t pos = Vec3( ent->origin );
 
 		if( ent->model != NULL )
 		{

@@ -2313,7 +2313,6 @@ static edict_t *SV_GetCrossEnt( edict_t *player )
 		vec3_t vecLOS;
 		vec3_t vecOrigin;
 		float flDot, traceLen;
-		vec3_t boxSize;
 		trace_t trace;
 		vec3_t vecTrace;
 
@@ -2339,7 +2338,7 @@ static edict_t *SV_GetCrossEnt( edict_t *player )
 		if( traceLen > maxLen )
 			continue;
 
-		VectorCopy( ent->v.size, boxSize);
+		vec3_t boxSize = Vec3( ent->v.size );
 		VectorScale( boxSize, 0.5, boxSize );
 
 		if ( vecLOS[0] > boxSize[0] )

@@ -506,8 +506,7 @@ pmtrace_t PM_PlayerTraceExt( playermove_t *pmove, vec3_t start, vec3_t end, int 
 
 			if( rotated )
 			{
-				vec3_t temp;
-				VectorCopy( trace_bbox.plane.normal, temp );
+				vec3_t temp = Vec3( trace_bbox.plane.normal );
 				Matrix4x4_TransformPositivePlane( matrix, temp, trace_bbox.plane.dist, trace_bbox.plane.normal, &trace_bbox.plane.dist );
 			}
 			else
@@ -764,8 +763,7 @@ float PM_TraceModel( playermove_t *pmove, physent_t *pe, float *start, float *en
 
 	if( rotated )
 	{
-		vec3_t temp;
-		VectorCopy( trace->plane.normal, temp );
+		vec3_t temp = Vec3( trace->plane.normal );
 		Matrix4x4_TransformPositivePlane( matrix, temp, trace->plane.dist, trace->plane.normal, &trace->plane.dist );
 	}
 

@@ -409,11 +409,10 @@ static qboolean SV_StepDirection( edict_t *ent, float yaw, float dist )
 {
 	int	ret;
 	float	cSin, cCos;
-	vec3_t	move;
 
 	yaw = yaw * M_PI2 / 360.0f;
 	SinCos( yaw, &cSin, &cCos );
-	VectorSet( move, cCos * dist, cSin * dist, 0.0f );
+	vec3_t move = { cCos * dist, cSin * dist, 0.0f };
 
 	ret = SV_MoveStep( ent, move, false );
 	SV_LinkEdict( ent, true );
@@ -519,9 +518,7 @@ static void SV_NewChaseDir( edict_t *actor, vec3_t destination, float dist )
 
 void SV_MoveToOrigin( edict_t *ent, const vec3_t pflGoal, float dist, int iMoveType )
 {
-	vec3_t	vecDist;
-
-	VectorCopy( pflGoal, vecDist );
+	vec3_t vecDist = Vec3( pflGoal );
 
 	if( ent->v.flags & ( FL_FLY|FL_SWIM|FL_ONGROUND ))
 	{

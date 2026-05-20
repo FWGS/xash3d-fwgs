@@ -1854,13 +1854,12 @@ int GAME_EXPORT pfnDropToFloor( edict_t *e )
 {
 	qboolean	monsterClip;
 	trace_t	trace;
-	vec3_t	end;
 
 	if( !SV_IsValidEdict( e ))
 		return 0;
 
 	monsterClip = FBitSet( e->v.flags, FL_MONSTERCLIP ) ? true : false;
-	VectorCopy( e->v.origin, end );
+	vec3_t end = Vec3( e->v.origin );
 	end[2] -= 256.0f;
 
 	trace = SV_Move( e->v.origin, e->v.mins, e->v.maxs, end, MOVE_NORMAL, e, monsterClip );
@@ -1887,8 +1886,6 @@ pfnWalkMove
 */
 static int GAME_EXPORT pfnWalkMove( edict_t *ent, float yaw, float dist, int iMode )
 {
-	vec3_t	move;
-
 	if( !SV_IsValidEdict( ent ))
 		return 0;
 
@@ -1896,7 +1893,7 @@ static int GAME_EXPORT pfnWalkMove( edict_t *ent, float yaw, float dist, int iMo
 		return 0;
 
 	yaw = DEG2RAD( yaw );
-	VectorSet( move, cos( yaw ) * dist, sin( yaw ) * dist, 0.0f );
+	vec3_t move = { cos( yaw ) * dist, sin( yaw ) * dist, 0.0f };
 
 	switch( iMode )
 	{

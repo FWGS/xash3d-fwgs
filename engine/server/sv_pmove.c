@@ -971,11 +971,9 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 		}
 		else
 		{
-			vec3_t	oldvel;
-
 			// link into place and touch triggers
 			SV_LinkEdict( clent, true );
-			VectorCopy( clent->v.velocity, oldvel ); // save velocity
+			vec3_t oldvel = Vec3( clent->v.velocity ); // save velocity
 
 			// touch other objects
 			for( int i = 0; i < svgame.pmove->numtouch; i++ )

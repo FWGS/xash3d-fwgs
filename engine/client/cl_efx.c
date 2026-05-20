@@ -1063,8 +1063,7 @@ void GAME_EXPORT R_EntityParticles( cl_entity_t *ent )
 		angle = cl.time * cl_avelocities[i][2];
 		SinCos( angle, &sr, &cr );
 
-		vec3_t forward;
-		VectorSet( forward, cp * cy, cp * sy, -sp );
+		vec3_t forward = { cp * cy, cp * sy, -sp };
 
 		p->die = cl.time + 0.001f;
 		p->color = 111; // yellow
@@ -1688,12 +1687,12 @@ R_ShowLine
 */
 void GAME_EXPORT R_ShowLine( const vec3_t start, const vec3_t end )
 {
-	vec3_t		dir, org;
+	vec3_t		dir;
 
 	VectorSubtract( end, start, dir );
 	float len = VectorNormalizeLength( dir );
 	VectorScale( dir, 5.0f, dir );
-	VectorCopy( start, org );
+	vec3_t org = Vec3( start );
 
 	while( len > 0 )
 	{

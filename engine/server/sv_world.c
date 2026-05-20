@@ -108,7 +108,7 @@ static qboolean SV_CheckSphereIntersection( edict_t *ent, const vec3_t start, co
 {
 	int		sequence;
 	float		radiusSquared;
-	vec3_t		traceOrg, traceDir;
+	vec3_t		traceDir;
 	studiohdr_t	*pstudiohdr;
 	mstudioseqdesc_t	*pseqdesc;
 	model_t		*mod;
@@ -128,7 +128,7 @@ static qboolean SV_CheckSphereIntersection( edict_t *ent, const vec3_t start, co
 
 	pseqdesc = (mstudioseqdesc_t *)((byte *)pstudiohdr + pstudiohdr->seqindex) + sequence;
 
-	VectorCopy( start, traceOrg );
+	vec3_t traceOrg = Vec3( start );
 	VectorSubtract( end, start, traceDir );
 	radiusSquared = 0.0f;
 
@@ -324,12 +324,11 @@ static hull_t *SV_HullForStudioModel( edict_t *ent, vec3_t mins, vec3_t maxs, ve
 			mstudioseqdesc_t	*pseqdesc;
 			byte		controller[4];
 			byte		blending[2];
-			vec3_t		angles;
 			int		iBlend;
 
 			pstudio = Mod_StudioExtradata( mod );
 			pseqdesc = (mstudioseqdesc_t *)((byte *)pstudio + pstudio->seqindex) + ent->v.sequence;
-			VectorCopy( ent->v.angles, angles );
+			vec3_t angles = Vec3( ent->v.angles );
 
 			SV_StudioPlayerBlend( pseqdesc, &iBlend, &angles[PITCH] );
 
@@ -421,8 +420,6 @@ static areanode_t *SV_CreateAreaNode( int depth, vec3_t mins, vec3_t maxs )
 {
 	areanode_t	*anode;
 	vec3_t		size;
-	vec3_t		mins1, maxs1;
-	vec3_t		mins2, maxs2;
 
 	anode = &sv_areanodes[sv_numareanodes++];
 
@@ -443,10 +440,10 @@ static areanode_t *SV_CreateAreaNode( int depth, vec3_t mins, vec3_t maxs )
 	else anode->axis = 1;
 
 	anode->dist = 0.5f * ( maxs[anode->axis] + mins[anode->axis] );
-	VectorCopy( mins, mins1 );
-	VectorCopy( mins, mins2 );
-	VectorCopy( maxs, maxs1 );
-	VectorCopy( maxs, maxs2 );
+	vec3_t mins1 = Vec3( mins );
+	vec3_t mins2 = Vec3( mins );
+	vec3_t maxs1 = Vec3( maxs );
+	vec3_t maxs2 = Vec3( maxs );
 
 	maxs1[anode->axis] = mins2[anode->axis] = anode->dist;
 	anode->children[0] = SV_CreateAreaNode( depth+1, mins2, maxs2 );
@@ -939,10 +936,8 @@ void SV_ClipMoveToEntity( edict_t *ent, const vec3_t start, vec3_t mins, vec3_t 
 
 		if( rotated )
 		{
-			vec3_t	temp;
-
 			// transform plane
-			VectorCopy( trace->plane.normal, temp );
+			vec3_t temp = Vec3( trace->plane.normal );
 			Matrix4x4_TransformPositivePlane( matrix, temp, trace->plane.dist, trace->plane.normal, &trace->plane.dist );
 		}
 		else
@@ -1321,8 +1316,7 @@ trace_t SV_Move( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end,
 	if( clip.trace.fraction != 0.0f )
 	{
 		const float trace_fraction = clip.trace.fraction;
-		vec3_t trace_endpos;
-		VectorCopy( clip.trace.endpos, trace_endpos );
+		vec3_t trace_endpos = Vec3( clip.trace.endpos );
 
 		clip.trace.fraction = 1.0f;
 		clip.start = start;
@@ -1369,16 +1363,14 @@ SV_MoveNoEnts
 trace_t GAME_EXPORT SV_MoveNoEnts( const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, int type, edict_t *e )
 {
 	moveclip_t	clip;
-	vec3_t		trace_endpos;
-	float		trace_fraction;
 
 	memset( &clip, 0, sizeof( moveclip_t ));
 	SV_ClipMoveToEntity( SV_EdictNum( 0 ), start, mins, maxs, end, &clip.trace );
 
 	if( clip.trace.fraction != 0.0f )
 	{
-		VectorCopy( clip.trace.endpos, trace_endpos );
-		trace_fraction = clip.trace.fraction;
+		vec3_t trace_endpos = Vec3( clip.trace.endpos );
+		float trace_fraction = clip.trace.fraction;
 		clip.trace.fraction = 1.0f;
 		clip.start = start;
 		clip.end = trace_endpos;
@@ -1468,16 +1460,12 @@ trace_t SV_MoveToss( edict_t *tossent, edict_t *ignore )
 {
 	float 	gravity;
 	vec3_t	move, end;
-	vec3_t	original_origin;
-	vec3_t	original_velocity;
-	vec3_t	original_angles;
-	vec3_t	original_avelocity;
 	trace_t	trace;
 
-	VectorCopy( tossent->v.origin, original_origin );
-	VectorCopy( tossent->v.velocity, original_velocity );
-	VectorCopy( tossent->v.angles, original_angles );
-	VectorCopy( tossent->v.avelocity, original_avelocity );
+	vec3_t original_origin = Vec3( tossent->v.origin );
+	vec3_t original_velocity = Vec3( tossent->v.velocity );
+	vec3_t original_angles = Vec3( tossent->v.angles );
+	vec3_t original_avelocity = Vec3( tossent->v.avelocity );
 	gravity = tossent->v.gravity * sv_gravity.value * 0.05f;
 
 	for( int i = 0; i < 200; i++ )
@@ -1639,7 +1627,6 @@ grab the ambient lighting color for current point
 int SV_LightForEntity( edict_t *pEdict )
 {
 	vec3_t point_color = { 1.0f, 1.0f, 1.0f };
-	vec3_t start, end;
 
 	if( !SV_IsValidEdict( pEdict ))
 		return -1;
@@ -1651,8 +1638,8 @@ int SV_LightForEntity( edict_t *pEdict )
 	if( FBitSet( pEdict->v.flags, FL_CLIENT ))
 		return pEdict->v.light_level;
 
-	VectorCopy( pEdict->v.origin, start );
-	VectorCopy( pEdict->v.origin, end );
+	vec3_t start = Vec3( pEdict->v.origin );
+	vec3_t end = Vec3( pEdict->v.origin );
 
 	if( FBitSet( pEdict->v.effects, EF_INVLIGHT ))
 		end[2] = start[2] + world.size[2];
