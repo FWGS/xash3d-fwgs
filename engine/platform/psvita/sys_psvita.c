@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "platform/platform.h"
 #include "xash3d_mathlib.h"
+#include "atlas.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -148,9 +149,23 @@ int PSVita_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	return fake_argc;
 }
 
+// HACKHACK: libpublic is a static archive and the renderers are loaded as
+// dynamic libs that resolve symbols from the engine ELF; force a reference
+// to Atlas_AllocBlock here so the archive object isn't dropped at link time
+static void PSVita_PinPublicSymbols( void )
+{
+	static atlas_t dummy;
+	int x, y;
+
+	Atlas_Init( &dummy, 16 );
+	Atlas_AllocBlock( &dummy, 1, 1, &x, &y );
+}
+
 void PSVita_Init( void )
 {
 	char xashdir[1024] = { 0 };
+
+	PSVita_PinPublicSymbols();
 
 	// cd to the base dir immediately for library loading to work
 	if( PSVita_GetBasePath( xashdir, sizeof( xashdir )))
