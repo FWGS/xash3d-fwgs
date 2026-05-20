@@ -170,6 +170,7 @@ qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char
 void FS_AllowDirectPaths( qboolean enable );
 void FS_ShutdownStdio( void );
 void FS_Path_f( void );
+void FS_FindFile_f( const char *filename );
 searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t len, uint32_t flags );
 qboolean FS_FindLibrary( const char *dllname, qboolean directpath, fs_dllinfo_t *dllInfo );
 qboolean FS_FullPathToRelativePath( char *dst, const char *src, size_t size );

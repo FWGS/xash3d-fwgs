@@ -787,6 +787,35 @@ void FS_Path_f( void )
 
 /*
 ====================
+FS_FindFile_f
+
+Print all search paths where the file was found,
+ordered by priority (first one is used for FS operations)
+====================
+*/
+void FS_FindFile_f( const char *filename )
+{
+	int	count = 0;
+	Con_Printf( "File " S_YELLOW "%s" S_DEFAULT " occurences:\n", filename );
+
+	for( searchpath_t *s = fs_searchpaths; s; s = s->next )
+	{
+		string fixedname;
+		if( s->pfnFindFile( s, filename, fixedname, sizeof( fixedname )) >= 0 )
+		{
+			string info;
+			count++;
+			s->pfnPrintInfo( s, info, sizeof( info ));
+			Con_Printf( "  " S_CYAN "%s%s\n", info, count == 1 ? " " S_GREEN "(active)" : "" );
+		}
+	}
+
+	if( count == 0 )
+		Con_Printf( "  " S_RED "(not found)\n" );
+}
+
+/*
+====================
 FS_FindFile
 
 Look for a file in the packages and in the filesystem
