@@ -565,14 +565,14 @@ void GAME_EXPORT R_FizzEffect( cl_entity_t *ent, int modelIndex, int density )
 {
 	const float base_time = cl.time - 0.1f;
 	model_t	*mod = CL_ModelHandle( modelIndex );
-	vec3_t  volume, mins, maxs;
+	vec3_t  volume;
 	vec2_t  speed;
 
 	if( !ent || !ent->model || !modelIndex || !mod )
 		return;
 
-	VectorCopy( ent->model->mins, mins );
-	VectorCopy( ent->model->maxs, maxs );
+	vec3_t mins = Vec3( ent->model->mins );
+	vec3_t maxs = Vec3( ent->model->maxs );
 
 	if( ent->angles[1] != 0.0f )
 	{
@@ -588,9 +588,8 @@ void GAME_EXPORT R_FizzEffect( cl_entity_t *ent, int modelIndex, int density )
 	for( int i = 0; i <= density; i++ )
 	{
 		TEMPENTITY *tent;
-		vec3_t origin;
+		vec3_t origin = Vec3( mins );
 
-		VectorCopy( mins, origin );
 		origin[0] += COM_RandomLong( 0, (int)volume[0] - 1 );
 		origin[1] += COM_RandomLong( 0, (int)volume[1] - 1 );
 
@@ -708,7 +707,6 @@ Attaches entity to player
 void GAME_EXPORT R_AttachTentToPlayer( int client, int modelIndex, float zoffset, float life )
 {
 	TEMPENTITY	*pTemp;
-	vec3_t		position;
 	cl_entity_t	*pClient;
 	model_t		*pModel;
 
@@ -723,7 +721,7 @@ void GAME_EXPORT R_AttachTentToPlayer( int client, int modelIndex, float zoffset
 	if(( pModel = CL_ModelHandle( modelIndex )) == NULL )
 		return;
 
-	VectorCopy( pClient->origin, position );
+	vec3_t position = Vec3( pClient->origin );
 	position[2] += zoffset;
 
 	pTemp = CL_TempEntAllocHigh( position, pModel );
@@ -875,7 +873,6 @@ void GAME_EXPORT R_BloodSprite( const vec3_t org, int colorIndex, int modelIndex
 {
 	model_t		*pModel, *pModel2;
 	TEMPENTITY	*pTemp;
-	vec3_t		pos;
 
 	colorIndex += COM_RandomLong( 1, 3 );
 	int impactindex = colorIndex;
@@ -884,7 +881,7 @@ void GAME_EXPORT R_BloodSprite( const vec3_t org, int colorIndex, int modelIndex
 	// validate the model first
 	if(( pModel = CL_ModelHandle( modelIndex )) != NULL )
 	{
-		VectorCopy( org, pos );
+		vec3_t pos = Vec3( org );
 		pos[2] += COM_RandomFloat( 2.0f, 4.0f ); // make offset from ground (snarks issues)
 
 		// large, single blood sprite is a high-priority tent
@@ -1635,7 +1632,6 @@ void GAME_EXPORT R_PlayerSprites( int client, int modelIndex, int count, int siz
 {
 	TEMPENTITY	*pTemp;
 	cl_entity_t	*pEnt;
-	vec3_t		position;
 	vec3_t		dir;
 
 	pEnt = CL_GetEntityByIndex( client );
@@ -1645,7 +1641,7 @@ void GAME_EXPORT R_PlayerSprites( int client, int modelIndex, int count, int siz
 
 	for( int i = 0; i < count; i++ )
 	{
-		VectorCopy( pEnt->origin, position );
+		vec3_t position = Vec3( pEnt->origin );
 		position[0] += COM_RandomFloat( -10.0f, 10.0f );
 		position[1] += COM_RandomFloat( -10.0f, 10.0f );
 		position[2] += COM_RandomFloat( -20.0f, 36.0f );
@@ -1696,14 +1692,13 @@ void GAME_EXPORT R_FireField( float *org, int radius, int modelIndex, int count,
 {
 	TEMPENTITY	*pTemp;
 	model_t		*pmodel;
-	vec3_t		pos;
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 		return;
 
 	for( int i = 0; i < count; i++ )
 	{
-		VectorCopy( org, pos );
+		vec3_t pos = Vec3( org );
 		pos[0] += COM_RandomFloat( -radius, radius );
 		pos[1] += COM_RandomFloat( -radius, radius );
 
@@ -1769,10 +1764,10 @@ void GAME_EXPORT R_MultiGunshot( const vec3_t org, const vec3_t dir, const vec3_
 {
 	pmtrace_t	trace;
 	vec3_t	right, up;
-	vec3_t	vecSrc, vecDir, vecEnd;
+	vec3_t	vecDir, vecEnd;
 
 	VectorVectors( dir, right, up );
-	VectorCopy( org, vecSrc );
+	vec3_t vecSrc = Vec3( org );
 
 	for( int i = 0; i < count; i++ )
 	{

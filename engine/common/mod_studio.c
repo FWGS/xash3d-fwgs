@@ -370,7 +370,6 @@ NOTE: pEdict may be NULL
 */
 hull_t *Mod_HullForStudio( model_t *model, float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *pcontroller, byte *pblending, int *numhitboxes, edict_t *pEdict )
 {
-	vec3_t		angles2;
 	qboolean	bSkipShield = false;
 
 	*numhitboxes = 0; // assume error
@@ -393,7 +392,7 @@ hull_t *Mod_HullForStudio( model_t *model, float frame, int sequence, vec3_t ang
 	mod_studiohdr = Mod_StudioExtradata( model );
 	if( !mod_studiohdr ) return NULL; // probably not a studiomodel
 
-	VectorCopy( angles, angles2 );
+	vec3_t angles2 = Vec3( angles );
 
 	if( !FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
 		angles2[PITCH] = -angles2[PITCH]; // stupid quake bug
@@ -732,7 +731,6 @@ StudioGetAttachment
 void Mod_StudioGetAttachment( const edict_t *e, int iAtt, float *origin, float *angles )
 {
 	mstudioattachment_t		*pAtt;
-	vec3_t			angles2;
 	matrix3x4			localPose;
 	matrix3x4			worldPose;
 	model_t			*mod;
@@ -755,7 +753,7 @@ void Mod_StudioGetAttachment( const edict_t *e, int iAtt, float *origin, float *
 	// calculate attachment origin and angles
 	pAtt = (mstudioattachment_t *)((byte *)mod_studiohdr + mod_studiohdr->attachmentindex) + iAtt;
 
-	VectorCopy( e->v.angles, angles2 );
+	vec3_t angles2 = Vec3( e->v.angles );
 
 	if( !FBitSet( host.features, ENGINE_COMPENSATE_QUAKE_BUG ))
 		angles2[PITCH] = -angles2[PITCH];

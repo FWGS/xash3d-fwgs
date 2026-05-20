@@ -397,13 +397,12 @@ recursively recalculating the middle
 */
 static float SV_RecursiveWaterLevel( vec3_t origin, float out, float in, int count )
 {
-	vec3_t	point;
 	float	offset;
 
 	offset = ((out - in) * 0.5f) + in;
 	if( ++count > 5 ) return offset;
 
-	VectorSet( point, origin[0], origin[1], origin[2] + offset );
+	vec3_t point = { origin[0], origin[1], origin[2] + offset };
 
 	if( SV_PointContents( point ) == CONTENTS_WATER )
 		return SV_RecursiveWaterLevel( origin, out, offset, count );
@@ -420,7 +419,6 @@ determine how deep the entity is
 static float SV_Submerged( edict_t *ent )
 {
 	float	start, bottom;
-	vec3_t	point;
 	vec3_t	center;
 
 	VectorAverage( ent->v.absmin, ent->v.absmax, center );
@@ -432,10 +430,12 @@ static float SV_Submerged( edict_t *ent )
 		bottom = SV_RecursiveWaterLevel( center, 0.0f, start, 0 );
 		return bottom - start;
 	case 3:
-		VectorSet( point, center[0], center[1], ent->v.absmax[2] );
+	{
+		vec3_t point = { center[0], center[1], ent->v.absmax[2] };
 		svs.groupmask = ent->v.groupinfo;
 		if( SV_PointContents( point ) == CONTENTS_WATER )
 			return (ent->v.maxs[2] - ent->v.mins[2]);
+	}
 		// intentionally fallthrough
 	case 2:
 		bottom = SV_RecursiveWaterLevel( center, ent->v.absmax[2] - center[2], 0.0f, 0 );
@@ -587,15 +587,14 @@ static int SV_FlyMove( edict_t *ent, float time, trace_t *steptrace )
 {
 	int	i, j, numplanes, blocked;
 	vec3_t	dir, end, planes[MAX_CLIP_PLANES];
-	vec3_t	primal_velocity, original_velocity, new_velocity;
 	float	time_left, allFraction;
 	qboolean	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
 	trace_t	trace;
 
 	blocked = 0;
-	VectorCopy( ent->v.velocity, original_velocity );
-	VectorCopy( ent->v.velocity, primal_velocity );
-	VectorClear( new_velocity );
+	vec3_t original_velocity = Vec3( ent->v.velocity );
+	vec3_t primal_velocity = Vec3( ent->v.velocity );
+	vec3_t new_velocity = { 0 };
 	numplanes = 0;
 
 	allFraction = 0.0f;
