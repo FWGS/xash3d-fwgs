@@ -3804,7 +3804,6 @@ pfnRunPlayerMove
 static void GAME_EXPORT pfnRunPlayerMove( edict_t *pClient, const float *viewangles, float fmove, float smove, float upmove, word buttons, byte impulse, byte msec )
 {
 	sv_client_t	*cl, *oldcl;
-	usercmd_t		cmd;
 	uint		seed;
 
 	if(( cl = SV_ClientFromEdict( pClient, true )) == NULL )
@@ -3818,14 +3817,16 @@ static void GAME_EXPORT pfnRunPlayerMove( edict_t *pClient, const float *viewang
 	sv.current_client = SV_ClientFromEdict( pClient, true );
 	sv.current_client->timebase = (sv.time + sv.frametime) - ((double)msec / 1000.0);
 
-	memset( &cmd, 0, sizeof( cmd ));
-	VectorCopy( viewangles, cmd.viewangles );
-	cmd.forwardmove = fmove;
-	cmd.sidemove = smove;
-	cmd.upmove = upmove;
-	cmd.buttons = buttons;
-	cmd.impulse = impulse;
-	cmd.msec = msec;
+	usercmd_t cmd =
+	{
+		.viewangles = Vec3( viewangles ),
+		.forwardmove = fmove,
+		.sidemove = smove,
+		.upmove = upmove,
+		.buttons = buttons,
+		.impulse = impulse,
+		.msec = msec,
+	};
 
 	seed = COM_RandomLong( 0, 0x7fffffff ); // full range
 

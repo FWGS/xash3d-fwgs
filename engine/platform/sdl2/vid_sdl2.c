@@ -193,11 +193,12 @@ void SW_UnlockBuffer( void )
 {
 	if( sw.renderer )
 	{
-		SDL_Rect src, dst;
-		src.x = src.y = 0;
-		src.w = sw.width;
-		src.h = sw.height;
-		dst = src;
+		SDL_Rect src =
+		{
+			.w = sw.width,
+			.h = sw.height,
+		};
+		SDL_Rect dst = src;
 		SDL_UnlockTexture(sw.tex);
 
 		SDL_SetTextureBlendMode(sw.tex, SDL_BLENDMODE_NONE);
@@ -213,11 +214,12 @@ void SW_UnlockBuffer( void )
 	// blit if blitting surface availiable
 	if( sw.surf )
 	{
-		SDL_Rect src, dst;
-		src.x = src.y = 0;
-		src.w = sw.width;
-		src.h = sw.height;
-		dst = src;
+		SDL_Rect src =
+		{
+			.w = sw.width,
+			.h = sw.height,
+		};
+		SDL_Rect dst = src;
 		SDL_UnlockSurface( sw.surf );
 		SDL_BlitSurface( sw.surf, &src, sw.win, &dst );
 		return;

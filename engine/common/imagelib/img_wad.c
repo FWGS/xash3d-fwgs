@@ -734,7 +734,11 @@ qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
 	byte        *mip1_data = NULL, *mip2_data = NULL, *mip3_data = NULL;
 	byte        grad_palette[256 * 3];
 	file_t      *f;
-	dwadinfo_t  header;
+	dwadinfo_t  header =
+	{
+		.ident = IDWAD3HEADER,
+		.numlumps = 1,
+	};
 	mip_t       miptex;
 	long        infotableofs;
 	dlumpinfo_t lump;
@@ -774,10 +778,6 @@ qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
 	f = FS_Open( name, "wb", false );
 	if( !f )
 		goto cleanup;
-
-	memset( &header, 0, sizeof( header ));
-	header.ident = IDWAD3HEADER;
-	header.numlumps = 1;
 
 	le_struct_swap( dwadinfo_swap, &header );
 	FS_Write( f, &header, sizeof( header ));

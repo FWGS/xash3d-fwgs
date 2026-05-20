@@ -604,17 +604,16 @@ tell the client.dll about player origin, angles, fov, etc
 */
 static void CL_UpdateClientData( void )
 {
-	client_data_t	cdat;
-
 	if( cls.state != ca_active )
 		return;
 
-	memset( &cdat, 0, sizeof( cdat ) );
-
-	VectorCopy( cl.viewangles, cdat.viewangles );
-	VectorCopy( clgame.entities[cl.viewentity].origin, cdat.origin );
-	cdat.iWeaponBits = cl.local.weapons;
-	cdat.fov = cl.local.scr_fov;
+	client_data_t	cdat =
+	{
+		.viewangles = Vec3( cl.viewangles ),
+		.origin = Vec3( clgame.entities[cl.viewentity].origin ),
+		.iWeaponBits = cl.local.weapons,
+		.fov = cl.local.scr_fov,
+	};
 
 	if( clgame.dllFuncs.pfnUpdateClientData( &cdat, cl.time ))
 	{
