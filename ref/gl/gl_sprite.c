@@ -31,19 +31,12 @@ between frames where are we lerping
 */
 static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **oldframe, mspriteframe_t **curframe )
 {
-	msprite_t		*psprite;
-	mspritegroup_t	*pspritegroup;
-	int		i, j, numframes, frame;
-	float		lerpFrac, time, jtime, jinterval;
-	float		*pintervals, fullinterval, targettime;
-	int		m_fDoInterp;
-
-	psprite = ent->model->cache.data;
-	frame = (int)ent->curstate.frame;
-	lerpFrac = 1.0f;
+	msprite_t *psprite = ent->model->cache.data;
+	int frame = (int)ent->curstate.frame;
+	float lerpFrac = 1.0f;
 
 	// misc info
-	m_fDoInterp = (ent->curstate.effects & EF_NOINTERP) ? false : true;
+	int m_fDoInterp = (ent->curstate.effects & EF_NOINTERP) ? false : true;
 
 	if( frame < 0 )
 	{
@@ -106,20 +99,21 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 	}
 	else if( psprite->frames[frame].type == FRAME_GROUP )
 	{
-		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
-		pintervals = pspritegroup->intervals;
-		numframes = pspritegroup->numframes;
-		fullinterval = pintervals[numframes-1];
-		jinterval = pintervals[1] - pintervals[0];
-		time = gp_cl->time;
-		jtime = 0.0f;
+		mspritegroup_t *pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
+		float *pintervals = pspritegroup->intervals;
+		int numframes = pspritegroup->numframes;
+		float fullinterval = pintervals[numframes-1];
+		float jinterval = pintervals[1] - pintervals[0];
+		float time = gp_cl->time;
+		float jtime = 0.0f;
 
 		// when loading in Mod_LoadSpriteGroup, we guaranteed all interval values
 		// are positive, so we don't have to worry about division by zero
-		targettime = time - ((int)(time / fullinterval)) * fullinterval;
+		float targettime = time - ((int)(time / fullinterval)) * fullinterval;
 
 		// LordHavoc: since I can't measure the time properly when it loops from numframes - 1 to 0,
 		// i instead measure the time of the first frame, hoping it is consistent
+		int i, j;
 		for( i = 0, j = numframes - 1; i < (numframes - 1); i++ )
 		{
 			if( pintervals[i] > targettime )
@@ -178,7 +172,7 @@ static float R_GetSpriteFrameInterpolant( cl_entity_t *ent, mspriteframe_t **old
 			lerpFrac = 1.0f;
 		}
 
-		pspritegroup = (mspritegroup_t *)psprite->frames[ent->latched.prevblending[0]].frameptr;
+		mspritegroup_t *pspritegroup = (mspritegroup_t *)psprite->frames[ent->latched.prevblending[0]].frameptr;
 		if( oldframe ) *oldframe = pspritegroup->frames[angleframe];
 
 		pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
@@ -225,16 +219,13 @@ Set sprite brightness factor
 */
 static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, float *pscale )
 {
-	float	dist, brightness;
-	vec3_t	glowDist;
-	pmtrace_t	*tr;
-
+	vec3_t glowDist;
 	VectorSubtract( origin, RI.rvp.vieworigin, glowDist );
-	dist = VectorLength( glowDist );
+	float dist = VectorLength( glowDist );
 
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ))
 	{
-		tr = gEngfuncs.EV_VisTraceLine( RI.rvp.vieworigin, origin, r_traceglow.value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
+		pmtrace_t *tr = gEngfuncs.EV_VisTraceLine( RI.rvp.vieworigin, origin, r_traceglow.value ? PM_GLASS_IGNORE : (PM_GLASS_IGNORE|PM_STUDIO_IGNORE));
 
 		if(( 1.0f - tr->fraction ) * dist > 8.0f )
 			return 0.0f;
@@ -243,7 +234,7 @@ static float R_SpriteGlowBlend( vec3_t origin, int rendermode, int renderfx, flo
 	if( renderfx == kRenderFxNoDissipation )
 		return 1.0f;
 
-	brightness = GLARE_FALLOFF / ( dist * dist );
+	float brightness = GLARE_FALLOFF / ( dist * dist );
 	brightness = bound( 0.05f, brightness, 1.0f );
 	*pscale *= dist * ( 1.0f / 200.0f );
 
@@ -373,28 +364,19 @@ R_DrawSpriteModel
 */
 void R_DrawSpriteModel( cl_entity_t *e )
 {
-	mspriteframe_t	*frame = NULL, *oldframe = NULL;
-	msprite_t		*psprite;
-	model_t		*model;
-	int		i, type;
-	float		angle, dot, sr, cr;
-	float		lerp = 1.0f, ilerp, scale;
-	vec3_t		v_forward, v_right, v_up;
-	vec3_t		origin, color, color2 = { 0.0f };
-
 	if( FBitSet( RI.rvp.flags, RF_DRAW_CUBEMAP ))
 		return;
 
-	model = e->model;
-	psprite = (msprite_t * )model->cache.data;
+	model_t *model = e->model;
+	msprite_t *psprite = (msprite_t *)model->cache.data;
+	vec3_t origin, color, color2 = { 0.0f };
+	vec3_t v_right, v_up;
 	VectorCopy( e->origin, origin );	// set render origin
 
 	// do movewith
 	if( e->curstate.aiment > 0 && e->curstate.movetype == MOVETYPE_FOLLOW )
 	{
-		cl_entity_t	*parent;
-
-		parent = CL_GetEntityByIndex( e->curstate.aiment );
+		cl_entity_t *parent = CL_GetEntityByIndex( e->curstate.aiment );
 
 		if( parent && parent->model )
 		{
@@ -407,7 +389,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		}
 	}
 
-	scale = e->curstate.scale;
+	float scale = e->curstate.scale;
 	if( !scale ) scale = 1.0f;
 
 	if( R_SpriteOccluded( e, origin, &scale ))
@@ -473,11 +455,13 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		pglAlphaFunc( GL_GREATER, 1.0f / 3.0f );
 	}
 
+	mspriteframe_t *frame = NULL, *oldframe = NULL;
+	float lerp = 1.0f;
 	if( R_SpriteAllowLerping( e, psprite ))
 		lerp = R_GetSpriteFrameInterpolant( e, &oldframe, &frame );
 	else frame = oldframe = gEngfuncs.R_GetSpriteFrame( model, e->curstate.frame, e->angles[YAW] );
 
-	type = psprite->type;
+	int type = psprite->type;
 
 	// automatically roll parallel sprites if requested
 	if( e->angles[ROLL] != 0.0f && type == SPR_FWD_PARALLEL )
@@ -486,32 +470,40 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	switch( type )
 	{
 	case SPR_ORIENTED:
+	{
+		vec3_t v_forward;
 		AngleVectors( e->angles, v_forward, v_right, v_up );
 		VectorScale( v_forward, 0.01f, v_forward );	// to avoid z-fighting
 		VectorSubtract( origin, v_forward, origin );
 		break;
+	}
 	case SPR_FACING_UPRIGHT:
 		VectorSet( v_right, origin[1] - RI.rvp.vieworigin[1], -(origin[0] - RI.rvp.vieworigin[0]), 0.0f );
 		VectorSet( v_up, 0.0f, 0.0f, 1.0f );
 		VectorNormalize( v_right );
 		break;
 	case SPR_FWD_PARALLEL_UPRIGHT:
-		dot = RI.vforward[2];
+	{
+		float dot = RI.vforward[2];
 		if(( dot > 0.999848f ) || ( dot < -0.999848f ))	// cos(1 degree) = 0.999848
 			return; // invisible
 		VectorSet( v_up, 0.0f, 0.0f, 1.0f );
 		VectorSet( v_right, RI.vforward[1], -RI.vforward[0], 0.0f );
 		VectorNormalize( v_right );
 		break;
+	}
 	case SPR_FWD_PARALLEL_ORIENTED:
-		angle = e->angles[ROLL] * (M_PI2 / 360.0f);
+	{
+		float angle = e->angles[ROLL] * (M_PI2 / 360.0f);
+		float sr, cr;
 		SinCos( angle, &sr, &cr );
-		for( i = 0; i < 3; i++ )
+		for( int i = 0; i < 3; i++ )
 		{
 			v_right[i] = (RI.vright[i] * cr + RI.vup[i] * sr);
 			v_up[i] = RI.vright[i] * -sr + RI.vup[i] * cr;
 		}
 		break;
+	}
 	case SPR_FWD_PARALLEL: // normal sprite
 	default:
 		VectorCopy( RI.vright, v_right );
@@ -533,7 +525,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	{
 		// draw two combined lerped frames
 		lerp = bound( 0.0f, lerp, 1.0f );
-		ilerp = 1.0f - lerp;
+		float ilerp = 1.0f - lerp;
 
 		if( ilerp != 0.0f )
 		{
