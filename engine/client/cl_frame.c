@@ -41,12 +41,10 @@ Store another position into interpolation circular buffer
 */
 static void CL_UpdatePositions( cl_entity_t *ent )
 {
-	position_history_t	*ph, *prev;
-
-	prev = &ent->ph[ent->current_position & HISTORY_MASK];
+	position_history_t *prev = &ent->ph[ent->current_position & HISTORY_MASK];
 
 	ent->current_position = (ent->current_position + 1) & HISTORY_MASK;
-	ph = &ent->ph[ent->current_position];
+	position_history_t *ph = &ent->ph[ent->current_position];
 	VectorCopy( ent->curstate.origin, ph->origin );
 	VectorCopy( ent->curstate.angles, ph->angles );
 
@@ -94,14 +92,13 @@ we don't want interpolate this
 */
 static qboolean CL_EntityTeleported( cl_entity_t *ent )
 {
-	float	len, maxlen;
 	vec3_t	delta;
 
 	VectorSubtract( ent->curstate.origin, ent->prevstate.origin, delta );
 
 	// compute potential max movement in units per frame and compare with entity movement
-	maxlen = ( clgame.movevars.maxvelocity * ( 1.0f / GAME_FPS ));
-	len = VectorLength( delta );
+	float maxlen = ( clgame.movevars.maxvelocity * ( 1.0f / GAME_FPS ));
+	float len = VectorLength( delta );
 
 	return (len > maxlen);
 }
@@ -169,22 +166,23 @@ check for parametrical moved entities
 */
 static qboolean CL_ParametricMove( cl_entity_t *ent )
 {
-	float	frac, dt, t;
 	vec3_t	delta;
 
 	if( ent->curstate.starttime == 0.0f || ent->curstate.impacttime == 0.0f )
 		return false;
 
 	VectorSubtract( ent->curstate.endpos, ent->curstate.startpos, delta );
-	dt = ent->curstate.impacttime - ent->curstate.starttime;
+	float dt = ent->curstate.impacttime - ent->curstate.starttime;
 
 	if( dt != 0.0f )
 	{
+		float t;
+
 		if( ent->lastmove > cl.time )
 			t = ent->lastmove;
 		else t = cl.time;
 
-		frac = ( t - ent->curstate.starttime ) / dt;
+		float frac = ( t - ent->curstate.starttime ) / dt;
 		frac = bound( 0.0f, frac, 1.0f );
 		VectorMA( ent->curstate.startpos, frac, delta, ent->curstate.origin );
 
@@ -239,18 +237,14 @@ CL_GetStudioEstimatedFrame
 */
 static float CL_GetStudioEstimatedFrame( cl_entity_t *ent )
 {
-	studiohdr_t	*pstudiohdr;
-	mstudioseqdesc_t	*pseqdesc;
-	int		sequence;
-
 	if( ent->model != NULL && ent->model->type == mod_studio )
 	{
-		pstudiohdr = (studiohdr_t *)Mod_StudioExtradata( ent->model );
+		studiohdr_t *pstudiohdr = (studiohdr_t *)Mod_StudioExtradata( ent->model );
 
 		if( pstudiohdr && pstudiohdr->numseq > 0 )
 		{
-			sequence = bound( 0, ent->curstate.sequence, pstudiohdr->numseq - 1 );
-			pseqdesc = (mstudioseqdesc_t *)((byte *)pstudiohdr + pstudiohdr->seqindex) + sequence;
+			int sequence = bound( 0, ent->curstate.sequence, pstudiohdr->numseq - 1 );
+			mstudioseqdesc_t *pseqdesc = (mstudioseqdesc_t *)((byte *)pstudiohdr + pstudiohdr->seqindex) + sequence;
 			return ref.dllFuncs.R_StudioEstimateFrame( ent, pseqdesc, cl.time );
 		}
 	}
@@ -301,8 +295,6 @@ apply changes since new frame received
 */
 static void CL_ProcessEntityUpdate( cl_entity_t *ent )
 {
-	qboolean	parametric;
-
 	ent->model = CL_ModelHandle( ent->curstate.modelindex );
 	ent->index = ent->curstate.number;
 
@@ -324,7 +316,7 @@ static void CL_ProcessEntityUpdate( cl_entity_t *ent )
 			VectorCopy( aiment->origin, ent->curstate.origin );
 	}
 
-	parametric = ent->curstate.starttime != 0.0f && ent->curstate.impacttime != 0.0f;
+	qboolean parametric = ent->curstate.starttime != 0.0f && ent->curstate.impacttime != 0.0f;
 
 	// allow interpolation on bmodels too
 	if( ent->model && ent->model->type == mod_brush )
@@ -363,13 +355,11 @@ find two timestamps
 static qboolean CL_FindInterpolationUpdates( cl_entity_t *ent, double targettime, position_history_t **ph0, position_history_t **ph1 )
 {
 	qboolean	extrapolate = true;
-	uint		i, i0, i1, imod;
+	uint		imod = ent->current_position;
+	uint		i0 = (imod - 0) & HISTORY_MASK;	// curpos (lerp end)
+	uint		i1 = (imod - 1) & HISTORY_MASK;	// oldpos (lerp start)
 
-	imod = ent->current_position;
-	i0 = (imod - 0) & HISTORY_MASK;	// curpos (lerp end)
-	i1 = (imod - 1) & HISTORY_MASK;	// oldpos (lerp start)
-
-	for( i = 1; i < HISTORY_MAX - 1; i++ )
+	for( uint i = 1; i < HISTORY_MAX - 1; i++ )
 	{
 		double at = ent->ph[( imod - i ) & HISTORY_MASK].animtime;
 
@@ -401,19 +391,19 @@ non-local players interpolation
 */
 static void CL_PureOrigin( cl_entity_t *ent, double t, vec3_t outorigin, vec3_t outangles )
 {
-	double		t1, t0, frac;
 	position_history_t	*ph0, *ph1;
-	vec3_t		delta;
 
 	// NOTE: ph0 is next, ph1 is a prev
 	CL_FindInterpolationUpdates( ent, t, &ph0, &ph1 );
 
-	t0 = ph0->animtime;
-	t1 = ph1->animtime;
+	double t0 = ph0->animtime;
+	double t1 = ph1->animtime;
 
 	if( t0 != 0.0 )
 	{
 		vec4_t	q, q1, q2;
+		vec3_t	delta;
+		double	frac;
 
 		VectorSubtract( ph0->origin, ph1->origin, delta );
 
@@ -449,7 +439,6 @@ static int CL_InterpolateModel( cl_entity_t *e )
 {
 	position_history_t  *ph0 = NULL, *ph1 = NULL;
 	vec3_t		origin, angles, delta;
-	double		t, t1, t2, frac;
 	vec4_t		q, q1, q2;
 
 	VectorCopy( e->curstate.origin, e->origin );
@@ -478,11 +467,11 @@ static int CL_InterpolateModel( cl_entity_t *e )
 	if( cl.local.moving && cl.local.onground == e->index )
 		return 1;
 
-	t = cl.time - cl_interp.value;
+	double t = cl.time - cl_interp.value;
 	CL_FindInterpolationUpdates( e, t, &ph0, &ph1 );
 
-	t1 = ph1->animtime;
-	t2 = ph0->animtime;
+	double t1 = ph1->animtime;
+	double t2 = ph0->animtime;
 
 	if( t - t1 < 0.0f )
 		return 0;
@@ -502,7 +491,7 @@ static int CL_InterpolateModel( cl_entity_t *e )
 	}
 
 	VectorSubtract( ph0->origin, ph1->origin, delta );
-	frac = (t - t1) / (t2 - t1);
+	double frac = (t - t1) / (t2 - t1);
 
 	if( frac < 0.0f )
 		return 0;
@@ -532,8 +521,6 @@ interpolate non-local clients
 */
 void CL_ComputePlayerOrigin( cl_entity_t *ent )
 {
-	double	targettime;
-	vec4_t	q, q1, q2;
 	vec3_t	origin;
 	vec3_t	angles;
 
@@ -549,6 +536,8 @@ void CL_ComputePlayerOrigin( cl_entity_t *ent )
 
 	if( cls.demoplayback == DEMO_QUAKE1 )
 	{
+		vec4_t	q, q1, q2;
+
 		// quake lerping is easy
 		VectorLerp( ent->prevstate.origin, cl.lerpFrac, ent->curstate.origin, ent->origin );
 		AngleQuaternion( ent->prevstate.angles, q1, false );
@@ -558,7 +547,7 @@ void CL_ComputePlayerOrigin( cl_entity_t *ent )
 		return;
 	}
 
-	targettime = cl.time - cl_interp.value;
+	double targettime = cl.time - cl_interp.value;
 	CL_PureOrigin( ent, targettime, origin, angles );
 
 	VectorCopy( angles, ent->angles );
@@ -574,9 +563,7 @@ process player states after the new packet has received
 */
 static void CL_ProcessPlayerState( int playerindex, entity_state_t *state )
 {
-	entity_state_t	*ps;
-
-	ps = &cl.frames[cl.parsecountmod].playerstate[playerindex];
+	entity_state_t *ps = &cl.frames[cl.parsecountmod].playerstate[playerindex];
 	ps->number = state->number;
 	ps->messagenum = cl.parsecount;
 	ps->msg_time = cl.mtime[0];
@@ -617,19 +604,15 @@ process player states after the new packet has received
 */
 void CL_ProcessPacket( frame_t *frame )
 {
-	entity_state_t	*state;
-	cl_entity_t	*ent;
-	int		pnum;
-
-	for( pnum = 0; pnum < frame->num_entities; pnum++ )
+	for( int pnum = 0; pnum < frame->num_entities; pnum++ )
 	{
 		// request the entity state from circular buffer
-		state = &cls.packet_entities[(frame->first_entity+pnum) % cls.num_client_entities];
+		entity_state_t *state = &cls.packet_entities[(frame->first_entity+pnum) % cls.num_client_entities];
 		state->messagenum = cl.parsecount;
 		state->msg_time = cl.mtime[0];
 
 		// mark all the players
-		ent = &clgame.entities[state->number];
+		cl_entity_t *ent = &clgame.entities[state->number];
 		ent->player = CL_IsPlayerIndex( state->number );
 
 		if( state->number == ( cl.playernum + 1 ))
@@ -675,7 +658,6 @@ Read and ignore whole entity packet.
 */
 static void CL_FlushEntityPacket( sizebuf_t *msg, connprotocol_t proto )
 {
-	int		newnum;
 	entity_state_t	from, to;
 
 	memset( &from, 0, sizeof( from ));
@@ -686,6 +668,8 @@ static void CL_FlushEntityPacket( sizebuf_t *msg, connprotocol_t proto )
 	// read it all, but ignore it
 	while( 1 )
 	{
+		int newnum;
+
 		if( !CL_ParseEntityNumFromPacket( msg, &newnum, proto ))
 			break; // done
 
@@ -815,22 +799,19 @@ rest of the data stream.
 */
 int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta, connprotocol_t proto )
 {
-	frame_t		*newframe, *oldframe;
+	frame_t		*oldframe;
 	int		oldindex, newnum, oldnum;
 	int		playerbytes = 0;
-	int		bufStart;
 	entity_state_t	*oldent;
-	qboolean		player;
-	int		count;
 
 	// save first uncompressed packet as timestamp
 	if( cls.changelevel && !delta && cls.demorecording )
 		CL_WriteDemoJumpTime();
 
 	// sentinel count. save it for debug checking
-	count = MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS ) + 1;
+	int count = MSG_ReadUBitLong( msg, MAX_VISIBLE_PACKET_BITS ) + 1;
 
-	newframe = &cl.frames[cl.parsecountmod];
+	frame_t *newframe = &cl.frames[cl.parsecountmod];
 
 	// allocate parse entities
 	memset( newframe->flags, 0, sizeof( newframe->flags ));
@@ -871,7 +852,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta, connprotocol_t proto
 		if( MSG_CheckOverflow( msg ))
 			Host_Error( "%s: overflow\n", __func__ );
 
-		player = CL_IsPlayerIndex( newnum );
+		qboolean player = CL_IsPlayerIndex( newnum );
 
 		while( oldnum < newnum )
 		{
@@ -883,7 +864,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta, connprotocol_t proto
 		if( oldnum == newnum )
 		{
 			// delta from previous state
-			bufStart = MSG_GetNumBytesRead( msg );
+			int bufStart = MSG_GetNumBytesRead( msg );
 			CL_DeltaEntity( msg, newframe, newnum, oldent, true );
 			if( player ) playerbytes += MSG_GetNumBytesRead( msg ) - bufStart;
 			oldnum = CL_UpdateOldEntNum( ++oldindex, oldframe, &oldent );
@@ -893,7 +874,7 @@ int CL_ParsePacketEntities( sizebuf_t *msg, qboolean delta, connprotocol_t proto
 		if( oldnum > newnum )
 		{
 			// delta from baseline ?
-			bufStart = MSG_GetNumBytesRead( msg );
+			int bufStart = MSG_GetNumBytesRead( msg );
 			CL_DeltaEntity( msg, newframe, newnum, NULL, true );
 			if( player ) playerbytes += MSG_GetNumBytesRead( msg ) - bufStart;
 			continue;
@@ -1029,11 +1010,9 @@ for all current players
 */
 static void CL_LinkPlayers( frame_t *frame )
 {
+	cl_entity_t	*ent = CL_GetLocalPlayer();
 	entity_state_t	*state;
-	cl_entity_t	*ent;
 	int		i;
-
-	ent = CL_GetLocalPlayer();
 
 	// apply muzzleflash to weaponmodel
 	if( ent && FBitSet( ent->curstate.effects, EF_MUZZLEFLASH ))
@@ -1112,15 +1091,9 @@ CL_LinkPacketEntities
 */
 static void CL_LinkPacketEntities( frame_t *frame )
 {
-	cl_entity_t	*ent;
-	entity_state_t	*state;
-	qboolean		parametric;
-	qboolean		interpolate;
-	int		i;
-
-	for( i = 0; i < frame->num_entities; i++ )
+	for( int i = 0; i < frame->num_entities; i++ )
 	{
-		state = &cls.packet_entities[(frame->first_entity + i) % cls.num_client_entities];
+		entity_state_t *state = &cls.packet_entities[(frame->first_entity + i) % cls.num_client_entities];
 
 		// clients are should be done in CL_LinkPlayers
 		if( state->number >= 1 && state->number <= cl.maxclients )
@@ -1130,7 +1103,7 @@ static void CL_LinkPacketEntities( frame_t *frame )
 		if( !state->modelindex || FBitSet( state->effects, EF_NODRAW ))
 			continue;
 
-		ent = CL_GetEntityByIndex( state->number );
+		cl_entity_t *ent = CL_GetEntityByIndex( state->number );
 
 		if( !ent )
 		{
@@ -1141,7 +1114,7 @@ static void CL_LinkPacketEntities( frame_t *frame )
 		// animtime must keep an actual
 		ent->curstate.animtime = state->animtime;
 		ent->curstate.frame = state->frame;
-		interpolate = false;
+		qboolean interpolate = false;
 
 		if( !ent->model ) continue;
 
@@ -1155,7 +1128,7 @@ static void CL_LinkPacketEntities( frame_t *frame )
 			}
 		}
 
-		parametric = ( ent->curstate.impacttime != 0.0f && ent->curstate.starttime != 0.0f );
+		qboolean parametric = ( ent->curstate.impacttime != 0.0f && ent->curstate.starttime != 0.0f );
 
 		if( !parametric && ent->curstate.movetype != MOVETYPE_COMPOUND )
 		{
@@ -1368,9 +1341,6 @@ SOUND ENGINE IMPLEMENTATION
 */
 qboolean CL_GetEntitySpatialization( channel_t *ch )
 {
-	cl_entity_t	*ent;
-	qboolean		valid_origin;
-
 	if( ch->entnum == 0 )
 	{
 		SetBits( ch->flags, FL_CHAN_STATIC_SOUND );
@@ -1383,8 +1353,8 @@ qboolean CL_GetEntitySpatialization( channel_t *ch )
 		return true;
 	}
 
-	valid_origin = VectorIsNull( ch->origin ) ? false : true;
-	ent = CL_GetEntityByIndex( ch->entnum );
+	qboolean valid_origin = VectorIsNull( ch->origin ) ? false : true;
+	cl_entity_t *ent = CL_GetEntityByIndex( ch->entnum );
 
 	// entity is not present on the client but has valid origin
 	if( !ent || !ent->model || ent->curstate.messagenum != cl.parsecount )

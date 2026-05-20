@@ -39,7 +39,6 @@ static efrag_t *cl_efrags;
 
 static efrag_t *CL_AllocEfrags( int num )
 {
-	int i;
 	efrag_t *efrags;
 
 	if( !cl.worldmodel )
@@ -55,7 +54,7 @@ static efrag_t *CL_AllocEfrags( int num )
 	efrags = Mem_Calloc( cl.worldmodel->mempool, sizeof( *efrags ) * num );
 
 	// initialize linked list
-	for( i = 0; i < num - 1; i++ )
+	for( int i = 0; i < num - 1; i++ )
 		efrags[i].entnext = &efrags[i + 1];
 
 	cl_efrags_num += num;
@@ -81,8 +80,6 @@ R_SplitEntityOnNode
 */
 static void R_SplitEntityOnNode( mnode_t *node )
 {
-	efrag_t	*ef;
-	mleaf_t	*leaf;
 	int	sides;
 
 	if( node->contents == CONTENTS_SOLID )
@@ -91,6 +88,9 @@ static void R_SplitEntityOnNode( mnode_t *node )
 	// add an efrag if the node is a leaf
 	if( node->contents < 0 )
 	{
+		efrag_t	*ef;
+		mleaf_t	*leaf;
+
 		if( !r_pefragtopnode )
 			r_pefragtopnode = node;
 
@@ -142,7 +142,6 @@ void R_AddEfrags( cl_entity_t *ent )
 {
 	matrix3x4	transform;
 	vec3_t	outmins, outmaxs;
-	int	i;
 
 	if( !ent->model )
 		return;
@@ -155,7 +154,7 @@ void R_AddEfrags( cl_entity_t *ent )
 	Matrix3x4_CreateFromEntity( transform, ent->angles, vec3_origin, 1.0f );
 	Matrix3x4_TransformAABB( transform, ent->model->mins, ent->model->maxs, outmins, outmaxs );
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		r_emins[i] = ent->origin[i] + outmins[i];
 		r_emaxs[i] = ent->origin[i] + outmaxs[i];
@@ -174,13 +173,11 @@ R_StoreEfrags
 void R_StoreEfrags( efrag_t **ppefrag, int framecount )
 {
 	efrag_t *pefrag;
-	cl_entity_t *pent;
-	model_t *clmodel;
 
 	while(( pefrag = *ppefrag ) != NULL )
 	{
-		pent = pefrag->entity;
-		clmodel = pent->model;
+		cl_entity_t *pent = pefrag->entity;
+		model_t *clmodel = pent->model;
 
 		// how this could happen?
 		if( unlikely( clmodel->type < mod_brush || clmodel->type > mod_studio ))

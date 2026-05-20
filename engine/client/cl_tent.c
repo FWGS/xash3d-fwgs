@@ -120,21 +120,20 @@ void CL_AddClientResources( void )
 {
 	const char *snd;
 	char	filepath[MAX_QPATH];
-	int	i;
 
 	// don't request resources from localhost or in quake-compatibility mode
 	if( cl.maxclients <= 1 || Host_IsQuakeCompatible( ))
 		return;
 
 	// check sprites first
-	for( i = 0; i < ARRAYSIZE( cl_default_sprites ); i++ )
+	for( int i = 0; i < ARRAYSIZE( cl_default_sprites ); i++ )
 	{
 		if( !FS_FileExists( cl_default_sprites[i], false ))
 			CL_AddClientResource( cl_default_sprites[i], t_model );
 	}
 
 	// then check sounds
-	for( i = 0; ( snd = SoundList_Get( BouncePlayerShell, i )); i++ )
+	for( int i = 0; ( snd = SoundList_Get( BouncePlayerShell, i )); i++ )
 	{
 		Q_snprintf( filepath, sizeof( filepath ), DEFAULT_SOUNDPATH "%s", snd );
 
@@ -142,7 +141,7 @@ void CL_AddClientResources( void )
 			CL_AddClientResource( snd, t_sound );
 	}
 
-	for( i = 0; ( snd = SoundList_Get( BounceWeaponShell, i )); i++ )
+	for( int i = 0; ( snd = SoundList_Get( BounceWeaponShell, i )); i++ )
 	{
 		Q_snprintf( filepath, sizeof( filepath ), DEFAULT_SOUNDPATH "%s", snd );
 
@@ -150,7 +149,7 @@ void CL_AddClientResources( void )
 			CL_AddClientResource( snd, t_sound );
 	}
 
-	for( i = 0; ( snd = SoundList_Get( Explode, i )); i++ )
+	for( int i = 0; ( snd = SoundList_Get( Explode, i )); i++ )
 	{
 		Q_snprintf( filepath, sizeof( filepath ), DEFAULT_SOUNDPATH "%s", snd );
 
@@ -159,7 +158,7 @@ void CL_AddClientResources( void )
 	}
 
 #if 0	// ric sounds was precached by server-side
-	for( i = 0; ( snd = SoundList_Get( Ricochet, i )); i++ )
+	for( int i = 0; ( snd = SoundList_Get( Ricochet, i )); i++ )
 	{
 		Q_snprintf( filepath, sizeof( filepath ), DEFAULT_SOUNDPATH "%s", snd );
 
@@ -177,11 +176,9 @@ CL_ClearTempEnts
 */
 static void CL_ClearTempEnts( void )
 {
-	int	i;
-
 	if( !cl_tempents ) return;
 
-	for( i = 0; i < GI->max_tents - 1; i++ )
+	for( int i = 0; i < GI->max_tents - 1; i++ )
 	{
 		cl_tempents[i].next = &cl_tempents[i+1];
 		cl_tempents[i].entity.trivial_accept = INVALID_HANDLE;
@@ -270,14 +267,12 @@ play collide sound
 */
 static void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 {
-	float	fvol;
 	const char	*soundname = NULL;
 	qboolean	isshellcasing = false;
-	int	zvel;
 
 	Assert( pTemp != NULL );
 
-	fvol = 0.8f;
+	float fvol = 0.8f;
 
 	switch( pTemp->hitSound )
 	{
@@ -315,7 +310,7 @@ static void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 	if( !soundname )
 		return;
 
-	zvel = abs( pTemp->entity.baseline.origin[2] );
+	int zvel = abs( pTemp->entity.baseline.origin[2] );
 
 	// only play one out of every n
 	if( isshellcasing )
@@ -333,7 +328,6 @@ static void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 	if( damp > 0.0f )
 	{
 		int	pitch;
-		sound_t	handle;
 
 		if( isshellcasing )
 			fvol *= Q_min( 1.0f, ((float)zvel) / 350.0f );
@@ -343,7 +337,7 @@ static void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 			pitch = COM_RandomLong( 95, 105 );
 		else pitch = PITCH_NORM;
 
-		handle = S_RegisterSound( soundname );
+		sound_t handle = S_RegisterSound( soundname );
 		S_StartSound( pTemp->entity.origin, -(pTemp - cl_tempents), CHAN_BODY, handle, fvol, ATTN_NORM, pitch, SND_STOP_LOOPING );
 	}
 }
@@ -573,7 +567,6 @@ void GAME_EXPORT R_FizzEffect( cl_entity_t *ent, int modelIndex, int density )
 	model_t	*mod = CL_ModelHandle( modelIndex );
 	vec3_t  volume, mins, maxs;
 	vec2_t  speed;
-	int     i;
 
 	if( !ent || !ent->model || !modelIndex || !mod )
 		return;
@@ -592,7 +585,7 @@ void GAME_EXPORT R_FizzEffect( cl_entity_t *ent, int modelIndex, int density )
 
 	VectorSubtract( maxs, mins, volume );
 
-	for( i = 0; i <= density; i++ )
+	for( int i = 0; i <= density; i++ )
 	{
 		TEMPENTITY *tent;
 		vec3_t origin;
@@ -628,16 +621,13 @@ Create bubbles
 void GAME_EXPORT R_Bubbles( const vec3_t mins, const vec3_t maxs, float height, int modelIndex, int count, float speed )
 {
 	TEMPENTITY	*pTemp;
-	float		sine, cosine;
-	float		angle, zspeed;
 	vec3_t		origin;
 	model_t		*mod;
-	int		i;
 
 	if(( mod = CL_ModelHandle( modelIndex )) == NULL )
 		return;
 
-	for ( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
 		origin[0] = COM_RandomLong( mins[0], maxs[0] );
 		origin[1] = COM_RandomLong( mins[1], maxs[1] );
@@ -649,10 +639,11 @@ void GAME_EXPORT R_Bubbles( const vec3_t mins, const vec3_t maxs, float height, 
 
 		pTemp->x = origin[0];
 		pTemp->y = origin[1];
-		angle = COM_RandomFloat( -M_PI, M_PI );
+		float sine, cosine;
+		float angle = COM_RandomFloat( -M_PI, M_PI );
 		SinCos( angle, &sine, &cosine );
 
-		zspeed = COM_RandomLong( 80, 140 );
+		float zspeed = COM_RandomLong( 80, 140 );
 		VectorSet( pTemp->entity.baseline.origin, speed * cosine, speed * sine, zspeed );
 		pTemp->die = cl.time + ((height - (origin[2] - mins[2])) / zspeed) - 0.1f;
 		pTemp->entity.curstate.frame = COM_RandomLong( 0, pTemp->frameMax );
@@ -674,18 +665,15 @@ Create bubble trail
 void GAME_EXPORT R_BubbleTrail( const vec3_t start, const vec3_t end, float height, int modelIndex, int count, float speed )
 {
 	TEMPENTITY	*pTemp;
-	float		sine, cosine, zspeed;
-	float		dist, angle;
 	vec3_t		origin;
 	model_t		*mod;
-	int		i;
 
 	if(( mod = CL_ModelHandle( modelIndex )) == NULL )
 		return;
 
-	for( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
-		dist = COM_RandomFloat( 0, 1.0 );
+		float dist = COM_RandomFloat( 0, 1.0 );
 		VectorLerp( start, dist, end, origin );
 		pTemp = CL_TempEntAlloc( origin, mod );
 		if( !pTemp ) return;
@@ -694,10 +682,11 @@ void GAME_EXPORT R_BubbleTrail( const vec3_t start, const vec3_t end, float heig
 
 		pTemp->x = origin[0];
 		pTemp->y = origin[1];
-		angle = COM_RandomFloat( -M_PI, M_PI );
+		float sine, cosine;
+		float angle = COM_RandomFloat( -M_PI, M_PI );
 		SinCos( angle, &sine, &cosine );
 
-		zspeed = COM_RandomLong( 80, 140 );
+		float zspeed = COM_RandomLong( 80, 140 );
 		VectorSet( pTemp->entity.baseline.origin, speed * cosine, speed * sine, zspeed );
 		pTemp->die = cl.time + ((height - (origin[2] - start[2])) / zspeed) - 0.1f;
 		pTemp->entity.curstate.frame = COM_RandomLong( 0, pTemp->frameMax );
@@ -848,11 +837,9 @@ Do muzzleflash
 void GAME_EXPORT R_MuzzleFlash( const vec3_t pos, int type )
 {
 	TEMPENTITY	*pTemp;
-	int		index;
-	float		scale;
 
-	index = ( type % 10 ) % MAX_MUZZLEFLASH;
-	scale = ( type / 10 ) * 0.1f;
+	int index = ( type % 10 ) % MAX_MUZZLEFLASH;
+	float scale = ( type / 10 ) * 0.1f;
 	if( scale == 0.0f ) scale = 0.5f;
 
 	if( !cl_sprite_muzzleflash[index] )
@@ -887,15 +874,12 @@ and some blood drops. This is high-priority tent
 void GAME_EXPORT R_BloodSprite( const vec3_t org, int colorIndex, int modelIndex, int modelIndex2, float size )
 {
 	model_t		*pModel, *pModel2;
-	int		impactindex;
-	int		spatterindex;
-	int		i, splatter;
 	TEMPENTITY	*pTemp;
 	vec3_t		pos;
 
 	colorIndex += COM_RandomLong( 1, 3 );
-	impactindex = colorIndex;
-	spatterindex = colorIndex - 1;
+	int impactindex = colorIndex;
+	int spatterindex = colorIndex - 1;
 
 	// validate the model first
 	if(( pModel = CL_ModelHandle( modelIndex )) != NULL )
@@ -926,9 +910,9 @@ void GAME_EXPORT R_BloodSprite( const vec3_t org, int colorIndex, int modelIndex
 	// validate the model first
 	if(( pModel2 = CL_ModelHandle( modelIndex2 )) != NULL )
 	{
-		splatter = size + ( COM_RandomLong( 1, 8 ) + COM_RandomLong( 1, 8 ));
+		int splatter = size + ( COM_RandomLong( 1, 8 ) + COM_RandomLong( 1, 8 ));
 
-		for( i = 0; i < splatter; i++ )
+		for( int i = 0; i < splatter; i++ )
 		{
 			// create blood drips
 			if(( pTemp = CL_TempEntAlloc( org, pModel2 )) != NULL )
@@ -973,13 +957,11 @@ void GAME_EXPORT R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t
 {
 	TEMPENTITY	*pTemp;
 	model_t		*pmodel;
-	char		type;
-	int		i, j;
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 		return;
 
-	type = flags & BREAK_TYPEMASK;
+	char type = flags & BREAK_TYPEMASK;
 
 	if( count == 0 )
 	{
@@ -990,9 +972,10 @@ void GAME_EXPORT R_BreakModel( const vec3_t pos, const vec3_t size, const vec3_t
 	// limit to 100 pieces
 	if( count > 100 ) count = 100;
 
-	for( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
 		vec3_t	vecSpot;
+		int j;
 
 		for( j = 0; j < 32; j++ )
 		{
@@ -1209,14 +1192,12 @@ apply params for exploding sprite
 */
 void GAME_EXPORT R_Sprite_Explode( TEMPENTITY *pTemp, float scale, int flags )
 {
-	qboolean noadditive, drawalpha, rotate;
-
 	if( !pTemp )
 		return;
 
-	noadditive = FBitSet( flags, TE_EXPLFLAG_NOADDITIVE );
-	drawalpha  = FBitSet( flags, TE_EXPLFLAG_DRAWALPHA );
-	rotate     = FBitSet( flags, TE_EXPLFLAG_ROTATE );
+	qboolean noadditive = FBitSet( flags, TE_EXPLFLAG_NOADDITIVE );
+	qboolean drawalpha  = FBitSet( flags, TE_EXPLFLAG_DRAWALPHA );
+	qboolean rotate     = FBitSet( flags, TE_EXPLFLAG_ROTATE );
 
 	pTemp->entity.curstate.scale = scale;
 	pTemp->entity.baseline.origin[2] = 8.0f;
@@ -1242,11 +1223,9 @@ apply params for smoke sprite
 */
 void GAME_EXPORT R_Sprite_Smoke( TEMPENTITY *pTemp, float scale )
 {
-	int	iColor;
-
 	if( !pTemp ) return;
 
-	iColor = COM_RandomLong( 20, 35 );
+	int iColor = COM_RandomLong( 20, 35 );
 	pTemp->entity.curstate.rendermode = kRenderTransAlpha;
 	pTemp->entity.curstate.renderfx = kRenderFxNone;
 	pTemp->entity.baseline.origin[2] = 30;
@@ -1262,7 +1241,6 @@ static void R_Spray_Generic( const char *func, const vec3_t pos, const vec3_t di
 	model_t *mod = CL_ModelHandle( modelIndex );
 	float noise = spread / 100.0f;
 	float znoise = noise * 1.5f;
-	int i;
 
 	znoise = Q_min( 1.0f, znoise );
 
@@ -1272,10 +1250,9 @@ static void R_Spray_Generic( const char *func, const vec3_t pos, const vec3_t di
 		return;
 	}
 
-	for( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
 		TEMPENTITY *tent = CL_TempEntAlloc( pos, mod );
-		float rand_speed;
 		vec3_t noise_vec, vout;
 
 		if( !tent )
@@ -1290,7 +1267,7 @@ static void R_Spray_Generic( const char *func, const vec3_t pos, const vec3_t di
 		noise_vec[0] = COM_RandomFloat( -noise, noise );
 		noise_vec[1] = COM_RandomFloat( -noise, noise );
 		noise_vec[2] = COM_RandomFloat( 0.0f, znoise );
-		rand_speed = COM_RandomFloat( speed * 0.8f, speed * 1.2f );
+		float rand_speed = COM_RandomFloat( speed * 0.8f, speed * 1.2f );
 
 		VectorAdd( dir, noise_vec, vout );
 		VectorScale( vout, rand_speed, tent->entity.baseline.origin );
@@ -1361,7 +1338,6 @@ void GAME_EXPORT R_Sprite_Trail( int type, vec3_t start, vec3_t end, int modelIn
 	TEMPENTITY	*pTemp;
 	vec3_t		delta, dir;
 	model_t		*pmodel;
-	int		i;
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 		return;
@@ -1371,7 +1347,7 @@ void GAME_EXPORT R_Sprite_Trail( int type, vec3_t start, vec3_t end, int modelIn
 
 	amp /= 256.0f;
 
-	for( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
 		vec3_t	pos, vel;
 
@@ -1412,9 +1388,7 @@ void GAME_EXPORT R_FunnelSprite( const vec3_t org, int modelIndex, int reverse )
 {
 	TEMPENTITY	*pTemp;
 	vec3_t		dir, dest;
-	float		dist, vel;
 	model_t		*pmodel;
-	int		i, j;
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 	{
@@ -1422,9 +1396,9 @@ void GAME_EXPORT R_FunnelSprite( const vec3_t org, int modelIndex, int reverse )
 		return;
 	}
 
-	for( i = -8; i < 8; i++ )
+	for( int i = -8; i < 8; i++ )
 	{
-		for( j = -8; j < 8; j++ )
+		for( int j = -8; j < 8; j++ )
 		{
 			pTemp = CL_TempEntAlloc( org, pmodel );
 			if( !pTemp ) return;
@@ -1451,9 +1425,9 @@ void GAME_EXPORT R_FunnelSprite( const vec3_t org, int modelIndex, int reverse )
 			pTemp->entity.curstate.framerate = COM_RandomFloat( 0.1f, 0.4f );
 			pTemp->flags = FTENT_ROTATE|FTENT_FADEOUT;
 
-			vel = dest[2] / 8.0f;
+			float vel = dest[2] / 8.0f;
 			if( vel < 64.0f ) vel = 64.0f;
-			dist = VectorNormalizeLength( dir );
+			float dist = VectorNormalizeLength( dir );
 			vel += COM_RandomFloat( 64.0f, 128.0f );
 			VectorScale( dir, vel, pTemp->entity.baseline.origin );
 			pTemp->die = cl.time + (dist / vel) - 0.5f;
@@ -1484,8 +1458,7 @@ Make a random ricochet sound
 */
 static void R_RicochetSoundByName( const vec3_t pos, const char *name )
 {
-	sound_t handle;
-	handle = S_RegisterSound( name );
+	sound_t handle = S_RegisterSound( name );
 	S_StartSound( pos, 0, CHAN_AUTO, handle, VOL_NORM, 1.0, 100, 0 );
 }
 
@@ -1562,10 +1535,9 @@ Spherical shower of models, picks from set
 void GAME_EXPORT R_TempSphereModel( const vec3_t pos, float speed, float life, int count, int modelIndex )
 {
 	TEMPENTITY	*pTemp;
-	int		i;
 
 	// create temp models
-	for( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
 		pTemp = CL_TempEntAlloc( pos, CL_ModelHandle( modelIndex ));
 		if( !pTemp ) return;
@@ -1609,8 +1581,6 @@ Create an explosion (scale is magnitude)
 */
 void GAME_EXPORT R_Explosion( vec3_t pos, int model, float scale, float framerate, int flags )
 {
-	sound_t	hSound;
-
 	if( scale != 0.0f )
 	{
 		// create explosion sprite
@@ -1621,10 +1591,8 @@ void GAME_EXPORT R_Explosion( vec3_t pos, int model, float scale, float framerat
 
 		if( !FBitSet( flags, TE_EXPLFLAG_NODLIGHTS ))
 		{
-			dlight_t	*dl;
-
 			// big flash
-			dl = CL_AllocDlight( 0 );
+			dlight_t *dl = CL_AllocDlight( 0 );
 			VectorCopy( pos, dl->origin );
 			dl->radius = 200;
 			dl->color.r = 250;
@@ -1650,7 +1618,7 @@ void GAME_EXPORT R_Explosion( vec3_t pos, int model, float scale, float framerat
 		const char *name = SoundList_GetRandom( Explode );
 		if( name )
 		{
-			hSound = S_RegisterSound( name );
+			sound_t hSound = S_RegisterSound( name );
 			S_StartSound( pos, 0, CHAN_STATIC, hSound, VOL_NORM, 0.3f, PITCH_NORM, 0 );
 		}
 	}
@@ -1669,14 +1637,13 @@ void GAME_EXPORT R_PlayerSprites( int client, int modelIndex, int count, int siz
 	cl_entity_t	*pEnt;
 	vec3_t		position;
 	vec3_t		dir;
-	int		i;
 
 	pEnt = CL_GetEntityByIndex( client );
 
 	if( !pEnt || !pEnt->player )
 		return;
 
-	for( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
 		VectorCopy( pEnt->origin, position );
 		position[0] += COM_RandomFloat( -10.0f, 10.0f );
@@ -1729,14 +1696,12 @@ void GAME_EXPORT R_FireField( float *org, int radius, int modelIndex, int count,
 {
 	TEMPENTITY	*pTemp;
 	model_t		*pmodel;
-	float		time;
 	vec3_t		pos;
-	int		i;
 
 	if(( pmodel = CL_ModelHandle( modelIndex )) == NULL )
 		return;
 
-	for( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
 		VectorCopy( org, pos );
 		pos[0] += COM_RandomFloat( -radius, radius );
@@ -1767,7 +1732,7 @@ void GAME_EXPORT R_FireField( float *org, int radius, int modelIndex, int count,
 		}
 
 		pTemp->entity.curstate.framerate = COM_RandomFloat( 0.75f, 1.25f );
-		time = life + COM_RandomFloat( -0.25f, 0.5f );
+		float time = life + COM_RandomFloat( -0.25f, 0.5f );
 		pTemp->die = cl.time + time;
 
 		if( pTemp->frameMax > 1 )
@@ -1805,12 +1770,11 @@ void GAME_EXPORT R_MultiGunshot( const vec3_t org, const vec3_t dir, const vec3_
 	pmtrace_t	trace;
 	vec3_t	right, up;
 	vec3_t	vecSrc, vecDir, vecEnd;
-	int	i, j, decalIndex;
 
 	VectorVectors( dir, right, up );
 	VectorCopy( org, vecSrc );
 
-	for( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
 		// get circular gaussian spread
 		float x, y, z;
@@ -1820,7 +1784,7 @@ void GAME_EXPORT R_MultiGunshot( const vec3_t org, const vec3_t dir, const vec3_
 			z = x * x + y * y;
 		} while( z > 1.0f );
 
-		for( j = 0; j < 3; j++ )
+		for( int j = 0; j < 3; j++ )
 		{
 			vecDir[j] = dir[j] + x * noise[0] * right[j] + y * noise[1] * up[j];
 			vecEnd[j] = vecSrc[j] + 4096.0f * vecDir[j];
@@ -1842,7 +1806,7 @@ void GAME_EXPORT R_MultiGunshot( const vec3_t org, const vec3_t dir, const vec3_
 			if( pe && ( pe->solid == SOLID_BSP || pe->movetype == MOVETYPE_PUSHSTEP ))
 			{
 				cl_entity_t *e = CL_GetEntityByIndex( pe->info );
-				decalIndex = CL_DecalIndex( decalIndices[COM_RandomLong( 0, decalCount-1 )] );
+				int decalIndex = CL_DecalIndex( decalIndices[COM_RandomLong( 0, decalCount-1 )] );
 				CL_DecalShoot( decalIndex, e->index, 0, trace.endpos, 0 );
 			}
 		}
@@ -1881,7 +1845,6 @@ void CL_ParseTempEntity( sizebuf_t *msg, connprotocol_t proto )
 {
 	sizebuf_t		buf, *pbuf;
 	byte		msg_data[2048];
-	int		iSize;
 	int		type, color, count, flags;
 	int		decalIndex = 0, modelIndex = 0, entityIndex = 0;
 	float		scale, life, frameRate, vel, random;
@@ -1896,7 +1859,7 @@ void CL_ParseTempEntity( sizebuf_t *msg, connprotocol_t proto )
 
 	if( proto != PROTO_GOLDSRC )
 	{
-		iSize = MSG_ReadWord( msg );
+		int iSize = MSG_ReadWord( msg );
 
 		// this will probably be fatal anyway
 		if( iSize > sizeof( msg_data ))
@@ -2430,28 +2393,25 @@ static void CL_ClearLightStyles( void )
 
 void CL_SetLightstyle( int style, const char *s, float f )
 {
-	int i;
-	lightstyle_t *ls;
-
 	if( unlikely( style < 0 || style >= MAX_LIGHTSTYLES ))
 	{
 		Con_Printf( S_WARN "%s: ignored invalid lightstyle id %d\n", __func__, style );
 		return;
 	}
 
-	ls = &cl.lightstyles[style];
+	lightstyle_t *ls = &cl.lightstyles[style];
 
 	ls->length = Q_strncpy( ls->pattern, s, sizeof( ls->pattern ));
 	ls->time = f; // set local time
 
-	for( i = 0; i < ls->length; i++ )
+	for( int i = 0; i < ls->length; i++ )
 		ls->map[i] = (float)(s[i] - 'a');
 
 	ls->interp = (ls->length <= 1) ? false : true;
 
 	// check for allow interpolate
 	// NOTE: fast flickering styles looks ugly when interpolation is running
-	for( i = 0; i < ( ls->length - 1 ); i++ )
+	for( int i = 0; i < ( ls->length - 1 ); i++ )
 	{
 		float val1 = ls->map[( i + 0 ) % ls->length];
 		float val2 = ls->map[( i + 1 ) % ls->length];
@@ -2588,9 +2548,8 @@ void CL_DecayLights( void )
 {
 	const float time = cl.time;
 	const float dt = cl.time - cl.oldtime;
-	int	i;
 
-	for( i = 0; i < MAX_DLIGHTS; i++ )
+	for( int i = 0; i < MAX_DLIGHTS; i++ )
 	{
 		dlight_t *dl = &cl_dlights[i];
 
@@ -2608,7 +2567,7 @@ void CL_DecayLights( void )
 			memset( dl, 0, sizeof( *dl ));
 	}
 
-	for( i = 0; i < MAX_ELIGHTS; i++ )
+	for( int i = 0; i < MAX_ELIGHTS; i++ )
 	{
 		dlight_t *dl = &cl_elights[i];
 
@@ -2650,7 +2609,6 @@ static void CL_UpdateFlashlight( cl_entity_t *ent )
 {
 	vec3_t		forward, view_ofs;
 	vec3_t		vecSrc, vecEnd;
-	float		falloff;
 	pmtrace_t		trace;
 	cl_entity_t	*hit;
 	dlight_t		*dl;
@@ -2695,7 +2653,7 @@ static void CL_UpdateFlashlight( cl_entity_t *ent )
 	VectorCopy( trace->endpos, dl->origin );
 #endif
 	// compute falloff
-	falloff = trace.fraction * FLASHLIGHT_DISTANCE;
+	float falloff = trace.fraction * FLASHLIGHT_DISTANCE;
 	if( falloff < 500.0f ) falloff = 1.0f;
 	else falloff = 500.0f / falloff;
 	falloff *= falloff;
@@ -2879,25 +2837,22 @@ if cl_testlights is set, create 32 lights models
 */
 void CL_TestLights( void )
 {
-	int	i, j, numLights;
 	vec3_t	forward, right;
-	float	f, r;
-	dlight_t	*dl;
 
 	if( !cl_testlights.value )
 		return;
 
-	numLights = bound( 1, cl_testlights.value, MAX_DLIGHTS );
+	int numLights = bound( 1, cl_testlights.value, MAX_DLIGHTS );
 	AngleVectors( cl.viewangles, forward, right, NULL );
 
-	for( i = 0; i < numLights; i++ )
+	for( int i = 0; i < numLights; i++ )
 	{
-		dl = &cl_dlights[i];
+		dlight_t *dl = &cl_dlights[i];
 
-		r = 64 * ((i % 4) - 1.5f );
-		f = 64 * ( i / 4) + 128;
+		float r = 64 * ((i % 4) - 1.5f );
+		float f = 64 * ( i / 4) + 128;
 
-		for( j = 0; j < 3; j++ )
+		for( int j = 0; j < 3; j++ )
 			dl->origin[j] = cl.simorg[j] + forward[j] * f + right[j] * r;
 
 		dl->color.r = ((((i % 6) + 1) & 1)>>0) * 255;
@@ -2997,13 +2952,11 @@ get decal global index from decalname
 */
 int GAME_EXPORT CL_DecalIndexFromName( const char *name )
 {
-	int	i;
-
 	if( COM_StringEmptyOrNULL( name ))
 		return 0;
 
 	// look through the loaded sprite name list for SpriteName
-	for( i = 1; i < MAX_DECALS && host.draw_decals[i][0]; i++ )
+	for( int i = 1; i < MAX_DECALS && host.draw_decals[i][0]; i++ )
 	{
 		if( !Q_stricmp( name, host.draw_decals[i] ))
 			return i;
@@ -3100,13 +3053,11 @@ e.g. by demo request
 */
 void CL_ClearStaticEntities( void )
 {
-	int	i;
-
 	if( host.type == HOST_DEDICATED )
 		return;
 
 	// clear out efrags in case the level hasn't been reloaded
-	for( i = 0; i < cl.worldmodel->numleafs; i++ )
+	for( int i = 0; i < cl.worldmodel->numleafs; i++ )
 		cl.worldmodel->leafs[i+1].efrags = NULL;
 
 	clgame.numStatics = 0;

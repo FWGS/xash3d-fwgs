@@ -187,8 +187,6 @@ to be configured even if they don't have defined names.
 */
 static int Key_StringToKeynum( const char *str )
 {
-	int i;
-
 	if( !str || !str[0] )
 		return -1;
 
@@ -207,7 +205,7 @@ static int Key_StringToKeynum( const char *str )
 	}
 
 	// scan for a text match
-	for( i = 0; i < ARRAYSIZE( keynames ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keynames ); i++ )
 	{
 		if( !Q_stricmp( str, keynames[i].name ))
 			return keynames[i].keynum;
@@ -293,19 +291,16 @@ Key_GetKey
 */
 static int Key_GetKey( const char *pBinding )
 {
-	int		 i, len;
-	const char	*p;
-
 	if( !pBinding ) return -1;
 
-	len = Q_strlen( pBinding );
+	int len = Q_strlen( pBinding );
 
-	for( i = 0; i < ARRAYSIZE( keys ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( !keys[i].binding )
 			continue;
 
-		p = keys[i].binding;
+		const char *p = keys[i].binding;
 
 		if( *p == '+' )
 			p++;
@@ -340,15 +335,13 @@ Key_Unbind_f
 */
 static void Key_Unbind_f( void )
 {
-	int	b;
-
 	if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "unbind <key> : remove commands from a key\n" );
 		return;
 	}
 
-	b = Key_StringToKeynum( Cmd_Argv( 1 ));
+	int b = Key_StringToKeynum( Cmd_Argv( 1 ));
 
 	if( b == -1 )
 	{
@@ -372,9 +365,7 @@ Key_Unbindall_f
 */
 static void Key_Unbindall_f( void )
 {
-	int	i;
-
-	for( i = 0; i < ARRAYSIZE( keys ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( keys[i].binding )
 			Key_SetBinding( i, "" );
@@ -392,17 +383,15 @@ Key_Reset_f
 */
 static void Key_Reset_f( void )
 {
-	int	i;
-
 	// clear all keys first
-	for( i = 0; i < ARRAYSIZE( keys ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( keys[i].binding )
 			Key_SetBinding( i, "" );
 	}
 
 	// apply default values
-	for( i = 0; i < ARRAYSIZE( keynames ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keynames ); i++ )
 		Key_SetBinding( keynames[i].keynum, keynames[i].binding );
 }
 
@@ -413,10 +402,7 @@ Key_Bind_f
 */
 static void Key_Bind_f( void )
 {
-	char	cmd[1024];
-	int	i, c, b;
-
-	c = Cmd_Argc();
+	int c = Cmd_Argc();
 
 	if( c < 2 )
 	{
@@ -424,7 +410,7 @@ static void Key_Bind_f( void )
 		return;
 	}
 
-	b = Key_StringToKeynum( Cmd_Argv( 1 ));
+	int b = Key_StringToKeynum( Cmd_Argv( 1 ));
 
 	if( b == -1 )
 	{
@@ -441,9 +427,10 @@ static void Key_Bind_f( void )
 	}
 
 	// copy the rest of the command line
+	char cmd[1024];
 	cmd[0] = 0; // start out with a null string
 
-	for( i = 2; i < c; i++ )
+	for( int i = 2; i < c; i++ )
 	{
 		Q_strncat( cmd, Cmd_Argv( i ), sizeof( cmd ));
 		if( i != ( c - 1 )) Q_strncat( cmd, " ", sizeof( cmd ));
@@ -461,18 +448,16 @@ Writes lines containing "bind key value"
 */
 void Key_WriteBindings( file_t *f )
 {
-	int	i;
-	string newCommand;
-
 	if( !f ) return;
 
 	FS_Printf( f, "unbindall\n" );
 
-	for( i = 0; i < ARRAYSIZE( keys ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( COM_StringEmptyOrNULL( keys[i].binding ))
 			continue;
 
+		string newCommand;
 		Cmd_Escape( newCommand, keys[i].binding, sizeof( newCommand ));
 
 		// NOTE: as TheKingFireS figured out, some particular mods (like CoF) do not
@@ -491,9 +476,7 @@ Key_Bindlist_f
 */
 static void Key_Bindlist_f( void )
 {
-	int	i;
-
-	for( i = 0; i < ARRAYSIZE( keys ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( COM_StringEmptyOrNULL( keys[i].binding ))
 			continue;
@@ -514,10 +497,9 @@ qboolean Cmd_GetKeysList( const char *s, char *completedname, int length, qboole
 	size_t i, numkeys;
 	string keys_strings[ARRAYSIZE( keys )];
 	string matchbuf;
-	int len;
 
 	// compare keys list with current keyword
-	len = Q_strlen( s );
+	int len = Q_strlen( s );
 
 	for( i = 0, numkeys = 0; i < ARRAYSIZE( keys ); i++ )
 	{
@@ -569,8 +551,6 @@ Key_Init
 */
 void Key_Init( void )
 {
-	int i;
-
 	// register our functions
 	Cmd_AddRestrictedCommand( "bind", Key_Bind_f, "binds a command to the specified key in bindmap" );
 	Cmd_AddRestrictedCommand( "unbind", Key_Unbind_f, "removes a command on the specified key in bindmap" );
@@ -580,7 +560,7 @@ void Key_Init( void )
 	Cmd_AddCommand( "makehelp", Key_EnumCmds_f, "write help.txt that contains all console cvars and cmds" );
 
 	// setup default binding. "unbindall" from config.cfg will be reset it
-	for( i = 0; i < ARRAYSIZE( keynames ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keynames ); i++ )
 		Key_SetBinding( keynames[i].keynum, keynames[i].binding );
 
 	Cvar_RegisterVariable( &key_rotate );
@@ -594,21 +574,20 @@ Key_AddKeyCommands
 */
 static void Key_AddKeyCommands( int key, const char *kb, qboolean down )
 {
-	char	button[1024];
-	char	*buttonPtr;
-	char	cmd[1024];
-	int	i;
-
 	if( !kb ) return;
-	buttonPtr = button;
 
-	for( i = 0; ; i++ )
+	char button[1024];
+	char *buttonPtr = button;
+
+	for( int i = 0; ; i++ )
 	{
 		if( kb[i] == ';' || !kb[i] )
 		{
 			*buttonPtr = '\0';
 			if( button[0] == '+' )
 			{
+				char cmd[1024];
+
 				// button commands add keynum as a parm
 				if( down ) Q_snprintf( cmd, sizeof( cmd ), "%s %i\n", button, key );
 				else Q_snprintf( cmd, sizeof( cmd ), "-%s %i\n", button + 1, key );
@@ -708,8 +687,6 @@ Called by the system for both key up and key down events
 */
 void GAME_EXPORT Key_Event( int key, int down )
 {
-	const char	*kb;
-
 	key = Key_Rotate( key );
 
 	if( OSK_KeyEvent( key, down ) )
@@ -719,7 +696,7 @@ void GAME_EXPORT Key_Event( int key, int down )
 	if( !keys[key].down && !down )
 		return;
 
-	kb = keys[key].binding;
+	const char *kb = keys[key].binding;
 	keys[key].down = down ? true : false;
 
 #ifdef HACKS_RELATED_HLMODS
@@ -917,13 +894,11 @@ Key_ClearStates
 */
 void GAME_EXPORT Key_ClearStates( void )
 {
-	int	i;
-
 	// don't clear keys during changelevel
 	if( cls.changelevel )
 		return;
 
-	for( i = 0; i < ARRAYSIZE( keys ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( i >= K_MOUSE1 && i <= K_MOUSE5 )
 			IN_MouseEvent( i - K_MOUSE1, false );

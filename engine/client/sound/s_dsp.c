@@ -386,13 +386,14 @@ Do stereo processing
 static void DLY_DoStereoDelay( portable_samplepair_t *paint, int count )
 {
 	dly_t *dly = &stereodly;
-	int delay, samplexf;
 
 	if( !dly->lpdelayline )
 		return; // inactive
 
 	for( ; count; count--, paint++ )
 	{
+		int delay;
+
 		if( dly->mod && --dly->modcur < 0 )
 			dly->modcur = dly->mod;
 
@@ -414,7 +415,7 @@ static void DLY_DoStereoDelay( portable_samplepair_t *paint, int count )
 			// modify delay, if crossfading
 			if( dly->xfade )
 			{
-				samplexf = dly->lpdelayline[dly->idelayoutputxf] * (128 - dly->xfade) >> 7;
+				int samplexf = dly->lpdelayline[dly->idelayoutputxf] * (128 - dly->xfade) >> 7;
 				delay = samplexf + ((delay * dly->xfade) >> 7);
 
 				if( ++dly->idelayoutputxf >= dly->cdelaysamplesmax )
@@ -496,14 +497,13 @@ Do delay processing
 static void DLY_DoDelay( portable_samplepair_t *paint, int count )
 {
 	dly_t *dly = &monodly;
-	int delay;
 
 	if( !dly->lpdelayline || !count )
 		return; // inactive
 
 	for( ; count; count--, paint++ )
 	{
-		delay = dly->lpdelayline[dly->idelayoutput];
+		int delay = dly->lpdelayline[dly->idelayoutput];
 
 		// don't process if delay line and left/right samples are zero
 		if( delay || paint->left || paint->right )
@@ -613,8 +613,6 @@ Do reverberation for one dly
 static int RVB_DoReverbForOneDly( dly_t *dly, const int vlr, const portable_samplepair_t *samplepair )
 {
 	int	delay;
-	int	samplexf;
-	int	val, valt;
 	int	voutm = 0;
 
 	if( --dly->modcur < 0 )
@@ -624,6 +622,8 @@ static int RVB_DoReverbForOneDly( dly_t *dly, const int vlr, const portable_samp
 
 	if( dly->xfade || delay || samplepair->left || samplepair->right )
 	{
+		int	val, valt;
+
 		// modulate delay rate
 		if( !dly->mod )
 		{
@@ -636,7 +636,7 @@ static int RVB_DoReverbForOneDly( dly_t *dly, const int vlr, const portable_samp
 
 		if( dly->xfade )
 		{
-			samplexf = (dly->lpdelayline[dly->idelayoutputxf] * (REVERB_XFADE - dly->xfade)) / REVERB_XFADE;
+			int samplexf = (dly->lpdelayline[dly->idelayoutputxf] * (REVERB_XFADE - dly->xfade)) / REVERB_XFADE;
 			delay = ((delay * dly->xfade) / REVERB_XFADE) + samplexf;
 
 			if( ++dly->idelayoutputxf >= dly->cdelaysamplesmax )
@@ -688,14 +688,14 @@ static void RVB_DoReverb( portable_samplepair_t *paint, int count )
 {
 	dly_t *dly1 = &reverbdly[0];
 	dly_t *dly2 = &reverbdly[1];
-	int vlr, voutm;
 
 	if( !dly1->lpdelayline )
 		return;
 
 	for( ; count; count--, paint++ )
 	{
-		vlr = ( paint->left + paint->right ) >> 1;
+		int vlr = ( paint->left + paint->right ) >> 1;
+		int voutm;
 
 		voutm = RVB_DoReverbForOneDly( dly1, vlr, paint );
 		voutm += RVB_DoReverbForOneDly( dly2, vlr, paint );
@@ -881,9 +881,8 @@ static void SX_Profiling_f( void )
 	portable_samplepair_t	testbuffer[512];
 	float			oldroom = room_type.value;
 	double			start, end;
-	int			i, calls;
 
-	for( i = 0; i < ARRAYSIZE( testbuffer ); i++ )
+	for( int i = 0; i < ARRAYSIZE( testbuffer ); i++ )
 	{
 		testbuffer[i].left = COM_RandomLong( 0, 3000 );
 		testbuffer[i].right = COM_RandomLong( 0, 3000 );
@@ -899,7 +898,7 @@ static void SX_Profiling_f( void )
 	Con_Printf( "Profiling 10000 calls to DSP. Sample count is 512, room_type is %i\n", idsp_room );
 
 	start = Platform_DoubleTime();
-	for( calls = 10000; calls; calls-- )
+	for( int calls = 10000; calls; calls-- )
 	{
 		SX_RoomFX( testbuffer, 512 );
 	}

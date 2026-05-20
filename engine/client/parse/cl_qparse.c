@@ -80,14 +80,13 @@ we don't want interpolate this
 */
 static qboolean CL_QuakeEntityTeleported( cl_entity_t *ent, entity_state_t *newstate )
 {
-	float	len, maxlen;
-	vec3_t	delta;
+	vec3_t delta;
 
 	VectorSubtract( newstate->origin, ent->prevstate.origin, delta );
 
 	// compute potential max movement in units per frame and compare with entity movement
-	maxlen = ( clgame.movevars.maxvelocity * ( 1.0f / GAME_FPS ));
-	len = VectorLength( delta );
+	float maxlen = ( clgame.movevars.maxvelocity * ( 1.0f / GAME_FPS ));
+	float len = VectorLength( delta );
 
 	return (len > maxlen);
 }
@@ -139,33 +138,30 @@ CL_ParseQuakeSound
 */
 static void CL_ParseQuakeSound( sizebuf_t *msg )
 {
-	int 	channel, sound;
-	int	flags, entnum;
-	float 	volume, attn;
-	sound_t	handle;
-	vec3_t	pos;
+	int flags = MSG_ReadByte( msg );
 
-	flags = MSG_ReadByte( msg );
-
+	float volume;
 	if( FBitSet( flags, SND_VOLUME ))
 		volume = (float)MSG_ReadByte( msg ) / 255.0f;
 	else volume = VOL_NORM;
 
+	float attn;
 	if( FBitSet( flags, SND_ATTENUATION ))
 		attn = (float)MSG_ReadByte( msg ) / 64.0f;
 	else attn = ATTN_NONE;
 
-	channel = MSG_ReadWord( msg );
-	sound = MSG_ReadByte( msg );	// Quake1 have max 255 precached sounds. erm
+	int channel = MSG_ReadWord( msg );
+	int sound = MSG_ReadByte( msg );	// Quake1 have max 255 precached sounds. erm
 
 	// positioned in space
+	vec3_t pos;
 	MSG_ReadVec3Coord( msg, pos );
 
-	entnum = channel >> 3;	// entity reletive
+	int entnum = channel >> 3;	// entity reletive
 	channel &= 7;
 
 	// see precached sound
-	handle = cl.sound_index[sound];
+	sound_t handle = cl.sound_index[sound];
 
 	if( !cl.audio_prepped )
 		return; // too early
@@ -181,11 +177,6 @@ CL_ParseQuakeServerInfo
 */
 static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 {
-	resource_t	*pResource;
-	const char	*pResName;
-	int		gametype;
-	int		i;
-
 	Con_Reportf( "Serverdata packet received.\n" );
 	cls.timestart = Platform_DoubleTime();
 
@@ -198,7 +189,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	cls.state = ca_connected;
 
 	// parse protocol version number
-	i = MSG_ReadLong( msg );
+	int i = MSG_ReadLong( msg );
 
 	if( i != PROTOCOL_VERSION_QUAKE )
 	{
@@ -208,7 +199,7 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	}
 
 	cl.maxclients = MSG_ReadByte( msg );
-	gametype = MSG_ReadByte( msg );
+	int gametype = MSG_ReadByte( msg );
 	clgame.maxEntities = GI->max_edicts;
 	clgame.maxEntities = bound( 600, clgame.maxEntities, MAX_EDICTS );
 	clgame.maxModels = MAX_MODELS;
@@ -264,12 +255,12 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 	// Quake just have a large packet of initialization data
 	for( i = 1; i < MAX_MODELS; i++ )
 	{
-		pResName = MSG_ReadString( msg );
+		const char *pResName = MSG_ReadString( msg );
 
 		if( COM_StringEmptyOrNULL( pResName ))
 			break; // end of list
 
-		pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
+		resource_t *pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
 		pResource->type = t_model;
 
 		Q_strncpy( pResource->szFileName, pResName, sizeof( pResource->szFileName ));
@@ -282,12 +273,12 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 
 	for( i = 1; i < MAX_SOUNDS; i++ )
 	{
-		pResName = MSG_ReadString( msg );
+		const char *pResName = MSG_ReadString( msg );
 
 		if( COM_StringEmptyOrNULL( pResName ))
 			break; // end of list
 
-		pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
+		resource_t *pResource = Mem_Calloc( cls.mempool, sizeof( resource_t ));
 		pResource->type = t_sound;
 
 		Q_strncpy( pResource->szFileName, pResName, sizeof( pResource->szFileName ));
@@ -340,15 +331,12 @@ CL_ParseQuakeClientData
 */
 static void CL_ParseQuakeClientData( sizebuf_t *msg )
 {
-	int	i, bits = MSG_ReadWord( msg );
-	frame_t	*frame;
+	int bits = MSG_ReadWord( msg );
 
 	// this is the frame update that this message corresponds to
-	i = cls.netchan.incoming_sequence;
-
-	cl.parsecount = i;					// ack'd incoming messages.
+	cl.parsecount = cls.netchan.incoming_sequence;		// ack'd incoming messages.
 	cl.parsecountmod = cl.parsecount & CL_UPDATE_MASK;	// index into window.
-	frame = &cl.frames[cl.parsecountmod];			// frame at index.
+	frame_t *frame = &cl.frames[cl.parsecountmod];		// frame at index.
 	frame->time = cl.mtime[0];				// mark network received time
 	frame->receivedtime = host.realtime;			// time now that we are parsing.
 	memset( &frame->graphdata, 0, sizeof( netbandwidthgraph_t ));
@@ -365,7 +353,7 @@ static void CL_ParseQuakeClientData( sizebuf_t *msg )
 		cl.local.idealpitch = MSG_ReadChar( msg );
 	else cl.local.idealpitch = 0;
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		if( FBitSet( bits, SU_PUNCH1 << i ))
 			frame->clientdata.punchangle[i] = (float)MSG_ReadChar( msg );
@@ -568,15 +556,14 @@ CL_ParseQuakeParticles
 */
 static void CL_ParseQuakeParticle( sizebuf_t *msg )
 {
-	int	count, color;
-	vec3_t	org, dir;
+	vec3_t org, dir;
 
 	MSG_ReadVec3Coord( msg, org );
 	dir[0] = MSG_ReadChar( msg ) * 0.0625f;
 	dir[1] = MSG_ReadChar( msg ) * 0.0625f;
 	dir[2] = MSG_ReadChar( msg ) * 0.0625f;
-	count = MSG_ReadByte( msg );
-	color = MSG_ReadByte( msg );
+	int count = MSG_ReadByte( msg );
+	int color = MSG_ReadByte( msg );
 	if( count == 255 ) count = 1024;
 
 	R_RunParticleEffect( org, dir, color, count );
@@ -590,14 +577,12 @@ CL_ParseQuakeStaticSound
 */
 static void CL_ParseQuakeStaticSound( sizebuf_t *msg )
 {
-	int	sound_num;
-	float 	vol, attn;
-	vec3_t	org;
+	vec3_t org;
 
 	MSG_ReadVec3Coord( msg, org );
-	sound_num = MSG_ReadByte( msg );
-	vol = (float)MSG_ReadByte( msg ) / 255.0f;
-	attn = (float)MSG_ReadByte( msg ) / 64.0f;
+	int sound_num = MSG_ReadByte( msg );
+	float vol = (float)MSG_ReadByte( msg ) / 255.0f;
+	float attn = (float)MSG_ReadByte( msg ) / 64.0f;
 
 	S_StartSound( org, 0, CHAN_STATIC, cl.sound_index[sound_num], vol, attn, PITCH_NORM, 0 );
 }
@@ -628,8 +613,6 @@ CL_ParseStaticEntity
 static void CL_ParseQuakeStaticEntity( sizebuf_t *msg )
 {
 	entity_state_t state = { 0 };
-	cl_entity_t	*ent;
-	int		i;
 
 	if( !clgame.static_entities )
 		clgame.static_entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * MAX_STATIC_ENTITIES );
@@ -645,14 +628,14 @@ static void CL_ParseQuakeStaticEntity( sizebuf_t *msg )
 	state.origin[2] = MSG_ReadCoord( msg );
 	state.angles[2] = MSG_ReadAngle( msg );
 
-	i = clgame.numStatics;
+	int i = clgame.numStatics;
 	if( i >= MAX_STATIC_ENTITIES )
 	{
 		Con_Printf( S_ERROR "%s: static entities limit exceeded!\n", __func__ );
 		return;
 	}
 
-	ent = &clgame.static_entities[i];
+	cl_entity_t *ent = &clgame.static_entities[i];
 	clgame.numStatics++;
 
 	ent->index = 0; // ???
@@ -692,16 +675,13 @@ CL_ParseQuakeBaseline
 */
 static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 {
-	entity_state_t	state;
-	cl_entity_t	*ent;
-	int		newnum;
-
-	newnum = MSG_ReadWord( msg ); // entnum
+	int newnum = MSG_ReadWord( msg ); // entnum
 
 	if( newnum >= clgame.maxEntities )
 		Host_Error( "%s: no free edicts\n", __func__ );
 
 	// parse baseline
+	entity_state_t state;
 	memset( &state, 0, sizeof( state ));
 	state.modelindex = MSG_ReadByte( msg );
 	state.frame = MSG_ReadByte( msg );
@@ -714,7 +694,7 @@ static void CL_ParseQuakeBaseline( sizebuf_t *msg )
 	state.origin[2] = MSG_ReadCoord( msg );
 	state.angles[2] = MSG_ReadAngle( msg );
 
-	ent = CL_EDICT_NUM( newnum );
+	cl_entity_t *ent = CL_EDICT_NUM( newnum );
 	ent->index = newnum;
 	ent->player = CL_IsPlayerIndex( newnum );
 	ent->prevstate = ent->baseline = state;

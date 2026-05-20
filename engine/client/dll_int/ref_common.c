@@ -72,18 +72,15 @@ static qboolean CheckSkybox( const char *name, char out[SKYBOX_MAX_SIDES][MAX_ST
 {
 	static const char *skybox_ext[3] = { "dds", "tga", "bmp" };
 	static const char *skybox_delim[2] = { "", "_" }; // no space for HL style, underscore for Q1 style
-	int	i;
 
 	// search for skybox images
-	for( i = 0; i <	ARRAYSIZE( skybox_ext ); i++ )
+	for( int i = 0; i <	ARRAYSIZE( skybox_ext ); i++ )
 	{
-		int j;
-
-		for( j = 0; j < ARRAYSIZE( skybox_delim ); j++ )
+		for( int j = 0; j < ARRAYSIZE( skybox_delim ); j++ )
 		{
-			int k, num_checked_sides = 0;
+			int num_checked_sides = 0;
 
-			for( k = 0; k < SKYBOX_MAX_SIDES; k++ )
+			for( int k = 0; k < SKYBOX_MAX_SIDES; k++ )
 			{
 				char sidename[MAX_VA_STRING];
 
@@ -109,7 +106,6 @@ void R_SetupSky( const char *name )
 	char sidenames[SKYBOX_MAX_SIDES][MAX_STRING];
 	int skyboxTextures[SKYBOX_MAX_SIDES] = { 0 };
 	int i, len;
-	qboolean result;
 
 	if( COM_StringEmptyOrNULL( name ))
 	{
@@ -125,10 +121,9 @@ void R_SetupSky( const char *name )
 
 	if( loadname[len - 1] == '_' )
 		loadname[len - 1] = '\0';
-	result = CheckSkybox( loadname, sidenames );
 
 	// to prevent infinite recursion if default skybox was missed
-	if( !result && Q_stricmp( name, DEFAULT_SKYBOX_NAME ))
+	if( !CheckSkybox( loadname, sidenames ) && Q_stricmp( name, DEFAULT_SKYBOX_NAME ))
 	{
 		Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", name );
 		R_SetupSky( DEFAULT_SKYBOX_NAME ); // force to default

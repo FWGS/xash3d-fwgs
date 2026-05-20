@@ -129,9 +129,8 @@ static void Joy_HatMotionEvent( int value )
 		{ JOY_HAT_LEFT, K_LEFTARROW },
 		{ JOY_HAT_RIGHT, K_RIGHTARROW },
 	};
-	int i;
 
-	for( i = 0; i < ARRAYSIZE( keys ); i++ )
+	for( int i = 0; i < ARRAYSIZE( keys ); i++ )
 	{
 		if( value & keys[i].mask )
 		{
@@ -317,9 +316,8 @@ void Joy_FinalizeMove( float *fw, float *side, float *dpitch, float *dyaw )
 	if( FBitSet( joy_axis_binding.flags, FCVAR_CHANGED ) )
 	{
 		const char *bind = joy_axis_binding.string;
-		size_t i;
 
-		for( i = 0; bind[i] && i < MAX_AXES; i++ )
+		for( size_t i = 0; bind[i] && i < MAX_AXES; i++ )
 		{
 			switch( bind[i] )
 			{
@@ -535,8 +533,6 @@ void Joy_DrawDebug( void )
 		}
 
 		qboolean pressed = Key_IsDown( buttons[i] );
-		int btn_w = 0;
-		rgba_t color;
 		string name;
 
 		Q_strncpy( name, Key_KeynumToString( buttons[i] ), sizeof( name ));
@@ -545,8 +541,11 @@ void Joy_DrawDebug( void )
 		if( p )
 			*p = 0;
 
+		rgba_t color;
 		MakeRGBA( color, pressed ? 0 : 255, pressed ? 255 : 0, 0, 255 );
 		CL_DrawString( x, y, name, color, font, 0 );
+
+		int btn_w = 0;
 		CL_DrawStringLen( font, name, &btn_w, NULL, 0 );
 		x += btn_w + 6;
 	}

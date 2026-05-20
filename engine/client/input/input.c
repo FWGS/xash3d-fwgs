@@ -337,8 +337,6 @@ IN_MouseMove
 */
 static void IN_MouseMove( void )
 {
-	int x, y;
-
 	if( !in_mouseinitialized )
 		return;
 
@@ -350,6 +348,7 @@ static void IN_MouseMove( void )
 	}
 
 	// find mouse movement
+	int x, y;
 	Platform_GetMousePos( &x, &y );
 
 	VGui_MouseMove( x, y );
@@ -586,18 +585,15 @@ Called from cl_main.c after generating command in client
 */
 void IN_EngineAppendMove( float frametime, usercmd_t *cmd, qboolean active )
 {
-	float forward, side, pitch, yaw;
-
 	if( clgame.dllFuncs.pfnLookEvent )
 		return;
 
 	if( cls.key_dest != key_game || cl.paused || cl.intermission )
 		return;
 
-	forward = side = pitch = yaw = 0;
-
 	if( active )
 	{
+		float forward = 0, side = 0, pitch = 0, yaw = 0;
 		float sensitivity = 1;//( (float)cl.local.scr_fov / (float)90.0f );
 
 		IN_CollectInput( &forward, &side, &pitch, &yaw, false );

@@ -130,9 +130,7 @@ void CL_MoveToOnHandList( resource_t *pResource )
 
 static void CL_ClearResourceList( resource_t *pList )
 {
-	resource_t	*p, *n;
-
-	for( p = pList->pNext; p != pList && p; p = n )
+	for( resource_t *p = pList->pNext, *n; p != pList && p; p = n )
 	{
 		n = p->pNext;
 

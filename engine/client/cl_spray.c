@@ -27,10 +27,10 @@ GNU General Public License for more details.
 static void CL_AdjustSprayDimensions( int *width, int *height )
 {
 	float aspect = (float)( *width ) / (float)( *height );
-	int   h, w;
-	for( h = (( *height ) / 16 ) * 16; h >= 16; h -= 16 )
+
+	for( int h = (( *height ) / 16 ) * 16; h >= 16; h -= 16 )
 	{
-		w = ((int)( h * aspect ) / 16 ) * 16;
+		int w = ((int)( h * aspect ) / 16 ) * 16;
 		if( w < 16 || w > *width )
 			continue;
 
@@ -107,7 +107,6 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 {
 	qboolean	is_indexed_img;
 	int			width = 0, height = 0;
-	int			i;
 	byte		palette[SPRAY_PALETTE_BYTES];
 	byte		*indexed = NULL;
 	rgbdata_t	*image = NULL;
@@ -122,7 +121,7 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 	if( is_indexed_img )
 	{
 		// copy bmp palette from rgba to rgb
-		for( i = 0; i < 256; ++i )
+		for( int i = 0; i < 256; ++i )
 		{
 			palette[i * 3 + 0] = image->palette[i * 4 + 0]; // R
 			palette[i * 3 + 1] = image->palette[i * 4 + 1]; // G
@@ -141,7 +140,7 @@ qboolean CL_ConvertImageToWAD3( const char *filename )
 		// set index 255 for transparent pixels in rgba images
 		if( image->type == PF_RGBA_32 )
 		{
-			for( i = 0; i < width * height; ++i )
+			for( int i = 0; i < width * height; ++i )
 			{
 				if( image->buffer[i * 4 + 3] <= SPRAY_ALPHA_THRESHOLD )
 					quant->buffer[i] = 255;

@@ -315,7 +315,6 @@ should be put at.
 static float CL_LerpPoint( void )
 {
 	double f = cl_serverframetime();
-	double frac;
 
 	if( f == 0.0 || cls.timedemo )
 	{
@@ -332,7 +331,7 @@ static float CL_LerpPoint( void )
 	if( cl_interp.value <= 0.001 )
 		return 1.0f;
 
-	frac = ( cl.time - cl.mtime[0] ) / cl_interp.value;
+	double frac = ( cl.time - cl.mtime[0] ) / cl_interp.value;
 
 	return frac;
 }
@@ -346,20 +345,17 @@ Drift interpolation value (this is used for server unlag system)
 */
 static int CL_DriftInterpolationAmount( int goal )
 {
-	float	fgoal, maxmove, diff;
-	int	msec;
-
-	fgoal = (float)goal / 1000.0f;
+	float	fgoal = (float)goal / 1000.0f;
 
 	if( fgoal != cl.local.interp_amount )
 	{
-		maxmove = host.frametime * 0.05;
-		diff = fgoal - cl.local.interp_amount;
+		float	maxmove = host.frametime * 0.05;
+		float	diff = fgoal - cl.local.interp_amount;
 		diff = bound( -maxmove, diff, maxmove );
 		cl.local.interp_amount += diff;
 	}
 
-	msec = cl.local.interp_amount * 1000.0f;
+	int	msec = cl.local.interp_amount * 1000.0f;
 	msec = bound( 0, msec, 100 );
 
 	return msec;
@@ -420,14 +416,14 @@ CL_ComputePacketLoss
 */
 static void CL_ComputePacketLoss( void )
 {
-	int i, lost = 0;
+	int lost = 0;
 
 	if( host.realtime < cls.packet_loss_recalc_time )
 		return;
 
 	cls.packet_loss_recalc_time = host.realtime + 1.0;
 
-	for( i = cls.netchan.incoming_sequence - CL_UPDATE_BACKUP + 1; i <= cls.netchan.incoming_sequence; i++ )
+	for( int i = cls.netchan.incoming_sequence - CL_UPDATE_BACKUP + 1; i <= cls.netchan.incoming_sequence; i++ )
 	{
 		if( cl.frames[i & CL_UPDATE_MASK].receivedtime == -1.0 )
 			lost++;
@@ -455,18 +451,15 @@ void CL_UpdateFrameLerp( void )
 
 static void CL_FindInterpolatedAddAngle( float t, float *frac, pred_viewangle_t **prev, pred_viewangle_t **next )
 {
-	int	i, i0, i1, imod;
-	float	at;
-
-	imod = cl.angle_position - 1;
-	i0 = (imod + 1) & ANGLE_MASK;
-	i1 = (imod + 0) & ANGLE_MASK;
+	int	imod = cl.angle_position - 1;
+	int	i0 = (imod + 1) & ANGLE_MASK;
+	int	i1 = (imod + 0) & ANGLE_MASK;
 
 	if( cl.predicted_angle[i0].starttime >= t )
 	{
-		for( i = 0; i < ANGLE_BACKUP - 2; i++ )
+		for( int i = 0; i < ANGLE_BACKUP - 2; i++ )
 		{
-			at = cl.predicted_angle[imod & ANGLE_MASK].starttime;
+			float	at = cl.predicted_angle[imod & ANGLE_MASK].starttime;
 			if( at == 0.0f ) break;
 
 			if( at < t )
@@ -534,14 +527,12 @@ navigate around texture atlas
 static qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
 {
 	static int	oldbuttons;
-	int		changed;
-	int		released;
 
 	if( !r_showtextures.value || CL_IsDevOverviewMode( ))
 		return false;
 
-	changed = (oldbuttons ^ cmd->buttons);
-	released = changed & (~cmd->buttons);
+	int		changed = (oldbuttons ^ cmd->buttons);
+	int		released = changed & (~cmd->buttons);
 
 	if( released & ( IN_RIGHT|IN_MOVERIGHT ))
 		Cvar_SetValue( "r_showtextures", r_showtextures.value + 1 );
@@ -642,11 +633,9 @@ static void CL_CreateCmd( void )
 {
 	usercmd_t nullcmd = { 0 }, *cmd;
 	runcmd_t  *pcmd;
-	qboolean  active;
-	double    accurate_ms;
 	vec3_t    angles;
 	int       input_override;
-	int       i, ms;
+	int       ms;
 
 	if( cls.state <= ca_connected || cls.state == ca_cinematic )
 		return;
@@ -656,7 +645,7 @@ static void CL_CreateCmd( void )
 	input_override = 0;
 
 	// fix rounding error and framerate depending player move
-	accurate_ms = host.frametime * 1000;
+	double    accurate_ms = host.frametime * 1000;
 	ms = (int)accurate_ms;
 	cl.frametime_remainder += accurate_ms - ms; // accumulate rounding error each frame
 
@@ -677,7 +666,7 @@ static void CL_CreateCmd( void )
 	CL_SetSolidPlayers( cl.playernum );
 
 	// message we are constructing.
-	i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
+	int       i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
 	pcmd = &cl.commands[i];
 
 	if( !cls.demoplayback )
@@ -695,7 +684,7 @@ static void CL_CreateCmd( void )
 		cmd = &nullcmd;
 	}
 
-	active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback );
+	qboolean  active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback );
 	Platform_PreCreateMove();
 	clgame.dllFuncs.CL_CreateMove( host.frametime, cmd, active );
 	IN_EngineAppendMove( host.frametime, cmd, active );
@@ -946,13 +935,12 @@ CL_BeginUpload_f
 */
 static void CL_BeginUpload_f( void )
 {
-	const char		*name;
 	resource_t	custResource;
 	byte		*buf = NULL;
 	int		size = 0;
 	byte		md5[16];
 
-	name = Cmd_Argv( 1 );
+	const char		*name = Cmd_Argv( 1 );
 
 	if( COM_StringEmptyOrNULL( name ))
 		return;
@@ -1038,9 +1026,8 @@ static void CL_GetCDKey( char *protinfo, size_t protinfosize )
 	byte hash[16] = { 0 };
 	MD5Context_t ctx = { 0 };
 	char key[64];
-	int keylength;
 
-	keylength = Q_snprintf( key, sizeof( key ), "%u", COM_RandomLong( 0, 0x7ffffffe ));
+	int keylength = Q_snprintf( key, sizeof( key ), "%u", COM_RandomLong( 0, 0x7ffffffe ));
 
 	MD5Init( &ctx );
 	MD5Update( &ctx, key, keylength );
@@ -1079,7 +1066,6 @@ static void CL_WriteSteamTicket( sizebuf_t *send )
 
 void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticket, size_t ticketlen )
 {
-	const char *name;
 	sizebuf_t send;
 	byte send_buf[2048];
 	char protinfo[MAX_INFO_STRING];
@@ -1090,7 +1076,7 @@ void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticke
 	Info_SetValueForKeyf( protinfo, "unique", sizeof( protinfo ), "%i", 0xffffffff );
 	Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
 	CL_GetCDKey( protinfo, sizeof( protinfo ));
-	name = Info_ValueForKey( cls.userinfo, "name" );
+	const char *name = Info_ValueForKey( cls.userinfo, "name" );
 	if( cl_advertise_engine_in_name.value && Q_strnicmp( name, "[Xash3D]", 8 ))
 		Info_SetValueForKeyf( cls.userinfo, "name", sizeof( cls.userinfo ), "[Xash3D]%s", name );
 
@@ -1123,8 +1109,6 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 {
 	char protinfo[MAX_INFO_STRING];
 	netadr_t adr = { 0 };
-	int input_devices;
-	netadrtype_t adrtype;
 
 	protinfo[0] = 0;
 
@@ -1135,11 +1119,11 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		return;
 	}
 
-	adrtype = NET_NetadrType( &adr );
+	netadrtype_t adrtype = NET_NetadrType( &adr );
 
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
 
-	input_devices = IN_CollectInputDevices();
+	int input_devices = IN_CollectInputDevices();
 	IN_LockInputDevices( adrtype != NA_LOOPBACK ? true : false );
 
 	// GoldSrc doesn't need useragent string
@@ -1252,8 +1236,6 @@ Resend a connect message if the last one has timed out
 static void CL_CheckForResend( void )
 {
 	netadr_t adr;
-	net_gai_state_t res;
-	float resend_time;
 
 	if( cls.internetservers_wait )
 	{
@@ -1287,6 +1269,7 @@ static void CL_CheckForResend( void )
 	else if( cl_resend.value > CL_MAX_RESEND_TIME )
 		Cvar_DirectSetValue( &cl_resend, CL_MAX_RESEND_TIME );
 
+	float resend_time;
 	if( cls.bandwidth_test.started && !cls.bandwidth_test.passed && !cls.bandwidth_test.failed )
 		resend_time = 2.0f;
 	else
@@ -1295,7 +1278,7 @@ static void CL_CheckForResend( void )
 	if(( host.realtime - cls.connect_time ) < resend_time )
 		return;
 
-	res = NET_StringToAdrNB( cls.servername, &adr, false );
+	net_gai_state_t res = NET_StringToAdrNB( cls.servername, &adr, false );
 
 	if( res == NET_EAI_NONAME )
 	{
@@ -1377,9 +1360,6 @@ static void CL_CreateResourceList( void )
 {
 	char szFileName[MAX_OSPATH];
 	byte rgucMD5_hash[16] = { 0 };
-	resource_t	*pNewResource;
-	int		nSize;
-	file_t		*fp;
 
 	HPAK_FlushHostQueue();
 	cl.num_resources = 0;
@@ -1399,16 +1379,16 @@ static void CL_CreateResourceList( void )
 		CL_ConvertImageToWAD3( szFileName );
 		Q_strncpy( szFileName, "tempdecal.wad", sizeof( szFileName ));
 	}
-	fp = FS_Open( szFileName, "rb", true );
+	file_t		*fp = FS_Open( szFileName, "rb", true );
 
 	if( !fp )
 		return;
 
-	nSize = FS_FileLength( fp );
+	int		nSize = FS_FileLength( fp );
 
 	if( nSize != 0 )
 	{
-		pNewResource = CL_AddResource( t_decal, szFileName, nSize, false, 0 );
+		resource_t	*pNewResource = CL_AddResource( t_decal, szFileName, nSize, false, 0 );
 
 		if( pNewResource )
 		{
@@ -1430,9 +1410,6 @@ CL_CheckLogoChanged
 */
 static void CL_CheckLogoChanged( void )
 {
-	player_info_t	*player;
-	int		i;
-
 	if( cls.state != ca_active )
 		return;
 
@@ -1444,10 +1421,10 @@ static void CL_CheckLogoChanged( void )
 	if( cl.num_resources == 0 )
 		return;
 
-	player = &cl.players[cl.playernum];
+	player_info_t	*player = &cl.players[cl.playernum];
 	COM_ClearCustomizationList( &player->customdata, true );
 
-	for( i = 0; i < cl.num_resources; i++ )
+	for( int i = 0; i < cl.num_resources; i++ )
 	{
 		resource_t *pResource = &cl.resourcelist[i];
 
@@ -1533,7 +1510,6 @@ static void CL_Rcon_f( void )
 	char message[1024];
 	sizebuf_t msg;
 	netadr_t to;
-	int	i;
 
 	if( COM_StringEmptyOrNULL( rcon_password.string ))
 	{
@@ -1565,7 +1541,7 @@ static void CL_Rcon_f( void )
 	MSG_WriteStringf( &msg, C2S_RCON" %s ", rcon_password.string );
 	MSG_SeekToBit( &msg, -8, SEEK_CUR );
 
-	for( i = 1; i < Cmd_Argc(); i++ )
+	for( int i = 1; i < Cmd_Argc(); i++ )
 	{
 		string command;
 
@@ -1588,11 +1564,9 @@ CL_ClearState
 */
 void CL_ClearState( void )
 {
-	int	i;
-
 	CL_ClearResourceLists();
 
-	for( i = 0; i < MAX_CLIENTS; i++ )
+	for( int i = 0; i < MAX_CLIENTS; i++ )
 		COM_ClearCustomizationList( &cl.players[i].customdata, false );
 
 	S_StopAllSounds ( true );

@@ -52,7 +52,7 @@ static qboolean S_ShouldTrimSample16( const int16_t *buf, int channels )
 
 static int S_TrimStart( const wavdata_t *wav, int start )
 {
-	size_t channels = wav->channels, width = wav->width, i;
+	size_t channels = wav->channels, width = wav->width;
 
 	if( wav->type != WF_PCMDATA )
 		return start;
@@ -61,7 +61,7 @@ static int S_TrimStart( const wavdata_t *wav, int start )
 	{
 		const int8_t *data = (const int8_t *)&wav->buffer[channels * width * start];
 
-		for( i = 0; i < TRIM_SCAN_MAX && start < wav->samples; i++ )
+		for( size_t i = 0; i < TRIM_SCAN_MAX && start < wav->samples; i++ )
 		{
 			if( !S_ShouldTrimSample8( data, wav->channels ))
 				break;
@@ -74,7 +74,7 @@ static int S_TrimStart( const wavdata_t *wav, int start )
 	{
 		const int16_t *data = (const int16_t *)&wav->buffer[channels * width * start];
 
-		for( i = 0; i < TRIM_SCAN_MAX && start < wav->samples; i++ )
+		for( size_t i = 0; i < TRIM_SCAN_MAX && start < wav->samples; i++ )
 		{
 			if( !S_ShouldTrimSample16( data, wav->channels ))
 				break;
@@ -89,7 +89,7 @@ static int S_TrimStart( const wavdata_t *wav, int start )
 
 static int S_TrimEnd( const wavdata_t *wav, int end )
 {
-	size_t channels = wav->channels, width = wav->width, i;
+	size_t channels = wav->channels, width = wav->width;
 
 	if( wav->type != WF_PCMDATA )
 		return end;
@@ -98,7 +98,7 @@ static int S_TrimEnd( const wavdata_t *wav, int end )
 	{
 		const int8_t *data = (const int8_t *)&wav->buffer[channels * width * ( end - 1 )];
 
-		for( i = 0; i < TRIM_SCAN_MAX && end > 0; i++ )
+		for( size_t i = 0; i < TRIM_SCAN_MAX && end > 0; i++ )
 		{
 			if( !S_ShouldTrimSample8( data, wav->channels ))
 				break;
@@ -111,7 +111,7 @@ static int S_TrimEnd( const wavdata_t *wav, int end )
 	{
 		const int16_t *data = (const int16_t *)&wav->buffer[channels * width * ( end - 1 )];
 
-		for( i = 0; i < TRIM_SCAN_MAX && end > 0; i++ )
+		for( size_t i = 0; i < TRIM_SCAN_MAX && end > 0; i++ )
 		{
 			if( !S_ShouldTrimSample16( data, wav->channels ))
 				break;
@@ -222,9 +222,6 @@ float VOX_ModifyPitch( channel_t *ch, float pitch )
 
 static const char *VOX_GetDirectory( char *szpath, const char *psz, int nsize )
 {
-	const char *p;
-	int len;
-
 	// HACKHACK: some modders send strings like "/fvox/_period four"
 	// which should get parsed as "_period four" said by fvox
 	// it might be incorrect but ignore first slash here for now
@@ -232,7 +229,7 @@ static const char *VOX_GetDirectory( char *szpath, const char *psz, int nsize )
 		psz++;
 
 	// search / backwards
-	p = Q_strrchr( psz, '/' );
+	const char *p = Q_strrchr( psz, '/' );
 
 	if( !p )
 	{
@@ -240,7 +237,7 @@ static const char *VOX_GetDirectory( char *szpath, const char *psz, int nsize )
 		return psz;
 	}
 
-	len = p - psz + 1;
+	int len = p - psz + 1;
 
 	if( len > nsize )
 	{
@@ -256,8 +253,7 @@ static const char *VOX_GetDirectory( char *szpath, const char *psz, int nsize )
 
 static const char *VOX_LookupString( const char *pszin )
 {
-	int i = -1, len;
-	const char *c;
+	int i = -1;
 
 	// check if we are an immediate sentence
 	if( *pszin == '#' )
@@ -289,9 +285,9 @@ static const char *VOX_LookupString( const char *pszin )
 	if( i == cszrawsentences )
 		return NULL;
 
-	len = Q_strlen( rgpszrawsentence[i] );
+	int len = Q_strlen( rgpszrawsentence[i] );
 
-	c = &rgpszrawsentence[i][len + 1];
+	const char *c = &rgpszrawsentence[i][len + 1];
 	for( ; *c == ' ' || *c == '\t'; c++ );
 
 	return c;
@@ -362,12 +358,11 @@ static void VOX_MakeDefaultWordParams( voxword_t *voxword )
 
 static qboolean VOX_ParseWordParams( char *psz, voxword_t *pvoxword, voxword_t *default_voxword )
 {
-	int len, i;
 	char sznum[8], *pszsave = psz;
 
 	*pvoxword = *default_voxword;
 
-	len = Q_strlen( psz );
+	int len = Q_strlen( psz );
 
 	if( len == 0 )
 		return false;
@@ -388,6 +383,7 @@ static qboolean VOX_ParseWordParams( char *psz, voxword_t *pvoxword, voxword_t *
 	for( ;; )
 	{
 		char command;
+		int i;
 
 		// find command
 		for( ; *psz &&
@@ -446,7 +442,7 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 	char buffer[512] = { 0 }, szpath[32] = { 0 };
 	char *rgpparseword[CVOXWORDMAX] = { 0 };
 	const char *psz;
-	int i, j;
+	int j;
 	int num_words;
 	voxword_t default_voxword;
 	voxword_t words_buf[CVOXWORDMAX + 1]; // local scratch: parsed words + null terminator
@@ -490,7 +486,8 @@ void VOX_LoadSound( channel_t *ch, const char *pszin )
 	VOX_MakeDefaultWordParams( &default_voxword );
 	memset( words_buf, 0, sizeof( words_buf ));
 
-	for( i = 0, j = 0; i < num_words; i++ )
+	j = 0;
+	for( int i = 0; i < num_words; i++ )
 	{
 		char pathbuffer[MAX_SYSPATH];
 
@@ -589,9 +586,7 @@ void VOX_Init( void )
 
 void VOX_Shutdown( void )
 {
-	int i;
-
-	for( i = 0; i < cszrawsentences; i++ )
+	for( int i = 0; i < cszrawsentences; i++ )
 		Mem_Free( rgpszrawsentence[i] );
 
 	cszrawsentences = 0;
@@ -609,9 +604,8 @@ static void Test_VOX_GetDirectory( void )
 		"barney/meow", "meow", "barney/",
 		"/fvox/_period", "_period", "fvox/",
 	};
-	int i;
 
-	for( i = 0; i < sizeof( data ) / sizeof( data[0] ); i += 3 )
+	for( int i = 0; i < sizeof( data ) / sizeof( data[0] ); i += 3 )
 	{
 		string szpath;
 		const char *p = VOX_GetDirectory( szpath, data[i+0], sizeof( szpath ));
@@ -623,7 +617,6 @@ static void Test_VOX_GetDirectory( void )
 
 static void Test_VOX_LookupString( void )
 {
-	int i;
 	const char *p, *data[] =
 	{
 		"0", "123",
@@ -645,7 +638,7 @@ static void Test_VOX_LookupString( void )
 	rgpszrawsentence[cszrawsentences++] = (char*)"SentenceWithSpaces\0  SPAAACE";
 	rgpszrawsentence[cszrawsentences++] = (char*)"SentenceWithTabsAndSpaces\0\t \t\t MEOW";
 
-	for( i = 0; i < sizeof( data ) / sizeof( data[0] ); i += 2 )
+	for( int i = 0; i < sizeof( data ) / sizeof( data[0] ); i += 2 )
 	{
 		p = VOX_LookupString( data[i] );
 

@@ -285,19 +285,17 @@ static void CL_CopyPacketEntity( frame_t *frame, int num, const entity_state_t *
 
 static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 {
-	frame_t *frame, *oldframe;
-	int oldindex, oldnum, numbase = 0;
-	entity_state_t *oldent;
-	int count;
+	frame_t *oldframe;
+	int numbase = 0;
 	int playerbytes = 0;
 
 	// save first uncompressed packet as timestamp
 	if( cls.changelevel && !delta && cls.demorecording )
 		CL_WriteDemoJumpTime();
 
-	count = MSG_ReadWord( msg );
+	int count = MSG_ReadWord( msg );
 
-	frame = &cl.frames[cl.parsecountmod];
+	frame_t *frame = &cl.frames[cl.parsecountmod];
 	memset( frame->flags, 0, sizeof( frame->flags ));
 	frame->first_entity = cls.next_client_entities;
 	frame->num_entities = 0;
@@ -326,9 +324,9 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 
 	MSG_StartBitWriting( msg );
 
-	oldent = NULL;
-	oldindex = 0;
-	oldnum = CL_UpdateOldEntNum( oldindex, oldframe, &oldent );
+	entity_state_t *oldent = NULL;
+	int oldindex = 0;
+	int oldnum = CL_UpdateOldEntNum( oldindex, oldframe, &oldent );
 
 	// read it all but ignore it
 	while( 1 )
@@ -415,10 +413,9 @@ static int CL_ParsePacketEntitiesGS( sizebuf_t *msg, qboolean delta )
 static float MSG_ReadGSBitCoord( sizebuf_t *sb )
 {
 	float value = 0;
-	int ival, fval;
 
-	ival = MSG_ReadOneBit( sb );
-	fval = MSG_ReadOneBit( sb );
+	int ival = MSG_ReadOneBit( sb );
+	int fval = MSG_ReadOneBit( sb );
 
 	if( ival || fval )
 	{
@@ -439,13 +436,11 @@ static float MSG_ReadGSBitCoord( sizebuf_t *sb )
 
 static void MSG_ReadGSBitVec3Coord( sizebuf_t *sb, vec3_t fa )
 {
-	qboolean x, y, z;
-
 	VectorClear( fa );
 
-	x = MSG_ReadOneBit( sb );
-	y = MSG_ReadOneBit( sb );
-	z = MSG_ReadOneBit( sb );
+	qboolean x = MSG_ReadOneBit( sb );
+	qboolean y = MSG_ReadOneBit( sb );
+	qboolean z = MSG_ReadOneBit( sb );
 	if( x )
 		fa[0] = MSG_ReadGSBitCoord( sb );
 	if( y )
@@ -456,31 +451,32 @@ static void MSG_ReadGSBitVec3Coord( sizebuf_t *sb, vec3_t fa )
 
 static void CL_ParseSoundPacketGS( sizebuf_t *msg )
 {
-	vec3_t	pos;
-	int 	chan, sound;
-	float 	volume, attn;
-	int	flags, pitch, entnum;
 	sound_t	handle = 0;
 
 	MSG_StartBitWriting( msg );
 
-	flags = MSG_ReadUBitLong( msg, 9 );
+	int flags = MSG_ReadUBitLong( msg, 9 );
 
+	float volume;
 	if( FBitSet( flags, SND_VOLUME ))
 		volume = (float)MSG_ReadByte( msg ) / 255.0f;
 	else volume = VOL_NORM;
 
+	float attn;
 	if( FBitSet( flags, SND_ATTENUATION ))
 		attn = (float)MSG_ReadByte( msg ) / 64.0f;
 	else attn = ATTN_NONE;
 
-	chan = MSG_ReadUBitLong( msg, 3 );
-	entnum = MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );
+	int chan = MSG_ReadUBitLong( msg, 3 );
+	int entnum = MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );
+	int sound;
 	if( FBitSet( flags, SND_GOLDSRC_LARGE_INDEX ))
 		sound = MSG_ReadWord( msg );
 	else sound = MSG_ReadByte( msg );
+	vec3_t pos;
 	MSG_ReadGSBitVec3Coord( msg, pos );
 
+	int pitch;
 	if( FBitSet( flags, SND_PITCH ))
 		pitch = MSG_ReadByte( msg );
 	else pitch = PITCH_NORM;
@@ -514,17 +510,15 @@ static void CL_ParseSoundPacketGS( sizebuf_t *msg )
 static void CL_ParseSpawnStaticSound( sizebuf_t *msg )
 {
 	vec3_t pos;
-	int sound, entnum, pitch, flags;
-	float volume, attn;
 	sound_t handle = 0;
 
 	MSG_ReadVec3Coord( msg, pos );
-	sound  = MSG_ReadShort( msg );
-	volume = MSG_ReadByte( msg ) * ( 1.0f / 255.0f );
-	attn   = MSG_ReadByte( msg ) * ( 1.0f / 64.0f );
-	entnum = MSG_ReadShort( msg );
-	pitch  = MSG_ReadByte( msg );
-	flags  = MSG_ReadByte( msg );
+	int sound    = MSG_ReadShort( msg );
+	float volume = MSG_ReadByte( msg ) * ( 1.0f / 255.0f );
+	float attn   = MSG_ReadByte( msg ) * ( 1.0f / 64.0f );
+	int entnum   = MSG_ReadShort( msg );
+	int pitch    = MSG_ReadByte( msg );
+	int flags    = MSG_ReadByte( msg );
 
 	if( FBitSet( flags, SND_SENTENCE ))
 	{

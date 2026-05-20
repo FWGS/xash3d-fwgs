@@ -219,8 +219,6 @@ client_textmessage_t *CL_TextMessageParse( poolhandle_t mempool, char *pfile, in
 void Test_RunTitles( void )
 {
 	poolhandle_t mempool = Mem_AllocPool( __func__ );
-	client_textmessage_t *tmessages;
-	client_textmessage_t *null;
 	int num_titles = 0, num_null_titles = 0;
 	char titles[] =
 	"// this is a comment\n"
@@ -258,7 +256,7 @@ void Test_RunTitles( void )
 	char broken_titles[] = "}\n";
 	char broken_titles2[] = "{\n{\n";
 
-	null = CL_TextMessageParse( mempool, broken_titles, Q_strlen( broken_titles ), &num_null_titles );
+	client_textmessage_t *null = CL_TextMessageParse( mempool, broken_titles, Q_strlen( broken_titles ), &num_null_titles );
 	TASSERT_EQi( num_null_titles, 0 );
 	TASSERT_EQp( null, NULL );
 
@@ -266,7 +264,7 @@ void Test_RunTitles( void )
 	TASSERT_EQi( num_null_titles, 0 );
 	TASSERT_EQp( null, NULL );
 
-	tmessages = CL_TextMessageParse( mempool, titles, Q_strlen( titles ), &num_titles );
+	client_textmessage_t *tmessages = CL_TextMessageParse( mempool, titles, Q_strlen( titles ), &num_titles );
 	TASSERT_EQi( num_titles, 4 );
 	TASSERT_NEQp( tmessages, NULL );
 
