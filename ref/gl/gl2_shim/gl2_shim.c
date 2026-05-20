@@ -465,8 +465,35 @@ static void GL2_InitTriQuads( void )
 	rpglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, 0 );
 }
 
-static void GL2_InitIncrementalBuffer( int i, GLuint size )
+static void GL2_FreeIncrementalBufferAttr( int i, int valid_mappings )
 {
+	if( gl2wrap.attrbufobj[i] )
+	{
+		if( gl2wrap_config.buf_storage )
+		{
+			for( int j = 0; j < valid_mappings; j++ )
+			{
+				rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, gl2wrap.attrbufobj[i][j] );
+				pglUnmapBufferARB( GL_ARRAY_BUFFER_ARB );
+			}
+
+			rpglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
+		}
+
+		pglDeleteBuffersARB( gl2wrap_config.cycle_buffers, gl2wrap.attrbufobj[i] );
+		Mem_Free( gl2wrap.attrbufobj[i] );
+		gl2wrap.attrbufobj[i] = NULL;
+	}
+
+	Mem_Free( gl2wrap.mappings[i] );
+	gl2wrap.mappings[i] = NULL;
+	gl2wrap.attrbuf[i] = NULL;
+}
+
+static qboolean GL2_InitIncrementalBuffer( int i, GLuint size )
+{
+	int valid_j = 0;
+
 	gl2wrap.attrbufobj[i] = Mem_Calloc( r_temppool, gl2wrap_config.cycle_buffers * sizeof( GLuint ));
 	if( gl2wrap_config.buf_storage )
 		gl2wrap.mappings[i] = Mem_Calloc( r_temppool, gl2wrap_config.cycle_buffers * sizeof( void * ));
@@ -481,12 +508,23 @@ static void GL2_InitIncrementalBuffer( int i, GLuint size )
 				GL_MAP_PERSISTENT_BIT | MB( gl2wrap_config.coherent, COHERENT );
 			pglBufferStorage( GL_ARRAY_BUFFER_ARB, size, NULL, GL_MAP_WRITE_BIT | MB( gl2wrap_config.coherent, COHERENT ) | GL_MAP_PERSISTENT_BIT );
 			gl2wrap.mappings[i][j] = pglMapBufferRange( GL_ARRAY_BUFFER_ARB, 0, size, flags );
+			if( !gl2wrap.mappings[i][j] )
+			{
+				gEngfuncs.Con_Printf( S_ERROR "%s: pglMapBufferRange failed for attr %d, buffer %d\n", __func__, i, j );
+				goto err;
+			}
+			valid_j = j + 1;
 		}
 		else
 			pglBufferDataARB( GL_ARRAY_BUFFER_ARB, size, NULL, GL_STREAM_DRAW_ARB );
 	}
 	if( gl2wrap_config.buf_storage )
 		gl2wrap.attrbuf[i] = gl2wrap.mappings[i][0];
+	return true;
+
+err:
+	GL2_FreeIncrementalBufferAttr( i, valid_j );
+	return false;
 }
 
 
@@ -601,6 +639,7 @@ int GL2_ShimInit( void )
 
 	total = 0;
 
+init_attrbufs:
 	for( int i = 0; i < GL2_ATTR_MAX; ++i )
 	{
 		GLuint size = GL2_MAX_VERTS * gl2wrap_attr_size[i] * sizeof( GLfloat );
@@ -611,7 +650,20 @@ int GL2_ShimInit( void )
 
 		if( gl2wrap_config.incremental )
 		{
-			GL2_InitIncrementalBuffer( i, size );
+			if( !GL2_InitIncrementalBuffer( i, size ))
+			{
+				for( int k = 0; k < i; k++ )
+					GL2_FreeIncrementalBufferAttr( k, gl2wrap_config.cycle_buffers );
+				gEngfuncs.Con_Printf( S_WARN "%s: falling back without buf_storage/incremental\n", __func__ );
+				gl2wrap_config.buf_storage = false;
+				gl2wrap_config.incremental = false;
+				if( !gEngfuncs.Sys_CheckParm( "-vao" ) && glConfig.context != CONTEXT_TYPE_GL_CORE ) // keep vao_mandatory for users who requested VAO
+					gl2wrap_config.vao_mandatory = false;
+				if( !gl2wrap_config.vao_mandatory )
+					gl2wrap_config.cycle_buffers = 1;
+				total = 0;
+				goto init_attrbufs;
+			}
 		}
 		else
 		{
