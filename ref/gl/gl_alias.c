@@ -952,8 +952,7 @@ void R_DrawAliasModel( cl_entity_t *e )
 	R_AliasSetupTimings();
 
 	// angles will be modify below keep original
-	vec3_t angles;
-	VectorCopy( e->angles, angles );
+	vec3_t angles = Vec3( e->angles );
 
 	R_AliasLerpMovement( e );
 

@@ -421,8 +421,6 @@ static decal_t *R_DecalIntersect( decalinfo_t *decalinfo, msurface_t *surf, int 
 			vec3_t	testBasis[3];
 			vec3_t	testPosition[2];
 			float	testWorldScale[2];
-			vec2_t	vDecalMin, vDecalMax;
-			vec2_t	vUnionMin, vUnionMax;
 
 			R_SetupDecalTextureSpaceBasis( pDecal, surf, texture, testBasis, testWorldScale );
 
@@ -432,21 +430,21 @@ static decal_t *R_DecalIntersect( decalinfo_t *decalinfo, msurface_t *surf, int 
 			// Here, we project the min and max extents of the decal that got passed in into
 			// this decal's (pDecal's) [0,0,1,1] clip space, just like we would if we were
 			// clipping a triangle into pDecal's clip space.
-			Vector2Set( vDecalMin,
+			vec2_t vDecalMin = {
 				DotProduct( testPosition[0], testBasis[0] ) - pDecal->dx + 0.5f,
-				DotProduct( testPosition[1], testBasis[1] ) - pDecal->dy + 0.5f );
+				DotProduct( testPosition[1], testBasis[1] ) - pDecal->dy + 0.5f };
 
 			VectorAdd( decalinfo->m_Position, decalExtents[0], testPosition[0] );
 			VectorAdd( decalinfo->m_Position, decalExtents[1], testPosition[1] );
 
-			Vector2Set( vDecalMax,
+			vec2_t vDecalMax = {
 				DotProduct( testPosition[0], testBasis[0] ) - pDecal->dx + 0.5f,
-				DotProduct( testPosition[1], testBasis[1] ) - pDecal->dy + 0.5f );
+				DotProduct( testPosition[1], testBasis[1] ) - pDecal->dy + 0.5f };
 
 			// Now figure out the part of the projection that intersects pDecal's
 			// clip box [0,0,1,1].
-			Vector2Set( vUnionMin, Q_max( vDecalMin[0], 0 ), Q_max( vDecalMin[1], 0 ));
-			Vector2Set( vUnionMax, Q_min( vDecalMax[0], 1 ), Q_min( vDecalMax[1], 1 ));
+			vec2_t vUnionMin = { Q_max( vDecalMin[0], 0 ), Q_max( vDecalMin[1], 0 ) };
+			vec2_t vUnionMax = { Q_min( vDecalMax[0], 1 ), Q_min( vDecalMax[1], 1 ) };
 
 			if( vUnionMin[0] < 1 && vUnionMin[1] < 1 && vUnionMax[0] > 0 && vUnionMax[1] > 0 )
 			{
@@ -593,9 +591,8 @@ static void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 		}
 	}
 
-	vec4_t textureU, textureV;
-	Vector4Copy( tex->vecs[0], textureU );
-	Vector4Copy( tex->vecs[1], textureV );
+	vec4_t textureU = Vec4( tex->vecs[0] );
+	vec4_t textureV = Vec4( tex->vecs[1] );
 
 	// project decal center into the texture space of the surface
 	float s = DotProduct( decalinfo->m_Position, textureU ) + textureU[3] - surf->texturemins[0];

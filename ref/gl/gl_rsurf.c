@@ -294,8 +294,7 @@ static void GL_BuildLightmapWater( model_t *mod, msurface_t *fa )
 	{
 		for( int i = 0; i < poly->numverts; i++ )
 		{
-			vec3_t vec;
-			VectorCopy( poly->verts[i], vec );
+			vec3_t vec = Vec3( poly->verts[i] );
 			R_LightmapCoord( vec, fa, sample_size, &poly->verts[i][5] );
 		}
 	}
@@ -3735,7 +3734,6 @@ void R_MarkLeaves( void )
 	qboolean	novis = false;
 	qboolean	force = false;
 	mleaf_t	*leaf = NULL;
-	vec3_t	test;
 
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
@@ -3748,7 +3746,7 @@ void R_MarkLeaves( void )
 		RI.viewleaf = NULL;
 	}
 
-	VectorCopy( RI.rvp.vieworigin, test );
+	vec3_t test = Vec3( RI.rvp.vieworigin );
 
 	if( RI.viewleaf != NULL )
 	{
