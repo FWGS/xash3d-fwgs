@@ -1244,7 +1244,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
 		return false;
 	}
-	else if( filename[0] != '!' && ( COM_CheckNastyPath( filename ) || !COM_IsSafeFileToDownload( filename )))
+	else if( COM_CheckNastyPath( filename ) || !COM_IsSafeFileToDownload( filename ))
 	{
 		Con_Printf( S_ERROR "file fragment received with bad path, ignoring\n" );
 		Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
