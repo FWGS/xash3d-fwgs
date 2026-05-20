@@ -187,13 +187,11 @@ qboolean PSVita_GetBasePath( char *buf, const size_t buflen )
 	// check if a xash3d folder exists on one of these drives
 	// default to the last one (ux0)
 	static const char *drives[] = { "uma0", "imc0", "ux0" };
-	SceUID dir;
-	size_t i;
 
-	for ( i = 0; i < sizeof( drives ) / sizeof( *drives ); ++i )
+	for ( size_t i = 0; i < sizeof( drives ) / sizeof( *drives ); ++i )
 	{
 		Q_snprintf( buf, buflen, "%s:" DATA_PATH, drives[i] );
-		dir = sceIoDopen( buf );
+		SceUID dir = sceIoDopen( buf );
 		if ( dir >= 0 )
 		{
 			sceIoDclose( dir );

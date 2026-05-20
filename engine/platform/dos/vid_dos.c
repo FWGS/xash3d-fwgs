@@ -51,12 +51,11 @@ static void DOS_GetScreenRes( int *x, int *y )
 
 qboolean R_Init_Video( ref_graphic_apis_t type )
 {
-	qboolean retval;
-
 	if( type != REF_SOFTWARE )
 		return false; /// glide???
 
-	if( !(retval = VID_SetMode()) )
+	qboolean retval = VID_SetMode();
+	if( !retval )
 	{
 		return retval;
 	}
@@ -86,13 +85,12 @@ qboolean VID_SetMode( void )
 
 rserr_t   R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
-	int render_w, render_h;
 	uint rotate = vid_rotate->value;
 
 	DOS_GetScreenRes( &width, &height );
 
-	render_w = width;
-	render_h = height;
+	int render_w = width;
+	int render_h = height;
 
 	Con_Reportf( "%s: forced resolution to %dx%d)\n", __func__, width, height );
 
@@ -445,7 +443,6 @@ void vesa_free_mode_info( void )
 
 void init_13h( void )
 {
-	int r, g, b;
 	union	REGS	regs;
 
 	// set 13h vga mode
@@ -455,9 +452,9 @@ void init_13h( void )
 
 	// set 332 palette
 	outp(0x3c8, 0);
-	for (r=0; r<8; r++)
-		for (b=0; b<4; b++)
-			for (g=0; g<8; g++)
+	for (int r=0; r<8; r++)
+		for (int b=0; b<4; b++)
+			for (int g=0; g<8; g++)
 			{
 				outp(0x3c9, (b<<4)+8);
 				outp(0x3c9, (g<<3)+4);
@@ -515,8 +512,6 @@ void SW_UnlockBuffer( void )
 
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
 {
-	int i;
-
 	*stride = 320;
 
 	vesa_get_info();

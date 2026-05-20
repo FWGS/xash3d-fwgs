@@ -40,11 +40,9 @@ static inline void utf2ascii( char *dst, const SceWChar16 *src, unsigned dstsize
 
 static void IME_Open( void )
 {
-	SceInt32 res;
-	SceImeDialogParam param;
-
 	memset( ime_string, 0, sizeof( ime_string ) );
 
+	SceImeDialogParam param;
 	sceImeDialogParamInit( &param );
 	param.supportedLanguages = SCE_IME_LANGUAGE_ENGLISH;
 	param.languagesForced = SCE_TRUE;
@@ -54,7 +52,7 @@ static void IME_Open( void )
 	param.initialText = (SceWChar16 *)u"";
 	param.inputTextBuffer = ime_string;
 
-	res = sceImeDialogInit( &param );
+	SceInt32 res = sceImeDialogInit( &param );
 	if ( res < 0 )
 	{
 		Con_Reportf( S_WARN "Could not open IME keyboard: %d\n", res );

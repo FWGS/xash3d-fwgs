@@ -40,14 +40,11 @@ static char sdl_backend_name[32];
 static void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
 {
 	const int size = snd.samples << 1;
-	int pos;
-	int wrapped;
-
-	pos = snd.samplepos << 1;
+	int pos = snd.samplepos << 1;
 	if( pos >= size )
 		pos = snd.samplepos = 0;
 
-	wrapped = pos + len - size;
+	int wrapped = pos + len - size;
 
 	if( wrapped < 0 )
 	{
