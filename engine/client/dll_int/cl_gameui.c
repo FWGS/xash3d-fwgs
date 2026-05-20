@@ -78,8 +78,6 @@ void UI_MouseMove( int x, int y )
 
 void UI_SetActiveMenu( qboolean fActive )
 {
-	movie_state_t	*cin_state;
-
 	if( !gameui.hInstance )
 	{
 		if( !fActive )
@@ -93,7 +91,7 @@ void UI_SetActiveMenu( qboolean fActive )
 	if( !fActive )
 	{
 		// close logo when menu is shutdown
-		cin_state = AVI_GetState( CIN_LOGO );
+		movie_state_t *cin_state = AVI_GetState( CIN_LOGO );
 		AVI_CloseVideo( cin_state );
 	}
 }
@@ -356,12 +354,10 @@ static float GAME_EXPORT UI_GetLogoLength( void )
 
 static void UI_UpdateUserinfo( void )
 {
-	player_info_t	*player;
-
 	if( !host.userinfo_changed )
 		return;
 
-	player = &gameui.playerinfo;
+	player_info_t *player = &gameui.playerinfo;
 
 	Q_strncpy( player->userinfo, cls.userinfo, sizeof( player->userinfo ));
 	Q_strncpy( player->name, Info_ValueForKey( player->userinfo, "name" ), sizeof( player->name ));
@@ -427,10 +423,8 @@ static void UI_ToOldGameInfo( GAMEINFO *out, const gameinfo2_t *in )
 
 static void UI_GetModsInfo( void )
 {
-	int i;
-
 	gameui.modsInfo = Mem_Calloc( gameui.mempool, sizeof( *gameui.modsInfo ) * FI->numgames );
-	for( i = 0; i < FI->numgames; i++ )
+	for( int i = 0; i < FI->numgames; i++ )
 		UI_ConvertGameInfo( &gameui.modsInfo[i], FI->games[i] );
 }
 
@@ -755,10 +749,9 @@ drawing string like a console string
 */
 static int GAME_EXPORT UI_DrawConsoleString( int x, int y, const char *string )
 {
-	int	drawLen;
-
 	if( !string || !*string ) return 0; // silent ignore
-	drawLen = Con_DrawString( x, y, string, gameui.ds.textColor );
+
+	int drawLen = Con_DrawString( x, y, string, gameui.ds.textColor );
 	MakeRGBA( gameui.ds.textColor, 255, 255, 255, 255 );
 
 	return (x + drawLen); // exclude color prexfixes
@@ -958,14 +951,12 @@ static GAMEINFO ** GAME_EXPORT pfnGetGamesList( int *numGames )
 
 	if( !gameui.oldModsInfo )
 	{
-		int i;
-
 		if( !gameui.modsInfo )
 			UI_GetModsInfo();
 
 		// first allocate array of pointers
 		gameui.oldModsInfo = Mem_Calloc( gameui.mempool, sizeof( *gameui.oldModsInfo ) * FI->numgames );
-		for( i = 0; i < FI->numgames; i++ )
+		for( int i = 0; i < FI->numgames; i++ )
 		{
 			gameui.oldModsInfo[i] = Mem_Calloc( gameui.mempool, sizeof( *gameui.oldModsInfo[i] ));
 			UI_ToOldGameInfo( gameui.oldModsInfo[i], &gameui.modsInfo[i] );
@@ -1135,12 +1126,10 @@ static void GAME_EXPORT pfnCon_DefaultColor( int r, int g, int b )
 
 static void GAME_EXPORT pfnSetCursor( void *hCursor )
 {
-	uintptr_t cursor;
-
 	if( !gameui.use_extended_api )
 		return; // ignore original Xash menus
 
-	cursor = (uintptr_t)hCursor;
+	uintptr_t cursor = (uintptr_t)hCursor;
 	if( cursor < dc_user || cursor > dc_last )
 		return;
 

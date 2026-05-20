@@ -187,18 +187,16 @@ merge refdef with overview settings
 static void V_RefApplyOverview( ref_viewpass_t *rvp )
 {
 	ref_overview_t	*ov = &clgame.overView;
-	float		aspect;
-	float		size_x, size_y;
 	vec2_t		mins, maxs;
 
 	if( !CL_IsDevOverviewMode( ))
 		return;
 
 	// NOTE: Xash3D may use 16:9 or 16:10 aspects
-	aspect = (float)refState.width / (float)refState.height;
+	float aspect = (float)refState.width / (float)refState.height;
 
-	size_x = fabs( 8192.0f / ov->flZoom );
-	size_y = fabs( 8192.0f / (ov->flZoom * aspect ));
+	float size_x = fabs( 8192.0f / ov->flZoom );
+	float size_y = fabs( 8192.0f / (ov->flZoom * aspect ));
 
 	// compute rectangle
 	ov->xLeft = -(size_x / 2);
@@ -238,13 +236,11 @@ V_CalcFov
 */
 static float V_CalcFov( float *fov_x, float width, float height )
 {
-	float	x, half_fov_y;
-
 	if( *fov_x < 1.0f || *fov_x > 179.0f )
 		*fov_x = 90.0f; // default value
 
-	x = width / tan( DEG2RAD( *fov_x ) * 0.5f );
-	half_fov_y = atan( height / x );
+	float x = width / tan( DEG2RAD( *fov_x ) * 0.5f );
+	float half_fov_y = atan( height / x );
 
 	return RAD2DEG( half_fov_y ) * 2;
 }
@@ -500,13 +496,12 @@ static void R_ShowTree( void )
 {
 	float	x = (float)((refState.width - (int)POINT_SIZE) >> 1);
 	float	y = NODE_INTERVAL_Y(1.0f);
-	mleaf_t *viewleaf;
 
 	if( !cl.worldmodel || !r_showtree.value )
 		return;
 
 	world.recursion_level = 0;
-	viewleaf = Mod_PointInLeaf( refState.vieworg, cl.worldmodel->nodes, cl.worldmodel );
+	mleaf_t *viewleaf = Mod_PointInLeaf( refState.vieworg, cl.worldmodel->nodes, cl.worldmodel );
 
 	ref.dllFuncs.TriRenderMode( kRenderTransTexture );
 

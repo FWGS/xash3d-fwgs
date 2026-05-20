@@ -102,9 +102,8 @@ static qboolean ID_ProcessFile( bloomfilter_t *value, const char *path );
 static void ID_BloomFilter_f( void )
 {
 	bloomfilter_t value = 0;
-	int i;
 
-	for( i = 1; i < Cmd_Argc(); i++ )
+	for( int i = 1; i < Cmd_Argc(); i++ )
 		value |= BloomFilter_ProcessStr( Cmd_Argv( i ) );
 
 	Msg( "%d %016"PRIX64"\n", BloomFilter_Weight( value ), value );
@@ -119,7 +118,6 @@ static qboolean ID_VerifyHEX( const char *hex )
 	uint chars = 0;
 	char prev = 0;
 	qboolean monotonic = true; // detect 11:22...
-	int weight = 0;
 
 	while( *hex++ )
 	{
@@ -142,6 +140,7 @@ static qboolean ID_VerifyHEX( const char *hex )
 	if( monotonic )
 		return false;
 
+	int weight = 0;
 	while( chars )
 	{
 		if( chars & 1 )
@@ -170,7 +169,7 @@ static void ID_VerifyHEX_f( void )
 static qboolean ID_ProcessCPUInfo( bloomfilter_t *value )
 {
 	int cpuinfofd = open( "/proc/cpuinfo", O_RDONLY );
-	char buffer[1024], *pbuf, *pbuf2;
+	char buffer[1024];
 	int ret;
 
 	if( cpuinfofd < 0 )
@@ -189,12 +188,12 @@ static qboolean ID_ProcessCPUInfo( bloomfilter_t *value )
 	if( !ret )
 		return false;
 
-	pbuf = Q_stristr( buffer, "Serial" );
+	char *pbuf = Q_stristr( buffer, "Serial" );
 	if( !pbuf )
 		return false;
 	pbuf += 6;
 
-	pbuf2 = Q_strchrnul( pbuf, '\n' );
+	char *pbuf2 = Q_strchrnul( pbuf, '\n' );
 	*pbuf2 = 0;
 
 	if( !ID_VerifyHEX( pbuf ) )
@@ -207,20 +206,18 @@ static qboolean ID_ProcessCPUInfo( bloomfilter_t *value )
 static qboolean ID_ValidateNetDevice( const char *dev )
 {
 	const char *prefix = "/sys/class/net";
-	byte *pfile;
-	int assignType;
 
 	// These devices are fake, their mac address is generated each boot, while assign_type is 0
 	if( !Q_strnicmp( dev, "ccmni", sizeof( "ccmni" ) ) ||
 		!Q_strnicmp( dev, "ifb", sizeof( "ifb" ) ) )
 		return false;
 
-	pfile = FS_LoadDirectFile( va( "%s/%s/addr_assign_type", prefix, dev ), NULL );
+	byte *pfile = FS_LoadDirectFile( va( "%s/%s/addr_assign_type", prefix, dev ), NULL );
 
 	// if NULL, it may be old kernel
 	if( pfile )
 	{
-		assignType = Q_atoi( (char*)pfile );
+		int assignType = Q_atoi( (char*)pfile );
 
 		Mem_Free( pfile );
 
@@ -500,12 +497,10 @@ static int ID_CheckWMIC( bloomfilter_t value, const wchar_t *cmdline )
 	pbuf = COM_ParseFile( buffer, token, sizeof( token )); // Header
 	while(( pbuf = COM_ParseFile( pbuf, token, sizeof( token ))))
 	{
-		bloomfilter_t filter;
-
 		if( !ID_VerifyHEX( token ))
 			continue;
 
-		filter = BloomFilter_ProcessStr( token );
+		bloomfilter_t filter = BloomFilter_ProcessStr( token );
 		count += ( filter & value ) == filter;
 	}
 

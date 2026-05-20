@@ -39,17 +39,16 @@ S_SoundList_f
 */
 void S_SoundList_f( void )
 {
-	sfx_t		*sfx;
-	wavdata_t		*sc;
-	int		i, totalSfx = 0;
-	int		totalSize = 0;
+	sfx_t	*sfx;
+	int	i, totalSfx = 0;
+	int	totalSize = 0;
 
 	for( i = 0, sfx = s_knownSfx; i < s_numSfx; i++, sfx++ )
 	{
 		if( !sfx->name[0] )
 			continue;
 
-		sc = sfx->cache;
+		wavdata_t *sc = sfx->cache;
 		if( sc )
 		{
 			totalSize += sc->size;
@@ -149,7 +148,7 @@ S_FindName
 sfx_t *S_FindName( const char *pname, qboolean *pfInCache )
 {
 	sfx_t	*sfx;
-	uint	i, hash;
+	uint	i;
 	string	name;
 
 	if( COM_StringEmptyOrNULL( pname ) || !snd.initialized )
@@ -162,7 +161,7 @@ sfx_t *S_FindName( const char *pname, qboolean *pfInCache )
 	COM_FixSlashes( name );
 
 	// see if already loaded
-	hash = COM_HashKey( name, MAX_SFX_HASH );
+	uint hash = COM_HashKey( name, MAX_SFX_HASH );
 	for( sfx = s_sfxHashList[hash]; sfx; sfx = sfx->hashNext )
 	{
 		if( !Q_strcmp( sfx->name, name ))
@@ -210,17 +209,14 @@ S_FreeSound
 */
 void S_FreeSound( sfx_t *sfx )
 {
-	sfx_t	*hashSfx;
-	sfx_t	**prev;
-
 	if( !sfx || !sfx->name[0] )
 		return;
 
 	// de-link it from the hash tree
-	prev = &s_sfxHashList[sfx->hashValue];
+	sfx_t **prev = &s_sfxHashList[sfx->hashValue];
 	while( 1 )
 	{
-		hashSfx = *prev;
+		sfx_t *hashSfx = *prev;
 		if( !hashSfx )
 			break;
 
@@ -251,12 +247,10 @@ S_BeginRegistration
 */
 void S_BeginRegistration( void )
 {
-	int	i;
-
 	snd.have_ambient_sfx = false;
 
 	// check for automatic ambient sounds
-	for( i = 0; i < NUM_AMBIENTS; i++ )
+	for( int i = 0; i < NUM_AMBIENTS; i++ )
 	{
 		if( !GI->ambientsound[i][0] )
 			continue;	// empty slot
@@ -385,6 +379,7 @@ void S_FreeSounds( void )
 	// free all sounds
 	for( i = 0, sfx = s_knownSfx; i < s_numSfx; i++, sfx++ )
 		S_FreeSound( sfx );
+
 
 	memset( s_knownSfx, 0, sizeof( s_knownSfx ));
 	memset( s_sfxHashList, 0, sizeof( s_sfxHashList ));

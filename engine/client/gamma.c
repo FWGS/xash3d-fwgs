@@ -35,7 +35,6 @@ static CVAR_DEFINE( v_gamma, "gamma", "2.5", FCVAR_ARCHIVE, "gamma amount" );
 static void BuildGammaTable( const float gamma, const float brightness, const float texgamma, const float lightgamma )
 {
 	float g1, g2, g3;
-	int i;
 
 	if( gamma != 0.0 )
 		g1 = 1.0 / gamma;
@@ -50,7 +49,7 @@ static void BuildGammaTable( const float gamma, const float brightness, const fl
 	else
 		g3 = 0.05;
 
-	for( i = 0; i < 256; i++ )
+	for( int i = 0; i < 256; i++ )
 	{
 		// keep it float or texgamma test will fail with -ffast-math
 		float d = pow( i / 255.0, (double)g2 );
@@ -58,11 +57,9 @@ static void BuildGammaTable( const float gamma, const float brightness, const fl
 		texgammatable[i] = bound( 0, inf, 255 );
 	}
 
-	for( i = 0; i < 1024; i++ )
+	for( int i = 0; i < 1024; i++ )
 	{
-		double d;
 		float f = pow( i / 1023.0, (double)lightgamma );
-		int inf;
 
 		if( brightness > 1.0 )
 			f *= brightness;
@@ -72,8 +69,8 @@ static void BuildGammaTable( const float gamma, const float brightness, const fl
 		else
 			f = (( f - g3 ) / ( 1.0 - g3 )) * 0.875 + 0.125;
 
-		d = pow( (double)f, (double)g1 ); // do not remove the cast, or tests fail
-		inf = d * 1023.0;
+		double d = pow( (double)f, (double)g1 ); // do not remove the cast, or tests fail
+		int inf = d * 1023.0;
 		lightgammatable[i] = bound( 0, inf, 1023 );
 
 		// do these calculations in the same loop...
@@ -255,11 +252,9 @@ static void Test_PrecomputedGammaTables( void )
 
 	while(( data = Test_GetGammaTables( i )))
 	{
-		int j;
-
 		BuildGammaTable( data->gamma, data->brightness, data->texgamma, data->lightgamma );
 
-		for( j = 0; j < 1024; j++ )
+		for( int j = 0; j < 1024; j++ )
 		{
 			if( j < 256 )
 			{

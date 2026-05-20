@@ -362,9 +362,7 @@ int Stream_ReadMPG( stream_t *stream, int needBytes, void *buffer )
 {
 	// buffer handling
 	int	bytesWritten = 0;
-	void	*mpg;
-
-	mpg = stream->ptr;
+	void	*mpg = stream->ptr;
 
 	while( 1 )
 	{
