@@ -918,7 +918,6 @@ static void R_DrawSurfaceDecals( void )
 	for( decal_t *p = fa->pdecals; p; p = p->pnext )
 	{
 		pixel_t      *dest, *source;
-		vec4_t       textureU, textureV;
 		image_t      *tex = R_GetTexture( p->texture );
 		int          s1 = 0, t1 = 0, s2 = tex->width, t2 = tex->height;
 		unsigned int height;
@@ -929,8 +928,8 @@ static void R_DrawSurfaceDecals( void )
 		int          x, y, u, v, sv, w, h;
 		vec3_t       basis[3];
 
-		Vector4Copy( fa->texinfo->vecs[0], textureU );
-		Vector4Copy( fa->texinfo->vecs[1], textureV );
+		vec4_t textureU = Vec4( fa->texinfo->vecs[0] );
+		vec4_t textureV = Vec4( fa->texinfo->vecs[1] );
 
 		R_DecalComputeBasis( fa, 0, basis );
 

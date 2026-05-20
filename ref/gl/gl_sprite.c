@@ -369,9 +369,9 @@ void R_DrawSpriteModel( cl_entity_t *e )
 
 	model_t *model = e->model;
 	msprite_t *psprite = (msprite_t *)model->cache.data;
-	vec3_t origin, color, color2 = { 0.0f };
+	vec3_t color, color2 = { 0.0f };
 	vec3_t v_right, v_up;
-	VectorCopy( e->origin, origin );	// set render origin
+	vec3_t origin = Vec3( e->origin );	// set render origin
 
 	// do movewith
 	if( e->curstate.aiment > 0 && e->curstate.movetype == MOVETYPE_FOLLOW )

@@ -407,8 +407,6 @@ Draw beamdisk
 */
 static void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, float freq, float speed, int segments )
 {
-	vec3_t point;
-
 	if( segments < 2 )
 		return;
 
@@ -435,7 +433,7 @@ static void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, f
 		float s, c;
 
 		float fraction = i * div;
-		VectorCopy( source, point );
+		vec3_t point = Vec3( source );
 
 		TriBrightness( 1.0f );
 		TriTexCoord2f( 1.0f, vLast );
@@ -679,13 +677,13 @@ Draw beamring
 */
 static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitude, float freq, float speed, int segments )
 {
-	vec3_t last1, last2, point, screen, screenLast;
-	vec3_t tmp, normal, center, xaxis, yaxis;
+	vec3_t last2, point, screen;
+	vec3_t screenLast = { 0 };
+	vec3_t tmp, normal, center;
 
 	if( segments < 2 )
 		return;
 
-	VectorClear( screenLast );
 	segments = segments * M_PI;
 
 	if( segments > NOISE_DIVISIONS * 8 )
@@ -710,13 +708,13 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 	VectorScale( delta, 0.5f, delta );
 	VectorAdd( source, delta, center );
 
-	VectorCopy( delta, xaxis );
+	vec3_t xaxis = Vec3( delta );
 	float radius = VectorLength( xaxis );
 
 	// cull beamring
 	// --------------------------------
 	// Compute box center +/- radius
-	VectorSet( last1, radius, radius, scale );
+	vec3_t last1 = { radius, radius, scale };
 	VectorAdd( center, last1, tmp );         // maxs
 	VectorSubtract( center, last1, screen ); // mins
 
@@ -729,7 +727,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 		return;
 	}
 
-	VectorSet( yaxis, xaxis[1], -xaxis[0], 0.0f );
+	vec3_t yaxis = { xaxis[1], -xaxis[0], 0.0f };
 	VectorNormalize( yaxis );
 	VectorScale( yaxis, radius, yaxis );
 

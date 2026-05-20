@@ -1232,8 +1232,7 @@ int CL_FxBlend( cl_entity_t *e )
 	case kRenderFxHologram:
 	case kRenderFxDistort:
 	{
-		vec3_t tmp;
-		VectorCopy( e->origin, tmp );
+		vec3_t tmp = Vec3( e->origin );
 		VectorSubtract( tmp, RI.rvp.vieworigin, tmp );
 		float dist = DotProduct( tmp, RI.vforward );
 

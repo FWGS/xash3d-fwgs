@@ -521,10 +521,8 @@ StudioSetUpTransform
 */
 static void R_StudioSetUpTransform( cl_entity_t *e )
 {
-	vec3_t origin, angles;
-
-	VectorCopy( e->origin, origin );
-	VectorCopy( e->angles, angles );
+	vec3_t origin = Vec3( e->origin );
+	vec3_t angles = Vec3( e->angles );
 
 	// interpolate monsters position (moved into UpdateEntityFields by user request)
 	if( e->curstate.movetype == MOVETYPE_STEP && !FBitSet( gp_host->features, ENGINE_COMPUTE_STUDIO_LERP ))
@@ -1451,15 +1449,13 @@ R_LightLambert
 */
 static void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, const vec3_t color, byte *out )
 {
-	vec3_t finalLight;
-
 	if( !g_studio.numlocallights )
 	{
 		VectorScale( color, 255.0f, out );
 		return;
 	}
 
-	VectorSet( finalLight, 0, 0, 0 );
+	vec3_t finalLight = { 0, 0, 0 };
 
 	for( int i = 0; i < g_studio.numlocallights; i++ )
 	{
@@ -2594,10 +2590,8 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 
 	if( pplayer->gaitsequence )
 	{
-		vec3_t orig_angles;
-
 		m_pPlayerInfo = pfnPlayerInfo( m_nPlayerIndex );
-		VectorCopy( RI.currententity->angles, orig_angles );
+		vec3_t orig_angles = Vec3( RI.currententity->angles );
 
 		R_StudioProcessGait( pplayer );
 
@@ -2902,7 +2896,6 @@ R_RunViewmodelEvents
 void R_RunViewmodelEvents( void )
 {
 	int    i;
-	vec3_t simorg;
 
 	if( r_drawviewmodel->value == 0 )
 		return;
@@ -2921,7 +2914,7 @@ void R_RunViewmodelEvents( void )
 
 	R_StudioSetupTimings();
 
-	VectorCopy( gp_cl->simorg, simorg );
+	vec3_t simorg = Vec3( gp_cl->simorg );
 	for( i = 0; i < 4; i++ )
 		VectorCopy( simorg, RI.currententity->attachment[i] );
 	RI.currentmodel = RI.currententity->model;
