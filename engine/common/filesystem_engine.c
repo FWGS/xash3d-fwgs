@@ -175,6 +175,16 @@ static void FS_Path_f_( void )
 	FS_Path_f();
 }
 
+static void FS_FindFile_f_( void )
+{
+	if( Cmd_Argc() < 2 )
+	{
+		Con_Printf( S_USAGE "fs_find <filepath>\n" );
+		return;
+	}
+	g_fsapi.FindFile_f( Cmd_Argv( 1 ));
+}
+
 static void FS_MakeGameInfo_f( void )
 {
 	g_fsapi.MakeGameInfo();
@@ -374,6 +384,7 @@ void FS_Init( void )
 
 	Cmd_AddRestrictedCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f_, "show filesystem search pathes" );
+	Cmd_AddRestrictedCommand( "fs_find", FS_FindFile_f_, "find file across search pathes and show all occurences" );
 	Cmd_AddRestrictedCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_make_gameinfo", FS_MakeGameInfo_f, "create gameinfo.txt for current running game" );
 
