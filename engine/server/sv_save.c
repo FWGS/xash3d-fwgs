@@ -1105,15 +1105,14 @@ static void RestoreDecal( SAVERESTOREDATA *pSaveData, decallist_t *entry, qboole
 	// this can happens if brush entity from previous level was turned into world geometry
 	if( adjacent && entry->entityIndex != 0 && !SV_IsValidEdict( pEdict ))
 	{
-		vec3_t	testspot, testend;
 		trace_t	tr;
 
 		Con_Printf( S_ERROR "RestoreDecal: couldn't restore entity index %i\n", entry->entityIndex );
 
-		VectorCopy( entry->position, testspot );
+		vec3_t testspot = Vec3( entry->position );
 		VectorMA( testspot, 5.0f, entry->impactPlaneNormal, testspot );
 
-		VectorCopy( entry->position, testend );
+		vec3_t testend = Vec3( entry->position );
 		VectorMA( testend, -5.0f, entry->impactPlaneNormal, testend );
 
 		tr = SV_Move( testspot, vec3_origin, vec3_origin, testend, MOVE_NOMONSTERS, NULL, false );

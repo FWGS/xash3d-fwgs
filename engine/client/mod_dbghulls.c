@@ -81,11 +81,9 @@ static winding_t *winding_copy( winding_t *w )
 
 static void winding_reverse( winding_t *w )
 {
-	vec3_t	point;
-
 	for( int i = 0; i < w->numpoints / 2; i++ )
 	{
-		VectorCopy( w->p[i], point );
+		vec3_t point = Vec3( w->p[i] );
 		VectorCopy( w->p[w->numpoints - i - 1], w->p[i] );
 		VectorCopy( point, w->p[w->numpoints - i - 1] );
 	}

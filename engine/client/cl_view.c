@@ -187,7 +187,6 @@ merge refdef with overview settings
 static void V_RefApplyOverview( ref_viewpass_t *rvp )
 {
 	ref_overview_t	*ov = &clgame.overView;
-	vec2_t		mins, maxs;
 
 	if( !CL_IsDevOverviewMode( ))
 		return;
@@ -212,8 +211,8 @@ static void V_RefApplyOverview( ref_viewpass_t *rvp )
 
 	VectorCopy( ov->origin, rvp->vieworigin );
 	rvp->vieworigin[2] = ov->zFar + ov->zNear;
-	Vector2Copy( rvp->vieworigin, mins );
-	Vector2Copy( rvp->vieworigin, maxs );
+	vec2_t mins = Vec2( rvp->vieworigin );
+	vec2_t maxs = Vec2( rvp->vieworigin );
 
 	mins[!ov->rotated] += ov->xLeft;
 	maxs[!ov->rotated] += ov->xRight;
