@@ -265,8 +265,6 @@ R_SetupFrame
 */
 void R_SetupFrameQ( void )
 {
-	vrect_t vrect;
-
 	if( r_fullbright->flags & FCVAR_CHANGED )
 	{
 		r_fullbright->flags &= ~FCVAR_CHANGED;
@@ -275,11 +273,8 @@ void R_SetupFrameQ( void )
 
 	// tr.framecount++;
 
-
 // build the transformation matrix for the given view angles
 	VectorCopy( RI.rvp.vieworigin, tr.modelorg );
-
-	// AngleVectors (RI.rvp.viewangles, RI.vforward, RI.vright, RI.vup);
 
 // current viewleaf
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
@@ -288,18 +283,13 @@ void R_SetupFrameQ( void )
 		r_viewcluster = RI.viewleaf->cluster;
 	}
 
-//	if (sw_waterwarp->value && (r_newrefdef.rdflags & RDF_UNDERWATER) )
-//		r_dowarp = true;
-//	else
-
-	/*vrect.x = 0;//r_newrefdef.x;
-	vrect.y = 0;//r_newrefdef.y;
-	vrect.width = gpGlobals->width;
-	vrect.height = gpGlobals->height;*/
-	vrect.x = RI.rvp.viewport[0];
-	vrect.y = RI.rvp.viewport[1];
-	vrect.width = RI.rvp.viewport[2];
-	vrect.height = RI.rvp.viewport[3];
+	vrect_t vrect =
+	{
+		.x = RI.rvp.viewport[0],
+		.y = RI.rvp.viewport[1],
+		.width = RI.rvp.viewport[2],
+		.height = RI.rvp.viewport[3],
+	};
 
 	d_viewbuffer = (void *)vid.buffer;
 	r_screenwidth = vid.rowbytes;
@@ -314,16 +304,6 @@ void R_SetupFrameQ( void )
 	VectorCopy( RI.vforward, RI.base_vpn );
 	VectorCopy( RI.vright, RI.base_vright );
 	VectorCopy( RI.vup, RI.base_vup );
-
-// clear frame counts
-/*	c_faceclip = 0;
-	d_spanpixcount = 0;
-	r_polycount = 0;
-	r_drawnpolycount = 0;
-	r_wholepolycount = 0;
-	r_amodels_drawn = 0;
-	r_outofsurfaces = 0;
-	r_outofedges = 0;*/
 
 // d_setup
 	d_roverwrapped = false;

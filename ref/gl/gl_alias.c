@@ -966,9 +966,11 @@ void R_DrawAliasModel( cl_entity_t *e )
 	//
 	// get lighting information
 	//
-	alight_t lighting;
 	vec3_t dir;
-	lighting.plightvec = dir;
+	alight_t lighting =
+	{
+		.plightvec = dir,
+	};
 	R_EntityDynamicLight( e, &lighting, FBitSet( RI.rvp.flags, RF_DRAW_WORLD ), g_alias.time, g_alias.lightspot, g_alias.lightvec );
 
 	r_stats.c_alias_polys += m_pAliasHeader->numtris;
