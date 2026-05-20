@@ -59,14 +59,10 @@ GL_BackendEndFrame
 */
 void GL_BackendEndFrame( void )
 {
-	mleaf_t	*curleaf;
-
 	if( r_speeds->value <= 0 || !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
 
-	if( !RI.viewleaf )
-		curleaf = WORLDMODEL->leafs;
-	else curleaf = RI.viewleaf;
+	mleaf_t *curleaf = RI.viewleaf ? RI.viewleaf : WORLDMODEL->leafs;
 
 	switch( (int)r_speeds->value )
 	{
@@ -180,9 +176,6 @@ GL_Bind
 */
 void GL_Bind( int tmu, unsigned int texnum )
 {
-	const gl_texture_t *texture;
-	GLuint glTarget;
-
 	// missed or invalid texture?
 	if( texnum <= 0 || texnum >= MAX_TEXTURES )
 	{
@@ -195,8 +188,8 @@ void GL_Bind( int tmu, unsigned int texnum )
 		GL_SelectTexture( tmu );
 	else tmu = glState.activeTMU;
 
-	texture = R_GetTexture( texnum );
-	glTarget = texture->target;
+	const gl_texture_t *texture = R_GetTexture( texnum );
+	GLuint glTarget = texture->target;
 
 	if( glTarget == GL_TEXTURE_2D_ARRAY_EXT )
 		glTarget = GL_TEXTURE_2D;
@@ -236,9 +229,7 @@ GL_CleanUpTextureUnits
 */
 void GL_CleanUpTextureUnits( int last )
 {
-	int	i;
-
-	for( i = glState.activeTMU; i > (last - 1); i-- )
+	for( int i = glState.activeTMU; i > (last - 1); i-- )
 	{
 		// disable upper units
 		if( glState.currentTextureTargets[i] != GL_NONE )
@@ -556,12 +547,10 @@ static const envmap_t r_envMapInfo[6] =
 
 qboolean VID_ScreenShot( const char *filename, int shot_type )
 {
-	rgbdata_t *r_shot;
-	uint	flags = IMAGE_FLIP_Y;
-	int	width = 0, height = 0;
-	qboolean	result;
+	uint flags = IMAGE_FLIP_Y;
+	int width = 0, height = 0;
 
-	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
+	rgbdata_t *r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
 	r_shot->width = (gpGlobals->width + 3) & ~3;
 	r_shot->height = (gpGlobals->height + 3) & ~3;
 	r_shot->flags = IMAGE_HAS_COLOR;
@@ -596,7 +585,7 @@ qboolean VID_ScreenShot( const char *filename, int shot_type )
 	gEngfuncs.Image_Process( &r_shot, width, height, flags, 0.0f );
 
 	// write image
-	result = gEngfuncs.FS_SaveImage( filename, r_shot );
+	qboolean result = gEngfuncs.FS_SaveImage( filename, r_shot );
 	gEngfuncs.fsapi->AllowDirectPaths( false );			// always reset after store screenshot
 	gEngfuncs.FS_FreeImage( r_shot );
 
@@ -610,16 +599,11 @@ VID_CubemapShot
 */
 qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qboolean skyshot )
 {
-	rgbdata_t		*r_shot, *r_side;
-	byte		*temp = NULL;
-	byte		*buffer = NULL;
-	string		basename;
-	int		i = 1, flags, result;
-
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) || !WORLDMODEL )
 		return false;
 
 	// make sure the specified size is valid
+	int i = 1;
 	while( i < size ) i<<=1;
 
 	if( i != size ) return false;
@@ -627,10 +611,10 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 		return false;
 
 	// alloc space
-	temp = Mem_Malloc( r_temppool, size * size * 3 );
-	buffer = Mem_Malloc( r_temppool, size * size * 3 * 6 );
-	r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
-	r_side = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
+	byte *temp = Mem_Malloc( r_temppool, size * size * 3 );
+	byte *buffer = Mem_Malloc( r_temppool, size * size * 3 * 6 );
+	rgbdata_t *r_shot = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
+	rgbdata_t *r_side = Mem_Calloc( r_temppool, sizeof( rgbdata_t ));
 
 	// use client vieworg
 	if( !vieworg ) vieworg = RI.rvp.vieworigin;
@@ -640,6 +624,7 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 		// go into 3d mode
 		R_Set2DMode( false );
 
+		int flags;
 		if( skyshot )
 		{
 			R_DrawCubemapView( vieworg, r_skyBoxInfo[i].angles, size );
@@ -672,11 +657,12 @@ qboolean VID_CubemapShot( const char *base, uint size, const float *vieworg, qbo
 	r_shot->buffer = buffer;
 
 	// make sure what we have right extension
+	string basename;
 	Q_strncpy( basename, base, sizeof( basename ));
 	COM_ReplaceExtension( basename, ".tga", sizeof( basename ));
 
 	// write image as 6 sides
-	result = gEngfuncs.FS_SaveImage( basename, r_shot );
+	int result = gEngfuncs.FS_SaveImage( basename, r_shot );
 	gEngfuncs.FS_FreeImage( r_shot );
 	gEngfuncs.FS_FreeImage( r_side );
 
@@ -693,20 +679,16 @@ timerefresh [noflip]
 */
 void SCR_TimeRefresh_f( void )
 {
-	int	i;
-	double	start, stop;
-	double	time;
-
 	if( ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_active )
 		return;
 
-	start = gEngfuncs.pfnTime();
+	double start = gEngfuncs.pfnTime();
 
 	// run without page flipping like GoldSrc
 	if( gEngfuncs.Cmd_Argc() == 1 )
 	{
 		pglDrawBuffer( GL_FRONT );
-		for( i = 0; i < 128; i++ )
+		for( int i = 0; i < 128; i++ )
 		{
 			gpGlobals->viewangles[1] = i / 128.0f * 360.0f;
 			R_RenderScene();
@@ -716,7 +698,7 @@ void SCR_TimeRefresh_f( void )
 	}
 	else
 	{
-		for( i = 0; i < 128; i++ )
+		for( int i = 0; i < 128; i++ )
 		{
 			R_BeginFrame( true );
 			gpGlobals->viewangles[1] = i / 128.0f * 360.0f;
@@ -725,7 +707,7 @@ void SCR_TimeRefresh_f( void )
 		}
 	}
 
-	stop = gEngfuncs.pfnTime ();
-	time = (stop - start);
+	double stop = gEngfuncs.pfnTime ();
+	double time = (stop - start);
 	gEngfuncs.Con_Printf( "%f seconds (%f fps)\n", time, 128 / time );
 }

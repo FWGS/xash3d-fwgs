@@ -84,9 +84,7 @@ static qboolean Mod_LooksLikeWaterTexture( const char *name )
 
 static void Mod_BrushUnloadTextures( model_t *mod )
 {
-	int i;
-
-	for( i = 0; i < mod->numtextures; i++ )
+	for( int i = 0; i < mod->numtextures; i++ )
 	{
 		texture_t *tx = mod->textures[i];
 		if( !tx )
@@ -163,34 +161,24 @@ static qboolean Mod_ProcessRenderData( model_t *mod, qboolean create, const byte
 
 static intptr_t GL_RefGetParm( int parm, int arg )
 {
-	gl_texture_t *glt;
-
 	switch( parm )
 	{
 	case PARM_TEX_WIDTH:
-		glt = R_GetTexture( arg );
-		return glt->width;
+		return R_GetTexture( arg )->width;
 	case PARM_TEX_HEIGHT:
-		glt = R_GetTexture( arg );
-		return glt->height;
+		return R_GetTexture( arg )->height;
 	case PARM_TEX_SRC_WIDTH:
-		glt = R_GetTexture( arg );
-		return glt->srcWidth;
+		return R_GetTexture( arg )->srcWidth;
 	case PARM_TEX_SRC_HEIGHT:
-		glt = R_GetTexture( arg );
-		return glt->srcHeight;
+		return R_GetTexture( arg )->srcHeight;
 	case PARM_TEX_GLFORMAT:
-		glt = R_GetTexture( arg );
-		return glt->format;
+		return R_GetTexture( arg )->format;
 	case PARM_TEX_ENCODE:
-		glt = R_GetTexture( arg );
-		return glt->encode;
+		return R_GetTexture( arg )->encode;
 	case PARM_TEX_MIPCOUNT:
-		glt = R_GetTexture( arg );
-		return glt->numMips;
+		return R_GetTexture( arg )->numMips;
 	case PARM_TEX_DEPTH:
-		glt = R_GetTexture( arg );
-		return glt->depth;
+		return R_GetTexture( arg )->depth;
 	case PARM_TEX_SKYBOX:
 		Assert( arg >= 0 && arg < 6 );
 		return tr.skyboxTextures[arg];
@@ -200,14 +188,11 @@ static intptr_t GL_RefGetParm( int parm, int arg )
 		arg = bound( 0, arg, MAX_LIGHTMAPS - 1 );
 		return tr.lightmapTextures[arg];
 	case PARM_TEX_TARGET:
-		glt = R_GetTexture( arg );
-		return glt->target;
+		return R_GetTexture( arg )->target;
 	case PARM_TEX_TEXNUM:
-		glt = R_GetTexture( arg );
-		return glt->texnum;
+		return R_GetTexture( arg )->texnum;
 	case PARM_TEX_FLAGS:
-		glt = R_GetTexture( arg );
-		return glt->flags;
+		return R_GetTexture( arg )->flags;
 	case PARM_TEX_MEMORY:
 		return GL_TexMemory();
 	case PARM_ACTIVE_TMU:
@@ -342,14 +327,12 @@ R_SetupSky
 */
 static void GAME_EXPORT R_SetupSky( int *skyboxTextures )
 {
-	int i;
-
 	R_UnloadSkybox();
 
 	if( !skyboxTextures )
 		return;
 
-	for( i = 0; i < SKYBOX_MAX_SIDES; i++ )
+	for( int i = 0; i < SKYBOX_MAX_SIDES; i++ )
 		tr.skyboxTextures[i] = skyboxTextures[i];
 }
 
@@ -415,9 +398,6 @@ static const char *R_GetConfigName( void )
 
 static void R_NewMap( void )
 {
-	texture_t	*tx;
-	int	i;
-
 	tr.worldmodel = gp_cl->models[1];
 
 	R_ClearDecals(); // clear all level decals
@@ -425,7 +405,7 @@ static void R_NewMap( void )
 	R_StudioResetPlayerModels();
 
 	// clear out efrags in case the level hasn't been reloaded
-	for( i = 0; i < WORLDMODEL->numleafs; i++ )
+	for( int i = 0; i < WORLDMODEL->numleafs; i++ )
 		WORLDMODEL->leafs[i+1].efrags = NULL;
 
 	glState.isFogEnabled = false;
@@ -433,12 +413,12 @@ static void R_NewMap( void )
 	pglDisable( GL_FOG );
 
 	// clearing texture chains
-	for( i = 0; i < WORLDMODEL->numtextures; i++ )
+	for( int i = 0; i < WORLDMODEL->numtextures; i++ )
 	{
 		if( !WORLDMODEL->textures[i] )
 			continue;
 
-		tx = WORLDMODEL->textures[i];
+		texture_t *tx = WORLDMODEL->textures[i];
 
 		if( !Q_strncmp( tx->name, "sky", 3 ) && tx->width == ( tx->height * 2 ))
 			tr.skytexturenum = i;
