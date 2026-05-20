@@ -530,7 +530,6 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	}
 	else if( file->flags == ZIP_COMPRESSION_DEFLATED )
 	{
-		z_stream decompress_stream;
 		int zlib_result;
 
 		compressed_buffer = (byte *)Mem_Malloc( fs_mempool, file->compressed_size + 1 );
@@ -542,16 +541,18 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 			return NULL;
 		}
 
-		memset( &decompress_stream, 0, sizeof( decompress_stream ) );
-
-		decompress_stream.total_in = decompress_stream.avail_in = file->compressed_size;
-		decompress_stream.next_in = (Bytef *)compressed_buffer;
-		decompress_stream.total_out = decompress_stream.avail_out = file->size;
-		decompress_stream.next_out = (Bytef *)decompressed_buffer;
-
-		decompress_stream.zalloc = Z_NULL;
-		decompress_stream.zfree = Z_NULL;
-		decompress_stream.opaque = Z_NULL;
+		z_stream decompress_stream =
+		{
+			.total_in = file->compressed_size,
+			.avail_in = file->compressed_size,
+			.next_in = (Bytef *)compressed_buffer,
+			.total_out = file->size,
+			.avail_out = file->size,
+			.next_out = (Bytef *)decompressed_buffer,
+			.zalloc = Z_NULL,
+			.zfree = Z_NULL,
+			.opaque = Z_NULL,
+		};
 
 		if( inflateInit2( &decompress_stream, -MAX_WBITS ) != Z_OK )
 		{
