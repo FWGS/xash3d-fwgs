@@ -457,8 +457,7 @@ static void R_DrawDisk( vec3_t source, vec3_t delta, float width, float scale, f
 	{
 		float s, c;
 		float fraction = i * div;
-		vec3_t point;
-		VectorCopy( source, point );
+		vec3_t point = Vec3( source );
 
 		TriBrightness( 1.0f );
 		TriTexCoord2f( 1.0f, vLast );
@@ -717,15 +716,14 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 	vec3_t center;
 	VectorAdd( source, delta, center );
 
-	vec3_t xaxis;
-	VectorCopy( delta, xaxis );
+	vec3_t xaxis = Vec3( delta );
 	float radius = VectorLength( xaxis );
 
 	// cull beamring
 	// --------------------------------
 	// Compute box center +/- radius
-	vec3_t last1, tmp, screen;
-	VectorSet( last1, radius, radius, scale );
+	vec3_t last1 = { radius, radius, scale };
+	vec3_t tmp, screen;
 	VectorAdd( center, last1, tmp );		// maxs
 	VectorSubtract( center, last1, screen );	// mins
 
@@ -738,8 +736,7 @@ static void R_DrawRing( vec3_t source, vec3_t delta, float width, float amplitud
 		return;
 	}
 
-	vec3_t yaxis;
-	VectorSet( yaxis, xaxis[1], -xaxis[0], 0.0f );
+	vec3_t yaxis = { xaxis[1], -xaxis[0], 0.0f };
 	VectorNormalize( yaxis );
 	VectorScale( yaxis, radius, yaxis );
 

@@ -194,8 +194,7 @@ void R_PushDlightsForBmodel( model_t *model, int framecount, const matrix4x4 obj
 		if( l->die < gp_cl->time || !l->radius )
 			continue;
 
-		vec3_t oldorigin;
-		VectorCopy( l->origin, oldorigin );
+		vec3_t oldorigin = Vec3( l->origin );
 
 		Matrix4x4_VectorITransform( object_matrix, oldorigin, l->origin );
 		R_MarkLights( l, 1 << i, model->nodes + model->hulls[0].firstclipnode, model, framecount );
@@ -341,10 +340,16 @@ start:
 
 			if( dm != NULL )
 			{
-				vec3_t	srcNormal, lightNormal;
-				float	f = (1.0f / 128.0f);
+				const float f = (1.0f / 128.0f);
+				vec3_t srcNormal =
+				{
+					((float)dm->r - 128.0f) * f,
+					((float)dm->g - 128.0f) * f,
+					((float)dm->b - 128.0f) * f,
+				};
+				vec3_t lightNormal;
 
-				VectorSet( srcNormal, ((float)dm->r - 128.0f) * f, ((float)dm->g - 128.0f) * f, ((float)dm->b - 128.0f) * f );
+
 				Matrix3x4_VectorIRotate( tbn, srcNormal, lightNormal );		// turn to world space
 				VectorScale( lightNormal, (float)scale * -1.0f, lightNormal );	// turn direction from light
 				VectorAdd( g_trace_lightvec, lightNormal, g_trace_lightvec );
@@ -465,9 +470,7 @@ light from floor
 */
 colorVec R_LightPoint( const vec3_t p0 )
 {
-	vec3_t p1;
-
-	VectorSet( p1, p0[0], p0[1], p0[2] - 2048.0f );
+	vec3_t p1 = { p0[0], p0[1], p0[2] - 2048.0f };
 
 	return R_LightVec( p0, p1, NULL, NULL );
 }
@@ -516,11 +519,10 @@ void R_EntityDynamicLight( cl_entity_t *ent, alight_t *plight, qboolean draw_wor
 	else
 		VectorSet( lightDir, 0.0f, 0.0f, -1.0f );
 
-	vec3_t origin;
-	VectorCopy( ent->origin, origin );
+	vec3_t origin = Vec3( ent->origin );
 
-	vec3_t vecSrc, vecEnd;
-	VectorSet( vecSrc, origin[0], origin[1], origin[2] - lightDir[2] * 8.0f );
+	vec3_t vecSrc = { origin[0], origin[1], origin[2] - lightDir[2] * 8.0f };
+	vec3_t vecEnd;
 
 	colorVec light;
 	light.r = light.g = light.b = light.a = 0;
@@ -609,8 +611,7 @@ void R_EntityDynamicLight( cl_entity_t *ent, alight_t *plight, qboolean draw_wor
 		light.b *= ent->curstate.iuser4 / 10.0f;
 	}
 
-	vec3_t finalLight;
-	VectorSet( finalLight, light.r, light.g, light.b );
+	vec3_t finalLight = { light.r, light.g, light.b };
 	ent->cvFloorColor = light;
 
 	float total = Q_max( Q_max( light.r, light.g ), light.b );
