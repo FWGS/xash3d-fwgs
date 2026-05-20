@@ -105,6 +105,9 @@ CONSTANTS AND HELPER MACROS
 #define Vector2Copy(a,b) ((b)[0]=(a)[0],(b)[1]=(a)[1])
 #define VectorCopy(a,b) ((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2])
 #define Vector4Copy(a,b) ((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2],(b)[3]=(a)[3])
+#define Vec2(v) { (v)[0], (v)[1] }
+#define Vec3(v) { (v)[0], (v)[1], (v)[2] }
+#define Vec4(v) { (v)[0], (v)[1], (v)[2], (v)[3] }
 #define VectorScale(in, scale, out) ((out)[0] = (in)[0] * (scale),(out)[1] = (in)[1] * (scale),(out)[2] = (in)[2] * (scale))
 #define VectorCompare(v1,v2)	((v1)[0]==(v2)[0] && (v1)[1]==(v2)[1] && (v1)[2]==(v2)[2])
 #define VectorDivide( in, d, out ) VectorScale( in, (1.0f / (d)), out )
