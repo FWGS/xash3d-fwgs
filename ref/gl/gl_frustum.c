@@ -30,9 +30,8 @@ static void GL_FrustumSetPlane( gl_frustum_t *out, int side, const vec3_t vecNor
 
 void GL_FrustumInitProj( gl_frustum_t *out, float flZNear, float flZFar, float flFovX, float flFovY )
 {
-	float	xs, xc;
-	vec3_t	farpoint, nearpoint;
 	vec3_t	normal, iforward;
+	float	xs, xc;
 
 	// horizontal fov used for left and right planes
 	SinCos( DEG2RAD( flFovX ) * 0.5f, &xs, &xc );
@@ -58,6 +57,7 @@ void GL_FrustumInitProj( gl_frustum_t *out, float flZNear, float flZFar, float f
 	GL_FrustumSetPlane( out, FRUSTUM_TOP, normal, DotProduct( RI.cullorigin, normal ));
 
 	// setup far plane
+	vec3_t farpoint;
 	VectorMA( RI.cullorigin, flZFar, RI.cull_vforward, farpoint );
 	GL_FrustumSetPlane( out, FRUSTUM_FAR, iforward, DotProduct( iforward, farpoint ));
 
@@ -65,16 +65,16 @@ void GL_FrustumInitProj( gl_frustum_t *out, float flZNear, float flZFar, float f
 	if( flZNear == 0.0f ) return;
 
 	// setup near plane
+	vec3_t nearpoint;
 	VectorMA( RI.cullorigin, flZNear, RI.cull_vforward, nearpoint );
 	GL_FrustumSetPlane( out, FRUSTUM_NEAR, RI.cull_vforward, DotProduct( RI.cull_vforward, nearpoint ));
 }
 
 void GL_FrustumInitOrtho( gl_frustum_t *out, float xLeft, float xRight, float yTop, float yBottom, float flZNear, float flZFar )
 {
-	vec3_t	iforward, iright, iup;
-
 	// setup the near and far planes
 	float orgOffset = DotProduct( RI.cullorigin, RI.cull_vforward );
+	vec3_t iforward;
 	VectorNegate( RI.cull_vforward, iforward );
 
 	// because quake ortho is inverted and far and near should be swaped
@@ -83,6 +83,7 @@ void GL_FrustumInitOrtho( gl_frustum_t *out, float xLeft, float xRight, float yT
 
 	// setup left and right planes
 	orgOffset = DotProduct( RI.cullorigin, RI.cull_vright );
+	vec3_t iright;
 	VectorNegate( RI.cull_vright, iright );
 
 	GL_FrustumSetPlane( out, FRUSTUM_LEFT, RI.cull_vright, xLeft + orgOffset );
@@ -90,6 +91,7 @@ void GL_FrustumInitOrtho( gl_frustum_t *out, float xLeft, float xRight, float yT
 
 	// setup top and buttom planes
 	orgOffset = DotProduct( RI.cullorigin, RI.cull_vup );
+	vec3_t iup;
 	VectorNegate( RI.cull_vup, iup );
 
 	GL_FrustumSetPlane( out, FRUSTUM_TOP, RI.cull_vup, yTop + orgOffset );
@@ -100,7 +102,6 @@ void GL_FrustumInitOrtho( gl_frustum_t *out, float xLeft, float xRight, float yT
 qboolean GL_FrustumCullBox( const gl_frustum_t *out, const vec3_t mins, const vec3_t maxs, int userClipFlags )
 {
 	int iClipFlags = userClipFlags != 0 ? userClipFlags : out->clipFlags;
-	int	i, bit;
 
 	if( unlikely( r_nocull.value ))
 		return false;
@@ -108,7 +109,7 @@ qboolean GL_FrustumCullBox( const gl_frustum_t *out, const vec3_t mins, const ve
 	if( !iClipFlags )
 		return false;
 
-	for( i = FRUSTUM_PLANES, bit = 1; i > 0; i--, bit <<= 1 )
+	for( int i = FRUSTUM_PLANES, bit = 1; i > 0; i--, bit <<= 1 )
 	{
 		const mplane_t	*p = &out->planes[FRUSTUM_PLANES - i];
 
@@ -160,7 +161,6 @@ qboolean GL_FrustumCullBox( const gl_frustum_t *out, const vec3_t mins, const ve
 qboolean GL_FrustumCullSphere( const gl_frustum_t *out, const vec3_t center, float radius, int userClipFlags )
 {
 	int iClipFlags = userClipFlags != 0 ? userClipFlags : out->clipFlags;
-	int	i, bit;
 
 	if( unlikely( r_nocull.value ))
 		return false;
@@ -168,7 +168,7 @@ qboolean GL_FrustumCullSphere( const gl_frustum_t *out, const vec3_t center, flo
 	if( !iClipFlags )
 		return false;
 
-	for( i = FRUSTUM_PLANES, bit = 1; i > 0; i--, bit <<= 1 )
+	for( int i = FRUSTUM_PLANES, bit = 1; i > 0; i--, bit <<= 1 )
 	{
 		const mplane_t *p = &out->planes[FRUSTUM_PLANES - i];
 
