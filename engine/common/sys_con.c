@@ -82,8 +82,6 @@ static void Sys_FlushLogfile( void )
 
 void Sys_InitLog( void )
 {
-	const char *mode;
-
 	if( Sys_CheckParm( "-log" ))
 	{
 		if( !Sys_GetParmFromCmdLine( "-log", s_ld.log_path ) || !isalnum((byte)s_ld.log_path[0] ))
@@ -95,6 +93,7 @@ void Sys_InitLog( void )
 
 	s_ld.log_time = Sys_CheckParm( "-logtime" );
 
+	const char *mode;
 	if( host.change_game && host.type != HOST_DEDICATED )
 		mode = "a";
 	else mode = "w";
@@ -282,15 +281,15 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 
 void Sys_PrintLog( const char *pMsg )
 {
-	time_t crt_time;
-	const struct tm	*crt_tm;
+	const struct tm *crt_tm = NULL;
 	char logtime[32] = "";
 	static char lastchar;
 	qboolean print_time = false;
-	size_t len, logtime_len = 0;
+	size_t logtime_len = 0;
 
 	if( !lastchar || lastchar == '\n' )
 	{
+		time_t crt_time;
 		if( time( &crt_time ) >= 0 )
 		{
 			crt_tm = localtime( &crt_time );
@@ -307,7 +306,7 @@ void Sys_PrintLog( const char *pMsg )
 	// spew to stdout
 	Sys_PrintStdout( logtime, logtime_len, pMsg );
 
-	len = Q_strlen( pMsg );
+	size_t len = Q_strlen( pMsg );
 
 	// save last char to detect when line was not ended
 	lastchar = len > 0 ? pMsg[len - 1] : 0;
@@ -341,9 +340,7 @@ CONSOLE PRINT
 static void Con_Printfv( qboolean debug, const char *szFmt, va_list args )
 {
 	static char buffer[MAX_PRINT_MSG];
-	qboolean add_newline;
-
-	add_newline = Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args ) < 0;
+	qboolean add_newline = Q_vsnprintf( buffer, sizeof( buffer ), szFmt, args ) < 0;
 
 	if( debug && !Q_strcmp( buffer, "0\n" ))
 		return; // hlrally spam

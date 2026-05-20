@@ -43,16 +43,12 @@ Find base command in bucket
 */
 static base_command_hashmap_t *BaseCmd_FindInBucket( base_command_hashmap_t *bucket, base_command_type_e type, const char *name )
 {
-	base_command_hashmap_t *i;
-
-	for( i = bucket; i != NULL; i = i->next )
+	for( base_command_hashmap_t *i = bucket; i != NULL; i = i->next )
 	{
-		int cmp;
-
 		if( i->type != type )
 			continue;
 
-		cmp = Q_stricmp( i->name, name );
+		int cmp = Q_stricmp( i->name, name );
 
 		if( cmp < 0 )
 			continue;
@@ -147,16 +143,16 @@ Add new typed base command to hashmap
 */
 void BaseCmd_Insert( base_command_type_e type, base_command_t *basecmd, const char *name )
 {
-	base_command_hashmap_t *elem, *cur, *find;
 	uint hash = BaseCmd_HashKey( name );
 	size_t len = Q_strlen( name );
+	base_command_hashmap_t *elem = Mem_Malloc( basecmd_pool, sizeof( base_command_hashmap_t ) + len + 1 );
 
-	elem = Mem_Malloc( basecmd_pool, sizeof( base_command_hashmap_t ) + len + 1 );
 	elem->basecmd = basecmd;
 	elem->type = type;
 	Q_strncpy( elem->name, name, len + 1 );
 
 	// link the variable in alphanumerical order
+	base_command_hashmap_t *cur, *find;
 	for( cur = NULL, find = hashed_cmds[hash];
 		  find && Q_stricmp( find->name, elem->name ) < 0;
 		  cur = find, find = find->next );
@@ -181,12 +177,10 @@ void BaseCmd_Remove( base_command_type_e type, const char *name )
 
 	for( prev = NULL, i = hashed_cmds[hash]; i != NULL; prev = i, i = i->next )
 	{
-		int cmp;
-
 		if( i->type != type )
 			continue;
 
-		cmp = Q_stricmp( i->name, name );
+		int cmp = Q_stricmp( i->name, name );
 
 		if( cmp < 0 )
 			continue;
@@ -241,11 +235,10 @@ void BaseCmd_Stats_f( void )
 
 	for( int i = 0; i < HASH_SIZE; i++ )
 	{
-		base_command_hashmap_t *hm;
 		int len = 0;
 
 		// count bucket length
-		for( hm = hashed_cmds[i]; hm; hm = hm->next, len++ );
+		for( base_command_hashmap_t *hm = hashed_cmds[i]; hm; hm = hm->next, len++ );
 
 		if( len == 0 )
 		{
@@ -300,11 +293,8 @@ void BaseCmd_Test_f( void )
 
 	for( int i = 0; i < 1000; i++ )
 	{
-		cmdalias_t *a;
-		void *cmd;
-
 		// Cmd_LookupCmds don't allows to check alias, so just iterate
-		for( a = Cmd_AliasGetList(); a; a = a->next, stats.lookups++ )
+		for( cmdalias_t *a = Cmd_AliasGetList(); a; a = a->next, stats.lookups++ )
 		{
 			if( !BaseCmd_Find( HM_CMDALIAS, a->name ))
 			{
@@ -313,7 +303,7 @@ void BaseCmd_Test_f( void )
 			}
 		}
 
-		for( cmd = Cmd_GetFirstFunctionHandle(); cmd;
+		for( void *cmd = Cmd_GetFirstFunctionHandle(); cmd;
 			 cmd = Cmd_GetNextFunctionHandle( cmd ), stats.lookups++ )
 		{
 			if( !BaseCmd_Find( HM_CMD, Cmd_GetName( cmd )))

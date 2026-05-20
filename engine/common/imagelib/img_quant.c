@@ -68,15 +68,13 @@ static int		radpower[initrad];		// radpower for precomputation
 
 static void initnet( byte *thepic, int len, int sample )
 {
-	register int	i, *p;
-
 	thepicture = thepic;
 	lengthcount = len;
 	samplefac = sample;
 
-	for( i = 0; i < netsize; i++ )
+	for( register int i = 0; i < netsize; i++ )
 	{
-		p = network[i];
+		register int *p = network[i];
 		p[0] = p[1] = p[2] = (i << (netbiasshift + 8)) / netsize;
 		freq[i] = intbias / netsize;	// 1 / netsize
 		bias[i] = 0;
@@ -86,15 +84,13 @@ static void initnet( byte *thepic, int len, int sample )
 // Unbias network to give byte values 0..255 and record position i to prepare for sort
 static void unbiasnet( void )
 {
-	int	i, j, temp;
-
-	for( i = 0; i < netsize; i++ )
+	for( int i = 0; i < netsize; i++ )
 	{
-		for( j = 0; j < 3; j++ )
+		for( int j = 0; j < 3; j++ )
 		{
 			// OLD CODE: network[i][j] >>= netbiasshift;
 			// Fix based on bug report by Juergen Weigert jw@suse.de
-			temp = (network[i][j] + (1 << (netbiasshift - 1))) >> netbiasshift;
+			int temp = (network[i][j] + (1 << (netbiasshift - 1))) >> netbiasshift;
 			if( temp > 255 ) temp = 255;
 			network[i][j] = temp;
 		}
@@ -106,21 +102,18 @@ static void unbiasnet( void )
 // Insertion sort of network and building of netindex[0..255] (to do after unbias)
 static void inxbuild( void )
 {
-	register int	*p, *q;
-	register int	i, j, smallpos, smallval;
-	int		previouscol, startpos;
+	int		previouscol = 0;
+	int		startpos = 0;
 
-	previouscol = 0;
-	startpos = 0;
-
-	for( i = 0; i < netsize; i++ )
+	for( register int i = 0; i < netsize; i++ )
 	{
-		p = network[i];
-		smallpos = i;
-		smallval = p[1];			// index on g
+		register int *p = network[i];
+		register int smallpos = i;
+		register int smallval = p[1];			// index on g
 
 		// find smallest in i..netsize-1
-		for( j = i + 1; j < netsize; j++ )
+		register int *q;
+		for( register int j = i + 1; j < netsize; j++ )
 		{
 			q = network[j];
 			if( q[1] < smallval )
@@ -136,6 +129,7 @@ static void inxbuild( void )
 		// swap p (i) and q (smallpos) entries
 		if( i != smallpos )
 		{
+			register int j;
 			j = q[0];   q[0] = p[0];   p[0] = j;
 			j = q[1];   q[1] = p[1];   p[1] = j;
 			j = q[2];   q[2] = p[2];   p[2] = j;
@@ -147,7 +141,7 @@ static void inxbuild( void )
 		{
 			netindex[previouscol] = (startpos+i) >> 1;
 
-			for( j = previouscol + 1; j < smallval; j++ )
+			for( register int j = previouscol + 1; j < smallval; j++ )
 				netindex[j] = i;
 
 			previouscol = smallval;
@@ -157,7 +151,7 @@ static void inxbuild( void )
 
 	netindex[previouscol] = (startpos + maxnetpos)>>1;
 
-	for( j = previouscol + 1; j < 256; j++ )
+	for( int j = previouscol + 1; j < 256; j++ )
 		netindex[j] = maxnetpos; // really 256
 }
 
@@ -165,14 +159,13 @@ static void inxbuild( void )
 // Search for BGR values 0..255 (after net is unbiased) and return colour index
 static int inxsearch( int r, int g, int b )
 {
-	register int	i, j, dist, a, bestd;
+	register int	dist, a;
 	register int	*p;
-	int		best;
 
-	bestd = 1000;	// biggest possible dist is 256 * 3
-	best = -1;
-	i = netindex[g];	// index on g
-	j = i - 1;	// start at netindex[g] and work outwards
+	register int bestd = 1000;	// biggest possible dist is 256 * 3
+	int best = -1;
+	register int i = netindex[g];	// index on g
+	register int j = i - 1;	// start at netindex[g] and work outwards
 
 	while(( i < netsize ) || ( j >= 0 ))
 	{
@@ -246,25 +239,22 @@ static int inxsearch( int r, int g, int b )
 // Search for biased BGR values
 static int contest( int r, int g, int b )
 {
-	register int	*p, *f, *n;
-	register int	i, dist, a, biasdist, betafreq;
-	int		bestpos, bestbiaspos, bestd, bestbiasd;
-
 	// finds closest neuron (min dist) and updates freq
 	// finds best neuron (min dist-bias) and returns position
 	// for frequently chosen neurons, freq[i] is high and bias[i] is negative
 	// bias[i] = gamma * ((1 / netsize) - freq[i])
-	bestd = INT_MAX;
-	bestbiasd = bestd;
-	bestpos = -1;
-	bestbiaspos = bestpos;
-	p = bias;
-	f = freq;
+	int bestd = INT_MAX;
+	int bestbiasd = bestd;
+	int bestpos = -1;
+	int bestbiaspos = bestpos;
+	register int *p = bias;
+	register int *f = freq;
 
-	for( i = 0; i < netsize; i++ )
+	for( register int i = 0; i < netsize; i++ )
 	{
-		n = network[i];
-		dist = n[2] - b;
+		register int *n = network[i];
+		register int dist = n[2] - b;
+		register int a;
 		if( dist < 0 ) dist = -dist;
 		a = n[1] - g;
 		if( a < 0 ) a = -a;
@@ -279,7 +269,7 @@ static int contest( int r, int g, int b )
 			bestpos = i;
 		}
 
-		biasdist = dist - ((*p) >> (intbiasshift - netbiasshift));
+		register int biasdist = dist - ((*p) >> (intbiasshift - netbiasshift));
 
 		if( biasdist < bestbiasd )
 		{
@@ -287,7 +277,7 @@ static int contest( int r, int g, int b )
 			bestbiaspos = i;
 		}
 
-		betafreq = (*f >> betashift);
+		register int betafreq = (*f >> betashift);
 		*f++ -= betafreq;
 		*p++ += (betafreq << gammashift);
 	}
@@ -301,9 +291,7 @@ static int contest( int r, int g, int b )
 // Move neuron i towards biased (b,g,r) by factor alpha
 static void altersingle( int alpha, int i, int r, int g, int b )
 {
-	register int	*n;
-
-	n = network[i];	// alter hit neuron
+	register int *n = network[i];	// alter hit neuron
 	*n -= (alpha * (*n - r)) / initalpha;
 	n++;
 	*n -= (alpha * (*n - g)) / initalpha;
@@ -314,21 +302,19 @@ static void altersingle( int alpha, int i, int r, int g, int b )
 // Move adjacent neurons by precomputed alpha*(1-((i-j)^2/[r]^2)) in radpower[|i-j|]
 static void alterneigh( int rad, int i, int r, int g, int b )
 {
-	register int	j, k, lo, hi, a;
-	register int	*p, *q;
-
-	lo = i - rad;
+	register int lo = i - rad;
 	if( lo < -1 ) lo = -1;
-	hi = i + rad;
+	register int hi = i + rad;
 	if( hi > netsize ) hi = netsize;
 
-	j = i + 1;
-	k = i - 1;
-	q = radpower;
+	register int j = i + 1;
+	register int k = i - 1;
+	register int *q = radpower;
 
 	while(( j < hi ) || ( k > lo ))
 	{
-		a = (*(++q));
+		register int a = (*(++q));
+		register int *p;
 
 		if( j < hi )
 		{
@@ -357,24 +343,20 @@ static void alterneigh( int rad, int i, int r, int g, int b )
 // Main Learning Loop
 static void learn( void )
 {
-	register byte	*p;
-	register int	i, j, r, g, b;
-	int		radius, rad, alpha, step;
-	int		delta, samplepixels;
-	byte		*lim;
+	int step;
 
 	alphadec = 30 + ((samplefac - 1) / 3);
-	p = thepicture;
-	lim = thepicture + lengthcount;
-	samplepixels = lengthcount / (image.bpp * samplefac);
-	delta = samplepixels / ncycles;
-	alpha = initalpha;
-	radius = initradius;
+	register byte *p = thepicture;
+	byte *lim = thepicture + lengthcount;
+	int samplepixels = lengthcount / (image.bpp * samplefac);
+	int delta = samplepixels / ncycles;
+	int alpha = initalpha;
+	int radius = initradius;
 
-	rad = radius >> radiusbiasshift;
+	int rad = radius >> radiusbiasshift;
 	if( rad <= 1 ) rad = 0;
 
-	for( i = 0; i < rad; i++ )
+	for( int i = 0; i < rad; i++ )
 		radpower[i] = alpha * ((( rad * rad - i * i ) * radbias ) / ( rad * rad ));
 
 	if( delta <= 0 ) return;
@@ -396,14 +378,14 @@ static void learn( void )
 		step = prime4 * image.bpp;
 	}
 
-	i = 0;
+	register int i = 0;
 
 	while( i < samplepixels )
 	{
-		r = p[0] << netbiasshift;
-		g = p[1] << netbiasshift;
-		b = p[2] << netbiasshift;
-		j = contest( r, g, b );
+		register int r = p[0] << netbiasshift;
+		register int g = p[1] << netbiasshift;
+		register int b = p[2] << netbiasshift;
+		register int j = contest( r, g, b );
 
 		altersingle( alpha, j, r, g, b );
 		if( rad ) alterneigh( rad, j, r, g, b );   // alter neighbours
@@ -420,7 +402,7 @@ static void learn( void )
 			rad = radius >> radiusbiasshift;
 			if( rad <= 1 ) rad = 0;
 
-			for( j = 0; j < rad; j++ )
+			for( int j = 0; j < rad; j++ )
 				radpower[j] = alpha * ((( rad * rad - j * j ) * radbias ) / ( rad * rad ));
 		}
 	}
