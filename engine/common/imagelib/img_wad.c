@@ -124,9 +124,6 @@ Image_LoadFNT
 qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	qfont_t		font;
-	const byte	*pal, *fin;
-	size_t		size;
-	int		numcolors;
 
 	if( image.hint == IL_HINT_Q1 )
 		return false; // Quake1 doesn't have qfonts
@@ -138,7 +135,7 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesi
 	le_struct_swap( qfont_swap, &font );
 
 	// last sixty four bytes - what the hell ????
-	size = sizeof( qfont_t ) - 4 + ( font.height * font.width * QCHAR_WIDTH ) + sizeof( short ) + 768 + 64;
+	size_t size = sizeof( qfont_t ) - 4 + ( font.height * font.width * QCHAR_WIDTH ) + sizeof( short ) + 768 + 64;
 
 	if( size != filesize )
 	{
@@ -156,9 +153,9 @@ qboolean Image_LoadFNT( const char *name, const byte *buffer, fs_offset_t filesi
 	if( !Image_LumpValidSize( name ))
 		return false;
 
-	fin = buffer + sizeof( font ) - 4;
-	pal = fin + (image.width * image.height);
-	numcolors = pal[0] | (pal[1] << 8);
+	const byte *fin = buffer + sizeof( font ) - 4;
+	const byte *pal = fin + (image.width * image.height);
+	int numcolors = pal[0] | (pal[1] << 8);
 	pal += sizeof( short );
 
 	if( numcolors == 768 || numcolors == 256 )
@@ -198,18 +195,13 @@ Image_LoadMDL
 */
 qboolean Image_LoadMDL( const char *name, const byte *buffer, fs_offset_t filesize )
 {
-	byte		*fin;
-	size_t		pixels;
-	mstudiotexture_t	*pin;
-	int		flags;
-
-	pin = (mstudiotexture_t *)buffer;
-	flags = pin->flags;
+	mstudiotexture_t *pin = (mstudiotexture_t *)buffer;
+	int flags = pin->flags;
 
 	image.width = pin->width;
 	image.height = pin->height;
-	pixels = image.width * image.height;
-	fin = (byte *)g_mdltexdata;
+	size_t pixels = image.width * image.height;
+	byte *fin = (byte *)g_mdltexdata;
 	ASSERT(fin);
 	g_mdltexdata = NULL;
 
@@ -250,7 +242,6 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesi
 {
 	dspriteframe_t	pin;	// identical for q1\hl sprites
 	qboolean		truecolor = false;
-	byte *fin;
 
 	if( image.hint == IL_HINT_HL )
 	{
@@ -296,7 +287,7 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesi
 		break;
 	}
 
-	fin =  (byte *)(buffer + sizeof(dspriteframe_t));
+	byte *fin =  (byte *)(buffer + sizeof(dspriteframe_t));
 
 	if( truecolor )
 	{
@@ -320,7 +311,6 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesi
 	lmp_t	lmp;
 	byte	*fin, *pal;
 	int	rendermode;
-	int	i, pixels;
 
 	if( filesize < sizeof( lmp ))
 		return false;
@@ -338,7 +328,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesi
 		fin = (byte *)buffer;
 
 		// need to remap transparent color from first to last entry
-		for( i = 0; i < 16384; i++ ) if( !fin[i] ) fin[i] = 0xFF;
+		for( int i = 0; i < 16384; i++ ) if( !fin[i] ) fin[i] = 0xFF;
 	}
 	else
 	{
@@ -351,7 +341,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesi
 		fin += sizeof( lmp );
 	}
 
-	pixels = image.width * image.height;
+	int pixels = image.width * image.height;
 
 	if( filesize < sizeof( lmp ) + pixels )
 		return false;
@@ -366,7 +356,7 @@ qboolean Image_LoadLMP( const char *name, const byte *buffer, fs_offset_t filesi
 		// HACKHACK: console background image shouldn't be transparent
 		if( !Q_stristr( name, "conback" ))
 		{
-			for( i = 0; i < pixels; i++ )
+			for( int i = 0; i < pixels; i++ )
 			{
 				if( fin[i] == 255 )
 				{
@@ -430,7 +420,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 	qboolean	hl_texture;
 	byte	*fin, *pal;
 	int	ofs[4], rendermode;
-	int	i, pixels, numcolors;
+	int	numcolors;
 	uint	reflectivity[3] = { 0, 0, 0 };
 
 	if( filesize < sizeof( mip ))
@@ -446,7 +436,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		return false;
 
 	memcpy( ofs, mip.offsets, sizeof( ofs ));
-	pixels = image.width * image.height;
+	int pixels = image.width * image.height;
 
 	if( image.hint != IL_HINT_Q1 && filesize >= (int)sizeof(mip) + ((pixels * 85)>>6) + sizeof(short) + 768)
 	{
@@ -489,7 +479,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 				// check for luma pixels (but ignore liquid textures because they have no lightmap)
 				if( mip.name[0] != '*' && mip.name[0] != '!' )
 				{
-					for( i = 0; i < image.width * image.height; i++ )
+					for( int i = 0; i < image.width * image.height; i++ )
 					{
 						if( fin[i] > 224 )
 						{
@@ -548,7 +538,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		// don't apply luma to water surfaces because they have no lightmap
 		if( !image.custom_palette && mip.name[0] != '*' && mip.name[0] != '!' )
 		{
-			for( i = 0; i < image.width * image.height; i++ )
+			for( int i = 0; i < image.width * image.height; i++ )
 			{
 				if( fin[i] > 224 && fin[i] != 255 )
 				{
@@ -562,7 +552,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		// Arcane Dimensions has the transparent textures
 		if( Q_strrchr( name, '{' ))
 		{
-			for( i = 0; i < image.width * image.height; i++ )
+			for( int i = 0; i < image.width * image.height; i++ )
 			{
 				if( fin[i] == 255 )
 				{
@@ -614,7 +604,7 @@ qboolean Image_LoadMIP( const char *name, const byte *buffer, fs_offset_t filesi
 		else
 		{
 			// calc texture reflectivity
-			for( i = 0; i < 256; i++ )
+			for( int i = 0; i < 256; i++ )
 			{
 				reflectivity[0] += pal[i*3+0];
 				reflectivity[1] += pal[i*3+1];
@@ -639,8 +629,6 @@ Image_LoadWAD
 qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesize )
 {
 	dwadinfo_t whdr;
-	const unsigned char *mipdata;
-	int i, j;
 
 	if( !buffer || filesize < sizeof( dwadinfo_t ))
 		return false;
@@ -650,19 +638,13 @@ qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesi
 	if( whdr.numlumps <= 0 || whdr.infotableofs <= 0 || whdr.infotableofs >= (int)filesize )
 		return false;
 
-	for( i = 0; i < whdr.numlumps; ++i )
+	for( int i = 0; i < whdr.numlumps; ++i )
 	{
-		const unsigned char *pixels, *palette, *use_palette;
 		unsigned char grad_palette[256 * 3];
 		dlumpinfo_t lump;
-		int mip_size;
 		mip_t mip;
-		uint32_t      width, height, offset0;
-		uint32_t      m0size, m1size, m2size, m3size;
 		qboolean      alpha_mode = false;
 		unsigned char frontR = 0, frontG = 0, frontB = 0;
-		float t;
-		byte  idx;
 
 		memcpy( &lump, buffer + whdr.infotableofs + i * sizeof( dlumpinfo_t ), sizeof( lump ));
 		le_struct_swap( dlumpinfo_swap, &lump );
@@ -671,30 +653,30 @@ qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesi
 			continue;
 
 		// get lump data and validate
-		mipdata = (const unsigned char *)buffer + lump.filepos;
-		mip_size = lump.disksize;
+		const unsigned char *mipdata = (const unsigned char *)buffer + lump.filepos;
+		int mip_size = lump.disksize;
 		if( lump.filepos < 0 || lump.filepos + mip_size > (int)filesize )
 			continue;
 
 		memcpy( &mip, mipdata, sizeof( mip ));
 		le_struct_swap( mip_swap, &mip );
-		width = mip.width;
-		height = mip.height;
+		uint32_t width = mip.width;
+		uint32_t height = mip.height;
 
 		if( width <= 0 || height <= 0 || width > 256 || height > 256 )
 			continue;
 
-		offset0 = mip.offsets[0];
+		uint32_t offset0 = mip.offsets[0];
 		if( offset0 == 0 || offset0 + width * height > (uint32_t)mip_size )
 			continue;
 
-		pixels = mipdata + offset0;
-		m0size = width * height;
-		m1size = m0size / 4;
-		m2size = m0size / 16;
-		m3size = m0size / 64;
-		palette = mipdata + 0x28 + m0size + m1size + m2size + m3size + 2;
-		use_palette = palette;
+		const unsigned char *pixels = mipdata + offset0;
+		uint32_t m0size = width * height;
+		uint32_t m1size = m0size / 4;
+		uint32_t m2size = m0size / 16;
+		uint32_t m3size = m0size / 64;
+		const unsigned char *palette = mipdata + 0x28 + m0size + m1size + m2size + m3size + 2;
+		const unsigned char *use_palette = palette;
 
 		// handle gradient palette
 		if( lump.type == TYP_PALETTE )
@@ -704,9 +686,9 @@ qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesi
 			frontR = frontColorPtr[0];
 			frontG = frontColorPtr[1];
 			frontB = frontColorPtr[2];
-			for( j = 0; j < 256; ++j )
+			for( int j = 0; j < 256; ++j )
 			{
-				t = j / 255.0f;
+				float t = j / 255.0f;
 				grad_palette[j * 3 + 0] = (unsigned char)( frontR * t );
 				grad_palette[j * 3 + 1] = (unsigned char)( frontG * t );
 				grad_palette[j * 3 + 2] = (unsigned char)( frontB * t );
@@ -726,9 +708,9 @@ qboolean Image_LoadWAD( const char *name, const byte *buffer, fs_offset_t filesi
 		image.palette = NULL;
 
 		// convert indexed pixels to RGBA
-		for( j = 0; j < (int)( width * height ); ++j )
+		for( int j = 0; j < (int)( width * height ); ++j )
 		{
-			idx = pixels[j];
+			byte idx = pixels[j];
 			image.rgba[j * 4 + 0] = use_palette[idx * 3 + 0];
 			image.rgba[j * 4 + 1] = use_palette[idx * 3 + 1];
 			image.rgba[j * 4 + 2] = use_palette[idx * 3 + 2];
@@ -749,9 +731,7 @@ Image_SaveWAD
 */
 qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
 {
-	int         m0size, m1size, m2size, m3size;
 	byte        *mip1_data = NULL, *mip2_data = NULL, *mip3_data = NULL;
-	const byte  *palette;
 	byte        grad_palette[256 * 3];
 	file_t      *f;
 	dwadinfo_t  header;
@@ -759,7 +739,6 @@ qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
 	long        infotableofs;
 	dlumpinfo_t lump;
 	fs_offset_t pad;
-	int         i;
 	qboolean    result = false;
 	int         lump_type = ( pix->flags & IMAGE_GRADIENT_DECAL ) ? TYP_PALETTE : TYP_MIPTEX;
 	short       palette_size = 256;
@@ -768,12 +747,12 @@ qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
 	if( !pix || !pix->buffer )
 		return false;
 
-	palette = pix->palette ? pix->palette : (const byte *)image.palette;
+	const byte *palette = pix->palette ? pix->palette : (const byte *)image.palette;
 
-	m0size = pix->width * pix->height;
-	m1size = m0size / 4;
-	m2size = m0size / 16;
-	m3size = m0size / 64;
+	int m0size = pix->width * pix->height;
+	int m1size = m0size / 4;
+	int m2size = m0size / 16;
+	int m3size = m0size / 64;
 
 	mip1_data = (byte *)Mem_Malloc( host.imagepool, m1size );
 	mip2_data = (byte *)Mem_Malloc( host.imagepool, m2size );
@@ -815,7 +794,7 @@ qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
 	if( lump_type == TYP_PALETTE )
 	{
 		const byte *frontColorPtr = palette + 255 * 3;
-		for( i = 0; i < 256; ++i )
+		for( int i = 0; i < 256; ++i )
 		{
 			float t = i / 255.0f;
 			grad_palette[i * 3 + 0] = (byte)( frontColorPtr[0] * t );
@@ -831,7 +810,7 @@ qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
 
 	// padding up to a multiple of 4
 	pad = (( FS_Tell( f ) + 3 ) & ~3 ) - FS_Tell( f );
-	for( i = 0; i < pad; ++i )
+	for( int i = 0; i < pad; ++i )
 		FS_Write( f, (const void *)&(char){0}, 1 );
 
 	infotableofs = FS_Tell( f );

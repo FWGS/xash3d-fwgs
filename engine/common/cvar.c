@@ -70,12 +70,10 @@ find the specified variable by name
 */
 convar_t *Cvar_FindVar( const char *var_name )
 {
-	convar_t *var;
-
 	if( !var_name )
 		return NULL;
 
-	var = BaseCmd_Find( HM_CVAR, var_name );
+	convar_t *var = BaseCmd_Find( HM_CVAR, var_name );
 
 	// HACKHACK: HL25 compatibility
 	if( !var && !Q_stricmp( var_name, "gl_widescreen_yfov" ))
@@ -190,10 +188,9 @@ deal with userinfo etc
 */
 static const char *Cvar_ValidateString( convar_t *var, const char *value )
 {
-	const char	*pszValue;
 	static char	szNew[MAX_STRING];
+	const char	*pszValue = value;
 
-	pszValue = value;
 	szNew[0] = 0;
 
 	// this cvar's string must only contain printable characters.
@@ -283,14 +280,11 @@ unlink the variable
 static int Cvar_UnlinkVar( const char *var_name, uint32_t group )
 {
 	int	count = 0;
-	convar_t	**prev;
-	convar_t	*var;
-
-	prev = &cvar_vars;
+	convar_t	**prev = &cvar_vars;
 
 	while( 1 )
 	{
-		var = *prev;
+		convar_t *var = *prev;
 		if( !var ) break;
 
 		// do filter by name
@@ -358,13 +352,11 @@ Cvar_LookupVars
 */
 void Cvar_LookupVars( int checkbit, void *buffer, void *ptr, setpair_t callback )
 {
-	convar_t	*var;
-
 	// nothing to process ?
 	if( !callback ) return;
 
 	// force checkbit to 0 for lookup all cvars
-	for( var = cvar_vars; var; var = var->next )
+	for( convar_t *var = cvar_vars; var; var = var->next )
 	{
 		if( checkbit && !FBitSet( var->flags, checkbit ))
 			continue;
@@ -627,8 +619,6 @@ Cvar_Set2
 */
 static convar_t *Cvar_Set2( const char *var_name, const char *value )
 {
-	convar_t	*var;
-	qboolean	dll_variable = false;
 	qboolean	force = false;
 
 	if( !Cvar_ValidateVarName( var_name, false ))
@@ -637,7 +627,7 @@ static convar_t *Cvar_Set2( const char *var_name, const char *value )
 		return NULL;
 	}
 
-	var = Cvar_FindVar( var_name );
+	convar_t *var = Cvar_FindVar( var_name );
 	if( !var )
 	{
 		// if cvar not found, create it
@@ -663,7 +653,7 @@ static convar_t *Cvar_Set2( const char *var_name, const char *value )
 
 	// use this check to prevent acessing for unexisting fields
 	// for cvar_t: latched_string, description, etc
-	dll_variable = FBitSet( var->flags, FCVAR_EXTDLL );
+	qboolean dll_variable = FBitSet( var->flags, FCVAR_EXTDLL );
 
 	// check value
 	if( !value )
@@ -782,8 +772,6 @@ Cvar_Set
 */
 void GAME_EXPORT Cvar_Set( const char *var_name, const char *value )
 {
-	convar_t	*var;
-
 	if( !var_name )
 	{
 		// there is an error in C code if this happens
@@ -791,7 +779,7 @@ void GAME_EXPORT Cvar_Set( const char *var_name, const char *value )
 		return;
 	}
 
-	var = Cvar_FindVar( var_name );
+	convar_t *var = Cvar_FindVar( var_name );
 
 	if( !var )
 	{
@@ -836,8 +824,6 @@ Cvar_VariableValue
 */
 float GAME_EXPORT Cvar_VariableValue( const char *var_name )
 {
-	convar_t	*var;
-
 	if( !var_name )
 	{
 		// there is an error in C code if this happens
@@ -845,7 +831,7 @@ float GAME_EXPORT Cvar_VariableValue( const char *var_name )
 		return 0.0f;
 	}
 
-	var = Cvar_FindVar( var_name );
+	convar_t *var = Cvar_FindVar( var_name );
 	if( !var ) return 0.0f;
 
 	return Q_atof( var->string );
@@ -858,9 +844,7 @@ Cvar_VariableInteger
 */
 int Cvar_VariableInteger( const char *var_name )
 {
-	convar_t	*var;
-
-	var = Cvar_FindVar( var_name );
+	convar_t *var = Cvar_FindVar( var_name );
 	if( !var ) return 0;
 
 	return Q_atoi( var->string );
@@ -873,8 +857,6 @@ Cvar_VariableString
 */
 const char *Cvar_VariableString( const char *var_name )
 {
-	convar_t	*var;
-
 	if( !var_name )
 	{
 		// there is an error in C code if this happens
@@ -882,7 +864,7 @@ const char *Cvar_VariableString( const char *var_name )
 		return "";
 	}
 
-	var = Cvar_FindVar( var_name );
+	convar_t *var = Cvar_FindVar( var_name );
 	if( !var ) return "";
 
 	return var->string;
@@ -909,10 +891,8 @@ Any testing variables will be reset to the safe values
 */
 void Cvar_SetCheatState( void )
 {
-	convar_t	*var;
-
 	// set all default vars to the safe value
-	for( var = cvar_vars; var; var = var->next )
+	for( convar_t *var = cvar_vars; var; var = var->next )
 	{
 		// can't process dll cvars - missed def_string
 		if( !FBitSet( var->flags, FCVAR_ALLOCATED|FCVAR_EXTENDED ))
@@ -959,7 +939,6 @@ static int ShouldSetCvar_splitstr_handler( char *prev, char *next, void *userdat
 static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 {
 	const char *prefixes[] = { "cl_", "gl_", "m_", "r_", "hud_", "joy_", "con_", "scr_" };
-	int i;
 
 	if( isPrivileged )
 		return true;
@@ -981,7 +960,7 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 	if( FBitSet( v->flags, FCVAR_FILTERABLE ))
 		return false;
 
-	for( i = 0; i < ARRAYSIZE( prefixes ); i++ )
+	for( int i = 0; i < ARRAYSIZE( prefixes ); i++ )
 	{
 		if( !Q_strnicmp( v->name, prefixes[i], Q_strlen( prefixes[i] )))
 			return false;
@@ -1046,9 +1025,7 @@ with the specified flag set to true.
 */
 void Cvar_WriteVariables( file_t *f, int group )
 {
-	convar_t	*var;
-
-	for( var = cvar_vars; var; var = var->next )
+	for( convar_t *var = cvar_vars; var; var = var->next )
 	{
 		if( FBitSet( var->flags, group ))
 			FS_Printf( f, "%s \"%s\"\n", var->name, var->string );
@@ -1064,15 +1041,13 @@ Toggles a cvar for easy single key binding
 */
 static void Cvar_Toggle_f( void )
 {
-	int	v;
-
 	if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "toggle <variable>\n" );
 		return;
 	}
 
-	v = !Cvar_VariableInteger( Cmd_Argv( 1 ));
+	int v = !Cvar_VariableInteger( Cmd_Argv( 1 ));
 
 	Cvar_Set( Cmd_Argv( 1 ), v ? "1" : "0" );
 }
@@ -1087,10 +1062,10 @@ weren't declared in C code.
 */
 static void Cvar_Set_f( void )
 {
-	int	i, c, l = 0, len;
 	char	combined[MAX_CMD_TOKENS];
+	int	l = 0;
 
-	c = Cmd_Argc();
+	int c = Cmd_Argc();
 	if( c < 3 )
 	{
 		Msg( S_USAGE "set <variable> <value>\n" );
@@ -1098,9 +1073,9 @@ static void Cvar_Set_f( void )
 	}
 	combined[0] = 0;
 
-	for( i = 2; i < c; i++ )
+	for( int i = 2; i < c; i++ )
 	{
-		len = Q_strlen( Cmd_Argv(i) + 1 );
+		int len = Q_strlen( Cmd_Argv(i) + 1 );
 		if( l + len >= MAX_CMD_TOKENS - 2 )
 			break;
 		Q_strncat( combined, Cmd_Argv( i ), sizeof( combined ));
@@ -1134,7 +1109,6 @@ Cvar_List_f
 */
 static void Cvar_List_f( void )
 {
-	convar_t	*var;
 	const char	*match = NULL;
 	int	count = 0;
 	size_t	matchlen = 0;
@@ -1145,10 +1119,9 @@ static void Cvar_List_f( void )
 		matchlen = Q_strlen( match );
 	}
 
-	for( var = cvar_vars; var; var = var->next )
+	for( convar_t *var = cvar_vars; var; var = var->next )
 	{
 		char value[MAX_VA_STRING];
-		char *p;
 
 		if( var->name[0] == '@' )
 			continue;	// never shows system cvars
@@ -1156,7 +1129,7 @@ static void Cvar_List_f( void )
 		if( match && !Q_strnicmpext( match, var->name, matchlen ))
 			continue;
 
-		p = Q_strchr( var->string, '^' );
+		char *p = Q_strchr( var->string, '^' );
 
 		if( IsColorString( p ))
 			Q_snprintf( value, sizeof( value ), "\"%s\"", var->string );
@@ -1195,12 +1168,10 @@ unlink all cvars with specified flag
 */
 void Cvar_Unlink( uint32_t group )
 {
-	int	count;
-
 	if( !Cvar_ValidateUnlinkGroup( group ))
 		return;
 
-	count = Cvar_UnlinkVar( NULL, group );
+	int count = Cvar_UnlinkVar( NULL, group );
 	Con_Reportf( "unlink %i cvars\n", count );
 }
 
@@ -1208,18 +1179,14 @@ pending_cvar_t *Cvar_PrepareToUnlink( uint32_t group )
 {
 	pending_cvar_t *list = NULL;
 	pending_cvar_t *tail = NULL;
-	convar_t *cv;
 
-	for( cv = cvar_vars; cv != NULL; cv = cv->next )
+	for( convar_t *cv = cvar_vars; cv != NULL; cv = cv->next )
 	{
-		size_t namelen;
-		pending_cvar_t *p;
-
 		if( !FBitSet( cv->flags, group ))
 			continue;
 
-		namelen = Q_strlen( cv->name ) + 1;
-		p = Mem_Malloc( cvar_pool, sizeof( *list ) + namelen );
+		size_t namelen = Q_strlen( cv->name ) + 1;
+		pending_cvar_t *p = Mem_Malloc( cvar_pool, sizeof( *list ) + namelen );
 		p->next = NULL;
 		p->cv_cur = cv;
 		p->cv_next = cv->next;
@@ -1320,9 +1287,7 @@ Cvar_PostFSInit
 */
 void Cvar_PostFSInit( void )
 {
-	int i;
-
-	for( i = 0; i < ARRAYSIZE( cvar_filter_quirks ); i++ )
+	for( int i = 0; i < ARRAYSIZE( cvar_filter_quirks ); i++ )
 	{
 		if( !Q_stricmp( cvar_filter_quirks[i].gamedir, GI->gamefolder ))
 		{

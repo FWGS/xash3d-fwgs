@@ -46,13 +46,13 @@ void *COM_FunctionFromName_SR( void *hInstance, const char *pName )
 #endif
 
 #if XASH_POSIX
-	size_t numfuncs, i;
-	void *f = NULL;
+	size_t numfuncs;
 	char **funcs = COM_ConvertToLocalPlatform( MANGLE_ITANIUM, pName, &numfuncs );
 
 	if( funcs )
 	{
-		for( i = 0; i < numfuncs; i++ )
+		void *f = NULL;
+		for( size_t i = 0; i < numfuncs; i++ )
 		{
 			if( !f )
 				f = COM_FunctionFromName( hInstance, funcs[i] );
@@ -85,13 +85,10 @@ const char *COM_OffsetNameForFunction( void *function )
 
 dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 {
-	dll_user_t *p;
-	fs_dllinfo_t dllInfo;
-
 	// no fs loaded yet, but let engine find fs
 	if( !g_fsapi.FindLibrary )
 	{
-		p = Mem_Calloc( host.mempool, sizeof( dll_user_t ));
+		dll_user_t *p = Mem_Calloc( host.mempool, sizeof( dll_user_t ));
 		Q_strncpy( p->shortPath, dllname, sizeof( p->shortPath ));
 		Q_strncpy( p->fullPath, dllname, sizeof( p->fullPath ));
 		Q_strncpy( p->dllName, dllname, sizeof( p->dllName ));
@@ -99,13 +96,15 @@ dll_user_t *FS_FindLibrary( const char *dllname, qboolean directpath )
 		return p;
 	}
 
+	fs_dllinfo_t dllInfo;
+
 	// fs can't find library
 	if( !g_fsapi.FindLibrary( dllname, directpath, &dllInfo ))
 		return NULL;
 
 	// NOTE: for libraries we not fail even if search is NULL
 	// let the OS find library himself
-	p = Mem_Calloc( host.mempool, sizeof( dll_user_t ));
+	dll_user_t *p = Mem_Calloc( host.mempool, sizeof( dll_user_t ));
 	Q_strncpy( p->shortPath, dllInfo.shortPath, sizeof( p->shortPath ));
 	Q_strncpy( p->fullPath, dllInfo.fullPath, sizeof( p->fullPath ));
 	Q_strncpy( p->dllName, dllname, sizeof( p->dllName ));
@@ -279,12 +278,12 @@ static EFunctionMangleType COM_DetectMangleType( const char *str )
 
 char *COM_GetMSVCName( const char *in_name )
 {
-	static string   out_name;
-	char            *pos;
+	static string out_name;
 
 	if( in_name[0] == '?' )  // is this a MSVC C++ mangled name?
 	{
-		if(( pos = Q_strstr( in_name, "@@" )) != NULL )
+		char *pos = Q_strstr( in_name, "@@" );
+		if( pos != NULL )
 		{
 			ptrdiff_t len = pos - in_name;
 
@@ -367,15 +366,11 @@ invalid_format:
 
 char **COM_ConvertToLocalPlatform( EFunctionMangleType to, const char *from, size_t *numfuncs )
 {
-	string symbols[MAX_NESTED_NAMESPACES], temp, temp2;
-	const char *prev;
-	const char *postfix[3];
-	int i = 0;
-	char **ret;
-
 	// TODO:
 	if( to == MANGLE_MSVC )
 		return NULL;
+
+	const char *postfix[3];
 
 	switch( to )
 	{
@@ -389,7 +384,9 @@ char **COM_ConvertToLocalPlatform( EFunctionMangleType to, const char *from, siz
 		return NULL;
 	}
 
-	prev = from;
+	string symbols[MAX_NESTED_NAMESPACES];
+	const char *prev = from;
+	int i;
 
 	for( i = 0; i < MAX_NESTED_NAMESPACES; i++ )
 	{
@@ -415,8 +412,9 @@ char **COM_ConvertToLocalPlatform( EFunctionMangleType to, const char *from, siz
 
 	// only three possible variations
 	*numfuncs = ARRAYSIZE( postfix );
-	ret = Z_Malloc( sizeof( char * ) * ARRAYSIZE( postfix ) );
+	char **ret = Z_Malloc( sizeof( char * ) * ARRAYSIZE( postfix ) );
 
+	string temp, temp2;
 	Q_strncpy( temp, "_ZN", sizeof( temp ));
 
 	for( ; i >= 0; i-- )
@@ -492,9 +490,8 @@ static void Test_GetMSVCName( void )
 		"?foo@@", "foo", // not an error?
 		"?foo@bar@baz@@gotstrippedanyway","foo@bar@baz"
 	};
-	int i;
 
-	for( i = 0; i < ARRAYSIZE( symbols ); i += 2 )
+	for( int i = 0; i < ARRAYSIZE( symbols ); i += 2 )
 	{
 		Msg( "Checking if MSVC '%s' converts to '%s'...\n", symbols[i], symbols[i+1] );
 
@@ -519,9 +516,8 @@ static void Test_GetItaniumName( void )
 		"_ZN3fooEv", "foo", // not possible?
 		"_ZN3baz3bar3fooEdontcare", "foo@bar@baz",
 	};
-	int i;
 
-	for( i = 0; i < ARRAYSIZE( symbols ); i += 2 )
+	for( int i = 0; i < ARRAYSIZE( symbols ); i += 2 )
 	{
 		Msg( "Checking if Itanium '%s' converts to '%s'...\n", symbols[i], symbols[i+1] );
 
@@ -538,17 +534,15 @@ static void Test_ConvertFromValveToLocal( void )
 		"xash3d@fwgs", "_ZN4fwgs6xash3d",
 		"foo@bar@bazz", "_ZN4bazz3bar3foo"
 	};
-	int i;
 
-	for( i = 0; i < ARRAYSIZE( symbols ); i += 2 )
+	for( int i = 0; i < ARRAYSIZE( symbols ); i += 2 )
 	{
-		char **ret;
 		size_t numfuncs;
 		size_t symlen = Q_strlen( symbols[i + 1] );
 
 		Msg( "Checking if Valve '%s' converts to Itanium '%s'...\n", symbols[i], symbols[i+1] );
 
-		ret = COM_ConvertToLocalPlatform( MANGLE_ITANIUM, symbols[i], &numfuncs );
+		char **ret = COM_ConvertToLocalPlatform( MANGLE_ITANIUM, symbols[i], &numfuncs );
 
 		TASSERT( numfuncs == 3 );
 		TASSERT( !Q_strncmp( ret[0], symbols[i+1], symlen ));

@@ -45,14 +45,11 @@ static CVAR_DEFINE_AUTO( sv_verbose_heartbeats, "0", 0, "print every heartbeat t
 
 static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t key, qboolean nat, const char *filter, connprotocol_t proto )
 {
-	size_t remaining;
-	char *info, temp[32];
-
 	// TODO: pagination and region
 	Q_strncpy( buf, A2M_SCAN_REQUEST, size );
 
-	info = buf + sizeof( A2M_SCAN_REQUEST ) - 1;
-	remaining = size - sizeof( A2M_SCAN_REQUEST );
+	char *info = buf + sizeof( A2M_SCAN_REQUEST ) - 1;
+	size_t remaining = size - sizeof( A2M_SCAN_REQUEST );
 
 	Q_strncpy( info, filter, remaining );
 
@@ -62,6 +59,8 @@ static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t
 
 	if( proto != PROTO_GOLDSRC )
 	{
+		char temp[32];
+
 		// let master know about client version
 		Info_SetValueForKey( info, "clver", XASH_VERSION, remaining );
 		Info_SetValueForKey( info, "nat", nat ? "1" : "0", remaining );
@@ -87,15 +86,13 @@ NET_GetMasterHostByName
 */
 static net_gai_state_t NET_GetMasterHostByName( master_t *m )
 {
-	net_gai_state_t res;
-
 	if( host.realtime > m->resolve_time )
 		m->adr.type = 0;
 
 	if( m->adr.type )
 		return NET_EAI_OK;
 
-	res = NET_StringToAdrNB( m->address, &m->adr, m->v6only );
+	net_gai_state_t res = NET_StringToAdrNB( m->address, &m->adr, m->v6only );
 
 	if( res == NET_EAI_OK )
 	{
@@ -127,10 +124,9 @@ return true if would block
 */
 static qboolean NET_SendToMasters( netsrc_t sock, size_t len, const void *data, connprotocol_t proto )
 {
-	master_t *master;
 	qboolean wait = false;
 
-	for( master = ml.head; master; master = master->next )
+	for( master_t *master = ml.head; master; master = master->next )
 	{
 		if( master->gs )
 		{
@@ -199,9 +195,7 @@ NET_AnnounceToMaster
 */
 void NET_MasterClear( void )
 {
-	master_t *m;
-
-	for( m = ml.head; m; m = m->next )
+	for( master_t *m = ml.head; m; m = m->next )
 		m->last_heartbeat = MAX_HEARTBEAT;
 }
 
@@ -213,11 +207,8 @@ NET_MasterQuery
 qboolean NET_MasterQuery( uint32_t key, qboolean nat, const char *filter )
 {
 	char buf[512];
-	size_t len;
-	qboolean wait = false;
-
-	len = NET_BuildMasterServerScanRequest( buf, sizeof( buf ), key, nat, filter, PROTO_CURRENT );
-	wait = NET_SendToMasters( NS_CLIENT, len, buf, PROTO_CURRENT );
+	size_t len = NET_BuildMasterServerScanRequest( buf, sizeof( buf ), key, nat, filter, PROTO_CURRENT );
+	qboolean wait = NET_SendToMasters( NS_CLIENT, len, buf, PROTO_CURRENT );
 
 	// goldsrc don't have nat traversal extensions
 	if( !nat )
@@ -240,12 +231,10 @@ NET_MasterHeartbeat
 */
 void NET_MasterHeartbeat( void )
 {
-	master_t *m;
-
 	if(( !public_server.value && !sv_nat.value ) || svs.maxclients == 1 )
 		return; // only public servers send heartbeats
 
-	for( m = ml.head; m; m = m->next )
+	for( master_t *m = ml.head; m; m = m->next )
 	{
 		if( host.realtime - m->last_heartbeat < HEARTBEAT_SECONDS )
 			continue;
@@ -296,9 +285,7 @@ NET_GetMasterFromAdr
 */
 static master_t *NET_GetMasterFromAdr( netadr_t adr )
 {
-	master_t *master;
-
-	for( master = ml.head; master; master = master->next )
+	for( master_t *master = ml.head; master; master = master->next )
 	{
 		if( NET_CompareAdr( adr, master->adr ))
 			return master;
@@ -315,9 +302,7 @@ NET_GetMaster
 */
 qboolean NET_GetMaster( netadr_t from, uint *challenge, double *last_heartbeat )
 {
-	master_t *m;
-
-	m = NET_GetMasterFromAdr( from );
+	master_t *m = NET_GetMasterFromAdr( from );
 
 	if( m )
 	{
@@ -356,15 +341,13 @@ Add master to the list
 */
 static master_t *NET_AddMaster( const char *addr )
 {
-	master_t *master;
-
-	for( master = ml.head; master; master = master->next )
+	for( master_t *master = ml.head; master; master = master->next )
 	{
 		if( !Q_stricmp( master->address, addr )) // already exists
 			return master;
 	}
 
-	master = Mem_Calloc( host.mempool, sizeof( *master ));
+	master_t *master = Mem_Calloc( host.mempool, sizeof( *master ));
 	Q_strncpy( master->address, addr, sizeof( master->address ));
 
 	if( ml.tail )
@@ -382,15 +365,13 @@ static master_t *NET_AddMaster( const char *addr )
 
 static void NET_AddMaster_f( void )
 {
-	master_t *master;
-
 	if( Cmd_Argc() != 2 )
 	{
 		Msg( S_USAGE "addmaster <address> [gs]\n");
 		return;
 	}
 
-	master = NET_AddMaster( Cmd_Argv( 1 ));
+	master_t *master = NET_AddMaster( Cmd_Argv( 1 ));
 	master->save = true;
 
 	if( !Q_stricmp( Cmd_Argv( 2 ), "gs" ))
@@ -427,12 +408,10 @@ Display current master linked list
 */
 static void NET_ListMasters_f( void )
 {
-	master_t *master;
-	int i;
-
 	Con_Printf( "Master servers:\n" );
 
-	for( i = 1, master = ml.head; master; i++, master = master->next )
+	int i = 1;
+	for( master_t *master = ml.head; master; i++, master = master->next )
 	{
 		Con_Printf( "%d\t%s", i, master->address );
 		if( master->adr.type != 0 )
@@ -457,11 +436,8 @@ Load master server list from xashcomm.lst
 */
 static void NET_LoadMasters( void )
 {
-	byte *afile;
-	char *pfile;
 	char token[MAX_TOKEN];
-
-	afile = FS_LoadFile( "xashcomm.lst", NULL, false );
+	byte *afile = FS_LoadFile( "xashcomm.lst", NULL, false );
 
 	if( !afile ) // file doesn't exist yet
 	{
@@ -469,7 +445,7 @@ static void NET_LoadMasters( void )
 		return;
 	}
 
-	pfile = (char*)afile;
+	char *pfile = (char*)afile;
 
 	// format: master <addr>\n
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))))
@@ -515,13 +491,10 @@ Save master server list to xashcomm.lst, except for default
 */
 void NET_SaveMasters( void )
 {
-	file_t *f;
-	master_t *m;
-
 	if( !ml.modified )
 		return;
 
-	f = FS_Open( "xashcomm.lst", "w", true );
+	file_t *f = FS_Open( "xashcomm.lst", "w", true );
 
 	if( !f )
 	{
@@ -529,7 +502,7 @@ void NET_SaveMasters( void )
 		return;
 	}
 
-	for( m = ml.head; m; m = m->next )
+	for( master_t *m = ml.head; m; m = m->next )
 	{
 		const char *key;
 

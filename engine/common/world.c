@@ -28,18 +28,16 @@ World_TransformAABB
 */
 void World_TransformAABB( matrix4x4 transform, const vec3_t mins, const vec3_t maxs, vec3_t outmins, vec3_t outmaxs )
 {
-	vec3_t	p1, p2;
-	matrix4x4	itransform;
-	int	i;
-
 	if( !outmins || !outmaxs ) return;
 
+	matrix4x4	itransform;
 	Matrix4x4_Invert_Simple( itransform, transform );
 	ClearBounds( outmins, outmaxs );
 
 	// compute a full bounding box
-	for( i = 0; i < 8; i++ )
+	for( int i = 0; i < 8; i++ )
 	{
+		vec3_t	p1, p2;
 		p1[0] = ( i & 1 ) ? mins[0] : maxs[0];
 		p1[1] = ( i & 2 ) ? mins[1] : maxs[1];
 		p1[2] = ( i & 4 ) ? mins[2] : maxs[2];
@@ -57,7 +55,7 @@ void World_TransformAABB( matrix4x4 transform, const vec3_t mins, const vec3_t m
 	}
 
 	// sanity check
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		if( outmins[i] > outmaxs[i] )
 		{
