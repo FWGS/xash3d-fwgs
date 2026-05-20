@@ -54,11 +54,10 @@ Cmd_ListMaps
 */
 int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len, qboolean silent )
 {
-	file_t *f;
-	int i, nummaps;
+	int nummaps = 0;
 	string mapname, message, compiler, generator;
 
-	for( i = 0, nummaps = 0; i < t->numfilenames; i++ )
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		char		entfilename[MAX_QPATH];
 		const char	*ext = COM_FileExtension( t->filenames[i] );
@@ -72,17 +71,14 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len, qboolean silent )
 		compiler[0] = '\0';
 		generator[0] = '\0';
 
-		f = FS_Open( t->filenames[i], "rb", con_gamemaps.value );
+		file_t *f = FS_Open( t->filenames[i], "rb", con_gamemaps.value );
 
 		if( f )
 		{
-			dheader_t   *header;
-			dextrahdr_t *hdrext;
 			dlump_t     entities;
-			fs_offset_t filelen;
 			byte        buf[MAX_SYSPATH] = { 0 }; // 1 kb
 
-			filelen = FS_Read( f, buf, sizeof( buf ));
+			fs_offset_t filelen = FS_Read( f, buf, sizeof( buf ));
 
 			// check all the lumps and some other errors
 			if( !Mod_TestBmodelLumps( f, t->filenames[i], buf, filelen, silent, &entities ))
@@ -94,8 +90,8 @@ int Cmd_ListMaps( search_t *t, char *lastmapname, size_t len, qboolean silent )
 			lumpofs = entities.fileofs;
 			lumplen = entities.filelen;
 
-			header = (dheader_t *)buf;
-			hdrext = (dextrahdr_t *)((byte *)buf + sizeof( dheader_t ));
+			dheader_t *header = (dheader_t *)buf;
+			dextrahdr_t *hdrext = (dextrahdr_t *)((byte *)buf + sizeof( dheader_t ));
 
 			ver = header->version;
 			if( hdrext->id == IDEXTRAHEADER ) version = hdrext->version;
@@ -187,11 +183,9 @@ Prints or complete map filename
 */
 static qboolean Cmd_GetMapList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	search_t *t;
-	string   matchbuf;
-	int	 i, nummaps;
+	string matchbuf;
 
-	t = FS_Search( va( "maps/%s*.bsp", s ), true, con_gamemaps.value );
+	search_t *t = FS_Search( va( "maps/%s*.bsp", s ), true, con_gamemaps.value );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
@@ -199,7 +193,7 @@ static qboolean Cmd_GetMapList( const char *s, char *completedname, int length, 
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
 
-	nummaps = Cmd_ListMaps( t, matchbuf, sizeof( matchbuf ), !print_suggestions );
+	int nummaps = Cmd_ListMaps( t, matchbuf, sizeof( matchbuf ), !print_suggestions );
 
 	if( print_suggestions )
 		Con_Printf( "\n^3 %d maps found.\n", nummaps );
@@ -207,7 +201,7 @@ static qboolean Cmd_GetMapList( const char *s, char *completedname, int length, 
 	Mem_Free( t );
 
 	// cut shortestMatch to the amount common with s
-	for( i = 0; matchbuf[i]; i++ )
+	for( int i = 0; matchbuf[i]; i++ )
 	{
 		if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 			completedname[i] = 0;
@@ -224,12 +218,10 @@ Prints or complete demo filename
 */
 static qboolean Cmd_GetDemoList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	search_t		*t;
-	string		matchbuf;
-	int		i, numdems;
+	string matchbuf;
 
 	// lookup only in gamedir
-	t = FS_Search( va( "%s*.dem", s ), true, true );
+	search_t *t = FS_Search( va( "%s*.dem", s ), true, true );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
@@ -237,7 +229,8 @@ static qboolean Cmd_GetDemoList( const char *s, char *completedname, int length,
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
 
-	for( i = 0, numdems = 0; i < t->numfilenames; i++ )
+	int numdems = 0;
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "dem" ))
 			continue;
@@ -256,7 +249,7 @@ static qboolean Cmd_GetDemoList( const char *s, char *completedname, int length,
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -274,11 +267,9 @@ Prints or complete movie filename
 */
 static qboolean Cmd_GetMovieList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	search_t		*t;
-	string		matchbuf;
-	int		i, nummovies;
+	string matchbuf;
 
-	t = FS_Search( va( "media/%s*.avi", s ), true, false );
+	search_t *t = FS_Search( va( "media/%s*.avi", s ), true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
@@ -286,7 +277,8 @@ static qboolean Cmd_GetMovieList( const char *s, char *completedname, int length
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
 
-	for(i = 0, nummovies = 0; i < t->numfilenames; i++)
+	int nummovies = 0;
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "avi" ))
 			continue;
@@ -304,7 +296,7 @@ static qboolean Cmd_GetMovieList( const char *s, char *completedname, int length
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -323,11 +315,9 @@ Prints or complete background track filename
 */
 static qboolean Cmd_GetMusicList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	search_t		*t;
-	string		matchbuf;
-	int		i, numtracks;
+	string matchbuf;
 
-	t = FS_Search( va( "media/%s*.*", s ), true, false );
+	search_t *t = FS_Search( va( "media/%s*.*", s ), true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
@@ -335,7 +325,8 @@ static qboolean Cmd_GetMusicList( const char *s, char *completedname, int length
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
 
-	for(i = 0, numtracks = 0; i < t->numfilenames; i++)
+	int numtracks = 0;
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		const char *ext = COM_FileExtension( t->filenames[i] );
 
@@ -355,7 +346,7 @@ static qboolean Cmd_GetMusicList( const char *s, char *completedname, int length
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -373,11 +364,9 @@ Prints or complete savegame filename
 */
 static qboolean Cmd_GetSavesList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	search_t		*t;
-	string		matchbuf;
-	int		i, numsaves;
+	string matchbuf;
 
-	t = FS_Search( va( DEFAULT_SAVE_DIRECTORY "%s*.sav", s ), true, true );	// lookup only in gamedir
+	search_t *t = FS_Search( va( DEFAULT_SAVE_DIRECTORY "%s*.sav", s ), true, true );	// lookup only in gamedir
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
@@ -385,7 +374,8 @@ static qboolean Cmd_GetSavesList( const char *s, char *completedname, int length
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
 
-	for( i = 0, numsaves = 0; i < t->numfilenames; i++ )
+	int numsaves = 0;
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "sav" ))
 			continue;
@@ -403,7 +393,7 @@ static qboolean Cmd_GetSavesList( const char *s, char *completedname, int length
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -422,11 +412,9 @@ Prints or complete .cfg filename
 */
 static qboolean Cmd_GetConfigList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	search_t		*t;
-	string		matchbuf;
-	int		i, numconfigs;
+	string matchbuf;
 
-	t = FS_Search( va( "%s*.cfg", s ), true, false );
+	search_t *t = FS_Search( va( "%s*.cfg", s ), true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
@@ -434,7 +422,8 @@ static qboolean Cmd_GetConfigList( const char *s, char *completedname, int lengt
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
 
-	for( i = 0, numconfigs = 0; i < t->numfilenames; i++ )
+	int numconfigs = 0;
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "cfg" ))
 			continue;
@@ -452,7 +441,7 @@ static qboolean Cmd_GetConfigList( const char *s, char *completedname, int lengt
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -471,11 +460,9 @@ Prints or complete sound filename
 */
 static qboolean Cmd_GetSoundList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	search_t		*t;
-	string		matchbuf;
-	int		i, numsounds;
+	string matchbuf;
 
-	t = FS_Search( va( "%s%s*.*", DEFAULT_SOUNDPATH, s ), true, false );
+	search_t *t = FS_Search( va( "%s%s*.*", DEFAULT_SOUNDPATH, s ), true, false );
 	if( !t ) return false;
 
 	Q_strncpy( matchbuf, t->filenames[0] + sizeof( DEFAULT_SOUNDPATH ) - 1, sizeof( matchbuf ));
@@ -484,7 +471,8 @@ static qboolean Cmd_GetSoundList( const char *s, char *completedname, int length
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
 
-	for(i = 0, numsounds = 0; i < t->numfilenames; i++)
+	int numsounds = 0;
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		const char *ext = COM_FileExtension( t->filenames[i] );
 
@@ -505,7 +493,7 @@ static qboolean Cmd_GetSoundList( const char *s, char *completedname, int length
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -525,12 +513,10 @@ Prints or complete item classname (weapons only)
 static qboolean Cmd_GetItemsList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
 #if !XASH_DEDICATED
-	search_t		*t;
-	string		matchbuf;
-	int		i, numitems;
+	string matchbuf;
 
 	if( !clgame.itemspath[0] ) return false; // not in game yet
-	t = FS_Search( va( "%s/%s*.txt", clgame.itemspath, s ), true, false );
+	search_t *t = FS_Search( va( "%s/%s*.txt", clgame.itemspath, s ), true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
@@ -538,7 +524,8 @@ static qboolean Cmd_GetItemsList( const char *s, char *completedname, int length
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
 
-	for( i = 0, numitems = 0; i < t->numfilenames; i++ )
+	int numitems = 0;
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "txt" ))
 			continue;
@@ -556,7 +543,7 @@ static qboolean Cmd_GetItemsList( const char *s, char *completedname, int length
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -612,7 +599,6 @@ Autocomplete for bind command
 */
 static qboolean Cmd_GetCommandsAndCvarsList( const char *s, char *completedname, int length, qboolean cmds, qboolean cvars, qboolean toggle, qboolean print_suggestions )
 {
-	size_t i;
 	string matchbuf;
 	con_autocomplete_t list = { 0 }; // local autocomplete list
 
@@ -645,7 +631,7 @@ static qboolean Cmd_GetCommandsAndCvarsList( const char *s, char *completedname,
 
 	qsort( list.cmds, list.matchCount, sizeof( char* ), Con_SortCmds );
 
-	for( i = 0; i < list.matchCount; i++ )
+	for( size_t i = 0; i < list.matchCount; i++ )
 	{
 		Q_strncpy( matchbuf, list.cmds[i], sizeof( matchbuf ));
 		if( print_suggestions )
@@ -657,14 +643,14 @@ static qboolean Cmd_GetCommandsAndCvarsList( const char *s, char *completedname,
 
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( size_t i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
 		}
 	}
 
-	for( i = 0; i < list.matchCount; i++ )
+	for( size_t i = 0; i < list.matchCount; i++ )
 	{
 		if( list.cmds[i] != NULL )
 		{
@@ -709,11 +695,9 @@ Prints or complete .HPK filenames
 */
 static qboolean Cmd_GetCustomList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	search_t		*t;
-	string		matchbuf;
-	int		i, numitems;
+	string matchbuf;
 
-	t = FS_Search( va( "%s*.hpk", s ), true, false );
+	search_t *t = FS_Search( va( "%s*.hpk", s ), true, false );
 	if( !t ) return false;
 
 	COM_FileBase( t->filenames[0], matchbuf, sizeof( matchbuf ));
@@ -721,7 +705,8 @@ static qboolean Cmd_GetCustomList( const char *s, char *completedname, int lengt
 		Q_strncpy( completedname, matchbuf, length );
 	if( t->numfilenames == 1 ) return true;
 
-	for(i = 0, numitems = 0; i < t->numfilenames; i++)
+	int numitems = 0;
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		if( Q_stricmp( COM_FileExtension( t->filenames[i] ), "hpk" ))
 			continue;
@@ -739,7 +724,7 @@ static qboolean Cmd_GetCustomList( const char *s, char *completedname, int lengt
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -757,15 +742,14 @@ Prints or complete gamedir name
 */
 static qboolean Cmd_GetGamesList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	int	i, numgamedirs;
-	string	gamedirs[MAX_MODS];
-	string	matchbuf;
-	int	len;
+	string gamedirs[MAX_MODS];
+	string matchbuf;
 
 	// compare gamelist with current keyword
-	len = Q_strlen( s );
+	int len = Q_strlen( s );
 
-	for( i = 0, numgamedirs = 0; i < FI->numgames; i++ )
+	int numgamedirs = 0;
+	for( int i = 0; i < FI->numgames; i++ )
 	{
 		if(( *s == '*' ) || !Q_strnicmp( FI->games[i]->gamefolder, s, len))
 			Q_strncpy( gamedirs[numgamedirs++], FI->games[i]->gamefolder, sizeof( gamedirs[0] ));
@@ -777,7 +761,7 @@ static qboolean Cmd_GetGamesList( const char *s, char *completedname, int length
 		Q_strncpy( completedname, matchbuf, length );
 	if( numgamedirs == 1 ) return true;
 
-	for( i = 0; i < numgamedirs; i++ )
+	for( int i = 0; i < numgamedirs; i++ )
 	{
 		Q_strncpy( matchbuf, gamedirs[i], sizeof( matchbuf ));
 		if( print_suggestions )
@@ -790,7 +774,7 @@ static qboolean Cmd_GetGamesList( const char *s, char *completedname, int length
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -808,10 +792,8 @@ Prints or complete CD command name
 */
 static qboolean Cmd_GetCDList( const char *s, char *completedname, int length, qboolean print_suggestions )
 {
-	int i, numcdcommands;
-	string	cdcommands[8];
-	string	matchbuf;
-	int	len;
+	string cdcommands[8];
+	string matchbuf;
 
 	const char *cd_command[] =
 	{
@@ -826,9 +808,10 @@ static qboolean Cmd_GetCDList( const char *s, char *completedname, int length, q
 	};
 
 	// compare CD command list with current keyword
-	len = Q_strlen( s );
+	int len = Q_strlen( s );
 
-	for( i = 0, numcdcommands = 0; i < 8; i++ )
+	int numcdcommands = 0;
+	for( int i = 0; i < 8; i++ )
 	{
 		if(( *s == '*' ) || !Q_strnicmp( cd_command[i], s, len))
 			Q_strncpy( cdcommands[numcdcommands++], cd_command[i], sizeof( cdcommands[0] ));
@@ -840,7 +823,7 @@ static qboolean Cmd_GetCDList( const char *s, char *completedname, int length, q
 		Q_strncpy( completedname, matchbuf, length );
 	if( numcdcommands == 1 ) return true;
 
-	for( i = 0; i < numcdcommands; i++ )
+	for( int i = 0; i < numcdcommands; i++ )
 	{
 		Q_strncpy( matchbuf, cdcommands[i], sizeof( matchbuf ));
 		if( print_suggestions )
@@ -853,7 +836,7 @@ static qboolean Cmd_GetCDList( const char *s, char *completedname, int length, q
 	// cut shortestMatch to the amount common with s
 	if( completedname && length )
 	{
-		for( i = 0; matchbuf[i]; i++ )
+		for( int i = 0; matchbuf[i]; i++ )
 		{
 			if( Q_tolower( completedname[i] ) != Q_tolower( matchbuf[i] ))
 				completedname[i] = 0;
@@ -864,21 +847,15 @@ static qboolean Cmd_GetCDList( const char *s, char *completedname, int length, q
 
 static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 {
-	qboolean	use_filter = false;
-	string	mpfilter;
-	char	*buffer;
-	size_t	buffersize;
-	string	result;
-	int	i, size;
-	search_t	*t;
-	file_t	*f;
+	string mpfilter;
+	string result;
 
 	if( FS_FileSize( "maps.lst", onlyingamedir ) > 0 && !fRefresh )
 		return true; // exist
 
 	// setup mpfilter
 	Q_snprintf( mpfilter, sizeof( mpfilter ), "maps/%s", GI->mp_filter );
-	t = FS_Search( "maps/*.bsp", false, onlyingamedir );
+	search_t *t = FS_Search( "maps/*.bsp", false, onlyingamedir );
 
 	if( !t )
 	{
@@ -890,11 +867,11 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		return false;
 	}
 
-	buffersize = t->numfilenames * 2 * sizeof( result );
-	buffer = Mem_Calloc( host.mempool, buffersize );
-	use_filter = !COM_StringEmpty( GI->mp_filter );
+	size_t buffersize = t->numfilenames * 2 * sizeof( result );
+	char *buffer = Mem_Calloc( host.mempool, buffersize );
+	qboolean use_filter = !COM_StringEmpty( GI->mp_filter );
 
-	for( i = 0; i < t->numfilenames; i++ )
+	for( int i = 0; i < t->numfilenames; i++ )
 	{
 		char		*ents = NULL, *pfile;
 		int		lumpofs = 0, lumplen = 0;
@@ -906,17 +883,16 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 		if( use_filter && Q_stristr( t->filenames[i], mpfilter ))
 			continue;
 
-		f = FS_Open( t->filenames[i], "rb", onlyingamedir );
+		file_t *f = FS_Open( t->filenames[i], "rb", onlyingamedir );
 		COM_FileBase( t->filenames[i], mapname, sizeof( mapname ));
 
 		if( f )
 		{
 			qboolean    have_spawnpoints = false;
 			dlump_t     entities;
-			fs_offset_t filelen;
 			byte        buf[MAX_SYSPATH] = { 0 };
 
-			filelen = FS_Read( f, buf, MAX_SYSPATH );
+			fs_offset_t filelen = FS_Read( f, buf, MAX_SYSPATH );
 
 			// check all the lumps and some other errors
 			if( !Mod_TestBmodelLumps( f, t->filenames[i], buf, filelen, true, &entities ))
@@ -999,7 +975,7 @@ static qboolean Cmd_CheckMapsList_R( qboolean fRefresh, qboolean onlyingamedir )
 	}
 
 	if( t ) Mem_Free( t ); // free search result
-	size = Q_strlen( buffer );
+	int size = Q_strlen( buffer );
 
 	if( !size )
 	{
@@ -1102,9 +1078,7 @@ for various cmds
 */
 static qboolean Cmd_AutocompleteName( const char *source, int arg, char *buffer, size_t bufsize, qboolean print_suggestions )
 {
-	int i;
-
-	for( i = 0; i < ARRAYSIZE( cmd_list ); i++  )
+	for( int i = 0; i < ARRAYSIZE( cmd_list ); i++  )
 	{
 		if( cmd_list[i].arg == arg && Cmd_CheckName( cmd_list[i].name ))
 			return cmd_list[i].func( source, buffer, bufsize, print_suggestions );
@@ -1150,14 +1124,11 @@ Con_ConcatRemaining
 */
 static void Con_ConcatRemaining( const char *src, const char *start )
 {
-	const char	*arg;
-	int	i;
-
-	arg = Q_strstr( src, start );
+	const char *arg = Q_strstr( src, start );
 
 	if( !arg )
 	{
-		for( i = 1; i < Cmd_Argc(); i++ )
+		for( int i = 1; i < Cmd_Argc(); i++ )
 		{
 			Q_strncat( con.completionField->buffer, " ", sizeof( con.completionField->buffer ) );
 			arg = Cmd_Argv( i );
@@ -1190,11 +1161,7 @@ perform Tab expansion
 */
 void Con_CompleteCommand( field_t *field, qboolean print_suggestions )
 {
-	field_t	temp;
-	string	filename;
 	qboolean toggle = false;
-	qboolean	nextcmd;
-	int	i;
 
 	// setup the completion field
 	con.completionField = field;
@@ -1205,7 +1172,7 @@ void Con_CompleteCommand( field_t *field, qboolean print_suggestions )
 	// only look at the first token for completion purposes
 	Cmd_TokenizeString( con.completionField->buffer );
 
-	nextcmd = (con.completionField->buffer[Q_strlen( con.completionField->buffer ) - 1] == ' ') ? true : false;
+	qboolean nextcmd = (con.completionField->buffer[Q_strlen( con.completionField->buffer ) - 1] == ' ') ? true : false;
 
 	con.completionString = Cmd_Argv( 0 );
 
@@ -1217,7 +1184,7 @@ void Con_CompleteCommand( field_t *field, qboolean print_suggestions )
 		return;
 
 	// free the old autocomplete list
-	for( i = 0; i < con.matchCount; i++ )
+	for( int i = 0; i < con.matchCount; i++ )
 	{
 		if( con.cmds[i] != NULL )
 		{
@@ -1235,7 +1202,7 @@ void Con_CompleteCommand( field_t *field, qboolean print_suggestions )
 
 	if( !con.matchCount ) return; // no matches
 
-	temp = *con.completionField;
+	field_t temp = *con.completionField;
 
 	// autocomplete second arg
 	if(( Cmd_Argc() >= 2 ) || ( Cmd_Argc() == 1 && nextcmd ))
@@ -1249,11 +1216,12 @@ void Con_CompleteCommand( field_t *field, qboolean print_suggestions )
 		if( COM_StringEmpty( con.completionBuffer ) )
 			return;
 
+		string filename;
 		if( Cmd_AutocompleteName( con.completionBuffer, Cmd_Argc() - 1, filename, sizeof( filename ), print_suggestions ))
 		{
 			con.completionField->buffer[0] = 0;
 
-			for( i = 0; i < Cmd_Argc() - 1; i++ )
+			for( int i = 0; i < Cmd_Argc() - 1; i++ )
 			{
 				Q_strncat( con.completionField->buffer, Cmd_Argv( i ), sizeof( con.completionField->buffer ));
 				Q_strncat( con.completionField->buffer, " ", sizeof( con.completionField->buffer ));
@@ -1320,12 +1288,11 @@ NOTE: input string must be equal or longer than MAX_STRING
 */
 void Cmd_AutoComplete( char *complete_string )
 {
-	field_t	input;
-
 	if( !complete_string || !*complete_string )
 		return;
 
 	// setup input
+	field_t input;
 	Q_strncpy( input.buffer, complete_string, sizeof( input.buffer ) );
 	input.cursor = input.scroll = 0;
 
@@ -1345,10 +1312,8 @@ Cmd_AutoCompleteClear
 */
 void Cmd_AutoCompleteClear( void )
 {
-	int i;
-
 	// free the old autocomplete list
-	for( i = 0; i < con.matchCount; i++ )
+	for( int i = 0; i < con.matchCount; i++ )
 	{
 		if( con.cmds[i] != NULL )
 		{
@@ -1377,15 +1342,13 @@ static void Cmd_WriteOpenGLCvar( const char *name, const char *string, const cha
 
 static void Cmd_WriteHelp(const char *name, const char *unused, const char *desc, void *f )
 {
-	int	length;
-
 	if( COM_StringEmptyOrNULL( desc ))
 		return; // ignore fantom cmds
 
 	if( name[0] == '+' || name[0] == '-' )
 		return; // key bindings
 
-	length = 3 - (Q_strlen( name ) / 10); // Asm_Ed default tab stop is 10
+	int length = 3 - (Q_strlen( name ) / 10); // Asm_Ed default tab stop is 10
 
 	if( length == 3 ) FS_Printf( f, "%s\t\t\t\"%s\"\n", name, desc );
 	if( length == 2 ) FS_Printf( f, "%s\t\t\"%s\"\n", name, desc );
@@ -1431,14 +1394,13 @@ Writes key bindings and archived cvars to config.cfg
 */
 void Host_WriteConfig( void )
 {
-	kbutton_t	*mlook = NULL;
-	kbutton_t	*jlook = NULL;
-	file_t	*f;
+	kbutton_t *mlook = NULL;
+	kbutton_t *jlook = NULL;
 
 	if( !clgame.hInstance || Sys_CheckParm( "-nowriteconfig" ) ) return;
 
 
-	f = FS_Open( "config.cfg.new", "w", false );
+	file_t *f = FS_Open( "config.cfg.new", "w", false );
 	if( f )
 	{
 		Con_Reportf( "%s()\n", __func__ );
@@ -1479,11 +1441,11 @@ save serverinfo variables into server.cfg (using for dedicated server too)
 */
 void GAME_EXPORT Host_WriteServerConfig( const char *name )
 {
-	file_t	*f;
 	string newconfigfile;
 
 	Q_snprintf( newconfigfile, MAX_STRING, "%s.new", name );
 
+	file_t *f;
 	if(( f = FS_Open( newconfigfile, "w", false )) != NULL )
 	{
 		Host_InitializeConfig( f, "game.cfg", "multiplayer server temporary config" );
@@ -1504,21 +1466,18 @@ save opengl variables into opengl.cfg
 */
 void Host_WriteOpenGLConfig( void )
 {
-	const char *config_name;
-	string name;
-	file_t	*f;
-
 	if( Sys_CheckParm( "-nowriteconfig" ) || !ref.dllFuncs.R_GetConfigName )
 		return;
 
-	config_name = ref.dllFuncs.R_GetConfigName();
+	const char *config_name = ref.dllFuncs.R_GetConfigName();
 
 	if( !config_name )
 		return;
 
+	string name;
 	Q_snprintf( name, sizeof( name ), "%s.cfg", config_name );
 
-	f = FS_Open( va( "%s.new", name ), "w", false );
+	file_t *f = FS_Open( va( "%s.new", name ), "w", false );
 	if( f )
 	{
 		Con_Reportf( "%s()\n", __func__ );
@@ -1539,12 +1498,10 @@ save render variables into video.cfg
 */
 void Host_WriteVideoConfig( void )
 {
-	file_t	*f;
-
 	if( Sys_CheckParm( "-nowriteconfig" ) )
 		return;
 
-	f = FS_Open( "video.cfg.new", "w", false );
+	file_t *f = FS_Open( "video.cfg.new", "w", false );
 	if( f )
 	{
 		Con_Reportf( "%s()\n", __func__ );
@@ -1558,8 +1515,6 @@ void Host_WriteVideoConfig( void )
 
 void Key_EnumCmds_f( void )
 {
-	file_t	*f;
-
 	FS_AllowDirectPaths( true );
 	if( FS_FileExists( "../help.txt", false ))
 	{
@@ -1568,7 +1523,7 @@ void Key_EnumCmds_f( void )
 		return;
 	}
 
-	f = FS_Open( "../help.txt", "w", false );
+	file_t *f = FS_Open( "../help.txt", "w", false );
 	if( f )
 	{
 		Host_InitializeConfig( f, "help.txt", "xash commands and console variables" );

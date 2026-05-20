@@ -195,12 +195,10 @@ Mod_FreeAll
 */
 void Mod_FreeAll( void )
 {
-	int	i;
-
 #if !XASH_DEDICATED
 	Mod_ReleaseHullPolygons();
 #endif
-	for( i = 0; i < mod_numknown; i++ )
+	for( int i = 0; i < mod_numknown; i++ )
 		Mod_FreeModel( &mod_known[i] );
 	mod_numknown = 0;
 }
@@ -212,9 +210,7 @@ Mod_ClearUserData
 */
 void Mod_ClearUserData( void )
 {
-	int	i;
-
-	for( i = 0; i < mod_numknown; i++ )
+	for( int i = 0; i < mod_numknown; i++ )
 		Mod_FreeUserData( &mod_known[i] );
 }
 
@@ -301,8 +297,6 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	char		tempname[MAX_QPATH];
 	fs_offset_t		length = 0;
 	qboolean		loaded, loaded2 = false;
-	byte		*buf;
-	model_info_t	*p;
 
 	if( !mod )
 	{
@@ -327,7 +321,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	Q_strncpy( tempname, mod->name, sizeof( tempname ));
 	COM_FixSlashes( tempname );
 
-	buf = FS_LoadFile( tempname, &length, false );
+	byte *buf = FS_LoadFile( tempname, &length, false );
 
 	if( !buf || length < sizeof( uint ))
 	{
@@ -407,7 +401,7 @@ model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		return NULL;
 	}
 
-	p = &mod_crcinfo[mod - mod_known];
+	model_info_t *p = &mod_crcinfo[mod - mod_known];
 	mod->needload = NL_PRESENT;
 
 	if( FBitSet( p->flags, FCRC_SHOULD_CHECKSUM ))
@@ -443,12 +437,10 @@ Loads in a model for the given name
 */
 model_t *Mod_ForName( const char *name, qboolean crash, qboolean trackCRC )
 {
-	model_t	*mod;
-
 	if( COM_StringEmptyOrNULL( name ))
 		return NULL;
 
-	mod = Mod_FindName( name, trackCRC );
+	model_t *mod = Mod_FindName( name, trackCRC );
 	return Mod_LoadModel( mod, crash );
 }
 
@@ -461,8 +453,6 @@ free studio cache on change level
 */
 static void Mod_PurgeStudioCache( void )
 {
-	int	i;
-
 	// refresh hull data
 	SetBits( r_showhull.flags, FCVAR_CHANGED );
 #if !XASH_DEDICATED
@@ -473,7 +463,7 @@ static void Mod_PurgeStudioCache( void )
 
 	// we should release all the world submodels
 	// and clear studio sequences
-	for( i = 1; i < mod_numknown; i++ )
+	for( int i = 1; i < mod_numknown; i++ )
 	{
 		if( mod_known[i].needload == NL_UNREFERENCED )
 			continue;
@@ -500,8 +490,6 @@ Loads in the map and all submodels
 */
 model_t *Mod_LoadWorld( const char *name, qboolean preload )
 {
-	model_t	*pworld;
-
 	// already loaded?
 	if( !Q_stricmp( mod_known->name, name ))
 		return mod_known;
@@ -511,7 +499,7 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 
 	// load the newmap
 	world.loading = true;
-	pworld = Mod_FindName( name, false );
+	model_t *pworld = Mod_FindName( name, false );
 	if( preload ) Mod_LoadModel( pworld, true );
 	world.loading = false;
 
@@ -555,12 +543,10 @@ Mod_Calloc
 */
 void *GAME_EXPORT Mod_Calloc( int number, size_t size )
 {
-	cache_user_t	*cu;
-
 	if( number <= 0 || size <= 0 )
 		return NULL;
 
-	cu = (cache_user_t *)Mem_Calloc( com_studiocache, sizeof( cache_user_t ) + number * size );
+	cache_user_t *cu = (cache_user_t *)Mem_Calloc( com_studiocache, sizeof( cache_user_t ) + number * size );
 	cu->data = (void *)cu; // make sure that cu->data is not NULL
 
 	return cu;
@@ -593,7 +579,6 @@ void GAME_EXPORT Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 {
 	char	modname[MAX_QPATH];
 	fs_offset_t	size;
-	byte	*buf;
 
 	Assert( cu != NULL );
 
@@ -603,7 +588,7 @@ void GAME_EXPORT Mod_LoadCacheFile( const char *filename, cache_user_t *cu )
 	Q_strncpy( modname, filename, sizeof( modname ));
 	COM_FixSlashes( modname );
 
-	buf = FS_LoadFile( modname, &size, false );
+	byte *buf = FS_LoadFile( modname, &size, false );
 	if( !buf || !size ) Host_Error( "LoadCacheFile: ^1can't load %s^7\n", filename );
 	cu->data = Mem_Malloc( com_studiocache, size );
 	memcpy( cu->data, buf, size );
@@ -643,11 +628,8 @@ Mod_ValidateCRC
 */
 qboolean Mod_ValidateCRC( const char *name, uint32_t crc )
 {
-	model_info_t	*p;
-	model_t		*mod;
-
-	mod = Mod_FindName( name, true );
-	p = &mod_crcinfo[mod - mod_known];
+	model_t *mod = Mod_FindName( name, true );
+	model_info_t *p = &mod_crcinfo[mod - mod_known];
 
 	if( !FBitSet( p->flags, FCRC_CHECKSUM_DONE ))
 		return true;
@@ -664,11 +646,8 @@ Mod_NeedCRC
 */
 void Mod_NeedCRC( const char *name, qboolean needCRC )
 {
-	model_t		*mod;
-	model_info_t	*p;
-
-	mod = Mod_FindName( name, true );
-	p = &mod_crcinfo[mod - mod_known];
+	model_t *mod = Mod_FindName( name, true );
+	model_info_t *p = &mod_crcinfo[mod - mod_known];
 
 	if( needCRC ) SetBits( p->flags, FCRC_SHOULD_CHECKSUM );
 	else ClearBits( p->flags, FCRC_SHOULD_CHECKSUM );

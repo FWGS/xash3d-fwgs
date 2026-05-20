@@ -211,12 +211,10 @@ Mod_InitStudioHull
 */
 void Mod_InitStudioHull( void )
 {
-	int	i;
-
 	if( studio_hull[0].planes != NULL )
 		return;	// already initailized
 
-	for( i = 0; i < MAXSTUDIOBONES; i++ )
+	for( int i = 0; i < MAXSTUDIOBONES; i++ )
 	{
 		studio_hull[i].clipnodes16 = (mclipnode16_t *)box_clipnodes16;
 		studio_hull[i].planes = &studio_planes[i*6];
@@ -265,13 +263,11 @@ AddToStudioCache
 */
 static void Mod_AddToStudioCache( float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *pcontroller, byte *pblending, model_t *model, hull_t *hull, int numhitboxes )
 {
-	mstudiocache_t *pCache;
-
 	if( numhitboxes + cache_current_hull >= MAXSTUDIOBONES )
 		Mod_ClearStudioCache();
 
 	cache_current++;
-	pCache = &cache_studio[cache_current & STUDIO_CACHEMASK];
+	mstudiocache_t *pCache = &cache_studio[cache_current & STUDIO_CACHEMASK];
 
 	pCache->frame = frame;
 	pCache->sequence = sequence;
@@ -302,12 +298,9 @@ CheckStudioCache
 */
 static mstudiocache_t *Mod_CheckStudioCache( model_t *model, float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *controller, byte *blending )
 {
-	mstudiocache_t	*pCached;
-	int		i;
-
-	for( i = 0; i < STUDIO_CACHESIZE; i++ )
+	for( int i = 0; i < STUDIO_CACHESIZE; i++ )
 	{
-		pCached = &cache_studio[(cache_current - i) & STUDIO_CACHEMASK];
+		mstudiocache_t *pCached = &cache_studio[(cache_current - i) & STUDIO_CACHEMASK];
 
 		if( pCached->model != model )
 			continue;
@@ -378,17 +371,13 @@ NOTE: pEdict may be NULL
 hull_t *Mod_HullForStudio( model_t *model, float frame, int sequence, vec3_t angles, vec3_t origin, vec3_t size, byte *pcontroller, byte *pblending, int *numhitboxes, edict_t *pEdict )
 {
 	vec3_t		angles2;
-	mstudiocache_t	*bonecache;
-	mstudiobbox_t	*phitbox;
-	qboolean		bSkipShield;
-	int		i, j;
+	qboolean	bSkipShield = false;
 
-	bSkipShield = false;
 	*numhitboxes = 0; // assume error
 
 	if( mod_studiocache.value )
 	{
-		bonecache = Mod_CheckStudioCache( model, frame, sequence, angles, origin, size, pcontroller, pblending );
+		mstudiocache_t *bonecache = Mod_CheckStudioCache( model, frame, sequence, angles, origin, size, pcontroller, pblending );
 
 		if( bonecache != NULL )
 		{
@@ -410,12 +399,12 @@ hull_t *Mod_HullForStudio( model_t *model, float frame, int sequence, vec3_t ang
 		angles2[PITCH] = -angles2[PITCH]; // stupid quake bug
 
 	pBlendAPI->SV_StudioSetupBones( model, frame, sequence, angles2, origin, pcontroller, pblending, -1, pEdict );
-	phitbox = (mstudiobbox_t *)((byte *)mod_studiohdr + mod_studiohdr->hitboxindex);
+	mstudiobbox_t *phitbox = (mstudiobbox_t *)((byte *)mod_studiohdr + mod_studiohdr->hitboxindex);
 
 	if( SV_IsValidEdict( pEdict ) && pEdict->v.gamestate == 1 )
 		bSkipShield = 1;
 
-	for( i = j = 0; i < mod_studiohdr->numhitboxes; i++, j += 6 )
+	for( int i = 0, j = 0; i < mod_studiohdr->numhitboxes; i++, j += 6 )
 	{
 		if( world.version == QBSP2_VERSION )
 			studio_hull[i].clipnodes32 = (mclipnode32_t *)box_clipnodes32;

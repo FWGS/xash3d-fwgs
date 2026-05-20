@@ -169,8 +169,6 @@ void Image_Reset( void )
 
 static MALLOC_LIKE( FS_FreeImage, 1 ) rgbdata_t *ImagePack( const char *name )
 {
-	rgbdata_t	*pack;
-
 	Image_ReportLookupsCount( name );
 
 	if( Image_CheckFlag( IL_LOAD_PLAYER_DECAL ))
@@ -185,7 +183,7 @@ static MALLOC_LIKE( FS_FreeImage, 1 ) rgbdata_t *ImagePack( const char *name )
 		return NULL;
 	}
 
-	pack = Mem_Calloc( host.imagepool, sizeof( *pack ));
+	rgbdata_t *pack = Mem_Calloc( host.imagepool, sizeof( *pack ));
 
 	if( image.cubemap )
 	{
@@ -228,7 +226,6 @@ FS_AddSideToPack
 */
 static qboolean FS_AddSideToPack( int adjust_flags )
 {
-	byte	*out, *flipped;
 	qboolean	resampled = false;
 
 	// first side set average size for all cubemap sides!
@@ -247,12 +244,12 @@ static qboolean FS_AddSideToPack( int adjust_flags )
 		return false;
 
 	// flip image if needed
-	flipped = Image_FlipInternal( image.rgba, &image.width, &image.height, image.source_type, adjust_flags );
+	byte *flipped = Image_FlipInternal( image.rgba, &image.width, &image.height, image.source_type, adjust_flags );
 	if( !flipped ) return false; // try to reasmple dxt?
 	if( flipped != image.rgba ) image.rgba = Image_Copy( image.size );
 
 	// resampling image if needed
-	out = Image_ResampleInternal((uint *)image.rgba, image.width, image.height, image.source_width, image.source_height, image.source_type, &resampled );
+	byte *out = Image_ResampleInternal((uint *)image.rgba, image.width, image.height, image.source_width, image.source_height, image.source_type, &resampled );
 	if( !out ) return false; // try to reasmple dxt?
 	if( resampled ) image.rgba = Image_Copy( image.size );
 
@@ -268,12 +265,10 @@ static qboolean FS_AddSideToPack( int adjust_flags )
 
 static const loadpixformat_t *Image_GetLoadFormatForExtension( const char *ext )
 {
-	const loadpixformat_t *format;
-
 	if( COM_StringEmpty( ext ))
 		return NULL;
 
-	for( format = image.loadformats; format->ext; format++ )
+	for( const loadpixformat_t *format = image.loadformats; format->ext; format++ )
 	{
 		if( !Q_stricmp( ext, format->ext ))
 			return format;
@@ -316,10 +311,9 @@ static qboolean Image_ProbeLoad_( const loadpixformat_t *fmt, const char *name, 
 	qboolean success = false;
 	fs_offset_t filesize;
 	string path;
-	byte *f;
 
 	Q_snprintf( path, sizeof( path ), "%s%s.%s", name, suffix, fmt->ext );
-	f = FS_LoadFile( path, &filesize, false );
+	byte *f = FS_LoadFile( path, &filesize, false );
 
 	Image_IncrementLookupTime();
 
@@ -335,24 +329,21 @@ static qboolean Image_ProbeLoad_( const loadpixformat_t *fmt, const char *name, 
 
 static qboolean Image_ProbeLoad2( const char *name, const char *suffix, int override_hint )
 {
-	const loadpixformat_t *fmt;
-	search_t *t;
 	string pattern;
-	int i;
 
 	Q_snprintf( pattern, sizeof( pattern ), "%s%s.*", name, suffix );
 
-	t = FS_Search( pattern, true, false );
+	search_t *t = FS_Search( pattern, true, false );
 
 	if( !t )
 		return false;
 
 	// we now have to check every extension
 	// to keep the loading order
-	for( fmt = image.loadformats; fmt->ext; fmt++ )
+	for( const loadpixformat_t *fmt = image.loadformats; fmt->ext; fmt++ )
 	{
 		fs_offset_t filesize;
-		byte *data;
+		int i;
 
 		for( i = 0; i < t->numfilenames; i++ )
 		{
@@ -366,7 +357,7 @@ static qboolean Image_ProbeLoad2( const char *name, const char *suffix, int over
 		if( i == t->numfilenames )
 			continue;
 
-		data = FS_LoadFile( t->filenames[i], &filesize, false );
+		byte *data = FS_LoadFile( t->filenames[i], &filesize, false );
 		Image_IncrementLookupTime();
 
 		// can't load file, ignore
@@ -417,14 +408,13 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 {
 	const char	*ext = COM_FileExtension( filename );
 	string		loadname;
-	int		i, j;
-	const loadpixformat_t *extfmt;
 
 	Q_strncpy( loadname, filename, sizeof( loadname ));
 
 	// we needs to compare file extension with list of supported formats
 	// and be sure what is real extension, not a filename with dot
-	if(( extfmt = Image_GetLoadFormatForExtension( ext )))
+	const loadpixformat_t *extfmt = Image_GetLoadFormatForExtension( ext );
+	if( extfmt )
 		COM_StripExtension( loadname );
 
 	Image_Reset(); // clear old image
@@ -437,11 +427,11 @@ rgbdata_t *FS_LoadImage( const char *filename, const byte *buffer, size_t size )
 		return ImagePack( filename );
 
 	// check all cubemap sides with package suffix
-	for( j = 0; j < ARRAYSIZE( load_cubemap ); j++ )
+	for( int j = 0; j < ARRAYSIZE( load_cubemap ); j++ )
 	{
 		const cubepack_t	*cmap = &load_cubemap[j];
 
-		for( i = 0; i < 6; i++ )
+		for( int i = 0; i < 6; i++ )
 		{
 			if( Image_ProbeLoad( extfmt, loadname, cmap->type[i].suf, cmap->type[i].hint ))
 			{
@@ -507,7 +497,6 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 	const char	*ext = COM_FileExtension( filename );
 	qboolean		anyformat = COM_StringEmpty( ext );
 	string		path, savename;
-	const savepixformat_t *format;
 
 	if( !pix || !pix->buffer || anyformat )
 	{
@@ -522,7 +511,6 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 	if( pix->flags & (IMAGE_CUBEMAP|IMAGE_SKYBOX))
 	{
 		size_t		realSize = pix->size; // keep real pic size
-		byte		*picBuffer; // to avoid corrupt memory on free data
 		const suffix_t	*box;
 		int		i;
 
@@ -538,10 +526,10 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 		}
 
 		pix->size /= 6; // now set as side size
-		picBuffer = pix->buffer;
+		byte *picBuffer = pix->buffer;
 
 		// save all sides seperately
-		for( format = image.saveformats; format && format->ext; format++ )
+		for( const savepixformat_t *format = image.saveformats; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( ext, format->ext ))
 			{
@@ -565,7 +553,7 @@ qboolean FS_SaveImage( const char *filename, rgbdata_t *pix )
 	}
 	else
 	{
-		for( format = image.saveformats; format && format->ext; format++ )
+		for( const savepixformat_t *format = image.saveformats; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( ext, format->ext ))
 			{
@@ -610,13 +598,12 @@ make an image copy
 */
 rgbdata_t *FS_CopyImage( const rgbdata_t *in )
 {
-	rgbdata_t	*out;
 	int	palSize = 0;
 
 	if( !in )
 		return NULL;
 
-	out = Mem_Malloc( host.imagepool, sizeof( *out ));
+	rgbdata_t *out = Mem_Malloc( host.imagepool, sizeof( *out ));
 	*out = *in;
 
 	switch( in->type )
@@ -660,10 +647,8 @@ static void GeneratePixel( byte *pix, uint i, uint j, uint w, uint h, qboolean g
 
 static void Test_CheckImage( const char *name, rgbdata_t *rgb )
 {
-	rgbdata_t *load;
-
 	// test reading
-	load = FS_LoadImage( name, NULL, 0 );
+	rgbdata_t *load = FS_LoadImage( name, NULL, 0 );
 	TASSERT( load->width == rgb->width )
 	TASSERT( load->height == rgb->height )
 	TASSERT( load->type == rgb->type )
@@ -677,9 +662,7 @@ static void Test_CheckImage( const char *name, rgbdata_t *rgb )
 void Test_RunImagelib( void )
 {
 	rgbdata_t rgb = { 0 };
-	byte *buf;
 	const char *extensions[] = { "tga", "png", "bmp" };
-	uint i, j;
 
 	Image_Setup();
 
@@ -689,26 +672,25 @@ void Test_RunImagelib( void )
 	rgb.type = PF_RGBA_32;
 	rgb.flags = IMAGE_HAS_ALPHA;
 	rgb.size = rgb.width * rgb.height * 4;
-	buf = rgb.buffer = Z_Malloc( rgb.size );
+	byte *buf = rgb.buffer = Z_Malloc( rgb.size );
 
-	for( i = 0; i < rgb.height; i++ )
+	for( uint i = 0; i < rgb.height; i++ )
 	{
-		for( j = 0; j < rgb.width; j++ )
+		for( uint j = 0; j < rgb.width; j++ )
 		{
 			GeneratePixel( buf, i, j, rgb.width, rgb.height, true );
 			buf += 4;
 		}
 	}
 
-	for( i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++ )
+	for( uint i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++ )
 	{
-		qboolean ret;
 		char name[MAX_VA_STRING];
 
 		Q_snprintf( name, sizeof( name ), "test_gen.%s", extensions[i] );
 
 		// test saving
-		ret = FS_SaveImage( name, &rgb );
+		qboolean ret = FS_SaveImage( name, &rgb );
 		Con_Printf( "Checking if we can save images in '%s' format...\n", extensions[i] );
 		ASSERT(ret == true);
 

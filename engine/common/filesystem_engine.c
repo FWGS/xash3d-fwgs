@@ -70,9 +70,7 @@ byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 
 static void COM_StripDirectorySlash( char *pname )
 {
-	size_t len;
-
-	len = Q_strlen( pname );
+	size_t len = Q_strlen( pname );
 	if( len > 0 && pname[len - 1] == '/' )
 		pname[len - 1] = 0;
 }
@@ -128,7 +126,6 @@ static void FS_LoadVFSConfig( const char *gamedir )
 
 void FS_SaveVFSConfig( void )
 {
-	file_t *f;
 	const qboolean force_save = !FS_FileExists( "vfs.cfg", true );
 
 	if( !force_save && !FBitSet( fs_mount_hd.flags|fs_mount_lv.flags|fs_mount_l10n.flags|fs_mount_addon.flags|ui_language.flags, FCVAR_CHANGED ))
@@ -139,7 +136,7 @@ void FS_SaveVFSConfig( void )
 
 	Con_Printf( "%s()\n", __func__ );
 
-	f = FS_Open( "vfs.cfg.new", "w", true );
+	file_t *f = FS_Open( "vfs.cfg.new", "w", true );
 	if( !f )
 	{
 		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, "vfs.cfg.new" );
@@ -219,7 +216,6 @@ static void FS_UnloadProgs( void )
 static qboolean FS_LoadProgs( void )
 {
 	const char *name = FILESYSTEM_STDIO_DLL;
-	FSAPI GetFSAPI;
 
 	fs_hInstance = COM_LoadLibrary( name, false, true );
 
@@ -229,6 +225,7 @@ static qboolean FS_LoadProgs( void )
 		return false;
 	}
 
+	FSAPI GetFSAPI;
 	if( !( GetFSAPI = (FSAPI)COM_GetProcAddress( fs_hInstance, GET_FS_API )))
 	{
 		FS_UnloadProgs();

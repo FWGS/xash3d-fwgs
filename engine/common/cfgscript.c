@@ -77,9 +77,7 @@ Determine script variable type
 */
 static cvartype_t CSCR_ParseType( parserstate_t *ps )
 {
-	int	i;
-
-	for( i = 1; i < T_COUNT; i++ )
+	for( int i = 1; i < T_COUNT; i++ )
 	{
 		if( CSCR_ExpectString( ps, cvartypes[i], false, false ))
 			return i;
@@ -213,11 +211,11 @@ will callback on each scrvardef_t
 static int CSCR_ParseFile( const char *scriptfilename,
 	void (*callback)( scrvardef_t *var, void * ), void *userdata )
 {
-	parserstate_t	state = { 0 };
-	qboolean		success = false;
-	int		count = 0;
-	fs_offset_t		length = 0;
-	char		*start;
+	parserstate_t state = { 0 };
+	qboolean success = false;
+	int count = 0;
+	fs_offset_t length = 0;
+	char *start;
 
 	state.filename = scriptfilename;
 	state.buf = start = (char *)FS_LoadFile( scriptfilename, &length, true );

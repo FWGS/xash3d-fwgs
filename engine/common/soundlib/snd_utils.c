@@ -363,17 +363,14 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth
 	const int incount = sc->samples;
 	const int insize = sc->size;
 	qboolean handled = false;
-	double stepscale;
-	double t1, t2;
-	int	outcount;
 
 	if( inrate == outrate && inwidth == outwidth && inchannels == outchannels )
 		return false;
 
-	t1 = Platform_DoubleTime();
+	double t1 = Platform_DoubleTime();
 
-	stepscale = (double)inrate / outrate;	// this is usually 0.5, 1, or 2
-	outcount = sc->samples / stepscale;
+	double stepscale = (double)inrate / outrate;	// this is usually 0.5, 1, or 2
+	int outcount = sc->samples / stepscale;
 	sc->size = outcount * outwidth * outchannels;
 	sc->channels = outchannels;
 
@@ -404,7 +401,7 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth
 		return false;
 	}
 
-	t2 = Platform_DoubleTime();
+	double t2 = Platform_DoubleTime();
 	sc->rate = outrate;
 	sc->width = outwidth;
 
@@ -418,8 +415,8 @@ static qboolean Sound_ResampleInternal( wavdata_t *sc, int outrate, int outwidth
 
 qboolean Sound_Process( wavdata_t **wav, int rate, int width, int channels, uint flags )
 {
-	wavdata_t	*snd = *wav;
-	qboolean	result = true;
+	wavdata_t *snd = *wav;
+	qboolean result = true;
 
 	// check for buffers
 	if( unlikely( !snd || !snd->buffer ))
@@ -446,10 +443,9 @@ qboolean Sound_Process( wavdata_t **wav, int rate, int width, int channels, uint
 
 qboolean Sound_SupportedFileFormat( const char *fileext )
 {
-	const loadwavfmt_t *format;
 	if( !COM_StringEmpty( fileext ))
 	{
-		for( format = sound.loadformats; format && format->ext; format++ )
+		for( const loadwavfmt_t *format = sound.loadformats; format && format->ext; format++ )
 		{
 			if( !Q_stricmp( format->ext, fileext ))
 				return true;

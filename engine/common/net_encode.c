@@ -436,12 +436,10 @@ static const delta_info_t dt_goldsrc_meta =
 
 static delta_info_t *Delta_FindStruct( const char *name )
 {
-	int	i;
-
 	if( COM_StringEmptyOrNULL( name ))
 		return NULL;
 
-	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
+	for( int i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		if( !Q_stricmp( dt_info[i].pName, name ))
 			return &dt_info[i];
@@ -467,12 +465,10 @@ static delta_info_t *Delta_FindStructByIndex( int index )
 
 static delta_info_t *Delta_FindStructByEncoder( const char *encoderName )
 {
-	int	i;
-
 	if( COM_StringEmptyOrNULL( encoderName ) )
 		return NULL;
 
-	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
+	for( int i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		if( !Q_stricmp( dt_info[i].funcName, encoderName ))
 			return &dt_info[i];
@@ -483,11 +479,9 @@ static delta_info_t *Delta_FindStructByEncoder( const char *encoderName )
 
 static delta_info_t *Delta_FindStructByDelta( const delta_t *pFields )
 {
-	int	i;
-
 	if( !pFields ) return NULL;
 
-	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
+	for( int i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		if( dt_info[i].pFields == pFields )
 			return &dt_info[i];
@@ -498,12 +492,10 @@ static delta_info_t *Delta_FindStructByDelta( const delta_t *pFields )
 
 static void Delta_CustomEncode( delta_info_t *dt, const void *from, const void *to )
 {
-	int	i;
-
 	Assert( dt != NULL );
 
 	// set all fields is active by default
-	for( i = 0; i < dt->numFields; i++ )
+	for( int i = 0; i < dt->numFields; i++ )
 		dt->pFields[i].bInactive = false;
 
 	if( dt->userCallback )
@@ -512,12 +504,10 @@ static void Delta_CustomEncode( delta_info_t *dt, const void *from, const void *
 
 static const delta_field_t *Delta_FindFieldInfo( const delta_field_t *pInfo, const char *fieldName, int maxFields )
 {
-	int i;
-
 	if( !fieldName || !*fieldName )
 		return NULL;
 
-	for( i = 0; i < maxFields; i++ )
+	for( int i = 0; i < maxFields; i++ )
 	{
 		if( !Q_strcmp( pInfo[i].name, fieldName ))
 			return &pInfo[i];
@@ -528,12 +518,10 @@ static const delta_field_t *Delta_FindFieldInfo( const delta_field_t *pInfo, con
 
 static int Delta_IndexForFieldInfo( const delta_field_t *pInfo, const char *fieldName, int maxFields )
 {
-	int	i;
-
 	if( !fieldName || !*fieldName )
 		return -1;
 
-	for( i = 0; i < maxFields; i++ )
+	for( int i = 0; i < maxFields; i++ )
 	{
 		if( !Q_strcmp( pInfo[i].name, fieldName ))
 			return i;
@@ -543,9 +531,8 @@ static int Delta_IndexForFieldInfo( const delta_field_t *pInfo, const char *fiel
 
 static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, int bits, float mul, float post_mul )
 {
-	const delta_field_t *pFieldInfo;
-	delta_t		*pField;
-	int		i;
+	delta_t *pField;
+	int i;
 
 	// check for coexisting field
 	for( i = 0, pField = dt->pFields; i < dt->numFields && pField; i++, pField++ )
@@ -562,7 +549,7 @@ static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, 
 	}
 
 	// find field description
-	pFieldInfo = Delta_FindFieldInfo( dt->pInfo, pName, dt->maxFields );
+	const delta_field_t *pFieldInfo = Delta_FindFieldInfo( dt->pInfo, pName, dt->maxFields );
 	if( !pFieldInfo )
 	{
 		Con_DPrintf( S_ERROR "%s: couldn't find description for %s->%s\n", __func__, dt->pName, pName );
@@ -594,18 +581,15 @@ static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, 
 
 static void Delta_WriteTableField( sizebuf_t *msg, int tableIndex, const delta_t *pField )
 {
-	int	nameIndex;
-	delta_info_t *dt;
-
 	Assert( pField != NULL );
 
 	if( COM_StringEmptyOrNULL( pField->name ))
 		return;// not initialized ?
 
-	dt = Delta_FindStructByIndex( tableIndex );
+	delta_info_t *dt = Delta_FindStructByIndex( tableIndex );
 	Assert( dt && dt->bInitialized );
 
-	nameIndex = Delta_IndexForFieldInfo( dt->pInfo, pField->name, dt->maxFields );
+	int nameIndex = Delta_IndexForFieldInfo( dt->pInfo, pField->name, dt->maxFields );
 	Assert( nameIndex >= 0 && nameIndex < dt->maxFields );
 
 	MSG_BeginServerCmd( msg, svc_deltatable );
@@ -632,19 +616,16 @@ static void Delta_WriteTableField( sizebuf_t *msg, int tableIndex, const delta_t
 
 void Delta_ParseTableField( sizebuf_t *msg )
 {
-	int		tableIndex, nameIndex;
-	float		mul = 1.0f, post_mul = 1.0f;
-	int		flags, bits;
-	const char	*pName;
+	float mul = 1.0f, post_mul = 1.0f;
+	const char *pName;
 	qboolean ignore = false;
-	delta_info_t	*dt;
 
-	tableIndex = MSG_ReadUBitLong( msg, 4 );
-	dt = Delta_FindStructByIndex( tableIndex );
+	int tableIndex = MSG_ReadUBitLong( msg, 4 );
+	delta_info_t *dt = Delta_FindStructByIndex( tableIndex );
 	if( !dt )
 		Host_Error( "%s: not initialized", __func__ );
 
-	nameIndex = MSG_ReadUBitLong( msg, 8 );	// read field name index
+	int nameIndex = MSG_ReadUBitLong( msg, 8 );	// read field name index
 	if( ( nameIndex >= 0 && nameIndex < dt->maxFields ) )
 	{
 		pName = dt->pInfo[nameIndex].name;
@@ -655,8 +636,8 @@ void Delta_ParseTableField( sizebuf_t *msg )
 		Con_Reportf( "%s: wrong nameIndex %d for table %s, ignoring\n", __func__, nameIndex,  dt->pName );
 	}
 
-	flags = MSG_ReadUBitLong( msg, 10 );
-	bits = MSG_ReadUBitLong( msg, 5 ) + 1;
+	int flags = MSG_ReadUBitLong( msg, 10 );
+	int bits = MSG_ReadUBitLong( msg, 5 ) + 1;
 
 	// read the multipliers
 	if( MSG_ReadOneBit( msg ))
@@ -678,9 +659,7 @@ void Delta_ParseTableField( sizebuf_t *msg )
 
 static qboolean Delta_ParseField( char **delta_script, const delta_info_t *dt, delta_t *pField, qboolean bPost )
 {
-	const delta_field_t *pFieldInfo;
-	string		token;
-	char		*oldpos;
+	string token;
 
 	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( Q_strcmp( token, "(" ))
@@ -696,7 +675,7 @@ static qboolean Delta_ParseField( char **delta_script, const delta_info_t *dt, d
 		return false;
 	}
 
-	pFieldInfo = Delta_FindFieldInfo( dt->pInfo, token, dt->maxFields );
+	const delta_field_t *pFieldInfo = Delta_FindFieldInfo( dt->pInfo, token, dt->maxFields );
 	if( !pFieldInfo )
 	{
 		Con_DPrintf( S_ERROR "%s: unable to find field %s\n", __func__, token );
@@ -809,7 +788,7 @@ static qboolean Delta_ParseField( char **delta_script, const delta_info_t *dt, d
 	}
 
 	// ... and trying to parse optional ',' post-symbol
-	oldpos = *delta_script;
+	char *oldpos = *delta_script;
 	*delta_script = COM_ParseFile( *delta_script, token, sizeof( token ));
 	if( token[0] != ',' ) *delta_script = oldpos; // not a ','
 
@@ -818,13 +797,12 @@ static qboolean Delta_ParseField( char **delta_script, const delta_info_t *dt, d
 
 static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char *encodeDll, const char *encodeFunc )
 {
-	string		token;
-	delta_t		*pField;
+	string token;
 
 	// allocate the delta-structures
 	if( !dt->pFields ) dt->pFields = (delta_t *)Z_Calloc( dt->maxFields * sizeof( delta_t ));
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	dt->numFields = 0;
 
 	// assume we have handled '{'
@@ -870,19 +848,16 @@ static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char 
 
 static void Delta_InitFields( void )
 {
-	byte *afile;
-	char *pfile;
-	string		encodeDll, encodeFunc, token;
-	delta_info_t	*dt;
+	string encodeDll, encodeFunc, token;
 
-	afile = FS_LoadFile( DELTA_PATH, NULL, false );
+	byte *afile = FS_LoadFile( DELTA_PATH, NULL, false );
 	if( !afile ) Sys_Error( "%s: couldn't load file %s\n", __func__, DELTA_PATH );
 
-	pfile = (char *)afile;
+	char *pfile = (char *)afile;
 
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
-		dt = Delta_FindStruct( token );
+		delta_info_t *dt = Delta_FindStruct( token );
 
 		if( dt == NULL )
 		{
@@ -911,15 +886,13 @@ static void Delta_InitFields( void )
 
 void Delta_Init( void )
 {
-	delta_info_t	*dt;
-
 	// shutdown it first
 	if( delta_init ) Delta_Shutdown ();
 
 	Delta_InitFields ();	// initialize fields
 	delta_init = true;
 
-	dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
 
 	Assert( dt != NULL );
 
@@ -972,12 +945,12 @@ void Delta_Init( void )
 
 void Delta_InitClient( void )
 {
-	int	i, numActive = 0;
+	int numActive = 0;
 
 	// already initalized
 	if( delta_init ) return;
 
-	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
+	for( int i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		if( dt_info[i].numFields > 0 )
 		{
@@ -991,11 +964,9 @@ void Delta_InitClient( void )
 
 void Delta_Shutdown( void )
 {
-	int	i;
-
 	if( !delta_init ) return;
 
-	for( i = 0; i < ARRAYSIZE( dt_info ); i++ )
+	for( int i = 0; i < ARRAYSIZE( dt_info ); i++ )
 	{
 		dt_info[i].numFields = 0;
 		dt_info[i].customEncode = CUSTOM_NONE;
@@ -1172,11 +1143,8 @@ compare baselines to find optimal
 */
 int Delta_TestBaseline( const entity_state_t *from, const entity_state_t *to, qboolean player, double timebase )
 {
-	delta_info_t	*dt = NULL;
-	delta_t		*pField;
-	int		i, countBits;
-
-	countBits = MAX_ENTITY_BITS + 2;
+	delta_info_t *dt = NULL;
+	int countBits = MAX_ENTITY_BITS + 2;
 
 	if( to == NULL )
 	{
@@ -1194,14 +1162,14 @@ int Delta_TestBaseline( const entity_state_t *from, const entity_state_t *to, qb
 
 	countBits++; // entityType flag
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	// activate fields and call custom encode func
 	Delta_CustomEncode( dt, from, to );
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		// flag about field change (sets always)
 		countBits++;
@@ -1489,10 +1457,9 @@ static void Delta_ParseGSFields( sizebuf_t *msg, const delta_info_t *dt, const v
 {
 	uint8_t bits[8] = { 0 };
 	delta_t *pField;
-	byte c;
 	int i;
 
-	c = MSG_ReadUBitLong( msg, 3 );
+	byte c = MSG_ReadUBitLong( msg, 3 );
 
 	for( i = 0; i < c; i++ )
 		bits[i] = MSG_ReadByte( msg );
@@ -1564,21 +1531,17 @@ MSG_WriteDeltaUsercmd
 */
 void MSG_WriteDeltaUsercmd( sizebuf_t *msg, const usercmd_t *from, const usercmd_t *to )
 {
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i;
-
-	dt = Delta_FindStructByIndex( DT_USERCMD_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_USERCMD_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	// activate fields and call custom encode func
 	Delta_CustomEncode( dt, from, to );
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		Delta_WriteField( msg, pField, from, to, 0.0f );
 	}
@@ -1591,20 +1554,16 @@ MSG_ReadDeltaUsercmd
 */
 void MSG_ReadDeltaUsercmd( sizebuf_t *msg, const usercmd_t *from, usercmd_t *to )
 {
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i;
-
-	dt = Delta_FindStructByIndex( DT_USERCMD_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_USERCMD_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	*to = *from;
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		Delta_ReadField( msg, pField, from, to, 0.0f );
 	}
@@ -1626,21 +1585,17 @@ MSG_WriteDeltaEvent
 */
 void MSG_WriteDeltaEvent( sizebuf_t *msg, const event_args_t *from, const event_args_t *to )
 {
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i;
-
-	dt = Delta_FindStructByIndex( DT_EVENT_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_EVENT_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	// activate fields and call custom encode func
 	Delta_CustomEncode( dt, from, to );
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		Delta_WriteField( msg, pField, from, to, 0.0f );
 	}
@@ -1653,20 +1608,16 @@ MSG_ReadDeltaEvent
 */
 void MSG_ReadDeltaEvent( sizebuf_t *msg, const event_args_t *from, event_args_t *to )
 {
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i;
-
-	dt = Delta_FindStructByIndex( DT_EVENT_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_EVENT_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	*to = *from;
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		Delta_ReadField( msg, pField, from, to, 0.0f );
 	}
@@ -1681,18 +1632,15 @@ movevars_t communication
 */
 qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, const movevars_t *from, const movevars_t *to )
 {
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i, startBit;
-	int		numChanges = 0;
+	int numChanges = 0;
 
-	dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
-	startBit = msg->iCurBit;
+	int startBit = msg->iCurBit;
 
 	// activate fields and call custom encode func
 	Delta_CustomEncode( dt, from, to );
@@ -1700,7 +1648,7 @@ qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, const movevars_t *from, const m
 	MSG_BeginServerCmd( msg, svc_deltamovevars );
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		if( Delta_WriteField( msg, pField, from, to, 0.0f ))
 			numChanges++;
@@ -1717,20 +1665,16 @@ qboolean MSG_WriteDeltaMovevars( sizebuf_t *msg, const movevars_t *from, const m
 
 void MSG_ReadDeltaMovevars( sizebuf_t *msg, const movevars_t *from, movevars_t *to )
 {
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i;
-
-	dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_MOVEVARS_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	*to = *from;
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		Delta_ReadField( msg, pField, from, to, 0.0f );
 	}
@@ -1753,18 +1697,15 @@ Other clients can grab the client state from entity_state_t
 */
 void MSG_WriteClientData( sizebuf_t *msg, const clientdata_t *from, const clientdata_t *to, double timebase )
 {
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i, startBit;
-	int		numChanges = 0;
+	int numChanges = 0;
 
-	dt = Delta_FindStructByIndex( DT_CLIENTDATA_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_CLIENTDATA_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
-	startBit = msg->iCurBit;
+	int startBit = msg->iCurBit;
 
 	MSG_WriteOneBit( msg, 1 ); // have clientdata
 
@@ -1772,7 +1713,7 @@ void MSG_WriteClientData( sizebuf_t *msg, const clientdata_t *from, const client
 	Delta_CustomEncode( dt, from, to );
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		if( Delta_WriteField( msg, pField, from, to, timebase ))
 			numChanges++;
@@ -1794,21 +1735,16 @@ Read the clientdata
 void MSG_ReadClientData( sizebuf_t *msg, const clientdata_t *from, clientdata_t *to, double timebase )
 {
 #if !XASH_DEDICATED
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i;
-	qboolean noChanges;
-
-	dt = Delta_FindStructByIndex( DT_CLIENTDATA_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_CLIENTDATA_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
-	noChanges = !MSG_ReadOneBit( msg );
+	qboolean noChanges = !MSG_ReadOneBit( msg );
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		if( noChanges )
 			Delta_CopyField( pField, from, to, timebase );
@@ -1834,27 +1770,24 @@ Other clients can grab the client state from entity_state_t
 */
 void MSG_WriteWeaponData( sizebuf_t *msg, const weapon_data_t *from, const weapon_data_t *to, double timebase, int index )
 {
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i, startBit;
-	int		numChanges = 0;
+	int numChanges = 0;
 
-	dt = Delta_FindStructByIndex( DT_WEAPONDATA_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_WEAPONDATA_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	// activate fields and call custom encode func
 	Delta_CustomEncode( dt, from, to );
 
-	startBit = msg->iCurBit;
+	int startBit = msg->iCurBit;
 
 	MSG_WriteOneBit( msg, 1 );
 	MSG_WriteUBitLong( msg, index, MAX_WEAPON_BITS );
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		if( Delta_WriteField( msg, pField, from, to, timebase ))
 			numChanges++;
@@ -1873,18 +1806,14 @@ Read the clientdata
 */
 void MSG_ReadWeaponData( sizebuf_t *msg, const weapon_data_t *from, weapon_data_t *to, double timebase )
 {
-	delta_t		*pField;
-	delta_info_t	*dt;
-	int		i;
-
-	dt = Delta_FindStructByIndex( DT_WEAPONDATA_T );
+	delta_info_t *dt = Delta_FindStructByIndex( DT_WEAPONDATA_T );
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		Delta_ReadField( msg, pField, from, to, timebase );
 	}
@@ -1910,14 +1839,12 @@ identical, under the assumption that the in-order delta code will catch it.
 */
 void MSG_WriteDeltaEntity( const entity_state_t *from, const entity_state_t *to, sizebuf_t *msg, qboolean force, int delta_type, double timebase, int baseline )
 {
-	delta_info_t	*dt = NULL;
-	delta_t		*pField;
-	int		i, startBit;
-	int		numChanges = 0;
+	delta_info_t *dt = NULL;
+	int numChanges = 0;
 
 	if( to == NULL )
 	{
-		int	fRemoveType;
+		int fRemoveType;
 
 		if( from == NULL ) return;
 
@@ -1935,7 +1862,7 @@ void MSG_WriteDeltaEntity( const entity_state_t *from, const entity_state_t *to,
 		return;
 	}
 
-	startBit = msg->iCurBit;
+	int startBit = msg->iCurBit;
 
 	if( to->number < 0 || to->number >= GI->max_edicts )
 		Host_Error( "%s: Bad entity number: %i\n", __func__, to->number );
@@ -1973,13 +1900,13 @@ void MSG_WriteDeltaEntity( const entity_state_t *from, const entity_state_t *to,
 
 	Assert( dt && dt->bInitialized );
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	if( delta_type == DELTA_STATIC )
 	{
 		// static entities won't to be custom encoded
-		for( i = 0; i < dt->numFields; i++ )
+		for( int i = 0; i < dt->numFields; i++ )
 			dt->pFields[i].bInactive = false;
 	}
 	else
@@ -1989,7 +1916,7 @@ void MSG_WriteDeltaEntity( const entity_state_t *from, const entity_state_t *to,
 	}
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		if( Delta_WriteField( msg, pField, from, to, timebase ))
 			numChanges++;
@@ -2013,10 +1940,8 @@ Can go from either a baseline or a previous packet_entity
 qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, const entity_state_t *from, entity_state_t *to, int number, int delta_type, double timebase )
 {
 #if !XASH_DEDICATED
-	delta_info_t	*dt = NULL;
-	delta_t		*pField;
-	int		i, fRemoveType;
-	int		baseline_offset = 0;
+	delta_info_t *dt = NULL;
+	int baseline_offset = 0;
 
 	if( number < 0 || number >= clgame.maxEntities )
 	{
@@ -2024,7 +1949,7 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, const entity_state_t *from, entity
 		return false;
 	}
 
-	fRemoveType = MSG_ReadUBitLong( msg, 2 );
+	int fRemoveType = MSG_ReadUBitLong( msg, 2 );
 
 	if( fRemoveType )
 	{
@@ -2097,11 +2022,11 @@ qboolean MSG_ReadDeltaEntity( sizebuf_t *msg, const entity_state_t *from, entity
 		return true;
 	}
 
-	pField = dt->pFields;
+	delta_t *pField = dt->pFields;
 	Assert( pField != NULL );
 
 	// process fields
-	for( i = 0; i < dt->numFields; i++, pField++ )
+	for( int i = 0; i < dt->numFields; i++, pField++ )
 	{
 		Delta_ReadField( msg, pField, from, to, timebase );
 	}
@@ -2115,7 +2040,6 @@ void Delta_ParseTableField_GS( sizebuf_t *msg )
 	const char *s = MSG_ReadString( msg );
 	delta_info_t *dt = Delta_FindStruct( s );
 	goldsrc_delta_t null = { 0 };
-	int i, num_fields;
 
 	// delta encoders it's already initialized on this machine (local game)
 	if( delta_init )
@@ -2124,13 +2048,13 @@ void Delta_ParseTableField_GS( sizebuf_t *msg )
 	if( !dt )
 		Host_Error( "%s: not initialized", __func__ );
 
-	num_fields = MSG_ReadShort( msg );
+	int num_fields = MSG_ReadShort( msg );
 	if( num_fields > dt->maxFields )
 		Host_Error( "%s: numFields > maxFields", __func__ );
 
 	MSG_StartBitWriting( msg );
 
-	for( i = 0; i < num_fields; i++ )
+	for( int i = 0; i < num_fields; i++ )
 	{
 		goldsrc_delta_t to;
 
@@ -2157,14 +2081,11 @@ send delta communication encoding
 */
 void Delta_WriteDescriptionToClient( sizebuf_t *msg )
 {
-	int	tableIndex;
-	int	fieldIndex;
-
-	for( tableIndex = 0; tableIndex < Delta_NumTables(); tableIndex++ )
+	for( int tableIndex = 0; tableIndex < Delta_NumTables(); tableIndex++ )
 	{
-		delta_info_t	*dt = Delta_FindStructByIndex( tableIndex );
+		delta_info_t *dt = Delta_FindStructByIndex( tableIndex );
 
-		for( fieldIndex = 0; fieldIndex < dt->numFields; fieldIndex++ )
+		for( int fieldIndex = 0; fieldIndex < dt->numFields; fieldIndex++ )
 			Delta_WriteTableField( msg, tableIndex, &dt->pFields[fieldIndex] );
 	}
 }
@@ -2178,9 +2099,7 @@ void Delta_WriteDescriptionToClient( sizebuf_t *msg )
 */
 void GAME_EXPORT Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc )
 {
-	delta_info_t	*dt;
-
-	dt = Delta_FindStructByEncoder( name );
+	delta_info_t *dt = Delta_FindStructByEncoder( name );
 
 	if( !dt || !dt->bInitialized )
 	{
@@ -2200,11 +2119,10 @@ void GAME_EXPORT Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc )
 
 int GAME_EXPORT Delta_FindField( delta_t *pFields, const char *fieldname )
 {
-	delta_info_t	*dt;
-	delta_t		*pField;
-	int		i;
+	delta_t *pField;
+	int i;
 
-	dt = Delta_FindStructByDelta( pFields );
+	delta_info_t *dt = Delta_FindStructByDelta( pFields );
 	if( dt == NULL || !fieldname || !fieldname[0] )
 		return -1;
 
@@ -2218,11 +2136,10 @@ int GAME_EXPORT Delta_FindField( delta_t *pFields, const char *fieldname )
 
 void GAME_EXPORT Delta_SetField( delta_t *pFields, const char *fieldname )
 {
-	delta_info_t	*dt;
-	delta_t		*pField;
-	int		i;
+	delta_t *pField;
+	int i;
 
-	dt = Delta_FindStructByDelta( pFields );
+	delta_info_t *dt = Delta_FindStructByDelta( pFields );
 	if( dt == NULL || !fieldname || !fieldname[0] )
 		return;
 
@@ -2238,11 +2155,10 @@ void GAME_EXPORT Delta_SetField( delta_t *pFields, const char *fieldname )
 
 void GAME_EXPORT Delta_UnsetField( delta_t *pFields, const char *fieldname )
 {
-	delta_info_t	*dt;
-	delta_t		*pField;
-	int		i;
+	delta_t *pField;
+	int i;
 
-	dt = Delta_FindStructByDelta( pFields );
+	delta_info_t *dt = Delta_FindStructByDelta( pFields );
 	if( dt == NULL || !fieldname || !fieldname[0] )
 		return;
 
@@ -2258,9 +2174,7 @@ void GAME_EXPORT Delta_UnsetField( delta_t *pFields, const char *fieldname )
 
 void GAME_EXPORT Delta_SetFieldByIndex( delta_t *pFields, int fieldNumber )
 {
-	delta_info_t	*dt;
-
-	dt = Delta_FindStructByDelta( pFields );
+	delta_info_t *dt = Delta_FindStructByDelta( pFields );
 	if( dt == NULL || fieldNumber < 0 || fieldNumber >= dt->numFields )
 		return;
 
@@ -2269,9 +2183,7 @@ void GAME_EXPORT Delta_SetFieldByIndex( delta_t *pFields, int fieldNumber )
 
 void GAME_EXPORT Delta_UnsetFieldByIndex( delta_t *pFields, int fieldNumber )
 {
-	delta_info_t	*dt;
-
-	dt = Delta_FindStructByDelta( pFields );
+	delta_info_t *dt = Delta_FindStructByDelta( pFields );
 	if( dt == NULL || fieldNumber < 0 || fieldNumber >= dt->numFields )
 		return;
 
@@ -2287,7 +2199,6 @@ void Test_RunDelta( void )
 	delta_test_struct_t from, to = { 0 };
 	delta_test_struct_t null = { 0 };
 	sizebuf_t msg;
-	int i;
 	char buffer[4096] = { 0 };
 	const double timebase = 123.123;
 
@@ -2319,12 +2230,12 @@ void Test_RunDelta( void )
 
 	MSG_Init( &msg, "test message", buffer, sizeof( buffer ));
 
-	for( i = 0; i < dt->numFields; i++ )
+	for( int i = 0; i < dt->numFields; i++ )
 		Delta_WriteField( &msg, &dt->pFields[i], &null, &from, timebase );
 
 	MSG_SeekToBit( &msg, 0, SEEK_SET );
 
-	for( i = 0; i < dt->numFields; i++ )
+	for( int i = 0; i < dt->numFields; i++ )
 		Delta_ReadField( &msg, &dt->pFields[i], &null, &to, timebase );
 
 	Con_Printf( "struct as encoded to delta:\n" );

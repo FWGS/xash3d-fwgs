@@ -35,15 +35,13 @@ void Info_Print( const char *s )
 {
 	char	key[MAX_KV_SIZE];
 	char	value[MAX_KV_SIZE];
-	int	l, count;
-	char	*o;
 
 	if( *s == '\\' ) s++;
 
 	while( *s )
 	{
-		count = 0;
-		o = key;
+		int count = 0;
+		char *o = key;
 
 		while( count < (MAX_KV_SIZE - 1) && *s && *s != '\\' )
 		{
@@ -51,7 +49,7 @@ void Info_Print( const char *s )
 			count++;
 		}
 
-		l = o - key;
+		int l = o - key;
 		if( l < 20 )
 		{
 			memset( o, ' ', 20 - l );
@@ -93,15 +91,13 @@ qboolean Info_IsValid( const char *s )
 {
 	char	key[MAX_KV_SIZE];
 	char	value[MAX_KV_SIZE];
-	int	count;
-	char	*o;
 
 	if( *s == '\\' ) s++;
 
 	while( *s )
 	{
-		count = 0;
-		o = key;
+		int count = 0;
+		char *o = key;
 
 		while( count < (MAX_KV_SIZE - 1) && *s && *s != '\\' )
 		{
@@ -144,15 +140,13 @@ void Info_WriteVars( file_t *f )
 	char	pkey[MAX_SERVERINFO_STRING];
 	static	char value[4][MAX_SERVERINFO_STRING]; // use two buffers so compares work without stomping on each other
 	static	int valueindex;
-	convar_t	*pcvar;
-	char	*o;
 
 	valueindex = (valueindex + 1) % 4;
 	if( *s == '\\' ) s++;
 
 	while( 1 )
 	{
-		o = pkey;
+		char *o = pkey;
 		while( *s != '\\' )
 		{
 			if( !*s ) return;
@@ -170,7 +164,7 @@ void Info_WriteVars( file_t *f )
 		}
 		*o = 0;
 
-		pcvar = Cvar_FindVar( pkey );
+		convar_t *pcvar = Cvar_FindVar( pkey );
 
 		if( !pcvar && pkey[0] != '*' )  // don't store out star keys
 			FS_Printf( f, "setinfo \"%s\" \"%s\"\n", pkey, value[valueindex] );
