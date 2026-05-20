@@ -53,10 +53,8 @@ static qboolean Sys_IsCrashHandlerFrame( const char *name )
 static void Sys_AppendPrint( struct print_data *pd, const char *fmt, ... )
 {
 	va_list va;
-	int len;
-
 	va_start( va, fmt );
-	len = Q_vsnprintf( pd->message, pd->message_size, fmt, va );
+	int len = Q_vsnprintf( pd->message, pd->message_size, fmt, va );
 	va_end( va );
 
 	if( len > 0 )

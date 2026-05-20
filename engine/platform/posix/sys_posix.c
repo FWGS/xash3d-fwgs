@@ -26,9 +26,7 @@ GNU General Public License for more details.
 void Platform_ShellExecute( const char *path, const char *parms )
 {
 	const char *argv[] = { OPEN_COMMAND, path, NULL };
-	pid_t id;
-
-	id = fork();
+	pid_t id = fork();
 
 	if( id == 0 )
 	{
@@ -44,9 +42,7 @@ void Posix_Daemonize( void )
 	if( Sys_CheckParm( "-daemonize" ))
 	{
 #if XASH_POSIX && defined(_POSIX_VERSION) && !defined(XASH_MOBILE_PLATFORM)
-		pid_t daemon;
-
-		daemon = fork();
+		pid_t daemon = fork();
 
 		if( daemon < 0 )
 		{

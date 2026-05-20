@@ -28,18 +28,15 @@ static char sdl_backend_name[32];
 
 static void SDLash_OutputCallback( void *userdata, SDL_AudioStream *stream, int additional_amount, int len )
 {
-	const int size = snd.samples << 1;
-	int pos;
-	int wrapped;
-
 	(void)userdata;
 	(void)additional_amount;
 
-	pos = snd.samplepos << 1;
+	const int size = snd.samples << 1;
+	int pos = snd.samplepos << 1;
 	if( pos >= size )
 		pos = snd.samplepos = 0;
 
-	wrapped = pos + len - size;
+	int wrapped = pos + len - size;
 
 	if( wrapped < 0 )
 	{

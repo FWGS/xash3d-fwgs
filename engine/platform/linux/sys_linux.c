@@ -46,24 +46,20 @@ int Linux_GetProcessID( void )
 
 qboolean Platform_DebuggerPresent( void )
 {
-	char buf[4096];
-	ssize_t num_read;
-	int status_fd;
-
-	status_fd = open( "/proc/self/status", O_RDONLY );
+	int status_fd = open( "/proc/self/status", O_RDONLY );
 	if ( status_fd == -1 )
 		return 0;
 
-	num_read = read( status_fd, buf, sizeof( buf ) );
+	char buf[4096];
+	ssize_t num_read = read( status_fd, buf, sizeof( buf ) );
 	close( status_fd );
 
 	if ( num_read > 0 )
 	{
 		static const char TracerPid[] = "TracerPid:";
-		const byte *tracer_pid;
 
 		buf[num_read] = 0;
-		tracer_pid    = (const byte*)Q_strstr( buf, TracerPid );
+		const byte *tracer_pid = (const byte*)Q_strstr( buf, TracerPid );
 		if( !tracer_pid )
 			return false;
 

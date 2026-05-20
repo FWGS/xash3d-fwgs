@@ -85,12 +85,12 @@ Platform_GetClipobardText
 */
 int Platform_GetClipboardText( char *buffer, size_t size )
 {
-	int textLength;
 	char *sdlbuffer = SDL_GetClipboardText();
 
 	if( !sdlbuffer )
 		return 0;
 
+	int textLength;
 	if (buffer && size > 0)
 	{
 		textLength = Q_strncpy( buffer, sdlbuffer, size );
@@ -164,9 +164,7 @@ SDLash_FreeCursors
 */
 void SDLash_FreeCursors( void )
 {
-	int i = 0;
-
-	for( ; i < ARRAYSIZE( cursors.cursors ); i++ )
+	for( int i = 0; i < ARRAYSIZE( cursors.cursors ); i++ )
 	{
 		if( cursors.cursors[i] )
 			SDL_FreeCursor( cursors.cursors[i] );
@@ -260,11 +258,8 @@ Platform_GetKeyModifiers
 */
 key_modifier_t Platform_GetKeyModifiers( void )
 {
-	SDL_Keymod modFlags;
-	key_modifier_t resultFlags;
-
-	resultFlags = KeyModifier_None;
-	modFlags = SDL_GetModState();
+	key_modifier_t resultFlags = KeyModifier_None;
+	SDL_Keymod modFlags = SDL_GetModState();
 	if( FBitSet( modFlags, KMOD_LCTRL ))
 		SetBits( resultFlags, KeyModifier_LeftCtrl );
 	if( FBitSet( modFlags, KMOD_RCTRL ))

@@ -42,17 +42,14 @@ static struct sbrk_state_s
 
 static void SWAP_Initialize(void)
 {
-	char *path;
-	char *prealloc = getenv("SWAP_SIZE");
-	int fd;
-
 	if( s.top )
 		return;
 
-	path = getenv("SWAP_PATH");
+	char *prealloc = getenv("SWAP_SIZE");
+	char *path = getenv("SWAP_PATH");
 	if( !path )
 		path = XASH_DEFAULT_SWAP_PATH;
-	fd = open( path, O_CREAT|O_RDWR, 0600 );
+	int fd = open( path, O_CREAT|O_RDWR, 0600 );
 
 	if( prealloc ) s.prealloc = atoi(prealloc);
 	else s.prealloc = 128*1024*1024;
@@ -75,10 +72,8 @@ void *SWAP_Sbrk(size_t size)
 		return s.top;
 	else if( size > 0 )
 	{
-		void *res;
-
 		//write(1, buf, snprintf(buf, 32, "allocating %d\n", size) );
-		res = s.top;
+		void *res = s.top;
 		s.size += size;
 		s.top = res + size;
 		if( s.size + size > s.prealloc )

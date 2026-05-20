@@ -195,10 +195,7 @@ static void SDLash_SetActiveGameController( SDL_JoystickID id )
 
 static void SDLash_GameControllerAdded( int device_index )
 {
-	SDL_GameController *gc;
-	SDL_GameController **list;
-
-	gc = SDL_GameControllerOpen( device_index );
+	SDL_GameController *gc = SDL_GameControllerOpen( device_index );
 	if( !gc )
 	{
 		Con_Printf( S_ERROR "SDL_GameControllerOpen: %s\n", SDL_GetError( ));
@@ -217,7 +214,7 @@ static void SDLash_GameControllerAdded( int device_index )
 	}
 #endif // XASH_ANDROID
 
-	list = Mem_Realloc( host.mempool, g_gamepads, sizeof( *list ) * ( g_num_gamepads + 1 ));
+	SDL_GameController **list = Mem_Realloc( host.mempool, g_gamepads, sizeof( *list ) * ( g_num_gamepads + 1 ));
 	list[g_num_gamepads++] = gc;
 
 	g_gamepads = list;
@@ -236,21 +233,18 @@ static void SDLash_GameControllerAdded( int device_index )
 
 static void SDLash_GameControllerRemoved( SDL_JoystickID id )
 {
-	size_t i;
-
 	if( id == g_current_gamepad_id )
 		SDLash_SetActiveGameController( -1 );
 
 	// now close the device
-	for( i = 0; i < g_num_gamepads; i++ )
+	for( size_t i = 0; i < g_num_gamepads; i++ )
 	{
 		SDL_GameController *gc = g_gamepads[i];
-		SDL_Joystick *joy;
 
 		if( !gc )
 			continue;
 
-		joy = SDL_GameControllerGetJoystick( gc );
+		SDL_Joystick *joy = SDL_GameControllerGetJoystick( gc );
 
 		if( !joy )
 			continue;
@@ -335,7 +329,6 @@ void Platform_Vibrate2( float time, int val1, int val2, uint flags )
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 9 )
 	SDL_GameController *gc = g_current_gamepad;
-	Uint32 ms;
 
 	if( g_current_gamepad_id < 0 || !gc )
 		return;
@@ -346,7 +339,7 @@ void Platform_Vibrate2( float time, int val1, int val2, uint flags )
 	if( val2 < 0 )
 		val2 = COM_RandomLong( 0x7FFF, 0xFFFF );
 
-	ms = (Uint32)ceil( time );
+	Uint32 ms = (Uint32)ceil( time );
 	SDL_GameControllerRumble( gc, val1, val2, ms );
 #endif // SDL_VERSION_ATLEAST( 2, 0, 9 )
 }
@@ -370,8 +363,6 @@ Platform_JoyInit
 */
 int Platform_JoyInit( void )
 {
-	int count, numJoysticks, i;
-
 	SDL_SetHint( SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, "1" );
 	SDL_SetHint( SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, "1" );
 
@@ -386,9 +377,9 @@ int Platform_JoyInit( void )
 	SDLash_GameControllerAddMappings( "gamecontrollerdb.txt" ); // shipped in extras.pk3
 	SDLash_GameControllerAddMappings( "controllermappings.txt" );
 
-	count = 0;
-	numJoysticks = SDL_NumJoysticks();
-	for ( i = 0; i < numJoysticks; i++ )
+	int count = 0;
+	int numJoysticks = SDL_NumJoysticks();
+	for ( int i = 0; i < numJoysticks; i++ )
 	{
 		if( SDL_IsGameController( i ))
 			++count;
@@ -405,11 +396,9 @@ Platform_JoyShutdown
 */
 void Platform_JoyShutdown( void )
 {
-	size_t i;
-
 	SDLash_SetActiveGameController( -1 );
 
-	for( i = 0; i < g_num_gamepads; i++ )
+	for( size_t i = 0; i < g_num_gamepads; i++ )
 	{
 		if( !g_gamepads[i] )
 			continue;

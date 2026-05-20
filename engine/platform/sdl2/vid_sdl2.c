@@ -100,13 +100,12 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 			if( !SDL_LockTexture( sw.tex, NULL, &pixels, &pitch ))
 			{
-				int bits;
-				uint amask;
-
 				// lock successfull, release
 				SDL_UnlockTexture( sw.tex );
 
 				// enough for building blitter tables
+				int bits;
+				uint amask;
 				SDL_PixelFormatEnumToMasks( format, &bits, r, g, b, &amask );
 				*bpp = SDL_BYTESPERPIXEL( format );
 				*stride = pitch / *bpp;
@@ -247,21 +246,20 @@ vidmode_t *R_GetVideoMode( int num )
 
 static void R_InitVideoModes( void )
 {
-	char buf[MAX_VA_STRING];
 	int display_index = 0;
-	int i, modes;
 
 	num_vidmodes = 0;
-	modes = SDL_GetNumDisplayModes( display_index );
+	int modes = SDL_GetNumDisplayModes( display_index );
 
 	if( !modes )
 		return;
 
 	vidmodes = Mem_Malloc( host.mempool, modes * sizeof( vidmode_t ) );
 
-	for( i = 0; i < modes; i++ )
+	char buf[MAX_VA_STRING];
+
+	for( int i = 0; i < modes; i++ )
 	{
-		int j;
 		SDL_DisplayMode mode;
 
 		if( SDL_GetDisplayMode( display_index, i, &mode ) < 0 )
@@ -273,6 +271,7 @@ static void R_InitVideoModes( void )
 		if( mode.w < VID_MIN_WIDTH || mode.h < VID_MIN_HEIGHT )
 			continue;
 
+		int j;
 		for( j = 0; j < num_vidmodes; j++ )
 		{
 			if( mode.w == vidmodes[j].width && mode.h == vidmodes[j].height )
@@ -294,12 +293,10 @@ static void R_InitVideoModes( void )
 
 static void R_FreeVideoModes( void )
 {
-	int i;
-
 	if( !vidmodes )
 		return;
 
-	for( i = 0; i < num_vidmodes; i++ )
+	for( int i = 0; i < num_vidmodes; i++ )
 		Mem_Free( (char*)vidmodes[i].desc );
 	Mem_Free( vidmodes );
 
@@ -432,13 +429,11 @@ static qboolean VID_GuessFullscreenMode( int display_index, const SDL_DisplayMod
 
 static int VID_GetDisplayIndex( const char *caller, SDL_Window *window )
 {
-	int display_index;
-
 	if( !window )
 		return 0;
 
-	display_index = SDL_GetWindowDisplayIndex( window );
-	
+	int display_index = SDL_GetWindowDisplayIndex( window );
+
 	if( display_index < 0 )
 	{
 		Con_Printf( S_ERROR "%s: SDL_GetWindowDisplayIndex: %s\n", caller, SDL_GetError());
@@ -604,13 +599,12 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			}
 			else
 			{
-				SDL_Rect r;
-				int x, y;
-
 				SDL_SetWindowSize( host.hWnd, width, height );
 
+				SDL_Rect r;
 				if( VID_GetDisplayBounds( display_index, host.hWnd, &r ) >= 0 )
 				{
+					int x, y;
 					SDL_GetWindowPosition( host.hWnd, &x, &y );
 
 					if( x <= r.x || y <= r.y )
@@ -901,7 +895,6 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	string safe;
 	SDL_DisplayMode display_mode;
-
 	SDL_GetCurrentDisplayMode( VID_GetDisplayIndex( __func__, NULL ), &display_mode );
 
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( display_mode.format );
@@ -969,7 +962,6 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
 	rserr_t err;
-	SDL_DisplayMode display_mode;
 
 	if( !host.hWnd )
 		err = VID_CreateWindow( width, height, window_mode );
@@ -979,6 +971,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	if( err != rserr_ok )
 		return err;
 
+	SDL_DisplayMode display_mode;
 	SDL_GetWindowDisplayMode( host.hWnd, &display_mode );
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( display_mode.format );
 	refState.window_mode = window_mode;
@@ -994,12 +987,9 @@ Set the described video mode
 */
 qboolean VID_SetMode( void )
 {
-	int width, height;
 	rserr_t	err;
-	window_mode_t window_mode;
-
-	width = window_width.value;
-	height = window_height.value;
+	int width = window_width.value;
+	int height = window_height.value;
 
 	// get default resolution if values aren't set
 	if( width < VID_MIN_WIDTH || height < VID_MIN_HEIGHT )
@@ -1025,7 +1015,7 @@ qboolean VID_SetMode( void )
 	}
 #endif
 
-	window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
+	window_mode_t window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
 	SetBits( gl_vsync.flags, FCVAR_CHANGED );
 
 	err = R_ChangeDisplaySettings( width, height, window_mode );
@@ -1174,8 +1164,6 @@ void VID_Info_f( void )
 	int width, height;
 	int render_width, render_height;
 	int x, y;
-	int display_index;
-	SDL_DisplayMode dm;	
 
 	SDL_GetWindowSize( host.hWnd, &width, &height );
 	VID_GetWindowSizeInPixels( host.hWnd, sw.renderer, &render_width, &render_height );
@@ -1193,12 +1181,13 @@ void VID_Info_f( void )
 	Con_Printf( "Window resizable: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_RESIZABLE ) ? S_GREEN "true" : S_RED "false" );
 	Con_Printf( "Window maximized: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_MAXIMIZED ) ? S_GREEN "true" : S_RED "false" );
 
-	display_index = SDL_GetWindowDisplayIndex( host.hWnd );
+	int display_index = SDL_GetWindowDisplayIndex( host.hWnd );
 	if( display_index >= 0 )
 		Con_Printf( "Window display index: " S_GREEN "%d" S_DEFAULT "\n", display_index );
 	else
 		Con_Printf( "Window display index: " S_RED "fail: " S_DEFAULT "%s\n", SDL_GetError( ));
 
+	SDL_DisplayMode dm;
 	if( SDL_GetWindowDisplayMode( host.hWnd, &dm ) >= 0 )
 		Con_Printf( "Window display mode: " S_GREEN "%dx%d@%d" S_DEFAULT "\n", dm.w, dm.h, dm.refresh_rate );
 	else
