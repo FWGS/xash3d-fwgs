@@ -554,6 +554,7 @@ void V_PostRender( void )
 		SCR_DrawNetGraph();
 		SCR_DrawUserCmd();
 		Joy_DrawDebug();
+		IN_GyroDrawDebug();
 		SV_DrawOrthoTriangles();
 		CL_DrawDemoRecording();
 		CL_DrawHUD( CL_CHANGELEVEL );
