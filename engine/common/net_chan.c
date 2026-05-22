@@ -1331,6 +1331,9 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 
 static qboolean Netchan_Validate( netchan_t *chan, sizebuf_t *sb, qboolean *frag_message, uint *fragid, int *frag_offset, int *frag_length )
 {
+	int bits_read = MSG_GetNumBitsRead( sb );
+	int bits_total = MSG_GetMaxBits( sb );
+
 	for( int i = 0; i < MAX_STREAMS; i++ )
 	{
 		if( !frag_message[i] )
@@ -1338,8 +1341,6 @@ static qboolean Netchan_Validate( netchan_t *chan, sizebuf_t *sb, qboolean *frag
 
 		int buffer = FRAG_GETID( fragid[i] );
 		int count = FRAG_GETCOUNT( fragid[i] );
-		int offset = BitByte( frag_offset[i] );
-		int length = BitByte( frag_length[i] );
 
 		if( buffer < 0 || buffer > NET_MAX_BUFFER_ID )
 			return false;
@@ -1347,10 +1348,13 @@ static qboolean Netchan_Validate( netchan_t *chan, sizebuf_t *sb, qboolean *frag
 		if( count < 0 || count > NET_MAX_BUFFERS_COUNT )
 			return false;
 
-		if( length < 0 || length > ( FRAGMENT_MAX_SIZE << 3 ))
+		if( frag_offset[i] < 0 || frag_offset[i] > ( FRAGMENT_MAX_SIZE << 3 ))
 			return false;
 
-		if( offset < 0 || offset > ( FRAGMENT_MAX_SIZE << 3 ))
+		if( frag_length[i] < 0 || frag_length[i] > ( FRAGMENT_MAX_SIZE << 3 ))
+			return false;
+
+		if( bits_read + frag_offset[i] + frag_length[i] > bits_total )
 			return false;
 	}
 
