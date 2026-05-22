@@ -32,8 +32,6 @@ static void GL_SetupAttributes( void );
 static struct
 {
 	int prev_width, prev_height;
-	int requested_width, requested_height;
-	qboolean stretch_resolution;
 } sdlState = { 640, 480 };
 
 struct
@@ -102,13 +100,12 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 			if( !SDL_LockTexture( sw.tex, NULL, &pixels, &pitch ))
 			{
-				int bits;
-				uint amask;
-
 				// lock successfull, release
 				SDL_UnlockTexture( sw.tex );
 
 				// enough for building blitter tables
+				int bits;
+				uint amask;
 				SDL_PixelFormatEnumToMasks( format, &bits, r, g, b, &amask );
 				*bpp = SDL_BYTESPERPIXEL( format );
 				*stride = pitch / *bpp;
@@ -196,11 +193,12 @@ void SW_UnlockBuffer( void )
 {
 	if( sw.renderer )
 	{
-		SDL_Rect src, dst;
-		src.x = src.y = 0;
-		src.w = sw.width;
-		src.h = sw.height;
-		dst = src;
+		SDL_Rect src =
+		{
+			.w = sw.width,
+			.h = sw.height,
+		};
+		SDL_Rect dst = src;
 		SDL_UnlockTexture(sw.tex);
 
 		SDL_SetTextureBlendMode(sw.tex, SDL_BLENDMODE_NONE);
@@ -216,11 +214,12 @@ void SW_UnlockBuffer( void )
 	// blit if blitting surface availiable
 	if( sw.surf )
 	{
-		SDL_Rect src, dst;
-		src.x = src.y = 0;
-		src.w = sw.width;
-		src.h = sw.height;
-		dst = src;
+		SDL_Rect src =
+		{
+			.w = sw.width,
+			.h = sw.height,
+		};
+		SDL_Rect dst = src;
 		SDL_UnlockSurface( sw.surf );
 		SDL_BlitSurface( sw.surf, &src, sw.win, &dst );
 		return;
@@ -249,21 +248,20 @@ vidmode_t *R_GetVideoMode( int num )
 
 static void R_InitVideoModes( void )
 {
-	char buf[MAX_VA_STRING];
 	int display_index = 0;
-	int i, modes;
 
 	num_vidmodes = 0;
-	modes = SDL_GetNumDisplayModes( display_index );
+	int modes = SDL_GetNumDisplayModes( display_index );
 
 	if( !modes )
 		return;
 
 	vidmodes = Mem_Malloc( host.mempool, modes * sizeof( vidmode_t ) );
 
-	for( i = 0; i < modes; i++ )
+	char buf[MAX_VA_STRING];
+
+	for( int i = 0; i < modes; i++ )
 	{
-		int j;
 		SDL_DisplayMode mode;
 
 		if( SDL_GetDisplayMode( display_index, i, &mode ) < 0 )
@@ -275,6 +273,7 @@ static void R_InitVideoModes( void )
 		if( mode.w < VID_MIN_WIDTH || mode.h < VID_MIN_HEIGHT )
 			continue;
 
+		int j;
 		for( j = 0; j < num_vidmodes; j++ )
 		{
 			if( mode.w == vidmodes[j].width && mode.h == vidmodes[j].height )
@@ -296,12 +295,10 @@ static void R_InitVideoModes( void )
 
 static void R_FreeVideoModes( void )
 {
-	int i;
-
 	if( !vidmodes )
 		return;
 
-	for( i = 0; i < num_vidmodes; i++ )
+	for( int i = 0; i < num_vidmodes; i++ )
 		Mem_Free( (char*)vidmodes[i].desc );
 	Mem_Free( vidmodes );
 
@@ -396,84 +393,18 @@ static void VID_GetWindowSizeInPixels( SDL_Window *window, SDL_Renderer *rendere
 #endif
 }
 
-static qboolean VID_StretchResolutionEnabled( void )
-{
-	const char *enabled = SDL_getenv( "XASH3D_STRETCH_RESOLUTION" );
-
-	return Sys_CheckParm( "-stretch_resolution" ) ||
-		( enabled && ( !Q_stricmp( enabled, "1" ) || !Q_stricmp( enabled, "true" )));
-}
-
-static qboolean VID_GetStretchWindowSize( int *width, int *height )
-{
-	const char *native_width = SDL_getenv( "XASH3D_NATIVE_WIDTH" );
-	const char *native_height = SDL_getenv( "XASH3D_NATIVE_HEIGHT" );
-
-	if( native_width && native_height )
-	{
-		*width = Q_atoi( native_width );
-		*height = Q_atoi( native_height );
-
-		if( *width >= VID_MIN_WIDTH && *height >= VID_MIN_HEIGHT )
-			return true;
-	}
-
-	return false;
-}
-
 void VID_SaveWindowSize( int width, int height )
 {
 	qboolean maximized = FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED );
 	int render_w = width, render_h = height;
 
 	VID_GetWindowSizeInPixels( host.hWnd, sw.renderer, &render_w, &render_h );
-
-	if( sdlState.stretch_resolution &&
-		sdlState.requested_width >= VID_MIN_WIDTH &&
-		sdlState.requested_height >= VID_MIN_HEIGHT &&
-		( render_w != sdlState.requested_width || render_h != sdlState.requested_height ))
-	{
-		const int window_w = render_w;
-		const int window_h = render_h;
-		string temp;
-
-		render_w = sdlState.requested_width;
-		render_h = sdlState.requested_height;
-
-		if( glw_state.software )
-			VID_SetDisplayTransform( &render_w, &render_h );
-		else
-			VID_SetDisplayTransformScale( &render_w, &render_h, (float)window_w / render_w, (float)window_h / render_h );
-
-		R_SaveVideoMode( width, height, render_w, render_h, maximized );
-
-		Q_snprintf( temp, sizeof( temp ), "%d", sdlState.requested_width );
-		Cvar_DirectSet( &window_width, temp );
-
-		Q_snprintf( temp, sizeof( temp ), "%d", sdlState.requested_height );
-		Cvar_DirectSet( &window_height, temp );
-		return;
-	}
-
 	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h, maximized );
 }
 
 static qboolean VID_GuessFullscreenMode( int display_index, const SDL_DisplayMode *want, SDL_DisplayMode *got )
 {
-#if XASH_MOBILE_PLATFORM
-	*got = *want;
-
-	// fetch format and refresh rate from desktop mode
-	SDL_DisplayMode dm;
-	if( SDL_GetDesktopDisplayMode( display_index, &dm ) >= 0 )
-	{
-		got->format = dm.format;
-		got->refresh_rate = dm.refresh_rate;
-	}
-
-	return true;
-#else
 	if( SDL_GetClosestDisplayMode( display_index, want, got ) == NULL )
 	{
 		Con_Printf( S_ERROR "%s: SDL_GetClosestDisplayMode: %s\n", __func__, SDL_GetError( ));
@@ -496,18 +427,15 @@ static qboolean VID_GuessFullscreenMode( int display_index, const SDL_DisplayMod
 	}
 
 	return true;
-#endif // XASH_MOBILE_PLATFORM
 }
 
 static int VID_GetDisplayIndex( const char *caller, SDL_Window *window )
 {
-	int display_index;
-
 	if( !window )
 		return 0;
 
-	display_index = SDL_GetWindowDisplayIndex( window );
-	
+	int display_index = SDL_GetWindowDisplayIndex( window );
+
 	if( display_index < 0 )
 	{
 		Con_Printf( S_ERROR "%s: SDL_GetWindowDisplayIndex: %s\n", caller, SDL_GetError());
@@ -617,16 +545,6 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			// no video mode change to begin with
 			return rserr_invalid_fullscreen;
 		}
-
-#if XASH_MOBILE_PLATFORM
-		if( sdlState.stretch_resolution )
-		{
-			SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
-			SDL_SetWindowResizable( host.hWnd, SDL_FALSE );
-			SDL_SetWindowPosition( host.hWnd, 0, 0 );
-			SDL_SetWindowSize( host.hWnd, width, height );
-		}
-#endif
 		break;
 	}
 	case WINDOW_MODE_FULLSCREEN:
@@ -641,13 +559,11 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 		if( !VID_GuessFullscreenMode( display_index, &want, &got ))
 			return appropriate_err;
 
-#if !XASH_MOBILE_PLATFORM
 		if( SDL_SetWindowDisplayMode( host.hWnd, &got ) < 0 )
 		{
 			Con_Printf( S_ERROR "%s: SDL_SetWindowDisplayMode: %s\n", __func__, SDL_GetError( ));
 			return appropriate_err;
 		}
-#endif // !XASH_MOBILE_PLATFORM
 
 		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
 		{
@@ -657,16 +573,6 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 
 		// SDL_SetWindowDisplayMode is broken in SDL2, it changes the display mode but doesn't change window size
 		SDL_SetWindowSize( host.hWnd, got.w, got.h );
-
-#if XASH_MOBILE_PLATFORM
-		if( sdlState.stretch_resolution )
-		{
-			SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
-			SDL_SetWindowResizable( host.hWnd, SDL_FALSE );
-			SDL_SetWindowPosition( host.hWnd, 0, 0 );
-			SDL_SetWindowSize( host.hWnd, width, height );
-		}
-#endif
 
 		break;
 	}
@@ -695,13 +601,12 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			}
 			else
 			{
-				SDL_Rect r;
-				int x, y;
-
 				SDL_SetWindowSize( host.hWnd, width, height );
 
+				SDL_Rect r;
 				if( VID_GetDisplayBounds( display_index, host.hWnd, &r ) >= 0 )
 				{
+					int x, y;
 					SDL_GetWindowPosition( host.hWnd, &x, &y );
 
 					if( x <= r.x || y <= r.y )
@@ -992,7 +897,6 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	string safe;
 	SDL_DisplayMode display_mode;
-
 	SDL_GetCurrentDisplayMode( VID_GetDisplayIndex( __func__, NULL ), &display_mode );
 
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( display_mode.format );
@@ -1060,7 +964,6 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
 	rserr_t err;
-	SDL_DisplayMode display_mode;
 
 	if( !host.hWnd )
 		err = VID_CreateWindow( width, height, window_mode );
@@ -1070,6 +973,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	if( err != rserr_ok )
 		return err;
 
+	SDL_DisplayMode display_mode;
 	SDL_GetWindowDisplayMode( host.hWnd, &display_mode );
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( display_mode.format );
 	refState.window_mode = window_mode;
@@ -1085,13 +989,9 @@ Set the described video mode
 */
 qboolean VID_SetMode( void )
 {
-	int width, height;
-	int requested_width, requested_height;
 	rserr_t	err;
-	window_mode_t window_mode;
-
-	width = window_width.value;
-	height = window_height.value;
+	int width = window_width.value;
+	int height = window_height.value;
 
 	// get default resolution if values aren't set
 	if( width < VID_MIN_WIDTH || height < VID_MIN_HEIGHT )
@@ -1109,49 +1009,15 @@ qboolean VID_SetMode( void )
 #endif
 	}
 
-	requested_width = width;
-	requested_height = height;
-	sdlState.requested_width = requested_width;
-	sdlState.requested_height = requested_height;
-	sdlState.stretch_resolution = false;
-
 #if XASH_MOBILE_PLATFORM
 	if( Q_strcmp( vid_fullscreen.string, DEFAULT_FULLSCREEN ))
 	{
 		Cvar_DirectSet( &vid_fullscreen, DEFAULT_FULLSCREEN );
 		Con_Reportf( S_ERROR "%s: windowed unavailable on this platform\n", __func__ );
 	}
-
-	if( VID_StretchResolutionEnabled() )
-	{
-		SDL_DisplayMode mode;
-		int stretch_width = 0, stretch_height = 0;
-
-		if( !VID_GetStretchWindowSize( &stretch_width, &stretch_height ))
-		{
-			if( SDL_GetCurrentDisplayMode( 0, &mode ) >= 0 )
-			{
-				stretch_width = mode.w;
-				stretch_height = mode.h;
-			}
-			else if( SDL_GetDesktopDisplayMode( 0, &mode ) >= 0 )
-			{
-				stretch_width = mode.w;
-				stretch_height = mode.h;
-			}
-		}
-
-		if( stretch_width >= VID_MIN_WIDTH && stretch_height >= VID_MIN_HEIGHT &&
-			( requested_width != stretch_width || requested_height != stretch_height ))
-		{
-			sdlState.stretch_resolution = true;
-			width = stretch_width;
-			height = stretch_height;
-		}
-	}
 #endif
 
-	window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
+	window_mode_t window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
 	SetBits( gl_vsync.flags, FCVAR_CHANGED );
 
 	err = R_ChangeDisplaySettings( width, height, window_mode );
@@ -1300,8 +1166,6 @@ void VID_Info_f( void )
 	int width, height;
 	int render_width, render_height;
 	int x, y;
-	int display_index;
-	SDL_DisplayMode dm;	
 
 	SDL_GetWindowSize( host.hWnd, &width, &height );
 	VID_GetWindowSizeInPixels( host.hWnd, sw.renderer, &render_width, &render_height );
@@ -1319,12 +1183,13 @@ void VID_Info_f( void )
 	Con_Printf( "Window resizable: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_RESIZABLE ) ? S_GREEN "true" : S_RED "false" );
 	Con_Printf( "Window maximized: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_MAXIMIZED ) ? S_GREEN "true" : S_RED "false" );
 
-	display_index = SDL_GetWindowDisplayIndex( host.hWnd );
+	int display_index = SDL_GetWindowDisplayIndex( host.hWnd );
 	if( display_index >= 0 )
 		Con_Printf( "Window display index: " S_GREEN "%d" S_DEFAULT "\n", display_index );
 	else
 		Con_Printf( "Window display index: " S_RED "fail: " S_DEFAULT "%s\n", SDL_GetError( ));
 
+	SDL_DisplayMode dm;
 	if( SDL_GetWindowDisplayMode( host.hWnd, &dm ) >= 0 )
 		Con_Printf( "Window display mode: " S_GREEN "%dx%d@%d" S_DEFAULT "\n", dm.w, dm.h, dm.refresh_rate );
 	else
