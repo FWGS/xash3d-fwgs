@@ -1074,8 +1074,6 @@ Netchan_CopyNormalFragments
 */
 qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *length )
 {
-	size_t	size = 0;
-
 	if( !chan->incomingready[FRAG_NORMAL_STREAM] )
 		return false;
 
@@ -1095,49 +1093,44 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 
 		// copy it in
 		MSG_WriteBytes( msg, MSG_GetData( &p->frag_message ), MSG_GetNumBytesWritten( &p->frag_message ));
-		size += MSG_GetNumBytesWritten( &p->frag_message );
-
 		Mem_Free( p );
 		p = n;
 	}
 
-	if( chan->use_bz2 && !memcmp( MSG_GetData( msg ), "BZ2", 4 ))
+	size_t size = MSG_GetNumBytesWritten( msg );
+
+	if( chan->use_bz2 && size >= 4 && !memcmp( MSG_GetData( msg ), "BZ2", 4 ))
 	{
 #if !XASH_DEDICATED
 		byte buf[0x10000];
 		uint uDecompressedLen = sizeof( buf );
-		int bz2_err = BZ2_bzBuffToBuffDecompress( buf, &uDecompressedLen, MSG_GetData( msg ) + 4, MSG_GetNumBytesWritten( msg ) - 4, 1, 0 );
+		int bz2_err = BZ2_bzBuffToBuffDecompress( buf, &uDecompressedLen, MSG_GetData( msg ) + 4, size - 4, 1, 0 );
 
-		if( bz2_err == BZ_OK )
-		{
-			size = uDecompressedLen;
-			memcpy( msg->pData, buf, size );
-		}
-		else
+		if( bz2_err != BZ_OK )
 		{
 			Con_Printf( S_ERROR "%s: BZ2 decompression failed (%d)\n", __func__, bz2_err );
 			return false;
 		}
+
+		size = uDecompressedLen;
+		memcpy( msg->pData, buf, size );
 #else
 		Host_Error( "%s: BZ2 compression is not supported for server\n", __func__ );
 #endif
 	}
 	else if( chan->use_lzss && LZSS_IsCompressed( MSG_GetData( msg ), size ))
 	{
-		uint	uDecompressedLen = LZSS_GetActualSize( MSG_GetData( msg ), size );
-		byte	buf[NET_MAX_MESSAGE];
+		byte buf[NET_MAX_MESSAGE];
+		uint uDecompressedLen = LZSS_GetActualSize( MSG_GetData( msg ), size );
 
-		if( uDecompressedLen <= sizeof( buf ))
+		if( uDecompressedLen == 0 || uDecompressedLen > sizeof( buf ))
 		{
-			size = LZSS_Decompress( MSG_GetData( msg ), buf, size, sizeof( buf ));
-			memcpy( msg->pData, buf, size );
-		}
-		else
-		{
-			// g-cont. this should not happens
-			Con_Printf( S_ERROR "buffer to small to decompress message\n" );
+			Con_Printf( S_ERROR "LZSS fragment uncompressed size out of range: %u\n", uDecompressedLen );
 			return false;
 		}
+
+		size = LZSS_Decompress( MSG_GetData( msg ), buf, size, sizeof( buf ));
+		memcpy( msg->pData, buf, size );
 	}
 
 	chan->incomingbufs[FRAG_NORMAL_STREAM] = NULL;
