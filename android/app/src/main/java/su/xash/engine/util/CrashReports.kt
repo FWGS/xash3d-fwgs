@@ -24,6 +24,7 @@ object CrashReports {
 	const val STACKTRACE_NAME = "crash.log"
 	const val SYSINFO_NAME = "sysinfo.txt"
 	const val INTENT_NAME = "intent.txt"
+	const val ENGINELOG_NAME = "engine.log"
 
 	class Entry(val dir: File) {
 		val name: String get() = dir.name
@@ -31,8 +32,9 @@ object CrashReports {
 		val stacktrace: File get() = File(dir, STACKTRACE_NAME)
 		val sysinfo: File get() = File(dir, SYSINFO_NAME)
 		val intent: File get() = File(dir, INTENT_NAME)
+		val engineLog: File get() = File(dir, ENGINELOG_NAME)
 
-		fun attachments(): List<File> = listOf(stacktrace, sysinfo, intent).filter { it.exists() && it.length() > 0 }
+		fun attachments(): List<File> = listOf(stacktrace, sysinfo, intent, engineLog).filter { it.exists() && it.length() > 0 }
 
 		fun summary(): String = buildString {
 			if (stacktrace.exists())
@@ -52,6 +54,7 @@ object CrashReports {
 	fun pendingStacktrace(ctx: Context): File = File(pendingDir(ctx), STACKTRACE_NAME)
 	fun pendingSysinfo(ctx: Context): File = File(pendingDir(ctx), SYSINFO_NAME)
 	fun pendingIntent(ctx: Context): File = File(pendingDir(ctx), INTENT_NAME)
+	fun pendingEngineLog(ctx: Context): File = File(pendingDir(ctx), ENGINELOG_NAME)
 	fun historyDir(ctx: Context): File = File(ctx.filesDir, "crashes/history")
 
 	// wipe everything on app update; otherwise drop logs older than 30 days
@@ -65,6 +68,7 @@ object CrashReports {
 			pendingStacktrace(ctx).delete()
 			pendingSysinfo(ctx).delete()
 			pendingIntent(ctx).delete()
+			pendingEngineLog(ctx).delete()
 			prefs.edit().putInt(KEY_LAST_VERSION, currentVersion).apply()
 			return
 		}

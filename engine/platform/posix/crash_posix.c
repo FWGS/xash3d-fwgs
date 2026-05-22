@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #if XASH_ANDROID
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <android/log.h>
 #endif
 #include "library.h"
@@ -29,6 +30,7 @@ GNU General Public License for more details.
 
 #if XASH_ANDROID
 static char crashlog_path[MAX_OSPATH];
+static char enginelog_path[MAX_OSPATH];
 #endif
 
 static qboolean have_libbacktrace = false;
@@ -79,6 +81,26 @@ static void Sys_Crash( int signal, siginfo_t *si, void *context )
 		}
 	}
 
+	// make a copy of engine.log in staging directory
+	// TODO: dump log from console buffers, if -log not enabled
+	if( logfd >= 0 && enginelog_path[0] && lseek( logfd, 0, SEEK_SET ) == 0 )
+	{
+		int outfd = open( enginelog_path, O_WRONLY|O_CREAT|O_TRUNC, 0644 );
+		if( outfd >= 0 )
+		{
+			static char buf[8192];
+			while( 1 )
+			{
+				ssize_t n = read( logfd, buf, sizeof( buf ));
+				if( n <= 0 )
+					break;
+				if( write( outfd, buf, (size_t)n ) != n )
+					break;
+			}
+			close( outfd );
+		}
+	}
+
 	// JNI/SDL calls aren't safe from a signal handler on Android
 	_exit( 128 + signal );
 #else
@@ -115,7 +137,10 @@ void Sys_SetupCrashHandler( const char *argv0 )
 	const char *crashdir = getenv( "XASH3D_CRASH_DIR" );
 
 	if( !COM_StringEmptyOrNULL( crashdir ))
+	{
 		Q_snprintf( crashlog_path, sizeof( crashlog_path ), "%s/crash.log", crashdir );
+		Q_snprintf( enginelog_path, sizeof( enginelog_path ), "%s/engine.log", crashdir );
+	}
 
 	// unblock the engine/SDL_main thread just in case
 	sigset_t set;

@@ -95,8 +95,8 @@ void Sys_InitLog( void )
 
 	const char *mode;
 	if( host.change_game && host.type != HOST_DEDICATED )
-		mode = "a";
-	else mode = "w";
+		mode = "a+";
+	else mode = "w+";
 
 	if( Host_IsDedicated( ))
 		Q_strncpy( s_ld.title, XASH_DEDICATED_SERVER_NAME " " XASH_VERSION, sizeof( s_ld.title ));
