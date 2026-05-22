@@ -1097,6 +1097,16 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 		p = n;
 	}
 
+	// consumed buffer, flush
+	chan->incomingbufs[FRAG_NORMAL_STREAM] = NULL;
+	chan->incomingready[FRAG_NORMAL_STREAM] = false;
+
+	if( MSG_Overflow( msg, 0 ))
+	{
+		Con_Printf( S_ERROR "%s: net_message_buffer overflow!\n", __func__ );
+		return false;
+	}
+
 	size_t size = MSG_GetNumBytesWritten( msg );
 
 	if( chan->use_bz2 && size >= 4 && !memcmp( MSG_GetData( msg ), "BZ2", 4 ))
@@ -1132,11 +1142,6 @@ qboolean Netchan_CopyNormalFragments( netchan_t *chan, sizebuf_t *msg, size_t *l
 		size = LZSS_Decompress( MSG_GetData( msg ), buf, size, sizeof( buf ));
 		memcpy( msg->pData, buf, size );
 	}
-
-	chan->incomingbufs[FRAG_NORMAL_STREAM] = NULL;
-
-	// reset flag
-	chan->incomingready[FRAG_NORMAL_STREAM] = false;
 
 	// tell about message size
 	if( length ) *length = size;
