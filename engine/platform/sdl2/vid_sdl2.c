@@ -32,6 +32,8 @@ static void GL_SetupAttributes( void );
 static struct
 {
 	int prev_width, prev_height;
+	int requested_width, requested_height;
+	qboolean stretch_resolution;
 } sdlState = { 640, 480 };
 
 struct
@@ -393,18 +395,82 @@ static void VID_GetWindowSizeInPixels( SDL_Window *window, SDL_Renderer *rendere
 #endif
 }
 
+static qboolean VID_StretchResolutionEnabled( void )
+{
+	const char *enabled = SDL_getenv( "XASH3D_STRETCH_RESOLUTION" );
+	return Sys_CheckParm( "-stretch_resolution" ) ||
+		( enabled && ( !Q_stricmp( enabled, "1" ) || !Q_stricmp( enabled, "true" )));
+}
+
+static qboolean VID_GetStretchWindowSize( int *width, int *height )
+{
+	const char *native_width = SDL_getenv( "XASH3D_NATIVE_WIDTH" );
+	const char *native_height = SDL_getenv( "XASH3D_NATIVE_HEIGHT" );
+
+	if( native_width && native_height )
+	{
+		*width = Q_atoi( native_width );
+		*height = Q_atoi( native_height );
+
+		if( *width >= VID_MIN_WIDTH && *height >= VID_MIN_HEIGHT )
+			return true;
+	}
+
+	return false;
+}
+
 void VID_SaveWindowSize( int width, int height )
 {
 	qboolean maximized = FBitSet( SDL_GetWindowFlags( host.hWnd ), SDL_WINDOW_MAXIMIZED );
 	int render_w = width, render_h = height;
 
 	VID_GetWindowSizeInPixels( host.hWnd, sw.renderer, &render_w, &render_h );
+
+	if( sdlState.stretch_resolution &&
+		sdlState.requested_width >= VID_MIN_WIDTH &&
+		sdlState.requested_height >= VID_MIN_HEIGHT &&
+		( render_w != sdlState.requested_width || render_h != sdlState.requested_height ))
+	{
+		const int window_w = render_w;
+		const int window_h = render_h;
+		string temp;
+
+		render_w = sdlState.requested_width;
+		render_h = sdlState.requested_height;
+
+		if( glw_state.software )
+			VID_SetDisplayTransform( &render_w, &render_h );
+		else
+			VID_SetDisplayTransformScale( &render_w, &render_h, (float)window_w / render_w, (float)window_h / render_h );
+
+		R_SaveVideoMode( width, height, render_w, render_h, maximized );
+
+		Q_snprintf( temp, sizeof( temp ), "%d", sdlState.requested_width );
+		Cvar_DirectSet( &window_width, temp );
+
+		Q_snprintf( temp, sizeof( temp ), "%d", sdlState.requested_height );
+		Cvar_DirectSet( &window_height, temp );
+		return;
+	}
+
 	VID_SetDisplayTransform( &render_w, &render_h );
 	R_SaveVideoMode( width, height, render_w, render_h, maximized );
 }
 
 static qboolean VID_GuessFullscreenMode( int display_index, const SDL_DisplayMode *want, SDL_DisplayMode *got )
 {
+#if XASH_MOBILE_PLATFORM
+	*got = *want;
+
+	SDL_DisplayMode dm;
+	if( SDL_GetDesktopDisplayMode( display_index, &dm ) >= 0 )
+	{
+		got->format = dm.format;
+		got->refresh_rate = dm.refresh_rate;
+	}
+
+	return true;
+#else
 	if( SDL_GetClosestDisplayMode( display_index, want, got ) == NULL )
 	{
 		Con_Printf( S_ERROR "%s: SDL_GetClosestDisplayMode: %s\n", __func__, SDL_GetError( ));
@@ -427,6 +493,7 @@ static qboolean VID_GuessFullscreenMode( int display_index, const SDL_DisplayMod
 	}
 
 	return true;
+#endif // XASH_MOBILE_PLATFORM
 }
 
 static int VID_GetDisplayIndex( const char *caller, SDL_Window *window )
@@ -545,6 +612,16 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			// no video mode change to begin with
 			return rserr_invalid_fullscreen;
 		}
+
+#if XASH_MOBILE_PLATFORM
+		if( sdlState.stretch_resolution )
+		{
+			SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
+			SDL_SetWindowResizable( host.hWnd, SDL_FALSE );
+			SDL_SetWindowPosition( host.hWnd, 0, 0 );
+			SDL_SetWindowSize( host.hWnd, width, height );
+		}
+#endif
 		break;
 	}
 	case WINDOW_MODE_FULLSCREEN:
@@ -558,13 +635,13 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 
 		if( !VID_GuessFullscreenMode( display_index, &want, &got ))
 			return appropriate_err;
-
+#if !XASH_MOBILE_PLATFORM
 		if( SDL_SetWindowDisplayMode( host.hWnd, &got ) < 0 )
 		{
 			Con_Printf( S_ERROR "%s: SDL_SetWindowDisplayMode: %s\n", __func__, SDL_GetError( ));
 			return appropriate_err;
 		}
-
+#endif // !XASH_MOBILE_PLATFORM
 		if( SDL_SetWindowFullscreen( host.hWnd, SDL_WINDOW_FULLSCREEN ) < 0 )
 		{
 			Con_Printf( S_ERROR "%s: SDL_SetWindowFullscreen (fullscreen): %s\n", __func__, SDL_GetError( ));
@@ -574,6 +651,15 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 		// SDL_SetWindowDisplayMode is broken in SDL2, it changes the display mode but doesn't change window size
 		SDL_SetWindowSize( host.hWnd, got.w, got.h );
 
+#if XASH_MOBILE_PLATFORM
+		if( sdlState.stretch_resolution )
+		{
+			SDL_SetWindowBordered( host.hWnd, SDL_FALSE );
+			SDL_SetWindowResizable( host.hWnd, SDL_FALSE );
+			SDL_SetWindowPosition( host.hWnd, 0, 0 );
+			SDL_SetWindowSize( host.hWnd, width, height );
+		}
+#endif
 		break;
 	}
 	case WINDOW_MODE_WINDOWED:
@@ -989,6 +1075,7 @@ Set the described video mode
 */
 qboolean VID_SetMode( void )
 {
+	int requested_width, requested_height;
 	rserr_t	err;
 	int width = window_width.value;
 	int height = window_height.value;
@@ -1009,11 +1096,45 @@ qboolean VID_SetMode( void )
 #endif
 	}
 
+	requested_width = width;
+	requested_height = height;
+	sdlState.requested_width = requested_width;
+	sdlState.requested_height = requested_height;
+	sdlState.stretch_resolution = false;
+
 #if XASH_MOBILE_PLATFORM
 	if( Q_strcmp( vid_fullscreen.string, DEFAULT_FULLSCREEN ))
 	{
 		Cvar_DirectSet( &vid_fullscreen, DEFAULT_FULLSCREEN );
 		Con_Reportf( S_ERROR "%s: windowed unavailable on this platform\n", __func__ );
+	}
+
+	if( VID_StretchResolutionEnabled() )
+	{
+		SDL_DisplayMode mode;
+		int stretch_width = 0, stretch_height = 0;
+
+		if( !VID_GetStretchWindowSize( &stretch_width, &stretch_height ))
+		{
+			if( SDL_GetCurrentDisplayMode( 0, &mode ) >= 0 )
+			{
+				stretch_width = mode.w;
+				stretch_height = mode.h;
+			}
+			else if( SDL_GetDesktopDisplayMode( 0, &mode ) >= 0 )
+			{
+				stretch_width = mode.w;
+				stretch_height = mode.h;
+			}
+		}
+
+		if( stretch_width >= VID_MIN_WIDTH && stretch_height >= VID_MIN_HEIGHT &&
+			( requested_width != stretch_width || requested_height != stretch_height ))
+		{
+			sdlState.stretch_resolution = true;
+			width = stretch_width;
+			height = stretch_height;
+		}
 	}
 #endif
 

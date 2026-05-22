@@ -197,6 +197,32 @@ static inline float Touch_AspectRatio( void )
 	return 9.0f / 16.0f;
 }
 
+static inline float Touch_ButtonAspectRatio( void )
+{
+	if( Sys_CheckParm( "-stretch_resolution" ) && refState.width &&
+		refState.scale_x > 0.0f && refState.scale_y > 0.0f )
+	{
+		float aspect = (float)refState.height / refState.width * refState.scale_x / refState.scale_y;
+		if( aspect >= 0.25f )
+			return aspect;
+	}
+
+	return Touch_AspectRatio();
+}
+
+static inline float Touch_DrawAspectRatio( void )
+{
+	if( Sys_CheckParm( "-stretch_resolution" ) && refState.width && refState.height )
+		return (float)refState.height / refState.width;
+
+	return Touch_AspectRatio();
+}
+
+#undef TO_SCRN_Y
+#undef TO_SCRN_X
+#define TO_SCRN_Y(x) (refState.width * (x) * Touch_DrawAspectRatio())
+#define TO_SCRN_X(x) (refState.width * (x))
+
 static void Touch_ConfigAspectRatio_f( void )
 {
 	touch.config_aspect_ratio = Q_atof( Cmd_Argv( 1 ));
@@ -234,7 +260,7 @@ static void Touch_ExportButtonToConfig( file_t *f, const touch_button_t *button,
 
 	if( keepAspect )
 	{
-		float aspect = ( button->y2 - button->y1 ) / (( button->x2 - button->x1 ) / Touch_AspectRatio( ));
+		float aspect = ( button->y2 - button->y1 ) / (( button->x2 - button->x1 ) / Touch_ButtonAspectRatio( ));
 		FS_Printf( f, " %g\n", aspect );
 	}
 	else FS_Printf( f, "\n" );
@@ -402,7 +428,7 @@ static void Touch_GenerateCode_f( void )
 		if( FBitSet( flags, TOUCH_FL_DEF_HIDE ))
 			SetBits( flags, TOUCH_FL_HIDE );
 
-		float aspect = ( button->y2 - button->y1 ) / (( button->x2 - button->x1 ) / Touch_AspectRatio( ));
+		float aspect = ( button->y2 - button->y1 ) / (( button->x2 - button->x1 ) / Touch_ButtonAspectRatio( ));
 
 		if( memcmp( c, button->color, sizeof( c )))
 		{
@@ -840,7 +866,7 @@ void Touch_AddClientButton( const char *name, const char *texture, const char *c
 	IN_TouchCheckCoords( &x1, &y1, &x2, &y2 );
 
 	if( round == round_aspect )
-		y2 = y1 + ( x2 - x1 ) / (Touch_AspectRatio()) * aspect;
+		y2 = y1 + ( x2 - x1 ) / Touch_ButtonAspectRatio() * aspect;
 
 	touch_button_t *button = Touch_AddButton( &touch.list_user, name, texture, command, x1, y1, x2, y2, color, true );
 	SetBits( button->flags, TOUCH_FL_CLIENT | TOUCH_FL_NOEDIT );
@@ -864,7 +890,7 @@ static void Touch_LoadDefaults_f( void )
 			if( g_DefaultButtons[i].texture[0] == '#' )
 				y2 = y1 + ( (float)clgame.scrInfo.iCharHeight / (float)clgame.scrInfo.iHeight ) * g_DefaultButtons[i].aspect + touch.swidth * 2.0f / refState.height;
 			else
-				y2 = y1 + (( x2 - x1 ) / Touch_AspectRatio()) * g_DefaultButtons[i].aspect;
+				y2 = y1 + (( x2 - x1 ) / Touch_ButtonAspectRatio( )) * g_DefaultButtons[i].aspect;
 		}
 
 		IN_TouchCheckCoords( &x1, &y1, &x2, &y2 );
@@ -964,7 +990,7 @@ static void Touch_AddButton_f( void )
 		if( aspect )
 		{
 			if( button->texture[0] != '#' )
-				button->y2 = button->y1 + (( button->x2 - button->x1 ) / Touch_AspectRatio( )) * aspect;
+				button->y2 = button->y1 + (( button->x2 - button->x1 ) / Touch_ButtonAspectRatio( )) * aspect;
 			button->aspect = aspect;
 		}
 	}
@@ -1024,7 +1050,7 @@ static void Touch_DeleteProfile_f( void )
 
 static void Touch_InitEditor( void )
 {
-	float x = 0.1f * (Touch_AspectRatio());
+	float x = 0.1f * Touch_DrawAspectRatio();
 	float y = 0.05f;
 	touch_button_t *temp;
 	rgba_t color;
@@ -1231,7 +1257,7 @@ static inline int Touch_GridCountX( void )
 
 static inline int Touch_GridCountY( void )
 {
-	float grid_count_y = touch_grid_count.value * Touch_AspectRatio();
+	float grid_count_y = touch_grid_count.value * Touch_DrawAspectRatio();
 	return Q_max((int)grid_count_y, 1 );
 }
 
@@ -1336,7 +1362,7 @@ static float Touch_DrawText( float x1, float y1, float x2, float y2, const char 
 	{
 		while( *s && ( *s != '\n' ) && ( *s != ';' ) && ( x1 < maxx ))
 			x1 += Touch_DrawCharacter( x1, y1, *s++, size );
-		y1 += cls.creditsFont.charHeight / 1024.f * size / Touch_AspectRatio();
+		y1 += cls.creditsFont.charHeight / 1024.f * size / Touch_DrawAspectRatio();
 
 		if( y1 >= maxy )
 			break;
@@ -2142,7 +2168,7 @@ int IN_TouchEvent( touchEventType type, int fingerID, float x, float y, float dx
 	if( !touch.initialized || ( !touch_enable.value && !touch.clientonly ))
 		return false;
 
-	y *= (float)refState.height / refState.width / Touch_AspectRatio();
+	y *= (float)refState.height / refState.width / Touch_DrawAspectRatio( );
 
 	if( clgame.dllFuncs.pfnTouchEvent && clgame.dllFuncs.pfnTouchEvent( type, fingerID, x, y, dx, dy ) )
 		return true;

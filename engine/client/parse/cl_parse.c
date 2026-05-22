@@ -2024,12 +2024,14 @@ Set screen fade
 */
 static void CL_ParseScreenFade( sizebuf_t *msg )
 {
-	screenfade_t *sf = &clgame.fade;
+	float           duration, holdTime;
+	screenfade_t    *sf = &clgame.fade;
+	float           flScale;
 
-	float duration = (float)MSG_ReadWord( msg );
-	float holdTime = (float)MSG_ReadWord( msg );
+	duration = (float)MSG_ReadWord( msg );
+	holdTime = (float)MSG_ReadWord( msg );
 	sf->fadeFlags = MSG_ReadShort( msg );
-	float flScale = FBitSet( sf->fadeFlags, FFADE_LONGFADE ) ? (1.0f / 256.0f) : (1.0f / 4096.0f);
+	flScale = FBitSet( sf->fadeFlags, FFADE_LONGFADE ) ? (1.0f / 256.0f) : (1.0f / 4096.0f);
 
 	sf->fader = MSG_ReadByte( msg );
 	sf->fadeg = MSG_ReadByte( msg );
@@ -2039,7 +2041,10 @@ static void CL_ParseScreenFade( sizebuf_t *msg )
 	sf->fadeEnd = duration * flScale;
 	sf->fadeReset = holdTime * flScale;
 
-	// calc fade speed
+	if ( !cl_screenfade.value )
+	{
+		sf->fadealpha = 0;
+	}
 	if( duration > 0 )
 	{
 		if( FBitSet( sf->fadeFlags, FFADE_OUT ))
@@ -2051,19 +2056,19 @@ static void CL_ParseScreenFade( sizebuf_t *msg )
 
 			sf->fadeEnd += cl.time;
 			sf->fadeTotalEnd = sf->fadeEnd;
-			sf->fadeReset += sf->fadeEnd;
+            		sf->fadeReset += sf->fadeEnd;
 		}
-		else
-		{
-			if( sf->fadeEnd )
-			{
-				sf->fadeSpeed = (float)sf->fadealpha / sf->fadeEnd;
-			}
+        	else
+        	{
+            		if( sf->fadeEnd )
+            		{
+                		sf->fadeSpeed = (float)sf->fadealpha / sf->fadeEnd;
+            		}
 
-			sf->fadeReset += cl.time;
-			sf->fadeEnd += sf->fadeReset;
-		}
-	}
+            		sf->fadeReset += cl.time;
+            		sf->fadeEnd += sf->fadeReset;
+        	}
+    	}
 }
 
 /*
@@ -2299,8 +2304,8 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num, connprotocol_t proto )
 		Con_DPrintf( S_ERROR "%s: No pfn %s %d\n", __func__, clgame.msg[i].name, clgame.msg[i].number );
 		clgame.msg[i].func = CL_UserMsgStub; // throw warning only once
 	}
+	CL_WeaponListFix_OnUserMessage( clgame.msg[i].name, iSize, pbuf );
 }
-
 /*
 =====================================================================
 
