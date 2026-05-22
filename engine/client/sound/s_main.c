@@ -290,8 +290,6 @@ static int SND_GetChannelTimeLeft( const channel_t *ch )
 
 	if( ch->words ) // sentences are special, count all remaining words
 	{
-		int i;
-
 		if( FBitSet( ch->flags, FL_CHAN_SENTENCE_FINISHED ) )
 			return 0;
 
@@ -300,7 +298,7 @@ static int SND_GetChannelTimeLeft( const channel_t *ch )
 
 		// here we count all remaining words, stopping if no sfx or sound file is available
 		// see VOX_LoadWord
-		for( i = ch->word_index + 1; i < CVOXWORDMAX; i++ )
+		for( int i = ch->word_index + 1; i < CVOXWORDMAX; i++ )
 		{
 			wavdata_t *sc;
 			int end;
@@ -341,14 +339,9 @@ exceptions).
 */
 channel_t *SND_PickDynamicChannel( int entnum, int channel, sfx_t *sfx, qboolean *ignore )
 {
-	int	ch_idx;
-	int	first_to_die;
-	int	life_left;
-	int	timeleft;
+	int	first_to_die = -1;
+	int	life_left = 0x7fffffff;
 
-	// check for replacement sound, or find the best one to replace
-	first_to_die = -1;
-	life_left = 0x7fffffff;
 	if( ignore ) *ignore = false;
 
 	if( channel == CHAN_STREAM && SND_FStreamIsPlaying( sfx ))
@@ -358,9 +351,10 @@ channel_t *SND_PickDynamicChannel( int entnum, int channel, sfx_t *sfx, qboolean
 		return NULL;
 	}
 
-	for( ch_idx = NUM_AMBIENTS; ch_idx < MAX_DYNAMIC_CHANNELS; ch_idx++ )
+	for( int ch_idx = NUM_AMBIENTS; ch_idx < MAX_DYNAMIC_CHANNELS; ch_idx++ )
 	{
 		channel_t	*ch = &snd.channels[ch_idx];
+		int	timeleft;
 
 		// Never override a streaming sound that is currently playing or
 		// voice over IP data that is playing or any sound on CHAN_VOICE( acting )
@@ -1019,14 +1013,14 @@ grab all static sounds playing at current channel
 int S_GetCurrentDynamicSounds( soundlist_t *pout, int size )
 {
 	int	sounds_left = size;
-	int	i, looped;
 
 	if( !snd.initialized )
 		return 0;
 
-	for( i = 0; i < snd.max_channels && sounds_left; i++ )
+	for( int i = 0; i < snd.max_channels && sounds_left; i++ )
 	{
 		const channel_t *ch = &snd.channels[i];
+		int looped;
 
 		if( !ch->sfx || !ch->sfx->name[0] || !Q_stricmp( ch->sfx->name, "*default" ))
 			continue;	// don't serialize default sounds
@@ -1220,14 +1214,13 @@ S_RawSamplesStereo
 */
 uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
 {
-	uint	fracstep, samplefrac;
-	uint	src, dst;
+	uint	src;
 
 	if( rawend < snd.paintedtime )
 		rawend = snd.paintedtime;
 
-	fracstep = ((double) rate / (double)SOUND_DMA_SPEED) * (double)(1 << S_RAW_SAMPLES_PRECISION_BITS);
-	samplefrac = 0;
+	uint fracstep = ((double) rate / (double)SOUND_DMA_SPEED) * (double)(1 << S_RAW_SAMPLES_PRECISION_BITS);
+	uint samplefrac = 0;
 
 	if( width == 2 )
 	{
@@ -1237,7 +1230,7 @@ uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint ma
 		{
 			for( src = 0; src < samples; samplefrac += fracstep, src = ( samplefrac >> S_RAW_SAMPLES_PRECISION_BITS ))
 			{
-				dst = rawend++ & ( max_samples - 1 );
+				uint dst = rawend++ & ( max_samples - 1 );
 				rawsamples[dst].left = in[src*2+0];
 				rawsamples[dst].right = in[src*2+1];
 			}
@@ -1246,7 +1239,7 @@ uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint ma
 		{
 			for( src = 0; src < samples; samplefrac += fracstep, src = ( samplefrac >> S_RAW_SAMPLES_PRECISION_BITS ))
 			{
-				dst = rawend++ & ( max_samples - 1 );
+				uint dst = rawend++ & ( max_samples - 1 );
 				rawsamples[dst].left = in[src];
 				rawsamples[dst].right = in[src];
 			}
@@ -1260,7 +1253,7 @@ uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint ma
 
 			for( src = 0; src < samples; samplefrac += fracstep, src = ( samplefrac >> S_RAW_SAMPLES_PRECISION_BITS ))
 			{
-				dst = rawend++ & ( max_samples - 1 );
+				uint dst = rawend++ & ( max_samples - 1 );
 				rawsamples[dst].left = in[src*2+0] << 8;
 				rawsamples[dst].right = in[src*2+1] << 8;
 			}
@@ -1269,7 +1262,7 @@ uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint ma
 		{
 			for( src = 0; src < samples; samplefrac += fracstep, src = ( samplefrac >> S_RAW_SAMPLES_PRECISION_BITS ))
 			{
-				dst = rawend++ & ( max_samples - 1 );
+				uint dst = rawend++ & ( max_samples - 1 );
 				rawsamples[dst].left = ( data[src] - 128 ) << 8;
 				rawsamples[dst].right = ( data[src] - 128 ) << 8;
 			}
@@ -1309,9 +1302,7 @@ Free raw channel that have been idling for too long.
 */
 static void S_FreeIdleRawChannels( void )
 {
-	int	i;
-
-	for( i = 0; i < snd.max_raw_channels; i++ )
+	for( int i = 0; i < snd.max_raw_channels; i++ )
 	{
 		rawchan_t *ch = snd.raw_channels[i];
 
@@ -1344,9 +1335,7 @@ S_ClearRawChannels
 */
 static void S_ClearRawChannels( void )
 {
-	int	i;
-
-	for( i = 0; i < snd.max_raw_channels; i++ )
+	for( int i = 0; i < snd.max_raw_channels; i++ )
 	{
 		rawchan_t *ch = snd.raw_channels[i];
 
@@ -1464,12 +1453,10 @@ S_StopAllSounds
 */
 void S_StopAllSounds( qboolean ambient )
 {
-	int	i;
-
 	if( !snd.initialized ) return;
 	snd.total_channels = MAX_DYNAMIC_CHANNELS;	// no statics
 
-	for( i = 0; i < snd.max_channels; i++ )
+	for( int i = 0; i < snd.max_channels; i++ )
 	{
 		if( !snd.channels[i].sfx )
 			continue;
@@ -1503,14 +1490,13 @@ update global soundtime
 static int S_GetSoundtime( void )
 {
 	static int buffers, oldsamplepos;
-	int samplepos, fullsamples;
 
-	fullsamples = snd.samples / 2;
+	int fullsamples = snd.samples / 2;
 
 	// it is possible to miscount buffers
 	// if it has wrapped twice between
 	// calls to S_Update.  Oh well.
-	samplepos = snd.samplepos;
+	int samplepos = snd.samplepos;
 
 	if( samplepos < oldsamplepos )
 	{
@@ -1776,13 +1762,12 @@ static void S_Music_f( void )
 	{
 		string	intro, main, track;
 		const char	*ext[] = { "mp3", "wav" };
-		int	i;
 
 		Q_strncpy( track, Cmd_Argv( 1 ), sizeof( track ));
 		Q_snprintf( intro, sizeof( intro ), "%s_intro", Cmd_Argv( 1 ));
 		Q_snprintf( main, sizeof( main ), "%s_main", Cmd_Argv( 1 ));
 
-		for( i = 0; i < 2; i++ )
+		for( int i = 0; i < 2; i++ )
 		{
 			char intro_path[MAX_VA_STRING];
 			char main_path[MAX_VA_STRING];

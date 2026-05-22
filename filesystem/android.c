@@ -55,9 +55,7 @@ struct jni_methods_s
 
 static void Android_GetAssetManager( android_assets_t *assets )
 {
-	jobject assetManager;
-
-	assetManager = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getAssets, assets->engine );
+	jobject assetManager = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getAssets, assets->engine );
 
 	if( assetManager )
 		assets->asset_manager = AAssetManager_fromJava( jni.env, assetManager );
@@ -68,10 +66,8 @@ static void Android_GetAssetManager( android_assets_t *assets )
 static const char *Android_GetPackageName( qboolean engine )
 {
 	static string pkg;
-	jstring resultJNIStr;
+	jstring resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, engine ? jni.getPackageName : jni.getCallingPackage );
 	const char *resultCStr;
-
-	resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, engine ? jni.getPackageName : jni.getCallingPackage );
 
 	if( !resultJNIStr )
 		return NULL;
@@ -144,7 +140,6 @@ static int FS_FileTime_AndroidAssets( searchpath_t *search, const char *filename
 	if( !time )
 	{
 		struct tm file_tm;
-
 		strptime( g_buildcommit_date, "%Y-%m-%d %H:%M:%S", &file_tm );
 		time = mktime( &file_tm );
 	}
@@ -181,15 +176,13 @@ static void FS_Search_AndroidAssets( searchpath_t *search, stringlist_t *list, c
 {
 	string temp;
 	stringlist_t dirlist;
-	const char *slash, *backslash, *colon, *separator;
-	int basepathlength, dirlistindex, resultlistindex;
+	const char *slash = Q_strrchr( pattern, '/' );
+	const char *backslash = Q_strrchr( pattern, '\\' );
+	const char *colon = Q_strrchr( pattern, ':' );
+	const char *separator = Q_max( slash, backslash );
+	int basepathlength, dirlistindex;
 	char *basepath;
 
-	slash = Q_strrchr( pattern, '/' );
-	backslash = Q_strrchr( pattern, '\\' );
-	colon = Q_strrchr( pattern, ':' );
-
-	separator = Q_max( slash, backslash );
 	separator = Q_max( separator, colon );
 
 	basepathlength = separator ? (separator + 1 - pattern) : 0;
@@ -209,6 +202,8 @@ static void FS_Search_AndroidAssets( searchpath_t *search, stringlist_t *list, c
 
 		if( matchpattern( temp, (char *)pattern, true ))
 		{
+			int resultlistindex;
+
 			for( resultlistindex = 0; resultlistindex < list->numstrings; resultlistindex++ )
 			{
 				if( !Q_strcmp( list->strings[resultlistindex], temp ))
@@ -245,11 +240,10 @@ static byte *FS_LoadAndroidAssetsFile( searchpath_t *search, const char *path, i
 {
 	byte *buf;
 	off_t size;
-	AAsset *asset;
+	AAsset *asset = AAssetManager_open( search->assets->asset_manager, path, AASSET_MODE_BUFFER );
 
 	if( filesize ) *filesize = 0;
 
-	asset = AAssetManager_open( search->assets->asset_manager, path, AASSET_MODE_BUFFER );
 	if( !asset )
 		return NULL;
 

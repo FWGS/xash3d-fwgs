@@ -18,18 +18,13 @@ GNU General Public License for more details.
 
 static void SV_CreateCustomizationList( sv_client_t *cl )
 {
-	resource_t	*pResource;
-	customization_t	*pList, *pCust;
-	qboolean		bFound;
-	int		nLumps;
-
 	cl->customdata.pNext = NULL;
 
-	for( pResource = cl->resourcesonhand.pNext; pResource != &cl->resourcesonhand; pResource = pResource->pNext )
+	for( resource_t *pResource = cl->resourcesonhand.pNext; pResource != &cl->resourcesonhand; pResource = pResource->pNext )
 	{
-		bFound = false;
+		qboolean bFound = false;
 
-		for( pList = cl->customdata.pNext; pList != NULL; pList = pList->pNext )
+		for( customization_t *pList = cl->customdata.pNext; pList != NULL; pList = pList->pNext )
 		{
 			if( !memcmp( pList->resource.rgucMD5_hash, pResource->rgucMD5_hash, 16 ))
 			{
@@ -40,7 +35,8 @@ static void SV_CreateCustomizationList( sv_client_t *cl )
 
 		if( !bFound )
 		{
-			nLumps = 0;
+			customization_t *pCust;
+			int nLumps = 0;
 
 			if( COM_CreateCustomization( &cl->customdata, pResource, -1, FCUST_FROMHPAK|FCUST_WIPEDATA, &pCust, &nLumps ))
 			{
@@ -63,12 +59,10 @@ static void SV_CreateCustomizationList( sv_client_t *cl )
 
 static qboolean SV_FileInConsistencyList( const char *filename, consistency_t **ppout )
 {
-	int	i;
-
 	if( ppout != NULL )
 		*ppout = NULL;
 
-	for( i = 0; i < MAX_MODELS; i++ )
+	for( int i = 0; i < MAX_MODELS; i++ )
 	{
 		consistency_t	*pc = &sv.consistency_list[i];
 
@@ -88,16 +82,10 @@ static qboolean SV_FileInConsistencyList( const char *filename, consistency_t **
 
 void SV_ParseConsistencyResponse( sv_client_t *cl, sizebuf_t *msg )
 {
-	int		i, c, idx, value;
-	byte		readbuffer[32];
+	int		c;
 	byte		nullbuffer[32];
-	byte		resbuffer[32];
 	qboolean		invalid_type;
-	vec3_t		cmins, cmaxs;
 	int		badresindex;
-	vec3_t		mins, maxs;
-	FORCE_TYPE	ft;
-	resource_t	*r;
 
 	memset( nullbuffer, 0, sizeof( nullbuffer ));
 	invalid_type = false;
@@ -106,7 +94,9 @@ void SV_ParseConsistencyResponse( sv_client_t *cl, sizebuf_t *msg )
 
 	while( MSG_ReadOneBit( msg ))
 	{
-		idx = MSG_ReadUBitLong( msg, MAX_MODEL_BITS );
+		byte		readbuffer[32];
+		resource_t	*r;
+		int		idx = MSG_ReadUBitLong( msg, MAX_MODEL_BITS );
 		if( idx < 0 || idx >= sv.num_resources )
 			break;
 
@@ -119,7 +109,7 @@ void SV_ParseConsistencyResponse( sv_client_t *cl, sizebuf_t *msg )
 
 		if( !memcmp( readbuffer, nullbuffer, 32 ))
 		{
-			value = MSG_ReadUBitLong( msg, 32 );
+			int value = MSG_ReadUBitLong( msg, 32 );
 
 			LittleLongSW( value );
 
@@ -129,6 +119,11 @@ void SV_ParseConsistencyResponse( sv_client_t *cl, sizebuf_t *msg )
 		}
 		else
 		{
+			vec3_t		cmins, cmaxs;
+			vec3_t		mins, maxs;
+			byte		resbuffer[32];
+			FORCE_TYPE	ft;
+
 			MSG_ReadBytes( msg, cmins, sizeof( cmins ));
 			MSG_ReadBytes( msg, cmaxs, sizeof( cmaxs ));
 
@@ -148,7 +143,7 @@ void SV_ParseConsistencyResponse( sv_client_t *cl, sizebuf_t *msg )
 				memcpy( mins, &resbuffer[0x01], sizeof( mins ));
 				memcpy( maxs, &resbuffer[0x0D], sizeof( maxs ));
 
-				for( i = 0; i < 3; i++ )
+				for( int i = 0; i < 3; i++ )
 				{
 					if( cmins[i] < mins[i] || cmaxs[i] > maxs[i] )
 					{
@@ -196,14 +191,13 @@ void SV_ParseConsistencyResponse( sv_client_t *cl, sizebuf_t *msg )
 void SV_TransferConsistencyInfo( void )
 {
 	vec3_t		mins, maxs;
-	int		i, total = 0;
-	resource_t	*pResource;
-	string		filepath;
-	consistency_t	*pc;
+	int		total = 0;
 
-	for( i = 0; i < sv.num_resources; i++ )
+	for( int i = 0; i < sv.num_resources; i++ )
 	{
-		pResource = &sv.resources[i];
+		string		filepath;
+		consistency_t	*pc;
+		resource_t	*pResource = &sv.resources[i];
 
 		if( FBitSet( pResource->ucFlags, RES_CHECKFILE ))
 			continue;	// already checked?
@@ -248,9 +242,6 @@ void SV_TransferConsistencyInfo( void )
 
 static void SV_SendConsistencyList( sv_client_t *cl, sizebuf_t *msg )
 {
-	int	i, lastcheck;
-	int	delta;
-
 	if( svs.maxclients == 1 || !sv_consistency.value || !sv.num_consistency || FBitSet( cl->flags, FCL_HLTV_PROXY ))
 	{
 		ClearBits( cl->flags, FCL_FORCE_UNMODIFIED );
@@ -260,14 +251,14 @@ static void SV_SendConsistencyList( sv_client_t *cl, sizebuf_t *msg )
 
 	SetBits( cl->flags, FCL_FORCE_UNMODIFIED );
 	MSG_WriteOneBit( msg, 1 );
-	lastcheck = 0;
+	int lastcheck = 0;
 
-	for( i = 0; i < sv.num_resources; i++ )
+	for( int i = 0; i < sv.num_resources; i++ )
 	{
 		if( !FBitSet( sv.resources[i].ucFlags, RES_CHECKFILE ))
 			continue;
 
-		delta = i - lastcheck;
+		int delta = i - lastcheck;
 		MSG_WriteOneBit( msg, 1 );
 
 		if( delta > 31 )
@@ -361,10 +352,9 @@ void SV_RemoveFromResourceList( resource_t *pResource )
 
 void SV_ClearResourceList( resource_t *pList )
 {
-	resource_t *p;
 	resource_t *n;
 
-	for( p = pList->pNext; pList != p && p; p = n )
+	for( resource_t *p = pList->pNext; pList != p && p; p = n )
 	{
 		n = p->pNext;
 
@@ -386,9 +376,8 @@ int SV_EstimateNeededResources( sv_client_t *cl )
 {
 	int		missing = 0;
 	int		size = 0;
-	resource_t	*p;
 
-	for( p = cl->resourcesneeded.pNext; p != &cl->resourcesneeded; p = p->pNext )
+	for( resource_t *p = cl->resourcesneeded.pNext; p != &cl->resourcesneeded; p = p->pNext )
 	{
 		if( p->type != t_decal )
 			continue;
@@ -437,8 +426,6 @@ static void SV_Customization( sv_client_t *pClient, resource_t *pResource, qbool
 
 static void SV_PropagateCustomizations( sv_client_t *pHost )
 {
-	customization_t	*pCust;
-	resource_t	*pResource;
 	sv_client_t	*cl;
 	int		i;
 
@@ -450,10 +437,10 @@ static void SV_PropagateCustomizations( sv_client_t *pHost )
 		if( FBitSet( cl->flags, FCL_FAKECLIENT ))
 			continue;
 
-		for( pCust = cl->customdata.pNext; pCust != NULL; pCust = pCust->pNext )
+		for( customization_t *pCust = cl->customdata.pNext; pCust != NULL; pCust = pCust->pNext )
 		{
 			if( !pCust->bInUse ) continue;
-			pResource = &pCust->resource;
+			resource_t *pResource = &pCust->resource;
 			SV_SendCustomization( pHost, i, pResource );
 		}
 	}
@@ -502,10 +489,9 @@ void SV_RequestMissingResources( void )
 
 void SV_BatchUploadRequest( sv_client_t *cl )
 {
-	string		filename;
-	resource_t	*p, *n;
+	resource_t	*n;
 
-	for( p = cl->resourcesneeded.pNext; p != &cl->resourcesneeded; p = n )
+	for( resource_t *p = cl->resourcesneeded.pNext; p != &cl->resourcesneeded; p = n )
 	{
 		n = p->pNext;
 
@@ -519,6 +505,7 @@ void SV_BatchUploadRequest( sv_client_t *cl )
 		{
 			if( FBitSet( p->ucFlags, RES_CUSTOM ))
 			{
+				string filename;
 				Q_snprintf( filename, sizeof( filename ), "!MD5%s", MD5_Print( p->rgucMD5_hash ));
 
 				if( SV_CheckFile( &cl->netchan.message, filename ))
@@ -556,8 +543,6 @@ void SV_SendResource( resource_t *pResource, sizebuf_t *msg )
 
 void SV_SendResources( sv_client_t *cl, sizebuf_t *msg )
 {
-	int	i;
-
 	MSG_BeginServerCmd( msg, svc_resourcerequest );
 	MSG_WriteLong( msg, svs.spawncount );
 	MSG_WriteLong( msg, 0 );
@@ -571,7 +556,7 @@ void SV_SendResources( sv_client_t *cl, sizebuf_t *msg )
 	MSG_BeginServerCmd( msg, svc_resourcelist );
 	MSG_WriteUBitLong( msg, sv.num_resources, MAX_RESOURCE_BITS );
 
-	for( i = 0; i < sv.num_resources; i++ )
+	for( int i = 0; i < sv.num_resources; i++ )
 	{
 		SV_SendResource( &sv.resources[i], msg );
 	}

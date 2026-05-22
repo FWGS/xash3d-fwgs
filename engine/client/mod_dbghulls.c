@@ -73,9 +73,7 @@ static void free_winding( winding_t *w )
 
 static winding_t *winding_copy( winding_t *w )
 {
-	winding_t	*neww;
-
-	neww = winding_alloc( w->numpoints );
+	winding_t	*neww = winding_alloc( w->numpoints );
 	memcpy( neww, w, offsetof( winding_t, p[w->numpoints] ) );
 
 	return neww;
@@ -83,12 +81,9 @@ static winding_t *winding_copy( winding_t *w )
 
 static void winding_reverse( winding_t *w )
 {
-	vec3_t	point;
-	int	i;
-
-	for( i = 0; i < w->numpoints / 2; i++ )
+	for( int i = 0; i < w->numpoints / 2; i++ )
 	{
-		VectorCopy( w->p[i], point );
+		vec3_t point = Vec3( w->p[i] );
 		VectorCopy( w->p[w->numpoints - i - 1], w->p[i] );
 		VectorCopy( point, w->p[w->numpoints - i - 1] );
 	}
@@ -117,15 +112,13 @@ winding_for_plane
 static winding_t *winding_for_plane( const mplane_t *p )
 {
 	vec3_t	org, vright, vup;
-	int	i, axis;
-	vec_t	max, v;
-	winding_t	*w;
+	vec_t	v;
 
 	// find the major axis
-	max = -BOGUS_RANGE;
-	axis = -1;
+	vec_t max = -BOGUS_RANGE;
+	int axis = -1;
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		v = fabs( p->normal[i] );
 		if( v > max )
@@ -159,7 +152,7 @@ static winding_t *winding_for_plane( const mplane_t *p )
 	VectorScale( vright, BOGUS_RANGE, vright );
 
 	// project a really big axis aligned box onto the plane
-	w = winding_alloc( 4 );
+	winding_t *w = winding_alloc( 4 );
 	memset( w->p, 0, sizeof( vec3_t ) * 4 );
 	w->numpoints = 4;
 	w->plane = p;
@@ -248,46 +241,42 @@ If keepon is true, an exactly on-plane winding will be saved, otherwise
 */
 static winding_t *winding_clip( winding_t *in, const mplane_t *split, qboolean keepon, int side, vec_t epsilon )
 {
-	vec_t	*dists;
-	int	*sides;
 	int	counts[3];
-	vec_t	dot;
-	int	i, j;
-	winding_t *neww;
-	vec_t	*p1, *p2, *mid;
-	int	maxpts;
 
-	dists = (vec_t *)malloc(( in->numpoints + 1 ) * sizeof( vec_t ));
-	sides = (int *)malloc(( in->numpoints + 1 ) * sizeof( int ));
+	vec_t *dists = (vec_t *)malloc(( in->numpoints + 1 ) * sizeof( vec_t ));
+	int *sides = (int *)malloc(( in->numpoints + 1 ) * sizeof( int ));
 	CalcSides( in, split, sides, dists, counts, epsilon );
 
 	if( keepon && !counts[SIDE_FRONT] && !counts[SIDE_BACK] )
 	{
-		neww = in;
-		goto out_free;
+		free( dists );
+		free( sides );
+		return in;
 	}
 
 	if( !counts[side] )
 	{
 		free_winding( in );
-		neww = NULL;
-		goto out_free;
+		free( dists );
+		free( sides );
+		return NULL;
 	}
 
 	if( !counts[side ^ 1] )
 	{
-		neww = in;
-		goto out_free;
+		free( dists );
+		free( sides );
+		return in;
 	}
 
-	maxpts = in->numpoints + 4;
-	neww = winding_alloc( maxpts );
+	int maxpts = in->numpoints + 4;
+	winding_t *neww = winding_alloc( maxpts );
 	neww->numpoints = 0;
 	neww->plane = in->plane;
 
-	for( i = 0; i < in->numpoints; i++ )
+	for( int i = 0; i < in->numpoints; i++ )
 	{
-		p1 = in->p[i];
+		vec_t *p1 = in->p[i];
 
 		if( sides[i] == SIDE_ON )
 		{
@@ -306,11 +295,11 @@ static winding_t *winding_clip( winding_t *in, const mplane_t *split, qboolean k
 			continue;
 
 		// generate a split point
-		p2 = in->p[(i + 1) % in->numpoints];
-		mid = neww->p[neww->numpoints++];
+		vec_t *p2 = in->p[(i + 1) % in->numpoints];
+		vec_t *mid = neww->p[neww->numpoints++];
 
-		dot = dists[i] / (dists[i] - dists[i + 1]);
-		for( j = 0; j < 3; j++ )
+		vec_t dot = dists[i] / (dists[i] - dists[i + 1]);
+		for( int j = 0; j < 3; j++ )
 		{
 			// avoid round off error when possible
 			if( in->plane->normal[j] == 1.0f )
@@ -333,7 +322,6 @@ static winding_t *winding_clip( winding_t *in, const mplane_t *split, qboolean k
 
 	// Shrink the winding back to just what it needs...
 	neww = winding_shrink(neww);
-out_free:
 	free( dists );
 	free( sides );
 
@@ -352,17 +340,10 @@ new windings will be created.
 */
 static void winding_split( winding_t *in, const mplane_t *split, winding_t **pfront, winding_t **pback )
 {
-	vec_t	*dists;
-	int	*sides;
 	int	counts[3];
-	vec_t	dot;
-	int	i, j;
-	winding_t	*front, *back;
-	vec_t	*p1, *p2, *mid;
-	int	maxpts;
 
-	dists = (vec_t *)malloc(( in->numpoints + 1 ) * sizeof( vec_t ));
-	sides = (int *)malloc(( in->numpoints + 1 ) * sizeof( int ));
+	vec_t *dists = (vec_t *)malloc(( in->numpoints + 1 ) * sizeof( vec_t ));
+	int *sides = (int *)malloc(( in->numpoints + 1 ) * sizeof( int ));
 	CalcSides(in, split, sides, dists, counts, 0.04f );
 
 	if( !counts[0] && !counts[1] )
@@ -370,34 +351,40 @@ static void winding_split( winding_t *in, const mplane_t *split, winding_t **pfr
 		// winding on the split plane - return copies on both sides
 		*pfront = winding_copy( in );
 		*pback = winding_copy( in );
-		goto out_free;
+		free( dists );
+		free( sides );
+		return;
 	}
 
 	if( !counts[0] )
 	{
 		*pfront = NULL;
 		*pback = in;
-		goto out_free;
+		free( dists );
+		free( sides );
+		return;
 	}
 
 	if( !counts[1] )
 	{
 		*pfront = in;
 		*pback = NULL;
-		goto out_free;
+		free( dists );
+		free( sides );
+		return;
 	}
 
-	maxpts = in->numpoints + 4;
-	front = winding_alloc( maxpts );
+	int maxpts = in->numpoints + 4;
+	winding_t *front = winding_alloc( maxpts );
 	front->numpoints = 0;
 	front->plane = in->plane;
-	back = winding_alloc( maxpts );
+	winding_t *back = winding_alloc( maxpts );
 	back->numpoints = 0;
 	back->plane = in->plane;
 
-	for( i = 0; i < in->numpoints; i++ )
+	for( int i = 0; i < in->numpoints; i++ )
 	{
-		p1 = in->p[i];
+		vec_t *p1 = in->p[i];
 
 		if( sides[i] == SIDE_ON )
 		{
@@ -423,11 +410,11 @@ static void winding_split( winding_t *in, const mplane_t *split, winding_t **pfr
 			continue;
 
 		// generate a split point
-		p2 = in->p[(i + 1) % in->numpoints];
-		mid = front->p[front->numpoints++];
+		vec_t *p2 = in->p[(i + 1) % in->numpoints];
+		vec_t *mid = front->p[front->numpoints++];
 
-		dot = dists[i] / (dists[i] - dists[i + 1]);
-		for( j = 0; j < 3; j++ )
+		vec_t dot = dists[i] / (dists[i] - dists[i + 1]);
+		for( int j = 0; j < 3; j++ )
 		{
 			// avoid round off error when possible
 			if( in->plane->normal[j] == 1.0f )
@@ -449,7 +436,6 @@ static void winding_split( winding_t *in, const mplane_t *split, winding_t **pfr
 
 	*pfront = winding_shrink( front );
 	*pback = winding_shrink( back );
-out_free:
 	free( dists );
 	free( sides );
 }

@@ -31,15 +31,13 @@ GNU General Public License for more details.
 
 static void *Q_realloc( void *mem, size_t size )
 {
-	void *newmem;
-
 	if( mem && size == 0 )
 	{
 		Q_free( mem );
 		return NULL;
 	}
 
-	newmem = Q_malloc( size );
+	void *newmem = Q_malloc( size );
 	if( mem && newmem )
 	{
 		memcpy( newmem, mem, size );
@@ -577,13 +575,14 @@ static qboolean Mem_CheckAlloc( mempool_t *pool, void *data )
 	if( pool )
 	{
 		memheader_t *target_big = (memheader_t *)((byte *)data - sizeof( memheader_t ));
-		memheader_small_t *target_small = (memheader_small_t *)((byte *)data - sizeof( memheader_small_t ));
 
 		for( memheader_t *header = pool->chain; header; header = header->next )
 		{
 			if( header == target_big )
 				return true;
 		}
+
+		memheader_small_t *target_small = (memheader_small_t *)((byte *)data - sizeof( memheader_small_t ));
 
 		for( memheader_small_t *header = pool->chain_small; header; header = header->next )
 		{
@@ -593,10 +592,9 @@ static qboolean Mem_CheckAlloc( mempool_t *pool, void *data )
 	}
 	else
 	{
-		size_t i;
-		for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
+		for( size_t i = 0; i < poolcount; i++ )
 		{
-			if( Mem_CheckAlloc( pool, data ))
+			if( Mem_CheckAlloc( &poolchain[i], data ))
 				return true;
 		}
 	}
@@ -615,11 +613,10 @@ qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data )
 
 void _Mem_Check( const char *filename, int fileline )
 {
-	mempool_t *pool;
-	size_t i;
-
-	for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
+	for( size_t i = 0; i < poolcount; i++ )
 	{
+		mempool_t *pool = &poolchain[i];
+
 		for( memheader_t *mem = pool->chain; mem; mem = mem->next )
 			Mem_CheckAllocHeaderBig( __func__, mem, filename, fileline );
 
@@ -630,12 +627,13 @@ void _Mem_Check( const char *filename, int fileline )
 
 void Mem_PrintStats( void )
 {
-	size_t count = 0, size = 0, realsize = 0, i;
-	mempool_t *pool;
+	size_t count = 0, size = 0, realsize = 0;
 
 	Mem_Check();
-	for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
+	for( size_t i = 0; i < poolcount; i++ )
 	{
+		mempool_t *pool = &poolchain[i];
+
 		if( !pool->filename )
 			continue;
 
@@ -650,15 +648,13 @@ void Mem_PrintStats( void )
 
 static void Mem_PrintList( size_t minallocationsize )
 {
-	mempool_t *pool;
-	size_t i;
-
 	Mem_Check();
 
 	Con_Printf( "memory pool list:\n" );
 	Con_Printf( "\t^3size\t\t\t\tname\n");
-	for( i = 0, pool = poolchain; i < poolcount; i++, pool++ )
+	for( size_t i = 0; i < poolcount; i++ )
 	{
+		mempool_t *pool = &poolchain[i];
 		long changed_size = (long)pool->totalsize - (long)pool->lastchecksize;
 
 		if( !pool->filename )

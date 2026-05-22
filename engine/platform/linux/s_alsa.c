@@ -279,17 +279,15 @@ void SNDDMA_Submit( void )
 	}
 	else // period is 1/2 of samples
 	{
-		int s, w, frames;
-		void *start;
-
 		if( !snd.buffer )
 			return;
 
-		s = snd.samplepos * 2;
-		start = (void *)&snd.buffer[s];
-		frames = s_alsa.period_size / 2;
+		int s = snd.samplepos * 2;
+		void *start = (void *)&snd.buffer[s];
+		int frames = s_alsa.period_size / 2;
 		// write to card
-		if( ( w = snd_pcm_writei( s_alsa.pcm_handle, start, frames ) ) < 0)
+		int w = snd_pcm_writei( s_alsa.pcm_handle, start, frames );
+		if( w < 0 )
 		{
 			// xrun occured
 			snd_pcm_prepare( s_alsa.pcm_handle );

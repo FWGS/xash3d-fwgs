@@ -228,14 +228,12 @@ static int HTTP_FileQueue( httpfile_t *file )
 
 static int HTTP_FileResolveNS( httpfile_t *file )
 {
-	net_gai_state_t res;
-
 	if( http.resolving )
 		return 0;
 
 	memset( &file->addr, 0, sizeof( file->addr ));
 
-	res = NET_StringToSockaddr( file->server->host, &file->addr, true, AF_UNSPEC );
+	net_gai_state_t res = NET_StringToSockaddr( file->server->host, &file->addr, true, AF_UNSPEC );
 
 	switch( file->addr.ss_family )
 	{
@@ -343,9 +341,7 @@ static int HTTP_FileConnect( httpfile_t *file )
 
 static int HTTP_FileSendRequest( httpfile_t *file )
 {
-	int res = -1;
-
-	res = send( file->socket, file->buf + file->bytes_sent, file->query_length - file->bytes_sent, 0 );
+	int res = send( file->socket, file->buf + file->bytes_sent, file->query_length - file->bytes_sent, 0 );
 
 	if( res >= 0 )
 	{
@@ -382,7 +378,6 @@ static int HTTP_FileSendRequest( httpfile_t *file )
 
 static int HTTP_FileDecompress( httpfile_t *file )
 {
-	fs_offset_t len;
 #pragma pack( push, 1 )
 	struct
 	{
@@ -404,15 +399,10 @@ static int HTTP_FileDecompress( httpfile_t *file )
 		GZFLG_FCOMMENT = BIT( 4 )
 	};
 
-	z_stream decompress_stream;
 	char name[MAX_SYSPATH];
-	fs_offset_t deflate_pos;
-	size_t compressed_len, decompressed_len;
-	byte *data_in, *data_out;
-	int zlib_result;
 
 	g_fsapi.Seek( file->file, 0, SEEK_END );
-	len = g_fsapi.Tell( file->file );
+	fs_offset_t len = g_fsapi.Tell( file->file );
 
 	g_fsapi.Seek( file->file, 0, SEEK_SET );
 	if( g_fsapi.Read( file->file, &hdr, sizeof( hdr )) != sizeof( hdr ))
@@ -430,10 +420,9 @@ static int HTTP_FileDecompress( httpfile_t *file )
 	if( FBitSet( hdr.flags, GZFLG_FEXTRA ))
 	{
 		byte res[2];
-		uint16_t xlen;
 
 		g_fsapi.Read( file->file, res, sizeof( res ));
-		xlen = res[0] | res[1] << 16;
+		uint16_t xlen = res[0] | res[1] << 16;
 		g_fsapi.Seek( file->file, xlen, SEEK_CUR );
 	}
 
@@ -458,8 +447,9 @@ static int HTTP_FileDecompress( httpfile_t *file )
 	if( FBitSet( hdr.flags, GZFLG_FHCRC ))
 		g_fsapi.Seek( file->file, 2, SEEK_CUR );
 
-	deflate_pos = g_fsapi.Tell( file->file );
-	compressed_len = len - deflate_pos;
+	fs_offset_t deflate_pos = g_fsapi.Tell( file->file );
+	size_t compressed_len = len - deflate_pos;
+	size_t decompressed_len;
 
 	{
 		byte data[4];
@@ -479,16 +469,20 @@ static int HTTP_FileDecompress( httpfile_t *file )
 		return 0;
 	}
 
-	data_in = Mem_Malloc( host.mempool, compressed_len + 1 );
-	data_out = Mem_Malloc( host.mempool, decompressed_len + 1 );
+	byte *data_in = Mem_Malloc( host.mempool, compressed_len + 1 );
+	byte *data_out = Mem_Malloc( host.mempool, decompressed_len + 1 );
 
 	HTTP_DownloadPath( name, sizeof( name ), file->path, false );
 
-	memset( &decompress_stream, 0, sizeof( decompress_stream ));
-	decompress_stream.total_in = decompress_stream.avail_in = compressed_len;
-	decompress_stream.next_in = data_in;
-	decompress_stream.total_out = decompress_stream.avail_out = decompressed_len;
-	decompress_stream.next_out = data_out;
+	z_stream decompress_stream =
+	{
+		.total_in = compressed_len,
+		.avail_in = compressed_len,
+		.next_in = data_in,
+		.total_out = decompressed_len,
+		.avail_out = decompressed_len,
+		.next_out = data_out,
+	};
 
 	g_fsapi.Seek( file->file, deflate_pos, SEEK_SET );
 	g_fsapi.Read( file->file, data_in, compressed_len );
@@ -502,7 +496,7 @@ static int HTTP_FileDecompress( httpfile_t *file )
 		return 0;
 	}
 
-	zlib_result = inflate( &decompress_stream, Z_NO_FLUSH );
+	int zlib_result = inflate( &decompress_stream, Z_NO_FLUSH );
 	inflateEnd( &decompress_stream );
 
 	if( zlib_result == Z_OK || zlib_result == Z_STREAM_END )
@@ -550,7 +544,7 @@ remove files with HTTP_FREE state from list
 static void HTTP_AutoClean( void )
 {
 	char buf[1024];
-	httpfile_t *cur, **prev = &http.first_file;
+	httpfile_t **prev = &http.first_file;
 	sizebuf_t msg;
 
 	MSG_Init( &msg, "DlFile", buf, sizeof( buf ));
@@ -558,7 +552,7 @@ static void HTTP_AutoClean( void )
 	// clean all files marked to free
 	while( 1 )
 	{
-		cur = *prev;
+		httpfile_t *cur = *prev;
 
 		if( !cur )
 			break;
@@ -605,7 +599,6 @@ static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
 	while( length > 0 )
 	{
 		int oldpos = pos;
-		int ret;
 		int len_to_write;
 
 		if( file->chunked && file->chunksize <= 0 )
@@ -670,7 +663,7 @@ static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
 			len_to_write = Q_min( length, file->chunksize );
 		else len_to_write = length;
 
-		ret = FS_Write( file->file, &file->buf[pos], len_to_write );
+		int ret = FS_Write( file->file, &file->buf[pos], len_to_write );
 		if( ret != len_to_write )
 		{
 			// close it and go to next
@@ -724,18 +717,15 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 			if( begin ) // Got full header
 			{
 				char *content_length;
-				char *content_encoding;
 				char *transfer_encoding;
 
 				*begin = 0; // cut string to print out response
 
 				if( !Q_strstr( curfile->buf, "200 OK" ))
 				{
-					char *p;
-
 					int num = -1;
 
-					p = Q_strchr( curfile->buf, '\r' );
+					char *p = Q_strchr( curfile->buf, '\r' );
 					if( !p ) p = Q_strchr( curfile->buf, '\n' );
 					if( p ) *p = 0;
 
@@ -766,7 +756,7 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 					return 0;
 				}
 
-				content_encoding = Q_stristr( curfile->buf, "Content-Encoding" );
+				char *content_encoding = Q_stristr( curfile->buf, "Content-Encoding" );
 				if( content_encoding ) // fetch compressed status
 				{
 					content_encoding += sizeof( "Content-Encoding: " ) - 1;
@@ -792,10 +782,8 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 				}
 				else if(( content_length = Q_stristr( curfile->buf, "Content-Length: " ) ))
 				{
-					int size;
-
 					content_length += sizeof( "Content-Length: " ) - 1;
-					size = Q_atoi( content_length );
+					int size = Q_atoi( content_length );
 
 					Con_Reportf( "HTTP: Got 200 OK! File size is %d%s\n", curfile->size, curfile->compressed ? ", compressed" : "" );
 
@@ -912,13 +900,11 @@ Call every frame
 */
 void HTTP_Run( void )
 {
-	httpfile_t *curfile;
-
 	http.resolving = false;
 	http.progress_count = 0;
 	http.progress = 0;
 
-	for( curfile = http.first_file; curfile; curfile = curfile->next )
+	for( httpfile_t *curfile = http.first_file; curfile; curfile = curfile->next )
 	{
 		int move_next = 1;
 
@@ -948,8 +934,6 @@ Add new download to end of queue
 */
 void HTTP_AddDownload( const char *path, int size, qboolean process, resource_t *res )
 {
-	httpfile_t *httpfile;
-
 	if( COM_CheckNastyPath( path ))
 	{
 		Con_Printf( S_ERROR "%s: refused to download %s, nasty path\n", __func__, path );
@@ -962,7 +946,7 @@ void HTTP_AddDownload( const char *path, int size, qboolean process, resource_t 
 		return;
 	}
 
-	httpfile = Z_Calloc( sizeof( *httpfile ));
+	httpfile_t *httpfile = Z_Calloc( sizeof( *httpfile ));
 
 	Con_Reportf( "File %s queued to download\n", path );
 
@@ -1005,11 +989,7 @@ HTTP_ParseURL
 */
 static httpserver_t *HTTP_ParseURL( const char *url_ )
 {
-	httpserver_t *server;
-	int i;
-	const char *url = NULL;
-
-	url = Q_strstr( url_, "http://" );
+	const char *url = Q_strstr( url_, "http://" );
 
 	if( url )
 		url += 7;
@@ -1023,8 +1003,8 @@ static httpserver_t *HTTP_ParseURL( const char *url_ )
 	if( !url )
 		return NULL;
 
-	server = Z_Calloc( sizeof( httpserver_t ));
-	i = 0;
+	httpserver_t *server = Z_Calloc( sizeof( httpserver_t ));
+	int i = 0;
 
 	while( *url && ( *url != ':' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
 	{
@@ -1164,19 +1144,17 @@ Print all pending downloads to console
 static void HTTP_List_f( void )
 {
 	int i = 0;
-	httpfile_t *file;
 
 	if( !http.first_file )
 		Con_Printf( "no downloads queued\n" );
 
-	for( file = http.first_file; file; file = file->next )
+	for( httpfile_t *file = http.first_file; file; file = file->next )
 	{
 		Con_Printf( "%d. %s (%d of %d)\n", i++, file->path, file->downloaded, file->size );
 
 		if( file->server )
 		{
-			httpserver_t *server;
-			for( server = file->server; server; server = server->next )
+			for( httpserver_t *server = file->server; server; server = server->next )
 			{
 				Con_Printf( "\thttp://%s:%d/%s%s\n", file->server->host, file->server->port,
 					file->server->path, file->path );
@@ -1194,9 +1172,7 @@ When connected to new server, all old files should not increase counter
 */
 void HTTP_ResetProcessState( void )
 {
-	httpfile_t *file;
-
-	for( file = http.first_file; file; file = file->next )
+	for( httpfile_t *file = http.first_file; file; file = file->next )
 		file->process = false;
 }
 

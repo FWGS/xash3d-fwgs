@@ -65,7 +65,7 @@ cull invisible surfaces
 */
 int R_CullSurface( const msurface_t *surf, const gl_frustum_t *frustum, uint clipflags )
 {
-	cl_entity_t	*e = RI.currententity;
+	const cl_entity_t *e = RI.currententity;
 
 	if( surf->visframe != tr.framecount && e == CL_GetEntityByIndex( 0 ))
 		return CULL_VISFRAME;

@@ -46,21 +46,18 @@ static char sdl_backend_name[32];
 
 static void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
 {
-	const int size = snd.samples << 1;
-	int pos;
-	int wrapped;
-
 	if( !snd.buffer )
 	{
 		memset( stream, 0, len );
 		return;
 	}
 
-	pos = snd.samplepos << 1;
+	const int size = snd.samples << 1;
+	int pos = snd.samplepos << 1;
 	if( pos >= size )
 		pos = snd.samplepos = 0;
 
-	wrapped = pos + len - size;
+	int wrapped = pos + len - size;
 
 	if( wrapped < 0 )
 	{
@@ -90,7 +87,6 @@ Returns false if nothing is found.
 */
 qboolean SNDDMA_Init( void )
 {
-	SDL_AudioSpec desired, obtained;
 	int samplecount;
 	const char *driver = NULL;
 
@@ -104,12 +100,15 @@ qboolean SNDDMA_Init( void )
 		return false;
 	}
 
-	memset( &desired, 0, sizeof( desired ) );
-	desired.freq     = SOUND_DMA_SPEED;
-	desired.format   = AUDIO_S16SYS;
-	desired.samples  = 1024;
-	desired.channels = 2;
-	desired.callback = SDL_SoundCallback;
+	SDL_AudioSpec obtained;
+	SDL_AudioSpec desired =
+	{
+		.freq = SOUND_DMA_SPEED,
+		.format = AUDIO_S16SYS,
+		.samples = 1024,
+		.channels = 2,
+		.callback = SDL_SoundCallback,
+	};
 
 	sdl_dev = SDL_OpenAudioDevice( NULL, 0, &desired, &obtained, 0 );
 

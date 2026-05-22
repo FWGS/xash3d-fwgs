@@ -100,24 +100,24 @@ vidmode_t *R_GetVideoMode( int num )
 
 static void R_InitVideoModes( void )
 {
-	char buf[MAX_VA_STRING];
-	SDL_Rect **modes;
-	int len = 0, i = 0, j;
-
-	modes = SDL_ListModes( NULL, SDL_FULLSCREEN );
+	SDL_Rect **modes = SDL_ListModes( NULL, SDL_FULLSCREEN );
 
 	if( !modes || modes == (void*)-1 )
 		return;
 
-	for( len = 0; modes[len]; len++ );
+	int len = 0;
+	for( ; modes[len]; len++ );
 
 	vidmodes = Mem_Malloc( host.mempool, len * sizeof( vidmode_t ) );
 
+	char buf[MAX_VA_STRING];
+
 	// from smallest to largest
-	for( ; i < len; i++ )
+	for( int i = 0; i < len; i++ )
 	{
 		SDL_Rect *mode = modes[len - i - 1];
 
+		int j;
 		for( j = 0; j < num_vidmodes; j++ )
 		{
 			if( mode->w == vidmodes[j].width &&
@@ -140,12 +140,10 @@ static void R_InitVideoModes( void )
 
 static void R_FreeVideoModes( void )
 {
-	int i;
-
 	if( !vidmodes )
 		return;
 
-	for( i = 0; i < num_vidmodes; i++ )
+	for( int i = 0; i < num_vidmodes; i++ )
 		Mem_Free( (char*)vidmodes[i].desc );
 	Mem_Free( vidmodes );
 
@@ -380,7 +378,6 @@ R_Init_Video
 qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	string safe;
-	qboolean retval;
 
 	refState.desktopBitsPixel = 16;
 
@@ -407,7 +404,8 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		break;
 	}
 
-	if( !(retval = VID_SetMode()) )
+	qboolean retval = VID_SetMode();
+	if( !retval )
 	{
 		return retval;
 	}
@@ -463,12 +461,10 @@ Set the described video mode
 */
 qboolean VID_SetMode( void )
 {
-	int iScreenWidth, iScreenHeight;
 	rserr_t	err;
-	window_mode_t window_mode;
 
-	iScreenWidth = Cvar_VariableInteger( "width" );
-	iScreenHeight = Cvar_VariableInteger( "height" );
+	int iScreenWidth = Cvar_VariableInteger( "width" );
+	int iScreenHeight = Cvar_VariableInteger( "height" );
 
 	if( iScreenWidth < VID_MIN_WIDTH ||
 		iScreenHeight < VID_MIN_HEIGHT )	// trying to get resolution automatically by default
@@ -477,7 +473,7 @@ qboolean VID_SetMode( void )
 		iScreenHeight = 240;
 	}
 
-	window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
+	window_mode_t window_mode = bound( 0, vid_fullscreen.value, WINDOW_MODE_COUNT - 1 );
 	SetBits( gl_vsync.flags, FCVAR_CHANGED );
 
 	if(( err = R_ChangeDisplaySettings( iScreenWidth, iScreenHeight, window_mode )) == rserr_ok )

@@ -21,7 +21,6 @@ double Platform_DoubleTime( void )
 {
 	static Uint64 g_PerformanceFrequency;
 	static Uint64 g_ClockStart;
-	Uint64 CurrentTime;
 
 	if( !g_PerformanceFrequency )
 	{
@@ -31,7 +30,7 @@ double Platform_DoubleTime( void )
 		return 0.0;
 	}
 
-	CurrentTime = SDL_GetPerformanceCounter();
+	Uint64 CurrentTime = SDL_GetPerformanceCounter();
 	return (double)( CurrentTime - g_ClockStart ) / (double)( g_PerformanceFrequency );
 }
 

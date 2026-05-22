@@ -71,9 +71,7 @@ static BOOL WINAPI Wcon_HandleConsole(DWORD CtrlType)
 
 static void Wcon_PrintInternal( const char *msg, int length )
 {
-	char *pTemp;
 	DWORD cbWritten;
-	const char *pMsgString;
 	static char tmpBuf[2048];
 	static char szOutput[2048];
 
@@ -83,8 +81,8 @@ static void Wcon_PrintInternal( const char *msg, int length )
 	else
 		szOutput[sizeof( szOutput ) - 1] = '\0';
 
-	pTemp = tmpBuf;
-	pMsgString = szOutput;
+	char *pTemp = tmpBuf;
+	const char *pMsgString = szOutput;
 	while( pMsgString && *pMsgString )
 	{
 		if( IsColorString( pMsgString ))
@@ -166,9 +164,6 @@ static void Wcon_SetInputText( const char *inputText )
 static void Wcon_Clear_f( void )
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
-	SMALL_RECT scrollRect;
-	COORD scrollTarget;
-	CHAR_INFO fill;
 
 	if( host.type != HOST_DEDICATED )
 		return;
@@ -178,14 +173,20 @@ static void Wcon_Clear_f( void )
 		return;
 	}
 
-	scrollRect.Left = 0;
-	scrollRect.Top = 0;
-	scrollRect.Right = csbi.dwSize.X;
-	scrollRect.Bottom = csbi.dwSize.Y;
-	scrollTarget.X = 0;
-	scrollTarget.Y = (SHORT)(0 - csbi.dwSize.Y);
-	fill.Char.UnicodeChar = TEXT(' ');
-	fill.Attributes = csbi.wAttributes;
+	SMALL_RECT scrollRect =
+	{
+		.Right = csbi.dwSize.X,
+		.Bottom = csbi.dwSize.Y,
+	};
+	COORD scrollTarget =
+	{
+		.Y = (SHORT)(0 - csbi.dwSize.Y),
+	};
+	CHAR_INFO fill =
+	{
+		.Char.UnicodeChar = TEXT(' '),
+		.Attributes = csbi.wAttributes,
+	};
 	ScrollConsoleScreenBuffer( s_wcd.hOutput, &scrollRect, NULL, scrollTarget, &fill );
 
 	csbi.dwCursorPosition.X = 0;
@@ -287,9 +288,7 @@ static void Wcon_EventRightArrow( void )
 
 static int Wcon_EventNewline( void )
 {
-	int nLen;
-
-	nLen = 0;
+	int nLen = 0;
 	Wcon_PrintInternal( "\n", 0 );
 	if( s_wcd.consoleTextLen )
 	{
@@ -317,8 +316,6 @@ static int Wcon_EventNewline( void )
 
 static void Wcon_EventBackspace( void )
 {
-	int nCount;
-
 	if( s_wcd.cursorPosition < 1 )
 	{
 		return;
@@ -329,7 +326,7 @@ static void Wcon_EventBackspace( void )
 
 	Wcon_PrintInternal( "\b", 0 );
 
-	for( nCount = s_wcd.cursorPosition; nCount < s_wcd.consoleTextLen; ++nCount )
+	for( int nCount = s_wcd.cursorPosition; nCount < s_wcd.consoleTextLen; ++nCount )
 	{
 		s_wcd.consoleText[nCount] = s_wcd.consoleText[nCount + 1];
 		Wcon_PrintInternal( s_wcd.consoleText + nCount, 1 );
@@ -337,7 +334,7 @@ static void Wcon_EventBackspace( void )
 
 	Wcon_PrintInternal( " ", 0 );
 
-	nCount = s_wcd.consoleTextLen;
+	int nCount = s_wcd.consoleTextLen;
 	while( nCount >= s_wcd.cursorPosition )
 	{
 		Wcon_PrintInternal( "\b", 0 );
@@ -356,14 +353,12 @@ static void Wcon_EventTab( void )
 
 static void Wcon_EventCharacter(char c)
 {
-	int nCount;
-
 	if( s_wcd.consoleTextLen >= ( sizeof( s_wcd.consoleText ) - 2 ))
 	{
 		return;
 	}
 
-	nCount = s_wcd.consoleTextLen;
+	int nCount = s_wcd.consoleTextLen;
 	while( nCount > s_wcd.cursorPosition )
 	{
 		s_wcd.consoleText[nCount] = s_wcd.consoleText[nCount - 1];
@@ -387,13 +382,10 @@ static void Wcon_EventCharacter(char c)
 
 static void Wcon_UpdateStatusLine( void )
 {
-	COORD coord;
-	WORD wAttrib;
+	COORD coord = { 0 };
 	DWORD dwWritten;
 
-	coord.X = 0;
-	coord.Y = 0;
-	wAttrib = g_color_table[5] | FOREGROUND_INTENSITY | BACKGROUND_INTENSITY;
+	WORD wAttrib = g_color_table[5] | FOREGROUND_INTENSITY | BACKGROUND_INTENSITY;
 
 	FillConsoleOutputCharacter( s_wcd.hOutput, ' ', 80, coord, &dwWritten );
 	FillConsoleOutputAttribute( s_wcd.hOutput, wAttrib, 80, coord, &dwWritten );
@@ -615,15 +607,14 @@ returned input text
 */
 char *Wcon_Input( void )
 {
-	DWORD i;
-	DWORD eventsCount;
 	static INPUT_RECORD events[1024];
-	
+
 	if( !s_wcd.inputEnabled || !s_wcd.hWnd )
 		return NULL;
 
 	while( true )
 	{
+		DWORD eventsCount;
 		if( !GetNumberOfConsoleInputEvents( s_wcd.hInput, &eventsCount ))
 		{
 			return NULL;
@@ -640,7 +631,7 @@ char *Wcon_Input( void )
 		if( eventsCount == 0 )
 			return NULL;
 
-		for( i = 0; i < eventsCount; i++ )
+		for( DWORD i = 0; i < eventsCount; i++ )
 		{
 			INPUT_RECORD *pRec = &events[i];
 			if( pRec->EventType != KEY_EVENT )

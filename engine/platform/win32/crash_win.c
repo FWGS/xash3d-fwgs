@@ -36,11 +36,11 @@ static int Sys_ModuleName( HANDLE process, char *name, void *address, int len )
 {
 	static HMODULE     *moduleArray;
 	static unsigned int moduleCount;
-	DWORD       bytesRequired;
 
 	if( len < 3 )
 		return 0;
 
+	DWORD bytesRequired;
 	if( !moduleArray && EnumProcessModules( process, NULL, 0, &bytesRequired ))
 	{
 		if( bytesRequired )

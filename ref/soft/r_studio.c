@@ -188,11 +188,9 @@ Compute a full bounding box for current sequence
 */
 static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 {
-	vec3_t           studio_mins, studio_maxs;
-	vec3_t           mins, maxs, p1, p2;
-	cl_entity_t      *e = RI.currententity;
-	mstudioseqdesc_t *pseqdesc;
-	int i;
+	vec3_t      studio_mins, studio_maxs;
+	vec3_t      mins, maxs, p1, p2;
+	cl_entity_t *e = RI.currententity;
 
 	if( !m_pStudioHeader )
 		return false;
@@ -213,7 +211,7 @@ static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 	if( e->curstate.sequence < 0 || e->curstate.sequence >= m_pStudioHeader->numseq )
 		e->curstate.sequence = 0;
 
-	pseqdesc = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex ) + e->curstate.sequence;
+	mstudioseqdesc_t *pseqdesc = (mstudioseqdesc_t *)((byte *)m_pStudioHeader + m_pStudioHeader->seqindex ) + e->curstate.sequence;
 
 	// add sequence box to the model box
 	AddPointToBounds( pseqdesc->bbmin, mins, maxs );
@@ -221,7 +219,7 @@ static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 	ClearBounds( studio_mins, studio_maxs );
 
 	// compute a full bounding box
-	for( i = 0; i < 8; i++ )
+	for( int i = 0; i < 8; i++ )
 	{
 		p1[0] = ( i & 1 ) ? mins[0] : maxs[0];
 		p1[1] = ( i & 2 ) ? mins[1] : maxs[1];
@@ -241,10 +239,10 @@ static qboolean R_StudioComputeBBox( vec3_t bbox[8] )
 static void R_StudioComputeSkinMatrix( mstudioboneweight_t *boneweights, matrix3x4 result )
 {
 	float flWeight0, flWeight1, flWeight2, flWeight3;
-	int   i, numbones = 0;
+	int   numbones = 0;
 	float flTotal;
 
-	for( i = 0; i < MAXSTUDIOBONEWEIGHTS; i++ )
+	for( int i = 0; i < MAXSTUDIOBONEWEIGHTS; i++ )
 	{
 		if( boneweights->bone[i] != -1 )
 			numbones++;
@@ -523,10 +521,8 @@ StudioSetUpTransform
 */
 static void R_StudioSetUpTransform( cl_entity_t *e )
 {
-	vec3_t origin, angles;
-
-	VectorCopy( e->origin, origin );
-	VectorCopy( e->angles, angles );
+	vec3_t origin = Vec3( e->origin );
+	vec3_t angles = Vec3( e->angles );
 
 	// interpolate monsters position (moved into UpdateEntityFields by user request)
 	if( e->curstate.movetype == MOVETYPE_STEP && !FBitSet( gp_host->features, ENGINE_COMPUTE_STUDIO_LERP ))
@@ -1000,13 +996,11 @@ StudioSaveBones
 */
 static void R_StudioSaveBones( void )
 {
-	mstudiobone_t *pbones;
-	int           i;
+	mstudiobone_t *pbones = (mstudiobone_t *)((byte *)m_pStudioHeader + m_pStudioHeader->boneindex );
 
-	pbones = (mstudiobone_t *)((byte *)m_pStudioHeader + m_pStudioHeader->boneindex );
 	g_studio.cached_numbones = m_pStudioHeader->numbones;
 
-	for( i = 0; i < m_pStudioHeader->numbones; i++ )
+	for( int i = 0; i < m_pStudioHeader->numbones; i++ )
 	{
 		Matrix3x4_Copy( g_studio.cached_bonestransform[i], g_studio.bonestransform[i] );
 		Matrix3x4_Copy( g_studio.cached_lighttransform[i], g_studio.lighttransform[i] );
@@ -1216,15 +1210,13 @@ StudioCalcAttachments
 */
 static void R_StudioCalcAttachments( void )
 {
-	mstudioattachment_t *pAtt;
 	vec3_t forward, bonepos;
 	vec3_t localOrg, localAng;
-	int    i;
 
 	// calculate attachment points
-	pAtt = (mstudioattachment_t *)((byte *)m_pStudioHeader + m_pStudioHeader->attachmentindex );
+	mstudioattachment_t *pAtt = (mstudioattachment_t *)((byte *)m_pStudioHeader + m_pStudioHeader->attachmentindex );
 
-	for( i = 0; i < Q_min( MAXSTUDIOATTACHMENTS, m_pStudioHeader->numattachments ); i++ )
+	for( int i = 0; i < Q_min( MAXSTUDIOATTACHMENTS, m_pStudioHeader->numattachments ); i++ )
 	{
 		Matrix3x4_VectorTransform( g_studio.lighttransform[pAtt[i].bone], pAtt[i].org, RI.currententity->attachment[i] );
 		VectorSubtract( RI.currententity->attachment[i], RI.currententity->origin, localOrg );
@@ -1243,14 +1235,12 @@ pfnStudioSetupModel
 */
 static void R_StudioSetupModel( int bodypart, void **ppbodypart, void **ppsubmodel )
 {
-	int index;
-
 	if( bodypart > m_pStudioHeader->numbodyparts )
 		bodypart = 0;
 
 	m_pBodyPart = (mstudiobodyparts_t *)((byte *)m_pStudioHeader + m_pStudioHeader->bodypartindex ) + bodypart;
 
-	index = RI.currententity->curstate.body / m_pBodyPart->base;
+	int index = RI.currententity->curstate.body / m_pBodyPart->base;
 	index = index % m_pBodyPart->nummodels;
 
 	m_pSubModel = (mstudiomodel_t *)((byte *)m_pStudioHeader + m_pBodyPart->modelindex ) + index;
@@ -1370,7 +1360,6 @@ R_StudioSetupLighting
 static void R_StudioSetupLighting( alight_t *plight )
 {
 	float scale = 1.0f;
-	int   i;
 
 	if( !m_pStudioHeader || !plight )
 		return;
@@ -1382,7 +1371,7 @@ static void R_StudioSetupLighting( alight_t *plight )
 	g_studio.shadelight = plight->shadelight;
 	VectorCopy( plight->plightvec, g_studio.lightvec );
 
-	for( i = 0; i < m_pStudioHeader->numbones; i++ )
+	for( int i = 0; i < m_pStudioHeader->numbones; i++ )
 	{
 		Matrix3x4_VectorIRotate( g_studio.lighttransform[i], plight->plightvec, g_studio.blightvec[i] );
 		if( scale > 1.0f )
@@ -1460,18 +1449,15 @@ R_LightLambert
 */
 static void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, const vec3_t color, byte *out )
 {
-	vec3_t finalLight;
-	int    i;
-
 	if( !g_studio.numlocallights )
 	{
 		VectorScale( color, 255.0f, out );
 		return;
 	}
 
-	VectorSet( finalLight, 0, 0, 0 );
+	vec3_t finalLight = { 0, 0, 0 };
 
-	for( i = 0; i < g_studio.numlocallights; i++ )
+	for( int i = 0; i < g_studio.numlocallights; i++ )
 	{
 		float r;
 
@@ -1503,7 +1489,7 @@ static void R_LightLambert( vec4_t light[MAX_LOCALLIGHTS], const vec3_t normal, 
 
 	if( !VectorIsNull( finalLight ))
 	{
-		for( i = 0; i < 3; i++ )
+		for( int i = 0; i < 3; i++ )
 		{
 			float c = finalLight[i] + LinearGammaTable( color[i] * 1023.0f );
 
@@ -2604,10 +2590,8 @@ static int R_StudioDrawPlayer( int flags, entity_state_t *pplayer )
 
 	if( pplayer->gaitsequence )
 	{
-		vec3_t orig_angles;
-
 		m_pPlayerInfo = pfnPlayerInfo( m_nPlayerIndex );
-		VectorCopy( RI.currententity->angles, orig_angles );
+		vec3_t orig_angles = Vec3( RI.currententity->angles );
 
 		R_StudioProcessGait( pplayer );
 
@@ -2912,7 +2896,6 @@ R_RunViewmodelEvents
 void R_RunViewmodelEvents( void )
 {
 	int    i;
-	vec3_t simorg;
 
 	if( r_drawviewmodel->value == 0 )
 		return;
@@ -2931,7 +2914,7 @@ void R_RunViewmodelEvents( void )
 
 	R_StudioSetupTimings();
 
-	VectorCopy( gp_cl->simorg, simorg );
+	vec3_t simorg = Vec3( gp_cl->simorg );
 	for( i = 0; i < 4; i++ )
 		VectorCopy( simorg, RI.currententity->attachment[i] );
 	RI.currentmodel = RI.currententity->model;
@@ -3105,17 +3088,15 @@ Mod_StudioLoadTextures
 */
 void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 {
-	studiohdr_t      *phdr = (studiohdr_t *)data;
-	mstudiotexture_t *ptexture;
-	int i;
+	studiohdr_t *phdr = (studiohdr_t *)data;
 
 	if( !phdr )
 		return;
 
-	ptexture = (mstudiotexture_t *)(((byte *)phdr ) + phdr->textureindex );
+	mstudiotexture_t *ptexture = (mstudiotexture_t *)(((byte *)phdr ) + phdr->textureindex );
 	if( phdr->textureindex > 0 )
 	{
-		for( i = 0; i < phdr->numtextures; i++ )
+		for( int i = 0; i < phdr->numtextures; i++ )
 			R_StudioLoadTexture( mod, phdr, &ptexture[i] );
 	}
 }
@@ -3127,17 +3108,15 @@ Mod_StudioUnloadTextures
 */
 void Mod_StudioUnloadTextures( void *data )
 {
-	studiohdr_t      *phdr = (studiohdr_t *)data;
-	mstudiotexture_t *ptexture;
-	int i;
+	studiohdr_t *phdr = (studiohdr_t *)data;
 
 	if( !phdr )
 		return;
 
-	ptexture = (mstudiotexture_t *)(((byte *)phdr ) + phdr->textureindex );
+	mstudiotexture_t *ptexture = (mstudiotexture_t *)(((byte *)phdr ) + phdr->textureindex );
 
 	// release all textures
-	for( i = 0; i < phdr->numtextures; i++ )
+	for( int i = 0; i < phdr->numtextures; i++ )
 	{
 		if( ptexture[i].index == tr.defaultTexture )
 			continue;

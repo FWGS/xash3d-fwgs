@@ -592,14 +592,11 @@ GL_SetDefaultTexState
 */
 static void GL_SetDefaultTexState( void )
 {
-
-	int	i;
-
 	memset( glState.currentTextures, -1, MAX_TEXTURE_UNITS * sizeof( *glState.currentTextures ));
 	memset( glState.texCoordArrayMode, 0, MAX_TEXTURE_UNITS * sizeof( *glState.texCoordArrayMode ));
 	memset( glState.genSTEnabled, 0, MAX_TEXTURE_UNITS * sizeof( *glState.genSTEnabled ));
 
-	for( i = 0; i < MAX_TEXTURE_UNITS; i++ )
+	for( int i = 0; i < MAX_TEXTURE_UNITS; i++ )
 	{
 		glState.currentTextureTargets[i] = GL_NONE;
 		glState.texIdentityMatrix[i] = true;
@@ -735,8 +732,6 @@ static void R_RenderInfo_f( void )
 #if XASH_GLES
 static void GL_InitExtensionsGLES( void )
 {
-	int extid;
-
 	// intialize wrapper type
 #if XASH_NANOGL
 	glConfig.context = CONTEXT_TYPE_GLES_1_X;
@@ -753,7 +748,7 @@ static void GL_InitExtensionsGLES( void )
 
 	glConfig.hardware_type = GLHW_GENERIC;
 
-	for( extid = GL_OPENGL_110 + 1; extid < GL_EXTCOUNT; extid++ )
+	for( int extid = GL_OPENGL_110 + 1; extid < GL_EXTCOUNT; extid++ )
 	{
 		switch( extid )
 		{
@@ -1033,10 +1028,9 @@ void GL_InitExtensions( void )
 	if( !major && glConfig.version_string )
 	{
 		const char *str = glConfig.version_string;
-		float ver;
 
 		while( *str && ( *str < '0' || *str > '9' )) str++;
-		ver = Q_atof(str);
+		float ver = Q_atof(str);
 		if( ver )
 		{
 			glConfig.version_major = ver;
@@ -1057,16 +1051,15 @@ void GL_InitExtensions( void )
 		pglGetIntegerv( GL_NUM_EXTENSIONS, &n );
 		if( n && pglGetStringi )
 		{
-			int i, len = 1;
-			char *str;
+			int len = 1;
 
-			for( i = 0; i < n; i++ )
+			for( int i = 0; i < n; i++ )
 				len += Q_strlen((const char *)pglGetStringi( GL_EXTENSIONS, i )) + 1;
 
-			str = (char*)Mem_Calloc( r_temppool, len );
+			char *str = (char*)Mem_Calloc( r_temppool, len );
 			glConfig.extensions_string = str;
 
-			for( i = 0; i < n; i++ )
+			for( int i = 0; i < n; i++ )
 			{
 				int l = Q_strncpy( str, pglGetStringi( GL_EXTENSIONS, i ), len );
 				str += l;
@@ -1359,7 +1352,7 @@ void GL_CheckForErrors_( const char *filename, const int fileline )
 	if( !gl_check_errors.value || !gpGlobals->developer )
 		return;
 
-	int err = pglGetError( );
+	int err = pglGetError();
 
 	if( err == GL_NO_ERROR )
 		return;

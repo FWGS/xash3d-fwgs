@@ -301,7 +301,6 @@ static void SV_ReadResourceList( const char *filename )
 	string token;
 	byte *afile;
 	char *pfile;
-	resourcetype_t restype;
 
 	afile = FS_LoadFile( filename, NULL, false );
 	if( !afile ) return;
@@ -313,6 +312,8 @@ static void SV_ReadResourceList( const char *filename )
 
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
+		resourcetype_t restype;
+
 		if( !COM_IsSafeFileToDownload( token ))
 			continue;
 
@@ -349,7 +350,6 @@ loads external resource list
 static void SV_CreateGenericResources( void )
 {
 	string	filename;
-	int i;
 
 	Q_strncpy( filename, sv.model_precache[1], sizeof( filename ));
 	COM_ReplaceExtension( filename, ".res", sizeof( filename ));
@@ -359,7 +359,7 @@ static void SV_CreateGenericResources( void )
 	SV_ReadResourceList( "reslist.txt" );
 
 	// precache wads so client can knows this map needs some extra wad files
-	for( i = 0; i < world.wadcount; i++ )
+	for( int i = 0; i < world.wadcount; i++ )
 	{
 		if( world.wadlist[i].usage > 0 )
 			SV_GenericIndex( world.wadlist[i].name );
@@ -375,7 +375,6 @@ add resources to common list
 */
 static void SV_CreateResourceList( void )
 {
-	qboolean	ffirstsent = false;
 	int	i, nSize;
 	char	*s;
 
@@ -389,6 +388,7 @@ static void SV_CreateResourceList( void )
 		SV_AddResource( t_generic, s, nSize, RES_FATALIFMISSING, i );
 	}
 
+	qboolean	ffirstsent = false;
 	for( i = 1; i < MAX_SOUNDS; i++ )
 	{
 		s = sv.sound_precache[i];
@@ -554,10 +554,9 @@ remove immediate entities
 void SV_FreeOldEntities( void )
 {
 	edict_t	*ent;
-	int	i;
 
 	// at end of frame kill all entities which supposed to it
-	for( i = svs.maxclients + 1; i < svgame.numEntities; i++ )
+	for( int i = svs.maxclients + 1; i < svgame.numEntities; i++ )
 	{
 		ent = SV_EdictNum( i );
 
@@ -681,7 +680,6 @@ deactivate server, free edicts, strings etc
 */
 void SV_DeactivateServer( void )
 {
-	int	i;
 	const char	*cycle = Cvar_VariableString( "disconcfgfile" );
 
 	if( !COM_StringEmptyOrNULL( cycle ))
@@ -706,7 +704,7 @@ void SV_DeactivateServer( void )
 	SV_EmptyStringPool( true );
 	Mem_EmptyPool( svgame.stringspool );
 
-	for( i = 0; i < svs.maxclients; i++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		// release client frames
 		if( svs.clients[i].frames )
@@ -860,7 +858,6 @@ static void SV_GenerateTestPacket( void )
 	uint32_t crc;
 	file_t *file;
 	byte *filepos;
-	int i;
 
 	if( !sv_allow_testpacket.value )
 	{
@@ -907,7 +904,7 @@ static void SV_GenerateTestPacket( void )
 	crc = 0; // intentional omit of CRC32_Init because of the client
 
 	// TODO: shrink to minimum!
-	for( i = 0; i < svs.testpacket_filelen; i++ )
+	for( int i = 0; i < svs.testpacket_filelen; i++ )
 	{
 		CRC32_ProcessByte( &crc, filepos[i] );
 		svs.testpacket_crcs[i] = crc;
@@ -934,9 +931,7 @@ clients along with it.
 */
 qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean background )
 {
-	int		i, current_skill;
-	edict_t		*ent;
-	const char	*cycle;
+	int		i;
 
 	SV_SetupClients();
 
@@ -959,7 +954,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	for( i = 0; i < ARRAYSIZE( svs.challenge_salt ); i++ )
 		svs.challenge_salt[i] = COM_RandomLong( 0, 0x7FFFFFFE );
 
-	cycle = Cvar_VariableString( "mapchangecfgfile" );
+	const char	*cycle = Cvar_VariableString( "mapchangecfgfile" );
 
 	if( !COM_StringEmptyOrNULL( cycle ))
 		Cbuf_AddTextf( "exec %s\n", cycle );
@@ -996,7 +991,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	// make cvars consistant
 	if( coop.value ) Cvar_SetValue( "deathmatch", 0 );
-	current_skill = Q_rint( skill.value );
+	int current_skill = Q_rint( skill.value );
 	current_skill = bound( 0, current_skill, 3 );
 	Cvar_SetValue( "skill", (float)current_skill );
 
@@ -1053,6 +1048,8 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	// leave slots at start for clients only
 	for( i = 0; i < svs.maxclients; i++ )
 	{
+		edict_t		*ent;
+
 		// needs to reconnect
 		if( svs.clients[i].state > cs_connected )
 			svs.clients[i].state = cs_connected;

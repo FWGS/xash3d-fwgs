@@ -68,8 +68,6 @@ SV_CheckAllEnts
 static void SV_CheckAllEnts( void )
 {
 	static double	nextcheck;
-	edict_t		*e;
-	int		i;
 
 	if( !sv_check_errors.value || sv.state != ss_active )
 		return;
@@ -81,9 +79,9 @@ static void SV_CheckAllEnts( void )
 	nextcheck = Platform_DoubleTime() + 5.0;
 
 	// check edicts errors
-	for( i = svs.maxclients + 1; i < svgame.numEntities; i++ )
+	for( int i = svs.maxclients + 1; i < svgame.numEntities; i++ )
 	{
-		e = SV_EdictNum( i );
+		edict_t *e = SV_EdictNum( i );
 
 		if( e->free && e->pvPrivateData != NULL )
 		{
@@ -121,10 +119,9 @@ void SV_CheckVelocity( edict_t *ent )
 {
 	float	wishspd;
 	float	maxspd;
-	int	i;
 
 	// bound velocity
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		if( IS_NAN( ent->v.velocity[i] ))
 		{
@@ -335,14 +332,13 @@ may use friction for smooth stopping
 static void SV_AngularMove( edict_t *ent, float frametime, float friction )
 {
 	float	adjustment;
-	int	i;
 
 	VectorMA( ent->v.angles, frametime, ent->v.avelocity, ent->v.angles );
 	if( friction == 0.0f ) return;
 
 	adjustment = frametime * (sv_stopspeed.value / 10.0f) * sv_friction.value * fabs( friction );
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		if( ent->v.avelocity[i] > 0.0f )
 		{
@@ -368,7 +364,6 @@ use friction for smooth stopping
 */
 static void SV_LinearMove( edict_t *ent, float frametime, float friction )
 {
-	int	i;
 	float	adjustment;
 
 	VectorMA( ent->v.origin, frametime, ent->v.velocity, ent->v.origin );
@@ -376,7 +371,7 @@ static void SV_LinearMove( edict_t *ent, float frametime, float friction )
 
 	adjustment = frametime * (sv_stopspeed.value / 10.0f) * sv_friction.value * fabs( friction );
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		if( ent->v.velocity[i] > 0.0f )
 		{
@@ -402,13 +397,12 @@ recursively recalculating the middle
 */
 static float SV_RecursiveWaterLevel( vec3_t origin, float out, float in, int count )
 {
-	vec3_t	point;
 	float	offset;
 
 	offset = ((out - in) * 0.5f) + in;
 	if( ++count > 5 ) return offset;
 
-	VectorSet( point, origin[0], origin[1], origin[2] + offset );
+	vec3_t point = { origin[0], origin[1], origin[2] + offset };
 
 	if( SV_PointContents( point ) == CONTENTS_WATER )
 		return SV_RecursiveWaterLevel( origin, out, offset, count );
@@ -425,7 +419,6 @@ determine how deep the entity is
 static float SV_Submerged( edict_t *ent )
 {
 	float	start, bottom;
-	vec3_t	point;
 	vec3_t	center;
 
 	VectorAverage( ent->v.absmin, ent->v.absmax, center );
@@ -437,10 +430,12 @@ static float SV_Submerged( edict_t *ent )
 		bottom = SV_RecursiveWaterLevel( center, 0.0f, start, 0 );
 		return bottom - start;
 	case 3:
-		VectorSet( point, center[0], center[1], ent->v.absmax[2] );
+	{
+		vec3_t point = { center[0], center[1], ent->v.absmax[2] };
 		svs.groupmask = ent->v.groupinfo;
 		if( SV_PointContents( point ) == CONTENTS_WATER )
 			return (ent->v.maxs[2] - ent->v.mins[2]);
+	}
 		// intentionally fallthrough
 	case 2:
 		bottom = SV_RecursiveWaterLevel( center, ent->v.absmax[2] - center[2], 0.0f, 0 );
@@ -549,8 +544,7 @@ Slide off of the impacting object
 static int SV_ClipVelocity( vec3_t in, vec3_t normal, vec3_t out, float overbounce )
 {
 	float	backoff;
-	float	change;
-	int	i, blocked;
+	int	blocked;
 
 	blocked = 0;
 	if( normal[2] > 0.0f ) blocked |= 1;	// floor
@@ -558,9 +552,9 @@ static int SV_ClipVelocity( vec3_t in, vec3_t normal, vec3_t out, float overboun
 
 	backoff = DotProduct( in, normal ) * overbounce;
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
-		change = normal[i] * backoff;
+		float change = normal[i] * backoff;
 		out[i] = in[i] - change;
 
 		if( out[i] > -1.0f && out[i] < 1.0f )
@@ -591,24 +585,22 @@ Returns the clipflags if the velocity was modified (hit something solid)
 */
 static int SV_FlyMove( edict_t *ent, float time, trace_t *steptrace )
 {
-	int	i, j, numplanes, bumpcount, blocked;
+	int	i, j, numplanes, blocked;
 	vec3_t	dir, end, planes[MAX_CLIP_PLANES];
-	vec3_t	primal_velocity, original_velocity, new_velocity;
-	float	d, time_left, allFraction;
-	qboolean	monsterClip;
+	float	time_left, allFraction;
+	qboolean	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
 	trace_t	trace;
 
 	blocked = 0;
-	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
-	VectorCopy( ent->v.velocity, original_velocity );
-	VectorCopy( ent->v.velocity, primal_velocity );
-	VectorClear( new_velocity );
+	vec3_t original_velocity = Vec3( ent->v.velocity );
+	vec3_t primal_velocity = Vec3( ent->v.velocity );
+	vec3_t new_velocity = { 0 };
 	numplanes = 0;
 
 	allFraction = 0.0f;
 	time_left = time;
 
-	for( bumpcount = 0; bumpcount < MAX_CLIP_PLANES - 1; bumpcount++ )
+	for( int bumpcount = 0; bumpcount < MAX_CLIP_PLANES - 1; bumpcount++ )
 	{
 		if( VectorIsNull( ent->v.velocity ))
 			break;
@@ -709,7 +701,7 @@ static int SV_FlyMove( edict_t *ent, float time, trace_t *steptrace )
 			}
 
 			CrossProduct( planes[0], planes[1], dir );
-			d = DotProduct( dir, ent->v.velocity );
+			float d = DotProduct( dir, ent->v.velocity );
 			VectorScale( dir, d, ent->v.velocity );
 		}
 
@@ -898,11 +890,9 @@ SV_PushMove
 */
 static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 {
-	int		i, e, block;
 	int		oldsolid;
 	vec3_t		mins, maxs, lmove;
-	sv_pushed_t	*p, *pushed_p;
-	edict_t		*check;
+	sv_pushed_t	*pushed_p;
 
 	if( svgame.globals->changelevel || VectorIsNull( pusher->v.velocity ))
 	{
@@ -910,7 +900,7 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 		return NULL;
 	}
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		lmove[i] = pusher->v.velocity[i] * movetime;
 		mins[i] = pusher->v.absmin[i] + lmove[i];
@@ -936,9 +926,10 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 		return NULL;
 
 	// see if any solid entities are inside the final position
-	for( e = 1; e < svgame.numEntities; e++ )
+	for( int e = 1; e < svgame.numEntities; e++ )
 	{
-		check = SV_EdictNum( e );
+		edict_t *check = SV_EdictNum( e );
+		int block;
 		if( !SV_IsValidEdict( check )) continue;
 
 		// filter movetypes to collide with
@@ -992,7 +983,7 @@ static edict_t *SV_PushMove( edict_t *pusher, float movetime )
 			// move back any entities we already moved
 			// go backwards, so if the same entity was pushed
 			// twice, it goes back to the original position
-			for( p = pushed_p - 1; p >= svgame.pushed; p-- )
+			for( sv_pushed_t *p = pushed_p - 1; p >= svgame.pushed; p-- )
 			{
 				VectorCopy( p->origin, p->ent->v.origin );
 				VectorCopy( p->angles, p->ent->v.angles );
@@ -1013,12 +1004,11 @@ SV_PushRotate
 */
 static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 {
-	int		i, e, block, oldsolid;
+	int		oldsolid;
 	matrix4x4		start_l, end_l;
 	vec3_t		lmove, amove;
-	sv_pushed_t	*p, *pushed_p;
+	sv_pushed_t	*pushed_p;
 	vec3_t		org, org2, temp;
-	edict_t		*check;
 
 	if( svgame.globals->changelevel || VectorIsNull( pusher->v.avelocity ))
 	{
@@ -1026,7 +1016,7 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 		return NULL;
 	}
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 		amove[i] = pusher->v.avelocity[i] * movetime;
 
 	// create pusher initial position
@@ -1054,9 +1044,10 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 	Matrix4x4_CreateFromEntity( end_l, pusher->v.angles, pusher->v.origin, 1.0f );
 
 	// see if any solid entities are inside the final position
-	for( e = 1; e < svgame.numEntities; e++ )
+	for( int e = 1; e < svgame.numEntities; e++ )
 	{
-		check = SV_EdictNum( e );
+		edict_t *check = SV_EdictNum( e );
+		int block;
 		if( !SV_IsValidEdict( check ))
 			continue;
 
@@ -1129,7 +1120,7 @@ static edict_t *SV_PushRotate( edict_t *pusher, float movetime )
 			// move back any entities we already moved
 			// go backwards, so if the same entity was pushed
 			// twice, it goes back to the original position
-			for( p = pushed_p - 1; p >= svgame.pushed; p-- )
+			for( sv_pushed_t *p = pushed_p - 1; p >= svgame.pushed; p-- )
 			{
 				VectorCopy( p->origin, p->ent->v.origin );
 				VectorCopy( p->angles, p->ent->v.angles );
@@ -1151,10 +1142,9 @@ SV_Physics_Pusher
 */
 static void SV_Physics_Pusher( edict_t *ent )
 {
-	float	oldtime, oldtime2;
+	float	oldtime;
 	float	thinktime, movetime;
 	edict_t	*pBlocker;
-	int	i;
 
 	pBlocker = NULL;
 	oldtime = ent->v.ltime;
@@ -1177,7 +1167,7 @@ static void SV_Physics_Pusher( edict_t *ent )
 
 				if( !pBlocker )
 				{
-					oldtime2 = ent->v.ltime;
+					float oldtime2 = ent->v.ltime;
 
 					// reset the local time to what it was before we rotated
 					ent->v.ltime = oldtime;
@@ -1201,7 +1191,7 @@ static void SV_Physics_Pusher( edict_t *ent )
 	// otherwise, just stay in place until the obstacle is gone
 	if( pBlocker ) svgame.dllFuncs.pfnBlocked( ent, pBlocker );
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		if( ent->v.angles[i] < -3600.0f || ent->v.angles[i] > 3600.0f )
 			ent->v.angles[i] = fmod( ent->v.angles[i], 3600.0f );
@@ -1589,7 +1579,6 @@ static void SV_Physics_Step( edict_t *ent )
 	vec3_t	mins, maxs;
 	vec3_t	point;
 	trace_t	trace;
-	int	x, y;
 
 	SV_WaterMove( ent );
 	SV_CheckVelocity( ent );
@@ -1661,12 +1650,12 @@ static void SV_Physics_Step( edict_t *ent )
 
 		point[2] = mins[2] - 1.0f;
 
-		for( x = 0; x <= 1; x++ )
+		for( int x = 0; x <= 1; x++ )
 		{
 			if( FBitSet( ent->v.flags, FL_ONGROUND ))
 				break;
 
-			for( y = 0; y <= 1; y++ )
+			for( int y = 0; y <= 1; y++ )
 			{
 				point[0] = x ? maxs[0] : mins[0];
 				point[1] = y ? maxs[1] : mins[1];
@@ -1783,10 +1772,8 @@ static void SV_Physics_Entity( edict_t *ent )
 
 static void SV_RunLightStyles( void )
 {
-	int	i;
-
 	// run lightstyles animation
-	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
+	for( int i = 0; i < MAX_LIGHTSTYLES; i++ )
 	{
 		lightstyle_t *ls = &sv.lightstyles[i];
 		int ofs;
@@ -1811,9 +1798,6 @@ SV_Physics
 */
 void SV_Physics( void )
 {
-	edict_t	*ent;
-	int    	i;
-
 	SV_CheckAllEnts ();
 
 	svgame.globals->time = sv.time;
@@ -1822,9 +1806,9 @@ void SV_Physics( void )
 	svgame.dllFuncs.pfnStartFrame();
 
 	// treat each object in turn
-	for( i = 0; i < svgame.numEntities; i++ )
+	for( int i = 0; i < svgame.numEntities; i++ )
 	{
-		ent = SV_EdictNum( i );
+		edict_t *ent = SV_EdictNum( i );
 
 		if( !SV_IsValidEdict( ent ))
 			continue;

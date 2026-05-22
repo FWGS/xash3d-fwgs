@@ -44,22 +44,19 @@ static uint COM_SwapLong( uint c )
 static void COM_GenericMunge( byte *data, const size_t len, const int seq, const byte *table, const qboolean reverse )
 {
 	const size_t mungelen = len / 4;
-	int i;
 
-	for( i = 0; i < mungelen; i++ )
+	for( int i = 0; i < mungelen; i++ )
 	{
 		uint32_t c;
 		void *pc = &data[i * 4];
-		byte *p;
-		int j;
 
 		memcpy( &c, pc, sizeof( c ));
 		c ^= seq;
 		if( !reverse )
 			c = COM_SwapLong( c );
 
-		p = (byte *)&c;
-		for( j = 0; j < 4; j++ )
+		byte *p = (byte *)&c;
+		for( int j = 0; j < 4; j++ )
 			*p++ ^= (0xa5 | (j << j) | j | table[(i + j) & 0x0f]);
 
 		if( reverse )
@@ -123,11 +120,10 @@ void Test_RunMunge( void )
 	};
 	string buf;
 	size_t msglen = Q_strlen( msg ) + 1;
-	int i;
 
 	Q_strncpy( buf, msg, msglen );
 
-	for( i = 0; i < 0xFF; i++ )
+	for( int i = 0; i < 0xFF; i++ )
 	{
 		COM_Munge( buf, msglen, i );
 		if( i < sizeof( expected ) / sizeof( expected[0] ))

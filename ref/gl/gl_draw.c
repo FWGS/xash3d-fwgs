@@ -22,9 +22,8 @@ R_GetImageParms
 */
 void R_GetTextureParms( int *w, int *h, int texnum )
 {
-	gl_texture_t	*glt;
+	gl_texture_t *glt = R_GetTexture( texnum );
 
-	glt = R_GetTexture( texnum );
 	if( w ) *w = glt->srcWidth;
 	if( h ) *h = glt->srcHeight;
 }
@@ -60,9 +59,7 @@ GL_UpdateTexture
 */
 void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt )
 {
-	byte		*raw = NULL;
-	gl_texture_t	*tex;
-	GLenum		gl_format;
+	GLenum gl_format;
 
 	switch( fmt )
 	{
@@ -92,6 +89,7 @@ void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, co
 		height = NearestPOW( height, false );
 	}
 
+	byte *raw;
 	if( cols != width || rows != height )
 	{
 		raw = GL_ResampleTexture( buffer, cols, rows, width, height, false );
@@ -106,7 +104,7 @@ void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, co
 	if( rows > glConfig.max_2d_texture_size )
 		gEngfuncs.Host_Error( "%s: size %i exceeds hardware limits\n", __func__, rows );
 
-	tex = R_GetTexture( texnum );
+	gl_texture_t *tex = R_GetTexture( texnum );
 	GL_Bind( GL_KEEP_UNIT, texnum );
 
 	if( cols == tex->width && rows == tex->height )
@@ -130,10 +128,10 @@ void R_Set2DMode( qboolean enable )
 {
 	if( enable )
 	{
-		matrix4x4 projection_matrix, worldview_matrix;
-
 		if( glState.in2DMode )
 			return;
+
+		matrix4x4 projection_matrix;
 
 		// set 2D virtual screen size
 		switch( tr.rotation )
@@ -160,6 +158,7 @@ void R_Set2DMode( qboolean enable )
 		GL_LoadMatrix( projection_matrix );
 
 		pglMatrixMode( GL_MODELVIEW );
+		matrix4x4 worldview_matrix;
 		Matrix4x4_LoadIdentity( worldview_matrix );
 		GL_LoadMatrix( worldview_matrix );
 

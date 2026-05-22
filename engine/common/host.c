@@ -121,7 +121,6 @@ static void Host_MakeVersionString( char *out, size_t len )
 static void Host_PrintUsage( const char *exename )
 {
 	string version_str;
-	const char *usage_str;
 
 	Host_MakeVersionString( version_str, sizeof( version_str ));
 
@@ -136,7 +135,7 @@ static void Host_PrintUsage( const char *exename )
 #endif
 #define O( x, y ) "  "x"  "y"\n"
 
-	usage_str = S_USAGE XASH_EXE " [options] [+command] [+command2 arg] ...\n"
+	const char *usage_str = S_USAGE XASH_EXE " [options] [+command] [+command2 arg] ...\n"
 
 "\nCommon options:\n"
 	O("-dev [level]       ", "set log verbosity 0-2")
@@ -235,12 +234,11 @@ static void Host_PrintBugcompUsage( const char *exename )
 	string version_str;
 	char usage_str[4096];
 	char *p = usage_str;
-	int i;
 
 	Host_MakeVersionString( version_str, sizeof( version_str ));
 
 	p += Q_snprintf( p, sizeof( usage_str ) - ( usage_str - p ), "Known bugcomp flags are:\n" );
-	for( i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
+	for( int i = 0; i < ARRAYSIZE( bugcomp_features ); i++ )
 		p += Q_snprintf( p, sizeof( usage_str ) - ( usage_str - p ), "   %s: %s\n", bugcomp_features[i].arg, bugcomp_features[i].msg );
 	p += Q_snprintf( p, sizeof( usage_str ) - ( usage_str - p ), "\nIt is possible to combine multiple flags with '+' characters.\nExample: -bugcomp flag1+flag2+flag3...\n" );
 
@@ -262,9 +260,7 @@ Host_PrintEngineFeatures
 */
 static void Host_PrintFeatures( uint32_t flags, const char *s, const feature_message_t *features, size_t size )
 {
-	size_t i;
-
-	for( i = 0; i < size; i++ )
+	for( size_t i = 0; i < size; i++ )
 	{
 		if( FBitSet( flags, features[i].mask ))
 			Con_Printf( "^3%s:^7 %s is enabled\n", s, features[i].msg );
@@ -340,7 +336,6 @@ static int Host_CalcSleep( void )
 		if( sv_hibernate_when_empty.value )
 		{
 			int players, bots;
-
 			SV_GetPlayerCount( &players, &bots );
 
 			if( sv_hibernate_when_empty_include_bots.value )
@@ -423,14 +418,13 @@ Host_RegisterDecal
 */
 static qboolean Host_RegisterDecal( const char *name, int *count )
 {
-	char	shortname[MAX_QPATH];
-	int	i;
-
 	if( COM_StringEmptyOrNULL( name ))
 		return 0;
 
+	char shortname[MAX_QPATH];
 	COM_FileBase( name, shortname, sizeof( shortname ));
 
+	int i;
 	for( i = 1; i < MAX_DECALS && host.draw_decals[i][0]; i++ )
 	{
 		if( !Q_stricmp( host.draw_decals[i], shortname ))
@@ -457,15 +451,14 @@ Host_InitDecals
 */
 static void Host_InitDecals( void )
 {
-	int	i, num_decals = 0;
-	search_t	*t;
+	int num_decals = 0;
 
 	memset( host.draw_decals, 0, sizeof( host.draw_decals ));
 
 	// lookup all the decals in decals.wad (basedir, gamedir, falldir)
-	t = FS_Search( "decals.wad/*.*", true, false );
+	search_t *t = FS_Search( "decals.wad/*.*", true, false );
 
-	for( i = 0; t && i < t->numfilenames; i++ )
+	for( int i = 0; t && i < t->numfilenames; i++ )
 	{
 		if( !Host_RegisterDecal( t->filenames[i], &num_decals ))
 			break;
@@ -484,8 +477,7 @@ Add them exactly as if they had been typed at the console
 */
 static void Host_GetCommands( void )
 {
-	char	*cmd;
-
+	char *cmd;
 	while( ( cmd = Platform_Input() ) )
 	{
 		Cbuf_AddText( cmd );
@@ -541,7 +533,6 @@ static double Host_CalcFPS( void )
 static qboolean Host_Autosleep( double dt, double scale )
 {
 	double targetframetime;
-	int sleep;
 	double fps = Host_CalcFPS();
 
 	if( fps <= 0 )
@@ -555,7 +546,7 @@ static qboolean Host_Autosleep( double dt, double scale )
 	else
 		targetframetime = ( 1.0 / fps );
 
-	sleep = Host_CalcSleep();
+	int sleep = Host_CalcSleep();
 	if( sleep <= 0 ) // no sleeps between frames, much simpler code
 	{
 		if( dt < targetframetime * scale )
@@ -627,11 +618,10 @@ Returns false if the time is too short to run a frame
 static qboolean Host_FilterTime( double time )
 {
 	static double	oldtime;
-	double dt;
 	double scale = sys_timescale.value;
 
 	host.realtime += time * scale;
-	dt = host.realtime - oldtime;
+	double dt = host.realtime - oldtime;
 
 	// clamp the fps in multiplayer games
 	if( !Host_Autosleep( dt, scale ))
@@ -657,13 +647,11 @@ Host_Frame
 */
 void Host_Frame( double time )
 {
-	double t1;
-
 	// decide the simulation time
 	if( !Host_FilterTime( time ))
 		return;
 
-	t1 = Platform_DoubleTime();
+	double t1 = Platform_DoubleTime();
 
 	if( host.framecount == 0 )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );
@@ -990,7 +978,7 @@ Host_InitCommon
 static void Host_InitCommon( int argc, char **argv, const char *progname, qboolean bChangeGame, char *exename, size_t exename_size )
 {
 	const char *basedir = progname[0] == '#' ? progname + 1 : progname;
-	int ticrate, developer = DEFAULT_DEV;
+	int developer = DEFAULT_DEV;
 
 	// some commands may turn engine into infinite loop,
 	// e.g. xash.exe +game xash -game xash
@@ -1069,6 +1057,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Cvar_DirectSetValue( &host_developer, developer );
 	Cvar_RegisterVariable( &sys_ticrate );
 
+	int ticrate;
 	if( Sys_GetIntFromCmdLine( "-sys_ticrate", &ticrate ))
 		Cvar_DirectSetValue( &sys_ticrate, bound( MIN_FPS, ticrate, MAX_FPS_HARD ));
 
@@ -1092,10 +1081,8 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	// print current developer level to simplify processing users feedback
 	if( developer > 0 )
 	{
-		int i;
-
 		Con_Printf( "Program args: " S_YELLOW );
-		for( i = 0; i < host.argc; i++ )
+		for( int i = 0; i < host.argc; i++ )
 			Con_Printf( "%s ", host.argv[i] );
 		Con_Printf( S_DEFAULT "\n" );
 
@@ -1158,7 +1145,7 @@ Host_Main
 int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGame, pfnChangeGame pChangeGame )
 {
 	static double oldtime;
-	string demoname, exename;
+	string exename;
 
 	if( setjmp( return_from_main_buf ))
 		return error_on_exit;
@@ -1287,6 +1274,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	IN_GyroCheckAvailability();
 #endif
 
+	string demoname;
 	if( Sys_GetParmFromCmdLine( "-timedemo", demoname ))
 		Cbuf_AddTextf( "timedemo %s\n", demoname );
 

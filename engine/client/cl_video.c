@@ -192,10 +192,8 @@ SCR_PlayCinematic
 qboolean SCR_PlayCinematic( const char *arg )
 {
 	int x, y, w, h;
-	const char	*fullpath;
+	const char	*fullpath = FS_GetDiskPath( arg, false );
 	double video_ratio, screen_ratio, scale;
-
-	fullpath = FS_GetDiskPath( arg, false );
 
 	if( FS_FileExists( arg, false ) && !fullpath )
 	{
