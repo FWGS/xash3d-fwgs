@@ -153,6 +153,7 @@ class MainActivity : AppCompatActivity() {
 		moveOrCopy(pending, File(entryDir, CrashReports.STACKTRACE_NAME))
 		moveOrCopy(CrashReports.pendingSysinfo(this), File(entryDir, CrashReports.SYSINFO_NAME))
 		moveOrCopy(CrashReports.pendingIntent(this), File(entryDir, CrashReports.INTENT_NAME))
+		moveOrCopy(CrashReports.pendingEngineLog(this), File(entryDir, CrashReports.ENGINELOG_NAME))
 
 		val entry = CrashReports.Entry(entryDir)
 		AlertDialog.Builder(this)
@@ -171,7 +172,7 @@ class MainActivity : AppCompatActivity() {
 		if (src.renameTo(dst))
 			return
 
-		dst.writeText(src.readText())
+		src.copyTo(dst, overwrite = true)
 		src.delete()
 	}
 
