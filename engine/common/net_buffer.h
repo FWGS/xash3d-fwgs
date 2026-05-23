@@ -235,7 +235,7 @@ qboolean MSG_WriteBytes( sizebuf_t *sb, const void *pBuf, int nBytes );
 
 // Bit-read functions
 int MSG_ReadOneBit( sizebuf_t *sb );
-qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits );
+qboolean MSG_ReadBits( sizebuf_t *sb, void *out, size_t maxBytes, int bits );
 float MSG_ReadBitAngle( sizebuf_t *sb, int numbits );
 int MSG_ReadSBitLong( sizebuf_t *sb, int numbits );
 uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits );
@@ -257,6 +257,6 @@ void MSG_ReadVec3Coord( sizebuf_t *sb, vec3_t fa );
 void MSG_ReadVec3Angles( sizebuf_t *sb, vec3_t fa );
 char *MSG_ReadString( sizebuf_t *sb ) RETURNS_NONNULL;
 char *MSG_ReadStringLine( sizebuf_t *sb ) RETURNS_NONNULL;
-qboolean MSG_ReadBytes( sizebuf_t *sb, void *pOut, int nBytes );
+qboolean MSG_ReadBytes( sizebuf_t *sb, void *out, size_t maxBytes, int bytes );
 
 #endif//NET_BUFFER_H

@@ -1865,7 +1865,7 @@ void CL_ParseTempEntity( sizebuf_t *msg, connprotocol_t proto )
 		}
 
 		// parse user message into buffer
-		MSG_ReadBytes( msg, msg_data, iSize );
+		MSG_ReadBytes( msg, msg_data, sizeof( msg_data ), iSize );
 
 		// init a safe tempbuffer
 		MSG_Init( &buf, "TempEntity", msg_data, iSize );

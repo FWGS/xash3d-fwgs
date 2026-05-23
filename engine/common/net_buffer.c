@@ -615,41 +615,43 @@ uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 	return ret;
 }
 
-qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits )
+qboolean MSG_ReadBits( sizebuf_t *sb, void *out, size_t maxBytes, int bits )
 {
-	byte	*pOut = (byte *)pOutData;
-	int	nBitsLeft = nBits;
+	byte *p = (byte *)out;
+	int left = bits;
+
+	if((size_t)bits > ( maxBytes << 3 ))
+		return false;
 
 	// get output dword-aligned.
-	while((( uintptr_t )pOut & 3) != 0 && nBitsLeft >= 8 )
+	while((( uintptr_t )p & 3) != 0 && left >= 8 )
 	{
-		*pOut = (byte)MSG_ReadUBitLong( sb, 8 );
-		++pOut;
-		nBitsLeft -= 8;
+		*p = (byte)MSG_ReadUBitLong( sb, 8 );
+		++p;
+		left -= 8;
 	}
 
 	// read dwords.
-	while( nBitsLeft >= 32 )
+	while( left >= 32 )
 	{
 		uint32_t dword = MSG_ReadUBitLong( sb, 32 );
-		*((uint32_t *)pOut) = LittleLong( dword );
-		pOut += sizeof( uint32_t );
-		nBitsLeft -= 32;
+		dword = LittleLong( dword );
+		memcpy( p, &dword, sizeof( dword ));
+		p += sizeof( dword );
+		left -= 32;
 	}
 
 	// read the remaining bytes.
-	while( nBitsLeft >= 8 )
+	while( left >= 8 )
 	{
-		*pOut = MSG_ReadUBitLong( sb, 8 );
-		++pOut;
-		nBitsLeft -= 8;
+		*p = MSG_ReadUBitLong( sb, 8 );
+		++p;
+		left -= 8;
 	}
 
 	// read the remaining bits.
-	if( nBitsLeft )
-	{
-		*pOut = MSG_ReadUBitLong( sb, nBitsLeft );
-	}
+	if( left )
+		*p = MSG_ReadUBitLong( sb, left );
 
 	return !sb->bOverflow;
 }
@@ -792,9 +794,9 @@ float MSG_ReadFloat( sizebuf_t *sb )
 	return UintAsFloat( MSG_ReadUBitLong( sb, sizeof( float ) << 3 ));
 }
 
-qboolean MSG_ReadBytes( sizebuf_t *sb, void *pOut, int nBytes )
+qboolean MSG_ReadBytes( sizebuf_t *sb, void *out, size_t maxBytes, int bytes )
 {
-	return MSG_ReadBits( sb, pOut, nBytes << 3 );
+	return MSG_ReadBits( sb, out, maxBytes, bytes << 3 );
 }
 
 static char *MSG_ReadStringExt( sizebuf_t *sb, qboolean bLine )
@@ -932,7 +934,7 @@ static void Test_Buffer_Read( void )
 	TASSERT_EQp( sb.pData, (void *)g_testbuf );
 	TASSERT_EQi( sb.bOverflow, false );
 
-	MSG_ReadBytes( &sb, buf, 4 );
+	MSG_ReadBytes( &sb, buf, sizeof( buf ), 4 );
 	TASSERT( !memcmp( buf, "asdf", 4 ));
 	TASSERT_EQi( sb.iCurBit, 32 );
 	TASSERT_EQi( sb.bOverflow, false );

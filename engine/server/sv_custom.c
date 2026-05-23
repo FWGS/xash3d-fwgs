@@ -124,8 +124,8 @@ void SV_ParseConsistencyResponse( sv_client_t *cl, sizebuf_t *msg )
 			byte		resbuffer[32];
 			FORCE_TYPE	ft;
 
-			MSG_ReadBytes( msg, cmins, sizeof( cmins ));
-			MSG_ReadBytes( msg, cmaxs, sizeof( cmaxs ));
+			MSG_ReadBytes( msg, cmins, sizeof( cmins ), sizeof( cmins ));
+			MSG_ReadBytes( msg, cmaxs, sizeof( cmaxs ), sizeof( cmaxs ));
 
 			memcpy( resbuffer, r->rguc_reserved, 32 );
 			ft = resbuffer[0];
