@@ -75,16 +75,16 @@ typedef struct
 #pragma pack(push, 1)
 typedef struct
 {
-	int		net_id;
-	int		sequence_number;
-	short		packet_id;
+	int            net_id;
+	int            sequence_number;
+	unsigned short packet_id;
 } SPLITPACKET;
 
 typedef struct
 {
-	int		net_id;
-	int		sequence_number;
-	unsigned char	packet_id;
+	int           net_id;
+	int           sequence_number;
+	unsigned char packet_id;
 } SPLITPACKETGS;
 #pragma pack(pop)
 
@@ -770,6 +770,16 @@ NET_IsReservedAdr
 Check for reserved ip's
 ====================
 */
+static qboolean NET_IsReservedIPv4( const uint8_t ip[4] )
+{
+	// Following checks was imported from GameNetworkingSockets library
+	return ( ip[0] == 10 ) // 10.x.x.x is reserved
+		|| ( ip[0] == 127 ) // 127.x.x.x
+		|| ( ip[0] == 169 && ip[1] == 254 ) // 169.254.x.x is link-local ipv4
+		|| ( ip[0] == 172 && ip[1] >= 16 && ip[1] <= 31 ) // 172.16.x.x - 172.31.x.x
+		|| ( ip[0] == 192 && ip[1] == 168 ); // 192.168.x.x
+}
+
 qboolean NET_IsReservedAdr( netadr_t a )
 {
 	netadrtype_t type_a = NET_NetadrType( &a );
@@ -777,18 +787,8 @@ qboolean NET_IsReservedAdr( netadr_t a )
 	if( type_a == NA_LOOPBACK )
 		return true;
 
-	// Following checks was imported from GameNetworkingSockets library
 	if( type_a == NA_IP )
-	{
-		if(( a.ip[0] == 10 ) || // 10.x.x.x is reserved
-			( a.ip[0] == 127 ) || // 127.x.x.x
-			( a.ip[0] == 169 && a.ip[1] == 254 ) || // 169.254.x.x is link-local ipv4
-			( a.ip[0] == 172 && a.ip[1] >= 16 && a.ip[1] <= 31 ) || // 172.16.x.x  - 172.31.x.x
-			( a.ip[0] == 192 && a.ip[1] >= 168 )) // 192.168.x.x
-		{
-			return true;
-		}
-	}
+		return NET_IsReservedIPv4( a.ip );
 
 	if( type_a == NA_IP6 )
 	{
@@ -796,19 +796,18 @@ qboolean NET_IsReservedAdr( netadr_t a )
 
 		NET_NetadrToIP6Bytes( ip6, &a );
 
+		// IPv4-mapped IPv6 (::ffff:0:0/96) — defer to IPv4 reservation check
+		static const uint8_t v4mapped_prefix[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF };
+		if( !memcmp( ip6, v4mapped_prefix, sizeof( v4mapped_prefix )))
+			return NET_IsReservedIPv4( &ip6[12] );
+
 		// Private addresses, fc00::/7
-		// Range is fc00:: to fdff:ffff:etc
-		if( ip6[0] >= 0xFC && ip6[1] <= 0xFD )
-		{
+		if(( ip6[0] & 0xFE ) == 0xFC )
 			return true;
-		}
 
 		// Link-local fe80::/10
-		// Range is fe80:: to febf::
-		if( ip6[0] == 0xFE && ( ip6[1] >= 0x80 && ip6[1] <= 0xBF ))
-		{
+		if( ip6[0] == 0xFE && ( ip6[1] & 0xC0 ) == 0x80 )
 			return true;
-		}
 	}
 
 	return false;
@@ -1231,8 +1230,8 @@ static qboolean NET_GetLong( byte *pData, size_t size, size_t *outSize, size_t s
 		return false;
 	}
 
-	int   sequence_number, packet_count, packet_number, max_splits;
-	short packet_id;
+	int sequence_number, packet_count, packet_number, max_splits;
+	unsigned short packet_id;
 	if( proto == PROTO_GOLDSRC )
 	{
 		SPLITPACKETGS *pHeader = (SPLITPACKETGS *)pData;
@@ -1358,7 +1357,11 @@ static qboolean NET_QueuePacket( int net_socket, netsrc_t sock, netadr_t *from, 
 #if !XASH_DEDICATED
 			// check for split message
 			if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
+			{
+				if( !CL_IsFromConnectingServer( *from ))
+					return false;
 				return NET_GetLong( data, ret, length, CL_GetSplitSize( ), CL_Protocol( ));
+			}
 #endif
 
 			// lag the packet, if needed

@@ -3445,7 +3445,7 @@ static void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 		ClearBits( resource->ucFlags, RES_WASMISSING );
 
 		if( FBitSet( resource->ucFlags, RES_CUSTOM ))
-			MSG_ReadBytes( msg, resource->rgucMD5_hash, 16 );
+			MSG_ReadBytes( msg, resource->rgucMD5_hash, sizeof( resource->rgucMD5_hash ), 16 );
 
 		if( resource->type > t_world || resource->nDownloadSize > 1024 * 1024 * 1024 )
 		{
@@ -3569,7 +3569,7 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 		return;
 	}
 
-	MSG_ReadBytes( msg, received, size );
+	MSG_ReadBytes( msg, received, sizeof( received ), size );
 
 	if( !sv_voiceenable.value || cl->state != cs_spawned )
 		return;

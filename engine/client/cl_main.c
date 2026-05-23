@@ -2286,7 +2286,7 @@ CL_IsFromConnectingServer
 Used for connectionless packets, when netchan may not be ready.
 =================
 */
-static qboolean CL_IsFromConnectingServer( netadr_t from )
+qboolean CL_IsFromConnectingServer( netadr_t from )
 {
 	return NET_IsLocalAddress( from ) ||
 		NET_CompareAdr( cls.serveradr, from );
@@ -2326,7 +2326,7 @@ static void CL_HandleTestPacket( netadr_t from, sizebuf_t *msg )
 	}
 
 	// reading test buffer
-	MSG_ReadBytes( msg, recv_buf, realsize );
+	MSG_ReadBytes( msg, recv_buf, sizeof( recv_buf ), realsize );
 
 	// procssing the CRC
 	CRC32_ProcessBuffer( &crcValue2, recv_buf, realsize );
@@ -2545,16 +2545,16 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 
 		if( NET_NetadrType( &from ) == NA_IP6 ) // IPv6 master server only sends IPv6 addresses
 		{
-			MSG_ReadBytes( msg, addr, sizeof( addr ));
+			MSG_ReadBytes( msg, addr, sizeof( addr ), sizeof( addr ));
 			NET_IP6BytesToNetadr( &servadr, addr );
 			NET_NetadrSetType( &servadr, NA_IP6 );
 		}
 		else
 		{
-			MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ));	// 4 bytes for IP
+			MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ), sizeof( servadr.ip ));	// 4 bytes for IP
 			NET_NetadrSetType( &servadr, NA_IP );
 		}
-		MSG_ReadBytes( msg, &servadr.port, sizeof( servadr.port ));	// 2 bytes for Port, in network byte order
+		MSG_ReadBytes( msg, &servadr.port, sizeof( servadr.port ), sizeof( servadr.port ));	// 2 bytes for Port, in network byte order
 
 		// list is ends here
 		if( !servadr.port )

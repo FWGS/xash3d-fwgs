@@ -1158,7 +1158,7 @@ Netchan_CopyFileFragments
 qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 {
 	char	filename[MAX_OSPATH], compressor[32];
-	uint	uncompressedSize;
+	uint	uncompressedSize = 0;
 
 	if( !chan->incomingready[FRAG_FILE_STREAM] )
 		return false;
@@ -1175,6 +1175,7 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 
 	// copy in first chunk so we can get filename out
 	MSG_WriteBytes( msg, MSG_GetData( &p->frag_message ), MSG_GetNumBytesWritten( &p->frag_message ));
+	msg->nDataBits = msg->iCurBit; // tighten the NetMessage buffer to amount read from frag_message
 	MSG_Clear( msg );
 
 	Q_strncpy( filename, MSG_ReadString( msg ), sizeof( filename ));
@@ -1183,6 +1184,13 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 	{
 		Q_strncpy( compressor, MSG_ReadString( msg ), sizeof( compressor ));
 		uncompressedSize = MSG_ReadLong( msg );
+	}
+
+	if( MSG_CheckOverflow( msg ))
+	{
+		Con_Printf( S_ERROR "%s: malformed file fragment header\n", __func__ );
+		Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
+		return false;
 	}
 
 	if( COM_StringEmptyOrNULL( filename ))
@@ -1781,8 +1789,8 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	uint sequence = MSG_ReadLong( msg );
 	uint sequence_ack = MSG_ReadLong( msg );
 
-	if( chan->use_munge )
-		COM_UnMunge2( msg->pData + 8, ( msg->nDataBits >> 3 ) - 8, sequence & 0xFF );
+	if( chan->use_munge && MSG_GetMaxBytes( msg ) >= 8 )
+		COM_UnMunge2( msg->pData + 8, MSG_GetMaxBytes( msg ) - 8, sequence & 0xFF );
 
 	// read the qport if we are a server
 	if( chan->sock == NS_SERVER )
@@ -1911,7 +1919,7 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 					MSG_Clear( &pbuf->frag_message );
 
 					MSG_StartReading( &temp, msg->pData, MSG_GetMaxBytes( msg ), size, -1 );
-					MSG_ReadBits( &temp, buffer, bits );
+					MSG_ReadBits( &temp, buffer, sizeof( buffer ), bits );
 					MSG_WriteBits( &pbuf->frag_message, buffer, bits );
 				}
 
