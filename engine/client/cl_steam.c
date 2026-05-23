@@ -220,7 +220,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 
 	// verify frame header
 	char header[SBRK_FRAME_HEADER_SIZE];
-	if( !MSG_ReadBytes( &sb, header, SBRK_FRAME_HEADER_SIZE ))
+	if( !MSG_ReadBytes( &sb, header, sizeof( header ), SBRK_FRAME_HEADER_SIZE ))
 		return false;
 
 	if( memcmp( header, SBRK_FRAME_HEADER, SBRK_FRAME_HEADER_SIZE ) != 0 )
@@ -237,7 +237,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 		return false; // need more data
 
 	char response_header[SBRK_RESPONSE_HEADER_SIZE];
-	if( MSG_ReadBytes( &sb, response_header, SBRK_RESPONSE_HEADER_SIZE ))
+	if( MSG_ReadBytes( &sb, response_header, sizeof( response_header ), SBRK_RESPONSE_HEADER_SIZE ))
 	{
 		if( memcmp( response_header, SBRK_RESPONSE_HEADER, SBRK_RESPONSE_HEADER_SIZE ) == 0 )
 		{
@@ -249,7 +249,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 			else
 			{
 				uint64_t steam_id;
-				MSG_ReadBytes( &sb, &steam_id, sizeof( steam_id ));
+				MSG_ReadBytes( &sb, &steam_id, sizeof( steam_id ), sizeof( steam_id ));
 				uint32_t ticket_size = MSG_ReadDword( &sb );
 				uint8_t ticket_data[SBRK_TICKET_SIZE_MAX];
 
@@ -257,7 +257,7 @@ static qboolean SteamBroker_ProcessFrame( void )
 				{
 					Con_Printf( S_ERROR "%s: ticket size exceeds limit (%u)\n", __func__, ticket_size );
 				}
-				else if( MSG_ReadBytes( &sb, ticket_data, ticket_size ))
+				else if( MSG_ReadBytes( &sb, ticket_data, sizeof( ticket_data ), ticket_size ))
 				{
 					Con_Printf( "%s: SteamID: %"PRIu64", ticket: [%d, %d, %d, %d...]\n", __func__, steam_id, ticket_data[0], ticket_data[1], ticket_data[2], ticket_data[3] );
 

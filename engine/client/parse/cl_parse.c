@@ -107,8 +107,8 @@ static void CL_ParseSoundPacket( sizebuf_t *msg, qboolean restore )
 		wordIndex = MSG_ReadByte( msg );
 
 		// 16 bytes here
-		MSG_ReadBytes( msg, &samplePos, sizeof( samplePos ));
-		MSG_ReadBytes( msg, &forcedEnd, sizeof( forcedEnd ));
+		MSG_ReadBytes( msg, &samplePos, sizeof( samplePos ), sizeof( samplePos ));
+		MSG_ReadBytes( msg, &forcedEnd, sizeof( forcedEnd ), sizeof( forcedEnd ));
 	}
 
 	if( !cl.audio_prepped )
@@ -617,7 +617,7 @@ static void CL_ParseCustomization( sizebuf_t *msg )
 	pRes->pNext = pRes->pPrev = NULL;
 
 	if( FBitSet( pRes->ucFlags, RES_CUSTOM ))
-		MSG_ReadBytes( msg, pRes->rgucMD5_hash, 16 );
+		MSG_ReadBytes( msg, pRes->rgucMD5_hash, sizeof( pRes->rgucMD5_hash ), 16 );
 	pRes->playernum = i;
 
 	if( !cl_allow_download.value )
@@ -814,7 +814,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		byte clientdllmd5[16];
 		const char *s;
 
-		MSG_ReadBytes( msg, clientdllmd5, sizeof( clientdllmd5 ));
+		MSG_ReadBytes( msg, clientdllmd5, sizeof( clientdllmd5 ), sizeof( clientdllmd5 ));
 		cl.maxclients = MSG_ReadByte( msg );
 		cl.playernum = MSG_ReadByte( msg );
 		COM_UnMunge3((byte *)&cl.checksum, sizeof( cl.checksum ), ( 0xff - cl.playernum ) & 0xff );
@@ -1334,7 +1334,7 @@ static void CL_RegisterUserMessage( sizebuf_t *msg, connprotocol_t proto )
 	char *pszName;
 	if( proto == PROTO_GOLDSRC )
 	{
-		MSG_ReadBytes( msg, szName, sizeof( szName ) - 1 );
+		MSG_ReadBytes( msg, szName, sizeof( szName ), sizeof( szName ) - 1 );
 		szName[16] = 0;
 		pszName = szName;
 	}
@@ -1381,7 +1381,7 @@ static void CL_UpdateUserinfo( sizebuf_t *msg, connprotocol_t proto )
 		player->topcolor = Q_atoi( Info_ValueForKey( player->userinfo, "topcolor" ));
 		player->bottomcolor = Q_atoi( Info_ValueForKey( player->userinfo, "bottomcolor" ));
 		player->spectator = Q_atoi( Info_ValueForKey( player->userinfo, "*hltv" ));
-		MSG_ReadBytes( msg, player->hashedcdkey, sizeof( player->hashedcdkey ));
+		MSG_ReadBytes( msg, player->hashedcdkey, sizeof( player->hashedcdkey ), sizeof( player->hashedcdkey ));
 
 		if( proto == PROTO_GOLDSRC && ( COM_StringEmpty( player->userinfo ) || COM_StringEmpty( player->name )))
 			active = false;
@@ -1421,10 +1421,10 @@ void CL_ParseResource( sizebuf_t *msg )
 	pResource->ucFlags = MSG_ReadUBitLong( msg, 3 ) & ~RES_WASMISSING;
 
 	if( FBitSet( pResource->ucFlags, RES_CUSTOM ))
-		MSG_ReadBytes( msg, pResource->rgucMD5_hash, sizeof( pResource->rgucMD5_hash ));
+		MSG_ReadBytes( msg, pResource->rgucMD5_hash, sizeof( pResource->rgucMD5_hash ), sizeof( pResource->rgucMD5_hash ));
 
 	if( MSG_ReadOneBit( msg ))
-		MSG_ReadBytes( msg, pResource->rguc_reserved, sizeof( pResource->rguc_reserved ));
+		MSG_ReadBytes( msg, pResource->rguc_reserved, sizeof( pResource->rguc_reserved ), sizeof( pResource->rguc_reserved ));
 
 	if( pResource->type == t_sound && pResource->nIndex >= MAX_SOUNDS )
 	{
@@ -1836,10 +1836,10 @@ void CL_ParseResourceList( sizebuf_t *msg, connprotocol_t proto )
 		pResource->ucFlags = MSG_ReadUBitLong( msg, 3 ) & ~RES_WASMISSING;
 
 		if( FBitSet( pResource->ucFlags, RES_CUSTOM ))
-			MSG_ReadBytes( msg, pResource->rgucMD5_hash, sizeof( pResource->rgucMD5_hash ));
+			MSG_ReadBytes( msg, pResource->rgucMD5_hash, sizeof( pResource->rgucMD5_hash ), sizeof( pResource->rgucMD5_hash ));
 
 		if( MSG_ReadOneBit( msg ))
-			MSG_ReadBytes( msg, pResource->rguc_reserved, sizeof( pResource->rguc_reserved ));
+			MSG_ReadBytes( msg, pResource->rguc_reserved, sizeof( pResource->rguc_reserved ), sizeof( pResource->rguc_reserved ));
 
 		CL_AddToResourceList( pResource, &cl.resourcesneeded );
 	}
@@ -1908,7 +1908,7 @@ static void CL_ParseVoiceData( sizebuf_t *msg, connprotocol_t proto )
 	if ( !size )
 		return;
 
-	MSG_ReadBytes( msg, received, size );
+	MSG_ReadBytes( msg, received, sizeof( received ), size );
 
 	Voice_AddIncomingData( idx, received, size, frames );
 }
@@ -1988,7 +1988,7 @@ static void CL_ParseDirector( sizebuf_t *msg )
 	byte	pbuf[256];
 
 	// parse user message into buffer
-	MSG_ReadBytes( msg, pbuf, iSize );
+	MSG_ReadBytes( msg, pbuf, sizeof( pbuf ), iSize );
 	clgame.dllFuncs.pfnDirectorMessage( iSize, pbuf );
 }
 
@@ -2272,7 +2272,7 @@ void CL_ParseUserMessage( sizebuf_t *msg, int svc_num, connprotocol_t proto )
 	}
 
 	// parse user message into buffer
-	MSG_ReadBytes( msg, pbuf, iSize );
+	MSG_ReadBytes( msg, pbuf, sizeof( pbuf ), iSize );
 
 	if( cl_trace_messages.value )
 	{
