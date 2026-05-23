@@ -75,16 +75,16 @@ typedef struct
 #pragma pack(push, 1)
 typedef struct
 {
-	int		net_id;
-	int		sequence_number;
-	short		packet_id;
+	int            net_id;
+	int            sequence_number;
+	unsigned short packet_id;
 } SPLITPACKET;
 
 typedef struct
 {
-	int		net_id;
-	int		sequence_number;
-	unsigned char	packet_id;
+	int           net_id;
+	int           sequence_number;
+	unsigned char packet_id;
 } SPLITPACKETGS;
 #pragma pack(pop)
 
@@ -1231,8 +1231,8 @@ static qboolean NET_GetLong( byte *pData, size_t size, size_t *outSize, size_t s
 		return false;
 	}
 
-	int   sequence_number, packet_count, packet_number, max_splits;
-	short packet_id;
+	int sequence_number, packet_count, packet_number, max_splits;
+	unsigned short packet_id;
 	if( proto == PROTO_GOLDSRC )
 	{
 		SPLITPACKETGS *pHeader = (SPLITPACKETGS *)pData;
