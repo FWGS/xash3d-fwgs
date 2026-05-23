@@ -871,7 +871,7 @@ static qboolean Host_CollectX86Libraries( ECommonLibraryType lib_type,
 #if !( XASH_WIN32 && XASH_X86 )
 	if( !COM_StringEmpty( win_path ) && FS_FileExists( win_path, true ))
 	{
-		Q_strncat( found, "Windows (x86)", found_size );
+		Q_strncat( found, "Windows", found_size );
 		has_any = true;
 	}
 #endif
@@ -881,7 +881,7 @@ static qboolean Host_CollectX86Libraries( ECommonLibraryType lib_type,
 	{
 		if( has_any )
 			Q_strncat( found, ", ", found_size );
-		Q_strncat( found, "GNU/Linux (x86)", found_size );
+		Q_strncat( found, "GNU/Linux", found_size );
 		has_any = true;
 	}
 #endif
@@ -891,7 +891,7 @@ static qboolean Host_CollectX86Libraries( ECommonLibraryType lib_type,
 	{
 		if( has_any )
 			Q_strncat( found, ", ", found_size );
-		Q_strncat( found, "macOS (x86)", found_size );
+		Q_strncat( found, "macOS", found_size );
 		has_any = true;
 	}
 #endif
@@ -914,7 +914,9 @@ static void Host_CheckGameLibraries( void )
 	};
 
 	char details[MAX_VA_STRING];
+	char missing[MAX_VA_STRING];
 	details[0] = 0;
+	missing[0] = 0;
 
 	for( int i = 0; i < ARRAYSIZE( libs ); i++ )
 	{
@@ -953,20 +955,36 @@ static void Host_CheckGameLibraries( void )
 
 		if( ret )
 		{
-			size_t len = Q_strlen( details );
-			Q_snprintf( details + len, sizeof( details ) - len, "- %s: %s\n", libs[i].name, found );
+			size_t dlen = Q_strlen( details );
+			Q_snprintf( details + dlen, sizeof( details ) - dlen, "    %-6s : %s\n", libs[i].name, found );
+
+			if( !COM_StringEmpty( missing ))
+				Q_strncat( missing, ", ", sizeof( missing ));
+			Q_strncat( missing, libs[i].name, sizeof( missing ));
 		}
 	}
 
 	if( COM_StringEmpty( details ))
 		return;
 
-	Sys_Warn( "No native game libraries found for current platform (%s-%s),\n"
-		"but found libraries for other platforms:\n"
+	Sys_Warn( "Xash3D: missing game library\n"
+		"\n"
+		"Required : %s-%s\n"
+		"Missing  : %s\n"
+		"\n"
+		"Found %s libraries for these operating systems:\n"
 		"%s"
-		"The game may fail to load or work incorrectly.\n"
-		"Consider using a mod version built for this platform.",
-		Q_buildos(), Q_buildarch(), details );
+		"\n"
+		"Install \"%s\" game build for %s-%s.",
+		Q_buildos(), Q_buildarch(),
+		missing,
+#if XASH_AMD64
+		"32-bit",
+#else
+		"32-bit x86",
+#endif
+		details,
+		GI->gamefolder, Q_buildos(), Q_buildarch() );
 #endif // XASH_INTERNAL_GAMELIBS
 }
 
