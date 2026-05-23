@@ -2284,7 +2284,7 @@ CL_IsFromConnectingServer
 Used for connectionless packets, when netchan may not be ready.
 =================
 */
-static qboolean CL_IsFromConnectingServer( netadr_t from )
+qboolean CL_IsFromConnectingServer( netadr_t from )
 {
 	return NET_IsLocalAddress( from ) ||
 		NET_CompareAdr( cls.serveradr, from );
