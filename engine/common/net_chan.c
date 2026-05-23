@@ -1781,8 +1781,8 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	uint sequence = MSG_ReadLong( msg );
 	uint sequence_ack = MSG_ReadLong( msg );
 
-	if( chan->use_munge )
-		COM_UnMunge2( msg->pData + 8, ( msg->nDataBits >> 3 ) - 8, sequence & 0xFF );
+	if( chan->use_munge && MSG_GetMaxBytes( msg ) >= 8 )
+		COM_UnMunge2( msg->pData + 8, MSG_GetMaxBytes( msg ) - 8, sequence & 0xFF );
 
 	// read the qport if we are a server
 	if( chan->sock == NS_SERVER )
