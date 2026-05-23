@@ -1358,7 +1358,11 @@ static qboolean NET_QueuePacket( int net_socket, netsrc_t sock, netadr_t *from, 
 #if !XASH_DEDICATED
 			// check for split message
 			if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
+			{
+				if( !CL_IsFromConnectingServer( *from ))
+					return false;
 				return NET_GetLong( data, ret, length, CL_GetSplitSize( ), CL_Protocol( ));
+			}
 #endif
 
 			// lag the packet, if needed
