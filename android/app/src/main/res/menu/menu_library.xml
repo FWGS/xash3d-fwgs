@@ -1,6 +1,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:app="http://schemas.android.com/apk/res-auto">
 	<item
+		android:id="@+id/action_download"
+		android:icon="@drawable/ic_baseline_download_24"
+		android:title="@string/game_data_downloader"
+		app:showAsAction="ifRoom" />
+	<item
 		android:id="@+id/action_settings"
 		android:icon="@drawable/ic_baseline_settings_24"
 		android:title="@string/app_settings"

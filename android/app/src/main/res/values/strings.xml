@@ -7,6 +7,7 @@
     <string name="game_settings">Game Settings</string>
     <string name="game_settings_command_line">Command-line arguments</string>
     <string name="game_settings_volume_buttons">Use volume buttons in-game</string>
+    <string name="game_settings_yapb_bots">Enable YaPB bots (CS only)</string>
     <string name="preferences_package_name">Libraries package</string>
     <string name="preferences_separate_libraries">Libraries from separate packages</string>
     <string name="preferences_client_package">Client package</string>
@@ -18,13 +19,13 @@
     <string name="select_current_directory">Select current directory</string>
     <string name="external_storage_required">External storage access required</string>
     <string name="external_storage_message">External storage access is required for the app to function properly.</string>
-    
+
     <string name="open_settings">Open Settings</string>
     <string name="done_check_permissions">Done! Check permissions</string>
     <string name="game_apk_required">Requires game libraries APK</string>
     <string name="game_apk_message">To launch this game, you need to install an additional APK</string>
     <string name="game_apk_install">Download</string>
-    
+
     <string name="storage_settings">Storage Settings</string>
     <string name="toggle_storage_location">Toggle Storage Location</string>
     <string name="using_internal_storage">Using: Internal Storage (Android/data)</string>
@@ -45,19 +46,91 @@
     <string name="fix_font">Fix font</string>
     <string name="fix_font_summary">Fix con_oldfont and con_fontscale behavior</string>
 
+    <!-- Crash reporting -->
+    <string name="crash_dialog_title">Xash3D FWGS crashed last time</string>
+    <string name="crash_send_to_developers">Send to developers</string>
+    <string name="crash_share">Share</string>
+    <string name="crash_dismiss">Dismiss</string>
+    <string name="crash_logs">Crash logs</string>
+    <string name="crash_logs_empty">No crash logs recorded</string>
+    <string name="crash_log_delete">Delete</string>
+    <string name="crash_email_subject" translatable="false">Xash3D FWGS crash report</string>
+    <string name="crash_email_body">Crash details are attached. Please describe in as much detail as possible what you were doing when the game crashed — every little thing helps us fix it!</string>
+    <string name="crash_no_mail_app_title">No mail app found</string>
+    <string name="crash_no_mail_app_message">No email client is installed on this device. Install one (or use Share to send the report another way) and try again.</string>
+
+    <!-- Game library downloader -->
     <string name="downloading_game_libs">Downloading Game Libraries</string>
     <string name="downloading">Downloading…</string>
     <string name="download_progress">Downloading… %1$d%%</string>
     <string name="download_failed">Download Failed</string>
     <string name="download_error">An error occurred while downloading game libraries.</string>
+    <string name="update_available">Update Available</string>
+    <string name="update_available_message">A newer version of the game libraries is available. Download the update?</string>
+    <string name="update_download">Update</string>
+    <string name="update_skip">Skip</string>
     <string name="manifest_error_title">Cannot reach game library server</string>
     <string name="manifest_error_message">Failed to download the build manifest:\n\n%1$s\n\nGame libraries cannot be downloaded right now. You can launch the engine anyway, but it likely won\'t find the game DLLs.</string>
     <string name="launch_anyway">Launch anyway</string>
     <string name="enable_downloader">Enable Game Library Downloader</string>
     <string name="enable_downloader_summary">Automatically download missing game libraries from FWGS repository</string>
 
+    <!-- Version info -->
     <string name="source_repo">Source repository</string>
     <string name="source_branch">Branch</string>
     <string name="source_commit">Commit</string>
     <string name="downloaded_at">Downloaded</string>
+
+    <!-- Engine auto-updater -->
+    <string name="engine_update_available">Engine Update Available</string>
+    <string name="engine_update_message">Build %1$d is available. Update now?</string>
+    <string name="engine_update_changelog_header">Changes since your build:</string>
+    <string name="engine_update_changelog_more">+ %1$d more commits</string>
+    <string name="engine_update_download">Update</string>
+    <string name="engine_update_later">Later</string>
+    <string name="engine_update_downloading">Downloading Update</string>
+    <string name="engine_update_permission_needed">Permission Required</string>
+    <string name="engine_update_permission_message">To install the update, allow Xash3D FWGS to install unknown apps in system settings.</string>
+    <string name="engine_update_open_settings">Open settings</string>
+    <string name="engine_install_failed">Update install failed: %1$s</string>
+
+    <!-- Game data downloader (Steam) -->
+    <string name="game_data_downloader">Game Data Downloader</string>
+    <string name="download_game_data">Download Game Data</string>
+    <string name="no_game_data_found">No game data found</string>
+    <string name="no_game_data_message">No game data directories were found in the game path. Would you like to download game data now?</string>
+    <string name="no_game_data_download_question">Download Now?</string>
+    <string name="download_now">Download Now</string>
+    <string name="no_thanks">Not now</string>
+    <string name="overwrite_confirm_title">Overwrite existing data?</string>
+    <string name="overwrite_confirm_message">The "%1$s" directory already contains game data. Overwrite it?</string>
+    <string name="overwrite">Overwrite</string>
+    <string name="keep">Keep existing</string>
+    <string name="downloading_steam_data">Downloading %1$s</string>
+    <string name="download_complete">Download Complete</string>
+    <string name="download_complete_message">%1$s has been downloaded successfully to %2$s</string>
+    <string name="connecting_to_steam">Connecting to Steam…</string>
+    <string name="authenticating">Authenticating…</string>
+    <string name="fetching_manifest">Fetching file manifest…</string>
+    <string name="downloading_files">Downloading files… %1$s / %2$s</string>
+    <string name="extracting_files">Extracting files…</string>
+    <string name="game_data_downloader_summary">Download Half-Life, Counter-Strike, and other GoldSrc game data from Steam</string>
+    <string name="game_half_life">Half-Life</string>
+    <string name="game_counter_strike">Counter-Strike</string>
+    <string name="game_tfc">Team Fortress Classic</string>
+    <string name="game_blue_shift">Blue Shift</string>
+    <string name="game_opposing_force">Opposing Force</string>
+    <string name="game_data_size">~%1$s</string>
+    <string name="downloading_listing">Retrieving download list…</string>
+    <string name="downloader_battery_optimization_note">NOTE: For background downloading, please disable battery optimization for the Xash3D app in your Android settings.</string>
+    <string name="game_data_already_downloaded">Game data already exists in this location. Download again to overwrite?</string>
+    <string name="cancel">Cancel</string>
+    <string name="download_cancelled">Download cancelled</string>
+    <string name="depot_settings_title">Download Options</string>
+    <string name="depot_game_data">Game Data</string>
+    <string name="depot_server_dlls">Server Libraries</string>
+    <string name="depot_engine_content">Engine Content</string>
+    <string name="dependency_half_life_required">Please install Half-Life first.</string>
+    <string name="dependency_cs_required">Counter-Strike installation required.</string>
+    <string name="dependency_hl_cs_required">Half-Life and Counter-Strike must be installed.</string>
 </resources>

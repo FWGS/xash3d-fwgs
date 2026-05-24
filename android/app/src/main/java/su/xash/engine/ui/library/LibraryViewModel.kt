@@ -36,19 +36,19 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 val games = mutableListOf<Game>()
-                
+
                 val internalPath = ctx.getExternalFilesDir(null)?.absolutePath
                 val internalDir = File(internalPath ?: "")
-                
+
                 val externalPath = Environment.getExternalStorageDirectory().absolutePath + "/xash"
                 val externalDir = File(externalPath)
-                
+
                 Nomedia.ensureNomedia(externalDir)
-                
+
                 if (internalDir.exists() && internalDir.isDirectory) {
                     games.addAll(Game.getGames(ctx, internalDir))
                 }
-                
+
                 if (externalDir.exists() && externalDir.isDirectory) {
                     val externalGames = Game.getGames(ctx, externalDir)
                     externalGames.forEach { externalGame ->
@@ -57,7 +57,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                         }
                     }
                 }
-                
+
                 _installedGames.postValue(games)
                 _isReloading.postValue(false)
             }
@@ -70,5 +70,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun startEngine(ctx: Context, game: Game) {
         game.startEngine(ctx)
+    }
+
+    fun getBaseDir(): File {
+        val rootPath = defaultPreferences.getString("game_path", null)
+            ?: (Environment.getExternalStorageDirectory().absolutePath + "/xash")
+        return File(rootPath)
     }
 }
