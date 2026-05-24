@@ -6,18 +6,16 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.preference.PreferenceManager
-import android.view.LayoutInflater
-import android.widget.TextView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.progressindicator.LinearProgressIndicator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import su.xash.engine.R
 import su.xash.engine.XashActivity
+import su.xash.engine.util.showDownloadProgressDialog
 import java.io.File
 import java.io.FileInputStream
 
@@ -27,6 +25,12 @@ class Game(val ctx: Context, val basedir: File) {
 	var title = "Unknown Game"
 	var icon: Bitmap? = null
 	var cover: Bitmap? = null
+
+	val mobileHacksGames = arrayOf("aom", "bdlands", "biglolly", "bshift", "caseclosed",
+		"hl_urbicide", "induction", "redempt", "secret",
+		"sewer_beta", "tot", "valve", "vendetta")
+
+	var defaultGameDir = "valve"
 
 	private val pref = ctx.getSharedPreferences(basedir.name, Context.MODE_PRIVATE)
 
@@ -52,88 +56,120 @@ class Game(val ctx: Context, val basedir: File) {
 	}
 
 	fun startEngine(ctx: Context) {
-		var commandLineArgs = pref.getString("arguments", "-console -log") ?: "-console -log"
+		val packageNames = getPackageNamesForGameDir(basedir.name)
+		var externalGame = false
+		var commandLineArgs = ""
 
-		val appPref = PreferenceManager.getDefaultSharedPreferences(ctx)
-		val downloaderEnabled = appPref.getBoolean("enable_downloader", false)
+		if (basedir.name != defaultGameDir)
+			commandLineArgs += "-game ${basedir.name} "
 
-		if (appPref.getBoolean("enable_yapb_bots", true)
-			&& (basedir.name.equals("cstrike", ignoreCase = true)
-				|| basedir.name.equals("czero", ignoreCase = true))) {
-			commandLineArgs = "-dll @yapb $commandLineArgs"
+		if (packageNames != null) {
+			if (packageNames.contains("su.xash.engine")) {
+				commandLineArgs += "-dll @hl "
+			} else if (packageNames.contains("su.xash.cs16client")) {
+				if (pref.getBoolean("enable_yapb_bots", true)) {
+					commandLineArgs += "-dll @yapb "
+				}
+				externalGame = true
+			}
 		}
 
-		if (downloaderEnabled) {
-			val downloader = GameLibDownloader(ctx)
-			if (downloader.isDownloaded(basedir.name)) {
-				downloader.logExistingLibs(basedir.name)
-				launchEngine(ctx, commandLineArgs)
+		commandLineArgs += pref.getString("arguments", "-console -log") ?: ""
+
+		if (externalGame && packageNames != null) {
+			var packageName: String? = null
+			var gameLibDir: String? = null
+
+			for (pn in packageNames) {
+				gameLibDir = try {
+					getGameLibDir(ctx, pn)
+				} catch (e: PackageManager.NameNotFoundException) {
+					null
+				} catch (e: Exception) {
+					e.printStackTrace()
+					null
+				}
+
+				if (gameLibDir != null) {
+					packageName = pn
+					break
+				}
+			}
+
+			if (gameLibDir == null) {
+				MaterialAlertDialogBuilder(ctx).apply {
+					setTitle(R.string.game_apk_required)
+					setMessage(R.string.game_apk_message)
+					setPositiveButton(R.string.game_apk_install) { _, _ ->
+						val intent = Intent(Intent.ACTION_VIEW,
+							getDownloadPageForGameDir(basedir.name).toUri())
+						ctx.startActivity(intent)
+					}
+					show()
+				}
 				return
 			}
 
-			val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-			scope.launch {
-				when (val r = downloader.lookupBuild(basedir.name)) {
-					is GameLibDownloader.Lookup.Available -> showDownloadDialog(ctx, downloader, commandLineArgs)
-					is GameLibDownloader.Lookup.NotInManifest -> launchEngine(ctx, commandLineArgs)
-					is GameLibDownloader.Lookup.Error -> showManifestErrorDialog(ctx, commandLineArgs, r.cause)
+			launchEngine(ctx, commandLineArgs, packageName = packageName, gameLibDir = gameLibDir)
+			return
+		}
+
+		if (packageNames == null) {
+			val appPref = PreferenceManager.getDefaultSharedPreferences(ctx)
+			val downloaderEnabled = appPref.getBoolean("enable_downloader", false)
+
+			if (downloaderEnabled) {
+				val downloader = GameLibDownloader(ctx)
+				if (downloader.isDownloaded(basedir.name)) {
+					downloader.logExistingLibs(basedir.name)
+					launchEngine(ctx, commandLineArgs)
+					return
 				}
+
+				val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+				scope.launch {
+					when (val r = downloader.lookupBuild(basedir.name)) {
+						is GameLibDownloader.Lookup.Available -> showDownloadDialog(ctx, downloader, commandLineArgs)
+						is GameLibDownloader.Lookup.NotInManifest -> launchEngine(ctx, commandLineArgs)
+						is GameLibDownloader.Lookup.Error -> showManifestErrorDialog(ctx, commandLineArgs, r.cause)
+					}
+				}
+				return
 			}
+
+			launchEngine(ctx, commandLineArgs)
 			return
 		}
 
 		launchEngine(ctx, commandLineArgs)
 	}
 
-	private fun launchEngine(ctx: Context, commandLineArgs: String) {
+	private fun launchEngine(
+		ctx: Context,
+		commandLineArgs: String,
+		packageName: String? = null,
+		gameLibDir: String? = null
+	) {
 		ctx.startActivity(Intent(ctx, XashActivity::class.java).apply {
 			flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-			putExtra("gamedir", basedir.name)
+			putExtra("gamedir", defaultGameDir)
 			putExtra("argv", commandLineArgs)
 			putExtra("usevolume", pref.getBoolean("use_volume_buttons", false))
 			putExtra("basedir", basedir.parent)
+			if (gameLibDir != null) putExtra("gamelibdir", gameLibDir)
+			if (packageName != null) putExtra("package", packageName)
 		})
 	}
 
 	private fun showDownloadDialog(ctx: Context, downloader: GameLibDownloader, commandLineArgs: String) {
-		val view = LayoutInflater.from(ctx).inflate(R.layout.dialog_download_progress, null)
-		val progressBar = view.findViewById<LinearProgressIndicator>(R.id.downloadProgress)
-		val statusText = view.findViewById<TextView>(R.id.downloadStatus)
-
-		val dialog = MaterialAlertDialogBuilder(ctx)
-			.setTitle(R.string.downloading_game_libs)
-			.setView(view)
-			.setCancelable(true)
-			.setNegativeButton(android.R.string.cancel) { d, _ -> d.dismiss() }
-			.create()
-
-		dialog.show()
-
-		val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-		val job = scope.launch {
-			val result = downloader.download(basedir.name) { progress ->
-				progressBar.isIndeterminate = false
-				progressBar.progress = (progress * 100).toInt()
-				statusText.text = ctx.getString(R.string.download_progress, (progress * 100).toInt())
-			}
-
-			if (!dialog.isShowing) return@launch
-
-			dialog.dismiss()
-
-			if (result.isSuccess) {
-				launchEngine(ctx, commandLineArgs)
-			} else {
-				MaterialAlertDialogBuilder(ctx)
-					.setTitle(R.string.download_failed)
-					.setMessage(result.exceptionOrNull()?.message
-						?: ctx.getString(R.string.download_error))
-					.setPositiveButton(android.R.string.ok, null)
-					.show()
-			}
-		}
-
-		dialog.setOnDismissListener { job.cancel() }
+		showDownloadProgressDialog(
+			ctx = ctx,
+			titleRes = R.string.downloading_game_libs,
+			cancelable = true,
+			scope = CoroutineScope(Dispatchers.Main + SupervisorJob()),
+			download = { onProgress -> downloader.download(basedir.name, onProgress) },
+			onSuccess = { launchEngine(ctx, commandLineArgs) },
+		)
 	}
 
 	private fun showManifestErrorDialog(ctx: Context, commandLineArgs: String, cause: Throwable) {
@@ -162,30 +198,34 @@ class Game(val ctx: Context, val basedir: File) {
 		}
 	}
 
-	private fun getPackageName(): String? {
-//        return if (mDbEntry != null) {
-//            mDbEntry.getPackageName()
-//        } else null
+	private fun getPackageNamesForGameDir(gamedir: String): Array<String>? {
+		if (gamedir.equals("cstrike", ignoreCase = true)
+			|| gamedir.equals("czero", ignoreCase = true))
+			return arrayOf("su.xash.cs16client.test", "su.xash.cs16client")
+
+		if (gamedir.equals("tfc", ignoreCase = true))
+			return arrayOf("su.xash.tf15client.test", "su.xash.tf15client")
+
+		if (mobileHacksGames.any { it.equals(gamedir, ignoreCase = true) })
+			return arrayOf("su.xash.engine")
+
 		return null
 	}
 
-	private fun getGameLibDir(ctx: Context): String? {
-		val pkgName = getPackageName()
-		if (pkgName != null) {
-			val pkgInfo: PackageInfo = try {
-				ctx.packageManager.getPackageInfo(pkgName, 0)
-			} catch (e: PackageManager.NameNotFoundException) {
-				e.printStackTrace()
-				ctx.startActivity(
-					Intent(
-						Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkgName")
-					).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-				)
-				return null
-			}
-			return pkgInfo.applicationInfo?.nativeLibraryDir
-		}
-		return ctx.applicationInfo.nativeLibraryDir
+	private fun getDownloadPageForGameDir(gamedir: String): String {
+		if (gamedir.equals("cstrike", ignoreCase = true)
+			|| gamedir.equals("czero", ignoreCase = true))
+			return "https://github.com/Velaron/cs16-client/releases/download/continuous/CS16Client-Android.apk"
+
+		if (gamedir.equals("tfc", ignoreCase = true))
+			return "https://github.com/Velaron/tf15-client/releases/download/continuous/TF15Client-Android.apk"
+
+		return "https://github.com/FWGS/xash3d-fwgs/releases/download/continuous/xash3d-fwgs-android.apk"
+	}
+
+	private fun getGameLibDir(ctx: Context, packageName: String): String? {
+		val packageInfo: PackageInfo = ctx.packageManager.getPackageInfo(packageName, 0)
+		return packageInfo.applicationInfo?.nativeLibraryDir
 	}
 
 	companion object {
@@ -215,16 +255,3 @@ class Game(val ctx: Context, val basedir: File) {
 		}
 	}
 }
-
-//    Intent intent = new Intent("su.xash.engine.MOD");
-//                for (ResolveInfo info : context.getPackageManager()
-//                        .queryIntentActivities(intent, PackageManager.GET_META_DATA)) {
-//                        String packageName = info.activityInfo.applicationInfo.packageName;
-//                        String gameDir = info.activityInfo.applicationInfo.metaData.getString(
-//                        "su.xash.engine.gamedir");
-//                        Log.d(TAG, "package = " + packageName + " gamedir = " + gameDir);
-//                        }
-
-//public void startEngine(Context context) {
-//    context.startActivity(new Intent(context, XashActivity.class).setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP).putExtra("gamedir", getGameDir()).putExtra("argv", getArguments()).putExtra("usevolume", getVolumeState()).putExtra("gamelibdir", getGameLibDir(context)).putExtra("package", getPackageName()));
-//}
