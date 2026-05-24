@@ -49,12 +49,12 @@
             app:key="enable_downloader"
             app:title="@string/enable_downloader"
             app:summary="@string/enable_downloader_summary"
-            app:defaultValue="false" />
+            app:defaultValue="true" />
 
         <SwitchPreferenceCompat
             app:key="enable_yapb_bots"
             app:title="@string/game_settings_yapb_bots"
-            app:defaultValue="true" />
+            app:defaultValue="false" />
     </PreferenceCategory>
 
 </PreferenceScreen>
