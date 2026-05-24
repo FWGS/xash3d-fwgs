@@ -68,7 +68,7 @@ jobs:
 
     - name: Fix file permissions (Linux & macOS)
       if: matrix.targetos != 'win32'
-      run: chmod 777 -R .
+      run: chmod -R 777 .
 
     - name: Install dependencies
       run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
