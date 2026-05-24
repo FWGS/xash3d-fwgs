@@ -8,7 +8,7 @@ import androidx.preference.PreferenceFragmentCompat
 import su.xash.engine.MainActivity
 import su.xash.engine.R
 import android.content.SharedPreferences
-import android.preference.PreferenceManager
+import androidx.preference.PreferenceManager
 
 class AppSettingsPreferenceFragment() : PreferenceFragmentCompat(),
     SharedPreferences.OnSharedPreferenceChangeListener {

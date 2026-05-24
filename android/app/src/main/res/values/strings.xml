@@ -63,6 +63,7 @@
     <string name="downloading_game_libs">Downloading Game Libraries</string>
     <string name="downloading">Downloading…</string>
     <string name="download_progress">Downloading… %1$d%%</string>
+    <string name="download_progress_unknown">Downloading… %1$s</string>
     <string name="download_failed">Download Failed</string>
     <string name="download_error">An error occurred while downloading game libraries.</string>
     <string name="update_available">Update Available</string>

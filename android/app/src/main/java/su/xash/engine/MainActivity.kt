@@ -1,6 +1,7 @@
 package su.xash.engine
 
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
@@ -20,6 +21,7 @@ import su.xash.engine.model.AppUpdater
 import su.xash.engine.util.CrashReports
 import su.xash.engine.util.monospaceTextView
 import su.xash.engine.util.showDownloadProgressDialog
+import androidx.preference.PreferenceManager
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -138,6 +140,12 @@ class MainActivity : AppCompatActivity() {
     fun getStoragePath(): String {
         val prefs = getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
         return prefs.getString("game_path", null) ?: "/storage/emulated/0/xash"
+    }
+
+    fun getStorageSummary(): String {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val useInternal = prefs.getBoolean("storage_toggle", false)
+        return if (useInternal) "Internal Storage (Android/data)" else "External Storage (/storage/emulated/0/xash)"
     }
 
     override fun onSupportNavigateUp(): Boolean {

@@ -41,7 +41,7 @@ fun showDownloadProgressDialog(
 				progressBar.isIndeterminate = false
 				progressBar.progress = (downloaded * 100 / total).toInt()
 				val totalStr = Formatter.formatShortFileSize(ctx, total)
-				statusText.text = ctx.getString(R.string.download_progress, downloadedStr, totalStr)
+				statusText.text = "$downloadedStr / $totalStr"
 			} else {
 				statusText.text = ctx.getString(R.string.download_progress_unknown, downloadedStr)
 			}
