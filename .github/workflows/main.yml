@@ -1,0 +1,83 @@
+name: Build Engine
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux builds
+          - os: ubuntu-22.04
+            targetos: linux
+            targetarch: amd64
+          - os: ubuntu-22.04
+            targetos: linux
+            targetarch: i386
+#         - os: ubuntu-22.04-arm
+#           targetos: linux
+#           targetarch: arm64
+#          - os: ubuntu-22.04-arm
+#            targetos: linux
+#            targetarch: armhf
+#          - os: ubuntu-24.04
+#            targetos: linux
+#            targetarch: riscv64
+#            cross: true
+#          - os: ubuntu-22.04
+#            targetos: linux
+#            targetarch: ppc64el
+#            cross: true
+
+          # Android build
+          - os: ubuntu-latest
+            targetos: android
+            targetarch: multiarch
+
+          # Windows builds
+          - os: windows-latest
+            targetos: win32
+            targetarch: amd64
+          - os: windows-2022
+            targetos: win32
+            targetarch: i386
+
+          # Apple builds
+#          - os: macos-14
+#            targetos: apple
+#            targetarch: arm64
+          - os: macos-latest
+            targetos: ios
+            targetarch: arm64
+#          - os: macos-15-intel
+#            targetos: apple
+#            targetarch: amd64
+    env:
+      SDL_VERSION: 2.32.10
+      FFMPEG_VERSION: 8.1
+      GH_CPU_ARCH: ${{ matrix.targetarch }}
+      GH_CPU_OS: ${{ matrix.targetos }}
+      GH_CROSSCOMPILING: ${{ matrix.cross }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - name: Fix file permissions (Linux & macOS)
+      if: matrix.targetos != 'win32'
+      run: chmod 777 -R .
+
+    - name: Install dependencies
+      run: bash scripts/gha/deps_${{ matrix.targetos }}.sh
+
+    - name: Build engine
+      run: bash scripts/gha/build_${{ matrix.targetos }}.sh
+
+    - name: Upload engine (artifacts)
+      uses: actions/upload-artifact@v7
+      with:
+        name: artifact-${{ matrix.targetos }}-${{ matrix.targetarch }}
+        path: artifacts/*
