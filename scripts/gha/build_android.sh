@@ -13,6 +13,6 @@ popd || exit 1
 
 mkdir -p artifacts/
 
-mv android/app/build/outputs/apk/continuous/app-continuous.apk artifacts/xash3d-fwgs-android.apk
+mv android/app/build/outputs/apk/*/*.apk artifacts/xash3d-fwgs-android.apk
 tar -cJvf artifacts/xash3d-fwgs-android-mappings.tar.zst -C android/app/build/outputs/mapping/continuous '.'
 
