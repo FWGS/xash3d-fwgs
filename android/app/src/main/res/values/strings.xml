@@ -63,4 +63,44 @@
 	<string name="engine_update_permission_message">To install the update, allow Xash3D FWGS to install unknown apps in system settings.</string>
 	<string name="engine_update_open_settings">Open settings</string>
 	<string name="engine_install_failed">Update install failed: %1$s</string>
+
+	<!-- Game data downloader -->
+	<string name="game_data_downloader">Game Data Downloader</string>
+	<string name="download_game_data">Download Game Data</string>
+	<string name="no_game_data_found">No game data found</string>
+	<string name="no_game_data_message">No game data directories were found in the game path. Would you like to download game data now?</string>
+	<string name="no_game_data_download_question">Download Now?</string>
+	<string name="download_now">Download Now</string>
+	<string name="no_thanks">Not now</string>
+	<string name="overwrite_confirm_title">Overwrite existing data?</string>
+	<string name="overwrite_confirm_message">The "%1$s" directory already contains game data. Overwrite it?</string>
+	<string name="overwrite">Overwrite</string>
+	<string name="keep">Keep existing</string>
+	<string name="downloading_steam_data">Downloading %1$s</string>
+	<string name="download_complete">Download Complete</string>
+	<string name="download_complete_message">%1$s has been downloaded successfully to %2$s</string>
+	<string name="connecting_to_steam">Connecting to Steam…</string>
+	<string name="authenticating">Authenticating…</string>
+	<string name="fetching_manifest">Fetching file manifest…</string>
+	<string name="downloading_files">Downloading files… %1$s / %2$s</string>
+	<string name="extracting_files">Extracting files…</string>
+	<string name="game_data_downloader_summary">Download Half-Life, Counter-Strike, and other GoldSrc game data from Steam</string>
+	<string name="game_half_life">Half-Life</string>
+	<string name="game_counter_strike">Counter-Strike</string>
+	<string name="game_tfc">Team Fortress Classic</string>
+	<string name="game_blue_shift">Blue Shift</string>
+	<string name="game_opposing_force">Opposing Force</string>
+	<string name="game_data_size">~%1$s</string>
+	<string name="downloading_listing">Retrieving download list…</string>
+	<string name="downloader_battery_optimization_note">NOTE: For background downloading, please disable battery optimization for the Xash3D app in your Android settings.</string>
+	<string name="game_data_already_downloaded">Game data already exists in this location. Download again to overwrite?</string>
+	<string name="cancel">Cancel</string>
+	<string name="download_cancelled">Download cancelled</string>
+	<string name="depot_settings_title">Download Options</string>
+	<string name="depot_game_data">Game Data</string>
+	<string name="depot_server_dlls">Server Libraries</string>
+	<string name="depot_engine_content">Engine Content</string>
+	<string name="dependency_half_life_required">Please install Half-Life first.</string>
+	<string name="dependency_cs_required">Counter-Strike installation required.</string>
+	<string name="dependency_hl_cs_required">Half-Life and Counter-Strike must be installed.</string>
 </resources>

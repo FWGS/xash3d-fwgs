@@ -48,6 +48,7 @@
 	<uses-permission android:name="android.permission.INTERNET" />
 	<!-- Dedicated server -->
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 	<!-- Self-update: install downloaded APK -->
 	<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
@@ -100,6 +101,11 @@
 				<action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
 			</intent-filter>
 		</activity>
+
+		<service
+			android:name=".model.DownloadService"
+			android:exported="false"
+			android:foregroundServiceType="dataSync" />
 	</application>
 	<queries>
 		<intent>

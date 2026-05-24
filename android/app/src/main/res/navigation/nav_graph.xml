@@ -14,6 +14,9 @@
 		<action
 			android:id="@+id/action_libraryFragment_to_appSettingsFragment"
 			app:destination="@id/appSettingsFragment" />
+		<action
+			android:id="@+id/action_libraryFragment_to_gameDataDownloaderFragment"
+			app:destination="@id/gameDataDownloaderFragment" />
 	</fragment>
 	<fragment
 		android:id="@+id/gameSettingsFragment"
@@ -26,9 +29,16 @@
 		<action
 			android:id="@+id/action_appSettingsFragment_to_crashLogsFragment"
 			app:destination="@id/crashLogsFragment" />
+		<action
+			android:id="@+id/action_appSettingsFragment_to_gameDataDownloaderFragment"
+			app:destination="@id/gameDataDownloaderFragment" />
 	</fragment>
 	<fragment
 		android:id="@+id/crashLogsFragment"
 		android:name="su.xash.engine.ui.settings.CrashLogsFragment"
 		android:label="@string/crash_logs" />
+	<fragment
+		android:id="@+id/gameDataDownloaderFragment"
+		android:name="su.xash.engine.ui.downloader.GameDataDownloaderFragment"
+		android:label="@string/game_data_downloader" />
 </navigation>

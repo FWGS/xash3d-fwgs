@@ -138,6 +138,7 @@ dependencies {
 	implementation(libs.swiperefreshlayout)
 
 	implementation(libs.acra.http)
+	implementation(libs.xz)
 }
 
 fun getBuildNum(): Int {

@@ -55,4 +55,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 	fun startEngine(ctx: Context, game: Game) {
 		game.startEngine(ctx)
 	}
+
+	fun getBaseDir(): File {
+		val rootPath = appPreferences.getString("game_path", null)
+			?: (Environment.getExternalStorageDirectory().absolutePath + "/xash")
+		return File(rootPath)
+	}
 }
