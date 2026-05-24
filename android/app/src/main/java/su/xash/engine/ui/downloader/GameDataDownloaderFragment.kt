@@ -6,7 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.preference.PreferenceManager
+import androidx.preference.PreferenceManager
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
@@ -86,9 +86,15 @@ class GameDataDownloaderFragment : Fragment() {
 
     private fun getBaseDir(): File {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-        val path = prefs.getString("game_path", null)
-            ?: "${Environment.getExternalStorageDirectory().absolutePath}/xash"
-        return File(path)
+        val useInternal = prefs.getBoolean("storage_toggle", false)
+        return if (useInternal) {
+            File(requireContext().getExternalFilesDir(null)?.absolutePath
+                ?: "${Environment.getExternalStorageDirectory().absolutePath}/xash")
+        } else {
+            val path = prefs.getString("game_path", null)
+                ?: "${Environment.getExternalStorageDirectory().absolutePath}/xash"
+            File(path)
+        }
     }
 
     private fun onGameSelected(gamedir: String, displayName: String) {

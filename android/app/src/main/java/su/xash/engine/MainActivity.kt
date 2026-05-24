@@ -138,8 +138,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun getStoragePath(): String {
-        val prefs = getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
-        return prefs.getString("game_path", null) ?: "/storage/emulated/0/xash"
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val useInternal = prefs.getBoolean("storage_toggle", false)
+        return if (useInternal) {
+            getExternalFilesDir(null)?.absolutePath ?: "/storage/emulated/0/Android/data/su.xash.engine/files"
+        } else {
+            prefs.getString("game_path", null) ?: "/storage/emulated/0/xash"
+        }
     }
 
     fun getStorageSummary(): String {

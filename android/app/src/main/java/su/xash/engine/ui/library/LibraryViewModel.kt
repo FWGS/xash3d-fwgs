@@ -3,7 +3,7 @@ package su.xash.engine.ui.library
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
-import android.preference.PreferenceManager
+import androidx.preference.PreferenceManager
 import android.os.Environment
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -73,8 +73,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun getBaseDir(): File {
-        val rootPath = defaultPreferences.getString("game_path", null)
-            ?: (Environment.getExternalStorageDirectory().absolutePath + "/xash")
-        return File(rootPath)
+        val useInternal = defaultPreferences.getBoolean("storage_toggle", false)
+        return if (useInternal) {
+            val ctx = getApplication<Application>()
+            File(ctx.getExternalFilesDir(null)?.absolutePath
+                ?: (Environment.getExternalStorageDirectory().absolutePath + "/xash"))
+        } else {
+            val rootPath = defaultPreferences.getString("game_path", null)
+                ?: (Environment.getExternalStorageDirectory().absolutePath + "/xash")
+            File(rootPath)
+        }
     }
 }
