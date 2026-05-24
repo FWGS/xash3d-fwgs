@@ -4680,6 +4680,16 @@ static void GAME_EXPORT pfnGetGameDir( char *out )
 	}
 }
 
+static cvar_t* GAME_EXPORT SV_CvarGetPointer( const char *szVarName )
+{
+	cvar_t *result = (cvar_t *)Cvar_FindVar( szVarName );
+
+	if( !result )
+		Con_DPrintf( S_WARN "%s: server tried to get non-existent cvar \"%s\"\n", __func__, szVarName );
+	
+	return result;
+}
+
 // engine callbacks
 static enginefuncs_t gEngfuncs =
 {
@@ -4799,7 +4809,7 @@ static enginefuncs_t gEngfuncs =
 	pfnGetPlayerUserId,
 	pfnBuildSoundMsg,
 	pfnIsDedicatedServer,
-	pfnCVarGetPointer,
+	SV_CvarGetPointer,
 	pfnGetPlayerWONId,
 	(void*)Info_RemoveKey,
 	pfnGetPhysicsKeyValue,

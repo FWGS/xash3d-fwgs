@@ -687,18 +687,6 @@ void GAME_EXPORT pfnGetModelBounds( model_t *mod, float *mins, float *maxs )
 
 /*
 =============
-pfnCVarGetPointer
-
-can return NULL
-=============
-*/
-cvar_t *GAME_EXPORT pfnCVarGetPointer( const char *szVarName )
-{
-	return (cvar_t *)Cvar_FindVar( szVarName );
-}
-
-/*
-=============
 pfnCompareFileTime
 
 =============
