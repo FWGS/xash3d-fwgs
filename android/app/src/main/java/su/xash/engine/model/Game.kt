@@ -52,10 +52,16 @@ class Game(val ctx: Context, val basedir: File) {
 	}
 
 	fun startEngine(ctx: Context) {
-		val commandLineArgs = pref.getString("arguments", "-console -log") ?: "-console -log"
+		var commandLineArgs = pref.getString("arguments", "-console -log") ?: "-console -log"
 
 		val appPref = PreferenceManager.getDefaultSharedPreferences(ctx)
 		val downloaderEnabled = appPref.getBoolean("enable_downloader", false)
+
+		if (appPref.getBoolean("enable_yapb_bots", true)
+			&& (basedir.name.equals("cstrike", ignoreCase = true)
+				|| basedir.name.equals("czero", ignoreCase = true))) {
+			commandLineArgs = "-dll @yapb $commandLineArgs"
+		}
 
 		if (downloaderEnabled) {
 			val downloader = GameLibDownloader(ctx)
