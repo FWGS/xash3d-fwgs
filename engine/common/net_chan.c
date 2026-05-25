@@ -94,6 +94,7 @@ CVAR_DEFINE_AUTO( net_showpackets, "0", FCVAR_PRIVILEGED, "show network packets"
 static CVAR_DEFINE_AUTO( net_chokeloop, "0", 0, "apply bandwidth choke to loopback packets" );
 static CVAR_DEFINE_AUTO( net_showdrop, "0", 0, "show packets that are dropped" );
 static CVAR_DEFINE_AUTO( net_qport, "0", FCVAR_READ_ONLY, "current quake netport" );
+static CVAR_DEFINE_AUTO( net_sequence_window, "256", 0, "reject sequenced packets that jump more than this many sequences ahead (anti-spoofing; 0 disables)" );
 CVAR_DEFINE_AUTO( net_send_debug, "0", FCVAR_PRIVILEGED, "enable debugging output for outgoing messages" );
 CVAR_DEFINE_AUTO( net_recv_debug, "0", FCVAR_PRIVILEGED, "enable debugging output for incoming messages" );
 
@@ -173,6 +174,7 @@ void Netchan_Init( void )
 	Cvar_RegisterVariable( &net_chokeloop );
 	Cvar_RegisterVariable( &net_showdrop );
 	Cvar_RegisterVariable( &net_qport );
+	Cvar_RegisterVariable( &net_sequence_window );
 	Cvar_RegisterVariable( &net_send_debug );
 	Cvar_RegisterVariable( &net_recv_debug );
 	Cvar_FullSet( net_qport.name, buf, net_qport.flags );
@@ -1853,6 +1855,16 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 				Con_Printf( "%s:duplicate packet %i at %i\n", adr, sequence, chan->incoming_sequence );
 			else Con_Printf( "%s:out of order packet %i at %i\n", adr, sequence, chan->incoming_sequence );
 		}
+		return false;
+	}
+
+	// reject packets that leap too far ahead of the expected sequence
+	if( net_sequence_window.value > 0 && sequence > chan->incoming_sequence + (uint)net_sequence_window.value )
+	{
+		Con_Printf( S_WARN "%s: %s: sequence %u jumps %u ahead of expected %i (window %i), dropping\n",
+			__func__, NET_AdrToString( chan->remote_address ),
+			sequence, sequence - chan->incoming_sequence,
+			chan->incoming_sequence, (int)net_sequence_window.value );
 		return false;
 	}
 
