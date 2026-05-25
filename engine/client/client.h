@@ -579,6 +579,7 @@ typedef struct
 	sizebuf_t		datagram;			// unreliable stuff. gets sent in CL_Move about cl_cmdrate times per second.
 	byte		datagram_buf[MAX_DATAGRAM];
 
+	uint64_t		netchan_pending_cookie;	// random NET_EXT_NETCHAN_COOKIE
 	netchan_t		netchan;
 
 	float		packet_loss;

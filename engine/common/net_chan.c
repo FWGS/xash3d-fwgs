@@ -259,8 +259,22 @@ void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, voi
 	chan->use_bz2 = FBitSet( flags, NETCHAN_USE_BZIP2 ) ? true : false;
 	chan->use_lzss = FBitSet( flags, NETCHAN_USE_LZSS ) ? true : false;
 	chan->gs_netchan = FBitSet( flags, NETCHAN_GOLDSRC ) ? true : false;
+	chan->use_cookie = FBitSet( flags, NETCHAN_USE_COOKIE ) ? true : false;
+	chan->cookie = 0;
 
 	MSG_Init( &chan->message, "NetData", chan->message_buf, sizeof( chan->message_buf ));
+}
+
+/*
+==============
+Netchan_SetCookie
+
+called on the client after parsing NET_EXT_NETCHAN_COOKIE in the connect reply
+==============
+*/
+void Netchan_SetCookie( netchan_t *chan, uint64_t cookie )
+{
+	chan->cookie = cookie;
 }
 
 /*
@@ -1673,6 +1687,14 @@ void Netchan_TransmitBits( netchan_t *chan, int length, const byte *data )
 
 	chan->outgoing_sequence++;
 
+	// prefix the cookie so the peer can authenticate this packet as ours
+	// before doing anything else with it
+	if( chan->use_cookie )
+	{
+		MSG_WriteLong( &send, (uint)( chan->cookie & 0xFFFFFFFF ));
+		MSG_WriteLong( &send, (uint)( chan->cookie >> 32 ));
+	}
+
 	MSG_WriteLong( &send, w1 );
 	MSG_WriteLong( &send, w2 );
 
@@ -1797,15 +1819,42 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 
 	// get sequence numbers
 	MSG_Clear( msg );
+
+	// authenticate via the per-connection cookie before parsing anything else;
+	// a spoofed packet from a remote attacker won't know the 64-bit cookie and
+	// will be rejected here without touching sequence/ack state
+	if( chan->use_cookie )
+	{
+		if( MSG_GetMaxBytes( msg ) < 16 )
+		{
+			Con_Reportf( S_WARN "%s: %s: truncated packet (%d bytes) with cookie expected, dropping\n", __func__, NET_AdrToString( chan->remote_address ), MSG_GetMaxBytes( msg ));
+			return false;
+		}
+
+		uint32_t cookie_lo = MSG_ReadDword( msg );
+		uint32_t cookie_hi = MSG_ReadDword( msg );
+		uint64_t cookie = ((uint64_t)cookie_hi << 32 ) | (uint64_t)cookie_lo;
+
+		if( cookie != chan->cookie )
+		{
+			Con_Reportf( S_WARN "%s: %s: cookie mismatch, dropping (possible spoof attempt)\n", __func__, NET_AdrToString( chan->remote_address ));
+			return false;
+		}
+	}
+
 	uint sequence = MSG_ReadLong( msg );
 	uint sequence_ack = MSG_ReadLong( msg );
 
 	if( chan->use_munge && MSG_GetMaxBytes( msg ) >= 8 )
 		COM_UnMunge2( msg->pData + 8, MSG_GetMaxBytes( msg ) - 8, sequence & 0xFF );
 
-	// read the qport if we are a server
+	// read the qport if we are a server; serves as a NAT-stable
+	// connection demultiplexer and rejects packets for the wrong client
 	if( chan->sock == NS_SERVER )
-		MSG_ReadShort( msg );
+	{
+		if(( MSG_ReadShort( msg ) & 0xffff ) != chan->qport )
+			return false;
+	}
 
 	uint reliable_message = sequence >> 31;
 	uint reliable_ack = sequence_ack >> 31;
@@ -1870,7 +1919,9 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	// reject packets that leap too far ahead of the expected sequence
 	// skip on the very first packet — the server starts with a random
 	// outgoing_sequence, so the first one legitimately jumps far ahead of 0
-	if( chan->incoming_sequence != 0 && net_sequence_window.value > 0 && sequence > chan->incoming_sequence + (uint)net_sequence_window.value )
+	// NOTE: disable sequence window with cookie extension, if cookie ext proves
+	// to be inefficient, we can safely enable sequence window back
+	if( !chan->use_cookie && chan->incoming_sequence != 0 && net_sequence_window.value > 0 && sequence > chan->incoming_sequence + (uint)net_sequence_window.value )
 	{
 		Con_Printf( S_WARN "%s: %s: sequence %u jumps %u ahead of expected %i (window %i), dropping\n",
 			__func__, NET_AdrToString( chan->remote_address ),
