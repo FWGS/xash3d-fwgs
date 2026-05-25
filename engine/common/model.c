@@ -292,7 +292,7 @@ Mod_LoadModel
 Loads a model into the cache
 ==================
 */
-model_t *Mod_LoadModel( model_t *mod, qboolean crash )
+static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 {
 	char		tempname[MAX_QPATH];
 	fs_offset_t		length = 0;
