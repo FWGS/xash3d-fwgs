@@ -271,6 +271,11 @@ public class XashActivity extends SDLActivity {
                 argv += " -dll @hl";
         }
 
+        // YaPB toggle: strip -dll @yapb when disabled
+        if (!getBooleanPreference("enable_yapb_bots", true)) {
+            argv = argv.replace(" -dll @yapb", "").replace("-dll @yapb ", "");
+        }
+
         Log.d(TAG, "Final argv: " + argv);
         mCachedArgv = argv.trim();
         return mCachedArgv;

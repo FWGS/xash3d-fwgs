@@ -69,7 +69,8 @@ class Game(val ctx: Context, val basedir: File) {
 			if (packageNames.contains("su.xash.engine")) {
 				commandLineArgs += "-dll @hl "
 			} else if (packageNames.contains("su.xash.cs16client")) {
-				if (pref.getBoolean("enable_yapb_bots", true)) {
+				val appPref = PreferenceManager.getDefaultSharedPreferences(ctx)
+				if (appPref.getBoolean("enable_yapb_bots", true)) {
 					commandLineArgs += "-dll @yapb "
 				}
 				externalGame = true
