@@ -1136,6 +1136,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	}
 
 	cls.broker_wait = false;
+	cls.netchan_pending_cookie = 0;
 
 	if( proto == PROTO_GOLDSRC )
 	{
@@ -1181,7 +1182,6 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 			cls.netchan_pending_cookie = ( a << 48 ) | ( b << 32 ) | ( c << 16 ) | d;
 			Info_SetValueForKeyf( protinfo, "cookie", sizeof( protinfo ), "%016"PRIx64, cls.netchan_pending_cookie );
 		}
-		else cls.netchan_pending_cookie = 0;
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, C2S_CONNECT" %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect with modern protocol\n" );
@@ -2408,25 +2408,34 @@ static void CL_ClientConnect( connprotocol_t proto, const char *c, netadr_t from
 
 		if( cls.netchan_pending_cookie != 0 )
 		{
-			const char *cookie_str = Info_ValueForKey( Cmd_Argv( 1 ), "cookie" );
+			int server_extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
 
-			if( Q_strlen( cookie_str ) != 16 )
+			if( FBitSet( server_extensions, NET_EXT_NETCHAN_COOKIE ))
 			{
-				Con_Reportf( S_WARN "%s: missing cookie echo from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
-				return;
+				const char *cookie_str = Info_ValueForKey( Cmd_Argv( 1 ), "cookie" );
+
+				if( Q_strlen( cookie_str ) != 16 )
+				{
+					Con_Reportf( S_WARN "%s: missing cookie echo from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+					return;
+				}
+
+				byte buf[8];
+				COM_HexConvert( cookie_str, 16, buf );
+
+				uint64_t echoed = 0;
+				for( int i = 0; i < 8; i++ )
+					echoed = ( echoed << 8 ) | buf[i];
+
+				if( echoed != cls.netchan_pending_cookie )
+				{
+					Con_Reportf( S_WARN "%s: invalid cookie echo from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+					return;
+				}
 			}
-
-			byte buf[8];
-			COM_HexConvert( cookie_str, 16, buf );
-
-			uint64_t echoed = 0;
-			for( int i = 0; i < 8; i++ )
-				echoed = ( echoed << 8 ) | buf[i];
-
-			if( echoed != cls.netchan_pending_cookie )
+			else
 			{
-				Con_Reportf( S_WARN "%s: invalid cookie echo from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
-				return;
+				cls.netchan_pending_cookie = 0;
 			}
 		}
 
