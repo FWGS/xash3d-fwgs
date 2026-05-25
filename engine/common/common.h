@@ -634,7 +634,6 @@ byte COM_Nibble( char c );
 int COM_SaveFile( const char *filename, const void *data, int len );
 byte *COM_LoadFileForMe( const char *filename, int *pLength ) MALLOC_LIKE( free, 1 );
 qboolean COM_IsSafeFileToDownload( const char *filename );
-cvar_t *pfnCVarGetPointer( const char *szVarName );
 int pfnDrawConsoleString( int x, int y, char *string );
 void pfnDrawSetTextColor( float r, float g, float b );
 void pfnDrawConsoleStringLen( const char *pText, int *length, int *height );

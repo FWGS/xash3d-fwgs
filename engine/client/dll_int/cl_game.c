@@ -4164,6 +4164,16 @@ static void GAME_EXPORT VGui_ViewportPaintBackground( int extents[4] )
 	// stub
 }
 
+static cvar_t* GAME_EXPORT CL_CvarGetPointer( const char *szVarName )
+{
+	cvar_t *result = (cvar_t *)Cvar_FindVar( szVarName );
+
+	if( !result )
+		Con_DPrintf( S_WARN "%s: client tried to get non-existent cvar \"%s\"\n", __func__, szVarName );
+	
+	return result;
+}
+
 // shared between client and server
 triangleapi_t gTriApi;
 
@@ -4386,7 +4396,7 @@ static cl_enginefunc_t gEngfuncs =
 	pfnHookEvent,
 	Con_Visible,
 	pfnGetGameDirectory,
-	pfnCVarGetPointer,
+	CL_CvarGetPointer,
 	Key_LookupBinding,
 	pfnGetLevelName,
 	pfnGetScreenFade,
@@ -4520,7 +4530,7 @@ static engine_studio_api_t gStudioAPI =
 	.Mod_ForName             = pfnStudio_Mod_ForName,
 	.Mod_Extradata           = pfnStudio_Mod_Extradata,
 	.GetModelByIndex         = CL_ModelHandle,
-	.GetCvar                 = pfnCVarGetPointer,
+	.GetCvar                 = CL_CvarGetPointer,
 	.GetChromeSprite         = pfnStudio_GetChromeSprite,
 	.GetAliasScale           = pfnStudio_GetAliasScale,
 	.StudioGetAliasTransform = pfnStudio_GetAliasTransform,
