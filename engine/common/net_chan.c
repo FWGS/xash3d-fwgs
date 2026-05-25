@@ -241,7 +241,16 @@ void Netchan_Setup( netsrc_t sock, netchan_t *chan, netadr_t adr, int qport, voi
 	chan->last_received = host.realtime;
 	chan->connect_time = host.realtime;
 	chan->incoming_sequence = 0;
-	chan->outgoing_sequence = 1;
+
+	// the server picks a random initial outgoing sequence so a remote attacker can't guess where in the sequence space the channel is
+	// kept well below BIT( 30 ) — bits 30/31 are reserved for the flags
+	// FIXME: BIT( 27 ) taken so in the worst case we have few months of stable client<->server connection
+	// as netchan doesn't currently handle wrapping around
+	if( sock == NS_SERVER )
+		chan->outgoing_sequence = COM_RandomLong( 1, BIT( 27 ) - 1 );
+	else
+		chan->outgoing_sequence = 1;
+
 	chan->rate = DEFAULT_RATE;
 	chan->qport = qport;
 	chan->client = client;
@@ -1859,7 +1868,9 @@ qboolean Netchan_Process( netchan_t *chan, sizebuf_t *msg )
 	}
 
 	// reject packets that leap too far ahead of the expected sequence
-	if( net_sequence_window.value > 0 && sequence > chan->incoming_sequence + (uint)net_sequence_window.value )
+	// skip on the very first packet — the server starts with a random
+	// outgoing_sequence, so the first one legitimately jumps far ahead of 0
+	if( chan->incoming_sequence != 0 && net_sequence_window.value > 0 && sequence > chan->incoming_sequence + (uint)net_sequence_window.value )
 	{
 		Con_Printf( S_WARN "%s: %s: sequence %u jumps %u ahead of expected %i (window %i), dropping\n",
 			__func__, NET_AdrToString( chan->remote_address ),
