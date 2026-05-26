@@ -1843,7 +1843,7 @@ static void CL_InternetServers_f( void )
 
 	cls.internetservers_nat = cl_nat.value != 0.0f;
 	cls.internetservers_pending = true;
-	cls.internetservers_key = COM_RandomLong( 0, 0xFFFFFFFF );
+	cls.internetservers_key = COM_RandomLong( 1, 0x7FFFFFFF );
 	Q_strncpy( cls.internetservers_customfilter, Cmd_Argv( 1 ), sizeof( cls.internetservers_customfilter ));
 
 	cls.internetservers_wait = NET_MasterQuery(
