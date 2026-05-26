@@ -1,39 +1,4 @@
-#include "port.h"
-#include "build.h"
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include "filesystem.h"
-#if XASH_POSIX
-#include <dlfcn.h>
-#define LoadLibrary( x ) dlopen( x, RTLD_NOW )
-#define GetProcAddress( x, y ) dlsym( x, y )
-#define FreeLibrary( x ) dlclose( x )
-#elif XASH_WIN32
-#include <windows.h>
-#endif
-
-void *g_hModule;
-FSAPI g_pfnGetFSAPI;
-fs_api_t g_fs;
-fs_globals_t *g_nullglobals;
-
-
-static qboolean LoadFilesystem( void )
-{
-	g_hModule = LoadLibrary( "filesystem_stdio." OS_LIB_EXT );
-	if( !g_hModule )
-		return false;
-
-	g_pfnGetFSAPI = (void*)GetProcAddress( g_hModule, GET_FS_API );
-	if( !g_pfnGetFSAPI )
-		return false;
-
-	if( !g_pfnGetFSAPI( FS_API_VERSION, &g_fs, &g_nullglobals, NULL ))
-		return false;
-
-	return true;
-}
+#include "filesystem_test_common.h"
 
 static qboolean CheckFileContents( const char *path, const void *buf, fs_offset_t size )
 {
