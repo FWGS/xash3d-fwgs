@@ -51,7 +51,8 @@ def build(bld):
 		tests = {
 			'interface' : 'tests/interface.cpp',
 			'caseinsensitive' : 'tests/caseinsensitive.c',
-			'no-init': 'tests/no-init.c'
+			'no-init': 'tests/no-init.c',
+			'filecopy': 'tests/filecopy.c'
 		}
 
 		for i in tests:
