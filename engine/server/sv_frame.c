@@ -787,13 +787,13 @@ static void SV_UpdateToReliableMessages( void )
 
 		if( MSG_GetNumBytesWritten( &sv.datagram ) < MSG_GetNumBytesLeft( &cl->datagram ))
 			MSG_WriteBits( &cl->datagram, MSG_GetData( &sv.datagram ), MSG_GetNumBitsWritten( &sv.datagram ));
-		else Con_DPrintf( S_WARN "Ignoring unreliable datagram for %s, would overflow\n", cl->name );
+		else Con_Reportf( S_WARN "Ignoring unreliable datagram for %s, would overflow\n", cl->name );
 
 		if( FBitSet( cl->flags, FCL_HLTV_PROXY ))
 		{
 			if( MSG_GetNumBytesWritten( &sv.spec_datagram ) < MSG_GetNumBytesLeft( &cl->datagram ))
 				MSG_WriteBits( &cl->datagram, MSG_GetData( &sv.spec_datagram ), MSG_GetNumBitsWritten( &sv.spec_datagram ));
-			else Con_DPrintf( S_WARN "Ignoring spectator datagram for %s, would overflow\n", cl->name );
+			else Con_Reportf( S_WARN "Ignoring spectator datagram for %s, would overflow\n", cl->name );
 		}
 	}
 

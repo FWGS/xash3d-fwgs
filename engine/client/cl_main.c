@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <inttypes.h>
 #include "common.h"
 #include "client.h"
 #include "net_encode.h"
@@ -1136,6 +1137,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	}
 
 	cls.broker_wait = false;
+	cls.netchan_pending_cookie = 0;
 
 	if( proto == PROTO_GOLDSRC )
 	{
@@ -1157,7 +1159,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	else
 	{
 		const char *qport = Cvar_VariableString( "net_qport" );
-		int extensions = adrtype == NA_LOOPBACK ? 0 : NET_EXT_SPLITSIZE;
+		int extensions = adrtype == NA_LOOPBACK ? 0 : ( NET_EXT_SPLITSIZE | NET_EXT_NETCHAN_COOKIE );
 		string key;
 
 		ID_GetMD5ForAddress( key, adr, sizeof( key ));
@@ -1171,6 +1173,16 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 		Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", extensions );
+
+		if( FBitSet( extensions, NET_EXT_NETCHAN_COOKIE ))
+		{
+			uint64_t a = COM_RandomLong( 0, 0xFFFF );
+			uint64_t b = COM_RandomLong( 0, 0xFFFF );
+			uint64_t c = COM_RandomLong( 0, 0xFFFF );
+			uint64_t d = COM_RandomLong( 0, 0xFFFF );
+			cls.netchan_pending_cookie = ( a << 48 ) | ( b << 32 ) | ( c << 16 ) | d;
+			Info_SetValueForKeyf( protinfo, "cookie", sizeof( protinfo ), "%016"PRIx64, cls.netchan_pending_cookie );
+		}
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, C2S_CONNECT" %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect with modern protocol\n" );
@@ -1666,10 +1678,19 @@ void CL_SetupNetchanForProtocol( connprotocol_t proto )
 
 		if( FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 			Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax.value );
+
+		if( FBitSet( cls.extensions, NET_EXT_NETCHAN_COOKIE ))
+		{
+			Con_Reportf( "^2NET_EXT_NETCHAN_COOKIE enabled^7\n" );
+			SetBits( flags, NETCHAN_USE_COOKIE );
+		}
 		break;
 	}
 
 	Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, pfnBlockSize, flags );
+
+	if( FBitSet( flags, NETCHAN_USE_COOKIE ))
+		Netchan_SetCookie( &cls.netchan, cls.netchan_pending_cookie );
 }
 
 /*
@@ -2385,6 +2406,39 @@ static void CL_ClientConnect( connprotocol_t proto, const char *c, netadr_t from
 			Con_DPrintf( S_ERROR "Xash3D client connect expected but wasn't received, ignored\n");
 			CL_Disconnect_f();
 			return;
+		}
+
+		if( cls.netchan_pending_cookie != 0 )
+		{
+			int server_extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
+
+			if( FBitSet( server_extensions, NET_EXT_NETCHAN_COOKIE ))
+			{
+				const char *cookie_str = Info_ValueForKey( Cmd_Argv( 1 ), "cookie" );
+
+				if( Q_strlen( cookie_str ) != 16 )
+				{
+					Con_Reportf( S_WARN "%s: missing cookie echo from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+					return;
+				}
+
+				byte buf[8];
+				COM_HexConvert( cookie_str, 16, buf );
+
+				uint64_t echoed = 0;
+				for( int i = 0; i < 8; i++ )
+					echoed = ( echoed << 8 ) | buf[i];
+
+				if( echoed != cls.netchan_pending_cookie )
+				{
+					Con_Reportf( S_WARN "%s: invalid cookie echo from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+					return;
+				}
+			}
+			else
+			{
+				cls.netchan_pending_cookie = 0;
+			}
 		}
 
 		cls.build_num = 0; // not used in Xash3D protocols

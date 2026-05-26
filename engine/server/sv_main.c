@@ -377,7 +377,7 @@ SV_ReadPackets
 static void SV_ReadPackets( void )
 {
 	sv_client_t	*cl;
-	int		i, qport;
+	int		i;
 	size_t		curSize;
 
 	while( NET_GetPacket( NS_SERVER, &net_from, net_message_buffer, &curSize ))
@@ -391,13 +391,6 @@ static void SV_ReadPackets( void )
 			continue;
 		}
 
-		// read the qport out of the message so we can fix up
-		// stupid address translating routers
-		MSG_Clear( &net_message );
-		MSG_ReadLong( &net_message );	// sequence number
-		MSG_ReadLong( &net_message );	// sequence number
-		qport = (int)MSG_ReadShort( &net_message ) & 0xffff;
-
 		// check for packets from connected clients
 		for( i = 0, sv.current_client = svs.clients; i < svs.maxclients; i++, sv.current_client++ )
 		{
@@ -409,24 +402,22 @@ static void SV_ReadPackets( void )
 			if( !NET_CompareBaseAdr( net_from, cl->netchan.remote_address ))
 				continue;
 
-			if( cl->netchan.qport != qport )
+			if( !Netchan_Process( &cl->netchan, &net_message ))
 				continue;
 
+			// authenticated; safe to adopt the (possibly NAT-rewritten) source port
 			if( cl->netchan.remote_address.port != net_from.port )
 				cl->netchan.remote_address.port = net_from.port;
 
-			if( Netchan_Process( &cl->netchan, &net_message ))
-			{
-				if(( svs.maxclients == 1 && !host_limitlocal.value ) || ( cl->state != cs_spawned ))
-					SetBits( cl->flags, FCL_SEND_NET_MESSAGE ); // reply at end of frame
+			if(( svs.maxclients == 1 && !host_limitlocal.value ) || ( cl->state != cs_spawned ))
+				SetBits( cl->flags, FCL_SEND_NET_MESSAGE ); // reply at end of frame
 
-				// this is a valid, sequenced packet, so process it
-				if( cl->frames != NULL && cl->state != cs_zombie )
-				{
-					SV_ExecuteClientMessage( cl, &net_message );
-					svgame.globals->frametime = sv.frametime;
-					svgame.globals->time = sv.time;
-				}
+			// this is a valid, sequenced packet, so process it
+			if( cl->frames != NULL && cl->state != cs_zombie )
+			{
+				SV_ExecuteClientMessage( cl, &net_message );
+				svgame.globals->frametime = sv.frametime;
+				svgame.globals->time = sv.time;
 			}
 
 			// fragmentation/reassembly sending takes priority over all game messages, want this in the future?

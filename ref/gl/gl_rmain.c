@@ -812,6 +812,9 @@ static void R_DrawEntitiesOnList( void )
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
 
+		if( !RI.currentmodel && RI.currententity->player && !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+			continue;
+
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
 
@@ -843,6 +846,9 @@ static void R_DrawEntitiesOnList( void )
 	{
 		RI.currententity = tr.draw_list->solid_entities[i];
 		RI.currentmodel = RI.currententity->model;
+
+		if( !RI.currentmodel && RI.currententity->player && !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+			continue;
 
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
@@ -881,6 +887,9 @@ static void R_DrawEntitiesOnList( void )
 		else tr.blend = 1.0f; // draw as solid but sorted by distance
 
 		if( tr.blend <= 0.0f ) continue;
+
+		if( !RI.currentmodel && RI.currententity->player && !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+			continue;
 
 		Assert( RI.currententity != NULL );
 		Assert( RI.currentmodel != NULL );
