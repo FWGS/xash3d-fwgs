@@ -1959,7 +1959,11 @@ void MSG_WriteDeltaEntity( const entity_state_t *from, const entity_state_t *to,
 
 	startBit = msg->iCurBit;
 
+	#if XASH_WII
+	if( to->number < 0 || to->number >= OGC_MAX_EDICTS )
+	#else
 	if( to->number < 0 || to->number >= GI->max_edicts )
+	#endif
 		Host_Error( "%s: Bad entity number: %i\n", __func__, to->number );
 
 	MSG_WriteUBitLong( msg, to->number, MAX_ENTITY_BITS );

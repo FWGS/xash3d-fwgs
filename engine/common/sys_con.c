@@ -254,6 +254,10 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 	fprintf( stderr, "%s %s", logtime, buf );
 #endif // XASH_NSWITCH && NSWITCH_DEBUG
 
+#if XASH_WII
+	printf( stderr, "%s %s", logtime, buf );
+#endif
+
 #if XASH_PSVITA
 	// spew to stderr only in developer mode
 	if( host_developer.value )
@@ -387,8 +391,10 @@ void Con_Reportf( const char *szFmt, ... )
 {
 	va_list args;
 
+#if !XASH_WII
 	if( host_developer.value < DEV_EXTENDED )
 		return;
+#endif
 
 	va_start( args, szFmt );
 	Con_Printfv( false, szFmt, args );

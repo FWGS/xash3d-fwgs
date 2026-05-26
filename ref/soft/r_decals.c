@@ -103,8 +103,13 @@ static decal_t *R_DecalAlloc( decal_t *pdecal )
 {
 	int limit = MAX_RENDER_DECALS;
 
+	 #if XASH_WII
+	 if( ref_r_decals->value < limit )
+	 	limit = ref_r_decals->value;
+	 #else
 	if( r_decals->value < limit )
 		limit = r_decals->value;
+	 #endif
 
 	if( !limit )
 		return NULL;

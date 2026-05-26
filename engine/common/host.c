@@ -282,8 +282,13 @@ void Host_ValidateEngineFeatures( uint32_t mask, uint32_t features )
 	features &= mask;
 
 	// force bits for some games
+	#if XASH_WII
+	if( !Q_stricmp( XASH_GAMEDIR, "cstrike" ) || !Q_stricmp( XASH_GAMEDIR, "czero" ))
+		SetBits( features, ENGINE_STEP_POSHISTORY_LERP );
+	#else
 	if( !Q_stricmp( GI->gamefolder, "cstrike" ) || !Q_stricmp( GI->gamefolder, "czero" ))
 		SetBits( features, ENGINE_STEP_POSHISTORY_LERP );
+	#endif
 
 	// print requested first
 	Host_PrintFeatures( features, "EXT", engine_features, ARRAYSIZE( engine_features ));
@@ -1098,7 +1103,11 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 	Cvar_Init();
 
 	// share developer level across all dlls
+#if XASH_WII
+	Cvar_DirectSetValue( &host_developer, 5 );
+#else
 	Cvar_DirectSetValue( &host_developer, developer );
+#endif
 	Cvar_RegisterVariable( &sys_ticrate );
 
 	if( Sys_GetIntFromCmdLine( "-sys_ticrate", &ticrate ))
@@ -1337,7 +1346,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		Cbuf_AddTextf( "exec %s\n", Cvar_VariableString( "servercfgfile" ));
 		Cbuf_Execute();
 	}
-
 	// check after all configs were executed
 	HPAK_CheckIntegrity( hpk_custom_file.string );
 

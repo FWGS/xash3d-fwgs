@@ -519,8 +519,13 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage );
 //
 // renderer exports
 //
-qboolean R_Init( void );
-void R_Shutdown( void );
+#if XASH_WII
+	qboolean WII_R_Init( void );
+	void WII_R_Shutdown( void );
+#else
+	qboolean R_Init( void );
+	void R_Shutdown( void );
+#endif
 void GL_SetupAttributes( int safegl );
 void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
@@ -561,29 +566,39 @@ void CL_AddCustomBeam( cl_entity_t *pEnvBeam );
 //
 // gl_triapi.c
 //
-void TriRenderMode( int mode );
+void TriRenderMode_soft( int mode );
 void TriBegin( int mode );
 void TriEnd( void );
 void TriTexCoord2f( float u, float v );
 void TriVertex3fv( const float *v );
 void TriVertex3f( float x, float y, float z );
-void TriColor4f( float r, float g, float b, float a );
-void _TriColor4f( float r, float g, float b, float a );
-void TriColor4ub( byte r, byte g, byte b, byte a );
+void TriColor4f_soft( float r, float g, float b, float a );
+void _TriColor4f_soft( float r, float g, float b, float a );
+void TriColor4ub_soft( byte r, byte g, byte b, byte a );
 void _TriColor4ub( byte r, byte g, byte b, byte a );
-int TriWorldToScreen( const float *world, float *screen );
-int TriSpriteTexture( model_t *pSpriteModel, int frame );
+int TriWorldToScreen_soft( const float *world, float *screen );
+int TriSpriteTexture_soft( model_t *pSpriteModel, int frame );
 void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
 void TriGetMatrix( const int pname, float *matrix );
 void TriFogParams( float flDensity, int iFogSkybox );
-void TriCullFace( TRICULLSTYLE mode );
-void TriBrightness( float brightness );
+void TriCullFace_soft( TRICULLSTYLE mode );
+void TriBrightness_soft( float brightness );
 
 #define ENGINE_GET_PARM_ ( *gEngfuncs.EngineGetParm )
 #define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_(( parm ), 0 )
 
+//Solve muldefs on Wii
+#if XASH_WII
+#define gEngfuncs gEngfuncs_soft
+#define gpGlobals gpGlobals_soft
+extern ref_api_t      gEngfuncs_soft;
+extern ref_globals_t *gpGlobals_soft;
+#else
+//move to engine
 extern ref_api_t     gEngfuncs;
 extern ref_globals_t *gpGlobals;
+#endif
+
 extern ref_client_t  *gp_cl;
 extern ref_host_t    *gp_host;
 
@@ -1175,14 +1190,25 @@ void R_SetUpWorldTransform( void );
 //
 #include "crtlib.h"
 #include "crclib.h"
-void _Mem_Free( void *data, const char *filename, int fileline );
-void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
-ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+
+//#if XASH_WII
+//void R_Mem_Free( void *data, const char *filename, int fileline );
+//void *R_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+//	ALLOC_CHECK( 2 ) MALLOC_LIKE( R_Mem_Free, 1 ) WARN_UNUSED_RESULT;
+//#else
+  void _Mem_Free( void *data, const char *filename, int fileline );
+  void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+//#endif
 
 #define Mem_Malloc( pool, size )       _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size )       _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
 #define Mem_Realloc( pool, ptr, size ) gEngfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
-#define Mem_Free( mem )                _Mem_Free( mem, __FILE__, __LINE__ )
+//#if XASH_WII
+//	#define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
+//#else
+	#define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
+//#endif
 #define Mem_AllocPool( name )          gEngfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
 #define Mem_FreePool( pool )           gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
 #define Mem_EmptyPool( pool )          gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )

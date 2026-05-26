@@ -641,7 +641,11 @@ qboolean SV_RestoreCustomDecal( struct decallist_s *entry, edict_t *pEdict, qboo
 
 static inline edict_t *SV_EdictNum( int n )
 {
+	#if XASH_WII
+	if( likely( n >= 0 && n < OGC_MAX_EDICTS ))
+	#else
 	if( likely( n >= 0 && n < GI->max_edicts ))
+	#endif
 		return &svgame.edicts[n];
 	return NULL;
 }

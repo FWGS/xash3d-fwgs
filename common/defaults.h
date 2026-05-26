@@ -50,13 +50,10 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_NO_TOUCH  1
 		#define XASH_NO_ZIP    1
 	#elif XASH_WII
-	//Most stuff should "work" with SDL
-		#define XASH_SDL       2
-		#define XASH_VIDEO     VIDEO_SDL
-		//static link everything
-		#define XASH_LIB       LIB_STATIC
-		#define XASH_STATIC_LIBS 1
-		#define XASH_GL_STATIC 1
+		#undef XASH_VIDEO
+		#define XASH_VIDEO     VIDEO_WII
+		//#define XASH_INPUT     INPUT_WII
+		//#define XASH_REDUCE_FD 1
 	#endif
 #endif // !XASH_DEDICATED
 
@@ -64,7 +61,7 @@ SETUP BACKENDS DEFINITIONS
 // select messagebox implementation
 //
 #ifndef XASH_MESSAGEBOX
-	#if XASH_SDL >= 2 && !XASH_NSWITCH // SDL2 messageboxes are not available on NSW
+	#if XASH_SDL >= 2 && !XASH_NSWITCH// SDL2 messageboxes are not available on NSW
 		#define XASH_MESSAGEBOX MSGBOX_SDL
 	#elif XASH_WIN32
 		#define XASH_MESSAGEBOX MSGBOX_WIN32
@@ -165,6 +162,10 @@ Default build-depended cvar and constant values
 #elif XASH_WII
 	#define DEFAULT_MODE_WIDTH   640
 	#define DEFAULT_MODE_HEIGHT  480
+	#define DEFAULT_M_IGNORE     "1"
+	#define DEFAULT_ALLOWCONSOLE  1
+	#define XASH_NO_IPV6_RESOLVE  1
+//	#define XASH_NO_NETWORK       1
 #endif // !XASH_MOBILE_PLATFORM && !XASH_NSWITCH
 
 // Defaults

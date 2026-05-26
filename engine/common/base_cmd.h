@@ -15,6 +15,7 @@ GNU General Public License for more details.
 #ifndef BASE_CMD_H
 #define BASE_CMD_H
 
+//#if !XASH_WII
 #include "common.h"
 #include "cdll_int.h"
 
@@ -38,3 +39,4 @@ void BaseCmd_Stats_f( void ); // to be registered later
 void BaseCmd_Test_f( void ); // to be registered later
 
 #endif // BASE_CMD_H
+//#endif // XASH_WII

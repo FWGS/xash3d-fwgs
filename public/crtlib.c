@@ -127,7 +127,7 @@ float Q_atof( const char *str )
 		return Q_atoi_hex( sign, str );
 
 	// check for character
-	if( str[0] == '\'' )
+	if( str[0] == '\'')
 		return Q_atoi_character( sign, str );
 
 	// assume decimal

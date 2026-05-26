@@ -50,6 +50,11 @@ GNU General Public License for more details.
 #include "common/protocol.h"
 #include "library_suffix.h"
 
+#if XASH_WII
+extern char *_copystring( poolhandle_t mempool, const char *s, const char *filename, int fileline );
+#define copystring( s ) _copystring( fs_mempool, s, __FILE__, __LINE__ )
+#endif
+
 #define FILE_COPY_SIZE		(1024 * 1024)
 #define SAVE_AGED_COUNT 2 // the default count of quick and auto saves
 
@@ -96,7 +101,9 @@ static const fs_archive_t g_archives[] =
 		.pfnAddArchive_Fullpath = FS_AddPak_Fullpath,
 		.load_wads = true,
 		.real_archive = true,
-	}, {
+	},
+	#if !XASH_WII //breaks filesystem
+	{
 		.ext = "pk3",
 		.type = SEARCHPATH_ZIP,
 		.pfnAddArchive_Fullpath = FS_AddZip_Fullpath,
@@ -108,7 +115,10 @@ static const fs_archive_t g_archives[] =
 		.pfnAddArchive_Fullpath = FS_AddDir_Fullpath,
 		.load_wads = true,
 		.real_archive = false,
-	}, {
+
+	},
+	#endif
+	{
 		.ext = "wad",
 		.type = SEARCHPATH_WAD,
 		.pfnAddArchive_Fullpath = FS_AddWad_Fullpath,
@@ -181,12 +191,12 @@ static void FS_BackupFileName( file_t *file, const char *path, uint options ) {}
 static void FS_InitMemory( void );
 static void FS_Purge( file_t* file );
 
-void _Mem_Free( void *data, const char *filename, int fileline )
+void FS_Mem_Free( void *data, const char *filename, int fileline )
 {
 	g_engfuncs._Mem_Free( data, filename, fileline );
 }
 
-void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+void *FS_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	return g_engfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
 }
@@ -2026,7 +2036,9 @@ file_t *FS_OpenHandle( searchpath_t *searchpath, int handle, fs_offset_t offset,
 
 #else
 	file->backup_position = offset;
+	#if !XASH_WII
 	file->backup_path = copystring( syspath );
+	#endif //What is even a syspath?
 	file->backup_options = O_RDONLY|O_BINARY;
 	file->handle = -1;
 #endif

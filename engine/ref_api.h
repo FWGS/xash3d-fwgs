@@ -592,7 +592,7 @@ typedef struct ref_interface_s
 
 	// Xash3D Render Interface
 	// Get renderer info (doesn't changes engine state at all)
-	int			(*RefGetParm)( int parm, int arg );	// generic
+	intptr_t			(*RefGetParm)( int parm, int arg );	// generic
 	void		(*GetDetailScaleForTexture)( int texture, float *xScale, float *yScale );
 	void		(*GetExtraParmsForTexture)( int texture, byte *red, byte *green, byte *blue, byte *alpha );
 	float		(*GetFrameTime)( void );
@@ -681,15 +681,15 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define DEFINE_ENGINE_SHARED_CVAR( x, y ) cvar_t *x = NULL;
 #define DECLARE_ENGINE_SHARED_CVAR( x, y ) extern cvar_t *x;
 
-/*#if XASH_WII
+#if XASH_WII
 #define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
-	if(!( x = gEngfuncs_gl.pfnGetCvarPointer( #y, 0 ) )) \
-		gEngfuncs_gl.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y ); */
-//#else
+	if(!( x = gEngfuncs_soft.pfnGetCvarPointer( #y ) )) \
+		gEngfuncs_soft.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y );
+#else
 #define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
 	if(!( x = gEngfuncs.pfnGetCvarPointer( #y ) )) \
 		gEngfuncs.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y );
-//#endif // based on XASH_DREAMCAST
+#endif // based on XASH_DREAMCAST
 
 #define ENGINE_SHARED_CVAR_NAME( f, x, y ) f( x, y )
 #define ENGINE_SHARED_CVAR( f, x ) ENGINE_SHARED_CVAR_NAME( f, x, x )
@@ -698,22 +698,23 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 // actually, they are just created on engine side for convenience
 // and must be retrieved by renderer side
 // sometimes it's done to standartize cvars to make it easier for users
+
 #define ENGINE_SHARED_CVAR_LIST( f ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_gamma, gamma ) \
 	ENGINE_SHARED_CVAR_NAME( f, vid_brightness, brightness ) \
 	ENGINE_SHARED_CVAR_NAME( f, v_lightgamma, lightgamma ) \
 	ENGINE_SHARED_CVAR_NAME( f, v_direct, direct ) \
-	ENGINE_SHARED_CVAR( f, r_showtextures ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_r_showtextures, r_showtextures ) \
 	ENGINE_SHARED_CVAR( f, r_speeds ) \
 	ENGINE_SHARED_CVAR( f, r_fullbright ) \
 	ENGINE_SHARED_CVAR( f, r_norefresh ) \
 	ENGINE_SHARED_CVAR( f, r_lightmap ) \
 	ENGINE_SHARED_CVAR( f, r_dynamic ) \
 	ENGINE_SHARED_CVAR( f, r_drawentities ) \
-	ENGINE_SHARED_CVAR( f, r_decals ) \
-	ENGINE_SHARED_CVAR( f, r_showhull ) \
-	ENGINE_SHARED_CVAR( f, gl_vsync ) \
-	ENGINE_SHARED_CVAR( f, gl_clear ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_r_decals, r_decals ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_r_showhull, r_showhull ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_gl_vsync, gl_vsync ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_gl_clear, gl_clear ) \
 	ENGINE_SHARED_CVAR( f, cl_himodels ) \
 	ENGINE_SHARED_CVAR( f, cl_lightstyle_lerping ) \
 	ENGINE_SHARED_CVAR( f, tracerred ) \
@@ -724,7 +725,7 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 	ENGINE_SHARED_CVAR( f, r_sprite_lighting ) \
 	ENGINE_SHARED_CVAR( f, r_drawviewmodel ) \
 	ENGINE_SHARED_CVAR( f, r_glowshellfreq ) \
-	ENGINE_SHARED_CVAR( f, host_allow_materials ) \
+	ENGINE_SHARED_CVAR_NAME( f, ref_host_allow_materials, host_allow_materials ) \
 	ENGINE_SHARED_CVAR( f, r_pvs_radius ) \
 
 #define DECLARE_ENGINE_SHARED_CVAR_LIST() \

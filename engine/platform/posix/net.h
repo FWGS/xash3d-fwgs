@@ -83,11 +83,16 @@ static int ioctl_stub( int d, unsigned long r, ... )
 	return 0;
 }
 #define ioctlsocket ioctl_stub
-#elif !XASH_PSVITA // XASH_EMSCRIPTEN
+#elif !XASH_PSVITA && !XASH_WII// XASH_EMSCRIPTEN
 #define ioctlsocket ioctl
 #endif // XASH_EMSCRIPTEN
 #define closesocket close
 #endif
+
+#if XASH_WII
+#define ioctlsocket net_ioctl
+#endif
+
 #define SOCKET int
 typedef int WSAsize_t;
 

@@ -178,6 +178,18 @@ GNU General Public License for more details.
 #define FRAGMENT_MAX_SIZE		64000		// maximal fragment size
 #define FRAGMENT_LOCAL_SIZE		FRAGMENT_MAX_SIZE	// local connection
 
+#if XASH_WII
+#undef OGC_MAX_EDICTS
+#undef OGC_MAX_TENTS
+#undef OGC_MAX_PARTICLES
+#undef OGC_MAX_BEAMS
+
+#define OGC_MAX_EDICTS		1024
+#define OGC_MAX_TENTS 		64
+#define OGC_MAX_PARTICLES 	64
+#define OGC_MAX_BEAMS 		8
+#endif
+
 #if XASH_LOW_MEMORY == 2
 #undef MAX_VISIBLE_PACKET
 #undef MAX_VISIBLE_PACKET_VIS_BYTES

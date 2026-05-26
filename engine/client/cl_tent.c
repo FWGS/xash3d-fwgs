@@ -181,13 +181,21 @@ static void CL_ClearTempEnts( void )
 
 	if( !cl_tempents ) return;
 
+	#if XASH_WII
+	for( i = 0; i < OGC_MAX_TENTS - 1; i++ )
+	#else
 	for( i = 0; i < GI->max_tents - 1; i++ )
+	#endif
 	{
 		cl_tempents[i].next = &cl_tempents[i+1];
 		cl_tempents[i].entity.trivial_accept = INVALID_HANDLE;
 	}
 
+	#if !XASH_WII
 	cl_tempents[GI->max_tents-1].next = NULL;
+	#else
+	cl_tempents[OGC_MAX_TENTS-1].next = NULL;
+	#endif
 	cl_free_tents = cl_tempents;
 	cl_active_tents = NULL;
 }
@@ -200,7 +208,11 @@ CL_InitTempents
 */
 void CL_InitTempEnts( void )
 {
+	#if XASH_WII
+	cl_tempents = Mem_Calloc( cls.mempool, sizeof( TEMPENTITY ) * OGC_MAX_TENTS );
+	#else
 	cl_tempents = Mem_Calloc( cls.mempool, sizeof( TEMPENTITY ) * GI->max_tents );
+	#endif
 	CL_ClearTempEnts();
 
 	// load tempent sprites (glowshell, muzzleflashes etc)

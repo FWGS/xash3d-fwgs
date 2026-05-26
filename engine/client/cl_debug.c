@@ -56,6 +56,7 @@ const char *CL_MsgInfo( int cmd )
 		{
 		case PROTO_CURRENT:
 			svc_string = svc_strings[cmd];
+		#if !XASH_WII
 			break;
 		case PROTO_QUAKE:
 			svc_string = svc_quake_strings[cmd];
@@ -63,6 +64,7 @@ const char *CL_MsgInfo( int cmd )
 		case PROTO_GOLDSRC:
 			svc_string = svc_goldsrc_strings[cmd];
 			break;
+		#endif
 		}
 
 		// fall back to current protocol strings

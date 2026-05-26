@@ -38,10 +38,18 @@ static CVAR_DEFINE_AUTO( fs_mount_l10n, "0", FCVAR_PRIVILEGED, "mount localizati
 static CVAR_DEFINE_AUTO( ui_language, "english", FCVAR_PRIVILEGED, "selected game language" );
 
 fs_api_t g_fsapi;
+
+#if XASH_WII
+extern fs_globals_t *FI;
+//#define FI FI_engine
+#else
 fs_globals_t *FI;
+#endif
+
 static pfnCreateInterface_t fs_pfnCreateInterface;
 static HINSTANCE fs_hInstance;
 
+#if !XASH_WII
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 {
 	return g_fsapi.Search( pattern, caseinsensitive, gamedironly );
@@ -66,6 +74,7 @@ byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 {
 	return g_fsapi.LoadDirectFile( path, filesizeptr );
 }
+#endif //XASH_WII
 static void COM_StripDirectorySlash( char *pname )
 {
 	size_t len;
@@ -207,8 +216,6 @@ static void FS_UnloadProgs( void )
 }
 
 #ifdef XASH_INTERNAL_GAMELIBS
-#define FILESYSTEM_STDIO_DLL "filesystem_stdio"
-#elif XASH_WII //Why aren't macros macroing'
 #define FILESYSTEM_STDIO_DLL "filesystem_stdio"
 #elif XASH_ANDROID
 #define FILESYSTEM_STDIO_DLL "libfilesystem_stdio.so"

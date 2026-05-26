@@ -1557,12 +1557,20 @@ void SV_SendServerdata( sizebuf_t *msg, sv_client_t *cl )
 	MSG_WriteLong( msg, sv.worldmapCRC );
 	MSG_WriteByte( msg, cl - svs.clients );
 	MSG_WriteByte( msg, svs.maxclients );
+	#if XASH_WII
+	MSG_WriteWord( msg, OGC_MAX_EDICTS );
+	#else
 	MSG_WriteWord( msg, GI->max_edicts );
+	#endif
 	MSG_WriteWord( msg, MAX_MODELS );
 	MSG_WriteString( msg, sv.name );
 	MSG_WriteString( msg, STRING( svgame.edicts->v.message )); // Map Message
 	MSG_WriteOneBit( msg, sv.background ); // tell client about background map
+	#if XASH_WII
+	MSG_WriteString( msg, XASH_GAMEDIR );
+	#else
 	MSG_WriteString( msg, GI->gamefolder );
+	#endif
 	MSG_WriteLong( msg, host.features );
 
 	// send the player hulls

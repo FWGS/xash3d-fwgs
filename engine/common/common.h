@@ -76,7 +76,9 @@ XASH SPECIFIC			- sort of hack that works only in Xash3D not in GoldSrc
 
 #endif
 
+#if !XASH_WII
 #define HACKS_RELATED_HLMODS		// some HL-mods works differently under Xash and can't be fixed without some hacks at least at current time
+#endif
 
 enum dev_level_e
 {

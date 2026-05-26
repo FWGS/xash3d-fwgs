@@ -48,7 +48,11 @@ qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
 
 	n = ((int)((edict_t *)(e) - svgame.edicts));
 
+	#if XASH_WII
+	if(( n >= 0 ) && ( n < OGC_MAX_EDICTS ))
+	#else
 	if(( n >= 0 ) && ( n < GI->max_edicts ))
+	#endif
 		return !e->free;
 	Con_Printf( "bad entity %i (called at %s:%i)\n", n, file, line );
 
@@ -58,7 +62,11 @@ qboolean SV_CheckEdict( const edict_t *e, const char *file, const int line )
 
 static edict_t *SV_PEntityOfEntIndex( const int iEntIndex, const qboolean allentities )
 {
+	#if XASH_WII
+	if( iEntIndex >= 0 && iEntIndex < OGC_MAX_EDICTS )
+	#else
 	if( iEntIndex >= 0 && iEntIndex < GI->max_edicts )
+	#endif
 	{
 		edict_t *pEdict = EDICT_NUM( iEntIndex );
 		qboolean player = allentities ? iEntIndex <= svs.maxclients : iEntIndex < svs.maxclients;
@@ -1083,8 +1091,13 @@ edict_t *GAME_EXPORT SV_AllocEdict( void )
 		}
 	}
 
+	#if XASH_WII
+	if( i >= OGC_MAX_EDICTS )
+		Host_Error( "%s: no free edicts (max is %d)\n", __func__, OGC_MAX_EDICTS );
+	#else
 	if( i >= GI->max_edicts )
 		Host_Error( "%s: no free edicts (max is %d)\n", __func__, GI->max_edicts );
+	#endif
 
 	svgame.numEntities++;
 	e = EDICT_NUM( i );
@@ -3415,7 +3428,11 @@ int GAME_EXPORT pfnIndexOfEdict( const edict_t *pEdict )
 	if( !pEdict ) return 0; // world ?
 
 	number = NUM_FOR_EDICT( pEdict );
+	#if XASH_WII
+	if( number < 0 || number > OGC_MAX_EDICTS )
+	#else
 	if( number < 0 || number > GI->max_edicts )
+	#endif
 		Host_Error( "bad entity number %d\n", number );
 	return number;
 }
@@ -3458,7 +3475,11 @@ static edict_t *GAME_EXPORT pfnFindEntityByVars( entvars_t *pvars )
 	// don't pass invalid arguments
 	if( !pvars ) return NULL;
 
+	#if XASH_WII
+	for( i = 0; i < OGC_MAX_EDICTS; i++ )
+	#else
 	for( i = 0; i < GI->max_edicts; i++ )
+	#endif
 	{
 		pEdict = EDICT_NUM( i );
 
@@ -5172,7 +5193,7 @@ void SV_SpawnEntities( const char *mapname )
 	Cvar_Reset( "sv_skyvec_x" );
 	Cvar_Reset( "sv_skyvec_y" );
 	Cvar_Reset( "sv_skyvec_z" );
-	Cvar_Reset( "sv_skyname" );
+	//Cvar_Reset( "sv_skyname" );
 
 	ent = EDICT_NUM( 0 );
 	if( ent->free ) SV_InitEdict( ent );
@@ -5182,7 +5203,11 @@ void SV_SpawnEntities( const char *mapname )
 	ent->v.movetype = MOVETYPE_PUSH;
 	svgame.movevars.fog_settings = 0;
 
+	#if XASH_WII
+	svgame.globals->maxEntities = OGC_MAX_EDICTS;
+	#else
 	svgame.globals->maxEntities = GI->max_edicts;
+	#endif
 	svgame.globals->mapname = MAKE_STRING( sv.name );
 	svgame.globals->startspot = MAKE_STRING( sv.startspot );
 	svgame.globals->time = sv.time;
@@ -5358,15 +5383,36 @@ qboolean SV_LoadProgs( const char *name )
 
 	svgame.globals->pStringBase = ""; // setup string base
 
+	//HL_WII, this could be better
+	#if XASH_WII
+	svgame.globals->maxEntities = OGC_MAX_EDICTS;
+	#else
 	svgame.globals->maxEntities = GI->max_edicts;
+	#endif
+
 	svgame.globals->maxClients = svs.maxclients;
+
+	#if XASH_WII
+	svgame.edicts = Mem_Calloc( svgame.mempool, sizeof( edict_t ) * OGC_MAX_EDICTS );
+	#else
 	svgame.edicts = Mem_Calloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
+	#endif
 	svs.static_entities = Z_Calloc( sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
+
+	#if XASH_WII
+	svs.baselines = Z_Calloc( sizeof( entity_state_t ) * OGC_MAX_EDICTS );
+	#else
 	svs.baselines = Z_Calloc( sizeof( entity_state_t ) * GI->max_edicts );
+	#endif
 	svgame.numEntities = svs.maxclients + 1; // clients + world
 
+	#if XASH_WII
+	for( i = 0, e = svgame.edicts; i < OGC_MAX_EDICTS; i++, e++ )
+		e->free = true; // mark all edicts as freed
+	#else
 	for( i = 0, e = svgame.edicts; i < GI->max_edicts; i++, e++ )
 		e->free = true; // mark all edicts as freed
+	#endif
 
 	Cvar_FullSet( "host_gameloaded", "1", FCVAR_READ_ONLY );
 	SV_AllocStringPool();

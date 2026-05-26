@@ -24,6 +24,16 @@ ref_speeds_t  r_stats;
 poolhandle_t  r_temppool;
 viddef_t      vid;
 
+#if XASH_WII
+void R_Mem_Free( void *data, const char *filename, int fileline )
+{
+	gEngfuncs._Mem_Free( data, filename, fileline );
+}
+void *R_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	return gEngfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
+}
+#else
 void _Mem_Free( void *data, const char *filename, int fileline )
 {
 	gEngfuncs._Mem_Free( data, filename, fileline );
@@ -33,6 +43,7 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 {
 	return gEngfuncs._Mem_Alloc( poolptr, size, clear, filename, fileline );
 }
+#endif
 
 static void GAME_EXPORT R_ClearScreen( void )
 {
@@ -259,11 +270,13 @@ void Mod_UnloadTextures( model_t *mod )
 	switch( mod->type )
 	{
 	case mod_studio:
-		// Mod_StudioUnloadTextures( mod->cache.data );
+		 Mod_StudioUnloadTextures( mod->cache.data );
 		break;
+	#if !XASH_WII
 	case mod_alias:
-		// Mod_AliasUnloadTextures( mod->cache.data );
+		 Mod_AliasUnloadTextures( mod->cache.data );
 		break;
+	#endif
 	case mod_brush:
 		Mod_BrushUnloadTextures( mod );
 		break;
@@ -309,7 +322,6 @@ void GAME_EXPORT GL_SetRenderMode( int mode )
 	/// TODO: table shading/blending???
 	/// maybe, setup block drawing function pointers here
 }
-
 static void GAME_EXPORT R_ShowTextures( void )
 {
 	// textures undone too
@@ -422,8 +434,13 @@ static void * GAME_EXPORT R_GetProcAddress( const char *name )
 
 static const ref_interface_t gReffuncs =
 {
+#if XASH_WII
+	WII_R_Init,
+	WII_R_Shutdown,
+#else
 	R_Init,
 	R_Shutdown,
+#endif
 	R_GetConfigName,
 	R_SetDisplayTransform,
 
@@ -450,7 +467,6 @@ static const ref_interface_t gReffuncs =
 	R_Flush,
 
 	R_ShowTextures,
-
 	R_GetTextureOriginalBuffer,
 	GL_LoadTextureFromBuffer,
 	GL_ProcessTexture,
@@ -539,10 +555,10 @@ static const ref_interface_t gReffuncs =
 	R_ClearScene,
 	R_GetProcAddress,
 
-	TriRenderMode,
+	TriRenderMode_soft,
 	TriBegin,
 	TriEnd,
-	_TriColor4f,
+	_TriColor4f_soft,
 	_TriColor4ub,
 	TriTexCoord2f,
 	TriVertex3fv,
@@ -551,7 +567,7 @@ static const ref_interface_t gReffuncs =
 	R_ScreenToWorld,
 	TriGetMatrix,
 	TriFogParams,
-	TriCullFace,
+	TriCullFace_soft,
 
 	VGUI_SetupDrawing,
 	VGUI_UploadTextureBlock,

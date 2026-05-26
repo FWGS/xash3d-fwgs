@@ -55,7 +55,7 @@ typedef struct dir_s
 
 static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 {
-#if XASH_WIN32 || XASH_PSVITA || XASH_NSWITCH
+#if XASH_WIN32 || XASH_PSVITA || XASH_NSWITCH || XASH_WII
 	return false;
 #elif XASH_ANDROID
 	// on Android, doing code below causes crash in MediaProviderGoogle.apk!libfuse_jni.so
@@ -389,8 +389,12 @@ static int FS_FindFile_DIR( searchpath_t *search, const char *path, char *fixedn
 {
 	char netpath[MAX_SYSPATH];
 
+	#if !XASH_WII
 	if( !FS_FixFileCase( search->dir, path, netpath, sizeof( netpath ), false ))
 		return -1;
+	#else
+	Q_snprintf( netpath, sizeof(netpath), "%s%s", search->dir, path );
+	#endif
 
 	if( FS_SysFileExists( netpath ))
 	{
@@ -486,9 +490,13 @@ void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int fla
 	Q_strncpy( search->filename, path, sizeof( search->filename ) - 1 );
 	COM_PathSlashFix( search->filename );
 
+	#ifndef XASH_WII
 	if( !Q_stricmp( COM_FileExtension( path ), "pk3dir" ))
 		search->type = SEARCHPATH_PK3DIR;
 	else search->type = SEARCHPATH_PLAIN;
+	#else
+	search->type = SEARCHPATH_PLAIN;
+	#endif
 	search->flags = flags;
 	search->pfnPrintInfo = FS_PrintInfo_DIR;
 	search->pfnClose = FS_Close_DIR;

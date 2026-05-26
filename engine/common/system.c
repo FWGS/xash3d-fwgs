@@ -532,7 +532,7 @@ Returns true if execv-like syscall is available
 */
 qboolean Sys_CanRestart( void )
 {
-#if XASH_NSWITCH || XASH_PSVITA
+#if XASH_NSWITCH || XASH_PSVITA || !XASH_WII
 	return true;
 #else
 	int exelen = wai_getExecutablePath( NULL, 0, NULL );
@@ -590,6 +590,8 @@ qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg )
 	Host_ShutdownWithReason( finalmsg );
 	envSetNextLoad( exe, newargs );
 	exit( 0 );
+#elif XASH_WII
+	Host_ShutdownWithReason( finalmsg );
 #else
 	int exelen;
 	char *exe, **newargs;
@@ -632,8 +634,7 @@ qboolean Sys_NewInstance( const char *gamedir, const char *finalmsg )
 		exe = malloc( exelen + 1 );
 		wai_getExecutablePath( exe, exelen, NULL );
 		exe[exelen] = 0;
-// 		HL_WII
-		//execv( exe, newargs );
+		execv( exe, newargs );
 
 		// if execv returned, it's probably an error
 		printf( "execv failed: %s", strerror( errno ));

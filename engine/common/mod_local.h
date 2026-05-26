@@ -199,13 +199,11 @@ void Mod_ClearStudioCache( void );
 //
 // mod_sprite.c
 //
-/*#if XASH_WII
-void _Mod_LoadSpriteModel( model_t *mod, const void *buffer, qboolean *loaded );
+#if XASH_WII
+void OGC_Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded );
+#define Mod_LoadSpriteModel OGC_Mod_LoadSpriteModel
 #else
-*/
 void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded );
 #endif
-/*
 #endif
-*/
 #endif//MOD_LOCAL_H

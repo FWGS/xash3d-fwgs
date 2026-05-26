@@ -25,7 +25,6 @@ int r_cnumsurfs;
 
 ref_instance_t RI;
 
-
 // quake defines. will be refactored
 
 // view origin
@@ -70,7 +69,6 @@ CVAR_DEFINE_AUTO( sw_noalphabrushes, "0", FCVAR_GLCONFIG, "do not draw brush hol
 CVAR_DEFINE_AUTO( r_traceglow, "0", FCVAR_GLCONFIG, "cull flares behind models" );
 CVAR_DEFINE_AUTO( sw_texfilt, "0", FCVAR_GLCONFIG, "texture dither" );
 static CVAR_DEFINE_AUTO( r_novis, "0", 0, "" );
-
 
 DEFINE_ENGINE_SHARED_CVAR_LIST()
 
@@ -1483,8 +1481,11 @@ static void R_InitTurb( void )
 }
 
 
-
+#ifdef XASH_WII
+qboolean GAME_EXPORT WII_R_Init( void )
+#else
 qboolean GAME_EXPORT R_Init( void )
+#endif
 {
 	qboolean glblit = false;
 
@@ -1559,8 +1560,11 @@ qboolean GAME_EXPORT R_Init( void )
 
 	return true;
 }
-
+#ifdef XASH_WII
+void GAME_EXPORT WII_R_Shutdown( void )
+#else
 void GAME_EXPORT R_Shutdown( void )
+#endif
 {
 	R_ShutdownImages();
 	gEngfuncs.R_Free_Video();

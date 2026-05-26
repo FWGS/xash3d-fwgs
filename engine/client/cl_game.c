@@ -75,9 +75,9 @@ static const dllfunc_t cdll_exports[] =
 { "CL_IsThirdPerson", (void **)&clgame.dllFuncs.CL_IsThirdPerson },
 { "CL_CameraOffset", (void **)&clgame.dllFuncs.CL_CameraOffset },	// unused callback. Now camera code is completely moved to the user area
 { "CL_CreateMove", (void **)&clgame.dllFuncs.CL_CreateMove },
-{ "IN_ActivateMouse", (void **)&clgame.dllFuncs.IN_ActivateMouse },
-{ "IN_DeactivateMouse", (void **)&clgame.dllFuncs.IN_DeactivateMouse },
-{ "IN_MouseEvent", (void **)&clgame.dllFuncs.IN_MouseEvent },
+{ "IN__ActivateMouse", (void **)&clgame.dllFuncs.IN_ActivateMouse },
+{ "IN__DeactivateMouse", (void **)&clgame.dllFuncs.IN_DeactivateMouse },
+{ "IN__MouseEvent", (void **)&clgame.dllFuncs.IN_MouseEvent },
 { "IN_Accumulate", (void **)&clgame.dllFuncs.IN_Accumulate },
 { "IN_ClearStates", (void **)&clgame.dllFuncs.IN_ClearStates },
 { "V_CalcRefdef", (void **)&clgame.dllFuncs.pfnCalcRefdef },
@@ -2109,7 +2109,7 @@ static int GAME_EXPORT pfnGetWindowCenterX( void )
 	}
 #endif
 
-#if XASH_SDL >= 2 && !XASH_WII
+#if XASH_SDL >= 2
 	SDL_GetWindowPosition( host.hWnd, &x, NULL );
 #endif
 
@@ -3978,7 +3978,9 @@ qboolean CL_LoadProgs( const char *name )
 	CL_EXPORT_FUNCS	GetClientAPI; // single export
 	qboolean valid_single_export = false;
 	qboolean missed_exports = false;
+	#if !XASH_WII
 	qboolean try_internal_vgui_support = GI->internal_vgui_support;
+	#endif
 	int i;
 
 	if( clgame.hInstance ) CL_UnloadProgs();
@@ -3997,6 +3999,7 @@ qboolean CL_LoadProgs( const char *name )
 	Con_Printf( S_NOTE "%s uses %s for mouse input\n", name, clgame.client_dll_uses_sdl ? "SDL2" : "Windows API" );
 #endif
 
+	#if !XASH_WII
 	// NOTE: important stuff!
 	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS during LoadLibrary
 	if( !try_internal_vgui_support && VGui_LoadProgs( NULL ))
@@ -4004,14 +4007,24 @@ qboolean CL_LoadProgs( const char *name )
 	else
 		try_internal_vgui_support = true; // we failed to load vgui_support, but let's probe client.dll for support anyway
 
+	#endif
+
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
 
 	if( !clgame.hInstance )
 		return false;
 
+	#if XASH_WII
+	// delayed vgui initialization for internal support
+	if( VGui_LoadProgs( clgame.hInstance ))
+	{
+		VGui_Startup( refState.width, refState.height );
+	}
+	#else
 	// delayed vgui initialization for internal support
 	if( try_internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
 		VGui_Startup( refState.width, refState.height );
+	#endif
 
 	// clear exports
 	ClearExports( cdll_exports, ARRAYSIZE( cdll_exports ));

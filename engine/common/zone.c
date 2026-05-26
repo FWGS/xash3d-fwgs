@@ -206,7 +206,7 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 	return (void *)((byte *)mem + sizeof( memheader_t ));
 }
 
-static void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline )
+void Mem_FreeBlock( memheader_t *mem, const char *filename, int fileline )
 {
 	mempool_t		*pool;
 

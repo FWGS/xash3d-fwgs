@@ -443,12 +443,13 @@ void IN_Init( void )
 
 	if( !Host_IsDedicated() )
 	{
+		#if !XASH_WII
 		IN_StartupMouse( );
-
+		#endif
 		Joy_Init(); // common joystick support init
-
+		#if !XASH_WII
 		Touch_Init();
-
+		#endif
 #if XASH_USE_EVDEV
 		Evdev_Init();
 #endif

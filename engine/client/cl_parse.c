@@ -862,7 +862,11 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 			Con_Printf( "Uh, server says it's VAC2 secured.\n" );
 
 		background = false;
+		#if XASH_WII
+		clgame.maxEntities = OGC_MAX_EDICTS + (( cl.maxclients - 1 ) * 15 );
+		#else
 		clgame.maxEntities = GI->max_edicts + (( cl.maxclients - 1 ) * 15 );
+		#endif
 		clgame.maxEntities = Q_min( clgame.maxEntities, MAX_GOLDSRC_EDICTS );
 		clgame.maxModels = 512; // ???
 		Q_strncpy( clgame.maptitle, clgame.mapname, sizeof( clgame.maptitle ));
@@ -944,6 +948,7 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		S_StopBackgroundTrack ();
 	}
 
+	#if !XASH_WII //HL_WII FIXME: Remove this to bring back the menu
 	if( !cls.changedemo )
 		UI_SetActiveMenu( cl.background );
 	else if( !cls.demoplayback )
@@ -952,11 +957,11 @@ void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	// don't reset cursor in background mode
 	if( cl.background )
 		IN_MouseRestorePos();
-
 	// will be changed later
 	cl.viewentity = cl.playernum + 1;
 	gameui.globals->maxClients = cl.maxclients;
 	Q_strncpy( gameui.globals->maptitle, clgame.maptitle, sizeof( gameui.globals->maptitle ));
+	#endif
 
 	if( !cls.changelevel && !cls.changedemo )
 		CL_InitEdicts( cl.maxclients ); // re-arrange edicts

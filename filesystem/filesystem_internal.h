@@ -131,10 +131,10 @@ extern const fs_api_t     g_api;
 
 #define GI FI.GameInfo
 
-#define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
-#define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#define Mem_Malloc( pool, size ) FS_Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_Calloc( pool, size ) FS_Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
 #define Mem_Realloc( pool, ptr, size ) g_engfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
-#define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
+#define Mem_Free( mem ) FS_Mem_Free( mem, __FILE__, __LINE__ )
 #define Mem_AllocPool( name ) g_engfuncs._Mem_AllocPool( name, __FILE__, __LINE__ )
 #define Mem_FreePool( pool ) g_engfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
 
@@ -150,9 +150,9 @@ extern const fs_api_t     g_api;
 qboolean FS_InitStdio( qboolean caseinsensitive, const char *rootdir, const char *basedir, const char *gamedir, const char *rodir );
 void FS_ShutdownStdio( void );
 searchpath_t *FS_MountArchive_Fullpath( const char *file, int flags );
-void _Mem_Free( void *data, const char *filename, int fileline );
-void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
-	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+void FS_Mem_Free( void *data, const char *filename, int fileline );
+void *FS_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+	ALLOC_CHECK( 2 ) MALLOC_LIKE( FS_Mem_Free, 1 ) WARN_UNUSED_RESULT;
 
 // search path utils
 void FS_Rescan( uint32_t flags, const char *language );
@@ -161,7 +161,7 @@ void FS_AllowDirectPaths( qboolean enable );
 void FS_AddGameDirectory( const char *dir, uint flags );
 void FS_AddGameHierarchy( const char *dir, uint flags );
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
-	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+	MALLOC_LIKE( FS_Mem_Free, 1 ) WARN_UNUSED_RESULT;
 int FS_SetCurrentDirectory( const char *path );
 qboolean FS_GetRootDirectory( char *path, size_t size );
 void FS_Path_f( void );
@@ -187,11 +187,11 @@ qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize );
 
 // file buffer ops
 byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
-	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+	MALLOC_LIKE( FS_Mem_Free, 1 ) WARN_UNUSED_RESULT;
 byte *FS_LoadFileMalloc( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
 	MALLOC_LIKE( free, 1 ) WARN_UNUSED_RESULT;
 byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
-	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+	MALLOC_LIKE( FS_Mem_Free, 1 ) WARN_UNUSED_RESULT;
 qboolean FS_WriteFile( const char *filename, const void *data, fs_offset_t len );
 
 // file hashing

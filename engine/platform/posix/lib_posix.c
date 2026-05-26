@@ -24,6 +24,8 @@ GNU General Public License for more details.
 #elif XASH_PSVITA
 	#define VRTLD_LIBDL_COMPAT
 	#include <vrtld.h>
+#elif XASH_WII
+	#define XASH_NO_LIBDL
 #else
 	#include <dlfcn.h>
 #endif

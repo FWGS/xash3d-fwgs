@@ -452,8 +452,9 @@ static void Cmd_Alias_f( void )
 		if( prev ) prev->next = a;
 		else cmd_alias = a;
 		a->next = cur;
-
+		//#if defined (XASH_HASHED_VARS)
 		BaseCmd_Insert( HM_CMDALIAS, a, a->name );
+		//#endif
 	}
 
 	// copy the rest of the command line
@@ -499,7 +500,9 @@ static void Cmd_UnAlias_f ( void )
 		{
 			if( !Q_strcmp( s, a->name ))
 			{
+				//#if defined(XASH_HASHED_VARS)
 				BaseCmd_Remove( HM_CMDALIAS, a->name );
+				//#endif
 				if( a == cmd_alias )
 					cmd_alias = a->next;
 				if( p ) p->next = a->next;
@@ -700,8 +703,9 @@ int Cmd_AddCommandEx( const char *cmd_name, xcommand_t function, const char *cmd
 	if( prev ) prev->next = cmd;
 	else cmd_functions = cmd;
 	cmd->next = cur;
-
-	BaseCmd_Insert( HM_CMD, cmd, cmd->name );
+	//#if defined (XASH_HASHED_VARS)
+		BaseCmd_Insert( HM_CMD, cmd, cmd->name );
+	//#endif
 
 	return 1;
 }
@@ -726,7 +730,9 @@ void GAME_EXPORT Cmd_RemoveCommand( const char *cmd_name )
 
 		if( !Q_strcmp( cmd_name, cmd->name ))
 		{
+			//#if defined (XASH_HASHED_VARS)
 			BaseCmd_Remove( HM_CMD, cmd->name );
+			//#endif
 
 			*back = cmd->next;
 
@@ -771,7 +777,9 @@ Cmd_Exists
 */
 cmd_t *Cmd_Exists( const char *cmd_name )
 {
+	//#if defined (XASH_HASHED_VARS)
 	return BaseCmd_Find( HM_CMD, cmd_name );
+	//#endif
 }
 
 /*
@@ -1114,9 +1122,9 @@ void Cmd_Unlink( int group )
 			prev = &cmd->next;
 			continue;
 		}
-
-		BaseCmd_Remove( HM_CMD, cmd->name );
-
+		//#if defined(XASH_HASHED_VARS)
+			BaseCmd_Remove( HM_CMD, cmd->name );
+		//#endif
 		*prev = cmd->next;
 
 		if( cmd->name ) Mem_Free( cmd->name );
@@ -1153,6 +1161,7 @@ static void Cmd_Apropos_f( void )
 
 	for( var = (convar_t*)Cvar_GetList(); var; var = var->next )
 	{
+		#if !XASH_WII
 		if( !matchpattern_with_separator( var->name, partial, true, "", false ) )
 		{
 			const char *desc;
@@ -1167,13 +1176,20 @@ static void Cmd_Apropos_f( void )
 			if( !matchpattern_with_separator( desc, partial, true, "", false ))
 				continue;
 		}
+		#endif
 
 		// TODO: maybe add flags output like cvarlist, also
 		// fix inconsistencies in output from different commands
+		#if XASH_WII
+		Msg( "cvar ^3%s^7 is \"%s\" [\"%s\"] \n",
+			var->name, var->string,
+			( var->flags & FCVAR_EXTENDED ) ? var->def_string : "");
+		#else
 		Msg( "cvar ^3%s^7 is \"%s\" [\"%s\"] %s\n",
 			var->name, var->string,
 			( var->flags & FCVAR_EXTENDED ) ? var->def_string : "",
 			( var->flags & FCVAR_EXTENDED ) ? var->desc : "game cvar");
+		#endif
 		count++;
 	}
 
@@ -1181,12 +1197,18 @@ static void Cmd_Apropos_f( void )
 	{
 		if( cmd->name[0] == '@' )
 			continue;	// never show system cmds
+		#if XASH_WII
+		if( !matchpattern_with_separator( cmd->name, partial, true, "", false ))
+			continue;
 
+		Msg( "command ^2%s\n", cmd->name);
+		#else
 		if( !matchpattern_with_separator( cmd->name, partial, true, "", false ) &&
 			!matchpattern_with_separator( cmd->desc, partial, true, "", false ))
 			continue;
 
 		Msg( "command ^2%s^7: %s\n", cmd->name, cmd->desc );
+		#endif
 		count++;
 	}
 

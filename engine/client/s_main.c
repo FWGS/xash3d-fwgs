@@ -1328,7 +1328,11 @@ static void S_SpatializeRawChannels( void )
 		}
 
 		// spatialization
+		#if XASH_WII
+		if( !S_IsClient( ch->entnum ) && ch->dist_mult && ch->entnum >= 0 && ch->entnum < OGC_MAX_EDICTS )
+		#else
 		if( !S_IsClient( ch->entnum ) && ch->dist_mult && ch->entnum >= 0 && ch->entnum < GI->max_edicts )
+		#endif
 		{
 			if( !CL_GetMovieSpatialization( ch ))
 			{

@@ -211,7 +211,11 @@ static void CL_ParseQuakeServerInfo( sizebuf_t *msg )
 
 	cl.maxclients = MSG_ReadByte( msg );
 	gametype = MSG_ReadByte( msg );
+	#if XASH_WII
+	clgame.maxEntities = OGC_MAX_EDICTS;
+	#else
 	clgame.maxEntities = GI->max_edicts;
+	#endif
 	clgame.maxEntities = bound( 600, clgame.maxEntities, MAX_EDICTS );
 	clgame.maxModels = MAX_MODELS;
 	Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
@@ -871,7 +875,9 @@ static void CL_QuakeExecStuff( void )
 			cmd_t *cmd;
 			convar_t *cvar;
 
+			//#if defined (XASH_HASHED_VARS)
 			BaseCmd_FindAll( token, &cmd, &alias, &cvar );
+			//#endif
 
 			if( !cvar && !cmd )
 				Con_Printf( S_WARN "'%s' is not exist\n", token );

@@ -94,6 +94,7 @@ build cvar auto description that based on the setup flags
 */
 const char *Cvar_BuildAutoDescription( const char *szName, uint32_t flags )
 {
+	#if !XASH_WII
 	static char	desc[256];
 
 	if( FBitSet( flags, FCVAR_GLCONFIG ))
@@ -129,6 +130,9 @@ const char *Cvar_BuildAutoDescription( const char *szName, uint32_t flags )
 	Q_strncat( desc, "cvar", sizeof( desc ));
 
 	return desc;
+	#else
+	return NULL;
+	#endif //!XASH_WII
 }
 
 /*
@@ -161,7 +165,7 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 		}
 #endif
 	}
-
+#if !XASH_WII
 	if( FBitSet( var->flags, FCVAR_SERVER ) && notify )
 	{
 		if( !FBitSet( var->flags, FCVAR_UNLOGGED ))
@@ -178,7 +182,7 @@ static qboolean Cvar_UpdateInfo( convar_t *var, const char *value, qboolean noti
 			}
 		}
 	}
-
+#endif //!XASH_WII
 	return true;
 }
 
@@ -270,7 +274,9 @@ static void Cvar_Free( convar_t *var )
 	freestring( var->name );
 	freestring( var->string );
 	freestring( var->def_string );
+	#if !XASH_WII
 	freestring( var->desc );
+	#endif
 	Mem_Free( var );
 }
 
@@ -376,6 +382,9 @@ void Cvar_LookupVars( int checkbit, void *buffer, void *ptr, setpair_t callback 
 		}
 		else
 		{
+		#if XASH_WII
+			callback( var->name, var->string, "", ptr );
+		#endif
 			// NOTE: dlls cvars doesn't have description
 			if( FBitSet( var->flags, FCVAR_ALLOCATED|FCVAR_EXTENDED ))
 				callback( var->name, var->string, var->desc, ptr );
@@ -411,6 +420,10 @@ convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const c
 
 	if( var )
 	{
+	#if XASH_WII
+		SetBits( var->flags, flags );
+		Cvar_DirectSet( var, value );
+	#else
 		// already existed?
 		if( FBitSet( flags, FCVAR_GLCONFIG ))
 		{
@@ -448,7 +461,7 @@ convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const c
 			var->desc = Mem_Realloc( cvar_pool, var->desc, len );
 			Q_strncpy( var->desc, var_desc, len );
 		}
-
+	#endif
 		return var;
 	}
 
@@ -457,7 +470,9 @@ convar_t *Cvar_Get( const char *name, const char *value, uint32_t flags, const c
 	var->name = copystringpool( cvar_pool, name );
 	var->string = copystringpool( cvar_pool, value );
 	var->def_string = copystringpool( cvar_pool, value );
+	#if !XASH_WII
 	var->desc = copystringpool( cvar_pool, var_desc );
+	#endif
 	var->value = Q_atof( var->string );
 	var->flags = flags|FCVAR_ALLOCATED;
 
@@ -1168,11 +1183,13 @@ static void Cvar_List_f( void )
 		if( IsColorString( p ))
 			Q_snprintf( value, sizeof( value ), "\"%s\"", var->string );
 		else Q_snprintf( value, sizeof( value ), "\"^2%s^7\"", var->string );
-
+#if XASH_WII
+	Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value);
+#else
 		if( FBitSet( var->flags, FCVAR_EXTENDED|FCVAR_ALLOCATED ))
 			Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, var->desc );
 		else Con_Printf( " %-*s %s ^3%s^7\n", 32, var->name, value, Cvar_BuildAutoDescription( var->name, var->flags ));
-
+#endif
 		count++;
 	}
 
@@ -1268,7 +1285,9 @@ void Cvar_UnlinkPendingCvars( pending_cvar_t *list )
 		}
 
 		// unlink cvar from list
+#if !XASH_WII
 		BaseCmd_Remove( HM_CVAR, list->cv_name );
+#endif
 		if( cv_prev != NULL )
 			cv_prev->next = list->cv_next;
 		else cvar_vars = list->cv_next;
@@ -1327,6 +1346,7 @@ Cvar_PostFSInit
 */
 void Cvar_PostFSInit( void )
 {
+	#if defined (HACKS_RELATED_HLMODS) || !XASH_WII
 	int i;
 
 	for( i = 0; i < ARRAYSIZE( cvar_filter_quirks ); i++ )
@@ -1337,6 +1357,7 @@ void Cvar_PostFSInit( void )
 			break;
 		}
 	}
+	#endif
 }
 
 #if XASH_ENGINE_TESTS

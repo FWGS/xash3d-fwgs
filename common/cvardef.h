@@ -113,8 +113,13 @@ typedef struct convar_s convar_t;
 
 #define CVAR_CHECK_SENTINEL( cv )	((uintptr_t)(cv)->next == CVAR_SENTINEL)
 
+#if XASH_WII
+#define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc ) \
+	convar_t cv = { (char*)cvname, (char*)cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, NULL, NULL }
+#else
 #define CVAR_DEFINE( cv, cvname, cvstr, cvflags, cvdesc ) \
 	convar_t cv = { (char*)cvname, (char*)cvstr, cvflags, 0.0f, (void *)CVAR_SENTINEL, (char*)cvdesc, NULL }
+#endif
 
 #define CVAR_DEFINE_AUTO( cv, cvstr, cvflags, cvdesc ) CVAR_DEFINE( cv, #cv, cvstr, cvflags, cvdesc )
 #endif // REF_DLL || ENGINE_DLL

@@ -55,7 +55,12 @@ static char *rcsid = "$NetBSD: malloc.c,v 1.8 1997/04/07 03:12:14 christos Exp $
 #include  <sys/types.h>
 #include  <stdlib.h>
 #include  <string.h>
+
+#if XASH_WII
+#include "swap.h"
+#else
 #include "platform/swap/swap.h"
+#endif
 /* #define MSTATS 1 */
 
 #ifndef _WIN32

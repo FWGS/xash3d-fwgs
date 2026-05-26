@@ -92,7 +92,11 @@ void CL_InitParticles( void )
 {
 	int	i;
 
+	#if XASH_WII
+	cl_particles = Mem_Calloc( cls.mempool, sizeof( particle_t ) * OGC_MAX_PARTICLES );
+	#else
 	cl_particles = Mem_Calloc( cls.mempool, sizeof( particle_t ) * GI->max_particles );
+	#endif
 	CL_ClearParticles ();
 
 	// this is used for EF_BRIGHTFIELD
@@ -123,11 +127,17 @@ void CL_ClearParticles( void )
 	cl_free_particles = cl_particles;
 	cl_active_particles = NULL;
 	cl_active_tracers = NULL;
+	#if !XASH_WII
+		for( i = 0; i < GI->max_particles - 1; i++ )
+			cl_particles[i].next = &cl_particles[i+1];
 
-	for( i = 0; i < GI->max_particles - 1; i++ )
-		cl_particles[i].next = &cl_particles[i+1];
+		cl_particles[GI->max_particles-1].next = NULL;
+	#else
+		for( i = 0; i < OGC_MAX_PARTICLES - 1; i++ )
+			cl_particles[i].next = &cl_particles[i+1];
 
-	cl_particles[GI->max_particles-1].next = NULL;
+		cl_particles[OGC_MAX_PARTICLES-1].next = NULL;
+	#endif
 }
 
 /*
@@ -345,7 +355,11 @@ CL_InitViewBeams
 */
 void CL_InitViewBeams( void )
 {
+	#if XASH_WII
+	cl_viewbeams = Mem_Calloc( cls.mempool, sizeof( BEAM ) * OGC_MAX_BEAMS );
+	#else
 	cl_viewbeams = Mem_Calloc( cls.mempool, sizeof( BEAM ) * GI->max_beams );
+	#endif
 	CL_ClearViewBeams();
 }
 
@@ -365,9 +379,15 @@ void CL_ClearViewBeams( void )
 	cl_free_beams = cl_viewbeams;
 	cl_active_beams = NULL;
 
-	for( i = 0; i < GI->max_beams - 1; i++ )
-		cl_viewbeams[i].next = &cl_viewbeams[i+1];
-	cl_viewbeams[GI->max_beams - 1].next = NULL;
+	#if !XASH_WII
+		for( i = 0; i < GI->max_beams - 1; i++ )
+			cl_viewbeams[i].next = &cl_viewbeams[i+1];
+		cl_viewbeams[GI->max_beams - 1].next = NULL;
+	#else
+		for( i = 0; i < OGC_MAX_BEAMS - 1; i++ )
+			cl_viewbeams[i].next = &cl_viewbeams[i+1];
+		cl_viewbeams[OGC_MAX_BEAMS - 1].next = NULL;
+	#endif
 }
 
 /*

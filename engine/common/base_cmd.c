@@ -19,6 +19,7 @@ GNU General Public License for more details.
 
 #define HASH_SIZE 64 // 64 * 4 * 4 == 1024 bytes
 
+//#if !XASH_WII
 typedef struct base_command_hashmap_s base_command_hashmap_t;
 
 struct base_command_hashmap_s
@@ -339,3 +340,4 @@ void BaseCmd_Test_f( void )
 
 	BaseCmd_Stats_f();
 }
+//#endif

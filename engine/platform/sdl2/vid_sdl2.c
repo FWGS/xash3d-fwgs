@@ -438,7 +438,7 @@ static int VID_GetDisplayIndex( const char *caller, SDL_Window *window )
 		return 0;
 
 	display_index = SDL_GetWindowDisplayIndex( window );
-	
+
 	if( display_index < 0 )
 	{
 		Con_Printf( S_ERROR "%s: SDL_GetWindowDisplayIndex: %s\n", caller, SDL_GetError());
@@ -634,7 +634,9 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 	VID_SaveWindowSize( out_width, out_height );
 
 	// set icon that could've been lost after changing modes
+	#if !XASH_WII
 	VID_SetWindowIcon( host.hWnd );
+	#endif
 
 	return rserr_ok;
 }
@@ -681,7 +683,11 @@ static rserr_t VID_CreateWindow( const int input_width, const int input_height, 
 
 	// by default we create window in windowed mode because we don't know
 	// if window creation failed because of invalid video mode or any other reason
+	#if XASH_WII
+	host.hWnd = SDL_CreateWindow( "Xash3D GX", rect.x, rect.y, rect.w, rect.h, flags );
+	#else
 	host.hWnd = SDL_CreateWindow( GI->title, rect.x, rect.y, rect.w, rect.h, flags );
+	#endif
 
 	if( !host.hWnd )
 	{
@@ -698,7 +704,9 @@ static rserr_t VID_CreateWindow( const int input_width, const int input_height, 
 			goto cleanup;
 	}
 
+	#if !XASH_WII
 	VID_SetWindowIcon( host.hWnd );
+	#endif
 	SDL_ShowWindow( host.hWnd );
 	SDL_RaiseWindow( host.hWnd );
 
@@ -710,7 +718,11 @@ static rserr_t VID_CreateWindow( const int input_width, const int input_height, 
 		{
 			int sdl_renderer = Q_max( -1, Q_atoi( cmd ));
 
-			sw.renderer = SDL_CreateRenderer( host.hWnd, sdl_renderer, 0 );
+			//#if XASH_WII
+			//sw.renderer = SDL_CreateRenderer( host.hWnd, sdl_renderer, 0 );
+			//#else
+			sw.renderer = SDL_CreateRenderer( host.hWnd, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE );
+			//#endif
 
 			if( !sw.renderer )
 			{
@@ -906,6 +918,7 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 
 	refState.desktopBitsPixel = SDL_BITSPERPIXEL( display_mode.format );
 
+#if !XASH_WII
 	if( Sys_CheckParm( "-egl" ))
 	{
 		// EGL doesn't mean we want GLES context
@@ -916,7 +929,7 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 
 		SDL_SetHint( SDL_HINT_VIDEO_X11_FORCE_EGL, "1" );
 	}
-
+#endif
 	SDL_SetHint( SDL_HINT_QTWAYLAND_WINDOW_FLAGS, "OverridesSystemGestures" );
 	SDL_SetHint( SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "landscape" );
 	SDL_SetHint( SDL_HINT_VIDEO_X11_XRANDR, "1" );
@@ -1175,7 +1188,7 @@ void VID_Info_f( void )
 	int render_width, render_height;
 	int x, y;
 	int display_index;
-	SDL_DisplayMode dm;	
+	SDL_DisplayMode dm;
 
 	SDL_GetWindowSize( host.hWnd, &width, &height );
 	VID_GetWindowSizeInPixels( host.hWnd, sw.renderer, &render_width, &render_height );

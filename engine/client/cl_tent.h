@@ -108,10 +108,10 @@ void TriColor4ub( byte r, byte g, byte b, byte a );
 void TriBrightness( float brightness );
 void TriCullFace( TRICULLSTYLE mode );
 int TriWorldToScreen( const float *world, float *screen );
+int TriSpriteTexture( model_t *pSpriteModel, int frame );
 int TriBoxInPVS( float *mins, float *maxs );
 void TriLightAtPoint( float *pos, float *value );
 void TriColor4fRendermode( float r, float g, float b, float a, int rendermode );
-int TriSpriteTexture( model_t *pSpriteModel, int frame );
 
 extern model_t	*cl_sprite_dot;
 extern model_t	*cl_sprite_shell;

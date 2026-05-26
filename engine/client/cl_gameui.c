@@ -21,6 +21,10 @@ GNU General Public License for more details.
 #include "server.h" // !!svgame.hInstance
 #include "vid_common.h"
 
+//#if XASH_WII
+	extern fs_globals_t *FI;
+//#endif
+
 static void 	UI_UpdateUserinfo( void );
 
 gameui_static_t	gameui;
@@ -398,7 +402,37 @@ void Host_Credits( void )
 static void UI_ConvertGameInfo( gameinfo2_t *out, const gameinfo_t *in )
 {
 	out->gi_version = GAMEINFO_VERSION;
+	//HL_WII FIXME: FI->GameInfo (aka GI) is supposed to access this function, but the pointer is pointing a invalid address
+	/* Hardcoded values from 'Half-Life'
+	#if XASH_WII
+	Q_strncpy( out->gamefolder, "valve", sizeof( out->gamefolder ));
+	Q_strncpy( out->startmap, "c0a0", sizeof( out->startmap ));
+	Q_strncpy( out->trainmap, "t0a0", sizeof( out->trainmap ));
+	Q_strncpy( out->demomap, "hldemo1", sizeof( out->demomap ));
+	Q_strncpy( out->title, "Half-Life", sizeof( out->title ));
+	Q_snprintf( out->version, sizeof( out->version ), "%i", 1 ); //Why no '%g'?
+	Q_strncpy( out->iconpath, '\000', sizeof( out->iconpath ));
 
+	Q_strncpy( out->game_url, '\000', sizeof( out->game_url ));
+	Q_strncpy( out->update_url, '\000', sizeof( out->update_url ));
+	out->size = 0;
+	Q_strncpy( out->type, '\000', sizeof( out->type ));
+	Q_strncpy( out->date, '\000', sizeof( out->date ));
+
+	out->gamemode = 0;
+
+
+	if( 0 )
+		SetBits( out->flags, GFL_NOMODELS );
+	if( 0 )
+		SetBits( out->flags, GFL_NOSKILLS );
+	if( 0 )
+		SetBits( out->flags, GFL_RENDER_PICBUTTON_TEXT );
+	if( 0 )
+		SetBits( out->flags, GFL_HD_BACKGROUND );
+	if( 0 )
+		SetBits( out->flags, GFL_ANIMATED_TITLE );
+	#else */
 	Q_strncpy( out->gamefolder, in->gamefolder, sizeof( out->gamefolder ));
 	Q_strncpy( out->startmap, in->startmap, sizeof( out->startmap ));
 	Q_strncpy( out->trainmap, in->trainmap, sizeof( out->trainmap ));
@@ -415,6 +449,7 @@ static void UI_ConvertGameInfo( gameinfo2_t *out, const gameinfo_t *in )
 
 	out->gamemode = in->gamemode;
 
+
 	if( in->nomodels )
 		SetBits( out->flags, GFL_NOMODELS );
 	if( in->noskills )
@@ -425,6 +460,7 @@ static void UI_ConvertGameInfo( gameinfo2_t *out, const gameinfo_t *in )
 		SetBits( out->flags, GFL_HD_BACKGROUND );
 	if( in->animated_title )
 		SetBits( out->flags, GFL_ANIMATED_TITLE );
+	//#endif
 }
 
 static void UI_ToOldGameInfo( GAMEINFO *out, const gameinfo2_t *in )
@@ -1103,9 +1139,10 @@ static void GAME_EXPORT UI_ShellExecute( const char *path, const char *parms, in
 {
 	if( !Q_strcmp( path, GENERIC_UPDATE_PAGE ) || !Q_strcmp( path, PLATFORM_UPDATE_PAGE ))
 		path = DEFAULT_UPDATE_PAGE;
-	//HL_WII
-	//Platform_ShellExecute( path, parms );
 
+	#if !XASH_WII
+	Platform_ShellExecute( path, parms );
+	#endif
 	if( shouldExit )
 		Sys_Quit( __func__ );
 }
@@ -1170,7 +1207,11 @@ static void GAME_EXPORT pfnGetGameDir( char *out )
 	if( !out )
 		return;
 
+	#if XASH_WII
+	Q_strncpy( out, XASH_GAMEDIR, sizeof( XASH_GAMEDIR ));
+	#else
 	Q_strncpy( out, GI->gamefolder, sizeof( GI->gamefolder ));
+	#endif
 }
 
 // engine callbacks
@@ -1454,7 +1495,6 @@ qboolean UI_LoadProgs( void )
 	Cmd_AddRestrictedCommand( "ui_allowconsole", UI_ToggleAllowConsole_f, "unlocks developer console" );
 
 	UI_ConvertGameInfo( &gameui.gameInfo, FI->GameInfo ); // current gameinfo
-
 	// setup globals
 	gameui.globals->developer = host.allow_console;
 

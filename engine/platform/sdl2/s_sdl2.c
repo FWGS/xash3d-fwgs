@@ -108,7 +108,9 @@ qboolean SNDDMA_Init( void )
 
 	// even if we don't have PA
 	// we still can safely set env variables
+	#if !XASH_WII
 	SDL_setenv( "PULSE_PROP_application.name", GI->title, 1 );
+	#endif
 	SDL_setenv( "PULSE_PROP_media.role", "game", 1 );
 
 	// reinitialize SDL with our driver just in case
@@ -289,7 +291,7 @@ qboolean VoiceCapture_Init( void )
 		Con_Printf( "%s: error creating capture device (%s)\n", __func__, SDL_GetError() );
 		return false;
 	}
-		
+
 	Con_Printf( S_NOTE "%s: capture device creation success (%i: %s)\n", __func__, in_dev, SDL_GetAudioDeviceName( in_dev, SDL_TRUE ) );
 	return true;
 }

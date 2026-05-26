@@ -51,7 +51,7 @@ void IOS_LaunchDialog( void );
 #undef XASH_PLATFORM_HAVE_STATUS
 #endif
 
-#if XASH_POSIX
+#if XASH_POSIX && !XASH_WII
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
 char *Posix_Input( void );
@@ -91,6 +91,11 @@ void NSwitch_Init( void );
 void NSwitch_Shutdown( void );
 #endif
 
+#if XASH_WII
+void Wii_Init( void );
+void Wii_Shutdown( void );
+#endif
+
 #if XASH_PSVITA
 void PSVita_Init( void );
 void PSVita_Shutdown( void );
@@ -113,7 +118,7 @@ int Linux_GetProcessID( void );
 
 static inline void Platform_Init( qboolean con_showalways, const char *basedir )
 {
-#if XASH_POSIX
+#if XASH_POSIX && !XASH_WII
 	// daemonize as early as possible, because we need to close our file descriptors
 	Posix_Daemonize( );
 #endif
@@ -134,6 +139,8 @@ static inline void Platform_Init( qboolean con_showalways, const char *basedir )
 	Win32_Init( con_showalways );
 #elif XASH_LINUX
 	Linux_Init( );
+#elif XASH_WII
+	Wii_Init( );
 #endif
 }
 
@@ -149,6 +156,8 @@ static inline void Platform_Shutdown( void )
 	Win32_Shutdown( );
 #elif XASH_LINUX
 	Linux_Shutdown( );
+#elif XASH_WII
+	Wii_Shutdown( );
 #endif
 
 #if XASH_SDL
