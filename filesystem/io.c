@@ -24,6 +24,9 @@ GNU General Public License for more details.
 #if XASH_WIN32
 #include <io.h>
 #endif
+#if XASH_LINUX
+#include <sys/sendfile.h>
+#endif
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -1027,9 +1030,74 @@ FS_FileCopy
 */
 qboolean FS_FileCopy( file_t *pOutput, file_t *pInput, int fileSize )
 {
-	char *buf = Mem_Malloc( fs_mempool, FILE_COPY_SIZE );
+	char *buf;
 	int size, readSize;
 	qboolean done = true;
+
+#if XASH_LINUX && !defined( XASH_REDUCE_FD )
+	// sendfile can't decompress, and we'd skip past userspace-buffered bytes
+	if( !FBitSet( pInput->flags, FILE_DEFLATED ) && pInput->ungetc == EOF && pInput->buff_ind == pInput->buff_len )
+	{
+		off_t out_pos;
+
+		// mirror FS_Write's pre-write fixup so the output fd offset matches file_t's position
+		if( pOutput->buff_ind != pOutput->buff_len )
+			lseek( pOutput->handle, pOutput->buff_ind - pOutput->buff_len, SEEK_CUR );
+
+		FS_Purge( pOutput );
+
+		off_t in_off = pInput->offset + pInput->position;
+
+		while( fileSize > 0 )
+		{
+			ssize_t sent = sendfile( pOutput->handle, pInput->handle, &in_off, fileSize );
+
+			if( sent < 0 )
+			{
+				if( errno == EINTR )
+					continue;
+				// some kernels/filesystems don't support sendfile between these fds
+				if( errno == EINVAL || errno == ENOSYS || errno == EOPNOTSUPP )
+					break;
+				Con_Reportf( S_ERROR "%s: sendfile failed: %s\n", __func__, strerror( errno ));
+				done = false;
+				fileSize = 0;
+				break;
+			}
+
+			if( sent == 0 )
+			{
+				Con_Reportf( S_ERROR "%s: unexpected end of input file\n", __func__ );
+				done = false;
+				fileSize = 0;
+				break;
+			}
+
+			fileSize -= sent;
+		}
+
+		pInput->position = in_off - pInput->offset;
+
+		out_pos = lseek( pOutput->handle, 0, SEEK_CUR );
+		if( out_pos < 0 )
+		{
+			Con_Reportf( S_ERROR "%s: lseek failed: %s\n", __func__, strerror( errno ));
+			done = false;
+			fileSize = 0;
+		}
+		else
+		{
+			pOutput->position = out_pos;
+			if( pOutput->real_length < pOutput->position )
+				pOutput->real_length = pOutput->position;
+		}
+
+		if( fileSize <= 0 )
+			return done;
+	}
+#endif
+
+	buf = Mem_Malloc( fs_mempool, FILE_COPY_SIZE );
 
 	while( fileSize > 0 )
 	{
