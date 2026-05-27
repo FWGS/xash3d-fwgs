@@ -1050,7 +1050,7 @@ static void APIENTRY GL2_TexImage2D( GLenum target, GLint level, GLint internalf
 		}
 		internalformat = format;
 	}
-	if( internalformat == GL_LUMINANCE8_ALPHA8 || internalformat == GL_RGB || internalformat == GL_RGB8 || internalformat == GL_RGB5 )
+	if( internalformat == GL_LUMINANCE8_ALPHA8 || internalformat == GL_RGB || internalformat == GL_RGB8 || internalformat == GL_RGB5 || internalformat == GL_RGBA8 || internalformat == GL_RGBA4 )
 		internalformat = GL_RGBA;
 	rpglTexImage2D( target, level, internalformat, width, height, border, format, type, data );
 	if( data != pixels )

@@ -109,6 +109,13 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 
 	// set texture filter
 	qboolean nomipmap = tex->numMips <= 1 || FBitSet( tex->flags, TF_NOMIPMAP|TF_DEPTHMAP );
+
+	// GL4ES wrappers may have system-level LOD clamping (e.g. MIUI Game Turbo)
+	// that makes mipmapped textures always sample from a fixed low level.
+	// Force non-mipmapped filtering to restore full resolution.
+	if( glConfig.wrapper == GLES_WRAPPER_GL4ES && !nomipmap )
+		nomipmap = true;
+
 	if( !GL_TextureFilteringEnabled( tex ))
 	{
 		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_NEAREST : GL_NEAREST_MIPMAP_NEAREST );
@@ -119,6 +126,10 @@ void GL_ApplyTextureParams( gl_texture_t *tex )
 		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR );
 		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 	}
+
+	// override system-level LOD clamping (e.g. MIUI Game Turbo)
+	pglTexParameterf( tex->target, GL_TEXTURE_MAX_LOD, 1000.0f );
+	pglTexParameterf( tex->target, GL_TEXTURE_MIN_LOD, -1000.0f );
 
 	if( FBitSet( tex->flags, TF_DEPTHMAP ))
 	{
@@ -232,6 +243,10 @@ static void GL_UpdateTextureParams( int iTexture )
 
 	qboolean nomipmap = tex->numMips <= 1 || FBitSet( tex->flags, TF_NOMIPMAP|TF_DEPTHMAP );
 
+	// GL4ES wrappers may have system-level LOD clamping (e.g. MIUI Game Turbo)
+	if( glConfig.wrapper == GLES_WRAPPER_GL4ES && !nomipmap )
+		nomipmap = true;
+
 	if( !GL_TextureFilteringEnabled( tex ))
 	{
 		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_NEAREST : GL_NEAREST_MIPMAP_NEAREST );
@@ -242,6 +257,10 @@ static void GL_UpdateTextureParams( int iTexture )
 		pglTexParameteri( tex->target, GL_TEXTURE_MIN_FILTER, nomipmap ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR );
 		pglTexParameteri( tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 	}
+
+	// override system-level LOD clamping (e.g. MIUI Game Turbo)
+	pglTexParameterf( tex->target, GL_TEXTURE_MAX_LOD, 1000.0f );
+	pglTexParameterf( tex->target, GL_TEXTURE_MIN_LOD, -1000.0f );
 }
 
 /*
@@ -474,7 +493,9 @@ static void GL_SetTextureDimensions( gl_texture_t *tex, int width, int height, i
 		if( height < 1 ) height = 1;
 	}
 
-	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ))
+	// GL_OES_texture_npot on ES 2.0 doesn't support mipmaps on NPOT textures
+	// GLES 3.0+ and desktop GL support NPOT with mipmaps natively
+	if( !GL_Support( GL_ARB_TEXTURE_NPOT_EXT ) || ( glConfig.wrapper != GLES_WRAPPER_NONE && glConfig.version_major < 3 ))
 	{
 		int step = (int)gl_round_down.value;
 
