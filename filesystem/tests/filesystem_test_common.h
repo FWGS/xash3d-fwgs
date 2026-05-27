@@ -13,12 +13,13 @@
 #define LoadLibrary( x ) dlopen( x, RTLD_NOW )
 #define GetProcAddress( x, y ) dlsym( x, y )
 #define FreeLibrary( x ) dlclose( x )
+typedef void *HMODULE;
 #elif XASH_WIN32
 #include <windows.h>
 #endif
 
 // each test program includes this header exactly once, so static linkage is fine
-static void *g_hModule;
+static HMODULE g_hModule;
 static FSAPI g_pfnGetFSAPI;
 static fs_api_t g_fs;
 static fs_globals_t *g_nullglobals;
