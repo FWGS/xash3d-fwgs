@@ -42,8 +42,8 @@ typedef enum
 
 typedef enum
 {
-	XRCON_STATE_WAIT_HEADER,
-	XRCON_STATE_WAIT_PAYLOAD
+	XRCON_PARSER_WAIT_HEADER,
+	XRCON_PARSER_WAIT_PAYLOAD
 } xrcon_parser_state_t;
 
 typedef struct
@@ -109,7 +109,7 @@ static void XRcon_DisconnectClient( void )
 	xrcon.tx_pos = 0;
 	xrcon.rx_pos = 0;
 	xrcon.print_buffer[0] = '\0';
-	xrcon.parser.state = XRCON_STATE_WAIT_HEADER;
+	xrcon.parser.state = XRCON_PARSER_WAIT_HEADER;
 
 	XRcon_CloseClientSocket();
 	XRcon_SetState( XRCON_STATE_LISTENING );
@@ -292,7 +292,7 @@ static void XRcon_ProcessRxData( void )
 {
 	while( true )
 	{
-		if( xrcon.parser.state == XRCON_STATE_WAIT_HEADER )
+		if( xrcon.parser.state == XRCON_PARSER_WAIT_HEADER )
 		{
 			if( xrcon.rx_pos < XRCON_HEADER_SIZE )
 				return;
@@ -320,13 +320,13 @@ static void XRcon_ProcessRxData( void )
 			xrcon.parser.frame.version = version;
 			xrcon.parser.frame.length = total_len;
 			xrcon.parser.frame.handle = handle;
-			xrcon.parser.state = XRCON_STATE_WAIT_PAYLOAD;
+			xrcon.parser.state = XRCON_PARSER_WAIT_PAYLOAD;
 
 			size_t bytes_read = MSG_GetNumBytesRead( &sb );
 			memmove( xrcon.rx_buffer, xrcon.rx_buffer + bytes_read, xrcon.rx_pos - bytes_read );
 			xrcon.rx_pos -= bytes_read;
 		}
-		else if( xrcon.parser.state == XRCON_STATE_WAIT_PAYLOAD )
+		else if( xrcon.parser.state == XRCON_PARSER_WAIT_PAYLOAD )
 		{
 			size_t payload_length = xrcon.parser.frame.length - XRCON_HEADER_SIZE;
 			if( xrcon.rx_pos < payload_length )
@@ -345,7 +345,7 @@ static void XRcon_ProcessRxData( void )
 				Con_Printf( S_WARN "%s: unknown message type \"%s\"\n", __func__, xrcon.parser.frame.type );
 			}
 
-			xrcon.parser.state = XRCON_STATE_WAIT_HEADER;
+			xrcon.parser.state = XRCON_PARSER_WAIT_HEADER;
 			memmove( xrcon.rx_buffer, xrcon.rx_buffer + payload_length, xrcon.rx_pos - payload_length );
 			xrcon.rx_pos -= payload_length;
 		}
@@ -482,7 +482,7 @@ static void XRcon_UpdateListening( void )
 		xrcon.print_buffer[0] = '\0';
 		xrcon.tx_pos = 0;
 		xrcon.rx_pos = 0;
-		xrcon.parser.state = XRCON_STATE_WAIT_HEADER;
+		xrcon.parser.state = XRCON_PARSER_WAIT_HEADER;
 		xrcon.print_flush_time = Platform_DoubleTime() + XRCON_FLUSH_INTERVAL;
 
 		netadr_t adr;
@@ -636,7 +636,7 @@ void XRcon_Init( void )
 	xrcon.client_socket = INVALID_SOCKET;
 	xrcon.rx_pos = 0;
 	xrcon.tx_pos = 0;
-	xrcon.parser.state = XRCON_STATE_WAIT_HEADER;
+	xrcon.parser.state = XRCON_PARSER_WAIT_HEADER;
 	xrcon.print_pos = 0;
 	xrcon.print_buffer[0] = '\0';
 	xrcon.retry_timeout = 0;
