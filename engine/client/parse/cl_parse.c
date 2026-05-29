@@ -60,10 +60,6 @@ CL_ParseSoundPacket
 */
 static void CL_ParseSoundPacket( sizebuf_t *msg, qboolean restore )
 {
-	int wordIndex = 0;
-	sound_t	handle = 0;
-	double samplePos = 0, forcedEnd = 0;
-
 	int flags = MSG_ReadUBitLong( msg, MAX_SND_FLAGS_BITS );
 	int sound = MSG_ReadUBitLong( msg, MAX_SOUND_BITS );
 	int chan = MSG_ReadUBitLong( msg, MAX_SND_CHAN_BITS );
@@ -90,6 +86,7 @@ static void CL_ParseSoundPacket( sizebuf_t *msg, qboolean restore )
 	vec3_t pos;
 	MSG_ReadVec3Coord( msg, pos );
 
+	sound_t handle = 0;
 	if( FBitSet( flags, SND_SENTENCE ))
 	{
 		char	sentenceName[32];
@@ -102,6 +99,8 @@ static void CL_ParseSoundPacket( sizebuf_t *msg, qboolean restore )
 	}
 	else handle = cl.sound_index[sound];	// see precached sound
 
+	uint wordIndex = 0;
+	double samplePos = 0, forcedEnd = 0;
 	if( restore )
 	{
 		wordIndex = MSG_ReadByte( msg );

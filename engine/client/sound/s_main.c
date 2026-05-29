@@ -740,7 +740,7 @@ S_RestoreSound
 Restore a sound effect for the given entity on the given channel
 ====================
 */
-void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float fvol, float attn, int pitch, int flags, double sample, double end, int wordIndex )
+void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float fvol, float attn, int pitch, int flags, double sample, double end, uint wordIndex )
 {
 	wavdata_t	*pSource;
 	sfx_t	*sfx = NULL;
@@ -804,15 +804,30 @@ void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float 
 		// not a first word in sentence!
 		if( wordIndex != 0 )
 		{
-			VOX_FreeWord( target_chan );		// release first loaded word
-			target_chan->word_index = wordIndex;	// restore current word
-			VOX_LoadWord( target_chan );
+			uint word_count = 0;
 
-			if( !FBitSet( target_chan->flags, FL_CHAN_SENTENCE_FINISHED ))
+			if( target_chan->words )
 			{
-				target_chan->sfx = target_chan->words[target_chan->word_index].sfx;
-				sfx = target_chan->sfx;
-				pSource = sfx->cache;
+				while( word_count < CVOXWORDMAX && target_chan->words[word_count].sfx )
+					word_count++;
+			}
+
+			if( wordIndex >= word_count )
+			{
+				SetBits( target_chan->flags, FL_CHAN_SENTENCE_FINISHED );
+			}
+			else
+			{
+				VOX_FreeWord( target_chan ); // release first loaded word
+				target_chan->word_index = wordIndex; // restore current word
+				VOX_LoadWord( target_chan );
+
+				if( !FBitSet( target_chan->flags, FL_CHAN_SENTENCE_FINISHED ))
+				{
+					target_chan->sfx = target_chan->words[target_chan->word_index].sfx;
+					sfx = target_chan->sfx;
+					pSource = sfx->cache;
+				}
 			}
 		}
 		else
