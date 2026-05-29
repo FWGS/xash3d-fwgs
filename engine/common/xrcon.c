@@ -144,8 +144,9 @@ static qboolean XRcon_SendPacket( const char *type, const void *body, size_t bod
 		int err = WSAGetLastError();
 		if( err != WSAEWOULDBLOCK && err != WSAEALREADY )
 		{
-			Con_Printf( S_ERROR "%s: send error %s\n", __func__, NET_ErrorString( ));
+			const char *errstr = NET_ErrorString();
 			XRcon_DisconnectClient();
+			Con_Printf( S_ERROR "%s: send error %s\n", __func__, errstr );
 			return false;
 		}
 		sent = 0;
@@ -157,8 +158,8 @@ static qboolean XRcon_SendPacket( const char *type, const void *body, size_t bod
 		size_t available = sizeof( xrcon.tx_buffer ) - xrcon.tx_pos;
 		if( available < unsent )
 		{
-			Con_Printf( S_ERROR "%s: transmit buffer overflow\n", __func__ );
 			XRcon_DisconnectClient();
+			Con_Printf( S_ERROR "%s: transmit buffer overflow\n", __func__ );
 			return false;
 		}
 
@@ -335,7 +336,7 @@ static void XRcon_ProcessRxData( void )
 			{
 				char cmd[XRCON_MAX_FRAME_SIZE];
 				size_t cmd_len = Q_min( payload_length, sizeof( cmd ) - 1 );
-				memcpy( cmd, xrcon.rx_buffer, payload_length );
+				memcpy( cmd, xrcon.rx_buffer, cmd_len );
 				cmd[cmd_len] = '\0';
 				XRcon_HandleCMND( cmd );
 			}
