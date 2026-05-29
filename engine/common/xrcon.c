@@ -18,6 +18,12 @@ GNU General Public License for more details.
 #include "net_ws_private.h"
 #include "net_buffer.h"
 
+#define XRCON_TYPE_CMND HostFourCC( 'C', 'M', 'N', 'D' )
+#define XRCON_TYPE_CHAN HostFourCC( 'C', 'H', 'A', 'N' )
+#define XRCON_TYPE_AINF HostFourCC( 'A', 'I', 'N', 'F' )
+#define XRCON_TYPE_ADON HostFourCC( 'A', 'D', 'O', 'N' )
+#define XRCON_TYPE_PRNT HostFourCC( 'P', 'R', 'N', 'T' )
+
 #define XRCON_HEADER_SIZE		12
 #define XRCON_MAX_FRAME_SIZE	4096
 #define XRCON_PRINT_BUFFER_SIZE	4096
@@ -48,7 +54,7 @@ typedef enum
 
 typedef struct
 {
-	char type[5];
+	uint32_t type;
 	uint32_t version;
 	uint16_t length;
 	uint16_t handle;
@@ -116,7 +122,7 @@ static void XRcon_DisconnectClient( void )
 	Con_Printf( S_NOTE "%s: client disconnected\n", __func__ );
 }
 
-static qboolean XRcon_SendPacket( const char *type, const void *body, size_t body_len )
+static qboolean XRcon_SendPacket( uint32_t type, const void *body, size_t body_len )
 {
 	size_t total_len = XRCON_HEADER_SIZE + body_len;
 	uint8_t frame[XRCON_MAX_PACKET_SIZE];
@@ -129,7 +135,7 @@ static qboolean XRcon_SendPacket( const char *type, const void *body, size_t bod
 	}
 
 	MSG_Init( &sb, __func__, frame, sizeof( frame ));
-	MSG_WriteBytes( &sb, type, 4 );
+	MSG_WriteBytes( &sb, &type, 4 );
 	MSG_WriteDword( &sb, htonl( XRCON_CMND_VERSION ));
 	MSG_WriteWord( &sb, htons((short)total_len ));
 	MSG_WriteWord( &sb, 0 ); // handle
@@ -193,13 +199,13 @@ static void XRcon_SendCHAN( void )
 	MSG_WriteByte( &sb, 255 );
 
 	MSG_WriteBytes( &sb, channel_name, sizeof( channel_name ));
-	XRcon_SendPacket( "CHAN", body, MSG_GetRealBytesWritten( &sb ));
+	XRcon_SendPacket( XRCON_TYPE_CHAN, body, MSG_GetRealBytesWritten( &sb ));
 }
 
 static void XRcon_SendAINF( void )
 {
 	uint8_t data[XRCON_AINF_PACKET_SIZE] = { 0 };
-	XRcon_SendPacket( "AINF", data, sizeof( data ));
+	XRcon_SendPacket( XRCON_TYPE_AINF, data, sizeof( data ));
 }
 
 static void XRcon_SendADON( const char *name )
@@ -212,7 +218,7 @@ static void XRcon_SendADON( const char *name )
 	MSG_WriteWord( &sb, htons( 0 ));
 	MSG_WriteWord( &sb, htons( len ));
 	MSG_WriteBytes( &sb, name, len );
-	XRcon_SendPacket( "ADON", data, MSG_GetRealBytesWritten( &sb ));
+	XRcon_SendPacket( XRCON_TYPE_ADON, data, MSG_GetRealBytesWritten( &sb ));
 }
 
 static void XRcon_HandleCMND( const char *command )
@@ -298,10 +304,10 @@ static void XRcon_ProcessRxData( void )
 				return;
 
 			sizebuf_t sb;
-			char type[5] = { 0 };
+			uint32_t type = 0;
 
-			MSG_Init( &sb, __func__, xrcon.rx_buffer, sizeof( xrcon.rx_buffer ));
-			MSG_ReadBytes( &sb, type, sizeof( type ), 4 );
+			MSG_Init( &sb, __func__, xrcon.rx_buffer, xrcon.rx_pos );
+			MSG_ReadBytes( &sb, &type, sizeof( type ), 4 );
 			uint32_t version = ntohl( MSG_ReadDword( &sb ));
 			uint16_t total_len = ntohs( MSG_ReadWord( &sb ));
 			uint16_t handle = ntohs( MSG_ReadWord( &sb ));
@@ -316,7 +322,7 @@ static void XRcon_ProcessRxData( void )
 			if( version != XRCON_CMND_VERSION && version != 0x00D40000 ) // hack for CS2RemoteConsole client
 				Con_Printf( S_WARN "%s: unexpected version 0x%08X\n", __func__, version );
 
-			memcpy( xrcon.parser.frame.type, type, sizeof( xrcon.parser.frame.type ));
+			xrcon.parser.frame.type = type;
 			xrcon.parser.frame.version = version;
 			xrcon.parser.frame.length = total_len;
 			xrcon.parser.frame.handle = handle;
@@ -332,7 +338,7 @@ static void XRcon_ProcessRxData( void )
 			if( xrcon.rx_pos < payload_length )
 				return;
 
-			if( Q_strcmp( xrcon.parser.frame.type, "CMND" ) == 0 )
+			if( xrcon.parser.frame.type == XRCON_TYPE_CMND )
 			{
 				char cmd[XRCON_MAX_FRAME_SIZE];
 				size_t cmd_len = Q_min( payload_length, sizeof( cmd ) - 1 );
@@ -342,7 +348,7 @@ static void XRcon_ProcessRxData( void )
 			}
 			else
 			{
-				Con_Printf( S_WARN "%s: unknown message type \"%s\"\n", __func__, xrcon.parser.frame.type );
+				Con_Printf( S_WARN "%s: unknown message type 0x%08x\n", __func__, xrcon.parser.frame.type );
 			}
 
 			xrcon.parser.state = XRCON_PARSER_WAIT_HEADER;
@@ -429,7 +435,7 @@ static void XRcon_FlushPrintBuffer( void )
 
 	MSG_WriteBytes( &sb, xrcon.print_buffer, xrcon.print_pos );
 	MSG_WriteByte( &sb, 0 );
-	XRcon_SendPacket( "PRNT", body, MSG_GetRealBytesWritten( &sb ));
+	XRcon_SendPacket( XRCON_TYPE_PRNT, body, MSG_GetRealBytesWritten( &sb ));
 
 	xrcon.print_pos = 0;
 	xrcon.print_buffer[0] = '\0';
