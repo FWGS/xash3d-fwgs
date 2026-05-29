@@ -1289,6 +1289,10 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		p = n;
 	}
 
+	// buffers consumed, now reset incomingbufs
+	chan->incomingbufs[FRAG_FILE_STREAM] = NULL;
+	chan->incomingready[FRAG_FILE_STREAM] = false;
+
 	if( chan->gs_netchan && chan->use_bz2 && !Q_stricmp( compressor, "bz2" ))
 	{
 #if !XASH_DEDICATED
@@ -1296,7 +1300,6 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		{
 			Con_Printf( S_ERROR "BZ2 fragment uncompressed size out of range: %u for %s\n", uncompressedSize, filename );
 			Mem_Free( buffer );
-			Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
 			return false;
 		}
 
@@ -1308,7 +1311,6 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 			Con_DPrintf( S_ERROR "BZ2 decompression failed for %s\n", filename );
 			Mem_Free( buffer );
 			Mem_Free( uncompressedBuffer );
-			Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
 			return false;
 		}
 		Mem_Free( buffer );
@@ -1326,7 +1328,6 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 		{
 			Con_Printf( S_ERROR "LZSS fragment uncompressed size out of range: %u for %s\n", uncompressedSize, filename );
 			Mem_Free( buffer );
-			Netchan_FlushIncoming( chan, FRAG_FILE_STREAM );
 			return false;
 		}
 
@@ -1355,9 +1356,6 @@ qboolean Netchan_CopyFileFragments( netchan_t *chan, sizebuf_t *msg )
 
 	// clear remnants
 	MSG_Clear( msg );
-
-	chan->incomingbufs[FRAG_FILE_STREAM] = NULL;
-	chan->incomingready[FRAG_FILE_STREAM] = false;
 
 	return true;
 }
