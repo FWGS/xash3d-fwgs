@@ -26,7 +26,7 @@ GNU General Public License for more details.
 #define XRCON_CHAN_RECORD_SIZE	58
 #define XRCON_CHAN_NAME_SIZE	34
 #define XRCON_AINF_PACKET_SIZE	77
-#define XRCON_MAX_PACKET_SIZE	(XRCON_HEADER_SIZE + 4 + 24 + XRCON_PRINT_BUFFER_SIZE)
+#define XRCON_MAX_PACKET_SIZE	(XRCON_HEADER_SIZE + 4 + 24 + XRCON_PRINT_BUFFER_SIZE + 1)
 #define XRCON_FLUSH_INTERVAL	0.05
 #define XRCON_RETRY_DELAY		5.0
 
@@ -131,7 +131,7 @@ static qboolean XRcon_SendPacket( const char *type, const void *body, size_t bod
 	MSG_Init( &sb, __func__, frame, sizeof( frame ));
 	MSG_WriteBytes( &sb, type, 4 );
 	MSG_WriteDword( &sb, htonl( XRCON_CMND_VERSION ));
-	MSG_WriteWord( &sb, htons( (short)total_len ));
+	MSG_WriteWord( &sb, htons((short)total_len ));
 	MSG_WriteWord( &sb, 0 ); // handle
 
 	if( body && body_len > 0 )
@@ -412,7 +412,7 @@ static void XRcon_FlushPrintBuffer( void )
 		return;
 
 	sizebuf_t sb;
-	uint8_t body[4 + 24 + XRCON_PRINT_BUFFER_SIZE];
+	uint8_t body[4 + 24 + XRCON_PRINT_BUFFER_SIZE + 1];
 	
 	MSG_Init( &sb, __func__, body, sizeof( body ));
 	MSG_WriteDword( &sb, 0 ); // channel_id = 0 (Console)
@@ -428,6 +428,7 @@ static void XRcon_FlushPrintBuffer( void )
 	MSG_WriteByte( &sb, 255 );
 
 	MSG_WriteBytes( &sb, xrcon.print_buffer, xrcon.print_pos );
+	MSG_WriteByte( &sb, 0 );
 	XRcon_SendPacket( "PRNT", body, MSG_GetRealBytesWritten( &sb ));
 
 	xrcon.print_pos = 0;
