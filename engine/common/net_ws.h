@@ -77,6 +77,7 @@ void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr );
 qboolean NET_IsSocketError( int retval );
 qboolean NET_IsSocketValid( int socket );
 qboolean NET_MakeSocketNonBlocking( int socket_fd );
+qboolean NET_MakeSocketReuseAddr( int socket_fd );
 
 static inline qboolean NET_IsLocalAddress( netadr_t adr )
 {
