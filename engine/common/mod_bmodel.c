@@ -601,7 +601,7 @@ const mclipnode32_t box_clipnodes32[6] = { BOX_CLIPNODES_INITIALIZER };
 ===============================================================================
 */
 
-static mip_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
+static const byte *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i, mip_t *out )
 {
 	if( i < 0 || i >= bmod->textures->nummiptex )
 		return NULL;
@@ -609,7 +609,9 @@ static mip_t *Mod_GetMipTexForTexture( dbspmodel_t *bmod, int i )
 	if( bmod->textures->dataofs[i] == -1 )
 		return NULL;
 
-	return (mip_t *)((byte *)bmod->textures + bmod->textures->dataofs[i] );
+	const byte *raw = (byte *)bmod->textures + bmod->textures->dataofs[i];
+	memcpy( out, raw, sizeof( *out ));
+	return raw;
 }
 
 // Returns index of WAD that texture was found in, or -1 if not found.
@@ -669,13 +671,13 @@ static fs_offset_t Mod_CalculateMipTexSize( const mip_t *mt, qboolean palette )
 
 static qboolean Mod_CalcMipTexUsesCustomPalette( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 {
-	mip_t *mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
+	mip_t mipTex;
 
-	if( !mipTex || mipTex->offsets[0] <= 0 )
+	if( !Mod_GetMipTexForTexture( bmod, textureIndex, &mipTex ) || mipTex.offsets[0] <= 0 )
 		return false;
 
 	// Calculate the size assuming we are not using a custom palette.
-	fs_offset_t size = Mod_CalculateMipTexSize( mipTex, false );
+	fs_offset_t size = Mod_CalculateMipTexSize( &mipTex, false );
 	fs_offset_t remainingBytes;
 
 	// Compute next data offset to determine allocated miptex space
@@ -2784,21 +2786,22 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// don't load texture data on dedicated server, as there is no renderer.
 	// but count the wadusage for automatic precache
 	texture_t *texture = mod->textures[textureIndex];
-	const mip_t *mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
+	mip_t mipTex;
+	const byte *mipRaw = Mod_GetMipTexForTexture( bmod, textureIndex, &mipTex );
 	const qboolean usesCustomPalette = Mod_CalcMipTexUsesCustomPalette( mod, bmod, textureIndex );
-	const qboolean iswater = Mod_LooksLikeWaterTexture( mipTex->name );
+	const qboolean iswater = Mod_LooksLikeWaterTexture( mipTex.name );
 	const uint texture_force_flags = r_allow_wad3_luma.value ? IL_ALLOW_WAD3_LUMA : 0;
 
 	// check for multi-layered sky texture (quake1 specific)
-	if( bmod->isworld && Q_strncmp( mipTex->name, "sky", 3 ) == 0 && ( mipTex->width / mipTex->height ) == 2 )
+	if( bmod->isworld && Q_strncmp( mipTex.name, "sky", 3 ) == 0 && ( mipTex.width / mipTex.height ) == 2 )
 	{
-		Mod_InitSkyClouds( mod, mipTex, texture, usesCustomPalette ); // load quake sky
+		Mod_InitSkyClouds( mod, &mipTex, texture, usesCustomPalette ); // load quake sky
 		return;
 	}
 
 	// FIXME: for ENGINE_IMPROVED_LINETRACE we need to load textures on server too
 	// but there is no facility for this yet
-	if( FBitSet( host.features, ENGINE_IMPROVED_LINETRACE ) && mipTex->name[0] == '{' )
+	if( FBitSet( host.features, ENGINE_IMPROVED_LINETRACE ) && mipTex.name[0] == '{' )
 		SetBits( txFlags, TF_KEEP_SOURCE ); // Paranoia2 texture alpha-tracing
 
 	// check if this is water to keep the source texture and expand it to RGBA (so ripple effect works)
@@ -2811,7 +2814,7 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// 3. Internal from map
 
 	texture->gl_texturenum = 0;
-	Q_strncpy( safemtname, mipTex->name, sizeof( safemtname ));
+	Q_strncpy( safemtname, mipTex.name, sizeof( safemtname ));
 	if( safemtname[0] == '*' )
 		safemtname[0] = '!'; // replace unexpected symbol
 
@@ -2828,10 +2831,10 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	}
 
 	// Try WAD texture (force while r_wadtextures is 1)
-	if( !texture->gl_texturenum && (( r_wadtextures.value && world.wadcount > 0 ) || mipTex->offsets[0] <= 0 ))
+	if( !texture->gl_texturenum && (( r_wadtextures.value && world.wadcount > 0 ) || mipTex.offsets[0] <= 0 ))
 	{
 		rgbdata_t *pic = NULL;
-		int wad_index = Mod_LoadTextureFromWadList( world.wadlist, world.wadcount, mipTex->name, Host_IsDedicated() ? NULL : &pic, texpath, sizeof( texpath ));
+		int wad_index = Mod_LoadTextureFromWadList( world.wadlist, world.wadcount, mipTex.name, Host_IsDedicated() ? NULL : &pic, texpath, sizeof( texpath ));
 
 		if( wad_index >= 0 )
 		{
@@ -2853,20 +2856,20 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 		return;
 
 	// WAD failed, so use internal texture (if present)
-	if( mipTex->offsets[0] > 0 && texture->gl_texturenum == 0 )
+	if( mipTex.offsets[0] > 0 && texture->gl_texturenum == 0 )
 	{
 		string texName;
-		const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
+		const size_t size = Mod_CalculateMipTexSize( &mipTex, usesCustomPalette );
 
-		Q_snprintf( texName, sizeof( texName ), "#%s:%s.mip", loadstat.name, mipTex->name );
+		Q_snprintf( texName, sizeof( texName ), "#%s:%s.mip", loadstat.name, mipTex.name );
 		Image_SetForceFlags( texture_force_flags | IL_HOST_ENDIAN );
-		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte *)mipTex, size, txFlags );
+		texture->gl_texturenum = ref.dllFuncs.GL_LoadTexture( texName, mipRaw, size, txFlags );
 	}
 
 	// If texture is completely missed:
 	if( texture->gl_texturenum == 0 )
 	{
-		Con_DPrintf( S_ERROR "Unable to find %s.mip\n", mipTex->name );
+		Con_DPrintf( S_ERROR "Unable to find %s.mip\n", mipTex.name );
 		texture->gl_texturenum = R_GetBuiltinTexture( REF_DEFAULT_TEXTURE );
 	}
 
@@ -2890,14 +2893,14 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	{
 		string texName;
 
-		Q_snprintf( texName, sizeof( texName ), "#%s:%s_luma.mip", loadstat.name, mipTex->name );
+		Q_snprintf( texName, sizeof( texName ), "#%s:%s_luma.mip", loadstat.name, mipTex.name );
 
 		Image_SetForceFlags( texture_force_flags | IL_HOST_ENDIAN );
 
-		if( mipTex->offsets[0] > 0 )
+		if( mipTex.offsets[0] > 0 )
 		{
-			const size_t size = Mod_CalculateMipTexSize( mipTex, usesCustomPalette );
-			texture->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texName, (byte *)mipTex, size, TF_MAKELUMA );
+			const size_t size = Mod_CalculateMipTexSize( &mipTex, usesCustomPalette );
+			texture->fb_texturenum = ref.dllFuncs.GL_LoadTexture( texName, mipRaw, size, TF_MAKELUMA );
 		}
 		else
 		{
@@ -2925,9 +2928,10 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 	if( textureIndex < 0 || textureIndex >= mod->numtextures )
 		return;
 
-	mip_t *mipTex = Mod_GetMipTexForTexture( bmod, textureIndex );
+	mip_t mipTex;
+	const byte *mipRaw = Mod_GetMipTexForTexture( bmod, textureIndex, &mipTex );
 
-	if( !mipTex )
+	if( !mipRaw )
 	{
 		// No data for this texture.
 		// Create default texture (some mods require this).
@@ -2935,17 +2939,20 @@ static void Mod_LoadTexture( model_t *mod, dbspmodel_t *bmod, int textureIndex )
 		return;
 	}
 
-	if( mipTex->name[0] == '\0' )
-		Q_snprintf( mipTex->name, sizeof( mipTex->name ), "miptex_%i", textureIndex );
+	if( mipTex.name[0] == '\0' )
+	{
+		Q_snprintf( mipTex.name, sizeof( mipTex.name ), "miptex_%i", textureIndex );
+		memcpy((char *)mipRaw, mipTex.name, sizeof( mipTex.name ));
+	}
 
 	texture_t *texture = (texture_t *)Mem_Calloc( mod->mempool, sizeof( *texture ));
 	mod->textures[textureIndex] = texture;
 
 	// Ensure texture name is lowercase.
-	Q_strnlwr( mipTex->name, texture->name, sizeof( texture->name ));
+	Q_strnlwr( mipTex.name, texture->name, sizeof( texture->name ));
 
-	texture->width = mipTex->width;
-	texture->height = mipTex->height;
+	texture->width = mipTex.width;
+	texture->height = mipTex.height;
 
 	Mod_LoadTextureData( mod, bmod, textureIndex );
 }
