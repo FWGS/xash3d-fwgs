@@ -517,7 +517,6 @@ void Sys_Print( const char *pMsg )
 	Sys_PrintLog( pMsg );
 
 	Rcon_Print( &host.rd, pMsg );
-	XRcon_Print( pMsg );
 }
 
 /*

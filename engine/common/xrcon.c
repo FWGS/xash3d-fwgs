@@ -38,6 +38,8 @@ GNU General Public License for more details.
 
 static CVAR_DEFINE_AUTO( xrcon_enable, "0", FCVAR_PRIVILEGED, "enable remote console access server" );
 static CVAR_DEFINE_AUTO( xrcon_address, "127.0.0.1:27000", FCVAR_PRIVILEGED, "XRCON server bind address and port" );
+static CVAR_DEFINE_AUTO( xrcon_flush_interval, "0.05", FCVAR_PRIVILEGED, "seconds between flushes of pending console output to the XRCON client" );
+static CVAR_DEFINE_AUTO( xrcon_retry_delay, "5.0", FCVAR_PRIVILEGED, "seconds to wait before retrying to bind the XRCON listen socket after a failure" );
 
 typedef enum
 {
@@ -368,9 +370,8 @@ static void XRcon_HandleDataTx( void )
 	{
 		int err = WSAGetLastError();
 		if( err != WSAEWOULDBLOCK && err != WSAEALREADY )
-		{ 
 			XRcon_DisconnectClient();
-		}
+
 		return;
 	}
 
@@ -516,7 +517,7 @@ static void XRcon_UpdateConnected( void )
 	if( xrcon.print_pos > 0 && Platform_DoubleTime() >= xrcon.print_flush_time )
 	{
 		XRcon_FlushPrintBuffer();
-		xrcon.print_flush_time = Platform_DoubleTime() + XRCON_FLUSH_INTERVAL;
+		xrcon.print_flush_time = Platform_DoubleTime() + xrcon_flush_interval.value;
 	}
 }
 
@@ -526,7 +527,7 @@ static void XRcon_UpdateIdle( void )
 		return;
 
 	XRcon_StartListening();
-	xrcon.retry_timeout = Platform_DoubleTime() + XRCON_RETRY_DELAY;
+	xrcon.retry_timeout = Platform_DoubleTime() + xrcon_retry_delay.value;
 }
 
 void XRcon_Print( const char *msg )
@@ -534,63 +535,29 @@ void XRcon_Print( const char *msg )
 	if( xrcon.state != XRCON_STATE_CONNECTED )
 		return;
 
-	if( !msg || !*msg )
+	if( !msg )
 		return;
 
-	const char *p = msg;
-	while( p && *p )
+	while( *msg )
 	{
-		p = Q_strpbrk( msg, "^\n\r" );
-		if( p == NULL )
-		{
-			size_t length = Q_strlen( msg );
-			if( xrcon.print_pos + length < sizeof( xrcon.print_buffer ) - 1 )
-			{
-				memcpy( xrcon.print_buffer + xrcon.print_pos, msg, length );
-				xrcon.print_pos += length;
-			}
-			break;
-		}
-		else if( *p == '\n' || *p == '\r' )
-		{
-			size_t length = p - msg;
-			if( xrcon.print_pos + length < sizeof( xrcon.print_buffer ) - 1 )
-			{
-				memcpy( xrcon.print_buffer + xrcon.print_pos, msg, length );
-				xrcon.print_pos += length;
-			}
+		const char *p = Q_strchrnul( msg, '\n' );
+		size_t length = p - msg;
 
-			if( xrcon.print_pos > 0 )
-			{
-				XRcon_FlushPrintBuffer();
-				xrcon.print_flush_time = Platform_DoubleTime() + XRCON_FLUSH_INTERVAL;
-			}
-			msg = p + 1;
-		}
-		else if( IsColorString( p ))
+		if( xrcon.print_pos + length < sizeof( xrcon.print_buffer ) - 1 )
 		{
-			if( p != msg )
-			{
-				size_t length = p - msg;
-				if( xrcon.print_pos + length < sizeof( xrcon.print_buffer ) - 1 )
-				{
-					memcpy( xrcon.print_buffer + xrcon.print_pos, msg, length );
-					xrcon.print_pos += length;
-				}
-				
-			}
-			msg = p + 2;
+			memcpy( xrcon.print_buffer + xrcon.print_pos, msg, length );
+			xrcon.print_pos += length;
 		}
-		else
+
+		if( *p == '\0' )
+			return;
+
+		if( xrcon.print_pos > 0 )
 		{
-			size_t length = p - msg + 1;
-			if( xrcon.print_pos + length < sizeof( xrcon.print_buffer ) - 1 )
-			{
-				memcpy( xrcon.print_buffer + xrcon.print_pos, msg, length );
-				xrcon.print_pos += length;
-			}
-			msg = p + 1;
+			XRcon_FlushPrintBuffer();
+			xrcon.print_flush_time = Platform_DoubleTime() + xrcon_flush_interval.value;
 		}
+		msg = p + 1;
 	}
 }
 
@@ -649,6 +616,8 @@ void XRcon_Init( void )
 
 	Cvar_RegisterVariable( &xrcon_enable );
 	Cvar_RegisterVariable( &xrcon_address );
+	Cvar_RegisterVariable( &xrcon_flush_interval );
+	Cvar_RegisterVariable( &xrcon_retry_delay );
 	NET_NetadrSetType( &xrcon.bindadr, NA_UNDEFINED );
 }
 
@@ -657,4 +626,9 @@ void XRcon_Shutdown( void )
 	XRcon_DisconnectClient();
 	XRcon_CloseListenSocket();
 	XRcon_SetState( XRCON_STATE_IDLE );
+}
+
+qboolean XRcon_IsActive( void )
+{
+	return xrcon.state == XRCON_STATE_CONNECTED;
 }

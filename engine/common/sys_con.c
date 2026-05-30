@@ -167,7 +167,6 @@ void Sys_CloseLog( const char *finalmsg )
 	s_ld.logfile = NULL;
 }
 
-#if XASH_COLORIZE_CONSOLE
 static qboolean Sys_WriteEscapeSequenceForColorcode( int fd, int c )
 {
 	static const char *q3ToAnsi[ 8 ] =
@@ -185,14 +184,8 @@ static qboolean Sys_WriteEscapeSequenceForColorcode( int fd, int c )
 
 	return write( fd, esc, c == 7 ? 4 : 7 ) < 0 ? false : true;
 }
-#else
-static qboolean Sys_WriteEscapeSequenceForColorcode( int fd, int c )
-{
-	return true;
-}
-#endif
 
-static void Sys_PrintLogfile( const int fd, const char *logtime, size_t logtime_len, const char *msg, const int colorize )
+static void Sys_PrintLogfile( const int fd, const char *logtime, size_t logtime_len, const char *msg, qboolean colorize )
 {
 	const char *p = msg;
 
@@ -202,6 +195,17 @@ static void Sys_PrintLogfile( const int fd, const char *logtime, size_t logtime_
 		{
 			// not critical for us
 		}
+	}
+
+	if( !colorize )
+	{
+		if( write( fd, msg, Q_strlen( msg )) < 0 )
+		{
+			// don't call engine Msg, might cause recursion
+			fprintf( stderr, "%s: write failed: %s\n", __func__, strerror( errno ));
+		}
+
+		return;
 	}
 
 	while( p && *p )
@@ -226,8 +230,7 @@ static void Sys_PrintLogfile( const int fd, const char *logtime, size_t logtime_
 			}
 			msg = p + 2;
 
-			if( colorize )
-				Sys_WriteEscapeSequenceForColorcode( fd, ColorIndex( p[1] ));
+			Sys_WriteEscapeSequenceForColorcode( fd, ColorIndex( p[1] ));
 		}
 		else
 		{
@@ -238,73 +241,89 @@ static void Sys_PrintLogfile( const int fd, const char *logtime, size_t logtime_
 	}
 
 	// flush the color
-	if( colorize )
-		Sys_WriteEscapeSequenceForColorcode( fd, 7 );
+	Sys_WriteEscapeSequenceForColorcode( fd, 7 );
 }
 
-static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char *msg )
+static void Sys_WriteLogfile( int fd, const char *logtime, size_t logtime_len, const char *msg )
 {
-#if XASH_MOBILE_PLATFORM
-	static char buf[MAX_PRINT_MSG];
+	if( logtime_len != 0 )
+	{
+		if( write( fd, logtime, logtime_len ) < 0 )
+		{
+			// not critical for us
+		}
+	}
 
-	// strip color codes
-	COM_StripColors( msg, buf );
+}
 
-	// platform-specific output
+static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char *msg, const char *stripped )
+{
 #if XASH_ANDROID && !XASH_DEDICATED
-	__android_log_write( ANDROID_LOG_INFO, "Xash", buf );
+	__android_log_write( ANDROID_LOG_INFO, "Xash", stripped );
 #endif // XASH_ANDROID && !XASH_DEDICATED
 
 #if TARGET_OS_IOS
 	void IOS_Log( const char * );
-	IOS_Log( buf );
+	IOS_Log( stripped );
 #endif // TARGET_OS_IOS
 
 #if XASH_NSWITCH && NSWITCH_DEBUG
 	// just spew it to stderr normally in debug mode
-	fprintf( stderr, "%s %s", logtime, buf );
+	fprintf( stderr, "%s %s", logtime, stripped );
 #endif // XASH_NSWITCH && NSWITCH_DEBUG
 
 #if XASH_PSVITA
 	// spew to stderr only in developer mode
 	if( host_developer.value )
 	{
-		fprintf( stderr, "%s %s", logtime, buf );
+		fprintf( stderr, "%s %s", logtime, stripped );
 	}
 #endif
 
-#elif !XASH_WIN32 // Wcon does the job
-	Sys_PrintLogfile( STDOUT_FILENO, logtime, logtime_len, msg, XASH_COLORIZE_CONSOLE );
+#if !XASH_MOBILE_PLATFORM && !XASH_WIN32 // Wcon does the job
+	Sys_PrintLogfile( STDOUT_FILENO, logtime, logtime_len, XASH_COLORIZE_CONSOLE ? msg : stripped, XASH_COLORIZE_CONSOLE );
 	Sys_FlushStdout();
 #endif
+
+	XRcon_Print( stripped );
 }
 
 void Sys_PrintLog( const char *pMsg )
 {
-	const struct tm *crt_tm = NULL;
-	char logtime[32] = "";
 	static char lastchar;
-	qboolean print_time = false;
-	size_t logtime_len = 0;
 
+	const struct tm *crt_tm = NULL;
 	if( !lastchar || lastchar == '\n' )
 	{
 		time_t crt_time;
 		if( time( &crt_time ) >= 0 )
-		{
 			crt_tm = localtime( &crt_time );
-			print_time = crt_tm != NULL;
-		}
 	}
 
-	if( print_time )
+	char logtime[32] = "";
+	size_t logtime_len = 0;
+	if( crt_tm != NULL )
 	{
 		logtime_len = strftime( logtime, sizeof( logtime ), "[%H:%M:%S] ", crt_tm ); // short time
 		logtime_len = Q_min( logtime_len, sizeof( logtime ) - 1 ); // just in case
 	}
 
+#if !XASH_WIN32 && !XASH_COLORIZE_CONSOLE
+	qboolean need_strip = true; // stdout sink can't render ^N, must strip first
+#else
+	qboolean need_strip = s_ld.logfile != NULL || XRcon_IsActive();
+#endif
+
+	const char *log_msg = pMsg;
+	if( need_strip )
+	{
+		static char stripped[MAX_PRINT_MSG];
+		COM_StripColors( pMsg, stripped );
+		log_msg = stripped;
+	}
+
 	// spew to stdout
-	Sys_PrintStdout( logtime, logtime_len, pMsg );
+	Sys_PrintStdout( logtime, logtime_len, pMsg, log_msg );
 
 	size_t len = Q_strlen( pMsg );
 
@@ -314,7 +333,7 @@ void Sys_PrintLog( const char *pMsg )
 	// spew to engine.log
 	if( s_ld.logfile )
 	{
-		if( s_ld.log_time && print_time )
+		if( s_ld.log_time && crt_tm != NULL )
 		{
 			logtime_len = strftime( logtime, sizeof( logtime ), "[%Y:%m:%d|%H:%M:%S] ", crt_tm ); //full time
 			logtime_len = Q_min( logtime_len, sizeof( logtime ) - 1 ); // just in case
@@ -325,7 +344,7 @@ void Sys_PrintLog( const char *pMsg )
 			logtime_len = 0;
 		}
 
-		Sys_PrintLogfile( s_ld.logfileno, logtime, logtime_len, pMsg, false );
+		Sys_WriteLogfile( s_ld.logfileno, logtime, logtime_len, log_msg );
 		Sys_FlushLogfile();
 	}
 }
