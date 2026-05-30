@@ -333,6 +333,7 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 
 // from server to any
 #define S2A_GOLDSRC_INFO    'I'
+#define S2A_GOLDSRC_LEGACY_INFO 'm'
 #define S2A_GOLDSRC_RULES   'E'
 #define S2A_GOLDSRC_PLAYERS 'D'
 
