@@ -18,23 +18,30 @@ GNU General Public License for more details.
 #include "net_ws_private.h"
 #include "net_buffer.h"
 
-#define XRCON_TYPE_CMND HostFourCC( 'C', 'M', 'N', 'D' )
-#define XRCON_TYPE_CHAN HostFourCC( 'C', 'H', 'A', 'N' )
-#define XRCON_TYPE_AINF HostFourCC( 'A', 'I', 'N', 'F' )
-#define XRCON_TYPE_ADON HostFourCC( 'A', 'D', 'O', 'N' )
-#define XRCON_TYPE_PRNT HostFourCC( 'P', 'R', 'N', 'T' )
+#define XRCON_TYPE_CMND          HostFourCC( 'C', 'M', 'N', 'D' )
+#define XRCON_TYPE_CHAN          HostFourCC( 'C', 'H', 'A', 'N' )
+#define XRCON_TYPE_AINF          HostFourCC( 'A', 'I', 'N', 'F' )
+#define XRCON_TYPE_ADON          HostFourCC( 'A', 'D', 'O', 'N' )
+#define XRCON_TYPE_PRNT          HostFourCC( 'P', 'R', 'N', 'T' )
 
-#define XRCON_HEADER_SIZE		12
-#define XRCON_MAX_FRAME_SIZE	4096
-#define XRCON_PRINT_BUFFER_SIZE	4096
-#define XRCON_TX_BUFFER_SIZE	(XRCON_MAX_FRAME_SIZE * 4)
-#define XRCON_CMND_VERSION		0x000000D4
-#define XRCON_CHAN_RECORD_SIZE	58
-#define XRCON_CHAN_NAME_SIZE	34
-#define XRCON_AINF_PACKET_SIZE	77
-#define XRCON_MAX_PACKET_SIZE	(XRCON_HEADER_SIZE + 4 + 24 + XRCON_PRINT_BUFFER_SIZE + 1)
-#define XRCON_FLUSH_INTERVAL	0.05
-#define XRCON_RETRY_DELAY		5.0
+#define XRCON_CMND_VERSION       0x000000D4
+#define XRCON_CMND_VERSION_CS2RC 0x00D40000 // CS2RemoteConsole <= 1.3.0 byte-slot bug
+
+// type (u32) + version (u32) + length (u16) + handle (u16)
+#define XRCON_HEADER_SIZE        ( sizeof( uint32_t ) * 2 + sizeof( uint16_t ) * 2 )
+// hardcoded size for channel name, including null terminator
+#define XRCON_CHAN_NAME_SIZE     34
+// unknowns[19] (u32) + padding (u8)
+#define XRCON_AINF_PACKET_SIZE   ( sizeof( uint32_t ) * 19 + sizeof( uint8_t ) )
+// channel_id (u32) + padding (u32[5]) + RGBA (u32)
+#define XRCON_PRNT_HEADER_SIZE   ( sizeof( uint32_t ) * 7 )
+
+#define XRCON_MAX_FRAME_SIZE     4096 // an arbitrary number, should be enough for everything
+#define XRCON_PRINT_BUFFER_SIZE  4096
+#define XRCON_MAX_PACKET_SIZE    ( XRCON_HEADER_SIZE + XRCON_PRNT_HEADER_SIZE + XRCON_PRINT_BUFFER_SIZE )
+
+#define XRCON_TX_BUFFER_SIZE     ( XRCON_MAX_FRAME_SIZE * 4 )
+#define XRCON_RX_BUFFER_SIZE     ( XRCON_MAX_FRAME_SIZE + 64 )
 
 static CVAR_DEFINE_AUTO( xrcon_enable, "0", FCVAR_PRIVILEGED, "enable remote console access server" );
 static CVAR_DEFINE_AUTO( xrcon_address, "127.0.0.1:27000", FCVAR_PRIVILEGED, "XRCON server bind address and port" );
@@ -72,7 +79,7 @@ typedef struct
 	uint32_t tx_pos;
 	uint32_t rx_pos;
 	uint8_t tx_buffer[XRCON_TX_BUFFER_SIZE];
-	uint8_t rx_buffer[XRCON_MAX_FRAME_SIZE + 64];
+	uint8_t rx_buffer[XRCON_RX_BUFFER_SIZE];
 	
 	char print_buffer[XRCON_PRINT_BUFFER_SIZE];
 	uint32_t print_pos;
@@ -128,7 +135,6 @@ static qboolean XRcon_SendPacket( uint32_t type, const void *body, size_t body_l
 {
 	size_t total_len = XRCON_HEADER_SIZE + body_len;
 	uint8_t frame[XRCON_MAX_PACKET_SIZE];
-	sizebuf_t sb;
 
 	if( total_len > sizeof( frame ))
 	{
@@ -136,6 +142,7 @@ static qboolean XRcon_SendPacket( uint32_t type, const void *body, size_t body_l
 		return false;
 	}
 
+	sizebuf_t sb;
 	MSG_Init( &sb, __func__, frame, sizeof( frame ));
 	MSG_WriteBytes( &sb, &type, 4 );
 	MSG_WriteDword( &sb, htonl( XRCON_CMND_VERSION ));
@@ -181,10 +188,7 @@ static qboolean XRcon_SendPacket( uint32_t type, const void *body, size_t body_l
 static void XRcon_SendCHAN( void )
 {
 	sizebuf_t sb;
-	uint8_t body[2 + XRCON_CHAN_RECORD_SIZE];
-	char channel_name[XRCON_CHAN_NAME_SIZE] = { 0 };
-
-	Q_strncpy( channel_name, "Console", sizeof( channel_name ));
+	uint8_t body[256];
 
 	MSG_Init( &sb, __func__, body, sizeof( body ));
 	MSG_WriteWord( &sb, htons( 1 )); // channels count
@@ -195,32 +199,35 @@ static void XRcon_SendCHAN( void )
 	MSG_WriteDword( &sb, htonl( 5 )); // verbosity_current
 
 	// RGBA = white
-	MSG_WriteByte( &sb, 255 );
-	MSG_WriteByte( &sb, 255 );
-	MSG_WriteByte( &sb, 255 );
-	MSG_WriteByte( &sb, 255 );
+	MSG_WriteDword( &sb, 0xFFFFFFFF );
 
-	MSG_WriteBytes( &sb, channel_name, sizeof( channel_name ));
+	const char *channel_name = "Console";
+	MSG_WriteString( &sb, channel_name );
+
+	size_t name_padding = XRCON_CHAN_NAME_SIZE - Q_strlen( channel_name ) - 1;
+	for( size_t i = 0; i < name_padding; i++ )
+		MSG_WriteByte( &sb, 0 );
+
 	XRcon_SendPacket( XRCON_TYPE_CHAN, body, MSG_GetRealBytesWritten( &sb ));
 }
 
 static void XRcon_SendAINF( void )
 {
-	uint8_t data[XRCON_AINF_PACKET_SIZE] = { 0 };
-	XRcon_SendPacket( XRCON_TYPE_AINF, data, sizeof( data ));
+	uint8_t body[XRCON_AINF_PACKET_SIZE] = { 0 };
+	XRcon_SendPacket( XRCON_TYPE_AINF, body, sizeof( body ));
 }
 
 static void XRcon_SendADON( const char *name )
 {
 	sizebuf_t sb;
-	uint8_t data[512];
+	uint8_t body[256];
 	size_t len = Q_strlen( name );
 
-	MSG_Init( &sb, __func__, data, sizeof( data ));
+	MSG_Init( &sb, __func__, body, sizeof( body ));
 	MSG_WriteWord( &sb, htons( 0 ));
 	MSG_WriteWord( &sb, htons( len ));
 	MSG_WriteBytes( &sb, name, len );
-	XRcon_SendPacket( XRCON_TYPE_ADON, data, MSG_GetRealBytesWritten( &sb ));
+	XRcon_SendPacket( XRCON_TYPE_ADON, body, MSG_GetRealBytesWritten( &sb ));
 }
 
 static void XRcon_HandleCMND( const char *command )
@@ -321,7 +328,7 @@ static void XRcon_ProcessRxData( void )
 				return;
 			}
 
-			if( version != XRCON_CMND_VERSION && version != 0x00D40000 ) // hack for CS2RemoteConsole client
+			if( version != XRCON_CMND_VERSION && version != XRCON_CMND_VERSION_CS2RC )
 				Con_Printf( S_WARN "%s: unexpected version 0x%08X\n", __func__, version );
 
 			xrcon.parser.frame.type = type;
@@ -419,7 +426,7 @@ static void XRcon_FlushPrintBuffer( void )
 		return;
 
 	sizebuf_t sb;
-	uint8_t body[4 + 24 + XRCON_PRINT_BUFFER_SIZE + 1];
+	uint8_t body[XRCON_PRNT_HEADER_SIZE + XRCON_PRINT_BUFFER_SIZE];
 	
 	MSG_Init( &sb, __func__, body, sizeof( body ));
 	MSG_WriteDword( &sb, 0 ); // channel_id = 0 (Console)
@@ -429,10 +436,7 @@ static void XRcon_FlushPrintBuffer( void )
 		MSG_WriteDword( &sb, 0 );
 
 	// RGBA = white
-	MSG_WriteByte( &sb, 255 );
-	MSG_WriteByte( &sb, 255 );
-	MSG_WriteByte( &sb, 255 );
-	MSG_WriteByte( &sb, 255 );
+	MSG_WriteDword( &sb, 0xFFFFFFFF );
 
 	MSG_WriteBytes( &sb, xrcon.print_buffer, xrcon.print_pos );
 	MSG_WriteByte( &sb, 0 );
@@ -455,52 +459,51 @@ static void XRcon_UpdateListening( void )
 #else
 	int result = select( xrcon.listen_socket + 1, &readfds, NULL, NULL, &tv );
 #endif
-	if( result == SOCKET_ERROR )
+	if( NET_IsSocketError( result ))
 	{
 		Con_Printf( S_ERROR "%s: select() failed\n", __func__ );
 		return;
 	}
 
-	if( FD_ISSET( xrcon.listen_socket, &readfds ))
+	if( !FD_ISSET( xrcon.listen_socket, &readfds ))
+		return;
+
+	struct sockaddr_storage client_addr;
+	socklen_t addr_len = sizeof( client_addr );
+	SOCKET client = accept( xrcon.listen_socket, (struct sockaddr *)&client_addr, &addr_len );
+
+	if( !NET_IsSocketValid( client ))
 	{
-		struct sockaddr_storage client_addr;
-		socklen_t addr_len = sizeof( client_addr );
-		SOCKET client = accept( xrcon.listen_socket, (struct sockaddr *)&client_addr, &addr_len );
+		int err = WSAGetLastError();
+		if( err != WSAEWOULDBLOCK && err != WSAEINPROGRESS )
+			Con_Printf( S_ERROR "%s: accept() failed, error %s\n", __func__, NET_ErrorString( ));
 
-		if( !NET_IsSocketValid( client ))
-		{
-			int err = WSAGetLastError();
-			if( err != WSAEWOULDBLOCK && err != WSAEINPROGRESS )
-			{ 
-				Con_Printf( S_ERROR "%s: accept() failed, error %s\n", __func__, NET_ErrorString( ));
-			}
-			return;
-		}
-
-		if( !NET_MakeSocketNonBlocking( client ))
-		{
-			Con_Printf( S_ERROR "%s: failed to set client non-blocking\n", __func__ );
-			closesocket( client );
-			return;
-		}
-
-		xrcon.client_socket = client;
-		xrcon.print_pos = 0;
-		xrcon.print_buffer[0] = '\0';
-		xrcon.tx_pos = 0;
-		xrcon.rx_pos = 0;
-		xrcon.parser.state = XRCON_PARSER_WAIT_HEADER;
-		xrcon.print_flush_time = Platform_DoubleTime() + XRCON_FLUSH_INTERVAL;
-
-		netadr_t adr;
-		NET_SockadrToNetadr( &client_addr, &adr );
-		Con_Printf( S_NOTE "%s: connected client %s\n", __func__, NET_AdrToString( adr ));
-
-		XRcon_SendAINF();
-		XRcon_SendADON( "HLDS" );
-		XRcon_SendCHAN();
-		XRcon_SetState( XRCON_STATE_CONNECTED );
+		return;
 	}
+
+	if( !NET_MakeSocketNonBlocking( client ))
+	{
+		Con_Printf( S_ERROR "%s: failed to set client non-blocking\n", __func__ );
+		closesocket( client );
+		return;
+	}
+
+	xrcon.client_socket = client;
+	xrcon.print_pos = 0;
+	xrcon.print_buffer[0] = '\0';
+	xrcon.tx_pos = 0;
+	xrcon.rx_pos = 0;
+	xrcon.parser.state = XRCON_PARSER_WAIT_HEADER;
+	xrcon.print_flush_time = Platform_DoubleTime() + xrcon_flush_interval.value;
+
+	netadr_t adr;
+	NET_SockadrToNetadr( &client_addr, &adr );
+	Con_Printf( S_NOTE "%s: connected client %s\n", __func__, NET_AdrToString( adr ));
+
+	XRcon_SendAINF();
+	XRcon_SendADON( "HLDS" );
+	XRcon_SendCHAN();
+	XRcon_SetState( XRCON_STATE_CONNECTED );
 }
 
 static void XRcon_UpdateConnected( void )
