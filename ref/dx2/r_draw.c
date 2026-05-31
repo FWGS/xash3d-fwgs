@@ -16,11 +16,6 @@ GNU General Public License for more details.
 #include "r_local.h"
 #include "xash3d_mathlib.h"
 
-void R_Set2DMode( qboolean enable )
-{
-
-}
-
 void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
 	if (texnum <= 0 || texnum >= MAX_TEXTURES)
@@ -70,11 +65,11 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 
 		verts[0].color = VecToD3DCOLOR(dxc.currentColor);
 		D3D_SetVertTL(verts, x, y, 0.5, 1, s1, t1);
-		verts[1].color = VecToD3DCOLOR(dxc.currentColor);
+		verts[1].color = verts[0].color;
 		D3D_SetVertTL(verts + 1, x + w, y, 0.5, 1, s2, t1);
-		verts[2].color = VecToD3DCOLOR(dxc.currentColor);
+		verts[2].color = verts[0].color;
 		D3D_SetVertTL(verts + 2, x + w, y + h, 0.5, 1, s2, t2);
-		verts[3].color = VecToD3DCOLOR(dxc.currentColor);
+		verts[3].color = verts[0].color;
 		D3D_SetVertTL(verts + 3, x, y + h, 0.5, 1, s1, t2);
 
 		cur = (void*)(((D3DTLVERTEX*)cur) + vertCount);
@@ -82,10 +77,6 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 		void* insStart = cur;
 
 		D3D_PutProcessVertices(&cur, D3DPROCESSVERTICES_COPY | D3DPROCESSVERTICES_UPDATEEXTENTS, 0, vertCount);
-		// align
-		if (!(((ULONG)cur) & 7)) {
-			D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 0);
-		}
 
 		D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 3);
 		// TODO disable when == tr.whiteTexture
@@ -118,6 +109,11 @@ void R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, f
 		{
 			D3D_PutRenderState(&cur, D3DRENDERSTATE_BLENDENABLE, FALSE);
 			D3D_PutRenderState(&cur, D3DRENDERSTATE_ALPHATESTENABLE, FALSE);
+		}
+
+		// align
+		if (((ULONG)cur) & 7) {
+			D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 0);
 		}
 
 		D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 2);
@@ -161,3 +157,48 @@ void FillRGBA( int rendermode, float x, float y, float w, float h, byte r, byte 
 #endif
 }
 
+void R_Set2DMode( qboolean enable )
+{
+	if( enable && dxc.in2DMode )
+		return;
+	dxc.in2DMode = enable;
+
+	d3dEBContext_t ebc = { 0 };
+	if( !D3D_StartExecuteBuffer( &ebc ))
+		return;
+	void *cur = ebc.data;
+
+	if( enable )
+	{
+		D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 4);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_CULLMODE, D3DCULL_NONE);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_ZENABLE, FALSE);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_ZWRITEENABLE, FALSE);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_ALPHATESTENABLE, TRUE);
+		Vector4Set( dxc.currentColor, 1.0f, 1.0f, 1.0f, 1.0f );
+
+		RI.currententity = NULL;
+		RI.currentmodel = NULL;
+	}
+	else
+	{
+		D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 3);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_ZENABLE, TRUE);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_ZWRITEENABLE, TRUE);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_CULLMODE, D3DCULL_CCW);
+	}
+
+	ebc.vertCount = 0;
+	ebc.insOffset = 0;
+	ebc.insLength = ((char *)cur - (char *)ebc.data);
+
+	if (!D3D_EndExecuteBuffer(&ebc))
+		return;
+
+	DXCheck(IDirect3DDevice_BeginScene(dxc.pd3dd));
+	DXCheck(IDirect3DDevice_Execute(dxc.pd3dd, ebc.pd3deb, dxc.viewport, D3DEXECUTE_CLIPPED));
+	DXCheck(IDirect3DDevice_EndScene(dxc.pd3dd));
+
+	D3D_ReleaseExecuteBuffer(&ebc);
+
+}

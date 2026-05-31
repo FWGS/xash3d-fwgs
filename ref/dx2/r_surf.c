@@ -217,10 +217,6 @@ static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 	void* insStart = cur;
 
 	D3D_PutProcessVertices(&cur, D3DPROCESSVERTICES_TRANSFORM | D3DPROCESSVERTICES_UPDATEEXTENTS, 0, p->numverts);
-	// align
-	if (!(((ULONG)cur) & 7)) {
-		D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 0);
-	}
 
 	D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 4);
 	D3D_PutRenderState(&cur, D3DRENDERSTATE_TEXTUREHANDLE, dxc.currentTexture);
@@ -228,6 +224,10 @@ static void DrawGLPoly( glpoly2_t *p, float xScale, float yScale )
 	D3D_PutRenderState(&cur, D3DRENDERSTATE_BLENDENABLE, FALSE);
 	D3D_PutRenderState(&cur, D3DRENDERSTATE_ALPHATESTENABLE, FALSE);
 
+	// align
+	if (((ULONG)cur) & 7) {
+		D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), 0);
+	}
 	D3D_PutInstruction(&cur, D3DOP_TRIANGLE, sizeof(D3DTRIANGLE), p->numverts - 2);
 
 	for (i = 0; i < p->numverts; i++)

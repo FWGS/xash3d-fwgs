@@ -91,6 +91,22 @@ static qboolean DD_CreatePrimarySurface( void )
 
 static qboolean DD_CreateBackSurface( void )
 {
+	DDCAPS ddcaps =
+	{
+		.dwSize = sizeof(ddcaps)
+	};
+	DDCAPS helcaps =
+	{
+		.dwSize = sizeof(helcaps)
+	};
+	DXCheck(IDirectDraw_GetCaps(dxc.pdd, &ddcaps, &helcaps));
+	gEngfuncs.Con_Printf("IDirectDraw::GetCaps\n");
+	gEngfuncs.Con_Printf("ZBUFFER: %s\n", (ddcaps.ddsCaps.dwCaps & DDSCAPS_ZBUFFER) ? "- ^2enabled" : "- ^1failed");
+	if (ddcaps.ddsCaps.dwCaps & DDSCAPS_ZBUFFER)
+		gEngfuncs.Con_Printf("ZBufferBitDepths: 0x%X\n", ddcaps.dwZBufferBitDepths);
+	if (helcaps.ddsCaps.dwCaps & DDSCAPS_ZBUFFER)
+		gEngfuncs.Con_Printf("HEL ZBufferBitDepths: 0x%X\n", helcaps.dwZBufferBitDepths);
+
 	DDSURFACEDESC ddsd = { 0 };
 	memset(&ddsd, 0, sizeof(ddsd));
 	ddsd.dwSize = sizeof(ddsd);
@@ -127,6 +143,31 @@ static qboolean DD_CreateBackSurface( void )
 	DXCheck(IDirectDrawClipper_SetClipList(dxc.pddBackClipper, (RGNDATA *)&region, 0));
 	DXCheck(IDirectDrawSurface_SetClipper(dxc.pddsBack, dxc.pddBackClipper));
 
+	int bitDepths = ddcaps.dwZBufferBitDepths;
+	if (!bitDepths)
+		bitDepths = helcaps.dwZBufferBitDepths;
+	if( (ddcaps.ddsCaps.dwCaps & DDSCAPS_ZBUFFER) && bitDepths )
+	{
+		memset(&ddsd, 0, sizeof(ddsd));
+		ddsd.dwSize = sizeof(ddsd);
+		ddsd.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT | DDSD_ZBUFFERBITDEPTH;
+		ddsd.ddsCaps.dwCaps = DDSCAPS_ZBUFFER | DDSCAPS_VIDEOMEMORY;
+		ddsd.dwWidth = dxc.windowWidth;
+		ddsd.dwHeight = dxc.windowHeight;
+		ddsd.dwZBufferBitDepth = 16;
+		if(bitDepths & DDBD_16 )
+			ddsd.dwZBufferBitDepth = 16;
+		else if(bitDepths & DDBD_24 )
+			ddsd.dwZBufferBitDepth = 24;
+		else if(bitDepths & DDBD_32 )
+			ddsd.dwZBufferBitDepth = 32;
+		DXCheck(IDirectDraw_CreateSurface(dxc.pdd, &ddsd, &dxc.pddsZBuffer, NULL));
+		gEngfuncs.Con_Printf("IDirectDraw::CreateSurface(ZBUFFER %dbit) %p\n", ddsd.dwZBufferBitDepth, dxc.pddsZBuffer);
+		if( !dxc.pddsZBuffer )
+			return false;
+		DXCheck(IDirectDrawSurface_AddAttachedSurface(dxc.pddsBack, dxc.pddsZBuffer));
+	}
+
 	return true;
 }
 
@@ -135,13 +176,13 @@ static qboolean D3D_Init( void )
 	DXCheck(IDirectDraw_QueryInterface(dxc.pdd, &IID_IDirect3D, (void**)&dxc.pd3d));
 	gEngfuncs.Con_Printf("IDirectDraw::QueryInterface(IID_IDirect3D) %p\n", dxc.pd3d);
 
-	if (!dxc.pd3d)
+	if( !dxc.pd3d )
 		return false;
 
 	DXCheck(IDirect3D_CreateViewport(dxc.pd3d, &dxc.viewport, NULL));
 	gEngfuncs.Con_Printf("IDirect3D::CreateViewport %p\n", dxc.viewport);
 
-	if (!dxc.viewport)
+	if( !dxc.viewport )
 		return false;
 
 	return true;
@@ -149,7 +190,7 @@ static qboolean D3D_Init( void )
 
 static qboolean D3D_InitDevice( void )
 {
-	if (!dxc.pd3d)
+	if( !dxc.pd3d )
 		return false;
 
 	D3DFINDDEVICESEARCH search = { 0 };
@@ -168,9 +209,24 @@ static qboolean D3D_InitDevice( void )
 	DXCheck(IDirect3D_FindDevice(dxc.pd3d, &search, &result));
 	DXCheck(IDirectDrawSurface_QueryInterface(dxc.pddsBack, &result.guid, (void**)&dxc.pd3dd));
 	gEngfuncs.Con_Printf("IDirectDrawSurface::QueryInterface(IDirect3DDevice) %p\n", dxc.pd3dd);
+	gEngfuncs.Con_Printf("DeviceZBufferBitDepth: 0x%X\n", result.ddHwDesc.dwDeviceZBufferBitDepth);
+	gEngfuncs.Con_Printf("SW DeviceZBufferBitDepth: 0x%X\n", result.ddSwDesc.dwDeviceZBufferBitDepth);
 
-	if (!dxc.pd3dd)
+	if( !dxc.pd3dd )
 		return false;
+
+	D3DDEVICEDESC d3ddesc =
+	{
+		.dwSize = sizeof(d3ddesc)
+	};
+	D3DDEVICEDESC held3ddesc =
+	{
+		.dwSize = sizeof(held3ddesc)
+	};
+	DXCheck(IDirect3DDevice_GetCaps(dxc.pd3dd, &d3ddesc, &held3ddesc));
+	gEngfuncs.Con_Printf("IDirect3DDevice::GetCaps\n");
+	gEngfuncs.Con_Printf("DeviceZBufferBitDepth: 0x%X\n", result.ddHwDesc.dwDeviceZBufferBitDepth);
+	gEngfuncs.Con_Printf("HEL DeviceZBufferBitDepth: 0x%X\n", result.ddSwDesc.dwDeviceZBufferBitDepth);
 
 	D3DEXECUTEBUFFERDESC ebd = { 0 };
 	memset(&ebd, 0, sizeof(ebd));
@@ -221,6 +277,11 @@ static qboolean D3D_InitDevice( void )
 		D3D_PutInstruction(&cur, D3DOP_STATETRANSFORM, sizeof(D3DSTATE), 2);
 		D3D_PutTransformState(&cur, D3DTRANSFORMSTATE_WORLD, dxc.mtxWorld);
 		D3D_PutTransformState(&cur, D3DTRANSFORMSTATE_PROJECTION, dxc.mtxProjection);
+
+		D3D_PutInstruction(&cur, D3DOP_STATERENDER, sizeof(D3DSTATE), 2);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_ZENABLE, FALSE);
+		D3D_PutRenderState(&cur, D3DRENDERSTATE_ZWRITEENABLE, FALSE);
+
 		D3D_PutInstruction(&cur, D3DOP_EXIT, 0, 0);
 
 		ebc.vertCount = 0;
@@ -346,6 +407,9 @@ void D3D_Resize( int width, int height )
 	if( dxc.pddsBack )
 		IDirectDrawSurface_Release(dxc.pddsBack);
 	dxc.pddsBack = NULL;
+	if( dxc.pddsZBuffer )
+		IDirectDrawSurface_Release(dxc.pddsZBuffer);
+	dxc.pddsZBuffer = NULL;
 	if( dxc.pddBackClipper )
 		IDirectDrawClipper_Release(dxc.pddBackClipper);
 	dxc.pddBackClipper = NULL;

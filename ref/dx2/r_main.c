@@ -20,6 +20,20 @@ GNU General Public License for more details.
 
 ref_instance_t	RI;
 
+static void R_Clear( int bitMask )
+{
+	int bits = D3DCLEAR_ZBUFFER;
+	//bits &= bitMask;
+
+	D3DRECT rect = {
+		.x1 = 0,
+		.y1 = 0,
+		.x2 = dxc.windowWidth,
+		.y2 = dxc.windowHeight,
+	};
+	DXCheck(IDirect3DViewport_Clear(dxc.viewport, 1, &rect, bits));
+}
+
 static float R_GetFarClip( void )
 {
 	if( tr.worldmodel && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ) )
@@ -134,6 +148,19 @@ void R_GammaChanged( qboolean do_reset_gamma )
 
 void R_BeginFrame( qboolean clearScene )
 {
+	if(( gl_clear->value || ENGINE_GET_PARM( PARM_DEV_OVERVIEW )) &&
+		clearScene && ENGINE_GET_PARM( PARM_CONNSTATE ) != ca_cinematic )
+	{
+		D3DRECT rect = {
+			.x1 = 0,
+			.y1 = 0,
+			.x2 = dxc.windowWidth,
+			.y2 = dxc.windowHeight,
+		};
+		DXCheck(IDirect3DViewport_Clear(dxc.viewport, 1, &rect, D3DCLEAR_TARGET));
+	}
+
+	R_Set2DMode( true );
 
 	gEngfuncs.CL_ExtraUpdate();
 }
@@ -164,9 +191,7 @@ void R_RenderScene( void )
 	R_SetupFrame();
 #endif
 	R_SetupD3D(true);
-#if 0
 	R_Clear(~0);
-#endif
 	R_MarkLeaves();
 #if 0
 	R_DrawFog();
@@ -189,10 +214,13 @@ void R_RenderScene( void )
 
 void R_EndFrame( void )
 {
-	//swap
+	
 	if (!dxc.window)
 		return;
 
+	R_Set2DMode( false );
+
+	//swap
 	if (dxc.pddsBack)
 	{
 		RECT dstRect = { 0 };

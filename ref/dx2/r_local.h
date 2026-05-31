@@ -196,6 +196,7 @@ struct dx_context_s
 	IDirectDraw *pdd;
 	IDirectDrawSurface *pddsPrimary;
 	IDirectDrawSurface *pddsBack;
+	IDirectDrawSurface *pddsZBuffer;
 	IDirectDrawClipper *pddClipper;
 	IDirectDrawClipper *pddBackClipper;
 	IDirect3D *pd3d;
@@ -205,6 +206,7 @@ struct dx_context_s
 	D3DMATRIXHANDLE mtxWorld;
 	D3DMATRIXHANDLE mtxProjection;
 
+	qboolean in2DMode;
 	int renderMode;
 	vec4_t currentColor;
 	D3DTEXTUREHANDLE currentTexture;
