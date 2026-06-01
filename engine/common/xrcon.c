@@ -115,7 +115,11 @@ static void XRcon_CloseClientSocket( void )
 	{
 		closesocket( xrcon.client_socket );
 		xrcon.client_socket = INVALID_SOCKET;
+
+		return true;
 	}
+
+	return false;
 }
 
 static void XRcon_DisconnectClient( void )
@@ -126,9 +130,11 @@ static void XRcon_DisconnectClient( void )
 	xrcon.print_buffer[0] = '\0';
 	xrcon.parser.state = XRCON_PARSER_WAIT_HEADER;
 
-	XRcon_CloseClientSocket();
+	qboolean was_active = XRcon_CloseClientSocket();
 	XRcon_SetState( XRCON_STATE_LISTENING );
-	Con_Printf( S_NOTE "%s: client disconnected\n", __func__ );
+
+	if( was_active )
+		Con_Printf( S_NOTE "%s: client disconnected\n", __func__ );
 }
 
 static qboolean XRcon_SendPacket( uint32_t type, const void *body, size_t body_len )
