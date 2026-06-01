@@ -118,6 +118,15 @@ void SDLash_Init( void )
 	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0" );
 	SDL_SetHint( SDL_HINT_ANDROID_BLOCK_ON_PAUSE_PAUSEAUDIO, "0" );
 
+	// when launched through Steam (notably on Steam Deck) Steam Input hides the
+	// real controller and exposes a virtual gamepad without gyro/touchpad access
+	// undo the env-var filter and ignore the virtual pad instead
+	if( Sys_CheckParm( "-nosteaminput" ))
+	{
+		SDL_setenv( "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT", "", 1 );
+		SDL_setenv( "SDL_GAMECONTROLLER_IGNORE_DEVICES", "0x28DE/0x11FF", 1 );
+	}
+
 	if( SDL_Init( SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_EVENTS ) )
 	{
 		Sys_Warn( "SDL_Init failed: %s", SDL_GetError() );
