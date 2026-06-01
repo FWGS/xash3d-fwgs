@@ -109,7 +109,7 @@ static void XRcon_CloseListenSocket( void )
 	}
 }
 
-static void XRcon_CloseClientSocket( void )
+static qboolean XRcon_CloseClientSocket( void )
 {
 	if( NET_IsSocketValid( xrcon.client_socket ))
 	{
