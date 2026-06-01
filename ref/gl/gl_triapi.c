@@ -281,7 +281,7 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 		pglEnable( GL_FOG );
 	else
 	{
-		glState.isFogEnabled = RI.fogCustom = RI.fogSkybox = false;
+		glState.isFogEnabled = RI.fogSkybox = false;
 		pglDisable( GL_FOG );
 		return;
 	}
