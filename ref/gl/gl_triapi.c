@@ -272,14 +272,19 @@ void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn )
 	// check for invalid parms
 	if( flEnd <= flStart )
 	{
-		glState.isFogEnabled = RI.fogCustom = false;
+		glState.isFogEnabled = RI.fogCustom = RI.fogSkybox = false;
 		pglDisable( GL_FOG );
 		return;
 	}
 
 	if( RI.fogCustom )
 		pglEnable( GL_FOG );
-	else pglDisable( GL_FOG );
+	else
+	{
+		glState.isFogEnabled = RI.fogCustom = RI.fogSkybox = false;
+		pglDisable( GL_FOG );
+		return;
+	}
 
 	// copy fog params
 	RI.fogColor[0] = flFogColor[0] / 255.0f;
