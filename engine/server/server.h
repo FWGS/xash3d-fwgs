@@ -73,6 +73,7 @@ extern int SV_UPDATE_BACKUP;
 #define FCL_HLTV_PROXY	BIT( 8 )	// this is a proxy for a HLTV client (spectator)
 #define FCL_SEND_RESOURCES	BIT( 9 )
 #define FCL_FORCE_UNMODIFIED	BIT( 10 )
+#define FCL_EXPECT_RESOURCELIST	BIT( 11 )	// engine sent svc_resourcerequest, expect one clc_resourcelist in response
 
 typedef enum
 {
