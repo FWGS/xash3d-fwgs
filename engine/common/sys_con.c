@@ -254,6 +254,10 @@ static void Sys_WriteLogfile( int fd, const char *logtime, size_t logtime_len, c
 		}
 	}
 
+	if( write( fd, msg, Q_strlen( msg )) < 0 )
+	{
+		// not critical for us
+	}
 }
 
 static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char *msg, const char *stripped )
