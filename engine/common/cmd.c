@@ -1124,7 +1124,7 @@ static qboolean Cmd_ShouldAllowCommand( cmd_t *cmd, qboolean isPrivileged )
 		return true;
 
 	// never allow local only commands from remote
-	if( FBitSet( cmd->flags, CMD_PRIVILEGED ))
+	if( FBitSet( cmd->flags, CMD_PRIVILEGED ) || cmd->name[0] == '@' )
 		return false;
 
 	// allow engine commands if user don't mind
