@@ -39,6 +39,7 @@ CVAR_DEFINE_AUTO( cl_download_ingame, "1", FCVAR_ARCHIVE, "allow to downloading 
 static CVAR_DEFINE_AUTO( cl_logofile, "lambda", FCVAR_ARCHIVE, "player logo name" );
 static CVAR_DEFINE_AUTO( cl_logocolor, "255 120 24", FCVAR_ARCHIVE, "player logo color" );
 static CVAR_DEFINE_AUTO( cl_logoext, "bmp", FCVAR_ARCHIVE, "temporary cvar to tell engine which logo must be packed" );
+static CVAR_DEFINE( cl_logoupdate, "@cl_logoupdate", "0", 0, "set by menu to trigger clan logo update" );
 CVAR_DEFINE_AUTO( cl_logomaxdim, "96", FCVAR_ARCHIVE, "maximum decal dimension" );
 static CVAR_DEFINE_AUTO( cl_test_bandwidth, "1", FCVAR_ARCHIVE, "test network bandwith before connection" );
 
@@ -196,6 +197,120 @@ void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats )
 	}
 }
 
+static resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
+{
+	resource_t	*r = &cl.resourcelist[cl.num_resources];
+
+	if( cl.num_resources >= MAX_RESOURCES )
+		Host_Error( "Too many resources on client\n" );
+	cl.num_resources++;
+
+	Q_strncpy( r->szFileName, name, sizeof( r->szFileName ));
+	r->ucFlags |= bFatalIfMissing ? RES_FATALIFMISSING : 0;
+	r->nDownloadSize = size;
+	r->nIndex = index;
+	r->type = type;
+
+	return r;
+}
+
+static void CL_CreateResourceList( void )
+{
+	char szFileName[MAX_OSPATH];
+	byte rgucMD5_hash[16] = { 0 };
+
+	HPAK_FlushHostQueue();
+	cl.num_resources = 0;
+	memset( rgucMD5_hash, 0, sizeof( rgucMD5_hash ));
+
+	ClearBits( cl_logoupdate.flags, FCVAR_CHANGED );
+#if 1 // FIXME: deprecated, remove later
+	ClearBits( cl_logofile.flags, FCVAR_CHANGED );
+	ClearBits( cl_logocolor.flags, FCVAR_CHANGED );
+	ClearBits( cl_logoext.flags, FCVAR_CHANGED );
+#endif
+
+	// sanitize cvar value
+	if( Q_strcmp( cl_logoext.string, "bmp" ) && Q_strcmp( cl_logoext.string, "png" ))
+		Cvar_DirectSet( &cl_logoext, "bmp" );
+
+	Q_snprintf( szFileName, sizeof( szFileName ), "logos/remapped.%s", cl_logoext.string );
+	if( cls.legacymode == PROTO_GOLDSRC )
+	{
+		CL_ConvertImageToWAD3( szFileName );
+		Q_strncpy( szFileName, "tempdecal.wad", sizeof( szFileName ));
+	}
+	file_t		*fp = FS_Open( szFileName, "rb", true );
+
+	if( !fp )
+		return;
+
+	int		nSize = FS_FileLength( fp );
+
+	if( nSize != 0 )
+	{
+		resource_t	*pNewResource = CL_AddResource( t_decal, szFileName, nSize, false, 0 );
+
+		if( pNewResource )
+		{
+			MD5_HashFile( rgucMD5_hash, szFileName, NULL );
+			SetBits( pNewResource->ucFlags, RES_CUSTOM );
+			memcpy( pNewResource->rgucMD5_hash, rgucMD5_hash, 16 );
+			HPAK_AddLump( false, hpk_custom_file.string, pNewResource, NULL, fp );
+		}
+	}
+
+	FS_Close( fp );
+}
+
+/*
+==================
+CL_UpdateLogo
+
+repackage the clan logo and upload it to the server
+==================
+*/
+static void CL_UpdateLogo( void )
+{
+	if( cls.state != ca_active )
+		return;
+
+	CL_CreateResourceList();
+
+	if( cl.num_resources == 0 )
+		return;
+
+	player_info_t	*player = &cl.players[cl.playernum];
+	COM_ClearCustomizationList( &player->customdata, true );
+
+	for( int i = 0; i < cl.num_resources; i++ )
+	{
+		resource_t *pResource = &cl.resourcelist[i];
+
+		if( !COM_CreateCustomization( &player->customdata, pResource, cl.playernum, 0, NULL, NULL ))
+			Con_Printf( "Unable to create custom decal\n" );
+	}
+
+	CL_SendResourceList( cl.resourcelist, cl.num_resources );
+}
+
+static void CL_CheckLogoChanged( void )
+{
+	if( FBitSet( cl_logoupdate.flags, FCVAR_CHANGED ))
+	{
+		CL_UpdateLogo();
+		return;
+	}
+
+#if 1 // FIXME: deprecated, remove later
+	if( FBitSet( cl_logofile.flags | cl_logocolor.flags | cl_logoext.flags, FCVAR_CHANGED ))
+	{
+		CL_UpdateLogo();
+		return;
+	}
+#endif
+}
+
 /*
 ===============
 CL_CheckClientState
@@ -213,6 +328,8 @@ static void CL_CheckClientState( void )
 		cls.changelevel = false;		// changelevel is done
 		cls.changedemo = false;		// changedemo is done
 		cl.first_frame = true;		// first rendering frame
+
+		CL_UpdateLogo();
 
 		SCR_MakeLevelShot();		// make levelshot if needs
 		Cvar_SetValue( "scr_loading", 0.0f );	// reset progress bar
@@ -1347,102 +1464,6 @@ static void CL_CheckForResend( void )
 		Con_Printf( "Connecting to %s... (retry #%i)\n", cls.servername, cls.connect_retry );
 		CL_SendGetChallenge( adr );
 	}
-}
-
-static resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
-{
-	resource_t	*r = &cl.resourcelist[cl.num_resources];
-
-	if( cl.num_resources >= MAX_RESOURCES )
-		Host_Error( "Too many resources on client\n" );
-	cl.num_resources++;
-
-	Q_strncpy( r->szFileName, name, sizeof( r->szFileName ));
-	r->ucFlags |= bFatalIfMissing ? RES_FATALIFMISSING : 0;
-	r->nDownloadSize = size;
-	r->nIndex = index;
-	r->type = type;
-
-	return r;
-}
-
-static void CL_CreateResourceList( void )
-{
-	char szFileName[MAX_OSPATH];
-	byte rgucMD5_hash[16] = { 0 };
-
-	HPAK_FlushHostQueue();
-	cl.num_resources = 0;
-	memset( rgucMD5_hash, 0, sizeof( rgucMD5_hash ));
-
-	ClearBits( cl_logofile.flags, FCVAR_CHANGED );
-	ClearBits( cl_logocolor.flags, FCVAR_CHANGED );
-	ClearBits( cl_logoext.flags, FCVAR_CHANGED );
-
-	// sanitize cvar value
-	if( Q_strcmp( cl_logoext.string, "bmp" ) && Q_strcmp( cl_logoext.string, "png" ))
-		Cvar_DirectSet( &cl_logoext, "bmp" );
-
-	Q_snprintf( szFileName, sizeof( szFileName ), "logos/remapped.%s", cl_logoext.string );
-	if( cls.legacymode == PROTO_GOLDSRC )
-	{
-		CL_ConvertImageToWAD3( szFileName );
-		Q_strncpy( szFileName, "tempdecal.wad", sizeof( szFileName ));
-	}
-	file_t		*fp = FS_Open( szFileName, "rb", true );
-
-	if( !fp )
-		return;
-
-	int		nSize = FS_FileLength( fp );
-
-	if( nSize != 0 )
-	{
-		resource_t	*pNewResource = CL_AddResource( t_decal, szFileName, nSize, false, 0 );
-
-		if( pNewResource )
-		{
-			MD5_HashFile( rgucMD5_hash, szFileName, NULL );
-			SetBits( pNewResource->ucFlags, RES_CUSTOM );
-			memcpy( pNewResource->rgucMD5_hash, rgucMD5_hash, 16 );
-			HPAK_AddLump( false, hpk_custom_file.string, pNewResource, NULL, fp );
-		}
-	}
-
-	FS_Close( fp );
-}
-
-/*
-==================
-CL_CheckLogoChanged
-
-==================
-*/
-static void CL_CheckLogoChanged( void )
-{
-	if( cls.state != ca_active )
-		return;
-
-	if( !FBitSet( cl_logofile.flags | cl_logocolor.flags | cl_logoext.flags, FCVAR_CHANGED ))
-		return;
-
-	CL_CreateResourceList();
-
-	if( cl.num_resources == 0 )
-		return;
-
-	player_info_t	*player = &cl.players[cl.playernum];
-	COM_ClearCustomizationList( &player->customdata, true );
-
-	for( int i = 0; i < cl.num_resources; i++ )
-	{
-		resource_t *pResource = &cl.resourcelist[i];
-
-		if( !COM_CreateCustomization( &player->customdata, pResource, cl.playernum, 0, NULL, NULL ))
-			Con_Printf( "Unable to create custom decal\n" );
-	}
-
-	CL_SendResourceList( cl.resourcelist, cl.num_resources );
 }
 
 static qboolean CL_StringToProtocol( const char *s, connprotocol_t *proto )
@@ -3494,6 +3515,7 @@ static void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_logofile );
 	Cvar_RegisterVariable( &cl_logocolor );
 	Cvar_RegisterVariable( &cl_logoext );
+	Cvar_RegisterVariable( &cl_logoupdate );
 	Cvar_RegisterVariable( &cl_logomaxdim );
 	Cvar_RegisterVariable( &cl_test_bandwidth );
 
