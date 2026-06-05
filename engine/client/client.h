@@ -645,7 +645,6 @@ typedef struct
 	qboolean internetservers_pending; // if true, clean master server pings
 	qboolean internetservers_nat;
 	string   internetservers_customfilter;
-	uint32_t internetservers_key;     // compare key to validate master server reply
 
 	// multiprotocol support
 	connprotocol_t legacymode;
