@@ -99,4 +99,7 @@ void HTTP_ResetProcessState( void );
 void HTTP_Init( void );
 void HTTP_Run( void );
 
+typedef void ( *http_memory_cb_t )( const char *url, qboolean success, const byte *data, size_t size, void *userdata );
+qboolean HTTP_GetToMemory( const char *url, http_memory_cb_t cb, void *userdata );
+
 #endif//NET_WS_H

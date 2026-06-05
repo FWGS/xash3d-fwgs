@@ -1864,19 +1864,6 @@ static void CL_InternetServers_f( void )
 	cls.internetservers_wait = NET_MasterQuery( 1, cls.internetservers_nat, cls.internetservers_customfilter );
 }
 
-static void CL_QueryServer( netadr_t adr, connprotocol_t proto )
-{
-	switch( proto )
-	{
-	case PROTO_GOLDSRC:
-		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), A2S_GOLDSRC_INFO ); // includes null terminator!
-		break;
-	case PROTO_CURRENT:
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
-		break;
-	}
-}
-
 static void CL_QueryServer_f( void )
 {
 	netadr_t adr;
@@ -1902,7 +1889,7 @@ static void CL_QueryServer_f( void )
 	if( !CL_StringToProtocol( Cmd_Argv( 2 ), &proto ))
 		return;
 
-	CL_QueryServer( adr, proto );
+	NET_QueryServerByAddress( adr, proto );
 }
 
 /*
@@ -2652,7 +2639,7 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 			break;
 
 		NET_Config( true, false ); // allow remote
-		CL_QueryServer( servadr, proto );
+		NET_QueryServerByAddress( servadr, proto );
 	}
 
 	if( cls.internetservers_pending )
