@@ -128,9 +128,9 @@ CONSTANTS AND HELPER MACROS
 #define VectorClear(x) ((x)[0]=(x)[1]=(x)[2]=0)
 #define Vector2Lerp( v1, lerp, v2, c ) ((c)[0] = (v1)[0] + (lerp) * ((v2)[0] - (v1)[0]), (c)[1] = (v1)[1] + (lerp) * ((v2)[1] - (v1)[1]))
 #define VectorLerp( v1, lerp, v2, c ) ((c)[0] = (v1)[0] + (lerp) * ((v2)[0] - (v1)[0]), (c)[1] = (v1)[1] + (lerp) * ((v2)[1] - (v1)[1]), (c)[2] = (v1)[2] + (lerp) * ((v2)[2] - (v1)[2]))
-#define VectorNormalize( v ) { float ilength = (float)sqrt(DotProduct(v, v));if (ilength) ilength = 1.0f / ilength;v[0] *= ilength;v[1] *= ilength;v[2] *= ilength; }
-#define VectorNormalize2( v, dest ) {float ilength = (float)sqrt(DotProduct(v,v));if (ilength) ilength = 1.0f / ilength;dest[0] = v[0] * ilength;dest[1] = v[1] * ilength;dest[2] = v[2] * ilength; }
-#define VectorNormalizeFast( v ) {float ilength = (float)Q_rsqrt(DotProduct(v,v)); v[0] *= ilength; v[1] *= ilength; v[2] *= ilength; }
+#define VectorNormalize( v ) { float ilength = (float)sqrt(DotProduct((v), (v)));if (ilength) ilength = 1.0f / ilength;(v)[0] *= ilength;(v)[1] *= ilength;(v)[2] *= ilength; }
+#define VectorNormalize2( v, dest ) {float ilength = (float)sqrt(DotProduct((v),(v)));if (ilength) ilength = 1.0f / ilength;(dest)[0] = (v)[0] * ilength;(dest)[1] = (v)[1] * ilength;(dest)[2] = (v)[2] * ilength; }
+#define VectorNormalizeFast( v ) {float ilength = (float)Q_rsqrt(DotProduct((v),(v))); (v)[0] *= ilength; (v)[1] *= ilength; (v)[2] *= ilength; }
 #define VectorNormalizeLength( v ) VectorNormalizeLength2((v), (v))
 #define VectorNegate(x, y) ((y)[0] = -(x)[0], (y)[1] = -(x)[1], (y)[2] = -(x)[2])
 #define VectorM(scale1, b1, c) ((c)[0] = (scale1) * (b1)[0],(c)[1] = (scale1) * (b1)[1],(c)[2] = (scale1) * (b1)[2])
