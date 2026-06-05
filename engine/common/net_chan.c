@@ -1009,6 +1009,17 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 		Mem_Free( uncompressed );
 	}
 
+	// filename string + null terminator; for gs_netchan also compressor string + null + uint32 original size
+	int header_size = Q_strlen( filename ) + 1;
+	if( chan->gs_netchan )
+		header_size += Q_strlen( compressor ) + 1 + 4;
+
+	if( unlikely( chunksize < 0 || chunksize < header_size + 1 ))
+	{
+		Con_Printf( S_ERROR "%s: could not fit header for \"%s\" (%d bytes) into chunk of length %d\n", NET_AdrToString( chan->remote_address ), filename, header_size, chunksize );
+		return 0;
+	}
+
 	fragbufwaiting_t *wait = (fragbufwaiting_t *)Mem_Calloc( net_mempool, sizeof( fragbufwaiting_t ));
 	int remaining = filesize;
 	int pos = 0;
@@ -1016,6 +1027,9 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 	while( remaining > 0 )
 	{
 		int send = Q_min( remaining, chunksize );
+
+		if( firstfragment )
+			send = Q_min( header_size + remaining, chunksize );
 
 		buf = Netchan_AllocFragbuf( send );
 		buf->bufferid = bufferid++;
@@ -1025,7 +1039,7 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 
 		if( firstfragment )
 		{
-			// Write filename
+			// write filename
 			MSG_WriteString( &buf->frag_message, filename );
 
 			// write compressor name and uncompressed size
@@ -1035,9 +1049,11 @@ int Netchan_CreateFileFragments( netchan_t *chan, const char *filename )
 				MSG_WriteLong( &buf->frag_message, (uint)originalSize );
 			}
 
-			// Send a bit less on first package
-			send -= MSG_GetNumBytesWritten( &buf->frag_message );
+			if( unlikely( MSG_GetNumBytesWritten( &buf->frag_message ) != header_size ))
+				Con_Printf( S_ERROR "%s: header size mismatch for \"%s\" (%d vs %d)\n", NET_AdrToString( chan->remote_address ), filename, header_size, MSG_GetNumBytesWritten( &buf->frag_message ));
 
+			// send a bit less on first package
+			send -= MSG_GetNumBytesWritten( &buf->frag_message );
 			firstfragment = false;
 		}
 
