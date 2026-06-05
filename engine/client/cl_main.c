@@ -1365,13 +1365,7 @@ static void CL_CheckForResend( void )
 	netadr_t adr;
 
 	if( cls.internetservers_wait )
-	{
-		cls.internetservers_wait = NET_MasterQuery(
-			cls.internetservers_key,
-			cls.internetservers_nat,
-			cls.internetservers_customfilter
-		);
-	}
+		cls.internetservers_wait = NET_MasterQuery( 1, cls.internetservers_nat, cls.internetservers_customfilter );
 
 	// if the local server is running and we aren't then connect
 	if( cls.state == ca_disconnected && SV_Active( ))
@@ -1864,14 +1858,10 @@ static void CL_InternetServers_f( void )
 
 	cls.internetservers_nat = cl_nat.value != 0.0f;
 	cls.internetservers_pending = true;
-	cls.internetservers_key = COM_RandomLong( 1, 0x7FFFFFFF );
 	Q_strncpy( cls.internetservers_customfilter, Cmd_Argv( 1 ), sizeof( cls.internetservers_customfilter ));
 
-	cls.internetservers_wait = NET_MasterQuery(
-		cls.internetservers_key,
-		cls.internetservers_nat,
-		cls.internetservers_customfilter
-	);
+	// the key is dead extension, keep for compatibility until we use UDP based master server protocol
+	cls.internetservers_wait = NET_MasterQuery( 1, cls.internetservers_nat, cls.internetservers_customfilter );
 }
 
 static void CL_QueryServer( netadr_t adr, connprotocol_t proto )
@@ -2627,25 +2617,13 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	// check the extra header
 	if( proto == PROTO_CURRENT )
 	{
+		// dead extension
 		if( MSG_ReadByte( msg ) == 0x7f )
 		{
-			uint32_t key = MSG_ReadDword( msg );
-
-			if( cls.internetservers_key != key )
-			{
-				Con_Printf( S_WARN "unexpected server list packet from %s (invalid key)\n", NET_AdrToString( from ));
-			return;
-			}
-
-			MSG_ReadByte( msg ); // reserved byte
-		}
-		else
-		{
-			Con_Printf( S_WARN "invalid server list packet from %s (missing extra header)\n", NET_AdrToString( from ));
-			return;
+			MSG_ReadDword( msg ); // was key
+			MSG_ReadByte( msg );  // was reserved
 		}
 	}
 
@@ -2666,6 +2644,7 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 			MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ), sizeof( servadr.ip ));	// 4 bytes for IP
 			NET_NetadrSetType( &servadr, NA_IP );
 		}
+
 		MSG_ReadBytes( msg, &servadr.port, sizeof( servadr.port ), sizeof( servadr.port ));	// 2 bytes for Port, in network byte order
 
 		// list is ends here
