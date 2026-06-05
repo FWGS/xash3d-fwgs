@@ -100,9 +100,6 @@ GNU General Public License for more details.
 #define MAX_VISIBLE_PACKET_VIS_BYTES	((MAX_VISIBLE_PACKET + 7) / 8)
 
 // additional protocol data
-#define MAX_CLIENT_BITS		5
-#define MAX_CLIENTS			(1<<MAX_CLIENT_BITS)// 5 bits == 32 clients ( int32 limit )
-
 #define MAX_WEAPON_BITS		6
 #define MAX_WEAPONS			(1<<MAX_WEAPON_BITS)// 6 bits == 64 predictable weapons
 

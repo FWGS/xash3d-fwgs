@@ -19,6 +19,7 @@ GNU General Public License for more details.
 #include "netchan.h"
 #include "xash3d_mathlib.h"
 #include "net_ws_private.h"
+#include "net_http_tls.h"
 #include "miniz.h"
 
 /*
@@ -31,12 +32,14 @@ HTTP downloader
 
 #define MAX_HTTP_BUFFER_SIZE (BIT( 16 ))
 #define MAX_HTTP_DECOMPRESSED_SIZE ( 64 * 1024 * 1024 )
+#define MAX_HTTP_MEMORY_SIZE       ( 4 * 1024 * 1024 )
 
 typedef struct httpserver_s
 {
 	char host[256];
 	int port;
 	char path[MAX_SYSPATH];
+	qboolean secure;
 	struct httpserver_s *next;
 } httpserver_t;
 
@@ -66,6 +69,16 @@ typedef struct httpfile_s
 	resource_t *resource;
 	http_process_fn_t pfn_process;
 	struct sockaddr_storage addr;
+
+	// in-memory response mode (set by HTTP_GetToMemory)
+	qboolean to_memory;
+	qboolean own_server;
+	byte    *mem_data;
+	size_t   mem_size;
+	size_t   mem_cap;
+	http_memory_cb_t mem_cb;
+	void    *mem_user;
+	char     url[1024];
 
 	char query_backup[1024];
 
@@ -100,6 +113,7 @@ static int HTTP_FileQueue( httpfile_t *file );
 static int HTTP_FileResolveNS( httpfile_t *file );
 static int HTTP_FileSendRequest( httpfile_t *file );
 static int HTTP_FileDecompress( httpfile_t *file );
+static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path );
 
 static const char *HTTP_DownloadPath( char *buf, size_t buflen, const char *path, qboolean incomplete )
 {
@@ -138,6 +152,28 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 	}
 
 	file->socket = -1;
+
+	if( file->to_memory )
+	{
+		if( file->mem_cb )
+			file->mem_cb( file->url, !error, error ? NULL : file->mem_data, error ? 0 : file->mem_size, file->mem_user );
+
+		if( file->mem_data )
+		{
+			Mem_Free( file->mem_data );
+			file->mem_data = NULL;
+		}
+
+		if( file->own_server && file->server )
+		{
+			Mem_Free( file->server );
+			file->server = NULL;
+		}
+
+		file->pfn_process = HTTP_FileFree;
+		file->success = !error;
+		return;
+	}
 
 	HTTP_DownloadPath( incname, sizeof( incname ), file->path, true );
 
@@ -207,18 +243,25 @@ static int HTTP_FileQueue( httpfile_t *file )
 		return 0;
 	}
 
-	Con_Reportf( "HTTP: Starting download %s from %s:%d\n", file->path, file->server->host, file->server->port );
-	HTTP_DownloadPath( name, sizeof( name ), file->path, true );
-
-	FS_AllowDirectPaths( true );
-	file->file = FS_Open( name, "wb+", true );
-	FS_AllowDirectPaths( false );
-
-	if( !file->file )
+	if( file->to_memory )
 	{
-		Con_Printf( S_ERROR "HTTP: cannot open %s!\n", name );
-		HTTP_FreeFile( file, true );
-		return 0;
+		Con_Reportf( "HTTP: Starting in-memory GET %s\n", file->url );
+	}
+	else
+	{
+		Con_Reportf( "HTTP: Starting download %s from %s:%d\n", file->path, file->server->host, file->server->port );
+		HTTP_DownloadPath( name, sizeof( name ), file->path, true );
+
+		FS_AllowDirectPaths( true );
+		file->file = FS_Open( name, "wb+", true );
+		FS_AllowDirectPaths( false );
+
+		if( !file->file )
+		{
+			Con_Printf( S_ERROR "HTTP: cannot open %s!\n", name );
+			HTTP_FreeFile( file, true );
+			return 0;
+		}
 	}
 
 	file->pfn_process = HTTP_FileResolveNS;
@@ -323,15 +366,29 @@ static int HTTP_FileConnect( httpfile_t *file )
 	}
 	else Q_strncpy( useragent, http_useragent.string, sizeof( useragent ));
 
-	file->query_length = Q_snprintf( file->buf, sizeof( file->buf ),
-		"GET %s%s HTTP/1.1\r\n"
-		"Host: %s:%d\r\n"
-		"User-Agent: %s\r\n"
-		"Accept-Encoding: gzip, deflate\r\n"
-		"Accept: */*\r\n\r\n",
-		file->server->path, file->path,
-		file->server->host, file->server->port,
-		useragent );
+	if( file->to_memory )
+	{
+		file->query_length = Q_snprintf( file->buf, sizeof( file->buf ),
+			"GET %s%s HTTP/1.1\r\n"
+			"Host: %s:%d\r\n"
+			"User-Agent: %s\r\n"
+			"Accept: */*\r\n\r\n",
+			file->server->path, file->path,
+			file->server->host, file->server->port,
+			useragent );
+	}
+	else
+	{
+		file->query_length = Q_snprintf( file->buf, sizeof( file->buf ),
+			"GET %s%s HTTP/1.1\r\n"
+			"Host: %s:%d\r\n"
+			"User-Agent: %s\r\n"
+			"Accept-Encoding: gzip, deflate\r\n"
+			"Accept: */*\r\n\r\n",
+			file->server->path, file->path,
+			file->server->host, file->server->port,
+			useragent );
+	}
 	Q_strncpy( file->query_backup, file->buf, sizeof( file->query_backup ));
 	file->bytes_sent = 0;
 	file->header_size = 0;
@@ -618,6 +675,11 @@ static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
 					file->pfn_process = HTTP_FileDecompress;
 					return 1;
 				}
+				else if( file->to_memory )
+				{
+					HTTP_FreeFile( file, false );
+					return 1;
+				}
 				else
 				{
 					fs_offset_t filelen = FS_FileLength( file->file );
@@ -663,13 +725,42 @@ static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
 			len_to_write = Q_min( length, file->chunksize );
 		else len_to_write = length;
 
-		int ret = FS_Write( file->file, &file->buf[pos], len_to_write );
-		if( ret != len_to_write )
+		int ret;
+
+		if( file->to_memory )
 		{
-			// close it and go to next
-			Con_Printf( S_ERROR "write failed for %s!\n", file->path );
-			HTTP_FreeFile( file, true );
-			return 0;
+			if( file->mem_size + len_to_write > MAX_HTTP_MEMORY_SIZE )
+			{
+				Con_Printf( S_ERROR "%s: response too large (>%d bytes)\n", file->url, MAX_HTTP_MEMORY_SIZE );
+				HTTP_FreeFile( file, true );
+				return 0;
+			}
+
+			if( file->mem_size + len_to_write > file->mem_cap )
+			{
+				size_t newcap = file->mem_cap ? file->mem_cap * 2 : 4096;
+
+				while( newcap < file->mem_size + len_to_write )
+					newcap *= 2;
+
+				file->mem_data = Mem_Realloc( host.mempool, file->mem_data, newcap );
+				file->mem_cap = newcap;
+			}
+
+			memcpy( file->mem_data + file->mem_size, &file->buf[pos], len_to_write );
+			file->mem_size += len_to_write;
+			ret = len_to_write;
+		}
+		else
+		{
+			ret = FS_Write( file->file, &file->buf[pos], len_to_write );
+			if( ret != len_to_write )
+			{
+				// close it and go to next
+				Con_Printf( S_ERROR "write failed for %s!\n", file->path );
+				HTTP_FreeFile( file, true );
+				return 0;
+			}
 		}
 
 		length -= len_to_write;
@@ -761,7 +852,14 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 				{
 					content_encoding += sizeof( "Content-Encoding: " ) - 1;
 
-					if( !Q_strnicmp( content_encoding, "gzip", 4 ) && ( content_encoding[4] == '\0' || content_encoding[4] == '\n' || content_encoding[4] == '\r' ))
+					if( curfile->to_memory )
+					{
+						// in-memory mode never advertises gzip and has no decompressor
+						Con_Printf( S_ERROR "%s: server sent Content-Encoding for an in-memory request\n", curfile->url );
+						HTTP_FreeFile( curfile, true );
+						return 0;
+					}
+					else if( !Q_strnicmp( content_encoding, "gzip", 4 ) && ( content_encoding[4] == '\0' || content_encoding[4] == '\n' || content_encoding[4] == '\r' ))
 						curfile->compressed = true;
 					else
 					{
@@ -913,7 +1011,8 @@ void HTTP_Run( void )
 
 		if( curfile->blocktime > http_timeout.value )
 		{
-			Con_Printf( S_ERROR "timeout on %s (file: %s)\n", curfile->blockreason, curfile->path );
+			Con_Printf( S_ERROR "timeout on %s (file: %s)\n", curfile->blockreason,
+				curfile->to_memory ? curfile->url : curfile->path );
 			HTTP_FreeFile( curfile, true );
 		}
 	}
@@ -965,6 +1064,44 @@ void HTTP_AddDownload( const char *path, int size, qboolean process, resource_t 
 }
 
 /*
+===================
+HTTP_GetToMemory
+
+One-shot async GET. The full response body is collected into a heap buffer
+and handed to the callback when the request completes (success or failure).
+===================
+*/
+qboolean HTTP_GetToMemory( const char *url, http_memory_cb_t cb, void *userdata )
+{
+	httpserver_t *server = HTTP_ParseURLEx( url, true );
+
+	if( !server )
+	{
+		Con_Printf( S_ERROR "%s: \"%s\" is not a valid URL\n", __func__, url );
+		return false;
+	}
+
+	httpfile_t *httpfile = Z_Calloc( sizeof( *httpfile ));
+
+	httpfile->size = -1;
+	httpfile->reported_size = -1;
+	httpfile->socket = -1;
+	httpfile->server = server;
+	httpfile->own_server = true;
+	httpfile->to_memory = true;
+	httpfile->mem_cb = cb;
+	httpfile->mem_user = userdata;
+	httpfile->pfn_process = HTTP_FileQueue;
+	Q_strncpy( httpfile->url, url, sizeof( httpfile->url ));
+	// file->path is empty; the full path lives in server->path
+
+	httpfile->next = http.first_file;
+	http.first_file = httpfile;
+
+	return true;
+}
+
+/*
 ===============
 HTTP_Download_f
 
@@ -987,24 +1124,36 @@ static void HTTP_Download_f( void )
 HTTP_ParseURL
 ==============
 */
-static httpserver_t *HTTP_ParseURL( const char *url_ )
+static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path )
 {
-	const char *url = Q_strstr( url_, "http://" );
+	qboolean secure = false;
+	const char *url = Q_strstr( url_, "https://" );
 
 	if( url )
-		url += 7;
+	{
+		url += 8;
+		secure = true;
+	}
 	else
 	{
-		url = Q_strstr( url_, "https://" );
+		url = Q_strstr( url_, "http://" );
 		if( url )
-			url += 8;
+			url += 7;
 	}
 
 	if( !url )
 		return NULL;
 
+	if( secure && !HTTP_TlsAvailable( ))
+	{
+		Con_Printf( S_ERROR "HTTPS not available, can't fetch %s\n", url_ );
+		return NULL;
+	}
+
 	httpserver_t *server = Z_Calloc( sizeof( httpserver_t ));
 	int i = 0;
+
+	server->secure = secure;
 
 	while( *url && ( *url != ':' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
 	{
@@ -1024,7 +1173,7 @@ static httpserver_t *HTTP_ParseURL( const char *url_ )
 			url++;
 	}
 	else
-		server->port = 80;
+		server->port = secure ? 443 : 80;
 
 	i = 0;
 
@@ -1036,12 +1185,19 @@ static httpserver_t *HTTP_ParseURL( const char *url_ )
 		server->path[i++] = *url++;
 	}
 
-	if( i == 0 || server->path[i-1] != '/' )
+	// fastdl base URLs are appended to per-file paths and must end with a slash;
+	// full URLs (one-shot GETs) are used as-is.
+	if( !full_path && ( i == 0 || server->path[i-1] != '/' ))
 		server->path[i++] = '/';
 	server->path[i] = 0;
 	server->next = NULL;
 
 	return server;
+}
+
+static httpserver_t *HTTP_ParseURL( const char *url_ )
+{
+	return HTTP_ParseURLEx( url_, false );
 }
 
 /*
@@ -1101,6 +1257,16 @@ static void HTTP_Clear_f( void )
 		if( file->socket != -1 )
 			closesocket( file->socket );
 
+		if( file->to_memory )
+		{
+			if( file->mem_cb )
+				file->mem_cb( file->url, false, NULL, 0, file->mem_user );
+			if( file->mem_data )
+				Mem_Free( file->mem_data );
+			if( file->own_server && file->server )
+				Mem_Free( file->server );
+		}
+
 		Mem_Free( file );
 	}
 }
@@ -1156,7 +1322,8 @@ static void HTTP_List_f( void )
 		{
 			for( httpserver_t *server = file->server; server; server = server->next )
 			{
-				Con_Printf( "\thttp://%s:%d/%s%s\n", file->server->host, file->server->port,
+				Con_Printf( "\t%s://%s:%d/%s%s\n", file->server->secure ? "https" : "http",
+					file->server->host, file->server->port,
 					file->server->path, file->path );
 			}
 		}
