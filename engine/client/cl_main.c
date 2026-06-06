@@ -2594,6 +2594,21 @@ static void CL_Reject( const char *c, const char *args, netadr_t from )
 	CL_Disconnect_f();
 }
 
+/*
+=================
+CL_NotifyServerListResponse
+
+=================
+*/
+void CL_NotifyServerListResponse( void )
+{
+	if( !cls.internetservers_pending )
+		return;
+
+	UI_ResetPing();
+	cls.internetservers_pending = false;
+}
+
 static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 {
 	connprotocol_t proto;
@@ -2642,11 +2657,7 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 		NET_QueryServerByAddress( servadr, proto );
 	}
 
-	if( cls.internetservers_pending )
-	{
-		UI_ResetPing();
-		cls.internetservers_pending = false;
-	}
+	CL_NotifyServerListResponse();
 }
 
 /*

@@ -173,7 +173,6 @@ def options(opt):
 		help = 'disables rpath, duh!')
 
 	# a1ba: special option for me
-	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
 	grp.add_option('--enable-msvcdeps', action='store_true', dest='MSVCDEPS', default=False, help='')
 	grp.add_option('--enable-wafcache', action='store_true', dest='WAFCACHE', default=False, help='')
 
@@ -445,7 +444,6 @@ def configure(conf):
 
 	conf.env.GAMEDIR = conf.options.GAMEDIR
 	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
-	conf.define_cond('XASH_ALL_SERVERS', conf.options.ALL_SERVERS)
 
 	if conf.env.DEST_OS == 'nswitch':
 		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
