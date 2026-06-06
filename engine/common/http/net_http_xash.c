@@ -69,6 +69,7 @@ typedef struct httpfile_s
 	resource_t *resource;
 	http_process_fn_t pfn_process;
 	struct sockaddr_storage addr;
+	int redirects_followed;
 
 	// in-memory response mode (set by HTTP_GetToMemory)
 	qboolean to_memory;
@@ -104,6 +105,7 @@ static CVAR_DEFINE_AUTO( http_autoremove, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED,
 static CVAR_DEFINE_AUTO( http_timeout, "45", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "timeout for http downloader" );
 static CVAR_DEFINE_AUTO( http_maxconnections, "2", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum http connection number" );
 static CVAR_DEFINE_AUTO( http_show_headers, "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "show HTTP headers (request and response)" );
+static CVAR_DEFINE_AUTO( http_max_redirects, "5", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum HTTP redirects to follow per request" );
 
 static int HTTP_FileFree( httpfile_t *file );
 static int HTTP_FileConnect( httpfile_t *file );
@@ -114,6 +116,7 @@ static int HTTP_FileResolveNS( httpfile_t *file );
 static int HTTP_FileSendRequest( httpfile_t *file );
 static int HTTP_FileDecompress( httpfile_t *file );
 static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path );
+static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location );
 
 static const char *HTTP_DownloadPath( char *buf, size_t buflen, const char *path, qboolean incomplete )
 {
@@ -816,10 +819,6 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 				{
 					int num = -1;
 
-					char *p = Q_strchr( curfile->buf, '\r' );
-					if( !p ) p = Q_strchr( curfile->buf, '\n' );
-					if( p ) *p = 0;
-
 					// extract the error code, don't assume the response is valid HTTP
 					if( !Q_strncmp( curfile->buf, "HTTP/1.", 7 ))
 					{
@@ -830,9 +829,31 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 							num = Q_atoi( tmp );
 					}
 
+					if( num == 301 || num == 302 || num == 303 || num == 307 || num == 308 )
+					{
+						char *loc = Q_stristr( curfile->buf, "Location:" );
+
+						if( loc )
+						{
+							loc += sizeof( "Location:" ) - 1;
+							while( *loc == ' ' || *loc == '\t' )
+								loc++;
+
+							char *eol = Q_strchr( loc, '\r' );
+							if( !eol ) eol = Q_strchr( loc, '\n' );
+							if( eol ) *eol = 0;
+
+							if( HTTP_FileRedirect( curfile, loc ))
+								return 1;
+						}
+					}
+
+					char *p = Q_strchr( curfile->buf, '\r' );
+					if( !p ) p = Q_strchr( curfile->buf, '\n' );
+					if( p ) *p = 0;
+
 					switch( num )
 					{
-					// TODO: handle redirects
 					case 404:
 						Con_Printf( S_ERROR "%s: file not found\n", curfile->path );
 						break;
@@ -1200,6 +1221,83 @@ static httpserver_t *HTTP_ParseURL( const char *url_ )
 	return HTTP_ParseURLEx( url_, false );
 }
 
+static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location )
+{
+	if( !location || !*location )
+		return false;
+
+	if( file->redirects_followed >= http_max_redirects.value )
+	{
+		Con_Printf( S_ERROR "too many redirects for %s\n", file->to_memory ? file->url : file->path );
+		return false;
+	}
+
+	// silent http -> https upgrade is OK; reject downgrade
+	qboolean target_secure = !Q_strnicmp( location, "https://", 8 );
+	qboolean target_plain = !Q_strnicmp( location, "http://", 7 );
+
+	if( !target_secure && !target_plain )
+	{
+		Con_Printf( S_ERROR "redirect to non-absolute URL not supported: %s\n", location );
+		return false;
+	}
+
+	if( file->server->secure && !target_secure )
+	{
+		Con_Printf( S_ERROR "refusing https -> http redirect: %s\n", location );
+		return false;
+	}
+
+	httpserver_t *newserver = HTTP_ParseURLEx( location, true );
+	if( !newserver )
+	{
+		Con_Printf( S_ERROR "redirect target %s is not a valid URL\n", location );
+		return false;
+	}
+
+	Con_Reportf( "HTTP: redirect %s -> %s\n", file->to_memory ? file->url : file->path, location );
+
+	// tear down current connection but keep file/mem buffers
+	if( file->socket != -1 )
+	{
+		closesocket( file->socket );
+		http.active_count--;
+		file->socket = -1;
+	}
+
+	if( file->own_server && file->server )
+		Mem_Free( file->server );
+	file->server = newserver;
+	file->own_server = true;
+
+	// truncate the partial download; we'll restart from the new server
+	if( file->file )
+	{
+		g_fsapi.Seek( file->file, 0, SEEK_SET );
+	}
+	file->mem_size = 0;
+	file->downloaded = 0;
+	file->lastchecksize = 0;
+	file->header_size = 0;
+	file->bytes_sent = 0;
+	file->got_response = false;
+	file->compressed = false;
+	file->chunked = false;
+	file->chunksize = 0;
+	file->size = file->reported_size;
+
+	// redirect Location: gave us a full URL, so per-file suffix is empty now
+	file->path[0] = 0;
+	if( file->to_memory )
+		Q_strncpy( file->url, location, sizeof( file->url ));
+
+	file->redirects_followed++;
+	file->blocktime = 0;
+	file->pfn_process = HTTP_FileResolveNS;
+
+	return true;
+}
+
 /*
 =======================
 HTTP_AddCustomServer
@@ -1364,6 +1462,7 @@ void HTTP_Init( void )
 	Cvar_RegisterVariable( &http_timeout );
 	Cvar_RegisterVariable( &http_maxconnections );
 	Cvar_RegisterVariable( &http_show_headers );
+	Cvar_RegisterVariable( &http_max_redirects );
 }
 
 /*
