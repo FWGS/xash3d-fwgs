@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "netchan.h"
 #include "net_ws.h"
 #include "server.h"
+#include "client.h"
 
 typedef struct master_s
 {
@@ -64,9 +65,7 @@ static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t
 
 	Q_strncpy( info, filter, remaining );
 
-#ifndef XASH_ALL_SERVERS
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
-#endif // XASH_ALL_SERVERS
 
 	if( proto != PROTO_GOLDSRC )
 	{
@@ -301,6 +300,10 @@ static void NET_MasterStaticResponse( const char *url, qboolean success, const b
 	Mem_Free( body );
 
 	Con_Reportf( "masterstatic: %s yielded %d server(s)\n", url, count );
+
+#if !XASH_DEDICATED
+	CL_NotifyServerListResponse();
+#endif
 }
 
 static void NET_MasterStaticQuery( void )
