@@ -356,6 +356,28 @@ void NET_MasterHeartbeat( void )
 	if(( !public_server.value && !sv_nat.value ) || svs.maxclients == 1 )
 		return; // only public servers send heartbeats
 
+	if( Host_IsDedicated() && public_server.value )
+	{
+		static qboolean shown_serverlist_notice = false;
+
+		if( !shown_serverlist_notice )
+		{
+			Con_Printf( "\n" );
+			Con_Printf( "********************************************************************************\n" );
+			Con_Printf( "*                                                                              *\n" );
+			Con_Printf( "*  You set `public 1` on a dedicated server.                                   *\n" );
+			Con_Printf( "*                                                                              *\n" );
+			Con_Printf( "*  Legacy UDP master servers are deprecated. To make your server visible in    *\n" );
+			Con_Printf( "*  the new HTTPS-based public server list, open a Pull Request to:             *\n" );
+			Con_Printf( "*                                                                              *\n" );
+			Con_Printf( "*      https://github.com/FWGS/server-list                                     *\n" );
+			Con_Printf( "*                                                                              *\n" );
+			Con_Printf( "********************************************************************************\n" );
+			Con_Printf( "\n" );
+			shown_serverlist_notice = true;
+		}
+	}
+
 	for( master_t *m = ml.head; m; m = m->next )
 	{
 		if( host.realtime - m->last_heartbeat < HEARTBEAT_SECONDS )
@@ -757,7 +779,9 @@ void NET_InitMasters( void )
 #if 0
 	NET_AddMasterStatic( "http://meltdown.lan/test" );
 #endif
-	NET_AddMasterStatic( "http://fwgs.github.io/server-list" );
+	// NOTE: do not use fwgs.github.io for GitHub pages
+	// because org-wide URL is xash.su (for legacy reasons)
+	NET_AddMasterStatic( "http://xash.su/server-list" );
 	// FIXME: https raw.githubcontent source
 	// FIXME: cloudflare'd sources both HTTP and HTTPS
 
