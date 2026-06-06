@@ -1777,8 +1777,8 @@ static void NET_DetermineLocalAddress( void )
 	struct sockaddr_storage	address;
 	WSAsize_t		namelen;
 
-	memset( &net_local, 0, sizeof( netadr_t ));
-	memset( &net6_local, 0, sizeof( netadr_t ));
+	memset( &net_local, 0, sizeof( net_local ));
+	memset( &net6_local, 0, sizeof( net6_local ));
 
 	if( !net.allow_ip && !net.allow_ip6 )
 	{
