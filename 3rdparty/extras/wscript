@@ -23,6 +23,6 @@ def build(bld):
 
 	bld(features='zip',
 		name = 'extras.pk3',
-		files = srcdir.ant_glob('**/*'),
+		files = srcdir.ant_glob('**/*', excl=['scripts/**']),
 		relative_to = srcdir,
 		install_path = install_path)
