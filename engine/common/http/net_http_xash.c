@@ -40,6 +40,8 @@ typedef struct httpserver_s
 	int port;
 	char path[MAX_SYSPATH];
 	qboolean secure;
+	qboolean resolved;
+	struct sockaddr_storage addr;
 	struct httpserver_s *next;
 } httpserver_t;
 
@@ -279,6 +281,13 @@ static int HTTP_FileQueue( httpfile_t *file )
 
 static int HTTP_FileResolveNS( httpfile_t *file )
 {
+	if( file->server->resolved )
+	{
+		file->addr = file->server->addr;
+		file->pfn_process = HTTP_FileCreateSocket;
+		return 1;
+	}
+
 	if( http.resolving )
 		return 0;
 
@@ -308,6 +317,9 @@ static int HTTP_FileResolveNS( httpfile_t *file )
 		HTTP_FreeFile( file, true );
 		return 0;
 	}
+
+	file->server->addr = file->addr;
+	file->server->resolved = true;
 
 	file->pfn_process = HTTP_FileCreateSocket;
 	return 1;
