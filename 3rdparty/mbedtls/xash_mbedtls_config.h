@@ -33,4 +33,9 @@
 #undef MBEDTLS_X509_CRL_PARSE_C
 #undef MBEDTLS_VERSION_FEATURES
 
+#if defined( __vita__ )
+/* Upstream has no PSVita support, psvita_compat.c fills in */
+#define MBEDTLS_PLATFORM_MS_TIME_ALT
+#endif
+
 #endif /* XASH_MBEDTLS_CONFIG_H */
