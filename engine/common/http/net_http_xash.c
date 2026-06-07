@@ -108,7 +108,7 @@ poolhandle_t http_mempool;
 static CVAR_DEFINE_AUTO( http_useragent, "", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "User-Agent string" );
 static CVAR_DEFINE_AUTO( http_autoremove, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "remove broken files" );
 static CVAR_DEFINE_AUTO( http_timeout, "45", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "timeout for http downloader" );
-static CVAR_DEFINE_AUTO( http_maxconnections, "2", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum http connection number" );
+static CVAR_DEFINE_AUTO( http_maxconnections, "5", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum http connection number" );
 static CVAR_DEFINE_AUTO( http_show_headers, "0", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "show HTTP headers (request and response)" );
 static CVAR_DEFINE_AUTO( http_max_redirects, "5", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "maximum HTTP redirects to follow per request" );
 
@@ -260,19 +260,11 @@ static int HTTP_FileFree( httpfile_t *file )
 
 static int HTTP_FileQueue( httpfile_t *file )
 {
-	if( http.active_count > http_maxconnections.value )
-		return 0;
-
 	if( !file->server )
 	{
 		HTTP_FreeFile( file, true );
 		return 0;
 	}
-
-	if( file->to_memory )
-		Con_Reportf( "HTTP: Starting in-memory GET %s\n", file->url );
-	else
-		Con_Reportf( "HTTP: Starting download %s from %s:%d\n", file->path, file->server->host, file->server->port );
 
 	file->pfn_process = HTTP_FileResolveNS;
 	file->blocktime = file->downloaded = file->lastchecksize = file->checktime = 0;
@@ -327,6 +319,14 @@ static int HTTP_FileResolveNS( httpfile_t *file )
 
 static int HTTP_FileCreateSocket( httpfile_t *file )
 {
+	if( http.active_count >= http_maxconnections.value )
+		return 0;
+
+	if( file->to_memory )
+		Con_Reportf( "HTTP: Starting in-memory GET %s\n", file->url );
+	else
+		Con_Reportf( "HTTP: Starting download %s from %s:%d\n", file->path, file->server->host, file->server->port );
+
 	file->socket = socket( file->addr.ss_family, SOCK_STREAM, IPPROTO_TCP );
 
 	if( file->socket < 0 )
