@@ -252,8 +252,6 @@ static int HTTP_FileFree( httpfile_t *file )
 
 static int HTTP_FileQueue( httpfile_t *file )
 {
-	char name[MAX_SYSPATH];
-
 	if( http.active_count > http_maxconnections.value )
 		return 0;
 
@@ -264,25 +262,9 @@ static int HTTP_FileQueue( httpfile_t *file )
 	}
 
 	if( file->to_memory )
-	{
 		Con_Reportf( "HTTP: Starting in-memory GET %s\n", file->url );
-	}
 	else
-	{
 		Con_Reportf( "HTTP: Starting download %s from %s:%d\n", file->path, file->server->host, file->server->port );
-		HTTP_DownloadPath( name, sizeof( name ), file->path, true );
-
-		FS_AllowDirectPaths( true );
-		file->file = FS_Open( name, "wb+", true );
-		FS_AllowDirectPaths( false );
-
-		if( !file->file )
-		{
-			Con_Printf( S_ERROR "HTTP: cannot open %s!\n", name );
-			HTTP_FreeFile( file, true );
-			return 0;
-		}
-	}
 
 	file->pfn_process = HTTP_FileResolveNS;
 	file->blocktime = file->downloaded = file->lastchecksize = file->checktime = 0;
@@ -1010,6 +992,25 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 					Con_Reportf( "Response headers: %s\n", curfile->buf );
 
 				curfile->got_response = true; // got response, let's start download
+
+				if( !curfile->to_memory && !curfile->file )
+				{
+					char name[MAX_SYSPATH];
+
+					HTTP_DownloadPath( name, sizeof( name ), curfile->path, true );
+
+					FS_AllowDirectPaths( true );
+					curfile->file = FS_Open( name, "wb+", true );
+					FS_AllowDirectPaths( false );
+
+					if( !curfile->file )
+					{
+						Con_Printf( S_ERROR "HTTP: cannot open %s!\n", name );
+						HTTP_FreeFile( curfile, true );
+						return 0;
+					}
+				}
+
 				begin += 4;
 
 				if( res - ( begin - curfile->buf ) > 0 )
