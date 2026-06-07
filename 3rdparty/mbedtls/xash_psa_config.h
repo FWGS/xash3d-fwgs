@@ -8,6 +8,12 @@
 #define MBEDTLS_PSA_DRIVER_GET_ENTROPY
 #endif
 
+#if defined( __vita__ )
+/* Upstream has no PSVita target, psvita_compat.c fills in the missing parts. */
+#undef MBEDTLS_PSA_BUILTIN_GET_ENTROPY
+#define MBEDTLS_PSA_DRIVER_GET_ENTROPY
+#endif
+
 #undef MBEDTLS_FS_IO
 #undef MBEDTLS_PSA_ITS_FILE_C
 #undef MBEDTLS_PSA_CRYPTO_STORAGE_C
