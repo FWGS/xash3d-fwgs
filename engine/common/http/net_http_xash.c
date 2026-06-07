@@ -85,8 +85,8 @@ typedef struct httpfile_s
 
 	char query_backup[1024];
 
-	// query or response
-	char buf[MAX_HTTP_BUFFER_SIZE+1];
+	// query or response, allocated when socket is created, freed in HTTP_FreeFile
+	char *buf;
 	int header_size, query_length, bytes_sent;
 } httpfile_t;
 
@@ -165,6 +165,12 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 	}
 
 	file->socket = -1;
+
+	if( file->buf )
+	{
+		Mem_Free( file->buf );
+		file->buf = NULL;
+	}
 
 	if( file->to_memory )
 	{
@@ -325,6 +331,9 @@ static int HTTP_FileCreateSocket( httpfile_t *file )
 		return 0;
 	}
 
+	if( !file->buf )
+		file->buf = Mem_Calloc( http_mempool, MAX_HTTP_BUFFER_SIZE + 1 );
+
 	http.active_count++;
 	file->pfn_process = HTTP_FileConnect;
 	return 1;
@@ -372,7 +381,7 @@ static int HTTP_FileConnect( httpfile_t *file )
 
 	if( file->to_memory )
 	{
-		file->query_length = Q_snprintf( file->buf, sizeof( file->buf ),
+		file->query_length = Q_snprintf( file->buf, MAX_HTTP_BUFFER_SIZE + 1,
 			"GET %s%s HTTP/1.1\r\n"
 			"Host: %s:%d\r\n"
 			"User-Agent: %s\r\n"
@@ -383,7 +392,7 @@ static int HTTP_FileConnect( httpfile_t *file )
 	}
 	else
 	{
-		file->query_length = Q_snprintf( file->buf, sizeof( file->buf ),
+		file->query_length = Q_snprintf( file->buf, MAX_HTTP_BUFFER_SIZE + 1,
 			"GET %s%s HTTP/1.1\r\n"
 			"Host: %s:%d\r\n"
 			"User-Agent: %s\r\n"
@@ -455,7 +464,7 @@ static int HTTP_FileSendRequest( httpfile_t *file )
 				Con_Reportf( "HTTP: Request sent! (size %d data %s)\n", file->bytes_sent, file->buf );
 			else
 				Con_Reportf( "HTTP: Request sent!\n" );
-			memset( file->buf, 0, sizeof( file->buf ));
+			memset( file->buf, 0, MAX_HTTP_BUFFER_SIZE + 1);
 			file->pfn_process = HTTP_FileProcessStream;
 			return 1;
 		}
@@ -840,7 +849,7 @@ process incoming data
 */
 static int HTTP_FileProcessStream( httpfile_t *curfile )
 {
-	char buf[sizeof( curfile->buf )];
+	char buf[MAX_HTTP_BUFFER_SIZE + 1];
 	char *begin = 0;
 	int res;
 
@@ -1475,6 +1484,9 @@ static void HTTP_Clear_f( void )
 
 		if( file->socket != -1 )
 			closesocket( file->socket );
+
+		if( file->buf )
+			Mem_Free( file->buf );
 
 		if( file->to_memory )
 		{
