@@ -99,6 +99,7 @@ static struct http_static_s
 	qboolean resolving;
 } http;
 
+poolhandle_t http_mempool;
 
 static CVAR_DEFINE_AUTO( http_useragent, "", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "User-Agent string" );
 static CVAR_DEFINE_AUTO( http_autoremove, "1", FCVAR_ARCHIVE | FCVAR_PRIVILEGED, "remove broken files" );
@@ -1449,6 +1450,7 @@ HTTP_Init
 void HTTP_Init( void )
 {
 	http.first_file = NULL;
+	http_mempool = Mem_AllocPool( "HTTP" );
 
 	Cmd_AddRestrictedCommand( "http_download", HTTP_Download_f, "add file to download queue" );
 	Cmd_AddRestrictedCommand( "http_skip", HTTP_Skip_f, "skip current download server" );
@@ -1481,4 +1483,6 @@ void HTTP_Shutdown( void )
 		http.first_server = http.first_server->next;
 		Mem_Free( tmp );
 	}
+
+	Mem_FreePool( &http_mempool );
 }
