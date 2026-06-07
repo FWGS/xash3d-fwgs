@@ -191,6 +191,8 @@ def build(bld):
 
 	if bld.env.DEST_OS == 'win32':
 		libs += ['USER32', 'SHELL32', 'GDI32', 'ADVAPI32', 'DBGHELP', 'PSAPI', 'WS2_32']
+		if bld.env.DEST_SIZEOF_VOID_P > 4:
+			libs += ['BCRYPT']
 	elif bld.env.DEST_OS == 'nswitch':
 		libs += ['SOLDER']
 		# HACK: link in the entirety of libstdc++ so that dynamic libs could use all of it without manual exporting

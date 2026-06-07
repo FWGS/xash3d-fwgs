@@ -1,6 +1,13 @@
 #ifndef XASH_PSA_CONFIG_H
 #define XASH_PSA_CONFIG_H
 
+#if defined( _WIN32 ) && !defined( _WIN64 )
+/* Upstream pulls BCryptGenRandom (Vista+); we still target XP on 32-bit.
+   winxp_entropy.c provides mbedtls_platform_get_entropy() via advapi32. */
+#undef MBEDTLS_PSA_BUILTIN_GET_ENTROPY
+#define MBEDTLS_PSA_DRIVER_GET_ENTROPY
+#endif
+
 #undef MBEDTLS_FS_IO
 #undef MBEDTLS_PSA_ITS_FILE_C
 #undef MBEDTLS_PSA_CRYPTO_STORAGE_C
