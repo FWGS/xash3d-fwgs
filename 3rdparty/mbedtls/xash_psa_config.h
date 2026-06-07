@@ -1,17 +1,16 @@
 #ifndef XASH_PSA_CONFIG_H
 #define XASH_PSA_CONFIG_H
 
-#if defined( _WIN32 ) && !defined( _WIN64 )
-/* Upstream pulls BCryptGenRandom (Vista+); we still target XP on 32-bit.
-   winxp_entropy.c provides mbedtls_platform_get_entropy() via advapi32. */
+#if (defined( _WIN32 ) && !defined( _WIN64 )) || defined( __vita__ ) || defined( __SWITCH__ )
+/* WinXP, PSVita and NSwitch use entropy paths upstream doesn't cover.
+   compat.c provides mbedtls_platform_get_entropy() for all three. */
 #undef MBEDTLS_PSA_BUILTIN_GET_ENTROPY
 #define MBEDTLS_PSA_DRIVER_GET_ENTROPY
 #endif
 
-#if defined( __vita__ )
-/* Upstream has no PSVita target, psvita_compat.c fills in the missing parts. */
-#undef MBEDTLS_PSA_BUILTIN_GET_ENTROPY
-#define MBEDTLS_PSA_DRIVER_GET_ENTROPY
+#if defined( __vita__ ) || defined( __SWITCH__ )
+/* Upstream has no Vita/NSW support; compat.c fills in */
+#define MBEDTLS_PLATFORM_MS_TIME_ALT
 #endif
 
 #undef MBEDTLS_FS_IO

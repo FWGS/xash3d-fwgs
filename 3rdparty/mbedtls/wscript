@@ -30,11 +30,7 @@ def build(bld):
 		'mbedtls/tf-psa-crypto/drivers/builtin/src/*.c',
 	])
 
-	if bld.env.DEST_OS == 'win32' and bld.env.DEST_SIZEOF_VOID_P == 4:
-		sources += ['winxp_entropy.c']
-
-	if bld.env.DEST_OS == 'psvita':
-		sources += ['psvita_compat.c']
+	sources += ['compat.c']
 
 	defines = [
 		'MBEDTLS_USER_CONFIG_FILE="xash_mbedtls_config.h"',
