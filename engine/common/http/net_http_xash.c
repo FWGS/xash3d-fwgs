@@ -530,8 +530,8 @@ static int HTTP_FileDecompress( httpfile_t *file )
 		return 0;
 	}
 
-	byte *data_in = Mem_Malloc( host.mempool, compressed_len + 1 );
-	byte *data_out = Mem_Malloc( host.mempool, decompressed_len + 1 );
+	byte *data_in = Mem_Malloc( http_mempool, compressed_len + 1 );
+	byte *data_out = Mem_Malloc( http_mempool, decompressed_len + 1 );
 
 	HTTP_DownloadPath( name, sizeof( name ), file->path, false );
 
@@ -747,7 +747,7 @@ static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
 				while( newcap < file->mem_size + len_to_write )
 					newcap *= 2;
 
-				file->mem_data = Mem_Realloc( host.mempool, file->mem_data, newcap );
+				file->mem_data = Mem_Realloc( http_mempool, file->mem_data, newcap );
 				file->mem_cap = newcap;
 			}
 
@@ -1067,7 +1067,7 @@ void HTTP_AddDownload( const char *path, int size, qboolean process, resource_t 
 		return;
 	}
 
-	httpfile_t *httpfile = Z_Calloc( sizeof( *httpfile ));
+	httpfile_t *httpfile = Mem_Calloc( http_mempool, sizeof( *httpfile ));
 
 	Con_Reportf( "File %s queued to download\n", path );
 
@@ -1103,7 +1103,7 @@ qboolean HTTP_GetToMemory( const char *url, http_memory_cb_t cb, void *userdata 
 		return false;
 	}
 
-	httpfile_t *httpfile = Z_Calloc( sizeof( *httpfile ));
+	httpfile_t *httpfile = Mem_Calloc( http_mempool, sizeof( *httpfile ));
 
 	httpfile->size = -1;
 	httpfile->reported_size = -1;
@@ -1172,7 +1172,7 @@ static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path )
 		return NULL;
 	}
 
-	httpserver_t *server = Z_Calloc( sizeof( httpserver_t ));
+	httpserver_t *server = Mem_Calloc( http_mempool, sizeof( httpserver_t ));
 	int i = 0;
 
 	server->secure = secure;
