@@ -70,6 +70,8 @@ typedef struct httpfile_s
 	http_process_fn_t pfn_process;
 	struct sockaddr_storage addr;
 	int redirects_followed;
+	qboolean url_in_server;
+	tlsctx_t *tls;
 
 	// in-memory response mode (set by HTTP_GetToMemory)
 	qboolean to_memory;
@@ -115,6 +117,7 @@ static int HTTP_FileProcessStream( httpfile_t *file );
 static int HTTP_FileQueue( httpfile_t *file );
 static int HTTP_FileResolveNS( httpfile_t *file );
 static int HTTP_FileSendRequest( httpfile_t *file );
+static int HTTP_FileTlsHandshake( httpfile_t *file );
 static int HTTP_FileDecompress( httpfile_t *file );
 static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path );
 static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location );
@@ -148,6 +151,12 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 	}
 
 	file->file = NULL;
+
+	if( file->tls )
+	{
+		HTTP_TlsFree( file->tls );
+		file->tls = NULL;
+	}
 
 	if( file->socket != -1 )
 	{
@@ -370,6 +379,8 @@ static int HTTP_FileConnect( httpfile_t *file )
 	}
 	else Q_strncpy( useragent, http_useragent.string, sizeof( useragent ));
 
+	const char *path_suffix = file->url_in_server ? "" : file->path;
+
 	if( file->to_memory )
 	{
 		file->query_length = Q_snprintf( file->buf, sizeof( file->buf ),
@@ -377,7 +388,7 @@ static int HTTP_FileConnect( httpfile_t *file )
 			"Host: %s:%d\r\n"
 			"User-Agent: %s\r\n"
 			"Accept: */*\r\n\r\n",
-			file->server->path, file->path,
+			file->server->path, path_suffix,
 			file->server->host, file->server->port,
 			useragent );
 	}
@@ -389,20 +400,60 @@ static int HTTP_FileConnect( httpfile_t *file )
 			"User-Agent: %s\r\n"
 			"Accept-Encoding: gzip, deflate\r\n"
 			"Accept: */*\r\n\r\n",
-			file->server->path, file->path,
+			file->server->path, path_suffix,
 			file->server->host, file->server->port,
 			useragent );
 	}
 	Q_strncpy( file->query_backup, file->buf, sizeof( file->query_backup ));
 	file->bytes_sent = 0;
 	file->header_size = 0;
-	file->pfn_process = HTTP_FileSendRequest;
+
+	if( file->server->secure )
+	{
+		file->tls = HTTP_TlsNew( file->socket, file->server->host );
+		if( !file->tls )
+		{
+			Con_Printf( S_ERROR "TLS context allocation failed for %s\n", file->server->host );
+			HTTP_FreeFile( file, true );
+			return 0;
+		}
+		file->pfn_process = HTTP_FileTlsHandshake;
+	}
+	else file->pfn_process = HTTP_FileSendRequest;
+
 	return 1;
+}
+
+static int HTTP_FileTlsHandshake( httpfile_t *file )
+{
+	int ret = HTTP_TlsHandshake( file->tls );
+
+	if( ret == HTTP_TLS_OK )
+	{
+		file->blocktime = 0;
+		file->pfn_process = HTTP_FileSendRequest;
+		return 1;
+	}
+
+	if( ret == HTTP_TLS_WANT )
+	{
+		file->blocktime += host.frametime;
+		file->blockreason = "TLS handshake";
+		return 0;
+	}
+
+	HTTP_FreeFile( file, true );
+	return 0;
 }
 
 static int HTTP_FileSendRequest( httpfile_t *file )
 {
-	int res = send( file->socket, file->buf + file->bytes_sent, file->query_length - file->bytes_sent, 0 );
+	int res;
+
+	if( file->tls )
+		res = HTTP_TlsSend( file->tls, file->buf + file->bytes_sent, file->query_length - file->bytes_sent );
+	else
+		res = send( file->socket, file->buf + file->bytes_sent, file->query_length - file->bytes_sent, 0 );
 
 	if( res >= 0 )
 	{
@@ -419,6 +470,17 @@ static int HTTP_FileSendRequest( httpfile_t *file )
 			file->pfn_process = HTTP_FileProcessStream;
 			return 1;
 		}
+	}
+	else if( file->tls )
+	{
+		if( res != HTTP_TLS_WANT )
+		{
+			HTTP_FreeFile( file, true );
+			return 0;
+		}
+
+		file->blocktime += host.frametime;
+		file->blockreason = "request send";
 	}
 	else
 	{
@@ -792,8 +854,18 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 	int res;
 
 	// if we got there, we are receiving data
-	while(( res = recv( curfile->socket, buf, sizeof( buf ) - curfile->header_size - 1, 0 )) > 0 )
+	while( 1 )
 	{
+		int rlen = sizeof( buf ) - curfile->header_size - 1;
+
+		if( curfile->tls )
+			res = HTTP_TlsRecv( curfile->tls, buf, rlen );
+		else
+			res = recv( curfile->socket, buf, rlen, 0 );
+
+		if( res <= 0 )
+			break;
+
 		curfile->blocktime = 0;
 
 		if( !curfile->got_response ) // Response still not received
@@ -989,13 +1061,24 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 
 	if( res < 0 )
 	{
-		int err = WSAGetLastError();
-
-		if( err != WSAEWOULDBLOCK && err != WSAEINPROGRESS )
+		if( curfile->tls )
 		{
-			Con_Reportf( "problem downloading %s: %s\n", curfile->path, NET_ErrorString( ));
-			HTTP_FreeFile( curfile, true );
-			return 0;
+			if( res != HTTP_TLS_WANT )
+			{
+				HTTP_FreeFile( curfile, true );
+				return 0;
+			}
+		}
+		else
+		{
+			int err = WSAGetLastError();
+
+			if( err != WSAEWOULDBLOCK && err != WSAEINPROGRESS )
+			{
+				Con_Reportf( "problem downloading %s: %s\n", curfile->path, NET_ErrorString( ));
+				HTTP_FreeFile( curfile, true );
+				return 0;
+			}
 		}
 
 		curfile->blocktime += host.frametime;
@@ -1259,6 +1342,12 @@ static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location )
 	Con_Reportf( "HTTP: redirect %s -> %s\n", file->to_memory ? file->url : file->path, location );
 
 	// tear down current connection but keep file/mem buffers
+	if( file->tls )
+	{
+		HTTP_TlsFree( file->tls );
+		file->tls = NULL;
+	}
+
 	if( file->socket != -1 )
 	{
 		closesocket( file->socket );
@@ -1287,8 +1376,7 @@ static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location )
 	file->chunksize = 0;
 	file->size = file->reported_size;
 
-	// redirect Location: gave us a full URL, so per-file suffix is empty now
-	file->path[0] = 0;
+	file->url_in_server = true;
 	if( file->to_memory )
 		Q_strncpy( file->url, location, sizeof( file->url ));
 
@@ -1352,6 +1440,9 @@ static void HTTP_Clear_f( void )
 
 		if( file->file )
 			FS_Close( file->file );
+
+		if( file->tls )
+			HTTP_TlsFree( file->tls );
 
 		if( file->socket != -1 )
 			closesocket( file->socket );
@@ -1452,6 +1543,8 @@ void HTTP_Init( void )
 	http.first_file = NULL;
 	http_mempool = Mem_AllocPool( "HTTP" );
 
+	HTTP_TlsInit();
+
 	Cmd_AddRestrictedCommand( "http_download", HTTP_Download_f, "add file to download queue" );
 	Cmd_AddRestrictedCommand( "http_skip", HTTP_Skip_f, "skip current download server" );
 	Cmd_AddRestrictedCommand( "http_cancel", HTTP_Cancel_f, "cancel current download" );
@@ -1483,6 +1576,8 @@ void HTTP_Shutdown( void )
 		http.first_server = http.first_server->next;
 		Mem_Free( tmp );
 	}
+
+	HTTP_TlsShutdown();
 
 	Mem_FreePool( &http_mempool );
 }
