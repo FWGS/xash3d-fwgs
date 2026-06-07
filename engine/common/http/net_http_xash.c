@@ -119,7 +119,7 @@ static int HTTP_FileResolveNS( httpfile_t *file );
 static int HTTP_FileSendRequest( httpfile_t *file );
 static int HTTP_FileTlsHandshake( httpfile_t *file );
 static int HTTP_FileDecompress( httpfile_t *file );
-static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path );
+static httpserver_t *HTTP_ParseURL( const char *url_, qboolean full_path );
 static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location );
 
 static const char *HTTP_DownloadPath( char *buf, size_t buflen, const char *path, qboolean incomplete )
@@ -195,7 +195,14 @@ static void HTTP_FreeFile( httpfile_t *file, qboolean error )
 		// switch to next fastdl server if present
 		if( file->server && was_open )
 		{
-			file->server = file->server->next;
+			httpserver_t *next = file->server->next;
+
+			if( file->own_server )
+			{
+				Mem_Free( file->server );
+				file->own_server = false;
+			}
+			file->server = next;
 
 			file->pfn_process = HTTP_FileQueue; // Reset download state, HTTP_Run() will open file again
 			return;
@@ -686,6 +693,9 @@ static void HTTP_AutoClean( void )
 			continue;
 		}
 
+		// unlink before running callbacks (in-memory cb may queue another GET, which prepends to first_file)
+		*prev = cur->next;
+
 #if !XASH_DEDICATED
 		if( cur->process )
 		{
@@ -703,7 +713,6 @@ static void HTTP_AutoClean( void )
 				Con_Printf( "successfully downloaded %s!\n", cur->path );
 		}
 
-		*prev = cur->next;
 		Mem_Free( cur );
 	}
 
@@ -728,7 +737,7 @@ static int HTTP_FileSaveReceivedData( httpfile_t *file, int pos, int length )
 		{
 			char *begin = &file->buf[pos];
 
-			if( begin[0] == '\r' && begin[1] == '\r' )
+			if( begin[0] == '\r' && begin[1] == '\n' )
 				begin += 2;
 
 			file->chunksize = Q_atoi_hex( 1, begin );
@@ -888,20 +897,20 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 
 				*begin = 0; // cut string to print out response
 
-				if( !Q_strstr( curfile->buf, "200 OK" ))
+				int num = -1;
+
+				// don't assume the response is valid HTTP
+				if( !Q_strncmp( curfile->buf, "HTTP/1.", 7 ))
 				{
-					int num = -1;
+					char tmp[4];
 
-					// extract the error code, don't assume the response is valid HTTP
-					if( !Q_strncmp( curfile->buf, "HTTP/1.", 7 ))
-					{
-						char tmp[4];
+					Q_strncpy( tmp, curfile->buf + 9, sizeof( tmp ));
+					if( Q_isdigit( tmp ))
+						num = Q_atoi( tmp );
+				}
 
-						Q_strncpy( tmp, curfile->buf + 9, sizeof( tmp ));
-						if( Q_isdigit( tmp ))
-							num = Q_atoi( tmp );
-					}
-
+				if( num != 200 )
+				{
 					if( num == 301 || num == 302 || num == 303 || num == 307 || num == 308 )
 					{
 						char *loc = Q_stristr( curfile->buf, "Location:" );
@@ -977,7 +986,7 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 					content_length += sizeof( "Content-Length: " ) - 1;
 					int size = Q_atoi( content_length );
 
-					Con_Reportf( "HTTP: Got 200 OK! File size is %d%s\n", curfile->size, curfile->compressed ? ", compressed" : "" );
+					Con_Reportf( "HTTP: Got 200 OK! File size is %d%s\n", size, curfile->compressed ? ", compressed" : "" );
 
 					if( !curfile->compressed )
 					{
@@ -1055,8 +1064,9 @@ static int HTTP_FileProcessStream( httpfile_t *curfile )
 
 	if( res == 0 )
 	{
-		curfile->blocktime += host.frametime;
-		curfile->blockreason = "waiting for data";
+		Con_Printf( S_ERROR "connection closed prematurely for %s\n", curfile->to_memory ? curfile->url : curfile->path );
+		HTTP_FreeFile( curfile, true );
+		return 0;
 	}
 
 	if( res < 0 )
@@ -1144,6 +1154,12 @@ void HTTP_AddDownload( const char *path, int size, qboolean process, resource_t 
 		return;
 	}
 
+	if( Q_strpbrk( path, "\r\n" ))
+	{
+		Con_Printf( S_ERROR "%s: refused to download, path contains CRLF\n", __func__ );
+		return;
+	}
+
 	if( !http.first_server )
 	{
 		Con_Printf( S_ERROR "no servers to download %s\n", path );
@@ -1178,7 +1194,13 @@ and handed to the callback when the request completes (success or failure).
 */
 qboolean HTTP_GetToMemory( const char *url, http_memory_cb_t cb, void *userdata )
 {
-	httpserver_t *server = HTTP_ParseURLEx( url, true );
+	if( Q_strpbrk( url, "\r\n" ))
+	{
+		Con_Printf( S_ERROR "%s: refused, URL contains CRLF\n", __func__ );
+		return false;
+	}
+
+	httpserver_t *server = HTTP_ParseURL( url, true );
 
 	if( !server )
 	{
@@ -1229,21 +1251,19 @@ static void HTTP_Download_f( void )
 HTTP_ParseURL
 ==============
 */
-static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path )
+static httpserver_t *HTTP_ParseURL( const char *url_, qboolean full_path )
 {
 	qboolean secure = false;
-	const char *url = Q_strstr( url_, "https://" );
+	const char *url = NULL;
 
-	if( url )
+	if( !Q_strnicmp( url_, "https://", 8 ))
 	{
-		url += 8;
+		url = url_ + 8;
 		secure = true;
 	}
-	else
+	else if( !Q_strnicmp( url_, "http://", 7 ))
 	{
-		url = Q_strstr( url_, "http://" );
-		if( url )
-			url += 7;
+		url = url_ + 7;
 	}
 
 	if( !url )
@@ -1262,8 +1282,11 @@ static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path )
 
 	while( *url && ( *url != ':' ) && ( *url != '/' ) && ( *url != '\r' ) && ( *url != '\n' ))
 	{
-		if( i > sizeof( server->host ))
+		if( i >= sizeof( server->host ) - 1 )
+		{
+			Mem_Free( server );
 			return NULL;
+		}
 
 		server->host[i++] = *url++;
 	}
@@ -1282,10 +1305,14 @@ static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path )
 
 	i = 0;
 
+	// leave room for the optional trailing '/' and the '\0'
 	while( *url && ( *url != '\r' ) && ( *url != '\n' ))
 	{
-		if( i > sizeof( server->path ) - 1 )
+		if( i >= sizeof( server->path ) - 2 )
+		{
+			Mem_Free( server );
 			return NULL;
+		}
 
 		server->path[i++] = *url++;
 	}
@@ -1298,11 +1325,6 @@ static httpserver_t *HTTP_ParseURLEx( const char *url_, qboolean full_path )
 	server->next = NULL;
 
 	return server;
-}
-
-static httpserver_t *HTTP_ParseURL( const char *url_ )
-{
-	return HTTP_ParseURLEx( url_, false );
 }
 
 static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location )
@@ -1332,7 +1354,7 @@ static qboolean HTTP_FileRedirect( httpfile_t *file, const char *location )
 		return false;
 	}
 
-	httpserver_t *newserver = HTTP_ParseURLEx( location, true );
+	httpserver_t *newserver = HTTP_ParseURL( location, true );
 	if( !newserver )
 	{
 		Con_Printf( S_ERROR "redirect target %s is not a valid URL\n", location );
@@ -1394,7 +1416,13 @@ HTTP_AddCustomServer
 */
 void HTTP_AddCustomServer( const char *url )
 {
-	httpserver_t *server = HTTP_ParseURL( url );
+	if( Q_strpbrk( url, "\r\n" ))
+	{
+		Con_Printf( S_ERROR "%s: refused, URL contains CRLF\n", __func__ );
+		return;
+	}
+
+	httpserver_t *server = HTTP_ParseURL( url, false );
 
 	if( !server )
 	{

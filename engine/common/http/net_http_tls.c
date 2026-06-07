@@ -203,15 +203,12 @@ tlsctx_t *HTTP_TlsNew( int socket, const char *hostname )
 		return NULL;
 	}
 
-	if( hostname && *hostname )
+	ret = mbedtls_ssl_set_hostname( &ctx->ssl, ( hostname && *hostname ) ? hostname : NULL );
+	if( ret != 0 )
 	{
-		ret = mbedtls_ssl_set_hostname( &ctx->ssl, hostname );
-		if( ret != 0 )
-		{
-			HTTP_TlsLogErr( "ssl_set_hostname", ret );
-			HTTP_TlsFree( ctx );
-			return NULL;
-		}
+		HTTP_TlsLogErr( "ssl_set_hostname", ret );
+		HTTP_TlsFree( ctx );
+		return NULL;
 	}
 
 	mbedtls_ssl_set_bio( &ctx->ssl, &ctx->socket, HTTP_TlsBioSend, HTTP_TlsBioRecv, NULL );
