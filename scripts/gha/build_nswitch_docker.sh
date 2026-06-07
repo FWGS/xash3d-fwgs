@@ -40,6 +40,10 @@ echo "Building libsolder..."
 
 make -C libsolder install || die
 
+# Remove devkitPro's outdated mbedTLS as we only target 4.x+
+echo "Removing devkitPro's mbedTLS port..."
+dkp-pacman -R --noconfirm switch-libssh2 switch-mbedtls || true
+
 echo "Building engine..."
 
 ./waf configure -T release --nswitch || die_configure
