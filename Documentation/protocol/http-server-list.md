@@ -28,17 +28,18 @@ used; servers register out of band.
 
 ## Response
 
-UTF-8 text, tokenized with `COM_ParseFileSafe` (whitespace separates,
-`//` and `#` start line comments, `"..."` quotes a token). One directive
-per record:
+UTF-8 text, parsed line by line. Each line is tokenized with
+`COM_ParseFileSafe` (whitespace separates, `//` and `#` start line
+comments, `"..."` quotes a token). Blank lines and comment-only lines
+are ignored. One directive per line:
 
 * `ip <address>` — Xash3D server (protocol 49).
 * `gs <address>` — GoldSrc server (protocol 48).
 
 `<address>` is parsed by `NET_StringToAdr` (`1.2.3.4:27015`,
-`[2001:db8::1]:27015`, hostnames). Port defaults to `27015`. Unknown
-directives are skipped together with one operand so new keywords can be
-added without breaking older clients.
+`[2001:db8::1]:27015`, hostnames). Port defaults to `27015`. Lines
+starting with an unknown directive are skipped entirely, so new keywords
+with any number of operands can be added without breaking older clients.
 
 `Content-Type` is not inspected, `text/plain; charset=utf-8` expected.
 
