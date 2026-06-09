@@ -225,33 +225,33 @@ void NET_QueryServerByAddress( netadr_t adr, connprotocol_t proto )
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO " %i", PROTOCOL_VERSION );
 }
 
-static int NET_ParseMasterStaticBody( char *body )
+static int NET_ParseMasterStaticBody( const byte *body, size_t size )
 {
-	char token[MAX_TOKEN];
-	char *pfile = body;
+	char line[1024];
+	int offset = 0;
 	int count = 0;
 
-	while(( pfile = COM_ParseFileSafe( pfile, token, sizeof( token ), PFILE_HASH_AS_COMMENT, NULL, NULL )))
+	while( Q_memfgets( (byte *)body, size, &offset, line, sizeof( line )) != NULL )
 	{
+		char token[MAX_TOKEN];
+		char *pfile = line;
 		qboolean gs;
+		netadr_t adr = { 0 };
+
+		pfile = COM_ParseFileSafe( pfile, token, sizeof( token ), PFILE_HASH_AS_COMMENT, NULL, NULL );
+		if( !pfile || token[0] == '\0' )
+			continue;
 
 		if( !Q_strcmp( token, "ip" ))
 			gs = false;
 		else if( !Q_strcmp( token, "gs" ))
 			gs = true;
 		else
-		{
-			pfile = COM_ParseFileSafe( pfile, token, sizeof( token ), PFILE_HASH_AS_COMMENT, NULL, NULL );
-			if( !pfile )
-				break;
 			continue;
-		}
 
 		pfile = COM_ParseFileSafe( pfile, token, sizeof( token ), PFILE_HASH_AS_COMMENT, NULL, NULL );
 		if( !pfile )
-			break;
-
-		netadr_t adr = { 0 };
+			continue;
 
 		if( !NET_StringToAdr( token, &adr ))
 		{
@@ -288,16 +288,9 @@ static void NET_MasterStaticResponse( const char *url, qboolean success, const b
 		return;
 	}
 
-	// HTTP buffer isn't NUL-terminated; COM_ParseFileSafe needs one.
-	char *body = Mem_Malloc( host.mempool, size + 1 );
-	memcpy( body, data, size );
-	body[size] = 0;
-
 	NET_Config( true, false ); // allow remote sends
 
-	int count = NET_ParseMasterStaticBody( body );
-
-	Mem_Free( body );
+	int count = NET_ParseMasterStaticBody( data, size );
 
 	Con_Reportf( "masterstatic: %s yielded %d server(s)\n", url, count );
 
