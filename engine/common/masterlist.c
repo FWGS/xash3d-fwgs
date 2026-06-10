@@ -509,7 +509,7 @@ static master_t *NET_AddMaster( const char *addr )
 
 static void NET_AddMaster_f( void )
 {
-	if( Cmd_Argc() != 2 )
+	if( Cmd_Argc() != 2 && Cmd_Argc() != 3 )
 	{
 		Msg( S_USAGE "addmaster <address> [gs]\n");
 		return;
