@@ -55,6 +55,24 @@
             app:key="enable_yapb_bots"
             app:title="@string/game_settings_yapb_bots"
             app:defaultValue="false" />
+
+        <ListPreference
+            app:key="msaa"
+            app:layout="@layout/list_preference"
+            app:title="@string/msaa"
+            app:entries="@array/msaa_entries"
+            app:entryValues="@array/msaa_values"
+            app:defaultValue="0"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+
+        <SwitchPreferenceCompat
+            app:key="vsync"
+            app:layout="@layout/switch_preference"
+            app:title="@string/vsync"
+            app:summary="@string/vsync_summary"
+            app:defaultValue="false"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
 </PreferenceScreen>

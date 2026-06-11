@@ -46,6 +46,12 @@
     <string name="fix_font">Fix font</string>
     <string name="fix_font_summary">Fix con_oldfont and con_fontscale behavior</string>
 
+    <string name="msaa">Anti-aliasing (MSAA)</string>
+    <string name="msaa_summary">Disabled</string>
+
+    <string name="vsync">Vertical sync (VSync)</string>
+    <string name="vsync_summary">Synchronize frame rate with display refresh rate</string>
+
     <!-- Crash reporting -->
     <string name="crash_dialog_title">Xash3D FWGS crashed last time</string>
     <string name="crash_send_to_developers">Send to developers</string>

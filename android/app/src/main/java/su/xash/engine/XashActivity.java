@@ -257,6 +257,16 @@ public class XashActivity extends SDLActivity {
             argv += " -fixfont";
         }
 
+        if (!hasArgument(argv, "gl_msaa_samples")) {
+            String msaa = mPreferences.getString("msaa", "0");
+            argv += " +gl_msaa_samples " + msaa;
+        }
+
+        if (!hasArgument(argv, "gl_vsync")) {
+            boolean vsyncEnabled = getBooleanPreference("vsync", false);
+            argv += " +gl_vsync " + (vsyncEnabled ? "1" : "0");
+        }
+
         if (!getBooleanPreference("keyboard_resizes_screen", true) && !hasArgument(argv, "-noresize")) {
             argv += " -noresize";
         }
