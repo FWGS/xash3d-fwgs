@@ -743,7 +743,7 @@ void GAME_EXPORT R_DecalShoot( int textureIndex, int entityIndex, int modelIndex
 
 	if( model->type != mod_brush )
 	{
-		gEngfuncs.Con_Printf( S_ERROR "Decals must hit mod_brush!\n" );
+		gEngfuncs.Con_Reportf( S_ERROR "Decals must hit mod_brush!\n" );
 		return;
 	}
 
