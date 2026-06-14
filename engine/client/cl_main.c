@@ -98,7 +98,7 @@ CVAR_DEFINE_AUTO( rate, "25000", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, 
 
 CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "you wouldn't steal a car" );
 static CVAR_DEFINE_AUTO( cl_advertise_engine_in_name, "1", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "add [Xash3D] to the nickname when connecting to GoldSrc servers" );
-static CVAR_DEFINE_AUTO( cl_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
+CVAR_DEFINE_AUTO( cl_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
 static CVAR_DEFINE_AUTO( cl_autorecord, "0", 0, "automatically start recording a demo after joining the server" );
 
 client_t		cl;
@@ -2072,12 +2072,14 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	UI_AddServerToList( from, infostring );
 }
 
-static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legacy_format )
+void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legacy_format )
 {
 	static char	s[512+8];
 	int p, numcl, maxcl, password, remaining, bots;
 	string host, map, gamedir, version;
 	char *replace;
+
+	CL_QueryMarkGoldSrcAddress( from );
 
 	// set to beginning but skip header
 	MSG_SeekToBit( msg, (sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
@@ -2277,6 +2279,8 @@ static void CL_ProcessNetRequests( void )
 {
 	net_request_t	*nr;
 	int		i;
+
+	CL_QueryFrame();
 
 	// find a request with specified context
 	for( i = 0; i < MAX_REQUESTS; i++ )
@@ -2671,6 +2675,10 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 {
 	char *args;
 	const char *c;
+	size_t rawsize = MSG_GetMaxBytes( msg );
+
+	if( CL_QueryHandlePacket( from, msg->pData, rawsize ))
+		return;
 
 	MSG_Clear( msg );
 	MSG_ReadLong( msg ); // skip the -1
@@ -2822,6 +2830,13 @@ static void CL_ReadNetMessage( void )
 	while( CL_GetMessage( net_message_buffer, &curSize ))
 	{
 		MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
+
+		// https://developer.valvesoftware.com/wiki/Server_queries#Goldsource_Server
+		if( MSG_GetMaxBytes( &net_message ) >= 4 && *(int *)net_message.pData == NET_HEADER_SPLITPACKET )
+		{
+			if( CL_QueryHandleSplitPacket( net_from, net_message.pData, curSize ))
+				continue;
+		}
 
 		// check for connectionless packet (0xffffffff) first
 		if( MSG_GetMaxBytes( &net_message ) >= 4 && *(int *)net_message.pData == -1 )
@@ -3473,6 +3488,8 @@ static void CL_InitLocal( void )
 	cls.state = ca_disconnected;
 	cls.signon = 0;
 	memset( &cls.serveradr, 0, sizeof( cls.serveradr ) );
+
+	CL_QueryInit();
 
 	cl.resourcesneeded.pNext = cl.resourcesneeded.pPrev = &cl.resourcesneeded;
 	cl.resourcesonhand.pNext = cl.resourcesonhand.pPrev = &cl.resourcesonhand;

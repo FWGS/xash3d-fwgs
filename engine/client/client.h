@@ -731,6 +731,7 @@ extern convar_t	v_dark;	// start from dark
 extern convar_t	net_graph;
 extern convar_t	rate;
 extern convar_t cl_ticket_generator;
+extern convar_t cl_log_outofband;
 extern convar_t	m_ignore;
 extern convar_t	r_showtree;
 extern convar_t	ui_renderworld;
@@ -793,6 +794,11 @@ void CL_ClearState( void );
 void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticket, size_t ticketlen );
 void CL_NotifyServerListResponse( void );
+void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legacy_format );
+
+#if !XASH_DEDICATED
+#include "cl_query.h"
+#endif
 
 //
 // cl_demo.c

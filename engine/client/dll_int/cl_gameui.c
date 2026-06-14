@@ -98,6 +98,9 @@ void UI_SetActiveMenu( qboolean fActive )
 
 void UI_AddServerToList( netadr_t adr, const char *info )
 {
+	if( !Q_strcmp( Info_ValueForKey( info, "gs" ), "1" ))
+		CL_QueryMarkGoldSrcAddress( adr );
+
 	if( !gameui.hInstance ) return;
 	gameui.dllFuncs.pfnAddServerToList( adr, info );
 }

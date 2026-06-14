@@ -3415,7 +3415,18 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 	nr->resp.remote_address = *remote_address;
 	nr->flags = flags;
 
-	// local servers request
+	if( FBitSet( flags, FNETAPI_GOLDSRC ) || CL_IsGoldSrcAddress( *remote_address ))
+	{
+		if( !FBitSet( flags, FNETAPI_GOLDSRC ))
+			CL_QueryLog( "Protocol=48 type=%i", request );
+
+		if( CL_QueryStartNetAPI( nr, i ))
+			return;
+		Con_DPrintf( S_ERROR "%s: failed to start GoldSrc query for context %i!\n", __func__, context );
+		return;
+	}
+
+	CL_QueryLog( "Protocol=49 type=%i", request );
 	Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, A2A_NETINFO" %i %i %i", PROTOCOL_VERSION, context, request );
 }
 
@@ -3434,6 +3445,8 @@ static void GAME_EXPORT NetAPI_CancelRequest( int context )
 
 		if( clgame.net_requests[i].resp.context == context )
 		{
+			CL_QueryCancelByContext( context );
+
 			if( nr->pfnFunc )
 			{
 				SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
@@ -3455,6 +3468,8 @@ NetAPI_CancelAllRequests
 */
 void GAME_EXPORT NetAPI_CancelAllRequests( void )
 {
+	CL_QueryCancelAll();
+
 	// tell the user about cancel
 	for( int i = 0; i < MAX_REQUESTS; i++ )
 	{
