@@ -2079,8 +2079,6 @@ void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legac
 	string host, map, gamedir, version;
 	char *replace;
 
-	CL_QueryMarkGoldSrcAddress( from );
-
 	// set to beginning but skip header
 	MSG_SeekToBit( msg, (sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
 
@@ -2149,7 +2147,8 @@ void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legac
 
 	// now construct infostring for mainui
 	Info_SetValueForKeyf( s, "p", sizeof( s ), "%i", p );
-	Info_SetValueForKey( s, "gs", "1", sizeof( s )); // we only support GoldSrc here, Xash never should reply with this message
+	if( p == PROTOCOL_GOLDSRC_VERSION )
+		Info_SetValueForKey( s, "gs", "1", sizeof( s ));
 	Info_SetValueForKey( s, "map", map, sizeof( s ));
 	Info_SetValueForKey( s, "dm", "0", sizeof( s )); // obsolete keys
 	Info_SetValueForKey( s, "team", "0", sizeof( s ));
@@ -2177,95 +2176,6 @@ void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legac
 	Info_SetValueForKey( s, "host", host, sizeof( s ));
 
 	UI_AddServerToList( from, s );
-}
-
-/*
-=================
-CL_ParseNETInfoMessage
-
-Handle a reply from a netinfo
-=================
-*/
-static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
-{
-	net_request_t	*nr = NULL;
-	static char	infostring[MAX_PRINT_MSG];
-	int		i, context, type;
-	int		errorBits = 0;
-	const char		*val;
-
-	context = Q_atoi( Cmd_Argv( 1 ));
-	type = Q_atoi( Cmd_Argv( 2 ));
-
-	// find request with specified context and type
-	for( i = 0; i < MAX_REQUESTS; i++ )
-	{
-		if( clgame.net_requests[i].resp.context == context && clgame.net_requests[i].resp.type == type )
-		{
-			nr = &clgame.net_requests[i];
-			break;
-		}
-	}
-
-	// not found, ignore
-	if( nr == NULL )
-		return;
-
-	// find the payload
-	s = Q_strchr( s, ' ' ); // skip netinfo
-	if( !s )
-		return;
-
-	s = Q_strchr( s + 1, ' ' ); // skip challenge
-	if( !s )
-		return;
-
-	s = Q_strchr( s + 1, ' ' ); // skip type
-	if( s )
-		s++; // skip final whitespace
-	else if( type != NETAPI_REQUEST_PING ) // ping have no payload, and that's ok
-		return;
-
-	if( s )
-	{
-		if( s[0] == '\\' )
-		{
-			// check for errors
-			val = Info_ValueForKey( s, "neterror" );
-
-			if( !Q_stricmp( val, "protocol" ))
-				SetBits( errorBits, NET_ERROR_PROTO_UNSUPPORTED );
-			else if( !Q_stricmp( val, "undefined" ))
-				SetBits( errorBits, NET_ERROR_UNDEFINED );
-			else if( !Q_stricmp( val, "forbidden" ))
-				SetBits( errorBits, NET_ERROR_FORBIDDEN );
-
-			CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
-		}
-		else
-		{
-			Q_strncpy( infostring, s, sizeof( infostring ));
-		}
-	}
-	else
-	{
-		infostring[0] = 0;
-	}
-
-	// setup the answer
-	nr->resp.response = infostring;
-	nr->resp.remote_address = from;
-	nr->resp.error = NET_SUCCESS;
-	nr->resp.ping = host.realtime - nr->timesend;
-
-	if( nr->timeout <= host.realtime )
-		SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
-	SetBits( nr->resp.error, errorBits ); // misc error bits
-
-	nr->pfnFunc( &nr->resp );
-
-	if( !FBitSet( nr->flags, FNETAPI_MULTIPLE_RESPONSE ))
-		memset( nr, 0, sizeof( *nr )); // done
 }
 
 /*
@@ -2707,10 +2617,6 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( c[0] == S2A_GOLDSRC_LEGACY_INFO )
 	{
 		CL_ParseGoldSrcStatusMessage( from, msg, true );
-	}
-	else if( !Q_strcmp( c, A2A_NETINFO ))
-	{
-		CL_ParseNETInfoMessage( from, args ); // server responding to a status broadcast
 	}
 	else if( c[0] == A2C_GOLDSRC_PRINT || !Q_strcmp( c, A2C_PRINT ))
 	{

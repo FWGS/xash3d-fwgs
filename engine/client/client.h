@@ -795,6 +795,7 @@ void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticket, size_t ticketlen );
 void CL_NotifyServerListResponse( void );
 void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legacy_format );
+qboolean CL_IsFromConnectingServer( netadr_t from );
 
 #if !XASH_DEDICATED
 #include "cl_query.h"

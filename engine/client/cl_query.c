@@ -12,19 +12,9 @@ the Free Software Foundation, either version 3 of the License, or
 #include "cl_query.h"
 
 #define SPLIT_PART_SIZE	( MAX_PRINT_MSG / 16 )
-
-#define MAX_GOLDSRC_CACHE	256
-#define GOLDSRC_CACHE_TTL	300.0f
-#define MAX_KV_SIZE			128
-
-typedef struct
-{
-	netadr_t	adr;
-	float		expire;
-} gs_cache_entry_t;
+#define MAX_KV_SIZE		128
 
 static server_query_t	cl_queries[MAX_SERVER_QUERIES];
-static gs_cache_entry_t	cl_gs_cache[MAX_GOLDSRC_CACHE];
 
 static const char *CL_QueryTypeName( query_type_t type )
 {
@@ -50,54 +40,7 @@ void CL_QueryLog( const char *fmt, ... )
 	Q_vsnprintf( msg, sizeof( msg ), fmt, va );
 	va_end( va );
 
-	Con_DPrintf( "[Query] %s\n", msg );
-}
-
-void CL_QueryMarkGoldSrcAddress( netadr_t adr )
-{
-	int i, oldest = 0;
-	float oldest_expire = cl_gs_cache[0].expire;
-
-	for( i = 0; i < MAX_GOLDSRC_CACHE; i++ )
-	{
-		if( cl_gs_cache[i].expire != 0.0f && NET_CompareAdr( cl_gs_cache[i].adr, adr ))
-		{
-			cl_gs_cache[i].expire = host.realtime + GOLDSRC_CACHE_TTL;
-			return;
-		}
-	}
-
-	for( i = 0; i < MAX_GOLDSRC_CACHE; i++ )
-	{
-		if( cl_gs_cache[i].expire == 0.0f || cl_gs_cache[i].expire <= host.realtime )
-		{
-			cl_gs_cache[i].adr = adr;
-			cl_gs_cache[i].expire = host.realtime + GOLDSRC_CACHE_TTL;
-			return;
-		}
-
-		if( cl_gs_cache[i].expire < oldest_expire )
-		{
-			oldest_expire = cl_gs_cache[i].expire;
-			oldest = i;
-		}
-	}
-
-	cl_gs_cache[oldest].adr = adr;
-	cl_gs_cache[oldest].expire = host.realtime + GOLDSRC_CACHE_TTL;
-}
-
-qboolean CL_IsGoldSrcAddress( netadr_t adr )
-{
-	int i;
-
-	for( i = 0; i < MAX_GOLDSRC_CACHE; i++ )
-	{
-		if( cl_gs_cache[i].expire > host.realtime && NET_CompareAdr( cl_gs_cache[i].adr, adr ))
-			return true;
-	}
-
-	return false;
+	Con_DPrintf( "CL_ConnectionlessPacket: %s\n", msg );
 }
 
 static server_query_t *CL_QueryAlloc( void )
@@ -219,7 +162,12 @@ static server_query_t *CL_QueryFindForPacket( netadr_t from, const byte *data, s
 	response_type = data[4];
 
 	if( response_type == S2C_GOLDSRC_CHALLENGE_CHAR )
+	{
+		if( cls.state == ca_connecting && CL_IsFromConnectingServer( from ))
+			return NULL;
+
 		return CL_QueryFindChallengeTarget( from );
+	}
 
 	if( CL_QueryTypeForResponse( response_type, &type ))
 		return CL_QueryFindByAddress( from, type );
@@ -278,7 +226,7 @@ static void CL_QueryCompleteNetAPI( server_query_t *query, const char *response 
 	if( nr->timeout <= host.realtime )
 		SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
 
-	CL_QueryLog( "Protocol=48 %s completed (ping=%.0fms)", CL_QueryTypeName( query->type ), nr->resp.ping * 1000.0 );
+	CL_QueryLog( "%s completed (ping=%.0fms)", CL_QueryTypeName( query->type ), nr->resp.ping * 1000.0 );
 
 	nr->pfnFunc( &nr->resp );
 
@@ -310,7 +258,7 @@ static void CL_QueryFailNetAPI( server_query_t *query )
 	nr->resp.error = NET_ERROR_TIMEOUT;
 	nr->resp.ping = host.realtime - nr->timesend;
 
-	CL_QueryLog( "Protocol=48 %s failed (retries=%d)", CL_QueryTypeName( query->type ), query->retries );
+	CL_QueryLog( "%s failed (retries=%d)", CL_QueryTypeName( query->type ), query->retries );
 
 	nr->pfnFunc( &nr->resp );
 	memset( nr, 0, sizeof( *nr ));
@@ -328,7 +276,6 @@ static void CL_QuerySend( server_query_t *query )
 	if( query->type == SQ_PING )
 	{
 		Netchan_OutOfBandPrint( NS_CLIENT, query->adr, A2A_GOLDSRC_PING );
-		CL_QueryLog( "Protocol=48 PING" );
 		return;
 	}
 
@@ -342,13 +289,13 @@ static void CL_QuerySend( server_query_t *query )
 	}
 
 	if( challenge == QUERY_CHALLENGE_NONE )
-		MSG_WriteLong( &msg, -1 );
+		MSG_WriteLong( &msg, QUERY_CHALLENGE_NONE );
 	else
 		MSG_WriteLong( &msg, challenge );
 
 	Netchan_OutOfBand( NS_CLIENT, query->adr, MSG_GetNumBytesWritten( &msg ), MSG_GetData( &msg ));
 
-	CL_QueryLog( "Protocol=48 %s challenge=%d", CL_QueryTypeName( query->type ), challenge );
+	CL_QueryLog( "%s challenge=%d", CL_QueryTypeName( query->type ), challenge );
 }
 
 static int CL_QueryExtractChallenge( const byte *data, size_t size )
@@ -356,10 +303,10 @@ static int CL_QueryExtractChallenge( const byte *data, size_t size )
 	if( size < 9 )
 		return QUERY_CHALLENGE_NONE;
 
-	if( *(const int32_t *)data != -1 )
+	if( *(const int32_t *)data != QUERY_CHALLENGE_NONE )
 		return QUERY_CHALLENGE_NONE;
 
-	if( data[4] != 'A' )
+	if( data[4] != S2C_GOLDSRC_CHALLENGE_CHAR )
 		return QUERY_CHALLENGE_NONE;
 
 	return *(const int32_t *)( data + 5 );
@@ -422,7 +369,8 @@ static qboolean CL_QueryParseInfoToInfostring( sizebuf_t *msg, char *out, size_t
 
 	out[0] = 0;
 	Info_SetValueForKeyf( out, "p", outsize, "%i", p );
-	Info_SetValueForKey( out, "gs", "1", outsize );
+	if( p == PROTOCOL_GOLDSRC_VERSION )
+		Info_SetValueForKey( out, "gs", "1", outsize );
 	Info_SetValueForKey( out, "host", host, outsize );
 	Info_SetValueForKey( out, "map", map, outsize );
 	Info_SetValueForKey( out, "gamedir", gamedir, outsize );
@@ -512,7 +460,7 @@ static void CL_QueryProcessPayload( server_query_t *query, const byte *data, siz
 		return;
 	}
 
-	if( *(const int32_t *)data != -1 )
+	if( *(const int32_t *)data != QUERY_CHALLENGE_NONE )
 	{
 		if( query->consumer == QC_NETAPI )
 			CL_QueryFailNetAPI( query );
@@ -704,7 +652,7 @@ qboolean CL_QueryHandlePacket( netadr_t from, const byte *data, size_t size )
 	if( *(const int32_t *)data == NET_HEADER_SPLITPACKET )
 		return CL_QueryHandleSplitPacket( from, data, size );
 
-	if( *(const int32_t *)data != -1 )
+	if( *(const int32_t *)data != QUERY_CHALLENGE_NONE )
 		return false;
 
 	query = CL_QueryFindForPacket( from, data, size );
@@ -741,7 +689,6 @@ qboolean CL_QueryStartNetAPI( net_request_t *nr, int request_index )
 	query->net_request_index = request_index;
 	CL_QueryResetSplit( query );
 
-	CL_QueryMarkGoldSrcAddress( nr->resp.remote_address );
 	CL_QuerySend( query );
 	return true;
 }
@@ -766,7 +713,6 @@ qboolean CL_QueryStartBrowserInfo( netadr_t adr )
 	query->net_request_index = -1;
 	CL_QueryResetSplit( query );
 
-	CL_QueryMarkGoldSrcAddress( adr );
 	CL_QuerySend( query );
 	return true;
 }
@@ -847,7 +793,6 @@ void CL_QueryFrame( void )
 void CL_QueryInit( void )
 {
 	memset( cl_queries, 0, sizeof( cl_queries ));
-	memset( cl_gs_cache, 0, sizeof( cl_gs_cache ));
 }
 
 void CL_QueryShutdown( void )

@@ -28,7 +28,7 @@
 // kill the request hook after receiving the first response
 #define FNETAPI_MULTIPLE_RESPONSE		( 1<<0 )
 // 1<<1 is reserved for deprecated xash3d-fwgs extension
-#define FNETAPI_GOLDSRC			( 1<<2 )
+#define FNETAPI_GOLDSRC			( 1<<2 ) // deprecated, NetAPI always uses GoldSrc queries
 
 struct net_response_s;
 typedef void (*net_api_response_func_t) ( struct net_response_s *response );

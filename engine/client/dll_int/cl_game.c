@@ -3415,19 +3415,10 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 	nr->resp.remote_address = *remote_address;
 	nr->flags = flags;
 
-	if( FBitSet( flags, FNETAPI_GOLDSRC ) || CL_IsGoldSrcAddress( *remote_address ))
-	{
-		if( !FBitSet( flags, FNETAPI_GOLDSRC ))
-			CL_QueryLog( "Protocol=48 type=%i", request );
-
-		if( CL_QueryStartNetAPI( nr, i ))
-			return;
-		Con_DPrintf( S_ERROR "%s: failed to start GoldSrc query for context %i!\n", __func__, context );
+	if( CL_QueryStartNetAPI( nr, i ))
 		return;
-	}
 
-	CL_QueryLog( "Protocol=49 type=%i", request );
-	Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, A2A_NETINFO" %i %i %i", PROTOCOL_VERSION, context, request );
+	Con_DPrintf( S_ERROR "%s: failed to start server query for context %i!\n", __func__, context );
 }
 
 /*

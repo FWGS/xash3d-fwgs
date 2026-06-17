@@ -62,8 +62,6 @@ qboolean CL_QueryHandleSplitPacket( netadr_t from, const byte *data, size_t size
 void CL_QueryCancelByContext( int context );
 void CL_QueryCancelAll( void );
 
-void CL_QueryMarkGoldSrcAddress( netadr_t adr );
-qboolean CL_IsGoldSrcAddress( netadr_t adr );
 void CL_QueryLog( const char *fmt, ... ) FORMAT_CHECK( 1 );
 
 #endif // CL_QUERY_H
