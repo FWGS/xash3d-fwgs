@@ -22,6 +22,8 @@ Source: https://github.com/vitasdk/vita-headers/blob/master/include/psp2/kernel/
 
 NSwitch: randomGet from libnx.
 Source: https://github.com/switchbrew/libnx/blob/master/nx/include/switch/kernel/random.h
+
+GameCube: tick-based entropy from libogc (no hardware RNG).
 */
 
 #include "mbedtls/platform.h"
@@ -97,6 +99,28 @@ int mbedtls_platform_get_entropy( psa_driver_get_entropy_flags_t flags, size_t *
 		return PSA_ERROR_NOT_SUPPORTED;
 
 	randomGet( output, output_size );
+	*estimate_bits = 8 * output_size;
+	return 0;
+}
+
+#elif defined( __GAMECUBE__ )
+#include <stdint.h>
+
+int mbedtls_platform_get_entropy( psa_driver_get_entropy_flags_t flags, size_t *estimate_bits, unsigned char *output, size_t output_size )
+{
+	extern double Platform_DoubleTime( void );
+	uint32_t seed = (uint32_t)( Platform_DoubleTime() * 1000.0 );
+	size_t i;
+
+	if( flags != 0 )
+		return PSA_ERROR_NOT_SUPPORTED;
+
+	for( i = 0; i < output_size; i++ )
+	{
+		seed = seed * 1103515245U + 12345U + (uint32_t)(uintptr_t)&output[i];
+		output[i] = (unsigned char)( seed >> 16 );
+	}
+
 	*estimate_bits = 8 * output_size;
 	return 0;
 }

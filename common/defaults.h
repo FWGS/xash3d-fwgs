@@ -49,6 +49,13 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_REDUCE_FD 1
 		#define XASH_NO_TOUCH  1
 		#define XASH_NO_ZIP    1
+	#elif XASH_GAMECUBE
+		#define XASH_VIDEO     VIDEO_GX
+		#define XASH_INPUT     INPUT_GAMECUBE
+		#define XASH_SOUND     SOUND_NULL
+		#define XASH_NO_NETWORK 1
+		#define XASH_REDUCE_FD 1
+		#define XASH_NO_TOUCH  1
 	#endif
 #endif // !XASH_DEDICATED
 
@@ -62,6 +69,8 @@ SETUP BACKENDS DEFINITIONS
 		#define XASH_MESSAGEBOX MSGBOX_WIN32
 	#elif XASH_NSWITCH
 		#define XASH_MESSAGEBOX MSGBOX_NSWITCH
+	#elif XASH_GAMECUBE
+		#define XASH_MESSAGEBOX MSGBOX_GAMECUBE
 	#elif XASH_PSP
 		#define XASH_MESSAGEBOX MSGBOX_PSP
 	#else // !XASH_WIN32
@@ -105,6 +114,8 @@ SETUP BACKENDS DEFINITIONS
 	#define XASH_ALLOW_SAVERESTORE_OFFSETS
 #elif XASH_WIN32
 	#define XASH_LIB LIB_WIN32
+#elif XASH_GAMECUBE
+	/* fake dlopen provided by engine/platform/gamecube/dll_gamecube.c */
 #elif XASH_POSIX
 	#define XASH_LIB LIB_POSIX
 #endif
@@ -143,6 +154,12 @@ Default build-depended cvar and constant values
 	#define DEFAULT_MODE_WIDTH   1280
 	#define DEFAULT_MODE_HEIGHT  720
 	#define DEFAULT_ALLOWCONSOLE 1
+#elif XASH_GAMECUBE
+	#define DEFAULT_M_IGNORE     "1"
+	#define DEFAULT_MODE_WIDTH   640
+	#define DEFAULT_MODE_HEIGHT  480
+	#define DEFAULT_ALLOWCONSOLE 1
+	#define DEFAULT_FULLSCREEN   "1"
 #elif XASH_PSVITA
 	#define DEFAULT_TOUCH_ENABLE "1"
 	#define DEFAULT_M_IGNORE     "1"
@@ -189,6 +206,8 @@ Default build-depended cvar and constant values
 #ifndef DEFAULT_ACCELERATED_RENDERER
 	#if XASH_PSP
 		#define DEFAULT_ACCELERATED_RENDERER "gu"
+	#elif XASH_GAMECUBE
+		#define DEFAULT_ACCELERATED_RENDERER "gx"
 	#elif XASH_MOBILE_PLATFORM
 		#define DEFAULT_ACCELERATED_RENDERER "gles1"
 	#elif XASH_IOS

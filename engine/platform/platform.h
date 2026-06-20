@@ -119,6 +119,11 @@ void DOS_Init( void );
 void DOS_Shutdown( void );
 #endif
 
+#if XASH_GAMECUBE
+void GCube_Init( void );
+void GCube_Shutdown( void );
+#endif
+
 #if XASH_LINUX
 void Linux_Init( void );
 void Linux_Shutdown( void );
@@ -141,6 +146,8 @@ static inline void Platform_Init( qboolean con_showalways )
 	Android_Init( );
 #elif XASH_NSWITCH
 	NSwitch_Init( );
+#elif XASH_GAMECUBE
+	GCube_Init( );
 #elif XASH_PSVITA
 	PSVita_Init( );
 #elif XASH_DOS
@@ -156,6 +163,8 @@ static inline void Platform_Shutdown( void )
 {
 #if XASH_NSWITCH
 	NSwitch_Shutdown( );
+#elif XASH_GAMECUBE
+	GCube_Shutdown( );
 #elif XASH_PSVITA
 	PSVita_Shutdown( );
 #elif XASH_DOS
@@ -281,7 +290,7 @@ static inline void GAME_EXPORT Platform_GetMousePos( int *x, int *y )
 }
 #endif
 
-#if XASH_SDL || XASH_DOS
+#if XASH_SDL || XASH_DOS || XASH_GAMECUBE
 void Platform_RunEvents( void );
 void Platform_MouseMove( float *x, float *y );
 #else
@@ -299,11 +308,16 @@ void Platform_EnableTextInput( qboolean enable );
 static inline void Platform_EnableTextInput( qboolean enable ) { }
 #endif
 
-#if XASH_SDL >= 2
+#if XASH_SDL >= 2 || XASH_GAMECUBE
 int Platform_JoyInit( void ); // returns number of connected gamepads, negative if error
 void Platform_JoyShutdown( void );
+#if XASH_SDL >= 2
 void Platform_CalibrateGamepadGyro( void );
 key_modifier_t Platform_GetKeyModifiers( void );
+#else
+static inline void Platform_CalibrateGamepadGyro( void ) { }
+static inline key_modifier_t Platform_GetKeyModifiers( void ) { return KeyModifier_None; }
+#endif
 #else
 static inline int Platform_JoyInit( void ) { return 0; }
 static inline void Platform_JoyShutdown( void ) { }

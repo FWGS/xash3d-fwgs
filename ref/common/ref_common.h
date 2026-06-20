@@ -31,14 +31,51 @@ extern const ref_interface_t gReffuncs;
 
 DECLARE_ENGINE_SHARED_CVAR_LIST()
 
+#if XASH_GAMECUBE
+#define vid_gamma refgp_vid_gamma
+#define vid_brightness refgp_vid_brightness
+#define v_lightgamma refgp_v_lightgamma
+#define v_direct refgp_v_direct
+#define r_showtextures refgp_r_showtextures
+#define r_speeds refgp_r_speeds
+#define r_fullbright refgp_r_fullbright
+#define r_norefresh refgp_r_norefresh
+#define r_lightmap refgp_r_lightmap
+#define r_dynamic refgp_r_dynamic
+#define r_drawentities refgp_r_drawentities
+#define r_decals refgp_r_decals
+#define r_showhull refgp_r_showhull
+#define gl_vsync refgp_gl_vsync
+#define gl_clear refgp_gl_clear
+#define cl_himodels refgp_cl_himodels
+#define cl_lightstyle_lerping refgp_cl_lightstyle_lerping
+#define tracerred refgp_tracerred
+#define tracergreen refgp_tracergreen
+#define tracerblue refgp_tracerblue
+#define traceralpha refgp_traceralpha
+#define r_sprite_lerping refgp_r_sprite_lerping
+#define r_sprite_lighting refgp_r_sprite_lighting
+#define r_drawviewmodel refgp_r_drawviewmodel
+#define r_glowshellfreq refgp_r_glowshellfreq
+#define host_allow_materials refgp_host_allow_materials
+#define r_pvs_radius refgp_r_pvs_radius
+#endif
+
 #define Assert( x ) if( !( x )) gEngfuncs.Host_Error( "assert failed at %s:%i\n", __FILE__, __LINE__ )
 
 #define ENGINE_GET_PARM_ (*gEngfuncs.EngineGetParm)
 #define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( (parm), 0 )
 
-extern uint16_t rtable[MOD_FRAMES][MOD_FRAMES];
-void GL_InitRandomTable( void );
-
+#if XASH_GAMECUBE
+#define Mem_Malloc( pool, size )       gEngfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_Calloc( pool, size )       gEngfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#define Mem_Realloc( pool, ptr, size ) gEngfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
+#define Mem_Free( mem )                gEngfuncs._Mem_Free( mem, __FILE__, __LINE__ )
+#define Mem_AllocPool( name )          gEngfuncs._Mem_AllocPool( name, 0, __FILE__, __LINE__ )
+#define Mem_AllocPoolExt( name, flags ) gEngfuncs._Mem_AllocPool( name, flags, __FILE__, __LINE__ )
+#define Mem_FreePool( pool )           gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
+#define Mem_EmptyPool( pool )          gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )
+#else
 void _Mem_Free( void *data, const char *filename, int fileline );
 void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
@@ -53,6 +90,10 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean cl
 #define Mem_AllocPoolExt( name, flags ) gEngfuncs._Mem_AllocPool( name, flags, __FILE__, __LINE__ )
 #define Mem_FreePool( pool )           gEngfuncs._Mem_FreePool( pool, __FILE__, __LINE__ )
 #define Mem_EmptyPool( pool )          gEngfuncs._Mem_EmptyPool( pool, __FILE__, __LINE__ )
+#endif
+
+extern uint16_t rtable[MOD_FRAMES][MOD_FRAMES];
+void GL_InitRandomTable( void );
 
 extern dlight_t *gp_dlights;
 extern int g_lightstylevalue[MAX_LIGHTSTYLES];

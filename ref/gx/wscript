@@ -1,0 +1,34 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def options(opt):
+	pass
+
+def configure(conf):
+	pass
+
+def build(bld):
+	libs = [ 'ref_common', 'engine_includes', 'werror' ]
+	if bld.env.DEST_OS == 'psvita':
+		libs += [ 'sdk_includes' ]
+	else:
+		libs += [ 'public', 'M' ]
+
+	if bld.env.DEST_OS == 'gamecube':
+		common_dir = bld.path.parent.find_dir('common')
+		common_src = [x for x in common_dir.ant_glob('*.c') if x.name != 'ref_context.c']
+		source = bld.path.ant_glob('*.c') + common_src
+		gc_libs = [ 'engine_includes', 'werror', 'public', 'M' ]
+		bld.stlib(source = source,
+			target = 'ref_gx',
+			includes = ['.', '../common', '../../engine/platform/gamecube'],
+			defines = 'REF_DLL=1',
+			use = gc_libs,
+			install_path = bld.env.LIBDIR)
+	else:
+		bld.shlib(source = bld.path.ant_glob('*.c'),
+			target = 'ref_gx',
+			includes = '.',
+			defines = 'REF_DLL=1',
+			use = libs,
+			install_path = bld.env.LIBDIR)

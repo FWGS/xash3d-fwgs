@@ -60,7 +60,7 @@ def options(opt):
 
 def find_sdl(conf):
 	err_msg = '%s not available! If you want to build dedicated server, specify --dedicated'
-	if conf.env.DEST_OS in ['nswitch', 'psvita']:
+	if conf.env.DEST_OS in ['nswitch', 'psvita', 'gamecube']:
 		err_msg = '%s not available!'
 
 	conf.load('sdl2')
@@ -95,7 +95,7 @@ def configure(conf):
 
 	# Client-only dependencies
 	if conf.env.CLIENT:
-		if conf.env.DEST_OS in ['nswitch', 'psvita']:
+		if conf.env.DEST_OS in ['nswitch', 'psvita', 'gamecube']:
 			extra_libs = ['-lm']
 			if conf.env.DEST_OS == 'psvita':
 				extra_libs = ['-lstdc++', '-lm', '-lSceShaccCgExt', '-lSceShaccCg_stub', '-ltaihen_stub', '-lSceKernelDmacMgr_stub']
@@ -104,7 +104,8 @@ def configure(conf):
 			conf.env.append_unique('CFLAGS', ['-Wl,--no-undefined'])
 
 			conf.env.LDFLAGS += extra_libs
-			find_sdl(conf)
+			if conf.env.DEST_OS != 'gamecube':
+				find_sdl(conf)
 			for lib in extra_libs: conf.env.LDFLAGS.remove(lib)
 
 			if conf.env.DEST_OS == 'nswitch': # remove libstdc++ linking from SDL2, we link it later
@@ -162,6 +163,8 @@ def build(bld):
 	bld(name = 'engine_includes', export_includes = '. common common/imagelib', use = 'filesystem_includes')
 
 	libs = ['engine_includes', 'public', 'werror', 'backtrace_custom', 'library_suffix', 'build_vcs', 'mbedtls']
+	if bld.env.DISABLE_LIBBACKTRACE:
+		libs.remove( 'backtrace_custom' )
 	includes = ['server', 'client', 'client/vgui', 'common/soundlib', 'platform']
 
 	# basic build: dedicated only
@@ -175,7 +178,7 @@ def build(bld):
 		source += bld.path.ant_glob('platform/linux/*.c')
 
 	# include common POSIX conformant code
-	if bld.env.DEST_OS not in ['win32', 'dos']:
+	if bld.env.DEST_OS not in ['win32', 'dos', 'gamecube']:
 		source += bld.path.ant_glob('platform/posix/*.c')
 	if bld.env.IOS:
 		source += bld.path.ant_glob('platform/ios/*.c')
@@ -206,6 +209,10 @@ def build(bld):
 		bld.env.LDFLAGS += ['-Wl,--whole-archive', '-lstdc++', '-lpthread', '-Wl,--no-whole-archive',
 			'-lm', '-lSceShaccCgExt', '-lkubridge_stub', '-ltaihen_stub', '-lSceShaccCg_stub', '-lSceKernelModulemgr_stub', '-lSceSblSsMgr_stub', '-lSceVshBridge_stub', '-lSceKernelDmacMgr_stub', '-lSceLibKernel_stub',
 		]
+	elif bld.env.DEST_OS == 'gamecube':
+		libs += ['ref_gx']
+		bld.env.LDFLAGS += ['-logc', '-lm', '-lfat']
+		source += ['platform/stub/s_stub.c']
 	else: # POSIX
 		libs += ['M', 'RT', 'PTHREAD', 'ASOUND', 'HAIKU', 'MAGX', 'LOG', 'SOCKET']
 		if not bld.env.STATIC:
@@ -279,7 +286,7 @@ def build(bld):
 			libs += frameworks
 			defines += ['XASH_SDLMAIN=1']
 
-		if bld.env.DEST_OS in ['nswitch', 'psvita', 'emscripten']:
+		if bld.env.DEST_OS in ['nswitch', 'psvita', 'gamecube', 'emscripten']:
 			install_path = None
 
 		linkflags = []

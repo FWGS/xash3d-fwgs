@@ -94,6 +94,7 @@ SUBDIRS = [
 	Subproject('ref/common',            lambda x: x.env.CLIENT),
 	Subproject('ref/gl',                lambda x: x.env.CLIENT and (x.env.GL or x.env.NANOGL or x.env.GLWES or x.env.GL4ES or x.env.GLES3COMPAT)),
 	Subproject('ref/soft',              lambda x: x.env.CLIENT and x.env.SOFT),
+	Subproject('ref/gx',                lambda x: x.env.CLIENT and x.env.GX),
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
 	Subproject('3rdparty/mbedtls'),
@@ -102,7 +103,7 @@ SUBDIRS = [
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
 	Subproject('3rdparty/opusfile',     lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUSFILE),
 	Subproject('3rdparty/maintui',      lambda x: x.env.CLIENT and x.env.TUI),
-	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
+	Subproject('3rdparty/mainui',       lambda x: x.env.CLIENT and x.env.DEST_OS not in ['android', 'gamecube']),
 	Subproject('3rdparty/vgui_support', lambda x: x.env.CLIENT),
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 #	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
@@ -126,6 +127,7 @@ REFDLLS = [
 	RefDll('gles2', False, 'GLWES'),
 	RefDll('gl4es', False),
 	RefDll('gles3compat', False, 'GLES3COMPAT'),
+	RefDll('gx', False),
 	RefDll('null', False),
 ]
 
@@ -267,6 +269,12 @@ def configure(conf):
 		conf.options.BUILD_BUNDLED_DEPS = True
 		conf.options.GLES3COMPAT      = True
 		conf.options.GL               = False
+	elif conf.env.DEST_OS == 'gamecube':
+		conf.options.GL               = False
+		conf.options.SOFT             = False
+		conf.options.GX               = True
+		conf.options.LOW_MEMORY       = max( conf.options.LOW_MEMORY, 1 )
+		conf.options.BUILD_BUNDLED_DEPS = True
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
 	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING
@@ -416,7 +424,7 @@ def configure(conf):
 	if not conf.options.DEDICATED:
 		conf.env.SERVER = conf.options.ENABLE_DEDICATED
 		conf.env.CLIENT = True
-		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'dos', 'emscripten'] and not conf.env.IOS and not conf.env.MAGX and not conf.env.STATIC_LINKING
+		conf.env.LAUNCHER = conf.env.DEST_OS not in ['android', 'nswitch', 'psvita', 'gamecube', 'dos', 'emscripten'] and not conf.env.IOS and not conf.env.MAGX and not conf.env.STATIC_LINKING
 	else:
 		conf.env.SERVER = True
 		conf.env.CLIENT = False
@@ -426,7 +434,7 @@ def configure(conf):
 
 	conf.define_cond('SUPPORT_HL25_EXTENDED_STRUCTS', conf.options.SUPPORT_HL25_EXTENDED_STRUCTS)
 
-	if conf.options.ENABLE_RPATH and conf.env.DEST_OS not in ['nswitch', 'psvita']:
+	if conf.options.ENABLE_RPATH and conf.env.DEST_OS not in ['nswitch', 'psvita', 'gamecube']:
 		if conf.env.DEST_OS == 'openbsd':
 			# OpenBSD requires -z origin to enable $ORIGIN expansion in RPATH
 			conf.env.RPATH_ST = '-Wl,-z,origin,-rpath,%s'
@@ -446,7 +454,10 @@ def configure(conf):
 	conf.env.GAMEDIR = conf.options.GAMEDIR
 	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
 
-	if conf.env.DEST_OS == 'nswitch':
+	if conf.env.DEST_OS == 'gamecube':
+		conf.define('XASH_GAMECUBE', 1)
+		conf.check_cc(lib='m')
+	elif conf.env.DEST_OS == 'nswitch':
 		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
 		if conf.env.HAVE_SOLDER and conf.env.LIB_SOLDER and conf.options.BUILD_TYPE == 'debug':
 			conf.env.LIB_SOLDER[0] += 'd' # load libsolderd in debug mode
@@ -494,6 +505,8 @@ def configure(conf):
 		pass
 	elif conf.env.DEST_OS == 'psvita':
 		# PSVita don't have large file support at all
+		pass
+	elif conf.env.DEST_OS == 'gamecube':
 		pass
 	else:
 		# try to guess how to support large files

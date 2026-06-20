@@ -1,0 +1,261 @@
+/*
+vid_gamecube.c - GameCube video backend (software buffer + GX display)
+Copyright (C) 2026 xash3d-gc contributors
+
+Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
+*/
+#include "platform/platform.h"
+
+#if XASH_VIDEO == VIDEO_GX
+
+#include "client.h"
+#include "vid_common.h"
+#include <stdlib.h>
+#include <string.h>
+
+#if XASH_GAMECUBE
+#include <ogc/gx.h>
+#include <ogc/video.h>
+#include <ogc/system.h>
+#include <ogc/cache.h>
+#endif
+
+typedef struct gc_video_s
+{
+	qboolean initialized;
+	int width;
+	int height;
+	int stride;
+	uint bpp;
+	unsigned short *buffer;
+} gc_video_t;
+
+static gc_video_t gc;
+#if XASH_GAMECUBE
+static void *xfb[2] = { NULL, NULL };
+static int which_fb = 0;
+static GXRModeObj *rmode = NULL;
+static u8 gx_fifo[256 * 1024] __attribute__((aligned(32)));
+#endif
+
+void Platform_Minimize_f( void )
+{
+}
+
+static void GC_InitVideoHardware( void )
+{
+#if XASH_GAMECUBE
+	if( gc.initialized )
+		return;
+
+	VIDEO_Init();
+	rmode = VIDEO_GetPreferredMode( NULL );
+	VIDEO_Configure( rmode );
+
+	xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+	xfb[1] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+	VIDEO_SetNextFramebuffer( xfb[which_fb] );
+	VIDEO_SetBlack( false );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+	if( rmode->viTVMode & VI_NON_INTERLACE )
+		VIDEO_WaitVSync();
+
+	GX_Init( gx_fifo, sizeof( gx_fifo ));
+	GX_SetDispCopyGamma( GX_GM_1_0 );
+	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+	GX_SetFieldMode( rmode->field_rendering, (( rmode->viHeight == 2 * rmode->xfbHeight ) ? GX_ENABLE : GX_DISABLE ));
+
+	if( rmode->aa )
+		GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
+	else
+		GX_SetPixelFmt( GX_PF_RGB8_Z24, GX_ZC_LINEAR );
+
+	gc.initialized = true;
+#endif
+}
+
+static void GC_ShutdownVideoHardware( void )
+{
+#if XASH_GAMECUBE
+	if( !gc.initialized )
+		return;
+
+	GX_AbortFrame();
+	VIDEO_SetBlack( true );
+	VIDEO_Flush();
+	gc.initialized = false;
+#endif
+}
+
+static void GC_PresentBuffer( void )
+{
+#if XASH_GAMECUBE
+	unsigned short *src;
+	unsigned short *dst;
+	int copy_w, copy_h, row;
+
+	if( !gc.buffer || !rmode || !xfb[which_fb] )
+		return;
+
+	copy_w = gc.width;
+	copy_h = gc.height;
+	if( copy_w > (int)rmode->fbWidth )
+		copy_w = rmode->fbWidth;
+	if( copy_h > (int)rmode->xfbHeight )
+		copy_h = rmode->xfbHeight;
+
+	src = gc.buffer;
+	dst = (unsigned short *)xfb[which_fb];
+
+	for( row = 0; row < copy_h; row++ )
+		memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, copy_w * sizeof( unsigned short ));
+
+	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
+
+	GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
+	GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
+	GX_CopyDisp( xfb[which_fb], GX_TRUE );
+	VIDEO_SetNextFramebuffer( xfb[which_fb] );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+	which_fb ^= 1;
+#else
+	(void)0;
+#endif
+}
+
+qboolean R_Init_Video( ref_graphic_apis_t type )
+{
+	if( type != REF_GX && type != REF_SOFTWARE )
+		return false;
+
+	GC_InitVideoHardware();
+	host.renderinfo_changed = false;
+	return true;
+}
+
+void R_Free_Video( void )
+{
+	if( gc.buffer )
+	{
+		free( gc.buffer );
+		gc.buffer = NULL;
+	}
+
+	GC_ShutdownVideoHardware();
+
+	if( ref.dllFuncs.GL_ClearExtensions )
+		ref.dllFuncs.GL_ClearExtensions();
+}
+
+void GL_SwapBuffers( void )
+{
+	GC_PresentBuffer();
+}
+
+qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
+{
+	if( gc.buffer )
+		free( gc.buffer );
+
+	gc.width = width;
+	gc.height = height;
+	gc.stride = width;
+	gc.bpp = 2;
+	gc.buffer = calloc( width * height, sizeof( unsigned short ));
+
+	if( !gc.buffer )
+		return false;
+
+	*stride = gc.stride;
+	*bpp = gc.bpp;
+	*r = 0xF800;
+	*g = 0x07E0;
+	*b = 0x001F;
+	return true;
+}
+
+void *SW_LockBuffer( void )
+{
+	return gc.buffer;
+}
+
+void SW_UnlockBuffer( void )
+{
+	GC_PresentBuffer();
+}
+
+qboolean VID_SetMode( void )
+{
+	R_ChangeDisplaySettings( 0, 0, WINDOW_MODE_FULLSCREEN );
+	return true;
+}
+
+rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
+{
+#if XASH_GAMECUBE
+	if( rmode )
+	{
+		width = rmode->fbWidth;
+		height = rmode->efbHeight;
+	}
+	else
+#endif
+	{
+		if( !width ) width = DEFAULT_MODE_WIDTH;
+		if( !height ) height = DEFAULT_MODE_HEIGHT;
+	}
+
+	(void)window_mode;
+	R_SaveVideoMode( width, height, width, height, false );
+	return rserr_ok;
+}
+
+int GL_SetAttribute( int attr, int val )
+{
+	(void)attr;
+	(void)val;
+	return 0;
+}
+
+int GL_GetAttribute( int attr, int *val )
+{
+	(void)attr;
+	if( val ) *val = 0;
+	return 0;
+}
+
+int R_MaxVideoModes( void )
+{
+	return 0;
+}
+
+vidmode_t *R_GetVideoMode( int num )
+{
+	(void)num;
+	return NULL;
+}
+
+void *GL_GetProcAddress( const char *name )
+{
+	(void)name;
+	return NULL;
+}
+
+void GL_UpdateSwapInterval( void )
+{
+}
+
+void VID_Info_f( void )
+{
+}
+
+ref_window_type_t R_GetWindowHandle( void **handle, ref_window_type_t type )
+{
+	(void)handle;
+	(void)type;
+	return REF_WINDOW_TYPE_NULL;
+}
+
+#endif /* XASH_VIDEO == VIDEO_GX */

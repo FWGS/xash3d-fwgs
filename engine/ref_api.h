@@ -242,6 +242,7 @@ typedef enum ref_graphic_apis_e
 	REF_SOFTWARE,	// hypothetical: just make a surface to draw on, in software
 	REF_GL,		// create GL context
 	REF_D3D,	// Direct3D
+	REF_GX,		// Nintendo GameCube/Wii GX hardware renderer
 } ref_graphic_apis_t;
 
 typedef enum
@@ -659,11 +660,19 @@ typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* 
 #define GET_REF_API "GetRefAPI"
 
 #ifdef REF_DLL
+#if XASH_GAMECUBE
+#define DEFINE_ENGINE_SHARED_CVAR( x, y ) cvar_t *refgp_##x = NULL;
+#define DECLARE_ENGINE_SHARED_CVAR( x, y ) extern cvar_t *refgp_##x;
+#define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
+	if(!( refgp_##x = gEngfuncs.pfnGetCvarPointer( #y ) )) \
+		gEngfuncs.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y );
+#else
 #define DEFINE_ENGINE_SHARED_CVAR( x, y ) cvar_t *x = NULL;
 #define DECLARE_ENGINE_SHARED_CVAR( x, y ) extern cvar_t *x;
 #define RETRIEVE_ENGINE_SHARED_CVAR( x, y ) \
 	if(!( x = gEngfuncs.pfnGetCvarPointer( #y ) )) \
 		gEngfuncs.Host_Error( S_ERROR "engine didn't gave us %s cvar pointer\n", #y );
+#endif
 #define ENGINE_SHARED_CVAR_NAME( f, x, y ) f( x, y )
 #define ENGINE_SHARED_CVAR( f, x ) ENGINE_SHARED_CVAR_NAME( f, x, x )
 

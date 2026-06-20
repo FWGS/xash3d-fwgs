@@ -22,7 +22,7 @@ GNU General Public License for more details.
 #include <stddef.h>
 #if XASH_POSIX
 #include <unistd.h>
-#if !XASH_PSVITA
+#if !XASH_PSVITA && !XASH_GAMECUBE
 #include <sys/ioctl.h>
 #endif
 #endif

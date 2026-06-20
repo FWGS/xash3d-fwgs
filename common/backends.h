@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #define VIDEO_PSP     2
 #define VIDEO_FBDEV   3
 #define VIDEO_DOS     4
+#define VIDEO_GX      5
 
 // audio backends (XASH_SOUND)
 #define SOUND_NULL     0
@@ -29,10 +30,11 @@ GNU General Public License for more details.
 #define SOUND_ALSA     3
 
 // input (XASH_INPUT)
-#define INPUT_NULL    0
-#define INPUT_SDL     1
-#define INPUT_PSP     2
-#define INPUT_EVDEV   3
+#define INPUT_NULL      0
+#define INPUT_SDL       1
+#define INPUT_PSP       2
+#define INPUT_EVDEV     3
+#define INPUT_GAMECUBE  4
 
 // timer (XASH_TIMER)
 #define TIMER_NULL  0 // not used
@@ -48,6 +50,7 @@ GNU General Public License for more details.
 #define MSGBOX_PSP     2
 #define MSGBOX_WIN32   3
 #define MSGBOX_NSWITCH 4
+#define MSGBOX_GAMECUBE 5
 
 // library loading (XASH_LIB)
 #define LIB_NULL   0

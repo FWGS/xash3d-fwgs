@@ -42,6 +42,7 @@ ANDROID_STPCPY_API_MIN = 21 # stpcpy() introduced in SDK 21
 ANDROID_64BIT_API_MIN = 21 # minimal API level that supports 64-bit targets
 
 NSWITCH_ENVVARS = ['DEVKITPRO']
+GAMECUBE_ENVVARS = ['DEVKITPRO']
 
 PSVITA_ENVVARS = ['VITASDK']
 
@@ -420,6 +421,64 @@ class Android:
 				ldflags += ['-march=armv5te']
 		return ldflags
 
+class NintendoGameCube:
+	ctx      = None
+	dkp_dir  = None
+	ppc_dir  = None
+	libogc   = None
+
+	def __init__( self, ctx ):
+		self.ctx = ctx
+
+		for i in GAMECUBE_ENVVARS:
+			self.dkp_dir = os.getenv( i )
+			if self.dkp_dir != None:
+				break
+		else:
+			ctx.fatal( 'Set %s environment variable pointing to the DEVKITPRO home!' %
+				' or '.join( GAMECUBE_ENVVARS ))
+
+		self.dkp_dir = os.path.abspath( self.dkp_dir )
+		self.ppc_dir = os.path.join( self.dkp_dir, 'devkitPPC' )
+		if not os.path.exists( self.ppc_dir ):
+			ctx.fatal( 'devkitPPC not found in `%s`. Install devkitPPC!' % self.ppc_dir )
+
+		self.libogc = os.path.join( self.dkp_dir, 'libogc' )
+		if not os.path.exists( self.libogc ):
+			ctx.fatal( 'libogc not found in `%s`. Install libogc!' % self.libogc )
+
+	def gen_toolchain_prefix( self ):
+		return 'powerpc-eabi-'
+
+	def gen_gcc_toolchain_path( self ):
+		return os.path.join( self.ppc_dir, 'bin', self.gen_toolchain_prefix() )
+
+	def cc( self ):
+		return self.gen_gcc_toolchain_path() + 'gcc'
+
+	def cxx( self ):
+		return self.gen_gcc_toolchain_path() + 'g++'
+
+	def strip( self ):
+		return self.gen_gcc_toolchain_path() + 'strip'
+
+	def cflags( self, cxx = False ):
+		cflags = []
+		cflags += ['-DGEKKO', '-D__GAMECUBE__', '-mogc', '-mcpu=750', '-meabi', '-mhard-float']
+		cflags += ['-ffunction-sections', '-fdata-sections']
+		cflags += ['-I%s/include' % self.libogc]
+		if cxx:
+			cflags += ['-std=gnu++17', '-D_GNU_SOURCE']
+		else:
+			cflags += ['-std=gnu11', '-D_GNU_SOURCE']
+		return cflags
+
+	def linkflags( self ):
+		return ['-specs=%s/share/ogc.specs' % self.libogc, '-L%s/lib/cube' % self.libogc]
+
+	def ldflags( self ):
+		return ['-logc', '-lm', '-lfat']
+
 class NintendoSwitch:
 	ctx          = None # waf context
 	arch         = "arm64"
@@ -634,6 +693,8 @@ def options(opt):
 		help='enable building for Motorola MAGX [default: %(default)s]')
 	xc.add_option('--enable-msvc-wine', action='store_true', dest='MSVC_WINE', default=False,
 		help='enable building with MSVC using Wine [default: %(default)s]')
+	xc.add_option('--gamecube', action='store_true', dest='GAMECUBE', default = False,
+		help='enable building for Nintendo GameCube [default: %(default)s]')
 	xc.add_option('--nswitch', action='store_true', dest='NSWITCH', default = False,
 		help='enable building for Nintendo Switch [default: %(default)s]')
 	xc.add_option('--psvita', action='store_true', dest='PSVITA', default = False,
@@ -715,6 +776,19 @@ def configure(conf):
 		conf.env.DEST_OS = 'win32'
 		conf.env.DEST_CPU = conf.env.MSVC_TARGETS[0]
 		conf.env.COMPILER_CXX = conf.env.COMPILER_CC = 'msvc'
+	elif conf.options.GAMECUBE:
+		conf.gamecube = gamecube = NintendoGameCube( conf )
+		conf.environ['CC'] = gamecube.cc()
+		conf.environ['CXX'] = gamecube.cxx()
+		conf.environ['STRIP'] = gamecube.strip()
+		conf.env.CFLAGS += gamecube.cflags()
+		conf.env.CXXFLAGS += gamecube.cflags( True )
+		conf.env.LINKFLAGS += gamecube.linkflags()
+		conf.env.LDFLAGS += gamecube.ldflags()
+		conf.env.HAVE_M = True
+		conf.env.LIB_M = ['m']
+		conf.env.DEST_OS = 'gamecube'
+		conf.env.DEST_CPU = 'powerpc'
 	elif conf.options.NSWITCH:
 		conf.nswitch = nswitch = NintendoSwitch(conf)
 		conf.environ['CC'] = nswitch.cc()
@@ -808,7 +882,7 @@ def configure(conf):
 	conf.env.MAGX = conf.options.MAGX
 	conf.env.MSVC_WINE = conf.options.MSVC_WINE
 	conf.env.SAILFISH = conf.options.SAILFISH
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten', '__psp__': 'psp' })
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__GAMECUBE__' : 'gamecube', '__SWITCH__' : 'nswitch', '__vita__' : 'psvita', '__wasi__': 'wasi', '__EMSCRIPTEN__' : 'emscripten', '__psp__': 'psp' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS
