@@ -100,6 +100,15 @@ int execv( const char *path, char *const argv[] )
 }
 #endif
 
+void GCube_EarlyInit( void )
+{
+#if XASH_GAMECUBE
+	/* Make startup and fatal errors visible in Dolphin before video is ready. */
+	SYS_STDIO_Report( true );
+	SYS_Report( "Xash3D GameCube: bootstrap\n" );
+#endif
+}
+
 void GCube_Init( void )
 {
 #if XASH_GAMECUBE

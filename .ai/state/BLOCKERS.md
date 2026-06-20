@@ -6,6 +6,10 @@ speculative failures as facts.
 
 - The existing `OUT/bin/boot.dol` has not been confirmed to boot in Dolphin or
   on physical hardware.
+- Dolphin is not installed in the current environment, so the OSReport
+  bootstrap marker cannot yet be captured at runtime.
+- The GameCube build reports a `-Wstringop-overflow` warning in
+  `SV_InitEdict`; its validity and impact need a separate focused audit.
 
 ## Resolved locally
 

@@ -39,6 +39,7 @@ int main( int argc, char **argv )
 	// inject -dev -console into args if required
 	szArgc = PSVita_GetArgv( argc, argv, &szArgv );
 #elif XASH_GAMECUBE
+	GCube_EarlyInit();
 	szArgc = GCube_GetArgv( argc, argv, &szArgv );
 #elif XASH_IOS
 	IOS_LaunchDialog();

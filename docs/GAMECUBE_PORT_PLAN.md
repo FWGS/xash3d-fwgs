@@ -61,11 +61,32 @@ generated non-empty `OUT/bin/xash` and `OUT/bin/boot.dol` artifacts. This
 verifies the current local source tree builds; it does not verify runtime
 behavior.
 
+The GameCube launcher now calls `GCube_EarlyInit()` before `Host_Main`. It
+routes stdout and stderr to libogc's Dolphin OSReport channel and emits
+`Xash3D GameCube: bootstrap`, so startup logs and fatal errors are observable
+before GX video initialization. A local runtime probe was not possible because
+no Dolphin executable is installed in this environment.
+
+Verification commands:
+
+```sh
+command -v dolphin-emu || command -v dolphin
+scripts/ai-verify.sh
+strings OUT/bin/boot.dol | grep 'Xash3D GameCube: bootstrap'
+```
+
+Result: no Dolphin executable was found; the complete GameCube build passed;
+and the bootstrap marker is present in the generated DOL. Disassembly also
+confirms `main` calls `GCube_EarlyInit` before `GCube_GetArgv` and `Host_Main`.
+The build emitted an existing `SV_InitEdict` `-Wstringop-overflow` warning that
+should be investigated separately from boot diagnostics.
+
 ## Next blocker
 
-Publish the `gamecube-platform` submodule branch to an accessible remote. Then
-rebuild from a fresh checkout, boot `OUT/bin/boot.dol` in Dolphin, and capture
-the first runtime failure.
+Boot `OUT/bin/boot.dol` in Dolphin with OSReport logging enabled and capture the
+output beginning with `Xash3D GameCube: bootstrap`. Also publish the
+`gamecube-platform` submodule branch to an accessible remote so fresh clones
+can fetch the recorded commit.
 
 ## Next wake-up commands
 
@@ -73,4 +94,5 @@ the first runtime failure.
 git status --short
 git -C 3rdparty/library_suffix diff --check
 scripts/ai-verify.sh
+command -v dolphin-emu || command -v dolphin
 ```
