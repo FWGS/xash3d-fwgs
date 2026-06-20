@@ -215,7 +215,8 @@ def build(bld):
 		source += ['platform/stub/s_stub.c']
 		source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
 		source += bld.path.parent.find_dir('stub/server').ant_glob('*.c')
-		source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('*.c')
+		source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_shared.c')
+		source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_math.c')
 		includes += [
 			str(bld.path.parent.find_dir('stub/pm_shared')),
 			str(bld.path.parent.find_dir('pm_shared')),

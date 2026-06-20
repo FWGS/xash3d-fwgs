@@ -15,6 +15,9 @@ typedef float vec_t;
 #define M_PI_F ((float)M_PI)
 #endif
 
+extern int nanmask;
+#define IS_NAN(x) (((*(int *)&x) & nanmask) == nanmask)
+
 extern vec3_t vec3_origin;
 
 #define DotProduct(x,y) ((x)[0]*(y)[0]+(x)[1]*(y)[1]+(x)[2]*(y)[2])
@@ -38,9 +41,9 @@ float Length( const vec3_t v );
 float Distance( const vec3_t v1, const vec3_t v2 );
 float VectorNormalize( vec3_t v );
 void VectorInverse( vec3_t v );
+void CrossProduct( const vec3_t v1, const vec3_t v2, vec3_t cross );
 void VectorScale( const vec3_t in, vec_t scale, vec3_t out );
 int Q_log2( int val );
 void VectorMatrix( vec3_t forward, vec3_t right, vec3_t up );
-void VectorAngles( const vec3_t forward, vec3_t angles );
 
 #endif /* MATHLIB_H */

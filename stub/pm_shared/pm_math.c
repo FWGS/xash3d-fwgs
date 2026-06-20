@@ -385,32 +385,3 @@ void VectorMatrix( vec3_t forward, vec3_t right, vec3_t up )
 	CrossProduct( right, forward, up );
 	VectorNormalize( up );
 }
-
-void VectorAngles( const vec3_t forward, vec3_t angles )
-{
-	float tmp, yaw, pitch;
-
-	if( forward[1] == 0.0f && forward[0] == 0.0f )
-	{
-		yaw = 0.0f;
-		if( forward[2] > 0.0f )
-			pitch = 90.0f;
-		else
-			pitch = 270.0f;
-	}
-	else
-	{
-		yaw = ( atan2( forward[1], forward[0] ) * 180.0f / M_PI_F );
-		if( yaw < 0.0f )
-			yaw += 360.0f;
-
-		tmp = sqrt( forward[0] * forward[0] + forward[1] * forward[1] );
-		pitch = ( atan2( forward[2], tmp ) * 180.0f / M_PI_F );
-		if( pitch < 0.0f )
-			pitch += 360.0f;
-	}
-
-	angles[0] = pitch;
-	angles[1] = yaw;
-	angles[2] = 0.0f;
-}

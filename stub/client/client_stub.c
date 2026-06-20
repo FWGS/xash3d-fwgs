@@ -81,10 +81,24 @@ static int Stub_ConnectionlessPacket( const struct netadr_s *net_from, const cha
 
 static int Stub_GetHullBounds( int hullnumber, float *mins, float *maxs )
 {
-	(void)hullnumber;
-	if( mins ) VectorClear( mins );
-	if( maxs ) VectorClear( maxs );
-	return 0;
+	if( hullnumber != 0 )
+		return 0;
+
+	if( mins )
+	{
+		mins[0] = -16.0f;
+		mins[1] = -16.0f;
+		mins[2] = -36.0f;
+	}
+
+	if( maxs )
+	{
+		maxs[0] = 16.0f;
+		maxs[1] = 16.0f;
+		maxs[2] = 36.0f;
+	}
+
+	return 1;
 }
 
 static void Stub_Frame( double time )

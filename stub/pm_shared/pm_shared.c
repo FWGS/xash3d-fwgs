@@ -24,7 +24,15 @@
 #include <tgmath.h>
 #endif
 
+#include <strings.h>
+
 #include "const.h"
+#include "pmtrace.h"
+#include "pm_model.h"
+
+#define stricmp strcasecmp
+#define strnicmp strncasecmp
+
 #include "usercmd.h"
 #include "pm_defs.h"
 #include "pm_shared.h"
