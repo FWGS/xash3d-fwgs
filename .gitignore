@@ -238,6 +238,9 @@ publish/
 
 # Windows Azure Build Output
 csx/
+
+# Local AI harness runtime output
+.ai/logs/
 *.build.csdef
 
 # Windows Store app package directory
@@ -371,6 +374,7 @@ GEMINI.md
 .cursor*
 .windsurf*
 .aider*
+!.aider.conf.yml
 .continue/
 .codeium/
 .github/copilot-instructions.md

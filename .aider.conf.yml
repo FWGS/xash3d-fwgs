@@ -1,0 +1,26 @@
+model: openai/qwen-local
+openai-api-base: http://127.0.0.1:8072/v1
+show-model-warnings: false
+
+architect: true
+auto-accept-architect: true
+editor-model: openai/qwen-local
+
+map-tokens: 16384
+map-refresh: auto
+max-chat-history-tokens: 131072
+
+auto-commits: true
+dirty-commits: false
+show-diffs: true
+
+auto-lint: true
+auto-test: false
+
+read:
+  - .ai/prompts/PROJECT_RULES.md
+  - .ai/prompts/PORTING_PATTERNS.md
+  - .ai/state/BLOCKERS.md
+  - .ai/state/DECISIONS.md
+  - docs/GAMECUBE_PORT_PLAN.md
+  - Documentation/development/engine-porting-guide.md

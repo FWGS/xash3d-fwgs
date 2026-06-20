@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO="${1:-/home/tim/Desktop/xash3d-gc}"
+TASK_FILE="${2:-.ai/tasks/current.md}"
+
+cd "$REPO"
+REPO="$(git rev-parse --show-toplevel)"
+cd "$REPO"
+
+: "${OPENAI_API_KEY:?Set OPENAI_API_KEY first}"
+export OPENAI_API_BASE="${OPENAI_API_BASE:-http://127.0.0.1:8072/v1}"
+
+command -v aider >/dev/null 2>&1 || {
+	echo "ai-aider-pass: aider is not installed" >&2
+	exit 1
+}
+
+[[ -f "$TASK_FILE" ]] || {
+	echo "ai-aider-pass: task file not found: $TASK_FILE" >&2
+	exit 1
+}
+
+if [[ -n "$(git status --porcelain)" ]]; then
+	echo "ai-aider-pass: refusing to run with a dirty worktree" >&2
+	git status --short >&2
+	echo "Commit or stash these changes explicitly before an autonomous pass." >&2
+	exit 1
+fi
+
+mkdir -p .ai/logs
+
+STAMP="$(date +%F-%H%M%S)"
+LOG=".ai/logs/aider-pass-$STAMP.log"
+BASELINE="$(git rev-parse HEAD)"
+
+echo "== Aider pass: $STAMP =="
+echo "Repo: $REPO"
+echo "Task: $TASK_FILE"
+echo "Baseline: $BASELINE"
+echo "Log: $LOG"
+
+set +e
+aider \
+	--config .aider.conf.yml \
+	--message-file "$TASK_FILE" \
+	--yes-always \
+	2>&1 | tee "$LOG"
+AIDER_STATUS="${PIPESTATUS[0]}"
+set -e
+
+if (( AIDER_STATUS != 0 )); then
+	printf '\n- %s: Aider exited %d; see `%s`.\n' \
+		"$STAMP" "$AIDER_STATUS" "$LOG" >>.ai/state/BLOCKERS.md
+	exit "$AIDER_STATUS"
+fi
+
+echo
+echo "== verifier =="
+set +e
+scripts/ai-verify.sh "$BASELINE" 2>&1 | tee -a "$LOG"
+VERIFY_STATUS="${PIPESTATUS[0]}"
+set -e
+
+if (( VERIFY_STATUS != 0 )); then
+	printf '\n- %s: Verification failed after `%s`; see `%s`.\n' \
+		"$STAMP" "$BASELINE" "$LOG" >>.ai/state/BLOCKERS.md
+	exit "$VERIFY_STATUS"
+fi
+
+echo
+echo "== accepted patch =="
+git log --oneline "$BASELINE"..HEAD
+git diff --stat "$BASELINE"..HEAD
