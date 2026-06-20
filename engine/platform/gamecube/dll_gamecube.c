@@ -170,7 +170,13 @@ int dll_register( const char *name, dllexport_t *exports )
 int setup_gamecube_dll_functions( void )
 {
 	extern int setup_gamecube_ref_exports( void );
-	return setup_gamecube_ref_exports();
+	extern int setup_gamecube_client_exports( void );
+	int ret = 0;
+
+	ret |= setup_gamecube_ref_exports();
+	ret |= setup_gamecube_client_exports();
+
+	return ret;
 }
 
 #if XASH_GAMECUBE
@@ -178,13 +184,19 @@ int setup_gamecube_dll_functions( void )
 void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean directpath )
 {
 	dll_user_t *hInst;
+	void *handle;
 
 	(void)build_ordinals_table;
 	COM_ResetLibraryError();
 
+	/* Prefer statically registered modules over missing files on SD. */
+	handle = dlopen( dllname, 0 );
+	if( handle )
+		return handle;
+
 	hInst = FS_FindLibrary( dllname, directpath );
 	if( !hInst )
-		return dlopen( dllname, 0 );
+		return NULL;
 
 	if( hInst->custom_loader )
 	{
@@ -195,11 +207,12 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	if( !hInst->hInstance )
 		hInst->hInstance = dlopen( hInst->fullPath, 0 );
 
-	{
-		void *handle = hInst->hInstance;
-		Mem_Free( hInst );
-		return handle;
-	}
+	if( !hInst->hInstance )
+		hInst->hInstance = dlopen( dllname, 0 );
+
+	handle = hInst->hInstance;
+	Mem_Free( hInst );
+	return handle;
 }
 
 void COM_FreeLibrary( void *hInstance )

@@ -213,6 +213,7 @@ def build(bld):
 		libs += ['ref_gx']
 		bld.env.LDFLAGS += ['-logc', '-lm', '-lfat']
 		source += ['platform/stub/s_stub.c']
+		source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
 	else: # POSIX
 		libs += ['M', 'RT', 'PTHREAD', 'ASOUND', 'HAIKU', 'MAGX', 'LOG', 'SOCKET']
 		if not bld.env.STATIC:

@@ -7,12 +7,15 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include "platform/platform.h"
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 #if XASH_GAMECUBE
 #include <ogc/system.h>
 #include <fat.h>
-#include <unistd.h>
+#include <dirent.h>
 #include "dll_gamecube.h"
+
+#define GC_DATA_PATH "xash3d"
 #endif
 
 void Platform_ShellExecute( const char *path, const char *parms )
@@ -100,10 +103,73 @@ int execv( const char *path, char *const argv[] )
 void GCube_Init( void )
 {
 #if XASH_GAMECUBE
+	char xashdir[MAX_SYSPATH];
+
 	if( !fatInitDefault())
 		Con_Reportf( S_WARN "SD card init failed, using DVD paths only\n" );
+
+	if( GCube_GetBasePath( xashdir, sizeof( xashdir )))
+	{
+		if( chdir( xashdir ) == 0 )
+			Con_Reportf( "GameCube data directory: %s\n", xashdir );
+		else
+			Con_Reportf( S_WARN "Failed to chdir to %s\n", xashdir );
+	}
+
 	setup_gamecube_dll_functions();
 #endif
+}
+
+qboolean GCube_GetBasePath( char *buf, size_t buflen )
+{
+#if XASH_GAMECUBE
+	static const char *paths[] =
+	{
+		"sd:/" GC_DATA_PATH,
+		"sd:/",
+		"dvd:/" GC_DATA_PATH,
+		"dvd:/",
+	};
+	DIR *dir;
+	size_t i;
+
+	for( i = 0; i < ARRAYSIZE( paths ); i++ )
+	{
+		dir = opendir( paths[i] );
+		if( !dir )
+			continue;
+
+		closedir( dir );
+		Q_strncpy( buf, paths[i], buflen );
+		return true;
+	}
+#endif
+	(void)buf;
+	(void)buflen;
+	return false;
+}
+
+#define GC_MAX_ARGV 8
+static char *gc_argv[GC_MAX_ARGV];
+
+int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
+{
+	int fake_argc = 0;
+
+	if( in_argc > 1 )
+	{
+		*out_argv = in_argv;
+		return in_argc;
+	}
+
+	gc_argv[fake_argc++] = "xash";
+	gc_argv[fake_argc++] = "-dev";
+	gc_argv[fake_argc++] = "2";
+	gc_argv[fake_argc++] = "-log";
+	gc_argv[fake_argc++] = "-toconsole";
+
+	*out_argv = gc_argv;
+	return fake_argc;
 }
 
 void GCube_Shutdown( void )

@@ -2,6 +2,7 @@
 r_refcontext_vars.c - shared cvar storage and GetRefAPI for static GameCube link
 */
 #include "ref_api.h"
+#include "com_strings.h"
 
 extern const ref_interface_t gReffuncs;
 extern ref_api_t      gEngfuncs;

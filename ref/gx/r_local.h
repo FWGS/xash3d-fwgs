@@ -434,8 +434,15 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage );
 //
 // renderer exports
 //
+#if XASH_GAMECUBE
+qboolean R_Init_refgx( void );
+void R_Shutdown_refgx( void );
+#define R_Init R_Init_refgx
+#define R_Shutdown R_Shutdown_refgx
+#else
 qboolean R_Init( void );
 void R_Shutdown( void );
+#endif
 void GL_SetupAttributes( int safegl );
 void GL_InitExtensions( void );
 void GL_ClearExtensions( void );
@@ -471,23 +478,40 @@ void R_NewMap( void );
 //
 // gl_triapi.c
 //
+#if XASH_GAMECUBE
+void R_GxTriRenderMode( int mode );
+void R_GxTriColor4f( float r, float g, float b, float a );
+void R_GxTriColor4ub( byte r, byte g, byte b, byte a );
+int R_GxTriWorldToScreen( const float *world, float *screen );
+int R_GxTriSpriteTexture( model_t *pSpriteModel, int frame );
+void R_GxTriCullFace( TRICULLSTYLE mode );
+void R_GxTriBrightness( float brightness );
+#define TriRenderMode R_GxTriRenderMode
+#define TriColor4f R_GxTriColor4f
+#define TriColor4ub R_GxTriColor4ub
+#define TriWorldToScreen R_GxTriWorldToScreen
+#define TriSpriteTexture R_GxTriSpriteTexture
+#define TriCullFace R_GxTriCullFace
+#define TriBrightness R_GxTriBrightness
+#else
 void TriRenderMode( int mode );
+void TriColor4f( float r, float g, float b, float a );
+void TriColor4ub( byte r, byte g, byte b, byte a );
+int TriWorldToScreen( const float *world, float *screen );
+int TriSpriteTexture( model_t *pSpriteModel, int frame );
+void TriCullFace( TRICULLSTYLE mode );
+void TriBrightness( float brightness );
+#endif
 void TriBegin( int mode );
 void TriEnd( void );
 void TriTexCoord2f( float u, float v );
 void TriVertex3fv( const float *v );
 void TriVertex3f( float x, float y, float z );
-void TriColor4f( float r, float g, float b, float a );
 void _TriColor4f( float r, float g, float b, float a );
-void TriColor4ub( byte r, byte g, byte b, byte a );
 void _TriColor4ub( byte r, byte g, byte b, byte a );
-int TriWorldToScreen( const float *world, float *screen );
-int TriSpriteTexture( model_t *pSpriteModel, int frame );
 void TriFog( float flFogColor[3], float flStart, float flEnd, int bOn );
 void TriGetMatrix( const int pname, float *matrix );
 void TriFogParams( float flDensity, int iFogSkybox );
-void TriCullFace( TRICULLSTYLE mode );
-void TriBrightness( float brightness );
 
 
 

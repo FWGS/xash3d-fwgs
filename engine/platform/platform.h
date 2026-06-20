@@ -122,6 +122,8 @@ void DOS_Shutdown( void );
 #if XASH_GAMECUBE
 void GCube_Init( void );
 void GCube_Shutdown( void );
+qboolean GCube_GetBasePath( char *buf, size_t buflen );
+int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 #endif
 
 #if XASH_LINUX

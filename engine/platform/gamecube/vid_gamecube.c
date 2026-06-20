@@ -112,10 +112,6 @@ static void GC_PresentBuffer( void )
 		memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, copy_w * sizeof( unsigned short ));
 
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
-
-	GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
-	GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
-	GX_CopyDisp( xfb[which_fb], GX_TRUE );
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
@@ -183,7 +179,6 @@ void *SW_LockBuffer( void )
 
 void SW_UnlockBuffer( void )
 {
-	GC_PresentBuffer();
 }
 
 qboolean VID_SetMode( void )
