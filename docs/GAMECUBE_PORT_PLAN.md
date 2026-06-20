@@ -81,12 +81,37 @@ confirms `main` calls `GCube_EarlyInit` before `GCube_GetArgv` and `Host_Main`.
 The build emitted an existing `SV_InitEdict` `-Wstringop-overflow` warning that
 should be investigated separately from boot diagnostics.
 
+On 2026-06-20, `OUT/bin/boot.dol` was run in Dolphin 2603a (Flatpak) in batch
+mode with OSReport enabled. The first run reached engine initialization and
+failed because the statically built `filesystem_stdio` archive was not linked
+and registered with the GameCube module loader:
+
+```text
+Xash3D GameCube: bootstrap
+Warning: SD card init failed, using DVD paths only
+FS_LoadProgs: can't load filesystem library filesystem_stdio.so
+```
+
+The GameCube build now links `filesystem_stdio`, registers its `GetFSAPI` and
+`CreateInterface` exports, and prefixes its ten engine-colliding implementation
+symbols with `GCFS_`. The full build passed and a second Dolphin run reported:
+
+```text
+FS_LoadProgs: filesystem_stdio successfully loaded
+Changing directory to  failed: No such device
+```
+
+This confirms the DOL boots and the filesystem module initializes. The current
+Dolphin test profile has no SD Gecko/FAT volume, so `fatInitDefault()` fails and
+the fallback root path collapses to an empty path. Dolphin logs are captured in
+the ignored `.ai/logs/` directory.
+
 ## Next blocker
 
-Boot `OUT/bin/boot.dol` in Dolphin with OSReport logging enabled and capture the
-output beginning with `Xash3D GameCube: bootstrap`. Also publish the
-`gamecube-platform` submodule branch to an accessible remote so fresh clones
-can fetch the recorded commit.
+Provide a GameCube-accessible FAT or DVD volume containing `xash3d/valve`, then
+rerun Dolphin and capture the first failure after filesystem initialization.
+Also publish the `gamecube-platform` submodule branch to an accessible remote
+so fresh clones can fetch the recorded commit.
 
 ## Next wake-up commands
 

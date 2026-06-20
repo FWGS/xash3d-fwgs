@@ -4,10 +4,10 @@ Record failed build or verification attempts here. Include the date, command,
 essential error, and the smallest plausible next investigation. Do not record
 speculative failures as facts.
 
-- The existing `OUT/bin/boot.dol` has not been confirmed to boot in Dolphin or
-  on physical hardware.
-- Dolphin is not installed in the current environment, so the OSReport
-  bootstrap marker cannot yet be captured at runtime.
+- `OUT/bin/boot.dol` boots in Dolphin 2603a and initializes the statically
+  linked filesystem module, but it has not been tested on physical hardware.
+- The Dolphin test profile has no GameCube-accessible FAT or DVD volume.
+  `fatInitDefault()` fails, then the `/` fallback is stripped to an empty path.
 - The GameCube build reports a `-Wstringop-overflow` warning in
   `SV_InitEdict`; its validity and impact need a separate focused audit.
 

@@ -21,6 +21,29 @@ typedef struct dll_s
 static dll_t *dll_list;
 static char *dll_err = NULL;
 
+#if XASH_GAMECUBE
+extern int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs );
+extern void *CreateInterface( const char *interface, int *retval );
+
+static dllexport_t gamecube_filesystem_exports[] =
+{
+	{ GET_FS_API, (void *)GetFSAPI },
+	{ "CreateInterface", (void *)CreateInterface },
+	{ NULL, NULL },
+};
+
+static int setup_gamecube_filesystem_exports( void )
+{
+	int ret = 0;
+
+	ret |= dll_register( "filesystem_stdio", gamecube_filesystem_exports );
+	ret |= dll_register( "filesystem_stdio.so", gamecube_filesystem_exports );
+	ret |= dll_register( "libfilesystem_stdio.so", gamecube_filesystem_exports );
+
+	return ret;
+}
+#endif
+
 static void *dlfind( const char *name )
 {
 	dll_t *d;
@@ -174,6 +197,7 @@ int setup_gamecube_dll_functions( void )
 	extern int setup_gamecube_server_exports( void );
 	int ret = 0;
 
+	ret |= setup_gamecube_filesystem_exports();
 	ret |= setup_gamecube_ref_exports();
 	ret |= setup_gamecube_client_exports();
 	ret |= setup_gamecube_server_exports();

@@ -34,10 +34,25 @@ def build(bld):
 	bld(name = 'filesystem_includes', export_includes = '.')
 
 	libs = [ 'filesystem_includes', 'sdk_includes', 'werror' ]
+	defines = []
 
 	# GameCube homebrew links one DOL; filesystem is built into the engine binary.
 	if bld.env.DEST_OS == 'gamecube':
 		f = bld.stlib
+		# The engine exports wrappers with these names. Keep the statically linked
+		# implementation in its own namespace, as a shared library normally would.
+		defines += [
+			'FI=GCFS_FI',
+			'FS_Close=GCFS_Close',
+			'FS_FindLibrary=GCFS_FindLibrary',
+			'FS_LoadDirectFile=GCFS_LoadDirectFile',
+			'FS_LoadFile=GCFS_LoadFile',
+			'FS_LoadGameInfo=GCFS_LoadGameInfo',
+			'FS_Open=GCFS_Open',
+			'FS_Search=GCFS_Search',
+			'_Mem_Alloc=GCFS_Mem_Alloc',
+			'_Mem_Free=GCFS_Mem_Free',
+		]
 	elif bld.env.DEST_OS == 'psvita':
 		f = bld.shlib
 	else:
@@ -50,6 +65,7 @@ def build(bld):
 		features = 'seq',
 		source = bld.path.ant_glob(['*.c', '*.cpp']),
 		use = libs,
+		defines = defines,
 		install_path = bld.env.LIBDIR)
 
 	if bld.env.TESTS:
