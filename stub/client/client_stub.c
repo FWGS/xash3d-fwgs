@@ -1,6 +1,7 @@
 #include "common.h"
 #include "client.h"
 #include "build.h"
+#include "pm_shared.h"
 
 static int Stub_Initialize( cl_enginefunc_t *pEnginefuncs, int iVersion )
 {
@@ -11,6 +12,16 @@ static int Stub_Initialize( cl_enginefunc_t *pEnginefuncs, int iVersion )
 
 static void Stub_Void( void )
 {
+}
+
+static void Stub_PlayerMove( struct playermove_s *pm, int server )
+{
+	PM_Move( pm, server );
+}
+
+static void Stub_PlayerMoveInit( struct playermove_s *pm )
+{
+	PM_Init( pm );
 }
 
 static int Stub_Int( void )
@@ -34,8 +45,7 @@ static int Stub_UpdateClientData( client_data_t *cdata, float flTime )
 
 static char Stub_PlayerMoveTexture( char *name )
 {
-	(void)name;
-	return '}';
+	return PM_FindTextureType( name );
 }
 
 static void Stub_CreateMove( float frametime, struct usercmd_s *cmd, int active )
@@ -117,8 +127,8 @@ void EXPORT GetClientAPI( cldll_func_t *funcs )
 	funcs->pfnRedraw = Stub_Redraw;
 	funcs->pfnUpdateClientData = Stub_UpdateClientData;
 	funcs->pfnReset = Stub_Void;
-	funcs->pfnPlayerMove = (void (*)(struct playermove_s *, int))Stub_Void;
-	funcs->pfnPlayerMoveInit = (void (*)(struct playermove_s *))Stub_Void;
+	funcs->pfnPlayerMove = Stub_PlayerMove;
+	funcs->pfnPlayerMoveInit = Stub_PlayerMoveInit;
 	funcs->pfnPlayerMoveTexture = Stub_PlayerMoveTexture;
 	funcs->IN_ActivateMouse = Stub_Void;
 	funcs->IN_DeactivateMouse = Stub_Void;

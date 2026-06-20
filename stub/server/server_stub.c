@@ -1,11 +1,27 @@
 #include "common.h"
 #include "server.h"
+#include "pm_shared.h"
 
 static enginefuncs_t *g_eng;
 static globalvars_t *g_globals;
 
 #define STUB_STRING( offset ) g_eng->pfnSzFromIndex( offset )
 #define STUB_ALLOC_STRING( str ) g_eng->pfnAllocString( str )
+
+static void Stub_PM_Init( struct playermove_s *pm )
+{
+	PM_Init( pm );
+}
+
+static void Stub_PM_Move( struct playermove_s *pm, qboolean server )
+{
+	PM_Move( pm, server );
+}
+
+static char Stub_PM_FindTextureType( char *name )
+{
+	return PM_FindTextureType( name );
+}
 
 static void Stub_Void( void )
 {
@@ -345,9 +361,9 @@ static void Stub_FillAPI( DLL_FUNCTIONS *funcs )
 	funcs->pfnSpectatorDisconnect = Stub_VoidEdict;
 	funcs->pfnSpectatorThink = Stub_VoidEdict;
 	funcs->pfnSys_Error = Stub_Sys_Error;
-	funcs->pfnPM_Move = (void (*)(struct playermove_s *, qboolean))Stub_Void;
-	funcs->pfnPM_Init = (void (*)(struct playermove_s *))Stub_Void;
-	funcs->pfnPM_FindTextureType = (char (*)(char *))Stub_IntZero;
+	funcs->pfnPM_Move = Stub_PM_Move;
+	funcs->pfnPM_Init = Stub_PM_Init;
+	funcs->pfnPM_FindTextureType = Stub_PM_FindTextureType;
 	funcs->pfnSetupVisibility = Stub_SetupVisibility;
 	funcs->pfnUpdateClientData = (void (*)( const edict_t *, int, clientdata_t * ))Stub_Void;
 	funcs->pfnAddToFullPack = Stub_AddToFullPack;
