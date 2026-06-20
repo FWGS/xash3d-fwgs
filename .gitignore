@@ -374,3 +374,10 @@ GEMINI.md
 .continue/
 .codeium/
 .github/copilot-instructions.md
+
+# game data
+game_data/
+hl/
+hl1sdk/
+hlsdk/
+hl2sdk/
