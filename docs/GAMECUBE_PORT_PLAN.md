@@ -71,6 +71,10 @@ The Dolphin probe is executable, supports native and Flatpak Dolphin installs,
 uses bounded TERM/KILL timeouts, preserves stdout/stderr and internal logs, and
 returns distinct statuses for host failure, guest failure, observed bootstrap,
 and inconclusive timeout/exit.
+The hardened full-build gate caught an invalid `rserr_nomem` result introduced
+by the earlier GX buffer patch. GameCube buffer-allocation failure now returns
+the existing `rserr_unknown` value from the platform contract; no new enum or
+cross-platform ABI change was introduced.
 
 ## Milestones
 

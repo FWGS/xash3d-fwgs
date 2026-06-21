@@ -204,7 +204,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	{
 		uint stride, bpp, r, g, b;
 		if( !SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
-			return rserr_nomem;
+			return rserr_unknown;
 	}
 #endif
 
