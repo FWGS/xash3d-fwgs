@@ -75,6 +75,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - **2026-06-21 Automation Note**: All automated passes confirmed zero actionable source changes. Platform backends (GX video, PAD input, null audio, SD/DVD filesystem) are implemented, compile cleanly, and feature safe fallback diagnostics. Automated guest runtime verification is strictly blocked by the absence of a functional emulator/storage mount in the CI environment. Goal formally **SUSPENDED**. The goal runner will skip G06 until an operator marks it `[x]` after successful Dolphin/physical hardware validation. No speculative engine changes will be attempted.
 - **2026-06-21 Attempt 3**: Confirmed zero actionable source changes. The automation environment cannot execute guest runtime verification or bypass the operator-gated requirement. Goal remains **SUSPENDED**. No further automated edits will be attempted.
 - **2026-06-21 Attempt 4**: Automated pass recognized operator-gated suspension. Source backends compile cleanly. No speculative changes made. Goal remains **SUSPENDED** pending physical/Dolphin validation.
+- **2026-06-21 Attempt 5**: Automated pass confirms environmental blocker persists. Goal is formally locked to operator-only status. No further automated source changes will be attempted until an operator completes the validation checklist.
 
 ## G07 [ ] Load a small Half-Life map
 

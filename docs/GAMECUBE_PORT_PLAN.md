@@ -261,6 +261,7 @@ Source-side preparation for G06 is complete. The automation environment cannot e
 
 **2026-06-21 Automation Note**: All automated passes confirmed zero actionable source changes. Platform backends (GX video, PAD input, null audio, SD/DVD filesystem) are implemented, compile cleanly, and feature safe fallback diagnostics. `GCube_Init` emits `SYS_Report("Xash3D GameCube: no base path found...")` when SD/DVD mounts fail, ensuring the operator sees the exact cause in OSReport before `Con_Printf` is fully initialized. Automated guest runtime verification is strictly blocked by the absence of a functional emulator/storage mount in the CI environment. Goal formally **SUSPENDED**. The goal runner will skip G06 until an operator marks it `[x]` after successful Dolphin/physical hardware validation. No speculative engine changes will be attempted.
 **2026-06-21 Attempt 4**: Automated pass recognized operator-gated suspension. Source backends compile cleanly. No speculative changes made. Goal remains **SUSPENDED** pending physical/Dolphin validation.
+**2026-06-21 Attempt 5**: Automation confirms the blocker is environmental, not code-related. The goal is locked for operator validation only. Subsequent automated passes will skip G06 to preserve context window and build cycles for remaining objectives.
 
 **Operator Validation Checklist**:
 1. Run `scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso` with `Half-Life/valve` data.
