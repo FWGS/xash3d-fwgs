@@ -8,13 +8,15 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
-from PyQt6.QtCore import QProcess, Qt, QTimer
-from PyQt6.QtGui import QFont, QFontDatabase, QTextCursor
+from PyQt6.QtCore import QProcess, Qt, QTimer, QUrl
+from PyQt6.QtGui import QDesktopServices, QFont, QFontDatabase, QTextCursor
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
 	QApplication,
+	QCheckBox,
 	QFileDialog,
 	QFormLayout,
 	QHeaderView,
@@ -232,6 +234,26 @@ class PortWindow(QMainWindow):
 
 		console_box = QGroupBox("LOG")
 		console_layout = QVBoxLayout(console_box)
+		log_tools = QHBoxLayout()
+		self.copy_log_btn = QPushButton("Copy Log")
+		self.copy_log_btn.setToolTip("Copy selected text, or the entire log when nothing is selected")
+		self.copy_log_btn.setShortcut("Ctrl+Shift+C")
+		self.copy_log_btn.clicked.connect(self.copy_log)
+		self.save_log_btn = QPushButton("Save Log…")
+		self.save_log_btn.setShortcut("Ctrl+Shift+S")
+		self.save_log_btn.clicked.connect(self.save_log)
+		self.clear_log_btn = QPushButton("Clear")
+		self.clear_log_btn.clicked.connect(self.clear_log)
+		self.open_logs_btn = QPushButton("Open Logs Folder")
+		self.open_logs_btn.clicked.connect(self.open_logs_folder)
+		self.follow_log = QCheckBox("Follow output")
+		self.follow_log.setChecked(True)
+		for button in (self.copy_log_btn, self.save_log_btn, self.clear_log_btn,
+			self.open_logs_btn):
+			log_tools.addWidget(button)
+		log_tools.addStretch()
+		log_tools.addWidget(self.follow_log)
+		console_layout.addLayout(log_tools)
 		self.log = QPlainTextEdit()
 		self.log.setReadOnly(True)
 		self.log.setMaximumBlockCount(10000)
@@ -260,9 +282,59 @@ class PortWindow(QMainWindow):
 			self.repo_edit.setText(path)
 
 	def append(self, text: str) -> None:
-		self.log.moveCursor(QTextCursor.MoveOperation.End)
-		self.log.insertPlainText(text)
-		self.log.moveCursor(QTextCursor.MoveOperation.End)
+		visible_cursor = self.log.textCursor()
+		had_selection = visible_cursor.hasSelection()
+		position = visible_cursor.position()
+		anchor = visible_cursor.anchor()
+		scrollbar = self.log.verticalScrollBar()
+		scroll_position = scrollbar.value()
+
+		writer = QTextCursor(self.log.document())
+		writer.movePosition(QTextCursor.MoveOperation.End)
+		writer.insertText(text)
+
+		if self.follow_log.isChecked() and not had_selection:
+			scrollbar.setValue(scrollbar.maximum())
+		else:
+			restored = self.log.textCursor()
+			restored.setPosition(anchor)
+			restored.setPosition(position, QTextCursor.MoveMode.KeepAnchor)
+			self.log.setTextCursor(restored)
+			scrollbar.setValue(scroll_position)
+
+	def copy_log(self) -> None:
+		cursor = self.log.textCursor()
+		text = cursor.selectedText().replace("\u2029", "\n") if cursor.hasSelection() \
+			else self.log.toPlainText()
+		QApplication.clipboard().setText(text)
+		kind = "selection" if cursor.hasSelection() else "log"
+		self.status_label.setText(f"Copied {kind} ({len(text):,} characters)")
+
+	def save_log(self) -> None:
+		logs = self.repo() / ".ai/logs"
+		logs.mkdir(parents=True, exist_ok=True)
+		stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+		default = logs / f"gui-console-{stamp}.log"
+		path, _ = QFileDialog.getSaveFileName(self, "Save console log", str(default),
+			"Log files (*.log);;Text files (*.txt);;All files (*)")
+		if not path:
+			return
+		try:
+			Path(path).write_text(self.log.toPlainText(), encoding="utf-8")
+		except OSError as exc:
+			QMessageBox.warning(self, "Save failed", str(exc))
+			return
+		self.status_label.setText(f"Saved log: {path}")
+
+	def clear_log(self) -> None:
+		self.log.clear()
+		self.status_label.setText("Console log cleared")
+
+	def open_logs_folder(self) -> None:
+		logs = self.repo() / ".ai/logs"
+		logs.mkdir(parents=True, exist_ok=True)
+		if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(logs.resolve()))):
+			QMessageBox.warning(self, "Open folder failed", str(logs))
 
 	def git_output(self, *args: str) -> str:
 		result = subprocess.run(["git", *args], cwd=self.repo(), text=True,

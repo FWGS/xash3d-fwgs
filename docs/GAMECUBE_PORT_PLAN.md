@@ -82,6 +82,10 @@ the old workflow committed before building. Video diagnostics now use
 failed build is returned to Qwen with the exact verifier tail for a bounded
 non-interactive repair, and only a verified patch is committed. Thinking output
 is disabled for direct edit passes to reduce repetitive analysis loops.
+The GUI log remains selectable while output is arriving: appends use a separate
+document cursor and preserve the operator's selection and scroll position.
+Console controls can copy the selection or full log, save a UTF-8 snapshot,
+clear the view, open `.ai/logs/`, and toggle automatic output following.
 
 ## Milestones
 
