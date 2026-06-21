@@ -66,7 +66,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Acceptance criteria met: engine startup succeeds, memory budget respected,
   fallback explicitly documented.
 
-## G06 [ ] Reach the engine console or menu (Operator-Gated)
+## G06 [ ] Reach the engine console or menu (Operator-Gated) — SUSPENDED
 
 - Boot from the generated disc with `Half-Life/valve` content discoverable.
 - Reach an interactive engine console or menu in Dolphin.
@@ -75,6 +75,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - **2026-06-21 Pass 1**: Autonomous build and source audit confirmed all platform backends compile cleanly and fallback paths are safe. Automation cannot execute guest runtime checks. Handoff to operator per checklist. Mark `[x]` only after physical/emulated validation succeeds.
 - **2026-06-21 Pass 2**: Automation confirmed zero actionable source changes remain. All platform backends (GX video, PAD input, null audio, SD/DVD filesystem) are implemented, compile cleanly, and feature safe fallback diagnostics. Automated guest runtime verification is strictly blocked by the absence of a functional emulator/storage mount in the CI environment. Goal formally deferred to operator runtime validation. No speculative engine changes will be attempted.
 - **2026-06-21 Pass 3**: Autonomous source preparation concluded. All platform backends are implemented, compile cleanly, and feature safe fallback diagnostics. Goal suspended pending operator runtime validation. No further automated edits will target G06 until hardware/emulator verification succeeds.
+- **2026-06-21 Pass 4**: Goal formally **SUSPENDED**. Source-side readiness is complete and verified. Automated runtime validation is impossible in the current CI environment. Handoff to operator per checklist in `docs/GAMECUBE_PORT_PLAN.md`. The goal runner will skip G06 until an operator marks it `[x]` after successful Dolphin/physical hardware validation.
 
 ## G07 [ ] Load a small Half-Life map
 
