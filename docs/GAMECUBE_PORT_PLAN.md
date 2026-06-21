@@ -35,6 +35,10 @@ Mission Control now shows every automatic/manual goal and the active goal's
 acceptance criteria. Port Telemetry reports Git cleanliness and tracking,
 latest commit, submodule divergence, devkitPPC, game content, inherited Aider
 authentication, the latest recorded blocker, and live artifact pipeline state.
+The port GUI loads `FOT-Rodin Pro DB.otf` as its application font, restricts
+`GameCube.ttf` to the `GameCube` word in the window header, and renders the
+provided `GameCube.svg` artwork at top left. These assets are GUI-only and are
+not linked into the engine or generated DOL/disc image.
 
 ## Milestones
 

@@ -11,7 +11,8 @@ import sys
 from pathlib import Path
 
 from PyQt6.QtCore import QProcess, Qt, QTimer
-from PyQt6.QtGui import QFont, QTextCursor
+from PyQt6.QtGui import QFont, QFontDatabase, QTextCursor
+from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
 	QApplication,
 	QFileDialog,
@@ -47,6 +48,14 @@ GC_BORDER = "#8f7bea"
 GC_CYAN = "#62d9ff"
 GC_ORANGE = "#ffb14a"
 GC_MINT = "#7fffd4"
+
+
+def load_font(path: Path, fallback: str) -> str:
+	font_id = QFontDatabase.addApplicationFont(str(path))
+	if font_id < 0:
+		return fallback
+	families = QFontDatabase.applicationFontFamilies(font_id)
+	return families[0] if families else fallback
 
 
 def stylesheet() -> str:
@@ -86,7 +95,7 @@ def stylesheet() -> str:
 
 
 class PortWindow(QMainWindow):
-	def __init__(self) -> None:
+	def __init__(self, gamecube_font_family: str) -> None:
 		super().__init__()
 		self.setWindowTitle("Xash3D → GameCube — Port Command Console")
 		self.resize(1180, 880)
@@ -103,15 +112,23 @@ class PortWindow(QMainWindow):
 		layout.setSpacing(10)
 
 		header = QHBoxLayout()
-		cube = QLabel("◆")
-		cube.setStyleSheet(f"color: {GC_VIOLET}; font-size: 42px; padding-right: 8px;")
-		header.addWidget(cube)
+		logo = QSvgWidget(str(DEFAULT_REPO / "fonts/GameCube.svg"))
+		logo.setFixedSize(58, 58)
+		header.addWidget(logo)
 		titles = QVBoxLayout()
-		title = QLabel("Xash3D → GameCube")
-		title.setObjectName("Title")
+		title_row = QHBoxLayout()
+		title_row.setSpacing(7)
+		title_prefix = QLabel("Xash3D →")
+		title_prefix.setObjectName("Title")
+		gamecube_title = QLabel("GameCube")
+		gamecube_title.setObjectName("Title")
+		gamecube_title.setFont(QFont(gamecube_font_family, 22))
+		title_row.addWidget(title_prefix)
+		title_row.addWidget(gamecube_title)
+		title_row.addStretch()
 		subtitle = QLabel("BUILD CONSOLE")
 		subtitle.setObjectName("Subtitle")
-		titles.addWidget(title)
+		titles.addLayout(title_row)
 		titles.addWidget(subtitle)
 		header.addLayout(titles)
 		header.addStretch()
@@ -469,11 +486,13 @@ class PortWindow(QMainWindow):
 
 def main() -> int:
 	app = QApplication(sys.argv)
+	rodin_family = load_font(DEFAULT_REPO / "fonts/FOT-Rodin Pro DB.otf", "Sans Serif")
+	gamecube_family = load_font(DEFAULT_REPO / "fonts/GameCube.ttf", rodin_family)
 	app.setStyleSheet(stylesheet())
-	font = QFont("Sans Serif", 10)
+	font = QFont(rodin_family, 10)
 	font.setStyleHint(QFont.StyleHint.SansSerif)
 	app.setFont(font)
-	window = PortWindow()
+	window = PortWindow(gamecube_family)
 	window.show()
 	return app.exec()
 
