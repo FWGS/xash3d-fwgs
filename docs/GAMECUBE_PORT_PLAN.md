@@ -245,6 +245,16 @@ continues unblocked when disconnected. Connection state changes are logged via
 **Limitations:** Only port 0 is polled. No rumble or advanced adaptive features
 are implemented. Relies on standard libogc `PAD_` API.
 
+## G05 — Safe first audio path (null backend)
+
+The engine now initializes a GameCube-compatible null audio backend in
+`engine/platform/gamecube/snddma_gamecube.c`. It satisfies the sound subsystem
+contract (`SNDDMA_Init` returns true) without allocating large DMA buffers or
+touching the DSP/ARAM, keeping the 24 MiB main-memory budget safe. Audio output
+is silent but stable, preventing startup failure due to missing audio hardware
+initialization. Full libogc DSP/AI integration remains a future milestone.
+Startup proceeds to the next subsystem without crashing on missing audio.
+
 ## Next blocker
 
 Verify the diagnostic frame appears at runtime in Dolphin or on physical

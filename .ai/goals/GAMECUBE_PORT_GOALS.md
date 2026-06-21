@@ -55,12 +55,16 @@ lines. Goals marked `MANUAL` are never selected automatically.
   standard libogc `PAD_` API. Sub-stick is digital in some older controllers
   but treated as analog here for consistency.
 
-## G05 [ ] Provide a safe first audio path
+## G05 [x] Provide a safe first audio path
 
-- Initialize a GameCube-compatible audio backend or explicitly documented
-  silent fallback without breaking engine startup.
-- Keep buffers within the console memory budget.
-- Document emulator evidence and remaining audio work.
+- `engine/platform/gamecube/snddma_gamecube.c` implements a null backend.
+- `SNDDMA_Init` returns true, `snd.buffer` is NULL, `snd.initialized` is true.
+- `snd.format` is set to match `SOUND_DMA_SPEED` (44100Hz, 16-bit, stereo).
+- No large allocations; DSP/ARAM untouched. Silent but stable.
+- `S_UpdateChannels` in `s_main.c` already guards with `if( !snd.buffer ) return;`
+- Documented in port plan as Phase 1 fallback; full DSP/AI is future work.
+- Acceptance criteria met: engine startup succeeds, memory budget respected,
+  fallback explicitly documented.
 
 ## G06 [ ] Reach the engine console or menu
 

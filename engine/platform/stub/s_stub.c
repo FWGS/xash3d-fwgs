@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 #ifndef XASH_DEDICATED
 #include "common.h"
-#if XASH_SOUND == SOUND_NULL
+#if XASH_SOUND == SOUND_NULL && !XASH_GAMECUBE
 
 #include "sound.h"
 
