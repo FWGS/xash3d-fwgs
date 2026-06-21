@@ -23,6 +23,10 @@ The harness also has a PyQt6 control panel at
 `scripts/xash3d-gc-aider-gui.sh` for supervised one-pass or bounded-loop Aider
 runs, verification, DOL/disc builds, and launching the generated ISO in
 Dolphin. It uses the existing shell gates rather than duplicating them.
+Automation objectives now live in `.ai/goals/GAMECUBE_PORT_GOALS.md`. The
+goal runner selects the first incomplete non-manual objective, supplies Aider
+with its acceptance criteria and live Git context, and repeats verified,
+reviewed patches until the objectives or a configured pass limit are reached.
 
 ## Milestones
 
