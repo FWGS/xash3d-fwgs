@@ -263,6 +263,8 @@ Source-side preparation for G06 is complete. The automation environment cannot e
 
 **2026-06-21 Pass 2**: Re-verified source-side readiness. All platform backends (GX video, PAD input, null audio, SD/DVD filesystem) are implemented, compile cleanly, and feature safe fallback diagnostics. Automated guest runtime verification is strictly blocked by the absence of a functional emulator/storage mount in the CI environment. Goal formally deferred to operator runtime validation. No speculative engine changes will be attempted.
 
+**2026-06-21 Pass 3**: Autonomous source preparation concluded. The goal is formally suspended pending operator runtime validation with a working Dolphin profile or physical GameCube hardware. All acceptance criteria for source-side readiness are met. The automation harness will skip further G06 attempts until an operator confirms console/menu visibility and input responsiveness, then marks the goal `[x]`.
+
 **Diagnostics added**: `GCube_Init` now emits `SYS_Report("Xash3D GameCube: no base path found...")` when SD/DVD mounts fail, ensuring the operator sees the exact cause in OSReport before `Con_Printf` is fully initialized.
 
 **Operator Validation Checklist**:
