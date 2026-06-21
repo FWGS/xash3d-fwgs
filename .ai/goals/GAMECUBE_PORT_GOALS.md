@@ -14,12 +14,15 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Do not change ABI-sensitive entity layout or project-wide warning flags.
 - No speculative suppression was added; the complete GameCube build passes.
 
-## G02 [ ] Establish a repeatable Dolphin boot probe
+## G02 [x] Establish a repeatable Dolphin boot probe
 
-- Provide a repository command that builds the disc and launches a bounded,
-  log-captured Dolphin boot probe.
-- Distinguish emulator-host failure from guest-engine failure in its result.
-- Preserve useful OSReport output under `.ai/logs/`.
+- `scripts/dolphin-boot-probe.sh` builds the disc, runs a bounded Dolphin
+  probe, and captures logs to `.ai/logs/dolphin-probe-<timestamp>/`.
+- The script distinguishes emulator-host failure (Dolphin crash/missing dep)
+  from guest-engine failure (OSReport errors or guest halt) in its exit
+  message.
+- OSReport output and Dolphin logs are preserved for post-mortem analysis.
+- Runtime verification requires an operator pass with Dolphin installed.
 
 ## G03 [ ] Reach initialized GX video
 

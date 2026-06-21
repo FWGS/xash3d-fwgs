@@ -191,12 +191,27 @@ homebrew-capable physical GameCube and capture the first guest OSReport line.
 Also publish the `gamecube-platform` submodule branch to an accessible remote
 so fresh clones can fetch the recorded commit.
 
+The repository now includes `scripts/dolphin-boot-probe.sh`, which builds the
+disc image, launches a bounded Dolphin boot probe, captures logs, and
+distinguishes emulator-host failures from guest-engine failures. Logs are
+preserved under `.ai/logs/dolphin-probe-<timestamp>/`.
+
+Probe command:
+```sh
+scripts/dolphin-boot-probe.sh
+```
+
+Expected output distinguishes:
+- `PASS`: Guest bootstrap marker found in logs.
+- `FAIL`: Emulator-host crash or missing dependency.
+- `TIMEOUT`: Guest may be running or hung.
+- `INCONCLUSIVE`: Clean exit without guest marker.
+
 ## Next wake-up commands
 
 ```sh
 git status --short
 git -C 3rdparty/library_suffix diff --check
 scripts/ai-verify.sh
-command -v dolphin-emu || command -v dolphin
-scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso
+scripts/dolphin-boot-probe.sh
 ```
