@@ -38,7 +38,8 @@ authentication, the latest recorded blocker, and live artifact pipeline state.
 The port GUI loads `FOT-Rodin Pro DB.otf` as its application font, restricts
 `GameCube.ttf` to the `GameCube` word in the window header, and renders the
 provided `GameCube.svg` artwork at top left. These assets are GUI-only and are
-not linked into the engine or generated DOL/disc image.
+not linked into the engine or generated DOL/disc image. Rodin also covers the
+telemetry and log panes; neither retains a monospace override.
 After an autonomous G01 run stalled asking for files already in the checkout,
 the goal runner now preloads a small per-goal source set into Aider. G01 starts
 with `engine/server/sv_game.c` (the actual `SV_InitEdict` definition) and
