@@ -66,10 +66,8 @@ static void GC_InitVideoHardware( void )
 	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
 	GX_SetFieldMode( rmode->field_rendering, (( rmode->viHeight == 2 * rmode->xfbHeight ) ? GX_ENABLE : GX_DISABLE ));
 
-	if( rmode->aa )
-		GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
-	else
-		GX_SetPixelFmt( GX_PF_RGB8_Z24, GX_ZC_LINEAR );
+	/* Software renderer outputs 16-bit RGB565; force matching display format */
+	GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
 
 	gc.initialized = true;
 #endif
@@ -203,6 +201,15 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	}
 
 	(void)window_mode;
+
+#if XASH_GAMECUBE
+	{
+		uint stride, bpp, r, g, b;
+		if( !SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
+			return rserr_nomem;
+	}
+#endif
+
 	R_SaveVideoMode( width, height, width, height, false );
 	return rserr_ok;
 }

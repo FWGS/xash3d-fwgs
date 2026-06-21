@@ -186,8 +186,12 @@ homebrew-capable physical GameCube.
 
 ## Next blocker
 
-Boot `OUT/xash3d-gc.iso` with a different Dolphin build or on a
-homebrew-capable physical GameCube and capture the first guest OSReport line.
+Verify GX video initialization and diagnostic frame presentation in Dolphin.
+The software renderer buffer is now created during mode changes and presented
+via `GC_PresentBuffer` with a forced `GX_PF_RGB565_Z16` display format to match
+the 16-bit software output. Boot `OUT/xash3d-gc.iso` in Dolphin and confirm
+that the screen updates (e.g., black/cleared frame or engine diagnostics) rather
+than remaining blank or trapping. Capture OSReport and video output.
 Also publish the `gamecube-platform` submodule branch to an accessible remote
 so fresh clones can fetch the recorded commit.
 
