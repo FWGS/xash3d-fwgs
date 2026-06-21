@@ -22,6 +22,14 @@ GNU General Public License for more details.
 #include "voice.h"
 #include "crclib.h"
 
+#if XASH_GAMECUBE
+/* GameCube has no voice capture support; provide stubs to satisfy linkage. */
+static qboolean VoiceCapture_Init( void ) { return false; }
+static void VoiceCapture_Shutdown( void ) { }
+static qboolean VoiceCapture_Activate( qboolean activate ) { (void)activate; return false; }
+static void VoiceCapture_Lock( qboolean lock ) { (void)lock; }
+#endif
+
 voice_state_t voice = { 0 };
 
 static CVAR_DEFINE_AUTO( voice_enable, "1", FCVAR_PRIVILEGED | FCVAR_ARCHIVE, "enable voice chat" );

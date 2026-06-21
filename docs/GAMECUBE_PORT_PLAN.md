@@ -255,31 +255,15 @@ is silent but stable, preventing startup failure due to missing audio hardware
 initialization. Full libogc DSP/AI integration remains a future milestone.
 Startup proceeds to the next subsystem without crashing on missing audio.
 
-## Next blocker
+## Next blocker (G06 Runtime Verification)
 
-Verify the diagnostic frame appears at runtime in Dolphin or on physical
-GameCube hardware. Boot `OUT/xash3d-gc.iso` and confirm the screen shows
-a blue diagnostic frame or engine-rendered content rather than remaining
-blank or trapping. Capture OSReport and video output.
+Automated progression to G06 (console/menu) is blocked by emulator environment limitations:
+- **ISO/DVD path**: Dolphin 2603a Flatpak traps on a host `ud2` instruction after apploader handoff, preventing guest entry. This occurs across Null/Software/OpenGL backends and requires validation with an alternative Dolphin build or physical hardware.
+- **DOL path**: Boots and prints bootstrap markers, but the test environment lacks an emulated SD Gecko/DVD volume. `GCube_GetBasePath` falls back to empty, producing `Changing directory to  failed: No such device` and blocking `valve` discovery.
 
-Also publish the `gamecube-platform` submodule branch to an accessible remote
-so fresh clones can fetch the recorded commit (`663a601c849321e8675f9343c2a3947f8f8e53c2`).
+Source-side preparation for G06 is complete: GX video, controller input, null audio, and filesystem mounting are implemented. Reaching the console/menu requires an operator to provide a runtime environment with game data discoverable on SD or DVD. Until then, G06 remains pending runtime verification.
 
-The repository now includes `scripts/dolphin-boot-probe.sh`, which builds the
-disc image, launches a bounded Dolphin boot probe, captures logs, and
-distinguishes emulator-host failures from guest-engine failures. Logs are
-preserved under `.ai/logs/dolphin-probe-<timestamp>/`.
-
-Probe command:
-```sh
-scripts/dolphin-boot-probe.sh
-```
-
-Expected output distinguishes:
-- `PASS`: Guest bootstrap marker found in logs.
-- `FAIL`: Emulator-host crash or missing dependency.
-- `TIMEOUT`: Guest may be running or hung.
-- `INCONCLUSIVE`: Clean exit without guest marker.
+The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 
 ## Next wake-up commands
 

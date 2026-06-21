@@ -71,6 +71,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Boot from the generated disc with `Half-Life/valve` content discoverable.
 - Reach an interactive engine console or menu in Dolphin.
 - Capture the boot command, log evidence, and remaining blockers.
+- **Blocker**: Automated runtime verification is currently blocked. Dolphin 2603a Flatpak traps on a host `ud2` instruction during ISO/DVD image handoff. Direct DOL boot reaches OSReport but lacks an emulated SD/DVD volume in the test environment, causing `chdir("")` fallback warnings and preventing `valve` discovery. Source-side initialization for video, input, audio, and filesystem paths is complete. Completion requires operator runtime validation with a working Dolphin ISO mount or physical GameCube hardware.
 
 ## G07 [ ] Load a small Half-Life map
 
