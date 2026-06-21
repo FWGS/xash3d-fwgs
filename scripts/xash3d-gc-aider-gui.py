@@ -109,7 +109,7 @@ class PortWindow(QMainWindow):
 		titles = QVBoxLayout()
 		title = QLabel("Xash3D → GameCube")
 		title.setObjectName("Title")
-		subtitle = QLabel("PORT HARNESS / BUILD CONSOLE")
+		subtitle = QLabel("BUILD CONSOLE")
 		subtitle.setObjectName("Subtitle")
 		titles.addWidget(title)
 		titles.addWidget(subtitle)
@@ -117,13 +117,13 @@ class PortWindow(QMainWindow):
 		header.addStretch()
 		self.dol_chip = QLabel("DOL  —")
 		self.iso_chip = QLabel("ISO  —")
-		self.dolphin_chip = QLabel("DOLPHIN  CHECKING")
+		self.dolphin_chip = QLabel("DOLPHIN CHECKING")
 		for chip in (self.dol_chip, self.iso_chip, self.dolphin_chip):
 			chip.setObjectName("Chip")
 			header.addWidget(chip)
 		layout.addLayout(header)
 
-		project_box = QGroupBox("MEMORY CARD SLOT A  /  PORT WORKSPACE")
+		project_box = QGroupBox("WORKSPACE")
 		form = QFormLayout(project_box)
 		self.repo_edit = QLineEdit(str(DEFAULT_REPO))
 		browse = QPushButton("Browse…")
@@ -136,7 +136,7 @@ class PortWindow(QMainWindow):
 		layout.addWidget(project_box)
 
 		intel_row = QHBoxLayout()
-		goals_box = QGroupBox("MISSION CONTROL  /  PORT GOALS")
+		goals_box = QGroupBox("GOALS")
 		goals_layout = QVBoxLayout(goals_box)
 		self.goal_summary = QLabel("Loading goal ledger…")
 		self.goal_summary.setWordWrap(True)
@@ -152,7 +152,7 @@ class PortWindow(QMainWindow):
 		goals_layout.addWidget(self.goal_table)
 		intel_row.addWidget(goals_box, 3)
 
-		context_box = QGroupBox("PORT TELEMETRY  /  LIVE CONTEXT")
+		context_box = QGroupBox("CONTEXT")
 		context_layout = QVBoxLayout(context_box)
 		self.context_view = QPlainTextEdit()
 		self.context_view.setReadOnly(True)
@@ -166,7 +166,7 @@ class PortWindow(QMainWindow):
 		self.passes_spin = QSpinBox()
 		self.passes_spin.setRange(1, 100)
 		self.passes_spin.setValue(20)
-		self.loop_btn = QPushButton("▶  ACCOMPLISH PORT GOALS")
+		self.loop_btn = QPushButton("▶  ACCOMPLISH GOALS")
 		self.loop_btn.clicked.connect(self.run_goal_loop)
 		self.stop_btn = QPushButton("■  STOP AUTOMATION")
 		self.stop_btn.clicked.connect(self.stop_process)
@@ -177,7 +177,7 @@ class PortWindow(QMainWindow):
 		controls.addWidget(self.stop_btn)
 		layout.addLayout(controls)
 
-		pipeline_box = QGroupBox("PORT PIPELINE")
+		pipeline_box = QGroupBox("PIPELINE")
 		pipeline_row = QHBoxLayout(pipeline_box)
 		for index, name in enumerate(("AIDER", "REVIEW", "VERIFY", "DOL", "ISO", "DOLPHIN")):
 			if index:
@@ -214,7 +214,7 @@ class PortWindow(QMainWindow):
 		self.progress.setFormat("No automation running")
 		layout.addWidget(self.progress)
 
-		console_box = QGroupBox("GC PORT BUS  /  LIVE AUTOMATION LOG")
+		console_box = QGroupBox("LOG")
 		console_layout = QVBoxLayout(console_box)
 		self.log = QPlainTextEdit()
 		self.log.setReadOnly(True)
@@ -240,7 +240,7 @@ class PortWindow(QMainWindow):
 		return ok
 
 	def pick_repo(self) -> None:
-		path = QFileDialog.getExistingDirectory(self, "Select Xash3D repository", str(self.repo()))
+		path = QFileDialog.getExistingDirectory(self, "Select repository", str(self.repo()))
 		if path:
 			self.repo_edit.setText(path)
 
