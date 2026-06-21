@@ -8,6 +8,13 @@ cd "$REPO"
 REPO="$(git rev-parse --show-toplevel)"
 cd "$REPO"
 
+# Load local env if present
+if [ -f .env ]; then
+	set -a
+	source .env
+	set +a
+fi
+
 : "${OPENAI_API_KEY:?Set OPENAI_API_KEY first}"
 export OPENAI_API_BASE="${OPENAI_API_BASE:-http://127.0.0.1:8072/v1}"
 

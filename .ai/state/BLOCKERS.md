@@ -20,3 +20,5 @@ speculative failures as facts.
   local `gamecube-platform` branch, and parent commit `0f5cf35f` records that
   pointer. The submodule commit still needs to be published to an accessible
   remote before other clones can fetch it.
+
+- 2026-06-20-174913: Verification failed after `5b52f58acbb6d8b8cb2d7d805f79f04e63cd2a5f`; see `.ai/logs/aider-pass-2026-06-20-174913.log`.

@@ -1,0 +1,16 @@
+3rdparty/MultiEmulator
+3rdparty/bzip2/bzip2
+3rdparty/extras/xash-extras
+3rdparty/gl-wes-v2
+3rdparty/gl4es/gl4es
+3rdparty/libbacktrace/libbacktrace
+3rdparty/libogg/libogg
+3rdparty/library_suffix
+3rdparty/maintui
+3rdparty/mainui
+3rdparty/mbedtls/mbedtls
+3rdparty/nanogl
+3rdparty/opus/opus
+3rdparty/opusfile/opusfile
+3rdparty/vgui_support
+3rdparty/vorbis/vorbis-src

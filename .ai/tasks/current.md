@@ -1,15 +1,23 @@
-Continue the Xash3D GameCube port.
+You are editing /home/tim/Desktop/xash3d-gc.
 
-Read `docs/GAMECUBE_PORT_PLAN.md`, the latest Git log and diff, and the
-read-only project rules. Do exactly one useful, low-risk patch toward the next
-documented blocker.
+Do exactly one small patch.
 
-Rules:
+Current mission:
+Make the GameCube port harness smarter and safer, not the engine itself.
 
-- Keep the patch small and limited to one demonstrated blocker.
-- Do not break existing targets.
-- Prefer platform isolation and existing abstractions.
-- Do not fake unsupported systems or attempt a large renderer rewrite.
-- Update `docs/GAMECUBE_PORT_PLAN.md` with what changed, the exact commands
-  tried and results, and the next blocker.
-- Stop after one patch.
+Allowed edit files:
+- scripts/ai-verify.sh
+- scripts/ai-review.sh
+- docs/GAMECUBE_PORT_PLAN.md
+
+Task:
+Improve the verification/review flow so future Aider passes are safer.
+
+Requirements:
+- scripts/ai-verify.sh should print clearer build-probe sections.
+- scripts/ai-review.sh should reject patches larger than 400 changed lines.
+- scripts/ai-review.sh should reject deleted files.
+- scripts/ai-review.sh should require docs/GAMECUBE_PORT_PLAN.md to be updated.
+- docs/GAMECUBE_PORT_PLAN.md should record that the AI harness now has a verifier/review gate.
+- Do not edit engine source files.
+- Stop after this one patch.
