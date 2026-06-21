@@ -26,3 +26,5 @@ speculative failures as facts.
 - 2026-06-20-221713: Verification failed after `48a50103f494941a6b5cd89de5505a095f512ad9`; see `.ai/logs/aider-pass-2026-06-20-221713.log`.
 
 - 2026-06-21-001144: Aider exited 1; see `.ai/logs/aider-pass-2026-06-21-001144.log`.
+
+- 2026-06-21-002612: Aider exited 1; see `.ai/logs/aider-pass-2026-06-21-002612.log`.
