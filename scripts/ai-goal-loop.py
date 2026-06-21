@@ -15,6 +15,10 @@ from datetime import datetime
 from pathlib import Path
 
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |x|X|MANUAL)\]\s+(.+)$")
+COMMON_CONTEXT = (
+	"docs/GAMECUBE_PORT_PLAN.md",
+	".ai/goals/GAMECUBE_PORT_GOALS.md",
+)
 GOAL_CONTEXT = {
 	"G01": ("engine/server/sv_game.c", "engine/server/server.h"),
 	"G02": ("scripts/build-gamecube-disc.py", "scripts/gamecube-apploader.c",
@@ -176,7 +180,8 @@ def main() -> int:
 			task.write(task_for(goal, root, attempts[goal.goal_id]))
 			task_path = Path(task.name)
 		try:
-			context_files = [path for path in GOAL_CONTEXT.get(goal.goal_id, ())
+			context_files = [path for path in (*COMMON_CONTEXT,
+				*GOAL_CONTEXT.get(goal.goal_id, ()))
 				if (root / path).is_file()]
 			result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path),
 				*context_files], root)

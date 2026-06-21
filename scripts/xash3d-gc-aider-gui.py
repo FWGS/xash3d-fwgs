@@ -182,7 +182,7 @@ class PortWindow(QMainWindow):
 		controls = QHBoxLayout()
 		self.passes_spin = QSpinBox()
 		self.passes_spin.setRange(1, 100)
-		self.passes_spin.setValue(20)
+		self.passes_spin.setValue(3)
 		self.loop_btn = QPushButton("▶  ACCOMPLISH GOALS")
 		self.loop_btn.clicked.connect(self.run_goal_loop)
 		self.stop_btn = QPushButton("■  STOP AUTOMATION")

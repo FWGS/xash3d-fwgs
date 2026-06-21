@@ -22,5 +22,4 @@ read:
   - .ai/prompts/PORTING_PATTERNS.md
   - .ai/state/BLOCKERS.md
   - .ai/state/DECISIONS.md
-  - docs/GAMECUBE_PORT_PLAN.md
   - Documentation/development/engine-porting-guide.md

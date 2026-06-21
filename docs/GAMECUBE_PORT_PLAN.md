@@ -44,6 +44,13 @@ the goal runner now preloads a small per-goal source set into Aider. G01 starts
 with `engine/server/sv_game.c` (the actual `SV_InitEdict` definition) and
 `engine/server/server.h`; later goals receive their platform/backend entry
 points while retaining the repository map for related symbols.
+The port plan is no longer listed as global read-only Aider context. Every goal
+pass now supplies both this plan and the goal ledger as explicit editable files,
+alongside its focused source set. Project rules, decisions, blockers, and the
+engine porting guide remain read-only. This makes the required documentation
+and completion-marker updates possible without broadening source scope.
+The GUI defaults goal automation to three passes for supervised proving runs;
+the operator can raise the safety limit after stable passes.
 
 ## Milestones
 
