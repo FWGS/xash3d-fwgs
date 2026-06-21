@@ -259,6 +259,8 @@ Startup proceeds to the next subsystem without crashing on missing audio.
 
 Source-side preparation for G06 is complete. The automation environment cannot execute the runtime verification due to Dolphin Flatpak host traps and missing emulated storage. G06 is now marked as **operator-gated**.
 
+**2026-06-21 Autonomous Pass**: Confirmed `scripts/build-gamecube.sh` produces a valid `boot.dol` with all platform stubs linked. `GCube_Init` and `GCube_GetBasePath` gracefully handle missing SD/DVD volumes via `SYS_Report` and `Con_Reportf`, preventing hard crashes. No further source changes are safe or necessary before runtime validation.
+
 **Diagnostics added**: `GCube_Init` now emits `SYS_Report("Xash3D GameCube: no base path found...")` when SD/DVD mounts fail, ensuring the operator sees the exact cause in OSReport before `Con_Printf` is fully initialized.
 
 **Operator Validation Checklist**:

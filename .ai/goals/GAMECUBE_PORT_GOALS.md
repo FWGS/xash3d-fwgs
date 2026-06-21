@@ -72,6 +72,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Reach an interactive engine console or menu in Dolphin.
 - Capture the boot command, log evidence, and remaining blockers.
 - **Blocker**: Automated runtime verification is blocked. Source-side initialization for video (GX), input (PAD), audio (null), and filesystem paths (SD/DVD) is complete and compiles cleanly. The automation environment lacks a functional Dolphin ISO mount or emulated SD/DVD volume, causing `GCube_GetBasePath` to fail gracefully and emit `SYS_Report` diagnostics instead of crashing. Completion **requires operator runtime validation** with a working Dolphin profile containing the `xash3d/valve` tree or physical GameCube hardware. Mark as complete only after an operator confirms console/menu visibility and input responsiveness.
+- **2026-06-21 Pass**: Autonomous build and source audit confirmed all platform backends compile cleanly and fallback paths are safe. Automation cannot execute guest runtime checks. Handoff to operator per checklist. Mark `[x]` only after physical/emulated validation succeeds.
 
 ## G07 [ ] Load a small Half-Life map
 
