@@ -6,7 +6,7 @@ architect: true
 auto-accept-architect: true
 editor-model: openai/qwen-local
 
-map-tokens: 16384
+map-tokens: 4096
 map-refresh: auto
 max-chat-history-tokens: 131072
 
