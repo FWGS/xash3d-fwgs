@@ -13,6 +13,11 @@ The GameCube mappings in `3rdparty/library_suffix` are committed locally as
 The submodule is clean. The submodule commit must still be pushed to an
 accessible remote before a fresh clone outside this workspace can fetch it.
 
+The local AI harness now has a verifier/review gate. Verification labels its
+GameCube toolchain, compile/link, and artifact probes separately. Review
+rejects patches over 400 changed lines, deleted files, and patches that do not
+update this port plan before another autonomous pass is accepted.
+
 ## Milestones
 
 1. Reproducible clean build from a fresh checkout.

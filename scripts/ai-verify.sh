@@ -93,17 +93,22 @@ fi
 
 DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
 PPC_GCC="$DEVKITPRO/devkitPPC/bin/powerpc-eabi-gcc"
+
+echo
+echo "== build probe: GameCube toolchain =="
 if [[ ! -x "$PPC_GCC" || ! -d "$DEVKITPRO/libogc" ]]; then
 	echo "verify: devkitPPC/libogc not found under $DEVKITPRO" >&2
 	echo "Set DEVKITPRO or use SKIP_GAMECUBE_BUILD=1 for harness-only checks." >&2
 	exit 1
 fi
+echo "compiler: $PPC_GCC"
+echo "libogc: $DEVKITPRO/libogc"
 
 export DEVKITPRO
 export PATH="$DEVKITPRO/devkitPPC/bin:$DEVKITPRO/tools/bin:$PATH"
 
 echo
-echo "== GameCube build =="
+echo "== build probe: compile and link GameCube target =="
 BUILD_LOG="$TMPDIR_AI/gamecube-build.log"
 if ! scripts/build-gamecube.sh >"$BUILD_LOG" 2>&1; then
 	echo "verify: GameCube build failed" >&2
@@ -112,10 +117,13 @@ if ! scripts/build-gamecube.sh >"$BUILD_LOG" 2>&1; then
 fi
 tail -40 "$BUILD_LOG"
 
+echo
+echo "== build probe: required artifacts =="
 if [[ ! -s OUT/bin/xash || ! -s OUT/bin/boot.dol ]]; then
 	echo "verify: expected OUT/bin/xash and OUT/bin/boot.dol artifacts" >&2
 	exit 1
 fi
+ls -lh OUT/bin/xash OUT/bin/boot.dol
 
 echo
 echo "verify: OK"
