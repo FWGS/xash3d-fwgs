@@ -5,7 +5,7 @@ show-model-warnings: false
 architect: false
 edit-format: diff
 
-map-tokens: 4096
+map-tokens: 2048
 map-refresh: auto
 max-chat-history-tokens: 131072
 

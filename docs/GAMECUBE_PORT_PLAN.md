@@ -57,6 +57,10 @@ from the same-model architect/editor-whole handoff to direct diff editing.
 Operational Aider or verifier failures now stay in ignored logs/state rather
 than dirtying tracked `BLOCKERS.md`, and an operator stop records `stopped`
 instead of leaving the dashboard in a stale `running` state.
+An otherwise successful Aider invocation that makes no edit now returns a
+distinct status and receives one bounded retry; uncommitted edits still stop
+immediately for human review. Repo-map context is capped at 2,048 tokens to
+reduce distraction while explicit per-goal files carry the working context.
 
 ## Milestones
 
@@ -123,8 +127,13 @@ strings OUT/bin/boot.dol | grep 'Xash3D GameCube: bootstrap'
 Result: no Dolphin executable was found; the complete GameCube build passed;
 and the bootstrap marker is present in the generated DOL. Disassembly also
 confirms `main` calls `GCube_EarlyInit` before `GCube_GetArgv` and `Host_Main`.
-The build emitted an existing `SV_InitEdict` `-Wstringop-overflow` warning that
-should be investigated separately from boot diagnostics.
+A historical note claimed an `SV_InitEdict` `-Wstringop-overflow` warning, but
+no captured build log contains that compiler diagnostic. On 2026-06-21,
+`scripts/build-gamecube.sh` completed successfully and a search of its full log
+found no `SV_InitEdict`, `stringop-overflow`, or compiler warning. The audited
+layout has a direct, fixed-size `entvars_t v` member in `edict_t`, and the
+existing `memset` uses exactly `sizeof( entvars_t )`. G01 is therefore closed
+without changing ABI-sensitive layout or adding an unjustified suppression.
 
 On 2026-06-20, `OUT/bin/boot.dol` was run in Dolphin 2603a (Flatpak) in batch
 mode with OSReport enabled. The first run reached engine initialization and

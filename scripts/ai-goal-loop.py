@@ -21,7 +21,8 @@ COMMON_CONTEXT = (
 	".ai/goals/GAMECUBE_PORT_GOALS.md",
 )
 GOAL_CONTEXT = {
-	"G01": ("engine/server/sv_game.c", "engine/server/server.h"),
+	"G01": ("engine/server/sv_game.c", "engine/server/server.h",
+		"engine/edict.h", "engine/progdefs.h"),
 	"G02": ("scripts/build-gamecube-disc.py", "scripts/gamecube-apploader.c",
 		"engine/platform/gamecube/sys_gamecube.c"),
 	"G03": ("engine/platform/gamecube/vid_gamecube.c", "ref/gx/r_context.c",
@@ -110,6 +111,10 @@ non-GameCube targets.
 The harness has preloaded the goal-relevant source files into Aider. Inspect
 them directly and use the repository map for related symbols. Do not stop to
 ask the user to add files that already exist in this checkout.
+You cannot execute shell commands in this pass. Do not respond with commands,
+requests for more context, or an investigation plan. Make the edits now. If
+the premise is disproven by the supplied evidence, correct the goal ledger and
+port plan rather than forcing an unnecessary engine change.
 
 Rules:
 - Keep the commit below 400 changed lines and do not delete tracked files.
@@ -201,6 +206,12 @@ def main() -> int:
 		finally:
 			task_path.unlink(missing_ok=True)
 		if result.returncode != 0:
+			if result.returncode == 10 and attempts[goal.goal_id] < 2:
+				write_state(state_file, state="retrying-no-edit", pass_index=pass_index,
+					goal=asdict(goal), attempt=attempts[goal.goal_id],
+					message="Aider made no edit; retrying goal once")
+				print("Aider made no edit; retrying this goal once.", file=sys.stderr)
+				continue
 			write_state(state_file, state="failed", pass_index=pass_index,
 				goal=asdict(goal), exit_code=result.returncode)
 			return result.returncode

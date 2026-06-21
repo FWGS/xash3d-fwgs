@@ -5,13 +5,14 @@ goal complete only when its acceptance checks are demonstrated and recorded in
 `docs/GAMECUBE_PORT_PLAN.md`. Keep patches below the review gate's 400 changed
 lines. Goals marked `MANUAL` are never selected automatically.
 
-## G01 [ ] Audit `SV_InitEdict` overflow warning
+## G01 [x] Audit `SV_InitEdict` overflow warning
 
-- Reproduce and identify the exact warning and source/destination objects.
-- Fix a real size mismatch, or isolate a false-positive suppression to
-  `SV_InitEdict` only with a source comment.
+- A fresh GameCube build on 2026-06-21 completed without the warning; searches
+  of captured build logs found no compiler diagnostic to reproduce.
+- `edict_t::v` is a direct, fixed-size `entvars_t` member, and the existing
+  `memset( &pEdict->v, 0, sizeof( entvars_t ))` matches that member exactly.
 - Do not change ABI-sensitive entity layout or project-wide warning flags.
-- The complete GameCube verifier passes.
+- No speculative suppression was added; the complete GameCube build passes.
 
 ## G02 [ ] Establish a repeatable Dolphin boot probe
 

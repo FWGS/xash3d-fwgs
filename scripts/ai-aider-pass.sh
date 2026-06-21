@@ -75,6 +75,16 @@ if (( AIDER_STATUS != 0 )); then
 	exit "$AIDER_STATUS"
 fi
 
+if [[ "$BASELINE" == "$(git rev-parse HEAD)" ]]; then
+	if [[ -n "$(git status --porcelain)" ]]; then
+		echo "ai-aider-pass: Aider left uncommitted changes; stopping for review" >&2
+		git status --short >&2
+		exit 11
+	fi
+	echo "ai-aider-pass: Aider made no edit; see $LOG" >&2
+	exit 10
+fi
+
 echo
 echo "== verifier =="
 set +e
