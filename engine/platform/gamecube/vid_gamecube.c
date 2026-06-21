@@ -93,21 +93,37 @@ static void GC_PresentBuffer( void )
 	unsigned short *dst;
 	int copy_w, copy_h, row;
 
-	if( !gc.buffer || !rmode || !xfb[which_fb] )
+	if( !rmode || !xfb[which_fb] )
 		return;
 
-	copy_w = gc.width;
-	copy_h = gc.height;
-	if( copy_w > (int)rmode->fbWidth )
-		copy_w = rmode->fbWidth;
-	if( copy_h > (int)rmode->xfbHeight )
-		copy_h = rmode->xfbHeight;
-
-	src = gc.buffer;
+	copy_w = rmode->fbWidth;
+	copy_h = rmode->xfbHeight;
 	dst = (unsigned short *)xfb[which_fb];
 
-	for( row = 0; row < copy_h; row++ )
-		memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, copy_w * sizeof( unsigned short ));
+	if( gc.buffer && gc.width > 0 && gc.height > 0 )
+	{
+		src = gc.buffer;
+		int src_w = gc.width;
+		int src_h = gc.height;
+		if( src_w > copy_w )
+			src_w = copy_w;
+		if( src_h > copy_h )
+			src_h = copy_h;
+
+		for( row = 0; row < src_h; row++ )
+			memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, src_w * sizeof( unsigned short ));
+	}
+	else
+	{
+		/* Diagnostic: clear to a visible color when no software buffer is ready */
+		for( row = 0; row < copy_h; row++ )
+		{
+			unsigned short *rowdst = dst + row * rmode->fbWidth;
+			int col;
+			for( col = 0; col < copy_w; col++ )
+				rowdst[col] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
+		}
+	}
 
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
@@ -125,6 +141,22 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		return false;
 
 	GC_InitVideoHardware();
+
+#if XASH_GAMECUBE
+	{
+		uint stride, bpp, r, g, b;
+		int width = rmode ? rmode->fbWidth : DEFAULT_MODE_WIDTH;
+		int height = rmode ? rmode->efbHeight : DEFAULT_MODE_HEIGHT;
+		if( !SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
+		{
+			SYS_Report( "GX video: failed to allocate software buffer %dx%d\n", width, height );
+			return false;
+		}
+		SYS_Report( "GX video: software buffer %dx%d allocated (stride %u, bpp %u)\n",
+		          width, height, stride, bpp );
+	}
+#endif
+
 	host.renderinfo_changed = false;
 	return true;
 }

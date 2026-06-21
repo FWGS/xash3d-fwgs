@@ -30,9 +30,12 @@ lines. Goals marked `MANUAL` are never selected automatically.
   frame without relying on desktop OpenGL.
 - Failure paths remain observable through OSReport.
 - The GameCube verifier and focused source checks pass.
-- Patched `vid_gamecube.c` to force `GX_PF_RGB565_Z16` display format to match
-  the 16-bit software renderer buffer, and wired `SW_CreateBuffer` into
-  `R_ChangeDisplaySettings` so the frame buffer is allocated on mode change.
+- `R_Init_Video` now allocates the software buffer immediately after GX init,
+  so the buffer exists before the first frame is rendered.
+- `GC_PresentBuffer` falls back to a solid blue diagnostic frame when the
+  software buffer is NULL, providing visible evidence of GX output even
+  before the software renderer draws content.
+- OSReport messages added for buffer allocation success/failure.
 - Pending: Dolphin runtime verification to confirm the diagnostic frame appears.
 
 ## G04 [ ] Provide native controller input

@@ -201,13 +201,22 @@ homebrew-capable physical GameCube.
 ## Next blocker
 
 Verify GX video initialization and diagnostic frame presentation in Dolphin.
-The software renderer buffer is now created during mode changes and presented
-via `GC_PresentBuffer` with a forced `GX_PF_RGB565_Z16` display format to match
-the 16-bit software output. Boot `OUT/xash3d-gc.iso` in Dolphin and confirm
-that the screen updates (e.g., black/cleared frame or engine diagnostics) rather
-than remaining blank or trapping. Capture OSReport and video output.
+`R_Init_Video` now explicitly allocates the software buffer during GX init
+(rather than deferring to `R_ChangeDisplaySettings`), and `GC_PresentBuffer`
+falls back to a solid blue diagnostic frame when the software buffer is not
+yet ready. This ensures a visible frame appears even before the software
+renderer draws content. Boot `OUT/xash3d-gc.iso` in Dolphin and confirm
+that the screen shows a blue diagnostic frame or engine-rendered content
+rather than remaining blank or trapping. Capture OSReport and video output.
 Also publish the `gamecube-platform` submodule branch to an accessible remote
 so fresh clones can fetch the recorded commit.
+
+Changes in this pass:
+- `R_Init_Video` calls `SW_CreateBuffer` immediately after `GC_InitVideoHardware`
+  so the buffer exists before the first frame.
+- `GC_PresentBuffer` renders a solid blue (RGB565 `0x001F`) diagnostic frame
+  when `gc.buffer` is NULL, providing visible evidence of GX output.
+- OSReport messages added for buffer allocation success/failure.
 
 The repository now includes `scripts/dolphin-boot-probe.sh`, which builds the
 disc image, launches a bounded Dolphin boot probe, captures logs, and
