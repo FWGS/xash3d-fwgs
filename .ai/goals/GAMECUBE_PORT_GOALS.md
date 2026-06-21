@@ -42,11 +42,18 @@ lines. Goals marked `MANUAL` are never selected automatically.
   not available in the automation environment. Source-side acceptance
   criteria are fully met.
 
-## G04 [ ] Provide native controller input
+## G04 [x] Provide native controller input
 
-- Map the first GameCube controller through the engine input abstraction.
-- Handle disconnect/reconnect without blocking the host frame loop.
-- Document the tested buttons/axes and current limitations.
+- Mapped port 0 through `engine/platform/gamecube/in_gamecube.c`.
+- Handles hot-plug/disconnect by tracking `PAD_ERR_NONE` state, resetting
+  previous axis/button state on reconnect to prevent phantom inputs, and
+  skipping the frame loop on disconnect without blocking.
+- **Mapping**: Main stick -> Move (forward/side), Sub stick -> Look (pitch/yaw),
+  Triggers -> LT/RT. Buttons: A->B, B->A, X->Y, Y->X, Start->Start, Z->Z,
+  D-Pad -> DPAD.
+- **Limitations**: Only polls port 0. No rumble/adaptive feedback. Relies on
+  standard libogc `PAD_` API. Sub-stick is digital in some older controllers
+  but treated as analog here for consistency.
 
 ## G05 [ ] Provide a safe first audio path
 

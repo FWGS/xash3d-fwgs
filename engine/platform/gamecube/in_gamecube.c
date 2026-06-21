@@ -80,14 +80,34 @@ static void GC_UpdateAxis( engineAxis_t axis, short value, short *prev )
 	*prev = value;
 }
 
+static qboolean gc_connected;
+
 void Platform_RunEvents( void )
 {
 	u16 held;
+	qboolean connected;
 
 	PAD_ScanPads();
 	PAD_Read( gc_pad );
 
-	if( gc_pad[GC_PAD_PORT].err != PAD_ERR_NONE )
+	connected = ( gc_pad[GC_PAD_PORT].err == PAD_ERR_NONE );
+
+	if( connected != gc_connected )
+	{
+		gc_connected = connected;
+		if( connected )
+		{
+			prev_buttons = 0;
+			prev_side = prev_fwd = prev_pitch = prev_yaw = prev_lt = prev_rt = 0;
+			Con_Reportf( "Joystick: GameCube controller connected (port %d)\n", GC_PAD_PORT );
+		}
+		else
+		{
+			Con_Reportf( "Joystick: GameCube controller disconnected\n" );
+		}
+	}
+
+	if( !connected )
 		return;
 
 	held = PAD_ButtonsHeld( GC_PAD_PORT );

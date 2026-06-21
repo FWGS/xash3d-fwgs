@@ -227,6 +227,24 @@ Source-side acceptance criteria are fully met. Dolphin runtime verification
 requires an operator with the emulator installed; it is not available in the
 automation environment.
 
+## G04 — Native controller input (source complete)
+
+`engine/platform/gamecube/in_gamecube.c` now polls the first controller (port 0)
+and maps it through the engine's joystick abstraction. Hot-plug and disconnect
+are handled gracefully: the controller state is tracked, previous axis/button
+values are cleared on reconnect to prevent phantom inputs, and the frame loop
+continues unblocked when disconnected. Connection state changes are logged via
+`Con_Reportf`.
+
+**Mapping:**
+- Main stick: Forward/Side movement
+- Sub stick: Pitch/Yaw look
+- Triggers (L/R): LT/RT axes
+- Buttons: A→B, B→A, X→Y, Y→X, Start→Start, Z→Z, D-Pad→DPAD
+
+**Limitations:** Only port 0 is polled. No rumble or advanced adaptive features
+are implemented. Relies on standard libogc `PAD_` API.
+
 ## Next blocker
 
 Verify the diagnostic frame appears at runtime in Dolphin or on physical
