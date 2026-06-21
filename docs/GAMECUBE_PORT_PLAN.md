@@ -260,6 +260,7 @@ Startup proceeds to the next subsystem without crashing on missing audio.
 Source-side preparation for G06 is complete. The automation environment cannot execute the runtime verification due to Dolphin Flatpak host traps and missing emulated storage. G06 is now marked as **operator-gated**.
 
 **2026-06-21 Automation Note**: All automated passes confirmed zero actionable source changes. Platform backends (GX video, PAD input, null audio, SD/DVD filesystem) are implemented, compile cleanly, and feature safe fallback diagnostics. `GCube_Init` emits `SYS_Report("Xash3D GameCube: no base path found...")` when SD/DVD mounts fail, ensuring the operator sees the exact cause in OSReport before `Con_Printf` is fully initialized. Automated guest runtime verification is strictly blocked by the absence of a functional emulator/storage mount in the CI environment. Goal formally **SUSPENDED**. The goal runner will skip G06 until an operator marks it `[x]` after successful Dolphin/physical hardware validation. No speculative engine changes will be attempted.
+**2026-06-21 Attempt 3**: Confirmed zero actionable source changes. The automation environment cannot execute guest runtime verification or bypass the operator-gated requirement. Goal remains **SUSPENDED**. No further automated edits will be attempted.
 
 **Operator Validation Checklist**:
 1. Run `scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso` with `Half-Life/valve` data.
