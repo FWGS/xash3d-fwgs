@@ -62,14 +62,19 @@ static byte *Mod_SwapSpriteFrame( byte *p, byte *end, int bytes )
 	p += sizeof( frame );
 
 	// skip pixel data
-	if( p + frame.width * frame.height * bytes > end )
+	if( frame.width < 0 || frame.height < 0 )
 		return NULL;
 
-	p += frame.width * frame.height * bytes;
+	size_t pixels = (size_t)frame.width * frame.height * bytes;
+
+	if( pixels > (size_t)( end - p ))
+		return NULL;
+
+	p += pixels;
 	return p;
 }
 
-static byte *Mod_SwapSpriteGroup( byte *p, byte *end, int bytes )
+static byte *Mod_SwapSpriteGroup( byte *p, byte *end, int bytes, int min_frames )
 {
 	dspritegroup_t group;
 
@@ -84,7 +89,7 @@ static byte *Mod_SwapSpriteGroup( byte *p, byte *end, int bytes )
 	// swap intervals
 	int numframes = group.numframes;
 
-	if( p + numframes * sizeof( dspriteinterval_t ) > end )
+	if( numframes < min_frames || numframes * sizeof( dspriteinterval_t ) > (size_t)( end - p ))
 		return NULL;
 
 	for( int i = 0; i < numframes; i++ )
@@ -144,18 +149,26 @@ static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_versio
 
 		short numi = LittleShort( *(short *)p );
 		*(short *)p = numi;
-		p += sizeof( short ) + numi * 3;
+		p += sizeof( short );
+
+		if( numi < 0 || p + numi * 3 > end )
+			return false;
+
+		p += numi * 3;
 		break;
 	}
 	default:
 		return false;
 	}
 
+	if( numframes < 0 )
+		return false;
+
 	*out_version = version;
 	int bytes = ( version == SPRITE_VERSION_32 ) ? 4 : 1;
 
 	// swap all frames
-	for( int i = 0; i < numframes && p && p < end; i++ )
+	for( int i = 0; i < numframes; i++ )
 	{
 		dframetype_t frametype;
 
@@ -173,12 +186,18 @@ static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_versio
 			p = Mod_SwapSpriteFrame( p, end, bytes );
 			break;
 		case FRAME_GROUP:
+			p = Mod_SwapSpriteGroup( p, end, bytes, 1 );
+			break;
 		case FRAME_ANGLED:
-			p = Mod_SwapSpriteGroup( p, end, bytes );
+			// angled groups are indexed by 0..7 at render time
+			p = Mod_SwapSpriteGroup( p, end, bytes, 8 );
 			break;
 		default:
 			return false;
 		}
+
+		if( !p )
+			return false;
 	}
 
 	return true;
