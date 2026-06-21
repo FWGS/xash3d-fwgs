@@ -11,11 +11,16 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 
 #if XASH_GAMECUBE
 #include <ogc/system.h>
+#include <ogc/dvd.h>
 #include <fat.h>
+#include <iso9660.h>
 #include <dirent.h>
 #include "dll_gamecube.h"
 
 #define GC_DATA_PATH "xash3d"
+
+static qboolean gc_fat_mounted;
+static qboolean gc_dvd_mounted;
 #endif
 
 void Platform_ShellExecute( const char *path, const char *parms )
@@ -114,8 +119,16 @@ void GCube_Init( void )
 #if XASH_GAMECUBE
 	char xashdir[MAX_SYSPATH];
 
-	if( !fatInitDefault())
-		Con_Reportf( S_WARN "SD card init failed, using DVD paths only\n" );
+	gc_fat_mounted = fatInitDefault();
+	if( !gc_fat_mounted )
+		Con_Reportf( S_WARN "SD card init failed\n" );
+
+	DVD_Init();
+	gc_dvd_mounted = ISO9660_Mount( "dvd", &__io_gcdvd );
+	if( gc_dvd_mounted )
+		Con_Reportf( "GameCube DVD filesystem mounted\n" );
+	else
+		Con_Reportf( S_WARN "DVD filesystem init failed\n" );
 
 	if( GCube_GetBasePath( xashdir, sizeof( xashdir )))
 	{
@@ -184,6 +197,11 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 void GCube_Shutdown( void )
 {
 #if XASH_GAMECUBE
-	fatUnmount( "sd" );
+	if( gc_dvd_mounted )
+		ISO9660_Unmount( "dvd" );
+	if( gc_fat_mounted )
+		fatUnmount( "sd" );
+	gc_dvd_mounted = false;
+	gc_fat_mounted = false;
 #endif
 }

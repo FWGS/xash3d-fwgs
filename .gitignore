@@ -364,6 +364,7 @@ cmake-build-*
 3rdparty/SDL
 3rdparty/hlsdk-portable
 !scripts/build-ninja.py
+!scripts/build-gamecube-disc.py
 
 # slop
 CLAUDE.md
@@ -380,8 +381,13 @@ GEMINI.md
 .github/copilot-instructions.md
 
 # game data
+OUT/*.iso
 game_data/
 hl/
 hl1sdk/
 hlsdk/
 hl2sdk/
+Half-Life/
+Half-Life 2/
+Half-Life 2: Episode One/
+Half-Life 2: Episode Two/

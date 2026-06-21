@@ -6,8 +6,11 @@ speculative failures as facts.
 
 - `OUT/bin/boot.dol` boots in Dolphin 2603a and initializes the statically
   linked filesystem module, but it has not been tested on physical hardware.
-- The Dolphin test profile has no GameCube-accessible FAT or DVD volume.
-  `fatInitDefault()` fails, then the `/` fallback is stripped to an empty path.
+- A native-format disc image with the Half-Life data passes Dolphin's header
+  and FST inspection. Dolphin 2603a Flatpak loads its DOL sections and FST, then
+  its host CPU-GPU thread traps on a fixed `ud2` before guest entry. Direct DOL
+  boot still works, so the disc path needs validation with another Dolphin
+  build or physical homebrew-capable hardware.
 - The GameCube build reports a `-Wstringop-overflow` warning in
   `SV_InitEdict`; its validity and impact need a separate focused audit.
 

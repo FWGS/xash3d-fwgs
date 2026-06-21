@@ -106,10 +106,34 @@ Dolphin test profile has no SD Gecko/FAT volume, so `fatInitDefault()` fails and
 the fallback root path collapses to an empty path. Dolphin logs are captured in
 the ignored `.ai/logs/` directory.
 
+The local `Half-Life/valve` tree contains 540 MiB of game data. It is too large
+to embed in the executable under the GameCube's 24 MiB RAM limit. The engine
+now mounts a native GameCube DVD through libogc's `__io_gcdvd` and ISO9660
+interfaces after trying SD Gecko. `scripts/build-gamecube-disc.py` creates a
+bootable GameCube image containing the DOL, a minimal open-source apploader,
+an FST, `xash3d/valve`, and the built `extras.pk3`:
+
+```sh
+scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso
+```
+
+The generated 561 MiB test image has valid GameCube magic, loads both DOL
+sections and its FST, and is recognized by Dolphin as `GXHE00` (NTSC-U).
+`dolphin-tool extract --list` confirms the required `liblist.gam`, `gfx.wad`,
+and `extras.pk3` paths. This is a native disc/FST path with no Dolphin-host
+filesystem dependency; the local game assets and generated image remain
+ignored and must never be committed or redistributed.
+
+Dolphin 2603a Flatpak currently traps in its host CPU-GPU thread at a fixed
+`ud2` after the apploader handoff, with Null, Software, and OpenGL backends.
+This occurs before the guest bootstrap marker. Direct DOL boot still reaches
+OSReport, so the next validation should use a different Dolphin build or a
+homebrew-capable physical GameCube.
+
 ## Next blocker
 
-Provide a GameCube-accessible FAT or DVD volume containing `xash3d/valve`, then
-rerun Dolphin and capture the first failure after filesystem initialization.
+Boot `OUT/xash3d-gc.iso` with a different Dolphin build or on a
+homebrew-capable physical GameCube and capture the first guest OSReport line.
 Also publish the `gamecube-platform` submodule branch to an accessible remote
 so fresh clones can fetch the recorded commit.
 
@@ -120,4 +144,5 @@ git status --short
 git -C 3rdparty/library_suffix diff --check
 scripts/ai-verify.sh
 command -v dolphin-emu || command -v dolphin
+scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso
 ```

@@ -211,7 +211,7 @@ def build(bld):
 		]
 	elif bld.env.DEST_OS == 'gamecube':
 		libs += ['filesystem_stdio', 'ref_gx']
-		bld.env.LDFLAGS += ['-logc', '-lm', '-lfat']
+		bld.env.LDFLAGS += ['-liso9660', '-logc', '-lm', '-lfat']
 		source += ['platform/stub/s_stub.c']
 		source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
 		source += bld.path.parent.find_dir('stub/server').ant_glob('*.c')

@@ -1,0 +1,290 @@
+#!/usr/bin/env python3
+"""Build a bootable GameCube disc image for local Xash3D testing."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import struct
+import subprocess
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+DISC_HEADER_SIZE = 0x3000
+DOL_OFFSET = DISC_HEADER_SIZE
+DISC_MAGIC = 0xC2339F3D
+APPLOADER_ADDRESS = 0x81200000
+APPLOADER_HEADER_OFFSET = 0x2440
+APPLOADER_DATA_OFFSET = APPLOADER_HEADER_OFFSET + 0x20
+
+
+def align(value: int, boundary: int) -> int:
+	return (value + boundary - 1) & ~(boundary - 1)
+
+
+@dataclass
+class Node:
+	name: str
+	source: Path | None = None
+	children: dict[str, "Node"] = field(default_factory=dict)
+	index: int = 0
+	parent_index: int = 0
+	next_index: int = 0
+	name_offset: int = 0
+	disc_offset: int = 0
+
+	@property
+	def is_dir(self) -> bool:
+		return self.source is None
+
+
+def add_tree(parent: Node, source: Path) -> None:
+	for child in sorted(source.iterdir(), key=lambda path: path.name.lower()):
+		if child.is_symlink():
+			raise ValueError(f"symlinks are not supported: {child}")
+		if child.is_dir():
+			node = Node(child.name)
+			parent.children[child.name] = node
+			add_tree(node, child)
+		elif child.is_file():
+			parent.children[child.name] = Node(child.name, child)
+
+
+def flatten(node: Node, parent_index: int, entries: list[Node]) -> None:
+	node.index = len(entries)
+	node.parent_index = parent_index
+	entries.append(node)
+
+	for child in sorted(node.children.values(), key=lambda item: (not item.is_dir, item.name.lower())):
+		if child.is_dir:
+			flatten(child, node.index, entries)
+		else:
+			child.index = len(entries)
+			child.parent_index = node.index
+			entries.append(child)
+
+	node.next_index = len(entries)
+
+
+def encode_names(entries: list[Node]) -> bytes:
+	names = bytearray(b"\0")
+	for entry in entries[1:]:
+		encoded = entry.name.encode("utf-8")
+		if b"\0" in encoded:
+			raise ValueError(f"invalid filename: {entry.name!r}")
+		entry.name_offset = len(names)
+		names.extend(encoded)
+		names.append(0)
+	if len(names) >= 1 << 24:
+		raise ValueError("FST name table is too large")
+	return bytes(names)
+
+
+def build_fst(entries: list[Node], names: bytes) -> bytes:
+	fst = bytearray(len(entries) * 12)
+	for entry in entries:
+		name_word = entry.name_offset
+		if entry.is_dir:
+			name_word |= 0x01000000
+			second = entry.parent_index
+			third = entry.next_index
+		else:
+			second = entry.disc_offset
+			third = entry.source.stat().st_size
+		struct.pack_into(">III", fst, entry.index * 12, name_word, second, third)
+	return bytes(fst) + names
+
+
+def write_padding(output, target: int) -> None:
+	remaining = target - output.tell()
+	if remaining < 0:
+		raise ValueError("disc layout overlaps")
+	if remaining:
+		output.write(b"\0" * remaining)
+
+
+def find_tool(name: str) -> str:
+	devkitpro = Path(os.environ.get("DEVKITPRO", "/opt/devkitpro"))
+	candidate = devkitpro / "devkitPPC" / "bin" / f"powerpc-eabi-{name}"
+	if candidate.is_file():
+		return str(candidate)
+	found = shutil.which(f"powerpc-eabi-{name}")
+	if found is None:
+		raise FileNotFoundError(f"powerpc-eabi-{name} was not found")
+	return found
+
+
+def parse_dol(dol: Path) -> tuple[list[tuple[int, int, int]], int, int, int]:
+	header = dol.read_bytes()[:0xE4]
+	if len(header) != 0xE4:
+		raise ValueError(f"invalid DOL header: {dol}")
+	sections: list[tuple[int, int, int]] = []
+	for count, offset_base, address_base, size_base in (
+		(7, 0x00, 0x48, 0x90),
+		(11, 0x1C, 0x64, 0xAC),
+	):
+		for index in range(count):
+			offset = struct.unpack_from(">I", header, offset_base + index * 4)[0]
+			address = struct.unpack_from(">I", header, address_base + index * 4)[0]
+			size = struct.unpack_from(">I", header, size_base + index * 4)[0]
+			if size:
+				sections.append((offset, address, size))
+	bss_address, bss_size, entry_point = struct.unpack_from(">III", header, 0xD8)
+	return sections, bss_address, bss_size, entry_point
+
+
+def build_apploader(
+	source: Path, linker_script: Path, dol: Path, fst_offset: int, fst_size: int
+) -> bytes:
+	with tempfile.TemporaryDirectory(prefix="xash3d-gc-apploader-") as temp:
+		temp_path = Path(temp)
+		section_header = temp_path / "gamecube-apploader-sections.h"
+		obj = temp_path / "apploader.o"
+		elf = temp_path / "apploader.elf"
+		binary = temp_path / "apploader.bin"
+		gcc = find_tool("gcc")
+		objcopy = find_tool("objcopy")
+		sections, bss_address, bss_size, entry_point = parse_dol(dol)
+		sections = [
+			(DOL_OFFSET + offset, address, size) for offset, address, size in sections
+		]
+		fst_address = 0x81700000
+		sections.append((fst_offset, fst_address, fst_size))
+		section_lines = ",\n".join(
+			f"\t{{ 0x{offset:08x}u, 0x{address:08x}u, 0x{size:08x}u }}"
+			for offset, address, size in sections
+		)
+		section_header.write_text(
+			f"#define APPLOADER_SECTION_COUNT {len(sections)}\n"
+			f"#define APPLOADER_BSS_ADDRESS 0x{bss_address:08x}u\n"
+			f"#define APPLOADER_BSS_SIZE 0x{bss_size:08x}u\n"
+			f"#define APPLOADER_ENTRY_POINT 0x{entry_point:08x}u\n"
+			f"#define APPLOADER_FST_ADDRESS 0x{fst_address:08x}u\n"
+			f"#define APPLOADER_FST_SIZE 0x{fst_size:08x}u\n"
+			"static const apploader_section_t apploader_sections[] =\n{\n"
+			f"{section_lines}\n}};\n",
+			encoding="ascii",
+		)
+
+		subprocess.run([
+			gcc, "-c", str(source), "-o", str(obj), "-Os", "-mcpu=750",
+			"-m32", "-mhard-float", "-ffreestanding", "-fno-pic",
+			"-ffunction-sections", "-fdata-sections", "-msdata=none", "-I", temp,
+		], check=True)
+		subprocess.run([
+			gcc, str(obj), "-o", str(elf), "-nostdlib", "-nodefaultlibs",
+			f"-Wl,-T,{linker_script}", "-Wl,--gc-sections",
+		], check=True)
+		subprocess.run([objcopy, "-O", "binary", str(elf), str(binary)], check=True)
+		result = binary.read_bytes()
+
+	if len(result) > DOL_OFFSET - APPLOADER_DATA_OFFSET:
+		raise ValueError(f"apploader is too large: {len(result)} bytes")
+	return result
+
+
+def build_disc(
+	dol: Path,
+	data: Path,
+	extras: Path | None,
+	output_path: Path,
+	apploader_source: Path,
+	apploader_linker: Path,
+) -> None:
+	root = Node("")
+	xash3d = Node("xash3d")
+	valve = Node("valve")
+	root.children[xash3d.name] = xash3d
+	xash3d.children[valve.name] = valve
+	add_tree(valve, data)
+	if extras is not None:
+		valve.children["extras.pk3"] = Node("extras.pk3", extras)
+
+	entries: list[Node] = []
+	flatten(root, 0, entries)
+	names = encode_names(entries)
+
+	dol_size = dol.stat().st_size
+	fst_offset = align(DOL_OFFSET + dol_size, 0x20)
+	fst_size = len(entries) * 12 + len(names)
+	data_offset = align(fst_offset + fst_size, 0x800)
+
+	next_offset = data_offset
+	for entry in entries:
+		if entry.is_dir:
+			continue
+		entry.disc_offset = next_offset
+		next_offset = align(next_offset + entry.source.stat().st_size, 0x20)
+
+	fst = build_fst(entries, names)
+	apploader = build_apploader(apploader_source, apploader_linker, dol, fst_offset, fst_size)
+	header = bytearray(DISC_HEADER_SIZE)
+	header[0:6] = b"GXHE00"
+	header[0x20:0x20 + 23] = b"Xash3D GameCube Test"
+	struct.pack_into(">I", header, 0x1C, DISC_MAGIC)
+	struct.pack_into(">I", header, 0x420, DOL_OFFSET)
+	struct.pack_into(">I", header, 0x424, fst_offset)
+	struct.pack_into(">I", header, 0x428, fst_size)
+	struct.pack_into(">I", header, 0x42C, fst_size)
+	struct.pack_into(">I", header, 0x430, data_offset)
+	struct.pack_into(">I", header, 0x434, next_offset - data_offset)
+	struct.pack_into(">I", header, 0x458, 1)  # NTSC region in BI2
+	header[APPLOADER_HEADER_OFFSET:APPLOADER_HEADER_OFFSET + 11] = b"2026/06/20\0"
+	struct.pack_into(">I", header, APPLOADER_HEADER_OFFSET + 0x10, APPLOADER_ADDRESS)
+	struct.pack_into(">I", header, APPLOADER_HEADER_OFFSET + 0x14, len(apploader))
+	header[APPLOADER_DATA_OFFSET:APPLOADER_DATA_OFFSET + len(apploader)] = apploader
+
+	output_path.parent.mkdir(parents=True, exist_ok=True)
+	with output_path.open("wb") as output:
+		output.write(header)
+		with dol.open("rb") as source:
+			shutil.copyfileobj(source, output)
+		write_padding(output, fst_offset)
+		output.write(fst)
+		write_padding(output, data_offset)
+
+		for entry in entries:
+			if entry.is_dir:
+				continue
+			write_padding(output, entry.disc_offset)
+			with entry.source.open("rb") as source:
+				shutil.copyfileobj(source, output)
+		write_padding(output, next_offset)
+
+	print(f"Built {output_path} ({next_offset} bytes, {len(entries)} FST entries)")
+
+
+def main() -> None:
+	script_dir = Path(__file__).resolve().parent
+	parser = argparse.ArgumentParser(description=__doc__)
+	parser.add_argument("--dol", type=Path, default=Path("OUT/bin/boot.dol"))
+	parser.add_argument("--data", type=Path, default=Path("Half-Life/valve"))
+	parser.add_argument("--extras", type=Path, default=Path("OUT/valve/extras.pk3"))
+	parser.add_argument("--output", type=Path, default=Path("OUT/xash3d-gc.iso"))
+	parser.add_argument(
+		"--apploader-source", type=Path, default=script_dir / "gamecube-apploader.c"
+	)
+	parser.add_argument(
+		"--apploader-linker", type=Path, default=script_dir / "gamecube-apploader.ld"
+	)
+	args = parser.parse_args()
+
+	for path in (args.dol, args.data):
+		if not path.exists():
+			parser.error(f"required path does not exist: {path}")
+	extras = args.extras if args.extras.exists() else None
+	build_disc(
+		args.dol,
+		args.data,
+		extras,
+		args.output,
+		args.apploader_source,
+		args.apploader_linker,
+	)
+
+
+if __name__ == "__main__":
+	main()
