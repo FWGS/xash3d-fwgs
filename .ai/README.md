@@ -47,6 +47,8 @@ scripts/xash3d-gc-aider-gui.sh
 ```
 
 The GUI runs the same guarded scripts; it does not bypass clean-tree checks or
-review gates. It provides one-pass task editing, bounded multi-pass runs,
-verification, DOL/disc builds, and Dolphin launch. Custom one-pass prompts are
-stored outside the repository so editing a prompt cannot dirty the worktree.
+review gates. It runs the goal ledger through a configurable safety pass limit,
+shows live Git/submodule/toolchain/content/blocker context, and provides
+verification, DOL/disc builds, and Dolphin launch. Credentials and model
+configuration are inherited from the launch environment and Aider config; the
+GUI neither stores nor edits them.

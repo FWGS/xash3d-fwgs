@@ -31,6 +31,10 @@ The Qt console now presents this as a GameCube-inspired devkit pipeline with
 live DOL, ISO, and Dolphin status chips. Booting with no ISO automatically
 builds the disc first instead of failing with a missing-file dialog. Model,
 endpoint, and credential controls are intentionally absent from the GUI.
+Mission Control now shows every automatic/manual goal and the active goal's
+acceptance criteria. Port Telemetry reports Git cleanliness and tracking,
+latest commit, submodule divergence, devkitPPC, game content, inherited Aider
+authentication, the latest recorded blocker, and live artifact pipeline state.
 
 ## Milestones
 

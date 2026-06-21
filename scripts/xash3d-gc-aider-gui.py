@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -14,7 +16,7 @@ from PyQt6.QtWidgets import (
 	QApplication,
 	QFileDialog,
 	QFormLayout,
-	QFrame,
+	QHeaderView,
 	QGroupBox,
 	QHBoxLayout,
 	QLabel,
@@ -25,11 +27,14 @@ from PyQt6.QtWidgets import (
 	QProgressBar,
 	QPushButton,
 	QSpinBox,
+	QTableWidget,
+	QTableWidgetItem,
 	QVBoxLayout,
 	QWidget,
 )
 
 DEFAULT_REPO = Path(__file__).resolve().parents[1]
+GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |x|X|MANUAL)\]\s+(.+)$")
 
 GC_BG = "#171225"
 GC_PANEL = "#241a3f"
@@ -73,6 +78,10 @@ def stylesheet() -> str:
 		border-radius: 12px; padding: 12px; font-weight: bold; }}
 	QLabel#PipelineFailed {{ background: #563621; color: {GC_ORANGE}; border: 2px solid {GC_ORANGE};
 		border-radius: 12px; padding: 12px; font-weight: bold; }}
+	QTableWidget {{ background: {GC_INPUT}; alternate-background-color: {GC_PANEL}; color: {GC_TEXT};
+		gridline-color: {GC_PANEL_2}; border: 1px solid {GC_BORDER}; border-radius: 8px; }}
+	QHeaderView::section {{ background: {GC_PANEL_2}; color: {GC_CYAN}; border: 0;
+		border-right: 1px solid {GC_PANEL}; padding: 6px; font-weight: bold; }}
 	"""
 
 
@@ -86,6 +95,7 @@ class PortWindow(QMainWindow):
 		self.expected_passes = 1
 		self.pending_boot = False
 		self.pipeline: dict[str, QLabel] = {}
+		self.last_context = ""
 
 		central = QWidget()
 		self.setCentralWidget(central)
@@ -124,6 +134,33 @@ class PortWindow(QMainWindow):
 		form.addRow("Xash3D repository:", repo_row)
 
 		layout.addWidget(project_box)
+
+		intel_row = QHBoxLayout()
+		goals_box = QGroupBox("MISSION CONTROL  /  PORT GOALS")
+		goals_layout = QVBoxLayout(goals_box)
+		self.goal_summary = QLabel("Loading goal ledger…")
+		self.goal_summary.setWordWrap(True)
+		self.goal_summary.setStyleSheet(f"color: {GC_CYAN}; font-weight: bold;")
+		goals_layout.addWidget(self.goal_summary)
+		self.goal_table = QTableWidget(0, 3)
+		self.goal_table.setHorizontalHeaderLabels(["ID", "STATE", "OBJECTIVE"])
+		self.goal_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+		self.goal_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+		self.goal_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+		self.goal_table.setAlternatingRowColors(True)
+		self.goal_table.setMaximumHeight(195)
+		goals_layout.addWidget(self.goal_table)
+		intel_row.addWidget(goals_box, 3)
+
+		context_box = QGroupBox("PORT TELEMETRY  /  LIVE CONTEXT")
+		context_layout = QVBoxLayout(context_box)
+		self.context_view = QPlainTextEdit()
+		self.context_view.setReadOnly(True)
+		self.context_view.setFont(QFont("Monospace", 9))
+		self.context_view.setMaximumHeight(225)
+		context_layout.addWidget(self.context_view)
+		intel_row.addWidget(context_box, 2)
+		layout.addLayout(intel_row)
 
 		controls = QHBoxLayout()
 		self.passes_spin = QSpinBox()
@@ -187,10 +224,10 @@ class PortWindow(QMainWindow):
 		layout.addWidget(console_box, 1)
 
 		self.timer = QTimer(self)
-		self.timer.setInterval(1500)
-		self.timer.timeout.connect(self.refresh_artifacts)
+		self.timer.setInterval(3000)
+		self.timer.timeout.connect(self.refresh_dashboard)
 		self.timer.start()
-		self.refresh_artifacts()
+		self.refresh_dashboard()
 
 	def repo(self) -> Path:
 		return Path(self.repo_edit.text().strip()).expanduser().resolve()
@@ -211,6 +248,94 @@ class PortWindow(QMainWindow):
 		self.log.moveCursor(QTextCursor.MoveOperation.End)
 		self.log.insertPlainText(text)
 		self.log.moveCursor(QTextCursor.MoveOperation.End)
+
+	def git_output(self, *args: str) -> str:
+		result = subprocess.run(["git", *args], cwd=self.repo(), text=True,
+			capture_output=True, timeout=4, check=False)
+		return result.stdout.strip()
+
+	def read_goals(self) -> list[tuple[str, str, str, str]]:
+		path = self.repo() / ".ai/goals/GAMECUBE_PORT_GOALS.md"
+		if not path.is_file():
+			return []
+		goals: list[tuple[str, str, str, str]] = []
+		current: tuple[str, str, str] | None = None
+		body: list[str] = []
+		for line in path.read_text(encoding="utf-8").splitlines():
+			match = GOAL_RE.match(line)
+			if match:
+				if current:
+					goals.append((*current, "\n".join(body).strip()))
+				current = match.groups()
+				body = []
+			elif current:
+				body.append(line)
+		if current:
+			goals.append((*current, "\n".join(body).strip()))
+		return goals
+
+	def refresh_goals(self) -> None:
+		goals = self.read_goals()
+		self.goal_table.setRowCount(len(goals))
+		complete = sum(state.lower() == "x" for _, state, _, _ in goals)
+		automatic = sum(state != "MANUAL" for _, state, _, _ in goals)
+		active = next((goal for goal in goals if goal[1] == " "), None)
+		for row, (goal_id, state, title, _body) in enumerate(goals):
+			label = "MANUAL" if state == "MANUAL" else "DONE" if state.lower() == "x" else "ACTIVE" if active and goal_id == active[0] else "QUEUED"
+			for column, value in enumerate((goal_id, label, title)):
+				item = QTableWidgetItem(value)
+				if label == "DONE":
+					item.setForeground(Qt.GlobalColor.cyan)
+				elif label == "ACTIVE":
+					item.setForeground(Qt.GlobalColor.yellow)
+				self.goal_table.setItem(row, column, item)
+		if active:
+			criteria = " ".join(line.lstrip("- ") for line in active[3].splitlines() if line.startswith("- "))
+			self.goal_summary.setText(f"ACTIVE {active[0]}  /  {active[2]}\n{criteria}")
+		else:
+			self.goal_summary.setText("All automatic goals complete; manual hardware validation remains.")
+		self.progress.setToolTip(f"{complete}/{automatic} automatic goals complete")
+
+	def refresh_context(self) -> None:
+		root = self.repo()
+		if not (root / ".git").exists():
+			return
+		branch = self.git_output("branch", "--show-current") or "detached"
+		porcelain = self.git_output("status", "--porcelain")
+		tracking = self.git_output("status", "--short", "--branch").splitlines()
+		recent = self.git_output("log", "-1", "--oneline")
+		submodules = self.git_output("submodule", "status", "--recursive").splitlines()
+		dirty_submodules = sum(line.startswith(("+", "-", "U")) for line in submodules)
+		valve = root / "Half-Life/valve"
+		blockers = root / ".ai/state/BLOCKERS.md"
+		blocker_tail = "none recorded"
+		if blockers.is_file():
+			entries = [line[2:] for line in blockers.read_text(encoding="utf-8").splitlines() if line.startswith("- ")]
+			if entries:
+				blocker_tail = entries[-1][:100]
+		toolchain = Path(os.environ.get("DEVKITPRO", "/opt/devkitpro")) / "devkitPPC/bin/powerpc-eabi-gcc"
+		lines = [
+			f"GIT       {branch}  {'DIRTY' if porcelain else 'CLEAN'}",
+			f"TRACKING  {tracking[0][3:] if tracking else 'unknown'}",
+			f"HEAD      {recent}",
+			f"SUBMODULE {len(submodules)} present / {dirty_submodules} divergent",
+			f"TOOLCHAIN {'READY' if toolchain.is_file() else 'MISSING'}  {toolchain}",
+			f"CONTENT   {'READY' if valve.is_dir() else 'MISSING'}  Half-Life/valve",
+			f"AIDER     {'AUTH INHERITED' if os.environ.get('OPENAI_API_KEY') else 'AUTH NOT IN ENVIRONMENT'}",
+			f"BLOCKER   {blocker_tail}",
+		]
+		context = "\n".join(lines)
+		if context != self.last_context:
+			self.context_view.setPlainText(context)
+			self.last_context = context
+
+	def refresh_dashboard(self) -> None:
+		try:
+			self.refresh_artifacts()
+			self.refresh_goals()
+			self.refresh_context()
+		except (OSError, subprocess.SubprocessError) as exc:
+			self.context_view.setPlainText(f"Telemetry unavailable: {exc}")
 
 	def start(self, command: list[str], operation: str, passes: int = 1) -> None:
 		if self.process is not None or not self.valid_repo():
@@ -245,6 +370,14 @@ class PortWindow(QMainWindow):
 			return
 		text = bytes(self.process.readAllStandardOutput()).decode(errors="replace")
 		self.append(text)
+		if "== verifier ==" in text:
+			self.set_pipeline_state("VERIFY", "Running")
+		if "verify: OK" in text:
+			self.set_pipeline_state("VERIFY", "Success")
+		if "== AI review ==" in text:
+			self.set_pipeline_state("REVIEW", "Running")
+		if "review: OK" in text:
+			self.set_pipeline_state("REVIEW", "Success")
 		if self.operation == "Goal automation":
 			for line in text.splitlines():
 				if line.startswith("GOAL PASS "):
@@ -279,7 +412,7 @@ class PortWindow(QMainWindow):
 		self.process = None
 		self.loop_btn.setEnabled(True)
 		self.stop_btn.setEnabled(False)
-		self.refresh_artifacts()
+		self.refresh_dashboard()
 		if boot_after_build:
 			self.launch_dolphin()
 
@@ -323,6 +456,11 @@ class PortWindow(QMainWindow):
 			return f"{label}  {path.stat().st_size / (1024 * 1024):.1f} MiB" if path.is_file() else f"{label}  MISSING"
 		self.dol_chip.setText(artifact("DOL", dol))
 		self.iso_chip.setText(artifact("ISO", iso))
+		active_node = self.pipeline_node(self.operation) if self.process else ""
+		if active_node != "DOL":
+			self.set_pipeline_state("DOL", "Success" if dol.is_file() else "Idle")
+		if active_node != "ISO":
+			self.set_pipeline_state("ISO", "Success" if iso.is_file() else "Idle")
 		dolphin_ready = bool(shutil.which("dolphin-emu") or shutil.which("dolphin") or shutil.which("flatpak"))
 		self.dolphin_chip.setText("DOLPHIN  READY" if dolphin_ready else "DOLPHIN  MISSING")
 		if self.process is None:
