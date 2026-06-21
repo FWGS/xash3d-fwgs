@@ -11,6 +11,7 @@ cd "$ROOT"
 echo "== repository =="
 git status --short
 git diff --check
+git diff --cached --check
 git submodule foreach --quiet 'git diff --check'
 
 echo

@@ -75,6 +75,13 @@ The hardened full-build gate caught an invalid `rserr_nomem` result introduced
 by the earlier GX buffer patch. GameCube buffer-allocation failure now returns
 the existing `rserr_unknown` value from the platform contract; no new enum or
 cross-platform ABI change was introduced.
+The next GX pass exposed two further automation weaknesses: it used the
+nonexistent `OSReport` name instead of libogc's existing `SYS_Report` API, and
+the old workflow committed before building. Video diagnostics now use
+`SYS_Report`. Autonomous edits are staged and fully built before commit; one
+failed build is returned to Qwen with the exact verifier tail for a bounded
+non-interactive repair, and only a verified patch is committed. Thinking output
+is disabled for direct edit passes to reduce repetitive analysis loops.
 
 ## Milestones
 

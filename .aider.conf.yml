@@ -4,6 +4,7 @@ show-model-warnings: false
 
 architect: false
 edit-format: diff
+thinking-tokens: 0
 
 map-tokens: 2048
 map-refresh: auto

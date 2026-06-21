@@ -92,19 +92,74 @@ if (( ${#COMMIT_SUBJECT} > 72 )) || \
 	exit 13
 fi
 
-git add -A
-git diff --cached --check
-if ! git diff --cached --diff-filter=D --quiet --; then
-	echo "ai-aider-pass: Aider deleted tracked files; stopping for review" >&2
-	git diff --cached --name-status --diff-filter=D >&2
-	exit 14
+stage_and_validate_patch() {
+	git add -A
+	git diff --cached --check
+	if git diff --cached --quiet; then
+		echo "ai-aider-pass: no staged edit remains after Aider response" >&2
+		return 10
+	fi
+	if ! git diff --cached --diff-filter=D --quiet --; then
+		echo "ai-aider-pass: Aider deleted tracked files; stopping for review" >&2
+		git diff --cached --name-status --diff-filter=D >&2
+		return 14
+	fi
+}
+
+run_precommit_verifier() {
+	local verify_log="$1"
+	set +e
+	scripts/ai-verify.sh 2>&1 | tee -a "$LOG" "$verify_log"
+	local status="${PIPESTATUS[0]}"
+	set -e
+	return "$status"
+}
+
+stage_and_validate_patch
+VERIFY_LOG=".ai/logs/aider-verify-$STAMP-1.log"
+echo
+echo "== pre-commit verifier =="
+if ! run_precommit_verifier "$VERIFY_LOG"; then
+	echo "ai-aider-pass: first verification failed; requesting one autonomous repair" >&2
+	git reset
+	REPAIR_MESSAGE="$(printf '%s\n' \
+		'The current uncommitted patch failed verification. Fix the compiler or verifier failure now.' \
+		'There is no interactive human. Do not ask questions, explain options, or only propose commands.' \
+		'Make the smallest safe edit, preserve the goal and documentation, and do not commit.' \
+		'' 'Verification tail:'; tail -80 "$VERIFY_LOG")"
+	set +e
+	aider \
+		--config .aider.conf.yml \
+		"${AIDER_FILE_ARGS[@]}" \
+		--message "$REPAIR_MESSAGE" \
+		--yes-always \
+		2>&1 | tee -a "$LOG"
+	REPAIR_STATUS="${PIPESTATUS[0]}"
+	set -e
+	if (( REPAIR_STATUS != 0 )); then
+		echo "ai-aider-pass: autonomous repair exited $REPAIR_STATUS" >&2
+		exit "$REPAIR_STATUS"
+	fi
+	if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
+		echo "ai-aider-pass: repair created an unexpected commit" >&2
+		exit 12
+	fi
+	stage_and_validate_patch
+	VERIFY_LOG=".ai/logs/aider-verify-$STAMP-2.log"
+	echo
+	echo "== repaired pre-commit verifier =="
+	if ! run_precommit_verifier "$VERIFY_LOG"; then
+		echo "ai-aider-pass: repaired patch still fails; leaving it for review" >&2
+		exit 15
+	fi
 fi
+
 git commit -m "$COMMIT_SUBJECT"
 
 echo
-echo "== verifier =="
+echo "== post-commit safety =="
 set +e
-scripts/ai-verify.sh "$BASELINE" 2>&1 | tee -a "$LOG"
+SKIP_GAMECUBE_BUILD=1 scripts/ai-verify.sh "$BASELINE" 2>&1 | tee -a "$LOG"
 VERIFY_STATUS="${PIPESTATUS[0]}"
 set -e
 
