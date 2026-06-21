@@ -6,6 +6,24 @@ echo "== AI review =="
 changed="$(git diff --name-only HEAD~1..HEAD || true)"
 echo "$changed"
 
+# Commit messages are generated deterministically by the harness. Keep them
+# conventional and single-line so model deliberation can never enter history.
+subject="$(git log -1 --format=%s)"
+message="$(git log -1 --format=%B)"
+nonempty_lines="$(printf '%s\n' "$message" | sed '/^[[:space:]]*$/d' | wc -l)"
+if (( ${#subject} > 72 )) || (( nonempty_lines != 1 )) || \
+  [[ ! "$subject" =~ ^(fix|feat|build|chore|ci|docs|style|refactor|perf|test):\ [[:alnum:]] ]]; then
+  echo "Rejecting: commit message must be one conventional line (72 chars max)"
+  printf '%s\n' "$message"
+  exit 1
+fi
+
+if printf '%s\n' "$message" | grep -Eiq \
+  '(<think>|self-correction|output generation|the user wants|tokens: [0-9])'; then
+  echo "Rejecting: model deliberation detected in commit message"
+  exit 1
+fi
+
 # No huge patch. Binary files contribute zero here but remain visible in the
 # changed-file list above for human review.
 lines="$(git diff --numstat HEAD~1..HEAD | awk \

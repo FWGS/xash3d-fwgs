@@ -9,8 +9,9 @@ map-tokens: 2048
 map-refresh: auto
 max-chat-history-tokens: 131072
 
-auto-commits: true
+auto-commits: false
 dirty-commits: false
+attribute-co-authored-by: false
 show-diffs: true
 
 auto-lint: true

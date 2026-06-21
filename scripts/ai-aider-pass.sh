@@ -75,15 +75,31 @@ if (( AIDER_STATUS != 0 )); then
 	exit "$AIDER_STATUS"
 fi
 
-if [[ "$BASELINE" == "$(git rev-parse HEAD)" ]]; then
-	if [[ -n "$(git status --porcelain)" ]]; then
-		echo "ai-aider-pass: Aider left uncommitted changes; stopping for review" >&2
-		git status --short >&2
-		exit 11
-	fi
+if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
+	echo "ai-aider-pass: Aider created an unexpected commit; stopping for review" >&2
+	exit 12
+fi
+
+if [[ -z "$(git status --porcelain)" ]]; then
 	echo "ai-aider-pass: Aider made no edit; see $LOG" >&2
 	exit 10
 fi
+
+COMMIT_SUBJECT="${AI_COMMIT_SUBJECT:-}"
+if (( ${#COMMIT_SUBJECT} > 72 )) || \
+	[[ ! "$COMMIT_SUBJECT" =~ ^(fix|feat|build|chore|ci|docs|style|refactor|perf|test):\ [[:alnum:]] ]]; then
+	echo "ai-aider-pass: invalid deterministic commit subject: $COMMIT_SUBJECT" >&2
+	exit 13
+fi
+
+git add -A
+git diff --cached --check
+if ! git diff --cached --diff-filter=D --quiet --; then
+	echo "ai-aider-pass: Aider deleted tracked files; stopping for review" >&2
+	git diff --cached --name-status --diff-filter=D >&2
+	exit 14
+fi
+git commit -m "$COMMIT_SUBJECT"
 
 echo
 echo "== verifier =="

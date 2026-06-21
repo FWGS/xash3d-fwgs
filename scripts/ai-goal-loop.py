@@ -36,6 +36,15 @@ GOAL_CONTEXT = {
 	"G07": ("engine/platform/gamecube/sys_gamecube.c", "engine/server/sv_init.c",
 		"ref/gx/r_main.c"),
 }
+GOAL_COMMIT_SUBJECT = {
+	"G01": "fix: resolve GameCube edict warning audit",
+	"G02": "feat: improve bounded Dolphin boot probing",
+	"G03": "feat: advance GameCube GX video",
+	"G04": "feat: advance GameCube controller input",
+	"G05": "feat: advance GameCube audio",
+	"G06": "feat: advance GameCube engine startup",
+	"G07": "feat: advance GameCube map loading",
+}
 
 
 @dataclass
@@ -72,10 +81,11 @@ def parse_goals(path: Path) -> list[Goal]:
 	return goals
 
 
-def run(command: list[str], root: Path, *, capture: bool = False) -> subprocess.CompletedProcess[str]:
+def run(command: list[str], root: Path, *, capture: bool = False,
+	env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
 	print("$ " + " ".join(command), flush=True)
 	return subprocess.run(command, cwd=root, text=True, check=False,
-		capture_output=capture, env=os.environ.copy())
+		capture_output=capture, env=env or os.environ.copy())
 
 
 def git_context(root: Path) -> str:
@@ -92,12 +102,19 @@ def git_context(root: Path) -> str:
 
 
 def task_for(goal: Goal, root: Path, attempt: int) -> str:
+	retry_instruction = ""
+	if attempt > 1:
+		retry_instruction = (
+			"A previous attempt produced no edit. Do not repeat analysis or ask for "
+			"context; make the smallest safe edit that advances or truthfully "
+			"reclassifies the goal.\n\n"
+		)
 	return f"""You are autonomously advancing the native Xash3D GameCube port.
 
 Active goal: {goal.goal_id} — {goal.title}
 Attempt on this goal: {attempt}
 
-Acceptance criteria:
+{retry_instruction}Acceptance criteria:
 {goal.body}
 
 Repository context:
@@ -115,6 +132,11 @@ You cannot execute shell commands in this pass. Do not respond with commands,
 requests for more context, or an investigation plan. Make the edits now. If
 the premise is disproven by the supplied evidence, correct the goal ledger and
 port plan rather than forcing an unnecessary engine change.
+There is no interactive human in this loop. Never ask a question or present
+options for approval. Resolve ambiguity with your best engineering judgment:
+prefer existing project patterns, then the smallest reversible change, then
+the option that leaves unsupported behavior explicit. Record assumptions in
+the port plan and proceed with edits.
 
 Rules:
 - Keep the commit below 400 changed lines and do not delete tracked files.
@@ -201,8 +223,11 @@ def main() -> int:
 			context_files = [path for path in (*COMMON_CONTEXT,
 				*GOAL_CONTEXT.get(goal.goal_id, ()))
 				if (root / path).is_file()]
+			pass_env = os.environ.copy()
+			pass_env["AI_COMMIT_SUBJECT"] = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
+				f"feat: advance GameCube port goal {goal.goal_id}")
 			result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path),
-				*context_files], root)
+				*context_files], root, env=pass_env)
 		finally:
 			task_path.unlink(missing_ok=True)
 		if result.returncode != 0:

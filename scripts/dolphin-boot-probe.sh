@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# dolphin-boot-probe.sh - Build a GameCube disc and run a bounded Dolphin boot probe.
-# Captures logs and distinguishes host vs guest failures.
 set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
 
 ISO_PATH="OUT/xash3d-gc.iso"
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
@@ -15,47 +16,59 @@ if ! python3 scripts/build-gamecube-disc.py --output "$ISO_PATH"; then
     exit 1
 fi
 
-DOLPHIN_CMD=""
-if command -v dolphin-emu &>/dev/null; then
-    DOLPHIN_CMD="dolphin-emu"
-elif command -v dolphin &>/dev/null; then
-    DOLPHIN_CMD="dolphin"
+DOLPHIN_CMD=()
+DOLPHIN_LOG_DIR=""
+if command -v dolphin-emu >/dev/null 2>&1; then
+	DOLPHIN_CMD=(dolphin-emu --batch --exec "$ISO_PATH")
+	DOLPHIN_LOG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/dolphin-emu/Logs"
+elif command -v dolphin >/dev/null 2>&1; then
+	DOLPHIN_CMD=(dolphin --batch --exec "$ISO_PATH")
+	DOLPHIN_LOG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/dolphin-emu/Logs"
+elif command -v flatpak >/dev/null 2>&1 && \
+	flatpak info org.DolphinEmu.dolphin-emu >/dev/null 2>&1; then
+	DOLPHIN_CMD=(flatpak run org.DolphinEmu.dolphin-emu --batch --exec "$ISO_PATH")
+	DOLPHIN_LOG_DIR="$HOME/.var/app/org.DolphinEmu.dolphin-emu/config/dolphin-emu/Logs"
 else
-    echo "FAIL: Dolphin emulator not found in PATH."
-    exit 1
+	echo "HOST_FAILURE: Dolphin executable or Flatpak was not found."
+	exit 2
 fi
 
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s)..."
-timeout "$TIMEOUT_SEC" "$DOLPHIN_CMD" --batch --exec "$ISO_PATH" \
-    > "$LOG_DIR/stdout.log" 2> "$LOG_DIR/stderr.log"
+set +e
+timeout --signal=TERM --kill-after=5 "$TIMEOUT_SEC" "${DOLPHIN_CMD[@]}" \
+	>"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log"
 DOLPHIN_EXIT=$?
+set -e
 
 # Copy Dolphin's internal logs if available
-DOLPHIN_LOG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/Dolphin/Log"
-if [ -d "$DOLPHIN_LOG_DIR" ]; then
-    cp "$DOLPHIN_LOG_DIR"/*.log "$LOG_DIR/" 2>/dev/null || true
+if [[ -d "$DOLPHIN_LOG_DIR" ]]; then
+	cp "$DOLPHIN_LOG_DIR"/*.log "$LOG_DIR/" 2>/dev/null || true
 fi
 
 echo "==> Analyzing probe results..."
 GUEST_MARKER="Xash3D GameCube: bootstrap"
-GUEST_FOUND=false
-if grep -rq "$GUEST_MARKER" "$LOG_DIR/" 2>/dev/null; then
-    GUEST_FOUND=true
-fi
+GUEST_FOUND=0
+grep -rqsF "$GUEST_MARKER" "$LOG_DIR/" && GUEST_FOUND=1
 
-if [ "$GUEST_FOUND" = true ]; then
-    echo "PASS: Guest-engine reached bootstrap. OSReport output captured."
-    if grep -rq "Warning\|Error\|Fatal\|crash\|abort" "$LOG_DIR/" 2>/dev/null; then
-        echo "NOTE: Guest reported warnings/errors. Inspect $LOG_DIR for details."
-    fi
-elif [ $DOLPHIN_EXIT -eq 124 ]; then
-    echo "TIMEOUT: Probe exceeded ${TIMEOUT_SEC}s. Guest may be running or hung."
-elif [ $DOLPHIN_EXIT -ne 0 ]; then
-    echo "FAIL: Emulator-host failure. Dolphin exited with code $DOLPHIN_EXIT."
-    echo "       Check $LOG_DIR/stderr.log for host crashes or missing dependencies."
+if (( GUEST_FOUND )); then
+	if grep -rEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "$LOG_DIR/"; then
+		echo "GUEST_FAILURE: Bootstrap was observed, followed by a guest-engine error."
+		echo "Logs: $LOG_DIR"
+		exit 3
+	fi
+	echo "GUEST_REACHED: Xash3D bootstrap was observed."
+	echo "Logs: $LOG_DIR"
+	exit 0
+elif (( DOLPHIN_EXIT == 124 || DOLPHIN_EXIT == 137 )); then
+	echo "INCONCLUSIVE_TIMEOUT: No guest bootstrap within ${TIMEOUT_SEC}s."
+	echo "Logs: $LOG_DIR"
+	exit 4
+elif (( DOLPHIN_EXIT != 0 )); then
+	echo "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
+	echo "Logs: $LOG_DIR"
+	exit 2
 else
-    echo "INCONCLUSIVE: Dolphin exited cleanly but guest bootstrap was not observed."
+	echo "INCONCLUSIVE_EXIT: Dolphin exited cleanly without guest bootstrap."
+	echo "Logs: $LOG_DIR"
+	exit 4
 fi
-
-echo "==> Logs preserved at $LOG_DIR"
-exit 0

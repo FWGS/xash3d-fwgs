@@ -42,3 +42,16 @@ devkitPPC and libogc.
 - Do not rewrite a renderer or import large external code in one pass.
 - Run `scripts/ai-verify.sh` after editing.
 - Stop after one verified patch.
+
+## Autonomous decisions
+
+- No human can answer questions during a goal pass. Never ask for permission,
+  clarification, file selection, or confirmation.
+- Use the preloaded files, repository map, goal criteria, and port plan as the
+  complete decision context.
+- When several choices are valid, choose the smallest reversible change that
+  follows an existing project pattern and preserves non-GameCube targets.
+- State necessary assumptions in the port plan, but do not pause for approval.
+- If evidence disproves the goal premise, correct the goal and documentation
+  instead of forcing a source change.
+- Respond with file edits, not a plan, commands for the user, or questions.

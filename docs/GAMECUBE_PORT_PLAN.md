@@ -61,6 +61,16 @@ An otherwise successful Aider invocation that makes no edit now returns a
 distinct status and receives one bounded retry; uncommitted edits still stop
 immediately for human review. Repo-map context is capped at 2,048 tokens to
 reduce distraction while explicit per-goal files carry the working context.
+Goal passes are fully non-interactive: the model must choose the smallest safe,
+reversible option from available evidence and may not pause for questions or
+approval. Aider no longer creates commits or commit messages. After an edit,
+the harness validates the staged patch and commits it with a deterministic,
+single-line subject selected by goal; review rejects multiline, unconventional,
+or deliberation-contaminated messages.
+The Dolphin probe is executable, supports native and Flatpak Dolphin installs,
+uses bounded TERM/KILL timeouts, preserves stdout/stderr and internal logs, and
+returns distinct statuses for host failure, guest failure, observed bootstrap,
+and inconclusive timeout/exit.
 
 ## Milestones
 
