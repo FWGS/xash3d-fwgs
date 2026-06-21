@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import QProcess, Qt, QTimer, QUrl
-from PyQt6.QtGui import QDesktopServices, QFont, QFontDatabase, QTextCursor
+from PyQt6.QtGui import QCloseEvent, QDesktopServices, QFont, QFontDatabase, QTextCursor
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
 	QApplication,
@@ -107,6 +107,7 @@ class PortWindow(QMainWindow):
 		self.pending_boot = False
 		self.pipeline: dict[str, QLabel] = {}
 		self.last_context = ""
+		self.start_head = ""
 
 		central = QWidget()
 		self.setCentralWidget(central)
@@ -137,7 +138,8 @@ class PortWindow(QMainWindow):
 		self.dol_chip = QLabel("DOL  —")
 		self.iso_chip = QLabel("ISO  —")
 		self.dolphin_chip = QLabel("DOLPHIN CHECKING")
-		for chip in (self.dol_chip, self.iso_chip, self.dolphin_chip):
+		self.save_chip = QLabel("GIT SAVED")
+		for chip in (self.dol_chip, self.iso_chip, self.dolphin_chip, self.save_chip):
 			chip.setObjectName("Chip")
 			header.addWidget(chip)
 		layout.addLayout(header)
@@ -231,6 +233,11 @@ class PortWindow(QMainWindow):
 		self.progress.setValue(0)
 		self.progress.setFormat("No automation running")
 		layout.addWidget(self.progress)
+		self.persistence_note = QLabel(
+			"LIVE MODEL OUTPUT IS NOT A FILE CHANGE UNTIL THE STATUS CHIP SAYS GIT SAVED"
+		)
+		self.persistence_note.setStyleSheet(f"color: {GC_ORANGE}; font-weight: bold;")
+		layout.addWidget(self.persistence_note)
 
 		console_box = QGroupBox("LOG")
 		console_layout = QVBoxLayout(console_box)
@@ -341,6 +348,10 @@ class PortWindow(QMainWindow):
 			capture_output=True, timeout=4, check=False)
 		return result.stdout.strip()
 
+	def set_save_state(self, text: str, color: str) -> None:
+		self.save_chip.setText(text)
+		self.save_chip.setStyleSheet(f"color: {color};")
+
 	def read_goals(self) -> list[tuple[str, str, str, str]]:
 		path = self.repo() / ".ai/goals/GAMECUBE_PORT_GOALS.md"
 		if not path.is_file():
@@ -428,6 +439,7 @@ class PortWindow(QMainWindow):
 		if self.process is not None or not self.valid_repo():
 			return
 		self.operation = operation
+		self.start_head = self.git_output("rev-parse", "HEAD")
 		self.expected_passes = passes
 		self.progress.setRange(0, passes)
 		self.progress.setValue(0)
@@ -435,6 +447,10 @@ class PortWindow(QMainWindow):
 		self.status_label.setText(f"Running: {operation}")
 		self.loop_btn.setEnabled(False)
 		self.stop_btn.setEnabled(True)
+		if operation == "Goal automation":
+			self.set_save_state("UNSAVED", GC_ORANGE)
+		else:
+			self.set_save_state("RUNNING", GC_CYAN)
 		self.set_pipeline_state(self.pipeline_node(operation), "Running")
 		self.append(f"\n\n$ {' '.join(command)}\n")
 
@@ -459,6 +475,12 @@ class PortWindow(QMainWindow):
 		self.append(text)
 		if "== verifier ==" in text:
 			self.set_pipeline_state("VERIFY", "Running")
+		if "== pre-commit verifier ==" in text or "== repaired pre-commit verifier ==" in text:
+			self.set_save_state("VERIFYING", GC_ORANGE)
+		if "== post-commit safety ==" in text:
+			self.set_save_state("COMMITTED", GC_CYAN)
+		if "== accepted patch ==" in text:
+			self.set_save_state("GIT SAVED", GC_MINT)
 		if "verify: OK" in text:
 			self.set_pipeline_state("VERIFY", "Success")
 		if "== AI review ==" in text:
@@ -500,15 +522,46 @@ class PortWindow(QMainWindow):
 		self.loop_btn.setEnabled(True)
 		self.stop_btn.setEnabled(False)
 		self.refresh_dashboard()
+		current_head = self.git_output("rev-parse", "HEAD")
+		dirty = bool(self.git_output("status", "--porcelain"))
+		if dirty:
+			self.set_save_state("REVIEW", GC_ORANGE)
+		elif current_head != self.start_head:
+			self.set_save_state("GIT SAVED", GC_MINT)
+		elif self.operation == "Goal automation":
+			self.set_save_state("NO CHANGE", GC_ORANGE)
+		else:
+			self.set_save_state("UNCHANGED", GC_MUTED)
 		if boot_after_build:
 			self.launch_dolphin()
 
 	def stop_process(self) -> None:
 		if self.process is None:
 			return
+		answer = QMessageBox.question(self, "Stop automation?",
+			"The current model response may not have reached an applied, verified Git commit. "
+			"Stopping now discards incomplete model output. Stop anyway?",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No)
+		if answer != QMessageBox.StandardButton.Yes:
+			return
 		self.append("\nStopping process…\n")
 		self.process.terminate()
 		QTimer.singleShot(3000, lambda: self.process.kill() if self.process else None)
+
+	def closeEvent(self, event: QCloseEvent) -> None:
+		if self.process is None:
+			event.accept()
+			return
+		answer = QMessageBox.question(self, "Automation is still running",
+			"Closing now can discard incomplete model output before it becomes a Git commit. "
+			"Keep the GUI open until GIT SAVED appears. Close anyway?",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No)
+		if answer == QMessageBox.StandardButton.Yes:
+			event.accept()
+		else:
+			event.ignore()
 
 	def boot_dolphin(self) -> None:
 		iso = self.repo() / "OUT/xash3d-gc.iso"

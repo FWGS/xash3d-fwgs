@@ -86,6 +86,12 @@ The GUI log remains selectable while output is arriving: appends use a separate
 document cursor and preserve the operator's selection and scroll position.
 Console controls can copy the selection or full log, save a UTF-8 snapshot,
 clear the view, open `.ai/logs/`, and toggle automatic output following.
+The header now distinguishes streamed model output from persisted work with
+`UNSAVED`, `VERIFYING`, `COMMITTED CHECKING`, `GIT SAVED`, and failure states.
+The UI warns before stopping or closing an active pass because incomplete model
+text is not an applied patch. Aider is forced to request zero thinking tokens
+without capability filtering, reducing repetitive deliberation in local Qwen
+logs while leaving the verifier and Git commit as the source of truth.
 
 ## Milestones
 

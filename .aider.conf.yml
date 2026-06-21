@@ -5,6 +5,7 @@ show-model-warnings: false
 architect: false
 edit-format: diff
 thinking-tokens: 0
+check-model-accepts-settings: false
 
 map-tokens: 2048
 map-refresh: auto
