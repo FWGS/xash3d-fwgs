@@ -259,19 +259,7 @@ Startup proceeds to the next subsystem without crashing on missing audio.
 
 Source-side preparation for G06 is complete. The automation environment cannot execute the runtime verification due to Dolphin Flatpak host traps and missing emulated storage. G06 is now marked as **operator-gated**.
 
-**2026-06-21 Autonomous Pass**: Confirmed `scripts/build-gamecube.sh` produces a valid `boot.dol` with all platform stubs linked. `GCube_Init` and `GCube_GetBasePath` gracefully handle missing SD/DVD volumes via `SYS_Report` and `Con_Reportf`, preventing hard crashes. No further source changes are safe or necessary before runtime validation.
-
-**2026-06-21 Pass 2**: Re-verified source-side readiness. All platform backends (GX video, PAD input, null audio, SD/DVD filesystem) are implemented, compile cleanly, and feature safe fallback diagnostics. Automated guest runtime verification is strictly blocked by the absence of a functional emulator/storage mount in the CI environment. Goal formally deferred to operator runtime validation. No speculative engine changes will be attempted.
-
-**2026-06-21 Pass 3**: Autonomous source preparation concluded. The goal is formally suspended pending operator runtime validation with a working Dolphin profile or physical GameCube hardware. All acceptance criteria for source-side readiness are met. The automation harness will skip further G06 attempts until an operator confirms console/menu visibility and input responsiveness, then marks the goal `[x]`.
-
-**2026-06-21 Pass 4**: Goal formally **SUSPENDED**. Source-side readiness is complete and verified. Automated runtime validation is impossible in the current CI environment. Handoff to operator per checklist below. The goal runner will skip G06 until an operator marks it `[x]` after successful Dolphin/physical hardware validation.
-
-**2026-06-21 Pass 5**: Autonomous pass confirmed zero actionable source changes. GX video, PAD input, null audio, and SD/DVD filesystem backends are implemented and compile cleanly. Automated guest runtime verification remains strictly blocked by missing Dolphin ISO mount/storage in the CI environment. Goal suspended pending operator validation. Documentation updated to reflect current state; no engine modifications made.
-
-**2026-06-21 Pass 5**: Autonomous pass confirmed zero actionable source changes. GX video, PAD input, null audio, and SD/DVD filesystem backends are implemented and compile cleanly. Automated guest runtime verification remains strictly blocked by missing Dolphin ISO mount/storage in the CI environment. Goal suspended pending operator validation. Documentation updated to reflect current state; no engine modifications made.
-
-**Diagnostics added**: `GCube_Init` now emits `SYS_Report("Xash3D GameCube: no base path found...")` when SD/DVD mounts fail, ensuring the operator sees the exact cause in OSReport before `Con_Printf` is fully initialized.
+**2026-06-21 Automation Note**: All automated passes confirmed zero actionable source changes. Platform backends (GX video, PAD input, null audio, SD/DVD filesystem) are implemented, compile cleanly, and feature safe fallback diagnostics. `GCube_Init` emits `SYS_Report("Xash3D GameCube: no base path found...")` when SD/DVD mounts fail, ensuring the operator sees the exact cause in OSReport before `Con_Printf` is fully initialized. Automated guest runtime verification is strictly blocked by the absence of a functional emulator/storage mount in the CI environment. Goal formally **SUSPENDED**. The goal runner will skip G06 until an operator marks it `[x]` after successful Dolphin/physical hardware validation. No speculative engine changes will be attempted.
 
 **Operator Validation Checklist**:
 1. Run `scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso` with `Half-Life/valve` data.
