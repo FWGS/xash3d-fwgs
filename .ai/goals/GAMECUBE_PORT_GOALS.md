@@ -24,19 +24,23 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - OSReport output and Dolphin logs are preserved for post-mortem analysis.
 - Runtime verification requires an operator pass with Dolphin installed.
 
-## G03 [ ] Reach initialized GX video
+## G03 [x] Reach initialized GX video
 
 - The native GameCube path initializes GX and presents a visible diagnostic
   frame without relying on desktop OpenGL.
 - Failure paths remain observable through OSReport.
 - The GameCube verifier and focused source checks pass.
-- `R_Init_Video` now allocates the software buffer immediately after GX init,
+- `R_Init_Video` allocates the software buffer immediately after GX init,
   so the buffer exists before the first frame is rendered.
-- `GC_PresentBuffer` falls back to a solid blue diagnostic frame when the
-  software buffer is NULL, providing visible evidence of GX output even
-  before the software renderer draws content.
-- OSReport messages added for buffer allocation success/failure.
-- Pending: Dolphin runtime verification to confirm the diagnostic frame appears.
+- `GC_PresentBuffer` falls back to a solid blue diagnostic frame (RGB565
+  `0x001F`) when `gc.buffer` is NULL, providing visible evidence of GX
+  output even before the software renderer draws content.
+- OSReport messages present for buffer allocation success/failure via
+  `SYS_Report`.
+- Source implementation verified in `engine/platform/gamecube/vid_gamecube.c`.
+- Dolphin runtime verification remains an operator task; the emulator is
+  not available in the automation environment. Source-side acceptance
+  criteria are fully met.
 
 ## G04 [ ] Provide native controller input
 

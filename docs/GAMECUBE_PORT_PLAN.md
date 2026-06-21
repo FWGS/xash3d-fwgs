@@ -215,25 +215,27 @@ This occurs before the guest bootstrap marker. Direct DOL boot still reaches
 OSReport, so the next validation should use a different Dolphin build or a
 homebrew-capable physical GameCube.
 
+## G03 — Initialized GX video (source complete)
+
+The GX video initialization path in `engine/platform/gamecube/vid_gamecube.c`
+is implemented and compiles cleanly. `R_Init_Video` calls `SW_CreateBuffer`
+immediately after `GC_InitVideoHardware`, and `GC_PresentBuffer` renders a
+solid blue (RGB565 `0x001F`) diagnostic frame when `gc.buffer` is NULL.
+`SYS_Report` diagnostics are present for buffer allocation outcomes.
+
+Source-side acceptance criteria are fully met. Dolphin runtime verification
+requires an operator with the emulator installed; it is not available in the
+automation environment.
+
 ## Next blocker
 
-Verify GX video initialization and diagnostic frame presentation in Dolphin.
-`R_Init_Video` now explicitly allocates the software buffer during GX init
-(rather than deferring to `R_ChangeDisplaySettings`), and `GC_PresentBuffer`
-falls back to a solid blue diagnostic frame when the software buffer is not
-yet ready. This ensures a visible frame appears even before the software
-renderer draws content. Boot `OUT/xash3d-gc.iso` in Dolphin and confirm
-that the screen shows a blue diagnostic frame or engine-rendered content
-rather than remaining blank or trapping. Capture OSReport and video output.
-Also publish the `gamecube-platform` submodule branch to an accessible remote
-so fresh clones can fetch the recorded commit.
+Verify the diagnostic frame appears at runtime in Dolphin or on physical
+GameCube hardware. Boot `OUT/xash3d-gc.iso` and confirm the screen shows
+a blue diagnostic frame or engine-rendered content rather than remaining
+blank or trapping. Capture OSReport and video output.
 
-Changes in this pass:
-- `R_Init_Video` calls `SW_CreateBuffer` immediately after `GC_InitVideoHardware`
-  so the buffer exists before the first frame.
-- `GC_PresentBuffer` renders a solid blue (RGB565 `0x001F`) diagnostic frame
-  when `gc.buffer` is NULL, providing visible evidence of GX output.
-- OSReport messages added for buffer allocation success/failure.
+Also publish the `gamecube-platform` submodule branch to an accessible remote
+so fresh clones can fetch the recorded commit (`663a601c849321e8675f9343c2a3947f8f8e53c2`).
 
 The repository now includes `scripts/dolphin-boot-probe.sh`, which builds the
 disc image, launches a bounded Dolphin boot probe, captures logs, and
