@@ -13,6 +13,6 @@ def build(bld):
 		source   = 'r_context.c',
 		target   = 'ref_null',
 		defines  = 'REF_DLL',
-		use      = 'engine_includes sdk_includes werror',
+		use      = 'engine_includes sdk_includes werror yy_thunks',
 		install_path = bld.env.LIBDIR
 	)

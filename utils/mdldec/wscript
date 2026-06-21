@@ -19,7 +19,7 @@ def build(bld):
 	bld.program(source   = bld.path.ant_glob('*.c'),
 		target   = 'mdldec',
 		includes = '.',
-		use      = 'engine_includes public M werror',
+		use      = 'engine_includes public M werror yy_thunks',
 		install_path = bld.env.BINDIR,
 		subsystem = bld.env.CONSOLE_SUBSYSTEM
 	)
