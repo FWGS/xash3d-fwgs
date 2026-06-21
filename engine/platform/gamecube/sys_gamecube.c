@@ -137,6 +137,11 @@ void GCube_Init( void )
 		else
 			Con_Reportf( S_WARN "Failed to chdir to %s\n", xashdir );
 	}
+	else
+	{
+		SYS_Report( "Xash3D GameCube: no base path found (SD/DVD missing or empty)\n" );
+		Con_Reportf( S_WARN "No data directory found. Game assets will not load.\n" );
+	}
 
 	setup_gamecube_dll_functions();
 #endif

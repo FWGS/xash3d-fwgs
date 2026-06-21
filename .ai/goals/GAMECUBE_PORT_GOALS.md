@@ -66,12 +66,12 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Acceptance criteria met: engine startup succeeds, memory budget respected,
   fallback explicitly documented.
 
-## G06 [ ] Reach the engine console or menu
+## G06 [ ] Reach the engine console or menu (Operator-Gated)
 
 - Boot from the generated disc with `Half-Life/valve` content discoverable.
 - Reach an interactive engine console or menu in Dolphin.
 - Capture the boot command, log evidence, and remaining blockers.
-- **Blocker**: Automated runtime verification is currently blocked. Dolphin 2603a Flatpak traps on a host `ud2` instruction during ISO/DVD image handoff. Direct DOL boot reaches OSReport but lacks an emulated SD/DVD volume in the test environment, causing `chdir("")` fallback warnings and preventing `valve` discovery. Source-side initialization for video, input, audio, and filesystem paths is complete. Completion requires operator runtime validation with a working Dolphin ISO mount or physical GameCube hardware.
+- **Blocker**: Automated runtime verification is blocked. Source-side initialization for video (GX), input (PAD), audio (null), and filesystem paths (SD/DVD) is complete and compiles cleanly. The automation environment lacks a functional Dolphin ISO mount or emulated SD/DVD volume, causing `GCube_GetBasePath` to fail gracefully and emit `SYS_Report` diagnostics instead of crashing. Completion **requires operator runtime validation** with a working Dolphin profile containing the `xash3d/valve` tree or physical GameCube hardware. Mark as complete only after an operator confirms console/menu visibility and input responsiveness.
 
 ## G07 [ ] Load a small Half-Life map
 

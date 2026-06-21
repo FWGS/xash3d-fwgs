@@ -255,13 +255,22 @@ is silent but stable, preventing startup failure due to missing audio hardware
 initialization. Full libogc DSP/AI integration remains a future milestone.
 Startup proceeds to the next subsystem without crashing on missing audio.
 
-## Next blocker (G06 Runtime Verification)
+## G06 Runtime Verification (Operator-Gated)
 
-Automated progression to G06 (console/menu) is blocked by emulator environment limitations:
-- **ISO/DVD path**: Dolphin 2603a Flatpak traps on a host `ud2` instruction after apploader handoff, preventing guest entry. This occurs across Null/Software/OpenGL backends and requires validation with an alternative Dolphin build or physical hardware.
-- **DOL path**: Boots and prints bootstrap markers, but the test environment lacks an emulated SD Gecko/DVD volume. `GCube_GetBasePath` falls back to empty, producing `Changing directory to  failed: No such device` and blocking `valve` discovery.
+Source-side preparation for G06 is complete. The automation environment cannot execute the runtime verification due to Dolphin Flatpak host traps and missing emulated storage. G06 is now marked as **operator-gated**.
 
-Source-side preparation for G06 is complete: GX video, controller input, null audio, and filesystem mounting are implemented. Reaching the console/menu requires an operator to provide a runtime environment with game data discoverable on SD or DVD. Until then, G06 remains pending runtime verification.
+**Diagnostics added**: `GCube_Init` now emits `SYS_Report("Xash3D GameCube: no base path found...")` when SD/DVD mounts fail, ensuring the operator sees the exact cause in OSReport before `Con_Printf` is fully initialized.
+
+**Operator Validation Checklist**:
+1. Run `scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso` with `Half-Life/valve` data.
+2. Launch Dolphin (non-Flatpak recommended) with the generated ISO.
+3. Verify OSReport shows:
+   - `Xash3D GameCube: bootstrap`
+   - `GameCube DVD filesystem mounted` (or SD success)
+   - `GameCube data directory: dvd:/xash3d` (or similar)
+   - `FS_LoadProgs: filesystem_stdio successfully loaded`
+4. Confirm the engine console/menu renders and the GameCube controller is responsive.
+5. Record video/log and mark G06 `[x]` in `.ai/goals/GAMECUBE_PORT_GOALS.md`.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 

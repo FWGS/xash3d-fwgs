@@ -24,10 +24,10 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 /* GameCube has no voice capture support; provide stubs to satisfy linkage. */
-static qboolean VoiceCapture_Init( void ) { return false; }
-static void VoiceCapture_Shutdown( void ) { }
-static qboolean VoiceCapture_Activate( qboolean activate ) { (void)activate; return false; }
-static void VoiceCapture_Lock( qboolean lock ) { (void)lock; }
+qboolean VoiceCapture_Init( void ) { return false; }
+void VoiceCapture_Shutdown( void ) { }
+qboolean VoiceCapture_Activate( qboolean activate ) { (void)activate; return false; }
+qboolean VoiceCapture_Lock( qboolean lock ) { (void)lock; return false; }
 #endif
 
 voice_state_t voice = { 0 };
