@@ -27,6 +27,10 @@ Automation objectives now live in `.ai/goals/GAMECUBE_PORT_GOALS.md`. The
 goal runner selects the first incomplete non-manual objective, supplies Aider
 with its acceptance criteria and live Git context, and repeats verified,
 reviewed patches until the objectives or a configured pass limit are reached.
+The Qt console now presents this as a GameCube-inspired devkit pipeline with
+live DOL, ISO, and Dolphin status chips. Booting with no ISO automatically
+builds the disc first instead of failing with a missing-file dialog. Model,
+endpoint, and credential controls are intentionally absent from the GUI.
 
 ## Milestones
 

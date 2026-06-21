@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""PyQt6 control panel for supervised Aider work on the Xash3D GameCube port."""
+"""GameCube-inspired command console for goal-driven Xash3D porting."""
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import QProcess, QProcessEnvironment, QTimer
-from PyQt6.QtGui import QFont, QFontDatabase, QTextCursor
+from PyQt6.QtCore import QProcess, Qt, QTimer
+from PyQt6.QtGui import QFont, QTextCursor
 from PyQt6.QtWidgets import (
 	QApplication,
 	QFileDialog,
 	QFormLayout,
+	QFrame,
 	QGroupBox,
 	QHBoxLayout,
 	QLabel,
@@ -30,76 +30,90 @@ from PyQt6.QtWidgets import (
 )
 
 DEFAULT_REPO = Path(__file__).resolve().parents[1]
-STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "xash3d-gc-aider"
-TASK_FILE = STATE_DIR / "current-task.md"
 
-GC_PRIMARY = "#6b5cb1"
-GC_BG = "#2a2448"
-GC_PANEL = "#3d3568"
-GC_INPUT = "#1a1630"
-GC_TEXT = "#f0ecff"
-GC_ACCENT = "#8a7bc9"
-GC_PROGRESS = "#5ec8e8"
-
-DEFAULT_TASK = """Continue the Xash3D GameCube port.
-
-Read docs/GAMECUBE_PORT_PLAN.md, the latest Git log and diff, and the
-read-only project rules. Do exactly one useful, low-risk patch toward the next
-documented blocker.
-
-- Keep the patch small and limited to one demonstrated blocker.
-- Do not break existing targets.
-- Prefer platform isolation and existing abstractions.
-- Update docs/GAMECUBE_PORT_PLAN.md with evidence and the next blocker.
-- Stop after one patch.
-"""
-
-
-def load_dotenv(path: Path) -> dict[str, str]:
-	values: dict[str, str] = {}
-	if not path.is_file():
-		return values
-	for raw in path.read_text(encoding="utf-8").splitlines():
-		line = raw.strip()
-		if not line or line.startswith("#") or "=" not in line:
-			continue
-		key, value = line.split("=", 1)
-		values[key.strip()] = value.strip().strip("\"'")
-	return values
+GC_BG = "#171225"
+GC_PANEL = "#241a3f"
+GC_PANEL_2 = "#31265d"
+GC_INPUT = "#140f2a"
+GC_TEXT = "#f3f0ff"
+GC_MUTED = "#b8aee8"
+GC_VIOLET = "#6d5ac9"
+GC_BORDER = "#8f7bea"
+GC_CYAN = "#62d9ff"
+GC_ORANGE = "#ffb14a"
+GC_MINT = "#7fffd4"
 
 
 def stylesheet() -> str:
 	return f"""
 	QMainWindow, QWidget {{ background: {GC_BG}; color: {GC_TEXT}; }}
-	QGroupBox {{ background: {GC_PANEL}; border: 2px solid {GC_ACCENT};
-		border-radius: 10px; margin-top: 13px; padding: 11px; font-weight: bold; }}
-	QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 7px; color: {GC_ACCENT}; }}
+	QGroupBox {{ background: {GC_PANEL}; border: 2px solid {GC_BORDER};
+		border-radius: 14px; margin-top: 15px; padding: 13px; font-weight: bold; }}
+	QGroupBox::title {{ subcontrol-origin: margin; left: 14px; padding: 0 8px; color: {GC_CYAN}; }}
 	QLineEdit, QSpinBox, QPlainTextEdit {{ background: {GC_INPUT}; color: {GC_TEXT};
-		border: 1px solid {GC_ACCENT}; border-radius: 6px; padding: 6px; }}
-	QPushButton {{ background: {GC_PRIMARY}; color: {GC_TEXT}; border: 1px solid {GC_ACCENT};
-		border-radius: 12px; padding: 8px 14px; font-weight: bold; }}
-	QPushButton:hover {{ background: #7d6ec4; }}
-	QPushButton:disabled {{ background: #4f4580; color: #b8aed8; }}
-	QProgressBar {{ background: {GC_INPUT}; border: 1px solid {GC_ACCENT}; border-radius: 7px;
+		border: 2px inset {GC_PANEL_2}; border-radius: 8px; padding: 7px; }}
+	QLineEdit:focus, QSpinBox:focus, QPlainTextEdit:focus {{ border: 2px solid {GC_CYAN}; }}
+	QPushButton {{ background: {GC_VIOLET}; color: {GC_TEXT}; border: 2px outset {GC_BORDER};
+		border-radius: 15px; padding: 9px 15px; font-weight: bold; }}
+	QPushButton:hover {{ background: #806ee0; border-color: {GC_CYAN}; }}
+	QPushButton:pressed {{ background: #4b3c99; border-style: inset; }}
+	QPushButton:disabled {{ background: {GC_PANEL_2}; color: {GC_MUTED}; border-color: {GC_PANEL}; }}
+	QProgressBar {{ background: {GC_INPUT}; border: 1px solid {GC_CYAN}; border-radius: 8px;
 		text-align: center; color: {GC_TEXT}; height: 20px; }}
-	QProgressBar::chunk {{ background: {GC_PROGRESS}; border-radius: 6px; }}
+	QProgressBar::chunk {{ background: {GC_CYAN}; border-radius: 7px; }}
+	QLabel#Title {{ color: {GC_TEXT}; font-size: 25px; font-weight: bold; }}
+	QLabel#Subtitle {{ color: {GC_CYAN}; font-size: 11px; letter-spacing: 2px; }}
+	QLabel#Chip {{ background: {GC_PANEL_2}; color: {GC_MINT}; border: 1px solid {GC_BORDER};
+		border-radius: 10px; padding: 5px 10px; font-weight: bold; }}
+	QLabel#PipelineIdle {{ background: {GC_PANEL_2}; color: {GC_MUTED}; border: 2px outset {GC_BORDER};
+		border-radius: 12px; padding: 12px; font-weight: bold; }}
+	QLabel#PipelineRunning {{ background: #17405a; color: {GC_CYAN}; border: 2px solid {GC_CYAN};
+		border-radius: 12px; padding: 12px; font-weight: bold; }}
+	QLabel#PipelineSuccess {{ background: #174638; color: {GC_MINT}; border: 2px solid {GC_MINT};
+		border-radius: 12px; padding: 12px; font-weight: bold; }}
+	QLabel#PipelineFailed {{ background: #563621; color: {GC_ORANGE}; border: 2px solid {GC_ORANGE};
+		border-radius: 12px; padding: 12px; font-weight: bold; }}
 	"""
 
 
 class PortWindow(QMainWindow):
 	def __init__(self) -> None:
 		super().__init__()
-		self.setWindowTitle("Xash3D → GameCube — Aider Port Harness")
-		self.resize(1050, 850)
+		self.setWindowTitle("Xash3D → GameCube — Port Command Console")
+		self.resize(1180, 880)
 		self.process: QProcess | None = None
 		self.operation = ""
 		self.expected_passes = 1
+		self.pending_boot = False
+		self.pipeline: dict[str, QLabel] = {}
 
 		central = QWidget()
 		self.setCentralWidget(central)
 		layout = QVBoxLayout(central)
+		layout.setSpacing(10)
 
-		project_box = QGroupBox("Port workspace")
+		header = QHBoxLayout()
+		cube = QLabel("◆")
+		cube.setStyleSheet(f"color: {GC_VIOLET}; font-size: 42px; padding-right: 8px;")
+		header.addWidget(cube)
+		titles = QVBoxLayout()
+		title = QLabel("Xash3D → GameCube")
+		title.setObjectName("Title")
+		subtitle = QLabel("PORT HARNESS / BUILD CONSOLE")
+		subtitle.setObjectName("Subtitle")
+		titles.addWidget(title)
+		titles.addWidget(subtitle)
+		header.addLayout(titles)
+		header.addStretch()
+		self.dol_chip = QLabel("DOL  —")
+		self.iso_chip = QLabel("ISO  —")
+		self.dolphin_chip = QLabel("DOLPHIN  CHECKING")
+		for chip in (self.dol_chip, self.iso_chip, self.dolphin_chip):
+			chip.setObjectName("Chip")
+			header.addWidget(chip)
+		layout.addLayout(header)
+
+		project_box = QGroupBox("MEMORY CARD SLOT A  /  PORT WORKSPACE")
 		form = QFormLayout(project_box)
 		self.repo_edit = QLineEdit(str(DEFAULT_REPO))
 		browse = QPushButton("Browse…")
@@ -109,41 +123,36 @@ class PortWindow(QMainWindow):
 		repo_row.addWidget(browse)
 		form.addRow("Xash3D repository:", repo_row)
 
-		env = load_dotenv(DEFAULT_REPO / ".env")
-		self.base_url_edit = QLineEdit(env.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1"))
-		self.key_edit = QLineEdit(env.get("OPENAI_API_KEY", ""))
-		self.key_edit.setEchoMode(QLineEdit.EchoMode.Password)
-		self.model_edit = QLineEdit("openai/qwen-local")
-		form.addRow("OpenAI-compatible URL:", self.base_url_edit)
-		form.addRow("API key:", self.key_edit)
-		form.addRow("Aider model:", self.model_edit)
 		layout.addWidget(project_box)
 
-		task_box = QGroupBox("Next bounded GameCube port task (one-pass mode)")
-		task_layout = QVBoxLayout(task_box)
-		self.task_edit = QPlainTextEdit()
-		self.task_edit.setPlainText(TASK_FILE.read_text(encoding="utf-8") if TASK_FILE.is_file() else DEFAULT_TASK)
-		self.task_edit.setMaximumHeight(190)
-		task_layout.addWidget(self.task_edit)
-		layout.addWidget(task_box)
-
 		controls = QHBoxLayout()
-		self.one_btn = QPushButton("Run one Aider pass")
-		self.one_btn.clicked.connect(self.run_one_pass)
 		self.passes_spin = QSpinBox()
-		self.passes_spin.setRange(1, 20)
-		self.passes_spin.setValue(3)
-		self.loop_btn = QPushButton("Run guarded loop")
-		self.loop_btn.clicked.connect(self.run_loop)
-		self.stop_btn = QPushButton("Stop")
+		self.passes_spin.setRange(1, 100)
+		self.passes_spin.setValue(20)
+		self.loop_btn = QPushButton("▶  ACCOMPLISH PORT GOALS")
+		self.loop_btn.clicked.connect(self.run_goal_loop)
+		self.stop_btn = QPushButton("■  STOP AUTOMATION")
 		self.stop_btn.clicked.connect(self.stop_process)
 		self.stop_btn.setEnabled(False)
-		controls.addWidget(self.one_btn)
-		controls.addWidget(QLabel("Passes:"))
+		controls.addWidget(self.loop_btn, 2)
+		controls.addWidget(QLabel("Safety pass limit:"))
 		controls.addWidget(self.passes_spin)
-		controls.addWidget(self.loop_btn)
 		controls.addWidget(self.stop_btn)
 		layout.addLayout(controls)
+
+		pipeline_box = QGroupBox("PORT PIPELINE")
+		pipeline_row = QHBoxLayout(pipeline_box)
+		for index, name in enumerate(("AIDER", "REVIEW", "VERIFY", "DOL", "ISO", "DOLPHIN")):
+			if index:
+				arrow = QLabel("▶")
+				arrow.setStyleSheet(f"color: {GC_CYAN};")
+				pipeline_row.addWidget(arrow)
+			node = QLabel(name)
+			node.setAlignment(Qt.AlignmentFlag.AlignCenter)
+			node.setObjectName("PipelineIdle")
+			self.pipeline[name] = node
+			pipeline_row.addWidget(node, 1)
+		layout.addWidget(pipeline_box)
 
 		tools = QHBoxLayout()
 		for label, command in (
@@ -155,7 +164,7 @@ class PortWindow(QMainWindow):
 			button = QPushButton(label)
 			button.clicked.connect(lambda _checked=False, c=command, n=label: self.start(c, n))
 			tools.addWidget(button)
-		self.dolphin_btn = QPushButton("Boot ISO in Dolphin")
+		self.dolphin_btn = QPushButton("Build & Boot in Dolphin")
 		self.dolphin_btn.clicked.connect(self.boot_dolphin)
 		tools.addWidget(self.dolphin_btn)
 		layout.addLayout(tools)
@@ -168,10 +177,14 @@ class PortWindow(QMainWindow):
 		self.progress.setFormat("No automation running")
 		layout.addWidget(self.progress)
 
+		console_box = QGroupBox("GC PORT BUS  /  LIVE AUTOMATION LOG")
+		console_layout = QVBoxLayout(console_box)
 		self.log = QPlainTextEdit()
 		self.log.setReadOnly(True)
 		self.log.setMaximumBlockCount(10000)
-		layout.addWidget(self.log, 1)
+		self.log.setFont(QFont("Monospace", 9))
+		console_layout.addWidget(self.log)
+		layout.addWidget(console_box, 1)
 
 		self.timer = QTimer(self)
 		self.timer.setInterval(1500)
@@ -194,13 +207,6 @@ class PortWindow(QMainWindow):
 		if path:
 			self.repo_edit.setText(path)
 
-	def process_environment(self) -> QProcessEnvironment:
-		env = QProcessEnvironment.systemEnvironment()
-		env.insert("OPENAI_API_BASE", self.base_url_edit.text().strip())
-		env.insert("OPENAI_API_KEY", self.key_edit.text())
-		env.insert("AIDER_MODEL", self.model_edit.text().strip())
-		return env
-
 	def append(self, text: str) -> None:
 		self.log.moveCursor(QTextCursor.MoveOperation.End)
 		self.log.insertPlainText(text)
@@ -215,14 +221,13 @@ class PortWindow(QMainWindow):
 		self.progress.setValue(0)
 		self.progress.setFormat(f"{operation}: %v / %m")
 		self.status_label.setText(f"Running: {operation}")
-		self.one_btn.setEnabled(False)
 		self.loop_btn.setEnabled(False)
 		self.stop_btn.setEnabled(True)
+		self.set_pipeline_state(self.pipeline_node(operation), "Running")
 		self.append(f"\n\n$ {' '.join(command)}\n")
 
 		proc = QProcess(self)
 		proc.setWorkingDirectory(str(self.repo()))
-		proc.setProcessEnvironment(self.process_environment())
 		proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
 		proc.readyReadStandardOutput.connect(self.read_output)
 		proc.finished.connect(self.finished)
@@ -230,45 +235,53 @@ class PortWindow(QMainWindow):
 		self.process = proc
 		proc.start(command[0], command[1:])
 
-	def run_one_pass(self) -> None:
-		if not self.key_edit.text().strip():
-			QMessageBox.warning(self, "API key missing", "Enter the vLLM API key before running Aider.")
-			return
-		STATE_DIR.mkdir(parents=True, exist_ok=True)
-		TASK_FILE.write_text(self.task_edit.toPlainText().rstrip() + "\n", encoding="utf-8")
-		self.start(["scripts/ai-aider-pass.sh", str(self.repo()), str(TASK_FILE)], "Aider pass")
-
-	def run_loop(self) -> None:
-		if not self.key_edit.text().strip():
-			QMessageBox.warning(self, "API key missing", "Enter the vLLM API key before running Aider.")
-			return
+	def run_goal_loop(self) -> None:
 		passes = self.passes_spin.value()
-		self.start(["scripts/ai-loop.sh", str(passes), str(self.repo())], "Guarded Aider loop", passes)
+		self.start(["scripts/ai-goal-loop.py", "--repo", str(self.repo()),
+			"--max-passes", str(passes)], "Goal automation", passes)
 
 	def read_output(self) -> None:
 		if self.process is None:
 			return
 		text = bytes(self.process.readAllStandardOutput()).decode(errors="replace")
 		self.append(text)
-		if self.operation == "Guarded Aider loop":
+		if self.operation == "Goal automation":
 			for line in text.splitlines():
-				if line.startswith("AI PASS "):
+				if line.startswith("GOAL PASS "):
 					try:
-						self.progress.setValue(max(0, int(line.split()[2]) - 1))
+						self.progress.setValue(max(0, int(line.split()[2].split("/")[0]) - 1))
 					except (IndexError, ValueError):
 						pass
+
+	def pipeline_node(self, operation: str) -> str:
+		return {
+			"Goal automation": "AIDER", "Review HEAD": "REVIEW", "Verify": "VERIFY",
+			"Build DOL": "DOL", "Build disc ISO": "ISO",
+		}.get(operation, "AIDER")
+
+	def set_pipeline_state(self, name: str, state: str) -> None:
+		node = self.pipeline.get(name)
+		if node:
+			node.setObjectName(f"Pipeline{state}")
+			node.style().unpolish(node)
+			node.style().polish(node)
 
 	def finished(self, exit_code: int, _status: QProcess.ExitStatus) -> None:
 		succeeded = exit_code == 0
 		if succeeded:
 			self.progress.setValue(self.expected_passes)
+		self.set_pipeline_state(self.pipeline_node(self.operation), "Success" if succeeded else "Failed")
 		self.status_label.setText(f"{'Passed' if succeeded else 'Failed'}: {self.operation} (exit {exit_code})")
 		self.append(f"\n[{self.operation} exited {exit_code}]\n")
+		boot_after_build = self.pending_boot and self.operation == "Build disc ISO" and succeeded
+		if self.operation == "Build disc ISO":
+			self.pending_boot = False
 		self.process = None
-		self.one_btn.setEnabled(True)
 		self.loop_btn.setEnabled(True)
 		self.stop_btn.setEnabled(False)
 		self.refresh_artifacts()
+		if boot_after_build:
+			self.launch_dolphin()
 
 	def stop_process(self) -> None:
 		if self.process is None:
@@ -280,8 +293,15 @@ class PortWindow(QMainWindow):
 	def boot_dolphin(self) -> None:
 		iso = self.repo() / "OUT/xash3d-gc.iso"
 		if not iso.is_file():
-			QMessageBox.warning(self, "ISO missing", "Build OUT/xash3d-gc.iso first.")
+			self.pending_boot = True
+			self.append("\nISO missing; building OUT/xash3d-gc.iso before Dolphin launch.\n")
+			self.start(["scripts/build-gamecube-disc.py", "--output", "OUT/xash3d-gc.iso"],
+				"Build disc ISO")
 			return
+		self.launch_dolphin()
+
+	def launch_dolphin(self) -> None:
+		iso = self.repo() / "OUT/xash3d-gc.iso"
 		if shutil.which("dolphin-emu"):
 			command = ["dolphin-emu", "-e", str(iso)]
 		elif shutil.which("dolphin"):
@@ -292,17 +312,21 @@ class PortWindow(QMainWindow):
 			QMessageBox.warning(self, "Dolphin missing", "No Dolphin executable or Flatpak was found.")
 			return
 		subprocess.Popen(command, cwd=self.repo())
+		self.set_pipeline_state("DOLPHIN", "Success")
 		self.append(f"\nLaunched Dolphin with {iso}\n")
 
 	def refresh_artifacts(self) -> None:
 		root = self.repo()
 		dol = root / "OUT/bin/boot.dol"
 		iso = root / "OUT/xash3d-gc.iso"
-		parts = []
-		for label, path in (("DOL", dol), ("ISO", iso)):
-			parts.append(f"{label}: {path.stat().st_size / (1024 * 1024):.1f} MiB" if path.is_file() else f"{label}: missing")
+		def artifact(label: str, path: Path) -> str:
+			return f"{label}  {path.stat().st_size / (1024 * 1024):.1f} MiB" if path.is_file() else f"{label}  MISSING"
+		self.dol_chip.setText(artifact("DOL", dol))
+		self.iso_chip.setText(artifact("ISO", iso))
+		dolphin_ready = bool(shutil.which("dolphin-emu") or shutil.which("dolphin") or shutil.which("flatpak"))
+		self.dolphin_chip.setText("DOLPHIN  READY" if dolphin_ready else "DOLPHIN  MISSING")
 		if self.process is None:
-			self.status_label.setText("Idle — " + " | ".join(parts))
+			self.status_label.setText("Idle — goal console ready")
 
 
 def main() -> int:
