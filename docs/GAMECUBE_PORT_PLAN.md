@@ -17,6 +17,8 @@ The local AI harness now has a verifier/review gate. Verification labels its
 GameCube toolchain, compile/link, and artifact probes separately. Review
 rejects patches over 400 changed lines, deleted files, and patches that do not
 update this port plan before another autonomous pass is accepted.
+The proprietary-SDK scan spells its regex with character classes so the gate
+does not reject its own source text.
 
 ## Milestones
 

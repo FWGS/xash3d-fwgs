@@ -31,7 +31,7 @@ if ! git diff --name-only HEAD~1..HEAD | grep -qx 'docs/GAMECUBE_PORT_PLAN.md'; 
 fi
 
 # No proprietary SDK references
-if git grep -n -i -E 'dolphin sdk|revolution sdk|official nintendo sdk' HEAD -- . ':!docs/GAMECUBE_PORT_PLAN.md'; then
+if git grep -n -i -E 'dolphin [s]dk|revolution [s]dk|official nintendo [s]dk' HEAD -- . ':!docs/GAMECUBE_PORT_PLAN.md'; then
   echo "Rejecting: proprietary SDK reference found"
   exit 1
 fi
