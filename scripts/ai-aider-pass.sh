@@ -71,8 +71,7 @@ AIDER_STATUS="${PIPESTATUS[0]}"
 set -e
 
 if (( AIDER_STATUS != 0 )); then
-	printf '\n- %s: Aider exited %d; see `%s`.\n' \
-		"$STAMP" "$AIDER_STATUS" "$LOG" >>.ai/state/BLOCKERS.md
+	echo "ai-aider-pass: Aider exited $AIDER_STATUS; see $LOG" >&2
 	exit "$AIDER_STATUS"
 fi
 
@@ -84,8 +83,7 @@ VERIFY_STATUS="${PIPESTATUS[0]}"
 set -e
 
 if (( VERIFY_STATUS != 0 )); then
-	printf '\n- %s: Verification failed after `%s`; see `%s`.\n' \
-		"$STAMP" "$BASELINE" "$LOG" >>.ai/state/BLOCKERS.md
+	echo "ai-aider-pass: verification failed after $BASELINE; see $LOG" >&2
 	exit "$VERIFY_STATUS"
 fi
 

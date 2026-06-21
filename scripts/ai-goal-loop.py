@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -139,6 +140,18 @@ def main() -> int:
 	root = args.repo.expanduser().resolve()
 	goal_file = root / ".ai/goals/GAMECUBE_PORT_GOALS.md"
 	state_file = root / ".ai/logs/goal-loop-state.json"
+	interrupted_signal = 0
+
+	def stop_cleanly(signum: int, _frame: object) -> None:
+		nonlocal interrupted_signal
+		interrupted_signal = signum
+		write_state(state_file, state="stopped", signal=signum,
+			message="Automation stopped by operator")
+		print("\nGoal automation stopped by operator.", file=sys.stderr, flush=True)
+		raise KeyboardInterrupt
+
+	signal.signal(signal.SIGTERM, stop_cleanly)
+	signal.signal(signal.SIGINT, stop_cleanly)
 	if not goal_file.is_file():
 		parser.error(f"goal file not found: {goal_file}")
 
@@ -204,4 +217,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-	raise SystemExit(main())
+	try:
+		raise SystemExit(main())
+	except KeyboardInterrupt:
+		raise SystemExit(130) from None

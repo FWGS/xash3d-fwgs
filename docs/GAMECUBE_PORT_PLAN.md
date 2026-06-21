@@ -52,6 +52,11 @@ engine porting guide remain read-only. This makes the required documentation
 and completion-marker updates possible without broadening source scope.
 The GUI defaults goal automation to three passes for supervised proving runs;
 the operator can raise the safety limit after stable passes.
+After the first G01 attempt produced plans but no edit, the harness switched
+from the same-model architect/editor-whole handoff to direct diff editing.
+Operational Aider or verifier failures now stay in ignored logs/state rather
+than dirtying tracked `BLOCKERS.md`, and an operator stop records `stopped`
+instead of leaving the dashboard in a stale `running` state.
 
 ## Milestones
 
