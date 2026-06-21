@@ -35,7 +35,7 @@ static gc_video_t gc;
 static void *xfb[2] = { NULL, NULL };
 static int which_fb = 0;
 static GXRModeObj *rmode = NULL;
-static u8 gx_fifo[256 * 1024] __attribute__((aligned(32)));
+static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 #endif
 
 void Platform_Minimize_f( void )
@@ -193,12 +193,10 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 		width = rmode->fbWidth;
 		height = rmode->efbHeight;
 	}
-	else
 #endif
-	{
-		if( !width ) width = DEFAULT_MODE_WIDTH;
-		if( !height ) height = DEFAULT_MODE_HEIGHT;
-	}
+
+	if( !width ) width = DEFAULT_MODE_WIDTH;
+	if( !height ) height = DEFAULT_MODE_HEIGHT;
 
 	(void)window_mode;
 
