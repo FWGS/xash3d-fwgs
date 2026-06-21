@@ -15,6 +15,21 @@ from datetime import datetime
 from pathlib import Path
 
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |x|X|MANUAL)\]\s+(.+)$")
+GOAL_CONTEXT = {
+	"G01": ("engine/server/sv_game.c", "engine/server/server.h"),
+	"G02": ("scripts/build-gamecube-disc.py", "scripts/gamecube-apploader.c",
+		"engine/platform/gamecube/sys_gamecube.c"),
+	"G03": ("engine/platform/gamecube/vid_gamecube.c", "ref/gx/r_context.c",
+		"ref/gx/r_main.c", "ref/gx/r_local.h"),
+	"G04": ("engine/platform/gamecube/in_gamecube.c", "engine/client/input.h",
+		"engine/client/input/input.c"),
+	"G05": ("engine/client/sound/s_main.c", "engine/client/sound.h",
+		"engine/platform/gamecube/dll_gamecube.c"),
+	"G06": ("engine/platform/gamecube/sys_gamecube.c", "engine/host.c",
+		"filesystem/filesystem.c"),
+	"G07": ("engine/platform/gamecube/sys_gamecube.c", "engine/server/sv_init.c",
+		"ref/gx/r_main.c"),
+}
 
 
 @dataclass
@@ -87,6 +102,10 @@ latest diff, and the configured project rules. Make one coherent patch that
 materially advances this goal. Diagnose before editing and preserve all
 non-GameCube targets.
 
+The harness has preloaded the goal-relevant source files into Aider. Inspect
+them directly and use the repository map for related symbols. Do not stop to
+ask the user to add files that already exist in this checkout.
+
 Rules:
 - Keep the commit below 400 changed lines and do not delete tracked files.
 - Update `docs/GAMECUBE_PORT_PLAN.md` with commands and concrete evidence.
@@ -157,7 +176,10 @@ def main() -> int:
 			task.write(task_for(goal, root, attempts[goal.goal_id]))
 			task_path = Path(task.name)
 		try:
-			result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path)], root)
+			context_files = [path for path in GOAL_CONTEXT.get(goal.goal_id, ())
+				if (root / path).is_file()]
+			result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path),
+				*context_files], root)
 		finally:
 			task_path.unlink(missing_ok=True)
 		if result.returncode != 0:

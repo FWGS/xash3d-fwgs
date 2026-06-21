@@ -3,6 +3,7 @@ set -euo pipefail
 
 REPO="${1:-/home/tim/Desktop/xash3d-gc}"
 TASK_FILE="${2:-.ai/tasks/current.md}"
+CONTEXT_FILES=("${@:3}")
 
 cd "$REPO"
 REPO="$(git rev-parse --show-toplevel)"
@@ -28,6 +29,15 @@ command -v aider >/dev/null 2>&1 || {
 	exit 1
 }
 
+AIDER_FILE_ARGS=()
+for context_file in "${CONTEXT_FILES[@]}"; do
+	[[ -f "$context_file" ]] || {
+		echo "ai-aider-pass: context file not found: $context_file" >&2
+		exit 1
+	}
+	AIDER_FILE_ARGS+=(--file "$context_file")
+done
+
 if [[ -n "$(git status --porcelain)" ]]; then
 	echo "ai-aider-pass: refusing to run with a dirty worktree" >&2
 	git status --short >&2
@@ -44,12 +54,16 @@ BASELINE="$(git rev-parse HEAD)"
 echo "== Aider pass: $STAMP =="
 echo "Repo: $REPO"
 echo "Task: $TASK_FILE"
+if (( ${#CONTEXT_FILES[@]} )); then
+	echo "Editable context: ${CONTEXT_FILES[*]}"
+fi
 echo "Baseline: $BASELINE"
 echo "Log: $LOG"
 
 set +e
 aider \
 	--config .aider.conf.yml \
+	"${AIDER_FILE_ARGS[@]}" \
 	--message-file "$TASK_FILE" \
 	--yes-always \
 	2>&1 | tee "$LOG"
