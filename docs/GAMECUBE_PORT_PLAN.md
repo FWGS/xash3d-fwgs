@@ -19,6 +19,10 @@ rejects patches over 400 changed lines, deleted files, and patches that do not
 update this port plan before another autonomous pass is accepted.
 The proprietary-SDK scan spells its regex with character classes so the gate
 does not reject its own source text.
+The harness also has a PyQt6 control panel at
+`scripts/xash3d-gc-aider-gui.sh` for supervised one-pass or bounded-loop Aider
+runs, verification, DOL/disc builds, and launching the generated ISO in
+Dolphin. It uses the existing shell gates rather than duplicating them.
 
 ## Milestones
 

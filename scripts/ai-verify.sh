@@ -16,8 +16,10 @@ git submodule foreach --quiet 'git diff --check'
 echo
 echo "== harness syntax =="
 bash -n scripts/ai-verify.sh scripts/ai-aider-pass.sh scripts/ai-loop.sh \
-	scripts/ai-summarize-next-task.sh scripts/build-gamecube.sh
+	scripts/ai-summarize-next-task.sh scripts/build-gamecube.sh \
+	scripts/xash3d-gc-aider-gui.sh
 python3 -c 'compile(open("scripts/build-gamecube-disc.py", encoding="utf-8").read(), "scripts/build-gamecube-disc.py", "exec")'
+python3 -c 'compile(open("scripts/xash3d-gc-aider-gui.py", encoding="utf-8").read(), "scripts/xash3d-gc-aider-gui.py", "exec")'
 
 if command -v aider >/dev/null 2>&1; then
 	aider --config .aider.conf.yml --help >/dev/null

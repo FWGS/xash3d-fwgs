@@ -37,3 +37,16 @@ always run the real build.
 Logs are written under `.ai/logs/` and ignored by Git. A failed pass appends a
 short entry to `.ai/state/BLOCKERS.md`; review and commit or discard that entry
 before trying another pass.
+
+## GameCube port GUI
+
+Launch the supervised Qt control panel with:
+
+```sh
+scripts/xash3d-gc-aider-gui.sh
+```
+
+The GUI runs the same guarded scripts; it does not bypass clean-tree checks or
+review gates. It provides one-pass task editing, bounded multi-pass runs,
+verification, DOL/disc builds, and Dolphin launch. Custom one-pass prompts are
+stored outside the repository so editing a prompt cannot dirty the worktree.
