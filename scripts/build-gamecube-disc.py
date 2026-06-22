@@ -20,7 +20,7 @@ DISC_MAGIC = 0xC2339F3D
 APPLOADER_ADDRESS = 0x81200000
 APPLOADER_HEADER_OFFSET = 0x2440
 APPLOADER_DATA_OFFSET = APPLOADER_HEADER_OFFSET + 0x20
-BOOTSTRAP_EXCLUDED_EXTENSIONS = {".pak", ".pk3", ".wad", ".wav"}
+BOOTSTRAP_EXCLUDED_EXTENSIONS = {".avi", ".pak", ".pk3", ".wad", ".wav"}
 
 
 def align(value: int, boundary: int) -> int:
@@ -227,7 +227,7 @@ def build_iso9660(
 				):
 					compress_type = (
 						zipfile.ZIP_STORED
-						if child.suffix.lower() == ".bsp"
+						if child.suffix.lower() in (".bsp", ".mdl")
 						else zipfile.ZIP_DEFLATED
 					)
 					archive.write(
@@ -261,6 +261,11 @@ SMOKE_CONFIG_FILES = (
 	"gfx/colormap.lmp",
 	"gfx/conback.lmp",
 	"gfx/palette.lmp",
+)
+
+SMOKE_INTRO_MEDIA = (
+	"media/sierra.avi",
+	"media/valve.avi",
 )
 
 SMOKE_HUD_SPRITES = (
@@ -430,6 +435,12 @@ def write_smoke_overrides(output: Path, smoke_map: str) -> None:
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
 	(output / "gamecube.cfg").write_text(f"map {Path(smoke_map).stem}\n", encoding="ascii")
+	media = output / "media"
+	media.mkdir(exist_ok=True)
+	(media / "StartupVids.txt").write_text(
+		"media/sierra.avi\nmedia/valve.avi\n",
+		encoding="ascii",
+	)
 
 
 def smoke_map_resources(map_path: Path) -> set[str]:
@@ -458,6 +469,8 @@ def stage_smoke_data(source: Path, output: Path, smoke_map: str) -> Path:
 	for relative in SMOKE_CONFIG_FILES:
 		copy_if_present(source, output, relative)
 	write_smoke_overrides(output, smoke_map)
+	for relative in SMOKE_INTRO_MEDIA:
+		copy_if_present(source, output, relative)
 	for relative in SMOKE_HUD_SPRITES:
 		copy_if_present(source, output, relative)
 	for relative in SMOKE_PRECACHE_MODELS:

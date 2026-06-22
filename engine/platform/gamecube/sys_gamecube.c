@@ -215,14 +215,11 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "2";
 	gc_argv[fake_argc++] = "-log";
 	gc_argv[fake_argc++] = "-toconsole";
-	gc_argv[fake_argc++] = "-nointro";
 	gc_argv[fake_argc++] = "-nosound";
 	gc_argv[fake_argc++] = "-nohud";
 	gc_argv[fake_argc++] = "-gcnolightmaps";
 	gc_argv[fake_argc++] = "-gcnobevels";
 	gc_argv[fake_argc++] = "-gcnodeltareinit";
-	gc_argv[fake_argc++] = "-gcmap";
-	gc_argv[fake_argc++] = "c0a0e";
 
 	*out_argv = gc_argv;
 	return fake_argc;

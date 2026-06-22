@@ -320,11 +320,19 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	// store modelname to show error
 	Q_strncpy( tempname, mod->name, sizeof( tempname ));
 	COM_FixSlashes( tempname );
+#if XASH_GAMECUBE
+	if( !Q_strncmp( tempname, "maps/", 5 ) || !Q_strncmp( tempname, "models/", 7 ))
+		Con_Reportf( "Xash3D GameCube: model load try name='%s' path='%s'\n", mod->name, tempname );
+#endif
 
 	byte *buf = FS_LoadFile( tempname, &length, false );
 
 	if( !buf || length < sizeof( uint ))
 	{
+#if XASH_GAMECUBE
+		if( !Q_strncmp( tempname, "maps/", 5 ) || !Q_strncmp( tempname, "models/", 7 ))
+			Con_Reportf( "Xash3D GameCube: model load failed path='%s' length=%li buf=%p\n", tempname, (long)length, (void *)buf );
+#endif
 		memset( mod, 0, sizeof( model_t ));
 
 		if( crash ) Host_Error( "Could not load model %s from disk\n", tempname );

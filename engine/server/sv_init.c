@@ -976,7 +976,12 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	if( !COM_StringEmptyOrNULL( cycle ))
 		Cbuf_AddTextf( "exec %s\n", cycle );
 
-	Cbuf_AddTextf( "exec maps/%s_load.cfg\n", mapname );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		Con_Reportf( "Xash3D GameCube: map load cfg skipped\n" );
+	else
+#endif
+		Cbuf_AddTextf( "exec maps/%s_load.cfg\n", mapname );
 
 	// let's not have any servers with no name
 	if( COM_StringEmptyOrNULL( hostname.string ))

@@ -88,12 +88,6 @@ void SCR_CheckStartupVids( void )
 	char *pfile;
 	string	token;
 
-#if XASH_GAMECUBE
-	cls.movienum = -1;
-	CL_CheckStartupDemos();
-	return;
-#endif
-
 #if 0
 	if( host_developer.value )
 	{

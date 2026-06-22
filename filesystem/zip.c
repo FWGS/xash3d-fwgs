@@ -482,7 +482,19 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	if( sizeptr ) *sizeptr = 0;
 
 	if( FS_Seek( search->zip->handle, file->offset, SEEK_SET ) == -1 )
+	{
+#if XASH_GAMECUBE
+		if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
+			Con_Reportf( "Xash3D GameCube: zip load seek failed %s offset=%li size=%li csize=%li flags=%d\n",
+				path, (long)file->offset, (long)file->size, (long)file->compressed_size, file->flags );
+#endif
 		return NULL;
+	}
+#if XASH_GAMECUBE
+	if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
+		Con_Reportf( "Xash3D GameCube: zip load %s offset=%li size=%li csize=%li flags=%d\n",
+			path, (long)file->offset, (long)file->size, (long)file->compressed_size, file->flags );
+#endif
 
 	/*if( FS_Read( search->zip->handle, &header, sizeof( header )) < 0 )
 		return NULL;
@@ -506,6 +518,11 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		c = FS_Read( search->zip->handle, decompressed_buffer, file->size );
 		if( c != file->size )
 		{
+#if XASH_GAMECUBE
+			if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
+				Con_Reportf( "Xash3D GameCube: zip stored read short %s read=%li expected=%li\n",
+					path, (long)c, (long)file->size );
+#endif
 			Con_Reportf( S_ERROR "%s: %s size doesn't match\n", __func__, file->name );
 			return NULL;
 		}
@@ -746,4 +763,3 @@ searchpath_t *FS_AddZip_Fullpath( const char *zipfile, int flags )
 	Con_Reportf( "Adding ZIP: %s (%i files)\n", zipfile, zip->numfiles );
 	return search;
 }
-

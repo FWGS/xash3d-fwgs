@@ -822,13 +822,29 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 	for( search = fs_searchpaths; search; search = search->next )
 	{
 		int pack_ind;
+#if XASH_GAMECUBE
+		char original_name[MAX_SYSPATH];
+		if( !Q_strncmp( name, "maps/", 5 ) || !Q_strncmp( name, "models/", 7 ))
+			Q_strncpy( original_name, name, sizeof( original_name ));
+		else original_name[0] = 0;
+#endif
 
 		if( flags && !FBitSet( search->flags, flags ))
 			continue;
 
 		pack_ind = search->pfnFindFile( search, name, fixedname, len );
+#if XASH_GAMECUBE
+		if( original_name[0] && Q_strcmp( original_name, name ))
+			Con_Reportf( "Xash3D GameCube: find mutated '%s' -> '%s' in %s\n",
+				original_name, name, search->filename );
+#endif
 		if( pack_ind >= 0 )
 		{
+#if XASH_GAMECUBE
+			if( original_name[0] )
+				Con_Reportf( "Xash3D GameCube: find found '%s' as '%s' in %s index=%d\n",
+					original_name, fixedname ? fixedname : "", search->filename, pack_ind );
+#endif
 			if( index )
 				*index = pack_ind;
 			return search;
@@ -879,6 +895,10 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 	if( index != NULL )
 		*index = -1;
 
+#if XASH_GAMECUBE
+	if( !Q_strncmp( name, "maps/", 5 ) || !Q_strncmp( name, "models/", 7 ))
+		Con_Reportf( "Xash3D GameCube: find missed '%s'\n", name );
+#endif
 	return NULL;
 }
 

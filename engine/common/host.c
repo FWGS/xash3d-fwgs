@@ -1316,6 +1316,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			Con_Reportf( "Xash3D GameCube: queue map %s\n", gcmap );
 			Cbuf_AddTextf( "map %s\n", gcmap );
 			Cbuf_Execute();
+			COM_Frame( 0.0 );
+			COM_Frame( 0.0 );
 		}
 	}
 #endif
