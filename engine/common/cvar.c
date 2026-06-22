@@ -75,6 +75,17 @@ convar_t *Cvar_FindVar( const char *var_name )
 
 	convar_t *var = BaseCmd_Find( HM_CVAR, var_name );
 
+#if XASH_GAMECUBE
+	if( !var )
+	{
+		for( var = cvar_vars; var; var = var->next )
+		{
+			if( !Q_stricmp( var->name, var_name ))
+				break;
+		}
+	}
+#endif
+
 	// HACKHACK: HL25 compatibility
 	if( !var && !Q_stricmp( var_name, "gl_widescreen_yfov" ))
 		var = Cvar_FindVar( "r_adjust_fov" );

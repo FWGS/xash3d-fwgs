@@ -885,6 +885,15 @@ void SCR_VidInit( void )
 		gameui.globals->scrHeight = refState.height;
 	}
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-nohud" ))
+	{
+		CL_ClearSpriteTextures(); // now all hud sprites are invalid
+		Con_Reportf( "Xash3D GameCube: screen hud vidinit skipped\n" );
+		goto screen_state_ready;
+	}
+#endif
+
 	// notify vgui about screen size change
 	if( clgame.hInstance )
 	{
@@ -897,6 +906,9 @@ void SCR_VidInit( void )
 	if( gameui.hInstance ) gameui.dllFuncs.pfnVidInit();
 	if( clgame.hInstance ) clgame.dllFuncs.pfnVidInit();
 
+#if XASH_GAMECUBE
+screen_state_ready:
+#endif
 	// restart console size
 	Con_VidInit ();
 	Touch_NotifyResize();
@@ -940,19 +952,47 @@ void SCR_Init( void )
 		Con_Printf( S_ERROR "can't initialize gameui DLL: %s\n", COM_GetLibraryError() ); // there is non fatal for us
 		host.allow_console = true; // we need console, because menu is missing
 	}
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen gameui checked\n" );
+#endif
 
 	SCR_VidInit();
 	SCR_LoadCreditsFont ();
 	SCR_RegisterTextures ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen textures checked\n" );
+#endif
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-nohud" ))
+	{
+		for( int i = 0; i < 256; i++ )
+		{
+			clgame.palette[i].r = i;
+			clgame.palette[i].g = i;
+			clgame.palette[i].b = i;
+		}
+		Con_Reportf( "Xash3D GameCube: particle palette skipped\n" );
+	}
+	else
+#endif
 	SCR_InstallParticlePalette ();
 	SCR_InitCinematic();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen cinematic checked\n" );
+#endif
 	CL_InitNetgraph();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen netgraph ready\n" );
+#endif
 
 	if( host.allow_console && Sys_CheckParm( "-toconsole" ))
 		Cbuf_AddText( "toggleconsole\n" );
 	else UI_SetActiveMenu( true );
 
 	scr_init = true;
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen init ready\n" );
+#endif
 }
 
 void SCR_Shutdown( void )

@@ -39,6 +39,12 @@ GNU General Public License for more details.
 	#include <sys/mman.h>
 #endif
 
+#if XASH_GAMECUBE
+#define STRINGLIST_GROW 64
+#else
+#define STRINGLIST_GROW 4096
+#endif
+
 #include <stdio.h>
 #include "port.h"
 #include "crtlib.h"
@@ -108,7 +114,7 @@ void stringlistappend( stringlist_t *list, const char *text )
 
 	if( list->numstrings >= list->maxstrings )
 	{
-		list->maxstrings += 4096;
+		list->maxstrings += STRINGLIST_GROW;
 		list->strings = Mem_Realloc( fs_mempool, list->strings, list->maxstrings * sizeof( *list->strings ));
 	}
 

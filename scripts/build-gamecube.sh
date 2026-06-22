@@ -4,6 +4,21 @@ set -e
 
 export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
 
+ROOT="$(git rev-parse --show-toplevel)"
+HLSDK_DIR="${HLSDK_PORTABLE_DIR:-$ROOT/3rdparty/hlsdk-portable}"
+HLSDK_DESTDIR="${HLSDK_GAMECUBE_DESTDIR:-$ROOT/OUT/hlsdk-gamecube}"
+HLSDK_GAMEDIR="${HLSDK_GAMECUBE_GAMEDIR:-valve}"
+HLSDK_SERVER_ARCHIVE="$HLSDK_DESTDIR/$HLSDK_GAMEDIR/dlls/libhl_gamecube_ppc.a"
+HLSDK_EXPORTS="$HLSDK_DESTDIR/$HLSDK_GAMEDIR/dlls/gamecube_server_entity_exports.inc"
+NM="${DEVKITPRO:-/opt/devkitpro}/devkitPPC/bin/powerpc-eabi-nm"
+
+if [ -s "$HLSDK_SERVER_ARCHIVE" ] && [ -d "$HLSDK_DIR/dlls" ] && [ -x "$NM" ]; then
+	python3 "$ROOT/scripts/generate-hlsdk-gamecube-exports.py" \
+		--hlsdk-dir "$HLSDK_DIR" \
+		--archive "$HLSDK_SERVER_ARCHIVE" \
+		--output "$HLSDK_EXPORTS"
+fi
+
 ./waf configure --gamecube \
 	-T release \
 	--disable-gl --disable-soft --enable-gx \

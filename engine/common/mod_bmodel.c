@@ -1343,11 +1343,25 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 	char	token[2048];
 	qboolean	model_found;
 	qboolean	origin_found;
+#if XASH_GAMECUBE
+	static qboolean parse_warned;
+#endif
 
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		if( token[0] != '{' )
+#if XASH_GAMECUBE
+		{
+			if( !parse_warned )
+			{
+				Con_Reportf( S_WARN "%s: found %s when expecting {; origin scan skipped\n", __func__, token );
+				parse_warned = true;
+			}
+			return;
+		}
+#else
 			Host_Error( "%s: found %s when expecting {\n", __func__, token );
+#endif
 
 		model_found = origin_found = false;
 		VectorClear( origin );
@@ -1356,17 +1370,50 @@ static void Mod_FindModelOrigin( const char *entities, const char *modelname, ve
 		{
 			// parse key
 			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
+#if XASH_GAMECUBE
+			{
+				if( !parse_warned )
+				{
+					Con_Reportf( S_WARN "%s: EOF without closing brace; origin scan skipped\n", __func__ );
+					parse_warned = true;
+				}
+				return;
+			}
+#else
 				Host_Error( "%s: EOF without closing brace\n", __func__ );
+#endif
 			if( token[0] == '}' ) break; // end of desc
 
 			Q_strncpy( keyname, token, sizeof( keyname ));
 
 			// parse value
 			if(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) == NULL )
+#if XASH_GAMECUBE
+			{
+				if( !parse_warned )
+				{
+					Con_Reportf( S_WARN "%s: EOF without closing brace; origin scan skipped\n", __func__ );
+					parse_warned = true;
+				}
+				return;
+			}
+#else
 				Host_Error( "%s: EOF without closing brace\n", __func__ );
+#endif
 
 			if( token[0] == '}' )
+#if XASH_GAMECUBE
+			{
+				if( !parse_warned )
+				{
+					Con_Reportf( S_WARN "%s: closing brace without data; origin scan skipped\n", __func__ );
+					parse_warned = true;
+				}
+				return;
+			}
+#else
 				Host_Error( "%s: closing brace without data\n", __func__ );
+#endif
 
 			if( !Q_stricmp( keyname, "model" ) && !Q_stricmp( modelname, token ))
 				model_found = true;
@@ -3374,6 +3421,9 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 
 		Mod_CalcSurfaceBounds( mod, out, bmod );
 		Mod_CalcSurfaceExtents( mod, out, bmod );
+#if XASH_GAMECUBE
+		if( !Sys_CheckParm( "-gcnobevels" ))
+#endif
 		Mod_CreateFaceBevels( mod, out, bmod );
 
 		// grab the second sample to detect colored lighting
@@ -3884,6 +3934,14 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 	if( !bmod->lightdatasize )
 		return;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnolightmaps" ))
+	{
+		Con_Reportf( "Xash3D GameCube: lightmaps disabled\n" );
+		return;
+	}
+#endif
+
 	switch( bmod->lightmap_samples )
 	{
 	case 1:
@@ -3950,6 +4008,7 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 			// into three-bytes structs and shadowmap just monochrome
 			mod->surfaces[i].samples = mod->lightdata + offset;
 
+#if !XASH_GAMECUBE
 			// if deluxemap is present setup it too
 			if( bmod->deluxedata_out )
 				mod->surfaces[i].info->deluxemap = bmod->deluxedata_out + offset;
@@ -3957,6 +4016,7 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 			// will be used by mods
 			if( bmod->shadowdata_out )
 				mod->surfaces[i].info->shadowmap = bmod->shadowdata_out + offset;
+#endif
 		}
 	}
 }
@@ -4235,10 +4295,25 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadTexInfo( mod, bmod );
 	Mod_LoadSurfaces( mod, bmod );
 	Mod_LoadLighting( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
+#endif
 	Mod_LoadMarkSurfaces( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel marksurfaces ready\n" );
+#endif
 	Mod_LoadLeafs( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel leafs ready\n" );
+#endif
 	Mod_LoadNodes( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel nodes ready\n" );
+#endif
 	Mod_LoadClipnodes( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel clipnodes ready\n" );
+#endif
 
 	// preform some post-initalization
 	Mod_MakeHull0( mod, bmod );

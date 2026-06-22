@@ -160,8 +160,72 @@ lines. Goals marked `MANUAL` are never selected automatically.
   the prefixed symbols, and `scripts/build-gamecube.sh` links successfully with
   both real HLSDK server and client archives.
 
-## G14 [ ] Run a small-map Dolphin smoke test
+## G14 [x] Run a small-map Dolphin smoke test
 
 - Boot a disc with legal local Half-Life assets and real GameCube game code.
 - Load one small map far enough to render a frame and accept controller input.
 - Capture Dolphin/OSReport logs, memory failures, and the exact command used.
+- Verified 2026-06-22: `DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  staged a legal smoke asset set for `c4a1f`, booted Dolphin, queued the map
+  through the GameCube startup path, spawned `c4a1f`, loaded
+  `maps/c4a1f.bsp`, and emitted `Xash3D GameCube: map loaded c4a1f`.
+  Evidence: `.ai/logs/dolphin-probe-20260622-022408/stderr.log`.
+
+## G15 [x] Recover memory headroom for early campaign maps
+
+- Make `c0a0e` or another tram/lab-era Half-Life map load without
+  `_Mem_Alloc` failures in BSP/model setup.
+- Record the largest map tested, free-memory clues, and any renderer/server
+  allocation reductions.
+- Keep the `c4a1f` smoke test green while broadening the accepted map set.
+- Verified 2026-06-22: `DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh`
+  stages `c0a0e`, boots Dolphin, queues the map through the GameCube startup
+  path, skips RGB lightmap expansion with `-gcnolightmaps`, reaches BSP setup
+  through clipnodes, and emits `Xash3D GameCube: map loaded c0a0e`.
+  Evidence: `.ai/logs/dolphin-probe-20260622-115351/stderr.log`.
+- Remaining gameplay blocker: the static HLSDK server entity class exports are
+  not registered, so the server logs `No spawn function` for map entities.
+
+## G16 [ ] Replace smoke-only client shortcuts with stable GameCube modes
+
+- Turn the current `-nohud`, `-nosound`, and optional-visual skips into
+  documented GameCube bring-up modes or remove them as systems become stable.
+- Re-enable enough HLSDK client HUD initialization to draw basic gameplay UI
+  without hanging in `HUD_Init`.
+- Keep the real HLSDK client archive linked and avoid returning to the stub.
+
+## G17 [ ] Bring up GameCube audio incrementally
+
+- Move from `-nosound` smoke boot to a stable null or real audio backend that
+  does not hang during sound cvar registration, CD audio playlist setup, or
+  sound precache.
+- Preserve a silent fallback for low-memory smoke testing.
+- Verify a map still loads with the selected audio mode.
+
+## G18 [ ] Restore local single-player networking and save-safe startup paths
+
+- Audit the GameCube skip of `NET_Config(false, true)` and replace it with a
+  safe local-only networking path if later client/server flows require it.
+- Avoid writes to read-only disc paths such as `.xash_id`, `media/cdaudio.txt`,
+  logs, and generated configs.
+- Keep offline boot independent of HTTP/TLS initialization.
+
+## G19 [ ] Run an interactive gameplay smoke test
+
+- Boot a legal local asset disc, load a small map, render frames, poll the
+  GameCube controller, and advance at least a few seconds without crashing.
+- Capture OSReport evidence for player spawn, input polling, frame progression,
+  and clean shutdown or bounded timeout.
+- Use Dolphin first, then repeat on real hardware when available.
+
+## G20 [ ] Register static HLSDK server entity class exports
+
+- Generate or otherwise register the HLSDK server `LINK_ENTITY_TO_CLASS` export
+  names in the GameCube static loader so `SV_GetEntityClass()` can resolve
+  `worldspawn`, `info_player_start`, triggers, doors, monsters, weapons, and
+  other classnames.
+- Avoid a fragile hand-written partial table; keep the export list reproducible
+  from the installed HLSDK archive or source checkout.
+- Verify `DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh` still reaches
+  `map loaded c0a0e` and no longer logs `No spawn function` for the staged
+  `c0a0e` entity set.

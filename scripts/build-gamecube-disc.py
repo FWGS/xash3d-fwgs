@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -19,6 +20,7 @@ DISC_MAGIC = 0xC2339F3D
 APPLOADER_ADDRESS = 0x81200000
 APPLOADER_HEADER_OFFSET = 0x2440
 APPLOADER_DATA_OFFSET = APPLOADER_HEADER_OFFSET + 0x20
+BOOTSTRAP_EXCLUDED_EXTENSIONS = {".pak", ".pk3", ".wad", ".wav"}
 
 
 def align(value: int, boundary: int) -> int:
@@ -191,7 +193,12 @@ def build_apploader(
 	return result
 
 
-def build_iso9660(data: Path, extras: Path | None, output_path: Path) -> None:
+def build_iso9660(
+	data: Path,
+	extras: Path | None,
+	output_path: Path,
+	bootstrap_recursive: bool = False,
+) -> None:
 	xorriso = shutil.which("xorriso")
 	if xorriso is None:
 		raise FileNotFoundError("xorriso is required to build the GameCube data disc")
@@ -211,15 +218,269 @@ def build_iso9660(data: Path, extras: Path | None, output_path: Path) -> None:
 	with tempfile.TemporaryDirectory(prefix="xash3d-gc-bootstrap-") as temp:
 		bootstrap = Path(temp) / "gamecube-bootstrap.pk3"
 		with zipfile.ZipFile(bootstrap, "w", zipfile.ZIP_DEFLATED) as archive:
-			for child in sorted(data.iterdir()):
-				if child.is_file() and child.stat().st_size <= 2 * 1024 * 1024:
-					archive.write(child, child.name)
+			children = data.rglob("*") if bootstrap_recursive else data.iterdir()
+			for child in sorted(children):
+				if (
+					child.is_file()
+					and child.suffix.lower() not in BOOTSTRAP_EXCLUDED_EXTENSIONS
+					and child.stat().st_size <= 2 * 1024 * 1024
+				):
+					compress_type = (
+						zipfile.ZIP_STORED
+						if child.suffix.lower() == ".bsp"
+						else zipfile.ZIP_DEFLATED
+					)
+					archive.write(
+						child,
+						child.relative_to(data).as_posix(),
+						compress_type=compress_type,
+					)
 
 		if extras is not None:
 			command.append(f"/xash3d/valve/extras.pk3={extras}")
 		command.append(f"/xash3d/valve/gamecube-bootstrap.pk3={bootstrap}")
 		output_path.unlink(missing_ok=True)
 		subprocess.run(command, check=True)
+
+
+SMOKE_CONFIG_FILES = (
+	"liblist.gam",
+	"delta.lst",
+	"default.cfg",
+	"config.cfg",
+	"autoexec.cfg",
+	"game.cfg",
+	"language.cfg",
+	"listenserver.cfg",
+	"joystick.cfg",
+	"server.cfg",
+	"skill.cfg",
+	"spserver.cfg",
+	"valve.rc",
+	"xashcomm.lst",
+	"gfx/colormap.lmp",
+	"gfx/conback.lmp",
+	"gfx/palette.lmp",
+)
+
+SMOKE_HUD_SPRITES = (
+	"sprites/animglow01.spr",
+	"sprites/dot.spr",
+	"sprites/hud.txt",
+	"sprites/muzzleflash1.spr",
+	"sprites/muzzleflash2.spr",
+	"sprites/muzzleflash3.spr",
+	"sprites/richo1.spr",
+	"sprites/shellchrome.spr",
+)
+
+SMOKE_SOUND_DIRS = (
+	"sound/items",
+	"sound/player",
+	"sound/weapons",
+)
+
+SMOKE_PRECACHE_MODELS = (
+	"models/p_357.mdl",
+	"models/p_9mmar.mdl",
+	"models/p_9mmhandgun.mdl",
+	"models/p_crossbow.mdl",
+	"models/p_crowbar.mdl",
+	"models/p_egon.mdl",
+	"models/p_gauss.mdl",
+	"models/p_grenade.mdl",
+	"models/p_hgun.mdl",
+	"models/p_rpg.mdl",
+	"models/p_satchel.mdl",
+	"models/p_satchel_radio.mdl",
+	"models/p_shotgun.mdl",
+	"models/p_squeak.mdl",
+	"models/p_tripmine.mdl",
+	"models/shell.mdl",
+	"models/shotgunshell.mdl",
+	"models/v_357.mdl",
+	"models/v_9mmar.mdl",
+	"models/v_9mmhandgun.mdl",
+	"models/v_crossbow.mdl",
+	"models/v_crowbar.mdl",
+	"models/v_egon.mdl",
+	"models/v_gauss.mdl",
+	"models/v_grenade.mdl",
+	"models/v_hgun.mdl",
+	"models/v_rpg.mdl",
+	"models/v_satchel.mdl",
+	"models/v_satchel_radio.mdl",
+	"models/v_shotgun.mdl",
+	"models/v_squeak.mdl",
+	"models/v_tripmine.mdl",
+	"models/w_357.mdl",
+	"models/w_357ammobox.mdl",
+	"models/w_9mmar.mdl",
+	"models/w_9mmarclip.mdl",
+	"models/w_9mmclip.mdl",
+	"models/w_9mmhandgun.mdl",
+	"models/w_antidote.mdl",
+	"models/w_argrenade.mdl",
+	"models/w_battery.mdl",
+	"models/w_chainammo.mdl",
+	"models/w_crossbow.mdl",
+	"models/w_crossbow_clip.mdl",
+	"models/w_crowbar.mdl",
+	"models/w_egon.mdl",
+	"models/w_gauss.mdl",
+	"models/w_gaussammo.mdl",
+	"models/w_grenade.mdl",
+	"models/w_hgun.mdl",
+	"models/w_longjump.mdl",
+	"models/w_medkit.mdl",
+	"models/w_oxygen.mdl",
+	"models/w_rpg.mdl",
+	"models/w_rpgammo.mdl",
+	"models/w_satchel.mdl",
+	"models/w_security.mdl",
+	"models/w_shotbox.mdl",
+	"models/w_shotgun.mdl",
+	"models/w_sqknest.mdl",
+	"models/w_squeak.mdl",
+	"models/w_suit.mdl",
+	"models/w_weaponbox.mdl",
+)
+
+SMOKE_CASE_ALIASES = {
+	"models/p_9mmar.mdl": "models/p_9mmAR.mdl",
+	"models/v_9mmar.mdl": "models/v_9mmAR.mdl",
+	"models/w_9mmar.mdl": "models/w_9mmAR.mdl",
+	"models/w_9mmarclip.mdl": "models/w_9mmARclip.mdl",
+	"models/w_argrenade.mdl": "models/w_ARgrenade.mdl",
+}
+
+
+def copy_if_present(source_root: Path, output_root: Path, relative: str) -> None:
+	source = source_root / relative
+	if not source.is_file():
+		return
+
+	destination = output_root / relative
+	destination.parent.mkdir(parents=True, exist_ok=True)
+	shutil.copy2(source, destination)
+
+
+def copy_tree_if_present(source_root: Path, output_root: Path, relative: str) -> None:
+	source = source_root / relative
+	if not source.is_dir():
+		return
+
+	for child in sorted(source.rglob("*")):
+		if child.is_file():
+			destination = output_root / child.relative_to(source_root)
+			destination.parent.mkdir(parents=True, exist_ok=True)
+			shutil.copy2(child, destination)
+
+
+def copy_alias_if_present(output_root: Path, source_relative: str, alias_relative: str) -> None:
+	source = output_root / source_relative
+	if not source.is_file():
+		return
+
+	destination = output_root / alias_relative
+	destination.parent.mkdir(parents=True, exist_ok=True)
+	if not destination.exists():
+		shutil.copy2(source, destination)
+
+
+def extract_wad_lump(wad_path: Path, output: Path, lump_name: str, relative: str) -> None:
+	if not wad_path.is_file():
+		return
+
+	with wad_path.open("rb") as wad:
+		header = wad.read(12)
+		if len(header) != 12:
+			return
+		magic, lump_count, dir_offset = struct.unpack("<4sii", header)
+		if magic not in (b"WAD2", b"WAD3") or lump_count < 1:
+			return
+
+		wad.seek(dir_offset)
+		for _ in range(lump_count):
+			entry = wad.read(32)
+			if len(entry) != 32:
+				return
+			filepos, disksize, _size, _type, compression, name = struct.unpack(
+				"<iiibbxx16s", entry
+			)
+			name = name.split(b"\0", 1)[0].decode("latin-1")
+			if name.lower() != lump_name.lower() or compression:
+				continue
+
+			wad.seek(filepos)
+			data = wad.read(disksize)
+			destination = output / relative
+			destination.parent.mkdir(parents=True, exist_ok=True)
+			destination.write_bytes(data)
+			return
+
+
+def write_smoke_overrides(output: Path, smoke_map: str) -> None:
+	# The full Half-Life skill.cfg is large enough to stall early GameCube smoke
+	# boot while the cvar/config path is still under bring-up. Keep the smoke
+	# disc focused on reaching map load; full skill data remains in the user's
+	# source asset tree and regular disc builds.
+	(output / "skill.cfg").write_text('skill "1"\n', encoding="ascii")
+	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
+	(output / "config.cfg").write_text("\n", encoding="ascii")
+	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
+	(output / "gamecube.cfg").write_text(f"map {Path(smoke_map).stem}\n", encoding="ascii")
+
+
+def smoke_map_resources(map_path: Path) -> set[str]:
+	blob = map_path.read_bytes()
+	resources: set[str] = set()
+
+	for match in re.finditer(rb'[\w./-]+\.(?:mdl|spr|wav|wad)', blob, re.IGNORECASE):
+		name = match.group(0).decode("latin-1").replace("\\", "/").lower()
+		if name.endswith(".wav") and not name.startswith("sound/"):
+			name = f"sound/{name}"
+		elif name.endswith(".wad"):
+			name = Path(name).name
+		resources.add(name)
+
+	return resources
+
+
+def stage_smoke_data(source: Path, output: Path, smoke_map: str) -> Path:
+	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
+	map_relative = f"maps/{map_name}"
+	map_source = source / map_relative
+	if not map_source.is_file():
+		raise FileNotFoundError(f"smoke map does not exist: {map_source}")
+
+	output.mkdir(parents=True, exist_ok=True)
+	for relative in SMOKE_CONFIG_FILES:
+		copy_if_present(source, output, relative)
+	write_smoke_overrides(output, smoke_map)
+	for relative in SMOKE_HUD_SPRITES:
+		copy_if_present(source, output, relative)
+	for relative in SMOKE_PRECACHE_MODELS:
+		copy_if_present(source, output, relative)
+	for relative in SMOKE_SOUND_DIRS:
+		copy_tree_if_present(source, output, relative)
+	for source_relative, alias_relative in SMOKE_CASE_ALIASES.items():
+		copy_alias_if_present(output, source_relative, alias_relative)
+	extract_wad_lump(source / "gfx.wad", output, "conchars", "gfx/conchars")
+
+	events = source / "events"
+	if events.is_dir():
+		for event in sorted(events.glob("*.sc")):
+			copy_if_present(source, output, f"events/{event.name}")
+
+	copy_if_present(source, output, map_relative)
+	resources = smoke_map_resources(map_source)
+	for resource in sorted(resources):
+		copy_if_present(source, output, resource)
+
+	(output / "custom").mkdir(exist_ok=True)
+	(output / "maps").mkdir(exist_ok=True)
+	return output
 
 
 def build_disc(
@@ -229,9 +490,10 @@ def build_disc(
 	output_path: Path,
 	apploader_source: Path,
 	apploader_linker: Path,
+	bootstrap_recursive: bool = False,
 ) -> None:
 	output_path.parent.mkdir(parents=True, exist_ok=True)
-	build_iso9660(data, extras, output_path)
+	build_iso9660(data, extras, output_path, bootstrap_recursive)
 	iso9660_size = output_path.stat().st_size
 	dol_size = dol.stat().st_size
 	dol_offset = align(iso9660_size, 0x800)
@@ -299,6 +561,11 @@ def main() -> None:
 	parser.add_argument("--extras", type=Path, default=Path("OUT/valve/extras.pk3"))
 	parser.add_argument("--output", type=Path, default=Path("OUT/xash3d-gc.iso"))
 	parser.add_argument(
+		"--smoke-map",
+		metavar="MAP",
+		help="stage only the files needed for a bounded legal local map smoke test",
+	)
+	parser.add_argument(
 		"--apploader-source", type=Path, default=script_dir / "gamecube-apploader.c"
 	)
 	parser.add_argument(
@@ -310,14 +577,27 @@ def main() -> None:
 		if not path.exists():
 			parser.error(f"required path does not exist: {path}")
 	extras = args.extras if args.extras.exists() else None
-	build_disc(
-		args.dol,
-		args.data,
-		extras,
-		args.output,
-		args.apploader_source,
-		args.apploader_linker,
-	)
+	if args.smoke_map:
+		with tempfile.TemporaryDirectory(prefix="xash3d-gc-smoke-data-") as temp:
+			smoke_data = stage_smoke_data(args.data, Path(temp) / "valve", args.smoke_map)
+			build_disc(
+				args.dol,
+				smoke_data,
+				extras,
+				args.output,
+				args.apploader_source,
+				args.apploader_linker,
+				bootstrap_recursive=True,
+			)
+	else:
+		build_disc(
+			args.dol,
+			args.data,
+			extras,
+			args.output,
+			args.apploader_source,
+			args.apploader_linker,
+		)
 
 
 if __name__ == "__main__":

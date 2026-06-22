@@ -542,7 +542,13 @@ static qboolean R_AllocScreen( void );
 
 qboolean R_InitBlit( qboolean glblit )
 {
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer blit init begin\n" );
+#endif
 	R_BuildBlendMaps();
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer blend maps ready\n" );
+#endif
 
 #if !XASH_GAMECUBE
 	if( glblit && swblit.gl1 )
@@ -572,6 +578,10 @@ static qboolean R_AllocScreen( void )
 {
 	int w, h;
 
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc begin\n" );
+#endif
+
 	if( gpGlobals->width < 128 )
 		gpGlobals->width = 128;
 	if( gpGlobals->height < 128 )
@@ -595,6 +605,9 @@ static qboolean R_AllocScreen( void )
 		return false;
 
 	R_BuildScreenMap();
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen map ready\n" );
+#endif
 	vid.width = gpGlobals->width;
 	vid.height = gpGlobals->height;
 	vid.rowbytes = gpGlobals->width; // rowpixels
@@ -605,6 +618,10 @@ static qboolean R_AllocScreen( void )
 	if( vid.buffer )
 		free( vid.buffer );
 	vid.buffer = malloc( vid.width * vid.height * sizeof( pixel_t ));
+
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc ready\n" );
+#endif
 
 	return true;
 }
@@ -842,4 +859,3 @@ qboolean GAME_EXPORT VID_ScreenShot( const char *filename, int shot_type )
 
 	return result;
 }
-

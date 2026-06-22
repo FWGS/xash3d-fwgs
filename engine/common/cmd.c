@@ -1238,6 +1238,12 @@ static void Cmd_ExecScript( const char *filename )
 		return;
 	}
 
+	if( len == 0 )
+	{
+		Mem_Free( f );
+		return;
+	}
+
 	if( f[len - 1] != '\n' )
 	{
 		Cbuf_InsertTextLen( f, len, len + 1 );

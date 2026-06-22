@@ -1347,11 +1347,13 @@ qboolean GAME_EXPORT R_Init( void )
 #if XASH_GAMECUBE
 	glblit = false;
 
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer video init begin\n" );
 	if( !gEngfuncs.R_Init_Video( REF_GX ))
 	{
 		gEngfuncs.R_Free_Video();
 		return false;
 	}
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer video init ready\n" );
 #else
 	glblit = !!gEngfuncs.Sys_CheckParm( "-glblit" );
 
@@ -1384,8 +1386,14 @@ qboolean GAME_EXPORT R_Init( void )
 		gEngfuncs.R_Free_Video();
 		return false;
 	}
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer blit init ready\n" );
+#endif
 
 	R_InitImages();
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images ready\n" );
+#endif
 	// init draw stack
 	tr.draw_list = &tr.draw_stack[0];
 	tr.draw_stack_pos = 0;
@@ -1394,8 +1402,14 @@ qboolean GAME_EXPORT R_Init( void )
 	qfrustum.view_clipplanes[1].leftedge = qfrustum.view_clipplanes[2].leftedge = qfrustum.view_clipplanes[3].leftedge = false;
 	qfrustum.view_clipplanes[0].rightedge = qfrustum.view_clipplanes[2].rightedge = qfrustum.view_clipplanes[3].rightedge = false;
 	R_StudioInit();
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready\n" );
+#endif
 	R_InitTurb();
 	GL_InitRandomTable();
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init ready\n" );
+#endif
 
 	return true;
 }
@@ -1531,4 +1545,3 @@ int CL_FxBlend( cl_entity_t *e )
 
 	return blend;
 }
-

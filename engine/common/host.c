@@ -661,7 +661,9 @@ void Host_Frame( double time )
 	Host_GetCommands (); // dedicated in
 	Host_ServerFrame (); // server frame
 	Host_ClientFrame (); // client frame
+#if !XASH_GAMECUBE
 	HTTP_Run();			 // both server and client
+#endif
 	XRcon_Frame();
 
 	host.framecount++;
@@ -1231,12 +1233,19 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	}
 
 	SV_Init();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server init ready\n" );
+#endif
 	CL_Init();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: engine subsystems ready\n" );
 #endif
 
+#if !XASH_GAMECUBE
 	HTTP_Init();
+#else
+	Con_Reportf( "Xash3D GameCube: HTTP disabled\n" );
+#endif
 	SoundList_Init();
 
 	if( Host_IsDedicated( ))
@@ -1274,16 +1283,23 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			Cbuf_AddTextf( "exec %s.rc\n", GI->gamefolder );
 		Cbuf_Execute();
 
-		if( !host.config_executed )
-		{
-			Cbuf_AddText( "exec config.cfg\n" );
-			Cbuf_Execute();
-		}
+			if( !host.config_executed )
+			{
+				Cbuf_AddText( "exec config.cfg\n" );
+				Cbuf_Execute();
+			}
 
-		// exec all files from userconfig.d
-		Cbuf_AddText( "userconfigd\n" );
-		Cbuf_Execute();
-		break;
+			// exec all files from userconfig.d
+#if XASH_GAMECUBE
+			if( Sys_CheckParm( "-gcmap" ))
+				Con_Reportf( "Xash3D GameCube: userconfigd skipped\n" );
+			else
+#endif
+			{
+				Cbuf_AddText( "userconfigd\n" );
+				Cbuf_Execute();
+			}
+			break;
 	case HOST_DEDICATED:
 		// allways parse commandline in dedicated-mode
 		host.stuffcmds_pending = true;
@@ -1292,6 +1308,17 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	host.change_game = false;	// done
 	Cbuf_ExecStuffCmds();	// execute stuffcmds (commandline)
+#if XASH_GAMECUBE
+	{
+		char gcmap[MAX_QPATH];
+		if( Sys_GetParmFromCmdLine( "-gcmap", gcmap ))
+		{
+			Con_Reportf( "Xash3D GameCube: queue map %s\n", gcmap );
+			Cbuf_AddTextf( "map %s\n", gcmap );
+			Cbuf_Execute();
+		}
+	}
+#endif
 	SCR_CheckStartupVids();	// must be last
 
 #ifndef XASH_DEDICATED

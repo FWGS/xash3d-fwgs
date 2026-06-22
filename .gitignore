@@ -383,6 +383,7 @@ GEMINI.md
 
 # game data
 OUT/*.iso
+OUT/hlsdk-gamecube/
 game_data/
 hl/
 hl1sdk/

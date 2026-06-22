@@ -583,12 +583,21 @@ static qboolean R_LoadProgs( const char *name )
 		Con_Reportf( "%s: can't init renderer!\n", __func__ ); //, ref.dllFuncs.R_GetInitError() );
 		return false;
 	}
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: renderer module init returned\n" );
+#endif
 
 	Cvar_FullSet( "host_refloaded", "1", FCVAR_READ_ONLY );
 	ref.initialized = true;
 
 	R_CreateBuiltinTextures();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: renderer builtins ready\n" );
+#endif
 	CL_FillTriAPI( &gTriApi );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: renderer triapi ready\n" );
+#endif
 
 	return true;
 }

@@ -1002,7 +1002,13 @@ void SV_Init( void )
 
 	SV_InitFilter();
 	SV_ClearGameState ();	// delete all temporary *.hl files
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server game init begin\n" );
+#endif
 	SV_InitGame( GI->gamemode != GAME_SINGLEPLAYER_ONLY );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server game init ready\n" );
+#endif
 }
 
 /*

@@ -3774,29 +3774,73 @@ void CL_Init( void )
 		return; // nothing running on the client
 
 	CL_InitLocal();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client local init ready\n" );
+#endif
 
 	VID_Init();	// init video
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client video init ready\n" );
+#endif
 
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client datagram init ready\n" );
+#endif
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client library path %s\n", libpath );
+	Con_Reportf( "Xash3D GameCube: client sound init begin\n" );
+#endif
 
-	S_Init();	// init sound
-	Voice_Init( VOICE_DEFAULT_CODEC, 3, true ); // init voice (do not open the device)
+	if( Sys_CheckParm( "-nosound" ))
+	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: client sound disabled\n" );
+#endif
+	}
+	else
+	{
+		S_Init();	// init sound
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: client sound init ready\n" );
+#endif
+		Voice_Init( VOICE_DEFAULT_CODEC, 3, true ); // init voice (do not open the device)
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: client voice init ready\n" );
+#endif
+	}
 
-	ID_Init();
-	SteamBroker_Init();
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		Con_Reportf( "Xash3D GameCube: client identity skipped\n" );
+		Con_Reportf( "Xash3D GameCube: steam broker skipped\n" );
+	}
+	else
+#endif
+	{
+		ID_Init();
+		SteamBroker_Init();
+	}
 
 	// client must be always initialized last so it can fetch all cvars
 	if( !CL_LoadProgs( libpath ))
 		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client progs ready\n" );
+#endif
 
 	cls.build_num = 0;
 	cls.initialized = true;
 	cl.maxclients = 1; // allow to drawing player in menu
 	cls.olddemonum = -1;
 	cls.demonum = -1;
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client init ready\n" );
+#endif
 }
 
 /*

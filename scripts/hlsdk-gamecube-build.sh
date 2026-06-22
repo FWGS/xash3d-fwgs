@@ -51,6 +51,12 @@ if [[ -s "$SERVER_ARCHIVE" && -x "$OBJCOPY" ]]; then
 		--redefine-sym VectorAngles=gamecube_hlsdk_VectorAngles \
 		"$SERVER_ARCHIVE"
 fi
+if [[ -s "$SERVER_ARCHIVE" && -x "$NM" ]]; then
+	python3 "$ROOT/scripts/generate-hlsdk-gamecube-exports.py" \
+		--hlsdk-dir "$HLSDK_DIR" \
+		--archive "$SERVER_ARCHIVE" \
+		--output "$DESTDIR/$GAMEDIR/dlls/gamecube_server_entity_exports.inc"
+fi
 if [[ -s "$CLIENT_ARCHIVE" && -x "$OBJCOPY" && -x "$NM" ]]; then
 	rename_map="$(mktemp "${TMPDIR:-/tmp}/hlsdk-gamecube-client-symbols.XXXXXX")"
 	"$NM" -g --defined-only "$CLIENT_ARCHIVE" | awk 'NF >= 3 { print $3 }' | sort -u |

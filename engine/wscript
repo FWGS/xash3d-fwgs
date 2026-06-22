@@ -217,6 +217,8 @@ def build(bld):
 		hlsdk_server = os.path.join(hlsdk_dest, 'valve', 'dlls', 'libhl_gamecube_ppc.a')
 		hlsdk_client = os.path.join(hlsdk_dest, 'valve', 'cl_dlls', 'libclient_gamecube_ppc.a')
 		hlsdk_vcs = os.path.join(hlsdk_dest, 'lib', 'libvcs_info.a')
+		hlsdk_server_exports = os.path.join(os.path.dirname(hlsdk_server),
+			'gamecube_server_entity_exports.inc')
 		has_hlsdk_server = os.path.isfile(hlsdk_server)
 		has_hlsdk_client = os.path.isfile(hlsdk_client)
 		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-logc', '-lm', '-lfat']
@@ -242,6 +244,11 @@ def build(bld):
 				bld.env.STLIB_HLSDK_GAMECUBE += ['vcs_info']
 			libs += ['HLSDK_GAMECUBE']
 			gamecube_defines += ['XASH_GAMECUBE_HLSDK_SERVER_STATIC=1']
+			if os.path.isfile(hlsdk_server_exports):
+				includes += [os.path.dirname(hlsdk_server_exports)]
+				gamecube_defines += ['XASH_GAMECUBE_HLSDK_ENTITY_EXPORTS=1']
+			else:
+				Logs.warn('GameCube HLSDK entity export list not found under %s' % hlsdk_dest)
 			source += [bld.path.parent.find_node('stub/server/server_export.c')]
 		else:
 			Logs.warn('GameCube HLSDK static archives not found under %s; using stubs' % hlsdk_dest)

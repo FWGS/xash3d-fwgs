@@ -72,6 +72,9 @@ typedef int qboolean;
 #if XASH_LOW_MEMORY == 1 || XASH_PSP
 	#define MAX_QPATH 48
 	#define MAX_MODS  16
+#elif XASH_LOW_MEMORY == 2 && XASH_GAMECUBE
+	#define MAX_QPATH 48 // Half-Life resource names routinely exceed 32 bytes
+	#define MAX_MODS  4
 #elif XASH_LOW_MEMORY == 2
 	#define MAX_QPATH 32 // should be enough for singleplayer
 	#define MAX_MODS  4

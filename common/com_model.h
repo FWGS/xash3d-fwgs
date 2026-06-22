@@ -214,8 +214,13 @@ typedef struct mleaf_s
 	struct efrag_s	*efrags;
 
 	msurface_t	**firstmarksurface;
+#if XASH_GAMECUBE
+	unsigned short	nummarksurfaces;
+	short		cluster;		// helper to acess to uncompressed visdata
+#else
 	int		nummarksurfaces;
 	int		cluster;		// helper to acess to uncompressed visdata
+#endif
 	byte		ambient_sound_level[NUM_AMBIENTS];
 } mleaf_t;
 
@@ -226,19 +231,24 @@ typedef struct mextrasurf_s
 	vec3_t		origin;		// surface origin
 	struct msurface_s	*surf;		// upcast to surface
 
+#if !XASH_GAMECUBE
 	// extended light info
 	int		dlight_s, dlight_t;	// gl lightmap coordinates for dynamic lightmaps
+#endif
 
 	short		lightmapmins[2];	// lightmatrix
 	short		lightextents[2];
 	float		lmvecs[2][4];
 
 	color24		*deluxemap;	// note: this is the actual deluxemap data for this surface
+#if !XASH_GAMECUBE
 	byte		*shadowmap;	// note: occlusion map for this surface
 // begin userdata
 	struct msurface_s	*lightmapchain;	// lightmapped polys
 	struct mextrasurf_s	*detailchain;	// for detail textures drawing
+#endif
 	mfacebevel_t	*bevel;		// for exact face traceline
+#if !XASH_GAMECUBE
 	struct mextrasurf_s	*lumachain;	// draw fullbrights
 	struct cl_entity_s	*parent;		// upcast to owner entity
 
@@ -251,6 +261,9 @@ typedef struct mextrasurf_s
 	int		firstvertex;	// fisrt look up in tr.tbn_vectors[], then acess to world->vertexes[]
 
 	intptr_t	reserved[32];	// just for future expansions or mod-makers
+#else
+	intptr_t	reserved[4];	// enough for software/GX mip cache owners
+#endif
 } mextrasurf_t;
 
 #ifdef SUPPORT_HL25_EXTENDED_STRUCTS
@@ -277,7 +290,11 @@ struct msurface_s
 	short		texturemins[2];
 	short		extents[2];
 
+#if XASH_GAMECUBE
+	short		light_s, light_t;	// gl lightmap coordinates
+#else
 	int		light_s, light_t;	// gl lightmap coordinates
+#endif
 
 	glpoly2_t		*polys;		// multiple if warped
 	struct msurface_s	*texturechain;
@@ -289,9 +306,13 @@ struct msurface_s
 	int		dlightbits;	// dynamically generated. Indicates if the surface illumination
 					// is modified by an animated light.
 
-	int		lightmaptexturenum;
+	short		lightmaptexturenum;
 	byte		styles[MAXLIGHTMAPS];
+#if XASH_GAMECUBE
+	unsigned short	cached_light[MAXLIGHTMAPS];	// values currently used in lightmap
+#else
 	int		cached_light[MAXLIGHTMAPS];	// values currently used in lightmap
+#endif
 	mextrasurf_t	*info;		// pointer to surface extradata (was cached_dlight)
 
 	color24		*samples;		// note: this is the actual lightmap data for this surface
@@ -583,7 +604,13 @@ typedef struct
 #define MAX_REQUESTS	64
 
 STATIC_CHECK_SIZEOF( mnode_t, 52, 72 );
+#if XASH_GAMECUBE
+STATIC_CHECK_SIZEOF( mleaf_t, 56, 80 );
+STATIC_CHECK_SIZEOF( mextrasurf_t, 104, 384 );
+#else
+STATIC_CHECK_SIZEOF( mleaf_t, 64, 96 );
 STATIC_CHECK_SIZEOF( mextrasurf_t, 324, 496 );
+#endif
 STATIC_CHECK_SIZEOF( decal_t, 60, 88 );
 STATIC_CHECK_SIZEOF( mfaceinfo_t, 176, 304 );
 

@@ -1977,6 +1977,9 @@ S_Init
 */
 qboolean S_Init( void )
 {
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sound cvar init begin\n" );
+#endif
 	Cvar_RegisterVariable( &s_volume );
 	Cvar_RegisterVariable( &s_musicvolume );
 	Cvar_RegisterVariable( &s_mixahead );
@@ -1988,6 +1991,9 @@ qboolean S_Init( void )
 	Cvar_RegisterVariable( &s_test );
 	Cvar_RegisterVariable( &s_samplecount );
 	Cvar_RegisterVariable( &s_warn_late_precache );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sound cvar init ready\n" );
+#endif
 
 	if( Sys_CheckParm( "-nosound" ))
 	{
@@ -2012,12 +2018,18 @@ qboolean S_Init( void )
 
 	sndpool = Mem_AllocPool( "Sound Zone" );
 	snd.backend_name = "None";
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sound dma init begin\n" );
+#endif
 	if( !SNDDMA_Init( ))
 	{
 		Con_Printf( "Audio: sound system can't be initialized\n" );
 		Mem_FreePool( &sndpool );
 		return false;
 	}
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sound dma init ready\n" );
+#endif
 
 	snd.soundtime = 0;
 	snd.paintedtime = 0;
@@ -2025,10 +2037,16 @@ qboolean S_Init( void )
 	// clear ambient sounds
 	memset( snd.ambient_sfx, 0, sizeof( snd.ambient_sfx ));
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sound effects init begin\n" );
+#endif
 	SX_Init ();
 	S_StopAllSounds ( true );
 	S_InitSounds ();
 	VOX_Init ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sound effects init ready\n" );
+#endif
 
 	return true;
 }

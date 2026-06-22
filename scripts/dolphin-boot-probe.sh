@@ -8,6 +8,7 @@ ISO_PATH="$ROOT/OUT/xash3d-gc.iso"
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
+SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
 
 mkdir -p "$USER_DIR/Config"
 
@@ -25,10 +26,10 @@ cat > "$USER_DIR/Config/Logger.ini" <<'EOF'
 [Logs]
 BOOT = True
 CORE = True
-DVD = True
+DVD = False
 OSREPORT = True
 OSREPORT_HLE = True
-PowerPC = True
+PowerPC = False
 [Options]
 Verbosity = 4
 WriteToConsole = True
@@ -37,7 +38,11 @@ WriteToWindow = False
 EOF
 
 echo "==> Building GameCube disc image..."
-if ! python3 scripts/build-gamecube-disc.py --output "$ISO_PATH"; then
+BUILD_ARGS=(--output "$ISO_PATH")
+if [[ -n "$SMOKE_MAP" ]]; then
+	BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")
+fi
+if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
     echo "FAIL: Disc build failed."
     exit 1
 fi
@@ -76,13 +81,28 @@ fi
 echo "==> Analyzing probe results..."
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
+MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
+LOG_FILES=("$LOG_DIR/stdout.log" "$LOG_DIR/stderr.log")
 GUEST_FOUND=0
 READY_FOUND=0
-grep -rqsF "$GUEST_MARKER" "$LOG_DIR/" && GUEST_FOUND=1
-grep -rqsF "$READY_MARKER" "$LOG_DIR/" && READY_FOUND=1
+MAP_FOUND=0
+grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
+grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
+if [[ -n "$SMOKE_MAP" ]]; then
+	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
+fi
 
-if (( READY_FOUND )); then
-	if grep -rEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "$LOG_DIR/"; then
+if (( MAP_FOUND )); then
+	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
+		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
+		echo "Logs: $LOG_DIR"
+		exit 3
+	fi
+	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube."
+	echo "Logs: $LOG_DIR"
+	exit 0
+elif (( READY_FOUND )) && [[ -z "$SMOKE_MAP" ]]; then
+	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
 		echo "GUEST_FAILURE: Engine readiness was observed, followed by a guest error."
 		echo "Logs: $LOG_DIR"
 		exit 3
@@ -90,24 +110,39 @@ if (( READY_FOUND )); then
 	echo "ENGINE_READY: Xash3D initialized its GameCube subsystems."
 	echo "Logs: $LOG_DIR"
 	exit 0
-elif (( GUEST_FOUND )) && grep -rEiq 'Host_Error|Sys_Error|Xash Error:|fatal error|out of memory' "$LOG_DIR/"; then
+elif (( GUEST_FOUND )) && grep -aEiq 'Host_Error|Sys_Error|Xash Error:|fatal error|out of memory' "${LOG_FILES[@]}"; then
 	echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
 	echo "Logs: $LOG_DIR"
 	exit 3
-elif grep -rEiq 'Unknown instruction|Invalid read from|IntCPU:|apploader.*(fail|error)' "$LOG_DIR/"; then
+elif grep -aEiq 'Unknown instruction|Invalid read from|IntCPU:|apploader.*(fail|error)' "${LOG_FILES[@]}"; then
 	echo "BOOT_FAILURE: Dolphin reached the disc but the guest image failed before bootstrap."
 	echo "Logs: $LOG_DIR"
 	exit 3
 elif (( DOLPHIN_EXIT == 124 || DOLPHIN_EXIT == 137 )); then
-	echo "INCONCLUSIVE_TIMEOUT: No guest bootstrap within ${TIMEOUT_SEC}s."
+	if [[ -n "$SMOKE_MAP" ]] && (( READY_FOUND )); then
+		echo "MAP_TIMEOUT: Engine readiness was observed, but ${SMOKE_MAP} did not load within ${TIMEOUT_SEC}s."
+			grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+	elif (( GUEST_FOUND )); then
+		echo "GUEST_TIMEOUT: Bootstrap was observed, but engine readiness was not reached within ${TIMEOUT_SEC}s."
+			grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+	else
+		echo "INCONCLUSIVE_TIMEOUT: No guest bootstrap within ${TIMEOUT_SEC}s."
+	fi
 	echo "Logs: $LOG_DIR"
 	exit 4
 elif (( DOLPHIN_EXIT != 0 )); then
-	echo "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
+	if (( GUEST_FOUND )); then
+		echo "GUEST_FAILURE: Dolphin exited $DOLPHIN_EXIT after guest bootstrap."
+	else
+		echo "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
+	fi
 	echo "Logs: $LOG_DIR"
-	exit 2
+	(( GUEST_FOUND )) && exit 3 || exit 2
 else
-	echo "INCONCLUSIVE_EXIT: Dolphin exited without reaching engine readiness."
+	echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without reaching engine readiness."
+	if (( GUEST_FOUND )); then
+			grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+	fi
 	echo "Logs: $LOG_DIR"
 	exit 4
 fi

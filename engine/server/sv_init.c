@@ -654,6 +654,9 @@ void SV_ActivateServer( int runPhysics )
 	else Con_Printf( "Game started\n" );
 
 	Log_Printf( "Started map \"%s\" (CRC \"%u\")\n", sv.name, sv.worldmapCRC );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
+#endif
 
 	// dedicated server purge unused resources here
 	if( Host_IsDedicated() )
@@ -826,7 +829,14 @@ static void SV_SetupClients( void )
 	Con_Reportf( "%s alloced by server packet entities\n", Q_memprint( sizeof( entity_state_t ) * svs.num_client_entities ));
 
 	// init network stuff
+#if XASH_GAMECUBE
+	if( svs.maxclients > 1 )
+		NET_Config(( svs.maxclients > 1 ), true );
+	else
+		Con_Reportf( "Xash3D GameCube: local server network skipped\n" );
+#else
 	NET_Config(( svs.maxclients > 1 ), true );
+#endif
 	svgame.numEntities = svs.maxclients + 1; // clients + world
 	ClearBits( sv_maxclients.flags, FCVAR_CHANGED );
 }
@@ -938,6 +948,13 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	if( !SV_InitGame( false ))
 		return false;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnodeltareinit" ))
+	{
+		Con_Reportf( "Xash3D GameCube: delta reinit skipped\n" );
+	}
+	else
+#endif
 	Delta_Init(); // re-initialize delta
 
 	// unlock sv_cheats in local game

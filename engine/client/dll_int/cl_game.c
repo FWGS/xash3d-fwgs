@@ -4075,17 +4075,31 @@ qboolean CL_LoadProgs( const char *name )
 	clgame.maxRemapInfos = 0; // will be alloc on first call CL_InitEdicts();
 	clgame.maxEntities = 2; // world + localclient (have valid entities not in game)
 
-	CL_InitCDAudio( "media/cdaudio.txt" );
-	CL_InitTitles( "titles.txt" );
-	CL_InitParticles( );
-	CL_InitViewBeams( );
-	CL_InitTempEnts( );
+	if( !Sys_CheckParm( "-nosound" ))
+		CL_InitCDAudio( "media/cdaudio.txt" );
+#if XASH_GAMECUBE
+	else
+		Con_Reportf( "Xash3D GameCube: CD audio init skipped\n" );
+#endif
+	if( Sys_CheckParm( "-nohud" ))
+	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: optional client visuals skipped\n" );
+#endif
+	}
+	else
+	{
+		CL_InitTitles( "titles.txt" );
+		CL_InitParticles( );
+		CL_InitViewBeams( );
+		CL_InitTempEnts( );
 
-	if( !R_InitRenderAPI( ))	// Xash3D extension
-		Con_Reportf( S_WARN "%s: couldn't get render API\n", __func__ );
+		if( !R_InitRenderAPI( ))	// Xash3D extension
+			Con_Reportf( S_WARN "%s: couldn't get render API\n", __func__ );
 
-	if( !Mobile_Init( )) // Xash3D FWGS extension: mobile interface
-		Con_Reportf( S_WARN "%s: couldn't get mobility API\n", __func__ );
+		if( !Mobile_Init( )) // Xash3D FWGS extension: mobile interface
+			Con_Reportf( S_WARN "%s: couldn't get mobility API\n", __func__ );
+	}
 
 	CL_InitEdicts( cl.maxclients );		// initailize local player and world
 	CL_InitClientMove();	// initialize pm_shared
@@ -4094,9 +4108,18 @@ qboolean CL_LoadProgs( const char *name )
 #endif
 
 	// initialize game
-	clgame.dllFuncs.pfnInit();
 #if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: client callback initialized\n" );
+	if( Sys_CheckParm( "-nohud" ))
+	{
+		Con_Reportf( "Xash3D GameCube: client callback skipped\n" );
+	}
+	else
+	{
+		clgame.dllFuncs.pfnInit();
+		Con_Reportf( "Xash3D GameCube: client callback initialized\n" );
+	}
+#else
+	clgame.dllFuncs.pfnInit();
 #endif
 
 	CL_InitStudioAPI();

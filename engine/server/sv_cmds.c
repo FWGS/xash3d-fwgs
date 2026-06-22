@@ -198,6 +198,10 @@ static void SV_Map_f( void )
 {
 	char	mapname[MAX_QPATH];
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: map command begin\n" );
+#endif
+
 	if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "map <mapname>\n" );
@@ -210,9 +214,15 @@ static void SV_Map_f( void )
 
 	if( !SV_ValidateMap( mapname ))
 		return;
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: map command validated %s\n", mapname );
+#endif
 
 	Cvar_DirectSet( &sv_hostmap, mapname );
 	COM_LoadLevel( mapname, false );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: map command queued %s\n", mapname );
+#endif
 }
 
 /*
