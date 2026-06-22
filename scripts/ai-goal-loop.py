@@ -36,11 +36,14 @@ GOAL_CONTEXT = {
 	"G07": (),
 	"G09": ("scripts/hlsdk-gamecube-probe.sh", "scripts/build-gamecube.sh",
 		"scripts/ai-verify.sh", "Documentation/development/engine-porting-guide.md"),
-	"G10": ("scripts/hlsdk-gamecube-probe.sh", "scripts/build-gamecube.sh",
+	"G10": ("scripts/hlsdk-gamecube-probe.sh", "scripts/hlsdk-gamecube-build.sh",
+		"scripts/build-gamecube.sh",
 		"scripts/gha/build_nswitch_docker.sh", "scripts/gha/build_psvita.sh"),
-	"G11": ("engine/platform/gamecube/dll_gamecube.c", "engine/wscript",
+	"G11": ("scripts/hlsdk-gamecube-probe.sh", "scripts/hlsdk-gamecube-build.sh",
+		"Documentation/development/engine-porting-guide.md"),
+	"G12": ("engine/platform/gamecube/dll_gamecube.c", "engine/wscript",
 		"stub/client/client_export.c", "stub/server/server_export.c"),
-	"G12": ("scripts/dolphin-boot-probe.sh", "scripts/build-gamecube-disc.py",
+	"G13": ("scripts/dolphin-boot-probe.sh", "scripts/build-gamecube-disc.py",
 		"engine/platform/gamecube/sys_gamecube.c"),
 }
 GOAL_COMMIT_SUBJECT = {
@@ -53,8 +56,9 @@ GOAL_COMMIT_SUBJECT = {
 	"G07": "feat: advance GameCube map loading",
 	"G09": "feat: probe GameCube HLSDK integration",
 	"G10": "feat: build GameCube HLSDK",
-	"G11": "feat: integrate GameCube HLSDK exports",
-	"G12": "test: smoke GameCube map loading",
+	"G11": "feat: add GameCube HLSDK hooks",
+	"G12": "feat: integrate GameCube HLSDK exports",
+	"G13": "test: smoke GameCube map loading",
 }
 
 

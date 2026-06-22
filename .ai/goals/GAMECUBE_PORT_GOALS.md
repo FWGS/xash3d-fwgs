@@ -104,7 +104,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Verified 2026-06-22: `scripts/hlsdk-gamecube-probe.sh` reports missing
   source as an actionable prerequisite instead of blocking the whole goal loop.
 
-## G10 [ ] Add a GameCube HLSDK build contract
+## G10 [x] Add a GameCube HLSDK build contract
 
 - Teach the local scripts how to invoke an external `hlsdk-portable` checkout
   for a GameCube `valve` build when the source exposes a GameCube target.
@@ -112,8 +112,19 @@ lines. Goals marked `MANUAL` are never selected automatically.
   or clearly record why static linking is required first.
 - Do not vendor HLSDK source or proprietary Valve assets.
 - Update the port plan with the exact build command and artifact names.
+- Verified 2026-06-22: `scripts/hlsdk-gamecube-build.sh` gates on the probe,
+  invokes `./waf configure -T release --gamecube --disable-werror`, and
+  installs to `OUT/hlsdk-gamecube` when the external source has GameCube hooks.
 
-## G11 [ ] Replace GameCube game stubs with real game exports
+## G11 [ ] Add or apply HLSDK GameCube build hooks
+
+- Track the minimum `hlsdk-portable` changes needed for `--gamecube`,
+  `__GAMECUBE__`, `XASH_GAMECUBE`, and `gamecube` library naming.
+- Keep those changes reproducible from this repository rather than relying on
+  unrecorded edits in the ignored `3rdparty/hlsdk-portable` checkout.
+- Run `scripts/hlsdk-gamecube-probe.sh` and show it reaches the build stage.
+
+## G12 [ ] Replace GameCube game stubs with real game exports
 
 - Wire the GameCube engine to use HLSDK client/server exports when they are
   built for PowerPC/GameCube.
@@ -121,7 +132,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   probes.
 - Record the selected linkage strategy and any ABI/endian fixes in the plan.
 
-## G12 [ ] Run a small-map Dolphin smoke test
+## G13 [ ] Run a small-map Dolphin smoke test
 
 - Boot a disc with legal local Half-Life assets and real GameCube game code.
 - Load one small map far enough to render a frame and accept controller input.

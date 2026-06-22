@@ -291,12 +291,26 @@ to the build contract.
 Next automatic goals:
 
 - G10: invoke an external `hlsdk-portable` checkout for a GameCube `valve`
-  build and install outputs into `OUT/`, or record the required static-link
-  step if loadable PowerPC modules are not viable.
-- G11: replace the GameCube client/server stubs with real HLSDK exports while
+  build and install outputs into `OUT/`.
+- G11: add or apply the missing GameCube target hooks in `hlsdk-portable`.
+- G12: replace the GameCube client/server stubs with real HLSDK exports while
   preserving the stubs for engine-only boot probes.
-- G12: boot a legal local Half-Life asset set in Dolphin, load a small map, and
+- G13: boot a legal local Half-Life asset set in Dolphin, load a small map, and
   capture frame/input/memory evidence.
+
+The build contract is:
+
+```sh
+scripts/hlsdk-gamecube-build.sh
+```
+
+It uses `HLSDK_PORTABLE_DIR` or `3rdparty/hlsdk-portable`, checks out
+`HLSDK_GAMECUBE_BRANCH` (default `mobile_hacks`) when the source is a Git
+checkout, configures `./waf` with `--gamecube --disable-werror`, and installs
+to `HLSDK_GAMECUBE_DESTDIR` (default `OUT/hlsdk-gamecube`). On the current
+2026-06-22 `mobile_hacks` checkout (`079f2387`), the probe exits `3` because
+GameCube hooks are still missing in HLSDK itself; G11 tracks making that
+dependency patch reproducible.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 
@@ -306,6 +320,7 @@ The `gamecube-platform` submodule branch (`663a601`) must also be published to a
 git status --short
 git -C 3rdparty/library_suffix diff --check
 scripts/hlsdk-gamecube-probe.sh || true
+scripts/hlsdk-gamecube-build.sh || true
 scripts/ai-verify.sh
 scripts/dolphin-boot-probe.sh
 ```
