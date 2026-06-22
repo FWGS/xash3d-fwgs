@@ -395,24 +395,32 @@ class PortWindow(QMainWindow):
 	def refresh_goals(self) -> None:
 		goals = self.read_goals()
 		self.goal_table.setRowCount(len(goals))
+		def blocked(body: str) -> bool:
+			return bool(re.search(r"(?im)^\s*-\s*Status:\s*BLOCKED\b", body))
 		complete = sum(state.lower() == "x" for _, state, _, _ in goals)
+		blocked_count = sum(blocked(body) for _, state, _, body in goals if state != "MANUAL")
 		automatic = sum(state != "MANUAL" for _, state, _, _ in goals)
-		active = next((goal for goal in goals if goal[1] == " "), None)
-		for row, (goal_id, state, title, _body) in enumerate(goals):
-			label = "MANUAL" if state == "MANUAL" else "DONE" if state.lower() == "x" else "ACTIVE" if active and goal_id == active[0] else "QUEUED"
+		active = next((goal for goal in goals
+			if goal[1] == " " and not blocked(goal[3])), None)
+		for row, (goal_id, state, title, body) in enumerate(goals):
+			is_blocked = blocked(body)
+			label = "MANUAL" if state == "MANUAL" else "DONE" if state.lower() == "x" \
+				else "BLOCKED" if is_blocked else "ACTIVE" if active and goal_id == active[0] else "QUEUED"
 			for column, value in enumerate((goal_id, label, title)):
 				item = QTableWidgetItem(value)
 				if label == "DONE":
 					item.setForeground(Qt.GlobalColor.cyan)
 				elif label == "ACTIVE":
 					item.setForeground(Qt.GlobalColor.yellow)
+				elif label == "BLOCKED":
+					item.setForeground(Qt.GlobalColor.red)
 				self.goal_table.setItem(row, column, item)
 		if active:
 			criteria = " ".join(line.lstrip("- ") for line in active[3].splitlines() if line.startswith("- "))
 			self.goal_summary.setText(f"ACTIVE {active[0]}  /  {active[2]}\n{criteria}")
 		else:
-			self.goal_summary.setText("All automatic goals complete; manual hardware validation remains.")
-		self.progress.setToolTip(f"{complete}/{automatic} automatic goals complete")
+			self.goal_summary.setText("All automatic goals complete or blocked; manual hardware validation remains.")
+		self.progress.setToolTip(f"{complete}/{automatic} automatic goals complete, {blocked_count} blocked")
 
 	def refresh_context(self) -> None:
 		root = self.repo()

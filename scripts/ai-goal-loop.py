@@ -81,6 +81,14 @@ class Goal:
 	def manual(self) -> bool:
 		return self.state == "MANUAL"
 
+	@property
+	def blocked(self) -> bool:
+		return bool(re.search(r"(?im)^\s*-\s*Status:\s*BLOCKED\b", self.body))
+
+	@property
+	def automatic_done(self) -> bool:
+		return self.complete or self.manual or self.blocked
+
 
 def parse_goals(path: Path) -> list[Goal]:
 	goals: list[Goal] = []
@@ -190,11 +198,13 @@ def main() -> int:
 
 	goals = parse_goals(goal_file)
 	if args.status_json:
-		print(json.dumps([asdict(goal) | {"complete": goal.complete, "manual": goal.manual} for goal in goals]))
+		print(json.dumps([asdict(goal) | {"complete": goal.complete,
+			"manual": goal.manual, "blocked": goal.blocked} for goal in goals]))
 		return 0
 	if args.list:
 		for goal in goals:
-			state = "manual" if goal.manual else "complete" if goal.complete else "pending"
+			state = "manual" if goal.manual else "blocked" if goal.blocked \
+				else "complete" if goal.complete else "pending"
 			print(f"{goal.goal_id}\t{state}\t{goal.title}")
 		return 0
 	if args.max_passes < 1:
@@ -210,11 +220,11 @@ def main() -> int:
 	attempts: dict[str, int] = {}
 	for pass_index in range(1, args.max_passes + 1):
 		goals = parse_goals(goal_file)
-		goal = next((item for item in goals if not item.complete and not item.manual), None)
+		goal = next((item for item in goals if not item.automatic_done), None)
 		if goal is None:
 			write_state(state_file, state="complete", pass_index=pass_index - 1,
-				message="All automatic goals are complete")
-			print("All automatic GameCube port goals are complete.")
+				message="All automatic goals are complete or blocked")
+			print("All automatic GameCube port goals are complete or blocked.")
 			return 0
 		attempts[goal.goal_id] = attempts.get(goal.goal_id, 0) + 1
 		print(f"\n{'=' * 72}\nGOAL PASS {pass_index}/{args.max_passes}: "
