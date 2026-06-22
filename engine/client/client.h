@@ -647,7 +647,7 @@ typedef struct
 	string   internetservers_customfilter;
 
 	// multiprotocol support
-	connprotocol_t legacymode;
+	connprotocol_t net_protocol;
 	int extensions;
 
 	netadr_t serveradr;

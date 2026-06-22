@@ -469,7 +469,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 	{
 		if( done_downloading && CL_PrecacheResources( ))
 		{
-			CL_RegisterResources( &msg, cls.legacymode );
+			CL_RegisterResources( &msg, cls.net_protocol );
 		}
 
 		Netchan_CreateFragments( &cls.netchan, &msg );
