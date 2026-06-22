@@ -336,12 +336,16 @@ engine/renderer symbols in a single static executable. After that rewrite,
 HLSDK server archive and registers `GiveFnptrsToDll`, `GetEntityAPI`, and
 `GetEntityAPI2` through the existing static module loader.
 
-The client side still uses the GameCube client stub. Attempting to link
-`libclient_gamecube_ppc.a` together with the server archive exposes broader
-symbol collisions (`gEngfuncs`, `cl_lw`, `m_pitch`, `m_yaw`, input callbacks,
-weapon/entity classes, and shared math). G13 tracks making the client archive
-safe through namespace isolation or reproducible archive post-processing rather
-than hiding collisions with broad linker flags.
+The client archive is now isolated too. `scripts/hlsdk-gamecube-build.sh`
+generates a `powerpc-eabi-objcopy --redefine-syms` map from every defined
+symbol in `libclient_gamecube_ppc.a`, rewriting them to
+`gamecube_hlsdk_client_*`. `stub/client/client_export.c` still registers the
+original client DLL export strings (`Initialize`, `HUD_Init`, `HUD_Redraw`,
+input callbacks, studio hooks, and so on), but the function pointers target the
+prefixed symbols. This keeps the real client code linked without colliding with
+engine input globals, renderer globals, server weapon/entity classes, or shared
+math symbols. `scripts/build-gamecube.sh` now links successfully with both real
+HLSDK archives present.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 

@@ -215,22 +215,33 @@ def build(bld):
 		hlsdk_dest = os.environ.get('HLSDK_GAMECUBE_DESTDIR',
 			os.path.join(bld.path.parent.abspath(), 'OUT', 'hlsdk-gamecube'))
 		hlsdk_server = os.path.join(hlsdk_dest, 'valve', 'dlls', 'libhl_gamecube_ppc.a')
+		hlsdk_client = os.path.join(hlsdk_dest, 'valve', 'cl_dlls', 'libclient_gamecube_ppc.a')
 		hlsdk_vcs = os.path.join(hlsdk_dest, 'lib', 'libvcs_info.a')
-		has_hlsdk = os.path.isfile(hlsdk_server)
+		has_hlsdk_server = os.path.isfile(hlsdk_server)
+		has_hlsdk_client = os.path.isfile(hlsdk_client)
 		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-logc', '-lm', '-lfat']
 		source += ['platform/stub/s_stub.c']
-		if has_hlsdk:
+		if has_hlsdk_server:
 			Logs.info('Using GameCube HLSDK server archive from %s' % hlsdk_dest)
 			bld.env.STLIBPATH_HLSDK_GAMECUBE = [
+				os.path.dirname(hlsdk_client),
 				os.path.dirname(hlsdk_server),
 				os.path.dirname(hlsdk_vcs),
 			]
-			bld.env.STLIB_HLSDK_GAMECUBE = ['hl_gamecube_ppc']
+			bld.env.STLIB_HLSDK_GAMECUBE = []
+			if has_hlsdk_client:
+				Logs.info('Using GameCube HLSDK client archive from %s' % hlsdk_dest)
+				bld.env.STLIB_HLSDK_GAMECUBE += ['client_gamecube_ppc']
+				gamecube_defines += ['XASH_GAMECUBE_HLSDK_STATIC=1']
+				source += [bld.path.parent.find_node('stub/client/client_export.c')]
+			else:
+				Logs.warn('GameCube HLSDK client archive not found under %s; using client stub' % hlsdk_dest)
+				source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
+			bld.env.STLIB_HLSDK_GAMECUBE += ['hl_gamecube_ppc']
 			if os.path.isfile(hlsdk_vcs):
 				bld.env.STLIB_HLSDK_GAMECUBE += ['vcs_info']
 			libs += ['HLSDK_GAMECUBE']
 			gamecube_defines += ['XASH_GAMECUBE_HLSDK_SERVER_STATIC=1']
-			source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
 			source += [bld.path.parent.find_node('stub/server/server_export.c')]
 		else:
 			Logs.warn('GameCube HLSDK static archives not found under %s; using stubs' % hlsdk_dest)

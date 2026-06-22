@@ -41,13 +41,26 @@ echo "Building HLSDK branch $BRANCH for GameCube..."
 )
 
 SERVER_ARCHIVE="$DESTDIR/$GAMEDIR/dlls/libhl_gamecube_ppc.a"
+CLIENT_ARCHIVE="$DESTDIR/$GAMEDIR/cl_dlls/libclient_gamecube_ppc.a"
 OBJCOPY="${DEVKITPRO:-/opt/devkitpro}/devkitPPC/bin/powerpc-eabi-objcopy"
+NM="${DEVKITPRO:-/opt/devkitpro}/devkitPPC/bin/powerpc-eabi-nm"
 if [[ -s "$SERVER_ARCHIVE" && -x "$OBJCOPY" ]]; then
 	"$OBJCOPY" \
 		--redefine-sym g_engfuncs=gamecube_hlsdk_g_engfuncs \
 		--redefine-sym gpGlobals=gamecube_hlsdk_gpGlobals \
 		--redefine-sym VectorAngles=gamecube_hlsdk_VectorAngles \
 		"$SERVER_ARCHIVE"
+fi
+if [[ -s "$CLIENT_ARCHIVE" && -x "$OBJCOPY" && -x "$NM" ]]; then
+	rename_map="$(mktemp "${TMPDIR:-/tmp}/hlsdk-gamecube-client-symbols.XXXXXX")"
+	"$NM" -g --defined-only "$CLIENT_ARCHIVE" | awk 'NF >= 3 { print $3 }' | sort -u |
+	while IFS= read -r symbol; do
+		printf '%s gamecube_hlsdk_client_%s\n' "$symbol" "$symbol" >>"$rename_map"
+	done
+	if [[ -s "$rename_map" ]]; then
+		"$OBJCOPY" --redefine-syms "$rename_map" "$CLIENT_ARCHIVE"
+	fi
+	rm -f "$rename_map"
 fi
 
 echo "HLSDK GameCube install complete: $DESTDIR/$GAMEDIR"

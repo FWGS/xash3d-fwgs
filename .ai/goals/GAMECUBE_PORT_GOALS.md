@@ -146,7 +146,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   remains enabled because the HLSDK client archive collides with server/engine
   symbols when linked into the same executable.
 
-## G13 [ ] Isolate or replace the GameCube client stub
+## G13 [x] Isolate or replace the GameCube client stub
 
 - Resolve static-link symbol collisions from
   `OUT/hlsdk-gamecube/valve/cl_dlls/libclient_gamecube_ppc.a`.
@@ -154,6 +154,11 @@ lines. Goals marked `MANUAL` are never selected automatically.
   patch over broad `--allow-multiple-definition` masking.
 - Wire real HLSDK client exports only when the engine still links cleanly.
 - Preserve the current client stub as fallback until the real client is safe.
+- Verified 2026-06-22: `scripts/hlsdk-gamecube-build.sh` rewrites every
+  defined client archive symbol to `gamecube_hlsdk_client_*`. The static module
+  export table registers the original client DLL export names while pointing at
+  the prefixed symbols, and `scripts/build-gamecube.sh` links successfully with
+  both real HLSDK server and client archives.
 
 ## G14 [ ] Run a small-map Dolphin smoke test
 
