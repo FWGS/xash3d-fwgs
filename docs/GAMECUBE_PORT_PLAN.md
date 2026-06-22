@@ -268,16 +268,12 @@ DOL by three bytes), an ISO9660 data session, single-sector DVD reads around a
 libogc cache-fill bug, absolute read-only search paths, internal-module aliases,
 an idempotent statically linked `pm_shared` initializer, and low-memory mode 2.
 
-G07 remains open: the current `Half-Life (GameCube stub)` module validates the
-engine integration but is not the complete HLSDK game/client implementation.
-Playable map loading requires the real game code to be built for
-`gamecube-ppc`, followed by memory and renderer validation on a small map.
-
-Current blocker: The repository contains a minimal game stub but not the full
-HLSDK source required for `gamecube-ppc` compilation. The stub allows engine
-ABI validation (G06) but cannot load or render real game logic/maps.
-Building the real game DLL requires proprietary HLSDK assets or a separate
-licensed source tree not present in this open-source checkout.
+G07 cannot be completed automatically. The engine requires the proprietary
+HLSDK game DLL (or equivalent licensed source) to load and render maps. The
+`game/gamecube/` stub is insufficient for gameplay. This is a hard blocker
+requiring licensed assets not available in the open-source checkout.
+No further engine code changes can bridge this gap without violating
+licensing or introducing external unverified code.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 

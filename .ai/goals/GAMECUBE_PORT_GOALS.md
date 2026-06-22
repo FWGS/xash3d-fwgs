@@ -90,6 +90,8 @@ lines. Goals marked `MANUAL` are never selected automatically.
   map state without real game logic. Full HLSDK source for PPC is not in the
   repository. This requires external assets or a separate licensed build step
   outside the scope of this open-source port automation.
+- Status: BLOCKED. Cannot proceed automatically. Requires proprietary HLSDK
+  assets or licensed source code not present in the repository.
 
 ## G08 [MANUAL] Validate on physical GameCube hardware
 
