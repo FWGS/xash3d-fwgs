@@ -23,6 +23,7 @@ bash -n scripts/ai-verify.sh scripts/ai-aider-pass.sh scripts/ai-loop.sh \
 python3 -c 'compile(open("scripts/build-gamecube-disc.py", encoding="utf-8").read(), "scripts/build-gamecube-disc.py", "exec")'
 python3 -c 'compile(open("scripts/xash3d-gc-aider-gui.py", encoding="utf-8").read(), "scripts/xash3d-gc-aider-gui.py", "exec")'
 python3 -c 'compile(open("scripts/ai-goal-loop.py", encoding="utf-8").read(), "scripts/ai-goal-loop.py", "exec")'
+python3 -c 'compile(open("scripts/hlsdk-gamecube-apply-patch.py", encoding="utf-8").read(), "scripts/hlsdk-gamecube-apply-patch.py", "exec")'
 
 if command -v aider >/dev/null 2>&1; then
 	aider --config .aider.conf.yml --help >/dev/null

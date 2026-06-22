@@ -301,16 +301,30 @@ Next automatic goals:
 The build contract is:
 
 ```sh
+scripts/hlsdk-gamecube-apply-patch.py
 scripts/hlsdk-gamecube-build.sh
 ```
 
-It uses `HLSDK_PORTABLE_DIR` or `3rdparty/hlsdk-portable`, checks out
-`HLSDK_GAMECUBE_BRANCH` (default `mobile_hacks`) when the source is a Git
-checkout, configures `./waf` with `--gamecube --disable-werror`, and installs
-to `HLSDK_GAMECUBE_DESTDIR` (default `OUT/hlsdk-gamecube`). On the current
-2026-06-22 `mobile_hacks` checkout (`079f2387`), the probe exits `3` because
-GameCube hooks are still missing in HLSDK itself; G11 tracks making that
-dependency patch reproducible.
+`scripts/hlsdk-gamecube-apply-patch.py` applies the local reproducible
+`hlsdk-portable` hook patch to the ignored external checkout. The patch adds
+`--gamecube`, `__GAMECUBE__`, `XASH_GAMECUBE`, and `gamecube` library naming.
+After applying it to `mobile_hacks` `079f2387`, the probe reports
+`gamecube hooks: present`.
+
+`scripts/hlsdk-gamecube-build.sh` uses `HLSDK_PORTABLE_DIR` or
+`3rdparty/hlsdk-portable`, checks out `HLSDK_GAMECUBE_BRANCH` (default
+`mobile_hacks`) when the source is a Git checkout, configures `./waf` with
+`--gamecube --disable-werror`, and installs to `HLSDK_GAMECUBE_DESTDIR`
+(default `OUT/hlsdk-gamecube`).
+
+Current 2026-06-22 evidence: the patched HLSDK checkout configures for
+`Target OS gamecube`, determines postfix `_gamecube_ppc`, and compiles 172/174
+tasks. It then fails linking `build/dlls/hl_gamecube_ppc.so` because
+devkitPPC/libogc attempts an executable-style bare-metal link and reports
+missing `main`, missing `__end__`, and read-only dynamic relocations. G12 must
+therefore build HLSDK game code as static archives or directly linked objects
+and register those exports in the GameCube engine while keeping the current
+stubs available for engine-only probes.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 
@@ -319,6 +333,7 @@ The `gamecube-platform` submodule branch (`663a601`) must also be published to a
 ```sh
 git status --short
 git -C 3rdparty/library_suffix diff --check
+scripts/hlsdk-gamecube-apply-patch.py
 scripts/hlsdk-gamecube-probe.sh || true
 scripts/hlsdk-gamecube-build.sh || true
 scripts/ai-verify.sh

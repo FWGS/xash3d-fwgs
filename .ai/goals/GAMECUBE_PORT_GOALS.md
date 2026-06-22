@@ -116,18 +116,26 @@ lines. Goals marked `MANUAL` are never selected automatically.
   invokes `./waf configure -T release --gamecube --disable-werror`, and
   installs to `OUT/hlsdk-gamecube` when the external source has GameCube hooks.
 
-## G11 [ ] Add or apply HLSDK GameCube build hooks
+## G11 [x] Add or apply HLSDK GameCube build hooks
 
 - Track the minimum `hlsdk-portable` changes needed for `--gamecube`,
   `__GAMECUBE__`, `XASH_GAMECUBE`, and `gamecube` library naming.
 - Keep those changes reproducible from this repository rather than relying on
   unrecorded edits in the ignored `3rdparty/hlsdk-portable` checkout.
 - Run `scripts/hlsdk-gamecube-probe.sh` and show it reaches the build stage.
+- Verified 2026-06-22: `scripts/hlsdk-gamecube-apply-patch.py` applies the
+  external source edits reproducibly. After applying it to `mobile_hacks`
+  `079f2387`, the probe reports `gamecube hooks: present` and
+  `scripts/hlsdk-gamecube-build.sh` configures for `Target OS gamecube`,
+  compiles 172/174 HLSDK tasks, and reaches the `hl_gamecube_ppc.so` link.
 
 ## G12 [ ] Replace GameCube game stubs with real game exports
 
-- Wire the GameCube engine to use HLSDK client/server exports when they are
-  built for PowerPC/GameCube.
+- Resolve the devkitPPC/libogc `hl_gamecube_ppc.so` linker failure by building
+  GameCube HLSDK server/client code as static archives or directly linked
+  objects instead of bare-metal shared libraries.
+- Wire the GameCube engine to use HLSDK client/server exports from that static
+  integration path.
 - Preserve the current stubs as an explicit fallback for engine-only boot
   probes.
 - Record the selected linkage strategy and any ABI/endian fixes in the plan.

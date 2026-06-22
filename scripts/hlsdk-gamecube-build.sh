@@ -19,7 +19,7 @@ if (( status != 0 )); then
 			;;
 		3)
 			echo "build: hlsdk-portable is present but lacks GameCube build hooks" >&2
-			echo "build: apply or upstream GameCube support before running this build" >&2
+			echo "build: run scripts/hlsdk-gamecube-apply-patch.py or upstream GameCube support" >&2
 			;;
 	esac
 	exit "$status"

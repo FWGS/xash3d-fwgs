@@ -40,9 +40,11 @@ GOAL_CONTEXT = {
 		"scripts/build-gamecube.sh",
 		"scripts/gha/build_nswitch_docker.sh", "scripts/gha/build_psvita.sh"),
 	"G11": ("scripts/hlsdk-gamecube-probe.sh", "scripts/hlsdk-gamecube-build.sh",
+		"scripts/hlsdk-gamecube-apply-patch.py",
 		"Documentation/development/engine-porting-guide.md"),
 	"G12": ("engine/platform/gamecube/dll_gamecube.c", "engine/wscript",
-		"stub/client/client_export.c", "stub/server/server_export.c"),
+		"stub/client/client_export.c", "stub/server/server_export.c",
+		"scripts/hlsdk-gamecube-build.sh", "scripts/hlsdk-gamecube-apply-patch.py"),
 	"G13": ("scripts/dolphin-boot-probe.sh", "scripts/build-gamecube-disc.py",
 		"engine/platform/gamecube/sys_gamecube.c"),
 }
