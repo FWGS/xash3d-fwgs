@@ -2084,10 +2084,14 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolea
 
 	if( legacy_format )
 	{
-		string address;
 		int mod;
 
-		Q_strncpy( address, MSG_ReadString( msg ), sizeof( address ));
+		// FIXME: this is invalid, `m` servers might be geniune 47 proto servers
+		// but many servers that reply with legacy format are 47/48
+		// so at least let the user to connect them
+		p = PROTOCOL_GOLDSRC_VERSION;
+
+		MSG_ReadString( msg ); // address
 		Q_strncpy( host, MSG_ReadString( msg ), sizeof( host ));
 		Q_strncpy( map, MSG_ReadString( msg ), sizeof( map ));
 		Q_strncpy( gamedir, MSG_ReadString( msg ), sizeof( gamedir ));
