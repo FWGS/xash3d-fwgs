@@ -1,0 +1,8 @@
+- name: openai/qwen-local
+  edit_format: diff
+  use_repo_map: false
+  weak_model_name: null
+  extra_params:
+    max_tokens: 2048
+    chat_template_kwargs:
+      enable_thinking: false

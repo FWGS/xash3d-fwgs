@@ -33,8 +33,7 @@ GOAL_CONTEXT = {
 		"engine/platform/gamecube/dll_gamecube.c"),
 	"G06": ("engine/platform/gamecube/sys_gamecube.c", "engine/host.c",
 		"filesystem/filesystem.c"),
-	"G07": ("engine/platform/gamecube/sys_gamecube.c", "engine/server/sv_init.c",
-		"ref/gx/r_main.c"),
+	"G07": ("engine/platform/gamecube/sys_gamecube.c", "engine/server/sv_init.c"),
 }
 GOAL_COMMIT_SUBJECT = {
 	"G01": "fix: resolve GameCube edict warning audit",
@@ -125,9 +124,8 @@ def task_for(goal: Goal, root: Path, attempt: int) -> str:
 	retry_instruction = ""
 	if attempt > 1:
 		retry_instruction = (
-			"A previous attempt produced no edit. Do not repeat analysis or ask for "
-			"context; make the smallest safe edit that advances or truthfully "
-			"reclassifies the goal.\n\n"
+			"Previous attempt made no edit. Make a concrete smallest safe patch; "
+			"do not ask for context.\n\n"
 		)
 	return f"""You are autonomously advancing the native Xash3D GameCube port.
 
@@ -140,33 +138,20 @@ Attempt on this goal: {attempt}
 Repository context:
 {git_context(root)}
 
-Read `.ai/goals/GAMECUBE_PORT_GOALS.md`, `docs/GAMECUBE_PORT_PLAN.md`, the
-latest diff, and the configured project rules. Make one coherent patch that
-materially advances this goal. Diagnose before editing and preserve all
-non-GameCube targets.
-
-The harness has preloaded the goal-relevant source files into Aider. Inspect
-them directly and use the repository map for related symbols. Do not stop to
-ask the user to add files that already exist in this checkout.
-You cannot execute shell commands in this pass. Do not respond with commands,
-requests for more context, or an investigation plan. Make the edits now. If
-the premise is disproven by the supplied evidence, correct the goal ledger and
-port plan rather than forcing an unnecessary engine change.
-There is no interactive human in this loop. Never ask a question or present
-options for approval. Resolve ambiguity with your best engineering judgment:
-prefer existing project patterns, then the smallest reversible change, then
-the option that leaves unsupported behavior explicit. Record assumptions in
-the port plan and proceed with edits.
+Make one coherent patch using the preloaded files. Preserve non-GameCube
+targets. Do not ask questions, propose commands, or stop at a plan. If the
+premise is disproven, update the goal ledger and port plan with the blocker
+instead of forcing an engine change.
+Do not narrate your investigation. Emit only the Aider edit blocks needed for
+the patch.
 
 Rules:
 - Keep the commit below 400 changed lines and do not delete tracked files.
 - Update `docs/GAMECUBE_PORT_PLAN.md` with commands and concrete evidence.
 - Update this goal's notes when useful.
-- Change `{goal.goal_id} [ ]` to `{goal.goal_id} [x]` only when every acceptance
-  criterion is actually demonstrated. Otherwise leave it unchecked and state
-  the next blocker in the port plan.
+- Mark `{goal.goal_id}` done only when every acceptance criterion is demonstrated.
+  Otherwise leave it unchecked and state the next blocker in the port plan.
 - Never mark MANUAL goals complete.
-- Run focused checks. The harness will run the full verifier and review gate.
 - Stop after this coherent patch; the goal runner decides what comes next.
 """
 

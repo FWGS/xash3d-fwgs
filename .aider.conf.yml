@@ -1,5 +1,6 @@
 model: openai/qwen-local
 openai-api-base: http://127.0.0.1:8072/v1
+model-settings-file: .ai/aider-model-settings.yml
 model-metadata-file: .ai/aider-model-metadata.json
 show-model-warnings: false
 
@@ -23,5 +24,3 @@ auto-test: false
 read:
   - .ai/prompts/PROJECT_RULES.md
   - .ai/prompts/PORTING_PATTERNS.md
-  - .ai/state/BLOCKERS.md
-  - .ai/state/DECISIONS.md
