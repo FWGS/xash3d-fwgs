@@ -45,7 +45,9 @@ GOAL_CONTEXT = {
 	"G12": ("engine/platform/gamecube/dll_gamecube.c", "engine/wscript",
 		"stub/client/client_export.c", "stub/server/server_export.c",
 		"scripts/hlsdk-gamecube-build.sh", "scripts/hlsdk-gamecube-apply-patch.py"),
-	"G13": ("scripts/dolphin-boot-probe.sh", "scripts/build-gamecube-disc.py",
+	"G13": ("engine/wscript", "stub/client/client_export.c",
+		"scripts/hlsdk-gamecube-build.sh", "scripts/hlsdk-gamecube-apply-patch.py"),
+	"G14": ("scripts/dolphin-boot-probe.sh", "scripts/build-gamecube-disc.py",
 		"engine/platform/gamecube/sys_gamecube.c"),
 }
 GOAL_COMMIT_SUBJECT = {
@@ -60,7 +62,8 @@ GOAL_COMMIT_SUBJECT = {
 	"G10": "feat: build GameCube HLSDK",
 	"G11": "feat: add GameCube HLSDK hooks",
 	"G12": "feat: integrate GameCube HLSDK exports",
-	"G13": "test: smoke GameCube map loading",
+	"G13": "feat: integrate GameCube HLSDK client",
+	"G14": "test: smoke GameCube map loading",
 }
 
 

@@ -293,9 +293,10 @@ Next automatic goals:
 - G10: invoke an external `hlsdk-portable` checkout for a GameCube `valve`
   build and install outputs into `OUT/`.
 - G11: add or apply the missing GameCube target hooks in `hlsdk-portable`.
-- G12: replace the GameCube client/server stubs with real HLSDK exports while
-  preserving the stubs for engine-only boot probes.
-- G13: boot a legal local Half-Life asset set in Dolphin, load a small map, and
+- G12: replace the GameCube server stub with real HLSDK exports while
+  preserving stubs for engine-only boot probes.
+- G13: isolate or replace the GameCube client stub.
+- G14: boot a legal local Half-Life asset set in Dolphin, load a small map, and
   capture frame/input/memory evidence.
 
 The build contract is:
@@ -318,13 +319,29 @@ After applying it to `mobile_hacks` `079f2387`, the probe reports
 (default `OUT/hlsdk-gamecube`).
 
 Current 2026-06-22 evidence: the patched HLSDK checkout configures for
-`Target OS gamecube`, determines postfix `_gamecube_ppc`, and compiles 172/174
-tasks. It then fails linking `build/dlls/hl_gamecube_ppc.so` because
-devkitPPC/libogc attempts an executable-style bare-metal link and reports
-missing `main`, missing `__end__`, and read-only dynamic relocations. G12 must
-therefore build HLSDK game code as static archives or directly linked objects
-and register those exports in the GameCube engine while keeping the current
-stubs available for engine-only probes.
+`Target OS gamecube`, determines postfix `_gamecube_ppc`, and now builds static
+archives instead of bare-metal shared libraries:
+
+```text
+OUT/hlsdk-gamecube/valve/dlls/libhl_gamecube_ppc.a
+OUT/hlsdk-gamecube/valve/cl_dlls/libclient_gamecube_ppc.a
+OUT/hlsdk-gamecube/lib/libvcs_info.a
+```
+
+`scripts/hlsdk-gamecube-build.sh` post-processes the server archive with
+`powerpc-eabi-objcopy --redefine-sym` for `g_engfuncs`, `gpGlobals`, and
+`VectorAngles`. Those are private to a dynamic game DLL, but collide with
+engine/renderer symbols in a single static executable. After that rewrite,
+`scripts/build-gamecube.sh` links the GameCube engine successfully with the real
+HLSDK server archive and registers `GiveFnptrsToDll`, `GetEntityAPI`, and
+`GetEntityAPI2` through the existing static module loader.
+
+The client side still uses the GameCube client stub. Attempting to link
+`libclient_gamecube_ppc.a` together with the server archive exposes broader
+symbol collisions (`gEngfuncs`, `cl_lw`, `m_pitch`, `m_yaw`, input callbacks,
+weapon/entity classes, and shared math). G13 tracks making the client archive
+safe through namespace isolation or reproducible archive post-processing rather
+than hiding collisions with broad linker flags.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 

@@ -166,6 +166,7 @@ def build(bld):
 	if bld.env.DISABLE_LIBBACKTRACE:
 		libs.remove( 'backtrace_custom' )
 	includes = ['server', 'client', 'client/vgui', 'common/soundlib', 'platform']
+	gamecube_defines = []
 
 	# basic build: dedicated only
 	source = bld.path.ant_glob(['common/*.c', 'common/imagelib/*.c', 'common/soundlib/*.c', 'server/*.c', 'common/http/*.c'])
@@ -211,12 +212,32 @@ def build(bld):
 		]
 	elif bld.env.DEST_OS == 'gamecube':
 		libs += ['filesystem_stdio', 'ref_gx']
-		bld.env.LDFLAGS += ['-liso9660', '-logc', '-lm', '-lfat']
+		hlsdk_dest = os.environ.get('HLSDK_GAMECUBE_DESTDIR',
+			os.path.join(bld.path.parent.abspath(), 'OUT', 'hlsdk-gamecube'))
+		hlsdk_server = os.path.join(hlsdk_dest, 'valve', 'dlls', 'libhl_gamecube_ppc.a')
+		hlsdk_vcs = os.path.join(hlsdk_dest, 'lib', 'libvcs_info.a')
+		has_hlsdk = os.path.isfile(hlsdk_server)
+		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-logc', '-lm', '-lfat']
 		source += ['platform/stub/s_stub.c']
-		source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
-		source += bld.path.parent.find_dir('stub/server').ant_glob('*.c')
-		source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_shared.c')
-		source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_math.c')
+		if has_hlsdk:
+			Logs.info('Using GameCube HLSDK server archive from %s' % hlsdk_dest)
+			bld.env.STLIBPATH_HLSDK_GAMECUBE = [
+				os.path.dirname(hlsdk_server),
+				os.path.dirname(hlsdk_vcs),
+			]
+			bld.env.STLIB_HLSDK_GAMECUBE = ['hl_gamecube_ppc']
+			if os.path.isfile(hlsdk_vcs):
+				bld.env.STLIB_HLSDK_GAMECUBE += ['vcs_info']
+			libs += ['HLSDK_GAMECUBE']
+			gamecube_defines += ['XASH_GAMECUBE_HLSDK_SERVER_STATIC=1']
+			source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
+			source += [bld.path.parent.find_node('stub/server/server_export.c')]
+		else:
+			Logs.warn('GameCube HLSDK static archives not found under %s; using stubs' % hlsdk_dest)
+			source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
+			source += bld.path.parent.find_dir('stub/server').ant_glob('*.c')
+			source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_shared.c')
+			source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_math.c')
 		includes += [
 			str(bld.path.parent.find_dir('stub/pm_shared')),
 			str(bld.path.parent.find_dir('pm_shared')),
@@ -297,6 +318,8 @@ def build(bld):
 
 		if bld.env.DEST_OS in ['nswitch', 'psvita', 'gamecube', 'emscripten']:
 			install_path = None
+
+		defines += gamecube_defines
 
 		linkflags = []
 

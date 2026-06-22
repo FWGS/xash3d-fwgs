@@ -34,6 +34,20 @@ echo "Building HLSDK branch $BRANCH for GameCube..."
 	cd "$HLSDK_DIR"
 	./waf configure -T release --gamecube --disable-werror
 	./waf build install --destdir="$DESTDIR"
+	if [[ -s build/game_shared/libvcs_info.a ]]; then
+		mkdir -p "$DESTDIR/lib"
+		cp build/game_shared/libvcs_info.a "$DESTDIR/lib/"
+	fi
 )
+
+SERVER_ARCHIVE="$DESTDIR/$GAMEDIR/dlls/libhl_gamecube_ppc.a"
+OBJCOPY="${DEVKITPRO:-/opt/devkitpro}/devkitPPC/bin/powerpc-eabi-objcopy"
+if [[ -s "$SERVER_ARCHIVE" && -x "$OBJCOPY" ]]; then
+	"$OBJCOPY" \
+		--redefine-sym g_engfuncs=gamecube_hlsdk_g_engfuncs \
+		--redefine-sym gpGlobals=gamecube_hlsdk_gpGlobals \
+		--redefine-sym VectorAngles=gamecube_hlsdk_VectorAngles \
+		"$SERVER_ARCHIVE"
+fi
 
 echo "HLSDK GameCube install complete: $DESTDIR/$GAMEDIR"

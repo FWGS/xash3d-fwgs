@@ -159,6 +159,22 @@ def main() -> int:
 		"elseif(XASH_NSWITCH)\n\tset(BUILDOS \"nswitch\")",
 		"elseif(XASH_GAMECUBE)\n\tset(BUILDOS \"gamecube\")\nelseif(XASH_NSWITCH)\n\tset(BUILDOS \"nswitch\")")
 
+	server_wscript = hlsdk / "dlls/wscript"
+	changed += replace(server_wscript,
+		"\tbld.shlib(\n"
+		"\t\tsource   = source,",
+		"\tbuilder = bld.stlib if bld.env.DEST_OS == 'gamecube' else bld.shlib\n"
+		"\tbuilder(\n"
+		"\t\tsource   = source,")
+
+	client_wscript = hlsdk / "cl_dll/wscript"
+	changed += replace(client_wscript,
+		"\tbld.shlib(\n"
+		"\t\tsource   = source,",
+		"\tbuilder = bld.stlib if bld.env.DEST_OS == 'gamecube' else bld.shlib\n"
+		"\tbuilder(\n"
+		"\t\tsource   = source,")
+
 	print(f"patch: applied GameCube HLSDK hooks ({changed} file edits)")
 	return 0
 

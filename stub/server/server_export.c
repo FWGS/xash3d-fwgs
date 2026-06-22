@@ -5,14 +5,18 @@
 extern void EXPORT GiveFnptrsToDll( enginefuncs_t *engfuncs, globalvars_t *pGlobals );
 extern int EXPORT GetEntityAPI( DLL_FUNCTIONS *pFunctionTable, int interfaceVersion );
 extern int EXPORT GetEntityAPI2( DLL_FUNCTIONS *pFunctionTable, int *interfaceVersion );
+#if !XASH_GAMECUBE_HLSDK_SERVER_STATIC
 extern void EXPORT custom( entvars_t *pev );
+#endif
 
 static dllexport_t gamecube_server_exports[] =
 {
 	{ "GiveFnptrsToDll", (void *)GiveFnptrsToDll },
 	{ "GetEntityAPI", (void *)GetEntityAPI },
 	{ "GetEntityAPI2", (void *)GetEntityAPI2 },
+#if !XASH_GAMECUBE_HLSDK_SERVER_STATIC
 	{ "custom", (void *)custom },
+#endif
 	{ NULL, NULL },
 };
 

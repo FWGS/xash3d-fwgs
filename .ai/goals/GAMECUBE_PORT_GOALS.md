@@ -82,7 +82,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Load one small map far enough to render a frame and accept controller input.
 - Record memory or allocation failures rather than hiding them.
 - Keep proprietary game data ignored and outside Git.
-- Status: BLOCKED. Deferred behind G09-G12.
+- Status: BLOCKED. Deferred behind G09-G14.
 - Evidence: Engine reaches console (G06), but the statically linked GameCube
   client/server modules are still stubs and cannot run real Half-Life maps.
 - Action: Use FWGS `hlsdk-portable` as the open portable game-code source. Keep
@@ -129,18 +129,33 @@ lines. Goals marked `MANUAL` are never selected automatically.
   `scripts/hlsdk-gamecube-build.sh` configures for `Target OS gamecube`,
   compiles 172/174 HLSDK tasks, and reaches the `hl_gamecube_ppc.so` link.
 
-## G12 [ ] Replace GameCube game stubs with real game exports
+## G12 [x] Replace the GameCube server stub with real HLSDK exports
 
 - Resolve the devkitPPC/libogc `hl_gamecube_ppc.so` linker failure by building
   GameCube HLSDK server/client code as static archives or directly linked
   objects instead of bare-metal shared libraries.
-- Wire the GameCube engine to use HLSDK client/server exports from that static
+- Wire the GameCube engine to use HLSDK server exports from that static
   integration path.
 - Preserve the current stubs as an explicit fallback for engine-only boot
   probes.
 - Record the selected linkage strategy and any ABI/endian fixes in the plan.
+- Verified 2026-06-22: `scripts/hlsdk-gamecube-build.sh` builds and installs
+  `OUT/hlsdk-gamecube/valve/dlls/libhl_gamecube_ppc.a`, post-processes module
+  private symbols with `powerpc-eabi-objcopy`, and `scripts/build-gamecube.sh`
+  links a GameCube engine using the real HLSDK server archive. The client stub
+  remains enabled because the HLSDK client archive collides with server/engine
+  symbols when linked into the same executable.
 
-## G13 [ ] Run a small-map Dolphin smoke test
+## G13 [ ] Isolate or replace the GameCube client stub
+
+- Resolve static-link symbol collisions from
+  `OUT/hlsdk-gamecube/valve/cl_dlls/libclient_gamecube_ppc.a`.
+- Prefer a reproducible archive post-processing step or client-only namespace
+  patch over broad `--allow-multiple-definition` masking.
+- Wire real HLSDK client exports only when the engine still links cleanly.
+- Preserve the current client stub as fallback until the real client is safe.
+
+## G14 [ ] Run a small-map Dolphin smoke test
 
 - Boot a disc with legal local Half-Life assets and real GameCube game code.
 - Load one small map far enough to render a frame and accept controller input.
