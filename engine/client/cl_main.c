@@ -2087,7 +2087,6 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolea
 		string address;
 		int mod;
 
-		p = MSG_ReadByte( msg );
 		Q_strncpy( address, MSG_ReadString( msg ), sizeof( address ));
 		Q_strncpy( host, MSG_ReadString( msg ), sizeof( host ));
 		Q_strncpy( map, MSG_ReadString( msg ), sizeof( map ));
