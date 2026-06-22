@@ -274,6 +274,7 @@ HLSDK game DLL (or equivalent licensed source) to load and render maps. The
 requiring licensed assets not available in the open-source checkout.
 No further engine code changes can bridge this gap without violating
 licensing or introducing external unverified code.
+G07 is marked blocked in the goal ledger.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 

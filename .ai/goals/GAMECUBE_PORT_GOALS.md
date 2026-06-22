@@ -82,16 +82,12 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Load one small map far enough to render a frame and accept controller input.
 - Record memory or allocation failures rather than hiding them.
 - Keep proprietary game data ignored and outside Git.
-- Current blocker: the linked `Half-Life (GameCube stub)` module proves the
-  engine ABI path but is not the complete HLSDK game DLL. Port/build the real
-  client and server game code for `gamecube-ppc` before claiming gameplay.
-- Evidence: The stub module (`game/gamecube/`) is a placeholder. The engine
-  successfully reaches the console (G06) but cannot transition to a playable
-  map state without real game logic. Full HLSDK source for PPC is not in the
-  repository. This requires external assets or a separate licensed build step
-  outside the scope of this open-source port automation.
-- Status: BLOCKED. Cannot proceed automatically. Requires proprietary HLSDK
-  assets or licensed source code not present in the repository.
+- Status: BLOCKED. Hard blocker: requires proprietary HLSDK source code.
+- Evidence: `game/gamecube/` is a stub. Engine reaches console (G06) but cannot
+  load maps without real game logic (DLL). HLSDK is not in this repository and
+  cannot be built for `gamecube-ppc` without licensed assets.
+- Action: Cannot proceed automatically. Requires external licensed HLSDK source
+  or pre-built binary. This is outside the scope of open-source automation.
 
 ## G08 [MANUAL] Validate on physical GameCube hardware
 
