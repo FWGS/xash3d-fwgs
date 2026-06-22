@@ -33,7 +33,7 @@ GOAL_CONTEXT = {
 		"engine/platform/gamecube/dll_gamecube.c"),
 	"G06": ("engine/platform/gamecube/sys_gamecube.c", "engine/host.c",
 		"filesystem/filesystem.c"),
-	"G07": ("engine/platform/gamecube/sys_gamecube.c", "engine/server/sv_init.c"),
+	"G07": (),
 }
 GOAL_COMMIT_SUBJECT = {
 	"G01": "fix: resolve GameCube edict warning audit",
