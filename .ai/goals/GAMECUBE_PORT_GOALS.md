@@ -85,6 +85,11 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Current blocker: the linked `Half-Life (GameCube stub)` module proves the
   engine ABI path but is not the complete HLSDK game DLL. Port/build the real
   client and server game code for `gamecube-ppc` before claiming gameplay.
+- Evidence: The stub module (`game/gamecube/`) is a placeholder. The engine
+  successfully reaches the console (G06) but cannot transition to a playable
+  map state without real game logic. Full HLSDK source for PPC is not in the
+  repository. This requires external assets or a separate licensed build step
+  outside the scope of this open-source port automation.
 
 ## G08 [MANUAL] Validate on physical GameCube hardware
 

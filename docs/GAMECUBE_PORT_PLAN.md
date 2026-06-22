@@ -273,6 +273,12 @@ engine integration but is not the complete HLSDK game/client implementation.
 Playable map loading requires the real game code to be built for
 `gamecube-ppc`, followed by memory and renderer validation on a small map.
 
+Current blocker: The repository contains a minimal game stub but not the full
+HLSDK source required for `gamecube-ppc` compilation. The stub allows engine
+ABI validation (G06) but cannot load or render real game logic/maps.
+Building the real game DLL requires proprietary HLSDK assets or a separate
+licensed source tree not present in this open-source checkout.
+
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 
 ## Next wake-up commands
