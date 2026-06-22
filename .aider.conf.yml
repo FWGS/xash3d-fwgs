@@ -1,5 +1,6 @@
 model: openai/qwen-local
 openai-api-base: http://127.0.0.1:8072/v1
+model-metadata-file: .ai/aider-model-metadata.json
 show-model-warnings: false
 
 architect: false
@@ -7,9 +8,9 @@ edit-format: diff
 thinking-tokens: 0
 check-model-accepts-settings: false
 
-map-tokens: 2048
+map-tokens: 0
 map-refresh: auto
-max-chat-history-tokens: 131072
+max-chat-history-tokens: 8192
 
 auto-commits: false
 dirty-commits: false
@@ -24,4 +25,3 @@ read:
   - .ai/prompts/PORTING_PATTERNS.md
   - .ai/state/BLOCKERS.md
   - .ai/state/DECISIONS.md
-  - Documentation/development/engine-porting-guide.md
