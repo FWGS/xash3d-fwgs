@@ -313,6 +313,7 @@ _Pvt_Extensions
 
 # QtCreator
 build-*
+!scripts/build-gamecube.sh
 
 # Android
 *.apk

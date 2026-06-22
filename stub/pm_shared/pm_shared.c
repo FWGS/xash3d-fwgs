@@ -3428,12 +3428,19 @@ int PM_GetPhysEntInfo( int ent )
 
 void PM_Init( struct playermove_s *ppmove )
 {
+#if !XASH_GAMECUBE
 	assert( !pm_shared_initialized );
+#endif
 
 	pmove = ppmove;
 
-	PM_CreateStuckTable();
-	PM_InitTextureTypes();
+	/* GameCube links the client and server stubs into one executable, so both
+	 * call this initializer against the same static state. */
+	if( !pm_shared_initialized )
+	{
+		PM_CreateStuckTable();
+		PM_InitTextureTypes();
+	}
 
 	pm_shared_initialized = 1;
 }

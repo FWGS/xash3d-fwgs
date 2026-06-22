@@ -11,5 +11,11 @@ static dllexport_t gamecube_ref_exports[] =
 
 int setup_gamecube_ref_exports( void )
 {
-	return dll_register( "libref_gx.so", gamecube_ref_exports );
+	int ret = 0;
+
+	ret |= dll_register( "libref_gx.so", gamecube_ref_exports );
+	ret |= dll_register( "ref_gx.so", gamecube_ref_exports );
+	ret |= dll_register( "ref_gx", gamecube_ref_exports );
+
+	return ret;
 }

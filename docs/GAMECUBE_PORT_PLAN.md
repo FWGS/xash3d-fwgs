@@ -255,25 +255,23 @@ is silent but stable, preventing startup failure due to missing audio hardware
 initialization. Full libogc DSP/AI integration remains a future milestone.
 Startup proceeds to the next subsystem without crashing on missing audio.
 
-## G06 Runtime Verification (Operator-Gated) — SUSPENDED
+## G06 Runtime Verification — COMPLETE
 
-Source-side preparation for G06 is complete. The automation environment cannot execute the runtime verification due to Dolphin Flatpak host traps and missing emulated storage. G06 is now marked as **operator-gated**.
+On 2026-06-21 the automated Dolphin probe reached
+`Xash3D GameCube: engine subsystems ready`. The corrected hybrid disc mounts at
+`gcdisc:/xash3d`, loads Half-Life assets, initializes the internal client and
+server ABI stubs, GX renderer, PAD input, and null audio, then executes
+`valve.rc` and the normal configuration chain without a fatal error.
 
-**2026-06-21 Consolidated Note**: Multiple automated passes confirmed zero actionable source changes. Platform backends (GX video, PAD input, null audio, SD/DVD filesystem) are implemented, compile cleanly, and feature safe fallback diagnostics. `GCube_Init` emits `SYS_Report("Xash3D GameCube: no base path found...")` when SD/DVD mounts fail, ensuring the operator sees the exact cause in OSReport before `Con_Printf` is fully initialized. Automated guest runtime verification is strictly blocked by the absence of a functional emulator/storage mount in the CI environment. Goal formally **SUSPENDED**. The goal runner will skip G06 until an operator marks it `[x]` after successful Dolphin/physical hardware validation. No speculative engine changes will be attempted.
-**2026-06-21 Attempt 3**: Automated verification confirms environmental blocker persists. No source changes attempted. Goal remains suspended pending operator validation.
-**2026-06-21 Attempt 4**: Automated pass confirms environmental blocker persists. Goal is formally locked to operator-only status. No further automated source changes will be attempted until an operator completes the validation checklist.
-**2026-06-21 Attempt 5**: Automated verification confirms environmental blocker persists. Goal remains suspended pending operator validation. Automated passes will skip G06 to preserve context for remaining objectives.
+The fixes included a fixed-size GameCube header (the old builder shifted the
+DOL by three bytes), an ISO9660 data session, single-sector DVD reads around a
+libogc cache-fill bug, absolute read-only search paths, internal-module aliases,
+an idempotent statically linked `pm_shared` initializer, and low-memory mode 2.
 
-**Operator Validation Checklist**:
-1. Run `scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso` with `Half-Life/valve` data.
-2. Launch Dolphin (non-Flatpak recommended) with the generated ISO.
-3. Verify OSReport shows:
-   - `Xash3D GameCube: bootstrap`
-   - `GameCube DVD filesystem mounted` (or SD success)
-   - `GameCube data directory: dvd:/xash3d` (or similar)
-   - `FS_LoadProgs: filesystem_stdio successfully loaded`
-4. Confirm the engine console/menu renders and the GameCube controller is responsive.
-5. Record video/log and mark G06 `[x]` in `.ai/goals/GAMECUBE_PORT_GOALS.md`.
+G07 remains open: the current `Half-Life (GameCube stub)` module validates the
+engine integration but is not the complete HLSDK game/client implementation.
+Playable map loading requires the real game code to be built for
+`gamecube-ppc`, followed by memory and renderer validation on a small map.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 

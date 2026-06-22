@@ -337,6 +337,10 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 #if XASH_IOS
 	Q_strncpy( out, IOS_GetExecDir(), size );
 	return true;
+#elif XASH_GAMECUBE
+	/* Optical media is the read-only content root. Keep it explicit because
+	 * libogc's ISO9660 chdir does not apply to subsequent relative lookups. */
+	return GCube_GetBasePath( out, size );
 #endif
 
 	return false;

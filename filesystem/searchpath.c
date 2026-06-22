@@ -607,11 +607,13 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 	fs_language[0] = 0;
 
 	// validate user input
+#if !XASH_GAMECUBE
 	if( !COM_StringEmpty( fs_rodir ) && !Q_stricmp( fs_rodir, fs_rootdir ))
 	{
 		Sys_Error( "RoDir and default rootdir can't point to same directory!" );
 		return false;
 	}
+#endif
 
 	// look for game directories in RwDir first
 	// this whole check only required to fallback to base directory

@@ -1232,6 +1232,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	SV_Init();
 	CL_Init();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: engine subsystems ready\n" );
+#endif
 
 	HTTP_Init();
 	SoundList_Init();

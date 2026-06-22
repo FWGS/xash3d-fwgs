@@ -9,12 +9,12 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
 
 DISC_HEADER_SIZE = 0x3000
-DOL_OFFSET = DISC_HEADER_SIZE
 DISC_MAGIC = 0xC2339F3D
 APPLOADER_ADDRESS = 0x81200000
 APPLOADER_HEADER_OFFSET = 0x2440
@@ -137,7 +137,12 @@ def parse_dol(dol: Path) -> tuple[list[tuple[int, int, int]], int, int, int]:
 
 
 def build_apploader(
-	source: Path, linker_script: Path, dol: Path, fst_offset: int, fst_size: int
+	source: Path,
+	linker_script: Path,
+	dol: Path,
+	dol_offset: int,
+	fst_offset: int,
+	fst_size: int,
 ) -> bytes:
 	with tempfile.TemporaryDirectory(prefix="xash3d-gc-apploader-") as temp:
 		temp_path = Path(temp)
@@ -149,7 +154,7 @@ def build_apploader(
 		objcopy = find_tool("objcopy")
 		sections, bss_address, bss_size, entry_point = parse_dol(dol)
 		sections = [
-			(DOL_OFFSET + offset, address, size) for offset, address, size in sections
+			(dol_offset + offset, address, size) for offset, address, size in sections
 		]
 		fst_address = 0x81700000
 		sections.append((fst_offset, fst_address, fst_size))
@@ -181,9 +186,40 @@ def build_apploader(
 		subprocess.run([objcopy, "-O", "binary", str(elf), str(binary)], check=True)
 		result = binary.read_bytes()
 
-	if len(result) > DOL_OFFSET - APPLOADER_DATA_OFFSET:
+	if len(result) > DISC_HEADER_SIZE - APPLOADER_DATA_OFFSET:
 		raise ValueError(f"apploader is too large: {len(result)} bytes")
 	return result
+
+
+def build_iso9660(data: Path, extras: Path | None, output_path: Path) -> None:
+	xorriso = shutil.which("xorriso")
+	if xorriso is None:
+		raise FileNotFoundError("xorriso is required to build the GameCube data disc")
+
+	command = [
+		xorriso,
+		"-as", "mkisofs",
+		"-quiet",
+		"-iso-level", "3",
+		"-J",
+		"-R",
+		"-V", "XASH3D_GC",
+		"-o", str(output_path),
+		"-graft-points",
+		f"/xash3d/valve={data}",
+	]
+	with tempfile.TemporaryDirectory(prefix="xash3d-gc-bootstrap-") as temp:
+		bootstrap = Path(temp) / "gamecube-bootstrap.pk3"
+		with zipfile.ZipFile(bootstrap, "w", zipfile.ZIP_DEFLATED) as archive:
+			for child in sorted(data.iterdir()):
+				if child.is_file() and child.stat().st_size <= 2 * 1024 * 1024:
+					archive.write(child, child.name)
+
+		if extras is not None:
+			command.append(f"/xash3d/valve/extras.pk3={extras}")
+		command.append(f"/xash3d/valve/gamecube-bootstrap.pk3={bootstrap}")
+		output_path.unlink(missing_ok=True)
+		subprocess.run(command, check=True)
 
 
 def build_disc(
@@ -194,67 +230,65 @@ def build_disc(
 	apploader_source: Path,
 	apploader_linker: Path,
 ) -> None:
-	root = Node("")
-	xash3d = Node("xash3d")
-	valve = Node("valve")
-	root.children[xash3d.name] = xash3d
-	xash3d.children[valve.name] = valve
-	add_tree(valve, data)
-	if extras is not None:
-		valve.children["extras.pk3"] = Node("extras.pk3", extras)
-
-	entries: list[Node] = []
-	flatten(root, 0, entries)
-	names = encode_names(entries)
-
+	output_path.parent.mkdir(parents=True, exist_ok=True)
+	build_iso9660(data, extras, output_path)
+	iso9660_size = output_path.stat().st_size
 	dol_size = dol.stat().st_size
-	fst_offset = align(DOL_OFFSET + dol_size, 0x20)
-	fst_size = len(entries) * 12 + len(names)
-	data_offset = align(fst_offset + fst_size, 0x800)
-
-	next_offset = data_offset
-	for entry in entries:
-		if entry.is_dir:
-			continue
-		entry.disc_offset = next_offset
-		next_offset = align(next_offset + entry.source.stat().st_size, 0x20)
-
-	fst = build_fst(entries, names)
-	apploader = build_apploader(apploader_source, apploader_linker, dol, fst_offset, fst_size)
+	dol_offset = align(iso9660_size, 0x800)
+	# The boot process requires an FST, while game data is deliberately exposed
+	# through ISO9660 so libc and filesystem_stdio can use normal POSIX calls.
+	fst = struct.pack(">III", 0x01000000, 0, 1) + b"\0"
+	fst_offset = align(dol_offset + dol_size, 0x20)
+	fst_size = len(fst)
+	next_offset = align(fst_offset + fst_size, 0x800)
+	apploader = build_apploader(
+		apploader_source, apploader_linker, dol, dol_offset, fst_offset, fst_size
+	)
 	header = bytearray(DISC_HEADER_SIZE)
+	title = b"Xash3D GameCube Test"
 	header[0:6] = b"GXHE00"
-	header[0x20:0x20 + 23] = b"Xash3D GameCube Test"
+	# Keep the fixed-size disc header fixed. Assigning a shorter value to a
+	# longer bytearray slice changes its length and shifts every following byte.
+	header[0x20:0x20 + len(title)] = title
 	struct.pack_into(">I", header, 0x1C, DISC_MAGIC)
-	struct.pack_into(">I", header, 0x420, DOL_OFFSET)
+	struct.pack_into(">I", header, 0x420, dol_offset)
 	struct.pack_into(">I", header, 0x424, fst_offset)
 	struct.pack_into(">I", header, 0x428, fst_size)
 	struct.pack_into(">I", header, 0x42C, fst_size)
-	struct.pack_into(">I", header, 0x430, data_offset)
-	struct.pack_into(">I", header, 0x434, next_offset - data_offset)
+	struct.pack_into(">I", header, 0x430, 0x8000)
+	struct.pack_into(">I", header, 0x434, iso9660_size - 0x8000)
 	struct.pack_into(">I", header, 0x458, 1)  # NTSC region in BI2
 	header[APPLOADER_HEADER_OFFSET:APPLOADER_HEADER_OFFSET + 11] = b"2026/06/20\0"
 	struct.pack_into(">I", header, APPLOADER_HEADER_OFFSET + 0x10, APPLOADER_ADDRESS)
 	struct.pack_into(">I", header, APPLOADER_HEADER_OFFSET + 0x14, len(apploader))
 	header[APPLOADER_DATA_OFFSET:APPLOADER_DATA_OFFSET + len(apploader)] = apploader
+	if len(header) != DISC_HEADER_SIZE:
+		raise AssertionError(
+			f"disc header changed size: {len(header):#x} != {DISC_HEADER_SIZE:#x}"
+		)
 
-	output_path.parent.mkdir(parents=True, exist_ok=True)
-	with output_path.open("wb") as output:
+	with output_path.open("r+b") as output:
 		output.write(header)
+		# Preserve the ISO9660 descriptors and file data between the GameCube
+		# system area and the appended executable.
+		output.seek(dol_offset)
 		with dol.open("rb") as source:
 			shutil.copyfileobj(source, output)
 		write_padding(output, fst_offset)
 		output.write(fst)
-		write_padding(output, data_offset)
-
-		for entry in entries:
-			if entry.is_dir:
-				continue
-			write_padding(output, entry.disc_offset)
-			with entry.source.open("rb") as source:
-				shutil.copyfileobj(source, output)
 		write_padding(output, next_offset)
 
-	print(f"Built {output_path} ({next_offset} bytes, {len(entries)} FST entries)")
+	# The apploader reads DOL sections using offsets relative to DOL_OFFSET.
+	# Verify the complete embedded DOL so layout regressions fail during build
+	# instead of surfacing as an invalid PowerPC instruction in Dolphin.
+	with output_path.open("rb") as output, dol.open("rb") as source:
+		output.seek(dol_offset)
+		embedded_dol = output.read(dol_size)
+		expected_dol = source.read()
+	if embedded_dol != expected_dol:
+		raise ValueError("embedded DOL does not match the input DOL")
+
+	print(f"Built {output_path} ({next_offset} bytes, hybrid GameCube/ISO9660)")
 
 
 def main() -> None:

@@ -4089,12 +4089,24 @@ qboolean CL_LoadProgs( const char *name )
 
 	CL_InitEdicts( cl.maxclients );		// initailize local player and world
 	CL_InitClientMove();	// initialize pm_shared
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client movement initialized\n" );
+#endif
 
 	// initialize game
 	clgame.dllFuncs.pfnInit();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client callback initialized\n" );
+#endif
 
 	CL_InitStudioAPI();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: studio API initialized\n" );
+#endif
 	S_InitSoundAPI();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client module ready\n" );
+#endif
 
 	return true;
 }

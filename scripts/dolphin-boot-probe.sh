@@ -4,11 +4,37 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-ISO_PATH="OUT/xash3d-gc.iso"
+ISO_PATH="$ROOT/OUT/xash3d-gc.iso"
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
+USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
 
-mkdir -p "$LOG_DIR"
+mkdir -p "$USER_DIR/Config"
+
+cat > "$USER_DIR/Config/Dolphin.ini" <<'EOF'
+[Core]
+CPUCore = 0
+CPUThread = False
+DSPHLE = True
+FastDiscSpeed = True
+[Interface]
+ConfirmStop = False
+EOF
+
+cat > "$USER_DIR/Config/Logger.ini" <<'EOF'
+[Logs]
+BOOT = True
+CORE = True
+DVD = True
+OSREPORT = True
+OSREPORT_HLE = True
+PowerPC = True
+[Options]
+Verbosity = 4
+WriteToConsole = True
+WriteToFile = True
+WriteToWindow = False
+EOF
 
 echo "==> Building GameCube disc image..."
 if ! python3 scripts/build-gamecube-disc.py --output "$ISO_PATH"; then
@@ -17,17 +43,18 @@ if ! python3 scripts/build-gamecube-disc.py --output "$ISO_PATH"; then
 fi
 
 DOLPHIN_CMD=()
-DOLPHIN_LOG_DIR=""
+DOLPHIN_IS_FLATPAK=0
 if command -v dolphin-emu >/dev/null 2>&1; then
-	DOLPHIN_CMD=(dolphin-emu --batch --exec "$ISO_PATH")
-	DOLPHIN_LOG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/dolphin-emu/Logs"
+	DOLPHIN_CMD=(dolphin-emu -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
 elif command -v dolphin >/dev/null 2>&1; then
-	DOLPHIN_CMD=(dolphin --batch --exec "$ISO_PATH")
-	DOLPHIN_LOG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/dolphin-emu/Logs"
+	DOLPHIN_CMD=(dolphin -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
 elif command -v flatpak >/dev/null 2>&1 && \
 	flatpak info org.DolphinEmu.dolphin-emu >/dev/null 2>&1; then
-	DOLPHIN_CMD=(flatpak run org.DolphinEmu.dolphin-emu --batch --exec "$ISO_PATH")
-	DOLPHIN_LOG_DIR="$HOME/.var/app/org.DolphinEmu.dolphin-emu/config/dolphin-emu/Logs"
+	# Dolphin's Flatpak has no home-directory access by default. Grant only this
+	# repository so it can read the ISO and use the isolated probe profile.
+	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" org.DolphinEmu.dolphin-emu
+		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	DOLPHIN_IS_FLATPAK=1
 else
 	echo "HOST_FAILURE: Dolphin executable or Flatpak was not found."
 	exit 2
@@ -40,25 +67,37 @@ timeout --signal=TERM --kill-after=5 "$TIMEOUT_SEC" "${DOLPHIN_CMD[@]}" \
 DOLPHIN_EXIT=$?
 set -e
 
-# Copy Dolphin's internal logs if available
-if [[ -d "$DOLPHIN_LOG_DIR" ]]; then
-	cp "$DOLPHIN_LOG_DIR"/*.log "$LOG_DIR/" 2>/dev/null || true
+# Flatpak's wrapper can exit while the emulator process remains in the app
+# sandbox. Stop the instance launched by this bounded probe.
+if (( DOLPHIN_IS_FLATPAK )); then
+	flatpak kill org.DolphinEmu.dolphin-emu >/dev/null 2>&1 || true
 fi
 
 echo "==> Analyzing probe results..."
 GUEST_MARKER="Xash3D GameCube: bootstrap"
+READY_MARKER="Xash3D GameCube: engine subsystems ready"
 GUEST_FOUND=0
+READY_FOUND=0
 grep -rqsF "$GUEST_MARKER" "$LOG_DIR/" && GUEST_FOUND=1
+grep -rqsF "$READY_MARKER" "$LOG_DIR/" && READY_FOUND=1
 
-if (( GUEST_FOUND )); then
+if (( READY_FOUND )); then
 	if grep -rEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "$LOG_DIR/"; then
-		echo "GUEST_FAILURE: Bootstrap was observed, followed by a guest-engine error."
+		echo "GUEST_FAILURE: Engine readiness was observed, followed by a guest error."
 		echo "Logs: $LOG_DIR"
 		exit 3
 	fi
-	echo "GUEST_REACHED: Xash3D bootstrap was observed."
+	echo "ENGINE_READY: Xash3D initialized its GameCube subsystems."
 	echo "Logs: $LOG_DIR"
 	exit 0
+elif (( GUEST_FOUND )) && grep -rEiq 'Host_Error|Sys_Error|Xash Error:|fatal error|out of memory' "$LOG_DIR/"; then
+	echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
+	echo "Logs: $LOG_DIR"
+	exit 3
+elif grep -rEiq 'Unknown instruction|Invalid read from|IntCPU:|apploader.*(fail|error)' "$LOG_DIR/"; then
+	echo "BOOT_FAILURE: Dolphin reached the disc but the guest image failed before bootstrap."
+	echo "Logs: $LOG_DIR"
+	exit 3
 elif (( DOLPHIN_EXIT == 124 || DOLPHIN_EXIT == 137 )); then
 	echo "INCONCLUSIVE_TIMEOUT: No guest bootstrap within ${TIMEOUT_SEC}s."
 	echo "Logs: $LOG_DIR"
@@ -68,7 +107,7 @@ elif (( DOLPHIN_EXIT != 0 )); then
 	echo "Logs: $LOG_DIR"
 	exit 2
 else
-	echo "INCONCLUSIVE_EXIT: Dolphin exited cleanly without guest bootstrap."
+	echo "INCONCLUSIVE_EXIT: Dolphin exited without reaching engine readiness."
 	echo "Logs: $LOG_DIR"
 	exit 4
 fi

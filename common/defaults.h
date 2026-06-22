@@ -116,6 +116,8 @@ SETUP BACKENDS DEFINITIONS
 	#define XASH_LIB LIB_WIN32
 #elif XASH_GAMECUBE
 	/* fake dlopen provided by engine/platform/gamecube/dll_gamecube.c */
+	#define XASH_INTERNAL_GAMELIBS
+	#define XASH_ALLOW_SAVERESTORE_OFFSETS
 #elif XASH_POSIX
 	#define XASH_LIB LIB_POSIX
 #endif

@@ -391,7 +391,21 @@ static int FS_FindFile_DIR( searchpath_t *search, const char *path, char *fixedn
 	char netpath[MAX_SYSPATH];
 
 	if( !FS_FixFileCase( search->dir, path, netpath, sizeof( netpath ), false ))
+	{
+#if XASH_GAMECUBE
+		/* libogc's ISO9660 directory iterator can omit otherwise-readable
+		 * entries from large directories. GameCube content uses normalized
+		 * lowercase names, so try the exact absolute path before giving up. */
+		Q_snprintf( netpath, sizeof( netpath ), "%s%s", search->filename, path );
+		if( FS_SysFileExists( netpath ))
+		{
+			if( fixedname )
+				Q_strncpy( fixedname, path, len );
+			return 0;
+		}
+#endif
 		return -1;
+	}
 
 	if( FS_SysFileExists( netpath ))
 	{

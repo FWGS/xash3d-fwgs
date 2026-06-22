@@ -18,9 +18,27 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include "dll_gamecube.h"
 
 #define GC_DATA_PATH "xash3d"
+#define GC_DVD_DEVICE "gcdisc"
 
 static qboolean gc_fat_mounted;
 static qboolean gc_dvd_mounted;
+static DISC_INTERFACE gc_dvd_io;
+
+static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
+{
+	u8 *output = buffer;
+	sec_t i;
+
+	/* libiso9660 3.1.0 always requests a 32 KiB cache fill even when it
+	 * calculated that one sector is sufficient. Split that transfer because
+	 * __io_gcdvd can otherwise complete with a zero-filled DMA buffer. */
+	for( i = 0; i < count; i++ )
+	{
+		if( !__io_gcdvd.readSectors( sector + i, 1, output + i * 0x800 ))
+			return false;
+	}
+	return true;
+}
 #endif
 
 void Platform_ShellExecute( const char *path, const char *parms )
@@ -124,9 +142,12 @@ void GCube_Init( void )
 		Con_Reportf( S_WARN "SD card init failed\n" );
 
 	DVD_Init();
-	gc_dvd_mounted = ISO9660_Mount( "dvd", &__io_gcdvd );
+	gc_dvd_io = __io_gcdvd;
+	gc_dvd_io.readSectors = GCube_DVDReadSectors;
+	gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
 	if( gc_dvd_mounted )
-		Con_Reportf( "GameCube DVD filesystem mounted\n" );
+		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n",
+			ISO9660_GetVolumeLabel( GC_DVD_DEVICE ));
 	else
 		Con_Reportf( S_WARN "DVD filesystem init failed\n" );
 
@@ -154,8 +175,8 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	{
 		"sd:/" GC_DATA_PATH,
 		"sd:/",
-		"dvd:/" GC_DATA_PATH,
-		"dvd:/",
+		GC_DVD_DEVICE ":/" GC_DATA_PATH,
+		GC_DVD_DEVICE ":/",
 	};
 	DIR *dir;
 	size_t i;
@@ -203,7 +224,7 @@ void GCube_Shutdown( void )
 {
 #if XASH_GAMECUBE
 	if( gc_dvd_mounted )
-		ISO9660_Unmount( "dvd" );
+		ISO9660_Unmount( GC_DVD_DEVICE );
 	if( gc_fat_mounted )
 		fatUnmount( "sd" );
 	gc_dvd_mounted = false;
