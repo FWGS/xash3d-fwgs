@@ -268,13 +268,35 @@ DOL by three bytes), an ISO9660 data session, single-sector DVD reads around a
 libogc cache-fill bug, absolute read-only search paths, internal-module aliases,
 an idempotent statically linked `pm_shared` initializer, and low-memory mode 2.
 
-G07 cannot be completed automatically. The engine requires the proprietary
-HLSDK game DLL (or equivalent licensed source) to load and render maps. The
-`game/gamecube/` stub is insufficient for gameplay. This is a hard blocker
-requiring licensed assets not available in the open-source checkout.
-No further engine code changes can bridge this gap without violating
-licensing or introducing external unverified code.
-G07 is marked blocked in the goal ledger.
+G07 is deferred behind the real GameCube game-code integration. The engine now
+boots to the console with static client/server ABI stubs, but those stubs cannot
+run Half-Life map logic. This is not the end of the port: the upstream project
+already documents FWGS `hlsdk-portable` as the route for non-x86 targets, and
+the Switch/Vita automation builds that repository as a separate dependency.
+
+The first follow-up milestone is a local dependency probe:
+
+```sh
+scripts/hlsdk-gamecube-probe.sh
+```
+
+The probe checks `HLSDK_PORTABLE_DIR` first, then
+`3rdparty/hlsdk-portable`. The checkout remains ignored by Git, matching the
+existing `.gitignore` entry. Exit status `2` means the source is missing. Exit
+status `3` means the source exists but still lacks obvious GameCube naming or
+build hooks (`--gamecube`, `GAMECUBE`, or `__GAMECUBE__`). Exit status `0`
+means the dependency is present and advertises enough GameCube support to move
+to the build contract.
+
+Next automatic goals:
+
+- G10: invoke an external `hlsdk-portable` checkout for a GameCube `valve`
+  build and install outputs into `OUT/`, or record the required static-link
+  step if loadable PowerPC modules are not viable.
+- G11: replace the GameCube client/server stubs with real HLSDK exports while
+  preserving the stubs for engine-only boot probes.
+- G12: boot a legal local Half-Life asset set in Dolphin, load a small map, and
+  capture frame/input/memory evidence.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 
@@ -283,6 +305,7 @@ The `gamecube-platform` submodule branch (`663a601`) must also be published to a
 ```sh
 git status --short
 git -C 3rdparty/library_suffix diff --check
+scripts/hlsdk-gamecube-probe.sh || true
 scripts/ai-verify.sh
 scripts/dolphin-boot-probe.sh
 ```

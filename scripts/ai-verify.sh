@@ -18,7 +18,8 @@ echo
 echo "== harness syntax =="
 bash -n scripts/ai-verify.sh scripts/ai-aider-pass.sh scripts/ai-loop.sh \
 	scripts/ai-summarize-next-task.sh scripts/build-gamecube.sh \
-	scripts/xash3d-gc-aider-gui.sh scripts/dolphin-boot-probe.sh
+	scripts/xash3d-gc-aider-gui.sh scripts/dolphin-boot-probe.sh \
+	scripts/hlsdk-gamecube-probe.sh
 python3 -c 'compile(open("scripts/build-gamecube-disc.py", encoding="utf-8").read(), "scripts/build-gamecube-disc.py", "exec")'
 python3 -c 'compile(open("scripts/xash3d-gc-aider-gui.py", encoding="utf-8").read(), "scripts/xash3d-gc-aider-gui.py", "exec")'
 python3 -c 'compile(open("scripts/ai-goal-loop.py", encoding="utf-8").read(), "scripts/ai-goal-loop.py", "exec")'

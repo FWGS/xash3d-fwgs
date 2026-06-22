@@ -82,14 +82,47 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Load one small map far enough to render a frame and accept controller input.
 - Record memory or allocation failures rather than hiding them.
 - Keep proprietary game data ignored and outside Git.
-- Status: BLOCKED. Hard blocker: requires proprietary HLSDK source code.
-- Evidence: `game/gamecube/` is a stub. Engine reaches console (G06) but cannot
-  load maps without real game logic (DLL). HLSDK is not in this repository and
-  cannot be built for `gamecube-ppc` without licensed assets.
-- Action: Cannot proceed automatically. Requires external licensed HLSDK source
-  or pre-built binary. This is outside the scope of open-source automation.
+- Status: BLOCKED. Deferred behind G09-G12.
+- Evidence: Engine reaches console (G06), but the statically linked GameCube
+  client/server modules are still stubs and cannot run real Half-Life maps.
+- Action: Use FWGS `hlsdk-portable` as the open portable game-code source. Keep
+  proprietary Valve game assets ignored and outside Git.
 
 ## G08 [MANUAL] Validate on physical GameCube hardware
 
 - Boot through an available homebrew loading method on real hardware.
 - Record video, input, storage, audio, and stability observations.
+
+## G09 [x] Establish an HLSDK-portable probe
+
+- Add a repeatable script that detects `HLSDK_PORTABLE_DIR` or
+  `3rdparty/hlsdk-portable` without vendoring the dependency into Git.
+- The script must report missing source, current branch/commit, and whether
+  obvious GameCube build hooks are present.
+- Document the command and expected next action in the port plan.
+- Keep Valve game assets ignored and outside Git.
+- Verified 2026-06-22: `scripts/hlsdk-gamecube-probe.sh` reports missing
+  source as an actionable prerequisite instead of blocking the whole goal loop.
+
+## G10 [ ] Add a GameCube HLSDK build contract
+
+- Teach the local scripts how to invoke an external `hlsdk-portable` checkout
+  for a GameCube `valve` build when the source exposes a GameCube target.
+- Install outputs into the same `OUT/` tree used by `scripts/build-gamecube.sh`
+  or clearly record why static linking is required first.
+- Do not vendor HLSDK source or proprietary Valve assets.
+- Update the port plan with the exact build command and artifact names.
+
+## G11 [ ] Replace GameCube game stubs with real game exports
+
+- Wire the GameCube engine to use HLSDK client/server exports when they are
+  built for PowerPC/GameCube.
+- Preserve the current stubs as an explicit fallback for engine-only boot
+  probes.
+- Record the selected linkage strategy and any ABI/endian fixes in the plan.
+
+## G12 [ ] Run a small-map Dolphin smoke test
+
+- Boot a disc with legal local Half-Life assets and real GameCube game code.
+- Load one small map far enough to render a frame and accept controller input.
+- Capture Dolphin/OSReport logs, memory failures, and the exact command used.

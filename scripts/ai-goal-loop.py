@@ -34,6 +34,14 @@ GOAL_CONTEXT = {
 	"G06": ("engine/platform/gamecube/sys_gamecube.c", "engine/host.c",
 		"filesystem/filesystem.c"),
 	"G07": (),
+	"G09": ("scripts/hlsdk-gamecube-probe.sh", "scripts/build-gamecube.sh",
+		"scripts/ai-verify.sh", "Documentation/development/engine-porting-guide.md"),
+	"G10": ("scripts/hlsdk-gamecube-probe.sh", "scripts/build-gamecube.sh",
+		"scripts/gha/build_nswitch_docker.sh", "scripts/gha/build_psvita.sh"),
+	"G11": ("engine/platform/gamecube/dll_gamecube.c", "engine/wscript",
+		"stub/client/client_export.c", "stub/server/server_export.c"),
+	"G12": ("scripts/dolphin-boot-probe.sh", "scripts/build-gamecube-disc.py",
+		"engine/platform/gamecube/sys_gamecube.c"),
 }
 GOAL_COMMIT_SUBJECT = {
 	"G01": "fix: resolve GameCube edict warning audit",
@@ -43,6 +51,10 @@ GOAL_COMMIT_SUBJECT = {
 	"G05": "feat: advance GameCube audio",
 	"G06": "feat: advance GameCube engine startup",
 	"G07": "feat: advance GameCube map loading",
+	"G09": "feat: probe GameCube HLSDK integration",
+	"G10": "feat: build GameCube HLSDK",
+	"G11": "feat: integrate GameCube HLSDK exports",
+	"G12": "test: smoke GameCube map loading",
 }
 
 
