@@ -11,7 +11,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from PyQt6.QtCore import QProcess, Qt, QTimer, QUrl
+from PyQt6.QtCore import QProcess, QProcessEnvironment, Qt, QTimer, QUrl
 from PyQt6.QtGui import QCloseEvent, QDesktopServices, QFont, QFontDatabase, QTextCursor
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
@@ -58,6 +58,26 @@ def load_font(path: Path, fallback: str) -> str:
 		return fallback
 	families = QFontDatabase.applicationFontFamilies(font_id)
 	return families[0] if families else fallback
+
+
+def load_dotenv(path: Path) -> None:
+	"""Load simple KEY=VALUE entries without overriding the parent shell."""
+	if not path.is_file():
+		return
+	for raw_line in path.read_text(encoding="utf-8").splitlines():
+		line = raw_line.strip()
+		if not line or line.startswith("#") or "=" not in line:
+			continue
+		if line.startswith("export "):
+			line = line[len("export "):].lstrip()
+		key, value = line.split("=", 1)
+		key = key.strip()
+		value = value.strip()
+		if not key or key in os.environ:
+			continue
+		if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+			value = value[1:-1]
+		os.environ[key] = value
 
 
 def stylesheet() -> str:
@@ -398,6 +418,7 @@ class PortWindow(QMainWindow):
 		root = self.repo()
 		if not (root / ".git").exists():
 			return
+		load_dotenv(root / ".env")
 		branch = self.git_output("branch", "--show-current") or "detached"
 		porcelain = self.git_output("status", "--porcelain")
 		tracking = self.git_output("status", "--short", "--branch").splitlines()
@@ -457,6 +478,11 @@ class PortWindow(QMainWindow):
 		proc = QProcess(self)
 		proc.setWorkingDirectory(str(self.repo()))
 		proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+		load_dotenv(self.repo() / ".env")
+		env = QProcessEnvironment.systemEnvironment()
+		for key, value in os.environ.items():
+			env.insert(key, value)
+		proc.setProcessEnvironment(env)
 		proc.readyReadStandardOutput.connect(self.read_output)
 		proc.finished.connect(self.finished)
 		proc.errorOccurred.connect(lambda error: self.append(f"\nProcess error: {error.name}\n"))
