@@ -298,10 +298,8 @@ def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
 	candidates = [path for path in (*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal_id, ()))
 		if (root / path).is_file()]
-	if attempt <= 2:
-		return candidates
-	size_limit = 45000 if attempt == 3 else 20000
-	required = set(COMMON_CONTEXT if attempt == 3 else (".ai/goals/GAMECUBE_PORT_GOALS.md",))
+	size_limit = 45000 if attempt == 1 else 20000 if attempt == 2 else 12000
+	required = set(COMMON_CONTEXT if attempt <= 2 else (".ai/goals/GAMECUBE_PORT_GOALS.md",))
 	selected: list[str] = []
 	for path in candidates:
 		file_path = root / path
@@ -385,11 +383,12 @@ def main() -> int:
 			pass_env["AI_COMMIT_SUBJECT"] = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
 				f"feat: advance GameCube port goal {goal.goal_id}")
 			if attempts[goal.goal_id] >= 3:
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "2048")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "1024")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "768")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "45000")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "20000")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "512")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_INITIAL", "20000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "12000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "8000")
 			result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path),
 				*context_files], root, env=pass_env)
 		finally:

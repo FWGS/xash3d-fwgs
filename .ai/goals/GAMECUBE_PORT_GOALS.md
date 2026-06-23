@@ -198,13 +198,18 @@ lines. Goals marked `MANUAL` are never selected automatically.
   `UI_LoadProgs`, font/texture loading, or palette installation behind
   `XASH_GAMECUBE` guards. The real HLSDK client archive remains linked.
 
-## G17 [ ] Bring up GameCube audio incrementally
+## G17 [x] Bring up GameCube audio incrementally
 
 - Move from `-nosound` smoke boot to a stable null or real audio backend that
   does not hang during sound cvar registration, CD audio playlist setup, or
   sound precache.
 - Preserve a silent fallback for low-memory smoke testing.
 - Verify a map still loads with the selected audio mode.
+- Verified 2026-06-22: The null backend initializes successfully, allowing
+  `S_Init` to complete without `-nosound`. `snd.buffer` remains NULL, causing
+  `S_UpdateChannels` to skip DMA painting safely. `S_LoadSound` precaches
+  assets into `sndpool` without touching hardware. Map loading (e.g., `c0a0e`)
+  proceeds without audio hangs or crashes. Real DSP/AI is deferred to G26.
 
 ## G18 [ ] Restore local single-player networking and save-safe startup paths
 

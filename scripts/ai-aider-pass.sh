@@ -54,14 +54,14 @@ LOG=".ai/logs/aider-pass-$STAMP.log"
 BASELINE="$(git rev-parse HEAD)"
 TOKEN_LIMIT_RE="has hit a token limit|exceeds the .* token limit|context limit is exceeded|maximum context length|prompt contains at least|requested .* output tokens|VLLMValidationError"
 AIDER_OUTPUT_TOKEN_BUDGETS=(
-	"${AIDER_OUTPUT_TOKENS_INITIAL:-4096}"
-	"${AIDER_OUTPUT_TOKENS_RETRY_1:-2048}"
-	"${AIDER_OUTPUT_TOKENS_RETRY_2:-1024}"
+	"${AIDER_OUTPUT_TOKENS_INITIAL:-2048}"
+	"${AIDER_OUTPUT_TOKENS_RETRY_1:-1024}"
+	"${AIDER_OUTPUT_TOKENS_RETRY_2:-768}"
 )
 AIDER_CONTEXT_BYTE_LIMITS=(
-	"${AIDER_CONTEXT_BYTES_INITIAL:-0}"
-	"${AIDER_CONTEXT_BYTES_RETRY_1:-0}"
-	"${AIDER_CONTEXT_BYTES_RETRY_2:-45000}"
+	"${AIDER_CONTEXT_BYTES_INITIAL:-45000}"
+	"${AIDER_CONTEXT_BYTES_RETRY_1:-20000}"
+	"${AIDER_CONTEXT_BYTES_RETRY_2:-12000}"
 )
 TEMP_MODEL_SETTINGS=()
 
@@ -133,7 +133,7 @@ run_aider_with_recovery() {
 		context_args=()
 		mapfile -t context_args < <(context_args_for_attempt "$attempt")
 		settings_args=()
-		if (( attempt > 1 )) || [[ "${AIDER_FORCE_TEMP_MODEL_SETTINGS:-0}" == "1" ]]; then
+		if (( attempt > 1 )) || [[ "${AIDER_FORCE_TEMP_MODEL_SETTINGS:-1}" == "1" ]]; then
 			model_settings="$(write_model_settings "$max_tokens")"
 			settings_args=(--model-settings-file "$model_settings")
 		fi
@@ -152,6 +152,9 @@ run_aider_with_recovery() {
 			--no-gui \
 			--disable-playwright \
 			--no-restore-chat-history \
+			--no-auto-lint \
+			--no-auto-test \
+			--max-chat-history-tokens "${AIDER_MAX_CHAT_HISTORY_TOKENS:-2048}" \
 			"${settings_args[@]}" \
 			"${context_args[@]}" \
 			"$@" \

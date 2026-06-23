@@ -428,6 +428,16 @@ instead of resolving the staged `maps/c0a0e.bsp`.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 
+## G17 — Bring up GameCube audio incrementally (source complete)
+
+The null audio backend (`engine/platform/gamecube/snddma_gamecube.c`) is verified
+stable for sound cvar registration, precache, and map loading without hanging.
+It preserves a silent fallback for low-memory testing. `S_UpdateChannels`
+safely returns early when `snd.buffer` is NULL, preventing any DMA access.
+Precaching in `s_load.c` and streaming in `s_stream.c` operate on `sndpool`
+memory and do not depend on `snd.buffer`. Real DSP/AI integration is deferred
+to G26.
+
 ## G16 — Smoke-only client shortcuts removed (source complete)
 
 The `-nohud` and `-nosound` shortcuts have been removed from the default GameCube
