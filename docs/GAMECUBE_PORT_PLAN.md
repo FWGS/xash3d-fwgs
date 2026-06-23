@@ -547,7 +547,7 @@ Previous manual probes (G06, G15) have demonstrated successful map loads
 map load AND input polling active in a single probe run has not yet been
 captured. Automation cannot complete this MANUAL goal. No source changes needed.
 
-Attempt 9 (2026-06-22): Ninth automation attempt. Source-side changes remain
+Attempt 10 (2026-06-22): Tenth automation attempt. Source-side changes remain
 complete. No Dolphin executable is available in the automation environment, so
 runtime verification cannot proceed. This is a MANUAL goal and must never be
 marked complete via automation. Operator with Dolphin installed must run
