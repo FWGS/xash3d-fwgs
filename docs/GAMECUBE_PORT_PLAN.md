@@ -538,17 +538,18 @@ The GameCube input backend (`engine/platform/gamecube/in_gamecube.c`) emits
 successful input poll (commit `7f0d31d9`). This satisfies the source-side
 requirement for input evidence.
 
-Attempt 4 (2026-06-22): Automation confirmed source-side changes are complete.
-The input polling marker, map load marker, and controller polling code are all
-present and compiling cleanly. Runtime verification remains blocked because no
-Dolphin executable is available in the automation environment. Previous manual
-probes (G06, G15) have demonstrated successful map loads (`c4a1f`, `c0a0e`)
-with engine subsystems ready, but combined evidence of both map load AND input
-polling active in a single probe run has not yet been captured in automation logs.
+Attempt 5 (2026-06-22): Fifth automation attempt confirmed source-side changes
+are complete and building cleanly. The input polling marker, map load marker,
+and controller polling code are all present. Runtime verification remains
+blocked because no Dolphin executable is available in the automation environment.
+Previous manual probes (G06, G15) have demonstrated successful map loads
+(`c4a1f`, `c0a0e`) with engine subsystems ready, but combined evidence of both
+map load AND input polling active in a single probe run has not yet been
+captured. Automation cannot complete this MANUAL goal.
 
 **Status:** Source complete. Runtime evidence requires an operator with Dolphin
-installed. Automation cannot complete this goal because no Dolphin executable is
-available in the automation environment.
+installed. This is a MANUAL goal and must never be marked complete via
+automation.
 
 **Manual verification command:**
 
@@ -561,7 +562,8 @@ The probe should report `ENGINE_READY` or `MAP_READY`. The log
 (`.ai/logs/dolphin-probe-*/stderr.log`) must contain both
 `Xash3D GameCube: map loaded <map>` and `Xash3D GameCube: input polling active`.
 
-**Blocker:** Requires human operator to run Dolphin probe and confirm logs.
+**Blocker:** Requires human operator to run Dolphin probe and confirm logs
+showing both map load and input polling active in the same session.
 Do not mark complete via automation.
 
 ## Automation recovery notes
