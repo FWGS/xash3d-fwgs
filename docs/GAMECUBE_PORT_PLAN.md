@@ -555,6 +555,11 @@ marked complete via automation. Operator with Dolphin installed must run
 contains both `Xash3D GameCube: map loaded <map>` and
 `Xash3D GameCube: input polling active`. No source changes needed.
 
+Attempt 11 (2026-06-22): Eleventh automation attempt. Source-side changes remain
+complete. No Dolphin executable is available in the automation environment, so
+runtime verification cannot proceed. This is a MANUAL goal and must never be
+marked complete via automation. No source changes needed.
+
 **Status:** Source complete. Runtime evidence requires an operator with Dolphin
 installed. This is a MANUAL goal and must never be marked complete via
 automation.
