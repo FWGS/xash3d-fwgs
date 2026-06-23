@@ -18,6 +18,7 @@ fi
 
 : "${OPENAI_API_KEY:?Set OPENAI_API_KEY first}"
 export OPENAI_API_BASE="${OPENAI_API_BASE:-http://127.0.0.1:8072/v1}"
+export AIDER_MODEL_TIMEOUT_SEC="${AIDER_MODEL_TIMEOUT_SEC:-1800}"
 
 command -v aider >/dev/null 2>&1 || {
 	echo "ai-aider-pass: aider is not installed" >&2
@@ -61,8 +62,9 @@ echo "Baseline: $BASELINE"
 echo "Log: $LOG"
 
 set +e
-aider \
+timeout --signal=TERM --kill-after=30 "$AIDER_MODEL_TIMEOUT_SEC" aider \
 	--config .aider.conf.yml \
+	--no-browser \
 	"${AIDER_FILE_ARGS[@]}" \
 	--message-file "$TASK_FILE" \
 	--yes-always \
@@ -70,9 +72,19 @@ aider \
 AIDER_STATUS="${PIPESTATUS[0]}"
 set -e
 
+if (( AIDER_STATUS == 124 || AIDER_STATUS == 137 )); then
+	echo "ai-aider-pass: Aider model call timed out after ${AIDER_MODEL_TIMEOUT_SEC}s; see $LOG" >&2
+	exit 17
+fi
+
 if (( AIDER_STATUS != 0 )); then
 	echo "ai-aider-pass: Aider exited $AIDER_STATUS; see $LOG" >&2
 	exit "$AIDER_STATUS"
+fi
+
+if grep -Eq "has hit a token limit|exceeds the .* token limit|context limit is exceeded" "$LOG"; then
+	echo "ai-aider-pass: Aider hit a token/context limit; see $LOG" >&2
+	exit 18
 fi
 
 if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
@@ -128,17 +140,26 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 		'Make the smallest safe edit, preserve the goal and documentation, and do not commit.' \
 		'' 'Verification tail:'; tail -80 "$VERIFY_LOG")"
 	set +e
-	aider \
+	timeout --signal=TERM --kill-after=30 "$AIDER_MODEL_TIMEOUT_SEC" aider \
 		--config .aider.conf.yml \
+		--no-browser \
 		"${AIDER_FILE_ARGS[@]}" \
 		--message "$REPAIR_MESSAGE" \
 		--yes-always \
 		2>&1 | tee -a "$LOG"
 	REPAIR_STATUS="${PIPESTATUS[0]}"
 	set -e
+	if (( REPAIR_STATUS == 124 || REPAIR_STATUS == 137 )); then
+		echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
+		exit 17
+	fi
 	if (( REPAIR_STATUS != 0 )); then
 		echo "ai-aider-pass: autonomous repair exited $REPAIR_STATUS" >&2
 		exit "$REPAIR_STATUS"
+	fi
+	if grep -Eq "has hit a token limit|exceeds the .* token limit|context limit is exceeded" "$LOG"; then
+		echo "ai-aider-pass: autonomous repair hit a token/context limit; see $LOG" >&2
+		exit 18
 	fi
 	if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
 		echo "ai-aider-pass: repair created an unexpected commit" >&2

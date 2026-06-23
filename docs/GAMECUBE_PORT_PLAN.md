@@ -28,9 +28,10 @@ goal runner selects the first incomplete non-manual objective, supplies Aider
 with its acceptance criteria and live Git context, and repeats verified,
 reviewed patches until the objectives or a configured pass limit are reached.
 The Qt console now presents this as a GameCube-inspired devkit pipeline with
-live DOL, ISO, and Dolphin status chips. Booting with no ISO automatically
-builds the disc first instead of failing with a missing-file dialog. Model,
-endpoint, and credential controls are intentionally absent from the GUI.
+live DOL, ISO, Dolphin, and model-server status chips. Booting with no ISO
+automatically builds the disc first instead of failing with a missing-file
+dialog. The GUI can supervise the local Qwable-5/vLLM server, while credentials
+remain inherited from the launch environment rather than stored in the GUI.
 Mission Control now shows every automatic/manual goal and the active goal's
 acceptance criteria. Port Telemetry reports Git cleanliness and tracking,
 latest commit, submodule divergence, devkitPPC, game content, inherited Aider
@@ -101,7 +102,47 @@ logs while leaving the verifier and Git commit as the source of truth.
 4. Mount SD/FAT storage and find `xash3d/valve`.
 5. Reach the engine console or menu within the memory budget.
 6. Load assets and a small map.
-7. Validate on physical GameCube hardware.
+7. Run real HLSDK server/client game code with campaign map entities.
+8. Replace smoke-only shortcuts with stable GameCube runtime modes.
+9. Render gameplay UI, world, entities, sprites, and basic effects.
+10. Provide usable controller, audio, writable storage, save/load, and
+    local-only single-player flow.
+11. Prove multi-map progression through a playable Half-Life route.
+12. Validate on physical GameCube hardware.
+13. Package release-quality build, staging, compatibility, and troubleshooting
+    documentation.
+
+## Expanded completion roadmap
+
+The objective ledger now extends beyond early boot and smoke-map proof. Goals
+G21-G42 define the remaining finish line for a native Half-Life 1 port on this
+specific Xash3D GameCube target:
+
+- **Runtime correctness:** fix `-gcmap` model lookup after HLSDK server init,
+  restore local single-player networking assumptions, support changelevel, and
+  make save/load work with the selected writable storage route.
+- **Memory and performance:** add subsystem high-water telemetry, build a
+  practical 24 MiB main-memory budget, decide which caches or visual features
+  need bounded GameCube modes, and profile representative maps against a real
+  frame budget.
+- **Client experience:** re-enable the real HLSDK HUD, replace `-nohud`,
+  `-nosound`, and visual smoke skips with stable modes, provide complete
+  controller bindings, and keep developer fallbacks documented for triage.
+- **Audio and storage:** move from the null backend to a libogc DSP/AI path,
+  decide the music/ambient policy, and route generated state away from the
+  read-only disc filesystem.
+- **Campaign compatibility:** stage a legal local Half-Life installation,
+  probe stock campaign maps, classify blockers, prove an early-game route, and
+  drive the route toward every chapter instead of treating isolated map loads
+  as completion.
+- **Hardware and release:** validate on real GameCube hardware, document the
+  supported loader/storage/video matrix, provide repeatable build and disc
+  staging commands, and publish an operator-facing compatibility table.
+
+The port should not be called finished merely because a small map loads in
+Dolphin. It is finished when the engine, game code, renderer, input, audio,
+storage, save/load, campaign progression, diagnostics, and real-hardware
+behavior have evidence in the plan and the remaining limitations are explicit.
 
 ## Strategy
 
@@ -288,16 +329,20 @@ build hooks (`--gamecube`, `GAMECUBE`, or `__GAMECUBE__`). Exit status `0`
 means the dependency is present and advertises enough GameCube support to move
 to the build contract.
 
-Next automatic goals:
+Current automatic goal arc:
 
-- G10: invoke an external `hlsdk-portable` checkout for a GameCube `valve`
-  build and install outputs into `OUT/`.
-- G11: add or apply the missing GameCube target hooks in `hlsdk-portable`.
-- G12: replace the GameCube server stub with real HLSDK exports while
-  preserving stubs for engine-only boot probes.
-- G13: isolate or replace the GameCube client stub.
-- G14: boot a legal local Half-Life asset set in Dolphin, load a small map, and
-  capture frame/input/memory evidence.
+- G16-G19: remove the smoke-only runtime shortcuts, stabilize HUD/audio/local
+  startup, and prove an interactive gameplay smoke path.
+- G21-G24: fix the current `-gcmap` model lookup blocker, add memory telemetry,
+  establish a memory budget, and replace temporary visual skips with bounded
+  GameCube modes.
+- G25-G32: finish the player-facing runtime: HUD, real audio, music policy,
+  writable storage, local single-player networking, controls, changelevel, and
+  save/load.
+- G33-G37: make full Half-Life content staging, map compatibility, early-route
+  gameplay, frame budget, and diagnostics repeatable.
+- G38-G42: validate real hardware, document supported loader/storage routes,
+  audit the campaign, prepare release scripts, and finalize the operator guide.
 
 The build contract is:
 

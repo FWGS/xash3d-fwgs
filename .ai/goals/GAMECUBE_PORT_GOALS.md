@@ -236,3 +236,181 @@ lines. Goals marked `MANUAL` are never selected automatically.
   `Xash3D GameCube: engine subsystems ready`. The next blocker is now map
   model lookup: `Host_ErrorInit: Could not load model maps from disk` after the
   `-gcmap c0a0e` pre-spawn memory trim.
+
+## G21 [ ] Fix GameCube map/model lookup after server progs init
+
+- Resolve the `Host_ErrorInit: Could not load model maps from disk` regression
+  seen after `Xash3D GameCube: pre-spawn memory trim`.
+- Prove `-gcmap c0a0e` resolves `maps/c0a0e.bsp` rather than collapsing the
+  lookup to `maps`.
+- Preserve the `c4a1f` smoke path and document the exact lookup trace in the
+  port plan.
+
+## G22 [ ] Add memory budget telemetry for real gameplay loads
+
+- Report main-memory high-water marks around filesystem mount, server progs,
+  BSP load, texture/model registration, client init, and frame rendering.
+- Capture allocation failures with subsystem, size, and current map context.
+- Keep telemetry GameCube-scoped and cheap enough to leave enabled for Dolphin
+  and hardware bring-up logs.
+
+## G23 [ ] Establish a GameCube memory budget plan for full Half-Life
+
+- Categorize engine, HLSDK server/client, renderer, filesystem, BSP, model,
+  sprite, sound, save/config, and scratch allocations against the 24 MiB main
+  memory limit.
+- Convert at least one large avoidable cache or duplicate asset buffer into a
+  bounded GameCube mode.
+- Document ARAM candidates separately from main-memory allocations; do not treat
+  ARAM as transparent malloc space.
+
+## G24 [ ] Replace smoke visual skips with stable low-memory visual modes
+
+- Turn `-gcnolightmaps`, studio texture skips, particle palette fallbacks, and
+  related visual shortcuts into explicit GameCube quality modes or remove them
+  when memory permits.
+- Keep map loading stable while rendering world geometry, entities, sprites,
+  basic particles, and the HUD.
+- Record screenshots or OSReport frame evidence for each enabled visual class.
+
+## G25 [ ] Stabilize HLSDK client HUD and gameplay UI
+
+- Initialize the real HLSDK client HUD without relying on `-nohud`.
+- Render health, suit, weapon/ammo, damage, pickup, and message HUD elements on
+  GameCube without hangs or fatal missing-sprite failures.
+- Preserve an emergency `-nohud` diagnostic mode until HUD stability is proven
+  on both Dolphin and hardware.
+
+## G26 [ ] Bring up a real GameCube audio backend
+
+- Replace the silent null backend with a libogc DSP/AI path that can play at
+  least WAV/PCM game sound effects without blocking the frame loop.
+- Keep a documented null-audio fallback for memory triage and early boot probes.
+- Verify map load, sound precache, ambient sound, weapon sound, and shutdown
+  without leaks or hangs.
+
+## G27 [ ] Add streaming music and ambient audio policy
+
+- Decide how Half-Life CD audio/music should be handled on GameCube: disabled,
+  streamed from disc/ARAM, or replaced by legal local files.
+- Avoid attempting writes to read-only disc paths such as `media/cdaudio.txt`.
+- Capture route evidence for one ambient loop and one transition without
+  destabilizing map load.
+
+## G28 [ ] Make writable storage explicit and safe
+
+- Route configs, saves, logs, screenshots, and `.xash_id` to a writable device
+  when available, or to a documented read-only fallback when not.
+- Never attempt to write generated state to `gcdisc:/`.
+- Verify first boot, second boot, missing writable device, and corrupted config
+  cases fail safely.
+
+## G29 [ ] Restore local single-player networking paths
+
+- Replace GameCube networking skips with a local-only loopback path when the
+  client/server flow needs it.
+- Keep offline boot independent of HTTP/TLS, master server, and external network
+  initialization.
+- Verify single-player spawn, disconnect, changelevel, and shutdown without
+  network-dependent hangs.
+
+## G30 [ ] Complete controller, menu, and console ergonomics
+
+- Provide usable default GameCube bindings for movement, look, jump, use, fire,
+  secondary fire, crouch, flashlight, weapon cycling, pause, and console/menu.
+- Make the console/menu navigable without a keyboard for hardware testing.
+- Document the final control map and preserve developer shortcuts for Dolphin.
+
+## G31 [ ] Support changelevel and multi-map progression
+
+- Complete at least one real Half-Life transition from one BSP to the next.
+- Preserve entity state, client state, global variables, and required assets
+  across changelevel without leaking enough memory to prevent the next map.
+- Capture logs for initial map, transition trigger, next map load, and player
+  control after transition.
+
+## G32 [ ] Implement save/load suitable for GameCube storage
+
+- Make manual save, autosave, quicksave/quickload policy, and restore flow work
+  with the chosen writable storage backend.
+- Bound save size and failure behavior for memory card or SD-based deployments.
+- Verify save, quit, relaunch, load, and continue on at least one small map.
+
+## G33 [ ] Build a full Half-Life disc/content staging contract
+
+- Validate that a legal local Half-Life installation can be staged into a
+  bootable GameCube image with all required `valve/` assets.
+- Detect missing, case-mismatched, oversized, or unsupported assets before the
+  ISO is built.
+- Keep generated images and proprietary assets ignored and outside Git.
+
+## G34 [ ] Add campaign asset and map compatibility checks
+
+- Create a repeatable compatibility probe for every stock Half-Life campaign
+  map present in the local asset tree.
+- Record load result, memory pressure, missing assets, unsupported renderer or
+  audio features, and current blocker per map.
+- Use the probe to decide which maps are smoke, playable, blocked, or out of
+  memory.
+
+## G35 [ ] Reach a playable early-game route
+
+- Play from tram/lab start through a bounded early-game route in order, not just
+  isolated map loads.
+- Demonstrate player spawn, movement, triggers, scripted sequences, doors,
+  pickups, weapons, enemies, damage, death/restart, and changelevel.
+- Capture Dolphin evidence first, then preserve the route for hardware testing.
+
+## G36 [ ] Optimize for a stable GameCube frame budget
+
+- Establish a target frame budget for software rendering on GameCube hardware.
+- Profile and optimize the worst CPU/rendering hot spots found in a real map
+  without broad rewrites or desktop regressions.
+- Record before/after frame timing evidence for at least one representative map.
+
+## G37 [ ] Harden crash, fatal error, and recovery reporting
+
+- Ensure fatal engine, filesystem, allocation, audio, renderer, and game-code
+  errors are visible through OSReport and the on-screen console/diagnostic path.
+- Keep logs bounded and useful on Dolphin and hardware.
+- Verify clean shutdown or bounded timeout after fatal conditions.
+
+## G38 [MANUAL] Validate on physical GameCube hardware
+
+- Boot the generated DOL or disc image through at least one real hardware method.
+- Record video output, controller input, storage, audio, map load, frame pacing,
+  and thermal/stability observations.
+- Compare hardware behavior against Dolphin logs and split emulator-only bugs
+  from hardware blockers.
+
+## G39 [ ] Define minimum supported hardware and loader matrix
+
+- Document which combinations are expected to work: DOL loader, disc image,
+  SD Gecko, memory card/SD writable storage, video mode, controller, and region.
+- Add scripts or docs for producing the recommended artifact for each route.
+- Record unsupported routes explicitly instead of leaving them ambiguous.
+
+## G40 [ ] Run an end-to-end Half-Life 1 completion campaign audit
+
+- Drive the compatibility route toward every stock Half-Life chapter available
+  in the legal local asset set.
+- Classify each chapter as playable, partially playable, blocked, or not tested
+  with concrete evidence and next blocker.
+- Do not call the port complete until every critical chapter blocker has a fix
+  or an explicit documented limitation.
+
+## G41 [ ] Prepare release-quality build and verification scripts
+
+- Provide one command to build the DOL, one command to build a legal local disc
+  image, and one command to run the Dolphin smoke/compatibility probes.
+- Make build outputs reproducible enough to compare size, symbols, and required
+  staged assets across machines.
+- Ensure CI/source verification does not require proprietary Half-Life assets.
+
+## G42 [ ] Finalize native GameCube port documentation
+
+- Document setup, legal asset staging, build requirements, supported hardware,
+  controls, save/storage behavior, known limitations, and troubleshooting.
+- Include a current compatibility table generated from the campaign probes.
+- Mark the port finished only when the documentation matches the verified state
+  of the engine, game code, assets, audio, input, storage, and hardware tests.

@@ -58,7 +58,8 @@ load target with `QWABLE_5_MODEL`, the served name with `QWABLE_5_SERVED_NAME`,
 startup limits with `QWABLE_5_MAX_MODEL_LEN`, `QWABLE_5_MAX_NUM_SEQS`, and
 `QWABLE_5_GPU_MEMORY_UTILIZATION`, or the full command with
 `QWABLE_5_COMMAND`. The API base defaults to `http://127.0.0.1:8072/v1`.
-The default `QWABLE_5_MAX_MODEL_LEN` is `32768` so vLLM matches
-`.ai/aider-model-metadata.json` and Aider does not overrun an 8k server context.
+The default `QWABLE_5_MAX_MODEL_LEN` is `65536` so vLLM matches
+`.ai/aider-model-metadata.json` and Aider has enough room for focused engine
+source context without overloading the local server.
 Credentials are still inherited from the launch environment and are not stored
 by the GUI.
