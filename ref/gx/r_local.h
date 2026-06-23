@@ -435,6 +435,8 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage );
 // renderer exports
 //
 #if XASH_GAMECUBE
+#define GC_SURFACE_CACHE_DEFAULT 8192
+#define GC_SURFACE_CACHE_MAX     65536
 qboolean R_Init_refgx( void );
 void R_Shutdown_refgx( void );
 #define R_Init R_Init_refgx

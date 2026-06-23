@@ -225,8 +225,6 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "1";
 	gc_argv[fake_argc++] = "-gcnobevels";
 	gc_argv[fake_argc++] = "-gcnodeltareinit";
-	gc_argv[fake_argc++] = "-sw_surfcacheoverride";
-	gc_argv[fake_argc++] = "131072";
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "320";
 	gc_argv[fake_argc++] = "-height";

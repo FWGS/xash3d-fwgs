@@ -582,6 +582,21 @@ Xash3D GameCube: mem stage=bsp load total=6.44 Mb delta=2.32 Mb hwm=6.44 Mb map=
 
 Evidence: `.ai/logs/dolphin-probe-20260623-010238/stderr.log`.
 
+## G23 — Memory budget plan (2026-06-23)
+
+Documented MEM1/ARAM split, measured boot high-water marks, category targets, and
+ARAM candidates in `.ai/prompts/GAMECUBE_MEMORY_BUDGET.md`.
+
+Bounded GameCube renderer cache: default 8 KiB surface cache (`sw_surfcacheoverride`),
+64 KiB hard cap, replacing the old 128 KiB smoke argv override.
+
+```sh
+./scripts/build-gamecube.sh
+DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+```
+
+Look for `mem stage=` lines and `surface cache 8 Kb` in probe stderr.
+
 ## Automation recovery notes
 
 The autonomous runner now handles two resume cases observed during G19. First,

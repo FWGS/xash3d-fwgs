@@ -767,15 +767,17 @@ R_InitCaches
 void R_InitCaches( void )
 {
 	int size;
-	int pix;
 
 #if XASH_GAMECUBE
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
-	{
-		size = 8192;
-	}
-	else
-#endif
+	if( sw_surfcacheoverride.value > 0 )
+		size = (int)sw_surfcacheoverride.value;
+	else size = GC_SURFACE_CACHE_DEFAULT;
+
+	if( size > GC_SURFACE_CACHE_MAX )
+		size = GC_SURFACE_CACHE_MAX;
+#else
+	int pix;
+
 	if( sw_surfcacheoverride.value )
 	{
 		size = sw_surfcacheoverride.value;
@@ -788,6 +790,7 @@ void R_InitCaches( void )
 		if( pix > 64000 )
 			size += ( pix - 64000 ) * 3;
 	}
+#endif
 
 	// round up to page size
 	size = ( size + 8191 ) & ~8191;
@@ -811,13 +814,16 @@ void R_InitCaches( void )
 #if XASH_GAMECUBE
 qboolean R_TryInitGcmapSurfaceCache( void )
 {
-	int size = 8192;
+	int size = GC_SURFACE_CACHE_DEFAULT;
 
 	if( sc_base )
 		return true;
 
 	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ))
 		return false;
+
+	if( size > GC_SURFACE_CACHE_MAX )
+		size = GC_SURFACE_CACHE_MAX;
 
 	size = ( size + 8191 ) & ~8191;
 	sc_base = malloc( size );

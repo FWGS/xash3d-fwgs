@@ -65,7 +65,11 @@ CVAR_DEFINE_AUTO( sw_maxedges, "32", 0, "" );
 static CVAR_DEFINE_AUTO( sw_maxsurfs, "0", 0, "" );
 CVAR_DEFINE_AUTO( sw_mipscale, "1", FCVAR_GLCONFIG, "nothing" );
 CVAR_DEFINE_AUTO( sw_mipcap, "0", FCVAR_GLCONFIG, "nothing" );
+#if XASH_GAMECUBE
+CVAR_DEFINE_AUTO( sw_surfcacheoverride, "8192", FCVAR_GLCONFIG, "software surface cache bytes (GameCube cap applies)" );
+#else
 CVAR_DEFINE_AUTO( sw_surfcacheoverride, "0", 0, "" );
+#endif
 static CVAR_DEFINE_AUTO( sw_waterwarp, "1", FCVAR_GLCONFIG, "nothing" );
 static CVAR_DEFINE_AUTO( sw_notransbrushes, "0", FCVAR_GLCONFIG, "do not apply transparency to water/glasses (faster)" );
 CVAR_DEFINE_AUTO( sw_noalphabrushes, "0", FCVAR_GLCONFIG, "do not draw brush holes (faster)" );

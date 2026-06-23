@@ -284,7 +284,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   from `filesystem` (68.91 Kb) through `bsp load` (6.44 Mb, map=c0a0e).
   OOM paths in `zone.c` call `GC_MemFail()` before `Sys_Error`.
 
-## G23 [ ] Establish a GameCube memory budget plan for full Half-Life
+## G23 [x] Establish a GameCube memory budget plan for full Half-Life
 
 - Categorize engine, HLSDK server/client, renderer, filesystem, BSP, model,
   sprite, sound, save/config, and scratch allocations against the 24 MiB main
@@ -293,6 +293,11 @@ lines. Goals marked `MANUAL` are never selected automatically.
   bounded GameCube mode.
 - Document ARAM candidates separately from main-memory allocations; do not treat
   ARAM as transparent malloc space.
+- Verified 2026-06-23: expanded `.ai/prompts/GAMECUBE_MEMORY_BUDGET.md` with
+  telemetry table, category targets, and ARAM candidate list.
+- Bounded mode: GameCube default `sw_surfcacheoverride` 8192 bytes, hard cap
+  65536 (`GC_SURFACE_CACHE_*` in `ref/gx/r_local.h`); removed smoke argv
+  `-sw_surfcacheoverride 131072`.
 
 ## G24 [ ] Replace smoke visual skips with stable low-memory visual modes
 
