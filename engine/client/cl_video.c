@@ -201,7 +201,11 @@ qboolean SCR_PlayCinematic( const char *arg )
 		return false;
 	}
 
+#if XASH_GAMECUBE
+	AVI_OpenVideo( cin_state, arg, true, false );
+#else
 	AVI_OpenVideo( cin_state, fullpath, true, false );
+#endif
 	if( !AVI_IsActive( cin_state ) || !AVI_GetVideoInfo( cin_state, &w, &h, NULL ))
 	{
 		AVI_CloseVideo( cin_state );

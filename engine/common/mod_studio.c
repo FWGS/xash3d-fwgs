@@ -1107,6 +1107,9 @@ static studiohdr_t *Mod_MaybeTruncateStudioTextureData( model_t *mod )
 #if XASH_LOW_MEMORY
 	studiohdr_t *phdr = (studiohdr_t *)mod->cache.data;
 
+	if( phdr->texturedataindex <= sizeof( studiohdr_t ) || phdr->texturedataindex > phdr->length )
+		return phdr;
+
 	mod->cache.data = Mem_Realloc( mod->mempool, mod->cache.data, phdr->texturedataindex );
 	phdr = (studiohdr_t *)mod->cache.data; // get the new pointer on studiohdr
 	phdr->length = phdr->texturedataindex; // update model size
@@ -1118,6 +1121,48 @@ static studiohdr_t *Mod_MaybeTruncateStudioTextureData( model_t *mod )
 #endif
 }
 
+#if XASH_GAMECUBE
+static void Mod_StudioLoadGcmapStub( model_t *mod, qboolean *loaded )
+{
+	static studiohdr_t stub;
+	studiohdr_t *phdr;
+
+	if( !stub.ident )
+	{
+		memset( &stub, 0, sizeof( stub ));
+		stub.ident = IDSTUDIOHEADER;
+		stub.version = STUDIO_VERSION;
+		Q_strncpy( stub.name, "gc_view_stub", sizeof( stub.name ));
+		stub.length = sizeof( stub );
+		VectorSet( stub.bbmin, -16.0f, -16.0f, -16.0f );
+		VectorSet( stub.bbmax, 16.0f, 16.0f, 16.0f );
+	}
+
+	mod->cache.data = Mem_Calloc( mod->mempool, sizeof( stub ));
+	memcpy( mod->cache.data, &stub, sizeof( stub ));
+	phdr = mod->cache.data;
+
+	VectorCopy( phdr->bbmin, mod->mins );
+	VectorCopy( phdr->bbmax, mod->maxs );
+	mod->numframes = 1;
+	mod->radius = RadiusFromBounds( mod->mins, mod->maxs );
+	mod->flags = phdr->flags;
+
+	if( loaded ) *loaded = true;
+}
+
+void Mod_LoadStudioGcmapStub( model_t *mod, qboolean *loaded )
+{
+	char poolname[MAX_VA_STRING];
+
+	if( loaded ) *loaded = false;
+	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
+	mod->mempool = Mem_AllocPool( poolname );
+	mod->type = mod_studio;
+	Mod_StudioLoadGcmapStub( mod, loaded );
+}
+#endif
+
 /*
 =================
 Mod_LoadStudioModel
@@ -1128,6 +1173,11 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	char poolname[MAX_VA_STRING];
 	studiohdr_t	*phdr;
 	qboolean textures_loaded = false;
+#if XASH_GAMECUBE
+	qboolean skip_studio_textures = Sys_CheckParm( "-gcmap" );
+#else
+	qboolean skip_studio_textures = false;
+#endif
 
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
 
@@ -1135,12 +1185,20 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	mod->mempool = Mem_AllocPool( poolname );
 	mod->type = mod_studio;
 
+#if XASH_GAMECUBE
+	if( skip_studio_textures )
+	{
+		Mod_StudioLoadGcmapStub( mod, loaded );
+		return;
+	}
+#endif
+
 	phdr = R_StudioLoadHeader( mod, buffer, buffersize );
 	if( !phdr || phdr->length < sizeof( studiohdr_t )) // garbage value in length
 		return;	// bad model
 
 #if !XASH_DEDICATED
-	if( !Host_IsDedicated( ) && phdr->numtextures == 0 )
+	if( !skip_studio_textures && !Host_IsDedicated( ) && phdr->numtextures == 0 )
 	{
 		studiohdr_t *thdr;
 		void *buffer2;
@@ -1184,13 +1242,23 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 
 	if( !textures_loaded )
 	{
+		size_t cache_length = phdr->length;
+
 		// NOTE: don't modify source buffer because it's used for CRC computing
-		mod->cache.data = Mem_Calloc( mod->mempool, phdr->length );
-		memcpy( mod->cache.data, buffer, phdr->length );
+		mod->cache.data = Mem_Calloc( mod->mempool, cache_length );
+		memcpy( mod->cache.data, buffer, cache_length );
 		phdr = mod->cache.data;
+#if XASH_GAMECUBE
+		if( skip_studio_textures )
+		{
+			phdr->numtextures = 0;
+			phdr->textureindex = 0;
+			phdr->texturedataindex = 0;
+		}
+#endif
 
 #if !XASH_DEDICATED
-		if( !Host_IsDedicated( ))
+		if( !skip_studio_textures && !Host_IsDedicated( ))
 			ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
 #endif
 	}

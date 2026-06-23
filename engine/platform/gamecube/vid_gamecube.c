@@ -9,6 +9,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #if XASH_VIDEO == VIDEO_GX
 
 #include "client.h"
+#include "ref_common.h"
 #include "vid_common.h"
 #include <stdlib.h>
 #include <string.h>
@@ -145,8 +146,9 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 #if XASH_GAMECUBE
 	{
 		uint stride, bpp, r, g, b;
-		int width = rmode ? rmode->fbWidth : DEFAULT_MODE_WIDTH;
-		int height = rmode ? rmode->efbHeight : DEFAULT_MODE_HEIGHT;
+		int width = refState.width > 0 ? refState.width : ( rmode ? rmode->fbWidth : DEFAULT_MODE_WIDTH );
+		int height = refState.height > 0 ? refState.height : ( rmode ? rmode->efbHeight : DEFAULT_MODE_HEIGHT );
+
 		if( !SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
 		{
 			SYS_Report( "GX video: failed to allocate software buffer %dx%d\n", width, height );
@@ -222,8 +224,14 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 #if XASH_GAMECUBE
 	if( rmode )
 	{
-		width = rmode->fbWidth;
-		height = rmode->efbHeight;
+		if( refState.width > 0 )
+			width = refState.width;
+		else
+			width = rmode->fbWidth;
+		if( refState.height > 0 )
+			height = refState.height;
+		else
+			height = rmode->efbHeight;
 	}
 #endif
 
@@ -273,6 +281,25 @@ void *GL_GetProcAddress( const char *name )
 {
 	(void)name;
 	return NULL;
+}
+
+void GC_TrimVideoMemoryForMapLoad( void )
+{
+	if( gc.buffer )
+	{
+		free( gc.buffer );
+		gc.buffer = NULL;
+	}
+}
+
+void GC_RestoreVideoMemoryAfterMapLoad( void )
+{
+	uint stride, bpp, r, g, b;
+
+	if( gc.buffer || gc.width <= 0 || gc.height <= 0 )
+		return;
+
+	SW_CreateBuffer( gc.width, gc.height, &stride, &bpp, &r, &g, &b );
 }
 
 void GL_UpdateSwapInterval( void )

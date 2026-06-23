@@ -37,7 +37,10 @@ GNU General Public License for more details.
 #include "render_api.h"	// decallist_t
 #include "tests.h"
 #include "library.h"
-#include "platform/platform.h"
+#if XASH_GAMECUBE
+void R_GcmapRestoreAfterMapLoad( void );
+void GC_RestoreVideoMemoryAfterMapLoad( void );
+#endif
 
 host_parm_t host;	// host parms
 static jmp_buf return_from_main_buf;
@@ -1246,7 +1249,12 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #else
 	Con_Reportf( "Xash3D GameCube: HTTP disabled\n" );
 #endif
-	SoundList_Init();
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		Con_Reportf( "Xash3D GameCube: soundlist skipped\n" );
+	else
+#endif
+		SoundList_Init();
 
 	if( Host_IsDedicated( ))
 	{
@@ -1274,6 +1282,14 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #ifdef _WIN32
 		Wcon_ShowConsole( false ); // hide console
 #endif
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+		{
+			Con_Reportf( "Xash3D GameCube: startup configs skipped\n" );
+		}
+		else
+#endif
+		{
 		// execute startup config and cmdline
 		if( FS_FileExists( va( "%s.rc", progname ), false )) // e.g. valve.rc
 			Cbuf_AddTextf( "exec %s.rc\n", progname );
@@ -1290,37 +1306,52 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			}
 
 			// exec all files from userconfig.d
-#if XASH_GAMECUBE
-			if( Sys_CheckParm( "-gcmap" ))
-				Con_Reportf( "Xash3D GameCube: userconfigd skipped\n" );
-			else
-#endif
-			{
-				Cbuf_AddText( "userconfigd\n" );
-				Cbuf_Execute();
-			}
+			Cbuf_AddText( "userconfigd\n" );
+			Cbuf_Execute();
+		}
 			break;
 	case HOST_DEDICATED:
 		// allways parse commandline in dedicated-mode
 		host.stuffcmds_pending = true;
 		break;
-	}
-
-	host.change_game = false;	// done
-	Cbuf_ExecStuffCmds();	// execute stuffcmds (commandline)
-#if XASH_GAMECUBE
-	{
-		char gcmap[MAX_QPATH];
-		if( Sys_GetParmFromCmdLine( "-gcmap", gcmap ))
-		{
-			Con_Reportf( "Xash3D GameCube: queue map %s\n", gcmap );
-			Cbuf_AddTextf( "map %s\n", gcmap );
-			Cbuf_Execute();
-			COM_Frame( 0.0 );
-			COM_Frame( 0.0 );
 		}
-	}
+
+		host.change_game = false;	// done
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: stuffcmds begin\n" );
 #endif
+		Cbuf_ExecStuffCmds();	// execute stuffcmds (commandline)
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: stuffcmds ready\n" );
+#endif
+	#if XASH_GAMECUBE
+		{
+			char gcmap[MAX_QPATH];
+			Con_Reportf( "Xash3D GameCube: gcmap lookup begin\n" );
+			if( Sys_GetParmFromCmdLine( "-gcmap", gcmap ))
+			{
+				Con_Reportf( "Xash3D GameCube: queue map %s\n", gcmap );
+				Con_Reportf( "Xash3D GameCube: direct map begin\n" );
+				Mod_FreeUnused();
+				if( SV_SpawnServer( gcmap, NULL, false ))
+				{
+					SV_SpawnEntities( gcmap );
+					SV_ActivateServer( true );
+					Con_Reportf( "Xash3D GameCube: direct map ready\n" );
+				}
+				else
+				{
+					R_GcmapRestoreAfterMapLoad();
+					GC_RestoreVideoMemoryAfterMapLoad();
+					Con_Reportf( "Xash3D GameCube: direct map failed %s\n", gcmap );
+				}
+			}
+			else
+			{
+				Con_Reportf( "Xash3D GameCube: no gcmap argument\n" );
+			}
+		}
+	#endif
 	SCR_CheckStartupVids();	// must be last
 
 #ifndef XASH_DEDICATED

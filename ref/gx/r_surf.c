@@ -768,7 +768,13 @@ void R_InitCaches( void )
 	int size;
 	int pix;
 
-	// calculate size to allocate
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	{
+		size = 131072;
+	}
+	else
+#endif
 	if( sw_surfcacheoverride.value )
 	{
 		size = sw_surfcacheoverride.value;
@@ -800,6 +806,18 @@ void R_InitCaches( void )
 	sc_base->owner = NULL;
 	sc_base->size = sc_size;
 }
+
+#if XASH_GAMECUBE
+void R_GcmapTrimSurfaceCache( void )
+{
+	if( sc_base )
+	{
+		D_FlushCaches();
+		Mem_Free( sc_base );
+		sc_base = sc_rover = NULL;
+	}
+}
+#endif
 
 
 /*

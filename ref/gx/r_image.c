@@ -464,9 +464,17 @@ static void GL_DeleteTexture( image_t *tex )
 
 	for( int i = 0; i < 4; i++ )
 		if( tex->pixels[i] )
+#if XASH_GAMECUBE
+			;
+#else
 			Mem_Free( tex->pixels[i] );
+#endif
 	if( tex->alpha_pixels )
+#if XASH_GAMECUBE
+		;
+#else
 		Mem_Free( tex->alpha_pixels );
+#endif
 
 	memset( tex, 0, sizeof( *tex ));
 }
@@ -536,7 +544,7 @@ int GAME_EXPORT GL_LoadTexture( const char *name, const byte *buf, size_t size, 
 
 	if( !GL_UploadTexture( tex, pic ))
 	{
-		memset( tex, 0, sizeof( image_t ));
+		GL_DeleteTexture( tex );
 		gEngfuncs.FS_FreeImage( pic ); // release source texture
 		return 0;
 	}
@@ -852,9 +860,15 @@ R_InitImages
 */
 void R_InitImages( void )
 {
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images init begin\n" );
+#endif
 	memset( r_images, 0, sizeof( r_images ));
 	memset( r_imagesHashTable, 0, sizeof( r_imagesHashTable ));
 	r_numImages = 0;
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images tables clear\n" );
+#endif
 
 	// create unused 0-entry
 	Q_strncpy( r_images->name, "*unused*", sizeof( r_images->name ));
@@ -862,10 +876,19 @@ void R_InitImages( void )
 	r_images->nextHash = r_imagesHashTable[r_images->hashValue];
 	r_imagesHashTable[r_images->hashValue] = r_images;
 	r_numImages = 1;
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images unused ready\n" );
+#endif
 
 	// validate cvars
 
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images command begin\n" );
+#endif
 	gEngfuncs.Cmd_AddCommand( "texturelist", R_TextureList_f, "display loaded textures list" );
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images command ready\n" );
+#endif
 }
 
 /*

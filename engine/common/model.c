@@ -320,9 +320,45 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	// store modelname to show error
 	Q_strncpy( tempname, mod->name, sizeof( tempname ));
 	COM_FixSlashes( tempname );
+
 #if XASH_GAMECUBE
-	if( !Q_strncmp( tempname, "maps/", 5 ) || !Q_strncmp( tempname, "models/", 7 ))
-		Con_Reportf( "Xash3D GameCube: model load try name='%s' path='%s'\n", mod->name, tempname );
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		const char *ext = COM_FileExtension( tempname );
+
+		if( ext && !Q_stricmp( ext, "mdl" ))
+		{
+			Con_Reportf( "loading %s\n", mod->name );
+			mod->needload = NL_PRESENT;
+			Mod_LoadStudioGcmapStub( mod, &loaded );
+			if( !loaded )
+			{
+				if( crash ) Host_Error( "Could not load model %s\n", tempname );
+				else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
+				return NULL;
+			}
+
+			if( world.loading )
+				SetBits( mod->flags, MODEL_WORLD );
+
+			return mod;
+		}
+
+		if( ext && !Q_stricmp( ext, "spr" ))
+		{
+			Con_Reportf( "loading %s\n", mod->name );
+			mod->needload = NL_PRESENT;
+			Mod_LoadSpriteGcmapStub( mod, &loaded );
+			if( !loaded )
+			{
+				if( crash ) Host_Error( "Could not load model %s\n", tempname );
+				else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
+				return NULL;
+			}
+
+			return mod;
+		}
+	}
 #endif
 
 	byte *buf = FS_LoadFile( tempname, &length, false );
@@ -331,7 +367,8 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	{
 #if XASH_GAMECUBE
 		if( !Q_strncmp( tempname, "maps/", 5 ) || !Q_strncmp( tempname, "models/", 7 ))
-			Con_Reportf( "Xash3D GameCube: model load failed path='%s' length=%li buf=%p\n", tempname, (long)length, (void *)buf );
+			Con_Reportf( "Xash3D GameCube: model file failed path='%s' length=%li buf=%p\n",
+				tempname, (long)length, (void *)buf );
 #endif
 		memset( mod, 0, sizeof( model_t ));
 

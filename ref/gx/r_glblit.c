@@ -538,7 +538,30 @@ static void R_BuildBlendMaps( void )
 	}
 }
 
-static qboolean R_AllocScreen( void );
+void R_GcmapTrimScreenBuffers( void )
+{
+	if( d_pzbuffer )
+	{
+		free( d_pzbuffer );
+		d_pzbuffer = NULL;
+	}
+
+	if( vid.buffer )
+	{
+		free( vid.buffer );
+		vid.buffer = NULL;
+	}
+
+#if !XASH_GAMECUBE
+	if( glbuf )
+	{
+		Mem_Free( glbuf );
+		glbuf = NULL;
+	}
+#endif
+}
+
+qboolean R_AllocScreen( void );
 
 qboolean R_InitBlit( qboolean glblit )
 {
@@ -574,7 +597,7 @@ qboolean R_InitBlit( qboolean glblit )
 	return R_AllocScreen();
 }
 
-static qboolean R_AllocScreen( void )
+qboolean R_AllocScreen( void )
 {
 	int w, h;
 
@@ -629,15 +652,13 @@ static qboolean R_AllocScreen( void )
 void R_BlitScreen( void )
 {
 	void *buffer = swblit.pLockBuffer();
-//	gEngfuncs.Con_Printf("blit begin\n");
-	// memset( vid.buffer, 10, vid.width * vid.height );
 
 	if( !buffer || gpGlobals->width != vid.width || gpGlobals->height != vid.height )
 	{
-		gEngfuncs.Con_Printf( "pre allocscrn\n" );
 		R_AllocScreen();
-		gEngfuncs.Con_Printf( "post allocscrn\n" );
-		return;
+		buffer = swblit.pLockBuffer();
+		if( !buffer )
+			return;
 	}
 	// return;
 	// byte *buf = vid.buffer;

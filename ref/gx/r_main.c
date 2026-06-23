@@ -1324,6 +1324,10 @@ qboolean GAME_EXPORT R_Init( void )
 {
 	qboolean glblit = false;
 
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin\n" );
+#endif
+
 	gEngfuncs.Cvar_RegisterVariable( &sw_clearcolor );
 	gEngfuncs.Cvar_RegisterVariable( &sw_drawflat );
 	gEngfuncs.Cvar_RegisterVariable( &sw_draworder );

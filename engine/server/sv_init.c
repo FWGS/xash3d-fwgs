@@ -20,6 +20,13 @@ GNU General Public License for more details.
 #include "voice.h"
 #include "pm_local.h"
 
+#if XASH_GAMECUBE
+void R_GcmapTrimForMapLoad( void );
+void R_GcmapRestoreAfterMapLoad( void );
+void GC_TrimVideoMemoryForMapLoad( void );
+void GC_RestoreVideoMemoryAfterMapLoad( void );
+#endif
+
 #if XASH_LOW_MEMORY != 2
 int SV_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
@@ -655,6 +662,11 @@ void SV_ActivateServer( int runPhysics )
 
 	Log_Printf( "Started map \"%s\" (CRC \"%u\")\n", sv.name, sv.worldmapCRC );
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		R_GcmapRestoreAfterMapLoad();
+		GC_RestoreVideoMemoryAfterMapLoad();
+	}
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 #endif
 
@@ -1049,6 +1061,15 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	Q_snprintf( sv.model_precache[WORLD_INDEX], sizeof( sv.model_precache[0] ), "maps/%s.bsp", sv.name );
 	SetBits( sv.model_precache_flags[WORLD_INDEX], RES_FATALIFMISSING );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		R_GcmapTrimForMapLoad();
+		GC_TrimVideoMemoryForMapLoad();
+		Mod_FreeUnused();
+		Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
+	}
+#endif
 	sv.worldmodel = sv.models[WORLD_INDEX] = Mod_LoadWorld( sv.model_precache[WORLD_INDEX], true );
 	CRC32_MapFile( &sv.worldmapCRC, sv.model_precache[WORLD_INDEX], svs.maxclients > 1 );
 

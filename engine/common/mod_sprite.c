@@ -184,6 +184,38 @@ static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_versio
 	return true;
 }
 
+#if XASH_GAMECUBE
+void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded )
+{
+	msprite_t *psprite;
+	char poolname[MAX_VA_STRING];
+
+	if( loaded )
+		*loaded = false;
+
+	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
+	mod->mempool = Mem_AllocPool( poolname );
+	mod->type = mod_sprite;
+
+	psprite = Mem_Calloc( mod->mempool, sizeof( msprite_t ));
+	mod->cache.data = psprite;
+
+	psprite->type = SPR_FWD_PARALLEL;
+	psprite->texFormat = SPR_ALPHTEST;
+	psprite->numframes = mod->numframes = 1;
+	psprite->facecull = SPR_CULL_FRONT;
+	psprite->radius = 1.0f;
+
+	mod->mins[0] = mod->mins[1] = -1.0f;
+	mod->maxs[0] = mod->maxs[1] = 1.0f;
+	mod->mins[2] = -1.0f;
+	mod->maxs[2] = 1.0f;
+
+	if( loaded )
+		*loaded = true;
+}
+#endif
+
 /*
 ====================
 Mod_LoadSpriteModel

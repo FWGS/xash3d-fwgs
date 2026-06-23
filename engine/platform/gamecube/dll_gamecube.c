@@ -218,8 +218,12 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	/* Prefer statically registered modules over missing files on SD. */
 	handle = dlopen( dllname, 0 );
 	if( handle )
+	{
+		Con_Reportf( "Xash3D GameCube: COM_LoadLibrary %s (registered)\n", dllname );
 		return handle;
+	}
 
+	Con_Reportf( "Xash3D GameCube: COM_LoadLibrary %s (searching disc)\n", dllname );
 	hInst = FS_FindLibrary( dllname, directpath );
 	if( !hInst )
 		return NULL;

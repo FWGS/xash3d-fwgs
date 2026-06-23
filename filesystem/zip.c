@@ -485,7 +485,7 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	{
 #if XASH_GAMECUBE
 		if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
-			Con_Reportf( "Xash3D GameCube: zip load seek failed %s offset=%li size=%li csize=%li flags=%d\n",
+			Con_Reportf( "Xash3D GameCube: zip seek failed %s offset=%li size=%li csize=%li flags=%d\n",
 				path, (long)file->offset, (long)file->size, (long)file->compressed_size, file->flags );
 #endif
 		return NULL;
@@ -511,6 +511,10 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		Con_Reportf( S_ERROR "%s: can't alloc %li bytes, no free memory\n", __func__, (long)file->size + 1 );
 		return NULL;
 	}
+#if XASH_GAMECUBE
+	if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
+		Con_Reportf( "Xash3D GameCube: zip alloc %s size=%li\n", path, (long)file->size + 1 );
+#endif
 	decompressed_buffer[file->size] = '\0';
 
 	if( file->flags == ZIP_COMPRESSION_NO_COMPRESSION )
@@ -526,6 +530,10 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 			Con_Reportf( S_ERROR "%s: %s size doesn't match\n", __func__, file->name );
 			return NULL;
 		}
+#if XASH_GAMECUBE
+		if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
+			Con_Reportf( "Xash3D GameCube: zip read ready %s\n", path );
+#endif
 
 #ifdef ENABLE_CRC_CHECK
 		CRC32_Init( &test_crc );
@@ -675,6 +683,21 @@ static int FS_FindFile_ZIP( searchpath_t *search, const char *path, char *fixedn
 			right = middle - 1;
 		else left = middle + 1;
 	}
+
+#if XASH_GAMECUBE
+	// The GameCube smoke disc uses a deliberately small bootstrap PK3. If the
+	// sorted ZIP index and binary search disagree for any reason, keep map/model
+	// precache moving instead of failing startup on valid archive members.
+	for( int i = 0; i < search->zip->numfiles; i++ )
+	{
+		if( !Q_stricmp( search->zip->files[i].name, path ))
+		{
+			if( fixedname )
+				Q_strncpy( fixedname, search->zip->files[i].name, len );
+			return i;
+		}
+	}
+#endif
 
 	return -1;
 }

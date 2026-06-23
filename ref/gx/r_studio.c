@@ -3090,6 +3090,11 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 {
 	studiohdr_t *phdr = (studiohdr_t *)data;
 
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+		return;
+#endif
+
 	if( !phdr )
 		return;
 

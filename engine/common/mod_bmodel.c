@@ -1982,6 +1982,9 @@ Mod_SetupHull
 static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hullnum, model_t *world )
 {
 	hull_t *hull = &mod->hulls[hullnum];
+#if XASH_GAMECUBE
+	qboolean gc_fast_clipnodes = Sys_CheckParm( "-gcmap" ) && !bmod->isbsp30ext && bmod->version == HLBSP_VERSION;
+#endif
 
 	switch( hullnum )
 	{
@@ -2041,6 +2044,13 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 			}
 			else
 			{
+#if XASH_GAMECUBE
+				if( gc_fast_clipnodes )
+				{
+					hull->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
+					return;
+				}
+#endif
 				hull->clipnodes16 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes16 ) * mod->numclipnodes );
 
 				for( int i = 0; i < mod->numclipnodes; i++ )
@@ -2166,12 +2176,21 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 	for( int i = 0; i < mod->numsubmodels; i++ )
 	{
 		dmodel_t *bm = &mod->submodels[i];
+#if XASH_GAMECUBE
+		if(( i & 7 ) == 0 )
+			Con_Reportf( "Xash3D GameCube: bmodel submodel %i/%zu\n", i, mod->numsubmodels );
+#endif
 
 		// hull 0 is just shared across all bmodels
 		mod->hulls[0].firstclipnode = bm->headnode[0];
 		mod->hulls[0].lastclipnode = bm->headnode[0]; // need to be real count
 
 		// counting a real number of clipnodes per each submodel
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+			mod->hulls[0].lastclipnode = mod->numnodes - 1;
+		else
+#endif
 		if( bmod->version == QBSP2_VERSION )
 			CountClipNodes32_r( mod->hulls[0].clipnodes32, &mod->hulls[0], bm->headnode[0] );
 		else
@@ -2200,7 +2219,10 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 			char temp[MAX_VA_STRING];
 
 			Q_snprintf( temp, sizeof( temp ), "*%i", i );
-			Mod_FindModelOrigin( world->entities, temp, bm->origin );
+#if XASH_GAMECUBE
+			if( !Sys_CheckParm( "-gcmap" ))
+#endif
+				Mod_FindModelOrigin( world->entities, temp, bm->origin );
 
 			// mark models that have origin brushes
 			if( !VectorIsNull( bm->origin ))
@@ -2321,6 +2343,11 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 	if( Q_stricmp( COM_FileExtension( wad ), "wad" ))
 		return 0;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		return 0;
+#endif
+
 	// make sure that wad does really exists
 	if( FS_FileExists( wad, false ))
 	{
@@ -2351,6 +2378,10 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 
 	if( bmod->isworld )
 	{
+#if XASH_GAMECUBE
+		if( !Sys_CheckParm( "-gcmap" ))
+#endif
+		{
 		char        entfilename[MAX_QPATH];
 		fs_offset_t	entpatchsize;
 
@@ -2375,6 +2406,7 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 				entdata = entpatch;
 			}
 		}
+		}
 	}
 
 	// make sure that we really have null terminator
@@ -2387,6 +2419,14 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 
 	if( !bmod->isworld )
 		return;
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		Con_Reportf( "Xash3D GameCube: bmodel entities copied %zu bytes\n", entdatasize );
+		return;
+	}
+#endif
 
 	char *pfile = (char *)mod->entities;
 	Mem_Free( world.generator );
@@ -3835,6 +3875,15 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 {
 	dclipnode32_t	*out;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && !bmod->isbsp30ext && bmod->version == HLBSP_VERSION )
+	{
+		mod->numclipnodes = bmod->numclipnodes;
+		Con_Reportf( "Xash3D GameCube: using BSP clipnodes in-place\n" );
+		return;
+	}
+#endif
+
 	bmod->clipnodes_out = out = (dclipnode32_t *)Mem_Malloc( mod->mempool, bmod->numclipnodes * sizeof( *out ));
 
 	if(( bmod->version == QBSP2_VERSION ) || ( bmod->version == HLBSP_VERSION && bmod->isbsp30ext && bmod->numclipnodes >= MAX_MAP_CLIPNODES_HLBSP ))
@@ -4284,16 +4333,59 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	}
 
 	// load into heap
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel entities begin\n" );
+#endif
 	Mod_LoadEntities( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel entities ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel planes begin\n" );
+#endif
 	Mod_LoadPlanes( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel planes ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel submodel lump begin\n" );
+#endif
 	Mod_LoadSubmodels( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel submodel lump ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel vertexes begin\n" );
+#endif
 	Mod_LoadVertexes( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel vertexes ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel edges begin\n" );
+#endif
 	Mod_LoadEdges( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel edges ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel surfedges begin\n" );
+#endif
 	Mod_LoadSurfEdges( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel surfedges ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel textures begin\n" );
+#endif
 	Mod_LoadTextures( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel textures ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel visibility begin\n" );
+#endif
 	Mod_LoadVisibility( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel visibility ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel texinfo begin\n" );
+#endif
 	Mod_LoadTexInfo( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel texinfo ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel surfaces begin\n" );
+#endif
 	Mod_LoadSurfaces( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel surfaces ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel lighting begin\n" );
+#endif
 	Mod_LoadLighting( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
@@ -4316,8 +4408,18 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 #endif
 
 	// preform some post-initalization
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel hull0 begin\n" );
+#endif
 	Mod_MakeHull0( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel hull0 ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel submodels begin\n" );
+#endif
 	Mod_SetupSubmodels( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel submodels ready\n" );
+#endif
 
 	if( isworld )
 	{

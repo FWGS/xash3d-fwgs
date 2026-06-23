@@ -809,6 +809,254 @@ static qboolean AVI_ValidateFFmpegVersion( void )
 	return true;
 }
 #else
+#if XASH_GAMECUBE
+#define GCVID_HEADER_SIZE 24
+#define GCVID_MAGIC_0 'G'
+#define GCVID_MAGIC_1 'C'
+#define GCVID_MAGIC_2 'V'
+#define GCVID_MAGIC_3 '1'
+
+struct movie_state_s
+{
+	file_t *file;
+	byte *frame;
+	double start_time;
+	fs_offset_t data_offset;
+	size_t frame_size;
+	uint frame_count;
+	uint fps_num;
+	uint fps_den;
+	uint current_frame;
+	int xres;
+	int yres;
+	int x, y, w, h;
+	int texture;
+	qboolean active;
+};
+
+static uint AVI_GCVIDReadLE32( const byte *data )
+{
+	return (uint)data[0] | ((uint)data[1] << 8) | ((uint)data[2] << 16) | ((uint)data[3] << 24);
+}
+
+static qboolean AVI_GCVIDPath( const char *filename, char *path, size_t size )
+{
+	char *dot, *slash;
+
+	if( !filename || !filename[0] )
+		return false;
+
+	Q_strncpy( path, filename, size );
+	COM_FixSlashes( path );
+	dot = strrchr( path, '.' );
+	slash = strrchr( path, '/' );
+	if( dot && ( !slash || dot > slash ))
+		*dot = '\0';
+
+	Q_strncat( path, ".gcvid", size );
+	return true;
+}
+
+int AVI_GetVideoFrameNumber( movie_state_t *Avi, float time )
+{
+	if( !Avi || !Avi->active || Avi->fps_den == 0 )
+		return 0;
+
+	return bound( 0, (int)((double)time * (double)Avi->fps_num / (double)Avi->fps_den), (int)Avi->frame_count - 1 );
+}
+
+byte *AVI_GetVideoFrame( movie_state_t *Avi, int frame )
+{
+	if( !Avi || !Avi->active || frame < 0 || (uint)frame >= Avi->frame_count )
+		return NULL;
+
+	return Avi->frame;
+}
+
+qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *duration )
+{
+	if( !Avi || !Avi->active )
+		return false;
+
+	if( xres ) *xres = Avi->xres;
+	if( yres ) *yres = Avi->yres;
+	if( duration ) *duration = (float)((double)Avi->frame_count * (double)Avi->fps_den / (double)Avi->fps_num);
+
+	return true;
+}
+
+qboolean AVI_HaveAudioTrack( const movie_state_t *Avi )
+{
+	return false;
+}
+
+void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audio, int quiet )
+{
+	byte header[GCVID_HEADER_SIZE];
+	char path[MAX_SYSPATH];
+	uint width, height;
+
+	if( !Avi )
+		return;
+
+	if( Avi->active )
+		AVI_CloseVideo( Avi );
+
+	if( !AVI_GCVIDPath( filename, path, sizeof( path )))
+		return;
+
+	Avi->file = FS_Open( path, "rb", false );
+	if( !Avi->file )
+	{
+		if( !quiet )
+			Con_Printf( S_ERROR "Couldn't open GameCube intro stream %s\n", path );
+		return;
+	}
+
+	if( FS_Read( Avi->file, header, sizeof( header )) != sizeof( header ) ||
+		header[0] != GCVID_MAGIC_0 || header[1] != GCVID_MAGIC_1 ||
+		header[2] != GCVID_MAGIC_2 || header[3] != GCVID_MAGIC_3 )
+	{
+		if( !quiet )
+			Con_Printf( S_ERROR "%s is not a GameCube intro stream\n", path );
+		AVI_CloseVideo( Avi );
+		return;
+	}
+
+	width = AVI_GCVIDReadLE32( header + 4 );
+	height = AVI_GCVIDReadLE32( header + 8 );
+	Avi->fps_num = AVI_GCVIDReadLE32( header + 12 );
+	Avi->fps_den = AVI_GCVIDReadLE32( header + 16 );
+	Avi->frame_count = AVI_GCVIDReadLE32( header + 20 );
+
+	if( width == 0 || height == 0 || Avi->fps_num == 0 || Avi->fps_den == 0 || Avi->frame_count == 0 )
+	{
+		if( !quiet )
+			Con_Printf( S_ERROR "%s has invalid GameCube intro metadata\n", path );
+		AVI_CloseVideo( Avi );
+		return;
+	}
+
+	Avi->frame_size = width * height * 4;
+	Avi->frame = Mem_Malloc( avi_mempool, Avi->frame_size );
+	if( !Avi->frame )
+	{
+		AVI_CloseVideo( Avi );
+		return;
+	}
+
+	Avi->xres = width;
+	Avi->yres = height;
+	Avi->x = 0;
+	Avi->y = 0;
+	Avi->w = -1;
+	Avi->h = -1;
+	Avi->texture = 0;
+	Avi->data_offset = FS_Tell( Avi->file );
+	Avi->current_frame = (uint)-1;
+	Avi->start_time = Platform_DoubleTime();
+	Avi->active = true;
+	(void)load_audio;
+}
+
+void AVI_CloseVideo( movie_state_t *Avi )
+{
+	if( !Avi )
+		return;
+
+	if( Avi->file )
+		FS_Close( Avi->file );
+	if( Avi->frame )
+		Mem_Free( Avi->frame );
+
+	memset( Avi, 0, sizeof( *Avi ));
+}
+
+qboolean AVI_Think( movie_state_t *Avi )
+{
+	uint target_frame;
+	fs_offset_t offset;
+	double elapsed;
+
+	if( !Avi || !Avi->active || !Avi->file || !Avi->frame )
+		return false;
+
+	elapsed = Platform_DoubleTime() - Avi->start_time;
+	target_frame = (uint)( elapsed * (double)Avi->fps_num / (double)Avi->fps_den );
+	if( target_frame >= Avi->frame_count )
+		return false;
+
+	if( target_frame != Avi->current_frame )
+	{
+		offset = Avi->data_offset + (fs_offset_t)target_frame * (fs_offset_t)Avi->frame_size;
+		if( FS_Seek( Avi->file, offset, SEEK_SET ) == -1 ||
+			FS_Read( Avi->file, Avi->frame, Avi->frame_size ) != (fs_offset_t)Avi->frame_size )
+			return false;
+
+		Avi->current_frame = target_frame;
+		if( Avi->texture == 0 )
+			ref.dllFuncs.GL_UpdateTexture( SCR_GetCinematicTexture(), Avi->xres, Avi->yres, Avi->xres, Avi->yres, Avi->frame, PF_BGRA_32 );
+		else if( Avi->texture > 0 )
+			ref.dllFuncs.GL_UpdateTexture( Avi->texture, Avi->xres, Avi->yres, Avi->w, Avi->h, Avi->frame, PF_BGRA_32 );
+	}
+
+	if( Avi->texture == 0 )
+	{
+		int w = Avi->w >= 0 ? Avi->w : refState.width;
+		int h = Avi->h >= 0 ? Avi->h : refState.height;
+		ref.dllFuncs.R_DrawStretchPic( Avi->x, Avi->y, w, h, 0, 0, 1, 1, SCR_GetCinematicTexture() );
+	}
+
+	return true;
+}
+
+qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
+{
+	qboolean ret = true;
+	va_list va;
+	va_start( va, parm );
+
+	if( !Avi )
+	{
+		va_end( va );
+		return false;
+	}
+
+	while( parm != AVI_PARM_LAST )
+	{
+		switch( parm )
+		{
+		case AVI_RENDER_TEXNUM:
+			Avi->texture = va_arg( va, int );
+			break;
+		case AVI_RENDER_X:
+			Avi->x = va_arg( va, int );
+			break;
+		case AVI_RENDER_Y:
+			Avi->y = va_arg( va, int );
+			break;
+		case AVI_RENDER_W:
+			Avi->w = va_arg( va, int );
+			break;
+		case AVI_RENDER_H:
+			Avi->h = va_arg( va, int );
+			break;
+		case AVI_REWIND:
+			Avi->start_time = Platform_DoubleTime();
+			Avi->current_frame = (uint)-1;
+			break;
+		default:
+			(void)va_arg( va, int );
+			ret = false;
+			break;
+		}
+		parm = va_arg( va, enum movie_parms_e );
+	}
+
+	va_end( va );
+	return ret;
+}
+#else
 struct movie_state_s
 {
 	qboolean active;
@@ -853,6 +1101,7 @@ qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
 {
 	return false;
 }
+#endif
 
 static qboolean AVI_ValidateFFmpegVersion( void )
 {
@@ -883,16 +1132,23 @@ qboolean AVI_IsActive( movie_state_t *Avi )
 
 qboolean AVI_Initailize( void )
 {
-	if( XASH_AVI == AVI_NULL )
-	{
-		Con_Printf( "AVI: Not supported\n" );
-		return false;
-	}
-
 	if( Sys_CheckParm( "-noavi" ))
 	{
 		Con_Printf( "AVI: Disabled\n" );
 		return false;
+	}
+
+	if( XASH_AVI == AVI_NULL )
+	{
+#if XASH_GAMECUBE
+		Con_Reportf( "AVI: GameCube raw video\n" );
+		avi_initialized = true;
+		avi_mempool = Mem_AllocPool( "AVI Zone" );
+		return true;
+#else
+		Con_Printf( "AVI: Not supported\n" );
+		return false;
+#endif
 	}
 
 	if( !AVI_LoadFFmpeg( ))
@@ -937,7 +1193,11 @@ movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
 	}
 
 	Avi = Mem_Calloc( avi_mempool, sizeof( movie_state_t ));
+#if XASH_GAMECUBE
+	AVI_OpenVideo( Avi, path, load_audio, false );
+#else
 	AVI_OpenVideo( Avi, fullpath, load_audio, false );
+#endif
 
 	if( !AVI_IsActive( Avi ))
 	{

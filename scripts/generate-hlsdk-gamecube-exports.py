@@ -47,8 +47,28 @@ def archive_symbols(nm: str, archive: Path) -> set[str]:
 
 
 def strip_comments(text: str) -> str:
-	text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
-	return re.sub(r"//.*", "", text)
+	out: list[str] = []
+	i = 0
+	length = len(text)
+	while i < length:
+		if text.startswith("//", i):
+			while i < length and text[i] != "\n":
+				i += 1
+			if i < length:
+				out.append(text[i])
+				i += 1
+		elif text.startswith("/*", i):
+			i += 2
+			while i < length and not text.startswith("*/", i):
+				if text[i] == "\n":
+					out.append("\n")
+				i += 1
+			if i < length:
+				i += 2
+		else:
+			out.append(text[i])
+			i += 1
+	return "".join(out)
 
 
 def entity_names(hlsdk_dir: Path) -> list[str]:

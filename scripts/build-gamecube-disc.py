@@ -20,7 +20,11 @@ DISC_MAGIC = 0xC2339F3D
 APPLOADER_ADDRESS = 0x81200000
 APPLOADER_HEADER_OFFSET = 0x2440
 APPLOADER_DATA_OFFSET = APPLOADER_HEADER_OFFSET + 0x20
-BOOTSTRAP_EXCLUDED_EXTENSIONS = {".avi", ".pak", ".pk3", ".wad", ".wav"}
+BOOTSTRAP_EXCLUDED_EXTENSIONS = {".avi", ".gcvid", ".mdl", ".pak", ".pk3", ".wad", ".wav"}
+GCVID_WIDTH = 320
+GCVID_HEIGHT = 240
+GCVID_FPS = 15
+GCVID_HEADER = struct.Struct("<4sIIIII")
 
 
 def align(value: int, boundary: int) -> int:
@@ -198,6 +202,7 @@ def build_iso9660(
 	extras: Path | None,
 	output_path: Path,
 	bootstrap_recursive: bool = False,
+	overlays: tuple[tuple[str, Path], ...] = (),
 ) -> None:
 	xorriso = shutil.which("xorriso")
 	if xorriso is None:
@@ -238,6 +243,8 @@ def build_iso9660(
 
 		if extras is not None:
 			command.append(f"/xash3d/valve/extras.pk3={extras}")
+		for relative, source in overlays:
+			command.append(f"/xash3d/valve/{relative}={source}")
 		command.append(f"/xash3d/valve/gamecube-bootstrap.pk3={bootstrap}")
 		output_path.unlink(missing_ok=True)
 		subprocess.run(command, check=True)
@@ -268,6 +275,75 @@ SMOKE_INTRO_MEDIA = (
 	"media/valve.avi",
 )
 
+
+def convert_intro_media(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
+	ffmpeg = shutil.which("ffmpeg")
+	converted: list[tuple[str, Path]] = []
+
+	for relative in SMOKE_INTRO_MEDIA:
+		avi = source / relative
+		if not avi.is_file():
+			continue
+		if ffmpeg is None:
+			raise FileNotFoundError("ffmpeg is required to convert Half-Life startup AVI files")
+
+		gcvid_relative = Path(relative).with_suffix(".gcvid").as_posix()
+		gcvid = output / gcvid_relative
+		if gcvid.is_file() and gcvid.stat().st_mtime >= avi.stat().st_mtime:
+			converted.append((gcvid_relative, gcvid))
+			continue
+
+		gcvid.parent.mkdir(parents=True, exist_ok=True)
+		convert_avi_to_gcvid(ffmpeg, avi, gcvid)
+		converted.append((gcvid_relative, gcvid))
+
+	return tuple(converted)
+
+
+def convert_avi_to_gcvid(ffmpeg: str, source: Path, output: Path) -> None:
+	frame_size = GCVID_WIDTH * GCVID_HEIGHT * 4
+	temp_output = output.with_suffix(output.suffix + ".tmp")
+	command = [
+		ffmpeg,
+		"-v", "error",
+		"-i", str(source),
+		"-an",
+		"-vf",
+		f"scale={GCVID_WIDTH}:{GCVID_HEIGHT}:force_original_aspect_ratio=decrease,"
+		f"pad={GCVID_WIDTH}:{GCVID_HEIGHT}:(ow-iw)/2:(oh-ih)/2,fps={GCVID_FPS}",
+		"-f", "rawvideo",
+		"-pix_fmt", "bgra",
+		"-",
+	]
+
+	frame_count = 0
+	process = subprocess.Popen(command, stdout=subprocess.PIPE)
+	assert process.stdout is not None
+	try:
+		with temp_output.open("wb") as out:
+			out.write(GCVID_HEADER.pack(b"GCV1", GCVID_WIDTH, GCVID_HEIGHT, GCVID_FPS, 1, 0))
+			while True:
+				frame = process.stdout.read(frame_size)
+				if not frame:
+					break
+				if len(frame) != frame_size:
+					raise ValueError(f"partial video frame while converting {source}")
+				out.write(frame)
+				frame_count += 1
+	finally:
+		process.stdout.close()
+
+	if process.wait() != 0:
+		temp_output.unlink(missing_ok=True)
+		raise subprocess.CalledProcessError(process.returncode, command)
+	if frame_count == 0:
+		temp_output.unlink(missing_ok=True)
+		raise ValueError(f"ffmpeg produced no frames for {source}")
+
+	with temp_output.open("r+b") as out:
+		out.write(GCVID_HEADER.pack(b"GCV1", GCVID_WIDTH, GCVID_HEIGHT, GCVID_FPS, 1, frame_count))
+	temp_output.replace(output)
+
 SMOKE_HUD_SPRITES = (
 	"sprites/animglow01.spr",
 	"sprites/dot.spr",
@@ -286,6 +362,7 @@ SMOKE_SOUND_DIRS = (
 )
 
 SMOKE_PRECACHE_MODELS = (
+	"models/grenade.mdl",
 	"models/p_357.mdl",
 	"models/p_9mmar.mdl",
 	"models/p_9mmhandgun.mdl",
@@ -351,13 +428,18 @@ SMOKE_PRECACHE_MODELS = (
 	"models/w_weaponbox.mdl",
 )
 
-SMOKE_CASE_ALIASES = {
-	"models/p_9mmar.mdl": "models/p_9mmAR.mdl",
-	"models/v_9mmar.mdl": "models/v_9mmAR.mdl",
-	"models/w_9mmar.mdl": "models/w_9mmAR.mdl",
-	"models/w_9mmarclip.mdl": "models/w_9mmARclip.mdl",
-	"models/w_argrenade.mdl": "models/w_ARgrenade.mdl",
-}
+SMOKE_CASE_ALIASES = (
+	("models/p_9mmar.mdl", "models/p_9mmAR.mdl"),
+	("models/v_9mmar.mdl", "models/v_9mmAR.mdl"),
+	("models/w_9mmar.mdl", "models/w_9mmAR.mdl"),
+	("models/w_9mmarclip.mdl", "models/w_9mmARclip.mdl"),
+	("models/w_argrenade.mdl", "models/w_ARgrenade.mdl"),
+	("models/p_9mmAR.mdl", "models/p_9mmar.mdl"),
+	("models/v_9mmAR.mdl", "models/v_9mmar.mdl"),
+	("models/w_9mmAR.mdl", "models/w_9mmar.mdl"),
+	("models/w_9mmARclip.mdl", "models/w_9mmarclip.mdl"),
+	("models/w_ARgrenade.mdl", "models/w_argrenade.mdl"),
+)
 
 
 def copy_if_present(source_root: Path, output_root: Path, relative: str) -> None:
@@ -426,21 +508,45 @@ def extract_wad_lump(wad_path: Path, output: Path, lump_name: str, relative: str
 
 
 def write_smoke_overrides(output: Path, smoke_map: str) -> None:
-	# The full Half-Life skill.cfg is large enough to stall early GameCube smoke
-	# boot while the cvar/config path is still under bring-up. Keep the smoke
-	# disc focused on reaching map load; full skill data remains in the user's
-	# source asset tree and regular disc builds.
-	(output / "skill.cfg").write_text('skill "1"\n', encoding="ascii")
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
 	(output / "gamecube.cfg").write_text(f"map {Path(smoke_map).stem}\n", encoding="ascii")
 	media = output / "media"
 	media.mkdir(exist_ok=True)
+	(media / "StartupVids.txt").write_text("", encoding="ascii")
+
+
+def write_startup_vids(output: Path) -> None:
+	movies = [
+		relative
+		for relative in SMOKE_INTRO_MEDIA
+		if (output / relative).is_file()
+	]
+	if not movies:
+		return
+
+	media = output / "media"
+	media.mkdir(exist_ok=True)
 	(media / "StartupVids.txt").write_text(
-		"media/sierra.avi\nmedia/valve.avi\n",
+		"".join(f"{movie}\n" for movie in movies),
 		encoding="ascii",
 	)
+
+
+def create_startup_vids_overlay(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
+	movies = [
+		relative
+		for relative in SMOKE_INTRO_MEDIA
+		if (source / relative).is_file()
+	]
+	if not movies:
+		return ()
+
+	path = output / "media" / "StartupVids.txt"
+	path.parent.mkdir(parents=True, exist_ok=True)
+	path.write_text("".join(f"{movie}\n" for movie in movies), encoding="ascii")
+	return (("media/StartupVids.txt", path),)
 
 
 def smoke_map_resources(map_path: Path) -> set[str]:
@@ -469,15 +575,13 @@ def stage_smoke_data(source: Path, output: Path, smoke_map: str) -> Path:
 	for relative in SMOKE_CONFIG_FILES:
 		copy_if_present(source, output, relative)
 	write_smoke_overrides(output, smoke_map)
-	for relative in SMOKE_INTRO_MEDIA:
-		copy_if_present(source, output, relative)
 	for relative in SMOKE_HUD_SPRITES:
 		copy_if_present(source, output, relative)
 	for relative in SMOKE_PRECACHE_MODELS:
 		copy_if_present(source, output, relative)
 	for relative in SMOKE_SOUND_DIRS:
 		copy_tree_if_present(source, output, relative)
-	for source_relative, alias_relative in SMOKE_CASE_ALIASES.items():
+	for source_relative, alias_relative in SMOKE_CASE_ALIASES:
 		copy_alias_if_present(output, source_relative, alias_relative)
 	extract_wad_lump(source / "gfx.wad", output, "conchars", "gfx/conchars")
 
@@ -504,9 +608,10 @@ def build_disc(
 	apploader_source: Path,
 	apploader_linker: Path,
 	bootstrap_recursive: bool = False,
+	overlays: tuple[tuple[str, Path], ...] = (),
 ) -> None:
 	output_path.parent.mkdir(parents=True, exist_ok=True)
-	build_iso9660(data, extras, output_path, bootstrap_recursive)
+	build_iso9660(data, extras, output_path, bootstrap_recursive, overlays)
 	iso9660_size = output_path.stat().st_size
 	dol_size = dol.stat().st_size
 	dol_offset = align(iso9660_size, 0x800)
@@ -603,14 +708,21 @@ def main() -> None:
 				bootstrap_recursive=True,
 			)
 	else:
-		build_disc(
-			args.dol,
-			args.data,
-			extras,
-			args.output,
-			args.apploader_source,
-			args.apploader_linker,
-		)
+		with tempfile.TemporaryDirectory(prefix="xash3d-gc-intro-media-") as temp:
+			overlay_root = Path(temp) / "valve"
+			overlays = (
+				convert_intro_media(args.data, overlay_root)
+				+ create_startup_vids_overlay(args.data, overlay_root)
+			)
+			build_disc(
+				args.dol,
+				args.data,
+				extras,
+				args.output,
+				args.apploader_source,
+				args.apploader_linker,
+				overlays=overlays,
+			)
 
 
 if __name__ == "__main__":

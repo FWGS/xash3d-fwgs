@@ -1048,10 +1048,18 @@ edict_t *GAME_EXPORT SV_AllocEdict( void )
 	}
 
 	if( i >= GI->max_edicts )
+	{
 		Host_Error( "%s: no free edicts (max is %d)\n", __func__, GI->max_edicts );
+		return NULL;
+	}
 
 	svgame.numEntities++;
 	e = SV_EdictNum( i );
+	if( !e )
+	{
+		Host_Error( "%s: bad edict index %d\n", __func__, i );
+		return NULL;
+	}
 	SV_InitEdict( e );
 
 	return e;
@@ -5014,6 +5022,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 			Mem_Free( pkvd[i].szKeyName ); // will be replace with 'angles'
 			Mem_Free( pkvd[i].szValue );	// release old value, so we don't need these
 			pkvd[i].szKeyName = copystring( "angles" );
+			keyname = pkvd[i].szKeyName;
 
 			if( flYawAngle >= 0.0f )
 			{
@@ -5025,9 +5034,9 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 			else if( flYawAngle == -2.0f )
 				pkvd[i].szValue = copystring( "90 0 0" );
 			else pkvd[i].szValue = copystring( "0 0 0" ); // technically an error
+			value = pkvd[i].szValue;
 		}
-
-		if( adjust_origin && !Q_strcmp( pkvd[i].szKeyName, "origin" ))
+		else if( adjust_origin && !Q_strcmp( pkvd[i].szKeyName, "origin" ))
 		{
 			char   *pstart = pkvd[i].szValue;
 			vec3_t origin;
@@ -5037,6 +5046,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 
 			Q_snprintf( temp, sizeof( temp ), "%g %g %g", origin[0], origin[1], origin[2] - 16.0f );
 			pkvd[i].szValue = copystring( temp );
+			value = pkvd[i].szValue;
 		}
 
 		// do not leak memory if game overwritten these pointers
@@ -5309,21 +5319,42 @@ qboolean SV_LoadProgs( const char *name )
 		return false;
 	}
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs operators begin\n" );
+#endif
 	SV_InitOperatorCommands();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs operators ready\n" );
+	Con_Reportf( "Xash3D GameCube: server progs studio api begin\n" );
+#endif
 	Mod_InitStudioAPI();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs studio api ready\n" );
+	Con_Reportf( "Xash3D GameCube: server progs physics api begin\n" );
+#endif
 
 	if( !SV_InitPhysicsAPI( ))
 	{
 		Con_Printf( S_WARN "%s: couldn't get physics API\n", __func__ );
 	}
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs physics api ready\n" );
+	Con_Reportf( "Xash3D GameCube: server progs save restore begin\n" );
+#endif
 
 	// grab function SV_SaveGameComment
 	SV_InitSaveRestore ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs save restore ready\n" );
+#endif
 
 	svgame.globals->pStringBase = ""; // setup string base
 
 	svgame.globals->maxEntities = GI->max_edicts;
 	svgame.globals->maxClients = svs.maxclients;
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs edicts alloc begin\n" );
+#endif
 	svgame.edicts = Mem_Calloc( svgame.mempool, sizeof( edict_t ) * GI->max_edicts );
 	svs.static_entities = Z_Calloc( sizeof( entity_state_t ) * MAX_STATIC_ENTITIES );
 	svs.baselines = Z_Calloc( sizeof( entity_state_t ) * GI->max_edicts );
@@ -5334,20 +5365,43 @@ qboolean SV_LoadProgs( const char *name )
 
 	Cvar_FullSet( "host_gameloaded", "1", FCVAR_READ_ONLY );
 	SV_AllocStringPool();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs edicts alloc ready\n" );
+	Con_Reportf( "Xash3D GameCube: server progs game description begin\n" );
+#endif
 
 	// fire once
 	Con_Printf( "Dll loaded for game ^2\"%s\"\n", svgame.dllFuncs.pfnGetGameDescription( ));
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs game description ready\n" );
+	Con_Reportf( "Xash3D GameCube: server progs game init begin\n" );
+#endif
 
 	// all done, initialize game
 	svgame.dllFuncs.pfnGameInit();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs game init ready\n" );
+	Con_Reportf( "Xash3D GameCube: server progs client move begin\n" );
+#endif
 
 	// initialize pm_shared
 	SV_InitClientMove();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs client move ready\n" );
+	Con_Reportf( "Xash3D GameCube: server progs delta begin\n" );
+#endif
 
 	Delta_Init ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs delta ready\n" );
+	Con_Reportf( "Xash3D GameCube: server progs encoders begin\n" );
+#endif
 
 	// register custom encoders
 	svgame.dllFuncs.pfnRegisterEncoders();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server progs encoders ready\n" );
+#endif
 
 	return true;
 }

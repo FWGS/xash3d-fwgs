@@ -218,7 +218,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   and clean shutdown or bounded timeout.
 - Use Dolphin first, then repeat on real hardware when available.
 
-## G20 [ ] Register static HLSDK server entity class exports
+## G20 [x] Register static HLSDK server entity class exports
 
 - Generate or otherwise register the HLSDK server `LINK_ENTITY_TO_CLASS` export
   names in the GameCube static loader so `SV_GetEntityClass()` can resolve
@@ -226,6 +226,13 @@ lines. Goals marked `MANUAL` are never selected automatically.
   other classnames.
 - Avoid a fragile hand-written partial table; keep the export list reproducible
   from the installed HLSDK archive or source checkout.
-- Verify `DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh` still reaches
-  `map loaded c0a0e` and no longer logs `No spawn function` for the staged
-  `c0a0e` entity set.
+- Verified 2026-06-22: the generator now preserves `triggers.cpp` through
+  `//*****` banner comments, emits 249 archive-backed exports including
+  `multi_manager`, and the GameCube build completes without the old
+  `SV_InitEdict` warning.
+- Dolphin evidence:
+  `.ai/logs/dolphin-probe-20260622-173750/stderr.log` reaches completed
+  `SV_LoadProgs`, `GameInit`, PM-move, delta, encoder registration, and
+  `Xash3D GameCube: engine subsystems ready`. The next blocker is now map
+  model lookup: `Host_ErrorInit: Could not load model maps from disk` after the
+  `-gcmap c0a0e` pre-spawn memory trim.

@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import shutil
+import socket
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 from PyQt6.QtCore import QProcess, QProcessEnvironment, Qt, QTimer, QUrl
 from PyQt6.QtGui import QCloseEvent, QDesktopServices, QFont, QFontDatabase, QTextCursor
@@ -19,6 +22,7 @@ from PyQt6.QtWidgets import (
 	QCheckBox,
 	QFileDialog,
 	QFormLayout,
+	QGridLayout,
 	QHeaderView,
 	QGroupBox,
 	QHBoxLayout,
@@ -38,6 +42,8 @@ from PyQt6.QtWidgets import (
 
 DEFAULT_REPO = Path(__file__).resolve().parents[1]
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |x|X|MANUAL)\]\s+(.+)$")
+QWABLE_5_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
+QWABLE_5_SERVED_NAME = "qwen-local"
 
 GC_BG = "#171225"
 GC_PANEL = "#241a3f"
@@ -78,6 +84,90 @@ def load_dotenv(path: Path) -> None:
 		if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
 			value = value[1:-1]
 		os.environ[key] = value
+
+
+def huggingface_hub_cache() -> Path:
+	if os.environ.get("HUGGINGFACE_HUB_CACHE"):
+		return Path(os.environ["HUGGINGFACE_HUB_CACHE"]).expanduser()
+	if os.environ.get("HF_HOME"):
+		return Path(os.environ["HF_HOME"]).expanduser() / "hub"
+	return Path.home() / ".cache/huggingface/hub"
+
+
+def local_hf_snapshot(model_id: str) -> Path | None:
+	model_dir = huggingface_hub_cache() / f"models--{model_id.replace('/', '--')}"
+	snapshots = model_dir / "snapshots"
+	if not snapshots.is_dir():
+		return None
+	ref = model_dir / "refs/main"
+	if ref.is_file():
+		candidate = snapshots / ref.read_text(encoding="utf-8").strip()
+		if (candidate / "config.json").is_file():
+			return candidate
+	candidates = [path for path in snapshots.iterdir() if (path / "config.json").is_file()]
+	if not candidates:
+		return None
+	return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def default_qwable_model() -> str:
+	if os.environ.get("QWABLE_5_MODEL"):
+		return os.environ["QWABLE_5_MODEL"]
+	snapshot = local_hf_snapshot(QWABLE_5_MODEL_ID)
+	return str(snapshot) if snapshot else QWABLE_5_MODEL_ID
+
+
+def gopex_vllm_launcher() -> list[str] | None:
+	root = Path(os.environ.get("GOPEX_ROOT", str(Path.home() / "GopexLLC"))).expanduser()
+	python = root / ".venv/bin/python"
+	launcher = root / "tools/vllm_serve_launcher.py"
+	if python.exists() and launcher.is_file():
+		return [str(python), str(launcher)]
+	return None
+
+
+def vllm_qwable_command() -> str:
+	served_name = os.environ.get("QWABLE_5_SERVED_NAME", QWABLE_5_SERVED_NAME)
+	command = (gopex_vllm_launcher() or ["vllm"]) + [
+		"serve", default_qwable_model(),
+		"--host", "127.0.0.1",
+		"--port", "8072",
+		"--served-model-name", served_name,
+		"--language-model-only",
+		"--max-model-len", os.environ.get("QWABLE_5_MAX_MODEL_LEN", "8192"),
+		"--max-num-seqs", os.environ.get("QWABLE_5_MAX_NUM_SEQS", "256"),
+		"--gpu-memory-utilization", os.environ.get("QWABLE_5_GPU_MEMORY_UTILIZATION", "0.85"),
+		"--reasoning-parser", "qwen3",
+		"--enable-auto-tool-choice",
+		"--tool-call-parser", "qwen3_coder",
+	]
+	return shlex.join(command)
+
+
+def default_model_command() -> str:
+	if os.environ.get("QWABLE_5_COMMAND"):
+		return os.environ["QWABLE_5_COMMAND"]
+	if shutil.which("qwable-5"):
+		return "qwable-5 --host 127.0.0.1 --port 8072"
+	if shutil.which("vllm"):
+		return vllm_qwable_command()
+	return "qwable-5 --host 127.0.0.1 --port 8072"
+
+
+def command_executable_problem(command: list[str], cwd: Path) -> str | None:
+	if not command:
+		return "empty command"
+	program = command[0]
+	if "/" in program:
+		path = Path(program).expanduser()
+		if not path.is_absolute():
+			path = cwd / path
+		if not path.exists():
+			return f"{program} does not exist"
+		if not path.is_file() or not os.access(path, os.X_OK):
+			return f"{program} is not executable"
+		return None
+	return None if shutil.which(program) else program
 
 
 def stylesheet() -> str:
@@ -122,7 +212,9 @@ class PortWindow(QMainWindow):
 		self.setWindowTitle("Xash3D → GameCube — Port Command Console")
 		self.resize(1180, 880)
 		self.process: QProcess | None = None
+		self.model_process: QProcess | None = None
 		self.operation = ""
+		self.model_operation = ""
 		self.expected_passes = 1
 		self.pending_boot = False
 		self.pipeline: dict[str, QLabel] = {}
@@ -158,8 +250,9 @@ class PortWindow(QMainWindow):
 		self.dol_chip = QLabel("DOL  —")
 		self.iso_chip = QLabel("ISO  —")
 		self.dolphin_chip = QLabel("DOLPHIN CHECKING")
+		self.model_chip = QLabel("MODEL CHECKING")
 		self.save_chip = QLabel("GIT SAVED")
-		for chip in (self.dol_chip, self.iso_chip, self.dolphin_chip, self.save_chip):
+		for chip in (self.dol_chip, self.iso_chip, self.dolphin_chip, self.model_chip, self.save_chip):
 			chip.setObjectName("Chip")
 			header.addWidget(chip)
 		layout.addLayout(header)
@@ -175,6 +268,29 @@ class PortWindow(QMainWindow):
 		form.addRow("Xash3D repository:", repo_row)
 
 		layout.addWidget(project_box)
+
+		model_box = QGroupBox("MODEL SERVER")
+		model_form = QGridLayout(model_box)
+		self.model_command_edit = QLineEdit(default_model_command())
+		self.model_api_edit = QLineEdit(os.environ.get(
+			"OPENAI_API_BASE", "http://127.0.0.1:8072/v1"))
+		model_command_label = QLabel("Command:")
+		model_api_label = QLabel("API base:")
+		model_controls = QHBoxLayout()
+		self.start_model_btn = QPushButton("▶  START QWABLE-5")
+		self.start_model_btn.clicked.connect(self.start_model)
+		self.kill_model_btn = QPushButton("■  KILL QWABLE-5")
+		self.kill_model_btn.clicked.connect(self.kill_model)
+		model_controls.addWidget(self.start_model_btn)
+		model_controls.addWidget(self.kill_model_btn)
+		model_form.addWidget(model_command_label, 0, 0)
+		model_form.addWidget(model_api_label, 0, 1)
+		model_form.addWidget(self.model_command_edit, 1, 0)
+		model_form.addWidget(self.model_api_edit, 1, 1)
+		model_form.addLayout(model_controls, 2, 0, 1, 2)
+		model_form.setColumnStretch(0, 4)
+		model_form.setColumnStretch(1, 1)
+		layout.addWidget(model_box)
 
 		intel_row = QHBoxLayout()
 		goals_box = QGroupBox("GOALS")
@@ -363,6 +479,135 @@ class PortWindow(QMainWindow):
 		if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(logs.resolve()))):
 			QMessageBox.warning(self, "Open folder failed", str(logs))
 
+	def model_host_port(self) -> tuple[str, int]:
+		parsed = urlparse(self.model_api_edit.text().strip() or "http://127.0.0.1:8072/v1")
+		host = parsed.hostname or "127.0.0.1"
+		try:
+			port = parsed.port or (443 if parsed.scheme == "https" else 80)
+		except ValueError:
+			port = 8072
+		return host, port
+
+	def model_port_open(self) -> bool:
+		host, port = self.model_host_port()
+		try:
+			with socket.create_connection((host, port), timeout=0.2):
+				return True
+		except OSError:
+			return False
+
+	def model_kill_pattern(self) -> str:
+		if os.environ.get("QWABLE_5_KILL_PATTERN"):
+			return os.environ["QWABLE_5_KILL_PATTERN"]
+		try:
+			command = shlex.split(self.model_command_edit.text().strip())
+		except ValueError:
+			command = []
+		if "qwable-5" in command:
+			return "qwable-5"
+		return Path(command[0]).name if command else "qwable-5"
+
+	def set_model_state(self, text: str, color: str) -> None:
+		self.model_chip.setText(text)
+		self.model_chip.setStyleSheet(f"color: {color};")
+
+	def start_model(self) -> None:
+		if not self.valid_repo():
+			return
+		if self.model_process is not None:
+			self.status_label.setText("qwable-5 is already managed by this GUI")
+			return
+		command_text = self.model_command_edit.text().strip()
+		try:
+			command = shlex.split(command_text)
+		except ValueError as exc:
+			QMessageBox.warning(self, "Invalid model command", str(exc))
+			return
+		if not command:
+			QMessageBox.warning(self, "Invalid model command", "Enter a command to start qwable-5.")
+			return
+		problem = command_executable_problem(command, self.repo())
+		if problem:
+			message = (
+				f"Cannot start model command: {problem}\n\n"
+				"Install it, add it to PATH, or set QWABLE_5_COMMAND. "
+				"If you use vLLM, try:\n"
+				f"vllm serve {QWABLE_5_MODEL_ID} --host 127.0.0.1 --port 8072 "
+				f"--served-model-name {QWABLE_5_SERVED_NAME}"
+			)
+			self.append(f"\nModel command problem: {problem}\n")
+			QMessageBox.warning(self, "Model command problem", message)
+			return
+
+		self.model_operation = "qwable-5"
+		self.append(f"\n\n$ {' '.join(command)}\n")
+		self.status_label.setText("Starting qwable-5")
+		self.set_model_state("MODEL STARTING", GC_ORANGE)
+		self.start_model_btn.setEnabled(False)
+		self.kill_model_btn.setEnabled(True)
+
+		proc = QProcess(self)
+		proc.setWorkingDirectory(str(self.repo()))
+		proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+		load_dotenv(self.repo() / ".env")
+		env = QProcessEnvironment.systemEnvironment()
+		for key, value in os.environ.items():
+			env.insert(key, value)
+		env.insert("OPENAI_API_BASE", self.model_api_edit.text().strip())
+		if not env.contains("CUDA_DEVICE_ORDER"):
+			env.insert("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+		if not env.contains("VLLM_USE_FLASHINFER_SAMPLER"):
+			env.insert("VLLM_USE_FLASHINFER_SAMPLER", "0")
+		proc.setProcessEnvironment(env)
+		proc.readyReadStandardOutput.connect(self.read_model_output)
+		proc.finished.connect(self.model_finished)
+		proc.errorOccurred.connect(
+			lambda error: self.append(
+				f"\nModel process error: {error.name} while starting {command[0]}\n"
+			))
+		self.model_process = proc
+		proc.start(command[0], command[1:])
+
+	def read_model_output(self) -> None:
+		if self.model_process is None:
+			return
+		text = bytes(self.model_process.readAllStandardOutput()).decode(errors="replace")
+		self.append(text)
+
+	def model_finished(self, exit_code: int, _status: QProcess.ExitStatus) -> None:
+		self.append(f"\n[{self.model_operation or 'qwable-5'} exited {exit_code}]\n")
+		self.model_process = None
+		self.model_operation = ""
+		self.start_model_btn.setEnabled(True)
+		self.kill_model_btn.setEnabled(True)
+		self.refresh_model_status()
+
+	def kill_model(self) -> None:
+		if self.model_process is not None:
+			self.append("\nStopping qwable-5 process…\n")
+			self.model_process.terminate()
+			QTimer.singleShot(3000, lambda: self.model_process.kill() if self.model_process else None)
+			return
+
+		pattern = self.model_kill_pattern()
+		answer = QMessageBox.question(self, "Kill qwable-5?",
+			f"No GUI-managed model process is running. Send TERM to processes matching '{pattern}'?",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No)
+		if answer != QMessageBox.StandardButton.Yes:
+			return
+		if not shutil.which("pkill"):
+			QMessageBox.warning(self, "pkill missing", "Cannot kill an external qwable-5 process without pkill.")
+			return
+		result = subprocess.run(["pkill", "-TERM", "-f", pattern], cwd=self.repo(),
+			text=True, capture_output=True, check=False)
+		if result.returncode not in (0, 1):
+			self.append(result.stderr or result.stdout)
+			QMessageBox.warning(self, "Kill failed", f"pkill exited {result.returncode}")
+			return
+		self.append(f"\nSent TERM to processes matching '{pattern}'.\n")
+		QTimer.singleShot(3000, self.refresh_model_status)
+
 	def git_output(self, *args: str) -> str:
 		result = subprocess.run(["git", *args], cwd=self.repo(), text=True,
 			capture_output=True, timeout=4, check=False)
@@ -459,6 +704,7 @@ class PortWindow(QMainWindow):
 	def refresh_dashboard(self) -> None:
 		try:
 			self.refresh_artifacts()
+			self.refresh_model_status()
 			self.refresh_goals()
 			self.refresh_context()
 		except (OSError, subprocess.SubprocessError) as exc:
@@ -584,15 +830,24 @@ class PortWindow(QMainWindow):
 		QTimer.singleShot(3000, lambda: self.process.kill() if self.process else None)
 
 	def closeEvent(self, event: QCloseEvent) -> None:
-		if self.process is None:
+		if self.process is None and self.model_process is None:
 			event.accept()
 			return
-		answer = QMessageBox.question(self, "Automation is still running",
-			"Closing now can discard incomplete model output before it becomes a Git commit. "
-			"Keep the GUI open until GIT SAVED appears. Close anyway?",
+		if self.process is not None:
+			title = "Automation is still running"
+			message = (
+				"Closing now can discard incomplete model output before it becomes a Git commit. "
+				"Keep the GUI open until GIT SAVED appears. Close anyway?"
+			)
+		else:
+			title = "qwable-5 is still running"
+			message = "Close the GUI and terminate the managed qwable-5 process?"
+		answer = QMessageBox.question(self, title, message,
 			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
 			QMessageBox.StandardButton.No)
 		if answer == QMessageBox.StandardButton.Yes:
+			if self.model_process is not None:
+				self.model_process.terminate()
 			event.accept()
 		else:
 			event.ignore()
@@ -639,6 +894,21 @@ class PortWindow(QMainWindow):
 		self.dolphin_chip.setText("DOLPHIN  READY" if dolphin_ready else "DOLPHIN  MISSING")
 		if self.process is None:
 			self.status_label.setText("Idle — goal console ready")
+
+	def refresh_model_status(self) -> None:
+		if self.model_process is not None:
+			self.set_model_state("MODEL  RUNNING", GC_CYAN)
+			self.start_model_btn.setEnabled(False)
+			self.kill_model_btn.setEnabled(True)
+			return
+		if self.model_port_open():
+			self.set_model_state("MODEL  READY", GC_MINT)
+			self.start_model_btn.setEnabled(False)
+			self.kill_model_btn.setEnabled(True)
+		else:
+			self.set_model_state("MODEL  DOWN", GC_ORANGE)
+			self.start_model_btn.setEnabled(True)
+			self.kill_model_btn.setEnabled(True)
 
 
 def main() -> int:

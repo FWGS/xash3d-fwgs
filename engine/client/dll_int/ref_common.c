@@ -560,6 +560,9 @@ static qboolean R_LoadProgs( const char *name )
 	}
 
 	FS_AllowDirectPaths( false );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: renderer library loaded\n" );
+#endif
 
 	if( !( GetRefAPI = (REFAPI)COM_GetProcAddress( ref.hInstance, GET_REF_API )))
 	{
@@ -577,6 +580,9 @@ static qboolean R_LoadProgs( const char *name )
 	}
 
 	refState.developer = host_developer.value;
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: renderer GetRefAPI ready\n" );
+#endif
 
 	if( !ref.dllFuncs.R_Init( ))
 	{

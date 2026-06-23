@@ -814,6 +814,11 @@ void SCR_RegisterTextures( void )
 	const char *names[] = { "gfx/lambda", "gfx/loading" };
 	uint flags = TF_IMAGE|TF_ALLOW_NEAREST;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		return;
+#endif
+
 	if( cl_allow_levelshots.value )
 		SetBits( flags, TF_LUMINANCE );
 
@@ -909,9 +914,13 @@ void SCR_VidInit( void )
 #if XASH_GAMECUBE
 screen_state_ready:
 #endif
-	// restart console size
+	// restart console size (required for Con_DrawConsole / notify text on gcmap)
 	Con_VidInit ();
 	Touch_NotifyResize();
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		Con_Reportf( "Xash3D GameCube: screen vidinit ready\n" );
+#endif
 }
 
 /*
@@ -947,6 +956,14 @@ void SCR_Init( void )
 	Cmd_AddCommand( "sizeup", SCR_SizeUp_f, "screen size up to 10 points" );
 	Cmd_AddCommand( "sizedown", SCR_SizeDown_f, "screen size down to 10 points" );
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		Con_Reportf( "Xash3D GameCube: screen gameui skipped\n" );
+		host.allow_console = true;
+	}
+	else
+#endif
 	if( !UI_LoadProgs( ))
 	{
 		Con_Printf( S_ERROR "can't initialize gameui DLL: %s\n", COM_GetLibraryError() ); // there is non fatal for us
@@ -957,8 +974,17 @@ void SCR_Init( void )
 #endif
 
 	SCR_VidInit();
-	SCR_LoadCreditsFont ();
-	SCR_RegisterTextures ();
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		Con_Reportf( "Xash3D GameCube: screen credit textures skipped\n" );
+	}
+	else
+#endif
+	{
+		SCR_LoadCreditsFont ();
+		SCR_RegisterTextures ();
+	}
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: screen textures checked\n" );
 #endif
@@ -980,10 +1006,19 @@ void SCR_Init( void )
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: screen cinematic checked\n" );
 #endif
-	CL_InitNetgraph();
 #if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: screen netgraph ready\n" );
+	if( Sys_CheckParm( "-nohud" ))
+	{
+		Con_Reportf( "Xash3D GameCube: screen netgraph skipped\n" );
+	}
+	else
 #endif
+	{
+		CL_InitNetgraph();
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: screen netgraph ready\n" );
+#endif
+	}
 
 	if( host.allow_console && Sys_CheckParm( "-toconsole" ))
 		Cbuf_AddText( "toggleconsole\n" );

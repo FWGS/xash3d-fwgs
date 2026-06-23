@@ -347,6 +347,40 @@ engine input globals, renderer globals, server weapon/entity classes, or shared
 math symbols. `scripts/build-gamecube.sh` now links successfully with both real
 HLSDK archives present.
 
+The static HLSDK server entity export list is generated from the external
+`hlsdk-portable` checkout and the installed GameCube server archive. On
+2026-06-22, the generator's comment stripping was fixed so `//*****` banner
+comments in `triggers.cpp` are not mistaken for C block comments. Regeneration
+now emits 249 entity exports, including `multi_manager`, `env_render`,
+`trigger`, `trigger_multiple`, and `worldspawn`:
+
+```sh
+python3 -m py_compile scripts/generate-hlsdk-gamecube-exports.py
+python3 scripts/generate-hlsdk-gamecube-exports.py \
+  --hlsdk-dir 3rdparty/hlsdk-portable \
+  --archive OUT/hlsdk-gamecube/valve/dlls/libhl_gamecube_ppc.a \
+  --output OUT/hlsdk-gamecube/valve/dlls/gamecube_server_entity_exports.inc
+scripts/build-gamecube.sh
+```
+
+`scripts/build-gamecube.sh` completed successfully and no longer reports the
+GameCube `SV_InitEdict` `-Wstringop-overflow` warning. The warning was a
+nullable error-path false positive around `SV_AllocEdict`: after the existing
+`Host_Error` for exhausted or invalid edict indexes, the code now returns
+`NULL` if `Host_Error` unwinds during shutdown/error handling. The
+ABI-sensitive `edict_t` layout and `SV_InitEdict` clearing of `entvars_t v`
+were not changed.
+
+Runtime evidence from
+`.ai/logs/dolphin-probe-20260622-173750/stderr.log` shows the GameCube guest
+loads the registered HLSDK server, completes `SV_LoadProgs`, `GameInit`,
+PM-move setup, delta setup, and encoder registration, then reaches
+`Xash3D GameCube: engine subsystems ready`. The next blocker has moved to map
+lookup during `-gcmap c0a0e`: after `Xash3D GameCube: pre-spawn memory trim`,
+the guest raises `Host_ErrorInit: Could not load model maps from disk`. The
+next focused pass should trace why the world model name collapses to `maps`
+instead of resolving the staged `maps/c0a0e.bsp`.
+
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 
 ## Next wake-up commands

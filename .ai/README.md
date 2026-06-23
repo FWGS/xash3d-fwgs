@@ -49,6 +49,14 @@ scripts/xash3d-gc-aider-gui.sh
 The GUI runs the same guarded scripts; it does not bypass clean-tree checks or
 review gates. It runs the goal ledger through a configurable safety pass limit,
 shows live Git/submodule/toolchain/content/blocker context, and provides
-verification, DOL/disc builds, and Dolphin launch. Credentials and model
-configuration are inherited from the launch environment and Aider config; the
-GUI neither stores nor edits them.
+verification, DOL/disc builds, Dolphin launch, and a supervised Qwable-5
+model-server control. The model command defaults to `qwable-5 --host
+127.0.0.1 --port 8072` when that executable is available. Otherwise, when
+`vllm` is on `PATH`, it loads `DJLougen/Qwable-5-27B-Coder` or the cached local
+snapshot and serves it as `qwen-local`, matching `.aider.conf.yml`. Override the
+load target with `QWABLE_5_MODEL`, the served name with `QWABLE_5_SERVED_NAME`,
+startup limits with `QWABLE_5_MAX_MODEL_LEN`, `QWABLE_5_MAX_NUM_SEQS`, and
+`QWABLE_5_GPU_MEMORY_UTILIZATION`, or the full command with
+`QWABLE_5_COMMAND`. The API base defaults to `http://127.0.0.1:8072/v1`.
+Credentials are still inherited from the launch environment and are not stored
+by the GUI.

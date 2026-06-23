@@ -4,6 +4,15 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
+if command -v flock >/dev/null 2>&1; then
+	mkdir -p "$ROOT/.ai"
+	exec 9>"$ROOT/.ai/dolphin-probe.lock"
+	if ! flock -n 9; then
+		echo "HOST_FAILURE: another Dolphin boot probe is already running."
+		exit 2
+	fi
+fi
+
 ISO_PATH="$ROOT/OUT/xash3d-gc.iso"
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
@@ -65,17 +74,46 @@ else
 	exit 2
 fi
 
+cleanup_flatpak_dolphin() {
+	if (( DOLPHIN_IS_FLATPAK )); then
+		flatpak kill org.DolphinEmu.dolphin-emu >/dev/null 2>&1 || true
+		pkill -TERM -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
+		sleep 1
+		pkill -KILL -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
+	fi
+}
+
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s)..."
 set +e
-timeout --signal=TERM --kill-after=5 "$TIMEOUT_SEC" "${DOLPHIN_CMD[@]}" \
-	>"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log"
-DOLPHIN_EXIT=$?
+if (( DOLPHIN_IS_FLATPAK )); then
+	flatpak kill org.DolphinEmu.dolphin-emu >/dev/null 2>&1 || true
+	trap cleanup_flatpak_dolphin EXIT
+	"${DOLPHIN_CMD[@]}" >"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log" &
+	DOLPHIN_WRAPPER_PID=$!
+	DOLPHIN_EXIT=124
+	sleep 2
+	DEADLINE=$((SECONDS + TIMEOUT_SEC))
+	while (( SECONDS < DEADLINE )); do
+		if ! pgrep -f "dolphin.*${USER_DIR}" >/dev/null 2>&1; then
+			wait "$DOLPHIN_WRAPPER_PID"
+			DOLPHIN_EXIT=$?
+			break
+		fi
+		sleep 1
+	done
+else
+	timeout --signal=TERM --kill-after=5 "$TIMEOUT_SEC" "${DOLPHIN_CMD[@]}" \
+		>"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log"
+	DOLPHIN_EXIT=$?
+fi
 set -e
 
 # Flatpak's wrapper can exit while the emulator process remains in the app
 # sandbox. Stop the instance launched by this bounded probe.
 if (( DOLPHIN_IS_FLATPAK )); then
-	flatpak kill org.DolphinEmu.dolphin-emu >/dev/null 2>&1 || true
+	cleanup_flatpak_dolphin
+	trap - EXIT
+	wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
 fi
 
 echo "==> Analyzing probe results..."

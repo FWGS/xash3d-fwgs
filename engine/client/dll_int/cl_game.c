@@ -873,6 +873,11 @@ static void CL_DrawLoadingOrPaused( int tex )
 	float	x, y, width, height;
 	int iWidth, iHeight;
 
+#if XASH_GAMECUBE
+	if( tex <= 0 )
+		return;
+#endif
+
 	R_GetTextureParms( &iWidth, &iHeight, tex );
 	x = ( clgame.scrInfo.iWidth - iWidth ) / 2.0f;
 	y = ( clgame.scrInfo.iHeight - iHeight ) / 2.0f;
@@ -999,6 +1004,10 @@ void CL_InitEdicts( int maxclients )
 	CL_UPDATE_BACKUP = ( maxclients <= 1 ) ? SINGLEPLAYER_BACKUP : MULTIPLAYER_BACKUP;
 #endif
 	cls.num_client_entities = CL_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && maxclients <= 1 )
+		cls.num_client_entities = 64;
+#endif
 	cls.packet_entities = Mem_Realloc( clgame.mempool, cls.packet_entities, sizeof( entity_state_t ) * cls.num_client_entities );
 	clgame.entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * clgame.maxEntities );
 	clgame.static_entities = NULL; // will be initialized later
@@ -3964,6 +3973,9 @@ qboolean CL_LoadProgs( const char *name )
 	qboolean valid_single_export = false;
 	qboolean missed_exports = false;
 	qboolean try_internal_vgui_support = GI->internal_vgui_support;
+#if XASH_GAMECUBE
+	qboolean skip_vgui = Sys_CheckParm( "-nohud" );
+#endif
 
 	if( clgame.hInstance ) CL_UnloadProgs();
 
@@ -3983,17 +3995,34 @@ qboolean CL_LoadProgs( const char *name )
 
 	// NOTE: important stuff!
 	// vgui must startup BEFORE loading client.dll to avoid get error ERROR_NOACESS during LoadLibrary
+#if XASH_GAMECUBE
+	if( skip_vgui )
+	{
+		try_internal_vgui_support = false;
+		Con_Reportf( "Xash3D GameCube: VGUI probe skipped\n" );
+	}
+	else
+#endif
 	if( !try_internal_vgui_support && VGui_LoadProgs( NULL ))
 		VGui_Startup( refState.width, refState.height );
 	else
 		try_internal_vgui_support = true; // we failed to load vgui_support, but let's probe client.dll for support anyway
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client library load begin\n" );
+#endif
 	clgame.hInstance = COM_LoadLibrary( name, false, false );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client library load returned\n" );
+#endif
 
 	if( !clgame.hInstance )
 		return false;
 
 	// delayed vgui initialization for internal support
+#if XASH_GAMECUBE
+	if( !skip_vgui )
+#endif
 	if( try_internal_vgui_support && VGui_LoadProgs( clgame.hInstance ))
 		VGui_Startup( refState.width, refState.height );
 
