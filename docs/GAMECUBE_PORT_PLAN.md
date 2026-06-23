@@ -62,11 +62,18 @@ a command, result, `.ai/logs/` path, or runtime artifact reference. This keeps
 the automation from finishing goals through docs-only reasoning.
 Qwable-5 receives a curated GameCube context pack instead of relying on generic
 model memory. `.aider.conf.yml` loads compact global rules, hardware notes, and
-failure memory; `scripts/ai-goal-loop.py` then retrieves focused read-only
-subsystem notes for the active goal, such as audio, storage, GX rendering,
-networking, and memory-budget guidance. `scripts/ai-aider-pass.sh` supports
+homebrew compliance, and failure memory; `scripts/ai-goal-loop.py` then
+retrieves focused read-only subsystem notes for the active goal, such as audio,
+storage, GX rendering, networking, memory-budget guidance, and the clean-room
+GameCube Homebrew Compliance profile. `scripts/ai-aider-pass.sh` supports
 `read:<path>` context entries so those notes inform the model without becoming
 editable patch targets.
+The compliance profile lives in
+`docs/GAMECUBE_HOMEBREW_COMPLIANCE.md` and
+`.ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md`. The verifier now runs
+`scripts/gamecube-homebrew-compliance-check.py` so release/hardware work keeps
+save safety, legal packaging, UI, hardware-matrix, and evidence requirements in
+the model context and pipeline.
 The GUI defaults goal automation to twenty passes with a separate recovery
 retry control, while still using the same verifier and evidence gates as the
 terminal handoff supervisor.
@@ -88,7 +95,11 @@ or deliberation-contaminated messages.
 The Dolphin probe is executable, supports native and Flatpak Dolphin installs,
 uses bounded TERM/KILL timeouts, preserves stdout/stderr and internal logs, and
 returns distinct statuses for host failure, guest failure, observed bootstrap,
-and inconclusive timeout/exit.
+and inconclusive timeout/exit. `scripts/gamecube-env.sh` exports
+`DOLPHIN_EXECUTABLE` for the GUI, boot probe, and Qwable/Aider automation
+environment. In this workspace it resolves to
+`flatpak:org.DolphinEmu.dolphin-emu` because the Dolphin Flatpak is installed
+and no native `dolphin-emu` binary is on `PATH`.
 The hardened full-build gate caught an invalid `rserr_nomem` result introduced
 by the earlier GX buffer patch. GameCube buffer-allocation failure now returns
 the existing `rserr_unknown` value from the platform contract; no new enum or
@@ -531,91 +542,26 @@ scripts/ai-verify.sh
 Result: clean compilation with new `XASH_GAMECUBE` guards. No cross-platform
 regressions.
 
-## G19 — Interactive gameplay smoke test (MANUAL — requires operator with Dolphin)
+## G19 — Interactive gameplay smoke test (runtime evidence pending)
 
 The GameCube input backend (`engine/platform/gamecube/in_gamecube.c`) emits
 `Xash3D GameCube: input polling active` via `Con_Reportf` on the first
 successful input poll (commit `7f0d31d9`). This satisfies the source-side
 requirement for input evidence.
 
-Attempt 8 (2026-06-22): Eighth automation attempt confirmed source-side changes
-are complete and building cleanly. The input polling marker, map load marker,
-and controller polling code are all present. Runtime verification remains
-blocked because no Dolphin executable is available in the automation environment.
-Previous manual probes (G06, G15) have demonstrated successful map loads
-(`c4a1f`, `c0a0e`) with engine subsystems ready, but combined evidence of both
-map load AND input polling active in a single probe run has not yet been
-captured. Automation cannot complete this MANUAL goal. No source changes needed.
+On 2026-06-22, `scripts/gamecube-env.sh` was added so automation exports
+`DOLPHIN_EXECUTABLE`. The current environment resolves Dolphin to the installed
+Flatpak app:
 
-Attempt 10 (2026-06-22): Tenth automation attempt. Source-side changes remain
-complete. No Dolphin executable is available in the automation environment, so
-runtime verification cannot proceed. This is a MANUAL goal and must never be
-marked complete via automation. Operator with Dolphin installed must run
-`scripts/dolphin-boot-probe.sh` and confirm `.ai/logs/dolphin-probe-*/stderr.log`
-contains both `Xash3D GameCube: map loaded <map>` and
-`Xash3D GameCube: input polling active`. No source changes needed.
+```sh
+source scripts/gamecube-env.sh && printf '%s\n' "$DOLPHIN_EXECUTABLE"
+```
 
-Attempt 11 (2026-06-22): Eleventh automation attempt. Source-side changes remain
-complete. No Dolphin executable is available in the automation environment, so
-runtime verification cannot proceed. This is a MANUAL goal and must never be
-marked complete via automation. No source changes needed.
+Result: `flatpak:org.DolphinEmu.dolphin-emu`.
 
-Attempt 12 (2026-06-22): Twelfth automation attempt. Source-side changes remain
-complete. No Dolphin executable is available in the automation environment, so
-runtime verification cannot proceed. This is a MANUAL goal and must never be
-marked complete via automation. No source changes needed.
-
-Attempt 13 (2026-06-22): Thirteenth automation attempt. Source-side changes
-remain complete (commit `7f0d31d9`). No Dolphin executable is available in the
-automation environment, so runtime verification cannot proceed. This is a
-MANUAL goal and must never be marked complete via automation. No source changes
-needed.
-
-Attempt 14 (2026-06-22): Fourteenth automation attempt. Source-side changes
-remain complete (commit `7f0d31d9`). No Dolphin executable is available in the
-automation environment, so runtime verification cannot proceed. This is a
-MANUAL goal and must never be marked complete via automation. No source changes
-needed.
-
-Attempt 15 (2026-06-22): Fifteenth automation attempt. Source-side changes
-remain complete (commit `7f0d31d9`). No Dolphin executable is available in the
-automation environment, so runtime verification cannot proceed. This is a
-MANUAL goal and must never be marked complete via automation. No source changes
-needed.
-
-Attempt 16 (2026-06-22): Sixteenth automation attempt. Source-side changes
-remain complete (commit `7f0d31d9`). No Dolphin executable is available in the
-automation environment, so runtime verification cannot proceed. This is a
-MANUAL goal and must never be marked complete via automation. No source changes
-needed.
-
-Attempt 17 (2026-06-22): Seventeenth automation attempt. Source-side changes
-remain complete (commit `7f0d31d9`). No Dolphin executable is available in the
-automation environment, so runtime verification cannot proceed. This is a
-MANUAL goal and must never be marked complete via automation. No source changes
-needed.
-
-Attempt 18 (2026-06-22): Eighteenth automation attempt. Source-side changes
-remain complete (commit `7f0d31d9`). No Dolphin executable is available in the
-automation environment, so runtime verification cannot proceed. This is a
-MANUAL goal and must never be marked complete via automation. No source changes
-needed.
-
-Attempt 19 (2026-06-22): Nineteenth automation attempt. Source-side changes
-remain complete (commit `7f0d31d9`). No Dolphin executable is available in the
-automation environment, so runtime verification cannot proceed. This is a
-MANUAL goal and must never be marked complete via automation. No source changes
-needed.
-
-Attempt 20 (2026-06-22): Twentieth automation attempt. Source-side changes
-remain complete (commit `7f0d31d9`). No Dolphin executable is available in the
-automation environment, so runtime verification cannot proceed. This is a
-MANUAL goal and must never be marked complete via automation. No source changes
-needed.
-
-**Status:** Source complete. Runtime evidence requires an operator with Dolphin
-installed. This is a MANUAL goal and must never be marked complete via
-automation.
+**Status:** Source complete. Runtime evidence is now unblocked for Dolphin
+automation, but G19 is still incomplete until one probe log confirms both map
+load and input polling in the same session.
 
 **Manual verification command:**
 
@@ -628,9 +574,7 @@ The probe should report `ENGINE_READY` or `MAP_READY`. The log
 (`.ai/logs/dolphin-probe-*/stderr.log`) must contain both
 `Xash3D GameCube: map loaded <map>` and `Xash3D GameCube: input polling active`.
 
-**Blocker:** Requires human operator to run Dolphin probe and confirm logs
-showing both map load and input polling active in the same session.
-Do not mark complete via automation.
+Do not mark complete until the evidence above is captured.
 
 ## Automation recovery notes
 

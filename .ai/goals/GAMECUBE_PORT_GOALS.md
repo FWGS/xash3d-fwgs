@@ -235,10 +235,10 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Source-side changes are complete (commit `7f0d31d9`).
   `engine/platform/gamecube/in_gamecube.c` emits `Xash3D GameCube: input polling active`
   via `Con_Reportf` on the first successful input poll.
-- BLOCKER: No Dolphin executable is available in the automation environment.
-  Runtime evidence must be captured by an operator with Dolphin installed.
-  Do not mark complete via automation until logs confirm input polling and
-  map load.
+- Dolphin discovery is now exported into the automation environment as
+  `DOLPHIN_EXECUTABLE`; this workspace currently supports the
+  `flatpak:org.DolphinEmu.dolphin-emu` install.
+- Do not mark complete until logs confirm input polling and map load.
 - Manual verification command: `scripts/dolphin-boot-probe.sh`
 - Expected log evidence: `.ai/logs/dolphin-probe-*/stderr.log` must contain
   both `Xash3D GameCube: map loaded <map>` and `Xash3D GameCube: input polling active`.
@@ -431,11 +431,15 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Make build outputs reproducible enough to compare size, symbols, and required
   staged assets across machines.
 - Ensure CI/source verification does not require proprietary Half-Life assets.
+- Include the GameCube Homebrew Compliance checker in the release verification
+  path and document which strict-mode items still require hardware evidence.
 
 ## G42 [ ] Finalize native GameCube port documentation
 
 - Document setup, legal asset staging, build requirements, supported hardware,
   controls, save/storage behavior, known limitations, and troubleshooting.
 - Include a current compatibility table generated from the campaign probes.
+- Include the clean-room GameCube Homebrew Compliance requirements, checklist,
+  package expectations, legal disclaimer, and hardware evidence matrix.
 - Mark the port finished only when the documentation matches the verified state
   of the engine, game code, assets, audio, input, storage, and hardware tests.

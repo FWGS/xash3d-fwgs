@@ -14,6 +14,10 @@ Use these local patterns before inventing a new platform path:
 - `scripts/build-gamecube-disc.py`: legal local asset staging into a generated
   GameCube image.
 - `scripts/dolphin-boot-probe.sh`: bounded runtime evidence collection.
+- `scripts/gamecube-env.sh`: shared Dolphin executable discovery for the GUI,
+  boot probe, and Qwable/Aider automation environment.
+- `scripts/gamecube-homebrew-compliance-check.py`: pipeline check for the
+  clean-room GameCube homebrew compliance profile.
 
 Console precedents:
 

@@ -20,12 +20,13 @@ bash -n scripts/ai-verify.sh scripts/ai-aider-pass.sh scripts/ai-loop.sh \
 	scripts/ai-summarize-next-task.sh scripts/build-gamecube.sh \
 	scripts/xash3d-gc-aider-gui.sh scripts/dolphin-boot-probe.sh \
 	scripts/hlsdk-gamecube-probe.sh scripts/hlsdk-gamecube-build.sh \
-	scripts/gamecube-map-compat-probe.sh
+	scripts/gamecube-map-compat-probe.sh scripts/gamecube-env.sh
 python3 -c 'compile(open("scripts/build-gamecube-disc.py", encoding="utf-8").read(), "scripts/build-gamecube-disc.py", "exec")'
 python3 -c 'compile(open("scripts/xash3d-gc-aider-gui.py", encoding="utf-8").read(), "scripts/xash3d-gc-aider-gui.py", "exec")'
 python3 -c 'compile(open("scripts/ai-goal-loop.py", encoding="utf-8").read(), "scripts/ai-goal-loop.py", "exec")'
 python3 -c 'compile(open("scripts/ai-run-until-done.py", encoding="utf-8").read(), "scripts/ai-run-until-done.py", "exec")'
 python3 -c 'compile(open("scripts/ai-evidence-gate.py", encoding="utf-8").read(), "scripts/ai-evidence-gate.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-homebrew-compliance-check.py", encoding="utf-8").read(), "scripts/gamecube-homebrew-compliance-check.py", "exec")'
 python3 -c 'compile(open("scripts/hlsdk-gamecube-apply-patch.py", encoding="utf-8").read(), "scripts/hlsdk-gamecube-apply-patch.py", "exec")'
 python3 -c 'compile(open("scripts/generate-hlsdk-gamecube-exports.py", encoding="utf-8").read(), "scripts/generate-hlsdk-gamecube-exports.py", "exec")'
 
@@ -36,6 +37,7 @@ for context_file in \
 	.ai/prompts/PORTING_PATTERNS.md \
 	.ai/prompts/GAMECUBE_CONTEXT_INDEX.md \
 	.ai/prompts/GAMECUBE_HARDWARE_NOTES.md \
+	.ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md \
 	.ai/prompts/GAMECUBE_AUDIO_NOTES.md \
 	.ai/prompts/GAMECUBE_STORAGE_NOTES.md \
 	.ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md \
@@ -49,6 +51,8 @@ do
 		exit 1
 	fi
 done
+
+scripts/gamecube-homebrew-compliance-check.py
 
 if command -v aider >/dev/null 2>&1; then
 	aider --config .aider.conf.yml --help >/dev/null

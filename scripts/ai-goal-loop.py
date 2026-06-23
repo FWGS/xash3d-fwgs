@@ -8,6 +8,7 @@ import json
 import os
 import re
 import signal
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,6 +23,7 @@ COMMON_CONTEXT = (
 )
 COMMON_READ_CONTEXT = (
 	".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
+	".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
 )
 GOAL_CONTEXT = {
 	"G01": ("engine/server/sv_game.c", "engine/server/server.h",
@@ -174,7 +176,8 @@ GOAL_READ_CONTEXT = {
 	"G41": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
 		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
 	"G42": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
-		".ai/prompts/GAMECUBE_HARDWARE_NOTES.md"),
+		".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
+		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 }
 GOAL_COMMIT_SUBJECT = {
 	"G01": "fix: resolve GameCube edict warning audit",
@@ -306,6 +309,31 @@ def git_context(root: Path) -> str:
 	return "\n\n".join(chunks)
 
 
+def dolphin_executable() -> str:
+	if os.environ.get("DOLPHIN_EXECUTABLE"):
+		return os.environ["DOLPHIN_EXECUTABLE"]
+	if shutil.which("dolphin-emu"):
+		return shutil.which("dolphin-emu") or "dolphin-emu"
+	if shutil.which("dolphin"):
+		return shutil.which("dolphin") or "dolphin"
+	flatpak = shutil.which("flatpak")
+	flatpak_id = os.environ.get("DOLPHIN_FLATPAK_ID", "org.DolphinEmu.dolphin-emu")
+	if flatpak:
+		result = subprocess.run([flatpak, "info", flatpak_id],
+			text=True, capture_output=True, check=False)
+		if result.returncode == 0:
+			return f"flatpak:{flatpak_id}"
+	return "unavailable"
+
+
+def automation_context() -> str:
+	return "\n".join((
+		f"OPENAI_API_BASE={os.environ.get('OPENAI_API_BASE', 'http://127.0.0.1:8072/v1')}",
+		f"DOLPHIN_EXECUTABLE={dolphin_executable()}",
+		f"DOLPHIN_FLATPAK_ID={os.environ.get('DOLPHIN_FLATPAK_ID', 'org.DolphinEmu.dolphin-emu')}",
+	))
+
+
 def task_for(goal: Goal, root: Path, attempt: int) -> str:
 	retry_instruction = ""
 	if attempt > 1:
@@ -331,6 +359,9 @@ Attempt on this goal: {attempt}
 
 Repository context:
 {git_context(root)}
+
+Automation environment:
+{automation_context()}
 
 Make one coherent patch using the preloaded files. Preserve non-GameCube
 targets. Do not ask questions, propose commands, or stop at a plan. If the
