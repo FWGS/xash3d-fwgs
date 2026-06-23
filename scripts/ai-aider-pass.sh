@@ -122,7 +122,7 @@ context_args_for_attempt() {
 run_aider_with_recovery() {
 	local label="$1"
 	shift
-	local attempt attempt_log max_tokens model_settings status
+	local attempt attempt_log max_tokens model_settings status=0
 	local settings_args=()
 	local context_args=()
 	for attempt in "${!AIDER_OUTPUT_TOKEN_BUDGETS[@]}"; do
@@ -160,7 +160,7 @@ run_aider_with_recovery() {
 			"$@" \
 			--yes-always \
 			2>&1 | tee -a "$LOG" "$attempt_log"
-		status="${PIPESTATUS[0]}"
+		status="${PIPESTATUS[0]:-1}"
 		set -e
 		if (( status == 124 || status == 137 )); then
 			return 17
