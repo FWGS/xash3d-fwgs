@@ -64,7 +64,7 @@ def main() -> int:
 			bool(re.search(r"G4[12].*compliance|compliance.*G4[12]", goals_text,
 				re.IGNORECASE | re.DOTALL)), str(goals)),
 		Check("no obvious proprietary SDK text in tracked files",
-			not git_grep(root, r"(Dolphin SDK|Revolution SDK|official Nintendo SDK)"),
+			not git_grep(root, r"(Dolphin [S]DK|Revolution [S]DK|official Nintendo [S]DK)"),
 			"git grep proprietary SDK strings"),
 	]
 

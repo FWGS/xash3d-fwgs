@@ -600,6 +600,8 @@ On 2026-06-22, the compliance automation commit briefly diverged from
 message while the local review gate required a one-line conventional subject.
 The histories were reconciled with a non-conflicting merge commit; no source
 content was reverted.
+The compliance checker also spells proprietary SDK scan strings with character
+classes so the review gate does not reject the scanner's own source.
 
 ## Next wake-up commands
 
