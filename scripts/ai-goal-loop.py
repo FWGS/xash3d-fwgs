@@ -15,8 +15,15 @@ import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+from urllib.error import URLError
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |x|X|MANUAL)\]\s+(.+)$")
+DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35", "G40"})
+PROBE_AUTO_COMPLETE = {
+	"G19": "MAP_READY:",
+}
 COMMON_CONTEXT = (
 	"docs/GAMECUBE_PORT_PLAN.md",
 	".ai/goals/GAMECUBE_PORT_GOALS.md",
@@ -309,6 +316,24 @@ def git_context(root: Path) -> str:
 	return "\n\n".join(chunks)
 
 
+def api_models_url(api_base: str) -> str:
+	parsed = urlparse(api_base)
+	if parsed.path.rstrip("/").endswith("/v1"):
+		return api_base.rstrip("/") + "/models"
+	return api_base.rstrip("/") + "/v1/models"
+
+
+def model_ready(api_base: str) -> bool:
+	request = Request(api_models_url(api_base))
+	if os.environ.get("OPENAI_API_KEY"):
+		request.add_header("Authorization", f"Bearer {os.environ['OPENAI_API_KEY']}")
+	try:
+		with urlopen(request, timeout=3) as response:
+			return 200 <= response.status < 500
+	except (OSError, URLError):
+		return False
+
+
 def dolphin_executable() -> str:
 	if os.environ.get("DOLPHIN_EXECUTABLE"):
 		return os.environ["DOLPHIN_EXECUTABLE"]
@@ -334,7 +359,76 @@ def automation_context() -> str:
 	))
 
 
-def task_for(goal: Goal, root: Path, attempt: int) -> str:
+def run_dolphin_probe(root: Path) -> subprocess.CompletedProcess[str]:
+	env = os.environ.copy()
+	env.setdefault("DOLPHIN_TIMEOUT", os.environ.get("DOLPHIN_TIMEOUT", "600"))
+	env.setdefault("DOLPHIN_EXECUTABLE", dolphin_executable())
+	return run(["scripts/dolphin-boot-probe.sh"], root, capture=True, env=env)
+
+
+def probe_log_dir(output: str) -> str | None:
+	match = re.search(r"^Logs: (.+)$", output, re.MULTILINE)
+	return match.group(1).strip() if match else None
+
+
+def probe_log_tail(root: Path, log_dir: str | None, *, lines: int = 80) -> str:
+	if not log_dir:
+		return "(no log directory recorded)"
+	stderr = root / log_dir / "stderr.log"
+	if not stderr.is_file():
+		return f"(missing {stderr})"
+	content = stderr.read_text(encoding="utf-8", errors="replace").splitlines()
+	return "\n".join(content[-lines:])
+
+
+def insert_goal_evidence(text: str, goal_id: str, evidence_lines: list[str]) -> str:
+	header_re = re.compile(rf"^(## {re.escape(goal_id)} \[)( \])", re.MULTILINE)
+	match = header_re.search(text)
+	if not match:
+		return text
+	text = header_re.sub(r"\1x]", text, count=1)
+	insert_at = match.end()
+	next_header = re.search(r"^## G\d+", text[insert_at:], re.MULTILINE)
+	section_end = insert_at + next_header.start() if next_header else len(text)
+	stamp = datetime.now().astimezone().strftime("%Y-%m-%d")
+	block = "".join(f"\n- Verified {stamp}: {line}" for line in evidence_lines)
+	return text[:section_end].rstrip() + block + "\n" + text[section_end:]
+
+
+def commit_probe_success(root: Path, goal: Goal, log_dir: str, probe_output: str) -> int:
+	goal_path = root / ".ai/goals/GAMECUBE_PORT_GOALS.md"
+	plan_path = root / "docs/GAMECUBE_PORT_PLAN.md"
+	timeout = os.environ.get("DOLPHIN_TIMEOUT", "600")
+	summary = probe_output.splitlines()[0] if probe_output else "MAP_READY"
+	goal_path.write_text(insert_goal_evidence(
+		goal_path.read_text(encoding="utf-8"),
+		goal.goal_id,
+		[
+			f"`DOLPHIN_TIMEOUT={timeout} scripts/dolphin-boot-probe.sh`",
+			f"Result: {summary}",
+			f"Evidence: `{log_dir}/stderr.log`",
+		],
+	), encoding="utf-8")
+	plan_note = (
+		f"\n\n### {goal.goal_id} probe pass "
+		f"({datetime.now().astimezone().strftime('%Y-%m-%d')})\n"
+		f"- Command: `DOLPHIN_TIMEOUT={timeout} scripts/dolphin-boot-probe.sh`\n"
+		f"- Result: `{summary}`\n"
+		f"- Logs: `{log_dir}/stderr.log`\n"
+	)
+	plan_path.write_text(plan_path.read_text(encoding="utf-8").rstrip() + plan_note + "\n",
+		encoding="utf-8")
+	subject = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
+		f"test: complete GameCube goal {goal.goal_id}")
+	add = run(["git", "add", str(goal_path.relative_to(root)),
+		str(plan_path.relative_to(root))], root)
+	if add.returncode != 0:
+		return add.returncode
+	return run(["git", "commit", "-m", subject], root).returncode
+
+
+def task_for(goal: Goal, root: Path, attempt: int,
+	probe_result: tuple[int, str, str | None] | None = None) -> str:
 	retry_instruction = ""
 	if attempt > 1:
 		retry_instruction = (
@@ -349,12 +443,35 @@ def task_for(goal: Goal, root: Path, attempt: int) -> str:
 			"needed for the real fix is not loaded, update the goal ledger and port plan "
 			"with the exact next file or blocker instead of stopping.\n\n"
 		)
+	probe_section = ""
+	if probe_result is not None:
+		exit_code, output, log_dir = probe_result
+		probe_section = f"""
+Dolphin boot probe (just executed):
+- Exit code: {exit_code}
+- Summary: {output.splitlines()[0] if output else '(empty)'}
+- Logs: {log_dir or '(unknown)'}
+
+Last stderr lines:
+{probe_log_tail(root, log_dir)}
+
+The probe did not satisfy `{goal.goal_id}`. Fix the guest-engine or probe
+blocker shown above. Do not mark `{goal.goal_id}` complete and do not write
+docs-only status updates when the probe still fails.
+"""
+	elif goal.goal_id in DOLPHIN_PROBE_GOALS:
+		probe_section = (
+			f"\nThis goal requires Dolphin runtime evidence. The goal runner executes "
+			f"`scripts/dolphin-boot-probe.sh` before each pass; do not claim completion "
+			f"without a successful probe result in the ledger.\n"
+		)
 	return f"""You are autonomously advancing the native Xash3D GameCube port.
 
 Active goal: {goal.goal_id} — {goal.title}
 Attempt on this goal: {attempt}
 
-{retry_instruction}Acceptance criteria:
+{retry_instruction}{probe_section}
+Acceptance criteria:
 {goal.body}
 
 Repository context:
@@ -490,6 +607,11 @@ def main() -> int:
 	if not os.environ.get("OPENAI_API_KEY"):
 		print("goal-loop: OPENAI_API_KEY must be supplied by the launch environment", file=sys.stderr)
 		return 2
+	api_base = os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1")
+	if not model_ready(api_base):
+		print(f"goal-loop: model API is not reachable at {api_base}", file=sys.stderr)
+		print("Start the Qwable/vLLM server first, then retry.", file=sys.stderr)
+		return 2
 
 	attempts: dict[str, int] = {}
 	for pass_index in range(1, args.max_passes + 1):
@@ -505,9 +627,31 @@ def main() -> int:
 			f"{goal.goal_id} — {goal.title}\n{'=' * 72}", flush=True)
 		write_state(state_file, state="running", pass_index=pass_index,
 			goal=asdict(goal), attempt=attempts[goal.goal_id])
+		probe_result: tuple[int, str, str | None] | None = None
+		if goal.goal_id in DOLPHIN_PROBE_GOALS:
+			print(f"\n--- Dolphin boot probe for {goal.goal_id} ---", flush=True)
+			probe = run_dolphin_probe(root)
+			probe_output = ((probe.stdout or "") + (probe.stderr or "")).strip()
+			log_dir = probe_log_dir(probe_output)
+			print(probe_output, flush=True)
+			success_marker = PROBE_AUTO_COMPLETE.get(goal.goal_id)
+			if probe.returncode == 0 and success_marker and success_marker in probe_output:
+				if commit_probe_success(root, goal, log_dir or "", probe_output) != 0:
+					write_state(state_file, state="failed", pass_index=pass_index,
+						goal=asdict(goal), message="probe succeeded but commit failed")
+					return 1
+				review = run(["scripts/ai-review.sh"], root)
+				if review.returncode != 0:
+					write_state(state_file, state="failed-review", pass_index=pass_index,
+						goal=asdict(goal), exit_code=review.returncode)
+					return review.returncode
+				print(f"{goal.goal_id}: probe satisfied acceptance criteria; continuing.",
+					flush=True)
+				continue
+			probe_result = (probe.returncode, probe_output, log_dir)
 		with tempfile.NamedTemporaryFile("w", suffix=".md", prefix="xash3d-gc-goal-",
 			encoding="utf-8", delete=False) as task:
-			task.write(task_for(goal, root, attempts[goal.goal_id]))
+			task.write(task_for(goal, root, attempts[goal.goal_id], probe_result))
 			task_path = Path(task.name)
 		head_before = git_head(root)
 		try:

@@ -4,9 +4,13 @@
 gamecube_export_dolphin_env() {
 	local flatpak_id="${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}"
 
+	# If DOLPHIN_EXECUTABLE is already set by the environment, respect it.
+	# Always export the flatpak ID as it may be needed by callers for cleanup
+	# or specific flatpak operations even if a native binary is preferred.
+	export DOLPHIN_FLATPAK_ID="$flatpak_id"
+
 	if [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
 		export DOLPHIN_EXECUTABLE
-		export DOLPHIN_FLATPAK_ID="$flatpak_id"
 		return 0
 	fi
 
@@ -19,7 +23,6 @@ gamecube_export_dolphin_env() {
 		DOLPHIN_EXECUTABLE="flatpak:$flatpak_id"
 	fi
 
-	export DOLPHIN_FLATPAK_ID="$flatpak_id"
 	if [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
 		export DOLPHIN_EXECUTABLE
 	fi
