@@ -531,18 +531,16 @@ scripts/ai-verify.sh
 Result: clean compilation with new `XASH_GAMECUBE` guards. No cross-platform
 regressions.
 
-## G19 — Interactive gameplay smoke test (source complete, pending runtime evidence)
+## G19 — Interactive gameplay smoke test (MANUAL — requires operator with Dolphin)
 
 The GameCube input backend (`engine/platform/gamecube/in_gamecube.c`) emits
 `Xash3D GameCube: input polling active` via `Con_Reportf` on the first
 successful input poll (commit `7f0d31d9`). This satisfies the source-side
 requirement for input evidence.
 
-**Blocker:** No Dolphin executable is available in the automation environment
-for runtime capture. The source-side changes are complete. An operator with
-Dolphin installed must run the probe and verify the logs before G19 can be
-marked complete. Automation will skip this goal until runtime evidence is
-provided.
+**Status:** Source complete. Runtime evidence requires an operator with Dolphin
+installed. Automation cannot complete this goal because no Dolphin executable is
+available in the automation environment.
 
 **Manual verification command:**
 
@@ -554,6 +552,9 @@ scripts/dolphin-boot-probe.sh
 The probe should report `ENGINE_READY` or `MAP_READY`. The log
 (`.ai/logs/dolphin-probe-*/stderr.log`) must contain both
 `Xash3D GameCube: map loaded <map>` and `Xash3D GameCube: input polling active`.
+
+**Blocker:** Requires human operator to run Dolphin probe and confirm logs.
+Do not mark complete via automation.
 
 ## Automation recovery notes
 
