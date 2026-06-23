@@ -607,6 +607,12 @@ automation environment, so runtime verification cannot proceed. This is a
 MANUAL goal and must never be marked complete via automation. No source changes
 needed.
 
+Attempt 20 (2026-06-22): Twentieth automation attempt. Source-side changes
+remain complete (commit `7f0d31d9`). No Dolphin executable is available in the
+automation environment, so runtime verification cannot proceed. This is a
+MANUAL goal and must never be marked complete via automation. No source changes
+needed.
+
 **Status:** Source complete. Runtime evidence requires an operator with Dolphin
 installed. This is a MANUAL goal and must never be marked complete via
 automation.
