@@ -117,7 +117,7 @@ void Platform_RunEvents( void )
 	/* Emit input polling evidence for G19 interactive smoke test once per session. */
 	if( !gc_input_logged )
 	{
-		SYS_Report( "Xash3D GameCube: input polling active\n" );
+		Con_Reportf( "Xash3D GameCube: input polling active\n" );
 		gc_input_logged = true;
 	}
 

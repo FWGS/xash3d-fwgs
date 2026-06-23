@@ -359,6 +359,16 @@ def write_state(path: Path, **values: object) -> None:
 	path.write_text(json.dumps(values, indent=2) + "\n", encoding="utf-8")
 
 
+def git_head(root: Path) -> str:
+	return subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
+		text=True, capture_output=True, check=False).stdout.strip()
+
+
+def git_dirty(root: Path) -> bool:
+	return bool(subprocess.run(["git", "status", "--porcelain"], cwd=root,
+		text=True, capture_output=True, check=False).stdout.strip())
+
+
 def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
 	candidates: list[str] = []
@@ -459,6 +469,7 @@ def main() -> int:
 			encoding="utf-8", delete=False) as task:
 			task.write(task_for(goal, root, attempts[goal.goal_id]))
 			task_path = Path(task.name)
+		head_before = git_head(root)
 		try:
 			context_files = context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			read_context_files = read_context_for_goal(goal.goal_id, root)
@@ -477,6 +488,20 @@ def main() -> int:
 		finally:
 			task_path.unlink(missing_ok=True)
 		if result.returncode != 0:
+			head_after = git_head(root)
+			if head_after and head_after != head_before and not git_dirty(root):
+				write_state(state_file, state="resuming-after-commit", pass_index=pass_index,
+					goal=asdict(goal), attempt=attempts[goal.goal_id],
+					exit_code=result.returncode,
+					message="Child pass exited nonzero after creating a clean commit; reviewing and continuing")
+				print("Child pass exited nonzero after a clean commit; reviewing and continuing.",
+					file=sys.stderr)
+				review = run(["scripts/ai-review.sh"], root)
+				if review.returncode != 0:
+					write_state(state_file, state="failed-review", pass_index=pass_index,
+						goal=asdict(goal), exit_code=review.returncode)
+					return review.returncode
+				continue
 			if result.returncode in RECOVERABLE_EXIT_CODES and \
 					attempts[goal.goal_id] <= args.recoverable_retries:
 				reason = RECOVERABLE_EXIT_CODES[result.returncode]

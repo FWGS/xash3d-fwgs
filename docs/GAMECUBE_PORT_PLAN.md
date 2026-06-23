@@ -534,9 +534,10 @@ regressions.
 ## G19 — Interactive gameplay smoke test (source complete, pending runtime evidence)
 
 The GameCube input backend (`engine/platform/gamecube/in_gamecube.c`) now emits
-`Xash3D GameCube: input polling active` via `SYS_Report` on the first successful
-input poll. This provides the required OSReport evidence for "input polling" in
-G19's acceptance criteria.
+`Xash3D GameCube: input polling active` via the engine reporting path on the
+first successful input poll. This provides the required log evidence for "input
+polling" in G19's acceptance criteria without requiring a direct libogc include
+in the input backend.
 
 Runtime verification requires an operator to run:
 
@@ -550,6 +551,25 @@ The probe should report `ENGINE_READY` or `MAP_READY` and the log
 
 **Blocker:** No Dolphin executable is available in the automation environment
 for runtime capture. The source-side changes are complete.
+
+## Automation recovery notes
+
+The autonomous runner now handles two resume cases observed during G19. First,
+`scripts/ai-aider-pass.sh` removes a stale `.git/index.lock` only when no Git
+process for this repository is still active and the lock is at least 30 seconds
+old. Second, `scripts/ai-goal-loop.py` treats a nonzero child exit after a clean
+new commit as resumable progress: it runs `scripts/ai-review.sh` on the commit
+and continues to the next pass instead of leaving the dashboard stuck on a
+failed state.
+
+Evidence:
+
+```sh
+scripts/ai-verify.sh
+```
+
+Result: full GameCube build completed after replacing the G19 input marker with
+the engine reporting path.
 
 ## Next wake-up commands
 

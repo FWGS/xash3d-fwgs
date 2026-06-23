@@ -80,6 +80,22 @@ cleanup_temp_settings() {
 }
 trap cleanup_temp_settings EXIT
 
+cleanup_stale_git_lock() {
+	local lock_file=".git/index.lock"
+	local now lock_mtime age
+	[[ -e "$lock_file" ]] || return 0
+	if pgrep -af "git .*${REPO}" >/dev/null 2>&1; then
+		return 0
+	fi
+	now="$(date +%s)"
+	lock_mtime="$(stat -c '%Y' "$lock_file" 2>/dev/null || echo "$now")"
+	age=$(( now - lock_mtime ))
+	if (( age >= 30 )); then
+		echo "ai-aider-pass: removing stale Git index lock (${age}s old)" >&2
+		rm -f "$lock_file"
+	fi
+}
+
 echo "== Aider pass: $STAMP =="
 echo "Repo: $REPO"
 echo "Task: $TASK_FILE"
@@ -247,6 +263,7 @@ if (( ${#COMMIT_SUBJECT} > 72 )) || \
 fi
 
 stage_and_validate_patch() {
+	cleanup_stale_git_lock
 	git add -A
 	git diff --cached --check
 	if git diff --cached --quiet; then
@@ -315,6 +332,7 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 	fi
 fi
 
+cleanup_stale_git_lock
 git commit -m "$COMMIT_SUBJECT"
 
 echo
