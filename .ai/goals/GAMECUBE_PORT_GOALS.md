@@ -234,8 +234,13 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Use Dolphin first, then repeat on real hardware when available.
 - Added `SYS_Report( "Xash3D GameCube: input polling active" )` in
   `engine/platform/gamecube/in_gamecube.c` to provide concrete input evidence.
+- Source-side changes are complete (commit `7f0d31d9`).
 - Pending runtime verification: operator must run `scripts/dolphin-boot-probe.sh`
   and verify "input polling active" and sustained map load in `.ai/logs/`.
+- BLOCKER: No Dolphin executable is available in the automation environment.
+  Runtime evidence must be captured by an operator with Dolphin installed.
+  Do not mark complete via automation until logs confirm input polling and
+  map load.
 
 ## G20 [x] Register static HLSDK server entity class exports
 

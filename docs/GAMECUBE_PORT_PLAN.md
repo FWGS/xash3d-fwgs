@@ -535,9 +535,9 @@ regressions.
 
 The GameCube input backend (`engine/platform/gamecube/in_gamecube.c`) now emits
 `Xash3D GameCube: input polling active` via the engine reporting path on the
-first successful input poll. This provides the required log evidence for "input
-polling" in G19's acceptance criteria without requiring a direct libogc include
-in the input backend.
+first successful input poll (commit `7f0d31d9`). This provides the required log
+evidence for "input polling" in G19's acceptance criteria without requiring a
+direct libogc include in the input backend.
 
 Runtime verification requires an operator to run:
 
@@ -550,7 +550,10 @@ The probe should report `ENGINE_READY` or `MAP_READY` and the log
 `Xash3D GameCube: map loaded <map>` and `Xash3D GameCube: input polling active`.
 
 **Blocker:** No Dolphin executable is available in the automation environment
-for runtime capture. The source-side changes are complete.
+for runtime capture. The source-side changes are complete. An operator with
+Dolphin installed must run the probe and verify the logs before G19 can be
+marked complete. Automation will skip this goal until runtime evidence is
+provided.
 
 ## Automation recovery notes
 
