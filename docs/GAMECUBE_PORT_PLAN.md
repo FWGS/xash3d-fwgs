@@ -538,14 +538,14 @@ The GameCube input backend (`engine/platform/gamecube/in_gamecube.c`) emits
 successful input poll (commit `7f0d31d9`). This satisfies the source-side
 requirement for input evidence.
 
-Attempt 6 (2026-06-22): Sixth automation attempt confirmed source-side changes
+Attempt 7 (2026-06-22): Seventh automation attempt confirmed source-side changes
 are complete and building cleanly. The input polling marker, map load marker,
 and controller polling code are all present. Runtime verification remains
 blocked because no Dolphin executable is available in the automation environment.
 Previous manual probes (G06, G15) have demonstrated successful map loads
 (`c4a1f`, `c0a0e`) with engine subsystems ready, but combined evidence of both
 map load AND input polling active in a single probe run has not yet been
-captured. Automation cannot complete this MANUAL goal.
+captured. Automation cannot complete this MANUAL goal. No source changes needed.
 
 **Status:** Source complete. Runtime evidence requires an operator with Dolphin
 installed. This is a MANUAL goal and must never be marked complete via
