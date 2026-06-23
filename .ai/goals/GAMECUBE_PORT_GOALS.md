@@ -77,16 +77,17 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - The generated hybrid GameCube/ISO9660 image mounts its bundled content at
   `gcdisc:/xash3d`; no host filesystem passthrough is used by the guest.
 
-## G07 [ ] Load a small Half-Life map
+## G07 [x] Load a small Half-Life map
 
 - Load one small map far enough to render a frame and accept controller input.
 - Record memory or allocation failures rather than hiding them.
 - Keep proprietary game data ignored and outside Git.
-- Status: BLOCKED. Deferred behind G09-G14.
-- Evidence: Engine reaches console (G06), but the statically linked GameCube
-  client/server modules are still stubs and cannot run real Half-Life maps.
-- Action: Use FWGS `hlsdk-portable` as the open portable game-code source. Keep
-  proprietary Valve game assets ignored and outside Git.
+- Verified 2026-06-22: superseded by later HLSDK integration and Dolphin
+  evidence. `DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh` loaded
+  `c4a1f` and emitted `Xash3D GameCube: map loaded c4a1f`.
+  Evidence: `.ai/logs/dolphin-probe-20260622-022408/stderr.log`.
+- G15 further loaded `c0a0e` with
+  `.ai/logs/dolphin-probe-20260622-115351/stderr.log`.
 
 ## G08 [MANUAL] Validate on physical GameCube hardware
 

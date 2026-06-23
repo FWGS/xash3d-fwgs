@@ -34,6 +34,33 @@ Run only the harness and source checks without compiling by setting
 `SKIP_GAMECUBE_BUILD=1` when invoking `scripts/ai-verify.sh`. Autonomous passes
 always run the real build.
 
+## Run until blocked
+
+For a handoff-style run, start the local Qwable/vLLM model server, export
+`OPENAI_API_KEY`, then run:
+
+```sh
+scripts/ai-run-until-done.py --chunk-passes 20 --recoverable-retries 8
+```
+
+The supervisor checks that the model API is reachable, invokes the evidence
+gated goal loop in bounded chunks, and keeps going through recoverable pass
+limits, model timeouts, and token-limit retries. It still stops on dirty-tree,
+verification, review, or manual-hardware blockers.
+
+Newly completed goals must carry command/log evidence in both the goal ledger
+and `docs/GAMECUBE_PORT_PLAN.md`; `scripts/ai-evidence-gate.py` enforces this
+during autonomous patch verification.
+
+For campaign/map compatibility evidence, run:
+
+```sh
+scripts/gamecube-map-compat-probe.sh c4a1f c0a0e
+```
+
+The probe writes ignored TSV/Markdown summaries under `.ai/logs/`. Use
+`--all` only when intentionally sweeping every local BSP.
+
 Logs are written under `.ai/logs/` and ignored by Git. A failed pass appends a
 short entry to `.ai/state/BLOCKERS.md`; review and commit or discard that entry
 before trying another pass.

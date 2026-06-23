@@ -14,6 +14,8 @@ devkitPPC and libogc.
 - Preserve GPL compatibility.
 - Update `docs/GAMECUBE_PORT_PLAN.md` in every patch with the exact command run,
   its result, and the next known blocker.
+- Do not mark an automation goal complete unless the goal notes and port plan
+  include concrete evidence: command output, a log path, or a runtime artifact.
 
 ## Hardware constraints
 

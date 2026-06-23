@@ -280,6 +280,9 @@ the patch.
 Rules:
 - Keep the commit below 400 changed lines and do not delete tracked files.
 - Update `docs/GAMECUBE_PORT_PLAN.md` with commands and concrete evidence.
+- If marking `{goal.goal_id}` done, include a command, result, and log path or
+  runtime artifact in the goal notes and port plan; docs-only reasoning is not
+  enough for completion.
 - Update this goal's notes when useful.
 - Mark `{goal.goal_id}` done only when every acceptance criterion is demonstrated.
   Otherwise leave it unchecked and state the next blocker in the port plan.

@@ -32,6 +32,11 @@ live DOL, ISO, Dolphin, and model-server status chips. Booting with no ISO
 automatically builds the disc first instead of failing with a missing-file
 dialog. The GUI can supervise the local Qwable-5/vLLM server, while credentials
 remain inherited from the launch environment rather than stored in the GUI.
+For handoff-style automation, `scripts/ai-run-until-done.py` now wraps the goal
+runner in a supervisor loop. It checks the local OpenAI-compatible model API,
+runs bounded goal chunks, treats pass-limit/token/timeout exits as recoverable,
+and stops only on non-recoverable verifier or repository failures. This is a
+run-until-blocked tool, not a substitute for manual hardware goals.
 Mission Control now shows every automatic/manual goal and the active goal's
 acceptance criteria. Port Telemetry reports Git cleanliness and tracking,
 latest commit, submodule divergence, devkitPPC, game content, inherited Aider
@@ -51,8 +56,13 @@ pass now supplies both this plan and the goal ledger as explicit editable files,
 alongside its focused source set. Project rules, decisions, blockers, and the
 engine porting guide remain read-only. This makes the required documentation
 and completion-marker updates possible without broadening source scope.
-The GUI defaults goal automation to three passes for supervised proving runs;
-the operator can raise the safety limit after stable passes.
+The verification gate now rejects newly completed goals that do not include
+concrete evidence in the goal notes and port plan. Acceptable evidence includes
+a command, result, `.ai/logs/` path, or runtime artifact reference. This keeps
+the automation from finishing goals through docs-only reasoning.
+The GUI defaults goal automation to twenty passes with a separate recovery
+retry control, while still using the same verifier and evidence gates as the
+terminal handoff supervisor.
 After the first G01 attempt produced plans but no edit, the harness switched
 from the same-model architect/editor-whole handoff to direct diff editing.
 Operational Aider or verifier failures now stay in ignored logs/state rather
@@ -159,6 +169,39 @@ behavior have evidence in the plan and the remaining limitations are explicit.
   explicit and the engine handles the absence safely.
 
 ## Commands and evidence
+
+Handoff supervisor command:
+
+```sh
+scripts/ai-run-until-done.py --chunk-passes 20 --recoverable-retries 8
+```
+
+The supervisor requires `OPENAI_API_KEY` and a reachable
+`OPENAI_API_BASE`/Qwable-compatible model server. It continues through bounded
+goal-loop chunks until automatic goals are complete, blocked, or a
+non-recoverable verifier/repository failure occurs.
+
+Map compatibility command:
+
+```sh
+scripts/gamecube-map-compat-probe.sh c4a1f c0a0e
+```
+
+The probe calls `scripts/dolphin-boot-probe.sh` once per map, writes TSV and
+Markdown summaries under `.ai/logs/map-compat-<timestamp>/`, and leaves the
+legal Half-Life assets and generated images ignored outside Git.
+Use `scripts/gamecube-map-compat-probe.sh --all` only for an intentional
+full-map campaign sweep.
+
+Physical hardware validation handoff:
+
+```sh
+docs/GAMECUBE_HARDWARE_VALIDATION.md
+```
+
+This checklist defines the required console/loader/storage/video observations
+for G38 and final release claims. Those goals cannot be completed by local
+automation alone.
 
 Previously observed build command:
 
@@ -309,11 +352,16 @@ DOL by three bytes), an ISO9660 data session, single-sector DVD reads around a
 libogc cache-fill bug, absolute read-only search paths, internal-module aliases,
 an idempotent statically linked `pm_shared` initializer, and low-memory mode 2.
 
-G07 is deferred behind the real GameCube game-code integration. The engine now
-boots to the console with static client/server ABI stubs, but those stubs cannot
-run Half-Life map logic. This is not the end of the port: the upstream project
-already documents FWGS `hlsdk-portable` as the route for non-x86 targets, and
-the Switch/Vita automation builds that repository as a separate dependency.
+G07 was originally deferred behind real GameCube game-code integration. That
+blocker is now stale: later HLSDK integration and Dolphin evidence superseded
+it. On 2026-06-22, `DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh` loaded
+`c4a1f` and emitted `Xash3D GameCube: map loaded c4a1f`
+(`.ai/logs/dolphin-probe-20260622-022408/stderr.log`). G15 further loaded
+`c0a0e` with evidence in
+`.ai/logs/dolphin-probe-20260622-115351/stderr.log`. The remaining map-related
+work is no longer "load any small map"; it is the later G21+ work on lookup
+correctness, memory, visuals, entity behavior, route progression, and campaign
+compatibility.
 
 The first follow-up milestone is a local dependency probe:
 
