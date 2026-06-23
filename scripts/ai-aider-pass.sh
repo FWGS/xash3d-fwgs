@@ -15,6 +15,9 @@ if [ -f .env ]; then
 	source .env
 	set +a
 fi
+if [ -f scripts/gamecube-env.sh ]; then
+	source scripts/gamecube-env.sh
+fi
 
 : "${OPENAI_API_KEY:?Set OPENAI_API_KEY first}"
 export OPENAI_API_BASE="${OPENAI_API_BASE:-http://127.0.0.1:8072/v1}"
@@ -107,6 +110,11 @@ if (( ${#READ_CONTEXT_FILES[@]} )); then
 fi
 echo "Baseline: $BASELINE"
 echo "Log: $LOG"
+if [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
+	echo "Dolphin: $DOLPHIN_EXECUTABLE"
+else
+	echo "Dolphin: unavailable"
+fi
 
 token_limit_seen() {
 	local log_path="${1:-$LOG}"

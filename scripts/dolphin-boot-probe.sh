@@ -3,6 +3,9 @@ set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+if [[ -f scripts/gamecube-env.sh ]]; then
+	source scripts/gamecube-env.sh
+fi
 
 if command -v flock >/dev/null 2>&1; then
 	mkdir -p "$ROOT/.ai"
@@ -58,15 +61,22 @@ fi
 
 DOLPHIN_CMD=()
 DOLPHIN_IS_FLATPAK=0
-if command -v dolphin-emu >/dev/null 2>&1; then
+if [[ "${DOLPHIN_EXECUTABLE:-}" == flatpak:* ]]; then
+	DOLPHIN_FLATPAK_ID="${DOLPHIN_EXECUTABLE#flatpak:}"
+	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "$DOLPHIN_FLATPAK_ID"
+		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	DOLPHIN_IS_FLATPAK=1
+elif [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
+	DOLPHIN_CMD=("$DOLPHIN_EXECUTABLE" -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+elif command -v dolphin-emu >/dev/null 2>&1; then
 	DOLPHIN_CMD=(dolphin-emu -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
 elif command -v dolphin >/dev/null 2>&1; then
 	DOLPHIN_CMD=(dolphin -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
 elif command -v flatpak >/dev/null 2>&1 && \
-	flatpak info org.DolphinEmu.dolphin-emu >/dev/null 2>&1; then
+	flatpak info "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1; then
 	# Dolphin's Flatpak has no home-directory access by default. Grant only this
 	# repository so it can read the ISO and use the isolated probe profile.
-	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" org.DolphinEmu.dolphin-emu
+	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}"
 		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
 	DOLPHIN_IS_FLATPAK=1
 else
@@ -76,7 +86,7 @@ fi
 
 cleanup_flatpak_dolphin() {
 	if (( DOLPHIN_IS_FLATPAK )); then
-		flatpak kill org.DolphinEmu.dolphin-emu >/dev/null 2>&1 || true
+		flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
 		pkill -TERM -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
 		sleep 1
 		pkill -KILL -f "dolphin.*${USER_DIR}" >/dev/null 2>&1 || true
@@ -86,7 +96,7 @@ cleanup_flatpak_dolphin() {
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s)..."
 set +e
 if (( DOLPHIN_IS_FLATPAK )); then
-	flatpak kill org.DolphinEmu.dolphin-emu >/dev/null 2>&1 || true
+	flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
 	trap cleanup_flatpak_dolphin EXIT
 	"${DOLPHIN_CMD[@]}" >"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log" &
 	DOLPHIN_WRAPPER_PID=$!

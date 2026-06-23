@@ -946,12 +946,18 @@ class PortWindow(QMainWindow):
 
 	def launch_dolphin(self) -> None:
 		iso = self.repo() / "OUT/xash3d-gc.iso"
-		if shutil.which("dolphin-emu"):
+		dolphin_executable = os.environ.get("DOLPHIN_EXECUTABLE", "")
+		dolphin_flatpak_id = os.environ.get("DOLPHIN_FLATPAK_ID", "org.DolphinEmu.dolphin-emu")
+		if dolphin_executable.startswith("flatpak:"):
+			command = ["flatpak", "run", dolphin_executable.removeprefix("flatpak:"), "-e", str(iso)]
+		elif dolphin_executable:
+			command = [dolphin_executable, "-e", str(iso)]
+		elif shutil.which("dolphin-emu"):
 			command = ["dolphin-emu", "-e", str(iso)]
 		elif shutil.which("dolphin"):
 			command = ["dolphin", "-e", str(iso)]
 		elif shutil.which("flatpak"):
-			command = ["flatpak", "run", "org.DolphinEmu.dolphin-emu", "-e", str(iso)]
+			command = ["flatpak", "run", dolphin_flatpak_id, "-e", str(iso)]
 		else:
 			QMessageBox.warning(self, "Dolphin missing", "No Dolphin executable or Flatpak was found.")
 			return
@@ -972,7 +978,8 @@ class PortWindow(QMainWindow):
 			self.set_pipeline_state("DOL", "Success" if dol.is_file() else "Idle")
 		if active_node != "ISO":
 			self.set_pipeline_state("ISO", "Success" if iso.is_file() else "Idle")
-		dolphin_ready = bool(shutil.which("dolphin-emu") or shutil.which("dolphin") or shutil.which("flatpak"))
+		dolphin_ready = bool(os.environ.get("DOLPHIN_EXECUTABLE") or
+			shutil.which("dolphin-emu") or shutil.which("dolphin") or shutil.which("flatpak"))
 		self.dolphin_chip.setText("DOLPHIN  READY" if dolphin_ready else "DOLPHIN  MISSING")
 		if self.process is None:
 			self.status_label.setText("Idle — goal console ready")

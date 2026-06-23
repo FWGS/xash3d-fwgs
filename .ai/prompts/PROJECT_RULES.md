@@ -16,6 +16,9 @@ devkitPPC and libogc.
   its result, and the next known blocker.
 - Do not mark an automation goal complete unless the goal notes and port plan
   include concrete evidence: command output, a log path, or a runtime artifact.
+- Treat `.ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md` and
+  `docs/GAMECUBE_HOMEBREW_COMPLIANCE.md` as the clean-room release quality bar
+  for hardware, save safety, packaging, legal, UI, and runtime evidence.
 
 ## Hardware constraints
 
@@ -43,6 +46,8 @@ devkitPPC and libogc.
 - Fix the smallest demonstrated blocker; do not guess at a large subsystem.
 - Do not rewrite a renderer or import large external code in one pass.
 - Run `scripts/ai-verify.sh` after editing.
+- Run `scripts/gamecube-homebrew-compliance-check.py` when changing release,
+  hardware, save, packaging, or pipeline behavior.
 - Stop after one verified patch.
 
 ## Autonomous decisions

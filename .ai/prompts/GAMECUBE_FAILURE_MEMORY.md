@@ -5,6 +5,8 @@ Known bad assumptions and corrections:
 - Do not use proprietary Nintendo SDK headers, names, or APIs.
 - Do not assume `OSReport` exists in this project; use existing libogc/project
   reporting paths such as `SYS_Report` where already established.
+- Do not treat Dolphin as unavailable without checking `DOLPHIN_EXECUTABLE`.
+  The automation may expose a native path or `flatpak:org.DolphinEmu.dolphin-emu`.
 - Do not assume dynamic libraries are available on GameCube; use the static
   loader/export path already in the port.
 - Do not write generated state to `gcdisc:/` or other read-only disc paths.

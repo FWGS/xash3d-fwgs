@@ -4,6 +4,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GUI="$ROOT/scripts/xash3d-gc-aider-gui.py"
 
+if [[ -f "$ROOT/.env" ]]; then
+	set -a
+	source "$ROOT/.env"
+	set +a
+fi
+if [[ -f "$ROOT/scripts/gamecube-env.sh" ]]; then
+	source "$ROOT/scripts/gamecube-env.sh"
+fi
+
 if python3 -c 'import PyQt6' >/dev/null 2>&1; then
 	exec python3 "$GUI" "$@"
 fi

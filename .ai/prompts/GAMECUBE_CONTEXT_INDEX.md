@@ -11,6 +11,8 @@ Always prefer:
   backend selectors.
 - `docs/GAMECUBE_PORT_PLAN.md` for verified state and blockers.
 - `.ai/goals/GAMECUBE_PORT_GOALS.md` for acceptance criteria.
+- `.ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md` for clean-room homebrew
+  release, hardware, save-safety, packaging, and UX requirements.
 - Per-subsystem notes selected by `scripts/ai-goal-loop.py`.
 
 Do not assume desktop POSIX, OpenGL, dynamic libraries, writable install
