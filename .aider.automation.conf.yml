@@ -1,0 +1,28 @@
+# Slim Aider profile for autonomous goal-loop passes.
+# Keeps essential guardrails without loading the full prompt corpus every turn.
+model: openai/qwen-local
+openai-api-base: http://127.0.0.1:8072/v1
+model-settings-file: .ai/aider-model-settings.yml
+model-metadata-file: .ai/aider-model-metadata.json
+show-model-warnings: false
+
+architect: false
+edit-format: diff
+thinking-tokens: 0
+check-model-accepts-settings: false
+
+map-tokens: 0
+map-refresh: auto
+max-chat-history-tokens: 2048
+
+auto-commits: false
+dirty-commits: false
+attribute-co-authored-by: false
+show-diffs: true
+
+auto-lint: false
+auto-test: false
+
+read:
+  - .ai/prompts/PROJECT_RULES.md
+  - .ai/prompts/GAMECUBE_FAILURE_MEMORY.md

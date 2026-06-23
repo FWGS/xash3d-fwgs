@@ -130,23 +130,39 @@ echo "==> Analyzing probe results..."
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
+INPUT_MARKER="Xash3D GameCube: input polling active"
 LOG_FILES=("$LOG_DIR/stdout.log" "$LOG_DIR/stderr.log")
 GUEST_FOUND=0
 READY_FOUND=0
 MAP_FOUND=0
+INPUT_FOUND=0
 grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
 grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
+grep -aqsF "$INPUT_MARKER" "${LOG_FILES[@]}" && INPUT_FOUND=1
 if [[ -n "$SMOKE_MAP" ]]; then
 	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
 fi
 
-if (( MAP_FOUND )); then
+if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
 		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
 		echo "Logs: $LOG_DIR"
 		exit 3
 	fi
-	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube."
+	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
+	echo "Logs: $LOG_DIR"
+	exit 0
+fi
+
+# Map loaded but input not detected. This might be a partial success for map loading
+# but fails the "interactive" criteria of G19 if no controller is detected/polling.
+if (( MAP_FOUND )) && ! (( INPUT_FOUND )); then
+	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
+		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
+		echo "Logs: $LOG_DIR"
+		exit 3
+	fi
+	echo "MAP_LOADED_NO_INPUT: Map ${SMOKE_MAP} loaded but input polling marker was not found."
 	echo "Logs: $LOG_DIR"
 	exit 0
 elif (( READY_FOUND )) && [[ -z "$SMOKE_MAP" ]]; then

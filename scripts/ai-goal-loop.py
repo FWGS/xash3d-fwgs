@@ -368,7 +368,8 @@ targets. Do not ask questions, propose commands, or stop at a plan. If the
 premise is disproven, update the goal ledger and port plan with the blocker
 instead of forcing an engine change.
 Do not narrate your investigation. Emit only the Aider edit blocks needed for
-the patch.
+the patch. Keep the reply under one file when possible and avoid repeating the
+same SEARCH/REPLACE block.
 
 Rules:
 - Keep the commit below 400 changed lines and do not delete tracked files.
@@ -409,7 +410,12 @@ def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 			continue
 		seen.add(path)
 		candidates.append(path)
-	size_limit = 45000 if attempt == 1 else 20000 if attempt == 2 else 12000
+	size_limit = (
+		45000 if attempt == 1 else
+		20000 if attempt == 2 else
+		12000 if attempt == 3 else
+		8000
+	)
 	required = set(COMMON_CONTEXT if attempt <= 2 else (".ai/goals/GAMECUBE_PORT_GOALS.md",))
 	selected: list[str] = []
 	for path in candidates:
@@ -421,11 +427,14 @@ def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 	return selected
 
 
-def read_context_for_goal(goal_id: str, root: Path) -> list[str]:
+def read_context_for_goal(goal_id: str, root: Path, attempt: int = 1) -> list[str]:
 	"""Return focused read-only notes for the active goal."""
+	if os.environ.get("AIDER_AUTOMATION", "1") == "1" and attempt >= 3:
+		return []
+	common_reads = () if os.environ.get("AIDER_AUTOMATION", "1") == "1" else COMMON_READ_CONTEXT
 	seen: set[str] = set()
 	selected: list[str] = []
-	for path in (*COMMON_READ_CONTEXT, *GOAL_READ_CONTEXT.get(goal_id, ())):
+	for path in (*common_reads, *GOAL_READ_CONTEXT.get(goal_id, ())):
 		if path in seen or not (root / path).is_file():
 			continue
 		seen.add(path)
@@ -503,17 +512,21 @@ def main() -> int:
 		head_before = git_head(root)
 		try:
 			context_files = context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
-			read_context_files = read_context_for_goal(goal.goal_id, root)
+			read_context_files = read_context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			pass_env = os.environ.copy()
 			pass_env["AI_COMMIT_SUBJECT"] = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
 				f"feat: advance GameCube port goal {goal.goal_id}")
+			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])
+			pass_env.setdefault("AIDER_AUTOMATION", "1")
 			if attempts[goal.goal_id] >= 3:
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "512")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_3", "384")
 				pass_env.setdefault("AIDER_CONTEXT_BYTES_INITIAL", "20000")
 				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "12000")
 				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "8000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_3", "6000")
 			result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path),
 				*context_files, *read_context_files], root, env=pass_env)
 		finally:

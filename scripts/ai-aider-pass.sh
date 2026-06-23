@@ -67,15 +67,25 @@ LOG=".ai/logs/aider-pass-$STAMP.log"
 BASELINE="$(git rev-parse HEAD)"
 TOKEN_LIMIT_RE="has hit a token limit|exceeds the .* token limit|context limit is exceeded|maximum context length|prompt contains at least|requested .* output tokens|VLLMValidationError"
 AIDER_OUTPUT_TOKEN_BUDGETS=(
-	"${AIDER_OUTPUT_TOKENS_INITIAL:-2048}"
-	"${AIDER_OUTPUT_TOKENS_RETRY_1:-1024}"
-	"${AIDER_OUTPUT_TOKENS_RETRY_2:-768}"
+	"${AIDER_OUTPUT_TOKENS_INITIAL:-4096}"
+	"${AIDER_OUTPUT_TOKENS_RETRY_1:-2048}"
+	"${AIDER_OUTPUT_TOKENS_RETRY_2:-1024}"
+	"${AIDER_OUTPUT_TOKENS_RETRY_3:-768}"
 )
 AIDER_CONTEXT_BYTE_LIMITS=(
 	"${AIDER_CONTEXT_BYTES_INITIAL:-45000}"
 	"${AIDER_CONTEXT_BYTES_RETRY_1:-20000}"
 	"${AIDER_CONTEXT_BYTES_RETRY_2:-12000}"
+	"${AIDER_CONTEXT_BYTES_RETRY_3:-8000}"
 )
+AIDER_CONFIG="${AIDER_CONFIG:-}"
+if [[ -z "$AIDER_CONFIG" ]]; then
+	if [[ "${AIDER_AUTOMATION:-1}" == "1" && -f .aider.automation.conf.yml ]]; then
+		AIDER_CONFIG=".aider.automation.conf.yml"
+	else
+		AIDER_CONFIG=".aider.conf.yml"
+	fi
+fi
 TEMP_MODEL_SETTINGS=()
 
 cleanup_temp_settings() {
@@ -110,6 +120,7 @@ if (( ${#READ_CONTEXT_FILES[@]} )); then
 fi
 echo "Baseline: $BASELINE"
 echo "Log: $LOG"
+echo "Aider config: $AIDER_CONFIG"
 if [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
 	echo "Dolphin: $DOLPHIN_EXECUTABLE"
 else
@@ -119,6 +130,36 @@ fi
 token_limit_seen() {
 	local log_path="${1:-$LOG}"
 	grep -Eiq "$TOKEN_LIMIT_RE" "$log_path"
+}
+
+load_token_budget() {
+	local attempt="${1:-1}"
+	if ! command -v python3 >/dev/null 2>&1 || [[ ! -f scripts/aider-token-budget.py ]]; then
+		return 0
+	fi
+	local budget_file
+	budget_file="$(mktemp .ai/logs/aider-budget-XXXXXX.env)"
+	TEMP_MODEL_SETTINGS+=("$budget_file")
+	if AIDER_BUDGET_ATTEMPT="$attempt" python3 scripts/aider-token-budget.py \
+		--attempt "$attempt" --quiet >"$budget_file" 2>/dev/null; then
+		set -a
+		# shellcheck disable=SC1090
+		source "$budget_file"
+		set +a
+		AIDER_OUTPUT_TOKEN_BUDGETS=(
+			"${AIDER_OUTPUT_TOKENS_INITIAL:-4096}"
+			"${AIDER_OUTPUT_TOKENS_RETRY_1:-2048}"
+			"${AIDER_OUTPUT_TOKENS_RETRY_2:-1024}"
+			"${AIDER_OUTPUT_TOKENS_RETRY_3:-768}"
+		)
+		AIDER_CONTEXT_BYTE_LIMITS=(
+			"${AIDER_CONTEXT_BYTES_INITIAL:-45000}"
+			"${AIDER_CONTEXT_BYTES_RETRY_1:-20000}"
+			"${AIDER_CONTEXT_BYTES_RETRY_2:-12000}"
+			"${AIDER_CONTEXT_BYTES_RETRY_3:-8000}"
+		)
+		echo "ai-aider-pass: token budget attempt=$attempt output=${AIDER_OUTPUT_TOKEN_BUDGETS[0]} history=${AIDER_MAX_CHAT_HISTORY_TOKENS:-2048} context_bytes=${AIDER_CONTEXT_BYTE_LIMITS[0]}" >&2
+	fi
 }
 
 write_model_settings() {
@@ -175,6 +216,7 @@ run_aider_with_recovery() {
 	local context_args=()
 	for attempt in "${!AIDER_OUTPUT_TOKEN_BUDGETS[@]}"; do
 		attempt=$(( attempt + 1 ))
+		load_token_budget "$attempt"
 		attempt_log="$(mktemp .ai/logs/aider-attempt-XXXXXX.log)"
 		TEMP_MODEL_SETTINGS+=("$attempt_log")
 		max_tokens="${AIDER_OUTPUT_TOKEN_BUDGETS[$(( attempt - 1 ))]}"
@@ -195,9 +237,10 @@ run_aider_with_recovery() {
 		fi
 		set +e
 		timeout --signal=TERM --kill-after=30 "$AIDER_MODEL_TIMEOUT_SEC" aider \
-			--config .aider.conf.yml \
+			--config "$AIDER_CONFIG" \
 			--no-browser \
 			--no-gui \
+			--no-cache-prompts \
 			--disable-playwright \
 			--no-restore-chat-history \
 			--no-auto-lint \
@@ -229,6 +272,10 @@ run_aider_with_recovery() {
 }
 
 set +e
+if command -v python3 >/dev/null 2>&1 && [[ -f scripts/aider-token-budget.py ]]; then
+	python3 scripts/aider-token-budget.py --sync-metadata --quiet >/dev/null 2>&1 || true
+fi
+load_token_budget "${AIDER_BUDGET_ATTEMPT:-1}"
 run_aider_with_recovery "Aider" --message-file "$TASK_FILE"
 AIDER_STATUS="$?"
 set -e

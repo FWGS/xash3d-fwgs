@@ -546,8 +546,8 @@ regressions.
 
 The GameCube input backend (`engine/platform/gamecube/in_gamecube.c`) emits
 `Xash3D GameCube: input polling active` via `Con_Reportf` on the first
-successful input poll (commit `7f0d31d9`). This satisfies the source-side
-requirement for input evidence.
+successful input poll. `scripts/dolphin-boot-probe.sh` now verifies this marker
+alongside the map load marker for `MAP_READY` status.
 
 On 2026-06-22, `scripts/gamecube-env.sh` was added so automation exports
 `DOLPHIN_EXECUTABLE`. The current environment resolves Dolphin to the installed
@@ -560,8 +560,9 @@ source scripts/gamecube-env.sh && printf '%s\n' "$DOLPHIN_EXECUTABLE"
 Result: `flatpak:org.DolphinEmu.dolphin-emu`.
 
 **Status:** Source complete. Runtime evidence is now unblocked for Dolphin
-automation, but G19 is still incomplete until one probe log confirms both map
-load and input polling in the same session.
+automation. The probe script has been updated to require input evidence for
+full interactive smoke test completion. G19 is still incomplete until one
+probe log confirms both map load and input polling in the same session.
 
 **Manual verification command:**
 
@@ -570,8 +571,8 @@ scripts/dolphin-boot-probe.sh
 ```
 
 **Expected evidence:**
-The probe should report `ENGINE_READY` or `MAP_READY`. The log
-(`.ai/logs/dolphin-probe-*/stderr.log`) must contain both
+The probe should report `MAP_READY: Xash3D loaded <map> on GameCube with interactive input.`
+The log (`.ai/logs/dolphin-probe-*/stderr.log`) must contain both
 `Xash3D GameCube: map loaded <map>` and `Xash3D GameCube: input polling active`.
 
 Do not mark complete until the evidence above is captured.

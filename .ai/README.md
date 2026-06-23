@@ -17,8 +17,14 @@ GameCube build verifier, and conservative Git guardrails.
 ```sh
 export OPENAI_API_BASE=http://127.0.0.1:8072/v1
 export OPENAI_API_KEY=your-local-server-key
+python3 scripts/aider-token-budget.py --sync-metadata
 scripts/ai-aider-pass.sh
 ```
+
+Autonomous passes use `.aider.automation.conf.yml` (smaller read context) and
+`scripts/aider-token-budget.py` to query the live vLLM `/v1/models` endpoint and
+set output/context/history budgets before each Aider attempt. Override with
+`AIDER_AUTOMATION=0` to use the full interactive `.aider.conf.yml` profile.
 
 ## Several supervised passes
 

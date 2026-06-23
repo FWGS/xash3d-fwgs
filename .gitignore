@@ -377,6 +377,7 @@ GEMINI.md
 .windsurf*
 .aider*
 !.aider.conf.yml
+!.aider.automation.conf.yml
 .continue/
 .codeium/
 .github/copilot-instructions.md
