@@ -155,6 +155,11 @@ GOAL_COMMIT_SUBJECT = {
 	"G41": "build: prepare GameCube release scripts",
 	"G42": "docs: finalize GameCube port guide",
 }
+RECOVERABLE_EXIT_CODES = {
+	10: "Aider made no edit",
+	17: "Aider model call timed out",
+	18: "Aider hit a token/context limit",
+}
 
 
 def load_dotenv(path: Path) -> None:
@@ -243,8 +248,16 @@ def task_for(goal: Goal, root: Path, attempt: int) -> str:
 	retry_instruction = ""
 	if attempt > 1:
 		retry_instruction = (
-			"Previous attempt made no edit. Make a concrete smallest safe patch; "
-			"do not ask for context.\n\n"
+			"Previous attempt did not produce an accepted commit. Make a concrete "
+			"smallest safe patch; do not ask for context.\n\n"
+		)
+	if attempt > 2:
+		retry_instruction = (
+			"Previous attempts hit an automation recovery path. Keep this pass surgical: "
+			"prefer one source file plus the ledger/plan, avoid broad rewrites, and keep "
+			"the response short enough to fit a reduced output budget. If the source file "
+			"needed for the real fix is not loaded, update the goal ledger and port plan "
+			"with the exact next file or blocker instead of stopping.\n\n"
 		)
 	return f"""You are autonomously advancing the native Xash3D GameCube port.
 
@@ -281,10 +294,30 @@ def write_state(path: Path, **values: object) -> None:
 	path.write_text(json.dumps(values, indent=2) + "\n", encoding="utf-8")
 
 
+def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
+	"""Return a progressively smaller editable context for recovery retries."""
+	candidates = [path for path in (*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal_id, ()))
+		if (root / path).is_file()]
+	if attempt <= 2:
+		return candidates
+	size_limit = 45000 if attempt == 3 else 20000
+	required = set(COMMON_CONTEXT if attempt == 3 else (".ai/goals/GAMECUBE_PORT_GOALS.md",))
+	selected: list[str] = []
+	for path in candidates:
+		file_path = root / path
+		if path in required or file_path.stat().st_size <= size_limit:
+			selected.append(path)
+	if not selected:
+		return candidates[:1]
+	return selected
+
+
 def main() -> int:
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
 	parser.add_argument("--max-passes", type=int, default=20)
+	parser.add_argument("--recoverable-retries", type=int, default=8,
+		help="retry one goal this many times for token/timeout/no-edit failures")
 	parser.add_argument("--list", action="store_true", help="print goal state and exit")
 	parser.add_argument("--status-json", action="store_true", help="emit machine-readable goal state")
 	args = parser.parse_args()
@@ -347,22 +380,29 @@ def main() -> int:
 			task.write(task_for(goal, root, attempts[goal.goal_id]))
 			task_path = Path(task.name)
 		try:
-			context_files = [path for path in (*COMMON_CONTEXT,
-				*GOAL_CONTEXT.get(goal.goal_id, ()))
-				if (root / path).is_file()]
+			context_files = context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			pass_env = os.environ.copy()
 			pass_env["AI_COMMIT_SUBJECT"] = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
 				f"feat: advance GameCube port goal {goal.goal_id}")
+			if attempts[goal.goal_id] >= 3:
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "2048")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "1024")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "768")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "45000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "20000")
 			result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path),
 				*context_files], root, env=pass_env)
 		finally:
 			task_path.unlink(missing_ok=True)
 		if result.returncode != 0:
-			if result.returncode == 10 and attempts[goal.goal_id] < 2:
-				write_state(state_file, state="retrying-no-edit", pass_index=pass_index,
+			if result.returncode in RECOVERABLE_EXIT_CODES and \
+					attempts[goal.goal_id] <= args.recoverable_retries:
+				reason = RECOVERABLE_EXIT_CODES[result.returncode]
+				write_state(state_file, state="recovering", pass_index=pass_index,
 					goal=asdict(goal), attempt=attempts[goal.goal_id],
-					message="Aider made no edit; retrying goal once")
-				print("Aider made no edit; retrying this goal once.", file=sys.stderr)
+					exit_code=result.returncode, message=f"{reason}; retrying goal")
+				print(f"{reason}; retrying this goal with a tighter context.",
+					file=sys.stderr)
 				continue
 			write_state(state_file, state="failed", pass_index=pass_index,
 				goal=asdict(goal), exit_code=result.returncode)

@@ -4137,18 +4137,9 @@ qboolean CL_LoadProgs( const char *name )
 #endif
 
 	// initialize game
-#if XASH_GAMECUBE
-	if( Sys_CheckParm( "-nohud" ))
-	{
-		Con_Reportf( "Xash3D GameCube: client callback skipped\n" );
-	}
-	else
-	{
-		clgame.dllFuncs.pfnInit();
-		Con_Reportf( "Xash3D GameCube: client callback initialized\n" );
-	}
-#else
 	clgame.dllFuncs.pfnInit();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client callback initialized\n" );
 #endif
 
 	CL_InitStudioAPI();

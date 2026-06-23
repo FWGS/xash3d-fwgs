@@ -428,6 +428,24 @@ instead of resolving the staged `maps/c0a0e.bsp`.
 
 The `gamecube-platform` submodule branch (`663a601`) must also be published to an accessible remote for fresh clones.
 
+## G16 — Smoke-only client shortcuts removed (source complete)
+
+The `-nohud` and `-nosound` shortcuts have been removed from the default GameCube
+startup arguments in `engine/platform/gamecube/sys_gamecube.c`. The client
+initialization path in `engine/client/dll_int/cl_game.c` and
+`engine/client/cl_scrn.c` now always attempts to initialize the HLSDK client
+HUD, gameui, fonts, textures, palette, and netgraph.
+
+The null audio backend (G05) is stable, so `-nosound` is no longer required for
+boot stability. The HUD initialization is no longer skipped, allowing the real
+HLSDK client archive to register its callbacks and prepare for rendering.
+If `HUD_Init` encounters missing assets, it will report errors rather than
+silently skipping, allowing for proper debugging.
+
+These changes turn the previous "smoke-only" bypasses into standard runtime
+behavior. Explicit `-nohud` or `-nosound` flags can still be passed manually
+for diagnostic triage, but they are not forced by the launcher.
+
 ## Next wake-up commands
 
 ```sh

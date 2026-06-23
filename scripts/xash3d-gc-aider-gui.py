@@ -15,11 +15,12 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from PyQt6.QtCore import QProcess, QProcessEnvironment, Qt, QTimer, QUrl
-from PyQt6.QtGui import QCloseEvent, QDesktopServices, QFont, QFontDatabase, QTextCursor
+from PyQt6.QtGui import QAction, QCloseEvent, QDesktopServices, QFont, QFontDatabase, QTextCursor
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
 	QApplication,
 	QCheckBox,
+	QDockWidget,
 	QFileDialog,
 	QFormLayout,
 	QGridLayout,
@@ -173,36 +174,44 @@ def command_executable_problem(command: list[str], cwd: Path) -> str | None:
 def stylesheet() -> str:
 	return f"""
 	QMainWindow, QWidget {{ background: {GC_BG}; color: {GC_TEXT}; }}
+	QMenuBar {{ background: {GC_PANEL}; color: {GC_TEXT}; border-bottom: 1px solid {GC_BORDER}; }}
+	QMenuBar::item {{ padding: 4px 8px; background: transparent; }}
+	QMenuBar::item:selected {{ background: {GC_PANEL_2}; color: {GC_CYAN}; }}
+	QMenu {{ background: {GC_PANEL}; color: {GC_TEXT}; border: 1px solid {GC_BORDER}; }}
+	QMenu::item {{ padding: 5px 22px; }}
+	QMenu::item:selected {{ background: {GC_PANEL_2}; color: {GC_CYAN}; }}
+	QDockWidget::title {{ background: {GC_PANEL_2}; color: {GC_CYAN};
+		border: 1px solid {GC_BORDER}; padding: 5px 7px; font-weight: bold; }}
 	QGroupBox {{ background: {GC_PANEL}; border: 2px solid {GC_BORDER};
-		border-radius: 14px; margin-top: 15px; padding: 13px; font-weight: bold; }}
-	QGroupBox::title {{ subcontrol-origin: margin; left: 14px; padding: 0 8px; color: {GC_CYAN}; }}
+		border-radius: 8px; margin-top: 11px; padding: 9px; font-weight: bold; }}
+	QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; color: {GC_CYAN}; }}
 	QLineEdit, QSpinBox, QPlainTextEdit {{ background: {GC_INPUT}; color: {GC_TEXT};
-		border: 2px inset {GC_PANEL_2}; border-radius: 8px; padding: 7px; }}
+		border: 2px inset {GC_PANEL_2}; border-radius: 6px; padding: 5px; }}
 	QLineEdit:focus, QSpinBox:focus, QPlainTextEdit:focus {{ border: 2px solid {GC_CYAN}; }}
 	QPushButton {{ background: {GC_VIOLET}; color: {GC_TEXT}; border: 2px outset {GC_BORDER};
-		border-radius: 15px; padding: 9px 15px; font-weight: bold; }}
+		border-radius: 9px; padding: 6px 10px; font-weight: bold; }}
 	QPushButton:hover {{ background: #806ee0; border-color: {GC_CYAN}; }}
 	QPushButton:pressed {{ background: #4b3c99; border-style: inset; }}
 	QPushButton:disabled {{ background: {GC_PANEL_2}; color: {GC_MUTED}; border-color: {GC_PANEL}; }}
 	QProgressBar {{ background: {GC_INPUT}; border: 1px solid {GC_CYAN}; border-radius: 8px;
-		text-align: center; color: {GC_TEXT}; height: 20px; }}
+		text-align: center; color: {GC_TEXT}; height: 16px; }}
 	QProgressBar::chunk {{ background: {GC_CYAN}; border-radius: 7px; }}
-	QLabel#Title {{ color: {GC_TEXT}; font-size: 25px; font-weight: bold; }}
-	QLabel#Subtitle {{ color: {GC_CYAN}; font-size: 11px; letter-spacing: 2px; }}
+	QLabel#Title {{ color: {GC_TEXT}; font-size: 19px; font-weight: bold; }}
+	QLabel#Subtitle {{ color: {GC_CYAN}; font-size: 9px; }}
 	QLabel#Chip {{ background: {GC_PANEL_2}; color: {GC_MINT}; border: 1px solid {GC_BORDER};
-		border-radius: 10px; padding: 5px 10px; font-weight: bold; }}
+		border-radius: 7px; padding: 4px 7px; font-weight: bold; }}
 	QLabel#PipelineIdle {{ background: {GC_PANEL_2}; color: {GC_MUTED}; border: 2px outset {GC_BORDER};
-		border-radius: 12px; padding: 12px; font-weight: bold; }}
+		border-radius: 8px; padding: 8px; font-weight: bold; }}
 	QLabel#PipelineRunning {{ background: #17405a; color: {GC_CYAN}; border: 2px solid {GC_CYAN};
-		border-radius: 12px; padding: 12px; font-weight: bold; }}
+		border-radius: 8px; padding: 8px; font-weight: bold; }}
 	QLabel#PipelineSuccess {{ background: #174638; color: {GC_MINT}; border: 2px solid {GC_MINT};
-		border-radius: 12px; padding: 12px; font-weight: bold; }}
+		border-radius: 8px; padding: 8px; font-weight: bold; }}
 	QLabel#PipelineFailed {{ background: #563621; color: {GC_ORANGE}; border: 2px solid {GC_ORANGE};
-		border-radius: 12px; padding: 12px; font-weight: bold; }}
+		border-radius: 8px; padding: 8px; font-weight: bold; }}
 	QTableWidget {{ background: {GC_INPUT}; alternate-background-color: {GC_PANEL}; color: {GC_TEXT};
-		gridline-color: {GC_PANEL_2}; border: 1px solid {GC_BORDER}; border-radius: 8px; }}
+		gridline-color: {GC_PANEL_2}; border: 1px solid {GC_BORDER}; border-radius: 6px; }}
 	QHeaderView::section {{ background: {GC_PANEL_2}; color: {GC_CYAN}; border: 0;
-		border-right: 1px solid {GC_PANEL}; padding: 6px; font-weight: bold; }}
+		border-right: 1px solid {GC_PANEL}; padding: 4px; font-weight: bold; }}
 	"""
 
 
@@ -210,7 +219,7 @@ class PortWindow(QMainWindow):
 	def __init__(self, gamecube_font_family: str) -> None:
 		super().__init__()
 		self.setWindowTitle("Xash3D → GameCube — Port Command Console")
-		self.resize(1180, 880)
+		self.resize(1320, 820)
 		self.process: QProcess | None = None
 		self.model_process: QProcess | None = None
 		self.operation = ""
@@ -218,35 +227,45 @@ class PortWindow(QMainWindow):
 		self.expected_passes = 1
 		self.pending_boot = False
 		self.pipeline: dict[str, QLabel] = {}
+		self.docks: dict[str, QDockWidget] = {}
 		self.last_context = ""
 		self.start_head = ""
+		self.setDockOptions(
+			QMainWindow.DockOption.AllowNestedDocks |
+			QMainWindow.DockOption.AllowTabbedDocks |
+			QMainWindow.DockOption.AnimatedDocks |
+			QMainWindow.DockOption.GroupedDragging
+		)
 
 		central = QWidget()
 		self.setCentralWidget(central)
 		layout = QVBoxLayout(central)
-		layout.setSpacing(10)
+		layout.setSpacing(8)
+		layout.setContentsMargins(12, 10, 12, 10)
 
 		header = QHBoxLayout()
 		logo = QSvgWidget(str(DEFAULT_REPO / "fonts/GameCube.svg"))
-		logo.setFixedSize(58, 58)
+		logo.setFixedSize(46, 46)
 		header.addWidget(logo)
 		titles = QVBoxLayout()
 		title_row = QHBoxLayout()
-		title_row.setSpacing(7)
+		title_row.setSpacing(6)
 		title_prefix = QLabel("Xash3D →")
 		title_prefix.setObjectName("Title")
 		gamecube_title = QLabel("GameCube")
 		gamecube_title.setObjectName("GameCubeTitle")
-		gamecube_title.setFont(QFont(gamecube_font_family, 22))
+		gamecube_title.setFont(QFont(gamecube_font_family, 17))
 		title_row.addWidget(title_prefix)
 		title_row.addWidget(gamecube_title)
 		title_row.addStretch()
-		subtitle = QLabel("BUILD CONSOLE")
+		subtitle = QLabel("NATIVE HL1 PORT CONTROL SURFACE")
 		subtitle.setObjectName("Subtitle")
 		titles.addLayout(title_row)
 		titles.addWidget(subtitle)
 		header.addLayout(titles)
-		header.addStretch()
+		layout.addLayout(header)
+
+		chip_row = QHBoxLayout()
 		self.dol_chip = QLabel("DOL  —")
 		self.iso_chip = QLabel("ISO  —")
 		self.dolphin_chip = QLabel("DOLPHIN CHECKING")
@@ -254,11 +273,28 @@ class PortWindow(QMainWindow):
 		self.save_chip = QLabel("GIT SAVED")
 		for chip in (self.dol_chip, self.iso_chip, self.dolphin_chip, self.model_chip, self.save_chip):
 			chip.setObjectName("Chip")
-			header.addWidget(chip)
-		layout.addLayout(header)
+			chip_row.addWidget(chip)
+		chip_row.addStretch()
+		layout.addLayout(chip_row)
 
-		project_box = QGroupBox("WORKSPACE")
-		form = QFormLayout(project_box)
+		self.status_label = QLabel("Idle")
+		layout.addWidget(self.status_label)
+		self.progress = QProgressBar()
+		self.progress.setRange(0, 1)
+		self.progress.setValue(0)
+		self.progress.setFormat("No automation running")
+		layout.addWidget(self.progress)
+		self.persistence_note = QLabel(
+			"LIVE MODEL OUTPUT IS NOT A FILE CHANGE UNTIL THE STATUS CHIP SAYS GIT SAVED"
+		)
+		self.persistence_note.setStyleSheet(f"color: {GC_ORANGE}; font-weight: bold;")
+		layout.addWidget(self.persistence_note)
+		layout.addStretch()
+
+		self.configure_view_menu()
+
+		workspace_panel = QWidget()
+		form = QFormLayout(workspace_panel)
 		self.repo_edit = QLineEdit(str(DEFAULT_REPO))
 		browse = QPushButton("Browse…")
 		browse.clicked.connect(self.pick_repo)
@@ -266,11 +302,10 @@ class PortWindow(QMainWindow):
 		repo_row.addWidget(self.repo_edit)
 		repo_row.addWidget(browse)
 		form.addRow("Xash3D repository:", repo_row)
+		self.add_panel("Workspace", workspace_panel, Qt.DockWidgetArea.LeftDockWidgetArea)
 
-		layout.addWidget(project_box)
-
-		model_box = QGroupBox("MODEL SERVER")
-		model_form = QGridLayout(model_box)
+		model_panel = QWidget()
+		model_form = QGridLayout(model_panel)
 		self.model_command_edit = QLineEdit(default_model_command())
 		self.model_api_edit = QLineEdit(os.environ.get(
 			"OPENAI_API_BASE", "http://127.0.0.1:8072/v1"))
@@ -290,11 +325,10 @@ class PortWindow(QMainWindow):
 		model_form.addLayout(model_controls, 2, 0, 1, 2)
 		model_form.setColumnStretch(0, 4)
 		model_form.setColumnStretch(1, 1)
-		layout.addWidget(model_box)
+		self.add_panel("Model Server", model_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
-		intel_row = QHBoxLayout()
-		goals_box = QGroupBox("GOALS")
-		goals_layout = QVBoxLayout(goals_box)
+		goals_panel = QWidget()
+		goals_layout = QVBoxLayout(goals_panel)
 		self.goal_summary = QLabel("Loading goal ledger…")
 		self.goal_summary.setWordWrap(True)
 		self.goal_summary.setStyleSheet(f"color: {GC_CYAN}; font-weight: bold;")
@@ -305,23 +339,25 @@ class PortWindow(QMainWindow):
 		self.goal_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
 		self.goal_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 		self.goal_table.setAlternatingRowColors(True)
-		self.goal_table.setMaximumHeight(195)
 		goals_layout.addWidget(self.goal_table)
-		intel_row.addWidget(goals_box, 3)
+		self.add_panel("Goals", goals_panel, Qt.DockWidgetArea.LeftDockWidgetArea)
 
-		context_box = QGroupBox("CONTEXT")
-		context_layout = QVBoxLayout(context_box)
+		context_panel = QWidget()
+		context_layout = QVBoxLayout(context_panel)
 		self.context_view = QPlainTextEdit()
 		self.context_view.setReadOnly(True)
-		self.context_view.setMaximumHeight(225)
 		context_layout.addWidget(self.context_view)
-		intel_row.addWidget(context_box, 2)
-		layout.addLayout(intel_row)
+		self.add_panel("Telemetry", context_panel, Qt.DockWidgetArea.RightDockWidgetArea)
 
+		automation_panel = QWidget()
 		controls = QHBoxLayout()
+		automation_panel.setLayout(controls)
 		self.passes_spin = QSpinBox()
 		self.passes_spin.setRange(1, 100)
-		self.passes_spin.setValue(3)
+		self.passes_spin.setValue(20)
+		self.recovery_spin = QSpinBox()
+		self.recovery_spin.setRange(1, 50)
+		self.recovery_spin.setValue(8)
 		self.loop_btn = QPushButton("▶  ACCOMPLISH GOALS")
 		self.loop_btn.clicked.connect(self.run_goal_loop)
 		self.stop_btn = QPushButton("■  STOP AUTOMATION")
@@ -330,11 +366,13 @@ class PortWindow(QMainWindow):
 		controls.addWidget(self.loop_btn, 2)
 		controls.addWidget(QLabel("Safety pass limit:"))
 		controls.addWidget(self.passes_spin)
+		controls.addWidget(QLabel("Recovery retries:"))
+		controls.addWidget(self.recovery_spin)
 		controls.addWidget(self.stop_btn)
-		layout.addLayout(controls)
+		self.add_panel("Automation", automation_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
-		pipeline_box = QGroupBox("PIPELINE")
-		pipeline_row = QHBoxLayout(pipeline_box)
+		pipeline_panel = QWidget()
+		pipeline_row = QHBoxLayout(pipeline_panel)
 		for index, name in enumerate(("AIDER", "REVIEW", "VERIFY", "DOL", "ISO", "DOLPHIN")):
 			if index:
 				arrow = QLabel("▶")
@@ -345,9 +383,11 @@ class PortWindow(QMainWindow):
 			node.setObjectName("PipelineIdle")
 			self.pipeline[name] = node
 			pipeline_row.addWidget(node, 1)
-		layout.addWidget(pipeline_box)
+		self.add_panel("Pipeline", pipeline_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
+		tools_panel = QWidget()
 		tools = QHBoxLayout()
+		tools_panel.setLayout(tools)
 		for label, command in (
 			("Verify", ["scripts/ai-verify.sh"]),
 			("Review HEAD", ["scripts/ai-review.sh"]),
@@ -360,23 +400,10 @@ class PortWindow(QMainWindow):
 		self.dolphin_btn = QPushButton("Build & Boot in Dolphin")
 		self.dolphin_btn.clicked.connect(self.boot_dolphin)
 		tools.addWidget(self.dolphin_btn)
-		layout.addLayout(tools)
+		self.add_panel("Tools", tools_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
-		self.status_label = QLabel("Idle")
-		layout.addWidget(self.status_label)
-		self.progress = QProgressBar()
-		self.progress.setRange(0, 1)
-		self.progress.setValue(0)
-		self.progress.setFormat("No automation running")
-		layout.addWidget(self.progress)
-		self.persistence_note = QLabel(
-			"LIVE MODEL OUTPUT IS NOT A FILE CHANGE UNTIL THE STATUS CHIP SAYS GIT SAVED"
-		)
-		self.persistence_note.setStyleSheet(f"color: {GC_ORANGE}; font-weight: bold;")
-		layout.addWidget(self.persistence_note)
-
-		console_box = QGroupBox("LOG")
-		console_layout = QVBoxLayout(console_box)
+		console_panel = QWidget()
+		console_layout = QVBoxLayout(console_panel)
 		log_tools = QHBoxLayout()
 		self.copy_log_btn = QPushButton("Copy Log")
 		self.copy_log_btn.setToolTip("Copy selected text, or the entire log when nothing is selected")
@@ -401,13 +428,66 @@ class PortWindow(QMainWindow):
 		self.log.setReadOnly(True)
 		self.log.setMaximumBlockCount(10000)
 		console_layout.addWidget(self.log)
-		layout.addWidget(console_box, 1)
+		self.add_panel("Log", console_panel, Qt.DockWidgetArea.BottomDockWidgetArea)
+
+		self.splitDockWidget(self.docks["Workspace"], self.docks["Goals"], Qt.Orientation.Vertical)
+		self.splitDockWidget(self.docks["Telemetry"], self.docks["Log"], Qt.Orientation.Vertical)
+		self.tabifyDockWidget(self.docks["Automation"], self.docks["Tools"])
+		self.docks["Automation"].raise_()
+		self.resizeDocks([self.docks["Goals"], self.docks["Telemetry"]], [520, 420], Qt.Orientation.Horizontal)
+		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [360, 220], Qt.Orientation.Vertical)
 
 		self.timer = QTimer(self)
 		self.timer.setInterval(3000)
 		self.timer.timeout.connect(self.refresh_dashboard)
 		self.timer.start()
 		self.refresh_dashboard()
+
+	def configure_view_menu(self) -> None:
+		self.view_menu = self.menuBar().addMenu("&View")
+		reset_action = QAction("Reset Dock Layout", self)
+		reset_action.triggered.connect(self.reset_dock_layout)
+		self.view_menu.addAction(reset_action)
+		self.view_menu.addSeparator()
+
+	def add_panel(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
+		dock = QDockWidget(title, self)
+		dock.setObjectName(f"Dock{re.sub(r'[^A-Za-z0-9]+', '', title)}")
+		dock.setWidget(widget)
+		dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
+		dock.setFeatures(
+			QDockWidget.DockWidgetFeature.DockWidgetClosable |
+			QDockWidget.DockWidgetFeature.DockWidgetMovable |
+			QDockWidget.DockWidgetFeature.DockWidgetFloatable
+		)
+		self.addDockWidget(area, dock)
+		self.docks[title] = dock
+		self.view_menu.addAction(dock.toggleViewAction())
+		return dock
+
+	def reset_dock_layout(self) -> None:
+		required = {"Workspace", "Model Server", "Goals", "Telemetry",
+			"Automation", "Pipeline", "Tools", "Log"}
+		if not required.issubset(self.docks):
+			return
+		for dock in self.docks.values():
+			dock.show()
+			dock.setFloating(False)
+		self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.docks["Workspace"])
+		self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, self.docks["Model Server"])
+		self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, self.docks["Automation"])
+		self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, self.docks["Pipeline"])
+		self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, self.docks["Tools"])
+		self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.docks["Goals"])
+		self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.docks["Telemetry"])
+		self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docks["Log"])
+		self.splitDockWidget(self.docks["Workspace"], self.docks["Goals"], Qt.Orientation.Vertical)
+		self.splitDockWidget(self.docks["Telemetry"], self.docks["Log"], Qt.Orientation.Vertical)
+		self.tabifyDockWidget(self.docks["Automation"], self.docks["Tools"])
+		self.docks["Automation"].raise_()
+		self.resizeDocks([self.docks["Goals"], self.docks["Telemetry"]], [520, 420], Qt.Orientation.Horizontal)
+		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [360, 220], Qt.Orientation.Vertical)
+		self.status_label.setText("Dock layout reset")
 
 	def repo(self) -> Path:
 		return Path(self.repo_edit.text().strip()).expanduser().resolve()
@@ -745,8 +825,10 @@ class PortWindow(QMainWindow):
 
 	def run_goal_loop(self) -> None:
 		passes = self.passes_spin.value()
+		recoveries = self.recovery_spin.value()
 		self.start(["scripts/ai-goal-loop.py", "--repo", str(self.repo()),
-			"--max-passes", str(passes)], "Goal automation", passes)
+			"--max-passes", str(passes), "--recoverable-retries", str(recoveries)],
+			"Goal automation", passes)
 
 	def read_output(self) -> None:
 		if self.process is None:
@@ -916,7 +998,7 @@ def main() -> int:
 	rodin_family = load_font(DEFAULT_REPO / "fonts/FOT-Rodin Pro DB.otf", "Sans Serif")
 	gamecube_family = load_font(DEFAULT_REPO / "fonts/GameCube.ttf", rodin_family)
 	app.setStyleSheet(stylesheet())
-	font = QFont(rodin_family, 10)
+	font = QFont(rodin_family, 9)
 	font.setStyleHint(QFont.StyleHint.SansSerif)
 	app.setFont(font)
 	window = PortWindow(gamecube_family)

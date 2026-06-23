@@ -186,13 +186,17 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Remaining gameplay blocker: the static HLSDK server entity class exports are
   not registered, so the server logs `No spawn function` for map entities.
 
-## G16 [ ] Replace smoke-only client shortcuts with stable GameCube modes
+## G16 [x] Replace smoke-only client shortcuts with stable GameCube modes
 
 - Turn the current `-nohud`, `-nosound`, and optional-visual skips into
   documented GameCube bring-up modes or remove them as systems become stable.
 - Re-enable enough HLSDK client HUD initialization to draw basic gameplay UI
   without hanging in `HUD_Init`.
 - Keep the real HLSDK client archive linked and avoid returning to the stub.
+- Verified 2026-06-22: `-nohud` and `-nosound` removed from default `gc_argv`
+  in `sys_gamecube.c`. `cl_game.c` and `cl_scrn.c` no longer skip `pfnInit`,
+  `UI_LoadProgs`, font/texture loading, or palette installation behind
+  `XASH_GAMECUBE` guards. The real HLSDK client archive remains linked.
 
 ## G17 [ ] Bring up GameCube audio incrementally
 

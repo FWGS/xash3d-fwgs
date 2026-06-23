@@ -19,6 +19,7 @@ fi
 : "${OPENAI_API_KEY:?Set OPENAI_API_KEY first}"
 export OPENAI_API_BASE="${OPENAI_API_BASE:-http://127.0.0.1:8072/v1}"
 export AIDER_MODEL_TIMEOUT_SEC="${AIDER_MODEL_TIMEOUT_SEC:-1800}"
+export AIDER_DISABLE_PLAYWRIGHT="${AIDER_DISABLE_PLAYWRIGHT:-true}"
 
 command -v aider >/dev/null 2>&1 || {
 	echo "ai-aider-pass: aider is not installed" >&2
@@ -51,6 +52,23 @@ mkdir -p .ai/logs
 STAMP="$(date +%F-%H%M%S)"
 LOG=".ai/logs/aider-pass-$STAMP.log"
 BASELINE="$(git rev-parse HEAD)"
+TOKEN_LIMIT_RE="has hit a token limit|exceeds the .* token limit|context limit is exceeded|maximum context length|prompt contains at least|requested .* output tokens|VLLMValidationError"
+AIDER_OUTPUT_TOKEN_BUDGETS=(
+	"${AIDER_OUTPUT_TOKENS_INITIAL:-4096}"
+	"${AIDER_OUTPUT_TOKENS_RETRY_1:-2048}"
+	"${AIDER_OUTPUT_TOKENS_RETRY_2:-1024}"
+)
+AIDER_CONTEXT_BYTE_LIMITS=(
+	"${AIDER_CONTEXT_BYTES_INITIAL:-0}"
+	"${AIDER_CONTEXT_BYTES_RETRY_1:-0}"
+	"${AIDER_CONTEXT_BYTES_RETRY_2:-45000}"
+)
+TEMP_MODEL_SETTINGS=()
+
+cleanup_temp_settings() {
+	rm -f "${TEMP_MODEL_SETTINGS[@]}"
+}
+trap cleanup_temp_settings EXIT
 
 echo "== Aider pass: $STAMP =="
 echo "Repo: $REPO"
@@ -61,15 +79,107 @@ fi
 echo "Baseline: $BASELINE"
 echo "Log: $LOG"
 
+token_limit_seen() {
+	local log_path="${1:-$LOG}"
+	grep -Eiq "$TOKEN_LIMIT_RE" "$log_path"
+}
+
+write_model_settings() {
+	local max_tokens="$1"
+	local settings_file
+	settings_file="$(mktemp .ai/logs/aider-model-settings-XXXXXX.yml)"
+	TEMP_MODEL_SETTINGS+=("$settings_file")
+	cat >"$settings_file" <<EOF
+- name: openai/qwen-local
+  edit_format: diff
+  use_repo_map: false
+  weak_model_name: null
+  extra_params:
+    max_tokens: $max_tokens
+    chat_template_kwargs:
+      enable_thinking: false
+EOF
+	printf '%s\n' "$settings_file"
+}
+
+context_args_for_attempt() {
+	local attempt="$1"
+	local limit="${AIDER_CONTEXT_BYTE_LIMITS[$(( attempt - 1 ))]}"
+	local context_file size
+	for context_file in "${CONTEXT_FILES[@]}"; do
+		[[ -f "$context_file" ]] || continue
+		if (( limit > 0 )); then
+			size="$(stat -c '%s' "$context_file")"
+			if (( size > limit )); then
+				echo "ai-aider-pass: retry $attempt omits $context_file (${size} bytes > ${limit})" >&2
+				continue
+			fi
+		fi
+		printf '%s\n%s\n' --file "$context_file"
+	done
+}
+
+run_aider_with_recovery() {
+	local label="$1"
+	shift
+	local attempt attempt_log max_tokens model_settings status
+	local settings_args=()
+	local context_args=()
+	for attempt in "${!AIDER_OUTPUT_TOKEN_BUDGETS[@]}"; do
+		attempt=$(( attempt + 1 ))
+		attempt_log="$(mktemp .ai/logs/aider-attempt-XXXXXX.log)"
+		TEMP_MODEL_SETTINGS+=("$attempt_log")
+		max_tokens="${AIDER_OUTPUT_TOKEN_BUDGETS[$(( attempt - 1 ))]}"
+		context_args=()
+		mapfile -t context_args < <(context_args_for_attempt "$attempt")
+		settings_args=()
+		if (( attempt > 1 )) || [[ "${AIDER_FORCE_TEMP_MODEL_SETTINGS:-0}" == "1" ]]; then
+			model_settings="$(write_model_settings "$max_tokens")"
+			settings_args=(--model-settings-file "$model_settings")
+		fi
+		if (( attempt > 1 )); then
+			{
+				echo
+				echo "== ${label} recovery retry ${attempt}/${#AIDER_OUTPUT_TOKEN_BUDGETS[@]} =="
+				echo "max_tokens: $max_tokens"
+				echo "context files: $(( ${#context_args[@]} / 2 ))"
+			} | tee -a "$LOG"
+		fi
+		set +e
+		timeout --signal=TERM --kill-after=30 "$AIDER_MODEL_TIMEOUT_SEC" aider \
+			--config .aider.conf.yml \
+			--no-browser \
+			--no-gui \
+			--disable-playwright \
+			--no-restore-chat-history \
+			"${settings_args[@]}" \
+			"${context_args[@]}" \
+			"$@" \
+			--yes-always \
+			2>&1 | tee -a "$LOG" "$attempt_log"
+		status="${PIPESTATUS[0]}"
+		set -e
+		if (( status == 124 || status == 137 )); then
+			return 17
+		fi
+		if token_limit_seen "$attempt_log"; then
+			if (( attempt < ${#AIDER_OUTPUT_TOKEN_BUDGETS[@]} )); then
+				echo "ai-aider-pass: ${label} hit a token/context limit; retrying with a smaller request" >&2
+				continue
+			fi
+			return 18
+		fi
+		if (( status != 0 )); then
+			return "$status"
+		fi
+		return 0
+	done
+	return 18
+}
+
 set +e
-timeout --signal=TERM --kill-after=30 "$AIDER_MODEL_TIMEOUT_SEC" aider \
-	--config .aider.conf.yml \
-	--no-browser \
-	"${AIDER_FILE_ARGS[@]}" \
-	--message-file "$TASK_FILE" \
-	--yes-always \
-	2>&1 | tee "$LOG"
-AIDER_STATUS="${PIPESTATUS[0]}"
+run_aider_with_recovery "Aider" --message-file "$TASK_FILE"
+AIDER_STATUS="$?"
 set -e
 
 if (( AIDER_STATUS == 124 || AIDER_STATUS == 137 )); then
@@ -77,14 +187,19 @@ if (( AIDER_STATUS == 124 || AIDER_STATUS == 137 )); then
 	exit 17
 fi
 
+if (( AIDER_STATUS == 17 )); then
+	echo "ai-aider-pass: Aider model call timed out after ${AIDER_MODEL_TIMEOUT_SEC}s; see $LOG" >&2
+	exit 17
+fi
+
+if (( AIDER_STATUS == 18 )); then
+	echo "ai-aider-pass: Aider hit a token/context limit after autonomous retries; see $LOG" >&2
+	exit 18
+fi
+
 if (( AIDER_STATUS != 0 )); then
 	echo "ai-aider-pass: Aider exited $AIDER_STATUS; see $LOG" >&2
 	exit "$AIDER_STATUS"
-fi
-
-if grep -Eq "has hit a token limit|exceeds the .* token limit|context limit is exceeded" "$LOG"; then
-	echo "ai-aider-pass: Aider hit a token/context limit; see $LOG" >&2
-	exit 18
 fi
 
 if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
@@ -140,26 +255,24 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 		'Make the smallest safe edit, preserve the goal and documentation, and do not commit.' \
 		'' 'Verification tail:'; tail -80 "$VERIFY_LOG")"
 	set +e
-	timeout --signal=TERM --kill-after=30 "$AIDER_MODEL_TIMEOUT_SEC" aider \
-		--config .aider.conf.yml \
-		--no-browser \
-		"${AIDER_FILE_ARGS[@]}" \
-		--message "$REPAIR_MESSAGE" \
-		--yes-always \
-		2>&1 | tee -a "$LOG"
-	REPAIR_STATUS="${PIPESTATUS[0]}"
+	run_aider_with_recovery "autonomous repair" --message "$REPAIR_MESSAGE"
+	REPAIR_STATUS="$?"
 	set -e
 	if (( REPAIR_STATUS == 124 || REPAIR_STATUS == 137 )); then
 		echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
 		exit 17
 	fi
+	if (( REPAIR_STATUS == 17 )); then
+		echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
+		exit 17
+	fi
+	if (( REPAIR_STATUS == 18 )); then
+		echo "ai-aider-pass: autonomous repair hit a token/context limit after retries; see $LOG" >&2
+		exit 18
+	fi
 	if (( REPAIR_STATUS != 0 )); then
 		echo "ai-aider-pass: autonomous repair exited $REPAIR_STATUS" >&2
 		exit "$REPAIR_STATUS"
-	fi
-	if grep -Eq "has hit a token limit|exceeds the .* token limit|context limit is exceeded" "$LOG"; then
-		echo "ai-aider-pass: autonomous repair hit a token/context limit; see $LOG" >&2
-		exit 18
 	fi
 	if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
 		echo "ai-aider-pass: repair created an unexpected commit" >&2
