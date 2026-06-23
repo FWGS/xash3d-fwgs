@@ -81,6 +81,7 @@ static void GC_UpdateAxis( engineAxis_t axis, short value, short *prev )
 }
 
 static qboolean gc_connected;
+static qboolean gc_input_logged;
 
 void Platform_RunEvents( void )
 {
@@ -112,6 +113,13 @@ void Platform_RunEvents( void )
 
 	held = PAD_ButtonsHeld( GC_PAD_PORT );
 	GC_UpdateButtons( held );
+
+	/* Emit input polling evidence for G19 interactive smoke test once per session. */
+	if( !gc_input_logged )
+	{
+		SYS_Report( "Xash3D GameCube: input polling active\n" );
+		gc_input_logged = true;
+	}
 
 	GC_UpdateAxis( JOY_AXIS_SIDE, GC_StickToShort( PAD_StickX( GC_PAD_PORT )), &prev_side );
 	GC_UpdateAxis( JOY_AXIS_FWD, GC_StickToShort( -PAD_StickY( GC_PAD_PORT )), &prev_fwd );

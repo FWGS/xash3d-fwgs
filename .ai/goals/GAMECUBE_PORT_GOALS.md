@@ -232,6 +232,10 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Capture OSReport evidence for player spawn, input polling, frame progression,
   and clean shutdown or bounded timeout.
 - Use Dolphin first, then repeat on real hardware when available.
+- Added `SYS_Report( "Xash3D GameCube: input polling active" )` in
+  `engine/platform/gamecube/in_gamecube.c` to provide concrete input evidence.
+- Pending runtime verification: operator must run `scripts/dolphin-boot-probe.sh`
+  and verify "input polling active" and sustained map load in `.ai/logs/`.
 
 ## G20 [x] Register static HLSDK server entity class exports
 
