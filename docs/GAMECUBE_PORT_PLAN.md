@@ -595,6 +595,12 @@ scripts/ai-verify.sh
 Result: full GameCube build completed after replacing the G19 input marker with
 the engine reporting path.
 
+On 2026-06-22, the compliance automation commit briefly diverged from
+`origin/master` because the remote had the same tree with a multiline commit
+message while the local review gate required a one-line conventional subject.
+The histories were reconciled with a non-conflicting merge commit; no source
+content was reverted.
+
 ## Next wake-up commands
 
 ```sh
