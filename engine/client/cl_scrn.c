@@ -879,6 +879,14 @@ void SCR_VidInit( void )
 	if( !ref.initialized ) // don't call VidInit too soon
 		return;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && !scr_init )
+	{
+		Con_Reportf( "Xash3D GameCube: screen vidinit deferred\n" );
+		return;
+	}
+#endif
+
 	memset( &clgame.ds, 0, sizeof( clgame.ds )); // reset a draw state
 	memset( &gameui.ds, 0, sizeof( gameui.ds )); // reset a draw state
 	memset( &clgame.centerPrint, 0, sizeof( clgame.centerPrint ));
@@ -901,6 +909,10 @@ void SCR_VidInit( void )
 	// vid_state has changed
 	if( gameui.hInstance ) gameui.dllFuncs.pfnVidInit();
 	if( clgame.hInstance ) clgame.dllFuncs.pfnVidInit();
+#if XASH_GAMECUBE
+	if( clgame.hInstance && !Sys_CheckParm( "-nohud" ))
+		Con_Reportf( "Xash3D GameCube: client HUD vid init complete\n" );
+#endif
 
 	// restart console size (required for Con_DrawConsole / notify text on gcmap)
 	Con_VidInit ();
@@ -944,6 +956,14 @@ void SCR_Init( void )
 	Cmd_AddCommand( "sizeup", SCR_SizeUp_f, "screen size up to 10 points" );
 	Cmd_AddCommand( "sizedown", SCR_SizeDown_f, "screen size down to 10 points" );
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		Con_Reportf( "Xash3D GameCube: screen gameui skipped\n" );
+		host.allow_console = true;
+	}
+	else
+#endif
 	if( !UI_LoadProgs( ))
 	{
 		Con_Printf( S_ERROR "can't initialize gameui DLL: %s\n", COM_GetLibraryError() ); // there is non fatal for us
@@ -951,6 +971,9 @@ void SCR_Init( void )
 	}
 
 	SCR_VidInit();
+#if XASH_GAMECUBE
+	if( !Sys_CheckParm( "-gcmap" ))
+#endif
 	SCR_LoadCreditsFont ();
 	SCR_RegisterTextures ();
 	SCR_InstallParticlePalette ();
@@ -962,6 +985,10 @@ void SCR_Init( void )
 	else UI_SetActiveMenu( true );
 
 	scr_init = true;
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		SCR_VidInit();
+#endif
 }
 
 void SCR_Shutdown( void )

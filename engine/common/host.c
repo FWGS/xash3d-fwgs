@@ -1125,8 +1125,13 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	Cmd_AddCommand( "memlist", Mem_Stats_f, "prints memory pool information" );
 
-#if !XASH_DEDICATED && !XASH_GAMECUBE
+#if !XASH_DEDICATED
+#if XASH_GAMECUBE
+	if( GCube_HasWritableStorage( ))
+		Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig, "save current configuration" );
+#else
 	Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig, "save current configuration" );
+#endif
 #endif
 
 	Image_Init();
@@ -1451,7 +1456,10 @@ void Host_ShutdownWithReason( const char *reason )
 	if( host.type == HOST_NORMAL && !error )
 		Host_WriteConfig();
 #else
-	Con_Reportf( "%s: GameCube disc is read-only, skipping config save\n", __func__ );
+	if( host.type == HOST_NORMAL && !error && GCube_HasWritableStorage( ))
+		Host_WriteConfig();
+	else if( host.type == HOST_NORMAL && !error )
+		Con_Reportf( "%s: no writable storage, skipping config save\n", __func__ );
 #endif
 #endif
 

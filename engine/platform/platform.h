@@ -124,6 +124,10 @@ void GCube_EarlyInit( void );
 void GCube_Init( void );
 void GCube_Shutdown( void );
 qboolean GCube_GetBasePath( char *buf, size_t buflen );
+qboolean GCube_GetDiscPath( char *buf, size_t buflen );
+qboolean GCube_GetWritablePath( char *buf, size_t buflen );
+qboolean GCube_HasWritableStorage( void );
+void GCube_EnsureWritableLayout( void );
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 #endif
 

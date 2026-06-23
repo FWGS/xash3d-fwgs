@@ -25,8 +25,13 @@ extern poolhandle_t sndpool;
 #define SOUND_11k       11025 // 11khz sample rate
 #define SOUND_22k       22050 // 22khz sample rate
 #define SOUND_44k       44100 // 44khz sample rate
+#define SOUND_48k       48000 // 48khz sample rate (GameCube AI hardware)
 
+#if XASH_GAMECUBE
+#define SOUND_DMA_SPEED SOUND_48k
+#else
 #define SOUND_DMA_SPEED SOUND_44k // hardware playback rate
+#endif
 
 #define PAINTBUFFER_SIZE 1024
 

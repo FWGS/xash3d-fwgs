@@ -221,7 +221,7 @@ def build(bld):
 			'gamecube_server_entity_exports.inc')
 		has_hlsdk_server = os.path.isfile(hlsdk_server)
 		has_hlsdk_client = os.path.isfile(hlsdk_client)
-		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-logc', '-lm', '-lfat']
+		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-lasnd', '-logc', '-lm', '-lfat']
 		source += ['platform/stub/s_stub.c']
 		if has_hlsdk_server:
 			Logs.info('Using GameCube HLSDK server archive from %s' % hlsdk_dest)

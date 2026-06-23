@@ -43,7 +43,7 @@ Peak scratch during BSP load (same probe):
 | Filesystem | ~100 KiB–2 MiB peak | ZIP indices + one archive read buffer per large load |
 | BSP / world model | map-dependent | c0a0e ~2.3 MiB delta; full HL maps will be larger |
 | Studio / sprite models | map-dependent | `-gcmap` uses stubs; full game needs streaming or caps |
-| Sound precache | TBD | Null backend today; real audio moves to ARAM candidates |
+| Sound precache | ~16 KiB ring + ASND | Real backend uses 2048-sample stereo DMA buffer; `-gcnullaudio` for triage |
 | Save / config | minimal | No MC saves yet; avoid large host write buffers on disc boot |
 | Scratch | minimize | Prefer free-after-load (BSP buffer), in-place clipnodes, lazy caches |
 

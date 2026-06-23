@@ -597,6 +597,65 @@ DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 
 Look for `mem stage=` lines and `surface cache 8 Kb` in probe stderr.
 
+## G25 — HLSDK HUD sprite staging (2026-06-23, smoke verified)
+
+The 320x240 smoke path uses `GetSpriteRes() == 320`, so `hud.txt` and
+`weapon_*.txt` entries at 320 resolution must be on disc. The smoke disc builder
+now parses those lists and stages referenced sheets (`320hud1`–`320hud4`,
+`crosshairs.spr`, `320_logo.spr`, weapon sprite lists).
+
+Missing HUD sprites on `-gcmap` fall back to lightweight stubs instead of fatal
+errors. Probe `021844` reaches `MAP_READY` with no `Could not load HUD sprite`
+messages.
+
+```sh
+DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+```
+
+Evidence: `.ai/logs/dolphin-probe-20260623-021844/stderr.log`.
+
+## G26 — ASND audio backend (2026-06-23, smoke verified)
+
+`engine/platform/gamecube/snddma_gamecube.c` now uses libogc ASND at 48 kHz with a
+2048-sample stereo ring buffer (~16 KiB). Voice streaming starts only after
+`cls.state == ca_active` so client sound init does not stall under Dolphin HLE.
+
+`-gcnullaudio` keeps the previous silent fallback. `SOUND_DMA_SPEED` is 48000 on
+GameCube to match AI hardware.
+
+```sh
+DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+```
+
+Evidence: `.ai/logs/dolphin-probe-20260623-024230/stderr.log` (`audio backend ready`,
+`sound effects init ready`, `MAP_READY`).
+
+## G28 — Writable storage routing (2026-06-23, smoke verified)
+
+GameCube now splits read-only disc content from writable SD state:
+
+- `gcdisc:/xash3d` — read-only game assets (ISO9660 search path)
+- `sd:/xash3d` — configs, saves, logs, `.xash_id` when SD is mounted
+
+`Host_WriteConfig` and `FS_SaveVFSConfig` only run when SD storage is available.
+Disc-only boots skip writes safely instead of hitting ISO9660 write errors.
+
+```sh
+DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+```
+
+Evidence: `.ai/logs/dolphin-probe-20260623-114917/stderr.log` (`read-only fallback`,
+`engine subsystems ready`, no config write attempts on disc).
+
+## Boot performance (2026-06-23)
+
+Smoke boot (`-gcmap`) no longer scans `halflife.wad` for every missing asset. GameCube
+filesystem smoke mode skips WAD searchpaths, caches negative lookups, and skips
+`FS_FileSize` during resource registration. `HPAK_CheckSize` is skipped on `-gcmap`.
+World entity setup no longer returns early before worldspawn field cleanup.
+
+Probe: `MAP_READY` in `.ai/logs/dolphin-probe-20260623-020524/stderr.log`.
+
 ## Automation recovery notes
 
 The autonomous runner now handles two resume cases observed during G19. First,

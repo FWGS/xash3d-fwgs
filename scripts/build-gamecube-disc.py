@@ -344,6 +344,8 @@ def convert_avi_to_gcvid(ffmpeg: str, source: Path, output: Path) -> None:
 		out.write(GCVID_HEADER.pack(b"GCV1", GCVID_WIDTH, GCVID_HEIGHT, GCVID_FPS, 1, frame_count))
 	temp_output.replace(output)
 
+SMOKE_HUD_RES = 320
+
 SMOKE_HUD_SPRITES = (
 	"sprites/animglow01.spr",
 	"sprites/dot.spr",
@@ -354,6 +356,50 @@ SMOKE_HUD_SPRITES = (
 	"sprites/richo1.spr",
 	"sprites/shellchrome.spr",
 )
+
+
+def _sprite_txt_sheet_paths(path: Path, res: int) -> set[str]:
+	resources: set[str] = set()
+	if not path.is_file():
+		return resources
+
+	for raw_line in path.read_text(encoding="latin-1", errors="replace").splitlines():
+		line = raw_line.strip()
+		if not line or line.startswith("//"):
+			continue
+
+		parts = line.split()
+		if len(parts) < 7:
+			continue
+
+		try:
+			entry_res = int(parts[1])
+		except ValueError:
+			continue
+
+		if entry_res != res:
+			continue
+
+		sprite_name = parts[2].replace("\\", "/")
+		resources.add(f"sprites/{sprite_name}.spr")
+
+	return resources
+
+
+def smoke_hud_resources(source: Path, res: int = SMOKE_HUD_RES) -> tuple[str, ...]:
+	"""Collect HUD and weapon sprite files for the smoke-test resolution."""
+	resources: set[str] = set(SMOKE_HUD_SPRITES)
+	sprites_dir = source / "sprites"
+
+	hud_txt = sprites_dir / "hud.txt"
+	resources.update(_sprite_txt_sheet_paths(hud_txt, res))
+
+	for weapon_txt in sorted(sprites_dir.glob("weapon_*.txt")):
+		resources.add(f"sprites/{weapon_txt.name}")
+		resources.update(_sprite_txt_sheet_paths(weapon_txt, res))
+
+	resources.add(f"sprites/{res}_logo.spr")
+	return tuple(sorted(resources))
 
 SMOKE_SOUND_DIRS = (
 	"sound/items",
@@ -575,7 +621,7 @@ def stage_smoke_data(source: Path, output: Path, smoke_map: str) -> Path:
 	for relative in SMOKE_CONFIG_FILES:
 		copy_if_present(source, output, relative)
 	write_smoke_overrides(output, smoke_map)
-	for relative in SMOKE_HUD_SPRITES:
+	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
 	for relative in SMOKE_PRECACHE_MODELS:
 		copy_if_present(source, output, relative)

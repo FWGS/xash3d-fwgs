@@ -127,10 +127,11 @@ static void FS_LoadVFSConfig( const char *gamedir )
 void FS_SaveVFSConfig( void )
 {
 #if XASH_GAMECUBE
-	/* On GameCube, vfs.cfg resides on the read-only disc. Skip writes to
-	 * avoid DVD write errors. Configuration is ephemeral per session. */
-	Con_Reportf( "%s: GameCube disc is read-only, skipping vfs.cfg save\n", __func__ );
-	return;
+	if( !GCube_HasWritableStorage( ))
+	{
+		Con_Reportf( "%s: no writable storage, skipping vfs.cfg save\n", __func__ );
+		return;
+	}
 #endif
 
 	const qboolean force_save = !FS_FileExists( "vfs.cfg", true );
@@ -287,11 +288,13 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
 	return false;
 #elif XASH_GAMECUBE
-	if( GCube_GetBasePath( out, size ))
+	if( GCube_GetWritablePath( out, size ))
+		return true;
+	if( GCube_GetDiscPath( out, size ))
 		return true;
 	if( getcwd( out, size ))
 		return true;
-	Sys_Error( "couldn't find GameCube data directory (expected sd:/%s)", "xash3d" );
+	Sys_Error( "couldn't find GameCube data directory (expected sd:/%s or %s)", "xash3d", "gcdisc:/xash3d" );
 	return false;
 #elif ( XASH_SDL >= 2 ) && !XASH_NSWITCH // GetBasePath not impl'd in switch-sdl2
 	path = SDL_GetBasePath();
@@ -345,9 +348,9 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 	Q_strncpy( out, IOS_GetExecDir(), size );
 	return true;
 #elif XASH_GAMECUBE
-	/* Optical media is the read-only content root. Keep it explicit because
-	 * libogc's ISO9660 chdir does not apply to subsequent relative lookups. */
-	return GCube_GetBasePath( out, size );
+	if( GCube_GetDiscPath( out, size ))
+		return true;
+	return false;
 #endif
 
 	return false;
@@ -420,6 +423,10 @@ void FS_Init( void )
 
 	if( !Sys_GetParmFromCmdLine( "-menulib", host.menulib ))
 		host.menulib[0] = 0;
+
+#if XASH_GAMECUBE
+	FS_SetSmokeBootMode( Sys_CheckParm( "-gcmap" ));
+#endif
 }
 
 /*

@@ -308,21 +308,29 @@ lines. Goals marked `MANUAL` are never selected automatically.
   basic particles, and the HUD.
 - Record screenshots or OSReport frame evidence for each enabled visual class.
 
-## G25 [ ] Stabilize HLSDK client HUD and gameplay UI
+## G25 [~] Stabilize HLSDK client HUD and gameplay UI
 
 - Initialize the real HLSDK client HUD without relying on `-nohud`.
 - Render health, suit, weapon/ammo, damage, pickup, and message HUD elements on
   GameCube without hangs or fatal missing-sprite failures.
 - Preserve an emergency `-nohud` diagnostic mode until HUD stability is proven
   on both Dolphin and hardware.
+- Verified 2026-06-23 (smoke): `320hud` sheets, `crosshairs.spr`, weapon sprite
+  lists, and `320_logo.spr` are staged for the 320x240 probe path; Dolphin probe
+  `021844` reaches `MAP_READY` with no `Could not load HUD sprite` errors.
+- Remaining: hardware screenshot evidence that HUD elements actually draw in-game.
 
-## G26 [ ] Bring up a real GameCube audio backend
+## G26 [~] Bring up a real GameCube audio backend
 
 - Replace the silent null backend with a libogc DSP/AI path that can play at
   least WAV/PCM game sound effects without blocking the frame loop.
 - Keep a documented null-audio fallback for memory triage and early boot probes.
 - Verify map load, sound precache, ambient sound, weapon sound, and shutdown
   without leaks or hangs.
+- Verified 2026-06-23 (smoke): ASND 48 kHz backend with deferred voice start
+  reaches `MAP_READY` without hanging sound init. Probe `024230`.
+- `-gcnullaudio` preserves the silent fallback. Remaining: audible weapon/ambient
+  verification on hardware and shutdown leak checks.
 
 ## G27 [ ] Add streaming music and ambient audio policy
 
@@ -332,13 +340,18 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Capture route evidence for one ambient loop and one transition without
   destabilizing map load.
 
-## G28 [ ] Make writable storage explicit and safe
+## G28 [~] Make writable storage explicit and safe
 
 - Route configs, saves, logs, screenshots, and `.xash_id` to a writable device
   when available, or to a documented read-only fallback when not.
 - Never attempt to write generated state to `gcdisc:/`.
 - Verify first boot, second boot, missing writable device, and corrupted config
   cases fail safely.
+- Verified 2026-06-23 (smoke): disc-only probe logs
+  `read-only fallback gcdisc:/xash3d (no SD)` and reaches `engine subsystems ready`
+  without ISO9660 write errors. Probe `114917`.
+- Remaining: hardware SD save/load round-trip, corrupted-config recovery test, and
+  restore MAP_READY after current `SV_ParseEdict` spawn regression.
 
 ## G29 [ ] Restore local single-player networking paths
 

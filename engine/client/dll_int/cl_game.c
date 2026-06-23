@@ -1222,6 +1222,21 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 			m_pSprite->needload = NL_NEEDS_LOADED;
 			return true;
 		}
+#if XASH_GAMECUBE
+		else if( Sys_CheckParm( "-gcmap" ))
+		{
+			Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
+			if( loaded )
+			{
+				m_pSprite->needload = NL_PRESENT;
+				Con_Reportf( "Xash3D GameCube: HUD sprite stub %s\n", szSpriteName );
+				return true;
+			}
+
+			Mod_FreeModel( m_pSprite );
+			return false;
+		}
+#endif
 		else
 		{
 			Con_Reportf( S_ERROR "Could not load HUD sprite %s\n", szSpriteName );

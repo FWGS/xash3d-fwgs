@@ -8,6 +8,7 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 
 #if XASH_GAMECUBE
 #include <ogc/system.h>
@@ -17,6 +18,7 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include <dirent.h>
 #include "dll_gamecube.h"
 #include "mem_gamecube.h"
+#include "storage_gamecube.h"
 
 #define GC_DATA_PATH "xash3d"
 #define GC_DVD_DEVICE "gcdisc"
@@ -133,6 +135,65 @@ void GCube_EarlyInit( void )
 #endif
 }
 
+static qboolean GCube_PathAccessible( const char *path )
+{
+	DIR *dir = opendir( path );
+	if( !dir )
+		return false;
+
+	closedir( dir );
+	return true;
+}
+
+qboolean GCube_GetDiscPath( char *buf, size_t buflen )
+{
+	const char *path = GC_DVD_DEVICE ":/" GC_DATA_PATH;
+
+	if( !gc_dvd_mounted || !GCube_PathAccessible( path ))
+		return false;
+
+	Q_strncpy( buf, path, buflen );
+	return true;
+}
+
+qboolean GCube_GetWritablePath( char *buf, size_t buflen )
+{
+	if( !gc_fat_mounted || !GCube_PathAccessible( "sd:/" ))
+		return false;
+
+	Q_strncpy( buf, "sd:/" GC_DATA_PATH, buflen );
+	return true;
+}
+
+qboolean GCube_HasWritableStorage( void )
+{
+	char path[MAX_SYSPATH];
+
+	return GCube_GetWritablePath( path, sizeof( path ));
+}
+
+static void GCube_MkdirIgnoreExists( const char *path )
+{
+	if( mkdir( path, 0777 ) != 0 && errno != EEXIST )
+		Con_Reportf( S_WARN "GameCube storage: failed to create %s (%s)\n", path, strerror( errno ));
+}
+
+void GCube_EnsureWritableLayout( void )
+{
+	char base[MAX_SYSPATH];
+	char valve[MAX_SYSPATH];
+	char save[MAX_SYSPATH];
+
+	if( !GCube_GetWritablePath( base, sizeof( base )))
+		return;
+
+	GCube_MkdirIgnoreExists( base );
+	Q_snprintf( valve, sizeof( valve ), "%s/valve", base );
+	GCube_MkdirIgnoreExists( valve );
+	Q_snprintf( save, sizeof( save ), "%s/valve/save", base );
+	GCube_MkdirIgnoreExists( save );
+}
+
 void GCube_Init( void )
 {
 #if XASH_GAMECUBE
@@ -152,18 +213,32 @@ void GCube_Init( void )
 	else
 		Con_Reportf( S_WARN "DVD filesystem init failed\n" );
 
-	if( GCube_GetBasePath( xashdir, sizeof( xashdir )))
+	if( GCube_GetWritablePath( xashdir, sizeof( xashdir )))
 	{
-		if( chdir( xashdir ) == 0 )
-			Con_Reportf( "GameCube data directory: %s\n", xashdir );
-		else
-			Con_Reportf( S_WARN "Failed to chdir to %s\n", xashdir );
+		GCube_EnsureWritableLayout();
+		Con_Reportf( "Xash3D GameCube: writable storage %s\n", xashdir );
+	}
+	else if( GCube_GetDiscPath( xashdir, sizeof( xashdir )))
+	{
+		Con_Reportf( "Xash3D GameCube: read-only fallback %s (no SD)\n", xashdir );
+	}
+	else if( GCube_GetBasePath( xashdir, sizeof( xashdir )))
+	{
+		Con_Reportf( S_WARN "GameCube storage: using legacy base path %s\n", xashdir );
 	}
 	else
 	{
 		SYS_Report( "Xash3D GameCube: no base path found (SD/DVD missing or empty)\n" );
 		Con_Reportf( S_WARN "No data directory found. Game assets will not load.\n" );
+		setup_gamecube_dll_functions();
+		GC_MemSample( "filesystem" );
+		return;
 	}
+
+	if( chdir( xashdir ) == 0 )
+		Con_Reportf( "GameCube data directory: %s\n", xashdir );
+	else
+		Con_Reportf( S_WARN "Failed to chdir to %s\n", xashdir );
 
 	setup_gamecube_dll_functions();
 	GC_MemSample( "filesystem" );
@@ -173,25 +248,27 @@ void GCube_Init( void )
 qboolean GCube_GetBasePath( char *buf, size_t buflen )
 {
 #if XASH_GAMECUBE
-	static const char *paths[] =
-	{
-		"sd:/" GC_DATA_PATH,
-		"sd:/",
-		GC_DVD_DEVICE ":/" GC_DATA_PATH,
-		GC_DVD_DEVICE ":/",
-	};
-	DIR *dir;
-	size_t i;
-
-	for( i = 0; i < ARRAYSIZE( paths ); i++ )
-	{
-		dir = opendir( paths[i] );
-		if( !dir )
-			continue;
-
-		closedir( dir );
-		Q_strncpy( buf, paths[i], buflen );
+	if( GCube_GetWritablePath( buf, buflen ))
 		return true;
+	if( GCube_GetDiscPath( buf, buflen ))
+		return true;
+
+	{
+		static const char *paths[] =
+		{
+			"sd:/",
+			GC_DVD_DEVICE ":/",
+		};
+		size_t i;
+
+		for( i = 0; i < ARRAYSIZE( paths ); i++ )
+		{
+			if( !GCube_PathAccessible( paths[i] ))
+				continue;
+
+			Q_strncpy( buf, paths[i], buflen );
+			return true;
+		}
 	}
 #endif
 	(void)buf;

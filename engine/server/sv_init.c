@@ -407,6 +407,11 @@ static void SV_CreateResourceList( void )
 	{
 		s = sv.files_precache[i];
 		if( COM_StringEmptyOrNULL( s )) break; // end of list
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+			nSize = 0;
+		else
+#endif
 		nSize = FS_FileSize( s, false );
 		SV_AddResource( t_generic, s, nSize, RES_FATALIFMISSING, i );
 	}
@@ -428,6 +433,11 @@ static void SV_CreateResourceList( void )
 		}
 		else
 		{
+#if XASH_GAMECUBE
+			if( Sys_CheckParm( "-gcmap" ))
+				nSize = 0;
+			else
+#endif
 			nSize = FS_FileSize( va( DEFAULT_SOUNDPATH "%s", s ), false );
 			SV_AddResource( t_sound, s, nSize, 0, i );
 		}
@@ -437,7 +447,14 @@ static void SV_CreateResourceList( void )
 	{
 		s = sv.model_precache[i];
 		if( COM_StringEmptyOrNULL( s )) break; // end of list
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ) || s[0] == '*' )
+			nSize = 0;
+		else
+			nSize = FS_FileSize( s, false );
+#else
 		nSize = ( s[0] != '*' ) ? FS_FileSize( s, false ) : 0;
+#endif
 		SV_AddResource( t_model, s, nSize, sv.model_precache_flags[i], i );
 	}
 
@@ -451,6 +468,11 @@ static void SV_CreateResourceList( void )
 	{
 		s = sv.event_precache[i];
 		if( COM_StringEmptyOrNULL( s )) break; // end of list
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+			nSize = 0;
+		else
+#endif
 		nSize = FS_FileSize( s, false );
 		SV_AddResource( t_eventscript, s, nSize, RES_FATALIFMISSING, i );
 	}
@@ -1059,7 +1081,10 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Cvar_SetValue( "skill", (float)current_skill );
 
 	// enforce hpk_max_size
-	HPAK_CheckSize( hpk_custom_file.string );
+#if XASH_GAMECUBE
+	if( !Sys_CheckParm( "-gcmap" ))
+#endif
+		HPAK_CheckSize( hpk_custom_file.string );
 
 	// force normal player collisions for single player
 	if( svs.maxclients == 1 )

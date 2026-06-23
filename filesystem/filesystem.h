@@ -269,6 +269,10 @@ typedef struct fs_interface_t
 typedef int (*FSAPI)( int version, fs_api_t *api, fs_globals_t **globals, const fs_interface_t *interface );
 #define GET_FS_API "GetFSAPI"
 
+#if XASH_GAMECUBE
+void FS_SetSmokeBootMode( qboolean enable );
+#endif
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

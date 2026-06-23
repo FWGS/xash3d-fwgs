@@ -33,6 +33,47 @@ static char fs_gamedir[MAX_SYSPATH]; // game current directory
 static string fs_language;
 static qboolean fs_ext_path = false; // attempt to read\write from ./ or ../ pathes
 
+#if XASH_GAMECUBE
+#define GC_FIND_MISS_CACHE 128
+static char fs_gc_miss_cache[GC_FIND_MISS_CACHE][MAX_QPATH];
+static int fs_gc_miss_count;
+static qboolean fs_gc_smoke_boot;
+
+void FS_SetSmokeBootMode( qboolean enable )
+{
+	fs_gc_smoke_boot = enable;
+}
+
+static qboolean FS_FindMissCached( const char *name )
+{
+	int i;
+
+	for( i = 0; i < fs_gc_miss_count; i++ )
+	{
+		if( !Q_stricmp( fs_gc_miss_cache[i], name ))
+			return true;
+	}
+
+	return false;
+}
+
+static void FS_RememberFindMiss( const char *name )
+{
+	if( fs_gc_miss_count >= GC_FIND_MISS_CACHE )
+		return;
+
+	Q_strncpy( fs_gc_miss_cache[fs_gc_miss_count], name, MAX_QPATH );
+	fs_gc_miss_count++;
+}
+
+static qboolean FS_ShouldSkipSearchpath( const searchpath_t *search, const char *name )
+{
+	(void)search;
+	(void)name;
+	return false;
+}
+#endif
+
 typedef struct fs_archive_s
 {
 	const char *ext;
@@ -818,6 +859,15 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 {
 	searchpath_t *search;
 
+#if XASH_GAMECUBE
+	if( FS_FindMissCached( name ))
+	{
+		if( index )
+			*index = -1;
+		return NULL;
+	}
+#endif
+
 	// search through the path, one element at a time
 	for( search = fs_searchpaths; search; search = search->next )
 	{
@@ -825,6 +875,11 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 
 		if( flags && !FBitSet( search->flags, flags ))
 			continue;
+
+#if XASH_GAMECUBE
+		if( FS_ShouldSkipSearchpath( search, name ))
+			continue;
+#endif
 
 		pack_ind = search->pfnFindFile( search, name, fixedname, len );
 		if( pack_ind >= 0 )
@@ -918,6 +973,7 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 #if XASH_GAMECUBE
 	if( !Q_strncmp( name, "maps/", 5 ) || !Q_strncmp( name, "models/", 7 ))
 		Con_Reportf( "Xash3D GameCube: find missed '%s'\n", name );
+	FS_RememberFindMiss( name );
 #endif
 	return NULL;
 }

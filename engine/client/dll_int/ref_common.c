@@ -306,6 +306,11 @@ static qboolean R_Init_Video_( ref_graphic_apis_t type )
 {
 	const char *config_name = ref.dllFuncs.R_GetConfigName ? ref.dllFuncs.R_GetConfigName() : NULL;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		Con_Reportf( "Xash3D GameCube: renderer config skipped\n" );
+	else
+#endif
 	if( config_name )
 	{
 		host.apply_opengl_config = true;

@@ -2,18 +2,23 @@
 
 Current policy:
 
-- `gcdisc:/` and the generated ISO/FST content are read-only.
+- `gcdisc:/xash3d` and the generated ISO/FST content are read-only.
 - Legal local Half-Life assets stay outside Git under ignored local paths.
 - Generated configs, saves, logs, screenshots, and `.xash_id` must not be
   written to read-only disc paths.
 
-Implementation guidance:
+Implementation (G28):
 
-- Route writes to an explicit writable backend when one exists.
-- Missing writable storage should fail safely and visibly, not corrupt state or
-  loop forever.
-- Prefer read-only fallbacks for boot probes until save/load work is active.
-- Verify first boot, second boot, missing storage, and corrupted config cases.
+- `GCube_GetDiscPath()` returns `gcdisc:/xash3d` when the DVD is mounted.
+- `GCube_GetWritablePath()` returns `sd:/xash3d` when an SD card is mounted.
+- `FS_DetermineRootDirectory()` uses the writable SD path when available, else
+  falls back to the disc path for read-only boot.
+- `FS_DetermineReadOnlyRootDirectory()` always uses the disc path so game
+  content is layered separately from SD writes.
+- `Host_WriteConfig()` and `FS_SaveVFSConfig()` run only when
+  `GCube_HasWritableStorage()` is true.
+- `-gcnullaudio` and smoke probes without SD continue to use the read-only
+  fallback without write errors.
 
 Disc staging:
 
