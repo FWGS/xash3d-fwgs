@@ -17,6 +17,12 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#define Mem_ReportOOM( pool, sz ) GC_MemFail( (pool)->name, (sz), filename, fileline )
+#else
+#define Mem_ReportOOM( pool, sz ) ((void)0)
+#endif
 
 #define MEMHEADER_SENTINEL_BIG   0xA1BAU
 #define MEMHEADER_SENTINEL_SMALL 0xAD1EU
@@ -258,6 +264,7 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 
 		if( mem == NULL )
 		{
+			Mem_ReportOOM( pool, size );
 			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
@@ -278,6 +285,7 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 
 		if( mem == NULL )
 		{
+			Mem_ReportOOM( pool, size );
 			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
@@ -424,6 +432,7 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 
 		if( mem == NULL )
 		{
+			Mem_ReportOOM( pool, size );
 			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
@@ -467,6 +476,7 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *data, size_t size, qboolean clea
 
 		if( mem == NULL )
 		{
+			Mem_ReportOOM( pool, size );
 			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
@@ -517,6 +527,9 @@ poolhandle_t _Mem_AllocPool( const char *name, unsigned int flags, const char *f
 	mempool_t *pool = (mempool_t *)Q_realloc( poolchain, sizeof( *poolchain ) * ( poolcount + 1 ));
 	if( pool == NULL )
 	{
+#if XASH_GAMECUBE
+		GC_MemFail( name, sizeof( *poolchain ), filename, fileline );
+#endif
 		Sys_Error( "%s: out of memory (allocpool at %s:%i)\n", __func__, filename, fileline );
 		return 0;
 	}
@@ -644,6 +657,23 @@ void Mem_PrintStats( void )
 
 	Con_Printf( "^3%zu^7 memory pools, totalling: ^1%s\n", count, Q_memprint( size ));
 	Con_Printf( "total allocated size: ^1%s\n", Q_memprint( realsize ));
+}
+
+size_t Mem_TotalRealSize( void )
+{
+	size_t realsize = 0;
+
+	for( size_t i = 0; i < poolcount; i++ )
+	{
+		mempool_t *pool = &poolchain[i];
+
+		if( !pool->filename )
+			continue;
+
+		realsize += pool->realsize;
+	}
+
+	return realsize;
 }
 
 static void Mem_PrintList( size_t minallocationsize )

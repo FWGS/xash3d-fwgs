@@ -28,6 +28,9 @@ GNU General Public License for more details.
 #include "base_cmd.h"
 #include "client.h"
 #include "server.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 #include "netchan.h"
 #include "protocol.h"
 #include "mod_local.h"
@@ -1103,6 +1106,9 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #endif
 	Platform_Init( Host_IsDedicated( ) || developer >= DEV_EXTENDED );
 	FS_Init();
+#if XASH_GAMECUBE
+	GC_MemSample( "searchpaths" );
+#endif
 
 	// print current developer level to simplify processing users feedback
 	if( developer > 0 )
@@ -1237,10 +1243,12 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	SV_Init();
 #if XASH_GAMECUBE
+	GC_MemSample( "server init" );
 	Con_Reportf( "Xash3D GameCube: server init ready\n" );
 #endif
 	CL_Init();
 #if XASH_GAMECUBE
+	GC_MemSample( "client init" );
 	Con_Reportf( "Xash3D GameCube: engine subsystems ready\n" );
 #endif
 
@@ -1375,6 +1383,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		for( i = 0; i < 16; i++ )
 			COM_Frame( 0.05 );
 		Con_Reportf( "Xash3D GameCube: gcmap smoke frames ready\n" );
+		GC_MemSample( "frame render" );
 	}
 #endif
 

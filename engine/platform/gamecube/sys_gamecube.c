@@ -16,6 +16,7 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include <iso9660.h>
 #include <dirent.h>
 #include "dll_gamecube.h"
+#include "mem_gamecube.h"
 
 #define GC_DATA_PATH "xash3d"
 #define GC_DVD_DEVICE "gcdisc"
@@ -165,6 +166,7 @@ void GCube_Init( void )
 	}
 
 	setup_gamecube_dll_functions();
+	GC_MemSample( "filesystem" );
 #endif
 }
 

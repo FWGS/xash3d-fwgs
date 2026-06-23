@@ -566,6 +566,22 @@ DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 Result: `MAP_LOADED_NO_INPUT` with map marker confirmed.
 Evidence: `.ai/logs/dolphin-probe-20260623-004510/stderr.log`.
 
+## G22 — Memory budget telemetry (2026-06-23)
+
+GameCube-only telemetry samples zone pool totals at boot milestones and reports
+allocation failures with pool name, size, map context, and source location.
+
+Stages logged: `filesystem`, `searchpaths`, `server progs`, `server init`,
+`textures`, `models`, `client init`, `bsp load`, `map active`, `frame render`.
+
+Example probe output:
+
+```
+Xash3D GameCube: mem stage=bsp load total=6.44 Mb delta=2.32 Mb hwm=6.44 Mb map=c0a0e
+```
+
+Evidence: `.ai/logs/dolphin-probe-20260623-010238/stderr.log`.
+
 ## Automation recovery notes
 
 The autonomous runner now handles two resume cases observed during G19. First,

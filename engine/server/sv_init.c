@@ -15,6 +15,9 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "server.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 #include "net_encode.h"
 #include "library.h"
 #include "voice.h"
@@ -690,6 +693,7 @@ void SV_ActivateServer( int runPhysics )
 		R_GcmapMarkMapLoadComplete();
 	}
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
+	GC_MemSample( "map active" );
 #endif
 
 	// dedicated server purge unused resources here
@@ -783,6 +787,9 @@ qboolean SV_InitGame( qboolean silent )
 			Con_Printf( S_ERROR "can't initialize %s: %s\n", dllpath, COM_GetLibraryError( ));
 		return false; // failed to loading server.dll
 	}
+#if XASH_GAMECUBE
+	GC_MemSample( "server progs" );
+#endif
 
 	// client frames will be allocated in SV_ClientConnect
 	return true;
@@ -1084,6 +1091,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Q_snprintf( sv.model_precache[WORLD_INDEX], sizeof( sv.model_precache[0] ), "maps/%s.bsp", sv.name );
 	SetBits( sv.model_precache_flags[WORLD_INDEX], RES_FATALIFMISSING );
 #if XASH_GAMECUBE
+	GC_MemSetMap( sv.name );
 	if( Sys_CheckParm( "-gcmap" ))
 	{
 		R_GcmapTrimForMapLoad();
@@ -1094,6 +1102,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 #endif
 	sv.worldmodel = sv.models[WORLD_INDEX] = Mod_LoadWorld( sv.model_precache[WORLD_INDEX], true );
 	CRC32_MapFile( &sv.worldmapCRC, sv.model_precache[WORLD_INDEX], svs.maxclients > 1 );
+#if XASH_GAMECUBE
+	GC_MemSample( "bsp load" );
+#endif
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ) && FS_FileExists( "progs.dat", false ))
 	{

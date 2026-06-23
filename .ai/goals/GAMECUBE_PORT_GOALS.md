@@ -270,13 +270,19 @@ lines. Goals marked `MANUAL` are never selected automatically.
   emits `Xash3D GameCube: map loaded c0a0e`.
 - Evidence: `.ai/logs/dolphin-probe-20260623-004510/stderr.log`.
 
-## G22 [ ] Add memory budget telemetry for real gameplay loads
+## G22 [x] Add memory budget telemetry for real gameplay loads
 
 - Report main-memory high-water marks around filesystem mount, server progs,
   BSP load, texture/model registration, client init, and frame rendering.
 - Capture allocation failures with subsystem, size, and current map context.
 - Keep telemetry GameCube-scoped and cheap enough to leave enabled for Dolphin
   and hardware bring-up logs.
+- Verified 2026-06-23: `Mem_TotalRealSize()` plus GameCube-only
+  `GC_MemSample()` / `GC_MemFail()` hooks emit stage totals, deltas, high-water
+  marks, and map context in Dolphin OSReport.
+- Evidence: `.ai/logs/dolphin-probe-20260623-010238/stderr.log` shows stages
+  from `filesystem` (68.91 Kb) through `bsp load` (6.44 Mb, map=c0a0e).
+  OOM paths in `zone.c` call `GC_MemFail()` before `Sys_Error`.
 
 ## G23 [ ] Establish a GameCube memory budget plan for full Half-Life
 

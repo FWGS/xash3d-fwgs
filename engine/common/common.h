@@ -380,6 +380,7 @@ void _Mem_Check( const char *filename, int fileline );
 qboolean Mem_IsAllocatedExt( poolhandle_t poolptr, void *data );
 void Mem_PrintStats( void );
 void Mem_Stats_f( void );
+size_t Mem_TotalRealSize( void );
 
 #define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )

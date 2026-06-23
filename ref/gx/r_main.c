@@ -16,6 +16,9 @@ GNU General Public License for more details.
 #include "r_local.h"
 #include "xash3d_mathlib.h"
 #include "library.h"
+#if XASH_GAMECUBE
+#include "mem_gamecube.h"
+#endif
 // #include "beamdef.h"
 #include "entity_types.h"
 #include "mod_local.h"
@@ -1397,6 +1400,7 @@ qboolean GAME_EXPORT R_Init( void )
 	R_InitImages();
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images ready\n" );
+	GC_MemSample( "textures" );
 #endif
 	// init draw stack
 	tr.draw_list = &tr.draw_stack[0];
@@ -1408,6 +1412,7 @@ qboolean GAME_EXPORT R_Init( void )
 	R_StudioInit();
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready\n" );
+	GC_MemSample( "models" );
 #endif
 	R_InitTurb();
 	GL_InitRandomTable();
