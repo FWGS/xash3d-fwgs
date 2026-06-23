@@ -771,7 +771,7 @@ void R_InitCaches( void )
 #if XASH_GAMECUBE
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
 	{
-		size = 131072;
+		size = 32768;
 	}
 	else
 #endif

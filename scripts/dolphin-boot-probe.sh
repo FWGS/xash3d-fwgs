@@ -21,6 +21,16 @@ LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
 SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
+GUEST_MARKER="Xash3D GameCube: bootstrap"
+READY_MARKER="Xash3D GameCube: engine subsystems ready"
+MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
+INPUT_MARKER="Xash3D GameCube: input polling active"
+
+probe_log_has() {
+	local needle="$1"
+	[[ -f "$LOG_DIR/stderr.log" ]] && grep -aqsF "$needle" "$LOG_DIR/stderr.log"
+	[[ -f "$LOG_DIR/stdout.log" ]] && grep -aqsF "$needle" "$LOG_DIR/stdout.log"
+}
 
 mkdir -p "$USER_DIR/Config"
 
@@ -101,15 +111,19 @@ if (( DOLPHIN_IS_FLATPAK )); then
 	"${DOLPHIN_CMD[@]}" >"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log" &
 	DOLPHIN_WRAPPER_PID=$!
 	DOLPHIN_EXIT=124
-	sleep 2
-	DEADLINE=$((SECONDS + TIMEOUT_SEC))
-	while (( SECONDS < DEADLINE )); do
-		if ! pgrep -f "dolphin.*${USER_DIR}" >/dev/null 2>&1; then
-			wait "$DOLPHIN_WRAPPER_PID"
-			DOLPHIN_EXIT=$?
+	DEADLINE=$(($(date +%s) + TIMEOUT_SEC))
+	while (( $(date +%s) < DEADLINE )); do
+		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
+			DOLPHIN_EXIT=0
 			break
 		fi
-		sleep 1
+		if probe_log_has "$GUEST_MARKER" && \
+			grep -aEiq 'Host_ErrorInit|Host_Error:|Sys_Error:|fatal error|out of memory' \
+				"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			DOLPHIN_EXIT=3
+			break
+		fi
+		sleep 2
 	done
 else
 	timeout --signal=TERM --kill-after=5 "$TIMEOUT_SEC" "${DOLPHIN_CMD[@]}" \
@@ -127,10 +141,6 @@ if (( DOLPHIN_IS_FLATPAK )); then
 fi
 
 echo "==> Analyzing probe results..."
-GUEST_MARKER="Xash3D GameCube: bootstrap"
-READY_MARKER="Xash3D GameCube: engine subsystems ready"
-MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
-INPUT_MARKER="Xash3D GameCube: input polling active"
 LOG_FILES=("$LOG_DIR/stdout.log" "$LOG_DIR/stderr.log")
 GUEST_FOUND=0
 READY_FOUND=0

@@ -356,13 +356,25 @@ loads external resource list
 */
 static void SV_CreateGenericResources( void )
 {
-	string	filename;
+	char	filename[MAX_QPATH];
 
-	Q_strncpy( filename, sv.model_precache[1], sizeof( filename ));
-	COM_ReplaceExtension( filename, ".res", sizeof( filename ));
-	COM_FixSlashes( filename );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && !COM_StringEmptyOrNULL( sv.name ))
+	{
+		Q_snprintf( filename, sizeof( filename ), "maps/%s.res", sv.name );
+		COM_FixSlashes( filename );
+		Con_Reportf( "Xash3D GameCube: resource list %s\n", filename );
+		SV_ReadResourceList( filename );
+	}
+	else
+#endif
+	{
+		Q_strncpy( filename, sv.model_precache[WORLD_INDEX], sizeof( filename ));
+		COM_ReplaceExtension( filename, ".res", sizeof( filename ));
+		COM_FixSlashes( filename );
+		SV_ReadResourceList( filename );
+	}
 
-	SV_ReadResourceList( filename );
 	SV_ReadResourceList( "reslist.txt" );
 
 	// precache wads so client can knows this map needs some extra wad files
@@ -609,6 +621,14 @@ void SV_ActivateServer( int runPhysics )
 	// parse user-specified resources
 	SV_CreateGenericResources();
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		sv.frametime = 0.001;
+		numFrames = 0;
+	}
+	else
+#endif
 	if( runPhysics )
 	{
 		numFrames = (svs.maxclients <= 1) ? 2 : 8;
@@ -664,6 +684,7 @@ void SV_ActivateServer( int runPhysics )
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ))
 	{
+		Mod_FreeUnused();
 		R_GcmapRestoreAfterMapLoad();
 		GC_RestoreVideoMemoryAfterMapLoad();
 	}

@@ -198,7 +198,9 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 }
 
 #define GC_MAX_ARGV 24
+#define GC_DEFAULT_SMOKE_MAP "c0a0e"
 static char *gc_argv[GC_MAX_ARGV];
+static char gc_smoke_map[MAX_QPATH] = GC_DEFAULT_SMOKE_MAP;
 
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 {
@@ -227,6 +229,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "320";
 	gc_argv[fake_argc++] = "-height";
 	gc_argv[fake_argc++] = "240";
+	gc_argv[fake_argc++] = "-gcmap";
+	gc_argv[fake_argc++] = gc_smoke_map;
 
 	*out_argv = gc_argv;
 	return fake_argc;
