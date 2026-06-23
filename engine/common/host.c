@@ -1119,7 +1119,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 	Cmd_AddCommand( "memlist", Mem_Stats_f, "prints memory pool information" );
 
-#if !XASH_DEDICATED
+#if !XASH_DEDICATED && !XASH_GAMECUBE
 	Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig, "save current configuration" );
 #endif
 
@@ -1246,8 +1246,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 #if !XASH_GAMECUBE
 	HTTP_Init();
+	NET_Config( true, true );
 #else
 	Con_Reportf( "Xash3D GameCube: HTTP disabled\n" );
+	NET_Config( false, false );
 #endif
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ))
@@ -1424,8 +1426,12 @@ void Host_ShutdownWithReason( const char *reason )
 		host.status = HOST_SHUTDOWN; // prepare host to normal shutdown
 
 #if !XASH_DEDICATED
+#if !XASH_GAMECUBE
 	if( host.type == HOST_NORMAL && !error )
 		Host_WriteConfig();
+#else
+	Con_Reportf( "%s: GameCube disc is read-only, skipping config save\n", __func__ );
+#endif
 #endif
 
 	SV_Shutdown( "Server shutdown\n" );

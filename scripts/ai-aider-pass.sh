@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO="${1:-/home/tim/Desktop/xash3d-gc}"
 TASK_FILE="${2:-.ai/tasks/current.md}"
-CONTEXT_FILES=("${@:3}")
+CONTEXT_INPUTS=("${@:3}")
 
 cd "$REPO"
 REPO="$(git rev-parse --show-toplevel)"
@@ -31,13 +31,23 @@ command -v aider >/dev/null 2>&1 || {
 	exit 1
 }
 
-AIDER_FILE_ARGS=()
-for context_file in "${CONTEXT_FILES[@]}"; do
+CONTEXT_FILES=()
+READ_CONTEXT_FILES=()
+for context_file in "${CONTEXT_INPUTS[@]}"; do
+	context_mode="file"
+	if [[ "$context_file" == read:* ]]; then
+		context_mode="read"
+		context_file="${context_file#read:}"
+	fi
 	[[ -f "$context_file" ]] || {
 		echo "ai-aider-pass: context file not found: $context_file" >&2
 		exit 1
 	}
-	AIDER_FILE_ARGS+=(--file "$context_file")
+	if [[ "$context_mode" == "read" ]]; then
+		READ_CONTEXT_FILES+=("$context_file")
+	else
+		CONTEXT_FILES+=("$context_file")
+	fi
 done
 
 if [[ -n "$(git status --porcelain)" ]]; then
@@ -75,6 +85,9 @@ echo "Repo: $REPO"
 echo "Task: $TASK_FILE"
 if (( ${#CONTEXT_FILES[@]} )); then
 	echo "Editable context: ${CONTEXT_FILES[*]}"
+fi
+if (( ${#READ_CONTEXT_FILES[@]} )); then
+	echo "Read-only context: ${READ_CONTEXT_FILES[*]}"
 fi
 echo "Baseline: $BASELINE"
 echo "Log: $LOG"
@@ -116,6 +129,17 @@ context_args_for_attempt() {
 			fi
 		fi
 		printf '%s\n%s\n' --file "$context_file"
+	done
+	for context_file in "${READ_CONTEXT_FILES[@]}"; do
+		[[ -f "$context_file" ]] || continue
+		if (( limit > 0 )); then
+			size="$(stat -c '%s' "$context_file")"
+			if (( size > limit )); then
+				echo "ai-aider-pass: retry $attempt omits read-only $context_file (${size} bytes > ${limit})" >&2
+				continue
+			fi
+		fi
+		printf '%s\n%s\n' --read "$context_file"
 	done
 }
 

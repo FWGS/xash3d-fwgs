@@ -126,6 +126,13 @@ static void FS_LoadVFSConfig( const char *gamedir )
 
 void FS_SaveVFSConfig( void )
 {
+#if XASH_GAMECUBE
+	/* On GameCube, vfs.cfg resides on the read-only disc. Skip writes to
+	 * avoid DVD write errors. Configuration is ephemeral per session. */
+	Con_Reportf( "%s: GameCube disc is read-only, skipping vfs.cfg save\n", __func__ );
+	return;
+#endif
+
 	const qboolean force_save = !FS_FileExists( "vfs.cfg", true );
 
 	if( !force_save && !FBitSet( fs_mount_hd.flags|fs_mount_lv.flags|fs_mount_l10n.flags|fs_mount_addon.flags|ui_language.flags, FCVAR_CHANGED ))

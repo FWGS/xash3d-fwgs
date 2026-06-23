@@ -20,6 +20,9 @@ COMMON_CONTEXT = (
 	"docs/GAMECUBE_PORT_PLAN.md",
 	".ai/goals/GAMECUBE_PORT_GOALS.md",
 )
+COMMON_READ_CONTEXT = (
+	".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
+)
 GOAL_CONTEXT = {
 	"G01": ("engine/server/sv_game.c", "engine/server/server.h",
 		"engine/edict.h", "engine/progdefs.h"),
@@ -113,6 +116,65 @@ GOAL_CONTEXT = {
 		"scripts/dolphin-boot-probe.sh", "scripts/ai-verify.sh"),
 	"G42": ("docs/GAMECUBE_PORT_PLAN.md", ".ai/goals/GAMECUBE_PORT_GOALS.md",
 		"Documentation/development/engine-porting-guide.md"),
+}
+GOAL_READ_CONTEXT = {
+	"G03": (".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G05": (".ai/prompts/GAMECUBE_AUDIO_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G14": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G15": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G16": (".ai/prompts/GAMECUBE_AUDIO_NOTES.md",
+		".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md"),
+	"G17": (".ai/prompts/GAMECUBE_AUDIO_NOTES.md",),
+	"G18": (".ai/prompts/GAMECUBE_NETWORKING_NOTES.md",
+		".ai/prompts/GAMECUBE_STORAGE_NOTES.md"),
+	"G19": (".ai/prompts/GAMECUBE_NETWORKING_NOTES.md",
+		".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G21": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G22": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
+	"G23": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
+	"G24": (".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G25": (".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G26": (".ai/prompts/GAMECUBE_AUDIO_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G27": (".ai/prompts/GAMECUBE_AUDIO_NOTES.md",
+		".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G28": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",),
+	"G29": (".ai/prompts/GAMECUBE_NETWORKING_NOTES.md",),
+	"G30": (".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",),
+	"G31": (".ai/prompts/GAMECUBE_NETWORKING_NOTES.md",
+		".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G32": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G33": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",),
+	"G34": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G35": (".ai/prompts/GAMECUBE_NETWORKING_NOTES.md",
+		".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G36": (".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G37": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G38": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G39": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",),
+	"G40": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
+		".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
+		".ai/prompts/GAMECUBE_AUDIO_NOTES.md"),
+	"G41": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+	"G42": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
+		".ai/prompts/GAMECUBE_HARDWARE_NOTES.md"),
 }
 GOAL_COMMIT_SUBJECT = {
 	"G01": "fix: resolve GameCube edict warning audit",
@@ -299,8 +361,13 @@ def write_state(path: Path, **values: object) -> None:
 
 def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
-	candidates = [path for path in (*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal_id, ()))
-		if (root / path).is_file()]
+	candidates: list[str] = []
+	seen: set[str] = set()
+	for path in (*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal_id, ())):
+		if path in seen or not (root / path).is_file():
+			continue
+		seen.add(path)
+		candidates.append(path)
 	size_limit = 45000 if attempt == 1 else 20000 if attempt == 2 else 12000
 	required = set(COMMON_CONTEXT if attempt <= 2 else (".ai/goals/GAMECUBE_PORT_GOALS.md",))
 	selected: list[str] = []
@@ -310,6 +377,18 @@ def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 			selected.append(path)
 	if not selected:
 		return candidates[:1]
+	return selected
+
+
+def read_context_for_goal(goal_id: str, root: Path) -> list[str]:
+	"""Return focused read-only notes for the active goal."""
+	seen: set[str] = set()
+	selected: list[str] = []
+	for path in (*COMMON_READ_CONTEXT, *GOAL_READ_CONTEXT.get(goal_id, ())):
+		if path in seen or not (root / path).is_file():
+			continue
+		seen.add(path)
+		selected.append(f"read:{path}")
 	return selected
 
 
@@ -382,6 +461,7 @@ def main() -> int:
 			task_path = Path(task.name)
 		try:
 			context_files = context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
+			read_context_files = read_context_for_goal(goal.goal_id, root)
 			pass_env = os.environ.copy()
 			pass_env["AI_COMMIT_SUBJECT"] = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
 				f"feat: advance GameCube port goal {goal.goal_id}")
@@ -393,7 +473,7 @@ def main() -> int:
 				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "12000")
 				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "8000")
 			result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path),
-				*context_files], root, env=pass_env)
+				*context_files, *read_context_files], root, env=pass_env)
 		finally:
 			task_path.unlink(missing_ok=True)
 		if result.returncode != 0:

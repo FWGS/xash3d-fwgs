@@ -29,6 +29,27 @@ python3 -c 'compile(open("scripts/ai-evidence-gate.py", encoding="utf-8").read()
 python3 -c 'compile(open("scripts/hlsdk-gamecube-apply-patch.py", encoding="utf-8").read(), "scripts/hlsdk-gamecube-apply-patch.py", "exec")'
 python3 -c 'compile(open("scripts/generate-hlsdk-gamecube-exports.py", encoding="utf-8").read(), "scripts/generate-hlsdk-gamecube-exports.py", "exec")'
 
+echo
+echo "== harness context pack =="
+for context_file in \
+	.ai/prompts/PROJECT_RULES.md \
+	.ai/prompts/PORTING_PATTERNS.md \
+	.ai/prompts/GAMECUBE_CONTEXT_INDEX.md \
+	.ai/prompts/GAMECUBE_HARDWARE_NOTES.md \
+	.ai/prompts/GAMECUBE_AUDIO_NOTES.md \
+	.ai/prompts/GAMECUBE_STORAGE_NOTES.md \
+	.ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md \
+	.ai/prompts/GAMECUBE_NETWORKING_NOTES.md \
+	.ai/prompts/GAMECUBE_MEMORY_BUDGET.md \
+	.ai/prompts/GAMECUBE_FAILURE_MEMORY.md \
+	.ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md
+do
+	if [[ ! -s "$context_file" ]]; then
+		echo "verify: missing GameCube context file: $context_file" >&2
+		exit 1
+	fi
+done
+
 if command -v aider >/dev/null 2>&1; then
 	aider --config .aider.conf.yml --help >/dev/null
 else
@@ -89,6 +110,10 @@ if [[ -n "$BASELINE" ]]; then
 				if git diff "$BASELINE" -- "$changed_file" | \
 					grep -Eiq '^\+.*(DOLPHIN_SDK|REVOLUTION_SDK|RVL_SDK)'; then
 					echo "verify: proprietary SDK reference added in $changed_file" >&2
+					exit 1
+				fi
+				if git diff "$BASELINE" -- "$changed_file" | grep -Eq '^\+.*\bOSReport\b'; then
+					echo "verify: OSReport added in $changed_file; use the established libogc/project reporting path" >&2
 					exit 1
 				fi
 				;;

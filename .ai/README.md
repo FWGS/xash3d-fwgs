@@ -52,6 +52,14 @@ Newly completed goals must carry command/log evidence in both the goal ledger
 and `docs/GAMECUBE_PORT_PLAN.md`; `scripts/ai-evidence-gate.py` enforces this
 during autonomous patch verification.
 
+The model does not rely on vague built-in GameCube knowledge. A compact global
+context pack lives under `.ai/prompts/`, and `scripts/ai-goal-loop.py` adds
+focused subsystem notes as read-only Aider context for each goal. For example,
+networking goals receive `GAMECUBE_NETWORKING_NOTES.md`, audio goals receive
+`GAMECUBE_AUDIO_NOTES.md`, and memory-heavy gameplay goals receive
+`GAMECUBE_MEMORY_BUDGET.md`. Known bad assumptions are recorded in
+`GAMECUBE_FAILURE_MEMORY.md` and enforced where practical by the verifier.
+
 For campaign/map compatibility evidence, run:
 
 ```sh

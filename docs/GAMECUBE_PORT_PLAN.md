@@ -60,6 +60,13 @@ The verification gate now rejects newly completed goals that do not include
 concrete evidence in the goal notes and port plan. Acceptable evidence includes
 a command, result, `.ai/logs/` path, or runtime artifact reference. This keeps
 the automation from finishing goals through docs-only reasoning.
+Qwable-5 receives a curated GameCube context pack instead of relying on generic
+model memory. `.aider.conf.yml` loads compact global rules, hardware notes, and
+failure memory; `scripts/ai-goal-loop.py` then retrieves focused read-only
+subsystem notes for the active goal, such as audio, storage, GX rendering,
+networking, and memory-budget guidance. `scripts/ai-aider-pass.sh` supports
+`read:<path>` context entries so those notes inform the model without becoming
+editable patch targets.
 The GUI defaults goal automation to twenty passes with a separate recovery
 retry control, while still using the same verifier and evidence gates as the
 terminal handoff supervisor.
@@ -503,6 +510,26 @@ silently skipping, allowing for proper debugging.
 These changes turn the previous "smoke-only" bypasses into standard runtime
 behavior. Explicit `-nohud` or `-nosound` flags can still be passed manually
 for diagnostic triage, but they are not forced by the launcher.
+
+## G18 — Networking and save-safe startup (source complete)
+
+GameCube networking is now explicitly initialized with `NET_Config(false, false)`
+to avoid UDP port binding while preserving loopback for local single-player
+client/server flows. HTTP initialization remains disabled. Configuration saves
+(`vfs.cfg`, `config.cfg`) are skipped on GameCube to avoid writes to the
+read-only DVD medium. The `host_writeconfig` console command is also omitted.
+
+These changes keep offline boot independent of network/HTTP and prevent
+read-only disc write errors.
+
+**Commands and evidence:**
+
+```sh
+scripts/ai-verify.sh
+```
+
+Result: clean compilation with new `XASH_GAMECUBE` guards. No cross-platform
+regressions.
 
 ## Next wake-up commands
 

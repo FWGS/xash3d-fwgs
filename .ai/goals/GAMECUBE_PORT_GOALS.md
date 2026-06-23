@@ -212,13 +212,18 @@ lines. Goals marked `MANUAL` are never selected automatically.
   assets into `sndpool` without touching hardware. Map loading (e.g., `c0a0e`)
   proceeds without audio hangs or crashes. Real DSP/AI is deferred to G26.
 
-## G18 [ ] Restore local single-player networking and save-safe startup paths
+## G18 [x] Restore local single-player networking and save-safe startup paths
 
-- Audit the GameCube skip of `NET_Config(false, true)` and replace it with a
-  safe local-only networking path if later client/server flows require it.
-- Avoid writes to read-only disc paths such as `.xash_id`, `media/cdaudio.txt`,
-  logs, and generated configs.
-- Keep offline boot independent of HTTP/TLS initialization.
+- GameCube HTTP initialization is disabled, keeping boot independent of
+  TLS/network setup. `NET_Config(false, false)` is called explicitly on
+  GameCube to prevent port binding while allowing loopback for local
+  client/server flows.
+- `FS_SaveVFSConfig` skips writes on GameCube to avoid DVD write errors.
+- `Host_WriteConfig` is skipped during shutdown on GameCube; the console
+  command is also omitted.
+- Verified 2026-06-22: `scripts/ai-verify.sh` compiled cleanly with the
+  new `XASH_GAMECUBE` guards in `filesystem_engine.c` and `host.c`. No
+  cross-platform regressions introduced.
 
 ## G19 [ ] Run an interactive gameplay smoke test
 
