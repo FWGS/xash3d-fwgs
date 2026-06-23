@@ -8,6 +8,7 @@ static qboolean gc_renderer_trimmed;
 
 void R_GcmapTrimScreenBuffers( void );
 void R_GcmapTrimSurfaceCache( void );
+qboolean R_TryInitGcmapSurfaceCache( void );
 qboolean R_AllocScreen( void );
 
 void R_GcmapTrimForMapLoad( void )
@@ -30,5 +31,18 @@ void R_GcmapRestoreAfterMapLoad( void )
 	R_AllocScreen();
 	gc_renderer_trimmed = false;
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer restore after map load\n" );
+}
+
+void R_GcmapMarkMapLoadComplete( void )
+{
+	gc_renderer_trimmed = false;
+}
+
+qboolean R_GcmapEnsureSurfaceCache( void )
+{
+	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ))
+		return false;
+
+	return R_TryInitGcmapSurfaceCache();
 }
 #endif

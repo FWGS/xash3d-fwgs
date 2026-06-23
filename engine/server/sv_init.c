@@ -23,6 +23,7 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 void R_GcmapTrimForMapLoad( void );
 void R_GcmapRestoreAfterMapLoad( void );
+void R_GcmapMarkMapLoadComplete( void );
 void GC_TrimVideoMemoryForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 #endif
@@ -685,8 +686,8 @@ void SV_ActivateServer( int runPhysics )
 	if( Sys_CheckParm( "-gcmap" ))
 	{
 		Mod_FreeUnused();
-		R_GcmapRestoreAfterMapLoad();
 		GC_RestoreVideoMemoryAfterMapLoad();
+		R_GcmapMarkMapLoadComplete();
 	}
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 #endif

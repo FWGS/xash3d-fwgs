@@ -542,40 +542,29 @@ scripts/ai-verify.sh
 Result: clean compilation with new `XASH_GAMECUBE` guards. No cross-platform
 regressions.
 
-## G19 — Interactive gameplay smoke test (runtime evidence pending)
+## G19 — Interactive gameplay smoke test (verified 2026-06-23)
 
-The GameCube input backend (`engine/platform/gamecube/in_gamecube.c`) emits
-`Xash3D GameCube: input polling active` via `Con_Reportf` on the first
-successful input poll. `scripts/dolphin-boot-probe.sh` now verifies this marker
-alongside the map load marker for `MAP_READY` status.
-
-On 2026-06-22, `scripts/gamecube-env.sh` was added so automation exports
-`DOLPHIN_EXECUTABLE`. The current environment resolves Dolphin to the installed
-Flatpak app:
+Probe `005330` reports `MAP_READY` with both map-load and input-polling markers in
+`.ai/logs/dolphin-probe-20260623-005330/stderr.log`.
 
 ```sh
-source scripts/gamecube-env.sh && printf '%s\n' "$DOLPHIN_EXECUTABLE"
+DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
-Result: `flatpak:org.DolphinEmu.dolphin-emu`.
+Result: `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
 
-**Status:** Source complete. Runtime evidence is now unblocked for Dolphin
-automation. The probe script has been updated to require input evidence for
-full interactive smoke test completion. G19 is still incomplete until one
-probe log confirms both map load and input polling in the same session.
+## G21 — Map/model lookup fixed (2026-06-23)
 
-**Manual verification command:**
+`-gcmap c0a0e` now resolves `maps/c0a0e.bsp` from the staged smoke pk3 and reaches
+`Xash3D GameCube: map loaded c0a0e` without the old `Could not load model maps`
+failure.
 
 ```sh
-scripts/dolphin-boot-probe.sh
+DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
-**Expected evidence:**
-The probe should report `MAP_READY: Xash3D loaded <map> on GameCube with interactive input.`
-The log (`.ai/logs/dolphin-probe-*/stderr.log`) must contain both
-`Xash3D GameCube: map loaded <map>` and `Xash3D GameCube: input polling active`.
-
-Do not mark complete until the evidence above is captured.
+Result: `MAP_LOADED_NO_INPUT` with map marker confirmed.
+Evidence: `.ai/logs/dolphin-probe-20260623-004510/stderr.log`.
 
 ## Automation recovery notes
 

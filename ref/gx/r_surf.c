@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // r_surf.c: surface-related refresh code
 
+#include <stdlib.h>
 #include "r_local.h"
 #include "mod_local.h"
 
@@ -771,7 +772,7 @@ void R_InitCaches( void )
 #if XASH_GAMECUBE
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
 	{
-		size = 32768;
+		size = 8192;
 	}
 	else
 #endif
@@ -808,12 +809,46 @@ void R_InitCaches( void )
 }
 
 #if XASH_GAMECUBE
+qboolean R_TryInitGcmapSurfaceCache( void )
+{
+	int size = 8192;
+
+	if( sc_base )
+		return true;
+
+	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ))
+		return false;
+
+	size = ( size + 8191 ) & ~8191;
+	sc_base = malloc( size );
+	if( !sc_base )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache deferred (%s unavailable)\n",
+			Q_memprint( size ));
+		return false;
+	}
+
+	sc_size = size;
+	sc_rover = sc_base;
+	memset( sc_base, 0, size );
+	sc_base->next = NULL;
+	sc_base->owner = NULL;
+	sc_base->size = sc_size;
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( size ));
+	return true;
+}
+#endif
+
+#if XASH_GAMECUBE
 void R_GcmapTrimSurfaceCache( void )
 {
 	if( sc_base )
 	{
 		D_FlushCaches();
-		Mem_Free( sc_base );
+		if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+			free( sc_base );
+		else
+			Mem_Free( sc_base );
 		sc_base = sc_rover = NULL;
 	}
 }
@@ -852,6 +887,11 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 {
 	surfcache_t *new;
 	qboolean    wrapped_this_time;
+
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) && !sc_base )
+		return NULL;
+#endif
 
 	if(( width < 0 ))// || (width > 256))
 		gEngfuncs.Host_Error( "%s: bad cache width %d\n", __func__, width );
@@ -1159,6 +1199,8 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	{
 		cache = D_SCAlloc( r_drawsurf.surfwidth,
 				   r_drawsurf.surfwidth * r_drawsurf.surfheight * 2 );
+		if( !cache )
+			return NULL;
 		CACHESPOT( surface )[miplevel] = cache;
 		cache->owner = &CACHESPOT( surface )[miplevel];
 		cache->mipscale = surfscale;

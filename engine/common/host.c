@@ -1366,6 +1366,18 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 	oldtime = Platform_DoubleTime() - 0.1;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && SV_Active( ))
+	{
+		int i;
+
+		Con_Reportf( "Xash3D GameCube: gcmap smoke frames begin\n" );
+		for( i = 0; i < 16; i++ )
+			COM_Frame( 0.05 );
+		Con_Reportf( "Xash3D GameCube: gcmap smoke frames ready\n" );
+	}
+#endif
+
 	if( Host_IsDedicated( ))
 	{
 		// in dedicated server input system can't set HOST_FRAME status

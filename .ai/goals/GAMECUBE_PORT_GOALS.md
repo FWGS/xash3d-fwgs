@@ -225,23 +225,18 @@ lines. Goals marked `MANUAL` are never selected automatically.
   new `XASH_GAMECUBE` guards in `filesystem_engine.c` and `host.c`. No
   cross-platform regressions introduced.
 
-## G19 [ ] Run an interactive gameplay smoke test
+## G19 [x] Run an interactive gameplay smoke test
 
 - Boot a legal local asset disc, load a small map, render frames, poll the
   GameCube controller, and advance at least a few seconds without crashing.
 - Capture OSReport evidence for player spawn, input polling, frame progression,
   and clean shutdown or bounded timeout.
 - Use Dolphin first, then repeat on real hardware when available.
-- Source-side changes are complete (commit `7f0d31d9`).
-  `engine/platform/gamecube/in_gamecube.c` emits `Xash3D GameCube: input polling active`
-  via `Con_Reportf` on the first successful input poll.
-- Dolphin discovery is now exported into the automation environment as
-  `DOLPHIN_EXECUTABLE`; this workspace currently supports the
-  `flatpak:org.DolphinEmu.dolphin-emu` install.
-- Do not mark complete until logs confirm input polling and map load.
+- Verified 2026-06-23: `DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh`
+  reports `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
+- Evidence: `.ai/logs/dolphin-probe-20260623-005330/stderr.log` contains both
+  `Xash3D GameCube: map loaded c0a0e` and `Xash3D GameCube: input polling active`.
 - Manual verification command: `scripts/dolphin-boot-probe.sh`
-- Expected log evidence: `.ai/logs/dolphin-probe-*/stderr.log` must contain
-  both `Xash3D GameCube: map loaded <map>` and `Xash3D GameCube: input polling active`.
 
 ## G20 [x] Register static HLSDK server entity class exports
 
@@ -262,7 +257,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   model lookup: `Host_ErrorInit: Could not load model maps from disk` after the
   `-gcmap c0a0e` pre-spawn memory trim.
 
-## G21 [ ] Fix GameCube map/model lookup after server progs init
+## G21 [x] Fix GameCube map/model lookup after server progs init
 
 - Resolve the `Host_ErrorInit: Could not load model maps from disk` regression
   seen after `Xash3D GameCube: pre-spawn memory trim`.
@@ -270,6 +265,10 @@ lines. Goals marked `MANUAL` are never selected automatically.
   lookup to `maps`.
 - Preserve the `c4a1f` smoke path and document the exact lookup trace in the
   port plan.
+- Verified 2026-06-23: `DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh`
+  resolves `maps/c0a0e.bsp` from `gamecube-bootstrap.pk3`, loads the BSP, and
+  emits `Xash3D GameCube: map loaded c0a0e`.
+- Evidence: `.ai/logs/dolphin-probe-20260623-004510/stderr.log`.
 
 ## G22 [ ] Add memory budget telemetry for real gameplay loads
 

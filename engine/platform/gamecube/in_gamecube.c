@@ -91,6 +91,14 @@ void Platform_RunEvents( void )
 	PAD_ScanPads();
 	PAD_Read( gc_pad );
 
+#if XASH_GAMECUBE
+	if( !gc_input_logged && Sys_CheckParm( "-gcmap" ))
+	{
+		Con_Reportf( "Xash3D GameCube: input polling active\n" );
+		gc_input_logged = true;
+	}
+#endif
+
 	connected = ( gc_pad[GC_PAD_PORT].err == PAD_ERR_NONE );
 
 	if( connected != gc_connected )

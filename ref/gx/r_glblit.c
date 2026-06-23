@@ -610,7 +610,12 @@ qboolean R_AllocScreen( void )
 	if( gpGlobals->height < 128 )
 		gpGlobals->height = 128;
 
-	R_InitCaches();
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+		R_GcmapEnsureSurfaceCache();
+	else
+#endif
+		R_InitCaches();
 
 	if( swblit.rotate )
 	{

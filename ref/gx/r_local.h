@@ -1035,6 +1035,8 @@ void R_DrawBrushModel( cl_entity_t *pent );
 // r_blitscreen.c
 //
 void R_InitCaches( void );
+qboolean R_TryInitGcmapSurfaceCache( void );
+qboolean R_GcmapEnsureSurfaceCache( void );
 void R_BlitScreen( void );
 qboolean R_InitBlit( qboolean gl );
 qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y );
