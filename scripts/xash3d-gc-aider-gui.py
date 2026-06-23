@@ -134,7 +134,7 @@ def vllm_qwable_command() -> str:
 		"--port", "8072",
 		"--served-model-name", served_name,
 		"--language-model-only",
-		"--max-model-len", os.environ.get("QWABLE_5_MAX_MODEL_LEN", "8192"),
+		"--max-model-len", os.environ.get("QWABLE_5_MAX_MODEL_LEN", "32768"),
 		"--max-num-seqs", os.environ.get("QWABLE_5_MAX_NUM_SEQS", "256"),
 		"--gpu-memory-utilization", os.environ.get("QWABLE_5_GPU_MEMORY_UTILIZATION", "0.85"),
 		"--reasoning-parser", "qwen3",
