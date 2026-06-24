@@ -140,6 +140,8 @@ To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` b
 3) Navigate to `build` and copy your compiled SDL2.framework there, then add your game dylibs to `build/ios/libs/(gamedir)/(dlls/cl_dlls)`(You can also run `scripts/ios/buildhlsdk.sh` instead to automatically create an ipa with hlsdk dylibs)
 4) Run `scripts/ios/createipa.sh` to create an installable ipa
 
+### GameCube
+
 ### Running tests
 
 Tests are enabled with `--enable-tests` passed to `./waf configure` and can be run with `./waf --alltests`.
