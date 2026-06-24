@@ -1249,6 +1249,12 @@ void GAME_EXPORT R_NewMap( void )
 
 	r_cnumsurfs = sw_maxsurfs.value;
 
+#if XASH_GAMECUBE
+	// G24a: low-memory smoke path caps surfaces
+	if( GC_GetVisualQuality() == 0 && r_cnumsurfs > NUMSTACKSURFACES )
+		r_cnumsurfs = NUMSTACKSURFACES;
+#endif
+
 	if( r_cnumsurfs <= MINSURFACES )
 		r_cnumsurfs = MINSURFACES;
 
