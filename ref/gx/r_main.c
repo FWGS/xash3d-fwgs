@@ -1239,6 +1239,10 @@ void GAME_EXPORT R_NewMap( void )
 {
 	model_t *world = WORLDMODEL;
 
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: R_NewMap quality=%d\n", GC_GetVisualQuality() );
+#endif
+
 	r_viewcluster = -1;
 
 	tr.draw_list->num_solid_entities = 0;
