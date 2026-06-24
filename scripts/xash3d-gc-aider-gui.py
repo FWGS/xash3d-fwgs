@@ -281,16 +281,22 @@ class PortWindow(QMainWindow):
 		chip_row.addStretch()
 		layout.addLayout(chip_row)
 
+		layout.addStretch()
+
+		self.configure_view_menu()
+
+		progress_panel = QWidget()
+		progress_layout = QVBoxLayout(progress_panel)
+		progress_layout.setContentsMargins(10, 8, 10, 8)
+		progress_layout.setSpacing(6)
 		self.status_label = QLabel("Idle")
-		layout.addWidget(self.status_label)
 		self.progress = QProgressBar()
 		self.progress.setRange(0, 1)
 		self.progress.setValue(0)
 		self.progress.setFormat("No automation running")
-		layout.addWidget(self.progress)
-		layout.addStretch()
-
-		self.configure_view_menu()
+		progress_layout.addWidget(self.status_label)
+		progress_layout.addWidget(self.progress)
+		self.add_panel("Progress", progress_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		workspace_panel = QWidget()
 		form = QFormLayout(workspace_panel)

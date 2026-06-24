@@ -262,7 +262,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 		if( j == 0 && tex->flags & TF_HAS_ALPHA && GC_GetVisualQuality() > 0 )
 			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
-		else
+		else if( j == 0 )
 			tex->alpha_pixels = NULL;
 
 		for( uint i = 0; i < height * width; i++ )
