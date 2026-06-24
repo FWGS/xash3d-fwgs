@@ -302,7 +302,7 @@ static inline int GC_IsLowMemoryMode( void )
 ** GC_GetVisualQuality
 ** Returns 0 for low-memory smoke path (XASH_LOW_MEMORY or quality cvar).
 ** Returns 1 for standard quality paths.
-** Returns 2 when sample_size permits higher fidelity (quality-2 path).
+** Returns 2 when sample_size and sample_bits permit higher fidelity.
 **
 ** This renderer-local helper supersedes any platform-level GC_GetVisualQuality.
 ** On non-GameCube targets a constant quality of 1 is assumed.
@@ -316,6 +316,8 @@ static inline int GC_GetVisualQuality( void )
 	/* Quality 0 can be forced at runtime via sample_size==0 (set by platform/video backend) */
 	if( tr.sample_size == 0 )
 		return 0;
+	/* Quality 2 requires both sample_size and sample_bits to be non-trivial,
+	   and framecount > 0 to guard against early calls before renderer state */
 	if( tr.sample_size > 1 && tr.sample_bits > 0 && tr.framecount > 0 )
 		return 2;
 	return 1;
