@@ -345,7 +345,14 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 		}
 
 		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
-			tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
+		{
+#if XASH_GAMECUBE
+			// quality 0 (low-memory smoke path): skip keeping original image
+			// to reduce texture-memory pressure
+			if( GC_GetVisualQuality() != 0 )
+#endif
+				tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
+		}
 
 		// we need to expand image into RGBA buffer
 		if( pic->type == PF_INDEXED_24 || pic->type == PF_INDEXED_32 )
