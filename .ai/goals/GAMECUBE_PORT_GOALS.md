@@ -319,12 +319,12 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - **Remaining:** `ref/gx` renderer source not available in this pass. Renderer
   quality checks (lightmaps, particles, studio draw, HUD sprite resolution)
   must be wired in a subsequent pass with `ref/gx/*.c` loaded.
-- Attempts 1-12 (2026-06-24) and Attempt 6 (2026-06-24) all confirmed the same
-  blocker: `ref/gx/*.c` files are unavailable in the Aider context. Cannot
-  complete renderer-side integration without source access. Attempt 4 (exit 128)
-  hit a GameCube build failure in verifier, likely from a stale prior edit;
-  subsequent passes reverted cleanly. No source edits made in this pass as
-  context remains unavailable.
+- Attempts 1-12 (2026-06-24), Attempt 6 (2026-06-24), and Attempt 7 (2026-06-24)
+  all confirmed the same blocker: `ref/gx/*.c` files are unavailable in the
+  Aider context. Cannot complete renderer-side integration without source
+  access. Attempt 4 (exit 128) hit a GameCube build failure in verifier, likely
+  from a stale prior edit; subsequent passes reverted cleanly. No source edits
+  made in these passes as context remains unavailable.
 - Client-side work is complete and verified.
 - **Exact files needed for next pass:** The goal runner must preload
   `engine/ref_gx/gl_ref.c` (or the main GX renderer entry point file) and
