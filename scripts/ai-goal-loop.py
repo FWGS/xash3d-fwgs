@@ -19,7 +19,7 @@ from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |x|X|MANUAL)\]\s+(.+)$")
+GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35", "G40"})
 PROBE_AUTO_COMPLETE = {
 	"G19": "MAP_READY:",
@@ -518,6 +518,25 @@ def git_dirty(root: Path) -> bool:
 		text=True, capture_output=True, check=False).stdout.strip())
 
 
+def dirty_commit_subject(goal_id: str | None = None) -> str:
+	if goal_id:
+		return f"chore: checkpoint automation state before {goal_id}"
+	return "chore: checkpoint dirty automation state"
+
+
+def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
+	if not git_dirty(root):
+		return 0
+	subject = dirty_commit_subject(goal_id)
+	print(f"goal-loop: dirty worktree detected; creating checkpoint commit: {subject}",
+		file=sys.stderr, flush=True)
+	add = run(["git", "add", "-A"], root)
+	if add.returncode != 0:
+		return add.returncode
+	commit = run(["git", "commit", "-m", subject], root)
+	return commit.returncode
+
+
 def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
 	candidates: list[str] = []
@@ -600,9 +619,8 @@ def main() -> int:
 		return 0
 	if args.max_passes < 1:
 		parser.error("--max-passes must be positive")
-	if subprocess.run(["git", "status", "--porcelain"], cwd=root,
-		capture_output=True, text=True).stdout.strip():
-		print("goal-loop: refusing to start with a dirty worktree", file=sys.stderr)
+	if commit_dirty_worktree(root) != 0:
+		print("goal-loop: failed to checkpoint the dirty worktree", file=sys.stderr)
 		return 2
 	if not os.environ.get("OPENAI_API_KEY"):
 		print("goal-loop: OPENAI_API_KEY must be supplied by the launch environment", file=sys.stderr)
@@ -623,6 +641,11 @@ def main() -> int:
 			print("All automatic GameCube port goals are complete or blocked.")
 			return 0
 		attempts[goal.goal_id] = attempts.get(goal.goal_id, 0) + 1
+		if commit_dirty_worktree(root, goal.goal_id) != 0:
+			write_state(state_file, state="failed", pass_index=pass_index,
+				goal=asdict(goal), attempt=attempts[goal.goal_id],
+				message="failed to checkpoint dirty worktree")
+			return 2
 		print(f"\n{'=' * 72}\nGOAL PASS {pass_index}/{args.max_passes}: "
 			f"{goal.goal_id} — {goal.title}\n{'=' * 72}", flush=True)
 		write_state(state_file, state="running", pass_index=pass_index,
@@ -660,6 +683,7 @@ def main() -> int:
 			pass_env = os.environ.copy()
 			pass_env["AI_COMMIT_SUBJECT"] = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
 				f"feat: advance GameCube port goal {goal.goal_id}")
+			pass_env["AI_DIRTY_COMMIT_SUBJECT"] = dirty_commit_subject(goal.goal_id)
 			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])
 			pass_env.setdefault("AIDER_AUTOMATION", "1")
 			if attempts[goal.goal_id] >= 3:

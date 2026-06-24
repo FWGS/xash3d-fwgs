@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |x|X|MANUAL)\]\s+(.+)$")
+GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 EVIDENCE_RE = re.compile(
 	r"(?i)(\.ai/logs/|Evidence:|Verified\s+\d{4}-\d{2}-\d{2}|"
 	r"DOLPHIN_TIMEOUT=|scripts/[\w./-]+|Result:)"

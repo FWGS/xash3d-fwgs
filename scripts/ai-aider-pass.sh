@@ -54,10 +54,11 @@ for context_file in "${CONTEXT_INPUTS[@]}"; do
 done
 
 if [[ -n "$(git status --porcelain)" ]]; then
-	echo "ai-aider-pass: refusing to run with a dirty worktree" >&2
+	DIRTY_COMMIT_SUBJECT="${AI_DIRTY_COMMIT_SUBJECT:-chore: checkpoint dirty automation state}"
+	echo "ai-aider-pass: dirty worktree detected; creating checkpoint commit: $DIRTY_COMMIT_SUBJECT" >&2
 	git status --short >&2
-	echo "Commit or stash these changes explicitly before an autonomous pass." >&2
-	exit 1
+	git add -A
+	git commit -m "$DIRTY_COMMIT_SUBJECT"
 fi
 
 mkdir -p .ai/logs

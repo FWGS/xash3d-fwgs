@@ -42,9 +42,10 @@ from PyQt6.QtWidgets import (
 )
 
 DEFAULT_REPO = Path(__file__).resolve().parents[1]
-GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |x|X|MANUAL)\]\s+(.+)$")
+GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 QWABLE_5_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
 QWABLE_5_SERVED_NAME = "qwen-local"
+HEADER_LOGO = DEFAULT_REPO / "assets/ui/nintendo-gamecube-logo.svg"
 
 GC_BG = "#171225"
 GC_PANEL = "#241a3f"
@@ -246,21 +247,17 @@ class PortWindow(QMainWindow):
 		layout.setContentsMargins(12, 10, 12, 10)
 
 		header = QHBoxLayout()
-		logo = QSvgWidget(str(DEFAULT_REPO / "fonts/GameCube.svg"))
-		logo.setFixedSize(46, 46)
+		logo = QSvgWidget(str(HEADER_LOGO))
+		logo.setFixedSize(64, 64)
 		header.addWidget(logo)
 		titles = QVBoxLayout()
 		title_row = QHBoxLayout()
 		title_row.setSpacing(6)
-		title_prefix = QLabel("Xash3D →")
+		title_prefix = QLabel("Xash3D")
 		title_prefix.setObjectName("Title")
-		gamecube_title = QLabel("GameCube")
-		gamecube_title.setObjectName("GameCubeTitle")
-		gamecube_title.setFont(QFont(gamecube_font_family, 17))
 		title_row.addWidget(title_prefix)
-		title_row.addWidget(gamecube_title)
 		title_row.addStretch()
-		subtitle = QLabel("NATIVE HL1 PORT CONTROL SURFACE")
+		subtitle = QLabel("NINTENDO GAMECUBE PORT CONTROL SURFACE")
 		subtitle.setObjectName("Subtitle")
 		titles.addLayout(title_row)
 		titles.addWidget(subtitle)
@@ -418,7 +415,7 @@ class PortWindow(QMainWindow):
 		self.clear_log_btn.clicked.connect(self.clear_log)
 		self.open_logs_btn = QPushButton("Open Logs Folder")
 		self.open_logs_btn.clicked.connect(self.open_logs_folder)
-		self.follow_log = QCheckBox("Follow output")
+		self.follow_log = QCheckBox("Auto-scroll log")
 		self.follow_log.setChecked(True)
 		for button in (self.copy_log_btn, self.save_log_btn, self.clear_log_btn,
 			self.open_logs_btn):
@@ -518,14 +515,19 @@ class PortWindow(QMainWindow):
 		writer.movePosition(QTextCursor.MoveOperation.End)
 		writer.insertText(text)
 
-		if self.follow_log.isChecked() and not had_selection:
+		if self.follow_log.isChecked():
+			follow = QTextCursor(self.log.document())
+			follow.movePosition(QTextCursor.MoveOperation.End)
+			self.log.setTextCursor(follow)
+			self.log.ensureCursorVisible()
 			scrollbar.setValue(scrollbar.maximum())
-		else:
+			return
+		if had_selection:
 			restored = self.log.textCursor()
 			restored.setPosition(anchor)
 			restored.setPosition(position, QTextCursor.MoveMode.KeepAnchor)
 			self.log.setTextCursor(restored)
-			scrollbar.setValue(scroll_position)
+		scrollbar.setValue(scroll_position)
 
 	def copy_log(self) -> None:
 		cursor = self.log.textCursor()
@@ -728,7 +730,7 @@ class PortWindow(QMainWindow):
 		blocked_count = sum(blocked(body) for _, state, _, body in goals if state != "MANUAL")
 		automatic = sum(state != "MANUAL" for _, state, _, _ in goals)
 		active = next((goal for goal in goals
-			if goal[1] == " " and not blocked(goal[3])), None)
+			if goal[1] in {" ", "~"} and not blocked(goal[3])), None)
 		for row, (goal_id, state, title, body) in enumerate(goals):
 			is_blocked = blocked(body)
 			label = "MANUAL" if state == "MANUAL" else "DONE" if state.lower() == "x" \
