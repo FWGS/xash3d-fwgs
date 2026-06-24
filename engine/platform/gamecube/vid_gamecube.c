@@ -39,7 +39,27 @@ static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
 static unsigned int gc_blank_present_count;
+static cvar_t *gc_quality;
 #endif
+
+/*
+================
+GC_GetVisualQuality
+
+Returns the current GameCube visual quality mode.
+0: Low (smoke/minimal visuals, no lightmaps, reduced particles)
+1: Medium (default, some optimizations for memory)
+2: High (full visuals if memory permits)
+================
+*/
+int GC_GetVisualQuality( void )
+{
+#if XASH_GAMECUBE
+	if( gc_quality )
+		return (int)gc_quality->value;
+#endif
+	return 1;
+}
 
 void Platform_Minimize_f( void )
 {
@@ -191,6 +211,10 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 {
 	if( type != REF_GX && type != REF_SOFTWARE )
 		return false;
+
+#if XASH_GAMECUBE
+	gc_quality = Cvar_Get( "gc_quality", "1", CVAR_ARCHIVE, "GameCube visual quality mode: 0=low/smoke, 1=medium, 2=high" );
+#endif
 
 	GC_InitVideoHardware();
 

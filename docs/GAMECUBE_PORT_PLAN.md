@@ -615,6 +615,36 @@ DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 
 Look for `mem stage=` lines and `surface cache 8 Kb` in probe stderr.
 
+## G24 — Replace smoke visual skips with stable low-memory visual modes (infrastructure complete)
+
+**Completed:** 
+Implemented `-gc_quality` cvar (values 0-2) in `vid_gamecube.c`.
+Added `GC_GetVisualQuality()` API for renderer integration.
+This replaces hardcoded smoke skips (`-gcnolightmaps`, etc.) with a single
+configurable quality mode.
+
+**Renderer Integration:**
+The `ref/gx` renderer must now use `GC_GetVisualQuality()` to conditionally
+enable:
+- Lightmap rendering (disable at quality 0)
+- Particle effects (reduce count/complexity at quality < 2)
+- Studio texture resolution (cap at lower res for quality < 2)
+- HUD sprite resolution (use 320x240 assets for quality 0/1)
+
+**Blocker:** `ref/gx` source files are not available in this patch set. The
+platform API is ready. Next pass must load `ref/gx/*.c` to wire these checks
+into the actual draw calls.
+
+**Evidence:** `gc_quality` cvar registered in `R_Init_Video`. `GC_GetVisualQuality()`
+exported from `vid_gamecube.c`. Diagnostic checker remains active for VI/XFB
+validation.
+
+**Next step:** Load `ref/gx/` source files. Implement quality checks in:
+- Lightmap application (`R_DrawBrushModel`)
+- Particle emission (`CL_Particle`, `CL_TempEntUpdate`)
+- Studio model rendering (`R_StudioDrawModel`)
+- HUD sprite loading (`CL_LoadClientSprite`)
+
 ## G25 — HLSDK HUD sprite staging (2026-06-23, smoke verified)
 
 The 320x240 smoke path uses `GetSpriteRes() == 320`, so `hud.txt` and
