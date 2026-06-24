@@ -3091,6 +3091,9 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 	studiohdr_t *phdr = (studiohdr_t *)data;
 
 #if XASH_GAMECUBE
+	/* Bounded low-memory mode: skip studio texture loading under -gcmap to preserve
+	 * MEM1 headroom for BSP parse peak. Full games should use -gclowmem with explicit
+	 * streaming or caps (see GAMECUBE_MEMORY_BUDGET.md). */
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
 		return;
 #endif
