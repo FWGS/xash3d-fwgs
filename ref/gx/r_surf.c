@@ -1220,7 +1220,10 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	// G24b: on quality-0 path, skip expensive world-luxels lightmap build
 	// but still allocate a surface cache and draw the texture unlit so the
 	// surface remains visible instead of disappearing (stable fallback mode).
-	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
+	// Only apply to static surfaces; dynamic/animated surfaces fall through
+	// to the normal path or are skipped earlier by cache invalidation.
+	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
+	    surface->dlightframe != tr.framecount )
 	{
 		// proceed to allocate cache below; R_DrawSurface will skip the
 		// world-luxels lightmap path and return early, leaving a clean
@@ -1272,7 +1275,9 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	// with the base texture so the surface is visible even when unlit.
 	// Bound the copy to valid source image dimensions to avoid overruns on
 	// edge-case or unloaded textures (stable fallback mode).
-	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
+	// Only apply to static surfaces; dynamic lights handled by normal path.
+	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
+	    surface->dlightframe != tr.framecount )
 	{
 		pixel_t *src = r_drawsurf.image ? r_drawsurf.image->pixels[miplevel] : NULL;
 		pixel_t *dst = r_drawsurf.surfdat;
