@@ -18,15 +18,6 @@ GNU General Public License for more details.
 #include "library.h"
 #if XASH_GAMECUBE
 #include "mem_gamecube.h"
-static qboolean R_IsVisualQualityLow( void )
-{
-	return GC_GetVisualQuality() == 0;
-}
-#else
-static qboolean R_IsVisualQualityLow( void )
-{
-	return false;
-}
 #endif
 // #include "beamdef.h"
 #include "entity_types.h"
