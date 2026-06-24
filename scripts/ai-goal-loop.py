@@ -795,6 +795,18 @@ def git_dirty(root: Path) -> bool:
 		text=True, capture_output=True, check=False).stdout.strip())
 
 
+def clean_commit_advances_goal(root: Path, before: str, after: str, expected_subject: str) -> bool:
+	if not before or not after or before == after or git_dirty(root):
+		return False
+	subject = subprocess.run(["git", "log", "-1", "--format=%s", after], cwd=root,
+		text=True, capture_output=True, check=False).stdout.strip()
+	if subject != expected_subject:
+		return False
+	changed = subprocess.run(["git", "diff", "--name-only", f"{before}..{after}"],
+		cwd=root, text=True, capture_output=True, check=False).stdout.splitlines()
+	return "docs/GAMECUBE_PORT_PLAN.md" in changed
+
+
 def dirty_commit_subject(goal_id: str | None = None) -> str:
 	if goal_id:
 		return f"chore: checkpoint automation state before {goal_id}"
@@ -968,8 +980,9 @@ def main() -> int:
 			context_files = context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			read_context_files = read_context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			pass_env = os.environ.copy()
-			pass_env["AI_COMMIT_SUBJECT"] = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
+			expected_subject = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
 				f"feat: advance GameCube port goal {goal.goal_id}")
+			pass_env["AI_COMMIT_SUBJECT"] = expected_subject
 			pass_env["AI_DIRTY_COMMIT_SUBJECT"] = dirty_commit_subject(goal.goal_id)
 			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])
 			pass_env.setdefault("AIDER_AUTOMATION", "1")
@@ -993,7 +1006,7 @@ def main() -> int:
 				output=log_tail, log_path=log_path)
 			save_loop_memory(root, memory)
 			head_after = git_head(root)
-			if head_after and head_after != head_before and not git_dirty(root):
+			if clean_commit_advances_goal(root, head_before, head_after, expected_subject):
 				write_state(state_file, state="resuming-after-commit", pass_index=pass_index,
 					goal=asdict(goal), attempt=attempts[goal.goal_id],
 					exit_code=result.returncode,
@@ -1006,6 +1019,13 @@ def main() -> int:
 						goal=asdict(goal), exit_code=review.returncode)
 					return review.returncode
 				continue
+			if head_after and head_after != head_before:
+				write_state(state_file, state="recovering-after-unrelated-commit",
+					pass_index=pass_index, goal=asdict(goal),
+					attempt=attempts[goal.goal_id], exit_code=result.returncode,
+					message="HEAD moved, but not with the expected goal commit; treating child failure as recoverable when possible")
+				print("HEAD moved without an accepted goal commit; continuing recovery logic.",
+					file=sys.stderr)
 			if result.returncode in RECOVERABLE_EXIT_CODES and \
 					attempts[goal.goal_id] <= args.recoverable_retries:
 				reason = RECOVERABLE_EXIT_CODES[result.returncode]
