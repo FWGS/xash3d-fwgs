@@ -1174,7 +1174,10 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	studiohdr_t	*phdr;
 	qboolean textures_loaded = false;
 #if XASH_GAMECUBE
-	qboolean skip_studio_textures = Sys_CheckParm( "-gcmap" );
+	{
+		extern int GC_GetVisualQuality( void );
+		qboolean skip_studio_textures = (GC_GetVisualQuality( ) == 0);
+	}
 #else
 	qboolean skip_studio_textures = false;
 #endif

@@ -299,7 +299,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   65536 (`GC_SURFACE_CACHE_*` in `ref/gx/r_local.h`); removed smoke argv
   `-sw_surfcacheoverride 131072`.
 
-## G24 [~] Replace smoke visual skips with stable low-memory visual modes
+## G24 [~] Replace smoke visual skips with stable low-memory visual modes (partial)
 
 - User-visible blocker, 2026-06-23: Dolphin can report engine/map progress
   while the actual display remains black. Treat prior `MAP_READY` results as
@@ -312,9 +312,13 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Next step: Operator/Dolphin probe must confirm visibility of this marker.
   If visible, the VI/XFB path is working and the blocker is renderer content
   (world/HUD not drawing). If not visible, debug VIDEO/XFB/Dolphin output.
-- Turn `-gcnolightmaps`, studio texture skips, particle palette fallbacks, and
-  related visual shortcuts into explicit GameCube quality modes or remove them
-  when memory permits.
+- Client-side smoke skips converted to `GC_GetVisualQuality()` checks:
+  `cl_scrn.c` (texture registration, vidinit deferral, gameui/HUD init) and
+  `mod_studio.c` (studio texture loading). Quality 0 preserves minimal smoke
+  path; higher qualities initialize full client subsystems.
+- **Remaining:** `ref/gx` renderer source not available in this pass. Renderer
+  quality checks (lightmaps, particles, studio draw, HUD sprite resolution)
+  must be wired in a subsequent pass with `ref/gx/*.c` loaded.
 - Keep map loading stable while rendering world geometry, entities, sprites,
   basic particles, and the HUD.
 - Record screenshots or OSReport frame evidence for each enabled visual class.
@@ -481,3 +485,118 @@ lines. Goals marked `MANUAL` are never selected automatically.
   package expectations, legal disclaimer, and hardware evidence matrix.
 - Mark the port finished only when the documentation matches the verified state
   of the engine, game code, assets, audio, input, storage, and hardware tests.
+
+## G43 [ ] Add boot media and loader failure compliance tests
+
+- Verify `boot.dol`, ISO/GCM, and loader-specific launch paths fail visibly
+  when required staged files are missing, corrupt, or case-mismatched.
+- Record Dolphin, Swiss, and hardware loader evidence separately, including
+  the artifact hash and exact build command for each route.
+- Ensure missing or unsupported boot media never leaves a silent black screen
+  without OSReport or on-screen diagnostic breadcrumbs.
+
+## G44 [ ] Validate video modes, safe area, and CRT readability
+
+- Support valid NTSC and PAL display modes and make 480p user-selectable or
+  safely disabled when unavailable.
+- Keep title, menu, HUD, console, save/error text, and critical prompts inside
+  an 8-10% 4:3 safe area.
+- Capture screenshots or analog/CRT evidence proving text readability and
+  nonblank output for the selected video modes.
+
+## G45 [ ] Harden controller presence and disconnect behavior
+
+- Detect no-controller-at-boot, Port 1 reconnect, mid-game disconnect, and
+  controller type changes without hanging gameplay or menus.
+- Apply documented stick and trigger deadzones, expose GameCube button names,
+  and keep A confirm, B cancel/back, and Start pause consistent.
+- Record tests for official controller, WaveBird, third-party controller when
+  available, no-controller, and reconnect during gameplay.
+
+## G46 [ ] Implement save integrity and destructive-action policy
+
+- Add save metadata with magic, version, payload size, checksum/CRC32, map,
+  build hash, and storage route before enabling release saves.
+- Use atomic temp/backup-style writes and verify interruption, full card,
+  removed card, corrupt file, wrong slot, and incompatible version handling.
+- Require explicit confirmation before creating, overwriting, deleting,
+  repairing, formatting, or migrating save data.
+
+## G47 [ ] Audit filesystem portability and read-only media behavior
+
+- Enforce exact-case relative asset paths and detect missing or oversized
+  staged assets before building release artifacts.
+- Remove required writes beside the executable and prove disc-only boots keep
+  config, save, log, screenshot, and ID writes on a writable route or disabled.
+- Show readable missing-asset errors for map, model, sprite, sound, WAD, and
+  config failures without depending on host-machine paths.
+
+## G48 [ ] Validate audio failure, latency, and clipping behavior
+
+- Treat audio initialization failure as nonfatal and preserve the silent
+  fallback for boot, map load, save, and shutdown tests.
+- Prove sound effects, ambient loops, and any streaming route tolerate disc or
+  SD latency without starving gameplay or causing severe clipping.
+- Capture mixed-sample telemetry or audible hardware/operator evidence for at
+  least one weapon sound, ambient sound, menu/error sound, and shutdown path.
+
+## G49 [ ] Prove frame timing, loading feedback, and timing independence
+
+- Define release target frame rate and frame-time budget for representative
+  gameplay, menu, loading, and worst-case visual scenes.
+- Decouple gameplay timing from variable frame rate and prove movement,
+  triggers, physics, audio, and scripted sequences remain stable under slow
+  frames.
+- Show loading feedback after about two seconds and record worst-case scene
+  evidence with FPS, frame time, map, player position, and active entities.
+
+## G50 [ ] Build release-grade fatal error and crash breadcrumb UX
+
+- Present readable fatal errors for engine, filesystem, allocation, renderer,
+  audio, game-code, storage, and missing-asset failures.
+- Keep debug breadcrumbs bounded and useful through OSReport and on-screen
+  diagnostics, including build hash, map, loader path, memory, and subsystem.
+- Verify fatal conditions end in a bounded halt, return path, or restart prompt
+  rather than an unbounded hang or silent black screen.
+
+## G51 [ ] Complete console-style UX and accessibility checks
+
+- Provide title, options, controls, pause, save/load, error, and credits screens
+  as the port matures, with controller-only navigation.
+- Avoid rapid full-screen flashing, keep critical audio cues paired with visual
+  equivalents where practical, and provide alternate control presets when
+  feasible.
+- Confirm destructive choices with clear language and make menu text readable
+  on analog capture at the selected resolution.
+
+## G52 [ ] Produce a release package manifest and legal audit
+
+- Generate a release manifest containing version, build hash, artifact hashes,
+  README, license, credits, third-party notices, changelog, controls, and
+  troubleshooting notes.
+- Verify no proprietary platform files, firmware dumps, generated local game
+  assets, or copyrighted game content are included in source or release
+  archives.
+- Document the unofficial-homebrew disclaimer and required local asset staging
+  steps in the release package.
+
+## G53 [ ] Maintain a hardware and loader evidence matrix
+
+- Track Dolphin, Swiss SD2SP2/SD Gecko, real console, Wii GameCube mode,
+  memory card Slot A/B, official controller, WaveBird, third-party controller,
+  no-controller, and mid-game disconnect results.
+- Record artifact commit, loader, storage route, video mode, controller,
+  boot result, map result, audio result, save result, and next blocker for each
+  matrix entry.
+- Keep hardware-only evidence references outside Git when captures contain
+  proprietary local assets.
+
+## G54 [ ] Add a compliance evidence overlay or test route
+
+- Provide a debug overlay or scripted equivalent that reports FPS, frame time,
+  MEM1/ARAM, current map, player position, active entities, loader path, build
+  hash, storage route, and crash breadcrumbs.
+- Maintain a compliance test map or route covering controller, text, save,
+  audio, texture, alpha, lighting, particle, loading, camera, and error cases.
+- Require verifier output, Dolphin logs, package artifacts, or operator-recorded
+  hardware evidence before marking release or hardware compliance complete.

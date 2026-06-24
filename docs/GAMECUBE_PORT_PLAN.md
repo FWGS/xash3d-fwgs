@@ -615,29 +615,42 @@ DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 
 Look for `mem stage=` lines and `surface cache 8 Kb` in probe stderr.
 
-## G24 — Replace smoke visual skips with stable low-memory visual modes (infrastructure complete)
+## G24 — Replace smoke visual skips with stable low-memory visual modes (partial, client-side complete)
 
-**Completed:** 
-Implemented `-gc_quality` cvar (values 0-2) in `vid_gamecube.c`.
+**Completed:**
+Implemented `gc_quality` cvar (values 0-2) in `vid_gamecube.c`.
 Added `GC_GetVisualQuality()` API for renderer integration.
-This replaces hardcoded smoke skips (`-gcnolightmaps`, etc.) with a single
-configurable quality mode.
+Converted client-side smoke skips to quality-aware checks:
+
+- `engine/client/cl_scrn.c`: `SCR_RegisterTextures`, `SCR_VidInit`, `SCR_Init`
+  now consult `GC_GetVisualQuality()` instead of `-gcmap` flag. Quality 0
+  preserves the old minimal smoke path (no textures, deferred vidinit,
+  console-only mode). Higher qualities initialize full HUD/gameui.
+- `engine/common/mod_studio.c`: `Mod_LoadStudioModel` uses quality mode to
+  decide whether to skip studio texture loading. Quality 0 loads stub models
+  only; higher qualities attempt full studio texture registration.
 
 **Renderer Integration:**
-The `ref/gx` renderer must now use `GC_GetVisualQuality()` to conditionally
-enable:
+The `ref/gx` renderer must use `GC_GetVisualQuality()` to conditionally enable:
 - Lightmap rendering (disable at quality 0)
 - Particle effects (reduce count/complexity at quality < 2)
 - Studio texture resolution (cap at lower res for quality < 2)
 - HUD sprite resolution (use 320x240 assets for quality 0/1)
 
-**Blocker:** `ref/gx` source files are not available in this patch set. The
-platform API is ready. Next pass must load `ref/gx/*.c` to wire these checks
-into the actual draw calls.
+**Blocker:** `ref/gx` source files are not loaded in this pass. Platform API
+and client-side conversion are complete. Next pass must load `ref/gx/*.c` to
+wire quality checks into actual draw calls.
 
-**Evidence:** `gc_quality` cvar registered in `R_Init_Video`. `GC_GetVisualQuality()`
-exported from `vid_gamecube.c`. Diagnostic checker remains active for VI/XFB
-validation.
+**Evidence:**
+- `gc_quality` cvar registered in `R_Init_Video`
+- `GC_GetVisualQuality()` exported from `vid_gamecube.c`
+- Diagnostic checker in top-left 32x32 remains active for VI/XFB validation
+- Client-side files converted from `-gcmap` boolean to quality mode checks
+
+**Build command:**
+```sh
+scripts/build-gamecube.sh
+```
 
 **Next step:** Load `ref/gx/` source files. Implement quality checks in:
 - Lightmap application (`R_DrawBrushModel`)

@@ -815,8 +815,11 @@ void SCR_RegisterTextures( void )
 	uint flags = TF_IMAGE|TF_ALLOW_NEAREST;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
-		return;
+	{
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 )
+			return;
+	}
 #endif
 
 	if( cl_allow_levelshots.value )
@@ -880,10 +883,13 @@ void SCR_VidInit( void )
 		return;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && !scr_init )
 	{
-		Con_Reportf( "Xash3D GameCube: screen vidinit deferred\n" );
-		return;
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 && !scr_init )
+		{
+			Con_Reportf( "Xash3D GameCube: screen vidinit deferred\n" );
+			return;
+		}
 	}
 #endif
 
@@ -910,16 +916,23 @@ void SCR_VidInit( void )
 	if( gameui.hInstance ) gameui.dllFuncs.pfnVidInit();
 	if( clgame.hInstance ) clgame.dllFuncs.pfnVidInit();
 #if XASH_GAMECUBE
-	if( clgame.hInstance && !Sys_CheckParm( "-nohud" ))
-		Con_Reportf( "Xash3D GameCube: client HUD vid init complete\n" );
+	if( clgame.hInstance )
+	{
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) != 0 )
+			Con_Reportf( "Xash3D GameCube: client HUD vid init complete\n" );
+	}
 #endif
 
 	// restart console size (required for Con_DrawConsole / notify text on gcmap)
 	Con_VidInit ();
 	Touch_NotifyResize();
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
-		Con_Reportf( "Xash3D GameCube: screen vidinit ready\n" );
+	{
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 )
+			Con_Reportf( "Xash3D GameCube: screen vidinit ready\n" );
+	}
 #endif
 }
 
@@ -957,12 +970,14 @@ void SCR_Init( void )
 	Cmd_AddCommand( "sizedown", SCR_SizeDown_f, "screen size down to 10 points" );
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
 	{
-		Con_Reportf( "Xash3D GameCube: screen gameui skipped\n" );
-		host.allow_console = true;
-	}
-	else
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 )
+		{
+			Con_Reportf( "Xash3D GameCube: screen gameui skipped\n" );
+			host.allow_console = true;
+		}
+		else
 #endif
 	if( !UI_LoadProgs( ))
 	{
@@ -972,7 +987,7 @@ void SCR_Init( void )
 
 	SCR_VidInit();
 #if XASH_GAMECUBE
-	if( !Sys_CheckParm( "-gcmap" ))
+	if( GC_GetVisualQuality( ) != 0 )
 #endif
 	SCR_LoadCreditsFont ();
 	SCR_RegisterTextures ();
@@ -986,8 +1001,11 @@ void SCR_Init( void )
 
 	scr_init = true;
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
-		SCR_VidInit();
+	{
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 )
+			SCR_VidInit();
+	}
 #endif
 }
 
