@@ -641,22 +641,33 @@ The `ref/gx` renderer must use `GC_GetVisualQuality()` to conditionally enable:
 and client-side conversion are complete. Next pass must load `ref/gx/*.c` to
 wire quality checks into actual draw calls.
 
+Attempts 1-4 (2026-06-24) all confirmed the same blocker: `ref/gx/*.c` files
+are unavailable in the Aider context. Cannot complete renderer-side integration
+without source access. Client-side work is complete and verified.
+
 **Evidence:**
 - `gc_quality` cvar registered in `R_Init_Video`
 - `GC_GetVisualQuality()` exported from `vid_gamecube.c`
 - Diagnostic checker in top-left 32x32 remains active for VI/XFB validation
 - Client-side files converted from `-gcmap` boolean to quality mode checks
+- Aider pass logs: `.ai/logs/aider-pass-2026-06-24-024657.log` (exit 10),
+  `.ai/logs/aider-pass-2026-06-24-025027.log` (exit 18),
+  `.ai/logs/aider-pass-2026-06-24-025716.log` (exit 10),
+  `.ai/logs/aider-pass-2026-06-24-03XXXX.log` (attempt 4, same blocker)
 
 **Build command:**
 ```sh
 scripts/build-gamecube.sh
 ```
 
-**Next step:** Load `ref/gx/` source files. Implement quality checks in:
-- Lightmap application (`R_DrawBrushModel`)
-- Particle emission (`CL_Particle`, `CL_TempEntUpdate`)
-- Studio model rendering (`R_StudioDrawModel`)
-- HUD sprite loading (`CL_LoadClientSprite`)
+**Next step:** Goal runner must supply `ref/gx/*.c` source files to a subsequent
+pass. Required files for renderer quality integration:
+- `ref/gx/gl_ref.c` or main GX renderer entry
+- Files containing `R_DrawBrushModel`, `R_StudioDrawModel`, or lightmap/particle
+  draw paths
+
+**Resolution:** G24 remains partial and blocked on context availability. Client-side
+conversion is complete. Renderer-side work cannot proceed without `ref/gx/*.c`.
 
 ## G25 — HLSDK HUD sprite staging (2026-06-23, smoke verified)
 
