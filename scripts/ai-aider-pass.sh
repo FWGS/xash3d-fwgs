@@ -146,6 +146,11 @@ load_token_budget() {
 	if ! command -v python3 >/dev/null 2>&1 || [[ ! -f scripts/aider-token-budget.py ]]; then
 		return 0
 	fi
+	local override_output_initial="${AIDER_OUTPUT_TOKENS_INITIAL:-}"
+	local override_output_retry_1="${AIDER_OUTPUT_TOKENS_RETRY_1:-}"
+	local override_output_retry_2="${AIDER_OUTPUT_TOKENS_RETRY_2:-}"
+	local override_output_retry_3="${AIDER_OUTPUT_TOKENS_RETRY_3:-}"
+	local override_history="${AIDER_MAX_CHAT_HISTORY_TOKENS:-}"
 	local budget_file
 	budget_file="$(mktemp .ai/logs/aider-budget-XXXXXX.env)"
 	TEMP_MODEL_SETTINGS+=("$budget_file")
@@ -155,6 +160,11 @@ load_token_budget() {
 		# shellcheck disable=SC1090
 		source "$budget_file"
 		set +a
+		[[ -n "$override_output_initial" ]] && AIDER_OUTPUT_TOKENS_INITIAL="$override_output_initial"
+		[[ -n "$override_output_retry_1" ]] && AIDER_OUTPUT_TOKENS_RETRY_1="$override_output_retry_1"
+		[[ -n "$override_output_retry_2" ]] && AIDER_OUTPUT_TOKENS_RETRY_2="$override_output_retry_2"
+		[[ -n "$override_output_retry_3" ]] && AIDER_OUTPUT_TOKENS_RETRY_3="$override_output_retry_3"
+		[[ -n "$override_history" ]] && AIDER_MAX_CHAT_HISTORY_TOKENS="$override_history"
 		AIDER_OUTPUT_TOKEN_BUDGETS=(
 			"${AIDER_OUTPUT_TOKENS_INITIAL:-4096}"
 			"${AIDER_OUTPUT_TOKENS_RETRY_1:-2048}"

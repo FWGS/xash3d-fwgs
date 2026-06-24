@@ -322,8 +322,9 @@ lines. Goals marked `MANUAL` are never selected automatically.
   did not preload them and the pass runner dropped large renderer files during
   context-size pruning. G24 now supplies required editable renderer context for
   staged renderer slices instead of loading every large `ref/gx` file in one
-  pass. Slices cover brush/lightmap, particle/sprite, studio, and shared
-  renderer helper paths while keeping each prompt under the local context cap.
+  pass. Current automated slices load one large renderer file at a time for
+  brush/lightmap, particle/sprite, image, and shared helper paths. The very
+  large studio renderer file needs a later targeted/excerpt strategy.
 - Client-side work is complete and verified.
 - **Exact files loaded for next pass:** `ref/gx/r_main.c` (`R_DrawBrushModel`),
   `ref/gx/r_surf.c` (lightmap paths), `ref/gx/r_studio.c`

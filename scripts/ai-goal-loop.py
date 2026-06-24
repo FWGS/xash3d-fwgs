@@ -183,15 +183,12 @@ GOAL_REQUIRED_CONTEXT = {
 }
 GOAL_CONTEXT_SLICES = {
 	"G24": (
-		("docs/GAMECUBE_PORT_PLAN.md", "engine/platform/gamecube/vid_gamecube.c",
-			"ref/gx/r_main.c", "ref/gx/r_surf.c"),
-		("docs/GAMECUBE_PORT_PLAN.md", "engine/platform/gamecube/vid_gamecube.c",
-			"engine/client/cl_sprite.c", "ref/gx/r_part.c",
-			"ref/gx/r_sprite.c"),
-		("docs/GAMECUBE_PORT_PLAN.md", "engine/platform/gamecube/vid_gamecube.c",
-			"ref/gx/r_studio.c"),
-		("docs/GAMECUBE_PORT_PLAN.md", "engine/platform/gamecube/vid_gamecube.c",
-			"ref/gx/r_image.c", "ref/gx/r_local.h"),
+		("ref/gx/r_main.c",),
+		("ref/gx/r_surf.c",),
+		("engine/platform/gamecube/vid_gamecube.c", "engine/client/cl_sprite.c",
+			"ref/gx/r_part.c", "ref/gx/r_sprite.c"),
+		("ref/gx/r_image.c",),
+		("ref/gx/r_local.h",),
 	),
 }
 GOAL_READ_CONTEXT = {
@@ -759,6 +756,17 @@ docs-only status updates when the probe still fails.
 			f"`scripts/dolphin-boot-probe.sh` before each pass; do not claim completion "
 			f"without a successful probe result in the ledger.\n"
 		)
+	goal_body = goal.body
+	if goal.goal_id == "G24":
+		goal_body = """Wire the current preloaded renderer slice into `GC_GetVisualQuality()`.
+Quality 0 should preserve the low-memory smoke path. Quality 1/2 may enable
+more visuals without regressing map load stability. Keep the patch surgical and
+do not request unloaded files."""
+		investigation_memory = (
+			"Prior G24 failures were automation context-size failures, not source "
+			"absence. Use only the current preloaded slice and avoid repeating old "
+			"file lists."
+		)
 	return f"""You are autonomously advancing the native Xash3D GameCube port.
 
 Active goal: {goal.goal_id} — {goal.title}
@@ -766,7 +774,7 @@ Attempt on this goal: {attempt}
 
 {retry_instruction}{probe_section}
 Acceptance criteria:
-{goal.body}
+{goal_body}
 
 Repository context:
 {git_context(root)}
@@ -787,7 +795,8 @@ same SEARCH/REPLACE block.
 
 Rules:
 - Keep the commit below 400 changed lines and do not delete tracked files.
-- Update `docs/GAMECUBE_PORT_PLAN.md` with commands and concrete evidence.
+- Update `docs/GAMECUBE_PORT_PLAN.md` with commands and concrete evidence when
+  it is loaded in the editable context.
 - If marking `{goal.goal_id}` done, include a command, result, and log path or
   runtime artifact in the goal notes and port plan; docs-only reasoning is not
   enough for completion.
