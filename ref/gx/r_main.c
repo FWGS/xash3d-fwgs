@@ -77,10 +77,6 @@ CVAR_DEFINE_AUTO( r_traceglow, "0", FCVAR_GLCONFIG, "cull flares behind models" 
 CVAR_DEFINE_AUTO( sw_texfilt, "0", FCVAR_GLCONFIG, "texture dither" );
 static CVAR_DEFINE_AUTO( r_novis, "0", 0, "" );
 
-
-
-int r_viewcluster, r_oldviewcluster;
-
 float        d_sdivzstepu, d_tdivzstepu, d_zistepu;
 float        d_sdivzstepv, d_tdivzstepv, d_zistepv;
 float        d_sdivzorigin, d_tdivzorigin, d_ziorigin;
