@@ -612,3 +612,115 @@ lines. Goals marked `MANUAL` are never selected automatically.
   audio, texture, alpha, lighting, particle, loading, camera, and error cases.
 - Require verifier output, Dolphin logs, package artifacts, or operator-recorded
   hardware evidence before marking release or hardware compliance complete.
+
+## G55 [ ] Add release artifact reproducibility checks
+
+- Generate a machine-readable manifest for `OUT/bin/boot.dol`, `OUT/bin/xash`,
+  static archives, staged extras, and any generated ISO/GCM image.
+- Record size, hash, build commit, toolchain path/version, HLSDK archive hashes,
+  and selected GameCube quality/profile settings.
+- Fail the release check if generated proprietary game assets or local
+  Half-Life content paths are accidentally included in Git or source archives.
+
+## G56 [ ] Build a hardware boot preparation checklist
+
+- Produce a concise operator checklist for real GameCube/Wii GC-mode testing:
+  loader route, SD/Memory Card layout, video cable/mode, controller, artifact
+  hash, and expected first-screen evidence.
+- Add a script or doc command that prints the exact files to place on SD Gecko,
+  SD2SP2, memory card-compatible storage, or disc image routes.
+- Include a failure triage table for black screen, no input, no audio, missing
+  assets, read-only storage, and memory exhaustion.
+
+## G57 [ ] Gate runtime memory thresholds
+
+- Convert MEM1 high-water telemetry into explicit pass/fail thresholds for
+  boot, menu/client init, BSP load, first rendered frame, and map transition.
+- Keep the smoke map and early campaign map under documented memory ceilings
+  with at least 1-2 MiB emergency headroom before declaring the route playable.
+- Record ARAM usage separately for audio/streaming candidates and never hide
+  MEM1 pressure by assuming ARAM behaves like normal malloc.
+
+## G58 [ ] Prove writable media save and config round trips
+
+- Test first boot, config write, manual save, quit, relaunch, config read, and
+  save restore on the selected writable route.
+- Simulate or document removed media, full media, corrupt config/save, wrong
+  slot/path, and read-only media behavior with readable errors.
+- Keep destructive repair, overwrite, delete, or migration paths behind explicit
+  controller-confirmed prompts.
+
+## G59 [ ] Finalize GameCube controller profiles
+
+- Add or document controller profiles for default play, southpaw/alternate look,
+  developer console testing, and menu-only fallback.
+- Provide deadzone and sensitivity defaults that work on official controllers,
+  WaveBird, and common third-party pads without drift or oversteer.
+- Verify reconnect, no-controller-at-boot, and controller-type changes preserve
+  menu navigation and do not leave stuck movement or fire inputs.
+
+## G60 [ ] Add user-visible loading and long-operation feedback
+
+- Show visible feedback when map load, save/load, filesystem scan, or disc/SD
+  staging work takes longer than about two seconds.
+- Keep the feedback inside the 4:3 safe area and readable on composite/CRT
+  capture.
+- Ensure the loading path keeps polling video/input often enough to avoid the
+  appearance of a hard hang on real hardware.
+
+## G61 [ ] Define final GameCube quality profiles
+
+- Consolidate `gc_quality`, low-memory flags, texture/lightmap choices, HUD
+  modes, audio fallback, and debug overlay settings into documented profiles.
+- Make the default profile suitable for real hardware, with an explicit smoke
+  profile for diagnosis and a higher-quality profile only when memory telemetry
+  proves safe.
+- Record which profile is used by every Dolphin and hardware evidence entry.
+
+## G62 [ ] Validate combat and entity interaction route
+
+- Demonstrate at least one route with player movement, weapon pickup, weapon
+  fire, reload/ammo, enemy spawn, enemy AI think, enemy damage, player damage,
+  death/restart, and item pickup.
+- Capture logs or overlay evidence for entity counts, frame timing, memory, and
+  any disabled visual/audio fallback active during the route.
+- Treat crashes, missing sounds/models/sprites, invisible enemies, or broken
+  damage as blockers for calling the port playable.
+
+## G63 [ ] Validate scripted sequence and trigger route
+
+- Demonstrate doors, buttons, trigger_once/trigger_multiple, multi_manager,
+  scripted_sequence, train/platform movement, and changelevel trigger behavior.
+- Preserve server/client state and avoid memory leaks across at least one real
+  scripted scene and one map transition.
+- Record the exact maps, player position/route, logs, and remaining scripted
+  sequence limitations.
+
+## G64 [ ] Add release-candidate smoke suite
+
+- Provide one command that runs build, artifact manifest, content staging audit,
+  Dolphin smoke map, early route probe, verifier, and compliance checks in the
+  intended release order.
+- Make the suite classify failures as source/build, content staging, runtime,
+  hardware-only, or manual evidence missing.
+- Require the suite to leave logs and manifests in a predictable directory for
+  review and release notes.
+
+## G65 [ ] Freeze release candidate documentation and known limitations
+
+- Generate or update README/release notes with controls, supported loaders,
+  supported storage routes, video modes, audio status, save status, quality
+  profiles, known map blockers, and troubleshooting.
+- Include exact build command, artifact hashes, tested commit, and legal local
+  asset staging instructions.
+- Keep known limitations explicit rather than implying full Half-Life
+  completion when only a subset of campaign evidence exists.
+
+## G66 [MANUAL] Sign off a real hardware release candidate
+
+- Boot the release-candidate artifact on a real GameCube or Wii GameCube mode
+  using the documented loader route.
+- Record video, audio, controls, save/config, map load, early gameplay route,
+  frame pacing, and shutdown/restart behavior against the release manifest.
+- Do not call the port final until hardware evidence confirms the same commit
+  and artifact hash produced by the automated release-candidate suite.
