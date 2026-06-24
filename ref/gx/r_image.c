@@ -811,7 +811,16 @@ int R_TexMemory( void )
 	int total = 0;
 
 	for( int i = 0; i < r_numImages; i++ )
+	{
 		total += r_images[i].size;
+		// account for alpha pixel buffers in memory total
+		if( r_images[i].alpha_pixels )
+		{
+			int w = r_images[i].width;
+			int h = r_images[i].height;
+			total += w * h * sizeof( pixel_t );
+		}
+	}
 
 	return total;
 }
