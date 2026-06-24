@@ -181,6 +181,19 @@ GOAL_REQUIRED_CONTEXT = {
 		"ref/gx/r_studio.c", "ref/gx/r_part.c", "ref/gx/r_sprite.c",
 		"ref/gx/r_image.c", "ref/gx/r_local.h"),
 }
+GOAL_CONTEXT_SLICES = {
+	"G24": (
+		("docs/GAMECUBE_PORT_PLAN.md", "engine/platform/gamecube/vid_gamecube.c",
+			"ref/gx/r_main.c", "ref/gx/r_surf.c"),
+		("docs/GAMECUBE_PORT_PLAN.md", "engine/platform/gamecube/vid_gamecube.c",
+			"engine/client/cl_sprite.c", "ref/gx/r_part.c",
+			"ref/gx/r_sprite.c"),
+		("docs/GAMECUBE_PORT_PLAN.md", "engine/platform/gamecube/vid_gamecube.c",
+			"ref/gx/r_studio.c"),
+		("docs/GAMECUBE_PORT_PLAN.md", "engine/platform/gamecube/vid_gamecube.c",
+			"ref/gx/r_image.c", "ref/gx/r_local.h"),
+	),
+}
 GOAL_READ_CONTEXT = {
 	"G03": (".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
 		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
@@ -837,6 +850,11 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 
 def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
+	if goal_id in GOAL_CONTEXT_SLICES:
+		slices = GOAL_CONTEXT_SLICES[goal_id]
+		paths = slices[(max(1, attempt) - 1) % len(slices)]
+		return [f"required:{path}" for path in paths if (root / path).is_file()]
+
 	candidates: list[str] = []
 	seen: set[str] = set()
 	required_goal = set(GOAL_REQUIRED_CONTEXT.get(goal_id, ()))
@@ -998,6 +1016,12 @@ def main() -> int:
 			pass_env["AI_DIRTY_COMMIT_SUBJECT"] = dirty_commit_subject(goal.goal_id)
 			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])
 			pass_env.setdefault("AIDER_AUTOMATION", "1")
+			if goal.goal_id == "G24":
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "512")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_3", "384")
+				pass_env.setdefault("AIDER_MAX_CHAT_HISTORY_TOKENS", "512")
 			if attempts[goal.goal_id] >= 3:
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")

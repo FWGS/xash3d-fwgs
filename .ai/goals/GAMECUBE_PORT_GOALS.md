@@ -321,8 +321,9 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Automation fix, 2026-06-24: `ref/gx` files were present in the repo, but G24
   did not preload them and the pass runner dropped large renderer files during
   context-size pruning. G24 now supplies required editable renderer context for
-  `r_context.c`, `r_main.c`, `r_surf.c`, `r_studio.c`, `r_part.c`,
-  `r_sprite.c`, `r_image.c`, and `r_local.h`.
+  staged renderer slices instead of loading every large `ref/gx` file in one
+  pass. Slices cover brush/lightmap, particle/sprite, studio, and shared
+  renderer helper paths while keeping each prompt under the local context cap.
 - Client-side work is complete and verified.
 - **Exact files loaded for next pass:** `ref/gx/r_main.c` (`R_DrawBrushModel`),
   `ref/gx/r_surf.c` (lightmap paths), `ref/gx/r_studio.c`

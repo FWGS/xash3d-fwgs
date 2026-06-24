@@ -640,9 +640,10 @@ The `ref/gx` renderer must use `GC_GetVisualQuality()` to conditionally enable:
 **Automation correction:** `ref/gx` source files are present in the repository.
 The repeated Attempts 1-13 blocker was caused by G24 not preloading those files
 and by the pass runner pruning large renderer files from editable context. The
-goal loop now marks the required renderer files as non-prunable editable context
-for G24. Platform API and client-side conversion are complete; the next G24 pass
-can wire quality checks into actual draw calls.
+first full-context fix then exceeded the local model window, so G24 now loads
+staged non-prunable renderer slices instead of every large `ref/gx` file at
+once. Platform API and client-side conversion are complete; the next G24 passes
+can wire quality checks into actual draw calls one renderer slice at a time.
 
 **Evidence:**
 - `gc_quality` cvar registered in `R_Init_Video`
