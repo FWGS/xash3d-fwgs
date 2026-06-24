@@ -23,7 +23,6 @@ GNU General Public License for more details.
 #include "ref_params.h"
 #include "enginefeatures.h"
 #include "com_strings.h"
-#include "cvardef.h"
 #include "pmove.h"
 
 typedef struct mip_s mip_t;
