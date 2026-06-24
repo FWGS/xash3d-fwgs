@@ -284,6 +284,20 @@ extern gl_globals_t   tr;
 #define r_numEntities ( tr.draw_list->num_solid_entities + tr.draw_list->num_trans_entities )
 #define r_numStatics  ( r_stats.c_client_ents )
 
+/*
+** GC_GetVisualQuality
+** Returns 0 for low-memory smoke path (XASH_LOW_MEMORY).
+** Returns 1 for standard/higher quality paths.
+*/
+static inline int GC_GetVisualQuality( void )
+{
+#if XASH_LOW_MEMORY
+	return 0;
+#else
+	return 1;
+#endif
+}
+
 typedef struct image_s
 {
 	char           name[256];       // game path, including extension (can be store image programs)
