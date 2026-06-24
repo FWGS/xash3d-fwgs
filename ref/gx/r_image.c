@@ -675,6 +675,15 @@ int GAME_EXPORT GL_CreateTexture( const char *name, int width, int height, const
 		return 0;
 	}
 
+	// low-memory path: reduce dimensions of internal textures to reduce pressure
+#if XASH_GAMECUBE
+	if( GC_GetVisualQuality() == 0 )
+	{
+		if( r_empty.width > 64 ) r_empty.width = 64;
+		if( r_empty.height > 64 ) r_empty.height = 64;
+	}
+#endif
+
 	int texnum = GL_LoadTextureInternal( name, &r_empty, flags );
 
 	if( !Q_strcmp( name, REF_DEFAULT_TEXTURE ))
