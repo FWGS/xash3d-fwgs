@@ -62,10 +62,13 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	// pglDepthMask( GL_FALSE );
 
 	int vis = GC_GetVisualQuality();
+	int particle_skip = ( vis == 0 ) ? 4 : 0; // low-memory: render every Nth particle
+	int particle_count = 0;
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
-		if( vis == 0 && ( p->type != pt_blob ))
-			continue; // low-memory: skip non-blob particles to reduce draw calls
+		particle_count++;
+		if( vis == 0 && ( p->type != pt_blob ) && ( particle_count % particle_skip != 0 ))
+			continue; // low-memory: skip most non-blob particles to reduce draw calls
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
 		{
 			float size = partsize; // get initial size of particle
