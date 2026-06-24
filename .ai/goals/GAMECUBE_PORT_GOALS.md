@@ -319,7 +319,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - **Remaining:** `ref/gx` renderer source not available in this pass. Renderer
   quality checks (lightmaps, particles, studio draw, HUD sprite resolution)
   must be wired in a subsequent pass with `ref/gx/*.c` loaded.
-- Attempts 1-6 (2026-06-24) all confirmed the same blocker: `ref/gx/*.c` files
+- Attempts 1-8 (2026-06-24) all confirmed the same blocker: `ref/gx/*.c` files
   are unavailable in the Aider context. Cannot complete renderer-side integration
   without source access. Attempt 4 (exit 128) hit a GameCube build failure in
   verifier, likely from a stale prior edit; subsequent passes reverted cleanly.
