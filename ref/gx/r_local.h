@@ -306,10 +306,22 @@ static inline int GC_GetVisualQuality( void )
 	return 1;
 #endif
 }
+static inline int GC_IsLowMemoryMode( void )
+{
+#if XASH_LOW_MEMORY
+	return 1;
+#else
+	return 0;
+#endif
+}
 #else
 static inline int GC_GetVisualQuality( void )
 {
 	return 1;
+}
+static inline int GC_IsLowMemoryMode( void )
+{
+	return 0;
 }
 #endif
 
