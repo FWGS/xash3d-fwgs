@@ -293,9 +293,19 @@ extern gl_globals_t   tr;
 ** This helper is only meaningful for GameCube builds. On non-GameCube
 ** targets a constant quality of 1 is assumed.
 */
+static inline int GC_IsLowMemoryMode( void )
+{
 #if XASH_GAMECUBE
+#if XASH_LOW_MEMORY
+	return 1;
+#endif
+#endif
+	return 0;
+}
+
 static inline int GC_GetVisualQuality( void )
 {
+#if XASH_GAMECUBE
 #if XASH_LOW_MEMORY
 	return 0;
 #else
@@ -305,25 +315,10 @@ static inline int GC_GetVisualQuality( void )
 		return 2;
 	return 1;
 #endif
-}
-static inline int GC_IsLowMemoryMode( void )
-{
-#if XASH_LOW_MEMORY
-	return 1;
 #else
-	return 0;
+	return 1;
 #endif
 }
-#else
-static inline int GC_GetVisualQuality( void )
-{
-	return 1;
-}
-static inline int GC_IsLowMemoryMode( void )
-{
-	return 0;
-}
-#endif
 
 typedef struct image_s
 {
