@@ -461,8 +461,14 @@ void R_DrawSurfaceBlock8_World( void )
 	{
 		// FIXME: make these locals?
 		// FIXME: use delta rather than both right and left, like ASM?
-		lightleft = r_lightptr[( lightpos / r_lightwidth ) * r_lightwidth];
-		lightright = r_lightptr[( lightpos / r_lightwidth ) * r_lightwidth + 1];
+		int light_row = ( lightpos / r_lightwidth ) * r_lightwidth;
+		if( light_row < 0 || light_row + 1 >= r_lightwidth * r_drawsurf.surfheight )
+		{
+			// Guard against out-of-bounds light access on edge-case surfaces
+			return;
+		}
+		lightleft = r_lightptr[light_row];
+		lightright = r_lightptr[light_row + 1];
 		lightpos += r_lightwidth / worldlux_s;
 		lightleftstep = ( r_lightptr[( lightpos / r_lightwidth ) * r_lightwidth] - lightleft ) >> ( 4 - r_drawsurf.surfmip );
 		lightrightstep = ( r_lightptr[( lightpos / r_lightwidth ) * r_lightwidth + 1] - lightright ) >> ( 4 - r_drawsurf.surfmip );
