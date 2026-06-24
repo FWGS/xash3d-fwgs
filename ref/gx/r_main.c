@@ -1279,6 +1279,12 @@ void GAME_EXPORT R_NewMap( void )
 	if( r_numallocatededges < MINEDGES )
 		r_numallocatededges = MINEDGES;
 
+#if XASH_GAMECUBE
+	// G24a: low-memory smoke path caps edges to stack budget
+	if( GC_GetVisualQuality() == 0 && r_numallocatededges > NUMSTACKEDGES )
+		r_numallocatededges = NUMSTACKEDGES;
+#endif
+
 	if( r_numallocatededges <= NUMSTACKEDGES )
 	{
 		auxedges = NULL;
