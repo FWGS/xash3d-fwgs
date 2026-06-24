@@ -22,7 +22,3 @@ show-diffs: true
 
 auto-lint: false
 auto-test: false
-
-read:
-  - .ai/prompts/PROJECT_RULES.md
-  - .ai/prompts/GAMECUBE_FAILURE_MEMORY.md

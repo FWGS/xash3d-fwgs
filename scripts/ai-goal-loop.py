@@ -758,15 +758,28 @@ docs-only status updates when the probe still fails.
 		)
 	goal_body = goal.body
 	if goal.goal_id == "G24":
-		goal_body = """Wire the current preloaded renderer slice into `GC_GetVisualQuality()`.
-Quality 0 should preserve the low-memory smoke path. Quality 1/2 may enable
-more visuals without regressing map load stability. Keep the patch surgical and
-do not request unloaded files."""
-		investigation_memory = (
-			"Prior G24 failures were automation context-size failures, not source "
-			"absence. Use only the current preloaded slice and avoid repeating old "
-			"file lists."
-		)
+		return f"""Advance G24 with exactly one small source edit.
+
+Active goal: {goal.goal_id} - {goal.title}
+Attempt on this goal: {attempt}
+
+Use only the editable file or files preloaded in this Aider chat. Do not edit
+any file that was not added as editable context.
+
+Task:
+- Wire the current renderer slice into `GC_GetVisualQuality()` when that can be
+  done safely from the loaded source.
+- Quality 0 is the low-memory smoke path.
+- Quality 1/2 should preserve existing higher-quality behavior.
+- Prefer a tiny helper or guard over broad rendering rewrites.
+
+Output rules:
+- Start immediately with the target source file path and SEARCH/REPLACE blocks.
+- No explanation, checklist, plan, or markdown prose.
+- Touch one loaded source file only.
+- If the current slice is not sufficient for a safe source edit, make no edit;
+  the goal runner will rotate to the next slice.
+"""
 	return f"""You are autonomously advancing the native Xash3D GameCube port.
 
 Active goal: {goal.goal_id} — {goal.title}
@@ -1026,11 +1039,11 @@ def main() -> int:
 			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])
 			pass_env.setdefault("AIDER_AUTOMATION", "1")
 			if goal.goal_id == "G24":
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "512")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_3", "384")
-				pass_env.setdefault("AIDER_MAX_CHAT_HISTORY_TOKENS", "512")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "2048")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "1536")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "1024")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_3", "768")
+				pass_env.setdefault("AIDER_MAX_CHAT_HISTORY_TOKENS", "256")
 			if attempts[goal.goal_id] >= 3:
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")
