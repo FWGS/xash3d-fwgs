@@ -1150,6 +1150,19 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 //
 	cache = CACHESPOT( surface )[miplevel];
 
+#if XASH_GAMECUBE
+	// G24b: bound surface cache on low-memory path (quality 0) to static
+	// surfaces only. Dynamic lights and animated/conveyor surfaces skip
+	// caching to preserve budget.
+	if( !GC_GetVisualQuality() && ( surface->dlightframe == tr.framecount ||
+	    surface->flags & ( SURF_CONVEYOR | SURF_DRAWTILED ) ||
+	    r_drawsurf.image->flags & ( TF_HAS_ALPHA | TF_SKY ) ))
+	{
+		CACHESPOT( surface )[miplevel] = NULL;
+		cache = NULL;
+	}
+#endif
+
 	// check for lightmap modification
 	for( int maps = 0; maps < MAXLIGHTMAPS && surface->styles[maps] != 255; maps++ )
 	{
