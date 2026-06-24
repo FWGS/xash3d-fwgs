@@ -76,6 +76,11 @@ hypotheses, verbatim evidence snippets, investigative gaps, and recent tool
 calls, then feeds a short summary into the next pass. The file is ignored by
 Git because it is run-local state rather than source history.
 
+Autonomous Aider passes disable URL detection so local API base strings are not
+mistaken for web pages to scrape. A 404 from the bare `/v1` path is normal for
+vLLM; readiness checks use the OpenAI-compatible `/v1/models` endpoint and
+generation uses `/v1/chat/completions`.
+
 Dolphin discovery is shared by the GUI, probes, and Qwable/Aider passes through
 `scripts/gamecube-env.sh`. Override `DOLPHIN_EXECUTABLE` in `.env` with a native
 binary path or use the Flatpak form:

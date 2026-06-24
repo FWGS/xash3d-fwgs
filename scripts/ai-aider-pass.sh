@@ -241,6 +241,7 @@ run_aider_with_recovery() {
 			--config "$AIDER_CONFIG" \
 			--no-browser \
 			--no-gui \
+			--no-detect-urls \
 			--no-cache-prompts \
 			--disable-playwright \
 			--no-restore-chat-history \

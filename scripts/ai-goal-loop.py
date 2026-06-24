@@ -434,8 +434,10 @@ def dolphin_executable() -> str:
 
 
 def automation_context() -> str:
+	api_base = os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1")
+	api_endpoint = "/models" if urlparse(api_base).path.rstrip("/").endswith("/v1") else "/v1/models"
 	return "\n".join((
-		f"OPENAI_API_BASE={os.environ.get('OPENAI_API_BASE', 'http://127.0.0.1:8072/v1')}",
+		f"MODEL_API=reachable OpenAI-compatible endpoint ({api_endpoint})",
 		f"DOLPHIN_EXECUTABLE={dolphin_executable()}",
 		f"DOLPHIN_FLATPAK_ID={os.environ.get('DOLPHIN_FLATPAK_ID', 'org.DolphinEmu.dolphin-emu')}",
 	))
