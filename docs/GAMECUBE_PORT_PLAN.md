@@ -642,14 +642,14 @@ and client-side conversion are complete. Next pass must load `ref/gx/*.c` to
 wire quality checks into actual draw calls.
 
 Attempts 1-12 (2026-06-24), Attempt 6 (2026-06-24), Attempt 7 (2026-06-24),
-Attempt 9 (2026-06-24), and Attempt 10 (2026-06-24) all confirmed the same
-blocker: `ref/gx/*.c` files are unavailable in the Aider context. Cannot
-complete renderer-side integration without source access. Client-side work is
-complete and verified. Attempt 4 (exit 128) hit a GameCube build failure in the
-verifier, likely from a stale prior edit; subsequent passes reverted cleanly
-without forcing renderer changes. No source edits made in these passes as
-context remains unavailable. Adding build scripts does not provide renderer
-source context.
+Attempt 9 (2026-06-24), Attempt 10 (2026-06-24), and Attempt 11 (2026-06-24)
+all confirmed the same blocker: `ref/gx/*.c` files are unavailable in the Aider
+context. Cannot complete renderer-side integration without source access.
+Client-side work is complete and verified. Attempt 4 (exit 128) hit a GameCube
+build failure in the verifier, likely from a stale prior edit; subsequent
+passes reverted cleanly without forcing renderer changes. No source edits made
+in these passes as context remains unavailable. Adding build scripts does not
+provide renderer source context.
 
 **Evidence:**
 - `gc_quality` cvar registered in `R_Init_Video`
