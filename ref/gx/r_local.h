@@ -300,7 +300,7 @@ static inline int GC_IsLowMemoryMode( void )
 
 /*
 ** GC_GetVisualQuality
-** Returns 0 for low-memory smoke path (XASH_LOW_MEMORY).
+** Returns 0 for low-memory smoke path (XASH_LOW_MEMORY or quality cvar).
 ** Returns 1 for standard quality paths.
 ** Returns 2 when sample_size permits higher fidelity (quality-2 path).
 **
@@ -313,6 +313,9 @@ static inline int GC_GetVisualQuality( void )
 #if XASH_LOW_MEMORY
 	return 0;
 #else
+	/* Quality 0 can be forced at runtime via sample_size==0 (set by platform/video backend) */
+	if( tr.sample_size == 0 )
+		return 0;
 	if( tr.sample_size > 1 && tr.sample_bits > 0 && tr.framecount > 0 )
 		return 2;
 	return 1;
