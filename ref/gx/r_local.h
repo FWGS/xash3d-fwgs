@@ -322,7 +322,10 @@ static inline int GC_GetVisualQuality( void )
 	/* Quality 2 requires both sample_size and sample_bits to be non-trivial */
 	if( tr.sample_size > 1 && tr.sample_bits > 0 )
 		return 2;
-	return 1;
+	/* Fall back to standard quality if sample data is incomplete */
+	if( tr.sample_size > 0 )
+		return 1;
+	return 0;
 #endif
 #else
 	return 1;
