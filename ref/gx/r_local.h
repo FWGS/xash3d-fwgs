@@ -316,7 +316,7 @@ static inline int GC_GetVisualQuality( void )
 	/* Quality 0 can be forced at runtime via sample_size==0 (set by platform/video backend) */
 	if( tr.sample_size == 0 )
 		return 0;
-	if( tr.sample_size > 1 && tr.sample_bits > 0 && tr.framecount > 0 && tr.framecount < 0x7FFFFFFF )
+	if( tr.sample_size > 1 && tr.sample_bits > 0 && tr.framecount > 0 )
 		return 2;
 	return 1;
 #endif
