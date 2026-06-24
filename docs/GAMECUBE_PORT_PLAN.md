@@ -641,9 +641,11 @@ The `ref/gx` renderer must use `GC_GetVisualQuality()` to conditionally enable:
 and client-side conversion are complete. Next pass must load `ref/gx/*.c` to
 wire quality checks into actual draw calls.
 
-Attempts 1-4 (2026-06-24) all confirmed the same blocker: `ref/gx/*.c` files
+Attempts 1-5 (2026-06-24) all confirmed the same blocker: `ref/gx/*.c` files
 are unavailable in the Aider context. Cannot complete renderer-side integration
-without source access. Client-side work is complete and verified.
+without source access. Client-side work is complete and verified. Attempt 4
+(exit 128) hit a GameCube build failure in the verifier, likely from a stale
+prior edit; subsequent passes reverted cleanly without forcing renderer changes.
 
 **Evidence:**
 - `gc_quality` cvar registered in `R_Init_Video`
@@ -653,7 +655,9 @@ without source access. Client-side work is complete and verified.
 - Aider pass logs: `.ai/logs/aider-pass-2026-06-24-024657.log` (exit 10),
   `.ai/logs/aider-pass-2026-06-24-025027.log` (exit 18),
   `.ai/logs/aider-pass-2026-06-24-025716.log` (exit 10),
-  `.ai/logs/aider-pass-2026-06-24-03XXXX.log` (attempt 4, same blocker)
+  `.ai/logs/aider-pass-2026-06-24-030051.log` (exit 128, build failure),
+  `.ai/logs/aider-pass-2026-06-24-032117.log` (exit 10),
+  `.ai/logs/aider-pass-2026-06-24-032343.log` (exit 10)
 
 **Build command:**
 ```sh
@@ -662,9 +666,11 @@ scripts/build-gamecube.sh
 
 **Next step:** Goal runner must supply `ref/gx/*.c` source files to a subsequent
 pass. Required files for renderer quality integration:
-- `ref/gx/gl_ref.c` or main GX renderer entry
+- `engine/ref_gx/gl_ref.c` or main GX renderer entry point
 - Files containing `R_DrawBrushModel`, `R_StudioDrawModel`, or lightmap/particle
   draw paths
+- Without those files preloaded, G24 remains partial. Client-side conversion is
+  verified complete. Renderer-side work cannot proceed without source access.
 
 **Resolution:** G24 remains partial and blocked on context availability. Client-side
 conversion is complete. Renderer-side work cannot proceed without `ref/gx/*.c`.
