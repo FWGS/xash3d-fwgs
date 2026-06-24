@@ -85,14 +85,6 @@ def main() -> int:
 	load_dotenv(root / ".env")
 	api_base = os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1")
 
-	if not os.environ.get("OPENAI_API_KEY"):
-		print("run-until-done: OPENAI_API_KEY is not set", file=sys.stderr)
-		return 2
-	if not model_ready(api_base):
-		print(f"run-until-done: model API is not reachable at {api_base}", file=sys.stderr)
-		print("Start the Qwable/vLLM server from the GUI or QWABLE_5_COMMAND first.", file=sys.stderr)
-		return 2
-
 	if args.chunk_passes < 0:
 		parser.error("--chunk-passes must be zero or positive")
 	if args.max_cycles < 0:
@@ -100,6 +92,16 @@ def main() -> int:
 
 	cycles = count(1) if args.max_cycles == 0 else range(1, args.max_cycles + 1)
 	for cycle in cycles:
+		if not os.environ.get("OPENAI_API_KEY"):
+			print(f"run-until-done: OPENAI_API_KEY is not set; retrying after {args.sleep}s",
+				file=sys.stderr, flush=True)
+			time.sleep(args.sleep)
+			continue
+		if not model_ready(api_base):
+			print(f"run-until-done: model API is not reachable at {api_base}; retrying after {args.sleep}s",
+				file=sys.stderr, flush=True)
+			time.sleep(args.sleep)
+			continue
 		goal = next_automatic_goal(root)
 		if goal is None:
 			print("run-until-done: all automatic goals are complete or blocked")
@@ -111,13 +113,10 @@ def main() -> int:
 			"--recoverable-retries", str(args.recoverable_retries)], root)
 		if status == 0:
 			continue
-		if status in {3, 10, 17, 18}:
-			print(f"run-until-done: recoverable exit {status}; continuing after {args.sleep}s",
-				file=sys.stderr)
-			time.sleep(args.sleep)
-			continue
-		print(f"run-until-done: stopped on non-recoverable exit {status}", file=sys.stderr)
-		return status
+		print(f"run-until-done: child exit {status}; continuing after {args.sleep}s",
+			file=sys.stderr, flush=True)
+		time.sleep(args.sleep)
+		continue
 
 	if args.max_cycles > 0:
 		print("run-until-done: cycle limit reached with automatic goals remaining", file=sys.stderr)

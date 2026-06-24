@@ -230,6 +230,9 @@ class PortWindow(QMainWindow):
 		self.model_operation = ""
 		self.expected_passes = 1
 		self.pending_boot = False
+		self.user_stopping = False
+		self.last_command: list[str] = []
+		self.last_passes = 1
 		self.pipeline: dict[str, QLabel] = {}
 		self.docks: dict[str, QDockWidget] = {}
 		self.last_context = ""
@@ -262,10 +265,7 @@ class PortWindow(QMainWindow):
 		logo.setFixedSize(132, 100)
 		title_row.addWidget(logo, 0, Qt.AlignmentFlag.AlignVCenter)
 		title_row.addStretch()
-		subtitle = QLabel("NINTENDO GAMECUBE PORT CONTROL SURFACE")
-		subtitle.setObjectName("Subtitle")
 		titles.addLayout(title_row)
-		titles.addWidget(subtitle)
 		header.addLayout(titles)
 		layout.addLayout(header)
 
@@ -816,6 +816,9 @@ class PortWindow(QMainWindow):
 	def start(self, command: list[str], operation: str, passes: int = 1) -> None:
 		if self.process is not None or not self.valid_repo():
 			return
+		self.user_stopping = False
+		self.last_command = list(command)
+		self.last_passes = passes
 		self.operation = operation
 		self.start_head = self.git_output("rev-parse", "HEAD")
 		self.expected_passes = passes
@@ -855,8 +858,9 @@ class PortWindow(QMainWindow):
 	def run_goal_loop(self) -> None:
 		passes = self.passes_spin.value()
 		recoveries = self.recovery_spin.value()
-		self.start(["scripts/ai-goal-loop.py", "--repo", str(self.repo()),
-			"--max-passes", str(passes), "--recoverable-retries", str(recoveries)],
+		self.start(["scripts/ai-run-until-done.py", "--repo", str(self.repo()),
+			"--chunk-passes", str(passes), "--max-cycles", "0",
+			"--recoverable-retries", str(recoveries), "--sleep", "10"],
 			"Goal automation", passes)
 
 	def read_output(self) -> None:
@@ -907,19 +911,20 @@ class PortWindow(QMainWindow):
 		if self.closing:
 			self.process = None
 			return
+		operation = self.operation
 		succeeded = exit_code == 0
 		if succeeded:
-			if self.expected_passes == 0 and self.operation == "Goal automation":
+			if self.expected_passes == 0 and operation == "Goal automation":
 				self.progress.setRange(0, 1)
 				self.progress.setValue(1)
 				self.progress.setFormat("Goal automation: complete")
 			else:
 				self.progress.setValue(self.expected_passes)
-		self.set_pipeline_state(self.pipeline_node(self.operation), "Success" if succeeded else "Failed")
-		self.status_label.setText(f"{'Passed' if succeeded else 'Failed'}: {self.operation} (exit {exit_code})")
-		self.append(f"\n[{self.operation} exited {exit_code}]\n")
-		boot_after_build = self.pending_boot and self.operation == "Build disc ISO" and succeeded
-		if self.operation == "Build disc ISO":
+		self.set_pipeline_state(self.pipeline_node(operation), "Success" if succeeded else "Failed")
+		self.status_label.setText(f"{'Passed' if succeeded else 'Failed'}: {operation} (exit {exit_code})")
+		self.append(f"\n[{operation} exited {exit_code}]\n")
+		boot_after_build = self.pending_boot and operation == "Build disc ISO" and succeeded
+		if operation == "Build disc ISO":
 			self.pending_boot = False
 		self.process = None
 		self.loop_btn.setEnabled(True)
@@ -931,12 +936,21 @@ class PortWindow(QMainWindow):
 			self.set_save_state("REVIEW", GC_ORANGE)
 		elif current_head != self.start_head:
 			self.set_save_state("GIT SAVED", GC_MINT)
-		elif self.operation == "Goal automation":
+		elif operation == "Goal automation":
 			self.set_save_state("NO CHANGE", GC_ORANGE)
 		else:
 			self.set_save_state("UNCHANGED", GC_MUTED)
 		if boot_after_build:
 			self.launch_dolphin()
+		if operation == "Goal automation" and not succeeded and not self.user_stopping:
+			self.append("\n[Goal automation restarting in 10s]\n")
+			self.status_label.setText("Restarting goal automation after worker exit")
+			QTimer.singleShot(10000, self.restart_goal_automation)
+
+	def restart_goal_automation(self) -> None:
+		if self.closing or self.process is not None or not self.last_command:
+			return
+		self.start(self.last_command, "Goal automation", self.last_passes)
 
 	def stop_process(self) -> None:
 		if self.process is None:
@@ -948,6 +962,7 @@ class PortWindow(QMainWindow):
 			QMessageBox.StandardButton.No)
 		if answer != QMessageBox.StandardButton.Yes:
 			return
+		self.user_stopping = True
 		self.append("\nStopping process…\n")
 		self.process.terminate()
 		QTimer.singleShot(3000, lambda: self.process.kill() if self.process else None)
