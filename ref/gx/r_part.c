@@ -61,8 +61,11 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	// pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 	// pglDepthMask( GL_FALSE );
 
+	int vis = GC_GetVisualQuality();
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
+		if( vis == 0 )
+			continue;
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
 		{
 			float size = partsize; // get initial size of particle
