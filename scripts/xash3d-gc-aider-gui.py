@@ -288,11 +288,6 @@ class PortWindow(QMainWindow):
 		self.progress.setValue(0)
 		self.progress.setFormat("No automation running")
 		layout.addWidget(self.progress)
-		self.persistence_note = QLabel(
-			"LIVE MODEL OUTPUT IS NOT A FILE CHANGE UNTIL THE STATUS CHIP SAYS GIT SAVED"
-		)
-		self.persistence_note.setStyleSheet(f"color: {GC_ORANGE}; font-weight: bold;")
-		layout.addWidget(self.persistence_note)
 		layout.addStretch()
 
 		self.configure_view_menu()
@@ -316,9 +311,9 @@ class PortWindow(QMainWindow):
 		model_command_label = QLabel("Command:")
 		model_api_label = QLabel("API base:")
 		model_controls = QHBoxLayout()
-		self.start_model_btn = QPushButton("▶  START QWABLE-5")
+		self.start_model_btn = QPushButton("▶  START")
 		self.start_model_btn.clicked.connect(self.start_model)
-		self.kill_model_btn = QPushButton("■  KILL QWABLE-5")
+		self.kill_model_btn = QPushButton("■  KILL")
 		self.kill_model_btn.clicked.connect(self.kill_model)
 		model_controls.addWidget(self.start_model_btn)
 		model_controls.addWidget(self.kill_model_btn)

@@ -157,13 +157,16 @@ R_DrawSpriteModel
 void R_DrawSpriteModel( cl_entity_t *e )
 {
 #if XASH_GAMECUBE
-	// Quality 0 (smoke/low-memory): skip complex glow/alpha sprites to reduce
-	// texture bindings and overdraw. Opaque sprites still render for stability.
+	// Quality 0 (smoke/low-memory): simplify complex glow/alpha sprites instead
+	// of skipping them entirely. Force additive sprites to render with reduced
+	// brightness for visibility while cutting glow occlusion work.
 	if( GC_GetVisualQuality() == 0 &&
-	    ( e->curstate.rendermode != kRenderNormal &&
-	      e->curstate.rendermode != kRenderTransTexture ) )
+	    ( e->curstate.rendermode == kRenderGlow ||
+	      e->curstate.rendermode == kRenderTransAdd ) )
 	{
-		return;
+		// Still render but with reduced brightness and no occlusion test
+		tr.blend *= 0.5f;
+		/* Fall through to render the sprite */
 	}
 #endif
 
