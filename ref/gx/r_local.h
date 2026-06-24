@@ -313,12 +313,14 @@ static inline int GC_GetVisualQuality( void )
 #if XASH_LOW_MEMORY
 	return 0;
 #else
+	/* Guard against calls before renderer initialization (tr.framecount == 0) */
+	if( tr.framecount == 0 )
+		return 1;
 	/* Quality 0 can be forced at runtime via sample_size==0 (set by platform/video backend) */
 	if( tr.sample_size == 0 )
 		return 0;
-	/* Quality 2 requires both sample_size and sample_bits to be non-trivial,
-	   and framecount > 0 to guard against early calls before renderer state */
-	if( tr.sample_size > 1 && tr.sample_bits > 0 && tr.framecount > 0 )
+	/* Quality 2 requires both sample_size and sample_bits to be non-trivial */
+	if( tr.sample_size > 1 && tr.sample_bits > 0 )
 		return 2;
 	return 1;
 #endif
