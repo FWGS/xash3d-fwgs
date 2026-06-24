@@ -241,7 +241,10 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		data = buf;
 
 	// mips will be auto-generated if desired
-	for( uint j = 0; j < mipCount; j++ )
+	// Low-memory/quality 0 path skips mips to save texture memory pressure
+	uint activeMips = ( GC_GetVisualQuality() == 0 ) ? 1 : mipCount;
+
+	for( uint j = 0; j < activeMips; j++ )
 	{
 		uint   width = Q_max( 1, ( tex->width >> j ));
 		uint   height = Q_max( 1, ( tex->height >> j ));
@@ -279,7 +282,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 		}
 
-		if( mipCount > 1 )
+		if( activeMips > 1 )
 			GL_BuildMipMap( data, width, height, tex->depth, tex->flags );
 
 		tex->size += texsize;
