@@ -289,7 +289,11 @@ extern gl_globals_t   tr;
 ** Returns 0 for low-memory smoke path (XASH_LOW_MEMORY).
 ** Returns 1 for standard quality paths.
 ** Returns 2 when sample_size permits higher fidelity (quality-2 path).
+**
+** This helper is only meaningful for GameCube builds. On non-GameCube
+** targets a constant quality of 1 is assumed.
 */
+#if XASH_GAMECUBE
 static inline int GC_GetVisualQuality( void )
 {
 #if XASH_LOW_MEMORY
@@ -302,6 +306,12 @@ static inline int GC_GetVisualQuality( void )
 	return 1;
 #endif
 }
+#else
+static inline int GC_GetVisualQuality( void )
+{
+	return 1;
+}
+#endif
 
 typedef struct image_s
 {
