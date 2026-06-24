@@ -1291,18 +1291,19 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
 	    surface->dlightframe != tr.framecount )
 	{
-		pixel_t *src = r_drawsurf.image ? r_drawsurf.image->pixels[miplevel] : NULL;
+		image_t *img = r_drawsurf.image;
+		pixel_t *src = ( img && miplevel < 4 && img->pixels[miplevel] ) ? img->pixels[miplevel] : NULL;
 		pixel_t *dst = r_drawsurf.surfdat;
 		int w = r_drawsurf.surfwidth;
 		int h = r_drawsurf.surfheight;
 		int srcw = 0, srch = 0;
 		qboolean copy_ok = false;
 
-		if( r_drawsurf.image && src && w > 0 && h > 0 )
+		if( img && src && w > 0 && h > 0 )
 		{
-			srcw = r_drawsurf.image->width >> miplevel;
-			srch = r_drawsurf.image->height >> miplevel;
-			if( srcw >= w && srch >= h )
+			srcw = img->width >> miplevel;
+			srch = img->height >> miplevel;
+			if( srcw > 0 && srch > 0 )
 				copy_ok = true;
 		}
 
