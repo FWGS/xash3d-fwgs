@@ -1270,6 +1270,8 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	// G24b: on quality-0 world-luxels surfaces, R_DrawSurface returns early
 	// without drawing. Provide a stable fallback: fill the surface cache
 	// with the base texture so the surface is visible even when unlit.
+	// Bound the copy to valid source image dimensions to avoid overruns on
+	// edge-case or unloaded textures (stable fallback mode).
 	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
 	{
 		// Copy the base texture into the surface cache for visibility
@@ -1278,12 +1280,17 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			pixel_t *dst = r_drawsurf.surfdat;
 			int w = r_drawsurf.surfwidth;
 			int h = r_drawsurf.surfheight;
-			for( int y = 0; y < h; y++ )
+			int srcw = r_drawsurf.image->width >> miplevel;
+			int srch = r_drawsurf.image->height >> miplevel;
+			if( src && w > 0 && h > 0 && srcw >= w && srch >= h )
 			{
-				for( int x = 0; x < w; x++ )
-					dst[x] = src[x];
-				dst += r_drawsurf.rowbytes;
-				src += r_drawsurf.image->width >> miplevel;
+				for( int y = 0; y < h; y++ )
+				{
+					for( int x = 0; x < w; x++ )
+						dst[x] = src[x];
+					dst += r_drawsurf.rowbytes;
+					src += srcw;
+				}
 			}
 		}
 	}
