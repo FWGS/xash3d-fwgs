@@ -100,10 +100,12 @@ if [[ -n "$BASELINE" ]]; then
 		exit 1
 	fi
 
-	if ! git diff --name-only "$BASELINE" | \
-		grep -qx 'docs/GAMECUBE_PORT_PLAN.md'; then
-		echo "verify: patch did not update docs/GAMECUBE_PORT_PLAN.md" >&2
-		exit 1
+	if [[ "${AI_VERIFY_REQUIRE_DOC_UPDATE:-1}" == "1" ]]; then
+		if ! git diff --name-only "$BASELINE" | \
+			grep -qx 'docs/GAMECUBE_PORT_PLAN.md'; then
+			echo "verify: patch did not update docs/GAMECUBE_PORT_PLAN.md" >&2
+			exit 1
+		fi
 	fi
 
 	scripts/ai-evidence-gate.py "$BASELINE" --repo "$ROOT"

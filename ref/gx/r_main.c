@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #include "library.h"
 #if XASH_GAMECUBE
 #include "mem_gamecube.h"
-extern int GC_GetVisualQuality( void );
 static qboolean R_IsVisualQualityLow( void )
 {
 	return GC_GetVisualQuality() == 0;

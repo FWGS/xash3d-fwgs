@@ -191,6 +191,54 @@ GOAL_CONTEXT_SLICES = {
 		("ref/gx/r_local.h",),
 	),
 }
+G24_SUBGOALS = (
+	{
+		"id": "G24a",
+		"title": "renderer quality entrypoint",
+		"files": ("ref/gx/r_main.c",),
+		"focus": (
+			"Keep renderer initialization wired to the low-memory quality mode "
+			"without duplicating `GC_GetVisualQuality` declarations."
+		),
+	},
+	{
+		"id": "G24b",
+		"title": "surface cache and world draw budget",
+		"files": ("ref/gx/r_surf.c",),
+		"focus": (
+			"Bound world-surface cache behavior and fallback drawing for quality 0 "
+			"while preserving higher-quality paths."
+		),
+	},
+	{
+		"id": "G24c",
+		"title": "sprites, particles, and client visual skips",
+		"files": ("engine/platform/gamecube/vid_gamecube.c", "engine/client/cl_sprite.c",
+			"ref/gx/r_part.c", "ref/gx/r_sprite.c"),
+		"focus": (
+			"Replace smoke-only sprite or particle skips with stable quality-aware "
+			"fallback modes."
+		),
+	},
+	{
+		"id": "G24d",
+		"title": "image upload and texture pressure",
+		"files": ("ref/gx/r_image.c",),
+		"focus": (
+			"Reduce texture-memory pressure or add quality-aware fallbacks without "
+			"breaking normal texture upload."
+		),
+	},
+	{
+		"id": "G24e",
+		"title": "renderer local quality helpers",
+		"files": ("ref/gx/r_local.h",),
+		"focus": (
+			"Keep shared renderer quality helpers simple, local, and safe for "
+			"non-GameCube builds."
+		),
+	},
+)
 GOAL_READ_CONTEXT = {
 	"G03": (".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
 		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
@@ -586,6 +634,62 @@ def investigative_gap(evidence: list[dict[str, object]], phase: str) -> str:
 	return f"Find the first decisive error or missing evidence from the `{phase}` trace."
 
 
+def failure_class_for(exit_code: int, evidence: list[dict[str, object]], phase: str) -> str:
+	joined = " ".join(str(item.get("text", "")) for item in evidence).lower()
+	if exit_code == 0:
+		return "accepted"
+	if "token" in joined or "context" in joined:
+		return "model_budget"
+	if "aider made no edit" in joined:
+		return "no_edit"
+	if "verify:" in joined or "build failed" in joined:
+		return "verification"
+	if "could not load" in joined or "missing" in joined:
+		return "asset_lookup"
+	if "_mem_alloc" in joined:
+		return "memory_pressure"
+	if "black screen" in joined or "diagnostic marker" in joined:
+		return "visual_runtime"
+	if "audio" in joined:
+		return "audio_runtime"
+	if phase == "dolphin-probe":
+		return "runtime_probe"
+	return "unknown"
+
+
+def g24_subgoal_for_attempt(attempt: int) -> dict[str, object]:
+	return G24_SUBGOALS[(max(1, attempt) - 1) % len(G24_SUBGOALS)]
+
+
+def g24_subgoal_id(attempt: int) -> str:
+	return str(g24_subgoal_for_attempt(attempt)["id"])
+
+
+def g24_subgoal_files(attempt: int, root: Path) -> list[str]:
+	files = g24_subgoal_for_attempt(attempt).get("files", ())
+	return [f"required:{path}" for path in files
+		if isinstance(path, str) and (root / path).is_file()]
+
+
+def g24_subgoal_memory(room: dict[str, object], subgoal_id: str) -> dict[str, object]:
+	subgoals = room.setdefault("subgoals", {})
+	if not isinstance(subgoals, dict):
+		subgoals = {}
+		room["subgoals"] = subgoals
+	subgoal = subgoals.setdefault(subgoal_id, {
+		"attempts": 0,
+		"last_failure_class": None,
+		"fix_classes_tried": [],
+		"last_log": None,
+	})
+	if not isinstance(subgoal, dict):
+		subgoal = {"attempts": 0, "last_failure_class": None,
+			"fix_classes_tried": [], "last_log": None}
+		subgoals[subgoal_id] = subgoal
+	subgoal.setdefault("fix_classes_tried", [])
+	return subgoal
+
+
 def recent_log_text(root: Path, pattern: str = "aider-pass-*.log", *,
 	max_chars: int = 12000) -> tuple[str, str | None]:
 	logs = sorted((root / ".ai/logs").glob(pattern), key=lambda path: path.stat().st_mtime)
@@ -599,6 +703,8 @@ def recent_log_text(root: Path, pattern: str = "aider-pass-*.log", *,
 def record_investigation(memory: dict[str, object], goal: Goal, *, attempt: int,
 	phase: str, exit_code: int, output: str = "", log_path: str | None = None) -> None:
 	evidence = fault_evidence(output)
+	failure_class = failure_class_for(exit_code, evidence, phase)
+	subgoal_id = g24_subgoal_id(attempt) if goal.goal_id == "G24" else None
 	room = memory_room(memory, goal)
 	drawers = room.setdefault("drawers", [])
 	if not isinstance(drawers, list):
@@ -610,12 +716,24 @@ def record_investigation(memory: dict[str, object], goal: Goal, *, attempt: int,
 		"phase": phase,
 		"exit_code": exit_code,
 		"log": log_path,
+		"subgoal": subgoal_id,
+		"failure_class": failure_class,
 		"hypothesis": hypothesis_for(exit_code, evidence, phase),
 		"evidence": evidence,
 		"gap": investigative_gap(evidence, phase),
 	}
 	drawers.append(entry)
 	del drawers[:-MEMORY_MAX_DRAWERS]
+
+	if subgoal_id:
+		subgoal = g24_subgoal_memory(room, subgoal_id)
+		subgoal["attempts"] = int(subgoal.get("attempts", 0) or 0) + 1
+		subgoal["last_failure_class"] = failure_class
+		subgoal["last_log"] = log_path
+		fix_classes = subgoal.setdefault("fix_classes_tried", [])
+		if isinstance(fix_classes, list) and failure_class not in {"accepted", "unknown"}:
+			fix_classes.append(failure_class)
+			del fix_classes[:-MEMORY_MAX_DRAWERS]
 
 	gaps = room.setdefault("investigative_gaps", [])
 	if isinstance(gaps, list):
@@ -627,6 +745,7 @@ def record_investigation(memory: dict[str, object], goal: Goal, *, attempt: int,
 		tool_calls.append({
 			"timestamp": entry["timestamp"],
 			"goal": goal.goal_id,
+			"subgoal": subgoal_id,
 			"phase": phase,
 			"exit_code": exit_code,
 			"log": log_path,
@@ -634,7 +753,7 @@ def record_investigation(memory: dict[str, object], goal: Goal, *, attempt: int,
 		del tool_calls[:-MEMORY_MAX_TOOL_CALLS]
 
 
-def memory_summary(memory: dict[str, object], goal: Goal) -> str:
+def memory_summary(memory: dict[str, object], goal: Goal, attempt: int | None = None) -> str:
 	room = memory_room(memory, goal)
 	drawers = room.get("drawers", [])
 	tool_calls = memory.get("past_tool_calls", [])
@@ -652,10 +771,31 @@ def memory_summary(memory: dict[str, object], goal: Goal) -> str:
 				ev = "(no decisive evidence captured yet)"
 			lines.append(
 				f"- attempt {entry.get('attempt')} {entry.get('phase')} exit {entry.get('exit_code')}: "
-				f"{entry.get('hypothesis')} Evidence: {ev}"
+				f"{entry.get('hypothesis')} "
+				f"{'Subgoal: ' + str(entry.get('subgoal')) + '. ' if entry.get('subgoal') else ''}"
+				f"Failure class: {entry.get('failure_class', 'unknown')}. Evidence: {ev}"
 			)
 	else:
 		lines.append("- No prior dynamic memory for this goal.")
+	if goal.goal_id == "G24":
+		subgoals = room.get("subgoals", {})
+		active_id = g24_subgoal_id(attempt or 1)
+		lines.append("G24 subgoal memory:")
+		if isinstance(subgoals, dict) and subgoals:
+			for subgoal in G24_SUBGOALS:
+				subgoal_id = str(subgoal["id"])
+				state = subgoals.get(subgoal_id, {})
+				if isinstance(state, dict):
+					fixes = state.get("fix_classes_tried", [])
+					fix_text = ", ".join(str(item) for item in fixes[-4:]) \
+						if isinstance(fixes, list) and fixes else "none"
+					lines.append(
+						f"- {subgoal_id} {subgoal['title']}: attempts={state.get('attempts', 0)} "
+						f"last={state.get('last_failure_class', 'none')} tried={fix_text}"
+					)
+		else:
+			lines.append("- No per-subgoal memory recorded yet.")
+		lines.append(f"Next selected G24 subgoal may rotate from prior attempts; current memory anchor: {active_id}.")
 	gaps = room.get("investigative_gaps", [])
 	if isinstance(gaps, list) and gaps:
 		lines.append("Investigative gaps:")
@@ -666,7 +806,8 @@ def memory_summary(memory: dict[str, object], goal: Goal) -> str:
 		for call in tool_calls[-5:]:
 			if isinstance(call, dict):
 				lines.append(
-					f"- {call.get('goal')} {call.get('phase')} exit {call.get('exit_code')}"
+					f"- {call.get('goal')}{'/' + str(call.get('subgoal')) if call.get('subgoal') else ''} "
+					f"{call.get('phase')} exit {call.get('exit_code')}"
 					f"{' -> ' + call['log'] if call.get('log') else ''}"
 				)
 	return "\n".join(lines)
@@ -758,26 +899,32 @@ docs-only status updates when the probe still fails.
 		)
 	goal_body = goal.body
 	if goal.goal_id == "G24":
+		subgoal = g24_subgoal_for_attempt(attempt)
+		subgoal_files = ", ".join(str(path) for path in subgoal.get("files", ()))
 		return f"""Advance G24 with exactly one small source edit.
 
 Active goal: {goal.goal_id} - {goal.title}
+Active subgoal: {subgoal["id"]} - {subgoal["title"]}
 Attempt on this goal: {attempt}
 
 Use only the editable file or files preloaded in this Aider chat. Do not edit
 any file that was not added as editable context.
 
 Task:
+- Work this subgoal only: {subgoal["focus"]}
+- Editable files for this subgoal: {subgoal_files}
 - Wire the current renderer slice into `GC_GetVisualQuality()` when that can be
   done safely from the loaded source.
-- `GC_GetVisualQuality` is already implemented by the GameCube video backend
-  with this signature: `int GC_GetVisualQuality( void );`.
-- If the loaded `.c` file needs the function, add only this guarded declaration
-  near the existing GameCube declarations:
-  `#if XASH_GAMECUBE` / `extern int GC_GetVisualQuality( void );` / `#endif`.
-- Do not create another implementation of `GC_GetVisualQuality`.
+- `ref/gx/r_local.h` already provides the renderer-local
+  `GC_GetVisualQuality( void )` helper when that header is included.
+- Do not add another `extern` declaration or another implementation of
+  `GC_GetVisualQuality`.
 - Quality 0 is the low-memory smoke path.
 - Quality 1/2 should preserve existing higher-quality behavior.
 - Prefer a tiny helper or guard over broad rendering rewrites.
+
+Structured failure memory:
+{investigation_memory}
 
 Output rules:
 - Start immediately with the target source file path and SEARCH/REPLACE blocks.
@@ -878,6 +1025,8 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 
 def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
+	if goal_id == "G24":
+		return g24_subgoal_files(attempt, root)
 	if goal_id in GOAL_CONTEXT_SLICES:
 		slices = GOAL_CONTEXT_SLICES[goal_id]
 		paths = slices[(max(1, attempt) - 1) % len(slices)]
@@ -994,10 +1143,16 @@ def main() -> int:
 				goal=asdict(goal), attempt=attempts[goal.goal_id],
 				message="failed to checkpoint dirty worktree")
 			return 2
+		active_subgoal = g24_subgoal_for_attempt(attempts[goal.goal_id]) \
+			if goal.goal_id == "G24" else None
 		print(f"\n{'=' * 72}\nGOAL PASS {pass_index}/{args.max_passes}: "
 			f"{goal.goal_id} — {goal.title}\n{'=' * 72}", flush=True)
+		if active_subgoal:
+			print(f"Active subgoal: {active_subgoal['id']} — {active_subgoal['title']}",
+				flush=True)
 		write_state(state_file, state="running", pass_index=pass_index,
-			goal=asdict(goal), attempt=attempts[goal.goal_id])
+			goal=asdict(goal), attempt=attempts[goal.goal_id],
+			subgoal=active_subgoal)
 		probe_result: tuple[int, str, str | None] | None = None
 		if goal.goal_id in DOLPHIN_PROBE_GOALS:
 			print(f"\n--- Dolphin boot probe for {goal.goal_id} ---", flush=True)
@@ -1031,7 +1186,7 @@ def main() -> int:
 		with tempfile.NamedTemporaryFile("w", suffix=".md", prefix="xash3d-gc-goal-",
 			encoding="utf-8", delete=False) as task:
 			task.write(task_for(goal, root, attempts[goal.goal_id],
-				memory_summary(memory, goal), probe_result))
+				memory_summary(memory, goal, attempts[goal.goal_id]), probe_result))
 			task_path = Path(task.name)
 		head_before = git_head(root)
 		try:
@@ -1050,6 +1205,9 @@ def main() -> int:
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "1024")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_3", "768")
 				pass_env.setdefault("AIDER_MAX_CHAT_HISTORY_TOKENS", "256")
+				pass_env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
+				if active_subgoal:
+					pass_env.setdefault("AI_G24_SUBGOAL", str(active_subgoal["id"]))
 			if attempts[goal.goal_id] >= 3:
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")

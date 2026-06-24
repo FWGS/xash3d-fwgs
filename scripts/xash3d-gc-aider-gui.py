@@ -46,6 +46,7 @@ GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 QWABLE_5_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
 QWABLE_5_SERVED_NAME = "qwen-local"
 HEADER_LOGO = DEFAULT_REPO / "assets/ui/nintendo-gamecube-logo.svg"
+HEADER_MARK = DEFAULT_REPO / "assets/ui/gamecube-mark.svg"
 
 GC_BG = "#171225"
 GC_PANEL = "#241a3f"
@@ -248,15 +249,18 @@ class PortWindow(QMainWindow):
 		layout.setContentsMargins(12, 10, 12, 10)
 
 		header = QHBoxLayout()
-		logo = QSvgWidget(str(HEADER_LOGO))
-		logo.setFixedSize(64, 64)
-		header.addWidget(logo)
+		mark = QSvgWidget(str(HEADER_MARK))
+		mark.setFixedSize(64, 64)
+		header.addWidget(mark)
 		titles = QVBoxLayout()
 		title_row = QHBoxLayout()
 		title_row.setSpacing(6)
 		title_prefix = QLabel("Xash3D")
 		title_prefix.setObjectName("Title")
 		title_row.addWidget(title_prefix)
+		logo = QSvgWidget(str(HEADER_LOGO))
+		logo.setFixedSize(132, 100)
+		title_row.addWidget(logo, 0, Qt.AlignmentFlag.AlignVCenter)
 		title_row.addStretch()
 		subtitle = QLabel("NINTENDO GAMECUBE PORT CONTROL SURFACE")
 		subtitle.setObjectName("Subtitle")
