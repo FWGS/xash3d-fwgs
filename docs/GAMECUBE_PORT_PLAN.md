@@ -641,7 +641,7 @@ The `ref/gx` renderer must use `GC_GetVisualQuality()` to conditionally enable:
 and client-side conversion are complete. Next pass must load `ref/gx/*.c` to
 wire quality checks into actual draw calls.
 
-Attempts 1-5 (2026-06-24) all confirmed the same blocker: `ref/gx/*.c` files
+Attempts 1-6 (2026-06-24) all confirmed the same blocker: `ref/gx/*.c` files
 are unavailable in the Aider context. Cannot complete renderer-side integration
 without source access. Client-side work is complete and verified. Attempt 4
 (exit 128) hit a GameCube build failure in the verifier, likely from a stale
