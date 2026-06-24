@@ -313,7 +313,7 @@ static inline int GC_GetVisualQuality( void )
 #if XASH_LOW_MEMORY
 	return 0;
 #else
-	if( tr.sample_size > 1 && tr.sample_bits > 0 )
+	if( tr.sample_size > 1 && tr.sample_bits > 0 && tr.framecount > 0 )
 		return 2;
 	return 1;
 #endif
