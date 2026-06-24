@@ -19,6 +19,15 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include "mem_gamecube.h"
 extern int GC_GetVisualQuality( void );
+static qboolean R_IsVisualQualityLow( void )
+{
+	return GC_GetVisualQuality() == 0;
+}
+#else
+static qboolean R_IsVisualQualityLow( void )
+{
+	return false;
+}
 #endif
 // #include "beamdef.h"
 #include "entity_types.h"
@@ -1337,7 +1346,7 @@ qboolean GAME_EXPORT R_Init( void )
 #endif
 
 #if XASH_GAMECUBE
-	if( GC_GetVisualQuality() == 0 )
+	if( R_IsVisualQualityLow() )
 	{
 		sw_surfcacheoverride.value = 8192;
 	}
