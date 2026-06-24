@@ -1258,6 +1258,10 @@ void GAME_EXPORT R_NewMap( void )
 	if( r_cnumsurfs <= MINSURFACES )
 		r_cnumsurfs = MINSURFACES;
 
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer surface budget capped to %d (quality=%d)\n", r_cnumsurfs, GC_GetVisualQuality() );
+#endif
+
 	if( r_cnumsurfs > NUMSTACKSURFACES )
 	{
 		surfaces = Mem_Calloc( r_temppool, r_cnumsurfs * sizeof( surf_t ));
