@@ -282,7 +282,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 		}
 
-		if( activeMips > 1 )
+		if( activeMips > 1 && j < ( activeMips - 1 ) )
 			GL_BuildMipMap( data, width, height, tex->depth, tex->flags );
 
 		tex->size += texsize;
