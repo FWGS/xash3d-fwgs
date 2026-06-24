@@ -744,6 +744,19 @@ content was reverted.
 The compliance checker also spells proprietary SDK scan strings with character
 classes so the review gate does not reject the scanner's own source.
 
+## Compliance goal expansion (2026-06-24)
+
+The goal ledger now splits the public homebrew compliance bar into focused
+release goals instead of leaving it bundled into the final documentation pass.
+G43-G54 cover boot media and loader failure UX, video modes and 4:3 safe area,
+controller edge cases, save integrity, filesystem portability, audio failure and
+latency behavior, frame timing, fatal-error UX, accessibility and console-style
+menus, release packaging/legal audit, hardware matrix evidence, and a compliance
+overlay or scripted test route.
+
+These goals require concrete verifier output, Dolphin logs, release artifacts,
+or operator-recorded hardware evidence before they can be marked complete.
+
 ## Next wake-up commands
 
 ```sh
