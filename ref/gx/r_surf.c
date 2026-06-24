@@ -901,7 +901,7 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 	qboolean    wrapped_this_time;
 
 #if XASH_GAMECUBE
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) && !sc_base )
+	if( !GC_GetVisualQuality() && !sc_base )
 		return NULL;
 #endif
 
