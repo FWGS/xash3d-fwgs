@@ -641,15 +641,13 @@ The `ref/gx` renderer must use `GC_GetVisualQuality()` to conditionally enable:
 and client-side conversion are complete. Next pass must load `ref/gx/*.c` to
 wire quality checks into actual draw calls.
 
-Attempts 1-12 (2026-06-24), Attempt 6 (2026-06-24), Attempt 7 (2026-06-24),
-Attempt 9 (2026-06-24), Attempt 10 (2026-06-24), and Attempt 11 (2026-06-24)
-all confirmed the same blocker: `ref/gx/*.c` files are unavailable in the Aider
-context. Cannot complete renderer-side integration without source access.
-Client-side work is complete and verified. Attempt 4 (exit 128) hit a GameCube
-build failure in the verifier, likely from a stale prior edit; subsequent
-passes reverted cleanly without forcing renderer changes. No source edits made
-in these passes as context remains unavailable. Adding build scripts does not
-provide renderer source context.
+Attempts 1-13 (2026-06-24) all confirmed the same blocker: `ref/gx/*.c` files
+are unavailable in the Aider context. Cannot complete renderer-side integration
+without source access. Attempt 4 (exit 128) hit a GameCube build failure in the
+verifier, likely from a stale prior edit; subsequent passes reverted cleanly
+without forcing renderer changes. No source edits made in these passes as
+context remains unavailable. Adding build scripts does not provide renderer
+source context. Client-side work is complete and verified.
 
 **Evidence:**
 - `gc_quality` cvar registered in `R_Init_Video`
@@ -677,7 +675,8 @@ scripts/build-gamecube.sh
 ```
 
 **Next step:** Goal runner must supply `ref/gx/*.c` source files to a subsequent
-pass. Required files for renderer quality integration:
+pass (Attempt 13 requested this explicitly). Required files for renderer quality
+integration:
 - `engine/ref_gx/gl_ref.c` or main GX renderer entry point
 - Files containing `R_DrawBrushModel`, `R_StudioDrawModel`, or lightmap/particle
   draw paths
