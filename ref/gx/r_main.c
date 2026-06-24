@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "library.h"
 #if XASH_GAMECUBE
 #include "mem_gamecube.h"
+extern int GC_GetVisualQuality( void );
 #endif
 // #include "beamdef.h"
 #include "entity_types.h"
@@ -1333,6 +1334,13 @@ qboolean GAME_EXPORT R_Init( void )
 
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin\n" );
+#endif
+
+#if XASH_GAMECUBE
+	if( GC_GetVisualQuality() == 0 )
+	{
+		sw_surfcacheoverride.value = 8192;
+	}
 #endif
 
 	gEngfuncs.Cvar_RegisterVariable( &sw_clearcolor );
