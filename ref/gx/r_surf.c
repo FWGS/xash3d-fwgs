@@ -1274,23 +1274,41 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	// edge-case or unloaded textures (stable fallback mode).
 	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
 	{
-		// Copy the base texture into the surface cache for visibility
+		pixel_t *src = r_drawsurf.image ? r_drawsurf.image->pixels[miplevel] : NULL;
+		pixel_t *dst = r_drawsurf.surfdat;
+		int w = r_drawsurf.surfwidth;
+		int h = r_drawsurf.surfheight;
+		int srcw = 0, srch = 0;
+		qboolean copy_ok = false;
+
+		if( r_drawsurf.image && src && w > 0 && h > 0 )
 		{
-			pixel_t *src = r_drawsurf.image->pixels[miplevel];
-			pixel_t *dst = r_drawsurf.surfdat;
-			int w = r_drawsurf.surfwidth;
-			int h = r_drawsurf.surfheight;
-			int srcw = r_drawsurf.image->width >> miplevel;
-			int srch = r_drawsurf.image->height >> miplevel;
-			if( src && w > 0 && h > 0 && srcw >= w && srch >= h )
+			srcw = r_drawsurf.image->width >> miplevel;
+			srch = r_drawsurf.image->height >> miplevel;
+			if( srcw >= w && srch >= h )
+				copy_ok = true;
+		}
+
+		if( copy_ok )
+		{
+			// Copy the base texture into the surface cache for visibility
+			for( int y = 0; y < h; y++ )
 			{
-				for( int y = 0; y < h; y++ )
-				{
-					for( int x = 0; x < w; x++ )
-						dst[x] = src[x];
-					dst += r_drawsurf.rowbytes;
-					src += srcw;
-				}
+				for( int x = 0; x < w; x++ )
+					dst[x] = src[x];
+				dst += r_drawsurf.rowbytes;
+				src += srcw;
+			}
+		}
+		else
+		{
+			// Fallback: fill with solid pixel so surface is not black/transparent
+			// when texture data is unavailable or dimensions mismatch
+			for( int y = 0; y < h; y++ )
+			{
+				for( int x = 0; x < w; x++ )
+					dst[x] = COLOR_WHITE;
+				dst += r_drawsurf.rowbytes;
 			}
 		}
 	}
