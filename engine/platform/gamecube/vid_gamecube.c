@@ -39,7 +39,7 @@ static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
 static unsigned int gc_blank_present_count;
-static cvar_t *gc_quality;
+static convar_t *gc_quality;
 #endif
 
 /*
@@ -213,7 +213,7 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		return false;
 
 #if XASH_GAMECUBE
-	gc_quality = Cvar_Get( "gc_quality", "1", CVAR_ARCHIVE, "GameCube visual quality mode: 0=low/smoke, 1=medium, 2=high" );
+	gc_quality = Cvar_Get( "gc_quality", "1", FCVAR_ARCHIVE, "GameCube visual quality mode: 0=low/smoke, 1=medium, 2=high" );
 #endif
 
 	GC_InitVideoHardware();

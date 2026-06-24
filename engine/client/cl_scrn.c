@@ -943,6 +943,10 @@ SCR_Init
 */
 void SCR_Init( void )
 {
+#if XASH_GAMECUBE
+	extern int GC_GetVisualQuality( void );
+#endif
+
 	if( scr_init ) return;
 
 	Cvar_RegisterVariable( &scr_centertime );
@@ -971,7 +975,6 @@ void SCR_Init( void )
 
 #if XASH_GAMECUBE
 	{
-		extern int GC_GetVisualQuality( void );
 		if( GC_GetVisualQuality( ) == 0 )
 		{
 			Con_Reportf( "Xash3D GameCube: screen gameui skipped\n" );
@@ -984,6 +987,9 @@ void SCR_Init( void )
 		Con_Printf( S_ERROR "can't initialize gameui DLL: %s\n", COM_GetLibraryError() ); // there is non fatal for us
 		host.allow_console = true; // we need console, because menu is missing
 	}
+#if XASH_GAMECUBE
+	}
+#endif
 
 	SCR_VidInit();
 #if XASH_GAMECUBE

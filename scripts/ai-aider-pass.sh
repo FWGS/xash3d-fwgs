@@ -95,6 +95,7 @@ cleanup_temp_settings() {
 trap cleanup_temp_settings EXIT
 
 cleanup_stale_git_lock() {
+	local min_age="${1:-30}"
 	local lock_file=".git/index.lock"
 	local now lock_mtime age
 	[[ -e "$lock_file" ]] || return 0
@@ -104,7 +105,7 @@ cleanup_stale_git_lock() {
 	now="$(date +%s)"
 	lock_mtime="$(stat -c '%Y' "$lock_file" 2>/dev/null || echo "$now")"
 	age=$(( now - lock_mtime ))
-	if (( age >= 30 )); then
+	if (( age >= min_age )); then
 		echo "ai-aider-pass: removing stale Git index lock (${age}s old)" >&2
 		rm -f "$lock_file"
 	fi
@@ -349,6 +350,7 @@ echo
 echo "== pre-commit verifier =="
 if ! run_precommit_verifier "$VERIFY_LOG"; then
 	echo "ai-aider-pass: first verification failed; requesting one autonomous repair" >&2
+	cleanup_stale_git_lock 0
 	git reset
 	REPAIR_MESSAGE="$(printf '%s\n' \
 		'The current uncommitted patch failed verification. Fix the compiler or verifier failure now.' \

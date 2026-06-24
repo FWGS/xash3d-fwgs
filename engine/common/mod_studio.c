@@ -1170,16 +1170,16 @@ Mod_LoadStudioModel
 */
 void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded )
 {
+#if XASH_GAMECUBE
+	extern int GC_GetVisualQuality( void );
+#endif
 	char poolname[MAX_VA_STRING];
 	studiohdr_t	*phdr;
 	qboolean textures_loaded = false;
-#if XASH_GAMECUBE
-	{
-		extern int GC_GetVisualQuality( void );
-		qboolean skip_studio_textures = (GC_GetVisualQuality( ) == 0);
-	}
-#else
 	qboolean skip_studio_textures = false;
+
+#if XASH_GAMECUBE
+	skip_studio_textures = (GC_GetVisualQuality( ) == 0);
 #endif
 
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
