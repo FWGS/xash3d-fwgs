@@ -172,6 +172,24 @@ Dolphin. It is finished when the engine, game code, renderer, input, audio,
 storage, save/load, campaign progression, diagnostics, and real-hardware
 behavior have evidence in the plan and the remaining limitations are explicit.
 
+Operator-visible status update, 2026-06-23: current Dolphin/log evidence is not
+enough to claim visible rendering or audible audio. The operator reports a black
+screen with no Valve startup video, main menu, rendered map, or sound. Treat
+existing `MAP_READY`, HUD, and ASND entries as backend smoke evidence until they
+are paired with visible pixels or audible output. The immediate visual debug
+path is:
+
+1. Present telemetry in `engine/platform/gamecube/vid_gamecube.c` reports early
+   `present frame=` lines with whether sampled software-buffer pixels are
+   nonblack. Video init now forces an immediate diagnostic present after
+   allocating the GameCube software buffer, so this evidence does not depend on
+   reaching the normal end-of-frame path.
+2. If the sampled software frame is all black, the GameCube present path draws a
+   tiny red/green diagnostic checker directly into the XFB before `VIDEO_Flush`.
+3. If that checker is visible, VI/XFB output works and the next blocker is
+   renderer/client content. If it is not visible, debug VIDEO/XFB/Dolphin output
+   before spending more time on world/HUD rendering.
+
 ## Strategy
 
 - Keep platform work in `engine/platform/gamecube/` and use existing backend

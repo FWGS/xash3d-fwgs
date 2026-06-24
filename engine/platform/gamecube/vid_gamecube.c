@@ -37,6 +37,8 @@ static void *xfb[2] = { NULL, NULL };
 static int which_fb = 0;
 static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
+static unsigned int gc_present_count;
+static unsigned int gc_blank_present_count;
 #endif
 
 void Platform_Minimize_f( void )
@@ -93,6 +95,7 @@ static void GC_PresentBuffer( void )
 	unsigned short *src;
 	unsigned short *dst;
 	int copy_w, copy_h, row;
+	qboolean sampled_nonblack = false;
 
 	if( !rmode || !xfb[which_fb] )
 		return;
@@ -113,6 +116,19 @@ static void GC_PresentBuffer( void )
 
 		for( row = 0; row < src_h; row++ )
 			memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, src_w * sizeof( unsigned short ));
+
+		for( row = 0; row < src_h && !sampled_nonblack; row += 8 )
+		{
+			int col;
+			for( col = 0; col < src_w; col += 8 )
+			{
+				if( src[row * gc.stride + col] != 0 )
+				{
+					sampled_nonblack = true;
+					break;
+				}
+			}
+		}
 	}
 	else
 	{
@@ -124,6 +140,29 @@ static void GC_PresentBuffer( void )
 			for( col = 0; col < copy_w; col++ )
 				rowdst[col] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
 		}
+		sampled_nonblack = true;
+	}
+
+	gc_present_count++;
+	if( !sampled_nonblack )
+	{
+		int mark_w = copy_w < 24 ? copy_w : 24;
+		int mark_h = copy_h < 24 ? copy_h : 24;
+		gc_blank_present_count++;
+
+		for( row = 0; row < mark_h; row++ )
+		{
+			int col;
+			unsigned short *rowdst = dst + row * rmode->fbWidth;
+			for( col = 0; col < mark_w; col++ )
+				rowdst[col] = (( row ^ col ) & 8 ) ? 0xF800 : 0x07E0;
+		}
+	}
+
+	if( gc_present_count <= 8 || ( !sampled_nonblack && gc_blank_present_count <= 8 ))
+	{
+		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
+			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
 	}
 
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
@@ -156,6 +195,7 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		}
 		SYS_Report( "GX video: software buffer %dx%d allocated (stride %u, bpp %u)\n",
 		          width, height, stride, bpp );
+		GC_PresentBuffer();
 	}
 #endif
 
@@ -245,6 +285,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 		uint stride, bpp, r, g, b;
 		if( !SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
 			return rserr_unknown;
+		GC_PresentBuffer();
 	}
 #endif
 

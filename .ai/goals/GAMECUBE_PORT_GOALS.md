@@ -301,6 +301,15 @@ lines. Goals marked `MANUAL` are never selected automatically.
 
 ## G24 [ ] Replace smoke visual skips with stable low-memory visual modes
 
+- User-visible blocker, 2026-06-23: Dolphin can report engine/map progress
+  while the actual display remains black. Treat prior `MAP_READY` results as
+  backend smoke evidence only until a probe or operator run confirms visible
+  nonblack pixels on screen.
+- First fix/audit pass: prove whether the GameCube VI/XFB present path is
+  displaying frames at all. A tiny red/green XFB diagnostic marker is acceptable
+  only when the sampled software-rendered frame is otherwise black; if the marker
+  is visible, the next blocker is renderer content. If the marker is not visible,
+  debug VIDEO/XFB/Dolphin output before renderer features.
 - Turn `-gcnolightmaps`, studio texture skips, particle palette fallbacks, and
   related visual shortcuts into explicit GameCube quality modes or remove them
   when memory permits.
@@ -329,8 +338,12 @@ lines. Goals marked `MANUAL` are never selected automatically.
   without leaks or hangs.
 - Verified 2026-06-23 (smoke): ASND 48 kHz backend with deferred voice start
   reaches `MAP_READY` without hanging sound init. Probe `024230`.
-- `-gcnullaudio` preserves the silent fallback. Remaining: audible weapon/ambient
-  verification on hardware and shutdown leak checks.
+- `-gcnullaudio` preserves the silent fallback.
+- User-visible blocker, 2026-06-23: operator reports no sound despite the ASND
+  smoke path. Treat current evidence as init-only until an operator can hear a
+  known test sound or the logs prove nonzero mixed samples submitted to ASND.
+  Remaining: audible weapon/ambient verification on Dolphin/hardware and
+  shutdown leak checks.
 
 ## G27 [ ] Add streaming music and ambient audio policy
 
