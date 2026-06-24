@@ -150,6 +150,8 @@ def default_model_command() -> str:
 		return os.environ["QWABLE_5_COMMAND"]
 	if shutil.which("qwable-5"):
 		return "qwable-5 --host 127.0.0.1 --port 8072"
+	if gopex_vllm_launcher():
+		return vllm_qwable_command()
 	if shutil.which("vllm"):
 		return vllm_qwable_command()
 	return "qwable-5 --host 127.0.0.1 --port 8072"
