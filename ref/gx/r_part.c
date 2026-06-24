@@ -64,8 +64,8 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	int vis = GC_GetVisualQuality();
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
-		if( vis == 0 )
-			continue;
+		if( vis == 0 && ( p->type != pt_blob ))
+			continue; // low-memory: skip non-blob particles to reduce draw calls
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
 		{
 			float size = partsize; // get initial size of particle
