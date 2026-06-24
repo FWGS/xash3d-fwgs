@@ -985,6 +985,18 @@ static void R_EdgeDrawing( void )
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
 
+#if XASH_GAMECUBE
+	{
+		int quality = GC_GetVisualQuality();
+		// G24a: low-memory smoke path skips full world edge pass until stable
+		if( quality == 0 )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing skipping world pass (quality=0)\n" );
+			return;
+		}
+	}
+#endif
+
 	if( auxedges )
 	{
 		r_edges = auxedges;
