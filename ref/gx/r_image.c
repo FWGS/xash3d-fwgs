@@ -250,6 +250,9 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	// Low-memory/quality 0 path skips mips to save texture memory pressure
 	uint activeMips = ( GC_GetVisualQuality() == 0 ) ? 1 : mipCount;
 
+	if( GC_GetVisualQuality() == 0 )
+		SetBits( tex->flags, TF_NOMIPMAP );
+
 	for( uint j = 0; j < activeMips; j++ )
 	{
 		uint   width = Q_max( 1, ( tex->width >> j ));
