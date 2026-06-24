@@ -1344,12 +1344,6 @@ qboolean GAME_EXPORT R_Init( void )
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin\n" );
 #endif
 
-#if XASH_GAMECUBE
-	if( R_IsVisualQualityLow() )
-	{
-		sw_surfcacheoverride.value = 8192;
-	}
-#endif
 
 	gEngfuncs.Cvar_RegisterVariable( &sw_clearcolor );
 	gEngfuncs.Cvar_RegisterVariable( &sw_drawflat );
