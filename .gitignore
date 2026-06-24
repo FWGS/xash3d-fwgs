@@ -241,6 +241,7 @@ csx/
 
 # Local AI harness runtime output
 .ai/logs/
+.ai/state/goal-loop-memory.json
 *.build.csdef
 
 # Windows Store app package directory

@@ -24,6 +24,26 @@ DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35", "G40"})
 PROBE_AUTO_COMPLETE = {
 	"G19": "MAP_READY:",
 }
+MEMORY_FILE = Path(".ai/state/goal-loop-memory.json")
+MEMORY_MAX_DRAWERS = 12
+MEMORY_MAX_TOOL_CALLS = 40
+FAULT_PATTERNS = (
+	r"Host_ErrorInit:.*",
+	r"Host_Error:.*",
+	r"Sys_Error:.*",
+	r"_Mem_Alloc.*",
+	r"Could not load .*",
+	r"missing .*",
+	r"fatal.*",
+	r"verify: .*failed",
+	r"token/context limit",
+	r"Aider made no edit",
+	r"MAP_READY:.*",
+	r"DIAGNOSTIC MARKER VISIBLE",
+	r"black screen",
+	r"audio .*",
+	r"read-only fallback.*",
+)
 COMMON_CONTEXT = (
 	"docs/GAMECUBE_PORT_PLAN.md",
 	".ai/goals/GAMECUBE_PORT_GOALS.md",
@@ -443,6 +463,194 @@ def probe_log_tail(root: Path, log_dir: str | None, *, lines: int = 80) -> str:
 	return "\n".join(content[-lines:])
 
 
+def clip_text(text: str, limit: int = 360) -> str:
+	text = re.sub(r"\s+", " ", text).strip()
+	if len(text) <= limit:
+		return text
+	return text[:limit - 3].rstrip() + "..."
+
+
+def load_loop_memory(root: Path) -> dict[str, object]:
+	path = root / MEMORY_FILE
+	if not path.is_file():
+		return {
+			"version": 1,
+			"task_goal": "Port Xash3D to run Half-Life 1 on native GameCube hardware.",
+			"rooms": {},
+			"past_tool_calls": [],
+		}
+	try:
+		data = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		data = {}
+	if not isinstance(data, dict):
+		data = {}
+	data.setdefault("version", 1)
+	data.setdefault("task_goal", "Port Xash3D to run Half-Life 1 on native GameCube hardware.")
+	data.setdefault("rooms", {})
+	data.setdefault("past_tool_calls", [])
+	return data
+
+
+def save_loop_memory(root: Path, memory: dict[str, object]) -> None:
+	path = root / MEMORY_FILE
+	path.parent.mkdir(parents=True, exist_ok=True)
+	path.write_text(json.dumps(memory, indent=2, sort_keys=True) + "\n",
+		encoding="utf-8")
+
+
+def memory_room(memory: dict[str, object], goal: Goal) -> dict[str, object]:
+	rooms = memory.setdefault("rooms", {})
+	if not isinstance(rooms, dict):
+		rooms = {}
+		memory["rooms"] = rooms
+	key = f"goal:{goal.goal_id}"
+	room = rooms.setdefault(key, {
+		"title": goal.title,
+		"drawers": [],
+		"investigative_gaps": [],
+	})
+	if not isinstance(room, dict):
+		room = {"title": goal.title, "drawers": [], "investigative_gaps": []}
+		rooms[key] = room
+	room["title"] = goal.title
+	room.setdefault("drawers", [])
+	room.setdefault("investigative_gaps", [])
+	return room
+
+
+def fault_evidence(output: str, *, max_items: int = 8) -> list[dict[str, object]]:
+	evidence: list[dict[str, object]] = []
+	lines = output.splitlines()
+	for pattern in FAULT_PATTERNS:
+		regex = re.compile(pattern, re.IGNORECASE)
+		for index, line in enumerate(lines, start=1):
+			if regex.search(line):
+				evidence.append({
+					"pattern": pattern,
+					"line": index,
+					"text": clip_text(line),
+				})
+				break
+		if len(evidence) >= max_items:
+			break
+	return evidence
+
+
+def hypothesis_for(exit_code: int, evidence: list[dict[str, object]], phase: str) -> str:
+	joined = " ".join(str(item.get("text", "")) for item in evidence).lower()
+	if "token" in joined or "context" in joined:
+		return "Model context or output budget constrained the previous attempt."
+	if "aider made no edit" in joined:
+		return "The model did not find or emit an applicable patch."
+	if "could not load" in joined or "missing" in joined:
+		return "The next blocker is likely asset lookup, staging, or path handling."
+	if "_mem_alloc" in joined:
+		return "The next blocker is likely memory pressure or an oversized cache/allocation."
+	if "host_error" in joined or "sys_error" in joined or "fatal" in joined:
+		return "The next blocker is a guest fatal path that needs the nearest log context."
+	if "black screen" in joined or "diagnostic marker" in joined:
+		return "The next blocker is likely visual output evidence or renderer presentation."
+	if "audio" in joined:
+		return "The next blocker is likely audio initialization, mixing, or output evidence."
+	if exit_code == 0:
+		return f"{phase} completed; preserve this evidence when deciding completion."
+	return f"{phase} exited {exit_code}; inspect the cited evidence before retrying."
+
+
+def investigative_gap(evidence: list[dict[str, object]], phase: str) -> str:
+	if evidence:
+		first = str(evidence[0].get("text", ""))
+		return f"Read around the first `{phase}` evidence line: {clip_text(first, 160)}"
+	return f"Find the first decisive error or missing evidence from the `{phase}` trace."
+
+
+def recent_log_text(root: Path, pattern: str = "aider-pass-*.log", *,
+	max_chars: int = 12000) -> tuple[str, str | None]:
+	logs = sorted((root / ".ai/logs").glob(pattern), key=lambda path: path.stat().st_mtime)
+	if not logs:
+		return "", None
+	path = logs[-1]
+	text = path.read_text(encoding="utf-8", errors="replace")
+	return text[-max_chars:], str(path.relative_to(root))
+
+
+def record_investigation(memory: dict[str, object], goal: Goal, *, attempt: int,
+	phase: str, exit_code: int, output: str = "", log_path: str | None = None) -> None:
+	evidence = fault_evidence(output)
+	room = memory_room(memory, goal)
+	drawers = room.setdefault("drawers", [])
+	if not isinstance(drawers, list):
+		drawers = []
+		room["drawers"] = drawers
+	entry = {
+		"timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+		"attempt": attempt,
+		"phase": phase,
+		"exit_code": exit_code,
+		"log": log_path,
+		"hypothesis": hypothesis_for(exit_code, evidence, phase),
+		"evidence": evidence,
+		"gap": investigative_gap(evidence, phase),
+	}
+	drawers.append(entry)
+	del drawers[:-MEMORY_MAX_DRAWERS]
+
+	gaps = room.setdefault("investigative_gaps", [])
+	if isinstance(gaps, list):
+		gaps.append(entry["gap"])
+		del gaps[:-MEMORY_MAX_DRAWERS]
+
+	tool_calls = memory.setdefault("past_tool_calls", [])
+	if isinstance(tool_calls, list):
+		tool_calls.append({
+			"timestamp": entry["timestamp"],
+			"goal": goal.goal_id,
+			"phase": phase,
+			"exit_code": exit_code,
+			"log": log_path,
+		})
+		del tool_calls[:-MEMORY_MAX_TOOL_CALLS]
+
+
+def memory_summary(memory: dict[str, object], goal: Goal) -> str:
+	room = memory_room(memory, goal)
+	drawers = room.get("drawers", [])
+	tool_calls = memory.get("past_tool_calls", [])
+	lines = [
+		f"Underlying task goal: {memory.get('task_goal', '')}",
+		"Goal hypotheses and evidence:",
+	]
+	if isinstance(drawers, list) and drawers:
+		for entry in drawers[-4:]:
+			evidence = entry.get("evidence", []) if isinstance(entry, dict) else []
+			if isinstance(evidence, list) and evidence:
+				ev = "; ".join(clip_text(str(item.get("text", "")), 120)
+					for item in evidence[:3] if isinstance(item, dict))
+			else:
+				ev = "(no decisive evidence captured yet)"
+			lines.append(
+				f"- attempt {entry.get('attempt')} {entry.get('phase')} exit {entry.get('exit_code')}: "
+				f"{entry.get('hypothesis')} Evidence: {ev}"
+			)
+	else:
+		lines.append("- No prior dynamic memory for this goal.")
+	gaps = room.get("investigative_gaps", [])
+	if isinstance(gaps, list) and gaps:
+		lines.append("Investigative gaps:")
+		for gap in gaps[-3:]:
+			lines.append(f"- {gap}")
+	if isinstance(tool_calls, list) and tool_calls:
+		lines.append("Recent investigation tool calls:")
+		for call in tool_calls[-5:]:
+			if isinstance(call, dict):
+				lines.append(
+					f"- {call.get('goal')} {call.get('phase')} exit {call.get('exit_code')}"
+					f"{' -> ' + call['log'] if call.get('log') else ''}"
+				)
+	return "\n".join(lines)
+
+
 def insert_goal_evidence(text: str, goal_id: str, evidence_lines: list[str]) -> str:
 	header_re = re.compile(rf"^(## {re.escape(goal_id)} \[)( \])", re.MULTILINE)
 	match = header_re.search(text)
@@ -489,7 +697,7 @@ def commit_probe_success(root: Path, goal: Goal, log_dir: str, probe_output: str
 	return run(["git", "commit", "-m", subject], root).returncode
 
 
-def task_for(goal: Goal, root: Path, attempt: int,
+def task_for(goal: Goal, root: Path, attempt: int, investigation_memory: str,
 	probe_result: tuple[int, str, str | None] | None = None) -> str:
 	retry_instruction = ""
 	if attempt > 1:
@@ -542,6 +750,9 @@ Repository context:
 Automation environment:
 {automation_context()}
 
+Investigation memory:
+{investigation_memory}
+
 Make one coherent patch using the preloaded files. Preserve non-GameCube
 targets. Do not ask questions, propose commands, or stop at a plan. If the
 premise is disproven, update the goal ledger and port plan with the blocker
@@ -560,6 +771,8 @@ Rules:
 - Mark `{goal.goal_id}` done only when every acceptance criterion is demonstrated.
   Otherwise leave it unchecked and state the next blocker in the port plan.
 - Never mark MANUAL goals complete.
+- Use the investigation memory as prior evidence, but verify stale hypotheses
+  against current source, logs, or artifacts before acting on them.
 - Stop after this coherent patch; the goal runner decides what comes next.
 """
 
@@ -652,6 +865,7 @@ def main() -> int:
 	root = args.repo.expanduser().resolve()
 	goal_file = root / ".ai/goals/GAMECUBE_PORT_GOALS.md"
 	state_file = root / ".ai/logs/goal-loop-state.json"
+	memory = load_loop_memory(root)
 	interrupted_signal = 0
 	load_dotenv(root / ".env")
 
@@ -721,6 +935,10 @@ def main() -> int:
 			print(probe_output, flush=True)
 			success_marker = PROBE_AUTO_COMPLETE.get(goal.goal_id)
 			if probe.returncode == 0 and success_marker and success_marker in probe_output:
+				record_investigation(memory, goal, attempt=attempts[goal.goal_id],
+					phase="dolphin-probe", exit_code=probe.returncode,
+					output=probe_output, log_path=f"{log_dir}/stderr.log" if log_dir else None)
+				save_loop_memory(root, memory)
 				if commit_probe_success(root, goal, log_dir or "", probe_output) != 0:
 					write_state(state_file, state="failed", pass_index=pass_index,
 						goal=asdict(goal), message="probe succeeded but commit failed")
@@ -734,9 +952,14 @@ def main() -> int:
 					flush=True)
 				continue
 			probe_result = (probe.returncode, probe_output, log_dir)
+			record_investigation(memory, goal, attempt=attempts[goal.goal_id],
+				phase="dolphin-probe", exit_code=probe.returncode,
+				output=probe_output, log_path=f"{log_dir}/stderr.log" if log_dir else None)
+			save_loop_memory(root, memory)
 		with tempfile.NamedTemporaryFile("w", suffix=".md", prefix="xash3d-gc-goal-",
 			encoding="utf-8", delete=False) as task:
-			task.write(task_for(goal, root, attempts[goal.goal_id], probe_result))
+			task.write(task_for(goal, root, attempts[goal.goal_id],
+				memory_summary(memory, goal), probe_result))
 			task_path = Path(task.name)
 		head_before = git_head(root)
 		try:
@@ -762,6 +985,11 @@ def main() -> int:
 		finally:
 			task_path.unlink(missing_ok=True)
 		if result.returncode != 0:
+			log_tail, log_path = recent_log_text(root)
+			record_investigation(memory, goal, attempt=attempts[goal.goal_id],
+				phase="aider-pass", exit_code=result.returncode,
+				output=log_tail, log_path=log_path)
+			save_loop_memory(root, memory)
 			head_after = git_head(root)
 			if head_after and head_after != head_before and not git_dirty(root):
 				write_state(state_file, state="resuming-after-commit", pass_index=pass_index,
@@ -788,8 +1016,17 @@ def main() -> int:
 			write_state(state_file, state="failed", pass_index=pass_index,
 				goal=asdict(goal), exit_code=result.returncode)
 			return result.returncode
+		log_tail, log_path = recent_log_text(root)
+		record_investigation(memory, goal, attempt=attempts[goal.goal_id],
+			phase="aider-pass", exit_code=result.returncode,
+			output=log_tail, log_path=log_path)
+		save_loop_memory(root, memory)
 		review = run(["scripts/ai-review.sh"], root)
 		if review.returncode != 0:
+			record_investigation(memory, goal, attempt=attempts[goal.goal_id],
+				phase="review", exit_code=review.returncode,
+				output=f"scripts/ai-review.sh exited {review.returncode}")
+			save_loop_memory(root, memory)
 			write_state(state_file, state="failed-review", pass_index=pass_index,
 				goal=asdict(goal), exit_code=review.returncode)
 			return review.returncode

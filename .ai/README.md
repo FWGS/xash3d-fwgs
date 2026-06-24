@@ -10,7 +10,8 @@ GameCube build verifier, and conservative Git guardrails.
 - `OPENAI_API_KEY` set in the shell, never committed to this repository.
 - devkitPPC and libogc installed under `DEVKITPRO` (default:
   `/opt/devkitpro`).
-- A clean Git worktree. The runner stops instead of absorbing existing work.
+- A Git worktree that can be checkpointed. The runner commits dirty tracked
+  work before each autonomous pass so unattended runs can keep moving.
 
 ## One bounded pass
 
@@ -51,7 +52,7 @@ scripts/ai-run-until-done.py --chunk-passes 20 --recoverable-retries 8
 
 The supervisor checks that the model API is reachable, invokes the evidence
 gated goal loop in bounded chunks, and keeps going through recoverable pass
-limits, model timeouts, and token-limit retries. It still stops on dirty-tree,
+limits, model timeouts, and token-limit retries. It still stops on
 verification, review, or manual-hardware blockers.
 
 Newly completed goals must carry command/log evidence in both the goal ledger
@@ -68,6 +69,12 @@ profile is loaded into model context and checked by
 `scripts/gamecube-homebrew-compliance-check.py`. Known bad assumptions are
 recorded in `GAMECUBE_FAILURE_MEMORY.md` and enforced where practical by the
 verifier.
+
+The goal loop also keeps a local investigation memory in
+`.ai/state/goal-loop-memory.json`. It stores recent goal attempts, compact
+hypotheses, verbatim evidence snippets, investigative gaps, and recent tool
+calls, then feeds a short summary into the next pass. The file is ignored by
+Git because it is run-local state rather than source history.
 
 Dolphin discovery is shared by the GUI, probes, and Qwable/Aider passes through
 `scripts/gamecube-env.sh`. Override `DOLPHIN_EXECUTABLE` in `.env` with a native

@@ -757,6 +757,19 @@ overlay or scripted test route.
 These goals require concrete verifier output, Dolphin logs, release artifacts,
 or operator-recorded hardware evidence before they can be marked complete.
 
+## Active investigation memory (2026-06-24)
+
+The goal runner now keeps a local short-term investigation memory at
+`.ai/state/goal-loop-memory.json`. Each goal gets a small room of recent
+attempts with hypotheses, verbatim evidence snippets found by regex over probe
+or Aider logs, investigative gaps, and recent tool calls. The next Aider task
+receives only a compact summary, keeping long logs out of prompt context while
+preserving the useful fault-attribution trail across retries.
+
+The memory file is ignored by Git because it is run-local state. Source-truth
+evidence still belongs in the goal ledger and this port plan before any goal is
+marked complete.
+
 ## Next wake-up commands
 
 ```sh
