@@ -222,7 +222,7 @@ def stylesheet() -> str:
 class PortWindow(QMainWindow):
 	def __init__(self, gamecube_font_family: str) -> None:
 		super().__init__()
-		self.setWindowTitle("Xash3D → GameCube — Port Command Console")
+		self.setWindowTitle("Xash3D on GameCube Porting")
 		self.resize(1320, 820)
 		self.process: QProcess | None = None
 		self.model_process: QProcess | None = None

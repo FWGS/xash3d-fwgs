@@ -1039,29 +1039,38 @@ def clean_commit_advances_goal(root: Path, before: str, after: str, expected_sub
 	return "docs/GAMECUBE_PORT_PLAN.md" in changed
 
 
+def goal_commit_subject(goal: Goal, active_subgoal: dict[str, object] | None) -> str:
+	if goal.goal_id == "G24" and active_subgoal:
+		subjects = {
+			"G24a": "feat: wire GameCube renderer quality entrypoint",
+			"G24b": "feat: bound GameCube surface cache drawing",
+			"G24c": "feat: stabilize GameCube sprite visuals",
+			"G24d": "feat: reduce GameCube texture pressure",
+			"G24e": "feat: simplify GameCube renderer quality helpers",
+		}
+		return subjects.get(str(active_subgoal["id"]), "feat: stabilize GameCube visuals")
+	return GOAL_COMMIT_SUBJECT.get(goal.goal_id,
+		f"feat: advance GameCube port goal {goal.goal_id}")
+
+
 def goal_commit_body(goal: Goal, *, attempt: int, context_files: list[str],
 	read_context_files: list[str], active_subgoal: dict[str, object] | None,
 	expected_subject: str, docs_required: str) -> str:
+	context = ", ".join(item.replace("required:", "").replace("read:", "")
+		for item in context_files)
+	read_context = ", ".join(item.replace("read:", "") for item in read_context_files)
 	lines = [
-		f"Goal: {goal.goal_id} - {goal.title}",
-		f"Attempt: {attempt}",
-		f"Subject: {expected_subject}",
+		f"Goal: {goal.goal_id} attempt {attempt}",
 	]
 	if active_subgoal:
-		lines.extend((
-			f"Subgoal: {active_subgoal['id']} - {active_subgoal['title']}",
-			f"Focus: {active_subgoal['focus']}",
-		))
+		lines.append(f"Subgoal: {active_subgoal['id']} - {active_subgoal['title']}")
 	lines.extend((
 		"",
-		"Automation context:",
-		f"- Editable context: {', '.join(context_files) if context_files else '(none)'}",
-		f"- Read-only context: {', '.join(read_context_files) if read_context_files else '(none)'}",
-		f"- Docs update required: {docs_required}",
+		f"Editable: {context or '(none)'}",
+		f"Read-only: {read_context or '(none)'}",
+		f"Docs required: {docs_required}",
 		"",
-		"Verification:",
-		"- scripts/ai-aider-pass.sh runs the pre-commit verifier before this commit.",
-		"- Post-commit safety runs after this commit before the goal loop accepts it.",
+		"Verified by ai-aider-pass pre-commit and post-commit checks.",
 	))
 	return "\n".join(lines)
 
@@ -1264,8 +1273,7 @@ def main() -> int:
 			context_files = context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			read_context_files = read_context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			pass_env = os.environ.copy()
-			expected_subject = GOAL_COMMIT_SUBJECT.get(goal.goal_id,
-				f"feat: advance GameCube port goal {goal.goal_id}")
+			expected_subject = goal_commit_subject(goal, active_subgoal)
 			pass_env["AI_COMMIT_SUBJECT"] = expected_subject
 			pass_env["AI_DIRTY_COMMIT_SUBJECT"] = dirty_commit_subject(goal.goal_id)
 			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])
