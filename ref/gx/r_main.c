@@ -1250,22 +1250,21 @@ void GAME_EXPORT R_NewMap( void )
 	r_cnumsurfs = sw_maxsurfs.value;
 
 #if XASH_GAMECUBE
-	// G24a: low-memory smoke path caps surfaces before MINSURFACES floor
-	if( GC_GetVisualQuality() == 0 )
 	{
-		if( r_cnumsurfs > NUMSTACKSURFACES )
-			r_cnumsurfs = NUMSTACKSURFACES;
-		if( r_cnumsurfs < MINSURFACES )
-			r_cnumsurfs = MINSURFACES;
+		int quality = GC_GetVisualQuality();
+		// G24a: low-memory smoke path caps surfaces before MINSURFACES floor
+		if( quality == 0 )
+		{
+			if( r_cnumsurfs > NUMSTACKSURFACES )
+				r_cnumsurfs = NUMSTACKSURFACES;
+			if( r_cnumsurfs < MINSURFACES )
+				r_cnumsurfs = MINSURFACES;
+		}
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer surface budget capped to %d (quality=%d)\n", r_cnumsurfs, quality );
 	}
-	else
 #endif
 	if( r_cnumsurfs <= MINSURFACES )
 		r_cnumsurfs = MINSURFACES;
-
-#if XASH_GAMECUBE
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer surface budget capped to %d (quality=%d)\n", r_cnumsurfs, GC_GetVisualQuality() );
-#endif
 
 	if( r_cnumsurfs > NUMSTACKSURFACES )
 	{
@@ -1292,6 +1291,10 @@ void GAME_EXPORT R_NewMap( void )
 	// G24a: low-memory smoke path caps edges to stack budget
 	if( GC_GetVisualQuality() == 0 && r_numallocatededges > NUMSTACKEDGES )
 		r_numallocatededges = NUMSTACKEDGES;
+#endif
+
+#if XASH_GAMECUBE
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer edge budget capped to %d (quality=%d)\n", r_numallocatededges, GC_GetVisualQuality() );
 #endif
 
 	if( r_numallocatededges <= NUMSTACKEDGES )
