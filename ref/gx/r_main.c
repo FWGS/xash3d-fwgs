@@ -1288,13 +1288,13 @@ void GAME_EXPORT R_NewMap( void )
 		r_numallocatededges = MINEDGES;
 
 #if XASH_GAMECUBE
-	// G24a: low-memory smoke path caps edges to stack budget
-	if( GC_GetVisualQuality() == 0 && r_numallocatededges > NUMSTACKEDGES )
-		r_numallocatededges = NUMSTACKEDGES;
-#endif
-
-#if XASH_GAMECUBE
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer edge budget capped to %d (quality=%d)\n", r_numallocatededges, GC_GetVisualQuality() );
+	{
+		int quality = GC_GetVisualQuality();
+		// G24a: low-memory smoke path caps edges to stack budget
+		if( quality == 0 && r_numallocatededges > NUMSTACKEDGES )
+			r_numallocatededges = NUMSTACKEDGES;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer edge budget capped to %d (quality=%d)\n", r_numallocatededges, quality );
+	}
 #endif
 
 	if( r_numallocatededges <= NUMSTACKEDGES )
