@@ -284,13 +284,9 @@ extern gl_globals_t   tr;
 #define r_numStatics  ( r_stats.c_client_ents )
 
 /*
-** GC_GetVisualQuality
-** Returns 0 for low-memory smoke path (XASH_LOW_MEMORY).
-** Returns 1 for standard quality paths.
-** Returns 2 when sample_size permits higher fidelity (quality-2 path).
-**
-** This helper is only meaningful for GameCube builds. On non-GameCube
-** targets a constant quality of 1 is assumed.
+** GC_IsLowMemoryMode
+** Returns 1 if running in XASH_LOW_MEMORY mode (quality 0).
+** Returns 0 otherwise.
 */
 static inline int GC_IsLowMemoryMode( void )
 {
@@ -302,6 +298,15 @@ static inline int GC_IsLowMemoryMode( void )
 	return 0;
 }
 
+/*
+** GC_GetVisualQuality
+** Returns 0 for low-memory smoke path (XASH_LOW_MEMORY).
+** Returns 1 for standard quality paths.
+** Returns 2 when sample_size permits higher fidelity (quality-2 path).
+**
+** This renderer-local helper supersedes any platform-level GC_GetVisualQuality.
+** On non-GameCube targets a constant quality of 1 is assumed.
+*/
 static inline int GC_GetVisualQuality( void )
 {
 #if XASH_GAMECUBE
