@@ -1453,15 +1453,23 @@ qboolean GAME_EXPORT R_Init( void )
 #if XASH_GAMECUBE
 	{
 		int quality = GC_GetVisualQuality();
-		// G24a: early quality gate before image/cache pressure
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer entering image init (quality=%d)\n", quality );
+		if( quality == 0 )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: skipping full image init (quality=0)\n" );
+		}
+		else
+		{
+			R_InitImages();
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images ready\n" );
+			GC_MemSample( "textures" );
+		}
 	}
-#endif
-
-	R_InitImages();
-#if XASH_GAMECUBE
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images ready\n" );
-	GC_MemSample( "textures" );
+#else
+	{
+		R_InitImages();
+		GC_MemSample( "textures" );
+	}
 #endif
 	// init draw stack
 	tr.draw_list = &tr.draw_stack[0];
