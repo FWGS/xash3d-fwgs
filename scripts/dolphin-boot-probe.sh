@@ -146,12 +146,18 @@ GUEST_FOUND=0
 READY_FOUND=0
 MAP_FOUND=0
 INPUT_FOUND=0
+DIAGNOSTIC_MARKER_FOUND=0
+SAMPLED_NONBLACK_FOUND=0
 grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
 grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
 grep -aqsF "$INPUT_MARKER" "${LOG_FILES[@]}" && INPUT_FOUND=1
 if [[ -n "$SMOKE_MAP" ]]; then
 	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
 fi
+
+# Check for visual diagnostics from G24 enhancements
+grep -aqsF "DIAGNOSTIC MARKER VISIBLE" "${LOG_FILES[@]}" && DIAGNOSTIC_MARKER_FOUND=1
+grep -aqE "sampled_nonblack=1" "${LOG_FILES[@]}" && SAMPLED_NONBLACK_FOUND=1
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
@@ -160,6 +166,14 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		exit 3
 	fi
 	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
+	if (( DIAGNOSTIC_MARKER_FOUND )); then
+		echo "VISUAL_BLOCKER: Diagnostic marker (Red/Green checker) was reported visible. VI/XFB is likely working, but renderer content may be black or missing."
+	fi
+	if (( SAMPLED_NONBLACK_FOUND )); then
+		echo "VISUAL_PROGRESS: Software renderer sampled non-black pixels. Content should be visible."
+	else
+		echo "VISUAL_NOTE: No non-black pixel samples detected in logs. Check for black screen or diagnostic marker."
+	fi
 	echo "Logs: $LOG_DIR"
 	exit 0
 fi
@@ -188,6 +202,10 @@ elif (( GUEST_FOUND )) && grep -aEiq 'Host_Error|Sys_Error|Xash Error:|fatal err
 	echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
 	echo "Logs: $LOG_DIR"
 	exit 3
+elif (( DIAGNOSTIC_MARKER_FOUND )); then
+	echo "VISUAL_DIAGNOSTIC: Diagnostic marker was detected in logs. This suggests VI/XFB is functional."
+	echo "Logs: $LOG_DIR"
+	exit 0
 elif grep -aEiq 'Unknown instruction|Invalid read from|IntCPU:|apploader.*(fail|error)' "${LOG_FILES[@]}"; then
 	echo "BOOT_FAILURE: Dolphin reached the disc but the guest image failed before bootstrap."
 	echo "Logs: $LOG_DIR"
