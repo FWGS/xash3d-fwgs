@@ -379,6 +379,7 @@ GOAL_COMMIT_SUBJECT = {
 }
 RECOVERABLE_EXIT_CODES = {
 	10: "Aider made no edit",
+	16: "Automation harness preflight failed",
 	17: "Aider model call timed out",
 	18: "Aider hit a token/context limit",
 }
@@ -452,6 +453,19 @@ def run(command: list[str], root: Path, *, capture: bool = False,
 	print("$ " + " ".join(command), flush=True)
 	return subprocess.run(command, cwd=root, text=True, check=False,
 		capture_output=capture, env=env or os.environ.copy())
+
+
+def harness_preflight(root: Path) -> subprocess.CompletedProcess[str]:
+	scripts = ("scripts/ai-aider-pass.sh", "scripts/ai-verify.sh")
+	output: list[str] = []
+	for script in scripts:
+		result = run(["bash", "-n", script], root, capture=True)
+		output.append((result.stdout or "") + (result.stderr or ""))
+		if result.returncode != 0:
+			return subprocess.CompletedProcess(["bash", "-n", *scripts],
+				result.returncode, "".join(output), "")
+	return subprocess.CompletedProcess(["bash", "-n", *scripts], 0,
+		"".join(output), "")
 
 
 def commit_with_body(root: Path, subject: str, body: str) -> int:
@@ -1245,6 +1259,7 @@ def main() -> int:
 				memory_summary(memory, goal, attempts[goal.goal_id]), probe_result))
 			task_path = Path(task.name)
 		head_before = git_head(root)
+		child_failure_output = ""
 		try:
 			context_files = context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			read_context_files = read_context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
@@ -1280,15 +1295,23 @@ def main() -> int:
 				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "12000")
 				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "8000")
 				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_3", "6000")
-			result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path),
-				*context_files, *read_context_files], root, env=pass_env)
+			preflight = harness_preflight(root)
+			if preflight.returncode != 0:
+				child_failure_output = ((preflight.stdout or "") + (preflight.stderr or "")).strip()
+				print(child_failure_output, file=sys.stderr, flush=True)
+				result = subprocess.CompletedProcess(preflight.args, 16,
+					preflight.stdout, preflight.stderr)
+			else:
+				result = run(["scripts/ai-aider-pass.sh", str(root), str(task_path),
+					*context_files, *read_context_files], root, env=pass_env)
 		finally:
 			task_path.unlink(missing_ok=True)
 		if result.returncode != 0:
 			log_tail, log_path = recent_log_text(root)
 			record_investigation(memory, goal, attempt=attempts[goal.goal_id],
 				phase="aider-pass", exit_code=result.returncode,
-				output=log_tail, log_path=log_path)
+				output=child_failure_output or log_tail,
+				log_path=None if child_failure_output else log_path)
 			save_loop_memory(root, memory)
 			head_after = git_head(root)
 			if clean_commit_advances_goal(root, head_before, head_after, expected_subject):
