@@ -316,21 +316,19 @@ lines. Goals marked `MANUAL` are never selected automatically.
   `cl_scrn.c` (texture registration, vidinit deferral, gameui/HUD init) and
   `mod_studio.c` (studio texture loading). Quality 0 preserves minimal smoke
   path; higher qualities initialize full client subsystems.
-- **Remaining:** `ref/gx` renderer source not available in this pass. Renderer
-  quality checks (lightmaps, particles, studio draw, HUD sprite resolution)
-  must be wired in a subsequent pass with `ref/gx/*.c` loaded.
-- Attempts 1-13 (2026-06-24) all confirmed the same blocker: `ref/gx/*.c` files
-  are unavailable in the Aider context. Cannot complete renderer-side
-  integration without source access. Attempt 4 (exit 128) hit a GameCube build
-  failure in verifier, likely from a stale prior edit; subsequent passes
-  reverted cleanly. No source edits made in these passes as context remains
-  unavailable. Adding build scripts does not provide renderer source context.
+- **Remaining:** Renderer quality checks (lightmaps, particles, studio draw,
+  HUD sprite resolution) must be wired through the `ref/gx` draw paths.
+- Automation fix, 2026-06-24: `ref/gx` files were present in the repo, but G24
+  did not preload them and the pass runner dropped large renderer files during
+  context-size pruning. G24 now supplies required editable renderer context for
+  `r_context.c`, `r_main.c`, `r_surf.c`, `r_studio.c`, `r_part.c`,
+  `r_sprite.c`, `r_image.c`, and `r_local.h`.
 - Client-side work is complete and verified.
-- **Exact files needed for next pass:** The goal runner must preload
-  `engine/ref_gx/gl_ref.c` (or the main GX renderer entry point file) and
-  any `ref/gx/*.c` files containing draw paths for `R_DrawBrushModel`,
-  `R_StudioDrawModel`, lightmap rendering, or particle effects.
-- Without those files, G24 remains partial. Client-side conversion is done.
+- **Exact files loaded for next pass:** `ref/gx/r_main.c` (`R_DrawBrushModel`),
+  `ref/gx/r_surf.c` (lightmap paths), `ref/gx/r_studio.c`
+  (`R_StudioDrawModel`), `ref/gx/r_part.c` (particles), `ref/gx/r_sprite.c`
+  (sprites), plus `ref/gx/r_context.c`, `ref/gx/r_image.c`, and
+  `ref/gx/r_local.h`.
 - Keep map loading stable while rendering world geometry, entities, sprites,
   basic particles, and the HUD.
 - Record screenshots or OSReport frame evidence for each enabled visual class.

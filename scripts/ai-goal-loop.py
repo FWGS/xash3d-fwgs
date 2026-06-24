@@ -101,9 +101,13 @@ GOAL_CONTEXT = {
 		"engine/common/host.c", "engine/platform/gamecube/sys_gamecube.c"),
 	"G23": ("engine/common/zone.c", "engine/common/mod_bmodel.c",
 		"engine/common/mod_studio.c", "engine/platform/gamecube/sys_gamecube.c"),
-	"G24": ("engine/client/cl_scrn.c", "engine/client/cl_sprite.c",
-		"engine/client/dll_int/cl_render.c", "engine/common/mod_studio.c",
-		"engine/common/mod_bmodel.c"),
+	"G24": ("engine/platform/gamecube/vid_gamecube.c",
+		"engine/client/cl_scrn.c", "engine/client/cl_sprite.c",
+		"engine/client/cl_tent.c", "engine/client/dll_int/cl_render.c",
+		"engine/common/mod_studio.c", "engine/common/mod_bmodel.c",
+		"ref/gx/r_context.c", "ref/gx/r_main.c", "ref/gx/r_surf.c",
+		"ref/gx/r_studio.c", "ref/gx/r_part.c", "ref/gx/r_sprite.c",
+		"ref/gx/r_image.c", "ref/gx/r_local.h"),
 	"G25": ("engine/client/dll_int/cl_game.c", "engine/client/cl_scrn.c",
 		"stub/client/client_export.c", "3rdparty/hlsdk-portable/cl_dll/hud.cpp",
 		"3rdparty/hlsdk-portable/cl_dll/hud.h"),
@@ -171,6 +175,11 @@ GOAL_CONTEXT = {
 		"docs/GAMECUBE_PORT_PLAN.md", ".ai/goals/GAMECUBE_PORT_GOALS.md"),
 	"G54": ("engine/common/host.c", "engine/common/zone.c",
 		"scripts/dolphin-boot-probe.sh", "docs/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
+}
+GOAL_REQUIRED_CONTEXT = {
+	"G24": ("ref/gx/r_context.c", "ref/gx/r_main.c", "ref/gx/r_surf.c",
+		"ref/gx/r_studio.c", "ref/gx/r_part.c", "ref/gx/r_sprite.c",
+		"ref/gx/r_image.c", "ref/gx/r_local.h"),
 }
 GOAL_READ_CONTEXT = {
 	"G03": (".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
@@ -830,6 +839,7 @@ def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
 	candidates: list[str] = []
 	seen: set[str] = set()
+	required_goal = set(GOAL_REQUIRED_CONTEXT.get(goal_id, ()))
 	for path in (*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal_id, ())):
 		if path in seen or not (root / path).is_file():
 			continue
@@ -845,7 +855,9 @@ def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
 	selected: list[str] = []
 	for path in candidates:
 		file_path = root / path
-		if path in required or file_path.stat().st_size <= size_limit:
+		if path in required_goal:
+			selected.append(f"required:{path}")
+		elif path in required or file_path.stat().st_size <= size_limit:
 			selected.append(path)
 	if not selected:
 		return candidates[:1]

@@ -36,11 +36,15 @@ command -v aider >/dev/null 2>&1 || {
 
 CONTEXT_FILES=()
 READ_CONTEXT_FILES=()
+REQUIRED_CONTEXT_FILES=()
 for context_file in "${CONTEXT_INPUTS[@]}"; do
 	context_mode="file"
 	if [[ "$context_file" == read:* ]]; then
 		context_mode="read"
 		context_file="${context_file#read:}"
+	elif [[ "$context_file" == required:* ]]; then
+		context_mode="required"
+		context_file="${context_file#required:}"
 	fi
 	[[ -f "$context_file" ]] || {
 		echo "ai-aider-pass: context file not found: $context_file" >&2
@@ -48,6 +52,9 @@ for context_file in "${CONTEXT_INPUTS[@]}"; do
 	}
 	if [[ "$context_mode" == "read" ]]; then
 		READ_CONTEXT_FILES+=("$context_file")
+	elif [[ "$context_mode" == "required" ]]; then
+		CONTEXT_FILES+=("$context_file")
+		REQUIRED_CONTEXT_FILES+=("$context_file")
 	else
 		CONTEXT_FILES+=("$context_file")
 	fi
@@ -182,13 +189,22 @@ EOF
 	printf '%s\n' "$settings_file"
 }
 
+is_required_context_file() {
+	local candidate="$1"
+	local required_file
+	for required_file in "${REQUIRED_CONTEXT_FILES[@]}"; do
+		[[ "$candidate" == "$required_file" ]] && return 0
+	done
+	return 1
+}
+
 context_args_for_attempt() {
 	local attempt="$1"
 	local limit="${AIDER_CONTEXT_BYTE_LIMITS[$(( attempt - 1 ))]}"
 	local context_file size
 	for context_file in "${CONTEXT_FILES[@]}"; do
 		[[ -f "$context_file" ]] || continue
-		if (( limit > 0 )); then
+		if (( limit > 0 )) && ! is_required_context_file "$context_file"; then
 			size="$(stat -c '%s' "$context_file")"
 			if (( size > limit )); then
 				echo "ai-aider-pass: retry $attempt omits $context_file (${size} bytes > ${limit})" >&2
