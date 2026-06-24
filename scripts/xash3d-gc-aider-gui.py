@@ -233,6 +233,7 @@ class PortWindow(QMainWindow):
 		self.docks: dict[str, QDockWidget] = {}
 		self.last_context = ""
 		self.start_head = ""
+		self.closing = False
 		self.setDockOptions(
 			QMainWindow.DockOption.AllowNestedDocks |
 			QMainWindow.DockOption.AllowTabbedDocks |
@@ -504,6 +505,8 @@ class PortWindow(QMainWindow):
 			self.repo_edit.setText(path)
 
 	def append(self, text: str) -> None:
+		if self.closing or not hasattr(self, "log"):
+			return
 		visible_cursor = self.log.textCursor()
 		had_selection = visible_cursor.hasSelection()
 		position = visible_cursor.position()
@@ -592,8 +595,18 @@ class PortWindow(QMainWindow):
 		return Path(command[0]).name if command else "qwable-5"
 
 	def set_model_state(self, text: str, color: str) -> None:
+		if self.closing:
+			return
 		self.model_chip.setText(text)
 		self.model_chip.setStyleSheet(f"color: {color};")
+
+	def process_error(self, error: QProcess.ProcessError) -> None:
+		if not self.closing:
+			self.append(f"\nProcess error: {error.name}\n")
+
+	def model_process_error(self, error: QProcess.ProcessError, program: str) -> None:
+		if not self.closing:
+			self.append(f"\nModel process error: {error.name} while starting {program}\n")
 
 	def start_model(self) -> None:
 		if not self.valid_repo():
@@ -646,19 +659,20 @@ class PortWindow(QMainWindow):
 		proc.readyReadStandardOutput.connect(self.read_model_output)
 		proc.finished.connect(self.model_finished)
 		proc.errorOccurred.connect(
-			lambda error: self.append(
-				f"\nModel process error: {error.name} while starting {command[0]}\n"
-			))
+			lambda error, program=command[0]: self.model_process_error(error, program))
 		self.model_process = proc
 		proc.start(command[0], command[1:])
 
 	def read_model_output(self) -> None:
-		if self.model_process is None:
+		if self.closing or self.model_process is None:
 			return
 		text = bytes(self.model_process.readAllStandardOutput()).decode(errors="replace")
 		self.append(text)
 
 	def model_finished(self, exit_code: int, _status: QProcess.ExitStatus) -> None:
+		if self.closing:
+			self.model_process = None
+			return
 		self.append(f"\n[{self.model_operation or 'qwable-5'} exited {exit_code}]\n")
 		self.model_process = None
 		self.model_operation = ""
@@ -823,7 +837,7 @@ class PortWindow(QMainWindow):
 		proc.setProcessEnvironment(env)
 		proc.readyReadStandardOutput.connect(self.read_output)
 		proc.finished.connect(self.finished)
-		proc.errorOccurred.connect(lambda error: self.append(f"\nProcess error: {error.name}\n"))
+		proc.errorOccurred.connect(self.process_error)
 		self.process = proc
 		proc.start(command[0], command[1:])
 
@@ -835,7 +849,7 @@ class PortWindow(QMainWindow):
 			"Goal automation", passes)
 
 	def read_output(self) -> None:
-		if self.process is None:
+		if self.closing or self.process is None:
 			return
 		text = bytes(self.process.readAllStandardOutput()).decode(errors="replace")
 		self.append(text)
@@ -875,6 +889,9 @@ class PortWindow(QMainWindow):
 			node.style().polish(node)
 
 	def finished(self, exit_code: int, _status: QProcess.ExitStatus) -> None:
+		if self.closing:
+			self.process = None
+			return
 		succeeded = exit_code == 0
 		if succeeded:
 			self.progress.setValue(self.expected_passes)
@@ -932,11 +949,39 @@ class PortWindow(QMainWindow):
 			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
 			QMessageBox.StandardButton.No)
 		if answer == QMessageBox.StandardButton.Yes:
-			if self.model_process is not None:
-				self.model_process.terminate()
+			self.closing = True
+			self.timer.stop()
+			self.shutdown_processes()
 			event.accept()
 		else:
 			event.ignore()
+
+	def stop_qprocess(self, proc: QProcess | None, *, timeout_ms: int = 3000) -> None:
+		if proc is None:
+			return
+		try:
+			proc.readyReadStandardOutput.disconnect()
+		except TypeError:
+			pass
+		try:
+			proc.finished.disconnect()
+		except TypeError:
+			pass
+		try:
+			proc.errorOccurred.disconnect()
+		except TypeError:
+			pass
+		if proc.state() != QProcess.ProcessState.NotRunning:
+			proc.terminate()
+			if not proc.waitForFinished(timeout_ms):
+				proc.kill()
+				proc.waitForFinished(1000)
+
+	def shutdown_processes(self) -> None:
+		self.stop_qprocess(self.process)
+		self.stop_qprocess(self.model_process)
+		self.process = None
+		self.model_process = None
 
 	def boot_dolphin(self) -> None:
 		iso = self.repo() / "OUT/xash3d-gc.iso"
