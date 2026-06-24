@@ -769,6 +769,12 @@ any file that was not added as editable context.
 Task:
 - Wire the current renderer slice into `GC_GetVisualQuality()` when that can be
   done safely from the loaded source.
+- `GC_GetVisualQuality` is already implemented by the GameCube video backend
+  with this signature: `int GC_GetVisualQuality( void );`.
+- If the loaded `.c` file needs the function, add only this guarded declaration
+  near the existing GameCube declarations:
+  `#if XASH_GAMECUBE` / `extern int GC_GetVisualQuality( void );` / `#endif`.
+- Do not create another implementation of `GC_GetVisualQuality`.
 - Quality 0 is the low-memory smoke path.
 - Quality 1/2 should preserve existing higher-quality behavior.
 - Prefer a tiny helper or guard over broad rendering rewrites.

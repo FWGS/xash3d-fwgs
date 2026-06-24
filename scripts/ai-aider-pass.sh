@@ -370,6 +370,47 @@ run_precommit_verifier() {
 	return "$status"
 }
 
+verification_summary() {
+	local verify_log="$1"
+	python3 - "$verify_log" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+patterns = (
+	re.compile(r":\d+:\d+: (fatal )?error:"),
+	re.compile(r"undefined reference"),
+	re.compile(r"implicit declaration"),
+	re.compile(r"Build failed"),
+	re.compile(r"verify: .*failed"),
+	re.compile(r"task in '.*' failed"),
+)
+matches = []
+for line in lines:
+	if any(pattern.search(line) for pattern in patterns):
+		matches.append(line)
+
+if not matches:
+	for line in lines[-20:]:
+		if line.strip():
+			matches.append(line)
+
+for line in matches[-24:]:
+	print(line[:240])
+PY
+}
+
+discard_failed_patch() {
+	git reset >/dev/null 2>&1 || true
+	local changed=()
+	mapfile -t changed < <(git diff --name-only)
+	if (( ${#changed[@]} )); then
+		git restore -- "${changed[@]}" >/dev/null 2>&1 || true
+	fi
+}
+
 stage_and_validate_patch
 VERIFY_LOG=".ai/logs/aider-verify-$STAMP-1.log"
 echo
@@ -381,30 +422,36 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 	REPAIR_MESSAGE="$(printf '%s\n' \
 		'The current uncommitted patch failed verification. Fix the compiler or verifier failure now.' \
 		'There is no interactive human. Do not ask questions, explain options, or only propose commands.' \
-		'Make the smallest safe edit, preserve the goal and documentation, and do not commit.' \
-		'' 'Verification tail:'; tail -80 "$VERIFY_LOG")"
+		'Make the smallest safe edit in the already loaded editable files only, and do not commit.' \
+		'Do not add files mentioned by build progress logs.' \
+		'' 'Verification errors:'; verification_summary "$VERIFY_LOG")"
 	set +e
 	run_aider_with_recovery "autonomous repair" --message "$REPAIR_MESSAGE"
 	REPAIR_STATUS="$?"
 	set -e
 	if (( REPAIR_STATUS == 124 || REPAIR_STATUS == 137 )); then
 		echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
+		discard_failed_patch
 		exit 17
 	fi
 	if (( REPAIR_STATUS == 17 )); then
 		echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
+		discard_failed_patch
 		exit 17
 	fi
 	if (( REPAIR_STATUS == 18 )); then
 		echo "ai-aider-pass: autonomous repair hit a token/context limit after retries; see $LOG" >&2
+		discard_failed_patch
 		exit 18
 	fi
 	if (( REPAIR_STATUS != 0 )); then
 		echo "ai-aider-pass: autonomous repair exited $REPAIR_STATUS" >&2
+		discard_failed_patch
 		exit "$REPAIR_STATUS"
 	fi
 	if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
 		echo "ai-aider-pass: repair created an unexpected commit" >&2
+		discard_failed_patch
 		exit 12
 	fi
 	stage_and_validate_patch
@@ -412,7 +459,8 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 	echo
 	echo "== repaired pre-commit verifier =="
 	if ! run_precommit_verifier "$VERIFY_LOG"; then
-		echo "ai-aider-pass: repaired patch still fails; leaving it for review" >&2
+		echo "ai-aider-pass: repaired patch still fails; discarding failed patch" >&2
+		discard_failed_patch
 		exit 15
 	fi
 fi
