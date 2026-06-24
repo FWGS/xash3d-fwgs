@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from itertools import count
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -381,6 +382,7 @@ RECOVERABLE_EXIT_CODES = {
 	17: "Aider model call timed out",
 	18: "Aider hit a token/context limit",
 }
+UNLIMITED_PASSES_LABEL = "unlimited"
 
 
 def load_dotenv(path: Path) -> None:
@@ -450,6 +452,13 @@ def run(command: list[str], root: Path, *, capture: bool = False,
 	print("$ " + " ".join(command), flush=True)
 	return subprocess.run(command, cwd=root, text=True, check=False,
 		capture_output=capture, env=env or os.environ.copy())
+
+
+def commit_with_body(root: Path, subject: str, body: str) -> int:
+	command = ["git", "commit", "-m", subject]
+	if body.strip():
+		command.extend(["-m", body.strip()])
+	return run(command, root).returncode
 
 
 def git_context(root: Path) -> str:
@@ -856,7 +865,19 @@ def commit_probe_success(root: Path, goal: Goal, log_dir: str, probe_output: str
 		str(plan_path.relative_to(root))], root)
 	if add.returncode != 0:
 		return add.returncode
-	return run(["git", "commit", "-m", subject], root).returncode
+	body = "\n".join((
+		f"Goal: {goal.goal_id} - {goal.title}",
+		"Type: Dolphin probe acceptance",
+		"",
+		"Evidence:",
+		f"- Command: DOLPHIN_TIMEOUT={timeout} scripts/dolphin-boot-probe.sh",
+		f"- Result: {summary}",
+		f"- Logs: {log_dir}/stderr.log",
+		"",
+		"Updated the goal ledger and port plan with the probe result before "
+		"marking the goal complete.",
+	))
+	return commit_with_body(root, subject, body)
 
 
 def task_for(goal: Goal, root: Path, attempt: int, investigation_memory: str,
@@ -1004,6 +1025,33 @@ def clean_commit_advances_goal(root: Path, before: str, after: str, expected_sub
 	return "docs/GAMECUBE_PORT_PLAN.md" in changed
 
 
+def goal_commit_body(goal: Goal, *, attempt: int, context_files: list[str],
+	read_context_files: list[str], active_subgoal: dict[str, object] | None,
+	expected_subject: str, docs_required: str) -> str:
+	lines = [
+		f"Goal: {goal.goal_id} - {goal.title}",
+		f"Attempt: {attempt}",
+		f"Subject: {expected_subject}",
+	]
+	if active_subgoal:
+		lines.extend((
+			f"Subgoal: {active_subgoal['id']} - {active_subgoal['title']}",
+			f"Focus: {active_subgoal['focus']}",
+		))
+	lines.extend((
+		"",
+		"Automation context:",
+		f"- Editable context: {', '.join(context_files) if context_files else '(none)'}",
+		f"- Read-only context: {', '.join(read_context_files) if read_context_files else '(none)'}",
+		f"- Docs update required: {docs_required}",
+		"",
+		"Verification:",
+		"- scripts/ai-aider-pass.sh runs the pre-commit verifier before this commit.",
+		"- Post-commit safety runs after this commit before the goal loop accepts it.",
+	))
+	return "\n".join(lines)
+
+
 def dirty_commit_subject(goal_id: str | None = None) -> str:
 	if goal_id:
 		return f"chore: checkpoint automation state before {goal_id}"
@@ -1019,8 +1067,13 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 	add = run(["git", "add", "-A"], root)
 	if add.returncode != 0:
 		return add.returncode
-	commit = run(["git", "commit", "-m", subject], root)
-	return commit.returncode
+	body = (
+		"Checkpoint uncommitted work before automated goal execution.\n\n"
+		f"Goal before checkpoint: {goal_id or '(startup)'}\n"
+		"The checkpoint preserves user and generated changes so the automation "
+		"can operate from a clean index."
+	)
+	return commit_with_body(root, subject, body)
 
 
 def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
@@ -1077,7 +1130,8 @@ def read_context_for_goal(goal_id: str, root: Path, attempt: int = 1) -> list[st
 def main() -> int:
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
-	parser.add_argument("--max-passes", type=int, default=20)
+	parser.add_argument("--max-passes", type=int, default=0,
+		help="maximum passes to run; 0 means unlimited")
 	parser.add_argument("--recoverable-retries", type=int, default=8,
 		help="retry one goal this many times for token/timeout/no-edit failures")
 	parser.add_argument("--list", action="store_true", help="print goal state and exit")
@@ -1114,8 +1168,8 @@ def main() -> int:
 				else "complete" if goal.complete else "pending"
 			print(f"{goal.goal_id}\t{state}\t{goal.title}")
 		return 0
-	if args.max_passes < 1:
-		parser.error("--max-passes must be positive")
+	if args.max_passes < 0:
+		parser.error("--max-passes must be zero or positive")
 	if commit_dirty_worktree(root) != 0:
 		print("goal-loop: failed to checkpoint the dirty worktree", file=sys.stderr)
 		return 2
@@ -1129,7 +1183,8 @@ def main() -> int:
 		return 2
 
 	attempts: dict[str, int] = {}
-	for pass_index in range(1, args.max_passes + 1):
+	pass_indexes = count(1) if args.max_passes == 0 else range(1, args.max_passes + 1)
+	for pass_index in pass_indexes:
 		goals = parse_goals(goal_file)
 		goal = next((item for item in goals if not item.automatic_done), None)
 		if goal is None:
@@ -1145,7 +1200,8 @@ def main() -> int:
 			return 2
 		active_subgoal = g24_subgoal_for_attempt(attempts[goal.goal_id]) \
 			if goal.goal_id == "G24" else None
-		print(f"\n{'=' * 72}\nGOAL PASS {pass_index}/{args.max_passes}: "
+		pass_limit_label = UNLIMITED_PASSES_LABEL if args.max_passes == 0 else str(args.max_passes)
+		print(f"\n{'=' * 72}\nGOAL PASS {pass_index}/{pass_limit_label}: "
 			f"{goal.goal_id} — {goal.title}\n{'=' * 72}", flush=True)
 		if active_subgoal:
 			print(f"Active subgoal: {active_subgoal['id']} — {active_subgoal['title']}",
@@ -1208,6 +1264,13 @@ def main() -> int:
 				pass_env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 				if active_subgoal:
 					pass_env.setdefault("AI_G24_SUBGOAL", str(active_subgoal["id"]))
+			pass_env["AI_COMMIT_BODY"] = goal_commit_body(goal,
+				attempt=attempts[goal.goal_id],
+				context_files=context_files,
+				read_context_files=read_context_files,
+				active_subgoal=active_subgoal,
+				expected_subject=expected_subject,
+				docs_required=pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "1"))
 			if attempts[goal.goal_id] >= 3:
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")
@@ -1275,10 +1338,12 @@ def main() -> int:
 				goal=asdict(goal), exit_code=review.returncode)
 			return review.returncode
 
-	write_state(state_file, state="pass-limit", pass_index=args.max_passes,
-		message="Pass limit reached with automatic goals remaining")
-	print("Goal pass limit reached; stopping for human review.", file=sys.stderr)
-	return 3
+	if args.max_passes > 0:
+		write_state(state_file, state="pass-limit", pass_index=args.max_passes,
+			message="Pass limit reached with automatic goals remaining")
+		print("Goal pass limit reached; stopping for human review.", file=sys.stderr)
+		return 3
+	return 0
 
 
 if __name__ == "__main__":

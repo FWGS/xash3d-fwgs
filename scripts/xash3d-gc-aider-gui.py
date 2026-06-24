@@ -357,8 +357,9 @@ class PortWindow(QMainWindow):
 		controls = QHBoxLayout()
 		automation_panel.setLayout(controls)
 		self.passes_spin = QSpinBox()
-		self.passes_spin.setRange(1, 100)
-		self.passes_spin.setValue(20)
+		self.passes_spin.setRange(0, 100)
+		self.passes_spin.setSpecialValueText("Unlimited")
+		self.passes_spin.setValue(0)
 		self.recovery_spin = QSpinBox()
 		self.recovery_spin.setRange(1, 50)
 		self.recovery_spin.setValue(8)
@@ -368,7 +369,7 @@ class PortWindow(QMainWindow):
 		self.stop_btn.clicked.connect(self.stop_process)
 		self.stop_btn.setEnabled(False)
 		controls.addWidget(self.loop_btn, 2)
-		controls.addWidget(QLabel("Safety pass limit:"))
+		controls.addWidget(QLabel("Pass limit:"))
 		controls.addWidget(self.passes_spin)
 		controls.addWidget(QLabel("Recovery retries:"))
 		controls.addWidget(self.recovery_spin)
@@ -818,9 +819,15 @@ class PortWindow(QMainWindow):
 		self.operation = operation
 		self.start_head = self.git_output("rev-parse", "HEAD")
 		self.expected_passes = passes
-		self.progress.setRange(0, passes)
+		if passes == 0 and operation == "Goal automation":
+			self.progress.setRange(0, 0)
+		else:
+			self.progress.setRange(0, passes)
 		self.progress.setValue(0)
-		self.progress.setFormat(f"{operation}: %v / %m")
+		if passes == 0 and operation == "Goal automation":
+			self.progress.setFormat(f"{operation}: running until complete")
+		else:
+			self.progress.setFormat(f"{operation}: %v / %m")
 		self.status_label.setText(f"Running: {operation}")
 		self.loop_btn.setEnabled(False)
 		self.stop_btn.setEnabled(True)
@@ -875,7 +882,11 @@ class PortWindow(QMainWindow):
 			for line in text.splitlines():
 				if line.startswith("GOAL PASS "):
 					try:
-						self.progress.setValue(max(0, int(line.split()[2].split("/")[0]) - 1))
+						pass_value = int(line.split()[2].split("/")[0])
+						if self.expected_passes == 0:
+							self.progress.setFormat(f"Goal automation: pass {pass_value}")
+						else:
+							self.progress.setValue(max(0, pass_value - 1))
 					except (IndexError, ValueError):
 						pass
 
@@ -898,7 +909,12 @@ class PortWindow(QMainWindow):
 			return
 		succeeded = exit_code == 0
 		if succeeded:
-			self.progress.setValue(self.expected_passes)
+			if self.expected_passes == 0 and self.operation == "Goal automation":
+				self.progress.setRange(0, 1)
+				self.progress.setValue(1)
+				self.progress.setFormat("Goal automation: complete")
+			else:
+				self.progress.setValue(self.expected_passes)
 		self.set_pipeline_state(self.pipeline_node(self.operation), "Success" if succeeded else "Failed")
 		self.status_label.setText(f"{'Passed' if succeeded else 'Failed'}: {self.operation} (exit {exit_code})")
 		self.append(f"\n[{self.operation} exited {exit_code}]\n")

@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 import time
+from itertools import count
 from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import urlparse
@@ -73,8 +74,10 @@ def next_automatic_goal(root: Path) -> str | None:
 def main() -> int:
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
-	parser.add_argument("--chunk-passes", type=int, default=20)
-	parser.add_argument("--max-cycles", type=int, default=100)
+	parser.add_argument("--chunk-passes", type=int, default=0,
+		help="passes per goal-loop invocation; 0 means unlimited")
+	parser.add_argument("--max-cycles", type=int, default=0,
+		help="maximum supervisor cycles; 0 means unlimited")
 	parser.add_argument("--recoverable-retries", type=int, default=8)
 	parser.add_argument("--sleep", type=int, default=15)
 	args = parser.parse_args()
@@ -90,12 +93,19 @@ def main() -> int:
 		print("Start the Qwable/vLLM server from the GUI or QWABLE_5_COMMAND first.", file=sys.stderr)
 		return 2
 
-	for cycle in range(1, args.max_cycles + 1):
+	if args.chunk_passes < 0:
+		parser.error("--chunk-passes must be zero or positive")
+	if args.max_cycles < 0:
+		parser.error("--max-cycles must be zero or positive")
+
+	cycles = count(1) if args.max_cycles == 0 else range(1, args.max_cycles + 1)
+	for cycle in cycles:
 		goal = next_automatic_goal(root)
 		if goal is None:
 			print("run-until-done: all automatic goals are complete or blocked")
 			return 0
-		print(f"\n== supervisor cycle {cycle}/{args.max_cycles}: {goal} ==", flush=True)
+		cycle_limit = "unlimited" if args.max_cycles == 0 else str(args.max_cycles)
+		print(f"\n== supervisor cycle {cycle}/{cycle_limit}: {goal} ==", flush=True)
 		status = run(["scripts/ai-goal-loop.py", "--repo", str(root),
 			"--max-passes", str(args.chunk_passes),
 			"--recoverable-retries", str(args.recoverable_retries)], root)
@@ -109,8 +119,10 @@ def main() -> int:
 		print(f"run-until-done: stopped on non-recoverable exit {status}", file=sys.stderr)
 		return status
 
-	print("run-until-done: cycle limit reached with automatic goals remaining", file=sys.stderr)
-	return 3
+	if args.max_cycles > 0:
+		print("run-until-done: cycle limit reached with automatic goals remaining", file=sys.stderr)
+		return 3
+	return 0
 
 
 if __name__ == "__main__":

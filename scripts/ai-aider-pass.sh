@@ -62,10 +62,11 @@ done
 
 if [[ -n "$(git status --porcelain)" ]]; then
 	DIRTY_COMMIT_SUBJECT="${AI_DIRTY_COMMIT_SUBJECT:-chore: checkpoint dirty automation state}"
+	DIRTY_COMMIT_BODY="${AI_DIRTY_COMMIT_BODY:-Checkpoint existing uncommitted changes before automation starts.}"
 	echo "ai-aider-pass: dirty worktree detected; creating checkpoint commit: $DIRTY_COMMIT_SUBJECT" >&2
 	git status --short >&2
 	git add -A
-	git commit -m "$DIRTY_COMMIT_SUBJECT"
+	git commit -m "$DIRTY_COMMIT_SUBJECT" -m "$DIRTY_COMMIT_BODY"
 fi
 
 mkdir -p .ai/logs
@@ -345,6 +346,7 @@ if (( ${#COMMIT_SUBJECT} > 72 )) || \
 	echo "ai-aider-pass: invalid deterministic commit subject: $COMMIT_SUBJECT" >&2
 	exit 13
 fi
+COMMIT_BODY="${AI_COMMIT_BODY:-}"
 
 stage_and_validate_patch() {
 	cleanup_stale_git_lock
@@ -466,7 +468,11 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 fi
 
 cleanup_stale_git_lock
-git commit -m "$COMMIT_SUBJECT"
+if [[ -n "$COMMIT_BODY" ]]; then
+	git commit -m "$COMMIT_SUBJECT" -m "$COMMIT_BODY"
+else
+	git commit -m "$COMMIT_SUBJECT"
+fi
 
 echo
 echo "== post-commit safety =="
