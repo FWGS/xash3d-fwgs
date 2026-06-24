@@ -1292,10 +1292,11 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		if( copy_ok )
 		{
 			// Copy the base texture into the surface cache for visibility
+			// Use memcpy per-row for better performance on low-memory path
+			int row_bytes = w * sizeof( pixel_t );
 			for( int y = 0; y < h; y++ )
 			{
-				for( int x = 0; x < w; x++ )
-					dst[x] = src[x];
+				memcpy( dst, src, row_bytes );
 				dst += r_drawsurf.rowbytes;
 				src += srcw;
 			}
