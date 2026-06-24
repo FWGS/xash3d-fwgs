@@ -1266,7 +1266,13 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	// c_surf++;
 
 	// calculate the lightings
-	R_BuildLightMap( );
+#if XASH_GAMECUBE
+	// G24b: on quality-0 world-luxels surfaces, skip expensive lightmap build
+	// and use fallback texture copy. Dynamic lights use normal path.
+	if( !( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
+	   surface->dlightframe != tr.framecount ))
+#endif
+		R_BuildLightMap( );
 
 	// rasterize the surface into the cache
 #if XASH_GAMECUBE
