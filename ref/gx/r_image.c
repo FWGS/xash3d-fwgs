@@ -100,6 +100,12 @@ static void GL_SetTextureDimensions( image_t *tex, int width, int height, int de
 	tex->srcWidth = width;
 	tex->srcHeight = height;
 
+	// low-memory/quality-0 path clamps textures smaller to reduce upload pressure
+#if XASH_GAMECUBE
+	if( GC_GetVisualQuality() == 0 )
+		maxTextureSize = 512;
+#endif
+
 	if( width > maxTextureSize || height > maxTextureSize || depth > maxDepthSize )
 	{
 		while( width > maxTextureSize || height > maxTextureSize )
