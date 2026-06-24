@@ -156,6 +156,11 @@ R_DrawSpriteModel
 */
 void R_DrawSpriteModel( cl_entity_t *e )
 {
+#if XASH_GAMECUBE
+	if( GC_GetVisualQuality() == 0 )
+		return; // skip sprites in low-memory mode
+#endif
+
 	mspriteframe_t *frame = NULL;
 	float          angle, dot, sr, cr;
 	vec3_t         v_forward, v_right, v_up;
