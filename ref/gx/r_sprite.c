@@ -157,8 +157,9 @@ R_DrawSpriteModel
 void R_DrawSpriteModel( cl_entity_t *e )
 {
 #if XASH_GAMECUBE
-	if( GC_GetVisualQuality() == 0 )
-		return; // skip sprites in low-memory mode
+	// In low-memory mode (quality 0), we still draw sprites to maintain visual stability.
+	// If memory pressure is critical, consider reducing sprite resolution elsewhere,
+	// but skipping them entirely causes missing entities.
 #endif
 
 	mspriteframe_t *frame = NULL;
