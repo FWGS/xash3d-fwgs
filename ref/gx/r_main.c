@@ -1255,11 +1255,6 @@ void GAME_EXPORT R_NewMap( void )
 		r_cnumsurfs = NUMSTACKSURFACES;
 #endif
 
-#if XASH_GAMECUBE
-	if( GC_GetVisualQuality() == 0 && r_cnumsurfs > NUMSTACKSURFACES )
-		r_cnumsurfs = NUMSTACKSURFACES;
-#endif
-
 	if( r_cnumsurfs <= MINSURFACES )
 		r_cnumsurfs = MINSURFACES;
 
