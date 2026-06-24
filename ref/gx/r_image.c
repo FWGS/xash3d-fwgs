@@ -270,10 +270,8 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		{
 			tex->alpha_pixels = NULL;
 			// explicitly clear alpha flag in low-memory path to avoid fallback reads
-#if XASH_GAMECUBE
 			if( GC_GetVisualQuality() == 0 )
 				ClearBits( tex->flags, TF_HAS_ALPHA );
-#endif
 		}
 
 		for( uint i = 0; i < height * width; i++ )
