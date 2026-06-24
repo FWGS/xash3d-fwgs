@@ -1438,6 +1438,14 @@ qboolean GAME_EXPORT R_Init( void )
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer blit init ready\n" );
 #endif
 
+#if XASH_GAMECUBE
+	{
+		int quality = GC_GetVisualQuality();
+		// G24a: early quality gate before image/cache pressure
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer entering image init (quality=%d)\n", quality );
+	}
+#endif
+
 	R_InitImages();
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images ready\n" );
