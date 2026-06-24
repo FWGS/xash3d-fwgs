@@ -299,17 +299,19 @@ lines. Goals marked `MANUAL` are never selected automatically.
   65536 (`GC_SURFACE_CACHE_*` in `ref/gx/r_local.h`); removed smoke argv
   `-sw_surfcacheoverride 131072`.
 
-## G24 [ ] Replace smoke visual skips with stable low-memory visual modes
+## G24 [~] Replace smoke visual skips with stable low-memory visual modes
 
 - User-visible blocker, 2026-06-23: Dolphin can report engine/map progress
   while the actual display remains black. Treat prior `MAP_READY` results as
   backend smoke evidence only until a probe or operator run confirms visible
   nonblack pixels on screen.
-- First fix/audit pass: prove whether the GameCube VI/XFB present path is
-  displaying frames at all. A tiny red/green XFB diagnostic marker is acceptable
-  only when the sampled software-rendered frame is otherwise black; if the marker
-  is visible, the next blocker is renderer content. If the marker is not visible,
-  debug VIDEO/XFB/Dolphin output before renderer features.
+- Diagnostic enhancement: `engine/platform/gamecube/vid_gamecube.c` now draws a
+  prominent 32x32 Red/Green checker marker in the top-left corner of the XFB
+  whenever the software buffer is sampled as black. `SYS_Report` confirms
+  "DIAGNOSTIC MARKER VISIBLE" at the start of blank streaks.
+- Next step: Operator/Dolphin probe must confirm visibility of this marker.
+  If visible, the VI/XFB path is working and the blocker is renderer content
+  (world/HUD not drawing). If not visible, debug VIDEO/XFB/Dolphin output.
 - Turn `-gcnolightmaps`, studio texture skips, particle palette fallbacks, and
   related visual shortcuts into explicit GameCube quality modes or remove them
   when memory permits.

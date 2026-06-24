@@ -146,20 +146,32 @@ static void GC_PresentBuffer( void )
 	gc_present_count++;
 	if( !sampled_nonblack )
 	{
-		int mark_w = copy_w < 24 ? copy_w : 24;
-		int mark_h = copy_h < 24 ? copy_h : 24;
+		int mark_w = copy_w < 32 ? copy_w : 32;
+		int mark_h = copy_h < 32 ? copy_h : 32;
 		gc_blank_present_count++;
 
+		// Draw a highly visible diagnostic marker (Red/Green checker)
+		// to prove XFB is being updated even if renderer output is black.
 		for( row = 0; row < mark_h; row++ )
 		{
 			int col;
 			unsigned short *rowdst = dst + row * rmode->fbWidth;
 			for( col = 0; col < mark_w; col++ )
+			{
+				// Red (0xF800) and Green (0x07E0) checker
 				rowdst[col] = (( row ^ col ) & 8 ) ? 0xF800 : 0x07E0;
+			}
+		}
+		
+		// Report diagnostic marker visibility
+		if( gc_blank_present_count == 1 || ( gc_blank_present_count % 60 == 0 ))
+		{
+			SYS_Report( "Xash3D GameCube: DIAGNOSTIC MARKER VISIBLE (frame %u, blank streak %u). Check top-left 32x32.\n",
+				gc_present_count, gc_blank_present_count );
 		}
 	}
 
-	if( gc_present_count <= 8 || ( !sampled_nonblack && gc_blank_present_count <= 8 ))
+	if( gc_present_count <= 8 )
 	{
 		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
 			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
