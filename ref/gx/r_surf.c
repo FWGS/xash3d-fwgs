@@ -1304,7 +1304,8 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		{
 			// Copy the base texture into the surface cache for visibility.
 			// Bound copy dimensions to min(src, dst) to prevent overruns
-			// on edge-case or partial mip levels.
+			// on edge-case or partial mip levels. Fill remaining pixels with
+			// COLOR_WHITE so surfaces never appear black/transparent.
 			int copy_w = ( w < srcw ) ? w : srcw;
 			int copy_h = ( h < srch ) ? h : srch;
 			int row_bytes = copy_w * sizeof( pixel_t );
@@ -1312,18 +1313,22 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			for( int y = 0; y < copy_h; y++ )
 			{
 				memcpy( dst, src, row_bytes );
-				// If dst row is wider than copied data, clear the rest to avoid garbage
+				// Fill remainder of row with solid white to avoid black gaps
 				if( w > copy_w )
-					memset( dst + copy_w, 0, ( w - copy_w ) * sizeof( pixel_t ) );
+				{
+					for( int x = copy_w; x < w; x++ )
+						dst[x] = COLOR_WHITE;
+				}
 				
 				dst += r_drawsurf.rowbytes;
 				src += srcw;
 			}
 			
-			// Fill remaining destination rows if src was shorter than dst
+			// Fill remaining destination rows with solid white
 			for( int y = copy_h; y < h; y++ )
 			{
-				memset( dst, 0, w * sizeof( pixel_t ) );
+				for( int x = 0; x < w; x++ )
+					dst[x] = COLOR_WHITE;
 				dst += r_drawsurf.rowbytes;
 			}
 		}
