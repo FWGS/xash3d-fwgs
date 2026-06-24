@@ -1216,6 +1216,12 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		r_drawsurf.surfheight = surface->extents[1] >> miplevel;
 	}
 
+#if XASH_GAMECUBE
+	// G24b: skip expensive world-luxels lightmap build and draw on quality-0 path.
+	// R_DrawSurface already short-circuits for this case; avoid redundant work here.
+	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
+		return NULL;
+#endif
 
 //
 // allocate memory if needed
