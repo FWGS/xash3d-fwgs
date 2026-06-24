@@ -157,9 +157,14 @@ R_DrawSpriteModel
 void R_DrawSpriteModel( cl_entity_t *e )
 {
 #if XASH_GAMECUBE
-	// In low-memory mode (quality 0), we still draw sprites to maintain visual stability.
-	// If memory pressure is critical, consider reducing sprite resolution elsewhere,
-	// but skipping them entirely causes missing entities.
+	// Quality 0 (smoke/low-memory): skip complex glow/alpha sprites to reduce
+	// texture bindings and overdraw. Opaque sprites still render for stability.
+	if( GC_GetVisualQuality() == 0 &&
+	    ( e->curstate.rendermode != kRenderNormal &&
+	      e->curstate.rendermode != kRenderTransTexture ) )
+	{
+		return;
+	}
 #endif
 
 	mspriteframe_t *frame = NULL;
