@@ -160,13 +160,14 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	// Quality 0 (smoke/low-memory): simplify complex glow/alpha sprites instead
 	// of skipping them entirely. Force additive sprites to render with reduced
 	// brightness for visibility while cutting glow occlusion work.
+	qboolean low_quality_skip_occlusion = false;
 	if( GC_GetVisualQuality() == 0 &&
 	    ( e->curstate.rendermode == kRenderGlow ||
 	      e->curstate.rendermode == kRenderTransAdd ) )
 	{
-		// Still render but with reduced brightness and no occlusion test
+		// Still render but with reduced brightness and skip expensive occlusion
 		tr.blend *= 0.5f;
-		/* Fall through to render the sprite */
+		low_quality_skip_occlusion = true;
 	}
 #endif
 
@@ -202,8 +203,13 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	if( !scale )
 		scale = 1.0f;
 
+#if XASH_GAMECUBE
+	if( !low_quality_skip_occlusion && R_SpriteOccluded( e, origin, &scale ))
+		return; // sprite culled
+#else
 	if( R_SpriteOccluded( e, origin, &scale ))
 		return; // sprite culled
+#endif
 
 	r_stats.c_sprite_models_drawn++;
 
