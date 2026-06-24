@@ -694,7 +694,7 @@ void R_DrawSurfaceBlock8_mip2( void )
 			for( b = 3; b >= 0; b-- )
 			{
 				pix = psource[b];
-				prowdest[b] = BLEND_LM( pix, light );;
+				prowdest[b] = BLEND_LM( pix, light );
 				// ((unsigned char *)vid.colormap)
 				// [(light & 0xFF00) + pix];
 				light += lightstep;
