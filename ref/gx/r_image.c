@@ -263,10 +263,18 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		// it seems to assume memory readable. maybe it was pointed to WAD?
 		tex->pixels[j] = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
 
+		// quality 0 (low-memory): never allocate alpha_pixels to reduce pressure
 		if( j == 0 && tex->flags & TF_HAS_ALPHA && GC_GetVisualQuality() > 0 )
 			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
 		else if( j == 0 )
+		{
 			tex->alpha_pixels = NULL;
+			// explicitly clear alpha flag in low-memory path to avoid fallback reads
+#if XASH_GAMECUBE
+			if( GC_GetVisualQuality() == 0 )
+				ClearBits( tex->flags, TF_HAS_ALPHA );
+#endif
+		}
 
 		for( uint i = 0; i < height * width; i++ )
 		{
