@@ -362,6 +362,12 @@ void R_DrawSurface( void )
 	// glitchy and slow way to draw some lightmap
 	if( r_drawsurf.surf->texinfo->flags & TEX_WORLD_LUXELS )
 	{
+#if XASH_GAMECUBE
+		// G24b: skip expensive world-luxels draw on quality-0 path
+		if( !GC_GetVisualQuality() )
+			return;
+#endif
+
 		worldlux_s = r_drawsurf.surf->extents[0] / r_drawsurf.surf->info->lightextents[0];
 		worldlux_t = r_drawsurf.surf->extents[1] / r_drawsurf.surf->info->lightextents[1];
 		if( worldlux_s == 0 )
