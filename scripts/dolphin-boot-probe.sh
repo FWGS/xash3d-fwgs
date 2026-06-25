@@ -509,6 +509,16 @@ FRAME_STEADY_AVG=""
 FRAME_STEADY_P95=""
 FRAME_STEADY_BUDGET_PASSED=0
 FRAME_COUNT=${#FRAME_TIMES[@]}
+
+# G36_PATCH_v14: Explicitly detect when budget logs are present but no frame
+# times were extracted. This distinguishes "marker format mismatch" from
+# "guest not emitting markers" and provides actionable parse diagnostics.
+if (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT == 0 )); then
+	echo "G36_PARSE_FAIL: Frame budget log markers detected but zero frame times extracted."
+	echo "G36_PARSE_HINT: Guest marker format may not match probe regex. Check for 'Xash3D GameCube: (frame|render).*time=' patterns in logs."
+	echo "G36_PARSE_HINT: Ensure guest emits numeric milliseconds, e.g., 'Xash3D GameCube: frame time=12.34ms'"
+fi
+
 if (( FRAME_COUNT > 0 )); then
 	# Use awk for robust float math and sorting without bc dependency
 	# Separate cold-start (first frame) from steady-state for budget analysis
