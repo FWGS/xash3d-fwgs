@@ -201,31 +201,56 @@ FRAME_MIN=""
 FRAME_MAX=""
 FRAME_AVG=""
 FRAME_P95=""
+FRAME_JANK=0
 FRAME_COUNT=${#FRAME_TIMES[@]}
 if (( FRAME_COUNT > 0 )); then
-	FRAME_MIN="${FRAME_TIMES[0]}"
-	FRAME_MAX="${FRAME_TIMES[0]}"
-	FRAME_SUM=0
-	for t in "${FRAME_TIMES[@]}"; do
-		(( $(echo "$t $FRAME_MIN" | awk '{print ($1 < $2)}') )) && FRAME_MIN="$t"
-		(( $(echo "$t $FRAME_MAX" | awk '{print ($1 > $2)}') )) && FRAME_MAX="$t"
-		FRAME_SUM=$(echo "$FRAME_SUM + $t" | bc -l)
-	done
-	FRAME_AVG=$(echo "scale=3; $FRAME_SUM / $FRAME_COUNT" | bc -l)
-
-	# Compute 95th percentile (P95) for frame timing
-	if (( FRAME_COUNT > 1 )); then
-		SORTED_TIMES=($(printf '%s\n' "${FRAME_TIMES[@]}" | sort -g))
-		P95_IDX=$(echo "$FRAME_COUNT * 0.95" | bc)
-		# bc truncates, so use ceiling index
-		P95_IDX=$(echo "$P95_IDX + 0.99" | bc | cut -d. -f1)
-		(( P95_IDX > FRAME_COUNT )) && P95_IDX=$FRAME_COUNT
-		# Array is 0-indexed, so subtract 1
-		(( P95_IDX-- ))
-		FRAME_P95="${SORTED_TIMES[$P95_IDX]}"
-	else
-		FRAME_P95="${FRAME_TIMES[0]}"
-	fi
+	# Use awk for robust float math and sorting without bc dependency
+	eval "$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '
+	BEGIN {
+		min = 999999; max = 0; sum = 0; count = 0; jank = 0;
+	}
+	{
+		val = $1 + 0;
+		if (val < min) min = val;
+		if (val > max) max = val;
+		sum += val;
+		count++;
+		if (val > 16.66) jank++;
+		times[count] = val;
+	}
+	END {
+		if (count == 0) exit;
+		avg = sum / count;
+		
+		# Bubble sort for P95 (small N)
+		for (i = 1; i <= count; i++) {
+			for (j = i + 1; j <= count; j++) {
+				if (times[i] > times[j]) {
+					tmp = times[i];
+					times[i] = times[j];
+					times[j] = tmp;
+				}
+			}
+		}
+		
+		# P95 Index (1-based)
+		p95_idx = int(count * 0.95);
+		if (p95_idx < 1) p95_idx = 1;
+		if (count > 1 && p95_idx < count && (count * 0.95) > int(count * 0.95)) {
+			 # Linear interpolation if needed, or just ceiling. 
+			 # For strict percentile, ceiling is often safer for "worst 5%"
+			 p95_idx = int(count * 0.95 + 0.99);
+			 if (p95_idx > count) p95_idx = count;
+		}
+		p95 = times[p95_idx];
+		
+		printf "FRAME_MIN=%.3f\n", min;
+		printf "FRAME_MAX=%.3f\n", max;
+		printf "FRAME_AVG=%.3f\n", avg;
+		printf "FRAME_P95=%.3f\n", p95;
+		printf "FRAME_JANK=%d\n", jank;
+	}'
+	)"
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
@@ -252,10 +277,15 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			echo "FRAME_MAX: ${FRAME_MAX}ms"
 			echo "FRAME_AVG: ${FRAME_AVG}ms"
 			echo "FRAME_P95: ${FRAME_P95}ms"
-			if (( $(echo "$FRAME_MAX > 16.66" | bc -l) )); then
-				echo "PERFORMANCE_BLOCKER: Frame budget exceeded. Max=${FRAME_MAX}ms > 16.66ms (60fps target)."
-			elif (( $(echo "$FRAME_P95 > 16.66" | bc -l) )); then
-				echo "PERFORMANCE_NOTE: P95=${FRAME_P95}ms > 16.66ms. Target stable, but intermittent frames exceed budget."
+			echo "FRAME_JANK: ${FRAME_JANK} frames exceeded 16.66ms"
+			
+			if (( FRAME_JANK > 0 )); then
+				echo "PERFORMANCE_NOTE: Jank detected (${FRAME_JANK} frames over budget)."
+				if (( $(echo "$FRAME_MAX > 16.66" | awk '{print ($1 > $2)}') )); then
+					echo "PERFORMANCE_BLOCKER: Frame budget exceeded. Max=${FRAME_MAX}ms > 16.66ms (60fps target)."
+				elif (( $(echo "$FRAME_P95 > 16.66" | awk '{print ($1 > $2)}') )); then
+					echo "PERFORMANCE_NOTE: P95=${FRAME_P95}ms > 16.66ms. Target stable, but intermittent frames exceed budget."
+				fi
 			else
 				echo "PERFORMANCE_OK: Frame budget telemetry present and within 60fps limits."
 			fi
