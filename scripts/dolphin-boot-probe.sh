@@ -206,6 +206,35 @@ if grep -aqsF "GX_FIFO_STALL" "${LOG_FILES[@]}"; then
 	GX_FIFO_STALLS=$(grep -acF "GX_FIFO_STALL" "${LOG_FILES[@]}")
 fi
 
+# G36: Extract explicit GC_MemSample high-water marks for memory-pressure correlation
+GC_MEM_PEAK_TOTAL=""
+GC_MEM_PEAK_DELTA=""
+GC_MEM_PEAK_STAGE=""
+if (( GC_MEM_SAMPLES )); then
+	# Extract the highest recorded total memory usage from mem stage samples
+	eval "$(grep -aE 'mem stage=' "${LOG_FILES[@]}" 2>/dev/null | \
+		awk -F'[= ]' '{
+			stage=""; total=0; delta=0;
+			for(i=1;i<=NF;i++) {
+				if($i=="stage" && $(i+1)!="") stage=$(i+1);
+				if($i=="total" && $(i+1)+0 > 0) total=$(i+1)+0;
+				if($i=="delta" && $(i+1)+0 > 0) delta=$(i+1)+0;
+			}
+			if(total > max_total) {
+				max_total = total;
+				max_delta = delta;
+				max_stage = stage;
+			}
+		}
+		END {
+			if(max_total > 0) {
+				printf "GC_MEM_PEAK_TOTAL=%.1f\n", max_total;
+				printf "GC_MEM_PEAK_DELTA=%.1f\n", max_delta;
+				printf "GC_MEM_PEAK_STAGE=%s\n", max_stage;
+			}
+		}')"
+fi
+
 # Extract frame budget statistics for G36 measurement
 # Restrict to engine-reported frame timing markers to avoid false matches
 TARGET_FRAME_TIME=16.66
@@ -376,6 +405,12 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			# G36: Correlate memory samples with frame budget
 			if (( GC_MEM_SAMPLES )); then
 				echo "G36_MEM_CORRELATION: GC memory samples detected alongside frame budget telemetry."
+				if [[ -n "$GC_MEM_PEAK_TOTAL" ]]; then
+					echo "G36_MEM_PEAK: total=${GC_MEM_PEAK_TOTAL}MiB delta=${GC_MEM_PEAK_DELTA}MiB stage=${GC_MEM_PEAK_STAGE}"
+					if awk "BEGIN {exit !($GC_MEM_PEAK_TOTAL > 16.0)}"; then
+						echo "G36_MEM_PRESSURE: Peak memory usage (${GC_MEM_PEAK_TOTAL}MiB) exceeds 16MiB. Frame budget may be impacted by GC zone allocation overhead."
+					fi
+				fi
 			else
 				echo "G36_MEM_NOTE: No GC memory samples detected in this probe; frame budget is isolated from memory pressure evidence."
 			fi
