@@ -1282,81 +1282,60 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 	// rasterize the surface into the cache
 #if XASH_GAMECUBE
-	// G24b: on quality-0 world-luxels surfaces, R_DrawSurface returns early
-	// without drawing. Provide a stable fallback: fill the surface cache
-	// with the base texture so the surface is visible even when unlit.
-	// Bound the copy to valid source image dimensions to avoid overruns on
-	// edge-case or unloaded textures (stable fallback mode).
-	// Only apply to static surfaces; dynamic lights handled by normal path.
+	// G24b: on quality-0 world-luxels surfaces, skip expensive lightmap
+	// build and use a bounded fallback fill so surfaces remain visible.
+	// Dynamic lights or animated surfaces take the normal path.
 	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
 	    surface->dlightframe != tr.framecount )
 	{
+		// Stable unlit fallback: fill surface cache with base texture data
+		// when available, otherwise a neutral color. Bound to valid dims.
 		image_t *img = r_drawsurf.image;
-		pixel_t *src = ( img && miplevel < 4 && img->pixels[miplevel] ) ? img->pixels[miplevel] : NULL;
 		pixel_t *dst = r_drawsurf.surfdat;
 		int w = r_drawsurf.surfwidth;
 		int h = r_drawsurf.surfheight;
-		pixel_t fallback_color = 0x7FFF; // Neutral gray for visible fallback
+		pixel_t fallback_color = 0x7FFF; // Neutral gray
 
-		if( img && src && w > 0 && h > 0 )
+		if( img && miplevel < 4 && img->pixels[miplevel] )
 		{
+			pixel_t *src = img->pixels[miplevel];
 			int srcw = img->width >> miplevel;
 			int srch = img->height >> miplevel;
-			if( srcw > 0 && srch > 0 )
+
+			if( srcw > 0 && srch > 0 && w > 0 && h > 0 )
 			{
 				int copy_w = ( w < srcw ) ? w : srcw;
 				int copy_h = ( h < srch ) ? h : srch;
-				int row_bytes = copy_w * sizeof( pixel_t );
+				int row_copy = copy_w * sizeof( pixel_t );
 
-				// Copy base texture, bound to valid dimensions
 				for( int y = 0; y < copy_h; y++ )
 				{
-					memcpy( dst, src, row_bytes );
+					memcpy( dst, src, row_copy );
 					if( w > copy_w )
-					{
-						for( int x = copy_w; x < w; x++ )
-							dst[x] = fallback_color;
-					}
+						memset( dst + copy_w, fallback_color, ( w - copy_w ) * sizeof( pixel_t ));
 					dst += r_drawsurf.rowbytes;
 					src += srcw;
 				}
-				// Fill remaining destination rows
-				for( int y = copy_h; y < h; y++ )
-				{
-					for( int x = 0; x < w; x++ )
-						dst[x] = fallback_color;
-					dst += r_drawsurf.rowbytes;
-				}
-			}
-			else
-			{
-				// Invalid source dimensions: fill fallback
-				for( int y = 0; y < h; y++ )
-				{
-					for( int x = 0; x < w; x++ )
-						dst[x] = fallback_color;
-					dst += r_drawsurf.rowbytes;
-				}
 			}
 		}
-		else
+
+		// Fill any remaining rows with fallback color
+		if( w > 0 )
 		{
-			// No valid source: fill fallback
-			for( int y = 0; y < h; y++ )
-			{
-				for( int x = 0; x < w; x++ )
-					dst[x] = fallback_color;
-				dst += r_drawsurf.rowbytes;
-			}
+			int row_fill = w * sizeof( pixel_t );
+			int remaining = ( img && miplevel < 4 && img->pixels[miplevel] &&
+			                  ( img->width >> miplevel ) > 0 && ( img->height >> miplevel ) > 0 )
+			               ? ( h < ( img->height >> miplevel ) ? 0 : h - ( img->height >> miplevel ))
+			               : h;
+			if( remaining < 0 ) remaining = 0;
+
+			for( int y = 0; y < remaining; y++ )
+				memset( dst + y * r_drawsurf.rowbytes, fallback_color, row_fill );
 		}
 	}
 	else
-	{
-		R_DrawSurface();
-	}
-#else
-	R_DrawSurface();
 #endif
+		R_DrawSurface();
 	R_DrawSurfaceDecals();
 
 	return cache;
