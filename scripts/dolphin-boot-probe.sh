@@ -200,6 +200,7 @@ FRAME_DROP_COUNT=0
 FRAME_DROP_LOGS=0
 FRAME_STALL_COUNT=0
 FRAME_STALL_LOGS=0
+FRAME_BUDGET_PASSED=0
 if (( FRAME_BUDGET_LOGS )); then
 	while IFS= read -r line; do
 		if [[ "$line" =~ time=([0-9]+(\.[0-9]+)?) ]]; then
@@ -247,6 +248,12 @@ if (( FRAME_COUNT > 0 )); then
 		times[count] = val;
 	}
 	END {
+		# Determine pass/fail based on P95 being within budget
+		if (p95 <= target) {
+			printf "FRAME_BUDGET_PASSED=1\n";
+		} else {
+			printf "FRAME_BUDGET_PASSED=0\n";
+		}
 		if (count == 0) exit;
 		avg = sum / count;
 		variance = (sum_sq / count) - (avg * avg);
@@ -334,6 +341,13 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			# Additional stability heuristic: High stddev relative to avg indicates jitter
 			if awk "BEGIN {exit !($FRAME_STDDEV > 3.0)}"; then
 				echo "PERFORMANCE_JITTER: High frame-time variance detected (StdDev=${FRAME_STDDEV}ms). Rendering may appear stuttery despite meeting budget."
+			fi
+			
+			# Explicit G36 Measurement Result
+			if (( FRAME_BUDGET_PASSED )); then
+				echo "G36_MEASUREMENT_PASS: Frame budget stable. P95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms."
+			else
+				echo "G36_MEASUREMENT_FAIL: Frame budget unstable. P95=${FRAME_P95}ms > ${TARGET_FRAME_TIME}ms."
 			fi
 			
 			# Report frame distribution percentiles for deeper analysis
