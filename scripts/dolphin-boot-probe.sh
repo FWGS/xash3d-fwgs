@@ -442,6 +442,35 @@ if (( FRAME_COUNT > 1 )); then
 	}')
 fi
 
+# G36: Detect consecutive frame spikes (>2x budget) as evidence of allocation stalls
+FRAME_SPIKE_COUNT=0
+if (( FRAME_COUNT > 0 )); then
+	FRAME_SPIKE_COUNT=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
+	{
+		val = $1 + 0;
+		times[NR] = val;
+		count++;
+	}
+	END {
+		if (count == 0) exit;
+		spikes = 0;
+		consecutive = 0;
+		max_consecutive = 0;
+		for (i = 1; i <= count; i++) {
+			if (times[i] > target * 2) {
+				consecutive++;
+				if (consecutive > max_consecutive) max_consecutive = consecutive;
+				if (consecutive == 1) spikes++;
+			} else {
+				consecutive = 0;
+			}
+		}
+		printf "%d:%d", spikes, max_consecutive;
+	}')
+	FRAME_SPIKE_EVENTS="${FRAME_SPIKE_COUNT%%:*}"
+	FRAME_SPIKE_MAX_CONSEC="${FRAME_SPIKE_COUNT##*:}"
+fi
+
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
 		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
@@ -623,6 +652,17 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
 			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 2.0)}" 2>/dev/null; then
 				echo "G36_JITTER_WARN: Frame timing MAD=${FRAME_TIMING_JITTER}ms exceeds 2.0ms threshold. Rendering may appear stuttery due to high variance in frame delivery."
+			fi
+
+			# G36: Report frame spike patterns as evidence of allocation stalls or cache thrashing
+			if (( FRAME_SPIKE_EVENTS > 0 )); then
+				echo "G36_SPIKES: ${FRAME_SPIKE_EVENTS} frame spike events detected (frames >2x budget), max consecutive=${FRAME_SPIKE_MAX_CONSEC}"
+				if (( FRAME_SPIKE_MAX_CONSEC >= 3 )); then
+					echo "G36_SPIKE_WARN: Extended frame spike run detected. Likely caused by memory allocation stalls or GC zone fragmentation."
+					if (( GC_MEM_SAMPLES )); then
+						echo "G36_SPIKE_HINT: Correlate with memory samples; consider preallocating during map load or reducing per-frame allocations."
+					fi
+				fi
 			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
