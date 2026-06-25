@@ -1188,6 +1188,49 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					echo "G36_COLD_START_DOMINANT: First frame (${FRAME_FIRST}ms) is >3x average (${FRAME_AVG}ms). GX initialization or first-draw overhead is significant. Steady-state metrics are more indicative of gameplay performance."
 				fi
 			fi
+
+			# G36_PATCH_v11: Compute early/late violation ratio to diagnose if budget failures
+			# are concentrated at map-load (cold-start) or persist into steady-state gameplay.
+			# Early = first 25% of frames, Late = last 75% of frames.
+			# This complements FRAME_JANK_DISTRIBUTION with a continuous ratio metric.
+			if (( FRAME_COUNT >= 4 )) && (( FRAME_JANK > 0 )); then
+				EARLY_LATE_RATIO=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
+				{
+					val = $1 + 0;
+					times[NR] = val;
+					count++;
+				}
+				END {
+					if (count < 4) { print "N/A"; exit }
+					early_bound = int(count * 0.25 + 0.9999);
+					if (early_bound < 1) early_bound = 1;
+					early_violations = 0;
+					late_violations = 0;
+					for (i = 1; i <= count; i++) {
+						if (times[i] > target) {
+							if (i <= early_bound) early_violations++;
+							else late_violations++;
+						}
+					}
+					if (early_violations + late_violations == 0) {
+						print "0.00";
+					} else {
+						# Ratio of early violations to total violations (0.0 = all late, 1.0 = all early)
+						ratio = early_violations / (early_violations + late_violations);
+						printf "%.2f", ratio;
+					}
+				}')
+				if [[ "$EARLY_LATE_RATIO" != "N/A" ]]; then
+					echo "G36_VIOLATION_CONCENTRATION: early_late_ratio=${EARLY_LATE_RATIO} (1.0=all early, 0.0=all late)"
+					if awk "BEGIN {exit !(${EARLY_LATE_RATIO} > 0.80)}" 2>/dev/null; then
+						echo "G36_VIOLATION_HINT: >80% of budget violations in first 25% of frames. Issue is likely map-load initialization, not steady-state rendering."
+					elif awk "BEGIN {exit !(${EARLY_LATE_RATIO} < 0.20)}" 2>/dev/null; then
+						echo "G36_VIOLATION_HINT: >80% of budget violations in last 75% of frames. Steady-state rendering is the performance bottleneck."
+					else
+						echo "G36_VIOLATION_HINT: Budget violations distributed across early and late frames. Both initialization and per-frame work need profiling."
+					fi
+				fi
+			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
