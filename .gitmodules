@@ -46,3 +46,6 @@
 [submodule "3rdparty/mbedtls/mbedtls"]
 	path = 3rdparty/mbedtls/mbedtls
 	url = https://github.com/FWGS/mbedtls-releases.git
+[submodule "3rdparty/dolphin"]
+	path = 3rdparty/dolphin
+	url = https://github.com/timfox/dolphin
