@@ -224,6 +224,12 @@ if grep -aqsF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}"; th
 	FRAME_BUDGET_SAMPLE_COUNT=$(grep -acF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}")
 fi
 
+# G36: Detect software surface cache override (known GC memory/perf knob)
+SW_SURFCACHE_OVERRIDE=""
+if grep -aqsF "sw_surfcacheoverride" "${LOG_FILES[@]}"; then
+	SW_SURFCACHE_OVERRIDE=$(grep -aoE 'sw_surfcacheoverride[= ]+[0-9]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[0-9]+$' || echo "unknown")
+fi
+
 # G36: Extract explicit GC_MemSample high-water marks for memory-pressure correlation
 GC_MEM_PEAK_TOTAL=""
 GC_MEM_PEAK_DELTA=""
@@ -433,6 +439,14 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_MEM_NOTE: No GC memory samples detected in this probe; frame budget is isolated from memory pressure evidence."
 			fi
 
+			# G36: Report software surface cache override setting
+			if [[ -n "$SW_SURFCACHE_OVERRIDE" ]]; then
+				echo "G36_SW_SURFCACHE: sw_surfcacheoverride=${SW_SURFCACHE_OVERRIDE} detected in probe logs."
+				if awk "BEGIN {exit !($SW_SURFCACHE_OVERRIDE > 65536)}" 2>/dev/null; then
+					echo "G36_SW_SURFCACHE_WARN: Surface cache exceeds GC_SURFACE_CACHE_MAX (64KiB). This may cause zone pressure or frame budget instability."
+				fi
+			fi
+
 			# G36: Correlate renderer frame-start markers with engine frame budget
 			if (( FRAME_RENDER_LOGS )); then
 				echo "G36_RENDER_CORRELATION: Renderer frame markers detected. CPU/GX timing alignment likely active."
@@ -477,7 +491,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE}"
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
