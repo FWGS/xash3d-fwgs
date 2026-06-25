@@ -489,6 +489,8 @@ static void R_SetupFrame( void )
 	// G24a: skip translucent sort in low-memory quality mode to reduce stack/heap pressure
 	{
 		int quality = GC_GetVisualQuality();
+		if( tr.framecount <= 1 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame quality=%d\n", quality );
 		if( quality != 0 )
 #endif
 		{
