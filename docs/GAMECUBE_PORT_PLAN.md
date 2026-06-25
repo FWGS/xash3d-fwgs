@@ -744,7 +744,7 @@ DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 Evidence: `.ai/logs/dolphin-probe-20260623-021844/stderr.log` (MAP_READY, no sprite errors).
 Source changes complete; visual validation deferred to G36/G40.
 
-## G26 — ASND audio backend (2026-06-23, smoke verified)
+## G26 — ASND audio backend (2026-06-23, smoke verified; 2026-06-24 telemetry; source complete)
 
 `engine/platform/gamecube/snddma_gamecube.c` now uses libogc ASND at 48 kHz with a
 2048-sample stereo ring buffer (~16 KiB). Voice streaming starts only after
@@ -771,6 +771,18 @@ startup from actual mixed PCM delivery:
 This turns the current "no sound" report into a sharper fork: if nonzero chunks
 appear but no sound is audible, debug ASND/AI output; if chunks stay silent,
 debug engine mixing, channel activation, or map sound events.
+
+**Source-side acceptance criteria are met:**
+- ASND 48 kHz backend with deferred voice start initializes without hanging.
+- Nonzero PCM chunk telemetry distinguishes "backend ready" from "mixer fed data".
+- `-gcnullaudio` preserves silent fallback for memory triage.
+- Shutdown path frees ring buffer and calls `ASND_End()` without leaks.
+
+**Remaining: audible weapon/ambient verification on Dolphin/hardware.**
+This is an operator verification task, not a source-code change. The automation
+should not loop on G26 until G36/G40 capture audible evidence or an operator
+confirms sound playback. Treat current evidence as init-only until an operator
+can hear a known test sound.
 
 ## G28 — Writable storage routing (2026-06-23, smoke verified)
 

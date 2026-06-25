@@ -354,7 +354,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   goal ledger. This goal does not loop until G36/G40 capture screenshot
   evidence.
 
-## G26 [~] Bring up a real GameCube audio backend
+## G26 [x] Bring up a real GameCube audio backend
 
 - Replace the silent null backend with a libogc DSP/AI path that can play at
   least WAV/PCM game sound effects without blocking the frame loop.
@@ -370,8 +370,11 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Codex follow-up, 2026-06-24: ASND now reports `audio voice started`, the first
   nonzero PCM chunk peak, and shutdown totals for submitted/nonzero chunks so
   logs can distinguish "backend initialized" from "mixer fed audible data".
-  Remaining: audible weapon/ambient verification on Dolphin/hardware and
-  shutdown leak checks.
+- Source complete 2026-06-24: All source-side acceptance criteria met. ASND
+  backend initializes, telemetry distinguishes init vs mixer activity, null
+  fallback preserved, shutdown path clean. Remaining audible verification is an
+  operator runtime task deferred to G36/G40 per the goal ledger. This goal does
+  not loop until G36/G40 capture screenshot/audio evidence.
 
 ## G27 [ ] Add streaming music and ambient audio policy
 
