@@ -686,6 +686,7 @@ fi
 FRAME_SPIKE_EVENTS=0
 FRAME_SPIKE_MAX_CONSEC=0
 FRAME_WORST_TIME=""
+FRAME_SEVERE_VIOLATIONS=0
 if (( FRAME_COUNT > 0 )); then
 	# Store raw output in a temp var to avoid clobbering a counter named FRAME_SPIKE_COUNT
 	_FRAME_SPIKE_RAW=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
@@ -700,22 +701,26 @@ if (( FRAME_COUNT > 0 )); then
 		consecutive = 0;
 		max_consecutive = 0;
 		worst = 0;
+		severe = 0;
 		for (i = 1; i <= count; i++) {
 			if (times[i] > worst) worst = times[i];
 			if (times[i] > target * 2) {
 				consecutive++;
 				if (consecutive > max_consecutive) max_consecutive = consecutive;
 				if (consecutive == 1) spikes++;
+				severe++;
 			} else {
 				consecutive = 0;
 			}
 		}
-		printf "%d:%d:%.3f", spikes, max_consecutive, worst;
+		printf "%d:%d:%.3f:%d", spikes, max_consecutive, worst, severe;
 	}')
 	FRAME_SPIKE_EVENTS="${_FRAME_SPIKE_RAW%%:*}"
 	_REST="${_FRAME_SPIKE_RAW#*:}"
 	FRAME_SPIKE_MAX_CONSEC="${_REST%%:*}"
-	FRAME_WORST_TIME="${_REST##*:}"
+	_FRAME_REST2="${_REST#*:}"
+	FRAME_WORST_TIME="${_FRAME_REST2%%:*}"
+	FRAME_SEVERE_VIOLATIONS="${_FRAME_REST2##*:}"
 fi
 
 # G36: Detect frame time regression pattern (consecutive frames getting slower)
@@ -1087,7 +1092,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_STATUS: PASS (p95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms, jank=${FRAME_JANK}/${FRAME_COUNT})"
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} target=${TARGET_FRAME_TIME}ms regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms severe_violations=${FRAME_SEVERE_VIOLATIONS} stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} target=${TARGET_FRAME_TIME}ms regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none}"
 			
 			# G36: Report frame timing jitter (MAD) as stability metric
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
@@ -1112,7 +1117,11 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 
 			# G36: Report frame spike patterns as evidence of allocation stalls or cache thrashing
 			if (( FRAME_SPIKE_EVENTS > 0 )); then
-				echo "G36_SPIKES: ${FRAME_SPIKE_EVENTS} frame spike events detected (frames >2x budget), max consecutive=${FRAME_SPIKE_MAX_CONSEC}"
+				echo "G36_SPIKES: ${FRAME_SPIKE_EVENTS} frame spike events detected (frames >2x budget), max consecutive=${FRAME_SPIKE_MAX_CONSEC}, severe_violations=${FRAME_SEVERE_VIOLATIONS}"
+				if (( FRAME_SEVERE_VIOLATIONS > 0 )); then
+					SEVERE_PCT=$(awk "BEGIN {printf \"%.1f\", ($FRAME_SEVERE_VIOLATIONS / $FRAME_COUNT) * 100}")
+					echo "G36_SEVERE_VIOLATIONS: ${FRAME_SEVERE_VIOLATIONS} frames (>2x budget) detected (${SEVERE_PCT}% of samples). Indicates significant allocation stalls or hardware bottlenecks."
+				fi
 				if (( FRAME_SPIKE_MAX_CONSEC >= 3 )); then
 					echo "G36_SPIKE_WARN: Extended frame spike run detected. Likely caused by memory allocation stalls or GC zone fragmentation."
 					if (( GC_MEM_SAMPLES )); then
