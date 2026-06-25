@@ -485,7 +485,17 @@ static void R_SetupFrame( void )
 	// setup viewplane dist
 	RI.viewplanedist = DotProduct( RI.rvp.vieworigin, RI.vforward );
 
-//	if( !gl_nosort->value )
+#if XASH_GAMECUBE
+	// G24a: skip translucent sort in low-memory quality mode
+	{
+		int quality = GC_GetVisualQuality();
+		if( quality == 0 )
+		{
+			// qsort can pressure stack/heap on constrained maps;
+			// fall through without sorting for quality=0
+		}
+		else
+#endif
 	{
 		// sort translucents entities by rendermode and distance
 		qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
