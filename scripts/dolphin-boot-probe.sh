@@ -447,9 +447,10 @@ if (( FRAME_BUDGET_LOGS )); then
 	FRAME_TIMES_STRICT=$(grep -aoE 'Xash3D GameCube: frame time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | wc -l)
 	
 	# G36_PATCH_v3: Extract all frame times using relaxed pattern
+	# Restrict to frame-specific markers to avoid false positives from initialization logs
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: .* time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget |frame render complete )+time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
 	
 	# G36_PATCH_v3: Count relaxed matches for diagnostics
@@ -458,9 +459,10 @@ if (( FRAME_BUDGET_LOGS )); then
 	# G36: Also extract frame times from 'frame duration' markers (alternative naming)
 	# G36_PATCH: Relaxed pattern to allow arbitrary word characters for variant markers
 	# G36_PATCH_v2: Ultra-relaxed to match any 'duration=' after guest prefix
+	# Restrict to frame-specific markers to avoid false positives
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: .* duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget )+duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'duration=[0-9]+(\.[0-9]+)?' | sed 's/duration=//')
 
 	# G36_PATCH: Extract frame times from 'render time' markers (another variant)
