@@ -1376,7 +1376,12 @@ void GAME_EXPORT R_NewMap( void )
 	}
 
 	gEngfuncs.Con_Printf( "Map sample size is %d\n", tr.sample_size );
-
+#if XASH_GAMECUBE
+	{
+		int post_quality = GC_GetVisualQuality();
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_NewMap post-load quality=%d\n", post_quality );
+	}
+#endif
 }
 
 /*
