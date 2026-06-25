@@ -350,6 +350,17 @@ void R_DrawSurface( void )
 	r_numhblocks = r_drawsurf.surfwidth >> blockdivshift;
 	r_numvblocks = r_drawsurf.surfheight >> blockdivshift;
 
+#if XASH_GAMECUBE
+	// G24b: bound draw dimensions for quality 0 to preserve cache and iteration budget.
+	// Cap to 64x64 so low-memory surfaces stay within allocated cache blocks.
+	if( GC_GetVisualQuality() == 0 )
+	{
+		if( r_numhblocks > 4 )
+			r_numhblocks = 4;
+		if( r_numvblocks > 4 )
+			r_numvblocks = 4;
+	}
+#endif
 
 // ==============================
 
