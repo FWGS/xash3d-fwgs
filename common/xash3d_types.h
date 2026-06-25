@@ -69,6 +69,10 @@ enum { false, true };
 #endif
 typedef int qboolean;
 
+// Quake boolean constants
+#define qtrue 1
+#define qfalse 0
+
 #if XASH_LOW_MEMORY == 1 || XASH_PSP
 	#define MAX_QPATH 48
 	#define MAX_MODS  16

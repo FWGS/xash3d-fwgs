@@ -323,7 +323,18 @@ static inline int GC_GetVisualQuality( void )
 */
 static inline qboolean GC_IsLowMemoryMode( void )
 {
-	return GC_GetVisualQuality() == 0;
+#if XASH_GAMECUBE
+#if XASH_LOW_MEMORY
+	/* Compile-time low-memory builds are always low-memory */
+	return qtrue;
+#else
+	/* Runtime check: sample_size == 0 forces low-memory mode */
+	return tr.sample_size == 0;
+#endif
+#else
+	/* Non-GameCube targets never use low-memory mode */
+	return qfalse;
+#endif
 }
 
 typedef struct image_s
