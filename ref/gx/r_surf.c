@@ -1197,7 +1197,6 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	// fallback path below, so do not invalidate cache for them.
 	// Quality 1/2 preserve full caching behavior for higher fidelity.
 	if( !GC_GetVisualQuality() &&
-	    !( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
 	    ( surface->dlightframe == tr.framecount ||
 	      surface->flags & ( SURF_CONVEYOR | SURF_DRAWTILED ) ||
 	      r_drawsurf.image->flags & ( TF_HAS_ALPHA | TF_SKY ) ))
