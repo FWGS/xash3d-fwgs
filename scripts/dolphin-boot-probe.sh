@@ -189,6 +189,7 @@ grep -aqE "Xash3D GameCube: frame.*time=" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS
 grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 
 # Extract frame budget statistics for G36 measurement
+# Restrict to engine-reported frame timing markers to avoid false matches
 TARGET_FRAME_TIME=16.66
 FRAME_TIMES=()
 if (( FRAME_BUDGET_LOGS )); then
@@ -196,7 +197,7 @@ if (( FRAME_BUDGET_LOGS )); then
 		if [[ "$line" =~ time=([0-9]+(\.[0-9]+)?) ]]; then
 			FRAME_TIMES+=("${BASH_REMATCH[1]}")
 		fi
-	done < <(grep -aohE "time=[0-9]+(\.[0-9]+)?" "${LOG_FILES[@]}" 2>/dev/null)
+	done < <(grep -aoE 'Xash3D GameCube: frame[^ ]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | grep -oE 'time=[0-9]+(\.[0-9]+)?')
 fi
 
 FRAME_MIN=""
@@ -299,7 +300,8 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			
 			# Classify frame budget health for G36 measurement
 			if (( FRAME_JANK > 0 )); then
-				echo "PERFORMANCE_NOTE: Jank detected (${FRAME_JANK} frames over budget)."
+				JANK_PCT=$(awk "BEGIN {printf \"%.1f\", ($FRAME_JANK / $FRAME_COUNT) * 100}")
+				echo "PERFORMANCE_NOTE: Jank detected (${FRAME_JANK} frames, ${JANK_PCT}% over budget)."
 				if awk "BEGIN {exit !($FRAME_MAX > $TARGET_FRAME_TIME)}"; then
 					echo "PERFORMANCE_BLOCKER: Frame budget exceeded. Max=${FRAME_MAX}ms > ${TARGET_FRAME_TIME}ms (60fps target)."
 				elif awk "BEGIN {exit !($FRAME_P95 > $TARGET_FRAME_TIME)}"; then
@@ -313,6 +315,14 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			if awk "BEGIN {exit !($FRAME_STDDEV > 3.0)}"; then
 				echo "PERFORMANCE_JITTER: High frame-time variance detected (StdDev=${FRAME_STDDEV}ms). Rendering may appear stuttery despite meeting budget."
 			fi
+			
+			# Report frame distribution percentiles for deeper analysis
+			FRAME_P50="${FRAME_MEDIAN}"
+			FRAME_P10=$(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | awk -v n="$FRAME_COUNT" 'NR==int(n*0.1+0.9999) {print; exit}')
+			FRAME_P25=$(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | awk -v n="$FRAME_COUNT" 'NR==int(n*0.25+0.9999) {print; exit}')
+			echo "FRAME_P10: ${FRAME_P10}ms"
+			echo "FRAME_P25: ${FRAME_P25}ms"
+			echo "FRAME_P50: ${FRAME_P50}ms"
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
