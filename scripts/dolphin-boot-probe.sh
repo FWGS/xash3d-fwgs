@@ -200,6 +200,22 @@ if ! (( FRAME_BUDGET_ENABLED )) && (( FRAME_BUDGET_LOGS )); then
 	echo "G36_WARN: Frame budget logs found but FRAME_BUDGET_ENABLED=1 not detected. Telemetry may be incomplete or guest marker missing."
 fi
 
+# G36: Detect explicit frame budget measurement initialization status
+# Distinguish between "measurement subsystem initialized" vs "measurement subsystem failed to start"
+FRAME_BUDGET_INIT_OK=0
+FRAME_BUDGET_INIT_FAIL=0
+grep -aqsF "Xash3D GameCube: frame budget measurement initialized" "${LOG_FILES[@]}" && FRAME_BUDGET_INIT_OK=1
+grep -aqsF "Xash3D GameCube: frame budget measurement init failed" "${LOG_FILES[@]}" && FRAME_BUDGET_INIT_FAIL=1
+
+# G36: Report measurement initialization status for diagnostic clarity
+if (( FRAME_BUDGET_INIT_FAIL )); then
+	echo "G36_MEASUREMENT_INIT_FAIL: Guest reported frame budget measurement failed to initialize. Telemetry is unreliable."
+elif (( FRAME_BUDGET_INIT_OK )); then
+	echo "G36_MEASUREMENT_INIT_OK: Guest confirmed frame budget measurement subsystem initialized successfully."
+elif (( FRAME_BUDGET_LOGS )); then
+	echo "G36_MEASUREMENT_INIT_UNKNOWN: Frame budget logs present but no explicit init marker. Measurement may be partial."
+fi
+
 # G36: Explicitly require frame budget telemetry for MAP_READY classification
 # If no frame budget logs are present at all, flag as measurement incomplete
 if (( MAP_FOUND )) && (( INPUT_FOUND )) && ! (( FRAME_BUDGET_LOGS )); then
@@ -910,7 +926,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_STATUS: PASS (p95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms, jank=${FRAME_JANK}/${FRAME_COUNT})"
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} target=${TARGET_FRAME_TIME}ms regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} target=${TARGET_FRAME_TIME}ms regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL}"
 			
 			# G36: Report frame timing jitter (MAD) as stability metric
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
