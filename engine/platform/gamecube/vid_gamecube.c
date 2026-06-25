@@ -55,8 +55,13 @@ Returns the current GameCube visual quality mode.
 int GC_GetVisualQuality( void )
 {
 #if XASH_GAMECUBE
+#if XASH_LOW_MEMORY
+	/* Compile-time low-memory builds always report low-memory mode */
+	return 0;
+#else
 	if( gc_quality )
 		return bound( 0, (int)gc_quality->value, 2 );
+#endif
 #endif
 	return 1;
 }
