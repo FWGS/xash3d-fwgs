@@ -1437,6 +1437,10 @@ qboolean GAME_EXPORT R_Init( void )
 		{
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
 		}
+		else
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: standard/higher quality path active\n" );
+		}
 	}
 #endif
 
