@@ -42,29 +42,12 @@ static unsigned int gc_blank_present_count;
 static convar_t *gc_quality;
 #endif
 
-/*
-================
-GC_GetVisualQuality
-
-Returns the current GameCube visual quality mode.
-0: Low (smoke/minimal visuals, no lightmaps, reduced particles)
-1: Medium (default, some optimizations for memory)
-2: High (full visuals if memory permits)
-================
-*/
-int GC_GetVisualQuality( void )
-{
-#if XASH_GAMECUBE
-#if XASH_LOW_MEMORY
-	/* Compile-time low-memory builds always report low-memory mode */
-	return 0;
-#else
-	if( gc_quality )
-		return bound( 0, (int)gc_quality->value, 2 );
-#endif
-#endif
-	return 1;
-}
+/* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
+ * The platform video backend does not redefine it to avoid duplicate symbols.
+ * Quality 0: Low (smoke/minimal visuals, reduced particles)
+ * Quality 1: Medium (default, some optimizations for memory)
+ * Quality 2: High (full visuals if memory permits)
+ */
 
 void Platform_Minimize_f( void )
 {
