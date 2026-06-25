@@ -5,6 +5,7 @@ Copyright (C) 2026 xash3d-gc contributors
 Platform layer ported from Division-Zero-GX/xash3d-wii.
 */
 #include "platform/platform.h"
+#include "net_ws.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -199,6 +200,11 @@ void GCube_Init( void )
 #if XASH_GAMECUBE
 	char xashdir[MAX_SYSPATH];
 
+	/* G29: Initialize networking for local loopback single-player.
+	 * Disable external network dependencies (master servers, HTTP)
+	 * to ensure offline boot works without network hardware. */
+	NET_Config( false, false );
+
 	gc_fat_mounted = fatInitDefault();
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
@@ -316,6 +322,9 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 void GCube_Shutdown( void )
 {
 #if XASH_GAMECUBE
+	/* G29: Shutdown networking layer. */
+	NET_Shutdown();
+
 	if( gc_dvd_mounted )
 		ISO9660_Unmount( GC_DVD_DEVICE );
 	if( gc_fat_mounted )

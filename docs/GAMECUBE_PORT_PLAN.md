@@ -825,6 +825,36 @@ G28; those goals cannot be completed without operator hardware validation.
 MAP_READY recovery is tracked by the following gameplay/networking goals rather
 than by writable-storage routing.
 
+## G29 — Restore local single-player networking paths (source complete)
+
+Restored local single-player networking paths on GameCube by initializing
+the networking layer with loopback-only support.
+
+**Implementation:**
+- Added `NET_Config(false, false)` call in `GCube_Init()` to initialize
+  networking without binding to external ports or relying on master servers.
+- Added `NET_Shutdown()` call in `GCube_Shutdown()` for clean teardown.
+- HTTP initialization remains disabled, preserving offline boot independence.
+- Single-player client/server flows now use local loopback abstraction.
+
+**Verification:**
+- Source compiles cleanly with devkitPPC.
+- No external network dependencies introduced.
+- Loopback networking initialized before filesystem/client setup.
+
+**Evidence:**
+- `engine/platform/gamecube/sys_gamecube.c`: `GCube_Init` calls `NET_Config`.
+- `engine/platform/gamecube/sys_gamecube.c`: `GCube_Shutdown` calls `NET_Shutdown`.
+
+**Build command:**
+```sh
+scripts/build-gamecube.sh
+```
+
+**Note:** Runtime verification of single-player spawn/disconnect/changelevel
+requires Dolphin probe or hardware testing (deferred to G36/G38). Source
+implementation is complete and compliant with offline boot requirements.
+
 ## Boot performance (2026-06-23)
 
 Smoke boot (`-gcmap`) no longer scans `halflife.wad` for every missing asset. GameCube
