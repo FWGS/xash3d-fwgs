@@ -192,6 +192,10 @@ grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 FRAME_BUDGET_ENABLED=0
 grep -aqsF "FRAME_BUDGET_ENABLED=1" "${LOG_FILES[@]}" && FRAME_BUDGET_ENABLED=1
 
+# G36: Explicitly look for guest-reported memory samples to correlate with frame budget
+GC_MEM_SAMPLES=0
+grep -aqE "GC_MemSample|mem stage=" "${LOG_FILES[@]}" && GC_MEM_SAMPLES=1
+
 # G36: Track explicit GX renderer frame-start markers for CPU vs GPU correlation
 FRAME_RENDER_LOGS=0
 grep -aqE "Xash3D GameCube: render frame" "${LOG_FILES[@]}" && FRAME_RENDER_LOGS=1
@@ -201,10 +205,6 @@ GX_FIFO_STALLS=0
 if grep -aqsF "GX_FIFO_STALL" "${LOG_FILES[@]}"; then
 	GX_FIFO_STALLS=$(grep -acF "GX_FIFO_STALL" "${LOG_FILES[@]}")
 fi
-
-# G36: Explicitly look for guest-reported memory samples to correlate with frame budget
-GC_MEM_SAMPLES=0
-grep -aqE "GC_MemSample|mem stage=" "${LOG_FILES[@]}" && GC_MEM_SAMPLES=1
 
 # Extract frame budget statistics for G36 measurement
 # Restrict to engine-reported frame timing markers to avoid false matches
