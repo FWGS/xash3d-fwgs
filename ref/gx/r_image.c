@@ -639,6 +639,16 @@ int GAME_EXPORT GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texF
 	if( !pic )
 		return 0;
 
+#if XASH_GAMECUBE
+	// low-memory path: clamp oversized source buffers before processing
+	// to reduce CPU and memory pressure during upload
+	if( GC_GetVisualQuality() == 0 )
+	{
+		if( pic->width > 128 ) pic->width = 128;
+		if( pic->height > 128 ) pic->height = 128;
+	}
+#endif
+
 	if( update )
 	{
 		if( tex == NULL )
