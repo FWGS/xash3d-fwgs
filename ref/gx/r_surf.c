@@ -449,6 +449,34 @@ void R_DrawSurfaceBlock8_World( void )
 	pixel_t pix, *psource, *prowdest;
 	int     lightpos = 0;
 
+#if XASH_GAMECUBE
+	// G24b: quality 0 uses unlit fallback for world-luxels to avoid expensive
+	// light interpolation on low-memory smoke path. Quality 1/2 retain full path.
+	if( !GC_GetVisualQuality() )
+	{
+		psource = pbasesource;
+		prowdest = prowdestbase;
+		for( v = 0; v < r_numvblocks; v++ )
+		{
+			for( i = 0; i < blocksize; i++ )
+			{
+				for( b = blocksize - 1; b >= 0; b-- )
+				{
+					pix = psource[b];
+					prowdest[b] = pix;
+					if( pix == TRANSPARENT_COLOR )
+						prowdest[b] = TRANSPARENT_COLOR;
+				}
+				psource += sourcetstep;
+				prowdest += surfrowbytes;
+			}
+			if( psource >= r_sourcemax )
+				psource -= r_stepback;
+		}
+		return;
+	}
+#endif
+
 	psource = pbasesource;
 	prowdest = prowdestbase;
 
