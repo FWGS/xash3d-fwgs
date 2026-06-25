@@ -202,19 +202,21 @@ FRAME_MIN=""
 FRAME_MAX=""
 FRAME_AVG=""
 FRAME_P95=""
+FRAME_STDDEV=""
 FRAME_JANK=0
 FRAME_COUNT=${#FRAME_TIMES[@]}
 if (( FRAME_COUNT > 0 )); then
 	# Use awk for robust float math and sorting without bc dependency
 	eval "$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '
 	BEGIN {
-		min = 999999; max = 0; sum = 0; count = 0; jank = 0;
+		min = 999999; max = 0; sum = 0; sum_sq = 0; count = 0; jank = 0;
 	}
 	{
 		val = $1 + 0;
 		if (val < min) min = val;
 		if (val > max) max = val;
 		sum += val;
+		sum_sq += val * val;
 		count++;
 		if (val > 16.66) jank++;
 		times[count] = val;
@@ -222,6 +224,9 @@ if (( FRAME_COUNT > 0 )); then
 	END {
 		if (count == 0) exit;
 		avg = sum / count;
+		variance = (sum_sq / count) - (avg * avg);
+		if (variance < 0) variance = 0;
+		stddev = sqrt(variance);
 		
 		# Bubble sort for P95 (small N)
 		for (i = 1; i <= count; i++) {
@@ -249,6 +254,7 @@ if (( FRAME_COUNT > 0 )); then
 		printf "FRAME_MAX=%.3f\n", max;
 		printf "FRAME_AVG=%.3f\n", avg;
 		printf "FRAME_P95=%.3f\n", p95;
+		printf "FRAME_STDDEV=%.3f\n", stddev;
 		printf "FRAME_JANK=%d\n", jank;
 	}'
 	)"
@@ -278,8 +284,10 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			echo "FRAME_MAX: ${FRAME_MAX}ms"
 			echo "FRAME_AVG: ${FRAME_AVG}ms"
 			echo "FRAME_P95: ${FRAME_P95}ms"
+			echo "FRAME_STDDEV: ${FRAME_STDDEV}ms"
 			echo "FRAME_JANK: ${FRAME_JANK} frames exceeded 16.66ms"
 			
+			# Classify frame budget health for G36 measurement
 			if (( FRAME_JANK > 0 )); then
 				echo "PERFORMANCE_NOTE: Jank detected (${FRAME_JANK} frames over budget)."
 				if (( $(echo "$FRAME_MAX > 16.66" | awk '{print ($1 > $2)}') )); then
