@@ -1276,7 +1276,11 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 				alloc_height = 64;
 		}
 #endif
-		cache = D_SCAlloc( r_drawsurf.surfwidth,
+		cache = D_SCAlloc(
+#if XASH_GAMECUBE
+			(!GC_GetVisualQuality()) ? alloc_width :
+#endif
+			r_drawsurf.surfwidth,
 #if XASH_GAMECUBE
 				   (!GC_GetVisualQuality()) ? ( alloc_width * alloc_height * 2 ) :
 #endif
