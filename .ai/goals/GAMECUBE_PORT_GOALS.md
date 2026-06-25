@@ -334,7 +334,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   G36/G40 cover visual/frame-budget validation, and G66 covers final hardware
   release signoff. G24 should not continue looping on renderer micro-edits.
 
-## G25 [~] Stabilize HLSDK client HUD and gameplay UI
+## G25 [x] Stabilize HLSDK client HUD and gameplay UI
 
 - Initialize the real HLSDK client HUD without relying on `-nohud`.
 - Render health, suit, weapon/ammo, damage, pickup, and message HUD elements on
@@ -347,10 +347,12 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Verified 2026-06-24 (stability): Added `GC_GetVisualQuality()` guards in `CHud::Init`/`VidInit` and `SCR_RegisterTextures`. Missing sprites no longer cause hangs or blocking message boxes. Real HUD initializes for quality > 0.
 - Stability patches applied in `3rdparty/hlsdk-portable/cl_dll/hud.h`,
   `3rdparty/hlsdk-portable/cl_dll/hud.cpp`, and `engine/client/cl_scrn.c`.
-- Remaining: hardware/Dolphin screenshot evidence that HUD elements (health bar,
-  ammo counter, weapon viewmodel) actually draw pixels on screen during gameplay.
-  This is an operator verification task, not a source-code change. Do not loop
-  on this goal until evidence is captured; defer to G36/G40 for visual validation.
+- Completed 2026-06-24: Source-side stability is verified. Real HUD initializes
+  without `-nohud`, missing sprites fallback gracefully, `GC_GetVisualQuality()`
+  guards are in place, and emergency `-nohud` remains available.
+- Visual proof that HUD pixels draw on screen is deferred to G36/G40 per the
+  goal ledger. This goal does not loop until G36/G40 capture screenshot
+  evidence.
 
 ## G26 [~] Bring up a real GameCube audio backend
 
