@@ -283,7 +283,9 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 #else
 	int q = 1;
 #endif
-	uint activeMips = ( q == 0 ) ? 1 : mipCount;
+	uint activeMips = mipCount;
+	if( q == 0 || FBitSet( tex->flags, TF_NOMIPMAP ))
+		activeMips = 1;
 
 #if XASH_GAMECUBE
 	if( q == 0 )
