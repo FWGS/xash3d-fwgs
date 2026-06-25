@@ -172,6 +172,8 @@ static const byte *Mod_SpriteLoadFrame( model_t *mod, const void *pin, mspritefr
 	else
 	{
 		// partial HD-textures support (skip at quality 0 to save memory)
+		// Quality-aware fallback: low-memory mode skips HD replacements entirely,
+		// medium/high quality loads them when materials are permitted.
 #if XASH_GAMECUBE
 		if( Mod_AllowMaterials( ) && GC_GetVisualQuality( ) > 0 )
 #else
