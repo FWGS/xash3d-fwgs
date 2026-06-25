@@ -185,7 +185,10 @@ grep -aqsF "DIAGNOSTIC MARKER VISIBLE" "${LOG_FILES[@]}" && DIAGNOSTIC_MARKER_FO
 grep -aqE "sampled_nonblack=1" "${LOG_FILES[@]}" && SAMPLED_NONBLACK_FOUND=1
 
 # Check for frame budget telemetry (G36)
+# Include explicit sample start/end markers in telemetry detection to ensure
+# summary is generated even if "time=" logs are sparse or formatted differently.
 grep -aqE "Xash3D GameCube: frame.*time=" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS=1
+grep -aqE "Xash3D GameCube: frame budget sample" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS=1
 grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 
 # Check for frame budget measurement markers
@@ -276,10 +279,11 @@ FRAME_STALL_LOGS=0
 FRAME_BUDGET_PASSED=0
 if (( FRAME_BUDGET_LOGS )); then
 	# Extract frame times in one pass using grep -E and sed for portability
-	# Updated regex to catch 'frame start', 'render frame', and generic 'frame time' markers
+	# Broadened regex to catch 'frame start', 'render frame', 'frame budget sample', and generic 'frame time' markers.
+	# Added support for 'ms' suffix often used in new G36 markers.
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: (frame |render )?[a-z_]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget sample )?[a-z_]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
 
 	# Check for dropped frame markers to correlate with jank
@@ -614,6 +618,10 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_BUDGET_SAMPLES: ${FRAME_BUDGET_SAMPLE_COUNT} explicit budget samples recorded."
 				if (( FRAME_BUDGET_SAMPLE_COUNT > FRAME_COUNT )); then
 					echo "G36_BUDGET_NOTE: More budget samples than frame-time logs. Some frames may have been skipped in timing telemetry."
+				elif (( FRAME_BUDGET_SAMPLE_COUNT == FRAME_COUNT )); then
+					echo "G36_BUDGET_STABLE: Frame-time logs match sample count exactly. Full-frame measurement achieved."
+				elif (( FRAME_COUNT < 5 )); then
+					echo "G36_BUDGET_SPARSE: Frame-time logs are sparse compared to samples. Consider increasing marker frequency or filtering noise."
 				fi
 			fi
 
