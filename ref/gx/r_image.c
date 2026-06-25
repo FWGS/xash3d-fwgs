@@ -299,7 +299,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	if( q == 0 )
 	{
 		SetBits( tex->flags, TF_NOMIPMAP );
-		gEngfuncs.Con_Reportf( "GC-Q0: %s %dx%d single-mip, no alpha\n", tex->name, tex->width, tex->height );
+		gEngfuncs.Con_Reportf( "GC-Q0: %s %dx%d single-mip, alpha skipped\n", tex->name, tex->width, tex->height );
 	}
 #endif
 
