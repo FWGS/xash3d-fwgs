@@ -1309,19 +1309,17 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		// Quality 1/2 preserve existing behavior.
 		int alloc_width = r_drawsurf.surfwidth;
 		int alloc_height = r_drawsurf.surfheight;
-		if( !GC_GetVisualQuality() )
+		if( GC_IsLowMemoryMode() )
 		{
 			// Clamp to 64x64 for quality 0 to preserve cache budget
 			if( alloc_width > 64 )
 				alloc_width = 64;
 			if( alloc_height > 64 )
 				alloc_height = 64;
+			// Also clamp rowbytes to match allocated width
+			r_drawsurf.rowbytes = alloc_width;
 		}
-		cache = D_SCAlloc(
-			(!GC_GetVisualQuality()) ? alloc_width :
-			r_drawsurf.surfwidth,
-			(!GC_GetVisualQuality()) ? ( alloc_width * alloc_height * 2 ) :
-			( r_drawsurf.surfwidth * r_drawsurf.surfheight * 2 ));
+		cache = D_SCAlloc( alloc_width, alloc_width * alloc_height * 2 );
 #else
 		cache = D_SCAlloc(
 			r_drawsurf.surfwidth,
