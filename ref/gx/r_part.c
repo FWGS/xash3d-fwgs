@@ -64,9 +64,9 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	int vis = GC_GetVisualQuality();
 	int particle_skip = 0;
 	if( vis == 0 )
-		particle_skip = 4; // low-memory: render every 4th particle for stability
+		particle_skip = 8; // low-memory: render every 8th particle for stability
 	else if( vis == 1 )
-		particle_skip = 2; // medium: render every 2nd particle for stability
+		particle_skip = 4; // medium: render every 4th particle for stability
 	// quality 2 (high): particle_skip remains 0, render all particles
 	int particle_count = 0;
 	for( particle_t *p = cl_active_particles; p; p = p->next )
