@@ -268,6 +268,13 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )) && ! (( FRAME_BUDGET_LOGS )); then
 	echo "G36_STATUS: INCOMPLETE (no frame budget telemetry)"
 fi
 
+# G36_PATCH: Correlate renderer backend presence with frame budget measurement capability
+# Helps distinguish "renderer not initialized" from "renderer initialized but not emitting telemetry"
+if (( MAP_FOUND )) && (( FRAME_BUDGET_LOGS )) && [[ -z "$GUEST_RENDERER" ]]; then
+	echo "G36_RENDERER_UNDETECTED: Frame budget logs present but renderer backend name not identified in guest logs."
+	echo "G36_RENDERER_HINT: Ensure guest emits 'Xash3D GameCube: renderer initialized <backend>' during startup."
+fi
+
 # G36: Emit explicit measurement baseline marker so downstream tooling can
 # distinguish "telemetry absent" from "telemetry present but failing"
 echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} lowmem=${GC_LOWMEM_MODE:-none} timeout=${TIMEOUT_SEC}s"
