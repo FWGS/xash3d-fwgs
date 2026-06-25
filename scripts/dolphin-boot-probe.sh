@@ -125,6 +125,7 @@ wait_for_probe_wrapper() {
 	wait "$pid" >/dev/null 2>&1 || true
 }
 
+DOLPHIN_EXIT=1
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s)..."
 set +e
 if (( DOLPHIN_IS_FLATPAK )); then
