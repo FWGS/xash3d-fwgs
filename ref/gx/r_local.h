@@ -321,9 +321,9 @@ static inline int GC_GetVisualQuality( void )
 ** Returns 0 otherwise.
 ** Consistent with GC_GetVisualQuality.
 */
-static inline int GC_IsLowMemoryMode( void )
+static inline qboolean GC_IsLowMemoryMode( void )
 {
-	return GC_GetVisualQuality() == 0;
+	return GC_GetVisualQuality() == 0 ? true : false;
 }
 
 typedef struct image_s
