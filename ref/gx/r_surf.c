@@ -374,7 +374,9 @@ void R_DrawSurface( void )
 			prowdestbase = r_drawsurf.surfdat;
 			pbasesource = r_source;
 			R_DrawSurfaceBlock8_World();
-			R_DrawSurfaceDecals();
+			// G24b: skip decals in quality 0 world-luxels path to preserve budget
+			if( GC_GetVisualQuality() > 0 )
+				R_DrawSurfaceDecals();
 			return;
 		}
 #endif
