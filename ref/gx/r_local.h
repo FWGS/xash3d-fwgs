@@ -316,16 +316,17 @@ static inline int GC_GetVisualQuality( void )
 	/* Guard against calls before renderer initialization (tr.framecount == 0) */
 	if( tr.framecount == 0 )
 		return 1;
+	/* Negative sample_size is invalid; treat as low-quality smoke path */
+	if( tr.sample_size < 0 )
+		return 0;
 	/* Quality 0 can be forced at runtime via sample_size==0 (set by platform/video backend) */
 	if( tr.sample_size == 0 )
 		return 0;
 	/* Quality 2 requires both sample_size and sample_bits to be non-trivial */
 	if( tr.sample_size > 1 && tr.sample_bits > 0 )
 		return 2;
-	/* Fall back to standard quality if sample data is incomplete */
-	if( tr.sample_size > 0 )
-		return 1;
-	return 0;
+	/* Fall back to standard quality 1 when sample_size is present */
+	return 1;
 #endif
 #else
 	return 1;
