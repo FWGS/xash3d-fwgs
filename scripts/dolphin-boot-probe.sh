@@ -586,6 +586,19 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		echo "VISUAL_NOTE: No non-black pixel samples detected in logs. Check for black screen or diagnostic marker."
 	fi
 
+	# G36: Correlate visual state with frame budget health for clearer measurement evidence
+	if (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT > 0 )); then
+		if ! (( FRAME_BUDGET_PASSED )); then
+			if (( DIAGNOSTIC_MARKER_FOUND )) && ! (( SAMPLED_NONBLACK_FOUND )); then
+				echo "G36_VISUAL_BUDGET_CORRELATION: Frame budget failed AND diagnostic marker visible without non-black content. Renderer likely not issuing draw calls or GX command buffer is stalling."
+			fi
+		else
+			if (( DIAGNOSTIC_MARKER_FOUND )) && ! (( SAMPLED_NONBLACK_FOUND )); then
+				echo "G36_VISUAL_BUDGET_CORRELATION: Frame budget passed but no non-black content with diagnostic marker visible. Issue is likely renderer initialization or GX shader/texture setup, not performance."
+			fi
+		fi
+	fi
+
 	# Report frame budget telemetry
 	if (( FRAME_BUDGET_LOGS )); then
 		echo "FRAME_BUDGET_STATS: samples=${FRAME_COUNT}"
