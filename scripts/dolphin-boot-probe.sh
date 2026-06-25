@@ -425,19 +425,28 @@ FRAME_DROP_LOGS=0
 FRAME_STALL_COUNT=0
 FRAME_STALL_LOGS=0
 FRAME_BUDGET_PASSED=0
+
+# G36_PATCH_v3: Track strict vs relaxed pattern matches to diagnose parse filter issues
+FRAME_TIMES_STRICT=0
+FRAME_TIMES_RELAXED=0
+
 if (( FRAME_BUDGET_LOGS )); then
 	# Extract frame times in one pass using grep -E and sed for portability
+	# G36_PATCH_v3: Use strict pattern first to count exact matches, then fall back to relaxed
 	# Broadened regex to catch 'frame start', 'render frame', 'frame budget sample', and generic 'frame time' markers.
 	# Added support for 'ms' suffix often used in new G36 markers.
-	# G36_PATCH: Further relaxed pattern to reduce parse-filter false negatives
-	# by allowing arbitrary word characters between prefix and 'time=' to catch
-	# variant marker names without requiring exact naming conventions.
-	# G36_PATCH_v2: Ultra-relaxed pattern to capture any 'time=' key-value after the guest prefix.
-	# This eliminates parse-filter false negatives that cause sample loss.
+	
+	# G36_PATCH_v3: Strict pattern - exact expected format
+	FRAME_TIMES_STRICT=$(grep -aoE 'Xash3D GameCube: frame time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | wc -l)
+	
+	# G36_PATCH_v3: Extract all frame times using relaxed pattern
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
 	done < <(grep -aoE 'Xash3D GameCube: .* time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
+	
+	# G36_PATCH_v3: Count relaxed matches for diagnostics
+	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
 
 	# G36: Also extract frame times from 'frame duration' markers (alternative naming)
 	# G36_PATCH: Relaxed pattern to allow arbitrary word characters for variant markers
@@ -942,6 +951,20 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
+			# G36_PATCH_v3: Report parse pattern match diagnostics
+			# Helps distinguish between "guest not emitting markers" vs "probe regex too strict"
+			if (( FRAME_TIMES_STRICT > 0 )); then
+				echo "G36_PARSE_STRICT: ${FRAME_TIMES_STRICT} frames matched strict 'frame time=' pattern."
+			else
+				echo "G36_PARSE_STRICT: 0 frames matched strict 'frame time=' pattern."
+			fi
+			echo "G36_PARSE_RELAXED: ${FRAME_TIMES_RELAXED} frames matched relaxed '.* time=' pattern."
+			if (( FRAME_TIMES_RELAXED > 0 )) && (( FRAME_TIMES_STRICT == 0 )); then
+				echo "G36_PARSE_HINT: Guest using non-standard frame time marker format. Relax strict expectations or update guest to emit 'frame time=<ms>'."
+			elif (( FRAME_TIMES_RELAXED < FRAME_TIMES_STRICT )); then
+				echo "G36_PARSE_NOTE: Relaxed pattern captured fewer samples than strict; unexpected, verify guest marker format."
+			fi
+
 			# G36: Cross-validate probe-extracted frame count against guest-reported count
 			# Helps distinguish parse failures from rendering stalls
 			if (( GUEST_REPORTED_FRAME_COUNT > 0 )); then
