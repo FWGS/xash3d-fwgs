@@ -161,8 +161,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	// expensive occlusion tests for all sprites and reducing brightness for
 	// glow/additive sprites. This preserves visibility while cutting CPU work.
 	qboolean low_quality_skip_occlusion = false;
-	float original_blend = tr.blend;
 	int vis_quality = GC_GetVisualQuality();
+	float original_blend = tr.blend;
 	if( vis_quality == 0 )
 	{
 		low_quality_skip_occlusion = true;
@@ -172,12 +172,6 @@ void R_DrawSpriteModel( cl_entity_t *e )
 			// Reduce brightness for glow/additive sprites in low-memory mode
 			tr.blend *= 0.5f;
 		}
-	}
-	else
-	{
-		// Non-low-quality: no blend modification, so original_blend is not needed
-		// but we still track it for consistency in the occlusion early-return path.
-		original_blend = tr.blend;
 	}
 #endif
 
@@ -216,7 +210,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 #if XASH_GAMECUBE
 	if( !low_quality_skip_occlusion && R_SpriteOccluded( e, origin, &scale ))
 	{
-		tr.blend = original_blend; // restore blend regardless of quality
+		tr.blend = original_blend; // restore blend state
 		return; // sprite culled
 	}
 #else
@@ -269,7 +263,9 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		dot = RI.vforward[2];
 		if(( dot > 0.999848f ) || ( dot < -0.999848f )) // cos(1 degree) = 0.999848
 		{
-			tr.blend = original_blend; // restore blend regardless of quality
+#if XASH_GAMECUBE
+			tr.blend = original_blend; // restore blend state
+#endif
 			return; // invisible
 		}
 		VectorSet( v_up, 0.0f, 0.0f, 1.0f );
@@ -300,6 +296,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	GL_Bind( XASH_TEXTURE0, frame->gl_texturenum );
 	R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 
+#if XASH_GAMECUBE
 	// Always restore blend to original value on exit
 	tr.blend = original_blend;
+#endif
 }
