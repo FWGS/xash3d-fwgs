@@ -62,10 +62,11 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	// pglDepthMask( GL_FALSE );
 
 	int vis = GC_GetVisualQuality();
-	// Stable quality-aware particle density:
-	// Quality 0 (low-memory): 1 in 8 non-blob particles (12.5%)
-	// Quality 1 (medium):     1 in 4 non-blob particles (25%)
-	// Quality 2 (high):       all particles (100%)
+	// Quality-aware particle density (never hard-skip; reduce draw calls):
+	// Quality 0 (low-memory/smoke): 1 in 8 non-blob particles (12.5%)
+	// Quality 1 (medium):           1 in 4 non-blob particles (25%)
+	// Quality 2 (high):             all particles (100%)
+	// Blob particles always render regardless of quality.
 	int particle_skip_interval = 1;
 	if( vis == 0 )
 		particle_skip_interval = 8;
