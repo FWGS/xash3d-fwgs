@@ -301,6 +301,18 @@ void R_DrawSurface( void )
 	image_t *mt;
 	uint    sample_size, sample_bits, sample_pot;
 
+#if XASH_GAMECUBE
+	// G24b: bound surface dimensions for quality-0 path to avoid
+	// out-of-bounds or excessively large surface cache operations.
+	// Quality 1/2 preserve existing behavior.
+	if( !GC_GetVisualQuality() )
+	{
+		if( r_drawsurf.surfwidth <= 0 || r_drawsurf.surfwidth > 2048 ||
+		    r_drawsurf.surfheight <= 0 || r_drawsurf.surfheight > 2048 )
+			return;
+	}
+#endif
+
 	surfrowbytes = r_drawsurf.rowbytes;
 
 	sample_size = LM_SAMPLE_SIZE_AUTO( r_drawsurf.surf );
