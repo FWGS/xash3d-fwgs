@@ -1420,16 +1420,9 @@ qboolean GAME_EXPORT R_Init( void )
 	tr.sample_bits = -1;
 
 #if XASH_GAMECUBE
-	// G24a: Quality mode is driven by tr.sample_size (0 = low-memory smoke path).
-	// GC_GetVisualQuality() from r_local.h is the single source of truth.
 	{
 		int quality = GC_GetVisualQuality();
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin (quality=%d)\n", quality );
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected (sample_size=%d)\n", quality, tr.sample_size );
-		if( quality == 0 )
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
-		else
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: standard/higher quality path active\n" );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init quality=%d (sample_size=%d)\n", quality, tr.sample_size );
 	}
 #endif
 
