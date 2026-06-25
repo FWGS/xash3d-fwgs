@@ -139,7 +139,7 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 {
 	byte   *out = in;
 	int    instride = ALIGN( srcWidth * 4, 1 );
-	vec3_t normal;
+	vec3_t normal = { 0.0f, 0.0f, 0.0f };
 
 	if( !in )
 		return;
