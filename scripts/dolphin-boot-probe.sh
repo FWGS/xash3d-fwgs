@@ -187,6 +187,32 @@ grep -aqE "sampled_nonblack=1" "${LOG_FILES[@]}" && SAMPLED_NONBLACK_FOUND=1
 grep -aqE "Xash3D GameCube: frame.*time=" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS=1
 grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 
+# Extract frame budget statistics for G36 measurement
+FRAME_TIMES=()
+if (( FRAME_BUDGET_LOGS )); then
+	while IFS= read -r line; do
+		if [[ "$line" =~ time=([0-9]+(\.[0-9]+)?) ]]; then
+			FRAME_TIMES+=("${BASH_REMATCH[1]}")
+		fi
+	done < <(grep -aohE "time=[0-9]+(\.[0-9]+)?" "${LOG_FILES[@]}" 2>/dev/null)
+fi
+
+FRAME_MIN=""
+FRAME_MAX=""
+FRAME_AVG=""
+FRAME_COUNT=${#FRAME_TIMES[@]}
+if (( FRAME_COUNT > 0 )); then
+	FRAME_MIN="${FRAME_TIMES[0]}"
+	FRAME_MAX="${FRAME_TIMES[0]}"
+	FRAME_SUM=0
+	for t in "${FRAME_TIMES[@]}"; do
+		(( $(echo "$t $FRAME_MIN" | awk '{print ($1 < $2)}') )) && FRAME_MIN="$t"
+		(( $(echo "$t $FRAME_MAX" | awk '{print ($1 > $2)}') )) && FRAME_MAX="$t"
+		FRAME_SUM=$(echo "$FRAME_SUM + $t" | bc -l)
+	done
+	FRAME_AVG=$(echo "scale=3; $FRAME_SUM / $FRAME_COUNT" | bc -l)
+fi
+
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
 		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
@@ -205,10 +231,19 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 
 	# Report frame budget telemetry
 	if (( FRAME_BUDGET_LOGS )); then
+		echo "FRAME_BUDGET_STATS: samples=${FRAME_COUNT}"
+		if (( FRAME_COUNT > 0 )); then
+			echo "FRAME_MIN: ${FRAME_MIN}ms"
+			echo "FRAME_MAX: ${FRAME_MAX}ms"
+			echo "FRAME_AVG: ${FRAME_AVG}ms"
+			if (( $(echo "$FRAME_MAX > 16.66" | bc -l) )); then
+				echo "PERFORMANCE_BLOCKER: Frame budget exceeded. Max=${FRAME_MAX}ms > 16.66ms (60fps target)."
+			else
+				echo "PERFORMANCE_OK: Frame budget telemetry present and within 60fps limits."
+			fi
+		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
-			echo "PERFORMANCE_BLOCKER: Frame budget exceeded detected. Check logs for 'time=' values > 16.66ms."
-		else
-			echo "PERFORMANCE_OK: Frame budget telemetry present and within limits."
+			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
 		fi
 		# Dump the last few frame timing logs for inspection
 		echo "Last frame timing samples:"
