@@ -360,6 +360,9 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - User-visible blocker, 2026-06-23: operator reports no sound despite the ASND
   smoke path. Treat current evidence as init-only until an operator can hear a
   known test sound or the logs prove nonzero mixed samples submitted to ASND.
+- Codex follow-up, 2026-06-24: ASND now reports `audio voice started`, the first
+  nonzero PCM chunk peak, and shutdown totals for submitted/nonzero chunks so
+  logs can distinguish "backend initialized" from "mixer fed audible data".
   Remaining: audible weapon/ambient verification on Dolphin/hardware and
   shutdown leak checks.
 

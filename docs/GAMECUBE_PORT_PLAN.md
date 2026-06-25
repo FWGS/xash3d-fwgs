@@ -729,6 +729,18 @@ DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 Evidence: `.ai/logs/dolphin-probe-20260623-024230/stderr.log` (`audio backend ready`,
 `sound effects init ready`, `MAP_READY`).
 
+Codex follow-up on 2026-06-24 adds ASND submission telemetry in
+`engine/platform/gamecube/snddma_gamecube.c`. Runtime logs now distinguish voice
+startup from actual mixed PCM delivery:
+
+- `Xash3D GameCube: audio voice started`
+- `Xash3D GameCube: audio submitted nonzero PCM chunks=<n> peak=<sample>`
+- `Xash3D GameCube: audio shutdown chunks=<n> nonzero=<n> last_peak=<sample>`
+
+This turns the current "no sound" report into a sharper fork: if nonzero chunks
+appear but no sound is audible, debug ASND/AI output; if chunks stay silent,
+debug engine mixing, channel activation, or map sound events.
+
 ## G28 — Writable storage routing (2026-06-23, smoke verified)
 
 GameCube now splits read-only disc content from writable SD state:

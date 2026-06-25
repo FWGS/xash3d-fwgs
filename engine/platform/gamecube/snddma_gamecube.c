@@ -21,9 +21,30 @@ static qboolean gc_audio_unpaused;
 static qboolean gc_voice_started;
 static volatile int gc_audio_painting;
 static volatile int gc_audio_play_chunk;
+static volatile unsigned int gc_audio_chunks_submitted;
+static volatile unsigned int gc_audio_nonzero_chunks;
+static volatile int gc_audio_last_peak;
+static qboolean gc_audio_reported_nonzero;
+static unsigned int gc_audio_submit_polls;
 static int16_t gc_audio_chunk[2][GC_AUDIO_CHUNK_SAMPLES * 2] __attribute__((aligned( 32 )));
 
 static qboolean GCube_NullAudioInit( void );
+
+static int GC_AudioPeak( const int16_t *samples, int sample_count )
+{
+	int peak = 0;
+
+	for( int i = 0; i < sample_count; i++ )
+	{
+		int value = samples[i];
+		if( value < 0 )
+			value = -value;
+		if( value > peak )
+			peak = value;
+	}
+
+	return peak;
+}
 
 static void GC_AudioCopyChunk( int16_t *dest, int bytes )
 {
@@ -39,6 +60,8 @@ static void GC_AudioCopyChunk( int16_t *dest, int bytes )
 	if( !snd.buffer || gc_audio_painting )
 	{
 		memset( dest, 0, bytes );
+		gc_audio_last_peak = 0;
+		gc_audio_chunks_submitted++;
 		return;
 	}
 
@@ -63,6 +86,11 @@ static void GC_AudioCopyChunk( int16_t *dest, int bytes )
 
 	if( snd.samplepos >= snd.samples )
 		snd.samplepos = 0;
+
+	gc_audio_last_peak = GC_AudioPeak( dest, bytes / (int)sizeof( int16_t ));
+	gc_audio_chunks_submitted++;
+	if( gc_audio_last_peak > 0 )
+		gc_audio_nonzero_chunks++;
 }
 
 static void GC_AudioVoiceCallback( s32 voice )
@@ -128,6 +156,11 @@ static qboolean GCube_RealAudioInit( void )
 	gc_voice_started = false;
 	gc_audio_real = true;
 	gc_audio_unpaused = false;
+	gc_audio_chunks_submitted = 0;
+	gc_audio_nonzero_chunks = 0;
+	gc_audio_last_peak = 0;
+	gc_audio_reported_nonzero = false;
+	gc_audio_submit_polls = 0;
 	snd.initialized = true;
 	snd.backend_name = "GameCube (ASND 48kHz)";
 	Con_Reportf( "Xash3D GameCube: audio backend ready (%d samples, %d Hz, voice deferred)\n",
@@ -145,6 +178,11 @@ static qboolean GCube_NullAudioInit( void )
 	gc_audio_real = false;
 	gc_audio_unpaused = false;
 	gc_voice_started = false;
+	gc_audio_chunks_submitted = 0;
+	gc_audio_nonzero_chunks = 0;
+	gc_audio_last_peak = 0;
+	gc_audio_reported_nonzero = false;
+	gc_audio_submit_polls = 0;
 
 	snd.format.speed = SOUND_DMA_SPEED;
 	snd.format.width = 2;
@@ -172,6 +210,9 @@ void SNDDMA_Shutdown( void )
 	{
 		if( gc_voice_started )
 			ASND_StopVoice( GC_AUDIO_VOICE );
+		Con_Reportf(
+			"Xash3D GameCube: audio shutdown chunks=%u nonzero=%u last_peak=%d\n",
+			gc_audio_chunks_submitted, gc_audio_nonzero_chunks, gc_audio_last_peak );
 		ASND_End();
 	}
 
@@ -209,6 +250,25 @@ void SNDDMA_Submit( void )
 
 		ASND_Pause( 0 );
 		gc_audio_unpaused = true;
+		Con_Reportf( "Xash3D GameCube: audio voice started\n" );
+	}
+
+	if( gc_audio_real && gc_voice_started )
+	{
+		gc_audio_submit_polls++;
+		if( !gc_audio_reported_nonzero && gc_audio_nonzero_chunks > 0 )
+		{
+			Con_Reportf(
+				"Xash3D GameCube: audio submitted nonzero PCM chunks=%u peak=%d\n",
+				gc_audio_nonzero_chunks, gc_audio_last_peak );
+			gc_audio_reported_nonzero = true;
+		}
+		else if( !gc_audio_reported_nonzero && gc_audio_submit_polls == 300 )
+		{
+			Con_Reportf(
+				"Xash3D GameCube: audio still silent chunks=%u peak=%d\n",
+				gc_audio_chunks_submitted, gc_audio_last_peak );
+		}
 	}
 }
 
