@@ -467,6 +467,14 @@ if (( FRAME_BUDGET_LOGS )); then
 	done < <(grep -aoE 'Xash3D GameCube: (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE '(time|duration)=[0-9]+(\.[0-9]+)?' | sed 's/.*=//')
 
+	# G36_PATCH_v12: Fallback extraction for markers missed by primary regex
+	# Catches any Xash3D GameCube line with time/duration=<number> to prevent
+	# sample loss from format variations or future marker additions.
+	while IFS= read -r val; do
+		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
+	done < <(grep -aoE 'Xash3D GameCube: [^ ]+ (time|duration)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE '(time|duration)=[0-9]+(\.[0-9]+)?' | sed 's/.*=//')
+
 	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
 
 	# G36_DEDUP_v1: Deduplicate FRAME_TIMES to prevent double-counting when
