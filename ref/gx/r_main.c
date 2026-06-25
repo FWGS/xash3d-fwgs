@@ -486,15 +486,10 @@ static void R_SetupFrame( void )
 	RI.viewplanedist = DotProduct( RI.rvp.vieworigin, RI.vforward );
 
 #if XASH_GAMECUBE
-	// G24a: skip translucent sort in low-memory quality mode
+	// G24a: skip translucent sort in low-memory quality mode to reduce stack/heap pressure
 	{
 		int quality = GC_GetVisualQuality();
-		if( quality == 0 )
-		{
-			// qsort can pressure stack/heap on constrained maps;
-			// fall through without sorting for quality=0
-		}
-		else
+		if( quality != 0 )
 #endif
 		{
 			// sort translucents entities by rendermode and distance
