@@ -586,47 +586,56 @@ static void R_DrawEntitiesOnList( void )
 		gEngfuncs.pfnDrawNormalTriangles();
 
 	d_pdrawspans = R_PolysetDrawSpans8_33;
-	// then draw translucent entities
-	for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
+#if XASH_GAMECUBE
 	{
-		RI.currententity = tr.draw_list->trans_entities[i];
-		RI.currentmodel = RI.currententity->model;
-
-		// handle studiomodels with custom rendermodes on texture
-		if( RI.currententity->curstate.rendermode != kRenderNormal )
-			tr.blend = CL_FxBlend( RI.currententity ) / 255.0f;
-		else
-			tr.blend = 1.0f; // draw as solid but sorted by distance
-
-		if( tr.blend <= 0.0f )
-			continue;
-
-		if( !RI.currentmodel && RI.currententity->player && !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
-			continue;
-
-		Assert( RI.currententity != NULL );
-		Assert( RI.currentmodel != NULL );
-
-		switch( RI.currentmodel->type )
+		int quality = GC_GetVisualQuality();
+		// G24a: low-memory smoke path skips translucent entity draw until stable
+		if( quality != 0 )
+#endif
+		// then draw translucent entities
+		for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 		{
-		case mod_brush:
-			R_DrawBrushModel( RI.currententity );
-			break;
-		case mod_alias:
-			// R_DrawAliasModel( RI.currententity );
-			break;
-		case mod_studio:
-			R_SetUpWorldTransform();
-			R_DrawStudioModel( RI.currententity );
-			break;
-		case mod_sprite:
-			R_SetUpWorldTransform();
-			R_DrawSpriteModel( RI.currententity );
-			break;
-		default:
-			break;
+			RI.currententity = tr.draw_list->trans_entities[i];
+			RI.currentmodel = RI.currententity->model;
+
+			// handle studiomodels with custom rendermodes on texture
+			if( RI.currententity->curstate.rendermode != kRenderNormal )
+				tr.blend = CL_FxBlend( RI.currententity ) / 255.0f;
+			else
+				tr.blend = 1.0f; // draw as solid but sorted by distance
+
+			if( tr.blend <= 0.0f )
+				continue;
+
+			if( !RI.currentmodel && RI.currententity->player && !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+				continue;
+
+			Assert( RI.currententity != NULL );
+			Assert( RI.currentmodel != NULL );
+
+			switch( RI.currentmodel->type )
+			{
+			case mod_brush:
+				R_DrawBrushModel( RI.currententity );
+				break;
+			case mod_alias:
+				// R_DrawAliasModel( RI.currententity );
+				break;
+			case mod_studio:
+				R_SetUpWorldTransform();
+				R_DrawStudioModel( RI.currententity );
+				break;
+			case mod_sprite:
+				R_SetUpWorldTransform();
+				R_DrawSpriteModel( RI.currententity );
+				break;
+			default:
+				break;
+			}
 		}
+#if XASH_GAMECUBE
 	}
+#endif
 
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		gEngfuncs.pfnDrawTransparentTriangles();
