@@ -151,6 +151,13 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 
 	int mipWidth = Q_max( 1, ( srcWidth >> 1 ));
 	int mipHeight = Q_max( 1, ( srcHeight >> 1 ));
+
+	// quality 0 (low-memory): skip mipmap generation for very small textures
+	// to reduce CPU pressure and avoid degenerate 1x1 mips
+#if XASH_GAMECUBE
+	if( GC_GetVisualQuality() == 0 && ( mipWidth <= 1 && mipHeight <= 1 ))
+		return;
+#endif
 	int outpadding = ALIGN( mipWidth * 4, 1 ) - mipWidth * 4;
 
 	if( FBitSet( flags, TF_ALPHACONTRAST ))
