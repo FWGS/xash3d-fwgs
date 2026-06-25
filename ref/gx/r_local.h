@@ -321,6 +321,8 @@ static inline int GC_GetVisualQuality( void )
 ** GC_GetVisualQualityForSample
 ** Helper to determine visual quality for a specific sample size and bit depth,
 ** independent of the global tr state. Useful for subsystem-specific checks.
+** sample_bits values other than 0/16 are treated as standard quality to avoid
+** false positives from uninitialized or misconfigured state.
 */
 static inline int GC_GetVisualQualityForSample( int sample_size, int sample_bits )
 {
@@ -332,6 +334,7 @@ static inline int GC_GetVisualQualityForSample( int sample_size, int sample_bits
 		return 0;
 	if( sample_bits == 16 )
 		return 2;
+	/* sample_bits == 0 or any other value falls through to standard quality */
 	return 1;
 #endif
 #else
