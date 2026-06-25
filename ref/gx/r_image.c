@@ -389,6 +389,10 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		tex->numMips++;
 	}
 
+	// Free resampled buffer if it was allocated and is not the original
+	if( data != buf )
+		free( data );
+
 	return true;
 }
 
