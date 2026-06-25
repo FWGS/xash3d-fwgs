@@ -301,17 +301,6 @@ void R_DrawSurface( void )
 	image_t *mt;
 	uint    sample_size, sample_bits, sample_pot;
 
-#if XASH_GAMECUBE
-	// G24b: bound surface dimensions for quality-0 path to avoid
-	// out-of-bounds or excessively large surface cache operations.
-	// Quality 1/2 preserve existing behavior.
-	if( !GC_GetVisualQuality() )
-	{
-		if( r_drawsurf.surfwidth <= 0 || r_drawsurf.surfwidth > 1024 ||
-		    r_drawsurf.surfheight <= 0 || r_drawsurf.surfheight > 1024 )
-			return;
-	}
-#endif
 
 	surfrowbytes = r_drawsurf.rowbytes;
 
@@ -374,12 +363,6 @@ void R_DrawSurface( void )
 	// glitchy and slow way to draw some lightmap
 	if( r_drawsurf.surf->texinfo->flags & TEX_WORLD_LUXELS )
 	{
-#if XASH_GAMECUBE
-		// G24b: skip expensive world-luxels draw on quality-0 path
-		if( !GC_GetVisualQuality() )
-			return;
-#endif
-
 		worldlux_s = r_drawsurf.surf->extents[0] / r_drawsurf.surf->info->lightextents[0];
 		worldlux_t = r_drawsurf.surf->extents[1] / r_drawsurf.surf->info->lightextents[1];
 		if( worldlux_s == 0 )
@@ -928,11 +911,6 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 	surfcache_t *new;
 	qboolean    wrapped_this_time;
 
-#if XASH_GAMECUBE
-	if( !GC_GetVisualQuality() && !sc_base )
-		return NULL;
-#endif
-
 	if(( width < 0 ))// || (width > 256))
 		gEngfuncs.Host_Error( "%s: bad cache width %d\n", __func__, width );
 
@@ -1247,20 +1225,6 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		r_drawsurf.surfheight = surface->extents[1] >> miplevel;
 	}
 
-#if XASH_GAMECUBE
-	// G24b: on quality-0 path, skip expensive world-luxels lightmap build
-	// but still allocate a surface cache and draw the texture unlit so the
-	// surface remains visible instead of disappearing (stable fallback mode).
-	// Only apply to static surfaces; dynamic/animated surfaces fall through
-	// to the normal path or are skipped earlier by cache invalidation.
-	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
-	    surface->dlightframe != tr.framecount )
-	{
-		// proceed to allocate cache below; R_DrawSurface will skip the
-		// world-luxels lightmap path and return early, leaving a clean
-		// unlit texture draw via the fallback path below.
-	}
-#endif
 
 //
 // allocate memory if needed
@@ -1296,73 +1260,12 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 	// c_surf++;
 
-#if XASH_GAMECUBE
-	// G24b: on quality-0 world-luxels surfaces, skip expensive lightmap build
-	// and use a bounded fallback fill so surfaces remain visible.
-	// Dynamic lights or animated surfaces take the normal path.
-	qboolean is_lowmem_worldluxel = ( !GC_GetVisualQuality() &&
-	    ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
-	    surface->dlightframe != tr.framecount );
-#else
-	qboolean is_lowmem_worldluxel = false;
-#endif
 
-	if( !is_lowmem_worldluxel )
 	{
 		// calculate the lightings
 		R_BuildLightMap( );
 		// rasterize the surface into the cache
 		R_DrawSurface();
-	}
-	else
-	{
-		// Stable unlit fallback: fill surface cache with base texture data
-		// when available, otherwise a neutral color. Bound to valid dims.
-		image_t *img = r_drawsurf.image;
-		pixel_t *dst = r_drawsurf.surfdat;
-		int w = r_drawsurf.surfwidth;
-		int h = r_drawsurf.surfheight;
-		pixel_t fallback_color = 0x7FFF; // Neutral gray
-		int rows_filled = 0;
-
-		if( img && miplevel < 4 && miplevel < img->numMips && img->pixels[miplevel] )
-		{
-			pixel_t *src = img->pixels[miplevel];
-			int srcw = img->width >> miplevel;
-			int srch = img->height >> miplevel;
-			pixel_t *rowdst = dst;
-
-			if( srcw > 0 && srch > 0 && w > 0 && h > 0 )
-			{
-				int copy_w = ( w < srcw ) ? w : srcw;
-				int copy_h = ( h < srch ) ? h : srch;
-				int row_copy = copy_w * sizeof( pixel_t );
-
-				for( int y = 0; y < copy_h; y++ )
-				{
-					memcpy( rowdst, src, row_copy );
-					if( w > copy_w )
-						memset( rowdst + copy_w, fallback_color, ( w - copy_w ) * sizeof( pixel_t ));
-					rowdst += r_drawsurf.rowbytes;
-					src += srcw;
-				}
-				rows_filled = copy_h;
-			}
-		}
-
-		// Fill any remaining rows with fallback color, bounded to cache size
-		if( w > 0 && rows_filled < h )
-		{
-			// Bound remaining rows to avoid overrunning the allocated cache
-			int remaining = h - rows_filled;
-			int row_fill = w * sizeof( pixel_t );
-			pixel_t *rowdst = dst + rows_filled * r_drawsurf.rowbytes;
-			for( int y = rows_filled; y < h && remaining-- > 0; y++ )
-			{
-				memset( rowdst, fallback_color, row_fill );
-				rowdst += r_drawsurf.rowbytes;
-			}
-		}
 	}
 	R_DrawSurfaceDecals();
 
