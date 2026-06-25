@@ -139,6 +139,11 @@ static void GL_BuildMipMap( byte *in, int srcWidth, int srcHeight, int srcDepth,
 	if( !in )
 		return;
 
+#if XASH_GAMECUBE
+	if( GC_GetVisualQuality() == 0 && FBitSet( flags, TF_NORMALMAP ))
+		return;
+#endif
+
 	int mipWidth = Q_max( 1, ( srcWidth >> 1 ));
 	int mipHeight = Q_max( 1, ( srcHeight >> 1 ));
 	int outpadding = ALIGN( mipWidth * 4, 1 ) - mipWidth * 4;
