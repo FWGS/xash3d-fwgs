@@ -131,8 +131,6 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 
 		gEngfuncs.CL_ThinkParticle( frametime, p );
 	}
-
-	TriEnd();
 	// pglDepthMask( GL_TRUE );
 }
 
