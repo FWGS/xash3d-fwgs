@@ -325,7 +325,14 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		}
 #else
 		if( j == 0 && tex->flags & TF_HAS_ALPHA )
+		{
 			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
+			if( !tex->alpha_pixels )
+			{
+				gEngfuncs.Con_Reportf( S_WARN "%s: OOM alpha_pixels %ux%ux%u, disabling alpha\n", __func__, width, height, tex->depth );
+				ClearBits( tex->flags, TF_HAS_ALPHA );
+			}
+		}
 		else if( j == 0 )
 			tex->alpha_pixels = NULL;
 #endif
