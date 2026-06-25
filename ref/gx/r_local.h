@@ -313,11 +313,11 @@ static inline int GC_GetVisualQuality( void )
 		return 2;
 	/* Fallback to standard quality */
 	return 1;
-#endif
+#endif /* !XASH_LOW_MEMORY */
 #else /* !XASH_GAMECUBE */
 	/* Non-GameCube targets always use standard quality */
 	return 1;
-#endif
+#endif /* XASH_GAMECUBE */
 }
 
 /*
