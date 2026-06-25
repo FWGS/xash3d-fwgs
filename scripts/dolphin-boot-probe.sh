@@ -724,13 +724,18 @@ fi
 
 # G36: Detect explicit guest-reported "frame budget sample end" with stage annotation
 FRAME_BUDGET_STAGE_ANNOTATED=0
+FRAME_BUDGET_STAGE_VIOLATIONS=0
+FRAME_BUDGET_FAIL_STAGES=""
 if grep -aqsF "Xash3D GameCube: frame budget sample end stage=" "${LOG_FILES[@]}"; then
 	FRAME_BUDGET_STAGE_ANNOTATED=1
-	FRAME_BUDGET_STAGE_VIOLATIONS=0
 	# Count FAIL stages across all log files using awk to avoid grep -c multi-file quirks
 	FRAME_BUDGET_STAGE_VIOLATIONS=$(cat "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -aoE 'Xash3D GameCube: frame budget sample end stage=[a-z_]+ budget=(PASS|FAIL)' | \
 		awk '/budget=FAIL/{count++} END{print count+0}')
+	# Extract unique stage names that failed for diagnostic correlation
+	FRAME_BUDGET_FAIL_STAGES=$(cat "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -aoE 'Xash3D GameCube: frame budget sample end stage=[a-z_]+ budget=FAIL' | \
+		grep -oE 'stage=[a-z_]+' | sed 's/stage=//' | sort -u | tr '\n' ',' | sed 's/,$//')
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
@@ -1052,6 +1057,11 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
 			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 2.0)}" 2>/dev/null; then
 				echo "G36_JITTER_WARN: Frame timing MAD=${FRAME_TIMING_JITTER}ms exceeds 2.0ms threshold. Rendering may appear stuttery due to high variance in frame delivery."
+			fi
+
+			# G36: Report which budget stages failed for targeted diagnosis
+			if [[ -n "$FRAME_BUDGET_FAIL_STAGES" ]]; then
+				echo "G36_FAIL_STAGES: Frame budget violations in stages: ${FRAME_BUDGET_FAIL_STAGES}"
 			fi
 
 			# G36: Report frame pacing variance as scheduling/stability metric
