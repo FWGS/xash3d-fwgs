@@ -584,7 +584,52 @@ static void R_DrawEntitiesOnList( void )
 
 	d_pdrawspans = R_PolysetDrawSpans8_33;
 
-#if !XASH_GAMECUBE || !GC_IsLowMemoryMode()
+#if XASH_GAMECUBE
+		if( !GC_IsLowMemoryMode() )
+		{
+			// then draw translucent entities
+			for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
+			{
+				RI.currententity = tr.draw_list->trans_entities[i];
+				RI.currentmodel = RI.currententity->model;
+
+				// handle studiomodels with custom rendermodes on texture
+				if( RI.currententity->curstate.rendermode != kRenderNormal )
+					tr.blend = CL_FxBlend( RI.currententity ) / 255.0f;
+				else
+					tr.blend = 1.0f; // draw as solid but sorted by distance
+
+				if( tr.blend <= 0.0f )
+					continue;
+
+				if( !RI.currentmodel && RI.currententity->player && !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+					continue;
+
+				Assert( RI.currententity != NULL );
+				Assert( RI.currentmodel != NULL );
+
+				switch( RI.currentmodel->type )
+				{
+				case mod_brush:
+					R_DrawBrushModel( RI.currententity );
+					break;
+				case mod_alias:
+					// R_DrawAliasModel( RI.currententity );
+					break;
+				case mod_studio:
+					R_SetUpWorldTransform();
+					R_DrawStudioModel( RI.currententity );
+					break;
+				case mod_sprite:
+					R_SetUpWorldTransform();
+					R_DrawSpriteModel( RI.currententity );
+					break;
+				default:
+					break;
+				}
+			}
+		}
+#else
 		// then draw translucent entities
 		for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 		{
@@ -1273,8 +1318,7 @@ void GAME_EXPORT R_NewMap( void )
 {
 	model_t *world = WORLDMODEL;
 #if XASH_GAMECUBE
-	int quality = GC_GetVisualQuality();
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: R_NewMap quality=%d\n", quality );
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: R_NewMap quality=%d\n", GC_GetVisualQuality() );
 #endif
 
 	r_viewcluster = -1;
@@ -1305,7 +1349,7 @@ void GAME_EXPORT R_NewMap( void )
 			if( r_cnumsurfs < MINSURFACES )
 				r_cnumsurfs = MINSURFACES;
 		}
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer surface budget capped to %d (quality=%d)\n", r_cnumsurfs, quality );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer surface budget capped to %d (quality=%d)\n", r_cnumsurfs, GC_GetVisualQuality() );
 	}
 #endif
 	if( r_cnumsurfs <= MINSURFACES )
@@ -1337,7 +1381,7 @@ void GAME_EXPORT R_NewMap( void )
 		// G24a: low-memory smoke path caps edges to stack budget
 		if( GC_IsLowMemoryMode() && r_numallocatededges > NUMSTACKEDGES )
 			r_numallocatededges = NUMSTACKEDGES;
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer edge budget capped to %d (quality=%d)\n", r_numallocatededges, quality );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer edge budget capped to %d (quality=%d)\n", r_numallocatededges, GC_GetVisualQuality() );
 	}
 #endif
 
