@@ -276,9 +276,10 @@ FRAME_STALL_LOGS=0
 FRAME_BUDGET_PASSED=0
 if (( FRAME_BUDGET_LOGS )); then
 	# Extract frame times in one pass using grep -E and sed for portability
+	# Updated regex to catch 'frame start', 'render frame', and generic 'frame time' markers
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: frame[^ ]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+	done < <(grep -aoE 'Xash3D GameCube: (frame |render )?[a-z_]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
 
 	# Check for dropped frame markers to correlate with jank
@@ -443,9 +444,11 @@ if (( FRAME_COUNT > 1 )); then
 fi
 
 # G36: Detect consecutive frame spikes (>2x budget) as evidence of allocation stalls
-FRAME_SPIKE_COUNT=0
+FRAME_SPIKE_EVENTS=0
+FRAME_SPIKE_MAX_CONSEC=0
 if (( FRAME_COUNT > 0 )); then
-	FRAME_SPIKE_COUNT=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
+	# Store raw output in a temp var to avoid clobbering a counter named FRAME_SPIKE_COUNT
+	_FRAME_SPIKE_RAW=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
 	{
 		val = $1 + 0;
 		times[NR] = val;
@@ -467,8 +470,8 @@ if (( FRAME_COUNT > 0 )); then
 		}
 		printf "%d:%d", spikes, max_consecutive;
 	}')
-	FRAME_SPIKE_EVENTS="${FRAME_SPIKE_COUNT%%:*}"
-	FRAME_SPIKE_MAX_CONSEC="${FRAME_SPIKE_COUNT##*:}"
+	FRAME_SPIKE_EVENTS="${_FRAME_SPIKE_RAW%%:*}"
+	FRAME_SPIKE_MAX_CONSEC="${_FRAME_SPIKE_RAW##*:}"
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
