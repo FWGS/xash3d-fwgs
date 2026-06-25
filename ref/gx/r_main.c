@@ -1498,14 +1498,13 @@ qboolean GAME_EXPORT R_Init( void )
 		{
 			R_InitImages();
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images ready\n" );
+#if defined(GC_MEMSAMPLE_AVAILABLE)
 			GC_MemSample( "textures" );
+#endif
 		}
 	}
 #else
-	{
-		R_InitImages();
-		GC_MemSample( "textures" );
-	}
+	R_InitImages();
 #endif
 	// init draw stack
 	tr.draw_list = &tr.draw_stack[0];
@@ -1518,7 +1517,11 @@ qboolean GAME_EXPORT R_Init( void )
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready (quality=%d)\n", init_quality );
 	if( init_quality != 0 )
+	{
+#if defined(GC_MEMSAMPLE_AVAILABLE)
 		GC_MemSample( "models" );
+#endif
+	}
 #endif
 	R_InitTurb();
 	GL_InitRandomTable();
