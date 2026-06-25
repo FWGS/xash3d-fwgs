@@ -452,9 +452,13 @@ if (( FRAME_BUDGET_LOGS )); then
 	FRAME_TIMES_STRICT=$(grep -aoE 'Xash3D GameCube: frame time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | wc -l)
 		
 	# Extract all frame time values, not just the last one
+	# G36_PATCH_v7: Added 'render time=' pattern to catch GX renderer markers that use
+	# "render time=" instead of "frame time=" or "frame render complete time=".
+	# This addresses "missing frames between explicit sample boundaries" where the guest
+	# alternates marker formats between CPU and GPU path emissions.
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget |frame render complete )time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+	done < <(grep -aoE 'Xash3D GameCube: (frame |render |render time|frame budget |frame render complete )time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE '[0-9]+(\.[0-9]+)?')
 		
 	# Retry extraction with a cleaner pattern if empty
