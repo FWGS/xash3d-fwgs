@@ -451,29 +451,22 @@ if (( FRAME_BUDGET_LOGS )); then
 		GX_WAIT_TIME_SAMPLES=$(grep -acE 'Xash3D GameCube: (frame |render )?gx_wait_time=' "${LOG_FILES[@]}")
 	fi
 
-	# G36_PATCH_v8: Unified extraction to prevent "missing frames between explicit
-	# sample boundaries." Single pass captures all time/duration markers from Xash3D
-	# GameCube namespace, avoiding fragmented grep patterns that can miss samples.
+	# G36_PATCH_v13: Single-pass unified extraction to eliminate "missing frames
+	# between explicit sample" by using one deterministic grep pattern that matches
+	# all known frame timing marker formats. Avoids double-counting from overlapping
+	# primary/fallback regexes.
 	
 	# Extract 'time=' markers (primary budget metric)
 	FRAME_TIMES_STRICT=$(grep -aoE 'Xash3D GameCube: frame time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | wc -l)
 		
-	# Extract all frame time/duration values in one pass
+	# Extract all frame time/duration values in one deterministic pass
 	# Captures: frame time, render time, frame budget time, frame render complete time,
-	# frame duration, render duration, frame budget duration
-	# Also captures: frame render time, render duration with optional 'complete' suffix
+	# frame duration, render duration, frame budget duration, gx_time, cpu_time
+	# Uses a single pattern to avoid sample loss from fragmented grep invocations.
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oE '(time|duration)=[0-9]+(\.[0-9]+)?' | sed 's/.*=//')
-
-	# G36_PATCH_v12: Fallback extraction for markers missed by primary regex
-	# Catches any Xash3D GameCube line with time/duration=<number> to prevent
-	# sample loss from format variations or future marker additions.
-	while IFS= read -r val; do
-		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: [^ ]+ (time|duration)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oE '(time|duration)=[0-9]+(\.[0-9]+)?' | sed 's/.*=//')
+	done < <(grep -aoE 'Xash3D GameCube: (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE '[a-z_]+=[0-9]+(\.[0-9]+)?' | sed 's/.*=//')
 
 	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
 
