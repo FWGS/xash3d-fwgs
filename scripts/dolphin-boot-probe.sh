@@ -188,6 +188,10 @@ grep -aqE "sampled_nonblack=1" "${LOG_FILES[@]}" && SAMPLED_NONBLACK_FOUND=1
 grep -aqE "Xash3D GameCube: frame.*time=" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS=1
 grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 
+# Check for frame budget measurement markers
+FRAME_BUDGET_ENABLED=0
+grep -aqsF "FRAME_BUDGET_ENABLED=1" "${LOG_FILES[@]}" && FRAME_BUDGET_ENABLED=1
+
 # Extract frame budget statistics for G36 measurement
 # Restrict to engine-reported frame timing markers to avoid false matches
 TARGET_FRAME_TIME=16.66
