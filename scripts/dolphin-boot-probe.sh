@@ -300,6 +300,7 @@ fi
 GC_MEM_PEAK_TOTAL=""
 GC_MEM_PEAK_DELTA=""
 GC_MEM_PEAK_STAGE=""
+GC_MEM_SAMPLE_COUNT=0
 if (( GC_MEM_SAMPLES )); then
 	# Extract the highest recorded total memory usage from mem stage samples
 	eval "$(grep -aE 'mem stage=' "${LOG_FILES[@]}" 2>/dev/null | \
@@ -315,6 +316,7 @@ if (( GC_MEM_SAMPLES )); then
 				max_delta = delta;
 				max_stage = stage;
 			}
+			sample_count++;
 		}
 		END {
 			if(max_total > 0) {
@@ -322,6 +324,7 @@ if (( GC_MEM_SAMPLES )); then
 				printf "GC_MEM_PEAK_DELTA=%.1f\n", max_delta;
 				printf "GC_MEM_PEAK_STAGE=%s\n", max_stage;
 			}
+			printf "GC_MEM_SAMPLE_COUNT=%d\n", sample_count+0;
 		}' || true)"
 fi
 
