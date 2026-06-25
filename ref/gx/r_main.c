@@ -1483,7 +1483,8 @@ qboolean GAME_EXPORT R_Init( void )
 	R_StudioInit();
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready\n" );
-	GC_MemSample( "models" );
+	if( GC_GetVisualQuality() != 0 )
+		GC_MemSample( "models" );
 #endif
 	R_InitTurb();
 	GL_InitRandomTable();
