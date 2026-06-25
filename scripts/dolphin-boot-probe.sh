@@ -198,6 +198,8 @@ TARGET_FRAME_TIME=16.66
 FRAME_TIMES=()
 FRAME_DROP_COUNT=0
 FRAME_DROP_LOGS=0
+FRAME_STALL_COUNT=0
+FRAME_STALL_LOGS=0
 if (( FRAME_BUDGET_LOGS )); then
 	while IFS= read -r line; do
 		if [[ "$line" =~ time=([0-9]+(\.[0-9]+)?) ]]; then
@@ -209,6 +211,12 @@ if (( FRAME_BUDGET_LOGS )); then
 	grep -aqsF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}" && FRAME_DROP_LOGS=1
 	if (( FRAME_DROP_LOGS )); then
 		FRAME_DROP_COUNT=$(grep -acF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}")
+	fi
+
+	# Check for stall/block markers (frames exceeding 50ms threshold for micro-stutter)
+	grep -aqsF "Xash3D GameCube: frame stall" "${LOG_FILES[@]}" && FRAME_STALL_LOGS=1
+	if (( FRAME_STALL_LOGS )); then
+		FRAME_STALL_COUNT=$(grep -acF "Xash3D GameCube: frame stall" "${LOG_FILES[@]}")
 	fi
 fi
 
