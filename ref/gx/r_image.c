@@ -321,7 +321,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 			}
 			// In low-memory mode, truncate mipmap chain instead of failing entirely
 #if XASH_GAMECUBE
-			if( GC_GetVisualQuality() == 0 )
+			if( q == 0 )
 			{
 				tex->numMips = j;
 				if( tex->numMips == 0 )
