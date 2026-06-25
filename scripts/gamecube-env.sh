@@ -30,11 +30,17 @@ gamecube_export_dolphin_env() {
 	elif command -v flatpak >/dev/null 2>&1 && \
 		flatpak info "$flatpak_id" >/dev/null 2>&1; then
 		DOLPHIN_EXECUTABLE="flatpak:$flatpak_id"
+	else
+		# No Dolphin found - set to empty but don't fail here
+		# The calling script will handle this error
+		DOLPHIN_EXECUTABLE=""
 	fi
 
 	if [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
 		export DOLPHIN_EXECUTABLE
 	fi
+	
+	return 0
 }
 
 gamecube_export_dolphin_env
