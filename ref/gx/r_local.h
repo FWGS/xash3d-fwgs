@@ -328,8 +328,12 @@ static inline int GC_GetVisualQuality( void )
 static inline int GC_IsLowMemoryMode( void )
 {
 #if XASH_GAMECUBE
-	return GC_GetVisualQuality() == 0;
+#if XASH_LOW_MEMORY
+	return 1;
 #else
+	return tr.sample_size == 0;
+#endif
+#else /* !XASH_GAMECUBE */
 	return 0;
 #endif
 }
