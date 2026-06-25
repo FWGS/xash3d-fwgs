@@ -441,6 +441,13 @@ if (( FRAME_BUDGET_LOGS )); then
 	done < <(grep -aoE 'Xash3D GameCube: frame[a-zA-Z_ ]* duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'duration=[0-9]+(\.[0-9]+)?' | sed 's/duration=//')
 
+	# G36_PATCH: Extract frame times from 'render time' markers (another variant)
+	# Added to catch guests that label rendering-specific timing distinctly from frame timing
+	while IFS= read -r val; do
+		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
+	done < <(grep -aoE 'Xash3D GameCube: (frame |render )?render time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE 'render time=[0-9]+(\.[0-9]+)?' | sed 's/render time=//')
+
 	# Check for dropped frame markers to correlate with jank
 	grep -aqsF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}" && FRAME_DROP_LOGS=1
 	if (( FRAME_DROP_LOGS )); then
