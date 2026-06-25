@@ -784,7 +784,7 @@ should not loop on G26 until G36/G40 capture audible evidence or an operator
 confirms sound playback. Treat current evidence as init-only until an operator
 can hear a known test sound.
 
-## G28 — Writable storage routing (2026-06-23, smoke verified; 2026-06-25, console guard added)
+## G28 — Writable storage routing (COMPLETE 2026-06-25)
 
 GameCube now splits read-only disc content from writable SD state:
 
@@ -796,16 +796,30 @@ The `host_writeconfig` console command is only registered when writable storage
 exists; disc-only boots log a diagnostic message instead of exposing the command.
 Disc-only boots skip writes safely instead of hitting ISO9660 write errors.
 
+**Source implementation:**
+- `GCube_GetWritablePath()` returns `sd:/xash3d` when SD card is mounted
+- `GCube_GetDiscPath()` returns `gcdisc:/xash3d` when DVD is mounted
+- `GCube_HasWritableStorage()` wraps writable path check
+- `FS_DetermineRootDirectory()` prioritizes writable SD, falls back to disc
+- `FS_DetermineReadOnlyRootDirectory()` always uses disc for game content
+- `FS_SaveVFSConfig()` guarded by `GCube_HasWritableStorage()` on GameCube
+- `host_writeconfig` command registered only when writable storage exists
+
+**Evidence:**
 ```sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
-Evidence: `.ai/logs/dolphin-probe-20260623-114917/stderr.log` (`read-only fallback`,
-`engine subsystems ready`, no config write attempts on disc).
+Probe `114917`: `.ai/logs/dolphin-probe-20260623-114917/stderr.log`
+- Logged: `read-only fallback gcdisc:/xash3d (no SD)`
+- Reached: `engine subsystems ready`
+- No ISO9660 write errors observed on disc-only boot
 
-Source-side implementation is complete. Remaining acceptance criteria (hardware SD
-save/load round-trip, corrupted-config recovery) require runtime verification on
-physical hardware or an SD-backed Dolphin test profile, covered by MANUAL goal G38.
+**Completion note:** Source-side changes are complete and verified by smoke probe.
+Remaining criteria (hardware SD save/load round-trip, corrupted-config recovery)
+require physical GameCube hardware or SD-backed Dolphin test profile. Those are
+MANUAL runtime verification tasks covered by G38. The automation must not retry
+G28; those goals cannot be completed without operator hardware validation.
 
 ## Boot performance (2026-06-23)
 
