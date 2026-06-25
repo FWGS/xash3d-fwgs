@@ -200,6 +200,13 @@ if ! (( FRAME_BUDGET_ENABLED )) && (( FRAME_BUDGET_LOGS )); then
 	echo "G36_WARN: Frame budget logs found but FRAME_BUDGET_ENABLED=1 not detected. Telemetry may be incomplete or guest marker missing."
 fi
 
+# G36: Explicitly require frame budget telemetry for MAP_READY classification
+# If no frame budget logs are present at all, flag as measurement incomplete
+if (( MAP_FOUND )) && (( INPUT_FOUND )) && ! (( FRAME_BUDGET_LOGS )); then
+	echo "G36_MEASUREMENT_INCOMPLETE: Map loaded interactively but no frame budget telemetry detected in logs."
+	echo "G36_HINT: Guest may not be emitting 'Xash3D GameCube: frame.*time=' markers. Check renderer initialization."
+fi
+
 # G36: Explicitly look for guest-reported memory samples to correlate with frame budget
 GC_MEM_SAMPLES=0
 grep -aqE "GC_MemSample|mem stage=" "${LOG_FILES[@]}" && GC_MEM_SAMPLES=1
@@ -789,7 +796,9 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			fi
 
 			# G36: Flag low sample count as insufficient for statistical confidence
-			if (( FRAME_COUNT < 5 )); then
+			if (( FRAME_COUNT < 3 )); then
+				echo "G36_SAMPLE_BLOCKER: Only ${FRAME_COUNT} frame samples collected. Insufficient for any budget analysis. Map may have loaded but rendering stalled immediately."
+			elif (( FRAME_COUNT < 5 )); then
 				echo "G36_SAMPLE_WARN: Only ${FRAME_COUNT} frame samples collected. Insufficient for reliable P95 budget analysis."
 			elif (( FRAME_COUNT < 10 )); then
 				echo "G36_SAMPLE_NOTE: ${FRAME_COUNT} frame samples collected. Moderate confidence in budget measurement."
