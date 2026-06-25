@@ -202,6 +202,23 @@ if grep -aqsF "GX_WAITVP" "${LOG_FILES[@]}"; then
 	GX_WAITVP_COUNT=$(grep -acF "GX_WAITVP" "${LOG_FILES[@]}")
 fi
 
+# G36: Detect frame timing jitter (variance between consecutive frames)
+FRAME_TIMING_JITTER="0.00"
+if (( FRAME_COUNT > 1 )); then
+	FRAME_TIMING_JITTER=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '
+	BEGIN { max_diff = 0; prev = -1; }
+	{
+		val = $1 + 0;
+		if (prev >= 0) {
+			diff = val - prev;
+			if (diff < 0) diff = -diff;
+			if (diff > max_diff) max_diff = diff;
+		}
+		prev = val;
+	}
+	END { printf "%.2f", max_diff; }')
+fi
+
 # G36: Track explicit GX renderer frame-start markers for CPU vs GPU correlation
 FRAME_RENDER_LOGS=0
 grep -aqE "Xash3D GameCube: render frame" "${LOG_FILES[@]}" && FRAME_RENDER_LOGS=1
@@ -497,7 +514,12 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter=${FRAME_TIMING_JITTER}ms"
+			
+			# G36: Report frame timing jitter as stability metric
+			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 5.0)}"; then
+				echo "G36_JITTER_WARN: Consecutive frame timing jitter=${FRAME_TIMING_JITTER}ms exceeds 5ms threshold. May indicate irregular scheduling or cache misses."
+			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
