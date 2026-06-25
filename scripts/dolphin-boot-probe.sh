@@ -306,10 +306,16 @@ if grep -aqsF "Xash3D GameCube: frame hitch" "${LOG_FILES[@]}"; then
 fi
 
 # G36: Detect explicit frame budget sample start/end markers for duration correlation
+FRAME_BUDGET_SAMPLE_START=0
+FRAME_BUDGET_SAMPLE_END=0
 FRAME_BUDGET_SAMPLE_COUNT=0
 if grep -aqsF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}"; then
-	FRAME_BUDGET_SAMPLE_COUNT=$(grep -acF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}")
+	FRAME_BUDGET_SAMPLE_START=$(grep -acF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}")
 fi
+if grep -aqsF "Xash3D GameCube: frame budget sample end" "${LOG_FILES[@]}"; then
+	FRAME_BUDGET_SAMPLE_END=$(grep -acF "Xash3D GameCube: frame budget sample end" "${LOG_FILES[@]}")
+fi
+FRAME_BUDGET_SAMPLE_COUNT=$FRAME_BUDGET_SAMPLE_START
 
 # G36: Detect CPU/GX time split markers for CPU vs GPU bottleneck diagnosis
 FRAME_CPU_TIME_SAMPLES=0
@@ -973,7 +979,12 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 
 			# G36: Report frame budget sample consistency
 			if (( FRAME_BUDGET_SAMPLE_COUNT > 0 )); then
-				echo "G36_BUDGET_SAMPLES: ${FRAME_BUDGET_SAMPLE_COUNT} explicit budget samples recorded."
+				echo "G36_BUDGET_SAMPLES: ${FRAME_BUDGET_SAMPLE_COUNT} explicit budget samples recorded (start=${FRAME_BUDGET_SAMPLE_START} end=${FRAME_BUDGET_SAMPLE_END})."
+				if (( FRAME_BUDGET_SAMPLE_END > 0 )) && (( FRAME_BUDGET_SAMPLE_START > FRAME_BUDGET_SAMPLE_END )); then
+					echo "G36_BUDGET_NOTE: More sample-starts than sample-ends detected. Possible guest crash during measurement window."
+				elif (( FRAME_BUDGET_SAMPLE_END > 0 )) && (( FRAME_BUDGET_SAMPLE_START < FRAME_BUDGET_SAMPLE_END )); then
+					echo "G36_BUDGET_NOTE: More sample-ends than sample-starts detected. Measurement may have started before probe logging began."
+				fi
 				if (( FRAME_BUDGET_SAMPLE_COUNT > FRAME_COUNT )); then
 					echo "G36_BUDGET_NOTE: More budget samples than frame-time logs. Some frames may have been skipped in timing telemetry."
 				elif (( FRAME_BUDGET_SAMPLE_COUNT == FRAME_COUNT )); then
