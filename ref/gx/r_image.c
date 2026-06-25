@@ -234,6 +234,12 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	byte     *data;
 	qboolean normalMap = false;
 
+#if XASH_GAMECUBE
+	int q = GC_GetVisualQuality();
+#else
+	int q = 1;
+#endif
+
 	tex->fogParams[0] = pic->fogParams[0];
 	tex->fogParams[1] = pic->fogParams[1];
 	tex->fogParams[2] = pic->fogParams[2];
@@ -257,7 +263,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 #if XASH_GAMECUBE
 	int resampleWidth = tex->width;
 	int resampleHeight = tex->height;
-	if( GC_GetVisualQuality() == 0 )
+	if( q == 0 )
 	{
 		resampleWidth = Q_min( resampleWidth, 128 );
 		resampleHeight = Q_min( resampleHeight, 128 );
@@ -267,7 +273,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	if((( pic->width != tex->width ) || ( pic->height != tex->height )))
 	{
 #if XASH_GAMECUBE
-		if( GC_GetVisualQuality() == 0 )
+		if( q == 0 )
 			data = GL_ResampleTexture( buf, pic->width, pic->height, resampleWidth, resampleHeight, normalMap );
 		else
 #endif
@@ -278,11 +284,6 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 	// mips will be auto-generated if desired
 	// Low-memory/quality 0 path skips mips to save texture memory pressure
-#if XASH_GAMECUBE
-	int q = GC_GetVisualQuality();
-#else
-	int q = 1;
-#endif
 	uint activeMips = mipCount;
 	if( q == 0 || FBitSet( tex->flags, TF_NOMIPMAP ))
 		activeMips = 1;
