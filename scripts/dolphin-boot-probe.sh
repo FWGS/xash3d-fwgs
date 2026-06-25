@@ -842,6 +842,15 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					echo "G36_COLD_START_PATTERN: ${EARLY_SLOW}% of first 3 frames exceed 1.5x budget. Map-load or BSP parse work is likely blocking the main thread."
 				fi
 			fi
+
+			# G36: Flag when first frame (renderer cold-start) dominates budget variance
+			# This helps distinguish GX initialization overhead from steady-state rendering issues
+			if (( FRAME_COUNT >= 2 )) && [[ -n "$FRAME_FIRST" ]] && [[ -n "$FRAME_AVG" ]]; then
+				# If first frame is >3x the average, it's a strong cold-start indicator
+				if awk "BEGIN {exit !(${FRAME_FIRST} > ${FRAME_AVG} * 3.0)}" 2>/dev/null; then
+					echo "G36_COLD_START_DOMINANT: First frame (${FRAME_FIRST}ms) is >3x average (${FRAME_AVG}ms). GX initialization or first-draw overhead is significant. Steady-state metrics are more indicative of gameplay performance."
+				fi
+			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
