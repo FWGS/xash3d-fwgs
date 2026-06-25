@@ -100,6 +100,17 @@ and inconclusive timeout/exit. `scripts/gamecube-env.sh` exports
 environment. In this workspace it resolves to
 `flatpak:org.DolphinEmu.dolphin-emu` because the Dolphin Flatpak is installed
 and no native `dolphin-emu` binary is on `PATH`.
+`timfox/dolphin` is now tracked as `3rdparty/dolphin`; if that submodule is
+built locally, `scripts/gamecube-env.sh` prefers its `dolphin-emu` or
+`dolphin-emu-nogui` binary before falling back to system Dolphin or Flatpak.
+For pixel-level feedback, `scripts/dolphin-vision-test.py` builds the ISO,
+launches Dolphin as a bounded subprocess with an isolated user directory,
+captures host screenshots, and sends the latest PNG plus OSReport/Dolphin log
+tail to an OpenAI-compatible vision model. The PyQt6 GUI exposes this as
+`Dolphin Screenshot Vision Test` with a dedicated `VISION` pipeline node.
+Useful controls: `DOLPHIN_VISION_RUNTIME`,
+`DOLPHIN_VISION_FIRST_SCREENSHOT`, `DOLPHIN_VISION_SCREENSHOT_INTERVAL`,
+`QWABLE_5_VISION_MODEL`, and `QWABLE_VISION_MODEL`.
 The hardened full-build gate caught an invalid `rserr_nomem` result introduced
 by the earlier GX buffer patch. GameCube buffer-allocation failure now returns
 the existing `rserr_unknown` value from the platform contract; no new enum or
@@ -698,7 +709,8 @@ errors. Probe `021844` reaches `MAP_READY` with no `Could not load HUD sprite`
 messages.
 
 **2026-06-24 Update:**
-Applied stability patches to `3rdparty/hlsdk-portable/cl_dll/hud.h` and `engine/client/cl_scrn.c`:
+Applied stability patches to `3rdparty/hlsdk-portable/cl_dll/hud.h`,
+`3rdparty/hlsdk-portable/cl_dll/hud.cpp`, and `engine/client/cl_scrn.c`:
 - Added `GC_GetVisualQuality()` checks in `CHud::Init` and `CHud::VidInit` via `hud.h` helper to skip heavy sprite loading for quality 0.
 - Guarded `SPR_Load` calls against missing sprites to prevent hangs.
 - Replaced blocking `HUD_MessageBox` with `Con_NPrintf` on GameCube for missing `number_0` sprite.
@@ -706,12 +718,18 @@ Applied stability patches to `3rdparty/hlsdk-portable/cl_dll/hud.h` and `engine/
 
 These changes ensure the real HLSDK client HUD initializes without relying on `-nohud` and survives missing sprite assets without fatal hangs.
 
+**2026-06-24 Note:** G25's remaining acceptance criterion (screenshot evidence
+that HUD elements draw on screen) requires operator/Dolphin verification. Source
+code changes for HUD initialization and stability are complete. This goal should
+not loop on automated passes until visual evidence is captured; defer screenshot
+validation to G36/G40 or a dedicated hardware evidence goal.
+
 ```sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
 Evidence: `.ai/logs/dolphin-probe-20260623-021844/stderr.log`.
-Next step: Operator hardware/Dolphin probe to confirm HUD elements (health, ammo, etc.) actually draw on screen.
+Next step: Operator hardware/Dolphin probe to confirm HUD elements (health, ammo, etc.) actually draw on screen. Defer to G36/G40 for visual/frame-budget validation.
 
 ## G26 — ASND audio backend (2026-06-23, smoke verified)
 

@@ -104,14 +104,28 @@ def screenshot_command(output: Path) -> list[str] | None:
 
 def capture_screenshot(output: Path, root: Path) -> bool:
 	command = screenshot_command(output)
-	if not command:
+	if command:
+		result = run(command, root)
+		if result.stdout:
+			print(result.stdout, end="")
+		if result.stderr:
+			print(result.stderr, end="", file=sys.stderr)
+		if result.returncode == 0 and output.is_file() and output.stat().st_size > 0:
+			return True
+
+	try:
+		from PyQt6.QtGui import QGuiApplication
+	except ImportError:
 		return False
-	result = run(command, root)
-	if result.stdout:
-		print(result.stdout, end="")
-	if result.stderr:
-		print(result.stderr, end="", file=sys.stderr)
-	return result.returncode == 0 and output.is_file() and output.stat().st_size > 0
+
+	app = QGuiApplication.instance() or QGuiApplication(["dolphin-vision-capture"])
+	screen = QGuiApplication.primaryScreen()
+	if screen is None:
+		return False
+	pixmap = screen.grabWindow(0)
+	if pixmap.isNull():
+		return False
+	return pixmap.save(str(output), "PNG") and output.is_file() and output.stat().st_size > 0
 
 
 def api_url(api_base: str) -> str:
