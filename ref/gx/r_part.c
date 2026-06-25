@@ -305,11 +305,6 @@ void GAME_EXPORT CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean t
 	memcpy( RI.visbytes, tr.visbytes, gpGlobals->visbytes );
 	tr.frametime = frametime;
 
-#if XASH_GAMECUBE
-	// In low-memory quality mode, still draw EFX but allow reduced quality
-	// Do not skip entirely - use quality-aware rendering inside CL_DrawEFX
-#endif
-
 	gEngfuncs.CL_DrawEFX( frametime, trans_pass );
 
 	// restore internal state
