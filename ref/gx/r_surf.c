@@ -1353,12 +1353,13 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 
 	{
-		// G24b: skip expensive lightmap building for quality 0 world-luxels
-		// surfaces that use the unlit fallback in R_DrawSurfaceBlock8_World
+		// G24b: skip expensive lightmap building for quality 0 surfaces
+		// that use the unlit fallback paths to preserve iteration budget.
+		// Quality 1/2 retain full lightmap computation.
 #if XASH_GAMECUBE
-		if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
+		if( !GC_GetVisualQuality() )
 		{
-			// zero out blocklights so R_DrawSurfaceBlock8_World has a clean slate
+			// zero out blocklights so fallback draw paths have a clean slate
 			int sample_size = LM_SAMPLE_SIZE_AUTO( surface );
 			int smax = ( surface->info->lightextents[0] / sample_size ) + 1;
 			int tmax = ( surface->info->lightextents[1] / sample_size ) + 1;
