@@ -216,11 +216,11 @@ FRAME_STALL_COUNT=0
 FRAME_STALL_LOGS=0
 FRAME_BUDGET_PASSED=0
 if (( FRAME_BUDGET_LOGS )); then
-	while IFS= read -r line; do
-		if [[ "$line" =~ time=([0-9]+(\.[0-9]+)?) ]]; then
-			FRAME_TIMES+=("${BASH_REMATCH[1]}")
-		fi
-	done < <(grep -aoE 'Xash3D GameCube: frame[^ ]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | grep -oE 'time=[0-9]+(\.[0-9]+)?')
+	# Extract frame times in one pass using grep -P for reliability
+	while IFS= read -r val; do
+		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
+	done < <(grep -aoE 'Xash3D GameCube: frame[^ ]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oP 'time=\K[0-9]+(\.[0-9]+)?')
 
 	# Check for dropped frame markers to correlate with jank
 	grep -aqsF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}" && FRAME_DROP_LOGS=1
