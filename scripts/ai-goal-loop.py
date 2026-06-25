@@ -1061,6 +1061,39 @@ Output rules:
 - If the current slice is not sufficient for a safe source edit, make no edit;
   the goal runner will rotate to the next slice.
 """
+	if goal.goal_id == "G36":
+		return f"""Advance G36 with exactly one small measurement or performance patch.
+
+Active goal: {goal.goal_id} - {goal.title}
+Attempt on this goal: {attempt}
+
+Use only the editable file or files preloaded in this Aider chat. Do not edit,
+add, or request any file that was not added as editable context.
+
+Task:
+- Make G36 measurable before trying broad optimization.
+- If `scripts/dolphin-boot-probe.sh` is the editable file, improve only probe
+  parsing, timeout handling, screenshot/visual/frame-budget reporting, or
+  failure classification. Do not emit renderer or docs edit blocks.
+- If a renderer/client/model source file is editable, make exactly one small
+  GameCube-only source change tied to frame budget or visual evidence.
+- Do not update docs unless a docs file is explicitly editable in this chat.
+- Do not mark G36 complete from reasoning alone; completion needs before/after
+  runtime evidence from a Dolphin probe or hardware run.
+- Treat G35 `MAP_READY` as already proven. Do not reopen the old
+  `maps/c0a0e.bsp` lookup hypothesis unless this pass has newer contrary logs.
+
+Structured failure memory:
+{investigation_memory}
+
+Output rules:
+- Start immediately with the target editable file path and SEARCH/REPLACE blocks.
+- No explanation, checklist, plan, or markdown prose.
+- Touch one loaded file only.
+- Keep the patch below 120 changed lines.
+- If the current slice is not sufficient for a safe patch, make no edit; the
+  goal runner will rotate to the next slice.
+"""
 	return f"""You are autonomously advancing the native Xash3D GameCube port.
 
 Active goal: {goal.goal_id} — {goal.title}
