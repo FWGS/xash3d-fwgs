@@ -313,7 +313,7 @@ static inline int GC_GetVisualQuality( void )
 #if XASH_LOW_MEMORY
 	return 0;
 #else
-	/* Guard against calls before renderer initialization (tr.framecount == 0) */
+	/* Guard against calls before renderer initialization */
 	if( tr.framecount == 0 )
 		return 1;
 	/* Negative sample_size is invalid; treat as low-quality smoke path */
@@ -325,7 +325,10 @@ static inline int GC_GetVisualQuality( void )
 	/* Quality 2 requires both sample_size and sample_bits to be non-trivial */
 	if( tr.sample_size > 1 && tr.sample_bits > 0 )
 		return 2;
-	/* Fall back to standard quality 1 when sample_size is present */
+	/* Quality 2 also requires non-trivial sample_bits; fall back to quality 1 */
+	if( tr.sample_size > 0 && tr.sample_bits == 0 )
+		return 1;
+	/* Fall back to standard quality 1 */
 	return 1;
 #endif
 #else
