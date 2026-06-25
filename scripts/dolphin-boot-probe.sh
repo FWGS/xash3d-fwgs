@@ -195,6 +195,11 @@ grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 FRAME_BUDGET_ENABLED=0
 grep -aqsF "FRAME_BUDGET_ENABLED=1" "${LOG_FILES[@]}" && FRAME_BUDGET_ENABLED=1
 
+# G36: Warn if frame budget measurement is not enabled in guest logs
+if ! (( FRAME_BUDGET_ENABLED )) && (( FRAME_BUDGET_LOGS )); then
+	echo "G36_WARN: Frame budget logs found but FRAME_BUDGET_ENABLED=1 not detected. Telemetry may be incomplete or guest marker missing."
+fi
+
 # G36: Explicitly look for guest-reported memory samples to correlate with frame budget
 GC_MEM_SAMPLES=0
 grep -aqE "GC_MemSample|mem stage=" "${LOG_FILES[@]}" && GC_MEM_SAMPLES=1
@@ -612,6 +617,21 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			# G36: Report GX WaitVP (VI sync) count as evidence of CPU yielding to vertical sync
 			if (( GX_WAITVP_COUNT > 0 )); then
 				echo "G36_GX_WAITVP: ${GX_WAITVP_COUNT} GX_WAITVP markers detected. Frame budget includes explicit VI synchronization pauses."
+			fi
+
+			# G36: Report correlation between memory sample stages and frame budget health
+			if (( GC_MEM_SAMPLES )) && [[ -n "$GC_MEM_PEAK_STAGE" ]]; then
+				case "$GC_MEM_PEAK_STAGE" in
+					bsp|client*)
+						echo "G36_MEM_PHASE: Peak memory at '${GC_MEM_PEAK_STAGE}' (cold-start phase). Frame budget violations may be map-load artifacts."
+						;;
+					textures|models|server*)
+						echo "G36_MEM_PHASE: Peak memory at '${GC_MEM_PEAK_STAGE}' (content phase). Frame budget may reflect sustained allocation pressure."
+						;;
+					*)
+						echo "G36_MEM_PHASE: Peak memory at '${GC_MEM_PEAK_STAGE}' stage."
+						;;
+				esac
 			fi
 
 			# G36: Report frame presentation hitches (CPU/GPU sync gaps)
