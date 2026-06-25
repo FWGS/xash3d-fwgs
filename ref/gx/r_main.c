@@ -496,10 +496,13 @@ static void R_SetupFrame( void )
 		}
 		else
 #endif
-	{
-		// sort translucents entities by rendermode and distance
-		qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
+		{
+			// sort translucents entities by rendermode and distance
+			qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
+		}
+#if XASH_GAMECUBE
 	}
+#endif
 
 	// current viewleaf
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))

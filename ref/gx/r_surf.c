@@ -1305,6 +1305,7 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			pixel_t *src = img->pixels[miplevel];
 			int srcw = img->width >> miplevel;
 			int srch = img->height >> miplevel;
+			pixel_t *rowdst = dst;
 
 			if( srcw > 0 && srch > 0 && w > 0 && h > 0 )
 			{
@@ -1314,10 +1315,10 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 				for( int y = 0; y < copy_h; y++ )
 				{
-					memcpy( dst, src, row_copy );
+					memcpy( rowdst, src, row_copy );
 					if( w > copy_w )
-						memset( dst + copy_w, fallback_color, ( w - copy_w ) * sizeof( pixel_t ));
-					dst += r_drawsurf.rowbytes;
+						memset( rowdst + copy_w, fallback_color, ( w - copy_w ) * sizeof( pixel_t ));
+					rowdst += r_drawsurf.rowbytes;
 					src += srcw;
 				}
 				rows_filled = copy_h;
@@ -1328,8 +1329,12 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		if( w > 0 && rows_filled < h )
 		{
 			int row_fill = w * sizeof( pixel_t );
+			pixel_t *rowdst = dst + rows_filled * r_drawsurf.rowbytes;
 			for( int y = rows_filled; y < h; y++ )
-				memset( dst + ( y - rows_filled ) * r_drawsurf.rowbytes, fallback_color, row_fill );
+			{
+				memset( rowdst, fallback_color, row_fill );
+				rowdst += r_drawsurf.rowbytes;
+			}
 		}
 	}
 	else
