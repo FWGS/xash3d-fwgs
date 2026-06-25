@@ -290,6 +290,20 @@ if grep -aqsF "sw_surfcacheoverride" "${LOG_FILES[@]}"; then
 	SW_SURFCACHE_OVERRIDE=$(grep -aoE 'sw_surfcacheoverride[= ]+[0-9]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[0-9]+$' || echo "unknown")
 fi
 
+# G36: Detect explicit low-memory mode flags (-gcmap, -gclowmem) for budget context
+GC_LOWMEM_MODE=""
+if grep -aqsF "-gcmap" "${LOG_FILES[@]}"; then
+	GC_LOWMEM_MODE="gcmap"
+elif grep -aqsF "-gclowmem" "${LOG_FILES[@]}"; then
+	GC_LOWMEM_MODE="gclowmem"
+fi
+
+# G36: Detect client entity cap reduction (evidence of -gcmap mode active)
+CLIENT_ENTITY_CAP=""
+if grep -aqsF "num_client_entities" "${LOG_FILES[@]}"; then
+	CLIENT_ENTITY_CAP=$(grep -aoE 'num_client_entities[= ]+[0-9]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[0-9]+$' || echo "unknown")
+fi
+
 # G36: Detect explicit GX command list flush markers for GPU pipeline stall diagnosis
 GX_FLUSH_MARKERS=0
 if grep -aqsF "GXFlushInvalidate" "${LOG_FILES[@]}"; then
@@ -719,6 +733,18 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				fi
 			fi
 
+			# G36: Report low-memory mode context for frame budget interpretation
+			if [[ -n "$GC_LOWMEM_MODE" ]]; then
+				echo "G36_LOWMEM_MODE: Guest running in '${GC_LOWMEM_MODE}' mode. Frame budget reflects trimmed resource state."
+				if [[ "$GC_LOWMEM_MODE" == "gcmap" ]] && [[ "$CLIENT_ENTITY_CAP" == "64" ]]; then
+					echo "G36_LOWMEM_HINT: Client entities capped at 64 (smoke-mode). Steady-state budget may improve further with entity streaming."
+				elif [[ "$GC_LOWMEM_MODE" == "gcmap" ]] && [[ "$CLIENT_ENTITY_CAP" != "64" ]]; then
+					echo "G36_LOWMEM_NOTE: -gcmap detected but entity cap not at 64. Verify client initialization path."
+				fi
+			else
+				echo "G36_FULLMODE: Guest running without explicit low-memory flags. Frame budget represents full-gameplay resource state."
+			fi
+
 			# G36: Correlate renderer frame-start markers with engine frame budget
 			if (( FRAME_RENDER_LOGS )); then
 				echo "G36_RENDER_CORRELATION: Renderer frame markers detected. CPU/GX timing alignment likely active."
@@ -838,7 +864,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_SAMPLE_NOTE: ${FRAME_COUNT} frame samples collected. Moderate confidence in budget measurement."
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} target=${TARGET_FRAME_TIME}ms"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} target=${TARGET_FRAME_TIME}ms"
 			
 			# G36: Report frame timing jitter (MAD) as stability metric
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
