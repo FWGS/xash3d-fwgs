@@ -305,7 +305,7 @@ static inline int GC_GetVisualQuality( void )
 	/* Runtime sample_size determines quality level */
 	if( tr.sample_size <= 0 )
 		return 0; // forced low-memory or auto-with-no-config
-	if( tr.sample_bits >= 1 )
+	if( tr.sample_bits > 0 && tr.sample_bits <= 8 )
 		return 2; // higher fidelity enabled
 	return 1;     // default standard quality
 #endif /* XASH_LOW_MEMORY */
