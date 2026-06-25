@@ -161,6 +161,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	// of skipping them entirely. Force additive sprites to render with reduced
 	// brightness for visibility while cutting glow occlusion work.
 	qboolean low_quality_skip_occlusion = false;
+	float original_blend = tr.blend;
 	if( GC_GetVisualQuality() == 0 &&
 	    ( e->curstate.rendermode == kRenderGlow ||
 	      e->curstate.rendermode == kRenderTransAdd ) )
@@ -283,4 +284,9 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	_TriColor4f( color[0], color[1], color[2], tr.blend );
 	GL_Bind( XASH_TEXTURE0, frame->gl_texturenum );
 	R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
+
+#if XASH_GAMECUBE
+	if( low_quality_skip_occlusion )
+		tr.blend = original_blend;
+#endif
 }
