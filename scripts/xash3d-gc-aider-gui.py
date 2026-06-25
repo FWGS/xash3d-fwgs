@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from collections.abc import Mapping
 import os
 import re
 import json
@@ -15,12 +17,14 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
-from PyQt6.QtCore import QProcess, QProcessEnvironment, Qt, QTimer, QUrl
+from PyQt6.QtCore import QByteArray, QObject, QProcess, QProcessEnvironment, Qt, QThread, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QAction, QCloseEvent, QDesktopServices, QFont, QFontDatabase, QPixmap, QTextCursor
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
 	QApplication,
 	QCheckBox,
+	QDialog,
+	QDialogButtonBox,
 	QDockWidget,
 	QFileDialog,
 	QFormLayout,
@@ -37,6 +41,7 @@ from PyQt6.QtWidgets import (
 	QPushButton,
 	QSizePolicy,
 	QSpinBox,
+	QTabWidget,
 	QTableWidget,
 	QTableWidgetItem,
 	QVBoxLayout,
@@ -44,11 +49,15 @@ from PyQt6.QtWidgets import (
 )
 
 DEFAULT_REPO = Path(__file__).resolve().parents[1]
+APP_VERSION = "0.4.0-dev"
+SETTINGS_PATH = DEFAULT_REPO / ".ai/state/xash3d-gc-aider-gui-settings.json"
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 QWABLE_5_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
 QWABLE_5_SERVED_NAME = "qwen-local"
 HEADER_LOGO = DEFAULT_REPO / "assets/ui/nintendo-gamecube-logo.svg"
 HEADER_MARK = DEFAULT_REPO / "assets/ui/gamecube-mark.svg"
+DOCK_CLOSE_ICON = DEFAULT_REPO / "assets/ui/dock-close-white.svg"
+DOCK_FLOAT_ICON = DEFAULT_REPO / "assets/ui/dock-float-white.svg"
 
 GC_BG = "#171225"
 GC_PANEL = "#241a3f"
@@ -186,8 +195,15 @@ def stylesheet() -> str:
 	QMenu {{ background: {GC_PANEL}; color: {GC_TEXT}; border: 1px solid {GC_BORDER}; }}
 	QMenu::item {{ padding: 5px 22px; }}
 	QMenu::item:selected {{ background: {GC_PANEL_2}; color: {GC_CYAN}; }}
+	QDockWidget {{ titlebar-close-icon: url({DOCK_CLOSE_ICON.as_posix()});
+		titlebar-normal-icon: url({DOCK_FLOAT_ICON.as_posix()}); }}
 	QDockWidget::title {{ background: {GC_PANEL_2}; color: {GC_CYAN};
 		border: 1px solid {GC_BORDER}; padding: 5px 7px; font-weight: bold; }}
+	QDockWidget::close-button, QDockWidget::float-button {{ background: transparent;
+		border: 1px solid transparent; padding: 2px; icon-size: 14px; }}
+	QDockWidget::close-button:hover, QDockWidget::float-button:hover {{
+		background: {GC_VIOLET}; border: 1px solid {GC_CYAN}; border-radius: 3px; }}
+	QDockWidget::close-button:pressed, QDockWidget::float-button:pressed {{ background: #4b3c99; }}
 	QGroupBox {{ background: {GC_PANEL}; border: 2px solid {GC_BORDER};
 		border-radius: 8px; margin-top: 11px; padding: 9px; font-weight: bold; }}
 	QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; color: {GC_CYAN}; }}
@@ -206,6 +222,8 @@ def stylesheet() -> str:
 	QLabel#Subtitle {{ color: {GC_CYAN}; font-size: 9px; }}
 	QLabel#Chip {{ background: {GC_PANEL_2}; color: {GC_MINT}; border: 1px solid {GC_BORDER};
 		border-radius: 7px; padding: 4px 7px; font-weight: bold; }}
+	QLabel#CenterBay {{ background: #090617; color: {GC_MUTED}; border: 2px dashed {GC_PANEL_2};
+		border-radius: 10px; padding: 12px; font-weight: bold; }}
 	QLabel#PipelineIdle {{ background: {GC_PANEL_2}; color: {GC_MUTED}; border: 2px outset {GC_BORDER};
 		border-radius: 8px; padding: 8px; font-weight: bold; }}
 	QLabel#PipelineRunning {{ background: #17405a; color: {GC_CYAN}; border: 2px solid {GC_CYAN};
@@ -219,6 +237,176 @@ def stylesheet() -> str:
 	QHeaderView::section {{ background: {GC_PANEL_2}; color: {GC_CYAN}; border: 0;
 		border-right: 1px solid {GC_PANEL}; padding: 4px; font-weight: bold; }}
 	"""
+
+
+@dataclass
+class DashboardSnapshot:
+	dol_text: str = "DOL  MISSING"
+	iso_text: str = "ISO  MISSING"
+	dol_exists: bool = False
+	iso_exists: bool = False
+	dolphin_ready: bool = False
+	model_ready: bool = False
+	goals: list[tuple[str, str, str, str]] | None = None
+	complete_goals: int = 0
+	automatic_goals: int = 0
+	blocked_goals: int = 0
+	active_goal: tuple[str, str, str, str] | None = None
+	context: str = ""
+	screenshot_path: str = ""
+	screenshot_status: str = "No Dolphin screenshot captured yet"
+	error: str = ""
+
+
+def git_output_for_repo(repo: Path, *args: str) -> str:
+	result = subprocess.run(["git", *args], cwd=repo, text=True,
+		capture_output=True, timeout=4, check=False)
+	return result.stdout.strip()
+
+
+def read_goals_for_repo(repo: Path) -> list[tuple[str, str, str, str]]:
+	path = repo / ".ai/goals/GAMECUBE_PORT_GOALS.md"
+	if not path.is_file():
+		return []
+	goals: list[tuple[str, str, str, str]] = []
+	current: tuple[str, str, str] | None = None
+	body: list[str] = []
+	for line in path.read_text(encoding="utf-8").splitlines():
+		match = GOAL_RE.match(line)
+		if match:
+			if current:
+				goals.append((*current, "\n".join(body).strip()))
+			current = match.groups()
+			body = []
+		elif current:
+			body.append(line)
+	if current:
+		goals.append((*current, "\n".join(body).strip()))
+	return goals
+
+
+def goal_is_blocked(body: str) -> bool:
+	return bool(re.search(r"(?im)^\s*-\s*Status:\s*BLOCKED\b", body))
+
+
+def latest_dolphin_screenshot_for_repo(repo: Path) -> tuple[str, str]:
+	memory = repo / ".ai/state/dolphin-harness-memory.json"
+	if memory.is_file():
+		try:
+			data = json.loads(memory.read_text(encoding="utf-8"))
+			run = data.get("runs", [{}])[0] if isinstance(data.get("runs"), list) else {}
+			shot = run.get("latest_screenshot") if isinstance(run, dict) else ""
+			status = ""
+			if isinstance(run, dict):
+				classification = run.get("classification", {})
+				if isinstance(classification, dict):
+					status = (
+						f"{classification.get('status', 'unknown')} / "
+						f"{classification.get('visual', 'visual unknown')} / "
+						f"{classification.get('audio', 'audio unknown')}"
+					)
+			if shot:
+				path = repo / str(shot)
+				if path.is_file():
+					return str(path), status
+		except (OSError, json.JSONDecodeError, TypeError):
+			pass
+
+	candidates = sorted((repo / ".ai/logs").glob("dolphin-vision-*/screenshots/*.png"),
+		key=lambda path: path.stat().st_mtime if path.exists() else 0)
+	if candidates:
+		return str(candidates[-1]), "latest screenshot from harness logs"
+	return "", "No Dolphin screenshot captured yet"
+
+
+def model_port_open(host: str, port: int) -> bool:
+	try:
+		with socket.create_connection((host, port), timeout=0.2):
+			return True
+	except OSError:
+		return False
+
+
+def build_dashboard_snapshot(repo: Path, model_host: str, model_port: int) -> DashboardSnapshot:
+	snapshot = DashboardSnapshot()
+	try:
+		dol = repo / "OUT/bin/boot.dol"
+		iso = repo / "OUT/xash3d-gc.iso"
+
+		def artifact(label: str, path: Path) -> str:
+			return f"{label}  {path.stat().st_size / (1024 * 1024):.1f} MiB" if path.is_file() else f"{label}  MISSING"
+
+		snapshot.dol_exists = dol.is_file()
+		snapshot.iso_exists = iso.is_file()
+		snapshot.dol_text = artifact("DOL", dol)
+		snapshot.iso_text = artifact("ISO", iso)
+		snapshot.dolphin_ready = bool(os.environ.get("DOLPHIN_EXECUTABLE") or
+			shutil.which("dolphin-emu") or shutil.which("dolphin") or shutil.which("flatpak"))
+		snapshot.model_ready = model_port_open(model_host, model_port)
+
+		goals = read_goals_for_repo(repo)
+		snapshot.goals = goals
+		snapshot.complete_goals = sum(state.lower() == "x" for _, state, _, _ in goals)
+		snapshot.blocked_goals = sum(goal_is_blocked(body) for _, state, _, body in goals if state != "MANUAL")
+		snapshot.automatic_goals = sum(state != "MANUAL" for _, state, _, _ in goals)
+		snapshot.active_goal = next((goal for goal in goals
+			if goal[1] in {" ", "~"} and not goal_is_blocked(goal[3])), None)
+
+		if (repo / ".git").exists():
+			load_dotenv(repo / ".env")
+			branch = git_output_for_repo(repo, "branch", "--show-current") or "detached"
+			porcelain = git_output_for_repo(repo, "status", "--porcelain")
+			tracking = git_output_for_repo(repo, "status", "--short", "--branch").splitlines()
+			recent = git_output_for_repo(repo, "log", "-1", "--oneline")
+			submodules = git_output_for_repo(repo, "submodule", "status", "--recursive").splitlines()
+			dirty_submodules = sum(line.startswith(("+", "-", "U")) for line in submodules)
+			valve = repo / "Half-Life/valve"
+			blockers = repo / ".ai/state/BLOCKERS.md"
+			blocker_tail = "none recorded"
+			if blockers.is_file():
+				entries = [line[2:] for line in blockers.read_text(encoding="utf-8").splitlines() if line.startswith("- ")]
+				if entries:
+					blocker_tail = entries[-1][:100]
+			harness_latest = repo / ".ai/state/dolphin-harness-latest.md"
+			harness_status = "none recorded"
+			if harness_latest.is_file():
+				interesting = []
+				for line in harness_latest.read_text(encoding="utf-8").splitlines():
+					if line.startswith("- Status:") or line.startswith("- Visual:") or line.startswith("- Next action:"):
+						interesting.append(line.removeprefix("- ").strip())
+				if interesting:
+					harness_status = " / ".join(interesting)[:160]
+			toolchain = Path(os.environ.get("DEVKITPRO", "/opt/devkitpro")) / "devkitPPC/bin/powerpc-eabi-gcc"
+			lines = [
+				f"GIT       {branch}  {'DIRTY' if porcelain else 'CLEAN'}",
+				f"TRACKING  {tracking[0][3:] if tracking else 'unknown'}",
+				f"HEAD      {recent}",
+				f"SUBMODULE {len(submodules)} present / {dirty_submodules} divergent",
+				f"TOOLCHAIN {'READY' if toolchain.is_file() else 'MISSING'}  {toolchain}",
+				f"CONTENT   {'READY' if valve.is_dir() else 'MISSING'}  Half-Life/valve",
+				f"AIDER     {'AUTH INHERITED' if os.environ.get('OPENAI_API_KEY') else 'AUTH NOT IN ENVIRONMENT'}",
+				f"BLOCKER   {blocker_tail}",
+				f"DOLPHIN   {harness_status}",
+			]
+			snapshot.context = "\n".join(lines)
+
+		snapshot.screenshot_path, snapshot.screenshot_status = latest_dolphin_screenshot_for_repo(repo)
+	except (OSError, subprocess.SubprocessError, ValueError) as exc:
+		snapshot.error = f"Telemetry unavailable: {exc}"
+	return snapshot
+
+
+class DashboardWorker(QObject):
+	finished = pyqtSignal(object)
+
+	def __init__(self, repo: Path, model_host: str, model_port: int) -> None:
+		super().__init__()
+		self.repo = repo
+		self.model_host = model_host
+		self.model_port = model_port
+
+	def run(self) -> None:
+		self.finished.emit(build_dashboard_snapshot(self.repo, self.model_host, self.model_port))
 
 
 class PortWindow(QMainWindow):
@@ -237,6 +425,9 @@ class PortWindow(QMainWindow):
 		self.last_passes = 1
 		self.pipeline: dict[str, QLabel] = {}
 		self.docks: dict[str, QDockWidget] = {}
+		self.dashboard_threads: list[QThread] = []
+		self.dashboard_refresh_running = False
+		self.dashboard_refresh_pending = False
 		self.last_context = ""
 		self.start_head = ""
 		self.closing = False
@@ -246,6 +437,18 @@ class PortWindow(QMainWindow):
 			QMainWindow.DockOption.AnimatedDocks |
 			QMainWindow.DockOption.GroupedDragging
 		)
+		self.setDockNestingEnabled(True)
+		for area in (
+			Qt.DockWidgetArea.LeftDockWidgetArea,
+			Qt.DockWidgetArea.RightDockWidgetArea,
+			Qt.DockWidgetArea.TopDockWidgetArea,
+			Qt.DockWidgetArea.BottomDockWidgetArea,
+		):
+			self.setTabPosition(area, QTabWidget.TabPosition.North)
+		self.setCorner(Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.BottomDockWidgetArea)
+		self.setCorner(Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.BottomDockWidgetArea)
+		self.setCorner(Qt.Corner.TopLeftCorner, Qt.DockWidgetArea.TopDockWidgetArea)
+		self.setCorner(Qt.Corner.TopRightCorner, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		central = QWidget()
 		self.setCentralWidget(central)
@@ -283,9 +486,14 @@ class PortWindow(QMainWindow):
 		chip_row.addStretch()
 		layout.addLayout(chip_row)
 
-		layout.addStretch()
+		self.center_bay = QLabel("CENTER DOCK BAY\nDrag panels here, or use View > Dock Panel In Middle.")
+		self.center_bay.setObjectName("CenterBay")
+		self.center_bay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		self.center_bay.setMinimumHeight(96)
+		self.center_bay.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+		layout.addWidget(self.center_bay, 1)
 
-		self.configure_view_menu()
+		self.configure_menus()
 
 		progress_panel = QWidget()
 		progress_layout = QVBoxLayout(progress_panel)
@@ -469,6 +677,7 @@ class PortWindow(QMainWindow):
 		self.resizeDocks([self.docks["Goals"], self.docks["Telemetry"]], [520, 420], Qt.Orientation.Horizontal)
 		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [320, 220], Qt.Orientation.Vertical)
 		self.resizeDocks([self.docks["Log"], self.docks["Dolphin Viewport"]], [520, 420], Qt.Orientation.Horizontal)
+		self.load_saved_settings()
 
 		self.timer = QTimer(self)
 		self.timer.setInterval(3000)
@@ -476,27 +685,222 @@ class PortWindow(QMainWindow):
 		self.timer.start()
 		self.refresh_dashboard()
 
-	def configure_view_menu(self) -> None:
+	def configure_menus(self) -> None:
+		self.file_menu = self.menuBar().addMenu("&File")
+		save_settings_action = QAction("Save Settings", self)
+		save_settings_action.setShortcut("Ctrl+S")
+		save_settings_action.triggered.connect(self.save_settings)
+		self.file_menu.addAction(save_settings_action)
+		save_layout_action = QAction("Save Layout", self)
+		save_layout_action.triggered.connect(self.save_layout)
+		self.file_menu.addAction(save_layout_action)
+		restore_layout_action = QAction("Restore Saved Layout", self)
+		restore_layout_action.triggered.connect(self.restore_saved_layout)
+		self.file_menu.addAction(restore_layout_action)
+		self.file_menu.addSeparator()
+		save_log_action = QAction("Save Console Log...", self)
+		save_log_action.triggered.connect(self.save_log)
+		self.file_menu.addAction(save_log_action)
+		open_logs_action = QAction("Open Logs Folder", self)
+		open_logs_action.triggered.connect(self.open_logs_folder)
+		self.file_menu.addAction(open_logs_action)
+		self.file_menu.addSeparator()
+		quit_action = QAction("Quit", self)
+		quit_action.setShortcut("Ctrl+Q")
+		quit_action.triggered.connect(self.close)
+		self.file_menu.addAction(quit_action)
+
 		self.view_menu = self.menuBar().addMenu("&View")
+		self.layout_menu = self.view_menu.addMenu("Layout")
+		layout_save_action = QAction("Save Layout", self)
+		layout_save_action.triggered.connect(self.save_layout)
+		self.layout_menu.addAction(layout_save_action)
+		layout_restore_action = QAction("Restore Saved Layout", self)
+		layout_restore_action.triggered.connect(self.restore_saved_layout)
+		self.layout_menu.addAction(layout_restore_action)
 		reset_action = QAction("Reset Dock Layout", self)
 		reset_action.triggered.connect(self.reset_dock_layout)
-		self.view_menu.addAction(reset_action)
+		self.layout_menu.addAction(reset_action)
+		self.middle_menu = self.view_menu.addMenu("Dock Panel In Middle")
 		self.view_menu.addSeparator()
+
+		self.about_menu = self.menuBar().addMenu("&About")
+		about_action = QAction("About Xash3D GameCube Porting", self)
+		about_action.triggered.connect(self.show_about_panel)
+		self.about_menu.addAction(about_action)
+
+	def read_settings_file(self) -> dict[str, object]:
+		if not SETTINGS_PATH.is_file():
+			return {}
+		try:
+			data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+		except (OSError, json.JSONDecodeError) as exc:
+			self.status_label.setText(f"Settings unavailable: {exc}")
+			return {}
+		return dict(data) if isinstance(data, Mapping) else {}
+
+	def current_settings(self, *, include_layout: bool) -> dict[str, object]:
+		data: dict[str, object] = {
+			"version": APP_VERSION,
+			"repo": self.repo_edit.text().strip(),
+			"model_command": self.model_command_edit.text().strip(),
+			"model_api_base": self.model_api_edit.text().strip(),
+			"pass_limit": self.passes_spin.value(),
+			"recovery_retries": self.recovery_spin.value(),
+			"follow_log": self.follow_log.isChecked(),
+		}
+		if include_layout:
+			data["geometry"] = bytes(self.saveGeometry().toBase64()).decode("ascii")
+			data["dock_layout"] = bytes(self.saveState().toBase64()).decode("ascii")
+		return data
+
+	def write_settings_file(self, *, include_layout: bool) -> bool:
+		data = self.read_settings_file()
+		data.update(self.current_settings(include_layout=include_layout))
+		try:
+			SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+			SETTINGS_PATH.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n",
+				encoding="utf-8")
+		except OSError as exc:
+			QMessageBox.warning(self, "Save settings failed", str(exc))
+			return False
+		return True
+
+	def save_settings(self) -> None:
+		if self.write_settings_file(include_layout=True):
+			self.status_label.setText(f"Saved settings: {SETTINGS_PATH.relative_to(DEFAULT_REPO)}")
+
+	def save_layout(self) -> None:
+		if self.write_settings_file(include_layout=True):
+			self.status_label.setText(f"Saved layout: {SETTINGS_PATH.relative_to(DEFAULT_REPO)}")
+
+	def restore_saved_layout(self) -> None:
+		data = self.read_settings_file()
+		if not self.apply_layout_settings(data):
+			QMessageBox.information(self, "No saved layout",
+				"Save a layout first with File > Save Layout or View > Layout > Save Layout.")
+			return
+		self.status_label.setText("Restored saved dock layout")
+
+	def apply_layout_settings(self, data: Mapping[str, object]) -> bool:
+		restored = False
+		geometry = data.get("geometry")
+		if isinstance(geometry, str) and geometry:
+			restored = self.restoreGeometry(QByteArray.fromBase64(geometry.encode("ascii"))) or restored
+		layout = data.get("dock_layout")
+		if isinstance(layout, str) and layout:
+			restored = self.restoreState(QByteArray.fromBase64(layout.encode("ascii"))) or restored
+		return restored
+
+	def load_saved_settings(self) -> None:
+		data = self.read_settings_file()
+		if not data:
+			return
+		repo = data.get("repo")
+		if isinstance(repo, str) and repo:
+			self.repo_edit.setText(repo)
+		model_command = data.get("model_command")
+		if isinstance(model_command, str) and model_command:
+			self.model_command_edit.setText(model_command)
+		model_api_base = data.get("model_api_base")
+		if isinstance(model_api_base, str) and model_api_base:
+			self.model_api_edit.setText(model_api_base)
+		pass_limit = data.get("pass_limit")
+		if isinstance(pass_limit, int):
+			self.passes_spin.setValue(max(self.passes_spin.minimum(), min(self.passes_spin.maximum(), pass_limit)))
+		recovery_retries = data.get("recovery_retries")
+		if isinstance(recovery_retries, int):
+			self.recovery_spin.setValue(max(self.recovery_spin.minimum(), min(self.recovery_spin.maximum(), recovery_retries)))
+		follow_log = data.get("follow_log")
+		if isinstance(follow_log, bool):
+			self.follow_log.setChecked(follow_log)
+		self.apply_layout_settings(data)
+
+	def show_about_panel(self) -> None:
+		dialog = QDialog(self)
+		dialog.setWindowTitle("About Xash3D GameCube Porting")
+		dialog.setMinimumWidth(520)
+		layout = QVBoxLayout(dialog)
+
+		logos = QHBoxLayout()
+		mark = QSvgWidget(str(HEADER_MARK))
+		mark.setFixedSize(88, 88)
+		logos.addWidget(mark, 0, Qt.AlignmentFlag.AlignCenter)
+		wordmark = QSvgWidget(str(HEADER_LOGO))
+		wordmark.setFixedSize(176, 116)
+		logos.addWidget(wordmark, 0, Qt.AlignmentFlag.AlignCenter)
+		logos.addStretch()
+		layout.addLayout(logos)
+
+		title = QLabel("Xash3D GameCube Porting Console")
+		title.setObjectName("Title")
+		layout.addWidget(title)
+		version = QLabel(f"Version {APP_VERSION}")
+		version.setStyleSheet(f"color: {GC_CYAN}; font-weight: bold;")
+		layout.addWidget(version)
+		body = QLabel(
+			"Goal-driven PyQt6 cockpit for building, testing, and steering the "
+			"native Half-Life / Xash3D GameCube port.\n\n"
+			f"Settings file: {SETTINGS_PATH.relative_to(DEFAULT_REPO)}"
+		)
+		body.setWordWrap(True)
+		layout.addWidget(body)
+
+		buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+		buttons.accepted.connect(dialog.accept)
+		layout.addWidget(buttons)
+		dialog.exec()
 
 	def add_panel(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
 		dock = QDockWidget(title, self)
 		dock.setObjectName(f"Dock{re.sub(r'[^A-Za-z0-9]+', '', title)}")
 		dock.setWidget(widget)
 		dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
+		dock.setFloating(False)
 		dock.setFeatures(
 			QDockWidget.DockWidgetFeature.DockWidgetClosable |
 			QDockWidget.DockWidgetFeature.DockWidgetMovable |
 			QDockWidget.DockWidgetFeature.DockWidgetFloatable
 		)
+		dock.topLevelChanged.connect(lambda floating, item=dock: self.dock_floating_changed(item, floating))
 		self.addDockWidget(area, dock)
 		self.docks[title] = dock
 		self.view_menu.addAction(dock.toggleViewAction())
+		action = QAction(title, self)
+		action.triggered.connect(lambda _checked=False, name=title: self.dock_panel_middle(name))
+		self.middle_menu.addAction(action)
 		return dock
+
+	def apply_floating_window_flags(self, dock: QDockWidget) -> None:
+		dock.setWindowFlags(
+			Qt.WindowType.Window |
+			Qt.WindowType.WindowTitleHint |
+			Qt.WindowType.WindowSystemMenuHint |
+			Qt.WindowType.WindowMinMaxButtonsHint |
+			Qt.WindowType.WindowCloseButtonHint
+		)
+
+	def dock_floating_changed(self, dock: QDockWidget, floating: bool) -> None:
+		if not floating:
+			return
+		self.apply_floating_window_flags(dock)
+		dock.show()
+
+	def dock_panel_middle(self, title: str) -> None:
+		dock = self.docks.get(title)
+		if not dock:
+			return
+		dock.show()
+		dock.setFloating(False)
+		self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+		if title != "Dolphin Viewport" and "Dolphin Viewport" in self.docks:
+			self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docks["Dolphin Viewport"])
+			self.tabifyDockWidget(self.docks["Dolphin Viewport"], dock)
+			dock.raise_()
+		elif "Log" in self.docks and title != "Log":
+			self.splitDockWidget(self.docks["Log"], dock, Qt.Orientation.Horizontal)
+		self.resizeDocks([dock], [520], Qt.Orientation.Horizontal)
+		self.status_label.setText(f"Docked {title} in middle workspace")
 
 	def reset_dock_layout(self) -> None:
 		required = {"Workspace", "Model Server", "Goals", "Telemetry",
@@ -743,46 +1147,21 @@ class PortWindow(QMainWindow):
 		QTimer.singleShot(3000, self.refresh_model_status)
 
 	def git_output(self, *args: str) -> str:
-		result = subprocess.run(["git", *args], cwd=self.repo(), text=True,
-			capture_output=True, timeout=4, check=False)
-		return result.stdout.strip()
+		return git_output_for_repo(self.repo(), *args)
 
 	def set_save_state(self, text: str, color: str) -> None:
 		self.save_chip.setText(text)
 		self.save_chip.setStyleSheet(f"color: {color};")
 
 	def read_goals(self) -> list[tuple[str, str, str, str]]:
-		path = self.repo() / ".ai/goals/GAMECUBE_PORT_GOALS.md"
-		if not path.is_file():
-			return []
-		goals: list[tuple[str, str, str, str]] = []
-		current: tuple[str, str, str] | None = None
-		body: list[str] = []
-		for line in path.read_text(encoding="utf-8").splitlines():
-			match = GOAL_RE.match(line)
-			if match:
-				if current:
-					goals.append((*current, "\n".join(body).strip()))
-				current = match.groups()
-				body = []
-			elif current:
-				body.append(line)
-		if current:
-			goals.append((*current, "\n".join(body).strip()))
-		return goals
+		return read_goals_for_repo(self.repo())
 
-	def refresh_goals(self) -> None:
-		goals = self.read_goals()
+	def apply_goals_snapshot(self, snapshot: DashboardSnapshot) -> None:
+		goals = snapshot.goals or []
 		self.goal_table.setRowCount(len(goals))
-		def blocked(body: str) -> bool:
-			return bool(re.search(r"(?im)^\s*-\s*Status:\s*BLOCKED\b", body))
-		complete = sum(state.lower() == "x" for _, state, _, _ in goals)
-		blocked_count = sum(blocked(body) for _, state, _, body in goals if state != "MANUAL")
-		automatic = sum(state != "MANUAL" for _, state, _, _ in goals)
-		active = next((goal for goal in goals
-			if goal[1] in {" ", "~"} and not blocked(goal[3])), None)
+		active = snapshot.active_goal
 		for row, (goal_id, state, title, body) in enumerate(goals):
-			is_blocked = blocked(body)
+			is_blocked = goal_is_blocked(body)
 			label = "MANUAL" if state == "MANUAL" else "DONE" if state.lower() == "x" \
 				else "BLOCKED" if is_blocked else "ACTIVE" if active and goal_id == active[0] else "QUEUED"
 			for column, value in enumerate((goal_id, label, title)):
@@ -799,84 +1178,32 @@ class PortWindow(QMainWindow):
 			self.goal_summary.setText(f"ACTIVE {active[0]}  /  {active[2]}\n{criteria}")
 		else:
 			self.goal_summary.setText("All automatic goals complete or blocked; manual hardware validation remains.")
-		self.progress.setToolTip(f"{complete}/{automatic} automatic goals complete, {blocked_count} blocked")
+		self.progress.setToolTip(
+			f"{snapshot.complete_goals}/{snapshot.automatic_goals} automatic goals complete, "
+			f"{snapshot.blocked_goals} blocked"
+		)
 
 	def refresh_context(self) -> None:
-		root = self.repo()
-		if not (root / ".git").exists():
+		snapshot = build_dashboard_snapshot(self.repo(), *self.model_host_port())
+		self.apply_context_snapshot(snapshot)
+
+	def apply_context_snapshot(self, snapshot: DashboardSnapshot) -> None:
+		if snapshot.error:
+			self.context_view.setPlainText(snapshot.error)
 			return
-		load_dotenv(root / ".env")
-		branch = self.git_output("branch", "--show-current") or "detached"
-		porcelain = self.git_output("status", "--porcelain")
-		tracking = self.git_output("status", "--short", "--branch").splitlines()
-		recent = self.git_output("log", "-1", "--oneline")
-		submodules = self.git_output("submodule", "status", "--recursive").splitlines()
-		dirty_submodules = sum(line.startswith(("+", "-", "U")) for line in submodules)
-		valve = root / "Half-Life/valve"
-		blockers = root / ".ai/state/BLOCKERS.md"
-		blocker_tail = "none recorded"
-		if blockers.is_file():
-			entries = [line[2:] for line in blockers.read_text(encoding="utf-8").splitlines() if line.startswith("- ")]
-			if entries:
-				blocker_tail = entries[-1][:100]
-		harness_latest = root / ".ai/state/dolphin-harness-latest.md"
-		harness_status = "none recorded"
-		if harness_latest.is_file():
-			interesting = []
-			for line in harness_latest.read_text(encoding="utf-8").splitlines():
-				if line.startswith("- Status:") or line.startswith("- Visual:") or line.startswith("- Next action:"):
-					interesting.append(line.removeprefix("- ").strip())
-			if interesting:
-				harness_status = " / ".join(interesting)[:160]
-		toolchain = Path(os.environ.get("DEVKITPRO", "/opt/devkitpro")) / "devkitPPC/bin/powerpc-eabi-gcc"
-		lines = [
-			f"GIT       {branch}  {'DIRTY' if porcelain else 'CLEAN'}",
-			f"TRACKING  {tracking[0][3:] if tracking else 'unknown'}",
-			f"HEAD      {recent}",
-			f"SUBMODULE {len(submodules)} present / {dirty_submodules} divergent",
-			f"TOOLCHAIN {'READY' if toolchain.is_file() else 'MISSING'}  {toolchain}",
-			f"CONTENT   {'READY' if valve.is_dir() else 'MISSING'}  Half-Life/valve",
-			f"AIDER     {'AUTH INHERITED' if os.environ.get('OPENAI_API_KEY') else 'AUTH NOT IN ENVIRONMENT'}",
-			f"BLOCKER   {blocker_tail}",
-			f"DOLPHIN   {harness_status}",
-		]
-		context = "\n".join(lines)
-		if context != self.last_context:
-			self.context_view.setPlainText(context)
-			self.last_context = context
+		if snapshot.context and snapshot.context != self.last_context:
+			self.context_view.setPlainText(snapshot.context)
+			self.last_context = snapshot.context
 
 	def latest_dolphin_screenshot(self) -> tuple[Path | None, str]:
-		root = self.repo()
-		memory = root / ".ai/state/dolphin-harness-memory.json"
-		if memory.is_file():
-			try:
-				data = json.loads(memory.read_text(encoding="utf-8"))
-				run = data.get("runs", [{}])[0] if isinstance(data.get("runs"), list) else {}
-				shot = run.get("latest_screenshot") if isinstance(run, dict) else ""
-				status = ""
-				if isinstance(run, dict):
-					classification = run.get("classification", {})
-					if isinstance(classification, dict):
-						status = (
-							f"{classification.get('status', 'unknown')} / "
-							f"{classification.get('visual', 'visual unknown')} / "
-							f"{classification.get('audio', 'audio unknown')}"
-						)
-				if shot:
-					path = root / str(shot)
-					if path.is_file():
-						return path, status
-			except (OSError, json.JSONDecodeError, TypeError):
-				pass
-
-		candidates = sorted((root / ".ai/logs").glob("dolphin-vision-*/screenshots/*.png"),
-			key=lambda path: path.stat().st_mtime if path.exists() else 0)
-		if candidates:
-			return candidates[-1], "latest screenshot from harness logs"
-		return None, "No Dolphin screenshot captured yet"
+		path, status = latest_dolphin_screenshot_for_repo(self.repo())
+		return (Path(path), status) if path else (None, status)
 
 	def refresh_dolphin_viewport(self) -> None:
 		path, status = self.latest_dolphin_screenshot()
+		self.apply_dolphin_viewport_snapshot(path, status)
+
+	def apply_dolphin_viewport_snapshot(self, path: Path | None, status: str) -> None:
 		if path is None:
 			self.viewport_path = ""
 			self.viewport_pixmap = None
@@ -888,7 +1215,10 @@ class PortWindow(QMainWindow):
 			)
 			return
 
-		path_text = str(path.relative_to(self.repo()))
+		try:
+			path_text = str(path.relative_to(self.repo()))
+		except ValueError:
+			path_text = str(path)
 		if path_text != self.viewport_path:
 			pixmap = QPixmap(str(path))
 			if not pixmap.isNull():
@@ -910,14 +1240,67 @@ class PortWindow(QMainWindow):
 		self.viewport_image.setPixmap(scaled)
 
 	def refresh_dashboard(self) -> None:
+		if self.closing:
+			return
+		if self.dashboard_refresh_running:
+			self.dashboard_refresh_pending = True
+			return
 		try:
-			self.refresh_artifacts()
-			self.refresh_model_status()
-			self.refresh_goals()
-			self.refresh_context()
-			self.refresh_dolphin_viewport()
-		except (OSError, subprocess.SubprocessError) as exc:
+			repo = self.repo()
+			model_host, model_port = self.model_host_port()
+		except OSError as exc:
 			self.context_view.setPlainText(f"Telemetry unavailable: {exc}")
+			return
+		self.dashboard_refresh_running = True
+		thread = QThread(self)
+		worker = DashboardWorker(repo, model_host, model_port)
+		worker.moveToThread(thread)
+		thread.started.connect(worker.run)
+		worker.finished.connect(self.apply_dashboard_snapshot)
+		worker.finished.connect(thread.quit)
+		worker.finished.connect(worker.deleteLater)
+		thread.finished.connect(thread.deleteLater)
+		thread.finished.connect(lambda item=thread: self.dashboard_thread_finished(item))
+		self.dashboard_threads.append(thread)
+		thread.start()
+
+	def dashboard_thread_finished(self, thread: QThread) -> None:
+		if thread in self.dashboard_threads:
+			self.dashboard_threads.remove(thread)
+
+	def apply_dashboard_snapshot(self, snapshot: DashboardSnapshot) -> None:
+		if self.closing:
+			return
+		self.dashboard_refresh_running = False
+		self.dol_chip.setText(snapshot.dol_text)
+		self.iso_chip.setText(snapshot.iso_text)
+		active_node = self.pipeline_node(self.operation) if self.process else ""
+		if active_node != "DOL":
+			self.set_pipeline_state("DOL", "Success" if snapshot.dol_exists else "Idle")
+		if active_node != "ISO":
+			self.set_pipeline_state("ISO", "Success" if snapshot.iso_exists else "Idle")
+		self.dolphin_chip.setText("DOLPHIN  READY" if snapshot.dolphin_ready else "DOLPHIN  MISSING")
+		if self.process is None:
+			self.status_label.setText("Idle - goal console ready")
+		if self.model_process is not None:
+			self.set_model_state("MODEL  RUNNING", GC_CYAN)
+			self.start_model_btn.setEnabled(False)
+			self.kill_model_btn.setEnabled(True)
+		elif snapshot.model_ready:
+			self.set_model_state("MODEL  READY", GC_MINT)
+			self.start_model_btn.setEnabled(False)
+			self.kill_model_btn.setEnabled(True)
+		else:
+			self.set_model_state("MODEL  DOWN", GC_ORANGE)
+			self.start_model_btn.setEnabled(True)
+			self.kill_model_btn.setEnabled(True)
+		self.apply_goals_snapshot(snapshot)
+		self.apply_context_snapshot(snapshot)
+		path = Path(snapshot.screenshot_path) if snapshot.screenshot_path else None
+		self.apply_dolphin_viewport_snapshot(path, snapshot.screenshot_status)
+		if self.dashboard_refresh_pending:
+			self.dashboard_refresh_pending = False
+			QTimer.singleShot(0, self.refresh_dashboard)
 
 	def start(self, command: list[str], operation: str, passes: int = 1) -> None:
 		if self.process is not None or not self.valid_repo():
@@ -1081,6 +1464,8 @@ class PortWindow(QMainWindow):
 
 	def closeEvent(self, event: QCloseEvent) -> None:
 		if self.process is None and self.model_process is None:
+			self.closing = True
+			self.timer.stop()
 			event.accept()
 			return
 		if self.process is not None:

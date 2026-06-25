@@ -244,6 +244,7 @@ csx/
 .ai/state/goal-loop-memory.json
 .ai/state/dolphin-harness-latest.md
 .ai/state/dolphin-harness-memory.json
+.ai/state/xash3d-gc-aider-gui-settings.json
 *.build.csdef
 
 # Windows Store app package directory
