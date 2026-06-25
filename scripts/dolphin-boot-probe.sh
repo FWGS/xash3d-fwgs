@@ -416,22 +416,30 @@ if (( FRAME_COUNT > 0 )); then
 	)"
 fi
 
-# G36: Detect frame timing jitter (variance between consecutive frames)
+# G36: Detect frame timing jitter (Mean Absolute Deviation from average frame time)
 # Moved here after FRAME_TIMES is populated for accurate measurement
+# MAD provides a more stable measure of jitter than max-diff between consecutive frames
 FRAME_TIMING_JITTER="0.00"
 if (( FRAME_COUNT > 1 )); then
 	FRAME_TIMING_JITTER=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '
-	BEGIN { max_diff = 0; prev = -1; }
 	{
 		val = $1 + 0;
-		if (prev >= 0) {
-			diff = val - prev;
-			if (diff < 0) diff = -diff;
-			if (diff > max_diff) max_diff = diff;
-		}
-		prev = val;
+		sum += val;
+		times[NR] = val;
+		count++;
 	}
-	END { printf "%.2f", max_diff; }')
+	END {
+		if (count == 0) exit;
+		avg = sum / count;
+		sum_abs_dev = 0;
+		for (i = 1; i <= count; i++) {
+			diff = times[i] - avg;
+			if (diff < 0) diff = -diff;
+			sum_abs_dev += diff;
+		}
+		mad = sum_abs_dev / count;
+		printf "%.2f", mad;
+	}')
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
@@ -574,11 +582,12 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter=${FRAME_TIMING_JITTER}ms"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms"
 			
-			# G36: Report frame timing jitter as stability metric
-			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 5.0)}"; then
-				echo "G36_JITTER_WARN: Consecutive frame timing jitter=${FRAME_TIMING_JITTER}ms exceeds 5ms threshold. May indicate irregular scheduling or cache misses."
+			# G36: Report frame timing jitter (MAD) as stability metric
+			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
+			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 2.0)}"; then
+				echo "G36_JITTER_WARN: Frame timing MAD=${FRAME_TIMING_JITTER}ms exceeds 2.0ms threshold. Rendering may appear stuttery due to high variance in frame delivery."
 			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
