@@ -302,12 +302,18 @@ FRAME_P95=""
 FRAME_STDDEV=""
 FRAME_JANK=0
 FRAME_FIRST=""
+FRAME_STEADY_COUNT=0
+FRAME_STEADY_AVG=""
+FRAME_STEADY_P95=""
+FRAME_STEADY_BUDGET_PASSED=0
 FRAME_COUNT=${#FRAME_TIMES[@]}
 if (( FRAME_COUNT > 0 )); then
 	# Use awk for robust float math and sorting without bc dependency
+	# Separate cold-start (first frame) from steady-state for budget analysis
 	eval "$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
 	BEGIN {
 		min = 999999; max = 0; sum = 0; sum_sq = 0; count = 0; jank = 0;
+		steady_sum = 0; steady_count = 0; steady_jank = 0;
 	}
 	{
 		val = $1 + 0;
@@ -319,6 +325,14 @@ if (( FRAME_COUNT > 0 )); then
 		count++;
 		if (val > target) jank++;
 		times[count] = val;
+		
+		# Steady-state: exclude first frame (cold-start)
+		if (count > 1) {
+			steady_count++;
+			steady_sum += val;
+			if (val > target) steady_jank++;
+			steady_times[steady_count] = val;
+		}
 	}
 	END {
 		if (count == 0) exit;
@@ -366,6 +380,38 @@ if (( FRAME_COUNT > 0 )); then
 		printf "FRAME_P95=%.3f\n", p95;
 		printf "FRAME_STDDEV=%.3f\n", stddev;
 		printf "FRAME_JANK=%d\n", jank;
+		
+		# Steady-state analysis (exclude cold-start first frame)
+		if (steady_count > 0) {
+			steady_avg = steady_sum / steady_count;
+			
+			# Sort steady_times for steady-state percentiles
+			for (i = 1; i <= steady_count; i++) {
+				for (j = i + 1; j <= steady_count; j++) {
+					if (steady_times[i] > steady_times[j]) {
+						tmp = steady_times[i];
+						steady_times[i] = steady_times[j];
+						steady_times[j] = tmp;
+					}
+				}
+			}
+			
+			# Steady P95
+			steady_p95_idx = int(steady_count * 0.95 + 0.9999);
+			if (steady_p95_idx < 1) steady_p95_idx = 1;
+			if (steady_p95_idx > steady_count) steady_p95_idx = steady_count;
+			steady_p95 = steady_times[steady_p95_idx];
+			
+			if (steady_p95 <= target) {
+				printf "FRAME_STEADY_BUDGET_PASSED=1\n";
+			} else {
+				printf "FRAME_STEADY_BUDGET_PASSED=0\n";
+			}
+			
+			printf "FRAME_STEADY_COUNT=%d\n", steady_count;
+			printf "FRAME_STEADY_AVG=%.3f\n", steady_avg;
+			printf "FRAME_STEADY_P95=%.3f\n", steady_p95;
+		}
 	}'
 	)"
 fi
@@ -443,11 +489,24 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "FRAME_FPS: ${FRAME_FPS} FPS (from avg ${FRAME_AVG}ms)"
 			fi
 			
-			# Explicit G36 Measurement Result
+			# Explicit G36 Measurement Result (includes cold-start frame)
 			if (( FRAME_BUDGET_PASSED )); then
 				echo "G36_MEASUREMENT_PASS: Frame budget stable. P95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms."
 			else
 				echo "G36_MEASUREMENT_FAIL: Frame budget unstable. P95=${FRAME_P95}ms > ${TARGET_FRAME_TIME}ms."
+			fi
+
+			# G36: Steady-state measurement (excludes cold-start first frame)
+			if (( FRAME_STEADY_COUNT > 0 )); then
+				echo "G36_STEADY_STATE: samples=${FRAME_STEADY_COUNT} avg=${FRAME_STEADY_AVG}ms p95=${FRAME_STEADY_P95}ms"
+				if (( FRAME_STEADY_BUDGET_PASSED )); then
+					echo "G36_STEADY_PASS: Steady-state frame budget stable. P95=${FRAME_STEADY_P95}ms <= ${TARGET_FRAME_TIME}ms."
+				else
+					echo "G36_STEADY_FAIL: Steady-state frame budget unstable. P95=${FRAME_STEADY_P95}ms > ${TARGET_FRAME_TIME}ms."
+					if (( FRAME_BUDGET_PASSED )); then
+						echo "G36_NOTE: Overall budget passed but steady-state failed. Cold-start frame may be masking steady-state issues."
+					fi
+				fi
 			fi
 			
 			# G36: Correlate memory samples with frame budget
@@ -515,7 +574,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter=${FRAME_TIMING_JITTER}ms"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter=${FRAME_TIMING_JITTER}ms"
 			
 			# G36: Report frame timing jitter as stability metric
 			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 5.0)}"; then
