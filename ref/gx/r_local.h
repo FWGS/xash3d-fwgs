@@ -325,12 +325,12 @@ static inline qboolean GC_IsLowMemoryMode( void )
 {
 #if XASH_GAMECUBE
 #if XASH_LOW_MEMORY
-	return true;
+	return qtrue;
 #else /* XASH_GAMECUBE && !XASH_LOW_MEMORY */
-	return ( tr.sample_size == 0 );
+	return ( tr.sample_size == 0 ) ? qtrue : qfalse;
 #endif /* XASH_LOW_MEMORY */
 #else /* !XASH_GAMECUBE */
-	return false;
+	return qfalse;
 #endif /* XASH_GAMECUBE */
 }
 
