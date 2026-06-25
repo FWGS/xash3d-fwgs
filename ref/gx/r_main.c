@@ -1407,10 +1407,6 @@ qboolean GAME_EXPORT R_Init( void )
 {
 	qboolean glblit = false;
 #if XASH_GAMECUBE
-	int init_quality = 0;
-#endif
-
-#if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin\n" );
 #endif
 
@@ -1423,25 +1419,15 @@ qboolean GAME_EXPORT R_Init( void )
 	tr.sample_bits = -1;
 
 #if XASH_GAMECUBE
-	// G24a: quality mode is now driven by tr.sample_size (0 = low-memory smoke path).
-	// GC_GetVisualQuality() from r_local.h reflects this consistently.
-#endif
+	// G24a: quality mode is driven by tr.sample_size (0 = low-memory smoke path).
+	// GC_GetVisualQuality() from r_local.h is the single source of truth.
+	int init_quality = GC_GetVisualQuality();
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected\n", init_quality );
 
-#if XASH_GAMECUBE
-	{
-		init_quality = GC_GetVisualQuality();
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected\n", init_quality );
-
-		// G24a: single entry-point marker for low-memory quality wire
-		if( init_quality == 0 )
-		{
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
-		}
-		else
-		{
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: standard/higher quality path active\n" );
-		}
-	}
+	if( init_quality == 0 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
+	else
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: standard/higher quality path active\n" );
 #endif
 
 	gEngfuncs.Cvar_RegisterVariable( &sw_clearcolor );
