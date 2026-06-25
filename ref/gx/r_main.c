@@ -586,11 +586,13 @@ static void R_DrawEntitiesOnList( void )
 		gEngfuncs.pfnDrawNormalTriangles();
 
 	d_pdrawspans = R_PolysetDrawSpans8_33;
+
 #if XASH_GAMECUBE
 	{
-		int quality = GC_GetVisualQuality();
 		// G24a: low-memory smoke path skips translucent entity draw until stable
+		int quality = GC_GetVisualQuality();
 		if( quality != 0 )
+		{
 #endif
 		// then draw translucent entities
 		for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
@@ -634,6 +636,7 @@ static void R_DrawEntitiesOnList( void )
 			}
 		}
 #if XASH_GAMECUBE
+		}
 	}
 #endif
 
