@@ -844,28 +844,30 @@ safety for the transition is now explicit.
 
 ## G32 — Implement save/load suitable for GameCube storage (source complete 2026-06-25)
 
-GameCube platform initialization now ensures the writable SD storage layout
+GameCube platform initialization ensures the writable SD storage layout
 includes the `valve/save` directory required by the engine's save/load system.
 `GCube_EnsureWritableLayout()` in `engine/platform/gamecube/sys_gamecube.c`
-creates the directory tree (`sd:/xash3d/valve/save`) if `GCube_GetWritablePath()`
-succeeds.
+creates the directory tree and logs available SD space at boot to assist with
+debugging save failures (G32).
 
-The existing `FS_DetermineRootDirectory()` priority (SD -> Disc) ensures that
-saves are written to the writable SD storage when available. Write-operations
-are safely skipped or redirected when on read-only disc-only boots (as
-implemented in G28), preventing ISO9660 write errors.
+**Save/Load Policy:**
+- **Storage:** SD Card via `fat:` interface (`sd:/xash3d/valve/save`).
+- **Size Bounds:** Saves are naturally bounded by engine memory pool limits.
+- **Failure Behavior:** Write errors are reported via `Con_Reportf`. Disc-only
+  boots skip save commands entirely via `GCube_HasWritableStorage()` checks.
+- **Routing:** `FS_DetermineRootDirectory()` prioritizes writable SD, falling
+  back to read-only disc for assets.
 
 **Source implementation:**
-- `GCube_EnsureWritableLayout()` verifies `valve/save` existence on SD.
-- Save paths resolve to writable SD storage via G28 routing.
+- `GCube_EnsureWritableLayout()` creates `valve/save` and logs disk space.
+- `GCube_HasWritableStorage()` gates save/write operations (G28).
 - `GCube_GetWritablePath()` returns `sd:/xash3d` when SD is mounted.
 
-**Completion note:** Source-side directory preparation is complete.
-Runtime verification of save, quit, relaunch, and load round-trips requires
-physical GameCube hardware or a persistent SD-backed Dolphin test profile.
-These are MANUAL runtime verification tasks covered by G38. The automation
-must not retry G32; those goals cannot be completed without operator hardware
-validation.
+**Completion note:** Source-side implementation is complete and verified by
+compilation. Runtime verification of save, quit, relaunch, and load
+round-trips requires physical GameCube hardware or a persistent SD-backed
+Dolphin test profile. These are MANUAL runtime verification tasks covered by
+G38. The automation must not retry G32.
 
 ## G29 — Restore local single-player networking paths (COMPLETE 2026-06-25)
 

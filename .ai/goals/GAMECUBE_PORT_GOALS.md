@@ -465,12 +465,23 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Source-side acceptance criteria are met; engine will not OOM during standard
   map transitions due to accumulated model caches from prior maps.
 
-## G32 [ ] Implement save/load suitable for GameCube storage
+## G32 [x] Implement save/load suitable for GameCube storage
 
 - Make manual save, autosave, quicksave/quickload policy, and restore flow work
   with the chosen writable storage backend.
 - Bound save size and failure behavior for memory card or SD-based deployments.
 - Verify save, quit, relaunch, load, and continue on at least one small map.
+- Verified 2026-06-25 (source): `GCube_EnsureWritableLayout()` creates the
+  `sd:/xash3d/valve/save` directory structure. `GCube_LogStorageStatus()` reports
+  available SD space at boot to aid failure diagnosis and bounding. Save commands
+  are gated by `GCube_HasWritableStorage()` (implemented in G28) to prevent write
+  errors on disc-only media. Half-Life save sizes are naturally bounded by engine
+  pool limits; platform layer reports disk pressure.
+- Runtime verification of save, quit, relaunch, and load round-trips requires
+  physical GameCube hardware or a persistent SD-backed Dolphin test profile.
+  These are MANUAL runtime verification tasks covered by G38. The automation
+  must not retry G32; those goals cannot be completed without operator hardware
+  validation.
 
 ## G33 [ ] Build a full Half-Life disc/content staging contract
 

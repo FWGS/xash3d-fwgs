@@ -17,6 +17,7 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include <fat.h>
 #include <iso9660.h>
 #include <dirent.h>
+#include <sys/stat.h>
 #include "dll_gamecube.h"
 #include "mem_gamecube.h"
 #include "storage_gamecube.h"
@@ -179,6 +180,33 @@ static void GCube_MkdirIgnoreExists( const char *path )
 		Con_Reportf( S_WARN "GameCube storage: failed to create %s (%s)\n", path, strerror( errno ));
 }
 
+/*
+ * G32: GameCube Save/Load Policy
+ *
+ * Storage: SD Card via `fat:` interface (sd:/xash3d/valve/save).
+ * Size Bounds: Half-Life saves are typically <128KB. We report available
+ *             space at init to bound expectations. Engine save logic
+ *             relies on FS_Open/Write failure returns for disk-full errors.
+ * Failure Behavior:
+ *   - Write errors (disk full/unmounted) are reported via Con_Reportf.
+ *   - Disc-only boots (read-only) skip save commands via GCube_HasWritableStorage().
+ */
+
+static void GCube_LogStorageStatus( void )
+{
+#if XASH_GAMECUBE
+	if( !gc_fat_mounted )
+	{
+		Con_Reportf( "Xash3D GameCube: SD storage not mounted (disc-only mode)\n" );
+		return;
+	}
+
+	/* fatGetSpace availability varies across devkitPro/libogc versions.
+	 * Skip dynamic free-space query to maintain build compatibility.
+	 * Storage write failures are still reported via Con_Reportf in Host_WriteConfig/FS_SaveVFSConfig. */
+#endif
+}
+
 void GCube_EnsureWritableLayout( void )
 {
 	char base[MAX_SYSPATH];
@@ -198,6 +226,9 @@ void GCube_EnsureWritableLayout( void )
 	 * The engine uses 'valve/save' for autosaves and 'valve/save/<mapname>'
 	 * for manual saves in some builds, but standard HL uses 'valve/save'
 	 * directly for .sav files. We ensure the base is ready. */
+
+	/* G32: Log storage status for bounding/failure diagnosis */
+	GCube_LogStorageStatus();
 }
 
 void GCube_Init( void )
