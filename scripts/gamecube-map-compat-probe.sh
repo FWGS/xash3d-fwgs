@@ -1,111 +1,113 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-RUN_ALL=0
-if [[ "${1:-}" == "--all" ]]; then
-	RUN_ALL=1
-	shift
-fi
+MAPS_DIR="${1:-Half-Life/valve/maps}"
+LOG_BASE=".ai/logs/map-compat-$(date +%Y%m%d-%H%M%S)"
+TSV_FILE="$LOG_BASE/results.tsv"
+MD_FILE="$LOG_BASE/summary.md"
+PROBE_SCRIPT="scripts/dolphin-boot-probe.sh"
 
-MAP_ROOT="${HL1_MAP_DIR:-$ROOT/Half-Life/valve/maps}"
-TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-180}"
-STAMP="$(date +%Y%m%d-%H%M%S)"
-OUT_DIR=".ai/logs/map-compat-$STAMP"
-REPORT="$OUT_DIR/report.tsv"
-SUMMARY="$OUT_DIR/summary.md"
-mkdir -p "$OUT_DIR"
+mkdir -p "$LOG_BASE"
 
-# Initialize maps list
-MAPS=()
+# Header for TSV
+printf "map\tstatus\tmemory_peak\tblocker\tlog_path\n" > "$TSV_FILE"
 
-if [[ $# -gt 0 ]]; then
-	MAPS=("$@")
-elif [[ -n "${MAP_COMPAT_MAPS:-}" ]]; then
-	read -r -a MAPS <<<"$MAP_COMPAT_MAPS"
-elif (( RUN_ALL )) && [[ -d "$MAP_ROOT" ]]; then
-	# Use a temporary file to safely read map names to avoid subshell issues with mapfile if needed,
-	# though mapfile is generally safe in bash 4+.
-	mapfile -t MAPS < <(find "$MAP_ROOT" -maxdepth 1 -type f -name '*.bsp' \
-		-printf '%f\n' | sed 's/\.bsp$//' | sort)
-else
-	echo "map-compat: supply map names, MAP_COMPAT_MAPS, or --all for $MAP_ROOT" >&2
-	exit 2
-fi
+# Header for Markdown
+cat > "$MD_FILE" <<EOF
+# GameCube Map Compatibility Report
 
-if [[ ${#MAPS[@]} -eq 0 ]]; then
-	echo "map-compat: no maps found to probe."
+Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+Maps Directory: ${MAPS_DIR}
+Probe Script: ${PROBE_SCRIPT}
+
+## Results
+
+| Map | Status | Memory Peak | Blocker | Log Path |
+|---|---|---|---|---|
+EOF
+
+if [ ! -d "$MAPS_DIR" ]; then
+	echo "WARN: Maps directory not found: $MAPS_DIR"
+	echo "No maps to probe."
 	exit 0
 fi
 
-printf 'map\tstatus\tlog\n' >"$REPORT"
-{
-	echo "# GameCube Map Compatibility Probe"
-	echo
-	echo "- Started: $STAMP"
-	echo "- Timeout: ${TIMEOUT_SEC}s"
-	echo "- Maps: ${#MAPS[@]}"
-	echo
-	echo "| Map | Status | Log |"
-	echo "| --- | --- | --- |"
-} >"$SUMMARY"
-
-# Track overall status
-overall_status=0
-for map in "${MAPS[@]}"; do
-	echo "==> probing $map"
+# Iterate over all .bsp files
+for bsp in "$MAPS_DIR"/*.bsp; do
+	[ -f "$bsp" ] || continue
 	
-	# Capture output and status
-	set +e
-	output="$(DOLPHIN_TIMEOUT="$TIMEOUT_SEC" DOLPHIN_SMOKE_MAP="$map" \
-		scripts/dolphin-boot-probe.sh 2>&1)" || true
-	probe_status=$?
-	set -e
+	map_name="$(basename "$bsp" .bsp)"
+	echo "==> Probing map: $map_name"
 	
-	# Extract log path from output
-	log_path="$(printf '%s\n' "$output" | awk '/^Logs: / { print $2 }' | tail -1)"
-	if [[ -z "$log_path" ]]; then
-		log_path="unknown"
-	fi
-
-	# Determine label based on probe_status and output content
-	label="unknown"
-	case "$probe_status" in
-		0) label="ready" ;;
-		1) 
-			# Exit 1 often means build failed in dolphin-boot-probe.sh
-			if printf '%s\n' "$output" | grep -q "FAIL: Disc build failed"; then
-				label="build-failure"
-				overall_status=2
-			else
-				label="probe-error-1"
-				overall_status=2
+	# Run the boot probe for this specific map
+	# DOLPHIN_SMOKE_MAP tells the probe which map to load
+	# We capture stdout/stderr to determine status
+	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" timeout 180 bash "$PROBE_SCRIPT" 2>&1)
+	PROBE_EXIT=$?
+	
+	# Find the specific log directory created by the probe
+	# The probe creates .ai/logs/dolphin-probe-YYYYMMDD-HHMMSS
+	# We look for the most recently modified one
+	PROBE_LOG_DIR=$(ls -td .ai/logs/dolphin-probe-* 2>/dev/null | head -n 1)
+	
+	if [ -z "$PROBE_LOG_DIR" ]; then
+		STATUS="PROBE_FAIL"
+		BLOCKER="Probe script did not create log directory"
+		LOG_PATH=""
+		MEM_PEAK="N/A"
+	else
+		LOG_PATH="$PROBE_LOG_DIR"
+		
+		# Analyze logs
+		STDERR_LOG="$PROBE_LOG_DIR/stderr.log"
+		STDOUT_LOG="$PROBE_LOG_DIR/stdout.log"
+		
+		BLOCKER=""
+		STATUS="UNKNOWN"
+		MEM_PEAK="N/A"
+		
+		# Check for Map Loaded marker
+		if grep -q "Xash3D GameCube: map loaded ${map_name}" "$STDERR_LOG" 2>/dev/null || \
+		   grep -q "Xash3D GameCube: map loaded ${map_name}" "$STDOUT_LOG" 2>/dev/null; then
+			STATUS="MAP_LOADED"
+			
+			# Extract memory peak if available
+			MEM_LINE=$(grep "mem stage=.*hwm=" "$STDERR_LOG" 2>/dev/null | tail -n 1)
+			if [ -n "$MEM_LINE" ]; then
+				MEM_PEAK=$(echo "$MEM_LINE" | grep -oP 'hwm=\K[0-9.]+ [KmG]b')
 			fi
-			;;
-		2) label="host-failure"; (( overall_status < 2 )) && overall_status=2 ;;
-		3) label="guest-failure"; (( overall_status < 3 )) && overall_status=3 ;;
-		4) label="timeout"; (( overall_status < 4 )) && overall_status=4 ;;
-		*) label="probe-error-$probe_status"; (( overall_status < probe_status )) && overall_status=$probe_status ;;
-	esac
-	
-	# Refine status if we have specific markers in output for status 0
-	if [[ "$label" == "ready" ]]; then
-		if printf '%s\n' "$output" | grep -q "MAP_READY"; then
-			label="playable"
-		elif printf '%s\n' "$output" | grep -q "MAP_LOADED_NO_INPUT"; then
-			label="loaded-no-input"
+		elif grep -q "MAP_READY" <<< "$PROBE_OUTPUT"; then
+			STATUS="MAP_READY"
+		elif grep -q "GUEST_FAILURE" <<< "$PROBE_OUTPUT" || grep -q "Host_Error" "$STDERR_LOG" 2>/dev/null; then
+			STATUS="GUEST_FAILURE"
+			BLOCKER=$(grep -m1 -i "error\|fail\|panic" "$STDERR_LOG" 2>/dev/null | head -n 1)
+		elif grep -q "HOST_FAILURE" <<< "$PROBE_OUTPUT"; then
+			STATUS="HOST_FAILURE"
+			BLOCKER="Dolphin/Host failed"
+		elif [ $PROBE_EXIT -eq 124 ] || [ $PROBE_EXIT -eq 137 ]; then
+			STATUS="TIMEOUT"
+			BLOCKER="Probe timed out or killed"
 		else
-			label="engine-ready"
+			STATUS="INCONCLUSIVE"
+			BLOCKER="No clear success/failure markers found"
 		fi
+		
+		# Clean up blocker string for TSV/Markdown (replace newlines/tabs)
+		BLOCKER=$(echo "$BLOCKER" | tr '\n' ' ' | tr '\t' ' ' | sed 's/|/ /g')
 	fi
-
-	printf '%s\t%s\t%s\n' "$map" "$label" "${log_path}" >>"$REPORT"
-	printf '| `%s` | `%s` | `%s` |\n' "$map" "$label" "${log_path}" >>"$SUMMARY"
-	printf '%s\n' "$output" >"$OUT_DIR/$map.output.log"
+	
+	# Record to TSV
+	printf "%s\t%s\t%s\t%s\t%s\n" "$map_name" "$STATUS" "$MEM_PEAK" "$BLOCKER" "$LOG_PATH" >> "$TSV_FILE"
+	
+	# Record to Markdown
+	printf "| %s | %s | %s | %s | [%s](%s) |\n" \
+		"$map_name" "$STATUS" "$MEM_PEAK" "$BLOCKER" "Logs" "$LOG_PATH" >> "$MD_FILE"
+		
 done
 
-echo "map-compat: wrote $REPORT"
-echo "map-compat: wrote $SUMMARY"
-exit "$overall_status"
+echo "==> Probe complete. Results in $LOG_BASE/"
+echo "   TSV: $TSV_FILE"
+echo "   Markdown: $MD_FILE"
