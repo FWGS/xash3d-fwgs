@@ -200,6 +200,7 @@ fi
 FRAME_MIN=""
 FRAME_MAX=""
 FRAME_AVG=""
+FRAME_P95=""
 FRAME_COUNT=${#FRAME_TIMES[@]}
 if (( FRAME_COUNT > 0 )); then
 	FRAME_MIN="${FRAME_TIMES[0]}"
@@ -211,6 +212,20 @@ if (( FRAME_COUNT > 0 )); then
 		FRAME_SUM=$(echo "$FRAME_SUM + $t" | bc -l)
 	done
 	FRAME_AVG=$(echo "scale=3; $FRAME_SUM / $FRAME_COUNT" | bc -l)
+
+	# Compute 95th percentile (P95) for frame timing
+	if (( FRAME_COUNT > 1 )); then
+		SORTED_TIMES=($(printf '%s\n' "${FRAME_TIMES[@]}" | sort -g))
+		P95_IDX=$(echo "$FRAME_COUNT * 0.95" | bc)
+		# bc truncates, so use ceiling index
+		P95_IDX=$(echo "$P95_IDX + 0.99" | bc | cut -d. -f1)
+		(( P95_IDX > FRAME_COUNT )) && P95_IDX=$FRAME_COUNT
+		# Array is 0-indexed, so subtract 1
+		(( P95_IDX-- ))
+		FRAME_P95="${SORTED_TIMES[$P95_IDX]}"
+	else
+		FRAME_P95="${FRAME_TIMES[0]}"
+	fi
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
@@ -236,8 +251,11 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			echo "FRAME_MIN: ${FRAME_MIN}ms"
 			echo "FRAME_MAX: ${FRAME_MAX}ms"
 			echo "FRAME_AVG: ${FRAME_AVG}ms"
+			echo "FRAME_P95: ${FRAME_P95}ms"
 			if (( $(echo "$FRAME_MAX > 16.66" | bc -l) )); then
 				echo "PERFORMANCE_BLOCKER: Frame budget exceeded. Max=${FRAME_MAX}ms > 16.66ms (60fps target)."
+			elif (( $(echo "$FRAME_P95 > 16.66" | bc -l) )); then
+				echo "PERFORMANCE_NOTE: P95=${FRAME_P95}ms > 16.66ms. Target stable, but intermittent frames exceed budget."
 			else
 				echo "PERFORMANCE_OK: Frame budget telemetry present and within 60fps limits."
 			fi
