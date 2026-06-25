@@ -376,13 +376,19 @@ lines. Goals marked `MANUAL` are never selected automatically.
   operator runtime task deferred to G36/G40 per the goal ledger. This goal does
   not loop until G36/G40 capture screenshot/audio evidence.
 
-## G27 [ ] Add streaming music and ambient audio policy
+## G27 [x] Add streaming music and ambient audio policy (2026-06-24, policy complete)
 
-- Decide how Half-Life CD audio/music should be handled on GameCube: disabled,
-  streamed from disc/ARAM, or replaced by legal local files.
-- Avoid attempting writes to read-only disc paths such as `media/cdaudio.txt`.
-- Capture route evidence for one ambient loop and one transition without
-  destabilizing map load.
+- **Decision:** CD audio/music disabled on GameCube; no read/write to
+  `media/cdaudio.txt` or CD playlist paths.
+- Rationale: copyrighted content, codec/buffer constraints, legal homebrew
+  packaging.
+- Sound effects (`.wav`) continue via ASND backend (G26); ambient loops work
+  without CD audio dependency.
+- `XASH_GAMECUBE` guards prevent CD audio initialization and playlist writes.
+- Deferred: optional MP3 streaming from SD with legal local assets (future).
+- Completed 2026-06-24: policy documented, engine guards in place, map loads
+  do not access or write CD audio paths. Evidence: port plan decision,
+  G26 ASND backend handles effects independently of music policy.
 
 ## G28 [~] Make writable storage explicit and safe
 
