@@ -1050,10 +1050,31 @@ static void R_EdgeDrawing( void )
 
 #if XASH_GAMECUBE
 	{
-		// G24a: low-memory smoke path skips full world edge pass until stable
+		// G24a: low-memory mode skips heavy world edge pass but keeps state valid
 		if( GC_IsLowMemoryMode() )
 		{
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing skipping world pass (quality=0)\n" );
+			// Still allocate edge/surface arrays to keep renderer state consistent
+			if( auxedges )
+			{
+				r_edges = auxedges;
+			}
+			else
+			{
+				r_edges = (edge_t *)
+				  (((uintptr_t)&ledges[0] + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
+			}
+
+			if( r_surfsonstack )
+			{
+				surfaces = (surf_t *)(((uintptr_t)&lsurfs + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
+				surf_max = &surfaces[r_cnumsurfs];
+				memset( surfaces, 0, sizeof( surf_t ));
+				surfaces--;
+				R_SurfacePatch();
+			}
+
+			R_BeginEdgeFrame();
 			return;
 		}
 	}
