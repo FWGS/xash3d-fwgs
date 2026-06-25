@@ -20,17 +20,10 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 #include "platform/platform.h"
-/* GC_GetVisualQuality is provided by ref/gx/r_local.h in the renderer.
- * Use a compile-time safe stub here for the client module which may
- * be compiled independently of the renderer headers. */
-static inline int GC_ClientVisualQuality( void )
-{
-#if XASH_LOW_MEMORY
-	return 0;
-#else
-	return 1; /* Standard quality for client-side sprite logic */
-#endif
-}
+/* Client-side sprite loading cannot access the renderer's GC_GetVisualQuality()
+ * because r_local.h is a renderer-local header. Use a compile-time consistent
+ * low-memory guard instead. Runtime quality adjustments for sprites are handled
+ * in the renderer (ref/gx/r_sprite.c). */
 #endif
 
 static char  sprite_name[MAX_QPATH];
@@ -182,13 +175,14 @@ static const byte *Mod_SpriteLoadFrame( model_t *mod, const void *pin, mspritefr
 	}
 	else
 	{
-		// partial HD-textures support (skip at quality 0 to save memory)
-		// Quality-aware fallback: low-memory mode skips HD replacements entirely,
-		// medium/high quality loads them when materials are permitted.
-#if XASH_GAMECUBE
-		if( Mod_AllowMaterials( ) && GC_ClientVisualQuality( ) > 0 )
-#else
+		// partial HD-textures support (skip in low-memory builds to save memory)
+		// Runtime quality-aware adjustments are handled in the renderer.
+#if XASH_GAMECUBE && !XASH_LOW_MEMORY
 		if( Mod_AllowMaterials( ))
+#elif !XASH_GAMECUBE
+		if( Mod_AllowMaterials( ))
+#else
+		if( 0 ) /* Low-memory GameCube builds skip HD sprite replacements */
 #endif
 		{
 			if( Mod_SpriteSearchForTextureReplacement( texname, sizeof( texname ), sprite_name, "materials/%s/%s%i%i.tga", sprite_name, group_suffix, num / 10, num % 10 ))
