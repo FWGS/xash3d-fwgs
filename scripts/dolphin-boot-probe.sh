@@ -224,6 +224,12 @@ if grep -aqsF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}"; th
 	FRAME_BUDGET_SAMPLE_COUNT=$(grep -acF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}")
 fi
 
+# G36: Detect explicit frame deadline miss markers to separate late-frames from fast-frames
+FRAME_DEADLINE_MISSES=0
+if grep -aqsF "Xash3D GameCube: frame deadline miss" "${LOG_FILES[@]}"; then
+	FRAME_DEADLINE_MISSES=$(grep -acF "Xash3D GameCube: frame deadline miss" "${LOG_FILES[@]}")
+fi
+
 # G36: Detect software surface cache override (known GC memory/perf knob)
 SW_SURFCACHE_OVERRIDE=""
 if grep -aqsF "sw_surfcacheoverride" "${LOG_FILES[@]}"; then
