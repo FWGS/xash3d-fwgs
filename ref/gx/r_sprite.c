@@ -207,7 +207,10 @@ void R_DrawSpriteModel( cl_entity_t *e )
 
 #if XASH_GAMECUBE
 	if( !low_quality_skip_occlusion && R_SpriteOccluded( e, origin, &scale ))
+	{
+		tr.blend = original_blend;
 		return; // sprite culled
+	}
 #else
 	if( R_SpriteOccluded( e, origin, &scale ))
 		return; // sprite culled
