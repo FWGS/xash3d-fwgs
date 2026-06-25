@@ -285,7 +285,7 @@ extern gl_globals_t   tr;
 
 /*
 ** GC_IsLowMemoryMode
-** Returns 1 if running in XASH_LOW_MEMORY mode (quality 0).
+** Returns 1 if running in low-memory mode (XASH_LOW_MEMORY or runtime sample_size 0).
 ** Returns 0 otherwise.
 */
 static inline int GC_IsLowMemoryMode( void )
@@ -293,6 +293,10 @@ static inline int GC_IsLowMemoryMode( void )
 #if XASH_GAMECUBE
 #if XASH_LOW_MEMORY
 	return 1;
+#else
+	/* Runtime check: sample_size of 0 forces low-memory smoke path */
+	if( tr.sample_size == 0 )
+		return 1;
 #endif
 #endif
 	return 0;
