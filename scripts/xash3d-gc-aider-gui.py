@@ -794,6 +794,9 @@ class PortWindow(QMainWindow):
 		layout_restore_action = QAction("Restore Saved Layout", self)
 		layout_restore_action.triggered.connect(self.restore_saved_layout)
 		self.layout_menu.addAction(layout_restore_action)
+		layout_clear_action = QAction("Clear Saved Layout", self)
+		layout_clear_action.triggered.connect(self.clear_saved_layout)
+		self.layout_menu.addAction(layout_clear_action)
 		reset_action = QAction("Reset Dock Layout", self)
 		reset_action.triggered.connect(self.reset_dock_layout)
 		self.layout_menu.addAction(reset_action)
@@ -843,7 +846,7 @@ class PortWindow(QMainWindow):
 		return True
 
 	def save_settings(self) -> None:
-		if self.write_settings_file(include_layout=True):
+		if self.write_settings_file(include_layout=False):
 			self.status_label.setText(f"Saved settings: {SETTINGS_PATH.relative_to(DEFAULT_REPO)}")
 
 	def save_layout(self) -> None:
@@ -890,7 +893,6 @@ class PortWindow(QMainWindow):
 		follow_log = data.get("follow_log")
 		if isinstance(follow_log, bool):
 			self.follow_log.setChecked(follow_log)
-		self.apply_layout_settings(data)
 
 	def ensure_core_panels_visible(self) -> None:
 		for title in ("Goals", "Progress", "Workspace"):
@@ -977,13 +979,11 @@ class PortWindow(QMainWindow):
 		widget = dock.widget()
 		if widget is None:
 			return
-		if self.center_tabs.indexOf(widget) >= 0:
-			self.center_tabs.setCurrentWidget(widget)
-			return
-		dock.setWidget(QWidget())
-		dock.hide()
-		self.center_widgets[title] = widget
-		self.center_tabs.addTab(widget, title)
+		if self.center_tabs.indexOf(widget) < 0:
+			dock.setFloating(False)
+			dock.hide()
+			self.center_widgets[title] = widget
+			self.center_tabs.addTab(widget, title)
 		self.center_tabs.setCurrentWidget(widget)
 		self.status_label.setText(f"Docked {title} in middle workspace")
 
@@ -1034,7 +1034,25 @@ class PortWindow(QMainWindow):
 		self.resizeDocks([self.docks["Goals"], self.docks["Telemetry"]], [520, 420], Qt.Orientation.Horizontal)
 		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [320, 220], Qt.Orientation.Vertical)
 		self.resizeDocks([self.docks["Log"], self.docks["Dolphin Viewport"]], [520, 420], Qt.Orientation.Horizontal)
+		self.clear_saved_layout(silent=True)
 		self.status_label.setText("Dock layout reset")
+
+	def clear_saved_layout(self, *, silent: bool = False) -> None:
+		data = self.read_settings_file()
+		if not data:
+			return
+		data.pop("geometry", None)
+		data.pop("dock_layout", None)
+		try:
+			SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+			SETTINGS_PATH.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n",
+				encoding="utf-8")
+		except OSError as exc:
+			if not silent:
+				QMessageBox.warning(self, "Clear layout failed", str(exc))
+			return
+		if not silent:
+			self.status_label.setText("Cleared saved dock layout")
 
 	def repo(self) -> Path:
 		return Path(self.repo_edit.text().strip()).expanduser().resolve()
