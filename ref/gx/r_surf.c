@@ -1309,8 +1309,23 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 
 	{
-		// calculate the lightings
-		R_BuildLightMap( );
+		// G24b: skip expensive lightmap building for quality 0 world-luxels
+		// surfaces that use the unlit fallback in R_DrawSurfaceBlock8_World
+#if XASH_GAMECUBE
+		if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
+		{
+			// zero out blocklights so R_DrawSurfaceBlock8_World has a clean slate
+			int sample_size = LM_SAMPLE_SIZE_AUTO( surface );
+			int smax = ( surface->info->lightextents[0] / sample_size ) + 1;
+			int tmax = ( surface->info->lightextents[1] / sample_size ) + 1;
+			memset( blocklights, 0, sizeof( uint ) * smax * tmax );
+		}
+		else
+#endif
+		{
+			// calculate the lightings
+			R_BuildLightMap( );
+		}
 		// rasterize the surface into the cache
 		R_DrawSurface();
 	}
