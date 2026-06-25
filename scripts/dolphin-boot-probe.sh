@@ -1003,6 +1003,13 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			else
 				echo "G36_PARSE_STRICT: 0 frames matched strict 'frame time=' pattern."
 			fi
+
+			# G36_PATCH_v10: Flag when GX wait time telemetry is missing despite
+			# frame budget logging being active, to diagnose whether guest is
+			# omitting VI-sync markers or whether the pattern needs relaxing.
+			if (( FRAME_BUDGET_LOGS )) && (( GX_WAIT_TIME_SAMPLES == 0 )); then
+				echo "G36_GX_WAIT_MISSING: Frame budget logs present but no gx_wait_time samples. Guest may not be emitting VI-sync timing markers."
+			fi
 			echo "G36_PARSE_RELAXED: ${FRAME_TIMES_RELAXED} frames matched relaxed '.* time=' pattern."
 			if (( FRAME_TIMES_RELAXED > 0 )) && (( FRAME_TIMES_STRICT == 0 )); then
 				echo "G36_PARSE_HINT: Guest using non-standard frame time marker format. Relax strict expectations or update guest to emit 'frame time=<ms>'."
