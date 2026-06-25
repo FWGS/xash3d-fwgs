@@ -300,14 +300,28 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 		// quality 0 (low-memory): never allocate alpha_pixels to reduce pressure
 #if XASH_GAMECUBE
-		if( j == 0 && tex->flags & TF_HAS_ALPHA && GC_GetVisualQuality() > 0 )
-			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
+		if( j == 0 && tex->flags & TF_HAS_ALPHA )
+		{
+			if( GC_GetVisualQuality() == 0 )
+			{
+				tex->alpha_pixels = NULL;
+				// explicitly clear alpha flag in low-memory path to avoid fallback reads
+				ClearBits( tex->flags, TF_HAS_ALPHA );
+			}
+			else
+			{
+				tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
+				// guard against OOM in alpha path
+				if( !tex->alpha_pixels )
+				{
+					gEngfuncs.Con_Reportf( S_WARN "%s: OOM alpha_pixels %ux%ux%u, disabling alpha\n", __func__, width, height, tex->depth );
+					ClearBits( tex->flags, TF_HAS_ALPHA );
+				}
+			}
+		}
 		else if( j == 0 )
 		{
 			tex->alpha_pixels = NULL;
-			// explicitly clear alpha flag in low-memory path to avoid fallback reads
-			if( GC_GetVisualQuality() == 0 )
-				ClearBits( tex->flags, TF_HAS_ALPHA );
 		}
 #else
 		if( j == 0 && tex->flags & TF_HAS_ALPHA )
