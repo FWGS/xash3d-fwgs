@@ -639,6 +639,11 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_GX_HITCHES: ${FRAME_HITCHES} frame hitch markers detected. Possible CPU/GPU sync or VI wait issues."
 			fi
 
+			# G36: Report explicit frame deadline misses (late-frame evidence)
+			if (( FRAME_DEADLINE_MISSES > 0 )); then
+				echo "G36_DEADLINE_MISSES: ${FRAME_DEADLINE_MISSES} frame deadline misses detected. Guest reported frames failing to meet budget deadline."
+			fi
+
 			# G36: Report frame budget sample consistency
 			if (( FRAME_BUDGET_SAMPLE_COUNT > 0 )); then
 				echo "G36_BUDGET_SAMPLES: ${FRAME_BUDGET_SAMPLE_COUNT} explicit budget samples recorded."
