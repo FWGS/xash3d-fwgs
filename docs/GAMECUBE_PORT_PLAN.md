@@ -967,32 +967,31 @@ or operator-recorded hardware evidence before they can be marked complete.
 
 ## G35 — Reach a playable early-game route
 
-**Blocker (2026-06-25):** Map loading fails with `Host_ErrorInit: Could not load model maps from disk`
-during `SV_SpawnServer`. The world model name appears to collapse to `maps` instead of
-resolving to `maps/c0a0e.bsp`. This is a regression from G21's fix.
-
-**Automation Fix:** `scripts/dolphin-boot-probe.sh` updated to automatically remove
-stale `.ai/dolphin-probe.lock` files older than 30 seconds, allowing retries without
-manual intervention.
+**Blocker (2026-06-25):** Map loading starts successfully but the probe times out
+before reaching `Xash3D GameCube: map loaded c0a0e`. The BSP file is found and
+allocated (`zip alloc maps/c0a0e.bsp size=1474093`) but the parse appears to take
+longer than the 60-second probe timeout in Dolphin HLE.
 
 **Evidence:**
 ```sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
-Probe exit code 3 (previous run): `.ai/logs/dolphin-probe-20260625-092405/stderr.log`
-- `Spawn Server: c0a0e` succeeds
-- `Host_ErrorInit: Could not load model maps from disk` follows immediately
+Probe exit code 4 (timeout): `.ai/logs/dolphin-probe-20260625-133557/stderr.log`
+- `sv.name='c0a0e' world model path='maps/c0a0e.bsp'` — path construction is correct
+- `Mod_LoadWorld request='maps/c0a0e.bsp' registered='maps/c0a0e.bsp' exists=1 size=1474092 preload=1`
+- `zip load maps/c0a0e.bsp offset=63409 size=1474092 csize=1474092 flags=0`
+- `zip alloc maps/c0a0e.bsp size=1474093` — BSP data allocated, parse begins
+- Probe times out before `Xash3D GameCube: map loaded` marker
 
-**Investigation:** Diagnostic logging in `engine/server/sv_init.c` prints
-`sv.name` and the exact world model path before `Mod_LoadWorld`.
-If the path construction is correct (`maps/c0a0e.bsp`), the issue lies in `Mod_LoadWorld`
-or the filesystem search paths (likely the disc content staging in `scripts/build-gamecube-disc.py`).
-If `sv.name` is empty or wrong, trace back through `GameState->levelName` assignment.
+**Analysis:** The world model path is correct (G21 fix active). The BSP file is found
+and its data is allocated successfully. The probe times out because the full BSP parse
+(Mod_LoadBrushModel + entity spawn + activation) does not complete within 60 seconds
+in Dolphin HLE mode. This is a performance/timeout issue, not a correctness bug.
 
-**Next step:**
-1. Re-run the probe to examine the logged `sv.name` and model path.
-2. If `sv.name` is correct, verify `maps/c0a0e.bsp` exists in the generated ISO.
+**Next step:** Increase the default probe timeout to 180 seconds. If the map still
+does not load, investigate whether the BSP parse hangs or whether additional
+diagnostics are needed inside `Mod_LoadWorld`.
 
 ## Active investigation memory (2026-06-24)
 

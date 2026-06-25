@@ -519,7 +519,40 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 
 	if( file->flags == ZIP_COMPRESSION_NO_COMPRESSION )
 	{
+#if XASH_GAMECUBE
+		if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
+		{
+			fs_offset_t total = 0;
+			const fs_offset_t chunk_size = 32 * 1024;
+
+			while( total < file->size )
+			{
+				fs_offset_t remaining = file->size - total;
+				fs_offset_t request = remaining > chunk_size ? chunk_size : remaining;
+				fs_offset_t got = FS_Read( search->zip->handle, decompressed_buffer + total, request );
+
+				if( got != request )
+				{
+					Con_Reportf( "Xash3D GameCube: zip stored chunk short %s read=%li expected=%li total=%li size=%li\n",
+						path, (long)got, (long)request, (long)total, (long)file->size );
+					pfnFree( decompressed_buffer );
+					return NULL;
+				}
+
+				total += got;
+
+				if(( total & (( 256 * 1024 ) - 1 )) == 0 || total == file->size )
+					Con_Reportf( "Xash3D GameCube: zip chunk read %s total=%li/%li\n",
+						path, (long)total, (long)file->size );
+			}
+
+			c = total;
+		}
+		else
+#endif
+		{
 		c = FS_Read( search->zip->handle, decompressed_buffer, file->size );
+		}
 		if( c != file->size )
 		{
 #if XASH_GAMECUBE

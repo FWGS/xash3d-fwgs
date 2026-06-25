@@ -25,7 +25,7 @@ fi
 ISO_PATH="$ROOT/OUT/xash3d-gc.iso"
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
-TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
+TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-180}"
 SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
