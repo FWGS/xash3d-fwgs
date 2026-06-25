@@ -433,6 +433,17 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 
 		// clear all the unsupported flags
 		tex->flags &= ~TF_KEEP_SOURCE;
+
+		// quality 0 (low-memory): skip expensive uncompression path by marking
+		// compressed textures as NOMIPMAP and forcing minimal flags to reduce
+		// downstream CPU and memory pressure
+#if XASH_GAMECUBE
+		if( GC_GetVisualQuality() == 0 )
+		{
+			ClearBits( tex->flags, TF_HAS_ALPHA );
+			ClearBits( tex->flags, TF_FORCE_COLOR );
+		}
+#endif
 	}
 	else
 	{
