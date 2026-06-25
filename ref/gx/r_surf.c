@@ -1290,30 +1290,13 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		// Quality 1/2 preserve existing behavior.
 		int alloc_width = r_drawsurf.surfwidth;
 		int alloc_height = r_drawsurf.surfheight;
-		qboolean did_clamp = false;
 		if( !GC_GetVisualQuality() )
 		{
 			// Clamp to 64x64 for quality 0 to preserve cache budget
 			if( alloc_width > 64 )
-			{
 				alloc_width = 64;
-				did_clamp = true;
-			}
 			if( alloc_height > 64 )
-			{
 				alloc_height = 64;
-				did_clamp = true;
-			}
-		}
-		if( did_clamp )
-		{
-			// Clamp drawing dimensions to match allocated budget
-			r_drawsurf.surfwidth = alloc_width;
-			r_drawsurf.surfheight = alloc_height;
-			r_drawsurf.rowbytes = alloc_width;
-			// Ensure surface extent clamping prevents out-of-bounds sampling
-			surface->info->lightextents[0] = alloc_width << miplevel;
-			surface->info->lightextents[1] = alloc_height << miplevel;
 		}
 #endif
 		cache = D_SCAlloc( r_drawsurf.surfwidth,
