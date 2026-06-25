@@ -330,9 +330,9 @@ static inline qboolean GC_IsLowMemoryMode( void )
 #else
 	return tr.sample_size == 0 ? true : false;
 #endif /* !XASH_LOW_MEMORY */
-#else
+#else /* !XASH_GAMECUBE */
 	return false;
-#endif
+#endif /* XASH_GAMECUBE */
 }
 
 typedef struct image_s
