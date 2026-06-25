@@ -313,7 +313,8 @@ static inline int GC_GetVisualQuality( void )
 #if XASH_LOW_MEMORY
 	return 0;
 #else
-	/* Quality 0 is forced when sample_size is 0 (low-memory smoke path) */
+	/* Quality 0 is forced when sample_size is explicitly 0 (low-memory smoke path) */
+	/* Negative sample_size means "auto" so do not force low quality */
 	if( tr.sample_size == 0 )
 		return 0;
 	/* Quality 2 requires non-trivial sampling in both dimensions */
