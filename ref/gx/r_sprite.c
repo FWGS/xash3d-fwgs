@@ -208,7 +208,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 #if XASH_GAMECUBE
 	if( !low_quality_skip_occlusion && R_SpriteOccluded( e, origin, &scale ))
 	{
-		tr.blend = original_blend;
+		if( vis_quality != 0 )
+			tr.blend = original_blend; // restore only for standard/high quality
 		return; // sprite culled
 	}
 #else
