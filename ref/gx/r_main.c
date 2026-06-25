@@ -1422,7 +1422,7 @@ qboolean GAME_EXPORT R_Init( void )
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected\n", init_quality );
 
 	// G24a: single entry-point marker for low-memory quality wire
-	if( init_quality == 0 )
+	if( GC_GetVisualQuality() == 0 )
 	{
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
 	}
