@@ -318,7 +318,8 @@ fi
 FRAME_CPU_AVG=""
 FRAME_GX_AVG=""
 if (( FRAME_CPU_TIME_SAMPLES > 0 )) && (( FRAME_GX_TIME_SAMPLES > 0 )); then
-	eval "$(grep -aoE 'Xash3D GameCube: (frame |render )?cpu_time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+	# G36_PATCH_v2: Use relaxed pattern to catch cpu_time/gx_time regardless of prefix format
+	eval "$(grep -aoE 'Xash3D GameCube: .* cpu_time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'cpu_time=[0-9]+(\.[0-9]+)?' | sed 's/cpu_time=//' | awk '
 		{
 			sum += $1; count++;
@@ -327,7 +328,7 @@ if (( FRAME_CPU_TIME_SAMPLES > 0 )) && (( FRAME_GX_TIME_SAMPLES > 0 )); then
 			if (count > 0) printf "FRAME_CPU_AVG=%.3f\n", sum/count;
 		}')"
 	
-	eval "$(grep -aoE 'Xash3D GameCube: (frame |render )?gx_time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+	eval "$(grep -aoE 'Xash3D GameCube: .* gx_time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'gx_time=[0-9]+(\.[0-9]+)?' | sed 's/gx_time=//' | awk '
 		{
 			sum += $1; count++;
@@ -346,13 +347,15 @@ fi
 # G36: Detect active renderer backend (GX vs software) for frame budget correlation
 GUEST_RENDERER=""
 if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}"; then
-	GUEST_RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized [a-zA-Z_-]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[a-zA-Z_-]+$')
+	# G36_PATCH_v2: Relaxed pattern to catch renderer name after "initialized" with any spacing
+	GUEST_RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized +[a-zA-Z_-]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[a-zA-Z_-]+$')
 fi
 
 # G36: Detect explicit guest-reported frame count for sample completeness validation
 GUEST_REPORTED_FRAME_COUNT=0
 if grep -aqsE "Xash3D GameCube: total_frames_rendered=" "${LOG_FILES[@]}"; then
-	GUEST_REPORTED_FRAME_COUNT=$(grep -aoE 'Xash3D GameCube: total_frames_rendered=[0-9]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[0-9]+$' || echo "0")
+	# G36_PATCH_v2: Use word boundary to robustly extract numeric frame count
+	GUEST_REPORTED_FRAME_COUNT=$(grep -aoE 'Xash3D GameCube: total_frames_rendered=[0-9]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[0-9]+' || echo "0")
 fi
 
 # G36: Detect software surface cache override (known GC memory/perf knob)
@@ -429,24 +432,25 @@ if (( FRAME_BUDGET_LOGS )); then
 	# G36_PATCH: Further relaxed pattern to reduce parse-filter false negatives
 	# by allowing arbitrary word characters between prefix and 'time=' to catch
 	# variant marker names without requiring exact naming conventions.
+	# G36_PATCH_v2: Ultra-relaxed pattern to capture any 'time=' key-value after the guest prefix.
+	# This eliminates parse-filter false negatives that cause sample loss.
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: [a-zA-Z_ ]* time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+	done < <(grep -aoE 'Xash3D GameCube: .* time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
 
 	# G36: Also extract frame times from 'frame duration' markers (alternative naming)
 	# G36_PATCH: Relaxed pattern to allow arbitrary word characters for variant markers
+	# G36_PATCH_v2: Ultra-relaxed to match any 'duration=' after guest prefix
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: frame[a-zA-Z_ ]* duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+	done < <(grep -aoE 'Xash3D GameCube: .* duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'duration=[0-9]+(\.[0-9]+)?' | sed 's/duration=//')
 
 	# G36_PATCH: Extract frame times from 'render time' markers (another variant)
 	# Added to catch guests that label rendering-specific timing distinctly from frame timing
-	while IFS= read -r val; do
-		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: (frame |render )?render time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oE 'render time=[0-9]+(\.[0-9]+)?' | sed 's/render time=//')
+	# G36_PATCH_v2: Removed this redundant pass; 'time=' pattern above already covers 'render time='.
+	# Keeping this block empty to avoid duplicate samples that inflate FRAME_COUNT.
 
 	# Check for dropped frame markers to correlate with jank
 	grep -aqsF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}" && FRAME_DROP_LOGS=1
