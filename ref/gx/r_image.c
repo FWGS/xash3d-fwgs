@@ -392,6 +392,15 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 	}
 	else
 	{
+		// low-memory path: strip alpha early to prevent downstream buffer allocation
+#if XASH_GAMECUBE
+		if( GC_GetVisualQuality() == 0 )
+		{
+			ClearBits( tex->flags, TF_HAS_ALPHA );
+			ClearBits( pic->flags, IMAGE_HAS_ALPHA );
+		}
+#endif
+
 		// copy flag about luma pixels
 		if( pic->flags & IMAGE_HAS_LUMA )
 			tex->flags |= TF_HAS_LUMA;
