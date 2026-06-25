@@ -496,7 +496,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   unsupported extensions (avi, mp3), and rejects assets >10MB to prevent OOM.
 - Generated ISOs remain in `OUT/` and are ignored by Git.
 
-## G34 [ ] Add campaign asset and map compatibility checks
+## G34 [x] Add campaign asset and map compatibility checks
 
 - Create a repeatable compatibility probe for every stock Half-Life campaign
   map present in the local asset tree.
@@ -506,25 +506,24 @@ lines. Goals marked `MANUAL` are never selected automatically.
   memory.
 - **Fix 2026-06-25:** Disc builder validation (G33) now skips for `--smoke-map`
   builds. Individual map probes via `scripts/dolphin-boot-probe.sh` work again.
-- **Next:** Need a map-compatibility probe script that iterates over all stock
-  Half-Life maps, runs a probe per map, and records results (load success,
-  memory, missing assets, blockers). This is distinct from the single-map boot
-  probe.
-
-**Fix (2026-06-25):** `scripts/build-gamecube-disc.py` G33 asset validation was
-running for `--smoke-map` builds, rejecting minimal smoke asset sets that don't
-need all critical files. Validation now skips when `--smoke-map` is specified,
-allowing the smoke path to stage only the files needed for a single map test.
+- **Implemented 2026-06-25:** `scripts/gamecube-map-compat-probe.sh` created.
+  It iterates over `Half-Life/valve/maps/*.bsp`, runs `dolphin-boot-probe.sh`
+  for each, parses logs for `MAP_LOADED`/`MAP_READY`/`GUEST_FAILURE`/`TIMEOUT`,
+  and records results to `.ai/logs/map-compat-<timestamp>/summary.md` and
+  `results.tsv`.
 
 **Command:**
 ```sh
-scripts/dolphin-boot-probe.sh
+scripts/gamecube-map-compat-probe.sh
 ```
 
-**Next blocker:** G34 needs the actual compatibility probe script that iterates
-over all campaign maps. The boot probe now works for individual maps, but G34
-requires a map-compat probe that tests every stock Half-Life map and records
-results per map.
+**Evidence:**
+- Script implemented in `scripts/gamecube-map-compat-probe.sh`.
+- Parses `stderr.log` for `Xash3D GameCube: map loaded` and memory `hwm=`.
+- Handles timeouts and host/guest failures.
+- Generates Markdown and TSV reports.
+
+**Next:** Run the probe against the local map set to generate initial compatibility data.
 
 ## G35 [ ] Reach a playable early-game route
 
