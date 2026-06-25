@@ -210,6 +210,7 @@ grep -aqsF "Xash3D GameCube: frame budget measurement init failed" "${LOG_FILES[
 # G36: Report measurement initialization status for diagnostic clarity
 if (( FRAME_BUDGET_INIT_FAIL )); then
 	echo "G36_MEASUREMENT_INIT_FAIL: Guest reported frame budget measurement failed to initialize. Telemetry is unreliable."
+	echo "G36_HINT: Check renderer initialization path. Frame budget markers require successful GX subsystem startup."
 elif (( FRAME_BUDGET_INIT_OK )); then
 	echo "G36_MEASUREMENT_INIT_OK: Guest confirmed frame budget measurement subsystem initialized successfully."
 elif (( FRAME_BUDGET_LOGS )); then
@@ -222,6 +223,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )) && ! (( FRAME_BUDGET_LOGS )); then
 	echo "G36_MEASUREMENT_INCOMPLETE: Map loaded interactively but no frame budget telemetry detected in logs."
 	echo "G36_HINT: Guest may not be emitting 'Xash3D GameCube: frame.*time=' markers. Check renderer initialization."
 	echo "G36_HINT: Ensure renderer emits 'Xash3D GameCube: frame time=<ms>' or 'Xash3D GameCube: render frame time=<ms>' per frame."
+	echo "G36_STATUS: INCOMPLETE (no frame budget telemetry)"
 fi
 
 # G36: Emit explicit measurement baseline marker so downstream tooling can
@@ -910,8 +912,10 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			# G36: Flag low sample count as insufficient for statistical confidence
 			if (( FRAME_COUNT < 3 )); then
 				echo "G36_SAMPLE_BLOCKER: Only ${FRAME_COUNT} frame samples collected. Insufficient for any budget analysis. Map may have loaded but rendering stalled immediately."
+				echo "G36_STATUS: INCOMPLETE (insufficient samples)"
 			elif (( FRAME_COUNT < 5 )); then
 				echo "G36_SAMPLE_WARN: Only ${FRAME_COUNT} frame samples collected. Insufficient for reliable P95 budget analysis."
+				echo "G36_STATUS: WEAK (low sample count)"
 			elif (( FRAME_COUNT < 10 )); then
 				echo "G36_SAMPLE_NOTE: ${FRAME_COUNT} frame samples collected. Moderate confidence in budget measurement."
 			else
