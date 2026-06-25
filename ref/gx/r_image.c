@@ -250,15 +250,17 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 	// mips will be auto-generated if desired
 	// Low-memory/quality 0 path skips mips to save texture memory pressure
+#if XASH_GAMECUBE
 	uint activeMips = ( GC_GetVisualQuality() == 0 ) ? 1 : mipCount;
 
 	if( GC_GetVisualQuality() == 0 )
 	{
 		SetBits( tex->flags, TF_NOMIPMAP );
-#if XASH_GAMECUBE
 		gEngfuncs.Con_Reportf( "GC-Q0: %s %dx%d single-mip, no alpha\n", tex->name, tex->width, tex->height );
-#endif
 	}
+#else
+	uint activeMips = mipCount;
+#endif
 
 	for( uint j = 0; j < activeMips; j++ )
 	{
@@ -271,6 +273,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		tex->pixels[j] = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
 
 		// quality 0 (low-memory): never allocate alpha_pixels to reduce pressure
+#if XASH_GAMECUBE
 		if( j == 0 && tex->flags & TF_HAS_ALPHA && GC_GetVisualQuality() > 0 )
 			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
 		else if( j == 0 )
@@ -280,6 +283,12 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 			if( GC_GetVisualQuality() == 0 )
 				ClearBits( tex->flags, TF_HAS_ALPHA );
 		}
+#else
+		if( j == 0 && tex->flags & TF_HAS_ALPHA )
+			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
+		else if( j == 0 )
+			tex->alpha_pixels = NULL;
+#endif
 
 		for( uint i = 0; i < height * width; i++ )
 		{
