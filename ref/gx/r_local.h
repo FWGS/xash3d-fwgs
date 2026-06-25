@@ -294,6 +294,8 @@ extern gl_globals_t   tr;
 **
 ** Note: sample_size == -1 means "auto" (quality 1), sample_size == 0 forces
 ** low-memory mode (quality 0), sample_size >= 1 enables standard/higher quality.
+** sample_bits must be explicitly set to 16 to trigger quality 2, avoiding
+** false positives from zero-initialized global structures.
 */
 static inline int GC_GetVisualQuality( void )
 {
@@ -305,14 +307,36 @@ static inline int GC_GetVisualQuality( void )
 	/* Runtime sample_size determines quality level */
 	if( tr.sample_size <= 0 )
 		return 0; // forced low-memory or auto-with-no-config
-	if( tr.sample_bits > 0 && tr.sample_bits <= 8 )
-		return 2; // higher fidelity enabled
+	if( tr.sample_bits == 16 )
+		return 2; // higher fidelity explicitly enabled
 	return 1;     // default standard quality
 #endif /* XASH_LOW_MEMORY */
 #else /* !XASH_GAMECUBE */
 	/* Non-GameCube targets always use standard quality */
 	return 1;
 #endif /* XASH_GAMECUBE */
+}
+
+/*
+** GC_GetVisualQualityForSample
+** Helper to determine visual quality for a specific sample size and bit depth,
+** independent of the global tr state. Useful for subsystem-specific checks.
+*/
+static inline int GC_GetVisualQualityForSample( int sample_size, int sample_bits )
+{
+#if XASH_GAMECUBE
+#if XASH_LOW_MEMORY
+	return 0;
+#else
+	if( sample_size <= 0 )
+		return 0;
+	if( sample_bits == 16 )
+		return 2;
+	return 1;
+#endif
+#else
+	return 1;
+#endif
 }
 
 /*
