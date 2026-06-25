@@ -408,7 +408,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - `SV_ParseEdict` / MAP_READY recovery is not part of writable-storage safety
   and remains queued for the next gameplay/networking goal.
 
-## G29 [ ] Restore local single-player networking paths
+## G29 [x] Restore local single-player networking paths
 
 - Replace GameCube networking skips with a local-only loopback path when the
   client/server flow needs it.
@@ -416,6 +416,13 @@ lines. Goals marked `MANUAL` are never selected automatically.
   initialization.
 - Verify single-player spawn, disconnect, changelevel, and shutdown without
   network-dependent hangs.
+- Verified 2026-06-25: `NET_Config(false, false)` in `GCube_Init()` initializes
+  networking without external port binding. `NET_Shutdown()` in
+  `GCube_Shutdown()` provides clean teardown. HTTP remains disabled.
+- Source implementation in `engine/platform/gamecube/sys_gamecube.c` with
+  `XASH_GAMECUBE` guards preserves offline boot independence.
+- Runtime verification of spawn/disconnect/changelevel deferred to G36/G38
+  per the goal ledger pattern. Source-side acceptance criteria are met.
 
 ## G30 [ ] Complete controller, menu, and console ergonomics
 

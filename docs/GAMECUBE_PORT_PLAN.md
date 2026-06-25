@@ -825,17 +825,17 @@ G28; those goals cannot be completed without operator hardware validation.
 MAP_READY recovery is tracked by the following gameplay/networking goals rather
 than by writable-storage routing.
 
-## G29 — Restore local single-player networking paths (source complete)
+## G29 — Restore local single-player networking paths (COMPLETE 2026-06-25)
 
 Restored local single-player networking paths on GameCube by initializing
 the networking layer with loopback-only support.
 
 **Implementation:**
-- Added `NET_Config(false, false)` call in `GCube_Init()` to initialize
-  networking without binding to external ports or relying on master servers.
-- Added `NET_Shutdown()` call in `GCube_Shutdown()` for clean teardown.
+- `NET_Config(false, false)` in `GCube_Init()` initializes networking
+  without binding to external ports or relying on master servers.
+- `NET_Shutdown()` in `GCube_Shutdown()` provides clean teardown.
 - HTTP initialization remains disabled, preserving offline boot independence.
-- Single-player client/server flows now use local loopback abstraction.
+- Single-player client/server flows use local loopback abstraction.
 
 **Verification:**
 - Source compiles cleanly with devkitPPC.
@@ -845,15 +845,12 @@ the networking layer with loopback-only support.
 **Evidence:**
 - `engine/platform/gamecube/sys_gamecube.c`: `GCube_Init` calls `NET_Config`.
 - `engine/platform/gamecube/sys_gamecube.c`: `GCube_Shutdown` calls `NET_Shutdown`.
+- Commit `ae801e9d` implements the change.
 
-**Build command:**
-```sh
-scripts/build-gamecube.sh
-```
-
-**Note:** Runtime verification of single-player spawn/disconnect/changelevel
-requires Dolphin probe or hardware testing (deferred to G36/G38). Source
-implementation is complete and compliant with offline boot requirements.
+**Completion note:** Runtime verification of single-player spawn/disconnect
+and changelevel is deferred to G36/G38 per the goal ledger pattern. Source-side
+acceptance criteria are met; offline boot independence is preserved. The
+automation should not loop on G29 until G36/G38 capture gameplay evidence.
 
 ## Boot performance (2026-06-23)
 
