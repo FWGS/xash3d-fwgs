@@ -698,8 +698,8 @@ errors. Probe `021844` reaches `MAP_READY` with no `Could not load HUD sprite`
 messages.
 
 **2026-06-24 Update:**
-Applied stability patches to `3rdparty/hlsdk-portable/cl_dll/hud.cpp` and `engine/client/cl_scrn.c`:
-- Added `GC_GetVisualQuality()` checks in `CHud::Init` and `CHud::VidInit` to skip heavy sprite loading for quality 0.
+Applied stability patches to `3rdparty/hlsdk-portable/cl_dll/hud.h` and `engine/client/cl_scrn.c`:
+- Added `GC_GetVisualQuality()` checks in `CHud::Init` and `CHud::VidInit` via `hud.h` helper to skip heavy sprite loading for quality 0.
 - Guarded `SPR_Load` calls against missing sprites to prevent hangs.
 - Replaced blocking `HUD_MessageBox` with `Con_NPrintf` on GameCube for missing `number_0` sprite.
 - Refined `SCR_RegisterTextures` to skip for quality < 1.
