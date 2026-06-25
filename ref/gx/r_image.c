@@ -345,13 +345,14 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		}
 
 		// quality 0 (low-memory): never allocate alpha_pixels to reduce pressure
+		// also reduce mip count to 1 for all textures in quality 0 to save memory
 		if( j == 0 && q == 0 )
 		{
 			tex->alpha_pixels = NULL;
 			// explicitly clear alpha flag in low-memory path to avoid fallback reads
 			ClearBits( tex->flags, TF_HAS_ALPHA );
 		}
-		else if( j == 0 && tex->flags & TF_HAS_ALPHA )
+		else if( j == 0 && tex->flags & TF_HAS_ALPHA && q > 0 )
 		{
 			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
 			if( !tex->alpha_pixels )
