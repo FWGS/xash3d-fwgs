@@ -524,18 +524,12 @@ static void GL_DeleteTexture( image_t *tex )
 		gEngfuncs.FS_FreeImage( tex->original );
 
 	for( int i = 0; i < 4; i++ )
+	{
 		if( tex->pixels[i] )
-#if XASH_GAMECUBE
-			;
-#else
 			Mem_Free( tex->pixels[i] );
-#endif
+	}
 	if( tex->alpha_pixels )
-#if XASH_GAMECUBE
-		;
-#else
 		Mem_Free( tex->alpha_pixels );
-#endif
 
 	memset( tex, 0, sizeof( *tex ));
 }
