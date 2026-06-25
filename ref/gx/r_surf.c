@@ -306,7 +306,7 @@ void R_DrawSurface( void )
 	// G24b: guard against drawing surfaces larger than allocated cache budget
 	// in quality 0 mode. D_CacheSurface clamps allocations to 64x64, but
 	// r_drawsurf dimensions reflect actual extents. Skip draw if exceeded.
-	if( GC_IsLowMemoryMode() &&
+	if( GC_GetVisualQuality() == 0 &&
 	    ( r_drawsurf.surfwidth > 64 || r_drawsurf.surfheight > 64 ))
 		return;
 #endif
