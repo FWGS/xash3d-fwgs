@@ -584,11 +584,7 @@ static void R_DrawEntitiesOnList( void )
 
 	d_pdrawspans = R_PolysetDrawSpans8_33;
 
-#if XASH_GAMECUBE
-		// G24a: low-memory smoke path skips translucent entity draw until stable
-		if( GC_IsLowMemoryMode() )
-			goto skip_trans_entities;
-#endif
+#if !XASH_GAMECUBE || !GC_IsLowMemoryMode()
 		// then draw translucent entities
 		for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 		{
@@ -630,8 +626,6 @@ static void R_DrawEntitiesOnList( void )
 				break;
 			}
 		}
-#if XASH_GAMECUBE
-skip_trans_entities:
 #endif
 
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
