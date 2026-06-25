@@ -1418,9 +1418,15 @@ qboolean GAME_EXPORT R_Init( void )
 	// Ensure tr.framecount starts at 0 so GC_GetVisualQuality init guard is deterministic
 	tr.framecount = 0;
 	// Initialize sample_size to 0 (low-memory default) before quality check;
-	// R_NewMap will recalculate it when a map is loaded
+	// GC_GetVisualQuality() reads tr.sample_size to determine quality mode.
+	// R_NewMap will recalculate it when a map is loaded.
 	tr.sample_size = 0;
 	tr.sample_bits = -1;
+
+#if XASH_GAMECUBE
+	// G24a: quality mode is now driven by tr.sample_size (0 = low-memory smoke path).
+	// GC_GetVisualQuality() from r_local.h reflects this consistently.
+#endif
 
 #if XASH_GAMECUBE
 	{
