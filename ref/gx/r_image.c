@@ -749,6 +749,8 @@ int GAME_EXPORT GL_CreateTexture( const char *name, int width, int height, const
 	}
 
 	// low-memory path: reduce dimensions of internal textures to reduce pressure
+	// Internal textures (default, particle, white, gray, black) are small utility
+	// textures; clamping to 64x64 in quality 0 saves memory without visual impact
 #if XASH_GAMECUBE
 	if( GC_GetVisualQuality() == 0 )
 	{
