@@ -62,12 +62,11 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	// pglDepthMask( GL_FALSE );
 
 	int vis = GC_GetVisualQuality();
-	// Quality-aware particle density: reduce size/brightness instead of skipping
-	// to avoid visual popping. All particles are drawn but scaled down for
-	// lower quality levels.
+	// Stable low-memory visual modes (G24c):
 	// Quality 0 (low-memory/smoke): 50% size, 50% brightness
 	// Quality 1 (medium):           75% size, full brightness
 	// Quality 2 (high):             100% size, full brightness
+	// All particles are drawn but scaled down to avoid visual popping.
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
@@ -215,7 +214,10 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			tmp[2] = 0;
 			VectorNormalize( tmp );
 
-			// Quality-aware tracer size: reduce in low-memory mode instead of skipping
+			// Stable low-memory visual modes (G24c):
+			// Quality 0 (low-memory/smoke): 50% size
+			// Quality 1 (medium):           75% size
+			// Quality 2 (high):             100% size
 			float tracer_size = gTracerSize[p->type];
 			if( vis == 0 )
 				tracer_size *= 0.5f;
