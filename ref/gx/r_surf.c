@@ -361,6 +361,10 @@ void R_DrawSurface( void )
 	// or zero-sized surfaces. Skip draw to avoid division-by-zero or infinite loops.
 	if( r_numhblocks <= 0 || r_numvblocks <= 0 || blocksize <= 0 )
 		return;
+#else
+	// Guard for all platforms against degenerate dimensions
+	if( r_numhblocks <= 0 || r_numvblocks <= 0 || blocksize <= 0 )
+		return;
 #endif
 
 	if( sample_size == 16 )
