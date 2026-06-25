@@ -20,6 +20,9 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 #include "platform/platform.h"
+#ifndef GC_GetVisualQuality
+extern int GC_GetVisualQuality( void );
+#endif
 #endif
 
 static char  sprite_name[MAX_QPATH];
