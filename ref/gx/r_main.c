@@ -492,7 +492,8 @@ static void R_SetupFrame( void )
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame quality=%d\n", quality );
 		// G24a: use GC_IsLowMemoryMode helper consistently for quality 0 checks
-		if( !GC_IsLowMemoryMode() )
+		// Only sort translucent entities when not in low-memory mode (quality != 0)
+		if( quality > 0 )
 		{
 			qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
 		}
