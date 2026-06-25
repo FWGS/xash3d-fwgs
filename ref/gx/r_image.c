@@ -362,7 +362,13 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 		// create luma texture from quake texture
 		if( tex->flags & TF_MAKELUMA )
 		{
-			img_flags |= IMAGE_MAKE_LUMA;
+#if XASH_GAMECUBE
+			// quality 0 (low-memory): skip luma generation to reduce texture pressure
+			if( GC_GetVisualQuality() > 0 )
+#endif
+			{
+				img_flags |= IMAGE_MAKE_LUMA;
+			}
 			tex->flags &= ~TF_MAKELUMA;
 		}
 
