@@ -62,12 +62,16 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	// pglDepthMask( GL_FALSE );
 
 	int vis = GC_GetVisualQuality();
-	float particle_quality_scale = 1.0f;
+	// Stable quality-aware particle density:
+	// Quality 0 (low-memory): 1 in 8 non-blob particles (12.5%)
+	// Quality 1 (medium):     1 in 4 non-blob particles (25%)
+	// Quality 2 (high):       all particles (100%)
+	int particle_skip_interval = 1;
 	if( vis == 0 )
-		particle_quality_scale = 0.125f; // low-memory: reduce non-blob particle density to 12.5%
+		particle_skip_interval = 8;
 	else if( vis == 1 )
-		particle_quality_scale = 0.25f; // medium: reduce non-blob particle density to 25%
-	// quality 2 (high): particle_quality_scale remains 1.0, render all particles
+		particle_skip_interval = 4;
+	// quality 2: particle_skip_interval remains 1 (render all)
 	int particle_count = 0;
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
@@ -78,7 +82,7 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			// Deterministic quality-aware density: only render particles whose
 			// position in the list satisfies the quality threshold.
 			// This preserves spatial distribution while cutting draw calls.
-			if( particle_quality_scale < 1.0f && ( particle_count % (int)(1.0f / particle_quality_scale) != 1 ))
+			if( particle_skip_interval > 1 && ( particle_count % particle_skip_interval ) != 1 )
 				continue; // quality-aware: reduce non-blob particle draw calls
 		}
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
