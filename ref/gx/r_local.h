@@ -323,16 +323,7 @@ static inline int GC_GetVisualQuality( void )
 */
 static inline qboolean GC_IsLowMemoryMode( void )
 {
-#if XASH_GAMECUBE
-#if XASH_LOW_MEMORY
-	/* Compile-time low-memory builds always report low-memory mode */
-	return true;
-#else /* XASH_GAMECUBE && !XASH_LOW_MEMORY */
-	return tr.sample_size == 0 ? true : false;
-#endif /* XASH_LOW_MEMORY */
-#else /* !XASH_GAMECUBE */
-	return false;
-#endif /* XASH_GAMECUBE */
+	return GC_GetVisualQuality() == 0;
 }
 
 typedef struct image_s
