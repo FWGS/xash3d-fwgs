@@ -1306,6 +1306,9 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			r_drawsurf.surfwidth = alloc_width;
 			r_drawsurf.surfheight = alloc_height;
 			r_drawsurf.rowbytes = alloc_width;
+			// Ensure surface extent clamping prevents out-of-bounds sampling
+			surface->info->lightextents[0] = alloc_width << miplevel;
+			surface->info->lightextents[1] = alloc_height << miplevel;
 		}
 #endif
 		cache = D_SCAlloc( r_drawsurf.surfwidth,
