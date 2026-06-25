@@ -1325,7 +1325,7 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		pixel_t fallback_color = 0x7FFF; // Neutral gray
 		int rows_filled = 0;
 
-		if( img && miplevel < 4 && img->pixels[miplevel] )
+		if( img && miplevel < 4 && miplevel < img->numMips && img->pixels[miplevel] )
 		{
 			pixel_t *src = img->pixels[miplevel];
 			int srcw = img->width >> miplevel;
