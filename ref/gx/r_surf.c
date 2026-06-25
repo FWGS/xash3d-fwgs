@@ -1295,6 +1295,7 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			if( alloc_height > 64 )
 				alloc_height = 64;
 		}
+		// Quality 1/2 preserve full allocation size for higher fidelity
 #endif
 		cache = D_SCAlloc(
 #if XASH_GAMECUBE
