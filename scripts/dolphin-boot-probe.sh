@@ -370,6 +370,11 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			echo "FRAME_P99: ${FRAME_P99}ms"
 			echo "FRAME_P95: ${FRAME_P95}ms"
 		fi
+		
+		# G36 structured summary for automated tooling
+		if (( FRAME_COUNT > 0 )); then
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED}"
+		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
 		fi
