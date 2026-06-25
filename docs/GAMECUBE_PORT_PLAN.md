@@ -108,9 +108,17 @@ launches Dolphin as a bounded subprocess with an isolated user directory,
 captures host screenshots, and sends the latest PNG plus OSReport/Dolphin log
 tail to an OpenAI-compatible vision model. The PyQt6 GUI exposes this as
 `Dolphin Screenshot Vision Test` with a dedicated `VISION` pipeline node.
+Each run also writes `.ai/logs/dolphin-vision-*/result.json` and updates the
+run-local Dolphin memory palace at `.ai/state/dolphin-harness-memory.json` plus
+`.ai/state/dolphin-harness-latest.md`. These files summarize bootstrap,
+engine-ready, map-ready, input, visual, audio, and guest-error markers so
+Qwable/Codex can reason from the last Dolphin attempt even when screenshots or
+vision inference are unavailable. The GUI telemetry panel shows the latest
+harness status, visual classification, and next debugging action.
 Useful controls: `DOLPHIN_VISION_RUNTIME`,
 `DOLPHIN_VISION_FIRST_SCREENSHOT`, `DOLPHIN_VISION_SCREENSHOT_INTERVAL`,
-`QWABLE_5_VISION_MODEL`, and `QWABLE_VISION_MODEL`.
+`QWABLE_5_VISION_MODEL`, `QWABLE_VISION_MODEL`, `--goal`, `--skip-vision`,
+and `--skip-text-analysis`.
 The hardened full-build gate caught an invalid `rserr_nomem` result introduced
 by the earlier GX buffer patch. GameCube buffer-allocation failure now returns
 the existing `rserr_unknown` value from the platform contract; no new enum or

@@ -792,6 +792,15 @@ class PortWindow(QMainWindow):
 			entries = [line[2:] for line in blockers.read_text(encoding="utf-8").splitlines() if line.startswith("- ")]
 			if entries:
 				blocker_tail = entries[-1][:100]
+		harness_latest = root / ".ai/state/dolphin-harness-latest.md"
+		harness_status = "none recorded"
+		if harness_latest.is_file():
+			interesting = []
+			for line in harness_latest.read_text(encoding="utf-8").splitlines():
+				if line.startswith("- Status:") or line.startswith("- Visual:") or line.startswith("- Next action:"):
+					interesting.append(line.removeprefix("- ").strip())
+			if interesting:
+				harness_status = " / ".join(interesting)[:160]
 		toolchain = Path(os.environ.get("DEVKITPRO", "/opt/devkitpro")) / "devkitPPC/bin/powerpc-eabi-gcc"
 		lines = [
 			f"GIT       {branch}  {'DIRTY' if porcelain else 'CLEAN'}",
@@ -802,6 +811,7 @@ class PortWindow(QMainWindow):
 			f"CONTENT   {'READY' if valve.is_dir() else 'MISSING'}  Half-Life/valve",
 			f"AIDER     {'AUTH INHERITED' if os.environ.get('OPENAI_API_KEY') else 'AUTH NOT IN ENVIRONMENT'}",
 			f"BLOCKER   {blocker_tail}",
+			f"DOLPHIN   {harness_status}",
 		]
 		context = "\n".join(lines)
 		if context != self.last_context:

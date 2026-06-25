@@ -7,6 +7,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -142,6 +143,181 @@ def read_tail(path: Path, limit: int = 12000) -> str:
 	return data[-limit:]
 
 
+GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
+
+
+def active_goal(root: Path) -> str:
+	goals = root / ".ai/goals/GAMECUBE_PORT_GOALS.md"
+	if not goals.is_file():
+		return "dolphin"
+	current: tuple[str, str, str] | None = None
+	body: list[str] = []
+	for line in goals.read_text(encoding="utf-8").splitlines():
+		match = GOAL_RE.match(line)
+		if match:
+			if current and current[1] in {" ", "~"} and not goal_blocked(body):
+				return current[0]
+			current = match.groups()
+			body = []
+		elif current:
+			body.append(line)
+	if current and current[1] in {" ", "~"} and not goal_blocked(body):
+		return current[0]
+	return "dolphin"
+
+
+def goal_blocked(body: list[str]) -> bool:
+	return any(re.match(r"\s*-\s*Status:\s*BLOCKED\b", line, re.IGNORECASE)
+		for line in body)
+
+
+def marker_bool(logs: str, *patterns: str) -> bool:
+	return any(re.search(pattern, logs, re.IGNORECASE | re.MULTILINE)
+		for pattern in patterns)
+
+
+def classify_logs(logs: str, smoke_map: str) -> dict[str, object]:
+	markers = {
+		"bootstrap": marker_bool(logs, r"Xash3D GameCube: bootstrap"),
+		"engine_ready": marker_bool(logs, r"Xash3D GameCube: engine subsystems ready"),
+		"map_loaded": marker_bool(logs, rf"Xash3D GameCube: map loaded {re.escape(smoke_map)}"),
+		"input_polling": marker_bool(logs, r"Xash3D GameCube: input polling active"),
+		"diagnostic_marker": marker_bool(logs, r"DIAGNOSTIC MARKER VISIBLE"),
+		"sampled_nonblack": marker_bool(logs, r"sampled_nonblack=1"),
+		"audio_voice_started": marker_bool(logs, r"audio voice started"),
+		"audio_nonzero_pcm": marker_bool(logs, r"audio submitted nonzero PCM"),
+	}
+	errors = sorted(set(re.findall(
+		r"(Host_ErrorInit:.*|Host_Error:.*|Sys_Error:.*|fatal error.*|out of memory.*|Unknown instruction.*|Invalid read from.*)",
+		logs, re.IGNORECASE)))
+	if errors:
+		status = "guest_failure" if markers["bootstrap"] else "host_or_boot_failure"
+	elif markers["map_loaded"] and markers["input_polling"]:
+		status = "map_ready"
+	elif markers["engine_ready"]:
+		status = "engine_ready"
+	elif markers["bootstrap"]:
+		status = "bootstrap_only"
+	else:
+		status = "inconclusive"
+	visual = "unknown"
+	if markers["sampled_nonblack"]:
+		visual = "nonblack_renderer_pixels"
+	elif markers["diagnostic_marker"]:
+		visual = "diagnostic_marker_only"
+	elif markers["map_loaded"]:
+		visual = "no_nonblack_log_marker"
+	audio = "unknown"
+	if markers["audio_nonzero_pcm"]:
+		audio = "nonzero_pcm_submitted"
+	elif markers["audio_voice_started"]:
+		audio = "voice_started_no_nonzero_pcm"
+	return {
+		"status": status,
+		"visual": visual,
+		"audio": audio,
+		"markers": markers,
+		"errors": errors[:10],
+	}
+
+
+def next_action(classification: dict[str, object], screenshot_available: bool,
+	vision_available: bool) -> str:
+	markers = classification.get("markers", {})
+	errors = classification.get("errors", [])
+	if errors:
+		return "Fix the first guest error in OSReport before visual/audio tuning."
+	if not markers.get("bootstrap"):
+		return "Debug Dolphin launch, disc boot, apploader, or executable selection."
+	if not markers.get("engine_ready"):
+		return "Use OSReport tail to find the subsystem before engine readiness."
+	if not markers.get("map_loaded"):
+		return "Focus on map load, filesystem, model, or spawn blockers."
+	if not markers.get("input_polling"):
+		return "Check GameCube PAD/input initialization and polling markers."
+	if classification.get("visual") == "diagnostic_marker_only":
+		return "VI/XFB is likely alive; debug renderer content path and HUD/world draws."
+	if not screenshot_available:
+		return "Install a screenshot tool or run the GUI from a capturable desktop session."
+	if not vision_available:
+		return "Start a Qwable vision endpoint or set QWABLE_5_VISION_MODEL, then rerun."
+	return "Use the vision verdict plus markers to choose the next renderer/HUD/audio slice."
+
+
+def analyze_text_only(logs: str, classification: dict[str, object],
+	args: argparse.Namespace) -> str:
+	body = {
+		"model": args.vision_model,
+		"messages": [{
+			"role": "user",
+			"content": (
+				"You are reviewing a Dolphin run of the Xash3D Half-Life GameCube port. "
+				"No screenshot was captured, so use only structured markers and log tail. "
+				"Return status=pass/fail/inconclusive, what worked, what is blocked, and "
+				"the next concrete debugging action.\n\n"
+				f"Markers:\n{json.dumps(classification, indent=2)}\n\nLog excerpt:\n{logs}"
+			),
+		}],
+		"max_tokens": args.max_tokens,
+	}
+	request = Request(
+		api_url(args.api_base),
+		data=json.dumps(body).encode("utf-8"),
+		headers={"Content-Type": "application/json"},
+		method="POST",
+	)
+	if args.api_key:
+		request.add_header("Authorization", f"Bearer {args.api_key}")
+	with urlopen(request, timeout=args.vision_timeout) as response:
+		payload = json.loads(response.read().decode("utf-8"))
+	return payload["choices"][0]["message"]["content"]
+
+
+def write_memory(root: Path, run: dict[str, object]) -> None:
+	state_dir = root / ".ai/state"
+	state_dir.mkdir(parents=True, exist_ok=True)
+	path = state_dir / "dolphin-harness-memory.json"
+	if path.is_file():
+		try:
+			memory = json.loads(path.read_text(encoding="utf-8"))
+		except json.JSONDecodeError:
+			memory = {}
+	else:
+		memory = {}
+	memory.setdefault("purpose", "Persistent Dolphin run memory for Qwable/Codex porting feedback.")
+	memory["updated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+	runs = memory.setdefault("runs", [])
+	runs.insert(0, run)
+	del runs[20:]
+	goal = str(run.get("goal", "dolphin"))
+	rooms = memory.setdefault("rooms", {})
+	room = rooms.setdefault(goal, {"recent": []})
+	room["last"] = run
+	room["recent"].insert(0, run)
+	del room["recent"][8:]
+	path.write_text(json.dumps(memory, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+	latest = state_dir / "dolphin-harness-latest.md"
+	latest.write_text(
+		"\n".join((
+			"# Dolphin Harness Latest",
+			"",
+			f"- Goal: {run.get('goal')}",
+			f"- Status: {run.get('classification', {}).get('status')}",
+			f"- Visual: {run.get('classification', {}).get('visual')}",
+			f"- Audio: {run.get('classification', {}).get('audio')}",
+			f"- Screenshot: {run.get('latest_screenshot') or 'none'}",
+			f"- Analysis: {run.get('analysis_path') or 'none'}",
+			f"- Logs: {run.get('log_dir')}",
+			f"- Next action: {run.get('next_action')}",
+			"",
+			"## Model Analysis",
+			str(run.get("analysis", "(none)")),
+			"",
+		)),
+		encoding="utf-8",
+	)
+
+
 def analyze_with_vision(image: Path, logs: str, args: argparse.Namespace) -> str:
 	image_b64 = base64.b64encode(image.read_bytes()).decode("ascii")
 	prompt = (
@@ -209,10 +385,17 @@ def main() -> int:
 		"QWABLE_5_VISION_MODEL", os.environ.get("QWABLE_VISION_MODEL", "qwable-5-vision")))
 	parser.add_argument("--max-tokens", type=int, default=600)
 	parser.add_argument("--vision-timeout", type=int, default=120)
+	parser.add_argument("--goal", default=None,
+		help="goal/memory room for this run; defaults to the active automatic goal")
 	parser.add_argument("--skip-vision", action="store_true")
+	parser.add_argument("--skip-text-analysis", action="store_true",
+		help="do not ask the model for log-only analysis when no screenshot is available")
+	parser.add_argument("--no-memory", action="store_true",
+		help="do not update .ai/state/dolphin-harness-memory.json")
 	args = parser.parse_args()
 
 	root = args.repo.resolve()
+	goal = args.goal or active_goal(root)
 	log_dir = root / ".ai/logs" / f"dolphin-vision-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 	user_dir = log_dir / "dolphin-user"
 	screens = log_dir / "screenshots"
@@ -269,19 +452,56 @@ def main() -> int:
 		read_tail(log_dir / "dolphin.stdout.log"),
 		read_tail(log_dir / "dolphin.stderr.log"),
 	))
+	classification = classify_logs(logs, args.smoke_map)
+	analysis = ""
+	analysis_path = ""
 	if latest_screen and not args.skip_vision:
 		try:
 			analysis = analyze_with_vision(latest_screen, logs, args)
 		except (OSError, URLError, KeyError, json.JSONDecodeError) as exc:
 			analysis = f"VISION_FAILURE: {exc}"
+		analysis_path = str((log_dir / "vision-analysis.md").relative_to(root))
 		(log_dir / "vision-analysis.md").write_text(analysis + "\n", encoding="utf-8")
 		print("\n== vision analysis ==")
 		print(analysis)
 	elif not latest_screen:
 		print("VISION_SKIPPED: no screenshot was captured.")
+		if not args.skip_text_analysis and not args.skip_vision:
+			try:
+				analysis = analyze_text_only(logs, classification, args)
+			except (OSError, URLError, KeyError, json.JSONDecodeError) as exc:
+				analysis = f"TEXT_ANALYSIS_FAILURE: {exc}"
+			analysis_path = str((log_dir / "log-analysis.md").relative_to(root))
+			(log_dir / "log-analysis.md").write_text(analysis + "\n", encoding="utf-8")
+			print("\n== log analysis ==")
+			print(analysis)
 	else:
 		print("VISION_SKIPPED: --skip-vision was set.")
 
+	result = {
+		"goal": goal,
+		"created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+		"command": command,
+		"flatpak": flatpak,
+		"smoke_map": args.smoke_map,
+		"log_dir": str(log_dir.relative_to(root)),
+		"latest_screenshot": str(latest_screen.relative_to(root)) if latest_screen else "",
+		"analysis_path": analysis_path,
+		"analysis": analysis,
+		"classification": classification,
+		"next_action": next_action(classification, latest_screen is not None, bool(analysis_path)),
+	}
+	(log_dir / "result.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n",
+		encoding="utf-8")
+	if not args.no_memory:
+		write_memory(root, result)
+	print("\n== harness classification ==")
+	print(json.dumps({
+		"goal": goal,
+		"classification": classification,
+		"next_action": result["next_action"],
+		"result": str((log_dir / "result.json").relative_to(root)),
+	}, indent=2))
 	print(f"Logs: {log_dir.relative_to(root)}")
 	return 0
 
