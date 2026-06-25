@@ -842,14 +842,11 @@ R_DrawBEntitiesOnList
 static void R_DrawBEntitiesOnList( void )
 {
 #if XASH_GAMECUBE
+	// G24a: low-memory smoke path skips bmodel edge pass until stable
+	if( GC_IsLowMemoryMode() )
 	{
-		int quality = GC_GetVisualQuality();
-		// G24a: low-memory smoke path skips bmodel edge pass until stable
-		if( quality == 0 )
-		{
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_DrawBEntitiesOnList skipping (quality=0)\n" );
-			return;
-		}
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_DrawBEntitiesOnList skipping (quality=0)\n" );
+		return;
 	}
 #endif
 
