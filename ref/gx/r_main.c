@@ -1418,23 +1418,25 @@ qboolean GAME_EXPORT R_Init( void )
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin\n" );
 #endif
 
-	// Ensure tr.framecount starts at 0 so GC_GetVisualQuality init guard is deterministic
-	tr.framecount = 0;
-	// Initialize sample_size to 0 (low-memory default) before quality check;
+	// G24a: Ensure tr.framecount starts at 0 so GC_GetVisualQuality init guard is deterministic.
+	// Initialize sample_size to 0 (low-memory default) before quality check.
 	// GC_GetVisualQuality() reads tr.sample_size to determine quality mode.
-	// R_NewMap will recalculate it when a map is loaded.
+	// R_NewMap will recalculate sample_size when a map is loaded.
+	tr.framecount = 0;
 	tr.sample_size = 0;
 	tr.sample_bits = -1;
 
 #if XASH_GAMECUBE
-	// G24a: quality mode is driven by tr.sample_size (0 = low-memory smoke path).
+	// G24a: Quality mode is driven by tr.sample_size (0 = low-memory smoke path).
 	// GC_GetVisualQuality() from r_local.h is the single source of truth.
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected (sample_size=%d)\n", GC_GetVisualQuality(), tr.sample_size );
-
-	if( GC_IsLowMemoryMode() )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
-	else
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: standard/higher quality path active\n" );
+	{
+		int quality = GC_GetVisualQuality();
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected (sample_size=%d)\n", quality, tr.sample_size );
+		if( quality == 0 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
+		else
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: standard/higher quality path active\n" );
+	}
 #endif
 
 	gEngfuncs.Cvar_RegisterVariable( &sw_clearcolor );
