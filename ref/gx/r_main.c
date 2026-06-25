@@ -1414,14 +1414,6 @@ static void R_InitTurb( void )
 qboolean GAME_EXPORT R_Init( void )
 {
 	qboolean glblit = false;
-#if XASH_GAMECUBE
-	// G24a: Initialize renderer state before any quality checks so GC_GetVisualQuality is stable.
-	tr.framecount = 0;
-	tr.sample_size = 0;
-	tr.sample_bits = -1;
-
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin (quality=%d)\n", GC_GetVisualQuality() );
-#endif
 
 	// G24a: Ensure tr.framecount starts at 0 so GC_GetVisualQuality init guard is deterministic.
 	// Initialize sample_size to 0 (low-memory default) before quality check.
@@ -1436,6 +1428,7 @@ qboolean GAME_EXPORT R_Init( void )
 	// GC_GetVisualQuality() from r_local.h is the single source of truth.
 	{
 		int quality = GC_GetVisualQuality();
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin (quality=%d)\n", quality );
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected (sample_size=%d)\n", quality, tr.sample_size );
 		if( quality == 0 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
