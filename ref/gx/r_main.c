@@ -1497,7 +1497,7 @@ qboolean GAME_EXPORT R_Init( void )
 #if XASH_GAMECUBE
 	{
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer entering image init (quality=%d)\n", init_quality );
-		if( init_quality == 0 )
+		if( GC_IsLowMemoryMode() )
 		{
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: skipping full image init (quality=0)\n" );
 		}
