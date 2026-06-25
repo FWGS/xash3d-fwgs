@@ -206,6 +206,18 @@ if grep -aqsF "GX_FIFO_STALL" "${LOG_FILES[@]}"; then
 	GX_FIFO_STALLS=$(grep -acF "GX_FIFO_STALL" "${LOG_FILES[@]}")
 fi
 
+# G36: Detect frame presentation hitch markers (CPU/GPU sync evidence)
+FRAME_HITCHES=0
+if grep -aqsF "Xash3D GameCube: frame hitch" "${LOG_FILES[@]}"; then
+	FRAME_HITCHES=$(grep -acF "Xash3D GameCube: frame hitch" "${LOG_FILES[@]}")
+fi
+
+# G36: Detect explicit frame budget sample start/end markers for duration correlation
+FRAME_BUDGET_SAMPLE_COUNT=0
+if grep -aqsF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}"; then
+	FRAME_BUDGET_SAMPLE_COUNT=$(grep -acF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}")
+fi
+
 # G36: Extract explicit GC_MemSample high-water marks for memory-pressure correlation
 GC_MEM_PEAK_TOTAL=""
 GC_MEM_PEAK_DELTA=""
@@ -427,6 +439,19 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_GX_HW_BOUND: ${GX_FIFO_STALLS} GX_FIFO_STALL markers detected. Frame budget likely limited by GX hardware throughput."
 			fi
 
+			# G36: Report frame presentation hitches (CPU/GPU sync gaps)
+			if (( FRAME_HITCHES > 0 )); then
+				echo "G36_GX_HITCHES: ${FRAME_HITCHES} frame hitch markers detected. Possible CPU/GPU sync or VI wait issues."
+			fi
+
+			# G36: Report frame budget sample consistency
+			if (( FRAME_BUDGET_SAMPLE_COUNT > 0 )); then
+				echo "G36_BUDGET_SAMPLES: ${FRAME_BUDGET_SAMPLE_COUNT} explicit budget samples recorded."
+				if (( FRAME_BUDGET_SAMPLE_COUNT > FRAME_COUNT )); then
+					echo "G36_BUDGET_NOTE: More budget samples than frame-time logs. Some frames may have been skipped in timing telemetry."
+				fi
+			fi
+
 			# Report frame distribution percentiles for deeper analysis
 			FRAME_P50="${FRAME_MEDIAN}"
 			FRAME_P10=$(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | awk -v n="$FRAME_COUNT" 'NR==int(n*0.1+0.9999) {print; exit}')
@@ -441,7 +466,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT}"
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
