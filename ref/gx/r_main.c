@@ -1424,8 +1424,7 @@ qboolean GAME_EXPORT R_Init( void )
 #if XASH_GAMECUBE
 	// G24a: quality mode is driven by tr.sample_size (0 = low-memory smoke path).
 	// GC_GetVisualQuality() from r_local.h is the single source of truth.
-	int init_quality = GC_GetVisualQuality();
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected (sample_size=%d)\n", init_quality, tr.sample_size );
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected (sample_size=%d)\n", GC_GetVisualQuality(), tr.sample_size );
 
 	if( GC_IsLowMemoryMode() )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
@@ -1501,6 +1500,7 @@ qboolean GAME_EXPORT R_Init( void )
 
 #if XASH_GAMECUBE
 	{
+		int init_quality = GC_GetVisualQuality();
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer entering image init (quality=%d)\n", init_quality );
 		if( init_quality == 0 )
 		{
@@ -1527,18 +1527,21 @@ qboolean GAME_EXPORT R_Init( void )
 	qfrustum.view_clipplanes[0].rightedge = qfrustum.view_clipplanes[2].rightedge = qfrustum.view_clipplanes[3].rightedge = false;
 	R_StudioInit();
 #if XASH_GAMECUBE
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready (quality=%d)\n", init_quality );
-	if( init_quality != 0 )
+	{
+		int init_quality = GC_GetVisualQuality();
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready (quality=%d)\n", init_quality );
+		if( init_quality != 0 )
 	{
 #if defined(GC_MEMSAMPLE_AVAILABLE)
 		GC_MemSample( "models" );
 #endif
+		}
 	}
 #endif
 	R_InitTurb();
 	GL_InitRandomTable();
 #if XASH_GAMECUBE
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init ready (quality=%d)\n", init_quality );
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init ready (quality=%d)\n", GC_GetVisualQuality() );
 #endif
 
 	return true;
