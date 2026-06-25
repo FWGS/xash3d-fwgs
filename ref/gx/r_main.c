@@ -1532,9 +1532,9 @@ qboolean GAME_EXPORT R_Init( void )
 		int init_quality = GC_GetVisualQuality();
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready (quality=%d)\n", init_quality );
 		if( init_quality != 0 )
-	{
+		{
 #if defined(GC_MEMSAMPLE_AVAILABLE)
-		GC_MemSample( "models" );
+			GC_MemSample( "models" );
 #endif
 		}
 	}
