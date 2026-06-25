@@ -967,31 +967,36 @@ or operator-recorded hardware evidence before they can be marked complete.
 
 ## G35 — Reach a playable early-game route
 
-**Blocker (2026-06-25):** Map loading starts successfully but the probe times out
-before reaching `Xash3D GameCube: map loaded c0a0e`. The BSP file is found and
-allocated (`zip alloc maps/c0a0e.bsp size=1474093`) but the parse appears to take
-longer than the 60-second probe timeout in Dolphin HLE.
+**Progress (2026-06-25):** Single map load (`c0a0e`) now succeeds and reaches
+`MAP_READY` with interactive input. The previous BSP parse timeout blocker is
+resolved. Memory usage at `map active` is 5.34 MiB, well within budget.
 
 **Evidence:**
 ```sh
-DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh
 ```
 
-Probe exit code 4 (timeout): `.ai/logs/dolphin-probe-20260625-133557/stderr.log`
-- `sv.name='c0a0e' world model path='maps/c0a0e.bsp'` — path construction is correct
-- `Mod_LoadWorld request='maps/c0a0e.bsp' registered='maps/c0a0e.bsp' exists=1 size=1474092 preload=1`
-- `zip load maps/c0a0e.bsp offset=63409 size=1474092 csize=1474092 flags=0`
-- `zip alloc maps/c0a0e.bsp size=1474093` — BSP data allocated, parse begins
-- Probe times out before `Xash3D GameCube: map loaded` marker
+Probe exit code 0: `.ai/logs/dolphin-probe-20260625-140516/stderr.log`
+- `Xash3D GameCube: map loaded c0a0e`
+- `Xash3D GameCube: mem stage=map active total=5.34 Mb delta=54.24 Kb hwm=5.34 Mb map=c0a0e`
+- `Xash3D GameCube: direct map ready`
+- `Xash3D GameCube: input polling active`
+- `Game started`
+- Probe reported: `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
 
-**Analysis:** The world model path is correct (G21 fix active). The BSP file is found
-and its data is allocated successfully. The probe times out because the full BSP parse
-(Mod_LoadBrushModel + entity spawn + activation) does not complete within 60 seconds
-in Dolphin HLE mode. This is a performance/timeout issue, not a correctness bug.
+**Current Blocker:** G35 acceptance criteria require multi-map progression
+(tram/lab start through early route with changelevel, entities, triggers,
+scripted sequences, weapons, enemies). The current `-gcmap` smoke boot loads
+one map and enters a test loop. Normal gameplay continuation and `changelevel`
+support need validation.
 
-**Next step:** Increase the default probe timeout to 180 seconds. If the map still
-does not load, investigate whether the BSP parse hangs or whether additional
-diagnostics are needed inside `Mod_LoadWorld`.
+**Next step:** 
+1. Test whether gameplay continues beyond the initial smoke frames or if
+   `-gcmap` forces a halt. 
+2. If `-gcmap` blocks progression, create a test build without the smoke
+   map flag to validate natural changelevel flow.
+3. If changelevel works, extend the probe or create a route test that
+   validates map sequence progression.
 
 ## Active investigation memory (2026-06-24)
 
