@@ -81,7 +81,9 @@ GL_CalcTextureSize
 */
 static size_t GL_CalcTextureSize( int width, int height, int depth )
 {
-	return width * height * 2;
+	// pixel_t is 16-bit (2 bytes). width * height is at most 1024*1024,
+	// so this fits in 32-bit. depth is typically 1 for 2D textures.
+	return (size_t)width * height * depth * sizeof( pixel_t );
 }
 
 /*
