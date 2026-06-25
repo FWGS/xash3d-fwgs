@@ -253,7 +253,11 @@ def main() -> int:
 					latest_screen = output
 					print(f"SCREENSHOT: {output.relative_to(root)}")
 				else:
-					print("SCREENSHOT_FAILURE: no supported screenshot tool captured an image")
+					print(
+						"SCREENSHOT_FAILURE: no screenshot captured; install gnome-screenshot, "
+						"spectacle, scrot, maim, grim, or run from a desktop session where "
+						"PyQt6 can capture the primary screen"
+					)
 				next_capture += args.screenshot_interval
 			time.sleep(0.5)
 	finally:
