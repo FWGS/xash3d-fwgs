@@ -103,6 +103,7 @@ static void GL_SetTextureDimensions( image_t *tex, int width, int height, int de
 	tex->srcHeight = height;
 
 	// low-memory/quality-0 path clamps textures smaller to reduce upload pressure
+	// quality 2 (high fidelity) preserves the default maxTextureSize of 1024
 #if XASH_GAMECUBE
 	{
 		int q = GC_GetVisualQuality();
@@ -110,6 +111,7 @@ static void GL_SetTextureDimensions( image_t *tex, int width, int height, int de
 			maxTextureSize = 128;
 		else if( q == 1 )
 			maxTextureSize = 256;
+		// else quality 2: keep maxTextureSize at 1024 (default)
 	}
 #endif
 
