@@ -18,7 +18,6 @@ GNU General Public License for more details.
 #include "library.h"
 #if XASH_GAMECUBE
 #include "mem_gamecube.h"
-// G24a: GC_GetVisualQuality() is provided by r_local.h; do not redeclare.
 #endif
 // #include "beamdef.h"
 #include "entity_types.h"
