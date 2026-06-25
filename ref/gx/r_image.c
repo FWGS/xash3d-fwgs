@@ -838,13 +838,22 @@ R_InitDlightTexture
 void R_InitDlightTexture( void )
 {
 	rgbdata_t r_image;
+	int dlightSize;
 
 	if( tr.dlightTexture != 0 )
 		return; // already initialized
 
+	// low-memory path: reduce dlight texture dimensions to save pressure
+#if XASH_GAMECUBE
+	if( GC_GetVisualQuality() == 0 )
+		dlightSize = 32;
+	else
+#endif
+		dlightSize = BLOCK_SIZE;
+
 	memset( &r_image, 0, sizeof( r_image ));
-	r_image.width = BLOCK_SIZE;
-	r_image.height = BLOCK_SIZE;
+	r_image.width = dlightSize;
+	r_image.height = dlightSize;
 	r_image.flags = IMAGE_HAS_COLOR;
 	r_image.type = PF_RGBA_32;
 	r_image.size = r_image.width * r_image.height * 4;
