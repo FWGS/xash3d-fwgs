@@ -1416,7 +1416,8 @@ qboolean GAME_EXPORT R_Init( void )
 	tr.sample_bits = -1;
 
 #if XASH_GAMECUBE
-	// Establish renderer quality mode early; all subsequent init guards reference this
+	// Establish renderer quality mode early; all subsequent init guards reference this.
+	// GC_GetVisualQuality() is provided by r_local.h; do not redeclare elsewhere.
 	int init_quality = GC_GetVisualQuality();
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected\n", init_quality );
 #endif
