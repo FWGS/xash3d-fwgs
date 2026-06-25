@@ -984,16 +984,17 @@ void R_InitDlightTexture( void )
 	if( tr.dlightTexture != 0 )
 		return; // already initialized
 
-	// low-memory path: reduce dlight texture dimensions to save pressure
-#if XASH_GAMECUBE
-	if( GC_GetVisualQuality() == 0 )
-		dlightSize = 32;
-	else
-#endif
 #if !defined( BLOCK_SIZE )
 #define BLOCK_SIZE 16
 #endif
-		dlightSize = BLOCK_SIZE;
+
+	// low-memory path: use smaller dlight texture to reduce memory pressure
+#if XASH_GAMECUBE
+	if( GC_GetVisualQuality() == 0 )
+		dlightSize = 16;
+	else
+#endif
+		dlightSize = Q_max( BLOCK_SIZE, 32 );
 
 	memset( &r_image, 0, sizeof( r_image ));
 	r_image.width = dlightSize;
