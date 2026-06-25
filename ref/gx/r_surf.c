@@ -1298,6 +1298,7 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		int w = r_drawsurf.surfwidth;
 		int h = r_drawsurf.surfheight;
 		pixel_t fallback_color = 0x7FFF; // Neutral gray
+		int rows_filled = 0;
 
 		if( img && miplevel < 4 && img->pixels[miplevel] )
 		{
@@ -1319,21 +1320,16 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 					dst += r_drawsurf.rowbytes;
 					src += srcw;
 				}
+				rows_filled = copy_h;
 			}
 		}
 
 		// Fill any remaining rows with fallback color
-		if( w > 0 )
+		if( w > 0 && rows_filled < h )
 		{
 			int row_fill = w * sizeof( pixel_t );
-			int remaining = ( img && miplevel < 4 && img->pixels[miplevel] &&
-			                  ( img->width >> miplevel ) > 0 && ( img->height >> miplevel ) > 0 )
-			               ? ( h < ( img->height >> miplevel ) ? 0 : h - ( img->height >> miplevel ))
-			               : h;
-			if( remaining < 0 ) remaining = 0;
-
-			for( int y = 0; y < remaining; y++ )
-				memset( dst + y * r_drawsurf.rowbytes, fallback_color, row_fill );
+			for( int y = rows_filled; y < h; y++ )
+				memset( dst + ( y - rows_filled ) * r_drawsurf.rowbytes, fallback_color, row_fill );
 		}
 	}
 	else
