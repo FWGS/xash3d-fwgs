@@ -248,12 +248,6 @@ if (( FRAME_COUNT > 0 )); then
 		times[count] = val;
 	}
 	END {
-		# Determine pass/fail based on P95 being within budget
-		if (p95 <= target) {
-			printf "FRAME_BUDGET_PASSED=1\n";
-		} else {
-			printf "FRAME_BUDGET_PASSED=0\n";
-		}
 		if (count == 0) exit;
 		avg = sum / count;
 		variance = (sum_sq / count) - (avg * avg);
@@ -283,6 +277,13 @@ if (( FRAME_COUNT > 0 )); then
 		if (p95_idx < 1) p95_idx = 1;
 		if (p95_idx > count) p95_idx = count;
 		p95 = times[p95_idx];
+		
+		# Determine pass/fail based on P95 being within budget
+		if (p95 <= target) {
+			printf "FRAME_BUDGET_PASSED=1\n";
+		} else {
+			printf "FRAME_BUDGET_PASSED=0\n";
+		}
 		
 		printf "FRAME_FIRST=%.3f\n", first;
 		printf "FRAME_MIN=%.3f\n", min;
