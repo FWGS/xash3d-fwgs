@@ -967,36 +967,23 @@ or operator-recorded hardware evidence before they can be marked complete.
 
 ## G35 — Reach a playable early-game route
 
-**Progress (2026-06-25):** Single map load (`c0a0e`) now succeeds and reaches
-`MAP_READY` with interactive input. The previous BSP parse timeout blocker is
-resolved. Memory usage at `map active` is 5.34 MiB, well within budget.
+**Progress (2026-06-25):** Removed `-gcmap` smoke boot flag from default GameCube argv in `sys_gamecube.c`.
+This allows the engine to proceed past the single-map smoke test and attempt normal single-player gameplay,
+including entity spawning, weapon pickup, and eventual `changelevel` triggers.
 
 **Evidence:**
 ```sh
-DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh
+scripts/build-gamecube.sh
 ```
 
-Probe exit code 0: `.ai/logs/dolphin-probe-20260625-140516/stderr.log`
-- `Xash3D GameCube: map loaded c0a0e`
-- `Xash3D GameCube: mem stage=map active total=5.34 Mb delta=54.24 Kb hwm=5.34 Mb map=c0a0e`
-- `Xash3D GameCube: direct map ready`
-- `Xash3D GameCube: input polling active`
-- `Game started`
-- Probe reported: `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
+**Current Blocker:** Validation of gameplay continuity and memory stability without smoke-mode optimizations.
+Previous `Host_ErrorInit: Could not load model maps from disk` blocker is resolved.
+Now we must ensure the game can sustain a route without OOM or crashes during normal asset streaming.
 
-**Current Blocker:** G35 acceptance criteria require multi-map progression
-(tram/lab start through early route with changelevel, entities, triggers,
-scripted sequences, weapons, enemies). The current `-gcmap` smoke boot loads
-one map and enters a test loop. Normal gameplay continuation and `changelevel`
-support need validation.
-
-**Next step:** 
-1. Test whether gameplay continues beyond the initial smoke frames or if
-   `-gcmap` forces a halt. 
-2. If `-gcmap` blocks progression, create a test build without the smoke
-   map flag to validate natural changelevel flow.
-3. If changelevel works, extend the probe or create a route test that
-   validates map sequence progression.
+**Next step:**
+1. Run `scripts/dolphin-boot-probe.sh` to verify boot and initial gameplay start.
+2. Observe if player spawns and controls work.
+3. Monitor memory usage during gameplay and `changelevel` events.
 
 ## Active investigation memory (2026-06-24)
 
