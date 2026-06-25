@@ -285,9 +285,9 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			# Classify frame budget health for G36 measurement
 			if (( FRAME_JANK > 0 )); then
 				echo "PERFORMANCE_NOTE: Jank detected (${FRAME_JANK} frames over budget)."
-				if (( $(echo "$FRAME_MAX > 16.66" | awk '{print ($1 > $2)}') )); then
+				if awk "BEGIN {exit !($FRAME_MAX > 16.66)}"; then
 					echo "PERFORMANCE_BLOCKER: Frame budget exceeded. Max=${FRAME_MAX}ms > 16.66ms (60fps target)."
-				elif (( $(echo "$FRAME_P95 > 16.66" | awk '{print ($1 > $2)}') )); then
+				elif awk "BEGIN {exit !($FRAME_P95 > 16.66)}"; then
 					echo "PERFORMANCE_NOTE: P95=${FRAME_P95}ms > 16.66ms. Target stable, but intermittent frames exceed budget."
 				fi
 			else
