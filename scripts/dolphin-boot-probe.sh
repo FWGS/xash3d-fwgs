@@ -9,6 +9,12 @@ fi
 
 if command -v flock >/dev/null 2>&1; then
 	mkdir -p "$ROOT/.ai"
+	# Remove stale lock files older than 30s to allow retries after crashes
+	if [[ -f "$ROOT/.ai/dolphin-probe.lock" ]]; then
+		if (( $(find "$ROOT/.ai/dolphin-probe.lock" -mmin +0.5 -print -quit | wc -l) )); then
+			rm -f "$ROOT/.ai/dolphin-probe.lock"
+		fi
+	fi
 	exec 9>"$ROOT/.ai/dolphin-probe.lock"
 	if ! flock -n 9; then
 		echo "HOST_FAILURE: another Dolphin boot probe is already running."

@@ -532,6 +532,11 @@ scripts/gamecube-map-compat-probe.sh
 - Demonstrate player spawn, movement, triggers, scripted sequences, doors,
   pickups, weapons, enemies, damage, death/restart, and changelevel.
 - Capture Dolphin evidence first, then preserve the route for hardware testing.
+- **Blocker:** `Host_ErrorInit: Could not load model maps from disk` during
+  `SV_SpawnServer` for `c0a0e`. World model name may be collapsing or the file
+  may be missing from the staged disc.
+- **Automation Fix:** `scripts/dolphin-boot-probe.sh` now removes stale lock
+  files older than 30 seconds to allow unattended retries.
 
 ## G36 [ ] Optimize for a stable GameCube frame budget
 

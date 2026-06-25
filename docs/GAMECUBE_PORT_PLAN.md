@@ -971,23 +971,28 @@ or operator-recorded hardware evidence before they can be marked complete.
 during `SV_SpawnServer`. The world model name appears to collapse to `maps` instead of
 resolving to `maps/c0a0e.bsp`. This is a regression from G21's fix.
 
+**Automation Fix:** `scripts/dolphin-boot-probe.sh` updated to automatically remove
+stale `.ai/dolphin-probe.lock` files older than 30 seconds, allowing retries without
+manual intervention.
+
 **Evidence:**
 ```sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
-Probe exit code 3: `.ai/logs/dolphin-probe-20260625-092405/stderr.log`
+Probe exit code 3 (previous run): `.ai/logs/dolphin-probe-20260625-092405/stderr.log`
 - `Spawn Server: c0a0e` succeeds
 - `Host_ErrorInit: Could not load model maps from disk` follows immediately
 
-**Investigation:** Added diagnostic logging in `engine/server/sv_init.c` to print
-`sv.name` and the exact world model path before `Mod_LoadWorld`. This will show whether
-the path construction is correct or if `sv.name` is mangled.
+**Investigation:** Diagnostic logging in `engine/server/sv_init.c` prints
+`sv.name` and the exact world model path before `Mod_LoadWorld`.
+If the path construction is correct (`maps/c0a0e.bsp`), the issue lies in `Mod_LoadWorld`
+or the filesystem search paths (likely the disc content staging in `scripts/build-gamecube-disc.py`).
+If `sv.name` is empty or wrong, trace back through `GameState->levelName` assignment.
 
-**Next step:** Re-run the probe and examine the logged `sv.name` and model path.
-If the path is correct (`maps/c0a0e.bsp`), the issue is in `Mod_LoadWorld` or
-filesystem search paths. If `sv.name` is empty or wrong, trace back through
-`GameState->levelName` assignment.
+**Next step:**
+1. Re-run the probe to examine the logged `sv.name` and model path.
+2. If `sv.name` is correct, verify `maps/c0a0e.bsp` exists in the generated ISO.
 
 ## Active investigation memory (2026-06-24)
 
