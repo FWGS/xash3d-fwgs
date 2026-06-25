@@ -1115,6 +1115,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Q_snprintf( sv.model_precache[WORLD_INDEX], sizeof( sv.model_precache[0] ), "maps/%s.bsp", sv.name );
 	SetBits( sv.model_precache_flags[WORLD_INDEX], RES_FATALIFMISSING );
 #if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sv.name='%s' world model path='%s'\n", sv.name, sv.model_precache[WORLD_INDEX] );
+#endif
+#if XASH_GAMECUBE
 	GC_MemSetMap( sv.name );
 	// Free unused models (e.g., from previous map) before loading the new world
 	// to prevent exceeding the 24 MiB MEM1 limit during BSP load.

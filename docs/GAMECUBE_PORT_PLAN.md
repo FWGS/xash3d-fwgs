@@ -965,6 +965,30 @@ overlay or scripted test route.
 These goals require concrete verifier output, Dolphin logs, release artifacts,
 or operator-recorded hardware evidence before they can be marked complete.
 
+## G35 — Reach a playable early-game route
+
+**Blocker (2026-06-25):** Map loading fails with `Host_ErrorInit: Could not load model maps from disk`
+during `SV_SpawnServer`. The world model name appears to collapse to `maps` instead of
+resolving to `maps/c0a0e.bsp`. This is a regression from G21's fix.
+
+**Evidence:**
+```sh
+DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+```
+
+Probe exit code 3: `.ai/logs/dolphin-probe-20260625-092405/stderr.log`
+- `Spawn Server: c0a0e` succeeds
+- `Host_ErrorInit: Could not load model maps from disk` follows immediately
+
+**Investigation:** Added diagnostic logging in `engine/server/sv_init.c` to print
+`sv.name` and the exact world model path before `Mod_LoadWorld`. This will show whether
+the path construction is correct or if `sv.name` is mangled.
+
+**Next step:** Re-run the probe and examine the logged `sv.name` and model path.
+If the path is correct (`maps/c0a0e.bsp`), the issue is in `Mod_LoadWorld` or
+filesystem search paths. If `sv.name` is empty or wrong, trace back through
+`GameState->levelName` assignment.
+
 ## Active investigation memory (2026-06-24)
 
 The goal runner now keeps a local short-term investigation memory at
