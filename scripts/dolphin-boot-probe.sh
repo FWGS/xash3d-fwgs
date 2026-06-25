@@ -458,6 +458,40 @@ if (( FRAME_COUNT > 1 )); then
 	}')
 fi
 
+# G36: Detect frame pacing inconsistency (consecutive frame delta variance)
+# Measures how much consecutive frame intervals deviate from target, independent
+# of absolute frame time. High delta variance indicates irregular scheduling
+# even if average/budget passes.
+FRAME_PACING_VARIANCE="0.00"
+FRAME_PACING_MAX_DELTA="0.00"
+if (( FRAME_COUNT > 2 )); then
+	eval "$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
+	{
+		times[NR] = $1 + 0;
+		count++;
+	}
+	END {
+		if (count < 2) exit;
+		sum_delta_sq = 0;
+		max_delta = 0;
+		delta_count = 0;
+		for (i = 2; i <= count; i++) {
+			delta = times[i] - times[i-1];
+			if (delta < 0) delta = -delta;
+			if (delta > max_delta) max_delta = delta;
+			sum_delta_sq += delta * delta;
+			delta_count++;
+		}
+		if (delta_count == 0) exit;
+		avg_delta = target; # Target is ideal pacing delta
+		variance = (sum_delta_sq / delta_count) - (avg_delta * avg_delta);
+		if (variance < 0) variance = 0;
+		stddev = sqrt(variance);
+		printf "FRAME_PACING_VARIANCE=%.2f\n", stddev;
+		printf "FRAME_PACING_MAX_DELTA=%.2f\n", max_delta;
+	}')"
+fi
+
 # G36: Detect consecutive frame spikes (>2x budget) as evidence of allocation stalls
 FRAME_SPIKE_EVENTS=0
 FRAME_SPIKE_MAX_CONSEC=0
@@ -702,12 +736,22 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_SAMPLE_NOTE: ${FRAME_COUNT} frame samples collected. Moderate confidence in budget measurement."
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} target=${TARGET_FRAME_TIME}ms"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms target=${TARGET_FRAME_TIME}ms"
 			
 			# G36: Report frame timing jitter (MAD) as stability metric
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
 			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 2.0)}" 2>/dev/null; then
 				echo "G36_JITTER_WARN: Frame timing MAD=${FRAME_TIMING_JITTER}ms exceeds 2.0ms threshold. Rendering may appear stuttery due to high variance in frame delivery."
+			fi
+
+			# G36: Report frame pacing variance as scheduling/stability metric
+			if (( FRAME_COUNT > 2 )); then
+				if awk "BEGIN {exit !(${FRAME_PACING_VARIANCE} > 5.0)}" 2>/dev/null; then
+					echo "G36_PACING_WARN: Frame pacing variance=${FRAME_PACING_VARIANCE}ms exceeds 5.0ms. Irregular frame scheduling detected (max consecutive delta=${FRAME_PACING_MAX_DELTA}ms)."
+					if (( FRAME_BUDGET_PASSED )); then
+						echo "G36_PACING_NOTE: Budget passes but pacing is irregular. Game may appear stuttery despite meeting average budget."
+					fi
+				fi
 			fi
 
 			# G36: Report frame spike patterns as evidence of allocation stalls or cache thrashing
