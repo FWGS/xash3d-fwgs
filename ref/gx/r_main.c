@@ -1383,6 +1383,8 @@ qboolean GAME_EXPORT R_Init( void )
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin\n" );
 #endif
 
+	// Ensure tr.framecount starts at 0 so GC_GetVisualQuality init guard is deterministic
+	tr.framecount = 0;
 
 	gEngfuncs.Cvar_RegisterVariable( &sw_clearcolor );
 	gEngfuncs.Cvar_RegisterVariable( &sw_drawflat );
