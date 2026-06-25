@@ -488,16 +488,39 @@ void R_DrawSurfaceBlock8_World( void )
 		if( light_row < 0 || light_row + 1 >= r_lightwidth * r_drawsurf.surfheight )
 		{
 			// Guard against out-of-bounds light access on edge-case surfaces.
-			// Quality 0: use unlit source pixels as fallback (budget-friendly).
-			// Quality 1/2: fill with neutral gray so surface remains visible.
-			pixel_t fallback = GC_GetVisualQuality() ? 0x7FFF : 0x0000;
-			for( int remaining = v; remaining < r_numvblocks; remaining++ )
+			// Quality 0: copy unlit source pixels (budget-friendly, consistent
+			// with early-return path). Quality 1/2: fill with neutral gray so
+			// surface remains visible.
+			if( !GC_GetVisualQuality() )
 			{
-				for( int i = 0; i < blocksize; i++ )
+				for( int remaining = v; remaining < r_numvblocks; remaining++ )
 				{
-					for( int b = blocksize - 1; b >= 0; b-- )
-						prowdest[b] = fallback;
-					prowdest += surfrowbytes;
+					for( int i = 0; i < blocksize; i++ )
+					{
+						for( int b = blocksize - 1; b >= 0; b-- )
+						{
+							pixel_t pix = psource[b];
+							prowdest[b] = pix;
+							if( pix == TRANSPARENT_COLOR )
+								prowdest[b] = TRANSPARENT_COLOR;
+						}
+						psource += sourcetstep;
+						prowdest += surfrowbytes;
+					}
+					if( psource >= r_sourcemax )
+						psource -= r_stepback;
+				}
+			}
+			else
+			{
+				for( int remaining = v; remaining < r_numvblocks; remaining++ )
+				{
+					for( int i = 0; i < blocksize; i++ )
+					{
+						for( int b = blocksize - 1; b >= 0; b-- )
+							prowdest[b] = 0x7FFF;
+						prowdest += surfrowbytes;
+					}
 				}
 			}
 			return;
