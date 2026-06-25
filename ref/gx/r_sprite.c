@@ -161,7 +161,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	// expensive occlusion tests for all sprites and reducing brightness for
 	// glow/additive sprites. This preserves visibility while cutting CPU work.
 	float original_blend = tr.blend;
-	qboolean low_quality_skip_occlusion = GC_IsLowMemoryMode();
+	int vis = GC_GetVisualQuality();
+	qboolean low_quality_skip_occlusion = ( vis == 0 );
 	if( low_quality_skip_occlusion && ( e->curstate.rendermode == kRenderGlow ||
 	                                    e->curstate.rendermode == kRenderTransAdd ))
 	{
