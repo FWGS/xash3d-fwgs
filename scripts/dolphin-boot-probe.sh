@@ -192,9 +192,15 @@ grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 FRAME_BUDGET_ENABLED=0
 grep -aqsF "FRAME_BUDGET_ENABLED=1" "${LOG_FILES[@]}" && FRAME_BUDGET_ENABLED=1
 
-# G36: Track explicit renderer frame-start markers for CPU vs GPU correlation
+# G36: Track explicit GX renderer frame-start markers for CPU vs GPU correlation
 FRAME_RENDER_LOGS=0
 grep -aqE "Xash3D GameCube: render frame" "${LOG_FILES[@]}" && FRAME_RENDER_LOGS=1
+
+# G36: Detect explicit GX FIFO stall or overflow markers (hardware-bound evidence)
+GX_FIFO_STALLS=0
+if grep -aqsF "GX_FIFO_STALL" "${LOG_FILES[@]}"; then
+	GX_FIFO_STALLS=$(grep -acF "GX_FIFO_STALL" "${LOG_FILES[@]}")
+fi
 
 # G36: Explicitly look for guest-reported memory samples to correlate with frame budget
 GC_MEM_SAMPLES=0
@@ -381,6 +387,11 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_RENDER_NOTE: No explicit renderer frame markers found; budget may include full frame or be CPU-only."
 			fi
 
+			# G36: Report GX FIFO stalls as hardware-bound evidence
+			if (( GX_FIFO_STALLS > 0 )); then
+				echo "G36_GX_HW_BOUND: ${GX_FIFO_STALLS} GX_FIFO_STALL markers detected. Frame budget likely limited by GX hardware throughput."
+			fi
+
 			# Report frame distribution percentiles for deeper analysis
 			FRAME_P50="${FRAME_MEDIAN}"
 			FRAME_P10=$(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | awk -v n="$FRAME_COUNT" 'NR==int(n*0.1+0.9999) {print; exit}')
@@ -395,7 +406,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS}"
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
