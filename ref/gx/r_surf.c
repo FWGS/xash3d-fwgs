@@ -463,9 +463,9 @@ void R_DrawSurfaceBlock8_World( void )
 				for( b = blocksize - 1; b >= 0; b-- )
 				{
 					pix = psource[b];
-					prowdest[b] = pix;
-					if( pix == TRANSPARENT_COLOR )
-						prowdest[b] = TRANSPARENT_COLOR;
+					// Always write to dest even for transparent pixels to avoid
+					// leaving uninitialized cache data on low-memory path.
+					prowdest[b] = ( pix == TRANSPARENT_COLOR ) ? TRANSPARENT_COLOR : pix;
 				}
 				psource += sourcetstep;
 				prowdest += surfrowbytes;
