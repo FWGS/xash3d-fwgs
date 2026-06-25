@@ -344,6 +344,14 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "PERFORMANCE_JITTER: High frame-time variance detected (StdDev=${FRAME_STDDEV}ms). Rendering may appear stuttery despite meeting budget."
 			fi
 			
+			# Calculate FPS from average frame time
+			if awk "BEGIN {exit !($FRAME_AVG <= 0)}"; then
+				: # Skip FPS calc if avg is zero
+			else
+				FRAME_FPS=$(awk "BEGIN {printf \"%.1f\", 1000.0 / $FRAME_AVG}")
+				echo "FRAME_FPS: ${FRAME_FPS} FPS (from avg ${FRAME_AVG}ms)"
+			fi
+			
 			# Explicit G36 Measurement Result
 			if (( FRAME_BUDGET_PASSED )); then
 				echo "G36_MEASUREMENT_PASS: Frame budget stable. P95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms."
@@ -355,9 +363,12 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			FRAME_P50="${FRAME_MEDIAN}"
 			FRAME_P10=$(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | awk -v n="$FRAME_COUNT" 'NR==int(n*0.1+0.9999) {print; exit}')
 			FRAME_P25=$(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | awk -v n="$FRAME_COUNT" 'NR==int(n*0.25+0.9999) {print; exit}')
+			FRAME_P99=$(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | awk -v n="$FRAME_COUNT" 'NR==int(n*0.99+0.9999) {print; exit}')
 			echo "FRAME_P10: ${FRAME_P10}ms"
 			echo "FRAME_P25: ${FRAME_P25}ms"
 			echo "FRAME_P50: ${FRAME_P50}ms"
+			echo "FRAME_P99: ${FRAME_P99}ms"
+			echo "FRAME_P95: ${FRAME_P95}ms"
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
