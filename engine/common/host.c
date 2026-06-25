@@ -1129,6 +1129,8 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #if XASH_GAMECUBE
 	if( GCube_HasWritableStorage( ))
 		Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig, "save current configuration" );
+	else
+		Con_Reportf( "host_writeconfig: disabled (no writable storage, using read-only disc)\n" );
 #else
 	Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig, "save current configuration" );
 #endif

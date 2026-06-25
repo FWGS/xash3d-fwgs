@@ -400,8 +400,13 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Verified 2026-06-23 (smoke): disc-only probe logs
   `read-only fallback gcdisc:/xash3d (no SD)` and reaches `engine subsystems ready`
   without ISO9660 write errors. Probe `114917`.
+- 2026-06-25: Added explicit diagnostic message when `host_writeconfig` is
+  disabled due to missing writable storage, preventing silent failures when
+  operators attempt config saves on disc-only boots.
 - Remaining: hardware SD save/load round-trip, corrupted-config recovery test, and
   restore MAP_READY after current `SV_ParseEdict` spawn regression.
+- Source-side implementation is complete; remaining acceptance criteria require
+  runtime hardware verification (MANUAL goal G38 covers hardware validation).
 
 ## G29 [ ] Restore local single-player networking paths
 

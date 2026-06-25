@@ -784,7 +784,7 @@ should not loop on G26 until G36/G40 capture audible evidence or an operator
 confirms sound playback. Treat current evidence as init-only until an operator
 can hear a known test sound.
 
-## G28 — Writable storage routing (2026-06-23, smoke verified)
+## G28 — Writable storage routing (2026-06-23, smoke verified; 2026-06-25, console guard added)
 
 GameCube now splits read-only disc content from writable SD state:
 
@@ -792,6 +792,8 @@ GameCube now splits read-only disc content from writable SD state:
 - `sd:/xash3d` — configs, saves, logs, `.xash_id` when SD is mounted
 
 `Host_WriteConfig` and `FS_SaveVFSConfig` only run when SD storage is available.
+The `host_writeconfig` console command is only registered when writable storage
+exists; disc-only boots log a diagnostic message instead of exposing the command.
 Disc-only boots skip writes safely instead of hitting ISO9660 write errors.
 
 ```sh
@@ -800,6 +802,10 @@ DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 
 Evidence: `.ai/logs/dolphin-probe-20260623-114917/stderr.log` (`read-only fallback`,
 `engine subsystems ready`, no config write attempts on disc).
+
+Source-side implementation is complete. Remaining acceptance criteria (hardware SD
+save/load round-trip, corrupted-config recovery) require runtime verification on
+physical hardware or an SD-backed Dolphin test profile, covered by MANUAL goal G38.
 
 ## Boot performance (2026-06-23)
 
