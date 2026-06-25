@@ -1424,7 +1424,7 @@ qboolean GAME_EXPORT R_Init( void )
 	int init_quality = GC_GetVisualQuality();
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected\n", init_quality );
 
-	if( init_quality == 0 )
+	if( GC_IsLowMemoryMode() )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
 	else
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: standard/higher quality path active\n" );
