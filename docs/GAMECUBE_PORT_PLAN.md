@@ -994,13 +994,14 @@ Probe `20260625-143235` showed engine reaching `engine subsystems ready` but tim
 no map was auto-loaded (`Xash3D GameCube: no gcmap argument`). The new argv arguments fix this by
 instructing the engine to load the map immediately after initialization.
 
-**Current Blocker:** Verify that `map c0a0e` loads successfully with normal (non-smoke) asset streaming
-and that gameplay begins with player spawn, controls, and entities.
+**Current status:** `map c0a0e` reaches `MAP_READY` with normal boot automation.
+Do not reopen the older `maps/c0a0e.bsp` lookup hypothesis unless a newer probe
+regresses below `MAP_READY`.
 
 **Next step:**
-1. Run `scripts/dolphin-boot-probe.sh` to verify `map c0a0e` loads and MAP_READY is reached.
-2. Observe if player spawns, controls work, and memory stays within budget.
-3. Monitor for `changelevel` events and OOM during gameplay.
+1. Keep G35 closed unless a newer probe loses `MAP_READY`.
+2. Move visual output, frame timing, and sampled-content failures to G36.
+3. Monitor for `changelevel` events and OOM during longer gameplay-route probes.
 
 ## Active investigation memory (2026-06-24)
 
