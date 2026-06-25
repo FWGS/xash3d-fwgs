@@ -202,23 +202,6 @@ if grep -aqsF "GX_WAITVP" "${LOG_FILES[@]}"; then
 	GX_WAITVP_COUNT=$(grep -acF "GX_WAITVP" "${LOG_FILES[@]}")
 fi
 
-# G36: Detect frame timing jitter (variance between consecutive frames)
-FRAME_TIMING_JITTER="0.00"
-if (( FRAME_COUNT > 1 )); then
-	FRAME_TIMING_JITTER=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '
-	BEGIN { max_diff = 0; prev = -1; }
-	{
-		val = $1 + 0;
-		if (prev >= 0) {
-			diff = val - prev;
-			if (diff < 0) diff = -diff;
-			if (diff > max_diff) max_diff = diff;
-		}
-		prev = val;
-	}
-	END { printf "%.2f", max_diff; }')
-fi
-
 # G36: Track explicit GX renderer frame-start markers for CPU vs GPU correlation
 FRAME_RENDER_LOGS=0
 grep -aqE "Xash3D GameCube: render frame" "${LOG_FILES[@]}" && FRAME_RENDER_LOGS=1
@@ -279,7 +262,7 @@ if (( GC_MEM_SAMPLES )); then
 				printf "GC_MEM_PEAK_DELTA=%.1f\n", max_delta;
 				printf "GC_MEM_PEAK_STAGE=%s\n", max_stage;
 			}
-		}')"
+		}' || true)"
 fi
 
 # Extract frame budget statistics for G36 measurement
@@ -292,11 +275,11 @@ FRAME_STALL_COUNT=0
 FRAME_STALL_LOGS=0
 FRAME_BUDGET_PASSED=0
 if (( FRAME_BUDGET_LOGS )); then
-	# Extract frame times in one pass using grep -P for reliability
+	# Extract frame times in one pass using grep -E and sed for portability
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
 	done < <(grep -aoE 'Xash3D GameCube: frame[^ ]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oP 'time=\K[0-9]+(\.[0-9]+)?')
+		grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
 
 	# Check for dropped frame markers to correlate with jank
 	grep -aqsF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}" && FRAME_DROP_LOGS=1
@@ -385,6 +368,24 @@ if (( FRAME_COUNT > 0 )); then
 		printf "FRAME_JANK=%d\n", jank;
 	}'
 	)"
+fi
+
+# G36: Detect frame timing jitter (variance between consecutive frames)
+# Moved here after FRAME_TIMES is populated for accurate measurement
+FRAME_TIMING_JITTER="0.00"
+if (( FRAME_COUNT > 1 )); then
+	FRAME_TIMING_JITTER=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '
+	BEGIN { max_diff = 0; prev = -1; }
+	{
+		val = $1 + 0;
+		if (prev >= 0) {
+			diff = val - prev;
+			if (diff < 0) diff = -diff;
+			if (diff > max_diff) max_diff = diff;
+		}
+		prev = val;
+	}
+	END { printf "%.2f", max_diff; }')
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
