@@ -1250,9 +1250,9 @@ R_NewMap
 void GAME_EXPORT R_NewMap( void )
 {
 	model_t *world = WORLDMODEL;
-
 #if XASH_GAMECUBE
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: R_NewMap quality=%d\n", GC_GetVisualQuality() );
+	int quality = GC_GetVisualQuality();
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: R_NewMap quality=%d\n", quality );
 #endif
 
 	r_viewcluster = -1;
@@ -1275,7 +1275,6 @@ void GAME_EXPORT R_NewMap( void )
 
 #if XASH_GAMECUBE
 	{
-		int quality = GC_GetVisualQuality();
 		// G24a: low-memory smoke path caps surfaces before MINSURFACES floor
 		if( quality == 0 )
 		{
@@ -1313,7 +1312,6 @@ void GAME_EXPORT R_NewMap( void )
 
 #if XASH_GAMECUBE
 	{
-		int quality = GC_GetVisualQuality();
 		// G24a: low-memory smoke path caps edges to stack budget
 		if( quality == 0 && r_numallocatededges > NUMSTACKEDGES )
 			r_numallocatededges = NUMSTACKEDGES;
