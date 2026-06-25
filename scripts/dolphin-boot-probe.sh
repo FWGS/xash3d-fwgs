@@ -170,6 +170,8 @@ MAP_FOUND=0
 INPUT_FOUND=0
 DIAGNOSTIC_MARKER_FOUND=0
 SAMPLED_NONBLACK_FOUND=0
+FRAME_BUDGET_LOGS=0
+FRAME_BUDGET_EXCEEDED=0
 grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
 grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
 grep -aqsF "$INPUT_MARKER" "${LOG_FILES[@]}" && INPUT_FOUND=1
@@ -180,6 +182,10 @@ fi
 # Check for visual diagnostics from G24 enhancements
 grep -aqsF "DIAGNOSTIC MARKER VISIBLE" "${LOG_FILES[@]}" && DIAGNOSTIC_MARKER_FOUND=1
 grep -aqE "sampled_nonblack=1" "${LOG_FILES[@]}" && SAMPLED_NONBLACK_FOUND=1
+
+# Check for frame budget telemetry (G36)
+grep -aqE "Xash3D GameCube: frame.*time=" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS=1
+grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
@@ -195,6 +201,18 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		echo "VISUAL_PROGRESS: Software renderer sampled non-black pixels. Content should be visible."
 	else
 		echo "VISUAL_NOTE: No non-black pixel samples detected in logs. Check for black screen or diagnostic marker."
+	fi
+
+	# Report frame budget telemetry
+	if (( FRAME_BUDGET_LOGS )); then
+		if (( FRAME_BUDGET_EXCEEDED )); then
+			echo "PERFORMANCE_BLOCKER: Frame budget exceeded detected. Check logs for 'time=' values > 16.66ms."
+		else
+			echo "PERFORMANCE_OK: Frame budget telemetry present and within limits."
+		fi
+		# Dump the last few frame timing logs for inspection
+		echo "Last frame timing samples:"
+		grep -aE "Xash3D GameCube: frame.*time=" "${LOG_FILES[@]}" | tail -n 5
 	fi
 	echo "Logs: $LOG_DIR"
 	exit 0
