@@ -967,23 +967,28 @@ or operator-recorded hardware evidence before they can be marked complete.
 
 ## G35 — Reach a playable early-game route
 
-**Progress (2026-06-25):** Removed `-gcmap` smoke boot flag from default GameCube argv in `sys_gamecube.c`.
-This allows the engine to proceed past the single-map smoke test and attempt normal single-player gameplay,
-including entity spawning, weapon pickup, and eventual `changelevel` triggers.
+**Progress (2026-06-25):** Updated `GCube_GetArgv` in `sys_gamecube.c` to include `-game valve` and
+`map c0a0e` in the default arguments. This ensures the engine auto-starts the early-game route without
+waiting for user input or menu interaction. The `-gcmap` smoke boot flag was previously removed to
+enable full gameplay route testing.
 
 **Evidence:**
 ```sh
 scripts/build-gamecube.sh
+DOLPHIN_TIMEOUT=180 scripts/dolphin-boot-probe.sh
 ```
 
-**Current Blocker:** Validation of gameplay continuity and memory stability without smoke-mode optimizations.
-Previous `Host_ErrorInit: Could not load model maps from disk` blocker is resolved.
-Now we must ensure the game can sustain a route without OOM or crashes during normal asset streaming.
+Probe `20260625-143235` showed engine reaching `engine subsystems ready` but timing out because
+no map was auto-loaded (`Xash3D GameCube: no gcmap argument`). The new argv arguments fix this by
+instructing the engine to load the map immediately after initialization.
+
+**Current Blocker:** Verify that `map c0a0e` loads successfully with normal (non-smoke) asset streaming
+and that gameplay begins with player spawn, controls, and entities.
 
 **Next step:**
-1. Run `scripts/dolphin-boot-probe.sh` to verify boot and initial gameplay start.
-2. Observe if player spawns and controls work.
-3. Monitor memory usage during gameplay and `changelevel` events.
+1. Run `scripts/dolphin-boot-probe.sh` to verify `map c0a0e` loads and MAP_READY is reached.
+2. Observe if player spawns, controls work, and memory stays within budget.
+3. Monitor for `changelevel` events and OOM during gameplay.
 
 ## Active investigation memory (2026-06-24)
 
