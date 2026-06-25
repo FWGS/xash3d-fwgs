@@ -491,14 +491,13 @@ static void R_SetupFrame( void )
 		int quality = GC_GetVisualQuality();
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame quality=%d\n", quality );
+		// G24a: use GC_IsLowMemoryMode helper consistently for quality 0 checks
 		if( !GC_IsLowMemoryMode() )
 		{
-			// sort translucents entities by rendermode and distance
 			qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
 		}
 	}
 #else
-	// sort translucents entities by rendermode and distance
 	qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
 #endif
 
