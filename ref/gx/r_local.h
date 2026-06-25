@@ -305,8 +305,11 @@ static inline int GC_GetVisualQuality( void )
 	return 0;
 #else /* XASH_GAMECUBE && !XASH_LOW_MEMORY */
 	/* Runtime sample_size determines quality level */
-	if( tr.sample_size <= 0 )
-		return 0; // forced low-memory or auto-with-no-config
+	/* Guard against early calls before tr is initialized */
+	if( !tr.sample_size && !tr.sample_bits )
+		return 0; // uninitialized or forced low-memory
+	if( tr.sample_size < 0 )
+		return 1; // auto quality (standard)
 	if( tr.sample_bits == 16 )
 		return 2; // higher fidelity explicitly enabled
 	return 1;     // default standard quality
