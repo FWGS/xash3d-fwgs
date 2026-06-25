@@ -690,6 +690,17 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					fi
 				fi
 			fi
+
+			# G36: Detect if frame budget violations cluster around map load (cold-start pattern)
+			# by checking if early frames are disproportionately slow
+			if (( FRAME_COUNT >= 3 )); then
+				EARLY_SLOW=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
+				NR <= 3 { if ($1+0 > target * 1.5) slow++; total++ }
+				END { if (total > 0) printf "%.0f", (slow/total)*100; else print 0 }')
+				if awk "BEGIN {exit !($EARLY_SLOW > 66)}" 2>/dev/null; then
+					echo "G36_COLD_START_PATTERN: ${EARLY_SLOW}% of first 3 frames exceed 1.5x budget. Map-load or BSP parse work is likely blocking the main thread."
+				fi
+			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
