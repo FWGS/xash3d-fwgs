@@ -291,6 +291,9 @@ extern gl_globals_t   tr;
 **
 ** This renderer-local helper supersedes any platform-level GC_GetVisualQuality.
 ** On non-GameCube targets a constant quality of 1 is assumed.
+**
+** Note: sample_size == -1 means "auto" (quality 1), sample_size == 0 forces
+** low-memory mode (quality 0), sample_size >= 1 enables standard/higher quality.
 */
 static inline int GC_GetVisualQuality( void )
 {
@@ -298,14 +301,14 @@ static inline int GC_GetVisualQuality( void )
 #if XASH_LOW_MEMORY
 	return 0;
 #else
-	/* Quality 0 is forced when sample_size is explicitly 0 (low-memory smoke path) */
-	/* Negative sample_size means "auto" so do not force low quality */
+	/* Explicit 0 forces low-memory smoke path */
 	if( tr.sample_size == 0 )
 		return 0;
+	/* Negative sample_size means "auto" -> standard quality */
 	/* Quality 2 requires non-trivial sampling in both dimensions */
 	if( tr.sample_size > 1 && tr.sample_bits > 0 )
 		return 2;
-	/* Standard quality */
+	/* Standard quality (includes auto mode when sample_size == -1) */
 	return 1;
 #endif
 #else /* !XASH_GAMECUBE */
