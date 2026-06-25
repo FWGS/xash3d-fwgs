@@ -1296,56 +1296,52 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		pixel_t *dst = r_drawsurf.surfdat;
 		int w = r_drawsurf.surfwidth;
 		int h = r_drawsurf.surfheight;
-		int srcw = 0, srch = 0;
-		qboolean copy_ok = false;
+		pixel_t fallback_color = 0x7FFF; // Neutral gray for visible fallback
 
 		if( img && src && w > 0 && h > 0 )
 		{
-			srcw = img->width >> miplevel;
-			srch = img->height >> miplevel;
+			int srcw = img->width >> miplevel;
+			int srch = img->height >> miplevel;
 			if( srcw > 0 && srch > 0 )
-				copy_ok = true;
-		}
+			{
+				int copy_w = ( w < srcw ) ? w : srcw;
+				int copy_h = ( h < srch ) ? h : srch;
+				int row_bytes = copy_w * sizeof( pixel_t );
 
-		if( copy_ok )
-		{
-			// Copy the base texture into the surface cache for visibility.
-			// Bound copy dimensions to min(src, dst) to prevent overruns
-			// on edge-case or partial mip levels. Fill remaining pixels with
-			// a neutral solid color so surfaces never appear black/transparent.
-			int copy_w = ( w < srcw ) ? w : srcw;
-			int copy_h = ( h < srch ) ? h : srch;
-			int row_bytes = copy_w * sizeof( pixel_t );
-			pixel_t fallback_color = 0x7FFF; // Neutral gray for visible fallback
-			pixel_t edge_color = fallback_color;
-			
-			for( int y = 0; y < copy_h; y++ )
-			{
-				memcpy( dst, src, row_bytes );
-				// Fill remainder of row with solid color to avoid black gaps
-				if( w > copy_w )
+				// Copy base texture, bound to valid dimensions
+				for( int y = 0; y < copy_h; y++ )
 				{
-					for( int x = copy_w; x < w; x++ )
-						dst[x] = edge_color;
+					memcpy( dst, src, row_bytes );
+					if( w > copy_w )
+					{
+						for( int x = copy_w; x < w; x++ )
+							dst[x] = fallback_color;
+					}
+					dst += r_drawsurf.rowbytes;
+					src += srcw;
 				}
-				
-				dst += r_drawsurf.rowbytes;
-				src += srcw;
+				// Fill remaining destination rows
+				for( int y = copy_h; y < h; y++ )
+				{
+					for( int x = 0; x < w; x++ )
+						dst[x] = fallback_color;
+					dst += r_drawsurf.rowbytes;
+				}
 			}
-			
-			// Fill remaining destination rows with solid color
-			for( int y = copy_h; y < h; y++ )
+			else
 			{
-				for( int x = 0; x < w; x++ )
-					dst[x] = fallback_color;
-				dst += r_drawsurf.rowbytes;
+				// Invalid source dimensions: fill fallback
+				for( int y = 0; y < h; y++ )
+				{
+					for( int x = 0; x < w; x++ )
+						dst[x] = fallback_color;
+					dst += r_drawsurf.rowbytes;
+				}
 			}
 		}
 		else
 		{
-			// Fallback: fill with solid pixel so surface is not black/transparent
-			// when texture data is unavailable or dimensions mismatch
-			pixel_t fallback_color = 0x7FFF; // Neutral gray for stable fallback
+			// No valid source: fill fallback
 			for( int y = 0; y < h; y++ )
 			{
 				for( int x = 0; x < w; x++ )
