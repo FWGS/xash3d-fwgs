@@ -298,9 +298,6 @@ extern gl_globals_t   tr;
 static inline int GC_GetVisualQuality( void )
 {
 #if XASH_GAMECUBE
-#if XASH_LOW_MEMORY
-	return 0;
-#else
 	/* Explicit 0 forces low-memory smoke path */
 	if( tr.sample_size == 0 )
 		return 0;
@@ -309,7 +306,6 @@ static inline int GC_GetVisualQuality( void )
 		return 2;
 	/* Standard quality (includes auto mode when sample_size == -1) */
 	return 1;
-#endif
 #else /* !XASH_GAMECUBE */
 	/* Non-GameCube targets always use standard quality */
 	return 1;
