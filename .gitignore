@@ -385,6 +385,8 @@ GEMINI.md
 .continue/
 .codeium/
 .github/copilot-instructions.md
+.ai/goal-loop.lock
+.ai/goal-supervisor.lock
 
 # game data
 OUT/*.iso

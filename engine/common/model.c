@@ -322,6 +322,13 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	COM_FixSlashes( tempname );
 
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && ( !Q_strncmp( tempname, "maps", 4 ) || !Q_strncmp( tempname, "models", 6 )))
+	{
+		Con_Reportf( "Xash3D GameCube: Mod_LoadModel request mod='%s' temp='%s'\n", mod->name, tempname );
+	}
+#endif
+
+#if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ))
 	{
 		const char *ext = COM_FileExtension( tempname );
@@ -366,9 +373,14 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	if( !buf || length < sizeof( uint ))
 	{
 #if XASH_GAMECUBE
-		if( !Q_strncmp( tempname, "maps/", 5 ) || !Q_strncmp( tempname, "models/", 7 ))
-			Con_Reportf( "Xash3D GameCube: model file failed path='%s' length=%li buf=%p\n",
-				tempname, (long)length, (void *)buf );
+		if( Sys_CheckParm( "-gcmap" ) && ( !Q_strncmp( tempname, "maps", 4 ) || !Q_strncmp( tempname, "models", 6 )))
+		{
+			fs_offset_t filesize = FS_FileSize( tempname, false );
+			qboolean exists = FS_FileExists( tempname, false );
+
+			Con_Reportf( "Xash3D GameCube: model file failed mod='%s' path='%s' exists=%d size=%li length=%li buf=%p\n",
+				mod->name, tempname, exists, (long)filesize, (long)length, (void *)buf );
+		}
 #endif
 		memset( mod, 0, sizeof( model_t ));
 
@@ -545,6 +557,16 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 	// load the newmap
 	world.loading = true;
 	model_t *pworld = Mod_FindName( name, false );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		fs_offset_t filesize = FS_FileSize( name, false );
+		qboolean exists = FS_FileExists( name, false );
+
+		Con_Reportf( "Xash3D GameCube: Mod_LoadWorld request='%s' registered='%s' exists=%d size=%li preload=%d\n",
+			name, pworld ? pworld->name : "(null)", exists, (long)filesize, preload );
+	}
+#endif
 	if( preload ) Mod_LoadModel( pworld, true );
 	world.loading = false;
 
