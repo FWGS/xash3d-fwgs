@@ -177,13 +177,7 @@ static const byte *Mod_SpriteLoadFrame( model_t *mod, const void *pin, mspritefr
 	{
 		// partial HD-textures support
 		// Runtime quality-aware adjustments are handled in the renderer.
-#if XASH_GAMECUBE
-		if( Mod_AllowMaterials( )) // GameCube: allow materials (renderer handles quality)
-#elif !XASH_GAMECUBE
-		if( Mod_AllowMaterials( )) // Non-GameCube: allow materials
-#else
-		if( 0 ) /* Low-memory GameCube builds skip HD sprite replacements */
-#endif
+		if( Mod_AllowMaterials( )) // All platforms: allow materials if configured
 		{
 			if( Mod_SpriteSearchForTextureReplacement( texname, sizeof( texname ), sprite_name, "materials/%s/%s%i%i.tga", sprite_name, group_suffix, num / 10, num % 10 ))
 			{
