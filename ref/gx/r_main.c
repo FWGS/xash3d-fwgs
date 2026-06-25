@@ -1516,7 +1516,7 @@ qboolean GAME_EXPORT R_Init( void )
 	qfrustum.view_clipplanes[0].rightedge = qfrustum.view_clipplanes[2].rightedge = qfrustum.view_clipplanes[3].rightedge = false;
 	R_StudioInit();
 #if XASH_GAMECUBE
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready\n" );
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready (quality=%d)\n", init_quality );
 	if( init_quality != 0 )
 		GC_MemSample( "models" );
 #endif
