@@ -20,6 +20,11 @@ from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+try:
+	import fcntl
+except ImportError:  # pragma: no cover - non-Unix fallback
+	fcntl = None
+
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35", "G40"})
 PROBE_AUTO_COMPLETE = {
@@ -133,8 +138,9 @@ GOAL_CONTEXT = {
 		"scripts/ai-verify.sh", ".gitignore"),
 	"G34": ("scripts/dolphin-boot-probe.sh", "scripts/build-gamecube-disc.py",
 		"engine/common/host.c", "engine/common/model.c"),
-	"G35": ("scripts/dolphin-boot-probe.sh", "engine/server/sv_init.c",
-		"engine/client/cl_main.c", "engine/platform/gamecube/in_gamecube.c"),
+	"G35": ("scripts/dolphin-boot-probe.sh", "scripts/build-gamecube-disc.py",
+		"engine/server/sv_init.c", "engine/common/model.c",
+		"engine/common/filesystem_engine.c", "engine/platform/gamecube/sys_gamecube.c"),
 	"G36": ("engine/platform/gamecube/vid_gamecube.c", "engine/client/cl_scrn.c",
 		"engine/common/mod_bmodel.c", "engine/common/mod_studio.c"),
 	"G37": ("engine/common/host.c", "engine/common/system.c",
@@ -597,9 +603,27 @@ def automation_context() -> str:
 
 def run_dolphin_probe(root: Path) -> subprocess.CompletedProcess[str]:
 	env = os.environ.copy()
-	env.setdefault("DOLPHIN_TIMEOUT", os.environ.get("DOLPHIN_TIMEOUT", "600"))
+	env.setdefault("DOLPHIN_TIMEOUT", os.environ.get("DOLPHIN_TIMEOUT", "120"))
 	env.setdefault("DOLPHIN_EXECUTABLE", dolphin_executable())
 	return run(["scripts/dolphin-boot-probe.sh"], root, capture=True, env=env)
+
+
+def acquire_loop_lock(root: Path):
+	if fcntl is None:
+		return None
+	lock_path = root / ".ai/goal-loop.lock"
+	lock_path.parent.mkdir(parents=True, exist_ok=True)
+	lock_file = lock_path.open("w", encoding="utf-8")
+	try:
+		fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+	except BlockingIOError:
+		print("goal-loop: another goal loop is already running", file=sys.stderr)
+		lock_file.close()
+		return None
+	lock_file.write(str(os.getpid()))
+	lock_file.truncate()
+	lock_file.flush()
+	return lock_file
 
 
 def probe_log_dir(output: str) -> str | None:
@@ -1253,6 +1277,11 @@ def main() -> int:
 				else "complete" if goal.complete else "pending"
 			print(f"{goal.goal_id}\t{state}\t{goal.title}")
 		return 0
+	loop_lock = acquire_loop_lock(root)
+	if fcntl is not None and loop_lock is None:
+		write_state(state_file, state="blocked",
+			message="another goal loop is already running")
+		return 2
 	if args.max_passes < 0:
 		parser.error("--max-passes must be zero or positive")
 	if commit_dirty_worktree(root) != 0:

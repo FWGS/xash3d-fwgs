@@ -109,6 +109,22 @@ cleanup_flatpak_dolphin() {
 	fi
 }
 
+wait_for_probe_wrapper() {
+	local pid="$1"
+	local deadline
+	deadline=$(($(date +%s) + 5))
+	while kill -0 "$pid" >/dev/null 2>&1; do
+		if (( $(date +%s) >= deadline )); then
+			kill -TERM "$pid" >/dev/null 2>&1 || true
+			sleep 1
+			kill -KILL "$pid" >/dev/null 2>&1 || true
+			break
+		fi
+		sleep 0.2
+	done
+	wait "$pid" >/dev/null 2>&1 || true
+}
+
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s)..."
 set +e
 if (( DOLPHIN_IS_FLATPAK )); then
@@ -143,7 +159,7 @@ set -e
 if (( DOLPHIN_IS_FLATPAK )); then
 	cleanup_flatpak_dolphin
 	trap - EXIT
-	wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
+	wait_for_probe_wrapper "$DOLPHIN_WRAPPER_PID"
 fi
 
 echo "==> Analyzing probe results..."

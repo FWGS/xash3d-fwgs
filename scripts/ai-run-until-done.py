@@ -15,11 +15,35 @@ from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+try:
+	import fcntl
+except ImportError:  # pragma: no cover - non-Unix fallback
+	fcntl = None
+
 
 def run(command: list[str], root: Path, env: dict[str, str] | None = None) -> int:
 	print("$ " + " ".join(command), flush=True)
 	return subprocess.run(command, cwd=root, env=env or os.environ.copy(),
 		check=False).returncode
+
+
+def acquire_supervisor_lock(root: Path):
+	if fcntl is None:
+		return None
+	lock_path = root / ".ai/goal-supervisor.lock"
+	lock_path.parent.mkdir(parents=True, exist_ok=True)
+	lock_file = lock_path.open("w", encoding="utf-8")
+	try:
+		fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+	except BlockingIOError:
+		print("run-until-done: another goal supervisor is already running",
+			file=sys.stderr)
+		lock_file.close()
+		return None
+	lock_file.write(str(os.getpid()))
+	lock_file.truncate()
+	lock_file.flush()
+	return lock_file
 
 
 def load_dotenv(path: Path) -> None:
@@ -82,6 +106,9 @@ def main() -> int:
 	parser.add_argument("--sleep", type=int, default=15)
 	args = parser.parse_args()
 	root = args.repo.resolve()
+	supervisor_lock = acquire_supervisor_lock(root)
+	if fcntl is not None and supervisor_lock is None:
+		return 2
 	load_dotenv(root / ".env")
 	api_base = os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1")
 
