@@ -273,6 +273,13 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		// it seems to assume memory readable. maybe it was pointed to WAD?
 		tex->pixels[j] = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
 
+		// guard against OOM in low-memory mode
+		if( !tex->pixels[j] )
+		{
+			gEngfuncs.Con_Reportf( S_ERROR "%s: OOM allocating %ux%ux%u pixels\n", __func__, width, height, tex->depth );
+			return false;
+		}
+
 		// quality 0 (low-memory): never allocate alpha_pixels to reduce pressure
 #if XASH_GAMECUBE
 		if( j == 0 && tex->flags & TF_HAS_ALPHA && GC_GetVisualQuality() > 0 )
