@@ -479,7 +479,7 @@ void R_DrawSurfaceBlock8_World( void )
 		psource = pbasesource;
 		prowdest = prowdestbase;
 		// Guard against degenerate block dimensions on the low-memory path
-		if( r_numvblocks <= 0 || blocksize <= 0 )
+		if( r_numvblocks <= 0 || blocksize <= 0 || r_numhblocks <= 0 )
 			return;
 		for( v = 0; v < r_numvblocks; v++ )
 		{
@@ -1300,22 +1300,16 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			if( alloc_height > 64 )
 				alloc_height = 64;
 		}
-		// Quality 1/2 preserve full allocation size for higher fidelity
-#endif
-		// Guard: abort allocation if clamped budget exceeds a single-frame safe cap
-#if XASH_GAMECUBE
-		if( !GC_GetVisualQuality() && alloc_width * alloc_height > 8192 )
-			return NULL;
-#endif
 		cache = D_SCAlloc(
-#if XASH_GAMECUBE
 			(!GC_GetVisualQuality()) ? alloc_width :
-#endif
 			r_drawsurf.surfwidth,
-#if XASH_GAMECUBE
-				   (!GC_GetVisualQuality()) ? ( alloc_width * alloc_height * 2 ) :
+			(!GC_GetVisualQuality()) ? ( alloc_width * alloc_height * 2 ) :
+			( r_drawsurf.surfwidth * r_drawsurf.surfheight * 2 ));
+#else
+		cache = D_SCAlloc(
+			r_drawsurf.surfwidth,
+			( r_drawsurf.surfwidth * r_drawsurf.surfheight * 2 ));
 #endif
-				   ( r_drawsurf.surfwidth * r_drawsurf.surfheight * 2 ));
 		if( !cache )
 			return NULL;
 		CACHESPOT( surface )[miplevel] = cache;
