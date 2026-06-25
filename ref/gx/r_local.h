@@ -302,11 +302,8 @@ static inline int GC_GetVisualQuality( void )
 	/* Compile-time low-memory builds always report low-memory mode */
 	return 0;
 #else
-	/* Explicit 0 forces low-memory smoke path */
-	if( tr.sample_size == 0 )
-		return 0;
-	/* Auto mode (negative) or insufficient sample config: standard quality */
-	if( tr.sample_size < 0 )
+	/* Auto mode (negative or unset 0): standard quality */
+	if( tr.sample_size <= 0 )
 		return 1;
 	/* Positive sample_size with sample_bits: permit higher fidelity */
 	if( tr.sample_size > 0 && tr.sample_bits > 0 )
