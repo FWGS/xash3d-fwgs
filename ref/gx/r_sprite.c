@@ -157,19 +157,21 @@ R_DrawSpriteModel
 void R_DrawSpriteModel( cl_entity_t *e )
 {
 #if XASH_GAMECUBE
-	// Quality 0 (smoke/low-memory): simplify complex glow/alpha sprites instead
-	// of skipping them entirely. Force additive sprites to render with reduced
-	// brightness for visibility while cutting glow occlusion work.
+	// Quality 0 (smoke/low-memory): simplify sprite rendering by skipping
+	// expensive occlusion tests for all sprites and reducing brightness for
+	// glow/additive sprites. This preserves visibility while cutting CPU work.
 	qboolean low_quality_skip_occlusion = false;
 	float original_blend = tr.blend;
 	int vis_quality = GC_GetVisualQuality();
-	if( vis_quality == 0 &&
-	    ( e->curstate.rendermode == kRenderGlow ||
-	      e->curstate.rendermode == kRenderTransAdd ) )
+	if( vis_quality == 0 )
 	{
-		// Still render but with reduced brightness and skip expensive occlusion
-		tr.blend *= 0.5f;
 		low_quality_skip_occlusion = true;
+		if( e->curstate.rendermode == kRenderGlow ||
+		    e->curstate.rendermode == kRenderTransAdd )
+		{
+			// Reduce brightness for glow/additive sprites in low-memory mode
+			tr.blend *= 0.5f;
+		}
 	}
 #endif
 
