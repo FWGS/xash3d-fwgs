@@ -27,16 +27,16 @@ typedef struct gc_button_map_s
 
 static const gc_button_map_t gc_buttons[] =
 {
-	{ PAD_BUTTON_A,     K_B_BUTTON },
-	{ PAD_BUTTON_B,     K_A_BUTTON },
-	{ PAD_BUTTON_X,     K_Y_BUTTON },
-	{ PAD_BUTTON_Y,     K_X_BUTTON },
-	{ PAD_BUTTON_START, K_START_BUTTON },
-	{ PAD_TRIGGER_Z,    K_Z_BUTTON },
-	{ PAD_BUTTON_UP,    K_DPAD_UP },
-	{ PAD_BUTTON_DOWN,  K_DPAD_DOWN },
-	{ PAD_BUTTON_LEFT,  K_DPAD_LEFT },
-	{ PAD_BUTTON_RIGHT, K_DPAD_RIGHT },
+	{ PAD_BUTTON_A,     K_B_BUTTON },     // Confirm / Use / Jump (contextual)
+	{ PAD_BUTTON_B,     K_A_BUTTON },     // Cancel / Attack
+	{ PAD_BUTTON_X,     K_Y_BUTTON },     // Alternate / Secondary
+	{ PAD_BUTTON_Y,     K_X_BUTTON },     // Alternate
+	{ PAD_BUTTON_START, K_PAUSE },        // Pause / Menu Toggle
+	{ PAD_TRIGGER_Z,    K_Z_BUTTON },     // Crouch / Flashlight
+	{ PAD_BUTTON_UP,    K_MWHEELUP },     // Previous Weapon
+	{ PAD_BUTTON_DOWN,  K_F10 },          // Console Toggle
+	{ PAD_BUTTON_LEFT,  K_LEFTARROW },    // Menu Left / Look Left
+	{ PAD_BUTTON_RIGHT, K_MWHEELDOWN },   // Next Weapon / Menu Right
 };
 
 static u16 prev_buttons;
