@@ -426,15 +426,19 @@ if (( FRAME_BUDGET_LOGS )); then
 	# Extract frame times in one pass using grep -E and sed for portability
 	# Broadened regex to catch 'frame start', 'render frame', 'frame budget sample', and generic 'frame time' markers.
 	# Added support for 'ms' suffix often used in new G36 markers.
+	# G36_PATCH: Further relaxed pattern to reduce parse-filter false negatives
+	# by allowing arbitrary word characters between prefix and 'time=' to catch
+	# variant marker names without requiring exact naming conventions.
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget sample )?[a-z_]* time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+	done < <(grep -aoE 'Xash3D GameCube: [a-zA-Z_ ]* time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
 
 	# G36: Also extract frame times from 'frame duration' markers (alternative naming)
+	# G36_PATCH: Relaxed pattern to allow arbitrary word characters for variant markers
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: frame[a-z_]* duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+	done < <(grep -aoE 'Xash3D GameCube: frame[a-zA-Z_ ]* duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'duration=[0-9]+(\.[0-9]+)?' | sed 's/duration=//')
 
 	# Check for dropped frame markers to correlate with jank
