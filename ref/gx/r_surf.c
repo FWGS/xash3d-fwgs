@@ -367,16 +367,13 @@ void R_DrawSurface( void )
 #if XASH_GAMECUBE
 		// G24b: quality 0 skips world-luxels light interpolation setup entirely
 		// and delegates to the unlit fallback in R_DrawSurfaceBlock8_World.
+		// Decals are also skipped for quality 0 to preserve budget.
 		if( !GC_GetVisualQuality() )
 		{
-			// Use a minimal blocksize path; R_DrawSurfaceBlock8_World handles quality 0
 			r_lightptr = blocklights;
 			prowdestbase = r_drawsurf.surfdat;
 			pbasesource = r_source;
 			R_DrawSurfaceBlock8_World();
-			// G24b: skip decals in quality 0 world-luxels path to preserve budget
-			if( GC_GetVisualQuality() > 0 )
-				R_DrawSurfaceDecals();
 			return;
 		}
 #endif
