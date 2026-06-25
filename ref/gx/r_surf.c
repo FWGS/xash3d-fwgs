@@ -364,6 +364,13 @@ void R_DrawSurface( void )
 
 // ==============================
 
+#if XASH_GAMECUBE
+	// G24b: guard against degenerate block dimensions from misaligned extents
+	// or zero-sized surfaces. Skip draw to avoid division-by-zero or infinite loops.
+	if( r_numhblocks <= 0 || r_numvblocks <= 0 || blocksize <= 0 )
+		return;
+#endif
+
 	if( sample_size == 16 )
 		pblockdrawer = surfmiptable[r_drawsurf.surfmip];
 	else
