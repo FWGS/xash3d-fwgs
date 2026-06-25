@@ -841,7 +841,7 @@ void R_InitCaches( void )
 
 	if( size > GC_SURFACE_CACHE_MAX )
 		size = GC_SURFACE_CACHE_MAX;
-#else
+#else /* !XASH_GAMECUBE */
 	int pix;
 
 	if( sw_surfcacheoverride.value )
