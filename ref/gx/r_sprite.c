@@ -160,18 +160,13 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	// Quality 0 (smoke/low-memory): simplify sprite rendering by skipping
 	// expensive occlusion tests for all sprites and reducing brightness for
 	// glow/additive sprites. This preserves visibility while cutting CPU work.
-	qboolean low_quality_skip_occlusion = false;
-	int vis_quality = GC_GetVisualQuality();
 	float original_blend = tr.blend;
-	if( vis_quality == 0 )
+	qboolean low_quality_skip_occlusion = GC_IsLowMemoryMode();
+	if( low_quality_skip_occlusion && ( e->curstate.rendermode == kRenderGlow ||
+	                                    e->curstate.rendermode == kRenderTransAdd ))
 	{
-		low_quality_skip_occlusion = true;
-		if( e->curstate.rendermode == kRenderGlow ||
-		    e->curstate.rendermode == kRenderTransAdd )
-		{
-			// Reduce brightness for glow/additive sprites in low-memory mode
-			tr.blend *= 0.5f;
-		}
+		// Reduce brightness for glow/additive sprites in low-memory mode
+		tr.blend *= 0.5f;
 	}
 #endif
 
@@ -210,7 +205,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 #if XASH_GAMECUBE
 	if( !low_quality_skip_occlusion && R_SpriteOccluded( e, origin, &scale ))
 	{
-		tr.blend = original_blend; // restore blend state
+		tr.blend = original_blend;
 		return; // sprite culled
 	}
 #else
@@ -264,7 +259,7 @@ void R_DrawSpriteModel( cl_entity_t *e )
 		if(( dot > 0.999848f ) || ( dot < -0.999848f )) // cos(1 degree) = 0.999848
 		{
 #if XASH_GAMECUBE
-			tr.blend = original_blend; // restore blend state
+			tr.blend = original_blend;
 #endif
 			return; // invisible
 		}
@@ -297,7 +292,6 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	R_DrawSpriteQuad( frame, origin, v_right, v_up, scale );
 
 #if XASH_GAMECUBE
-	// Always restore blend to original value on exit
 	tr.blend = original_blend;
 #endif
 }
