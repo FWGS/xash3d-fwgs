@@ -1332,8 +1332,10 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			r_drawsurf.surfwidth,
 			( r_drawsurf.surfwidth * r_drawsurf.surfheight * 2 ));
 #endif
+
 		if( !cache )
 			return NULL;
+
 		CACHESPOT( surface )[miplevel] = cache;
 		cache->owner = &CACHESPOT( surface )[miplevel];
 		cache->mipscale = surfscale;
