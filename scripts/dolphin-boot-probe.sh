@@ -205,7 +205,12 @@ fi
 if (( MAP_FOUND )) && (( INPUT_FOUND )) && ! (( FRAME_BUDGET_LOGS )); then
 	echo "G36_MEASUREMENT_INCOMPLETE: Map loaded interactively but no frame budget telemetry detected in logs."
 	echo "G36_HINT: Guest may not be emitting 'Xash3D GameCube: frame.*time=' markers. Check renderer initialization."
+	echo "G36_HINT: Ensure renderer emits 'Xash3D GameCube: frame time=<ms>' or 'Xash3D GameCube: render frame time=<ms>' per frame."
 fi
+
+# G36: Emit explicit measurement baseline marker so downstream tooling can
+# distinguish "telemetry absent" from "telemetry present but failing"
+echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} lowmem=${GC_LOWMEM_MODE:-none}"
 
 # G36: Explicitly look for guest-reported memory samples to correlate with frame budget
 GC_MEM_SAMPLES=0
@@ -892,6 +897,16 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_SAMPLE_WARN: Only ${FRAME_COUNT} frame samples collected. Insufficient for reliable P95 budget analysis."
 			elif (( FRAME_COUNT < 10 )); then
 				echo "G36_SAMPLE_NOTE: ${FRAME_COUNT} frame samples collected. Moderate confidence in budget measurement."
+			else
+				echo "G36_SAMPLE_OK: ${FRAME_COUNT} frame samples collected. High confidence in budget measurement."
+			fi
+
+			# G36: Explicitly classify measurement state for downstream automation
+			# This provides a single-line status that tooling can grep for
+			if ! (( FRAME_BUDGET_PASSED )); then
+				echo "G36_STATUS: FAIL (p95=${FRAME_P95}ms > ${TARGET_FRAME_TIME}ms, jank=${FRAME_JANK}/${FRAME_COUNT})"
+			else
+				echo "G36_STATUS: PASS (p95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms, jank=${FRAME_JANK}/${FRAME_COUNT})"
 			fi
 
 			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} target=${TARGET_FRAME_TIME}ms regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN}"
