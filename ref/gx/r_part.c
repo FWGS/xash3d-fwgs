@@ -80,6 +80,12 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 		if( p->type != pt_blob )
 		{
 			particle_count++;
+			/* Skip particles based on quality-aware interval */
+			if( ( particle_count % particle_skip_interval ) != 0 )
+			{
+				gEngfuncs.CL_ThinkParticle( frametime, p );
+				continue;
+			}
 		}
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
 		{
