@@ -327,7 +327,8 @@ static inline int GC_GetVisualQuality( void )
 	/* Standard quality */
 	return 1;
 #endif
-#else
+#else /* !XASH_GAMECUBE */
+	/* Non-GameCube targets always use standard quality */
 	return 1;
 #endif
 }
