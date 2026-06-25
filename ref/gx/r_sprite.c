@@ -157,9 +157,9 @@ R_DrawSpriteModel
 void R_DrawSpriteModel( cl_entity_t *e )
 {
 #if XASH_GAMECUBE
-	// Quality 0 (smoke/low-memory): simplify sprite rendering by skipping
-	// expensive occlusion tests for all sprites and reducing brightness for
-	// glow/additive sprites. This preserves visibility while cutting CPU work.
+	// Quality 0 (low-memory/smoke): reduce sprite visual cost by skipping
+	// expensive occlusion tests and dimming glow/additive sprites.
+	// Quality 1/2: full occlusion and standard brightness.
 	float original_blend = tr.blend;
 	int vis = GC_GetVisualQuality();
 	qboolean low_quality_skip_occlusion = ( vis == 0 );
