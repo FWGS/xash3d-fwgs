@@ -284,25 +284,6 @@ extern gl_globals_t   tr;
 #define r_numStatics  ( r_stats.c_client_ents )
 
 /*
-** GC_IsLowMemoryMode
-** Returns 1 if running in low-memory mode (XASH_LOW_MEMORY or runtime sample_size 0).
-** Returns 0 otherwise.
-*/
-static inline int GC_IsLowMemoryMode( void )
-{
-#if XASH_GAMECUBE
-#if XASH_LOW_MEMORY
-	return 1;
-#else
-	/* Runtime check: sample_size of 0 forces low-memory smoke path */
-	if( tr.sample_size == 0 )
-		return 1;
-#endif
-#endif
-	return 0;
-}
-
-/*
 ** GC_GetVisualQuality
 ** Returns 0 for low-memory smoke path (XASH_LOW_MEMORY or quality cvar).
 ** Returns 1 for standard quality paths.
@@ -330,6 +311,20 @@ static inline int GC_GetVisualQuality( void )
 #else /* !XASH_GAMECUBE */
 	/* Non-GameCube targets always use standard quality */
 	return 1;
+#endif
+}
+
+/*
+** GC_IsLowMemoryMode
+** Returns 1 if running in low-memory mode (XASH_LOW_MEMORY or runtime sample_size 0).
+** Returns 0 otherwise.
+*/
+static inline int GC_IsLowMemoryMode( void )
+{
+#if XASH_GAMECUBE
+	return GC_GetVisualQuality() == 0;
+#else
+	return 0;
 #endif
 }
 
