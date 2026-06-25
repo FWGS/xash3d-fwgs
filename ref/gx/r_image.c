@@ -252,8 +252,16 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	// Low-memory/quality 0 path skips mips to save texture memory pressure
 	uint activeMips = ( GC_GetVisualQuality() == 0 ) ? 1 : mipCount;
 
+#if XASH_GAMECUBE
+	if( GC_GetVisualQuality() == 0 )
+	{
+		SetBits( tex->flags, TF_NOMIPMAP );
+		gEngfuncs.Con_Reportf( "GC-Q0: %s %dx%d single-mip, no alpha\n", tex->name, tex->width, tex->height );
+	}
+#else
 	if( GC_GetVisualQuality() == 0 )
 		SetBits( tex->flags, TF_NOMIPMAP );
+#endif
 
 	for( uint j = 0; j < activeMips; j++ )
 	{
