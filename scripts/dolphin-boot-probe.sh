@@ -688,7 +688,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			# CV > 0.25 indicates high relative variance even if absolute stddev is modest
 			# Calculate this BEFORE G36_SUMMARY so it's available in the summary line
 			FRAME_CV="0.000"
-			if awk "BEGIN {exit !(${FRAME_AVG} > 0)}" 2>/dev/null; then
+			if awk "BEGIN {exit !(${FRAME_AVG} > 0.001)}" 2>/dev/null; then
 				FRAME_CV=$(awk "BEGIN {printf \"%.3f\", ${FRAME_STDDEV} / ${FRAME_AVG}}")
 				if awk "BEGIN {exit !(${FRAME_CV} > 0.25)}" 2>/dev/null; then
 					echo "G36_CV_WARN: Frame budget CV=${FRAME_CV} exceeds 0.25. High relative variance detected; consider profiling allocation spikes or GPU stall patterns."
