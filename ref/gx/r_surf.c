@@ -1360,6 +1360,14 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		// rasterize the surface into the cache
 		R_DrawSurface();
 	}
+
+#if XASH_GAMECUBE
+	// G24b: skip decals for quality 0 world-luxels surfaces to preserve budget.
+	// Decals for world-luxels were already skipped in the early-return path of
+	// R_DrawSurface() for quality 0; skip here too so D_CacheSurface() stays clean.
+	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
+		return cache;
+#endif
 	R_DrawSurfaceDecals();
 
 	return cache;
