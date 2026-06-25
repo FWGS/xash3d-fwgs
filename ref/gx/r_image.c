@@ -799,6 +799,8 @@ int GAME_EXPORT GL_CreateTexture( const char *name, int width, int height, const
 	{
 		if( r_empty.width > 64 ) r_empty.width = 64;
 		if( r_empty.height > 64 ) r_empty.height = 64;
+		// recompute size after clamping to match new dimensions
+		r_empty.size = r_empty.width * r_empty.height * datasize * 4;
 	}
 #endif
 
