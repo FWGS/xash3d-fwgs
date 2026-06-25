@@ -64,9 +64,9 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	int vis = GC_GetVisualQuality();
 	int particle_skip = 0;
 	if( vis == 0 )
-		particle_skip = 4; // low-memory: render every 4th particle for stability
+		particle_skip = 2; // low-memory: render every 2nd particle for stability
 	else if( vis == 1 )
-		particle_skip = 5; // medium: render every 5th particle for stability
+		particle_skip = 3; // medium: render every 3rd particle for stability
 	int particle_count = 0;
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
