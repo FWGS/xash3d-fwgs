@@ -258,7 +258,10 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			if( vis == 0 )
 				tracer_brightness = 0.5f;
 			// TriColor4ub( color.r, color.g, color.b, p->packedColor );
-			_TriColor4f( tracer_brightness * alpha / 255 / 255 * color.r, tracer_brightness * alpha / 255 / 255 * color.g, tracer_brightness * alpha / 255 / 255 * color.b, 1.0f );
+			{
+				float scale = tracer_brightness * ( alpha / 255.0f ) * ( 1.0f / 255.0f );
+				_TriColor4f( scale * color.r, scale * color.g, scale * color.b, 1.0f );
+			}
 
 
 			TriBegin( TRI_QUADS );
