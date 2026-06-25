@@ -1445,10 +1445,6 @@ qboolean GAME_EXPORT R_Init( void )
 {
 	qboolean glblit = false;
 
-	// G24a: Ensure tr.framecount starts at 0 so GC_GetVisualQuality init guard is deterministic.
-	// Initialize sample_size to 0 (low-memory default) before quality check.
-	// GC_GetVisualQuality() reads tr.sample_size to determine quality mode.
-	// R_NewMap will recalculate sample_size when a map is loaded.
 	tr.framecount = 0;
 	tr.sample_size = 0;
 	tr.sample_bits = -1;
