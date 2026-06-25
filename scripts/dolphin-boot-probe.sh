@@ -610,6 +610,13 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				fi
 			fi
 
+			# G36: Flag low sample count as insufficient for statistical confidence
+			if (( FRAME_COUNT < 5 )); then
+				echo "G36_SAMPLE_WARN: Only ${FRAME_COUNT} frame samples collected. Insufficient for reliable P95 budget analysis."
+			elif (( FRAME_COUNT < 10 )); then
+				echo "G36_SAMPLE_NOTE: ${FRAME_COUNT} frame samples collected. Moderate confidence in budget measurement."
+			fi
+
 			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} target=${TARGET_FRAME_TIME}ms"
 			
 			# G36: Report frame timing jitter (MAD) as stability metric
