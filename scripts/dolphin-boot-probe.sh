@@ -189,6 +189,7 @@ grep -aqE "Xash3D GameCube: frame.*time=" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS
 grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 
 # Extract frame budget statistics for G36 measurement
+TARGET_FRAME_TIME=16.66
 FRAME_TIMES=()
 if (( FRAME_BUDGET_LOGS )); then
 	while IFS= read -r line; do
@@ -201,24 +202,27 @@ fi
 FRAME_MIN=""
 FRAME_MAX=""
 FRAME_AVG=""
+FRAME_MEDIAN=""
 FRAME_P95=""
 FRAME_STDDEV=""
 FRAME_JANK=0
+FRAME_FIRST=""
 FRAME_COUNT=${#FRAME_TIMES[@]}
 if (( FRAME_COUNT > 0 )); then
 	# Use awk for robust float math and sorting without bc dependency
-	eval "$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '
+	eval "$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
 	BEGIN {
 		min = 999999; max = 0; sum = 0; sum_sq = 0; count = 0; jank = 0;
 	}
 	{
 		val = $1 + 0;
+		if (count == 0) first = val;
 		if (val < min) min = val;
 		if (val > max) max = val;
 		sum += val;
 		sum_sq += val * val;
 		count++;
-		if (val > 16.66) jank++;
+		if (val > target) jank++;
 		times[count] = val;
 	}
 	END {
@@ -228,7 +232,7 @@ if (( FRAME_COUNT > 0 )); then
 		if (variance < 0) variance = 0;
 		stddev = sqrt(variance);
 		
-		# Bubble sort for P95 (small N)
+		# Bubble sort for percentiles (small N)
 		for (i = 1; i <= count; i++) {
 			for (j = i + 1; j <= count; j++) {
 				if (times[i] > times[j]) {
@@ -239,15 +243,24 @@ if (( FRAME_COUNT > 0 )); then
 			}
 		}
 		
+		# Median Index
+		if (count % 2 == 1) {
+			median = times[int(count / 2) + 1];
+		} else {
+			median = (times[count / 2] + times[count / 2 + 1]) / 2.0;
+		}
+		
 		# P95 Index (1-based, ceiling for worst-5-percentile)
 		p95_idx = int(count * 0.95 + 0.9999);
 		if (p95_idx < 1) p95_idx = 1;
 		if (p95_idx > count) p95_idx = count;
 		p95 = times[p95_idx];
 		
+		printf "FRAME_FIRST=%.3f\n", first;
 		printf "FRAME_MIN=%.3f\n", min;
 		printf "FRAME_MAX=%.3f\n", max;
 		printf "FRAME_AVG=%.3f\n", avg;
+		printf "FRAME_MEDIAN=%.3f\n", median;
 		printf "FRAME_P95=%.3f\n", p95;
 		printf "FRAME_STDDEV=%.3f\n", stddev;
 		printf "FRAME_JANK=%d\n", jank;
@@ -275,23 +288,30 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 	if (( FRAME_BUDGET_LOGS )); then
 		echo "FRAME_BUDGET_STATS: samples=${FRAME_COUNT}"
 		if (( FRAME_COUNT > 0 )); then
+			echo "FRAME_FIRST: ${FRAME_FIRST}ms (cold-start/initial frame)"
 			echo "FRAME_MIN: ${FRAME_MIN}ms"
 			echo "FRAME_MAX: ${FRAME_MAX}ms"
 			echo "FRAME_AVG: ${FRAME_AVG}ms"
+			echo "FRAME_MEDIAN: ${FRAME_MEDIAN}ms"
 			echo "FRAME_P95: ${FRAME_P95}ms"
 			echo "FRAME_STDDEV: ${FRAME_STDDEV}ms"
-			echo "FRAME_JANK: ${FRAME_JANK} frames exceeded 16.66ms"
+			echo "FRAME_JANK: ${FRAME_JANK} frames exceeded ${TARGET_FRAME_TIME}ms"
 			
 			# Classify frame budget health for G36 measurement
 			if (( FRAME_JANK > 0 )); then
 				echo "PERFORMANCE_NOTE: Jank detected (${FRAME_JANK} frames over budget)."
-				if awk "BEGIN {exit !($FRAME_MAX > 16.66)}"; then
-					echo "PERFORMANCE_BLOCKER: Frame budget exceeded. Max=${FRAME_MAX}ms > 16.66ms (60fps target)."
-				elif awk "BEGIN {exit !($FRAME_P95 > 16.66)}"; then
-					echo "PERFORMANCE_NOTE: P95=${FRAME_P95}ms > 16.66ms. Target stable, but intermittent frames exceed budget."
+				if awk "BEGIN {exit !($FRAME_MAX > $TARGET_FRAME_TIME)}"; then
+					echo "PERFORMANCE_BLOCKER: Frame budget exceeded. Max=${FRAME_MAX}ms > ${TARGET_FRAME_TIME}ms (60fps target)."
+				elif awk "BEGIN {exit !($FRAME_P95 > $TARGET_FRAME_TIME)}"; then
+					echo "PERFORMANCE_NOTE: P95=${FRAME_P95}ms > ${TARGET_FRAME_TIME}ms. Target stable, but intermittent frames exceed budget."
 				fi
 			else
 				echo "PERFORMANCE_OK: Frame budget telemetry present and within 60fps limits."
+			fi
+			
+			# Additional stability heuristic: High stddev relative to avg indicates jitter
+			if awk "BEGIN {exit !($FRAME_STDDEV > 3.0)}"; then
+				echo "PERFORMANCE_JITTER: High frame-time variance detected (StdDev=${FRAME_STDDEV}ms). Rendering may appear stuttery despite meeting budget."
 			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
