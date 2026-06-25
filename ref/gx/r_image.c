@@ -823,6 +823,11 @@ return size of all uploaded textures
 int R_TexMemory( void )
 {
 	int total = 0;
+#if XASH_GAMECUBE
+	int quality = GC_GetVisualQuality();
+#else
+	int quality = 1;
+#endif
 
 	for( int i = 0; i < r_numImages; i++ )
 	{
@@ -835,6 +840,14 @@ int R_TexMemory( void )
 			total += w * h * sizeof( pixel_t );
 		}
 	}
+
+#if XASH_GAMECUBE
+	// quality 0 (low-memory) path: report reduced memory footprint
+	if( quality == 0 )
+	{
+		gEngfuncs.Con_Reportf( "GC-Q0 tex memory: %s\n", Q_memprint( total ));
+	}
+#endif
 
 	return total;
 }
