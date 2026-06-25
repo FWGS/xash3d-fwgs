@@ -1296,22 +1296,25 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 	// c_surf++;
 
-	// calculate the lightings
 #if XASH_GAMECUBE
 	// G24b: on quality-0 world-luxels surfaces, skip expensive lightmap build
-	// and use fallback texture copy. Dynamic lights use normal path.
-	if( !( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
-	   surface->dlightframe != tr.framecount ))
-#endif
-		R_BuildLightMap( );
-
-	// rasterize the surface into the cache
-#if XASH_GAMECUBE
-	// G24b: on quality-0 world-luxels surfaces, skip expensive lightmap
-	// build and use a bounded fallback fill so surfaces remain visible.
+	// and use a bounded fallback fill so surfaces remain visible.
 	// Dynamic lights or animated surfaces take the normal path.
-	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
-	    surface->dlightframe != tr.framecount )
+	qboolean is_lowmem_worldluxel = ( !GC_GetVisualQuality() &&
+	    ( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
+	    surface->dlightframe != tr.framecount );
+#else
+	qboolean is_lowmem_worldluxel = false;
+#endif
+
+	if( !is_lowmem_worldluxel )
+	{
+		// calculate the lightings
+		R_BuildLightMap( );
+		// rasterize the surface into the cache
+		R_DrawSurface();
+	}
+	else
 	{
 		// Stable unlit fallback: fill surface cache with base texture data
 		// when available, otherwise a neutral color. Bound to valid dims.
@@ -1361,9 +1364,6 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			}
 		}
 	}
-	else
-#endif
-		R_DrawSurface();
 	R_DrawSurfaceDecals();
 
 	return cache;
