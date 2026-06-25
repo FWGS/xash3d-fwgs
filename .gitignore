@@ -385,6 +385,7 @@ GEMINI.md
 .continue/
 .codeium/
 .github/copilot-instructions.md
+.ai/dolphin-probe.lock
 .ai/goal-loop.lock
 .ai/goal-supervisor.lock
 

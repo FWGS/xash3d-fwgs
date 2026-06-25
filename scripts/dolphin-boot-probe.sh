@@ -224,7 +224,7 @@ elif (( GUEST_FOUND )) && grep -aEiq 'Host_Error|Sys_Error|Xash Error:|fatal err
 	echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
 	echo "Logs: $LOG_DIR"
 	exit 3
-elif (( DIAGNOSTIC_MARKER_FOUND )); then
+elif [[ -z "$SMOKE_MAP" ]] && (( DIAGNOSTIC_MARKER_FOUND )); then
 	echo "VISUAL_DIAGNOSTIC: Diagnostic marker was detected in logs. This suggests VI/XFB is functional."
 	echo "Logs: $LOG_DIR"
 	exit 0
