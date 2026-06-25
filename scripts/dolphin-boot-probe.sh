@@ -474,6 +474,17 @@ if (( FRAME_BUDGET_LOGS )); then
 	# G36_PATCH_v2: Removed this redundant pass; 'time=' pattern above already covers 'render time='.
 	# Keeping this block empty to avoid duplicate samples that inflate FRAME_COUNT.
 
+	# G36_DEDUP_v1: Deduplicate FRAME_TIMES to prevent double-counting when
+	# both 'time=' and 'duration=' markers are emitted for the same frame.
+	# Sort numerically, remove exact duplicates, then restore to array.
+	if (( FRAME_COUNT > 1 )); then
+		FRAME_TIMES=( $(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | uniq) )
+		FRAME_COUNT=${#FRAME_TIMES[@]}
+		if (( FRAME_COUNT < ${#FRAME_TIMES[@]} + 1 )); then
+			echo "G36_DEDUP: Removed duplicate frame samples. Count reduced to ${FRAME_COUNT}."
+		fi
+	fi
+
 	# Check for dropped frame markers to correlate with jank
 	grep -aqsF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}" && FRAME_DROP_LOGS=1
 	if (( FRAME_DROP_LOGS )); then
