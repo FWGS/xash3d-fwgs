@@ -1406,6 +1406,9 @@ static void R_InitTurb( void )
 qboolean GAME_EXPORT R_Init( void )
 {
 	qboolean glblit = false;
+#if XASH_GAMECUBE
+	int init_quality = 0;
+#endif
 
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin\n" );
@@ -1419,15 +1422,15 @@ qboolean GAME_EXPORT R_Init( void )
 	tr.sample_bits = -1;
 
 #if XASH_GAMECUBE
-	// Establish renderer quality mode early; all subsequent init guards reference this.
-	// GC_GetVisualQuality() is provided by r_local.h; do not redeclare elsewhere.
-	int init_quality = GC_GetVisualQuality();
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected\n", init_quality );
-
-	// G24a: single entry-point marker for low-memory quality wire
-	if( GC_GetVisualQuality() == 0 )
 	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
+		init_quality = GC_GetVisualQuality();
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected\n", init_quality );
+
+		// G24a: single entry-point marker for low-memory quality wire
+		if( init_quality == 0 )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: low-memory quality path active\n" );
+		}
 	}
 #endif
 
