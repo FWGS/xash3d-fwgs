@@ -305,6 +305,16 @@ void GAME_EXPORT CL_DrawParticlesExternal( const ref_viewpass_t *rvp, qboolean t
 	memcpy( RI.visbytes, tr.visbytes, gpGlobals->visbytes );
 	tr.frametime = frametime;
 
+#if XASH_GAMECUBE
+	// In low-memory quality mode, skip expensive EFX draws when not in trans pass
+	int vis = GC_GetVisualQuality();
+	if( vis == 0 && !trans_pass )
+	{
+		RI = oldRI;
+		return; // quality 0: skip non-trans EFX to save memory/bandwidth
+	}
+#endif
+
 	gEngfuncs.CL_DrawEFX( frametime, trans_pass );
 
 	// restore internal state
