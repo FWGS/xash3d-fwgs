@@ -323,7 +323,11 @@ static inline int GC_GetVisualQuality( void )
 */
 static inline int GC_IsLowMemoryMode( void )
 {
+#if XASH_LOW_MEMORY
+	return 1;
+#else
 	return GC_GetVisualQuality() == 0;
+#endif /* XASH_LOW_MEMORY */
 }
 
 typedef struct image_s
