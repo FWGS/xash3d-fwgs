@@ -444,18 +444,18 @@ FRAME_TIMES_STRICT=0
 FRAME_TIMES_RELAXED=0
 
 if (( FRAME_BUDGET_LOGS )); then
-	# G36_PATCH_v5: Unified robust extraction of frame budget timing.
-	# Combines 'time=' and 'duration=' extraction into a single pass where possible,
-	# or clearly separated passes with strict deduplication.
-	# This reduces regex complexity and improves reliability of sample counts.
+	# G36_PATCH_v6: Fixed frame extraction to capture all frame samples,
+	# not just the last one. Previous 'tail -1' was discarding all but
+	# the final sample, causing "missing frames between explicit sample boundaries."
 		
 	# Extract 'time=' markers (primary budget metric)
 	FRAME_TIMES_STRICT=$(grep -aoE 'Xash3D GameCube: frame time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | wc -l)
 		
+	# Extract all frame time values, not just the last one
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget |frame render complete )+time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oE '[0-9]+(\.[0-9]+)?' | tail -1) # Get last number if multiple, but usually time= is the key
+	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget |frame render complete )time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE '[0-9]+(\.[0-9]+)?')
 		
 	# Retry extraction with a cleaner pattern if empty
 	if (( ${#FRAME_TIMES[@]} == 0 )); then
@@ -471,7 +471,7 @@ if (( FRAME_BUDGET_LOGS )); then
 	if grep -aqsF "duration=" "${LOG_FILES[@]}"; then
 		while IFS= read -r val; do
 			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-		done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget )+duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+		done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget )duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 			grep -oE 'duration=[0-9]+(\.[0-9]+)?' | sed 's/duration=//')
 	fi
 
