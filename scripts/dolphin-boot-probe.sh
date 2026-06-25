@@ -582,24 +582,23 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
+			# G36: Coefficient of variation (CV = stddev/avg) for normalized variance
+			# CV > 0.25 indicates high relative variance even if absolute stddev is modest
+			# Calculate this BEFORE G36_SUMMARY so it's available in the summary line
+			FRAME_CV="0.000"
+			if awk "BEGIN {exit !(${FRAME_AVG} > 0)}" 2>/dev/null; then
+				FRAME_CV=$(awk "BEGIN {printf \"%.3f\", ${FRAME_STDDEV} / ${FRAME_AVG}}")
+				if awk "BEGIN {exit !(${FRAME_CV} > 0.25)}" 2>/dev/null; then
+					echo "G36_CV_WARN: Frame budget CV=${FRAME_CV} exceeds 0.25. High relative variance detected; consider profiling allocation spikes or GPU stall patterns."
+				fi
+			fi
+
 			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV}"
 			
 			# G36: Report frame timing jitter (MAD) as stability metric
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
-			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 2.0)}"; then
+			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 2.0)}" 2>/dev/null; then
 				echo "G36_JITTER_WARN: Frame timing MAD=${FRAME_TIMING_JITTER}ms exceeds 2.0ms threshold. Rendering may appear stuttery due to high variance in frame delivery."
-			fi
-
-			# G36: Coefficient of variation (CV = stddev/avg) for normalized variance
-			# CV > 0.25 indicates high relative variance even if absolute stddev is modest
-			FRAME_CV=""
-			if awk "BEGIN {exit !(${FRAME_AVG} <= 0)}"; then
-				: # Skip CV calc if avg is zero
-			else
-				FRAME_CV=$(awk "BEGIN {printf \"%.3f\", ${FRAME_STDDEV} / ${FRAME_AVG}}")
-				if awk "BEGIN {exit !(${FRAME_CV} > 0.25)}"; then
-					echo "G36_CV_WARN: Frame budget CV=${FRAME_CV} exceeds 0.25. High relative variance detected; consider profiling allocation spikes or GPU stall patterns."
-				fi
 			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
