@@ -1386,6 +1386,12 @@ qboolean GAME_EXPORT R_Init( void )
 	// Ensure tr.framecount starts at 0 so GC_GetVisualQuality init guard is deterministic
 	tr.framecount = 0;
 
+#if XASH_GAMECUBE
+	// Establish renderer quality mode early; all subsequent init guards reference this
+	int init_quality = GC_GetVisualQuality();
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer quality mode %d selected\n", init_quality );
+#endif
+
 	gEngfuncs.Cvar_RegisterVariable( &sw_clearcolor );
 	gEngfuncs.Cvar_RegisterVariable( &sw_drawflat );
 	gEngfuncs.Cvar_RegisterVariable( &sw_draworder );
