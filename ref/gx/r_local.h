@@ -324,7 +324,12 @@ static inline int GC_GetVisualQuality( void )
 static inline qboolean GC_IsLowMemoryMode( void )
 {
 #if XASH_GAMECUBE
+#if XASH_LOW_MEMORY
+	/* Compile-time low-memory builds always report low-memory mode */
+	return true;
+#else
 	return tr.sample_size == 0 ? true : false;
+#endif /* !XASH_LOW_MEMORY */
 #else
 	return false;
 #endif
