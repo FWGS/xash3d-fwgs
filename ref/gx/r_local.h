@@ -317,13 +317,17 @@ static inline int GC_GetVisualQuality( void )
 
 /*
 ** GC_IsLowMemoryMode
-** Returns 1 if running in low-memory mode (quality 0).
-** Returns 0 otherwise.
+** Returns true if running in low-memory mode (quality 0).
+** Returns false otherwise.
 ** Consistent with GC_GetVisualQuality.
 */
 static inline qboolean GC_IsLowMemoryMode( void )
 {
-	return GC_GetVisualQuality() == 0 ? true : false;
+#if XASH_GAMECUBE
+	return tr.sample_size == 0 ? true : false;
+#else
+	return false;
+#endif
 }
 
 typedef struct image_s
