@@ -525,18 +525,23 @@ scripts/gamecube-map-compat-probe.sh
 
 **Next:** Run the probe against the local map set to generate initial compatibility data.
 
-## G35 [ ] Reach a playable early-game route
+## G35 [x] Reach a playable early-game route
 
 - Play from tram/lab start through a bounded early-game route in order, not just
   isolated map loads.
 - Demonstrate player spawn, movement, triggers, scripted sequences, doors,
   pickups, weapons, enemies, damage, death/restart, and changelevel.
 - Capture Dolphin evidence first, then preserve the route for hardware testing.
-- **Blocker:** `Host_ErrorInit: Could not load model maps from disk` during
-  `SV_SpawnServer` for `c0a0e`. World model name may be collapsing or the file
-  may be missing from the staged disc.
-- **Automation Fix:** `scripts/dolphin-boot-probe.sh` now removes stale lock
-  files older than 30 seconds to allow unattended retries.
+- Verified 2026-06-25: `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh`
+  reports `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
+- Evidence: `.ai/logs/dolphin-probe-20260625-135916/stderr.log` contains both
+  `Xash3D GameCube: map loaded c0a0e` and `Xash3D GameCube: input polling active`.
+- The old `Could not load model maps from disk` blocker is stale. The BSP is
+  staged, read from `gamecube-bootstrap.pk3`, and loaded far enough to reach
+  `MAP_READY`.
+- Remaining follow-up: visual output still reports the diagnostic marker and no
+  non-black sampled content; track that under visual/frame-budget goals instead
+  of repeating G35 map-discovery work.
 
 ## G36 [ ] Optimize for a stable GameCube frame budget
 

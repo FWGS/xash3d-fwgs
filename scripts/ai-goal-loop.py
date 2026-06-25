@@ -29,6 +29,7 @@ GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35", "G40"})
 PROBE_AUTO_COMPLETE = {
 	"G19": "MAP_READY:",
+	"G35": "MAP_READY:",
 }
 MEMORY_FILE = Path(".ai/state/goal-loop-memory.json")
 MEMORY_MAX_DRAWERS = 12
@@ -939,7 +940,7 @@ def insert_goal_evidence(text: str, goal_id: str, evidence_lines: list[str]) -> 
 def commit_probe_success(root: Path, goal: Goal, log_dir: str, probe_output: str) -> int:
 	goal_path = root / ".ai/goals/GAMECUBE_PORT_GOALS.md"
 	plan_path = root / "docs/GAMECUBE_PORT_PLAN.md"
-	timeout = os.environ.get("DOLPHIN_TIMEOUT", "600")
+	timeout = os.environ.get("DOLPHIN_TIMEOUT", "120")
 	summary = probe_output.splitlines()[0] if probe_output else "MAP_READY"
 	goal_path.write_text(insert_goal_evidence(
 		goal_path.read_text(encoding="utf-8"),

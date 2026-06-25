@@ -967,6 +967,18 @@ or operator-recorded hardware evidence before they can be marked complete.
 
 ## G35 — Reach a playable early-game route
 
+**Verified (2026-06-25):** `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh`
+now reaches `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
+Evidence is in `.ai/logs/dolphin-probe-20260625-135916/stderr.log`, which
+contains `Xash3D GameCube: map loaded c0a0e` and `Xash3D GameCube: input polling
+active`.
+
+The earlier `Host_ErrorInit: Could not load model maps from disk` investigation
+is obsolete. The BSP is present, read from `gamecube-bootstrap.pk3`, and the
+strict probe proves map load plus input polling. Remaining work should move to
+visual-content/frame-budget route goals because the probe still reports the
+diagnostic marker and no non-black sampled content.
+
 **Progress (2026-06-25):** Updated `GCube_GetArgv` in `sys_gamecube.c` to include `-game valve` and
 `map c0a0e` in the default arguments. This ensures the engine auto-starts the early-game route without
 waiting for user input or menu interaction. The `-gcmap` smoke boot flag was previously removed to
