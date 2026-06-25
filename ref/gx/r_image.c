@@ -243,8 +243,26 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	int mipCount = 4;
 
 	// NOTE: only single uncompressed textures can be resamples, no mips, no layers, no sides
+	// In low-memory mode, clamp resampling target to 128x128 to reduce CPU/memory pressure
+#if XASH_GAMECUBE
+	int resampleWidth = tex->width;
+	int resampleHeight = tex->height;
+	if( GC_GetVisualQuality() == 0 )
+	{
+		resampleWidth = Q_min( resampleWidth, 128 );
+		resampleHeight = Q_min( resampleHeight, 128 );
+	}
+#endif
+
 	if((( pic->width != tex->width ) || ( pic->height != tex->height )))
-		data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
+	{
+#if XASH_GAMECUBE
+		if( GC_GetVisualQuality() == 0 )
+			data = GL_ResampleTexture( buf, pic->width, pic->height, resampleWidth, resampleHeight, normalMap );
+		else
+#endif
+			data = GL_ResampleTexture( buf, pic->width, pic->height, tex->width, tex->height, normalMap );
+	}
 	else
 		data = buf;
 
