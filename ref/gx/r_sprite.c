@@ -173,6 +173,12 @@ void R_DrawSpriteModel( cl_entity_t *e )
 			tr.blend *= 0.5f;
 		}
 	}
+	else
+	{
+		// Non-low-quality: no blend modification, so original_blend is not needed
+		// but we still track it for consistency in the occlusion early-return path.
+		original_blend = tr.blend;
+	}
 #endif
 
 	mspriteframe_t *frame = NULL;
