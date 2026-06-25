@@ -239,15 +239,10 @@ if (( FRAME_COUNT > 0 )); then
 			}
 		}
 		
-		# P95 Index (1-based)
-		p95_idx = int(count * 0.95);
+		# P95 Index (1-based, ceiling for worst-5-percentile)
+		p95_idx = int(count * 0.95 + 0.9999);
 		if (p95_idx < 1) p95_idx = 1;
-		if (count > 1 && p95_idx < count && (count * 0.95) > int(count * 0.95)) {
-			 # Linear interpolation if needed, or just ceiling. 
-			 # For strict percentile, ceiling is often safer for "worst 5%"
-			 p95_idx = int(count * 0.95 + 0.99);
-			 if (p95_idx > count) p95_idx = count;
-		}
+		if (p95_idx > count) p95_idx = count;
 		p95 = times[p95_idx];
 		
 		printf "FRAME_MIN=%.3f\n", min;
