@@ -379,7 +379,7 @@ class PortWindow(QMainWindow):
 
 		pipeline_panel = QWidget()
 		pipeline_row = QHBoxLayout(pipeline_panel)
-		for index, name in enumerate(("AIDER", "REVIEW", "VERIFY", "DOL", "ISO", "DOLPHIN")):
+		for index, name in enumerate(("AIDER", "REVIEW", "VERIFY", "DOL", "ISO", "DOLPHIN", "VISION")):
 			if index:
 				arrow = QLabel("▶")
 				arrow.setStyleSheet(f"color: {GC_CYAN};")
@@ -406,6 +406,9 @@ class PortWindow(QMainWindow):
 		self.dolphin_btn = QPushButton("Build & Boot in Dolphin")
 		self.dolphin_btn.clicked.connect(self.boot_dolphin)
 		tools.addWidget(self.dolphin_btn)
+		self.vision_btn = QPushButton("Dolphin Screenshot Vision Test")
+		self.vision_btn.clicked.connect(self.run_dolphin_vision_test)
+		tools.addWidget(self.vision_btn)
 		self.add_panel("Tools", tools_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		console_panel = QWidget()
@@ -849,6 +852,7 @@ class PortWindow(QMainWindow):
 		env = QProcessEnvironment.systemEnvironment()
 		for key, value in os.environ.items():
 			env.insert(key, value)
+		env.insert("OPENAI_API_BASE", self.model_api_edit.text().strip())
 		proc.setProcessEnvironment(env)
 		proc.readyReadStandardOutput.connect(self.read_output)
 		proc.finished.connect(self.finished)
@@ -883,6 +887,10 @@ class PortWindow(QMainWindow):
 			self.set_pipeline_state("REVIEW", "Running")
 		if "review: OK" in text:
 			self.set_pipeline_state("REVIEW", "Success")
+		if "SCREENSHOT:" in text or "== vision analysis ==" in text:
+			self.set_pipeline_state("VISION", "Running")
+		if "Logs: .ai/logs/dolphin-vision-" in text:
+			self.set_pipeline_state("VISION", "Success")
 		if self.operation == "Goal automation":
 			for line in text.splitlines():
 				if line.startswith("GOAL PASS "):
@@ -899,6 +907,7 @@ class PortWindow(QMainWindow):
 		return {
 			"Goal automation": "AIDER", "Review HEAD": "REVIEW", "Verify": "VERIFY",
 			"Build DOL": "DOL", "Build disc ISO": "ISO",
+			"Dolphin vision test": "VISION",
 		}.get(operation, "AIDER")
 
 	def set_pipeline_state(self, name: str, state: str) -> None:
@@ -1028,6 +1037,13 @@ class PortWindow(QMainWindow):
 				"Build disc ISO")
 			return
 		self.launch_dolphin()
+
+	def run_dolphin_vision_test(self) -> None:
+		self.start([
+			"scripts/dolphin-vision-test.py",
+			"--repo", str(self.repo()),
+			"--api-base", self.model_api_edit.text().strip(),
+		], "Dolphin vision test")
 
 	def launch_dolphin(self) -> None:
 		iso = self.repo() / "OUT/xash3d-gc.iso"

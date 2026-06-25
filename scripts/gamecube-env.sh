@@ -3,6 +3,7 @@
 
 gamecube_export_dolphin_env() {
 	local flatpak_id="${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}"
+	local root="${XASH3D_GC_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
 	# If DOLPHIN_EXECUTABLE is already set by the environment, respect it.
 	# Always export the flatpak ID as it may be needed by callers for cleanup
@@ -14,7 +15,15 @@ gamecube_export_dolphin_env() {
 		return 0
 	fi
 
-	if command -v dolphin-emu >/dev/null 2>&1; then
+	if [[ -x "$root/3rdparty/dolphin/build/Binaries/dolphin-emu" ]]; then
+		DOLPHIN_EXECUTABLE="$root/3rdparty/dolphin/build/Binaries/dolphin-emu"
+	elif [[ -x "$root/3rdparty/dolphin/build/Binaries/dolphin-emu-nogui" ]]; then
+		DOLPHIN_EXECUTABLE="$root/3rdparty/dolphin/build/Binaries/dolphin-emu-nogui"
+	elif [[ -x "$root/3rdparty/dolphin/build/dolphin-emu" ]]; then
+		DOLPHIN_EXECUTABLE="$root/3rdparty/dolphin/build/dolphin-emu"
+	elif [[ -x "$root/3rdparty/dolphin/build/dolphin-emu-nogui" ]]; then
+		DOLPHIN_EXECUTABLE="$root/3rdparty/dolphin/build/dolphin-emu-nogui"
+	elif command -v dolphin-emu >/dev/null 2>&1; then
 		DOLPHIN_EXECUTABLE="$(command -v dolphin-emu)"
 	elif command -v dolphin >/dev/null 2>&1; then
 		DOLPHIN_EXECUTABLE="$(command -v dolphin)"
