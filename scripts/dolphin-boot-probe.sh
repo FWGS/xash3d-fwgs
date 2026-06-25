@@ -477,11 +477,13 @@ if (( FRAME_BUDGET_LOGS )); then
 	# G36_DEDUP_v1: Deduplicate FRAME_TIMES to prevent double-counting when
 	# both 'time=' and 'duration=' markers are emitted for the same frame.
 	# Sort numerically, remove exact duplicates, then restore to array.
+	FRAME_COUNT=${#FRAME_TIMES[@]}
 	if (( FRAME_COUNT > 1 )); then
+		local PRE_DEDUP_COUNT=$FRAME_COUNT
 		FRAME_TIMES=( $(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | uniq) )
 		FRAME_COUNT=${#FRAME_TIMES[@]}
-		if (( FRAME_COUNT < ${#FRAME_TIMES[@]} + 1 )); then
-			echo "G36_DEDUP: Removed duplicate frame samples. Count reduced to ${FRAME_COUNT}."
+		if (( FRAME_COUNT < PRE_DEDUP_COUNT )); then
+			echo "G36_DEDUP: Removed duplicate frame samples. Count reduced from ${PRE_DEDUP_COUNT} to ${FRAME_COUNT}."
 		fi
 	fi
 
