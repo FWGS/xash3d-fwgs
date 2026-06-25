@@ -738,6 +738,16 @@ if grep -aqsF "Xash3D GameCube: frame budget sample end stage=" "${LOG_FILES[@]}
 		grep -oE 'stage=[a-z_]+' | sed 's/stage=//' | sort -u | tr '\n' ',' | sed 's/,$//')
 fi
 
+# G36: Detect GC_MemFail markers to correlate OOM/pressure with frame budget failures
+GC_MEMFAIL_COUNT=0
+GC_MEMFAIL_POOL=""
+if grep -aqsF "GC_MemFail" "${LOG_FILES[@]}"; then
+	GC_MEMFAIL_COUNT=$(grep -acF "GC_MemFail" "${LOG_FILES[@]}")
+	# Extract the pool name from the last GC_MemFail for diagnostic context
+	GC_MEMFAIL_POOL=$(grep -aoE 'GC_MemFail.*pool=[a-zA-Z_]+' "${LOG_FILES[@]}" 2>/dev/null | \
+		tail -1 | grep -oE 'pool=[a-zA-Z_]+' | sed 's/pool=//')
+fi
+
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
 		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
@@ -1102,6 +1112,14 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					if awk "BEGIN {exit !($GC_MEM_PEAK_TOTAL > 10.0)}" 2>/dev/null; then
 						echo "G36_ALLOC_STALL_RISK: High memory pressure (${GC_MEM_PEAK_TOTAL}MiB) coincides with frame spikes. GC zone allocator fragmentation is a probable cause for G36 instability."
 					fi
+				fi
+			fi
+
+			# G36: Report GC_MemFail OOM events as evidence of allocation-pressure frame stalls
+			if (( GC_MEMFAIL_COUNT > 0 )); then
+				echo "G36_MEMFAIL_EVENTS: ${GC_MEMFAIL_COUNT} GC_MemFail markers detected${GC_MEMFAIL_POOL:+ (last pool: ${GC_MEMFAIL_POOL})}."
+				if (( FRAME_BUDGET_LOGS )) && ! (( FRAME_BUDGET_PASSED )); then
+					echo "G36_MEMFAIL_CORRELATION: Memory allocation failures detected alongside frame budget violations. OOM pressure likely causing render stalls or frame drops."
 				fi
 			fi
 
