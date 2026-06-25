@@ -223,6 +223,12 @@ GOAL_CONTEXT_SLICES = {
 		("ref/gx/r_image.c",),
 		("ref/gx/r_local.h",),
 	),
+	"G36": (
+		("scripts/dolphin-boot-probe.sh",),
+		("engine/platform/gamecube/vid_gamecube.c", "engine/client/cl_scrn.c"),
+		("engine/common/mod_bmodel.c",),
+		("engine/common/mod_studio.c",),
+	),
 }
 G24_SUBGOALS = (
 	{
@@ -1114,7 +1120,8 @@ def git_dirty(root: Path) -> bool:
 		text=True, capture_output=True, check=False).stdout.strip())
 
 
-def clean_commit_advances_goal(root: Path, before: str, after: str, expected_subject: str) -> bool:
+def clean_commit_advances_goal(root: Path, before: str, after: str,
+	expected_subject: str, docs_required: bool = True) -> bool:
 	if not before or not after or before == after or git_dirty(root):
 		return False
 	subject = subprocess.run(["git", "log", "-1", "--format=%s", after], cwd=root,
@@ -1123,7 +1130,9 @@ def clean_commit_advances_goal(root: Path, before: str, after: str, expected_sub
 		return False
 	changed = subprocess.run(["git", "diff", "--name-only", f"{before}..{after}"],
 		cwd=root, text=True, capture_output=True, check=False).stdout.splitlines()
-	return "docs/GAMECUBE_PORT_PLAN.md" in changed
+	if docs_required:
+		return "docs/GAMECUBE_PORT_PLAN.md" in changed
+	return bool(changed)
 
 
 def goal_commit_subject(goal: Goal, active_subgoal: dict[str, object] | None) -> str:
@@ -1379,6 +1388,8 @@ def main() -> int:
 				pass_env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 				if active_subgoal:
 					pass_env.setdefault("AI_G24_SUBGOAL", str(active_subgoal["id"]))
+			if goal.goal_id == "G36":
+				pass_env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 			pass_env["AI_COMMIT_BODY"] = goal_commit_body(goal,
 				attempt=attempts[goal.goal_id],
 				context_files=context_files,
@@ -1414,7 +1425,9 @@ def main() -> int:
 				log_path=None if child_failure_output else log_path)
 			save_loop_memory(root, memory)
 			head_after = git_head(root)
-			if clean_commit_advances_goal(root, head_before, head_after, expected_subject):
+			docs_required = pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "1") == "1"
+			if clean_commit_advances_goal(root, head_before, head_after,
+					expected_subject, docs_required):
 				write_state(state_file, state="resuming-after-commit", pass_index=pass_index,
 					goal=asdict(goal), attempt=attempts[goal.goal_id],
 					exit_code=result.returncode,
