@@ -67,6 +67,7 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 		particle_skip = 3; // low-memory: render every 3rd particle for stability
 	else if( vis == 1 )
 		particle_skip = 4; // medium: render every 4th particle for stability
+	// quality 2 (high): particle_skip remains 0, render all particles
 	int particle_count = 0;
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
