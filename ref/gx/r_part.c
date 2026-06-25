@@ -253,8 +253,12 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			}
 
 			color24 color = gTracerColors[p->color];
+			// Quality-aware tracer brightness: reduce in low-memory mode
+			float tracer_brightness = 1.0f;
+			if( vis == 0 )
+				tracer_brightness = 0.5f;
 			// TriColor4ub( color.r, color.g, color.b, p->packedColor );
-			_TriColor4f( 1.0f * alpha / 255 / 255 * color.r, 1.0f * alpha / 255 / 255 * color.g, 1.0f * alpha / 255 / 255 * color.b, 1.0f );
+			_TriColor4f( tracer_brightness * alpha / 255 / 255 * color.r, tracer_brightness * alpha / 255 / 255 * color.g, tracer_brightness * alpha / 255 / 255 * color.b, 1.0f );
 
 
 			TriBegin( TRI_QUADS );
