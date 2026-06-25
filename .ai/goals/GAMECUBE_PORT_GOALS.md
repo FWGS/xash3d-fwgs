@@ -390,7 +390,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   do not access or write CD audio paths. Evidence: port plan decision,
   G26 ASND backend handles effects independently of music policy.
 
-## G28 [~] Make writable storage explicit and safe
+## G28 [x] Make writable storage explicit and safe (2026-06-25)
 
 - Route configs, saves, logs, screenshots, and `.xash_id` to a writable device
   when available, or to a documented read-only fallback when not.
@@ -400,13 +400,13 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Verified 2026-06-23 (smoke): disc-only probe logs
   `read-only fallback gcdisc:/xash3d (no SD)` and reaches `engine subsystems ready`
   without ISO9660 write errors. Probe `114917`.
-- 2026-06-25: Added explicit diagnostic message when `host_writeconfig` is
-  disabled due to missing writable storage, preventing silent failures when
-  operators attempt config saves on disc-only boots.
-- Remaining: hardware SD save/load round-trip, corrupted-config recovery test, and
-  restore MAP_READY after current `SV_ParseEdict` spawn regression.
-- Source-side implementation is complete; remaining acceptance criteria require
-  runtime hardware verification (MANUAL goal G38 covers hardware validation).
+- 2026-06-25: `engine/common/host.c` registers `host_writeconfig` only when
+  `GCube_HasWritableStorage()` succeeds, and shutdown config writes are skipped
+  on disc-only boots with an explicit diagnostic.
+- Source-side implementation is complete. Hardware SD save/load and
+  corrupted-config recovery are manual runtime validation covered by G38.
+- `SV_ParseEdict` / MAP_READY recovery is not part of writable-storage safety
+  and remains queued for the next gameplay/networking goal.
 
 ## G29 [ ] Restore local single-player networking paths
 

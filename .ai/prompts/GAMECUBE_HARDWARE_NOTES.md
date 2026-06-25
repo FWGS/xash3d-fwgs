@@ -41,3 +41,14 @@ Use this as compact hardware context for native Xash3D GameCube work.
 - Runtime claims need Dolphin logs, OSReport markers, map probe output, or
   hardware validation notes.
 - Manual hardware goals cannot be completed by local automation alone.
+- Separate status labels carefully:
+  - `source-complete` means code and local verifier evidence are sufficient.
+  - `Dolphin-smoke-complete` means emulator evidence reached the stated marker.
+  - `hardware-complete` requires dated real hardware evidence.
+- For hardware or loader claims, use `docs/GAMECUBE_HARDWARE_VALIDATION.md` as
+  the required protocol. Do not replace it with loose checklist language.
+- Every hardware evidence entry must include test ID, route, artifact commit,
+  furthest reached marker, pass/partial/fail status, failure taxonomy label when
+  failed, and next concrete blocker.
+- Never mark a manual hardware validation goal complete from Dolphin-only
+  evidence. Link it to G38 or the relevant manual goal instead.

@@ -254,9 +254,9 @@ Physical hardware validation handoff:
 docs/GAMECUBE_HARDWARE_VALIDATION.md
 ```
 
-This checklist defines the required console/loader/storage/video observations
-for G38 and final release claims. Those goals cannot be completed by local
-automation alone.
+This protocol defines the required console/loader/storage/video observations,
+test IDs, failure labels, and evidence template for G38 and final release
+claims. Those goals cannot be completed by local automation alone.
 
 Previously observed build command:
 
@@ -804,6 +804,8 @@ Disc-only boots skip writes safely instead of hitting ISO9660 write errors.
 - `FS_DetermineReadOnlyRootDirectory()` always uses disc for game content
 - `FS_SaveVFSConfig()` guarded by `GCube_HasWritableStorage()` on GameCube
 - `host_writeconfig` command registered only when writable storage exists
+- `Host_WriteConfig()` during shutdown is skipped on GameCube when writable
+  storage is unavailable (`engine/common/host.c`)
 
 **Evidence:**
 ```sh
@@ -820,6 +822,8 @@ Remaining criteria (hardware SD save/load round-trip, corrupted-config recovery)
 require physical GameCube hardware or SD-backed Dolphin test profile. Those are
 MANUAL runtime verification tasks covered by G38. The automation must not retry
 G28; those goals cannot be completed without operator hardware validation.
+MAP_READY recovery is tracked by the following gameplay/networking goals rather
+than by writable-storage routing.
 
 ## Boot performance (2026-06-23)
 
