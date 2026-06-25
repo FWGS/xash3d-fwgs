@@ -429,6 +429,11 @@ static void FS_Search_DIR( searchpath_t *search, stringlist_t *list, const char 
 	int basepathlength, dirlistindex;
 	char *basepath;
 
+#if XASH_GAMECUBE
+	if( !Q_strncmp( search->filename, "gcdisc:/", 8 ))
+		return;
+#endif
+
 	separator = Q_max( separator, colon );
 
 	basepathlength = separator ? (separator + 1 - pattern) : 0;
