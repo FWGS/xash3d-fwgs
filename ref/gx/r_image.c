@@ -105,7 +105,7 @@ static void GL_SetTextureDimensions( image_t *tex, int width, int height, int de
 	// low-memory/quality-0 path clamps textures smaller to reduce upload pressure
 #if XASH_GAMECUBE
 	if( GC_GetVisualQuality() == 0 )
-		maxTextureSize = 256;
+		maxTextureSize = 128;
 #endif
 
 	if( width > maxTextureSize || height > maxTextureSize || depth > maxDepthSize )
