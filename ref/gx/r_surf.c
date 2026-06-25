@@ -307,8 +307,8 @@ void R_DrawSurface( void )
 	// Quality 1/2 preserve existing behavior.
 	if( !GC_GetVisualQuality() )
 	{
-		if( r_drawsurf.surfwidth <= 0 || r_drawsurf.surfwidth > 2048 ||
-		    r_drawsurf.surfheight <= 0 || r_drawsurf.surfheight > 2048 )
+		if( r_drawsurf.surfwidth <= 0 || r_drawsurf.surfwidth > 1024 ||
+		    r_drawsurf.surfheight <= 0 || r_drawsurf.surfheight > 1024 )
 			return;
 	}
 #endif
