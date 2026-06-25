@@ -43,6 +43,7 @@ void R_DrawSurfaceBlock8_mip2( void );
 void R_DrawSurfaceBlock8_mip3( void );
 void R_DrawSurfaceBlock8_Generic( void );
 void R_DrawSurfaceBlock8_World( void );
+static void     R_DrawSurfaceDecals( void );
 
 static float    worldlux_s, worldlux_t;
 
@@ -363,6 +364,20 @@ void R_DrawSurface( void )
 	// glitchy and slow way to draw some lightmap
 	if( r_drawsurf.surf->texinfo->flags & TEX_WORLD_LUXELS )
 	{
+#if XASH_GAMECUBE
+		// G24b: quality 0 skips world-luxels light interpolation setup entirely
+		// and delegates to the unlit fallback in R_DrawSurfaceBlock8_World.
+		if( !GC_GetVisualQuality() )
+		{
+			// Use a minimal blocksize path; R_DrawSurfaceBlock8_World handles quality 0
+			r_lightptr = blocklights;
+			prowdestbase = r_drawsurf.surfdat;
+			pbasesource = r_source;
+			R_DrawSurfaceBlock8_World();
+			R_DrawSurfaceDecals();
+			return;
+		}
+#endif
 		worldlux_s = r_drawsurf.surf->extents[0] / r_drawsurf.surf->info->lightextents[0];
 		worldlux_t = r_drawsurf.surf->extents[1] / r_drawsurf.surf->info->lightextents[1];
 		if( worldlux_s == 0 )
