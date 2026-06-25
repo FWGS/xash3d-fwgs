@@ -270,15 +270,17 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	// Low-memory/quality 0 path skips mips to save texture memory pressure
 #if XASH_GAMECUBE
 	int q = GC_GetVisualQuality();
+#else
+	int q = 1;
+#endif
 	uint activeMips = ( q == 0 ) ? 1 : mipCount;
 
+#if XASH_GAMECUBE
 	if( q == 0 )
 	{
 		SetBits( tex->flags, TF_NOMIPMAP );
 		gEngfuncs.Con_Reportf( "GC-Q0: %s %dx%d single-mip, no alpha\n", tex->name, tex->width, tex->height );
 	}
-#else
-	uint activeMips = mipCount;
 #endif
 
 	for( uint j = 0; j < activeMips; j++ )
@@ -303,30 +305,15 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 		// quality 0 (low-memory): never allocate alpha_pixels to reduce pressure
 #if XASH_GAMECUBE
-		if( j == 0 && tex->flags & TF_HAS_ALPHA )
-		{
-			if( GC_GetVisualQuality() == 0 )
-			{
-				tex->alpha_pixels = NULL;
-				// explicitly clear alpha flag in low-memory path to avoid fallback reads
-				ClearBits( tex->flags, TF_HAS_ALPHA );
-			}
-			else
-			{
-				tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
-				// guard against OOM in alpha path
-				if( !tex->alpha_pixels )
-				{
-					gEngfuncs.Con_Reportf( S_WARN "%s: OOM alpha_pixels %ux%ux%u, disabling alpha\n", __func__, width, height, tex->depth );
-					ClearBits( tex->flags, TF_HAS_ALPHA );
-				}
-			}
-		}
-		else if( j == 0 )
+		if( j == 0 && q == 0 )
 		{
 			tex->alpha_pixels = NULL;
+			// explicitly clear alpha flag in low-memory path to avoid fallback reads
+			ClearBits( tex->flags, TF_HAS_ALPHA );
 		}
+		else if( j == 0 && tex->flags & TF_HAS_ALPHA )
 #else
+		if( j == 0 && tex->flags & TF_HAS_ALPHA )
 		if( j == 0 && tex->flags & TF_HAS_ALPHA )
 		{
 			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
@@ -336,9 +323,10 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 				ClearBits( tex->flags, TF_HAS_ALPHA );
 			}
 		}
-		else if( j == 0 )
-			tex->alpha_pixels = NULL;
 #endif
+
+		if( j == 0 && !( q == 0 ) && !( tex->flags & TF_HAS_ALPHA ))
+			tex->alpha_pixels = NULL;
 
 		for( uint i = 0; i < height * width; i++ )
 		{
