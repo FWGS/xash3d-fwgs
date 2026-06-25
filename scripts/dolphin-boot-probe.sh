@@ -479,7 +479,7 @@ if (( FRAME_BUDGET_LOGS )); then
 	# Sort numerically, remove exact duplicates, then restore to array.
 	FRAME_COUNT=${#FRAME_TIMES[@]}
 	if (( FRAME_COUNT > 1 )); then
-		local PRE_DEDUP_COUNT=$FRAME_COUNT
+		PRE_DEDUP_COUNT=$FRAME_COUNT
 		FRAME_TIMES=( $(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | uniq) )
 		FRAME_COUNT=${#FRAME_TIMES[@]}
 		if (( FRAME_COUNT < PRE_DEDUP_COUNT )); then
