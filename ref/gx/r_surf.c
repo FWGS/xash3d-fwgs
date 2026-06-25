@@ -1347,12 +1347,14 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			}
 		}
 
-		// Fill any remaining rows with fallback color
+		// Fill any remaining rows with fallback color, bounded to cache size
 		if( w > 0 && rows_filled < h )
 		{
+			// Bound remaining rows to avoid overrunning the allocated cache
+			int remaining = h - rows_filled;
 			int row_fill = w * sizeof( pixel_t );
 			pixel_t *rowdst = dst + rows_filled * r_drawsurf.rowbytes;
-			for( int y = rows_filled; y < h; y++ )
+			for( int y = rows_filled; y < h && remaining-- > 0; y++ )
 			{
 				memset( rowdst, fallback_color, row_fill );
 				rowdst += r_drawsurf.rowbytes;
