@@ -483,13 +483,18 @@ lines. Goals marked `MANUAL` are never selected automatically.
   must not retry G32; those goals cannot be completed without operator hardware
   validation.
 
-## G33 [ ] Build a full Half-Life disc/content staging contract
+## G33 [x] Build a full Half-Life disc/content staging contract
 
 - Validate that a legal local Half-Life installation can be staged into a
   bootable GameCube image with all required `valve/` assets.
 - Detect missing, case-mismatched, oversized, or unsupported assets before the
   ISO is built.
 - Keep generated images and proprietary assets ignored and outside Git.
+- Verified 2026-06-25: `scripts/build-gamecube-disc.py` now runs `validate_assets()`
+  before building the ISO. It checks for critical files (liblist.gam, etc.),
+  detects case mismatches in key directories (maps, models, etc.), flags
+  unsupported extensions (avi, mp3), and rejects assets >10MB to prevent OOM.
+- Generated ISOs remain in `OUT/` and are ignored by Git.
 
 ## G34 [ ] Add campaign asset and map compatibility checks
 

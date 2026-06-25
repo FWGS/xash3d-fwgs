@@ -9,10 +9,44 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+
+# Critical assets required for basic engine boot and map loading
+CRITICAL_ASSETS = (
+    "liblist.gam",
+    "gfx.wad",
+    "gfx/palette.lmp",
+    "gfx/conback.lmp",
+    "gfx/colormap.lmp",
+    "valve.rc",
+    "default.cfg",
+    "config.cfg",
+)
+
+# Assets that are either too large for GC memory budget or unsupported formats
+UNSUPPORTED_EXTENSIONS = {
+    ".avi", ".wmv", ".mpg", ".mpeg",  # Video: unsupported or too heavy
+    ".mp3", ".ogg",                   # Audio: streaming not yet stable on GC
+}
+
+# Max size for any single asset (10MB). GC has 24MB total RAM. 
+# Loading many large assets will OOM during map load.
+MAX_ASSET_SIZE = 10 * 1024 * 1024  
+
+# Directories where we strictly enforce lowercase naming for case-insensitive FS compatibility
+STRICT_CASE_DIRS = (
+    "maps",
+    "models",
+    "sprites",
+    "decals",
+    "sound",
+    "gfx",
+    "lang",
+)
 
 
 DISC_HEADER_SIZE = 0x3000
@@ -717,6 +751,57 @@ def build_disc(
 	print(f"Built {output_path} ({next_offset} bytes, hybrid GameCube/ISO9660)")
 
 
+def validate_assets(data_path: Path) -> list[str]:
+	"""
+	Validate the Half-Life valve directory for GameCube staging.
+	Returns a list of error messages. Empty list means validation passed.
+	"""
+	errors = []
+	
+	if not data_path.is_dir():
+		return [f"Data directory not found: {data_path}"]
+
+	# 1. Check for critical assets
+	for asset in CRITICAL_ASSETS:
+		asset_path = data_path / asset
+		if not asset_path.exists():
+			errors.append(f"MISSING: Critical asset '{asset}' is not present.")
+		elif not asset_path.is_file():
+			errors.append(f"ERROR: Critical path '{asset}' exists but is not a file.")
+
+	# 2. Scan for case mismatches, unsupported extensions, and oversized files
+	# We scan the entire valve directory
+	for root, dirs, files in os.walk(data_path):
+		rel_root = os.path.relpath(root, data_path)
+		# Check if this directory is one of the strict case directories
+		in_strict_dir = any(rel_root.startswith(d) or rel_root == d for d in STRICT_CASE_DIRS)
+		
+		for filename in files:
+			filepath = data_path / rel_root / filename
+			rel_path = os.path.join(rel_root, filename).replace("\\", "/")
+			
+			# Check case mismatch
+			if in_strict_dir and filename != filename.lower():
+				# Allow some known exceptions if necessary, but generally HL is lowercase
+				errors.append(f"CASE_MISMATCH: '{rel_path}' contains uppercase characters. "
+				               "GameCube/Engine expects lowercase.")
+			
+			# Check unsupported extensions
+			_, ext = os.path.splitext(filename)
+			if ext.lower() in UNSUPPORTED_EXTENSIONS:
+				errors.append(f"UNSUPPORTED: '{rel_path}' has extension '{ext}' which is not supported on GameCube.")
+			
+			# Check size
+			try:
+				size = filepath.stat().st_size
+				if size > MAX_ASSET_SIZE:
+					errors.append(f"OVERSIZED: '{rel_path}' is {size} bytes. "
+					               f"Limit is {MAX_ASSET_SIZE} bytes to prevent OOM.")
+			except OSError:
+				pass
+				
+	return errors
+
 def main() -> None:
 	script_dir = Path(__file__).resolve().parent
 	parser = argparse.ArgumentParser(description=__doc__)
@@ -740,6 +825,15 @@ def main() -> None:
 	for path in (args.dol, args.data):
 		if not path.exists():
 			parser.error(f"required path does not exist: {path}")
+			
+	# Run asset validation before building
+	validation_errors = validate_assets(args.data)
+	if validation_errors:
+		print("Asset validation failed:", file=sys.stderr)
+		for error in validation_errors:
+			print(f"  - {error}", file=sys.stderr)
+		sys.exit(1)
+		
 	extras = args.extras if args.extras.exists() else None
 	if args.smoke_map:
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-smoke-data-") as temp:

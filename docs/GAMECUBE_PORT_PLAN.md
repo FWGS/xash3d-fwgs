@@ -869,6 +869,26 @@ round-trips requires physical GameCube hardware or a persistent SD-backed
 Dolphin test profile. These are MANUAL runtime verification tasks covered by
 G38. The automation must not retry G32.
 
+## G33 — Full disc/content staging contract (COMPLETE 2026-06-25)
+
+`scripts/build-gamecube-disc.py` now validates the `valve/` asset directory before
+generating the ISO. This prevents runtime errors caused by missing critical files,
+case-sensitive naming issues on Linux/macOS hosts, or assets that exceed memory
+limits or lack format support.
+
+**Checks performed:**
+1. **Critical Assets:** Ensures `liblist.gam`, `gfx.wad`, palette/conback, `valve.rc`,
+   and `default.cfg` are present.
+2. **Case Mismatches:** Warns if files in `maps/`, `models/`, `sprites/`, etc.
+   contain uppercase characters.
+3. **Unsupported Formats:** Rejects `.avi`, `.mp3`, `.ogg`, etc.
+4. **Size Limits:** Rejects any single file >10MB to respect the 24MB RAM budget.
+
+**Evidence:**
+- Source updated in `scripts/build-gamecube-disc.py`.
+- Command: `python3 scripts/build-gamecube-disc.py --validate` (implicit in build).
+- Generated images remain ignored in `.gitignore`.
+
 ## G29 — Restore local single-player networking paths (COMPLETE 2026-06-25)
 
 Restored local single-player networking paths on GameCube by initializing
