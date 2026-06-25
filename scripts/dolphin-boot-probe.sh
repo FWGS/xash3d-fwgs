@@ -461,6 +461,7 @@ fi
 # G36: Detect consecutive frame spikes (>2x budget) as evidence of allocation stalls
 FRAME_SPIKE_EVENTS=0
 FRAME_SPIKE_MAX_CONSEC=0
+FRAME_WORST_TIME=""
 if (( FRAME_COUNT > 0 )); then
 	# Store raw output in a temp var to avoid clobbering a counter named FRAME_SPIKE_COUNT
 	_FRAME_SPIKE_RAW=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
@@ -474,7 +475,9 @@ if (( FRAME_COUNT > 0 )); then
 		spikes = 0;
 		consecutive = 0;
 		max_consecutive = 0;
+		worst = 0;
 		for (i = 1; i <= count; i++) {
+			if (times[i] > worst) worst = times[i];
 			if (times[i] > target * 2) {
 				consecutive++;
 				if (consecutive > max_consecutive) max_consecutive = consecutive;
@@ -483,10 +486,21 @@ if (( FRAME_COUNT > 0 )); then
 				consecutive = 0;
 			}
 		}
-		printf "%d:%d", spikes, max_consecutive;
+		printf "%d:%d:%.3f", spikes, max_consecutive, worst;
 	}')
 	FRAME_SPIKE_EVENTS="${_FRAME_SPIKE_RAW%%:*}"
-	FRAME_SPIKE_MAX_CONSEC="${_FRAME_SPIKE_RAW##*:}"
+	_REST="${_FRAME_SPIKE_RAW#*:}"
+	FRAME_SPIKE_MAX_CONSEC="${_REST%%:*}"
+	FRAME_WORST_TIME="${_REST##*:}"
+fi
+
+# G36: Detect explicit guest-reported "frame budget sample end" with stage annotation
+FRAME_BUDGET_STAGE_ANNOTATED=0
+if grep -aqsF "Xash3D GameCube: frame budget sample end stage=" "${LOG_FILES[@]}"; then
+	FRAME_BUDGET_STAGE_ANNOTATED=1
+	FRAME_BUDGET_STAGE_VIOLATIONS=0
+	FRAME_BUDGET_STAGE_VIOLATIONS=$(grep -aoE 'Xash3D GameCube: frame budget sample end stage=[a-z_]+ budget=(PASS|FAIL)' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -c 'budget=FAIL' || echo 0)
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
@@ -688,7 +702,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_SAMPLE_NOTE: ${FRAME_COUNT} frame samples collected. Moderate confidence in budget measurement."
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} target=${TARGET_FRAME_TIME}ms"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} target=${TARGET_FRAME_TIME}ms"
 			
 			# G36: Report frame timing jitter (MAD) as stability metric
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
