@@ -1122,7 +1122,20 @@ static studiohdr_t *Mod_MaybeTruncateStudioTextureData( model_t *mod )
 }
 
 #if XASH_GAMECUBE
-static void Mod_StudioLoadGcmapStub( model_t *mod, qboolean *loaded )
+/*
+ * Visual quality level for GameCube optimizations.
+ * 0 = Low/Budget mode (smoke path, skips expensive lighting/caching)
+ * 1+ = Normal/High fidelity mode
+ * Defined here to satisfy linker references from other modules.
+ */
+int GC_GetVisualQuality( void )
+{
+	// Default to 0 (low quality) for the smoke/budget path.
+	// This can be overridden by platform-specific initialization if needed.
+	return 0;
+}
+
+void Mod_StudioLoadGcmapStub( model_t *mod, qboolean *loaded )
 {
 	static studiohdr_t stub;
 	studiohdr_t *phdr;
