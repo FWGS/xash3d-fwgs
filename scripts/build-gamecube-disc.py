@@ -826,13 +826,15 @@ def main() -> None:
 		if not path.exists():
 			parser.error(f"required path does not exist: {path}")
 			
-	# Run asset validation before building
-	validation_errors = validate_assets(args.data)
-	if validation_errors:
-		print("Asset validation failed:", file=sys.stderr)
-		for error in validation_errors:
-			print(f"  - {error}", file=sys.stderr)
-		sys.exit(1)
+	# Run asset validation before building (skip for smoke-map builds which
+	# stage a minimal subset independently)
+	if not args.smoke_map:
+		validation_errors = validate_assets(args.data)
+		if validation_errors:
+			print("Asset validation failed:", file=sys.stderr)
+			for error in validation_errors:
+				print(f"  - {error}", file=sys.stderr)
+			sys.exit(1)
 		
 	extras = args.extras if args.extras.exists() else None
 	if args.smoke_map:

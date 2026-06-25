@@ -504,6 +504,27 @@ lines. Goals marked `MANUAL` are never selected automatically.
   audio features, and current blocker per map.
 - Use the probe to decide which maps are smoke, playable, blocked, or out of
   memory.
+- **Fix 2026-06-25:** Disc builder validation (G33) now skips for `--smoke-map`
+  builds. Individual map probes via `scripts/dolphin-boot-probe.sh` work again.
+- **Next:** Need a map-compatibility probe script that iterates over all stock
+  Half-Life maps, runs a probe per map, and records results (load success,
+  memory, missing assets, blockers). This is distinct from the single-map boot
+  probe.
+
+**Fix (2026-06-25):** `scripts/build-gamecube-disc.py` G33 asset validation was
+running for `--smoke-map` builds, rejecting minimal smoke asset sets that don't
+need all critical files. Validation now skips when `--smoke-map` is specified,
+allowing the smoke path to stage only the files needed for a single map test.
+
+**Command:**
+```sh
+scripts/dolphin-boot-probe.sh
+```
+
+**Next blocker:** G34 needs the actual compatibility probe script that iterates
+over all campaign maps. The boot probe now works for individual maps, but G34
+requires a map-compat probe that tests every stock Half-Life map and records
+results per map.
 
 ## G35 [ ] Reach a playable early-game route
 
