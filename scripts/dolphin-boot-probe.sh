@@ -349,6 +349,12 @@ if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}"; then
 	GUEST_RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized [a-zA-Z_-]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[a-zA-Z_-]+$')
 fi
 
+# G36: Detect explicit guest-reported frame count for sample completeness validation
+GUEST_REPORTED_FRAME_COUNT=0
+if grep -aqsE "Xash3D GameCube: total_frames_rendered=" "${LOG_FILES[@]}"; then
+	GUEST_REPORTED_FRAME_COUNT=$(grep -aoE 'Xash3D GameCube: total_frames_rendered=[0-9]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[0-9]+$' || echo "0")
+fi
+
 # G36: Detect software surface cache override (known GC memory/perf knob)
 SW_SURFCACHE_OVERRIDE=""
 if grep -aqsF "sw_surfcacheoverride" "${LOG_FILES[@]}"; then
@@ -921,6 +927,20 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
+			# G36: Cross-validate probe-extracted frame count against guest-reported count
+			# Helps distinguish parse failures from rendering stalls
+			if (( GUEST_REPORTED_FRAME_COUNT > 0 )); then
+				if (( FRAME_COUNT < GUEST_REPORTED_FRAME_COUNT )); then
+					MISSING_FRAMES=$((GUEST_REPORTED_FRAME_COUNT - FRAME_COUNT))
+					echo "G36_SAMPLE_LOSS: Probe extracted ${FRAME_COUNT} frames but guest reported ${GUEST_REPORTED_FRAME_COUNT} rendered. ${MISSING_FRAMES} frames missing from logs (parse filter too strict or log truncation)."
+					echo "G36_STATUS: INCOMPLETE (sample loss detected)"
+				elif (( FRAME_COUNT == GUEST_REPORTED_FRAME_COUNT )); then
+					echo "G36_SAMPLE_COMPLETE: Probe frame count matches guest-reported count (${FRAME_COUNT}). Full telemetry captured."
+				elif (( FRAME_COUNT > GUEST_REPORTED_FRAME_COUNT )); then
+					echo "G36_SAMPLE_NOTE: Probe extracted more frames (${FRAME_COUNT}) than guest reported (${GUEST_REPORTED_FRAME_COUNT}). Guest counter may lag or be sampled at different interval."
+				fi
+			fi
+
 			# G36: Cold-start vs steady-state violation concentration
 			# Helps diagnose if budget failures are initialization artifacts or sustained issues
 			if (( FRAME_JANK > 0 )) && (( FRAME_COUNT >= 2 )); then
@@ -988,7 +1008,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_STATUS: PASS (p95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms, jank=${FRAME_JANK}/${FRAME_COUNT})"
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} target=${TARGET_FRAME_TIME}ms regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} target=${TARGET_FRAME_TIME}ms regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none}"
 			
 			# G36: Report frame timing jitter (MAD) as stability metric
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
