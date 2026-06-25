@@ -302,14 +302,12 @@ static inline int GC_GetVisualQuality( void )
 	/* Compile-time low-memory builds always report low-memory mode */
 	return 0;
 #else
-	/* Auto mode (negative or unset 0): standard quality */
-	if( tr.sample_size <= 0 )
-		return 1;
-	/* Positive sample_size with sample_bits: permit higher fidelity */
+	/* Runtime sample_size determines quality level */
+	if( tr.sample_size == 0 )
+		return 0; // explicit low-memory mode
 	if( tr.sample_size > 0 && tr.sample_bits > 0 )
-		return 2;
-	/* Fallback to standard quality */
-	return 1;
+		return 2; // higher fidelity enabled
+	return 1;     // auto (-1) or default standard quality
 #endif /* !XASH_LOW_MEMORY */
 #else /* !XASH_GAMECUBE */
 	/* Non-GameCube targets always use standard quality */
