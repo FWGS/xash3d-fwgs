@@ -525,6 +525,23 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					if awk "BEGIN {exit !($GC_MEM_PEAK_TOTAL > 16.0)}"; then
 						echo "G36_MEM_PRESSURE: Peak memory usage (${GC_MEM_PEAK_TOTAL}MiB) exceeds 16MiB. Frame budget may be impacted by GC zone allocation overhead."
 					fi
+					# Correlate memory-heavy stages with frame budget health
+					if ! (( FRAME_BUDGET_PASSED )); then
+						case "$GC_MEM_PEAK_STAGE" in
+							*bsp*)
+								echo "G36_MEM_STAGE_HINT: Peak memory at BSP load stage; consider streaming or trimming BSP resident data to stabilize frame budget."
+								;;
+							*client*)
+								echo "G36_MEM_STAGE_HINT: Peak memory at client init; consider reducing client entity counts or sound precache for this stage."
+								;;
+							*model*)
+								echo "G36_MEM_STAGE_HINT: Peak memory at model load; consider capping studio texture residency or using lower-quality stubs."
+								;;
+							*)
+								echo "G36_MEM_STAGE_HINT: Peak memory at '${GC_MEM_PEAK_STAGE}' stage; profile allocations during this stage for frame budget impact."
+								;;
+						esac
+					fi
 				fi
 			else
 				echo "G36_MEM_NOTE: No GC memory samples detected in this probe; frame budget is isolated from memory pressure evidence."
