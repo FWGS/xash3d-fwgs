@@ -186,6 +186,75 @@ def command_executable_problem(command: list[str], cwd: Path) -> str | None:
 	return None if shutil.which(program) else program
 
 
+def command_gpu_memory_utilization(command: list[str]) -> float | None:
+	for index, arg in enumerate(command):
+		if arg == "--gpu-memory-utilization" and index + 1 < len(command):
+			try:
+				return float(command[index + 1])
+			except ValueError:
+				return None
+		if arg.startswith("--gpu-memory-utilization="):
+			try:
+				return float(arg.split("=", 1)[1])
+			except ValueError:
+				return None
+	return None
+
+
+def gpu_memory_preflight_message(command: list[str]) -> str | None:
+	utilization = command_gpu_memory_utilization(command)
+	if utilization is None or not shutil.which("nvidia-smi"):
+		return None
+	try:
+		result = subprocess.run([
+			"nvidia-smi",
+			"--query-gpu=index,memory.total,memory.free",
+			"--format=csv,noheader,nounits",
+		], text=True, capture_output=True, timeout=3, check=False)
+	except (OSError, subprocess.SubprocessError):
+		return None
+	if result.returncode != 0 or not result.stdout.strip():
+		return None
+
+	line = result.stdout.splitlines()[0]
+	try:
+		gpu_index, total_text, free_text = [part.strip() for part in line.split(",", 2)]
+		total_mib = float(total_text)
+		free_mib = float(free_text)
+	except (ValueError, IndexError):
+		return None
+	requested_mib = total_mib * utilization
+	if requested_mib <= free_mib:
+		return None
+
+	process_lines: list[str] = []
+	try:
+		procs = subprocess.run([
+			"nvidia-smi",
+			"--query-compute-apps=pid,process_name,used_memory",
+			"--format=csv,noheader,nounits",
+		], text=True, capture_output=True, timeout=3, check=False)
+		if procs.returncode == 0:
+			for proc_line in procs.stdout.splitlines()[:6]:
+				parts = [part.strip() for part in proc_line.split(",")]
+				if len(parts) >= 3:
+					process_lines.append(f"  pid {parts[0]}  {parts[1]}  {parts[2]} MiB")
+	except (OSError, subprocess.SubprocessError):
+		pass
+
+	summary = (
+		f"GPU {gpu_index} has {free_mib / 1024:.1f} GiB free of {total_mib / 1024:.1f} GiB, "
+		f"but --gpu-memory-utilization {utilization:.2f} asks vLLM for "
+		f"{requested_mib / 1024:.1f} GiB.\n\n"
+		"Free GPU memory, lower QWABLE_5_GPU_MEMORY_UTILIZATION, or reuse the "
+		"already-running model server instead of starting another one. If those "
+		"processes are stale, use the GUI Kill button or stop them before retrying."
+	)
+	if process_lines:
+		summary += "\n\nGPU compute users:\n" + "\n".join(process_lines)
+	return summary
+
+
 def stylesheet() -> str:
 	return f"""
 	QMainWindow, QWidget {{ background: {GC_BG}; color: {GC_TEXT}; }}
@@ -425,6 +494,7 @@ class PortWindow(QMainWindow):
 		self.last_passes = 1
 		self.pipeline: dict[str, QLabel] = {}
 		self.docks: dict[str, QDockWidget] = {}
+		self.center_widgets: dict[str, QWidget] = {}
 		self.dashboard_threads: list[QThread] = []
 		self.dashboard_refresh_running = False
 		self.dashboard_refresh_pending = False
@@ -486,12 +556,16 @@ class PortWindow(QMainWindow):
 		chip_row.addStretch()
 		layout.addLayout(chip_row)
 
-		self.center_bay = QLabel("CENTER DOCK BAY\nDrag panels here, or use View > Dock Panel In Middle.")
+		self.center_tabs = QTabWidget()
+		self.center_tabs.setTabsClosable(True)
+		self.center_tabs.tabCloseRequested.connect(self.restore_center_tab)
+		self.center_bay = QLabel("CENTER DOCK BAY\nUse View > Dock Panel In Middle to park a panel here.")
 		self.center_bay.setObjectName("CenterBay")
 		self.center_bay.setAlignment(Qt.AlignmentFlag.AlignCenter)
 		self.center_bay.setMinimumHeight(96)
 		self.center_bay.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-		layout.addWidget(self.center_bay, 1)
+		self.center_tabs.addTab(self.center_bay, "Center Bay")
+		layout.addWidget(self.center_tabs, 1)
 
 		self.configure_menus()
 
@@ -678,6 +752,8 @@ class PortWindow(QMainWindow):
 		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [320, 220], Qt.Orientation.Vertical)
 		self.resizeDocks([self.docks["Log"], self.docks["Dolphin Viewport"]], [520, 420], Qt.Orientation.Horizontal)
 		self.load_saved_settings()
+		self.ensure_core_panels_visible()
+		self.prime_goal_ledger()
 
 		self.timer = QTimer(self)
 		self.timer.setInterval(3000)
@@ -816,6 +892,14 @@ class PortWindow(QMainWindow):
 			self.follow_log.setChecked(follow_log)
 		self.apply_layout_settings(data)
 
+	def ensure_core_panels_visible(self) -> None:
+		for title in ("Goals", "Progress", "Workspace"):
+			dock = self.docks.get(title)
+			if dock:
+				dock.show()
+		if "Goals" in self.docks:
+			self.docks["Goals"].raise_()
+
 	def show_about_panel(self) -> None:
 		dialog = QDialog(self)
 		dialog.setWindowTitle("About Xash3D GameCube Porting")
@@ -883,30 +967,53 @@ class PortWindow(QMainWindow):
 	def dock_floating_changed(self, dock: QDockWidget, floating: bool) -> None:
 		if not floating:
 			return
-		self.apply_floating_window_flags(dock)
-		dock.show()
+		# Keep Qt's native floating-dock window handling. Replacing flags here can
+		# destabilize some window managers during drag/drop.
 
 	def dock_panel_middle(self, title: str) -> None:
 		dock = self.docks.get(title)
 		if not dock:
 			return
+		widget = dock.widget()
+		if widget is None:
+			return
+		if self.center_tabs.indexOf(widget) >= 0:
+			self.center_tabs.setCurrentWidget(widget)
+			return
+		dock.setWidget(QWidget())
+		dock.hide()
+		self.center_widgets[title] = widget
+		self.center_tabs.addTab(widget, title)
+		self.center_tabs.setCurrentWidget(widget)
+		self.status_label.setText(f"Docked {title} in middle workspace")
+
+	def restore_center_tab(self, index: int) -> None:
+		if index <= 0:
+			return
+		title = self.center_tabs.tabText(index)
+		widget = self.center_tabs.widget(index)
+		dock = self.docks.get(title)
+		if not dock or widget is None:
+			return
+		self.center_tabs.removeTab(index)
+		self.center_widgets.pop(title, None)
+		dock.setWidget(widget)
 		dock.show()
 		dock.setFloating(False)
 		self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
-		if title != "Dolphin Viewport" and "Dolphin Viewport" in self.docks:
-			self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docks["Dolphin Viewport"])
-			self.tabifyDockWidget(self.docks["Dolphin Viewport"], dock)
-			dock.raise_()
-		elif "Log" in self.docks and title != "Log":
-			self.splitDockWidget(self.docks["Log"], dock, Qt.Orientation.Horizontal)
-		self.resizeDocks([dock], [520], Qt.Orientation.Horizontal)
-		self.status_label.setText(f"Docked {title} in middle workspace")
+		dock.raise_()
+		self.status_label.setText(f"Restored {title} to dock layout")
+
+	def restore_all_center_tabs(self) -> None:
+		for index in range(self.center_tabs.count() - 1, 0, -1):
+			self.restore_center_tab(index)
 
 	def reset_dock_layout(self) -> None:
 		required = {"Workspace", "Model Server", "Goals", "Telemetry",
 			"Automation", "Pipeline", "Tools", "Dolphin Viewport", "Log"}
 		if not required.issubset(self.docks):
 			return
+		self.restore_all_center_tabs()
 		for dock in self.docks.values():
 			dock.show()
 			dock.setFloating(False)
@@ -1054,6 +1161,13 @@ class PortWindow(QMainWindow):
 		if self.model_process is not None:
 			self.status_label.setText("qwable-5 is already managed by this GUI")
 			return
+		if self.model_port_open():
+			self.set_model_state("MODEL  READY", GC_MINT)
+			self.start_model_btn.setEnabled(False)
+			self.kill_model_btn.setEnabled(True)
+			self.status_label.setText("Reusing existing qwable-5 API server")
+			self.append("\nqwable-5 API is already reachable; not launching a duplicate model server.\n")
+			return
 		command_text = self.model_command_edit.text().strip()
 		try:
 			command = shlex.split(command_text)
@@ -1074,6 +1188,13 @@ class PortWindow(QMainWindow):
 			)
 			self.append(f"\nModel command problem: {problem}\n")
 			QMessageBox.warning(self, "Model command problem", message)
+			return
+		gpu_problem = gpu_memory_preflight_message(command)
+		if gpu_problem:
+			self.set_model_state("MODEL  GPU BUSY", GC_ORANGE)
+			self.status_label.setText("Model launch blocked by GPU memory preflight")
+			self.append(f"\nModel GPU memory preflight blocked launch:\n{gpu_problem}\n")
+			QMessageBox.warning(self, "GPU memory too low", gpu_problem)
 			return
 
 		self.model_operation = "qwable-5"
@@ -1156,9 +1277,28 @@ class PortWindow(QMainWindow):
 	def read_goals(self) -> list[tuple[str, str, str, str]]:
 		return read_goals_for_repo(self.repo())
 
+	def prime_goal_ledger(self) -> None:
+		try:
+			goals = self.read_goals()
+		except OSError as exc:
+			self.goal_table.setRowCount(0)
+			self.goal_summary.setText(f"Goal ledger unavailable: {exc}")
+			return
+		snapshot = DashboardSnapshot(goals=goals)
+		snapshot.complete_goals = sum(state.lower() == "x" for _, state, _, _ in goals)
+		snapshot.blocked_goals = sum(goal_is_blocked(body) for _, state, _, body in goals if state != "MANUAL")
+		snapshot.automatic_goals = sum(state != "MANUAL" for _, state, _, _ in goals)
+		snapshot.active_goal = next((goal for goal in goals
+			if goal[1] in {" ", "~"} and not goal_is_blocked(goal[3])), None)
+		self.apply_goals_snapshot(snapshot)
+
 	def apply_goals_snapshot(self, snapshot: DashboardSnapshot) -> None:
 		goals = snapshot.goals or []
 		self.goal_table.setRowCount(len(goals))
+		if not goals:
+			ledger = self.repo() / ".ai/goals/GAMECUBE_PORT_GOALS.md"
+			self.goal_summary.setText(f"No goal ledger loaded from {ledger}")
+			return
 		active = snapshot.active_goal
 		for row, (goal_id, state, title, body) in enumerate(goals):
 			is_blocked = goal_is_blocked(body)
@@ -1466,6 +1606,7 @@ class PortWindow(QMainWindow):
 		if self.process is None and self.model_process is None:
 			self.closing = True
 			self.timer.stop()
+			self.shutdown_dashboard_threads()
 			event.accept()
 			return
 		if self.process is not None:
@@ -1483,6 +1624,7 @@ class PortWindow(QMainWindow):
 		if answer == QMessageBox.StandardButton.Yes:
 			self.closing = True
 			self.timer.stop()
+			self.shutdown_dashboard_threads()
 			self.shutdown_processes()
 			event.accept()
 		else:
@@ -1519,6 +1661,14 @@ class PortWindow(QMainWindow):
 		self.stop_qprocess(self.model_process)
 		self.process = None
 		self.model_process = None
+
+	def shutdown_dashboard_threads(self) -> None:
+		self.dashboard_refresh_pending = False
+		for thread in list(self.dashboard_threads):
+			thread.quit()
+			thread.wait(1500)
+		self.dashboard_threads.clear()
+		self.dashboard_refresh_running = False
 
 	def boot_dolphin(self) -> None:
 		iso = self.repo() / "OUT/xash3d-gc.iso"
