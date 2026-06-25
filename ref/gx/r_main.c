@@ -1396,6 +1396,10 @@ qboolean GAME_EXPORT R_Init( void )
 
 	// Ensure tr.framecount starts at 0 so GC_GetVisualQuality init guard is deterministic
 	tr.framecount = 0;
+	// Initialize sample_size to 0 (low-memory default) before quality check;
+	// R_NewMap will recalculate it when a map is loaded
+	tr.sample_size = 0;
+	tr.sample_bits = -1;
 
 #if XASH_GAMECUBE
 	// Establish renderer quality mode early; all subsequent init guards reference this
