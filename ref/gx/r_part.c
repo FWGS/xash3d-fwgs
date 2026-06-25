@@ -111,11 +111,16 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
+			// Quality-aware particle brightness: reduce brightness in low-memory mode
+			float brightness = 1.0f;
+			if( vis == 0 )
+				brightness = 0.5f;
+
 			// TriColor4ub( LightToTexGamma( color.r ),
 			//	LightToTexGamma( color.g ),
 			//		LightToTexGamma( color.b ), alpha );
 			// TriBrightness( alpha / 255.0f );
-			_TriColor4f( 1.0f * alpha / 255 / 255 * color.r, 1.0f * alpha / 255 / 255 * color.g, 1.0f * alpha / 255 / 255 * color.b, 1.0f );
+			_TriColor4f( brightness * alpha / 255 / 255 * color.r, brightness * alpha / 255 / 255 * color.g, brightness * alpha / 255 / 255 * color.b, 1.0f );
 
 			TriBegin( TRI_QUADS );
 			TriTexCoord2f( 0.0f, 1.0f );
