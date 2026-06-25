@@ -1045,6 +1045,12 @@ static void R_DrawSurfaceDecals( void )
 {
 	msurface_t *fa = r_drawsurf.surf;
 
+#if XASH_GAMECUBE
+	// G24b: skip decals for quality 0 to preserve budget
+	if( !GC_GetVisualQuality() )
+		return;
+#endif
+
 	for( decal_t *p = fa->pdecals; p; p = p->pnext )
 	{
 		pixel_t      *dest, *source;
