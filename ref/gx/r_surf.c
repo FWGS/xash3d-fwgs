@@ -1193,13 +1193,14 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 #if XASH_GAMECUBE
 	// G24b: bound surface cache on low-memory path (quality 0) to static
-	// surfaces only. Dynamic lights and animated/conveyor surfaces skip
-	// caching to preserve budget. World-luxels surfaces retain their own
-	// fallback path below, so do not invalidate cache for them.
+	// surfaces only. Dynamic lights, animated/conveyor surfaces, alpha/sky
+	// images, and world-luxels surfaces all skip caching to preserve budget.
+	// World-luxels use their own unlit fallback in R_DrawSurfaceBlock8_World.
 	// Quality 1/2 preserve full caching behavior for higher fidelity.
 	if( !GC_GetVisualQuality() &&
 	    ( surface->dlightframe == tr.framecount ||
 	      surface->flags & ( SURF_CONVEYOR | SURF_DRAWTILED ) ||
+	      surface->texinfo->flags & TEX_WORLD_LUXELS ||
 	      r_drawsurf.image->flags & ( TF_HAS_ALPHA | TF_SKY ) ))
 	{
 		CACHESPOT( surface )[miplevel] = NULL;
