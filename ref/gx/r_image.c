@@ -295,6 +295,9 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		if( !tex->pixels[j] )
 		{
 			gEngfuncs.Con_Reportf( S_ERROR "%s: OOM allocating %ux%ux%u pixels\n", __func__, width, height, tex->depth );
+			// Free resampled buffer if it was allocated and is not the original
+			if( data != buf )
+				free( data );
 			return false;
 		}
 
