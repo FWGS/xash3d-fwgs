@@ -302,8 +302,6 @@ static inline int GC_GetVisualQuality( void )
 	/* Compile-time low-memory builds always report low-memory mode */
 	return 0;
 #else
-	if( &tr == NULL )
-		return 1;
 	/* Explicit 0 forces low-memory smoke path */
 	if( tr.sample_size == 0 )
 		return 0;
