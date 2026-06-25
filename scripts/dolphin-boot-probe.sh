@@ -286,6 +286,12 @@ if (( FRAME_BUDGET_LOGS )); then
 	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget sample )?[a-z_]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
 
+	# G36: Also extract frame times from 'frame duration' markers (alternative naming)
+	while IFS= read -r val; do
+		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
+	done < <(grep -aoE 'Xash3D GameCube: frame[a-z_]* duration=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE 'duration=[0-9]+(\.[0-9]+)?' | sed 's/duration=//')
+
 	# Check for dropped frame markers to correlate with jank
 	grep -aqsF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}" && FRAME_DROP_LOGS=1
 	if (( FRAME_DROP_LOGS )); then
