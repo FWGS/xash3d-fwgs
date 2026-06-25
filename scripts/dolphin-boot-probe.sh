@@ -192,12 +192,20 @@ grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 # Restrict to engine-reported frame timing markers to avoid false matches
 TARGET_FRAME_TIME=16.66
 FRAME_TIMES=()
+FRAME_DROP_COUNT=0
+FRAME_DROP_LOGS=0
 if (( FRAME_BUDGET_LOGS )); then
 	while IFS= read -r line; do
 		if [[ "$line" =~ time=([0-9]+(\.[0-9]+)?) ]]; then
 			FRAME_TIMES+=("${BASH_REMATCH[1]}")
 		fi
 	done < <(grep -aoE 'Xash3D GameCube: frame[^ ]* time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | grep -oE 'time=[0-9]+(\.[0-9]+)?')
+
+	# Check for dropped frame markers to correlate with jank
+	grep -aqsF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}" && FRAME_DROP_LOGS=1
+	if (( FRAME_DROP_LOGS )); then
+		FRAME_DROP_COUNT=$(grep -acF "Xash3D GameCube: frame dropped" "${LOG_FILES[@]}")
+	fi
 fi
 
 FRAME_MIN=""
