@@ -638,7 +638,8 @@ if grep -aqsF "Xash3D GameCube: frame budget sample end stage=" "${LOG_FILES[@]}
 	FRAME_BUDGET_STAGE_ANNOTATED=1
 	FRAME_BUDGET_STAGE_VIOLATIONS=0
 	# Count FAIL stages across all log files using awk to avoid grep -c multi-file quirks
-	FRAME_BUDGET_STAGE_VIOLATIONS=$(grep -aoE 'Xash3D GameCube: frame budget sample end stage=[a-z_]+ budget=(PASS|FAIL)' "${LOG_FILES[@]}" 2>/dev/null | \
+	FRAME_BUDGET_STAGE_VIOLATIONS=$(cat "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -aoE 'Xash3D GameCube: frame budget sample end stage=[a-z_]+ budget=(PASS|FAIL)' | \
 		awk '/budget=FAIL/{count++} END{print count+0}')
 fi
 
