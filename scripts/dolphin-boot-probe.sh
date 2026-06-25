@@ -472,11 +472,12 @@ if (( FRAME_BUDGET_LOGS )); then
 
 	# G36_DEDUP_v1: Deduplicate FRAME_TIMES to prevent double-counting when
 	# both 'time=' and 'duration=' markers are emitted for the same frame.
-	# Sort numerically, remove exact duplicates, then restore to array.
+	# Use awk to remove consecutive duplicates while preserving temporal order.
+	# This maintains the cold-start frame as the first entry for steady-state analysis.
 	FRAME_COUNT=${#FRAME_TIMES[@]}
 	if (( FRAME_COUNT > 1 )); then
 		PRE_DEDUP_COUNT=$FRAME_COUNT
-		FRAME_TIMES=( $(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | uniq) )
+		mapfile -t FRAME_TIMES < <(printf '%s\n' "${FRAME_TIMES[@]}" | awk 'prev != $0 {print; prev=$0}')
 		FRAME_COUNT=${#FRAME_TIMES[@]}
 		if (( FRAME_COUNT < PRE_DEDUP_COUNT )); then
 			echo "G36_DEDUP: Removed duplicate frame samples. Count reduced from ${PRE_DEDUP_COUNT} to ${FRAME_COUNT}."
