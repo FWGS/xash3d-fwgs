@@ -70,9 +70,13 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	int particle_count = 0;
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
-		particle_count++;
-		if( particle_skip > 0 && ( p->type != pt_blob ) && ( particle_count % particle_skip != 0 ))
-			continue; // quality-aware: skip non-blob particles to reduce draw calls
+		/* Always render blob particles; only skip non-blobs for quality */
+		if( p->type != pt_blob )
+		{
+			particle_count++;
+			if( particle_skip > 0 && ( particle_count % particle_skip != 0 ))
+				continue; // quality-aware: skip non-blob particles to reduce draw calls
+		}
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
 		{
 			float size = partsize; // get initial size of particle
