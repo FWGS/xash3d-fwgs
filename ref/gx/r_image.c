@@ -375,9 +375,13 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
 		{
 #if XASH_GAMECUBE
-			// quality 0 (low-memory smoke path): skip keeping original image
-			// to reduce texture-memory pressure
-			if( GC_GetVisualQuality() != 0 )
+			if( GC_GetVisualQuality() == 0 )
+			{
+				// quality 0 (low-memory mode): skip keeping original image
+				// to reduce texture-memory pressure
+				gEngfuncs.Con_Reportf( "GC-Q0: %s skip keep_source\n", tex->name );
+			}
+			else
 #endif
 				tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
 		}
