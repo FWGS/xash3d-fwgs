@@ -178,9 +178,9 @@ static const byte *Mod_SpriteLoadFrame( model_t *mod, const void *pin, mspritefr
 		// partial HD-textures support (skip in low-memory builds to save memory)
 		// Runtime quality-aware adjustments are handled in the renderer.
 #if XASH_GAMECUBE && !XASH_LOW_MEMORY
-		if( Mod_AllowMaterials( ))
+		if( Mod_AllowMaterials( )) // GameCube, standard memory: allow materials
 #elif !XASH_GAMECUBE
-		if( Mod_AllowMaterials( ))
+		if( Mod_AllowMaterials( )) // Non-GameCube: allow materials
 #else
 		if( 0 ) /* Low-memory GameCube builds skip HD sprite replacements */
 #endif
