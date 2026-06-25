@@ -305,8 +305,7 @@ static inline int GC_GetVisualQuality( void )
 	if( tr.sample_size == 0 )
 		return 0;
 	/* Negative sample_size means "auto" -> standard quality */
-	/* Quality 2 requires non-trivial sampling in both dimensions */
-	if( tr.sample_size > 1 && tr.sample_bits > 0 )
+	if( tr.sample_size > 0 && tr.sample_bits > 0 )
 		return 2;
 	/* Standard quality (includes auto mode when sample_size == -1) */
 	return 1;
