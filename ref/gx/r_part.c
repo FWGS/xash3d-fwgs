@@ -275,6 +275,8 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			p->unused = 255 * ( p->die - gp_cl->time ) * 2;
 			if( p->unused > 255 )
 				p->unused = 255;
+			if( p->unused < 0 )
+				p->unused = 0;
 		}
 		else if( p->type == pt_slowgrav )
 		{
