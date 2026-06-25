@@ -682,13 +682,9 @@ int GAME_EXPORT GL_LoadTextureFromBuffer( const char *name, rgbdata_t *pic, texF
 		return 0;
 
 #if XASH_GAMECUBE
-	// low-memory path: clamp oversized source buffers before processing
-	// to reduce CPU and memory pressure during upload
-	if( GC_GetVisualQuality() == 0 )
-	{
-		if( pic->width > 128 ) pic->width = 128;
-		if( pic->height > 128 ) pic->height = 128;
-	}
+	// low-memory path: clamp oversized textures during upload to reduce pressure
+	// GL_SetTextureDimensions and GL_UploadTexture handle the clamping without
+	// mutating the source pic buffer, so no need to alter pic->width/height here
 #endif
 
 	if( update )
