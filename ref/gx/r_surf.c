@@ -476,7 +476,17 @@ void R_DrawSurfaceBlock8_World( void )
 		int light_row = ( lightpos / r_lightwidth ) * r_lightwidth;
 		if( light_row < 0 || light_row + 1 >= r_lightwidth * r_drawsurf.surfheight )
 		{
-			// Guard against out-of-bounds light access on edge-case surfaces
+			// Guard against out-of-bounds light access on edge-case surfaces.
+			// Fill remaining rows with a neutral fallback so the surface is visible.
+			for( int remaining = v; remaining < r_numvblocks; remaining++ )
+			{
+				for( int i = 0; i < blocksize; i++ )
+				{
+					for( int b = blocksize - 1; b >= 0; b-- )
+						prowdest[b] = 0x7FFF; // Neutral gray fallback
+					prowdest += surfrowbytes;
+				}
+			}
 			return;
 		}
 		lightleft = r_lightptr[light_row];
