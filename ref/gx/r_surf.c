@@ -471,6 +471,9 @@ void R_DrawSurfaceBlock8_World( void )
 	{
 		psource = pbasesource;
 		prowdest = prowdestbase;
+		// Guard against degenerate block dimensions on the low-memory path
+		if( r_numvblocks <= 0 || blocksize <= 0 )
+			return;
 		for( v = 0; v < r_numvblocks; v++ )
 		{
 			for( i = 0; i < blocksize; i++ )
