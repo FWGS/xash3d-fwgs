@@ -310,6 +310,12 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 			// Free resampled buffer if it was allocated and is not the original
 			if( data != buf )
 				free( data );
+			// Free alpha_pixels if allocated for mips before failure
+			if( tex->alpha_pixels )
+			{
+				Mem_Free( tex->alpha_pixels );
+				tex->alpha_pixels = NULL;
+			}
 			// In low-memory mode, truncate mipmap chain instead of failing entirely
 #if XASH_GAMECUBE
 			if( GC_GetVisualQuality() == 0 )
