@@ -182,13 +182,6 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 	// pglDepthMask( GL_FALSE );
 
 	int vis = GC_GetVisualQuality();
-	int tracer_skip_interval = 1;
-	if( vis == 0 )
-		tracer_skip_interval = 4;
-	else if( vis == 1 )
-		tracer_skip_interval = 2;
-	// quality 2: tracer_skip_interval remains 1 (render all)
-	int tracer_count = 0;
 
 	float gravity = frametime * gp_movevars->gravity;
 	float scale = 1.0 - ( frametime * 0.9 );
@@ -197,8 +190,6 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 
 	for( particle_t *p = cl_active_tracers; p; p = p->next )
 	{
-		tracer_count++;
-
 		float atten = ( p->die - gp_cl->time );
 		if( atten > 0.1f )
 			atten = 0.1f;
