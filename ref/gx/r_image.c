@@ -314,7 +314,6 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		else if( j == 0 && tex->flags & TF_HAS_ALPHA )
 #else
 		if( j == 0 && tex->flags & TF_HAS_ALPHA )
-		if( j == 0 && tex->flags & TF_HAS_ALPHA )
 		{
 			tex->alpha_pixels = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
 			if( !tex->alpha_pixels )
