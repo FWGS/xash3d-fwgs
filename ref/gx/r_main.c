@@ -1468,9 +1468,8 @@ qboolean GAME_EXPORT R_Init( void )
 
 #if XASH_GAMECUBE
 	{
-		int quality = GC_GetVisualQuality();
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer entering image init (quality=%d)\n", quality );
-		if( quality == 0 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer entering image init (quality=%d)\n", init_quality );
+		if( init_quality == 0 )
 		{
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: skipping full image init (quality=0)\n" );
 		}
@@ -1497,13 +1496,13 @@ qboolean GAME_EXPORT R_Init( void )
 	R_StudioInit();
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer studio ready\n" );
-	if( GC_GetVisualQuality() != 0 )
+	if( init_quality != 0 )
 		GC_MemSample( "models" );
 #endif
 	R_InitTurb();
 	GL_InitRandomTable();
 #if XASH_GAMECUBE
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init ready (quality=%d)\n", GC_GetVisualQuality() );
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init ready (quality=%d)\n", init_quality );
 #endif
 
 	return true;
