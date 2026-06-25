@@ -1195,6 +1195,7 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	// surfaces only. Dynamic lights and animated/conveyor surfaces skip
 	// caching to preserve budget. World-luxels surfaces retain their own
 	// fallback path below, so do not invalidate cache for them.
+	// Quality 1/2 preserve full caching behavior for higher fidelity.
 	if( !GC_GetVisualQuality() &&
 	    !( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
 	    ( surface->dlightframe == tr.framecount ||
