@@ -1050,9 +1050,8 @@ static void R_EdgeDrawing( void )
 
 #if XASH_GAMECUBE
 	{
-		int quality = GC_GetVisualQuality();
 		// G24a: low-memory smoke path skips full world edge pass until stable
-		if( quality == 0 )
+		if( GC_IsLowMemoryMode() )
 		{
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing skipping world pass (quality=0)\n" );
 			return;
