@@ -875,6 +875,15 @@ void GAME_EXPORT GL_ProcessTexture( int texnum, float gamma, int topColor, int b
 		return; // missed image
 	image_t *image = &r_images[texnum];
 
+#if XASH_GAMECUBE
+	// quality 0 (low-memory): skip post-processing to reduce CPU and memory pressure
+	if( GC_GetVisualQuality() == 0 )
+	{
+		gEngfuncs.Con_Reportf( "GC-Q0: %s skipping post-process for %s\n", __func__, image->name );
+		return;
+	}
+#endif
+
 	// select mode
 	if( gamma != -1.0f )
 	{
@@ -980,6 +989,9 @@ void R_InitDlightTexture( void )
 	if( GC_GetVisualQuality() == 0 )
 		dlightSize = 32;
 	else
+#endif
+#if !defined( BLOCK_SIZE )
+#define BLOCK_SIZE 16
 #endif
 		dlightSize = BLOCK_SIZE;
 
