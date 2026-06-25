@@ -162,7 +162,8 @@ void R_DrawSpriteModel( cl_entity_t *e )
 	// brightness for visibility while cutting glow occlusion work.
 	qboolean low_quality_skip_occlusion = false;
 	float original_blend = tr.blend;
-	if( GC_GetVisualQuality() == 0 &&
+	int vis_quality = GC_GetVisualQuality();
+	if( vis_quality == 0 &&
 	    ( e->curstate.rendermode == kRenderGlow ||
 	      e->curstate.rendermode == kRenderTransAdd ) )
 	{
