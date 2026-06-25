@@ -285,11 +285,11 @@ extern gl_globals_t   tr;
 
 /*
 ** GC_GetVisualQuality
+** Single renderer-local source of truth for visual quality levels.
 ** Returns 0 for low-memory smoke path (XASH_LOW_MEMORY or runtime sample_size 0).
 ** Returns 1 for standard quality paths.
 ** Returns 2 when sample_size and sample_bits permit higher fidelity.
 **
-** This renderer-local helper supersedes any platform-level GC_GetVisualQuality.
 ** On non-GameCube targets a constant quality of 1 is assumed.
 **
 ** Note: sample_size == -1 means "auto" (quality 1), sample_size == 0 forces
@@ -322,20 +322,13 @@ static inline int GC_GetVisualQuality( void )
 
 /*
 ** GC_IsLowMemoryMode
-** Returns 1 if running in low-memory mode (XASH_LOW_MEMORY or runtime sample_size 0).
+** Returns 1 if running in low-memory mode (quality 0).
 ** Returns 0 otherwise.
+** Consistent with GC_GetVisualQuality.
 */
 static inline int GC_IsLowMemoryMode( void )
 {
-#if XASH_GAMECUBE
-#if XASH_LOW_MEMORY
-	return 1;
-#else
-	return tr.sample_size == 0;
-#endif
-#else /* !XASH_GAMECUBE */
-	return 0;
-#endif
+	return GC_GetVisualQuality() == 0;
 }
 
 typedef struct image_s
