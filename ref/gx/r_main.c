@@ -1415,7 +1415,12 @@ qboolean GAME_EXPORT R_Init( void )
 {
 	qboolean glblit = false;
 #if XASH_GAMECUBE
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin\n" );
+	// G24a: Initialize renderer state before any quality checks so GC_GetVisualQuality is stable.
+	tr.framecount = 0;
+	tr.sample_size = 0;
+	tr.sample_bits = -1;
+
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer R_Init begin (quality=%d)\n", GC_GetVisualQuality() );
 #endif
 
 	// G24a: Ensure tr.framecount starts at 0 so GC_GetVisualQuality init guard is deterministic.
