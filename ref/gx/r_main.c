@@ -1448,7 +1448,7 @@ qboolean GAME_EXPORT R_Init( void )
 #if XASH_GAMECUBE
 	{
 		int quality = GC_GetVisualQuality();
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init quality=%d (sample_size=%d)\n", quality, tr.sample_size );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer init quality=%d (sample_size=%d, low_memory=%d)\n", quality, tr.sample_size, GC_IsLowMemoryMode() );
 	}
 #endif
 
