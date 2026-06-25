@@ -667,6 +667,15 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					fi
 				fi
 			fi
+
+			# G36: Explicitly link memory pressure to frame spikes for allocation stall diagnosis
+			if (( FRAME_SPIKE_EVENTS > 0 )) && (( GC_MEM_SAMPLES )); then
+				if [[ -n "$GC_MEM_PEAK_TOTAL" ]]; then
+					if awk "BEGIN {exit !($GC_MEM_PEAK_TOTAL > 10.0)}" 2>/dev/null; then
+						echo "G36_ALLOC_STALL_RISK: High memory pressure (${GC_MEM_PEAK_TOTAL}MiB) coincides with frame spikes. GC zone allocator fragmentation is a probable cause for G36 instability."
+					fi
+				fi
+			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
