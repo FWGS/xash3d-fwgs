@@ -18,6 +18,10 @@ GNU General Public License for more details.
 #include "sprite.h"
 #include "ref_common.h"
 
+#if XASH_GAMECUBE
+#include "platform/platform.h"
+#endif
+
 static char  sprite_name[MAX_QPATH];
 static char  group_suffix[8];
 static uint  r_texFlags = 0;
@@ -167,8 +171,12 @@ static const byte *Mod_SpriteLoadFrame( model_t *mod, const void *pin, mspritefr
 	}
 	else
 	{
-		// partial HD-textures support
+		// partial HD-textures support (skip at quality 0 to save memory)
+#if XASH_GAMECUBE
+		if( Mod_AllowMaterials( ) && GC_GetVisualQuality( ) > 0 )
+#else
 		if( Mod_AllowMaterials( ))
+#endif
 		{
 			if( Mod_SpriteSearchForTextureReplacement( texname, sizeof( texname ), sprite_name, "materials/%s/%s%i%i.tga", sprite_name, group_suffix, num / 10, num % 10 ))
 			{

@@ -129,6 +129,7 @@ qboolean GCube_GetWritablePath( char *buf, size_t buflen );
 qboolean GCube_HasWritableStorage( void );
 void GCube_EnsureWritableLayout( void );
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv );
+int GC_GetVisualQuality( void );
 #endif
 
 #if XASH_LINUX
