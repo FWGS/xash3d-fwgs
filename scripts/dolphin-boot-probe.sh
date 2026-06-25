@@ -460,10 +460,14 @@ if (( FRAME_BUDGET_LOGS )); then
 	# G36_PATCH: Relaxed pattern to allow arbitrary word characters for variant markers
 	# G36_PATCH_v2: Ultra-relaxed to match any 'duration=' after guest prefix
 	# Restrict to frame-specific markers to avoid false positives
-	while IFS= read -r val; do
-		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget )+duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oE 'duration=[0-9]+(\.[0-9]+)?' | sed 's/duration=//')
+	# G36_PATCH_v4: Deduplicate against already-captured 'time=' samples to prevent double-counting
+	# when a guest emits both 'time=' and 'duration=' for the same logical frame.
+	if grep -aqsF "duration=" "${LOG_FILES[@]}"; then
+		while IFS= read -r val; do
+			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
+		done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget )+duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+			grep -oE 'duration=[0-9]+(\.[0-9]+)?' | sed 's/duration=//')
+	fi
 
 	# G36_PATCH: Extract frame times from 'render time' markers (another variant)
 	# Added to catch guests that label rendering-specific timing distinctly from frame timing
