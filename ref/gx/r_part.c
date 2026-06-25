@@ -72,7 +72,7 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 		particle_skip_interval = 8;
 	else if( vis == 1 )
 		particle_skip_interval = 4;
-	// quality 2: particle_skip_interval remains 1 (render all)
+	// quality 2 (high): particle_skip_interval remains 1 (render all)
 	int particle_count = 0;
 	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
