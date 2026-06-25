@@ -192,6 +192,10 @@ grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
 FRAME_BUDGET_ENABLED=0
 grep -aqsF "FRAME_BUDGET_ENABLED=1" "${LOG_FILES[@]}" && FRAME_BUDGET_ENABLED=1
 
+# G36: Explicitly look for guest-reported memory samples to correlate with frame budget
+GC_MEM_SAMPLES=0
+grep -aqE "GC_MemSample|mem stage=" "${LOG_FILES[@]}" && GC_MEM_SAMPLES=1
+
 # Extract frame budget statistics for G36 measurement
 # Restrict to engine-reported frame timing markers to avoid false matches
 TARGET_FRAME_TIME=16.66
@@ -359,6 +363,13 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_MEASUREMENT_FAIL: Frame budget unstable. P95=${FRAME_P95}ms > ${TARGET_FRAME_TIME}ms."
 			fi
 			
+			# G36: Correlate memory samples with frame budget
+			if (( GC_MEM_SAMPLES )); then
+				echo "G36_MEM_CORRELATION: GC memory samples detected alongside frame budget telemetry."
+			else
+				echo "G36_MEM_NOTE: No GC memory samples detected in this probe; frame budget is isolated from memory pressure evidence."
+			fi
+
 			# Report frame distribution percentiles for deeper analysis
 			FRAME_P50="${FRAME_MEDIAN}"
 			FRAME_P10=$(printf '%s\n' "${FRAME_TIMES[@]}" | sort -n | awk -v n="$FRAME_COUNT" 'NR==int(n*0.1+0.9999) {print; exit}')
