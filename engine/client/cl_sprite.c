@@ -20,9 +20,17 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 #include "platform/platform.h"
-#ifndef GC_GetVisualQuality
-extern int GC_GetVisualQuality( void );
+/* GC_GetVisualQuality is provided by ref/gx/r_local.h in the renderer.
+ * Use a compile-time safe stub here for the client module which may
+ * be compiled independently of the renderer headers. */
+static inline int GC_ClientVisualQuality( void )
+{
+#if XASH_LOW_MEMORY
+	return 0;
+#else
+	return 1; /* Standard quality for client-side sprite logic */
 #endif
+}
 #endif
 
 static char  sprite_name[MAX_QPATH];
@@ -178,7 +186,7 @@ static const byte *Mod_SpriteLoadFrame( model_t *mod, const void *pin, mspritefr
 		// Quality-aware fallback: low-memory mode skips HD replacements entirely,
 		// medium/high quality loads them when materials are permitted.
 #if XASH_GAMECUBE
-		if( Mod_AllowMaterials( ) && GC_GetVisualQuality( ) > 0 )
+		if( Mod_AllowMaterials( ) && GC_ClientVisualQuality( ) > 0 )
 #else
 		if( Mod_AllowMaterials( ))
 #endif
