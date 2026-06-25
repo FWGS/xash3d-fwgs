@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import re
+import json
 import shlex
 import shutil
 import socket
@@ -15,7 +16,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from PyQt6.QtCore import QProcess, QProcessEnvironment, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QCloseEvent, QDesktopServices, QFont, QFontDatabase, QTextCursor
+from PyQt6.QtGui import QAction, QCloseEvent, QDesktopServices, QFont, QFontDatabase, QPixmap, QTextCursor
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
 	QApplication,
@@ -34,6 +35,7 @@ from PyQt6.QtWidgets import (
 	QPlainTextEdit,
 	QProgressBar,
 	QPushButton,
+	QSizePolicy,
 	QSpinBox,
 	QTableWidget,
 	QTableWidgetItem,
@@ -354,6 +356,26 @@ class PortWindow(QMainWindow):
 		context_layout.addWidget(self.context_view)
 		self.add_panel("Telemetry", context_panel, Qt.DockWidgetArea.RightDockWidgetArea)
 
+		viewport_panel = QWidget()
+		viewport_layout = QVBoxLayout(viewport_panel)
+		viewport_layout.setContentsMargins(10, 8, 10, 8)
+		viewport_layout.setSpacing(6)
+		self.viewport_status = QLabel("No Dolphin screenshot captured yet")
+		self.viewport_status.setStyleSheet(f"color: {GC_CYAN}; font-weight: bold;")
+		self.viewport_image = QLabel("Run Dolphin Screenshot Vision Test")
+		self.viewport_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		self.viewport_image.setMinimumSize(320, 240)
+		self.viewport_image.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+		self.viewport_image.setStyleSheet(
+			f"background: #05040b; color: {GC_MUTED}; border: 2px inset {GC_PANEL_2};"
+			"border-radius: 8px; padding: 10px;"
+		)
+		viewport_layout.addWidget(self.viewport_status)
+		viewport_layout.addWidget(self.viewport_image, 1)
+		self.viewport_pixmap: QPixmap | None = None
+		self.viewport_path = ""
+		self.add_panel("Dolphin Viewport", viewport_panel, Qt.DockWidgetArea.BottomDockWidgetArea)
+
 		automation_panel = QWidget()
 		controls = QHBoxLayout()
 		automation_panel.setLayout(controls)
@@ -441,10 +463,12 @@ class PortWindow(QMainWindow):
 
 		self.splitDockWidget(self.docks["Workspace"], self.docks["Goals"], Qt.Orientation.Vertical)
 		self.splitDockWidget(self.docks["Telemetry"], self.docks["Log"], Qt.Orientation.Vertical)
+		self.splitDockWidget(self.docks["Log"], self.docks["Dolphin Viewport"], Qt.Orientation.Horizontal)
 		self.tabifyDockWidget(self.docks["Automation"], self.docks["Tools"])
 		self.docks["Automation"].raise_()
 		self.resizeDocks([self.docks["Goals"], self.docks["Telemetry"]], [520, 420], Qt.Orientation.Horizontal)
-		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [360, 220], Qt.Orientation.Vertical)
+		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [320, 220], Qt.Orientation.Vertical)
+		self.resizeDocks([self.docks["Log"], self.docks["Dolphin Viewport"]], [520, 420], Qt.Orientation.Horizontal)
 
 		self.timer = QTimer(self)
 		self.timer.setInterval(3000)
@@ -476,7 +500,7 @@ class PortWindow(QMainWindow):
 
 	def reset_dock_layout(self) -> None:
 		required = {"Workspace", "Model Server", "Goals", "Telemetry",
-			"Automation", "Pipeline", "Tools", "Log"}
+			"Automation", "Pipeline", "Tools", "Dolphin Viewport", "Log"}
 		if not required.issubset(self.docks):
 			return
 		for dock in self.docks.values():
@@ -489,13 +513,16 @@ class PortWindow(QMainWindow):
 		self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, self.docks["Tools"])
 		self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.docks["Goals"])
 		self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.docks["Telemetry"])
+		self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docks["Dolphin Viewport"])
 		self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docks["Log"])
 		self.splitDockWidget(self.docks["Workspace"], self.docks["Goals"], Qt.Orientation.Vertical)
 		self.splitDockWidget(self.docks["Telemetry"], self.docks["Log"], Qt.Orientation.Vertical)
+		self.splitDockWidget(self.docks["Log"], self.docks["Dolphin Viewport"], Qt.Orientation.Horizontal)
 		self.tabifyDockWidget(self.docks["Automation"], self.docks["Tools"])
 		self.docks["Automation"].raise_()
 		self.resizeDocks([self.docks["Goals"], self.docks["Telemetry"]], [520, 420], Qt.Orientation.Horizontal)
-		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [360, 220], Qt.Orientation.Vertical)
+		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [320, 220], Qt.Orientation.Vertical)
+		self.resizeDocks([self.docks["Log"], self.docks["Dolphin Viewport"]], [520, 420], Qt.Orientation.Horizontal)
 		self.status_label.setText("Dock layout reset")
 
 	def repo(self) -> Path:
@@ -818,12 +845,77 @@ class PortWindow(QMainWindow):
 			self.context_view.setPlainText(context)
 			self.last_context = context
 
+	def latest_dolphin_screenshot(self) -> tuple[Path | None, str]:
+		root = self.repo()
+		memory = root / ".ai/state/dolphin-harness-memory.json"
+		if memory.is_file():
+			try:
+				data = json.loads(memory.read_text(encoding="utf-8"))
+				run = data.get("runs", [{}])[0] if isinstance(data.get("runs"), list) else {}
+				shot = run.get("latest_screenshot") if isinstance(run, dict) else ""
+				status = ""
+				if isinstance(run, dict):
+					classification = run.get("classification", {})
+					if isinstance(classification, dict):
+						status = (
+							f"{classification.get('status', 'unknown')} / "
+							f"{classification.get('visual', 'visual unknown')} / "
+							f"{classification.get('audio', 'audio unknown')}"
+						)
+				if shot:
+					path = root / str(shot)
+					if path.is_file():
+						return path, status
+			except (OSError, json.JSONDecodeError, TypeError):
+				pass
+
+		candidates = sorted((root / ".ai/logs").glob("dolphin-vision-*/screenshots/*.png"),
+			key=lambda path: path.stat().st_mtime if path.exists() else 0)
+		if candidates:
+			return candidates[-1], "latest screenshot from harness logs"
+		return None, "No Dolphin screenshot captured yet"
+
+	def refresh_dolphin_viewport(self) -> None:
+		path, status = self.latest_dolphin_screenshot()
+		if path is None:
+			self.viewport_path = ""
+			self.viewport_pixmap = None
+			self.viewport_status.setText(status)
+			self.viewport_image.setPixmap(QPixmap())
+			self.viewport_image.setText(
+				"Run Dolphin Screenshot Vision Test\n\n"
+				"Waiting for .ai/logs/dolphin-vision-*/screenshots/*.png"
+			)
+			return
+
+		path_text = str(path.relative_to(self.repo()))
+		if path_text != self.viewport_path:
+			pixmap = QPixmap(str(path))
+			if not pixmap.isNull():
+				self.viewport_pixmap = pixmap
+				self.viewport_path = path_text
+		self.viewport_status.setText(f"{status}  -  {path_text}")
+		self.update_viewport_pixmap()
+
+	def update_viewport_pixmap(self) -> None:
+		if not self.viewport_pixmap or self.viewport_pixmap.isNull():
+			return
+		size = self.viewport_image.size()
+		scaled = self.viewport_pixmap.scaled(
+			size,
+			Qt.AspectRatioMode.KeepAspectRatio,
+			Qt.TransformationMode.SmoothTransformation,
+		)
+		self.viewport_image.setText("")
+		self.viewport_image.setPixmap(scaled)
+
 	def refresh_dashboard(self) -> None:
 		try:
 			self.refresh_artifacts()
 			self.refresh_model_status()
 			self.refresh_goals()
 			self.refresh_context()
+			self.refresh_dolphin_viewport()
 		except (OSError, subprocess.SubprocessError) as exc:
 			self.context_view.setPlainText(f"Telemetry unavailable: {exc}")
 
@@ -1031,6 +1123,11 @@ class PortWindow(QMainWindow):
 			if not proc.waitForFinished(timeout_ms):
 				proc.kill()
 				proc.waitForFinished(1000)
+
+	def resizeEvent(self, event) -> None:
+		super().resizeEvent(event)
+		if hasattr(self, "viewport_pixmap"):
+			self.update_viewport_pixmap()
 
 	def shutdown_processes(self) -> None:
 		self.stop_qprocess(self.process)
