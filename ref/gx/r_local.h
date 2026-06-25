@@ -305,10 +305,13 @@ static inline int GC_GetVisualQuality( void )
 	/* Explicit 0 forces low-memory smoke path */
 	if( tr.sample_size == 0 )
 		return 0;
-	/* Negative sample_size means "auto" -> standard quality */
+	/* Auto mode (negative) or insufficient sample config: standard quality */
+	if( tr.sample_size < 0 )
+		return 1;
+	/* Positive sample_size with sample_bits: permit higher fidelity */
 	if( tr.sample_size > 0 && tr.sample_bits > 0 )
 		return 2;
-	/* Standard quality (includes auto mode when sample_size == -1) */
+	/* Fallback to standard quality */
 	return 1;
 #endif
 #else /* !XASH_GAMECUBE */
