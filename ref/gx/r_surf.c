@@ -582,6 +582,37 @@ void R_DrawSurfaceBlock8_Generic( void )
 	uint    lightstep, lighttemp, light;
 	pixel_t pix, *psource, *prowdest;
 
+#if XASH_GAMECUBE
+	// G24b: quality 0 uses unlit fallback for generic lightmaps to avoid expensive
+	// light interpolation on low-memory smoke path. Quality 1/2 retain full path.
+	if( !GC_GetVisualQuality() )
+	{
+		psource = pbasesource;
+		prowdest = prowdestbase;
+		// Guard against degenerate block dimensions on the low-memory path
+		if( r_numvblocks <= 0 || blocksize <= 0 || r_numhblocks <= 0 )
+			return;
+		for( v = 0; v < r_numvblocks; v++ )
+		{
+			for( i = 0; i < blocksize; i++ )
+			{
+				for( b = blocksize - 1; b >= 0; b-- )
+				{
+					pix = psource[b];
+					// Always write to dest even for transparent pixels to avoid
+					// leaving uninitialized cache data on low-memory path.
+					prowdest[b] = ( pix == TRANSPARENT_COLOR ) ? TRANSPARENT_COLOR : pix;
+				}
+				psource += sourcetstep;
+				prowdest += surfrowbytes;
+			}
+			if( psource >= r_sourcemax )
+				psource -= r_stepback;
+		}
+		return;
+	}
+#endif
+
 	psource = pbasesource;
 	prowdest = prowdestbase;
 
@@ -1313,8 +1344,16 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 				alloc_width = 64;
 			if( alloc_height > 64 )
 				alloc_height = 64;
-			// Also clamp rowbytes to match allocated width
-			r_drawsurf.rowbytes = alloc_width;
+			if( alloc_width != r_drawsurf.surfwidth || alloc_height != r_drawsurf.surfheight )
+			{
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: clamping surface cache %dx%d to %dx%d (quality=0)\n",
+					r_drawsurf.surfwidth, r_drawsurf.surfheight,
+					alloc_width, alloc_height );
+				r_drawsurf.surfwidth = alloc_width;
+				r_drawsurf.surfheight = alloc_height;
+				r_drawsurf.rowbytes = alloc_width;
+			}
 		}
 		cache = D_SCAlloc( alloc_width, alloc_width * alloc_height * 2 );
 #else
@@ -1386,5 +1425,4 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 	return cache;
 }
-
 

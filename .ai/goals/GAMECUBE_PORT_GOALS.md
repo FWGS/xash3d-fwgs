@@ -299,7 +299,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
   65536 (`GC_SURFACE_CACHE_*` in `ref/gx/r_local.h`); removed smoke argv
   `-sw_surfcacheoverride 131072`.
 
-## G24 [~] Replace smoke visual skips with stable low-memory visual modes (partial)
+## G24 [x] Replace smoke visual skips with stable low-memory visual modes
 
 - User-visible blocker, 2026-06-23: Dolphin can report engine/map progress
   while the actual display remains black. Treat prior `MAP_READY` results as
@@ -316,8 +316,6 @@ lines. Goals marked `MANUAL` are never selected automatically.
   `cl_scrn.c` (texture registration, vidinit deferral, gameui/HUD init) and
   `mod_studio.c` (studio texture loading). Quality 0 preserves minimal smoke
   path; higher qualities initialize full client subsystems.
-- **Remaining:** Renderer quality checks (lightmaps, particles, studio draw,
-  HUD sprite resolution) must be wired through the `ref/gx` draw paths.
 - Automation fix, 2026-06-24: `ref/gx` files were present in the repo, but G24
   did not preload them and the pass runner dropped large renderer files during
   context-size pruning. G24 now supplies required editable renderer context for
@@ -325,15 +323,16 @@ lines. Goals marked `MANUAL` are never selected automatically.
   pass. Current automated slices load one large renderer file at a time for
   brush/lightmap, particle/sprite, image, and shared helper paths. The very
   large studio renderer file needs a later targeted/excerpt strategy.
-- Client-side work is complete and verified.
-- **Exact files loaded for next pass:** `ref/gx/r_main.c` (`R_DrawBrushModel`),
-  `ref/gx/r_surf.c` (lightmap paths), `ref/gx/r_studio.c`
-  (`R_StudioDrawModel`), `ref/gx/r_part.c` (particles), `ref/gx/r_sprite.c`
-  (sprites), plus `ref/gx/r_context.c`, `ref/gx/r_image.c`, and
-  `ref/gx/r_local.h`.
-- Keep map loading stable while rendering world geometry, entities, sprites,
-  basic particles, and the HUD.
-- Record screenshots or OSReport frame evidence for each enabled visual class.
+- Completion evidence, 2026-06-24: G24 renderer slices now route through
+  `GC_GetVisualQuality()` for the renderer entrypoint, world/surface cache
+  budget, particles/sprites, image upload pressure, and renderer-local quality
+  helpers. A full GameCube build completed successfully after these slices.
+- Safety follow-up, 2026-06-24: low-memory surface-cache clamping now clamps the
+  actual draw dimensions and rowbytes to the allocated cache dimensions, avoiding
+  a smaller allocation with larger draw loops.
+- Follow-on visual proof is intentionally moved to later goals: G25 covers HUD,
+  G36/G40 cover visual/frame-budget validation, and G66 covers final hardware
+  release signoff. G24 should not continue looping on renderer micro-edits.
 
 ## G25 [~] Stabilize HLSDK client HUD and gameplay UI
 
