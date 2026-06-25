@@ -320,7 +320,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 			gEngfuncs.Con_Reportf( S_ERROR "%s: OOM allocating %ux%ux%u pixels, truncating mips at %u\n", __func__, width, height, tex->depth, j );
 			// Free resampled buffer if it was allocated and is not the original
 			if( data != buf )
-				free( data );
+				Mem_Free( data );
 			// Free alpha_pixels if allocated for mips before failure
 			if( tex->alpha_pixels )
 			{
@@ -403,7 +403,7 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 	// Free resampled buffer if it was allocated and is not the original
 	if( data != buf )
-		free( data );
+		Mem_Free( data );
 
 	return true;
 }
