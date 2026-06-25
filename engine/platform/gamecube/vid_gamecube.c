@@ -56,7 +56,7 @@ int GC_GetVisualQuality( void )
 {
 #if XASH_GAMECUBE
 	if( gc_quality )
-		return (int)gc_quality->value;
+		return bound( 0, (int)gc_quality->value, 2 );
 #endif
 	return 1;
 }
