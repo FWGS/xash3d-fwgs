@@ -365,29 +365,34 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		if( j == 0 && !( tex->flags & TF_HAS_ALPHA ))
 			tex->alpha_pixels = NULL;
 
-		for( uint i = 0; i < height * width; i++ )
 		{
-			unsigned int r, g, b, major, minor;
-			// seems to look better
-			r = data[i * 4 + 0] * BIT( 5 ) / 256;
-			g = data[i * 4 + 1] * BIT( 6 ) / 256;
-			b = data[i * 4 + 2] * BIT( 5 ) / 256;
+			qboolean doAlpha = ( j == 0 && tex->alpha_pixels );
+			qboolean doOneBitAlpha = ( j == 0 && !sw_noalphabrushes.value && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ));
 
-			// 565 to 332
-			major = ((( r >> 2 ) & MASK( 3 )) << 5 ) | (((( g >> 3 ) & MASK( 3 )) << 2 )) | ((( b >> 3 ) & MASK( 2 )));
-
-			// save minor GBRGBRGB
-			minor = MOVE_BIT( r, 1, 5 ) | MOVE_BIT( r, 0, 2 ) | MOVE_BIT( g, 2, 7 ) | MOVE_BIT( g, 1, 4 ) | MOVE_BIT( g, 0, 1 ) | MOVE_BIT( b, 2, 6 ) | MOVE_BIT( b, 1, 3 ) | MOVE_BIT( b, 0, 0 );
-
-			tex->pixels[j][i] = major << 8 | ( minor & 0xFF );
-			if( j == 0 && tex->alpha_pixels )
+			for( uint i = 0; i < height * width; i++ )
 			{
-				unsigned int alpha = ( data[i * 4 + 3] * 8 / 256 ) << ( 16 - 3 );
-				tex->alpha_pixels[i] = ( tex->pixels[j][i] >> 3 ) | alpha;
-			}
-			if( j == 0 && !sw_noalphabrushes.value && data[i * 4 + 3] < 128 && FBitSet( pic->flags, IMAGE_ONEBIT_ALPHA ))
-				tex->pixels[j][i] = TRANSPARENT_COLOR;         // 0000 0011 0100 1001;
+				unsigned int r, g, b, major, minor;
+				// seems to look better
+				r = data[i * 4 + 0] * BIT( 5 ) / 256;
+				g = data[i * 4 + 1] * BIT( 6 ) / 256;
+				b = data[i * 4 + 2] * BIT( 5 ) / 256;
 
+				// 565 to 332
+				major = ((( r >> 2 ) & MASK( 3 )) << 5 ) | (((( g >> 3 ) & MASK( 3 )) << 2 )) | ((( b >> 3 ) & MASK( 2 )));
+
+				// save minor GBRGBRGB
+				minor = MOVE_BIT( r, 1, 5 ) | MOVE_BIT( r, 0, 2 ) | MOVE_BIT( g, 2, 7 ) | MOVE_BIT( g, 1, 4 ) | MOVE_BIT( g, 0, 1 ) | MOVE_BIT( b, 2, 6 ) | MOVE_BIT( b, 1, 3 ) | MOVE_BIT( b, 0, 0 );
+
+				tex->pixels[j][i] = major << 8 | ( minor & 0xFF );
+				if( doAlpha )
+				{
+					unsigned int alpha = ( data[i * 4 + 3] * 8 / 256 ) << ( 16 - 3 );
+					tex->alpha_pixels[i] = ( tex->pixels[j][i] >> 3 ) | alpha;
+				}
+				if( doOneBitAlpha && data[i * 4 + 3] < 128 )
+					tex->pixels[j][i] = TRANSPARENT_COLOR;         // 0000 0011 0100 1001;
+
+			}
 		}
 
 		if( activeMips > 1 && j < ( activeMips - 1 ) )
