@@ -1290,17 +1290,22 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		// Quality 1/2 preserve existing behavior.
 		int alloc_width = r_drawsurf.surfwidth;
 		int alloc_height = r_drawsurf.surfheight;
+		qboolean did_clamp = false;
 		if( !GC_GetVisualQuality() )
 		{
 			// Clamp to 64x64 for quality 0 to preserve cache budget
 			if( alloc_width > 64 )
+			{
 				alloc_width = 64;
+				did_clamp = true;
+			}
 			if( alloc_height > 64 )
+			{
 				alloc_height = 64;
+				did_clamp = true;
+			}
 		}
-#endif
-#if XASH_GAMECUBE
-		if( !GC_GetVisualQuality() )
+		if( did_clamp )
 		{
 			// Clamp drawing dimensions to match allocated budget
 			r_drawsurf.surfwidth = alloc_width;
