@@ -784,6 +784,25 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		
 		# G36 structured summary for automated tooling
 		if (( FRAME_COUNT > 0 )); then
+			# G36: Cold-start vs steady-state violation concentration
+			# Helps diagnose if budget failures are initialization artifacts or sustained issues
+			if (( FRAME_JANK > 0 )) && (( FRAME_COUNT >= 2 )); then
+				FRAME_COLD_START_JANK=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
+				NR == 1 { if ($1+0 > target) jank++ }
+				END { print jank+0 }')
+				FRAME_STEADY_JANK=$((FRAME_JANK - FRAME_COLD_START_JANK))
+				if (( FRAME_STEADY_JANK > 0 )); then
+					echo "G36_JANK_DISTRIBUTION: cold_start=${FRAME_COLD_START_JANK} steady=${FRAME_STEADY_JANK} total=${FRAME_JANK}"
+					if (( FRAME_COLD_START_JANK == FRAME_JANK )); then
+						echo "G36_JANK_HINT: All jank concentrated in cold-start (first frame). Steady-state rendering is stable."
+					elif (( FRAME_STEADY_JANK * 2 > FRAME_JANK )); then
+						echo "G36_JANK_HINT: Majority of jank in steady-state frames. Renderer optimization needed for sustained performance."
+					else
+						echo "G36_JANK_HINT: Jank split between cold-start and steady-state. Investigate both initialization and per-frame work."
+					fi
+				fi
+			fi
+
 			# G36: Coefficient of variation (CV = stddev/avg) for normalized variance
 			# CV > 0.25 indicates high relative variance even if absolute stddev is modest
 			# Calculate this BEFORE G36_SUMMARY so it's available in the summary line
