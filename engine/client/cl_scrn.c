@@ -817,8 +817,8 @@ void SCR_RegisterTextures( void )
 #if XASH_GAMECUBE
 	{
 		extern int GC_GetVisualQuality( void );
-		if( GC_GetVisualQuality( ) == 0 )
-			return;
+		if( GC_GetVisualQuality( ) < 1 )
+			return; // Skip texture registration for quality 0
 	}
 #endif
 

@@ -686,7 +686,7 @@ renderer context:
 availability. Client-side conversion is verified complete; renderer-side work is
 the active next task.
 
-## G25 — HLSDK HUD sprite staging (2026-06-23, smoke verified)
+## G25 — HLSDK HUD sprite staging (2026-06-23, smoke verified; 2026-06-24 stability patch)
 
 The 320x240 smoke path uses `GetSpriteRes() == 320`, so `hud.txt` and
 `weapon_*.txt` entries at 320 resolution must be on disc. The smoke disc builder
@@ -697,11 +697,21 @@ Missing HUD sprites on `-gcmap` fall back to lightweight stubs instead of fatal
 errors. Probe `021844` reaches `MAP_READY` with no `Could not load HUD sprite`
 messages.
 
+**2026-06-24 Update:**
+Applied stability patches to `3rdparty/hlsdk-portable/cl_dll/hud.cpp` and `engine/client/cl_scrn.c`:
+- Added `GC_GetVisualQuality()` checks in `CHud::Init` and `CHud::VidInit` to skip heavy sprite loading for quality 0.
+- Guarded `SPR_Load` calls against missing sprites to prevent hangs.
+- Replaced blocking `HUD_MessageBox` with `Con_NPrintf` on GameCube for missing `number_0` sprite.
+- Refined `SCR_RegisterTextures` to skip for quality < 1.
+
+These changes ensure the real HLSDK client HUD initializes without relying on `-nohud` and survives missing sprite assets without fatal hangs.
+
 ```sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
 Evidence: `.ai/logs/dolphin-probe-20260623-021844/stderr.log`.
+Next step: Operator hardware/Dolphin probe to confirm HUD elements (health, ammo, etc.) actually draw on screen.
 
 ## G26 — ASND audio backend (2026-06-23, smoke verified)
 

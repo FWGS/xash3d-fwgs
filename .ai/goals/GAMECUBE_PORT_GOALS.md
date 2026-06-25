@@ -344,6 +344,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - Verified 2026-06-23 (smoke): `320hud` sheets, `crosshairs.spr`, weapon sprite
   lists, and `320_logo.spr` are staged for the 320x240 probe path; Dolphin probe
   `021844` reaches `MAP_READY` with no `Could not load HUD sprite` errors.
+- Verified 2026-06-24 (stability): Added `GC_GetVisualQuality()` guards in `CHud::Init`/`VidInit` and `SCR_RegisterTextures`. Missing sprites no longer cause hangs or blocking message boxes. Real HUD initializes for quality > 0.
 - Remaining: hardware screenshot evidence that HUD elements actually draw in-game.
 
 ## G26 [~] Bring up a real GameCube audio backend
