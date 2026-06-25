@@ -1113,6 +1113,15 @@ void GAME_EXPORT R_RenderScene( void )
 	// begin a new frame
 	tr.framecount++;
 
+#if XASH_GAMECUBE
+	// G24a: report quality mode at render scene entry for verification
+	if( tr.framecount <= 2 )
+	{
+		int quality = GC_GetVisualQuality();
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene frame %d quality=%d\n", tr.framecount, quality );
+	}
+#endif
+
 	if( tr.map_unload )
 	{
 		D_FlushCaches();
