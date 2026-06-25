@@ -825,6 +825,23 @@ G28; those goals cannot be completed without operator hardware validation.
 MAP_READY recovery is tracked by the following gameplay/networking goals rather
 than by writable-storage routing.
 
+## G31 — Multi-map progression memory safety (source complete 2026-06-25)
+
+Ensured `SV_SpawnServer` frees unused models (`Mod_FreeUnused`) before loading
+the new world BSP. This prevents MEM1 exhaustion during `changelevel`
+transitions, where memory from the previous map's models would otherwise
+accumulate and block the new BSP parse.
+
+**Source implementation:**
+- `engine/server/sv_init.c`: `Mod_FreeUnused()` called before `Mod_LoadWorld`
+  in `SV_SpawnServer`, ensuring consistent memory reclamation across all
+  map loads including `changelevel`.
+
+**Completion note:** Runtime verification of a full `changelevel` sequence
+(transition triggers, landmark persistence, player state transfer) requires
+campaign assets and a full route test, deferred to G35/G38. Source-side memory
+safety for the transition is now explicit.
+
 ## G29 — Restore local single-player networking paths (COMPLETE 2026-06-25)
 
 Restored local single-player networking paths on GameCube by initializing

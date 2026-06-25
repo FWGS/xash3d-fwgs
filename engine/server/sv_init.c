@@ -710,7 +710,6 @@ void SV_ActivateServer( int runPhysics )
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ))
 	{
-		Mod_FreeUnused();
 		GC_RestoreVideoMemoryAfterMapLoad();
 		R_GcmapMarkMapLoadComplete();
 	}
@@ -1117,11 +1116,13 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	SetBits( sv.model_precache_flags[WORLD_INDEX], RES_FATALIFMISSING );
 #if XASH_GAMECUBE
 	GC_MemSetMap( sv.name );
+	// Free unused models (e.g., from previous map) before loading the new world
+	// to prevent exceeding the 24 MiB MEM1 limit during BSP load.
+	Mod_FreeUnused();
 	if( Sys_CheckParm( "-gcmap" ))
 	{
 		R_GcmapTrimForMapLoad();
 		GC_TrimVideoMemoryForMapLoad();
-		Mod_FreeUnused();
 		Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
 	}
 #endif
