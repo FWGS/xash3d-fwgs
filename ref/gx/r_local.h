@@ -311,7 +311,6 @@ static inline int GC_GetVisualQuality( void )
 #endif /* XASH_LOW_MEMORY */
 #else /* !XASH_GAMECUBE */
 	/* Non-GameCube targets always use standard quality */
-	(void)&tr; // suppress unused-reference warnings in non-GameCube builds
 	return 1;
 #endif /* XASH_GAMECUBE */
 }
