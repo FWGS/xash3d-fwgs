@@ -193,6 +193,11 @@ void GCube_EnsureWritableLayout( void )
 	GCube_MkdirIgnoreExists( valve );
 	Q_snprintf( save, sizeof( save ), "%s/valve/save", base );
 	GCube_MkdirIgnoreExists( save );
+
+	/* G32: Ensure standard Half-Life save slots directory exists.
+	 * The engine uses 'valve/save' for autosaves and 'valve/save/<mapname>'
+	 * for manual saves in some builds, but standard HL uses 'valve/save'
+	 * directly for .sav files. We ensure the base is ready. */
 }
 
 void GCube_Init( void )
