@@ -296,10 +296,24 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 		// guard against OOM in low-memory mode
 		if( !tex->pixels[j] )
 		{
-			gEngfuncs.Con_Reportf( S_ERROR "%s: OOM allocating %ux%ux%u pixels\n", __func__, width, height, tex->depth );
+			gEngfuncs.Con_Reportf( S_ERROR "%s: OOM allocating %ux%ux%u pixels, truncating mips at %u\n", __func__, width, height, tex->depth, j );
 			// Free resampled buffer if it was allocated and is not the original
 			if( data != buf )
 				free( data );
+			// In low-memory mode, truncate mipmap chain instead of failing entirely
+#if XASH_GAMECUBE
+			if( GC_GetVisualQuality() == 0 )
+			{
+				tex->numMips = j;
+				if( tex->numMips == 0 )
+				{
+					gEngfuncs.Con_Reportf( S_ERROR "%s: OOM on first mip, cannot proceed\n", __func__ );
+					return false;
+				}
+				gEngfuncs.Con_Reportf( S_WARN "%s: Q0 fallback, %s using %u mips\n", __func__, tex->name, tex->numMips );
+				return true;
+			}
+#endif
 			return false;
 		}
 
