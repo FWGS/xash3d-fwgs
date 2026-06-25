@@ -232,6 +232,39 @@ if grep -aqsF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}"; th
 	FRAME_BUDGET_SAMPLE_COUNT=$(grep -acF "Xash3D GameCube: frame budget sample start" "${LOG_FILES[@]}")
 fi
 
+# G36: Detect CPU/GX time split markers for CPU vs GPU bottleneck diagnosis
+FRAME_CPU_TIME_SAMPLES=0
+FRAME_GX_TIME_SAMPLES=0
+if grep -aqsE "Xash3D GameCube: (frame |render )?cpu_time=" "${LOG_FILES[@]}"; then
+	FRAME_CPU_TIME_SAMPLES=$(grep -acE "Xash3D GameCube: (frame |render )?cpu_time=" "${LOG_FILES[@]}")
+fi
+if grep -aqsE "Xash3D GameCube: (frame |render )?gx_time=" "${LOG_FILES[@]}"; then
+	FRAME_GX_TIME_SAMPLES=$(grep -acE "Xash3D GameCube: (frame |render )?gx_time=" "${LOG_FILES[@]}")
+fi
+
+# G36: Extract and analyze CPU vs GX time split if both markers are present
+FRAME_CPU_AVG=""
+FRAME_GX_AVG=""
+if (( FRAME_CPU_TIME_SAMPLES > 0 )) && (( FRAME_GX_TIME_SAMPLES > 0 )); then
+	eval "$(grep -aoE 'Xash3D GameCube: (frame |render )?cpu_time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE 'cpu_time=[0-9]+(\.[0-9]+)?' | sed 's/cpu_time=//' | awk '
+		{
+			sum += $1; count++;
+		}
+		END {
+			if (count > 0) printf "FRAME_CPU_AVG=%.3f\n", sum/count;
+		}')"
+	
+	eval "$(grep -aoE 'Xash3D GameCube: (frame |render )?gx_time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE 'gx_time=[0-9]+(\.[0-9]+)?' | sed 's/gx_time=//' | awk '
+		{
+			sum += $1; count++;
+		}
+		END {
+			if (count > 0) printf "FRAME_GX_AVG=%.3f\n", sum/count;
+		}')"
+fi
+
 # G36: Detect explicit frame deadline miss markers to separate late-frames from fast-frames
 FRAME_DEADLINE_MISSES=0
 if grep -aqsF "Xash3D GameCube: frame deadline miss" "${LOG_FILES[@]}"; then
@@ -682,6 +715,18 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				esac
 			fi
 
+			# G36: Report CPU vs GX time split for bottleneck diagnosis
+			if [[ -n "$FRAME_CPU_AVG" ]] && [[ -n "$FRAME_GX_AVG" ]]; then
+				echo "G36_CPU_GX_SPLIT: cpu_avg=${FRAME_CPU_AVG}ms gx_avg=${FRAME_GX_AVG}ms samples_cpu=${FRAME_CPU_TIME_SAMPLES} samples_gx=${FRAME_GX_TIME_SAMPLES}"
+				if awk "BEGIN {exit !(${FRAME_CPU_AVG} > ${FRAME_GX_AVG} * 1.5)}" 2>/dev/null; then
+					echo "G36_CPU_BOUND: CPU time dominates GX time (CPU=${FRAME_CPU_AVG}ms > 1.5x GX=${FRAME_GX_AVG}ms). Frame budget likely limited by CPU work."
+				elif awk "BEGIN {exit !(${FRAME_GX_AVG} > ${FRAME_CPU_AVG} * 1.5)}" 2>/dev/null; then
+					echo "G36_GPU_BOUND: GX time dominates CPU time (GX=${FRAME_GX_AVG}ms > 1.5x CPU=${FRAME_CPU_AVG}ms). Frame budget likely limited by GPU throughput."
+				else
+					echo "G36_BALANCED: CPU and GX times are comparable. Frame budget constrained by both subsystems."
+				fi
+			fi
+
 			# G36: Report frame presentation hitches (CPU/GPU sync gaps)
 			if (( FRAME_HITCHES > 0 )); then
 				echo "G36_GX_HITCHES: ${FRAME_HITCHES} frame hitch markers detected. Possible CPU/GPU sync or VI wait issues."
@@ -736,7 +781,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_SAMPLE_NOTE: ${FRAME_COUNT} frame samples collected. Moderate confidence in budget measurement."
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms target=${TARGET_FRAME_TIME}ms"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} sw_surfcache=${SW_SURFCACHE_OVERRIDE} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms target=${TARGET_FRAME_TIME}ms"
 			
 			# G36: Report frame timing jitter (MAD) as stability metric
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
