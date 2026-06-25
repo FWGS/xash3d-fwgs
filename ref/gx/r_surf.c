@@ -1259,8 +1259,26 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 //
 	if( !cache ) // if a texture just animated, don't reallocate it
 	{
+#if XASH_GAMECUBE
+		// G24b: bound surface cache allocation size for low-memory quality 0
+		// to avoid blowing budget on large animated/dynamic surfaces.
+		// Quality 1/2 preserve existing behavior.
+		int alloc_width = r_drawsurf.surfwidth;
+		int alloc_height = r_drawsurf.surfheight;
+		if( !GC_GetVisualQuality() )
+		{
+			// Clamp to 64x64 for quality 0 to preserve cache budget
+			if( alloc_width > 64 )
+				alloc_width = 64;
+			if( alloc_height > 64 )
+				alloc_height = 64;
+		}
+#endif
 		cache = D_SCAlloc( r_drawsurf.surfwidth,
-				   r_drawsurf.surfwidth * r_drawsurf.surfheight * 2 );
+#if XASH_GAMECUBE
+				   (!GC_GetVisualQuality()) ? ( alloc_width * alloc_height * 2 ) :
+#endif
+				   ( r_drawsurf.surfwidth * r_drawsurf.surfheight * 2 ));
 		if( !cache )
 			return NULL;
 		CACHESPOT( surface )[miplevel] = cache;
