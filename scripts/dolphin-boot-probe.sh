@@ -518,6 +518,12 @@ if (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT == 0 )); then
 	echo "G36_PARSE_FAIL: Frame budget log markers detected but zero frame times extracted."
 	echo "G36_PARSE_HINT: Guest marker format may not match probe regex. Check for 'Xash3D GameCube: (frame|render).*time=' patterns in logs."
 	echo "G36_PARSE_HINT: Ensure guest emits numeric milliseconds, e.g., 'Xash3D GameCube: frame time=12.34ms'"
+	# G36_PATCH_v15: Dump raw matching lines for manual regex debugging
+	RAW_MATCH_COUNT=$(grep -aE "Xash3D GameCube: (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time)=[0-9]+" "${LOG_FILES[@]}" 2>/dev/null | wc -l)
+	echo "G36_PARSE_DEBUG: raw_matching_lines=${RAW_MATCH_COUNT}"
+	if (( RAW_MATCH_COUNT > 0 )); then
+		echo "G36_PARSE_DEBUG: Raw matches present but parse filter rejected them. Check for trailing characters after numeric value."
+	fi
 fi
 
 if (( FRAME_COUNT > 0 )); then
