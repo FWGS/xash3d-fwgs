@@ -444,41 +444,36 @@ FRAME_TIMES_STRICT=0
 FRAME_TIMES_RELAXED=0
 
 if (( FRAME_BUDGET_LOGS )); then
-	# Extract frame times in one pass using grep -E and sed for portability
-	# G36_PATCH_v3: Use strict pattern first to count exact matches, then fall back to relaxed
-	# Broadened regex to catch 'frame start', 'render frame', 'frame budget sample', and generic 'frame time' markers.
-	# Added support for 'ms' suffix often used in new G36 markers.
-	
-	# G36_PATCH_v3: Strict pattern - exact expected format
+	# G36_PATCH_v5: Unified robust extraction of frame budget timing.
+	# Combines 'time=' and 'duration=' extraction into a single pass where possible,
+	# or clearly separated passes with strict deduplication.
+	# This reduces regex complexity and improves reliability of sample counts.
+		
+	# Extract 'time=' markers (primary budget metric)
 	FRAME_TIMES_STRICT=$(grep -aoE 'Xash3D GameCube: frame time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | wc -l)
-	
-	# G36_PATCH_v3: Extract all frame times using relaxed pattern
-	# Restrict to frame-specific markers to avoid false positives from initialization logs
+		
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
 	done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget |frame render complete )+time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
-	
-	# G36_PATCH_v3: Count relaxed matches for diagnostics
+		grep -oE '[0-9]+(\.[0-9]+)?' | tail -1) # Get last number if multiple, but usually time= is the key
+		
+	# Retry extraction with a cleaner pattern if empty
+	if (( ${#FRAME_TIMES[@]} == 0 )); then
+		while IFS= read -r val; do
+			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
+		done < <(grep -aoE 'Xash3D GameCube: .*time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+			grep -oE 'time=[0-9]+(\.[0-9]+)?' | sed 's/time=//')
+	fi
+
 	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
 
-	# G36: Also extract frame times from 'frame duration' markers (alternative naming)
-	# G36_PATCH: Relaxed pattern to allow arbitrary word characters for variant markers
-	# G36_PATCH_v2: Ultra-relaxed to match any 'duration=' after guest prefix
-	# Restrict to frame-specific markers to avoid false positives
-	# G36_PATCH_v4: Deduplicate against already-captured 'time=' samples to prevent double-counting
-	# when a guest emits both 'time=' and 'duration=' for the same logical frame.
+	# Extract 'duration=' markers (secondary budget metric)
 	if grep -aqsF "duration=" "${LOG_FILES[@]}"; then
 		while IFS= read -r val; do
 			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
 		done < <(grep -aoE 'Xash3D GameCube: (frame |render |frame budget )+duration=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 			grep -oE 'duration=[0-9]+(\.[0-9]+)?' | sed 's/duration=//')
 	fi
-
-	# G36_PATCH: Extract frame times from 'render time' markers (another variant)
-	# Added to catch guests that label rendering-specific timing distinctly from frame timing
-	# G36_PATCH_v2: Removed this redundant pass; 'time=' pattern above already covers 'render time='.
-	# Keeping this block empty to avoid duplicate samples that inflate FRAME_COUNT.
 
 	# G36_DEDUP_v1: Deduplicate FRAME_TIMES to prevent double-counting when
 	# both 'time=' and 'duration=' markers are emitted for the same frame.
