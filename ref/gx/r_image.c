@@ -236,9 +236,9 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 #if XASH_GAMECUBE
 	int q = GC_GetVisualQuality();
-#else
+#else /* !XASH_GAMECUBE */
 	int q = 1;
-#endif
+#endif /* XASH_GAMECUBE */
 
 	tex->fogParams[0] = pic->fogParams[0];
 	tex->fogParams[1] = pic->fogParams[1];
