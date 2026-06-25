@@ -80,11 +80,6 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 		if( p->type != pt_blob )
 		{
 			particle_count++;
-			// Deterministic quality-aware density: only render particles whose
-			// position in the list satisfies the quality threshold.
-			// This preserves spatial distribution while cutting draw calls.
-			if( particle_skip_interval > 1 && ( particle_count % particle_skip_interval ) != 1 )
-				continue; // quality-aware: reduce non-blob particle draw calls
 		}
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
 		{
@@ -99,6 +94,12 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 				size = partsize;
 			else
 				size = partsize + size * 0.002f;
+
+			// Quality-aware particle size: reduce size in low-memory mode instead of skipping
+			if( vis == 0 )
+				size *= 0.5f;
+			else if( vis == 1 )
+				size *= 0.75f;
 
 			// scale the axes by radius
 			VectorScale( RI.cull_vright, size, right );
@@ -208,8 +209,6 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 	for( particle_t *p = cl_active_tracers; p; p = p->next )
 	{
 		tracer_count++;
-		if( tracer_skip_interval > 1 && ( tracer_count % tracer_skip_interval ) != 1 )
-			continue; // quality-aware: reduce tracer draw calls
 
 		float atten = ( p->die - gp_cl->time );
 		if( atten > 0.1f )
@@ -236,9 +235,16 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 			tmp[2] = 0;
 			VectorNormalize( tmp );
 
+			// Quality-aware tracer size: reduce in low-memory mode instead of skipping
+			float tracer_size = gTracerSize[p->type];
+			if( vis == 0 )
+				tracer_size *= 0.5f;
+			else if( vis == 1 )
+				tracer_size *= 0.75f;
+
 			// build point along noraml line (normal is -y, x)
-			VectorScale( RI.cull_vup, tmp[0] * gTracerSize[p->type], normal );
-			VectorScale( RI.cull_vright, -tmp[1] * gTracerSize[p->type], tmp2 );
+			VectorScale( RI.cull_vup, tmp[0] * tracer_size, normal );
+			VectorScale( RI.cull_vright, -tmp[1] * tracer_size, tmp2 );
 			VectorSubtract( normal, tmp2, normal );
 
 			// compute four vertexes
