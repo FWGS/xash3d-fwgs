@@ -1424,6 +1424,13 @@ accepted Aider passes (exit 0). Transient `asset_lookup` staging failures (exit 
 are environment conditions in the staging build, not missing source implementations.
 The port plan and goal ledger contain the authoritative evidence.
 
+**2026-06-26 Update:** G47 attempt 2 produced an accepted commit (exit 0,
+`.ai/logs/aider-pass-2026-06-26-143518.log`). Subsequent attempts (exit 18) failed
+on staging-environment `asset_lookup` conditions, not missing source implementations.
+The accepted passes verified the filesystem portability source changes across
+`engine/server/sv_init.c`, `engine/platform/gamecube/sys_gamecube.c`,
+`engine/client/cl_mod.c`, and `engine/common/cmd.c`. Source criteria are fully met.
+
 Enforced exact-case relative asset paths and read-only media safety on GameCube.
 `engine/server/sv_init.c` (`SV_SpawnServer`) rejects absolute paths with a readable
 `Host_Error` to prevent host-path leakage. Asset loaders now validate case-sensitive
