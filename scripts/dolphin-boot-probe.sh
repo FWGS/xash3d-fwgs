@@ -20,6 +20,11 @@ if command -v flock >/dev/null 2>&1; then
 				stale=true
 			fi
 		fi
+		# Also check if any Dolphin process is actually running.
+		# If not, the lock is likely stale even if the file is recent.
+		if ! pgrep -f "dolphin" >/dev/null 2>&1; then
+			stale=true
+		fi
 		if [[ "$stale" == true ]]; then
 			echo "WARNING: Removing stale dolphin-probe lock file."
 			rm -f "$ROOT/.ai/dolphin-probe.lock"

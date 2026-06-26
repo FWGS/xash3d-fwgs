@@ -81,6 +81,23 @@ screen. The capture should show that critical text remains inside the reported
 Dolphin-only enhancements. If PAL, NTSC-J, or 480p is untested, record that as a
 limitation instead of treating the route as broadly release-complete.
 
+## Controller Preflight
+
+Before recording physical controller results, run the automated G45 preflight:
+
+```sh
+scripts/gamecube-controller-compliance.py
+```
+
+Record its summary path with the hardware run. For physical evidence, capture
+the controller type, port, whether the run starts with no controller connected,
+whether reconnect during gameplay was tested, and whether movement, look, A
+confirm/use, B cancel/back, Start pause, D-pad navigation, and triggers respond
+without stuck inputs after disconnect. Treat no-controller boot and
+disconnect/reconnect as explicit evidence fields, not incidental notes. Official
+wired controller evidence is the minimum required path; WaveBird and common
+third-party pads should be recorded separately before broad release claims.
+
 ## Validation Matrix
 
 Record which route was tested.

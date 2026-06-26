@@ -1008,6 +1008,27 @@ this gate. This closes source/policy preflight only; CRT readability still needs
 dated analog capture or operator evidence on the physical hardware routes before
 release-complete claims.
 
+## G45 — Controller presence and disconnect behavior (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
+
+The GameCube input backend now has a repeatable source/policy gate for controller
+presence and reconnect behavior. It polls libogc PAD input, logs a bounded
+no-controller waiting state, scans ports 1-4 for fallback reconnect, releases
+held buttons and axes on disconnect, tracks controller type changes, applies
+GameCube-specific stick and trigger deadzones, and emits explicit G45 runtime
+markers for ready, waiting, and disconnected states.
+
+Run:
+
+```sh
+scripts/gamecube-controller-compliance.py
+```
+
+The release-candidate gate also runs this check through
+`scripts/gamecube-rc-check.sh`. This closes automated source/policy preflight
+only; official controller, WaveBird, third-party controller, no-controller boot,
+and mid-game reconnect evidence still require dated operator or hardware matrix
+records before release-complete claims.
+
 ## G35 — Reach a playable early-game route
 
 **Verified (2026-06-25):** `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh`
