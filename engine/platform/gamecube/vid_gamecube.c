@@ -128,7 +128,8 @@ static void GC_PresentBuffer( void )
 	unsigned short *dst;
 	int copy_w, copy_h, row, col2;
 	int src_w, src_h;
-	qboolean sampled_nonblack = false;
+	qboolean sampled_nonblack;
+	size_t buf_size;
 
 	if( !rmode || !xfb[which_fb] )
 		return;
@@ -149,7 +150,7 @@ static void GC_PresentBuffer( void )
 
 		// G36: Flush buffer from cache before copying to XFB
 		// DCFlushRange expects (start, end), not (start, size)
-		size_t buf_size = gc.stride * gc.height * sizeof(unsigned short);
+		buf_size = gc.stride * gc.height * sizeof(unsigned short);
 		DCFlushRange(gc.buffer, (void *)((unsigned char *)gc.buffer + buf_size));
 
 		// G36: Sample first pixel for visual evidence only on first frame
@@ -407,6 +408,7 @@ void GC_DrawFatalBreadcrumb( const char *message )
 #if XASH_GAMECUBE
 	unsigned short *dst;
 	int row, col_fatal, i;
+	size_t xfb_size;
 
 	gc_fatal_breadcrumb_active = true;
 
@@ -426,10 +428,8 @@ void GC_DrawFatalBreadcrumb( const char *message )
 
 	/* Flush to ensure hardware sees it */
 	// DCFlushRange expects (start, end), not (start, size)
-	{
-		size_t xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-		DCFlushRange(xfb[0], (void *)((unsigned char *)xfb[0] + xfb_size));
-	}
+	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
+	DCFlushRange(xfb[0], (void *)((unsigned char *)xfb[0] + xfb_size));
 	VIDEO_SetNextFramebuffer( xfb[0] );
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
