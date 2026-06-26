@@ -126,7 +126,7 @@ static void GC_PresentBuffer( void )
 #if XASH_GAMECUBE
 	unsigned short *src;
 	unsigned short *dst;
-	int copy_w, copy_h, row;
+	int copy_w, copy_h, row, col2;
 	qboolean sampled_nonblack = false;
 
 	if( !rmode || !xfb[which_fb] )
@@ -167,7 +167,6 @@ static void GC_PresentBuffer( void )
 		{
 			int check_w = src_w < 8 ? src_w : 8;
 			unsigned short *scanrow = src;
-			int col2;
 			for( col2 = 0; col2 < check_w; col2++ )
 			{
 				if( scanrow[col2] != 0 )
@@ -401,7 +400,7 @@ void GC_DrawFatalBreadcrumb( const char *message )
 {
 #if XASH_GAMECUBE
 	unsigned short *dst;
-	int row, col;
+	int row, col, col_fatal, i_fatal;
 
 	gc_fatal_breadcrumb_active = true;
 
@@ -413,7 +412,6 @@ void GC_DrawFatalBreadcrumb( const char *message )
 
 	/* Fill XFB with a distinct color: Magenta (RGB565 0xF81F) to signal ERROR */
 	{
-		int col_fatal;
 		for( row = 0; row < rmode->xfbHeight; row++ )
 		{
 			unsigned short *rowdst = dst + row * rmode->fbWidth;
@@ -436,7 +434,6 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	 * presented on screen before the process exits. This is more
 	 * portable than SYS_Delay across different libogc versions. */
 	{
-		int i_fatal;
 		for( i_fatal = 0; i_fatal < 3; i_fatal++ )
 			VIDEO_WaitVSync();
 	}
