@@ -1399,12 +1399,50 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				fi
 			fi
 
+			# G36_PATCH_v37: Compute frame budget headroom distribution to distinguish
+			# "stable with margin" from "stable but fragile". Headroom = budget - frame_time.
+			# Negative headroom = over budget. Reports distribution: negative, critical (<1ms),
+			# low (1-3ms), medium (3-5ms), healthy (>5ms).
+			FRAME_BUDGET_HEADROOM_NEG=0
+			FRAME_BUDGET_HEADROOM_CRIT=0
+			FRAME_BUDGET_HEADROOM_LOW=0
+			FRAME_BUDGET_HEADROOM_MED=0
+			FRAME_BUDGET_HEADROOM_OK=0
+			if (( FRAME_COUNT > 0 )); then
+				eval "$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
+				{
+					val = $1 + 0;
+					headroom = target - val;
+					if (headroom < 0) neg++;
+					else if (headroom < 1.0) crit++;
+					else if (headroom < 3.0) low++;
+					else if (headroom < 5.0) med++;
+					else ok++;
+				}
+				END {
+					printf "FRAME_BUDGET_HEADROOM_NEG=%d\n", neg+0;
+					printf "FRAME_BUDGET_HEADROOM_CRIT=%d\n", crit+0;
+					printf "FRAME_BUDGET_HEADROOM_LOW=%d\n", low+0;
+					printf "FRAME_BUDGET_HEADROOM_MED=%d\n", med+0;
+					printf "FRAME_BUDGET_HEADROOM_OK=%d\n", ok+0;
+				}')"
+			fi
+
 			# G36: Explicitly classify measurement state for downstream automation
 			# This provides a single-line status that tooling can grep for
 			if ! (( FRAME_BUDGET_PASSED )); then
 				echo "G36_STATUS: FAIL (p95=${FRAME_P95}ms > ${TARGET_FRAME_TIME}ms, jank=${FRAME_JANK}/${FRAME_COUNT}, mode=${FRAME_FAILURE_MODE})"
 			else
 				echo "G36_STATUS: PASS (p95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms, jank=${FRAME_JANK}/${FRAME_COUNT})"
+				# Report headroom distribution for fragility diagnosis
+				echo "G36_HEADROOM_DIST: negative=${FRAME_BUDGET_HEADROOM_NEG} critical_lt1ms=${FRAME_BUDGET_HEADROOM_CRIT} low_1_3ms=${FRAME_BUDGET_HEADROOM_LOW} medium_3_5ms=${FRAME_BUDGET_HEADROOM_MED} healthy_gt5ms=${FRAME_BUDGET_HEADROOM_OK}"
+				if (( FRAME_BUDGET_HEADROOM_NEG + FRAME_BUDGET_HEADROOM_CRIT > FRAME_COUNT / 4 )); then
+					echo "G36_HEADROOM_WARN: >25% of frames have <1ms headroom (or over budget). Renderer is fragile; small perturbations may cause budget violations."
+				elif (( FRAME_BUDGET_HEADROOM_OK * 2 < FRAME_COUNT )); then
+					echo "G36_HEADROOM_NOTE: <50% of frames have >5ms headroom. Renderer meets budget but with limited margin for optimization regressions."
+				else
+					echo "G36_HEADROOM_OK: Majority of frames have healthy headroom (>5ms). Renderer has margin for variability."
+				fi
 			fi
 
 			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} gx_waitvp_samples=${GX_WAITVP_SAMPLES} gx_wait_time_samples=${GX_WAIT_TIME_SAMPLES} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms severe_violations=${FRAME_SEVERE_VIOLATIONS} stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} stage_violations=${FRAME_BUDGET_STAGE_HITS:-0} stage_breakdown=${FRAME_BUDGET_VIOLATION_STAGES:-none} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} gx_drawdone=${GX_DRAWDONE_COUNT} target=${TARGET_FRAME_TIME}ms guest_target=${GUEST_TARGET_FRAME_TIME:-N/A} regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none} stability_score=${FRAME_STABILITY_SCORE}"
