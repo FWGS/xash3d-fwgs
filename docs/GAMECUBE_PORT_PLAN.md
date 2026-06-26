@@ -1158,6 +1158,27 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (BLOCKED 2026-06-26)
+
+**Current blocker:** The engine argv was missing `-game valve` and `map c0a0e` commands, causing the engine to fail with `Error: game directory "valve" not exist` and never spawn the server. The probe timed out with `map_timeout`.
+
+**Fix applied (2026-06-26):** Updated `GCube_GetArgv()` in `engine/platform/gamecube/sys_gamecube.c` to include:
+- `-game valve` — sets the game directory correctly
+- `map c0a0e` — auto-spawns the smoke map after engine init
+
+**Evidence:**
+- Probe: `.ai/logs/dolphin-probe-20260626-045417/stderr.log` showed `map_timeout` because map was never auto-spawned
+- Root cause: `Program args:` line showed `-gcmap c0a0e` but no `-game valve` or `map c0a0e`
+
+**Next step:** Rebuild and re-probe to confirm `MAP_READY` status returns, then run `scripts/gamecube-campaign-audit.sh` for full chapter evidence.
+
+```sh
+scripts/build-gamecube.sh
+DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+```
+
+Expected result after fix: `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
+
 ## Campaign Audit Gate (G40, 2026-06-25)
 
 `scripts/gamecube-campaign-audit.sh` is the repeatable Half-Life campaign audit

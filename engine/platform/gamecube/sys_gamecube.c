@@ -370,7 +370,11 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "-log";
 	gc_argv[fake_argc++] = "-toconsole";
 	gc_argv[fake_argc++] = "-nointro";
+	gc_argv[fake_argc++] = "-game";
+	gc_argv[fake_argc++] = "valve";
 	gc_argv[fake_argc++] = "-gcmap";
+	gc_argv[fake_argc++] = gc_smoke_map;
+	gc_argv[fake_argc++] = "map";
 	gc_argv[fake_argc++] = gc_smoke_map;
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "320";
