@@ -579,6 +579,12 @@ if (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT == 0 )); then
 		echo "G36_PARSE_HINT: No renderer initialization marker found. Guest may have crashed or stalled before rendering began."
 		echo "G36_PARSE_HINT: Check for guest errors, missing assets, or early bootstrap failures."
 	fi
+	# G36_PATCH_v23: Detect alternative time units (microseconds, seconds) as common
+	# marker format mismatches that cause zero-sample extraction
+	if grep -aqsE "Xash3D GameCube:.*time=[0-9]+(\.[0-9]+)?(us|μs|sec|s)$" "${LOG_FILES[@]}"; then
+		echo "G36_PARSE_UNIT_MISMATCH: Detected frame time markers with non-millisecond units (us/sec/s). Probe expects 'ms' suffix or bare milliseconds."
+		echo "G36_PARSE_HINT: Update guest to emit milliseconds or relax probe regex to handle multiple units."
+	fi
 	# G36_PATCH_v21: Emit explicit status for zero-sample case to prevent
 	# downstream tooling from misinterpreting empty summary as success
 	echo "G36_STATUS: FAIL (zero samples extracted, parse failure)"
