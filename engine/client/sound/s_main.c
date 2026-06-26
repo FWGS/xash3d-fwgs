@@ -2041,9 +2041,25 @@ qboolean S_Init( void )
 	Con_Reportf( "Xash3D GameCube: sound effects init begin\n" );
 #endif
 	SX_Init ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sound dsp init ready\n" );
+#endif
 	S_StopAllSounds ( true );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sound channels cleared\n" );
+#endif
 	S_InitSounds ();
-	VOX_Init ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: sound defaults ready\n" );
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		Con_Reportf( "Xash3D GameCube: vox init skipped for gcmap smoke route\n" );
+	}
+	else
+#endif
+	{
+		VOX_Init ();
+	}
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: sound effects init ready\n" );
 #endif
