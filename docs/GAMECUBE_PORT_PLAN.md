@@ -1162,7 +1162,7 @@ verification rather than unexpected crashes.
 
 **Current blocker:** Build failure in `engine/platform/gamecube/vid_gamecube.c`. The function `SYS_DelayThreads` does not exist in libogc, and `SYS_InitializeScheduler` should not be called in a fatal error path. This caused compilation failure.
 
-**Fix applied (2026-06-26):** Replaced `SYS_InitializeScheduler()` and `SYS_DelayThreads( 1000 )` with `usleep( 1000000 )` in `GC_DrawFatalBreadcrumb` to safely delay execution for frame presentation before exit.
+**Fix applied (2026-06-26):** Replaced `SYS_InitializeScheduler()` and `SYS_DelayThreads( 1000 )` with `usleep( 1000000 )` in `GC_DrawFatalBreadcrumb` to safely delay execution for frame presentation before exit. Added explicit `#include <unistd.h>` to ensure `usleep` is declared during compilation.
 
 **Evidence:**
 - Source: `engine/platform/gamecube/vid_gamecube.c` `GC_DrawFatalBreadcrumb` function.
