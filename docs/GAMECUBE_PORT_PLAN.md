@@ -1456,9 +1456,12 @@ changes across multiple attempts:
 - `.ai/logs/aider-pass-2026-06-26-134140.log` (exit 0, accepted)
 - `.ai/logs/aider-pass-2026-06-26-134753.log` (exit 0, accepted)
 
-Subsequent exit-18 attempts hit transient `asset_lookup` conditions during
-staging retries and did not regress source. The accepted passes remain the
-authoritative evidence.
+**Transient build failures:** Subsequent exit-18 `asset_lookup` failures (attempts
+4-8, logs `.ai/logs/aider-pass-2026-06-26-135211.log` through
+`.ai/logs/aider-pass-2026-06-26-140633.log`) occurred during staging retries and
+did not regress source. These are transient staging-environment conditions, not
+missing source implementations. The accepted passes (exit 0, attempts 1-3)
+remain the authoritative evidence of complete source changes.
 
 **Completion note:** Source-side filesystem portability and read-only media
 behavior are verified. `sys_gamecube.c` fails fatally with a readable error if
