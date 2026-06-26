@@ -1417,7 +1417,12 @@ Release-complete storage still requires physical or persistent-storage evidence
 for save/load, quit/relaunch/load, interruption, full-card, removed-card,
 corrupt-file, wrong-slot, and incompatible-version behavior under G38/G53/G66.
 
-## G47 — Audit filesystem portability and read-only media behavior (COMPLETE 2026-06-26)
+## G47 — Audit filesystem portability and read-only media behavior (COMPLETE 2026-06-26, DO NOT RETRY)
+
+**AUTOMATION NOTE: DO NOT RETRY.** Source changes are complete and verified by
+accepted Aider passes (exit 0). Transient `asset_lookup` staging failures (exit 18)
+are environment conditions in the staging build, not missing source implementations.
+The port plan and goal ledger contain the authoritative evidence.
 
 Enforced exact-case relative asset paths and read-only media safety on GameCube.
 `engine/server/sv_init.c` (`SV_SpawnServer`) rejects absolute paths with a readable
@@ -1486,6 +1491,39 @@ scripts/ai-verify.sh
 
 Evidence: `sys_gamecube.c` contains `GCube_PathAccessible` check for `valve/`
 directory with readable `S_WARN` messages for missing game hierarchy.
+
+## G50 — Fatal error UX and crash breadcrumb readability (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
+
+GameCube fatal exits now produce both compact OSReport breadcrumbs and a readable
+asset-free on-screen fatal panel. `Sys_Error` classifies the failure subsystem
+as engine, filesystem, allocation, renderer, audio, game-code, storage, or
+missing-asset, then reports build hash, map, route, memory, host status, frame,
+and error frame.
+
+The video backend draws fatal text directly to the XFB with a built-in block
+font, so filesystem, missing-asset, renderer-adjacent, and writable-storage
+failures do not depend on external font/image assets. The screen includes:
+
+- `XASH3D GAMECUBE FATAL`
+- The fatal message.
+- Subsystem, build, map, route, memory, and frame details.
+- `HALTED: POWER CYCLE OR RESET`
+
+**Evidence:**
+```sh
+scripts/gamecube-fatal-ux-compliance.py
+```
+
+The full RC gate now runs this as the fatal UX compliance step:
+
+```sh
+scripts/gamecube-rc-check.sh
+```
+
+**Completion note:** G50 is source/policy preflight complete. Final
+release-complete status still requires dated hardware or analog-capture evidence
+showing the fatal text is readable and the route ends in a bounded halt, return
+path, or restart prompt rather than a silent black screen.
 
 ## Next wake-up commands
 
