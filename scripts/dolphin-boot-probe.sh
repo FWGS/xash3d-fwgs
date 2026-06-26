@@ -2065,6 +2065,42 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				END { print "" }')
 				echo "G36_VIOLATION_INDICES: Frames exceeding budget (index=time): ${VIOLATION_INDICES}"
 			fi
+
+			# G36_PATCH_v81: Detect frame time trend (improving vs degrading) to distinguish
+			# "warmup settling" from "memory pressure building". Compares average of first half
+			# vs second half of frame samples. Provides actionable evidence for whether
+			# to optimize initialization (improving) vs steady-state/deallocation (degrading).
+			if (( FRAME_COUNT >= 4 )); then
+				FRAME_TREND=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '
+				{
+					times[NR] = $1 + 0;
+					count++;
+				}
+				END {
+					if (count < 4) { print "N/A"; exit }
+					half = int(count / 2);
+					sum1 = 0; sum2 = 0;
+					for (i = 1; i <= half; i++) sum1 += times[i];
+					for (i = half + 1; i <= count; i++) sum2 += times[i];
+					avg1 = sum1 / half;
+					avg2 = sum2 / (count - half);
+					if (avg1 == 0) { print "N/A"; exit }
+					ratio = avg2 / avg1;
+					if (ratio < 0.90) print "improving";
+					else if (ratio > 1.10) print "degrading";
+					else print "stable";
+				}')
+				if [[ "$FRAME_TREND" != "N/A" ]]; then
+					echo "G36_FRAME_TREND: ${FRAME_TREND} (first-half vs second-half average comparison)"
+					if [[ "$FRAME_TREND" == "improving" ]]; then
+						echo "G36_TREND_HINT: Frame times decreasing over time. Likely warmup completing or caches warming. Consider increasing warmup frames or pre-initializing renderer."
+					elif [[ "$FRAME_TREND" == "degrading" ]]; then
+						echo "G36_TREND_HINT: Frame times increasing over time. Strong indicator of memory fragmentation, zone pool pressure, or resource leak. Profile GC zone allocator."
+					else
+						echo "G36_TREND_OK: Frame times stable over probe duration. No significant warmup or degradation detected."
+					fi
+				fi
+			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
