@@ -966,6 +966,8 @@ class PortWindow(QMainWindow):
 		self.resizeDocks([self.docks["Log"], self.docks["Telemetry"]], [320, 220], Qt.Orientation.Vertical)
 		self.resizeDocks([self.docks["Log"], self.docks["Dolphin Viewport"]], [520, 420], Qt.Orientation.Horizontal)
 		self.load_saved_settings()
+		load_gamecube_env(self.repo())
+		self.sync_model_command_from_tuning()
 		self.ensure_core_panels_visible()
 		self.prime_goal_ledger()
 
@@ -1100,7 +1102,10 @@ class PortWindow(QMainWindow):
 			self.repo_edit.setText(repo)
 		model_command = data.get("model_command")
 		if isinstance(model_command, str) and model_command:
-			self.model_command_edit.setText(migrate_model_command(model_command))
+			migrated = migrate_model_command(model_command)
+			self.model_command_edit.setText(migrated)
+			if "model_max_num_seqs" not in data:
+				self.populate_tuning_from_command(migrated)
 		model_api_base = data.get("model_api_base")
 		if isinstance(model_api_base, str) and model_api_base:
 			self.model_api_edit.setText(model_api_base)
@@ -1412,6 +1417,56 @@ class PortWindow(QMainWindow):
 		if not self.closing:
 			self.append(f"\nModel process error: {error.name} while starting {program}\n")
 
+	def apply_automation_env_from_ui(self) -> None:
+		apply_model_tuning_to_environ(
+			self.model_max_seqs_spin.value(),
+			self.model_gpu_util_spin.value(),
+			self.model_max_len_spin.value(),
+			self.model_tool_choice.isChecked(),
+			self.aider_history_spin.value(),
+			self.aider_overhead_spin.value(),
+		)
+		os.environ["OPENAI_API_BASE"] = self.model_api_edit.text().strip()
+
+	def populate_tuning_from_command(self, command_text: str) -> None:
+		try:
+			command = shlex.split(command_text)
+		except ValueError:
+			return
+		seqs = command_flag_value(command, "--max-num-seqs")
+		if seqs and seqs.isdigit():
+			self.model_max_seqs_spin.setValue(max(1, min(8, int(seqs))))
+		gpu_util = command_flag_value(command, "--gpu-memory-utilization")
+		if gpu_util:
+			try:
+				self.model_gpu_util_spin.setValue(float(gpu_util))
+			except ValueError:
+				pass
+		max_len = command_flag_value(command, "--max-model-len")
+		if max_len and max_len.isdigit():
+			self.model_max_len_spin.setValue(int(max_len))
+		self.model_tool_choice.setChecked(command_has_flag(command, "--enable-auto-tool-choice"))
+
+	def sync_model_command_from_tuning(self) -> None:
+		self.apply_automation_env_from_ui()
+		self.model_command_edit.setText(vllm_qwable_command())
+
+	def apply_recommended_model_settings(self) -> None:
+		self.model_max_seqs_spin.setValue(1)
+		self.model_gpu_util_spin.setValue(0.85)
+		self.model_max_len_spin.setValue(65536)
+		self.model_tool_choice.setChecked(False)
+		self.aider_history_spin.setValue(1024)
+		self.aider_overhead_spin.setValue(8192)
+		self.sync_model_command_from_tuning()
+		self.status_label.setText("Applied recommended model tuning for single-client Aider automation")
+
+	def refresh_model_api_summary(self) -> None:
+		summary = fetch_model_api_summary(self.model_api_edit.text().strip())
+		self.model_status_label.setText(summary)
+		color = GC_MINT if summary.startswith("Model API:") else GC_ORANGE
+		self.model_status_label.setStyleSheet(f"color: {color};")
+
 	def start_model(self) -> None:
 		if not self.valid_repo():
 			return
@@ -1465,6 +1520,8 @@ class PortWindow(QMainWindow):
 		proc.setWorkingDirectory(str(self.repo()))
 		proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
 		load_dotenv(self.repo() / ".env")
+		load_gamecube_env(self.repo())
+		self.apply_automation_env_from_ui()
 		env = QProcessEnvironment.systemEnvironment()
 		for key, value in os.environ.items():
 			env.insert(key, value)
@@ -1734,6 +1791,8 @@ class PortWindow(QMainWindow):
 		proc.setWorkingDirectory(str(self.repo()))
 		proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
 		load_dotenv(self.repo() / ".env")
+		load_gamecube_env(self.repo())
+		self.apply_automation_env_from_ui()
 		env = QProcessEnvironment.systemEnvironment()
 		for key, value in os.environ.items():
 			env.insert(key, value)
@@ -1776,6 +1835,10 @@ class PortWindow(QMainWindow):
 			self.set_pipeline_state("VISION", "Running")
 		if "Logs: .ai/logs/dolphin-vision-" in text:
 			self.set_pipeline_state("VISION", "Success")
+		if "MAP_READY:" in text:
+			self.set_pipeline_state("DOLPHIN", "Success")
+		if "RC_CHECK:" in text or "frame budget" in text.lower():
+			self.set_pipeline_state("VERIFY", "Running")
 		if self.operation == "Goal automation":
 			for line in text.splitlines():
 				if line.startswith("GOAL PASS "):
@@ -1792,7 +1855,8 @@ class PortWindow(QMainWindow):
 		return {
 			"Goal automation": "AIDER", "Review HEAD": "REVIEW", "Verify": "VERIFY",
 			"Build DOL": "DOL", "Build disc ISO": "ISO",
-			"Dolphin vision test": "VISION",
+			"Dolphin vision test": "VISION", "Boot Probe": "DOLPHIN",
+			"RC Check": "VERIFY",
 		}.get(operation, "AIDER")
 
 	def set_pipeline_state(self, name: str, state: str) -> None:
@@ -1992,8 +2056,7 @@ class PortWindow(QMainWindow):
 			self.set_model_state("MODEL  RUNNING", GC_CYAN)
 			self.start_model_btn.setEnabled(False)
 			self.kill_model_btn.setEnabled(True)
-			return
-		if self.model_port_open():
+		elif self.model_port_open():
 			self.set_model_state("MODEL  READY", GC_MINT)
 			self.start_model_btn.setEnabled(False)
 			self.kill_model_btn.setEnabled(True)
@@ -2001,9 +2064,12 @@ class PortWindow(QMainWindow):
 			self.set_model_state("MODEL  DOWN", GC_ORANGE)
 			self.start_model_btn.setEnabled(True)
 			self.kill_model_btn.setEnabled(True)
+		self.refresh_model_api_summary()
 
 
 def main() -> int:
+	load_dotenv(DEFAULT_REPO / ".env")
+	load_gamecube_env(DEFAULT_REPO)
 	app = QApplication(sys.argv)
 	rodin_family = load_font(DEFAULT_REPO / "fonts/FOT-Rodin Pro DB.otf", "Sans Serif")
 	gamecube_family = load_font(DEFAULT_REPO / "fonts/GameCube.ttf", rodin_family)
