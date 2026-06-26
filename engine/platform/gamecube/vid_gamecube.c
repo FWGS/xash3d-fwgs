@@ -128,27 +128,11 @@ static void GC_PresentBuffer( void )
 		for( row = 0; row < src_h; row++ )
 			memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, src_w * sizeof( unsigned short ));
 
-		/* Sample non-black pixels only during early diagnostic frames to bound
-		 * CPU cost. After 16 frames, assume content is present if buffer exists. */
-		if( gc_present_count <= 16 )
-		{
-			for( row = 0; row < src_h && !sampled_nonblack; row += 8 )
-			{
-				int col;
-				for( col = 0; col < src_w; col += 8 )
-				{
-					if( src[row * gc.stride + col] != 0 )
-					{
-						sampled_nonblack = true;
-						break;
-					}
-				}
-			}
-		}
-		else
-		{
-			sampled_nonblack = true;
-		}
+		/* G36: Skip non-black pixel sampling to reduce present-path CPU cost.
+		 * This diagnostic is useful for bring-up but adds unpredictable latency
+		 * to the critical frame submission path. Assume content is present if
+		 * software buffer exists and has been filled. */
+		sampled_nonblack = true;
 	}
 	else
 	{
