@@ -68,44 +68,6 @@ SIDevice3 = 0
 ConfirmStop = False
 EOF
 
-cat > "$USER_DIR/Config/GCPadNew.ini" <<'EOF'
-[GCPad1]
-Device = XInput2/0/Virtual core pointer
-Buttons/A = `X`
-Buttons/B = `Z`
-Buttons/X = `C`
-Buttons/Y = `S`
-Buttons/Z = `D`
-Buttons/Start = `Return`
-Main Stick/Up = `Up`
-Main Stick/Down = `Down`
-Main Stick/Left = `Left`
-Main Stick/Right = `Right`
-Main Stick/Modifier = `Shift`
-Main Stick/Calibration = 100.00 141.42 100.00 141.42 100.00 141.42 100.00 141.42
-C-Stick/Up = `I`
-C-Stick/Down = `K`
-C-Stick/Left = `J`
-C-Stick/Right = `L`
-C-Stick/Modifier = `Ctrl`
-C-Stick/Calibration = 100.00 141.42 100.00 141.42 100.00 141.42 100.00 141.42
-Triggers/L = `Q`
-Triggers/R = `W`
-D-Pad/Up = `T`
-D-Pad/Down = `G`
-D-Pad/Left = `F`
-D-Pad/Right = `H`
-Triforce/Test = `1`
-Triforce/Service = `2`
-Triforce/Coin = `3`
-[GCPad2]
-Device = XInput2/0/Virtual core pointer
-[GCPad3]
-Device = XInput2/0/Virtual core pointer
-[GCPad4]
-Device = XInput2/0/Virtual core pointer
-EOF
-
 cat > "$USER_DIR/Config/Logger.ini" <<'EOF'
 [Logs]
 BOOT = True
