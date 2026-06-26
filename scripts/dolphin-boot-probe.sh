@@ -348,6 +348,18 @@ else
 	FRAME_BUDGET_SAMPLE_COUNT=$FRAME_BUDGET_SAMPLE_START
 fi
 
+# G36_PATCH: Detect explicit renderer frame-start markers to distinguish GX
+# command submission from VI present. Helps classify whether frame budget
+# violations are CPU submission stalls or GPU/VI presentation stalls.
+if (( FRAME_RENDER_LOGS )) && (( FRAME_BUDGET_LOGS )); then
+	# Count frames where renderer marker appears but no frame time appears on
+	# the same logical frame boundary (heuristic: renderer markers > frame times)
+	if (( FRAME_RENDER_LOGS > FRAME_COUNT )); then
+		EXCESS_RENDER_MARKERS=$((FRAME_RENDER_LOGS - FRAME_COUNT))
+		echo "G36_RENDER_OVERSUB: ${EXCESS_RENDER_MARKERS} renderer markers without matching frame-time logs. Possible frame-drop or guest not flushing GX command buffer."
+	fi
+fi
+
 # G36: Detect CPU/GX time split markers for CPU vs GPU bottleneck diagnosis
 FRAME_CPU_TIME_SAMPLES=0
 FRAME_GX_TIME_SAMPLES=0
