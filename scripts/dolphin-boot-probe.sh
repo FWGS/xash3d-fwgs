@@ -355,6 +355,30 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v115: Calculate measurement coverage ratio during steady-state
+		# rendering. After 15s post-renderer-init, compare GX_DrawDone count to
+		# frame budget marker count to quantify telemetry completeness. A ratio
+		# near 1.0 indicates complete coverage; 0.0 indicates missing measurement.
+		# This provides a single numeric metric for G36 health independent of
+		# absolute frame times, useful when guest renders but emits no timing data.
+		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && [[ -z "${G36_MEASUREMENT_COVERAGE_CALCULATED:-}" ]] && \
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 15 )); then
+			G36_MEASUREMENT_COVERAGE_CALCULATED=1
+			COV_DRAWDONE=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			COV_BUDGET=$(grep -acE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			if (( COV_DRAWDONE > 0 )); then
+				COV_RATIO=$(awk "BEGIN {printf \"%.2f\", ${COV_BUDGET} / ${COV_DRAWDONE}}")
+				echo "G36_MEASUREMENT_COVERAGE: ${COV_BUDGET} budget markers / ${COV_DRAWDONE} GX_DrawDone calls = ${COV_RATIO} coverage ratio."
+				if awk "BEGIN {exit !(${COV_RATIO} < 0.1)}" 2>/dev/null; then
+					echo "G36_COVERAGE_MISSING: Near-zero measurement coverage. Guest renders but lacks budget OSReport."
+				elif awk "BEGIN {exit !(${COV_RATIO} < 0.9)}" 2>/dev/null; then
+					echo "G36_COVERAGE_PARTIAL: Measurement coverage is partial (${COV_RATIO}). Some frames missing budget markers."
+				else
+					echo "G36_COVERAGE_GOOD: Measurement coverage is high (${COV_RATIO}). Telemetry is complete."
+				fi
+			fi
+		fi
+
 		# G36_PATCH_v103: Detect sudden frame marker rate drop to identify render
 		# loop instability. Compares frame emission rate in the last 4 seconds
 		# against the rate in the prior 4-second window. A rate drop >50% indicates
