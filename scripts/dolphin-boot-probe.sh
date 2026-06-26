@@ -583,6 +583,18 @@ if (( FRAME_BUDGET_LOGS == 0 )) && [[ -n "$GUEST_RENDERER" ]]; then
 	if (( GX_API_HITS > 0 )); then
 		echo "G36_GX_ACTIVITY: ${GX_API_HITS} GX API markers detected in logs but zero frame budget samples."
 		echo "G36_GX_ACTIVITY_HINT: Renderer is active and submitting GX commands. Frame budget OSReport calls are likely missing or placed in an unexecuted code path."
+		# G36_PATCH_v73: Dump raw guest OSREPORT lines containing 'time' to identify
+		# actual marker format being emitted. This breaks aide-review cycles where
+		# probe regex expects 'frame time=<ms>' but guest uses different format.
+		RAW_TIME_MARKERS=$(grep -aE "OSREPORT.*time=" "${LOG_FILES[@]}" 2>/dev/null | head -5 || true)
+		if [[ -n "$RAW_TIME_MARKERS" ]]; then
+			echo "G36_RAW_TIME_MARKERS: Guest emitted time-containing OSREPORT lines:"
+			while IFS= read -r line; do
+				echo "G36_RAW_TIME_MARKERS: ${line}"
+			done <<< "$RAW_TIME_MARKERS"
+		else
+			echo "G36_RAW_TIME_MARKERS: No OSREPORT lines containing 'time=' found. Guest not emitting timing telemetry."
+		fi
 	else
 		echo "G36_GX_SILENT: No GX API markers found. Renderer may have initialized but not issued draw calls, or OSREPORT path is suppressed for GX calls."
 	fi
