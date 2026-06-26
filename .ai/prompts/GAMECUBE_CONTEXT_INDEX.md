@@ -10,6 +10,8 @@ Always prefer:
 - Existing platform abstractions in `engine/platform/`, `engine/common/`, and
   backend selectors.
 - `docs/GAMECUBE_PORT_PLAN.md` for verified state and blockers.
+- `docs/GAMECUBE_HARDWARE_MATRIX.md` for supported, recommended,
+  diagnostic, and unsupported hardware/loader routes.
 - `docs/GAMECUBE_HARDWARE_VALIDATION.md` for manual hardware test protocol,
   evidence templates, failure taxonomy, and hardware-complete rules.
 - `.ai/goals/GAMECUBE_PORT_GOALS.md` for acceptance criteria.

@@ -21,9 +21,14 @@ MARKERS = {
 	"guest": "Xash3D GameCube: bootstrap",
 	"ready": "Xash3D GameCube: engine subsystems ready",
 	"input": "Xash3D GameCube: input polling active",
+	"g45_ready": "Xash3D GameCube: G45 controller ready",
+	"g45_waiting": "Xash3D GameCube: G45 controller waiting",
 	"nonblack": "sampled_nonblack=1",
 	"diagnostic": "DIAGNOSTIC MARKER VISIBLE",
 }
+G45_READY_RE = re.compile(
+	r"Xash3D GameCube: G45 controller ready port=(\d+) type=(\S+)"
+)
 
 
 def read_log_text(log_dir: Path) -> str:
@@ -72,6 +77,24 @@ def classify_g36(
 	if len(steady) >= 1:
 		return "WEAK", f"avg={avg:.2f}ms p95={p95:.2f}ms target={target_ms:.2f}ms"
 	return "FAIL", "insufficient steady-state frame samples"
+
+
+def classify_g45(
+	text: str,
+	map_loaded: bool,
+	input_active: bool,
+	guest_error: bool,
+) -> tuple[str, str]:
+	if guest_error:
+		return "FAIL", "guest error observed during controller probe"
+	match = G45_READY_RE.search(text)
+	if match and input_active:
+		return "PASS", f"port={match.group(1)} type={match.group(2)}"
+	if MARKERS["g45_waiting"] in text and not match:
+		return "WAIT", "no controller at probe start; reconnect path logged"
+	if map_loaded and input_active:
+		return "WEAK", "input active but G45 controller marker missing"
+	return "FAIL", "controller readiness markers missing"
 
 
 def visual_status(text: str) -> str:
@@ -165,6 +188,7 @@ def main() -> int:
 	visual = visual_status(text)
 
 	g36_status, g36_note = classify_g36(frame_times, args.target_ms, map_loaded, guest_error)
+	g45_status, g45_note = classify_g45(text, map_loaded, input_active, guest_error)
 	steady = [value for value in frame_times if value > 0.0] or frame_times
 	avg = mean(steady) if steady else 0.0
 	p95 = percentile(steady, 95.0) if steady else 0.0
@@ -178,6 +202,11 @@ def main() -> int:
 	print(
 		f"G36_SUMMARY: {g36_note}; map_loaded={'yes' if map_loaded else 'no'}; "
 		f"input={'yes' if input_active else 'no'}; visual={visual}"
+	)
+	print(f"G45_STATUS: {g45_status}")
+	print(
+		f"G45_SUMMARY: {g45_note}; map_loaded={'yes' if map_loaded else 'no'}; "
+		f"input={'yes' if input_active else 'no'}"
 	)
 	print(f"VISUAL_STATUS: {visual}")
 
@@ -204,6 +233,7 @@ def main() -> int:
 			next_action = "Re-run scripts/dolphin-boot-probe.sh after renderer or memory fixes."
 		analysis = (
 			f"Probe status={probe_status}. {g36_note}. "
+			f"G45={g45_status} ({g45_note}). "
 			f"Captured {len(frame_times)} frame timing sample(s)."
 		)
 		write_harness_latest(

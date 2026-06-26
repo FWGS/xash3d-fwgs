@@ -26,6 +26,8 @@ GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 INPUT_MARKER="Xash3D GameCube: input polling active"
+G45_READY_MARKER="Xash3D GameCube: G45 controller ready"
+G45_WAIT_MARKER="Xash3D GameCube: G45 controller waiting"
 
 probe_log_has() {
 	local needle="$1"
@@ -185,6 +187,14 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 		finalize_probe guest_failure 3
 	fi
 	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
+	if probe_log_has "$G45_READY_MARKER"; then
+		grep -ahF "$G45_READY_MARKER" "${LOG_FILES[@]}" | tail -1
+		echo "G45_STATUS: PASS"
+	elif probe_log_has "$G45_WAIT_MARKER"; then
+		echo "G45_STATUS: WAIT"
+	else
+		echo "G45_STATUS: WEAK"
+	fi
 	echo "Logs: $LOG_DIR"
 	finalize_probe map_ready 0
 fi

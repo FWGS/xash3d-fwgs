@@ -154,7 +154,8 @@ GOAL_CONTEXT = {
 	"G38": ("scripts/build-gamecube-disc.py", "scripts/dolphin-boot-probe.sh",
 		"docs/GAMECUBE_PORT_PLAN.md", "docs/GAMECUBE_HARDWARE_VALIDATION.md"),
 	"G39": ("scripts/build-gamecube-disc.py", "Documentation/development/engine-porting-guide.md",
-		"docs/GAMECUBE_PORT_PLAN.md"),
+		"docs/GAMECUBE_PORT_PLAN.md", "docs/GAMECUBE_HARDWARE_MATRIX.md",
+		"docs/GAMECUBE_HARDWARE_VALIDATION.md"),
 	"G40": ("scripts/gamecube-campaign-audit.sh", "scripts/dolphin-boot-probe.sh",
 		"scripts/build-gamecube-disc.py", "docs/GAMECUBE_PORT_PLAN.md"),
 	"G41": ("scripts/build-gamecube.sh", "scripts/build-gamecube-disc.py",
@@ -232,6 +233,10 @@ GOAL_CONTEXT_SLICES = {
 		("engine/common/mod_bmodel.c",),
 		("engine/common/mod_studio.c",),
 		("engine/common/zone.c", "slice-read:engine/client/dll_int/cl_game.c:3985-4025"),
+	),
+	"G45": (
+		("engine/platform/gamecube/in_gamecube.c",),
+		("engine/client/input/in_joy.c",),
 	),
 }
 G24_SUBGOALS = (
@@ -333,7 +338,8 @@ GOAL_READ_CONTEXT = {
 	"G38": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
 		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
 		".ai/prompts/GAMECUBE_HARDWARE_NOTES.md"),
-	"G39": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",),
+	"G39": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
+		".ai/prompts/GAMECUBE_HARDWARE_NOTES.md"),
 	"G40": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
 		".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
 		".ai/prompts/GAMECUBE_AUDIO_NOTES.md"),
@@ -1321,7 +1327,7 @@ docs-only status updates when the probe still fails.
 			f"without a successful probe result in the ledger.\n"
 		)
 	runtime_section = ""
-	if goal.goal_id in DOLPHIN_PROBE_GOALS or goal.goal_id in {"G36", "G49"}:
+	if goal.goal_id in DOLPHIN_PROBE_GOALS or goal.goal_id in {"G36", "G45", "G49"}:
 		runtime_section = f"""
 Runtime evidence (prefer this over git history):
 {runtime_evidence_section(root)}
@@ -1401,6 +1407,41 @@ Task:
   runtime evidence from a Dolphin probe or hardware run.
 - Treat G35 `MAP_READY` as already proven. Do not reopen the old
   `maps/c0a0e.bsp` lookup hypothesis unless this pass has newer contrary logs.
+
+Structured failure memory:
+{investigation_memory}
+
+Output rules:
+- Start immediately with the target editable file path and SEARCH/REPLACE blocks.
+- No explanation, checklist, plan, or markdown prose.
+- Touch one loaded file only.
+- Keep the patch below 120 changed lines.
+- If the current slice is not sufficient for a safe patch, make no edit; the
+  goal runner will rotate to the next slice.
+"""
+	if goal.goal_id == "G45":
+		return f"""Advance G45 with exactly one small GameCube controller hardening patch.
+
+Active goal: {goal.goal_id} - {goal.title}
+Attempt on this goal: {attempt}
+
+Use only the editable file or files preloaded in this Aider chat. Do not edit,
+add, or request any file that was not added as editable context.
+
+Task:
+- Harden `engine/platform/gamecube/in_gamecube.c` for no-controller-at-boot,
+  disconnect/reconnect, alternate-port fallback, controller type changes, and
+  stuck-input cleanup.
+- Keep A confirm, B cancel/back, and Start pause consistent with GameCube names
+  logged through `Con_Reportf`.
+- Apply documented stick/trigger deadzones before emitting axis events.
+- Prefer source-level work in `in_gamecube.c`; only touch `in_joy.c` when a
+  GameCube-only default threshold/deadzone change is required.
+- Do not mark G45 complete unless Dolphin logs show
+  `Xash3D GameCube: G45 controller ready` or the goal ledger documents the
+  remaining manual WaveBird/third-party/hardware matrix gap.
+- WaveBird and third-party controller proof remains manual/hardware when Dolphin
+  cannot emulate them; record that gap explicitly instead of inventing evidence.
 
 Structured failure memory:
 {investigation_memory}
@@ -1551,8 +1592,9 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 		path = path.strip()
 		if not path:
 			continue
-		staged = run(["git", "diff", "--cached", "--name-only", "--", path], root)
-		if staged.returncode == 0 and staged.stdout.strip():
+		staged = run(["git", "diff", "--cached", "--name-only", "--", path], root,
+			capture=True)
+		if staged.returncode == 0 and (staged.stdout or "").strip():
 			run(["git", "restore", "--staged", "--", path], root)
 	staged = run(["git", "diff", "--cached", "--quiet"], root)
 	if staged.returncode == 0:
@@ -1653,6 +1695,8 @@ def main() -> int:
 		help="stop G36+ automatic goals after this many attempts for review; 0 disables")
 	parser.add_argument("--list", action="store_true", help="print goal state and exit")
 	parser.add_argument("--status-json", action="store_true", help="emit machine-readable goal state")
+	parser.add_argument("--focus-goal", default=os.environ.get("AI_FOCUS_GOAL", ""),
+		help="run this goal even if earlier automatic goals remain open (example: G45)")
 	args = parser.parse_args()
 	root = args.repo.expanduser().resolve()
 	goal_file = root / ".ai/goals/GAMECUBE_PORT_GOALS.md"
@@ -1712,6 +1756,17 @@ def main() -> int:
 		goals = parse_goals(goal_file)
 		seed_conact_from_goal_state(memory, goals)
 		goal = next((item for item in goals if not item.automatic_done), None)
+		if args.focus_goal:
+			focus = next((item for item in goals if item.goal_id == args.focus_goal), None)
+			if focus is None:
+				parser.error(f"unknown focus goal: {args.focus_goal}")
+			if focus.manual:
+				parser.error(f"focus goal {args.focus_goal} is MANUAL and cannot be automated")
+			if focus.complete:
+				print(f"Focus goal {args.focus_goal} is already complete.")
+				return 0
+			goal = focus
+			print(f"goal-loop: focusing on {goal.goal_id} — {goal.title}", flush=True)
 		if goal is None:
 			write_state(state_file, state="complete", pass_index=pass_index - 1,
 				message="All automatic goals are complete or blocked")

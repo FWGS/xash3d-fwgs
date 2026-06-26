@@ -586,13 +586,30 @@ scripts/gamecube-map-compat-probe.sh
   and thermal/stability observations.
 - Compare hardware behavior against Dolphin logs and split emulator-only bugs
   from hardware blockers.
+- Repository-side preparation 2026-06-26: added
+  `scripts/gamecube-hardware-handoff.sh` to generate a repeatable artifact
+  manifest, operator checklist, and hardware evidence template without copying
+  proprietary assets.
+- Handoff evidence packet:
+  `.ai/logs/hardware-handoff-20260626-011714/summary.md`.
+- Completion rule: keep G38 manual/open until a completed real GameCube,
+  Swiss, or compatible Wii/GameCube-mode hardware evidence entry is recorded in
+  `docs/GAMECUBE_PORT_PLAN.md`. Dolphin-only evidence and generated handoff
+  packets are preparation, not completion.
 
-## G39 [ ] Define minimum supported hardware and loader matrix
+## G39 [x] Define minimum supported hardware and loader matrix
 
 - Document which combinations are expected to work: DOL loader, disc image,
   SD Gecko, memory card/SD writable storage, video mode, controller, and region.
 - Add scripts or docs for producing the recommended artifact for each route.
 - Record unsupported routes explicitly instead of leaving them ambiguous.
+- Complete 2026-06-26: `docs/GAMECUBE_HARDWARE_MATRIX.md` defines required,
+  recommended, diagnostic, and unsupported routes; records artifact commands for
+  DOL, ISO, hardware handoff, RC gate, and campaign audit; and links G39 to the
+  hardware validation protocol and port plan.
+- Evidence boundary: G39 is complete as a support contract. Real hardware
+  results remain open under G38/G53/G66 and must not be inferred from Dolphin
+  evidence.
 
 ## G40 [ ] Run an end-to-end Half-Life 1 completion campaign audit
 

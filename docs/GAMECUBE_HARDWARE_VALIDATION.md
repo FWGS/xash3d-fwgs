@@ -35,9 +35,28 @@ This is especially important for:
 - A way to capture evidence: photo, video, serial log, loader log, screen
   capture, or handwritten notes copied into the port plan.
 
+## Hardware Handoff Packet
+
+Before a physical-console run, generate a handoff packet:
+
+```sh
+scripts/gamecube-hardware-handoff.sh --build --build-disc
+```
+
+Use `scripts/gamecube-hardware-handoff.sh` without options when current build
+artifacts already exist and only a fresh manifest/checklist is needed. The
+packet is written under `.ai/logs/hardware-handoff-*` and contains an artifact
+manifest, an operator checklist, and an evidence template. It does not copy or
+package proprietary Half-Life assets, Nintendo SDK files, BIOS/IPL dumps, or
+proprietary Nintendo documentation.
+
 ## Validation Matrix
 
 Record which route was tested.
+
+The support contract for these routes lives in
+`docs/GAMECUBE_HARDWARE_MATRIX.md`. This protocol records evidence; the matrix
+defines which routes are required, recommended, diagnostic, or unsupported.
 
 | ID | Hardware | Loader | Artifact | Storage | Required |
 | --- | --- | --- | --- | --- | --- |

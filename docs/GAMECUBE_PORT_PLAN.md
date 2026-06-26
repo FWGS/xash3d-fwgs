@@ -1160,7 +1160,27 @@ unless the distributor has the required rights.
 | Frame budget | G36 probe reports `G36_STATUS: PASS` with bounded smoke-frame samples. |
 | Audio | ASND/libogc path exists, but audible effects/ambient verification remains a later gate. |
 | Storage | SD writable routing is documented; save/load round-trip still needs persistent SD or hardware proof. |
-| Hardware | Real GameCube/Swiss/Wii-GC-mode evidence remains open under G38 and later hardware goals. |
+| Hardware | G38 has a repeatable handoff packet, but real GameCube/Swiss/Wii-GC-mode evidence remains open. |
+
+Latest G38 handoff evidence:
+`.ai/logs/hardware-handoff-20260626-011714/summary.md` records checksums for
+`OUT/bin/boot.dol`, `OUT/bin/xash`, `OUT/xash3d-gc.iso`, `libref_gx.a`,
+`libfilesystem_stdio.a`, and `extras.pk3`, plus an operator checklist and
+hardware evidence template. This prepares physical validation but does not
+complete G38 until a real hardware run is recorded.
+
+### G39 hardware and loader support matrix
+
+G39 is complete as a support-policy gate in
+`docs/GAMECUBE_HARDWARE_MATRIX.md`. The minimum required release routes are a
+real GameCube DOL boot through Swiss or an equivalent homebrew loader with SD
+content/writable storage, and a real GameCube disc-image route with read-only
+`gcdisc:/xash3d/valve` content. Wii GameCube-mode routes are recommended, while
+Dolphin routes remain diagnostic evidence only. Unsupported routes now include
+proprietary Nintendo SDK builds, BIOS/IPL-dependent behavior, writes to
+`gcdisc:/`, host absolute asset paths, Dolphin enhancements as requirements,
+480p-only/16:9-only behavior, keyboard/mouse-only gameplay, and bundled
+proprietary assets.
 
 Latest G36 evidence: `.ai/logs/dolphin-probe-20260626-005218` reported:
 
