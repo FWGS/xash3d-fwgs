@@ -1392,6 +1392,8 @@ Dolphin alone. At minimum, release documentation must include:
 
 **AUTOMATION NOTE: DO NOT RETRY.** Source implementation is complete and verified
 by accepted Aider pass (attempt 3, exit 0, `.ai/logs/aider-pass-2026-06-26-152438.log`).
+Additional accepted pass (attempt 5, exit 0, `.ai/logs/aider-pass-2026-06-26-153033.log`)
+confirms source stability with no regressions.
 Transient `asset_lookup` staging failures (exit 18) are environment conditions,
 not missing source code. The acceptance criteria for audible evidence require
 physical hardware or persistent-storage Dolphin validation, which is a MANUAL
