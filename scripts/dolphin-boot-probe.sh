@@ -309,8 +309,11 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		   [[ -z "${G36_MEASUREMENT_PATH_DECIDED:-}" ]] && \
 		   (( $(date +%s) - G36_RENDERER_INIT_TS > 5 )); then
 			G36_MEASUREMENT_PATH_DECIDED=1
-			DRAWDONE_EARLY=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
-			BUDGET_EARLY=$(grep -acE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			# G36_PATCH_v117: Use wc -l on merged grep output to avoid multi-file
+			# count mismatch from grep -c per-file behavior. cat first, then grep
+			# to get a single accurate count across both log files.
+			DRAWDONE_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -acF "GX_DrawDone")
+			BUDGET_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -acE "Xash3D GameCube:.*time=[0-9]+")
 			if (( DRAWDONE_EARLY > 2 )) && (( BUDGET_EARLY == 0 )); then
 				echo "G36_DECISIVE_EARLY: Renderer ${GUEST_RENDERER:-unknown} active with ${DRAWDONE_EARLY} GX_DrawDone calls but zero frame budget markers after 5s."
 				echo "G36_DECISIVE_EARLY_HINT: Guest render loop is missing 'Xash3D GameCube: frame time=<ms>' OSReport. Patch GX renderer main loop to emit budget marker after GX_DrawDone."
