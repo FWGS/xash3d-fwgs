@@ -498,6 +498,23 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v96: Detect GX_Flush without GX_DrawDone as early evidence
+		# of incomplete frame submission. Flush without DrawDone indicates commands
+		# are being submitted but frames are not completing presentation. Fires once
+		# after renderer init if Flush count > 0 and DrawDone count == 0.
+		if [[ -n "$GUEST_RENDERER" ]] && [[ -z "${G36_FLUSH_NO_DRAWDONE_CHECKED:-}" ]] && \
+		   [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && \
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 6 )); then
+			G36_FLUSH_NO_DRAWDONE_CHECKED=1
+			if grep -aqsF "GX_Flush" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+				if ! grep -aqsF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+					GX_FLUSH_COUNT_PROBE=$(grep -acF "GX_Flush" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+					echo "G36_INCOMPLETE_FRAME_SUBMISSION: ${GX_FLUSH_COUNT_PROBE} GX_Flush markers detected but zero GX_DrawDone. Command buffer is being flushed but frames are not completing."
+					echo "G36_INCOMPLETE_HINT: Check for missing GX_DrawDone after GX_Flush, or early-return before frame presentation in renderer loop."
+				fi
+			fi
+		fi
+
 		# G36_PATCH_v71: Emit probe-loop exit reason with elapsed time for
 		# downstream automation to distinguish timeout from early break.
 		# This single diagnostic line replaces multiple scattered status echoes.
