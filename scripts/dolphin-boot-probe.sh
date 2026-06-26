@@ -228,6 +228,18 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v38: Track GC_MemSample stage progression to correlate
+		# memory pressure with frame budget. Detect when the guest transitions
+		# past BSP/client-init into steady-state rendering, allowing downstream
+		# tooling to attribute early budget violations to cold-start vs gameplay.
+		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]]; then
+			CURRENT_MEM_STAGE=$(grep -aoE 'mem stage=[a-zA-Z_]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_]+' || true)
+			if [[ -n "$CURRENT_MEM_STAGE" ]] && [[ "$CURRENT_MEM_STAGE" != "${G36_PREV_MEM_STAGE:-}" ]]; then
+				G36_PREV_MEM_STAGE="$CURRENT_MEM_STAGE"
+				echo "G36_MEM_STAGE_TRANSITION: Guest memory sample stage changed to '${CURRENT_MEM_STAGE}' at probe second=$(( $(date +%s) - START_TS )). Frame budget from this point reflects '${CURRENT_MEM_STAGE}' phase."
+			fi
+		fi
+
 		# G36_PATCH_v32: After measurement window opens, detect if we have minimum
 		# samples to declare measurement viable (avoids waiting full timeout).
 		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]] && \
