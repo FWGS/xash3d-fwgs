@@ -1451,8 +1451,8 @@ changes.
 **Completion note:** Source-side filesystem portability and read-only media
 behavior are verified. Runtime proof of disc-only boot without write errors
 and readable missing-asset errors remains a G38/G40 hardware/operator
-verification task. The automation should not loop on G47; source criteria are
-met.
+verification task. The automation must not retry G47; those goals cannot be
+completed without operator hardware validation. Source criteria are met.
 
 ## Next wake-up commands
 
