@@ -389,17 +389,28 @@ if (( DOLPHIN_IS_FLATPAK )); then
 
 		# G36_PATCH_v142: Detect renderer-initialized-but-drawing-silent state to
 		# distinguish "guest hung after init" from "guest drawing but no budget markers".
-		# Fires once after 20s if renderer init marker exists but zero GX_DrawDone seen,
+		# Fires once after 12s if renderer init marker exists but zero GX_DrawDone seen,
 		# providing decisive evidence that the render loop never executed.
+		# G36_PATCH_v144: Also check for GX_CallDisplayList or GX_Begin/GX_End markers
+		# to confirm whether the guest attempted any GX command submission. If GX commands
+		# exist but no DrawDone, the guest is rendering but failing to complete frames.
 		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && [[ -z "${G36_RENDERER_NO_DRAW_CHECKED:-}" ]] && \
-		   (( $(date +%s) - G36_RENDERER_INIT_TS > 20 )); then
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 12 )); then
 			G36_RENDERER_NO_DRAW_CHECKED=1
 			DRAWDONE_EXIST=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
 			if (( DRAWDONE_EXIST == 0 )); then
 				ELAPSED_NO_DRAW=$(( $(date +%s) - G36_RENDERER_INIT_TS ))
-				echo "G36_RENDERER_NO_DRAW: Renderer ${GUEST_RENDERER:-unknown} initialized but zero GX_DrawDone after ${ELAPSED_NO_DRAW}s."
-				echo "G36_RENDERER_NO_DRAW_HINT: Render loop never reached main draw path. Check for missing Host_RunFrame dispatch or blocked game loop."
-				echo "G36_RENDERER_NO_DRAW_STATUS: RENDER_LOOP_NEVER_EXECUTED"
+				# Check for any GX command submission evidence
+				GX_COMMANDS_EXIST=$(grep -acE "GX_CallDisplayList|GX_Begin|GX_Position|GX_Color" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+				if (( GX_COMMANDS_EXIST > 0 )); then
+					echo "G36_RENDERER_NO_DRAW: Renderer ${GUEST_RENDERER:-unknown} initialized with ${GX_COMMANDS_EXIST} GX command markers but zero GX_DrawDone after ${ELAPSED_NO_DRAW}s."
+					echo "G36_RENDERER_NO_DRAW_HINT: Guest is submitting GX commands but not completing frame presentation. Check for missing GX_DrawDone after GX_Flush in render loop."
+					echo "G36_RENDERER_NO_DRAW_STATUS: COMMANDS_SUBMITTED_BUT_NO_PRESENTATION"
+				else
+					echo "G36_RENDERER_NO_DRAW: Renderer ${GUEST_RENDERER:-unknown} initialized but zero GX_DrawDone after ${ELAPSED_NO_DRAW}s."
+					echo "G36_RENDERER_NO_DRAW_HINT: Render loop never reached main draw path. Check for missing Host_RunFrame dispatch or blocked game loop."
+					echo "G36_RENDERER_NO_DRAW_STATUS: RENDER_LOOP_NEVER_EXECUTED"
+				fi
 			fi
 		fi
 
