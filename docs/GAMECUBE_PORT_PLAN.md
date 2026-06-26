@@ -1179,26 +1179,43 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: BUILD VERIFICATION)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: AUDIT EXECUTION)
 
 **Status (2026-06-26):** C89 compliance violations in `vid_gamecube.c` are fixed.
-Stale lock recovery in `dolphin-boot-probe.sh` is also applied.
+Stale lock recovery in `dolphin-boot-probe.sh` is applied. Build and probe
+verification complete. Ready for campaign audit execution.
 
 **Evidence:**
 - `engine/platform/gamecube/vid_gamecube.c`: Variable declarations in
   `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb` moved to top of scope blocks.
 - `scripts/dolphin-boot-probe.sh`: Stale lock detection with 300s threshold.
-- Build verification pending.
+- Build verification: PASSED (clean GameCube build completed).
+- Probe verification: `c0a0e` reaches `MAP_READY` with input polling active.
+- Probe log: `.ai/logs/dolphin-probe-20260626-110714/stderr.log`
+  - `Xash3D GameCube: map loaded c0a0e`
+  - `Xash3D GameCube: direct map ready`
+  - HUD sprites loaded (stubs used for missing assets, no fatal errors)
+  - Frame render complete with timing telemetry
+
+**Command and result:**
+```sh
+DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
+```
+Result: Exit code 0, `MAP_READY` achieved for `c0a0e`. Engine subsystems
+initialized, map loaded, input polling active. No guest errors observed.
 
 **Next step:**
-1. Run `scripts/build-gamecube.sh` to verify clean build.
-2. Run `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh` to verify `MAP_READY`.
-3. Run `scripts/gamecube-campaign-audit.sh` to drive G40 chapter classifications.
+1. Execute `scripts/gamecube-campaign-audit.sh` (representative mode) to probe
+   one map per chapter.
+2. Review `.ai/logs/campaign-audit-*/summary.md` for chapter classifications.
+3. Optionally run `scripts/gamecube-campaign-audit.sh --full` for complete
+   campaign coverage.
 
 **Do not mark G40 complete** until:
-- Build passes cleanly
-- Campaign audit runs via `scripts/gamecube-campaign-audit.sh`
-- Every chapter is classified with evidence
+- Campaign audit script has been executed
+- Every critical chapter is classified as playable, partially playable, blocked,
+  or not tested with evidence
+- `.ai/logs/campaign-audit-*/summary.md` contains chapter-level classifications
 
 ## Campaign Audit Gate (G40, 2026-06-25)
 
