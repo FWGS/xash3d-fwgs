@@ -193,6 +193,21 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 			echo "G36_RENDERER_DETECTED: ${GUEST_RENDERER:-unknown} during probe loop"
 		fi
+
+		# G36_PATCH_v28: Detect frame budget measurement markers during active probe
+		# to fail faster if the guest is not emitting timing telemetry. This allows
+		# distinguishing "guest rendered but no markers" from "guest crashed before
+		# rendering" before the full timeout expires.
+		if grep -aqsF "Xash3D GameCube: frame budget measurement initialized" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			echo "G36_MEASUREMENT_ACTIVE: Frame budget measurement subsystem confirmed active during probe."
+		elif grep -aqsF "Xash3D GameCube: frame budget measurement disabled" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			echo "G36_MEASUREMENT_DISABLED_ACTIVE: Guest explicitly disabled frame budget measurement during probe."
+		elif (( $(date +%s) > $(( $(date +%s) - TIMEOUT_SEC / 2 )) )) && \
+			! grep -aqsF "Xash3D GameCube: frame budget" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			# After half the timeout has elapsed, warn if no frame budget markers appear
+			echo "G36_MEASUREMENT_SILENT: No frame budget markers detected after 50% of timeout. Guest may not be emitting telemetry."
+			echo "G36_HINT_SILENT: Check renderer code path for OSReport frame budget calls."
+		fi
 		sleep 2
 	done
 else
