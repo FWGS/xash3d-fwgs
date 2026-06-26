@@ -287,6 +287,7 @@ if (( MAP_FOUND )) && (( FRAME_BUDGET_LOGS )) && [[ -z "$GUEST_RENDERER" ]]; the
 	echo "G36_RENDERER_HINT: Ensure guest emits 'Xash3D GameCube: renderer initialized <backend>' during startup."
 fi
 
+
 # G36: Emit explicit measurement baseline marker so downstream tooling can
 # distinguish "telemetry absent" from "telemetry present but failing"
 echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} lowmem=${GC_LOWMEM_MODE:-none} timeout=${TIMEOUT_SEC}s"
