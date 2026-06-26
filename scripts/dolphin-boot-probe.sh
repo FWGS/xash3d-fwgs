@@ -314,8 +314,8 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			# G36_PATCH_v117: Use wc -l on merged grep output to avoid multi-file
 			# count mismatch from grep -c per-file behavior. cat first, then grep
 			# to get a single accurate count across both log files.
-			DRAWDONE_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -acF "GX_DrawDone")
-			BUDGET_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -acE "Xash3D GameCube:.*time=[0-9]+")
+			DRAWDONE_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -cF "GX_DrawDone" || true)
+			BUDGET_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -cE "Xash3D GameCube:.*time=[0-9]+" || true)
 			if (( DRAWDONE_EARLY > 2 )) && (( BUDGET_EARLY == 0 )); then
 				ELAPSED_AFTER_INIT=$(( $(date +%s) - G36_RENDERER_INIT_TS ))
 				echo "G36_DECISIVE_EARLY: Renderer ${GUEST_RENDERER:-unknown} active with ${DRAWDONE_EARLY} GX_DrawDone calls but zero frame budget markers after ${ELAPSED_AFTER_INIT}s."
@@ -694,15 +694,14 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# G36_PATCH_v93: Detect GX_DrawDone presence after renderer init to distinguish
 		# "renderer started but no draw calls" from "renderer drawing but missing budget markers".
 		# Fires once after 8s post-renderer-init if DrawDone still absent.
-		if [[ -n "$GUEST_RENDERER" ]] && [[ -z "${G36_DRAWDONE_CHECKED:-}" ]] && \
-		   [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && \
+		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && [[ -z "${G36_DRAWDONE_CHECKED:-}" ]] && \
 		   (( $(date +%s) - G36_RENDERER_INIT_TS > 8 )); then
 			G36_DRAWDONE_CHECKED=1
 			if grep -aqsF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
-				GX_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+				GX_DRAWDONE_COUNT=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -cF "GX_DrawDone" || true)
 				echo "G36_DRAWDONE_PRESENT: ${GX_DRAWDONE_COUNT} GX_DrawDone calls detected ${G36_RENDERER_INIT_TS}s post-init. Renderer is submitting frames."
 			else
-				echo "G36_DRAWDONE_ABSENT: Renderer ${GUEST_RENDERER} initialized ${G36_RENDERER_INIT_TS}s ago but zero GX_DrawDone detected."
+				echo "G36_DRAWDONE_ABSENT: Renderer ${GUEST_RENDERER:-unknown} initialized ${G36_RENDERER_INIT_TS}s ago but zero GX_DrawDone detected."
 				echo "G36_DRAWDONE_HINT: Renderer started but may not be reaching main draw loop. Check for early-return, missing Host_RunFrame, or blocked game loop."
 			fi
 		fi
@@ -927,8 +926,9 @@ fi
 # G36_PATCH_v118: Emit a single machine-parseable summary when renderer is active
 # but budget measurement is missing. This provides downstream automation with a
 # clear signal to distinguish "telemetry absent" from "telemetry present".
-if [[ -n "$GUEST_RENDERER" ]] && (( FRAME_BUDGET_LOGS == 0 )) && (( GX_DRAWDONE_COUNT > 0 )); then
-	echo "G36_MEASUREMENT_GAP: renderer=${GUEST_RENDERER} drawdone=${GX_DRAWDONE_COUNT} budget_markers=0 status=MEASUREMENT_PATH_MISSING"
+# Relaxed check: emit even if renderer backend name is unknown, as long as GX activity is confirmed.
+if (( FRAME_BUDGET_LOGS == 0 )) && (( GX_DRAWDONE_COUNT > 0 )); then
+	echo "G36_MEASUREMENT_GAP: renderer=${GUEST_RENDERER:-unknown} drawdone=${GX_DRAWDONE_COUNT} budget_markers=0 status=MEASUREMENT_PATH_MISSING"
 fi
 
 # G36_PATCH_v120: Report GX_DrawDone presence and count in post-probe analysis
@@ -938,6 +938,9 @@ fi
 if (( GX_DRAWDONE_COUNT > 0 )); then
 	if (( FRAME_BUDGET_LOGS == 0 )); then
 		echo "G36_DRAWDONE_POST_PROBE: ${GX_DRAWDONE_COUNT} GX_DrawDone calls detected with zero frame budget markers. Renderer is actively drawing but missing measurement OSReport."
+		# G36_PATCH_v123: Provide concrete patching advice when DrawDone is present
+		# but budget markers are missing, regardless of renderer name detection.
+		echo "G36_PATCH_HINT: Insert 'OSReport(\"Xash3D GameCube: frame time=%dms\", elapsed_ms);' immediately after GX_DrawDone() in your renderer loop."
 	else
 		echo "G36_DRAWDONE_POST_PROBE: ${GX_DRAWDONE_COUNT} GX_DrawDone calls detected alongside ${FRAME_COUNT} frame budget samples."
 		if (( FRAME_COUNT > 0 )) && (( GX_DRAWDONE_COUNT > FRAME_COUNT * 3 )); then
