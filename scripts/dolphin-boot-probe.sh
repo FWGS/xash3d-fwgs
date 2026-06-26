@@ -266,11 +266,15 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
-		if (( $(date +%s) > $(( $(date +%s) - TIMEOUT_SEC / 2 )) )) && \
+		# G36_PATCH_v41: Fix timeout half-mark check to use elapsed time since probe start
+		# Previous condition was always-true (current_time > current_time - constant),
+		# causing premature G36_MEASUREMENT_SILENT warnings on every loop iteration.
+		ELAPSED=$(( $(date +%s) - START_TS ))
+		if (( ELAPSED > TIMEOUT_SEC / 2 )) && \
 			! grep -aqsF "Xash3D GameCube: frame budget" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null && \
 			[[ -z "${G36_FIRST_FRAME_TS:-}" ]]; then
 			# After half the timeout has elapsed, warn if no frame budget markers appear
-			echo "G36_MEASUREMENT_SILENT: No frame budget markers detected after 50% of timeout. Guest may not be emitting telemetry."
+			echo "G36_MEASUREMENT_SILENT: No frame budget markers detected after ${ELAPSED}s/${TIMEOUT_SEC}s (${ELAPSED} > $(( TIMEOUT_SEC / 2 ))). Guest may not be emitting telemetry."
 			echo "G36_HINT_SILENT: Check renderer code path for OSReport frame budget calls."
 		fi
 		sleep 2
