@@ -748,6 +748,28 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v127: Detect render loop execution without GX_DrawDone by
+		# finding the last GX API call location in logs. This provides concrete
+		# evidence that the render loop is active but not completing frame
+		# submission, directly addressing "Missing GX_DrawDone markers" failure.
+		# Fires once after renderer init when GX activity exists but no DrawDone.
+		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && [[ -z "${G36_LAST_GX_CALL_LOCATED:-}" ]] && \
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 10 )) && \
+		   ! grep -aqsF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null && \
+		   grep -aqsE "GX_[A-Z]" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			G36_LAST_GX_CALL_LOCATED=1
+			# Find the last GX API call in merged logs to show where rendering stops
+			LAST_GX_LINE=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | \
+				grep -naE "GX_[A-Z]" | tail -1 || true)
+			if [[ -n "$LAST_GX_LINE" ]]; then
+				LAST_GX_LINENO=$(echo "$LAST_GX_LINE" | cut -d: -f1)
+				LAST_GX_CALL=$(echo "$LAST_GX_LINE" | sed 's/^[0-9]*://; s/.*\(GX_[A-Za-z_]*\).*/\1/')
+				echo "G36_RENDER_STOPPED_AT: Last GX API call was '${LAST_GX_CALL:-unknown}' at merged-log line ${LAST_GX_LINENO:-unknown}."
+				echo "G36_RENDER_STOPPED_HINT: Render loop is active but not reaching GX_DrawDone. Insert 'OSReport(\"GX_DrawDone\");' immediately after your last GX call to verify submission path."
+				echo "G36_RENDER_STOPPED_HINT_EXAMPLE: Ensure each frame calls GX_Flush() followed by GX_DrawDone() before returning from the render function."
+			fi
+		fi
+
 		# G36_PATCH_v125: Detect Host_RunFrame or SV_RunFrame markers to diagnose
 		# whether the guest reached its main game loop. Missing runframe markers
 		# indicate the guest hung before entering the render loop, explaining both
