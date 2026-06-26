@@ -379,6 +379,22 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v142: Detect renderer-initialized-but-drawing-silent state to
+		# distinguish "guest hung after init" from "guest drawing but no budget markers".
+		# Fires once after 20s if renderer init marker exists but zero GX_DrawDone seen,
+		# providing decisive evidence that the render loop never executed.
+		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && [[ -z "${G36_RENDERER_NO_DRAW_CHECKED:-}" ]] && \
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 20 )); then
+			G36_RENDERER_NO_DRAW_CHECKED=1
+			DRAWDONE_EXIST=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			if (( DRAWDONE_EXIST == 0 )); then
+				ELAPSED_NO_DRAW=$(( $(date +%s) - G36_RENDERER_INIT_TS ))
+				echo "G36_RENDERER_NO_DRAW: Renderer ${GUEST_RENDERER:-unknown} initialized but zero GX_DrawDone after ${ELAPSED_NO_DRAW}s."
+				echo "G36_RENDERER_NO_DRAW_HINT: Render loop never reached main draw path. Check for missing Host_RunFrame dispatch or blocked game loop."
+				echo "G36_RENDERER_NO_DRAW_STATUS: RENDER_LOOP_NEVER_EXECUTED"
+			fi
+		fi
+
 		# G36_PATCH_v113: When first GX_DrawDone appears but no frame budget markers
 		# exist yet, dump immediate log context around that DrawDone to reveal what
 		# the guest actually emits at frame completion. This provides concrete evidence
