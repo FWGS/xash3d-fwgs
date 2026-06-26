@@ -525,8 +525,15 @@ grep -aqE "Xash3D GameCube: render frame" "${LOG_FILES[@]}" && FRAME_RENDER_LOGS
 
 # G36: Detect explicit GX FIFO stall or overflow markers (hardware-bound evidence)
 GX_FIFO_STALLS=0
+GX_FIFO_OVERRUNS=0
 if grep -aqsF "GX_FIFO_STALL" "${LOG_FILES[@]}"; then
 	GX_FIFO_STALLS=$(grep -acF "GX_FIFO_STALL" "${LOG_FILES[@]}")
+fi
+# G36_PATCH_v51: Detect GX FIFO overrun/overflow markers to distinguish
+# "CPU too slow" (stalls) from "CPU too fast" (overruns) in command submission.
+# FIFO overruns indicate the CPU submitted commands faster than GX hardware consumed them.
+if grep -aqsE "GX_FIFO_(OVERRUN|OVERFLOW)" "${LOG_FILES[@]}"; then
+	GX_FIFO_OVERRUNS=$(grep -acE "GX_FIFO_(OVERRUN|OVERFLOW)" "${LOG_FILES[@]}")
 fi
 
 # G36: Detect frame presentation hitch markers (CPU/GPU sync evidence)
@@ -1329,6 +1336,16 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_GX_HW_BOUND: ${GX_FIFO_STALLS} GX_FIFO_STALL markers detected. Frame budget likely limited by GX hardware throughput."
 			fi
 
+			# G36_PATCH_v51: Report GX FIFO overruns as CPU-bound submission evidence
+			if (( GX_FIFO_OVERRUNS > 0 )); then
+				echo "G36_GX_FIFO_OVERRUN: ${GX_FIFO_OVERRUNS} GX_FIFO overrun/overflow markers detected. CPU command submission outpaced GX hardware consumption."
+				if (( GX_FIFO_STALLS > 0 )); then
+					echo "G36_GX_FIFO_MIXED: Both stalls (${GX_FIFO_STALLS}) and overruns (${GX_FIFO_OVERRUNS}) detected. CPU/GX pacing is irregular; consider batching or yielding."
+				else
+					echo "G36_GX_CPU_FAST: No stalls detected with overruns present. CPU is ahead of GPU; consider inserting explicit GX_Flush or yield points to stabilize pacing."
+				fi
+			fi
+
 			# G36_PATCH: Report GX_DrawDone count to correlate GPU command completion
 			# with frame budget. If DrawDone count << frame count, GPU may be bottlenecked.
 			if (( GX_DRAWDONE_COUNT > 0 )); then
@@ -1614,7 +1631,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				fi
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} gx_waitvp_samples=${GX_WAITVP_SAMPLES} gx_wait_time_samples=${GX_WAIT_TIME_SAMPLES} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms severe_violations=${FRAME_SEVERE_VIOLATIONS} stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} stage_violations=${FRAME_BUDGET_STAGE_HITS:-0} stage_breakdown=${FRAME_BUDGET_VIOLATION_STAGES:-none} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} gx_drawdone=${GX_DRAWDONE_COUNT} target=${TARGET_FRAME_TIME}ms guest_target=${GUEST_TARGET_FRAME_TIME:-N/A} regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none} stability_score=${FRAME_STABILITY_SCORE} cold_start_mem=${G36_COLD_START_MEM_TOTAL:-N/A}MiB cold_start_stage=${G36_COLD_START_MEM_STAGE:-N/A}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} gx_fifo_overruns=${GX_FIFO_OVERRUNS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} gx_waitvp_samples=${GX_WAITVP_SAMPLES} gx_wait_time_samples=${GX_WAIT_TIME_SAMPLES} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms severe_violations=${FRAME_SEVERE_VIOLATIONS} stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} stage_violations=${FRAME_BUDGET_STAGE_HITS:-0} stage_breakdown=${FRAME_BUDGET_VIOLATION_STAGES:-none} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} gx_drawdone=${GX_DRAWDONE_COUNT} target=${TARGET_FRAME_TIME}ms guest_target=${GUEST_TARGET_FRAME_TIME:-N/A} regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none} stability_score=${FRAME_STABILITY_SCORE} cold_start_mem=${G36_COLD_START_MEM_TOTAL:-N/A}MiB cold_start_stage=${G36_COLD_START_MEM_STAGE:-N/A}"
 			
 			# G36: Report per-frame GX wait time samples for VI-sync correlation
 			if (( GX_WAIT_TIME_SAMPLES > 0 )); then
