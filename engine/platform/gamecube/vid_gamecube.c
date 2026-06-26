@@ -215,7 +215,7 @@ static void GC_PresentBuffer( void )
 		gc_last_present_time = now;
 	}
 
-	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
+	DCFlushRange( xfb[which_fb], (void *)((unsigned char *)xfb[which_fb] + VIDEO_GetFrameBufferSize( rmode )));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
@@ -417,7 +417,7 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	}
 
 	/* Flush to ensure hardware sees it */
-	DCFlushRange( xfb[0], VIDEO_GetFrameBufferSize( rmode ));
+	DCFlushRange( xfb[0], (void *)((unsigned char *)xfb[0] + VIDEO_GetFrameBufferSize( rmode )));
 	VIDEO_SetNextFramebuffer( xfb[0] );
 	VIDEO_Flush();
 	VIDEO_WaitVSync();

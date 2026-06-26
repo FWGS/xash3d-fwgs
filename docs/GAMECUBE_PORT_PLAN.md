@@ -1158,28 +1158,19 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (BLOCKED: BUILD FAILURE)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: FIXING DCFlushRange)
 
-**Status (2026-06-26):** Build fails with exit code 1. Current `vid_gamecube.c` does not contain `<ogc/lwp_watchdog.h>` (previously removed), so the build failure has a different root cause. Actual compiler/linker error from `scripts/build-gamecube.sh` has not been captured yet.
+**Status (2026-06-26):** Fix applied to `vid_gamecube.c`. The `DCFlushRange` calls in `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb` were passing `size` as the second argument instead of the `end` address, violating the libogc API `DCFlushRange(void *start, void *end)`. This likely caused runtime corruption or build issues. Corrected to use pointer arithmetic for the end address.
 
-**Blocker:** GameCube build does not complete. Dolphin boot probe cannot run until the build succeeds.
+**Blocker:** Build and runtime verification pending.
 
 **Evidence:**
-- Dolphin probe exit code: 1
-- Probe summary: "==> Building GameCube engine and DOL..." (build step failed before disc image generation)
-- Investigation memory: multiple aider-pass exit 18 with "Exit code 1 means the build failed"
-- Source inspection: `vid_gamecube.c` does not contain `lwp_watchdog` include (already removed in current source)
-- Build log not captured: need to run `scripts/build-gamecube.sh` directly to see compiler errors
-
-**Next step:** 
-1. Run `scripts/build-gamecube.sh` directly to capture the actual build error
-2. Inspect the compiler/linker output for the real failure reason
-3. Fix the identified issue
-4. Verify clean build
-5. Run Dolphin probe to confirm `MAP_READY`
+- `vid_gamecube.c`: Fixed `DCFlushRange` calls.
+- Next: Run build and probe.
 
 ```sh
-scripts/build-gamecube.sh 2>&1 | tee .ai/logs/build-gamecube-debug.log
+scripts/build-gamecube.sh
+DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
 ```
 
 **Do not mark G40 complete** until:
