@@ -345,6 +345,15 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v49: Detect renderer initialization completion marker to measure time-to-first-frame
+		# latency specifically for GX initialization overhead. This distinguishes "slow init" from
+		# "slow steady-state rendering" when diagnosing frame budget violations on cold start.
+		if [[ -z "${G36_RENDERER_INIT_TS:-}" ]] && \
+		   grep -aqsF "Xash3D GameCube: renderer initialized" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			G36_RENDERER_INIT_TS=$(date +%s)
+			echo "G36_RENDERER_INIT_TIME: Renderer initialized at probe second=$(( G36_RENDERER_INIT_TS - START_TS )). Time-to-init measured."
+		fi
+
 		sleep 2
 	done
 else
