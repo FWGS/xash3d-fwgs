@@ -1466,15 +1466,26 @@ remain the authoritative evidence of complete source changes.
 **Completion note:** Source-side filesystem portability and read-only media
 behavior are verified. `sys_gamecube.c` fails fatally with a readable error if
 `chdir` to the data directory fails, preventing silent `asset_lookup` failures
-downstream. Runtime proof of disc-only boot without write errors and readable
-missing-asset errors remains a G38/G40 hardware/operator verification task. The
-automation must not retry G47; those goals cannot be completed without operator
-hardware validation. Source criteria are met.
+downstream. A diagnostic check now verifies `valve/` exists after `chdir` and
+reports readable warnings if the game hierarchy is missing. Runtime proof of
+disc-only boot without write errors and readable missing-asset errors remains a
+G38/G40 hardware/operator verification task. The automation must not retry G47;
+those goals cannot be completed without operator hardware validation. Source
+criteria are met.
+
+**2026-06-26 Update:** Added `valve/` directory accessibility check after
+`chdir` in `GCube_Init`. Missing `valve/` directory now produces readable
+warnings explaining that assets will fail to load, identifying the required
+`valve/` path location on SD/DVD media. This complements the existing fatal
+error for inaccessible base data directories.
 
 **Verification command:**
 ```sh
 scripts/ai-verify.sh
 ```
+
+Evidence: `sys_gamecube.c` contains `GCube_PathAccessible` check for `valve/`
+directory with readable `S_WARN` messages for missing game hierarchy.
 
 ## Next wake-up commands
 
