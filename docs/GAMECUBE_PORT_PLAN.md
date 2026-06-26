@@ -1457,10 +1457,17 @@ conditions during staging retries. These did not regress source-side
 implementation; the three accepted passes remain the authoritative evidence.
 
 **Completion note:** Source-side filesystem portability and read-only media
-behavior are verified. Runtime proof of disc-only boot without write errors
-and readable missing-asset errors remains a G38/G40 hardware/operator
-verification task. The automation must not retry G47; those goals cannot be
-completed without operator hardware validation. Source criteria are met.
+behavior are verified. `sys_gamecube.c` now fails fatally with a readable error
+if `chdir` to the data directory fails, preventing silent `asset_lookup` failures
+downstream. Runtime proof of disc-only boot without write errors and readable
+missing-asset errors remains a G38/G40 hardware/operator verification task. The
+automation must not retry G47; those goals cannot be completed without operator
+hardware validation. Source criteria are met.
+
+**Verification command:**
+```sh
+scripts/ai-verify.sh
+```
 
 ## Next wake-up commands
 
