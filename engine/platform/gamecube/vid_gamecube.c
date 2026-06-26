@@ -126,8 +126,18 @@ static void GC_PresentBuffer( void )
 		if( src_h > copy_h )
 			src_h = copy_h;
 
+		// G36: Ensure buffer is flushed from cache before copying to XFB
+		DCFlushRange( gc.buffer, gc.stride * gc.height * sizeof( unsigned short ));
+
 		for( row = 0; row < src_h; row++ )
 			memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, src_w * sizeof( unsigned short ));
+
+		// G36: Sample a pixel from the buffer to provide visual evidence
+		if( gc_present_count <= 2 )
+		{
+			unsigned short first_pixel = gc.buffer[0];
+			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
+		}
 	}
 	else
 	{
