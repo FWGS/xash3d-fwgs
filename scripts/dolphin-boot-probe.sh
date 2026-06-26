@@ -353,12 +353,22 @@ fi
 # G36: Detect explicit GX WaitVP/WaitVP sync markers to measure VI-wait impact on frame budget
 GX_WAITVP_COUNT=0
 GX_WAITVP_SAMPLES=0
+GX_WAITVP_SUM=""
 if grep -aqsF "GX_WAITVP" "${LOG_FILES[@]}"; then
 	GX_WAITVP_COUNT=$(grep -acF "GX_WAITVP" "${LOG_FILES[@]}")
 	# G36_PATCH_v20: Extract explicit GX_WAITVP duration samples to quantify VI-sync cost
 	# Helps distinguish "waiting for VI" from "renderer stalled before VI"
-	GX_WAITVP_SAMPLES=$(grep -aoE 'GX_WAITVP[= ]+[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oE '[0-9]+(\.[0-9]+)?$' | wc -l)
+	# Single-pass extraction: count samples and sum durations together
+	eval "$(grep -aoE 'GX_WAITVP[= ]+[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE '[0-9]+(\.[0-9]+)?$' | awk '
+		{
+			count++;
+			sum += $1;
+		}
+		END {
+			printf "GX_WAITVP_SAMPLES=%d\n", count+0;
+			if (count > 0) printf "GX_WAITVP_SUM=%.6f\n", sum;
+		}')"
 fi
 
 # G36: Track explicit GX renderer frame-start markers for CPU vs GPU correlation
@@ -1138,15 +1148,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			if (( GX_WAITVP_COUNT > 0 )); then
 				echo "G36_GX_WAITVP: ${GX_WAITVP_COUNT} GX_WAITVP markers detected. Frame budget includes explicit VI synchronization pauses."
 				if (( GX_WAITVP_SAMPLES > 0 )); then
-					GX_WAITVP_AVG=""
-					eval "$(grep -aoE 'GX_WAITVP[= ]+[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
-						grep -oE '[0-9]+(\.[0-9]+)?$' | awk '
-						{
-							sum += $1; count++;
-						}
-						END {
-							if (count > 0) printf "GX_WAITVP_AVG=%.3f\n", sum/count;
-						}')"
+					GX_WAITVP_AVG=$(awk "BEGIN {printf \"%.3f\", ${GX_WAITVP_SUM} / ${GX_WAITVP_SAMPLES}}")
 					echo "G36_GX_WAITVP_AVG: ${GX_WAITVP_AVG}ms average VI-wait time across ${GX_WAITVP_SAMPLES} samples."
 					if awk "BEGIN {exit !(${GX_WAITVP_AVG} > 5.0)}" 2>/dev/null; then
 						echo "G36_GX_WAITVP_WARN: Average VI-wait (${GX_WAITVP_AVG}ms) exceeds 5.0ms. Significant CPU time spent waiting for GPU/VI completion."
