@@ -272,6 +272,11 @@ void GCube_Init( void )
 	 * to ensure offline boot works without network hardware. */
 	NET_Config( false, false );
 
+	/* G40: Force game directory to "valve" for Half-Life campaign.
+	 * This ensures FS_LoadGameInfo/FS_Rescan find the correct game
+	 * hierarchy before argv processing completes. */
+	Cvar_Set( "game", "valve" );
+
 	gc_fat_mounted = fatInitDefault();
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
