@@ -66,12 +66,21 @@ for context_file in "${CONTEXT_INPUTS[@]}"; do
 	fi
 done
 
+if gamecube_gui_wip_dirty && [[ "${AI_SKIP_DIRTY_CHECKPOINT:-0}" != "1" ]]; then
+	echo "ai-aider-pass: committing standalone GUI changes before goal pass" >&2
+	gamecube_commit_gui_wip || exit 2
+fi
 if [[ -n "$(git status --porcelain)" ]]; then
-	DIRTY_COMMIT_SUBJECT="${AI_DIRTY_COMMIT_SUBJECT:-chore: checkpoint dirty automation state}"
-	DIRTY_COMMIT_BODY="${AI_DIRTY_COMMIT_BODY:-Checkpoint existing uncommitted changes before automation starts.}"
-	echo "ai-aider-pass: dirty worktree detected; creating checkpoint commit: $DIRTY_COMMIT_SUBJECT" >&2
-	git status --short >&2
-	gamecube_checkpoint_dirty_worktree "$DIRTY_COMMIT_SUBJECT" "$DIRTY_COMMIT_BODY"
+	if [[ "${AI_SKIP_DIRTY_CHECKPOINT:-0}" == "1" ]]; then
+		echo "ai-aider-pass: leaving remaining dirty files for goal-loop checkpoint" >&2
+		git status --short >&2
+	else
+		DIRTY_COMMIT_SUBJECT="${AI_DIRTY_COMMIT_SUBJECT:-chore: checkpoint dirty automation state}"
+		DIRTY_COMMIT_BODY="${AI_DIRTY_COMMIT_BODY:-Checkpoint existing uncommitted changes before automation starts.}"
+		echo "ai-aider-pass: dirty worktree detected; creating checkpoint commit: $DIRTY_COMMIT_SUBJECT" >&2
+		git status --short >&2
+		gamecube_checkpoint_dirty_worktree "$DIRTY_COMMIT_SUBJECT" "$DIRTY_COMMIT_BODY"
+	fi
 fi
 
 mkdir -p .ai/logs
@@ -464,12 +473,12 @@ if (( AIDER_STATUS != 0 )); then
 	exit "$AIDER_STATUS"
 fi
 
-	if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
-		echo "ai-aider-pass: flattening unexpected Aider commit back to staged changes" >&2
-		git reset --soft "$BASELINE"
-	fi
+if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
+	echo "ai-aider-pass: flattening unexpected Aider commit back to staged changes" >&2
+	git reset --soft "$BASELINE"
+fi
 
-	if [[ -z "$(git status --porcelain)" ]]; then
+if [[ -z "$(git status --porcelain)" ]]; then
 	echo "ai-aider-pass: Aider made no edit; see $LOG" >&2
 	exit 10
 fi
@@ -640,9 +649,8 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 		exit "$REPAIR_STATUS"
 	fi
 	if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
-		echo "ai-aider-pass: repair created an unexpected commit" >&2
-		discard_failed_patch
-		exit 12
+		echo "ai-aider-pass: flattening unexpected repair commit back to staged changes" >&2
+		git reset --soft "$BASELINE"
 	fi
 	stage_and_validate_patch
 	VERIFY_LOG=".ai/logs/aider-verify-$STAMP-2.log"

@@ -1527,7 +1527,14 @@ def dirty_commit_subject(goal_id: str | None = None) -> str:
 	return "chore: checkpoint dirty automation state"
 
 
+def commit_gui_wip(root: Path) -> int:
+	result = run(["scripts/ai-commit-gui-wip.sh"], root)
+	return result.returncode
+
+
 def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
+	if commit_gui_wip(root) != 0:
+		return 1
 	if not git_dirty(root):
 		return 0
 	subject = dirty_commit_subject(goal_id)
@@ -1787,6 +1794,7 @@ def main() -> int:
 			pass_env["AI_DIRTY_COMMIT_SUBJECT"] = dirty_commit_subject(goal.goal_id)
 			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])
 			pass_env.setdefault("AIDER_AUTOMATION", "1")
+			pass_env["AI_SKIP_DIRTY_CHECKPOINT"] = "1"
 			if goal.goal_id == "G24":
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "2048")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "1536")

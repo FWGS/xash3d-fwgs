@@ -29,7 +29,8 @@ for shell_script in \
 	scripts/gamecube-map-compat-probe.sh \
 	scripts/gamecube-campaign-audit.sh \
 	scripts/gamecube-rc-check.sh \
-	scripts/gamecube-env.sh
+	scripts/gamecube-env.sh \
+	scripts/ai-commit-gui-wip.sh
 do
 	bash -n "$shell_script"
 done
@@ -125,7 +126,8 @@ if [[ -n "$BASELINE" ]]; then
 	fi
 
 	changed_lines="$(git diff --numstat "$BASELINE" | awk \
-		'$1 != "-" && $2 != "-" { total += $1 + $2 } END { print total + 0 }')"
+		'$3 != "scripts/xash3d-gc-aider-gui.py" && $3 != "scripts/xash3d-gc-aider-gui.sh" && \
+		$1 != "-" && $2 != "-" { total += $1 + $2 } END { print total + 0 }')"
 	if (( changed_lines > 2000 )); then
 		echo "verify: patch changes $changed_lines lines (maximum 2000)" >&2
 		exit 1

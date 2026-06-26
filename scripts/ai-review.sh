@@ -44,7 +44,10 @@ fi
 # Port plan must be updated unless a deliberately sliced G24 renderer pass kept
 # the large plan out of model context to avoid local token-limit failures.
 if ! git diff --name-only HEAD~1..HEAD | grep -qx 'docs/GAMECUBE_PORT_PLAN.md'; then
-  if [[ "$subject" =~ ^feat:\ (wire|bound|stabilize|reduce|simplify)\ GameCube\ .* ]] && \
+  if [[ "$subject" == "chore: update GameCube porting GUI" ]] && \
+    [[ -z "$(git diff --name-only HEAD~1..HEAD | grep -Ev '^(scripts/xash3d-gc-aider-gui\.(py|sh))$' || true)" ]]; then
+    echo "review: accepting standalone GUI maintenance commit without port plan"
+  elif [[ "$subject" =~ ^feat:\ (wire|bound|stabilize|reduce|simplify)\ GameCube\ .* ]] && \
     git diff --name-only HEAD~1..HEAD | grep -Eq '^(ref/gx/|engine/platform/gamecube/vid_gamecube\.c|engine/client/cl_sprite\.c)'; then
     echo "review: accepting sliced G24 renderer source pass without port plan"
   elif [[ "$subject" == "perf: improve GameCube frame budget" ]] && \
