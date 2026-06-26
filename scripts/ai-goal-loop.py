@@ -166,6 +166,7 @@ GOAL_CONTEXT = {
 		"scripts/dolphin-boot-probe.sh", "scripts/gamecube-boot-media-compliance.py",
 		"scripts/gamecube-rc-check.sh", "docs/GAMECUBE_HARDWARE_VALIDATION.md"),
 	"G44": ("engine/platform/gamecube/vid_gamecube.c", "engine/client/cl_scrn.c",
+		"scripts/gamecube-video-compliance.py", "scripts/gamecube-rc-check.sh",
 		"docs/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G45": ("engine/platform/gamecube/in_gamecube.c", "engine/client/input.h",
 		"engine/client/input/input.c", "docs/GAMECUBE_HARDWARE_VALIDATION.md"),

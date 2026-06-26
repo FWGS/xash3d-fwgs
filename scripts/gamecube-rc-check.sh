@@ -39,7 +39,8 @@ Runs the native GameCube release-candidate evidence gate:
   7. frame-budget probe
   8. map compatibility summary
   9. boot media compliance check
-  10. homebrew compliance check
+  10. video compliance check
+  11. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -296,6 +297,21 @@ boot_media_compliance_gate() {
 	return "$rc"
 }
 
+video_compliance_gate() {
+	local log_path="$LOG_DIR/video-compliance.log"
+	echo
+	echo "== video compliance =="
+	if scripts/gamecube-video-compliance.py --log-dir "$LOG_DIR/video-compliance" >"$log_path" 2>&1; then
+		log_status "video compliance" "PASS" "$log_path" "G44 video mode/safe-area preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "video compliance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -401,6 +417,7 @@ main() {
 	frame_budget_gate || true
 	map_compat_gate || true
 	boot_media_compliance_gate || true
+	video_compliance_gate || true
 	compliance_gate || true
 	write_summary
 	echo

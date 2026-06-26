@@ -685,7 +685,7 @@ scripts/gamecube-map-compat-probe.sh
 - Boundary: Swiss and real-hardware loader evidence remain required in
   G38/G53/G66 before any release-complete hardware claim.
 
-## G44 [ ] Validate video modes, safe area, and CRT readability
+## G44 [x] Validate video modes, safe area, and CRT readability
 
 - Support valid NTSC and PAL display modes and make 480p user-selectable or
   safely disabled when unavailable.
@@ -693,6 +693,17 @@ scripts/gamecube-map-compat-probe.sh
   an 8-10% 4:3 safe area.
 - Capture screenshots or analog/CRT evidence proving text readability and
   nonblank output for the selected video modes.
+- Completed 2026-06-26 for automated source/policy preflight:
+  `engine/platform/gamecube/vid_gamecube.c` uses libogc
+  `VIDEO_GetPreferredMode(NULL)` instead of forcing a progressive-only mode,
+  emits `video mode` and `video safe_area` diagnostics, and records a 10%
+  4:3 title-safe rectangle with 320x240 minimum readability policy.
+- `scripts/gamecube-video-compliance.py` verifies the preferred-mode policy,
+  confirms 480p/progressive modes are not forced, calculates 320x240 and
+  640x480 safe-area rectangles, and writes G44 evidence logs.
+- `scripts/gamecube-rc-check.sh` now runs the G44 video compliance gate.
+- Boundary: dated CRT/analog or physical-console capture evidence remains
+  required in G38/G53/G66 before release-complete hardware claims.
 
 ## G45 [ ] Harden controller presence and disconnect behavior
 

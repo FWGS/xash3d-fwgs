@@ -66,6 +66,21 @@ including the artifact checksum, loader version, launch route, visible error,
 and whether the result was loader failure, bootstrap failure, engine failure, or
 a known bounded timeout.
 
+## Video Safe-Area Preflight
+
+Before recording CRT or analog-capture results, run the automated G44 preflight:
+
+```sh
+scripts/gamecube-video-compliance.py
+```
+
+Record its summary path with the hardware run. For physical evidence, capture at
+least one boot/menu/console or fatal-diagnostic screen and one gameplay/HUD
+screen. The capture should show that critical text remains inside the reported
+10% 4:3 safe area and that the route does not require 480p, widescreen hacks, or
+Dolphin-only enhancements. If PAL, NTSC-J, or 480p is untested, record that as a
+limitation instead of treating the route as broadly release-complete.
+
 ## Validation Matrix
 
 Record which route was tested.

@@ -43,6 +43,10 @@ static convar_t *gc_quality;
 static double gc_last_present_time;
 #endif
 
+#define GC_VIDEO_SAFE_AREA_PERCENT 10
+#define GC_VIDEO_MIN_READABLE_WIDTH 320
+#define GC_VIDEO_MIN_READABLE_HEIGHT 240
+
 /* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
  * The platform video backend does not redefine it to avoid duplicate symbols.
  * Quality 0: Low (smoke/minimal visuals, reduced particles)
@@ -57,14 +61,29 @@ void Platform_Minimize_f( void )
 static void GC_InitVideoHardware( void )
 {
 #if XASH_GAMECUBE
+	int safe_x, safe_y, safe_w, safe_h;
+	qboolean progressive;
+
 	if( gc.initialized )
 		return;
 
 	gc_last_present_time = 0.0;
 	SYS_Report( "Xash3D GameCube: mem stage=video_init total=%.2f\n", 0.0 );
 	VIDEO_Init();
+	/* G44: Use libogc's region/cable-safe preferred mode. Do not force 480p. */
 	rmode = VIDEO_GetPreferredMode( NULL );
 	VIDEO_Configure( rmode );
+	progressive = ( rmode->viTVMode & VI_NON_INTERLACE ) ? true : false;
+	safe_x = ( rmode->fbWidth * GC_VIDEO_SAFE_AREA_PERCENT ) / 100;
+	safe_y = ( rmode->xfbHeight * GC_VIDEO_SAFE_AREA_PERCENT ) / 100;
+	safe_w = rmode->fbWidth - safe_x * 2;
+	safe_h = rmode->xfbHeight - safe_y * 2;
+	SYS_Report( "Xash3D GameCube: video mode fb=%dx%d efb=%dx%d vi=%dx%d tv=0x%08x progressive=%u policy=preferred-4:3-480i\n",
+		rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth, rmode->efbHeight,
+		rmode->viWidth, rmode->viHeight, rmode->viTVMode, progressive ? 1u : 0u );
+	SYS_Report( "Xash3D GameCube: video safe_area percent=%d rect=%d,%d,%d,%d min_readable=%dx%d\n",
+		GC_VIDEO_SAFE_AREA_PERCENT, safe_x, safe_y, safe_w, safe_h,
+		GC_VIDEO_MIN_READABLE_WIDTH, GC_VIDEO_MIN_READABLE_HEIGHT );
 
 	xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
 	xfb[1] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));

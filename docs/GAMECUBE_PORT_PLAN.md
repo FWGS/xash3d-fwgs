@@ -988,6 +988,26 @@ This closes the automated preflight portion of G43. It does not replace Swiss or
 physical-console evidence; real loader evidence remains part of the G38/G53/G66
 hardware matrix before release-complete claims.
 
+## G44 — Video modes, safe area, and CRT readability (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
+
+The GameCube video backend now records a conservative release policy at runtime:
+use libogc `VIDEO_GetPreferredMode(NULL)`, do not force progressive/480p-only
+output, keep the internal software buffer at the current low-memory 320x240
+default, and emit a 10% 4:3 safe-area rectangle for title/menu/HUD/console/error
+text evidence.
+
+Run:
+
+```sh
+scripts/gamecube-video-compliance.py
+```
+
+The generated report records the automated G44 checks and safe-area rectangles
+for 320x240 and 640x480 class output. `scripts/gamecube-rc-check.sh` also runs
+this gate. This closes source/policy preflight only; CRT readability still needs
+dated analog capture or operator evidence on the physical hardware routes before
+release-complete claims.
+
 ## G35 — Reach a playable early-game route
 
 **Verified (2026-06-25):** `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh`
