@@ -463,6 +463,24 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v92: Detect explicit GX_Init marker to separate renderer
+		# initialization failure from measurement failure. If GX_Init is seen but
+		# no renderer initialized marker, the renderer likely crashed during setup
+		# before it could report its backend name. Provides earlier closure than
+		# waiting for full timeout.
+		if [[ -z "${G36_GX_INIT_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 12 )); then
+			G36_GX_INIT_CHECKED=1
+			if grep -aqsF "GX_Init" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+				if [[ -z "$GUEST_RENDERER" ]]; then
+					echo "G36_GX_INIT_NO_BACKEND: GX_Init marker found but no renderer initialized marker. Renderer likely crashed during setup."
+					echo "G36_GX_INIT_HINT: Check for video mode setup failures, XFB allocation errors, or shader initialization crashes."
+				else
+					echo "G36_GX_INIT_OK: GX_Init and renderer ${GUEST_RENDERER} both confirmed. Focus on render loop for missing budget markers."
+				fi
+			fi
+		fi
+
 		# G36_PATCH_v71: Emit probe-loop exit reason with elapsed time for
 		# downstream automation to distinguish timeout from early break.
 		# This single diagnostic line replaces multiple scattered status echoes.
