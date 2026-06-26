@@ -51,23 +51,23 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	attempt = max(1, min(attempt, 4))
 	max_output_cap = max(1024, min(16384, max_context // 4))
 	output_tiers = [
-		max(768, min(4096, max_output_cap)),
-		max(512, min(2048, max_output_cap // 2)),
-		max(384, min(1024, max_output_cap // 3)),
-		max(256, min(768, max_output_cap // 4)),
+		max(512, min(2048, max_output_cap // 3)),
+		max(384, min(1024, max_output_cap // 4)),
+		max(256, min(768, max_output_cap // 6)),
+		max(192, min(512, max_output_cap // 8)),
 	]
 	input_budget = max(8192, max_context - output_tiers[0] - SYSTEM_OVERHEAD_TOKENS)
 	max_bytes = int(input_budget * BYTES_PER_TOKEN)
 	context_tiers = [
-		max(8000, min(45000, max_bytes // 2)),
-		max(6000, min(20000, max_bytes // 4)),
-		max(4000, min(12000, max_bytes // 6)),
-		max(3000, min(8000, max_bytes // 8)),
+		max(6000, min(24000, max_bytes // 3)),
+		max(4000, min(14000, max_bytes // 5)),
+		max(3000, min(9000, max_bytes // 7)),
+		max(2000, min(6000, max_bytes // 10)),
 	]
 	# Tighten further on later goal-loop attempts.
 	attempt_scale = {1: 1.0, 2: 0.85, 3: 0.7, 4: 0.55}[attempt]
 	context_tiers = [max(3000, int(value * attempt_scale)) for value in context_tiers]
-	history = max(512, min(4096, int(max_context // 32 * attempt_scale)))
+	history = max(384, min(2048, int(max_context // 40 * attempt_scale)))
 	return {
 		"AIDER_MODEL_MAX_CONTEXT": max_context,
 		"AIDER_MODEL_MAX_OUTPUT": max_output_cap,
@@ -79,6 +79,14 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		"AIDER_CONTEXT_BYTES_RETRY_1": context_tiers[1],
 		"AIDER_CONTEXT_BYTES_RETRY_2": context_tiers[2],
 		"AIDER_CONTEXT_BYTES_RETRY_3": context_tiers[3],
+		"AIDER_EDITABLE_BYTES_INITIAL": context_tiers[0],
+		"AIDER_EDITABLE_BYTES_RETRY_1": context_tiers[1],
+		"AIDER_EDITABLE_BYTES_RETRY_2": context_tiers[2],
+		"AIDER_EDITABLE_BYTES_RETRY_3": context_tiers[3],
+		"AIDER_READ_BYTES_INITIAL": max(2000, context_tiers[0] // 2),
+		"AIDER_READ_BYTES_RETRY_1": max(1500, context_tiers[1] // 2),
+		"AIDER_READ_BYTES_RETRY_2": max(1000, context_tiers[2] // 2),
+		"AIDER_READ_BYTES_RETRY_3": max(800, context_tiers[3] // 2),
 		"AIDER_MAX_CHAT_HISTORY_TOKENS": history,
 	}
 

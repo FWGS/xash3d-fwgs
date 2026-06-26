@@ -241,6 +241,7 @@ csx/
 
 # Local AI harness runtime output
 .ai/logs/
+.ai/slices/
 .ai/state/goal-loop-memory.json
 .ai/state/dolphin-harness-latest.md
 .ai/state/dolphin-harness-memory.json

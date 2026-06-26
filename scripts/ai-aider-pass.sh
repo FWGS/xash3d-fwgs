@@ -37,6 +37,7 @@ command -v aider >/dev/null 2>&1 || {
 CONTEXT_FILES=()
 READ_CONTEXT_FILES=()
 REQUIRED_CONTEXT_FILES=()
+RAW_CONTEXT_SPECS=()
 for context_file in "${CONTEXT_INPUTS[@]}"; do
 	context_mode="file"
 	if [[ "$context_file" == read:* ]]; then
@@ -45,11 +46,16 @@ for context_file in "${CONTEXT_INPUTS[@]}"; do
 	elif [[ "$context_file" == required:* ]]; then
 		context_mode="required"
 		context_file="${context_file#required:}"
+	elif [[ "$context_file" == slice-read:* ]]; then
+		context_mode="slice"
+		RAW_CONTEXT_SPECS+=("$context_file")
+		continue
 	fi
 	[[ -f "$context_file" ]] || {
 		echo "ai-aider-pass: context file not found: $context_file" >&2
 		exit 1
 	}
+	RAW_CONTEXT_SPECS+=("${context_mode}:${context_file}")
 	if [[ "$context_mode" == "read" ]]; then
 		READ_CONTEXT_FILES+=("$context_file")
 	elif [[ "$context_mode" == "required" ]]; then
@@ -209,6 +215,92 @@ is_required_context_file() {
 	return 1
 }
 
+materialize_slice_read() {
+	local spec="$1"
+	local source="${spec#slice-read:}"
+	local rel="${source%%:*}"
+	local ranges="${source#*:}"
+	local slice_file
+	slice_file="$(python3 scripts/aider-context-slice.py \
+		--source "$rel" --ranges "$ranges" 2>/dev/null)" || return 1
+	[[ -f "$slice_file" ]] || return 1
+	printf '%s' "$slice_file"
+}
+
+rebuild_context_arrays() {
+	local spec context_mode context_path
+	CONTEXT_FILES=()
+	READ_CONTEXT_FILES=()
+	REQUIRED_CONTEXT_FILES=()
+	for spec in "${BUDGETED_CONTEXT_SPECS[@]}"; do
+		context_mode="file"
+		context_path="$spec"
+		if [[ "$spec" == read:* ]]; then
+			context_mode="read"
+			context_path="${spec#read:}"
+		elif [[ "$spec" == required:* ]]; then
+			context_mode="required"
+			context_path="${spec#required:}"
+		elif [[ "$spec" == slice-read:* ]]; then
+			context_path="$(materialize_slice_read "$spec")" || continue
+			context_mode="read"
+		fi
+		[[ -f "$context_path" ]] || continue
+		if [[ "$context_mode" == "read" ]]; then
+			READ_CONTEXT_FILES+=("$context_path")
+		elif [[ "$context_mode" == "required" ]]; then
+			CONTEXT_FILES+=("$context_path")
+			REQUIRED_CONTEXT_FILES+=("$context_path")
+		else
+			CONTEXT_FILES+=("$context_path")
+		fi
+	done
+}
+
+load_budgeted_context() {
+	local attempt="$1"
+	local max_tokens="$2"
+	local -a budget_args=()
+	local spec
+	if [[ ! -f scripts/aider-context-budget.py ]]; then
+		BUDGETED_CONTEXT_SPECS=("${RAW_CONTEXT_SPECS[@]}")
+		rebuild_context_arrays
+		return 0
+	fi
+	budget_args=(python3 scripts/aider-context-budget.py --repo "$REPO"
+		--attempt "$attempt" --output-tokens "$max_tokens")
+	for spec in "${RAW_CONTEXT_SPECS[@]}"; do
+		budget_args+=("$spec")
+	done
+	mapfile -t BUDGETED_CONTEXT_SPECS < <("${budget_args[@]}" 2>/dev/null) || true
+	if (( ${#BUDGETED_CONTEXT_SPECS[@]} == 0 )); then
+		BUDGETED_CONTEXT_SPECS=("${RAW_CONTEXT_SPECS[@]}")
+	fi
+	rebuild_context_arrays
+	echo "ai-aider-pass: budget attempt=$attempt files=${#CONTEXT_FILES[@]} reads=${#READ_CONTEXT_FILES[@]}" >&2
+}
+
+preflight_context_estimate() {
+	local attempt="$1"
+	local max_tokens="$2"
+	local max_context="${AIDER_MODEL_MAX_CONTEXT:-65536}"
+	if ! command -v python3 >/dev/null 2>&1 || [[ ! -f scripts/aider-context-estimate.py ]]; then
+		return 0
+	fi
+	local -a estimate_args=()
+	estimate_args=(python3 scripts/aider-context-estimate.py --repo "$REPO"
+		--attempt "$attempt" --output-tokens "$max_tokens" --max-context "$max_context")
+	local spec
+	for spec in "${RAW_CONTEXT_SPECS[@]}"; do
+		estimate_args+=("$spec")
+	done
+	if "${estimate_args[@]}" --quiet 2>/dev/null; then
+		return 0
+	fi
+	echo "ai-aider-pass: pre-flight estimate over budget for attempt=$attempt (output=$max_tokens)" >&2
+	return 1
+}
+
 context_args_for_attempt() {
 	local attempt="$1"
 	local limit="${AIDER_CONTEXT_BYTE_LIMITS[$(( attempt - 1 ))]}"
@@ -249,6 +341,14 @@ run_aider_with_recovery() {
 		attempt_log="$(mktemp .ai/logs/aider-attempt-XXXXXX.log)"
 		TEMP_MODEL_SETTINGS+=("$attempt_log")
 		max_tokens="${AIDER_OUTPUT_TOKEN_BUDGETS[$(( attempt - 1 ))]}"
+		load_budgeted_context "$attempt" "$max_tokens"
+		if ! preflight_context_estimate "$attempt" "$max_tokens"; then
+			if (( attempt < ${#AIDER_OUTPUT_TOKEN_BUDGETS[@]} )); then
+				echo "ai-aider-pass: pre-flight context estimate over budget; retrying with a smaller request" >&2
+				continue
+			fi
+			return 18
+		fi
 		context_args=()
 		mapfile -t context_args < <(context_args_for_attempt "$attempt")
 		settings_args=()

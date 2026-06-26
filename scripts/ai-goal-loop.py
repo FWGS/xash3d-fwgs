@@ -798,6 +798,21 @@ def conact_extract_facts(goal: Goal, phase: str, exit_code: int,
 	return facts
 
 
+def conact_dedupe_history(history: list[object]) -> None:
+	"""Keep the newest entry for repeated failure signatures."""
+	if len(history) < 2:
+		return
+	seen: dict[tuple[str, str], int] = {}
+	for index, item in enumerate(history):
+		if not isinstance(item, dict):
+			continue
+		summary = str(item.get("summary", ""))
+		key = (str(item.get("span", "")), summary.split(";", 1)[0].strip())
+		seen[key] = index
+	keep = set(seen.values())
+	history[:] = [item for index, item in enumerate(history) if index in keep]
+
+
 def conact_record_step(memory: dict[str, object], goal: Goal, *, attempt: int,
 	phase: str, exit_code: int, failure_class: str, hypothesis: str,
 	output: str, log_path: str | None) -> None:
@@ -831,6 +846,7 @@ def conact_record_step(memory: dict[str, object], goal: Goal, *, attempt: int,
 		"log": log_path,
 		"updated_at": timestamp,
 	})
+	conact_dedupe_history(history)
 	del history[:-CONACT_HISTORY_MAX]
 
 	for fact in conact_extract_facts(goal, phase, exit_code, output, log_path):
@@ -918,7 +934,50 @@ def conact_blocked_context_paths(goal_id: str, memory: dict[str, object]) -> set
 		blocked.add("scripts/dolphin-boot-probe.sh")
 	if goal_id == "G36" and "probe instrumentation is already extensive" in content:
 		blocked.add("scripts/dolphin-boot-probe.sh")
+	if "context budget pressure" in content and goal_id in {"G36", "G35", "G19"}:
+		blocked.add("scripts/dolphin-boot-probe.sh")
+		blocked.add("docs/GAMECUBE_PORT_PLAN.md")
 	return blocked
+
+
+def runtime_evidence_section(root: Path, *, lines: int = 40) -> str:
+	"""Compact Dolphin/runtime evidence for runtime-first task prompts."""
+	parts: list[str] = []
+	latest = root / ".ai/state/dolphin-harness-latest.md"
+	if latest.is_file():
+		text = clip_text(latest.read_text(encoding="utf-8", errors="replace"), 2400)
+		if text.strip():
+			parts.append("Dolphin harness summary:")
+			parts.append(text)
+	memory = root / ".ai/state/dolphin-harness-memory.json"
+	if memory.is_file():
+		try:
+			data = json.loads(memory.read_text(encoding="utf-8"))
+			runs = data.get("runs", [])
+			if isinstance(runs, list) and runs:
+				run = runs[0] if isinstance(runs[0], dict) else {}
+				summary = run.get("summary") or run.get("result") or run.get("status")
+				log_dir = run.get("log_dir") or run.get("logs")
+				if summary or log_dir:
+					parts.append(
+						f"Latest harness run: summary={summary or '(unknown)'} logs={log_dir or '(unknown)'}"
+					)
+		except (OSError, json.JSONDecodeError, TypeError):
+			pass
+	log_root = root / ".ai/logs"
+	if log_root.is_dir():
+		probe_dirs = sorted(log_root.glob("dolphin-probe-*"),
+			key=lambda path: path.stat().st_mtime if path.exists() else 0)
+		if probe_dirs:
+			stderr = probe_dirs[-1] / "stderr.log"
+			if stderr.is_file():
+				tail = stderr.read_text(encoding="utf-8", errors="replace").splitlines()
+				if tail:
+					parts.append(f"Latest probe log ({stderr.relative_to(root)}) tail:")
+					parts.extend(tail[-lines:])
+	if not parts:
+		return "No Dolphin runtime evidence captured yet."
+	return "\n".join(parts)
 
 
 def fault_evidence(output: str, *, max_items: int = 8) -> list[dict[str, object]]:
@@ -1248,6 +1307,23 @@ docs-only status updates when the probe still fails.
 			f"`scripts/dolphin-boot-probe.sh` before each pass; do not claim completion "
 			f"without a successful probe result in the ledger.\n"
 		)
+	runtime_section = ""
+	if goal.goal_id in DOLPHIN_PROBE_GOALS or goal.goal_id in {"G36", "G49"}:
+		runtime_section = f"""
+Runtime evidence (prefer this over git history):
+{runtime_evidence_section(root)}
+"""
+	repo_section = ""
+	if attempt <= 1 and goal.goal_id not in DOLPHIN_PROBE_GOALS:
+		repo_section = f"""
+Repository context:
+{git_context(root)}
+"""
+	elif attempt <= 1:
+		repo_section = f"""
+Repository context (abbreviated):
+{clip_text(git_context(root), 1200)}
+"""
 	goal_body = goal.body
 	if goal.goal_id == "G24":
 		subgoal = g24_subgoal_for_attempt(attempt)
@@ -1326,14 +1402,10 @@ Output rules:
 Active goal: {goal.goal_id} — {goal.title}
 Attempt on this goal: {attempt}
 
-{retry_instruction}{probe_section}
-Acceptance criteria:
+{retry_instruction}{probe_section}{runtime_section}Acceptance criteria:
 {goal_body}
 
-Repository context:
-{git_context(root)}
-
-Automation environment:
+{repo_section}Automation environment:
 {automation_context()}
 
 Investigation memory:
@@ -1694,14 +1766,15 @@ def main() -> int:
 				docs_required=pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "1"),
 				blocked_context=blocked_context)
 			if attempts[goal.goal_id] >= 3:
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "512")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_3", "384")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_INITIAL", "20000")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "12000")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "8000")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_3", "6000")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "768")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "512")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "384")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_3", "256")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_INITIAL", "14000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "9000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "6000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_3", "4000")
+				pass_env.setdefault("AIDER_MAX_CHAT_HISTORY_TOKENS", "512")
 			preflight = harness_preflight(root)
 			if preflight.returncode != 0:
 				child_failure_output = ((preflight.stdout or "") + (preflight.stderr or "")).strip()

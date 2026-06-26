@@ -149,12 +149,15 @@ def vllm_qwable_command() -> str:
 		"--served-model-name", served_name,
 		"--language-model-only",
 		"--max-model-len", os.environ.get("QWABLE_5_MAX_MODEL_LEN", "65536"),
-		"--max-num-seqs", os.environ.get("QWABLE_5_MAX_NUM_SEQS", "256"),
+		"--max-num-seqs", os.environ.get("QWABLE_5_MAX_NUM_SEQS", "1"),
 		"--gpu-memory-utilization", os.environ.get("QWABLE_5_GPU_MEMORY_UTILIZATION", "0.85"),
 		"--reasoning-parser", "qwen3",
-		"--enable-auto-tool-choice",
-		"--tool-call-parser", "qwen3_coder",
 	]
+	if os.environ.get("QWABLE_5_ENABLE_TOOL_CHOICE", "").strip() in {"1", "true", "yes"}:
+		command.extend([
+			"--enable-auto-tool-choice",
+			"--tool-call-parser", "qwen3_coder",
+		])
 	return shlex.join(command)
 
 

@@ -34,6 +34,24 @@ do
 	bash -n "$shell_script"
 done
 python3 -c 'compile(open("scripts/build-gamecube-disc.py", encoding="utf-8").read(), "scripts/build-gamecube-disc.py", "exec")'
+
+echo
+echo "== probe script size guard =="
+PROBE_SCRIPT="scripts/dolphin-boot-probe.sh"
+PROBE_LINES="$(wc -l < "$PROBE_SCRIPT")"
+PROBE_BYTES="$(stat -c '%s' "$PROBE_SCRIPT")"
+PROBE_MAX_LINES="${DOLPHIN_PROBE_MAX_LINES:-300}"
+PROBE_MAX_BYTES="${DOLPHIN_PROBE_MAX_BYTES:-15360}"
+if (( PROBE_LINES > PROBE_MAX_LINES )); then
+	echo "verify: $PROBE_SCRIPT has $PROBE_LINES lines (maximum $PROBE_MAX_LINES)" >&2
+	exit 1
+fi
+if (( PROBE_BYTES > PROBE_MAX_BYTES )); then
+	echo "verify: $PROBE_SCRIPT is ${PROBE_BYTES} bytes (maximum $PROBE_MAX_BYTES)" >&2
+	exit 1
+fi
+echo "probe guard: $PROBE_SCRIPT ${PROBE_LINES} lines, ${PROBE_BYTES} bytes"
+
 python3 -c 'compile(open("scripts/xash3d-gc-aider-gui.py", encoding="utf-8").read(), "scripts/xash3d-gc-aider-gui.py", "exec")'
 python3 -c 'compile(open("scripts/ai-goal-loop.py", encoding="utf-8").read(), "scripts/ai-goal-loop.py", "exec")'
 python3 -c 'compile(open("scripts/ai-run-until-done.py", encoding="utf-8").read(), "scripts/ai-run-until-done.py", "exec")'
