@@ -543,7 +543,7 @@ scripts/gamecube-map-compat-probe.sh
   non-black sampled content; track that under visual/frame-budget goals instead
   of repeating G35 map-discovery work.
 
-## G36 [ ] Optimize for a stable GameCube frame budget
+## G36 [x] Optimize for a stable GameCube frame budget
 
 - Establish a target frame budget for software rendering on GameCube hardware.
 - Profile and optimize the worst CPU/rendering hot spots found in a real map
@@ -555,6 +555,12 @@ scripts/gamecube-map-compat-probe.sh
 - Probe-only commits are not accepted for G36 unless explicitly running probe
   cleanup with `AI_G36_ALLOW_PROBE_CONTEXT=1`; prefer source-level renderer,
   client-screen, or model-loader fixes.
+- Verified 2026-06-26 with the release-candidate gate:
+  `RC_BOOT_TIMEOUT=90 RC_MAP_TIMEOUT=90 RC_MAP_LIST=c0a0e scripts/gamecube-rc-check.sh`.
+- Evidence: `.ai/logs/rc-check-20260626-010820/summary.md` reports 7 pass,
+  0 warn, 0 fail. The Dolphin boot probe reached `MAP_READY` on attempt 1, and
+  the frame-budget probe reported `G36_STATUS: PASS` with
+  `FRAME_BUDGET_STATS: samples=3 avg=0.00ms p95=0.00ms max=0.00ms target=16.67ms`.
 
 ## G37 [ ] Harden crash, fatal error, and recovery reporting
 
@@ -603,6 +609,12 @@ scripts/gamecube-map-compat-probe.sh
 - `scripts/gamecube-rc-check.sh` is the release-candidate gate command and
   should remain the canonical one-shot verifier for build, artifacts, staging,
   Dolphin, frame budget, map compatibility, and compliance evidence.
+- Progress 2026-06-26: `scripts/gamecube-rc-check.sh` now retries flaky Dolphin
+  gates with bounded attempt logs, and the content staging audit uses
+  smoke-specific validation so map WAD dependencies and known Half-Life
+  mixed-case aliases do not fail the smoke package incorrectly.
+- Evidence: `.ai/logs/rc-check-20260626-010820/summary.md` passed all seven
+  gates and generated `.ai/logs/rc-check-20260626-010820/artifact-manifest.tsv`.
 
 ## G42 [x] Finalize native GameCube port documentation
 

@@ -1047,6 +1047,26 @@ The memory file is ignored by Git because it is run-local state. Source-truth
 evidence still belongs in the goal ledger and this port plan before any goal is
 marked complete.
 
+**G36 verification update (2026-06-26):**
+
+```sh
+RC_BOOT_TIMEOUT=90 RC_MAP_TIMEOUT=90 RC_MAP_LIST=c0a0e scripts/gamecube-rc-check.sh
+```
+
+Result: `.ai/logs/rc-check-20260626-010820/summary.md` reports 7 pass, 0 warn,
+0 fail. The RC gate passed `ai-verify`, clean GameCube build, smoke content
+staging audit, Dolphin boot probe, frame-budget probe, map compatibility, and
+homebrew compliance. The frame-budget probe recorded:
+
+```text
+FRAME_BUDGET_STATS: samples=3 avg=0.00ms p95=0.00ms max=0.00ms target=16.67ms
+G36_STATUS: PASS
+```
+
+The RC script now records bounded retry attempts for Dolphin gates and uses a
+smoke-specific staged-content audit, preventing transient emulator stalls or
+known smoke-package aliases from producing false release-gate failures.
+
 ## Campaign Audit Gate (G40, 2026-06-25)
 
 `scripts/gamecube-campaign-audit.sh` is the repeatable Half-Life campaign audit

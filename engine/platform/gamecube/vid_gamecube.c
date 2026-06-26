@@ -126,33 +126,32 @@ static void GC_PresentBuffer( void )
 		if( src_h > copy_h )
 			src_h = copy_h;
 
-		// G36: Ensure buffer is flushed from cache before copying to XFB
+		// G36: Flush buffer from cache before copying to XFB
 		DCFlushRange( gc.buffer, gc.stride * gc.height * sizeof( unsigned short ));
 
-		for( row = 0; row < src_h; row++ )
-			memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, src_w * sizeof( unsigned short ));
-
-		// G36: Sample a pixel from the buffer to provide visual evidence
-		if( gc_present_count <= 2 )
+		// G36: Sample first pixel for visual evidence only on first frame
+		if( gc_present_count == 1 )
 		{
 			unsigned short first_pixel = gc.buffer[0];
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
 
-		// G36: If software buffer has non-black content, suppress diagnostic marker
-		// to avoid obscuring valid renderer output. Check only first row for evidence
-		// to minimize CPU cost per frame. Skip after first 2 frames to stabilize
-		// steady-state frame budget once we've established the renderer is producing
-		// visible content. Only check first 8 pixels per row to reduce branch pressure.
-		if( gc_present_count <= 2 && !sampled_nonblack && src_h > 0 && src_w > 0 )
+		// G36: Copy visible rows to XFB
+		for( row = 0; row < src_h; row++ )
+			memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, src_w * sizeof( unsigned short ));
+
+		// G36: Detect non-black content on first frame only to stabilize frame budget
+		if( gc_present_count == 1 && src_h > 0 && src_w > 0 )
 		{
-			// Check first row only, first 8 pixels
 			int check_w = src_w < 8 ? src_w : 8;
 			unsigned short *scanrow = src;
-			for( int col = 0; col < check_w && !sampled_nonblack; col++ )
+			for( int col = 0; col < check_w; col++ )
 			{
 				if( scanrow[col] != 0 )
+				{
 					sampled_nonblack = true;
+					break;
+				}
 			}
 		}
 	}
