@@ -327,7 +327,12 @@ fi
 if grep -aqsF "Xash3D GameCube: frame budget sample end" "${LOG_FILES[@]}"; then
 	FRAME_BUDGET_SAMPLE_END=$(grep -acF "Xash3D GameCube: frame budget sample end" "${LOG_FILES[@]}")
 fi
-FRAME_BUDGET_SAMPLE_COUNT=$FRAME_BUDGET_SAMPLE_START
+# Use completed samples (ends) as the count when available; fall back to starts
+if (( FRAME_BUDGET_SAMPLE_END > 0 )); then
+	FRAME_BUDGET_SAMPLE_COUNT=$FRAME_BUDGET_SAMPLE_END
+else
+	FRAME_BUDGET_SAMPLE_COUNT=$FRAME_BUDGET_SAMPLE_START
+fi
 
 # G36: Detect CPU/GX time split markers for CPU vs GPU bottleneck diagnosis
 FRAME_CPU_TIME_SAMPLES=0
