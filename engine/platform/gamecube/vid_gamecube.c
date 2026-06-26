@@ -414,11 +414,11 @@ void GC_DrawFatalBreadcrumb( const char *message )
 {
 #if XASH_GAMECUBE
 	unsigned short *dst;
+	unsigned short *rowdst;
 	int row;
 	int col_fatal;
 	int i;
 	size_t xfb_size;
-	unsigned short *rowdst;
 
 	(void)message;
 
@@ -439,7 +439,7 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	}
 
 	/* Flush to ensure hardware sees it */
-	// DCFlushRange expects (start, end), not (start, size)
+	/* DCFlushRange expects (start, end), not (start, size) */
 	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
 	DCFlushRange(xfb[0], (void *)((unsigned char *)xfb[0] + xfb_size));
 	VIDEO_SetNextFramebuffer( xfb[0] );

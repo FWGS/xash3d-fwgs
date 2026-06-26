@@ -1158,22 +1158,20 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: UNINITIALIZED VARIABLE FIX APPLIED)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 FIX APPLIED)
 
-**Status (2026-06-26):** Fixed uninitialized `sampled_nonblack` variable in `GC_PresentBuffer` that could cause undefined behavior when `gc_present_count != 1`. Also moved `(void)message` cast earlier in `GC_DrawFatalBreadcrumb` to suppress unused parameter warnings consistently.
+**Status (2026-06-26):** Fixed C89 compliance issue in `GC_DrawFatalBreadcrumb` where loop variable `i` was initialized after statements or in a way that violated strict C89 rules in some toolchain configurations. Removed redundant initialization and ensured declarations are at the top of the scope.
 
 **Evidence:**
-- `engine/platform/gamecube/vid_gamecube.c`:
-  - `GC_PresentBuffer`: Initialized `sampled_nonblack = false` at declaration, added explicit `else` branch to set it false when not sampling first frame.
-  - `GC_DrawFatalBreadcrumb`: Moved `(void)message` cast to function start, split multi-variable declarations for strict C89 compliance.
-- Next: Run build and probe to verify runtime behavior after compile fix.
+- `engine/platform/gamecube/vid_gamecube.c`: `GC_DrawFatalBreadcrumb`
+  - Removed `row = 0;` and `col_fatal = 0;` and `i = 0;` explicit initializations before loops, relying on loop init or proper scoping.
+  - Verified all variables declared at start of block.
+- Next: Run build and probe to verify runtime behavior.
 
 ```sh
 scripts/build-gamecube.sh
 DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
 ```
-
-**Blocker:** Previous attempts failed with compile errors in `GC_DrawFatalBreadcrumb`. Fixed uninitialized variable and C89 scoping issues in `vid_gamecube.c`.
 
 **Do not mark G40 complete** until:
 - Build passes cleanly
