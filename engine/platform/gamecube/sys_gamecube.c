@@ -5,6 +5,7 @@ Copyright (C) 2026 xash3d-gc contributors
 Platform layer ported from Division-Zero-GX/xash3d-wii.
 */
 #include "platform/platform.h"
+#include "cvar.h"
 #include "net_ws.h"
 #include <stdio.h>
 #include <unistd.h>
