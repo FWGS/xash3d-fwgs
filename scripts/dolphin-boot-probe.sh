@@ -1237,6 +1237,51 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_SAMPLE_OK: ${FRAME_COUNT} frame samples collected. High confidence in budget measurement."
 			fi
 
+			# G36_PATCH_v26: Compute frame time stability score (0-100) for automated
+			# regression detection. Score penalizes high P95, high jank rate, and high jitter.
+			# This provides a single metric for comparing across probe runs.
+			FRAME_STABILITY_SCORE=100
+			if (( FRAME_COUNT > 0 )); then
+				FRAME_STABILITY_SCORE=$(awk -v p95="$FRAME_P95" -v target="$TARGET_FRAME_TIME" \
+					-v jank="$FRAME_JANK" -v count="$FRAME_COUNT" \
+					-v jitter="$FRAME_TIMING_JITTER" -v cv="$FRAME_CV" '
+				BEGIN {
+					score = 100;
+					# Penalty for P95 exceeding target (up to -40 points)
+					if (p95 > target) {
+						ratio = p95 / target;
+						penalty = (ratio - 1) * 40;
+						if (penalty > 40) penalty = 40;
+						score -= penalty;
+					}
+					# Penalty for jank rate (up to -30 points)
+					if (count > 0) {
+						jank_rate = jank / count;
+						score -= jank_rate * 30;
+					}
+					# Penalty for high jitter (up to -20 points)
+					if (jitter > 1.0) {
+						score -= (jitter - 1.0) * 10;
+						if (score < 30) score = 30;
+					}
+					# Penalty for high CV (up to -10 points)
+					if (cv > 0.2) {
+						score -= (cv - 0.2) * 50;
+						if (score < 20) score = 20;
+					}
+					if (score < 0) score = 0;
+					printf "%.0f", score;
+				}')
+				echo "G36_STABILITY_SCORE: ${FRAME_STABILITY_SCORE}/100 (lower=more unstable)"
+				if (( FRAME_STABILITY_SCORE < 50 )); then
+					echo "G36_STABILITY_WARN: Low stability score (${FRAME_STABILITY_SCORE}). Frame budget is highly unstable; prioritize optimization."
+				elif (( FRAME_STABILITY_SCORE < 75 )); then
+					echo "G36_STABILITY_NOTE: Moderate stability score (${FRAME_STABILITY_SCORE}). Frame budget needs tuning for consistent 60fps."
+				else
+					echo "G36_STABILITY_OK: Good stability score (${FRAME_STABILITY_SCORE}). Frame budget is approaching target consistency."
+				fi
+			fi
+
 			# G36: Classify failure mode: cold-start only vs sustained
 			# Helps distinguish renderer initialization overhead from steady-state rendering issues
 			FRAME_FAILURE_MODE="unknown"
@@ -1261,7 +1306,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_STATUS: PASS (p95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms, jank=${FRAME_JANK}/${FRAME_COUNT})"
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} gx_waitvp_samples=${GX_WAITVP_SAMPLES} gx_wait_time_samples=${GX_WAIT_TIME_SAMPLES} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms severe_violations=${FRAME_SEVERE_VIOLATIONS} stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} stage_violations=${FRAME_BUDGET_STAGE_HITS:-0} stage_breakdown=${FRAME_BUDGET_VIOLATION_STAGES:-none} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} gx_drawdone=${GX_DRAWDONE_COUNT} target=${TARGET_FRAME_TIME}ms regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} gx_waitvp_samples=${GX_WAITVP_SAMPLES} gx_wait_time_samples=${GX_WAIT_TIME_SAMPLES} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms severe_violations=${FRAME_SEVERE_VIOLATIONS} stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} stage_violations=${FRAME_BUDGET_STAGE_HITS:-0} stage_breakdown=${FRAME_BUDGET_VIOLATION_STAGES:-none} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} gx_drawdone=${GX_DRAWDONE_COUNT} target=${TARGET_FRAME_TIME}ms regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none} stability_score=${FRAME_STABILITY_SCORE}"
 			
 			# G36: Report per-frame GX wait time samples for VI-sync correlation
 			if (( GX_WAIT_TIME_SAMPLES > 0 )); then
