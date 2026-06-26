@@ -336,8 +336,17 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]]; then
 			CURRENT_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
 			CURRENT_BUDGET_COUNT=$(grep -aE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | wc -l)
-			if (( CURRENT_DRAWDONE_COUNT > 0 )) && (( CURRENT_BUDGET_COUNT > 0 )); then
-				if (( CURRENT_DRAWDONE_COUNT > CURRENT_BUDGET_COUNT * 2 )); then
+			if (( CURRENT_DRAWDONE_COUNT > 0 )); then
+				if (( CURRENT_BUDGET_COUNT == 0 )); then
+					# G36_PATCH_v110: Immediate evidence when DrawDone exists but
+					# zero budget markers. This is the strongest signal of missing
+					# measurement code path, firing before timeout expiration.
+					if [[ -z "${G36_SILENT_FRAME_WARNED:-}" ]]; then
+						G36_SILENT_FRAME_WARNED=1
+						echo "G36_SILENT_FRAMES: ${CURRENT_DRAWDONE_COUNT} GX_DrawDone calls but zero frame budget markers. Measurement OSReport is missing from render loop."
+						echo "G36_SILENT_HINT: Insert 'Xash3D GameCube: frame time=<ms>' immediately after GX_DrawDone in the main render loop."
+					fi
+				elif (( CURRENT_DRAWDONE_COUNT > CURRENT_BUDGET_COUNT * 2 )); then
 					SILENT_FRAMES=$((CURRENT_DRAWDONE_COUNT - CURRENT_BUDGET_COUNT))
 					if [[ -z "${G36_SILENT_FRAME_WARNED:-}" ]]; then
 						G36_SILENT_FRAME_WARNED=1
