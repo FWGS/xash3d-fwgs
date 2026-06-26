@@ -480,8 +480,19 @@ if (( FRAME_BUDGET_LOGS )); then
 	# G36_PATCH_v9: Capture per-frame GX wait time to diagnose VI-sync bottlenecks.
 	# This allows correlating CPU/GX split with explicit vertical sync stalls.
 	GX_WAIT_TIME_SAMPLES=0
+	GX_WAIT_TIME_AVG=""
 	if grep -aqsE 'Xash3D GameCube: (frame |render )?gx_wait_time=' "${LOG_FILES[@]}"; then
 		GX_WAIT_TIME_SAMPLES=$(grep -acE 'Xash3D GameCube: (frame |render )?gx_wait_time=' "${LOG_FILES[@]}")
+		# G36_PATCH_v24: Compute average gx_wait_time to quantify VI-sync overhead
+		# Helps distinguish "waiting for VI" from "renderer stalled before VI"
+		eval "$(grep -aoE 'Xash3D GameCube: .* gx_wait_time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
+			grep -oE 'gx_wait_time=[0-9]+(\.[0-9]+)?' | sed 's/gx_wait_time=//' | awk '
+			{
+				sum += $1; count++;
+			}
+			END {
+				if (count > 0) printf "GX_WAIT_TIME_AVG=%.3f\n", sum/count;
+			}')"
 	fi
 
 	# G36_PATCH_v13: Single-pass unified extraction to eliminate "missing frames
@@ -1201,6 +1212,12 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 			# G36: Report per-frame GX wait time samples for VI-sync correlation
 			if (( GX_WAIT_TIME_SAMPLES > 0 )); then
 				echo "G36_GX_WAIT_TIME: ${GX_WAIT_TIME_SAMPLES} per-frame GX wait time samples captured. VI-sync bottleneck analysis available."
+				if [[ -n "$GX_WAIT_TIME_AVG" ]]; then
+					echo "G36_GX_WAIT_TIME_AVG: ${GX_WAIT_TIME_AVG}ms average VI-wait time across ${GX_WAIT_TIME_SAMPLES} samples."
+					if awk "BEGIN {exit !(${GX_WAIT_TIME_AVG} > 5.0)}" 2>/dev/null; then
+						echo "G36_GX_WAIT_TIME_WARN: Average gx_wait_time (${GX_WAIT_TIME_AVG}ms) exceeds 5.0ms. Significant CPU time spent waiting for VI completion."
+					fi
+				fi
 			fi
 
 			# G36_PATCH_v17: Compute effective sample rate (Hz) to quantify telemetry density
