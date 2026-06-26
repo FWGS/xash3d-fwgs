@@ -320,6 +320,14 @@ void SCR_NetSpeeds( void )
 	if( !host.allow_console )
 		return;
 
+#if XASH_GAMECUBE
+	{
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 )
+			return; // Skip expensive network stats overlay in quality 0 to stabilize frame budget
+	}
+#endif
+
 	if( !net_speeds.value || cls.state != ca_active )
 		return;
 
