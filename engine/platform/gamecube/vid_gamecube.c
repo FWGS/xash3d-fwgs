@@ -129,11 +129,26 @@ static void GC_PresentBuffer( void )
 		for( row = 0; row < src_h; row++ )
 			memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, src_w * sizeof( unsigned short ));
 
-		/* G36: Skip non-black pixel sampling to reduce present-path CPU cost.
-		 * This diagnostic is useful for bring-up but adds unpredictable latency
-		 * to the critical frame submission path. Assume content is present if
-		 * software buffer exists and has been filled. */
-		sampled_nonblack = true;
+		/* G36_v2: Sample a small region (64x64) for non-black evidence.
+		 * Bounding the check reduces CPU cost while providing concrete visual
+		 * proof that renderer content reached the XFB. This distinguishes
+		 * "renderer drawing black" from "renderer drawing content". */
+		{
+			int sample_w = src_w < 64 ? src_w : 64;
+			int sample_h = src_h < 64 ? src_h : 64;
+			for( int sy = 0; sy < sample_h && !sampled_nonblack; sy++ )
+			{
+				const unsigned short *row = src + sy * gc.stride;
+				for( int sx = 0; sx < sample_w; sx++ )
+				{
+					if( row[sx] != 0 )
+					{
+						sampled_nonblack = true;
+						break;
+					}
+				}
+			}
+		}
 	}
 	else
 	{
