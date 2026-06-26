@@ -1232,6 +1232,31 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					fi
 				fi
 			fi
+
+			# G36_PATCH_v50: Calculate frame time variability (Standard Deviation)
+			# for steady-state frames to detect jitter that averages out in mean/P95.
+			# High SD indicates inconsistent rendering, likely due to GC memory pressure
+			# or irregular GX command submission.
+			if (( FRAME_STEADY_COUNT > 1 )); then
+				FRAME_STEADY_SD=$(printf '%s\n' "${FRAME_TIMES[@]:1}" | awk '
+				{
+					sum += $1; sum_sq += $1 * $1; count++;
+				}
+				END {
+					if (count > 1) {
+						mean = sum / count;
+						var = (sum_sq / count) - (mean * mean);
+						if (var < 0) var = 0;
+						printf "%.3f", sqrt(var);
+					} else {
+						printf "0.000";
+					}
+				}')
+				echo "G36_STEADY_JITTER: std_dev=${FRAME_STEADY_SD}ms (steady-state variability)"
+				if awk "BEGIN {exit !(${FRAME_STEADY_SD} > 2.0)}" 2>/dev/null; then
+					echo "G36_JITTER_WARN: Steady-state frame time variability (${FRAME_STEADY_SD}ms) is high (>2.0ms). Rendering is inconsistent even if average budget is met."
+				fi
+			fi
 			
 			# G36: Correlate memory samples with frame budget
 			if (( GC_MEM_SAMPLES )); then
