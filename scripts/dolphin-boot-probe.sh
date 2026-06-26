@@ -285,11 +285,6 @@ elif (( FRAME_BUDGET_LOGS )); then
 	echo "G36_MEASUREMENT_INIT_UNKNOWN: Frame budget logs present but no explicit init marker. Measurement may be partial."
 fi
 
-# G36_PATCH_v30: Use guest-reported target frame time if available, otherwise default to 60fps
-if [[ -n "$GUEST_TARGET_FRAME_TIME" ]]; then
-	TARGET_FRAME_TIME="$GUEST_TARGET_FRAME_TIME"
-	echo "G36_TARGET_OVERRIDE: Using guest-reported target frame time ${TARGET_FRAME_TIME}ms instead of default 16.66ms."
-fi
 
 # G36: Explicitly require frame budget telemetry for MAP_READY classification
 # If no frame budget logs are present at all, flag as measurement incomplete
@@ -528,6 +523,14 @@ GUEST_TARGET_FRAME_TIME=""
 if grep -aqsE "Xash3D GameCube: target frame time=" "${LOG_FILES[@]}"; then
 	GUEST_TARGET_FRAME_TIME=$(grep -aoE 'Xash3D GameCube: target frame time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
 		tail -1 | grep -oE '[0-9]+(\.[0-9]+)?$' || true)
+fi
+
+# G36_PATCH_v31: Apply guest-reported target frame time to override default budget
+# if the guest explicitly reports a different target (e.g., PAL 50fps = 20ms).
+# This must happen before any frame time analysis to ensure correct budget thresholds.
+if [[ -n "$GUEST_TARGET_FRAME_TIME" ]] && awk "BEGIN {exit !(${GUEST_TARGET_FRAME_TIME:-0} > 0.0)}"; then
+	TARGET_FRAME_TIME="$GUEST_TARGET_FRAME_TIME"
+	echo "G36_TARGET_APPLIED: Overriding default 16.66ms budget with guest-reported ${GUEST_TARGET_FRAME_TIME}ms."
 fi
 FRAME_TIMES=()
 FRAME_DROP_COUNT=0
