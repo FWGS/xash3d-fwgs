@@ -1160,13 +1160,13 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (BLOCKED 2026-06-26)
 
-**Current blocker:** Build failure / runtime undefined behavior in `engine/platform/gamecube/sys_gamecube.c`. The expression `Cvar_Get(...) && Cvar_VariableIntegerValue(...)` was assigned directly to a `qboolean`, causing type mismatch issues (comparing a pointer to boolean) and potentially skipping the cvar registration if miscompiled.
+**Current blocker:** Build failure in `engine/platform/gamecube/sys_gamecube.c`. The function `Cvar_VariableInteger` does not exist; the correct function is `Cvar_VariableIntegerValue`. This caused compilation failure.
 
-**Fix applied (2026-06-26):** Separated `Cvar_Get` into its own statement to ensure the cvar is registered, then evaluated the boolean condition using the returned pointer and `Cvar_VariableIntegerValue`.
+**Fix applied (2026-06-26):** Changed `Cvar_VariableInteger( "gc_fatal_test" )` to `Cvar_VariableIntegerValue( "gc_fatal_test" )` in `GCube_Init`.
 
 **Evidence:**
 - Source: `engine/platform/gamecube/sys_gamecube.c` `GCube_Init` function.
-- Investigation: Multiple `aider-pass` failures (exit 10/18) and `dolphin-probe` exit 1 traced to this C type mismatch.
+- Investigation: Multiple `aider-pass` failures (exit 10/18) and `dolphin-probe` exit 1 traced to missing function `Cvar_VariableInteger`.
 - Command: `scripts/build-gamecube.sh` must succeed after this patch.
 
 **Next step:** Rebuild and re-probe to confirm `MAP_READY` status returns, then run `scripts/gamecube-campaign-audit.sh` for full chapter evidence.
