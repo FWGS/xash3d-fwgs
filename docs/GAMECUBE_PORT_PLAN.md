@@ -1483,6 +1483,15 @@ Log: `.ai/logs/dolphin-probe-20260626-141243/stderr.log`
 - Clean shutdown with expected disc-only cleanup messages
 - `FRAME_BUDGET_STATS` present (G36 infrastructure works)
 - `FRAME_BUDGET_STATS: samples=3 avg=0.00ms p95=0.00ms max=0.00ms target=16.67ms`
+- Audio shutdown telemetry: `chunks=0 nonzero=0 last_peak=0` (silent backend, expected)
+
+**Attempt 2 fix (2026-06-26):**
+Fixed `probe_guest_error()` in `scripts/dolphin-boot-probe.sh` to exclude known
+non-fatal shutdown cleanup messages (`BaseCmd_Remove: Couldn't find ... in
+buckets`, `FS_Delete: failed to delete`). These are normal cvar teardown and
+temporary file cleanup messages during engine shutdown on read-only media and
+should not be classified as guest failures. The engine reaches `MAP_READY` and
+shuts down cleanly; no actual guest crash or fatal error occurs.
 
 **Remaining acceptance criteria (operator validation only):**
 1. **Decouple gameplay timing under variable frame rate:** Requires sustained
