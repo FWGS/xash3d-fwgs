@@ -1055,7 +1055,7 @@ def build_dashboard_snapshot(repo: Path, model_host: str, model_port: int) -> Da
 		snapshot.harness_status, snapshot.harness_g36, snapshot.harness_text = parse_harness_latest(repo)
 		snapshot.agent_memory = agent_memory_for_repo(repo)
 
-		if (repo / ".git").exists():
+		if is_xash_repo_root(repo):
 			load_dotenv(repo / ".env")
 			branch = git_line_for_repo(repo, "branch", "--show-current", fallback="detached")
 			porcelain = git_output_for_repo(repo, "status", "--porcelain")
@@ -1094,7 +1094,7 @@ def build_dashboard_snapshot(repo: Path, model_host: str, model_port: int) -> Da
 			]
 			snapshot.context = "\n".join(lines)
 		else:
-			snapshot.context = "Repository telemetry unavailable: .git not found in workspace."
+			snapshot.context = f"Repository telemetry unavailable: {repo_validation_detail(repo)}"
 
 		snapshot.screenshot_path, snapshot.screenshot_status = latest_dolphin_screenshot_for_repo(repo)
 	except (OSError, subprocess.SubprocessError, ValueError) as exc:
@@ -1947,7 +1947,8 @@ class PortWindow(QMainWindow):
 		body = QLabel(
 			"Goal-driven PyQt6 cockpit for building, testing, and steering the "
 			"native Half-Life / Xash3D GameCube port.\n\n"
-			f"Settings file: {SETTINGS_PATH.relative_to(DEFAULT_REPO)}"
+			f"Settings file: {SETTINGS_PATH.relative_to(DEFAULT_REPO)} "
+			f"(also saved under the active repo's .ai/state/)"
 		)
 		body.setWordWrap(True)
 		layout.addWidget(body)
