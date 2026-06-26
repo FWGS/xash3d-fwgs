@@ -742,7 +742,7 @@ scripts/gamecube-map-compat-probe.sh
   controller, WaveBird, third-party controller, no-controller boot, and
   mid-game reconnect before release-complete hardware claims.
 
-## G46 [ ] Implement save integrity and destructive-action policy
+## G46 [x] Implement save integrity and destructive-action policy
 
 - Add save metadata with magic, version, payload size, checksum/CRC32, map,
   build hash, and storage route before enabling release saves.
@@ -750,6 +750,25 @@ scripts/gamecube-map-compat-probe.sh
   removed card, corrupt file, wrong slot, and incompatible version handling.
 - Require explicit confirmation before creating, overwriting, deleting,
   repairing, formatting, or migrating save data.
+- Completed 2026-06-26 as an automated source/policy preflight:
+  `SaveGameSlot()` writes a GameCube-only `.sav.gcmeta` sidecar after a
+  successful save, recording `XASHGC_SAVE_META`, metadata version, payload size,
+  payload CRC32, map, build commit, and writable storage route without changing
+  the GoldSrc `.sav` payload.
+- GameCube metadata commits use `.tmp` and `.bak` names around `FS_Rename()`;
+  metadata sidecars are rotated/deleted with quick/autosave slots and removed by
+  `killsave`.
+- GameCube manual save/delete commands now require explicit confirmation:
+  `save <savename> confirm`, `save confirm` for a new numbered slot, and
+  `killsave <name> confirm`. Quicksave/autosave are skipped on GameCube by the
+  release save-integrity policy to prevent silent destructive rotations.
+- `scripts/gamecube-save-compliance.py` verifies the G46 source contract,
+  hardware protocol wording, and ledger/plan sync, and
+  `scripts/gamecube-rc-check.sh` now runs the G46 save compliance gate.
+- Evidence boundary: physical interruption, full-card, removed-card,
+  corrupt-file, wrong-slot, incompatible-version, save/load, and
+  quit/relaunch/load behavior still require dated hardware or persistent
+  storage-route evidence under G38/G53/G66.
 
 ## G47 [ ] Audit filesystem portability and read-only media behavior
 

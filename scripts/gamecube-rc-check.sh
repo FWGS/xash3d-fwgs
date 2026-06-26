@@ -41,7 +41,8 @@ Runs the native GameCube release-candidate evidence gate:
   9. boot media compliance check
   10. video compliance check
   11. controller compliance check
-  12. homebrew compliance check
+  12. save integrity/destructive-action compliance check
+  13. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -92,7 +93,7 @@ run_gate() {
 		return 0
 	fi
 	local rc=$?
-	log_status "$name" "FAIL" "$log_path" "exit $rc"
+	log_status "save compliance" "FAIL" "$log_path" "exit $rc"
 	echo "FAIL: $name (exit $rc)" >&2
 	tail -80 "$log_path" >&2
 	return "$rc"
@@ -328,6 +329,21 @@ controller_compliance_gate() {
 	return "$rc"
 }
 
+save_compliance_gate() {
+	local log_path="$LOG_DIR/save-compliance.log"
+	echo
+	echo "== save compliance =="
+	if scripts/gamecube-save-compliance.py --log-dir "$LOG_DIR/save-compliance" >"$log_path" 2>&1; then
+		log_status "save compliance" "PASS" "$log_path" "G46 save integrity/destructive-action preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "$name" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -435,6 +451,7 @@ main() {
 	boot_media_compliance_gate || true
 	video_compliance_gate || true
 	controller_compliance_gate || true
+	save_compliance_gate || true
 	compliance_gate || true
 	write_summary
 	echo

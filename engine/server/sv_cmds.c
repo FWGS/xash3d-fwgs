@@ -436,6 +436,27 @@ static void SV_Save_f( void )
 {
 	qboolean ret = false;
 
+#if XASH_GAMECUBE
+	if( !GCube_HasWritableStorage( ))
+	{
+		Con_Printf( S_WARN "GameCube save skipped: no writable storage\n" );
+		return;
+	}
+
+	if( Cmd_Argc() == 2 && !Q_stricmp( Cmd_Argv( 1 ), "confirm" ))
+	{
+		ret = SV_SaveGame( "new" );
+	}
+	else if( Cmd_Argc() == 3 && !Q_stricmp( Cmd_Argv( 2 ), "confirm" ))
+	{
+		ret = SV_SaveGame( Cmd_Argv( 1 ));
+	}
+	else
+	{
+		Con_Printf( S_USAGE "save <savename> confirm\n" );
+		Con_Printf( "GameCube release policy requires explicit confirmation before creating or overwriting save data.\n" );
+	}
+#else
 	switch( Cmd_Argc( ))
 	{
 	case 1:
@@ -448,6 +469,7 @@ static void SV_Save_f( void )
 		Con_Printf( S_USAGE "save <savename>\n" );
 		break;
 	}
+#endif // XASH_GAMECUBE
 
 	if( ret && CL_Active() && !FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ))
 		CL_HudMessage( "GAMESAVED" ); // defined in titles.txt
@@ -461,7 +483,11 @@ SV_QuickSave_f
 */
 static void SV_QuickSave_f( void )
 {
+#if XASH_GAMECUBE
+	Con_Printf( "GameCube quicksave disabled by release save-integrity policy; use: save <savename> confirm\n" );
+#else
 	Cbuf_AddText( "echo Quick Saving...; wait; save quick\n" );
+#endif // XASH_GAMECUBE
 }
 
 /*
@@ -472,15 +498,29 @@ SV_DeleteSave_f
 */
 static void SV_DeleteSave_f( void )
 {
+#if XASH_GAMECUBE
+	if( Cmd_Argc() != 3 || Q_stricmp( Cmd_Argv( 2 ), "confirm" ))
+	{
+		Con_Printf( S_USAGE "killsave <name> confirm\n" );
+		Con_Printf( "GameCube release policy requires explicit confirmation before deleting save data.\n" );
+		return;
+	}
+#else
 	if( Cmd_Argc() != 2 )
 	{
 		Con_Printf( S_USAGE "killsave <name>\n" );
 		return;
 	}
+#endif // XASH_GAMECUBE
 
 	// delete save and saveshot
 	FS_Delete( va( DEFAULT_SAVE_DIRECTORY "%s.sav", Cmd_Argv( 1 )));
 	FS_Delete( va( DEFAULT_SAVE_DIRECTORY "%s.bmp", Cmd_Argv( 1 )));
+#if XASH_GAMECUBE
+	FS_Delete( va( DEFAULT_SAVE_DIRECTORY "%s.sav.gcmeta", Cmd_Argv( 1 )));
+	FS_Delete( va( DEFAULT_SAVE_DIRECTORY "%s.sav.gcmeta.bak", Cmd_Argv( 1 )));
+	FS_Delete( va( DEFAULT_SAVE_DIRECTORY "%s.sav.gcmeta.tmp", Cmd_Argv( 1 )));
+#endif // XASH_GAMECUBE
 }
 
 /*
@@ -497,8 +537,12 @@ static void SV_AutoSave_f( void )
 		return;
 	}
 
+#if XASH_GAMECUBE
+	Con_Printf( "GameCube autosave skipped by release save-integrity policy; use: save <savename> confirm\n" );
+#else
 	if( sv_autosave.value )
 		SV_SaveGame( "autosave" );
+#endif // XASH_GAMECUBE
 }
 
 /*

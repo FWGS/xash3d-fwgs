@@ -33,6 +33,12 @@ half-life implementation of saverestore system
 #define SAVEGAME_VERSION		0x0071				// Version 0.71 GoldSrc compatible
 #define CLIENT_SAVEGAME_VERSION	0x0067				// Version 0.67
 
+#if XASH_GAMECUBE
+#define GC_SAVE_META_MAGIC		"XASHGC_SAVE_META"
+#define GC_SAVE_META_VERSION		1
+#define GC_SAVE_META_EXTENSION		".gcmeta"
+#endif // XASH_GAMECUBE
+
 #define SAVE_HEAPSIZE		0x400000				// reserve 4Mb for now
 #define SAVE_HASHSTRINGS		0xFFF				// 4095 unique strings
 
@@ -585,14 +591,23 @@ static void AgeSaveList( const char *pName, int count )
 {
 	char	newName[MAX_OSPATH], oldName[MAX_OSPATH];
 	char	newShot[MAX_OSPATH], oldShot[MAX_OSPATH];
+#if XASH_GAMECUBE
+	char	newMeta[MAX_OSPATH], oldMeta[MAX_OSPATH];
+#endif // XASH_GAMECUBE
 
 	// delete last quick/autosave (e.g. quick05.sav)
 	Q_snprintf( newName, sizeof( newName ), DEFAULT_SAVE_DIRECTORY "%s%02d.sav", pName, count );
 	Q_snprintf( newShot, sizeof( newShot ), DEFAULT_SAVE_DIRECTORY "%s%02d.bmp", pName, count );
+#if XASH_GAMECUBE
+	Q_snprintf( newMeta, sizeof( newMeta ), DEFAULT_SAVE_DIRECTORY "%s%02d.sav" GC_SAVE_META_EXTENSION, pName, count );
+#endif // XASH_GAMECUBE
 
 	// only delete from game directory, basedir is read-only
 	FS_Delete( newName );
 	FS_Delete( newShot );
+#if XASH_GAMECUBE
+	FS_Delete( newMeta );
+#endif // XASH_GAMECUBE
 
 #if !XASH_DEDICATED
 	// unloading the shot footprint
@@ -606,16 +621,25 @@ static void AgeSaveList( const char *pName, int count )
 			// quick.sav
 			Q_snprintf( oldName, sizeof( oldName ), DEFAULT_SAVE_DIRECTORY "%s.sav", pName );
 			Q_snprintf( oldShot, sizeof( oldShot ), DEFAULT_SAVE_DIRECTORY "%s.bmp", pName );
+#if XASH_GAMECUBE
+			Q_snprintf( oldMeta, sizeof( oldMeta ), DEFAULT_SAVE_DIRECTORY "%s.sav" GC_SAVE_META_EXTENSION, pName );
+#endif // XASH_GAMECUBE
 		}
 		else
 		{
 			// quick04.sav, etc.
 			Q_snprintf( oldName, sizeof( oldName ), DEFAULT_SAVE_DIRECTORY "%s%02d.sav", pName, count - 1 );
 			Q_snprintf( oldShot, sizeof( oldShot ), DEFAULT_SAVE_DIRECTORY "%s%02d.bmp", pName, count - 1 );
+#if XASH_GAMECUBE
+			Q_snprintf( oldMeta, sizeof( oldMeta ), DEFAULT_SAVE_DIRECTORY "%s%02d.sav" GC_SAVE_META_EXTENSION, pName, count - 1 );
+#endif // XASH_GAMECUBE
 		}
 
 		Q_snprintf( newName, sizeof( newName ), DEFAULT_SAVE_DIRECTORY "%s%02d.sav", pName, count );
 		Q_snprintf( newShot, sizeof( newShot ), DEFAULT_SAVE_DIRECTORY "%s%02d.bmp", pName, count );
+#if XASH_GAMECUBE
+		Q_snprintf( newMeta, sizeof( newMeta ), DEFAULT_SAVE_DIRECTORY "%s%02d.sav" GC_SAVE_META_EXTENSION, pName, count );
+#endif // XASH_GAMECUBE
 
 #if !XASH_DEDICATED
 		// unloading the oldshot footprint too
@@ -625,9 +649,100 @@ static void AgeSaveList( const char *pName, int count )
 		// scroll the name list down (e.g. rename quick04.sav to quick05.sav)
 		FS_Rename( oldName, newName );
 		FS_Rename( oldShot, newShot );
+#if XASH_GAMECUBE
+		FS_Rename( oldMeta, newMeta );
+#endif // XASH_GAMECUBE
 		count--;
 	}
 }
+
+#if XASH_GAMECUBE
+static qboolean GC_SaveFileCRC32( const char *path, uint32_t *crcOut, fs_offset_t *sizeOut )
+{
+	byte	buffer[4096];
+	file_t	*f;
+	uint32_t	crc;
+	fs_offset_t	total = 0;
+
+	if(( f = FS_Open( path, "rb", true )) == NULL )
+		return false;
+
+	CRC32_Init( &crc );
+	while( 1 )
+	{
+		fs_offset_t got = FS_Read( f, buffer, sizeof( buffer ));
+		if( got <= 0 )
+			break;
+		CRC32_ProcessBuffer( &crc, buffer, (int)got );
+		total += got;
+	}
+	FS_Close( f );
+
+	*crcOut = CRC32_Final( crc );
+	*sizeOut = total;
+	return true;
+}
+
+static void GC_WriteSaveMetadata( const char *savePath, const char *saveName )
+{
+	char		metaPath[MAX_OSPATH];
+	char		tmpPath[MAX_OSPATH];
+	char		backupPath[MAX_OSPATH];
+	char		writablePath[MAX_OSPATH];
+	const char	*storageRoute = "none";
+	uint32_t	crc = 0;
+	fs_offset_t	payloadSize = 0;
+	file_t		*f;
+
+	if( !GCube_HasWritableStorage( ))
+	{
+		Con_Printf( S_WARN "GameCube save metadata skipped: no writable storage\n" );
+		return;
+	}
+
+	if( GCube_GetWritablePath( writablePath, sizeof( writablePath )))
+		storageRoute = writablePath;
+
+	if( !GC_SaveFileCRC32( savePath, &crc, &payloadSize ))
+	{
+		Con_Printf( S_WARN "GameCube save metadata skipped: could not read %s\n", savePath );
+		return;
+	}
+
+	Q_snprintf( metaPath, sizeof( metaPath ), "%s%s", savePath, GC_SAVE_META_EXTENSION );
+	Q_snprintf( tmpPath, sizeof( tmpPath ), "%s.tmp", metaPath );
+	Q_snprintf( backupPath, sizeof( backupPath ), "%s.bak", metaPath );
+
+	if(( f = FS_Open( tmpPath, "w", true )) == NULL )
+	{
+		Con_Printf( S_WARN "GameCube save metadata skipped: could not open %s\n", tmpPath );
+		return;
+	}
+
+	FS_Printf( f, "magic=%s\n", GC_SAVE_META_MAGIC );
+	FS_Printf( f, "version=%d\n", GC_SAVE_META_VERSION );
+	FS_Printf( f, "save=%s\n", saveName );
+	FS_Printf( f, "payload=%s\n", savePath );
+	FS_Printf( f, "payload_size=%d\n", (int)payloadSize );
+	FS_Printf( f, "payload_crc32=%08x\n", (unsigned)crc );
+	FS_Printf( f, "map=%s\n", sv.name );
+	FS_Printf( f, "build=%s\n", g_buildcommit );
+	FS_Printf( f, "storage_route=%s\n", storageRoute );
+	FS_Close( f );
+
+	FS_Delete( backupPath );
+	FS_Rename( metaPath, backupPath );
+	if( !FS_Rename( tmpPath, metaPath ))
+	{
+		Con_Printf( S_WARN "GameCube save metadata commit failed for %s\n", metaPath );
+		FS_Delete( tmpPath );
+		FS_Rename( backupPath, metaPath );
+		return;
+	}
+	FS_Delete( backupPath );
+	Con_Printf( "GameCube save metadata: %s crc=%08x size=%d\n", metaPath, (unsigned)crc, (int)payloadSize );
+}
+#endif // XASH_GAMECUBE
 
 /*
 =============
@@ -1756,6 +1871,9 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	DirectoryCopy( hlPath, pFile );
 	SaveFinish( pSaveData );
 	FS_Close( pFile );
+#if XASH_GAMECUBE
+	GC_WriteSaveMetadata( name, pSaveName );
+#endif // XASH_GAMECUBE
 
 	return true;
 }

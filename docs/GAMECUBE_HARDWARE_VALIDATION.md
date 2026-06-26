@@ -98,6 +98,25 @@ disconnect/reconnect as explicit evidence fields, not incidental notes. Official
 wired controller evidence is the minimum required path; WaveBird and common
 third-party pads should be recorded separately before broad release claims.
 
+## Save Integrity Preflight
+
+Before recording physical storage results, run the automated G46 preflight:
+
+```sh
+scripts/gamecube-save-compliance.py
+```
+
+Record its summary path with the hardware run. For physical evidence, test an
+explicit save with `save <savename> confirm`, a reload of that save, a
+quit/relaunch/load round trip, and deletion with `killsave <name> confirm`.
+Record whether the `.sav.gcmeta` sidecar exists and whether its payload size,
+CRC32, map, build hash, and storage route match the tested artifact.
+
+The storage failure matrix must explicitly cover interruption, full-card,
+removed-card, corrupt file, wrong slot, and incompatible version handling. If a
+route cannot safely simulate one of those conditions, record it as untested
+instead of treating the save path as release-complete.
+
 ## Validation Matrix
 
 Record which route was tested.

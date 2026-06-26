@@ -86,9 +86,10 @@ def main() -> int:
 		"PASS" if contains_all(cmd_source, ("quicksave disabled by release save-integrity policy", "autosave skipped by release save-integrity policy")) else "FAIL",
 		"quicksave/autosave do not silently rotate save files on GameCube",
 	))
+	validation_flat = " ".join(validation.split())
 	checks.append(Check(
 		"docs protocol",
-		"PASS" if "Save Integrity Preflight" in validation and "interruption, full-card, removed-card" in validation else "FAIL",
+		"PASS" if "Save Integrity Preflight" in validation and "interruption, full-card, removed-card" in validation_flat else "FAIL",
 		"hardware protocol names required storage failure cases",
 	))
 	checks.append(Check(
