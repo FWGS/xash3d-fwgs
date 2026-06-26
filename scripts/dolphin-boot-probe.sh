@@ -505,7 +505,11 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		if [[ -z "${G36_RENDERER_INIT_TS:-}" ]] && \
 		   grep -aqsF "Xash3D GameCube: renderer initialized" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
 			G36_RENDERER_INIT_TS=$(date +%s)
-			echo "G36_RENDERER_INIT_TIME: Renderer initialized at probe second=$(( G36_RENDERER_INIT_TS - START_TS )). Time-to-init measured."
+			BOOTSTRAP_TO_INIT=$(( G36_RENDERER_INIT_TS - START_TS ))
+			echo "G36_RENDERER_INIT_TIME: Renderer initialized at probe second=$(( G36_RENDERER_INIT_TS - START_TS )). Bootstrap-to-init gap=${BOOTSTRAP_TO_INIT}s."
+			if (( BOOTSTRAP_TO_INIT > 15 )); then
+				echo "G36_INIT_DELAY_WARN: >15s between bootstrap and renderer init. Guest may be stuck in asset load or DLL initialization before GX subsystem."
+			fi
 		fi
 
 		# G36_PATCH_v82: Detect first actual frame render marker (distinct from renderer init)
