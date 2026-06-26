@@ -361,6 +361,17 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )) && ! (( FRAME_BUDGET_LOGS )); then
 	echo "G36_MEASUREMENT_INCOMPLETE: Map loaded interactively but no frame budget telemetry detected in logs."
 	echo "G36_HINT: Guest may not be emitting 'Xash3D GameCube: frame.*time=' markers. Check renderer initialization."
 	echo "G36_HINT: Ensure renderer emits 'Xash3D GameCube: frame time=<ms>' or 'Xash3D GameCube: render frame time=<ms>' per frame."
+	
+	# G36_PATCH_v42: Classify absence more decisively to break aide-review cycles
+	# when measurement never initializes. Distinguish renderer-initialized-but-silent
+	# from renderer-never-started to provide actionable next-step evidence.
+	if [[ -n "$GUEST_RENDERER" ]]; then
+		echo "G36_DECISIVE: Renderer ${GUEST_RENDERER} initialized but emitted zero frame budget markers. Guest renderer code path is missing budget OSReport calls."
+		echo "G36_DECISIVE_HINT: Patch renderer to emit 'Xash3D GameCube: frame time=<ms>' after each GX_DrawDone or VI-sync point."
+	else
+		echo "G36_DECISIVE: Renderer backend name not detected. Guest may have crashed or stalled before renderer startup."
+		echo "G36_DECISIVE_HINT: Check for guest errors, missing GX initialization, or bootstrap failure before frame budget can be measured."
+	fi
 	echo "G36_STATUS: INCOMPLETE (no frame budget telemetry)"
 	exit 4
 fi
