@@ -853,6 +853,13 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		cl.maxclients = MSG_ReadByte( msg );
 		clgame.maxEntities = MSG_ReadWord( msg );
 		clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ) && cl.maxclients <= 1 )
+		{
+			clgame.maxEntities = GI->max_edicts;
+			Con_Reportf( "Xash3D GameCube: client edicts capped for gcmap max=%d\n", clgame.maxEntities );
+		}
+#endif
 		clgame.maxModels = MSG_ReadWord( msg );
 		Q_strncpy( clgame.mapname, MSG_ReadString( msg ), sizeof( clgame.mapname ));
 		Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
