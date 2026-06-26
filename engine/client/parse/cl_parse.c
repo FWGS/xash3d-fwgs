@@ -25,6 +25,25 @@ GNU General Public License for more details.
 #if XASH_LOW_MEMORY != 2
 int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
+
+#if XASH_GAMECUBE
+#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 384
+
+static int CL_GameCubeClientEdictLimit( int requested )
+{
+	char value[32];
+	int limit = GC_GCMAP_DEFAULT_CLIENT_EDICTS;
+
+	if( Sys_GetParmFromCmdLine( "-gcmaxentities", value ))
+		limit = Q_atoi( value );
+
+	limit = bound( MIN_EDICTS, limit, requested );
+	Con_Reportf( "Xash3D GameCube: client edicts capped for gcmap max=%d requested=%d\n",
+		limit, requested );
+	return limit;
+}
+#endif
+
 /*
 ===============
 CL_UserMsgStub
@@ -836,14 +855,11 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		clgame.maxEntities = GI->max_edicts + (( cl.maxclients - 1 ) * 15 );
 		clgame.maxEntities = Q_min( clgame.maxEntities, MAX_GOLDSRC_EDICTS );
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ) && cl.maxclients <= 1 )
-		{
-			clgame.maxEntities = GI->max_edicts;
-			Con_Reportf( "Xash3D GameCube: client edicts capped for gcmap max=%d\n", clgame.maxEntities );
-		}
+			if( Sys_CheckParm( "-gcmap" ) && cl.maxclients <= 1 )
+				clgame.maxEntities = CL_GameCubeClientEdictLimit( clgame.maxEntities );
 #endif
-		clgame.maxModels = 512; // ???
-		Q_strncpy( clgame.maptitle, clgame.mapname, sizeof( clgame.maptitle ));
+			clgame.maxModels = 512; // ???
+			Q_strncpy( clgame.maptitle, clgame.mapname, sizeof( clgame.maptitle ));
 
 		Host_ValidateEngineFeatures( 0, 0 );
 	}
@@ -854,13 +870,10 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		clgame.maxEntities = MSG_ReadWord( msg );
 		clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ) && cl.maxclients <= 1 )
-		{
-			clgame.maxEntities = GI->max_edicts;
-			Con_Reportf( "Xash3D GameCube: client edicts capped for gcmap max=%d\n", clgame.maxEntities );
-		}
+			if( Sys_CheckParm( "-gcmap" ) && cl.maxclients <= 1 )
+				clgame.maxEntities = CL_GameCubeClientEdictLimit( clgame.maxEntities );
 #endif
-		clgame.maxModels = MSG_ReadWord( msg );
+			clgame.maxModels = MSG_ReadWord( msg );
 		Q_strncpy( clgame.mapname, MSG_ReadString( msg ), sizeof( clgame.mapname ));
 		Q_strncpy( clgame.maptitle, MSG_ReadString( msg ), sizeof( clgame.maptitle ));
 		background = MSG_ReadOneBit( msg );

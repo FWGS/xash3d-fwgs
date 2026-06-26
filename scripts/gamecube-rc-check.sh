@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Release-candidate evidence gate for the native GameCube port.
-set -uo pipefail
+set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT" || exit 1
@@ -16,6 +16,7 @@ MAP_TIMEOUT="${RC_MAP_TIMEOUT:-120}"
 TARGET_FRAME_TIME="${TARGET_FRAME_TIME:-16.67}"
 STRICT_COMPLIANCE="${RC_STRICT_COMPLIANCE:-0}"
 DOLPHIN_RETRIES="${RC_DOLPHIN_RETRIES:-2}"
+COMMAND_LINE="scripts/gamecube-rc-check.sh $*"
 
 mkdir -p "$LOG_DIR"
 
@@ -23,6 +24,43 @@ PASS_COUNT=0
 FAIL_COUNT=0
 WARN_COUNT=0
 declare -a RESULTS
+
+usage() {
+	cat <<'EOF'
+Usage: scripts/gamecube-rc-check.sh
+
+Runs the native GameCube release-candidate evidence gate:
+  1. ai-verify
+  2. clean GameCube build
+  3. artifact manifest
+  4. local content staging audit when legal Half-Life assets are present
+  5. optional smoke disc build when RC_BUILD_DISC=1
+  6. Dolphin boot probe
+  7. frame-budget probe
+  8. map compatibility summary
+  9. homebrew compliance check
+
+Useful environment knobs:
+  RC_LOG_DIR              Override output log directory.
+  RC_MAP_LIST             Space-separated maps for map compatibility probe.
+  RC_SMOKE_MAP            Smoke map for content/disc validation.
+  RC_BOOT_TIMEOUT         Dolphin boot timeout seconds.
+  RC_MAP_TIMEOUT          Map compatibility timeout seconds.
+  RC_DOLPHIN_RETRIES      Bounded retries for Dolphin-dependent gates.
+  RC_BUILD_DISC=1         Build OUT/xash3d-gc.iso if legal assets are present.
+  RC_STRICT_COMPLIANCE=1  Run strict compliance mode near release/hardware gates.
+
+This command does not prove real hardware behavior. G38/G53/G66 must carry
+physical GameCube, Swiss, or compatible Wii/GameCube-mode evidence.
+EOF
+}
+
+case "${1:-}" in
+	-h|--help)
+		usage
+		exit 0
+		;;
+esac
 
 log_status() {
 	local name="$1"
@@ -259,12 +297,33 @@ compliance_gate() {
 
 write_summary() {
 	write_manifest
+	local commit
+	local dirty=""
+	local gcc_version="missing"
+	local devkitpro="${DEVKITPRO:-/opt/devkitpro}"
+	local devkitppc="${DEVKITPPC:-$devkitpro/devkitPPC}"
+	commit="$(git rev-parse --short HEAD)"
+	if ! git diff --quiet || ! git diff --cached --quiet; then
+		dirty="-dirty"
+	fi
+	if [[ -x "$devkitppc/bin/powerpc-eabi-gcc" ]]; then
+		gcc_version="$("$devkitppc/bin/powerpc-eabi-gcc" --version | head -n 1)"
+	fi
 	{
 		echo "# GameCube Release Candidate Check"
 		echo
 		echo "- Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-		echo "- Commit: $(git rev-parse --short HEAD)"
+		echo "- Commit: ${commit}${dirty}"
+		echo "- Command: \`$COMMAND_LINE\`"
 		echo "- Log directory: \`$LOG_DIR\`"
+		echo "- DEVKITPRO: \`$devkitpro\`"
+		echo "- DEVKITPPC: \`$devkitppc\`"
+		echo "- powerpc-eabi-gcc: \`$gcc_version\`"
+		echo "- RC_MAP_LIST: \`$MAP_LIST\`"
+		echo "- RC_SMOKE_MAP: \`${RC_SMOKE_MAP:-c0a0e}\`"
+		echo "- RC_BUILD_DISC: \`${RC_BUILD_DISC:-0}\`"
+		echo "- RC_STRICT_COMPLIANCE: \`$STRICT_COMPLIANCE\`"
+		echo "- RC_DOLPHIN_RETRIES: \`$DOLPHIN_RETRIES\`"
 		echo "- Pass: $PASS_COUNT"
 		echo "- Warn: $WARN_COUNT"
 		echo "- Fail: $FAIL_COUNT"
@@ -285,6 +344,13 @@ write_summary() {
 		echo '```tsv'
 		cat "$MANIFEST"
 		echo '```'
+		echo
+		echo "## Evidence Boundary"
+		echo
+		echo "This suite is the canonical local RC gate for source, build, artifact,"
+		echo "Dolphin, map, frame-budget, staging, and compliance evidence. It does"
+		echo "not close real hardware gates; G38, G53, and G66 still require dated"
+		echo "physical GameCube, Swiss, or compatible Wii/GameCube-mode evidence."
 	} >"$SUMMARY"
 
 	python3 - "$STATUS_JSON" "$LOG_DIR" "$PASS_COUNT" "$WARN_COUNT" "$FAIL_COUNT" <<'PY'

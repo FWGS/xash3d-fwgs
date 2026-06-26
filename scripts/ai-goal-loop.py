@@ -1695,8 +1695,6 @@ def main() -> int:
 		help="stop G36+ automatic goals after this many attempts for review; 0 disables")
 	parser.add_argument("--list", action="store_true", help="print goal state and exit")
 	parser.add_argument("--status-json", action="store_true", help="emit machine-readable goal state")
-	parser.add_argument("--focus-goal", default=os.environ.get("AI_FOCUS_GOAL", ""),
-		help="run this goal even if earlier automatic goals remain open (example: G45)")
 	args = parser.parse_args()
 	root = args.repo.expanduser().resolve()
 	goal_file = root / ".ai/goals/GAMECUBE_PORT_GOALS.md"
@@ -1756,17 +1754,6 @@ def main() -> int:
 		goals = parse_goals(goal_file)
 		seed_conact_from_goal_state(memory, goals)
 		goal = next((item for item in goals if not item.automatic_done), None)
-		if args.focus_goal:
-			focus = next((item for item in goals if item.goal_id == args.focus_goal), None)
-			if focus is None:
-				parser.error(f"unknown focus goal: {args.focus_goal}")
-			if focus.manual:
-				parser.error(f"focus goal {args.focus_goal} is MANUAL and cannot be automated")
-			if focus.complete:
-				print(f"Focus goal {args.focus_goal} is already complete.")
-				return 0
-			goal = focus
-			print(f"goal-loop: focusing on {goal.goal_id} — {goal.title}", flush=True)
 		if goal is None:
 			write_state(state_file, state="complete", pass_index=pass_index - 1,
 				message="All automatic goals are complete or blocked")
