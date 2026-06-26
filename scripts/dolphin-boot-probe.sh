@@ -907,7 +907,27 @@ if (( FRAME_BUDGET_LOGS )); then
 	done < <(grep -aoE 'Xash3D GameCube: (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE '[a-z_]+=[0-9]+(\.[0-9]+)?ms?' | sed 's/.*=//; s/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
 
+	# G36_PATCH_v76: Fallback extraction for non-standard or abbreviated frame time markers
+	# This catches markers like "frame_time=12.34" without the "Xash3D GameCube:" prefix,
+	# or markers using underscore instead of space. Provides safety net for guest variants
+	# or logging regressions that change marker format.
+	if (( FRAME_COUNT == 0 )); then
+		while IFS= read -r val; do
+			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
+		done < <(grep -aoE '(frame_time|frame time|frame_duration|render_time|budget_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+			grep -oE '[0-9]+(\.[0-9]+)?ms?' | sed 's/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
+		FRAME_TIMES_RELAXED_FALLBACK=${#FRAME_TIMES[@]}
+		if (( FRAME_TIMES_RELAXED_FALLBACK > 0 )); then
+			echo "G36_FALLBACK_EXTRACT: ${FRAME_TIMES_RELAXED_FALLBACK} frames extracted via fallback pattern (primary pattern matched zero)."
+		fi
+	fi
+
 	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
+
+	# G36_PATCH_v76: Report fallback usage in parse diagnostics
+	if [[ -n "${FRAME_TIMES_RELAXED_FALLBACK:-}" ]] && (( FRAME_TIMES_RELAXED_FALLBACK > 0 )); then
+		echo "G36_PARSE_FALLBACK_ACTIVE: Primary pattern failed; using fallback extraction. Guest marker format may have changed."
+	fi
 
 	# G36_DEDUP_v1: Deduplicate FRAME_TIMES to prevent double-counting when
 	# both 'time=' and 'duration=' markers are emitted for the same frame.
