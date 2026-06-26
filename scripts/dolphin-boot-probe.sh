@@ -942,11 +942,13 @@ if (( FRAME_BUDGET_LOGS )); then
 	# This catches markers like "frame_time=12.34" without the "Xash3D GameCube:" prefix,
 	# or markers using underscore instead of space. Provides safety net for guest variants
 	# or logging regressions that change marker format.
+	# G36_PATCH_v80: Also catch OSREPORT lines with time= patterns to handle
+	# guest variants that emit through OSREPORT wrapper without full prefix.
 	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
 	if (( FRAME_TIMES_RELAXED == 0 )); then
 		while IFS= read -r val; do
 			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-		done < <(grep -aoE '(frame_time|frame time|frame_duration|render_time|budget_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+		done < <(grep -aoE '(frame_time|frame time|frame_duration|render_time|budget_time|time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 			grep -oE '[0-9]+(\.[0-9]+)?ms?' | sed 's/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
 		FRAME_TIMES_RELAXED_FALLBACK=${#FRAME_TIMES[@]}
 		if (( FRAME_TIMES_RELAXED_FALLBACK > 0 )); then
