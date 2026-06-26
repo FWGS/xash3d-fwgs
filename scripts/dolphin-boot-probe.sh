@@ -273,6 +273,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )) && ! (( FRAME_BUDGET_LOGS )); then
 	echo "G36_HINT: Guest may not be emitting 'Xash3D GameCube: frame.*time=' markers. Check renderer initialization."
 	echo "G36_HINT: Ensure renderer emits 'Xash3D GameCube: frame time=<ms>' or 'Xash3D GameCube: render frame time=<ms>' per frame."
 	echo "G36_STATUS: INCOMPLETE (no frame budget telemetry)"
+	exit 4
 fi
 
 # G36_PATCH: Correlate renderer backend presence with frame budget measurement capability
