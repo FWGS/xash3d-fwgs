@@ -1140,7 +1140,7 @@ fi
 # Note: GX_DRAWDONE_COUNT may already be populated from probe loop if renderer
 # was detected early; only update if we have a fresh count from full logs.
 if grep -aqsF "GX_DrawDone" "${LOG_FILES[@]}"; then
-	GX_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "${LOG_FILES[@]}")
+	GX_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "${LOG_FILES[@]}" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
 fi
 
 # G36_PATCH_v91: Detect GX_Flush without corresponding GX_DrawDone to diagnose
