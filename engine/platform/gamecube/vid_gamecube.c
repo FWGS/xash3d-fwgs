@@ -179,20 +179,18 @@ static void GC_PresentBuffer( void )
 	}
 
 
-	if( gc_present_count <= 2 )
-	{
-		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
-			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
-	}
-
 	GX_Flush();
 	GX_DrawDone();
 
-	/* G36: Emit frame budget markers after GX submission completes. The first
-	 * present reports 0ms so short smoke probes still get a parsable sample. */
+	/* G36: Emit frame budget markers only for early frames to establish visual evidence.
+	 * Suppress per-frame SYS_Report in steady-state to reduce route-time render cost.
+	 * The first present reports 0ms so short smoke probes still get a parsable sample. */
+	if( gc_present_count <= 2 )
 	{
 		double now = Sys_FloatTime();
 		double elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
+		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
+			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
 		SYS_Report( "Xash3D GameCube: frame render complete\n" );
 		SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
 		gc_last_present_time = now;

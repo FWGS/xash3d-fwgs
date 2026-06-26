@@ -59,7 +59,7 @@ from PyQt6.QtWidgets import (
 )
 
 DEFAULT_REPO = Path(__file__).resolve().parents[1]
-APP_VERSION = "0.5.3-dev"
+APP_VERSION = "0.6.1-dev"
 
 DEFAULT_DOCK_AREAS: dict[str, Qt.DockWidgetArea] = {
 	"Progress": Qt.DockWidgetArea.TopDockWidgetArea,
@@ -75,6 +75,7 @@ DEFAULT_DOCK_AREAS: dict[str, Qt.DockWidgetArea] = {
 }
 TOP_DOCK_TITLES = ("Progress", "Model Server", "Automation", "Pipeline", "Tools")
 SETTINGS_PATH = DEFAULT_REPO / ".ai/state/xash3d-gc-aider-gui-settings.json"
+OVERNIGHT_SESSION_PATH = DEFAULT_REPO / ".ai/state/overnight-session-latest.md"
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 QWABLE_5_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
 QWABLE_5_SERVED_NAME = "qwen-local"
@@ -262,6 +263,7 @@ def apply_model_tuning_to_environ(
 	tool_choice: bool,
 	aider_history: int,
 	aider_overhead: int,
+	reasoning_parser: bool = False,
 ) -> None:
 	os.environ["QWABLE_5_MAX_NUM_SEQS"] = str(max_num_seqs)
 	os.environ["QWABLE_5_GPU_MEMORY_UTILIZATION"] = f"{gpu_util:.2f}"
@@ -272,6 +274,10 @@ def apply_model_tuning_to_environ(
 		os.environ["QWABLE_5_ENABLE_TOOL_CHOICE"] = "1"
 	else:
 		os.environ.pop("QWABLE_5_ENABLE_TOOL_CHOICE", None)
+	if reasoning_parser:
+		os.environ["QWABLE_5_REASONING_PARSER"] = "qwen3"
+	else:
+		os.environ.pop("QWABLE_5_REASONING_PARSER", None)
 
 
 def fetch_model_api_summary(api_base: str) -> str:
@@ -542,6 +548,20 @@ def git_line_for_repo(repo: Path, *args: str, fallback: str = "unavailable") -> 
 	return value if value else fallback
 
 
+def is_xash_repo_root(repo: Path) -> bool:
+	return (repo / ".git").exists() and (repo / "scripts/ai-aider-pass.sh").is_file()
+
+
+def repo_validation_detail(repo: Path) -> str:
+	if not repo.exists():
+		return f"Path does not exist: {repo}"
+	if not (repo / ".git").exists():
+		return f"No .git directory or gitfile under {repo}"
+	if not (repo / "scripts/ai-aider-pass.sh").is_file():
+		return f"Missing scripts/ai-aider-pass.sh under {repo}"
+	return str(repo)
+
+
 def read_goals_for_repo(repo: Path) -> list[tuple[str, str, str, str]]:
 	path = repo / ".ai/goals/GAMECUBE_PORT_GOALS.md"
 	if not path.is_file():
@@ -661,6 +681,342 @@ def agent_memory_for_repo(repo: Path) -> str:
 	else:
 		lines.append("- none yet")
 	return "\n".join(lines)
+
+
+def count_repo_commits(repo: Path) -> int:
+	value = git_output_for_repo(repo, "rev-list", "--count", "HEAD")
+	return int(value) if value.isdigit() else 0
+
+
+def format_duration(seconds: float) -> str:
+	seconds = max(0, int(seconds))
+	hours, remainder = divmod(seconds, 3600)
+	minutes, secs = divmod(remainder, 60)
+	if hours:
+		return f"{hours}h {minutes}m {secs}s"
+	if minutes:
+		return f"{minutes}m {secs}s"
+	return f"{secs}s"
+
+
+def write_overnight_session_report(repo: Path, report: Mapping[str, object]) -> Path:
+	path = repo / ".ai/state/overnight-session-latest.md"
+	lines = [
+		"# Overnight Session Report",
+		"",
+		f"- Started: {report.get('started', '(unknown)')}",
+		f"- Ended: {report.get('ended', '(unknown)')}",
+		f"- Duration: {report.get('duration', '(unknown)')}",
+		f"- Stop reason: {report.get('reason', '(unknown)')}",
+		f"- Commits: {report.get('commits_made', 0)} (HEAD count {report.get('commits_start', '?')} → {report.get('commits_end', '?')})",
+		f"- Goal passes observed: {report.get('pass_count', 0)}",
+		f"- Model restarts: {report.get('model_restarts', 0)}",
+		f"- Automation restarts: {report.get('automation_restarts', 0)}",
+		f"- Stall recoveries: {report.get('stall_restarts', 0)}",
+		f"- Active goal: {report.get('active_goal', '(unknown)')}",
+		f"- Harness: {report.get('harness', '(unknown)')}",
+		f"- Console log: {report.get('log_path', '(none)')}",
+		f"- HEAD: {report.get('head', '(unknown)')}",
+	]
+	if report.get("notes"):
+		lines.extend(("", "## Notes", "", str(report["notes"])))
+	path.parent.mkdir(parents=True, exist_ok=True)
+	path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+	return path
+
+
+@dataclass(frozen=True)
+class PreflightCheck:
+	name: str
+	status: str
+	detail: str
+
+
+def supervisor_lock_status(repo: Path) -> tuple[bool, str]:
+	lock_path = repo / ".ai/goal-supervisor.lock"
+	if not lock_path.is_file():
+		return False, "no supervisor lock"
+	try:
+		pid = int(lock_path.read_text(encoding="utf-8").strip())
+	except ValueError:
+		return False, "stale supervisor lock (invalid pid)"
+	try:
+		os.kill(pid, 0)
+	except OSError:
+		return False, "stale supervisor lock"
+	return True, f"supervisor already running (pid {pid})"
+
+
+def automatic_goals_remaining(repo: Path) -> int:
+	remaining = 0
+	for _goal_id, state, _title, body in read_goals_for_repo(repo):
+		if state == "MANUAL" or state.lower() == "x" or goal_is_blocked(body):
+			continue
+		remaining += 1
+	return remaining
+
+
+def recommended_model_command_for_preflight() -> str:
+	saved = dict(os.environ)
+	try:
+		apply_model_tuning_to_environ(1, 0.85, 65536, False, 1024, 8192, False)
+		return vllm_qwable_command()
+	finally:
+		os.environ.clear()
+		os.environ.update(saved)
+
+
+def estimate_context_budget(repo: Path, max_context: str) -> tuple[bool, str]:
+	script = repo / "scripts/aider-context-estimate.py"
+	if not script.is_file():
+		return True, "context estimate script unavailable; skipping"
+	command = [
+		"python3", str(script),
+		"--repo", str(repo),
+		"--attempt", "1",
+		"--output-tokens", "2048",
+		"--max-context", max_context,
+		"--quiet",
+		"read:.ai/goals/GAMECUBE_PORT_GOALS.md",
+		"required:engine/platform/gamecube/vid_gamecube.c",
+		"read:engine/client/cl_scrn.c",
+		"read:.ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
+		"read:.ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
+	]
+	try:
+		result = subprocess.run(command, cwd=repo, text=True, capture_output=True,
+			timeout=20, check=False)
+	except (OSError, subprocess.SubprocessError) as exc:
+		return True, f"context estimate unavailable: {exc}"
+	output = (result.stdout or "") + (result.stderr or "")
+	if "OVER_BUDGET" in output:
+		return False, output.strip() or "active goal context exceeds model window"
+	if result.returncode != 0:
+		return True, "context estimate inconclusive; continuing"
+	return True, "representative G36 context fits the configured model window"
+
+
+def collect_overnight_preflight_checks(
+	repo: Path,
+	*,
+	command_text: str,
+	api_base: str,
+	auto_start_model: bool,
+	max_runtime_hours: float,
+) -> list[PreflightCheck]:
+	checks: list[PreflightCheck] = []
+	recommended_command = recommended_model_command_for_preflight()
+
+	def add(name: str, status: str, detail: str) -> None:
+		checks.append(PreflightCheck(name=name, status=status, detail=detail))
+
+	if is_xash_repo_root(repo):
+		add("Repository", "pass", repo_validation_detail(repo))
+	else:
+		add("Repository", "fail", repo_validation_detail(repo))
+
+	if os.environ.get("OPENAI_API_KEY"):
+		add("OPENAI_API_KEY", "pass", "API key is present in the environment.")
+	else:
+		add("OPENAI_API_KEY", "fail", "Set OPENAI_API_KEY in the shell or .env before overnight automation.")
+
+	if shutil.which("aider"):
+		add("Aider CLI", "pass", shutil.which("aider") or "aider")
+	else:
+		add("Aider CLI", "fail", "Install aider and ensure it is on PATH.")
+
+	devkit = Path(os.environ.get("DEVKITPRO", "/opt/devkitpro"))
+	ppc_gcc = devkit / "devkitPPC/bin/powerpc-eabi-gcc"
+	if ppc_gcc.is_file() and (devkit / "libogc").is_dir():
+		add("GameCube toolchain", "pass", f"{ppc_gcc}")
+	else:
+		add("GameCube toolchain", "fail",
+			f"devkitPPC/libogc not found under {devkit}; verified commits will fail to build.")
+
+	valve = repo / "Half-Life/valve"
+	if valve.is_dir():
+		add("Half-Life content", "pass", str(valve.relative_to(repo)))
+	else:
+		add("Half-Life content", "warn",
+			"Half-Life/valve is missing; some probe/build steps may fail until content is staged.")
+
+	load_gamecube_env(repo)
+	dolphin = os.environ.get("DOLPHIN_EXECUTABLE", "")
+	if dolphin:
+		add("Dolphin harness", "pass", dolphin)
+	else:
+		add("Dolphin harness", "warn",
+			"DOLPHIN_EXECUTABLE is unset; runtime probe goals cannot collect fresh evidence.")
+
+	try:
+		free_gib = shutil.disk_usage(repo).free / (1024 ** 3)
+	except OSError as exc:
+		add("Disk space", "warn", f"Could not measure free space: {exc}")
+	else:
+		if free_gib < 2:
+			add("Disk space", "fail", f"{free_gib:.1f} GiB free; need at least 2 GiB for logs and builds.")
+		elif free_gib < 10:
+			add("Disk space", "warn", f"{free_gib:.1f} GiB free; overnight logs/builds prefer >= 10 GiB.")
+		else:
+			add("Disk space", "pass", f"{free_gib:.1f} GiB free on the repository filesystem.")
+
+	try:
+		command = shlex.split(recommended_command)
+	except ValueError as exc:
+		add("Recommended vLLM command", "fail", f"Invalid command: {exc}")
+		command = []
+
+	if command:
+		problem = command_executable_problem(command, repo)
+		if problem:
+			add("Recommended vLLM command", "fail", problem)
+		else:
+			add("Recommended vLLM command", "pass", recommended_command[:180])
+
+	if command:
+		gpu_problem = gpu_memory_preflight_message(command)
+		if gpu_problem:
+			host, port = (urlparse(api_base).hostname or "127.0.0.1",
+				urlparse(api_base).port or 8072)
+			if model_port_open(host, port):
+				add("GPU memory", "warn",
+					"GPU looks tight for a second vLLM launch, but an existing model API is already reachable.")
+			elif auto_start_model:
+				add("GPU memory", "fail", gpu_problem)
+			else:
+				add("GPU memory", "warn", gpu_problem)
+
+	try:
+		current = shlex.split(command_text)
+	except ValueError:
+		current = []
+	if command_has_flag(current, "--reasoning-parser"):
+		add("Reasoning parser", "warn",
+			"Current saved command still uses --reasoning-parser; Overnight Run will apply recommended settings without it.")
+	else:
+		add("Reasoning parser", "pass", "Recommended command leaves reasoning parser disabled for Aider diff output.")
+
+	host = urlparse(api_base).hostname or "127.0.0.1"
+	port = urlparse(api_base).port or 8072
+	if model_port_open(host, port):
+		add("Model API", "pass", f"{api_base} is reachable.")
+	elif auto_start_model:
+		add("Model API", "pass", "Model API is offline now; Overnight Run will auto-start vLLM.")
+	else:
+		add("Model API", "fail",
+			"Model API is offline and auto-start vLLM is disabled.")
+
+	lock_active, lock_detail = supervisor_lock_status(repo)
+	if lock_active:
+		add("Goal supervisor lock", "fail", lock_detail)
+	else:
+		add("Goal supervisor lock", "pass", lock_detail)
+
+	remaining = automatic_goals_remaining(repo)
+	if remaining <= 0:
+		add("Automatic goals", "warn", "No automatic goals remain; overnight run may exit immediately.")
+	else:
+		add("Automatic goals", "pass", f"{remaining} automatic goal(s) still open.")
+
+	ok, detail = estimate_context_budget(repo, os.environ.get("AIDER_MODEL_MAX_CONTEXT", "65536"))
+	add("Context budget", "pass" if ok else "warn", detail)
+
+	add("Runtime limit", "pass",
+		f"Overnight session will stop after {max_runtime_hours:.1f} hour(s) and write a session report.")
+	return checks
+
+
+class OvernightPreflightDialog(QDialog):
+	def __init__(
+		self,
+		parent: QWidget | None,
+		checks: list[PreflightCheck],
+		*,
+		allow_start: bool = True,
+	) -> None:
+		super().__init__(parent)
+		self.checks = checks
+		self.allow_start = allow_start
+		self.setWindowTitle("Overnight Preflight Checklist")
+		self.setMinimumWidth(760)
+		layout = QVBoxLayout(self)
+
+		summary = QLabel(
+			"Review the environment before leaving automation unattended. "
+			"Failures must be fixed; warnings are shown but may still be acceptable."
+		)
+		summary.setWordWrap(True)
+		layout.addWidget(summary)
+
+		self.table = QTableWidget(len(checks), 3)
+		self.table.setHorizontalHeaderLabels(["Status", "Check", "Details"])
+		self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+		self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+		self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+		self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+		self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+		self.table.verticalHeader().setVisible(False)
+		for row, check in enumerate(checks):
+			status_item = QTableWidgetItem(check.status.upper())
+			color = {
+				"pass": QColor(GC_MINT),
+				"warn": QColor(GC_ORANGE),
+				"fail": QColor(GC_RED),
+			}.get(check.status, QColor(GC_MUTED))
+			status_item.setForeground(color)
+			self.table.setItem(row, 0, status_item)
+			self.table.setItem(row, 1, QTableWidgetItem(check.name))
+			detail_item = QTableWidgetItem(check.detail)
+			detail_item.setToolTip(check.detail)
+			self.table.setItem(row, 2, detail_item)
+		layout.addWidget(self.table)
+
+		counts = {
+			"pass": sum(item.status == "pass" for item in checks),
+			"warn": sum(item.status == "warn" for item in checks),
+			"fail": sum(item.status == "fail" for item in checks),
+		}
+		self.summary_label = QLabel(
+			f"{counts['pass']} passed, {counts['warn']} warnings, {counts['fail']} failures"
+		)
+		self.summary_label.setStyleSheet(
+			f"color: {GC_RED if counts['fail'] else GC_MINT if counts['warn'] == 0 else GC_ORANGE}; "
+			"font-weight: bold;"
+		)
+		layout.addWidget(self.summary_label)
+
+		buttons = QDialogButtonBox()
+		if allow_start:
+			self.start_button = buttons.addButton("Start Overnight Run", QDialogButtonBox.ButtonRole.AcceptRole)
+			self.start_button.setEnabled(counts["fail"] == 0)
+		buttons.addButton(QDialogButtonBox.StandardButton.Close)
+		buttons.rejected.connect(self.reject)
+		if allow_start:
+			buttons.accepted.connect(self.accept)
+		layout.addWidget(buttons)
+
+	@property
+	def has_failures(self) -> bool:
+		return any(check.status == "fail" for check in self.checks)
+
+	@property
+	def has_warnings(self) -> bool:
+		return any(check.status == "warn" for check in self.checks)
+
+
+def write_overnight_preflight_report(repo: Path, checks: list[PreflightCheck]) -> Path:
+	path = repo / ".ai/state/overnight-preflight-latest.md"
+	lines = [
+		"# Overnight Preflight",
+		"",
+		f"- Checked: {datetime.now().isoformat(sep=' ', timespec='seconds')}",
+		"",
+	]
+	for check in checks:
+		lines.append(f"- [{check.status.upper()}] {check.name}: {check.detail}")
+	path.parent.mkdir(parents=True, exist_ok=True)
+	path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+	return path
 
 
 def model_port_open(host: str, port: int) -> bool:
@@ -799,6 +1155,20 @@ class PortWindow(QMainWindow):
 		self.closing = False
 		self.model_api_wait_attempts = 0
 		self._layout_initialized = False
+		self.overnight_mode = False
+		self.pending_overnight_automation = False
+		self.overnight_started_at: datetime | None = None
+		self.overnight_commits_at_start = 0
+		self.overnight_pass_count = 0
+		self.overnight_model_restarts = 0
+		self.overnight_automation_restarts = 0
+		self.overnight_stall_restarts = 0
+		self.overnight_log_path: Path | None = None
+		self.last_output_at = datetime.now()
+		self.last_overnight_log_flush = datetime.now()
+		self.overnight_watchdog = QTimer(self)
+		self.overnight_watchdog.setInterval(60_000)
+		self.overnight_watchdog.timeout.connect(self.check_overnight_watchdog)
 		self._viewport_resize_timer = QTimer(self)
 		self._viewport_resize_timer.setSingleShot(True)
 		self._viewport_resize_timer.setInterval(120)
@@ -931,6 +1301,10 @@ class PortWindow(QMainWindow):
 		self.progress.setFormat("No automation running")
 		progress_layout.addWidget(self.status_label)
 		progress_layout.addWidget(self.progress)
+		self.session_stats_label = QLabel("Overnight session idle")
+		self.session_stats_label.setWordWrap(True)
+		self.session_stats_label.setStyleSheet(f"color: {GC_MUTED}; font-size: 11px;")
+		progress_layout.addWidget(self.session_stats_label)
 		self.add_panel("Progress", progress_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		workspace_panel = QWidget()
@@ -964,6 +1338,10 @@ class PortWindow(QMainWindow):
 		self.model_tool_choice = QCheckBox("Enable vLLM tool choice (Aider does not need this)")
 		self.model_tool_choice.setChecked(
 			os.environ.get("QWABLE_5_ENABLE_TOOL_CHOICE", "").strip().lower() in {"1", "true", "yes"})
+		self.model_reasoning_parser = QCheckBox(
+			"Enable vLLM reasoning parser (off for Aider diff output)")
+		self.model_reasoning_parser.setChecked(
+			os.environ.get("QWABLE_5_REASONING_PARSER", "").strip().lower() in {"qwen3", "1", "true", "yes"})
 		self.aider_history_spin = QSpinBox()
 		self.aider_history_spin.setRange(256, 4096)
 		self.aider_history_spin.setSingleStep(256)
@@ -1006,14 +1384,15 @@ class PortWindow(QMainWindow):
 		model_form.addWidget(QLabel("Max context:"), 4, 0)
 		model_form.addWidget(self.model_max_len_spin, 4, 1)
 		model_form.addWidget(self.model_tool_choice, 5, 0, 1, 2)
-		model_form.addWidget(QLabel("Aider history:"), 6, 0)
-		model_form.addWidget(self.aider_history_spin, 6, 1)
-		model_form.addWidget(QLabel("Prompt overhead:"), 7, 0)
-		model_form.addWidget(self.aider_overhead_spin, 7, 1)
-		model_form.addWidget(model_api_label, 8, 0)
-		model_form.addWidget(self.model_api_edit, 8, 1)
-		model_form.addLayout(model_controls, 9, 0, 1, 2)
-		model_form.addWidget(self.model_status_label, 10, 0, 1, 2)
+		model_form.addWidget(self.model_reasoning_parser, 6, 0, 1, 2)
+		model_form.addWidget(QLabel("Aider history:"), 7, 0)
+		model_form.addWidget(self.aider_history_spin, 7, 1)
+		model_form.addWidget(QLabel("Prompt overhead:"), 8, 0)
+		model_form.addWidget(self.aider_overhead_spin, 8, 1)
+		model_form.addWidget(model_api_label, 9, 0)
+		model_form.addWidget(self.model_api_edit, 9, 1)
+		model_form.addLayout(model_controls, 10, 0, 1, 2)
+		model_form.addWidget(self.model_status_label, 11, 0, 1, 2)
 		model_form.setColumnStretch(0, 1)
 		model_form.setColumnStretch(1, 1)
 		for widget in (
@@ -1022,6 +1401,7 @@ class PortWindow(QMainWindow):
 		):
 			widget.valueChanged.connect(self.sync_model_command_from_tuning)
 		self.model_tool_choice.toggled.connect(self.sync_model_command_from_tuning)
+		self.model_reasoning_parser.toggled.connect(self.sync_model_command_from_tuning)
 		self.add_panel("Model Server", model_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		goals_panel = QWidget()
@@ -1103,8 +1483,10 @@ class PortWindow(QMainWindow):
 		self.add_panel("Dolphin Viewport", viewport_panel, Qt.DockWidgetArea.BottomDockWidgetArea)
 
 		automation_panel = QWidget()
+		automation_layout = QVBoxLayout(automation_panel)
+		automation_layout.setContentsMargins(0, 0, 0, 0)
+		automation_layout.setSpacing(6)
 		controls = QHBoxLayout()
-		automation_panel.setLayout(controls)
 		self.passes_spin = QSpinBox()
 		self.passes_spin.setRange(0, 100)
 		self.passes_spin.setSpecialValueText("Unlimited")
@@ -1112,6 +1494,10 @@ class PortWindow(QMainWindow):
 		self.recovery_spin = QSpinBox()
 		self.recovery_spin.setRange(1, 50)
 		self.recovery_spin.setValue(8)
+		self.cycle_sleep_spin = QSpinBox()
+		self.cycle_sleep_spin.setRange(5, 120)
+		self.cycle_sleep_spin.setValue(10)
+		self.cycle_sleep_spin.setToolTip("Seconds to wait between supervisor retries")
 		self.loop_btn = QPushButton("▶  ACCOMPLISH GOALS")
 		self.loop_btn.setObjectName("PrimaryButton")
 		self.loop_btn.clicked.connect(self.run_goal_loop)
@@ -1124,7 +1510,37 @@ class PortWindow(QMainWindow):
 		controls.addWidget(self.passes_spin)
 		controls.addWidget(QLabel("Recovery retries:"))
 		controls.addWidget(self.recovery_spin)
+		controls.addWidget(QLabel("Cycle sleep:"))
+		controls.addWidget(self.cycle_sleep_spin)
 		controls.addWidget(self.stop_btn)
+		automation_layout.addLayout(controls)
+		overnight_row = QHBoxLayout()
+		self.overnight_btn = QPushButton("▶  OVERNIGHT RUN")
+		self.overnight_btn.setObjectName("PrimaryButton")
+		self.overnight_btn.setToolTip(
+			"Apply recommended vLLM settings, auto-start the model if needed, "
+			"then run goal automation until complete or the runtime limit is reached."
+		)
+		self.overnight_btn.clicked.connect(self.start_overnight_run)
+		self.max_runtime_spin = QDoubleSpinBox()
+		self.max_runtime_spin.setRange(0.5, 24.0)
+		self.max_runtime_spin.setSingleStep(0.5)
+		self.max_runtime_spin.setDecimals(1)
+		self.max_runtime_spin.setValue(8.0)
+		self.max_runtime_spin.setSuffix(" h")
+		self.max_runtime_spin.setToolTip("Stop automation gracefully after this many hours")
+		self.auto_start_model = QCheckBox("Auto-start vLLM")
+		self.auto_start_model.setChecked(True)
+		self.auto_start_model.setToolTip("Launch qwable-5 automatically when starting overnight automation")
+		overnight_row.addWidget(self.overnight_btn, 2)
+		overnight_row.addWidget(QLabel("Max runtime:"))
+		overnight_row.addWidget(self.max_runtime_spin)
+		overnight_row.addWidget(self.auto_start_model)
+		self.overnight_preflight_btn = QPushButton("Preflight")
+		self.overnight_preflight_btn.setToolTip("Run the overnight environment checklist without starting automation")
+		self.overnight_preflight_btn.clicked.connect(self.show_overnight_preflight)
+		overnight_row.addWidget(self.overnight_preflight_btn)
+		automation_layout.addLayout(overnight_row)
 		self.add_panel("Automation", automation_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		pipeline_panel = QWidget()
@@ -1296,6 +1712,10 @@ class PortWindow(QMainWindow):
 		run_goal.setShortcut("Ctrl+Return")
 		run_goal.triggered.connect(self.run_goal_loop)
 		self.run_menu.addAction(run_goal)
+		overnight_action = QAction("Start Overnight Run", self)
+		overnight_action.setShortcut("Ctrl+Shift+Return")
+		overnight_action.triggered.connect(self.start_overnight_run)
+		self.run_menu.addAction(overnight_action)
 		stop_action = QAction("Stop Automation", self)
 		stop_action.setShortcut("Escape")
 		stop_action.triggered.connect(self.stop_process)
@@ -1331,6 +1751,17 @@ class PortWindow(QMainWindow):
 		harness_action.setShortcut("Ctrl+H")
 		harness_action.triggered.connect(self.open_harness_report)
 		self.tools_menu.addAction(harness_action)
+		session_action = QAction("Open Overnight Session Report", self)
+		session_action.setShortcut("Ctrl+Shift+H")
+		session_action.triggered.connect(self.open_overnight_report)
+		self.tools_menu.addAction(session_action)
+		overnight_preflight_action = QAction("Overnight Preflight Checklist", self)
+		overnight_preflight_action.setShortcut("Ctrl+Shift+P")
+		overnight_preflight_action.triggered.connect(self.show_overnight_preflight)
+		self.tools_menu.addAction(overnight_preflight_action)
+		preflight_report_action = QAction("Open Overnight Preflight Report", self)
+		preflight_report_action.triggered.connect(self.open_overnight_preflight_report)
+		self.tools_menu.addAction(preflight_report_action)
 
 		self.about_menu = self.menuBar().addMenu("&About")
 		about_action = QAction("About Xash3D GameCube Porting", self)
@@ -1338,14 +1769,19 @@ class PortWindow(QMainWindow):
 		self.about_menu.addAction(about_action)
 
 	def read_settings_file(self) -> dict[str, object]:
-		if not SETTINGS_PATH.is_file():
-			return {}
-		try:
-			data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
-		except (OSError, json.JSONDecodeError) as exc:
-			self.status_label.setText(f"Settings unavailable: {exc}")
-			return {}
-		return dict(data) if isinstance(data, Mapping) else {}
+		candidates = [self.settings_path(), SETTINGS_PATH]
+		seen: set[Path] = set()
+		for path in candidates:
+			if path in seen or not path.is_file():
+				continue
+			seen.add(path)
+			try:
+				data = json.loads(path.read_text(encoding="utf-8"))
+			except (OSError, json.JSONDecodeError) as exc:
+				self.status_label.setText(f"Settings unavailable: {exc}")
+				return {}
+			return dict(data) if isinstance(data, Mapping) else {}
+		return {}
 
 	def current_settings(self, *, include_layout: bool) -> dict[str, object]:
 		data: dict[str, object] = {
@@ -1357,10 +1793,14 @@ class PortWindow(QMainWindow):
 			"model_gpu_utilization": self.model_gpu_util_spin.value(),
 			"model_max_model_len": self.model_max_len_spin.value(),
 			"model_tool_choice": self.model_tool_choice.isChecked(),
+			"model_reasoning_parser": self.model_reasoning_parser.isChecked(),
 			"aider_history_tokens": self.aider_history_spin.value(),
 			"aider_system_overhead_tokens": self.aider_overhead_spin.value(),
 			"pass_limit": self.passes_spin.value(),
 			"recovery_retries": self.recovery_spin.value(),
+			"cycle_sleep_sec": self.cycle_sleep_spin.value(),
+			"max_runtime_hours": self.max_runtime_spin.value(),
+			"auto_start_model": self.auto_start_model.isChecked(),
 			"follow_log": self.follow_log.isChecked(),
 		}
 		if include_layout:
@@ -1371,9 +1811,10 @@ class PortWindow(QMainWindow):
 	def write_settings_file(self, *, include_layout: bool) -> bool:
 		data = self.read_settings_file()
 		data.update(self.current_settings(include_layout=include_layout))
+		path = self.settings_path()
 		try:
-			SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-			SETTINGS_PATH.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n",
+			path.parent.mkdir(parents=True, exist_ok=True)
+			path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n",
 				encoding="utf-8")
 		except OSError as exc:
 			QMessageBox.warning(self, "Save settings failed", str(exc))
@@ -1382,11 +1823,11 @@ class PortWindow(QMainWindow):
 
 	def save_settings(self) -> None:
 		if self.write_settings_file(include_layout=False):
-			self.status_label.setText(f"Saved settings: {SETTINGS_PATH.relative_to(DEFAULT_REPO)}")
+			self.status_label.setText(f"Saved settings: {self.settings_path().relative_to(self.repo())}")
 
 	def save_layout(self) -> None:
 		if self.write_settings_file(include_layout=True):
-			self.status_label.setText(f"Saved layout: {SETTINGS_PATH.relative_to(DEFAULT_REPO)}")
+			self.status_label.setText(f"Saved layout: {self.settings_path().relative_to(self.repo())}")
 
 	def restore_saved_layout(self) -> None:
 		data = self.read_settings_file()
@@ -1440,6 +1881,9 @@ class PortWindow(QMainWindow):
 		tool_choice = data.get("model_tool_choice")
 		if isinstance(tool_choice, bool):
 			self.model_tool_choice.setChecked(tool_choice)
+		reasoning_parser = data.get("model_reasoning_parser")
+		if isinstance(reasoning_parser, bool):
+			self.model_reasoning_parser.setChecked(reasoning_parser)
 		aider_history = data.get("aider_history_tokens")
 		if isinstance(aider_history, int):
 			self.aider_history_spin.setValue(aider_history)
@@ -1453,6 +1897,15 @@ class PortWindow(QMainWindow):
 		recovery_retries = data.get("recovery_retries")
 		if isinstance(recovery_retries, int):
 			self.recovery_spin.setValue(max(self.recovery_spin.minimum(), min(self.recovery_spin.maximum(), recovery_retries)))
+		cycle_sleep = data.get("cycle_sleep_sec")
+		if isinstance(cycle_sleep, int):
+			self.cycle_sleep_spin.setValue(max(self.cycle_sleep_spin.minimum(), min(self.cycle_sleep_spin.maximum(), cycle_sleep)))
+		max_runtime = data.get("max_runtime_hours")
+		if isinstance(max_runtime, (int, float)):
+			self.max_runtime_spin.setValue(float(max_runtime))
+		auto_start_model = data.get("auto_start_model")
+		if isinstance(auto_start_model, bool):
+			self.auto_start_model.setChecked(auto_start_model)
 		follow_log = data.get("follow_log")
 		if isinstance(follow_log, bool):
 			self.follow_log.setChecked(follow_log)
@@ -1668,13 +2121,24 @@ class PortWindow(QMainWindow):
 			self.status_label.setText("Cleared saved dock layout")
 
 	def repo(self) -> Path:
-		return Path(self.repo_edit.text().strip()).expanduser().resolve()
+		text = self.repo_edit.text().strip()
+		if not text:
+			return DEFAULT_REPO.resolve()
+		return Path(text).expanduser().resolve()
+
+	def settings_path(self) -> Path:
+		return self.repo() / ".ai/state/xash3d-gc-aider-gui-settings.json"
 
 	def valid_repo(self) -> bool:
 		root = self.repo()
-		ok = (root / ".git").exists() and (root / "scripts/ai-aider-pass.sh").is_file()
+		ok = is_xash_repo_root(root)
 		if not ok:
-			QMessageBox.warning(self, "Invalid repository", "Select the Xash3D GameCube repository root.")
+			QMessageBox.warning(
+				self,
+				"Invalid repository",
+				f"{repo_validation_detail(root)}\n\n"
+				"Set the Xash3D repository root in the Workspace panel.",
+			)
 		return ok
 
 	def set_chip_state(self, chip: QLabel, text: str, state: str = "idle") -> None:
@@ -1775,6 +2239,8 @@ class PortWindow(QMainWindow):
 	def append(self, text: str) -> None:
 		if self.closing or not hasattr(self, "log"):
 			return
+		if text.strip():
+			self.last_output_at = datetime.now()
 		self.log_buffer.append(text)
 		visible_cursor = self.log.textCursor()
 		had_selection = visible_cursor.hasSelection()
@@ -1912,6 +2378,7 @@ class PortWindow(QMainWindow):
 			self.model_tool_choice.isChecked(),
 			self.aider_history_spin.value(),
 			self.aider_overhead_spin.value(),
+			self.model_reasoning_parser.isChecked(),
 		)
 		os.environ["OPENAI_API_BASE"] = self.model_api_edit.text().strip()
 
@@ -1933,6 +2400,8 @@ class PortWindow(QMainWindow):
 		if max_len and max_len.isdigit():
 			self.model_max_len_spin.setValue(int(max_len))
 		self.model_tool_choice.setChecked(command_has_flag(command, "--enable-auto-tool-choice"))
+		reasoning = command_flag_value(command, "--reasoning-parser")
+		self.model_reasoning_parser.setChecked(bool(reasoning))
 
 	def sync_model_command_from_tuning(self) -> None:
 		self.apply_automation_env_from_ui()
@@ -1943,6 +2412,7 @@ class PortWindow(QMainWindow):
 		self.model_gpu_util_spin.setValue(0.85)
 		self.model_max_len_spin.setValue(65536)
 		self.model_tool_choice.setChecked(False)
+		self.model_reasoning_parser.setChecked(False)
 		self.aider_history_spin.setValue(1024)
 		self.aider_overhead_spin.setValue(8192)
 		self.sync_model_command_from_tuning()
@@ -1963,11 +2433,20 @@ class PortWindow(QMainWindow):
 			self.set_model_state("MODEL  READY", GC_MINT)
 			self.status_label.setText("qwable-5 API is ready")
 			self.model_api_wait_attempts = 0
+			if self.pending_overnight_automation:
+				self.pending_overnight_automation = False
+				QTimer.singleShot(1000, self.begin_overnight_automation)
 			return
 		self.model_api_wait_attempts += 1
 		if self.model_api_wait_attempts >= 90:
-			self.status_label.setText("qwable-5 started but API is not responding yet")
-			self.model_api_wait_attempts = 0
+			if self.overnight_mode:
+				self.append("\n[Overnight: model API warmup timed out; retrying launch]\n")
+				self.overnight_model_restarts += 1
+				self.model_api_wait_attempts = 0
+				QTimer.singleShot(15000, self.start_model_if_needed_for_overnight)
+			else:
+				self.status_label.setText("qwable-5 started but API is not responding yet")
+				self.model_api_wait_attempts = 0
 			return
 		self.set_model_state("MODEL  WARMING", GC_ORANGE)
 		QTimer.singleShot(2000, self.poll_model_api_ready)
@@ -2049,6 +2528,11 @@ class PortWindow(QMainWindow):
 				f"\nWarning: --max-num-seqs {seqs} is high for single-client Aider. "
 				"Use Apply Recommended before starting vLLM.\n"
 			)
+		if command_has_flag(command, "--reasoning-parser"):
+			self.append(
+				"\nWarning: --reasoning-parser is enabled. Aider automation expects plain "
+				"diff output; leave this off unless you are not using Aider.\n"
+			)
 
 		self.model_operation = "qwable-5"
 		self.append(f"\n\n$ {' '.join(command)}\n")
@@ -2097,6 +2581,12 @@ class PortWindow(QMainWindow):
 		self.start_model_btn.setEnabled(True)
 		self.kill_model_btn.setEnabled(True)
 		self.refresh_model_status()
+		if self.overnight_mode and exit_code != 0 and \
+			(self.process is not None or self.pending_overnight_automation):
+			self.overnight_model_restarts += 1
+			self.append("\n[Overnight: vLLM exited unexpectedly; restarting in 15s]\n")
+			self.set_model_state("MODEL  RESTART", GC_ORANGE)
+			QTimer.singleShot(15000, self.start_model_if_needed_for_overnight)
 
 	def kill_model(self) -> None:
 		if self.model_process is not None:
@@ -2343,6 +2833,8 @@ class PortWindow(QMainWindow):
 			self.progress.setFormat(f"{operation}: %v / %m")
 		self.status_label.setText(f"Running: {operation}")
 		self.loop_btn.setEnabled(False)
+		self.overnight_btn.setEnabled(False)
+		self.overnight_preflight_btn.setEnabled(False)
 		self.stop_btn.setEnabled(True)
 		if operation == "Goal automation":
 			self.set_save_state("UNSAVED", GC_ORANGE)
@@ -2373,8 +2865,255 @@ class PortWindow(QMainWindow):
 		recoveries = self.recovery_spin.value()
 		self.start(["scripts/ai-run-until-done.py", "--repo", str(self.repo()),
 			"--chunk-passes", str(passes), "--max-cycles", "0",
-			"--recoverable-retries", str(recoveries), "--sleep", "10"],
+			"--recoverable-retries", str(recoveries),
+			"--sleep", str(self.cycle_sleep_spin.value())],
 			"Goal automation", passes)
+
+	def model_api_ready(self) -> bool:
+		return self.refresh_model_api_summary()
+
+	def model_host_port(self) -> tuple[str, int]:
+		api_base = self.model_api_edit.text().strip() or "http://127.0.0.1:8072/v1"
+		parsed = urlparse(api_base)
+		host = parsed.hostname or "127.0.0.1"
+		port = parsed.port or (443 if parsed.scheme == "https" else 8072)
+		return host, port
+
+	def start_model_if_needed_for_overnight(self) -> None:
+		if self.closing or not self.overnight_mode:
+			return
+		host, port = self.model_host_port()
+		if self.model_process is not None or model_port_open(host, port):
+			if self.process is None and not self.pending_overnight_automation:
+				self.begin_overnight_automation()
+			return
+		if self.auto_start_model.isChecked():
+			self.pending_overnight_automation = self.process is None
+			self.start_model()
+		elif self.process is None:
+			self.append("\n[Overnight: model API offline and auto-start disabled; waiting…]\n")
+			QTimer.singleShot(30000, self.start_model_if_needed_for_overnight)
+
+	def begin_overnight_automation(self) -> None:
+		if self.closing or not self.overnight_mode or self.process is not None:
+			return
+		if not self.model_api_ready():
+			self.pending_overnight_automation = True
+			self.start_model_if_needed_for_overnight()
+			return
+		self.pending_overnight_automation = False
+		self.append("\n[Overnight: starting goal automation supervisor]\n")
+		self.run_goal_loop()
+
+	def update_session_stats_label(self) -> None:
+		if not self.overnight_mode or self.overnight_started_at is None:
+			self.session_stats_label.setText("Overnight session idle")
+			return
+		elapsed = (datetime.now() - self.overnight_started_at).total_seconds()
+		remaining = max(0.0, self.max_runtime_spin.value() * 3600 - elapsed)
+		commits = max(0, count_repo_commits(self.repo()) - self.overnight_commits_at_start)
+		self.session_stats_label.setText(
+			f"Overnight: {format_duration(elapsed)} elapsed, "
+			f"{format_duration(remaining)} remaining | "
+			f"commits {commits} | passes {self.overnight_pass_count} | "
+			f"model restarts {self.overnight_model_restarts} | "
+			f"automation restarts {self.overnight_automation_restarts}"
+		)
+
+	def flush_overnight_log(self) -> None:
+		if self.overnight_log_path is None:
+			return
+		try:
+			self.overnight_log_path.parent.mkdir(parents=True, exist_ok=True)
+			self.overnight_log_path.write_text(self.log.toPlainText(), encoding="utf-8")
+			self.last_overnight_log_flush = datetime.now()
+		except OSError as exc:
+			self.append(f"\n[Overnight log flush failed: {exc}]\n")
+
+	def build_overnight_report(self, reason: str) -> dict[str, object]:
+		repo = self.repo()
+		elapsed = 0.0
+		if self.overnight_started_at is not None:
+			elapsed = (datetime.now() - self.overnight_started_at).total_seconds()
+		harness_status, harness_g36, harness_text = parse_harness_latest(repo)
+		active_goal = "(unknown)"
+		goals = self.read_goals()
+		for goal_id, state, title, _body in goals:
+			if state in {" ", "~"} and not goal_is_blocked(_body):
+				active_goal = f"{goal_id} {title}"
+				break
+		return {
+			"started": self.overnight_started_at.isoformat(sep=" ", timespec="seconds")
+				if self.overnight_started_at else "(unknown)",
+			"ended": datetime.now().isoformat(sep=" ", timespec="seconds"),
+			"duration": format_duration(elapsed),
+			"reason": reason,
+			"commits_start": self.overnight_commits_at_start,
+			"commits_end": count_repo_commits(repo),
+			"commits_made": max(0, count_repo_commits(repo) - self.overnight_commits_at_start),
+			"pass_count": self.overnight_pass_count,
+			"model_restarts": self.overnight_model_restarts,
+			"automation_restarts": self.overnight_automation_restarts,
+			"stall_restarts": self.overnight_stall_restarts,
+			"active_goal": active_goal,
+			"harness": harness_text or f"{harness_status}/{harness_g36}",
+			"log_path": str(self.overnight_log_path.relative_to(repo))
+				if self.overnight_log_path and self.overnight_log_path.is_file() else "(none)",
+			"head": git_line_for_repo(repo, "log", "-1", "--oneline"),
+		}
+
+	def finish_overnight_session(self, reason: str) -> None:
+		if not self.overnight_mode:
+			return
+		self.overnight_watchdog.stop()
+		self.flush_overnight_log()
+		report = self.build_overnight_report(reason)
+		report_path = write_overnight_session_report(self.repo(), report)
+		self.overnight_mode = False
+		self.pending_overnight_automation = False
+		self.overnight_btn.setEnabled(True)
+		self.overnight_preflight_btn.setEnabled(True)
+		self.loop_btn.setEnabled(self.process is None)
+		self.update_session_stats_label()
+		self.append(
+			f"\n[Overnight session ended: {reason}]\n"
+			f"[Session report: {report_path.relative_to(self.repo())}]\n"
+		)
+		self.status_label.setText(f"Overnight session ended: {reason}")
+		self.status_bar.showMessage(self.status_label.text(), 10000)
+
+	def check_overnight_watchdog(self) -> None:
+		if not self.overnight_mode or self.overnight_started_at is None:
+			return
+		self.update_session_stats_label()
+		elapsed = (datetime.now() - self.overnight_started_at).total_seconds()
+		if elapsed >= self.max_runtime_spin.value() * 3600:
+			self.append("\n[Overnight: max runtime reached; stopping automation]\n")
+			if self.process is not None:
+				self.user_stopping = True
+				self.process.terminate()
+			self.finish_overnight_session("max runtime reached")
+			return
+		if (datetime.now() - self.last_overnight_log_flush).total_seconds() >= 300:
+			self.flush_overnight_log()
+		if self.process is None:
+			return
+		stall_seconds = (datetime.now() - self.last_output_at).total_seconds()
+		if stall_seconds >= 45 * 60:
+			self.overnight_stall_restarts += 1
+			self.append(
+				f"\n[Overnight: no output for {int(stall_seconds // 60)} minutes; "
+				"restarting automation supervisor]\n"
+			)
+			self.user_stopping = True
+			self.process.terminate()
+			QTimer.singleShot(10000, self.restart_goal_automation)
+
+	def collect_overnight_preflight_checks(self) -> list[PreflightCheck]:
+		load_dotenv(self.repo() / ".env")
+		load_gamecube_env(self.repo())
+		self.apply_automation_env_from_ui()
+		return collect_overnight_preflight_checks(
+			self.repo(),
+			command_text=self.model_command_edit.text().strip(),
+			api_base=self.model_api_edit.text().strip(),
+			auto_start_model=self.auto_start_model.isChecked(),
+			max_runtime_hours=self.max_runtime_spin.value(),
+		)
+
+	def show_overnight_preflight(self) -> bool:
+		if not self.valid_repo():
+			return False
+		checks = self.collect_overnight_preflight_checks()
+		report_path = write_overnight_preflight_report(self.repo(), checks)
+		dialog = OvernightPreflightDialog(self, checks, allow_start=False)
+		dialog.exec()
+		self.status_label.setText(
+			"Overnight preflight failed" if dialog.has_failures else
+			"Overnight preflight passed with warnings" if dialog.has_warnings else
+			"Overnight preflight passed"
+		)
+		self.status_bar.showMessage(f"Saved {report_path.relative_to(self.repo())}", 5000)
+		return not dialog.has_failures
+
+	def open_overnight_preflight_report(self) -> None:
+		path = self.repo() / ".ai/state/overnight-preflight-latest.md"
+		if not path.is_file():
+			QMessageBox.information(self, "No preflight report",
+				"Run the overnight preflight checklist first.")
+			return
+		QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+
+	def confirm_overnight_preflight(self) -> bool:
+		checks = self.collect_overnight_preflight_checks()
+		report_path = write_overnight_preflight_report(self.repo(), checks)
+		dialog = OvernightPreflightDialog(self, checks, allow_start=True)
+		if dialog.exec() != QDialog.DialogCode.Accepted:
+			return False
+		self.append(f"\n[Overnight preflight saved: {report_path.relative_to(self.repo())}]\n")
+		if dialog.has_warnings:
+			warning_names = ", ".join(check.name for check in checks if check.status == "warn")
+			answer = QMessageBox.question(
+				self,
+				"Continue with warnings?",
+				f"The preflight checklist passed with warnings:\n{warning_names}\n\n"
+				"Start the overnight run anyway?",
+				QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+				QMessageBox.StandardButton.No,
+			)
+			if answer != QMessageBox.StandardButton.Yes:
+				return False
+		return True
+
+	def begin_overnight_session(self) -> None:
+		self.apply_recommended_model_settings()
+		self.save_settings()
+		self.overnight_mode = True
+		self.pending_overnight_automation = False
+		self.overnight_started_at = datetime.now()
+		self.overnight_commits_at_start = count_repo_commits(self.repo())
+		self.overnight_pass_count = 0
+		self.overnight_model_restarts = 0
+		self.overnight_automation_restarts = 0
+		self.overnight_stall_restarts = 0
+		self.last_output_at = datetime.now()
+		self.last_overnight_log_flush = datetime.now()
+		logs = self.repo() / ".ai/logs"
+		logs.mkdir(parents=True, exist_ok=True)
+		self.overnight_log_path = logs / f"overnight-{self.overnight_started_at.strftime('%Y%m%d-%H%M%S')}.log"
+		self.overnight_btn.setEnabled(False)
+		self.overnight_preflight_btn.setEnabled(False)
+		self.overnight_watchdog.start()
+		self.update_session_stats_label()
+		self.append(
+			f"\n[Overnight session started at {self.overnight_started_at:%Y-%m-%d %H:%M:%S}]\n"
+			f"[Console log: {self.overnight_log_path.relative_to(self.repo())}]\n"
+		)
+		host, port = self.model_host_port()
+		if self.auto_start_model.isChecked() and self.model_process is None and not model_port_open(host, port):
+			self.pending_overnight_automation = True
+			self.start_model()
+		else:
+			QTimer.singleShot(1000, self.begin_overnight_automation)
+
+	def start_overnight_run(self) -> None:
+		if not self.valid_repo():
+			return
+		if self.process is not None:
+			QMessageBox.information(self, "Automation already running",
+				"Goal automation is already active.")
+			return
+		if not self.confirm_overnight_preflight():
+			return
+		self.begin_overnight_session()
+
+	def open_overnight_report(self) -> None:
+		path = self.repo() / ".ai/state/overnight-session-latest.md"
+		if not path.is_file():
+			QMessageBox.information(self, "No overnight report",
+				"No overnight session report has been written yet.")
+			return
+		QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
 	def read_output(self) -> None:
 		if self.closing or self.process is None:
@@ -2416,12 +3155,16 @@ class PortWindow(QMainWindow):
 				if line.startswith("GOAL PASS "):
 					try:
 						pass_value = int(line.split()[2].split("/")[0])
+						if self.overnight_mode:
+							self.overnight_pass_count = max(self.overnight_pass_count, pass_value)
 						if self.expected_passes == 0:
 							self.progress.setFormat(f"Goal automation: pass {pass_value}")
 						else:
 							self.progress.setValue(max(0, pass_value - 1))
 					except (IndexError, ValueError):
 						pass
+				if self.overnight_mode and line.startswith("== supervisor cycle "):
+					self.update_session_stats_label()
 
 	def pipeline_node(self, operation: str) -> str:
 		return {
@@ -2458,7 +3201,10 @@ class PortWindow(QMainWindow):
 		if operation == "Build disc ISO":
 			self.pending_boot = False
 		self.process = None
-		self.loop_btn.setEnabled(True)
+		self.loop_btn.setEnabled(not self.overnight_mode)
+		if not self.overnight_mode:
+			self.overnight_btn.setEnabled(True)
+			self.overnight_preflight_btn.setEnabled(True)
 		self.stop_btn.setEnabled(False)
 		self.refresh_dashboard()
 		current_head = self.git_output("rev-parse", "HEAD")
@@ -2473,22 +3219,43 @@ class PortWindow(QMainWindow):
 			self.set_save_state("UNCHANGED", GC_MUTED)
 		if boot_after_build:
 			self.launch_dolphin()
-		if operation == "Goal automation" and not succeeded and not self.user_stopping:
-			self.append("\n[Goal automation restarting in 10s]\n")
-			self.status_label.setText("Restarting goal automation after worker exit")
-			QTimer.singleShot(10000, self.restart_goal_automation)
+		if operation == "Goal automation":
+			if succeeded and self.overnight_mode:
+				self.finish_overnight_session("all automatic goals complete or supervisor finished")
+			elif not succeeded and not self.user_stopping:
+				if self.overnight_mode:
+					self.overnight_automation_restarts += 1
+				self.append("\n[Goal automation restarting in 10s]\n")
+				self.status_label.setText("Restarting goal automation after worker exit")
+				QTimer.singleShot(10000, self.restart_goal_automation)
+			elif not succeeded and self.overnight_mode and self.user_stopping:
+				self.finish_overnight_session("stopped by user")
 
 	def restart_goal_automation(self) -> None:
 		if self.closing or self.process is not None or not self.last_command:
+			return
+		if self.overnight_mode and not self.model_api_ready():
+			self.pending_overnight_automation = True
+			self.start_model_if_needed_for_overnight()
 			return
 		self.start(self.last_command, "Goal automation", self.last_passes)
 
 	def stop_process(self) -> None:
 		if self.process is None:
 			return
-		answer = QMessageBox.question(self, "Stop automation?",
-			"The current model response may not have reached an applied, verified Git commit. "
-			"Stopping now discards incomplete model output. Stop anyway?",
+		if self.overnight_mode:
+			title = "Stop overnight run?"
+			message = (
+				"Stopping now ends the overnight session and writes a session report. "
+				"The current model response may not reach a verified Git commit. Stop anyway?"
+			)
+		else:
+			title = "Stop automation?"
+			message = (
+				"The current model response may not have reached an applied, verified Git commit. "
+				"Stopping now discards incomplete model output. Stop anyway?"
+			)
+		answer = QMessageBox.question(self, title, message,
 			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
 			QMessageBox.StandardButton.No)
 		if answer != QMessageBox.StandardButton.Yes:
@@ -2500,12 +3267,20 @@ class PortWindow(QMainWindow):
 
 	def closeEvent(self, event: QCloseEvent) -> None:
 		if self.process is None and self.model_process is None:
+			if self.overnight_mode:
+				self.finish_overnight_session("GUI closed while idle overnight session")
 			self.closing = True
 			self.timer.stop()
 			self.shutdown_dashboard_threads()
 			event.accept()
 			return
-		if self.process is not None:
+		if self.overnight_mode and (self.process is not None or self.model_process is not None):
+			title = "Overnight run is active"
+			message = (
+				"Goal automation and/or vLLM are still running. Minimize this window instead of "
+				"closing it if you want the overnight porting session to continue. Close anyway?"
+			)
+		elif self.process is not None:
 			title = "Automation is still running"
 			message = (
 				"Closing now can discard incomplete model output before it becomes a Git commit. "
@@ -2520,6 +3295,14 @@ class PortWindow(QMainWindow):
 		if answer == QMessageBox.StandardButton.Yes:
 			self.closing = True
 			self.timer.stop()
+			self.overnight_watchdog.stop()
+			if self.overnight_mode:
+				self.flush_overnight_log()
+				write_overnight_session_report(
+					self.repo(),
+					self.build_overnight_report("GUI closed during active run"),
+				)
+				self.overnight_mode = False
 			self.shutdown_dashboard_threads()
 			self.shutdown_processes()
 			event.accept()
