@@ -220,32 +220,20 @@ static void GC_PresentBuffer( void )
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
 
-	/* G36: Emit frame complete/budget markers periodically (every 10th frame).
-	 * Emitting SYS_Report on every frame adds unpredictable I/O latency to the
-	 * critical present path, violating the frame budget. Sampling every 10 frames
-	 * provides sufficient density for P95/jitter statistics while stabilizing the
-	 * steady-state render loop. */
+	/* G36: Emit frame complete/budget markers on every frame.
+	 * SYS_Report latency on GameCube is low (serial console or null backend).
+	 * Emitting every frame gives the probe script dense evidence for P95/jitter
+	 * analysis without requiring sampling heuristics. Measuring frame-to-frame
+	 * time with Sys_FloatTime avoids frame-averaging artifacts. */
 	{
-		static int g36_sample_tick = 0;
-		g36_sample_tick++;
-		if( g36_sample_tick >= 10 )
+		double now = Sys_FloatTime();
+		SYS_Report( "Xash3D GameCube: frame render complete\n" );
+		if( gc_last_present_time > 0.0 )
 		{
-			g36_sample_tick = 0;
-			SYS_Report( "Xash3D GameCube: frame render complete\n" );
-
-			double now = Sys_FloatTime();
-			if( gc_last_present_time > 0.0 )
-			{
-				double elapsed_ms = ( now - gc_last_present_time ) * 1000.0;
-				/* Spread the delta over 10 samples to approximate per-frame cost,
-				 * or just report total elapsed for the sample window. Reporting
-				 * total elapsed for the window is less misleading for aggregate
-				 * budget checks, but per-frame avg is better for 16ms budget.
-				 * We will report the average ms per frame over this 10-frame window. */
-				SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms / 10.0 );
-			}
-			gc_last_present_time = now;
+			double elapsed_ms = ( now - gc_last_present_time ) * 1000.0;
+			SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
 		}
+		gc_last_present_time = now;
 	}
 
 	which_fb ^= 1;
