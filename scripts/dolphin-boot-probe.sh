@@ -1138,6 +1138,10 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				else
 					echo "G36_BALANCED: CPU and GX times are comparable. Frame budget constrained by both subsystems."
 				fi
+			elif [[ -n "$FRAME_CPU_AVG" ]]; then
+				echo "G36_CPU_ONLY: CPU time available (avg=${FRAME_CPU_AVG}ms, samples=${FRAME_CPU_TIME_SAMPLES}) but GX time missing. Guest not emitting gx_time markers; GPU bottleneck diagnosis unavailable."
+			elif [[ -n "$FRAME_GX_AVG" ]]; then
+				echo "G36_GX_ONLY: GX time available (avg=${FRAME_GX_AVG}ms, samples=${FRAME_GX_TIME_SAMPLES}) but CPU time missing. Guest not emitting cpu_time markers; CPU bottleneck diagnosis unavailable."
 			fi
 
 			# G36: Report frame presentation hitches (CPU/GPU sync gaps)
