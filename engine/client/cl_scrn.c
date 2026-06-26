@@ -123,6 +123,14 @@ void SCR_DrawPos( void )
 	if( cls.state != ca_active || !cl_showpos.value || cl.background )
 		return;
 
+#if XASH_GAMECUBE
+	{
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 )
+			return; // Skip expensive debug draw in quality 0 to stabilize frame budget
+	}
+#endif
+
 	cl_entity_t *ent = CL_GetLocalPlayer();
 	float speed = VectorLength( cl.simvel );
 
