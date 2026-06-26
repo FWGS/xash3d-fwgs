@@ -410,10 +410,10 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	int row, col_fatal, i;
 	size_t xfb_size;
 
-	gc_fatal_breadcrumb_active = true;
-
 	if( !rmode || !xfb[0] )
 		return;
+
+	gc_fatal_breadcrumb_active = true;
 
 	/* Present to front buffer immediately for visibility */
 	dst = (unsigned short *)xfb[0];
