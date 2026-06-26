@@ -1390,6 +1390,18 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					if awk "BEGIN {exit !(${GX_WAIT_TIME_AVG} > 5.0)}" 2>/dev/null; then
 						echo "G36_GX_WAIT_TIME_WARN: Average gx_wait_time (${GX_WAIT_TIME_AVG}ms) exceeds 5.0ms. Significant CPU time spent waiting for VI completion."
 					fi
+					# G36_PATCH_v33: Compute VI-wait fraction of total frame budget
+					# High fraction (>50%) indicates VI-sync bound; optimization should
+					# reduce work before GX_WaitVP, not micro-optimize renderer passes.
+					if [[ -n "$FRAME_AVG" ]] && awk "BEGIN {exit !(${FRAME_AVG} > 0)}" 2>/dev/null; then
+						GX_WAIT_BUDGET_PCT=$(awk "BEGIN {printf \"%.1f\", (${GX_WAIT_TIME_AVG} / ${FRAME_AVG}) * 100}")
+						echo "G36_GX_WAIT_BUDGET_PCT: VI-wait consumes ${GX_WAIT_BUDGET_PCT}% of average frame budget (${GX_WAIT_TIME_AVG}ms / ${FRAME_AVG}ms)."
+						if awk "BEGIN {exit !(${GX_WAIT_BUDGET_PCT} > 50.0)}" 2>/dev/null; then
+							echo "G36_VI_BOUND: VI-sync dominates frame budget (>50%). Focus optimization on reducing CPU work before GX_WaitVP."
+						elif awk "BEGIN {exit !(${GX_WAIT_BUDGET_PCT} > 25.0)}" 2>/dev/null; then
+							echo "G36_VI_NOTE: VI-wait is significant (${GX_WAIT_BUDGET_PCT}%). Consider batching GX commands to reduce WaitVP frequency."
+						fi
+					fi
 				fi
 			fi
 
