@@ -127,6 +127,7 @@ static void GC_PresentBuffer( void )
 	unsigned short *src;
 	unsigned short *dst;
 	int copy_w, copy_h, row, col2;
+	int src_w, src_h;
 	qboolean sampled_nonblack = false;
 
 	if( !rmode || !xfb[which_fb] )
@@ -139,8 +140,8 @@ static void GC_PresentBuffer( void )
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
 		src = gc.buffer;
-		int src_w = gc.width;
-		int src_h = gc.height;
+		src_w = gc.width;
+		src_h = gc.height;
 		if( src_w > copy_w )
 			src_w = copy_w;
 		if( src_h > copy_h )
@@ -154,7 +155,8 @@ static void GC_PresentBuffer( void )
 		// G36: Sample first pixel for visual evidence only on first frame
 		if( gc_present_count == 1 )
 		{
-			unsigned short first_pixel = gc.buffer[0];
+			unsigned short first_pixel;
+			first_pixel = gc.buffer[0];
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
 
@@ -165,8 +167,10 @@ static void GC_PresentBuffer( void )
 		// G36: Detect non-black content on first frame only to stabilize frame budget
 		if( gc_present_count == 1 && src_h > 0 && src_w > 0 )
 		{
-			int check_w = src_w < 8 ? src_w : 8;
-			unsigned short *scanrow = src;
+			int check_w;
+			unsigned short *scanrow;
+			check_w = src_w < 8 ? src_w : 8;
+			scanrow = src;
 			for( col2 = 0; col2 < check_w; col2++ )
 			{
 				if( scanrow[col2] != 0 )
@@ -185,6 +189,7 @@ static void GC_PresentBuffer( void )
 		if( gc_present_count == 1 )
 		{
 			int col_diag;
+			col_diag = 0;
 			for( row = 0; row < copy_h; row++ )
 			{
 				unsigned short *rowdst = dst + row * rmode->fbWidth;
@@ -208,8 +213,9 @@ static void GC_PresentBuffer( void )
 	 * The first present reports 0ms so short smoke probes still get a parsable sample. */
 	if( gc_present_count <= 2 )
 	{
-		double now = Sys_FloatTime();
-		double elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
+		double now, elapsed_ms;
+		now = Sys_FloatTime();
+		elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
 		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
 			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
 		SYS_Report( "Xash3D GameCube: frame render complete\n" );
