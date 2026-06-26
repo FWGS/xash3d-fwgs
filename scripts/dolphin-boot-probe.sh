@@ -298,16 +298,18 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
-		# G36_PATCH_v111: Early decisive evidence when renderer is active (DrawDone
+		# G36_PATCH_v122: Early decisive evidence when renderer is active (DrawDone
 		# present) but no frame budget markers after sufficient render duration.
 		# This is a concrete measurement improvement: distinguish "measurement missing"
-		# from "measurement failing" by requiring GX_DrawDone + 5s render time + zero
+		# from "measurement failing" by requiring GX_DrawDone + 3s render time + zero
 		# budget markers before declaring the measurement path absent. Provides earlier
-		# closure than waiting for full probe timeout. Reduced from 8s to 5s after
-		# G36 evidence showed DrawDone markers appear within 2-3s of renderer init.
+		# closure than waiting for full probe timeout. Reduced from 5s to 3s after
+		# repeated G36 evidence showed DrawDone markers appear within 2-3s of renderer
+		# init and no budget markers ever follow when measurement path is missing.
+		# On decisive failure, break out of probe loop immediately to save host time.
 		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && \
 		   [[ -z "${G36_MEASUREMENT_PATH_DECIDED:-}" ]] && \
-		   (( $(date +%s) - G36_RENDERER_INIT_TS > 5 )); then
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 3 )); then
 			G36_MEASUREMENT_PATH_DECIDED=1
 			# G36_PATCH_v117: Use wc -l on merged grep output to avoid multi-file
 			# count mismatch from grep -c per-file behavior. cat first, then grep
@@ -319,6 +321,8 @@ if (( DOLPHIN_IS_FLATPAK )); then
 				echo "G36_DECISIVE_EARLY_HINT: Guest render loop is missing 'Xash3D GameCube: frame time=<ms>' OSReport. Patch GX renderer main loop to emit budget marker after GX_DrawDone."
 				echo "G36_DECISIVE_EARLY_HINT_EXAMPLE: Add 'OSReport(\"Xash3D GameCube: frame time=%dms\", elapsed_ms);' after GX_DrawDone() in your main render loop."
 				echo "G36_DECISIVE_EARLY_STATUS: MEASUREMENT_PATH_MISSING"
+				DOLPHIN_EXIT=4
+				break
 				# G36_PATCH_v119: Report line numbers of first 3 GX_DrawDone occurrences
 				# to give precise locations for inserting budget measurement code.
 				# This converts "missing measurement" from a vague warning to an actionable
@@ -749,6 +753,8 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# This single diagnostic line replaces multiple scattered status echoes.
 		if (( DOLPHIN_EXIT == 0 )); then
 			echo "G36_PROBE_SUCCESS: Probe completed successfully at elapsed=$(( $(date +%s) - START_TS ))s."
+		elif (( DOLPHIN_EXIT == 4 )); then
+			echo "G36_PROBE_DECISIVE_FAIL: Probe exited early due to missing measurement path at elapsed=$(( $(date +%s) - START_TS ))s."
 		fi
 
 		sleep 2
