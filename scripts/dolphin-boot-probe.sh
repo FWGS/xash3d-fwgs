@@ -1371,6 +1371,21 @@ if grep -aqsF "Xash3D GameCube: frame budget sample end stage=" "${LOG_FILES[@]}
 		grep -oE 'stage=[a-z_]+' | sed 's/stage=//' | sort -u | tr '\n' ',' | sed 's/,$//')
 fi
 
+# G36: Detect GC_MemSample delta spikes to correlate allocation bursts with frame budget violations
+# Tracks frames where memory delta exceeded a threshold, indicating per-frame allocation pressure
+GC_MEM_DELTA_SPIKES=0
+GC_MEM_DELTA_SPIKE_THRESHOLD="100"  # KiB threshold for "spike"
+if (( GC_MEM_SAMPLES )) && (( FRAME_COUNT > 0 )); then
+	# Extract delta values from mem stage samples and count those exceeding threshold
+	GC_MEM_DELTA_SPIKES=$(grep -aoE 'delta=[0-9.]+' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE '[0-9.]+' | awk -v thresh="$GC_MEM_DELTA_SPIKE_THRESHOLD" '
+		{
+			val = $1 + 0;
+			if (val > thresh) count++;
+		}
+		END { print count+0 }')
+fi
+
 # G36: Detect GC_MemFail markers to correlate OOM/pressure with frame budget failures
 GC_MEMFAIL_COUNT=0
 GC_MEMFAIL_POOL=""
@@ -1856,7 +1871,7 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				fi
 			fi
 
-			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} gx_fifo_overruns=${GX_FIFO_OVERRUNS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} gx_waitvp_samples=${GX_WAITVP_SAMPLES} gx_wait_time_samples=${GX_WAIT_TIME_SAMPLES} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms severe_violations=${FRAME_SEVERE_VIOLATIONS} stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} stage_violations=${FRAME_BUDGET_STAGE_HITS:-0} stage_breakdown=${FRAME_BUDGET_VIOLATION_STAGES:-none} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} gx_drawdone=${GX_DRAWDONE_COUNT} target=${TARGET_FRAME_TIME}ms guest_target=${GUEST_TARGET_FRAME_TIME:-N/A} regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none} stability_score=${FRAME_STABILITY_SCORE} cold_start_mem=${G36_COLD_START_MEM_TOTAL:-N/A}MiB cold_start_stage=${G36_COLD_START_MEM_STAGE:-N/A} warmup_frames=${FRAME_WARMUP_COUNT} memfail_count=${GC_MEMFAIL_COUNT} memfail_pool=${GC_MEMFAIL_POOL:-none}"
+			echo "G36_SUMMARY: samples=${FRAME_COUNT} guest_reported=${GUEST_REPORTED_FRAME_COUNT} avg=${FRAME_AVG}ms p95=${FRAME_P95}ms max=${FRAME_MAX}ms jank=${FRAME_JANK} passed=${FRAME_BUDGET_PASSED} steady_samples=${FRAME_STEADY_COUNT} steady_avg=${FRAME_STEADY_AVG}ms steady_p95=${FRAME_STEADY_P95}ms steady_passed=${FRAME_STEADY_BUDGET_PASSED} render_markers=${FRAME_RENDER_LOGS} gx_fifo_stalls=${GX_FIFO_STALLS} gx_fifo_overruns=${GX_FIFO_OVERRUNS} frame_hitches=${FRAME_HITCHES} budget_samples=${FRAME_BUDGET_SAMPLE_COUNT} gx_waitvp=${GX_WAITVP_COUNT} gx_waitvp_samples=${GX_WAITVP_SAMPLES} gx_wait_time_samples=${GX_WAIT_TIME_SAMPLES} sw_surfcache=${SW_SURFCACHE_OVERRIDE} lowmem_mode=${GC_LOWMEM_MODE:-none} client_entity_cap=${CLIENT_ENTITY_CAP:-unknown} frame_jitter_mad=${FRAME_TIMING_JITTER}ms frame_cv=${FRAME_CV} spike_events=${FRAME_SPIKE_EVENTS} spike_max_consec=${FRAME_SPIKE_MAX_CONSEC} worst_frame=${FRAME_WORST_TIME}ms severe_violations=${FRAME_SEVERE_VIOLATIONS} stage_annotated=${FRAME_BUDGET_STAGE_ANNOTATED} stage_violations=${FRAME_BUDGET_STAGE_HITS:-0} stage_breakdown=${FRAME_BUDGET_VIOLATION_STAGES:-none} pacing_variance=${FRAME_PACING_VARIANCE}ms pacing_max_delta=${FRAME_PACING_MAX_DELTA}ms cpu_avg=${FRAME_CPU_AVG:-N/A}ms gx_avg=${FRAME_GX_AVG:-N/A}ms renderer=${GUEST_RENDERER:-unknown} gx_flushes=${GX_FLUSH_MARKERS} gx_drawdone=${GX_DRAWDONE_COUNT} target=${TARGET_FRAME_TIME}ms guest_target=${GUEST_TARGET_FRAME_TIME:-N/A} regression_runs=${FRAME_REGRESSION_RUNS} regression_max_len=${FRAME_REGRESSION_MAX_LEN} measurement_init=${FRAME_BUDGET_INIT_OK} measurement_init_fail=${FRAME_BUDGET_INIT_FAIL} measurement_disabled=${FRAME_BUDGET_DISABLED} failure_mode=${FRAME_FAILURE_MODE:-none} stability_score=${FRAME_STABILITY_SCORE} cold_start_mem=${G36_COLD_START_MEM_TOTAL:-N/A}MiB cold_start_stage=${G36_COLD_START_MEM_STAGE:-N/A} warmup_frames=${FRAME_WARMUP_COUNT} memfail_count=${GC_MEMFAIL_COUNT} memfail_pool=${GC_MEMFAIL_POOL:-none} mem_delta_spikes=${GC_MEM_DELTA_SPIKES}"
 			
 			# G36: Report per-frame GX wait time samples for VI-sync correlation
 			if (( GX_WAIT_TIME_SAMPLES > 0 )); then
@@ -1961,6 +1976,17 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_MEMFAIL_EVENTS: ${GC_MEMFAIL_COUNT} GC_MemFail markers detected${GC_MEMFAIL_POOL:+ (last pool: ${GC_MEMFAIL_POOL})}."
 				if (( FRAME_BUDGET_LOGS )) && ! (( FRAME_BUDGET_PASSED )); then
 					echo "G36_MEMFAIL_CORRELATION: Memory allocation failures detected alongside frame budget violations. OOM pressure likely causing render stalls or frame drops."
+				fi
+			fi
+
+			# G36: Report memory allocation spike correlation with frame budget violations
+			if (( GC_MEM_DELTA_SPIKES > 0 )) && (( FRAME_BUDGET_LOGS )); then
+				echo "G36_MEM_SPIKES: ${GC_MEM_DELTA_SPIKES} memory allocation bursts detected (>${GC_MEM_DELTA_SPIKE_THRESHOLD}KiB delta)."
+				if (( FRAME_JANK > 0 )) && (( GC_MEM_DELTA_SPIKES > FRAME_JANK / 2 )); then
+					echo "G36_MEM_SPIKE_CORRELATION: Memory spikes (${GC_MEM_DELTA_SPIKES}) closely match frame jank (${FRAME_JANK}). Per-frame allocations likely cause budget violations."
+					echo "G36_MEM_SPIKE_HINT: Profile malloc/zone allocations during render loop; consider preallocating resources during map load."
+				elif (( GC_MEM_DELTA_SPIKES > 10 )); then
+					echo "G36_MEM_SPIKE_WARN: High allocation spike count (${GC_MEM_DELTA_SPIKES}). Consider reducing per-frame allocations or using object pools."
 				fi
 			fi
 
