@@ -224,10 +224,10 @@ GOAL_CONTEXT_SLICES = {
 		("ref/gx/r_local.h",),
 	),
 	"G36": (
-		("scripts/dolphin-boot-probe.sh",),
 		("engine/platform/gamecube/vid_gamecube.c", "engine/client/cl_scrn.c"),
 		("engine/common/mod_bmodel.c",),
 		("engine/common/mod_studio.c",),
+		("scripts/dolphin-boot-probe.sh",),
 	),
 }
 G24_SUBGOALS = (
@@ -1062,7 +1062,7 @@ Output rules:
   the goal runner will rotate to the next slice.
 """
 	if goal.goal_id == "G36":
-		return f"""Advance G36 with exactly one small measurement or performance patch.
+		return f"""Advance G36 with exactly one small source-level performance or visual-evidence patch.
 
 Active goal: {goal.goal_id} - {goal.title}
 Attempt on this goal: {attempt}
@@ -1071,12 +1071,16 @@ Use only the editable file or files preloaded in this Aider chat. Do not edit,
 add, or request any file that was not added as editable context.
 
 Task:
-- Make G36 measurable before trying broad optimization.
-- If `scripts/dolphin-boot-probe.sh` is the editable file, improve only probe
-  parsing, timeout handling, screenshot/visual/frame-budget reporting, or
-  failure classification. Do not emit renderer or docs edit blocks.
+- Prefer source-level work over more probe-script instrumentation. G36 already
+  has enough probe diagnostics to identify missing frame-budget or visual
+  markers.
 - If a renderer/client/model source file is editable, make exactly one small
-  GameCube-only source change tied to frame budget or visual evidence.
+  GameCube-only source change tied to frame budget, frame submission, visual
+  evidence, or reducing route-time render cost.
+- If `scripts/dolphin-boot-probe.sh` is the editable file, improve only a
+  missing acceptance gate or remove duplicated/noisy G36 diagnostics. Do not add
+  another one-off `G36_PATCH_v*` detector unless it replaces older duplicated
+  logic.
 - Do not update docs unless a docs file is explicitly editable in this chat.
 - Do not mark G36 complete from reasoning alone; completion needs before/after
   runtime evidence from a Dolphin probe or hardware run.
