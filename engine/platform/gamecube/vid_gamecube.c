@@ -412,6 +412,8 @@ void GC_TrimVideoMemoryForMapLoad( void )
  */
 void GC_DrawFatalBreadcrumb( const char *message )
 {
+	(void)message;
+
 #if XASH_GAMECUBE
 	unsigned short *dst;
 	unsigned short *rowdst;
