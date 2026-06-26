@@ -1158,12 +1158,13 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C99 LOOP FIX)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C99 LOOP FIXES)
 
-**Status (2026-06-26):** Fixed C99 `for( int i = ... )` declaration in `GC_DrawFatalBreadcrumb`. The devkitPPC PowerPC compiler rejects inline loop variable declarations under default C89 settings. Moved `int i` declaration to the start of the block.
+**Status (2026-06-26):** Fixed multiple C99 inline loop variable declarations in `vid_gamecube.c`. The devkitPPC PowerPC compiler rejects `for( int i = ... )` syntax under default C89 settings. Pre-declared loop variables at block scope.
 
 **Evidence:**
-- `engine/platform/gamecube/vid_gamecube.c`: Changed `for( int i = 0; i < 3; i++ )` to pre-declare `int i` before the loop in `GC_DrawFatalBreadcrumb`.
+- `engine/platform/gamecube/vid_gamecube.c`: Fixed `GC_PresentBuffer` non-black sampling loop: changed `for( int col = 0; ... )` to pre-declare `int col` before the loop. Also moved `int col` declaration outside the row loop in the diagnostic blue fill path to avoid repeated declarations per iteration.
+- `GC_DrawFatalBreadcrumb` was previously fixed in an earlier attempt (pre-declared `int i`).
 - Next: Run build and probe to verify runtime behavior.
 
 ```sh

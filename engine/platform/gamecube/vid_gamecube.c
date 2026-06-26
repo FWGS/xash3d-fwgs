@@ -165,9 +165,10 @@ static void GC_PresentBuffer( void )
 		// G36: Detect non-black content on first frame only to stabilize frame budget
 		if( gc_present_count == 1 && src_h > 0 && src_w > 0 )
 		{
+			int col;
 			int check_w = src_w < 8 ? src_w : 8;
 			unsigned short *scanrow = src;
-			for( int col = 0; col < check_w; col++ )
+			for( col = 0; col < check_w; col++ )
 			{
 				if( scanrow[col] != 0 )
 				{
@@ -184,10 +185,10 @@ static void GC_PresentBuffer( void )
 		 * is captured. Leaves XFB black (zeroed) for subsequent frames. */
 		if( gc_present_count == 1 )
 		{
+			int col;
 			for( row = 0; row < copy_h; row++ )
 			{
 				unsigned short *rowdst = dst + row * rmode->fbWidth;
-				int col;
 				for( col = 0; col < copy_w; col++ )
 					rowdst[col] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
 			}
