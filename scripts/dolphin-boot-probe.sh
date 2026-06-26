@@ -565,6 +565,19 @@ if (( FRAME_BUDGET_LOGS == 0 )) && [[ -n "$GUEST_RENDERER" ]]; then
 		else
 			echo "G36_RAW_TIME_MARKERS: No OSREPORT lines containing 'time=' found. Guest not emitting timing telemetry."
 		fi
+		# G36_PATCH_v79: Dump all Xash3D GameCube OSREPORT lines containing 'frame'
+		# to provide exhaustive evidence of guest rendering markers. This catches
+		# any frame-related markers even if they don't match probe regex patterns.
+		# Limits to first 10 lines to avoid log flooding while providing sufficient evidence.
+		RAW_FRAME_MARKERS=$(grep -aE "Xash3D GameCube.*frame" "${LOG_FILES[@]}" 2>/dev/null | head -10 || true)
+		if [[ -n "$RAW_FRAME_MARKERS" ]]; then
+			echo "G36_RAW_FRAME_MARKERS: Guest emitted frame-containing OSREPORT lines:"
+			while IFS= read -r line; do
+				echo "G36_RAW_FRAME_MARKERS: ${line}"
+			done <<< "$RAW_FRAME_MARKERS"
+		else
+			echo "G36_RAW_FRAME_MARKERS: No Xash3D GameCube OSREPORT lines containing 'frame' found. Guest renderer may not be emitting frame markers at all."
+		fi
 	else
 		echo "G36_GX_SILENT: No GX API markers found. Renderer may have initialized but not issued draw calls, or OSREPORT path is suppressed for GX calls."
 	fi
