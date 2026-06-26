@@ -296,7 +296,13 @@ void GCube_Init( void )
 	if( chdir( xashdir ) == 0 )
 		Con_Reportf( "GameCube data directory: %s\n", xashdir );
 	else
-		Con_Reportf( S_WARN "Failed to chdir to %s\n", xashdir );
+	{
+		Con_Reportf( S_ERROR "GameCube storage: failed to chdir to %s (errno %d: %s)\n", xashdir, errno, strerror( errno ) );
+		/* G47: If we cannot chdir to the data directory, asset lookups will likely fail.
+		   Report this as a fatal error to prevent silent black-screens or confusing
+		   "file not found" messages later, complying with readable error requirements. */
+		Sys_Error( "GameCube: unable to access data directory %s\n", xashdir );
+	}
 
 	setup_gamecube_dll_functions();
 	GC_MemSample( "filesystem" );
