@@ -301,18 +301,20 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# G36_PATCH_v111: Early decisive evidence when renderer is active (DrawDone
 		# present) but no frame budget markers after sufficient render duration.
 		# This is a concrete measurement improvement: distinguish "measurement missing"
-		# from "measurement failing" by requiring GX_DrawDone + 8s render time + zero
+		# from "measurement failing" by requiring GX_DrawDone + 5s render time + zero
 		# budget markers before declaring the measurement path absent. Provides earlier
-		# closure than waiting for full probe timeout.
+		# closure than waiting for full probe timeout. Reduced from 8s to 5s after
+		# G36 evidence showed DrawDone markers appear within 2-3s of renderer init.
 		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && \
 		   [[ -z "${G36_MEASUREMENT_PATH_DECIDED:-}" ]] && \
-		   (( $(date +%s) - G36_RENDERER_INIT_TS > 8 )); then
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 5 )); then
 			G36_MEASUREMENT_PATH_DECIDED=1
 			DRAWDONE_EARLY=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
 			BUDGET_EARLY=$(grep -acE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
-			if (( DRAWDONE_EARLY > 3 )) && (( BUDGET_EARLY == 0 )); then
-				echo "G36_DECISIVE_EARLY: Renderer ${GUEST_RENDERER:-unknown} active with ${DRAWDONE_EARLY} GX_DrawDone calls but zero frame budget markers after 8s."
+			if (( DRAWDONE_EARLY > 2 )) && (( BUDGET_EARLY == 0 )); then
+				echo "G36_DECISIVE_EARLY: Renderer ${GUEST_RENDERER:-unknown} active with ${DRAWDONE_EARLY} GX_DrawDone calls but zero frame budget markers after 5s."
 				echo "G36_DECISIVE_EARLY_HINT: Guest render loop is missing 'Xash3D GameCube: frame time=<ms>' OSReport. Patch GX renderer main loop to emit budget marker after GX_DrawDone."
+				echo "G36_DECISIVE_EARLY_HINT_EXAMPLE: Add 'OSReport(\"Xash3D GameCube: frame time=%dms\", elapsed_ms);' after GX_DrawDone() in your main render loop."
 				echo "G36_DECISIVE_EARLY_STATUS: MEASUREMENT_PATH_MISSING"
 			fi
 		fi
