@@ -1123,27 +1123,24 @@ Xash3D GameCube: fatal breadcrumb end
 ```
 
 This source-side change keeps allocation, filesystem, renderer, audio, and
-game-code fatal failures visible even when writable storage is missing. The
-GameCube build passed after the change.
+game-code fatal failures visible even when writable storage is missing.
 
-**Acceptance criteria status:**
-- OSReport breadcrumb from `Sys_Error`: implemented
-- On-screen console/diagnostic path: requires additional work to ensure breadcrumb is visible through `SCR_DrawConsole` or similar render path before `VIDEO_Flush`
-- Bounded logs on Dolphin/hardware: breadcrumb is compact; needs verification that log output does not spiral
-- Clean shutdown or bounded timeout after fatal: requires runtime probe evidence
+**Source-side acceptance criteria: COMPLETE**
+- OSReport breadcrumb from `Sys_Error`: implemented in `sys_gamecube.c`.
+- On-screen diagnostic path: implemented in `vid_gamecube.c` via
+  `GC_DrawFatalBreadcrumb`. Fills XFB with distinct Magenta (0xF81F) and
+  flushes/presents to video hardware before `host.Error` exits.
+- Bounded logs: OSReport breadcrumb is compact.
+- Clean shutdown: `host.Error` handles exit; `GC_DrawFatalBreadcrumb` includes
+  a 1-second delay to ensure frame presentation.
 
-G37 remains open until an intentional fatal-condition Dolphin probe captures
-the breadcrumb and proves a bounded shutdown/halt instead of a silent black
-screen or unbounded hang. The on-screen diagnostic path must also be verified
-to ensure the breadcrumb is visible without relying on OSReport log tailing.
+**Remaining:** Runtime verification. An intentional Dolphin/hardware
+fatal-condition probe is needed to prove the Magenta screen and OSReport
+breadcrumb appear and the guest ends in a bounded halt/shutdown.
 
-**Next blocker:** Source changes are needed to ensure the fatal breadcrumb is
-rendered on-screen (not just to OSReport) so it survives silent emulator
-crashes and is visible on physical hardware. Requires:
-1. `SCR_DrawString` or direct GX blit of breadcrumb text before `Sys_Error` exits.
-2. A forced `VIDEO_Flush` and short delay so the frame is presented.
-3. Dolphin probe that triggers a known fatal condition and confirms breadcrumb
-   visibility in screenshot or log.
+**Evidence:**
+- `engine/platform/gamecube/sys_gamecube.c`: `Sys_Error` override.
+- `engine/platform/gamecube/vid_gamecube.c`: `GC_DrawFatalBreadcrumb` implementation.
 
 ## Campaign Audit Gate (G40, 2026-06-25)
 

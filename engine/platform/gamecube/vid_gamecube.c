@@ -35,6 +35,7 @@ static gc_video_t gc;
 #if XASH_GAMECUBE
 static void *xfb[2] = { NULL, NULL };
 static int which_fb = 0;
+static volatile qboolean gc_fatal_breadcrumb_active;
 static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
@@ -386,6 +387,46 @@ void GC_TrimVideoMemoryForMapLoad( void )
 		free( gc.buffer );
 		gc.buffer = NULL;
 	}
+}
+
+/*
+ * G37: Draw fatal breadcrumb directly to XFB so it survives silent crashes.
+ * Uses a simple solid background with a clear distinction from normal frames.
+ * This is called from Sys_Error path before shutdown.
+ */
+void GC_DrawFatalBreadcrumb( const char *message )
+{
+#if XASH_GAMECUBE
+	unsigned short *dst;
+	int row, col;
+
+	gc_fatal_breadcrumb_active = true;
+
+	if( !rmode || !xfb[0] )
+		return;
+
+	/* Present to front buffer immediately for visibility */
+	dst = (unsigned short *)xfb[0];
+
+	/* Fill XFB with a distinct color: Magenta (RGB565 0xF81F) to signal ERROR */
+	for( row = 0; row < rmode->xfbHeight; row++ )
+	{
+		unsigned short *rowdst = dst + row * rmode->fbWidth;
+		for( col = 0; col < rmode->fbWidth; col++ )
+			rowdst[col] = 0xF81F; /* Magenta */
+	}
+
+	/* Flush to ensure hardware sees it */
+	DCFlushRange( xfb[0], VIDEO_GetFrameBufferSize( rmode ));
+	VIDEO_SetNextFramebuffer( xfb[0] );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+
+	/* Block briefly to ensure frame is presented before exit */
+	SYS_InitializeScheduler();
+	SYS_DelayThreads( 1000 ); /* 1 second delay */
+#endif
+	(void)message; /* Message is already reported via OSReport in Sys_Error */
 }
 
 void GC_RestoreVideoMemoryAfterMapLoad( void )

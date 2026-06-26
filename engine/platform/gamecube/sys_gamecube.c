@@ -14,6 +14,9 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #if XASH_GAMECUBE
 #include <ogc/system.h>
 #include <ogc/dvd.h>
+
+/* G37: External declaration for fatal breadcrumb rendering */
+extern void GC_DrawFatalBreadcrumb( const char *message );
 #include <fat.h>
 #include <iso9660.h>
 #include <dirent.h>
@@ -50,6 +53,26 @@ void Platform_ShellExecute( const char *path, const char *parms )
 {
 	Con_Reportf( S_WARN "Tried to shell execute ;%s; -- not supported\n", path );
 	(void)parms;
+}
+
+void Sys_Error( const char *error, ... )
+{
+	va_list argptr;
+
+	/* G37: Emit bounded OSReport breadcrumb */
+	SYS_Report( "Xash3D GameCube: fatal breadcrumb begin\n" );
+
+	va_start( argptr, error );
+	SYS_Report_VA( error, argptr );
+	va_end( argptr );
+
+	SYS_Report( "Xash3D GameCube: fatal breadcrumb end\n" );
+
+	/* G37: Draw visible on-screen diagnostic before exit */
+	GC_DrawFatalBreadcrumb( error );
+
+	/* Call the original host error handler which will exit */
+	host.Error( error );
 }
 
 void Posix_Daemonize( void )
