@@ -435,6 +435,30 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v102: Measure GX_DrawDone submission rate (Hz) to quantify
+		# rendering throughput independently of frame budget markers. Provides real-time
+		# evidence of whether the guest is actively rendering at target framerate,
+		# even if budget telemetry is missing. Fires once after 5s of rendering.
+		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && [[ -z "${G36_RENDER_THROUGHPUT_CHECKED:-}" ]] && \
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 5 )); then
+			G36_RENDER_THROUGHPUT_CHECKED=1
+			CURRENT_DRAWDONE=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			ELAPSED_RENDER=$(( $(date +%s) - G36_RENDERER_INIT_TS ))
+			if (( CURRENT_DRAWDONE > 0 )); then
+				THROUGHPUT_HZ=$(awk "BEGIN {printf \"%.1f\", ${CURRENT_DRAWDONE} / ${ELAPSED_RENDER}}")
+				echo "G36_RENDER_THROUGHPUT: ${CURRENT_DRAWDONE} frames submitted in ${ELAPSED_RENDER}s (${THROUGHPUT_HZ} Hz)."
+				if awk "BEGIN {exit !(${THROUGHPUT_HZ} > 45.0)}" 2>/dev/null; then
+					echo "G36_THROUGHPUT_OK: Rendering at >45fps. Frame budget markers should be present if measurement subsystem initialized."
+				elif awk "BEGIN {exit !(${THROUGHPUT_HZ} < 10.0)}" 2>/dev/null; then
+					echo "G36_THROUGHPUT_LOW: Rendering below 10fps. Guest may be in heavy initialization or encountering performance stalls."
+				else
+					echo "G36_THROUGHPUT_MODERATE: Rendering at ${THROUGHPUT_HZ}fps. Below target 60fps but active."
+				fi
+			else
+				echo "G36_NO_DRAWDONE_AFTER_5S: Renderer initialized but zero GX_DrawDone after 5s. Guest may be stuck in init or not reaching render loop."
+			fi
+		fi
+
 		# G36_PATCH_v58: Detect any OSREPORT activity from guest to distinguish
 		# "guest completely silent" from "guest emitting but no frame budget markers".
 		# This helps diagnose whether the renderer crashed, is stuck, or simply
