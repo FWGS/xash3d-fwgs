@@ -899,6 +899,25 @@ if [[ -n "$GUEST_RENDERER" ]] && (( FRAME_BUDGET_LOGS == 0 )) && (( GX_DRAWDONE_
 	echo "G36_MEASUREMENT_GAP: renderer=${GUEST_RENDERER} drawdone=${GX_DRAWDONE_COUNT} budget_markers=0 status=MEASUREMENT_PATH_MISSING"
 fi
 
+# G36_PATCH_v120: Report GX_DrawDone presence and count in post-probe analysis
+# even when frame budget logs are present, to cross-validate GPU activity. This
+# provides concrete evidence of whether the guest rendered frames independently
+# of whether budget telemetry was captured.
+if (( GX_DRAWDONE_COUNT > 0 )); then
+	if (( FRAME_BUDGET_LOGS == 0 )); then
+		echo "G36_DRAWDONE_POST_PROBE: ${GX_DRAWDONE_COUNT} GX_DrawDone calls detected with zero frame budget markers. Renderer is actively drawing but missing measurement OSReport."
+	else
+		echo "G36_DRAWDONE_POST_PROBE: ${GX_DRAWDONE_COUNT} GX_DrawDone calls detected alongside ${FRAME_COUNT} frame budget samples."
+		if (( FRAME_COUNT > 0 )) && (( GX_DRAWDONE_COUNT > FRAME_COUNT * 3 )); then
+			echo "G36_DRAWDONE_EXCESS: DrawDone count (${GX_DRAWDONE_COUNT}) greatly exceeds budget samples (${FRAME_COUNT}). Possible double-render loop or measurement guard skipping frames."
+		elif (( FRAME_COUNT > 0 )) && (( GX_DRAWDONE_COUNT < FRAME_COUNT / 2 )); then
+			echo "G36_DRAWDONE_LAG: DrawDone count (${GX_DRAWDONE_COUNT}) is less than half budget samples (${FRAME_COUNT}). GPU may be lagging behind CPU submission."
+		else
+			echo "G36_DRAWDONE_BALANCED: DrawDone count (${GX_DRAWDONE_COUNT}) is proportional to budget samples (${FRAME_COUNT}). GPU activity is consistent."
+		fi
+	fi
+fi
+
 
 # G36: Emit explicit measurement baseline marker so downstream tooling can
 # distinguish "telemetry absent" from "telemetry present but failing"
