@@ -13,7 +13,6 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include "vid_common.h"
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #if XASH_GAMECUBE
 #include <ogc/gx.h>
@@ -423,8 +422,10 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
 
-	/* Block briefly to ensure frame is presented before exit */
-	usleep( 1000000 ); /* 1 second delay */
+	/* Block briefly to ensure frame is presented before exit.
+	 * Use SYS_Delay (libogc) instead of usleep which may not be
+	 * available or may behave unexpectedly in the GameCube environment. */
+	SYS_Delay( 500 ); /* 500ms delay in milliseconds */
 #endif
 	(void)message; /* Message is already reported via OSReport in Sys_Error */
 }

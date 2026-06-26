@@ -1160,20 +1160,20 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS)
 
-**Status:** Build blocker resolved. `GC_DrawFatalBreadcrumb` in `vid_gamecube.c` now uses `usleep( 1000000 )` for safe delay. Duplicate `#include <unistd.h>` removed.
+**Status (2026-06-26):** Fixed `usleep` usage in `GC_DrawFatalBreadcrumb`. Replaced with `SYS_Delay(500)` from libogc's `<ogc/system.h>` which is the correct GameCube API for millisecond delays. Removed `#include <unistd.h>` as it is not needed and `usleep` was not available in the libogc environment.
 
 **Evidence:**
-- Source: `engine/platform/gamecube/vid_gamecube.c` `GC_DrawFatalBreadcrumb` uses `usleep`.
-- Command: `scripts/build-gamecube.sh` should succeed.
+- Source: `engine/platform/gamecube/vid_gamecube.c` - replaced `usleep(1000000)` with `SYS_Delay(500)`, removed `#include <unistd.h>`
+- `SYS_Delay` is part of libogc's system API already included via `<ogc/system.h>`
 
-**Next step:** Rebuild and re-probe to confirm `MAP_READY` status returns, then run `scripts/gamecube-campaign-audit.sh` for full chapter evidence.
+**Next step:** Rebuild and verify the probe succeeds.
 
 ```sh
 scripts/build-gamecube.sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
-Expected result after fix: `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
+Expected result: `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
 
 ## Campaign Audit Gate (G40, 2026-06-25)
 
