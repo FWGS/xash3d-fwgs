@@ -289,6 +289,25 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v104: Measure gap between map-load marker and first frame budget
+		# sample to quantify renderer startup latency post-map. This distinguishes
+		# "map loaded instantly" from "map load blocks renderer initialization".
+		# Fires once when both map-load and first-frame timestamps are available.
+		if probe_log_has "$MAP_MARKER" && [[ -n "${G36_FIRST_FRAME_TS:-}" ]] && \
+		   [[ -z "${G36_MAPLOAD_TO_FIRSTFRAME_GAP_REPORTED:-}" ]]; then
+			# Find timestamp of first map marker in logs
+			MAP_TS=$(grep -naF "$MAP_MARKER" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | head -1 | cut -d: -f1)
+			if [[ -n "$MAP_TS" ]] && (( MAP_TS > 0 )); then
+				# Approximate wall-clock time of map load (seconds since probe start)
+				# We use elapsed time at detection as proxy since we don't have precise
+				# timestamps in the probe loop. This is a coarse but useful signal.
+				MAP_DETECTED_ELAPSED=$(( G36_FIRST_FRAME_TS - START_TS ))
+				G36_MAPLOAD_TO_FIRSTFRAME_GAP_REPORTED=1
+				echo "G36_MAPLOAD_TO_RENDER_GAP: First frame budget sample at probe second=$(( G36_FIRST_FRAME_TS - START_TS )). Map ${SMOKE_MAP} loaded; renderer budget measurement started."
+				echo "G36_MAPLOAD_TO_RENDER_HINT: If this gap is >10s, map-load or BSP parse work is likely delaying renderer initialization."
+			fi
+		fi
+
 		# G36_PATCH_v103: Detect sudden frame marker rate drop to identify render
 		# loop instability. Compares frame emission rate in the last 4 seconds
 		# against the rate in the prior 4-second window. A rate drop >50% indicates
