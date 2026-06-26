@@ -412,8 +412,15 @@ fi
 if [[ -z "$GUEST_RENDERER" ]]; then
 	if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}"; then
 		# G36_PATCH_v2: Relaxed pattern to catch renderer name after "initialized" with any spacing
-		GUEST_RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized +[a-zA-Z_-]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[a-zA-Z_-]+$' || true)
+		GUEST_RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized[[:space:]]+[a-zA-Z_-]+' "${LOG_FILES[@]}" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_-]+$' || true)
 	fi
+fi
+
+# G36_PATCH_v27: Emit explicit renderer source diagnostic for traceability
+if [[ -n "$GUEST_RENDERER" ]]; then
+	echo "G36_RENDERER_SOURCE: backend=${GUEST_RENDERER} (detected post-probe or from loop)"
+else
+	echo "G36_RENDERER_SOURCE: backend=unknown (no renderer initialization marker found in logs)"
 fi
 
 # G36: Detect explicit guest-reported frame count for sample completeness validation
