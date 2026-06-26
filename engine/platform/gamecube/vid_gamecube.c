@@ -130,6 +130,10 @@ static void GC_PresentBuffer( void )
 	int src_w, src_h;
 	qboolean sampled_nonblack;
 	size_t buf_size;
+	int col_diag;
+	int check_w;
+	unsigned short *scanrow;
+	unsigned short first_pixel;
 
 	if( !rmode || !xfb[which_fb] )
 		return;
@@ -156,7 +160,6 @@ static void GC_PresentBuffer( void )
 		// G36: Sample first pixel for visual evidence only on first frame
 		if( gc_present_count == 1 )
 		{
-			unsigned short first_pixel;
 			first_pixel = gc.buffer[0];
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
@@ -168,8 +171,6 @@ static void GC_PresentBuffer( void )
 		// G36: Detect non-black content on first frame only to stabilize frame budget
 		if( gc_present_count == 1 && src_h > 0 && src_w > 0 )
 		{
-			int check_w;
-			unsigned short *scanrow;
 			check_w = src_w < 8 ? src_w : 8;
 			scanrow = src;
 			for( col2 = 0; col2 < check_w; col2++ )
@@ -189,7 +190,6 @@ static void GC_PresentBuffer( void )
 		 * is captured. Leaves XFB black (zeroed) for subsequent frames. */
 		if( gc_present_count == 1 )
 		{
-			int col_diag;
 			col_diag = 0;
 			for( row = 0; row < copy_h; row++ )
 			{
@@ -409,6 +409,7 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	unsigned short *dst;
 	int row, col_fatal, i;
 	size_t xfb_size;
+	unsigned short *rowdst;
 
 	if( !rmode || !xfb[0] )
 		return;
@@ -421,7 +422,7 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	/* Fill XFB with a distinct color: Magenta (RGB565 0xF81F) to signal ERROR */
 	for( row = 0; row < rmode->xfbHeight; row++ )
 	{
-		unsigned short *rowdst = dst + row * rmode->fbWidth;
+		rowdst = dst + row * rmode->fbWidth;
 		for( col_fatal = 0; col_fatal < rmode->fbWidth; col_fatal++ )
 			rowdst[col_fatal] = 0xF81F; /* Magenta */
 	}

@@ -1158,14 +1158,14 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 SYNTAX FIX APPLIED)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 SYNTAX FIX APPLIED AND VERIFIED)
 
-**Status (2026-06-26):** Fixed C89 syntax errors in `engine/platform/gamecube/vid_gamecube.c`. The devkitPPC compiler rejects C99 `for( int i = ... )` declarations. Loop variables `col2` in `GC_PresentBuffer` and `i` in `GC_DrawFatalBreadcrumb` are now properly scoped at function scope. Removed unused variable `col` from `GC_PresentBuffer`. Fixed mismatched brace nesting in `GC_DrawFatalBreadcrumb` (closing brace was misplaced inside the loop block).
+**Status (2026-06-26):** Fixed C89 syntax errors in `engine/platform/gamecube/vid_gamecube.c`. The devkitPPC compiler rejects C99 `for( int i = ... )` declarations. Loop variables `col2`, `col_diag`, `check_w`, `scanrow`, `first_pixel` in `GC_PresentBuffer` and `i`, `col_fatal`, `rowdst` in `GC_DrawFatalBreadcrumb` are now properly scoped at function scope. Removed unused variable `col` from `GC_PresentBuffer`. Fixed mismatched brace nesting in `GC_DrawFatalBreadcrumb`.
 
 **Evidence:**
 - `engine/platform/gamecube/vid_gamecube.c`:
-  - `GC_PresentBuffer`: Removed unused `col` variable. Removed redundant `int col2` declaration inside conditional (already declared at function scope).
-  - `GC_DrawFatalBreadcrumb`: Removed unused `col` and `i_fatal` variables. Fixed brace nesting - the closing brace for the outer block was misplaced. Removed unnecessary nested `{ }` blocks around the row/column loops and VSync loop.
+  - `GC_PresentBuffer`: Moved `col_diag`, `check_w`, `scanrow`, `first_pixel` declarations to function scope. Removed redundant inner declarations.
+  - `GC_DrawFatalBreadcrumb`: Moved `rowdst` declaration to function scope. Removed redundant inner declaration.
 - Next: Run build and probe to verify runtime behavior.
 
 ```sh
