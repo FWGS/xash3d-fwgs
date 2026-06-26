@@ -181,19 +181,17 @@ static void GC_PresentBuffer( void )
 	gc_present_count++;
 	if( !sampled_nonblack )
 	{
-		// G36: Diagnostic marker drawing is expensive per-frame. Skip entirely
-		// after first 3 frames to stabilize steady-state frame budget.
-		// We already have visual evidence from the first frame.
-		if( gc_present_count <= 3 )
+		// G36: Diagnostic marker drawing is expensive per-frame. Draw only once
+		// on the very first blank frame to establish visual evidence, then skip
+		// entirely to stabilize steady-state frame budget.
+		if( gc_present_count == 1 )
 		{
 			int mark_w = copy_w < 32 ? copy_w : 32;
 			int mark_h = copy_h < 32 ? copy_h : 32;
-			gc_blank_present_count++;
 
 			// Draw a highly visible diagnostic marker (Red/Green checker)
 			// to prove XFB is being updated even if renderer output is black.
-			// Use memset for row-level fills to improve cache locality and 
-			// potentially allow vectorized/wider stores, stabilizing frame budget.
+			// Use memset for row-level fills to improve cache locality.
 			for( row = 0; row < mark_h; row++ )
 			{
 				unsigned short *rowdst = dst + row * rmode->fbWidth;
@@ -203,13 +201,8 @@ static void GC_PresentBuffer( void )
 				else
 					memset( rowdst, 0x07E0, mark_w * sizeof( unsigned short ));
 			}
-			
-			// Report diagnostic marker visibility once
-			if( gc_blank_present_count == 1 )
-			{
-				SYS_Report( "Xash3D GameCube: DIAGNOSTIC MARKER VISIBLE (frame %u, blank streak %u). Check top-left 32x32.\n",
-					gc_present_count, gc_blank_present_count );
-			}
+
+			SYS_Report( "Xash3D GameCube: DIAGNOSTIC MARKER VISIBLE (frame 1). Check top-left 32x32.\n" );
 		}
 	}
 

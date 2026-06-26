@@ -1097,6 +1097,7 @@ class PortWindow(QMainWindow):
 		data = self.read_settings_file()
 		if not data:
 			return
+		migrated_command = False
 		repo = data.get("repo")
 		if isinstance(repo, str) and repo:
 			self.repo_edit.setText(repo)
@@ -1104,6 +1105,8 @@ class PortWindow(QMainWindow):
 		if isinstance(model_command, str) and model_command:
 			migrated = migrate_model_command(model_command)
 			self.model_command_edit.setText(migrated)
+			if migrated != model_command:
+				migrated_command = True
 			if "model_max_num_seqs" not in data:
 				self.populate_tuning_from_command(migrated)
 		model_api_base = data.get("model_api_base")
@@ -1137,6 +1140,8 @@ class PortWindow(QMainWindow):
 		follow_log = data.get("follow_log")
 		if isinstance(follow_log, bool):
 			self.follow_log.setChecked(follow_log)
+		if migrated_command or "model_max_num_seqs" not in data:
+			self.write_settings_file(include_layout=False)
 
 	def ensure_core_panels_visible(self) -> None:
 		for title in ("Goals", "Progress", "Workspace"):
@@ -1755,6 +1760,7 @@ class PortWindow(QMainWindow):
 		self.apply_context_snapshot(snapshot)
 		path = Path(snapshot.screenshot_path) if snapshot.screenshot_path else None
 		self.apply_dolphin_viewport_snapshot(path, snapshot.screenshot_status)
+		self.refresh_model_api_summary()
 		if self.dashboard_refresh_pending:
 			self.dashboard_refresh_pending = False
 			QTimer.singleShot(0, self.refresh_dashboard)
