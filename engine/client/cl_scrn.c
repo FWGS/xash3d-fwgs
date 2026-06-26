@@ -817,8 +817,9 @@ void SCR_RegisterTextures( void )
 #if XASH_GAMECUBE
 	{
 		extern int GC_GetVisualQuality( void );
-		if( GC_GetVisualQuality( ) < 1 )
-			return; // Skip texture registration for quality 0
+		// Quality 0 still needs loading texture for visual evidence during map load
+		if( GC_GetVisualQuality( ) < 0 )
+			return; // Skip texture registration only if explicitly disabled
 	}
 #endif
 
