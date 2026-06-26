@@ -748,6 +748,24 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v125: Detect Host_RunFrame or SV_RunFrame markers to diagnose
+		# whether the guest reached its main game loop. Missing runframe markers
+		# indicate the guest hung before entering the render loop, explaining both
+		# missing GX_DrawDone and missing budget markers. Fires once after 20s.
+		if [[ -z "${G36_RUNFRAME_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 20 )); then
+			G36_RUNFRAME_CHECKED=1
+			if grep -aqsF "Host_RunFrame" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+				echo "G36_RUNFRAME_PRESENT: Host_RunFrame marker found. Guest reached main game loop."
+			elif grep -aqsF "SV_RunFrame" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+				echo "G36_RUNFRAME_PRESENT: SV_RunFrame marker found. Guest server loop active."
+			else
+				echo "G36_RUNFRAME_ABSENT: No Host_RunFrame or SV_RunFrame markers after 20s. Guest likely hung before entering main game loop."
+				echo "G36_RUNFRAME_HINT: Check for blocking calls, asset load hangs, or initialization failures before Host_RunFrame entry point."
+				echo "G36_RUNFRAME_HINT_EXAMPLE: Insert 'OSReport(\"Xash3D GameCube: Host_RunFrame\");' at the start of your main game loop function."
+			fi
+		fi
+
 		# G36_PATCH_v71: Emit probe-loop exit reason with elapsed time for
 		# downstream automation to distinguish timeout from early break.
 		# This single diagnostic line replaces multiple scattered status echoes.
