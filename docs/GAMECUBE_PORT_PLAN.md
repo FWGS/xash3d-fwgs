@@ -1158,16 +1158,16 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 + UNUSED PARAM FIX APPLIED)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 + SCOPE FIX APPLIED)
 
-**Status (2026-06-26):** Fixed C89 compliance violations and warnings in `vid_gamecube.c`:
-1. Fixed `GC_PresentBuffer` - moved `diag_rowdst` declaration to top of scope block (C89 compliance).
-2. Fixed `GC_DrawFatalBreadcrumb` - added `(void)message;` to suppress unused parameter warning/error.
+**Status (2026-06-26):** Fixed C89 compliance violations and scope warnings in `vid_gamecube.c`:
+1. Fixed `GC_PresentBuffer` - ensured all variable declarations are at the top of the scope block and unused variables are explicitly voided to prevent warnings on non-GameCube builds or specific paths.
+2. Fixed `GC_DrawFatalBreadcrumb` - added explicit voids for local variables to suppress unused variable warnings which are treated as errors in strict builds.
 
 **Evidence:**
 - `engine/platform/gamecube/vid_gamecube.c`:
-  - `GC_PresentBuffer`: All variable declarations at top of scope.
-  - `GC_DrawFatalBreadcrumb`: Unused `message` parameter suppressed.
+  - `GC_PresentBuffer`: Variable declarations moved and unused vars voided.
+  - `GC_DrawFatalBreadcrumb`: Local variables voided to suppress warnings.
 - Next: Run build and probe to verify runtime behavior.
 
 ```sh

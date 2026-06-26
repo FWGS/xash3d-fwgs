@@ -137,6 +137,10 @@ static void GC_PresentBuffer( void )
 	unsigned short first_pixel;
 
 	(void)gc_blank_present_count;
+	(void)diag_rowdst;
+	(void)col_diag;
+	(void)scanrow;
+	(void)first_pixel;
 
 	if( !rmode || !xfb[which_fb] )
 		return;
@@ -176,6 +180,7 @@ static void GC_PresentBuffer( void )
 		{
 			check_w = src_w < 8 ? src_w : 8;
 			scanrow = src;
+			col2 = 0;
 			for( col2 = 0; col2 < check_w; col2++ )
 			{
 				if( scanrow[col2] != 0 )
@@ -421,6 +426,13 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	int col_fatal;
 	int i;
 	size_t xfb_size;
+
+	(void)dst;
+	(void)rowdst;
+	(void)row;
+	(void)col_fatal;
+	(void)i;
+	(void)xfb_size;
 
 	if( !rmode || !xfb[0] )
 		return;
