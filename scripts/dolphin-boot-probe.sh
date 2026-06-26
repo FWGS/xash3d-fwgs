@@ -288,6 +288,25 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v84: Detect GX_DrawDone count divergence from frame budget
+		# samples during active probe. If DrawDone markers exceed budget samples,
+		# it indicates frames were presented without timing telemetry, suggesting
+		# the measurement path is not executing for all frames. Provides earlier
+		# evidence of silent frames than waiting for full probe timeout.
+		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]]; then
+			CURRENT_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			CURRENT_BUDGET_COUNT=$(grep -aE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | wc -l)
+			if (( CURRENT_DRAWDONE_COUNT > 0 )) && (( CURRENT_BUDGET_COUNT > 0 )); then
+				if (( CURRENT_DRAWDONE_COUNT > CURRENT_BUDGET_COUNT * 2 )); then
+					SILENT_FRAMES=$((CURRENT_DRAWDONE_COUNT - CURRENT_BUDGET_COUNT))
+					if [[ -z "${G36_SILENT_FRAME_WARNED:-}" ]]; then
+						G36_SILENT_FRAME_WARNED=1
+						echo "G36_SILENT_FRAMES: ${SILENT_FRAMES} GX_DrawDone calls without frame budget markers. Measurement path may be missing for some frames."
+					fi
+				fi
+			fi
+		fi
+
 		# G36_PATCH_v38: Track GC_MemSample stage progression to correlate
 		# memory pressure with frame budget. Detect when the guest transitions
 		# past BSP/client-init into steady-state rendering, allowing downstream
