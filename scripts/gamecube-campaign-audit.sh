@@ -90,8 +90,8 @@ map_exists() {
 chapter_selected() {
 	local chapter="$1"
 	local selected
-	[[ ${#SELECT_CHAPTERS[@]} -eq 0 ]] && return 0
-	for selected in "${SELECT_CHAPTERS[@]}"; do
+	(( ${#SELECT_CHAPTERS[@]:-0} == 0 )) && return 0
+	for selected in "${SELECT_CHAPTERS[@]:-}"; do
 		[[ "$chapter" == "$selected" ]] && return 0
 	done
 	return 1
