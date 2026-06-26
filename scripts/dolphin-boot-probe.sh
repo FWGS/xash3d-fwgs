@@ -1311,10 +1311,30 @@ fi
 # G36_PATCH: Detect explicit GX_DrawDone markers to correlate GPU command
 # completion with frame budget. Helps distinguish "CPU submission stalls"
 # from "GPU processing stalls" in frame budget violations.
-# Note: GX_DRAWDONE_COUNT may already be populated from probe loop if renderer
-# was detected early; only update if we have a fresh count from full logs.
+# Always count from full logs post-probe to ensure accurate counts regardless
+# of whether Dolphin ran under Flatpak wrapper or timeout(1).
 if grep -aqsF "GX_DrawDone" "${LOG_FILES[@]}"; then
 	GX_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "${LOG_FILES[@]}" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+else
+	GX_DRAWDONE_COUNT=0
+fi
+
+# G36_PATCH_v132: Emit machine-parseable DrawDone budget correlation
+# Provides downstream tooling with explicit GX activity vs budget marker evidence.
+# Fires unconditionally after GX_DRAWDONE_COUNT is established.
+if (( FRAME_BUDGET_LOGS )); then
+	echo "G36_DRAWDONE_BUDGET_CORRELATION: gx_drawdone=${GX_DRAWDONE_COUNT} frame_samples=${FRAME_COUNT} budget_markers_extracted=${FRAME_COUNT}"
+	if (( GX_DRAWDONE_COUNT > 0 )) && (( FRAME_COUNT > 0 )); then
+		CORR_RATIO=$(awk "BEGIN {printf \"%.2f\", ${FRAME_COUNT} / ${GX_DRAWDONE_COUNT}}")
+		echo "G36_CORRELATION_RATIO: budget_per_drawdone=${CORR_RATIO}"
+		if awk "BEGIN {exit !(${CORR_RATIO} < 0.5)}" 2>/dev/null; then
+			echo "G36_CORRELATION_LOW: Less than 1 budget marker per 2 GX_DrawDone calls. Measurement path likely missing or guarded."
+		elif awk "BEGIN {exit !(${CORR_RATIO} > 1.5)}" 2>/dev/null; then
+			echo "G36_CORRELATION_HIGH: More than 1.5 budget markers per GX_DrawDone. Possible double-counting or relaxed regex over-matching."
+		else
+			echo "G36_CORRELATION_HEALTHY: Budget markers closely track GX_DrawDone calls. Measurement path is executing."
+		fi
+	fi
 fi
 
 # G36_PATCH_v91: Detect GX_Flush without corresponding GX_DrawDone to diagnose
