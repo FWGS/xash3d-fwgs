@@ -825,6 +825,19 @@ if (( FRAME_RENDER_LOGS )) && (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT > 0 )); 
 	fi
 fi
 
+# G36_PATCH_v52: Detect any guest OSREPORT containing "frame" to distinguish
+# "guest silent about frames" from "guest emits frames but probe regex missed them".
+# This provides a fast-path signal for reviewers when FRAME_BUDGET_LOGS=0 but
+# the renderer appears to have started. Helps break aide-review cycles where
+# measurement absence is ambiguous.
+if ! (( FRAME_BUDGET_LOGS )) && [[ -n "$GUEST_RENDERER" ]]; then
+	ANY_FRAME_OSREPORT=$(grep -ac "frame" "${LOG_FILES[@]}" 2>/dev/null || echo "0")
+	if (( ANY_FRAME_OSREPORT > 0 )); then
+		echo "G36_GUEST_FRAME_MENTION: Guest emitted ${ANY_FRAME_OSREPORT} log lines mentioning 'frame' but no frame budget markers matched probe regex."
+		echo "G36_REGEX_HINT: Guest may be using a non-standard frame budget marker format. Inspect logs for OSREPORT lines containing 'frame' and time/duration values."
+	fi
+fi
+
 FRAME_MIN=""
 FRAME_MAX=""
 FRAME_AVG=""
