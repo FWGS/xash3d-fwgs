@@ -2347,6 +2347,36 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					fi
 				fi
 			fi
+
+			# G36_PATCH_v101: Detect sawtooth frame pattern (alternating fast/slow frames)
+			# to diagnose double-render loops or pipeline stall/recovery cycles.
+			# Sawtooth: consecutive frames alternate above/below average.
+			if (( FRAME_COUNT >= 6 )); then
+				FRAME_SAWTOOTH=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '
+				{
+					sum += $1;
+					times[NR] = $1;
+					count++;
+				}
+				END {
+					if (count < 6) { print 0; exit }
+					avg = sum / count;
+					alternations = 0;
+					for (i = 2; i < count; i++) {
+						prev_below = (times[i-1] < avg) ? 1 : 0;
+						cur_below = (times[i] < avg) ? 1 : 0;
+						if (prev_below != cur_below) alternations++;
+					}
+					# High alternation rate (>60% of transitions alternate) indicates sawtooth
+					ratio = alternations / (count - 2);
+					if (ratio > 0.60) print int(ratio * 100);
+					else print 0;
+				}')
+				if (( FRAME_SAWTOOTH > 0 )); then
+					echo "G36_SAWTOOTH_DETECTED: ${FRAME_SAWTOOTH}% frame transitions alternate around average. Suspect double-render loop or pipeline stall/recovery cycle."
+					echo "G36_SAWTOOTH_HINT: Check for duplicate render calls, incorrect VI-sync placement, or command buffer double-submission."
+				fi
+			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
