@@ -164,6 +164,7 @@ wait_for_probe_wrapper() {
 
 DOLPHIN_EXIT=1
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s)..."
+START_TS=$(date +%s)
 set +e
 if (( DOLPHIN_IS_FLATPAK )); then
 	flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
@@ -202,8 +203,30 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			echo "G36_MEASUREMENT_ACTIVE: Frame budget measurement subsystem confirmed active during probe."
 		elif grep -aqsF "Xash3D GameCube: frame budget measurement disabled" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
 			echo "G36_MEASUREMENT_DISABLED_ACTIVE: Guest explicitly disabled frame budget measurement during probe."
-		elif (( $(date +%s) > $(( $(date +%s) - TIMEOUT_SEC / 2 )) )) && \
-			! grep -aqsF "Xash3D GameCube: frame budget" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+		fi
+
+		# G36_PATCH_v32: Detect first frame time marker emission to establish
+		# measurement start timestamp. This allows downstream tooling to distinguish
+		# "probe timeout before rendering" from "rendering started but budget violated".
+		if [[ -z "${G36_FIRST_FRAME_TS:-}" ]] && \
+		   grep -aqsE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			G36_FIRST_FRAME_TS=$(date +%s)
+			echo "G36_FIRST_FRAME_TIME: First frame time marker detected at probe second=$(( G36_FIRST_FRAME_TS - START_TS )). Measurement window is open."
+		fi
+
+		# G36_PATCH_v32: After measurement window opens, detect if we have minimum
+		# samples to declare measurement viable (avoids waiting full timeout).
+		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]] && \
+		   (( $(date +%s) - G36_FIRST_FRAME_TS > 3 )); then
+			PROBE_FRAME_COUNT=$(grep -aE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | wc -l)
+			if (( PROBE_FRAME_COUNT >= 5 )); then
+				echo "G36_MEASUREMENT_VIABLE: ${PROBE_FRAME_COUNT} frame samples detected ${PROBE_FRAME_COUNT} seconds after first frame. Continuing probe for map/input markers."
+			fi
+		fi
+
+		if (( $(date +%s) > $(( $(date +%s) - TIMEOUT_SEC / 2 )) )) && \
+			! grep -aqsF "Xash3D GameCube: frame budget" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null && \
+			[[ -z "${G36_FIRST_FRAME_TS:-}" ]]; then
 			# After half the timeout has elapsed, warn if no frame budget markers appear
 			echo "G36_MEASUREMENT_SILENT: No frame budget markers detected after 50% of timeout. Guest may not be emitting telemetry."
 			echo "G36_HINT_SILENT: Check renderer code path for OSReport frame budget calls."
@@ -309,7 +332,7 @@ fi
 # Include compile-time low-memory-mode context to correlate frame budget with build configuration
 # (--low-memory-mode=2 sets MAX_MODELS=512, MAX_SOUNDS=512, etc. per GAMECUBE_MEMORY_BUDGET.md)
 LC_LOWMEM="${LC_LOWMEM_MODE:-none}"
-echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} runtime_lowmem=${GC_LOWMEM_MODE:-none} compile_lowmem=${LC_LOWMEM} timeout=${TIMEOUT_SEC}s"
+echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} runtime_lowmem=${GC_LOWMEM_MODE:-none} compile_lowmem=${LC_LOWMEM} timeout=${TIMEOUT_SEC}s first_frame_offset=${G36_FIRST_FRAME_TS:+$(( G36_FIRST_FRAME_TS - START_TS ))s}"
 
 # G36: Explicitly look for guest-reported memory samples to correlate with frame budget
 GC_MEM_SAMPLES=0
