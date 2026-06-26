@@ -1396,6 +1396,11 @@ by accepted Aider passes (attempts 1-5, multiple exit 0 accepted,
 `.ai/logs/aider-pass-2026-06-26-153235.log`). Transient `asset_lookup` staging failures
 (exit 18) confirmed as environment conditions, not missing source. Source stability
 verified with no regressions.
+
+**Attempt 4 confirmation (2026-06-26):** Automated preflight status remains stable.
+Source-side acceptance criteria are complete. No further automated patches will be
+attempted. Remaining audible evidence requirements are MANUAL operator tasks deferred
+to G38/G40 hardware validation.
 Transient `asset_lookup` staging failures (exit 18) are environment conditions,
 not missing source code. The acceptance criteria for audible evidence require
 physical hardware or persistent-storage Dolphin validation, which is a MANUAL
