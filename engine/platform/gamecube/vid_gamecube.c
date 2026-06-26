@@ -128,27 +128,6 @@ static void GC_PresentBuffer( void )
 
 		for( row = 0; row < src_h; row++ )
 			memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, src_w * sizeof( unsigned short ));
-
-		/* G36_v2: Sample a small region (64x64) for non-black evidence.
-		 * Bounding the check reduces CPU cost while providing concrete visual
-		 * proof that renderer content reached the XFB. This distinguishes
-		 * "renderer drawing black" from "renderer drawing content". */
-		{
-			int sample_w = src_w < 64 ? src_w : 64;
-			int sample_h = src_h < 64 ? src_h : 64;
-			for( int sy = 0; sy < sample_h && !sampled_nonblack; sy++ )
-			{
-				const unsigned short *row = src + sy * gc.stride;
-				for( int sx = 0; sx < sample_w; sx++ )
-				{
-					if( row[sx] != 0 )
-					{
-						sampled_nonblack = true;
-						break;
-					}
-				}
-			}
-		}
 	}
 	else
 	{
@@ -208,16 +187,6 @@ static void GC_PresentBuffer( void )
 
 	GX_Flush();
 	GX_DrawDone();
-	{
-		static int g36_drawdone_tick = 0;
-		g36_drawdone_tick++;
-		if( g36_drawdone_tick >= 10 )
-		{
-			g36_drawdone_tick = 0;
-			SYS_Report( "Xash3D GameCube: GX_DrawDone\n" );
-		}
-	}
-
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
