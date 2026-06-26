@@ -117,6 +117,21 @@ removed-card, corrupt file, wrong slot, and incompatible version handling. If a
 route cannot safely simulate one of those conditions, record it as untested
 instead of treating the save path as release-complete.
 
+## Fatal Error UX Preflight
+
+Before recording physical fatal-screen results, run the automated G50 preflight:
+
+```sh
+scripts/gamecube-fatal-ux-compliance.py
+```
+
+For hardware evidence, trigger one intentional fatal route and record a photo or
+capture showing the on-screen fatal title, message, subsystem/build/map/route
+details, memory line, and halt/restart instruction. The text must be readable on
+the selected analog/video route. If the screen is unreadable, black, missing the
+message, or never reaches a bounded halt/return/restart state, record the route
+as failed rather than release-complete.
+
 ## Validation Matrix
 
 Record which route was tested.

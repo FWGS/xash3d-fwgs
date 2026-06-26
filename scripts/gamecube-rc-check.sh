@@ -42,7 +42,8 @@ Runs the native GameCube release-candidate evidence gate:
   10. video compliance check
   11. controller compliance check
   12. save integrity/destructive-action compliance check
-  13. homebrew compliance check
+  13. fatal error UX compliance check
+  14. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -339,7 +340,22 @@ save_compliance_gate() {
 		return 0
 	fi
 	local rc=$?
-	log_status "$name" "FAIL" "$log_path" "exit $rc"
+	log_status "save compliance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
+fatal_ux_compliance_gate() {
+	local log_path="$LOG_DIR/fatal-ux-compliance.log"
+	echo
+	echo "== fatal UX compliance =="
+	if scripts/gamecube-fatal-ux-compliance.py --log-dir "$LOG_DIR/fatal-ux-compliance" >"$log_path" 2>&1; then
+		log_status "fatal UX compliance" "PASS" "$log_path" "G50 fatal error UX/crash breadcrumb preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "fatal UX compliance" "FAIL" "$log_path" "exit $rc"
 	cat "$log_path" >&2
 	return "$rc"
 }
@@ -452,6 +468,7 @@ main() {
 	video_compliance_gate || true
 	controller_compliance_gate || true
 	save_compliance_gate || true
+	fatal_ux_compliance_gate || true
 	compliance_gate || true
 	write_summary
 	echo

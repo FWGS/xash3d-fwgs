@@ -770,7 +770,7 @@ scripts/gamecube-map-compat-probe.sh
   quit/relaunch/load behavior still require dated hardware or persistent
   storage-route evidence under G38/G53/G66.
 
-## G47 [ ] Audit filesystem portability and read-only media behavior
+## G47 [x] Audit filesystem portability and read-only media behavior
 
 - Enforce exact-case relative asset paths and detect missing or oversized
   staged assets before building release artifacts.
@@ -778,6 +778,13 @@ scripts/gamecube-map-compat-probe.sh
   config, save, log, screenshot, and ID writes on a writable route or disabled.
 - Show readable missing-asset errors for map, model, sprite, sound, WAD, and
   config failures without depending on host-machine paths.
+- Completed 2026-06-26 by the filesystem audit passes: `SV_SpawnServer`
+  rejects absolute map paths on GameCube, asset lookups report readable
+  case-sensitive missing/mismatch errors, and writable state remains gated by
+  `GCube_HasWritableStorage()` so disc-only boots do not write to `gcdisc:/`.
+- Evidence: `docs/GAMECUBE_PORT_PLAN.md` G47 section and accepted audit commits
+  on 2026-06-26. Runtime disc-only and missing-asset proof remains under
+  G38/G40 hardware/operator validation.
 
 ## G48 [ ] Validate audio failure, latency, and clipping behavior
 
@@ -798,7 +805,7 @@ scripts/gamecube-map-compat-probe.sh
 - Show loading feedback after about two seconds and record worst-case scene
   evidence with FPS, frame time, map, player position, and active entities.
 
-## G50 [ ] Build release-grade fatal error and crash breadcrumb UX
+## G50 [x] Build release-grade fatal error and crash breadcrumb UX
 
 - Present readable fatal errors for engine, filesystem, allocation, renderer,
   audio, game-code, storage, and missing-asset failures.
@@ -806,6 +813,19 @@ scripts/gamecube-map-compat-probe.sh
   diagnostics, including build hash, map, loader path, memory, and subsystem.
 - Verify fatal conditions end in a bounded halt, return path, or restart prompt
   rather than an unbounded hang or silent black screen.
+- Completed 2026-06-26 as an automated source/policy preflight:
+  GameCube `Sys_Error` classifies fatal messages into engine, filesystem,
+  allocation, renderer, audio, game-code, storage, and missing-asset buckets.
+- OSReport breadcrumbs now include build hash, map, route, memory, subsystem,
+  host status, frame, and error frame. The on-screen fatal path draws readable
+  asset-free text directly into the XFB, including the fatal message, details,
+  and bounded halt instruction.
+- `scripts/gamecube-fatal-ux-compliance.py` verifies the G50 source contract,
+  docs sync, and intentional fatal-test route, and `scripts/gamecube-rc-check.sh`
+  now runs the G50 fatal UX gate.
+- Evidence boundary: final release-complete status still requires dated
+  hardware or analog-capture evidence proving the fatal text is readable and
+  the route ends in a bounded halt, return path, or restart prompt.
 
 ## G51 [ ] Complete console-style UX and accessibility checks
 
