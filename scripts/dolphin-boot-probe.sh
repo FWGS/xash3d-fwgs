@@ -367,6 +367,22 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			echo "G36_RENDERER_INIT_TIME: Renderer initialized at probe second=$(( G36_RENDERER_INIT_TS - START_TS )). Time-to-init measured."
 		fi
 
+		# G36_PATCH_v58: Detect any OSREPORT activity from guest to distinguish
+		# "guest completely silent" from "guest emitting but no frame budget markers".
+		# This helps diagnose whether the renderer crashed, is stuck, or simply
+		# lacks budget telemetry. Fires once after 10s if no OSREPORT seen.
+		if [[ -z "${G36_GUEST_SILENCE_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 10 )); then
+			G36_GUEST_SILENCE_CHECKED=1
+			OSREPORT_COUNT=$(grep -ac "OSREPORT\|Xash3D GameCube" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			if (( OSREPORT_COUNT == 0 )); then
+				echo "G36_GUEST_SILENT: No guest OSREPORT markers detected after 10s. Guest may have crashed, stalled before renderer, or OSREPORT path is broken."
+				echo "G36_GUEST_SILENT_HINT: Check for early bootstrap failure, missing platform init, or blocked syscalls."
+			else
+				echo "G36_GUEST_ACTIVE: Guest emitted ${OSREPORT_COUNT} OSREPORT lines. Renderer path is active but frame budget markers may be missing or disabled."
+			fi
+		fi
+
 		sleep 2
 	done
 else
