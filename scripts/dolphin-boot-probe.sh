@@ -719,6 +719,31 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v121: Detect any OSREPORT line containing a plausible frame
+		# time value (1-100ms) even if format doesn't match probe regex. This
+		# catches guest emits like "frame=15ms" or "12.5" without proper prefix,
+		# providing concrete evidence of what the guest *is* emitting. Fires once
+		# after 15s when no budget markers found but GX activity confirmed.
+		if [[ -n "$GUEST_RENDERER" ]] && [[ -z "${G36_GUESS_FRAME_TIME_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 15 )); then
+			G36_GUESS_FRAME_TIME_CHECKED=1
+			if ! grep -aqsE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+				# Look for any line with a number in plausible ms range (1-100)
+				GUESS_HITS=$(grep -aoE '[0-9]+(\.[0-9]+)?' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | \
+					awk '$1 >= 1.0 && $1 <= 100.0 {count++} END{print count+0}')
+				if (( GUESS_HITS > 10 )); then
+					# Show a sample of what the guest is emitting with numeric values
+					SAMPLE_NUMBERS=$(grep -aE '[0-9]+(\.[0-9]+)?' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | head -5)
+					echo "G36_GUESS_FRAME_TIME: Found ${GUESS_HITS} numeric values in plausible ms range (1-100) but zero formatted budget markers."
+					echo "G36_GUESS_FRAME_TIME_HINT: Guest may be emitting timing data in unexpected format. Sample lines:"
+					while IFS= read -r line; do
+						echo "G36_GUESS_FRAME_TIME_SAMPLE: ${line}"
+					done <<< "$SAMPLE_NUMBERS"
+					echo "G36_GUESS_FRAME_TIME_EXAMPLE: Expected format: OSReport(\"Xash3D GameCube: frame time=%.2fms\", elapsed_ms);"
+				fi
+			fi
+		fi
+
 		# G36_PATCH_v71: Emit probe-loop exit reason with elapsed time for
 		# downstream automation to distinguish timeout from early break.
 		# This single diagnostic line replaces multiple scattered status echoes.
