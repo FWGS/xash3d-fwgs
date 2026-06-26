@@ -126,9 +126,6 @@ EXTRA_ARGS=()
 if (( GC_FATAL_TEST )); then
 	EXTRA_ARGS+=("-gc_fatal_test" "1")
 fi
-if [[ "${DOLPHIN_PROBE_INPUT:-1}" != "0" ]]; then
-	EXTRA_ARGS+=("-gcprobe_input" "1")
-fi
 
 if [[ "${DOLPHIN_EXECUTABLE:-}" == flatpak:* ]]; then
 	DOLPHIN_FLATPAK_ID="${DOLPHIN_EXECUTABLE#flatpak:}"

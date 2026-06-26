@@ -50,7 +50,6 @@ static PADStatus gc_pad[PAD_CHANMAX];
 static qboolean gc_connected;
 static qboolean gc_input_logged;
 static qboolean gc_no_controller_logged;
-static qboolean gc_probe_input;
 static qboolean gc_probe_synthetic;
 static int gc_active_port = -1;
 static u32 gc_controller_type;
@@ -209,12 +208,10 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
 
 static void GC_EnableProbeInputFallback( void )
 {
-	convar_t *probe_cvar;
-
-	probe_cvar = Cvar_Get( "gc_probe_input", "0", 0,
-		"Dolphin probe: synthesize neutral pad when SI returns no controller" );
-	gc_probe_input = ( probe_cvar != NULL && Cvar_VariableInteger( "gc_probe_input" ));
-	if( !gc_probe_input || gc_connected || gc_probe_synthetic )
+	if( gc_connected || gc_probe_synthetic )
+		return;
+	/* Automated Dolphin gcmap probes do not receive real SI pad packets. */
+	if( !Sys_CheckParm( "-gcmap" ))
 		return;
 
 	memset( gc_pad, 0, sizeof( gc_pad ));
@@ -305,12 +302,8 @@ int Platform_JoyInit( void )
 {
 	int attempt;
 	int port;
-	convar_t *probe_cvar;
 
 	PAD_Init();
-	probe_cvar = Cvar_Get( "gc_probe_input", "0", 0,
-		"Dolphin probe: synthesize neutral pad when SI returns no controller" );
-	gc_probe_input = ( probe_cvar != NULL && Cvar_VariableInteger( "gc_probe_input" ));
 	GC_LogButtonMap();
 	Con_Reportf( "Joystick: GameCube controller preferred port %d; deadzone stick=%d trigger=%d\n",
 		GC_PAD_PREFERRED + 1, GC_STICK_DEAD, GC_TRIGGER_DEAD );
