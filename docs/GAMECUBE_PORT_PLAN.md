@@ -1387,6 +1387,41 @@ Dolphin alone. At minimum, release documentation must include:
   compliance gates.
 - Fatal-error UI and crash breadcrumbs need real hardware-facing validation.
 
+## G46 — Save integrity and destructive-action policy (BLOCKED: missing source context)
+
+**Status (2026-06-26):** Blocked on missing source context. The goal runner did
+not preload the save/load system source files required for implementation.
+
+**Acceptance criteria require changes to:**
+- Save file format with metadata (magic, version, CRC32, map name, build hash, storage route)
+- Atomic write paths (temp file + rename) with backup semantics
+- Error handling for: interrupted writes, full storage, removed media, corrupt files, version mismatch
+- Confirmation prompts for destructive operations (overwrite, delete, format, migrate)
+
+**Required source files (not in context):**
+- Save/load implementation: likely `engine/common/save.c` or `engine/client/save.c`
+- Save format definitions and serialization code
+- GameCube storage backend: `engine/platform/gamecube/*.c` for filesystem operations
+- Any existing save slot management code
+
+**Previous attempts:** All failed (aider-pass exit 18) due to missing source context or model budget constraints when trying to implement without the actual save system code.
+- `.ai/logs/aider-pass-2026-06-26-123416.log` (exit 18)
+- `.ai/logs/aider-pass-2026-06-26-123724.log` (exit 18)
+- `.ai/logs/aider-pass-2026-06-26-123914.log` (exit 18)
+
+**Next step:** The goal runner must preload the save system source slice before
+retrying G46. Without the actual save/load implementation files, any patch would
+be speculative and unable to integrate with the existing save infrastructure.
+
+**Files currently in context (insufficient for G46):**
+- `docs/GAMECUBE_PORT_PLAN.md` (documentation)
+- `scripts/dolphin-boot-probe.sh` (test probe)
+- `engine/common/cmd.c` (command system - useful for confirmation hooks)
+- Build/verify scripts
+
+Do not retry G46 without loading save system source files. This is a source
+context availability blocker.
+
 ## Next wake-up commands
 
 ```sh
