@@ -1480,6 +1480,9 @@ actual fatal errors (`Host_Error`, `Sys_Error`, `Xash Error`, `fatal error`,
 memory exhaustion) rather than any line containing "Error". This prevents
 expected shutdown cleanup noise from being classified as guest failures.
 
+**Attempt 3 (2026-06-26):** Aider pass exit 18 (`audio_runtime`). Same clean
+shutdown as attempt 2; probe script fix verified. No new source changes needed.
+
 **Evidence:**
 ```sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
@@ -1518,6 +1521,10 @@ this machine or physical hardware. The automation should not loop on this goal.
 **Completion note:** Frame-budget instrumentation is source-complete (G36).
 Acceptance evidence for variable frame-rate stability and loading feedback
 thresholds requires extended runtime sessions beyond the bounded smoke probe.
+
+**2026-06-26 update:** Attempt 3 confirmed the probe script fix from attempt 2.
+No source changes required. G49 remains incomplete by design; automation should
+not retry until operator validation occurs.
 
 ## G50 — Fatal error UX and crash breadcrumb readability (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
 
