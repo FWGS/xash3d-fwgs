@@ -317,7 +317,8 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			DRAWDONE_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -acF "GX_DrawDone")
 			BUDGET_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -acE "Xash3D GameCube:.*time=[0-9]+")
 			if (( DRAWDONE_EARLY > 2 )) && (( BUDGET_EARLY == 0 )); then
-				echo "G36_DECISIVE_EARLY: Renderer ${GUEST_RENDERER:-unknown} active with ${DRAWDONE_EARLY} GX_DrawDone calls but zero frame budget markers after 5s."
+				ELAPSED_AFTER_INIT=$(( $(date +%s) - G36_RENDERER_INIT_TS ))
+				echo "G36_DECISIVE_EARLY: Renderer ${GUEST_RENDERER:-unknown} active with ${DRAWDONE_EARLY} GX_DrawDone calls but zero frame budget markers after ${ELAPSED_AFTER_INIT}s."
 				echo "G36_DECISIVE_EARLY_HINT: Guest render loop is missing 'Xash3D GameCube: frame time=<ms>' OSReport. Patch GX renderer main loop to emit budget marker after GX_DrawDone."
 				echo "G36_DECISIVE_EARLY_HINT_EXAMPLE: Add 'OSReport(\"Xash3D GameCube: frame time=%dms\", elapsed_ms);' after GX_DrawDone() in your main render loop."
 				echo "G36_DECISIVE_EARLY_STATUS: MEASUREMENT_PATH_MISSING"
