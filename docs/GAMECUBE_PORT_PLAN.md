@@ -1158,12 +1158,12 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: BUILD FIX APPLIED)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C99 LOOP FIX)
 
-**Status (2026-06-26):** Fixed `DCFlushRange` API usage in `vid_gamecube.c`. The calls in `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb` were incorrectly passing `size` as the second argument instead of the `end` address. Corrected to use `start + size` pointer arithmetic.
+**Status (2026-06-26):** Fixed C99 `for( int i = ... )` declaration in `GC_DrawFatalBreadcrumb`. The devkitPPC PowerPC compiler rejects inline loop variable declarations under default C89 settings. Moved `int i` declaration to the start of the block.
 
 **Evidence:**
-- `engine/platform/gamecube/vid_gamecube.c`: Updated `DCFlushRange` calls in `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb`.
+- `engine/platform/gamecube/vid_gamecube.c`: Changed `for( int i = 0; i < 3; i++ )` to pre-declare `int i` before the loop in `GC_DrawFatalBreadcrumb`.
 - Next: Run build and probe to verify runtime behavior.
 
 ```sh

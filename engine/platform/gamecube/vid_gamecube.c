@@ -430,8 +430,11 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	 * Use multiple VIDEO_WaitVSync() calls to ensure the frame is
 	 * presented on screen before the process exits. This is more
 	 * portable than SYS_Delay across different libogc versions. */
-	for( int i = 0; i < 3; i++ )
-		VIDEO_WaitVSync();
+	{
+		int i;
+		for( i = 0; i < 3; i++ )
+			VIDEO_WaitVSync();
+	}
 #endif
 	(void)message; /* Message is already reported via OSReport in Sys_Error */
 }
