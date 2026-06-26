@@ -556,6 +556,16 @@ if (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT == 0 )); then
 	if (( RAW_MATCH_COUNT > 0 )); then
 		echo "G36_PARSE_DEBUG: Raw matches present but parse filter rejected them. Check for trailing characters after numeric value."
 	fi
+	# G36_PATCH_v19: Dump first few unmatched frame-time-like lines for manual regex diagnosis
+	# This helps distinguish "marker format mismatch" from "guest not emitting markers"
+	UNMATCHED_LIKELY=$(grep -aE "Xash3D GameCube:.*time=" "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -vaE "(frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time)=" | head -3)
+	if [[ -n "$UNMATCHED_LIKELY" ]]; then
+		echo "G36_PARSE_RAW_SAMPLE: Unmatched but likely frame-time markers (first 3 lines):"
+		while IFS= read -r line; do
+			echo "G36_PARSE_RAW_SAMPLE: ${line}"
+		done <<< "$UNMATCHED_LIKELY"
+	fi
 fi
 
 if (( FRAME_COUNT > 0 )); then
