@@ -700,8 +700,17 @@ void SCR_UpdateScreen( void )
 	// during changelevel we might have a few frames when we have nothing to draw
 	// (assuming levelshots are off) and drawing 2d on top of nothing or cleared screen
 	// is ugly, specifically with Adreno and ImgTec GPUs
-	if( screen_redraw || !cls.changelevel || !cls.changedemo )
-		V_PostRender();
+#if XASH_GAMECUBE
+	{
+		extern int GC_GetVisualQuality( void );
+		// G36: Skip expensive 2D HUD overlay in quality 0 to stabilize frame budget
+		if( GC_GetVisualQuality( ) != 0 )
+#endif
+		if( screen_redraw || !cls.changelevel || !cls.changedemo )
+			V_PostRender();
+#if XASH_GAMECUBE
+	}
+#endif
 }
 
 /*
