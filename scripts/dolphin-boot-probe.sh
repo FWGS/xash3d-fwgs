@@ -432,22 +432,31 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
-		# G36_PATCH_v75: Consolidated renderer diagnostic - detects renderer active
-		# but no frame budget markers in a single check. Replaces v62/v70/v72 which
-		# overlapped in checking similar conditions at different time thresholds.
+		# G36_PATCH_v76: Quantify missing budget telemetry by comparing GX_DrawDone
+		# count to frame budget marker count. Reports exact ratio to distinguish
+		# "renderer missing measurement call" from "measurement call present but
+		# format mismatch". Fires once after 18s with renderer detected.
 		if [[ -n "$GUEST_RENDERER" ]] && \
 		   [[ -z "${G36_RENDERER_BUDGET_DIAGNOSTIC_CHECKED:-}" ]] && \
 		   (( $(date +%s) - START_TS > 18 )); then
 			G36_RENDERER_BUDGET_DIAGNOSTIC_CHECKED=1
 			GX_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
-			GX_CALL_COUNT=$(grep -acE "GX_|GX_Call" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
 			BUDGET_MARKER_COUNT=$(grep -acE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			GX_CALL_COUNT=$(grep -acE "GX_|GX_Call" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
 			if (( GX_DRAWDONE_COUNT > 0 )) && (( BUDGET_MARKER_COUNT == 0 )); then
-				echo "G36_RENDERER_ACTIVE_NO_BUDGET: Renderer ${GUEST_RENDERER} submitted ${GX_DRAWDONE_COUNT} GX_DrawDone calls but emitted zero frame budget markers after 18s."
-				echo "G36_RENDERER_ACTIVE_HINT: Renderer is executing and completing draw calls. Missing 'Xash3D GameCube: frame time=<ms>' OSReport after GX_DrawDone in renderer main loop."
-			elif (( GX_CALL_COUNT > 10 )) && (( BUDGET_MARKER_COUNT == 0 )); then
-				echo "G36_RENDERER_ACTIVE_NO_BUDGET: Renderer ${GUEST_RENDERER} is active (${GX_CALL_COUNT} GX calls) but emitting zero frame budget markers after 18s."
-				echo "G36_RENDERER_ACTIVE_HINT: Renderer code path is executing GX commands but missing frame budget OSReport calls. Insert measurement after GX_DrawDone or VI-sync."
+				echo "G36_TELEMETRY_RATIO: GX_DrawDone=${GX_DRAWDONE_COUNT} but frame budget markers=0. All frames missing budget OSReport."
+				echo "G36_TELEMETRY_HINT: Insert 'Xash3D GameCube: frame time=<ms>' OSReport immediately after GX_DrawDone in renderer main loop."
+			elif (( GX_DRAWDONE_COUNT > 0 )) && (( BUDGET_MARKER_COUNT > 0 )); then
+				MISSING=$((GX_DRAWDONE_COUNT - BUDGET_MARKER_COUNT))
+				if (( MISSING > 0 )); then
+					echo "G36_TELEMETRY_RATIO: GX_DrawDone=${GX_DRAWDONE_COUNT} vs budget markers=${BUDGET_MARKER_COUNT}. ${MISSING} frames missing telemetry."
+					echo "G36_TELEMETRY_HINT: Budget measurement is not executing for all frames. Check conditional guards or early-return paths in render loop."
+				else
+					echo "G36_TELEMETRY_RATIO: GX_DrawDone=${GX_DRAWDONE_COUNT} vs budget markers=${BUDGET_MARKER_COUNT}. Telemetry coverage appears complete."
+				fi
+			elif (( GX_CALL_COUNT > 10 )) && (( GX_DRAWDONE_COUNT == 0 )); then
+				echo "G36_RENDERER_NO_DRAWDONE: Renderer ${GUEST_RENDERER} active (${GX_CALL_COUNT} GX calls) but zero GX_DrawDone detected after 18s."
+				echo "G36_RENDERER_HINT: GX command buffer may not be flushed. Check for missing GX_Flush/GX_DrawDone or early-return before submission."
 			elif (( GX_CALL_COUNT <= 10 )); then
 				echo "G36_RENDERER_LOW_ACTIVITY: Renderer ${GUEST_RENDERER} initialized but only ${GX_CALL_COUNT} GX calls detected after 18s. Guest may not be reaching main render loop."
 				echo "G36_RENDERER_LOW_ACTIVITY_HINT: Check for crashes or hangs between renderer init and Host_RunFrame/render loop entry."
