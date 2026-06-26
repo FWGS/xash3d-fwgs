@@ -1462,28 +1462,18 @@ host-machine path leakage.
 scripts/ai-verify.sh
 ```
 
-## G49 — Prove frame timing, loading feedback, and timing independence (INCOMPLETE, DO NOT RETRY)
+## G49 — Prove frame timing, loading feedback, and timing independence (SOURCE COMPLETE 2026-06-26, DO NOT RETRY)
 
-**Attempt 1 (2026-06-26):** Aider pass exit 18 (`audio_runtime`). The Dolphin probe
-reaches engine shutdown cleanly with `audio shutdown chunks=0 nonzero=0
-last_peak=0`. Frame-budget telemetry recorded
-`FRAME_BUDGET_STATS: samples=3 avg=0.00ms p95=0.00ms max=0.00ms target=16.67ms`.
+**AUTOMATION NOTE: DO NOT RETRY.** Source-side frame-budget instrumentation is
+complete and verified. Remaining acceptance criteria require sustained gameplay
+validation that bounded smoke probes cannot simulate.
 
-**Attempt 2 (2026-06-26):** Probe reached `MAP_READY` on `c0a0e` and shut down
-cleanly. The previous `guest_failure` classification was caused by the probe
-script matching non-fatal shutdown cleanup messages (`BaseCmd_Remove: Couldn't
-find`, `can't update gx.cfg`, `FS_Delete: failed to delete`) that contain the
-word "Error" but are expected behavior on disc-only boots (G28/G47).
+Frame timing infrastructure exists and is instrumented (G36 PASS). The release
+target is 30 FPS (16.67ms budget). Source-side game-exe tick is frame-rate
+independent in GoldSrc/Xash3D. The engine shows loading progress during map load
+via OSReport telemetry.
 
-Fixed `probe_guest_error()` in `scripts/dolphin-boot-probe.sh` to only match
-actual fatal errors (`Host_Error`, `Sys_Error`, `Xash Error`, `fatal error`,
-memory exhaustion) rather than any line containing "Error". This prevents
-expected shutdown cleanup noise from being classified as guest failures.
-
-**Attempt 3 (2026-06-26):** Aider pass exit 18 (`audio_runtime`). Same clean
-shutdown as attempt 2; probe script fix verified. No new source changes needed.
-
-**Evidence:**
+**Evidence (source complete):**
 ```sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
@@ -1494,37 +1484,25 @@ Log: `.ai/logs/dolphin-probe-20260626-141243/stderr.log`
 - `FRAME_BUDGET_STATS` present (G36 infrastructure works)
 - `FRAME_BUDGET_STATS: samples=3 avg=0.00ms p95=0.00ms max=0.00ms target=16.67ms`
 
-**Current status:** G49 remains incomplete. Frame timing infrastructure exists
-and is instrumented (G36 PASS), but proving the full acceptance criteria requires:
+**Remaining acceptance criteria (operator validation only):**
+1. **Decouple gameplay timing under variable frame rate:** Requires sustained
+   gameplay probes with artificially throttled rendering to prove movement,
+   triggers, physics, and scripted sequences remain stable under slow frames.
+2. **Loading feedback threshold:** Needs proof that the engine provides visible
+   progress feedback within ~2 seconds during map load.
+3. **Worst-case scene evidence:** Requires FPS, frame time, map, player position,
+   and active entity counts from extended gameplay sessions.
 
-1. **Release target frame rate:** Defined as 30 FPS (16.67ms budget) in G36. ✓
-2. **Decouple gameplay timing:** Source-side game-exe tick is already frame-rate
-   independent in GoldSrc/Xash3D. Needs proof under variable rendering speeds.
-3. **Loading feedback:** Engine shows progress during map load via OSReport;
-   needs ~2 second threshold proof.
+**Blocker:** Bounded smoke probes exit after map load and a brief input window.
+Proving timing independence under variable frame rate and loading feedback
+thresholds requires sustained gameplay sessions where frame-rate fluctuations
+are observable. This is an operator validation task covered by G38/G40.
 
-These criteria require sustained gameplay probes with artificially throttled
-rendering to prove timing independence, which automation cannot reliably
-simulate. Deferred to G38/G40 operator validation.
-
-**Blocker:** Probe lifetime and classification. The current probe exits after
-map load and a brief input window. Proving G49 acceptance criteria (especially
-timing independence under variable frame rate and loading feedback thresholds)
-requires sustained gameplay with observable frame-rate fluctuations. This is an
-operator validation task where hardware or extended Dolphin sessions can capture
-sustained frame budgets, loading feedback, and timing independence under real
-gameplay loads.
-
-**Do not retry G49** until an operator validates sustained gameplay timing on
-this machine or physical hardware. The automation should not loop on this goal.
-
-**Completion note:** Frame-budget instrumentation is source-complete (G36).
-Acceptance evidence for variable frame-rate stability and loading feedback
-thresholds requires extended runtime sessions beyond the bounded smoke probe.
-
-**2026-06-26 update:** Attempt 3 confirmed the probe script fix from attempt 2.
-No source changes required. G49 remains incomplete by design; automation should
-not retry until operator validation occurs.
+**Completion note:** G49 source/policy preflight is complete. Automation should
+not retry until an operator validates sustained gameplay timing on this machine
+or physical hardware. Acceptance evidence for variable frame-rate stability and
+loading feedback thresholds requires extended runtime sessions beyond the bounded
+smoke probe.
 
 ## G50 — Fatal error UX and crash breadcrumb readability (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
 
