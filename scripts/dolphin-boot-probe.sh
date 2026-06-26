@@ -293,8 +293,9 @@ fi
 
 if (( ! MAP_FOUND )) && (( ! READY_FOUND )) && (( ! GUEST_FOUND )); then
 	echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without reaching engine readiness."
-if (( GUEST_FOUND )); then
-	grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+	if (( GUEST_FOUND )); then
+		grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+	fi
+	echo "Logs: $LOG_DIR"
+	finalize_probe inconclusive_exit 4
 fi
-echo "Logs: $LOG_DIR"
-finalize_probe inconclusive_exit 4
