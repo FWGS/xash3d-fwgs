@@ -1158,22 +1158,34 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (BLOCKED: BUILD FAILURE)
 
-**Status (2026-06-26):** Build fixed by removing unused `<ogc/lwp_watchdog.h>` include. Engine now compiles cleanly. Next: verify runtime behavior with Dolphin probe and proceed to campaign audit.
+**Status (2026-06-26):** Build fails with exit code 1. Current `vid_gamecube.c` does not contain `<ogc/lwp_watchdog.h>` (previously removed), so the build failure has a different root cause. Actual compiler/linker error from `scripts/build-gamecube.sh` has not been captured yet.
+
+**Blocker:** GameCube build does not complete. Dolphin boot probe cannot run until the build succeeds.
 
 **Evidence:**
-- Source: `engine/platform/gamecube/vid_gamecube.c` - removed unused `<ogc/lwp_watchdog.h>` include (verified present in current source)
-- Previous build failure (exit code 1) due to missing header is resolved.
+- Dolphin probe exit code: 1
+- Probe summary: "==> Building GameCube engine and DOL..." (build step failed before disc image generation)
+- Investigation memory: multiple aider-pass exit 18 with "Exit code 1 means the build failed"
+- Source inspection: `vid_gamecube.c` does not contain `lwp_watchdog` include (already removed in current source)
+- Build log not captured: need to run `scripts/build-gamecube.sh` directly to see compiler errors
 
-**Next step:** Run Dolphin boot probe to confirm `MAP_READY` and then initiate campaign audit.
+**Next step:** 
+1. Run `scripts/build-gamecube.sh` directly to capture the actual build error
+2. Inspect the compiler/linker output for the real failure reason
+3. Fix the identified issue
+4. Verify clean build
+5. Run Dolphin probe to confirm `MAP_READY`
 
 ```sh
-scripts/build-gamecube.sh
-DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+scripts/build-gamecube.sh 2>&1 | tee .ai/logs/build-gamecube-debug.log
 ```
 
-Expected result: Clean build and `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
+**Do not mark G40 complete** until:
+- Build passes cleanly
+- Campaign audit runs via `scripts/gamecube-campaign-audit.sh`
+- Every chapter is classified with evidence
 
 ## Campaign Audit Gate (G40, 2026-06-25)
 
