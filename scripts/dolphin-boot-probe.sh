@@ -210,6 +210,19 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v57: Detect renderer initialization marker explicitly during probe loop
+		# to capture backend name earlier and diagnose missing frame budget markers.
+		# This helps distinguish "renderer not initialized" from "renderer initialized but silent"
+		# before the full probe timeout expires, providing actionable evidence for G36.
+		if [[ -z "$GUEST_RENDERER" ]] && \
+		   grep -aqsF "Xash3D GameCube: renderer initialized" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			__RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized +[a-zA-Z_-]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_-]+$' || true)
+			if [[ -n "$__RENDERER" ]]; then
+				GUEST_RENDERER="$__RENDERER"
+				echo "G36_RENDERER_DETECTED_EARLY: Renderer ${GUEST_RENDERER} initialized at probe second=$(( $(date +%s) - START_TS )). Frame budget markers should follow."
+			fi
+		fi
+
 		# G36_PATCH_v46: Detect guest running but map-load stalled. If renderer
 		# is active and subsystems are ready but MAP_MARKER never appears, emit
 		# an early diagnostic to distinguish "map load failed" from "bootstrap hung".
