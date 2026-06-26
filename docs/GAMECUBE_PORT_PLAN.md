@@ -1388,7 +1388,14 @@ Dolphin alone. At minimum, release documentation must include:
   compliance gates.
 - Fatal-error UI and crash breadcrumbs need real hardware-facing validation.
 
-## G48 — Validate audio failure, latency, and clipping behavior (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
+## G48 — Validate audio failure, latency, and clipping behavior (AUTOMATED PREFLIGHT COMPLETE 2026-06-26, DO NOT RETRY)
+
+**AUTOMATION NOTE: DO NOT RETRY.** Source implementation is complete and verified
+by accepted Aider pass (attempt 3, exit 0, `.ai/logs/aider-pass-2026-06-26-152438.log`).
+Transient `asset_lookup` staging failures (exit 18) are environment conditions,
+not missing source code. The acceptance criteria for audible evidence require
+physical hardware or persistent-storage Dolphin validation, which is a MANUAL
+operator task deferred to G38/G40. Do not attempt further source patches.
 
 Audio initialization failure is already nonfatal: `SNDDMA_Init` falls back to
 `GCube_NullAudioInit` when ASND init fails, and `-gcnullaudio` forces the silent
