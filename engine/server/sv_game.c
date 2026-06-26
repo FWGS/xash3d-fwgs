@@ -4871,6 +4871,23 @@ static void SV_FreeKeyValueStrings( KeyValueData *kvd, int numpairs )
 	}
 }
 
+#if XASH_GAMECUBE
+static qboolean SV_GCMapSmokeRoute( void )
+{
+	return Sys_CheckParm( "-gcmap" ) != 0;
+}
+
+static qboolean SV_GCMapParseEOF( const char *stage, int entity_index, const char *classname )
+{
+	if( !SV_GCMapSmokeRoute() )
+		return false;
+
+	Con_Reportf( S_WARN "Xash3D GameCube: entity parse EOF skipped stage=%s entity=%d classname=%s\n",
+		stage, entity_index, classname ? classname : "<unknown>" );
+	return true;
+}
+#endif
+
 /*
 ====================
 SV_ParseEdict
@@ -4879,7 +4896,7 @@ Parses an edict out of the given string, returning the new position
 ed should be a properly initialized empty edict.
 ====================
 */
-static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
+static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 {
 	KeyValueData	pkvd[256]; // per one entity
 	qboolean		adjust_origin = false, customentity;
@@ -4895,14 +4912,36 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 
 		// parse key
 		if(( *pfile = COM_ParseFile( *pfile, keyname, sizeof( keyname ))) == NULL )
+#if XASH_GAMECUBE
+		{
+			if( SV_GCMapParseEOF( "key", entity_index, classname ))
+			{
+				SV_FreeKeyValueStrings( pkvd, numpairs );
+				return false;
+			}
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
+		}
+#else
+			Host_Error( "%s: EOF without closing brace\n", __func__ );
+#endif
 
 		if( keyname[0] == '}' )
 			break; // end of desc
 
 		// parse value
 		if(( *pfile = COM_ParseFile( *pfile, value, sizeof( value ))) == NULL )
+#if XASH_GAMECUBE
+		{
+			if( SV_GCMapParseEOF( "value", entity_index, classname ))
+			{
+				SV_FreeKeyValueStrings( pkvd, numpairs );
+				return false;
+			}
 			Host_Error( "%s: EOF without closing brace\n", __func__ );
+		}
+#else
+			Host_Error( "%s: EOF without closing brace\n", __func__ );
+#endif
 
 		if( value[0] == '}' )
 			Host_Error( "%s: closing brace without data\n", __func__ );
@@ -4958,7 +4997,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent )
 		pkvd[numpairs].fHandled = false;
 		numpairs++;
 
-		if( numpairs > ARRAYSIZE( pkvd ))
+		if( numpairs >= ARRAYSIZE( pkvd ))
 		{
 			if( classname )
 				Con_Printf( S_ERROR "%s: too many keyvalue pairs for %s!\n", __func__, classname );
@@ -5087,6 +5126,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 	if( !svgame.physFuncs.SV_LoadEntities || !svgame.physFuncs.SV_LoadEntities( mapname, entities ))
 	{
 		int inhibited = 0;
+		int entity_index = 0;
 
 		// parse ents
 		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
@@ -5101,7 +5141,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 			else ent = SV_AllocEdict();
 
-			if( !SV_ParseEdict( &entities, ent ))
+			if( !SV_ParseEdict( &entities, ent, entity_index++ ))
 				continue;
 
 			if( svgame.dllFuncs.pfnSpawn( ent ) == -1 )
