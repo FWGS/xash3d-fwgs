@@ -433,6 +433,13 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v71: Emit probe-loop exit reason with elapsed time for
+		# downstream automation to distinguish timeout from early break.
+		# This single diagnostic line replaces multiple scattered status echoes.
+		if (( DOLPHIN_EXIT == 0 )); then
+			echo "G36_PROBE_SUCCESS: Probe completed successfully at elapsed=$(( $(date +%s) - START_TS ))s."
+		fi
+
 		sleep 2
 	done
 else
