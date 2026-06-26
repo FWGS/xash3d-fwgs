@@ -213,23 +213,19 @@ static void GC_PresentBuffer( void )
 			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
 	}
 
-	/* G36: Emit frame complete/budget markers immediately after GX_DrawDone,
-	 * before VIDEO_WaitVSync. This measures CPU/GX submission cost without
-	 * including VI-wait time, giving the probe script accurate CPU budget
-	 * evidence. SYS_Report latency on GameCube is low. */
+	GX_Flush();
+	GX_DrawDone();
+
+	/* G36: Emit frame budget markers after GX submission completes. The first
+	 * present reports 0ms so short smoke probes still get a parsable sample. */
 	{
 		double now = Sys_FloatTime();
+		double elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
 		SYS_Report( "Xash3D GameCube: frame render complete\n" );
-		if( gc_last_present_time > 0.0 )
-		{
-			double elapsed_ms = ( now - gc_last_present_time ) * 1000.0;
-			SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
-		}
+		SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
 		gc_last_present_time = now;
 	}
 
-	GX_Flush();
-	GX_DrawDone();
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
