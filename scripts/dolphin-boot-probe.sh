@@ -399,6 +399,24 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v72: Detect renderer-submitting-but-no-budget-markers condition
+		# using GX_Flush/GX_DrawDone as stronger evidence of active render submission.
+		# GX_Flush/GX_DrawDone indicate the guest is committing work to the GX pipeline,
+		# making missing budget markers more actionable than raw GX_ API hits.
+		if [[ -n "$GUEST_RENDERER" ]] && \
+		   [[ -z "${G36_GX_SUBMIT_NO_BUDGET_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 12 )); then
+			G36_GX_SUBMIT_NO_BUDGET_CHECKED=1
+			GX_SUBMIT_COUNT=$(grep -acE "GX_(Flush|DrawDone)" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			if (( GX_SUBMIT_COUNT > 0 )); then
+				BUDGET_MARKER_COUNT=$(grep -acE "Xash3D GameCube:.*frame.*(time|budget)=" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+				if (( BUDGET_MARKER_COUNT == 0 )); then
+					echo "G36_GX_SUBMIT_NO_BUDGET: Renderer ${GUEST_RENDERER} is submitting ${GX_SUBMIT_COUNT} GX_Flush/GX_DrawDone but emitting zero frame budget markers."
+					echo "G36_GX_SUBMIT_HINT: Renderer is committing work to GX pipeline. Missing 'Xash3D GameCube: frame time=<ms>' OSReport after GX_DrawDone."
+				fi
+			fi
+		fi
+
 		# G36_PATCH_v62: Detect renderer-active-but-no-budget-markers condition early
 		# to provide actionable evidence when GX calls are present but frame budget
 		# telemetry is absent. This helps distinguish "renderer working silently" from
