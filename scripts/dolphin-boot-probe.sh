@@ -383,6 +383,20 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			echo "G36_RENDERER_INIT_TIME: Renderer initialized at probe second=$(( G36_RENDERER_INIT_TS - START_TS )). Time-to-init measured."
 		fi
 
+		# G36_PATCH_v82: Detect first actual frame render marker (distinct from renderer init)
+		# to measure time-to-first-pixel. This distinguishes "renderer started but not drawing"
+		# from "renderer drawing frames" and provides a measurable gap metric for init overhead.
+		if [[ -z "${G36_FIRST_RENDER_TS:-}" ]] && \
+		   grep -aqsE "Xash3D GameCube:.*render.*(frame|complete)" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			G36_FIRST_RENDER_TS=$(date +%s)
+			if [[ -n "${G36_RENDERER_INIT_TS:-}" ]]; then
+				G36_INIT_TO_RENDER_GAP=$(( G36_FIRST_RENDER_TS - G36_RENDERER_INIT_TS ))
+				echo "G36_FIRST_RENDER_TIME: First frame render marker detected at probe second=$(( G36_FIRST_RENDER_TS - START_TS )). Init-to-render gap=${G36_INIT_TO_RENDER_GAP}s."
+			else
+				echo "G36_FIRST_RENDER_TIME: First frame render marker detected at probe second=$(( G36_FIRST_RENDER_TS - START_TS )). Renderer init timestamp unknown."
+			fi
+		fi
+
 		# G36_PATCH_v58: Detect any OSREPORT activity from guest to distinguish
 		# "guest completely silent" from "guest emitting but no frame budget markers".
 		# This helps diagnose whether the renderer crashed, is stuck, or simply
@@ -596,7 +610,7 @@ fi
 # Include compile-time low-memory-mode context to correlate frame budget with build configuration
 # (--low-memory-mode=2 sets MAX_MODELS=512, MAX_SOUNDS=512, etc. per GAMECUBE_MEMORY_BUDGET.md)
 LC_LOWMEM="${LC_LOWMEM_MODE:-none}"
-echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} runtime_lowmem=${GC_LOWMEM_MODE:-none} compile_lowmem=${LC_LOWMEM} timeout=${TIMEOUT_SEC}s first_frame_offset=${G36_FIRST_FRAME_TS:+$(( G36_FIRST_FRAME_TS - START_TS ))s} last_frame_offset=${G36_LAST_FRAME_TS:+$(( G36_LAST_FRAME_TS - START_TS ))s}"
+echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} runtime_lowmem=${GC_LOWMEM_MODE:-none} compile_lowmem=${LC_LOWMEM} timeout=${TIMEOUT_SEC}s first_frame_offset=${G36_FIRST_FRAME_TS:+$(( G36_FIRST_FRAME_TS - START_TS ))s} last_frame_offset=${G36_LAST_FRAME_TS:+$(( G36_LAST_FRAME_TS - START_TS ))s} first_render_offset=${G36_FIRST_RENDER_TS:+$(( G36_FIRST_RENDER_TS - START_TS ))s} init_to_render_gap=${G36_INIT_TO_RENDER_GAP:-N/A}s"
 
 # G36: Explicitly look for guest-reported memory samples to correlate with frame budget
 GC_MEM_SAMPLES=0
@@ -879,6 +893,16 @@ if [[ -n "${G36_COLD_START_MEM_TOTAL:-}" ]]; then
 	if awk "BEGIN {exit !(${G36_COLD_START_MEM_TOTAL:-0} > 6.0)}" 2>/dev/null; then
 		echo "G36_COLD_START_MEM_WARN: Pre-render memory >6MiB. Cold-start allocations may pressure zone pool, impacting first-frame budget."
 	fi
+fi
+
+# G36_PATCH_v82: Report time-to-first-render gap as measurable init overhead
+if [[ -n "${G36_INIT_TO_RENDER_GAP:-}" ]] && (( G36_INIT_TO_RENDER_GAP > 0 )); then
+	echo "G36_INIT_RENDER_GAP: Renderer init to first render frame=${G36_INIT_TO_RENDER_GAP}s."
+	if (( G36_INIT_TO_RENDER_GAP > 3 )); then
+		echo "G36_INIT_RENDER_GAP_WARN: Init-to-render gap >3s. Renderer started but delayed before first frame. Check for blocking setup or missing pre-cache."
+	fi
+elif [[ -z "${G36_FIRST_RENDER_TS:-}" ]]; then
+	echo "G36_INIT_RENDER_GAP: No first-render marker detected. Renderer may not have reached main draw loop."
 fi
 
 # G36_PATCH_v31: Apply guest-reported target frame time to override default budget
