@@ -186,6 +186,8 @@ static void GC_PresentBuffer( void )
 			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
 	}
 
+	GX_Flush();
+	GX_DrawDone();
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
