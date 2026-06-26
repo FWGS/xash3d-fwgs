@@ -417,6 +417,24 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v100: Measure gap between renderer initialization and first frame
+		# budget measurement sample. This provides earlier evidence of whether the
+		# measurement subsystem initializes promptly or if there's a delay between
+		# renderer startup and first timing telemetry, distinguishing "slow init"
+		# from "measurement path missing". Fires once after both timestamps available.
+		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && [[ -n "${G36_FIRST_FRAME_TS:-}" ]] && \
+		   [[ -z "${G36_INIT_TO_MEASUREMENT_GAP_REPORTED:-}" ]]; then
+			G36_INIT_TO_MEASUREMENT_GAP=$(( G36_FIRST_FRAME_TS - G36_RENDERER_INIT_TS ))
+			G36_INIT_TO_MEASUREMENT_GAP_REPORTED=1
+			echo "G36_INIT_TO_MEASUREMENT_GAP: ${G36_INIT_TO_MEASUREMENT_GAP}s between renderer init and first frame budget sample."
+			if (( G36_INIT_TO_MEASUREMENT_GAP > 5 )); then
+				echo "G36_MEASUREMENT_LATENCY_WARN: >5s delay between renderer init and first budget sample. Measurement subsystem may have initialized late or frames were not timing-instrumented during early render loop."
+				echo "G36_MEASUREMENT_LATENCY_HINT: Ensure frame budget measurement starts immediately after GX subsystem is ready, not after first full frame renders."
+			else
+				echo "G36_MEASUREMENT_LATENCY_OK: Budget measurement started promptly after renderer initialization."
+			fi
+		fi
+
 		# G36_PATCH_v58: Detect any OSREPORT activity from guest to distinguish
 		# "guest completely silent" from "guest emitting but no frame budget markers".
 		# This helps diagnose whether the renderer crashed, is stuck, or simply
