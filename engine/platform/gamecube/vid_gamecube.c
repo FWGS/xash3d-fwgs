@@ -424,8 +424,9 @@ void GC_DrawFatalBreadcrumb( const char *message )
 
 	/* Block briefly to ensure frame is presented before exit.
 	 * Use SYS_Delay (libogc) instead of usleep which may not be
-	 * available or may behave unexpectedly in the GameCube environment. */
-	SYS_Delay( 500 ); /* 500ms delay in milliseconds */
+	 * available or may behave unexpectedly in the GameCube environment.
+	 * SYS_Delay takes microseconds, so 500000 = 500ms. */
+	SYS_Delay( 500000 );
 #endif
 	(void)message; /* Message is already reported via OSReport in Sys_Error */
 }

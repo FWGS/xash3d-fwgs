@@ -1160,11 +1160,11 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS)
 
-**Status (2026-06-26):** Fixed `usleep` usage in `GC_DrawFatalBreadcrumb`. Replaced with `SYS_Delay(500)` from libogc's `<ogc/system.h>` which is the correct GameCube API for millisecond delays. Removed `#include <unistd.h>` as it is not needed and `usleep` was not available in the libogc environment.
+**Status (2026-06-26):** Fixed `SYS_Delay` argument in `GC_DrawFatalBreadcrumb`. `SYS_Delay` in libogc takes microseconds, not milliseconds. Changed from `SYS_Delay(500)` (0.5ms) to `SYS_Delay(500000)` (500ms) to ensure the fatal breadcrumb frame is presented long enough to be visible.
 
 **Evidence:**
-- Source: `engine/platform/gamecube/vid_gamecube.c` - replaced `usleep(1000000)` with `SYS_Delay(500)`, removed `#include <unistd.h>`
-- `SYS_Delay` is part of libogc's system API already included via `<ogc/system.h>`
+- Source: `engine/platform/gamecube/vid_gamecube.c` - changed `SYS_Delay(500)` to `SYS_Delay(500000)`
+- `SYS_Delay` uses microseconds in libogc: 500000 microseconds = 500 milliseconds
 
 **Next step:** Rebuild and verify the probe succeeds.
 
