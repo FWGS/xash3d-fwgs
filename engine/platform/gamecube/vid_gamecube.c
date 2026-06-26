@@ -136,15 +136,20 @@ static void GC_PresentBuffer( void )
 	}
 	else
 	{
-		/* Diagnostic: clear to a visible color when no software buffer is ready */
-		for( row = 0; row < copy_h; row++ )
+		/* G36: Diagnostic blue fill only for first 60 frames when buffer is missing.
+		 * Avoid wasting CPU cycles on full-screen fills every frame after initial
+		 * evidence is captured. Leaves XFB black (zeroed) for subsequent frames. */
+		if( gc_present_count <= 60 )
 		{
-			unsigned short *rowdst = dst + row * rmode->fbWidth;
-			int col;
-			for( col = 0; col < copy_w; col++ )
-				rowdst[col] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
+			for( row = 0; row < copy_h; row++ )
+			{
+				unsigned short *rowdst = dst + row * rmode->fbWidth;
+				int col;
+				for( col = 0; col < copy_w; col++ )
+					rowdst[col] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
+			}
 		}
-		sampled_nonblack = true;
+		sampled_nonblack = ( gc_present_count <= 60 );
 	}
 
 	gc_present_count++;
