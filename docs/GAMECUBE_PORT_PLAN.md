@@ -1067,6 +1067,41 @@ The RC script now records bounded retry attempts for Dolphin gates and uses a
 smoke-specific staged-content audit, preventing transient emulator stalls or
 known smoke-package aliases from producing false release-gate failures.
 
+## G37 — Fatal breadcrumb reporting progress (2026-06-26)
+
+GameCube fatal exits now emit a compact OSReport breadcrumb block from
+`Sys_Error` before shutdown:
+
+```text
+Xash3D GameCube: fatal breadcrumb begin
+Xash3D GameCube: fatal message=<message>
+Xash3D GameCube: fatal status=<host-status> frame=<frame> errorframe=<frame> route=<sd|disc|other|none> gcmap=<map|none>
+Xash3D GameCube: fatal breadcrumb end
+```
+
+This source-side change keeps allocation, filesystem, renderer, audio, and
+game-code fatal failures visible even when writable storage is missing. The
+GameCube build passed after the change.
+
+**Acceptance criteria status:**
+- OSReport breadcrumb from `Sys_Error`: implemented
+- On-screen console/diagnostic path: requires additional work to ensure breadcrumb is visible through `SCR_DrawConsole` or similar render path before `VIDEO_Flush`
+- Bounded logs on Dolphin/hardware: breadcrumb is compact; needs verification that log output does not spiral
+- Clean shutdown or bounded timeout after fatal: requires runtime probe evidence
+
+G37 remains open until an intentional fatal-condition Dolphin probe captures
+the breadcrumb and proves a bounded shutdown/halt instead of a silent black
+screen or unbounded hang. The on-screen diagnostic path must also be verified
+to ensure the breadcrumb is visible without relying on OSReport log tailing.
+
+**Next blocker:** Source changes are needed to ensure the fatal breadcrumb is
+rendered on-screen (not just to OSReport) so it survives silent emulator
+crashes and is visible on physical hardware. Requires:
+1. `SCR_DrawString` or direct GX blit of breadcrumb text before `Sys_Error` exits.
+2. A forced `VIDEO_Flush` and short delay so the frame is presented.
+3. Dolphin probe that triggers a known fatal condition and confirms breadcrumb
+   visibility in screenshot or log.
+
 ## Campaign Audit Gate (G40, 2026-06-25)
 
 `scripts/gamecube-campaign-audit.sh` is the repeatable Half-Life campaign audit

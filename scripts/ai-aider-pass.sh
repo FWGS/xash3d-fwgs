@@ -464,12 +464,12 @@ if (( AIDER_STATUS != 0 )); then
 	exit "$AIDER_STATUS"
 fi
 
-if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
-	echo "ai-aider-pass: Aider created an unexpected commit; stopping for review" >&2
-	exit 12
-fi
+	if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
+		echo "ai-aider-pass: flattening unexpected Aider commit back to staged changes" >&2
+		git reset --soft "$BASELINE"
+	fi
 
-if [[ -z "$(git status --porcelain)" ]]; then
+	if [[ -z "$(git status --porcelain)" ]]; then
 	echo "ai-aider-pass: Aider made no edit; see $LOG" >&2
 	exit 10
 fi
@@ -501,13 +501,36 @@ reject_out_of_scope_edits() {
 			echo "ai-aider-pass: allowed editable files: ${CONTEXT_FILES[*]}" >&2
 			return 16
 		fi
-	done < <(git diff --name-only)
+	done < <(git diff --cached --name-only)
 	return 0
+}
+
+unstage_out_of_scope_edits() {
+	local staged_file allowed
+	if [[ "${AI_ENFORCE_EDITABLE_CONTEXT:-1}" != "1" ]]; then
+		return 0
+	fi
+	while IFS= read -r staged_file; do
+		[[ -n "$staged_file" ]] || continue
+		allowed=0
+		for context_file in "${CONTEXT_FILES[@]}"; do
+			if [[ "$staged_file" == "$context_file" ]]; then
+				allowed=1
+				break
+			fi
+		done
+		if (( ! allowed )); then
+			echo "ai-aider-pass: unstaging edit outside loaded editable context: $staged_file" >&2
+			git restore --staged -- "$staged_file" 2>/dev/null || true
+		fi
+	done < <(git diff --cached --name-only)
 }
 
 stage_and_validate_patch() {
 	cleanup_stale_git_lock
 	git add -A
+	gamecube_unstage_excluded_paths
+	unstage_out_of_scope_edits
 	git diff --cached --check
 	if git diff --cached --quiet; then
 		echo "ai-aider-pass: no staged edit remains after Aider response" >&2

@@ -568,6 +568,16 @@ scripts/gamecube-map-compat-probe.sh
   errors are visible through OSReport and the on-screen console/diagnostic path.
 - Keep logs bounded and useful on Dolphin and hardware.
 - Verify clean shutdown or bounded timeout after fatal conditions.
+- Source progress 2026-06-26: GameCube `Sys_Error` now emits a bounded
+  OSReport breadcrumb block before shutdown with fatal message, host status,
+  frame, error frame, storage route, and `-gcmap` value. This covers allocation,
+  filesystem, renderer, audio, and game-code fatal exits that route through
+  `Sys_Error`.
+- Build evidence: `scripts/build-gamecube.sh` completed after the breadcrumb
+  patch.
+- Remaining: add an intentional Dolphin/hardware fatal-condition probe that
+  proves the breadcrumb appears and the guest ends in a bounded halt/shutdown
+  rather than a silent black screen or unbounded hang.
 
 ## G38 [MANUAL] Validate on physical GameCube hardware
 

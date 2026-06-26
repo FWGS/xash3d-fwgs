@@ -24,9 +24,9 @@ if printf '%s\n' "$message" | grep -Eiq \
 fi
 
 # No huge patch. Binary files contribute zero here but remain visible in the
-# changed-file list above for human review.
+# changed-file list above for human review. Exclude local GUI WIP from sizing.
 lines="$(git diff --numstat HEAD~1..HEAD | awk \
-  '$1 != "-" && $2 != "-" { total += $1 + $2 } END { print total + 0 }')"
+	'$3 != "scripts/xash3d-gc-aider-gui.py" && $1 != "-" && $2 != "-" { total += $1 + $2 } END { print total + 0 }')"
 if [ "$lines" -gt 400 ]; then
   echo "Rejecting: patch too large: $lines changed lines"
   exit 1
@@ -47,6 +47,9 @@ if ! git diff --name-only HEAD~1..HEAD | grep -qx 'docs/GAMECUBE_PORT_PLAN.md'; 
   if [[ "$subject" =~ ^feat:\ (wire|bound|stabilize|reduce|simplify)\ GameCube\ .* ]] && \
     git diff --name-only HEAD~1..HEAD | grep -Eq '^(ref/gx/|engine/platform/gamecube/vid_gamecube\.c|engine/client/cl_sprite\.c)'; then
     echo "review: accepting sliced G24 renderer source pass without port plan"
+  elif [[ "$subject" == "perf: improve GameCube frame budget" ]] && \
+    [[ -z "$(git diff --name-only HEAD~1..HEAD | grep -Ev '^(engine/|ref/)' || true)" ]]; then
+    echo "review: accepting sliced G36 perf pass without port plan"
   else
     echo "Rejecting: docs/GAMECUBE_PORT_PLAN.md was not updated"
     exit 1

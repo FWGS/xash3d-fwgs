@@ -68,6 +68,17 @@ export OPENAI_API_BASE AIDER_SERVED_MODEL QWABLE_5_MAX_NUM_SEQS \
 	DOLPHIN_HARNESS_GOAL VLLM_USE_FLASHINFER_SAMPLER AI_DIRTY_COMMIT_EXCLUDE \
 	AI_ENFORCE_EDITABLE_CONTEXT
 
+gamecube_unstage_excluded_paths() {
+	local path
+	IFS=':' read -ra _gc_exclude_paths <<< "${AI_DIRTY_COMMIT_EXCLUDE:-}"
+	for path in "${_gc_exclude_paths[@]}"; do
+		[[ -n "$path" ]] || continue
+		if git diff --cached --name-only -- "$path" | grep -qxF "$path"; then
+			git restore --staged -- "$path" 2>/dev/null || true
+		fi
+	done
+}
+
 gamecube_checkpoint_dirty_worktree() {
 	local subject="$1"
 	local body="${2:-Checkpoint uncommitted work before automation starts.}"
@@ -78,11 +89,7 @@ gamecube_checkpoint_dirty_worktree() {
 	fi
 
 	git add -A
-	IFS=':' read -ra _gc_exclude_paths <<< "$AI_DIRTY_COMMIT_EXCLUDE"
-	for path in "${_gc_exclude_paths[@]}"; do
-		[[ -n "$path" ]] || continue
-		git restore --staged -- "$path" 2>/dev/null || true
-	done
+	gamecube_unstage_excluded_paths
 	if git diff --cached --quiet; then
 		echo "gamecube-env: dirty worktree only had excluded GUI paths; skipping checkpoint" >&2
 		return 0

@@ -1544,7 +1544,9 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 		path = path.strip()
 		if not path:
 			continue
-		run(["git", "restore", "--staged", "--", path], root)
+		staged = run(["git", "diff", "--cached", "--name-only", "--", path], root)
+		if staged.returncode == 0 and staged.stdout.strip():
+			run(["git", "restore", "--staged", "--", path], root)
 	staged = run(["git", "diff", "--cached", "--quiet"], root)
 	if staged.returncode == 0:
 		print("goal-loop: dirty worktree only had excluded GUI paths; skipping checkpoint",

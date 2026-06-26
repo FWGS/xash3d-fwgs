@@ -46,6 +46,10 @@ GNU General Public License for more details.
 #include <switch.h>
 #endif
 
+#if XASH_GAMECUBE
+#include <ogc/system.h>
+#endif
+
 #if XASH_PSVITA
 #include <vitasdk.h>
 #endif
@@ -56,6 +60,29 @@ GNU General Public License for more details.
 #include "whereami.h"
 
 int error_on_exit = 0;	// arg for exit();
+
+#if XASH_GAMECUBE
+static void Sys_GameCubeFatalBreadcrumb( const char *message )
+{
+	char base[MAX_SYSPATH];
+	char gcmap[MAX_QPATH];
+	const char *route = "none";
+
+	if( GCube_HasWritableStorage() )
+		route = "sd";
+	else if( GCube_GetBasePath( base, sizeof( base )))
+		route = !Q_strnicmp( base, "gcdisc:", 7 ) ? "disc" : "other";
+
+	if( !Sys_GetParmFromCmdLine( "-gcmap", gcmap ))
+		gcmap[0] = '\0';
+
+	SYS_Report( "Xash3D GameCube: fatal breadcrumb begin\n" );
+	SYS_Report( "Xash3D GameCube: fatal message=%s\n", message ? message : "<null>" );
+	SYS_Report( "Xash3D GameCube: fatal status=%d frame=%u errorframe=%u route=%s gcmap=%s\n",
+		host.status, host.framecount, host.errorframe, route, gcmap[0] ? gcmap : "<none>" );
+	SYS_Report( "Xash3D GameCube: fatal breadcrumb end\n" );
+}
+#endif
 
 /*
 ================
@@ -402,6 +429,10 @@ void Sys_Error( const char *error, ... )
 	va_start( argptr, error );
 	Q_vsnprintf( text, MAX_PRINT_MSG, error, argptr );
 	va_end( argptr );
+
+#if XASH_GAMECUBE
+	Sys_GameCubeFatalBreadcrumb( text );
+#endif
 
 	Sys_DebugBreak();
 
