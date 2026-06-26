@@ -138,6 +138,23 @@ static void GC_PresentBuffer( void )
 			unsigned short first_pixel = gc.buffer[0];
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
+
+		// G36: If software buffer has non-black content, suppress diagnostic marker
+		// to avoid obscuring valid renderer output. Check a few samples for evidence.
+		if( !sampled_nonblack && src_h > 1 )
+		{
+			for( row = 0; row < src_h && !sampled_nonblack; row++ )
+			{
+				unsigned short *scanrow = src + row * gc.stride;
+				for( int col = 0; col < src_w && !sampled_nonblack; col++ )
+				{
+					if( scanrow[col] != 0 )
+					{
+						sampled_nonblack = true;
+					}
+				}
+			}
+		}
 	}
 	else
 	{
