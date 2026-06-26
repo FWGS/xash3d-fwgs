@@ -427,6 +427,22 @@ if (( DOLPHIN_IS_FLATPAK )); then
 						echo "G36_SILENT_FRAMES: ${CURRENT_DRAWDONE_COUNT} GX_DrawDone calls but zero frame budget markers. Measurement OSReport is missing from render loop."
 						echo "G36_SILENT_HINT: Insert 'Xash3D GameCube: frame time=<ms>' immediately after GX_DrawDone in the main render loop."
 					fi
+					# G36_PATCH_v116: Report active DrawDone rate to distinguish
+					# "renderer stuck after N frames" from "renderer actively drawing
+					# at full rate but missing budget OSReport". Track rate every 2s
+					# after initial warning to provide fresh evidence of active rendering.
+					if [[ -n "${G36_PREV_DRAWDONE_COUNT:-}" ]]; then
+						DRAWDONE_DELTA=$((CURRENT_DRAWDONE_COUNT - G36_PREV_DRAWDONE_COUNT))
+						if [[ -n "${G36_PREV_DRAWDONE_TS:-}" ]]; then
+							ELAPSED_DRAWDONE=$(( $(date +%s) - G36_PREV_DRAWDONE_TS ))
+							if (( ELAPSED_DRAWDONE > 0 )); then
+								DRAWDONE_RATE=$(awk "BEGIN {printf \"%.1f\", ${DRAWDONE_DELTA} / ${ELAPSED_DRAWDONE}}")
+								echo "G36_DRAWDONE_ACTIVE: Renderer emitting ${DRAWDONE_RATE} GX_DrawDone/s (${DRAWDONE_DELTA} new in ${ELAPSED_DRAWDONE}s). Active render loop confirmed; budget OSReport is the missing piece."
+							fi
+						fi
+					fi
+					G36_PREV_DRAWDONE_COUNT=$CURRENT_DRAWDONE_COUNT
+					G36_PREV_DRAWDONE_TS=$(date +%s)
 				elif (( CURRENT_DRAWDONE_COUNT > CURRENT_BUDGET_COUNT * 2 )); then
 					SILENT_FRAMES=$((CURRENT_DRAWDONE_COUNT - CURRENT_BUDGET_COUNT))
 					if [[ -z "${G36_SILENT_FRAME_WARNED:-}" ]]; then
