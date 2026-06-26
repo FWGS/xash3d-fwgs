@@ -219,7 +219,23 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			__RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized +[a-zA-Z_-]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_-]+$' || true)
 			if [[ -n "$__RENDERER" ]]; then
 				GUEST_RENDERER="$__RENDERER"
-				echo "G36_RENDERER_DETECTED_EARLY: Renderer ${GUEST_RENDERER} initialized at probe second=$(( $(date +%s) - START_TS )). Frame budget markers should follow."
+				G36_RENDERER_DETECTED_TS=$(date +%s)
+				echo "G36_RENDERER_DETECTED_EARLY: Renderer ${GUEST_RENDERER} initialized at probe second=$(( G36_RENDERER_DETECTED_TS - START_TS )). Frame budget markers should follow."
+			fi
+		fi
+
+		# G36_PATCH_v63: After renderer is detected, verify budget markers appear
+		# within 10 seconds. If not, emit explicit evidence that renderer is active
+		# but budget telemetry is missing, providing earlier diagnostic closure.
+		if [[ -n "${G36_RENDERER_DETECTED_TS:-}" ]] && [[ -z "${G36_BUDGET_VERIFY_CHECKED:-}" ]]; then
+			if (( $(date +%s) - G36_RENDERER_DETECTED_TS > 10 )); then
+				G36_BUDGET_VERIFY_CHECKED=1
+				if ! grep -aqsE "Xash3D GameCube:.*frame.*time=" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+					echo "G36_BUDGET_MISSING_POST_INIT: Renderer ${GUEST_RENDERER} initialized ${G36_RENDERER_DETECTED_TS} but no frame budget markers detected after 10s."
+					echo "G36_BUDGET_MISSING_HINT: Guest renderer code path is executing but missing OSReport frame budget calls. Insert budget measurement after GX_DrawDone or VI-sync."
+				else
+					echo "G36_BUDGET_PRESENT_POST_INIT: Frame budget markers detected within 10s of renderer init. Telemetry is active."
+				fi
 			fi
 		fi
 
