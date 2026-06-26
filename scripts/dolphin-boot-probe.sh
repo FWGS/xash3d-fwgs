@@ -304,6 +304,13 @@ grep -aqE "GC_MemSample|mem stage=" "${LOG_FILES[@]}" && GC_MEM_SAMPLES=1
 FRAME_BUDGET_CONFIGURED=0
 grep -aqsF "Xash3D GameCube: frame budget configured" "${LOG_FILES[@]}" && FRAME_BUDGET_CONFIGURED=1
 
+# G36_PATCH: Cross-reference measurement initialization with configuration
+# to distinguish "configured but init failed" from "not configured at all"
+if (( FRAME_BUDGET_CONFIGURED )) && ! (( FRAME_BUDGET_INIT_OK )); then
+	echo "G36_CONFIG_VS_INIT: Guest reported frame budget configured but initialization did not succeed."
+	echo "G36_CONFIG_HINT: Check renderer code path between configuration and initialization for early returns or errors."
+fi
+
 # G36: Detect explicit GX WaitVP/WaitVP sync markers to measure VI-wait impact on frame budget
 GX_WAITVP_COUNT=0
 GX_WAITVP_SAMPLES=0
