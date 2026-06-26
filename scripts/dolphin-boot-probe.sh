@@ -214,6 +214,20 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			echo "G36_FIRST_FRAME_TIME: First frame time marker detected at probe second=$(( G36_FIRST_FRAME_TS - START_TS )). Measurement window is open."
 		fi
 
+		# G36_PATCH_v35: Track last frame marker timestamp to detect measurement
+		# cessation. Distinguishes "guest stopped rendering" from "probe timeout".
+		# Updates only when new frame markers appear since last check.
+		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]]; then
+			CURRENT_FRAME_COUNT=$(grep -aE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | wc -l)
+			if [[ -z "${G36_PREV_FRAME_COUNT:-}" ]] || (( CURRENT_FRAME_COUNT > G36_PREV_FRAME_COUNT )); then
+				G36_LAST_FRAME_TS=$(date +%s)
+				G36_PREV_FRAME_COUNT=$CURRENT_FRAME_COUNT
+			elif [[ -n "${G36_LAST_FRAME_TS:-}" ]] && (( $(date +%s) - G36_LAST_FRAME_TS > 5 )); then
+				# No new frames for 5 seconds after measurement started
+				echo "G36_MEASUREMENT_STALLED: No new frame markers for 5s. Last frame at probe second=$(( G36_LAST_FRAME_TS - START_TS )). Guest may have stopped rendering."
+			fi
+		fi
+
 		# G36_PATCH_v32: After measurement window opens, detect if we have minimum
 		# samples to declare measurement viable (avoids waiting full timeout).
 		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]] && \
@@ -332,7 +346,7 @@ fi
 # Include compile-time low-memory-mode context to correlate frame budget with build configuration
 # (--low-memory-mode=2 sets MAX_MODELS=512, MAX_SOUNDS=512, etc. per GAMECUBE_MEMORY_BUDGET.md)
 LC_LOWMEM="${LC_LOWMEM_MODE:-none}"
-echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} runtime_lowmem=${GC_LOWMEM_MODE:-none} compile_lowmem=${LC_LOWMEM} timeout=${TIMEOUT_SEC}s first_frame_offset=${G36_FIRST_FRAME_TS:+$(( G36_FIRST_FRAME_TS - START_TS ))s}"
+echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} runtime_lowmem=${GC_LOWMEM_MODE:-none} compile_lowmem=${LC_LOWMEM} timeout=${TIMEOUT_SEC}s first_frame_offset=${G36_FIRST_FRAME_TS:+$(( G36_FIRST_FRAME_TS - START_TS ))s} last_frame_offset=${G36_LAST_FRAME_TS:+$(( G36_LAST_FRAME_TS - START_TS ))s}"
 
 # G36: Explicitly look for guest-reported memory samples to correlate with frame budget
 GC_MEM_SAMPLES=0
