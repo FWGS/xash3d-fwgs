@@ -203,6 +203,8 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			echo "G36_MEASUREMENT_ACTIVE: Frame budget measurement subsystem confirmed active during probe."
 		elif grep -aqsF "Xash3D GameCube: frame budget measurement disabled" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
 			echo "G36_MEASUREMENT_DISABLED_ACTIVE: Guest explicitly disabled frame budget measurement during probe."
+		elif grep -aqsF "Xash3D GameCube: frame budget measurement init failed" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			echo "G36_MEASUREMENT_INIT_FAIL: Guest reported frame budget measurement failed to initialize. Expect unreliable or missing telemetry."
 		fi
 
 		# G36_PATCH_v32: Detect first frame time marker emission to establish
