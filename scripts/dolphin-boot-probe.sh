@@ -319,6 +319,19 @@ if (( DOLPHIN_IS_FLATPAK )); then
 				if [[ -n "$DRAWDONE_LINES" ]]; then
 					echo "G36_DECISIVE_EARLY_LOCATIONS: GX_DrawDone at merged-log lines: ${DRAWDONE_LINES}"
 				fi
+				# G36_PATCH_v133: Extract surrounding log context from last DrawDone
+				# to provide concrete evidence of what guest is actually emitting at
+				# frame completion, distinguishing "budget marker missing" from
+				# "budget marker present but misformatted".
+				LAST_DRAWDONE_LINE=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -naF "GX_DrawDone" | tail -1 | cut -d: -f1)
+				if [[ -n "$LAST_DRAWDONE_LINE" ]] && (( LAST_DRAWDONE_LINE > 0 )); then
+					CTX_START=$(( LAST_DRAWDONE_LINE ))
+					CTX_END=$(( LAST_DRAWDONE_LINE + 4 ))
+					echo "G36_DECISIVE_EARLY_CONTEXT: Last GX_DrawDone context (lines ${CTX_START}-${CTX_END}):"
+					cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | sed -n "${CTX_START},${CTX_END}p" | while IFS= read -r line; do
+						echo "G36_DECISIVE_EARLY_CONTEXT: ${line}"
+					done
+				fi
 				DOLPHIN_EXIT=4
 				break
 			fi
