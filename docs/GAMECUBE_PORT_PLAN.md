@@ -1158,22 +1158,23 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 + SCOPE FIX APPLIED)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 FIX APPLIED)
 
-**Status (2026-06-26):** Fixed C89 compliance violations and scope warnings in `vid_gamecube.c`:
-1. Fixed `GC_PresentBuffer` - ensured all variable declarations are at the top of the scope block and unused variables are explicitly voided to prevent warnings on non-GameCube builds or specific paths.
-2. Fixed `GC_DrawFatalBreadcrumb` - added explicit voids for local variables to suppress unused variable warnings which are treated as errors in strict builds.
+**Status (2026-06-26):** Fixed C89 compliance violations in `vid_gamecube.c`.
+All variable declarations in `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb` are
+now at the top of their scope blocks. Unused variables are initialized to NULL/0
+to prevent warnings on non-GameCube builds or specific code paths.
 
 **Evidence:**
 - `engine/platform/gamecube/vid_gamecube.c`:
-  - `GC_PresentBuffer`: Variable declarations moved and unused vars voided.
-  - `GC_DrawFatalBreadcrumb`: Local variables voided to suppress warnings.
-- Next: Run build and probe to verify runtime behavior.
+  - `GC_PresentBuffer`: Variable declarations moved to top, initialized.
+  - `GC_DrawFatalBreadcrumb`: Variable declarations moved to top, initialized.
+- Build verification pending.
 
-```sh
-scripts/build-gamecube.sh
-DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
-```
+**Next step:**
+1. Run `scripts/build-gamecube.sh` to verify clean build.
+2. Run `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh` to verify `MAP_READY`.
+3. Run `scripts/gamecube-campaign-audit.sh` to drive G40 chapter classifications.
 
 **Do not mark G40 complete** until:
 - Build passes cleanly
