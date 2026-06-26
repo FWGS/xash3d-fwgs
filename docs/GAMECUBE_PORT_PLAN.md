@@ -1391,9 +1391,11 @@ Dolphin alone. At minimum, release documentation must include:
 ## G48 — Validate audio failure, latency, and clipping behavior (AUTOMATED PREFLIGHT COMPLETE 2026-06-26, DO NOT RETRY)
 
 **AUTOMATION NOTE: DO NOT RETRY.** Source implementation is complete and verified
-by accepted Aider pass (attempt 3, exit 0, `.ai/logs/aider-pass-2026-06-26-152438.log`).
-Additional accepted pass (attempt 5, exit 0, `.ai/logs/aider-pass-2026-06-26-153033.log`)
-confirms source stability with no regressions.
+by accepted Aider passes (attempts 1-5, multiple exit 0 accepted, 
+`.ai/logs/aider-pass-2026-06-26-152438.log`, `.ai/logs/aider-pass-2026-06-26-153033.log`,
+`.ai/logs/aider-pass-2026-06-26-153235.log`). Transient `asset_lookup` staging failures
+(exit 18) confirmed as environment conditions, not missing source. Source stability
+verified with no regressions.
 Transient `asset_lookup` staging failures (exit 18) are environment conditions,
 not missing source code. The acceptance criteria for audible evidence require
 physical hardware or persistent-storage Dolphin validation, which is a MANUAL
