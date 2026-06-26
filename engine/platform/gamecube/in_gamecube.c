@@ -261,11 +261,34 @@ void Platform_RunEvents( void )
 
 int Platform_JoyInit( void )
 {
+	int attempt;
+	int port;
+
 	PAD_Init();
 	GC_LogButtonMap();
 	Con_Reportf( "Joystick: GameCube controller preferred port %d; deadzone stick=%d trigger=%d\n",
 		GC_PAD_PREFERRED + 1, GC_STICK_DEAD, GC_TRIGGER_DEAD );
 	Con_Reportf( "Joystick: fallback scans ports 1-4 for reconnect\n" );
+
+	/* Dolphin and cold hardware can need several SI polls before PAD_ERR_NONE. */
+	for( attempt = 0; attempt < 120; attempt++ )
+	{
+		PAD_ScanPads();
+		PAD_Read( gc_pad );
+		PAD_Clamp( gc_pad );
+		port = GC_FindActivePort();
+		if( port >= 0 )
+		{
+			gc_connected = true;
+			gc_active_port = port;
+			gc_controller_type = SI_GetType( port );
+			GC_HandleConnectionChange( port, gc_controller_type, true );
+			Con_Reportf( "Xash3D GameCube: input polling active\n" );
+			gc_input_logged = true;
+			break;
+		}
+	}
+
 	return 1;
 }
 

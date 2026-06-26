@@ -124,19 +124,37 @@ static void GC_ShutdownVideoHardware( void )
 static void GC_PresentBuffer( void )
 {
 #if XASH_GAMECUBE
-	unsigned short *src = NULL;
-	unsigned short *dst = NULL;
-	unsigned short *diag_rowdst = NULL;
-	int copy_w = 0, copy_h = 0, row = 0, col2 = 0;
-	int src_w = 0, src_h = 0;
-	qboolean sampled_nonblack = false;
-	size_t buf_size = 0;
-	int col_diag = 0;
-	int check_w = 0;
-	unsigned short *scanrow = NULL;
-	unsigned short first_pixel = 0;
-	double now = 0.0;
-	double elapsed_ms = 0.0;
+	unsigned short *src;
+	unsigned short *dst;
+	unsigned short *diag_rowdst;
+	int copy_w, copy_h, row, col2;
+	int src_w, src_h;
+	qboolean sampled_nonblack;
+	size_t buf_size;
+	int col_diag;
+	int check_w;
+	unsigned short *scanrow;
+	unsigned short first_pixel;
+	double now;
+	double elapsed_ms;
+
+	src = NULL;
+	dst = NULL;
+	diag_rowdst = NULL;
+	copy_w = 0;
+	copy_h = 0;
+	row = 0;
+	col2 = 0;
+	src_w = 0;
+	src_h = 0;
+	sampled_nonblack = false;
+	buf_size = 0;
+	col_diag = 0;
+	check_w = 0;
+	scanrow = NULL;
+	first_pixel = 0;
+	now = 0.0;
+	elapsed_ms = 0.0;
 
 	if( !rmode || !xfb[which_fb] )
 		return;
@@ -415,12 +433,19 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	(void)message;
 
 #if XASH_GAMECUBE
-	unsigned short *dst = NULL;
-	unsigned short *rowdst = NULL;
-	int row = 0;
-	int col_fatal = 0;
-	int i = 0;
-	size_t xfb_size = 0;
+	unsigned short *dst;
+	unsigned short *rowdst;
+	int row;
+	int col_fatal;
+	int i;
+	size_t xfb_size;
+
+	dst = NULL;
+	rowdst = NULL;
+	row = 0;
+	col_fatal = 0;
+	i = 0;
+	xfb_size = 0;
 
 	if( !rmode || !xfb[0] )
 		return;
