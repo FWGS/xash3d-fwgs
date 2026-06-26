@@ -117,6 +117,22 @@ removed-card, corrupt file, wrong slot, and incompatible version handling. If a
 route cannot safely simulate one of those conditions, record it as untested
 instead of treating the save path as release-complete.
 
+## Audio Preflight
+
+Before recording physical or audible Dolphin audio results, run the automated
+G48 preflight:
+
+```sh
+scripts/gamecube-audio-compliance.py
+```
+
+For audible evidence, record the backend route, whether ASND or null audio was
+used, and whether logs show nonzero PCM chunks and peak values. Capture at least
+one weapon sound, one ambient loop, one menu/error sound, and shutdown behavior.
+Record any severe clipping, underrun, long silence after nonzero PCM telemetry,
+or gameplay starvation as a failure or limitation instead of treating the route
+as release-complete.
+
 ## Fatal Error UX Preflight
 
 Before recording physical fatal-screen results, run the automated G50 preflight:

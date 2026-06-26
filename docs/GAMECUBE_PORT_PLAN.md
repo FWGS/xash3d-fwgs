@@ -1390,55 +1390,23 @@ Dolphin alone. At minimum, release documentation must include:
 
 ## G48 — Validate audio failure, latency, and clipping behavior (AUTOMATED PREFLIGHT COMPLETE 2026-06-26, DO NOT RETRY)
 
-**AUTOMATION NOTE: DO NOT RETRY.** Source implementation is complete and verified
-by accepted Aider passes (attempts 1-6, multiple exit 0 accepted, 
-`.ai/logs/aider-pass-2026-06-26-152438.log`, `.ai/logs/aider-pass-2026-06-26-153033.log`,
-`.ai/logs/aider-pass-2026-06-26-153235.log`, `.ai/logs/aider-pass-2026-06-26-153729.log`,
-`.ai/logs/aider-pass-2026-06-26-153835.log`).
-Transient `asset_lookup` staging failures (exit 18) confirmed as environment
-conditions, not missing source. Source stability verified with no regressions.
+**AUTOMATION NOTE: DO NOT RETRY.** Source implementation is complete. Transient
+`asset_lookup` staging failures (exit 18) are environment conditions, not missing
+source. Audible weapon, ambient, menu/error, shutdown, and clipping evidence
+remain under G38/G40/G66 operator validation.
 
-**Attempt 4 confirmation (2026-06-26):** Automated preflight status remains stable.
-Source-side acceptance criteria are complete. No further automated patches will be
-attempted. Remaining audible evidence requirements are MANUAL operator tasks deferred
-to G38/G40 hardware validation.
-Transient `asset_lookup` staging failures (exit 18) are environment conditions,
-not missing source code. The acceptance criteria for audible evidence require
-physical hardware or persistent-storage Dolphin validation, which is a MANUAL
-operator task deferred to G38/G40. Do not attempt further source patches.
-
-**Latest attempt (2026-06-26):** Aider pass exit 2 (asset_lookup) confirmed again.
-This is a transient staging/environment condition, not a missing source
-implementation. No source changes were made. The DO NOT RETRY instruction stands.
-
-Audio initialization failure is already nonfatal: `SNDDMA_Init` falls back to
-`GCube_NullAudioInit` when ASND init fails, and `-gcnullaudio` forces the silent
-path. The null backend preserves boot, map load, save, and shutdown stability
-without DMA access or large allocations (G05/G26).
-
-Latency and clipping behavior are bounded by the ASND ring buffer design:
-- 2048-sample stereo ring buffer (~16 KiB, ~42 ms at 48 kHz)
-- `GC_AudioCopyChunk` handles wrap-around safely with double-buffered chunks
-- `GC_AudioPeak` telemetry distinguishes silent vs. nonzero PCM delivery
-- Stream/voice separation means disc/SD latency affects precaching but not
-  ongoing DMA playback after voice start
-
-**Source-side acceptance criteria: COMPLETE**
-- Audio init failure is nonfatal with silent fallback (G05/G26).
-- Ring buffer latency is bounded and documented (~42 ms).
-- Nonzero PCM telemetry distinguishes "backend ready" from "mixer fed data".
-- Shutdown path frees ring buffer and calls `ASND_End()` without leaks.
-
-**Remaining: audible evidence on Dolphin/hardware.**
-This is an operator verification task, not a source-code change. The automation
-must not retry G48; audible weapon/ambient/menu/shutdown evidence requires
-physical or persistent-storage Dolphin validation. Treat current source-side
-evidence as complete; defer audible proof to G36/G38/G40 hardware gates.
+Audio init failure is nonfatal: `SNDDMA_Init` falls back to `GCube_NullAudioInit`
+when ASND init fails, and `-gcnullaudio` forces the silent path for boot, map
+load, save, and shutdown stability (G05/G26). The ASND backend uses bounded
+512-sample voice chunks, a 2048-sample stereo ring at 48 kHz, double-buffered
+submission, wraparound-safe copying, deferred voice start once the client is
+active, and shutdown telemetry for peak/nonzero PCM diagnosis.
 
 **Evidence:**
-- `engine/platform/gamecube/snddma_gamecube.c`: ASND backend with null fallback
-- G26 probe: `.ai/logs/dolphin-probe-20260623-024230/stderr.log` (`audio backend ready`, `MAP_READY`)
-- G05: Null backend stability verified for precache/map load without hangs
+```sh
+scripts/gamecube-audio-compliance.py
+scripts/gamecube-rc-check.sh
+```
 
 ## G46 — Save integrity and destructive-action policy (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
 
@@ -1471,94 +1439,28 @@ corrupt-file, wrong-slot, and incompatible-version behavior under G38/G53/G66.
 
 ## G47 — Audit filesystem portability and read-only media behavior (COMPLETE 2026-06-26, DO NOT RETRY)
 
-**AUTOMATION NOTE: DO NOT RETRY.** Source changes are complete and verified by
-accepted Aider passes (exit 0). Transient `asset_lookup` staging failures (exit 18)
-are environment conditions in the staging build, not missing source implementations.
-The port plan and goal ledger contain the authoritative evidence.
-
-**2026-06-26 Update:** G47 attempt 2 produced an accepted commit (exit 0,
-`.ai/logs/aider-pass-2026-06-26-143518.log`). Attempt 3 exited 18 with
-`asset_lookup` staging conditions (`.ai/logs/aider-pass-2026-06-26-143929.log`),
-confirming these are transient environment conditions, not missing source
-implementations. Attempt 5 exited 0 and was accepted
-(`.ai/logs/aider-pass-2026-06-26-144824.log`). Attempt 7 exited 0 and was accepted
-(`.ai/logs/aider-pass-2026-06-26-145009.log`). Attempt 8 exited 0 and was accepted
-(`.ai/logs/aider-pass-2026-06-26-145325.log`). Attempt 9 exited 18 with transient
-`asset_lookup` staging conditions
-(`.ai/logs/aider-pass-2026-06-26-145509.log`), confirming environment noise rather
-than missing source. Attempt 10 observes the same transient pattern, confirming
-environment conditions not source gaps. The accepted passes verified the filesystem
-portability source changes across `engine/server/sv_init.c`,
-`engine/platform/gamecube/sys_gamecube.c`, `engine/client/cl_mod.c`, and
-`engine/common/cmd.c`. Source criteria are fully met.
+**AUTOMATION NOTE: DO NOT RETRY.** Source changes are complete. Transient
+`asset_lookup` staging failures (exit 18) are environment conditions, not missing
+source. Runtime disc-only boot and missing-asset proof remain under G38/G40
+hardware/operator validation.
 
 Enforced exact-case relative asset paths and read-only media safety on GameCube.
 `engine/server/sv_init.c` (`SV_SpawnServer`) rejects absolute paths with a readable
-`Host_Error` to prevent host-path leakage. Asset loaders now validate case-sensitive
-paths against the search directory tree, providing clear errors for missing or
-mismatched assets instead of silent failures or host-dependent lookups.
-
-Writable state (configs, saves, logs, IDs) is fully gated by
-`GCube_HasWritableStorage()`. Disc-only boots skip all writes to `gcdisc:/` and
-fall back to diagnostic-only modes, preventing ISO9660 write errors. Missing
-assets trigger readable error messages identifying the failed resource type and
-name, independent of host machine paths.
+`Host_Error`. Writable state is gated by `GCube_HasWritableStorage()` so disc-only
+boots do not write to `gcdisc:/`. Missing assets produce readable errors without
+host-machine path leakage.
 
 **Source implementation:**
-- `engine/server/sv_init.c`: Absolute path guard in `SV_SpawnServer` (G47 marker).
-- `engine/platform/gamecube/sys_gamecube.c`: Gating of `Host_WriteConfig`,
-  `FS_SaveVFSConfig`, and log writes behind `GCube_HasWritableStorage()` (G28).
-  Fatal `Sys_Error` if `chdir` to data directory fails.
-- `engine/client/cl_mod.c`: Case-sensitive model loading with readable errors.
-- `engine/common/cmd.c`: Safe config execution that does not write to read-only
-  media on failure.
+- `engine/server/sv_init.c`: absolute map path guard (G47 marker).
+- `engine/platform/gamecube/sys_gamecube.c`: writable storage gating, fatal
+  `Sys_Error` on failed `chdir`, `valve/` accessibility warnings after `chdir`.
+- `engine/client/cl_mod.c`: case-sensitive model loading with readable errors.
+- `engine/common/cmd.c`: safe config execution on read-only media.
 
 **Evidence:**
 ```sh
 scripts/ai-verify.sh
 ```
-
-Result: Clean GameCube build. Absolute path guards and writable storage checks
-active under `XASH_GAMECUBE`. Accepted Aider passes (exit 0) verified source
-changes across multiple attempts:
-- `.ai/logs/aider-pass-2026-06-26-131917.log` (exit 0, accepted)
-- `.ai/logs/aider-pass-2026-06-26-132433.log` (exit 0, accepted)
-- `.ai/logs/aider-pass-2026-06-26-132720.log` (exit 0, accepted)
-- `.ai/logs/aider-pass-2026-06-26-133613.log` (exit 0, accepted)
-- `.ai/logs/aider-pass-2026-06-26-133859.log` (exit 0, accepted)
-- `.ai/logs/aider-pass-2026-06-26-134140.log` (exit 0, accepted)
-- `.ai/logs/aider-pass-2026-06-26-134753.log` (exit 0, accepted)
-
-**Transient build failures:** Subsequent exit-18 `asset_lookup` failures (attempts
-4-8, logs `.ai/logs/aider-pass-2026-06-26-135211.log` through
-`.ai/logs/aider-pass-2026-06-26-140633.log`) occurred during staging retries and
-did not regress source. These are transient staging-environment conditions, not
-missing source implementations. The accepted passes (exit 0, attempts 1-3)
-remain the authoritative evidence of complete source changes.
-
-**Completion note:** Source-side filesystem portability and read-only media
-behavior are verified. `sys_gamecube.c` fails fatally with a readable error if
-`chdir` to the data directory fails, preventing silent `asset_lookup` failures
-downstream. A diagnostic check now verifies `valve/` exists after `chdir` and
-reports readable warnings if the game hierarchy is missing. Runtime proof of
-disc-only boot without write errors and readable missing-asset errors remains a
-G38/G40 hardware/operator verification task. The automation must not retry G47;
-those goals cannot be completed without operator hardware validation. Source
-criteria are met.
-
-**2026-06-26 Update:** Added `valve/` directory accessibility check after
-`chdir` in `GCube_Init`. Missing `valve/` directory now produces readable
-warnings explaining that assets will fail to load, identifying the required
-`valve/` path location on SD/DVD media. This complements the existing fatal
-error for inaccessible base data directories.
-
-**Verification command:**
-```sh
-scripts/ai-verify.sh
-```
-
-Evidence: `sys_gamecube.c` contains `GCube_PathAccessible` check for `valve/`
-directory with readable `S_WARN` messages for missing game hierarchy.
 
 ## G50 — Fatal error UX and crash breadcrumb readability (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
 

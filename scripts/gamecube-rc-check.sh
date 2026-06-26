@@ -43,7 +43,8 @@ Runs the native GameCube release-candidate evidence gate:
   11. controller compliance check
   12. save integrity/destructive-action compliance check
   13. fatal error UX compliance check
-  14. homebrew compliance check
+  14. audio compliance check
+  15. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -360,6 +361,21 @@ fatal_ux_compliance_gate() {
 	return "$rc"
 }
 
+audio_compliance_gate() {
+	local log_path="$LOG_DIR/audio-compliance.log"
+	echo
+	echo "== audio compliance =="
+	if scripts/gamecube-audio-compliance.py --log-dir "$LOG_DIR/audio-compliance" >"$log_path" 2>&1; then
+		log_status "audio compliance" "PASS" "$log_path" "G48 audio failure/latency/clipping preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "audio compliance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -469,6 +485,7 @@ main() {
 	controller_compliance_gate || true
 	save_compliance_gate || true
 	fatal_ux_compliance_gate || true
+	audio_compliance_gate || true
 	compliance_gate || true
 	write_summary
 	echo

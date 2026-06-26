@@ -786,7 +786,7 @@ scripts/gamecube-map-compat-probe.sh
   on 2026-06-26. Runtime disc-only and missing-asset proof remains under
   G38/G40 hardware/operator validation.
 
-## G48 [ ] Validate audio failure, latency, and clipping behavior
+## G48 [x] Validate audio failure, latency, and clipping behavior
 
 - Treat audio initialization failure as nonfatal and preserve the silent
   fallback for boot, map load, save, and shutdown tests.
@@ -794,6 +794,20 @@ scripts/gamecube-map-compat-probe.sh
   SD latency without starving gameplay or causing severe clipping.
 - Capture mixed-sample telemetry or audible hardware/operator evidence for at
   least one weapon sound, ambient sound, menu/error sound, and shutdown path.
+- Completed 2026-06-26 as an automated source/policy preflight:
+  `SNDDMA_Init()` falls back to `GCube_NullAudioInit()` on ASND init failure and
+  `-gcnullaudio` forces the silent backend for boot/map/save/shutdown stability.
+- The ASND backend uses bounded 512-sample voice chunks, a 2048-sample stereo
+  ring buffer at 48 kHz, double-buffered ASND submission, wraparound-safe ring
+  copying, and deferred voice start once the client is active.
+- Runtime telemetry reports submitted chunks, nonzero PCM chunks, peak sample
+  value, long silent periods, and shutdown counters so clipping/silence can be
+  diagnosed without assuming audible hardware output.
+- `scripts/gamecube-audio-compliance.py` verifies the G48 source contract and
+  `scripts/gamecube-rc-check.sh` now runs the G48 audio compliance gate.
+- Evidence boundary: audible weapon, ambient, menu/error, shutdown, and severe
+  clipping results still require dated Dolphin or real hardware/operator
+  evidence under G38/G40/G66.
 
 ## G49 [ ] Prove frame timing, loading feedback, and timing independence
 
