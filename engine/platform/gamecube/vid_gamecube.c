@@ -128,12 +128,14 @@ static void GC_PresentBuffer( void )
 	unsigned short *dst;
 	int copy_w, copy_h, row, col2;
 	int src_w, src_h;
-	qboolean sampled_nonblack;
+	qboolean sampled_nonblack = false;
 	size_t buf_size;
 	int col_diag;
 	int check_w;
 	unsigned short *scanrow;
 	unsigned short first_pixel;
+
+	(void)gc_blank_present_count;
 
 	if( !rmode || !xfb[which_fb] )
 		return;
@@ -181,6 +183,10 @@ static void GC_PresentBuffer( void )
 					break;
 				}
 			}
+		}
+		else
+		{
+			sampled_nonblack = false;
 		}
 	}
 	else
@@ -408,9 +414,13 @@ void GC_DrawFatalBreadcrumb( const char *message )
 {
 #if XASH_GAMECUBE
 	unsigned short *dst;
-	int row, col_fatal, i;
+	int row;
+	int col_fatal;
+	int i;
 	size_t xfb_size;
 	unsigned short *rowdst;
+
+	(void)message;
 
 	if( !rmode || !xfb[0] )
 		return;
@@ -443,7 +453,6 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	for( i = 0; i < 3; i++ )
 		VIDEO_WaitVSync();
 #endif
-	(void)message; /* Message is already reported via OSReport in Sys_Error */
 }
 
 void GC_RestoreVideoMemoryAfterMapLoad( void )

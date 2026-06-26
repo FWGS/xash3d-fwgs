@@ -1158,20 +1158,22 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 SYNTAX FIX APPLIED AND VERIFIED)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: UNINITIALIZED VARIABLE FIX APPLIED)
 
-**Status (2026-06-26):** Fixed C89 syntax errors in `engine/platform/gamecube/vid_gamecube.c`. The devkitPPC compiler rejects C99 `for( int i = ... )` declarations. Loop variables `col2`, `col_diag`, `check_w`, `scanrow`, `first_pixel` in `GC_PresentBuffer` and `i`, `col_fatal`, `rowdst` in `GC_DrawFatalBreadcrumb` are now properly scoped at function scope. Removed unused variable `col` from `GC_PresentBuffer`. Fixed mismatched brace nesting in `GC_DrawFatalBreadcrumb`.
+**Status (2026-06-26):** Fixed uninitialized `sampled_nonblack` variable in `GC_PresentBuffer` that could cause undefined behavior when `gc_present_count != 1`. Also moved `(void)message` cast earlier in `GC_DrawFatalBreadcrumb` to suppress unused parameter warnings consistently.
 
 **Evidence:**
 - `engine/platform/gamecube/vid_gamecube.c`:
-  - `GC_PresentBuffer`: Moved `col_diag`, `check_w`, `scanrow`, `first_pixel` declarations to function scope. Removed redundant inner declarations.
-  - `GC_DrawFatalBreadcrumb`: Moved `rowdst` declaration to function scope. Removed redundant inner declaration.
-- Next: Run build and probe to verify runtime behavior.
+  - `GC_PresentBuffer`: Initialized `sampled_nonblack = false` at declaration, added explicit `else` branch to set it false when not sampling first frame.
+  - `GC_DrawFatalBreadcrumb`: Moved `(void)message` cast to function start, split multi-variable declarations for strict C89 compliance.
+- Next: Run build and probe to verify runtime behavior after compile fix.
 
 ```sh
 scripts/build-gamecube.sh
 DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
 ```
+
+**Blocker:** Previous attempts failed with compile errors in `GC_DrawFatalBreadcrumb`. Fixed uninitialized variable and C89 scoping issues in `vid_gamecube.c`.
 
 **Do not mark G40 complete** until:
 - Build passes cleanly
