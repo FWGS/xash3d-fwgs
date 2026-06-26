@@ -929,7 +929,8 @@ if (( FRAME_BUDGET_LOGS )); then
 	# This catches markers like "frame_time=12.34" without the "Xash3D GameCube:" prefix,
 	# or markers using underscore instead of space. Provides safety net for guest variants
 	# or logging regressions that change marker format.
-	if (( FRAME_COUNT == 0 )); then
+	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
+	if (( FRAME_TIMES_RELAXED == 0 )); then
 		while IFS= read -r val; do
 			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
 		done < <(grep -aoE '(frame_time|frame time|frame_duration|render_time|budget_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
@@ -940,18 +941,19 @@ if (( FRAME_BUDGET_LOGS )); then
 		fi
 	fi
 
-	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
-
 	# G36_PATCH_v76: Report fallback usage in parse diagnostics
 	if [[ -n "${FRAME_TIMES_RELAXED_FALLBACK:-}" ]] && (( FRAME_TIMES_RELAXED_FALLBACK > 0 )); then
 		echo "G36_PARSE_FALLBACK_ACTIVE: Primary pattern failed; using fallback extraction. Guest marker format may have changed."
 	fi
 
+	# G36_PATCH_v78: Set FRAME_COUNT after extraction/fallback so dedup and stats
+	# logic have a valid count. Previously FRAME_COUNT was unset here.
+	FRAME_COUNT=${#FRAME_TIMES[@]}
+
 	# G36_DEDUP_v1: Deduplicate FRAME_TIMES to prevent double-counting when
 	# both 'time=' and 'duration=' markers are emitted for the same frame.
 	# Use awk to remove consecutive duplicates while preserving temporal order.
 	# This maintains the cold-start frame as the first entry for steady-state analysis.
-	FRAME_COUNT=${#FRAME_TIMES[@]}
 	if (( FRAME_COUNT > 1 )); then
 		PRE_DEDUP_COUNT=$FRAME_COUNT
 		mapfile -t FRAME_TIMES < <(printf '%s\n' "${FRAME_TIMES[@]}" | awk 'prev != $0 {print; prev=$0}')
@@ -1015,7 +1017,7 @@ FRAME_STEADY_COUNT=0
 FRAME_STEADY_AVG=""
 FRAME_STEADY_P95=""
 FRAME_STEADY_BUDGET_PASSED=0
-FRAME_COUNT=${#FRAME_TIMES[@]}
+# FRAME_COUNT is already set above after fallback extraction
 
 # G36_PATCH_v14: Explicitly detect when budget logs are present but no frame
 # times were extracted. This distinguishes "marker format mismatch" from
