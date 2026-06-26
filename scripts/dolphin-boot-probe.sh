@@ -566,6 +566,10 @@ grep -aqE "sampled_nonblack=1" "${LOG_FILES[@]}" && SAMPLED_NONBLACK_FOUND=1
 grep -aqE "Xash3D GameCube: frame.*time=" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS=1
 grep -aqE "Xash3D GameCube: frame budget sample" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS=1
 grep -aqE "budget: EXCEEDED" "${LOG_FILES[@]}" && FRAME_BUDGET_EXCEEDED=1
+# G36_PATCH_v95: Also detect OSREPORT-wrapped frame budget markers
+# Some guest builds route timing through OSREPORT prefix, which can evade
+# direct "Xash3D GameCube:" pattern matching if the wrapper strips prefixes.
+grep -aqE "OSREPORT.*frame.*time=[0-9]+" "${LOG_FILES[@]}" && FRAME_BUDGET_LOGS=1
 
 # Check for frame budget measurement markers
 FRAME_BUDGET_ENABLED=0
@@ -1121,6 +1125,18 @@ if (( FRAME_BUDGET_LOGS )); then
 	done < <(grep -aoE 'Xash3D GameCube: (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
 		grep -oE '[a-z_]+=[0-9]+(\.[0-9]+)?ms?' | sed 's/.*=//; s/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
 
+	# G36_PATCH_v95: Fallback extraction for OSREPORT-wrapped markers
+	# If primary extraction yielded no results, try OSREPORT-wrapped format
+	if (( ${#FRAME_TIMES[@]} == 0 )); then
+		while IFS= read -r val; do
+			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
+		done < <(grep -aoE 'OSREPORT.* (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|[cg]pu_time|gx_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+			grep -oE '[a-z_]+=[0-9]+(\.[0-9]+)?ms?' | sed 's/.*=//; s/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
+		if (( ${#FRAME_TIMES[@]} > 0 )); then
+			echo "G36_OSTREPORT_FALLBACK: ${#FRAME_TIMES[@]} frames extracted via OSREPORT-wrapped fallback pattern."
+		fi
+	fi
+
 	# G36_PATCH_v76: Fallback extraction for non-standard or abbreviated frame time markers
 	# This catches markers like "frame_time=12.34" without the "Xash3D GameCube:" prefix,
 	# or markers using underscore instead of space. Provides safety net for guest variants
@@ -1136,6 +1152,18 @@ if (( FRAME_BUDGET_LOGS )); then
 		FRAME_TIMES_RELAXED_FALLBACK=${#FRAME_TIMES[@]}
 		if (( FRAME_TIMES_RELAXED_FALLBACK > 0 )); then
 			echo "G36_FALLBACK_EXTRACT: ${FRAME_TIMES_RELAXED_FALLBACK} frames extracted via fallback pattern (primary pattern matched zero)."
+		fi
+	fi
+
+	# G36_PATCH_v95: Additional fallback for bare numeric time values in OSREPORT context
+	# Catches OSREPORT lines that may have stripped the key name, leaving just "time=NNNms"
+	if (( ${#FRAME_TIMES[@]} == 0 )); then
+		while IFS= read -r val; do
+			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
+		done < <(grep -aoE 'OSREPORT.*time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+			grep -oE '[0-9]+(\.[0-9]+)?ms?' | sed 's/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
+		if (( ${#FRAME_TIMES[@]} > 0 )); then
+			echo "G36_OSTREPORT_BARE_FALLBACK: ${#FRAME_TIMES[@]} frames extracted via bare OSREPORT time= fallback."
 		fi
 	fi
 
