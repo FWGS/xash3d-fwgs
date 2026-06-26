@@ -1131,6 +1131,19 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 				echo "G36_GX_WAIT_TIME: ${GX_WAIT_TIME_SAMPLES} per-frame GX wait time samples captured. VI-sync bottleneck analysis available."
 			fi
 
+			# G36_PATCH_v17: Compute effective sample rate (Hz) to quantify telemetry density
+			# Helps distinguish "guest not emitting markers" from "probe timeout too short"
+			if (( FRAME_COUNT > 1 )) && [[ -n "$FRAME_FIRST" ]] && [[ -n "$FRAME_MAX" ]]; then
+				# Approximate wall-clock span from first to last sample using sum of frame times
+				SPAN_MS=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk '{sum+=$1} END{printf "%.1f", sum}')
+				SPAN_SEC=$(awk "BEGIN {printf \"%.3f\", ${SPAN_MS} / 1000.0}")
+				SAMPLE_RATE_HZ=$(awk "BEGIN {printf \"%.1f\", ${FRAME_COUNT} / ${SPAN_SEC}}")
+				echo "G36_SAMPLE_RATE: ${SAMPLE_RATE_HZ} Hz (${FRAME_COUNT} samples over ${SPAN_SEC}s wall-clock estimate)"
+				if awk "BEGIN {exit !(${SAMPLE_RATE_HZ} < 10.0)}" 2>/dev/null; then
+					echo "G36_SAMPLE_SPARSE: Sample rate ${SAMPLE_RATE_HZ} Hz is low. Telemetry may be throttled or frames skipped."
+				fi
+			fi
+
 			# G36: Report frame timing jitter (MAD) as stability metric
 			# Threshold of 2.0ms MAD indicates significant deviation from the mean frame time
 			if awk "BEGIN {exit !(${FRAME_TIMING_JITTER} > 2.0)}" 2>/dev/null; then
