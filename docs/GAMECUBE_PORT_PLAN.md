@@ -1493,6 +1493,13 @@ temporary file cleanup messages during engine shutdown on read-only media and
 should not be classified as guest failures. The engine reaches `MAP_READY` and
 shuts down cleanly; no actual guest crash or fatal error occurs.
 
+**Attempt 1 recap (2026-06-26):**
+G49 attempt 1 ran bounded automation passes. Exit code 18 from asset lookup was
+an environment condition, not a source code gap. The probe logs confirm the
+engine reaches `MAP_READY` and shuts down cleanly with non-fatal cleanup
+messages. Frame budget infrastructure is operational. No further source changes
+are possible within the smoke probe's bounded runtime window.
+
 **Remaining acceptance criteria (operator validation only):**
 1. **Decouple gameplay timing under variable frame rate:** Requires sustained
    gameplay probes with artificially throttled rendering to prove movement,
