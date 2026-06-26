@@ -566,6 +566,9 @@ if (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT == 0 )); then
 			echo "G36_PARSE_RAW_SAMPLE: ${line}"
 		done <<< "$UNMATCHED_LIKELY"
 	fi
+	# G36_PATCH_v21: Emit explicit status for zero-sample case to prevent
+	# downstream tooling from misinterpreting empty summary as success
+	echo "G36_STATUS: FAIL (zero samples extracted, parse failure)"
 fi
 
 if (( FRAME_COUNT > 0 )); then
