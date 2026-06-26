@@ -140,24 +140,19 @@ static void GC_PresentBuffer( void )
 		}
 
 		// G36: If software buffer has non-black content, suppress diagnostic marker
-		// to avoid obscuring valid renderer output. Check only a small fixed region
-		// (16x16 pixels) for evidence to avoid O(width*height) CPU cost per frame.
-		// Skip after first 3 frames to stabilize steady-state frame budget once
-		// we've established the renderer is producing visible content.
-		if( gc_present_count <= 3 && !sampled_nonblack && src_h > 1 )
+		// to avoid obscuring valid renderer output. Check only first row for evidence
+		// to minimize CPU cost per frame. Skip after first 2 frames to stabilize
+		// steady-state frame budget once we've established the renderer is producing
+		// visible content. Only check first 8 pixels per row to reduce branch pressure.
+		if( gc_present_count <= 2 && !sampled_nonblack && src_h > 0 && src_w > 0 )
 		{
-			int check_w = src_w < 16 ? src_w : 16;
-			int check_h = src_h < 16 ? src_h : 16;
-			for( row = 0; row < check_h && !sampled_nonblack; row++ )
+			// Check first row only, first 8 pixels
+			int check_w = src_w < 8 ? src_w : 8;
+			unsigned short *scanrow = src;
+			for( int col = 0; col < check_w && !sampled_nonblack; col++ )
 			{
-				unsigned short *scanrow = src + row * gc.stride;
-				for( int col = 0; col < check_w && !sampled_nonblack; col++ )
-				{
-					if( scanrow[col] != 0 )
-					{
-						sampled_nonblack = true;
-					}
-				}
+				if( scanrow[col] != 0 )
+					sampled_nonblack = true;
 			}
 		}
 	}
