@@ -1021,6 +1021,28 @@ if (( GX_DRAWDONE_COUNT > 0 )); then
 	fi
 fi
 
+# G36_PATCH_v129: Emit machine-parseable telemetry coverage summary to quantify
+# measurement completeness. Reports exact ratio of GX_DrawDone (render completions)
+# to frame budget markers (timing samples). A ratio of 1.0 means every frame has
+# timing data; 0.0 means no frames have timing data. This provides a single metric
+# for downstream automation to decide if G36 budget analysis is trustworthy.
+if (( GX_DRAWDONE_COUNT > 0 )); then
+	if (( FRAME_COUNT > 0 )); then
+		TELEMETRY_COVERAGE=$(awk "BEGIN {printf \"%.3f\", ${FRAME_COUNT} / ${GX_DRAWDONE_COUNT}}")
+		echo "G36_TELEMETRY_COVERAGE: frame_budget_markers=${FRAME_COUNT} gx_drawdone=${GX_DRAWDONE_COUNT} coverage_ratio=${TELEMETRY_COVERAGE}"
+		if awk "BEGIN {exit !(${TELEMETRY_COVERAGE} < 0.10)}" 2>/dev/null; then
+			echo "G36_TELEMETRY_MISSING: Near-zero telemetry coverage. Renderer active but timing measurement is absent. G36 budget analysis will be unreliable."
+		elif awk "BEGIN {exit !(${TELEMETRY_COVERAGE} < 0.80)}" 2>/dev/null; then
+			echo "G36_TELEMETRY_PARTIAL: Telemetry coverage is partial (${TELEMETRY_COVERAGE}). Some frames missing timing data. G36 budget analysis has reduced confidence."
+		else
+			echo "G36_TELEMETRY_COMPLETE: High telemetry coverage (${TELEMETRY_COVERAGE}). Frame budget analysis is trustworthy."
+		fi
+	else
+		echo "G36_TELEMETRY_COVERAGE: frame_budget_markers=0 gx_drawdone=${GX_DRAWDONE_COUNT} coverage_ratio=0.000"
+		echo "G36_TELEMETRY_MISSING: Zero frame budget markers despite ${GX_DRAWDONE_COUNT} GX_DrawDone calls. Measurement path is not executing."
+	fi
+fi
+
 
 # G36: Emit explicit measurement baseline marker so downstream tooling can
 # distinguish "telemetry absent" from "telemetry present but failing"
