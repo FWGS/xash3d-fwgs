@@ -190,12 +190,13 @@ static void GC_PresentBuffer( void )
 		 * is captured. Leaves XFB black (zeroed) for subsequent frames. */
 		if( gc_present_count == 1 )
 		{
+			unsigned short *diag_rowdst;
 			col_diag = 0;
 			for( row = 0; row < copy_h; row++ )
 			{
-				unsigned short *rowdst = dst + row * rmode->fbWidth;
+				diag_rowdst = dst + row * rmode->fbWidth;
 				for( col_diag = 0; col_diag < copy_w; col_diag++ )
-					rowdst[col_diag] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
+					diag_rowdst[col_diag] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
 			}
 			sampled_nonblack = true;
 		}
