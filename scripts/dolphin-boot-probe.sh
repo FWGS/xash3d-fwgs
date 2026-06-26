@@ -418,6 +418,21 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v70: Detect renderer initialized but no frames rendered after
+		# extended wait. Distinguishes "renderer crashed before first frame" from
+		# "renderer running but silent". Provides explicit evidence for failure mode.
+		if [[ -n "$GUEST_RENDERER" ]] && \
+		   [[ -z "${G36_RENDERER_NO_FRAMES_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 30 )); then
+			G36_RENDERER_NO_FRAMES_CHECKED=1
+			FRAME_MARKER_COUNT=$(grep -acE "Xash3D GameCube:.*frame.*(time|budget|render)" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			if (( FRAME_MARKER_COUNT == 0 )); then
+				echo "G36_RENDERER_NO_FRAMES: Renderer ${GUEST_RENDERER} initialized but zero frame-related OSREPORT markers after 30s."
+				echo "G36_RENDERER_NO_FRAMES_HINT: Guest may have crashed between renderer init and first render loop iteration, or frame loop is not reached."
+				echo "G36_RENDERER_NO_FRAMES_HINT: Check for crashes in SV_Init, Host_RunFrame, or renderer main loop entry point."
+			fi
+		fi
+
 		sleep 2
 	done
 else
