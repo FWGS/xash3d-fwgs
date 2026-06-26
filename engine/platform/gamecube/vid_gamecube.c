@@ -181,29 +181,35 @@ static void GC_PresentBuffer( void )
 	gc_present_count++;
 	if( !sampled_nonblack )
 	{
-		int mark_w = copy_w < 32 ? copy_w : 32;
-		int mark_h = copy_h < 32 ? copy_h : 32;
-		gc_blank_present_count++;
+		// G36: Diagnostic marker drawing is expensive per-frame. Skip entirely
+		// after first 60 frames to stabilize steady-state frame budget.
+		// We already have visual evidence from the first few frames.
+		if( gc_present_count <= 60 )
+		{
+			int mark_w = copy_w < 32 ? copy_w : 32;
+			int mark_h = copy_h < 32 ? copy_h : 32;
+			gc_blank_present_count++;
 
-		// Draw a highly visible diagnostic marker (Red/Green checker)
-		// to prove XFB is being updated even if renderer output is black.
-		// Use memset for row-level fills to improve cache locality and 
-		// potentially allow vectorized/wider stores, stabilizing frame budget.
-		for( row = 0; row < mark_h; row++ )
-		{
-			unsigned short *rowdst = dst + row * rmode->fbWidth;
-			// Alternate dominant colors per row for visibility without per-pixel branching
-			if( row & 1 )
-				memset( rowdst, 0xF800, mark_w * sizeof( unsigned short ));
-			else
-				memset( rowdst, 0x07E0, mark_w * sizeof( unsigned short ));
-		}
-		
-		// Report diagnostic marker visibility
-		if( gc_blank_present_count == 1 || ( gc_blank_present_count % 60 == 0 ))
-		{
-			SYS_Report( "Xash3D GameCube: DIAGNOSTIC MARKER VISIBLE (frame %u, blank streak %u). Check top-left 32x32.\n",
-				gc_present_count, gc_blank_present_count );
+			// Draw a highly visible diagnostic marker (Red/Green checker)
+			// to prove XFB is being updated even if renderer output is black.
+			// Use memset for row-level fills to improve cache locality and 
+			// potentially allow vectorized/wider stores, stabilizing frame budget.
+			for( row = 0; row < mark_h; row++ )
+			{
+				unsigned short *rowdst = dst + row * rmode->fbWidth;
+				// Alternate dominant colors per row for visibility without per-pixel branching
+				if( row & 1 )
+					memset( rowdst, 0xF800, mark_w * sizeof( unsigned short ));
+				else
+					memset( rowdst, 0x07E0, mark_w * sizeof( unsigned short ));
+			}
+			
+			// Report diagnostic marker visibility
+			if( gc_blank_present_count == 1 || ( gc_blank_present_count % 60 == 0 ))
+			{
+				SYS_Report( "Xash3D GameCube: DIAGNOSTIC MARKER VISIBLE (frame %u, blank streak %u). Check top-left 32x32.\n",
+					gc_present_count, gc_blank_present_count );
+			}
 		}
 	}
 
