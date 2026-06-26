@@ -1160,12 +1160,12 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 SYNTAX FIX APPLIED)
 
-**Status (2026-06-26):** Fixed C89 syntax errors in `engine/platform/gamecube/vid_gamecube.c`. The devkitPPC compiler rejects C99 `for( int i = ... )` declarations. Loop variables `col2` in `GC_PresentBuffer` and `i` in `GC_DrawFatalBreadcrumb` (replacing `i_fatal` usage in loop) are now properly scoped or pre-declared. Specifically, `col2` is pre-declared at function scope in `GC_PresentBuffer`, and `i` is pre-declared in `GC_DrawFatalBreadcrumb` to replace the inner loop counter.
+**Status (2026-06-26):** Fixed C89 syntax errors in `engine/platform/gamecube/vid_gamecube.c`. The devkitPPC compiler rejects C99 `for( int i = ... )` declarations. Loop variables `col2` in `GC_PresentBuffer` and `i` in `GC_DrawFatalBreadcrumb` are now properly scoped at function scope. Removed unused variable `col` from `GC_PresentBuffer`. Fixed mismatched brace nesting in `GC_DrawFatalBreadcrumb` (closing brace was misplaced inside the loop block).
 
 **Evidence:**
 - `engine/platform/gamecube/vid_gamecube.c`:
-  - `GC_PresentBuffer`: `col2` pre-declared.
-  - `GC_DrawFatalBreadcrumb`: `i` pre-declared for VSync loop.
+  - `GC_PresentBuffer`: Removed unused `col` variable. Removed redundant `int col2` declaration inside conditional (already declared at function scope).
+  - `GC_DrawFatalBreadcrumb`: Removed unused `col` and `i_fatal` variables. Fixed brace nesting - the closing brace for the outer block was misplaced. Removed unnecessary nested `{ }` blocks around the row/column loops and VSync loop.
 - Next: Run build and probe to verify runtime behavior.
 
 ```sh

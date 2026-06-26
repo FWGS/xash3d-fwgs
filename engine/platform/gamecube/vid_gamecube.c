@@ -128,7 +128,6 @@ static void GC_PresentBuffer( void )
 	unsigned short *dst;
 	int copy_w, copy_h, row, col2;
 	qboolean sampled_nonblack = false;
-	int col;
 
 	if( !rmode || !xfb[which_fb] )
 		return;
@@ -168,7 +167,6 @@ static void GC_PresentBuffer( void )
 		{
 			int check_w = src_w < 8 ? src_w : 8;
 			unsigned short *scanrow = src;
-			int col2;
 			for( col2 = 0; col2 < check_w; col2++ )
 			{
 				if( scanrow[col2] != 0 )
@@ -402,8 +400,7 @@ void GC_DrawFatalBreadcrumb( const char *message )
 {
 #if XASH_GAMECUBE
 	unsigned short *dst;
-	int row, col, col_fatal, i_fatal;
-	int i;
+	int row, col_fatal, i;
 
 	gc_fatal_breadcrumb_active = true;
 
@@ -414,12 +411,11 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	dst = (unsigned short *)xfb[0];
 
 	/* Fill XFB with a distinct color: Magenta (RGB565 0xF81F) to signal ERROR */
+	for( row = 0; row < rmode->xfbHeight; row++ )
 	{
-		for( row = 0; row < rmode->xfbHeight; row++ )
-		{
-			unsigned short *rowdst = dst + row * rmode->fbWidth;
-			for( col_fatal = 0; col_fatal < rmode->fbWidth; col_fatal++ )
-				rowdst[col_fatal] = 0xF81F; /* Magenta */
+		unsigned short *rowdst = dst + row * rmode->fbWidth;
+		for( col_fatal = 0; col_fatal < rmode->fbWidth; col_fatal++ )
+			rowdst[col_fatal] = 0xF81F; /* Magenta */
 	}
 
 	/* Flush to ensure hardware sees it */
@@ -436,10 +432,8 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	 * Use multiple VIDEO_WaitVSync() calls to ensure the frame is
 	 * presented on screen before the process exits. This is more
 	 * portable than SYS_Delay across different libogc versions. */
-	{
-		for( i = 0; i < 3; i++ )
-			VIDEO_WaitVSync();
-	}
+	for( i = 0; i < 3; i++ )
+		VIDEO_WaitVSync();
 #endif
 	(void)message; /* Message is already reported via OSReport in Sys_Error */
 }
