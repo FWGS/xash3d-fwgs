@@ -288,17 +288,26 @@ preflight_context_estimate() {
 		return 0
 	fi
 	local -a estimate_args=()
+	local estimate_output estimate_status
 	estimate_args=(python3 scripts/aider-context-estimate.py --repo "$REPO"
 		--attempt "$attempt" --output-tokens "$max_tokens" --max-context "$max_context")
 	local spec
 	for spec in "${RAW_CONTEXT_SPECS[@]}"; do
 		estimate_args+=("$spec")
 	done
-	if "${estimate_args[@]}" --quiet 2>/dev/null; then
+	estimate_output="$("${estimate_args[@]}" --quiet 2>&1)" || estimate_status=$?
+	estimate_status="${estimate_status:-0}"
+	if (( estimate_status == 0 )); then
 		return 0
 	fi
-	echo "ai-aider-pass: pre-flight estimate over budget for attempt=$attempt (output=$max_tokens)" >&2
-	return 1
+	if [[ "$estimate_output" == *"OVER_BUDGET"* ]]; then
+		echo "ai-aider-pass: pre-flight estimate over budget for attempt=$attempt (output=$max_tokens)" >&2
+		echo "$estimate_output" >&2
+		return 1
+	fi
+	echo "ai-aider-pass: pre-flight estimate unavailable; continuing without preflight" >&2
+	[[ -n "$estimate_output" ]] && echo "$estimate_output" >&2
+	return 0
 }
 
 context_args_for_attempt() {

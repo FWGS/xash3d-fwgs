@@ -13,6 +13,7 @@ _BUDGET_MODULE = Path(__file__).with_name("aider-context-budget.py")
 _spec = importlib.util.spec_from_file_location("aider_context_budget", _BUDGET_MODULE)
 _budget = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
+sys.modules[_spec.name] = _budget
 _spec.loader.exec_module(_budget)
 
 DEFAULT_MAX_CONTEXT = int(os.environ.get("AIDER_MODEL_MAX_CONTEXT", "65536"))

@@ -18,6 +18,7 @@ _SLICE_MODULE = Path(__file__).with_name("aider-context-slice.py")
 _spec = importlib.util.spec_from_file_location("aider_context_slice", _SLICE_MODULE)
 _slice = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
+sys.modules[_spec.name] = _slice
 _spec.loader.exec_module(_slice)
 default_output_path = _slice.default_output_path
 parse_ranges = _slice.parse_ranges
@@ -25,7 +26,7 @@ slice_path = _slice.slice_path
 
 
 BYTES_PER_TOKEN = 3.5
-SYSTEM_OVERHEAD_TOKENS = int(os.environ.get("AIDER_SYSTEM_OVERHEAD_TOKENS", "14000"))
+SYSTEM_OVERHEAD_TOKENS = int(os.environ.get("AIDER_SYSTEM_OVERHEAD_TOKENS", "8192"))
 DEFAULT_MAX_CONTEXT = int(os.environ.get("AIDER_MODEL_MAX_CONTEXT", "65536"))
 
 EDITABLE_TOTAL_LIMITS = [
