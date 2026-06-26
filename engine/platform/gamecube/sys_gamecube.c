@@ -56,6 +56,7 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	(void)parms;
 }
 
+#if XASH_GAMECUBE
 void Sys_Error( const char *error, ... )
 {
 	va_list argptr;
@@ -75,6 +76,7 @@ void Sys_Error( const char *error, ... )
 	/* Call the original host error handler which will exit */
 	host.Error( error );
 }
+#endif
 
 void Posix_Daemonize( void )
 {
