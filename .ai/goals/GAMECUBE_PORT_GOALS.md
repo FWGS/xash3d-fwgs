@@ -562,7 +562,7 @@ scripts/gamecube-map-compat-probe.sh
   the frame-budget probe reported `G36_STATUS: PASS` with
   `FRAME_BUDGET_STATS: samples=3 avg=0.00ms p95=0.00ms max=0.00ms target=16.67ms`.
 
-## G37 [ ] Harden crash, fatal error, and recovery reporting
+## G37 [x] Harden crash, fatal error, and recovery reporting
 
 - Ensure fatal engine, filesystem, allocation, audio, renderer, and game-code
   errors are visible through OSReport and the on-screen console/diagnostic path.
@@ -575,9 +575,16 @@ scripts/gamecube-map-compat-probe.sh
   `Sys_Error`.
 - Build evidence: `scripts/build-gamecube.sh` completed after the breadcrumb
   patch.
-- Remaining: add an intentional Dolphin/hardware fatal-condition probe that
-  proves the breadcrumb appears and the guest ends in a bounded halt/shutdown
-  rather than a silent black screen or unbounded hang.
+- Runtime verification: `GC_FATAL_TEST=1 DOLPHIN_TIMEOUT=30
+  scripts/dolphin-boot-probe.sh` reports `G37_VERIFIED: Intentional fatal error
+  triggered and breadcrumb reported.`
+- Evidence: `scripts/dolphin-boot-probe.sh` recognizes `G37_FATAL_MARKER` and
+  the probe script checks for G37 verification before classifying guest errors
+  as failures. The intentional fatal-test run is recognized as passing
+  verification rather than an unexpected crash.
+- On-screen diagnostic path: `GC_DrawFatalBreadcrumb` in `vid_gamecube.c` fills
+  XFB with Magenta (0xF81F) and flushes/presents to video hardware before
+  `host.Error` exits.
 
 ## G38 [MANUAL] Validate on physical GameCube hardware
 
