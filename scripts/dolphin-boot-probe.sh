@@ -462,6 +462,14 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )) && ! (( FRAME_BUDGET_LOGS )); then
 	exit 4
 fi
 
+# G36_PATCH_v55: Detect if guest explicitly disabled frame budget measurement.
+# This distinguishes "guest crashed/silent" from "guest running but measurement opted-out".
+# If disabled, we proceed with analysis but flag it clearly as incomplete/partial.
+if (( FRAME_BUDGET_DISABLED )); then
+	echo "G36_MEASUREMENT_OPTED_OUT: Guest running with frame budget measurement disabled."
+	echo "G36_HINT_OPTED_OUT: Re-run with measurement enabled for full G36 automated analysis."
+fi
+
 # G36_PATCH: Correlate renderer backend presence with frame budget measurement capability
 # Helps distinguish "renderer not initialized" from "renderer initialized but not emitting telemetry"
 if (( MAP_FOUND )) && (( FRAME_BUDGET_LOGS )) && [[ -z "$GUEST_RENDERER" ]]; then
@@ -711,6 +719,14 @@ GUEST_TARGET_FRAME_TIME=""
 if grep -aqsE "Xash3D GameCube: target frame time=" "${LOG_FILES[@]}"; then
 	GUEST_TARGET_FRAME_TIME=$(grep -aoE 'Xash3D GameCube: target frame time=[0-9]+(\.[0-9]+)?' "${LOG_FILES[@]}" 2>/dev/null | \
 		tail -1 | grep -oE '[0-9]+(\.[0-9]+)?$' || true)
+fi
+
+# G36_PATCH_v56: Detect explicit measurement initialization failure to distinguish
+# "renderer working but measurement failed" from "renderer not working".
+# This provides earlier feedback on whether the telemetry infrastructure is healthy.
+if (( FRAME_BUDGET_INIT_FAIL )); then
+	echo "G36_TELEMETRY_FAIL: Frame budget measurement subsystem failed to initialize in guest."
+	echo "G36_TELEMETRY_HINT: Check for GX_Init failures, timer setup issues, or OSReport pathing errors before relying on budget data."
 fi
 
 # G36_PATCH_v48: Report pre-render cold-start memory baseline to correlate
