@@ -195,6 +195,21 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			echo "G36_RENDERER_DETECTED: ${GUEST_RENDERER:-unknown} during probe loop"
 		fi
 
+		# G36_PATCH_v45: Detect guest stuck in initialization by checking for
+		# bootstrap marker without subsequent renderer or subsystem-ready markers.
+		# This distinguishes "guest hung during init" from "guest running but silent"
+		# after extended probe duration, providing actionable evidence for failure mode.
+		if [[ -z "${G36_INIT_STUCK_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 30 )); then
+			G36_INIT_STUCK_CHECKED=1
+			if probe_log_has "$GUEST_MARKER" && \
+			   ! probe_log_has "$READY_MARKER" && \
+			   [[ -z "$GUEST_RENDERER" ]]; then
+				echo "G36_INIT_STUCK: Guest bootstrapped but no subsystem-ready or renderer marker after 30s. Initialization path is likely blocked."
+				echo "G36_INIT_STUCK_HINT: Check for asset load hangs, DLL initialization failures, or blocking syscalls before renderer setup."
+			fi
+		fi
+
 		# G36_PATCH_v28: Detect frame budget measurement markers during active probe
 		# to fail faster if the guest is not emitting timing telemetry. This allows
 		# distinguishing "guest rendered but no markers" from "guest crashed before
