@@ -1231,6 +1231,35 @@ chapter/map matrix without launching Dolphin. G40 is not complete until the
 chapter report classifies every critical chapter as playable or records a
 specific blocker/limitation.
 
+## G41 — Prepare release-quality build and verification scripts (COMPLETE 2026-06-26)
+
+Release build and verification are one-command paths. `scripts/gamecube-rc-check.sh`
+is the canonical release-candidate gate (build, artifacts, staging, Dolphin,
+frame budget, map compatibility, homebrew compliance).
+
+**Commands:**
+```sh
+scripts/build-gamecube.sh
+scripts/build-gamecube-disc.py --smoke-map c0a0e
+DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
+scripts/gamecube-rc-check.sh
+```
+
+**Reproducibility:** RC gate writes `artifact-manifest.tsv` with path, size, and
+sha256 for every output artifact. Waf builds are cache-aware but deterministic
+for a fixed toolchain commit.
+
+**CI without proprietary assets:** `scripts/ai-verify.sh` compiles the engine
+without `Half-Life/valve`. Content staging audit in the RC gate WARNs (not FAILs)
+when legal assets are absent.
+
+**Compliance:** `scripts/gamecube-homebrew-compliance-check.py` runs in the RC
+gate; `RC_STRICT_COMPLIANCE=1` enables strict mode. Hardware-only evidence still
+required for G38, G53, and G66.
+
+**Evidence:** `.ai/logs/rc-check-20260626-010820/summary.md` (7 pass, 0 warn, 0
+fail); manifest at `.ai/logs/rc-check-20260626-010820/artifact-manifest.tsv`.
+
 ## G42 — Native GameCube operator guide status (2026-06-26)
 
 This document is now the source-of-truth operator guide for the current native

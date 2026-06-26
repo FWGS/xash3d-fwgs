@@ -637,7 +637,7 @@ scripts/gamecube-map-compat-probe.sh
   expands to every listed campaign BSP. Store results under
   `.ai/logs/campaign-audit-*/summary.md`.
 
-## G41 [ ] Prepare release-quality build and verification scripts
+## G41 [x] Prepare release-quality build and verification scripts
 
 - Provide one command to build the DOL, one command to build a legal local disc
   image, and one command to run the Dolphin smoke/compatibility probes.
@@ -655,6 +655,8 @@ scripts/gamecube-map-compat-probe.sh
   mixed-case aliases do not fail the smoke package incorrectly.
 - Evidence: `.ai/logs/rc-check-20260626-010820/summary.md` passed all seven
   gates and generated `.ai/logs/rc-check-20260626-010820/artifact-manifest.tsv`.
+- Completed 2026-06-26: port plan documents the four canonical commands, RC gate
+  evidence, reproducibility notes, and strict-mode hardware handoff items.
 
 ## G42 [x] Finalize native GameCube port documentation
 
