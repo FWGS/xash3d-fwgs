@@ -142,7 +142,9 @@ static void GC_PresentBuffer( void )
 		// G36: If software buffer has non-black content, suppress diagnostic marker
 		// to avoid obscuring valid renderer output. Check only a small fixed region
 		// (16x16 pixels) for evidence to avoid O(width*height) CPU cost per frame.
-		if( !sampled_nonblack && src_h > 1 )
+		// Skip after first 3 frames to stabilize steady-state frame budget once
+		// we've established the renderer is producing visible content.
+		if( gc_present_count <= 3 && !sampled_nonblack && src_h > 1 )
 		{
 			int check_w = src_w < 16 ? src_w : 16;
 			int check_h = src_h < 16 ? src_h : 16;
