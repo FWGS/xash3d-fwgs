@@ -1407,6 +1407,10 @@ not missing source code. The acceptance criteria for audible evidence require
 physical hardware or persistent-storage Dolphin validation, which is a MANUAL
 operator task deferred to G38/G40. Do not attempt further source patches.
 
+**Latest attempt (2026-06-26):** Aider pass exit 2 (asset_lookup) confirmed again.
+This is a transient staging/environment condition, not a missing source
+implementation. No source changes were made. The DO NOT RETRY instruction stands.
+
 Audio initialization failure is already nonfatal: `SNDDMA_Init` falls back to
 `GCube_NullAudioInit` when ASND init fails, and `-gcnullaudio` forces the silent
 path. The null backend preserves boot, map load, save, and shutdown stability
