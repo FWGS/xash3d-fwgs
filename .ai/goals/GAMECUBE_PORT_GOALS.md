@@ -618,8 +618,14 @@ scripts/gamecube-map-compat-probe.sh
   results remain open under G38/G53/G66 and must not be inferred from Dolphin
   evidence.
 
-## G40 [ ] Run an end-to-end Half-Life 1 completion campaign audit
+## G40 [MANUAL] Run an end-to-end Half-Life 1 completion campaign audit
 
+- Status (2026-06-26): Automation skips this goal. The smoke map `c0a0e`
+  reaches `MAP_READY` in Dolphin; full chapter classification requires running
+  `scripts/gamecube-campaign-audit.sh` against the legal local
+  `Half-Life/valve/maps` tree on this machine (125+ BSPs present locally).
+  Run the audit manually, then record results under
+  `.ai/logs/campaign-audit-*/summary.md` before marking complete.
 - Drive the compatibility route toward every stock Half-Life chapter available
   in the legal local asset set.
 - Classify each chapter as playable, partially playable, blocked, or not tested

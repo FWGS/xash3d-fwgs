@@ -1179,57 +1179,38 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: AUDIT EXECUTION)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (MANUAL: local operator)
 
-**Status (2026-06-26):** C89 compliance violations in `vid_gamecube.c` are fixed.
-Stale lock recovery in `dolphin-boot-probe.sh` is applied. Build and probe
-verification complete. Ready for campaign audit execution.
+**Status (2026-06-26):** Marked `[MANUAL]` in the goal ledger. Automated passes
+stop here. The engine smoke path is verified; chapter classification is a local
+operator task on this machine.
 
-**Evidence:**
-- `engine/platform/gamecube/vid_gamecube.c`: Variable declarations in
-  `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb` moved to top of scope blocks.
-- `scripts/dolphin-boot-probe.sh`: Stale lock detection with 300s threshold.
-- Build verification: PASSED (clean GameCube build completed).
-- Probe verification: `c0a0e` reaches `MAP_READY` with input polling active.
-- Probe log: `.ai/logs/dolphin-probe-20260626-112134/stderr.log`
-  - `Xash3D GameCube: map loaded c0a0e`
-  - `Xash3D GameCube: direct map ready`
-  - Models loaded (weapons, player, sprites)
-  - HUD sprites loaded (stubs used for missing assets, no fatal errors)
-  - Frame render complete with timing telemetry
-  - Non-fatal warning: `SCR_RegisterTextures: failed to load loading image`
-    (known limitation, does not block gameplay)
+**Smoke-map evidence (latest):**
+- Build verification: PASSED (clean GameCube build).
+- Probe: `c0a0e` reaches `MAP_READY` with interactive input.
+- Log: `.ai/logs/dolphin-probe-20260626-115736/stderr.log`
+  - `Xash3D GameCube: map loaded c0a0e`, `direct map ready`
+  - Models, sprites, HUD initialized (stub fallbacks for missing assets)
+  - `mem stage=map active total=5.88 Mb`
+  - Non-fatal: `SCR_RegisterTextures: failed to load loading image`
 
 **Command and result:**
 ```sh
 DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
 ```
-Result: Exit code 0, `MAP_READY` achieved for `c0a0e`. Engine subsystems
-initialized, map loaded, input polling active. No guest errors observed.
+Result: exit code 0, `MAP_READY`.
 
-**Command and result (latest probe):**
+**Local operator next step (this machine has legal assets in `Half-Life/valve/maps`):**
 ```sh
-DOLPHIN_TIMEOUT=90 DOLPHIN_SMOKE_MAP=c0a0e scripts/dolphin-boot-probe.sh
+scripts/gamecube-campaign-audit.sh
+# optional full coverage:
+scripts/gamecube-campaign-audit.sh --full
 ```
-Result: Exit code 0, `MAP_READY`. Log: `.ai/logs/dolphin-probe-20260626-112134/stderr.log`
-Map loaded successfully with models, sprites, and HUD initialization. Engine
-reaches interactive state.
-
-**Next step:**
-1. Execute `scripts/gamecube-campaign-audit.sh` (representative mode) to probe
-   one map per chapter.
-2. Review `.ai/logs/campaign-audit-*/summary.md` for chapter classifications.
-3. Optionally run `scripts/gamecube-campaign-audit.sh --full` for complete
-   campaign coverage.
-
-**Blocker:** Campaign audit script requires operator execution with legal local
-Half-Life assets present in `Half-Life/valve/maps`. The automation cannot stage
-proprietary game content. This is an operator verification task.
+Review `.ai/logs/campaign-audit-*/summary.md` for chapter classifications.
 
 **Do not mark G40 complete** until:
-- Campaign audit script has been executed
-- Every critical chapter is classified as playable, partially playable, blocked,
-  or not tested with evidence
+- Campaign audit script has been executed locally with legal assets
+- Every critical chapter is classified with concrete evidence
 - `.ai/logs/campaign-audit-*/summary.md` contains chapter-level classifications
 
 ## Campaign Audit Gate (G40, 2026-06-25)

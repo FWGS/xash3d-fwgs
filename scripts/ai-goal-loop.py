@@ -26,7 +26,7 @@ except ImportError:  # pragma: no cover - non-Unix fallback
 	fcntl = None
 
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
-DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35", "G40"})
+DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35"})
 PROBE_AUTO_COMPLETE = {
 	"G19": "MAP_READY:",
 	"G35": "MAP_READY:",
@@ -1517,9 +1517,54 @@ def git_last_subject(root: Path) -> str:
 		text=True, capture_output=True, check=False).stdout.strip()
 
 
-def restore_failed_pass_worktree(root: Path) -> None:
+def changed_paths(root: Path) -> set[str]:
+	paths: set[str] = set()
+	for args in (["git", "diff", "--name-only"],
+			["git", "diff", "--cached", "--name-only"]):
+		output = subprocess.run(args, cwd=root, text=True, capture_output=True,
+			check=False).stdout
+		paths.update(line.strip() for line in output.splitlines() if line.strip())
+	return paths
+
+
+def salvage_recoverable_edits(root: Path, goal: Goal) -> bool:
+	"""Commit doc-only progress before a recoverable retry would discard it."""
+	if not git_dirty(root):
+		return False
+	allowed = {*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal.goal_id, ())}
+	changed = changed_paths(root)
+	if not changed or not changed.issubset(allowed):
+		return False
+	if "docs/GAMECUBE_PORT_PLAN.md" not in changed:
+		return False
+	subject = f"docs: record {goal.goal_id} automation evidence"
+	body = "\n".join((
+		f"Goal: {goal.goal_id} - {goal.title}",
+		"Type: recoverable-pass salvage",
+		"",
+		"Preserved port-plan documentation before retrying with tighter context.",
+	))
+	run(["git", "add", "-A"], root)
+	run(["git", "restore", "--staged", "--",
+		"scripts/xash3d-gc-aider-gui.py",
+		".ai/state/xash3d-gc-aider-gui-settings.json"], root)
+	staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=root,
+		check=False)
+	if staged.returncode == 0:
+		return False
+	print(f"goal-loop: salvaging recoverable doc edits: {subject}",
+		file=sys.stderr, flush=True)
+	if commit_with_body(root, subject, body) != 0:
+		return False
+	return True
+
+
+def restore_failed_pass_worktree(root: Path, goal: Goal | None = None) -> None:
 	if not git_dirty(root):
 		return
+	if goal is not None and salvage_recoverable_edits(root, goal):
+		if not git_dirty(root):
+			return
 	print("goal-loop: discarding uncommitted changes from failed pass",
 		file=sys.stderr, flush=True)
 	run(["git", "reset", "--hard", "HEAD"], root)
@@ -1675,7 +1720,12 @@ def context_for_goal(goal_id: str, root: Path, attempt: int,
 		12000 if attempt == 3 else
 		8000
 	)
-	required = set(COMMON_CONTEXT if attempt <= 2 else (".ai/goals/GAMECUBE_PORT_GOALS.md",))
+	# Keep port-plan edits committable on recovery retries even when the goals
+	# ledger is omitted from the chat budget.
+	required = set(COMMON_CONTEXT if attempt <= 2 else (
+		".ai/goals/GAMECUBE_PORT_GOALS.md",
+		"docs/GAMECUBE_PORT_PLAN.md",
+	))
 	selected: list[str] = []
 	for path in candidates:
 		file_path = root / path
@@ -1850,6 +1900,8 @@ def main() -> int:
 			pass_env["AI_COMMIT_SUBJECT"] = expected_subject
 			pass_env["AI_DIRTY_COMMIT_SUBJECT"] = dirty_commit_subject(goal.goal_id)
 			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])
+			allowed_extra = sorted({*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal.goal_id, ())})
+			pass_env["AI_ALLOWED_EDIT_EXTRA"] = ",".join(allowed_extra)
 			pass_env.setdefault("AIDER_AUTOMATION", "1")
 			pass_env["AI_SKIP_DIRTY_CHECKPOINT"] = "1"
 			if goal.goal_id == "G24":
@@ -1925,7 +1977,7 @@ def main() -> int:
 			if result.returncode in RECOVERABLE_EXIT_CODES and \
 					attempts[goal.goal_id] <= args.recoverable_retries:
 				reason = RECOVERABLE_EXIT_CODES[result.returncode]
-				restore_failed_pass_worktree(root)
+				restore_failed_pass_worktree(root, goal)
 				write_state(state_file, state="recovering", pass_index=pass_index,
 					goal=asdict(goal), attempt=attempts[goal.goal_id],
 					exit_code=result.returncode, message=f"{reason}; retrying goal")

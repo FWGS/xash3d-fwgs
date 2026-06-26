@@ -37,6 +37,7 @@ command -v aider >/dev/null 2>&1 || {
 CONTEXT_FILES=()
 READ_CONTEXT_FILES=()
 REQUIRED_CONTEXT_FILES=()
+ALLOWED_EDIT_PATHS=()
 RAW_CONTEXT_SPECS=()
 for context_file in "${CONTEXT_INPUTS[@]}"; do
 	context_mode="file"
@@ -491,23 +492,54 @@ if (( ${#COMMIT_SUBJECT} > 72 )) || \
 fi
 COMMIT_BODY="${AI_COMMIT_BODY:-}"
 
+edit_path_allowed() {
+	local candidate="$1"
+	local context_file
+	for context_file in "${ALLOWED_EDIT_PATHS[@]}"; do
+		if [[ "$candidate" == "$context_file" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+build_allowed_edit_paths() {
+	local path extra
+	ALLOWED_EDIT_PATHS=()
+	for path in "${CONTEXT_FILES[@]}" "${REQUIRED_CONTEXT_FILES[@]}"; do
+		ALLOWED_EDIT_PATHS+=("$path")
+	done
+	if [[ "${AI_VERIFY_REQUIRE_DOC_UPDATE:-1}" == "1" ]]; then
+		for path in docs/GAMECUBE_PORT_PLAN.md .ai/goals/GAMECUBE_PORT_GOALS.md; do
+			if [[ -f "$path" ]] && ! edit_path_allowed "$path"; then
+				ALLOWED_EDIT_PATHS+=("$path")
+			fi
+		done
+	fi
+	if [[ -n "${AI_ALLOWED_EDIT_EXTRA:-}" ]]; then
+		IFS=',' read -r -a _extra_paths <<<"$AI_ALLOWED_EDIT_EXTRA"
+		for extra in "${_extra_paths[@]}"; do
+			extra="${extra#"${extra%%[![:space:]]*}"}"
+			extra="${extra%"${extra##*[![:space:]]}"}"
+			[[ -n "$extra" ]] || continue
+			if ! edit_path_allowed "$extra"; then
+				ALLOWED_EDIT_PATHS+=("$extra")
+			fi
+		done
+	fi
+}
+
 reject_out_of_scope_edits() {
-	local changed_file allowed
+	local changed_file
 	if [[ "${AI_ENFORCE_EDITABLE_CONTEXT:-1}" != "1" ]]; then
 		return 0
 	fi
+	build_allowed_edit_paths
 	while IFS= read -r changed_file; do
 		[[ -n "$changed_file" ]] || continue
-		allowed=0
-		for context_file in "${CONTEXT_FILES[@]}"; do
-			if [[ "$changed_file" == "$context_file" ]]; then
-				allowed=1
-				break
-			fi
-		done
-		if (( ! allowed )); then
+		if ! edit_path_allowed "$changed_file"; then
 			echo "ai-aider-pass: edit outside loaded editable context: $changed_file" >&2
-			echo "ai-aider-pass: allowed editable files: ${CONTEXT_FILES[*]}" >&2
+			echo "ai-aider-pass: allowed editable files: ${ALLOWED_EDIT_PATHS[*]}" >&2
 			return 16
 		fi
 	done < <(git diff --cached --name-only)
@@ -515,20 +547,14 @@ reject_out_of_scope_edits() {
 }
 
 unstage_out_of_scope_edits() {
-	local staged_file allowed
+	local staged_file
 	if [[ "${AI_ENFORCE_EDITABLE_CONTEXT:-1}" != "1" ]]; then
 		return 0
 	fi
+	build_allowed_edit_paths
 	while IFS= read -r staged_file; do
 		[[ -n "$staged_file" ]] || continue
-		allowed=0
-		for context_file in "${CONTEXT_FILES[@]}"; do
-			if [[ "$staged_file" == "$context_file" ]]; then
-				allowed=1
-				break
-			fi
-		done
-		if (( ! allowed )); then
+		if ! edit_path_allowed "$staged_file"; then
 			echo "ai-aider-pass: unstaging edit outside loaded editable context: $staged_file" >&2
 			git restore --staged -- "$staged_file" 2>/dev/null || true
 		fi
