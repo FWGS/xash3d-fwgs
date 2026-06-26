@@ -309,7 +309,15 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# check fires even when the "renderer initialized" marker uses a different format
 		# than expected by v49. This closes the gap where GUEST_RENDERER is detected but
 		# the probe waits for full timeout instead of providing immediate evidence.
+		# G36_PATCH_v143: Also fall back to G36_FIRST_DRAWDONE_TS if renderer init
+		# timestamp is unavailable but DrawDone has been seen. This ensures the decisive
+		# check fires when rendering is confirmed via DrawDone markers even if the guest
+		# never emitted a parseable renderer-initialized marker. Closes gap where active
+		# render loop with missing budget markers waits for full timeout.
 		G36_DECISIVE_BASE_TS="${G36_RENDERER_INIT_TS:-${G36_RENDERER_DETECTED_TS:-}}"
+		if [[ -z "$G36_DECISIVE_BASE_TS" ]] && [[ -n "${G36_FIRST_DRAWDONE_TS:-}" ]]; then
+			G36_DECISIVE_BASE_TS="$G36_FIRST_DRAWDONE_TS"
+		fi
 		if [[ -n "$G36_DECISIVE_BASE_TS" ]] && \
 		   [[ -z "${G36_MEASUREMENT_PATH_DECIDED:-}" ]] && \
 		   (( $(date +%s) - G36_DECISIVE_BASE_TS > 10 )); then
