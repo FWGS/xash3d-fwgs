@@ -84,6 +84,7 @@ static void GC_InitVideoHardware( void )
 	GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
 
 	gc.initialized = true;
+	SYS_Report( "Xash3D GameCube: renderer initialized gx\n" );
 #endif
 }
 
@@ -188,7 +189,7 @@ static void GC_PresentBuffer( void )
 
 	GX_Flush();
 	GX_DrawDone();
-	SYS_Report( "GX_DrawDone\n" );
+	SYS_Report( "Xash3D GameCube: GX_DrawDone\n" );
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
