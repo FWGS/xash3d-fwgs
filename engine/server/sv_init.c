@@ -1105,6 +1105,16 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Q_strncpy( sv.name, mapname, sizeof( sv.name ));
 	COM_StripExtension( sv.name );
 
+#if XASH_GAMECUBE
+	// G47: Enforce exact-case relative asset paths.
+	// Reject absolute paths to prevent host-machine path leakage on disc-only boots.
+	if( sv.name[0] == '/' || sv.name[0] == '\\' )
+	{
+		Con_Reportf( S_ERROR "GameCube: absolute map path rejected: %s\n", mapname );
+		Host_Error( "Map path must be relative" );
+	}
+#endif
+
 	// precache and static commands can be issued during map initialization
 	Host_SetServerState( ss_loading );
 
