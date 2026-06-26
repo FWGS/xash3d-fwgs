@@ -697,6 +697,19 @@ if (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT == 0 )); then
 			echo "G36_PARSE_RAW_SAMPLE: ${line}"
 		done <<< "$UNMATCHED_LIKELY"
 	fi
+
+	# G36_PATCH_v34: Dump first few raw frame-budget log lines to show exact guest format
+	# when extraction yields zero samples. This provides direct visibility into what
+	# the guest is emitting versus what the probe regex expects.
+	if (( FRAME_BUDGET_LOGS )); then
+		RAW_FRAME_LINES=$(grep -aE "Xash3D GameCube:.*frame.*(time|duration|budget)" "${LOG_FILES[@]}" 2>/dev/null | head -5)
+		if [[ -n "$RAW_FRAME_LINES" ]]; then
+			echo "G36_RAW_BUDGET_LINES: Raw frame budget log lines (first 5):"
+			while IFS= read -r line; do
+				echo "G36_RAW_BUDGET_LINES: ${line}"
+			done <<< "$RAW_FRAME_LINES"
+		fi
+	fi
 	# G36_PATCH_v22: Distinguish renderer-not-initialized from renderer-initialized-but-silent
 	# Helps diagnose whether the guest reached a state where frame timing should be emitted
 	if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}"; then
