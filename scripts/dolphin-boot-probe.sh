@@ -351,11 +351,14 @@ fi
 # G36_PATCH: Detect explicit renderer frame-start markers to distinguish GX
 # command submission from VI present. Helps classify whether frame budget
 # violations are CPU submission stalls or GPU/VI presentation stalls.
-if (( FRAME_RENDER_LOGS )) && (( FRAME_BUDGET_LOGS )); then
+if (( FRAME_RENDER_LOGS )) && (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT > 0 )); then
+	# Count actual renderer frame markers to compare against extracted frame times
+	FRAME_RENDER_MARKER_COUNT=0
+	FRAME_RENDER_MARKER_COUNT=$(grep -acE "Xash3D GameCube: render frame" "${LOG_FILES[@]}" 2>/dev/null || echo "0")
 	# Count frames where renderer marker appears but no frame time appears on
 	# the same logical frame boundary (heuristic: renderer markers > frame times)
-	if (( FRAME_RENDER_LOGS > FRAME_COUNT )); then
-		EXCESS_RENDER_MARKERS=$((FRAME_RENDER_LOGS - FRAME_COUNT))
+	if (( FRAME_RENDER_MARKER_COUNT > FRAME_COUNT )); then
+		EXCESS_RENDER_MARKERS=$((FRAME_RENDER_MARKER_COUNT - FRAME_COUNT))
 		echo "G36_RENDER_OVERSUB: ${EXCESS_RENDER_MARKERS} renderer markers without matching frame-time logs. Possible frame-drop or guest not flushing GX command buffer."
 	fi
 fi
