@@ -665,7 +665,7 @@ scripts/gamecube-map-compat-probe.sh
   G43+ compliance goals remain authoritative gates before any release-complete
   claim.
 
-## G43 [ ] Add boot media and loader failure compliance tests
+## G43 [x] Add boot media and loader failure compliance tests
 
 - Verify `boot.dol`, ISO/GCM, and loader-specific launch paths fail visibly
   when required staged files are missing, corrupt, or case-mismatched.
@@ -673,6 +673,17 @@ scripts/gamecube-map-compat-probe.sh
   the artifact hash and exact build command for each route.
 - Ensure missing or unsupported boot media never leaves a silent black screen
   without OSReport or on-screen diagnostic breadcrumbs.
+- Completed 2026-06-26 for automated preflight evidence:
+  `scripts/gamecube-boot-media-compliance.py` records `boot.dol`/`xash`
+  artifact hashes, validates the legal smoke staging baseline, proves missing
+  staged maps are rejected, proves case-mismatched staged assets are rejected,
+  and proves corrupt ISO/GCM headers emit `BOOT_MEDIA_FAILURE` diagnostics.
+- `scripts/build-gamecube-disc.py --smoke-map ...` now validates the staged
+  smoke subset before media generation, so bad smoke packages fail before a
+  silent emulator or loader launch.
+- `scripts/gamecube-rc-check.sh` now runs the G43 boot media compliance gate.
+- Boundary: Swiss and real-hardware loader evidence remain required in
+  G38/G53/G66 before any release-complete hardware claim.
 
 ## G44 [ ] Validate video modes, safe area, and CRT readability
 

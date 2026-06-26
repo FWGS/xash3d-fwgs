@@ -38,7 +38,8 @@ Runs the native GameCube release-candidate evidence gate:
   6. Dolphin boot probe
   7. frame-budget probe
   8. map compatibility summary
-  9. homebrew compliance check
+  9. boot media compliance check
+  10. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -276,6 +277,25 @@ map_compat_gate() {
 	return "$rc"
 }
 
+boot_media_compliance_gate() {
+	local log_path="$LOG_DIR/boot-media-compliance.log"
+	echo
+	echo "== boot media compliance =="
+	local args=(scripts/gamecube-boot-media-compliance.py --smoke-map "${RC_SMOKE_MAP:-c0a0e}" --log-dir "$LOG_DIR/boot-media-compliance")
+	if [[ "${RC_BUILD_DISC:-0}" == "1" ]]; then
+		args+=(--build-disc)
+	fi
+	if "${args[@]}" >"$log_path" 2>&1; then
+		log_status "boot media compliance" "PASS" "$log_path" "G43 missing/case/corrupt-media diagnostics passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "boot media compliance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -380,6 +400,7 @@ main() {
 	dolphin_boot_gate || true
 	frame_budget_gate || true
 	map_compat_gate || true
+	boot_media_compliance_gate || true
 	compliance_gate || true
 	write_summary
 	echo

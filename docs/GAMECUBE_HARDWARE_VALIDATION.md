@@ -50,6 +50,22 @@ manifest, an operator checklist, and an evidence template. It does not copy or
 package proprietary Half-Life assets, Nintendo SDK files, BIOS/IPL dumps, or
 proprietary Nintendo documentation.
 
+## Boot Media Failure Preflight
+
+Before recording physical loader results, run the automated G43 preflight:
+
+```sh
+scripts/gamecube-boot-media-compliance.py --build-disc
+```
+
+This verifies artifact hashes, smoke staging, missing-file rejection,
+case-mismatch rejection, and corrupt ISO/GCM diagnostics. Treat its log
+directory as local preflight evidence only. Swiss, ODE, or physical-console
+loader failures still need dated operator evidence in the matrix below,
+including the artifact checksum, loader version, launch route, visible error,
+and whether the result was loader failure, bootstrap failure, engine failure, or
+a known bounded timeout.
+
 ## Validation Matrix
 
 Record which route was tested.

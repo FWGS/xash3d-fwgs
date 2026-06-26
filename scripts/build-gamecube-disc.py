@@ -895,6 +895,12 @@ def main() -> None:
 	if args.smoke_map:
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-smoke-data-") as temp:
 			smoke_data = stage_smoke_data(args.data, Path(temp) / "valve", args.smoke_map)
+			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
+			if validation_errors:
+				print("Smoke asset validation failed:", file=sys.stderr)
+				for error in validation_errors:
+					print(f"  - {error}", file=sys.stderr)
+				sys.exit(1)
 			build_disc(
 				args.dol,
 				smoke_data,

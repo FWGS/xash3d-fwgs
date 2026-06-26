@@ -965,6 +965,29 @@ overlay or scripted test route.
 These goals require concrete verifier output, Dolphin logs, release artifacts,
 or operator-recorded hardware evidence before they can be marked complete.
 
+## G43 — Boot media and loader failure compliance tests (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
+
+`scripts/gamecube-boot-media-compliance.py` is the repeatable G43 preflight. It
+records `OUT/bin/boot.dol` and `OUT/bin/xash` hashes, validates the legal smoke
+staging baseline, proves a missing staged map is rejected, proves a
+case-mismatched staged asset is rejected, and proves corrupt ISO/GCM media is
+reported as `BOOT_MEDIA_FAILURE` before launch.
+
+Run:
+
+```sh
+scripts/gamecube-boot-media-compliance.py --build-disc
+```
+
+The release-candidate gate also runs this check through
+`scripts/gamecube-rc-check.sh`. Smoke disc builds now validate the staged smoke
+subset inside `scripts/build-gamecube-disc.py`, so bad smoke packages fail before
+generating a launchable image.
+
+This closes the automated preflight portion of G43. It does not replace Swiss or
+physical-console evidence; real loader evidence remains part of the G38/G53/G66
+hardware matrix before release-complete claims.
+
 ## G35 — Reach a playable early-game route
 
 **Verified (2026-06-25):** `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh`

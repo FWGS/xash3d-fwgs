@@ -61,7 +61,7 @@ def main() -> int:
 		Check("port plan references compliance",
 			"GameCube Homebrew Compliance" in plan_text, str(port_plan)),
 		Check("release goals mention compliance",
-			bool(re.search(r"G4[12].*compliance|compliance.*G4[12]", goals_text,
+			bool(re.search(r"G4[123].*compliance|compliance.*G4[123]", goals_text,
 				re.IGNORECASE | re.DOTALL)), str(goals)),
 		Check("no obvious proprietary SDK text in tracked files",
 			not git_grep(root, r"(Dolphin [S]DK|Revolution [S]DK|official Nintendo [S]DK)"),
