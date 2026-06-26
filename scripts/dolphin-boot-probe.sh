@@ -348,6 +348,15 @@ if (( FRAME_BUDGET_DISABLED )); then
 elif (( FRAME_BUDGET_INIT_FAIL )); then
 	echo "G36_MEASUREMENT_INIT_FAIL: Guest reported frame budget measurement failed to initialize. Telemetry is unreliable."
 	echo "G36_HINT: Check renderer initialization path. Frame budget markers require successful GX subsystem startup."
+	# G36_PATCH_v43: Correlate measurement init failure with GX renderer startup state
+	# to distinguish "renderer never started" from "renderer started but measurement failed"
+	if [[ -n "$GUEST_RENDERER" ]]; then
+		echo "G36_INIT_FAIL_RENDERER_OK: Renderer ${GUEST_RENDERER} initialized but measurement subsystem failed. Issue is likely in frame budget timer setup, not GX startup."
+		echo "G36_INIT_FAIL_HINT: Check for missing OSReport calls after GX_DrawDone or timer initialization failure in renderer code."
+	else
+		echo "G36_INIT_FAIL_NO_RENDERER: Renderer backend not detected. Measurement failure is likely due to GX subsystem not initializing."
+		echo "G36_INIT_FAIL_HINT: Investigate GX_Init, video mode setup, or early renderer crash before measurement can start."
+	fi
 elif (( FRAME_BUDGET_INIT_OK )); then
 	echo "G36_MEASUREMENT_INIT_OK: Guest confirmed frame budget measurement subsystem initialized successfully."
 elif (( FRAME_BUDGET_LOGS )); then
@@ -405,6 +414,11 @@ grep -aqsF "Xash3D GameCube: frame budget configured" "${LOG_FILES[@]}" && FRAME
 if (( FRAME_BUDGET_CONFIGURED )) && ! (( FRAME_BUDGET_INIT_OK )); then
 	echo "G36_CONFIG_VS_INIT: Guest reported frame budget configured but initialization did not succeed."
 	echo "G36_CONFIG_HINT: Check renderer code path between configuration and initialization for early returns or errors."
+	# G36_PATCH_v44: Detect if guest emitted GX initialization markers but measurement
+	# failed, to isolate measurement setup bugs from renderer startup bugs
+	if grep -aqsF "GX_Init" "${LOG_FILES[@]}" && [[ -n "$GUEST_RENDERER" ]]; then
+		echo "G36_GX_INIT_OK_BUT_MEAS_FAIL: GX_Init succeeded and renderer ${GUEST_RENDERER} active, but frame budget measurement failed. Focus on measurement timer setup."
+	fi
 fi
 
 # G36: Detect explicit GX WaitVP/WaitVP sync markers to measure VI-wait impact on frame budget
