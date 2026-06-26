@@ -1195,66 +1195,18 @@ if (( FRAME_BUDGET_LOGS )); then
 	# Count actual matches (lines in -o output) rather than log lines to match relaxed count granularity
 	FRAME_TIMES_STRICT=$(grep -aoE 'Xash3D GameCube: frame time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | wc -l)
 		
-	# Extract all frame time/duration values in one deterministic pass
-	# Captures: frame time, render time, frame budget time, frame render complete time,
-	# frame duration, render duration, frame budget duration, gx_time, cpu_time
-	# Uses a single pattern to avoid sample loss from fragmented grep invocations.
-	# G36_PATCH_v18: Explicitly strip 'ms' suffix and whitespace to ensure clean numeric
-	# data for awk math, preventing issues with mixed units or trailing chars.
+	# G36_PATCH_v99: Consolidated robust extraction for frame timing data.
+	# Uses a single, permissive regex to capture any line containing 'time=' followed by a number,
+	# optionally suffixed by 'ms'. This avoids fragmentation from multiple specialized patterns.
+	# It covers standard Xash3D markers, OSREPORT-wrapped variants, and simplified formats.
+	# Strips keys and suffixes to leave only the numeric value for consistent analysis.
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-	done < <(grep -aoE 'Xash3D GameCube: (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oE '[a-z_]+=[0-9]+(\.[0-9]+)?ms?' | sed 's/.*=//; s/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
+	done < <(grep -aoE '(Xash3D GameCube:|OSREPORT )*(frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time|time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
+		grep -oE '[0-9]+(\.[0-9]+)?ms?' | sed 's/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
 
-	# G36_PATCH_v95: Fallback extraction for OSREPORT-wrapped markers
-	# If primary extraction yielded no results, try OSREPORT-wrapped format
-	if (( ${#FRAME_TIMES[@]} == 0 )); then
-		while IFS= read -r val; do
-			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-		done < <(grep -aoE 'OSREPORT.* (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|[cg]pu_time|gx_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-			grep -oE '[a-z_]+=[0-9]+(\.[0-9]+)?ms?' | sed 's/.*=//; s/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
-		if (( ${#FRAME_TIMES[@]} > 0 )); then
-			echo "G36_OSTREPORT_FALLBACK: ${#FRAME_TIMES[@]} frames extracted via OSREPORT-wrapped fallback pattern."
-		fi
-	fi
-
-	# G36_PATCH_v76: Fallback extraction for non-standard or abbreviated frame time markers
-	# This catches markers like "frame_time=12.34" without the "Xash3D GameCube:" prefix,
-	# or markers using underscore instead of space. Provides safety net for guest variants
-	# or logging regressions that change marker format.
-	# G36_PATCH_v80: Also catch OSREPORT lines with time= patterns to handle
-	# guest variants that emit through OSREPORT wrapper without full prefix.
-	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
-	if (( FRAME_TIMES_RELAXED == 0 )); then
-		while IFS= read -r val; do
-			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-		done < <(grep -aoE '(frame_time|frame time|frame_duration|render_time|budget_time|time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-			grep -oE '[0-9]+(\.[0-9]+)?ms?' | sed 's/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
-		FRAME_TIMES_RELAXED_FALLBACK=${#FRAME_TIMES[@]}
-		if (( FRAME_TIMES_RELAXED_FALLBACK > 0 )); then
-			echo "G36_FALLBACK_EXTRACT: ${FRAME_TIMES_RELAXED_FALLBACK} frames extracted via fallback pattern (primary pattern matched zero)."
-		fi
-	fi
-
-	# G36_PATCH_v95: Additional fallback for bare numeric time values in OSREPORT context
-	# Catches OSREPORT lines that may have stripped the key name, leaving just "time=NNNms"
-	if (( ${#FRAME_TIMES[@]} == 0 )); then
-		while IFS= read -r val; do
-			[[ -n "$val" ]] && FRAME_TIMES+=("$val")
-		done < <(grep -aoE 'OSREPORT.*time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-			grep -oE '[0-9]+(\.[0-9]+)?ms?' | sed 's/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
-		if (( ${#FRAME_TIMES[@]} > 0 )); then
-			echo "G36_OSTREPORT_BARE_FALLBACK: ${#FRAME_TIMES[@]} frames extracted via bare OSREPORT time= fallback."
-		fi
-	fi
-
-	# G36_PATCH_v76: Report fallback usage in parse diagnostics
-	if [[ -n "${FRAME_TIMES_RELAXED_FALLBACK:-}" ]] && (( FRAME_TIMES_RELAXED_FALLBACK > 0 )); then
-		echo "G36_PARSE_FALLBACK_ACTIVE: Primary pattern failed; using fallback extraction. Guest marker format may have changed."
-	fi
-
-	# G36_PATCH_v78: Set FRAME_COUNT after extraction/fallback so dedup and stats
-	# logic have a valid count. Previously FRAME_COUNT was unset here.
+	# G36_PATCH_v78: Set FRAME_COUNT after extraction so dedup and stats
+	# logic have a valid count.
 	FRAME_COUNT=${#FRAME_TIMES[@]}
 
 	# G36_DEDUP_v1: Deduplicate FRAME_TIMES to prevent double-counting when
