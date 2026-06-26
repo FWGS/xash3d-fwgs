@@ -59,7 +59,8 @@ from PyQt6.QtWidgets import (
 )
 
 DEFAULT_REPO = Path(__file__).resolve().parents[1]
-APP_VERSION = "0.6.1-dev"
+APP_VERSION = "0.6.4-dev"
+DEFAULT_LAYOUT_VERSION = 3
 
 DEFAULT_DOCK_AREAS: dict[str, Qt.DockWidgetArea] = {
 	"Progress": Qt.DockWidgetArea.TopDockWidgetArea,
@@ -1145,7 +1146,6 @@ class PortWindow(QMainWindow):
 		self.last_passes = 1
 		self.pipeline: dict[str, QLabel] = {}
 		self.docks: dict[str, QDockWidget] = {}
-		self.center_widgets: dict[str, QWidget] = {}
 		self.dashboard_threads: list[QThread] = []
 		self.dashboard_refresh_running = False
 		self.dashboard_refresh_pending = False
@@ -1155,6 +1155,11 @@ class PortWindow(QMainWindow):
 		self.closing = False
 		self.model_api_wait_attempts = 0
 		self._layout_initialized = False
+		self._layout_busy = False
+		self._layout_restored_from_settings = False
+		self._last_goals_signature = ""
+		self._pipeline_states: dict[str, str] = {}
+		self._last_model_api_summary = ""
 		self.overnight_mode = False
 		self.pending_overnight_automation = False
 		self.overnight_started_at: datetime | None = None
@@ -1174,10 +1179,8 @@ class PortWindow(QMainWindow):
 		self._viewport_resize_timer.setInterval(120)
 		self._viewport_resize_timer.timeout.connect(self.update_viewport_pixmap)
 		self.setMinimumSize(1024, 680)
-		self.setDockOptions(
-			QMainWindow.DockOption.AllowTabbedDocks
-		)
-		self.setDockNestingEnabled(False)
+		self.setDockOptions(QMainWindow.DockOption.AllowTabbedDocks)
+		self.setDockNestingEnabled(True)
 		for area in (
 			Qt.DockWidgetArea.LeftDockWidgetArea,
 			Qt.DockWidgetArea.RightDockWidgetArea,
@@ -1191,6 +1194,7 @@ class PortWindow(QMainWindow):
 		self.setCorner(Qt.Corner.TopRightCorner, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		central = QWidget()
+		central.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
 		self.setCentralWidget(central)
 		layout = QVBoxLayout(central)
 		layout.setSpacing(6)
@@ -1272,29 +1276,13 @@ class PortWindow(QMainWindow):
 		chip_scroll.setWidget(chip_host)
 		layout.addWidget(chip_scroll)
 
-		self.center_tabs = QTabWidget()
-		self.center_tabs.setTabsClosable(True)
-		self.center_tabs.tabCloseRequested.connect(self.restore_center_tab)
-		self.center_tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-		self.center_tabs.setMinimumHeight(72)
-		self.center_bay = QLabel(
-			"CENTER DOCK BAY\n\nPark any panel here from View > Dock Panel In Middle.\n"
-			"Good candidates: Goals, Dolphin Viewport, Model Server."
-		)
-		self.center_bay.setObjectName("CenterBay")
-		self.center_bay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-		self.center_bay.setMinimumHeight(0)
-		self.center_bay.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-		self.center_tabs.addTab(self.center_bay, "Center Bay")
-		layout.addWidget(self.center_tabs, 1)
-
 		self.configure_menus()
 
 		progress_panel = QWidget()
 		progress_layout = QVBoxLayout(progress_panel)
 		progress_layout.setContentsMargins(10, 8, 10, 8)
 		progress_layout.setSpacing(6)
-		self.status_label = QLabel("Idle")
+		self.status_label = QLabel("Idle — goal console ready")
 		self.progress = QProgressBar()
 		self.progress.setRange(0, 1)
 		self.progress.setValue(0)
@@ -1480,6 +1468,7 @@ class PortWindow(QMainWindow):
 		viewport_layout.addWidget(self.viewport_image, 1)
 		self.viewport_pixmap: QPixmap | None = None
 		self.viewport_path = ""
+		self._viewport_scaled_path = ""
 		self.add_panel("Dolphin Viewport", viewport_panel, Qt.DockWidgetArea.BottomDockWidgetArea)
 
 		automation_panel = QWidget()
@@ -1498,8 +1487,11 @@ class PortWindow(QMainWindow):
 		self.cycle_sleep_spin.setRange(5, 120)
 		self.cycle_sleep_spin.setValue(10)
 		self.cycle_sleep_spin.setToolTip("Seconds to wait between supervisor retries")
-		self.loop_btn = QPushButton("▶  ACCOMPLISH GOALS")
+		self.loop_btn = QPushButton("▶  ACCOMPLISH ALL GOALS")
 		self.loop_btn.setObjectName("PrimaryButton")
+		self.loop_btn.setToolTip(
+			"Run the goal supervisor until every automatic GameCube port goal is "
+			"complete, blocked, or needs manual review.")
 		self.loop_btn.clicked.connect(self.run_goal_loop)
 		self.stop_btn = QPushButton("■  STOP AUTOMATION")
 		self.stop_btn.setObjectName("DangerButton")
@@ -1519,7 +1511,7 @@ class PortWindow(QMainWindow):
 		self.overnight_btn.setObjectName("PrimaryButton")
 		self.overnight_btn.setToolTip(
 			"Apply recommended vLLM settings, auto-start the model if needed, "
-			"then run goal automation until complete or the runtime limit is reached."
+			"then run all automatic goals until complete or the runtime limit is reached."
 		)
 		self.overnight_btn.clicked.connect(self.start_overnight_run)
 		self.max_runtime_spin = QDoubleSpinBox()
@@ -1646,18 +1638,17 @@ class PortWindow(QMainWindow):
 		self.setStatusBar(self.status_bar)
 		self.status_bar.showMessage("GameCube porting console ready")
 
-		self.apply_default_dock_layout()
+		self.install_default_layout()
 		self.load_saved_settings()
 		load_gamecube_env(self.repo())
 		self.sync_model_command_from_tuning()
 		self.write_settings_file(include_layout=False)
-		self.ensure_core_panels_visible()
 		self.prime_goal_ledger()
 		self.refresh_harness_view()
 		self.refresh_context()
 
 		self.timer = QTimer(self)
-		self.timer.setInterval(3000)
+		self.timer.setInterval(5000)
 		self.timer.timeout.connect(self.refresh_dashboard)
 		self.timer.start()
 		self.refresh_dashboard()
@@ -1709,11 +1700,11 @@ class PortWindow(QMainWindow):
 		fit_layout_action = QAction("Fit Panels to Window", self)
 		fit_layout_action.triggered.connect(self.apply_default_dock_sizes)
 		self.layout_menu.addAction(fit_layout_action)
-		self.middle_menu = self.view_menu.addMenu("Dock Panel In Middle")
 		self.view_menu.addSeparator()
 
 		self.run_menu = self.menuBar().addMenu("&Run")
-		run_goal = QAction("Accomplish Goals", self)
+		run_goal = QAction("Accomplish All Goals", self)
+		run_goal.setToolTip("Run automation through every pending automatic goal in order")
 		run_goal.setShortcut("Ctrl+Return")
 		run_goal.triggered.connect(self.run_goal_loop)
 		self.run_menu.addAction(run_goal)
@@ -1809,6 +1800,7 @@ class PortWindow(QMainWindow):
 			"follow_log": self.follow_log.isChecked(),
 		}
 		if include_layout:
+			data["layout_version"] = DEFAULT_LAYOUT_VERSION
 			data["geometry"] = bytes(self.saveGeometry().toBase64()).decode("ascii")
 			data["dock_layout"] = bytes(self.saveState().toBase64()).decode("ascii")
 		return data
@@ -1881,6 +1873,18 @@ class PortWindow(QMainWindow):
 		self.status_label.setText("Restored saved dock layout")
 
 	def apply_layout_settings(self, data: Mapping[str, object]) -> bool:
+		layout_version = data.get("layout_version")
+		if layout_version != DEFAULT_LAYOUT_VERSION:
+			data.pop("geometry", None)
+			data.pop("dock_layout", None)
+			data["layout_version"] = DEFAULT_LAYOUT_VERSION
+			try:
+				SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+				SETTINGS_PATH.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n",
+					encoding="utf-8")
+			except OSError:
+				pass
+			return False
 		restored = False
 		geometry = data.get("geometry")
 		if isinstance(geometry, str) and geometry:
@@ -1888,9 +1892,9 @@ class PortWindow(QMainWindow):
 		layout = data.get("dock_layout")
 		if isinstance(layout, str) and layout:
 			if not self.restoreState(QByteArray.fromBase64(layout.encode("ascii"))):
-				return restored
+				return False
+			self._layout_restored_from_settings = True
 			restored = True
-			QTimer.singleShot(0, self.apply_default_dock_sizes)
 		return restored
 
 	def load_saved_settings(self) -> None:
@@ -1954,16 +1958,11 @@ class PortWindow(QMainWindow):
 			self.follow_log.setChecked(follow_log)
 		if migrated_command or "model_max_num_seqs" not in data:
 			self.write_settings_file(include_layout=False)
-
-	def ensure_core_panels_visible(self) -> None:
-		for title in ("Goals", "Progress", "Workspace", "Telemetry", "Log"):
-			dock = self.docks.get(title)
-			if dock:
-				dock.show()
-		if "Goals" in self.docks:
-			self.docks["Goals"].raise_()
-		if "Telemetry" in self.docks:
-			self.docks["Telemetry"].raise_()
+		if not self.apply_layout_settings(data):
+			self.install_default_layout()
+			QTimer.singleShot(100, self.apply_default_dock_sizes)
+		elif not self._layout_restored_from_settings:
+			QTimer.singleShot(100, self.apply_default_dock_sizes)
 
 	def show_about_panel(self) -> None:
 		dialog = QDialog(self)
@@ -2020,16 +2019,16 @@ class PortWindow(QMainWindow):
 			QDockWidget.DockWidgetFeature.DockWidgetFloatable
 		)
 		min_sizes = {
-			"Workspace": (220, 80),
-			"Goals": (280, 160),
-			"Telemetry": (260, 160),
-			"Log": (320, 140),
-			"Dolphin Viewport": (280, 160),
-			"Progress": (420, 72),
-			"Model Server": (480, 120),
-			"Automation": (420, 72),
-			"Pipeline": (420, 72),
-			"Tools": (420, 72),
+			"Workspace": (180, 72),
+			"Goals": (220, 140),
+			"Telemetry": (220, 140),
+			"Log": (240, 120),
+			"Dolphin Viewport": (220, 140),
+			"Progress": (280, 64),
+			"Model Server": (320, 96),
+			"Automation": (280, 64),
+			"Pipeline": (280, 64),
+			"Tools": (280, 64),
 		}
 		if title in min_sizes:
 			width, height = min_sizes[title]
@@ -2039,110 +2038,76 @@ class PortWindow(QMainWindow):
 		self.addDockWidget(area, dock)
 		self.docks[title] = dock
 		self.view_menu.addAction(dock.toggleViewAction())
-		action = QAction(title, self)
-		action.triggered.connect(lambda _checked=False, name=title: self.dock_panel_middle(name))
-		self.middle_menu.addAction(action)
 		return dock
 
-	def apply_default_dock_layout(self) -> None:
-		if not {"Workspace", "Goals", "Telemetry", "Log", "Dolphin Viewport"}.issubset(self.docks):
+	def install_default_layout(self) -> None:
+		required = {"Workspace", "Model Server", "Goals", "Telemetry",
+			"Automation", "Pipeline", "Tools", "Dolphin Viewport", "Log", "Progress"}
+		if not required.issubset(self.docks):
 			return
-		for title in TOP_DOCK_TITLES[1:]:
-			self.tabifyDockWidget(self.docks[TOP_DOCK_TITLES[0]], self.docks[title])
-		self.docks[TOP_DOCK_TITLES[0]].raise_()
-		self.splitDockWidget(self.docks["Workspace"], self.docks["Goals"], Qt.Orientation.Vertical)
-		self.splitDockWidget(self.docks["Dolphin Viewport"], self.docks["Log"], Qt.Orientation.Horizontal)
+		self._layout_busy = True
+		try:
+			for dock in self.docks.values():
+				dock.setFloating(False)
+				dock.show()
+				self.removeDockWidget(dock)
+			for title, area in DEFAULT_DOCK_AREAS.items():
+				self.addDockWidget(area, self.docks[title])
+			for title in TOP_DOCK_TITLES[1:]:
+				self.tabifyDockWidget(self.docks[TOP_DOCK_TITLES[0]], self.docks[title])
+			self.docks[TOP_DOCK_TITLES[0]].raise_()
+			self.splitDockWidget(self.docks["Workspace"], self.docks["Goals"], Qt.Orientation.Vertical)
+			self.splitDockWidget(self.docks["Telemetry"], self.docks["Log"], Qt.Orientation.Vertical)
+			self.splitDockWidget(self.docks["Log"], self.docks["Dolphin Viewport"], Qt.Orientation.Horizontal)
+		finally:
+			self._layout_busy = False
 
 	def apply_default_dock_sizes(self) -> None:
-		if not self.isVisible():
+		if not self.isVisible() or self._layout_busy:
+			return
+		if not {"Goals", "Telemetry", "Log", "Dolphin Viewport"}.issubset(self.docks):
 			return
 		height = max(self.height(), self.minimumHeight())
 		width = max(self.width(), self.minimumWidth())
-		usable_height = max(height - 260, 420)
-		usable_width = max(width - 320, 640)
 		self.resizeDocks(
-			[self.docks["Workspace"], self.docks["Goals"]],
-			[max(80, int(usable_height * 0.22)), max(160, int(usable_height * 0.78))],
+			[self.docks["Goals"], self.docks["Telemetry"]],
+			[max(280, int(width * 0.24)), max(320, int(width * 0.28))],
+			Qt.Orientation.Horizontal,
+		)
+		self.resizeDocks(
+			[self.docks["Log"], self.docks["Telemetry"]],
+			[max(220, int(height * 0.28)), max(180, int(height * 0.18))],
 			Qt.Orientation.Vertical,
 		)
 		self.resizeDocks(
-			[self.docks["Dolphin Viewport"], self.docks["Log"]],
-			[max(280, int(usable_width * 0.42)), max(320, int(usable_width * 0.58))],
+			[self.docks["Log"], self.docks["Dolphin Viewport"]],
+			[max(360, int(width * 0.42)), max(280, int(width * 0.32))],
 			Qt.Orientation.Horizontal,
+		)
+		self.resizeDocks(
+			[self.docks["Workspace"], self.docks["Goals"]],
+			[max(120, int(height * 0.18)), max(220, int(height * 0.32))],
+			Qt.Orientation.Vertical,
 		)
 
 	def showEvent(self, event) -> None:
 		super().showEvent(event)
 		if not self._layout_initialized:
 			self._layout_initialized = True
-			QTimer.singleShot(0, self.apply_default_dock_sizes)
-
-	def apply_floating_window_flags(self, dock: QDockWidget) -> None:
-		dock.setWindowFlags(
-			Qt.WindowType.Window |
-			Qt.WindowType.WindowTitleHint |
-			Qt.WindowType.WindowSystemMenuHint |
-			Qt.WindowType.WindowMinMaxButtonsHint |
-			Qt.WindowType.WindowCloseButtonHint
-		)
+			if not self._layout_restored_from_settings:
+				QTimer.singleShot(100, self.apply_default_dock_sizes)
 
 	def dock_floating_changed(self, dock: QDockWidget, floating: bool) -> None:
-		if not floating:
+		if floating:
 			return
-		# Keep Qt's native floating-dock window handling. Replacing flags here can
-		# destabilize some window managers during drag/drop.
-
-	def dock_panel_middle(self, title: str) -> None:
-		dock = self.docks.get(title)
-		if not dock:
-			return
-		widget = dock.widget()
-		if widget is None:
-			return
-		if self.center_tabs.indexOf(widget) < 0:
-			dock.setFloating(False)
-			dock.hide()
-			self.center_widgets[title] = widget
-			self.center_tabs.addTab(widget, title)
-		self.center_tabs.setCurrentWidget(widget)
-		self.status_label.setText(f"Docked {title} in middle workspace")
-
-	def restore_center_tab(self, index: int) -> None:
-		if index <= 0:
-			return
-		title = self.center_tabs.tabText(index)
-		widget = self.center_tabs.widget(index)
-		dock = self.docks.get(title)
-		if not dock or widget is None:
-			return
-		self.center_tabs.removeTab(index)
-		self.center_widgets.pop(title, None)
-		dock.setWidget(widget)
-		dock.show()
-		dock.setFloating(False)
-		area = DEFAULT_DOCK_AREAS.get(title, Qt.DockWidgetArea.BottomDockWidgetArea)
-		self.addDockWidget(area, dock)
-		dock.raise_()
-		self.apply_default_dock_sizes()
-		self.status_label.setText(f"Restored {title} to dock layout")
-
-	def restore_all_center_tabs(self) -> None:
-		for index in range(self.center_tabs.count() - 1, 0, -1):
-			self.restore_center_tab(index)
 
 	def reset_dock_layout(self) -> None:
 		required = {"Workspace", "Model Server", "Goals", "Telemetry",
 			"Automation", "Pipeline", "Tools", "Dolphin Viewport", "Log", "Progress"}
 		if not required.issubset(self.docks):
 			return
-		self.restore_all_center_tabs()
-		for dock in self.docks.values():
-			dock.show()
-			dock.setFloating(False)
-		for title, area in DEFAULT_DOCK_AREAS.items():
-			self.addDockWidget(area, self.docks[title])
-		self.apply_default_dock_layout()
-		QTimer.singleShot(0, self.apply_default_dock_sizes)
+		self.install_default_layout()
+		QTimer.singleShot(100, self.apply_default_dock_sizes)
 		self.clear_saved_layout(silent=True)
 		self.status_label.setText("Dock layout reset")
 		self.status_bar.showMessage("Dock layout reset to default", 4000)
@@ -2153,6 +2118,7 @@ class PortWindow(QMainWindow):
 			return
 		data.pop("geometry", None)
 		data.pop("dock_layout", None)
+		data.pop("layout_version", None)
 		try:
 			SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
 			SETTINGS_PATH.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n",
@@ -2186,7 +2152,6 @@ class PortWindow(QMainWindow):
 		return ok
 
 	def set_chip_state(self, chip: QLabel, text: str, state: str = "idle") -> None:
-		chip.setText(text)
 		object_name = {
 			"ok": "ChipOk",
 			"warn": "ChipWarn",
@@ -2194,9 +2159,12 @@ class PortWindow(QMainWindow):
 			"info": "ChipInfo",
 			"idle": "ChipClickable" if isinstance(chip, ClickableLabel) else "Chip",
 		}.get(state, "Chip")
-		chip.setObjectName(object_name)
-		chip.style().unpolish(chip)
-		chip.style().polish(chip)
+		if chip.text() != text:
+			chip.setText(text)
+		if chip.objectName() != object_name:
+			chip.setObjectName(object_name)
+			chip.style().unpolish(chip)
+			chip.style().polish(chip)
 
 	def refresh_harness_view(self) -> None:
 		path = self.repo() / ".ai/state/dolphin-harness-latest.md"
@@ -2462,11 +2430,13 @@ class PortWindow(QMainWindow):
 		self.sync_model_command_from_tuning()
 		self.status_label.setText("Applied recommended model tuning for single-client Aider automation")
 
-	def refresh_model_api_summary(self) -> None:
+	def refresh_model_api_summary(self) -> bool:
 		summary = fetch_model_api_summary(self.model_api_edit.text().strip())
-		self.model_status_label.setText(summary)
-		color = GC_MINT if summary.startswith("Model API:") else GC_ORANGE
-		self.model_status_label.setStyleSheet(f"color: {color};")
+		if summary != self._last_model_api_summary:
+			self._last_model_api_summary = summary
+			self.model_status_label.setText(summary)
+			color = GC_MINT if summary.startswith("Model API:") else GC_ORANGE
+			self.model_status_label.setStyleSheet(f"color: {color};")
 		return summary.startswith("Model API:")
 
 	def poll_model_api_ready(self) -> None:
@@ -2681,6 +2651,20 @@ class PortWindow(QMainWindow):
 
 	def apply_goals_snapshot(self, snapshot: DashboardSnapshot) -> None:
 		goals = snapshot.goals or []
+		active = snapshot.active_goal
+		signature_parts = [
+			f"{goal_id}:{state}:{goal_is_blocked(body)}"
+			for goal_id, state, _title, body in goals
+		]
+		signature_parts.append(
+			f"counts:{snapshot.complete_goals}/{snapshot.automatic_goals}/{snapshot.blocked_goals}"
+		)
+		if active:
+			signature_parts.append(f"active:{active[0]}")
+		signature = "|".join(signature_parts)
+		if signature == self._last_goals_signature:
+			return
+		self._last_goals_signature = signature
 		self.goal_table.setRowCount(len(goals))
 		if not goals:
 			ledger = self.repo() / ".ai/goals/GAMECUBE_PORT_GOALS.md"
@@ -2688,7 +2672,6 @@ class PortWindow(QMainWindow):
 			self.goal_progress.setValue(0)
 			self.goal_progress.setFormat("0 / 0 goals")
 			return
-		active = snapshot.active_goal
 		for row, (goal_id, state, title, body) in enumerate(goals):
 			is_blocked = goal_is_blocked(body)
 			label = "MANUAL" if state == "MANUAL" else "DONE" if state.lower() == "x" \
@@ -2748,6 +2731,7 @@ class PortWindow(QMainWindow):
 	def apply_dolphin_viewport_snapshot(self, path: Path | None, status: str) -> None:
 		if path is None:
 			self.viewport_path = ""
+			self._viewport_scaled_path = ""
 			self.viewport_pixmap = None
 			self.viewport_status.setText(status)
 			self.viewport_image.setPixmap(QPixmap())
@@ -2766,8 +2750,12 @@ class PortWindow(QMainWindow):
 			if not pixmap.isNull():
 				self.viewport_pixmap = pixmap
 				self.viewport_path = path_text
-		self.viewport_status.setText(f"{status}  -  {path_text}")
-		self.update_viewport_pixmap()
+		status_text = f"{status}  -  {path_text}"
+		if self.viewport_status.text() != status_text:
+			self.viewport_status.setText(status_text)
+		if path_text != getattr(self, "_viewport_scaled_path", ""):
+			self._viewport_scaled_path = path_text
+			self.update_viewport_pixmap()
 
 	def update_viewport_pixmap(self) -> None:
 		if not self.viewport_pixmap or self.viewport_pixmap.isNull():
@@ -2832,10 +2820,6 @@ class PortWindow(QMainWindow):
 			"boot_failure": GC_ORANGE,
 		}.get(snapshot.harness_status, GC_CYAN)
 		self.set_harness_state(snapshot.harness_text or "HARNESS  —", harness_color)
-		self.refresh_harness_view()
-		if self.process is None:
-			self.status_label.setText("Idle - goal console ready")
-			self.status_bar.showMessage(self.status_label.text())
 		if self.model_process is not None:
 			self.set_model_state("MODEL  RUNNING", GC_CYAN)
 			self.start_model_btn.setEnabled(False)
@@ -3224,6 +3208,9 @@ class PortWindow(QMainWindow):
 		}.get(operation, "AIDER")
 
 	def set_pipeline_state(self, name: str, state: str) -> None:
+		if self._pipeline_states.get(name) == state:
+			return
+		self._pipeline_states[name] = state
 		node = self.pipeline.get(name)
 		if node:
 			node.setObjectName(f"Pipeline{state}")
@@ -3382,6 +3369,7 @@ class PortWindow(QMainWindow):
 	def resizeEvent(self, event) -> None:
 		super().resizeEvent(event)
 		if hasattr(self, "_viewport_resize_timer"):
+			self._viewport_scaled_path = ""
 			self._viewport_resize_timer.start()
 
 	def shutdown_processes(self) -> None:
@@ -3442,8 +3430,8 @@ class PortWindow(QMainWindow):
 		iso = root / "OUT/xash3d-gc.iso"
 		def artifact(label: str, path: Path) -> str:
 			return f"{label}  {path.stat().st_size / (1024 * 1024):.1f} MiB" if path.is_file() else f"{label}  MISSING"
-		self.dol_chip.setText(artifact("DOL", dol))
-		self.iso_chip.setText(artifact("ISO", iso))
+		self.set_chip_state(self.dol_chip, artifact("DOL", dol), "ok" if dol.is_file() else "warn")
+		self.set_chip_state(self.iso_chip, artifact("ISO", iso), "ok" if iso.is_file() else "warn")
 		active_node = self.pipeline_node(self.operation) if self.process else ""
 		if active_node != "DOL":
 			self.set_pipeline_state("DOL", "Success" if dol.is_file() else "Idle")
@@ -3451,9 +3439,11 @@ class PortWindow(QMainWindow):
 			self.set_pipeline_state("ISO", "Success" if iso.is_file() else "Idle")
 		dolphin_ready = bool(os.environ.get("DOLPHIN_EXECUTABLE") or
 			shutil.which("dolphin-emu") or shutil.which("dolphin") or shutil.which("flatpak"))
-		self.dolphin_chip.setText("DOLPHIN  READY" if dolphin_ready else "DOLPHIN  MISSING")
-		if self.process is None:
-			self.status_label.setText("Idle — goal console ready")
+		self.set_chip_state(
+			self.dolphin_chip,
+			"DOLPHIN  READY" if dolphin_ready else "DOLPHIN  MISSING",
+			"ok" if dolphin_ready else "warn",
+		)
 
 	def refresh_model_status(self) -> None:
 		if self.model_process is not None:
@@ -3475,6 +3465,7 @@ def main() -> int:
 	load_dotenv(DEFAULT_REPO / ".env")
 	load_gamecube_env(DEFAULT_REPO)
 	app = QApplication(sys.argv)
+	app.setStyle("Fusion")
 	rodin_family = load_font(DEFAULT_REPO / "fonts/FOT-Rodin Pro DB.otf", "Sans Serif")
 	gamecube_family = load_font(DEFAULT_REPO / "fonts/GameCube.ttf", rodin_family)
 	app.setStyleSheet(stylesheet(gamecube_family))
