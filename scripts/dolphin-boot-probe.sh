@@ -44,6 +44,7 @@ READY_MARKER="Xash3D GameCube: engine subsystems ready"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 INPUT_MARKER="Xash3D GameCube: input polling active"
 GUEST_RENDERER=""
+GX_DRAWDONE_COUNT=0
 
 probe_log_has() {
 	local needle="$1"
@@ -481,6 +482,22 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v93: Detect GX_DrawDone presence after renderer init to distinguish
+		# "renderer started but no draw calls" from "renderer drawing but missing budget markers".
+		# Fires once after 8s post-renderer-init if DrawDone still absent.
+		if [[ -n "$GUEST_RENDERER" ]] && [[ -z "${G36_DRAWDONE_CHECKED:-}" ]] && \
+		   [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && \
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 8 )); then
+			G36_DRAWDONE_CHECKED=1
+			if grep -aqsF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+				GX_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+				echo "G36_DRAWDONE_PRESENT: ${GX_DRAWDONE_COUNT} GX_DrawDone calls detected ${G36_RENDERER_INIT_TS}s post-init. Renderer is submitting frames."
+			else
+				echo "G36_DRAWDONE_ABSENT: Renderer ${GUEST_RENDERER} initialized ${G36_RENDERER_INIT_TS}s ago but zero GX_DrawDone detected."
+				echo "G36_DRAWDONE_HINT: Renderer started but may not be reaching main draw loop. Check for early-return, missing Host_RunFrame, or blocked game loop."
+			fi
+		fi
+
 		# G36_PATCH_v71: Emit probe-loop exit reason with elapsed time for
 		# downstream automation to distinguish timeout from early break.
 		# This single diagnostic line replaces multiple scattered status echoes.
@@ -908,7 +925,8 @@ fi
 # G36_PATCH: Detect explicit GX_DrawDone markers to correlate GPU command
 # completion with frame budget. Helps distinguish "CPU submission stalls"
 # from "GPU processing stalls" in frame budget violations.
-GX_DRAWDONE_COUNT=0
+# Note: GX_DRAWDONE_COUNT may already be populated from probe loop if renderer
+# was detected early; only update if we have a fresh count from full logs.
 if grep -aqsF "GX_DrawDone" "${LOG_FILES[@]}"; then
 	GX_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "${LOG_FILES[@]}")
 fi
