@@ -289,6 +289,36 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v103: Detect sudden frame marker rate drop to identify render
+		# loop instability. Compares frame emission rate in the last 4 seconds
+		# against the rate in the prior 4-second window. A rate drop >50% indicates
+		# stuttering or approaching crash, providing earlier evidence than waiting
+		# for complete cessation. Fires once after minimum 10 frames collected.
+		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]] && (( CURRENT_FRAME_COUNT > 10 )); then
+			ELAPSED=$(( $(date +%s) - START_TS ))
+			if (( ELAPSED >= 8 )) && [[ -z "${G36_FRAME_RATE_DROP_TS:-}" ]]; then
+				# Check if frame count growth has slowed significantly
+				if [[ -n "${G36_PREV_FRAME_COUNT:-}" ]] && [[ -n "${G36_LAST_FRAME_TS:-}" ]]; then
+					TIME_SINCE_LAST_CHECK=$(( $(date +%s) - G36_LAST_FRAME_TS ))
+					if (( TIME_SINCE_LAST_CHECK >= 4 )); then
+						FRAMES_SINCE_LAST=$(( CURRENT_FRAME_COUNT - G36_PREV_FRAME_COUNT ))
+						RATE_LAST=$(( FRAMES_SINCE_LAST * 60 / (TIME_SINCE_LAST > 0 ? TIME_SINCE_LAST : 1) ))
+						
+						# Compare with initial rate (first 4 seconds after first frame)
+						if [[ -n "${G36_INITIAL_FRAME_RATE:-}" ]] && (( G36_INITIAL_FRAME_RATE > 0 )); then
+							if (( RATE_LAST * 2 < G36_INITIAL_FRAME_RATE )); then
+								echo "G36_FRAME_RATE_DROP: Frame emission rate dropped from ${G36_INITIAL_FRAME_RATE}fps to ~${RATE_LAST}fps. Render loop may be degrading."
+								G36_FRAME_RATE_DROP_TS=$(date +%s)
+							fi
+						elif [[ -z "${G36_INITIAL_FRAME_RATE:-}" ]]; then
+							# Set initial rate baseline on first check
+							G36_INITIAL_FRAME_RATE=$RATE_LAST
+						fi
+					fi
+				fi
+			fi
+		fi
+
 		# G36_PATCH_v84: Detect GX_DrawDone count divergence from frame budget
 		# samples during active probe. If DrawDone markers exceed budget samples,
 		# it indicates frames were presented without timing telemetry, suggesting
