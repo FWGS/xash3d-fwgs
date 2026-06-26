@@ -190,15 +190,16 @@ static void GC_PresentBuffer( void )
 
 		// Draw a highly visible diagnostic marker (Red/Green checker)
 		// to prove XFB is being updated even if renderer output is black.
+		// Use memset for row-level fills to improve cache locality and 
+		// potentially allow vectorized/wider stores, stabilizing frame budget.
 		for( row = 0; row < mark_h; row++ )
 		{
-			int col;
 			unsigned short *rowdst = dst + row * rmode->fbWidth;
-			for( col = 0; col < mark_w; col++ )
-			{
-				// Red (0xF800) and Green (0x07E0) checker
-				rowdst[col] = (( row ^ col ) & 8 ) ? 0xF800 : 0x07E0;
-			}
+			// Alternate dominant colors per row for visibility without per-pixel branching
+			if( row & 1 )
+				memset( rowdst, 0xF800, mark_w * sizeof( unsigned short ));
+			else
+				memset( rowdst, 0x07E0, mark_w * sizeof( unsigned short ));
 		}
 		
 		// Report diagnostic marker visibility
