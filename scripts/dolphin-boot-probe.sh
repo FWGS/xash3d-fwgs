@@ -240,6 +240,20 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v40: Detect per-frame GX command-list submission markers to
+		# measure CPU submission throughput independently of VI-sync wait time.
+		# Distinguishes "CPU submitting commands slowly" from "GPU processing slowly".
+		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]] && \
+		   grep -aqsF "Xash3D GameCube: gx_commands_submitted" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			CURRENT_GX_SUBMIT_COUNT=$(grep -aE "Xash3D GameCube: gx_commands_submitted=" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | wc -l)
+			if [[ -z "${G36_PREV_GX_SUBMIT_COUNT:-}" ]] || (( CURRENT_GX_SUBMIT_COUNT > G36_PREV_GX_SUBMIT_COUNT )); then
+				G36_PREV_GX_SUBMIT_COUNT=$CURRENT_GX_SUBMIT_COUNT
+				LAST_GX_SUBMIT_TS=$(date +%s)
+			elif [[ -n "${LAST_GX_SUBMIT_TS:-}" ]] && (( $(date +%s) - LAST_GX_SUBMIT_TS > 5 )); then
+				echo "G36_GX_SUBMIT_STALLED: No new GX command submission markers for 5s. CPU may have stopped submitting render commands."
+			fi
+		fi
+
 		# G36_PATCH_v32: After measurement window opens, detect if we have minimum
 		# samples to declare measurement viable (avoids waiting full timeout).
 		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]] && \
