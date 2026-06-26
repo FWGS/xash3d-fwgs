@@ -80,7 +80,7 @@ mkdir -p .ai/logs
 STAMP="$(date +%F-%H%M%S)"
 LOG=".ai/logs/aider-pass-$STAMP.log"
 BASELINE="$(git rev-parse HEAD)"
-TOKEN_LIMIT_RE="has hit a token limit|exceeds the .* token limit|context limit is exceeded|maximum context length|prompt contains at least|requested .* output tokens|VLLMValidationError"
+TOKEN_LIMIT_RE="has hit a token limit|exceeds the .* token limit|context limit is exceeded|maximum context length|prompt contains at least|requested .* output tokens|VLLMValidationError|Empty response received from LLM"
 AIDER_OUTPUT_TOKEN_BUDGETS=(
 	"${AIDER_OUTPUT_TOKENS_INITIAL:-4096}"
 	"${AIDER_OUTPUT_TOKENS_RETRY_1:-2048}"

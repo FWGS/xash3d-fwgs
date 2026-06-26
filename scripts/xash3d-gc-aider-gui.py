@@ -184,8 +184,10 @@ def vllm_qwable_command() -> str:
 		"--max-model-len", os.environ.get("QWABLE_5_MAX_MODEL_LEN", "65536"),
 		"--max-num-seqs", os.environ.get("QWABLE_5_MAX_NUM_SEQS", "1"),
 		"--gpu-memory-utilization", os.environ.get("QWABLE_5_GPU_MEMORY_UTILIZATION", "0.85"),
-		"--reasoning-parser", "qwen3",
 	]
+	reasoning_parser = os.environ.get("QWABLE_5_REASONING_PARSER", "").strip()
+	if reasoning_parser:
+		command.extend(["--reasoning-parser", reasoning_parser])
 	if os.environ.get("QWABLE_5_ENABLE_TOOL_CHOICE", "").strip() in {"1", "true", "yes"}:
 		command.extend([
 			"--enable-auto-tool-choice",
@@ -244,6 +246,9 @@ def migrate_model_command(command_text: str) -> str:
 		needs_rebuild = True
 	if command_has_flag(command, "--enable-auto-tool-choice") and \
 		os.environ.get("QWABLE_5_ENABLE_TOOL_CHOICE", "").strip().lower() not in {"1", "true", "yes"}:
+		needs_rebuild = True
+	if command_has_flag(command, "--reasoning-parser") and \
+		not os.environ.get("QWABLE_5_REASONING_PARSER", "").strip():
 		needs_rebuild = True
 	if needs_rebuild:
 		return vllm_qwable_command()
