@@ -188,6 +188,7 @@ static void GC_PresentBuffer( void )
 
 	GX_Flush();
 	GX_DrawDone();
+	SYS_Report( "GX_DrawDone\n" );
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
