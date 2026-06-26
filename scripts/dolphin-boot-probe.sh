@@ -1627,6 +1627,19 @@ if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 					fi
 				fi
 			fi
+
+			# G36_PATCH_v39: Report exact frame indices where budget violations occur
+			# to provide precise evidence for correlating with memory samples or GX markers.
+			# Lists frame number (1-based) and time for each violating frame.
+			if (( FRAME_JANK > 0 )); then
+				VIOLATION_INDICES=$(printf '%s\n' "${FRAME_TIMES[@]}" | awk -v target="$TARGET_FRAME_TIME" '
+				{
+					val = $1 + 0;
+					if (val > target) printf "%d=%.2f ", NR, val;
+				}
+				END { print "" }')
+				echo "G36_VIOLATION_INDICES: Frames exceeding budget (index=time): ${VIOLATION_INDICES}"
+			fi
 		fi
 		if (( FRAME_BUDGET_EXCEEDED )); then
 			echo "PERFORMANCE_BLOCKER: Guest-reported budget: EXCEEDED marker found in logs."
