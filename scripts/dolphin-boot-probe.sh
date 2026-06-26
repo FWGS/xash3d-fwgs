@@ -567,6 +567,15 @@ if (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT == 0 )); then
 			echo "G36_PARSE_RAW_SAMPLE: ${line}"
 		done <<< "$UNMATCHED_LIKELY"
 	fi
+	# G36_PATCH_v22: Distinguish renderer-not-initialized from renderer-initialized-but-silent
+	# Helps diagnose whether the guest reached a state where frame timing should be emitted
+	if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}"; then
+		echo "G36_PARSE_HINT: Renderer initialization marker found but no frame times. Guest likely rendered frames but failed to emit timing markers."
+		echo "G36_PARSE_HINT: Verify renderer code path includes frame budget OSReport calls after GX_DrawDone."
+	else
+		echo "G36_PARSE_HINT: No renderer initialization marker found. Guest may have crashed or stalled before rendering began."
+		echo "G36_PARSE_HINT: Check for guest errors, missing assets, or early bootstrap failures."
+	fi
 	# G36_PATCH_v21: Emit explicit status for zero-sample case to prevent
 	# downstream tooling from misinterpreting empty summary as success
 	echo "G36_STATUS: FAIL (zero samples extracted, parse failure)"
