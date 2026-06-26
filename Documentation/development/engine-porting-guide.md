@@ -69,3 +69,32 @@ Once you did it, go back to `platform` directory and open `platform.h` headers. 
 As you finished, compile engine, fix errors and commit your changes and push to repository.
 
 Remember, if something doesn't work and you can't figure out why, you can join our Discord server at discord.me/fwgs. Ping me (@a1batross) or other engine developer and attach link to your repository, so we can discuss and help you in porting.
+
+## GameCube port handoff notes
+
+The in-tree GameCube target is a static, devkitPPC/libogc-oriented port. It is
+not a generic dynamic-library platform: engine modules, HLSDK server/client
+exports, renderer, filesystem, input, audio, and platform services are wired
+through GameCube-specific build and registration paths.
+
+Use these commands as the current source-truth workflow:
+
+```sh
+scripts/hlsdk-gamecube-apply-patch.py
+scripts/hlsdk-gamecube-build.sh
+scripts/build-gamecube.sh
+scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso
+DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
+scripts/gamecube-rc-check.sh
+```
+
+GameCube content staging requires a legal local `Half-Life/valve` tree outside
+Git. Do not vendor game assets, Nintendo SDK files, proprietary Nintendo
+documentation, BIOS/IPL dumps, or loader-specific copyrighted blobs into the
+repository or release package.
+
+Current operator documentation lives in `docs/GAMECUBE_PORT_PLAN.md`. Hardware
+test protocol lives in `docs/GAMECUBE_HARDWARE_VALIDATION.md`, and clean-room
+homebrew requirements live in `docs/GAMECUBE_HOMEBREW_COMPLIANCE.md`. Dolphin
+evidence is useful for smoke and regression testing, but native release
+acceptance requires the hardware/storage/loader matrix recorded there.

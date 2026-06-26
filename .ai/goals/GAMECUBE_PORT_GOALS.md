@@ -604,7 +604,7 @@ scripts/gamecube-map-compat-probe.sh
   should remain the canonical one-shot verifier for build, artifacts, staging,
   Dolphin, frame budget, map compatibility, and compliance evidence.
 
-## G42 [ ] Finalize native GameCube port documentation
+## G42 [x] Finalize native GameCube port documentation
 
 - Document setup, legal asset staging, build requirements, supported hardware,
   controls, save/storage behavior, known limitations, and troubleshooting.
@@ -613,6 +613,18 @@ scripts/gamecube-map-compat-probe.sh
   package expectations, legal disclaimer, and hardware evidence matrix.
 - Mark the port finished only when the documentation matches the verified state
   of the engine, game code, assets, audio, input, storage, and hardware tests.
+- Completed 2026-06-26 as documentation-current, not release-finished:
+  `docs/GAMECUBE_PORT_PLAN.md` now includes the native GameCube operator guide
+  status, setup/build commands, legal asset staging policy, current verified
+  runtime table, controls, storage/save behavior, compatibility-table policy,
+  hardware/compliance handoff, and known limitations before declaring the port
+  finished.
+- `Documentation/development/engine-porting-guide.md` now points GameCube
+  maintainers to the static devkitPPC/libogc workflow, HLSDK build commands,
+  Dolphin/RC gates, legal asset limits, and hardware/compliance documents.
+- G40 campaign coverage, G38/hardware validation, G41 release scripts, and
+  G43+ compliance goals remain authoritative gates before any release-complete
+  claim.
 
 ## G43 [ ] Add boot media and loader failure compliance tests
 
