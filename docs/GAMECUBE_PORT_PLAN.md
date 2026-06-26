@@ -1417,6 +1417,26 @@ Release-complete storage still requires physical or persistent-storage evidence
 for save/load, quit/relaunch/load, interruption, full-card, removed-card,
 corrupt-file, wrong-slot, and incompatible-version behavior under G38/G53/G66.
 
+## G47 — Audit filesystem portability and read-only media behavior (partial, 2026-06-26)
+
+Enforced relative asset paths for map loading on GameCube.
+`engine/server/sv_init.c` (`SV_SpawnServer`) now rejects absolute paths
+(e.g., `/home/user/...` or `C:\...`) with a readable `Host_Error` before
+attempting to load the world BSP. This prevents host-path leakage and ensures
+disc-only boots rely strictly on relative engine paths.
+
+**Commands and evidence:**
+```sh
+scripts/ai-verify.sh
+```
+
+Result: clean GameCube build. The guard is active under `XASH_GAMECUBE`.
+
+**Next steps:**
+- Audit remaining asset loaders (models, sprites, sounds) for similar absolute
+  path vulnerabilities or host-path dependencies.
+- Verify config/ID writes are fully gated by `GCube_HasWritableStorage()`.
+
 ## Next wake-up commands
 
 ```sh
