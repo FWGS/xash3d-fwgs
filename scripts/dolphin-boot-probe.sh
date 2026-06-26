@@ -895,6 +895,20 @@ if grep -aqsF "GX_DrawDone" "${LOG_FILES[@]}"; then
 	GX_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "${LOG_FILES[@]}")
 fi
 
+# G36_PATCH_v91: Detect GX_Flush without corresponding GX_DrawDone to diagnose
+# command buffer submission issues. Flush without DrawDone suggests incomplete
+# frame presentation or early-return before command submission.
+GX_FLUSH_COUNT=0
+GX_FLUSH_WITHOUT_DRAWDONE=0
+if grep -aqsF "GX_Flush" "${LOG_FILES[@]}"; then
+	GX_FLUSH_COUNT=$(grep -acF "GX_Flush" "${LOG_FILES[@]}")
+	if (( GX_FLUSH_COUNT > 0 )) && (( GX_DRAWDONE_COUNT == 0 )); then
+		GX_FLUSH_WITHOUT_DRAWDONE=1
+		echo "G36_FLUSH_NO_DRAWDONE: ${GX_FLUSH_COUNT} GX_Flush markers found but zero GX_DrawDone. Command buffer may not be completing frames."
+		echo "G36_FLUSH_HINT: Check for missing GX_DrawDone after GX_Flush, or early-return paths that skip command submission."
+	fi
+fi
+
 # G36_PATCH_v83: Detect explicit frame-render-complete markers to definitively
 # prove the guest reached successful frame presentation. Distinguishes "renderer
 # initialized" from "renderer actually drew and presented frames". This provides
