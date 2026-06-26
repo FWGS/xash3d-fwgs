@@ -24,6 +24,7 @@ for shell_script in \
 	scripts/build-gamecube.sh \
 	scripts/xash3d-gc-aider-gui.sh \
 	scripts/dolphin-boot-probe.sh \
+	scripts/dolphin-probe-analyze.py \
 	scripts/hlsdk-gamecube-probe.sh \
 	scripts/hlsdk-gamecube-build.sh \
 	scripts/gamecube-map-compat-probe.sh \
@@ -52,6 +53,7 @@ if (( PROBE_BYTES > PROBE_MAX_BYTES )); then
 fi
 echo "probe guard: $PROBE_SCRIPT ${PROBE_LINES} lines, ${PROBE_BYTES} bytes"
 
+python3 -c 'compile(open("scripts/dolphin-probe-analyze.py", encoding="utf-8").read(), "scripts/dolphin-probe-analyze.py", "exec")'
 python3 -c 'compile(open("scripts/xash3d-gc-aider-gui.py", encoding="utf-8").read(), "scripts/xash3d-gc-aider-gui.py", "exec")'
 python3 -c 'compile(open("scripts/ai-goal-loop.py", encoding="utf-8").read(), "scripts/ai-goal-loop.py", "exec")'
 python3 -c 'compile(open("scripts/ai-run-until-done.py", encoding="utf-8").read(), "scripts/ai-run-until-done.py", "exec")'

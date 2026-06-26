@@ -20,17 +20,22 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from PyQt6.QtCore import QByteArray, QObject, QProcess, QProcessEnvironment, Qt, QThread, QTimer, QUrl, pyqtSignal
-from PyQt6.QtGui import QAction, QCloseEvent, QDesktopServices, QFont, QFontDatabase, QPixmap, QTextCursor
+from PyQt6.QtGui import (
+	QAction, QCloseEvent, QDesktopServices, QFont, QFontDatabase, QPixmap, QTextCharFormat,
+	QTextCursor, QColor,
+)
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
 	QApplication,
 	QCheckBox,
+	QComboBox,
 	QDialog,
 	QDialogButtonBox,
 	QDoubleSpinBox,
 	QDockWidget,
 	QFileDialog,
 	QFormLayout,
+	QFrame,
 	QGridLayout,
 	QHeaderView,
 	QGroupBox,
@@ -44,6 +49,7 @@ from PyQt6.QtWidgets import (
 	QPushButton,
 	QSizePolicy,
 	QSpinBox,
+	QStatusBar,
 	QTabWidget,
 	QTableWidget,
 	QTableWidgetItem,
@@ -52,7 +58,7 @@ from PyQt6.QtWidgets import (
 )
 
 DEFAULT_REPO = Path(__file__).resolve().parents[1]
-APP_VERSION = "0.5.0-dev"
+APP_VERSION = "0.5.2-dev"
 SETTINGS_PATH = DEFAULT_REPO / ".ai/state/xash3d-gc-aider-gui-settings.json"
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 QWABLE_5_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
@@ -62,17 +68,26 @@ HEADER_MARK = DEFAULT_REPO / "assets/ui/gamecube-mark.svg"
 DOCK_CLOSE_ICON = DEFAULT_REPO / "assets/ui/dock-close-white.svg"
 DOCK_FLOAT_ICON = DEFAULT_REPO / "assets/ui/dock-float-white.svg"
 
-GC_BG = "#171225"
-GC_PANEL = "#241a3f"
-GC_PANEL_2 = "#31265d"
-GC_INPUT = "#140f2a"
-GC_TEXT = "#f3f0ff"
+GC_BG = "#120e22"
+GC_PANEL = "#1f1738"
+GC_PANEL_2 = "#2d2454"
+GC_INPUT = "#0d0a18"
+GC_TEXT = "#f6f2ff"
 GC_MUTED = "#b8aee8"
 GC_VIOLET = "#6d5ac9"
+GC_PURPLE = "#5b4fbb"
 GC_BORDER = "#8f7bea"
 GC_CYAN = "#62d9ff"
 GC_ORANGE = "#ffb14a"
 GC_MINT = "#7fffd4"
+GC_SILVER = "#d8d2ef"
+GC_RED = "#ff6b6b"
+LOG_HIGHLIGHT_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+	(re.compile(r"(?i)(MAP_READY|G36_STATUS|FRAME_BUDGET_STATS|RC check passed)"), GC_MINT),
+	(re.compile(r"(?i)(GUEST_FAILURE|BOOT_FAILURE|FAIL:|RC check failed|out of memory|Xash Error)"), GC_ORANGE),
+	(re.compile(r"(?i)(WARNING|WARN:|blocked|OVER_BUDGET)"), GC_ORANGE),
+	(re.compile(r"(?i)(verify: OK|GIT SAVED|accepted patch|ENGINE_READY)"), GC_CYAN),
+)
 
 
 def load_font(path: Path, fallback: str) -> str:
@@ -360,56 +375,112 @@ def gpu_memory_preflight_message(command: list[str]) -> str | None:
 	return summary
 
 
-def stylesheet() -> str:
+def stylesheet(gamecube_font: str = "Sans Serif") -> str:
+	gc_font = gamecube_font.replace('"', "")
 	return f"""
 	QMainWindow, QWidget {{ background: {GC_BG}; color: {GC_TEXT}; }}
+	QStatusBar {{ background: {GC_PANEL}; color: {GC_MUTED}; border-top: 1px solid {GC_BORDER}; }}
+	QStatusBar::item {{ border: 0; }}
 	QMenuBar {{ background: {GC_PANEL}; color: {GC_TEXT}; border-bottom: 1px solid {GC_BORDER}; }}
-	QMenuBar::item {{ padding: 4px 8px; background: transparent; }}
+	QMenuBar::item {{ padding: 4px 10px; background: transparent; border-radius: 6px; }}
 	QMenuBar::item:selected {{ background: {GC_PANEL_2}; color: {GC_CYAN}; }}
-	QMenu {{ background: {GC_PANEL}; color: {GC_TEXT}; border: 1px solid {GC_BORDER}; }}
-	QMenu::item {{ padding: 5px 22px; }}
-	QMenu::item:selected {{ background: {GC_PANEL_2}; color: {GC_CYAN}; }}
+	QMenu {{ background: {GC_PANEL}; color: {GC_TEXT}; border: 1px solid {GC_BORDER}; padding: 4px; }}
+	QMenu::item {{ padding: 6px 24px; border-radius: 6px; }}
+	QMenu::item:selected {{ background: {GC_PURPLE}; color: {GC_TEXT}; }}
+	QMenu::separator {{ height: 1px; background: {GC_PANEL_2}; margin: 4px 8px; }}
 	QDockWidget {{ titlebar-close-icon: url({DOCK_CLOSE_ICON.as_posix()});
 		titlebar-normal-icon: url({DOCK_FLOAT_ICON.as_posix()}); }}
-	QDockWidget::title {{ background: {GC_PANEL_2}; color: {GC_CYAN};
-		border: 1px solid {GC_BORDER}; padding: 5px 7px; font-weight: bold; }}
+	QDockWidget::title {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+		stop:0 {GC_PANEL_2}, stop:1 {GC_PANEL}); color: {GC_CYAN};
+		border: 1px solid {GC_BORDER}; padding: 6px 8px; font-weight: bold;
+		font-family: "{gc_font}"; letter-spacing: 0.5px; }}
 	QDockWidget::close-button, QDockWidget::float-button {{ background: transparent;
 		border: 1px solid transparent; padding: 2px; icon-size: 14px; }}
 	QDockWidget::close-button:hover, QDockWidget::float-button:hover {{
 		background: {GC_VIOLET}; border: 1px solid {GC_CYAN}; border-radius: 3px; }}
 	QDockWidget::close-button:pressed, QDockWidget::float-button:pressed {{ background: #4b3c99; }}
+	QTabWidget::pane {{ border: 1px solid {GC_BORDER}; border-radius: 10px; background: {GC_INPUT}; }}
+	QTabBar::tab {{ background: {GC_PANEL}; color: {GC_MUTED}; border: 1px solid {GC_PANEL_2};
+		border-bottom: 0; padding: 6px 12px; margin-right: 2px; border-top-left-radius: 8px;
+		border-top-right-radius: 8px; font-weight: bold; }}
+	QTabBar::tab:selected {{ background: {GC_PURPLE}; color: {GC_TEXT}; border-color: {GC_CYAN}; }}
+	QTabBar::tab:hover {{ color: {GC_CYAN}; }}
 	QGroupBox {{ background: {GC_PANEL}; border: 2px solid {GC_BORDER};
-		border-radius: 8px; margin-top: 11px; padding: 9px; font-weight: bold; }}
-	QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; color: {GC_CYAN}; }}
-	QLineEdit, QSpinBox, QPlainTextEdit {{ background: {GC_INPUT}; color: {GC_TEXT};
-		border: 2px inset {GC_PANEL_2}; border-radius: 6px; padding: 5px; }}
-	QLineEdit:focus, QSpinBox:focus, QPlainTextEdit:focus {{ border: 2px solid {GC_CYAN}; }}
+		border-radius: 10px; margin-top: 12px; padding: 10px; font-weight: bold; }}
+	QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; color: {GC_CYAN};
+		font-family: "{gc_font}"; }}
+	QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit {{ background: {GC_INPUT};
+		color: {GC_TEXT}; border: 2px inset {GC_PANEL_2}; border-radius: 8px; padding: 6px; }}
+	QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QPlainTextEdit:focus {{
+		border: 2px solid {GC_CYAN}; }}
+	QComboBox::drop-down {{ border: 0; width: 18px; }}
+	QComboBox QAbstractItemView {{ background: {GC_PANEL}; color: {GC_TEXT};
+		border: 1px solid {GC_BORDER}; selection-background-color: {GC_PURPLE}; }}
+	QCheckBox {{ spacing: 8px; color: {GC_TEXT}; }}
+	QCheckBox::indicator {{ width: 16px; height: 16px; border-radius: 4px;
+		border: 2px solid {GC_BORDER}; background: {GC_INPUT}; }}
+	QCheckBox::indicator:checked {{ background: {GC_CYAN}; border-color: {GC_CYAN}; }}
+	QScrollBar:vertical {{ background: {GC_INPUT}; width: 12px; margin: 0; }}
+	QScrollBar::handle:vertical {{ background: {GC_PANEL_2}; min-height: 24px; border-radius: 6px; }}
+	QScrollBar::handle:vertical:hover {{ background: {GC_PURPLE}; }}
 	QPushButton {{ background: {GC_VIOLET}; color: {GC_TEXT}; border: 2px outset {GC_BORDER};
-		border-radius: 9px; padding: 6px 10px; font-weight: bold; }}
-	QPushButton:hover {{ background: #806ee0; border-color: {GC_CYAN}; }}
+		border-radius: 10px; padding: 7px 12px; font-weight: bold; }}
+	QPushButton:hover {{ background: #806ee0; border-color: {GC_CYAN}; color: {GC_TEXT}; }}
 	QPushButton:pressed {{ background: #4b3c99; border-style: inset; }}
 	QPushButton:disabled {{ background: {GC_PANEL_2}; color: {GC_MUTED}; border-color: {GC_PANEL}; }}
-	QProgressBar {{ background: {GC_INPUT}; border: 1px solid {GC_CYAN}; border-radius: 8px;
+	QPushButton#PrimaryButton {{ background: {GC_PURPLE}; border-color: {GC_CYAN};
+		font-family: "{gc_font}"; letter-spacing: 0.4px; min-height: 28px; }}
+	QPushButton#PrimaryButton:hover {{ background: #7466d8; }}
+	QPushButton#DangerButton {{ background: #6b3040; border-color: {GC_ORANGE}; color: {GC_ORANGE}; }}
+	QPushButton#ToolButton {{ background: {GC_PANEL_2}; border-color: {GC_BORDER}; padding: 6px 10px; }}
+	QProgressBar {{ background: {GC_INPUT}; border: 1px solid {GC_BORDER}; border-radius: 9px;
 		text-align: center; color: {GC_TEXT}; height: 16px; }}
-	QProgressBar::chunk {{ background: {GC_CYAN}; border-radius: 7px; }}
-	QLabel#Title {{ color: {GC_TEXT}; font-size: 19px; font-weight: bold; }}
-	QLabel#Subtitle {{ color: {GC_CYAN}; font-size: 9px; }}
+	QProgressBar::chunk {{ background: {GC_CYAN}; border-radius: 8px; }}
+	QProgressBar#GoalProgress::chunk {{ background: {GC_MINT}; }}
+	QLabel#Title {{ color: {GC_TEXT}; font-size: 22px; font-weight: bold;
+		font-family: "{gc_font}"; letter-spacing: 0.6px; }}
+	QLabel#Subtitle {{ color: {GC_CYAN}; font-size: 10px; font-weight: bold; letter-spacing: 0.8px; }}
+	QLabel#VersionBadge {{ background: {GC_PANEL_2}; color: {GC_SILVER}; border: 1px solid {GC_BORDER};
+		border-radius: 8px; padding: 4px 8px; font-size: 10px; font-weight: bold; }}
+	QWidget#HeaderBanner {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+		stop:0 {GC_PANEL}, stop:0.55 {GC_PANEL_2}, stop:1 {GC_PANEL});
+		border: 2px solid {GC_BORDER}; border-radius: 14px; }}
+	QFrame#HeaderRule {{ background: {GC_BORDER}; max-height: 2px; border: 0; }}
 	QLabel#Chip {{ background: {GC_PANEL_2}; color: {GC_MINT}; border: 1px solid {GC_BORDER};
-		border-radius: 7px; padding: 4px 7px; font-weight: bold; }}
+		border-radius: 9px; padding: 5px 8px; font-weight: bold; font-family: "{gc_font}";
+		font-size: 10px; letter-spacing: 0.3px; }}
+	QLabel#ChipOk {{ background: #174638; color: {GC_MINT}; border: 1px solid {GC_MINT};
+		border-radius: 9px; padding: 5px 8px; font-weight: bold; font-family: "{gc_font}";
+		font-size: 10px; letter-spacing: 0.3px; }}
+	QLabel#ChipWarn {{ background: #563621; color: {GC_ORANGE}; border: 1px solid {GC_ORANGE};
+		border-radius: 9px; padding: 5px 8px; font-weight: bold; font-family: "{gc_font}";
+		font-size: 10px; letter-spacing: 0.3px; }}
+	QLabel#ChipBad {{ background: #4a2030; color: {GC_RED}; border: 1px solid {GC_RED};
+		border-radius: 9px; padding: 5px 8px; font-weight: bold; font-family: "{gc_font}";
+		font-size: 10px; letter-spacing: 0.3px; }}
+	QLabel#ChipInfo {{ background: #17405a; color: {GC_CYAN}; border: 1px solid {GC_CYAN};
+		border-radius: 9px; padding: 5px 8px; font-weight: bold; font-family: "{gc_font}";
+		font-size: 10px; letter-spacing: 0.3px; }}
+	QLabel#ChipClickable {{ background: {GC_PANEL_2}; color: {GC_MINT}; border: 1px solid {GC_BORDER};
+		border-radius: 9px; padding: 5px 8px; font-weight: bold; font-family: "{gc_font}";
+		font-size: 10px; }}
+	QLabel#ChipClickable:hover {{ border-color: {GC_CYAN}; color: {GC_CYAN}; }}
 	QLabel#CenterBay {{ background: #090617; color: {GC_MUTED}; border: 2px dashed {GC_PANEL_2};
-		border-radius: 10px; padding: 12px; font-weight: bold; }}
+		border-radius: 12px; padding: 14px; font-weight: bold; }}
 	QLabel#PipelineIdle {{ background: {GC_PANEL_2}; color: {GC_MUTED}; border: 2px outset {GC_BORDER};
-		border-radius: 8px; padding: 8px; font-weight: bold; }}
+		border-radius: 9px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
 	QLabel#PipelineRunning {{ background: #17405a; color: {GC_CYAN}; border: 2px solid {GC_CYAN};
-		border-radius: 8px; padding: 8px; font-weight: bold; }}
+		border-radius: 9px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
 	QLabel#PipelineSuccess {{ background: #174638; color: {GC_MINT}; border: 2px solid {GC_MINT};
-		border-radius: 8px; padding: 8px; font-weight: bold; }}
+		border-radius: 9px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
 	QLabel#PipelineFailed {{ background: #563621; color: {GC_ORANGE}; border: 2px solid {GC_ORANGE};
-		border-radius: 8px; padding: 8px; font-weight: bold; }}
+		border-radius: 9px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
 	QTableWidget {{ background: {GC_INPUT}; alternate-background-color: {GC_PANEL}; color: {GC_TEXT};
-		gridline-color: {GC_PANEL_2}; border: 1px solid {GC_BORDER}; border-radius: 6px; }}
+		gridline-color: {GC_PANEL_2}; border: 1px solid {GC_BORDER}; border-radius: 8px;
+		selection-background-color: {GC_PURPLE}; selection-color: {GC_TEXT}; }}
 	QHeaderView::section {{ background: {GC_PANEL_2}; color: {GC_CYAN}; border: 0;
-		border-right: 1px solid {GC_PANEL}; padding: 4px; font-weight: bold; }}
+		border-right: 1px solid {GC_PANEL}; padding: 5px; font-weight: bold; }}
+	QLabel#SectionLabel {{ color: {GC_CYAN}; font-weight: bold; letter-spacing: 0.4px; }}
 	"""
 
 
@@ -430,6 +501,9 @@ class DashboardSnapshot:
 	agent_memory: str = ""
 	screenshot_path: str = ""
 	screenshot_status: str = "No Dolphin screenshot captured yet"
+	harness_status: str = "unknown"
+	harness_g36: str = "unknown"
+	harness_text: str = "HARNESS  —"
 	error: str = ""
 
 
@@ -462,6 +536,24 @@ def read_goals_for_repo(repo: Path) -> list[tuple[str, str, str, str]]:
 
 def goal_is_blocked(body: str) -> bool:
 	return bool(re.search(r"(?im)^\s*-\s*Status:\s*BLOCKED\b", body))
+
+
+def parse_harness_latest(repo: Path) -> tuple[str, str, str]:
+	path = repo / ".ai/state/dolphin-harness-latest.md"
+	if not path.is_file():
+		return "unknown", "unknown", "HARNESS  NO RUN"
+	fields: dict[str, str] = {}
+	for line in path.read_text(encoding="utf-8").splitlines():
+		if line.startswith("- ") and ": " in line:
+			key, value = line[2:].split(": ", 1)
+			fields[key.strip()] = value.strip()
+	status = fields.get("Status", "unknown")
+	g36 = fields.get("Analysis", "unknown")
+	goal = fields.get("Goal", "?")
+	text = f"HARNESS  {goal} / {status}"
+	if g36 and g36 != "unknown":
+		text = f"{text} / G36={g36}"
+	return status, g36, text[:72]
 
 
 def latest_dolphin_screenshot_for_repo(repo: Path) -> tuple[str, str]:
@@ -590,15 +682,20 @@ def build_dashboard_snapshot(repo: Path, model_host: str, model_port: int) -> Da
 				entries = [line[2:] for line in blockers.read_text(encoding="utf-8").splitlines() if line.startswith("- ")]
 				if entries:
 					blocker_tail = entries[-1][:100]
+			harness_status, harness_g36, harness_text = parse_harness_latest(repo)
+			snapshot.harness_status = harness_status
+			snapshot.harness_g36 = harness_g36
+			snapshot.harness_text = harness_text
 			harness_latest = repo / ".ai/state/dolphin-harness-latest.md"
-			harness_status = "none recorded"
+			harness_status_line = "none recorded"
 			if harness_latest.is_file():
 				interesting = []
 				for line in harness_latest.read_text(encoding="utf-8").splitlines():
-					if line.startswith("- Status:") or line.startswith("- Visual:") or line.startswith("- Next action:"):
+					if line.startswith("- Status:") or line.startswith("- Visual:") or \
+						line.startswith("- Analysis:") or line.startswith("- Next action:"):
 						interesting.append(line.removeprefix("- ").strip())
 				if interesting:
-					harness_status = " / ".join(interesting)[:160]
+					harness_status_line = " / ".join(interesting)[:180]
 			toolchain = Path(os.environ.get("DEVKITPRO", "/opt/devkitpro")) / "devkitPPC/bin/powerpc-eabi-gcc"
 			lines = [
 				f"GIT       {branch}  {'DIRTY' if porcelain else 'CLEAN'}",
@@ -609,7 +706,7 @@ def build_dashboard_snapshot(repo: Path, model_host: str, model_port: int) -> Da
 				f"CONTENT   {'READY' if valve.is_dir() else 'MISSING'}  Half-Life/valve",
 				f"AIDER     {'AUTH INHERITED' if os.environ.get('OPENAI_API_KEY') else 'AUTH NOT IN ENVIRONMENT'}",
 				f"BLOCKER   {blocker_tail}",
-				f"DOLPHIN   {harness_status}",
+				f"DOLPHIN   {harness_status_line}",
 			]
 			snapshot.context = "\n".join(lines)
 			snapshot.agent_memory = agent_memory_for_repo(repo)
@@ -618,6 +715,19 @@ def build_dashboard_snapshot(repo: Path, model_host: str, model_port: int) -> Da
 	except (OSError, subprocess.SubprocessError, ValueError) as exc:
 		snapshot.error = f"Telemetry unavailable: {exc}"
 	return snapshot
+
+
+class ClickableLabel(QLabel):
+	clicked = pyqtSignal()
+
+	def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
+		super().__init__(text, parent)
+		self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+	def mousePressEvent(self, event) -> None:  # type: ignore[override]
+		if event.button() == Qt.MouseButton.LeftButton:
+			self.clicked.emit()
+		super().mousePressEvent(event)
 
 
 class DashboardWorker(QObject):
@@ -636,7 +746,8 @@ class DashboardWorker(QObject):
 class PortWindow(QMainWindow):
 	def __init__(self, gamecube_font_family: str) -> None:
 		super().__init__()
-		self.setWindowTitle("Xash3D on GameCube Porting")
+		self.gamecube_font_family = gamecube_font_family
+		self.setWindowTitle("Xash3D on GameCube — Porting Console")
 		self.resize(1320, 820)
 		self.process: QProcess | None = None
 		self.model_process: QProcess | None = None
@@ -657,6 +768,7 @@ class PortWindow(QMainWindow):
 		self.last_agent_memory = ""
 		self.start_head = ""
 		self.closing = False
+		self.model_api_wait_attempts = 0
 		self.setDockOptions(
 			QMainWindow.DockOption.AllowNestedDocks |
 			QMainWindow.DockOption.AllowTabbedDocks |
@@ -680,42 +792,78 @@ class PortWindow(QMainWindow):
 		self.setCentralWidget(central)
 		layout = QVBoxLayout(central)
 		layout.setSpacing(8)
-		layout.setContentsMargins(12, 10, 12, 10)
+		layout.setContentsMargins(12, 10, 12, 6)
 
+		header_banner = QWidget()
+		header_banner.setObjectName("HeaderBanner")
+		header_outer = QVBoxLayout(header_banner)
+		header_outer.setContentsMargins(14, 10, 14, 10)
+		header_outer.setSpacing(8)
 		header = QHBoxLayout()
 		mark = QSvgWidget(str(HEADER_MARK))
-		mark.setFixedSize(64, 64)
+		mark.setFixedSize(72, 72)
 		header.addWidget(mark)
 		titles = QVBoxLayout()
 		title_row = QHBoxLayout()
-		title_row.setSpacing(6)
+		title_row.setSpacing(8)
 		title_prefix = QLabel("Xash3D")
 		title_prefix.setObjectName("Title")
 		title_row.addWidget(title_prefix)
 		logo = QSvgWidget(str(HEADER_LOGO))
-		logo.setFixedSize(132, 100)
+		logo.setFixedSize(128, 92)
 		title_row.addWidget(logo, 0, Qt.AlignmentFlag.AlignVCenter)
 		title_row.addStretch()
+		version_badge = QLabel(f"v{APP_VERSION}")
+		version_badge.setObjectName("VersionBadge")
+		title_row.addWidget(version_badge, 0, Qt.AlignmentFlag.AlignTop)
 		titles.addLayout(title_row)
-		header.addLayout(titles)
-		layout.addLayout(header)
+		subtitle = QLabel("NINTENDO GAMECUBE PORTING CONSOLE")
+		subtitle.setObjectName("Subtitle")
+		titles.addWidget(subtitle)
+		header.addLayout(titles, 1)
+		goal_progress_box = QVBoxLayout()
+		goal_progress_label = QLabel("GOAL PROGRESS")
+		goal_progress_label.setObjectName("SectionLabel")
+		self.goal_progress = QProgressBar()
+		self.goal_progress.setObjectName("GoalProgress")
+		self.goal_progress.setRange(0, 100)
+		self.goal_progress.setValue(0)
+		self.goal_progress.setFormat("0 / 0 goals")
+		self.goal_progress.setFixedWidth(148)
+		goal_progress_box.addWidget(goal_progress_label, 0, Qt.AlignmentFlag.AlignRight)
+		goal_progress_box.addWidget(self.goal_progress)
+		header.addLayout(goal_progress_box)
+		header_outer.addLayout(header)
+		rule = QFrame()
+		rule.setObjectName("HeaderRule")
+		rule.setFrameShape(QFrame.Shape.HLine)
+		header_outer.addWidget(rule)
+		layout.addWidget(header_banner)
 
 		chip_row = QHBoxLayout()
 		self.dol_chip = QLabel("DOL  —")
 		self.iso_chip = QLabel("ISO  —")
 		self.dolphin_chip = QLabel("DOLPHIN CHECKING")
+		self.harness_chip = ClickableLabel("HARNESS  —")
+		self.harness_chip.setObjectName("ChipClickable")
+		self.harness_chip.setToolTip("Click to open the latest Dolphin harness report")
+		self.harness_chip.clicked.connect(self.open_harness_report)
 		self.model_chip = QLabel("MODEL CHECKING")
 		self.save_chip = QLabel("GIT SAVED")
 		for chip in (self.dol_chip, self.iso_chip, self.dolphin_chip, self.model_chip, self.save_chip):
 			chip.setObjectName("Chip")
 			chip_row.addWidget(chip)
+		chip_row.addWidget(self.harness_chip)
 		chip_row.addStretch()
 		layout.addLayout(chip_row)
 
 		self.center_tabs = QTabWidget()
 		self.center_tabs.setTabsClosable(True)
 		self.center_tabs.tabCloseRequested.connect(self.restore_center_tab)
-		self.center_bay = QLabel("CENTER DOCK BAY\nUse View > Dock Panel In Middle to park a panel here.")
+		self.center_bay = QLabel(
+			"CENTER DOCK BAY\n\nPark any panel here from View > Dock Panel In Middle.\n"
+			"Good candidates: Goals, Dolphin Viewport, Model Server."
+		)
 		self.center_bay.setObjectName("CenterBay")
 		self.center_bay.setAlignment(Qt.AlignmentFlag.AlignCenter)
 		self.center_bay.setMinimumHeight(96)
@@ -782,17 +930,23 @@ class PortWindow(QMainWindow):
 		recommended_btn.clicked.connect(self.apply_recommended_model_settings)
 		test_api_btn = QPushButton("Test API")
 		test_api_btn.clicked.connect(self.refresh_model_api_summary)
+		preflight_btn = QPushButton("Context Preflight")
+		preflight_btn.setToolTip("Estimate whether the active goal context fits the vLLM window")
+		preflight_btn.clicked.connect(self.run_context_preflight)
 		model_command_label = QLabel("Command:")
 		model_api_label = QLabel("API base:")
 		model_controls = QHBoxLayout()
 		self.start_model_btn = QPushButton("▶  START")
+		self.start_model_btn.setObjectName("PrimaryButton")
 		self.start_model_btn.clicked.connect(self.start_model)
 		self.kill_model_btn = QPushButton("■  KILL")
+		self.kill_model_btn.setObjectName("DangerButton")
 		self.kill_model_btn.clicked.connect(self.kill_model)
 		model_controls.addWidget(self.start_model_btn)
 		model_controls.addWidget(self.kill_model_btn)
 		model_controls.addWidget(recommended_btn)
 		model_controls.addWidget(test_api_btn)
+		model_controls.addWidget(preflight_btn)
 		self.model_status_label = QLabel("Model API not checked yet")
 		self.model_status_label.setWordWrap(True)
 		self.model_status_label.setStyleSheet(f"color: {GC_MUTED};")
@@ -835,7 +989,19 @@ class PortWindow(QMainWindow):
 		self.goal_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
 		self.goal_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 		self.goal_table.setAlternatingRowColors(True)
+		self.goal_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+		self.goal_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+		self.goal_table.cellDoubleClicked.connect(self.show_goal_detail)
 		goals_layout.addWidget(self.goal_table)
+		harness_label = QLabel("Dolphin Harness")
+		harness_label.setObjectName("SectionLabel")
+		goals_layout.addWidget(harness_label)
+		self.harness_view = QPlainTextEdit()
+		self.harness_view.setReadOnly(True)
+		self.harness_view.setMaximumBlockCount(40)
+		self.harness_view.setMaximumHeight(120)
+		self.harness_view.setPlaceholderText("Run Boot Probe or RC Check to populate harness telemetry.")
+		goals_layout.addWidget(self.harness_view)
 		self.add_panel("Goals", goals_panel, Qt.DockWidgetArea.LeftDockWidgetArea)
 
 		context_panel = QWidget()
@@ -881,8 +1047,10 @@ class PortWindow(QMainWindow):
 		self.recovery_spin.setRange(1, 50)
 		self.recovery_spin.setValue(8)
 		self.loop_btn = QPushButton("▶  ACCOMPLISH GOALS")
+		self.loop_btn.setObjectName("PrimaryButton")
 		self.loop_btn.clicked.connect(self.run_goal_loop)
 		self.stop_btn = QPushButton("■  STOP AUTOMATION")
+		self.stop_btn.setObjectName("DangerButton")
 		self.stop_btn.clicked.connect(self.stop_process)
 		self.stop_btn.setEnabled(False)
 		controls.addWidget(self.loop_btn, 2)
@@ -919,12 +1087,15 @@ class PortWindow(QMainWindow):
 			("RC Check", ["scripts/gamecube-rc-check.sh"]),
 		):
 			button = QPushButton(label)
+			button.setObjectName("ToolButton")
 			button.clicked.connect(lambda _checked=False, c=command, n=label: self.start(c, n))
 			tools.addWidget(button)
 		self.dolphin_btn = QPushButton("Build & Boot in Dolphin")
+		self.dolphin_btn.setObjectName("ToolButton")
 		self.dolphin_btn.clicked.connect(self.boot_dolphin)
 		tools.addWidget(self.dolphin_btn)
 		self.vision_btn = QPushButton("Dolphin Screenshot Vision Test")
+		self.vision_btn.setObjectName("ToolButton")
 		self.vision_btn.clicked.connect(self.run_dolphin_vision_test)
 		tools.addWidget(self.vision_btn)
 		self.add_panel("Tools", tools_panel, Qt.DockWidgetArea.TopDockWidgetArea)
@@ -943,19 +1114,30 @@ class PortWindow(QMainWindow):
 		self.clear_log_btn.clicked.connect(self.clear_log)
 		self.open_logs_btn = QPushButton("Open Logs Folder")
 		self.open_logs_btn.clicked.connect(self.open_logs_folder)
+		self.log_filter = QComboBox()
+		self.log_filter.addItems(("All output", "Harness markers", "Errors & warnings"))
+		self.log_filter.setToolTip("Filter the console log view")
+		self.log_filter.currentIndexChanged.connect(self.apply_log_filter)
 		self.follow_log = QCheckBox("Auto-scroll log")
 		self.follow_log.setChecked(True)
 		for button in (self.copy_log_btn, self.save_log_btn, self.clear_log_btn,
 			self.open_logs_btn):
 			log_tools.addWidget(button)
 		log_tools.addStretch()
+		log_tools.addWidget(QLabel("Filter:"))
+		log_tools.addWidget(self.log_filter)
 		log_tools.addWidget(self.follow_log)
 		console_layout.addLayout(log_tools)
+		self.log_buffer: list[str] = []
 		self.log = QPlainTextEdit()
 		self.log.setReadOnly(True)
 		self.log.setMaximumBlockCount(10000)
 		console_layout.addWidget(self.log)
 		self.add_panel("Log", console_panel, Qt.DockWidgetArea.BottomDockWidgetArea)
+
+		self.status_bar = QStatusBar()
+		self.setStatusBar(self.status_bar)
+		self.status_bar.showMessage("GameCube porting console ready")
 
 		self.splitDockWidget(self.docks["Workspace"], self.docks["Goals"], Qt.Orientation.Vertical)
 		self.splitDockWidget(self.docks["Telemetry"], self.docks["Log"], Qt.Orientation.Vertical)
@@ -968,8 +1150,10 @@ class PortWindow(QMainWindow):
 		self.load_saved_settings()
 		load_gamecube_env(self.repo())
 		self.sync_model_command_from_tuning()
+		self.write_settings_file(include_layout=False)
 		self.ensure_core_panels_visible()
 		self.prime_goal_ledger()
+		self.refresh_harness_view()
 
 		self.timer = QTimer(self)
 		self.timer.setInterval(3000)
@@ -1018,6 +1202,47 @@ class PortWindow(QMainWindow):
 		self.layout_menu.addAction(reset_action)
 		self.middle_menu = self.view_menu.addMenu("Dock Panel In Middle")
 		self.view_menu.addSeparator()
+
+		self.run_menu = self.menuBar().addMenu("&Run")
+		run_goal = QAction("Accomplish Goals", self)
+		run_goal.setShortcut("Ctrl+Return")
+		run_goal.triggered.connect(self.run_goal_loop)
+		self.run_menu.addAction(run_goal)
+		stop_action = QAction("Stop Automation", self)
+		stop_action.setShortcut("Escape")
+		stop_action.triggered.connect(self.stop_process)
+		self.run_menu.addAction(stop_action)
+		self.run_menu.addSeparator()
+		start_model = QAction("Start Model Server", self)
+		start_model.setShortcut("Ctrl+M")
+		start_model.triggered.connect(self.start_model)
+		self.run_menu.addAction(start_model)
+		kill_model = QAction("Kill Model Server", self)
+		kill_model.setShortcut("Ctrl+Shift+M")
+		kill_model.triggered.connect(self.kill_model)
+		self.run_menu.addAction(kill_model)
+
+		self.tools_menu = self.menuBar().addMenu("&Tools")
+		for label, shortcut, command in (
+			("Verify", "Ctrl+1", ["scripts/ai-verify.sh"]),
+			("Boot Probe", "Ctrl+2", ["scripts/dolphin-boot-probe.sh"]),
+			("RC Check", "Ctrl+3", ["scripts/gamecube-rc-check.sh"]),
+			("Build DOL", "Ctrl+4", ["scripts/build-gamecube.sh"]),
+			("Review HEAD", "Ctrl+5", ["scripts/ai-review.sh"]),
+		):
+			action = QAction(label, self)
+			action.setShortcut(shortcut)
+			action.triggered.connect(lambda _checked=False, c=command, n=label: self.start(c, n))
+			self.tools_menu.addAction(action)
+		self.tools_menu.addSeparator()
+		context_action = QAction("Context Preflight", self)
+		context_action.setShortcut("Ctrl+P")
+		context_action.triggered.connect(self.run_context_preflight)
+		self.tools_menu.addAction(context_action)
+		harness_action = QAction("Open Harness Report", self)
+		harness_action.setShortcut("Ctrl+H")
+		harness_action.triggered.connect(self.open_harness_report)
+		self.tools_menu.addAction(harness_action)
 
 		self.about_menu = self.menuBar().addMenu("&About")
 		about_action = QAction("About Xash3D GameCube Porting", self)
@@ -1313,6 +1538,96 @@ class PortWindow(QMainWindow):
 			QMessageBox.warning(self, "Invalid repository", "Select the Xash3D GameCube repository root.")
 		return ok
 
+	def set_chip_state(self, chip: QLabel, text: str, state: str = "idle") -> None:
+		chip.setText(text)
+		object_name = {
+			"ok": "ChipOk",
+			"warn": "ChipWarn",
+			"bad": "ChipBad",
+			"info": "ChipInfo",
+			"idle": "ChipClickable" if isinstance(chip, ClickableLabel) else "Chip",
+		}.get(state, "Chip")
+		chip.setObjectName(object_name)
+		chip.style().unpolish(chip)
+		chip.style().polish(chip)
+
+	def refresh_harness_view(self) -> None:
+		path = self.repo() / ".ai/state/dolphin-harness-latest.md"
+		if not path.is_file():
+			self.harness_view.setPlainText("No harness report yet. Run Boot Probe or RC Check.")
+			return
+		self.harness_view.setPlainText(path.read_text(encoding="utf-8").strip())
+
+	def open_harness_report(self) -> None:
+		path = self.repo() / ".ai/state/dolphin-harness-latest.md"
+		self.refresh_harness_view()
+		if path.is_file():
+			QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+			self.status_bar.showMessage(f"Opened {path.relative_to(self.repo())}", 5000)
+		else:
+			self.open_logs_folder()
+
+	def show_goal_detail(self, row: int, _column: int) -> None:
+		item = self.goal_table.item(row, 0)
+		if item is None:
+			return
+		goal_id = item.text()
+		goals = self.read_goals()
+		match = next((goal for goal in goals if goal[0] == goal_id), None)
+		if match is None:
+			return
+		_, state, title, body = match
+		dialog = QDialog(self)
+		dialog.setWindowTitle(f"{goal_id} — {title}")
+		dialog.setMinimumWidth(560)
+		layout = QVBoxLayout(dialog)
+		header = QLabel(f"{goal_id}  [{state}]  {title}")
+		header.setObjectName("SectionLabel")
+		header.setWordWrap(True)
+		layout.addWidget(header)
+		body_view = QPlainTextEdit()
+		body_view.setReadOnly(True)
+		body_view.setPlainText(body or "(no details recorded)")
+		layout.addWidget(body_view)
+		buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+		buttons.rejected.connect(dialog.reject)
+		buttons.accepted.connect(dialog.accept)
+		layout.addWidget(buttons)
+		dialog.exec()
+
+	def log_line_matches_filter(self, line: str) -> bool:
+		mode = self.log_filter.currentText()
+		if mode == "All output":
+			return True
+		if mode == "Harness markers":
+			return bool(re.search(
+				r"(?i)MAP_READY|G36_|FRAME_BUDGET|VISUAL_STATUS|Dolphin|Boot Probe|RC check|harness",
+				line,
+			))
+		return bool(re.search(r"(?i)error|fail|warning|blocked|timeout|oom|fatal|guest_", line))
+
+	def append_log_line(self, line: str) -> None:
+		writer = QTextCursor(self.log.document())
+		writer.movePosition(QTextCursor.MoveOperation.End)
+		fmt = QTextCharFormat()
+		fmt.setForeground(QColor(GC_TEXT))
+		for pattern, color in LOG_HIGHLIGHT_RULES:
+			if pattern.search(line):
+				fmt.setForeground(QColor(color))
+				fmt.setFontWeight(QFont.Weight.Bold)
+				break
+		writer.insertText(line, fmt)
+
+	def apply_log_filter(self) -> None:
+		combined = "".join(self.log_buffer)
+		self.log.clear()
+		for line in combined.splitlines(keepends=True):
+			if self.log_line_matches_filter(line.rstrip("\r\n")):
+				self.append_log_line(line)
+		if self.follow_log.isChecked():
+			self.log.moveCursor(QTextCursor.MoveOperation.End)
+			self.log.ensureCursorVisible()
+
 	def pick_repo(self) -> None:
 		path = QFileDialog.getExistingDirectory(self, "Select repository", str(self.repo()))
 		if path:
@@ -1321,6 +1636,7 @@ class PortWindow(QMainWindow):
 	def append(self, text: str) -> None:
 		if self.closing or not hasattr(self, "log"):
 			return
+		self.log_buffer.append(text)
 		visible_cursor = self.log.textCursor()
 		had_selection = visible_cursor.hasSelection()
 		position = visible_cursor.position()
@@ -1328,9 +1644,13 @@ class PortWindow(QMainWindow):
 		scrollbar = self.log.verticalScrollBar()
 		scroll_position = scrollbar.value()
 
-		writer = QTextCursor(self.log.document())
-		writer.movePosition(QTextCursor.MoveOperation.End)
-		writer.insertText(text)
+		if self.log_filter.currentIndex() == 0:
+			for line in text.splitlines(keepends=True):
+				self.append_log_line(line)
+		else:
+			for line in text.splitlines(keepends=True):
+				if self.log_line_matches_filter(line.rstrip("\r\n")):
+					self.append_log_line(line)
 
 		if self.follow_log.isChecked():
 			follow = QTextCursor(self.log.document())
@@ -1371,8 +1691,10 @@ class PortWindow(QMainWindow):
 		self.status_label.setText(f"Saved log: {path}")
 
 	def clear_log(self) -> None:
+		self.log_buffer.clear()
 		self.log.clear()
 		self.status_label.setText("Console log cleared")
+		self.status_bar.showMessage("Console log cleared", 3000)
 
 	def open_logs_folder(self) -> None:
 		logs = self.repo() / ".ai/logs"
@@ -1408,11 +1730,32 @@ class PortWindow(QMainWindow):
 			return "qwable-5"
 		return Path(command[0]).name if command else "qwable-5"
 
+	def _chip_state_for_color(self, color: str) -> str:
+		return {
+			GC_MINT: "ok",
+			GC_CYAN: "info",
+			GC_ORANGE: "warn",
+			GC_RED: "bad",
+			GC_MUTED: "idle",
+		}.get(color, "info")
+
 	def set_model_state(self, text: str, color: str) -> None:
 		if self.closing:
 			return
-		self.model_chip.setText(text)
-		self.model_chip.setStyleSheet(f"color: {color};")
+		self.set_chip_state(self.model_chip, text, self._chip_state_for_color(color))
+
+	def set_harness_state(self, text: str, color: str) -> None:
+		state = {
+			GC_MINT: "ok",
+			GC_ORANGE: "warn",
+			GC_CYAN: "info",
+		}.get(color, "info")
+		if "guest_failure" in text or "boot_failure" in text:
+			state = "bad"
+		self.set_chip_state(self.harness_chip, text, state)
+
+	def set_save_state(self, text: str, color: str) -> None:
+		self.set_chip_state(self.save_chip, text, self._chip_state_for_color(color))
 
 	def process_error(self, error: QProcess.ProcessError) -> None:
 		if not self.closing:
@@ -1471,6 +1814,54 @@ class PortWindow(QMainWindow):
 		self.model_status_label.setText(summary)
 		color = GC_MINT if summary.startswith("Model API:") else GC_ORANGE
 		self.model_status_label.setStyleSheet(f"color: {color};")
+		return summary.startswith("Model API:")
+
+	def poll_model_api_ready(self) -> None:
+		if self.closing or self.model_process is None:
+			self.model_api_wait_attempts = 0
+			return
+		if self.refresh_model_api_summary():
+			self.set_model_state("MODEL  READY", GC_MINT)
+			self.status_label.setText("qwable-5 API is ready")
+			self.model_api_wait_attempts = 0
+			return
+		self.model_api_wait_attempts += 1
+		if self.model_api_wait_attempts >= 90:
+			self.status_label.setText("qwable-5 started but API is not responding yet")
+			self.model_api_wait_attempts = 0
+			return
+		self.set_model_state("MODEL  WARMING", GC_ORANGE)
+		QTimer.singleShot(2000, self.poll_model_api_ready)
+
+	def run_context_preflight(self) -> None:
+		if not self.valid_repo():
+			return
+		self.apply_automation_env_from_ui()
+		command = [
+			"python3", "scripts/aider-context-estimate.py",
+			"--repo", str(self.repo()),
+			"--attempt", "1",
+			"--output-tokens", "2048",
+			"--max-context", os.environ.get("AIDER_MODEL_MAX_CONTEXT", "65536"),
+			"read:.ai/goals/GAMECUBE_PORT_GOALS.md",
+			"read:engine/platform/gamecube/vid_gamecube.c",
+			"read:engine/client/cl_scrn.c",
+		]
+		try:
+			result = subprocess.run(command, cwd=self.repo(), text=True,
+				capture_output=True, timeout=20, check=False)
+		except (OSError, subprocess.SubprocessError) as exc:
+			self.model_status_label.setText(f"Context preflight failed: {exc}")
+			self.model_status_label.setStyleSheet(f"color: {GC_ORANGE};")
+			return
+		message = (result.stdout or result.stderr).strip().splitlines()[-1] if \
+			(result.stdout or result.stderr).strip() else f"exit {result.returncode}"
+		ok = result.returncode == 0 and message.startswith("OK:")
+		color = GC_MINT if ok else GC_ORANGE
+		self.model_status_label.setText(message)
+		self.model_status_label.setStyleSheet(f"color: {color};")
+		self.status_label.setText("Context preflight passed" if ok else "Context preflight over budget")
+		self.status_bar.showMessage(self.status_label.text(), 5000)
 
 	def start_model(self) -> None:
 		if not self.valid_repo():
@@ -1513,6 +1904,12 @@ class PortWindow(QMainWindow):
 			self.append(f"\nModel GPU memory preflight blocked launch:\n{gpu_problem}\n")
 			QMessageBox.warning(self, "GPU memory too low", gpu_problem)
 			return
+		seqs = command_flag_value(command, "--max-num-seqs")
+		if seqs and seqs.isdigit() and int(seqs) > 2:
+			self.append(
+				f"\nWarning: --max-num-seqs {seqs} is high for single-client Aider. "
+				"Use Apply Recommended before starting vLLM.\n"
+			)
 
 		self.model_operation = "qwable-5"
 		self.append(f"\n\n$ {' '.join(command)}\n")
@@ -1541,7 +1938,9 @@ class PortWindow(QMainWindow):
 		proc.errorOccurred.connect(
 			lambda error, program=command[0]: self.model_process_error(error, program))
 		self.model_process = proc
+		self.model_api_wait_attempts = 0
 		proc.start(command[0], command[1:])
+		QTimer.singleShot(3000, self.poll_model_api_ready)
 
 	def read_model_output(self) -> None:
 		if self.closing or self.model_process is None:
@@ -1589,10 +1988,6 @@ class PortWindow(QMainWindow):
 	def git_output(self, *args: str) -> str:
 		return git_output_for_repo(self.repo(), *args)
 
-	def set_save_state(self, text: str, color: str) -> None:
-		self.save_chip.setText(text)
-		self.save_chip.setStyleSheet(f"color: {color};")
-
 	def read_goals(self) -> list[tuple[str, str, str, str]]:
 		return read_goals_for_repo(self.repo())
 
@@ -1617,6 +2012,8 @@ class PortWindow(QMainWindow):
 		if not goals:
 			ledger = self.repo() / ".ai/goals/GAMECUBE_PORT_GOALS.md"
 			self.goal_summary.setText(f"No goal ledger loaded from {ledger}")
+			self.goal_progress.setValue(0)
+			self.goal_progress.setFormat("0 / 0 goals")
 			return
 		active = snapshot.active_goal
 		for row, (goal_id, state, title, body) in enumerate(goals):
@@ -1641,6 +2038,13 @@ class PortWindow(QMainWindow):
 			f"{snapshot.complete_goals}/{snapshot.automatic_goals} automatic goals complete, "
 			f"{snapshot.blocked_goals} blocked"
 		)
+		if snapshot.automatic_goals:
+			percent = int((snapshot.complete_goals / snapshot.automatic_goals) * 100)
+			self.goal_progress.setValue(percent)
+			self.goal_progress.setFormat(f"{snapshot.complete_goals} / {snapshot.automatic_goals} goals")
+		else:
+			self.goal_progress.setValue(0)
+			self.goal_progress.setFormat("0 / 0 goals")
 
 	def refresh_context(self) -> None:
 		snapshot = build_dashboard_snapshot(self.repo(), *self.model_host_port())
@@ -1734,16 +2138,28 @@ class PortWindow(QMainWindow):
 		if self.closing:
 			return
 		self.dashboard_refresh_running = False
-		self.dol_chip.setText(snapshot.dol_text)
-		self.iso_chip.setText(snapshot.iso_text)
+		self.set_chip_state(self.dol_chip, snapshot.dol_text, "ok" if snapshot.dol_exists else "warn")
+		self.set_chip_state(self.iso_chip, snapshot.iso_text, "ok" if snapshot.iso_exists else "warn")
 		active_node = self.pipeline_node(self.operation) if self.process else ""
 		if active_node != "DOL":
 			self.set_pipeline_state("DOL", "Success" if snapshot.dol_exists else "Idle")
 		if active_node != "ISO":
 			self.set_pipeline_state("ISO", "Success" if snapshot.iso_exists else "Idle")
-		self.dolphin_chip.setText("DOLPHIN  READY" if snapshot.dolphin_ready else "DOLPHIN  MISSING")
+		self.set_chip_state(
+			self.dolphin_chip,
+			"DOLPHIN  READY" if snapshot.dolphin_ready else "DOLPHIN  MISSING",
+			"ok" if snapshot.dolphin_ready else "warn",
+		)
+		harness_color = {
+			"map_ready": GC_MINT,
+			"guest_failure": GC_ORANGE,
+			"boot_failure": GC_ORANGE,
+		}.get(snapshot.harness_status, GC_CYAN)
+		self.set_harness_state(snapshot.harness_text or "HARNESS  —", harness_color)
+		self.refresh_harness_view()
 		if self.process is None:
 			self.status_label.setText("Idle - goal console ready")
+			self.status_bar.showMessage(self.status_label.text())
 		if self.model_process is not None:
 			self.set_model_state("MODEL  RUNNING", GC_CYAN)
 			self.start_model_btn.setEnabled(False)
@@ -1843,6 +2259,14 @@ class PortWindow(QMainWindow):
 			self.set_pipeline_state("VISION", "Success")
 		if "MAP_READY:" in text:
 			self.set_pipeline_state("DOLPHIN", "Success")
+		if "G36_STATUS:" in text or "FRAME_BUDGET_STATS:" in text:
+			self.set_pipeline_state("VERIFY", "Running")
+		if "G36_STATUS: PASS" in text or "G36_STATUS: WEAK" in text:
+			self.set_pipeline_state("VERIFY", "Success")
+		if "RC summary:" in text or "RC check passed" in text:
+			self.set_pipeline_state("VERIFY", "Success")
+		if "RC check failed" in text:
+			self.set_pipeline_state("VERIFY", "Failed")
 		if "RC_CHECK:" in text or "frame budget" in text.lower():
 			self.set_pipeline_state("VERIFY", "Running")
 		if self.operation == "Goal automation":
@@ -2079,12 +2503,13 @@ def main() -> int:
 	app = QApplication(sys.argv)
 	rodin_family = load_font(DEFAULT_REPO / "fonts/FOT-Rodin Pro DB.otf", "Sans Serif")
 	gamecube_family = load_font(DEFAULT_REPO / "fonts/GameCube.ttf", rodin_family)
-	app.setStyleSheet(stylesheet())
+	app.setStyleSheet(stylesheet(gamecube_family))
 	font = QFont(rodin_family, 9)
 	font.setStyleHint(QFont.StyleHint.SansSerif)
 	app.setFont(font)
 	window = PortWindow(gamecube_family)
 	window.show()
+	window.status_bar.showMessage(f"Xash3D GameCube Porting Console {APP_VERSION}", 8000)
 	return app.exec()
 
 

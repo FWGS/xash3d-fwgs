@@ -20,6 +20,7 @@ ISO_PATH="$ROOT/OUT/xash3d-gc.iso"
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
+FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
@@ -30,6 +31,23 @@ probe_log_has() {
 	local needle="$1"
 	[[ -f "$LOG_DIR/stderr.log" ]] && grep -aqsF "$needle" "$LOG_DIR/stderr.log"
 	[[ -f "$LOG_DIR/stdout.log" ]] && grep -aqsF "$needle" "$LOG_DIR/stdout.log"
+}
+
+probe_guest_error() {
+	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)' \
+		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
+}
+
+finalize_probe() {
+	local status="$1"
+	local exit_code="$2"
+	python3 scripts/dolphin-probe-analyze.py \
+		--repo "$ROOT" \
+		--log-dir "$LOG_DIR" \
+		--smoke-map "$SMOKE_MAP" \
+		--probe-status "$status" \
+		--update-state
+	exit "$exit_code"
 }
 
 mkdir -p "$USER_DIR/Config"
@@ -112,14 +130,21 @@ if (( DOLPHIN_IS_FLATPAK )); then
 	DOLPHIN_WRAPPER_PID=$!
 	DOLPHIN_EXIT=124
 	DEADLINE=$(($(date +%s) + TIMEOUT_SEC))
+	MAP_READY_AT=0
 	while (( $(date +%s) < DEADLINE )); do
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
-			DOLPHIN_EXIT=0
-			break
-		fi
-		if probe_log_has "$GUEST_MARKER" && \
-			grep -aEiq 'Host_ErrorInit|Host_Error:|Sys_Error:|fatal error|out of memory' \
-				"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			if (( MAP_READY_AT == 0 )); then
+				MAP_READY_AT=$(date +%s)
+			fi
+			if probe_guest_error; then
+				DOLPHIN_EXIT=3
+				break
+			fi
+			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= MAP_READY_AT + FRAME_SAMPLE_SEC )); then
+				DOLPHIN_EXIT=0
+				break
+			fi
+		elif probe_log_has "$GUEST_MARKER" && probe_guest_error; then
 			DOLPHIN_EXIT=3
 			break
 		fi
@@ -154,69 +179,80 @@ if [[ -n "$SMOKE_MAP" ]]; then
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
-	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
+	if probe_guest_error; then
 		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
 		echo "Logs: $LOG_DIR"
-		exit 3
+		finalize_probe guest_failure 3
 	fi
 	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
 	echo "Logs: $LOG_DIR"
-	exit 0
+	finalize_probe map_ready 0
 fi
 
 # Map loaded but input not detected. This might be a partial success for map loading
 # but fails the "interactive" criteria of G19 if no controller is detected/polling.
 if (( MAP_FOUND )) && ! (( INPUT_FOUND )); then
-	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
+	if probe_guest_error; then
 		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
 		echo "Logs: $LOG_DIR"
-		exit 3
+		finalize_probe guest_failure 3
 	fi
 	echo "MAP_LOADED_NO_INPUT: Map ${SMOKE_MAP} loaded but input polling marker was not found."
 	echo "Logs: $LOG_DIR"
-	exit 0
-elif (( READY_FOUND )) && [[ -z "$SMOKE_MAP" ]]; then
-	if grep -aEiq 'Host_Error|Sys_Error|fatal error|guest.*(crash|abort)' "${LOG_FILES[@]}"; then
+	finalize_probe map_loaded_no_input 0
+fi
+
+if (( READY_FOUND )) && [[ -z "$SMOKE_MAP" ]]; then
+	if probe_guest_error; then
 		echo "GUEST_FAILURE: Engine readiness was observed, followed by a guest error."
 		echo "Logs: $LOG_DIR"
-		exit 3
+		finalize_probe guest_failure 3
 	fi
 	echo "ENGINE_READY: Xash3D initialized its GameCube subsystems."
 	echo "Logs: $LOG_DIR"
-	exit 0
-elif (( GUEST_FOUND )) && grep -aEiq 'Host_Error|Sys_Error|Xash Error:|fatal error|out of memory' "${LOG_FILES[@]}"; then
+	finalize_probe engine_ready 0
+fi
+
+if (( GUEST_FOUND )) && probe_guest_error; then
 	echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
 	echo "Logs: $LOG_DIR"
-	exit 3
-elif grep -aEiq 'Unknown instruction|Invalid read from|IntCPU:|apploader.*(fail|error)' "${LOG_FILES[@]}"; then
+	finalize_probe guest_failure 3
+fi
+
+if grep -aEiq 'Unknown instruction|Invalid read from|IntCPU:|apploader.*(fail|error)' "${LOG_FILES[@]}"; then
 	echo "BOOT_FAILURE: Dolphin reached the disc but the guest image failed before bootstrap."
 	echo "Logs: $LOG_DIR"
-	exit 3
-elif (( DOLPHIN_EXIT == 124 || DOLPHIN_EXIT == 137 )); then
+	finalize_probe boot_failure 3
+fi
+
+if (( DOLPHIN_EXIT == 124 || DOLPHIN_EXIT == 137 )); then
 	if [[ -n "$SMOKE_MAP" ]] && (( READY_FOUND )); then
 		echo "MAP_TIMEOUT: Engine readiness was observed, but ${SMOKE_MAP} did not load within ${TIMEOUT_SEC}s."
-			grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+		grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 	elif (( GUEST_FOUND )); then
 		echo "GUEST_TIMEOUT: Bootstrap was observed, but engine readiness was not reached within ${TIMEOUT_SEC}s."
-			grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+		grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 	else
 		echo "INCONCLUSIVE_TIMEOUT: No guest bootstrap within ${TIMEOUT_SEC}s."
 	fi
 	echo "Logs: $LOG_DIR"
-	exit 4
-elif (( DOLPHIN_EXIT != 0 )); then
+	finalize_probe map_timeout 4
+fi
+
+if (( DOLPHIN_EXIT != 0 )); then
 	if (( GUEST_FOUND )); then
 		echo "GUEST_FAILURE: Dolphin exited $DOLPHIN_EXIT after guest bootstrap."
-	else
-		echo "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
+		echo "Logs: $LOG_DIR"
+		finalize_probe guest_failure 3
 	fi
+	echo "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
 	echo "Logs: $LOG_DIR"
-	(( GUEST_FOUND )) && exit 3 || exit 2
-else
-	echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without reaching engine readiness."
-	if (( GUEST_FOUND )); then
-			grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
-	fi
-	echo "Logs: $LOG_DIR"
-	exit 4
+	finalize_probe host_failure 2
 fi
+
+echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without reaching engine readiness."
+if (( GUEST_FOUND )); then
+	grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
+fi
+echo "Logs: $LOG_DIR"
+finalize_probe inconclusive_exit 4

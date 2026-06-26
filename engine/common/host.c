@@ -1388,7 +1388,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 
 		Con_Reportf( "Xash3D GameCube: gcmap smoke frames begin\n" );
 		for( i = 0; i < 16; i++ )
+		{
 			COM_Frame( 0.05 );
+			GL_SwapBuffers();
+		}
 		Con_Reportf( "Xash3D GameCube: gcmap smoke frames ready\n" );
 		GC_MemSample( "frame render" );
 	}

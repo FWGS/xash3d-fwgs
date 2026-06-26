@@ -564,6 +564,7 @@ static qboolean Delta_AddField( delta_info_t *dt, const char *pName, int flags, 
 
 	// allocate a new one
 	dt->pFields = Z_Realloc( dt->pFields, (dt->numFields + 1) * sizeof( delta_t ));
+	dt->fieldsDynamic = true;
 	for( i = 0, pField = dt->pFields; i < dt->numFields; i++, pField++ );
 
 	// copy info to new field
@@ -800,7 +801,11 @@ static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char 
 	string token;
 
 	// allocate the delta-structures
-	if( !dt->pFields ) dt->pFields = (delta_t *)Z_Calloc( dt->maxFields * sizeof( delta_t ));
+	if( !dt->pFields )
+	{
+		dt->pFields = (delta_t *)Z_Calloc( dt->maxFields * sizeof( delta_t ));
+		dt->fieldsDynamic = true;
+	}
 
 	delta_t *pField = dt->pFields;
 	dt->numFields = 0;
@@ -841,6 +846,7 @@ static void Delta_ParseTable( char **delta_script, delta_info_t *dt, const char 
 	if( dt->numFields < dt->maxFields )
 	{
 		dt->pFields = Z_Realloc( dt->pFields, dt->numFields * sizeof( delta_t ));
+		dt->fieldsDynamic = true;
 	}
 
 	dt->bInitialized = true; // table is ok
@@ -973,11 +979,23 @@ void Delta_Shutdown( void )
 		dt_info[i].userCallback = NULL;
 		dt_info[i].funcName[0] = '\0';
 
-		if( dt_info[i].pFields )
+		if( dt_info[i].pFields && dt_info[i].fieldsDynamic )
 		{
+#if XASH_GAMECUBE
+			if( Sys_CheckParm( "-gcmap" ))
+			{
+				Con_Reportf( S_WARN "Xash3D GameCube: leaking delta table %s during gcmap shutdown\n", dt_info[i].pName );
+				dt_info[i].pFields = NULL;
+				dt_info[i].fieldsDynamic = false;
+				dt_info[i].bInitialized = false;
+				continue;
+			}
+#endif
 			Z_Free( dt_info[i].pFields );
 			dt_info[i].pFields = NULL;
 		}
+		else dt_info[i].pFields = NULL;
+		dt_info[i].fieldsDynamic = false;
 
 		dt_info[i].bInitialized = false;
 	}

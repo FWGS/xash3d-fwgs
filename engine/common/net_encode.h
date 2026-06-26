@@ -88,6 +88,7 @@ typedef struct
 	const int		maxFields;	// maximum number of fields in struct
 	int		numFields;	// may be merged during initialization
 	delta_t		*pFields;
+	qboolean	fieldsDynamic;
 
 	// added these for custom entity encode
 	int		customEncode;

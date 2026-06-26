@@ -835,6 +835,13 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		background = false;
 		clgame.maxEntities = GI->max_edicts + (( cl.maxclients - 1 ) * 15 );
 		clgame.maxEntities = Q_min( clgame.maxEntities, MAX_GOLDSRC_EDICTS );
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ) && cl.maxclients <= 1 )
+		{
+			clgame.maxEntities = GI->max_edicts;
+			Con_Reportf( "Xash3D GameCube: client edicts capped for gcmap max=%d\n", clgame.maxEntities );
+		}
+#endif
 		clgame.maxModels = 512; // ???
 		Q_strncpy( clgame.maptitle, clgame.mapname, sizeof( clgame.maptitle ));
 
