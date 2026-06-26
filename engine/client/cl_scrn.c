@@ -62,6 +62,14 @@ void SCR_DrawFPS( int height )
 	if( cls.state != ca_active || !cl_showfps.value || cl.background )
 		return;
 
+#if XASH_GAMECUBE
+	{
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 )
+			return; // Skip FPS overlay in quality 0 to stabilize frame budget
+	}
+#endif
+
 	switch( cls.scrshot_action )
 	{
 	case scrshot_normal:
