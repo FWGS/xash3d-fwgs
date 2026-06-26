@@ -47,4 +47,8 @@ void VID_SetDisplayTransform( int *render_w, int *render_h );
 void VID_CheckChanges( void );
 const char *VID_GetModeString( int vid_mode );
 
+#if XASH_GAMECUBE
+void GC_DrawFatalBreadcrumb( const char *message );
+#endif
+
 #endif // VID_COMMON
