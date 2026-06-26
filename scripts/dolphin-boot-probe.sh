@@ -1266,6 +1266,14 @@ if (( FRAME_BUDGET_LOGS )); then
 	# optionally suffixed by 'ms'. This avoids fragmentation from multiple specialized patterns.
 	# It covers standard Xash3D markers, OSREPORT-wrapped variants, and simplified formats.
 	# Strips keys and suffixes to leave only the numeric value for consistent analysis.
+	# Capture relaxed match count for parse diagnostics.
+	# Compute count before extraction to avoid parsing overhead in the count step.
+	FRAME_TIMES_RELAXED=$(grep -acE '(Xash3D GameCube:|OSREPORT )*(frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time|time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+	
+	# Uses a single, permissive regex to capture any line containing 'time=' followed by a number,
+	# optionally suffixed by 'ms'. This avoids fragmentation from multiple specialized patterns.
+	# It covers standard Xash3D markers, OSREPORT-wrapped variants, and simplified formats.
+	# Strips keys and suffixes to leave only the numeric value for consistent analysis.
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
 	done < <(grep -aoE '(Xash3D GameCube:|OSREPORT )*(frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time|time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
