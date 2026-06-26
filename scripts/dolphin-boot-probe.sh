@@ -300,16 +300,17 @@ if (( DOLPHIN_IS_FLATPAK )); then
 
 		# G36_PATCH_v131: Early decisive evidence when renderer is active (DrawDone
 		# present) but no frame budget markers after sufficient render duration.
-		# Requires GX_DrawDone + 5s render time + zero budget markers before declaring
-		# measurement path absent. Provides earlier closure than full probe timeout.
+		# Requires GX_DrawDone + 10s render time + zero budget markers before declaring
+		# measurement path absent. Provides earlier closure than full probe timeout
+		# while avoiding premature classification during guest warmup.
 		# On decisive failure, break out immediately and emit machine-parseable status.
 		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && \
 		   [[ -z "${G36_MEASUREMENT_PATH_DECIDED:-}" ]] && \
-		   (( $(date +%s) - G36_RENDERER_INIT_TS > 5 )); then
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 10 )); then
 			G36_MEASUREMENT_PATH_DECIDED=1
 			DRAWDONE_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -cF "GX_DrawDone" || true)
 			BUDGET_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -cE "Xash3D GameCube:.*time=[0-9]+" || true)
-			if (( DRAWDONE_EARLY > 2 )) && (( BUDGET_EARLY == 0 )); then
+			if (( DRAWDONE_EARLY > 5 )) && (( BUDGET_EARLY == 0 )); then
 				ELAPSED_AFTER_INIT=$(( $(date +%s) - G36_RENDERER_INIT_TS ))
 				echo "G36_DECISIVE_EARLY: Renderer ${GUEST_RENDERER:-unknown} active with ${DRAWDONE_EARLY} GX_DrawDone calls but zero frame budget markers after ${ELAPSED_AFTER_INIT}s."
 				echo "G36_DECISIVE_EARLY_HINT: Guest render loop is missing 'Xash3D GameCube: frame time=<ms>' OSReport after GX_DrawDone."
