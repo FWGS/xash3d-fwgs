@@ -61,6 +61,7 @@ static void GC_InitVideoHardware( void )
 		return;
 
 	gc_last_present_time = 0.0;
+	SYS_Report( "Xash3D GameCube: mem stage=video_init total=%.2f\n", 0.0 );
 	VIDEO_Init();
 	rmode = VIDEO_GetPreferredMode( NULL );
 	VIDEO_Configure( rmode );
@@ -242,6 +243,7 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		}
 		SYS_Report( "GX video: software buffer %dx%d allocated (stride %u, bpp %u)\n",
 		          width, height, stride, bpp );
+		SYS_Report( "Xash3D GameCube: mem stage=video_alloc total=%.2f\n", ( width * height * 2.0 ) / ( 1024.0 * 1024.0 ) );
 		GC_PresentBuffer();
 	}
 #endif
