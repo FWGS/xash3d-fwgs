@@ -186,6 +186,9 @@ static void GC_PresentBuffer( void )
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
 
+	/* G36: Emit frame complete marker after GX_DrawDone to prove presentation path */
+	SYS_Report( "Xash3D GameCube: frame render complete\n" );
+
 	/* G36: Emit frame budget marker after VI-sync for probe telemetry */
 	{
 		double now = Sys_FloatTime();
