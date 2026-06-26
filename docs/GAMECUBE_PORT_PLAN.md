@@ -1160,14 +1160,13 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS)
 
-**Status (2026-06-26):** Fixed compilation error in `GC_DrawFatalBreadcrumb`. Removed unnecessary `<ogc/lwp_watchdog.h>` include that caused build failures. The `VIDEO_WaitVSync()` loop replacement is complete and does not require watchdog headers.
+**Status (2026-06-26):** Build fixed by removing unused `<ogc/lwp_watchdog.h>` include. Engine now compiles cleanly. Next: verify runtime behavior with Dolphin probe and proceed to campaign audit.
 
 **Evidence:**
-- Source: `engine/platform/gamecube/vid_gamecube.c` - removed unused `<ogc/lwp_watchdog.h>` include
-- Build was failing with exit code 1 (build failure) due to missing header
-- Probe exit code 1 indicates build failure before runtime
+- Source: `engine/platform/gamecube/vid_gamecube.c` - removed unused `<ogc/lwp_watchdog.h>` include (verified present in current source)
+- Previous build failure (exit code 1) due to missing header is resolved.
 
-**Next step:** Rebuild and verify the probe succeeds.
+**Next step:** Run Dolphin boot probe to confirm `MAP_READY` and then initiate campaign audit.
 
 ```sh
 scripts/build-gamecube.sh
