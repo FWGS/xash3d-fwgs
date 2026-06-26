@@ -802,6 +802,61 @@ def validate_assets(data_path: Path) -> list[str]:
 				
 	return errors
 
+
+def validate_smoke_assets(data_path: Path, smoke_map: str) -> list[str]:
+	"""
+	Validate the already-staged smoke-test subset.
+
+	This is intentionally narrower than validate_assets(): a smoke package may
+	contain map-referenced WAD names and known mixed-case Half-Life model aliases
+	while still being safe for the bounded GameCube boot probes.
+	"""
+	errors = []
+	allowed_mixed_case = {alias for _, alias in SMOKE_CASE_ALIASES}
+	required = (
+		"liblist.gam",
+		"default.cfg",
+		"config.cfg",
+		"valve.rc",
+		"gfx/palette.lmp",
+		"gfx/colormap.lmp",
+		"gfx/conchars",
+		f"maps/{Path(smoke_map).stem}.bsp",
+	)
+
+	if not data_path.is_dir():
+		return [f"Data directory not found: {data_path}"]
+
+	for relative in required:
+		path = data_path / relative
+		if not path.is_file():
+			errors.append(f"MISSING: Staged smoke asset '{relative}' is not present.")
+
+	for root, _dirs, files in os.walk(data_path):
+		rel_root = os.path.relpath(root, data_path)
+		in_strict_dir = any(rel_root.startswith(d) or rel_root == d for d in STRICT_CASE_DIRS)
+
+		for filename in files:
+			filepath = data_path / rel_root / filename
+			rel_path = os.path.join(rel_root, filename).replace("\\", "/")
+			_, ext = os.path.splitext(filename)
+
+			if in_strict_dir and filename != filename.lower() and rel_path not in allowed_mixed_case:
+				errors.append(f"CASE_MISMATCH: '{rel_path}' contains uppercase characters without a known smoke alias.")
+
+			if ext.lower() in UNSUPPORTED_EXTENSIONS:
+				errors.append(f"UNSUPPORTED: '{rel_path}' has extension '{ext}' which is not supported on GameCube.")
+
+			try:
+				size = filepath.stat().st_size
+				if size > MAX_ASSET_SIZE and ext.lower() not in {".bsp", ".wad"}:
+					errors.append(f"OVERSIZED: '{rel_path}' is {size} bytes. "
+					              f"Limit is {MAX_ASSET_SIZE} bytes outside BSP/WAD smoke dependencies.")
+			except OSError:
+				pass
+
+	return errors
+
 def main() -> None:
 	script_dir = Path(__file__).resolve().parent
 	parser = argparse.ArgumentParser(description=__doc__)

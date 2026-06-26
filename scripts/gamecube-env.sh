@@ -59,8 +59,33 @@ gamecube_export_dolphin_env
 : "${DOLPHIN_FRAME_SAMPLE_SEC:=8}"
 : "${DOLPHIN_HARNESS_GOAL:=G36}"
 : "${VLLM_USE_FLASHINFER_SAMPLER:=0}"
+: "${AI_DIRTY_COMMIT_EXCLUDE:=scripts/xash3d-gc-aider-gui.py:.ai/state/xash3d-gc-aider-gui-settings.json}"
+: "${AI_ENFORCE_EDITABLE_CONTEXT:=1}"
 export OPENAI_API_BASE AIDER_SERVED_MODEL QWABLE_5_MAX_NUM_SEQS \
 	QWABLE_5_GPU_MEMORY_UTILIZATION QWABLE_5_MAX_MODEL_LEN \
 	QWABLE_5_REASONING_PARSER AIDER_SYSTEM_OVERHEAD_TOKENS AIDER_MAX_CHAT_HISTORY_TOKENS \
 	AIDER_MODEL_MAX_CONTEXT TARGET_FRAME_TIME DOLPHIN_FRAME_SAMPLE_SEC \
-	DOLPHIN_HARNESS_GOAL VLLM_USE_FLASHINFER_SAMPLER
+	DOLPHIN_HARNESS_GOAL VLLM_USE_FLASHINFER_SAMPLER AI_DIRTY_COMMIT_EXCLUDE \
+	AI_ENFORCE_EDITABLE_CONTEXT
+
+gamecube_checkpoint_dirty_worktree() {
+	local subject="$1"
+	local body="${2:-Checkpoint uncommitted work before automation starts.}"
+	local path
+
+	if [[ -z "$(git status --porcelain)" ]]; then
+		return 0
+	fi
+
+	git add -A
+	IFS=':' read -ra _gc_exclude_paths <<< "$AI_DIRTY_COMMIT_EXCLUDE"
+	for path in "${_gc_exclude_paths[@]}"; do
+		[[ -n "$path" ]] || continue
+		git restore --staged -- "$path" 2>/dev/null || true
+	done
+	if git diff --cached --quiet; then
+		echo "gamecube-env: dirty worktree only had excluded GUI paths; skipping checkpoint" >&2
+		return 0
+	fi
+	git commit -m "$subject" -m "$body"
+}

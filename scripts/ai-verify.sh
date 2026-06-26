@@ -150,9 +150,9 @@ if [[ -n "$BASELINE" ]]; then
 			exit 1
 		fi
 		if [[ "${AI_ALLOW_PROBE_ONLY:-0}" != "1" && "${AI_G36_ALLOW_PROBE_CONTEXT:-0}" != "1" ]]; then
-			non_probe_files="$(grep -Ev '^(scripts/dolphin-boot-probe\.sh|scripts/gamecube-map-compat-probe\.sh)$' <<<"$changed_files" || true)"
+			non_probe_files="$(grep -Ev '^(scripts/dolphin-boot-probe\.sh|scripts/dolphin-probe-analyze\.py|scripts/gamecube-map-compat-probe\.sh|scripts/xash3d-gc-aider-gui\.(py|sh)|scripts/ai-(aider-pass|verify|goal-loop)\.(sh|py))$' <<<"$changed_files" || true)"
 			if [[ -z "$non_probe_files" ]]; then
-				echo "verify: G36+ probe-only patch rejected; run scripts/gamecube-rc-check.sh or make a source/release-evidence change" >&2
+				echo "verify: G36+ probe/harness-only patch rejected; run scripts/gamecube-rc-check.sh or make a source/release-evidence change" >&2
 				exit 1
 			fi
 		fi

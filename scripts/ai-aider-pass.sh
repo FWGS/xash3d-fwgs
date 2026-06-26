@@ -71,8 +71,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
 	DIRTY_COMMIT_BODY="${AI_DIRTY_COMMIT_BODY:-Checkpoint existing uncommitted changes before automation starts.}"
 	echo "ai-aider-pass: dirty worktree detected; creating checkpoint commit: $DIRTY_COMMIT_SUBJECT" >&2
 	git status --short >&2
-	git add -A
-	git commit -m "$DIRTY_COMMIT_SUBJECT" -m "$DIRTY_COMMIT_BODY"
+	gamecube_checkpoint_dirty_worktree "$DIRTY_COMMIT_SUBJECT" "$DIRTY_COMMIT_BODY"
 fi
 
 mkdir -p .ai/logs
@@ -310,6 +309,23 @@ preflight_context_estimate() {
 	return 0
 }
 
+editable_context_args_for_attempt() {
+	local attempt="$1"
+	local limit="${AIDER_CONTEXT_BYTE_LIMITS[$(( attempt - 1 ))]}"
+	local context_file size
+	for context_file in "${CONTEXT_FILES[@]}"; do
+		[[ -f "$context_file" ]] || continue
+		if (( limit > 0 )) && ! is_required_context_file "$context_file"; then
+			size="$(stat -c '%s' "$context_file")"
+			if (( size > limit )); then
+				echo "ai-aider-pass: repair retry $attempt omits $context_file (${size} bytes > ${limit})" >&2
+				continue
+			fi
+		fi
+		printf '%s\n%s\n' --file "$context_file"
+	done
+}
+
 context_args_for_attempt() {
 	local attempt="$1"
 	local limit="${AIDER_CONTEXT_BYTE_LIMITS[$(( attempt - 1 ))]}"
@@ -340,7 +356,12 @@ context_args_for_attempt() {
 
 run_aider_with_recovery() {
 	local label="$1"
+	local editable_only=0
 	shift
+	if [[ "${1:-}" == "--editable-only" ]]; then
+		editable_only=1
+		shift
+	fi
 	local attempt attempt_log max_tokens model_settings status=0
 	local settings_args=()
 	local context_args=()
@@ -359,7 +380,11 @@ run_aider_with_recovery() {
 			return 18
 		fi
 		context_args=()
-		mapfile -t context_args < <(context_args_for_attempt "$attempt")
+		if (( editable_only )); then
+			mapfile -t context_args < <(editable_context_args_for_attempt "$attempt")
+		else
+			mapfile -t context_args < <(context_args_for_attempt "$attempt")
+		fi
 		settings_args=()
 		if (( attempt > 1 )) || [[ "${AIDER_FORCE_TEMP_MODEL_SETTINGS:-1}" == "1" ]]; then
 			model_settings="$(write_model_settings "$max_tokens")"
@@ -457,6 +482,29 @@ if (( ${#COMMIT_SUBJECT} > 72 )) || \
 fi
 COMMIT_BODY="${AI_COMMIT_BODY:-}"
 
+reject_out_of_scope_edits() {
+	local changed_file allowed
+	if [[ "${AI_ENFORCE_EDITABLE_CONTEXT:-1}" != "1" ]]; then
+		return 0
+	fi
+	while IFS= read -r changed_file; do
+		[[ -n "$changed_file" ]] || continue
+		allowed=0
+		for context_file in "${CONTEXT_FILES[@]}"; do
+			if [[ "$changed_file" == "$context_file" ]]; then
+				allowed=1
+				break
+			fi
+		done
+		if (( ! allowed )); then
+			echo "ai-aider-pass: edit outside loaded editable context: $changed_file" >&2
+			echo "ai-aider-pass: allowed editable files: ${CONTEXT_FILES[*]}" >&2
+			return 16
+		fi
+	done < <(git diff --name-only)
+	return 0
+}
+
 stage_and_validate_patch() {
 	cleanup_stale_git_lock
 	git add -A
@@ -469,6 +517,9 @@ stage_and_validate_patch() {
 		echo "ai-aider-pass: Aider deleted tracked files; stopping for review" >&2
 		git diff --cached --name-status --diff-filter=D >&2
 		return 14
+	fi
+	if ! reject_out_of_scope_edits; then
+		return 16
 	fi
 }
 
@@ -492,10 +543,12 @@ path = Path(sys.argv[1])
 lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
 patterns = (
 	re.compile(r":\d+:\d+: (fatal )?error:"),
+	re.compile(r"syntax error near unexpected token"),
 	re.compile(r"undefined reference"),
 	re.compile(r"implicit declaration"),
 	re.compile(r"Build failed"),
 	re.compile(r"verify: .*failed"),
+	re.compile(r"verify: .*rejected"),
 	re.compile(r"task in '.*' failed"),
 )
 matches = []
@@ -530,14 +583,17 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 	echo "ai-aider-pass: first verification failed; requesting one autonomous repair" >&2
 	cleanup_stale_git_lock 0
 	git reset
+	REPAIR_ALLOWED="$(printf '%s\n' "${CONTEXT_FILES[@]}")"
 	REPAIR_MESSAGE="$(printf '%s\n' \
 		'The current uncommitted patch failed verification. Fix the compiler or verifier failure now.' \
 		'There is no interactive human. Do not ask questions, explain options, or only propose commands.' \
 		'Make the smallest safe edit in the already loaded editable files only, and do not commit.' \
+		'Do not edit scripts/dolphin-boot-probe.sh, scripts/dolphin-probe-analyze.py, scripts/xash3d-gc-aider-gui.py, or other harness/GUI files unless they are listed below.' \
 		'Do not add files mentioned by build progress logs.' \
+		'' 'Editable files for this repair pass:' "$REPAIR_ALLOWED" \
 		'' 'Verification errors:'; verification_summary "$VERIFY_LOG")"
 	set +e
-	run_aider_with_recovery "autonomous repair" --message "$REPAIR_MESSAGE"
+	run_aider_with_recovery "autonomous repair" --editable-only --message "$REPAIR_MESSAGE"
 	REPAIR_STATUS="$?"
 	set -e
 	if (( REPAIR_STATUS == 124 || REPAIR_STATUS == 137 )); then

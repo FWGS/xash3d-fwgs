@@ -146,7 +146,8 @@ GOAL_CONTEXT = {
 		"engine/server/sv_init.c", "engine/common/model.c",
 		"engine/common/filesystem_engine.c", "engine/platform/gamecube/sys_gamecube.c"),
 	"G36": ("engine/platform/gamecube/vid_gamecube.c", "engine/client/cl_scrn.c",
-		"engine/common/mod_bmodel.c", "engine/common/mod_studio.c"),
+		"engine/common/mod_bmodel.c", "engine/common/mod_studio.c",
+		"engine/common/zone.c"),
 	"G37": ("engine/common/host.c", "engine/common/system.c",
 		"engine/common/zone.c", "engine/platform/gamecube/sys_gamecube.c",
 		"scripts/dolphin-boot-probe.sh"),
@@ -230,7 +231,7 @@ GOAL_CONTEXT_SLICES = {
 		("engine/platform/gamecube/vid_gamecube.c", "engine/client/cl_scrn.c"),
 		("engine/common/mod_bmodel.c",),
 		("engine/common/mod_studio.c",),
-		("scripts/dolphin-boot-probe.sh",),
+		("engine/common/zone.c", "slice-read:engine/client/dll_int/cl_game.c:3985-4025"),
 	),
 }
 G24_SUBGOALS = (
@@ -930,10 +931,16 @@ def conact_blocked_context_paths(goal_id: str, memory: dict[str, object]) -> set
 	"""Return editable paths that folded memory says are counterproductive now."""
 	blocked: set[str] = set()
 	content = conact_content(memory)
+	harness_scripts = {
+		"scripts/dolphin-boot-probe.sh",
+		"scripts/dolphin-probe-analyze.py",
+		"scripts/xash3d-gc-aider-gui.py",
+		"scripts/xash3d-gc-aider-gui.sh",
+	}
 	if goal_id == "G36" and not os.environ.get("AI_G36_ALLOW_PROBE_CONTEXT"):
-		blocked.add("scripts/dolphin-boot-probe.sh")
+		blocked.update(harness_scripts)
 	if goal_id == "G36" and "probe instrumentation is already extensive" in content:
-		blocked.add("scripts/dolphin-boot-probe.sh")
+		blocked.update(harness_scripts)
 	if "context budget pressure" in content and goal_id in {"G36", "G35", "G19"}:
 		blocked.add("scripts/dolphin-boot-probe.sh")
 		blocked.add("docs/GAMECUBE_PORT_PLAN.md")
@@ -975,6 +982,12 @@ def runtime_evidence_section(root: Path, *, lines: int = 40) -> str:
 				if tail:
 					parts.append(f"Latest probe log ({stderr.relative_to(root)}) tail:")
 					parts.extend(tail[-lines:])
+					joined_tail = "\n".join(tail[-lines:]).lower()
+					if "client edicts zone" in joined_tail or "_mem_alloc: failed" in joined_tail:
+						parts.append(
+							"Known runtime blocker: Client Edicts Zone OOM after MAP_READY; "
+							"prioritize client pool sizing before more probe instrumentation."
+						)
 	if not parts:
 		return "No Dolphin runtime evidence captured yet."
 	return "\n".join(parts)
@@ -1373,6 +1386,9 @@ Task:
 - Prefer source-level work over more probe-script instrumentation. G36 already
   has enough probe diagnostics to identify missing frame-budget or visual
   markers.
+- If Dolphin logs show `Client Edicts Zone` OOM or `_mem_alloc: failed`, make
+  a GameCube-only client pool or allocation change in the loaded client/zone
+  sources before touching harness scripts.
 - If a renderer/client/model source file is editable, make exactly one small
   GameCube-only source change tied to frame budget, frame submission, visual
   evidence, or reducing route-time render cost.
@@ -1520,6 +1536,20 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 	add = run(["git", "add", "-A"], root)
 	if add.returncode != 0:
 		return add.returncode
+	exclude = os.environ.get(
+		"AI_DIRTY_COMMIT_EXCLUDE",
+		"scripts/xash3d-gc-aider-gui.py:.ai/state/xash3d-gc-aider-gui-settings.json",
+	).split(":")
+	for path in exclude:
+		path = path.strip()
+		if not path:
+			continue
+		run(["git", "restore", "--staged", "--", path], root)
+	staged = run(["git", "diff", "--cached", "--quiet"], root)
+	if staged.returncode == 0:
+		print("goal-loop: dirty worktree only had excluded GUI paths; skipping checkpoint",
+			file=sys.stderr, flush=True)
+		return 0
 	body = (
 		"Checkpoint uncommitted work before automated goal execution.\n\n"
 		f"Goal before checkpoint: {goal_id or '(startup)'}\n"
@@ -1547,7 +1577,16 @@ def context_for_goal(goal_id: str, root: Path, attempt: int,
 		if not candidate_slices:
 			candidate_slices = slices
 		paths = candidate_slices[(max(1, attempt) - 1) % len(candidate_slices)]
-		return [f"required:{path}" for path in paths if (root / path).is_file()]
+		selected: list[str] = []
+		for path in paths:
+			if path.startswith("slice-read:"):
+				source = path.removeprefix("slice-read:").split(":", 1)[0]
+				if (root / source).is_file():
+					selected.append(f"slice-read:{path.removeprefix('slice-read:')}")
+				continue
+			if (root / path).is_file():
+				selected.append(f"required:{path}")
+		return selected
 
 	candidates: list[str] = []
 	seen: set[str] = set()

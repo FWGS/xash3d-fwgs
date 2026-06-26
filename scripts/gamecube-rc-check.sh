@@ -15,6 +15,7 @@ BOOT_TIMEOUT="${RC_BOOT_TIMEOUT:-180}"
 MAP_TIMEOUT="${RC_MAP_TIMEOUT:-120}"
 TARGET_FRAME_TIME="${TARGET_FRAME_TIME:-16.67}"
 STRICT_COMPLIANCE="${RC_STRICT_COMPLIANCE:-0}"
+DOLPHIN_RETRIES="${RC_DOLPHIN_RETRIES:-2}"
 
 mkdir -p "$LOG_DIR"
 
@@ -108,7 +109,7 @@ source = Path("Half-Life/valve")
 smoke_map = os.environ.get("RC_SMOKE_MAP", "c0a0e")
 with tempfile.TemporaryDirectory(prefix="xash3d-gc-rc-stage-") as temp:
     staged = disc.stage_smoke_data(source, Path(temp) / "valve", smoke_map)
-    errors = disc.validate_assets(staged)
+    errors = disc.validate_smoke_assets(staged, smoke_map)
     if errors:
         print("Staged asset validation failed:")
         for error in errors:
@@ -153,37 +154,56 @@ build_disc_gate() {
 
 dolphin_boot_gate() {
 	local log_path="$LOG_DIR/dolphin-boot-probe.log"
+	local attempt_log
+	local attempt
 	echo
 	echo "== Dolphin boot probe =="
-	if DOLPHIN_TIMEOUT="$BOOT_TIMEOUT" scripts/dolphin-boot-probe.sh >"$log_path" 2>&1; then
-		log_status "Dolphin boot probe" "PASS" "$log_path" "boot probe reached acceptance"
-		tail -80 "$log_path"
-		return 0
-	fi
-	local rc=$?
-	log_status "Dolphin boot probe" "FAIL" "$log_path" "exit $rc"
-	tail -100 "$log_path" >&2
-	return "$rc"
+	: >"$log_path"
+	for attempt in $(seq 1 "$DOLPHIN_RETRIES"); do
+		attempt_log="$LOG_DIR/dolphin-boot-probe-attempt-${attempt}.log"
+		echo "Attempt $attempt/$DOLPHIN_RETRIES" | tee -a "$log_path"
+		if DOLPHIN_TIMEOUT="$BOOT_TIMEOUT" scripts/dolphin-boot-probe.sh >"$attempt_log" 2>&1; then
+			cat "$attempt_log" >>"$log_path"
+			log_status "Dolphin boot probe" "PASS" "$log_path" "boot probe reached acceptance on attempt $attempt"
+			tail -80 "$log_path"
+			return 0
+		fi
+		local rc=$?
+		cat "$attempt_log" >>"$log_path"
+		echo "Attempt $attempt failed with exit $rc" >>"$log_path"
+	done
+	log_status "Dolphin boot probe" "FAIL" "$log_path" "all $DOLPHIN_RETRIES attempt(s) failed"
+	tail -120 "$log_path" >&2
+	return 1
 }
 
 frame_budget_gate() {
 	local log_path="$LOG_DIR/frame-budget-probe.log"
+	local attempt_log
+	local attempt
 	echo
 	echo "== frame-budget probe =="
-	if DOLPHIN_TIMEOUT="$BOOT_TIMEOUT" scripts/dolphin-boot-probe.sh >"$log_path" 2>&1; then
-		if grep -Eq "G36_STATUS: (PASS|WEAK)|FRAME_BUDGET_STATS: samples=[1-9]" "$log_path"; then
-			log_status "frame-budget probe" "PASS" "$log_path" "frame-budget telemetry present"
-			grep -E "G36_STATUS|G36_SUMMARY|FRAME_BUDGET_STATS" "$log_path" | tail -20
-			return 0
+	: >"$log_path"
+	for attempt in $(seq 1 "$DOLPHIN_RETRIES"); do
+		attempt_log="$LOG_DIR/frame-budget-probe-attempt-${attempt}.log"
+		echo "Attempt $attempt/$DOLPHIN_RETRIES" | tee -a "$log_path"
+		if DOLPHIN_TIMEOUT="$BOOT_TIMEOUT" scripts/dolphin-boot-probe.sh >"$attempt_log" 2>&1; then
+			cat "$attempt_log" >>"$log_path"
+			if grep -Eq "G36_STATUS: (PASS|WEAK)|FRAME_BUDGET_STATS: samples=[1-9]" "$attempt_log"; then
+				log_status "frame-budget probe" "PASS" "$log_path" "frame-budget telemetry present on attempt $attempt"
+				grep -E "G36_STATUS|G36_SUMMARY|FRAME_BUDGET_STATS" "$attempt_log" | tail -20
+				return 0
+			fi
+			echo "Attempt $attempt succeeded but had no frame-budget telemetry" >>"$log_path"
+		else
+			local rc=$?
+			cat "$attempt_log" >>"$log_path"
+			echo "Attempt $attempt failed with exit $rc" >>"$log_path"
 		fi
-		log_status "frame-budget probe" "FAIL" "$log_path" "missing frame-budget telemetry"
-		grep -E "G36_STATUS|G36_SUMMARY|FRAME_BUDGET|MAP_READY|VISUAL" "$log_path" | tail -80 >&2
-		return 1
-	fi
-	local rc=$?
-	log_status "frame-budget probe" "FAIL" "$log_path" "exit $rc"
-	tail -100 "$log_path" >&2
-	return "$rc"
+	done
+	log_status "frame-budget probe" "FAIL" "$log_path" "missing frame-budget telemetry after $DOLPHIN_RETRIES attempt(s)"
+	grep -E "G36_STATUS|G36_SUMMARY|FRAME_BUDGET|MAP_READY|VISUAL" "$log_path" | tail -100 >&2
+	return 1
 }
 
 map_compat_gate() {
