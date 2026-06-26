@@ -1012,6 +1012,13 @@ or Aider logs, investigative gaps, and recent tool calls. The next Aider task
 receives only a compact summary, keeping long logs out of prompt context while
 preserving the useful fault-attribution trail across retries.
 
+The memory also carries a ConAct-style working context adapted from
+MemGUI-Agent: folded action history, folded port state, and a recent step
+record. The folded port state stores durable facts such as `G35 MAP_READY is
+proven` and `G36 should prefer source-level visual/frame-budget fixes over more
+probe-script detectors`, so future passes do not reopen stale investigations
+just because an old log line appears in memory.
+
 The memory file is ignored by Git because it is run-local state. Source-truth
 evidence still belongs in the goal ledger and this port plan before any goal is
 marked complete.

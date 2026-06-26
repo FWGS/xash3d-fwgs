@@ -76,6 +76,14 @@ hypotheses, verbatim evidence snippets, investigative gaps, and recent tool
 calls, then feeds a short summary into the next pass. The file is ignored by
 Git because it is run-local state rather than source history.
 
+That memory now includes a ConAct-style compact state inspired by MemGUI-Agent:
+`folded_action_history` summarizes recent passes, `folded_port_state` preserves
+durable port facts such as proven `MAP_READY` routes or stale blockers, and
+`recent_step_record` captures the latest observation/intent/result tuple. This
+keeps long-horizon automation from passively replaying stale logs while still
+giving Qwable/Aider the facts needed for the next source-level patch. The GUI
+Telemetry panel displays these fields under Agent Memory.
+
 Autonomous Aider passes disable URL detection so local API base strings are not
 mistaken for web pages to scrape. A 404 from the bare `/v1` path is normal for
 vLLM; readiness checks use the OpenAI-compatible `/v1/models` endpoint and
