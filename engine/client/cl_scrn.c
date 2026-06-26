@@ -166,6 +166,14 @@ void SCR_DrawEnts( void )
 {
 	rgba_t color = { 255, 255, 255, 255 };
 
+#if XASH_GAMECUBE
+	{
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 )
+			return; // Skip expensive entity debug draw in quality 0 to stabilize frame budget
+	}
+#endif
+
 	if( cls.state != ca_active || !cl_showents.value || ( cl.maxclients > 1 && !cls.demoplayback ))
 		return;
 
@@ -226,6 +234,14 @@ another debugging aids, shows pressed buttons
 */
 void SCR_DrawUserCmd( void )
 {
+#if XASH_GAMECUBE
+	{
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) == 0 )
+			return; // Skip expensive usercmd debug draw in quality 0 to stabilize frame budget
+	}
+#endif
+
 	runcmd_t *pcmd = &cl.commands[( cls.netchan.outgoing_sequence - 1 ) & CL_UPDATE_MASK];
 	struct
 	{
