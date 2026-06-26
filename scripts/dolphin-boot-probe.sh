@@ -945,6 +945,22 @@ if grep -aqsF "GX_Flush" "${LOG_FILES[@]}"; then
 	fi
 fi
 
+# G36_PATCH_v94: Detect ratio of GX_Flush to GX_DrawDone to diagnose incomplete
+# frame submission. Each frame should have exactly one GX_Flush followed by one
+# GX_DrawDone. Mismatched ratios indicate frames being flushed but not drawn, or
+# multiple flushes per frame (state reset without presentation).
+if (( GX_FLUSH_COUNT > 0 )) && (( GX_DRAWDONE_COUNT > 0 )); then
+	if (( GX_FLUSH_COUNT > GX_DRAWDONE_COUNT * 2 )); then
+		echo "G36_FLUSH_DRAWDONE_RATIO: ${GX_FLUSH_COUNT} GX_Flush vs ${GX_DRAWDONE_COUNT} GX_DrawDone. Excessive flushes suggest state resets without frame submission."
+		echo "G36_FLUSH_DRAWDONE_HINT: Renderer may be flushing command buffer multiple times per frame or clearing without drawing. Check render loop structure."
+	elif (( GX_DRAWDONE_COUNT > GX_FLUSH_COUNT * 2 )); then
+		echo "G36_FLUSH_DRAWDONE_RATIO: ${GX_FLUSH_COUNT} GX_Flush vs ${GX_DRAWDONE_COUNT} GX_DrawDone. Excessive DrawDone calls suggest missing flush or early command submission."
+		echo "G36_FLUSH_DRAWDONE_HINT: Check for missing GX_Flush before GX_DrawDone or command buffer being submitted prematurely."
+	else
+		echo "G36_FLUSH_DRAWDONE_BALANCED: GX_Flush (${GX_FLUSH_COUNT}) and GX_DrawDone (${GX_DRAWDONE_COUNT}) counts are proportional. Command submission appears healthy."
+	fi
+fi
+
 # G36_PATCH_v83: Detect explicit frame-render-complete markers to definitively
 # prove the guest reached successful frame presentation. Distinguishes "renderer
 # initialized" from "renderer actually drew and presented frames". This provides
