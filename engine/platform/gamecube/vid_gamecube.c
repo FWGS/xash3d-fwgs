@@ -423,15 +423,125 @@ void GC_TrimVideoMemoryForMapLoad( void )
 	}
 }
 
-/*
- * G37: Draw fatal breadcrumb directly to XFB so it survives silent crashes.
- * Uses a simple solid background with a clear distinction from normal frames.
- * This is called from Sys_Error path before shutdown.
- */
-void GC_DrawFatalBreadcrumb( const char *message )
+static unsigned char GC_FatalGlyphRow( char ch, int row )
 {
-	(void)message;
+	static const unsigned char digit[10][7] = {
+		{ 0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E },
+		{ 0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E },
+		{ 0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F },
+		{ 0x1E, 0x01, 0x01, 0x0E, 0x01, 0x01, 0x1E },
+		{ 0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02 },
+		{ 0x1F, 0x10, 0x10, 0x1E, 0x01, 0x01, 0x1E },
+		{ 0x0E, 0x10, 0x10, 0x1E, 0x11, 0x11, 0x0E },
+		{ 0x1F, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08 },
+		{ 0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E },
+		{ 0x0E, 0x11, 0x11, 0x0F, 0x01, 0x01, 0x0E },
+	};
+	static const unsigned char alpha[26][7] = {
+		{ 0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11 },
+		{ 0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E },
+		{ 0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E },
+		{ 0x1E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1E },
+		{ 0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F },
+		{ 0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10 },
+		{ 0x0E, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0E },
+		{ 0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11 },
+		{ 0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E },
+		{ 0x07, 0x02, 0x02, 0x02, 0x12, 0x12, 0x0C },
+		{ 0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11 },
+		{ 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F },
+		{ 0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11 },
+		{ 0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11 },
+		{ 0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E },
+		{ 0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10 },
+		{ 0x0E, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0D },
+		{ 0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11 },
+		{ 0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E },
+		{ 0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04 },
+		{ 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E },
+		{ 0x11, 0x11, 0x11, 0x11, 0x11, 0x0A, 0x04 },
+		{ 0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0A },
+		{ 0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11 },
+		{ 0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04 },
+		{ 0x1F, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1F },
+	};
 
+	if( row < 0 || row >= 7 )
+		return 0;
+	if( ch >= 'a' && ch <= 'z' )
+		ch -= 32;
+	if( ch >= 'A' && ch <= 'Z' )
+		return alpha[ch - 'A'][row];
+	if( ch >= '0' && ch <= '9' )
+		return digit[ch - '0'][row];
+	switch( ch )
+	{
+	case ':': return ( row == 1 || row == 5 ) ? 0x04 : 0x00;
+	case '.': return ( row == 6 ) ? 0x04 : 0x00;
+	case '-': return ( row == 3 ) ? 0x1F : 0x00;
+	case '_': return ( row == 6 ) ? 0x1F : 0x00;
+	case '/': return 1 << ( row < 5 ? 4 - row : 0 );
+	case '\\': return 1 << ( row < 5 ? row : 4 );
+	case '<': return row < 4 ? ( 1 << ( 3 - row )) : ( 1 << ( row - 3 ));
+	case '>': return row < 4 ? ( 1 << ( row + 1 )) : ( 1 << ( 7 - row ));
+	case ' ': return 0x00;
+	default: return 0x04;
+	}
+}
+
+static void GC_FatalPutPixel( unsigned short *dst, int x, int y, unsigned short color )
+{
+	if( x < 0 || y < 0 || !rmode || x >= rmode->fbWidth || y >= rmode->xfbHeight )
+		return;
+	dst[y * rmode->fbWidth + x] = color;
+}
+
+static void GC_FatalDrawChar( unsigned short *dst, int x, int y, char ch, unsigned short color, int scale )
+{
+	int row, col, sx, sy;
+	for( row = 0; row < 7; row++ )
+	{
+		unsigned char bits = GC_FatalGlyphRow( ch, row );
+		for( col = 0; col < 5; col++ )
+		{
+			if( !FBitSet( bits, 1 << ( 4 - col )))
+				continue;
+			for( sy = 0; sy < scale; sy++ )
+				for( sx = 0; sx < scale; sx++ )
+					GC_FatalPutPixel( dst, x + col * scale + sx, y + row * scale + sy, color );
+		}
+	}
+}
+
+static int GC_FatalDrawLine( unsigned short *dst, int x, int y, const char *text, unsigned short color, int scale, int max_chars )
+{
+	int i;
+	for( i = 0; text && text[i] && text[i] != '\n' && i < max_chars; i++ )
+		GC_FatalDrawChar( dst, x + i * 6 * scale, y, text[i], color, scale );
+	return i;
+}
+
+static void GC_FatalDrawWrapped( unsigned short *dst, int x, int y, const char *text, unsigned short color, int scale, int max_chars, int max_lines )
+{
+	int line = 0;
+	while( text && *text && line < max_lines )
+	{
+		int used = GC_FatalDrawLine( dst, x, y + line * 9 * scale, text, color, scale, max_chars );
+		text += used;
+		if( *text == '\n' )
+			text++;
+		while( *text == ' ' )
+			text++;
+		line++;
+	}
+}
+
+/*
+ * G50: Draw a readable fatal breadcrumb directly to XFB so it survives silent
+ * crashes and missing assets. This is called from Sys_Error before shutdown.
+ */
+void GC_DrawFatalBreadcrumb( const char *message, const char *details )
+{
 #if XASH_GAMECUBE
 	unsigned short *dst;
 	unsigned short *rowdst;
@@ -460,8 +570,20 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	{
 		rowdst = dst + row * rmode->fbWidth;
 		for( col_fatal = 0; col_fatal < rmode->fbWidth; col_fatal++ )
-			rowdst[col_fatal] = 0xF81F; /* Magenta */
+			rowdst[col_fatal] = 0x0000; /* black */
 	}
+
+	for( row = 0; row < 24 && row < rmode->xfbHeight; row++ )
+	{
+		rowdst = dst + row * rmode->fbWidth;
+		for( col_fatal = 0; col_fatal < rmode->fbWidth; col_fatal++ )
+			rowdst[col_fatal] = 0xF800; /* red header */
+	}
+
+	GC_FatalDrawLine( dst, 24, 6, "XASH3D GAMECUBE FATAL", 0xFFFF, 2, 34 );
+	GC_FatalDrawWrapped( dst, 24, 42, message ? message : "UNKNOWN ERROR", 0xFFE0, 2, 38, 5 );
+	GC_FatalDrawWrapped( dst, 24, 150, details ? details : "NO DETAILS", 0xFFFF, 2, 38, 8 );
+	GC_FatalDrawLine( dst, 24, rmode->xfbHeight - 28, "HALTED: POWER CYCLE OR RESET", 0x07E0, 2, 38 );
 
 	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
 	DCFlushRange( xfb[0], (u32)xfb_size );

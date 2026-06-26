@@ -62,13 +62,37 @@ GNU General Public License for more details.
 int error_on_exit = 0;	// arg for exit();
 
 #if XASH_GAMECUBE
-extern void GC_DrawFatalBreadcrumb( const char *message );
+extern void GC_DrawFatalBreadcrumb( const char *message, const char *details );
+
+static const char *Sys_GameCubeFatalSubsystem( const char *message )
+{
+	if( !message )
+		return "engine";
+	if( Q_stristr( message, "filesystem" ) || Q_stristr( message, "data directory" ) || Q_stristr( message, "file" ))
+		return "filesystem";
+	if( Q_stristr( message, "out of memory" ) || Q_stristr( message, "alloc" ) || Q_stristr( message, "pool" ))
+		return "allocation";
+	if( Q_stristr( message, "renderer" ) || Q_stristr( message, "video" ) || Q_stristr( message, "gx" ))
+		return "renderer";
+	if( Q_stristr( message, "audio" ) || Q_stristr( message, "sound" ) || Q_stristr( message, "snd" ))
+		return "audio";
+	if( Q_stristr( message, "dll" ) || Q_stristr( message, "game" ) || Q_stristr( message, "server" ))
+		return "game-code";
+	if( Q_stristr( message, "storage" ) || Q_stristr( message, "sd:" ) || Q_stristr( message, "gcdisc:" ))
+		return "storage";
+	if( Q_stristr( message, "map" ) || Q_stristr( message, "model" ) || Q_stristr( message, "sprite" ) || Q_stristr( message, "wad" ))
+		return "missing-asset";
+	return "engine";
+}
 
 static void Sys_GameCubeFatalBreadcrumb( const char *message )
 {
 	char base[MAX_SYSPATH];
 	char gcmap[MAX_QPATH];
+	char details[MAX_PRINT_MSG];
 	const char *route = "none";
+	const char *subsystem = Sys_GameCubeFatalSubsystem( message );
+	const char *mem = Q_memprint( Mem_TotalRealSize() );
 
 	if( GCube_HasWritableStorage() )
 		route = "sd";
@@ -80,10 +104,12 @@ static void Sys_GameCubeFatalBreadcrumb( const char *message )
 
 	SYS_Report( "Xash3D GameCube: fatal breadcrumb begin\n" );
 	SYS_Report( "Xash3D GameCube: fatal message=%s\n", message ? message : "<null>" );
-	SYS_Report( "Xash3D GameCube: fatal status=%d frame=%u errorframe=%u route=%s gcmap=%s\n",
-		host.status, host.framecount, host.errorframe, route, gcmap[0] ? gcmap : "<none>" );
+	SYS_Report( "Xash3D GameCube: fatal status=%d frame=%u errorframe=%u route=%s gcmap=%s subsystem=%s build=%s mem=%s\n",
+		host.status, host.framecount, host.errorframe, route, gcmap[0] ? gcmap : "<none>", subsystem, g_buildcommit, mem );
 	SYS_Report( "Xash3D GameCube: fatal breadcrumb end\n" );
-	GC_DrawFatalBreadcrumb( message );
+	Q_snprintf( details, sizeof( details ), "SUBSYSTEM %s\nBUILD %s\nMAP %s\nROUTE %s\nMEM %s\nFRAME %u",
+		subsystem, g_buildcommit, gcmap[0] ? gcmap : "NONE", route, mem, host.framecount );
+	GC_DrawFatalBreadcrumb( message, details );
 }
 #endif
 
