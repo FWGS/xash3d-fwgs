@@ -1668,6 +1668,11 @@ class PortWindow(QMainWindow):
 		save_settings_action.setShortcut("Ctrl+S")
 		save_settings_action.triggered.connect(self.save_settings)
 		self.file_menu.addAction(save_settings_action)
+		commit_gui_action = QAction("Commit GUI WIP", self)
+		commit_gui_action.setToolTip(
+			"Commit scripts/xash3d-gc-aider-gui.py and .sh as a standalone chore commit")
+		commit_gui_action.triggered.connect(lambda: self.commit_gui_wip())
+		self.file_menu.addAction(commit_gui_action)
 		save_layout_action = QAction("Save Layout", self)
 		save_layout_action.triggered.connect(self.save_layout)
 		self.file_menu.addAction(save_layout_action)
@@ -1824,6 +1829,44 @@ class PortWindow(QMainWindow):
 	def save_settings(self) -> None:
 		if self.write_settings_file(include_layout=False):
 			self.status_label.setText(f"Saved settings: {self.settings_path().relative_to(self.repo())}")
+			self.commit_gui_wip(quiet=True)
+
+	def commit_gui_wip(self, *, quiet: bool = False) -> bool:
+		script = self.repo() / "scripts/ai-commit-gui-wip.sh"
+		if not script.is_file():
+			if not quiet:
+				QMessageBox.warning(self, "Commit GUI failed",
+					f"Missing {script.relative_to(self.repo())}")
+			return False
+		try:
+			result = subprocess.run(
+				["bash", str(script)],
+				cwd=self.repo(),
+				text=True,
+				capture_output=True,
+				timeout=120,
+				check=False,
+			)
+		except (OSError, subprocess.SubprocessError) as exc:
+			if not quiet:
+				QMessageBox.warning(self, "Commit GUI failed", str(exc))
+			return False
+		output = ((result.stdout or "") + (result.stderr or "")).strip()
+		if result.returncode != 0:
+			if not quiet:
+				QMessageBox.warning(self, "Commit GUI failed", output or f"exit {result.returncode}")
+			elif output:
+				self.append(f"\n[GUI commit failed]\n{output}\n")
+			return False
+		if "committing GUI changes" in output:
+			subject = git_line_for_repo(self.repo(), "log", "-1", "--format=%s",
+				fallback="chore: update GameCube porting GUI")
+			self.status_label.setText(f"Committed GUI: {subject}")
+			if not quiet:
+				self.append(f"\n[Committed GUI WIP: {subject}]\n")
+		elif not quiet:
+			QMessageBox.information(self, "Commit GUI", "No GUI file changes to commit.")
+		return True
 
 	def save_layout(self) -> None:
 		if self.write_settings_file(include_layout=True):
@@ -3069,6 +3112,11 @@ class PortWindow(QMainWindow):
 	def begin_overnight_session(self) -> None:
 		self.apply_recommended_model_settings()
 		self.save_settings()
+		if not self.commit_gui_wip(quiet=True):
+			self.overnight_mode = False
+			QMessageBox.warning(self, "Overnight run blocked",
+				"Could not commit pending GUI changes. Fix syntax errors and retry.")
+			return
 		self.overnight_mode = True
 		self.pending_overnight_automation = False
 		self.overnight_started_at = datetime.now()
