@@ -43,6 +43,7 @@ GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 INPUT_MARKER="Xash3D GameCube: input polling active"
+GUEST_RENDERER=""
 
 probe_log_has() {
 	local needle="$1"
@@ -186,7 +187,10 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# diagnose early failures before full timeout expires. Captures backend
 		# name if present for correlation with frame budget measurements.
 		if grep -aqsF "Xash3D GameCube: renderer initialized" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
-			GUEST_RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized +[a-zA-Z_-]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_-]+$' || true)
+			__RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized +[a-zA-Z_-]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_-]+$' || true)
+			if [[ -n "$__RENDERER" ]]; then
+				GUEST_RENDERER="$__RENDERER"
+			fi
 			echo "G36_RENDERER_DETECTED: ${GUEST_RENDERER:-unknown} during probe loop"
 		fi
 		sleep 2
@@ -381,10 +385,12 @@ if grep -aqsF "Xash3D GameCube: frame deadline miss" "${LOG_FILES[@]}"; then
 fi
 
 # G36: Detect active renderer backend (GX vs software) for frame budget correlation
-GUEST_RENDERER=""
-if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}"; then
-	# G36_PATCH_v2: Relaxed pattern to catch renderer name after "initialized" with any spacing
-	GUEST_RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized +[a-zA-Z_-]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[a-zA-Z_-]+$')
+# Note: GUEST_RENDERER may already be set from probe loop detection
+if [[ -z "$GUEST_RENDERER" ]]; then
+	if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}"; then
+		# G36_PATCH_v2: Relaxed pattern to catch renderer name after "initialized" with any spacing
+		GUEST_RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized +[a-zA-Z_-]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[a-zA-Z_-]+$' || true)
+	fi
 fi
 
 # G36: Detect explicit guest-reported frame count for sample completeness validation
