@@ -827,6 +827,22 @@ if (( GX_DRAWDONE_COUNT > 0 )) && (( FRAME_BUDGET_LOGS == 0 )); then
 	fi
 fi
 
+# G36_PATCH_v90: When GX activity is confirmed but frame budget markers are completely
+# absent, dump the final 20 OSREPORT/Xash3D log lines from the probe. This provides
+# concrete evidence of what the guest is actually emitting at probe end, helping
+# reviewers identify if the guest is silent, stuck in a loop, or emitting markers
+# in an unexpected format. Fires only once when GX calls detected but no budget logs.
+if (( FRAME_BUDGET_LOGS == 0 )) && [[ -n "$GUEST_RENDERER" ]]; then
+	GX_API_HITS=$(grep -acE "GX_|GX_Call" "${LOG_FILES[@]}" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+	if (( GX_API_HITS > 10 )); then
+		echo "G36_TAIL_OSREPORT: Dumping last 20 guest log lines (GX active, budget silent) for format diagnosis:"
+		cat "${LOG_FILES[@]}" 2>/dev/null | grep -aE "OSREPORT|Xash3D GameCube" | tail -20 | while IFS= read -r line; do
+			echo "G36_TAIL_OSREPORT: ${line}"
+		done
+		echo "G36_TAIL_HINT: Inspect above lines for frame timing evidence. Guest may emit budget markers in unexpected format or location."
+	fi
+fi
+
 # G36_PATCH_v27: Emit explicit renderer source diagnostic for traceability
 if [[ -n "$GUEST_RENDERER" ]]; then
 	echo "G36_RENDERER_SOURCE: backend=${GUEST_RENDERER} (detected post-probe or from loop)"
