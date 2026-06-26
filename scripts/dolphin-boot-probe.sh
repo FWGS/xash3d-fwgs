@@ -290,6 +290,11 @@ echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_availab
 GC_MEM_SAMPLES=0
 grep -aqE "GC_MemSample|mem stage=" "${LOG_FILES[@]}" && GC_MEM_SAMPLES=1
 
+# G36_PATCH: Detect explicit frame budget measurement configuration
+# Look for guest-reported configuration to validate measurement validity
+FRAME_BUDGET_CONFIGURED=0
+grep -aqsF "Xash3D GameCube: frame budget configured" "${LOG_FILES[@]}" && FRAME_BUDGET_CONFIGURED=1
+
 # G36: Detect explicit GX WaitVP/WaitVP sync markers to measure VI-wait impact on frame budget
 GX_WAITVP_COUNT=0
 if grep -aqsF "GX_WAITVP" "${LOG_FILES[@]}"; then
