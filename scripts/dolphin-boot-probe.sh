@@ -469,16 +469,19 @@ if (( FRAME_BUDGET_LOGS )); then
 	# primary/fallback regexes.
 	
 	# Extract 'time=' markers (primary budget metric)
+	# Count actual matches (lines in -o output) rather than log lines to match relaxed count granularity
 	FRAME_TIMES_STRICT=$(grep -aoE 'Xash3D GameCube: frame time=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | wc -l)
 		
 	# Extract all frame time/duration values in one deterministic pass
 	# Captures: frame time, render time, frame budget time, frame render complete time,
 	# frame duration, render duration, frame budget duration, gx_time, cpu_time
 	# Uses a single pattern to avoid sample loss from fragmented grep invocations.
+	# G36_PATCH_v18: Explicitly strip 'ms' suffix and whitespace to ensure clean numeric
+	# data for awk math, preventing issues with mixed units or trailing chars.
 	while IFS= read -r val; do
 		[[ -n "$val" ]] && FRAME_TIMES+=("$val")
 	done < <(grep -aoE 'Xash3D GameCube: (frame (render |budget )?(time|duration)|render (frame )?(time|duration)|frame (render )?complete time|[cg]pu_time|gx_time)=[0-9]+(\.[0-9]+)?ms?' "${LOG_FILES[@]}" 2>/dev/null | \
-		grep -oE '[a-z_]+=[0-9]+(\.[0-9]+)?' | sed 's/.*=//')
+		grep -oE '[a-z_]+=[0-9]+(\.[0-9]+)?ms?' | sed 's/.*=//; s/ms$//; s/^[[:space:]]*//; s/[[:space:]]*$//')
 
 	FRAME_TIMES_RELAXED=${#FRAME_TIMES[@]}
 
