@@ -1445,11 +1445,16 @@ scripts/ai-verify.sh
 ```
 
 Result: Clean GameCube build. Absolute path guards and writable storage checks
-active under `XASH_GAMECUBE`. Three consecutive accepted Aider passes (exit 0)
-verified source changes across attempts:
+active under `XASH_GAMECUBE`. Three accepted Aider passes (exit 0) verified
+source changes:
 - `.ai/logs/aider-pass-2026-06-26-131917.log` (exit 0, accepted)
 - `.ai/logs/aider-pass-2026-06-26-132433.log` (exit 0, accepted)
 - `.ai/logs/aider-pass-2026-06-26-132720.log` (exit 0, accepted)
+
+Subsequent exit-18 attempts (`.ai/logs/aider-pass-2026-06-26-133140.log`,
+`.ai/logs/aider-pass-2026-06-26-133423.log`) hit transient `asset_lookup`
+conditions during staging retries. These did not regress source-side
+implementation; the three accepted passes remain the authoritative evidence.
 
 **Completion note:** Source-side filesystem portability and read-only media
 behavior are verified. Runtime proof of disc-only boot without write errors
