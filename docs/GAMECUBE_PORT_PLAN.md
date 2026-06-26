@@ -1429,7 +1429,8 @@ The port plan and goal ledger contain the authoritative evidence.
 `asset_lookup` staging conditions (`.ai/logs/aider-pass-2026-06-26-143929.log`),
 confirming these are transient environment conditions, not missing source
 implementations. Attempt 5 exited 0 and was accepted
-(`.ai/logs/aider-pass-2026-06-26-144824.log`). The accepted passes verified the
+(`.ai/logs/aider-pass-2026-06-26-144824.log`). Attempt 7 exited 0 and was accepted
+(`.ai/logs/aider-pass-2026-06-26-145009.log`). The accepted passes verified the
 filesystem portability source changes across `engine/server/sv_init.c`,
 `engine/platform/gamecube/sys_gamecube.c`, `engine/client/cl_mod.c`, and
 `engine/common/cmd.c`. Source criteria are fully met.
