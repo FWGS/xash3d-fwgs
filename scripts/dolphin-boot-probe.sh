@@ -999,6 +999,27 @@ if (( FRAME_BUDGET_LOGS == 0 )) && (( GX_DRAWDONE_COUNT > 0 )); then
 	echo "G36_MEASUREMENT_GAP: renderer=${GUEST_RENDERER:-unknown} drawdone=${GX_DRAWDONE_COUNT} budget_markers=0 status=MEASUREMENT_PATH_MISSING"
 fi
 
+# G36_PATCH_v130: Emit final unified status line as the last diagnostic before
+# exit classification. This ensures downstream tooling always sees exactly one
+# G36_STATUS line that reflects the most authoritative measurement outcome.
+# Prioritizes: decisive early fail > incomplete (no logs) > parse fail > sample analysis.
+if [[ -z "${G36_STATUS_EMITTED:-}" ]]; then
+	if (( DOLPHIN_EXIT == 4 )); then
+		echo "G36_STATUS: DECISIVE_FAIL (measurement path missing, exited early)"
+	elif (( FRAME_BUDGET_LOGS == 0 )) && [[ -n "$GUEST_RENDERER" ]]; then
+		echo "G36_STATUS: INCOMPLETE (no frame budget telemetry, renderer=${GUEST_RENDERER})"
+	elif (( FRAME_BUDGET_LOGS )) && (( FRAME_COUNT == 0 )); then
+		echo "G36_STATUS: FAIL (parse failure, zero samples extracted)"
+	elif (( FRAME_COUNT < 3 )); then
+		echo "G36_STATUS: INCOMPLETE (insufficient samples, count=${FRAME_COUNT})"
+	elif ! (( FRAME_BUDGET_PASSED )); then
+		echo "G36_STATUS: FAIL (p95=${FRAME_P95}ms > ${TARGET_FRAME_TIME}ms)"
+	else
+		echo "G36_STATUS: PASS (p95=${FRAME_P95}ms <= ${TARGET_FRAME_TIME}ms)"
+	fi
+	G36_STATUS_EMITTED=1
+fi
+
 # G36_PATCH_v120: Report GX_DrawDone presence and count in post-probe analysis
 # even when frame budget logs are present, to cross-validate GPU activity. This
 # provides concrete evidence of whether the guest rendered frames independently
