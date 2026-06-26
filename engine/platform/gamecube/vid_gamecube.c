@@ -141,6 +141,8 @@ static void GC_PresentBuffer( void )
 	if( !rmode || !xfb[which_fb] )
 		return;
 
+	gc_present_count++;
+
 	copy_w = rmode->fbWidth;
 	copy_h = rmode->xfbHeight;
 	dst = (unsigned short *)xfb[which_fb];
@@ -155,10 +157,8 @@ static void GC_PresentBuffer( void )
 		if( src_h > copy_h )
 			src_h = copy_h;
 
-		// G36: Flush buffer from cache before copying to XFB
-		// DCFlushRange expects (start, end), not (start, size)
 		buf_size = gc.stride * gc.height * sizeof(unsigned short);
-		DCFlushRange(gc.buffer, (void *)((unsigned char *)gc.buffer + buf_size));
+		DCFlushRange( gc.buffer, (u32)buf_size );
 
 		// G36: Sample first pixel for visual evidence only on first frame
 		if( gc_present_count == 1 )
@@ -231,7 +231,7 @@ static void GC_PresentBuffer( void )
 		gc_last_present_time = now;
 	}
 
-	DCFlushRange( xfb[which_fb], (void *)((unsigned char *)xfb[which_fb] + VIDEO_GetFrameBufferSize( rmode )));
+	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
@@ -438,10 +438,8 @@ void GC_DrawFatalBreadcrumb( const char *message )
 			rowdst[col_fatal] = 0xF81F; /* Magenta */
 	}
 
-	/* Flush to ensure hardware sees it */
-	/* DCFlushRange expects (start, end), not (start, size) */
 	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-	DCFlushRange(xfb[0], (void *)((unsigned char *)xfb[0] + xfb_size));
+	DCFlushRange( xfb[0], (u32)xfb_size );
 	VIDEO_SetNextFramebuffer( xfb[0] );
 	VIDEO_Flush();
 	VIDEO_WaitVSync();

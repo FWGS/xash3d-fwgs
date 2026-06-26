@@ -62,6 +62,8 @@ GNU General Public License for more details.
 int error_on_exit = 0;	// arg for exit();
 
 #if XASH_GAMECUBE
+extern void GC_DrawFatalBreadcrumb( const char *message );
+
 static void Sys_GameCubeFatalBreadcrumb( const char *message )
 {
 	char base[MAX_SYSPATH];
@@ -81,6 +83,7 @@ static void Sys_GameCubeFatalBreadcrumb( const char *message )
 	SYS_Report( "Xash3D GameCube: fatal status=%d frame=%u errorframe=%u route=%s gcmap=%s\n",
 		host.status, host.framecount, host.errorframe, route, gcmap[0] ? gcmap : "<none>" );
 	SYS_Report( "Xash3D GameCube: fatal breadcrumb end\n" );
+	GC_DrawFatalBreadcrumb( message );
 }
 #endif
 
