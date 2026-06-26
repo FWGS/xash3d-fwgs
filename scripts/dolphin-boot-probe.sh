@@ -735,6 +735,24 @@ if [[ -z "$GUEST_RENDERER" ]] && grep -aqsF "Xash3D GameCube: renderer initializ
 	echo "G36_RENDERER_HINT: Guest may emit marker without backend name, or marker format differs from expected pattern."
 fi
 
+# G36_PATCH_v77: Dump raw OSREPORT context around renderer initialization to diagnose
+# missing frame budget markers. Shows 10 lines before/after "renderer initialized" to
+# reveal what the guest is actually emitting, helping identify if budget markers are
+# present but in unexpected format, or if the guest is silent about frame timing.
+if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}" && (( FRAME_BUDGET_LOGS == 0 )); then
+	# Merge logs and find context around renderer init marker
+	RAW_CONTEXT=$(cat "${LOG_FILES[@]}" 2>/dev/null | grep -naF "Xash3D GameCube: renderer initialized" | head -1 | cut -d: -f1)
+	if [[ -n "$RAW_CONTEXT" ]] && (( RAW_CONTEXT > 0 )); then
+		START_LINE=$(( RAW_CONTEXT - 5 ))
+		(( START_LINE < 1 )) && START_LINE=1
+		END_LINE=$(( RAW_CONTEXT + 10 ))
+		echo "G36_RAW_CONTEXT: Lines around renderer initialization (for marker format diagnosis):"
+		cat "${LOG_FILES[@]}" 2>/dev/null | sed -n "${START_LINE},${END_LINE}p" | while IFS= read -r line; do
+			echo "G36_RAW_CONTEXT: ${line}"
+		done
+	fi
+fi
+
 # G36_PATCH_v27: Emit explicit renderer source diagnostic for traceability
 if [[ -n "$GUEST_RENDERER" ]]; then
 	echo "G36_RENDERER_SOURCE: backend=${GUEST_RENDERER} (detected post-probe or from loop)"
