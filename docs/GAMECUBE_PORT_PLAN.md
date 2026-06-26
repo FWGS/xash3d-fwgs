@@ -1191,11 +1191,14 @@ verification complete. Ready for campaign audit execution.
 - `scripts/dolphin-boot-probe.sh`: Stale lock detection with 300s threshold.
 - Build verification: PASSED (clean GameCube build completed).
 - Probe verification: `c0a0e` reaches `MAP_READY` with input polling active.
-- Probe log: `.ai/logs/dolphin-probe-20260626-110714/stderr.log`
+- Probe log: `.ai/logs/dolphin-probe-20260626-112134/stderr.log`
   - `Xash3D GameCube: map loaded c0a0e`
   - `Xash3D GameCube: direct map ready`
+  - Models loaded (weapons, player, sprites)
   - HUD sprites loaded (stubs used for missing assets, no fatal errors)
   - Frame render complete with timing telemetry
+  - Non-fatal warning: `SCR_RegisterTextures: failed to load loading image`
+    (known limitation, does not block gameplay)
 
 **Command and result:**
 ```sh
@@ -1204,12 +1207,24 @@ DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
 Result: Exit code 0, `MAP_READY` achieved for `c0a0e`. Engine subsystems
 initialized, map loaded, input polling active. No guest errors observed.
 
+**Command and result (latest probe):**
+```sh
+DOLPHIN_TIMEOUT=90 DOLPHIN_SMOKE_MAP=c0a0e scripts/dolphin-boot-probe.sh
+```
+Result: Exit code 0, `MAP_READY`. Log: `.ai/logs/dolphin-probe-20260626-112134/stderr.log`
+Map loaded successfully with models, sprites, and HUD initialization. Engine
+reaches interactive state.
+
 **Next step:**
 1. Execute `scripts/gamecube-campaign-audit.sh` (representative mode) to probe
    one map per chapter.
 2. Review `.ai/logs/campaign-audit-*/summary.md` for chapter classifications.
 3. Optionally run `scripts/gamecube-campaign-audit.sh --full` for complete
    campaign coverage.
+
+**Blocker:** Campaign audit script requires operator execution with legal local
+Half-Life assets present in `Half-Life/valve/maps`. The automation cannot stage
+proprietary game content. This is an operator verification task.
 
 **Do not mark G40 complete** until:
 - Campaign audit script has been executed
