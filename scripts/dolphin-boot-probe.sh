@@ -881,6 +881,13 @@ if (( MAP_FOUND )) && (( FRAME_BUDGET_LOGS )) && [[ -z "$GUEST_RENDERER" ]]; the
 	echo "G36_RENDERER_HINT: Ensure guest emits 'Xash3D GameCube: renderer initialized <backend>' during startup."
 fi
 
+# G36_PATCH_v118: Emit a single machine-parseable summary when renderer is active
+# but budget measurement is missing. This provides downstream automation with a
+# clear signal to distinguish "telemetry absent" from "telemetry present".
+if [[ -n "$GUEST_RENDERER" ]] && (( FRAME_BUDGET_LOGS == 0 )) && (( GX_DRAWDONE_COUNT > 0 )); then
+	echo "G36_MEASUREMENT_GAP: renderer=${GUEST_RENDERER} drawdone=${GX_DRAWDONE_COUNT} budget_markers=0 status=MEASUREMENT_PATH_MISSING"
+fi
+
 
 # G36: Emit explicit measurement baseline marker so downstream tooling can
 # distinguish "telemetry absent" from "telemetry present but failing"
