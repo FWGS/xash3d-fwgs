@@ -60,6 +60,9 @@ CPUCore = 0
 CPUThread = False
 DSPHLE = True
 FastDiscSpeed = True
+[Analytics]
+Enabled = False
+PermissionAsked = True
 [Interface]
 ConfirmStop = False
 EOF
