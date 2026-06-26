@@ -27,6 +27,7 @@ for shell_script in \
 	scripts/hlsdk-gamecube-probe.sh \
 	scripts/hlsdk-gamecube-build.sh \
 	scripts/gamecube-map-compat-probe.sh \
+	scripts/gamecube-campaign-audit.sh \
 	scripts/gamecube-rc-check.sh \
 	scripts/gamecube-env.sh
 do

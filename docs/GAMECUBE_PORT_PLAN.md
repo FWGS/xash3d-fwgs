@@ -1047,6 +1047,24 @@ The memory file is ignored by Git because it is run-local state. Source-truth
 evidence still belongs in the goal ledger and this port plan before any goal is
 marked complete.
 
+## Campaign Audit Gate (G40, 2026-06-25)
+
+`scripts/gamecube-campaign-audit.sh` is the repeatable Half-Life campaign audit
+entrypoint for G40. It maps the stock legal local `Half-Life/valve/maps` BSP set
+to chapter names, runs the bounded GameCube map compatibility probe, and writes
+chapter and map evidence under `.ai/logs/campaign-audit-*`.
+
+Default representative mode probes one map per chapter:
+
+```sh
+scripts/gamecube-campaign-audit.sh
+```
+
+Use `--full` for every listed campaign BSP, and `--dry-run` to generate the
+chapter/map matrix without launching Dolphin. G40 is not complete until the
+chapter report classifies every critical chapter as playable or records a
+specific blocker/limitation.
+
 ## Next wake-up commands
 
 ```sh

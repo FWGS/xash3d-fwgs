@@ -586,6 +586,10 @@ scripts/gamecube-map-compat-probe.sh
   with concrete evidence and next blocker.
 - Do not call the port complete until every critical chapter blocker has a fix
   or an explicit documented limitation.
+- Use `scripts/gamecube-campaign-audit.sh` for repeatable chapter-level
+  evidence. The default representative pass probes one map per chapter; `--full`
+  expands to every listed campaign BSP. Store results under
+  `.ai/logs/campaign-audit-*/summary.md`.
 
 ## G41 [ ] Prepare release-quality build and verification scripts
 
