@@ -19,7 +19,6 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include <ogc/video.h>
 #include <ogc/system.h>
 #include <ogc/cache.h>
-#include <ogc/lwp_watchdog.h>
 #endif
 
 typedef struct gc_video_s

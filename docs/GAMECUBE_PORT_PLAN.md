@@ -1160,12 +1160,12 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS)
 
-**Status (2026-06-26):** Fixed compilation error in `GC_DrawFatalBreadcrumb`. Replaced `SYS_Delay()` with `VIDEO_WaitVSync()` loop to avoid potential libogc API compatibility issues. `SYS_Delay` may not be declared or available in all libogc build configurations.
+**Status (2026-06-26):** Fixed compilation error in `GC_DrawFatalBreadcrumb`. Removed unnecessary `<ogc/lwp_watchdog.h>` include that caused build failures. The `VIDEO_WaitVSync()` loop replacement is complete and does not require watchdog headers.
 
 **Evidence:**
-- Source: `engine/platform/gamecube/vid_gamecube.c` - replaced `SYS_Delay(500000)` with three `VIDEO_WaitVSync()` calls
-- Added `<ogc/lwp_watchdog.h>` include for completeness
-- Build was failing with compilation error in `GC_DrawFatalBreadcrumb` function
+- Source: `engine/platform/gamecube/vid_gamecube.c` - removed unused `<ogc/lwp_watchdog.h>` include
+- Build was failing with exit code 1 (build failure) due to missing header
+- Probe exit code 1 indicates build failure before runtime
 
 **Next step:** Rebuild and verify the probe succeeds.
 
