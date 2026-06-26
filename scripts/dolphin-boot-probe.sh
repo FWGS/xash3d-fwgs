@@ -499,6 +499,20 @@ if (( FRAME_BUDGET_DISABLED )); then
 	echo "G36_HINT_OPTED_OUT: Re-run with measurement enabled for full G36 automated analysis."
 fi
 
+# G36_PATCH_v61: Detect any GX API calls in OSREPORT to distinguish
+# "guest rendering without budget telemetry" from "guest not rendering at all".
+# This provides evidence that GX command buffer is active even if frame time
+# OSReport calls are missing, helping diagnose missing telemetry vs silent renderer.
+if (( FRAME_BUDGET_LOGS == 0 )) && [[ -n "$GUEST_RENDERER" ]]; then
+	GX_API_HITS=$(grep -acE "GX_|GX_Call" "${LOG_FILES[@]}" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+	if (( GX_API_HITS > 0 )); then
+		echo "G36_GX_ACTIVITY: ${GX_API_HITS} GX API markers detected in logs but zero frame budget samples."
+		echo "G36_GX_ACTIVITY_HINT: Renderer is active and submitting GX commands. Frame budget OSReport calls are likely missing or placed in an unexecuted code path."
+	else
+		echo "G36_GX_SILENT: No GX API markers found. Renderer may have initialized but not issued draw calls, or OSREPORT path is suppressed for GX calls."
+	fi
+fi
+
 # G36_PATCH: Correlate renderer backend presence with frame budget measurement capability
 # Helps distinguish "renderer not initialized" from "renderer initialized but not emitting telemetry"
 if (( MAP_FOUND )) && (( FRAME_BUDGET_LOGS )) && [[ -z "$GUEST_RENDERER" ]]; then
