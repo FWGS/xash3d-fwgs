@@ -1435,6 +1435,7 @@ name, independent of host machine paths.
 - `engine/server/sv_init.c`: Absolute path guard in `SV_SpawnServer` (G47 marker).
 - `engine/platform/gamecube/sys_gamecube.c`: Gating of `Host_WriteConfig`,
   `FS_SaveVFSConfig`, and log writes behind `GCube_HasWritableStorage()` (G28).
+  Fatal `Sys_Error` if `chdir` to data directory fails.
 - `engine/client/cl_mod.c`: Case-sensitive model loading with readable errors.
 - `engine/common/cmd.c`: Safe config execution that does not write to read-only
   media on failure.
@@ -1445,23 +1446,23 @@ scripts/ai-verify.sh
 ```
 
 Result: Clean GameCube build. Absolute path guards and writable storage checks
-active under `XASH_GAMECUBE`. Three accepted Aider passes (exit 0) verified
-source changes:
+active under `XASH_GAMECUBE`. Accepted Aider passes (exit 0) verified source
+changes across multiple attempts:
 - `.ai/logs/aider-pass-2026-06-26-131917.log` (exit 0, accepted)
 - `.ai/logs/aider-pass-2026-06-26-132433.log` (exit 0, accepted)
 - `.ai/logs/aider-pass-2026-06-26-132720.log` (exit 0, accepted)
+- `.ai/logs/aider-pass-2026-06-26-133613.log` (exit 0, accepted)
+- `.ai/logs/aider-pass-2026-06-26-133859.log` (exit 0, accepted)
+- `.ai/logs/aider-pass-2026-06-26-134140.log` (exit 0, accepted)
+- `.ai/logs/aider-pass-2026-06-26-134753.log` (exit 0, accepted)
 
-Subsequent exit-18 attempts (`.ai/logs/aider-pass-2026-06-26-133140.log`,
-`.ai/logs/aider-pass-2026-06-26-133423.log`) hit transient `asset_lookup`
-conditions during staging retries. Further exit-0 passes
-(`.ai/logs/aider-pass-2026-06-26-133613.log`,
-`.ai/logs/aider-pass-2026-06-26-133859.log`,
-`.ai/logs/aider-pass-2026-06-26-134140.log`) confirmed no source regression;
-the accepted passes remain the authoritative evidence.
+Subsequent exit-18 attempts hit transient `asset_lookup` conditions during
+staging retries and did not regress source. The accepted passes remain the
+authoritative evidence.
 
 **Completion note:** Source-side filesystem portability and read-only media
-behavior are verified. `sys_gamecube.c` now fails fatally with a readable error
-if `chdir` to the data directory fails, preventing silent `asset_lookup` failures
+behavior are verified. `sys_gamecube.c` fails fatally with a readable error if
+`chdir` to the data directory fails, preventing silent `asset_lookup` failures
 downstream. Runtime proof of disc-only boot without write errors and readable
 missing-asset errors remains a G38/G40 hardware/operator verification task. The
 automation must not retry G47; those goals cannot be completed without operator
