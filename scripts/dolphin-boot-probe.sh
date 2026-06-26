@@ -290,7 +290,10 @@ fi
 
 # G36: Emit explicit measurement baseline marker so downstream tooling can
 # distinguish "telemetry absent" from "telemetry present but failing"
-echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} lowmem=${GC_LOWMEM_MODE:-none} timeout=${TIMEOUT_SEC}s"
+# Include compile-time low-memory-mode context to correlate frame budget with build configuration
+# (--low-memory-mode=2 sets MAX_MODELS=512, MAX_SOUNDS=512, etc. per GAMECUBE_MEMORY_BUDGET.md)
+LC_LOWMEM="${LC_LOWMEM_MODE:-none}"
+echo "G36_BASELINE: frame_budget_logs=${FRAME_BUDGET_LOGS} frame_samples_available=unknown renderer=${GUEST_RENDERER:-undetected} runtime_lowmem=${GC_LOWMEM_MODE:-none} compile_lowmem=${LC_LOWMEM} timeout=${TIMEOUT_SEC}s"
 
 # G36: Explicitly look for guest-reported memory samples to correlate with frame budget
 GC_MEM_SAMPLES=0
