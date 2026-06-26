@@ -333,6 +333,26 @@ if (( DOLPHIN_IS_FLATPAK )); then
 						echo "G36_DECISIVE_EARLY_CONTEXT: ${line}"
 					done
 				fi
+				# G36_PATCH_v140: Enumerate all OSReport calls present in render loop
+				# to distinguish "no OSReport at all" from "OSReport present but wrong format"
+				ALL_OSREPORT_NEAR_DRAWDONE=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | \
+					grep -nE "(OSREPORT|Xash3D GameCube)" | tail -10 || true)
+				if [[ -n "$ALL_OSREPORT_NEAR_DRAWDONE" ]]; then
+					echo "G36_DECISIVE_EARLY_OSREPORT: Last 10 OSReport/GameCube markers in logs:"
+					while IFS= read -r line; do
+						echo "G36_DECISIVE_EARLY_OSREPORT: ${line}"
+					done <<< "$ALL_OSREPORT_NEAR_DRAWDONE"
+				fi
+				# G36_PATCH_v140: Check if any OSReport calls exist post-renderer-init
+				POST_INIT_OSREPORT=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | \
+					grep -cE "(OSREPORT|Xash3D GameCube)" || true)
+				if (( POST_INIT_OSREPORT == 0 )); then
+					echo "G36_DECISIVE_EARLY_OSREPORT_SILENT: Zero OSReport calls detected after renderer init. OSReport path may be broken or disabled."
+					echo "G36_DECISIVE_EARLY_OSREPORT_HINT: Verify OSReport function is callable and not #ifdef'd out in GameCube build."
+				elif (( POST_INIT_OSREPORT < DRAWDONE_EARLY )); then
+					echo "G36_DECISIVE_EARLY_OSREPORT_SPARSE: Only ${POST_INIT_OSREPORT} OSReport calls vs ${DRAWDONE_EARLY} GX_DrawDone. Guest renders but rarely logs."
+					echo "G36_DECISIVE_EARLY_OSREPORT_HINT: Insert OSReport(\"Xash3D GameCube: frame time=%f\", ms) immediately after GX_DrawDone() call."
+				fi
 				DOLPHIN_EXIT=4
 				break
 			fi
