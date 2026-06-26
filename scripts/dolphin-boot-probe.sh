@@ -7,38 +7,8 @@ if [[ -f scripts/gamecube-env.sh ]]; then
 	source scripts/gamecube-env.sh
 fi
 
-if command -v flock >/dev/null 2>&1; then
-	mkdir -p "$ROOT/.ai"
-	exec 9>"$ROOT/.ai/dolphin-probe.lock"
-	if ! flock -w 10 9; then
-		# Lock could not be acquired within 10 seconds.
-		# Check if the lock holder is still alive or if this is a stale lock.
-		stale=false
-		if [[ -f "$ROOT/.ai/dolphin-probe.lock" ]]; then
-			lock_age=$(( $(date +%s) - $(stat -c %Y "$ROOT/.ai/dolphin-probe.lock" 2>/dev/null || echo 0) ))
-			if (( lock_age > 300 )); then
-				stale=true
-			fi
-		fi
-		# Also check if any Dolphin process is actually running.
-		# If not, the lock is likely stale even if the file is recent.
-		if ! pgrep -f "dolphin" >/dev/null 2>&1; then
-			stale=true
-		fi
-		if [[ "$stale" == true ]]; then
-			echo "WARNING: Removing stale dolphin-probe lock file."
-			rm -f "$ROOT/.ai/dolphin-probe.lock"
-			exec 9>"$ROOT/.ai/dolphin-probe.lock"
-			if ! flock -n 9; then
-				echo "HOST_FAILURE: could not acquire Dolphin probe lock after cleanup."
-				exit 2
-			fi
-		else
-			echo "HOST_FAILURE: another Dolphin boot probe is already running."
-			exit 2
-		fi
-	fi
-fi
+# shellcheck source=scripts/dolphin-probe-lock.sh
+source scripts/dolphin-probe-lock.sh
 
 ISO_PATH="$ROOT/OUT/xash3d-gc.iso"
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"

@@ -24,6 +24,7 @@ for shell_script in \
 	scripts/build-gamecube.sh \
 	scripts/xash3d-gc-aider-gui.sh \
 	scripts/dolphin-boot-probe.sh \
+	scripts/dolphin-probe-lock.sh \
 	scripts/hlsdk-gamecube-probe.sh \
 	scripts/hlsdk-gamecube-build.sh \
 	scripts/gamecube-map-compat-probe.sh \
