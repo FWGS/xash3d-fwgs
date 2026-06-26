@@ -189,7 +189,15 @@ static void GC_PresentBuffer( void )
 
 	GX_Flush();
 	GX_DrawDone();
-	SYS_Report( "Xash3D GameCube: GX_DrawDone\n" );
+	{
+		static int g36_drawdone_tick = 0;
+		g36_drawdone_tick++;
+		if( g36_drawdone_tick >= 10 )
+		{
+			g36_drawdone_tick = 0;
+			SYS_Report( "Xash3D GameCube: GX_DrawDone\n" );
+		}
+	}
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
