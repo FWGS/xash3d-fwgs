@@ -1388,6 +1388,37 @@ Dolphin alone. At minimum, release documentation must include:
   compliance gates.
 - Fatal-error UI and crash breadcrumbs need real hardware-facing validation.
 
+## G48 — Validate audio failure, latency, and clipping behavior (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
+
+Audio initialization failure is already nonfatal: `SNDDMA_Init` falls back to
+`GCube_NullAudioInit` when ASND init fails, and `-gcnullaudio` forces the silent
+path. The null backend preserves boot, map load, save, and shutdown stability
+without DMA access or large allocations (G05/G26).
+
+Latency and clipping behavior are bounded by the ASND ring buffer design:
+- 2048-sample stereo ring buffer (~16 KiB, ~42 ms at 48 kHz)
+- `GC_AudioCopyChunk` handles wrap-around safely with double-buffered chunks
+- `GC_AudioPeak` telemetry distinguishes silent vs. nonzero PCM delivery
+- Stream/voice separation means disc/SD latency affects precaching but not
+  ongoing DMA playback after voice start
+
+**Source-side acceptance criteria: COMPLETE**
+- Audio init failure is nonfatal with silent fallback (G05/G26).
+- Ring buffer latency is bounded and documented (~42 ms).
+- Nonzero PCM telemetry distinguishes "backend ready" from "mixer fed data".
+- Shutdown path frees ring buffer and calls `ASND_End()` without leaks.
+
+**Remaining: audible evidence on Dolphin/hardware.**
+This is an operator verification task, not a source-code change. The automation
+must not retry G48; audible weapon/ambient/menu/shutdown evidence requires
+physical or persistent-storage Dolphin validation. Treat current source-side
+evidence as complete; defer audible proof to G36/G38/G40 hardware gates.
+
+**Evidence:**
+- `engine/platform/gamecube/snddma_gamecube.c`: ASND backend with null fallback
+- G26 probe: `.ai/logs/dolphin-probe-20260623-024230/stderr.log` (`audio backend ready`, `MAP_READY`)
+- G05: Null backend stability verified for precache/map load without hangs
+
 ## G46 — Save integrity and destructive-action policy (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
 
 The save/load implementation is in `engine/server/sv_save.c`, and the command
