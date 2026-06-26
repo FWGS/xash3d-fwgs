@@ -22,6 +22,7 @@ USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
 FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
+GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
@@ -96,23 +97,28 @@ fi
 
 DOLPHIN_CMD=()
 DOLPHIN_IS_FLATPAK=0
+EXTRA_ARGS=()
+if (( GC_FATAL_TEST )); then
+	EXTRA_ARGS+=("-gc_fatal_test" "1")
+fi
+
 if [[ "${DOLPHIN_EXECUTABLE:-}" == flatpak:* ]]; then
 	DOLPHIN_FLATPAK_ID="${DOLPHIN_EXECUTABLE#flatpak:}"
 	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "$DOLPHIN_FLATPAK_ID"
-		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
 	DOLPHIN_IS_FLATPAK=1
 elif [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
-	DOLPHIN_CMD=("$DOLPHIN_EXECUTABLE" -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	DOLPHIN_CMD=("$DOLPHIN_EXECUTABLE" -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
 elif command -v dolphin-emu >/dev/null 2>&1; then
-	DOLPHIN_CMD=(dolphin-emu -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	DOLPHIN_CMD=(dolphin-emu -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
 elif command -v dolphin >/dev/null 2>&1; then
-	DOLPHIN_CMD=(dolphin -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	DOLPHIN_CMD=(dolphin -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
 elif command -v flatpak >/dev/null 2>&1 && \
 	flatpak info "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1; then
 	# Dolphin's Flatpak has no home-directory access by default. Grant only this
 	# repository so it can read the ISO and use the isolated probe profile.
 	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}"
-		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
 	DOLPHIN_IS_FLATPAK=1
 else
 	echo "HOST_FAILURE: Dolphin executable or Flatpak was not found."
@@ -236,9 +242,11 @@ if (( GUEST_FOUND )) && probe_guest_error; then
 		finalize_probe g37_verified 0
 	fi
 
-	echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
-	echo "Logs: $LOG_DIR"
-	finalize_probe guest_failure 3
+	if (( ! GC_FATAL_TEST )); then
+		echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
+		echo "Logs: $LOG_DIR"
+		finalize_probe guest_failure 3
+	fi
 fi
 
 if grep -aEiq 'Unknown instruction|Invalid read from|IntCPU:|apploader.*(fail|error)' "${LOG_FILES[@]}"; then
@@ -263,16 +271,21 @@ fi
 
 if (( DOLPHIN_EXIT != 0 )); then
 	if (( GUEST_FOUND )); then
-		echo "GUEST_FAILURE: Dolphin exited $DOLPHIN_EXIT after guest bootstrap."
-		echo "Logs: $LOG_DIR"
-		finalize_probe guest_failure 3
+		if (( ! GC_FATAL_TEST )); then
+			echo "GUEST_FAILURE: Dolphin exited $DOLPHIN_EXIT after guest bootstrap."
+			echo "Logs: $LOG_DIR"
+			finalize_probe guest_failure 3
+		fi
 	fi
-	echo "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
-	echo "Logs: $LOG_DIR"
-	finalize_probe host_failure 2
+	if (( ! GUEST_FOUND )); then
+		echo "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
+		echo "Logs: $LOG_DIR"
+		finalize_probe host_failure 2
+	fi
 fi
 
-echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without reaching engine readiness."
+if (( ! MAP_FOUND )) && (( ! READY_FOUND )) && (( ! GUEST_FOUND )); then
+	echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without reaching engine readiness."
 if (( GUEST_FOUND )); then
 	grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 fi
