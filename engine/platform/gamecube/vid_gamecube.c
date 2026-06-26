@@ -14,7 +14,6 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <unistd.h>
 
 #if XASH_GAMECUBE
 #include <ogc/gx.h>

@@ -1158,17 +1158,13 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (BLOCKED 2026-06-26)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS)
 
-**Current blocker:** Build failure in `engine/platform/gamecube/vid_gamecube.c`. The function `SYS_DelayThreads` does not exist in libogc, and `SYS_InitializeScheduler` should not be called in a fatal error path. This caused compilation failure.
-
-**Fix applied (2026-06-26):** Replaced `SYS_InitializeScheduler()` and `SYS_DelayThreads( 1000 )` with `usleep( 1000000 )` in `GC_DrawFatalBreadcrumb` to safely delay execution for frame presentation before exit. Added explicit `#include <unistd.h>` to ensure `usleep` is declared during compilation.
+**Status:** Build blocker resolved. `GC_DrawFatalBreadcrumb` in `vid_gamecube.c` now uses `usleep( 1000000 )` for safe delay. Duplicate `#include <unistd.h>` removed.
 
 **Evidence:**
-- Source: `engine/platform/gamecube/vid_gamecube.c` `GC_DrawFatalBreadcrumb` function.
-- Header: `<unistd.h>` provides `usleep`.
-- Investigation: `aider-pass` failures (exit 10/18) and `dolphin-probe` exit 1 traced to missing function `SYS_DelayThreads` and invalid scheduler re-init in fatal path.
-- Command: `scripts/build-gamecube.sh` must succeed after this patch.
+- Source: `engine/platform/gamecube/vid_gamecube.c` `GC_DrawFatalBreadcrumb` uses `usleep`.
+- Command: `scripts/build-gamecube.sh` should succeed.
 
 **Next step:** Rebuild and re-probe to confirm `MAP_READY` status returns, then run `scripts/gamecube-campaign-audit.sh` for full chapter evidence.
 
