@@ -34,6 +34,9 @@ PROBE_AUTO_COMPLETE = {
 MEMORY_FILE = Path(".ai/state/goal-loop-memory.json")
 MEMORY_MAX_DRAWERS = 12
 MEMORY_MAX_TOOL_CALLS = 40
+CONACT_HISTORY_MAX = 10
+CONACT_FACT_MAX = 24
+CONACT_RECENT_MAX = 6
 FAULT_PATTERNS = (
 	r"Host_ErrorInit:.*",
 	r"Host_Error:.*",
@@ -659,10 +662,11 @@ def load_loop_memory(root: Path) -> dict[str, object]:
 	path = root / MEMORY_FILE
 	if not path.is_file():
 		return {
-			"version": 1,
+			"version": 2,
 			"task_goal": "Port Xash3D to run Half-Life 1 on native GameCube hardware.",
 			"rooms": {},
 			"past_tool_calls": [],
+			"conact": default_conact_state(),
 		}
 	try:
 		data = json.loads(path.read_text(encoding="utf-8"))
@@ -670,10 +674,11 @@ def load_loop_memory(root: Path) -> dict[str, object]:
 		data = {}
 	if not isinstance(data, dict):
 		data = {}
-	data.setdefault("version", 1)
+	data.setdefault("version", 2)
 	data.setdefault("task_goal", "Port Xash3D to run Half-Life 1 on native GameCube hardware.")
 	data.setdefault("rooms", {})
 	data.setdefault("past_tool_calls", [])
+	ensure_conact_state(data)
 	return data
 
 
@@ -704,6 +709,179 @@ def memory_room(memory: dict[str, object], goal: Goal) -> dict[str, object]:
 	return room
 
 
+def default_conact_state() -> dict[str, object]:
+	return {
+		"folded_action_history": [],
+		"folded_port_state": [],
+		"recent_step_record": [],
+	}
+
+
+def ensure_conact_state(memory: dict[str, object]) -> dict[str, object]:
+	conact = memory.setdefault("conact", default_conact_state())
+	if not isinstance(conact, dict):
+		conact = default_conact_state()
+		memory["conact"] = conact
+	for key in ("folded_action_history", "folded_port_state", "recent_step_record"):
+		if not isinstance(conact.get(key), list):
+			conact[key] = []
+	return conact
+
+
+def conact_fact(fact_id: str, description: str, content: str,
+	goal_id: str, evidence: str | None = None) -> dict[str, object]:
+	return {
+		"id": fact_id,
+		"description": description,
+		"content": clip_text(content, 520),
+		"goal": goal_id,
+		"evidence": evidence,
+		"updated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+	}
+
+
+def conact_upsert_fact(conact: dict[str, object], fact: dict[str, object]) -> None:
+	facts = conact.setdefault("folded_port_state", [])
+	if not isinstance(facts, list):
+		facts = []
+		conact["folded_port_state"] = facts
+	for index, item in enumerate(facts):
+		if isinstance(item, dict) and item.get("id") == fact.get("id"):
+			facts[index] = fact
+			break
+	else:
+		facts.append(fact)
+	del facts[:-CONACT_FACT_MAX]
+
+
+def conact_extract_facts(goal: Goal, phase: str, exit_code: int,
+	output: str, log_path: str | None) -> list[dict[str, object]]:
+	joined = output.lower()
+	facts: list[dict[str, object]] = []
+	evidence = log_path
+	if "map_ready:" in joined or "xash3d gamecube: map loaded c0a0e" in joined:
+		facts.append(conact_fact(
+			"runtime.map_ready.c0a0e",
+			"c0a0e reaches MAP_READY",
+			"Treat G35 c0a0e map discovery as solved unless a newer probe regresses below MAP_READY.",
+			goal.goal_id, evidence))
+	if "could not load model maps" in joined and "map_ready:" not in joined:
+		facts.append(conact_fact(
+			f"blocker.{goal.goal_id}.asset_lookup",
+			"latest asset lookup blocker",
+			"Latest evidence mentions a missing model/map load path; verify against newer MAP_READY facts before acting.",
+			goal.goal_id, evidence))
+	if "diagnostic marker" in joined or "no non-black pixel" in joined:
+		facts.append(conact_fact(
+			"runtime.visual.diagnostic_marker",
+			"visual output still needs source proof",
+			"VI/XFB appears alive, but renderer content may still be black or missing; prefer renderer/client source fixes over more probe parsing.",
+			goal.goal_id, evidence))
+	if "frame budget" in joined or goal.goal_id in {"G36", "G49"}:
+		facts.append(conact_fact(
+			"runtime.frame_budget.g36_focus",
+			"G36 should prioritize source-level frame/visual fixes",
+			"Probe instrumentation is already extensive; avoid adding more G36_PATCH detectors unless replacing duplicated logic.",
+			goal.goal_id, evidence))
+	if "token/context" in joined or "context limit" in joined:
+		facts.append(conact_fact(
+			f"automation.{goal.goal_id}.context_budget",
+			"context budget pressure",
+			"Use the smallest source slice and folded memory; do not load broad docs unless required for acceptance evidence.",
+			goal.goal_id, evidence))
+	if phase == "review" and exit_code != 0:
+		facts.append(conact_fact(
+			f"automation.{goal.goal_id}.review_gate",
+			"review gate blocked the pass",
+			f"Review exited {exit_code}; inspect the verification gate before retrying with more edits.",
+			goal.goal_id, evidence))
+	return facts
+
+
+def conact_record_step(memory: dict[str, object], goal: Goal, *, attempt: int,
+	phase: str, exit_code: int, failure_class: str, hypothesis: str,
+	output: str, log_path: str | None) -> None:
+	conact = ensure_conact_state(memory)
+	timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+	record = {
+		"timestamp": timestamp,
+		"goal": goal.goal_id,
+		"attempt": attempt,
+		"phase": phase,
+		"exit_code": exit_code,
+		"observation": clip_text(output, 520) if output else "(no output captured)",
+		"intent": hypothesis,
+		"result": failure_class,
+		"log": log_path,
+	}
+	recent = conact.setdefault("recent_step_record", [])
+	if not isinstance(recent, list):
+		recent = []
+		conact["recent_step_record"] = recent
+	recent.append(record)
+	del recent[:-CONACT_RECENT_MAX]
+
+	history = conact.setdefault("folded_action_history", [])
+	if not isinstance(history, list):
+		history = []
+		conact["folded_action_history"] = history
+	history.append({
+		"span": f"{goal.goal_id} attempt {attempt} {phase}",
+		"summary": f"{phase} exit {exit_code}; {failure_class}; {clip_text(hypothesis, 180)}",
+		"log": log_path,
+		"updated_at": timestamp,
+	})
+	del history[:-CONACT_HISTORY_MAX]
+
+	for fact in conact_extract_facts(goal, phase, exit_code, output, log_path):
+		conact_upsert_fact(conact, fact)
+
+
+def conact_summary(memory: dict[str, object], goal: Goal) -> str:
+	conact = ensure_conact_state(memory)
+	lines = [
+		"ConAct-style compact context:",
+		"Folded action history:",
+	]
+	history = conact.get("folded_action_history", [])
+	if isinstance(history, list) and history:
+		for item in history[-4:]:
+			if isinstance(item, dict):
+				lines.append(f"- {item.get('span')}: {item.get('summary')}")
+	else:
+		lines.append("- No folded action history yet.")
+
+	lines.append("Folded port state:")
+	facts = conact.get("folded_port_state", [])
+	relevant: list[dict[str, object]] = []
+	if isinstance(facts, list):
+		for item in facts:
+			if not isinstance(item, dict):
+				continue
+			if item.get("goal") in {goal.goal_id, "G35"} or str(item.get("id", "")).startswith(("runtime.", "automation.")):
+				relevant.append(item)
+	if relevant:
+		for item in relevant[-8:]:
+			lines.append(
+				f"- {item.get('id')}: {item.get('description')} — {item.get('content')}"
+			)
+	else:
+		lines.append("- No persistent port facts recorded yet.")
+
+	lines.append("Recent step record:")
+	recent = conact.get("recent_step_record", [])
+	if isinstance(recent, list) and recent:
+		for item in recent[-2:]:
+			if isinstance(item, dict):
+				lines.append(
+					f"- {item.get('goal')} {item.get('phase')} exit {item.get('exit_code')}: "
+					f"{item.get('result')} / {item.get('intent')}"
+				)
+	else:
+		lines.append("- No recent step records yet.")
+	return "\n".join(lines)
+
+
 def fault_evidence(output: str, *, max_items: int = 8) -> list[dict[str, object]]:
 	evidence: list[dict[str, object]] = []
 	lines = output.splitlines()
@@ -724,6 +902,8 @@ def fault_evidence(output: str, *, max_items: int = 8) -> list[dict[str, object]
 
 def hypothesis_for(exit_code: int, evidence: list[dict[str, object]], phase: str) -> str:
 	joined = " ".join(str(item.get("text", "")) for item in evidence).lower()
+	if exit_code == 0:
+		return f"{phase} completed; preserve this evidence when deciding completion."
 	if "token" in joined or "context" in joined:
 		return "Model context or output budget constrained the previous attempt."
 	if "aider made no edit" in joined:
@@ -738,8 +918,6 @@ def hypothesis_for(exit_code: int, evidence: list[dict[str, object]], phase: str
 		return "The next blocker is likely visual output evidence or renderer presentation."
 	if "audio" in joined:
 		return "The next blocker is likely audio initialization, mixing, or output evidence."
-	if exit_code == 0:
-		return f"{phase} completed; preserve this evidence when deciding completion."
 	return f"{phase} exited {exit_code}; inspect the cited evidence before retrying."
 
 
@@ -840,6 +1018,10 @@ def record_investigation(memory: dict[str, object], goal: Goal, *, attempt: int,
 	}
 	drawers.append(entry)
 	del drawers[:-MEMORY_MAX_DRAWERS]
+	conact_record_step(memory, goal, attempt=attempt, phase=phase,
+		exit_code=exit_code, failure_class=failure_class,
+		hypothesis=str(entry["hypothesis"]), output=output,
+		log_path=log_path)
 
 	if subgoal_id:
 		subgoal = g24_subgoal_memory(room, subgoal_id)
@@ -875,6 +1057,8 @@ def memory_summary(memory: dict[str, object], goal: Goal, attempt: int | None = 
 	tool_calls = memory.get("past_tool_calls", [])
 	lines = [
 		f"Underlying task goal: {memory.get('task_goal', '')}",
+		conact_summary(memory, goal),
+		"",
 		"Goal hypotheses and evidence:",
 	]
 	if isinstance(drawers, list) and drawers:

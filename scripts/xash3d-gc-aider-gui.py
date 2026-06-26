@@ -322,6 +322,7 @@ class DashboardSnapshot:
 	blocked_goals: int = 0
 	active_goal: tuple[str, str, str, str] | None = None
 	context: str = ""
+	agent_memory: str = ""
 	screenshot_path: str = ""
 	screenshot_status: str = "No Dolphin screenshot captured yet"
 	error: str = ""
@@ -386,6 +387,54 @@ def latest_dolphin_screenshot_for_repo(repo: Path) -> tuple[str, str]:
 	if candidates:
 		return str(candidates[-1]), "latest screenshot from harness logs"
 	return "", "No Dolphin screenshot captured yet"
+
+
+def agent_memory_for_repo(repo: Path) -> str:
+	path = repo / ".ai/state/goal-loop-memory.json"
+	if not path.is_file():
+		return "No agent memory recorded yet."
+	try:
+		data = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return "Agent memory unavailable; state file is not readable JSON yet."
+	conact = data.get("conact", {}) if isinstance(data, dict) else {}
+	if not isinstance(conact, dict):
+		return "Agent memory has not been upgraded to ConAct fields yet."
+
+	def items(name: str) -> list[dict[str, object]]:
+		value = conact.get(name, [])
+		return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+	lines = ["CONACT MEMORY"]
+	lines.append("Folded action history:")
+	history = items("folded_action_history")
+	if history:
+		for item in history[-4:]:
+			lines.append(f"- {item.get('span', 'step')}: {item.get('summary', '')}")
+	else:
+		lines.append("- none yet")
+
+	lines.append("")
+	lines.append("Folded port state:")
+	facts = items("folded_port_state")
+	if facts:
+		for item in facts[-8:]:
+			lines.append(f"- {item.get('id', 'fact')}: {item.get('content', '')}")
+	else:
+		lines.append("- none yet")
+
+	lines.append("")
+	lines.append("Recent step record:")
+	recent = items("recent_step_record")
+	if recent:
+		for item in recent[-3:]:
+			lines.append(
+				f"- {item.get('goal', '?')} {item.get('phase', '?')} "
+				f"exit {item.get('exit_code', '?')}: {item.get('result', '')}"
+			)
+	else:
+		lines.append("- none yet")
+	return "\n".join(lines)
 
 
 def model_port_open(host: str, port: int) -> bool:
@@ -458,6 +507,7 @@ def build_dashboard_snapshot(repo: Path, model_host: str, model_port: int) -> Da
 				f"DOLPHIN   {harness_status}",
 			]
 			snapshot.context = "\n".join(lines)
+			snapshot.agent_memory = agent_memory_for_repo(repo)
 
 		snapshot.screenshot_path, snapshot.screenshot_status = latest_dolphin_screenshot_for_repo(repo)
 	except (OSError, subprocess.SubprocessError, ValueError) as exc:
@@ -499,6 +549,7 @@ class PortWindow(QMainWindow):
 		self.dashboard_refresh_running = False
 		self.dashboard_refresh_pending = False
 		self.last_context = ""
+		self.last_agent_memory = ""
 		self.start_head = ""
 		self.closing = False
 		self.setDockOptions(
@@ -636,6 +687,11 @@ class PortWindow(QMainWindow):
 		self.context_view = QPlainTextEdit()
 		self.context_view.setReadOnly(True)
 		context_layout.addWidget(self.context_view)
+		self.agent_memory_view = QPlainTextEdit()
+		self.agent_memory_view.setReadOnly(True)
+		self.agent_memory_view.setMaximumBlockCount(120)
+		context_layout.addWidget(QLabel("Agent Memory"))
+		context_layout.addWidget(self.agent_memory_view)
 		self.add_panel("Telemetry", context_panel, Qt.DockWidgetArea.RightDockWidgetArea)
 
 		viewport_panel = QWidget()
@@ -1352,6 +1408,9 @@ class PortWindow(QMainWindow):
 		if snapshot.context and snapshot.context != self.last_context:
 			self.context_view.setPlainText(snapshot.context)
 			self.last_context = snapshot.context
+		if snapshot.agent_memory and snapshot.agent_memory != self.last_agent_memory:
+			self.agent_memory_view.setPlainText(snapshot.agent_memory)
+			self.last_agent_memory = snapshot.agent_memory
 
 	def latest_dolphin_screenshot(self) -> tuple[Path | None, str]:
 		path, status = latest_dolphin_screenshot_for_repo(self.repo())
