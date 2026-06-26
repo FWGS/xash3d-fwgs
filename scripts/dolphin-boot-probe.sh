@@ -263,12 +263,32 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# memory pressure with frame budget. Detect when the guest transitions
 		# past BSP/client-init into steady-state rendering, allowing downstream
 		# tooling to attribute early budget violations to cold-start vs gameplay.
-		if [[ -n "${G36_FIRST_FRAME_TS:-}" ]]; then
-			CURRENT_MEM_STAGE=$(grep -aoE 'mem stage=[a-zA-Z_]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_]+' || true)
-			if [[ -n "$CURRENT_MEM_STAGE" ]] && [[ "$CURRENT_MEM_STAGE" != "${G36_PREV_MEM_STAGE:-}" ]]; then
-				G36_PREV_MEM_STAGE="$CURRENT_MEM_STAGE"
+		# G36_PATCH_v47: Also track stage transitions during early probe (pre-first-frame)
+		# to diagnose stuck-in-initialization before rendering starts. Reports stage
+		# dwell time to distinguish "slow but progressing" from "blocked on stage".
+		CURRENT_MEM_STAGE=$(grep -aoE 'mem stage=[a-zA-Z_]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_]+' || true)
+		if [[ -n "$CURRENT_MEM_STAGE" ]] && [[ "$CURRENT_MEM_STAGE" != "${G36_PREV_MEM_STAGE:-}" ]]; then
+			G36_PREV_MEM_STAGE="$CURRENT_MEM_STAGE"
+			if [[ -n "${G36_FIRST_FRAME_TS:-}" ]]; then
 				echo "G36_MEM_STAGE_TRANSITION: Guest memory sample stage changed to '${CURRENT_MEM_STAGE}' at probe second=$(( $(date +%s) - START_TS )). Frame budget from this point reflects '${CURRENT_MEM_STAGE}' phase."
+			else
+				echo "G36_MEM_STAGE_PRE_RENDER: Guest entered memory stage '${CURRENT_MEM_STAGE}' at probe second=$(( $(date +%s) - START_TS )). No frames rendered yet; initialization still in progress."
 			fi
+		fi
+		# G36_PATCH_v47: Detect prolonged dwell in a single memory stage as evidence
+		# of asset load hang or blocking initialization. Fires after 20s in same stage.
+		if [[ -n "$G36_PREV_MEM_STAGE" ]] && [[ -z "${G36_MEM_STAGE_DWELL_CHECKED:-}" ]]; then
+			if [[ -n "${G36_MEM_STAGE_DWELL_TS:-}" ]]; then
+				if (( $(date +%s) - G36_MEM_STAGE_DWELL_TS > 20 )); then
+					echo "G36_MEM_STAGE_DWELL: Guest stuck in memory stage '${G36_PREV_MEM_STAGE}' for >20s. Likely blocked on asset load or initialization."
+					echo "G36_MEM_STAGE_DWELL_HINT: Check for missing BSP/game data, filesystem stalls, or blocking syscalls during '${G36_PREV_MEM_STAGE}' phase."
+					G36_MEM_STAGE_DWELL_CHECKED=1
+				fi
+			else
+				G36_MEM_STAGE_DWELL_TS=$(date +%s)
+			fi
+		elif [[ -n "$G36_PREV_MEM_STAGE" ]] && [[ -z "${G36_MEM_STAGE_DWELL_TS:-}" ]]; then
+			G36_MEM_STAGE_DWELL_TS=$(date +%s)
 		fi
 
 		# G36_PATCH_v40: Detect per-frame GX command-list submission markers to
