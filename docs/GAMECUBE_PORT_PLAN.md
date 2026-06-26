@@ -1160,20 +1160,19 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (BLOCKED 2026-06-26)
 
-**Current blocker:** The engine argv was missing `-game valve` and `map c0a0e` commands, causing the engine to fail with `Error: game directory "valve" not exist` and never spawn the server. The probe timed out with `map_timeout`.
+**Current blocker:** The engine argv in `engine/platform/gamecube/sys_gamecube.c` includes `-game valve` and `map c0a0e`, but the DOL was not rebuilt after the source fix. The probe builds the disc image from the existing `OUT/bin/boot.dol` without rebuilding the engine, so stale DOLs with the old argv are packaged into new ISOs.
 
-**Fix applied (2026-06-26):** Updated `GCube_GetArgv()` in `engine/platform/gamecube/sys_gamecube.c` to include:
-- `-game valve` — sets the game directory correctly
-- `map c0a0e` — auto-spawns the smoke map after engine init
+**Fix applied (2026-06-26):** Updated `scripts/dolphin-boot-probe.sh` to call `scripts/build-gamecube.sh` before building the disc image. This ensures the DOL is rebuilt with current source changes before packaging.
 
 **Evidence:**
-- Probe: `.ai/logs/dolphin-probe-20260626-045417/stderr.log` showed `map_timeout` because map was never auto-spawned
-- Root cause: `Program args:` line showed `-gcmap c0a0e` but no `-game valve` or `map c0a0e`
+- Source: `engine/platform/gamecube/sys_gamecube.c` `GCube_GetArgv()` already includes `-game valve` and `map c0a0e`
+- Probe: `.ai/logs/dolphin-probe-20260626-050642/stderr.log` showed `map_timeout` because the stale DOL had the old argv
+- Root cause: `dolphin-boot-probe.sh` called `build-gamecube-disc.py` directly without rebuilding the engine first
+- Fix: `dolphin-boot-probe.sh` now runs `build-gamecube.sh` before `build-gamecube-disc.py`
 
-**Next step:** Rebuild and re-probe to confirm `MAP_READY` status returns, then run `scripts/gamecube-campaign-audit.sh` for full chapter evidence.
+**Next step:** Re-probe to confirm `MAP_READY` status returns, then run `scripts/gamecube-campaign-audit.sh` for full chapter evidence.
 
 ```sh
-scripts/build-gamecube.sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 

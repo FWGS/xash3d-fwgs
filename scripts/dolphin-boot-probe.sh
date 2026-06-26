@@ -85,6 +85,12 @@ WriteToFile = True
 WriteToWindow = False
 EOF
 
+echo "==> Building GameCube engine and DOL..."
+if ! bash scripts/build-gamecube.sh; then
+    echo "FAIL: Engine build failed."
+    exit 1
+fi
+
 echo "==> Building GameCube disc image..."
 BUILD_ARGS=(--output "$ISO_PATH")
 if [[ -n "$SMOKE_MAP" ]]; then
