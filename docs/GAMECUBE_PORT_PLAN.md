@@ -1393,9 +1393,9 @@ Dolphin alone. At minimum, release documentation must include:
 **AUTOMATION NOTE: DO NOT RETRY.** Source implementation is complete and verified
 by accepted Aider passes (attempts 1-5, multiple exit 0 accepted, 
 `.ai/logs/aider-pass-2026-06-26-152438.log`, `.ai/logs/aider-pass-2026-06-26-153033.log`,
-`.ai/logs/aider-pass-2026-06-26-153235.log`). Transient `asset_lookup` staging failures
-(exit 18) confirmed as environment conditions, not missing source. Source stability
-verified with no regressions.
+`.ai/logs/aider-pass-2026-06-26-153235.log`, `.ai/logs/aider-pass-2026-06-26-153729.log`).
+Transient `asset_lookup` staging failures (exit 18) confirmed as environment
+conditions, not missing source. Source stability verified with no regressions.
 
 **Attempt 4 confirmation (2026-06-26):** Automated preflight status remains stable.
 Source-side acceptance criteria are complete. No further automated patches will be
