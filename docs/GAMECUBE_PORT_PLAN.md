@@ -1110,7 +1110,7 @@ The RC script now records bounded retry attempts for Dolphin gates and uses a
 smoke-specific staged-content audit, preventing transient emulator stalls or
 known smoke-package aliases from producing false release-gate failures.
 
-## G37 — Fatal breadcrumb reporting progress (2026-06-26)
+## G37 — Fatal breadcrumb reporting (COMPLETE 2026-06-26)
 
 GameCube fatal exits now emit a compact OSReport breadcrumb block from
 `Sys_Error` before shutdown:
@@ -1135,26 +1135,28 @@ game-code fatal failures visible even when writable storage is missing.
   a 1-second delay to ensure frame presentation.
 - Intentional trigger: `gc_fatal_test` cvar added to `GCube_Init` for verification.
 
-**Runtime verification:**
-The probe script now supports intentional fatal error testing. When the guest
-halts after the `G37: Intentional fatal error triggered` message, the probe
-reports `G37_VERIFIED`.
+**Runtime verification: COMPLETE (2026-06-26)**
+The probe script supports intentional fatal error testing via `GC_FATAL_TEST=1`.
+When set, the engine triggers `Sys_Error` immediately in `GCube_Init`, producing
+the OSReport breadcrumb block. The probe recognizes the `G37_FATAL_MARKER` and
+reports `G37_VERIFIED` when the breadcrumb is observed.
 
 **Verification command:**
 ```sh
-DOLPHIN_TIMEOUT=30 DOLPHIN_SMOKE_MAP=c0a0e -gc_fatal_test 1 scripts/dolphin-boot-probe.sh
+GC_FATAL_TEST=1 DOLPHIN_TIMEOUT=30 scripts/dolphin-boot-probe.sh
 ```
-*Note: The cvar must be passed as an argument to the engine, likely via `-gcmap`
-mechanism or direct argv injection in the probe if supported. For now, manual
-verification in Dolphin console is recommended:*
-1. Boot normally.
-2. Open console and run `gc_fatal_test 1`.
-3. Observe Magenta screen and OSReport breadcrumb in Dolphin logs.
+
+Result: `G37_VERIFIED: Intentional fatal error triggered and breadcrumb reported.`
+
+The probe now checks for G37 verification before classifying guest errors as
+failures, ensuring intentional fatal-test runs are recognized as passing
+verification rather than unexpected crashes.
 
 **Evidence:**
 - `engine/platform/gamecube/sys_gamecube.c`: `Sys_Error` override and `gc_fatal_test` trigger.
 - `engine/platform/gamecube/vid_gamecube.c`: `GC_DrawFatalBreadcrumb` implementation.
-- `scripts/dolphin-boot-probe.sh`: Added `G37_FATAL_MARKER` and `G37_VERIFIED` status.
+- `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
+  error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
 ## Campaign Audit Gate (G40, 2026-06-25)
 

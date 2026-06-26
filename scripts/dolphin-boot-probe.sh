@@ -191,6 +191,14 @@ if [[ -n "$SMOKE_MAP" ]]; then
 	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
 fi
 
+# G37: Check for intentional fatal error verification BEFORE other guest error checks.
+# When GC_FATAL_TEST is set, the guest is expected to trigger Sys_Error and halt.
+if (( GC_FATAL_TEST )) && probe_log_has "$G37_FATAL_MARKER" && probe_log_has "$GUEST_MARKER"; then
+	echo "G37_VERIFIED: Intentional fatal error triggered and breadcrumb reported."
+	echo "Logs: $LOG_DIR"
+	finalize_probe g37_verified 0
+fi
+
 if (( MAP_FOUND )) && (( INPUT_FOUND )); then
 	if probe_guest_error; then
 		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
@@ -235,13 +243,6 @@ if (( READY_FOUND )) && [[ -z "$SMOKE_MAP" ]]; then
 fi
 
 if (( GUEST_FOUND )) && probe_guest_error; then
-	# G37: Check if this was an intentional fatal error test
-	if probe_log_has "$G37_FATAL_MARKER"; then
-		echo "G37_VERIFIED: Intentional fatal error triggered and guest halted."
-		echo "Logs: $LOG_DIR"
-		finalize_probe g37_verified 0
-	fi
-
 	if (( ! GC_FATAL_TEST )); then
 		echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
 		echo "Logs: $LOG_DIR"
