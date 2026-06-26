@@ -27,6 +27,7 @@ for shell_script in \
 	scripts/hlsdk-gamecube-probe.sh \
 	scripts/hlsdk-gamecube-build.sh \
 	scripts/gamecube-map-compat-probe.sh \
+	scripts/gamecube-rc-check.sh \
 	scripts/gamecube-env.sh
 do
 	bash -n "$shell_script"
@@ -119,6 +120,23 @@ if [[ -n "$BASELINE" ]]; then
 	fi
 
 	scripts/ai-evidence-gate.py "$BASELINE" --repo "$ROOT"
+
+	if [[ "${AI_GOAL_ID:-}" =~ ^G([0-9]+)$ ]] && (( BASH_REMATCH[1] >= 36 )); then
+		changed_files="$(git diff --name-only "$BASELINE" | sed '/^$/d')"
+		if [[ -n "$changed_files" ]] && \
+			! grep -Eq '^(engine|ref|filesystem|common|public|stub|3rdparty/hlsdk-portable|docs/|\.ai/goals/|scripts/gamecube-rc-check\.sh|scripts/ai-goal-loop\.py)' <<<"$changed_files"; then
+			echo "verify: G36+ patch has no source or tracked release-evidence change" >&2
+			echo "$changed_files" >&2
+			exit 1
+		fi
+		if [[ "${AI_ALLOW_PROBE_ONLY:-0}" != "1" && "${AI_G36_ALLOW_PROBE_CONTEXT:-0}" != "1" ]]; then
+			non_probe_files="$(grep -Ev '^(scripts/dolphin-boot-probe\.sh|scripts/gamecube-map-compat-probe\.sh)$' <<<"$changed_files" || true)"
+			if [[ -z "$non_probe_files" ]]; then
+				echo "verify: G36+ probe-only patch rejected; run scripts/gamecube-rc-check.sh or make a source/release-evidence change" >&2
+				exit 1
+			fi
+		fi
+	fi
 
 	while IFS= read -r changed_file; do
 		case "$changed_file" in

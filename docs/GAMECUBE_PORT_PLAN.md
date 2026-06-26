@@ -1025,6 +1025,24 @@ pending, `scripts/dolphin-boot-probe.sh` is blocked from editable context unless
 client-screen, and model-loader source instead of endlessly expanding probe
 diagnostics.
 
+## Release Candidate Gate (2026-06-25)
+
+`scripts/gamecube-rc-check.sh` is the hard evidence gate for G36 and later
+release-candidate work. It writes a timestamped directory under
+`.ai/logs/rc-check-*` containing `summary.md`, `status.json`,
+`artifact-manifest.tsv`, and per-gate logs.
+
+The gate runs, in order: `scripts/ai-verify.sh`, a clean GameCube build,
+artifact manifest generation, content staging audit, Dolphin boot probe,
+frame-budget probe, map compatibility summary, and homebrew compliance check.
+Set `RC_BUILD_DISC=1` to also build the smoke disc image as part of the gate.
+
+For G36 and later automatic goals, the runner stops after a bounded number of
+attempts for review instead of running unlimited mutation. Autonomous G36+
+patches must change source behavior or tracked release evidence; probe-only
+patches are rejected unless `AI_ALLOW_PROBE_ONLY=1` or
+`AI_G36_ALLOW_PROBE_CONTEXT=1` is explicitly set for intentional probe cleanup.
+
 The memory file is ignored by Git because it is run-local state. Source-truth
 evidence still belongs in the goal ledger and this port plan before any goal is
 marked complete.

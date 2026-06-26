@@ -1528,6 +1528,9 @@ def main() -> int:
 		help="maximum passes to run; 0 means unlimited")
 	parser.add_argument("--recoverable-retries", type=int, default=8,
 		help="retry one goal this many times for token/timeout/no-edit failures")
+	parser.add_argument("--max-attempts-per-goal", type=int,
+		default=int(os.environ.get("AI_MAX_ATTEMPTS_PER_GOAL", "3")),
+		help="stop G36+ automatic goals after this many attempts for review; 0 disables")
 	parser.add_argument("--list", action="store_true", help="print goal state and exit")
 	parser.add_argument("--status-json", action="store_true", help="emit machine-readable goal state")
 	args = parser.parse_args()
@@ -1595,6 +1598,18 @@ def main() -> int:
 			print("All automatic GameCube port goals are complete or blocked.")
 			return 0
 		attempts[goal.goal_id] = attempts.get(goal.goal_id, 0) + 1
+		goal_number = int(goal.goal_id[1:]) if goal.goal_id[1:].isdigit() else 0
+		if args.max_attempts_per_goal > 0 and goal_number >= 36 and \
+				attempts[goal.goal_id] > args.max_attempts_per_goal:
+			write_state(state_file, state="review-required", pass_index=pass_index,
+				goal=asdict(goal), attempt=attempts[goal.goal_id],
+				message="G36+ attempt limit reached; run RC gate and Codex/review LLM before more edits")
+			print(
+				f"{goal.goal_id}: reached {args.max_attempts_per_goal} automated attempts; "
+				"stopping for RC gate and review.",
+				file=sys.stderr,
+			)
+			return 3
 		if commit_dirty_worktree(root, goal.goal_id) != 0:
 			write_state(state_file, state="failed", pass_index=pass_index,
 				goal=asdict(goal), attempt=attempts[goal.goal_id],
@@ -1654,6 +1669,7 @@ def main() -> int:
 			read_context_files = read_context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			pass_env = os.environ.copy()
 			expected_subject = goal_commit_subject(goal, active_subgoal)
+			pass_env["AI_GOAL_ID"] = goal.goal_id
 			pass_env["AI_COMMIT_SUBJECT"] = expected_subject
 			pass_env["AI_DIRTY_COMMIT_SUBJECT"] = dirty_commit_subject(goal.goal_id)
 			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])

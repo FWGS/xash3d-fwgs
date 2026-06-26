@@ -542,7 +542,7 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# G36_PATCH_v47: Also track stage transitions during early probe (pre-first-frame)
 		# to diagnose stuck-in-initialization before rendering starts. Reports stage
 		# dwell time to distinguish "slow but progressing" from "blocked on stage".
-		CURRENT_MEM_STAGE=$(grep -aoE 'mem stage=[a-zA-Z_]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_]+' || true)
+		CURRENT_MEM_STAGE=$(grep -h -aoE 'mem stage=[a-zA-Z_]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | sed 's/^mem stage=//' || true)
 		if [[ -n "$CURRENT_MEM_STAGE" ]] && [[ "$CURRENT_MEM_STAGE" != "${G36_PREV_MEM_STAGE:-}" ]]; then
 			G36_PREV_MEM_STAGE="$CURRENT_MEM_STAGE"
 			if [[ -n "${G36_FIRST_FRAME_TS:-}" ]]; then
@@ -553,7 +553,7 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		fi
 		# G36_PATCH_v47: Detect prolonged dwell in a single memory stage as evidence
 		# of asset load hang or blocking initialization. Fires after 20s in same stage.
-		if [[ -n "$G36_PREV_MEM_STAGE" ]] && [[ -z "${G36_MEM_STAGE_DWELL_CHECKED:-}" ]]; then
+		if [[ -n "${G36_PREV_MEM_STAGE:-}" ]] && [[ -z "${G36_MEM_STAGE_DWELL_CHECKED:-}" ]]; then
 			if [[ -n "${G36_MEM_STAGE_DWELL_TS:-}" ]]; then
 				if (( $(date +%s) - G36_MEM_STAGE_DWELL_TS > 20 )); then
 					echo "G36_MEM_STAGE_DWELL: Guest stuck in memory stage '${G36_PREV_MEM_STAGE}' for >20s. Likely blocked on asset load or initialization."
@@ -563,7 +563,7 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			else
 				G36_MEM_STAGE_DWELL_TS=$(date +%s)
 			fi
-		elif [[ -n "$G36_PREV_MEM_STAGE" ]] && [[ -z "${G36_MEM_STAGE_DWELL_TS:-}" ]]; then
+		elif [[ -n "${G36_PREV_MEM_STAGE:-}" ]] && [[ -z "${G36_MEM_STAGE_DWELL_TS:-}" ]]; then
 			G36_MEM_STAGE_DWELL_TS=$(date +%s)
 		fi
 
@@ -608,7 +608,7 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# correlating pre-render memory pressure with cold-start frame budget violations.
 		# Reports the highest total memory observed before first frame to quantify cold-start cost.
 		if [[ -z "${G36_FIRST_FRAME_TS:-}" ]]; then
-			PROBE_MEM_STAGE=$(grep -aoE 'mem stage=[a-zA-Z_]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | grep -oE '[a-zA-Z_]+' || true)
+			PROBE_MEM_STAGE=$(grep -h -aoE 'mem stage=[a-zA-Z_]+' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | tail -1 | sed 's/^mem stage=//' || true)
 			if [[ -n "$PROBE_MEM_STAGE" ]]; then
 				PROBE_MEM_TOTAL=$(grep -aE "mem stage=${PROBE_MEM_STAGE}" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | \
 					grep -aoE 'total=[0-9.]+' | tail -1 | grep -oE '[0-9.]+' || echo "0")
@@ -916,6 +916,17 @@ DIAGNOSTIC_MARKER_FOUND=0
 SAMPLED_NONBLACK_FOUND=0
 FRAME_BUDGET_LOGS=0
 FRAME_BUDGET_EXCEEDED=0
+FRAME_COUNT=0
+FRAME_BUDGET_PASSED=0
+FRAME_P95="N/A"
+FRAME_MAX="N/A"
+FRAME_AVG="N/A"
+FRAME_JANK=0
+FRAME_STEADY_COUNT=0
+FRAME_STEADY_AVG="N/A"
+FRAME_STEADY_P95="N/A"
+FRAME_STEADY_BUDGET_PASSED=0
+GX_DRAWDONE_COUNT=0
 grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
 grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
 grep -aqsF "$INPUT_MARKER" "${LOG_FILES[@]}" && INPUT_FOUND=1
@@ -1365,9 +1376,9 @@ fi
 
 # G36: Detect explicit low-memory mode flags (-gcmap, -gclowmem) for budget context
 GC_LOWMEM_MODE=""
-if grep -aqsF "-gcmap" "${LOG_FILES[@]}"; then
+if grep -aqsF -- "-gcmap" "${LOG_FILES[@]}"; then
 	GC_LOWMEM_MODE="gcmap"
-elif grep -aqsF "-gclowmem" "${LOG_FILES[@]}"; then
+elif grep -aqsF -- "-gclowmem" "${LOG_FILES[@]}"; then
 	GC_LOWMEM_MODE="gclowmem"
 fi
 

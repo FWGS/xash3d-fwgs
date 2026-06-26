@@ -549,6 +549,12 @@ scripts/gamecube-map-compat-probe.sh
 - Profile and optimize the worst CPU/rendering hot spots found in a real map
   without broad rewrites or desktop regressions.
 - Record before/after frame timing evidence for at least one representative map.
+- Use `scripts/gamecube-rc-check.sh` as the release-candidate evidence gate;
+  G36 is not complete until the frame-budget probe records telemetry in
+  `.ai/logs/rc-check-*/summary.md`.
+- Probe-only commits are not accepted for G36 unless explicitly running probe
+  cleanup with `AI_G36_ALLOW_PROBE_CONTEXT=1`; prefer source-level renderer,
+  client-screen, or model-loader fixes.
 
 ## G37 [ ] Harden crash, fatal error, and recovery reporting
 
@@ -590,6 +596,9 @@ scripts/gamecube-map-compat-probe.sh
 - Ensure CI/source verification does not require proprietary Half-Life assets.
 - Include the GameCube Homebrew Compliance checker in the release verification
   path and document which strict-mode items still require hardware evidence.
+- `scripts/gamecube-rc-check.sh` is the release-candidate gate command and
+  should remain the canonical one-shot verifier for build, artifacts, staging,
+  Dolphin, frame budget, map compatibility, and compliance evidence.
 
 ## G42 [ ] Finalize native GameCube port documentation
 
@@ -808,6 +817,8 @@ scripts/gamecube-map-compat-probe.sh
   hardware-only, or manual evidence missing.
 - Require the suite to leave logs and manifests in a predictable directory for
   review and release notes.
+- Use `scripts/gamecube-rc-check.sh` as the suite implementation; completion
+  requires a passing `.ai/logs/rc-check-*/summary.md` with no failed gates.
 
 ## G65 [ ] Freeze release candidate documentation and known limitations
 

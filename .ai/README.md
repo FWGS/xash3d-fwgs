@@ -90,6 +90,21 @@ default so restarts continue through renderer/client/model source slices instead
 of adding more probe-only diagnostics. Set `AI_G36_ALLOW_PROBE_CONTEXT=1` only
 when intentionally cleaning or changing the probe script itself.
 
+## Release candidate gate
+
+Use the release-candidate gate before advancing G36+ goals:
+
+```sh
+scripts/gamecube-rc-check.sh
+```
+
+The gate writes `.ai/logs/rc-check-*/summary.md`, `status.json`, and
+`artifact-manifest.tsv`. It runs `ai-verify`, a clean GameCube build, artifact
+manifest generation, content staging audit, Dolphin boot and frame-budget
+probes, map compatibility summary, and homebrew compliance in order. Set
+`RC_BUILD_DISC=1` to include smoke ISO generation. G36+ autonomous passes are
+bounded by default and probe-only patches are rejected unless explicitly allowed.
+
 Autonomous Aider passes disable URL detection so local API base strings are not
 mistaken for web pages to scrape. A 404 from the bare `/v1` path is normal for
 vLLM; readiness checks use the OpenAI-compatible `/v1/models` endpoint and

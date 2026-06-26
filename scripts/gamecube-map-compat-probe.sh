@@ -41,10 +41,18 @@ if [[ ! -d "$MAP_SOURCE_DIR" ]]; then
 	exit 0
 fi
 
-# Find maps
-shopt -s nullglob
-map_files=("$MAP_SOURCE_DIR"/*.bsp)
-shopt -u nullglob
+# Find maps. Positional arguments limit the run to a bounded map list.
+map_files=()
+if [[ $# -gt 0 ]]; then
+	for map_name in "$@"; do
+		map_name="${map_name%.bsp}"
+		map_files+=("$MAP_SOURCE_DIR/${map_name}.bsp")
+	done
+else
+	shopt -s nullglob
+	map_files=("$MAP_SOURCE_DIR"/*.bsp)
+	shopt -u nullglob
+fi
 
 if [[ ${#map_files[@]} -eq 0 ]]; then
 	echo "No .bsp files found in $MAP_SOURCE_DIR"
@@ -52,12 +60,22 @@ if [[ ${#map_files[@]} -eq 0 ]]; then
 fi
 
 for bsp in "${map_files[@]}"; do
+	if [[ ! -f "$bsp" ]]; then
+		map_name="$(basename "$bsp" .bsp)"
+		printf "%s\t%s\t%s\t%s\t%s\n" "$map_name" "MISSING" "N/A" "Map file not found" "N/A" >> "$TSV_FILE"
+		printf "| %s | %s | %s | %s | %s |\n" "$map_name" "MISSING" "N/A" "Map file not found" "N/A" >> "$MD_FILE"
+		echo "==> Probing map: $map_name"
+		echo "  Result: MISSING"
+		continue
+	fi
 	map_name="$(basename "$bsp" .bsp)"
 	echo "==> Probing map: $map_name"
 	
 	# Run probe with timeout
-	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" timeout "$PROBE_TIMEOUT" bash "$PROBE_SCRIPT" 2>&1) || true
+	set +e
+	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" timeout "$PROBE_TIMEOUT" bash "$PROBE_SCRIPT" 2>&1)
 	PROBE_EXIT=$?
+	set -e
 	
 	# Determine log directory (most recent dolphin-probe log)
 	PROBE_LOG_DIR=$(ls -td .ai/logs/dolphin-probe-* 2>/dev/null | head -n 1)
