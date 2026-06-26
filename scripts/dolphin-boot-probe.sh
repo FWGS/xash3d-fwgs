@@ -182,6 +182,13 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			DOLPHIN_EXIT=3
 			break
 		fi
+		# G36_PATCH_v16: Detect renderer initialization during active probe to
+		# diagnose early failures before full timeout expires. Captures backend
+		# name if present for correlation with frame budget measurements.
+		if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}" 2>/dev/null; then
+			GUEST_RENDERER=$(grep -aoE 'Xash3D GameCube: renderer initialized +[a-zA-Z_-]+' "${LOG_FILES[@]}" | tail -1 | grep -oE '[a-zA-Z_-]+$' || true)
+			echo "G36_RENDERER_DETECTED: ${GUEST_RENDERER:-unknown} during probe loop"
+		fi
 		sleep 2
 	done
 else
