@@ -657,11 +657,22 @@ if [[ -z "$GUEST_RENDERER" ]]; then
 	fi
 fi
 
+# G36_PATCH_v60: Detect renderer marker presence even if backend name couldn't be parsed.
+# This distinguishes "renderer never started" from "renderer started but marker format unexpected".
+if [[ -z "$GUEST_RENDERER" ]] && grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}"; then
+	echo "G36_RENDERER_MARKER_PRESENT: Renderer initialized marker found but backend name could not be parsed."
+	echo "G36_RENDERER_HINT: Guest may emit marker without backend name, or marker format differs from expected pattern."
+fi
+
 # G36_PATCH_v27: Emit explicit renderer source diagnostic for traceability
 if [[ -n "$GUEST_RENDERER" ]]; then
 	echo "G36_RENDERER_SOURCE: backend=${GUEST_RENDERER} (detected post-probe or from loop)"
 else
-	echo "G36_RENDERER_SOURCE: backend=unknown (no renderer initialization marker found in logs)"
+	if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}"; then
+		echo "G36_RENDERER_SOURCE: backend=unknown (marker present but name unparseable)"
+	else
+		echo "G36_RENDERER_SOURCE: backend=unknown (no renderer initialization marker found in logs)"
+	fi
 fi
 
 # G36: Detect explicit guest-reported frame count for sample completeness validation
