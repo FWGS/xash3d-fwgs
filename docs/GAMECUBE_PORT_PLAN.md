@@ -1160,11 +1160,12 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS)
 
-**Status (2026-06-26):** Fixed `SYS_Delay` argument in `GC_DrawFatalBreadcrumb`. `SYS_Delay` in libogc takes microseconds, not milliseconds. Changed from `SYS_Delay(500)` (0.5ms) to `SYS_Delay(500000)` (500ms) to ensure the fatal breadcrumb frame is presented long enough to be visible.
+**Status (2026-06-26):** Fixed compilation error in `GC_DrawFatalBreadcrumb`. Replaced `SYS_Delay()` with `VIDEO_WaitVSync()` loop to avoid potential libogc API compatibility issues. `SYS_Delay` may not be declared or available in all libogc build configurations.
 
 **Evidence:**
-- Source: `engine/platform/gamecube/vid_gamecube.c` - changed `SYS_Delay(500)` to `SYS_Delay(500000)`
-- `SYS_Delay` uses microseconds in libogc: 500000 microseconds = 500 milliseconds
+- Source: `engine/platform/gamecube/vid_gamecube.c` - replaced `SYS_Delay(500000)` with three `VIDEO_WaitVSync()` calls
+- Added `<ogc/lwp_watchdog.h>` include for completeness
+- Build was failing with compilation error in `GC_DrawFatalBreadcrumb` function
 
 **Next step:** Rebuild and verify the probe succeeds.
 
@@ -1173,7 +1174,7 @@ scripts/build-gamecube.sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
-Expected result: `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
+Expected result: Clean build and `MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.`
 
 ## Campaign Audit Gate (G40, 2026-06-25)
 

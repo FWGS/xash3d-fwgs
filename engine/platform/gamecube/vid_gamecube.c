@@ -19,6 +19,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include <ogc/video.h>
 #include <ogc/system.h>
 #include <ogc/cache.h>
+#include <ogc/lwp_watchdog.h>
 #endif
 
 typedef struct gc_video_s
@@ -423,10 +424,11 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	VIDEO_WaitVSync();
 
 	/* Block briefly to ensure frame is presented before exit.
-	 * Use SYS_Delay (libogc) instead of usleep which may not be
-	 * available or may behave unexpectedly in the GameCube environment.
-	 * SYS_Delay takes microseconds, so 500000 = 500ms. */
-	SYS_Delay( 500000 );
+	 * Use multiple VIDEO_WaitVSync() calls to ensure the frame is
+	 * presented on screen before the process exits. This is more
+	 * portable than SYS_Delay across different libogc versions. */
+	for( int i = 0; i < 3; i++ )
+		VIDEO_WaitVSync();
 #endif
 	(void)message; /* Message is already reported via OSReport in Sys_Error */
 }
