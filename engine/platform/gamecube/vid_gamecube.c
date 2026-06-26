@@ -213,18 +213,10 @@ static void GC_PresentBuffer( void )
 			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
 	}
 
-	GX_Flush();
-	GX_DrawDone();
-	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
-	VIDEO_SetNextFramebuffer( xfb[which_fb] );
-	VIDEO_Flush();
-	VIDEO_WaitVSync();
-
-	/* G36: Emit frame complete/budget markers on every frame.
-	 * SYS_Report latency on GameCube is low (serial console or null backend).
-	 * Emitting every frame gives the probe script dense evidence for P95/jitter
-	 * analysis without requiring sampling heuristics. Measuring frame-to-frame
-	 * time with Sys_FloatTime avoids frame-averaging artifacts. */
+	/* G36: Emit frame complete/budget markers immediately after GX_DrawDone,
+	 * before VIDEO_WaitVSync. This measures CPU/GX submission cost without
+	 * including VI-wait time, giving the probe script accurate CPU budget
+	 * evidence. SYS_Report latency on GameCube is low. */
 	{
 		double now = Sys_FloatTime();
 		SYS_Report( "Xash3D GameCube: frame render complete\n" );
@@ -235,6 +227,13 @@ static void GC_PresentBuffer( void )
 		}
 		gc_last_present_time = now;
 	}
+
+	GX_Flush();
+	GX_DrawDone();
+	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
+	VIDEO_SetNextFramebuffer( xfb[which_fb] );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
 
 	which_fb ^= 1;
 #else
