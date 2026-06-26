@@ -1432,7 +1432,7 @@ assets trigger readable error messages identifying the failed resource type and
 name, independent of host machine paths.
 
 **Source implementation:**
-- `engine/server/sv_init.c`: Absolute path guard in `SV_SpawnServer`.
+- `engine/server/sv_init.c`: Absolute path guard in `SV_SpawnServer` (G47 marker).
 - `engine/platform/gamecube/sys_gamecube.c`: Gating of `Host_WriteConfig`,
   `FS_SaveVFSConfig`, and log writes behind `GCube_HasWritableStorage()` (G28).
 - `engine/client/cl_mod.c`: Case-sensitive model loading with readable errors.
@@ -1445,8 +1445,11 @@ scripts/ai-verify.sh
 ```
 
 Result: Clean GameCube build. Absolute path guards and writable storage checks
-active under `XASH_GAMECUBE`. Previous accepted pass (exit 0) verified source
-changes.
+active under `XASH_GAMECUBE`. Three consecutive accepted Aider passes (exit 0)
+verified source changes across attempts:
+- `.ai/logs/aider-pass-2026-06-26-131917.log` (exit 0, accepted)
+- `.ai/logs/aider-pass-2026-06-26-132433.log` (exit 0, accepted)
+- `.ai/logs/aider-pass-2026-06-26-132720.log` (exit 0, accepted)
 
 **Completion note:** Source-side filesystem portability and read-only media
 behavior are verified. Runtime proof of disc-only boot without write errors
