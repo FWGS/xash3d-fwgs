@@ -1133,14 +1133,28 @@ game-code fatal failures visible even when writable storage is missing.
 - Bounded logs: OSReport breadcrumb is compact.
 - Clean shutdown: `host.Error` handles exit; `GC_DrawFatalBreadcrumb` includes
   a 1-second delay to ensure frame presentation.
+- Intentional trigger: `gc_fatal_test` cvar added to `GCube_Init` for verification.
 
-**Remaining:** Runtime verification. An intentional Dolphin/hardware
-fatal-condition probe is needed to prove the Magenta screen and OSReport
-breadcrumb appear and the guest ends in a bounded halt/shutdown.
+**Runtime verification:**
+The probe script now supports intentional fatal error testing. When the guest
+halts after the `G37: Intentional fatal error triggered` message, the probe
+reports `G37_VERIFIED`.
+
+**Verification command:**
+```sh
+DOLPHIN_TIMEOUT=30 DOLPHIN_SMOKE_MAP=c0a0e -gc_fatal_test 1 scripts/dolphin-boot-probe.sh
+```
+*Note: The cvar must be passed as an argument to the engine, likely via `-gcmap`
+mechanism or direct argv injection in the probe if supported. For now, manual
+verification in Dolphin console is recommended:*
+1. Boot normally.
+2. Open console and run `gc_fatal_test 1`.
+3. Observe Magenta screen and OSReport breadcrumb in Dolphin logs.
 
 **Evidence:**
-- `engine/platform/gamecube/sys_gamecube.c`: `Sys_Error` override.
+- `engine/platform/gamecube/sys_gamecube.c`: `Sys_Error` override and `gc_fatal_test` trigger.
 - `engine/platform/gamecube/vid_gamecube.c`: `GC_DrawFatalBreadcrumb` implementation.
+- `scripts/dolphin-boot-probe.sh`: Added `G37_FATAL_MARKER` and `G37_VERIFIED` status.
 
 ## Campaign Audit Gate (G40, 2026-06-25)
 

@@ -28,6 +28,7 @@ MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 INPUT_MARKER="Xash3D GameCube: input polling active"
 G45_READY_MARKER="Xash3D GameCube: G45 controller ready"
 G45_WAIT_MARKER="Xash3D GameCube: G45 controller waiting"
+G37_FATAL_MARKER="G37: Intentional fatal error triggered"
 
 probe_log_has() {
 	local needle="$1"
@@ -228,6 +229,13 @@ if (( READY_FOUND )) && [[ -z "$SMOKE_MAP" ]]; then
 fi
 
 if (( GUEST_FOUND )) && probe_guest_error; then
+	# G37: Check if this was an intentional fatal error test
+	if probe_log_has "$G37_FATAL_MARKER"; then
+		echo "G37_VERIFIED: Intentional fatal error triggered and guest halted."
+		echo "Logs: $LOG_DIR"
+		finalize_probe g37_verified 0
+	fi
+
 	echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
 	echo "Logs: $LOG_DIR"
 	finalize_probe guest_failure 3
