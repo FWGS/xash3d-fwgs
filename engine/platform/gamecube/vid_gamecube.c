@@ -126,6 +126,7 @@ static void GC_PresentBuffer( void )
 #if XASH_GAMECUBE
 	unsigned short *src;
 	unsigned short *dst;
+	unsigned short *diag_rowdst;
 	int copy_w, copy_h, row, col2;
 	int src_w, src_h;
 	qboolean sampled_nonblack = false;
@@ -196,7 +197,6 @@ static void GC_PresentBuffer( void )
 		 * is captured. Leaves XFB black (zeroed) for subsequent frames. */
 		if( gc_present_count == 1 )
 		{
-			unsigned short *diag_rowdst;
 			col_diag = 0;
 			for( row = 0; row < copy_h; row++ )
 			{

@@ -1160,12 +1160,12 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C89 FIX APPLIED)
 
-**Status (2026-06-26):** Fixed C89 compliance issue in `GC_DrawFatalBreadcrumb` where loop variable `i` was initialized after statements or in a way that violated strict C89 rules in some toolchain configurations. Removed redundant initialization and ensured declarations are at the top of the scope.
+**Status (2026-06-26):** Fixed C89 compliance violation in `GC_PresentBuffer` where `diag_rowdst` was declared mid-block inside an `if` statement. C89 requires all declarations at the top of the scope block. Moved `diag_rowdst` declaration to the top of `GC_PresentBuffer`.
 
 **Evidence:**
-- `engine/platform/gamecube/vid_gamecube.c`: `GC_DrawFatalBreadcrumb`
-  - Removed `row = 0;` and `col_fatal = 0;` and `i = 0;` explicit initializations before loops, relying on loop init or proper scoping.
-  - Verified all variables declared at start of block.
+- `engine/platform/gamecube/vid_gamecube.c`: `GC_PresentBuffer`
+  - Moved `unsigned short *diag_rowdst;` from inside `if( gc_present_count == 1 )` block to function scope top.
+  - All variables now declared before statements in C89-compliant order.
 - Next: Run build and probe to verify runtime behavior.
 
 ```sh
