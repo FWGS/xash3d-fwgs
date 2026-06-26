@@ -210,6 +210,20 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v46: Detect guest running but map-load stalled. If renderer
+		# is active and subsystems are ready but MAP_MARKER never appears, emit
+		# an early diagnostic to distinguish "map load failed" from "bootstrap hung".
+		# This fires after 45s only if we have evidence the guest is past init.
+		if [[ -z "${G36_MAPLOAD_STUCK_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 45 )) && \
+		   probe_log_has "$READY_MARKER" && \
+		   [[ -n "$GUEST_RENDERER" ]] && \
+		   ! probe_log_has "$MAP_MARKER"; then
+			G36_MAPLOAD_STUCK_CHECKED=1
+			echo "G36_MAPLOAD_STUCK: Guest subsystems ready with renderer ${GUEST_RENDERER}, but map ${SMOKE_MAP} did not load after 45s."
+			echo "G36_MAPLOAD_HINT: Check for BSP load failures, missing game data paths, or server/client handshake hangs."
+		fi
+
 		# G36_PATCH_v28: Detect frame budget measurement markers during active probe
 		# to fail faster if the guest is not emitting timing telemetry. This allows
 		# distinguishing "guest rendered but no markers" from "guest crashed before
