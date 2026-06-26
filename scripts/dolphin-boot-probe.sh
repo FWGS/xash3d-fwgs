@@ -298,40 +298,29 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
-		# G36_PATCH_v122: Early decisive evidence when renderer is active (DrawDone
+		# G36_PATCH_v131: Early decisive evidence when renderer is active (DrawDone
 		# present) but no frame budget markers after sufficient render duration.
-		# This is a concrete measurement improvement: distinguish "measurement missing"
-		# from "measurement failing" by requiring GX_DrawDone + 3s render time + zero
-		# budget markers before declaring the measurement path absent. Provides earlier
-		# closure than waiting for full probe timeout. Reduced from 5s to 3s after
-		# repeated G36 evidence showed DrawDone markers appear within 2-3s of renderer
-		# init and no budget markers ever follow when measurement path is missing.
-		# On decisive failure, break out of probe loop immediately to save host time.
+		# Requires GX_DrawDone + 5s render time + zero budget markers before declaring
+		# measurement path absent. Provides earlier closure than full probe timeout.
+		# On decisive failure, break out immediately and emit machine-parseable status.
 		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && \
 		   [[ -z "${G36_MEASUREMENT_PATH_DECIDED:-}" ]] && \
-		   (( $(date +%s) - G36_RENDERER_INIT_TS > 3 )); then
+		   (( $(date +%s) - G36_RENDERER_INIT_TS > 5 )); then
 			G36_MEASUREMENT_PATH_DECIDED=1
-			# G36_PATCH_v117: Use wc -l on merged grep output to avoid multi-file
-			# count mismatch from grep -c per-file behavior. cat first, then grep
-			# to get a single accurate count across both log files.
 			DRAWDONE_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -cF "GX_DrawDone" || true)
 			BUDGET_EARLY=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -cE "Xash3D GameCube:.*time=[0-9]+" || true)
 			if (( DRAWDONE_EARLY > 2 )) && (( BUDGET_EARLY == 0 )); then
 				ELAPSED_AFTER_INIT=$(( $(date +%s) - G36_RENDERER_INIT_TS ))
 				echo "G36_DECISIVE_EARLY: Renderer ${GUEST_RENDERER:-unknown} active with ${DRAWDONE_EARLY} GX_DrawDone calls but zero frame budget markers after ${ELAPSED_AFTER_INIT}s."
-				echo "G36_DECISIVE_EARLY_HINT: Guest render loop is missing 'Xash3D GameCube: frame time=<ms>' OSReport. Patch GX renderer main loop to emit budget marker after GX_DrawDone."
-				echo "G36_DECISIVE_EARLY_HINT_EXAMPLE: Add 'OSReport(\"Xash3D GameCube: frame time=%dms\", elapsed_ms);' after GX_DrawDone() in your main render loop."
+				echo "G36_DECISIVE_EARLY_HINT: Guest render loop is missing 'Xash3D GameCube: frame time=<ms>' OSReport after GX_DrawDone."
 				echo "G36_DECISIVE_EARLY_STATUS: MEASUREMENT_PATH_MISSING"
-				DOLPHIN_EXIT=4
-				break
 				# G36_PATCH_v119: Report line numbers of first 3 GX_DrawDone occurrences
-				# to give precise locations for inserting budget measurement code.
-				# This converts "missing measurement" from a vague warning to an actionable
-				# patch location, accelerating the measurement->optimization cycle.
 				DRAWDONE_LINES=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -naF "GX_DrawDone" | head -3 | cut -d: -f1 | tr '\n' ',' | sed 's/,$//')
 				if [[ -n "$DRAWDONE_LINES" ]]; then
-					echo "G36_DECISIVE_EARLY_LOCATIONS: GX_DrawDone appears at merged-log lines: ${DRAWDONE_LINES}. Insert frame budget OSReport immediately after each of these."
+					echo "G36_DECISIVE_EARLY_LOCATIONS: GX_DrawDone at merged-log lines: ${DRAWDONE_LINES}"
 				fi
+				DOLPHIN_EXIT=4
+				break
 			fi
 		fi
 
