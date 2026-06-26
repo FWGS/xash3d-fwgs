@@ -1158,15 +1158,13 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: VERIFY DCFlushRange FIX)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: BUILD FIX APPLIED)
 
-**Status (2026-06-26):** Fixed `DCFlushRange` API usage in `vid_gamecube.c`. The calls in `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb` were passing `size` as the second argument instead of the `end` address. Corrected to use pointer arithmetic for the end address.
-
-**Blocker:** Build and runtime verification pending.
+**Status (2026-06-26):** Fixed `DCFlushRange` API usage in `vid_gamecube.c`. The calls in `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb` were incorrectly passing `size` as the second argument instead of the `end` address. Corrected to use `start + size` pointer arithmetic.
 
 **Evidence:**
-- `vid_gamecube.c`: Fixed `DCFlushRange` calls.
-- Next: Run build and probe.
+- `engine/platform/gamecube/vid_gamecube.c`: Updated `DCFlushRange` calls in `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb`.
+- Next: Run build and probe to verify runtime behavior.
 
 ```sh
 scripts/build-gamecube.sh
