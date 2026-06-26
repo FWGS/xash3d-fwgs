@@ -317,6 +317,21 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v112: Track first GX_DrawDone appearance timestamp during probe
+		# loop to measure renderer-init-to-first-draw latency. This quantifies how
+		# long after GX_Init the guest reaches its main draw loop, distinguishing
+		# "renderer init succeeded" from "renderer init succeeded + drawing frames".
+		# Fires once when DrawDone first appears after renderer init.
+		if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && [[ -z "${G36_FIRST_DRAWDONE_TS:-}" ]] && \
+		   grep -aqsF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			G36_FIRST_DRAWDONE_TS=$(date +%s)
+			DRAWDONE_TO_INIT_GAP=$(( G36_FIRST_DRAWDONE_TS - G36_RENDERER_INIT_TS ))
+			echo "G36_FIRST_DRAWDONE: First GX_DrawDone detected at probe second=$(( G36_FIRST_DRAWDONE_TS - START_TS )). Init-to-first-draw gap=${DRAWDONE_TO_INIT_GAP}s."
+			if (( DRAWDONE_TO_INIT_GAP > 5 )); then
+				echo "G36_FIRST_DRAWDONE_WARN: >5s gap between renderer init and first GX_DrawDone. Guest may be stuck in pre-render setup or missing Host_RunFrame entry."
+			fi
+		fi
+
 		# G36_PATCH_v103: Detect sudden frame marker rate drop to identify render
 		# loop instability. Compares frame emission rate in the last 4 seconds
 		# against the rate in the prior 4-second window. A rate drop >50% indicates
