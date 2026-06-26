@@ -15,10 +15,11 @@ CHAPTER_TSV="$LOG_BASE/chapter-results.tsv"
 SUMMARY="$LOG_BASE/summary.md"
 MODE="representative"
 DRY_RUN=0
+declare -a SELECT_CHAPTERS
 
 usage() {
 	cat <<'EOF'
-Usage: scripts/gamecube-campaign-audit.sh [--representative|--full] [--dry-run]
+Usage: scripts/gamecube-campaign-audit.sh [--representative|--full] [--dry-run] [--chapter NAME]
 
 Runs the stock Half-Life campaign route through the GameCube map compatibility
 probe and summarizes results by chapter. The default representative mode probes
@@ -36,6 +37,14 @@ while [[ $# -gt 0 ]]; do
 		--representative) MODE="representative" ;;
 		--full) MODE="full" ;;
 		--dry-run) DRY_RUN=1 ;;
+		--chapter)
+			shift
+			if [[ $# -eq 0 ]]; then
+				echo "--chapter requires a chapter name" >&2
+				exit 2
+			fi
+			SELECT_CHAPTERS+=("$1")
+			;;
 		--help|-h) usage; exit 0 ;;
 		*)
 			echo "unknown argument: $1" >&2
@@ -78,6 +87,16 @@ map_exists() {
 	[[ -f "$MAP_SOURCE_DIR/${1%.bsp}.bsp" ]]
 }
 
+chapter_selected() {
+	local chapter="$1"
+	local selected
+	[[ ${#SELECT_CHAPTERS[@]} -eq 0 ]] && return 0
+	for selected in "${SELECT_CHAPTERS[@]}"; do
+		[[ "$chapter" == "$selected" ]] && return 0
+	done
+	return 1
+}
+
 append_unique_map() {
 	local candidate="$1"
 	local existing
@@ -89,6 +108,7 @@ append_unique_map() {
 
 for row in "${CHAPTERS[@]}"; do
 	IFS='|' read -r chapter representative full_maps <<<"$row"
+	chapter_selected "$chapter" || continue
 	if [[ "$MODE" == "full" ]]; then
 		for map_name in $full_maps; do
 			append_unique_map "$map_name"
@@ -101,6 +121,7 @@ done
 if [[ "$DRY_RUN" == "1" ]]; then
 	for row in "${CHAPTERS[@]}"; do
 		IFS='|' read -r chapter representative full_maps <<<"$row"
+		chapter_selected "$chapter" || continue
 		maps="$representative"
 		[[ "$MODE" == "full" ]] && maps="$full_maps"
 		for map_name in $maps; do
@@ -127,6 +148,7 @@ else
 
 	for row in "${CHAPTERS[@]}"; do
 		IFS='|' read -r chapter representative full_maps <<<"$row"
+		chapter_selected "$chapter" || continue
 		maps="$representative"
 		[[ "$MODE" == "full" ]] && maps="$full_maps"
 		for map_name in $maps; do
@@ -141,6 +163,7 @@ fi
 
 for row in "${CHAPTERS[@]}"; do
 	IFS='|' read -r chapter representative full_maps <<<"$row"
+	chapter_selected "$chapter" || continue
 	maps="$representative"
 	[[ "$MODE" == "full" ]] && maps="$full_maps"
 	total=0
