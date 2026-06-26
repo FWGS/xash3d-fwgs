@@ -399,55 +399,25 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
-		# G36_PATCH_v72: Detect renderer-submitting-but-no-budget-markers condition
-		# using GX_Flush/GX_DrawDone as stronger evidence of active render submission.
-		# GX_Flush/GX_DrawDone indicate the guest is committing work to the GX pipeline,
-		# making missing budget markers more actionable than raw GX_ API hits.
+		# G36_PATCH_v75: Consolidated renderer diagnostic - detects renderer active
+		# but no frame budget markers in a single check. Replaces v62/v70/v72 which
+		# overlapped in checking similar conditions at different time thresholds.
 		if [[ -n "$GUEST_RENDERER" ]] && \
-		   [[ -z "${G36_GX_SUBMIT_NO_BUDGET_CHECKED:-}" ]] && \
-		   (( $(date +%s) - START_TS > 12 )); then
-			G36_GX_SUBMIT_NO_BUDGET_CHECKED=1
-			GX_SUBMIT_COUNT=$(grep -acE "GX_(Flush|DrawDone)" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
-			if (( GX_SUBMIT_COUNT > 0 )); then
-				BUDGET_MARKER_COUNT=$(grep -acE "Xash3D GameCube:.*frame.*(time|budget)=" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
-				if (( BUDGET_MARKER_COUNT == 0 )); then
-					echo "G36_GX_SUBMIT_NO_BUDGET: Renderer ${GUEST_RENDERER} is submitting ${GX_SUBMIT_COUNT} GX_Flush/GX_DrawDone but emitting zero frame budget markers."
-					echo "G36_GX_SUBMIT_HINT: Renderer is committing work to GX pipeline. Missing 'Xash3D GameCube: frame time=<ms>' OSReport after GX_DrawDone."
-				fi
-			fi
-		fi
-
-		# G36_PATCH_v62: Detect renderer-active-but-no-budget-markers condition early
-		# to provide actionable evidence when GX calls are present but frame budget
-		# telemetry is absent. This helps distinguish "renderer working silently" from
-		# "renderer not emitting markers" before full timeout expires.
-		if [[ -n "$GUEST_RENDERER" ]] && \
-		   [[ -z "${G36_GX_ACTIVE_NO_BUDGET_CHECKED:-}" ]] && \
-		   (( $(date +%s) - START_TS > 15 )); then
-			G36_GX_ACTIVE_NO_BUDGET_CHECKED=1
+		   [[ -z "${G36_RENDERER_BUDGET_DIAGNOSTIC_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 18 )); then
+			G36_RENDERER_BUDGET_DIAGNOSTIC_CHECKED=1
+			GX_DRAWDONE_COUNT=$(grep -acF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
 			GX_CALL_COUNT=$(grep -acE "GX_|GX_Call" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
-			if (( GX_CALL_COUNT > 10 )); then
-				BUDGET_MARKER_COUNT=$(grep -acE "Xash3D GameCube:.*time=" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
-				if (( BUDGET_MARKER_COUNT == 0 )); then
-					echo "G36_GX_ACTIVE_NO_BUDGET: Renderer ${GUEST_RENDERER} is active (${GX_CALL_COUNT} GX calls) but emitting zero frame budget markers."
-					echo "G36_GX_ACTIVE_HINT: Renderer code path is executing GX commands but missing 'Xash3D GameCube: frame time=<ms>' OSReport calls."
-					echo "G36_GX_ACTIVE_HINT: Check renderer main loop for frame budget measurement insertion after GX_DrawDone or VI-sync."
-				fi
-			fi
-		fi
-
-		# G36_PATCH_v70: Detect renderer initialized but no frames rendered after
-		# extended wait. Distinguishes "renderer crashed before first frame" from
-		# "renderer running but silent". Provides explicit evidence for failure mode.
-		if [[ -n "$GUEST_RENDERER" ]] && \
-		   [[ -z "${G36_RENDERER_NO_FRAMES_CHECKED:-}" ]] && \
-		   (( $(date +%s) - START_TS > 30 )); then
-			G36_RENDERER_NO_FRAMES_CHECKED=1
-			FRAME_MARKER_COUNT=$(grep -acE "Xash3D GameCube:.*frame.*(time|budget|render)" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
-			if (( FRAME_MARKER_COUNT == 0 )); then
-				echo "G36_RENDERER_NO_FRAMES: Renderer ${GUEST_RENDERER} initialized but zero frame-related OSREPORT markers after 30s."
-				echo "G36_RENDERER_NO_FRAMES_HINT: Guest may have crashed between renderer init and first render loop iteration, or frame loop is not reached."
-				echo "G36_RENDERER_NO_FRAMES_HINT: Check for crashes in SV_Init, Host_RunFrame, or renderer main loop entry point."
+			BUDGET_MARKER_COUNT=$(grep -acE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			if (( GX_DRAWDONE_COUNT > 0 )) && (( BUDGET_MARKER_COUNT == 0 )); then
+				echo "G36_RENDERER_ACTIVE_NO_BUDGET: Renderer ${GUEST_RENDERER} submitted ${GX_DRAWDONE_COUNT} GX_DrawDone calls but emitted zero frame budget markers after 18s."
+				echo "G36_RENDERER_ACTIVE_HINT: Renderer is executing and completing draw calls. Missing 'Xash3D GameCube: frame time=<ms>' OSReport after GX_DrawDone in renderer main loop."
+			elif (( GX_CALL_COUNT > 10 )) && (( BUDGET_MARKER_COUNT == 0 )); then
+				echo "G36_RENDERER_ACTIVE_NO_BUDGET: Renderer ${GUEST_RENDERER} is active (${GX_CALL_COUNT} GX calls) but emitting zero frame budget markers after 18s."
+				echo "G36_RENDERER_ACTIVE_HINT: Renderer code path is executing GX commands but missing frame budget OSReport calls. Insert measurement after GX_DrawDone or VI-sync."
+			elif (( GX_CALL_COUNT <= 10 )); then
+				echo "G36_RENDERER_LOW_ACTIVITY: Renderer ${GUEST_RENDERER} initialized but only ${GX_CALL_COUNT} GX calls detected after 18s. Guest may not be reaching main render loop."
+				echo "G36_RENDERER_LOW_ACTIVITY_HINT: Check for crashes or hangs between renderer init and Host_RunFrame/render loop entry."
 			fi
 		fi
 
