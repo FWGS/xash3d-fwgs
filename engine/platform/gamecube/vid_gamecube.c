@@ -420,8 +420,6 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	int i;
 	size_t xfb_size;
 
-	(void)message;
-
 	if( !rmode || !xfb[0] )
 		return;
 
