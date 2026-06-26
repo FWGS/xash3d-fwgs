@@ -137,10 +137,10 @@ static void GC_PresentBuffer( void )
 	}
 	else
 	{
-		/* G36: Diagnostic blue fill only for first 60 frames when buffer is missing.
-		 * Avoid wasting CPU cycles on full-screen fills every frame after initial
-		 * evidence is captured. Leaves XFB black (zeroed) for subsequent frames. */
-		if( gc_present_count <= 60 )
+		/* G36: Diagnostic blue fill only for first frame when buffer is missing.
+		 * Avoid wasting CPU cycles on full-screen fills after initial evidence
+		 * is captured. Leaves XFB black (zeroed) for subsequent frames. */
+		if( gc_present_count == 1 )
 		{
 			for( row = 0; row < copy_h; row++ )
 			{
@@ -149,8 +149,12 @@ static void GC_PresentBuffer( void )
 				for( col = 0; col < copy_w; col++ )
 					rowdst[col] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
 			}
+			sampled_nonblack = true;
 		}
-		sampled_nonblack = ( gc_present_count <= 60 );
+		else
+		{
+			sampled_nonblack = false;
+		}
 	}
 
 	gc_present_count++;
@@ -228,11 +232,6 @@ static void GC_PresentBuffer( void )
 				SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms / 10.0 );
 			}
 			gc_last_present_time = now;
-		}
-		else
-		{
-			/* Keep the absolute timestamp running for the next window */
-			(void)Sys_FloatTime();
 		}
 	}
 
