@@ -1160,19 +1160,19 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (BLOCKED 2026-06-26)
 
-**Current blocker:** The engine argv in `engine/platform/gamecube/sys_gamecube.c` includes `-game valve` and `map c0a0e`, but the DOL was not rebuilt after the source fix. The probe builds the disc image from the existing `OUT/bin/boot.dol` without rebuilding the engine, so stale DOLs with the old argv are packaged into new ISOs.
+**Current blocker:** Build failure / runtime undefined behavior in `engine/platform/gamecube/sys_gamecube.c`. The expression `Cvar_Get(...) && Cvar_VariableIntegerValue(...)` was assigned directly to a `qboolean`, causing type mismatch issues (comparing a pointer to boolean) and potentially skipping the cvar registration if miscompiled.
 
-**Fix applied (2026-06-26):** Updated `scripts/dolphin-boot-probe.sh` to call `scripts/build-gamecube.sh` before building the disc image. This ensures the DOL is rebuilt with current source changes before packaging.
+**Fix applied (2026-06-26):** Separated `Cvar_Get` into its own statement to ensure the cvar is registered, then evaluated the boolean condition using the returned pointer and `Cvar_VariableIntegerValue`.
 
 **Evidence:**
-- Source: `engine/platform/gamecube/sys_gamecube.c` `GCube_GetArgv()` already includes `-game valve` and `map c0a0e`
-- Probe: `.ai/logs/dolphin-probe-20260626-050642/stderr.log` showed `map_timeout` because the stale DOL had the old argv
-- Root cause: `dolphin-boot-probe.sh` called `build-gamecube-disc.py` directly without rebuilding the engine first
-- Fix: `dolphin-boot-probe.sh` now runs `build-gamecube.sh` before `build-gamecube-disc.py`
+- Source: `engine/platform/gamecube/sys_gamecube.c` `GCube_Init` function.
+- Investigation: Multiple `aider-pass` failures (exit 10/18) and `dolphin-probe` exit 1 traced to this C type mismatch.
+- Command: `scripts/build-gamecube.sh` must succeed after this patch.
 
-**Next step:** Re-probe to confirm `MAP_READY` status returns, then run `scripts/gamecube-campaign-audit.sh` for full chapter evidence.
+**Next step:** Rebuild and re-probe to confirm `MAP_READY` status returns, then run `scripts/gamecube-campaign-audit.sh` for full chapter evidence.
 
 ```sh
+scripts/build-gamecube.sh
 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
 
