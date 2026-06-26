@@ -1160,14 +1160,14 @@ verification rather than unexpected crashes.
 
 ## G40 — Run an end-to-end Half-Life 1 completion campaign audit (BLOCKED 2026-06-26)
 
-**Current blocker:** Build failure in `engine/platform/gamecube/sys_gamecube.c`. The function `Cvar_VariableIntegerValue` does not exist; the correct function is `Cvar_VariableInteger`. This caused compilation failure.
+**Current blocker:** Build failure in `engine/platform/gamecube/vid_gamecube.c`. The function `SYS_DelayThreads` does not exist in libogc, and `SYS_InitializeScheduler` should not be called in a fatal error path. This caused compilation failure.
 
-**Fix applied (2026-06-26):** Changed `Cvar_VariableIntegerValue( "gc_fatal_test" )` to `Cvar_VariableInteger( "gc_fatal_test" )` in `GCube_Init`.
+**Fix applied (2026-06-26):** Replaced `SYS_InitializeScheduler()` and `SYS_DelayThreads( 1000 )` with `usleep( 1000000 )` in `GC_DrawFatalBreadcrumb` to safely delay execution for frame presentation before exit.
 
 **Evidence:**
-- Source: `engine/platform/gamecube/sys_gamecube.c` `GCube_Init` function.
-- Header: `engine/common/cvar.h` declares `int Cvar_VariableInteger( const char *var_name )`.
-- Investigation: Multiple `aider-pass` failures (exit 10/18) and `dolphin-probe` exit 1 traced to missing function `Cvar_VariableIntegerValue`.
+- Source: `engine/platform/gamecube/vid_gamecube.c` `GC_DrawFatalBreadcrumb` function.
+- Header: `<unistd.h>` provides `usleep`.
+- Investigation: `aider-pass` failures (exit 10/18) and `dolphin-probe` exit 1 traced to missing function `SYS_DelayThreads` and invalid scheduler re-init in fatal path.
 - Command: `scripts/build-gamecube.sh` must succeed after this patch.
 
 **Next step:** Rebuild and re-probe to confirm `MAP_READY` status returns, then run `scripts/gamecube-campaign-audit.sh` for full chapter evidence.

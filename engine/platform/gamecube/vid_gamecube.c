@@ -423,8 +423,7 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	VIDEO_WaitVSync();
 
 	/* Block briefly to ensure frame is presented before exit */
-	SYS_InitializeScheduler();
-	SYS_DelayThreads( 1000 ); /* 1 second delay */
+	usleep( 1000000 ); /* 1 second delay */
 #endif
 	(void)message; /* Message is already reported via OSReport in Sys_Error */
 }
