@@ -165,12 +165,12 @@ static void GC_PresentBuffer( void )
 		// G36: Detect non-black content on first frame only to stabilize frame budget
 		if( gc_present_count == 1 && src_h > 0 && src_w > 0 )
 		{
-			int col;
 			int check_w = src_w < 8 ? src_w : 8;
 			unsigned short *scanrow = src;
-			for( col = 0; col < check_w; col++ )
+			int col2;
+			for( col2 = 0; col2 < check_w; col2++ )
 			{
-				if( scanrow[col] != 0 )
+				if( scanrow[col2] != 0 )
 				{
 					sampled_nonblack = true;
 					break;
@@ -185,12 +185,12 @@ static void GC_PresentBuffer( void )
 		 * is captured. Leaves XFB black (zeroed) for subsequent frames. */
 		if( gc_present_count == 1 )
 		{
-			int col;
+			int col_diag;
 			for( row = 0; row < copy_h; row++ )
 			{
 				unsigned short *rowdst = dst + row * rmode->fbWidth;
-				for( col = 0; col < copy_w; col++ )
-					rowdst[col] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
+				for( col_diag = 0; col_diag < copy_w; col_diag++ )
+					rowdst[col_diag] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
 			}
 			sampled_nonblack = true;
 		}
@@ -412,17 +412,21 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	dst = (unsigned short *)xfb[0];
 
 	/* Fill XFB with a distinct color: Magenta (RGB565 0xF81F) to signal ERROR */
-	for( row = 0; row < rmode->xfbHeight; row++ )
 	{
-		unsigned short *rowdst = dst + row * rmode->fbWidth;
-		for( col = 0; col < rmode->fbWidth; col++ )
-			rowdst[col] = 0xF81F; /* Magenta */
+		int col_fatal;
+		for( row = 0; row < rmode->xfbHeight; row++ )
+		{
+			unsigned short *rowdst = dst + row * rmode->fbWidth;
+			for( col_fatal = 0; col_fatal < rmode->fbWidth; col_fatal++ )
+				rowdst[col_fatal] = 0xF81F; /* Magenta */
 	}
 
 	/* Flush to ensure hardware sees it */
 	// DCFlushRange expects (start, end), not (start, size)
-	size_t xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-	DCFlushRange(xfb[0], (void *)((unsigned char *)xfb[0] + xfb_size));
+	{
+		size_t xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
+		DCFlushRange(xfb[0], (void *)((unsigned char *)xfb[0] + xfb_size));
+	}
 	VIDEO_SetNextFramebuffer( xfb[0] );
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
@@ -432,8 +436,8 @@ void GC_DrawFatalBreadcrumb( const char *message )
 	 * presented on screen before the process exits. This is more
 	 * portable than SYS_Delay across different libogc versions. */
 	{
-		int i;
-		for( i = 0; i < 3; i++ )
+		int i_fatal;
+		for( i_fatal = 0; i_fatal < 3; i_fatal++ )
 			VIDEO_WaitVSync();
 	}
 #endif

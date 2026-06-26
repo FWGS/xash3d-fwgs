@@ -1158,13 +1158,14 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: C99 LOOP FIXES)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: BUILD FIX VERIFIED)
 
-**Status (2026-06-26):** Fixed multiple C99 inline loop variable declarations in `vid_gamecube.c`. The devkitPPC PowerPC compiler rejects `for( int i = ... )` syntax under default C89 settings. Pre-declared loop variables at block scope.
+**Status (2026-06-26):** Fixed multiple C99 inline loop variable declarations and syntax errors in `vid_gamecube.c`. The devkitPPC PowerPC compiler rejects `for( int i = ... )` syntax under default C89 settings. Pre-declared loop variables at block scope in `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb`. Also fixed mismatched braces and indentation in `GC_DrawFatalBreadcrumb` flush logic.
 
 **Evidence:**
-- `engine/platform/gamecube/vid_gamecube.c`: Fixed `GC_PresentBuffer` non-black sampling loop: changed `for( int col = 0; ... )` to pre-declare `int col` before the loop. Also moved `int col` declaration outside the row loop in the diagnostic blue fill path to avoid repeated declarations per iteration.
-- `GC_DrawFatalBreadcrumb` was previously fixed in an earlier attempt (pre-declared `int i`).
+- `engine/platform/gamecube/vid_gamecube.c`:
+  - `GC_PresentBuffer`: Fixed non-black sampling loop to use `col2` correctly (`scanrow[col2]`).
+  - `GC_DrawFatalBreadcrumb`: Fixed brace matching for `xfb_size` scope and `DCFlushRange` call. Pre-declared `col_fatal`, `i_fatal`, `xfb_size`.
 - Next: Run build and probe to verify runtime behavior.
 
 ```sh
