@@ -1453,8 +1453,10 @@ source changes:
 
 Subsequent exit-18 attempts (`.ai/logs/aider-pass-2026-06-26-133140.log`,
 `.ai/logs/aider-pass-2026-06-26-133423.log`) hit transient `asset_lookup`
-conditions during staging retries. These did not regress source-side
-implementation; the three accepted passes remain the authoritative evidence.
+conditions during staging retries. Further exit-0 passes
+(`.ai/logs/aider-pass-2026-06-26-133613.log`,
+`.ai/logs/aider-pass-2026-06-26-133859.log`) confirmed no source regression;
+the accepted passes remain the authoritative evidence.
 
 **Completion note:** Source-side filesystem portability and read-only media
 behavior are verified. `sys_gamecube.c` now fails fatally with a readable error
