@@ -40,7 +40,8 @@ Runs the native GameCube release-candidate evidence gate:
   8. map compatibility summary
   9. boot media compliance check
   10. video compliance check
-  11. homebrew compliance check
+  11. controller compliance check
+  12. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -312,6 +313,21 @@ video_compliance_gate() {
 	return "$rc"
 }
 
+controller_compliance_gate() {
+	local log_path="$LOG_DIR/controller-compliance.log"
+	echo
+	echo "== controller compliance =="
+	if scripts/gamecube-controller-compliance.py --log-dir "$LOG_DIR/controller-compliance" >"$log_path" 2>&1; then
+		log_status "controller compliance" "PASS" "$log_path" "G45 controller source/policy preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "controller compliance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -418,6 +434,7 @@ main() {
 	map_compat_gate || true
 	boot_media_compliance_gate || true
 	video_compliance_gate || true
+	controller_compliance_gate || true
 	compliance_gate || true
 	write_summary
 	echo

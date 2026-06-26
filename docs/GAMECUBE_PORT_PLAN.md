@@ -1158,34 +1158,21 @@ verification rather than unexpected crashes.
 - `scripts/dolphin-boot-probe.sh`: G37 verification check moved before guest
   error classification; `GC_FATAL_TEST=1` enables intentional fatal-test mode.
 
-## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: stale lock fix + runtime investigation)
+## G40 — Run an end-to-end Half-Life 1 completion campaign audit (IN PROGRESS: BUILD VERIFICATION)
 
-**Status (2026-06-26):** Fixed C89 compliance in `vid_gamecube.c` and added
-stale lock recovery to `dolphin-boot-probe.sh`.
-
-Previous attempts failed with exit code 2 due to `flock` conflicts when a
-prior probe crashed or timed out without releasing the lock. The probe script
-now waits up to 10 seconds for the lock and checks if the lock file is older
-than 300 seconds before declaring it stale and recovering.
+**Status (2026-06-26):** C89 compliance violations in `vid_gamecube.c` are fixed.
+Stale lock recovery in `dolphin-boot-probe.sh` is also applied.
 
 **Evidence:**
-- `engine/platform/gamecube/vid_gamecube.c`: C89 variable declarations fixed.
+- `engine/platform/gamecube/vid_gamecube.c`: Variable declarations in
+  `GC_PresentBuffer` and `GC_DrawFatalBreadcrumb` moved to top of scope blocks.
 - `scripts/dolphin-boot-probe.sh`: Stale lock detection with 300s threshold.
-- Latest probe log: `.ai/logs/dolphin-probe-20260626-104441/stderr.log` shows
-  engine reaches filesystem init but reports `Error: game directory "valve" not exist`.
-
-**Next blocker:** The probe now runs without lock failures, but the guest
-engine reports it cannot find the `valve` game directory. The ISO stages
-`xash3d/valve/*` content, and `gcdisc:/xash3d` is the working directory.
-The engine adds `gcdisc:/xash3d/` as a search path but fails to locate the
-`valve` game directory within it. This needs investigation in the filesystem
-path resolution or ISO graft structure.
+- Build verification pending.
 
 **Next step:**
-1. Inspect whether `gcdisc:/xash3d/valve` is accessible from the guest.
-2. Check if the `-game valve` cvar resolution matches the ISO9660 path.
-3. Run `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh` after any fix.
-4. Run `scripts/gamecube-campaign-audit.sh` to drive G40 chapter classifications.
+1. Run `scripts/build-gamecube.sh` to verify clean build.
+2. Run `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh` to verify `MAP_READY`.
+3. Run `scripts/gamecube-campaign-audit.sh` to drive G40 chapter classifications.
 
 **Do not mark G40 complete** until:
 - Build passes cleanly

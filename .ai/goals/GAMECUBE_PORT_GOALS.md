@@ -712,7 +712,7 @@ scripts/gamecube-map-compat-probe.sh
 - Boundary: dated CRT/analog or physical-console capture evidence remains
   required in G38/G53/G66 before release-complete hardware claims.
 
-## G45 [ ] Harden controller presence and disconnect behavior
+## G45 [x] Harden controller presence and disconnect behavior
 
 - Detect no-controller-at-boot, Port 1 reconnect, mid-game disconnect, and
   controller type changes without hanging gameplay or menus.
@@ -720,6 +720,19 @@ scripts/gamecube-map-compat-probe.sh
   and keep A confirm, B cancel/back, and Start pause consistent.
 - Record tests for official controller, WaveBird, third-party controller when
   available, no-controller, and reconnect during gameplay.
+- Completed 2026-06-26 for automated source/policy preflight:
+  `engine/platform/gamecube/in_gamecube.c` polls libogc PAD input, logs
+  no-controller waiting instead of blocking boot, scans ports 1-4 for fallback
+  reconnect, releases held buttons/axes on disconnect, tracks controller type
+  changes, applies GameCube stick/trigger deadzones, and emits `G45 controller
+  ready`, `G45 controller waiting`, and `G45 controller disconnected` markers.
+- `scripts/gamecube-controller-compliance.py` verifies the G45 source contract,
+  GameCube button names, A/B/Start mapping policy, deadzones, reconnect
+  handling, and hardware evidence boundary.
+- `scripts/gamecube-rc-check.sh` now runs the G45 controller compliance gate.
+- Boundary: dated hardware/operator evidence remains required for official
+  controller, WaveBird, third-party controller, no-controller boot, and
+  mid-game reconnect before release-complete hardware claims.
 
 ## G46 [ ] Implement save integrity and destructive-action policy
 

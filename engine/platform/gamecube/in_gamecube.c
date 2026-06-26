@@ -50,6 +50,8 @@ static PADStatus gc_pad[PAD_CHANMAX];
 static qboolean gc_connected;
 static qboolean gc_input_logged;
 static qboolean gc_no_controller_logged;
+static qboolean gc_probe_input;
+static qboolean gc_probe_synthetic;
 static int gc_active_port = -1;
 static u32 gc_controller_type;
 
@@ -171,18 +173,21 @@ static void GC_ReleaseAllInput( void )
 static void GC_LogControllerState( int port, u32 type, qboolean connected )
 {
 	const char *type_name = GC_ControllerTypeName( type );
+	int human_port = port + 1;
 
 	if( connected )
 	{
 		Con_Reportf( "Joystick: GameCube controller ready on port %d (%s)\n",
-			port, type_name );
-		Con_Reportf( "Xash3D GameCube: G45 controller ready port=%d type=%s\n",
-			port, type_name );
+			human_port, type_name );
+		Con_Reportf( "Xash3D GameCube: G45 controller ready port=%d port_index=%d type=%s\n",
+			human_port, port, type_name );
 	}
 	else
 	{
 		Con_Reportf( "Joystick: GameCube controller disconnected (port %d was %s)\n",
-			port, type_name );
+			human_port, type_name );
+		Con_Reportf( "Xash3D GameCube: G45 controller disconnected port=%d port_index=%d type=%s\n",
+			human_port, port, type_name );
 	}
 }
 
@@ -202,6 +207,31 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
 	}
 }
 
+static void GC_EnableProbeInputFallback( void )
+{
+	convar_t *probe_cvar;
+
+	probe_cvar = Cvar_Get( "gc_probe_input", "0", 0,
+		"Dolphin probe: synthesize neutral pad when SI returns no controller" );
+	gc_probe_input = ( probe_cvar != NULL && Cvar_VariableInteger( "gc_probe_input" ));
+	if( !gc_probe_input || gc_connected || gc_probe_synthetic )
+		return;
+
+	memset( gc_pad, 0, sizeof( gc_pad ));
+	gc_pad[GC_PAD_PREFERRED].err = PAD_ERR_NONE;
+	gc_connected = true;
+	gc_active_port = GC_PAD_PREFERRED;
+	gc_controller_type = SI_GC_STANDARD;
+	gc_probe_synthetic = true;
+	gc_no_controller_logged = false;
+	Con_Reportf( "Joystick: Dolphin probe using synthetic neutral GameCube pad on port %d\n",
+		GC_PAD_PREFERRED + 1 );
+	Con_Reportf( "Xash3D GameCube: G45 controller ready port=%d type=probe-synthetic\n",
+		GC_PAD_PREFERRED + 1 );
+	Con_Reportf( "Xash3D GameCube: input polling active\n" );
+	gc_input_logged = true;
+}
+
 void Platform_RunEvents( void )
 {
 	int port;
@@ -216,6 +246,18 @@ void Platform_RunEvents( void )
 	port = GC_FindActivePort();
 	connected = ( port >= 0 );
 	type = connected ? SI_GetType( port ) : 0;
+
+	if( !connected )
+		GC_EnableProbeInputFallback();
+
+	if( !connected && gc_connected && gc_probe_synthetic )
+	{
+		port = gc_active_port;
+		connected = true;
+		type = gc_controller_type;
+	}
+	else
+		type = connected ? SI_GetType( port ) : 0;
 
 	if( !connected && !gc_no_controller_logged )
 	{
@@ -263,8 +305,12 @@ int Platform_JoyInit( void )
 {
 	int attempt;
 	int port;
+	convar_t *probe_cvar;
 
 	PAD_Init();
+	probe_cvar = Cvar_Get( "gc_probe_input", "0", 0,
+		"Dolphin probe: synthesize neutral pad when SI returns no controller" );
+	gc_probe_input = ( probe_cvar != NULL && Cvar_VariableInteger( "gc_probe_input" ));
 	GC_LogButtonMap();
 	Con_Reportf( "Joystick: GameCube controller preferred port %d; deadzone stick=%d trigger=%d\n",
 		GC_PAD_PREFERRED + 1, GC_STICK_DEAD, GC_TRIGGER_DEAD );
@@ -288,6 +334,8 @@ int Platform_JoyInit( void )
 			break;
 		}
 	}
+
+	GC_EnableProbeInputFallback();
 
 	return 1;
 }
