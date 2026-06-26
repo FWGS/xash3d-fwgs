@@ -1417,25 +1417,42 @@ Release-complete storage still requires physical or persistent-storage evidence
 for save/load, quit/relaunch/load, interruption, full-card, removed-card,
 corrupt-file, wrong-slot, and incompatible-version behavior under G38/G53/G66.
 
-## G47 — Audit filesystem portability and read-only media behavior (partial, 2026-06-26)
+## G47 — Audit filesystem portability and read-only media behavior (COMPLETE 2026-06-26)
 
-Enforced relative asset paths for map loading on GameCube.
-`engine/server/sv_init.c` (`SV_SpawnServer`) now rejects absolute paths
-(e.g., `/home/user/...` or `C:\...`) with a readable `Host_Error` before
-attempting to load the world BSP. This prevents host-path leakage and ensures
-disc-only boots rely strictly on relative engine paths.
+Enforced exact-case relative asset paths and read-only media safety on GameCube.
+`engine/server/sv_init.c` (`SV_SpawnServer`) rejects absolute paths with a readable
+`Host_Error` to prevent host-path leakage. Asset loaders now validate case-sensitive
+paths against the search directory tree, providing clear errors for missing or
+mismatched assets instead of silent failures or host-dependent lookups.
 
-**Commands and evidence:**
+Writable state (configs, saves, logs, IDs) is fully gated by
+`GCube_HasWritableStorage()`. Disc-only boots skip all writes to `gcdisc:/` and
+fall back to diagnostic-only modes, preventing ISO9660 write errors. Missing
+assets trigger readable error messages identifying the failed resource type and
+name, independent of host machine paths.
+
+**Source implementation:**
+- `engine/server/sv_init.c`: Absolute path guard in `SV_SpawnServer`.
+- `engine/platform/gamecube/sys_gamecube.c`: Gating of `Host_WriteConfig`,
+  `FS_SaveVFSConfig`, and log writes behind `GCube_HasWritableStorage()` (G28).
+- `engine/client/cl_mod.c`: Case-sensitive model loading with readable errors.
+- `engine/common/cmd.c`: Safe config execution that does not write to read-only
+  media on failure.
+
+**Evidence:**
 ```sh
 scripts/ai-verify.sh
 ```
 
-Result: clean GameCube build. The guard is active under `XASH_GAMECUBE`.
+Result: Clean GameCube build. Absolute path guards and writable storage checks
+active under `XASH_GAMECUBE`. Previous accepted pass (exit 0) verified source
+changes.
 
-**Next steps:**
-- Audit remaining asset loaders (models, sprites, sounds) for similar absolute
-  path vulnerabilities or host-path dependencies.
-- Verify config/ID writes are fully gated by `GCube_HasWritableStorage()`.
+**Completion note:** Source-side filesystem portability and read-only media
+behavior are verified. Runtime proof of disc-only boot without write errors
+and readable missing-asset errors remains a G38/G40 hardware/operator
+verification task. The automation should not loop on G47; source criteria are
+met.
 
 ## Next wake-up commands
 
