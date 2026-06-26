@@ -1982,9 +1982,6 @@ Mod_SetupHull
 static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hullnum, model_t *world )
 {
 	hull_t *hull = &mod->hulls[hullnum];
-#if XASH_GAMECUBE
-	qboolean gc_fast_clipnodes = Sys_CheckParm( "-gcmap" ) && !bmod->isbsp30ext && bmod->version == HLBSP_VERSION;
-#endif
 
 	switch( hullnum )
 	{
@@ -2044,13 +2041,6 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 			}
 			else
 			{
-#if XASH_GAMECUBE
-				if( gc_fast_clipnodes )
-				{
-					hull->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
-					return;
-				}
-#endif
 				hull->clipnodes16 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes16 ) * mod->numclipnodes );
 
 				for( int i = 0; i < mod->numclipnodes; i++ )
@@ -2186,11 +2176,6 @@ static void Mod_SetupSubmodels( model_t *mod, dbspmodel_t *bmod )
 		mod->hulls[0].lastclipnode = bm->headnode[0]; // need to be real count
 
 		// counting a real number of clipnodes per each submodel
-#if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ))
-			mod->hulls[0].lastclipnode = mod->numnodes - 1;
-		else
-#endif
 		if( bmod->version == QBSP2_VERSION )
 			CountClipNodes32_r( mod->hulls[0].clipnodes32, &mod->hulls[0], bm->headnode[0] );
 		else
@@ -3874,15 +3859,6 @@ Mod_LoadClipnodes
 static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 {
 	dclipnode32_t	*out;
-
-#if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && !bmod->isbsp30ext && bmod->version == HLBSP_VERSION )
-	{
-		mod->numclipnodes = bmod->numclipnodes;
-		Con_Reportf( "Xash3D GameCube: using BSP clipnodes in-place\n" );
-		return;
-	}
-#endif
 
 	bmod->clipnodes_out = out = (dclipnode32_t *)Mem_Malloc( mod->mempool, bmod->numclipnodes * sizeof( *out ));
 
