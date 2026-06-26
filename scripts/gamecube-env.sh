@@ -133,6 +133,10 @@ gamecube_checkpoint_dirty_worktree() {
 	if [[ -z "$(git status --porcelain)" ]]; then
 		return 0
 	fi
+	if [[ "$(git log -1 --format=%s 2>/dev/null || true)" == "$subject" ]]; then
+		echo "gamecube-env: skipping duplicate checkpoint commit: $subject" >&2
+		return 0
+	fi
 
 	git add -A
 	gamecube_unstage_excluded_paths

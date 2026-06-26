@@ -1512,6 +1512,19 @@ def git_dirty(root: Path) -> bool:
 		text=True, capture_output=True, check=False).stdout.strip())
 
 
+def git_last_subject(root: Path) -> str:
+	return subprocess.run(["git", "log", "-1", "--format=%s"], cwd=root,
+		text=True, capture_output=True, check=False).stdout.strip()
+
+
+def restore_failed_pass_worktree(root: Path) -> None:
+	if not git_dirty(root):
+		return
+	print("goal-loop: discarding uncommitted changes from failed pass",
+		file=sys.stderr, flush=True)
+	run(["git", "reset", "--hard", "HEAD"], root)
+
+
 def clean_commit_advances_goal(root: Path, before: str, after: str,
 	expected_subject: str, docs_required: bool = True) -> bool:
 	if not before or not after or before == after or git_dirty(root):
@@ -1582,6 +1595,10 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 	if not git_dirty(root):
 		return 0
 	subject = dirty_commit_subject(goal_id)
+	if git_last_subject(root) == subject:
+		print(f"goal-loop: worktree dirty but last commit already '{subject}'; skipping duplicate checkpoint",
+			file=sys.stderr, flush=True)
+		return 0
 	print(f"goal-loop: dirty worktree detected; creating checkpoint commit: {subject}",
 		file=sys.stderr, flush=True)
 	add = run(["git", "add", "-A"], root)
@@ -1775,11 +1792,6 @@ def main() -> int:
 				file=sys.stderr,
 			)
 			return 3
-		if commit_dirty_worktree(root, goal.goal_id) != 0:
-			write_state(state_file, state="failed", pass_index=pass_index,
-				goal=asdict(goal), attempt=attempts[goal.goal_id],
-				message="failed to checkpoint dirty worktree")
-			return 2
 		active_subgoal = g24_subgoal_for_attempt(attempts[goal.goal_id]) \
 			if goal.goal_id == "G24" else None
 		pass_limit_label = UNLIMITED_PASSES_LABEL if args.max_passes == 0 else str(args.max_passes)
@@ -1913,6 +1925,7 @@ def main() -> int:
 			if result.returncode in RECOVERABLE_EXIT_CODES and \
 					attempts[goal.goal_id] <= args.recoverable_retries:
 				reason = RECOVERABLE_EXIT_CODES[result.returncode]
+				restore_failed_pass_worktree(root)
 				write_state(state_file, state="recovering", pass_index=pass_index,
 					goal=asdict(goal), attempt=attempts[goal.goal_id],
 					exit_code=result.returncode, message=f"{reason}; retrying goal")
