@@ -332,6 +332,29 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v113: When first GX_DrawDone appears but no frame budget markers
+		# exist yet, dump immediate log context around that DrawDone to reveal what
+		# the guest actually emits at frame completion. This provides concrete evidence
+		# for reviewers to see if budget OSReport is present but misformatted, or truly
+		# absent. Fires only once at first DrawDone when budget telemetry is missing.
+		if [[ -n "${G36_FIRST_DRAWDONE_TS:-}" ]] && [[ -z "${G36_DRAWDONE_CONTEXT_DUMPED:-}" ]] && \
+		   (( $(date +%s) - G36_FIRST_DRAWDONE_TS <= 2 )) && \
+		   ! grep -aqsE "Xash3D GameCube:.*time=[0-9]+" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+			G36_DRAWDONE_CONTEXT_DUMPED=1
+			# Find line number of first GX_DrawDone in merged logs
+			DRAWDONE_LINE=$(cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | grep -naF "GX_DrawDone" | head -1 | cut -d: -f1)
+			if [[ -n "$DRAWDONE_LINE" ]] && (( DRAWDONE_LINE > 0 )); then
+				CTX_START=$(( DRAWDONE_LINE - 3 ))
+				(( CTX_START < 1 )) && CTX_START=1
+				CTX_END=$(( DRAWDONE_LINE + 3 ))
+				echo "G36_FIRST_DRAWDONE_CONTEXT: Guest log context around first GX_DrawDone (lines ${CTX_START}-${CTX_END}):"
+				cat "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | sed -n "${CTX_START},${CTX_END}p" | while IFS= read -r line; do
+					echo "G36_FIRST_DRAWDONE_CONTEXT: ${line}"
+				done
+				echo "G36_FIRST_DRAWDONE_HINT: If no 'Xash3D GameCube: frame time=<ms>' appears above, the guest renderer is missing budget OSReport after GX_DrawDone."
+			fi
+		fi
+
 		# G36_PATCH_v103: Detect sudden frame marker rate drop to identify render
 		# loop instability. Compares frame emission rate in the last 4 seconds
 		# against the rate in the prior 4-second window. A rate drop >50% indicates
