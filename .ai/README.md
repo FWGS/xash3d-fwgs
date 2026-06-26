@@ -84,6 +84,12 @@ keeps long-horizon automation from passively replaying stale logs while still
 giving Qwable/Aider the facts needed for the next source-level patch. The GUI
 Telemetry panel displays these fields under Agent Memory.
 
+Folded memory can also steer editable context. For example, while G36 is pending
+the runner blocks `scripts/dolphin-boot-probe.sh` from editable context by
+default so restarts continue through renderer/client/model source slices instead
+of adding more probe-only diagnostics. Set `AI_G36_ALLOW_PROBE_CONTEXT=1` only
+when intentionally cleaning or changing the probe script itself.
+
 Autonomous Aider passes disable URL detection so local API base strings are not
 mistaken for web pages to scrape. A 404 from the bare `/v1` path is normal for
 vLLM; readiness checks use the OpenAI-compatible `/v1/models` endpoint and

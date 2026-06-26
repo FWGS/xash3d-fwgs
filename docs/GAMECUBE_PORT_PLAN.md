@@ -1019,6 +1019,12 @@ proven` and `G36 should prefer source-level visual/frame-budget fixes over more
 probe-script detectors`, so future passes do not reopen stale investigations
 just because an old log line appears in memory.
 
+The runner now applies those folded facts to context selection. While G36 is
+pending, `scripts/dolphin-boot-probe.sh` is blocked from editable context unless
+`AI_G36_ALLOW_PROBE_CONTEXT=1` is set, keeping restarted passes on renderer,
+client-screen, and model-loader source instead of endlessly expanding probe
+diagnostics.
+
 The memory file is ignored by Git because it is run-local state. Source-truth
 evidence still belongs in the goal ledger and this port plan before any goal is
 marked complete.

@@ -40,6 +40,7 @@ static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
 static unsigned int gc_blank_present_count;
 static convar_t *gc_quality;
+static double gc_last_present_time;
 #endif
 
 /* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
@@ -59,6 +60,7 @@ static void GC_InitVideoHardware( void )
 	if( gc.initialized )
 		return;
 
+	gc_last_present_time = 0.0;
 	VIDEO_Init();
 	rmode = VIDEO_GetPreferredMode( NULL );
 	VIDEO_Configure( rmode );
@@ -189,6 +191,18 @@ static void GC_PresentBuffer( void )
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
+
+	/* G36: Emit frame budget marker after VI-sync for probe telemetry */
+	{
+		double now = Sys_FloatTime();
+		if( gc_last_present_time > 0.0 )
+		{
+			double elapsed_ms = ( now - gc_last_present_time ) * 1000.0;
+			SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
+		}
+		gc_last_present_time = now;
+	}
+
 	which_fb ^= 1;
 #else
 	(void)0;

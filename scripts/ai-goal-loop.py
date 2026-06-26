@@ -882,6 +882,45 @@ def conact_summary(memory: dict[str, object], goal: Goal) -> str:
 	return "\n".join(lines)
 
 
+def seed_conact_from_goal_state(memory: dict[str, object], goals: list[Goal]) -> None:
+	"""Persist durable facts from the ledger when run-local memory is empty."""
+	conact = ensure_conact_state(memory)
+	complete = {goal.goal_id for goal in goals if goal.complete}
+	if "G35" in complete:
+		conact_upsert_fact(conact, conact_fact(
+			"runtime.map_ready.c0a0e",
+			"c0a0e reaches MAP_READY",
+			"Goal ledger marks G35 complete; do not reopen c0a0e map lookup unless a newer probe regresses below MAP_READY.",
+			"G35", ".ai/goals/GAMECUBE_PORT_GOALS.md"))
+	if any(goal.goal_id == "G36" and not goal.automatic_done for goal in goals):
+		conact_upsert_fact(conact, conact_fact(
+			"runtime.frame_budget.g36_focus",
+			"G36 should prioritize source-level frame/visual fixes",
+			"Probe instrumentation is already extensive; editable context should prefer renderer/client/model source before scripts/dolphin-boot-probe.sh.",
+			"G36", ".ai/goals/GAMECUBE_PORT_GOALS.md"))
+
+
+def conact_content(memory: dict[str, object]) -> str:
+	conact = ensure_conact_state(memory)
+	parts: list[str] = []
+	for key in ("folded_port_state", "folded_action_history", "recent_step_record"):
+		value = conact.get(key, [])
+		if isinstance(value, list):
+			parts.extend(json.dumps(item, sort_keys=True) for item in value[-CONACT_FACT_MAX:])
+	return "\n".join(parts).lower()
+
+
+def conact_blocked_context_paths(goal_id: str, memory: dict[str, object]) -> set[str]:
+	"""Return editable paths that folded memory says are counterproductive now."""
+	blocked: set[str] = set()
+	content = conact_content(memory)
+	if goal_id == "G36" and not os.environ.get("AI_G36_ALLOW_PROBE_CONTEXT"):
+		blocked.add("scripts/dolphin-boot-probe.sh")
+	if goal_id == "G36" and "probe instrumentation is already extensive" in content:
+		blocked.add("scripts/dolphin-boot-probe.sh")
+	return blocked
+
+
 def fault_evidence(output: str, *, max_items: int = 8) -> list[dict[str, object]]:
 	evidence: list[dict[str, object]] = []
 	lines = output.splitlines()
@@ -1372,7 +1411,8 @@ def goal_commit_subject(goal: Goal, active_subgoal: dict[str, object] | None) ->
 
 def goal_commit_body(goal: Goal, *, attempt: int, context_files: list[str],
 	read_context_files: list[str], active_subgoal: dict[str, object] | None,
-	expected_subject: str, docs_required: str) -> str:
+	expected_subject: str, docs_required: str,
+	blocked_context: set[str] | None = None) -> str:
 	context = ", ".join(item.replace("required:", "").replace("read:", "")
 		for item in context_files)
 	read_context = ", ".join(item.replace("read:", "") for item in read_context_files)
@@ -1386,6 +1426,7 @@ def goal_commit_body(goal: Goal, *, attempt: int, context_files: list[str],
 		f"Editable: {context or '(none)'}",
 		f"Read-only: {read_context or '(none)'}",
 		f"Docs required: {docs_required}",
+		f"ConAct blocked context: {', '.join(sorted(blocked_context or ())) or '(none)'}",
 		"",
 		"Verified by ai-aider-pass pre-commit and post-commit checks.",
 	))
@@ -1416,19 +1457,32 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 	return commit_with_body(root, subject, body)
 
 
-def context_for_goal(goal_id: str, root: Path, attempt: int) -> list[str]:
+def context_for_goal(goal_id: str, root: Path, attempt: int,
+	memory: dict[str, object] | None = None) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
 	if goal_id == "G24":
 		return g24_subgoal_files(attempt, root)
+	blocked_paths = conact_blocked_context_paths(goal_id, memory or {})
 	if goal_id in GOAL_CONTEXT_SLICES:
 		slices = GOAL_CONTEXT_SLICES[goal_id]
-		paths = slices[(max(1, attempt) - 1) % len(slices)]
+		candidate_slices = slices
+		if blocked_paths:
+			candidate_slices = tuple(
+				tuple(path for path in paths if path not in blocked_paths)
+				for paths in slices
+			)
+			candidate_slices = tuple(paths for paths in candidate_slices if paths)
+		if not candidate_slices:
+			candidate_slices = slices
+		paths = candidate_slices[(max(1, attempt) - 1) % len(candidate_slices)]
 		return [f"required:{path}" for path in paths if (root / path).is_file()]
 
 	candidates: list[str] = []
 	seen: set[str] = set()
 	required_goal = set(GOAL_REQUIRED_CONTEXT.get(goal_id, ()))
 	for path in (*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal_id, ())):
+		if path in blocked_paths:
+			continue
 		if path in seen or not (root / path).is_file():
 			continue
 		seen.add(path)
@@ -1498,6 +1552,8 @@ def main() -> int:
 		parser.error(f"goal file not found: {goal_file}")
 
 	goals = parse_goals(goal_file)
+	seed_conact_from_goal_state(memory, goals)
+	save_loop_memory(root, memory)
 	if args.status_json:
 		print(json.dumps([asdict(goal) | {"complete": goal.complete,
 			"manual": goal.manual, "blocked": goal.blocked} for goal in goals]))
@@ -1531,6 +1587,7 @@ def main() -> int:
 	pass_indexes = count(1) if args.max_passes == 0 else range(1, args.max_passes + 1)
 	for pass_index in pass_indexes:
 		goals = parse_goals(goal_file)
+		seed_conact_from_goal_state(memory, goals)
 		goal = next((item for item in goals if not item.automatic_done), None)
 		if goal is None:
 			write_state(state_file, state="complete", pass_index=pass_index - 1,
@@ -1592,7 +1649,8 @@ def main() -> int:
 		head_before = git_head(root)
 		child_failure_output = ""
 		try:
-			context_files = context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
+			blocked_context = conact_blocked_context_paths(goal.goal_id, memory)
+			context_files = context_for_goal(goal.goal_id, root, attempts[goal.goal_id], memory)
 			read_context_files = read_context_for_goal(goal.goal_id, root, attempts[goal.goal_id])
 			pass_env = os.environ.copy()
 			expected_subject = goal_commit_subject(goal, active_subgoal)
@@ -1617,7 +1675,8 @@ def main() -> int:
 				read_context_files=read_context_files,
 				active_subgoal=active_subgoal,
 				expected_subject=expected_subject,
-				docs_required=pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "1"))
+				docs_required=pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "1"),
+				blocked_context=blocked_context)
 			if attempts[goal.goal_id] >= 3:
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "1024")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "768")
