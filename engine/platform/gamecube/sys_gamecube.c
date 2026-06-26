@@ -261,7 +261,7 @@ void GCube_Init( void )
 {
 #if XASH_GAMECUBE
 	char xashdir[MAX_SYSPATH];
-	cvar_t *gc_fatal_test_cvar = Cvar_Get( "gc_fatal_test", "0", 0, "If true, trigger Sys_Error for G37 verification" );
+	convar_t *gc_fatal_test_cvar = Cvar_Get( "gc_fatal_test", "0", 0, "If true, trigger Sys_Error for G37 verification" );
 	qboolean gc_fatal_test = ( gc_fatal_test_cvar != NULL && Cvar_VariableIntegerValue( "gc_fatal_test" ) );
 
 	/* G37: Intentional fatal error trigger for verification.
