@@ -202,6 +202,21 @@ static void GC_PresentBuffer( void )
 			SYS_Report( "Xash3D GameCube: GX_DrawDone\n" );
 		}
 	}
+
+	/* G36_PATCH_v145: Emit per-frame timing budget marker.
+	 * The probe script expects "Xash3D GameCube: frame time=<ms>" to validate
+	 * the 60fps budget. Emitting this here captures the full present-frame cost
+	 * (software buffer blit + GX submission + DrawDone) before the VI-wait. */
+	{
+		static double g36_prev_time = 0.0;
+		double now = Sys_FloatTime();
+		if( g36_prev_time > 0.0 )
+		{
+			double elapsed_ms = ( now - g36_prev_time ) * 1000.0;
+			SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
+		}
+		g36_prev_time = now;
+	}
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
