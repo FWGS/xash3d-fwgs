@@ -751,16 +751,24 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# G36_PATCH_v125: Detect Host_RunFrame or SV_RunFrame markers to diagnose
 		# whether the guest reached its main game loop. Missing runframe markers
 		# indicate the guest hung before entering the render loop, explaining both
-		# missing GX_DrawDone and missing budget markers. Fires once after 20s.
+		# missing GX_DrawDone and missing budget markers. Fires once after 12s.
 		if [[ -z "${G36_RUNFRAME_CHECKED:-}" ]] && \
-		   (( $(date +%s) - START_TS > 20 )); then
+		   (( $(date +%s) - START_TS > 12 )); then
 			G36_RUNFRAME_CHECKED=1
 			if grep -aqsF "Host_RunFrame" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
 				echo "G36_RUNFRAME_PRESENT: Host_RunFrame marker found. Guest reached main game loop."
+				# G36_PATCH_v126: If Host_RunFrame is present but GX_DrawDone is absent
+				# after renderer init, the render loop is executing but not submitting
+				# frames. This is different from "guest hung before game loop".
+				if [[ -n "${G36_RENDERER_INIT_TS:-}" ]] && \
+				   ! grep -aqsF "GX_DrawDone" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+					echo "G36_RUNFRAME_NO_DRAWDONE: Guest reached Host_RunFrame and renderer initialized, but zero GX_DrawDone detected."
+					echo "G36_RUNFRAME_NO_DRAWDONE_HINT: Render loop is executing but not submitting frames. Check for early-return, disabled rendering path, or missing Host_RunFrame->Video_RunFrame call chain."
+				fi
 			elif grep -aqsF "SV_RunFrame" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
 				echo "G36_RUNFRAME_PRESENT: SV_RunFrame marker found. Guest server loop active."
 			else
-				echo "G36_RUNFRAME_ABSENT: No Host_RunFrame or SV_RunFrame markers after 20s. Guest likely hung before entering main game loop."
+				echo "G36_RUNFRAME_ABSENT: No Host_RunFrame or SV_RunFrame markers after 12s. Guest likely hung before entering main game loop."
 				echo "G36_RUNFRAME_HINT: Check for blocking calls, asset load hangs, or initialization failures before Host_RunFrame entry point."
 				echo "G36_RUNFRAME_HINT_EXAMPLE: Insert 'OSReport(\"Xash3D GameCube: Host_RunFrame\");' at the start of your main game loop function."
 			fi
