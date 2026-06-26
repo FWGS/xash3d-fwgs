@@ -133,6 +133,23 @@ Record any severe clipping, underrun, long silence after nonzero PCM telemetry,
 or gameplay starvation as a failure or limitation instead of treating the route
 as release-complete.
 
+## Frame Timing Preflight
+
+Before recording extended gameplay performance results, run the automated G49
+preflight:
+
+```sh
+scripts/gamecube-timing-compliance.py
+```
+
+For release evidence, record representative gameplay, menu, loading, and
+worst-case scene results. Each run should include FPS or frame-time samples,
+map name, player position or route marker, active entity count when available,
+whether loading feedback appeared after about two seconds, and whether movement,
+triggers, physics, audio, and scripted sequences remained stable under slow
+frames. Bounded smoke probes may close the source preflight, but they do not
+replace extended runtime timing evidence.
+
 ## Fatal Error UX Preflight
 
 Before recording physical fatal-screen results, run the automated G50 preflight:
