@@ -808,6 +808,25 @@ if grep -aqsF "Xash3D GameCube: renderer initialized" "${LOG_FILES[@]}" && (( FR
 	fi
 fi
 
+# G36_PATCH_v85: Dump last OSREPORT lines near GX_DrawDone to diagnose missing
+# frame budget markers. Shows what the guest is emitting at render completion,
+# helping identify if budget measurement is missing, misformatted, or suppressed.
+# This targets the specific evidence gap: "completing draw calls but missing frame budget".
+if (( GX_DRAWDONE_COUNT > 0 )) && (( FRAME_BUDGET_LOGS == 0 )); then
+	echo "G36_DRAWDONE_NO_BUDGET: ${GX_DRAWDONE_COUNT} GX_DrawDone markers found but zero frame budget samples. Inspecting render completion context..."
+	RAW_DRAWDONE_CONTEXT=$(grep -naF "GX_DrawDone" "${LOG_FILES[@]}" 2>/dev/null | tail -1 | cut -d: -f1)
+	if [[ -n "$RAW_DRAWDONE_CONTEXT" ]] && (( RAW_DRAWDONE_CONTEXT > 0 )); then
+		START_LINE=$(( RAW_DRAWDONE_CONTEXT - 2 ))
+		(( START_LINE < 1 )) && START_LINE=1
+		END_LINE=$(( RAW_DRAWDONE_CONTEXT + 5 ))
+		echo "G36_DRAWDONE_CONTEXT: Lines around last GX_DrawDone (for budget marker diagnosis):"
+		cat "${LOG_FILES[@]}" 2>/dev/null | sed -n "${START_LINE},${END_LINE}p" | while IFS= read -r line; do
+			echo "G36_DRAWDONE_CONTEXT: ${line}"
+		done
+		echo "G36_DRAWDONE_HINT: Frame budget OSReport should appear immediately after GX_DrawDone. If absent, insert measurement call in renderer main loop."
+	fi
+fi
+
 # G36_PATCH_v27: Emit explicit renderer source diagnostic for traceability
 if [[ -n "$GUEST_RENDERER" ]]; then
 	echo "G36_RENDERER_SOURCE: backend=${GUEST_RENDERER} (detected post-probe or from loop)"
