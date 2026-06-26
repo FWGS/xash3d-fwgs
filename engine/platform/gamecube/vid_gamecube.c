@@ -182,9 +182,9 @@ static void GC_PresentBuffer( void )
 	if( !sampled_nonblack )
 	{
 		// G36: Diagnostic marker drawing is expensive per-frame. Skip entirely
-		// after first 60 frames to stabilize steady-state frame budget.
-		// We already have visual evidence from the first few frames.
-		if( gc_present_count <= 60 )
+		// after first 3 frames to stabilize steady-state frame budget.
+		// We already have visual evidence from the first frame.
+		if( gc_present_count <= 3 )
 		{
 			int mark_w = copy_w < 32 ? copy_w : 32;
 			int mark_h = copy_h < 32 ? copy_h : 32;
@@ -204,8 +204,8 @@ static void GC_PresentBuffer( void )
 					memset( rowdst, 0x07E0, mark_w * sizeof( unsigned short ));
 			}
 			
-			// Report diagnostic marker visibility
-			if( gc_blank_present_count == 1 || ( gc_blank_present_count % 60 == 0 ))
+			// Report diagnostic marker visibility once
+			if( gc_blank_present_count == 1 )
 			{
 				SYS_Report( "Xash3D GameCube: DIAGNOSTIC MARKER VISIBLE (frame %u, blank streak %u). Check top-left 32x32.\n",
 					gc_present_count, gc_blank_present_count );
@@ -213,7 +213,7 @@ static void GC_PresentBuffer( void )
 		}
 	}
 
-	if( gc_present_count <= 8 )
+	if( gc_present_count <= 2 )
 	{
 		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
 			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );

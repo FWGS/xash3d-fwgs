@@ -13,6 +13,8 @@ import shutil
 import socket
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -25,6 +27,7 @@ from PyQt6.QtWidgets import (
 	QCheckBox,
 	QDialog,
 	QDialogButtonBox,
+	QDoubleSpinBox,
 	QDockWidget,
 	QFileDialog,
 	QFormLayout,
@@ -49,7 +52,7 @@ from PyQt6.QtWidgets import (
 )
 
 DEFAULT_REPO = Path(__file__).resolve().parents[1]
-APP_VERSION = "0.4.0-dev"
+APP_VERSION = "0.5.0-dev"
 SETTINGS_PATH = DEFAULT_REPO / ".ai/state/xash3d-gc-aider-gui-settings.json"
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
 QWABLE_5_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
@@ -159,6 +162,105 @@ def vllm_qwable_command() -> str:
 			"--tool-call-parser", "qwen3_coder",
 		])
 	return shlex.join(command)
+
+
+def load_gamecube_env(repo: Path) -> None:
+	"""Apply scripts/gamecube-env.sh exports without overriding the parent shell."""
+	script = repo / "scripts/gamecube-env.sh"
+	if not script.is_file():
+		return
+	try:
+		result = subprocess.run(
+			["bash", "-c", f"set -a; source '{script}'; env -0"],
+			cwd=repo, capture_output=True, timeout=5, check=False,
+		)
+	except (OSError, subprocess.SubprocessError):
+		return
+	if result.returncode != 0:
+		return
+	for entry in result.stdout.split(b"\0"):
+		if not entry or b"=" not in entry:
+			continue
+		key, value = entry.split(b"=", 1)
+		name = key.decode(errors="replace")
+		if name and name not in os.environ:
+			os.environ[name] = value.decode(errors="replace")
+
+
+def command_flag_value(command: list[str], flag: str) -> str | None:
+	for index, arg in enumerate(command):
+		if arg == flag and index + 1 < len(command):
+			return command[index + 1]
+		if arg.startswith(f"{flag}="):
+			return arg.split("=", 1)[1]
+	return None
+
+
+def command_has_flag(command: list[str], flag: str) -> bool:
+	return any(arg == flag or arg.startswith(f"{flag}=") for arg in command)
+
+
+def migrate_model_command(command_text: str) -> str:
+	"""Upgrade saved launchers that still use heavy vLLM defaults."""
+	try:
+		command = shlex.split(command_text)
+	except ValueError:
+		return command_text
+	if not command:
+		return command_text
+	needs_rebuild = False
+	seqs = command_flag_value(command, "--max-num-seqs")
+	if seqs and seqs.isdigit() and int(seqs) > 2:
+		needs_rebuild = True
+	if command_has_flag(command, "--enable-auto-tool-choice") and \
+		os.environ.get("QWABLE_5_ENABLE_TOOL_CHOICE", "").strip().lower() not in {"1", "true", "yes"}:
+		needs_rebuild = True
+	if needs_rebuild:
+		return vllm_qwable_command()
+	return command_text
+
+
+def apply_model_tuning_to_environ(
+	max_num_seqs: int,
+	gpu_util: float,
+	max_model_len: int,
+	tool_choice: bool,
+	aider_history: int,
+	aider_overhead: int,
+) -> None:
+	os.environ["QWABLE_5_MAX_NUM_SEQS"] = str(max_num_seqs)
+	os.environ["QWABLE_5_GPU_MEMORY_UTILIZATION"] = f"{gpu_util:.2f}"
+	os.environ["QWABLE_5_MAX_MODEL_LEN"] = str(max_model_len)
+	os.environ["AIDER_MAX_CHAT_HISTORY_TOKENS"] = str(aider_history)
+	os.environ["AIDER_SYSTEM_OVERHEAD_TOKENS"] = str(aider_overhead)
+	if tool_choice:
+		os.environ["QWABLE_5_ENABLE_TOOL_CHOICE"] = "1"
+	else:
+		os.environ.pop("QWABLE_5_ENABLE_TOOL_CHOICE", None)
+
+
+def fetch_model_api_summary(api_base: str) -> str:
+	url = f"{api_base.rstrip('/')}/models"
+	headers = {"Accept": "application/json"}
+	api_key = os.environ.get("OPENAI_API_KEY", "local")
+	if api_key:
+		headers["Authorization"] = f"Bearer {api_key}"
+	request = urllib.request.Request(url, headers=headers)
+	try:
+		with urllib.request.urlopen(request, timeout=2) as response:
+			payload = json.load(response)
+	except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
+		return f"Model API offline: {exc}"
+	models = payload.get("data", []) if isinstance(payload, dict) else []
+	if not models:
+		return "Model API reachable but returned no models"
+	preferred = next((item for item in models if item.get("id") == QWABLE_5_SERVED_NAME), models[0])
+	model_id = preferred.get("id", "?")
+	for key in ("max_model_len", "context_length", "max_context_length"):
+		value = preferred.get(key)
+		if isinstance(value, int) and value > 0:
+			return f"Model API: {model_id}  context={value:,}  models={len(models)}"
+	return f"Model API: {model_id}  models={len(models)}"
 
 
 def default_model_command() -> str:
@@ -652,6 +754,34 @@ class PortWindow(QMainWindow):
 		self.model_command_edit = QLineEdit(default_model_command())
 		self.model_api_edit = QLineEdit(os.environ.get(
 			"OPENAI_API_BASE", "http://127.0.0.1:8072/v1"))
+		self.model_max_seqs_spin = QSpinBox()
+		self.model_max_seqs_spin.setRange(1, 8)
+		self.model_max_seqs_spin.setValue(int(os.environ.get("QWABLE_5_MAX_NUM_SEQS", "1")))
+		self.model_gpu_util_spin = QDoubleSpinBox()
+		self.model_gpu_util_spin.setRange(0.50, 0.95)
+		self.model_gpu_util_spin.setSingleStep(0.05)
+		self.model_gpu_util_spin.setDecimals(2)
+		self.model_gpu_util_spin.setValue(float(os.environ.get("QWABLE_5_GPU_MEMORY_UTILIZATION", "0.85")))
+		self.model_max_len_spin = QSpinBox()
+		self.model_max_len_spin.setRange(8192, 131072)
+		self.model_max_len_spin.setSingleStep(1024)
+		self.model_max_len_spin.setValue(int(os.environ.get("QWABLE_5_MAX_MODEL_LEN", "65536")))
+		self.model_tool_choice = QCheckBox("Enable vLLM tool choice (Aider does not need this)")
+		self.model_tool_choice.setChecked(
+			os.environ.get("QWABLE_5_ENABLE_TOOL_CHOICE", "").strip().lower() in {"1", "true", "yes"})
+		self.aider_history_spin = QSpinBox()
+		self.aider_history_spin.setRange(256, 4096)
+		self.aider_history_spin.setSingleStep(256)
+		self.aider_history_spin.setValue(int(os.environ.get("AIDER_MAX_CHAT_HISTORY_TOKENS", "1024")))
+		self.aider_overhead_spin = QSpinBox()
+		self.aider_overhead_spin.setRange(4096, 20000)
+		self.aider_overhead_spin.setSingleStep(512)
+		self.aider_overhead_spin.setValue(int(os.environ.get("AIDER_SYSTEM_OVERHEAD_TOKENS", "8192")))
+		recommended_btn = QPushButton("Apply Recommended")
+		recommended_btn.setToolTip("Rebuild the launch command for single-client Aider automation")
+		recommended_btn.clicked.connect(self.apply_recommended_model_settings)
+		test_api_btn = QPushButton("Test API")
+		test_api_btn.clicked.connect(self.refresh_model_api_summary)
 		model_command_label = QLabel("Command:")
 		model_api_label = QLabel("API base:")
 		model_controls = QHBoxLayout()
@@ -661,13 +791,36 @@ class PortWindow(QMainWindow):
 		self.kill_model_btn.clicked.connect(self.kill_model)
 		model_controls.addWidget(self.start_model_btn)
 		model_controls.addWidget(self.kill_model_btn)
-		model_form.addWidget(model_command_label, 0, 0)
-		model_form.addWidget(model_api_label, 0, 1)
-		model_form.addWidget(self.model_command_edit, 1, 0)
-		model_form.addWidget(self.model_api_edit, 1, 1)
-		model_form.addLayout(model_controls, 2, 0, 1, 2)
-		model_form.setColumnStretch(0, 4)
+		model_controls.addWidget(recommended_btn)
+		model_controls.addWidget(test_api_btn)
+		self.model_status_label = QLabel("Model API not checked yet")
+		self.model_status_label.setWordWrap(True)
+		self.model_status_label.setStyleSheet(f"color: {GC_MUTED};")
+		model_form.addWidget(model_command_label, 0, 0, 1, 2)
+		model_form.addWidget(self.model_command_edit, 1, 0, 1, 2)
+		model_form.addWidget(QLabel("Max seqs:"), 2, 0)
+		model_form.addWidget(self.model_max_seqs_spin, 2, 1)
+		model_form.addWidget(QLabel("GPU util:"), 3, 0)
+		model_form.addWidget(self.model_gpu_util_spin, 3, 1)
+		model_form.addWidget(QLabel("Max context:"), 4, 0)
+		model_form.addWidget(self.model_max_len_spin, 4, 1)
+		model_form.addWidget(self.model_tool_choice, 5, 0, 1, 2)
+		model_form.addWidget(QLabel("Aider history:"), 6, 0)
+		model_form.addWidget(self.aider_history_spin, 6, 1)
+		model_form.addWidget(QLabel("Prompt overhead:"), 7, 0)
+		model_form.addWidget(self.aider_overhead_spin, 7, 1)
+		model_form.addWidget(model_api_label, 8, 0)
+		model_form.addWidget(self.model_api_edit, 8, 1)
+		model_form.addLayout(model_controls, 9, 0, 1, 2)
+		model_form.addWidget(self.model_status_label, 10, 0, 1, 2)
+		model_form.setColumnStretch(0, 1)
 		model_form.setColumnStretch(1, 1)
+		for widget in (
+			self.model_max_seqs_spin, self.model_gpu_util_spin, self.model_max_len_spin,
+			self.aider_history_spin, self.aider_overhead_spin,
+		):
+			widget.valueChanged.connect(self.sync_model_command_from_tuning)
+		self.model_tool_choice.toggled.connect(self.sync_model_command_from_tuning)
 		self.add_panel("Model Server", model_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		goals_panel = QWidget()
@@ -762,6 +915,8 @@ class PortWindow(QMainWindow):
 			("Review HEAD", ["scripts/ai-review.sh"]),
 			("Build DOL", ["scripts/build-gamecube.sh"]),
 			("Build disc ISO", ["scripts/build-gamecube-disc.py", "--output", "OUT/xash3d-gc.iso"]),
+			("Boot Probe", ["scripts/dolphin-boot-probe.sh"]),
+			("RC Check", ["scripts/gamecube-rc-check.sh"]),
 		):
 			button = QPushButton(label)
 			button.clicked.connect(lambda _checked=False, c=command, n=label: self.start(c, n))
@@ -883,6 +1038,12 @@ class PortWindow(QMainWindow):
 			"repo": self.repo_edit.text().strip(),
 			"model_command": self.model_command_edit.text().strip(),
 			"model_api_base": self.model_api_edit.text().strip(),
+			"model_max_num_seqs": self.model_max_seqs_spin.value(),
+			"model_gpu_utilization": self.model_gpu_util_spin.value(),
+			"model_max_model_len": self.model_max_len_spin.value(),
+			"model_tool_choice": self.model_tool_choice.isChecked(),
+			"aider_history_tokens": self.aider_history_spin.value(),
+			"aider_system_overhead_tokens": self.aider_overhead_spin.value(),
 			"pass_limit": self.passes_spin.value(),
 			"recovery_retries": self.recovery_spin.value(),
 			"follow_log": self.follow_log.isChecked(),
@@ -939,10 +1100,29 @@ class PortWindow(QMainWindow):
 			self.repo_edit.setText(repo)
 		model_command = data.get("model_command")
 		if isinstance(model_command, str) and model_command:
-			self.model_command_edit.setText(model_command)
+			self.model_command_edit.setText(migrate_model_command(model_command))
 		model_api_base = data.get("model_api_base")
 		if isinstance(model_api_base, str) and model_api_base:
 			self.model_api_edit.setText(model_api_base)
+		max_num_seqs = data.get("model_max_num_seqs")
+		if isinstance(max_num_seqs, int):
+			self.model_max_seqs_spin.setValue(max(1, min(8, max_num_seqs)))
+		gpu_util = data.get("model_gpu_utilization")
+		if isinstance(gpu_util, (int, float)):
+			self.model_gpu_util_spin.setValue(float(gpu_util))
+		max_model_len = data.get("model_max_model_len")
+		if isinstance(max_model_len, int):
+			self.model_max_len_spin.setValue(max_model_len)
+		tool_choice = data.get("model_tool_choice")
+		if isinstance(tool_choice, bool):
+			self.model_tool_choice.setChecked(tool_choice)
+		aider_history = data.get("aider_history_tokens")
+		if isinstance(aider_history, int):
+			self.aider_history_spin.setValue(aider_history)
+		aider_overhead = data.get("aider_system_overhead_tokens")
+		if isinstance(aider_overhead, int):
+			self.aider_overhead_spin.setValue(aider_overhead)
+		self.sync_model_command_from_tuning()
 		pass_limit = data.get("pass_limit")
 		if isinstance(pass_limit, int):
 			self.passes_spin.setValue(max(self.passes_spin.minimum(), min(self.passes_spin.maximum(), pass_limit)))
