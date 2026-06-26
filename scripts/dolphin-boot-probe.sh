@@ -383,6 +383,25 @@ if (( DOLPHIN_IS_FLATPAK )); then
 			fi
 		fi
 
+		# G36_PATCH_v62: Detect renderer-active-but-no-budget-markers condition early
+		# to provide actionable evidence when GX calls are present but frame budget
+		# telemetry is absent. This helps distinguish "renderer working silently" from
+		# "renderer not emitting markers" before full timeout expires.
+		if [[ -n "$GUEST_RENDERER" ]] && \
+		   [[ -z "${G36_GX_ACTIVE_NO_BUDGET_CHECKED:-}" ]] && \
+		   (( $(date +%s) - START_TS > 15 )); then
+			G36_GX_ACTIVE_NO_BUDGET_CHECKED=1
+			GX_CALL_COUNT=$(grep -acE "GX_|GX_Call" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+			if (( GX_CALL_COUNT > 10 )); then
+				BUDGET_MARKER_COUNT=$(grep -acE "Xash3D GameCube:.*time=" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | awk -F: '{sum+=$NF} END{print sum+0}')
+				if (( BUDGET_MARKER_COUNT == 0 )); then
+					echo "G36_GX_ACTIVE_NO_BUDGET: Renderer ${GUEST_RENDERER} is active (${GX_CALL_COUNT} GX calls) but emitting zero frame budget markers."
+					echo "G36_GX_ACTIVE_HINT: Renderer code path is executing GX commands but missing 'Xash3D GameCube: frame time=<ms>' OSReport calls."
+					echo "G36_GX_ACTIVE_HINT: Check renderer main loop for frame budget measurement insertion after GX_DrawDone or VI-sync."
+				fi
+			fi
+		fi
+
 		sleep 2
 	done
 else
