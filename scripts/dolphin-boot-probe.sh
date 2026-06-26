@@ -678,16 +678,36 @@ if (( DOLPHIN_IS_FLATPAK )); then
 		# no renderer initialized marker, the renderer likely crashed during setup
 		# before it could report its backend name. Provides earlier closure than
 		# waiting for full timeout.
+		# G36_PATCH_v128: Also record GX_Init timestamp to measure GX_Init-to-
+		# first-DrawDone latency, quantifying how long GX subsystem setup takes
+		# before the guest reaches its main draw loop. This provides a concrete
+		# metric to distinguish "slow GX setup" from "stuck in render loop setup".
 		if [[ -z "${G36_GX_INIT_CHECKED:-}" ]] && \
 		   (( $(date +%s) - START_TS > 12 )); then
 			G36_GX_INIT_CHECKED=1
 			if grep -aqsF "GX_Init" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null; then
+				G36_GX_INIT_TS=$(date +%s)
+				GX_INIT_TO_BOOTSTRAP=$(( G36_GX_INIT_TS - START_TS ))
 				if [[ -z "$GUEST_RENDERER" ]]; then
-					echo "G36_GX_INIT_NO_BACKEND: GX_Init marker found but no renderer initialized marker. Renderer likely crashed during setup."
+					echo "G36_GX_INIT_NO_BACKEND: GX_Init marker found at t=${GX_INIT_TO_BOOTSTRAP}s but no renderer initialized marker. Renderer likely crashed during setup."
 					echo "G36_GX_INIT_HINT: Check for video mode setup failures, XFB allocation errors, or shader initialization crashes."
 				else
-					echo "G36_GX_INIT_OK: GX_Init and renderer ${GUEST_RENDERER} both confirmed. Focus on render loop for missing budget markers."
+					echo "G36_GX_INIT_OK: GX_Init at t=${GX_INIT_TO_BOOTSTRAP}s and renderer ${GUEST_RENDERER} both confirmed. Focus on render loop for missing budget markers."
 				fi
+			fi
+		fi
+
+		# G36_PATCH_v128: When both GX_Init and first GX_DrawDone timestamps
+		# are available, report the setup-to-draw gap. This quantifies renderer
+		# initialization overhead independent of frame budget, providing evidence
+		# for "GX subsystem slow to start" vs "render loop slow per-frame".
+		if [[ -n "${G36_GX_INIT_TS:-}" ]] && [[ -n "${G36_FIRST_DRAWDONE_TS:-}" ]] && \
+		   [[ -z "${G36_GX_INIT_TO_DRAWDONE_REPORTED:-}" ]]; then
+			G36_GX_INIT_TO_DRAWDONE_REPORTED=1
+			GX_INIT_TO_DRAWDONE_GAP=$(( G36_FIRST_DRAWDONE_TS - G36_GX_INIT_TS ))
+			echo "G36_GX_INIT_TO_DRAWDONE: ${GX_INIT_TO_DRAWDONE_GAP}s from GX_Init to first GX_DrawDone."
+			if (( GX_INIT_TO_DRAWDONE_GAP > 5 )); then
+				echo "G36_GX_INIT_TO_DRAWDONE_WARN: >5s gap suggests slow GX subsystem setup or blocked render loop entry. Check for deferred initialization or missing Host_RunFrame dispatch."
 			fi
 		fi
 
