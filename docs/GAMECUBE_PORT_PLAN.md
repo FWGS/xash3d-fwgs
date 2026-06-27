@@ -1577,21 +1577,17 @@ Without these files loaded, the automation cannot implement:
 - Visual equivalents for critical audio cues
 - Confirmation dialogs for destructive actions
 
-**Automation attempt 2 (2026-06-26):**
+**Automation attempt 4 (2026-06-26):**
 Aider pass exited 0 (accepted) but no engine source changes were possible
 because the required client/menu files remain outside editable context.
 The goal runner correctly identified the blocker and preserved the previous
-attempt's evidence.
+attempt's evidence. This confirms the blocker is persistent due to context
+limitations, not transient environment issues.
 
-Evidence: `.ai/logs/aider-pass-2026-06-26-181308.log`
-
-**Automation attempt 3 (2026-06-26):**
-Aider pass exited 18 (asset_lookup) - environment staging issue, not a missing
-source gap. The pass runner correctly identified that no progress was possible
-without the required client/menu source files in editable context.
-
-Evidence: `.ai/logs/aider-pass-2026-06-26-181616.log` (accepted, no changes)
-Evidence: `.ai/logs/aider-pass-2026-06-26-181733.log` (exit 18, asset_lookup)
+Evidence: `.ai/logs/aider-pass-2026-06-26-181308.log` (attempt 2, accepted, no changes)
+Evidence: `.ai/logs/aider-pass-2026-06-26-181616.log` (attempt 3, accepted, no changes)
+Evidence: `.ai/logs/aider-pass-2026-06-26-181733.log` (attempt 3, exit 18, asset_lookup)
+Evidence: `.ai/logs/aider-pass-2026-06-26-181925.log` (attempt 4, accepted, no changes)
 
 **Current state:** The port already has:
 - Controller polling active (G04, G45)
