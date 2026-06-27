@@ -1549,6 +1549,49 @@ release-complete status still requires dated hardware or analog-capture evidence
 showing the fatal text is readable and the route ends in a bounded halt, return
 path, or restart prompt rather than a silent black screen.
 
+## G51 — Complete console-style UX and accessibility checks (BLOCKED 2026-06-26)
+
+**Status:** BLOCKED - Requires engine client/UI source files not in editable context.
+
+G51 requires implementing title, options, controls, pause, save/load, error, and
+credits screens with controller-only navigation, accessibility improvements, and
+readable menu text.
+
+**Blocker:** The source files needed to implement console-style UX are not
+available in the editable context. Implementing these screens requires changes
+across:
+
+- `engine/client/` - Client-side menu state, HUD integration, pause menu
+- `engine/common/` - Shared UI elements, controller input routing for menus
+- `engine/platform/gamecube/` - Platform-specific menu rendering, video safe area
+- `3rdparty/vgui_support/` or `3rdparty/mainui/` - VGUI menu components
+
+Without these files loaded, the automation cannot implement:
+- Title screen with controller navigation
+- Options screen (display, audio, controls settings)
+- Controls screen with binding visualization
+- Save/load screen with visual slot selection
+- Credits screen
+- Controller-only navigation state machine (cursor, highlighting, selection)
+- Flashing mitigation for accessibility
+- Visual equivalents for critical audio cues
+- Confirmation dialogs for destructive actions
+
+**Current state:** The port already has:
+- Controller polling active (G04, G45)
+- Fatal error breadcrumb screens (G37, G50)
+- Start button pause (existing engine behavior)
+- Save/load commands with confirmation (G32, G46)
+
+**Next step:** G51 requires loading relevant engine client/menu/VGUI source
+files into the editable context. This goal should be split into smaller
+sub-goals (title screen, pause menu, options screen, etc.) each with focused
+source context. Until those files are available, G51 remains blocked.
+
+**Completion note:** G51 cannot be marked complete through documentation alone.
+It requires concrete source implementation of menu screens and controller
+navigation, followed by runtime verification in Dolphin or on hardware.
+
 ## Next wake-up commands
 
 ```sh
