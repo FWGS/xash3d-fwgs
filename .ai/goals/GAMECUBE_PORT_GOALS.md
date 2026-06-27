@@ -898,7 +898,7 @@ scripts/gamecube-map-compat-probe.sh
   copyrighted game assets, firmware dumps, or proprietary platform SDK material
   are bundled.
 
-## G53 [ ] Maintain a hardware and loader evidence matrix
+## G53 [x] Maintain a hardware and loader evidence matrix
 
 - Track Dolphin, Swiss SD2SP2/SD Gecko, real console, Wii GameCube mode,
   memory card Slot A/B, official controller, WaveBird, third-party controller,
@@ -908,6 +908,16 @@ scripts/gamecube-map-compat-probe.sh
   matrix entry.
 - Keep hardware-only evidence references outside Git when captures contain
   proprietary local assets.
+- Completed 2026-06-27 as an automated source/policy preflight:
+  `docs/GAMECUBE_HARDWARE_MATRIX.md` now includes the G53 evidence matrix with
+  required, recommended, diagnostic, storage, memory-card, controller, and
+  disconnect routes plus the required result fields and evidence boundary.
+- `scripts/gamecube-hardware-matrix-compliance.py` verifies the matrix, hardware
+  validation protocol, RC wiring, GUI editable context, docs sync, and ledger
+  state; `scripts/gamecube-rc-check.sh` now runs this hardware matrix gate.
+- Evidence boundary: real GameCube, Swiss, Wii GameCube-mode, memory-card,
+  WaveBird, third-party controller, no-controller, mid-game disconnect, audio,
+  save, and shutdown proof remains manual G38/G66 work.
 
 ## G54 [ ] Add a compliance evidence overlay or test route
 

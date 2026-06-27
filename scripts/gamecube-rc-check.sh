@@ -47,7 +47,8 @@ Runs the native GameCube release-candidate evidence gate:
   15. frame timing compliance check
   16. console UX/accessibility compliance check
   17. release manifest/legal audit compliance check
-  18. homebrew compliance check
+  18. hardware matrix compliance check
+  19. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -424,6 +425,21 @@ release_compliance_gate() {
 	return "$rc"
 }
 
+hardware_matrix_compliance_gate() {
+	local log_path="$LOG_DIR/hardware-matrix-compliance.log"
+	echo
+	echo "== hardware matrix compliance =="
+	if scripts/gamecube-hardware-matrix-compliance.py --log-dir "$LOG_DIR/hardware-matrix-compliance" >"$log_path" 2>&1; then
+		log_status "hardware matrix compliance" "PASS" "$log_path" "G53 hardware/loader evidence matrix preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "hardware matrix compliance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -537,6 +553,7 @@ main() {
 	timing_compliance_gate || true
 	ux_compliance_gate || true
 	release_compliance_gate || true
+	hardware_matrix_compliance_gate || true
 	compliance_gate || true
 	write_summary
 	echo

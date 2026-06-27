@@ -1632,6 +1632,35 @@ archives still require a dated package build, artifact hashes, third-party
 notice review, and final confirmation that no copyrighted game assets, firmware
 dumps, or proprietary platform SDK material are bundled.
 
+## G53 — Maintain a hardware and loader evidence matrix (AUTOMATED PREFLIGHT COMPLETE 2026-06-27)
+
+`docs/GAMECUBE_HARDWARE_MATRIX.md` now carries the G53 evidence matrix for
+Dolphin diagnostic probes, Swiss SD2SP2/SD Gecko, read-only disc routes, Wii
+GameCube mode, memory-card variants, official controller, WaveBird, third-party
+controller, no-controller boot, and mid-game disconnect/reconnect. Each entry
+records artifact commit, loader, storage route, video mode, controller, boot
+result, map result, audio result, save result, memory-card status, and next
+blocker.
+
+The verifier enforces the hardware matrix contract and keeps the Aider GUI from
+repeating the rejected-edit loop that happened when the matrix file was missing
+from editable context:
+
+```sh
+scripts/gamecube-hardware-matrix-compliance.py
+```
+
+The full RC gate now runs this as the hardware matrix compliance step:
+
+```sh
+scripts/gamecube-rc-check.sh
+```
+
+**Completion note:** G53 source/policy preflight is complete. Real hardware
+release evidence still requires dated operator runs for GameCube, Swiss, Wii
+GameCube mode, storage, memory-card, controller, audio, save, and disconnect
+routes under G38/G66.
+
 ## Next wake-up commands
 
 ```sh

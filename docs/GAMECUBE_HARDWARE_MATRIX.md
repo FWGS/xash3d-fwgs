@@ -115,3 +115,33 @@ G39 is complete when this support matrix is present and linked from the port
 plan, hardware validation protocol, and goal ledger. It does not close G38 or
 any later hardware evidence gate. If a future run changes supported routes, it
 must update this document and record why the support contract changed.
+
+## Evidence Matrix (G53)
+
+This section is the release evidence ledger for hardware and loader validation.
+Each row must be updated from a dated Dolphin probe, RC gate, or operator-run
+hardware session. Dolphin rows are diagnostic only; real hardware rows remain
+open until an operator records physical console evidence.
+
+| Test ID | Artifact commit | Loader | Storage route | Video mode | Controller | Boot result | Map result | Audio result | Save result | Memory card | Next blocker |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| DOLPHIN-DOL-SD-001 | `23889d4f` or newer local build | Dolphin DOL boot probe | SD-backed test profile | 4:3 GameCube mode | Emulated official port 0 | PASS, engine readiness marker observed in probes | PASS, `c0a0e` reaches `MAP_READY` in probes | NOT_TESTED, audible output still needs operator evidence | NOT_TESTED, SD round trip remains G58/G66 | NOT_TESTED | Audible audio, save/config round trip, and real hardware evidence |
+| GC-SWISS-SD2SP2-001 | pending hardware run | Swiss / SD2SP2 | `sd:/xash3d` writable | NTSC/PAL 480i | Official wired controller | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | Slot A and Slot B NOT_TESTED | Real GameCube + Swiss SD2SP2 operator run |
+| GC-SWISS-SDGECKO-001 | pending hardware run | Swiss / SD Gecko | `sd:/xash3d` writable | NTSC/PAL 480i | Official wired controller | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | Slot A and Slot B NOT_TESTED | Real GameCube + Swiss SD Gecko operator run |
+| GC-DISC-RO-001 | pending hardware run | Swiss/ODE/native disc image | `gcdisc:/xash3d` read-only | NTSC/PAL 480i | Official wired controller | NOT_TESTED | NOT_TESTED | NOT_TESTED | Read-only route expected to skip writes | NOT_TESTED | Physical disc or disc-image loader run |
+| WII-GC-MODE-001 | pending hardware run | Wii GameCube mode | SD or disc | NTSC/PAL safe mode | Official or WaveBird | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | Wii/GameCube-mode operator run |
+| CTRL-WAVEBIRD-001 | pending hardware run | Swiss or equivalent | SD writable | NTSC/PAL 480i | WaveBird | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | WaveBird input evidence |
+| CTRL-THIRDPARTY-001 | pending hardware run | Swiss or equivalent | SD writable | NTSC/PAL 480i | third-party controller | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | Third-party controller evidence |
+| CTRL-NOCONTROLLER-001 | pending hardware run | Swiss or equivalent | SD writable | NTSC/PAL 480i | no-controller boot | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | No-controller boot and reconnect evidence |
+| CTRL-DISCONNECT-001 | pending hardware run | Swiss or equivalent | SD writable | NTSC/PAL 480i | mid-game disconnect | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | NOT_TESTED | Mid-game disconnect/reconnect evidence |
+
+Required entry fields are: Test ID, Artifact commit, Loader, Storage route,
+Video mode, Controller, Boot result, Map result, Audio result, Save result,
+Memory card, and Next blocker. Proprietary local asset captures, screenshots,
+videos, and audio recordings must stay outside Git; only textual log paths,
+hashes, route IDs, and summary markers belong in this matrix.
+
+Dolphin evidence is diagnostic only and is not accepted as final hardware proof.
+Real hardware evidence remains under G38/G66 until a dated operator run records
+the required route, loader, storage, controller, memory-card, audio, save, and
+shutdown behavior.
