@@ -42,6 +42,7 @@ static unsigned int gc_present_count;
 static unsigned int gc_blank_present_count;
 static convar_t *gc_quality;
 static double gc_last_present_time;
+static double gc_worst_frame_ms;
 #endif
 
 #define GC_VIDEO_SAFE_AREA_PERCENT 10
@@ -242,10 +243,14 @@ static void GC_PresentBuffer( void )
 	{
 		now = Sys_FloatTime();
 		elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
+		if( elapsed_ms > gc_worst_frame_ms )
+			gc_worst_frame_ms = elapsed_ms;
 		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
 			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
 		SYS_Report( "Xash3D GameCube: frame render complete\n" );
 		SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
+		if( elapsed_ms >= 33.0 )
+			SYS_Report( "Xash3D GameCube: G49 slow frame %.2fms worst=%.2fms\n", elapsed_ms, gc_worst_frame_ms );
 		gc_last_present_time = now;
 	}
 
