@@ -1577,6 +1577,14 @@ Without these files loaded, the automation cannot implement:
 - Visual equivalents for critical audio cues
 - Confirmation dialogs for destructive actions
 
+**Automation attempt 2 (2026-06-26):**
+Aider pass exited 0 (accepted) but no engine source changes were possible
+because the required client/menu files remain outside editable context.
+The goal runner correctly identified the blocker and preserved the previous
+attempt's evidence.
+
+Evidence: `.ai/logs/aider-pass-2026-06-26-181308.log`
+
 **Current state:** The port already has:
 - Controller polling active (G04, G45)
 - Fatal error breadcrumb screens (G37, G50)
