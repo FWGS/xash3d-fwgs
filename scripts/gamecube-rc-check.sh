@@ -45,7 +45,8 @@ Runs the native GameCube release-candidate evidence gate:
   13. fatal error UX compliance check
   14. audio compliance check
   15. frame timing compliance check
-  16. homebrew compliance check
+  16. console UX/accessibility compliance check
+  17. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -392,6 +393,21 @@ timing_compliance_gate() {
 	return "$rc"
 }
 
+ux_compliance_gate() {
+	local log_path="$LOG_DIR/ux-compliance.log"
+	echo
+	echo "== UX compliance =="
+	if scripts/gamecube-ux-compliance.py --log-dir "$LOG_DIR/ux-compliance" >"$log_path" 2>&1; then
+		log_status "UX compliance" "PASS" "$log_path" "G51 console UX/accessibility preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "UX compliance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -503,6 +519,7 @@ main() {
 	fatal_ux_compliance_gate || true
 	audio_compliance_gate || true
 	timing_compliance_gate || true
+	ux_compliance_gate || true
 	compliance_gate || true
 	write_summary
 	echo
