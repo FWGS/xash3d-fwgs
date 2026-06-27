@@ -809,7 +809,7 @@ scripts/gamecube-map-compat-probe.sh
   clipping results still require dated Dolphin or real hardware/operator
   evidence under G38/G40/G66.
 
-## G49 [ ] Prove frame timing, loading feedback, and timing independence
+## G49 [x] Prove frame timing, loading feedback, and timing independence
 
 - Define release target frame rate and frame-time budget for representative
   gameplay, menu, loading, and worst-case visual scenes.
@@ -818,6 +818,18 @@ scripts/gamecube-map-compat-probe.sh
   frames.
 - Show loading feedback after about two seconds and record worst-case scene
   evidence with FPS, frame time, map, player position, and active entities.
+- Completed 2026-06-26 as an automated source/policy preflight:
+  startup telemetry reports the G49 release frame budget, gameplay timing is
+  derived from bounded real elapsed time, GameCube loading feedback logs once
+  the loading plaque has been up for roughly two seconds, and the GX backend
+  reports slow/worst present-frame timing for Dolphin probes.
+- `scripts/gamecube-timing-compliance.py` verifies the G49 source contract, docs
+  sync, and probe parser support; `scripts/gamecube-rc-check.sh` now runs this
+  timing compliance gate as part of the release-candidate suite.
+- Evidence boundary: final release timing still requires dated Dolphin or real
+  hardware/operator sessions for representative gameplay, menu, loading, and
+  worst-case scenes with FPS, frame time, map, player position, and active
+  entities under G38/G40/G66.
 
 ## G50 [x] Build release-grade fatal error and crash breadcrumb UX
 

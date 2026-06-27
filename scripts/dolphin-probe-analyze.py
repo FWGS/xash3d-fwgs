@@ -14,7 +14,7 @@ from statistics import mean
 
 FRAME_TIME_RE = re.compile(r"frame time=([\d.]+)ms")
 GUEST_ERROR_RE = re.compile(
-	r"(Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error)",
+	r"(Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort))",
 	re.IGNORECASE,
 )
 MARKERS = {

@@ -1219,6 +1219,12 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	Cvar_RegisterVariable( &sv_background );
 	Cvar_RegisterVariable( &cl_background );
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: G49 release target frame budget 16.67ms maxfps=%g capped=%g\n",
+		host_maxfps.value, bound( MIN_FPS, host_maxfps.value ? host_maxfps.value : 60.0, 60.0 ));
+	Con_Reportf( "Xash3D GameCube: G49 timing independence host.frametime = host.realtime - oldtime; bound( MIN_FRAMETIME, host.frametime, MAX_FRAMETIME )\n" );
+#endif
+
 	Cvar_Getf( "buildnum", FCVAR_READ_ONLY, "returns a current build number", "%i", Q_buildnum_compat());
 	Cvar_Getf( "ver", FCVAR_READ_ONLY, "shows an engine version", "%i/%s (hw build %i)", PROTOCOL_VERSION, XASH_COMPAT_VERSION, Q_buildnum_compat());
 	Cvar_Getf( "host_ver", FCVAR_READ_ONLY, "detailed info about this build", "%i " XASH_VERSION " %s %s %s", Q_buildnum(), Q_buildos(), Q_buildarch(), g_buildcommit);

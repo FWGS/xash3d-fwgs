@@ -44,7 +44,8 @@ Runs the native GameCube release-candidate evidence gate:
   12. save integrity/destructive-action compliance check
   13. fatal error UX compliance check
   14. audio compliance check
-  15. homebrew compliance check
+  15. frame timing compliance check
+  16. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -376,6 +377,21 @@ audio_compliance_gate() {
 	return "$rc"
 }
 
+timing_compliance_gate() {
+	local log_path="$LOG_DIR/timing-compliance.log"
+	echo
+	echo "== timing compliance =="
+	if scripts/gamecube-timing-compliance.py --log-dir "$LOG_DIR/timing-compliance" >"$log_path" 2>&1; then
+		log_status "timing compliance" "PASS" "$log_path" "G49 frame timing/loading/timing-independence preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "timing compliance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -486,6 +502,7 @@ main() {
 	save_compliance_gate || true
 	fatal_ux_compliance_gate || true
 	audio_compliance_gate || true
+	timing_compliance_gate || true
 	compliance_gate || true
 	write_summary
 	echo

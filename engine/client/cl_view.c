@@ -22,6 +22,10 @@ GNU General Public License for more details.
 #include "input.h" // touch
 #include "platform/platform.h" // GL_UpdateSwapInterval
 
+#if XASH_GAMECUBE
+static qboolean gc_loading_feedback_logged;
+#endif
+
 /*
 ===============
 V_CalcViewRect
@@ -336,6 +340,16 @@ qboolean V_PreRender( void )
 	// if the screen is disabled (loading plaque is up)
 	if( cls.disable_screen )
 	{
+#if XASH_GAMECUBE
+		double load_elapsed = host.realtime - cls.disable_screen;
+		if( load_elapsed >= 2.0 && !gc_loading_feedback_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: G49 loading feedback elapsed=%.2f threshold=2.0\n", load_elapsed );
+			gc_loading_feedback_logged = true;
+		}
+		if( load_elapsed < 2.0 )
+			gc_loading_feedback_logged = false;
+#endif
 		if(( host.realtime - cls.disable_screen ) > cl_timeout.value )
 		{
 			Con_Reportf( "%s: loading plaque timed out\n", __func__ );
