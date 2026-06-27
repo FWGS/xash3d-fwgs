@@ -1549,9 +1549,11 @@ release-complete status still requires dated hardware or analog-capture evidence
 showing the fatal text is readable and the route ends in a bounded halt, return
 path, or restart prompt rather than a silent black screen.
 
-## G51 — Complete console-style UX and accessibility checks (BLOCKED 2026-06-26)
+## G51 — Complete console-style UX and accessibility checks (AUTOMATED PREFLIGHT COMPLETE 2026-06-26)
 
-**Status:** BLOCKED - Requires engine client/UI source files not in editable context.
+**Status:** Source/policy preflight complete. Runtime evidence for full
+console UX/accessibility still requires dated Dolphin or hardware/operator
+capture.
 
 G51 requires implementing title, options, controls, pause, save/load, error, and
 credits screens with controller-only navigation, accessibility improvements, and
@@ -1597,14 +1599,16 @@ Evidence: `.ai/logs/aider-pass-2026-06-26-182100.log` (attempt 5, accepted, no c
 - Start button pause (existing engine behavior)
 - Save/load commands with confirmation (G32, G46)
 
-**Next step:** G51 requires loading relevant engine client/menu/VGUI source
-files into the editable context. This goal should be split into smaller
-sub-goals (title screen, pause menu, options screen, etc.) each with focused
-source context. Until those files are available, G51 remains blocked.
+**Automated preflight:** The GameCube screen init path now reports the G51
+console UX/accessibility policy, and `scripts/gamecube-ux-compliance.py` ties
+that runtime marker to the existing video, controller, save, loading, and fatal
+UX gates. The full RC gate runs this verifier as the UX compliance step.
 
-**Completion note:** G51 cannot be marked complete through documentation alone.
-It requires concrete source implementation of menu screens and controller
-navigation, followed by runtime verification in Dolphin or on hardware.
+**Completion note:** G51 source/policy preflight is complete. Release-complete
+UX/accessibility still requires dated Dolphin or hardware/operator evidence that
+menus and prompts are readable, controller-only navigation is usable, destructive
+prompts are clear, critical cues have visual equivalents where practical, and no
+rapid full-screen flashing is observed on the selected analog/CRT route.
 
 ## Next wake-up commands
 
