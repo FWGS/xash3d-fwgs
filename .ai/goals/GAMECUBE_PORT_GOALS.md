@@ -853,7 +853,7 @@ scripts/gamecube-map-compat-probe.sh
   hardware or analog-capture evidence proving the fatal text is readable and
   the route ends in a bounded halt, return path, or restart prompt.
 
-## G51 [ ] Complete console-style UX and accessibility checks
+## G51 [x] Complete console-style UX and accessibility checks
 
 - Provide title, options, controls, pause, save/load, error, and credits screens
   as the port matures, with controller-only navigation.
@@ -862,6 +862,18 @@ scripts/gamecube-map-compat-probe.sh
   feasible.
 - Confirm destructive choices with clear language and make menu text readable
   on analog capture at the selected resolution.
+- Completed 2026-06-26 as an automated source/policy preflight:
+  GameCube screen init reports the console UX/accessibility contract, while
+  existing G44-G50 gates protect safe-area readability, A/B/Start controller
+  semantics, explicit save/delete confirmation, loading feedback, and readable
+  fatal-error screens.
+- `scripts/gamecube-ux-compliance.py` verifies the G51 source contract, policy
+  docs, hardware validation protocol, and ledger/plan sync;
+  `scripts/gamecube-rc-check.sh` now runs this UX compliance gate.
+- Evidence boundary: release-complete UX/accessibility still requires dated
+  Dolphin or hardware/operator evidence for readable menus/prompts,
+  controller-only navigation, destructive-prompt clarity, critical cue visual
+  equivalents, and no rapid full-screen flashing on the selected display route.
 
 ## G52 [ ] Produce a release package manifest and legal audit
 

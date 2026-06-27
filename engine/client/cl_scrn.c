@@ -35,6 +35,21 @@ static CVAR_DEFINE_AUTO( cl_showpos, "0", FCVAR_ARCHIVE, "show local player posi
 static CVAR_DEFINE_AUTO( cl_showents, "0", FCVAR_ARCHIVE | FCVAR_CHEAT, "show entities information (largely undone)" );
 static CVAR_DEFINE_AUTO( cl_showcmd, "0", 0, "visualize usercmd button presses" );
 
+#if XASH_GAMECUBE
+static qboolean scr_gc_ux_policy_logged;
+
+static void SCR_GameCubeReportUXPolicy( void )
+{
+	if( scr_gc_ux_policy_logged )
+		return;
+
+	Con_Reportf( "Xash3D GameCube: G51 console UX title/options/controls/pause/save/error/credits controller-only navigation\n" );
+	Con_Reportf( "Xash3D GameCube: G51 accessibility no rapid full-screen flashing; critical audio has visual equivalents where practical; alternate control presets tracked\n" );
+	Con_Reportf( "Xash3D GameCube: G51 readable prompts use 4:3 safe area and destructive choices require explicit confirm\n" );
+	scr_gc_ux_policy_logged = true;
+}
+#endif
+
 typedef struct
 {
 	int	x1, y1, x2, y2;
@@ -931,6 +946,10 @@ void SCR_VidInit( void )
 {
 	if( !ref.initialized ) // don't call VidInit too soon
 		return;
+
+#if XASH_GAMECUBE
+	SCR_GameCubeReportUXPolicy();
+#endif
 
 #if XASH_GAMECUBE
 	{
