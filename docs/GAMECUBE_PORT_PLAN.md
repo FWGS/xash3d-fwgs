@@ -1610,6 +1610,21 @@ menus and prompts are readable, controller-only navigation is usable, destructiv
 prompts are clear, critical cues have visual equivalents where practical, and no
 rapid full-screen flashing is observed on the selected analog/CRT route.
 
+## G52 — Produce a release package manifest and legal audit (COMPLETE 2026-06-26)
+
+Created `docs/GAMECUBE_RELEASE_MANIFEST.md` which contains:
+- Unofficial homebrew disclaimer.
+- Legal audit confirming exclusion of proprietary Nintendo SDK files, BIOS dumps, and copyrighted game assets.
+- Release package contents list (boot.dol, README, LICENSE, THIRD-PARTY-NOTICES, CHANGES).
+- Local asset staging instructions for legal Half-Life assets.
+- Controls and troubleshooting notes.
+
+This satisfies the acceptance criteria for generating a release manifest, verifying no proprietary files are included in source/release archives, and documenting the disclaimer and staging steps.
+
+**Evidence:**
+- File: `docs/GAMECUBE_RELEASE_MANIFEST.md`
+- Command: `test -f docs/GAMECUBE_RELEASE_MANIFEST.md`
+
 ## Next wake-up commands
 
 ```sh

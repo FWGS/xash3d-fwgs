@@ -56,8 +56,13 @@ def main() -> int:
 		Check("human checklist", bool(doc_text), str(doc)),
 		Check("context index references compliance",
 			"GAMECUBE_HOMEBREW_COMPLIANCE.md" in index_text, str(context_index)),
+		Check("context index references GoldSrc formats",
+			"GOLDSRC_CONTENT_FORMATS.md" in index_text, str(context_index)),
 		Check("aider reads compliance prompt",
 			"GAMECUBE_HOMEBREW_COMPLIANCE.md" in config_text, str(aider_config)),
+		Check("aider reads GoldSrc content prompts",
+			"GOLDSRC_CONTENT_FORMATS.md" in config_text
+			and "GOLDSRC_SDK_NOTES.md" in config_text, str(aider_config)),
 		Check("port plan references compliance",
 			"GameCube Homebrew Compliance" in plan_text, str(port_plan)),
 		Check("release goals mention compliance",
