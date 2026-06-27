@@ -875,7 +875,7 @@ scripts/gamecube-map-compat-probe.sh
   controller-only navigation, destructive-prompt clarity, critical cue visual
   equivalents, and no rapid full-screen flashing on the selected display route.
 
-## G52 [ ] Produce a release package manifest and legal audit
+## G52 [x] Produce a release package manifest and legal audit
 
 - Generate a release manifest containing version, build hash, artifact hashes,
   README, license, credits, third-party notices, changelog, controls, and
@@ -885,6 +885,18 @@ scripts/gamecube-map-compat-probe.sh
   archives.
 - Document the unofficial-homebrew disclaimer and required local asset staging
   steps in the release package.
+- Completed 2026-06-26 as an automated source/policy preflight:
+  `docs/GAMECUBE_RELEASE_MANIFEST.md` documents the unofficial-homebrew
+  disclaimer, package contents, legal exclusions, user-owned Half-Life asset
+  staging, controls, troubleshooting, and per-release build/hash requirements.
+- `scripts/gamecube-release-compliance.py` verifies the manifest, legal audit,
+  staged-asset boundary, proprietary SDK scan, tracked local asset exclusions,
+  docs sync, and RC wiring; `scripts/gamecube-rc-check.sh` now runs this release
+  compliance gate.
+- Evidence boundary: public release archives still require a dated package build,
+  artifact hashes, third-party notice review, and final confirmation that no
+  copyrighted game assets, firmware dumps, or proprietary platform SDK material
+  are bundled.
 
 ## G53 [ ] Maintain a hardware and loader evidence matrix
 

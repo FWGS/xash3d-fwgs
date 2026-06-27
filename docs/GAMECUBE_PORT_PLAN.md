@@ -1624,6 +1624,13 @@ This satisfies the acceptance criteria for generating a release manifest, verify
 **Evidence:**
 - File: `docs/GAMECUBE_RELEASE_MANIFEST.md`
 - Command: `test -f docs/GAMECUBE_RELEASE_MANIFEST.md`
+- Verifier: `scripts/gamecube-release-compliance.py`
+- RC gate: `scripts/gamecube-rc-check.sh`
+
+**Completion note:** G52 source/policy preflight is complete. Public release
+archives still require a dated package build, artifact hashes, third-party
+notice review, and final confirmation that no copyrighted game assets, firmware
+dumps, or proprietary platform SDK material are bundled.
 
 ## Next wake-up commands
 
