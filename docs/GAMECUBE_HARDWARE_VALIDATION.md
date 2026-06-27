@@ -150,6 +150,20 @@ triggers, physics, audio, and scripted sequences remained stable under slow
 frames. Bounded smoke probes may close the source preflight, but they do not
 replace extended runtime timing evidence.
 
+## Console UX and Accessibility Preflight
+
+Before calling a release candidate console-polished, run:
+
+```sh
+scripts/gamecube-ux-compliance.py
+```
+
+Then record operator evidence that title/options/controls/pause/save/error/credits
+screens are readable, controller-only navigation works, destructive prompts use
+clear confirmation language, critical audio cues have practical visual
+equivalents, and the route avoids rapid full-screen flashing on the selected
+analog or CRT capture path.
+
 ## Fatal Error UX Preflight
 
 Before recording physical fatal-screen results, run the automated G50 preflight:

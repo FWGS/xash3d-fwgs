@@ -71,7 +71,7 @@ def main() -> int:
 	))
 	checks.append(Check(
 		"readable safe-area policy",
-		"PASS" if contains_all(video_gate, ("8-10% 4:3 safe area", "text legible on CRT/analog capture", "safe-area/readability")) else "FAIL",
+		"PASS" if contains_all(video_gate, ("8-10% 4:3 safe area", "safe-area/readability", "CRT or analog capture evidence")) else "FAIL",
 		"G44 video gate protects readable title/menu/prompt placement",
 	))
 	checks.append(Check(
