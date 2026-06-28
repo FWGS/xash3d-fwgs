@@ -1142,15 +1142,24 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   environment/staging conditions, not missing source. G64 is source/policy
   preflight complete. The RC check script exists and is the canonical release gate.
 
-## G65 [ ] Freeze release candidate documentation and known limitations
+## G65 [ ] Advance from map-ready to active gameplay rendering
 
-- Generate or update README/release notes with controls, supported loaders,
-  supported storage routes, video modes, audio status, save status, quality
-  profiles, known map blockers, and troubleshooting.
-- Include exact build command, artifact hashes, tested commit, and legal local
-  asset staging instructions.
-- Keep known limitations explicit rather than implying full Half-Life
-  completion when only a subset of campaign evidence exists.
+- Current Dolphin evidence reaches `map_ready`: bootstrap, engine readiness,
+  input polling, `c0a0e` map load, and client resource verification are all
+  observed in `.ai/logs/dolphin-vision-*/result.json` and OSReport logs.
+- Fix the next runtime blocker so the local client advances past
+  `ucmd->sendres()`, resource verification, and prespawn into active gameplay
+  rendering.
+- Acceptance evidence must include a fresh Dolphin harness result showing
+  `map_loaded=true`, `input_polling=true`, no guest error, and either
+  `sampled_nonblack=1`, a nonblack Dolphin frame-dump PNG, or a new explicit
+  OSReport marker proving active client rendering after prespawn.
+- Prefer small GameCube-only source changes in client resource verification,
+  prespawn/sign-on, local server handshake, renderer frame submission, or
+  smoke-route read-only handling. Do not solve this with docs-only edits.
+- Do not reopen old blockers unless a fresh Dolphin run regresses: `c0a0e`
+  path lookup, `Client Edicts Zone` OOM, and `demoheader.tmp` read-only writes
+  have already been addressed or instrumented.
 
 ## G66 [MANUAL] Sign off a real hardware release candidate
 
@@ -1251,6 +1260,16 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   and quality profiles are supported.
 - Do not leave any open automatic goal, ambiguous "maybe fixed" note, or
   undocumented operator workaround before final sign-off.
+
+## G76 [ ] Freeze release candidate documentation and known limitations
+
+- Generate or update README/release notes with controls, supported loaders,
+  supported storage routes, video modes, audio status, save status, quality
+  profiles, known map blockers, and troubleshooting.
+- Include exact build command, artifact hashes, tested commit, and legal local
+  asset staging instructions.
+- Keep known limitations explicit rather than implying full Half-Life
+  completion when only a subset of campaign evidence exists.
 
 ## G75 [MANUAL] Sign off native Half-Life 1 GameCube completion
 

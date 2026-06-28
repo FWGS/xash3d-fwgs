@@ -235,8 +235,9 @@ GOAL_CONTEXT = {
 	"G64": ("scripts/build-gamecube.sh", "scripts/build-gamecube-disc.py",
 		"scripts/dolphin-boot-probe.sh", "scripts/ai-verify.sh",
 		"scripts/gamecube-homebrew-compliance-check.py"),
-	"G65": ("docs/GAMECUBE_PORT_PLAN.md", "docs/GAMECUBE_HARDWARE_VALIDATION.md",
-		".ai/goals/GAMECUBE_PORT_GOALS.md", "docs/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
+	"G65": ("engine/client/parse/cl_parse.c", "engine/client/cl_main.c",
+		"engine/common/model.c", "scripts/dolphin-vision-test.py",
+		".ai/goals/GAMECUBE_PORT_GOALS.md", "docs/GAMECUBE_PORT_PLAN.md"),
 	"G66": ("docs/GAMECUBE_HARDWARE_VALIDATION.md",
 		"docs/GAMECUBE_PORT_PLAN.md", ".ai/goals/GAMECUBE_PORT_GOALS.md"),
 	"G67": ("scripts/gamecube-map-compat-probe.sh",
@@ -276,6 +277,8 @@ GOAL_CONTEXT = {
 		"docs/GAMECUBE_RELEASE_MANIFEST.md",
 		"docs/GAMECUBE_PORT_PLAN.md",
 		".ai/goals/GAMECUBE_PORT_GOALS.md"),
+	"G76": ("docs/GAMECUBE_PORT_PLAN.md", "docs/GAMECUBE_HARDWARE_VALIDATION.md",
+		".ai/goals/GAMECUBE_PORT_GOALS.md", "docs/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 }
 GOAL_REQUIRED_CONTEXT = {
 	"G24": ("ref/gx/r_context.c", "ref/gx/r_main.c", "ref/gx/r_surf.c",
@@ -300,6 +303,11 @@ GOAL_CONTEXT_SLICES = {
 	"G45": (
 		("engine/platform/gamecube/in_gamecube.c",),
 		("engine/client/input/in_joy.c",),
+	),
+	"G65": (
+		("engine/client/parse/cl_parse.c", "engine/client/cl_main.c"),
+		("engine/common/model.c", "engine/client/parse/cl_parse.c"),
+		("scripts/dolphin-vision-test.py", "engine/client/parse/cl_parse.c"),
 	),
 }
 G24_SUBGOALS = (
@@ -456,8 +464,9 @@ GOAL_READ_CONTEXT = {
 		".ai/prompts/GAMECUBE_STORAGE_NOTES.md"),
 	"G64": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
-	"G65": (".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
-		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
+	"G65": (".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
+		".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md"),
 	"G66": (".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G67": (".ai/prompts/GOLDSRC_CONTENT_FORMATS.md",
@@ -483,6 +492,8 @@ GOAL_READ_CONTEXT = {
 		".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G75": (".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
+		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
+	"G76": (".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 }
 GOAL_COMMIT_SUBJECT = {
@@ -547,7 +558,7 @@ GOAL_COMMIT_SUBJECT = {
 	"G62": "test: validate GameCube combat route",
 	"G63": "test: validate GameCube scripted route",
 	"G64": "test: add GameCube release candidate suite",
-	"G65": "docs: freeze GameCube release candidate notes",
+	"G65": "fix: advance GameCube active rendering",
 	"G66": "test: sign off GameCube hardware release",
 	"G67": "test: verify GameCube GoldSrc content formats",
 	"G68": "test: audit full GameCube campaign route",
@@ -558,6 +569,7 @@ GOAL_COMMIT_SUBJECT = {
 	"G73": "build: prove GameCube clean release rebuild",
 	"G74": "docs: freeze GameCube final limitations",
 	"G75": "test: sign off native Half-Life completion",
+	"G76": "docs: freeze GameCube release candidate notes",
 }
 RECOVERABLE_EXIT_CODES = {
 	10: "Aider made no edit",
@@ -1460,7 +1472,7 @@ docs-only status updates when the probe still fails.
 			f"without a successful probe result in the ledger.\n"
 		)
 	runtime_section = ""
-	if goal.goal_id in DOLPHIN_PROBE_GOALS or goal.goal_id in {"G36", "G45", "G49"}:
+	if goal.goal_id in DOLPHIN_PROBE_GOALS or goal.goal_id in {"G36", "G45", "G49", "G65"}:
 		runtime_section = f"""
 Runtime evidence (prefer this over git history):
 {runtime_evidence_section(root)}
@@ -1549,6 +1561,50 @@ Output rules:
 - No explanation, checklist, plan, or markdown prose.
 - Touch one loaded file only.
 - Keep the patch below 120 changed lines.
+- If the current slice is not sufficient for a safe patch, make no edit; the
+  goal runner will rotate to the next slice.
+"""
+	if goal.goal_id == "G65":
+		return f"""Advance G65 with exactly one small source-level runtime patch.
+
+Active goal: {goal.goal_id} - {goal.title}
+Attempt on this goal: {attempt}
+
+Use only the editable file or files preloaded in this Aider chat. Do not edit,
+add, or request any file that was not added as editable context.
+
+Current runtime state:
+- Fresh Dolphin evidence reaches map-ready: bootstrap, engine readiness, input
+  polling, c0a0e map load, and resource verification are observed.
+- The next blocker is advancing past `ucmd->sendres()`, client resource
+  verification, and prespawn into active client rendering with nonblack frame
+  evidence.
+- The old `Client Edicts Zone` OOM, `demoheader.tmp` read-only write, and
+  `maps/c0a0e.bsp` path lookup failures are stale unless the latest Dolphin
+  harness result regresses below map-ready.
+
+Task:
+- Prefer source fixes in client resource verification, prespawn/sign-on,
+  local-client/server handshake, read-only GameCube smoke route handling, or
+  renderer frame submission.
+- If the loaded files only allow harness work, improve
+  `scripts/dolphin-vision-test.py` so it records active-client/nonblack evidence
+  more accurately; do not hide guest failures.
+- Do not make docs-only edits and do not mark G65 complete without a fresh
+  Dolphin harness result showing no guest error plus either `sampled_nonblack=1`,
+  a nonblack frame-dump PNG, or a clear OSReport marker after prespawn.
+- Keep changes GameCube-scoped and below 160 changed lines.
+
+Runtime evidence:
+{runtime_evidence_section(root)}
+
+Structured failure memory:
+{investigation_memory}
+
+Output rules:
+- Start immediately with the target editable file path and SEARCH/REPLACE blocks.
+- No explanation, checklist, plan, or markdown prose.
+- Touch one loaded file only when possible.
 - If the current slice is not sufficient for a safe patch, make no edit; the
   goal runner will rotate to the next slice.
 """

@@ -295,6 +295,7 @@ Loads a model into the cache
 static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 {
 	char		tempname[MAX_QPATH];
+	char		loadname[MAX_QPATH];
 	fs_offset_t		length = 0;
 	qboolean		loaded, loaded2 = false;
 
@@ -320,6 +321,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	// store modelname to show error
 	Q_strncpy( tempname, mod->name, sizeof( tempname ));
 	COM_FixSlashes( tempname );
+	Q_strncpy( loadname, tempname, sizeof( loadname ));
 
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ) && ( !Q_strncmp( tempname, "maps", 4 ) || !Q_strncmp( tempname, "models", 6 )))
@@ -368,24 +370,24 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	}
 #endif
 
-	byte *buf = FS_LoadFile( tempname, &length, false );
+	byte *buf = FS_LoadFile( loadname, &length, false );
 
 	if( !buf || length < sizeof( uint ))
 	{
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ) && ( !Q_strncmp( tempname, "maps", 4 ) || !Q_strncmp( tempname, "models", 6 )))
+		if( Sys_CheckParm( "-gcmap" ) && ( !Q_strncmp( loadname, "maps", 4 ) || !Q_strncmp( loadname, "models", 6 )))
 		{
-			fs_offset_t filesize = FS_FileSize( tempname, false );
-			qboolean exists = FS_FileExists( tempname, false );
+			fs_offset_t filesize = FS_FileSize( loadname, false );
+			qboolean exists = FS_FileExists( loadname, false );
 
 			Con_Reportf( "Xash3D GameCube: model file failed mod='%s' path='%s' exists=%d size=%li length=%li buf=%p\n",
-				mod->name, tempname, exists, (long)filesize, (long)length, (void *)buf );
+				mod->name, loadname, exists, (long)filesize, (long)length, (void *)buf );
 		}
 #endif
 		memset( mod, 0, sizeof( model_t ));
 
-		if( crash ) Host_Error( "Could not load model %s from disk\n", tempname );
-		else Con_Printf( S_ERROR "Could not load model %s from disk\n", tempname );
+		if( crash ) Host_Error( "Could not load model %s from disk\n", loadname );
+		else Con_Printf( S_ERROR "Could not load model %s from disk\n", loadname );
 
 		return NULL;
 	}

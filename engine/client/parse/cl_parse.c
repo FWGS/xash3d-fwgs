@@ -486,13 +486,33 @@ void CL_BatchResourceRequest( qboolean initialize )
 
 	if( cls.state != ca_disconnected )
 	{
-		if( done_downloading && CL_PrecacheResources( ))
+		qboolean precache_ready = false;
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+			Con_Reportf( "Xash3D GameCube: resource batch done=%d state=%d custom=%d\n",
+				done_downloading, cls.state, cls.dl.custom );
+#endif
+		if( done_downloading )
+			precache_ready = CL_PrecacheResources();
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+			Con_Reportf( "Xash3D GameCube: resource batch precache=%d\n", precache_ready );
+#endif
+		if( done_downloading && precache_ready )
 		{
 			CL_RegisterResources( &msg, cls.legacymode );
+#if XASH_GAMECUBE
+			if( Sys_CheckParm( "-gcmap" ))
+				Con_Reportf( "Xash3D GameCube: resource batch register sent\n" );
+#endif
 		}
 
 		Netchan_CreateFragments( &cls.netchan, &msg );
 		Netchan_FragSend( &cls.netchan );
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+			Con_Reportf( "Xash3D GameCube: resource batch fragments sent\n" );
+#endif
 	}
 }
 
