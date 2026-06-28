@@ -35,26 +35,6 @@ static void AVI_RGB24ToBGRA( const byte *src, int src_stride, byte *dst, int wid
 	}
 }
 
-static void AVI_RGB24ToBGRAScaled( const byte *src, int src_stride, byte *dst, int src_width, int src_height, int dst_width, int dst_height )
-{
-	int x, y;
-
-	for( y = 0; y < dst_height; y++ )
-	{
-		const byte *row = src + ( y * src_height / dst_height ) * src_stride;
-		byte *out = dst + y * dst_width * 4;
-
-		for( x = 0; x < dst_width; x++ )
-		{
-			const byte *in = row + ( x * src_width / dst_width ) * 3;
-			out[x * 4 + 0] = in[2];
-			out[x * 4 + 1] = in[1];
-			out[x * 4 + 2] = in[0];
-			out[x * 4 + 3] = 255;
-		}
-	}
-}
-
 static fs_offset_t AVI_ScanFor( file_t *file, const char *tag, fs_offset_t start, fs_offset_t end )
 {
 	byte buf[4096];
@@ -290,20 +270,12 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 	if( !Avi->chunk )
 		return false;
 
-#if XASH_GAMECUBE
-	Avi->upload_width = Q_min( Avi->width, 320 );
-	Avi->upload_height = Q_max( 1, Avi->height * Avi->upload_width / Avi->width );
-	Avi->frame = NULL;
-#else
 	Avi->upload_width = Avi->width;
 	Avi->upload_height = Avi->height;
 	Avi->frame = Mem_Malloc( avi_mempool, Avi->width * Avi->height * 4 );
 	if( !Avi->frame )
 		return false;
-#endif
-	Avi->upload_frame = Mem_Malloc( avi_mempool, Avi->upload_width * Avi->upload_height * 4 );
-	if( !Avi->upload_frame )
-		return false;
+	Avi->upload_frame = Avi->frame;
 
 	if( !Cinepak_Init( &Avi->decoder, Avi->width, Avi->height, avi_mempool ))
 		return false;
@@ -387,18 +359,9 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 	if( upload )
 	{
 #if XASH_GAMECUBE
-		if( Avi->upload_frame && ( Avi->upload_width != Avi->width || Avi->upload_height != Avi->height ))
-		{
-			AVI_RGB24ToBGRAScaled( Avi->decoder.rgb, Avi->decoder.stride, Avi->upload_frame,
-				Avi->width, Avi->height, Avi->upload_width, Avi->upload_height );
-		}
-#else
-		AVI_RGB24ToBGRA( Avi->decoder.rgb, Avi->decoder.stride, Avi->frame, Avi->width, Avi->height );
-		if( Avi->upload_frame )
-		{
-			memcpy( Avi->upload_frame, Avi->frame, Avi->width * Avi->height * 4 );
-		}
+		if( !Avi->decoder.rgb || Avi->decoder.stride != Avi->width * 3 )
 #endif
+		AVI_RGB24ToBGRA( Avi->decoder.rgb, Avi->decoder.stride, Avi->frame, Avi->width, Avi->height );
 	}
 	return true;
 }
@@ -419,10 +382,6 @@ byte *AVI_GetVideoFrame( movie_state_t *Avi, int frame )
 	if((uint)frame != Avi->current_frame && !AVI_DecodeFrame( Avi, frame, true ))
 		return NULL;
 
-#if XASH_GAMECUBE
-	if( !Avi->frame )
-		return Avi->upload_frame;
-#endif
 	return Avi->frame;
 }
 
@@ -560,7 +519,7 @@ void AVI_CloseVideo( movie_state_t *Avi )
 		FS_Close( Avi->file );
 	if( Avi->frame )
 		Mem_Free( Avi->frame );
-	if( Avi->upload_frame )
+	if( Avi->upload_frame && Avi->upload_frame != Avi->frame )
 		Mem_Free( Avi->upload_frame );
 	if( Avi->chunk )
 		Mem_Free( Avi->chunk );
@@ -578,9 +537,11 @@ qboolean AVI_Think( movie_state_t *Avi )
 	uint target_frame;
 	uint decode_frame;
 	qboolean first_decode;
+	const byte *upload_pixels;
+	pixformat_t upload_fmt;
 	double elapsed;
 
-	if( !Avi || !Avi->active || !Avi->file || !Avi->upload_frame )
+	if( !Avi || !Avi->active || !Avi->file )
 		return false;
 
 	if( Avi->paused )
@@ -621,12 +582,25 @@ qboolean AVI_Think( movie_state_t *Avi )
 		if( first_decode )
 			Con_Reportf( "Xash3D GameCube: intro AVI decoded first frame\n" );
 
+#if XASH_GAMECUBE
+		if( Avi->decoder.rgb && Avi->decoder.stride == Avi->width * 3 )
+		{
+			upload_pixels = Avi->decoder.rgb;
+			upload_fmt = PF_RGB_24;
+		}
+		else
+#endif
+		{
+			upload_pixels = Avi->upload_frame;
+			upload_fmt = PF_BGRA_32;
+		}
+
 		if( Avi->texture == 0 )
 			ref.dllFuncs.GL_UpdateTexture( SCR_GetCinematicTexture(), Avi->upload_width, Avi->upload_height,
-				Avi->upload_width, Avi->upload_height, Avi->upload_frame, PF_BGRA_32 );
+				Avi->upload_width, Avi->upload_height, upload_pixels, upload_fmt );
 		else if( Avi->texture > 0 )
 			ref.dllFuncs.GL_UpdateTexture( Avi->texture, Avi->upload_width, Avi->upload_height,
-				Avi->upload_width, Avi->upload_height, Avi->upload_frame, PF_BGRA_32 );
+				Avi->upload_width, Avi->upload_height, upload_pixels, upload_fmt );
 	}
 
 	if( Avi->texture == 0 )

@@ -286,6 +286,8 @@ def classify_logs(logs: str, smoke_map: str,
 		"sampled_nonblack": marker_bool(logs, r"sampled_nonblack=1"),
 		"audio_voice_started": marker_bool(logs, r"audio voice started"),
 		"audio_nonzero_pcm": marker_bool(logs, r"audio submitted nonzero PCM"),
+		"intro_audio_pcm": marker_bool(logs, r"intro AVI audio PCM"),
+		"intro_audio_submitted": marker_bool(logs, r"intro AVI audio submitted"),
 		"intro_requested": marker_bool(logs, r"Xash3D GameCube: intro AVI play"),
 		"intro_opened": marker_bool(logs, r"Xash3D GameCube: intro AVI opened"),
 		"intro_first_frame": marker_bool(logs, r"Xash3D GameCube: intro AVI decoded first frame"),
@@ -333,8 +335,12 @@ def classify_logs(logs: str, smoke_map: str,
 	audio = "unknown"
 	if markers["audio_nonzero_pcm"]:
 		audio = "nonzero_pcm_submitted"
+	elif markers["intro_audio_submitted"]:
+		audio = "intro_pcm_submitted"
 	elif markers["audio_voice_started"]:
 		audio = "voice_started_no_nonzero_pcm"
+	elif markers["intro_audio_pcm"]:
+		audio = "intro_pcm_detected"
 	return {
 		"status": status,
 		"visual": visual,
