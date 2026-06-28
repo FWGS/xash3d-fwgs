@@ -638,6 +638,7 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 		return;
 
 	gc_fatal_breadcrumb_active = true;
+	gc.initialized = false;
 
 	/* Present to front buffer immediately for visibility */
 	dst = (unsigned short *)xfb[0];
