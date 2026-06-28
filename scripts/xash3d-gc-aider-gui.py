@@ -411,7 +411,10 @@ def stylesheet(gamecube_font: str = "Sans Serif") -> str:
 			stop:0 #1f1a3d, stop:0.45 {GC_BG}, stop:1 #05050c);
 		color: {GC_TEXT};
 	}}
-	QWidget {{ background: transparent; color: {GC_TEXT}; selection-background-color: {GC_PURPLE}; }}
+	QWidget {{ color: {GC_TEXT}; selection-background-color: {GC_PURPLE}; }}
+	QWidget#AppCentral {{ background: transparent; }}
+	QWidget[panelSurface="true"] {{ background: {GC_PANEL}; border: 1px solid {GC_PANEL_3};
+		border-radius: 10px; }}
 	QDialog, QMessageBox {{ background: {GC_BG}; color: {GC_TEXT}; }}
 	QToolTip {{ background: #151225; color: {GC_TEXT}; border: 1px solid {GC_CYAN};
 		border-radius: 6px; padding: 6px; }}
@@ -427,9 +430,11 @@ def stylesheet(gamecube_font: str = "Sans Serif") -> str:
 	QMenu::item:selected {{ background: {GC_PURPLE}; color: {GC_TEXT}; }}
 	QMenu::separator {{ height: 1px; background: {GC_PANEL_3}; margin: 5px 10px; }}
 
+	QMainWindow::separator {{ background: {GC_PANEL_2}; width: 5px; height: 5px; }}
+	QMainWindow::separator:hover {{ background: {GC_CYAN}; }}
 	QDockWidget {{ titlebar-close-icon: url({DOCK_CLOSE_ICON.as_posix()});
 		titlebar-normal-icon: url({DOCK_FLOAT_ICON.as_posix()});
-		background: {GC_PANEL}; border: 1px solid {GC_PANEL_3}; border-radius: 12px; }}
+		background: {GC_PANEL}; border: 0; }}
 	QDockWidget::title {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
 		stop:0 {GC_PANEL_3}, stop:0.35 {GC_PANEL_2}, stop:1 {GC_PANEL});
 		color: {GC_CYAN}; border: 1px solid {GC_BORDER}; border-bottom: 1px solid #141026;
@@ -481,7 +486,8 @@ def stylesheet(gamecube_font: str = "Sans Serif") -> str:
 	QScrollBar::handle:horizontal {{ background: {GC_PANEL_3}; min-width: 28px; border-radius: 6px; }}
 	QScrollBar::handle:horizontal:hover {{ background: {GC_CYAN}; }}
 	QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
-	QScrollArea {{ background: transparent; border: 0; }}
+	QScrollArea {{ background: {GC_PANEL}; border: 0; }}
+	QScrollArea > QWidget > QWidget {{ background: {GC_PANEL}; }}
 
 	QPushButton {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
 		stop:0 {GC_PANEL_3}, stop:1 {GC_PURPLE}); color: {GC_TEXT};
@@ -1245,6 +1251,7 @@ class PortWindow(QMainWindow):
 		self.setCorner(Qt.Corner.TopRightCorner, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		central = QWidget()
+		central.setObjectName("AppCentral")
 		central.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
 		self.setCentralWidget(central)
 		layout = QVBoxLayout(central)
@@ -2054,6 +2061,8 @@ class PortWindow(QMainWindow):
 	def add_panel(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
 		dock = QDockWidget(title, self)
 		dock.setObjectName(f"Dock{re.sub(r'[^A-Za-z0-9]+', '', title)}")
+		widget.setProperty("panelSurface", True)
+		widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 		dock.setWidget(widget)
 		allowed = {
 			"Workspace": Qt.DockWidgetArea.LeftDockWidgetArea,
