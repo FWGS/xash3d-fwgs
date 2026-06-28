@@ -1772,11 +1772,11 @@ Dolphin logs or hardware captures showing these markers in sustained gameplay.
 Do not mark release/hardware compliance complete without verifier output,
 Dolphin logs, package artifacts, or operator-recorded hardware evidence.
 
-## G56 — Build a hardware boot preparation checklist (COMPLETE 2026-06-27, DO NOT RETRY)
+## G56 — Build a hardware boot preparation checklist (AUTOMATED PREFLIGHT COMPLETE 2026-06-28, DO NOT RETRY)
 
-**AUTOMATION NOTE: DO NOT RETRY.** Source implementation is complete. Transient
-`asset_lookup` staging failures (exit 18) are environment conditions, not missing
-source. Real hardware boot evidence remains under G38/G66 operator validation.
+**AUTOMATION NOTE: DO NOT RETRY.** Source/checklist implementation is complete
+and verifier-backed. Real hardware boot evidence remains under G38/G66 operator
+validation.
 
 **Status:** Complete.
 
@@ -1785,25 +1785,27 @@ source. Real hardware boot evidence remains under G38/G66 operator validation.
 2. `scripts/gamecube-hardware-layout-info.sh`: Script that prints exact files and directory structures to place on SD Gecko, SD2SP2, Memory Card, or for Disc image generation based on the `--route` argument.
 
 **Evidence:**
-- Files created and committed in `8116b5b1 docs: add GameCube hardware boot checklist`.
-- Script is executable and outputs correct layout instructions for `sd`, `disc`, and `memcard` routes.
-- Checklist covers all acceptance criteria: loader routes, storage layout, video/input hardware, artifact verification, and triage.
+- `scripts/gamecube-hardware-boot-check.py` validates the checklist, route helper
+  script, RC wiring, and goal ledger/plan sync.
+- `scripts/gamecube-hardware-layout-info.sh --route all|sd|disc|memcard` prints
+  route-specific file placement instructions.
+- Checklist covers all acceptance criteria: loader routes, storage layout,
+  video/input hardware, artifact verification, first-screen evidence, and triage.
 
 **Verification commands:**
 ```sh
-test -f docs/GAMECUBE_HARDWARE_BOOT_CHECKLIST.md && echo "CHECKLIST EXISTS"
-test -x scripts/gamecube-hardware-layout-info.sh && echo "LAYOUT SCRIPT EXISTS AND IS EXECUTABLE"
-bash scripts/gamecube-hardware-layout-info.sh --route sd
-bash scripts/gamecube-hardware-layout-info.sh --route disc
-bash scripts/gamecube-hardware-layout-info.sh --route memcard
+scripts/gamecube-hardware-boot-check.py
+scripts/gamecube-hardware-layout-info.sh --route all
+scripts/gamecube-rc-check.sh
 ```
 
-Result: Both files exist. The checklist documents pre-flight preparation, artifact preparation, loader routes (A: SD2SP2/SD Gecko, B: Disc, C: Memory Card), verification commands, and a failure triage table. The layout script prints exact file placement for `sd`, `disc`, and `memcard` routes.
+Result: The focused G56 verifier passes when the checklist, executable layout
+helper, RC gate, and goal ledger are in sync.
 
 **Completion note:** G56 is complete. Acceptance criteria met:
-- Operator checklist for real hardware testing: ✓
-- Script printing exact files for each route: ✓
-- Failure triage table: ✓
+- Operator checklist for real hardware testing.
+- Script printing exact files for each route.
+- Failure triage table.
 
 No further source changes required.
 

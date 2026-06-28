@@ -1,86 +1,125 @@
 # GameCube Hardware Boot Preparation Checklist
 
-Use this checklist before running the Xash3D GameCube port on real hardware.
+Use this checklist before running the Xash3D GameCube port on real hardware or
+on a Wii in GameCube mode. Dolphin evidence is useful diagnostics, but it is not
+real hardware sign-off.
 
-## Pre-flight
+## Pre-Flight
 
-- [ ] Clean, high-speed SD card (SD2SP2/SD Gecko) or GameCube Memory Card.
-- [ ] Supported loader installed (e.g., Swiss).
-- [ ] Official or compatible GameCube controller in Port 1.
-- [ ] Video cable connected (Component for 480i/480p, Composite/S-Video for 480i).
-- [ ] Console power cycled (cold boot recommended for first test).
+- [ ] Build and verify the current checkout:
 
-## Artifact Preparation
-
-Generate artifacts using:
 ```sh
-scripts/build-gamecube.sh
-scripts/build-gamecube-disc.py --smoke-map c0a0e
+scripts/ai-verify.sh
+scripts/gamecube-reproducibility-check.py
 ```
 
-Verify artifacts:
+- [ ] Record the commit hash and artifact hashes from the reproducibility log.
+- [ ] Use a FAT32 SD card for SD Gecko or SD2SP2 routes.
+- [ ] Place an official or compatible GameCube controller in Port 1.
+- [ ] Prefer composite or S-Video for first boot; test component/progressive
+  modes only after basic video is proven.
+- [ ] Keep local Half-Life assets outside Git. Copy legally owned assets only to
+  test media.
+
+## Route A: SD Gecko or SD2SP2
+
+Loader: Swiss or equivalent homebrew loader.
+
+Required media layout:
+
+```text
+/boot.dol
+/xash3d/valve/liblist.gam
+/xash3d/valve/gfx.wad
+/xash3d/valve/maps/c0a0e.bsp
+/xash3d/valve/models/
+/xash3d/valve/sprites/
+/xash3d/valve/sound/
+```
+
+Notes:
+
+- `boot.dol` comes from `OUT/bin/boot.dol`.
+- `xash3d/valve/` contains legally owned Half-Life assets staged for testing.
+- SD is the preferred writable route for configs and saves.
+- `gcdisc:/xash3d` is read-only and should not be used for generated state.
+
+## Route B: Disc Image
+
+Loader: Swiss, compatible modchip route, or compatible Wii/GameCube-mode loader.
+
+Build the smoke ISO:
+
 ```sh
-ls -l OUT/bin/boot.dol OUT/xash3d-gc.iso
-sha256sum OUT/bin/boot.dol OUT/xash3d-gc.iso
+scripts/build-gamecube-disc.py --smoke-map c0a0e --output OUT/xash3d-gc.iso
 ```
 
-## Loader Routes and Layout
+Expected image content:
 
-### Route A: SD2SP2 / SD Gecko (DOL Boot)
-**Loader:** Swiss or equivalent.
-**SD Card Layout (FAT32):**
+```text
+/boot.dol
+/xash3d/valve/
+/xash3d/valve/extras.pk3
 ```
-/
-├── boot.dol          <-- Copy from OUT/bin/boot.dol
-├── xash3d/
-│   └── valve/        <-- Game assets (valve.rc, liblist.gam, etc.)
-└── ...
+
+Notes:
+
+- Disc media is read-only.
+- Use SD in parallel when testing save/config writes.
+- Do not add local Half-Life assets to Git or public release archives.
+
+## Route C: Memory Card Assisted Boot
+
+Memory Cards are not a full asset route. Use this only for loader/bootstrap
+experiments when assets remain on SD or disc.
+
+Required expectation:
+
+```text
+Memory Card: loader/bootstrap state only
+SD or Disc: /xash3d/valve/ assets
 ```
-**Expected First Screen:**
-Black screen for 1-2s, then OSReport text: `Xash3D GameCube: bootstrap`.
 
-### Route B: GameCube Disc (ISO Boot)
-**Loader:** Console IPL / DVD drive.
-**Disc Image:** `OUT/xash3d-gc.iso`
-**Note:** The ISO contains `boot.dol`, an FST partition, and staged smoke assets.
-**Expected First Screen:**
-Black screen for 1-2s, then OSReport text: `Xash3D GameCube: bootstrap`.
+## Expected First-Screen Evidence
 
-### Route C: Memory Card (DOL Boot)
-**Loader:** Swiss (Memory Card loader).
-**Memory Card Layout:**
-```
-/
-├── boot.dol          <-- Copy from OUT/bin/boot.dol
-└── ...
-```
-**Note:** Game assets must be accessed via SD Card or Disc in parallel, as Memory Cards are too small for full `valve/` content. Usually used for loader/boot only with assets on SD/Disc.
+Record as much of this sequence as the loader/log setup allows:
 
-## Verification Commands
+- Artifact hash for `OUT/bin/boot.dol`.
+- Loader route, storage route, console model, region, video cable, and
+  controller type.
+- `Xash3D GameCube: bootstrap`.
+- `Xash3D GameCube: engine subsystems ready`.
+- `Xash3D GameCube: map loaded c0a0e` or the selected test map.
+- `Xash3D GameCube: input polling active`.
+- Any `mem stage=` high-water telemetry.
+- Any fatal breadcrumb block if boot fails.
 
-Print layout instructions for a specific route:
+## Failure Triage
+
+| Symptom | Likely cause | Action |
+| --- | --- | --- |
+| Black screen, no OSReport | Loader path, corrupt DOL, or video init failure | Verify `boot.dol` hash, try composite video, and test the same DOL in Dolphin for logs. |
+| Bootstrap then black screen | GX/XFB or renderer path failed | Check for diagnostic marker output and `vid_gamecube.c` logs. |
+| No input | Controller missing or unsupported state | Use Port 1, try an official wired controller, and check G45 controller logs. |
+| No audio | ASND init failed or null-audio route active | Check G48 audio compliance logs; audio failure should not block boot diagnostics. |
+| Missing assets | Wrong `xash3d/valve` layout or case mismatch | Verify `liblist.gam`, `gfx.wad`, and the smoke map path with exact lowercase names. |
+| Read-only storage errors | Disc-only boot without writable SD | Insert SD for saves/configs or treat write skips as expected for disc-only boot. |
+| Memory exhaustion | MEM1 pressure during map/client load | Check `mem stage=` telemetry and use the G57 memory threshold gate. |
+| Fatal breadcrumb screen | Engine, filesystem, renderer, or allocation failure | Record subsystem, message, build hash, map, route, memory, and frame values. |
+
+## Helper Command
+
+Print route-specific file placement instructions:
+
 ```sh
+scripts/gamecube-hardware-layout-info.sh --route all
 scripts/gamecube-hardware-layout-info.sh --route sd
 scripts/gamecube-hardware-layout-info.sh --route disc
+scripts/gamecube-hardware-layout-info.sh --route memcard
 ```
 
-## Failure Triage Table
+Run the automated checklist preflight:
 
-| Symptom | Possible Cause | Verification / Action |
-| :--- | :--- | :--- |
-| **Black Screen (No Text)** | No `boot.dol` found, wrong path, or corrupt DOL. | Verify `boot.dol` is at root of SD or in ISO. Check loader settings. |
-| **Black Screen (After Bootstrap)** | Video init failure or renderer crash. | Check if diagnostic checker (top-left corner) appears. If not, debug `vid_gamecube.c`. |
-| **No Input** | Controller not detected in Port 1. | Verify controller is plugged into Port 1. Try official controller. |
-| **No Audio** | ASND init failed, falling back to null backend. | Expected for initial smoke tests if ASND isn't fully stable. Check `-gcnullaudio` cvar. |
-| **Missing Assets / Map Fail** | Wrong search path, disc not mounted, or SD not mounted. | Check OSReport for `SD card init failed` or `FS_LoadProgs` errors. |
-| **Read-Only Storage Errors** | Trying to write to Disc or unmounted SD. | Ensure SD is present for writes. Disc is read-only. |
-| **Memory Exhaustion (Hang/Crash)** | MEM1 (24MB) limit exceeded. | Check `mem stage=` telemetry in OSReport. Use `-gcmap` for minimal load. |
-| **Disc Read Errors** | Bad burn, corrupted ISO, or dirty lens. | Verify ISO checksum. Clean lens. Try different disc. |
-
-## Next Steps
-
-If boot succeeds:
-1. Observe `Xash3D GameCube: engine subsystems ready`.
-2. Watch for `Xash3D GameCube: map loaded c0a0e`.
-3. Use controller to verify input polling (`Xash3D GameCube: input polling active`).
-4. Record video/audio for compliance evidence (G38/G53).
+```sh
+scripts/gamecube-hardware-boot-check.py
+```

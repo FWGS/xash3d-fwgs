@@ -951,7 +951,7 @@ scripts/gamecube-map-compat-probe.sh
 - Evidence boundary: bit-for-bit reproducibility still needs a second clean
   checkout/toolchain comparison before public release sign-off.
 
-## G56 [ ] Build a hardware boot preparation checklist
+## G56 [x] Build a hardware boot preparation checklist
 
 - Produce a concise operator checklist for real GameCube/Wii GC-mode testing:
   loader route, SD/Memory Card layout, video cable/mode, controller, artifact
@@ -960,6 +960,12 @@ scripts/gamecube-map-compat-probe.sh
   SD2SP2, memory card-compatible storage, or disc image routes.
 - Include a failure triage table for black screen, no input, no audio, missing
   assets, read-only storage, and memory exhaustion.
+- Verified 2026-06-28: `scripts/gamecube-hardware-boot-check.py` validates the
+  hardware boot checklist, route layout helper, RC wiring, and ledger/plan sync.
+- `scripts/gamecube-hardware-layout-info.sh --route all|sd|disc|memcard` prints
+  exact media placement instructions for supported hardware boot routes.
+- Evidence boundary: this is hardware preparation only. Dated real hardware
+  boot results remain G38/G66 sign-off work.
 
 ## G57 [ ] Gate runtime memory thresholds
 

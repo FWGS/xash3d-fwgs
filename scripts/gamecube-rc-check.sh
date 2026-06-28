@@ -49,9 +49,10 @@ Runs the native GameCube release-candidate evidence gate:
   17. release manifest/legal audit compliance check
   18. hardware matrix compliance check
   19. release artifact reproducibility check
-  20. compliance evidence check
-  21. local automation guidance check
-  22. homebrew compliance check
+  20. hardware boot preparation check
+  21. compliance evidence check
+  22. local automation guidance check
+  23. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -458,6 +459,21 @@ reproducibility_gate() {
 	return "$rc"
 }
 
+hardware_boot_gate() {
+	local log_path="$LOG_DIR/hardware-boot.log"
+	echo
+	echo "== hardware boot preparation =="
+	if scripts/gamecube-hardware-boot-check.py --log-dir "$LOG_DIR/hardware-boot" >"$log_path" 2>&1; then
+		log_status "hardware boot preparation" "PASS" "$log_path" "G56 hardware boot checklist preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "hardware boot preparation" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_evidence_gate() {
 	local log_path="$LOG_DIR/compliance-evidence.log"
 	echo
@@ -603,6 +619,7 @@ main() {
 	release_compliance_gate || true
 	hardware_matrix_compliance_gate || true
 	reproducibility_gate || true
+	hardware_boot_gate || true
 	compliance_evidence_gate || true
 	automation_guidance_gate || true
 	compliance_gate || true
