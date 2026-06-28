@@ -238,17 +238,6 @@ void GCube_Init( void )
 #if XASH_GAMECUBE
 	char xashdir[MAX_SYSPATH];
 
-	/* G37: Intentional fatal error trigger for verification.
-	 * This allows automated probes to test the breadcrumb path.
-	 * Guard: Only trigger if cvar system is ready and explicitly enabled. */
-	if( Cvar_Get( "gc_fatal_test", NULL, 0, NULL ) )
-	{
-		if( Cvar_VariableIntegerValue( "gc_fatal_test" ) != 0 )
-		{
-			Sys_Error( "G37: Intentional fatal error triggered for breadcrumb verification\n" );
-		}
-	}
-
 	/* G29: Initialize networking for local loopback single-player.
 	 * Disable external network dependencies (master servers, HTTP)
 	 * to ensure offline boot works without network hardware. */
@@ -262,6 +251,9 @@ void GCube_Init( void )
 	gc_fat_mounted = fatInitDefault();
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
+
+	/* G37: Removed intentional fatal error trigger (gc_fatal_test) as it was
+	 * blocking runtime progression by forcing a fatal breadcrumb state. */
 
 	DVD_Init();
 	gc_dvd_io = __io_gcdvd;
