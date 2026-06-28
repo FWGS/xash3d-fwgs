@@ -622,7 +622,10 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	if( !gc.initialized )
 		return;
 
-	if( !rmode || !xfb[0] )
+	/* G66: Additional safety guard - verify rmode and xfb[0] are valid before drawing.
+	 * Prevents guest_fatal in Dolphin when video subsystem is partially initialized
+	 * or in an inconsistent state during error paths. */
+	if( !rmode || !rmode->fbWidth || !rmode->xfbHeight || !xfb[0] )
 		return;
 
 	/* Do not clear gc.initialized - this function draws to XFB and
