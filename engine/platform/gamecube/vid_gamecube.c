@@ -655,18 +655,31 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	 * XFB region and present it via VIDEO_SetNextFramebuffer. The GX command
 	 * buffer is not used for this CPU-written fatal message. */
 
-	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-	DCFlushRange( xfb[0], (u32)xfb_size );
-	VIDEO_SetNextFramebuffer( xfb[0] );
-	VIDEO_Flush();
-	VIDEO_WaitVSync();
-
-	/* Block briefly to ensure frame is presented before exit.
-	 * Use multiple VIDEO_WaitVSync() calls to ensure the frame is
-	 * presented on screen before the process exits. This is more
-	 * portable than SYS_Delay across different libogc versions. */
-	for( i = 0; i < 3; i++ )
+	/* G68: Guard the presentation sequence. If the VIDEO subsystem is not fully
+	 * configured (e.g., VIDEO_Configure failed or was interrupted before Sys_Error),
+	 * calling VIDEO_SetNextFramebuffer or VIDEO_WaitVSync can trigger guest_fatal
+	 * in Dolphin or hang on real hardware. Check if VIDEO_Init has completed
+	 * successfully by verifying VIDEO_GetPreferredMode returns a non-NULL mode.
+	 * This is a conservative check; if it fails, we skip visual output and rely
+	 * on SYS_Report/Sys_Error for diagnostics. */
+	if( VIDEO_GetPreferredMode( NULL ) != NULL )
+	{
+		xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
+		DCFlushRange( xfb[0], (u32)xfb_size );
+		VIDEO_SetNextFramebuffer( xfb[0] );
+		VIDEO_Flush();
 		VIDEO_WaitVSync();
+
+		/* G68: Single VSync wait is sufficient for visibility and avoids guest_fatal
+		 * hangs in Dolphin that can occur with multiple VSync calls from error paths.
+		 * Remove the previous loop of 3 VIDEO_WaitVSync() calls. */
+	}
+	else
+	{
+		/* VIDEO subsystem not fully initialized; skip visual output.
+		 * The magenta fill and text are still written to xfb[0] in memory,
+		 * but they will not be presented. Diagnostics rely on SYS_Report. */
+	}
 
 	/* Do not toggle which_fb here. The fatal breadcrumb draws directly to xfb[0]
 	 * and leaves the double-buffering state unchanged. Modifying which_fb during
