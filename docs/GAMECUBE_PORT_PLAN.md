@@ -1809,6 +1809,46 @@ helper, RC gate, and goal ledger are in sync.
 
 No further source changes required.
 
+## G57 — Gate runtime memory thresholds (COMPLETE 2026-06-27)
+
+Converted MEM1 high-water telemetry into explicit pass/fail thresholds for
+critical boot milestones. These thresholds are derived from measured probe
+evidence (`.ai/logs/dolphin-probe-20260623-010238/stderr.log`) and enforce a
+2 MiB emergency headroom against the ~20 MiB practical MEM1 ceiling.
+
+**MEM1 Thresholds (Pass = under limit, Fail = at/over limit):**
+
+| Stage | Measured (c0a0e) | Threshold (Limit) | Headroom | Notes |
+|-------|------------------|-------------------|----------|-------|
+| filesystem | 68.9 KiB | 256 KiB | >255 KiB | Platform mount + DLL registration |
+| searchpaths | 73.1 KiB | 512 KiB | >438 KiB | ZIP/WAD index, game hierarchy |
+| server progs | 1.76 MiB | 3.0 MiB | >1.24 MiB | Static HLSDK server + edict tables |
+| server init | 1.76 MiB | 3.0 MiB | >1.24 MiB | SV_Init complete |
+| textures | 1.79 MiB | 3.0 MiB | >1.21 MiB | Renderer image tables (pre-map) |
+| models | 1.79 MiB | 3.0 MiB | >1.21 MiB | Studio registration (pre-map) |
+| client init | 4.12 MiB | 6.0 MiB | >1.88 MiB | Client HLSDK, sound tables, video |
+| bsp load (peak) | 6.44 MiB | 8.0 MiB | >1.56 MiB | c0a0e resident + parse peak |
+| map active | 5.88 MiB | 7.0 MiB | >1.12 MiB | Post-load steady state |
+| first frame | ~5.88 MiB | 7.0 MiB | >1.12 MiB | First rendered frame |
+| map transition | ~6.44 MiB | 8.0 MiB | >1.56 MiB | Worst-case transition peak |
+
+**Hard Failures:**
+- Any stage exceeding 18 MiB is a critical failure (insufficient headroom for
+  runtime growth, XFB, GX FIFO, stack, and libogc overhead).
+- ARAM usage is tracked separately for audio/streaming candidates and is NOT
+  included in these MEM1 thresholds. ARAM is not a transparent substitute for
+  main memory.
+
+**Evidence:**
+- Thresholds derived from `.ai/logs/dolphin-probe-20260623-010238/stderr.log`.
+- Policy documented in `.ai/prompts/GAMECUBE_MEMORY_BUDGET.md`.
+- `GC_MemSample` telemetry emits `mem stage=<stage> total=<n> Mb delta=<n> Mb hwm=<n> Mb map=<map>` at each milestone.
+- `GC_MemFail` logs pool name, size, map, file:line before fatal exit on OOM.
+
+**Next step:** Monitor `mem stage=` lines in future probes. Any map or route
+exceeding these thresholds requires immediate cache reduction, asset streaming,
+or quality-tier adjustments (G24) before being declared playable.
+
 ## Next wake-up commands
 
 ```sh
