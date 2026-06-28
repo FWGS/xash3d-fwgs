@@ -655,26 +655,17 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	 * XFB region and present it via VIDEO_SetNextFramebuffer. The GX command
 	 * buffer is not used for this CPU-written fatal message. */
 
-	/* G68: Guard the presentation sequence. If the VIDEO subsystem is not fully
-	 * configured (e.g., VIDEO_Configure failed or was interrupted before Sys_Error),
-	 * calling VIDEO_SetNextFramebuffer or VIDEO_WaitVSync can trigger guest_fatal
-	 * in Dolphin or hang on real hardware. Check if VIDEO_Init has completed
-	 * successfully by verifying VIDEO_GetPreferredMode returns a non-NULL mode.
-	 * This is a conservative check; if it fails, we skip visual output and rely
-	 * on SYS_Report/Sys_Error for diagnostics.
-	 *
-	 * G69: Removed VIDEO_WaitVSync() from this path. Even with guards, blocking
-	 * on hardware VSync during a fatal error state can trigger guest_fatal in
-	 * Dolphin or hang on real hardware if the VIDEO subsystem is inconsistent.
-	 * We rely on VIDEO_Flush() and subsequent system termination/reset to
-	 * eventually display the frame. */
-	/* G70: Skip all video hardware presentation calls during fatal error.
-	 * Even VIDEO_Flush() can trigger guest_fatal hangs in Dolphin or real
-	 * hardware when the VIDEO subsystem is in an inconsistent state.
-	 * The fatal breadcrumb is written to xfb[0] in memory for diagnostic
-	 * visibility (debug dumps, memory inspection). We rely on SYS_Report
-	 * and Sys_Error for runtime diagnostics, and skip hardware calls entirely
-	 * to avoid blocking or crashing in the error path. */
+	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
+	DCFlushRange( xfb[0], (u32)xfb_size );
+	VIDEO_SetNextFramebuffer( xfb[0] );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+
+	/* Block briefly to ensure the fatal frame reaches the display before the
+	 * caller halts or exits. Keep this bounded so the error path cannot loop. */
+	for( i = 0; i < 3; i++ )
+		VIDEO_WaitVSync();
+
 	/* Do not toggle which_fb here. The fatal breadcrumb draws directly to xfb[0]
 	 * and leaves the double-buffering state unchanged. Modifying which_fb during
 	 * an error path can cause subsequent rendering (if any) to target the wrong

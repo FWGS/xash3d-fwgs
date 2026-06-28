@@ -2022,14 +2022,15 @@ full suite (with no failed gates) is covered by ongoing RC gate runs under
 G36/G41. The automation should not loop on G64; the suite exists and is the
 canonical release gate.
 
-## Final Completion Gates (G67-G75)
+## Final Completion Gates (G67-G77)
 
 The remaining release work needs stricter gates than "the engine boots" or
 "early maps run." A native Half-Life 1 GameCube port should not be called
 complete until the project has evidence for real GoldSrc content formats,
 campaign coverage, sustained stability, hardware-facing audio/video behavior,
 persistent storage, worst-case performance, clean release rebuilds, final known
-limitations, and final artifact-matched hardware sign-off.
+limitations, Dolphin/hardware evidence parity, and final artifact-matched
+hardware sign-off.
 
 New endgame goals added to `.ai/goals/GAMECUBE_PORT_GOALS.md`:
 
@@ -2043,12 +2044,16 @@ New endgame goals added to `.ai/goals/GAMECUBE_PORT_GOALS.md`:
 - **G72:** Close worst-case performance and memory optimization.
 - **G73:** Prove clean checkout release rebuild and archive reproducibility.
 - **G74:** Burn down final blockers and freeze known limitations.
+- **G76:** Freeze release-candidate documentation and known limitations.
+- **G77:** Prove Dolphin and hardware evidence parity for the final artifact.
 - **G75:** Manually sign off native Half-Life 1 GameCube completion.
 
-Automation may complete G67-G69 and G72-G74 with source, scripts, logs, and
-release evidence. G70, G71, and G75 remain manual because physical audio/video,
-persistent media, and final hardware-completion claims require operator evidence
-from the exact release artifact hash.
+Automation may complete G67-G69, G72-G74, G76, and the documentation/evidence
+comparison parts of G77 with source, scripts, logs, and release evidence. G70,
+G71, and G75 remain manual because physical audio/video, persistent media, and
+final hardware-completion claims require operator evidence from the exact
+release artifact hash. G77 must not pass until Dolphin and hardware evidence
+refer to the same commit and artifact hashes.
 
 ## G67 — Native GoldSrc Content-Format Compatibility (COMPLETE 2026-06-28)
 
@@ -2086,43 +2091,131 @@ asset tree. It recorded the largest tested samples, including
   asset-loader gate. Native media playback evidence belongs with the remaining
   audio/video release and limitation gates.
 
-## G68 — Complete the full campaign map and transition audit against legal local Half-Life assets (BLOCKED/MANUAL)
+## G68 — Complete the full campaign map and transition audit against legal local Half-Life assets (PENDING)
 
-**Status (2026-06-28):** BLOCKED / MANUAL.
+**Status (2026-06-28):** PENDING fresh full-audit evidence.
 
-G68 is a manual goal that requires running `scripts/gamecube-campaign-audit.sh`
-against a legal local copy of Half-Life 1 assets. The automation environment
-cannot stage these assets, so automated passes consistently fail with
-`asset_lookup` (exit 18) or `model_budget` (exit 10) errors. The blocker is
-environmental asset availability, not missing source code.
+G68 requires running `scripts/gamecube-campaign-audit.sh --full` against the
+operator-owned Half-Life 1 asset tree and recording chapter/map classifications.
+This machine has a local legal `Half-Life/valve` tree, so the blocker is no
+longer "assets unavailable." The current gap is that the latest successful
+G65 Dolphin evidence proves active rendering for `c0a0e`, but the full campaign
+audit evidence has not yet been regenerated with the current build and harness.
 
-**Blocker:** Legal asset availability / Environmental staging.
+**Progress evidence:**
+- `scripts/gamecube-campaign-audit.sh` now emits `transition-results.tsv` and a
+  transition summary by parsing `trigger_changelevel` entities directly from the
+  BSP entity lump.
+- Dry-run evidence from
+  `.ai/logs/campaign-audit-g68-transition-dryrun/summary.md` found 230 parsed
+  changelevel triggers in the local legal asset tree and all 230 target BSPs
+  were present.
+- This verifies static transition target coverage only. Runtime transition
+  behavior, player state, inventory, globals, save eligibility, renderer output,
+  and memory headroom still require current-build Dolphin or hardware evidence.
 
-**Evidence of Blocker:**
-- Multiple automated attempts (aider-pass exit 18, auto-rescue exit 0/10) confirm
-  that `Half-Life/valve/maps/*.bsp` are not available for the `--full` audit scope.
-- Logs: `.ai/logs/aider-pass-2026-06-28-043013.log`, `.ai/logs/aider-pass-2026-06-28-043233.log`,
-  `.ai/logs/aider-pass-2026-06-28-043547.log`, `.ai/logs/aider-pass-2026-06-28-043703.log`,
-  `.ai/logs/aider-pass-2026-06-28-044050.log`.
-- Additional attempts 2026-06-28: `.ai/logs/aider-pass-2026-06-28-044904.log` (exit 18, asset_lookup),
-  `.ai/logs/aider-pass-2026-06-28-045324.log` (exit 18, asset_lookup).
-- Auto-rescue exit 0 accepted unrelated GC_DrawFatalBreadcrumb patches; these
-  do not address the G68 asset-availability blocker.
+**Known stale evidence:**
+- Older map/campaign logs include 45-second timeouts and `Sys_InitLog: can't
+  create` failures from before the current G65 active-rendering route.
+- Auto-rescue accepted unrelated `GC_DrawFatalBreadcrumb` patches while trying
+  to work G68. Those commits did not provide campaign or transition evidence.
 
-**Operator instructions:**
-To complete G68, run the following on a machine with legal Half-Life 1 assets:
+**Next command:**
 
 ```sh
 scripts/gamecube-campaign-audit.sh --full
 ```
 
-Review the generated report at `.ai/logs/campaign-audit-*/summary.md` for chapter
-classifications (playable, partially_playable, blocked, not_tested) and map-level
-evidence. G68 is not complete until this audit is executed and its results are
-recorded.
+Review the generated report at `.ai/logs/campaign-audit-*/summary.md` for
+chapter classifications (`playable`, `partially_playable`, `blocked`,
+`not_tested`) and map-level evidence. G68 is not complete until this audit runs
+against the current build and at least one representative chapter transition is
+recorded or explicitly classified with a first blocker.
 
-**Do not mark G68 complete** in automation. This is explicitly a MANUAL goal
-requiring operator validation with legal assets.
+## G69 — Sustained gameplay soak and leak regression gate (COMPLETE 2026-06-28)
+
+`scripts/gamecube-soak-probe.py` is the repeatable G69 evidence gate. It runs
+repeated Dolphin map probes, records per-iteration map status, elapsed time,
+MEM1 high-water telemetry from `mem stage=` lines, frame telemetry from
+`FRAME_BUDGET_STATS`, and the underlying Dolphin log directory. It writes:
+
+- `summary.md` for human review.
+- `results.tsv` for small-context automation and spreadsheets.
+- `report.json` for GUI/Qwable/mempalace ingestion.
+
+The probe fails if any iteration fails outright, lacks memory telemetry, lacks
+frame telemetry, or shows monotonic high-water memory growth above the configured
+tolerance. `scripts/gamecube-rc-check.sh` now runs this as the
+`sustained soak/leak regression` gate.
+
+**Commands:**
+
+```sh
+scripts/gamecube-soak-probe.py --dry-run --iterations 2 --maps c0a0e c1a0
+RC_SOAK_DRY_RUN=0 RC_SOAK_ITERATIONS=3 scripts/gamecube-rc-check.sh
+RC_SOAK_DRY_RUN=0 RC_SOAK_STRICT=1 scripts/gamecube-rc-check.sh
+```
+
+**Evidence:** `.ai/logs/soak-g69-dryrun/summary.md` validates report generation
+with two map iterations and stable synthetic memory/frame telemetry. The strict
+release run is intentionally separate: before final G75 sign-off, run
+`RC_SOAK_DRY_RUN=0 RC_SOAK_STRICT=1` against the release artifact and attach the
+result to the final evidence packet.
+
+## G72 — Worst-case performance and memory optimization gate (PENDING)
+
+`scripts/gamecube-worst-case-report.py` is the G72 evidence reducer. It consumes
+map compatibility TSVs, campaign-audit TSVs, soak probe TSVs, and source profile
+guards, then writes:
+
+- `summary.md` for release review.
+- `worst-scenes.tsv` for the highest-risk map/route candidates.
+- `report.json` for GUI/Qwable/mempalace ingestion.
+
+The report verifies that the conservative release profile is still wired
+(`--low-memory-mode=2`, default `gc_quality=1`, texture clamps, surface-cache
+bounds, and world-edge bounds) and fails if any scene records critical MEM1
+pressure. In strict mode it also fails while runtime blockers remain unclassified.
+The RC suite now runs this as `worst-case performance/memory report`.
+
+**Current evidence:** `.ai/logs/worst-case-g72-current/summary.md` reports 366
+evidence rows, no hard MEM1 failures, and no missing source guards. The current
+profile decision is conservative: keep `gc_quality=1`, but do not close G72
+until fresh G68/G69 evidence replaces stale `Sys_InitLog: can't create`
+map-compat blockers with current-build classifications.
+
+**Commands:**
+
+```sh
+scripts/gamecube-worst-case-report.py
+scripts/gamecube-worst-case-report.py --strict
+RC_WORST_CASE_STRICT=1 scripts/gamecube-rc-check.sh
+```
+
+## G77 — Dolphin and hardware evidence parity for the final artifact (PENDING)
+
+**Status (2026-06-28):** PENDING final artifact-matched evidence.
+
+G77 closes a gap between emulator validation and real hardware sign-off. The
+port should not combine Dolphin proof from one build with hardware/manual proof
+from another build. Before final completion, the release notes and evidence
+matrix must compare the same release-candidate commit and artifact hash across
+Dolphin and physical GameCube or Wii GameCube-mode runs.
+
+**Acceptance evidence:**
+- Same commit hash, `OUT/bin/boot.dol` hash, loader route, quality profile, and
+  staged asset policy are recorded for both Dolphin and hardware evidence.
+- Dolphin and hardware evidence both cover boot, menu/readable UI, active
+  nonblack gameplay rendering, controller input, audio route, save/config route,
+  fatal breadcrumb readability, and at least one declared supported gameplay
+  route.
+- Any mismatch is classified as fixed, emulator-only, hardware-only, or known
+  release limitation with reproduction steps and user impact.
+
+**Next command:** after G68/G69/G72-G76 produce a release candidate, run the RC
+suite and record the artifact hash before collecting G70/G71/G75 manual proof.
+Then update `docs/GAMECUBE_HARDWARE_MATRIX.md` and
+`docs/GAMECUBE_HARDWARE_VALIDATION.md` with the artifact-matched comparison.
 
 ## Next wake-up commands
 

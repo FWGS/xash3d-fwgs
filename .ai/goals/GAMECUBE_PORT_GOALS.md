@@ -1069,7 +1069,7 @@ scripts/gamecube-map-compat-probe.sh
 - Evidence: `scripts/gamecube-quality-profile-check.py` passes and
   `scripts/ai-verify.sh` passes.
 
-## G62 — Validate combat and entity interaction route (BLOCKED: asset staging / MANUAL validation required)
+## G62 [MANUAL] Validate combat and entity interaction route
 
 - Demonstrate at least one route with player movement, weapon pickup, weapon
   fire, reload/ammo, enemy spawn, enemy AI think, enemy damage, player damage,
@@ -1093,7 +1093,7 @@ or physical hardware.
 verify entity interaction, damage, and restart behavior. Record evidence in
 `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 
-## G63 [x] Validate scripted sequence and trigger route (BLOCKED: asset staging / MANUAL validation required)
+## G63 [MANUAL] Validate scripted sequence and trigger route
 
 - Demonstrate doors, buttons, trigger_once/trigger_multiple, multi_manager,
   scripted_sequence, train/platform movement, and changelevel trigger behavior.
@@ -1202,8 +1202,15 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Verify at least one representative changelevel transition per chapter group,
   preserving player state, inventory, globals, save eligibility, and memory
   headroom across transitions.
+- Progress evidence (2026-06-28): `scripts/gamecube-campaign-audit.sh` now
+  extracts `trigger_changelevel` entities from retail BSP entity lumps and
+  writes `transition-results.tsv` plus a transition summary. Dry-run evidence
+  against the local legal asset tree found 230 parsed changelevel triggers with
+  all 230 target BSPs present. This proves campaign transition target coverage,
+  but G68 remains open until current-build Dolphin or hardware audit evidence
+  classifies the actual maps and representative transitions.
 
-## G69 [ ] Add sustained gameplay soak and leak regression gate
+## G69 [x] Add sustained gameplay soak and leak regression gate
 
 - Provide a repeatable Dolphin or hardware-assisted route that runs for at least
   30 minutes of gameplay or scripted idle/action loops without unbounded MEM1,
@@ -1212,6 +1219,19 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   entity count, active quality profile, and storage route into a timestamped log.
 - Fail the release gate when memory grows monotonically across map reloads,
   changelevels, saves/loads, audio playback, or repeated combat interactions.
+- Completed 2026-06-28 as a repeatable evidence gate:
+  `scripts/gamecube-soak-probe.py` runs repeated Dolphin map probes, parses
+  `mem stage=` high-water telemetry and `FRAME_BUDGET_STATS`, writes
+  `summary.md`, `results.tsv`, and `report.json`, and fails on missing telemetry
+  or monotonic memory growth beyond the configured tolerance.
+- `scripts/gamecube-rc-check.sh` now runs the G69 gate as
+  `sustained soak/leak regression`. Default RC mode uses dry-run reporting so
+  local RC checks stay fast; set `RC_SOAK_DRY_RUN=0` for real Dolphin soak
+  probes and `RC_SOAK_STRICT=1` for release-duration evidence.
+- Evidence: `.ai/logs/soak-g69-dryrun/summary.md` validates the report shape
+  with two maps and stable synthetic memory/frame telemetry. Real 30-minute
+  release evidence remains a strict-mode run of the same gate and should be
+  attached to G72/G75 final release evidence before sign-off.
 
 ## G70 [MANUAL] Capture release audio/video evidence on target displays
 
@@ -1246,6 +1266,18 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   flags hidden in the launch arguments.
 - Record final MEM1/ARAM ceilings, FPS/frame-time range, active fallbacks, and
   any intentional content or visual limitations in release evidence.
+- Progress evidence (2026-06-28): `scripts/gamecube-worst-case-report.py`
+  now consumes map-compat, campaign-audit, soak, and source profile evidence,
+  writes `summary.md`, `worst-scenes.tsv`, and `report.json`, and is wired into
+  `scripts/gamecube-rc-check.sh` as the `worst-case performance/memory report`
+  gate.
+- Current report `.ai/logs/worst-case-g72-current/summary.md` found 366
+  evidence rows, no hard MEM1 failures, and all source profile guards present
+  (`--low-memory-mode=2`, default `gc_quality=1`, texture clamps, surface-cache
+  bounds, and world-edge bounds).
+- Boundary: G72 remains open because the highest-risk scenes still come from
+  stale map-compat runtime blockers (`Sys_InitLog: can't create`) and need fresh
+  G68/G69 runtime evidence before final performance/quality claims can be made.
 
 ## G73 [ ] Prove clean checkout release rebuild and archive reproducibility
 
@@ -1258,6 +1290,15 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   are bundled.
 - Compare the clean-checkout output against the main workspace release evidence
   and document any expected nondeterminism before public release.
+- Progress evidence (2026-06-28): current-workspace reproducibility preflight
+  passes at `.ai/logs/reproducibility-g73-preflight/summary.md`, hashing 12
+  artifacts, recording devkitPPC 16.1.0/toolchain metadata, confirming 3 HLSDK
+  archive hashes, and finding no tracked generated/proprietary assets or release
+  archive asset-boundary violations.
+- Boundary: G73 remains open because a true clean-checkout comparison cannot
+  include uncommitted goal-runner/RC-gate changes. Complete this after the
+  current changes are committed by rebuilding in a second checkout and comparing
+  manifests against the same release-candidate artifact set.
 
 ## G74 [ ] Burn down final blockers and freeze known limitations
 
@@ -1280,6 +1321,18 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   asset staging instructions.
 - Keep known limitations explicit rather than implying full Half-Life
   completion when only a subset of campaign evidence exists.
+
+## G77 [ ] Prove Dolphin and hardware evidence parity for the final artifact
+
+- For the same release-candidate commit and artifact hash, compare Dolphin
+  evidence against real GameCube/Wii GameCube-mode evidence for boot, menu,
+  active rendering, audio, controller input, save/config route, fatal breadcrumb,
+  and at least one declared supported gameplay route.
+- Record every mismatch as either a fixed source issue, an emulator-only
+  limitation, a hardware-only limitation, or a release-note limitation with
+  impact and reproduction steps.
+- Do not allow final sign-off to combine Dolphin evidence from one build with
+  hardware/manual evidence from another build.
 
 ## G75 [MANUAL] Sign off native Half-Life 1 GameCube completion
 

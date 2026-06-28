@@ -88,12 +88,12 @@ RULES = (
 		"Make one runner/prompt change that narrows context or records the missing source file. Do not broaden the prompt.",
 	),
 	RescueRule(
-		"generic guest fatal",
+		"generic guest fatal evidence",
 		r"Host_Error|Sys_Error|GUEST_FAILURE|fatal|panic|assert",
-		"runtime:guest_fatal",
-		("engine/common/host.c", "engine/platform/gamecube/vid_gamecube.c", "scripts/dolphin-vision-test.py"),
-		(".ai/prompts/GAMECUBE_MEMORY_BUDGET.md", ".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md"),
-		"Make one source-level fix closest to the fatal path, or improve the fatal breadcrumb if the cause is not actionable from loaded files.",
+		"evidence:guest_fatal",
+		(),
+		(),
+		"Generic fatal evidence is not specific enough for automatic source mutation. Run the nearest focused verifier or inspect the cited log before editing.",
 	),
 )
 
@@ -316,7 +316,8 @@ def main() -> int:
 	write_task(task_path, rule, evidence, selected, root)
 
 	aider_exit: int | None = None
-	if args.run_aider and rule.classification != "none:no_current_blocker":
+	if args.run_aider and rule.classification not in {
+			"none:no_current_blocker", "evidence:guest_fatal"} and context:
 		env = os.environ.copy()
 		env.setdefault("AIDER_AUTOMATION", "1")
 		env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
@@ -337,7 +338,12 @@ def main() -> int:
 			*context, *read_context], env=env)
 		aider_exit = result.returncode
 	elif args.run_aider:
-		print("No current blocker found after the latest successful Dolphin evidence; skipping Aider rescue.")
+		if rule.classification == "evidence:guest_fatal":
+			print("Generic guest-fatal evidence is not specific enough for source rescue; skipping Aider.")
+		elif not context:
+			print("No editable context selected for this blocker; skipping Aider rescue.")
+		else:
+			print("No current blocker found after the latest successful Dolphin evidence; skipping Aider rescue.")
 
 	report_path.write_text(json.dumps({
 		"generated": datetime.now(timezone.utc).isoformat(),

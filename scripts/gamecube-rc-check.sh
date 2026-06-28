@@ -38,23 +38,25 @@ Runs the native GameCube release-candidate evidence gate:
   6. Dolphin boot probe
   7. frame-budget probe
   8. map compatibility summary
-  9. boot media compliance check
-  10. video compliance check
-  11. controller compliance check
-  12. save integrity/destructive-action compliance check
-  13. fatal error UX compliance check
-  14. audio compliance check
-  15. frame timing compliance check
-  16. console UX/accessibility compliance check
-  17. release manifest/legal audit compliance check
-  18. hardware matrix compliance check
-  19. release artifact reproducibility check
-  20. quality profile compliance check
-  21. hardware boot preparation check
-  22. compliance evidence check
-  23. local automation guidance check
-  24. GoldSrc content format audit
-  25. homebrew compliance check
+  9. sustained soak/leak regression probe
+  10. worst-case performance/memory report
+  11. boot media compliance check
+  12. video compliance check
+  13. controller compliance check
+  14. save integrity/destructive-action compliance check
+  15. fatal error UX compliance check
+  16. audio compliance check
+  17. frame timing compliance check
+  18. console UX/accessibility compliance check
+  19. release manifest/legal audit compliance check
+  20. hardware matrix compliance check
+  21. release artifact reproducibility check
+  22. quality profile compliance check
+  23. hardware boot preparation check
+  24. compliance evidence check
+  25. local automation guidance check
+  26. GoldSrc content format audit
+  27. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -63,6 +65,10 @@ Useful environment knobs:
   RC_BOOT_TIMEOUT         Dolphin boot timeout seconds.
   RC_MAP_TIMEOUT          Map compatibility timeout seconds.
   RC_DOLPHIN_RETRIES      Bounded retries for Dolphin-dependent gates.
+  RC_SOAK_DRY_RUN=0       Run real Dolphin soak probes instead of report-only mode.
+  RC_SOAK_STRICT=1        Require release-duration soak evidence.
+  RC_SOAK_ITERATIONS      Number of soak probe iterations, default 2.
+  RC_WORST_CASE_STRICT=1  Fail on runtime blockers in the worst-case report.
   RC_BUILD_DISC=1         Build OUT/xash3d-gc.iso if legal assets are present.
   RC_STRICT_COMPLIANCE=1  Run strict compliance mode near release/hardware gates.
 
@@ -289,6 +295,53 @@ map_compat_gate() {
 	local rc=$?
 	log_status "map compatibility summary" "FAIL" "$log_path" "exit $rc"
 	tail -100 "$log_path" >&2
+	return "$rc"
+}
+
+soak_gate() {
+	local log_path="$LOG_DIR/soak-probe.log"
+	local args=(
+		scripts/gamecube-soak-probe.py
+		--log-dir "$LOG_DIR/soak-probe"
+		--iterations "${RC_SOAK_ITERATIONS:-2}"
+		--timeout "${RC_SOAK_TIMEOUT:-$BOOT_TIMEOUT}"
+		--maps $MAP_LIST
+	)
+	echo
+	echo "== sustained soak/leak regression =="
+	if [[ "${RC_SOAK_DRY_RUN:-1}" == "1" ]]; then
+		args+=(--dry-run)
+	fi
+	if [[ "${RC_SOAK_STRICT:-0}" == "1" ]]; then
+		args+=(--strict)
+	fi
+	if "${args[@]}" >"$log_path" 2>&1; then
+		log_status "sustained soak/leak regression" "PASS" "$log_path" "G69 soak/leak evidence gate passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "sustained soak/leak regression" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
+worst_case_gate() {
+	local log_path="$LOG_DIR/worst-case.log"
+	local args=(scripts/gamecube-worst-case-report.py --log-dir "$LOG_DIR/worst-case")
+	echo
+	echo "== worst-case performance/memory report =="
+	if [[ "${RC_WORST_CASE_STRICT:-0}" == "1" ]]; then
+		args+=(--strict)
+	fi
+	if "${args[@]}" >"$log_path" 2>&1; then
+		log_status "worst-case performance/memory report" "PASS" "$log_path" "G72 profile decision generated"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "worst-case performance/memory report" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
 	return "$rc"
 }
 
@@ -645,6 +698,8 @@ main() {
 	dolphin_boot_gate || true
 	frame_budget_gate || true
 	map_compat_gate || true
+	soak_gate || true
+	worst_case_gate || true
 	boot_media_compliance_gate || true
 	video_compliance_gate || true
 	controller_compliance_gate || true

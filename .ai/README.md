@@ -101,6 +101,17 @@ the newest successful Dolphin proof, picks focused editable files, and attempts
 one source-only patch. Set `AI_AUTO_BLOCKER_RESCUE=0` to disable this automatic
 rescue path and use the GUI's `Rescue Blocker` button manually instead.
 
+G68 is handled as a scripted evidence gate, not an Aider mutation task. When the
+goal loop reaches G68 it runs `scripts/gamecube-campaign-audit.sh --full`
+directly, records the campaign report path, and stops for evidence review. Use
+`AI_G68_AUDIT_MODE=representative` for a shorter sweep or
+`AI_G68_AUDIT_MODE=dry-run` to validate map enumeration without launching
+Dolphin. Set `AI_G68_AUDIT_CHAPTERS` to a comma-separated list such as
+`Black Mesa Inbound,Anomalous Materials` to collect bounded chapter evidence
+without starting the whole campaign sweep. This prevents the model from writing
+"manual blocker" docs or invoking blocker rescue for stale campaign-audit
+failures.
+
 That memory now includes a ConAct-style compact state inspired by MemGUI-Agent:
 `folded_action_history` summarizes recent passes, `folded_port_state` preserves
 durable port facts such as proven `MAP_READY` routes or stale blockers, and

@@ -12,6 +12,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 LOG_BASE="${CAMPAIGN_AUDIT_LOG_DIR:-.ai/logs/campaign-audit-$STAMP}"
 MAP_TSV="$LOG_BASE/map-results.tsv"
 CHAPTER_TSV="$LOG_BASE/chapter-results.tsv"
+TRANSITION_TSV="$LOG_BASE/transition-results.tsv"
 SUMMARY="$LOG_BASE/summary.md"
 MODE="representative"
 DRY_RUN=0
@@ -82,6 +83,7 @@ CHAPTERS=(
 declare -a MAPS
 printf "chapter\tmap\tstatus\tmemory_peak\tblocker\tlog_path\n" > "$MAP_TSV"
 printf "chapter\tclassification\tmaps_loaded\tmaps_total\tfirst_blocker\tevidence\n" > "$CHAPTER_TSV"
+printf "chapter\tsource_map\ttarget_map\tlandmark\tstatus\tdetail\n" > "$TRANSITION_TSV"
 
 map_exists() {
 	[[ -f "$MAP_SOURCE_DIR/${1%.bsp}.bsp" ]]
@@ -90,7 +92,7 @@ map_exists() {
 chapter_selected() {
 	local chapter="$1"
 	local selected
-	if [[ ${#SELECT_CHAPTERS[@]} -eq 0 ]]; then
+	if [[ -z "${SELECT_CHAPTERS+x}" || ${#SELECT_CHAPTERS[@]} -eq 0 ]]; then
 		return 0
 	fi
 	for selected in "${SELECT_CHAPTERS[@]}"; do
@@ -98,6 +100,13 @@ chapter_selected() {
 	done
 	return 1
 }
+
+declare -a AUDIT_CHAPTER_ROWS
+for row in "${CHAPTERS[@]}"; do
+	IFS='|' read -r chapter _representative _full_maps <<<"$row"
+	chapter_selected "$chapter" || continue
+	AUDIT_CHAPTER_ROWS+=("$row")
+done
 
 append_unique_map() {
 	local candidate="$1"
@@ -108,9 +117,8 @@ append_unique_map() {
 	MAPS+=("$candidate")
 }
 
-for row in "${CHAPTERS[@]}"; do
+for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 	IFS='|' read -r chapter representative full_maps <<<"$row"
-	chapter_selected "$chapter" || continue
 	if [[ "$MODE" == "full" ]]; then
 		for map_name in $full_maps; do
 			append_unique_map "$map_name"
@@ -121,9 +129,8 @@ for row in "${CHAPTERS[@]}"; do
 done
 
 if [[ "$DRY_RUN" == "1" ]]; then
-	for row in "${CHAPTERS[@]}"; do
+	for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 		IFS='|' read -r chapter representative full_maps <<<"$row"
-		chapter_selected "$chapter" || continue
 		maps="$representative"
 		[[ "$MODE" == "full" ]] && maps="$full_maps"
 		for map_name in $maps; do
@@ -148,9 +155,8 @@ else
 	cp "$LATEST_MAP_LOG/results.tsv" "$LOG_BASE/raw-map-results.tsv"
 	cp "$LATEST_MAP_LOG/summary.md" "$LOG_BASE/raw-map-summary.md" 2>/dev/null || true
 
-	for row in "${CHAPTERS[@]}"; do
+	for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 		IFS='|' read -r chapter representative full_maps <<<"$row"
-		chapter_selected "$chapter" || continue
 		maps="$representative"
 		[[ "$MODE" == "full" ]] && maps="$full_maps"
 		for map_name in $maps; do
@@ -163,9 +169,8 @@ else
 	done
 fi
 
-for row in "${CHAPTERS[@]}"; do
+for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 	IFS='|' read -r chapter representative full_maps <<<"$row"
-	chapter_selected "$chapter" || continue
 	maps="$representative"
 	[[ "$MODE" == "full" ]] && maps="$full_maps"
 	total=0
@@ -200,6 +205,68 @@ for row in "${CHAPTERS[@]}"; do
 	printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$chapter" "$classification" "$loaded" "$total" "${blocker:-none}" "$MAP_TSV" >> "$CHAPTER_TSV"
 done
 
+python3 - "$MAP_SOURCE_DIR" "$TRANSITION_TSV" "${AUDIT_CHAPTER_ROWS[@]}" <<'PY'
+import re
+import struct
+import sys
+from pathlib import Path
+
+map_source = Path(sys.argv[1])
+transition_tsv = Path(sys.argv[2])
+chapter_rows = sys.argv[3:]
+
+entity_re = re.compile(r"\{([^{}]*)\}", re.S)
+kv_re = re.compile(r'"([^"]*)"\s*"([^"]*)"')
+
+
+def entities_for_bsp(path: Path) -> list[dict[str, str]]:
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return []
+    if len(data) < 4 + 15 * 8:
+        return []
+    version = struct.unpack_from("<i", data, 0)[0]
+    if version != 30:
+        return []
+    offset, size = struct.unpack_from("<ii", data, 4)
+    if offset < 0 or size < 0 or offset + size > len(data):
+        return []
+    text = data[offset:offset + size].decode("latin-1", errors="ignore")
+    entities = []
+    for block in entity_re.findall(text):
+        ent = {key.lower(): value for key, value in kv_re.findall(block)}
+        if ent:
+            entities.append(ent)
+    return entities
+
+
+with transition_tsv.open("a", encoding="utf-8") as out:
+    for row in chapter_rows:
+        chapter, _representative, full_maps = row.split("|", 2)
+        for source in full_maps.split():
+            bsp = map_source / f"{source}.bsp"
+            if not bsp.is_file():
+                continue
+            for ent in entities_for_bsp(bsp):
+                if ent.get("classname", "").lower() != "trigger_changelevel":
+                    continue
+                target = ent.get("map", "").strip()
+                landmark = ent.get("landmark", "").strip()
+                if not target:
+                    status = "MISSING_TARGET_KEY"
+                    detail = "trigger_changelevel has no map key"
+                elif (map_source / f"{target}.bsp").is_file():
+                    status = "TARGET_PRESENT"
+                    detail = "target BSP exists in local legal asset tree"
+                else:
+                    status = "TARGET_MISSING"
+                    detail = "target BSP missing from local legal asset tree"
+                out.write(
+                    f"{chapter}\t{source}\t{target or 'N/A'}\t{landmark or 'N/A'}\t{status}\t{detail}\n"
+                )
+PY
+
 {
 	echo "# GameCube Half-Life Campaign Audit"
 	echo
@@ -210,6 +277,22 @@ done
 	echo "- Per-map timeout: ${PROBE_TIMEOUT}s"
 	echo "- Map results: \`$MAP_TSV\`"
 	echo "- Chapter results: \`$CHAPTER_TSV\`"
+	echo "- Transition results: \`$TRANSITION_TSV\`"
+	echo
+	echo "## Transition Summary"
+	echo
+	awk -F '\t' '
+		NR > 1 {
+			total += 1
+			count[$5] += 1
+		}
+		END {
+			printf "- Total parsed changelevel triggers: %d\n", total
+			printf "- TARGET_PRESENT: %d\n", count["TARGET_PRESENT"] + 0
+			printf "- TARGET_MISSING: %d\n", count["TARGET_MISSING"] + 0
+			printf "- MISSING_TARGET_KEY: %d\n", count["MISSING_TARGET_KEY"] + 0
+		}
+	' "$TRANSITION_TSV"
 	echo
 	echo "## Chapter Classification"
 	echo
@@ -222,8 +305,15 @@ done
 	echo "| Chapter | Map | Status | Memory Peak | Blocker | Log |"
 	echo "|---|---|---|---|---|---|"
 	awk -F '\t' 'NR > 1 {printf "| %s | %s | %s | %s | %s | %s |\n", $1, $2, $3, $4, $5, $6}' "$MAP_TSV"
+	echo
+	echo "## Changelevel Transition Evidence"
+	echo
+	echo "| Chapter | Source Map | Target Map | Landmark | Status | Detail |"
+	echo "|---|---|---|---|---|---|"
+	awk -F '\t' 'NR > 1 {printf "| %s | %s | %s | %s | %s | %s |\n", $1, $2, $3, $4, $5, $6}' "$TRANSITION_TSV"
 } > "$SUMMARY"
 
 echo "Campaign audit summary: $SUMMARY"
 echo "Chapter results: $CHAPTER_TSV"
 echo "Map results: $MAP_TSV"
+echo "Transition results: $TRANSITION_TSV"

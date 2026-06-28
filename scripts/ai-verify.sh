@@ -61,6 +61,9 @@ python3 -c 'compile(open("scripts/ai-run-until-done.py", encoding="utf-8").read(
 python3 -c 'compile(open("scripts/ai-evidence-gate.py", encoding="utf-8").read(), "scripts/ai-evidence-gate.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-homebrew-compliance-check.py", encoding="utf-8").read(), "scripts/gamecube-homebrew-compliance-check.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-quality-profile-check.py", encoding="utf-8").read(), "scripts/gamecube-quality-profile-check.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-goal-ledger-check.py", encoding="utf-8").read(), "scripts/gamecube-goal-ledger-check.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-soak-probe.py", encoding="utf-8").read(), "scripts/gamecube-soak-probe.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-worst-case-report.py", encoding="utf-8").read(), "scripts/gamecube-worst-case-report.py", "exec")'
 python3 -c 'compile(open("scripts/hlsdk-gamecube-apply-patch.py", encoding="utf-8").read(), "scripts/hlsdk-gamecube-apply-patch.py", "exec")'
 python3 -c 'compile(open("scripts/generate-hlsdk-gamecube-exports.py", encoding="utf-8").read(), "scripts/generate-hlsdk-gamecube-exports.py", "exec")'
 
@@ -88,6 +91,7 @@ done
 
 scripts/gamecube-homebrew-compliance-check.py
 scripts/gamecube-quality-profile-check.py
+scripts/gamecube-goal-ledger-check.py
 
 if command -v aider >/dev/null 2>&1; then
 	aider --config .aider.conf.yml --help >/dev/null

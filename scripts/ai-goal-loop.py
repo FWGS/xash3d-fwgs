@@ -251,6 +251,7 @@ GOAL_CONTEXT = {
 		"docs/GAMECUBE_PORT_PLAN.md",
 		".ai/goals/GAMECUBE_PORT_GOALS.md"),
 	"G69": ("scripts/dolphin-boot-probe.sh",
+		"scripts/gamecube-soak-probe.py",
 		"scripts/gamecube-rc-check.sh",
 		"engine/common/zone.c",
 		"engine/platform/gamecube/vid_gamecube.c",
@@ -265,6 +266,7 @@ GOAL_CONTEXT = {
 	"G72": ("engine/platform/gamecube/vid_gamecube.c",
 		"engine/common/zone.c", "ref/gx/r_main.c", "ref/gx/r_surf.c",
 		"scripts/gamecube-rc-check.sh",
+		"scripts/gamecube-worst-case-report.py",
 		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
 	"G73": ("scripts/build-gamecube.sh", "scripts/build-gamecube-disc.py",
 		"scripts/gamecube-reproducibility-check.py",
@@ -281,6 +283,12 @@ GOAL_CONTEXT = {
 		".ai/goals/GAMECUBE_PORT_GOALS.md"),
 	"G76": ("docs/GAMECUBE_PORT_PLAN.md", "docs/GAMECUBE_HARDWARE_VALIDATION.md",
 		".ai/goals/GAMECUBE_PORT_GOALS.md", "docs/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
+	"G77": ("docs/GAMECUBE_HARDWARE_VALIDATION.md",
+		"docs/GAMECUBE_HARDWARE_MATRIX.md",
+		"docs/GAMECUBE_RELEASE_MANIFEST.md",
+		"docs/GAMECUBE_PORT_PLAN.md",
+		".ai/goals/GAMECUBE_PORT_GOALS.md",
+		"scripts/gamecube-rc-check.sh"),
 }
 GOAL_REQUIRED_CONTEXT = {
 	"G24": ("ref/gx/r_context.c", "ref/gx/r_main.c", "ref/gx/r_surf.c",
@@ -497,6 +505,9 @@ GOAL_READ_CONTEXT = {
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G76": (".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
+	"G77": (".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
+		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
+		".ai/prompts/GAMECUBE_CONTEXT_INDEX.md"),
 }
 GOAL_COMMIT_SUBJECT = {
 	"G01": "fix: resolve GameCube edict warning audit",
@@ -572,6 +583,7 @@ GOAL_COMMIT_SUBJECT = {
 	"G74": "docs: freeze GameCube final limitations",
 	"G75": "test: sign off native Half-Life completion",
 	"G76": "docs: freeze GameCube release candidate notes",
+	"G77": "test: prove GameCube evidence parity",
 }
 RECOVERABLE_EXIT_CODES = {
 	10: "Aider made no edit",
@@ -586,7 +598,6 @@ AUTO_RESCUE_FAILURE_CLASSES = {
 	"model_budget",
 	"no_edit",
 	"runtime_probe",
-	"unknown",
 	"verification",
 	"visual_runtime",
 }
@@ -781,6 +792,35 @@ def run_dolphin_probe(root: Path) -> subprocess.CompletedProcess[str]:
 	env.setdefault("DOLPHIN_TIMEOUT", os.environ.get("DOLPHIN_TIMEOUT", "120"))
 	env.setdefault("DOLPHIN_EXECUTABLE", dolphin_executable())
 	return run(["scripts/dolphin-boot-probe.sh"], root, capture=True, env=env)
+
+
+def run_g68_campaign_audit(root: Path) -> subprocess.CompletedProcess[str]:
+	"""Run G68 as evidence collection, not an Aider source-edit prompt."""
+	mode = os.environ.get("AI_G68_AUDIT_MODE", "full").strip().lower()
+	if mode not in {"full", "representative", "dry-run"}:
+		mode = "full"
+	command = ["scripts/gamecube-campaign-audit.sh"]
+	if mode == "full":
+		command.append("--full")
+	elif mode == "dry-run":
+		command.extend(["--full", "--dry-run"])
+	else:
+		command.append("--representative")
+	chapters = [
+		chapter.strip()
+		for chapter in os.environ.get("AI_G68_AUDIT_CHAPTERS", "").split(",")
+		if chapter.strip()
+	]
+	for chapter in chapters:
+		command.extend(["--chapter", chapter])
+	env = os.environ.copy()
+	env.setdefault("MAP_COMPAT_TIMEOUT", os.environ.get("AI_G68_MAP_TIMEOUT", "120"))
+	return run(command, root, capture=True, env=env)
+
+
+def campaign_audit_log_dir(output: str) -> str | None:
+	match = re.search(r"Campaign audit summary:\s*(\.ai/logs/campaign-audit-[^\s/]+)", output)
+	return match.group(1).strip() if match else None
 
 
 def acquire_loop_lock(root: Path):
@@ -2217,6 +2257,33 @@ def main() -> int:
 				phase="dolphin-probe", exit_code=probe.returncode,
 				output=probe_output, log_path=f"{log_dir}/stderr.log" if log_dir else None)
 			save_loop_memory(root, memory)
+		if goal.goal_id == "G68":
+			print(f"\n--- Campaign audit for {goal.goal_id} ---", flush=True)
+			audit = run_g68_campaign_audit(root)
+			audit_output = ((audit.stdout or "") + (audit.stderr or "")).strip()
+			print(audit_output, flush=True)
+			log_dir = campaign_audit_log_dir(audit_output)
+			record_investigation(memory, goal, attempt=attempts[goal.goal_id],
+				phase="campaign-audit", exit_code=audit.returncode,
+				output=audit_output,
+				log_path=f"{log_dir}/summary.md" if log_dir else None)
+			save_loop_memory(root, memory)
+			if audit.returncode == 0:
+				write_state(state_file, state="evidence-required", pass_index=pass_index,
+					goal=asdict(goal), attempt=attempts[goal.goal_id],
+					log_dir=log_dir,
+					message="G68 campaign audit produced evidence; review the report and update the goal with chapter/transition results")
+				print(
+					"G68 campaign audit completed. Review the campaign report before "
+					"marking the goal complete.",
+					file=sys.stderr,
+				)
+				return 3
+			write_state(state_file, state="failed", pass_index=pass_index,
+				goal=asdict(goal), attempt=attempts[goal.goal_id],
+				exit_code=audit.returncode, log_dir=log_dir,
+				message="G68 campaign audit failed; fix the first map/transition blocker before retrying")
+			return audit.returncode or 1
 		with tempfile.NamedTemporaryFile("w", suffix=".md", prefix="xash3d-gc-goal-",
 			encoding="utf-8", delete=False) as task:
 			task.write(task_for(goal, root, attempts[goal.goal_id],
