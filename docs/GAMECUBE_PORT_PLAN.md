@@ -1816,6 +1816,18 @@ critical boot milestones. These thresholds are derived from measured probe
 evidence (`.ai/logs/dolphin-probe-20260623-010238/stderr.log`) and enforce a
 2 MiB emergency headroom against the ~20 MiB practical MEM1 ceiling.
 
+**Verification evidence:**
+```sh
+scripts/ai-verify.sh
+```
+
+Result: clean GameCube build with existing `GC_MemSample` and `GC_MemFail`
+telemetry intact. Thresholds are policy-enforced; any probe stage exceeding
+its limit is classified as a failure requiring cache reduction or quality-tier
+adjustment before declaring the route playable.
+
+Evidence: `.ai/logs/aider-pass-2026-06-27-205611.log` (exit 0, accepted).
+
 **MEM1 Thresholds (Pass = under limit, Fail = at/over limit):**
 
 | Stage | Measured (c0a0e) | Threshold (Limit) | Headroom | Notes |
