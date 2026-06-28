@@ -237,7 +237,30 @@ def marker_bool(logs: str, *patterns: str) -> bool:
 		for pattern in patterns)
 
 
-def classify_logs(logs: str, smoke_map: str) -> dict[str, object]:
+def image_nonblack_metrics(image: Path | None) -> dict[str, object]:
+	if image is None:
+		return {"available": False, "nonblack_pixels": 0, "sampled_nonblack": False}
+	try:
+		from PIL import Image
+	except ImportError:
+		return {"available": True, "nonblack_pixels": 0, "sampled_nonblack": False}
+	try:
+		with Image.open(image) as handle:
+			rgb = handle.convert("RGB")
+			pixels = rgb.get_flattened_data() if hasattr(rgb, "get_flattened_data") else rgb.getdata()
+			nonblack = sum(1 for pixel in pixels if pixel != (0, 0, 0))
+	except OSError:
+		return {"available": True, "nonblack_pixels": 0, "sampled_nonblack": False}
+	return {
+		"available": True,
+		"nonblack_pixels": nonblack,
+		"sampled_nonblack": nonblack > 0,
+	}
+
+
+def classify_logs(logs: str, smoke_map: str,
+	image_metrics: dict[str, object] | None = None) -> dict[str, object]:
+	image_metrics = image_metrics or {}
 	markers = {
 		"bootstrap": marker_bool(logs, r"Xash3D GameCube: bootstrap"),
 		"engine_ready": marker_bool(logs, r"Xash3D GameCube: engine subsystems ready"),
@@ -250,11 +273,15 @@ def classify_logs(logs: str, smoke_map: str) -> dict[str, object]:
 		"audio_voice_started": marker_bool(logs, r"audio voice started"),
 		"audio_nonzero_pcm": marker_bool(logs, r"audio submitted nonzero PCM"),
 	}
+	if image_metrics.get("sampled_nonblack"):
+		markers["sampled_nonblack"] = True
 	errors = sorted(set(re.findall(
 		r"(Host_ErrorInit:.*|Host_Error:.*|Sys_Error:.*|fatal error.*|out of memory.*|Unknown instruction.*|Invalid read from.*)",
 		logs, re.IGNORECASE)))
 	if errors:
 		status = "guest_failure" if markers["bootstrap"] else "host_or_boot_failure"
+	elif markers["map_loaded"] and markers["sampled_nonblack"]:
+		status = "active_rendering_nonblack"
 	elif markers["map_loaded"] and markers["input_polling"]:
 		status = "map_ready"
 	elif markers["map_loaded"] and markers["resource_verification"]:
@@ -269,7 +296,7 @@ def classify_logs(logs: str, smoke_map: str) -> dict[str, object]:
 		status = "inconclusive"
 	visual = "unknown"
 	if markers["sampled_nonblack"]:
-		visual = "nonblack_renderer_pixels"
+		visual = "nonblack_frame_dump" if image_metrics.get("sampled_nonblack") else "nonblack_renderer_pixels"
 	elif markers["diagnostic_marker"]:
 		visual = "diagnostic_marker_only"
 	elif markers["map_loaded"]:
@@ -285,6 +312,7 @@ def classify_logs(logs: str, smoke_map: str) -> dict[str, object]:
 		"audio": audio,
 		"markers": markers,
 		"errors": errors[:10],
+		"image": image_metrics,
 	}
 
 
@@ -294,6 +322,8 @@ def next_action(classification: dict[str, object], screenshot_available: bool,
 	errors = classification.get("errors", [])
 	if errors:
 		return "Fix the first guest error in OSReport before visual/audio tuning."
+	if markers.get("map_loaded") and markers.get("sampled_nonblack"):
+		return "Nonblack active-render evidence captured; preserve this route and work the next gameplay/audio fidelity gate."
 	if markers.get("map_loaded") and markers.get("resource_verification") and not markers.get("sampled_nonblack"):
 		return "Advance client resource verification/prespawn to active rendering and nonblack frame output."
 	if markers.get("map_loaded") and markers.get("input_polling"):
@@ -550,7 +580,8 @@ def main() -> int:
 		read_tail(log_dir / "dolphin.stdout.log"),
 		read_tail(log_dir / "dolphin.stderr.log"),
 	))
-	classification = classify_logs(logs, args.smoke_map)
+	image_metrics = image_nonblack_metrics(latest_screen)
+	classification = classify_logs(logs, args.smoke_map, image_metrics)
 	analysis = ""
 	analysis_path = ""
 	if latest_screen and not args.skip_vision:

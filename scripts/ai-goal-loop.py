@@ -242,6 +242,8 @@ GOAL_CONTEXT = {
 		"docs/GAMECUBE_PORT_PLAN.md", ".ai/goals/GAMECUBE_PORT_GOALS.md"),
 	"G67": ("scripts/gamecube-map-compat-probe.sh",
 		"scripts/gamecube-campaign-audit.sh",
+		"scripts/gamecube-content-format-audit.py",
+		"scripts/gamecube-rc-check.sh",
 		".ai/prompts/GOLDSRC_CONTENT_FORMATS.md",
 		"docs/GAMECUBE_PORT_PLAN.md"),
 	"G68": ("scripts/gamecube-campaign-audit.sh",
@@ -577,6 +579,17 @@ RECOVERABLE_EXIT_CODES = {
 	17: "Aider model call timed out",
 	18: "Aider hit a token/context limit",
 }
+AUTO_RESCUE_FAILURE_CLASSES = {
+	"asset_lookup",
+	"audio_runtime",
+	"memory_pressure",
+	"model_budget",
+	"no_edit",
+	"runtime_probe",
+	"unknown",
+	"verification",
+	"visual_runtime",
+}
 UNLIMITED_PASSES_LABEL = "unlimited"
 
 
@@ -808,6 +821,68 @@ def clip_text(text: str, limit: int = 360) -> str:
 	if len(text) <= limit:
 		return text
 	return text[:limit - 3].rstrip() + "..."
+
+
+def latest_dolphin_memory_run(data: object) -> dict[str, object] | None:
+	"""Return the newest run from the current or legacy Dolphin memory shape."""
+	if not isinstance(data, dict):
+		return None
+	runs = data.get("runs", [])
+	if isinstance(runs, list) and runs and isinstance(runs[0], dict):
+		return runs[0]
+	rooms = data.get("rooms", {})
+	if not isinstance(rooms, dict):
+		return None
+	latest_run: dict[str, object] | None = None
+	latest_stamp = ""
+	for room in rooms.values():
+		if not isinstance(room, dict):
+			continue
+		run = room.get("last")
+		if not isinstance(run, dict):
+			continue
+		stamp = str(run.get("created_at", ""))
+		if latest_run is None or stamp > latest_stamp:
+			latest_run = run
+			latest_stamp = stamp
+	return latest_run
+
+
+def dolphin_run_summary(run: dict[str, object]) -> list[str]:
+	classification = run.get("classification", {})
+	if not isinstance(classification, dict):
+		classification = {}
+	markers = classification.get("markers", {})
+	if not isinstance(markers, dict):
+		markers = {}
+	errors = classification.get("errors", [])
+	if not isinstance(errors, list):
+		errors = []
+	true_markers = ", ".join(sorted(str(key) for key, value in markers.items() if value))
+	false_markers = ", ".join(sorted(str(key) for key, value in markers.items() if not value))
+	image = classification.get("image", {})
+	if not isinstance(image, dict):
+		image = {}
+	lines = [
+		"Cockpit Dolphin evidence:",
+		f"- Goal: {run.get('goal', '(unknown)')} at {run.get('created_at', '(unknown time)')}",
+		f"- Status: {classification.get('status', run.get('status', '(unknown)'))}",
+		f"- Visual: {classification.get('visual', '(unknown)')}",
+		f"- Audio: {classification.get('audio', '(unknown)')}",
+		f"- True markers: {true_markers or '(none)'}",
+		f"- Missing markers: {false_markers or '(none)'}",
+		f"- Errors: {', '.join(clip_text(str(item), 120) for item in errors[:4]) or '(none)'}",
+		f"- Screenshot: {run.get('latest_screenshot') or '(none)'}",
+		f"- Logs: {run.get('log_dir') or run.get('logs') or '(unknown)'}",
+		f"- Next action: {run.get('next_action') or '(not recorded)'}",
+	]
+	if image:
+		lines.append(
+			f"- Image sample: available={image.get('available', '(unknown)')} "
+			f"nonblack_pixels={image.get('nonblack_pixels', '(unknown)')} "
+			f"sampled_nonblack={image.get('sampled_nonblack', '(unknown)')}"
+		)
+	return lines
 
 
 def load_loop_memory(root: Path) -> dict[str, object]:
@@ -1101,6 +1176,7 @@ def conact_blocked_context_paths(goal_id: str, memory: dict[str, object]) -> set
 def runtime_evidence_section(root: Path, *, lines: int = 40) -> str:
 	"""Compact Dolphin/runtime evidence for runtime-first task prompts."""
 	parts: list[str] = []
+	structured_run = False
 	latest = root / ".ai/state/dolphin-harness-latest.md"
 	if latest.is_file():
 		text = clip_text(latest.read_text(encoding="utf-8", errors="replace"), 2400)
@@ -1111,19 +1187,14 @@ def runtime_evidence_section(root: Path, *, lines: int = 40) -> str:
 	if memory.is_file():
 		try:
 			data = json.loads(memory.read_text(encoding="utf-8"))
-			runs = data.get("runs", [])
-			if isinstance(runs, list) and runs:
-				run = runs[0] if isinstance(runs[0], dict) else {}
-				summary = run.get("summary") or run.get("result") or run.get("status")
-				log_dir = run.get("log_dir") or run.get("logs")
-				if summary or log_dir:
-					parts.append(
-						f"Latest harness run: summary={summary or '(unknown)'} logs={log_dir or '(unknown)'}"
-					)
+			run = latest_dolphin_memory_run(data)
+			if run:
+				structured_run = True
+				parts.extend(dolphin_run_summary(run))
 		except (OSError, json.JSONDecodeError, TypeError):
 			pass
 	log_root = root / ".ai/logs"
-	if log_root.is_dir():
+	if log_root.is_dir() and not structured_run:
 		probe_dirs = sorted(log_root.glob("dolphin-probe-*"),
 			key=lambda path: path.stat().st_mtime if path.exists() else 0)
 		if probe_dirs:
@@ -1142,6 +1213,23 @@ def runtime_evidence_section(root: Path, *, lines: int = 40) -> str:
 	if not parts:
 		return "No Dolphin runtime evidence captured yet."
 	return "\n".join(parts)
+
+
+def cockpit_protocol_section(root: Path) -> str:
+	return f"""Local porting cockpit protocol:
+- Use this loop: Dolphin evidence -> ConAct/mempalace summary -> tiny source
+  patch -> build/verifier -> Dolphin proof -> commit.
+- Treat compact Dolphin JSON/summary evidence as the current truth. Do not
+  reopen stale blockers when newer evidence advanced past them.
+- Make a bounded, source-first patch. Verifier or release-evidence changes are
+  allowed when the gate is missing, but docs-only victory edits are not enough.
+- If the loaded files cannot address the current blocker, record the exact
+  missing file or blocker instead of producing broad release docs.
+- Preserve the newest active-rendering route unless this pass has newer
+  contrary evidence.
+
+{runtime_evidence_section(root)}
+"""
 
 
 def fault_evidence(output: str, *, max_items: int = 8) -> list[dict[str, object]]:
@@ -1313,6 +1401,29 @@ def record_investigation(memory: dict[str, object], goal: Goal, *, attempt: int,
 		del tool_calls[:-MEMORY_MAX_TOOL_CALLS]
 
 
+def classify_failure_output(exit_code: int, output: str, phase: str = "aider-pass") -> str:
+	return failure_class_for(exit_code, fault_evidence(output), phase)
+
+
+def auto_rescue_enabled() -> bool:
+	return os.environ.get("AI_AUTO_BLOCKER_RESCUE", "1") not in {"0", "false", "False", "no", "NO"}
+
+
+def run_auto_blocker_rescue(root: Path, goal: Goal, attempt: int,
+		pass_index: int, state_file: Path) -> subprocess.CompletedProcess[str]:
+	stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+	log_dir = f".ai/logs/blocker-rescue-{goal.goal_id}-{stamp}"
+	write_state(state_file, state="auto-rescue", pass_index=pass_index,
+		goal=asdict(goal), attempt=attempt, log_dir=log_dir,
+		message="Running one-shot blocker rescue before retrying the goal")
+	env = os.environ.copy()
+	env.setdefault("AI_AUTO_BLOCKER_RESCUE", "0")
+	env.setdefault("AIDER_AUTOMATION", "1")
+	env.setdefault("AI_SKIP_DIRTY_CHECKPOINT", "1")
+	return run(["scripts/gamecube-blocker-rescue.py", "--run-aider",
+		"--log-dir", log_dir], root, capture=True, env=env)
+
+
 def memory_summary(memory: dict[str, object], goal: Goal, attempt: int | None = None) -> str:
 	room = memory_room(memory, goal)
 	drawers = room.get("drawers", [])
@@ -1471,12 +1582,7 @@ docs-only status updates when the probe still fails.
 			f"`scripts/dolphin-boot-probe.sh` before each pass; do not claim completion "
 			f"without a successful probe result in the ledger.\n"
 		)
-	runtime_section = ""
-	if goal.goal_id in DOLPHIN_PROBE_GOALS or goal.goal_id in {"G36", "G45", "G49", "G65"}:
-		runtime_section = f"""
-Runtime evidence (prefer this over git history):
-{runtime_evidence_section(root)}
-"""
+	cockpit_section = cockpit_protocol_section(root)
 	repo_section = ""
 	if attempt <= 1 and goal.goal_id not in DOLPHIN_PROBE_GOALS:
 		repo_section = f"""
@@ -1497,6 +1603,8 @@ Repository context (abbreviated):
 Active goal: {goal.goal_id} - {goal.title}
 Active subgoal: {subgoal["id"]} - {subgoal["title"]}
 Attempt on this goal: {attempt}
+
+{cockpit_section}
 
 Use only the editable file or files preloaded in this Aider chat. Do not edit
 any file that was not added as editable context.
@@ -1529,6 +1637,8 @@ Output rules:
 
 Active goal: {goal.goal_id} - {goal.title}
 Attempt on this goal: {attempt}
+
+{cockpit_section}
 
 Use only the editable file or files preloaded in this Aider chat. Do not edit,
 add, or request any file that was not added as editable context.
@@ -1570,6 +1680,8 @@ Output rules:
 Active goal: {goal.goal_id} - {goal.title}
 Attempt on this goal: {attempt}
 
+{cockpit_section}
+
 Use only the editable file or files preloaded in this Aider chat. Do not edit,
 add, or request any file that was not added as editable context.
 
@@ -1595,9 +1707,6 @@ Task:
   a nonblack frame-dump PNG, or a clear OSReport marker after prespawn.
 - Keep changes GameCube-scoped and below 160 changed lines.
 
-Runtime evidence:
-{runtime_evidence_section(root)}
-
 Structured failure memory:
 {investigation_memory}
 
@@ -1613,6 +1722,8 @@ Output rules:
 
 Active goal: {goal.goal_id} - {goal.title}
 Attempt on this goal: {attempt}
+
+{cockpit_section}
 
 Use only the editable file or files preloaded in this Aider chat. Do not edit,
 add, or request any file that was not added as editable context.
@@ -1649,6 +1760,8 @@ Output rules:
 Active goal: {goal.goal_id} - {goal.title}
 Attempt on this goal: {attempt}
 
+{cockpit_section}
+
 Use only the editable file or files preloaded in this Aider chat. Do not edit,
 add, or request any file that was not added as editable context.
 
@@ -1683,7 +1796,7 @@ Output rules:
 Active goal: {goal.goal_id} — {goal.title}
 Attempt on this goal: {attempt}
 
-{retry_instruction}{probe_section}{runtime_section}Acceptance criteria:
+{retry_instruction}{cockpit_section}{probe_section}Acceptance criteria:
 {goal_body}
 
 {repo_section}Automation environment:
@@ -2167,9 +2280,11 @@ def main() -> int:
 			task_path.unlink(missing_ok=True)
 		if result.returncode != 0:
 			log_tail, log_path = recent_log_text(root)
+			failure_output = child_failure_output or log_tail
+			failure_class = classify_failure_output(result.returncode, failure_output)
 			record_investigation(memory, goal, attempt=attempts[goal.goal_id],
 				phase="aider-pass", exit_code=result.returncode,
-				output=child_failure_output or log_tail,
+				output=failure_output,
 				log_path=None if child_failure_output else log_path)
 			save_loop_memory(root, memory)
 			head_after = git_head(root)
@@ -2195,10 +2310,51 @@ def main() -> int:
 					message="HEAD moved, but not with the expected goal commit; treating child failure as recoverable when possible")
 				print("HEAD moved without an accepted goal commit; continuing recovery logic.",
 					file=sys.stderr)
+			rescue_attempted = False
+			if auto_rescue_enabled() and failure_class in AUTO_RESCUE_FAILURE_CLASSES:
+				rescue_attempted = True
+				rescue_head_before = git_head(root)
+				restore_failed_pass_worktree(root, goal)
+				print(
+					f"{goal.goal_id}: {failure_class} detected; running one-shot blocker rescue.",
+					file=sys.stderr,
+					flush=True,
+				)
+				rescue = run_auto_blocker_rescue(root, goal,
+					attempts[goal.goal_id], pass_index, state_file)
+				rescue_output = ((rescue.stdout or "") + (rescue.stderr or "")).strip()
+				print(rescue_output, flush=True)
+				record_investigation(memory, goal, attempt=attempts[goal.goal_id],
+					phase="auto-rescue", exit_code=rescue.returncode,
+					output=rescue_output)
+				save_loop_memory(root, memory)
+				rescue_head_after = git_head(root)
+				if rescue.returncode == 0 and rescue_head_after != rescue_head_before and not git_dirty(root):
+					write_state(state_file, state="resuming-after-rescue",
+						pass_index=pass_index, goal=asdict(goal),
+						attempt=attempts[goal.goal_id],
+						message="One-shot blocker rescue created a clean commit; reviewing and continuing")
+					review = run(["scripts/ai-review.sh"], root)
+					if review.returncode != 0:
+						write_state(state_file, state="failed-review", pass_index=pass_index,
+							goal=asdict(goal), exit_code=review.returncode)
+						return review.returncode
+					continue
+				if rescue.returncode != 0:
+					print(
+						f"{goal.goal_id}: blocker rescue exited {rescue.returncode}; falling back to normal recovery.",
+						file=sys.stderr,
+					)
+				else:
+					print(
+						f"{goal.goal_id}: blocker rescue found no newer actionable blocker; falling back to normal recovery.",
+						file=sys.stderr,
+					)
 			if result.returncode in RECOVERABLE_EXIT_CODES and \
 					attempts[goal.goal_id] <= args.recoverable_retries:
 				reason = RECOVERABLE_EXIT_CODES[result.returncode]
-				restore_failed_pass_worktree(root, goal)
+				if not rescue_attempted:
+					restore_failed_pass_worktree(root, goal)
 				write_state(state_file, state="recovering", pass_index=pass_index,
 					goal=asdict(goal), attempt=attempts[goal.goal_id],
 					exit_code=result.returncode, message=f"{reason}; retrying goal")

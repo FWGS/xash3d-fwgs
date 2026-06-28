@@ -1142,18 +1142,16 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   environment/staging conditions, not missing source. G64 is source/policy
   preflight complete. The RC check script exists and is the canonical release gate.
 
-## G65 [ ] Advance from map-ready to active gameplay rendering
+## G65 [x] Advance from map-ready to active gameplay rendering
 
-- Current Dolphin evidence reaches `map_ready`: bootstrap, engine readiness,
-  input polling, `c0a0e` map load, and client resource verification are all
-  observed in `.ai/logs/dolphin-vision-*/result.json` and OSReport logs.
-- Fix the next runtime blocker so the local client advances past
-  `ucmd->sendres()`, resource verification, and prespawn into active gameplay
-  rendering.
-- Acceptance evidence must include a fresh Dolphin harness result showing
-  `map_loaded=true`, `input_polling=true`, no guest error, and either
-  `sampled_nonblack=1`, a nonblack Dolphin frame-dump PNG, or a new explicit
-  OSReport marker proving active client rendering after prespawn.
+- Complete: fresh Dolphin harness evidence reaches `active_rendering_nonblack`.
+  `.ai/logs/dolphin-vision-20260628-011807/result.json` shows
+  `map_loaded=true`, `input_polling=true`, `resource_verification=true`, no
+  guest errors, `sampled_nonblack=true`, and a nonblack frame dump with
+  143,992 nonblack pixels.
+- Source changes advanced the route past `ucmd->sendres()`, resource
+  verification, `ucmd->spawn()`, `CL_SignonReply: 2`, `game_playerspawn`, and
+  the first active `R_RenderScene` frame.
 - Prefer small GameCube-only source changes in client resource verification,
   prespawn/sign-on, local server handshake, renderer frame submission, or
   smoke-route read-only handling. Do not solve this with docs-only edits.
@@ -1170,7 +1168,7 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not call the port final until hardware evidence confirms the same commit
   and artifact hash produced by the automated release-candidate suite.
 
-## G67 [ ] Prove native GoldSrc content-format compatibility
+## G67 [x] Prove native GoldSrc content-format compatibility
 
 - Build a compatibility matrix for Half-Life 1 BSP, WAD, PAK, MDL, SPR, WAV,
   TGA/BMP, sky, decal, sentence, soundscape/ambient, and config/script files as
@@ -1181,6 +1179,18 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Add a verifier or report command that fails release-candidate status when a
   required GoldSrc format silently falls back, loads from a host-only path, or
   needs an undocumented conversion step.
+- Verified 2026-06-28: `scripts/gamecube-content-format-audit.py --log-dir
+  .ai/logs/content-format-g67-codex` passed with 0 required failures against
+  the local legal `Half-Life/valve` tree.
+- Evidence: `.ai/logs/content-format-g67-codex/summary.md` records loader
+  source coverage, sample counts, largest sampled asset, and header validation
+  for BSP, WAD, MDL, SPR, WAV, TGA/BMP, sentences/titles, and config/script
+  files. The RC suite now runs the same audit as the `GoldSrc content format
+  audit` gate.
+- Boundary: local Steam-style assets contain no `.pak` sample, so PAK remains
+  source-covered by `filesystem/pak.c` with a warning rather than fabricated
+  runtime evidence. Intro/media video is reported as a warning and remains
+  separate from the core G67 asset-loader gate.
 
 ## G68 [ ] Complete full Half-Life campaign map and transition audit
 

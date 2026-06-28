@@ -314,6 +314,14 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 
 	// Load the data
 	sound.size = sound.samples * sound.width * sound.channels;
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && sound.size > 8192 )
+	{
+		Con_Reportf( "Xash3D GameCube: WAV skipped for gcmap %s size=%u\n",
+			name, (uint)sound.size );
+		return false;
+	}
+#endif
 	sound.wav = Mem_Malloc( host.soundpool, sound.size );
 
 	memcpy( sound.wav, buffer + (iff_dataPtr - buffer), sound.size );

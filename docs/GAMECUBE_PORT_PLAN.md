@@ -2050,6 +2050,42 @@ release evidence. G70, G71, and G75 remain manual because physical audio/video,
 persistent media, and final hardware-completion claims require operator evidence
 from the exact release artifact hash.
 
+## G67 — Native GoldSrc Content-Format Compatibility (COMPLETE 2026-06-28)
+
+`scripts/gamecube-content-format-audit.py` is the G67 verifier. It audits the
+operator-owned `Half-Life/valve` tree without committing or redistributing game
+assets, records a format matrix, validates basic GoldSrc file signatures, and
+maps each required format to the loader source responsible for GameCube runtime
+support.
+
+**Command:**
+```sh
+scripts/gamecube-content-format-audit.py --log-dir .ai/logs/content-format-g67-codex
+```
+
+**Result:** required failures: 0. The audit passed BSP, WAD, MDL, SPR, WAV,
+TGA/BMP, sentences/titles, and config/script coverage against the local legal
+asset tree. It recorded the largest tested samples, including
+`maps/rocket_frenzy.bsp`, `halflife.wad`, `models/nihilanth.mdl`,
+`sprites/640_logo.spr`, `sound/gman/gman_offer.wav`,
+`overviews/stalkyard.tga`, `sound/sentences.txt`, and
+`resource/TrackerScheme.res`.
+
+**Evidence:**
+- Summary: `.ai/logs/content-format-g67-codex/summary.md`
+- JSON report: `.ai/logs/content-format-g67-codex/report.json`
+- RC gate: `scripts/gamecube-rc-check.sh` now runs `GoldSrc content format
+  audit` and fails release-candidate status when a required format has a source
+  or sample validation failure.
+
+**Boundaries:**
+- The local Steam-style `Half-Life/valve` tree has no `.pak` sample. PAK is
+  source-covered by `filesystem/pak.c` and reported as a warning rather than
+  invented runtime evidence.
+- Intro/media video is reported as a warning and remains outside the core G67
+  asset-loader gate. Native media playback evidence belongs with the remaining
+  audio/video release and limitation gates.
+
 ## Next wake-up commands
 
 ```sh

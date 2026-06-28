@@ -63,6 +63,9 @@ static qboolean        r_cache_thrash;         // set if surface cache is thrash
 static int sc_size;
 surfcache_t     *sc_rover;
 static surfcache_t *sc_base;
+#if XASH_GAMECUBE
+static int r_gc_surface_cache_skip_reports;
+#endif
 
 
 static void R_BuildLightMap( void );
@@ -1013,7 +1016,19 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 	size = offsetof( surfcache_t, data ) + size;
 	size = ( size + 3 ) & ~3;
 	if( size > sc_size )
+	{
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+		{
+			if( r_gc_surface_cache_skip_reports < 16 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache skip alloc=%i cache=%i\n",
+					size, sc_size );
+			r_gc_surface_cache_skip_reports++;
+			return NULL;
+		}
+#endif
 		gEngfuncs.Host_Error( "%s: %i > cache size of %i", __func__, size, sc_size );
+	}
 
 // if there is not size bytes after the rover, reset to the start
 	wrapped_this_time = false;
@@ -1036,8 +1051,20 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 	{
 		// free another
 		sc_rover = sc_rover->next;
-		if( !sc_rover )
-			gEngfuncs.Host_Error( "%s: hit the end of memory", __func__ );
+			if( !sc_rover )
+			{
+#if XASH_GAMECUBE
+				if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+				{
+					if( r_gc_surface_cache_skip_reports < 16 )
+						gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache exhausted alloc=%i cache=%i\n",
+							size, sc_size );
+					r_gc_surface_cache_skip_reports++;
+					return NULL;
+				}
+#endif
+				gEngfuncs.Host_Error( "%s: hit the end of memory", __func__ );
+			}
 		if( sc_rover->owner )
 			*sc_rover->owner = NULL;
 
@@ -1425,4 +1452,3 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 	return cache;
 }
-

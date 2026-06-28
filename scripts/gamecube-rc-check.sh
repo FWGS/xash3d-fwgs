@@ -53,7 +53,8 @@ Runs the native GameCube release-candidate evidence gate:
   21. hardware boot preparation check
   22. compliance evidence check
   23. local automation guidance check
-  24. homebrew compliance check
+  24. GoldSrc content format audit
+  25. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -288,6 +289,26 @@ map_compat_gate() {
 	local rc=$?
 	log_status "map compatibility summary" "FAIL" "$log_path" "exit $rc"
 	tail -100 "$log_path" >&2
+	return "$rc"
+}
+
+content_format_gate() {
+	local log_path="$LOG_DIR/content-format-audit.log"
+	echo
+	echo "== GoldSrc content format audit =="
+	if [[ ! -d Half-Life/valve ]]; then
+		echo "WARN: Half-Life/valve is missing; GoldSrc content format audit skipped" | tee "$log_path"
+		log_status "GoldSrc content format audit" "WARN" "$log_path" "Half-Life/valve missing"
+		return 0
+	fi
+	if scripts/gamecube-content-format-audit.py --log-dir "$LOG_DIR/content-format-audit" >"$log_path" 2>&1; then
+		log_status "GoldSrc content format audit" "PASS" "$log_path" "G67 content format source/sample audit passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "GoldSrc content format audit" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
 	return "$rc"
 }
 
@@ -639,6 +660,7 @@ main() {
 	hardware_boot_gate || true
 	compliance_evidence_gate || true
 	automation_guidance_gate || true
+	content_format_gate || true
 	compliance_gate || true
 	write_summary
 	echo

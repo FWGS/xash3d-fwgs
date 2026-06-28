@@ -28,6 +28,9 @@ static int      s_numSfx = 0;
 static sfx_t    s_knownSfx[MAX_SFX];
 static sfx_t    *s_sfxHashList[MAX_SFX_HASH];
 static qboolean s_registering = false;
+#if XASH_GAMECUBE
+static int      s_gcmapSoundSkips = 0;
+#endif
 
 #define SENTENCE_INDEX -99999 // unique sentence index
 static string   s_sentenceImmediateName;	// keep dummy sentence name
@@ -81,7 +84,18 @@ static wavdata_t *S_CreateDefaultSound( void )
 	uint samples = SOUND_DMA_SPEED;
 	uint channels = 1;
 	uint width = 2;
+#if XASH_GAMECUBE
+	qboolean tinyFallback = Sys_CheckParm( "-gcmap" );
+#endif
 	size_t size = samples * width * channels;
+
+#if XASH_GAMECUBE
+	if( tinyFallback )
+	{
+		samples = 512;
+		size = samples * width * channels;
+	}
+#endif
 
 	wavdata_t *sc = Mem_Calloc( sndpool, sizeof( wavdata_t ) + size );
 
@@ -90,6 +104,15 @@ static wavdata_t *S_CreateDefaultSound( void )
 	sc->rate = SOUND_DMA_SPEED;
 	sc->samples = samples;
 	sc->size = size;
+
+#if XASH_GAMECUBE
+	if( tinyFallback )
+	{
+		sc->rate = SOUND_11k;
+		Con_Reportf( "Xash3D GameCube: tiny default sound fallback samples=%u bytes=%u\n",
+			samples, (uint)size );
+	}
+#endif
 
 	return sc;
 }
@@ -112,6 +135,16 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	if( COM_StringEmptyOrNULL( sfx->name ))
 		return NULL;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Q_stricmp( sfx->name, "*default" ))
+	{
+		if( s_gcmapSoundSkips < 8 )
+			Con_Reportf( "Xash3D GameCube: sound load skipped for gcmap %s\n", sfx->name );
+		s_gcmapSoundSkips++;
+		return NULL;
+	}
+#endif
+
 	// load it from disk
 	if( Q_stricmp( sfx->name, "*default" ))
 	{
@@ -125,7 +158,17 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 			sc = FS_LoadSound( sfx->name, NULL, 0 );
 	}
 
-	if( !sc ) sc = S_CreateDefaultSound();
+	if( !sc )
+	{
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ) && Q_stricmp( sfx->name, "*default" ))
+		{
+			Con_Reportf( "Xash3D GameCube: sound fallback skipped for gcmap %s\n", sfx->name );
+			return NULL;
+		}
+#endif
+		sc = S_CreateDefaultSound();
+	}
 
 	if( sc->rate < SOUND_11k ) // some bad sounds
 		Sound_Process( &sc, SOUND_11k, sc->width, sc->channels, SOUND_RESAMPLE );

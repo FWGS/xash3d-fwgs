@@ -570,8 +570,19 @@ static void CL_StartResourceDownloading( const char *pszMessage, qboolean bCusto
 	if( !COM_StringEmptyOrNULL( pszMessage ))
 		Con_DPrintf( "%s", pszMessage );
 
-	cls.dl.nTotalSize = COM_SizeofResourceList( &cl.resourcesneeded, &ri );
-	cls.dl.nTotalToTransfer = CL_EstimateNeededResources();
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() && !bCustom )
+	{
+		Con_Reportf( "Xash3D GameCube: resource estimate skipped for local gcmap\n" );
+		cls.dl.nTotalSize = 0;
+		cls.dl.nTotalToTransfer = 0;
+	}
+	else
+#endif
+	{
+		cls.dl.nTotalSize = COM_SizeofResourceList( &cl.resourcesneeded, &ri );
+		cls.dl.nTotalToTransfer = CL_EstimateNeededResources();
+	}
 
 	if( bCustom )
 	{

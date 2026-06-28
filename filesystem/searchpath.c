@@ -409,6 +409,14 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 		FS_AllowDirectPaths( false );
 	}
 
+#if XASH_GAMECUBE
+	if( fs_gc_smoke_boot && !COM_StringEmpty( fs_rodir ))
+	{
+		Con_Reportf( "Xash3D GameCube: smoke boot skipping mutable searchpaths for %s\n", dir );
+		return;
+	}
+#endif
+
 	if( is_game_dir )
 	{
 		Q_snprintf( buf, sizeof( buf ), "%s" DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX "/", dir );

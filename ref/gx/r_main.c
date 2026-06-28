@@ -66,7 +66,7 @@ static CVAR_DEFINE_AUTO( sw_maxsurfs, "0", 0, "" );
 CVAR_DEFINE_AUTO( sw_mipscale, "1", FCVAR_GLCONFIG, "nothing" );
 CVAR_DEFINE_AUTO( sw_mipcap, "0", FCVAR_GLCONFIG, "nothing" );
 #if XASH_GAMECUBE
-CVAR_DEFINE_AUTO( sw_surfcacheoverride, "8192", FCVAR_GLCONFIG, "software surface cache bytes (GameCube cap applies)" );
+	CVAR_DEFINE_AUTO( sw_surfcacheoverride, "262144", FCVAR_GLCONFIG, "software surface cache bytes (GameCube cap applies)" );
 #else
 CVAR_DEFINE_AUTO( sw_surfcacheoverride, "0", 0, "" );
 #endif

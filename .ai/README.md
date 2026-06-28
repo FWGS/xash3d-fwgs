@@ -76,6 +76,31 @@ hypotheses, verbatim evidence snippets, investigative gaps, and recent tool
 calls, then feeds a short summary into the next pass. The file is ignored by
 Git because it is run-local state rather than source history.
 
+The intended GUI/Qwable workflow is now a local porting cockpit rather than an
+unbounded mutation loop:
+
+```text
+Dolphin evidence -> ConAct/mempalace summary -> tiny source patch -> build/verifier -> Dolphin proof -> commit
+```
+
+`scripts/ai-goal-loop.py` injects the latest compact Dolphin harness evidence
+from `.ai/state/dolphin-harness-latest.md` and
+`.ai/state/dolphin-harness-memory.json` into each generated goal task. That lets
+the local model build from the newest route state, such as active-rendering or
+nonblack-frame proof, instead of reopening stale blockers from older logs.
+For G36 and later, automatic attempts remain bounded by default; after the
+attempt limit the runner stops for RC-gate/Codex/review feedback rather than
+looping forever.
+
+When a pass fails with a rescue-worthy blocker such as an OOM, asset lookup
+failure, visual/runtime fatal, audio runtime failure, verifier failure, or
+repeated no-edit/context-budget issue, the goal loop automatically invokes
+`scripts/gamecube-blocker-rescue.py --run-aider` once before falling back to the
+normal retry path. The rescue pass scans fresh logs, ignores blockers older than
+the newest successful Dolphin proof, picks focused editable files, and attempts
+one source-only patch. Set `AI_AUTO_BLOCKER_RESCUE=0` to disable this automatic
+rescue path and use the GUI's `Rescue Blocker` button manually instead.
+
 That memory now includes a ConAct-style compact state inspired by MemGUI-Agent:
 `folded_action_history` summarizes recent passes, `folded_port_state` preserves
 durable port facts such as proven `MAP_READY` routes or stale blockers, and

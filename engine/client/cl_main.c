@@ -410,6 +410,10 @@ void CL_SignonReply( connprotocol_t proto )
 	{
 	case 1:
 		CL_ServerCommand( true, proto == PROTO_GOLDSRC ? "sendents" : "begin" );
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+			break;
+#endif
 		if( host_developer.value >= DEV_EXTENDED )
 			Mem_PrintStats();
 		break;
