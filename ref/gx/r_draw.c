@@ -15,6 +15,38 @@ GNU General Public License for more details.
 
 #include "r_local.h"
 
+#if XASH_GAMECUBE
+static pixel_t gc_rgb565_r[256];
+static pixel_t gc_rgb565_g[256];
+static pixel_t gc_rgb565_b[256];
+static qboolean gc_rgb565_tables_ready;
+
+static void GC_BuildRGB565Tables( void )
+{
+	if( gc_rgb565_tables_ready )
+		return;
+
+	for( int i = 0; i < 256; i++ )
+	{
+		unsigned int r = (unsigned int)i >> 3;
+		unsigned int g = (unsigned int)i >> 2;
+		unsigned int b = (unsigned int)i >> 3;
+		unsigned int r_major = ((( r >> 2 ) & MASK( 3 )) << 5 ) << 8;
+		unsigned int g_major = ((( g >> 3 ) & MASK( 3 )) << 2 ) << 8;
+		unsigned int b_major = (( b >> 3 ) & MASK( 2 )) << 8;
+		unsigned int r_minor = MOVE_BIT( r, 1, 5 ) | MOVE_BIT( r, 0, 2 );
+		unsigned int g_minor = MOVE_BIT( g, 2, 7 ) | MOVE_BIT( g, 1, 4 ) | MOVE_BIT( g, 0, 1 );
+		unsigned int b_minor = MOVE_BIT( b, 2, 6 ) | MOVE_BIT( b, 1, 3 ) | MOVE_BIT( b, 0, 0 );
+
+		gc_rgb565_r[i] = (pixel_t)( r_major | r_minor );
+		gc_rgb565_g[i] = (pixel_t)( g_major | g_minor );
+		gc_rgb565_b[i] = (pixel_t)( b_major | b_minor );
+	}
+
+	gc_rgb565_tables_ready = true;
+}
+#endif
+
 /*
 =============
 R_GetImageParms
@@ -286,6 +318,29 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 	}
 
 	pixels = tex->pixels[0];
+#if XASH_GAMECUBE
+	GC_BuildRGB565Tables();
+	if( fmt == PF_RGB_24 && cols == width && rows == height )
+	{
+		const byte *src = buffer;
+		size_t i;
+
+		for( i = 0; i < pixel_count; i++, src += 3 )
+			pixels[i] = gc_rgb565_r[src[0]] | gc_rgb565_g[src[1]] | gc_rgb565_b[src[2]];
+
+		if( width > 0 && height > 0 )
+		{
+			size_t mid = (size_t)( height / 2 ) * (size_t)width + (size_t)( width / 2 );
+			const byte *mid_src = buffer + mid * 3;
+
+			gc_mid_r = mid_src[0] >> 3;
+			gc_mid_g = mid_src[1] >> 2;
+			gc_mid_b = mid_src[2] >> 3;
+			gc_mid_packed = pixels[mid];
+		}
+		goto gc_texture_update_done;
+	}
+#endif
 	for( y = 0; y < height; y++ )
 	{
 		int src_y = y * rows / height;
@@ -340,6 +395,7 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 	}
 
 #if XASH_GAMECUBE
+gc_texture_update_done:
 	gc_update_count++;
 	if( gc_update_count <= 2 || gc_update_count == 15 || gc_update_count == 30 || gc_update_count == 60 )
 	{

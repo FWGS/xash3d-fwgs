@@ -3992,7 +3992,7 @@ qboolean CL_LoadProgs( const char *name )
 	qboolean missed_exports = false;
 	qboolean try_internal_vgui_support = GI->internal_vgui_support;
 #if XASH_GAMECUBE
-	qboolean skip_vgui = Sys_CheckParm( "-nohud" );
+	qboolean skip_vgui = true;
 #endif
 
 	if( clgame.hInstance ) CL_UnloadProgs();
