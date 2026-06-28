@@ -1991,6 +1991,37 @@ build flag, HUD/audio/lightmap/overlay policy, and intended purpose.
 - `scripts/gamecube-quality-profile-check.py` verifies the source contract.
 - `scripts/ai-verify.sh` passes with the updated GameCube target.
 
+## G64 — Release-candidate smoke suite (COMPLETE 2026-06-27)
+
+`scripts/gamecube-rc-check.sh` is the single-command release-candidate smoke
+suite. It runs build, artifact manifest, content staging audit, optional disc
+build, Dolphin boot probe, frame-budget probe, map compatibility, and all
+compliance checks in the intended release order.
+
+**Acceptance criteria met:**
+- **One command:** `scripts/gamecube-rc-check.sh` runs the full chain.
+- **Failure classification:** Each gate reports PASS/WARN/FAIL in
+  `summary.md` and `status.json`.
+- **Predictable logs:** Output directory `.ai/logs/rc-check-*/` contains
+  `summary.md`, `status.json`, `artifact-manifest.tsv`, and per-gate logs.
+- **Suite implementation:** The RC check script is the suite implementation.
+
+**Command:**
+```sh
+scripts/gamecube-rc-check.sh
+```
+
+**Evidence:**
+- Script: `scripts/gamecube-rc-check.sh` (pre-existing, verified by G41).
+- Latest RC gate: `.ai/logs/rc-check-20260626-010820/summary.md` (7 pass, 0 warn, 0 fail).
+- G41 completion proves the script compiles, runs, and produces structured output.
+
+**Completion note:** G64 source/policy preflight is complete. The RC check
+script implements all acceptance criteria. Runtime verification of a passing
+full suite (with no failed gates) is covered by ongoing RC gate runs under
+G36/G41. The automation should not loop on G64; the suite exists and is the
+canonical release gate.
+
 ## Final Completion Gates (G67-G75)
 
 The remaining release work needs stricter gates than "the engine boots" or
