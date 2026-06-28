@@ -480,7 +480,7 @@ static void AVI_StreamAudio( movie_state_t *Avi, double elapsed )
 
 		S_RawEntSamples( S_RAW_SOUND_SOUNDTRACK, slice_size / bytes_per_sample,
 			Avi->audio_rate, Avi->audio_width, Avi->audio_channels,
-			Avi->chunk + Avi->audio_chunk_offset, 255, ATTN_NONE );
+			Avi->chunk + Avi->audio_chunk_offset, 256, ATTN_NONE );
 		Avi->audio_bytes_submitted += slice_size;
 		Avi->audio_chunk_offset += slice_size;
 		if( Avi->audio_chunk_offset >= Avi->audio_chunk_size )

@@ -306,6 +306,25 @@ SMOKE_INTRO_MEDIA = (
 	"media/valve.avi",
 )
 
+MENU_RESOURCE_ASSETS = (
+	"resource/logo_game.tga",
+	"resource/menu_hl_no_icon.tga",
+	"resource/game_menu.tga",
+	"resource/game_menu_mouseover.tga",
+	"resource/background/800_1_a_loading.tga",
+	"resource/background/800_1_b_loading.tga",
+	"resource/background/800_1_c_loading.tga",
+	"resource/background/800_1_d_loading.tga",
+	"resource/background/800_2_a_loading.tga",
+	"resource/background/800_2_b_loading.tga",
+	"resource/background/800_2_c_loading.tga",
+	"resource/background/800_2_d_loading.tga",
+	"resource/background/800_3_a_loading.tga",
+	"resource/background/800_3_b_loading.tga",
+	"resource/background/800_3_c_loading.tga",
+	"resource/background/800_3_d_loading.tga",
+)
+
 
 SMOKE_HUD_RES = 320
 
@@ -583,6 +602,8 @@ def stage_smoke_data(source: Path, output: Path, smoke_map: str) -> Path:
 	output.mkdir(parents=True, exist_ok=True)
 	for relative in SMOKE_CONFIG_FILES:
 		copy_if_present(source, output, relative)
+	for relative in MENU_RESOURCE_ASSETS:
+		copy_if_present(source, output, relative)
 	write_smoke_overrides(output, smoke_map)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
@@ -614,6 +635,8 @@ def stage_intro_avi_data(source: Path, output: Path) -> Path:
 	for relative in CRITICAL_ASSETS:
 		copy_if_present(source, output, relative)
 	for relative in SMOKE_CONFIG_FILES:
+		copy_if_present(source, output, relative)
+	for relative in MENU_RESOURCE_ASSETS:
 		copy_if_present(source, output, relative)
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")

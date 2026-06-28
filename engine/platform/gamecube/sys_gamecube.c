@@ -15,6 +15,7 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #if XASH_GAMECUBE
 #include <ogc/system.h>
 #include <ogc/dvd.h>
+#include <ogc/lwp_watchdog.h>
 
 #include <fat.h>
 #include <iso9660.h>
@@ -83,7 +84,13 @@ void Platform_Sleep( int msec )
 double Platform_DoubleTime( void )
 {
 #if XASH_GAMECUBE
-	return (double)SYS_Time() / 1000.0;
+	static u64 start_ticks;
+	u64 now = SYS_Time();
+
+	if( start_ticks == 0 )
+		start_ticks = now;
+
+	return (double)diff_ticks( start_ticks, now ) / (double)PPC_TIMER_CLOCK;
 #else
 	return 0.0;
 #endif

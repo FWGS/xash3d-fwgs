@@ -436,7 +436,8 @@ static int S_MixRawChannels( int end )
 			|| ch->entnum == VOICE_LOCALCLIENT_INDEX;
 
 		portable_samplepair_t *pbuf;
-		if( is_voice || ch->entnum == S_RAW_SOUND_BACKGROUNDTRACK )
+		if( is_voice || ch->entnum == S_RAW_SOUND_BACKGROUNDTRACK ||
+			ch->entnum == S_RAW_SOUND_SOUNDTRACK )
 		{
 			// for streams we don't have fancy things like volume controls
 			// or DSP processing or upsampling, so paint it directly into result buffer

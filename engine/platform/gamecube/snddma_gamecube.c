@@ -1,6 +1,7 @@
 /*
 snddma_gamecube.c - GameCube sound DMA backend
 Uses libogc ASND streaming at 48 kHz with a silent null fallback.
+The engine mixer writes native PowerPC big-endian stereo 16-bit samples.
 */
 #include "common.h"
 #include "sound.h"
@@ -122,7 +123,7 @@ static qboolean GCube_StartVoice( void )
 	GC_AudioCopyChunk( gc_audio_chunk[0], GC_AUDIO_CHUNK_BYTES );
 	DCFlushRange( gc_audio_chunk[0], GC_AUDIO_CHUNK_BYTES );
 
-	status = ASND_SetVoice( GC_AUDIO_VOICE, VOICE_STEREO_16BIT_LE, SOUND_DMA_SPEED, 0,
+	status = ASND_SetVoice( GC_AUDIO_VOICE, VOICE_STEREO_16BIT_BE, SOUND_DMA_SPEED, 0,
 		gc_audio_chunk[0], GC_AUDIO_CHUNK_BYTES, 255, 255, GC_AudioVoiceCallback );
 	if( status == SND_INVALID )
 		return false;

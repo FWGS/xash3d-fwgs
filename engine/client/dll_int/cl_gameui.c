@@ -25,6 +25,154 @@ static void 	UI_UpdateUserinfo( void );
 
 gameui_static_t	gameui;
 
+#if XASH_GAMECUBE
+typedef struct gc_menu_item_s
+{
+	const char *label;
+	const char *description;
+	const char *command;
+} gc_menu_item_t;
+
+static qboolean gc_menu_visible;
+static int gc_menu_selection;
+static int gc_menu_logo;
+static int gc_menu_background[3][4];
+
+static const gc_menu_item_t gc_menu_items[] =
+{
+	{ "New game", "Start a new single player game.", "map c0a0" },
+	{ "Load game", "Load a previously saved game.", "toggleconsole" },
+	{ "Find servers", "Search for online multiplayer servers.", "toggleconsole" },
+	{ "Create server", "Host a multiplayer server for others to join.", "toggleconsole" },
+	{ "Options", "Change game settings, configure controls.", "toggleconsole" },
+	{ "Quit", "Quit playing Half-Life.", "quit" },
+};
+
+static void UI_GCLoadFallbackMenuTextures( void )
+{
+	static qboolean loaded;
+	char path[MAX_QPATH];
+
+	if( loaded )
+		return;
+
+	gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/logo_game.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+
+	for( int row = 0; row < 3; row++ )
+	{
+		for( int col = 0; col < 4; col++ )
+		{
+			Q_snprintf( path, sizeof( path ), "resource/background/800_%d_%c_loading.tga",
+				row + 1, 'a' + col );
+			gc_menu_background[row][col] = ref.dllFuncs.GL_LoadTexture( path, NULL, 0,
+				TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+		}
+	}
+
+	loaded = true;
+}
+
+static void UI_GCDrawFallbackMenuBackground( void )
+{
+	const int source_widths[4] = { 256, 256, 256, 32 };
+	const int source_heights[3] = { 256, 256, 88 };
+	float scale_x = refState.width / 800.0f;
+	float scale_y = refState.height / 600.0f;
+	float y = 0.0f;
+
+	ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, refState.width, refState.height, 0, 0, 0, 255 );
+
+	for( int row = 0; row < 3; row++ )
+	{
+		float x = 0.0f;
+
+		for( int col = 0; col < 4; col++ )
+		{
+			int tex = gc_menu_background[row][col];
+			float w = source_widths[col] * scale_x;
+			float h = source_heights[row] * scale_y;
+
+			if( tex > 0 )
+			{
+				ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+				ref.dllFuncs.Color4ub( 150, 150, 150, 255 );
+				ref.dllFuncs.R_DrawStretchPic( x, y, w, h, 0, 0, 1, 1, tex );
+			}
+			x += w;
+		}
+		y += source_heights[row] * scale_y;
+	}
+
+	ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, refState.width, refState.height, 0, 0, 0, 88 );
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+}
+
+static void UI_GCDrawMenuString( int x, int y, const char *text, int r, int g, int b, qboolean shadow )
+{
+	rgba_t color;
+
+	if( shadow )
+	{
+		MakeRGBA( color, 0, 0, 0, 180 );
+		Con_DrawString( x + 2, y + 2, text, color );
+	}
+
+	MakeRGBA( color, r, g, b, 255 );
+	Con_DrawString( x, y, text, color );
+}
+
+static void UI_GCDrawFallbackMenu( void )
+{
+	int base_x = refState.width * 9 / 100;
+	int base_y = refState.height * 58 / 100;
+	int desc_x = refState.width * 30 / 100;
+	int row_h = Q_max( 18, refState.height / 15 );
+
+	UI_GCLoadFallbackMenuTextures();
+	UI_GCDrawFallbackMenuBackground();
+
+	if( gc_menu_logo > 0 )
+	{
+		float logo_w = refState.width * 0.76f;
+		float logo_h = logo_w / 16.0f;
+		float logo_x = ( refState.width - logo_w ) * 0.5f;
+		float logo_y = refState.height * 0.12f;
+
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.R_DrawStretchPic( logo_x, logo_y, logo_w, logo_h, 0, 0, 1, 1, gc_menu_logo );
+	}
+	else
+	{
+		UI_GCDrawMenuString( refState.width / 7, refState.height / 8, "HALF-LIFE", 235, 235, 235, true );
+	}
+
+	for( int i = 0; i < (int)ARRAYSIZE( gc_menu_items ); i++ )
+	{
+		const gc_menu_item_t *item = &gc_menu_items[i];
+		qboolean selected = ( i == gc_menu_selection );
+		int y = base_y + i * row_h;
+
+		UI_GCDrawMenuString( base_x, y, item->label,
+			selected ? 255 : 255, selected ? 245 : 190, selected ? 70 : 0, true );
+		UI_GCDrawMenuString( desc_x, y, item->description,
+			selected ? 150 : 100, selected ? 150 : 100, selected ? 150 : 100, false );
+	}
+}
+
+static void UI_GCActivateFallbackMenuItem( void )
+{
+	const gc_menu_item_t *item = &gc_menu_items[bound( 0, gc_menu_selection,
+		(int)ARRAYSIZE( gc_menu_items ) - 1 )];
+
+	if( !COM_StringEmpty( item->command ))
+	{
+		Cbuf_AddText( item->command );
+		Cbuf_AddText( "\n" );
+	}
+}
+#endif
+
 static void UI_ToggleAllowConsole_f( void )
 {
 	host.allow_console = host.allow_console_init = true;
@@ -35,7 +183,14 @@ static void UI_ToggleAllowConsole_f( void )
 
 void UI_UpdateMenu( float realtime )
 {
-	if( !gameui.hInstance ) return;
+	if( !gameui.hInstance )
+	{
+#if XASH_GAMECUBE
+		if( gc_menu_visible && cls.key_dest != key_console )
+			UI_GCDrawFallbackMenu();
+#endif
+		return;
+	}
 
 	// don't draw menu over console
 	if( cls.key_dest == key_console ) return;
@@ -66,7 +221,40 @@ void UI_UpdateMenu( float realtime )
 
 void UI_KeyEvent( int key, qboolean down )
 {
-	if( !gameui.hInstance ) return;
+	if( !gameui.hInstance )
+	{
+#if XASH_GAMECUBE
+		if( !gc_menu_visible || !down )
+			return;
+
+		switch( key )
+		{
+		case K_UPARROW:
+			gc_menu_selection = ( gc_menu_selection + ARRAYSIZE( gc_menu_items ) - 1 ) %
+				ARRAYSIZE( gc_menu_items );
+			break;
+		case K_DOWNARROW:
+			gc_menu_selection = ( gc_menu_selection + 1 ) % ARRAYSIZE( gc_menu_items );
+			break;
+		case K_ENTER:
+		case K_KP_ENTER:
+		case K_A_BUTTON:
+			UI_GCActivateFallbackMenuItem();
+			break;
+		case K_ESCAPE:
+		case K_BACK_BUTTON:
+		case K_START_BUTTON:
+			if( cls.state == ca_active )
+				UI_SetActiveMenu( false );
+			else
+				Cbuf_AddText( "quit\n" );
+			break;
+		default:
+			break;
+		}
+#endif
+		return;
+	}
 	gameui.dllFuncs.pfnKeyEvent( key, down );
 }
 
@@ -80,8 +268,13 @@ void UI_SetActiveMenu( qboolean fActive )
 {
 	if( !gameui.hInstance )
 	{
+#if XASH_GAMECUBE
+		gc_menu_visible = fActive;
+		Key_SetKeyDest( fActive ? key_menu : key_game );
+#else
 		if( !fActive )
 			Key_SetKeyDest( key_game );
+#endif
 		return;
 	}
 
@@ -122,6 +315,9 @@ void UI_ShowCursor( qboolean show )
 
 qboolean UI_CreditsActive( void )
 {
+#if XASH_GAMECUBE
+	if( !gameui.hInstance ) return 0;
+#endif
 	if( !gameui.hInstance ) return 0;
 	return gameui.dllFuncs.pfnCreditsActive();
 }
@@ -140,6 +336,9 @@ qboolean UI_MouseInRect( void )
 
 qboolean UI_IsVisible( void )
 {
+#if XASH_GAMECUBE
+	if( !gameui.hInstance ) return gc_menu_visible;
+#endif
 	if( !gameui.hInstance ) return 0;
 	return gameui.dllFuncs.pfnIsVisible();
 }

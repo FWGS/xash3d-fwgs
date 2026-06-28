@@ -781,6 +781,12 @@ void SCR_UpdateScreen( void )
 		break;
 	}
 
+	if( cls.key_dest == key_menu && cls.state != ca_active && cls.state != ca_cinematic && UI_IsVisible() )
+	{
+		UI_UpdateMenu( host.realtime );
+		screen_redraw = true;
+	}
+
 	// during changelevel we might have a few frames when we have nothing to draw
 	// (assuming levelshots are off) and drawing 2d on top of nothing or cleared screen
 	// is ugly, specifically with Adreno and ImgTec GPUs
