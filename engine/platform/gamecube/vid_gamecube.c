@@ -653,6 +653,11 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	 * portable than SYS_Delay across different libogc versions. */
 	for( i = 0; i < 3; i++ )
 		VIDEO_WaitVSync();
+
+	/* Update which_fb to reflect that we just presented xfb[0].
+	 * This keeps double-buffering state consistent if rendering
+	 * continues after the fatal screen (e.g., for debugging). */
+	which_fb = 0;
 #endif
 }
 
