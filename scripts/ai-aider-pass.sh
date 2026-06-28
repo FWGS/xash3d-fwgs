@@ -299,7 +299,8 @@ preflight_context_estimate() {
 	local -a estimate_args=()
 	local estimate_output estimate_status
 	estimate_args=(python3 scripts/aider-context-estimate.py --repo "$REPO"
-		--attempt "$attempt" --output-tokens "$max_tokens" --max-context "$max_context")
+		--attempt "$attempt" --output-tokens "$max_tokens" --max-context "$max_context"
+		--task-file "$TASK_FILE")
 	local spec
 	for spec in "${RAW_CONTEXT_SPECS[@]}"; do
 		estimate_args+=("$spec")
@@ -414,6 +415,7 @@ run_aider_with_recovery() {
 			--no-browser \
 			--no-gui \
 			--no-detect-urls \
+			--no-auto-accept-architect \
 			--no-cache-prompts \
 			--disable-playwright \
 			--no-restore-chat-history \
@@ -509,7 +511,7 @@ build_allowed_edit_paths() {
 	for path in "${CONTEXT_FILES[@]}" "${REQUIRED_CONTEXT_FILES[@]}"; do
 		ALLOWED_EDIT_PATHS+=("$path")
 	done
-	if [[ "${AI_VERIFY_REQUIRE_DOC_UPDATE:-1}" == "1" ]]; then
+	if [[ "${AI_VERIFY_REQUIRE_DOC_UPDATE:-0}" == "1" ]]; then
 		for path in docs/GAMECUBE_PORT_PLAN.md .ai/goals/GAMECUBE_PORT_GOALS.md; do
 			if [[ -f "$path" ]] && ! edit_path_allowed "$path"; then
 				ALLOWED_EDIT_PATHS+=("$path")

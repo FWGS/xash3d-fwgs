@@ -13,7 +13,7 @@ check-model-accepts-settings: false
 
 map-tokens: 0
 map-refresh: auto
-max-chat-history-tokens: 1024
+max-chat-history-tokens: 256
 
 auto-commits: false
 dirty-commits: false

@@ -17,12 +17,14 @@ sys.modules[_spec.name] = _budget
 _spec.loader.exec_module(_budget)
 
 DEFAULT_MAX_CONTEXT = int(os.environ.get("AIDER_MODEL_MAX_CONTEXT", "65536"))
-RESERVED_OUTPUT_SLACK = 256
+RESERVED_OUTPUT_SLACK = int(os.environ.get("AIDER_RESERVED_OUTPUT_SLACK", "2048"))
+CONFIG_PROMPT_SLACK_TOKENS = int(os.environ.get("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "12000"))
 
 
 def estimate_tokens(editable_bytes: int, read_bytes: int, output_tokens: int) -> int:
 	return int((editable_bytes + read_bytes) / _budget.BYTES_PER_TOKEN) + \
-		_budget.SYSTEM_OVERHEAD_TOKENS + output_tokens + RESERVED_OUTPUT_SLACK
+		_budget.SYSTEM_OVERHEAD_TOKENS + CONFIG_PROMPT_SLACK_TOKENS + \
+		output_tokens + RESERVED_OUTPUT_SLACK
 
 
 def main() -> int:
@@ -31,6 +33,7 @@ def main() -> int:
 	parser.add_argument("--attempt", type=int, default=1)
 	parser.add_argument("--output-tokens", type=int, default=2048)
 	parser.add_argument("--max-context", type=int, default=DEFAULT_MAX_CONTEXT)
+	parser.add_argument("--task-file", type=Path)
 	parser.add_argument("--quiet", action="store_true")
 	parser.add_argument("specs", nargs="*", help="raw context specs")
 	args = parser.parse_args()
@@ -54,6 +57,8 @@ def main() -> int:
 		if spec.mode == "slice":
 			# Slice excerpts are much smaller than the full source file.
 			read_bytes += min(size, 8000)
+	if args.task_file and (root / args.task_file).is_file():
+		read_bytes += (root / args.task_file).stat().st_size
 
 	total_tokens = estimate_tokens(editable_bytes, read_bytes, args.output_tokens)
 	status = "OK" if total_tokens <= args.max_context else "OVER_BUDGET"

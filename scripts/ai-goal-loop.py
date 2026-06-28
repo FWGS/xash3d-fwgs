@@ -54,10 +54,7 @@ FAULT_PATTERNS = (
 	r"audio .*",
 	r"read-only fallback.*",
 )
-COMMON_CONTEXT = (
-	"docs/GAMECUBE_PORT_PLAN.md",
-	".ai/goals/GAMECUBE_PORT_GOALS.md",
-)
+COMMON_CONTEXT: tuple[str, ...] = ()
 COMMON_READ_CONTEXT = (
 	".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
 	".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
@@ -2089,18 +2086,18 @@ def main() -> int:
 				read_context_files=read_context_files,
 				active_subgoal=active_subgoal,
 				expected_subject=expected_subject,
-				docs_required=pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "1"),
+				docs_required=pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "0"),
 				blocked_context=blocked_context)
-			if attempts[goal.goal_id] >= 3:
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "768")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "512")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "384")
-				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_3", "256")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_INITIAL", "14000")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "9000")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "6000")
-				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_3", "4000")
-				pass_env.setdefault("AIDER_MAX_CHAT_HISTORY_TOKENS", "512")
+			if attempts[goal.goal_id] >= 2:
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "512")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "384")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "256")
+				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_3", "192")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_INITIAL", "9000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "6000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "4000")
+				pass_env.setdefault("AIDER_CONTEXT_BYTES_RETRY_3", "2500")
+				pass_env.setdefault("AIDER_MAX_CHAT_HISTORY_TOKENS", "256")
 			preflight = harness_preflight(root)
 			if preflight.returncode != 0:
 				child_failure_output = ((preflight.stdout or "") + (preflight.stderr or "")).strip()
@@ -2120,7 +2117,7 @@ def main() -> int:
 				log_path=None if child_failure_output else log_path)
 			save_loop_memory(root, memory)
 			head_after = git_head(root)
-			docs_required = pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "1") == "1"
+			docs_required = pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "0") == "1"
 			if clean_commit_advances_goal(root, head_before, head_after,
 					expected_subject, docs_required):
 				write_state(state_file, state="resuming-after-commit", pass_index=pass_index,

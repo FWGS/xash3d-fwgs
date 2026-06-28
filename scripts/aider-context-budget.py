@@ -26,7 +26,7 @@ slice_path = _slice.slice_path
 
 
 BYTES_PER_TOKEN = 3.5
-SYSTEM_OVERHEAD_TOKENS = int(os.environ.get("AIDER_SYSTEM_OVERHEAD_TOKENS", "8192"))
+SYSTEM_OVERHEAD_TOKENS = int(os.environ.get("AIDER_SYSTEM_OVERHEAD_TOKENS", "24576"))
 DEFAULT_MAX_CONTEXT = int(os.environ.get("AIDER_MODEL_MAX_CONTEXT", "65536"))
 
 EDITABLE_TOTAL_LIMITS = [
@@ -42,7 +42,7 @@ READ_TOTAL_LIMITS = [
 	int(os.environ.get("AIDER_READ_BYTES_RETRY_3", "2000")),
 ]
 MAX_EDITABLE_COUNT = [3, 2, 1, 1]
-MAX_SINGLE_EDITABLE = int(os.environ.get("AIDER_MAX_EDITABLE_FILE_BYTES", "32000"))
+MAX_SINGLE_EDITABLE = int(os.environ.get("AIDER_MAX_EDITABLE_FILE_BYTES", "24000"))
 
 # When a source path is too large to --file safely, use read-only slices instead.
 FILE_SLICES: dict[str, str] = {
@@ -135,56 +135,38 @@ def budget_context(root: Path, specs: list[ContextSpec], attempt: int,
 	editable_bytes = 0
 	read_bytes = 0
 
-	large_editables = [spec for spec in editable
-		if file_size(root, spec.path) > MAX_SINGLE_EDITABLE]
-
-	if large_editables:
-		# Large targets must be the only --file entry; everything else becomes slices.
-		primary = large_editables[0]
-		selected_editables = [primary]
-		editable_bytes = file_size(root, primary.path)
-		for spec in editable:
-			if spec is primary:
-				continue
+	for spec in editable:
+		size = file_size(root, spec.path)
+		if size > MAX_SINGLE_EDITABLE:
 			slice_spec = slice_for_path(spec.path)
 			if slice_spec:
 				selected_reads.append(slice_spec)
-		for spec in reads:
-			if file_size(root, spec.path) <= read_limit:
-				selected_reads.append(spec)
-			else:
-				slice_spec = slice_for_path(spec.path)
-				if slice_spec:
-					selected_reads.append(slice_spec)
-	else:
-		for spec in editable:
-			size = file_size(root, spec.path)
-			if len(selected_editables) >= max_editables:
-				slice_spec = slice_for_path(spec.path)
-				if slice_spec:
-					selected_reads.append(slice_spec)
-				continue
-			if editable_bytes + size > editable_limit and selected_editables:
-				slice_spec = slice_for_path(spec.path)
-				if slice_spec:
-					selected_reads.append(slice_spec)
-				continue
-			selected_editables.append(spec)
-			editable_bytes += size
+			continue
+		if len(selected_editables) >= max_editables:
+			slice_spec = slice_for_path(spec.path)
+			if slice_spec:
+				selected_reads.append(slice_spec)
+			continue
+		if editable_bytes + size > editable_limit:
+			slice_spec = slice_for_path(spec.path)
+			if slice_spec:
+				selected_reads.append(slice_spec)
+			continue
+		selected_editables.append(spec)
+		editable_bytes += size
 
-		for spec in reads:
-			size = file_size(root, spec.path)
-			if read_bytes + size > read_limit:
-				slice_spec = slice_for_path(spec.path)
-				if slice_spec:
-					selected_reads.append(slice_spec)
-				continue
-			selected_reads.append(spec)
-			read_bytes += size
+	for spec in reads:
+		size = file_size(root, spec.path)
+		if read_bytes + size > read_limit:
+			slice_spec = slice_for_path(spec.path)
+			if slice_spec:
+				selected_reads.append(slice_spec)
+			continue
+		selected_reads.append(spec)
+		read_bytes += size
 
-	# Drop read context entirely on late retries if a large editable remains.
-	if large_editables and attempt >= 3:
-		selected_reads = []
+	if attempt >= 4:
+		selected_reads = selected_reads[:1]
 
 	# If we still estimate over the model window, keep only the first editable.
 	projected = estimate_tokens(editable_bytes + read_bytes, output_tokens)

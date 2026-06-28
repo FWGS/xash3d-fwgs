@@ -20,7 +20,7 @@ DEFAULT_API_BASE = "http://127.0.0.1:8072/v1"
 DEFAULT_MODEL = "qwen-local"
 DEFAULT_MAX_CONTEXT = 65536
 METADATA_PATH = Path(".ai/aider-model-metadata.json")
-SYSTEM_OVERHEAD_TOKENS = 4096
+SYSTEM_OVERHEAD_TOKENS = 24576
 BYTES_PER_TOKEN = 3.5
 
 
@@ -49,33 +49,33 @@ def fetch_max_context(api_base: str, model: str) -> int:
 def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	"""Scale output/context/history budgets from the live model context window."""
 	attempt = max(1, min(attempt, 4))
-	max_output_cap = max(1024, min(16384, max_context // 4))
+	attempt_scale = {1: 1.0, 2: 0.75, 3: 0.5, 4: 0.35}[attempt]
+	max_output_cap = max(512, min(2048, max_context // 16))
 	output_tiers = [
-		max(512, min(2048, max_output_cap // 3)),
-		max(384, min(1024, max_output_cap // 4)),
-		max(256, min(768, max_output_cap // 6)),
-		max(192, min(512, max_output_cap // 8)),
+		max(384, min(1024, max_output_cap // 2)),
+		max(256, min(768, max_output_cap // 3)),
+		max(192, min(512, max_output_cap // 4)),
+		max(128, min(256, max_output_cap // 6)),
 	]
-	input_budget = max(8192, max_context - output_tiers[0] - SYSTEM_OVERHEAD_TOKENS)
+	output_tiers = [max(128, int(value * attempt_scale)) for value in output_tiers]
+	input_budget = max(4096, max_context - output_tiers[0] - SYSTEM_OVERHEAD_TOKENS)
 	max_bytes = int(input_budget * BYTES_PER_TOKEN)
 	if max_context >= 60000:
 		context_tiers = [
-			max(24000, min(90000, max_bytes // 2)),
-			max(16000, min(60000, max_bytes // 3)),
-			max(10000, min(40000, max_bytes // 4)),
-			max(7000, min(24000, max_bytes // 5)),
+			max(12000, min(24000, max_bytes // 4)),
+			max(8000, min(14000, max_bytes // 6)),
+			max(5000, min(9000, max_bytes // 8)),
+			max(3000, min(5000, max_bytes // 12)),
 		]
 	else:
 		context_tiers = [
-			max(6000, min(24000, max_bytes // 3)),
-			max(4000, min(14000, max_bytes // 5)),
-			max(3000, min(9000, max_bytes // 7)),
-			max(2000, min(6000, max_bytes // 10)),
+			max(4000, min(12000, max_bytes // 5)),
+			max(3000, min(8000, max_bytes // 7)),
+			max(2000, min(5000, max_bytes // 10)),
+			max(1500, min(3000, max_bytes // 14)),
 		]
-	# Tighten further on later goal-loop attempts.
-	attempt_scale = {1: 1.0, 2: 0.85, 3: 0.7, 4: 0.55}[attempt]
-	context_tiers = [max(3000, int(value * attempt_scale)) for value in context_tiers]
-	history = max(384, min(2048, int(max_context // 40 * attempt_scale)))
+	context_tiers = [max(1500, int(value * attempt_scale)) for value in context_tiers]
+	history = max(128, min(512, int(max_context // 160 * attempt_scale)))
 	return {
 		"AIDER_MODEL_MAX_CONTEXT": max_context,
 		"AIDER_MODEL_MAX_OUTPUT": max_output_cap,
