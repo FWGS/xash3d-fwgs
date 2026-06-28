@@ -160,6 +160,12 @@ static void GC_PresentBuffer( void )
 	if( !rmode || !xfb[which_fb] )
 		return;
 
+	/* G65: Do not attempt normal frame presentation after fatal breadcrumb.
+	 * The video hardware is in a torn-down / halted state and continuing
+	 * to present will corrupt the error screen or crash. */
+	if( gc_fatal_breadcrumb_active )
+		return;
+
 	gc_present_count++;
 
 	copy_w = rmode->fbWidth;
