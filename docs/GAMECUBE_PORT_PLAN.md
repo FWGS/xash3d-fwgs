@@ -2101,7 +2101,9 @@ environmental asset availability, not missing source code.
 **Evidence of Blocker:**
 - Multiple automated attempts (aider-pass exit 18, auto-rescue exit 0/10) confirm
   that `Half-Life/valve/maps/*.bsp` are not available for the `--full` audit scope.
-- Logs: `.ai/logs/aider-pass-2026-06-28-043013.log`, `.ai/logs/aider-pass-2026-06-28-043233.log`.
+- Logs: `.ai/logs/aider-pass-2026-06-28-043013.log`, `.ai/logs/aider-pass-2026-06-28-043233.log`,
+  `.ai/logs/aider-pass-2026-06-28-043547.log`, `.ai/logs/aider-pass-2026-06-28-043703.log`,
+  `.ai/logs/aider-pass-2026-06-28-044050.log`.
 
 **Operator instructions:**
 To complete G68, run the following on a machine with legal Half-Life 1 assets:
