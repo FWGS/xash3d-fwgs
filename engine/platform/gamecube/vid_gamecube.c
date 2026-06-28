@@ -231,9 +231,11 @@ static void GC_PresentBuffer( void )
 		}
 	}
 
-
-	GX_Flush();
-	GX_DrawDone();
+	if( gc.buffer && gc.width > 0 && gc.height > 0 )
+	{
+		GX_Flush();
+		GX_DrawDone();
+	}
 
 	/* G36: Emit frame budget markers only for early frames to establish visual evidence.
 	 * Suppress per-frame SYS_Report in steady-state to reduce route-time render cost.
