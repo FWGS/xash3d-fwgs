@@ -31,6 +31,8 @@ struct movie_state_s
 	uint			audio_width;
 	uint			audio_channels;
 	uint			audio_bytes_submitted;
+	uint			audio_chunk_size;
+	uint			audio_chunk_offset;
 	qboolean		audio_reported;
 	uint			fps_num;
 	uint			fps_den;

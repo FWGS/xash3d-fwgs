@@ -16,6 +16,12 @@ static movie_state_t avi[2];
 #define AVI_RL32( p ) ((uint32_t)((p)[0] | ((uint32_t)(p)[1] << 8) | ((uint32_t)(p)[2] << 16) | ((uint32_t)(p)[3] << 24)))
 #define AVI_RL16( p ) ((uint16_t)((p)[0] | ((uint16_t)(p)[1] << 8)))
 
+#if XASH_GAMECUBE
+#define GC_AVI_AUDIO_LEAD_SEC		0.20
+#define GC_AVI_AUDIO_SLICE_BYTES	4096
+#define GC_AVI_MAX_CATCHUP_FRAMES	8
+#endif
+
 static void AVI_RGB24ToBGRA( const byte *src, int src_stride, byte *dst, int width, int height )
 {
 	int x, y;
@@ -405,46 +411,84 @@ qboolean AVI_HaveAudioTrack( const movie_state_t *Avi )
 static void AVI_StreamAudio( movie_state_t *Avi, double elapsed )
 {
 	uint desired_bytes;
+	uint bytes_per_sample;
 
 	if( !AVI_HaveAudioTrack( Avi ) || !snd.initialized || elapsed < 0.0 )
 		return;
 
-	desired_bytes = (uint)( elapsed * (double)Avi->audio_rate * (double)Avi->audio_width * (double)Avi->audio_channels );
+	bytes_per_sample = Avi->audio_width * Avi->audio_channels;
+#if XASH_GAMECUBE
+	desired_bytes = (uint)(( elapsed + GC_AVI_AUDIO_LEAD_SEC ) *
+		(double)Avi->audio_rate * (double)bytes_per_sample );
+#else
+	desired_bytes = (uint)( elapsed * (double)Avi->audio_rate * (double)bytes_per_sample );
+#endif
 	while( Avi->audio_current_chunk < Avi->audio_chunk_count && Avi->audio_bytes_submitted < desired_bytes )
 	{
 		avi_frame_index_t *chunk = &Avi->audio_index[Avi->audio_current_chunk];
-		byte header[8];
-		uint chunk_size;
+		uint slice_size;
 
-		if( chunk->size == 0 || chunk->size > Avi->chunk_capacity )
+		if( Avi->audio_chunk_size == 0 || Avi->audio_chunk_offset >= Avi->audio_chunk_size )
 		{
-			Avi->audio_current_chunk++;
-			continue;
-		}
+			byte header[8];
+			uint chunk_size;
 
-		if( FS_Seek( Avi->file, chunk->offset, SEEK_SET ) == -1 ||
-			FS_Read( Avi->file, header, sizeof( header )) != sizeof( header ))
-			break;
+			Avi->audio_chunk_size = 0;
+			Avi->audio_chunk_offset = 0;
 
-		if( header[2] != 'w' || header[3] != 'b' )
-		{
+			if( chunk->size == 0 || chunk->size > Avi->chunk_capacity )
+			{
+				Avi->audio_current_chunk++;
+				continue;
+			}
+
+			if( FS_Seek( Avi->file, chunk->offset, SEEK_SET ) == -1 ||
+				FS_Read( Avi->file, header, sizeof( header )) != sizeof( header ))
+				break;
+
+			if( header[2] != 'w' || header[3] != 'b' )
+			{
 #if XASH_GAMECUBE
-			Con_Reportf( "Xash3D GameCube: intro AVI unsupported audio chunk %c%c%c%c pos=%ld\n",
-				header[0], header[1], header[2], header[3], (long)chunk->offset );
+				Con_Reportf( "Xash3D GameCube: intro AVI unsupported audio chunk %c%c%c%c pos=%ld\n",
+					header[0], header[1], header[2], header[3], (long)chunk->offset );
 #endif
+				Avi->audio_current_chunk++;
+				continue;
+			}
+
+			chunk_size = AVI_RL32( header + 4 );
+			if( chunk_size == 0 || chunk_size > Avi->chunk_capacity ||
+				FS_Read( Avi->file, Avi->chunk, chunk_size ) != (fs_offset_t)chunk_size )
+				break;
+
+			Avi->audio_chunk_size = chunk_size;
+		}
+
+		slice_size = Avi->audio_chunk_size - Avi->audio_chunk_offset;
+#if XASH_GAMECUBE
+		if( slice_size > GC_AVI_AUDIO_SLICE_BYTES )
+			slice_size = GC_AVI_AUDIO_SLICE_BYTES;
+#endif
+		slice_size -= slice_size % bytes_per_sample;
+		if( slice_size == 0 )
+		{
 			Avi->audio_current_chunk++;
+			Avi->audio_chunk_size = 0;
+			Avi->audio_chunk_offset = 0;
 			continue;
 		}
 
-		chunk_size = AVI_RL32( header + 4 );
-		if( chunk_size == 0 || chunk_size > Avi->chunk_capacity ||
-			FS_Read( Avi->file, Avi->chunk, chunk_size ) != (fs_offset_t)chunk_size )
-			break;
-
-		S_RawEntSamples( S_RAW_SOUND_SOUNDTRACK, chunk_size / ( Avi->audio_width * Avi->audio_channels ),
-			Avi->audio_rate, Avi->audio_width, Avi->audio_channels, Avi->chunk, 255, ATTN_NONE );
-		Avi->audio_bytes_submitted += chunk_size;
-		Avi->audio_current_chunk++;
+		S_RawEntSamples( S_RAW_SOUND_SOUNDTRACK, slice_size / bytes_per_sample,
+			Avi->audio_rate, Avi->audio_width, Avi->audio_channels,
+			Avi->chunk + Avi->audio_chunk_offset, 255, ATTN_NONE );
+		Avi->audio_bytes_submitted += slice_size;
+		Avi->audio_chunk_offset += slice_size;
+		if( Avi->audio_chunk_offset >= Avi->audio_chunk_size )
+		{
+			Avi->audio_current_chunk++;
+			Avi->audio_chunk_size = 0;
+			Avi->audio_chunk_offset = 0;
+		}
 #if XASH_GAMECUBE
 		if( !Avi->audio_reported )
 		{
@@ -557,8 +601,8 @@ qboolean AVI_Think( movie_state_t *Avi )
 		elapsed = Platform_DoubleTime() - Avi->start_time;
 		target_frame = (uint)( elapsed * (double)Avi->fps_num / (double)Avi->fps_den );
 #if XASH_GAMECUBE
-		if( target_frame > Avi->current_frame + 3 )
-			target_frame = Avi->current_frame + 3;
+		if( target_frame > Avi->current_frame + GC_AVI_MAX_CATCHUP_FRAMES )
+			target_frame = Avi->current_frame + GC_AVI_MAX_CATCHUP_FRAMES;
 #endif
 	}
 	if( target_frame >= Avi->frame_count )

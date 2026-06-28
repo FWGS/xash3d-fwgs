@@ -11,9 +11,9 @@ Uses libogc ASND streaming at 48 kHz with a silent null fallback.
 #include <asndlib.h>
 #include <ogc/cache.h>
 
-#define GC_AUDIO_CHUNK_SAMPLES	512
+#define GC_AUDIO_CHUNK_SAMPLES	1024
 #define GC_AUDIO_CHUNK_BYTES	(GC_AUDIO_CHUNK_SAMPLES * 2 * sizeof( int16_t ))
-#define GC_AUDIO_DEFAULT_SAMPLES	2048
+#define GC_AUDIO_DEFAULT_SAMPLES	8192
 #define GC_AUDIO_VOICE		0
 
 static qboolean gc_audio_real;
