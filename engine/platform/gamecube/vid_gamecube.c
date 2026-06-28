@@ -663,10 +663,10 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	 * keeping double-buffering state consistent. */
 	which_fb ^= 1;
 
-	/* Return control to caller (e.g., Sys_Error) for proper termination or recovery.
-	 * The fatal screen has been presented and is visible. The caller decides
-	 * whether to exit, abort, or attempt recovery based on the error context.
-	 * This avoids hard-hanging the emulator when encountering recoverable blockers. */
+	/* Halt execution after displaying the fatal screen to prevent re-entry or undefined
+	 * behavior. SYS_ResetSystem cleanly shuts down libogc and hardware, ensuring the
+	 * fatal message remains visible and the system doesn't crash into a recovery loop. */
+	SYS_ResetSystem( SYS_SHUTDOWN, 0, 0 );
 #endif
 }
 
