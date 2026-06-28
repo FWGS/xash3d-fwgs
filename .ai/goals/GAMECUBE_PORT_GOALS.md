@@ -934,7 +934,7 @@ scripts/gamecube-map-compat-probe.sh
 - Evidence boundary: this closes local source/policy preflight only. Sustained
   Dolphin route logs and real hardware release sign-off remain G38/G66 work.
 
-## G55 [ ] Add release artifact reproducibility checks
+## G55 [x] Add release artifact reproducibility checks
 
 - Generate a machine-readable manifest for `OUT/bin/boot.dol`, `OUT/bin/xash`,
   static archives, staged extras, and any generated ISO/GCM image.
@@ -942,6 +942,14 @@ scripts/gamecube-map-compat-probe.sh
   and selected GameCube quality/profile settings.
 - Fail the release check if generated proprietary game assets or local
   Half-Life content paths are accidentally included in Git or source archives.
+- Verified 2026-06-28: `scripts/gamecube-reproducibility-check.py` writes
+  `report.json`, `artifact-manifest.tsv`, hashes generated artifacts and HLSDK
+  archives, records git/toolchain/profile metadata, and fails on tracked or
+  packaged proprietary/local asset leaks.
+- `scripts/gamecube-rc-check.sh` now runs this as the G55 release artifact
+  reproducibility gate.
+- Evidence boundary: bit-for-bit reproducibility still needs a second clean
+  checkout/toolchain comparison before public release sign-off.
 
 ## G56 [ ] Build a hardware boot preparation checklist
 

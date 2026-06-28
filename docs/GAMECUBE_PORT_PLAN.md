@@ -1252,6 +1252,32 @@ scripts/gamecube-rc-check.sh
 sha256 for every output artifact. Waf builds are cache-aware but deterministic
 for a fixed toolchain commit.
 
+## G55 — Release artifact reproducibility checks (AUTOMATED PREFLIGHT COMPLETE 2026-06-28)
+
+`scripts/gamecube-reproducibility-check.py` generates the G55 release evidence:
+
+- `report.json` with git commit, branch, dirty state, recursive submodule state,
+  devkitPPC/libogc toolchain paths and versions, quality/profile metadata, and
+  check results.
+- `artifact-manifest.tsv` with path, size, and sha256 for `OUT/bin/boot.dol`,
+  `OUT/bin/xash`, GameCube static archives, staged extras, generated ISO/GCM
+  images, and HLSDK GameCube archives under `OUT/hlsdk-gamecube`.
+- Source/release safety checks that fail when generated artifacts, local
+  Half-Life content, or proprietary asset paths are tracked or packed into
+  release archives.
+
+The RC suite runs this verifier after the hardware matrix gate and before G54
+compliance evidence:
+
+```sh
+scripts/gamecube-reproducibility-check.py
+scripts/gamecube-rc-check.sh
+```
+
+Evidence boundary: this closes automated source/build reproducibility preflight
+for the current checkout. Public release sign-off still needs a second clean
+checkout/toolchain comparison and real hardware evidence under G66.
+
 **CI without proprietary assets:** `scripts/ai-verify.sh` compiles the engine
 without `Half-Life/valve`. Content staging audit in the RC gate WARNs (not FAILs)
 when legal assets are absent.

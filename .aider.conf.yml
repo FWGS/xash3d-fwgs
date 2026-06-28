@@ -28,4 +28,6 @@ read:
   - .ai/prompts/GAMECUBE_CONTEXT_INDEX.md
   - .ai/prompts/GAMECUBE_HARDWARE_NOTES.md
   - .ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md
+  - .ai/prompts/GOLDSRC_CONTENT_FORMATS.md
+  - .ai/prompts/GOLDSRC_SDK_NOTES.md
   - .ai/prompts/GAMECUBE_FAILURE_MEMORY.md

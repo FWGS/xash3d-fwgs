@@ -19,6 +19,10 @@ Always prefer:
 - `.ai/goals/GAMECUBE_PORT_GOALS.md` for acceptance criteria.
 - `.ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md` for clean-room homebrew
   release, hardware, save-safety, packaging, and UX requirements.
+- `.ai/prompts/GOLDSRC_CONTENT_FORMATS.md` for native GoldSrc asset/container
+  compatibility, case sensitivity, and GameCube staging boundaries.
+- `.ai/prompts/GOLDSRC_SDK_NOTES.md` for portable HLSDK/game-code boundaries
+  and legal source/build expectations.
 - Per-subsystem notes selected by `scripts/ai-goal-loop.py`.
 
 Do not assume desktop POSIX, OpenGL, dynamic libraries, writable install
