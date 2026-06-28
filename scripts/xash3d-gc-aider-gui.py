@@ -1215,6 +1215,7 @@ class PortWindow(QMainWindow):
 		self._layout_busy = False
 		self._layout_restored_from_settings = False
 		self._last_goals_signature = ""
+		self._last_goal_state_signature = ""
 		self._pipeline_states: dict[str, str] = {}
 		self._last_model_api_summary = ""
 		self.overnight_mode = False
@@ -1711,6 +1712,10 @@ class PortWindow(QMainWindow):
 		self.timer.setInterval(5000)
 		self.timer.timeout.connect(self.refresh_dashboard)
 		self.timer.start()
+		self.goal_refresh_timer = QTimer(self)
+		self.goal_refresh_timer.setInterval(2000)
+		self.goal_refresh_timer.timeout.connect(self.prime_goal_ledger)
+		self.goal_refresh_timer.start()
 		self.refresh_dashboard()
 
 	def configure_menus(self) -> None:
@@ -1955,6 +1960,7 @@ class PortWindow(QMainWindow):
 				return False
 			self._layout_restored_from_settings = True
 			restored = True
+		self.ensure_default_visible_docks()
 		return restored
 
 	def load_saved_settings(self) -> None:
@@ -2023,6 +2029,7 @@ class PortWindow(QMainWindow):
 			QTimer.singleShot(100, self.apply_default_dock_sizes)
 		elif not self._layout_restored_from_settings:
 			QTimer.singleShot(100, self.apply_default_dock_sizes)
+		QTimer.singleShot(150, self.ensure_default_visible_docks)
 
 	def show_about_panel(self) -> None:
 		dialog = QDialog(self)
@@ -2126,8 +2133,15 @@ class PortWindow(QMainWindow):
 			self.splitDockWidget(self.docks["Workspace"], self.docks["Goals"], Qt.Orientation.Vertical)
 			self.splitDockWidget(self.docks["Telemetry"], self.docks["Log"], Qt.Orientation.Vertical)
 			self.splitDockWidget(self.docks["Log"], self.docks["Dolphin Viewport"], Qt.Orientation.Horizontal)
+			self.ensure_default_visible_docks()
 		finally:
 			self._layout_busy = False
+
+	def ensure_default_visible_docks(self) -> None:
+		for title in ("Log", "Goals", "Automation", "Model Server"):
+			dock = self.docks.get(title)
+			if dock is not None:
+				dock.show()
 
 	def apply_default_dock_sizes(self) -> None:
 		if not self.isVisible() or self._layout_busy:
@@ -2707,6 +2721,30 @@ class PortWindow(QMainWindow):
 	def read_goals(self) -> list[tuple[str, str, str, str]]:
 		return read_goals_for_repo(self.repo())
 
+	def active_goal_from_runner_state(
+		self,
+		goals: list[tuple[str, str, str, str]],
+	) -> tuple[str, str, str, str] | None:
+		state_path = self.repo() / ".ai/logs/goal-loop-state.json"
+		if not state_path.is_file():
+			return None
+		try:
+			data = json.loads(state_path.read_text(encoding="utf-8"))
+		except (OSError, json.JSONDecodeError):
+			return None
+		if not isinstance(data, Mapping):
+			return None
+		if data.get("state") not in {
+			"running", "recovering", "resuming-after-commit",
+			"recovering-after-unrelated-commit", "review-required",
+		}:
+			return None
+		goal_data = data.get("goal")
+		goal_id = goal_data.get("goal_id") if isinstance(goal_data, Mapping) else None
+		if not isinstance(goal_id, str):
+			return None
+		return next((goal for goal in goals if goal[0] == goal_id), None)
+
 	def prime_goal_ledger(self) -> None:
 		try:
 			goals = self.read_goals()
@@ -2718,9 +2756,21 @@ class PortWindow(QMainWindow):
 		snapshot.complete_goals = sum(state.lower() == "x" for _, state, _, _ in goals)
 		snapshot.blocked_goals = sum(goal_is_blocked(body) for _, state, _, body in goals if state != "MANUAL")
 		snapshot.automatic_goals = sum(state != "MANUAL" for _, state, _, _ in goals)
-		snapshot.active_goal = next((goal for goal in goals
+		snapshot.active_goal = self.active_goal_from_runner_state(goals)
+		if snapshot.active_goal is None:
+			snapshot.active_goal = next((goal for goal in goals
 			if goal[1] in {" ", "~"} and not goal_is_blocked(goal[3])), None)
 		self.apply_goals_snapshot(snapshot)
+
+	def scroll_goals_to_active(self, active: tuple[str, str, str, str] | None) -> None:
+		if not active:
+			return
+		for row in range(self.goal_table.rowCount()):
+			item = self.goal_table.item(row, 0)
+			if item and item.text() == active[0]:
+				self.goal_table.selectRow(row)
+				self.goal_table.scrollToItem(item, QTableWidget.ScrollHint.PositionAtCenter)
+				return
 
 	def apply_goals_snapshot(self, snapshot: DashboardSnapshot) -> None:
 		goals = snapshot.goals or []
@@ -2736,6 +2786,7 @@ class PortWindow(QMainWindow):
 			signature_parts.append(f"active:{active[0]}")
 		signature = "|".join(signature_parts)
 		if signature == self._last_goals_signature:
+			self.scroll_goals_to_active(active)
 			return
 		self._last_goals_signature = signature
 		self.goal_table.setRowCount(len(goals))
@@ -2774,6 +2825,7 @@ class PortWindow(QMainWindow):
 		else:
 			self.goal_progress.setValue(0)
 			self.goal_progress.setFormat("0 / 0 goals")
+		self.scroll_goals_to_active(active)
 
 	def refresh_context(self) -> None:
 		snapshot = build_dashboard_snapshot(self.repo(), *self.model_host_port())
