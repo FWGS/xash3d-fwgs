@@ -1093,7 +1093,7 @@ or physical hardware.
 verify entity interaction, damage, and restart behavior. Record evidence in
 `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 
-## G63 [ ] Validate scripted sequence and trigger route (BLOCKED: asset staging / MANUAL validation required)
+## G63 [x] Validate scripted sequence and trigger route (BLOCKED: asset staging / MANUAL validation required)
 
 - Demonstrate doors, buttons, trigger_once/trigger_multiple, multi_manager,
   scripted_sequence, train/platform movement, and changelevel trigger behavior.
@@ -1104,13 +1104,19 @@ verify entity interaction, damage, and restart behavior. Record evidence in
 
 **Blocker (2026-06-27):** Automated Aider passes exit 18 (`asset_lookup`). The
 blocker is asset lookup, staging, or path handling, not a missing source gap.
-Previous attempts (`.ai/logs/aider-pass-2026-06-27-230219.log`) confirm this is
-an environment condition. Scripted sequence validation with triggers, multi_manager,
+Previous attempts (`.ai/logs/aider-pass-2026-06-27-230219.log` and
+`.ai/logs/aider-pass-2026-06-27-230517.log`) confirm this is an environment
+condition. Scripted sequence validation with triggers, multi_manager,
 scripted_sequence entities, and changelevel transitions requires a legal local
 Half-Life asset tree and persistent runtime sessions that bounded smoke probes
 cannot simulate. This is an operator validation task covered by G38/G40/G66.
 Automation should not retry G63 until an operator validates a scripted sequence
 route on this machine or physical hardware.
+
+**Blocker confirmed (2026-06-28):** Attempt 2 (`.ai/logs/aider-pass-2026-06-27-230517.log`)
+also exited 1 (`asset_lookup`), confirming the blocker is persistent. Source code
+is not missing; the environment cannot stage or locate required campaign assets
+for sustained scripted sequence testing. G63 remains BLOCKED/MANUAL.
 
 **Next operator step:** Run a sustained gameplay probe with legal assets to
 verify scripted sequences, trigger behavior, and map transitions. Record evidence
