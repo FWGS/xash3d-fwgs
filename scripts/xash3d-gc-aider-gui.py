@@ -1530,9 +1530,10 @@ class PortWindow(QMainWindow):
 		self.add_panel("Dolphin Viewport", viewport_panel, Qt.DockWidgetArea.BottomDockWidgetArea)
 
 		automation_panel = QWidget()
+		automation_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
 		automation_layout = QVBoxLayout(automation_panel)
-		automation_layout.setContentsMargins(0, 0, 0, 0)
-		automation_layout.setSpacing(6)
+		automation_layout.setContentsMargins(6, 4, 6, 4)
+		automation_layout.setSpacing(4)
 		controls = QHBoxLayout()
 		self.passes_spin = QSpinBox()
 		self.passes_spin.setRange(0, 100)
@@ -1591,6 +1592,7 @@ class PortWindow(QMainWindow):
 		self.overnight_preflight_btn.clicked.connect(self.show_overnight_preflight)
 		overnight_row.addWidget(self.overnight_preflight_btn)
 		automation_layout.addLayout(overnight_row)
+		automation_panel.setMaximumHeight(88)
 		self.add_panel("Automation", automation_panel, Qt.DockWidgetArea.TopDockWidgetArea)
 
 		pipeline_panel = QWidget()
@@ -2090,10 +2092,15 @@ class PortWindow(QMainWindow):
 			"Pipeline": (280, 64),
 			"Tools": (280, 64),
 		}
+		max_heights = {
+			"Automation": 132,
+		}
 		if title in min_sizes:
 			width, height = min_sizes[title]
 			dock.setMinimumWidth(width)
 			dock.setMinimumHeight(height)
+		if title in max_heights:
+			dock.setMaximumHeight(max_heights[title])
 		dock.topLevelChanged.connect(lambda floating, item=dock: self.dock_floating_changed(item, floating))
 		self.addDockWidget(area, dock)
 		self.docks[title] = dock
@@ -2149,6 +2156,12 @@ class PortWindow(QMainWindow):
 			[max(120, int(height * 0.18)), max(220, int(height * 0.32))],
 			Qt.Orientation.Vertical,
 		)
+		if TOP_DOCK_TITLES[0] in self.docks:
+			self.resizeDocks(
+				[self.docks[TOP_DOCK_TITLES[0]]],
+				[112],
+				Qt.Orientation.Vertical,
+			)
 
 	def showEvent(self, event) -> None:
 		super().showEvent(event)
