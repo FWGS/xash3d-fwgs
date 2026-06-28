@@ -69,6 +69,9 @@ static void GC_InitVideoHardware( void )
 	if( gc.initialized )
 		return;
 
+	/* G65: Reset fatal breadcrumb state on re-init to allow recovery from
+	 * transient crashes or test triggers (e.g., gc_fatal_test removal). */
+	gc_fatal_breadcrumb_active = false;
 	gc_last_present_time = 0.0;
 	SYS_Report( "Xash3D GameCube: mem stage=video_init total=%.2f\n", 0.0 );
 	VIDEO_Init();
