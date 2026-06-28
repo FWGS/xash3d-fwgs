@@ -119,20 +119,16 @@ static void GC_ShutdownVideoHardware( void )
 	if( !gc.initialized )
 		return;
 
-	/* G65: If a fatal breadcrumb was drawn, preserve it on screen.
-	 * Do not clear the screen or abort, as the process is terminating
-	 * and the user needs to see the error for diagnosis.
-	 * Clear initialization flag to allow re-init recovery. */
-	if( gc_fatal_breadcrumb_active )
-	{
-		gc.initialized = false;
-		return;
-	}
+	/* G65: Allow re-init recovery even after fatal breadcrumb.
+	 * Perform minimal cleanup to let subsequent GC_InitVideoHardware() calls
+	 * re-establish video state. The breadcrumb visual remains until the next
+	 * present overwrites it, but the engine can proceed. */
+	gc_fatal_breadcrumb_active = false;
+	gc.initialized = false;
 
 	GX_AbortFrame();
 	VIDEO_SetBlack( true );
 	VIDEO_Flush();
-	gc.initialized = false;
 #endif
 }
 
