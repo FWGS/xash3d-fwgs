@@ -687,11 +687,49 @@ def latest_dolphin_screenshot_for_repo(repo: Path) -> tuple[str, str]:
 		except (OSError, json.JSONDecodeError, TypeError):
 			pass
 
-	candidates = sorted((repo / ".ai/logs").glob("dolphin-vision-*/screenshots/*.png"),
+	candidates = sorted(list((repo / ".ai/logs").glob("dolphin-vision-*/screenshots/*.png")) +
+		list((repo / ".ai/logs").glob("dolphin-vision-*/dolphin-user/Dump/Frames/*.png")),
 		key=lambda path: path.stat().st_mtime if path.exists() else 0)
 	if candidates:
 		return str(candidates[-1]), "latest screenshot from harness logs"
 	return "", "No Dolphin screenshot captured yet"
+
+
+def latest_dolphin_state_screenshots_for_repo(repo: Path) -> dict[str, str]:
+	memory = repo / ".ai/state/dolphin-harness-memory.json"
+	if not memory.is_file():
+		return {}
+	try:
+		data = json.loads(memory.read_text(encoding="utf-8"))
+		runs = data.get("runs") if isinstance(data, dict) else []
+		run = runs[0] if isinstance(runs, list) and runs else {}
+		states = run.get("state_screenshots") if isinstance(run, dict) else {}
+		if not isinstance(states, dict):
+			return {}
+		return {
+			str(name): str(path)
+			for name, path in states.items()
+			if path and (repo / str(path)).is_file()
+		}
+	except (OSError, json.JSONDecodeError, TypeError):
+		return {}
+
+
+def latest_dolphin_markers_for_repo(repo: Path) -> dict[str, bool]:
+	memory = repo / ".ai/state/dolphin-harness-memory.json"
+	if not memory.is_file():
+		return {}
+	try:
+		data = json.loads(memory.read_text(encoding="utf-8"))
+		runs = data.get("runs") if isinstance(data, dict) else []
+		run = runs[0] if isinstance(runs, list) and runs else {}
+		classification = run.get("classification") if isinstance(run, dict) else {}
+		markers = classification.get("markers") if isinstance(classification, dict) else {}
+		if not isinstance(markers, dict):
+			return {}
+		return {str(key): bool(value) for key, value in markers.items()}
+	except (OSError, json.JSONDecodeError, TypeError):
+		return {}
 
 
 def agent_memory_for_repo(repo: Path) -> str:
@@ -1195,6 +1233,7 @@ class PortWindow(QMainWindow):
 		self.resize(1320, 820)
 		self.process: QProcess | None = None
 		self.model_process: QProcess | None = None
+		self.dolphin_process: QProcess | None = None
 		self.operation = ""
 		self.model_operation = ""
 		self.expected_passes = 1
@@ -1515,6 +1554,30 @@ class PortWindow(QMainWindow):
 		viewport_layout.setSpacing(6)
 		self.viewport_status = QLabel("No Dolphin screenshot captured yet")
 		self.viewport_status.setStyleSheet(f"color: {GC_CYAN}; font-weight: bold;")
+		viewport_controls = QHBoxLayout()
+		self.dolphin_launch_btn = QPushButton("Launch Dolphin")
+		self.dolphin_launch_btn.setObjectName("ToolButton")
+		self.dolphin_launch_btn.clicked.connect(self.boot_dolphin)
+		self.dolphin_stop_btn = QPushButton("Stop Dolphin")
+		self.dolphin_stop_btn.setObjectName("DangerButton")
+		self.dolphin_stop_btn.setEnabled(False)
+		self.dolphin_stop_btn.clicked.connect(self.stop_dolphin)
+		self.dolphin_validate_btn = QPushButton("Validate Intro/Menu/Gameplay")
+		self.dolphin_validate_btn.setObjectName("PrimaryButton")
+		self.dolphin_validate_btn.clicked.connect(self.validate_dolphin_states)
+		self.viewport_refresh_btn = QPushButton("Refresh Screenshot")
+		self.viewport_refresh_btn.setObjectName("ToolButton")
+		self.viewport_refresh_btn.clicked.connect(self.refresh_dolphin_viewport)
+		viewport_controls.addWidget(self.dolphin_launch_btn)
+		viewport_controls.addWidget(self.dolphin_stop_btn)
+		viewport_controls.addWidget(self.dolphin_validate_btn)
+		viewport_controls.addWidget(self.viewport_refresh_btn)
+		viewport_controls.addStretch()
+		self.dolphin_process_label = QLabel("Dolphin subprocess: stopped")
+		self.dolphin_process_label.setStyleSheet(f"color: {GC_MUTED};")
+		self.dolphin_state_label = QLabel("States: intro AVI missing | main menu missing | gameplay missing")
+		self.dolphin_state_label.setWordWrap(True)
+		self.dolphin_state_label.setStyleSheet(f"color: {GC_MUTED};")
 		self.viewport_image = QLabel("Run Dolphin Screenshot Vision Test")
 		self.viewport_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
 		self.viewport_image.setMinimumSize(320, 240)
@@ -1524,6 +1587,9 @@ class PortWindow(QMainWindow):
 			"border-radius: 8px; padding: 10px;"
 		)
 		viewport_layout.addWidget(self.viewport_status)
+		viewport_layout.addLayout(viewport_controls)
+		viewport_layout.addWidget(self.dolphin_process_label)
+		viewport_layout.addWidget(self.dolphin_state_label)
 		viewport_layout.addWidget(self.viewport_image, 1)
 		self.viewport_pixmap: QPixmap | None = None
 		self.viewport_path = ""
@@ -2858,6 +2924,26 @@ class PortWindow(QMainWindow):
 	def refresh_dolphin_viewport(self) -> None:
 		path, status = self.latest_dolphin_screenshot()
 		self.apply_dolphin_viewport_snapshot(path, status)
+		self.update_dolphin_state_summary()
+
+	def update_dolphin_state_summary(self) -> None:
+		states = latest_dolphin_state_screenshots_for_repo(self.repo())
+		markers = latest_dolphin_markers_for_repo(self.repo())
+		labels = (
+			("intro-avi", "intro AVI"),
+			("main-menu", "main menu"),
+			("gameplay", "gameplay"),
+		)
+		parts = [
+			f"{display} captured" if key in states else f"{display} missing"
+			for key, display in labels
+		]
+		loaded = "map loaded" if markers.get("map_loaded") else "map not loaded"
+		input_state = "input polling" if markers.get("input_polling") else "input unknown"
+		engine = "engine ready" if markers.get("engine_ready") else "engine pending"
+		self.dolphin_state_label.setText(
+			f"Loaded: {loaded} | {engine} | {input_state}\nStates: " + " | ".join(parts)
+		)
 
 	def apply_dolphin_viewport_snapshot(self, path: Path | None, status: str) -> None:
 		if path is None:
@@ -3298,10 +3384,11 @@ class PortWindow(QMainWindow):
 			self.set_pipeline_state("REVIEW", "Running")
 		if "review: OK" in text:
 			self.set_pipeline_state("REVIEW", "Success")
-		if "SCREENSHOT:" in text or "== vision analysis ==" in text:
+		if "SCREENSHOT:" in text or "STATE_SCREENSHOT:" in text or "== vision analysis ==" in text:
 			self.set_pipeline_state("VISION", "Running")
 		if "Logs: .ai/logs/dolphin-vision-" in text:
 			self.set_pipeline_state("VISION", "Success")
+			QTimer.singleShot(300, self.refresh_dolphin_viewport)
 		if "MAP_READY:" in text:
 			self.set_pipeline_state("DOLPHIN", "Success")
 		if "G36_STATUS:" in text or "FRAME_BUDGET_STATS:" in text:
@@ -3513,8 +3600,10 @@ class PortWindow(QMainWindow):
 	def shutdown_processes(self) -> None:
 		self.stop_qprocess(self.process)
 		self.stop_qprocess(self.model_process)
+		self.stop_qprocess(self.dolphin_process)
 		self.process = None
 		self.model_process = None
+		self.dolphin_process = None
 
 	def shutdown_dashboard_threads(self) -> None:
 		self.dashboard_refresh_pending = False
@@ -3539,9 +3628,24 @@ class PortWindow(QMainWindow):
 			"scripts/dolphin-vision-test.py",
 			"--repo", str(self.repo()),
 			"--api-base", self.model_api_edit.text().strip(),
+			"--state-captures", "intro-avi:8,main-menu:18,gameplay:35",
 		], "Dolphin vision test")
 
+	def validate_dolphin_states(self) -> None:
+		self.start([
+			"scripts/dolphin-vision-test.py",
+			"--repo", str(self.repo()),
+			"--api-base", self.model_api_edit.text().strip(),
+			"--runtime", "55",
+			"--state-captures", "intro-avi:8,main-menu:20,gameplay:38",
+		], "Dolphin state validation")
+
 	def launch_dolphin(self) -> None:
+		if self.dolphin_process is not None:
+			self.append("\nDolphin is already running under GUI supervision.\n")
+			return
+		load_dotenv(self.repo() / ".env")
+		load_gamecube_env(self.repo())
 		iso = self.repo() / "OUT/xash3d-gc.iso"
 		dolphin_executable = os.environ.get("DOLPHIN_EXECUTABLE", "")
 		dolphin_flatpak_id = os.environ.get("DOLPHIN_FLATPAK_ID", "org.DolphinEmu.dolphin-emu")
@@ -3558,9 +3662,64 @@ class PortWindow(QMainWindow):
 		else:
 			QMessageBox.warning(self, "Dolphin missing", "No Dolphin executable or Flatpak was found.")
 			return
-		subprocess.Popen(command, cwd=self.repo())
+		process = QProcess(self)
+		process.setWorkingDirectory(str(self.repo()))
+		process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+		process.setProcessEnvironment(QProcessEnvironment.systemEnvironment())
+		process.started.connect(self.dolphin_started)
+		process.readyReadStandardOutput.connect(self.read_dolphin_output)
+		process.finished.connect(self.dolphin_finished)
+		process.errorOccurred.connect(self.dolphin_error)
+		self.dolphin_process = process
+		self.dolphin_launch_btn.setEnabled(False)
+		self.dolphin_stop_btn.setEnabled(True)
+		self.dolphin_process_label.setText("Dolphin subprocess: starting")
+		self.set_pipeline_state("DOLPHIN", "Running")
+		self.append(f"\nLaunching Dolphin subprocess: {shlex.join(command)}\n")
+		process.start(command[0], command[1:])
+
+	def dolphin_started(self) -> None:
+		self.dolphin_process_label.setText("Dolphin subprocess: running")
 		self.set_pipeline_state("DOLPHIN", "Success")
-		self.append(f"\nLaunched Dolphin with {iso}\n")
+
+	def read_dolphin_output(self) -> None:
+		if self.dolphin_process is None:
+			return
+		text = bytes(self.dolphin_process.readAllStandardOutput()).decode(errors="replace")
+		if text:
+			self.append(text)
+
+	def dolphin_finished(self, exit_code: int, _status: QProcess.ExitStatus) -> None:
+		self.append(f"\nDolphin subprocess exited with code {exit_code}.\n")
+		self.dolphin_process = None
+		self.dolphin_launch_btn.setEnabled(True)
+		self.dolphin_stop_btn.setEnabled(False)
+		self.dolphin_process_label.setText(f"Dolphin subprocess: exited ({exit_code})")
+		self.set_pipeline_state("DOLPHIN", "Success" if exit_code == 0 else "Failed")
+
+	def dolphin_error(self, error: QProcess.ProcessError) -> None:
+		self.append(f"\nDolphin subprocess error: {error.name}\n")
+		if self.dolphin_process is not None and self.dolphin_process.state() == QProcess.ProcessState.NotRunning:
+			self.dolphin_process = None
+		self.dolphin_launch_btn.setEnabled(True)
+		self.dolphin_stop_btn.setEnabled(False)
+		self.dolphin_process_label.setText(f"Dolphin subprocess: error ({error.name})")
+		self.set_pipeline_state("DOLPHIN", "Failed")
+
+	def stop_dolphin(self) -> None:
+		if self.dolphin_process is None:
+			return
+		self.append("\nStopping Dolphin subprocess.\n")
+		self.dolphin_process_label.setText("Dolphin subprocess: stopping")
+		self.dolphin_process.terminate()
+		QTimer.singleShot(2500, self.kill_dolphin_if_running)
+
+	def kill_dolphin_if_running(self) -> None:
+		if self.dolphin_process is None:
+			return
+		if self.dolphin_process.state() != QProcess.ProcessState.NotRunning:
+			self.append("\nDolphin did not exit after terminate; killing subprocess.\n")
+			self.dolphin_process.kill()
 
 	def refresh_artifacts(self) -> None:
 		root = self.repo()

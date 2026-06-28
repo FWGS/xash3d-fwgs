@@ -1007,6 +1007,9 @@ void CL_InitEdicts( int maxclients )
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ) && maxclients <= 1 )
 		cls.num_client_entities = 64;
+	Con_Reportf( "Xash3D GameCube: client edicts alloc max=%d bytes=%u packet_entities=%d\n",
+		clgame.maxEntities, (uint)( sizeof( cl_entity_t ) * clgame.maxEntities ),
+		cls.num_client_entities );
 #endif
 	cls.packet_entities = Mem_Realloc( clgame.mempool, cls.packet_entities, sizeof( entity_state_t ) * cls.num_client_entities );
 	clgame.entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * clgame.maxEntities );

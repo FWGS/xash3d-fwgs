@@ -26,10 +26,14 @@ def run(command: list[str], root: Path, *, env: dict[str, str] | None = None) ->
 		capture_output=True, env=env or os.environ.copy())
 
 
-def write_config(user_dir: Path) -> None:
+def write_config(user_dir: Path, *, frame_dump_fallback: bool = False) -> None:
 	config = user_dir / "Config"
 	config.mkdir(parents=True, exist_ok=True)
-	(config / "Dolphin.ini").write_text("""[Core]
+	movie_settings = """[Movie]
+DumpFrames = True
+DumpFramesSilent = True
+""" if frame_dump_fallback else ""
+	(config / "Dolphin.ini").write_text(f"""[Core]
 CPUCore = 0
 CPUThread = False
 DSPHLE = True
@@ -41,6 +45,10 @@ PermissionAsked = True
 ConfirmStop = False
 [Display]
 RenderToMain = True
+{movie_settings}""", encoding="utf-8")
+	if frame_dump_fallback:
+		(config / "GFX.ini").write_text("""[Settings]
+DumpFramesAsImages = True
 """, encoding="utf-8")
 	(config / "Logger.ini").write_text("""[Logs]
 BOOT = True
@@ -106,7 +114,16 @@ def screenshot_command(output: Path) -> list[str] | None:
 	return None
 
 
-def capture_screenshot(output: Path, root: Path) -> bool:
+def latest_frame_dump(user_dir: Path) -> Path | None:
+	frame_root = user_dir / "Dump/Frames"
+	if not frame_root.is_dir():
+		return None
+	candidates = sorted(frame_root.rglob("*.png"),
+		key=lambda path: path.stat().st_mtime if path.exists() else 0)
+	return candidates[-1] if candidates else None
+
+
+def capture_screenshot(output: Path, root: Path, *, user_dir: Path | None = None) -> bool:
 	command = screenshot_command(output)
 	if command:
 		result = run(command, root)
@@ -120,16 +137,57 @@ def capture_screenshot(output: Path, root: Path) -> bool:
 	try:
 		from PyQt6.QtGui import QGuiApplication
 	except ImportError:
+		if user_dir:
+			frame = latest_frame_dump(user_dir)
+			if frame:
+				shutil.copy2(frame, output)
+				return output.is_file() and output.stat().st_size > 0
 		return False
 
 	app = QGuiApplication.instance() or QGuiApplication(["dolphin-vision-capture"])
 	screen = QGuiApplication.primaryScreen()
 	if screen is None:
+		if user_dir:
+			frame = latest_frame_dump(user_dir)
+			if frame:
+				shutil.copy2(frame, output)
+				return output.is_file() and output.stat().st_size > 0
 		return False
 	pixmap = screen.grabWindow(0)
 	if pixmap.isNull():
+		if user_dir:
+			frame = latest_frame_dump(user_dir)
+			if frame:
+				shutil.copy2(frame, output)
+				return output.is_file() and output.stat().st_size > 0
 		return False
-	return pixmap.save(str(output), "PNG") and output.is_file() and output.stat().st_size > 0
+	if pixmap.save(str(output), "PNG") and output.is_file() and output.stat().st_size > 0:
+		return True
+	if user_dir:
+		frame = latest_frame_dump(user_dir)
+		if frame:
+			shutil.copy2(frame, output)
+			return output.is_file() and output.stat().st_size > 0
+	return False
+
+
+def parse_state_captures(raw: str) -> list[tuple[str, int]]:
+	states: list[tuple[str, int]] = []
+	for item in raw.split(","):
+		item = item.strip()
+		if not item:
+			continue
+		name, sep, seconds = item.partition(":")
+		if not sep:
+			continue
+		try:
+			capture_at = int(seconds)
+		except ValueError:
+			continue
+		safe_name = re.sub(r"[^A-Za-z0-9_-]+", "-", name.strip().lower()).strip("-")
+		if safe_name:
+			states.append((safe_name, max(0, capture_at)))
+	return sorted(states, key=lambda pair: pair[1])
 
 
 def api_url(api_base: str) -> str:
@@ -139,7 +197,7 @@ def api_url(api_base: str) -> str:
 	return base + "/v1/chat/completions"
 
 
-def read_tail(path: Path, limit: int = 12000) -> str:
+def read_tail(path: Path, limit: int = 64000) -> str:
 	if not path.is_file():
 		return ""
 	data = path.read_text(encoding="utf-8", errors="replace")
@@ -185,6 +243,8 @@ def classify_logs(logs: str, smoke_map: str) -> dict[str, object]:
 		"engine_ready": marker_bool(logs, r"Xash3D GameCube: engine subsystems ready"),
 		"map_loaded": marker_bool(logs, rf"Xash3D GameCube: map loaded {re.escape(smoke_map)}"),
 		"input_polling": marker_bool(logs, r"Xash3D GameCube: input polling active"),
+		"resource_verification": marker_bool(logs,
+			r"Verifying and downloading resources", r"ucmd->sendres\(\)"),
 		"diagnostic_marker": marker_bool(logs, r"DIAGNOSTIC MARKER VISIBLE"),
 		"sampled_nonblack": marker_bool(logs, r"sampled_nonblack=1"),
 		"audio_voice_started": marker_bool(logs, r"audio voice started"),
@@ -197,6 +257,10 @@ def classify_logs(logs: str, smoke_map: str) -> dict[str, object]:
 		status = "guest_failure" if markers["bootstrap"] else "host_or_boot_failure"
 	elif markers["map_loaded"] and markers["input_polling"]:
 		status = "map_ready"
+	elif markers["map_loaded"] and markers["resource_verification"]:
+		status = "map_loaded_waiting_for_client_resources"
+	elif markers["map_loaded"]:
+		status = "map_loaded"
 	elif markers["engine_ready"]:
 		status = "engine_ready"
 	elif markers["bootstrap"]:
@@ -230,6 +294,10 @@ def next_action(classification: dict[str, object], screenshot_available: bool,
 	errors = classification.get("errors", [])
 	if errors:
 		return "Fix the first guest error in OSReport before visual/audio tuning."
+	if markers.get("map_loaded") and markers.get("resource_verification") and not markers.get("sampled_nonblack"):
+		return "Advance client resource verification/prespawn to active rendering and nonblack frame output."
+	if markers.get("map_loaded") and markers.get("input_polling"):
+		return "Map and input are alive; focus on prespawn/resource completion and renderer nonblack output."
 	if not markers.get("bootstrap"):
 		return "Debug Dolphin launch, disc boot, apploader, or executable selection."
 	if not markers.get("engine_ready"):
@@ -381,6 +449,9 @@ def main() -> int:
 		default=int(os.environ.get("DOLPHIN_VISION_FIRST_SCREENSHOT", "12")))
 	parser.add_argument("--screenshot-interval", type=int,
 		default=int(os.environ.get("DOLPHIN_VISION_SCREENSHOT_INTERVAL", "10")))
+	parser.add_argument("--state-captures", default=os.environ.get(
+		"DOLPHIN_STATE_CAPTURES", "intro-avi:8,main-menu:18,gameplay:35"),
+		help="comma-separated label:seconds screenshots to capture for GUI validation")
 	parser.add_argument("--smoke-map", default=os.environ.get("DOLPHIN_SMOKE_MAP", "c0a0e"))
 	parser.add_argument("--api-base", default=os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1"))
 	parser.add_argument("--api-key", default=os.environ.get("OPENAI_API_KEY", ""))
@@ -393,6 +464,8 @@ def main() -> int:
 	parser.add_argument("--skip-vision", action="store_true")
 	parser.add_argument("--skip-text-analysis", action="store_true",
 		help="do not ask the model for log-only analysis when no screenshot is available")
+	parser.add_argument("--no-frame-dump-fallback", action="store_true",
+		help="do not enable Dolphin PNG frame dumping when desktop screenshot tools are unavailable")
 	parser.add_argument("--no-memory", action="store_true",
 		help="do not update .ai/state/dolphin-harness-memory.json")
 	args = parser.parse_args()
@@ -404,7 +477,8 @@ def main() -> int:
 	screens = log_dir / "screenshots"
 	log_dir.mkdir(parents=True, exist_ok=True)
 	screens.mkdir(parents=True, exist_ok=True)
-	write_config(user_dir)
+	frame_dump_fallback = not args.no_frame_dump_fallback and screenshot_command(screens / "probe.png") is None
+	write_config(user_dir, frame_dump_fallback=frame_dump_fallback)
 
 	iso = root / "OUT/xash3d-gc.iso"
 	build = run(["scripts/build-gamecube-disc.py", "--output", str(iso),
@@ -429,13 +503,26 @@ def main() -> int:
 	proc = subprocess.Popen(command, cwd=root, text=True, stdout=stdout, stderr=stderr,
 		start_new_session=True)
 	latest_screen: Path | None = None
+	state_screenshots: dict[str, str] = {}
+	pending_states = parse_state_captures(args.state_captures)
+	started_at = time.monotonic()
 	next_capture = time.monotonic() + args.first_screenshot
 	deadline = time.monotonic() + args.runtime
 	try:
 		while time.monotonic() < deadline and proc.poll() is None:
+			elapsed = int(time.monotonic() - started_at)
+			while pending_states and elapsed >= pending_states[0][1]:
+				state_name, _capture_at = pending_states.pop(0)
+				output = screens / f"state-{state_name}.png"
+				if capture_screenshot(output, root, user_dir=user_dir):
+					latest_screen = output
+					state_screenshots[state_name] = str(output.relative_to(root))
+					print(f"STATE_SCREENSHOT: {state_name} {output.relative_to(root)}")
+				else:
+					print(f"STATE_SCREENSHOT_FAILURE: {state_name}")
 			if time.monotonic() >= next_capture:
 				output = screens / f"screen-{len(list(screens.glob('screen-*.png'))) + 1:02d}.png"
-				if capture_screenshot(output, root):
+				if capture_screenshot(output, root, user_dir=user_dir):
 					latest_screen = output
 					print(f"SCREENSHOT: {output.relative_to(root)}")
 				else:
@@ -450,6 +537,14 @@ def main() -> int:
 		terminate(proc, flatpak=flatpak)
 		stdout.close()
 		stderr.close()
+	if latest_screen is None:
+		frame = latest_frame_dump(user_dir)
+		if frame:
+			output = screens / "screen-framedump-latest.png"
+			shutil.copy2(frame, output)
+			if output.is_file() and output.stat().st_size > 0:
+				latest_screen = output
+				print(f"SCREENSHOT: {output.relative_to(root)}")
 
 	logs = "\n".join((
 		read_tail(log_dir / "dolphin.stdout.log"),
@@ -489,6 +584,8 @@ def main() -> int:
 		"smoke_map": args.smoke_map,
 		"log_dir": str(log_dir.relative_to(root)),
 		"latest_screenshot": str(latest_screen.relative_to(root)) if latest_screen else "",
+		"state_screenshots": state_screenshots,
+		"frame_dump_fallback": frame_dump_fallback,
 		"analysis_path": analysis_path,
 		"analysis": analysis,
 		"classification": classification,

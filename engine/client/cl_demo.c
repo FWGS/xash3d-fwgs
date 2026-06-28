@@ -153,6 +153,14 @@ void CL_StartupDemoHeader( void )
 {
 	CL_CloseDemoHeader();
 
+#if XASH_GAMECUBE
+	if( !GCube_HasWritableStorage( ))
+	{
+		Con_Reportf( "Xash3D GameCube: demo header skipped (no writable storage)\n" );
+		return;
+	}
+#endif
+
 	cls.demoheader = FS_Open( "demoheader.tmp", "w+bm", true );
 
 	if( !cls.demoheader )

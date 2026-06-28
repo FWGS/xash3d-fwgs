@@ -27,7 +27,7 @@ int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
 
 #if XASH_GAMECUBE
-#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 384
+#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 192
 
 static int CL_GameCubeClientEdictLimit( int requested )
 {
