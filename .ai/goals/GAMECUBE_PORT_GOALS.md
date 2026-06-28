@@ -1030,7 +1030,7 @@ scripts/gamecube-map-compat-probe.sh
   `scripts/ai-verify.sh` passes, `scripts/gamecube-controller-compliance.py`
   passes.
 
-## G60 [ ] Add user-visible loading and long-operation feedback
+## G60 [x] Add user-visible loading and long-operation feedback
 
 - Show visible feedback when map load, save/load, filesystem scan, or disc/SD
   staging work takes longer than about two seconds.
@@ -1038,6 +1038,17 @@ scripts/gamecube-map-compat-probe.sh
   capture.
 - Ensure the loading path keeps polling video/input often enough to avoid the
   appearance of a hard hang on real hardware.
+- Complete 2026-06-27: added `GC_DrawLoadingStatus()` in the GameCube video
+  backend. The status panel is drawn directly into XFB with the existing
+  built-in 5x7 glyph path, so it needs no WAD, font, texture, or menu asset.
+- Client loading plaques now force an immediate "MAP LOAD" or "BACKGROUND LOAD"
+  panel and refresh a throttled "LOADING/CHANGELEVEL" panel after long waits.
+- Direct `-gcmap`, pre-spawn trim, BSP load, and entity-spawn stages now emit
+  visible status messages so early boot/map loads no longer look like a silent
+  hang before normal rendering is available.
+- Evidence: `./scripts/build-gamecube.sh` passes with the updated client,
+  server, host, and GameCube video sources. Final target-display readability
+  remains covered by the manual audio/video evidence gates.
 
 ## G61 [ ] Define final GameCube quality profiles
 

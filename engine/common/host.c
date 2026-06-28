@@ -43,6 +43,7 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 void R_GcmapRestoreAfterMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
+void GC_DrawLoadingStatus( const char *message, const char *details );
 #endif
 
 host_parm_t host;	// host parms
@@ -1355,6 +1356,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			{
 				Con_Reportf( "Xash3D GameCube: queue map %s\n", gcmap );
 				Con_Reportf( "Xash3D GameCube: direct map begin\n" );
+				GC_DrawLoadingStatus( "DIRECT MAP LOAD", gcmap );
 				Mod_FreeUnused();
 				if( SV_SpawnServer( gcmap, NULL, false ))
 				{

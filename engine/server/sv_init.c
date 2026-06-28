@@ -29,6 +29,7 @@ void R_GcmapRestoreAfterMapLoad( void );
 void R_GcmapMarkMapLoadComplete( void );
 void GC_TrimVideoMemoryForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
+void GC_DrawLoadingStatus( const char *message, const char *details );
 #endif
 
 #if XASH_LOW_MEMORY != 2
@@ -1134,15 +1135,20 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Mod_FreeUnused();
 	if( Sys_CheckParm( "-gcmap" ))
 	{
+		GC_DrawLoadingStatus( "PREPARING MAP", sv.name );
 		R_GcmapTrimForMapLoad();
 		GC_TrimVideoMemoryForMapLoad();
 		Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
 	}
 #endif
+#if XASH_GAMECUBE
+	GC_DrawLoadingStatus( "LOADING BSP", sv.model_precache[WORLD_INDEX] );
+#endif
 	sv.worldmodel = sv.models[WORLD_INDEX] = Mod_LoadWorld( sv.model_precache[WORLD_INDEX], true );
 	CRC32_MapFile( &sv.worldmapCRC, sv.model_precache[WORLD_INDEX], svs.maxclients > 1 );
 #if XASH_GAMECUBE
 	GC_MemSample( "bsp load" );
+	GC_DrawLoadingStatus( "SPAWNING ENTITIES", sv.name );
 #endif
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ) && FS_FileExists( "progs.dat", false ))

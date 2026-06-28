@@ -37,6 +37,9 @@ static CVAR_DEFINE_AUTO( cl_showcmd, "0", 0, "visualize usercmd button presses" 
 
 #if XASH_GAMECUBE
 static qboolean scr_gc_ux_policy_logged;
+static double scr_gc_next_loading_status;
+
+void GC_DrawLoadingStatus( const char *message, const char *details );
 
 static void SCR_GameCubeReportUXPolicy( void )
 {
@@ -47,6 +50,17 @@ static void SCR_GameCubeReportUXPolicy( void )
 	Con_Reportf( "Xash3D GameCube: G51 accessibility no rapid full-screen flashing; critical audio has visual equivalents where practical; alternate control presets tracked\n" );
 	Con_Reportf( "Xash3D GameCube: G51 readable prompts use 4:3 safe area and destructive choices require explicit confirm\n" );
 	scr_gc_ux_policy_logged = true;
+}
+
+static void SCR_GameCubeLoadingStatus( const char *message, const char *details, qboolean force )
+{
+	if( !force && host.realtime < scr_gc_next_loading_status )
+		return;
+
+	GC_DrawLoadingStatus( message, details );
+	Con_Reportf( "Xash3D GameCube: G60 visible loading feedback message='%s' detail='%s'\n",
+		message ? message : "LOADING", details ? details : "" );
+	scr_gc_next_loading_status = host.realtime + 2.0;
 }
 #endif
 
@@ -566,6 +580,12 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 
 	if( is_background ) IN_MouseSavePos( );
 	cls.draw_changelevel = !is_background;
+#if XASH_GAMECUBE
+	SCR_GameCubeLoadingStatus(
+		is_background ? "BACKGROUND LOAD" : "MAP LOAD",
+		"PLEASE WAIT - VIDEO ALIVE",
+		true );
+#endif
 	SCR_UpdateScreen();
 
 	// set video_prepped after update screen, so engine can draw last remaining frame
@@ -739,6 +759,15 @@ void SCR_UpdateScreen( void )
 	case ca_connected:
 	case ca_validate:
 		screen_redraw = SCR_DrawPlaque();
+#if XASH_GAMECUBE
+		if( cls.disable_screen && host.realtime - cls.disable_screen >= 2.0 )
+		{
+			SCR_GameCubeLoadingStatus(
+				cls.changelevel ? "CHANGELEVEL" : "LOADING",
+				"POLLING VIDEO DURING LONG OP",
+				false );
+		}
+#endif
 		break;
 	case ca_active:
 		Con_RunConsole ();

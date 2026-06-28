@@ -1925,6 +1925,28 @@ no-controller behavior clears inputs to prevent stuck states.
 scripts/gamecube-controller-compliance.py
 ```
 
+## G60 — User-visible loading and long-operation feedback (SOURCE COMPLETE 2026-06-27)
+
+Long GameCube map loads now have asset-free visible feedback before regular
+renderer assets are guaranteed to be available. `GC_DrawLoadingStatus()` draws a
+safe-area loading panel directly into the XFB using the existing built-in 5x7
+glyph renderer. It uses no WAD, texture, font, or menu assets, so it can be
+shown during fragile early boot, direct `-gcmap`, and BSP/entity load stages.
+
+The client loading plaque path forces an immediate "MAP LOAD" or "BACKGROUND
+LOAD" message, then throttles follow-up long-operation status updates after
+about two seconds. The direct `-gcmap` startup path, server pre-spawn trim, BSP
+load, and entity-spawn stages also report visible progress so a real console or
+Dolphin capture does not appear frozen during expensive work.
+
+**Evidence:**
+- Source hooks: `engine/platform/gamecube/vid_gamecube.c`,
+  `engine/client/cl_scrn.c`, `engine/common/host.c`, and
+  `engine/server/sv_init.c`.
+- `./scripts/build-gamecube.sh` passes with the updated GameCube target.
+- Runtime readability on target display remains part of the manual
+  audio/video and final hardware sign-off gates.
+
 ## Final Completion Gates (G67-G75)
 
 The remaining release work needs stricter gates than "the engine boots" or

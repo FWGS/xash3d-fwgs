@@ -542,6 +542,61 @@ static void GC_FatalDrawWrapped( unsigned short *dst, int x, int y, const char *
 }
 
 /*
+ * G60: Present loading progress without relying on renderer assets. Long map
+ * loads can otherwise look like a hard hang on real hardware or composite
+ * capture, especially before the client has a valid loading texture.
+ */
+void GC_DrawLoadingStatus( const char *message, const char *details )
+{
+#if XASH_GAMECUBE
+	unsigned short *dst;
+	unsigned short *rowdst;
+	int row;
+	int col;
+	int panel_x;
+	int panel_y;
+	int panel_w;
+	int panel_h;
+	size_t xfb_size;
+
+	if( !rmode || !xfb[which_fb] )
+		return;
+
+	dst = (unsigned short *)xfb[which_fb];
+	panel_x = 24;
+	panel_w = rmode->fbWidth - 48;
+	panel_h = 92;
+	panel_y = rmode->xfbHeight - panel_h - 24;
+	if( panel_y < 24 )
+		panel_y = 24;
+
+	for( row = panel_y; row < panel_y + panel_h && row < rmode->xfbHeight; row++ )
+	{
+		rowdst = dst + row * rmode->fbWidth;
+		for( col = panel_x; col < panel_x + panel_w && col < rmode->fbWidth; col++ )
+		{
+			if( row == panel_y || row == panel_y + panel_h - 1 ||
+				col == panel_x || col == panel_x + panel_w - 1 )
+				rowdst[col] = 0x07FF; /* cyan border */
+			else
+				rowdst[col] = 0x0010; /* dark blue panel */
+		}
+	}
+
+	GC_FatalDrawLine( dst, panel_x + 18, panel_y + 12, "LOADING", 0xFFFF, 2, 24 );
+	GC_FatalDrawLine( dst, panel_x + 18, panel_y + 38, message ? message : "PLEASE WAIT", 0xFFE0, 2, 34 );
+	GC_FatalDrawLine( dst, panel_x + 18, panel_y + 64, details ? details : "GAMECUBE VIDEO ALIVE", 0x07E0, 1, 72 );
+
+	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
+	DCFlushRange( xfb[which_fb], (u32)xfb_size );
+	VIDEO_SetNextFramebuffer( xfb[which_fb] );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+	which_fb ^= 1;
+#endif
+}
+
+/*
  * G50: Draw a readable fatal breadcrumb directly to XFB so it survives silent
  * crashes and missing assets. This is called from Sys_Error before shutdown.
  */
