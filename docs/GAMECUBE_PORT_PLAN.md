@@ -2093,16 +2093,21 @@ asset tree. It recorded the largest tested samples, including
 Automated passes cannot complete G68 because the full legal Half-Life 1 asset tree
 (`Half-Life/valve/maps/*.bsp`) is not staged in the automation environment.
 Repeated `asset_lookup` failures (exit 18) and `model_budget` (exit 10) errors in
-recent attempts (see `.ai/logs/aider-pass-2026-06-28-015406.log`,
-`.ai/logs/aider-pass-2026-06-28-015730.log`) confirm the environment cannot locate
-or stage the ~70+ campaign BSPs required for a `--full` audit. Source code is not
-missing; the blocker is environmental asset availability.
+recent attempts confirm the environment cannot locate or stage the ~70+ campaign
+BSPs required for a `--full` audit. Source code is not missing; the blocker is
+environmental asset availability.
+
+Recent automated attempts (G68 attempt 2 and 3) exited with `asset_lookup` (exit
+18) confirming the staging path is invalid or empty for the full campaign scope
+in this automation context. Auto-rescue attempts recorded `gc_fatal_breadcrumb_active`
+evidence from partial probes but could not proceed to a full campaign audit.
 
 **Blocker:** Asset staging / Legal asset availability.
 **Evidence of Blocker:** 
-- Attempt 2: exit 18 (asset_lookup), exit 10 (model_budget)
-- Attempt 3: exit 18 (asset_lookup), exit 10 (model_budget)
-- Automation cannot proceed without physical/legal asset tree in `Half-Life/valve`.
+- G68 Attempt 2: `aider-pass` exit 18 (asset_lookup); `auto-rescue` exit 10 (model_budget).
+- G68 Attempt 3: `aider-pass` exit 18 (asset_lookup); `auto-rescue` exit 0 (accepted, partial evidence).
+- Logs: `.ai/logs/aider-pass-2026-06-28-020830.log`, `.ai/logs/aider-pass-2026-06-28-021213.log`.
+- Automation cannot proceed without the physical/legal asset tree in `Half-Life/valve`.
 
 **Next operator step:** Run the full campaign audit on the local machine with legal assets:
 ```sh
