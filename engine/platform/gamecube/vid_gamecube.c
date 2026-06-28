@@ -660,10 +660,13 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	for( i = 0; i < 3; i++ )
 		VIDEO_WaitVSync();
 
-	/* Update which_fb to reflect that we just presented xfb[0].
-	 * Toggle it so the next present (if any) targets xfb[1],
-	 * keeping double-buffering state consistent. */
-	which_fb ^= 1;
+	/* Do not toggle which_fb here. The fatal breadcrumb draws directly to xfb[0]
+	 * and leaves the double-buffering state unchanged. Modifying which_fb during
+	 * an error path can cause subsequent rendering (if any) to target the wrong
+	 * framebuffer, leading to visual artifacts or guest_fatal hangs in Dolphin.
+	 * Since this function is called from Sys_Error before process exit, preserving
+	 * the original which_fb value ensures any late-stage diagnostic output remains
+	 * consistent with the normal rendering path. */
 
 	/* Return control to caller (e.g., Sys_Error) for proper termination or
 	 * recovery. Do not call SYS_ResetSystem here as it can cause guest_fatal
