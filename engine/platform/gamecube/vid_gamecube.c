@@ -655,9 +655,9 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 		VIDEO_WaitVSync();
 
 	/* Update which_fb to reflect that we just presented xfb[0].
-	 * This keeps double-buffering state consistent if rendering
-	 * continues after the fatal screen (e.g., for debugging). */
-	which_fb = 0;
+	 * Toggle it so the next present (if any) targets xfb[1],
+	 * keeping double-buffering state consistent. */
+	which_fb ^= 1;
 #endif
 }
 
