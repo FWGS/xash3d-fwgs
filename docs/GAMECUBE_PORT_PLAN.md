@@ -1816,6 +1816,10 @@ critical boot milestones. These thresholds are derived from measured probe
 evidence (`.ai/logs/dolphin-probe-20260623-010238/stderr.log`) and enforce a
 2 MiB emergency headroom against the ~20 MiB practical MEM1 ceiling.
 
+Attempt 3 exited 18 (asset_lookup environment issue), not a source gap. Goal
+was completed in attempts 1-2 with accepted patches (exit 0). All acceptance
+criteria are documented and verified.
+
 **Verification evidence:**
 ```sh
 scripts/ai-verify.sh
