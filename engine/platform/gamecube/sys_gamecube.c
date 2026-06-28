@@ -237,14 +237,16 @@ void GCube_Init( void )
 {
 #if XASH_GAMECUBE
 	char xashdir[MAX_SYSPATH];
-	convar_t *gc_fatal_test_cvar = Cvar_Get( "gc_fatal_test", "0", 0, "If true, trigger Sys_Error for G37 verification" );
-	qboolean gc_fatal_test = ( gc_fatal_test_cvar != NULL && Cvar_VariableInteger( "gc_fatal_test" ) );
 
 	/* G37: Intentional fatal error trigger for verification.
-	 * This allows automated probes to test the breadcrumb path. */
-	if( gc_fatal_test )
+	 * This allows automated probes to test the breadcrumb path.
+	 * Guard: Only trigger if cvar system is ready and explicitly enabled. */
+	if( Cvar_Get( "gc_fatal_test", NULL, 0, NULL ) )
 	{
-		Sys_Error( "G37: Intentional fatal error triggered for breadcrumb verification\n" );
+		if( Cvar_VariableIntegerValue( "gc_fatal_test" ) != 0 )
+		{
+			Sys_Error( "G37: Intentional fatal error triggered for breadcrumb verification\n" );
+		}
 	}
 
 	/* G29: Initialize networking for local loopback single-player.
