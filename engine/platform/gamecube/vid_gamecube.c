@@ -668,19 +668,15 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	 * Dolphin or hang on real hardware if the VIDEO subsystem is inconsistent.
 	 * We rely on VIDEO_Flush() and subsequent system termination/reset to
 	 * eventually display the frame. */
-	if( VIDEO_GetPreferredMode( NULL ) != NULL )
-	{
-		xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-		DCFlushRange( xfb[0], (u32)xfb_size );
-		VIDEO_SetNextFramebuffer( xfb[0] );
-		VIDEO_Flush();
-	}
-	else
-	{
-		/* VIDEO subsystem not fully initialized; skip visual output.
-		 * The magenta fill and text are still written to xfb[0] in memory,
-		 * but they will not be presented. Diagnostics rely on SYS_Report. */
-	}
+	/* G70: Skip all video hardware presentation calls during fatal error.
+	 * Even VIDEO_Flush() can trigger guest_fatal hangs in Dolphin or real
+	 * hardware when the VIDEO subsystem is in an inconsistent state.
+	 * The fatal breadcrumb is written to xfb[0] in memory for diagnostic
+	 * visibility (debug dumps, memory inspection). We rely on SYS_Report
+	 * and Sys_Error for runtime diagnostics, and skip hardware calls entirely
+	 * to avoid blocking or crashing in the error path. */
+	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
+	DCFlushRange( xfb[0], (u32)xfb_size );
 
 	/* Do not toggle which_fb here. The fatal breadcrumb draws directly to xfb[0]
 	 * and leaves the double-buffering state unchanged. Modifying which_fb during
