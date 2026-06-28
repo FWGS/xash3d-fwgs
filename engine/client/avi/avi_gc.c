@@ -556,6 +556,10 @@ qboolean AVI_Think( movie_state_t *Avi )
 	{
 		elapsed = Platform_DoubleTime() - Avi->start_time;
 		target_frame = (uint)( elapsed * (double)Avi->fps_num / (double)Avi->fps_den );
+#if XASH_GAMECUBE
+		if( target_frame > Avi->current_frame + 3 )
+			target_frame = Avi->current_frame + 3;
+#endif
 	}
 	if( target_frame >= Avi->frame_count )
 		return false;
@@ -567,7 +571,8 @@ qboolean AVI_Think( movie_state_t *Avi )
 		first_decode = ( Avi->current_frame == (uint)-1 );
 		decode_frame = first_decode ? 0 : Avi->current_frame + 1;
 #if XASH_GAMECUBE
-		if( target_frame > decode_frame )
+		if( target_frame > decode_frame &&
+			( decode_frame <= 3 || target_frame == 15 || target_frame == 30 || target_frame == 60 ))
 		{
 			Con_Reportf( "Xash3D GameCube: intro AVI catchup from=%u to=%u\n",
 				decode_frame, target_frame );
@@ -601,6 +606,13 @@ qboolean AVI_Think( movie_state_t *Avi )
 		else if( Avi->texture > 0 )
 			ref.dllFuncs.GL_UpdateTexture( Avi->texture, Avi->upload_width, Avi->upload_height,
 				Avi->upload_width, Avi->upload_height, upload_pixels, upload_fmt );
+#if XASH_GAMECUBE
+		if( target_frame <= 2 || target_frame == 15 || target_frame == 30 || target_frame == 60 )
+		{
+			Con_Reportf( "Xash3D GameCube: intro AVI uploaded frame=%u fmt=%d upload=%dx%d\n",
+				target_frame, upload_fmt, Avi->upload_width, Avi->upload_height );
+		}
+#endif
 	}
 
 	if( Avi->texture == 0 )
