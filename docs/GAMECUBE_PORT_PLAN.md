@@ -1906,6 +1906,25 @@ Evidence: `.ai/logs/aider-pass-2026-06-27-210057.log` (exit 0, accepted).
 exceeding these thresholds requires immediate cache reduction, asset streaming,
 or quality-tier adjustments (G24) before being declared playable.
 
+## G59 — Finalize GameCube controller profiles (COMPLETE 2026-06-27)
+
+Controller profiles, deadzone/sensitivity defaults, and connectivity safety
+guarantees are documented in `engine/platform/gamecube/in_gamecube.c` header.
+Profiles include Default, Southpaw/Alternate Look support, Developer Console
+Testing, and Menu-Only Fallback. Deadzones (`GC_STICK_DEAD=8`, `GC_TRIGGER_DEAD=15`)
+are tuned for official, WaveBird, and third-party pads. Reconnect and
+no-controller behavior clears inputs to prevent stuck states.
+
+**Evidence:**
+- Source documentation in `engine/platform/gamecube/in_gamecube.c`.
+- Verification via `scripts/gamecube-controller-compliance.py`.
+- `scripts/ai-verify.sh` passes with updated source.
+
+**Command:**
+```sh
+scripts/gamecube-controller-compliance.py
+```
+
 ## Next wake-up commands
 
 ```sh

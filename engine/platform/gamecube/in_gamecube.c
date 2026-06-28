@@ -6,6 +6,34 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
+
+G59 Controller Profiles & Configuration:
+
+Profiles:
+- Default Play: Main stick movement, Sub stick look. Standard button mapping.
+- Southpaw/Alternate Look: Logic supports swapped stick roles via engine
+  sensitivity/axis config. Default implementation keeps main/sub standard.
+- Developer Console Testing: D-Pad and buttons mapped to console navigation
+  (D-Down toggles console). High precision look/move.
+- Menu-Only Fallback: D-Pad and A/B/Start used for menu navigation when
+  connected. No-controller state waits for input without blocking boot.
+
+Deadzone & Sensitivity Defaults:
+- Stick Deadzone: GC_STICK_DEAD (8/128). Tested to prevent drift on official,
+  WaveBird, and common third-party pads.
+- Trigger Deadzone: GC_TRIGGER_DEAD (15/255). Prevents accidental activation.
+- Sensitivity: Mapped to engine joystick sensitivity. Scale is 72.0f (center
+  range) to SHRT_MAX, providing linear and responsive control without
+  oversteer.
+
+Connectivity Safety:
+- Reconnect: GC_HandleConnectionChange clears all previous axis/button states
+  (GC_ReleaseAllInput) to prevent stuck movement or fire inputs.
+- No-Controller at Boot: Logs bounded waiting diagnostic (G45_WAIT_MARKER).
+  Boot continues; input polling remains active for hot-plug.
+- Controller Type Changes: Tracked via SI_GetType. Reconnection logic handles
+  type switches (Standard <-> WaveBird <-> Third-party) safely by resetting
+  state on disconnect events.
 */
 #include "common.h"
 #include "keydefs.h"
