@@ -115,6 +115,12 @@ static void GC_ShutdownVideoHardware( void )
 	if( !gc.initialized )
 		return;
 
+	/* G65: If a fatal breadcrumb was drawn, preserve it on screen.
+	 * Do not clear the screen or abort, as the process is terminating
+	 * and the user needs to see the error for diagnosis. */
+	if( gc_fatal_breadcrumb_active )
+		return;
+
 	GX_AbortFrame();
 	VIDEO_SetBlack( true );
 	VIDEO_Flush();
