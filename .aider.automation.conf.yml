@@ -22,3 +22,6 @@ show-diffs: true
 
 auto-lint: false
 auto-test: false
+
+read:
+  - .ai/prompts/GAMECUBE_LOCAL_MISSION.md

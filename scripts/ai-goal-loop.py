@@ -59,6 +59,7 @@ COMMON_CONTEXT = (
 	".ai/goals/GAMECUBE_PORT_GOALS.md",
 )
 COMMON_READ_CONTEXT = (
+	".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
 	".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
 	".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
 )
@@ -196,7 +197,18 @@ GOAL_CONTEXT = {
 		"scripts/gamecube-hardware-matrix-compliance.py",
 		"scripts/gamecube-rc-check.sh"),
 	"G54": ("engine/common/host.c", "engine/common/zone.c",
-		"scripts/dolphin-boot-probe.sh", "docs/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
+		"engine/platform/gamecube/mem_gamecube.c",
+		"engine/platform/gamecube/vid_gamecube.c",
+		"engine/platform/gamecube/sys_gamecube.c",
+		"engine/platform/gamecube/in_gamecube.c",
+		"engine/platform/gamecube/snddma_gamecube.c",
+		"engine/common/system.c", "engine/server/sv_init.c",
+		"engine/client/cl_scrn.c",
+		"scripts/dolphin-boot-probe.sh", "scripts/dolphin-probe-analyze.py",
+		"scripts/gamecube-compliance-evidence.py",
+		"scripts/gamecube-rc-check.sh",
+		"docs/GAMECUBE_HOMEBREW_COMPLIANCE.md", "docs/GAMECUBE_PORT_PLAN.md",
+		".ai/goals/GAMECUBE_PORT_GOALS.md"),
 	"G55": ("scripts/build-gamecube.sh", "scripts/build-gamecube-disc.py",
 		"scripts/ai-verify.sh", ".gitignore", "docs/GAMECUBE_PORT_PLAN.md"),
 	"G56": ("docs/GAMECUBE_HARDWARE_VALIDATION.md",
@@ -380,7 +392,8 @@ GOAL_READ_CONTEXT = {
 	"G53": (".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G54": (".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
-		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
+		".ai/prompts/GAMECUBE_LOCAL_MISSION.md"),
 	"G55": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G56": (".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
@@ -1462,6 +1475,41 @@ Output rules:
 - Keep the patch below 120 changed lines.
 - If the current slice is not sufficient for a safe patch, make no edit; the
   goal runner will rotate to the next slice.
+"""
+	if goal.goal_id == "G54":
+		return f"""Advance G54 by strengthening the scripted compliance evidence path.
+
+Active goal: {goal.goal_id} - {goal.title}
+Attempt on this goal: {attempt}
+
+Use only the editable file or files preloaded in this Aider chat. Do not edit,
+add, or request any file that was not added as editable context.
+
+Task:
+- Prefer `scripts/gamecube-compliance-evidence.py` and
+  `scripts/gamecube-rc-check.sh` over docs-only edits.
+- The accepted scripted-equivalent route must verify FPS/frame time, MEM1/ARAM
+  or explicit MEM1-only boundary, current map, player position, active entities,
+  loader/storage route, build hash, controller, audio, and crash breadcrumbs.
+- If a required evidence marker is already present in source, teach the verifier
+  to check it and wire the verifier into the RC gate.
+- If a required evidence marker is genuinely missing, add a small GameCube-only
+  source marker in the loaded source file that owns that subsystem.
+- Do not mark G54 complete unless `scripts/gamecube-compliance-evidence.py`
+  passes, the RC gate runs it, and both the goal ledger and port plan cite the
+  verifier. Do not claim hardware completion; that remains G38/G66.
+- Keep Dolphin-only, scripted-equivalent, and real-hardware evidence boundaries
+  explicit.
+
+Structured failure memory:
+{investigation_memory}
+
+Output rules:
+- Start immediately with the target editable file path and SEARCH/REPLACE blocks.
+- No explanation, checklist, plan, or markdown prose.
+- Keep the patch below 160 changed lines.
+- If the loaded files are insufficient for a source/verifier patch, make no edit
+  instead of writing victory documentation.
 """
 	return f"""You are autonomously advancing the native Xash3D GameCube port.
 

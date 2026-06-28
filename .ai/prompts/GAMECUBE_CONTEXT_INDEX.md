@@ -6,6 +6,8 @@ of truth for this port.
 
 Always prefer:
 
+- `.ai/prompts/GAMECUBE_LOCAL_MISSION.md` for the local Qwable/Aider mission,
+  evidence-first loop, and docs-only completion guardrails.
 - Current source under `engine/platform/gamecube/`.
 - Existing platform abstractions in `engine/platform/`, `engine/common/`, and
   backend selectors.

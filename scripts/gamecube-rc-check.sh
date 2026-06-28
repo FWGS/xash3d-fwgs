@@ -48,7 +48,9 @@ Runs the native GameCube release-candidate evidence gate:
   16. console UX/accessibility compliance check
   17. release manifest/legal audit compliance check
   18. hardware matrix compliance check
-  19. homebrew compliance check
+  19. compliance evidence check
+  20. local automation guidance check
+  21. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -440,6 +442,36 @@ hardware_matrix_compliance_gate() {
 	return "$rc"
 }
 
+compliance_evidence_gate() {
+	local log_path="$LOG_DIR/compliance-evidence.log"
+	echo
+	echo "== compliance evidence =="
+	if scripts/gamecube-compliance-evidence.py --log-dir "$LOG_DIR/compliance-evidence" >"$log_path" 2>&1; then
+		log_status "compliance evidence" "PASS" "$log_path" "G54 scripted compliance evidence preflight passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "compliance evidence" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
+automation_guidance_gate() {
+	local log_path="$LOG_DIR/automation-guidance.log"
+	echo
+	echo "== automation guidance =="
+	if scripts/gamecube-automation-guidance-check.py --log-dir "$LOG_DIR/automation-guidance" >"$log_path" 2>&1; then
+		log_status "automation guidance" "PASS" "$log_path" "local Qwable/Aider mission and goal guidance are wired"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "automation guidance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 compliance_gate() {
 	local log_path="$LOG_DIR/compliance.log"
 	echo
@@ -554,6 +586,8 @@ main() {
 	ux_compliance_gate || true
 	release_compliance_gate || true
 	hardware_matrix_compliance_gate || true
+	compliance_evidence_gate || true
+	automation_guidance_gate || true
 	compliance_gate || true
 	write_summary
 	echo

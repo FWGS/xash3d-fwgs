@@ -919,7 +919,7 @@ scripts/gamecube-map-compat-probe.sh
   WaveBird, third-party controller, no-controller, mid-game disconnect, audio,
   save, and shutdown proof remains manual G38/G66 work.
 
-## G54 [ ] Add a compliance evidence overlay or test route
+## G54 [x] Add a compliance evidence overlay or test route
 
 - Provide a debug overlay or scripted equivalent that reports FPS, frame time,
   MEM1/ARAM, current map, player position, active entities, loader path, build
@@ -928,6 +928,11 @@ scripts/gamecube-map-compat-probe.sh
   audio, texture, alpha, lighting, particle, loading, camera, and error cases.
 - Require verifier output, Dolphin logs, package artifacts, or operator-recorded
   hardware evidence before marking release or hardware compliance complete.
+- Verified 2026-06-27: `scripts/gamecube-compliance-evidence.py` checks the
+  scripted-equivalent evidence channels and `scripts/gamecube-rc-check.sh` runs
+  it as the G54 compliance evidence gate.
+- Evidence boundary: this closes local source/policy preflight only. Sustained
+  Dolphin route logs and real hardware release sign-off remain G38/G66 work.
 
 ## G55 [ ] Add release artifact reproducibility checks
 

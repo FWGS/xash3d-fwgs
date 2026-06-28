@@ -24,6 +24,7 @@ auto-test: false
 read:
   - .ai/prompts/PROJECT_RULES.md
   - .ai/prompts/PORTING_PATTERNS.md
+  - .ai/prompts/GAMECUBE_LOCAL_MISSION.md
   - .ai/prompts/GAMECUBE_CONTEXT_INDEX.md
   - .ai/prompts/GAMECUBE_HARDWARE_NOTES.md
   - .ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md

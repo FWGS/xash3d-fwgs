@@ -1098,7 +1098,9 @@ release-candidate work. It writes a timestamped directory under
 
 The gate runs, in order: `scripts/ai-verify.sh`, a clean GameCube build,
 artifact manifest generation, content staging audit, Dolphin boot probe,
-frame-budget probe, map compatibility summary, and homebrew compliance check.
+frame-budget probe, map compatibility summary, boot/video/controller/save/fatal
+UX/audio/timing/console/release/hardware-matrix compliance checks, G54
+compliance evidence, local automation guidance, and homebrew compliance check.
 Set `RC_BUILD_DISC=1` to also build the smoke disc image as part of the gate.
 
 For G36 and later automatic goals, the runner stops after a bounded number of
@@ -1235,7 +1237,8 @@ specific blocker/limitation.
 
 Release build and verification are one-command paths. `scripts/gamecube-rc-check.sh`
 is the canonical release-candidate gate (build, artifacts, staging, Dolphin,
-frame budget, map compatibility, homebrew compliance).
+frame budget, map compatibility, compliance evidence, automation guidance, and
+homebrew compliance).
 
 **Commands:**
 ```sh
@@ -1661,7 +1664,7 @@ release evidence still requires dated operator runs for GameCube, Swiss, Wii
 GameCube mode, storage, memory-card, controller, audio, save, and disconnect
 routes under G38/G66.
 
-## G54 — Compliance evidence overlay and scripted test route (SOURCE COMPLETE 2026-06-27)
+## G54 — Compliance evidence overlay and scripted test route (AUTOMATED PREFLIGHT COMPLETE 2026-06-27)
 
 **Status:** Source/policy preflight complete. The compliance evidence overlay is
 provided as a scripted equivalent using existing telemetry infrastructure rather
@@ -1678,7 +1681,9 @@ The following existing infrastructure provides the required debug telemetry:
 2. **MEM1/ARAM memory:** G22 memory telemetry (`GC_MemSample`) emits
    `Xash3D GameCube: mem stage=<stage> total=<n> Mb delta=<n> Mb hwm=<n> Mb map=<map>`
    at boot milestones (filesystem, searchpaths, server progs, server init,
-   textures, models, client init, bsp load, map active, frame render).
+   textures, models, client init, bsp load, map active, frame render). This is
+   a MEM1-only budget today; ARAM is treated as an audio/streaming candidate,
+   not general malloc memory.
 
 3. **Current map:** OSReport emits `Xash3D GameCube: map loaded <mapname>` and
    `Xash3D GameCube: engine subsystems ready` markers.
@@ -1714,9 +1719,14 @@ The compliance test route is provided by the existing goal verification chain:
 **Verification commands:**
 
 ```sh
+scripts/gamecube-compliance-evidence.py
 scripts/dolphin-boot-probe.sh
 scripts/gamecube-rc-check.sh
 ```
+
+`scripts/gamecube-compliance-evidence.py` is the G54 verifier. It checks that
+the scripted-equivalent evidence channels exist in source/probe tooling and that
+the RC gate runs the compliance evidence check before homebrew compliance.
 
 Probe logs under `.ai/logs/dolphin-probe-*/stderr.log` contain all telemetry markers.
 RC gate logs under `.ai/logs/rc-check-*/` contain compliance verifier output.
