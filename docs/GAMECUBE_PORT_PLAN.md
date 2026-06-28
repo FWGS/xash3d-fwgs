@@ -1925,6 +1925,34 @@ no-controller behavior clears inputs to prevent stuck states.
 scripts/gamecube-controller-compliance.py
 ```
 
+## Final Completion Gates (G67-G75)
+
+The remaining release work needs stricter gates than "the engine boots" or
+"early maps run." A native Half-Life 1 GameCube port should not be called
+complete until the project has evidence for real GoldSrc content formats,
+campaign coverage, sustained stability, hardware-facing audio/video behavior,
+persistent storage, worst-case performance, clean release rebuilds, final known
+limitations, and final artifact-matched hardware sign-off.
+
+New endgame goals added to `.ai/goals/GAMECUBE_PORT_GOALS.md`:
+
+- **G67:** Prove native GoldSrc content-format compatibility for BSP, WAD, PAK,
+  MDL, SPR, WAV, image, sky/decal, sentence, and config/script assets.
+- **G68:** Complete the full campaign map and transition audit against legal
+  local Half-Life assets.
+- **G69:** Add sustained gameplay soak and leak regression evidence.
+- **G70:** Manually capture target-display audio/video evidence.
+- **G71:** Manually prove persistent save/config storage on real media.
+- **G72:** Close worst-case performance and memory optimization.
+- **G73:** Prove clean checkout release rebuild and archive reproducibility.
+- **G74:** Burn down final blockers and freeze known limitations.
+- **G75:** Manually sign off native Half-Life 1 GameCube completion.
+
+Automation may complete G67-G69 and G72-G74 with source, scripts, logs, and
+release evidence. G70, G71, and G75 remain manual because physical audio/video,
+persistent media, and final hardware-completion claims require operator evidence
+from the exact release artifact hash.
+
 ## Next wake-up commands
 
 ```sh
