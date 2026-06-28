@@ -661,14 +661,19 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	 * in Dolphin or hang on real hardware. Check if VIDEO_Init has completed
 	 * successfully by verifying VIDEO_GetPreferredMode returns a non-NULL mode.
 	 * This is a conservative check; if it fails, we skip visual output and rely
-	 * on SYS_Report/Sys_Error for diagnostics. */
+	 * on SYS_Report/Sys_Error for diagnostics.
+	 *
+	 * G69: Removed VIDEO_WaitVSync() from this path. Even with guards, blocking
+	 * on hardware VSync during a fatal error state can trigger guest_fatal in
+	 * Dolphin or hang on real hardware if the VIDEO subsystem is inconsistent.
+	 * We rely on VIDEO_Flush() and subsequent system termination/reset to
+	 * eventually display the frame. */
 	if( VIDEO_GetPreferredMode( NULL ) != NULL )
 	{
 		xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
 		DCFlushRange( xfb[0], (u32)xfb_size );
 		VIDEO_SetNextFramebuffer( xfb[0] );
 		VIDEO_Flush();
-		VIDEO_WaitVSync();
 	}
 	else
 	{
