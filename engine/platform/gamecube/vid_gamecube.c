@@ -641,6 +641,10 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	GC_FatalDrawWrapped( dst, 24, 150, details ? details : "NO DETAILS", 0xFFFF, 2, 38, 8 );
 	GC_FatalDrawLine( dst, 24, rmode->xfbHeight - 28, "HALTED: POWER CYCLE OR RESET", 0x07E0, 2, 38 );
 
+	/* Flush GX pipeline before DMA to ensure all writes are complete */
+	GX_Flush();
+	GX_DrawDone();
+
 	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
 	DCFlushRange( xfb[0], (u32)xfb_size );
 	VIDEO_SetNextFramebuffer( xfb[0] );
