@@ -1093,7 +1093,7 @@ or physical hardware.
 verify entity interaction, damage, and restart behavior. Record evidence in
 `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 
-## G63 [ ] Validate scripted sequence and trigger route
+## G63 [ ] Validate scripted sequence and trigger route (BLOCKED: asset staging / MANUAL validation required)
 
 - Demonstrate doors, buttons, trigger_once/trigger_multiple, multi_manager,
   scripted_sequence, train/platform movement, and changelevel trigger behavior.
@@ -1101,6 +1101,20 @@ verify entity interaction, damage, and restart behavior. Record evidence in
   scripted scene and one map transition.
 - Record the exact maps, player position/route, logs, and remaining scripted
   sequence limitations.
+
+**Blocker (2026-06-27):** Automated Aider passes exit 18 (`asset_lookup`). The
+blocker is asset lookup, staging, or path handling, not a missing source gap.
+Previous attempts (`.ai/logs/aider-pass-2026-06-27-230219.log`) confirm this is
+an environment condition. Scripted sequence validation with triggers, multi_manager,
+scripted_sequence entities, and changelevel transitions requires a legal local
+Half-Life asset tree and persistent runtime sessions that bounded smoke probes
+cannot simulate. This is an operator validation task covered by G38/G40/G66.
+Automation should not retry G63 until an operator validates a scripted sequence
+route on this machine or physical hardware.
+
+**Next operator step:** Run a sustained gameplay probe with legal assets to
+verify scripted sequences, trigger behavior, and map transitions. Record evidence
+in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 
 ## G64 [ ] Add release-candidate smoke suite
 
