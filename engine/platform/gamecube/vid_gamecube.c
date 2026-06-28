@@ -35,7 +35,6 @@ static gc_video_t gc;
 #if XASH_GAMECUBE
 static void *xfb[2] = { NULL, NULL };
 static int which_fb = 0;
-static volatile qboolean gc_fatal_breadcrumb_active;
 static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
@@ -65,11 +64,6 @@ static void GC_InitVideoHardware( void )
 #if XASH_GAMECUBE
 	int safe_x, safe_y, safe_w, safe_h;
 	qboolean progressive;
-
-	/* G65: Reset fatal breadcrumb state unconditionally at the start of init
-	 * to allow recovery from transient crashes or test triggers. This must
-	 * happen before the early return to clear stale state on re-init. */
-	gc_fatal_breadcrumb_active = false;
 
 	if( gc.initialized )
 		return;
@@ -119,11 +113,6 @@ static void GC_ShutdownVideoHardware( void )
 	if( !gc.initialized )
 		return;
 
-	/* G65: Allow re-init recovery even after fatal breadcrumb.
-	 * Perform minimal cleanup to let subsequent GC_InitVideoHardware() calls
-	 * re-establish video state. The breadcrumb visual remains until the next
-	 * present overwrites it, but the engine can proceed. */
-	gc_fatal_breadcrumb_active = false;
 	gc.initialized = false;
 
 	GX_AbortFrame();
@@ -170,10 +159,6 @@ static void GC_PresentBuffer( void )
 	if( !rmode || !xfb[which_fb] )
 		return;
 
-	/* G65: Allow recovery from fatal breadcrumb by continuing to present frames.
-	 * This prevents the video backend from getting stuck after a fatal error
-	 * screen is drawn, allowing the engine to recover if the error was transient
-	 * or if subsequent frames are valid. */
 	gc_present_count++;
 
 	copy_w = rmode->fbWidth;
@@ -635,7 +620,6 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	if( !rmode || !xfb[0] )
 		return;
 
-	gc_fatal_breadcrumb_active = true;
 	gc.initialized = false;
 
 	/* Present to front buffer immediately for visibility */
