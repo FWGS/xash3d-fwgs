@@ -179,6 +179,7 @@ static qboolean SteamBroker_SendFrame( const char *payload, size_t payload_size 
 
 	size_t frame_size = MSG_GetRealBytesWritten( &sb );
 	int sent = send( broker.socket, (const char *)frame, frame_size, 0 );
+	size_t sent_size;
 	if( NET_IsSocketError( sent ))
 	{
 		int err = WSAGetLastError();
@@ -190,9 +191,10 @@ static qboolean SteamBroker_SendFrame( const char *payload, size_t payload_size 
 		}
 		sent = 0;
 	}
+	sent_size = bound( 0, sent, (int)frame_size );
 
 	// bufferize unsent data for deferred sending
-	size_t unsent = frame_size - sent;
+	size_t unsent = frame_size - sent_size;
 	if( unsent > 0 )
 	{
 		size_t available = sizeof( broker.tx_buffer ) - broker.tx_buffer_pos;
@@ -203,7 +205,7 @@ static qboolean SteamBroker_SendFrame( const char *payload, size_t payload_size 
 			return false;
 		}
 
-		memcpy( broker.tx_buffer + broker.tx_buffer_pos, frame + sent, unsent );
+		memcpy( broker.tx_buffer + broker.tx_buffer_pos, frame + sent_size, unsent );
 		broker.tx_buffer_pos += unsent;
 	}
 

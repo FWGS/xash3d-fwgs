@@ -19,6 +19,7 @@ struct movie_state_s
 	byte			*frame;
 	byte			*upload_frame;
 	byte			*chunk;
+	byte			*audio_chunk;
 	size_t			chunk_capacity;
 	avi_frame_index_t	*index;
 	avi_frame_index_t	*audio_index;

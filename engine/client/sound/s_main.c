@@ -1216,6 +1216,7 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 	ch = snd.raw_channels[best];
 	ch->entnum = entnum;
 	ch->s_rawend = 0;
+	ch->engine_reserved[0] = 0;
 
 	S_NotifyRawChannelUpdate( best, ch );
 
@@ -1227,15 +1228,16 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 S_RawSamplesStereo
 ===================
 */
-uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
+uint S_RawSamplesStereoFrac( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data, uint *samplefrac_io )
 {
 	uint	src;
+	uint samplefrac;
 
 	if( rawend < snd.paintedtime )
 		rawend = snd.paintedtime;
 
 	uint fracstep = ((double) rate / (double)SOUND_DMA_SPEED) * (double)(1 << S_RAW_SAMPLES_PRECISION_BITS);
-	uint samplefrac = 0;
+	samplefrac = samplefrac_io ? *samplefrac_io : 0;
 
 	if( width == 2 )
 	{
@@ -1264,13 +1266,18 @@ uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint ma
 	{
 		if( channels == 2 )
 		{
-			const char *in = (const char *)data;
-
 			for( src = 0; src < samples; samplefrac += fracstep, src = ( samplefrac >> S_RAW_SAMPLES_PRECISION_BITS ))
 			{
 				uint dst = rawend++ & ( max_samples - 1 );
-				rawsamples[dst].left = in[src*2+0] << 8;
-				rawsamples[dst].right = in[src*2+1] << 8;
+				uint frac = samplefrac & (( 1 << S_RAW_SAMPLES_PRECISION_BITS ) - 1 );
+				uint next = Q_min( src + 1, samples - 1 );
+				int left0 = (int)data[src*2+0] - 128;
+				int left1 = (int)data[next*2+0] - 128;
+				int right0 = (int)data[src*2+1] - 128;
+				int right1 = (int)data[next*2+1] - 128;
+
+				rawsamples[dst].left = ( left0 + ((( left1 - left0 ) * (int)frac ) >> S_RAW_SAMPLES_PRECISION_BITS )) << 8;
+				rawsamples[dst].right = ( right0 + ((( right1 - right0 ) * (int)frac ) >> S_RAW_SAMPLES_PRECISION_BITS )) << 8;
 			}
 		}
 		else
@@ -1278,13 +1285,29 @@ uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint ma
 			for( src = 0; src < samples; samplefrac += fracstep, src = ( samplefrac >> S_RAW_SAMPLES_PRECISION_BITS ))
 			{
 				uint dst = rawend++ & ( max_samples - 1 );
-				rawsamples[dst].left = ( data[src] - 128 ) << 8;
-				rawsamples[dst].right = ( data[src] - 128 ) << 8;
+				uint frac = samplefrac & (( 1 << S_RAW_SAMPLES_PRECISION_BITS ) - 1 );
+				uint next = Q_min( src + 1, samples - 1 );
+				int sample0 = (int)data[src] - 128;
+				int sample1 = (int)data[next] - 128;
+				int sample = sample0 + ((( sample1 - sample0 ) * (int)frac ) >> S_RAW_SAMPLES_PRECISION_BITS );
+
+				rawsamples[dst].left = sample << 8;
+				rawsamples[dst].right = sample << 8;
 			}
 		}
 	}
 
+	if( samplefrac_io )
+		*samplefrac_io = samplefrac - ( samples << S_RAW_SAMPLES_PRECISION_BITS );
+
 	return rawend;
+}
+
+uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
+{
+	uint samplefrac = 0;
+
+	return S_RawSamplesStereoFrac( rawsamples, rawend, max_samples, samples, rate, width, channels, data, &samplefrac );
 }
 
 /*
@@ -1295,6 +1318,7 @@ S_RawEntSamples
 void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn )
 {
 	rawchan_t	*ch;
+	uint		samplefrac;
 
 	if( snd_vol < 0 )
 		snd_vol = 0;
@@ -1304,7 +1328,9 @@ void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word chan
 
 	ch->master_vol = snd_vol;
 	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
-	ch->s_rawend = S_RawSamplesStereo( ch->rawsamples, ch->s_rawend, ch->max_samples, samples, rate, width, channels, data );
+	samplefrac = (uint)ch->engine_reserved[0];
+	ch->s_rawend = S_RawSamplesStereoFrac( ch->rawsamples, ch->s_rawend, ch->max_samples, samples, rate, width, channels, data, &samplefrac );
+	ch->engine_reserved[0] = samplefrac;
 	ch->leftvol = ch->rightvol = snd_vol;
 }
 

@@ -17,7 +17,6 @@ static movie_state_t avi[2];
 #define AVI_RL16( p ) ((uint16_t)((p)[0] | ((uint16_t)(p)[1] << 8)))
 
 #if XASH_GAMECUBE
-#define GC_AVI_AUDIO_LEAD_SEC		0.20
 #define GC_AVI_AUDIO_SLICE_BYTES	4096
 #define GC_AVI_MAX_CATCHUP_FRAMES	8
 #endif
@@ -275,6 +274,9 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 	Avi->chunk = Mem_Malloc( avi_mempool, Avi->chunk_capacity );
 	if( !Avi->chunk )
 		return false;
+	Avi->audio_chunk = Mem_Malloc( avi_mempool, Avi->chunk_capacity );
+	if( !Avi->audio_chunk )
+		return false;
 
 	Avi->upload_width = Avi->width;
 	Avi->upload_height = Avi->height;
@@ -408,24 +410,34 @@ qboolean AVI_HaveAudioTrack( const movie_state_t *Avi )
 		Avi->audio_rate > 0 && Avi->audio_width > 0 && Avi->audio_channels > 0;
 }
 
-static void AVI_StreamAudio( movie_state_t *Avi, double elapsed )
+static void AVI_StreamAudio( movie_state_t *Avi )
 {
-	uint desired_bytes;
 	uint bytes_per_sample;
+	rawchan_t *ch;
+	int movie_vol;
 
-	if( !AVI_HaveAudioTrack( Avi ) || !snd.initialized || elapsed < 0.0 )
+	if( !AVI_HaveAudioTrack( Avi ) || !snd.initialized || cl.paused )
 		return;
 
+	ch = S_FindRawChannel( S_RAW_SOUND_SOUNDTRACK, true );
+	if( !ch )
+		return;
+
+	movie_vol = 256;
+
+	ch->master_vol = movie_vol;
+	ch->dist_mult = 0.0f;
+	if( ch->s_rawend < snd.soundtime )
+		ch->s_rawend = snd.soundtime;
+
 	bytes_per_sample = Avi->audio_width * Avi->audio_channels;
-#if XASH_GAMECUBE
-	desired_bytes = (uint)(( elapsed + GC_AVI_AUDIO_LEAD_SEC ) *
-		(double)Avi->audio_rate * (double)bytes_per_sample );
-#else
-	desired_bytes = (uint)( elapsed * (double)Avi->audio_rate * (double)bytes_per_sample );
-#endif
-	while( Avi->audio_current_chunk < Avi->audio_chunk_count && Avi->audio_bytes_submitted < desired_bytes )
+	while( Avi->audio_current_chunk < Avi->audio_chunk_count &&
+		ch->s_rawend < snd.soundtime + ch->max_samples )
 	{
 		avi_frame_index_t *chunk = &Avi->audio_index[Avi->audio_current_chunk];
+		uint buffer_samples;
+		uint file_samples;
+		uint file_bytes;
 		uint slice_size;
 
 		if( Avi->audio_chunk_size == 0 || Avi->audio_chunk_offset >= Avi->audio_chunk_size )
@@ -458,17 +470,25 @@ static void AVI_StreamAudio( movie_state_t *Avi, double elapsed )
 
 			chunk_size = AVI_RL32( header + 4 );
 			if( chunk_size == 0 || chunk_size > Avi->chunk_capacity ||
-				FS_Read( Avi->file, Avi->chunk, chunk_size ) != (fs_offset_t)chunk_size )
+				FS_Read( Avi->file, Avi->audio_chunk, chunk_size ) != (fs_offset_t)chunk_size )
 				break;
 
 			Avi->audio_chunk_size = chunk_size;
 		}
+
+		buffer_samples = ch->max_samples - ( ch->s_rawend - snd.soundtime );
+		file_samples = buffer_samples * ((float)Avi->audio_rate / SOUND_DMA_SPEED);
+		if( file_samples <= 1 )
+			return;
+		file_bytes = file_samples * bytes_per_sample;
 
 		slice_size = Avi->audio_chunk_size - Avi->audio_chunk_offset;
 #if XASH_GAMECUBE
 		if( slice_size > GC_AVI_AUDIO_SLICE_BYTES )
 			slice_size = GC_AVI_AUDIO_SLICE_BYTES;
 #endif
+		if( slice_size > file_bytes )
+			slice_size = file_bytes;
 		slice_size -= slice_size % bytes_per_sample;
 		if( slice_size == 0 )
 		{
@@ -480,7 +500,7 @@ static void AVI_StreamAudio( movie_state_t *Avi, double elapsed )
 
 		S_RawEntSamples( S_RAW_SOUND_SOUNDTRACK, slice_size / bytes_per_sample,
 			Avi->audio_rate, Avi->audio_width, Avi->audio_channels,
-			Avi->chunk + Avi->audio_chunk_offset, 256, ATTN_NONE );
+			Avi->audio_chunk + Avi->audio_chunk_offset, movie_vol, ATTN_NONE );
 		Avi->audio_bytes_submitted += slice_size;
 		Avi->audio_chunk_offset += slice_size;
 		if( Avi->audio_chunk_offset >= Avi->audio_chunk_size )
@@ -492,8 +512,9 @@ static void AVI_StreamAudio( movie_state_t *Avi, double elapsed )
 #if XASH_GAMECUBE
 		if( !Avi->audio_reported )
 		{
-			Con_Reportf( "Xash3D GameCube: intro AVI audio submitted chunks=%u bytes=%u rate=%u\n",
-				Avi->audio_current_chunk, Avi->audio_bytes_submitted, Avi->audio_rate );
+			Con_Reportf( "Xash3D GameCube: intro AVI audio streaming chunks=%u bytes=%u rate=%u raw=%u/%u\n",
+				Avi->audio_current_chunk, Avi->audio_bytes_submitted, Avi->audio_rate,
+				ch->s_rawend - snd.soundtime, ch->max_samples );
 			Avi->audio_reported = true;
 		}
 #endif
@@ -567,6 +588,8 @@ void AVI_CloseVideo( movie_state_t *Avi )
 		Mem_Free( Avi->upload_frame );
 	if( Avi->chunk )
 		Mem_Free( Avi->chunk );
+	if( Avi->audio_chunk )
+		Mem_Free( Avi->audio_chunk );
 	if( Avi->index )
 		Mem_Free( Avi->index );
 	if( Avi->audio_index )
@@ -608,7 +631,7 @@ qboolean AVI_Think( movie_state_t *Avi )
 	if( target_frame >= Avi->frame_count )
 		return false;
 
-	AVI_StreamAudio( Avi, Platform_DoubleTime() - Avi->start_time );
+	AVI_StreamAudio( Avi );
 
 	if( target_frame != Avi->current_frame )
 	{
