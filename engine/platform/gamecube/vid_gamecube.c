@@ -626,19 +626,12 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	/* Present to front buffer immediately for visibility */
 	dst = (unsigned short *)xfb[0];
 
-	/* Fill XFB with a distinct color: Magenta (RGB565 0xF81F) to signal ERROR */
+	/* Fill XFB with high-contrast Magenta (RGB565 0xF81F) to signal FATAL ERROR */
 	for( row = 0; row < rmode->xfbHeight; row++ )
 	{
 		rowdst = dst + row * rmode->fbWidth;
 		for( col_fatal = 0; col_fatal < rmode->fbWidth; col_fatal++ )
-			rowdst[col_fatal] = 0x0000; /* black */
-	}
-
-	for( row = 0; row < 24 && row < rmode->xfbHeight; row++ )
-	{
-		rowdst = dst + row * rmode->fbWidth;
-		for( col_fatal = 0; col_fatal < rmode->fbWidth; col_fatal++ )
-			rowdst[col_fatal] = 0xF800; /* red header */
+			rowdst[col_fatal] = 0xF81F; /* magenta */
 	}
 
 	GC_FatalDrawLine( dst, 24, 6, "XASH3D GAMECUBE FATAL", 0xFFFF, 2, 34 );
