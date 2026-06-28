@@ -1781,16 +1781,27 @@ Dolphin logs, package artifacts, or operator-recorded hardware evidence.
 2. `scripts/gamecube-hardware-layout-info.sh`: Script that prints exact files and directory structures to place on SD Gecko, SD2SP2, Memory Card, or for Disc image generation based on the `--route` argument.
 
 **Evidence:**
-- Files created and committed.
+- Files created and committed in `8116b5b1 docs: add GameCube hardware boot checklist`.
 - Script is executable and outputs correct layout instructions for `sd`, `disc`, and `memcard` routes.
 - Checklist covers all acceptance criteria: loader routes, storage layout, video/input hardware, artifact verification, and triage.
 
-**Commands:**
+**Verification commands:**
 ```sh
-cat docs/GAMECUBE_HARDWARE_BOOT_CHECKLIST.md
+test -f docs/GAMECUBE_HARDWARE_BOOT_CHECKLIST.md && echo "CHECKLIST EXISTS"
+test -x scripts/gamecube-hardware-layout-info.sh && echo "LAYOUT SCRIPT EXISTS AND IS EXECUTABLE"
 bash scripts/gamecube-hardware-layout-info.sh --route sd
 bash scripts/gamecube-hardware-layout-info.sh --route disc
+bash scripts/gamecube-hardware-layout-info.sh --route memcard
 ```
+
+Result: Both files exist. The checklist documents pre-flight preparation, artifact preparation, loader routes (A: SD2SP2/SD Gecko, B: Disc, C: Memory Card), verification commands, and a failure triage table. The layout script prints exact file placement for `sd`, `disc`, and `memcard` routes.
+
+**Completion note:** G56 is complete. Acceptance criteria met:
+- Operator checklist for real hardware testing: ✓
+- Script printing exact files for each route: ✓
+- Failure triage table: ✓
+
+No further source changes required.
 
 ## Next wake-up commands
 
