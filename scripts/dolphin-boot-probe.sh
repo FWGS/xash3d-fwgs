@@ -10,8 +10,8 @@ fi
 # shellcheck source=scripts/dolphin-probe-lock.sh
 source scripts/dolphin-probe-lock.sh
 
-ISO_PATH="$ROOT/OUT/xash3d-gc.iso"
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
+ISO_PATH="$ROOT/$LOG_DIR/xash3d-gc.iso"
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
 FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"

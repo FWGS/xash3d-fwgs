@@ -89,9 +89,9 @@ and `engine/server/sv_game.c`. Asset load failures usually live in `filesystem/`
 operator-owned `Half-Life/valve` checkout:
 
 - Copies content for Dolphin/CI smoke tests only; nothing here ships to players.
-- Optional `gamecube-bootstrap.pk3` / `extras.pk3` repacking and `.avi`→`.gcvid`
-  conversion are **bring-up shortcuts**. Track them as gaps to remove once native
-  loaders and loose-file paths work on hardware.
+- Optional `gamecube-bootstrap.pk3` / `extras.pk3` repacking is a **bring-up
+  shortcut**. Do not preconvert retail movie assets; native GameCube playback
+  should read the user's original `media/*.avi` files.
 
 Preflight in the Aider GUI warns when `Half-Life/valve` is missing locally;
 that path is for developers and automation, not something end users build from repo.

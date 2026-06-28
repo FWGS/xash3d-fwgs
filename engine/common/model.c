@@ -143,6 +143,13 @@ void Mod_FreeModel( model_t *mod )
 	if( mod->type != mod_brush || mod->name[0] != '*' )
 	{
 		Mod_FreeUserData( mod );
+#if XASH_GAMECUBE
+		if( mod->type == mod_brush && mod->cache.data )
+		{
+			Mem_Free( mod->cache.data );
+			mod->cache.data = NULL;
+		}
+#endif
 		Mem_FreePool( &mod->mempool );
 	}
 
@@ -482,10 +489,13 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 			p->initialCRC = currentCRC;
 		}
 	}
-	Mem_Free( buf );
+#if XASH_GAMECUBE
+		if( mod->type != mod_brush || mod->cache.data != buf )
+#endif
+			Mem_Free( buf );
 
-	return mod;
-}
+		return mod;
+	}
 
 /*
 ==================

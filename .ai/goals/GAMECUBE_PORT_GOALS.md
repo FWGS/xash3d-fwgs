@@ -1191,6 +1191,20 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   source-covered by `filesystem/pak.c` with a warning rather than fabricated
   runtime evidence. Intro/media video is reported as a warning and remains
   separate from the core G67 asset-loader gate.
+- Follow-up 2026-06-28: GameCube now links the native `avi_gc.c` Cinepak AVI
+  backend instead of requiring generated `.gcvid` streams, and normal no-arg
+  boots no longer force `-nointro`. Runtime proof still requires Dolphin or
+  hardware evidence that `media/sierra.avi` / `media/valve.avi` render frames.
+- Follow-up 2026-06-28: `scripts/build-gamecube-disc.py --intro-avi` stages
+  only boot essentials plus original local startup Cinepak AVI files
+  (`sierra.avi`, `valve.avi` when present), and
+  `scripts/dolphin-vision-test.py --boot-mode intro-avi` records intro
+  requested/opened/decoded markers. Local evidence moved from `Invalid AVI
+  index size` to native sequential Cinepak playback and repeated XFB presents:
+  run `.ai/logs/dolphin-vision-20260628-124451` reports `intro_avi_nonblack`
+  with frames 0, 15, 30, and 60 sampled and nonzero RGB samples on later
+  frames. Keep this open until the displayed frame is visually correct; the
+  current frame dump is no longer flat green, but it is still visibly corrupted.
 
 ## G68 [ ] Complete full Half-Life campaign map and transition audit
 
@@ -1209,6 +1223,18 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   all 230 target BSPs present. This proves campaign transition target coverage,
   but G68 remains open until current-build Dolphin or hardware audit evidence
   classifies the actual maps and representative transitions.
+- Progress evidence (2026-06-28): current-build Dolphin representative audits
+  now classify `Black Mesa Inbound` `c0a0e` as `MAP_READY` with 11/11 parsed
+  transition targets present. `Anomalous Materials` `c1a0` now selects the
+  correct smoke map from staged `gamecube.cfg`, completes BSP texture loading,
+  skips oversized 367.41 KiB lightmaps, uses compact clipnodes through all 77
+  submodels, and reaches HLSDK entity/model precache. Current blocker:
+  `.ai/logs/campaign-audit-g68-anomalous-aliased-clipnodes/summary.md` records
+  `_Mem_Alloc` in `Server Edicts Zone` at `engine/server/sv_game.c:2946`
+  while allocating 736 bytes of entity private data after `monster_scientist`
+  and `monster_barney` spawn setup. G68 remains open until spawn proceeds into
+  active gameplay/rendering for this chapter or the entity-memory blocker is
+  explicitly classified.
 
 ## G69 [x] Add sustained gameplay soak and leak regression gate
 

@@ -218,6 +218,136 @@ GL_UpdateTexture
 */
 void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt )
 {
+	image_t *tex;
+	pixel_t *pixels;
+	size_t pixel_count;
+	int x, y;
+#if XASH_GAMECUBE
+	static unsigned int gc_update_count;
+	unsigned int gc_mid_r = 0, gc_mid_g = 0, gc_mid_b = 0;
+	pixel_t gc_mid_packed = 0;
+#endif
+
+	if( texnum <= 0 || texnum >= MAX_TEXTURES || !buffer )
+		return;
+	if( cols <= 0 || rows <= 0 || width <= 0 || height <= 0 )
+		return;
+
+	tex = R_GetTexture( texnum );
+	if( !tex )
+		return;
+
+	switch( fmt )
+	{
+	case PF_RGBA_32:
+	case PF_BGRA_32:
+	case PF_RGB_24:
+	case PF_BGR_24:
+	case PF_LUMINANCE:
+		break;
+	default:
+		gEngfuncs.Con_DPrintf( S_ERROR "%s: unsupported pixel format %i\n", __func__, fmt );
+		return;
+	}
+
+	pixel_count = (size_t)width * (size_t)height;
+	if( !tex->pixels[0] || tex->width != width || tex->height != height )
+	{
+		for( int i = 0; i < ARRAYSIZE( tex->pixels ); i++ )
+		{
+			if( tex->pixels[i] )
+			{
+				Mem_Free( tex->pixels[i] );
+				tex->pixels[i] = NULL;
+			}
+		}
+		if( tex->alpha_pixels )
+		{
+			Mem_Free( tex->alpha_pixels );
+			tex->alpha_pixels = NULL;
+		}
+
+		tex->pixels[0] = (pixel_t *)Mem_Calloc( r_temppool, pixel_count * sizeof( pixel_t ));
+		if( !tex->pixels[0] )
+		{
+			gEngfuncs.Con_Reportf( S_ERROR "%s: OOM updating %s %dx%d\n",
+				__func__, tex->name, width, height );
+			return;
+		}
+
+		tex->srcWidth = cols;
+		tex->srcHeight = rows;
+		tex->width = width;
+		tex->height = height;
+		tex->depth = 1;
+		tex->numMips = 1;
+		tex->size = pixel_count * sizeof( pixel_t );
+		ClearBits( tex->flags, TF_HAS_ALPHA );
+	}
+
+	pixels = tex->pixels[0];
+	for( y = 0; y < height; y++ )
+	{
+		int src_y = y * rows / height;
+		for( x = 0; x < width; x++ )
+		{
+			int src_x = x * cols / width;
+			const byte *src;
+			unsigned int r, g, b, major, minor;
+
+			switch( fmt )
+			{
+			case PF_RGBA_32:
+				src = buffer + (( src_y * cols + src_x ) * 4 );
+				r = src[0]; g = src[1]; b = src[2];
+				break;
+			case PF_BGRA_32:
+				src = buffer + (( src_y * cols + src_x ) * 4 );
+				r = src[2]; g = src[1]; b = src[0];
+				break;
+			case PF_RGB_24:
+				src = buffer + (( src_y * cols + src_x ) * 3 );
+				r = src[0]; g = src[1]; b = src[2];
+				break;
+			case PF_BGR_24:
+				src = buffer + (( src_y * cols + src_x ) * 3 );
+				r = src[2]; g = src[1]; b = src[0];
+				break;
+			case PF_LUMINANCE:
+				src = buffer + ( src_y * cols + src_x );
+				r = g = b = src[0];
+				break;
+			default:
+				return;
+			}
+
+			r = r * BIT( 5 ) / 256;
+			g = g * BIT( 6 ) / 256;
+			b = b * BIT( 5 ) / 256;
+			major = ((( r >> 2 ) & MASK( 3 )) << 5 ) | (((( g >> 3 ) & MASK( 3 )) << 2 )) | ((( b >> 3 ) & MASK( 2 )));
+			minor = MOVE_BIT( r, 1, 5 ) | MOVE_BIT( r, 0, 2 ) | MOVE_BIT( g, 2, 7 ) | MOVE_BIT( g, 1, 4 ) | MOVE_BIT( g, 0, 1 ) | MOVE_BIT( b, 2, 6 ) | MOVE_BIT( b, 1, 3 ) | MOVE_BIT( b, 0, 0 );
+			pixels[y * width + x] = major << 8 | ( minor & 0xFF );
+#if XASH_GAMECUBE
+			if( x == width / 2 && y == height / 2 )
+			{
+				gc_mid_r = r;
+				gc_mid_g = g;
+				gc_mid_b = b;
+				gc_mid_packed = pixels[y * width + x];
+			}
+#endif
+		}
+	}
+
+#if XASH_GAMECUBE
+	gc_update_count++;
+	if( gc_update_count <= 2 || gc_update_count == 15 || gc_update_count == 30 || gc_update_count == 60 )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: texture update %u tex=%s %dx%d src=%dx%d fmt=%d mid565=%u,%u,%u packed=0x%04X\n",
+			gc_update_count, tex->name, width, height, cols, rows, fmt,
+			gc_mid_r, gc_mid_g, gc_mid_b, gc_mid_packed );
+	}
+#endif
 }
 
 /*

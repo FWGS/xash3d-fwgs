@@ -255,10 +255,13 @@ void GCube_Init( void )
 	/* G37: Removed intentional fatal error trigger (gc_fatal_test) as it was
 	 * blocking runtime progression by forcing a fatal breadcrumb state. */
 
-	DVD_Init();
-	gc_dvd_io = __io_gcdvd;
-	gc_dvd_io.readSectors = GCube_DVDReadSectors;
-	gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
+	if( !gc_dvd_mounted )
+	{
+		DVD_Init();
+		gc_dvd_io = __io_gcdvd;
+		gc_dvd_io.readSectors = GCube_DVDReadSectors;
+		gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
+	}
 	if( gc_dvd_mounted )
 		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n",
 			ISO9660_GetVolumeLabel( GC_DVD_DEVICE ));
@@ -336,6 +339,64 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 #define GC_DEFAULT_SMOKE_MAP "c0a0e"
 static char *gc_argv[GC_MAX_ARGV];
 static char gc_smoke_map[MAX_QPATH] = GC_DEFAULT_SMOKE_MAP;
+static qboolean gc_smoke_map_configured;
+
+static void GCube_LoadSmokeMapOverride( void )
+{
+#if XASH_GAMECUBE
+	FILE *file;
+	char line[128];
+
+	gc_smoke_map_configured = false;
+	Q_strncpy( gc_smoke_map, GC_DEFAULT_SMOKE_MAP, sizeof( gc_smoke_map ));
+
+	if( !gc_dvd_mounted )
+	{
+		DVD_Init();
+		gc_dvd_io = __io_gcdvd;
+		gc_dvd_io.readSectors = GCube_DVDReadSectors;
+		gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
+	}
+
+	if( !gc_dvd_mounted )
+		return;
+
+	file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	if( !file )
+		return;
+
+	while( fgets( line, sizeof( line ), file ))
+	{
+		char *cursor = line;
+		char *mapname;
+		size_t len;
+
+		while( *cursor == ' ' || *cursor == '\t' )
+			cursor++;
+		if( Q_strnicmp( cursor, "map", 3 ) || ( cursor[3] != ' ' && cursor[3] != '\t' ))
+			continue;
+
+		mapname = cursor + 3;
+		while( *mapname == ' ' || *mapname == '\t' )
+			mapname++;
+		len = strlen( mapname );
+		while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ||
+			mapname[len - 1] == ' ' || mapname[len - 1] == '\t' ))
+		{
+			mapname[--len] = '\0';
+		}
+		if( len > 0 && len < sizeof( gc_smoke_map ) && !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
+		{
+			Q_strncpy( gc_smoke_map, mapname, sizeof( gc_smoke_map ));
+			gc_smoke_map_configured = true;
+			SYS_Report( "Xash3D GameCube: smoke map override %s\n", gc_smoke_map );
+			break;
+		}
+	}
+
+	fclose( file );
+#endif
+}
 
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 {
@@ -347,18 +408,23 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		return in_argc;
 	}
 
+	GCube_LoadSmokeMapOverride();
+
 	gc_argv[fake_argc++] = "xash";
 	gc_argv[fake_argc++] = "-dev";
 	gc_argv[fake_argc++] = "2";
 	gc_argv[fake_argc++] = "-log";
-	gc_argv[fake_argc++] = "-toconsole";
-	gc_argv[fake_argc++] = "-nointro";
 	gc_argv[fake_argc++] = "-game";
 	gc_argv[fake_argc++] = "valve";
-	gc_argv[fake_argc++] = "-gcmap";
-	gc_argv[fake_argc++] = gc_smoke_map;
-	gc_argv[fake_argc++] = "map";
-	gc_argv[fake_argc++] = gc_smoke_map;
+	if( gc_smoke_map_configured )
+	{
+		gc_argv[fake_argc++] = "-toconsole";
+		gc_argv[fake_argc++] = "-nointro";
+		gc_argv[fake_argc++] = "-gcmap";
+		gc_argv[fake_argc++] = gc_smoke_map;
+		gc_argv[fake_argc++] = "map";
+		gc_argv[fake_argc++] = gc_smoke_map;
+	}
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "320";
 	gc_argv[fake_argc++] = "-height";

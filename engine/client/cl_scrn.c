@@ -1086,18 +1086,42 @@ void SCR_Init( void )
 		host.allow_console = true; // we need console, because menu is missing
 	}
 #if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen gameui fallback ready\n" );
+#endif
+#if XASH_GAMECUBE
 	}
 #endif
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen vidinit begin\n" );
+#endif
 	SCR_VidInit();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen vidinit returned\n" );
+#endif
 #if XASH_GAMECUBE
 	if( GC_GetVisualQuality( ) != 0 )
 #endif
 	SCR_LoadCreditsFont ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen credits font ready\n" );
+#endif
 	SCR_RegisterTextures ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen textures ready\n" );
+#endif
 	SCR_InstallParticlePalette ();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen particle palette ready\n" );
+#endif
 	SCR_InitCinematic();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen cinematic init ready\n" );
+#endif
 	CL_InitNetgraph();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: screen netgraph init ready\n" );
+#endif
 
 	if( host.allow_console && Sys_CheckParm( "-toconsole" ))
 		Cbuf_AddText( "toggleconsole\n" );

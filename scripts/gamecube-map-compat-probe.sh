@@ -77,8 +77,9 @@ for bsp in "${map_files[@]}"; do
 	PROBE_EXIT=$?
 	set -e
 	
-	# Determine log directory (most recent dolphin-probe log)
-	PROBE_LOG_DIR=$(ls -td .ai/logs/dolphin-probe-* 2>/dev/null | head -n 1)
+	# Use the log directory reported by this probe. Falling back to "latest"
+	# is unsafe when the GUI/Aider/Codex can run Dolphin probes concurrently.
+	PROBE_LOG_DIR=$(printf "%s\n" "$PROBE_OUTPUT" | awk '/^Logs: / {print $2; found=1} END {exit found ? 0 : 1}' || true)
 	
 	STATUS="UNKNOWN"
 	BLOCKER=""
@@ -94,19 +95,20 @@ for bsp in "${map_files[@]}"; do
 		if grep -qsF "Xash3D GameCube: map loaded ${map_name}" "$STDERR_LOG" 2>/dev/null || \
 		   grep -qsF "Xash3D GameCube: map loaded ${map_name}" "$STDOUT_LOG" 2>/dev/null; then
 			STATUS="MAP_LOADED"
-			
-			# Extract memory high-water mark
-			if [[ -f "$STDERR_LOG" ]]; then
-				MEM_LINE=$(grep "Xash3D GameCube: mem stage=" "$STDERR_LOG" 2>/dev/null | tail -n 1)
-				if [[ -n "$MEM_LINE" ]]; then
-					MEM_PEAK=$(echo "$MEM_LINE" | grep -oP 'hwm=\K[0-9.]+ [KmG]b' || echo "N/A")
-				fi
-			fi
 		elif echo "$PROBE_OUTPUT" | grep -qsF "MAP_READY"; then
 			STATUS="MAP_READY"
 		elif echo "$PROBE_OUTPUT" | grep -qsF "GUEST_FAILURE"; then
 			STATUS="GUEST_FAILURE"
-			BLOCKER=$(grep -m1 -iE "error|fail|panic|assert" "$STDERR_LOG" 2>/dev/null | head -n 1 || echo "Guest failure")
+			BLOCKER=$(grep -ahm1 "Xash3D GameCube: fatal message=" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
+			if [[ -z "$BLOCKER" ]]; then
+				BLOCKER=$(grep -ahm1 "Xash3D GameCube: mem FAIL" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
+			fi
+			if [[ -z "$BLOCKER" ]]; then
+				BLOCKER=$(grep -ahm1 -iE "Host_Error|Sys_Error|_Mem_Alloc|out of memory|fatal|panic|assert" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
+			fi
+			if [[ -z "$BLOCKER" ]]; then
+				BLOCKER=$(grep -ahm1 -iE "error|fail" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || echo "Guest failure")
+			fi
 		elif echo "$PROBE_OUTPUT" | grep -qsF "HOST_FAILURE"; then
 			STATUS="HOST_FAILURE"
 			BLOCKER="Dolphin/Host initialization failed"
@@ -116,6 +118,14 @@ for bsp in "${map_files[@]}"; do
 		else
 			STATUS="INCONCLUSIVE"
 			BLOCKER="No clear success/failure markers"
+		fi
+
+		# Extract the latest memory high-water mark for both MAP_LOADED and
+		# MAP_READY paths. Some probes report MAP_READY through analyzer output
+		# even when the raw map-loaded marker is not copied to stdout.
+		MEM_LINE=$(grep -ah "Xash3D GameCube: mem stage=" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null | tail -n 1 || true)
+		if [[ -n "$MEM_LINE" ]]; then
+			MEM_PEAK=$(echo "$MEM_LINE" | grep -oP 'hwm=\K[0-9.]+ [KMG]b' || echo "N/A")
 		fi
 	fi
 	

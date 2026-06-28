@@ -29,7 +29,7 @@ CRITICAL_ASSETS = (
 
 # Assets that are either too large for GC memory budget or unsupported formats
 UNSUPPORTED_EXTENSIONS = {
-    ".avi", ".wmv", ".mpg", ".mpeg",  # Video: unsupported or too heavy
+    ".wmv", ".mpg", ".mpeg",          # Video: unsupported or too heavy
     ".mp3", ".ogg",                   # Audio: streaming not yet stable on GC
 }
 
@@ -55,10 +55,6 @@ APPLOADER_ADDRESS = 0x81200000
 APPLOADER_HEADER_OFFSET = 0x2440
 APPLOADER_DATA_OFFSET = APPLOADER_HEADER_OFFSET + 0x20
 BOOTSTRAP_EXCLUDED_EXTENSIONS = {".avi", ".gcvid", ".mdl", ".pak", ".pk3", ".wad", ".wav"}
-GCVID_WIDTH = 320
-GCVID_HEIGHT = 240
-GCVID_FPS = 15
-GCVID_HEADER = struct.Struct("<4sIIIII")
 
 
 def align(value: int, boundary: int) -> int:
@@ -259,14 +255,15 @@ def build_iso9660(
 		with zipfile.ZipFile(bootstrap, "w", zipfile.ZIP_DEFLATED) as archive:
 			children = data.rglob("*") if bootstrap_recursive else data.iterdir()
 			for child in sorted(children):
+				suffix = child.suffix.lower()
 				if (
 					child.is_file()
-					and child.suffix.lower() not in BOOTSTRAP_EXCLUDED_EXTENSIONS
+					and suffix not in BOOTSTRAP_EXCLUDED_EXTENSIONS
 					and child.stat().st_size <= 2 * 1024 * 1024
 				):
 					compress_type = (
 						zipfile.ZIP_STORED
-						if child.suffix.lower() in (".bsp", ".mdl")
+						if suffix in (".bsp", ".mdl")
 						else zipfile.ZIP_DEFLATED
 					)
 					archive.write(
@@ -309,74 +306,6 @@ SMOKE_INTRO_MEDIA = (
 	"media/valve.avi",
 )
 
-
-def convert_intro_media(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
-	ffmpeg = shutil.which("ffmpeg")
-	converted: list[tuple[str, Path]] = []
-
-	for relative in SMOKE_INTRO_MEDIA:
-		avi = source / relative
-		if not avi.is_file():
-			continue
-		if ffmpeg is None:
-			raise FileNotFoundError("ffmpeg is required to convert Half-Life startup AVI files")
-
-		gcvid_relative = Path(relative).with_suffix(".gcvid").as_posix()
-		gcvid = output / gcvid_relative
-		if gcvid.is_file() and gcvid.stat().st_mtime >= avi.stat().st_mtime:
-			converted.append((gcvid_relative, gcvid))
-			continue
-
-		gcvid.parent.mkdir(parents=True, exist_ok=True)
-		convert_avi_to_gcvid(ffmpeg, avi, gcvid)
-		converted.append((gcvid_relative, gcvid))
-
-	return tuple(converted)
-
-
-def convert_avi_to_gcvid(ffmpeg: str, source: Path, output: Path) -> None:
-	frame_size = GCVID_WIDTH * GCVID_HEIGHT * 4
-	temp_output = output.with_suffix(output.suffix + ".tmp")
-	command = [
-		ffmpeg,
-		"-v", "error",
-		"-i", str(source),
-		"-an",
-		"-vf",
-		f"scale={GCVID_WIDTH}:{GCVID_HEIGHT}:force_original_aspect_ratio=decrease,"
-		f"pad={GCVID_WIDTH}:{GCVID_HEIGHT}:(ow-iw)/2:(oh-ih)/2,fps={GCVID_FPS}",
-		"-f", "rawvideo",
-		"-pix_fmt", "bgra",
-		"-",
-	]
-
-	frame_count = 0
-	process = subprocess.Popen(command, stdout=subprocess.PIPE)
-	assert process.stdout is not None
-	try:
-		with temp_output.open("wb") as out:
-			out.write(GCVID_HEADER.pack(b"GCV1", GCVID_WIDTH, GCVID_HEIGHT, GCVID_FPS, 1, 0))
-			while True:
-				frame = process.stdout.read(frame_size)
-				if not frame:
-					break
-				if len(frame) != frame_size:
-					raise ValueError(f"partial video frame while converting {source}")
-				out.write(frame)
-				frame_count += 1
-	finally:
-		process.stdout.close()
-
-	if process.wait() != 0:
-		temp_output.unlink(missing_ok=True)
-		raise subprocess.CalledProcessError(process.returncode, command)
-	if frame_count == 0:
-		temp_output.unlink(missing_ok=True)
-		raise ValueError(f"ffmpeg produced no frames for {source}")
-
-	with temp_output.open("r+b") as out:
-		out.write(GCVID_HEADER.pack(b"GCV1", GCVID_WIDTH, GCVID_HEIGHT, GCVID_FPS, 1, frame_count))
-	temp_output.replace(output)
 
 SMOKE_HUD_RES = 320
 
@@ -680,6 +609,23 @@ def stage_smoke_data(source: Path, output: Path, smoke_map: str) -> Path:
 	return output
 
 
+def stage_intro_avi_data(source: Path, output: Path) -> Path:
+	output.mkdir(parents=True, exist_ok=True)
+	for relative in CRITICAL_ASSETS:
+		copy_if_present(source, output, relative)
+	for relative in SMOKE_CONFIG_FILES:
+		copy_if_present(source, output, relative)
+	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
+	(output / "config.cfg").write_text("\n", encoding="ascii")
+	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
+	extract_wad_lump(source / "gfx.wad", output, "conchars", "gfx/conchars")
+	for relative in SMOKE_INTRO_MEDIA:
+		copy_if_present(source, output, relative)
+	write_startup_vids(output)
+	(output / "custom").mkdir(exist_ok=True)
+	return output
+
+
 def build_disc(
 	dol: Path,
 	data: Path,
@@ -870,6 +816,11 @@ def main() -> None:
 		help="stage only the files needed for a bounded legal local map smoke test",
 	)
 	parser.add_argument(
+		"--intro-avi",
+		action="store_true",
+		help="stage boot essentials and original user-provided startup AVI files for local intro testing",
+	)
+	parser.add_argument(
 		"--apploader-source", type=Path, default=script_dir / "gamecube-apploader.c"
 	)
 	parser.add_argument(
@@ -881,9 +832,12 @@ def main() -> None:
 		if not path.exists():
 			parser.error(f"required path does not exist: {path}")
 			
-	# Run asset validation before building (skip for smoke-map builds which
-	# stage a minimal subset independently)
-	if not args.smoke_map:
+	if args.smoke_map and args.intro_avi:
+		parser.error("--smoke-map and --intro-avi are mutually exclusive")
+
+	# Run asset validation before full-data builds. Smoke and intro-AVI builds
+	# stage bounded local subsets independently.
+	if not args.smoke_map and not args.intro_avi:
 		validation_errors = validate_assets(args.data)
 		if validation_errors:
 			print("Asset validation failed:", file=sys.stderr)
@@ -910,13 +864,32 @@ def main() -> None:
 				args.apploader_linker,
 				bootstrap_recursive=True,
 			)
+	elif args.intro_avi:
+		with tempfile.TemporaryDirectory(prefix="xash3d-gc-intro-avi-data-") as temp:
+			intro_data = stage_intro_avi_data(args.data, Path(temp) / "valve")
+			staged_movies = [
+				relative for relative in SMOKE_INTRO_MEDIA
+				if (intro_data / relative).is_file()
+			]
+			if not staged_movies:
+				print(
+					"Intro AVI staging failed: no original local startup AVI files were found.",
+					file=sys.stderr,
+				)
+				sys.exit(1)
+			build_disc(
+				args.dol,
+				intro_data,
+				extras,
+				args.output,
+				args.apploader_source,
+				args.apploader_linker,
+				bootstrap_recursive=True,
+			)
 	else:
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-intro-media-") as temp:
 			overlay_root = Path(temp) / "valve"
-			overlays = (
-				convert_intro_media(args.data, overlay_root)
-				+ create_startup_vids_overlay(args.data, overlay_root)
-			)
+			overlays = create_startup_vids_overlay(args.data, overlay_root)
 			build_disc(
 				args.dol,
 				args.data,

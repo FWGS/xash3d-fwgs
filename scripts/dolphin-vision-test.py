@@ -78,24 +78,25 @@ def repo_dolphin(root: Path) -> Path | None:
 	return None
 
 
-def dolphin_command(root: Path, user_dir: Path, iso: Path) -> tuple[list[str], bool]:
+def dolphin_command(root: Path, user_dir: Path, iso: Path, *, batch: bool = True) -> tuple[list[str], bool]:
+	mode_args = ["-l", "-b"] if batch else ["-l"]
 	if os.environ.get("DOLPHIN_EXECUTABLE", "").startswith("flatpak:"):
 		flatpak_id = os.environ["DOLPHIN_EXECUTABLE"].removeprefix("flatpak:")
 		return ["flatpak", "run", f"--filesystem={root}", flatpak_id,
-			"-u", str(user_dir), "-l", "-b", "-e", str(iso)], True
+			"-u", str(user_dir), *mode_args, "-e", str(iso)], True
 	if os.environ.get("DOLPHIN_EXECUTABLE"):
-		return [os.environ["DOLPHIN_EXECUTABLE"], "-u", str(user_dir), "-l", "-b", "-e", str(iso)], False
+		return [os.environ["DOLPHIN_EXECUTABLE"], "-u", str(user_dir), *mode_args, "-e", str(iso)], False
 	local = repo_dolphin(root)
 	if local:
-		return [str(local), "-u", str(user_dir), "-l", "-b", "-e", str(iso)], False
+		return [str(local), "-u", str(user_dir), *mode_args, "-e", str(iso)], False
 	for name in ("dolphin-emu", "dolphin"):
 		found = shutil.which(name)
 		if found:
-			return [found, "-u", str(user_dir), "-l", "-b", "-e", str(iso)], False
+			return [found, "-u", str(user_dir), *mode_args, "-e", str(iso)], False
 	if shutil.which("flatpak"):
 		flatpak_id = os.environ.get("DOLPHIN_FLATPAK_ID", "org.DolphinEmu.dolphin-emu")
 		return ["flatpak", "run", f"--filesystem={root}", flatpak_id,
-			"-u", str(user_dir), "-l", "-b", "-e", str(iso)], True
+			"-u", str(user_dir), *mode_args, "-e", str(iso)], True
 	raise FileNotFoundError("Dolphin executable, submodule build, or Flatpak was not found")
 
 
@@ -248,13 +249,26 @@ def image_nonblack_metrics(image: Path | None) -> dict[str, object]:
 		with Image.open(image) as handle:
 			rgb = handle.convert("RGB")
 			pixels = rgb.get_flattened_data() if hasattr(rgb, "get_flattened_data") else rgb.getdata()
-			nonblack = sum(1 for pixel in pixels if pixel != (0, 0, 0))
+			pixel_list = list(pixels)
+			total = len(pixel_list)
+			nonblack = sum(1 for pixel in pixel_list if pixel != (0, 0, 0))
+			colors = rgb.getcolors(maxcolors=4096)
 	except OSError:
 		return {"available": True, "nonblack_pixels": 0, "sampled_nonblack": False}
+	dominant_color = None
+	dominant_ratio = 0.0
+	flat_artifact = False
+	if colors and total:
+		dominant_count, dominant_color = max(colors, key=lambda item: item[0])
+		dominant_ratio = dominant_count / total
+		flat_artifact = dominant_color != (0, 0, 0) and dominant_ratio >= 0.98
 	return {
 		"available": True,
 		"nonblack_pixels": nonblack,
-		"sampled_nonblack": nonblack > 0,
+		"sampled_nonblack": nonblack > 0 and not flat_artifact,
+		"dominant_color": dominant_color,
+		"dominant_ratio": dominant_ratio,
+		"flat_artifact": flat_artifact,
 	}
 
 
@@ -272,6 +286,9 @@ def classify_logs(logs: str, smoke_map: str,
 		"sampled_nonblack": marker_bool(logs, r"sampled_nonblack=1"),
 		"audio_voice_started": marker_bool(logs, r"audio voice started"),
 		"audio_nonzero_pcm": marker_bool(logs, r"audio submitted nonzero PCM"),
+		"intro_requested": marker_bool(logs, r"Xash3D GameCube: intro AVI play"),
+		"intro_opened": marker_bool(logs, r"Xash3D GameCube: intro AVI opened"),
+		"intro_first_frame": marker_bool(logs, r"Xash3D GameCube: intro AVI decoded first frame"),
 	}
 	if image_metrics.get("sampled_nonblack"):
 		markers["sampled_nonblack"] = True
@@ -280,6 +297,14 @@ def classify_logs(logs: str, smoke_map: str,
 		logs, re.IGNORECASE)))
 	if errors:
 		status = "guest_failure" if markers["bootstrap"] else "host_or_boot_failure"
+	elif markers["intro_first_frame"] and markers["sampled_nonblack"]:
+		status = "intro_avi_nonblack"
+	elif markers["intro_first_frame"]:
+		status = "intro_avi_decoded"
+	elif markers["intro_opened"]:
+		status = "intro_avi_opened"
+	elif markers["intro_requested"]:
+		status = "intro_avi_requested"
 	elif markers["map_loaded"] and markers["sampled_nonblack"]:
 		status = "active_rendering_nonblack"
 	elif markers["map_loaded"] and markers["input_polling"]:
@@ -295,8 +320,12 @@ def classify_logs(logs: str, smoke_map: str,
 	else:
 		status = "inconclusive"
 	visual = "unknown"
-	if markers["sampled_nonblack"]:
+	if markers["intro_first_frame"] and markers["sampled_nonblack"]:
+		visual = "intro_avi_nonblack_frame"
+	elif markers["sampled_nonblack"]:
 		visual = "nonblack_frame_dump" if image_metrics.get("sampled_nonblack") else "nonblack_renderer_pixels"
+	elif markers["intro_first_frame"]:
+		visual = "intro_avi_decoded_no_nonblack_capture"
 	elif markers["diagnostic_marker"]:
 		visual = "diagnostic_marker_only"
 	elif markers["map_loaded"]:
@@ -322,6 +351,14 @@ def next_action(classification: dict[str, object], screenshot_available: bool,
 	errors = classification.get("errors", [])
 	if errors:
 		return "Fix the first guest error in OSReport before visual/audio tuning."
+	if markers.get("intro_first_frame") and markers.get("sampled_nonblack"):
+		return "Intro AVI decoded and produced nonblack output; preserve native AVI playback and move to menu/gameplay proof."
+	if markers.get("intro_first_frame"):
+		return "Native AVI decode reached first frame; improve screenshot/frame capture or renderer presentation proof."
+	if markers.get("intro_opened"):
+		return "AVI opened but no decoded-frame marker appeared; debug Cinepak frame decode or timing."
+	if markers.get("intro_requested"):
+		return "Startup video command ran but AVI did not open; inspect filesystem path, playlist, and staged media."
 	if markers.get("map_loaded") and markers.get("sampled_nonblack"):
 		return "Nonblack active-render evidence captured; preserve this route and work the next gameplay/audio fidelity gate."
 	if markers.get("map_loaded") and markers.get("resource_verification") and not markers.get("sampled_nonblack"):
@@ -483,6 +520,9 @@ def main() -> int:
 		"DOLPHIN_STATE_CAPTURES", "intro-avi:8,main-menu:18,gameplay:35"),
 		help="comma-separated label:seconds screenshots to capture for GUI validation")
 	parser.add_argument("--smoke-map", default=os.environ.get("DOLPHIN_SMOKE_MAP", "c0a0e"))
+	parser.add_argument("--boot-mode", choices=("smoke", "intro-avi"), default=os.environ.get(
+		"DOLPHIN_VISION_BOOT_MODE", "smoke"),
+		help="smoke loads a map with -nointro; intro-avi stages original local AVI files and tests startup video")
 	parser.add_argument("--api-base", default=os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1"))
 	parser.add_argument("--api-key", default=os.environ.get("OPENAI_API_KEY", ""))
 	parser.add_argument("--vision-model", default=os.environ.get(
@@ -496,6 +536,8 @@ def main() -> int:
 		help="do not ask the model for log-only analysis when no screenshot is available")
 	parser.add_argument("--no-frame-dump-fallback", action="store_true",
 		help="do not enable Dolphin PNG frame dumping when desktop screenshot tools are unavailable")
+	parser.add_argument("--no-batch", action="store_true",
+		help="launch Dolphin without -b so GUI/manual-like boots do not exit as soon as batch mode considers emulation complete")
 	parser.add_argument("--no-memory", action="store_true",
 		help="do not update .ai/state/dolphin-harness-memory.json")
 	args = parser.parse_args()
@@ -511,8 +553,12 @@ def main() -> int:
 	write_config(user_dir, frame_dump_fallback=frame_dump_fallback)
 
 	iso = root / "OUT/xash3d-gc.iso"
-	build = run(["scripts/build-gamecube-disc.py", "--output", str(iso),
-		"--smoke-map", args.smoke_map], root)
+	build_args = ["scripts/build-gamecube-disc.py", "--output", str(iso)]
+	if args.boot_mode == "smoke":
+		build_args.extend(("--smoke-map", args.smoke_map))
+	else:
+		build_args.append("--intro-avi")
+	build = run(build_args, root)
 	(log_dir / "disc-build.stdout.log").write_text(build.stdout, encoding="utf-8")
 	(log_dir / "disc-build.stderr.log").write_text(build.stderr, encoding="utf-8")
 	print(build.stdout, end="")
@@ -522,7 +568,7 @@ def main() -> int:
 		return build.returncode
 
 	try:
-		command, flatpak = dolphin_command(root, user_dir, iso)
+		command, flatpak = dolphin_command(root, user_dir, iso, batch=not args.no_batch)
 	except FileNotFoundError as exc:
 		print(f"HOST_FAILURE: {exc}")
 		return 2
@@ -565,6 +611,7 @@ def main() -> int:
 			time.sleep(0.5)
 	finally:
 		terminate(proc, flatpak=flatpak)
+		dolphin_returncode = proc.returncode
 		stdout.close()
 		stderr.close()
 	if latest_screen is None:
@@ -612,7 +659,10 @@ def main() -> int:
 		"created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
 		"command": command,
 		"flatpak": flatpak,
+		"batch": not args.no_batch,
+		"dolphin_returncode": dolphin_returncode,
 		"smoke_map": args.smoke_map,
+		"boot_mode": args.boot_mode,
 		"log_dir": str(log_dir.relative_to(root)),
 		"latest_screenshot": str(latest_screen.relative_to(root)) if latest_screen else "",
 		"state_screenshots": state_screenshots,

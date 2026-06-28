@@ -44,4 +44,5 @@ fi
 ./waf install --destdir=OUT
 
 echo "GameCube build installed to OUT/"
-echo "Copy Half-Life assets to sd:/xash3d/valve/ and run OUT/bin/boot.dol in Dolphin"
+echo "For Dolphin disc testing, build/run OUT/xash3d-gc.iso with scripts/build-gamecube-disc.py."
+echo "For DOL testing, provide Half-Life assets at sd:/xash3d/valve/ before launching OUT/bin/boot.dol."

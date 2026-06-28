@@ -9,9 +9,9 @@ Copyright (C) 2026 Xash3D GameCube port contributors
 #define CPK_MAX_STRIPS 32
 #define CPK_CLIP( v ) bound( 0, (v), 255 )
 
-#define CPK_RL16( p ) ((uint16_t)((p)[0] | ((uint16_t)(p)[1] << 8)))
-#define CPK_RL24( p ) ((uint32_t)((p)[0] | ((uint32_t)(p)[1] << 8) | ((uint32_t)(p)[2] << 16)))
-#define CPK_RL32( p ) ((uint32_t)((p)[0] | ((uint32_t)(p)[1] << 8) | ((uint32_t)(p)[2] << 16) | ((uint32_t)(p)[3] << 24)))
+#define CPK_RB16( p ) ((uint16_t)(((uint16_t)(p)[0] << 8) | (p)[1]))
+#define CPK_RB24( p ) ((uint32_t)(((uint32_t)(p)[0] << 16) | ((uint32_t)(p)[1] << 8) | (p)[2]))
+#define CPK_RB32( p ) ((uint32_t)(((uint32_t)(p)[0] << 24) | ((uint32_t)(p)[1] << 16) | ((uint32_t)(p)[2] << 8) | (p)[3]))
 
 typedef byte cpk_codebook[12];
 
@@ -51,7 +51,7 @@ static void Cinepak_DecodeCodebook( cpk_codebook *codebook, int chunk_id, int si
 		{
 			if(( data + 4 ) > eod )
 				break;
-			flag = CPK_RL32( data );
+			flag = CPK_RB32( data );
 			data += 4;
 			mask = 0x80000000;
 		}
@@ -123,7 +123,7 @@ static qboolean Cinepak_DecodeVectors( cpk_decode_t *s, cpk_strip_t *strip, int 
 			{
 				if(( data + 4 ) > eod )
 					return false;
-				flag = CPK_RL32( data );
+				flag = CPK_RB32( data );
 				data += 4;
 				mask = 0x80000000;
 			}
@@ -134,7 +134,7 @@ static qboolean Cinepak_DecodeVectors( cpk_decode_t *s, cpk_strip_t *strip, int 
 				{
 					if(( data + 4 ) > eod )
 						return false;
-					flag = CPK_RL32( data );
+					flag = CPK_RB32( data );
 					data += 4;
 					mask = 0x80000000;
 				}
@@ -194,7 +194,7 @@ static qboolean Cinepak_DecodeStrip( cpk_decode_t *s, cpk_strip_t *strip, const 
 	while(( data + 4 ) <= eod )
 	{
 		chunk_id = data[0];
-		chunk_size = CPK_RL24( &data[1] ) - 4;
+		chunk_size = CPK_RB24( &data[1] ) - 4;
 		if( chunk_size < 0 )
 			return false;
 
@@ -221,8 +221,8 @@ static qboolean Cinepak_DecodeStrip( cpk_decode_t *s, cpk_strip_t *strip, const 
 
 static qboolean Cinepak_PredecodeCheck( cpk_decode_t *s )
 {
-	int num_strips = CPK_RL16( &s->data[8] );
-	int encoded_buf_size = CPK_RL24( &s->data[1] );
+	int num_strips = CPK_RB16( &s->data[8] );
+	int encoded_buf_size = CPK_RB24( &s->data[1] );
 
 	if( s->size < encoded_buf_size )
 		return false;
@@ -248,7 +248,7 @@ static qboolean Cinepak_PredecodeCheck( cpk_decode_t *s )
 	if( num_strips > 0 )
 	{
 		const byte *chunk = s->data + 10 + s->sega_film_skip_bytes;
-		int strip_size = CPK_RL24( &chunk[1] );
+		int strip_size = CPK_RB24( &chunk[1] );
 		if( strip_size < 12 || strip_size > encoded_buf_size )
 			return false;
 	}
@@ -265,7 +265,7 @@ static qboolean Cinepak_DecodeInternal( cpk_decode_t *s )
 		return false;
 
 	frame_flags = s->data[0];
-	num_strips = CPK_RL16( &s->data[8] );
+	num_strips = CPK_RB16( &s->data[8] );
 	s->data += 10 + s->sega_film_skip_bytes;
 	num_strips = Q_min( num_strips, CPK_MAX_STRIPS );
 
@@ -275,13 +275,13 @@ static qboolean Cinepak_DecodeInternal( cpk_decode_t *s )
 			return false;
 
 		s->strips[i].id = s->data[0];
-		if(!( s->strips[i].y1 = CPK_RL16( &s->data[4] )))
-			s->strips[i].y2 = ( s->strips[i].y1 = y0 ) + CPK_RL16( &s->data[8] );
-		else s->strips[i].y2 = CPK_RL16( &s->data[8] );
-		s->strips[i].x1 = CPK_RL16( &s->data[6] );
-		s->strips[i].x2 = CPK_RL16( &s->data[10] );
+		if(!( s->strips[i].y1 = CPK_RB16( &s->data[4] )))
+			s->strips[i].y2 = ( s->strips[i].y1 = y0 ) + CPK_RB16( &s->data[8] );
+		else s->strips[i].y2 = CPK_RB16( &s->data[8] );
+		s->strips[i].x1 = CPK_RB16( &s->data[6] );
+		s->strips[i].x2 = CPK_RB16( &s->data[10] );
 
-		strip_size = CPK_RL24( &s->data[1] ) - 12;
+		strip_size = CPK_RB24( &s->data[1] ) - 12;
 		if( strip_size < 0 )
 			return false;
 		s->data += 12;

@@ -2041,13 +2041,20 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 			}
 			else
 			{
-				hull->clipnodes16 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes16 ) * mod->numclipnodes );
-
-				for( int i = 0; i < mod->numclipnodes; i++ )
+				if( bmod->clipnodes_out )
 				{
-					hull->clipnodes16[i].planenum = bmod->clipnodes_out[i].planenum;
-					hull->clipnodes16[i].children[0] = bmod->clipnodes_out[i].children[0];
-					hull->clipnodes16[i].children[1] = bmod->clipnodes_out[i].children[1];
+					hull->clipnodes16 = Mem_Malloc( world->mempool, sizeof( *hull->clipnodes16 ) * mod->numclipnodes );
+
+					for( int i = 0; i < mod->numclipnodes; i++ )
+					{
+						hull->clipnodes16[i].planenum = bmod->clipnodes_out[i].planenum;
+						hull->clipnodes16[i].children[0] = bmod->clipnodes_out[i].children[0];
+						hull->clipnodes16[i].children[1] = bmod->clipnodes_out[i].children[1];
+					}
+				}
+				else
+				{
+					hull->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
 				}
 			}
 		}
@@ -2706,6 +2713,16 @@ static void Mod_InitSkyClouds( model_t *mod, const mip_t *mt, texture_t *tx, qbo
 	if( !ref.initialized )
 		return;
 
+#if XASH_GAMECUBE
+	/*
+	 * The GX renderer does not currently consume the legacy Quake sky-cloud
+	 * pair, and splitting it costs enough transient image memory to block
+	 * early HL1 maps such as c1a0 before active rendering.
+	 */
+	Con_DPrintf( "Xash3D GameCube: skipping legacy sky cloud split for %s\n", tx->name );
+	return;
+#endif
+
 	if( Mod_AllowMaterials( ))
 	{
 		rgbdata_t *pic;
@@ -3178,8 +3195,10 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 	// release old sky layers first
 	if( !Host_IsDedicated() && bmod->isworld )
 	{
+#if !XASH_GAMECUBE
 		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( "alpha_sky" ));
 		ref.dllFuncs.GL_FreeTexture( R_GetBuiltinTexture( "solid_sky" ));
+#endif
 	}
 #endif
 
@@ -3860,6 +3879,16 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 {
 	dclipnode32_t	*out;
 
+#if XASH_GAMECUBE
+	if( bmod->version != QBSP2_VERSION && !bmod->isbsp30ext )
+	{
+		Con_Reportf( "Xash3D GameCube: using compact clipnodes count=%zu\n", bmod->numclipnodes );
+		mod->numclipnodes = bmod->numclipnodes;
+		mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
+		return;
+	}
+#endif
+
 	bmod->clipnodes_out = out = (dclipnode32_t *)Mem_Malloc( mod->mempool, bmod->numclipnodes * sizeof( *out ));
 
 	if(( bmod->version == QBSP2_VERSION ) || ( bmod->version == HLBSP_VERSION && bmod->isbsp30ext && bmod->numclipnodes >= MAX_MAP_CLIPNODES_HLBSP ))
@@ -3963,6 +3992,12 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 	if( Sys_CheckParm( "-gcnolightmaps" ))
 	{
 		Con_Reportf( "Xash3D GameCube: lightmaps disabled\n" );
+		return;
+	}
+
+	if( bmod->lightdatasize > ( 256 * 1024 ))
+	{
+		Con_Reportf( "Xash3D GameCube: lightmaps skipped size=%s\n", Q_memprint( bmod->lightdatasize ));
 		return;
 	}
 #endif
@@ -4270,6 +4305,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	}
 
 	dbspmodel_t *bmod = Mem_Calloc( mod->mempool, sizeof( *bmod ));
+#if XASH_GAMECUBE
+	qboolean retain_bsp_buffer = false;
+#endif
 	bmod->version = header->version;	// share up global
 	if( isworld )
 	{
@@ -4380,6 +4418,10 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 #endif
 	Mod_LoadClipnodes( mod, bmod );
 #if XASH_GAMECUBE
+	if( bmod->version != QBSP2_VERSION && !bmod->isbsp30ext && bmod->clipnodes_out == NULL )
+		retain_bsp_buffer = true;
+#endif
+#if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel clipnodes ready\n" );
 #endif
 
@@ -4400,6 +4442,10 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	if( isworld )
 	{
 		world.version = bmod->version;
+#if XASH_GAMECUBE
+		if( retain_bsp_buffer )
+			mod->cache.data = mod_base;
+#endif
 #if !XASH_DEDICATED
 		world.deluxedata = bmod->deluxedata_out;	// deluxemap data pointer
 		world.shadowdata = bmod->shadowdata_out;	// occlusion data pointer

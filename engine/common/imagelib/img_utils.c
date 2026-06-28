@@ -1163,8 +1163,35 @@ static byte *Image_MakeLuma( byte *fin, int width, int height, int type, int fla
 
 qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 {
-	int	mipsize = width * height;
+	const byte	*source = in;
+	int	scaled_width = width;
+	int	scaled_height = height;
+	int	mipsize;
 	qboolean	expand_to_rgba = true;
+
+#if XASH_GAMECUBE
+	if( !Image_CheckFlag( IL_KEEP_8BIT ) && !FBitSet( image.flags, IMAGE_HAS_LUMA|IMAGE_QUAKESKY ))
+	{
+		const int max_size = 64;
+		if( scaled_width > max_size || scaled_height > max_size )
+		{
+			qboolean resampled = false;
+			while( scaled_width > max_size || scaled_height > max_size )
+			{
+				scaled_width = Q_max( 1, scaled_width >> 1 );
+				scaled_height = Q_max( 1, scaled_height >> 1 );
+			}
+			source = Image_ResampleInternal( in, width, height, scaled_width, scaled_height, image.type, &resampled );
+			if( resampled )
+			{
+				image.width = scaled_width;
+				image.height = scaled_height;
+			}
+		}
+	}
+#endif
+
+	mipsize = scaled_width * scaled_height;
 
 	if( Image_CheckFlag( IL_KEEP_8BIT ))
 		expand_to_rgba = false;
@@ -1178,8 +1205,8 @@ qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 
 	// reallocate image buffer
 	image.rgba = Mem_Malloc( host.imagepool, image.size );
-	if( !expand_to_rgba ) memcpy( image.rgba, in, image.size );
-	else if( !Image_Copy8bitRGBA( in, image.rgba, mipsize ))
+	if( !expand_to_rgba ) memcpy( image.rgba, source, image.size );
+	else if( !Image_Copy8bitRGBA( source, image.rgba, mipsize ))
 		return false; // probably pallette not installed
 
 	return true;

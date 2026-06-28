@@ -108,6 +108,14 @@ static void FS_LoadVFSConfig( const char *gamedir )
 	if( Host_IsDedicated( ))
 		return;
 
+#if XASH_GAMECUBE
+	if( !GCube_HasWritableStorage( ))
+	{
+		Con_Reportf( "%s: no writable storage, skipping vfs.cfg load\n", __func__ );
+		return;
+	}
+#endif
+
 	Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
 	Cbuf_Execute();
 

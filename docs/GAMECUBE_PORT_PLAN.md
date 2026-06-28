@@ -2090,6 +2090,22 @@ asset tree. It recorded the largest tested samples, including
 - Intro/media video is reported as a warning and remains outside the core G67
   asset-loader gate. Native media playback evidence belongs with the remaining
   audio/video release and limitation gates.
+- 2026-06-28 source progress: GameCube now builds with `engine/client/avi/avi_gc.c`
+  as the native Cinepak AVI backend, and normal no-argument boots no longer add
+  `-nointro`. The next evidence step is Dolphin or hardware proof that the
+  user-owned `media/sierra.avi` / `media/valve.avi` files produce visible frames.
+- 2026-06-28 local intro harness progress: `scripts/build-gamecube-disc.py
+  --intro-avi` creates a local-only test ISO from original startup AVI files
+  without preconversion, and `scripts/dolphin-vision-test.py --boot-mode
+  intro-avi` classifies startup-video milestones. Dolphin evidence in
+  `.ai/logs/dolphin-vision-20260628-124451` reached `intro_avi_nonblack` after
+  fixing repeated GameCube presents, RGB565-to-YUV XFB conversion, command
+  parsing for `movie ... full`, and read-only direct startup-AVI launch. Sparse
+  frame samples confirm sequential Cinepak playback advanced through frames 0,
+  15, 30, and 60 with nonzero later-frame RGB samples. The remaining proof gap
+  is visual fidelity: the frame dump is non-flat/nonblack but still visibly
+  corrupted, so the next media task is texture/Cinepak correctness, not more
+  startup plumbing.
 
 ## G68 — Complete the full campaign map and transition audit against legal local Half-Life assets (PENDING)
 
@@ -2110,9 +2126,20 @@ audit evidence has not yet been regenerated with the current build and harness.
   `.ai/logs/campaign-audit-g68-transition-dryrun/summary.md` found 230 parsed
   changelevel triggers in the local legal asset tree and all 230 target BSPs
   were present.
-- This verifies static transition target coverage only. Runtime transition
-  behavior, player state, inventory, globals, save eligibility, renderer output,
-  and memory headroom still require current-build Dolphin or hardware evidence.
+- Current-build Dolphin evidence
+  `.ai/logs/campaign-audit-g68-bmi-current/summary.md` classifies the
+  representative `Black Mesa Inbound` map `c0a0e` as `MAP_READY` with 11/11
+  transition targets present.
+- Current-build Dolphin evidence
+  `.ai/logs/campaign-audit-g68-anomalous-aliased-clipnodes/summary.md` drives
+  `Anomalous Materials` `c1a0` through BSP texture loading, oversized lightmap
+  fallback, compact clipnodes, hull0, all 77 submodels, and into HLSDK entity
+  spawn/model precache. The current blocker is `Server Edicts Zone` OOM at
+  `engine/server/sv_game.c:2946` allocating 736 bytes of entity private data
+  after scientist/barney setup.
+- Runtime transition behavior, player state, inventory, globals, save
+  eligibility, renderer output, and memory headroom still require broader
+  current-build Dolphin or hardware evidence.
 
 **Known stale evidence:**
 - Older map/campaign logs include 45-second timeouts and `Sys_InitLog: can't
@@ -2183,6 +2210,12 @@ evidence rows, no hard MEM1 failures, and no missing source guards. The current
 profile decision is conservative: keep `gc_quality=1`, but do not close G72
 until fresh G68/G69 evidence replaces stale `Sys_InitLog: can't create`
 map-compat blockers with current-build classifications.
+
+Fresh G68 blocker evidence from
+`.ai/logs/campaign-audit-g68-anomalous-aliased-clipnodes/summary.md` shows the
+worst current `c1a0` pressure has moved from BSP texture/lightmap/clipnode setup
+to spawn-time `Server Edicts Zone` private-data allocation at
+`engine/server/sv_game.c:2946`.
 
 **Commands:**
 

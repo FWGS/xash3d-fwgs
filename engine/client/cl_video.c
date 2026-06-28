@@ -81,6 +81,27 @@ static void SCR_CreateStartupVids( void )
 	FS_Close( f );
 }
 
+#if XASH_GAMECUBE
+static int SCR_AddStartupVid( int c, const char *movie )
+{
+	if( c >= MAX_MOVIES )
+		return c;
+
+	Q_strncpy( cls.movies[c], movie, sizeof( cls.movies[0] ));
+	return c + 1;
+}
+
+static int SCR_AddDefaultStartupVids( void )
+{
+	int c = 0;
+
+	c = SCR_AddStartupVid( c, "media/valve.avi" );
+	if( c > 0 )
+		Con_Reportf( "Xash3D GameCube: using read-only startup AVI playlist (%d)\n", c );
+	return c;
+}
+#endif
+
 void SCR_CheckStartupVids( void )
 {
 	int	c = 0;
@@ -106,11 +127,32 @@ void SCR_CheckStartupVids( void )
 		return;
 	}
 
+#if XASH_GAMECUBE
+	c = SCR_AddDefaultStartupVids();
+	if( c > 0 )
+		goto run_cinematic;
+#endif
+
 	if( !FS_FileExists( DEFAULT_VIDEOLIST_PATH, false ))
+	{
+#if XASH_GAMECUBE
+		c = SCR_AddDefaultStartupVids();
+		if( c > 0 )
+			goto run_cinematic;
+#endif
 		SCR_CreateStartupVids();
+	}
 
 	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, NULL, false );
-	if( !afile ) return; // something bad happens
+	if( !afile )
+	{
+#if XASH_GAMECUBE
+		c = SCR_AddDefaultStartupVids();
+		if( c > 0 )
+			goto run_cinematic;
+#endif
+		return; // something bad happens
+	}
 
 	pfile = (char *)afile;
 
@@ -127,8 +169,21 @@ void SCR_CheckStartupVids( void )
 
 	Mem_Free( afile );
 
+run_cinematic:
 	// run cinematic
 	cls.movienum = 0;
+#if XASH_GAMECUBE
+	if( c > 0 )
+	{
+		cls.movienum = 1;
+		if( !SCR_PlayCinematic( cls.movies[0] ))
+		{
+			cls.movienum = -1;
+			CL_CheckStartupDemos();
+		}
+		return;
+	}
+#endif
 	SCR_NextMovie ();
 	Cbuf_Execute();
 }
@@ -192,17 +247,29 @@ SCR_PlayCinematic
 qboolean SCR_PlayCinematic( const char *arg )
 {
 	int x, y, w, h;
-	const char	*fullpath = FS_GetDiskPath( arg, false );
 	double video_ratio, screen_ratio, scale;
+#if XASH_GAMECUBE
+	string movie_path;
+	char *option;
+#else
+	const char	*fullpath = FS_GetDiskPath( arg, false );
+#endif
 
+#if !XASH_GAMECUBE
 	if( FS_FileExists( arg, false ) && !fullpath )
 	{
 		Con_Printf( S_ERROR "Couldn't load %s from packfile. Please extract it\n", arg );
 		return false;
 	}
+#endif
 
 #if XASH_GAMECUBE
-	AVI_OpenVideo( cin_state, arg, true, false );
+	Q_strncpy( movie_path, arg, sizeof( movie_path ));
+	option = Q_strchr( movie_path, ' ' );
+	if( option )
+		*option = '\0';
+	Con_Reportf( "Xash3D GameCube: intro AVI play %s\n", movie_path );
+	AVI_OpenVideo( cin_state, movie_path, true, false );
 #else
 	AVI_OpenVideo( cin_state, fullpath, true, false );
 #endif

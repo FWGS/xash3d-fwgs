@@ -36,17 +36,17 @@ Format inspection tools (do not vendor into the repo): [ValveSoftware/halflife](
 - Do not assume HL1 formats are too old or too heavy for GameCube; they predate
   the hardware. Blockers are missing code, endian bugs, or budget — not format age.
 
-### Interim pipeline (dev/CI only — not the player UX)
+### Dev/CI staging
 
 Some scripts today shortcut bring-up:
 
-- `scripts/build-gamecube-disc.py` may convert `media/*.avi` → `.gcvid` and pack
-  bootstrap PK3s for emulator smoke tests.
-- `engine/client/avi/avi_ffmpeg.c` prefers `.gcvid` on GameCube when FFmpeg is
-  absent.
+- `scripts/build-gamecube-disc.py` may pack bootstrap PK3s for emulator smoke
+  tests, but it must not preconvert retail movie assets.
+- GameCube startup video support lives in `engine/client/avi/avi_gc.c` and should
+  read the user's original `media/*.avi` files at runtime.
 
-Treat these as **temporary gaps to close**, not requirements for end users.
-The goal is direct `.avi` (and every other retail format) playback/load at runtime.
+Treat any attempted `.avi` prebake or `.gcvid` dependency as a regression. The
+goal is direct `.avi` (and every other retail format) playback/load at runtime.
 
 - Source-engine formats (`.vmt`, `.vtf`, `.vmf`, Source `.vpk`) are out of scope
   unless explicitly bridged; GoldSrc HL1 retail does not depend on them.
@@ -78,8 +78,8 @@ The goal is direct `.avi` (and every other retail format) playback/load at runti
 | `.lst` | Lists | Network (`delta.lst`) or shell keybind lists | Server/client must match network lists. |
 | `.gam` | `liblist.gam` | Mod metadata | Describes mod/game properties. |
 | `.scr` | Settings layout | `settings.scr`, `user.scr` | UI advanced options layout. |
-| `.avi` | AVI video | Intro cinematics in `media/` | **Target:** decode retail AVIs on GC at runtime (HL1 uses AVI containers, commonly Cinepak). FFmpeg path when enabled; native GC decoder is the goal. |
-| `.gcvid` | GameCube intro stream | Interim GC-only payload | **Dev pipeline only** today: `build-gamecube-disc.py` + `avi_ffmpeg.c`. Not a substitute for shipping requirement — remove once native `.avi` works. |
+| `.avi` | AVI video | Intro cinematics in `media/` | Decode retail AVIs on GC at runtime through `engine/client/avi/avi_gc.c` (HL1 uses AVI containers, commonly Cinepak). FFmpeg remains a desktop/optional backend. |
+| `.gcvid` | GameCube intro stream | Deprecated generated payload | Do not add new dependencies on this format. Prefer native `.avi` playback from user-owned assets. |
 
 ## Movies and intro playback
 
@@ -92,9 +92,9 @@ see intros and all media without converting files. Implement on-GameCube AVI/mov
 decoding (or an in-engine subset matching retail codecs) rather than documenting
 intros as permanently disabled or requiring a host-side prebake step.
 
-**Current gap:** without FFmpeg on GC, `AVI_OpenVideo()` may fall back to a
-companion `.gcvid` file produced by the disc builder. That fallback exists for
-smoke tests only; automation should prioritize closing it.
+**Current requirement:** GameCube must open the original playlist entries
+directly. Automation should preserve this path and fix decoder/runtime bugs rather
+than introducing host-side conversion.
 
 ## Mapping / compile toolchain (usually not on disc)
 
@@ -107,8 +107,8 @@ inputs. The port consumes compiled `.bsp` (+ `.res` if used), not Hammer sources
 - WAD/PK3/ZIP/PAK: `filesystem/wad.c`, `filesystem/zip.c`, `filesystem/pak.c` —
   must consume **user-supplied** retail archives unchanged.
 - `scripts/build-gamecube-disc.py` copies a developer's local `Half-Life/valve`
-  into test ISOs; optional PK3/bootstrap packing and `.gcvid` conversion are
-  **CI/dev conveniences**, not player setup steps.
+  into test ISOs; optional PK3/bootstrap packing is a **CI/dev convenience**, not
+  a player setup step. Do not preconvert retail movie assets.
 - Campaign map audit: `scripts/gamecube-campaign-audit.sh` over legal local
   `Half-Life/valve/maps/*.bsp`.
 

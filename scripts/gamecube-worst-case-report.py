@@ -182,6 +182,28 @@ def risk_rank(item: Evidence) -> tuple[int, int]:
     return (status_weight, -(item.hwm_bytes or 0))
 
 
+def scene_key(item: Evidence) -> str:
+    return item.scene.rsplit("/", 1)[-1]
+
+
+def evidence_mtime(root: Path, item: Evidence) -> float:
+    path = root / item.source
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def latest_per_scene(root: Path, evidence: list[Evidence]) -> list[Evidence]:
+    latest: dict[str, Evidence] = {}
+    for item in evidence:
+        key = scene_key(item)
+        current = latest.get(key)
+        if current is None or evidence_mtime(root, item) >= evidence_mtime(root, current):
+            latest[key] = item
+    return list(latest.values())
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
@@ -195,13 +217,14 @@ def main() -> int:
     log_dir.mkdir(parents=True, exist_ok=True)
 
     evidence = collect_map_compat(root) + collect_campaign(root) + collect_soak(root)
+    current_evidence = latest_per_scene(root, evidence)
     source_status = source_profile_status(root)
     hard_failures = [
-        item for item in evidence
+        item for item in current_evidence
         if item.hwm_bytes is not None and item.hwm_bytes >= MEM1_CRITICAL_BYTES
     ]
     runtime_blockers = [
-        item for item in evidence
+        item for item in current_evidence
         if item.status.upper() in {"GUEST_FAILURE", "HOST_FAILURE", "TIMEOUT", "MAP_TIMEOUT"}
     ]
     missing_source_guards = [name for name, ok in source_status.items() if not ok]
@@ -226,14 +249,15 @@ def main() -> int:
         "source_profile_status": source_status,
         "hard_failures": [asdict(item) for item in hard_failures],
         "runtime_blockers": [asdict(item) for item in runtime_blockers[:30]],
-        "worst_scenes": [asdict(item) for item in sorted(evidence, key=risk_rank)[:30]],
+        "worst_scenes": [asdict(item) for item in sorted(current_evidence, key=risk_rank)[:30]],
         "evidence_count": len(evidence),
+        "current_scene_count": len(current_evidence),
     }
     (log_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
     with (log_dir / "worst-scenes.tsv").open("w", encoding="utf-8") as out:
         out.write("source\tscene\tstatus\thwm_bytes\tframe_p95_ms\tframe_max_ms\tblocker\trecommendation\n")
-        for item in sorted(evidence, key=risk_rank)[:100]:
+        for item in sorted(current_evidence, key=risk_rank)[:100]:
             out.write(
                 f"{item.source}\t{item.scene}\t{item.status}\t"
                 f"{item.hwm_bytes if item.hwm_bytes is not None else 'N/A'}\t"
@@ -248,6 +272,7 @@ def main() -> int:
         out.write(f"- Status: {'PASS' if ok else 'FAIL'}\n")
         out.write(f"- Strict mode: {int(args.strict)}\n")
         out.write(f"- Evidence rows: {len(evidence)}\n")
+        out.write(f"- Current scene rows: {len(current_evidence)}\n")
         out.write(f"- Profile decision: {profile_decision}\n")
         out.write(f"- Hard MEM1 failures: {len(hard_failures)}\n")
         out.write(f"- Runtime blockers: {len(runtime_blockers)}\n")
@@ -259,7 +284,7 @@ def main() -> int:
         out.write("\n## Highest-Risk Scenes\n\n")
         out.write("| Scene | Status | HWM bytes | Source | Recommendation |\n")
         out.write("|---|---|---:|---|---|\n")
-        for item in sorted(evidence, key=risk_rank)[:20]:
+        for item in sorted(current_evidence, key=risk_rank)[:20]:
             hwm = item.hwm_bytes if item.hwm_bytes is not None else "N/A"
             out.write(f"| {item.scene} | {item.status} | {hwm} | `{item.source}` | {item.recommendation} |\n")
 

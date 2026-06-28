@@ -8,7 +8,9 @@ Copyright (C) 2026 Xash3D GameCube port contributors
 #include "avi_cinepak.h"
 #include "avi_gc.h"
 
-extern poolhandle_t avi_mempool;
+static qboolean avi_initialized;
+static poolhandle_t avi_mempool;
+static movie_state_t avi[2];
 
 #define AVI_RL32( p ) ((uint32_t)((p)[0] | ((uint32_t)(p)[1] << 8) | ((uint32_t)(p)[2] << 16) | ((uint32_t)(p)[3] << 24)))
 #define AVI_RL16( p ) ((uint16_t)((p)[0] | ((uint16_t)(p)[1] << 8)))
@@ -65,6 +67,7 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 {
 	byte avih[56];
 	byte riff[12];
+	byte idx_header[4];
 	fs_offset_t file_size, avih_pos, movi_pos, idx_pos;
 	uint idx_size = 0;
 	byte *idx_data = NULL;
@@ -79,7 +82,15 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 	if( FS_Read( Avi->file, riff, sizeof( riff )) != sizeof( riff ) ||
 		memcmp( riff, "RIFF", 4 ) || memcmp( riff + 8, "AVI ", 4 ))
 	{
-		if( !quiet ) Con_Printf( S_ERROR "Intro video is not an AVI file\n" );
+		if( !quiet )
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( "Xash3D GameCube: AVI header bytes %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+				riff[0], riff[1], riff[2], riff[3], riff[4], riff[5],
+				riff[6], riff[7], riff[8], riff[9], riff[10], riff[11] );
+#endif
+			Con_Printf( S_ERROR "Intro video is not an AVI file\n" );
+		}
 		return false;
 	}
 
@@ -119,8 +130,9 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 
 	if( FS_Seek( Avi->file, idx_pos + 4, SEEK_SET ) == -1 )
 		return false;
-	if( FS_Read( Avi->file, &idx_size, sizeof( idx_size )) != sizeof( idx_size ))
+	if( FS_Read( Avi->file, idx_header, sizeof( idx_header )) != sizeof( idx_header ))
 		return false;
+	idx_size = AVI_RL32( idx_header );
 
 	if( idx_size < 16 || idx_size > 16 * 4096 )
 	{
@@ -202,21 +214,67 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame )
 
 	pos = Avi->index[frame].offset;
 	if( FS_Seek( Avi->file, pos, SEEK_SET ) == -1 )
+	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: intro AVI decode seek failed frame=%u pos=%ld\n",
+			frame, (long)pos );
+#endif
 		return false;
+	}
 	if( FS_Read( Avi->file, header, sizeof( header )) != sizeof( header ))
+	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: intro AVI decode header read failed frame=%u pos=%ld\n",
+			frame, (long)pos );
+#endif
 		return false;
+	}
 	if( header[2] != 'd' || header[3] != 'c' )
+	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: intro AVI unsupported chunk %c%c%c%c frame=%u pos=%ld\n",
+			header[0], header[1], header[2], header[3], frame, (long)pos );
+#endif
 		return false;
+	}
 
 	chunk_size = AVI_RL32( header + 4 );
 	if( chunk_size < 4 || chunk_size > Avi->chunk_capacity )
+	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: intro AVI invalid chunk size frame=%u size=%u capacity=%lu\n",
+			frame, chunk_size, (unsigned long)Avi->chunk_capacity );
+#endif
 		return false;
+	}
 
 	if( FS_Read( Avi->file, Avi->chunk, chunk_size ) != (fs_offset_t)chunk_size )
+	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: intro AVI chunk read failed frame=%u size=%u\n",
+			frame, chunk_size );
+#endif
 		return false;
+	}
 
 	if( !Cinepak_Decode( &Avi->decoder, Avi->chunk, chunk_size ))
+	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: intro AVI Cinepak decode failed frame=%u size=%u\n",
+			frame, chunk_size );
+#endif
 		return false;
+	}
+
+#if XASH_GAMECUBE
+	if(( frame == 0 || frame == 15 || frame == 30 || frame == 60 ) && Avi->decoder.rgb )
+	{
+		const byte *top = Avi->decoder.rgb;
+		const byte *mid = Avi->decoder.rgb + ( Avi->height / 2 ) * Avi->decoder.stride + ( Avi->width / 2 ) * 3;
+		Con_Reportf( "Xash3D GameCube: intro AVI frame %u samples rgb0=%u,%u,%u rgbmid=%u,%u,%u\n",
+			frame, top[0], top[1], top[2], mid[0], mid[1], mid[2] );
+	}
+#endif
 
 	AVI_RGB24ToBGRA( Avi->decoder.rgb, Avi->decoder.stride, Avi->frame, Avi->width, Avi->height );
 	return true;
@@ -260,17 +318,33 @@ qboolean AVI_HaveAudioTrack( const movie_state_t *Avi )
 
 void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audio, int quiet )
 {
+	string safe_filename;
+#if XASH_GAMECUBE
+	string gc_fallback;
+#endif
+
 	if( !Avi )
 		return;
 
 	if( Avi->active )
 		AVI_CloseVideo( Avi );
 
-	Avi->file = FS_Open( filename, "rb", false );
+	Q_strncpy( safe_filename, filename, sizeof( safe_filename ));
+
+	Avi->file = FS_Open( safe_filename, "rb", false );
+#if XASH_GAMECUBE
+	if( !Avi->file && !Q_strncmp( safe_filename, "media/", 6 ))
+	{
+		Q_snprintf( gc_fallback, sizeof( gc_fallback ), "valve/%s", safe_filename );
+		Avi->file = FS_Open( gc_fallback, "rb", false );
+		if( Avi->file )
+			Con_Reportf( "Xash3D GameCube: intro AVI opened via root fallback %s\n", gc_fallback );
+	}
+#endif
 	if( !Avi->file )
 	{
 		if( !quiet )
-			Con_Printf( S_ERROR "Couldn't open intro video %s\n", filename );
+			Con_Printf( S_ERROR "Couldn't open intro video %s\n", safe_filename );
 		return;
 	}
 
@@ -282,6 +356,8 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 		return;
 	}
 
+	Con_Reportf( "Xash3D GameCube: intro AVI opened %s (%ux%u, %u frames)\n",
+		safe_filename, Avi->width, Avi->height, Avi->frame_count );
 	Avi->x = 0;
 	Avi->y = 0;
 	Avi->w = -1;
@@ -315,6 +391,7 @@ void AVI_CloseVideo( movie_state_t *Avi )
 qboolean AVI_Think( movie_state_t *Avi )
 {
 	uint target_frame;
+	qboolean first_decode;
 	double elapsed;
 
 	if( !Avi || !Avi->active || !Avi->file || !Avi->frame )
@@ -323,16 +400,29 @@ qboolean AVI_Think( movie_state_t *Avi )
 	if( Avi->paused )
 		return true;
 
-	elapsed = Platform_DoubleTime() - Avi->start_time;
-	target_frame = (uint)( elapsed * (double)Avi->fps_num / (double)Avi->fps_den );
+	if( Avi->current_frame == (uint)-1 )
+	{
+		target_frame = 0;
+		Avi->start_time = Platform_DoubleTime();
+	}
+	else
+	{
+		elapsed = Platform_DoubleTime() - Avi->start_time;
+		target_frame = (uint)( elapsed * (double)Avi->fps_num / (double)Avi->fps_den );
+		if( target_frame > Avi->current_frame + 1 )
+			target_frame = Avi->current_frame + 1;
+	}
 	if( target_frame >= Avi->frame_count )
 		return false;
 
 	if( target_frame != Avi->current_frame )
 	{
+		first_decode = ( Avi->current_frame == (uint)-1 );
 		if( !AVI_DecodeFrame( Avi, target_frame ))
 			return false;
 		Avi->current_frame = target_frame;
+		if( first_decode )
+			Con_Reportf( "Xash3D GameCube: intro AVI decoded first frame\n" );
 
 		if( Avi->texture == 0 )
 			ref.dllFuncs.GL_UpdateTexture( SCR_GetCinematicTexture(), Avi->width, Avi->height, Avi->width, Avi->height, Avi->frame, PF_BGRA_32 );
@@ -400,4 +490,66 @@ qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... )
 
 	va_end( va );
 	return ret;
+}
+
+movie_state_t *AVI_GetState( int num )
+{
+	return &avi[num];
+}
+
+qboolean AVI_IsActive( movie_state_t *Avi )
+{
+	return Avi ? Avi->active : false;
+}
+
+qboolean AVI_Initailize( void )
+{
+	if( Sys_CheckParm( "-noavi" ))
+	{
+		Con_Printf( "AVI: Disabled\n" );
+		return false;
+	}
+
+	Con_Reportf( "AVI: GameCube Cinepak AVI\n" );
+	avi_mempool = Mem_AllocPool( "AVI Zone" );
+	avi_initialized = true;
+	return true;
+}
+
+void AVI_Shutdown( void )
+{
+	Mem_FreePool( &avi_mempool );
+	avi_initialized = false;
+}
+
+movie_state_t *AVI_LoadVideo( const char *filename, qboolean load_audio )
+{
+	movie_state_t *Avi;
+	string path;
+
+	if( !avi_initialized )
+		return NULL;
+
+	Q_snprintf( path, sizeof( path ), "media/%s", filename );
+	COM_DefaultExtension( path, ".avi", sizeof( path ));
+
+	Avi = Mem_Calloc( avi_mempool, sizeof( movie_state_t ));
+	AVI_OpenVideo( Avi, path, load_audio, false );
+	if( !AVI_IsActive( Avi ))
+	{
+		AVI_FreeVideo( Avi );
+		return NULL;
+	}
+
+	return Avi;
+}
+
+void AVI_FreeVideo( movie_state_t *Avi )
+{
+	if( !Avi )
+		return;
+
+	AVI_CloseVideo( Avi );
+	if( Mem_IsAllocatedExt( avi_mempool, Avi ))
+		Mem_Free( Avi );
 }

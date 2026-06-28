@@ -17,6 +17,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #if XASH_GAMECUBE
 #include <ogc/gx.h>
 #include <ogc/video.h>
+#include <ogc/color.h>
 #include <ogc/system.h>
 #include <ogc/cache.h>
 #endif
@@ -121,18 +122,54 @@ static void GC_ShutdownVideoHardware( void )
 #endif
 }
 
+static unsigned int GC_RGBPairToYUYV( unsigned short p1, unsigned short p2 )
+{
+	int r1, g1, b1, r2, g2, b2;
+	int y1, cb1, cr1, y2, cb2, cr2, cb, cr;
+
+	r1 = ((( p1 >> 11 ) & 0x1F ) * 527 + 23 ) >> 6;
+	g1 = ((( p1 >> 5 ) & 0x3F ) * 259 + 33 ) >> 6;
+	b1 = (( p1 & 0x1F ) * 527 + 23 ) >> 6;
+	r2 = ((( p2 >> 11 ) & 0x1F ) * 527 + 23 ) >> 6;
+	g2 = ((( p2 >> 5 ) & 0x3F ) * 259 + 33 ) >> 6;
+	b2 = (( p2 & 0x1F ) * 527 + 23 ) >> 6;
+
+	y1 = ( 299 * r1 + 587 * g1 + 114 * b1 ) / 1000;
+	cb1 = ( -16874 * r1 - 33126 * g1 + 50000 * b1 + 12800000 ) / 100000;
+	cr1 = ( 50000 * r1 - 41869 * g1 - 8131 * b1 + 12800000 ) / 100000;
+	y2 = ( 299 * r2 + 587 * g2 + 114 * b2 ) / 1000;
+	cb2 = ( -16874 * r2 - 33126 * g2 + 50000 * b2 + 12800000 ) / 100000;
+	cr2 = ( 50000 * r2 - 41869 * g2 - 8131 * b2 + 12800000 ) / 100000;
+
+	cb = ( cb1 + cb2 ) >> 1;
+	cr = ( cr1 + cr2 ) >> 1;
+
+	return ( y1 << 24 ) | ( cb << 16 ) | ( y2 << 8 ) | cr;
+}
+
+static void GC_RGB565ToRGB8( unsigned short p, int *r, int *g, int *b )
+{
+	if( r ) *r = ((( p >> 11 ) & 0x1F ) * 527 + 23 ) >> 6;
+	if( g ) *g = ((( p >> 5 ) & 0x3F ) * 259 + 33 ) >> 6;
+	if( b ) *b = (( p & 0x1F ) * 527 + 23 ) >> 6;
+}
+
 static void GC_PresentBuffer( void )
 {
 #if XASH_GAMECUBE
 	unsigned short *src;
-	unsigned short *dst;
-	unsigned short *diag_rowdst;
+	unsigned int *dst;
+	unsigned int *diag_rowdst;
 	int copy_w, copy_h, row, col2;
 	int src_w, src_h;
+	int dst_x, dst_y;
 	qboolean sampled_nonblack;
 	size_t buf_size;
 	int col_diag;
 	int check_w;
+	int check_h;
+	int sample_x;
+	int sample_y;
 	unsigned short *scanrow;
 	unsigned short first_pixel;
 	double now;
@@ -147,10 +184,15 @@ static void GC_PresentBuffer( void )
 	col2 = 0;
 	src_w = 0;
 	src_h = 0;
+	dst_x = 0;
+	dst_y = 0;
 	sampled_nonblack = false;
 	buf_size = 0;
 	col_diag = 0;
 	check_w = 0;
+	check_h = 0;
+	sample_x = 0;
+	sample_y = 0;
 	scanrow = NULL;
 	first_pixel = 0;
 	now = 0.0;
@@ -163,17 +205,14 @@ static void GC_PresentBuffer( void )
 
 	copy_w = rmode->fbWidth;
 	copy_h = rmode->xfbHeight;
-	dst = (unsigned short *)xfb[which_fb];
+	dst = (unsigned int *)xfb[which_fb];
+	VIDEO_ClearFrameBuffer( rmode, dst, COLOR_BLACK );
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
 		src = gc.buffer;
 		src_w = gc.width;
 		src_h = gc.height;
-		if( src_w > copy_w )
-			src_w = copy_w;
-		if( src_h > copy_h )
-			src_h = copy_h;
 
 		buf_size = gc.stride * gc.height * sizeof(unsigned short);
 		DCFlushRange( gc.buffer, (u32)buf_size );
@@ -185,28 +224,36 @@ static void GC_PresentBuffer( void )
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
 
-		// G36: Copy visible rows to XFB
-		for( row = 0; row < src_h; row++ )
-			memcpy( dst + row * rmode->fbWidth, src + row * gc.stride, src_w * sizeof( unsigned short ));
-
-		// G36: Detect non-black content on first frame only to stabilize frame budget
-		if( gc_present_count == 1 && src_h > 0 && src_w > 0 )
+		for( dst_y = 0; dst_y < copy_h; dst_y++ )
 		{
-			check_w = src_w < 8 ? src_w : 8;
-			scanrow = src;
-			col2 = 0;
-			for( col2 = 0; col2 < check_w; col2++ )
+			int source_y = dst_y * src_h / copy_h;
+			unsigned int *out = dst + dst_y * ( rmode->fbWidth / 2 );
+			scanrow = src + source_y * gc.stride;
+			for( dst_x = 0; dst_x < copy_w; dst_x += 2 )
 			{
-				if( scanrow[col2] != 0 )
-				{
-					sampled_nonblack = true;
-					break;
-				}
+				unsigned short p1 = scanrow[dst_x * src_w / copy_w];
+				unsigned short p2 = scanrow[( dst_x + 1 ) * src_w / copy_w];
+				out[dst_x / 2] = GC_RGBPairToYUYV( p1, p2 );
 			}
 		}
-		else
+
+		if( src_h > 0 && src_w > 0 )
 		{
-			sampled_nonblack = false;
+			check_w = src_w < 8 ? src_w : 8;
+			check_h = src_h < 8 ? src_h : 8;
+			for( sample_y = 0; sample_y < check_h && !sampled_nonblack; sample_y++ )
+			{
+				scanrow = src + ( sample_y * src_h / check_h ) * gc.stride;
+				for( col2 = 0; col2 < check_w; col2++ )
+				{
+					sample_x = col2 * src_w / check_w;
+					if( scanrow[sample_x] != 0 )
+					{
+						sampled_nonblack = true;
+						break;
+					}
+				}
+			}
 		}
 	}
 	else
@@ -219,9 +266,9 @@ static void GC_PresentBuffer( void )
 			col_diag = 0;
 			for( row = 0; row < copy_h; row++ )
 			{
-				diag_rowdst = dst + row * rmode->fbWidth;
-				for( col_diag = 0; col_diag < copy_w; col_diag++ )
-					diag_rowdst[col_diag] = 0x001F; /* Blue in RGB565 -- diagnostic frame */
+				diag_rowdst = dst + row * ( rmode->fbWidth / 2 );
+				for( col_diag = 0; col_diag < copy_w / 2; col_diag++ )
+					diag_rowdst[col_diag] = GC_RGBPairToYUYV( 0x001F, 0x001F );
 			}
 			sampled_nonblack = true;
 		}
@@ -235,14 +282,24 @@ static void GC_PresentBuffer( void )
 	/* G36: Emit frame budget markers only for early frames to establish visual evidence.
 	 * Suppress per-frame SYS_Report in steady-state to reduce route-time render cost.
 	 * The first present reports 0ms so short smoke probes still get a parsable sample. */
-	if( gc_present_count <= 2 )
+	if( gc_present_count <= 2 || gc_present_count == 15 || gc_present_count == 30 ||
+		gc_present_count == 60 || gc_present_count == 120 )
 	{
+		int center_r = 0, center_g = 0, center_b = 0;
+		unsigned short center_pixel = 0;
+
+		if( gc.buffer && gc.width > 0 && gc.height > 0 )
+		{
+			center_pixel = gc.buffer[( gc.height / 2 ) * gc.stride + ( gc.width / 2 )];
+			GC_RGB565ToRGB8( center_pixel, &center_r, &center_g, &center_b );
+		}
 		now = Sys_FloatTime();
 		elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
 		if( elapsed_ms > gc_worst_frame_ms )
 			gc_worst_frame_ms = elapsed_ms;
-		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
-			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
+		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u center565=0x%04X center_rgb=%d,%d,%d\n",
+			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count,
+			center_pixel, center_r, center_g, center_b );
 		SYS_Report( "Xash3D GameCube: frame render complete\n" );
 		SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
 		if( elapsed_ms >= 33.0 )
@@ -343,6 +400,7 @@ void *SW_LockBuffer( void )
 
 void SW_UnlockBuffer( void )
 {
+	GC_PresentBuffer();
 }
 
 qboolean VID_SetMode( void )

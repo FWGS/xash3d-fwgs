@@ -316,8 +316,9 @@ def build(bld):
 		if not bld.env.DEDICATED:
 			source += bld.path.ant_glob('client/**/*.c')
 			if bld.env.DEST_OS == 'gamecube':
-				# avi_ffmpeg.c owns the public AVI lifecycle API and includes the GameCube path.
-				source = [node for node in source if (node.path_from(bld.path) if hasattr(node, 'path_from') else node) != 'client/avi/avi_gc.c']
+				# GameCube uses the lightweight retail AVI/Cinepak backend instead
+				# of ffmpeg or preconverted movie streams.
+				source = [node for node in source if (node.path_from(bld.path) if hasattr(node, 'path_from') else node) != 'client/avi/avi_ffmpeg.c']
 			libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
 
 		# Android port is linked differently
