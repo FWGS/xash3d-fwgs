@@ -1772,6 +1772,26 @@ Dolphin logs or hardware captures showing these markers in sustained gameplay.
 Do not mark release/hardware compliance complete without verifier output,
 Dolphin logs, package artifacts, or operator-recorded hardware evidence.
 
+## G56 — Build a hardware boot preparation checklist (COMPLETE 2026-06-27)
+
+**Status:** Complete.
+
+**Deliverables:**
+1. `docs/GAMECUBE_HARDWARE_BOOT_CHECKLIST.md`: Concise operator checklist covering loader routes (SD2SP2/SD Gecko, Disc, Memory Card), SD/Memory Card layout, video cable/mode, controller, artifact hash verification, and expected first-screen evidence. Includes a failure triage table for black screen, no input, no audio, missing assets, read-only storage, and memory exhaustion.
+2. `scripts/gamecube-hardware-layout-info.sh`: Script that prints exact files and directory structures to place on SD Gecko, SD2SP2, Memory Card, or for Disc image generation based on the `--route` argument.
+
+**Evidence:**
+- Files created and committed.
+- Script is executable and outputs correct layout instructions for `sd`, `disc`, and `memcard` routes.
+- Checklist covers all acceptance criteria: loader routes, storage layout, video/input hardware, artifact verification, and triage.
+
+**Commands:**
+```sh
+cat docs/GAMECUBE_HARDWARE_BOOT_CHECKLIST.md
+bash scripts/gamecube-hardware-layout-info.sh --route sd
+bash scripts/gamecube-hardware-layout-info.sh --route disc
+```
+
 ## Next wake-up commands
 
 ```sh
