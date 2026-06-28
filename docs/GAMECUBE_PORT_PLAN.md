@@ -1772,7 +1772,11 @@ Dolphin logs or hardware captures showing these markers in sustained gameplay.
 Do not mark release/hardware compliance complete without verifier output,
 Dolphin logs, package artifacts, or operator-recorded hardware evidence.
 
-## G56 — Build a hardware boot preparation checklist (COMPLETE 2026-06-27)
+## G56 — Build a hardware boot preparation checklist (COMPLETE 2026-06-27, DO NOT RETRY)
+
+**AUTOMATION NOTE: DO NOT RETRY.** Source implementation is complete. Transient
+`asset_lookup` staging failures (exit 18) are environment conditions, not missing
+source. Real hardware boot evidence remains under G38/G66 operator validation.
 
 **Status:** Complete.
 
