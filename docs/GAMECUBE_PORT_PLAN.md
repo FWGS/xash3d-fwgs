@@ -2104,6 +2104,10 @@ environmental asset availability, not missing source code.
 - Logs: `.ai/logs/aider-pass-2026-06-28-043013.log`, `.ai/logs/aider-pass-2026-06-28-043233.log`,
   `.ai/logs/aider-pass-2026-06-28-043547.log`, `.ai/logs/aider-pass-2026-06-28-043703.log`,
   `.ai/logs/aider-pass-2026-06-28-044050.log`.
+- Additional attempts 2026-06-28: `.ai/logs/aider-pass-2026-06-28-044904.log` (exit 18, asset_lookup),
+  `.ai/logs/aider-pass-2026-06-28-045324.log` (exit 18, asset_lookup).
+- Auto-rescue exit 0 accepted unrelated GC_DrawFatalBreadcrumb patches; these
+  do not address the G68 asset-availability blocker.
 
 **Operator instructions:**
 To complete G68, run the following on a machine with legal Half-Life 1 assets:
