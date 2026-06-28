@@ -85,20 +85,21 @@ HEADER_MARK = DEFAULT_REPO / "assets/ui/gamecube-mark.svg"
 DOCK_CLOSE_ICON = DEFAULT_REPO / "assets/ui/dock-close-white.svg"
 DOCK_FLOAT_ICON = DEFAULT_REPO / "assets/ui/dock-float-white.svg"
 
-GC_BG = "#120e22"
-GC_PANEL = "#1f1738"
-GC_PANEL_2 = "#2d2454"
-GC_INPUT = "#0d0a18"
-GC_TEXT = "#f6f2ff"
-GC_MUTED = "#b8aee8"
-GC_VIOLET = "#6d5ac9"
-GC_PURPLE = "#5b4fbb"
-GC_BORDER = "#8f7bea"
-GC_CYAN = "#62d9ff"
+GC_BG = "#090814"
+GC_PANEL = "#171229"
+GC_PANEL_2 = "#271f4b"
+GC_PANEL_3 = "#382d68"
+GC_INPUT = "#0d0b18"
+GC_TEXT = "#f8f6ff"
+GC_MUTED = "#b9b0df"
+GC_VIOLET = "#6656bf"
+GC_PURPLE = "#4f46a8"
+GC_BORDER = "#786dd8"
+GC_CYAN = "#5fe3ff"
 GC_ORANGE = "#ffb14a"
-GC_MINT = "#7fffd4"
-GC_SILVER = "#d8d2ef"
-GC_RED = "#ff6b6b"
+GC_MINT = "#7dffc7"
+GC_SILVER = "#ded9f5"
+GC_RED = "#ff6f86"
 LOG_HIGHLIGHT_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
 	(re.compile(r"(?i)(MAP_READY|G36_STATUS|FRAME_BUDGET_STATS|RC check passed)"), GC_MINT),
 	(re.compile(r"(?i)(GUEST_FAILURE|BOOT_FAILURE|FAIL:|RC check failed|out of memory|Xash Error)"), GC_ORANGE),
@@ -405,75 +406,120 @@ def gpu_memory_preflight_message(command: list[str]) -> str | None:
 def stylesheet(gamecube_font: str = "Sans Serif") -> str:
 	gc_font = gamecube_font.replace('"', "")
 	return f"""
-	QMainWindow, QWidget {{ background: {GC_BG}; color: {GC_TEXT}; }}
-	QStatusBar {{ background: {GC_PANEL}; color: {GC_MUTED}; border-top: 1px solid {GC_BORDER}; }}
+	QMainWindow {{
+		background: qradialgradient(cx:0.2, cy:0.05, radius:1.1,
+			stop:0 #1f1a3d, stop:0.45 {GC_BG}, stop:1 #05050c);
+		color: {GC_TEXT};
+	}}
+	QWidget {{ background: transparent; color: {GC_TEXT}; selection-background-color: {GC_PURPLE}; }}
+	QDialog, QMessageBox {{ background: {GC_BG}; color: {GC_TEXT}; }}
+	QToolTip {{ background: #151225; color: {GC_TEXT}; border: 1px solid {GC_CYAN};
+		border-radius: 6px; padding: 6px; }}
+	QStatusBar {{ background: #0e0b1b; color: {GC_MUTED}; border-top: 1px solid {GC_PANEL_3}; }}
 	QStatusBar::item {{ border: 0; }}
-	QMenuBar {{ background: {GC_PANEL}; color: {GC_TEXT}; border-bottom: 1px solid {GC_BORDER}; }}
-	QMenuBar::item {{ padding: 4px 10px; background: transparent; border-radius: 6px; }}
+
+	QMenuBar {{ background: #0d0a18; color: {GC_TEXT}; border-bottom: 1px solid {GC_PANEL_3}; }}
+	QMenuBar::item {{ padding: 6px 12px; background: transparent; border-radius: 8px; }}
 	QMenuBar::item:selected {{ background: {GC_PANEL_2}; color: {GC_CYAN}; }}
-	QMenu {{ background: {GC_PANEL}; color: {GC_TEXT}; border: 1px solid {GC_BORDER}; padding: 4px; }}
-	QMenu::item {{ padding: 6px 24px; border-radius: 6px; }}
+	QMenu {{ background: #141022; color: {GC_TEXT}; border: 1px solid {GC_BORDER};
+		border-radius: 10px; padding: 6px; }}
+	QMenu::item {{ padding: 7px 28px; border-radius: 7px; }}
 	QMenu::item:selected {{ background: {GC_PURPLE}; color: {GC_TEXT}; }}
-	QMenu::separator {{ height: 1px; background: {GC_PANEL_2}; margin: 4px 8px; }}
+	QMenu::separator {{ height: 1px; background: {GC_PANEL_3}; margin: 5px 10px; }}
+
 	QDockWidget {{ titlebar-close-icon: url({DOCK_CLOSE_ICON.as_posix()});
-		titlebar-normal-icon: url({DOCK_FLOAT_ICON.as_posix()}); }}
+		titlebar-normal-icon: url({DOCK_FLOAT_ICON.as_posix()});
+		background: {GC_PANEL}; border: 1px solid {GC_PANEL_3}; border-radius: 12px; }}
 	QDockWidget::title {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-		stop:0 {GC_PANEL_2}, stop:1 {GC_PANEL}); color: {GC_CYAN};
-		border: 1px solid {GC_BORDER}; padding: 6px 8px; font-weight: bold;
-		font-family: "{gc_font}"; letter-spacing: 0.5px; }}
+		stop:0 {GC_PANEL_3}, stop:0.35 {GC_PANEL_2}, stop:1 {GC_PANEL});
+		color: {GC_CYAN}; border: 1px solid {GC_BORDER}; border-bottom: 1px solid #141026;
+		border-top-left-radius: 12px; border-top-right-radius: 12px; padding: 7px 10px;
+		font-weight: bold; font-family: "{gc_font}"; letter-spacing: 0.7px; }}
 	QDockWidget::close-button, QDockWidget::float-button {{ background: transparent;
-		border: 1px solid transparent; padding: 2px; icon-size: 14px; }}
+		border: 1px solid transparent; padding: 3px; icon-size: 14px; margin-right: 3px; }}
 	QDockWidget::close-button:hover, QDockWidget::float-button:hover {{
-		background: {GC_VIOLET}; border: 1px solid {GC_CYAN}; border-radius: 3px; }}
-	QDockWidget::close-button:pressed, QDockWidget::float-button:pressed {{ background: #4b3c99; }}
-	QTabWidget::pane {{ border: 1px solid {GC_BORDER}; border-radius: 10px; background: {GC_INPUT}; }}
+		background: {GC_VIOLET}; border: 1px solid {GC_CYAN}; border-radius: 5px; }}
+	QDockWidget::close-button:pressed, QDockWidget::float-button:pressed {{ background: #342c78; }}
+
+	QTabWidget::pane {{ border: 1px solid {GC_BORDER}; border-radius: 12px; background: {GC_INPUT}; }}
 	QTabBar::tab {{ background: {GC_PANEL}; color: {GC_MUTED}; border: 1px solid {GC_PANEL_2};
-		border-bottom: 0; padding: 6px 12px; margin-right: 2px; border-top-left-radius: 8px;
-		border-top-right-radius: 8px; font-weight: bold; }}
-	QTabBar::tab:selected {{ background: {GC_PURPLE}; color: {GC_TEXT}; border-color: {GC_CYAN}; }}
+		border-bottom: 0; padding: 7px 14px; margin-right: 3px; border-top-left-radius: 9px;
+		border-top-right-radius: 9px; font-weight: bold; }}
+	QTabBar::tab:selected {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+		stop:0 {GC_PANEL_3}, stop:1 {GC_PURPLE}); color: {GC_TEXT}; border-color: {GC_CYAN}; }}
 	QTabBar::tab:hover {{ color: {GC_CYAN}; }}
-	QGroupBox {{ background: {GC_PANEL}; border: 2px solid {GC_BORDER};
-		border-radius: 10px; margin-top: 12px; padding: 10px; font-weight: bold; }}
+
+	QGroupBox {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+		stop:0 {GC_PANEL}, stop:1 #120e22); border: 1px solid {GC_PANEL_3};
+		border-radius: 12px; margin-top: 14px; padding: 12px; font-weight: bold; }}
 	QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; color: {GC_CYAN};
 		font-family: "{gc_font}"; }}
+
 	QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit {{ background: {GC_INPUT};
-		color: {GC_TEXT}; border: 2px inset {GC_PANEL_2}; border-radius: 8px; padding: 6px; }}
+		color: {GC_TEXT}; border: 1px solid {GC_PANEL_3}; border-radius: 9px; padding: 7px;
+		selection-background-color: {GC_PURPLE}; }}
 	QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QPlainTextEdit:focus {{
-		border: 2px solid {GC_CYAN}; }}
-	QComboBox::drop-down {{ border: 0; width: 18px; }}
+		border: 1px solid {GC_CYAN}; background: #100d20; }}
+	QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled, QPlainTextEdit:disabled {{
+		background: #131020; color: #746d98; border-color: #282344; }}
+	QComboBox::drop-down {{ border: 0; width: 22px; }}
 	QComboBox QAbstractItemView {{ background: {GC_PANEL}; color: {GC_TEXT};
 		border: 1px solid {GC_BORDER}; selection-background-color: {GC_PURPLE}; }}
+
 	QCheckBox {{ spacing: 8px; color: {GC_TEXT}; }}
 	QCheckBox::indicator {{ width: 16px; height: 16px; border-radius: 4px;
-		border: 2px solid {GC_BORDER}; background: {GC_INPUT}; }}
-	QCheckBox::indicator:checked {{ background: {GC_CYAN}; border-color: {GC_CYAN}; }}
+		border: 1px solid {GC_BORDER}; background: {GC_INPUT}; }}
+	QCheckBox::indicator:hover {{ border-color: {GC_CYAN}; }}
+	QCheckBox::indicator:checked {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+		stop:0 {GC_CYAN}, stop:1 {GC_MINT}); border-color: {GC_CYAN}; }}
+
 	QScrollBar:vertical {{ background: {GC_INPUT}; width: 12px; margin: 0; }}
-	QScrollBar::handle:vertical {{ background: {GC_PANEL_2}; min-height: 24px; border-radius: 6px; }}
-	QScrollBar::handle:vertical:hover {{ background: {GC_PURPLE}; }}
+	QScrollBar::handle:vertical {{ background: {GC_PANEL_3}; min-height: 28px; border-radius: 6px; }}
+	QScrollBar::handle:vertical:hover {{ background: {GC_CYAN}; }}
+	QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+	QScrollBar:horizontal {{ background: {GC_INPUT}; height: 12px; margin: 0; }}
+	QScrollBar::handle:horizontal {{ background: {GC_PANEL_3}; min-width: 28px; border-radius: 6px; }}
+	QScrollBar::handle:horizontal:hover {{ background: {GC_CYAN}; }}
+	QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
 	QScrollArea {{ background: transparent; border: 0; }}
-	QPushButton {{ background: {GC_VIOLET}; color: {GC_TEXT}; border: 2px outset {GC_BORDER};
-		border-radius: 10px; padding: 7px 12px; font-weight: bold; }}
-	QPushButton:hover {{ background: #806ee0; border-color: {GC_CYAN}; color: {GC_TEXT}; }}
-	QPushButton:pressed {{ background: #4b3c99; border-style: inset; }}
-	QPushButton:disabled {{ background: {GC_PANEL_2}; color: {GC_MUTED}; border-color: {GC_PANEL}; }}
-	QPushButton#PrimaryButton {{ background: {GC_PURPLE}; border-color: {GC_CYAN};
+
+	QPushButton {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+		stop:0 {GC_PANEL_3}, stop:1 {GC_PURPLE}); color: {GC_TEXT};
+		border: 1px solid {GC_BORDER}; border-radius: 11px; padding: 8px 13px;
+		font-weight: bold; }}
+	QPushButton:hover {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+		stop:0 #4f4290, stop:1 #362f80); border-color: {GC_CYAN}; color: {GC_TEXT}; }}
+	QPushButton:pressed {{ background: #27215f; border-color: {GC_MINT}; padding-top: 9px; padding-bottom: 7px; }}
+	QPushButton:disabled {{ background: #181429; color: #746d98; border-color: #2b2645; }}
+	QPushButton#PrimaryButton {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+		stop:0 #3b86ff, stop:0.55 {GC_PURPLE}, stop:1 #2f246d); border-color: {GC_CYAN};
 		font-family: "{gc_font}"; letter-spacing: 0.4px; min-height: 28px; }}
-	QPushButton#PrimaryButton:hover {{ background: #7466d8; }}
-	QPushButton#DangerButton {{ background: #6b3040; border-color: {GC_ORANGE}; color: {GC_ORANGE}; }}
-	QPushButton#ToolButton {{ background: {GC_PANEL_2}; border-color: {GC_BORDER}; padding: 6px 10px; }}
+	QPushButton#PrimaryButton:hover {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+		stop:0 #55baff, stop:0.55 #6f63dc, stop:1 #45349d); }}
+	QPushButton#DangerButton {{ background: #4b1d2c; border-color: {GC_ORANGE}; color: #ffd39c; }}
+	QPushButton#DangerButton:hover {{ background: #6d2639; border-color: {GC_RED}; color: {GC_TEXT}; }}
+	QPushButton#ToolButton {{ background: {GC_PANEL}; border-color: {GC_PANEL_3}; padding: 7px 11px; }}
+	QPushButton#ToolButton:hover {{ background: {GC_PANEL_2}; border-color: {GC_CYAN}; }}
+
 	QProgressBar {{ background: {GC_INPUT}; border: 1px solid {GC_BORDER}; border-radius: 9px;
-		text-align: center; color: {GC_TEXT}; height: 16px; }}
-	QProgressBar::chunk {{ background: {GC_CYAN}; border-radius: 8px; }}
-	QProgressBar#GoalProgress::chunk {{ background: {GC_MINT}; }}
-	QLabel#Title {{ color: {GC_TEXT}; font-size: 22px; font-weight: bold;
-		font-family: "{gc_font}"; letter-spacing: 0.6px; }}
-	QLabel#Subtitle {{ color: {GC_CYAN}; font-size: 10px; font-weight: bold; letter-spacing: 0.8px; }}
+		text-align: center; color: {GC_TEXT}; min-height: 17px; }}
+	QProgressBar::chunk {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+		stop:0 {GC_CYAN}, stop:1 #7d8cff); border-radius: 8px; }}
+	QProgressBar#GoalProgress::chunk {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+		stop:0 {GC_MINT}, stop:1 {GC_CYAN}); }}
+
+	QLabel#Title {{ color: {GC_TEXT}; font-size: 24px; font-weight: bold;
+		font-family: "{gc_font}"; letter-spacing: 0.8px; }}
+	QLabel#Subtitle {{ color: {GC_CYAN}; font-size: 10px; font-weight: bold; letter-spacing: 1.1px; }}
 	QLabel#VersionBadge {{ background: {GC_PANEL_2}; color: {GC_SILVER}; border: 1px solid {GC_BORDER};
-		border-radius: 8px; padding: 4px 8px; font-size: 10px; font-weight: bold; }}
+		border-radius: 10px; padding: 5px 9px; font-size: 10px; font-weight: bold; }}
 	QWidget#HeaderBanner {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-		stop:0 {GC_PANEL}, stop:0.55 {GC_PANEL_2}, stop:1 {GC_PANEL});
-		border: 2px solid {GC_BORDER}; border-radius: 14px; }}
-	QFrame#HeaderRule {{ background: {GC_BORDER}; max-height: 2px; border: 0; }}
+		stop:0 #121021, stop:0.36 {GC_PANEL}, stop:0.68 {GC_PANEL_2}, stop:1 #0b0920);
+		border: 1px solid {GC_BORDER}; border-radius: 18px; }}
+	QFrame#HeaderRule {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+		stop:0 transparent, stop:0.28 {GC_CYAN}, stop:0.72 {GC_BORDER}, stop:1 transparent);
+		max-height: 2px; border: 0; }}
+
 	QLabel#Chip {{ background: {GC_PANEL_2}; color: {GC_MINT}; border: 1px solid {GC_BORDER};
 		border-radius: 9px; padding: 5px 8px; font-weight: bold; font-family: "{gc_font}";
 		font-size: 10px; letter-spacing: 0.3px; }}
@@ -492,23 +538,28 @@ def stylesheet(gamecube_font: str = "Sans Serif") -> str:
 	QLabel#ChipClickable {{ background: {GC_PANEL_2}; color: {GC_MINT}; border: 1px solid {GC_BORDER};
 		border-radius: 9px; padding: 5px 8px; font-weight: bold; font-family: "{gc_font}";
 		font-size: 10px; }}
-	QLabel#ChipClickable:hover {{ border-color: {GC_CYAN}; color: {GC_CYAN}; }}
+	QLabel#ChipClickable:hover {{ background: {GC_PANEL_3}; border-color: {GC_CYAN}; color: {GC_CYAN}; }}
 	QLabel#CenterBay {{ background: #090617; color: {GC_MUTED}; border: 2px dashed {GC_PANEL_2};
 		border-radius: 12px; padding: 14px; font-weight: bold; }}
-	QLabel#PipelineIdle {{ background: {GC_PANEL_2}; color: {GC_MUTED}; border: 2px outset {GC_BORDER};
-		border-radius: 9px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
-	QLabel#PipelineRunning {{ background: #17405a; color: {GC_CYAN}; border: 2px solid {GC_CYAN};
-		border-radius: 9px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
-	QLabel#PipelineSuccess {{ background: #174638; color: {GC_MINT}; border: 2px solid {GC_MINT};
-		border-radius: 9px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
-	QLabel#PipelineFailed {{ background: #563621; color: {GC_ORANGE}; border: 2px solid {GC_ORANGE};
-		border-radius: 9px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
+
+	QLabel#PipelineIdle {{ background: {GC_PANEL}; color: {GC_MUTED}; border: 1px solid {GC_PANEL_3};
+		border-radius: 10px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
+	QLabel#PipelineRunning {{ background: #15384d; color: {GC_CYAN}; border: 1px solid {GC_CYAN};
+		border-radius: 10px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
+	QLabel#PipelineSuccess {{ background: #153c30; color: {GC_MINT}; border: 1px solid {GC_MINT};
+		border-radius: 10px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
+	QLabel#PipelineFailed {{ background: #4b2b1b; color: {GC_ORANGE}; border: 1px solid {GC_ORANGE};
+		border-radius: 10px; padding: 8px; font-weight: bold; font-family: "{gc_font}"; font-size: 10px; }}
 	QTableWidget {{ background: {GC_INPUT}; alternate-background-color: {GC_PANEL}; color: {GC_TEXT};
-		gridline-color: {GC_PANEL_2}; border: 1px solid {GC_BORDER}; border-radius: 8px;
+		gridline-color: {GC_PANEL_2}; border: 1px solid {GC_PANEL_3}; border-radius: 10px;
 		selection-background-color: {GC_PURPLE}; selection-color: {GC_TEXT}; }}
+	QTableWidget::item {{ padding: 4px; }}
+	QTableWidget::item:selected {{ background: {GC_PURPLE}; color: {GC_TEXT}; }}
 	QHeaderView::section {{ background: {GC_PANEL_2}; color: {GC_CYAN}; border: 0;
-		border-right: 1px solid {GC_PANEL}; padding: 5px; font-weight: bold; }}
-	QLabel#SectionLabel {{ color: {GC_CYAN}; font-weight: bold; letter-spacing: 0.4px; }}
+		border-right: 1px solid {GC_PANEL}; border-bottom: 1px solid {GC_PANEL_3};
+		padding: 6px; font-weight: bold; }}
+	QTableCornerButton::section {{ background: {GC_PANEL_2}; border: 0; }}
+	QLabel#SectionLabel {{ color: {GC_CYAN}; font-weight: bold; letter-spacing: 0.6px; }}
 	"""
 
 
