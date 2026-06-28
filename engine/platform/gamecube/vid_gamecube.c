@@ -614,6 +614,14 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	i = 0;
 	xfb_size = 0;
 
+	/* G65: Guard against early Sys_Error before video init.
+	 * GC_DrawFatalBreadcrumb writes directly to XFB via rmode/xfb pointers.
+	 * If called before GC_InitVideoHardware completes, rmode/xfb are uninitialized,
+	 * causing guest_fatal in Dolphin or real hardware. Skip visual output if
+	 * video hardware is not initialized; rely on Sys_Error/SYS_Report for diagnostics. */
+	if( !gc.initialized )
+		return;
+
 	if( !rmode || !xfb[0] )
 		return;
 
