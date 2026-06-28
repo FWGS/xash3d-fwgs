@@ -2086,6 +2086,24 @@ asset tree. It recorded the largest tested samples, including
   asset-loader gate. Native media playback evidence belongs with the remaining
   audio/video release and limitation gates.
 
+## G68 — Complete the full campaign map and transition audit against legal local Half-Life assets (BLOCKED/MANUAL)
+
+**Status (2026-06-28):** BLOCKED / MANUAL.
+
+Automated passes cannot complete G68 because the full legal Half-Life 1 asset tree
+(`Half-Life/valve/maps/*.bsp`) is not staged in the automation environment.
+`asset_lookup` failures (exit 18) in previous attempts confirm the environment
+cannot locate or stage the ~70+ campaign BSPs required for a `--full` audit.
+
+**Blocker:** Asset staging / Legal asset availability.
+**Next operator step:** Run the full campaign audit on the local machine with legal assets:
+```sh
+scripts/gamecube-campaign-audit.sh --full
+```
+Review `.ai/logs/campaign-audit-*/summary.md` for chapter classifications and
+transition evidence. G68 is not complete until this manual audit is run and its
+results are recorded in the port plan.
+
 ## Next wake-up commands
 
 ```sh
