@@ -1266,18 +1266,13 @@ uint S_RawSamplesStereoFrac( portable_samplepair_t *rawsamples, uint rawend, uin
 	{
 		if( channels == 2 )
 		{
+			const char *in = (const char *)data;
+
 			for( src = 0; src < samples; samplefrac += fracstep, src = ( samplefrac >> S_RAW_SAMPLES_PRECISION_BITS ))
 			{
 				uint dst = rawend++ & ( max_samples - 1 );
-				uint frac = samplefrac & (( 1 << S_RAW_SAMPLES_PRECISION_BITS ) - 1 );
-				uint next = Q_min( src + 1, samples - 1 );
-				int left0 = (int)data[src*2+0] - 128;
-				int left1 = (int)data[next*2+0] - 128;
-				int right0 = (int)data[src*2+1] - 128;
-				int right1 = (int)data[next*2+1] - 128;
-
-				rawsamples[dst].left = ( left0 + ((( left1 - left0 ) * (int)frac ) >> S_RAW_SAMPLES_PRECISION_BITS )) << 8;
-				rawsamples[dst].right = ( right0 + ((( right1 - right0 ) * (int)frac ) >> S_RAW_SAMPLES_PRECISION_BITS )) << 8;
+				rawsamples[dst].left = in[src*2+0] << 8;
+				rawsamples[dst].right = in[src*2+1] << 8;
 			}
 		}
 		else
@@ -1285,14 +1280,8 @@ uint S_RawSamplesStereoFrac( portable_samplepair_t *rawsamples, uint rawend, uin
 			for( src = 0; src < samples; samplefrac += fracstep, src = ( samplefrac >> S_RAW_SAMPLES_PRECISION_BITS ))
 			{
 				uint dst = rawend++ & ( max_samples - 1 );
-				uint frac = samplefrac & (( 1 << S_RAW_SAMPLES_PRECISION_BITS ) - 1 );
-				uint next = Q_min( src + 1, samples - 1 );
-				int sample0 = (int)data[src] - 128;
-				int sample1 = (int)data[next] - 128;
-				int sample = sample0 + ((( sample1 - sample0 ) * (int)frac ) >> S_RAW_SAMPLES_PRECISION_BITS );
-
-				rawsamples[dst].left = sample << 8;
-				rawsamples[dst].right = sample << 8;
+				rawsamples[dst].left = ( data[src] - 128 ) << 8;
+				rawsamples[dst].right = ( data[src] - 128 ) << 8;
 			}
 		}
 	}
