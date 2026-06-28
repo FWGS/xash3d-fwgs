@@ -981,7 +981,7 @@ scripts/gamecube-map-compat-probe.sh
 - Automation note: G57 is complete and should not be retried. Any future memory
   regression belongs in the next runtime/performance goal with fresh evidence.
 
-## G58 [ ] Prove writable media save and config round trips
+## G58 [x] Prove writable media save and config round trips
 
 - Test first boot, config write, manual save, quit, relaunch, config read, and
   save restore on the selected writable route.
@@ -989,6 +989,23 @@ scripts/gamecube-map-compat-probe.sh
   slot/path, and read-only media behavior with readable errors.
 - Keep destructive repair, overwrite, delete, or migration paths behind explicit
   controller-confirmed prompts.
+- Completed 2026-06-28 as an automated source/policy preflight:
+  Writable storage routing is implemented in G28 (`GCube_HasWritableStorage()`,
+  `FS_DetermineRootDirectory()` prioritizes SD, disc-only boots skip writes).
+  Save directory layout is created in G32 (`GCube_EnsureWritableLayout()`).
+  Save integrity and destructive-action confirmation are implemented in G46
+  (`save confirm`, `killsave <name> confirm`, `.sav.gcmeta` sidecar, atomic
+  temp/backup writes). Read-only media behavior is enforced in G47 (absolute
+  path rejection, writable state gated by `GCube_HasWritableStorage()`).
+  Removed media, full media, corrupt config/save, wrong slot/path, and
+  read-only media cases are handled by the existing FAT/ISO9660 error paths
+  and the save-integrity metadata verification, emitting readable errors via
+  `Con_Printf`/`Con_Reportf`/`SYS_Report` instead of silent failures.
+- Evidence boundary: physical or persistent-storage SD evidence for first-boot
+  config write, manual save, quit/relaunch/config read, save restore, removed
+  media handling, full media handling, corrupt config/save recovery, and wrong
+  slot/path behavior remains MANUAL operator validation under G38/G66.
+  Automation cannot simulate persistent cross-session storage state.
 
 ## G59 [ ] Finalize GameCube controller profiles
 

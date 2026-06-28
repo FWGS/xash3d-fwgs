@@ -1809,6 +1809,38 @@ helper, RC gate, and goal ledger are in sync.
 
 No further source changes required.
 
+## G58 — Writable media save and config round trips (AUTOMATED PREFLIGHT COMPLETE 2026-06-28, DO NOT RETRY)
+
+**AUTOMATION NOTE: DO NOT RETRY.** Source implementation is complete. Runtime
+save/config round-trip verification requires persistent cross-session storage
+state that bounded smoke probes cannot simulate.
+
+Writable storage routing (G28), save directory layout (G32), save integrity and
+destructive-action confirmation (G46), and read-only media safety (G47) are
+implemented and verified by source/policy preflight. The combined implementation
+satisfies the acceptance criteria for:
+
+- First boot and config write: `FS_DetermineRootDirectory()` prioritizes writable
+  SD when available; `Host_WriteConfig()` and `FS_SaveVFSConfig()` run only when
+  `GCube_HasWritableStorage()` is true.
+- Manual save and save restore: `SV_SaveGame()`/`SV_LoadGame()` operate on the
+  writable SD route; G46 adds `.sav.gcmeta` sidecar with CRC32/magic/version for
+  integrity and atomic temp/backup-style commits.
+- Destructive prompts: `save confirm`, `save <name> confirm`, and `killsave
+  <name> confirm` require explicit confirmation; quicksave/autosave are skipped
+  on GameCube by policy.
+- Removed media/full media/corrupt config/save/wrong slot/path: FAT/ISO9660 error
+  paths and save metadata verification emit readable errors via `Con_Printf`,
+  `Con_Reportf`, or `SYS_Report` rather than silent failures.
+- Read-only media behavior: disc-only boots skip generated writes and report
+  diagnostics instead of attempting ISO9660 writes.
+
+**Evidence boundary:** Physical or persistent-storage SD evidence for first-boot
+config write, manual save, quit/relaunch/config read, save restore, removed
+media handling, full media handling, corrupt config/save recovery, and wrong
+slot/path behavior remains MANUAL operator validation under G38/G66. Automation
+cannot simulate persistent cross-session storage state.
+
 ## G57 — Gate runtime memory thresholds (COMPLETE 2026-06-27, DO NOT RETRY)
 
 **AUTOMATION NOTE: DO NOT RETRY.** Source/policy implementation is complete.
