@@ -641,9 +641,11 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	GC_FatalDrawWrapped( dst, 24, 150, details ? details : "NO DETAILS", 0xFFFF, 2, 38, 8 );
 	GC_FatalDrawLine( dst, 24, rmode->xfbHeight - 28, "HALTED: POWER CYCLE OR RESET", 0x07E0, 2, 38 );
 
-	/* Flush GX pipeline before DMA to ensure all writes are complete */
-	GX_Flush();
-	GX_DrawDone();
+	/* G51: Do not flush GX pipeline here. If GX is in an inconsistent state due to
+	 * the fatal error, GX_Flush/GX_DrawDone can trigger guest_fatal hangs in
+	 * Dolphin or on real hardware. We only need to flush the data cache for the
+	 * XFB region and present it via VIDEO_SetNextFramebuffer. The GX command
+	 * buffer is not used for this CPU-written fatal message. */
 
 	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
 	DCFlushRange( xfb[0], (u32)xfb_size );
