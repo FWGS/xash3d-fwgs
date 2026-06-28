@@ -662,6 +662,15 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	 * Toggle it so the next present (if any) targets xfb[1],
 	 * keeping double-buffering state consistent. */
 	which_fb ^= 1;
+
+	/* G68: Halt execution to ensure the fatal screen remains visible.
+	 * Use an infinite loop instead of SYS_Delay or other calls that
+	 * might return or trigger further errors. This is a deliberate
+	 * halt; hardware reset or power cycle is required to recover. */
+	for( ;; )
+	{
+		VIDEO_WaitVSync();
+	}
 #endif
 }
 
