@@ -1069,7 +1069,7 @@ scripts/gamecube-map-compat-probe.sh
 - Evidence: `scripts/gamecube-quality-profile-check.py` passes and
   `scripts/ai-verify.sh` passes.
 
-## G62 [ ] Validate combat and entity interaction route
+## G62 — Validate combat and entity interaction route (BLOCKED: asset staging / MANUAL validation required)
 
 - Demonstrate at least one route with player movement, weapon pickup, weapon
   fire, reload/ammo, enemy spawn, enemy AI think, enemy damage, player damage,
@@ -1078,6 +1078,20 @@ scripts/gamecube-map-compat-probe.sh
   any disabled visual/audio fallback active during the route.
 - Treat crashes, missing sounds/models/sprites, invisible enemies, or broken
   damage as blockers for calling the port playable.
+
+**Blocker (2026-06-27):** Automated Aider passes exit 18 (`asset_lookup`). The
+blocker is asset lookup, staging, or path handling, not a missing source gap.
+Previous attempts (`.ai/logs/aider-pass-2026-06-27-225637.log` and G61 attempts)
+confirm this is an environment condition. Sustained combat validation with entity
+AI, damage, death/restart, and item pickup requires a legal local Half-Life
+asset tree and persistent runtime sessions that bounded smoke probes cannot
+simulate. This is an operator validation task covered by G38/G40/G66. Automation
+should not retry G62 until an operator validates a combat route on this machine
+or physical hardware.
+
+**Next operator step:** Run a sustained gameplay probe with legal assets to
+verify entity interaction, damage, and restart behavior. Record evidence in
+`.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 
 ## G63 [ ] Validate scripted sequence and trigger route
 
