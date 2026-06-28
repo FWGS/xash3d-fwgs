@@ -1123,16 +1123,50 @@ static studiohdr_t *Mod_MaybeTruncateStudioTextureData( model_t *mod )
 
 #if XASH_GAMECUBE
 /*
- * Visual quality level for GameCube optimizations.
- * 0 = Low/Budget mode (smoke path, skips expensive lighting/caching)
- * 1+ = Normal/High fidelity mode
- * Defined here to satisfy linker references from other modules.
+ * G61: shared GameCube quality profile policy for engine-side systems.
+ *
+ * 0 = smoke: diagnostics, minimal HUD/model/texture work, fastest boot proof.
+ * 1 = release: default real-hardware profile, conservative visuals/audio/HUD.
+ * 2 = high: telemetry-only profile for experiments after memory/frame proof.
  */
 int GC_GetVisualQuality( void )
 {
-	// Default to 0 (low quality) for the smoke/budget path.
-	// This can be overridden by platform-specific initialization if needed.
-	return 0;
+	int quality = 1;
+
+	if( Cvar_FindVar( "gc_quality" ))
+		quality = Cvar_VariableInteger( "gc_quality" );
+
+	quality = bound( 0, quality, 2 );
+#if XASH_LOW_MEMORY
+	if( quality > 1 )
+		quality = 1;
+#endif
+	return quality;
+}
+
+const char *GC_GetQualityProfileName( void )
+{
+	switch( GC_GetVisualQuality() )
+	{
+	case 0: return "smoke";
+	case 2: return "high";
+	default: return "release";
+	}
+}
+
+void GC_ReportQualityProfile( const char *stage )
+{
+	const int quality = GC_GetVisualQuality();
+	const char *profile = GC_GetQualityProfileName();
+	const char *hud = quality == 0 ? "stub" : "real";
+	const char *audio = quality == 0 ? "minimal" : "asnd";
+	const char *lightmaps = quality == 0 ? "reduced" : "enabled";
+	const char *overlay = quality == 0 ? "essential" : "available";
+	const char *purpose = quality == 0 ? "diagnostics" : ( quality == 2 ? "telemetry-only" : "real-hardware-default" );
+
+	Con_Reportf( "Xash3D GameCube: quality profile stage=%s gc_quality=%d name=%s low_memory=%d hud=%s audio=%s lightmaps=%s overlay=%s purpose=%s\n",
+		stage ? stage : "unknown", quality, profile, XASH_LOW_MEMORY ? 1 : 0,
+		hud, audio, lightmaps, overlay, purpose );
 }
 
 void Mod_StudioLoadGcmapStub( model_t *mod, qboolean *loaded )

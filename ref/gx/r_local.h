@@ -300,20 +300,17 @@ extern gl_globals_t   tr;
 static inline int GC_GetVisualQuality( void )
 {
 #if XASH_GAMECUBE
+	int quality = (int)gEngfuncs.pfnGetCvarFloat( "gc_quality" );
+
+	if( quality < 0 )
+		quality = 0;
+	if( quality > 2 )
+		quality = 2;
 #if XASH_LOW_MEMORY
-	/* Compile-time low-memory builds always report low-memory mode */
-	return 0;
-#else /* XASH_GAMECUBE && !XASH_LOW_MEMORY */
-	/* Runtime sample_size determines quality level */
-	/* Guard against early calls before tr is initialized */
-	if( !tr.sample_size && !tr.sample_bits )
-		return 0; // uninitialized or forced low-memory
-	if( tr.sample_size < 0 )
-		return 1; // auto quality (standard)
-	if( tr.sample_bits == 16 )
-		return 2; // higher fidelity explicitly enabled
-	return 1;     // default standard quality
-#endif /* XASH_LOW_MEMORY */
+	if( quality > 1 )
+		quality = 1;
+#endif
+	return quality;
 #else /* !XASH_GAMECUBE */
 	/* Non-GameCube targets always use standard quality */
 	return 1;
@@ -330,12 +327,16 @@ static inline int GC_GetVisualQuality( void )
 static inline int GC_GetVisualQualityForSample( int sample_size, int sample_bits )
 {
 #if XASH_GAMECUBE
+	int quality = GC_GetVisualQuality();
+
+	if( quality == 0 )
+		return 0;
 #if XASH_LOW_MEMORY
-	return 0;
+	return quality;
 #else
 	if( sample_size <= 0 )
-		return 0;
-	if( sample_bits == 16 )
+		return quality;
+	if( quality == 2 && sample_bits == 16 )
 		return 2;
 	/* sample_bits == 0 or any other value falls through to standard quality */
 	return 1;

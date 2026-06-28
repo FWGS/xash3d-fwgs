@@ -49,10 +49,11 @@ Runs the native GameCube release-candidate evidence gate:
   17. release manifest/legal audit compliance check
   18. hardware matrix compliance check
   19. release artifact reproducibility check
-  20. hardware boot preparation check
-  21. compliance evidence check
-  22. local automation guidance check
-  23. homebrew compliance check
+  20. quality profile compliance check
+  21. hardware boot preparation check
+  22. compliance evidence check
+  23. local automation guidance check
+  24. homebrew compliance check
 
 Useful environment knobs:
   RC_LOG_DIR              Override output log directory.
@@ -459,6 +460,21 @@ reproducibility_gate() {
 	return "$rc"
 }
 
+quality_profile_gate() {
+	local log_path="$LOG_DIR/quality-profile.log"
+	echo
+	echo "== quality profile compliance =="
+	if scripts/gamecube-quality-profile-check.py --log-dir "$LOG_DIR/quality-profile" >"$log_path" 2>&1; then
+		log_status "quality profile compliance" "PASS" "$log_path" "G61 quality profile source contract passed"
+		cat "$log_path"
+		return 0
+	fi
+	local rc=$?
+	log_status "quality profile compliance" "FAIL" "$log_path" "exit $rc"
+	cat "$log_path" >&2
+	return "$rc"
+}
+
 hardware_boot_gate() {
 	local log_path="$LOG_DIR/hardware-boot.log"
 	echo
@@ -619,6 +635,7 @@ main() {
 	release_compliance_gate || true
 	hardware_matrix_compliance_gate || true
 	reproducibility_gate || true
+	quality_profile_gate || true
 	hardware_boot_gate || true
 	compliance_evidence_gate || true
 	automation_guidance_gate || true

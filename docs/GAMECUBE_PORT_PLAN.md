@@ -1947,6 +1947,35 @@ Dolphin capture does not appear frozen during expensive work.
 - Runtime readability on target display remains part of the manual
   audio/video and final hardware sign-off gates.
 
+## G61 — Final GameCube quality profiles (COMPLETE 2026-06-27)
+
+GameCube runtime quality is now an explicit profile contract instead of a loose
+numeric hint. `gc_quality` is registered before renderer load and uses named
+semantics:
+
+- `0` / `smoke`: diagnostic route for boot, filesystem, map-load, and memory
+  triage with stub/minimal HUD/model/texture work where needed.
+- `1` / `release`: default real-hardware profile for release-candidate
+  evidence, with conservative visuals, ASND audio, HUD enabled, and low-memory
+  build safeguards still active.
+- `2` / `high`: telemetry-only experiment profile. Low-memory GameCube builds
+  clamp this back to release behavior until frame and memory evidence prove it
+  safe.
+
+Engine-side systems now read `gc_quality` through `GC_GetVisualQuality()` rather
+than hard-coding smoke mode. The GX renderer reads the same cvar through engine
+cvar plumbing, so model, HUD, texture, surface, particle, and renderer decisions
+share the same profile value. `GC_ReportQualityProfile()` emits structured
+evidence lines with the active stage, numeric quality, profile name, low-memory
+build flag, HUD/audio/lightmap/overlay policy, and intended purpose.
+
+**Evidence:**
+- Source hooks: `engine/client/dll_int/ref_common.c`,
+  `engine/common/mod_studio.c`, `engine/platform/gamecube/vid_gamecube.c`,
+  `engine/platform/platform.h`, and `ref/gx/r_local.h`.
+- `scripts/gamecube-quality-profile-check.py` verifies the source contract.
+- `scripts/ai-verify.sh` passes with the updated GameCube target.
+
 ## Final Completion Gates (G67-G75)
 
 The remaining release work needs stricter gates than "the engine boots" or

@@ -804,6 +804,9 @@ qboolean R_Init( void )
 	Cvar_Get( "r_lighting_modulate", "0.6", FCVAR_ARCHIVE, "compatibility cvar, does nothing" );
 	Cvar_Get( "r_drawentities", "1", FCVAR_CHEAT, "render entities" );
 	Cvar_Get( "cl_himodels", "1", FCVAR_ARCHIVE, "draw high-resolution player models in multiplayer" );
+#if XASH_GAMECUBE
+	Cvar_Get( "gc_quality", "1", FCVAR_ARCHIVE, "GameCube quality profile: 0=smoke, 1=release, 2=high telemetry-only" );
+#endif
 
 	// cvars are created, execute video config
 	Cbuf_AddText( "exec video.cfg\n" );

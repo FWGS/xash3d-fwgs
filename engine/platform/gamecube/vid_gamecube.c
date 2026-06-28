@@ -271,7 +271,8 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		return false;
 
 #if XASH_GAMECUBE
-	gc_quality = Cvar_Get( "gc_quality", "1", FCVAR_ARCHIVE, "GameCube visual quality mode: 0=low/smoke, 1=medium, 2=high" );
+	gc_quality = Cvar_Get( "gc_quality", "1", FCVAR_ARCHIVE, "GameCube quality profile: 0=smoke, 1=release, 2=high telemetry-only" );
+	GC_ReportQualityProfile( "video-init" );
 #endif
 
 	GC_InitVideoHardware();

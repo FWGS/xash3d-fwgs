@@ -1050,7 +1050,7 @@ scripts/gamecube-map-compat-probe.sh
   server, host, and GameCube video sources. Final target-display readability
   remains covered by the manual audio/video evidence gates.
 
-## G61 [ ] Define final GameCube quality profiles
+## G61 [x] Define final GameCube quality profiles
 
 - Consolidate `gc_quality`, low-memory flags, texture/lightmap choices, HUD
   modes, audio fallback, and debug overlay settings into documented profiles.
@@ -1058,6 +1058,16 @@ scripts/gamecube-map-compat-probe.sh
   profile for diagnosis and a higher-quality profile only when memory telemetry
   proves safe.
 - Record which profile is used by every Dolphin and hardware evidence entry.
+- Complete 2026-06-27: `gc_quality` now has named profile semantics:
+  `0=smoke`, `1=release`, `2=high telemetry-only`.
+- The engine registers `gc_quality` before renderer load, engine-side
+  `GC_GetVisualQuality()` reads and clamps the cvar instead of hard-coding
+  smoke mode, and the GX renderer reads the same cvar with low-memory clamping.
+- `GC_ReportQualityProfile()` emits structured evidence including stage,
+  numeric quality, profile name, low-memory build flag, HUD/audio/lightmap/
+  overlay policy, and intended purpose.
+- Evidence: `scripts/gamecube-quality-profile-check.py` passes and
+  `scripts/ai-verify.sh` passes.
 
 ## G62 [ ] Validate combat and entity interaction route
 
