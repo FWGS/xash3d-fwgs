@@ -5,6 +5,7 @@ Copyright (C) 2026 Xash3D GameCube port contributors
 #include "defaults.h"
 #include "common.h"
 #include "client.h"
+#include "sound.h"
 #include "avi_cinepak.h"
 #include "avi_gc.h"
 
@@ -29,6 +30,26 @@ static void AVI_RGB24ToBGRA( const byte *src, int src_stride, byte *dst, int wid
 			out[x * 4 + 0] = row[x * 3 + 2];
 			out[x * 4 + 1] = row[x * 3 + 1];
 			out[x * 4 + 2] = row[x * 3 + 0];
+			out[x * 4 + 3] = 255;
+		}
+	}
+}
+
+static void AVI_RGB24ToBGRAScaled( const byte *src, int src_stride, byte *dst, int src_width, int src_height, int dst_width, int dst_height )
+{
+	int x, y;
+
+	for( y = 0; y < dst_height; y++ )
+	{
+		const byte *row = src + ( y * src_height / dst_height ) * src_stride;
+		byte *out = dst + y * dst_width * 4;
+
+		for( x = 0; x < dst_width; x++ )
+		{
+			const byte *in = row + ( x * src_width / dst_width ) * 3;
+			out[x * 4 + 0] = in[2];
+			out[x * 4 + 1] = in[1];
+			out[x * 4 + 2] = in[0];
 			out[x * 4 + 3] = 255;
 		}
 	}
@@ -61,6 +82,60 @@ static fs_offset_t AVI_ScanFor( file_t *file, const char *tag, fs_offset_t start
 	}
 
 	return -1;
+}
+
+static void AVI_ParseAudioFormat( movie_state_t *Avi, fs_offset_t file_size )
+{
+	byte fmt[16];
+	byte strf_header[8];
+	fs_offset_t auds_pos, strf_pos;
+	uint strf_size;
+
+	Avi->audio_rate = 0;
+	Avi->audio_width = 0;
+	Avi->audio_channels = 0;
+
+	auds_pos = AVI_ScanFor( Avi->file, "auds", 0, Q_min( file_size, 65536 ));
+	if( auds_pos < 0 )
+		return;
+
+	strf_pos = AVI_ScanFor( Avi->file, "strf", auds_pos, Q_min( auds_pos + 4096, file_size ));
+	if( strf_pos < 0 )
+		return;
+
+	if( FS_Seek( Avi->file, strf_pos, SEEK_SET ) == -1 ||
+		FS_Read( Avi->file, strf_header, sizeof( strf_header )) != sizeof( strf_header ))
+		return;
+
+	strf_size = AVI_RL32( strf_header + 4 );
+	if( strf_size < sizeof( fmt ))
+		return;
+
+	if( FS_Read( Avi->file, fmt, sizeof( fmt )) != sizeof( fmt ))
+		return;
+
+	/* GoldSrc's retail valve.avi uses PCM unsigned 8-bit mono audio. */
+	if( AVI_RL16( fmt + 0 ) != 1 )
+		return;
+
+	Avi->audio_channels = AVI_RL16( fmt + 2 );
+	Avi->audio_rate = AVI_RL32( fmt + 4 );
+	Avi->audio_width = AVI_RL16( fmt + 14 ) / 8;
+
+	if( Avi->audio_channels < 1 || Avi->audio_channels > 2 ||
+		Avi->audio_width < 1 || Avi->audio_width > 2 || Avi->audio_rate == 0 )
+	{
+		Avi->audio_rate = 0;
+		Avi->audio_width = 0;
+		Avi->audio_channels = 0;
+	}
+#if XASH_GAMECUBE
+	else
+	{
+		Con_Reportf( "Xash3D GameCube: intro AVI audio PCM rate=%u width=%u channels=%u\n",
+			Avi->audio_rate, Avi->audio_width, Avi->audio_channels );
+	}
+#endif
 }
 
 static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
@@ -127,6 +202,7 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 	Avi->frame_count = AVI_RL32( avih + 16 );
 	Avi->width = AVI_RL32( avih + 32 );
 	Avi->height = AVI_RL32( avih + 36 );
+	AVI_ParseAudioFormat( Avi, file_size );
 
 	if( FS_Seek( Avi->file, idx_pos + 4, SEEK_SET ) == -1 )
 		return false;
@@ -152,11 +228,14 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 
 	entries = idx_size / 16;
 	Avi->frame_count = 0;
+	Avi->audio_chunk_count = 0;
 	for( i = 0; i < entries; i++ )
 	{
 		const byte *entry = idx_data + i * 16;
 		if( entry[0] == '0' && entry[1] == '0' && entry[2] == 'd' && entry[3] == 'c' )
 			Avi->frame_count++;
+		else if( entry[2] == 'w' && entry[3] == 'b' && Avi->audio_rate > 0 )
+			Avi->audio_chunk_count++;
 	}
 
 	if( Avi->frame_count == 0 )
@@ -172,8 +251,18 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 		Mem_Free( idx_data );
 		return false;
 	}
+	if( Avi->audio_chunk_count > 0 )
+	{
+		Avi->audio_index = Mem_Calloc( avi_mempool, Avi->audio_chunk_count * sizeof( avi_frame_index_t ));
+		if( !Avi->audio_index )
+		{
+			Mem_Free( idx_data );
+			return false;
+		}
+	}
 
 	Avi->frame_count = 0;
+	Avi->audio_chunk_count = 0;
 	Avi->chunk_capacity = 0;
 	for( i = 0; i < entries; i++ )
 	{
@@ -186,6 +275,14 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 				Avi->chunk_capacity = Avi->index[Avi->frame_count].size;
 			Avi->frame_count++;
 		}
+		else if( entry[2] == 'w' && entry[3] == 'b' && Avi->audio_index )
+		{
+			Avi->audio_index[Avi->audio_chunk_count].offset = Avi->movie_list_pos + AVI_RL32( entry + 8 );
+			Avi->audio_index[Avi->audio_chunk_count].size = AVI_RL32( entry + 12 );
+			if( Avi->audio_index[Avi->audio_chunk_count].size > Avi->chunk_capacity )
+				Avi->chunk_capacity = Avi->audio_index[Avi->audio_chunk_count].size;
+			Avi->audio_chunk_count++;
+		}
 	}
 	Mem_Free( idx_data );
 
@@ -193,8 +290,19 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 	if( !Avi->chunk )
 		return false;
 
+#if XASH_GAMECUBE
+	Avi->upload_width = Q_min( Avi->width, 320 );
+	Avi->upload_height = Q_max( 1, Avi->height * Avi->upload_width / Avi->width );
+	Avi->frame = NULL;
+#else
+	Avi->upload_width = Avi->width;
+	Avi->upload_height = Avi->height;
 	Avi->frame = Mem_Malloc( avi_mempool, Avi->width * Avi->height * 4 );
 	if( !Avi->frame )
+		return false;
+#endif
+	Avi->upload_frame = Mem_Malloc( avi_mempool, Avi->upload_width * Avi->upload_height * 4 );
+	if( !Avi->upload_frame )
 		return false;
 
 	if( !Cinepak_Init( &Avi->decoder, Avi->width, Avi->height, avi_mempool ))
@@ -203,7 +311,7 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 	return Avi->width > 0 && Avi->height > 0;
 }
 
-static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame )
+static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload )
 {
 	byte header[8];
 	fs_offset_t pos;
@@ -276,7 +384,22 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame )
 	}
 #endif
 
-	AVI_RGB24ToBGRA( Avi->decoder.rgb, Avi->decoder.stride, Avi->frame, Avi->width, Avi->height );
+	if( upload )
+	{
+#if XASH_GAMECUBE
+		if( Avi->upload_frame && ( Avi->upload_width != Avi->width || Avi->upload_height != Avi->height ))
+		{
+			AVI_RGB24ToBGRAScaled( Avi->decoder.rgb, Avi->decoder.stride, Avi->upload_frame,
+				Avi->width, Avi->height, Avi->upload_width, Avi->upload_height );
+		}
+#else
+		AVI_RGB24ToBGRA( Avi->decoder.rgb, Avi->decoder.stride, Avi->frame, Avi->width, Avi->height );
+		if( Avi->upload_frame )
+		{
+			memcpy( Avi->upload_frame, Avi->frame, Avi->width * Avi->height * 4 );
+		}
+#endif
+	}
 	return true;
 }
 
@@ -293,9 +416,13 @@ byte *AVI_GetVideoFrame( movie_state_t *Avi, int frame )
 	if( !Avi || !Avi->active || frame < 0 || (uint)frame >= Avi->frame_count )
 		return NULL;
 
-	if((uint)frame != Avi->current_frame && !AVI_DecodeFrame( Avi, frame ))
+	if((uint)frame != Avi->current_frame && !AVI_DecodeFrame( Avi, frame, true ))
 		return NULL;
 
+#if XASH_GAMECUBE
+	if( !Avi->frame )
+		return Avi->upload_frame;
+#endif
 	return Avi->frame;
 }
 
@@ -312,8 +439,62 @@ qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *dura
 
 qboolean AVI_HaveAudioTrack( const movie_state_t *Avi )
 {
-	(void)Avi;
-	return false;
+	return Avi && Avi->audio_index && Avi->audio_chunk_count > 0 &&
+		Avi->audio_rate > 0 && Avi->audio_width > 0 && Avi->audio_channels > 0;
+}
+
+static void AVI_StreamAudio( movie_state_t *Avi, double elapsed )
+{
+	uint desired_bytes;
+
+	if( !AVI_HaveAudioTrack( Avi ) || !snd.initialized || elapsed < 0.0 )
+		return;
+
+	desired_bytes = (uint)( elapsed * (double)Avi->audio_rate * (double)Avi->audio_width * (double)Avi->audio_channels );
+	while( Avi->audio_current_chunk < Avi->audio_chunk_count && Avi->audio_bytes_submitted < desired_bytes )
+	{
+		avi_frame_index_t *chunk = &Avi->audio_index[Avi->audio_current_chunk];
+		byte header[8];
+		uint chunk_size;
+
+		if( chunk->size == 0 || chunk->size > Avi->chunk_capacity )
+		{
+			Avi->audio_current_chunk++;
+			continue;
+		}
+
+		if( FS_Seek( Avi->file, chunk->offset, SEEK_SET ) == -1 ||
+			FS_Read( Avi->file, header, sizeof( header )) != sizeof( header ))
+			break;
+
+		if( header[2] != 'w' || header[3] != 'b' )
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( "Xash3D GameCube: intro AVI unsupported audio chunk %c%c%c%c pos=%ld\n",
+				header[0], header[1], header[2], header[3], (long)chunk->offset );
+#endif
+			Avi->audio_current_chunk++;
+			continue;
+		}
+
+		chunk_size = AVI_RL32( header + 4 );
+		if( chunk_size == 0 || chunk_size > Avi->chunk_capacity ||
+			FS_Read( Avi->file, Avi->chunk, chunk_size ) != (fs_offset_t)chunk_size )
+			break;
+
+		S_RawEntSamples( S_RAW_SOUND_SOUNDTRACK, chunk_size / ( Avi->audio_width * Avi->audio_channels ),
+			Avi->audio_rate, Avi->audio_width, Avi->audio_channels, Avi->chunk, 255, ATTN_NONE );
+		Avi->audio_bytes_submitted += chunk_size;
+		Avi->audio_current_chunk++;
+#if XASH_GAMECUBE
+		if( !Avi->audio_reported )
+		{
+			Con_Reportf( "Xash3D GameCube: intro AVI audio submitted chunks=%u bytes=%u rate=%u\n",
+				Avi->audio_current_chunk, Avi->audio_bytes_submitted, Avi->audio_rate );
+			Avi->audio_reported = true;
+		}
+#endif
+	}
 }
 
 void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audio, int quiet )
@@ -379,10 +560,14 @@ void AVI_CloseVideo( movie_state_t *Avi )
 		FS_Close( Avi->file );
 	if( Avi->frame )
 		Mem_Free( Avi->frame );
+	if( Avi->upload_frame )
+		Mem_Free( Avi->upload_frame );
 	if( Avi->chunk )
 		Mem_Free( Avi->chunk );
 	if( Avi->index )
 		Mem_Free( Avi->index );
+	if( Avi->audio_index )
+		Mem_Free( Avi->audio_index );
 	Cinepak_Free( &Avi->decoder );
 
 	memset( Avi, 0, sizeof( *Avi ));
@@ -391,10 +576,11 @@ void AVI_CloseVideo( movie_state_t *Avi )
 qboolean AVI_Think( movie_state_t *Avi )
 {
 	uint target_frame;
+	uint decode_frame;
 	qboolean first_decode;
 	double elapsed;
 
-	if( !Avi || !Avi->active || !Avi->file || !Avi->frame )
+	if( !Avi || !Avi->active || !Avi->file || !Avi->upload_frame )
 		return false;
 
 	if( Avi->paused )
@@ -409,25 +595,38 @@ qboolean AVI_Think( movie_state_t *Avi )
 	{
 		elapsed = Platform_DoubleTime() - Avi->start_time;
 		target_frame = (uint)( elapsed * (double)Avi->fps_num / (double)Avi->fps_den );
-		if( target_frame > Avi->current_frame + 1 )
-			target_frame = Avi->current_frame + 1;
 	}
 	if( target_frame >= Avi->frame_count )
 		return false;
 
+	AVI_StreamAudio( Avi, Platform_DoubleTime() - Avi->start_time );
+
 	if( target_frame != Avi->current_frame )
 	{
 		first_decode = ( Avi->current_frame == (uint)-1 );
-		if( !AVI_DecodeFrame( Avi, target_frame ))
-			return false;
+		decode_frame = first_decode ? 0 : Avi->current_frame + 1;
+#if XASH_GAMECUBE
+		if( target_frame > decode_frame )
+		{
+			Con_Reportf( "Xash3D GameCube: intro AVI catchup from=%u to=%u\n",
+				decode_frame, target_frame );
+		}
+#endif
+		for( ; decode_frame <= target_frame; decode_frame++ )
+		{
+			if( !AVI_DecodeFrame( Avi, decode_frame, decode_frame == target_frame ))
+				return false;
+		}
 		Avi->current_frame = target_frame;
 		if( first_decode )
 			Con_Reportf( "Xash3D GameCube: intro AVI decoded first frame\n" );
 
 		if( Avi->texture == 0 )
-			ref.dllFuncs.GL_UpdateTexture( SCR_GetCinematicTexture(), Avi->width, Avi->height, Avi->width, Avi->height, Avi->frame, PF_BGRA_32 );
+			ref.dllFuncs.GL_UpdateTexture( SCR_GetCinematicTexture(), Avi->upload_width, Avi->upload_height,
+				Avi->upload_width, Avi->upload_height, Avi->upload_frame, PF_BGRA_32 );
 		else if( Avi->texture > 0 )
-			ref.dllFuncs.GL_UpdateTexture( Avi->texture, Avi->width, Avi->height, Avi->w, Avi->h, Avi->frame, PF_BGRA_32 );
+			ref.dllFuncs.GL_UpdateTexture( Avi->texture, Avi->upload_width, Avi->upload_height,
+				Avi->upload_width, Avi->upload_height, Avi->upload_frame, PF_BGRA_32 );
 	}
 
 	if( Avi->texture == 0 )

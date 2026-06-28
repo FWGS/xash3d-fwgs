@@ -125,7 +125,8 @@ static void GC_ShutdownVideoHardware( void )
 static unsigned int GC_RGBPairToYUYV( unsigned short p1, unsigned short p2 )
 {
 	int r1, g1, b1, r2, g2, b2;
-	int y1, cb1, cr1, y2, cb2, cr2, cb, cr;
+	int y1, cb1, cr1, y2, cb2, cr2;
+	int cb, cr;
 
 	r1 = ((( p1 >> 11 ) & 0x1F ) * 527 + 23 ) >> 6;
 	g1 = ((( p1 >> 5 ) & 0x3F ) * 259 + 33 ) >> 6;
@@ -147,13 +148,6 @@ static unsigned int GC_RGBPairToYUYV( unsigned short p1, unsigned short p2 )
 	return ( y1 << 24 ) | ( cb << 16 ) | ( y2 << 8 ) | cr;
 }
 
-static void GC_RGB565ToRGB8( unsigned short p, int *r, int *g, int *b )
-{
-	if( r ) *r = ((( p >> 11 ) & 0x1F ) * 527 + 23 ) >> 6;
-	if( g ) *g = ((( p >> 5 ) & 0x3F ) * 259 + 33 ) >> 6;
-	if( b ) *b = (( p & 0x1F ) * 527 + 23 ) >> 6;
-}
-
 static void GC_PresentBuffer( void )
 {
 #if XASH_GAMECUBE
@@ -167,9 +161,6 @@ static void GC_PresentBuffer( void )
 	size_t buf_size;
 	int col_diag;
 	int check_w;
-	int check_h;
-	int sample_x;
-	int sample_y;
 	unsigned short *scanrow;
 	unsigned short first_pixel;
 	double now;
@@ -190,9 +181,6 @@ static void GC_PresentBuffer( void )
 	buf_size = 0;
 	col_diag = 0;
 	check_w = 0;
-	check_h = 0;
-	sample_x = 0;
-	sample_y = 0;
 	scanrow = NULL;
 	first_pixel = 0;
 	now = 0.0;
@@ -228,32 +216,34 @@ static void GC_PresentBuffer( void )
 		{
 			int source_y = dst_y * src_h / copy_h;
 			unsigned int *out = dst + dst_y * ( rmode->fbWidth / 2 );
-			scanrow = src + source_y * gc.stride;
+			unsigned short *scanline = src + source_y * gc.stride;
+
 			for( dst_x = 0; dst_x < copy_w; dst_x += 2 )
 			{
-				unsigned short p1 = scanrow[dst_x * src_w / copy_w];
-				unsigned short p2 = scanrow[( dst_x + 1 ) * src_w / copy_w];
+				unsigned short p1 = scanline[dst_x * src_w / copy_w];
+				unsigned short p2 = scanline[( dst_x + 1 ) * src_w / copy_w];
 				out[dst_x / 2] = GC_RGBPairToYUYV( p1, p2 );
 			}
 		}
 
-		if( src_h > 0 && src_w > 0 )
+		// G36: Detect non-black content on first frame only to stabilize frame budget
+		if( gc_present_count == 1 && src_h > 0 && src_w > 0 )
 		{
 			check_w = src_w < 8 ? src_w : 8;
-			check_h = src_h < 8 ? src_h : 8;
-			for( sample_y = 0; sample_y < check_h && !sampled_nonblack; sample_y++ )
+			scanrow = src;
+			col2 = 0;
+			for( col2 = 0; col2 < check_w; col2++ )
 			{
-				scanrow = src + ( sample_y * src_h / check_h ) * gc.stride;
-				for( col2 = 0; col2 < check_w; col2++ )
+				if( scanrow[col2] != 0 )
 				{
-					sample_x = col2 * src_w / check_w;
-					if( scanrow[sample_x] != 0 )
-					{
-						sampled_nonblack = true;
-						break;
-					}
+					sampled_nonblack = true;
+					break;
 				}
 			}
+		}
+		else
+		{
+			sampled_nonblack = false;
 		}
 	}
 	else
@@ -282,24 +272,14 @@ static void GC_PresentBuffer( void )
 	/* G36: Emit frame budget markers only for early frames to establish visual evidence.
 	 * Suppress per-frame SYS_Report in steady-state to reduce route-time render cost.
 	 * The first present reports 0ms so short smoke probes still get a parsable sample. */
-	if( gc_present_count <= 2 || gc_present_count == 15 || gc_present_count == 30 ||
-		gc_present_count == 60 || gc_present_count == 120 )
+	if( gc_present_count <= 2 )
 	{
-		int center_r = 0, center_g = 0, center_b = 0;
-		unsigned short center_pixel = 0;
-
-		if( gc.buffer && gc.width > 0 && gc.height > 0 )
-		{
-			center_pixel = gc.buffer[( gc.height / 2 ) * gc.stride + ( gc.width / 2 )];
-			GC_RGB565ToRGB8( center_pixel, &center_r, &center_g, &center_b );
-		}
 		now = Sys_FloatTime();
 		elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
 		if( elapsed_ms > gc_worst_frame_ms )
 			gc_worst_frame_ms = elapsed_ms;
-		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u center565=0x%04X center_rgb=%d,%d,%d\n",
-			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count,
-			center_pixel, center_r, center_g, center_b );
+		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
+			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
 		SYS_Report( "Xash3D GameCube: frame render complete\n" );
 		SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
 		if( elapsed_ms >= 33.0 )
