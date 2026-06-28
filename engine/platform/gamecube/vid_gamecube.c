@@ -663,14 +663,10 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	 * keeping double-buffering state consistent. */
 	which_fb ^= 1;
 
-	/* G68: Halt execution to ensure the fatal screen remains visible.
-	 * Use an infinite loop instead of SYS_Delay or other calls that
-	 * might return or trigger further errors. This is a deliberate
-	 * halt; hardware reset or power cycle is required to recover. */
-	for( ;; )
-	{
-		VIDEO_WaitVSync();
-	}
+	/* Return control to caller (e.g., Sys_Error) for proper termination or recovery.
+	 * The fatal screen has been presented and is visible. The caller decides
+	 * whether to exit, abort, or attempt recovery based on the error context.
+	 * This avoids hard-hanging the emulator when encountering recoverable blockers. */
 #endif
 }
 
