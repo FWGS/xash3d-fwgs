@@ -27,6 +27,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
 	QApplication,
+	QAbstractItemView,
 	QCheckBox,
 	QComboBox,
 	QDialog,
@@ -1215,7 +1216,6 @@ class PortWindow(QMainWindow):
 		self._layout_busy = False
 		self._layout_restored_from_settings = False
 		self._last_goals_signature = ""
-		self._last_goal_state_signature = ""
 		self._pipeline_states: dict[str, str] = {}
 		self._last_model_api_summary = ""
 		self.overnight_mode = False
@@ -2743,7 +2743,13 @@ class PortWindow(QMainWindow):
 		goal_id = goal_data.get("goal_id") if isinstance(goal_data, Mapping) else None
 		if not isinstance(goal_id, str):
 			return None
-		return next((goal for goal in goals if goal[0] == goal_id), None)
+		match = next((goal for goal in goals if goal[0] == goal_id), None)
+		if match is None:
+			return None
+		_state = match[1]
+		if _state == "MANUAL" or _state.lower() == "x" or goal_is_blocked(match[3]):
+			return None
+		return match
 
 	def prime_goal_ledger(self) -> None:
 		try:
@@ -2769,12 +2775,12 @@ class PortWindow(QMainWindow):
 			item = self.goal_table.item(row, 0)
 			if item and item.text() == active[0]:
 				self.goal_table.selectRow(row)
-				self.goal_table.scrollToItem(item, QTableWidget.ScrollHint.PositionAtCenter)
+				self.goal_table.scrollToItem(item, QAbstractItemView.ScrollHint.PositionAtCenter)
 				return
 
 	def apply_goals_snapshot(self, snapshot: DashboardSnapshot) -> None:
 		goals = snapshot.goals or []
-		active = snapshot.active_goal
+		active = self.active_goal_from_runner_state(goals) or snapshot.active_goal
 		signature_parts = [
 			f"{goal_id}:{state}:{goal_is_blocked(body)}"
 			for goal_id, state, _title, body in goals
@@ -3309,8 +3315,10 @@ class PortWindow(QMainWindow):
 		if "RC_CHECK:" in text or "frame budget" in text.lower():
 			self.set_pipeline_state("VERIFY", "Running")
 		if self.operation == "Goal automation":
+			goals_may_have_changed = False
 			for line in text.splitlines():
 				if line.startswith("GOAL PASS "):
+					goals_may_have_changed = True
 					try:
 						pass_value = int(line.split()[2].split("/")[0])
 						if self.overnight_mode:
@@ -3322,7 +3330,12 @@ class PortWindow(QMainWindow):
 					except (IndexError, ValueError):
 						pass
 				if self.overnight_mode and line.startswith("== supervisor cycle "):
+					goals_may_have_changed = True
 					self.update_session_stats_label()
+				if "== accepted patch ==" in line or line.startswith("All automatic GameCube port goals"):
+					goals_may_have_changed = True
+			if goals_may_have_changed:
+				QTimer.singleShot(0, self.prime_goal_ledger)
 
 	def pipeline_node(self, operation: str) -> str:
 		return {
