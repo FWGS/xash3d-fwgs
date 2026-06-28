@@ -967,7 +967,7 @@ scripts/gamecube-map-compat-probe.sh
 - Evidence boundary: this is hardware preparation only. Dated real hardware
   boot results remain G38/G66 sign-off work.
 
-## G57 [ ] Gate runtime memory thresholds
+## G57 [x] Gate runtime memory thresholds
 
 - Convert MEM1 high-water telemetry into explicit pass/fail thresholds for
   boot, menu/client init, BSP load, first rendered frame, and map transition.
@@ -975,6 +975,11 @@ scripts/gamecube-map-compat-probe.sh
   with at least 1-2 MiB emergency headroom before declaring the route playable.
 - Record ARAM usage separately for audio/streaming candidates and never hide
   MEM1 pressure by assuming ARAM behaves like normal malloc.
+- Verified 2026-06-27: `docs/GAMECUBE_PORT_PLAN.md` records the G57 MEM1
+  pass/fail thresholds, hard-failure policy, ARAM separation rule, and the
+  accepted evidence logs from the completed G57 passes.
+- Automation note: G57 is complete and should not be retried. Any future memory
+  regression belongs in the next runtime/performance goal with fresh evidence.
 
 ## G58 [ ] Prove writable media save and config round trips
 

@@ -563,6 +563,42 @@ def parse_goals(path: Path) -> list[Goal]:
 	return goals
 
 
+def port_plan_marks_goal_done(root: Path, goal: Goal) -> bool:
+	plan = root / "docs/GAMECUBE_PORT_PLAN.md"
+	if goal.complete or goal.manual or not plan.is_file():
+		return False
+	text = plan.read_text(encoding="utf-8", errors="replace")
+	match = re.search(
+		rf"(?ms)^##\s+{re.escape(goal.goal_id)}\b(?P<section>.*?)(?=^##\s+G\d+\b|\Z)",
+		text,
+	)
+	if not match:
+		return False
+	section = match.group("section")
+	header = section.splitlines()[0] if section.splitlines() else ""
+	return (
+		"DO NOT RETRY" in section
+		and re.search(r"\b(COMPLETE|SOURCE COMPLETE|AUTOMATED PREFLIGHT COMPLETE)\b",
+			header + "\n" + section[:500]) is not None
+	)
+
+
+def reconcile_port_plan_completions(root: Path, goals: list[Goal]) -> list[Goal]:
+	reconciled: list[Goal] = []
+	for goal in goals:
+		if port_plan_marks_goal_done(root, goal):
+			body = goal.body.rstrip()
+			body += (
+				"\n\n- Automation reconciliation: docs/GAMECUBE_PORT_PLAN.md marks "
+				f"{goal.goal_id} complete with DO NOT RETRY, so the runner treats "
+				"this goal as complete even if the ledger marker lags."
+			)
+			reconciled.append(Goal(goal.goal_id, "x", goal.title, body))
+		else:
+			reconciled.append(goal)
+	return reconciled
+
+
 def run(command: list[str], root: Path, *, capture: bool = False,
 	env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
 	print("$ " + " ".join(command), flush=True)
@@ -1848,7 +1884,7 @@ def main() -> int:
 	if not goal_file.is_file():
 		parser.error(f"goal file not found: {goal_file}")
 
-	goals = parse_goals(goal_file)
+	goals = reconcile_port_plan_completions(root, parse_goals(goal_file))
 	seed_conact_from_goal_state(memory, goals)
 	save_loop_memory(root, memory)
 	if args.status_json:
@@ -1883,7 +1919,7 @@ def main() -> int:
 	attempts: dict[str, int] = {}
 	pass_indexes = count(1) if args.max_passes == 0 else range(1, args.max_passes + 1)
 	for pass_index in pass_indexes:
-		goals = parse_goals(goal_file)
+		goals = reconcile_port_plan_completions(root, parse_goals(goal_file))
 		seed_conact_from_goal_state(memory, goals)
 		goal = next((item for item in goals if not item.automatic_done), None)
 		if goal is None:

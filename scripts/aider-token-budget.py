@@ -58,12 +58,20 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	]
 	input_budget = max(8192, max_context - output_tiers[0] - SYSTEM_OVERHEAD_TOKENS)
 	max_bytes = int(input_budget * BYTES_PER_TOKEN)
-	context_tiers = [
-		max(6000, min(24000, max_bytes // 3)),
-		max(4000, min(14000, max_bytes // 5)),
-		max(3000, min(9000, max_bytes // 7)),
-		max(2000, min(6000, max_bytes // 10)),
-	]
+	if max_context >= 60000:
+		context_tiers = [
+			max(24000, min(90000, max_bytes // 2)),
+			max(16000, min(60000, max_bytes // 3)),
+			max(10000, min(40000, max_bytes // 4)),
+			max(7000, min(24000, max_bytes // 5)),
+		]
+	else:
+		context_tiers = [
+			max(6000, min(24000, max_bytes // 3)),
+			max(4000, min(14000, max_bytes // 5)),
+			max(3000, min(9000, max_bytes // 7)),
+			max(2000, min(6000, max_bytes // 10)),
+		]
 	# Tighten further on later goal-loop attempts.
 	attempt_scale = {1: 1.0, 2: 0.85, 3: 0.7, 4: 0.55}[attempt]
 	context_tiers = [max(3000, int(value * attempt_scale)) for value in context_tiers]
