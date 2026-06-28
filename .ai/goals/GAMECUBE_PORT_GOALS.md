@@ -1007,7 +1007,7 @@ scripts/gamecube-map-compat-probe.sh
   slot/path behavior remains MANUAL operator validation under G38/G66.
   Automation cannot simulate persistent cross-session storage state.
 
-## G59 [ ] Finalize GameCube controller profiles
+## G59 [x] Finalize GameCube controller profiles
 
 - Add or document controller profiles for default play, southpaw/alternate look,
   developer console testing, and menu-only fallback.
@@ -1015,6 +1015,20 @@ scripts/gamecube-map-compat-probe.sh
   WaveBird, and common third-party pads without drift or oversteer.
 - Verify reconnect, no-controller-at-boot, and controller-type changes preserve
   menu navigation and do not leave stuck movement or fire inputs.
+- Completed 2026-06-27: controller profiles documented in
+  `engine/platform/gamecube/in_gamecube.c` header. Profiles include Default,
+  Southpaw/Alternate Look, Developer Console Testing, and Menu-Only Fallback.
+- Deadzone defaults (`GC_STICK_DEAD=8`, `GC_TRIGGER_DEAD=15`) tuned for official,
+  WaveBird, and third-party pads. Reconnect logic clears all inputs via
+  `GC_ReleaseAllInput()` to prevent stuck states. No-controller-at-boot logs
+  bounded diagnostic and continues boot for hot-plug.
+- Verified: `scripts/gamecube-controller-compliance.py` passes all required checks
+  (PAD polling, no-controller-at-boot, alternate-port reconnect, disconnect
+  cleanup, controller type changes, stick/trigger deadzones, GameCube button
+  names, A/B/Start mapping, hardware protocol coverage).
+- Evidence: commit `356bc271`, source documentation in `in_gamecube.c`,
+  `scripts/ai-verify.sh` passes, `scripts/gamecube-controller-compliance.py`
+  passes.
 
 ## G60 [ ] Add user-visible loading and long-operation feedback
 
