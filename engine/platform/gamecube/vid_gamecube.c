@@ -620,7 +620,10 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	if( !rmode || !xfb[0] )
 		return;
 
-	gc.initialized = false;
+	/* Do not clear gc.initialized - this function draws to XFB and
+	 * leaves hardware in a presentable state. Clearing initialization
+	 * can break subsequent rendering attempts or cause hardware state
+	 * mismatches during error recovery paths. */
 
 	/* Present to front buffer immediately for visibility */
 	dst = (unsigned short *)xfb[0];
