@@ -2090,32 +2090,33 @@ asset tree. It recorded the largest tested samples, including
 
 **Status (2026-06-28):** BLOCKED / MANUAL.
 
-Automated passes cannot complete G68 because the full legal Half-Life 1 asset tree
-(`Half-Life/valve/maps/*.bsp`) is not staged in the automation environment.
-Repeated `asset_lookup` failures (exit 18) and `model_budget` (exit 10) errors in
-recent attempts confirm the environment cannot locate or stage the ~70+ campaign
-BSPs required for a `--full` audit. Source code is not missing; the blocker is
-environmental asset availability.
+G68 is a manual goal that requires running `scripts/gamecube-campaign-audit.sh`
+against a legal local copy of Half-Life 1 assets. The automation environment
+cannot stage these assets, so automated passes consistently fail with
+`asset_lookup` (exit 18) or `model_budget` (exit 10) errors. The blocker is
+environmental asset availability, not missing source code.
 
-Recent automated attempts (G68 attempt 2 and 3) exited with `asset_lookup` (exit
-18) confirming the staging path is invalid or empty for the full campaign scope
-in this automation context. Auto-rescue attempts recorded `gc_fatal_breadcrumb_active`
-evidence from partial probes but could not proceed to a full campaign audit.
+**Blocker:** Legal asset availability / Environmental staging.
 
-**Blocker:** Asset staging / Legal asset availability.
-**Evidence of Blocker:** 
-- G68 Attempt 2: `aider-pass` exit 18 (asset_lookup); `auto-rescue` exit 10 (model_budget).
-- G68 Attempt 3: `aider-pass` exit 18 (asset_lookup); `auto-rescue` exit 0 (accepted, partial evidence).
-- Logs: `.ai/logs/aider-pass-2026-06-28-020830.log`, `.ai/logs/aider-pass-2026-06-28-021213.log`.
-- Automation cannot proceed without the physical/legal asset tree in `Half-Life/valve`.
+**Evidence of Blocker:**
+- Multiple automated attempts (aider-pass exit 18, auto-rescue exit 0/10) confirm
+  that `Half-Life/valve/maps/*.bsp` are not available for the `--full` audit scope.
+- Logs: `.ai/logs/aider-pass-2026-06-28-043013.log`, `.ai/logs/aider-pass-2026-06-28-043233.log`.
 
-**Next operator step:** Run the full campaign audit on the local machine with legal assets:
+**Operator instructions:**
+To complete G68, run the following on a machine with legal Half-Life 1 assets:
+
 ```sh
 scripts/gamecube-campaign-audit.sh --full
 ```
-Review `.ai/logs/campaign-audit-*/summary.md` for chapter classifications and
-transition evidence. G68 is not complete until this manual audit is run and its
-results are recorded in the port plan.
+
+Review the generated report at `.ai/logs/campaign-audit-*/summary.md` for chapter
+classifications (playable, partially_playable, blocked, not_tested) and map-level
+evidence. G68 is not complete until this audit is executed and its results are
+recorded.
+
+**Do not mark G68 complete** in automation. This is explicitly a MANUAL goal
+requiring operator validation with legal assets.
 
 ## Next wake-up commands
 
