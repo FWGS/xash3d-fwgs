@@ -233,8 +233,11 @@ static void GC_PresentBuffer( void )
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
-		if( gc.initialized )
+		if( gc.initialized && rmode )
 		{
+			/* G65: Guard GX pipeline flush to prevent guest_fatal in Dolphin
+			 * when GX hardware state is inconsistent (e.g., post-error or
+			 * incomplete initialization). Only flush when video mode is valid. */
 			GX_Flush();
 			GX_DrawDone();
 		}
