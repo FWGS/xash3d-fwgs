@@ -675,9 +675,6 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 	 * visibility (debug dumps, memory inspection). We rely on SYS_Report
 	 * and Sys_Error for runtime diagnostics, and skip hardware calls entirely
 	 * to avoid blocking or crashing in the error path. */
-	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-	DCFlushRange( xfb[0], (u32)xfb_size );
-
 	/* Do not toggle which_fb here. The fatal breadcrumb draws directly to xfb[0]
 	 * and leaves the double-buffering state unchanged. Modifying which_fb during
 	 * an error path can cause subsequent rendering (if any) to target the wrong
