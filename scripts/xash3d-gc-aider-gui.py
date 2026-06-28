@@ -1703,6 +1703,7 @@ class PortWindow(QMainWindow):
 			("Build disc ISO", ["scripts/build-gamecube-disc.py", "--output", "OUT/xash3d-gc.iso"]),
 			("Boot Probe", ["scripts/dolphin-boot-probe.sh"]),
 			("RC Check", ["scripts/gamecube-rc-check.sh"]),
+			("Rescue Blocker", ["scripts/gamecube-blocker-rescue.py", "--run-aider"]),
 		):
 			button = QPushButton(label)
 			button.setObjectName("ToolButton")
@@ -1864,6 +1865,7 @@ class PortWindow(QMainWindow):
 			("RC Check", "Ctrl+3", ["scripts/gamecube-rc-check.sh"]),
 			("Build DOL", "Ctrl+4", ["scripts/build-gamecube.sh"]),
 			("Review HEAD", "Ctrl+5", ["scripts/ai-review.sh"]),
+			("Rescue Blocker", "Ctrl+6", ["scripts/gamecube-blocker-rescue.py", "--run-aider"]),
 		):
 			action = QAction(label, self)
 			action.setShortcut(shortcut)
