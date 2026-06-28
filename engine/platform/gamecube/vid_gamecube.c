@@ -669,10 +669,6 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 		VIDEO_SetNextFramebuffer( xfb[0] );
 		VIDEO_Flush();
 		VIDEO_WaitVSync();
-
-		/* G68: Single VSync wait is sufficient for visibility and avoids guest_fatal
-		 * hangs in Dolphin that can occur with multiple VSync calls from error paths.
-		 * Remove the previous loop of 3 VIDEO_WaitVSync() calls. */
 	}
 	else
 	{
