@@ -1097,3 +1097,106 @@ scripts/gamecube-map-compat-probe.sh
   frame pacing, and shutdown/restart behavior against the release manifest.
 - Do not call the port final until hardware evidence confirms the same commit
   and artifact hash produced by the automated release-candidate suite.
+
+## G67 [ ] Prove native GoldSrc content-format compatibility
+
+- Build a compatibility matrix for Half-Life 1 BSP, WAD, PAK, MDL, SPR, WAV,
+  TGA/BMP, sky, decal, sentence, soundscape/ambient, and config/script files as
+  they are loaded on GameCube from disc and writable media.
+- For each format, record pass/fail, largest tested asset, endian/alignment
+  assumptions, memory ownership, streaming/caching behavior, and the exact
+  loader source file responsible for failures.
+- Add a verifier or report command that fails release-candidate status when a
+  required GoldSrc format silently falls back, loads from a host-only path, or
+  needs an undocumented conversion step.
+
+## G68 [ ] Complete full Half-Life campaign map and transition audit
+
+- Run the campaign audit over every retail Half-Life campaign BSP available in
+  the operator's legal local assets, not just smoke or early-route maps.
+- Classify each map as playable, boots-with-limitations, blocked-by-content,
+  blocked-by-memory, blocked-by-renderer, blocked-by-gameplay, or hardware-only
+  evidence missing, with the first failing asset or subsystem recorded.
+- Verify at least one representative changelevel transition per chapter group,
+  preserving player state, inventory, globals, save eligibility, and memory
+  headroom across transitions.
+
+## G69 [ ] Add sustained gameplay soak and leak regression gate
+
+- Provide a repeatable Dolphin or hardware-assisted route that runs for at least
+  30 minutes of gameplay or scripted idle/action loops without unbounded MEM1,
+  ARAM, handle, file, audio-buffer, entity, or renderer-resource growth.
+- Record periodic FPS/frame-time, MEM1 high-water, ARAM/audio telemetry, map,
+  entity count, active quality profile, and storage route into a timestamped log.
+- Fail the release gate when memory grows monotonically across map reloads,
+  changelevels, saves/loads, audio playback, or repeated combat interactions.
+
+## G70 [MANUAL] Capture release audio/video evidence on target displays
+
+- Capture dated evidence from real GameCube-compatible output or Wii GameCube
+  mode showing title/menu, loading feedback, gameplay HUD, fatal error text,
+  dark scenes, bright scenes, alpha/sprite effects, and readable text inside the
+  4:3 safe area.
+- Record video cable/display route, region/video mode, loader, artifact hash,
+  quality profile, audio backend, and whether weapon, ambient, UI/error, and
+  shutdown sounds are audible without severe clipping.
+- Do not call video/audio release-complete until analog or target-display
+  evidence matches the same artifact hash produced by the RC suite.
+
+## G71 [MANUAL] Prove persistent save/config storage on real media
+
+- On the selected release storage route, prove first boot config write, manual
+  save, quit, relaunch, config read, save restore, save delete, and recovery
+  from corrupt or incompatible metadata using the same artifact hash.
+- Test removed media, full media, wrong slot/path, read-only media, and
+  interrupted write cases with readable user-facing errors and no silent data
+  corruption.
+- Record media type, filesystem, loader route, free-space state, slot/path,
+  artifact hash, map, save name, and before/after file listing evidence.
+
+## G72 [ ] Close worst-case performance and memory optimization
+
+- Identify the worst currently supported scenes from the campaign audit and
+  soak logs, then either optimize them or explicitly lower/default the quality
+  profile until they meet the release frame and memory thresholds.
+- Verify representative combat, scripted, loading, menu, save/load, and map
+  transition scenes under the selected default profile with no emergency smoke
+  flags hidden in the launch arguments.
+- Record final MEM1/ARAM ceilings, FPS/frame-time range, active fallbacks, and
+  any intentional content or visual limitations in release evidence.
+
+## G73 [ ] Prove clean checkout release rebuild and archive reproducibility
+
+- Rebuild the release candidate from a clean checkout using only documented
+  devkitPPC/libogc tooling, external HLSDK source, and user-owned Half-Life
+  assets staged outside Git.
+- Produce source and binary archive manifests with hashes, toolchain versions,
+  submodule commits, build commands, generated ISO/GCM/DOL hashes, and a legal
+  exclusion audit showing no proprietary Nintendo SDK material or Valve assets
+  are bundled.
+- Compare the clean-checkout output against the main workspace release evidence
+  and document any expected nondeterminism before public release.
+
+## G74 [ ] Burn down final blockers and freeze known limitations
+
+- Convert every remaining failed RC gate, campaign-audit blocker, hardware
+  matrix gap, crash breadcrumb, missing asset, performance miss, save issue, and
+  audio/video limitation into either a fixed source change or a documented known
+  limitation with release impact.
+- Require the final release notes to state exactly which chapters, maps,
+  loaders, storage routes, controllers, video modes, audio modes, save features,
+  and quality profiles are supported.
+- Do not leave any open automatic goal, ambiguous "maybe fixed" note, or
+  undocumented operator workaround before final sign-off.
+
+## G75 [MANUAL] Sign off native Half-Life 1 GameCube completion
+
+- Confirm all automatic goals are complete, all manual hardware evidence has
+  dated artifact-hash-matched proof, and the RC suite passes on the final
+  release candidate.
+- Play or audit the supported Half-Life route declared in the release notes on
+  real hardware or Wii GameCube mode, including gameplay, transitions, save/load,
+  audio, controls, fatal-error recovery, and shutdown/restart behavior.
+- Mark the port complete only if the release notes, known limitations, legal
+  asset boundary, source archive, binary artifacts, and hardware evidence all
+  describe the same final commit and artifact hashes.
