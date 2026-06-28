@@ -2092,10 +2092,18 @@ asset tree. It recorded the largest tested samples, including
 
 Automated passes cannot complete G68 because the full legal Half-Life 1 asset tree
 (`Half-Life/valve/maps/*.bsp`) is not staged in the automation environment.
-`asset_lookup` failures (exit 18) in previous attempts confirm the environment
-cannot locate or stage the ~70+ campaign BSPs required for a `--full` audit.
+Repeated `asset_lookup` failures (exit 18) and `model_budget` (exit 10) errors in
+recent attempts (see `.ai/logs/aider-pass-2026-06-28-015406.log`,
+`.ai/logs/aider-pass-2026-06-28-015730.log`) confirm the environment cannot locate
+or stage the ~70+ campaign BSPs required for a `--full` audit. Source code is not
+missing; the blocker is environmental asset availability.
 
 **Blocker:** Asset staging / Legal asset availability.
+**Evidence of Blocker:** 
+- Attempt 2: exit 18 (asset_lookup), exit 10 (model_budget)
+- Attempt 3: exit 18 (asset_lookup), exit 10 (model_budget)
+- Automation cannot proceed without physical/legal asset tree in `Half-Life/valve`.
+
 **Next operator step:** Run the full campaign audit on the local machine with legal assets:
 ```sh
 scripts/gamecube-campaign-audit.sh --full
