@@ -1818,7 +1818,9 @@ evidence (`.ai/logs/dolphin-probe-20260623-010238/stderr.log`) and enforce a
 
 Attempt 3 exited 18 (asset_lookup environment issue), not a source gap. Goal
 was completed in attempts 1-2 with accepted patches (exit 0). All acceptance
-criteria are documented and verified.
+criteria are documented and verified. Source changes were policy/threshold
+documentation in `.ai/prompts/GAMECUBE_MEMORY_BUDGET.md` and verification of
+existing `GC_MemSample`/`GC_MemFail` telemetry in `vid_gamecube.c`.
 
 **Verification evidence:**
 ```sh
@@ -1831,6 +1833,8 @@ its limit is classified as a failure requiring cache reduction or quality-tier
 adjustment before declaring the route playable.
 
 Evidence: `.ai/logs/aider-pass-2026-06-27-205611.log` (exit 0, accepted).
+Evidence: `.ai/logs/aider-pass-2026-06-27-205726.log` (exit 0, accepted).
+Evidence: `.ai/logs/aider-pass-2026-06-27-210057.log` (exit 0, accepted).
 
 **MEM1 Thresholds (Pass = under limit, Fail = at/over limit):**
 
