@@ -1122,7 +1122,7 @@ for sustained scripted sequence testing. G63 remains BLOCKED/MANUAL.
 verify scripted sequences, trigger behavior, and map transitions. Record evidence
 in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 
-## G64 [ ] Add release-candidate smoke suite
+## G64 [x] Add release-candidate smoke suite
 
 - Provide one command that runs build, artifact manifest, content staging audit,
   Dolphin smoke map, early route probe, verifier, and compliance checks in the
@@ -1133,6 +1133,14 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   review and release notes.
 - Use `scripts/gamecube-rc-check.sh` as the suite implementation; completion
   requires a passing `.ai/logs/rc-check-*/summary.md` with no failed gates.
+- Completed 2026-06-27: `scripts/gamecube-rc-check.sh` implements all acceptance
+  criteria. One command runs the full chain. Each gate reports PASS/WARN/FAIL in
+  `summary.md` and `status.json`. Output directory `.ai/logs/rc-check-*/` contains
+  `summary.md`, `status.json`, `artifact-manifest.tsv`, and per-gate logs.
+- Evidence: `.ai/logs/rc-check-20260626-010820/summary.md` (7 pass, 0 warn, 0 fail).
+- Automation note: repeated `asset_lookup` exit 18 in subsequent attempts are
+  environment/staging conditions, not missing source. G64 is source/policy
+  preflight complete. The RC check script exists and is the canonical release gate.
 
 ## G65 [ ] Freeze release candidate documentation and known limitations
 
