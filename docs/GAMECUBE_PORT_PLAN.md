@@ -1925,6 +1925,16 @@ no-controller behavior clears inputs to prevent stuck states.
 scripts/gamecube-controller-compliance.py
 ```
 
+## G63 — Validate scripted sequence and trigger route (BLOCKED: asset staging / MANUAL validation required)
+
+**Status (2026-06-27):** BLOCKED / MANUAL.
+
+Automated Aider passes fail with `asset_lookup` (exit 18 or 1), confirming the blocker is asset staging, environment conditions, or path handling, not a missing source gap. Scripted sequence validation with triggers, `multi_manager`, `scripted_sequence` entities, and `changelevel` transitions requires a legal local Half-Life asset tree and persistent runtime sessions that bounded smoke probes cannot simulate.
+
+This is an operator validation task covered by G38/G40/G66. Automation should not retry G63 until an operator validates a scripted sequence route on this machine or physical hardware.
+
+**Next operator step:** Run a sustained gameplay probe with legal assets to verify scripted sequences, trigger behavior, and map transitions. Record evidence in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
+
 ## G60 — User-visible loading and long-operation feedback (SOURCE COMPLETE 2026-06-27)
 
 Long GameCube map loads now have asset-free visible feedback before regular
