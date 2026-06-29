@@ -78,7 +78,7 @@ DEFAULT_DOCK_AREAS: dict[str, Qt.DockWidgetArea] = {
 TOP_DOCK_TITLES = ("Progress", "Model Server", "Automation", "Pipeline", "Tools")
 SETTINGS_PATH = DEFAULT_REPO / ".ai/state/xash3d-gc-aider-gui-settings.json"
 OVERNIGHT_SESSION_PATH = DEFAULT_REPO / ".ai/state/overnight-session-latest.md"
-GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
+GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL|SKIP)\]\s+(.+)$")
 QWABLE_5_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
 QWABLE_5_SERVED_NAME = "qwen-local"
 HEADER_LOGO = DEFAULT_REPO / "assets/ui/nintendo-gamecube-logo.svg"
@@ -580,6 +580,7 @@ class DashboardSnapshot:
 	model_ready: bool = False
 	goals: list[tuple[str, str, str, str]] | None = None
 	complete_goals: int = 0
+	skipped_goals: int = 0
 	automatic_goals: int = 0
 	blocked_goals: int = 0
 	active_goal: tuple[str, str, str, str] | None = None
@@ -644,6 +645,10 @@ def read_goals_for_repo(repo: Path) -> list[tuple[str, str, str, str]]:
 
 def goal_is_blocked(body: str) -> bool:
 	return bool(re.search(r"(?im)^\s*-\s*Status:\s*BLOCKED\b", body))
+
+
+def goal_is_skipped(state: str) -> bool:
+	return state == "SKIP"
 
 
 def parse_harness_latest(repo: Path) -> tuple[str, str, str]:
@@ -730,6 +735,26 @@ def latest_dolphin_markers_for_repo(repo: Path) -> dict[str, bool]:
 		return {str(key): bool(value) for key, value in markers.items()}
 	except (OSError, json.JSONDecodeError, TypeError):
 		return {}
+
+
+def latest_dolphin_log_files_for_repo(repo: Path, *, limit: int = 8) -> list[Path]:
+	patterns = (
+		".ai/logs/dolphin-probe-*/stdout.log",
+		".ai/logs/dolphin-probe-*/stderr.log",
+		".ai/logs/dolphin-vision-*/dolphin.stdout.log",
+		".ai/logs/dolphin-vision-*/dolphin.stderr.log",
+		".ai/logs/map-compat-*/**/stdout.log",
+		".ai/logs/map-compat-*/**/stderr.log",
+	)
+	seen: set[Path] = set()
+	files: list[Path] = []
+	for pattern in patterns:
+		for path in repo.glob(pattern):
+			if path.is_file() and path not in seen:
+				seen.add(path)
+				files.append(path)
+	files.sort(key=lambda path: path.stat().st_mtime if path.exists() else 0)
+	return files[-limit:]
 
 
 def agent_memory_for_repo(repo: Path) -> str:
@@ -847,7 +872,7 @@ def supervisor_lock_status(repo: Path) -> tuple[bool, str]:
 def automatic_goals_remaining(repo: Path) -> int:
 	remaining = 0
 	for _goal_id, state, _title, body in read_goals_for_repo(repo):
-		if state == "MANUAL" or state.lower() == "x" or goal_is_blocked(body):
+		if state in {"MANUAL", "SKIP"} or state.lower() == "x" or goal_is_blocked(body):
 			continue
 		remaining += 1
 	return remaining
@@ -1144,6 +1169,7 @@ def build_dashboard_snapshot(repo: Path, model_host: str, model_port: int) -> Da
 		goals = read_goals_for_repo(repo)
 		snapshot.goals = goals
 		snapshot.complete_goals = sum(state.lower() == "x" for _, state, _, _ in goals)
+		snapshot.skipped_goals = sum(goal_is_skipped(state) for _, state, _, _ in goals)
 		snapshot.blocked_goals = sum(goal_is_blocked(body) for _, state, _, body in goals if state != "MANUAL")
 		snapshot.automatic_goals = sum(state != "MANUAL" for _, state, _, _ in goals)
 		snapshot.active_goal = next((goal for goal in goals
@@ -1257,6 +1283,9 @@ class PortWindow(QMainWindow):
 		self._last_goals_signature = ""
 		self._pipeline_states: dict[str, str] = {}
 		self._last_model_api_summary = ""
+		self._gui_started_at = datetime.now()
+		self._dolphin_log_offsets: dict[str, int] = {}
+		self._dolphin_log_headers_printed: set[str] = set()
 		self.overnight_mode = False
 		self.pending_overnight_automation = False
 		self.overnight_started_at: datetime | None = None
@@ -1506,6 +1535,15 @@ class PortWindow(QMainWindow):
 		self.goal_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
 		self.goal_table.cellDoubleClicked.connect(self.show_goal_detail)
 		goals_layout.addWidget(self.goal_table)
+		goal_actions = QHBoxLayout()
+		self.goal_skip_btn = QPushButton("Skip Selected Goal")
+		self.goal_skip_btn.setObjectName("ToolButton")
+		self.goal_skip_btn.setToolTip(
+			"Mark the selected goal as SKIP in the ledger so automation moves to the next goal.")
+		self.goal_skip_btn.clicked.connect(self.skip_selected_goal)
+		goal_actions.addWidget(self.goal_skip_btn)
+		goal_actions.addStretch()
+		goals_layout.addLayout(goal_actions)
 		harness_label = QLabel("Dolphin Harness")
 		harness_label.setObjectName("SectionLabel")
 		goals_layout.addWidget(harness_label)
@@ -1778,15 +1816,94 @@ class PortWindow(QMainWindow):
 		self.timer = QTimer(self)
 		self.timer.setInterval(5000)
 		self.timer.timeout.connect(self.refresh_dashboard)
+		self.timer.timeout.connect(self.poll_external_dolphin_logs)
 		self.timer.start()
 		self.goal_refresh_timer = QTimer(self)
 		self.goal_refresh_timer.setInterval(2000)
 		self.goal_refresh_timer.timeout.connect(self.prime_goal_ledger)
 		self.goal_refresh_timer.start()
 		self.refresh_dashboard()
+		self.poll_external_dolphin_logs()
 
 	def configure_menus(self) -> None:
 		self.file_menu = self.menuBar().addMenu("&File")
+		goal_action = QAction("Accomplish All Goals", self)
+		goal_action.setShortcut("Ctrl+Return")
+		goal_action.setToolTip("Run automation through every pending automatic goal in order")
+		goal_action.triggered.connect(self.run_goal_loop)
+		self.file_menu.addAction(goal_action)
+		overnight_action = QAction("Start Overnight Run", self)
+		overnight_action.setShortcut("Ctrl+Shift+Return")
+		overnight_action.triggered.connect(self.start_overnight_run)
+		self.file_menu.addAction(overnight_action)
+		stop_action = QAction("Stop Automation", self)
+		stop_action.setShortcut("Escape")
+		stop_action.triggered.connect(self.stop_process)
+		self.file_menu.addAction(stop_action)
+		self.file_menu.addSeparator()
+		goal_ops_menu = self.file_menu.addMenu("Goal Actions")
+		skip_goal_action = QAction("Skip Selected Goal", self)
+		skip_goal_action.triggered.connect(self.skip_selected_goal)
+		goal_ops_menu.addAction(skip_goal_action)
+		harness_action = QAction("Open Harness Report", self)
+		harness_action.setShortcut("Ctrl+H")
+		harness_action.triggered.connect(self.open_harness_report)
+		goal_ops_menu.addAction(harness_action)
+		session_action = QAction("Open Overnight Session Report", self)
+		session_action.setShortcut("Ctrl+Shift+H")
+		session_action.triggered.connect(self.open_overnight_report)
+		goal_ops_menu.addAction(session_action)
+		preflight_report_action = QAction("Open Overnight Preflight Report", self)
+		preflight_report_action.triggered.connect(self.open_overnight_preflight_report)
+		goal_ops_menu.addAction(preflight_report_action)
+		self.file_menu.addSeparator()
+		build_menu = self.file_menu.addMenu("Build And Verify")
+		for label, shortcut, command in (
+			("Verify", "Ctrl+1", ["scripts/ai-verify.sh"]),
+			("Boot Probe", "Ctrl+2", ["scripts/dolphin-boot-probe.sh"]),
+			("RC Check", "Ctrl+3", ["scripts/gamecube-rc-check.sh"]),
+			("Build DOL", "Ctrl+4", ["scripts/build-gamecube.sh"]),
+			("Review HEAD", "Ctrl+5", ["scripts/ai-review.sh"]),
+			("Rescue Blocker", "Ctrl+6", ["scripts/gamecube-blocker-rescue.py", "--run-aider"]),
+		):
+			action = QAction(label, self)
+			action.setShortcut(shortcut)
+			action.triggered.connect(lambda _checked=False, c=command, n=label: self.start(c, n))
+			build_menu.addAction(action)
+		context_action = QAction("Context Preflight", self)
+		context_action.setShortcut("Ctrl+P")
+		context_action.triggered.connect(self.run_context_preflight)
+		build_menu.addSeparator()
+		build_menu.addAction(context_action)
+		overnight_preflight_action = QAction("Overnight Preflight Checklist", self)
+		overnight_preflight_action.setShortcut("Ctrl+Shift+P")
+		overnight_preflight_action.triggered.connect(self.show_overnight_preflight)
+		build_menu.addAction(overnight_preflight_action)
+		self.file_menu.addSeparator()
+		dolphin_menu = self.file_menu.addMenu("Dolphin")
+		boot_dolphin_action = QAction("Build And Boot In Dolphin", self)
+		boot_dolphin_action.triggered.connect(self.boot_dolphin)
+		dolphin_menu.addAction(boot_dolphin_action)
+		validate_dolphin_action = QAction("Validate Intro/Menu/Gameplay", self)
+		validate_dolphin_action.triggered.connect(self.validate_dolphin_states)
+		dolphin_menu.addAction(validate_dolphin_action)
+		vision_action = QAction("Dolphin Screenshot Vision Test", self)
+		vision_action.triggered.connect(self.run_dolphin_vision_test)
+		dolphin_menu.addAction(vision_action)
+		stop_dolphin_action = QAction("Stop Dolphin", self)
+		stop_dolphin_action.triggered.connect(self.stop_dolphin)
+		dolphin_menu.addAction(stop_dolphin_action)
+		self.file_menu.addSeparator()
+		model_menu = self.file_menu.addMenu("Model Server")
+		start_model_action = QAction("Start Model Server", self)
+		start_model_action.setShortcut("Ctrl+M")
+		start_model_action.triggered.connect(self.start_model)
+		model_menu.addAction(start_model_action)
+		kill_model_action = QAction("Kill Model Server", self)
+		kill_model_action.setShortcut("Ctrl+Shift+M")
+		kill_model_action.triggered.connect(self.kill_model)
+		model_menu.addAction(kill_model_action)
+		self.file_menu.addSeparator()
 		save_settings_action = QAction("Save Settings", self)
 		save_settings_action.setShortcut("Ctrl+S")
 		save_settings_action.triggered.connect(self.save_settings)
@@ -2365,6 +2482,50 @@ class PortWindow(QMainWindow):
 		layout.addWidget(buttons)
 		dialog.exec()
 
+	def poll_external_dolphin_logs(self) -> None:
+		if self.closing:
+			return
+		for path in latest_dolphin_log_files_for_repo(self.repo()):
+			self.append_new_dolphin_log_content(path)
+
+	def append_new_dolphin_log_content(self, path: Path) -> None:
+		try:
+			stat = path.stat()
+		except OSError:
+			return
+		key = str(path)
+		size = stat.st_size
+		offset = self._dolphin_log_offsets.get(key)
+		if offset is None:
+			if datetime.fromtimestamp(stat.st_mtime) < self._gui_started_at:
+				self._dolphin_log_offsets[key] = size
+				return
+			offset = 0
+		elif size < offset:
+			offset = 0
+		if size <= offset:
+			self._dolphin_log_offsets[key] = size
+			return
+		try:
+			with path.open("r", encoding="utf-8", errors="replace") as handle:
+				handle.seek(offset)
+				chunk = handle.read()
+		except OSError:
+			return
+		self._dolphin_log_offsets[key] = size
+		if not chunk:
+			return
+		try:
+			rel = path.relative_to(self.repo())
+		except ValueError:
+			rel = path
+		label = str(rel)
+		if label not in self._dolphin_log_headers_printed:
+			self._dolphin_log_headers_printed.add(label)
+			self.append(f"\n[Dolphin log stream: {label}]\n")
+		for line in chunk.splitlines(keepends=True):
+			self.append(f"[{label}] {line}")
+
 	def log_line_matches_filter(self, line: str) -> bool:
 		mode = self.log_filter.currentText()
 		if mode == "All output":
@@ -2789,6 +2950,123 @@ class PortWindow(QMainWindow):
 	def read_goals(self) -> list[tuple[str, str, str, str]]:
 		return read_goals_for_repo(self.repo())
 
+	def selected_goal_id(self) -> str | None:
+		row = self.goal_table.currentRow()
+		if row < 0:
+			return None
+		item = self.goal_table.item(row, 0)
+		return item.text() if item is not None else None
+
+	def rewrite_goal_state(self, goal_id: str, new_state: str, note: str) -> bool:
+		path = self.repo() / ".ai/goals/GAMECUBE_PORT_GOALS.md"
+		if not path.is_file():
+			raise OSError(f"Goal ledger not found: {path}")
+		lines = path.read_text(encoding="utf-8").splitlines()
+		updated = False
+		in_target = False
+		note_present = False
+		output: list[str] = []
+		for line in lines:
+			match = GOAL_RE.match(line)
+			if match:
+				if in_target and note and not note_present:
+					output.append("")
+					output.append(note)
+				current_goal_id, _state, title = match.groups()
+				in_target = current_goal_id == goal_id
+				note_present = False
+				if in_target:
+					line = f"## {current_goal_id} [{new_state}] {title}"
+					updated = True
+			elif in_target and note and line.strip() == note.strip():
+				note_present = True
+			output.append(line)
+		if in_target and note and not note_present:
+			output.append("")
+			output.append(note)
+		if not updated:
+			return False
+		path.write_text("\n".join(output) + "\n", encoding="utf-8")
+		return True
+
+	def write_goal_loop_override_state(self, goal_id: str, message: str) -> None:
+		path = self.repo() / ".ai/logs/goal-loop-state.json"
+		payload: dict[str, object] = {
+			"state": "skipped",
+			"message": message,
+			"goal": {"goal_id": goal_id},
+			"updated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+		}
+		if path.is_file():
+			try:
+				existing = json.loads(path.read_text(encoding="utf-8"))
+				if isinstance(existing, Mapping):
+					payload.update(existing)
+					payload["state"] = "skipped"
+					payload["message"] = message
+					payload["goal"] = {"goal_id": goal_id}
+					payload["updated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+			except (OSError, json.JSONDecodeError):
+				pass
+		path.parent.mkdir(parents=True, exist_ok=True)
+		path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+	def skip_selected_goal(self) -> None:
+		goal_id = self.selected_goal_id()
+		if not goal_id:
+			QMessageBox.information(self, "No goal selected",
+				"Select a goal row first, then retry Skip Selected Goal.")
+			return
+		goals = self.read_goals()
+		match = next((goal for goal in goals if goal[0] == goal_id), None)
+		if match is None:
+			QMessageBox.warning(self, "Goal missing",
+				f"Could not find {goal_id} in the goal ledger.")
+			return
+		_, state, title, _body = match
+		if state == "SKIP":
+			QMessageBox.information(self, "Already skipped",
+				f"{goal_id} is already marked SKIP.")
+			return
+		if state == "MANUAL":
+			QMessageBox.information(self, "Manual goal",
+				f"{goal_id} is already a manual goal and does not need SKIP.")
+			return
+		if state.lower() == "x":
+			QMessageBox.information(self, "Already complete",
+				f"{goal_id} is already complete.")
+			return
+		answer = QMessageBox.question(
+			self,
+			"Skip goal?",
+			f"Mark {goal_id} as SKIP and move automation on to the next goal?\n\n{title}",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No,
+		)
+		if answer != QMessageBox.StandardButton.Yes:
+			return
+		note = (
+			f"- Status: SKIPPED\n"
+			f"- Operator override: skipped from the GUI on "
+			f"{datetime.now().astimezone().isoformat(timespec='seconds')}."
+		)
+		try:
+			updated = self.rewrite_goal_state(goal_id, "SKIP", note)
+			if not updated:
+				QMessageBox.warning(self, "Skip failed",
+					f"Could not rewrite the ledger entry for {goal_id}.")
+				return
+			self.write_goal_loop_override_state(goal_id,
+				f"Operator skipped {goal_id} from the GUI")
+		except OSError as exc:
+			QMessageBox.warning(self, "Skip failed", str(exc))
+			return
+		self.append(f"\n[Goal skipped from GUI: {goal_id} {title}]\n")
+		if self.process is not None and self.operation == "Goal automation":
+			self.append("[Goal automation is still running the current pass; stop/restart it to move immediately.]\n")
+		self.prime_goal_ledger()
+		self.refresh_dashboard()
+
 	def active_goal_from_runner_state(
 		self,
 		goals: list[tuple[str, str, str, str]],
@@ -2815,7 +3093,7 @@ class PortWindow(QMainWindow):
 		if match is None:
 			return None
 		_state = match[1]
-		if _state == "MANUAL" or _state.lower() == "x" or goal_is_blocked(match[3]):
+		if _state in {"MANUAL", "SKIP"} or _state.lower() == "x" or goal_is_blocked(match[3]):
 			return None
 		return match
 
@@ -2828,6 +3106,7 @@ class PortWindow(QMainWindow):
 			return
 		snapshot = DashboardSnapshot(goals=goals)
 		snapshot.complete_goals = sum(state.lower() == "x" for _, state, _, _ in goals)
+		snapshot.skipped_goals = sum(goal_is_skipped(state) for _, state, _, _ in goals)
 		snapshot.blocked_goals = sum(goal_is_blocked(body) for _, state, _, body in goals if state != "MANUAL")
 		snapshot.automatic_goals = sum(state != "MANUAL" for _, state, _, _ in goals)
 		snapshot.active_goal = self.active_goal_from_runner_state(goals)
@@ -2872,12 +3151,15 @@ class PortWindow(QMainWindow):
 			return
 		for row, (goal_id, state, title, body) in enumerate(goals):
 			is_blocked = goal_is_blocked(body)
-			label = "MANUAL" if state == "MANUAL" else "DONE" if state.lower() == "x" \
+			label = "MANUAL" if state == "MANUAL" else "SKIPPED" if state == "SKIP" \
+				else "DONE" if state.lower() == "x" \
 				else "BLOCKED" if is_blocked else "ACTIVE" if active and goal_id == active[0] else "QUEUED"
 			for column, value in enumerate((goal_id, label, title)):
 				item = QTableWidgetItem(value)
 				if label == "DONE":
 					item.setForeground(Qt.GlobalColor.cyan)
+				elif label == "SKIPPED":
+					item.setForeground(QColor(GC_SILVER))
 				elif label == "ACTIVE":
 					item.setForeground(Qt.GlobalColor.yellow)
 				elif label == "BLOCKED":
@@ -2887,15 +3169,17 @@ class PortWindow(QMainWindow):
 			criteria = " ".join(line.lstrip("- ") for line in active[3].splitlines() if line.startswith("- "))
 			self.goal_summary.setText(f"ACTIVE {active[0]}  /  {active[2]}\n{criteria}")
 		else:
-			self.goal_summary.setText("All automatic goals complete or blocked; manual hardware validation remains.")
+			self.goal_summary.setText("All automatic goals complete, skipped, or blocked; manual hardware validation remains.")
+		done_goals = snapshot.complete_goals + snapshot.skipped_goals
 		self.progress.setToolTip(
-			f"{snapshot.complete_goals}/{snapshot.automatic_goals} automatic goals complete, "
+			f"{done_goals}/{snapshot.automatic_goals} automatic goals done "
+			f"({snapshot.complete_goals} complete, {snapshot.skipped_goals} skipped), "
 			f"{snapshot.blocked_goals} blocked"
 		)
 		if snapshot.automatic_goals:
-			percent = int((snapshot.complete_goals / snapshot.automatic_goals) * 100)
+			percent = int((done_goals / snapshot.automatic_goals) * 100)
 			self.goal_progress.setValue(percent)
-			self.goal_progress.setFormat(f"{snapshot.complete_goals} / {snapshot.automatic_goals} goals")
+			self.goal_progress.setFormat(f"{done_goals} / {snapshot.automatic_goals} goals")
 		else:
 			self.goal_progress.setValue(0)
 			self.goal_progress.setFormat("0 / 0 goals")
