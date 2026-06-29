@@ -580,6 +580,27 @@ void AVI_CloseVideo( movie_state_t *Avi )
 	if( !Avi )
 		return;
 
+#if XASH_GAMECUBE
+	/*
+	 * The GameCube intro path only opens a handful of AVI states during boot.
+	 * We currently prefer preserving those decode buffers over returning them to
+	 * the CRT heap, because Dolphin is reporting an invalid write inside _free_r
+	 * during the intro-to-menu transition. Keeping the buffers alive avoids that
+	 * fragile cleanup edge while we stabilize the boot flow.
+	 */
+	if( Avi->file )
+		FS_Close( Avi->file );
+	Avi->file = NULL;
+	Avi->active = false;
+	Avi->paused = false;
+	Avi->current_frame = (uint)-1;
+	Avi->audio_current_chunk = 0;
+	Avi->audio_chunk_size = 0;
+	Avi->audio_chunk_offset = 0;
+	Avi->audio_bytes_submitted = 0;
+	Avi->audio_reported = false;
+	return;
+#else
 	if( Avi->file )
 		FS_Close( Avi->file );
 	if( Avi->frame )
@@ -597,6 +618,7 @@ void AVI_CloseVideo( movie_state_t *Avi )
 	Cinepak_Free( &Avi->decoder );
 
 	memset( Avi, 0, sizeof( *Avi ));
+#endif
 }
 
 qboolean AVI_Think( movie_state_t *Avi )

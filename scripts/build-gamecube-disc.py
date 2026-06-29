@@ -308,6 +308,8 @@ SMOKE_INTRO_MEDIA = (
 
 MENU_RESOURCE_ASSETS = (
 	"resource/logo_game.tga",
+	"resource/BackgroundLayout.txt",
+	"resource/HD_BackgroundLayout.txt",
 	"resource/menu_hl_no_icon.tga",
 	"resource/game_menu.tga",
 	"resource/game_menu_mouseover.tga",

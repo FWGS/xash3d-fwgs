@@ -37,7 +37,19 @@ static qboolean gc_menu_visible;
 static qboolean gc_menu_builtin_fallback;
 static int gc_menu_selection;
 static int gc_menu_logo;
-static int gc_menu_background[3][4];
+#define GC_MENU_MAX_BG_PIECES 64
+typedef struct gc_menu_bg_piece_s
+{
+	int texnum;
+	int x;
+	int y;
+	int w;
+	int h;
+} gc_menu_bg_piece_t;
+static gc_menu_bg_piece_t gc_menu_background[GC_MENU_MAX_BG_PIECES];
+static int gc_menu_background_count;
+static int gc_menu_background_width = 800;
+static int gc_menu_background_height = 600;
 
 static const gc_menu_item_t gc_menu_items[] =
 {
@@ -45,6 +57,81 @@ static const gc_menu_item_t gc_menu_items[] =
 	{ "Load Game", "Load a previously saved game.", "menu_loadgame" },
 	{ "Options", "Change game settings, configure controls.", "menu_options" },
 };
+
+static qboolean UI_GCFallbackMenuCommandsSafe( void )
+{
+	/*
+	 * The GameCube fallback menu currently runs on top of a menu-only bootstrap
+	 * that skips large parts of normal client initialization. Keep the menu
+	 * visual until boot flow is completed, but do not execute real menu commands
+	 * into half-initialized client/game subsystems.
+	 */
+	return false;
+}
+
+static void UI_GCLoadFallbackMenuLayout( void )
+{
+	byte *afile;
+	char *pfile;
+	char token[4096];
+	int piece_count = 0;
+
+	afile = FS_LoadFile( "resource/BackgroundLayout.txt", NULL, false );
+	if( !afile )
+		return;
+
+	pfile = (char *)afile;
+	pfile = COM_ParseFile( pfile, token, sizeof( token ));
+	if( !pfile || Q_strcmp( token, "resolution" ))
+		goto done;
+
+	pfile = COM_ParseFile( pfile, token, sizeof( token ));
+	if( !pfile )
+		goto done;
+	gc_menu_background_width = Q_atoi( token );
+
+	pfile = COM_ParseFile( pfile, token, sizeof( token ));
+	if( !pfile )
+		goto done;
+	gc_menu_background_height = Q_atoi( token );
+
+	while( piece_count < GC_MENU_MAX_BG_PIECES &&
+		( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
+	{
+		gc_menu_bg_piece_t *piece = &gc_menu_background[piece_count];
+
+		if( !FS_FileExists( token, false ))
+			break;
+
+		piece->texnum = ref.dllFuncs.GL_LoadTexture( token, NULL, 0,
+			TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+		if( piece->texnum <= 0 )
+			break;
+
+		piece->w = 256;
+		piece->h = 256;
+
+		pfile = COM_ParseFile( pfile, token, sizeof( token )); // fit/scaled attribute
+		if( !pfile )
+			break;
+
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
+		if( !pfile )
+			break;
+		piece->x = Q_atoi( token );
+
+		pfile = COM_ParseFile( pfile, token, sizeof( token ));
+		if( !pfile )
+			break;
+		piece->y = Q_atoi( token );
+
+		piece_count++;
+	}
+
+done:
+	gc_menu_background_count = piece_count;
+	Mem_Free( afile );
+}
 
 static void UI_GCLoadFallbackMenuTextures( void )
 {
@@ -55,15 +142,32 @@ static void UI_GCLoadFallbackMenuTextures( void )
 		return;
 
 	gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/logo_game.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	UI_GCLoadFallbackMenuLayout();
 
-	for( int row = 0; row < 3; row++ )
+	if( gc_menu_background_count <= 0 )
 	{
-		for( int col = 0; col < 4; col++ )
+		const int source_widths[4] = { 256, 256, 256, 32 };
+		const int source_heights[3] = { 256, 256, 88 };
+
+		gc_menu_background_width = 800;
+		gc_menu_background_height = 600;
+		gc_menu_background_count = 0;
+
+		for( int row = 0; row < 3; row++ )
 		{
-			Q_snprintf( path, sizeof( path ), "resource/background/800_%d_%c_loading.tga",
-				row + 1, 'a' + col );
-			gc_menu_background[row][col] = ref.dllFuncs.GL_LoadTexture( path, NULL, 0,
-				TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+			for( int col = 0; col < 4; col++ )
+			{
+				gc_menu_bg_piece_t *piece = &gc_menu_background[gc_menu_background_count++];
+
+				Q_snprintf( path, sizeof( path ), "resource/background/800_%d_%c_loading.tga",
+					row + 1, 'a' + col );
+				piece->texnum = ref.dllFuncs.GL_LoadTexture( path, NULL, 0,
+					TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+				piece->x = ( col == 0 ) ? 0 : ( col == 1 ) ? 256 : ( col == 2 ) ? 512 : 768;
+				piece->y = ( row == 0 ) ? 0 : ( row == 1 ) ? 256 : 512;
+				piece->w = source_widths[col];
+				piece->h = source_heights[row];
+			}
 		}
 	}
 
@@ -72,33 +176,21 @@ static void UI_GCLoadFallbackMenuTextures( void )
 
 static void UI_GCDrawFallbackMenuBackground( void )
 {
-	const int source_widths[4] = { 256, 256, 256, 32 };
-	const int source_heights[3] = { 256, 256, 88 };
-	float scale_x = refState.width / 800.0f;
-	float scale_y = refState.height / 600.0f;
-	float y = 0.0f;
+	float scale_x = refState.width / (float)gc_menu_background_width;
+	float scale_y = refState.height / (float)gc_menu_background_height;
 
 	ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, refState.width, refState.height, 0, 0, 0, 255 );
 
-	for( int row = 0; row < 3; row++ )
+	for( int i = 0; i < gc_menu_background_count; i++ )
 	{
-		float x = 0.0f;
+		const gc_menu_bg_piece_t *piece = &gc_menu_background[i];
+		if( piece->texnum <= 0 )
+			continue;
 
-		for( int col = 0; col < 4; col++ )
-		{
-			int tex = gc_menu_background[row][col];
-			float w = source_widths[col] * scale_x;
-			float h = source_heights[row] * scale_y;
-
-			if( tex > 0 )
-			{
-				ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-				ref.dllFuncs.Color4ub( 150, 150, 150, 255 );
-				ref.dllFuncs.R_DrawStretchPic( x, y, w, h, 0, 0, 1, 1, tex );
-			}
-			x += w;
-		}
-		y += source_heights[row] * scale_y;
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+		ref.dllFuncs.Color4ub( 150, 150, 150, 255 );
+		ref.dllFuncs.R_DrawStretchPic( piece->x * scale_x, piece->y * scale_y,
+			piece->w * scale_x, piece->h * scale_y, 0, 0, 1, 1, piece->texnum );
 	}
 
 	ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, refState.width, refState.height, 0, 0, 0, 88 );
@@ -125,6 +217,7 @@ static void UI_GCDrawFallbackMenu( void )
 	int base_y = refState.height * 60 / 100;
 	int desc_x = refState.width * 30 / 100;
 	int row_h = Q_max( 24, refState.height / 13 );
+	qboolean commands_safe = UI_GCFallbackMenuCommandsSafe();
 
 	UI_GCLoadFallbackMenuTextures();
 	UI_GCDrawFallbackMenuBackground();
@@ -152,13 +245,27 @@ static void UI_GCDrawFallbackMenu( void )
 		int y = base_y + i * row_h;
 
 		UI_GCDrawMenuString( base_x, y, item->label,
-			selected ? 255 : 224, selected ? 214 : 170, selected ? 48 : 16, true );
+			selected ? ( commands_safe ? 255 : 196 ) : ( commands_safe ? 224 : 168 ),
+			selected ? ( commands_safe ? 214 : 176 ) : ( commands_safe ? 170 : 140 ),
+			selected ? ( commands_safe ? 48 : 64 ) : ( commands_safe ? 16 : 40 ), true );
 		UI_GCDrawMenuString( desc_x, y, item->description, 108, 108, 108, false );
+	}
+
+	if( !commands_safe )
+	{
+		UI_GCDrawMenuString( base_x, base_y + (int)ARRAYSIZE( gc_menu_items ) * row_h + row_h / 2,
+			"Boot flow still initializing. Menu input is preview-only.", 120, 120, 120, false );
 	}
 }
 
 static void UI_GCActivateFallbackMenuItem( void )
 {
+	if( !UI_GCFallbackMenuCommandsSafe() )
+	{
+		Con_Reportf( "Xash3D GameCube: fallback menu command blocked until full client boot is available\n" );
+		return;
+	}
+
 	const gc_menu_item_t *item = &gc_menu_items[bound( 0, gc_menu_selection,
 		(int)ARRAYSIZE( gc_menu_items ) - 1 )];
 

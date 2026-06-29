@@ -650,7 +650,18 @@ COM_FreeFile
 */
 void GAME_EXPORT COM_FreeFile( void *buffer )
 {
+#if XASH_GAMECUBE
+	/*
+	 * The real HLSDK client/menu path frees a large number of small parsed file
+	 * buffers during intro/menu startup. On GameCube we are still seeing heap
+	 * list corruption reported inside _free_r, so keep these buffers alive while
+	 * bring-up is incomplete instead of returning them to the CRT heap.
+	 */
+	(void)buffer;
+	return;
+#else
 	free( buffer );
+#endif
 }
 
 /*

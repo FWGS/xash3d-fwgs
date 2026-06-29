@@ -3,7 +3,8 @@
 The goal runner works on the first unchecked automatic goal. Aider may mark a
 goal complete only when its acceptance checks are demonstrated and recorded in
 `docs/GAMECUBE_PORT_PLAN.md`. Keep patches below the review gate's 400 changed
-lines. Goals marked `MANUAL` are never selected automatically.
+lines. Real-hardware/operator-only work is tracked below as non-automation
+checkpoints, not as runnable goals.
 
 ## G01 [x] Audit `SV_InitEdict` overflow warning
 
@@ -89,7 +90,7 @@ lines. Goals marked `MANUAL` are never selected automatically.
 - G15 further loaded `c0a0e` with
   `.ai/logs/dolphin-probe-20260622-115351/stderr.log`.
 
-## G08 [MANUAL] Validate on physical GameCube hardware
+### G08 [Manual checkpoint] Validate on physical GameCube hardware
 
 - Boot through an available homebrew loading method on real hardware.
 - Record video, input, storage, audio, and stability observations.
@@ -586,7 +587,7 @@ scripts/gamecube-map-compat-probe.sh
   XFB with Magenta (0xF81F) and flushes/presents to video hardware before
   `host.Error` exits.
 
-## G38 [MANUAL] Validate on physical GameCube hardware
+### G38 [Manual checkpoint] Validate on physical GameCube hardware
 
 - Boot the generated DOL or disc image through at least one real hardware method.
 - Record video output, controller input, storage, audio, map load, frame pacing,
@@ -618,7 +619,7 @@ scripts/gamecube-map-compat-probe.sh
   results remain open under G38/G53/G66 and must not be inferred from Dolphin
   evidence.
 
-## G40 [MANUAL] Run an end-to-end Half-Life 1 completion campaign audit
+### G40 [Manual checkpoint] Run an end-to-end Half-Life 1 completion campaign audit
 
 - Status (2026-06-26): Automation skips this goal. The smoke map `c0a0e`
   reaches `MAP_READY` in Dolphin; full chapter classification requires running
@@ -1069,7 +1070,7 @@ scripts/gamecube-map-compat-probe.sh
 - Evidence: `scripts/gamecube-quality-profile-check.py` passes and
   `scripts/ai-verify.sh` passes.
 
-## G62 [MANUAL] Validate combat and entity interaction route
+### G62 [Manual checkpoint] Validate combat and entity interaction route
 
 - Demonstrate at least one route with player movement, weapon pickup, weapon
   fire, reload/ammo, enemy spawn, enemy AI think, enemy damage, player damage,
@@ -1093,7 +1094,7 @@ or physical hardware.
 verify entity interaction, damage, and restart behavior. Record evidence in
 `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 
-## G63 [MANUAL] Validate scripted sequence and trigger route
+### G63 [Manual checkpoint] Validate scripted sequence and trigger route
 
 - Demonstrate doors, buttons, trigger_once/trigger_multiple, multi_manager,
   scripted_sequence, train/platform movement, and changelevel trigger behavior.
@@ -1159,7 +1160,7 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   path lookup, `Client Edicts Zone` OOM, and `demoheader.tmp` read-only writes
   have already been addressed or instrumented.
 
-## G66 [MANUAL] Sign off a real hardware release candidate
+### G66 [Manual checkpoint] Sign off a real hardware release candidate
 
 - Boot the release-candidate artifact on a real GameCube or Wii GameCube mode
   using the documented loader route.
@@ -1259,7 +1260,7 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   release evidence remains a strict-mode run of the same gate and should be
   attached to G72/G75 final release evidence before sign-off.
 
-## G70 [MANUAL] Capture release audio/video evidence on target displays
+### G70 [Manual checkpoint] Capture release audio/video evidence on target displays
 
 - Capture dated evidence from real GameCube-compatible output or Wii GameCube
   mode showing title/menu, loading feedback, gameplay HUD, fatal error text,
@@ -1271,7 +1272,7 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not call video/audio release-complete until analog or target-display
   evidence matches the same artifact hash produced by the RC suite.
 
-## G71 [MANUAL] Prove persistent save/config storage on real media
+### G71 [Manual checkpoint] Prove persistent save/config storage on real media
 
 - On the selected release storage route, prove first boot config write, manual
   save, quit, relaunch, config read, save restore, save delete, and recovery
@@ -1360,7 +1361,7 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not allow final sign-off to combine Dolphin evidence from one build with
   hardware/manual evidence from another build.
 
-## G75 [MANUAL] Sign off native Half-Life 1 GameCube completion
+### G75 [Manual checkpoint] Sign off native Half-Life 1 GameCube completion
 
 - Confirm all automatic goals are complete, all manual hardware evidence has
   dated artifact-hash-matched proof, and the RC suite passes on the final

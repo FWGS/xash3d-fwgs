@@ -30,6 +30,7 @@ typedef struct gc_video_s
 	int stride;
 	uint bpp;
 	unsigned short *buffer;
+	size_t buffer_pixels;
 } gc_video_t;
 
 static gc_video_t gc;
@@ -334,11 +335,18 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 
 void R_Free_Video( void )
 {
+#if !XASH_GAMECUBE
 	if( gc.buffer )
 	{
 		free( gc.buffer );
 		gc.buffer = NULL;
 	}
+#else
+	gc.width = 0;
+	gc.height = 0;
+	gc.stride = 0;
+	gc.bpp = 0;
+#endif
 
 	GC_ShutdownVideoHardware();
 
@@ -353,14 +361,37 @@ void GL_SwapBuffers( void )
 
 qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *r, uint *g, uint *b )
 {
-	if( gc.buffer )
-		free( gc.buffer );
+	size_t needed_pixels;
+
+	if( width <= 0 || height <= 0 )
+		return false;
+
+	needed_pixels = (size_t)width * (size_t)height;
 
 	gc.width = width;
 	gc.height = height;
 	gc.stride = width;
 	gc.bpp = 2;
-	gc.buffer = calloc( width * height, sizeof( unsigned short ));
+
+#if XASH_GAMECUBE
+	if( !gc.buffer || gc.buffer_pixels < needed_pixels )
+	{
+		unsigned short *new_buffer = calloc( needed_pixels, sizeof( unsigned short ));
+		if( !new_buffer )
+			return false;
+
+		gc.buffer = new_buffer;
+		gc.buffer_pixels = needed_pixels;
+	}
+	else
+	{
+		memset( gc.buffer, 0, needed_pixels * sizeof( unsigned short ));
+	}
+#else
+	if( gc.buffer )
+		free( gc.buffer );
+	gc.buffer = calloc( needed_pixels, sizeof( unsigned short ));
+#endif
 
 	if( !gc.buffer )
 		return false;
@@ -456,11 +487,18 @@ void *GL_GetProcAddress( const char *name )
 
 void GC_TrimVideoMemoryForMapLoad( void )
 {
+#if !XASH_GAMECUBE
 	if( gc.buffer )
 	{
 		free( gc.buffer );
 		gc.buffer = NULL;
 	}
+#else
+	gc.width = 0;
+	gc.height = 0;
+	gc.stride = 0;
+	gc.bpp = 0;
+#endif
 }
 
 static unsigned char GC_FatalGlyphRow( char ch, int row )
