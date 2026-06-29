@@ -505,6 +505,57 @@ def copy_alias_if_present(output_root: Path, source_relative: str, alias_relativ
 		shutil.copy2(source, destination)
 
 
+def in_strict_case_dir(rel_root: str) -> bool:
+	if not rel_root or rel_root == ".":
+		return False
+	return any(rel_root == strict or rel_root.startswith(f"{strict}/") for strict in STRICT_CASE_DIRS)
+
+
+def staged_retail_relative(rel_root: str, filename: str) -> str:
+	rel_path = os.path.join(rel_root, filename).replace("\\", "/")
+	if rel_path.startswith("./"):
+		rel_path = rel_path[2:]
+	if in_strict_case_dir(rel_root):
+		return rel_path.lower()
+	return rel_path
+
+
+def should_skip_retail_asset(filename: str) -> bool:
+	_, ext = os.path.splitext(filename)
+	return ext.lower() in UNSUPPORTED_EXTENSIONS
+
+
+def stage_retail_data(source: Path, output: Path) -> tuple[Path, int]:
+	"""
+	Copy retail Half-Life assets into a GameCube-friendly staging tree.
+
+	Source files are never modified. Unsupported formats are omitted from the
+	staged disc payload, and strict-case directories are normalized to lowercase.
+	"""
+	output.mkdir(parents=True, exist_ok=True)
+	skipped = 0
+
+	for root, _dirs, files in os.walk(source):
+		rel_root = os.path.relpath(root, source)
+		if rel_root == ".":
+			rel_root = ""
+
+		for filename in files:
+			if should_skip_retail_asset(filename):
+				skipped += 1
+				continue
+
+			source_file = Path(root) / filename
+			relative = staged_retail_relative(rel_root, filename)
+			destination = output / relative
+			destination.parent.mkdir(parents=True, exist_ok=True)
+			if destination.exists():
+				continue
+			shutil.copy2(source_file, destination)
+
+	return output, skipped
+
+
 def extract_wad_lump(wad_path: Path, output: Path, lump_name: str, relative: str) -> None:
 	if not wad_path.is_file():
 		return
@@ -724,15 +775,16 @@ def build_disc(
 
 def validate_assets(data_path: Path) -> list[str]:
 	"""
-	Validate the Half-Life valve directory for GameCube staging.
-	Returns a list of error messages. Empty list means validation passed.
+	Validate that a retail source tree contains the files needed for staging.
+
+	Checks the user's original Half-Life install only. Format, size, and case
+	normalization happen during stage_retail_data() without editing source files.
 	"""
 	errors = []
-	
+
 	if not data_path.is_dir():
 		return [f"Data directory not found: {data_path}"]
 
-	# 1. Check for critical assets
 	for asset in CRITICAL_ASSETS:
 		asset_path = data_path / asset
 		if not asset_path.exists():
@@ -740,37 +792,51 @@ def validate_assets(data_path: Path) -> list[str]:
 		elif not asset_path.is_file():
 			errors.append(f"ERROR: Critical path '{asset}' exists but is not a file.")
 
-	# 2. Scan for case mismatches, unsupported extensions, and oversized files
-	# We scan the entire valve directory
-	for root, dirs, files in os.walk(data_path):
+	return errors
+
+
+def validate_staged_retail_assets(data_path: Path) -> list[str]:
+	"""Validate the staged disc payload after retail normalization."""
+	errors = []
+
+	if not data_path.is_dir():
+		return [f"Data directory not found: {data_path}"]
+
+	for asset in CRITICAL_ASSETS:
+		asset_path = data_path / asset
+		if not asset_path.is_file():
+			errors.append(f"MISSING: Staged critical asset '{asset}' is not present.")
+
+	for root, _dirs, files in os.walk(data_path):
 		rel_root = os.path.relpath(root, data_path)
-		# Check if this directory is one of the strict case directories
-		in_strict_dir = any(rel_root.startswith(d) or rel_root == d for d in STRICT_CASE_DIRS)
-		
+		if rel_root == ".":
+			rel_root = ""
+
 		for filename in files:
 			filepath = data_path / rel_root / filename
 			rel_path = os.path.join(rel_root, filename).replace("\\", "/")
-			
-			# Check case mismatch
-			if in_strict_dir and filename != filename.lower():
-				# Allow some known exceptions if necessary, but generally HL is lowercase
-				errors.append(f"CASE_MISMATCH: '{rel_path}' contains uppercase characters. "
-				               "GameCube/Engine expects lowercase.")
-			
-			# Check unsupported extensions
 			_, ext = os.path.splitext(filename)
+
+			if in_strict_case_dir(rel_root) and filename != filename.lower():
+				errors.append(
+					f"CASE_MISMATCH: '{rel_path}' is still mixed case after staging."
+				)
+
 			if ext.lower() in UNSUPPORTED_EXTENSIONS:
-				errors.append(f"UNSUPPORTED: '{rel_path}' has extension '{ext}' which is not supported on GameCube.")
-			
-			# Check size
+				errors.append(
+					f"UNSUPPORTED: '{rel_path}' has extension '{ext}' which is not supported on GameCube."
+				)
+
 			try:
 				size = filepath.stat().st_size
-				if size > MAX_ASSET_SIZE:
-					errors.append(f"OVERSIZED: '{rel_path}' is {size} bytes. "
-					               f"Limit is {MAX_ASSET_SIZE} bytes to prevent OOM.")
+				if size > MAX_ASSET_SIZE and ext.lower() not in {".bsp", ".wad", ".pak", ".pk3"}:
+					errors.append(
+						f"OVERSIZED: '{rel_path}' is {size} bytes. "
+						f"Limit is {MAX_ASSET_SIZE} bytes outside pack archives."
+					)
 			except OSError:
 				pass
-				
+
 	return errors
 
 
@@ -860,8 +926,7 @@ def main() -> None:
 	if args.smoke_map and args.intro_avi:
 		parser.error("--smoke-map and --intro-avi are mutually exclusive")
 
-	# Run asset validation before full-data builds. Smoke and intro-AVI builds
-	# stage bounded local subsets independently.
+	# Full retail builds validate source, then stage a normalized copy for the ISO.
 	if not args.smoke_map and not args.intro_avi:
 		validation_errors = validate_assets(args.data)
 		if validation_errors:
@@ -869,7 +934,7 @@ def main() -> None:
 			for error in validation_errors:
 				print(f"  - {error}", file=sys.stderr)
 			sys.exit(1)
-		
+
 	extras = args.extras if args.extras.exists() else None
 	if args.smoke_map:
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-smoke-data-") as temp:
@@ -912,12 +977,26 @@ def main() -> None:
 				bootstrap_recursive=True,
 			)
 	else:
-		with tempfile.TemporaryDirectory(prefix="xash3d-gc-intro-media-") as temp:
-			overlay_root = Path(temp) / "valve"
+		with tempfile.TemporaryDirectory(prefix="xash3d-gc-retail-data-") as temp:
+			staged_root = Path(temp) / "valve"
+			staged_data, skipped = stage_retail_data(args.data, staged_root)
+			if skipped:
+				print(
+					f"Retail staging: omitted {skipped} unsupported file(s) "
+					f"({', '.join(sorted(UNSUPPORTED_EXTENSIONS))})."
+				)
+			validation_errors = validate_staged_retail_assets(staged_data)
+			if validation_errors:
+				print("Staged retail asset validation failed:", file=sys.stderr)
+				for error in validation_errors:
+					print(f"  - {error}", file=sys.stderr)
+				sys.exit(1)
+
+			overlay_root = Path(temp) / "overlay" / "valve"
 			overlays = create_startup_vids_overlay(args.data, overlay_root)
 			build_disc(
 				args.dol,
-				args.data,
+				staged_data,
 				extras,
 				args.output,
 				args.apploader_source,
