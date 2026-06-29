@@ -5,20 +5,55 @@
 static ui_enginefuncs_t *g_ui_eng;
 static ui_globalvars_t *g_ui_globals;
 static qboolean g_menu_active;
+static int g_menu_selection;
 
-static void Menu_DrawLine( int y, const char *text )
+typedef struct menu_item_s
+{
+	const char *title;
+	const char *description;
+	const char *command;
+} menu_item_t;
+
+static const menu_item_t g_menu_items[] =
+{
+	{ "New Game", "Start a new single player game.", "newgame\n" },
+	{ "Load Game", "Load a previously saved game.", "menu_loadgame\n" },
+	{ "Options", "Change game settings, configure controls.", "menu_options\n" },
+};
+
+static void Menu_DrawLine( int x, int y, const char *text, int r, int g, int b )
 {
 	int width = 0, height = 0;
 
 	if( !g_ui_eng || !text )
 		return;
 
-	g_ui_eng->pfnDrawSetTextColor( 255, 255, 255, 255 );
+	g_ui_eng->pfnDrawSetTextColor( r, g, b, 255 );
 	g_ui_eng->pfnDrawConsoleStringLen( text, &width, &height );
-	g_ui_eng->pfnDrawConsoleString(
-		( g_ui_globals->scrWidth - width ) / 2,
-		y,
-		text );
+	g_ui_eng->pfnDrawConsoleString( x, y, text );
+}
+
+static void Menu_ActivateSelection( void )
+{
+	if( !g_ui_eng )
+		return;
+
+	switch( g_menu_selection )
+	{
+	case 0:
+		g_menu_active = false;
+		g_ui_eng->pfnSetKeyDest( key_game );
+		g_ui_eng->pfnClientCmd( 1, g_menu_items[g_menu_selection].command );
+		break;
+	case 1:
+		g_ui_eng->pfnClientCmd( 1, g_menu_items[g_menu_selection].command );
+		break;
+	case 2:
+		g_ui_eng->pfnClientCmd( 1, g_menu_items[g_menu_selection].command );
+		break;
+	default:
+		break;
+	}
 }
 
 static int Menu_VidInit( void )
@@ -28,6 +63,7 @@ static int Menu_VidInit( void )
 
 static void Menu_Init( void )
 {
+	g_menu_selection = 0;
 }
 
 static void Menu_Shutdown( void )
@@ -42,20 +78,25 @@ static void Menu_Redraw( float flTime )
 	if( !g_menu_active || !g_ui_eng || !g_ui_globals )
 		return;
 
-	g_ui_eng->pfnFillRGBA( 0, 0, g_ui_globals->scrWidth, g_ui_globals->scrHeight, 0, 0, 96, 255 );
-	Menu_DrawLine( g_ui_globals->scrHeight / 2 - 36, "XASH3D GAMECUBE" );
-	Menu_DrawLine( g_ui_globals->scrHeight / 2, "Press START or A for New Game" );
-	Menu_DrawLine( g_ui_globals->scrHeight / 2 + 18, "Press B for Console" );
-}
+	{
+		int base_x = ( 70 * g_ui_globals->scrWidth ) / 640;
+		int desc_x = ( 192 * g_ui_globals->scrWidth ) / 640;
+		int base_y = ( 249 * g_ui_globals->scrHeight ) / 480;
+		int step_y = ( 31 * g_ui_globals->scrHeight ) / 480;
+		size_t i;
 
-static void Menu_StartGame( void )
-{
-	if( !g_ui_eng )
-		return;
+		for( i = 0; i < ARRAYSIZE( g_menu_items ); ++i )
+		{
+			int y = base_y + ( step_y * (int)i );
+			qboolean selected = ( i == (size_t)g_menu_selection );
 
-	g_menu_active = false;
-	g_ui_eng->pfnSetKeyDest( key_game );
-	g_ui_eng->pfnClientCmd( 1, "newgame\n" );
+			Menu_DrawLine( base_x, y, g_menu_items[i].title,
+				selected ? 255 : 224,
+				selected ? 196 : 170,
+				selected ? 32 : 48 );
+			Menu_DrawLine( desc_x, y, g_menu_items[i].description, 96, 96, 96 );
+		}
+	}
 }
 
 static void Menu_KeyEvent( int key, int down )
@@ -65,10 +106,22 @@ static void Menu_KeyEvent( int key, int down )
 
 	switch( key )
 	{
+	case K_UPARROW:
+	case K_DPAD_UP:
+		g_menu_selection--;
+		if( g_menu_selection < 0 )
+			g_menu_selection = (int)ARRAYSIZE( g_menu_items ) - 1;
+		break;
+	case K_DOWNARROW:
+	case K_DPAD_DOWN:
+		g_menu_selection++;
+		if( g_menu_selection >= (int)ARRAYSIZE( g_menu_items ))
+			g_menu_selection = 0;
+		break;
 	case K_ENTER:
 	case K_A_BUTTON:
 	case K_START_BUTTON:
-		Menu_StartGame();
+		Menu_ActivateSelection();
 		break;
 	case K_ESCAPE:
 	case K_B_BUTTON:
@@ -87,6 +140,7 @@ static void Menu_KeyEvent( int key, int down )
 static void Menu_SetActiveMenu( int active )
 {
 	g_menu_active = active ? true : false;
+	g_menu_selection = 0;
 
 	if( !g_ui_eng )
 		return;

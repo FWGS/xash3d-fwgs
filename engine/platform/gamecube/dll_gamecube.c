@@ -8,6 +8,7 @@ dll_gamecube.c - static library registration for GameCube (from xash3d-wii)
 #include "common.h"
 #include "library.h"
 #include "filesystem.h"
+#include <ogc/system.h>
 #endif
 
 typedef struct dll_s
@@ -20,6 +21,10 @@ typedef struct dll_s
 
 static dll_t *dll_list;
 static char *dll_err = NULL;
+#if XASH_GAMECUBE
+static int gc_registered_dll_count;
+static int gc_registered_menu_count;
+#endif
 
 #if XASH_GAMECUBE
 extern int EXPORT GetFSAPI( int version, fs_api_t *api, fs_globals_t **globals, fs_interface_t *engfuncs );
@@ -187,6 +192,11 @@ int dll_register( const char *name, dllexport_t *exports )
 	entry->exp = exports;
 	entry->next = dll_list;
 	dll_list = entry;
+#if XASH_GAMECUBE
+	gc_registered_dll_count++;
+	if( !Q_strcmp( name, "menu" ) || !Q_strcmp( name, "menu.so" ) || !Q_strcmp( name, "libmenu.so" ))
+		gc_registered_menu_count++;
+#endif
 	return 0;
 }
 
@@ -216,11 +226,22 @@ void *COM_LoadLibrary( const char *dllname, int build_ordinals_table, qboolean d
 	COM_ResetLibraryError();
 
 	/* Prefer statically registered modules over missing files on SD. */
+#if XASH_GAMECUBE
+	if( !Q_strcmp( dllname, "filesystem_stdio" ) || Q_stristr( dllname, "menu" ) != NULL )
+		Con_Reportf( "Xash3D GameCube: loader probe name=%s dlls=%d menu_regs=%d head=%08x\n",
+			dllname, gc_registered_dll_count, gc_registered_menu_count, (unsigned int)(uintptr_t)dll_list );
+#endif
 	handle = dlopen( dllname, 0 );
 	if( handle )
 	{
 		Con_Reportf( "Xash3D GameCube: COM_LoadLibrary %s (registered)\n", dllname );
 		return handle;
+	}
+
+	if( Q_stristr( dllname, "menu" ) != NULL )
+	{
+		Con_Reportf( "Xash3D GameCube: COM_LoadLibrary %s (builtin fallback)\n", dllname );
+		return NULL;
 	}
 
 	Con_Reportf( "Xash3D GameCube: COM_LoadLibrary %s (searching disc)\n", dllname );

@@ -34,18 +34,16 @@ typedef struct gc_menu_item_s
 } gc_menu_item_t;
 
 static qboolean gc_menu_visible;
+static qboolean gc_menu_builtin_fallback;
 static int gc_menu_selection;
 static int gc_menu_logo;
 static int gc_menu_background[3][4];
 
 static const gc_menu_item_t gc_menu_items[] =
 {
-	{ "New game", "Start a new single player game.", "map c0a0" },
-	{ "Load game", "Load a previously saved game.", "toggleconsole" },
-	{ "Find servers", "Search for online multiplayer servers.", "toggleconsole" },
-	{ "Create server", "Host a multiplayer server for others to join.", "toggleconsole" },
-	{ "Options", "Change game settings, configure controls.", "toggleconsole" },
-	{ "Quit", "Quit playing Half-Life.", "quit" },
+	{ "New Game", "Start a new single player game.", "newgame" },
+	{ "Load Game", "Load a previously saved game.", "menu_loadgame" },
+	{ "Options", "Change game settings, configure controls.", "menu_options" },
 };
 
 static void UI_GCLoadFallbackMenuTextures( void )
@@ -124,9 +122,9 @@ static void UI_GCDrawMenuString( int x, int y, const char *text, int r, int g, i
 static void UI_GCDrawFallbackMenu( void )
 {
 	int base_x = refState.width * 9 / 100;
-	int base_y = refState.height * 58 / 100;
+	int base_y = refState.height * 60 / 100;
 	int desc_x = refState.width * 30 / 100;
-	int row_h = Q_max( 18, refState.height / 15 );
+	int row_h = Q_max( 24, refState.height / 13 );
 
 	UI_GCLoadFallbackMenuTextures();
 	UI_GCDrawFallbackMenuBackground();
@@ -154,9 +152,8 @@ static void UI_GCDrawFallbackMenu( void )
 		int y = base_y + i * row_h;
 
 		UI_GCDrawMenuString( base_x, y, item->label,
-			selected ? 255 : 255, selected ? 245 : 190, selected ? 70 : 0, true );
-		UI_GCDrawMenuString( desc_x, y, item->description,
-			selected ? 150 : 100, selected ? 150 : 100, selected ? 150 : 100, false );
+			selected ? 255 : 224, selected ? 214 : 170, selected ? 48 : 16, true );
+		UI_GCDrawMenuString( desc_x, y, item->description, 108, 108, 108, false );
 	}
 }
 
@@ -170,6 +167,11 @@ static void UI_GCActivateFallbackMenuItem( void )
 		Cbuf_AddText( item->command );
 		Cbuf_AddText( "\n" );
 	}
+}
+
+qboolean UI_UsingBuiltInFallbackMenu( void )
+{
+	return gc_menu_builtin_fallback;
 }
 #endif
 
@@ -240,24 +242,26 @@ void UI_KeyEvent( int key, qboolean down )
 		switch( key )
 		{
 		case K_UPARROW:
+		case K_DPAD_UP:
 			gc_menu_selection = ( gc_menu_selection + ARRAYSIZE( gc_menu_items ) - 1 ) %
 				ARRAYSIZE( gc_menu_items );
 			break;
 		case K_DOWNARROW:
+		case K_DPAD_DOWN:
 			gc_menu_selection = ( gc_menu_selection + 1 ) % ARRAYSIZE( gc_menu_items );
 			break;
 		case K_ENTER:
 		case K_KP_ENTER:
 		case K_A_BUTTON:
+		case K_START_BUTTON:
 			UI_GCActivateFallbackMenuItem();
 			break;
 		case K_ESCAPE:
 		case K_BACK_BUTTON:
-		case K_START_BUTTON:
 			if( cls.state == ca_active )
 				UI_SetActiveMenu( false );
 			else
-				Cbuf_AddText( "quit\n" );
+				gc_menu_selection = 0;
 			break;
 		default:
 			break;
@@ -1559,7 +1563,9 @@ qboolean UI_LoadProgs( void )
 	COM_GetCommonLibraryPath( LIBRARY_GAMEUI, dllpath, sizeof( dllpath ));
 
 #if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: gameui load begin path=%s\n", dllpath );
+	gc_menu_builtin_fallback = true;
+	Con_Reportf( "Xash3D GameCube: using built-in fallback menu\n" );
+	return false;
 #endif
 	if(!( gameui.hInstance = COM_LoadLibrary( dllpath, false, false )))
 	{

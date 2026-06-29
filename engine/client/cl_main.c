@@ -25,6 +25,10 @@ GNU General Public License for more details.
 #include "pm_local.h"
 #include "multi_emulator.h"
 
+#if XASH_GAMECUBE
+extern qboolean UI_UsingBuiltInFallbackMenu( void );
+#endif
+
 #define CL_CONNECTION_TIMEOUT 15.0f
 #define CL_CONNECTION_RETRIES 5
 #define CL_TEST_RETRIES       5
@@ -3685,6 +3689,11 @@ void Host_ClientBegin( void )
 	// if client is not active, do nothing
 	if( !cls.initialized ) return;
 
+#if XASH_GAMECUBE
+	if( UI_UsingBuiltInFallbackMenu() )
+		return;
+#endif
+
 	// finalize connection process if needs
 	CL_CheckClientState();
 
@@ -3710,6 +3719,15 @@ void Host_ClientFrame( void )
 {
 	// if client is not active, do nothing
 	if( !cls.initialized ) return;
+#if XASH_GAMECUBE
+	if( UI_UsingBuiltInFallbackMenu() )
+	{
+		VID_CheckChanges();
+		SCR_UpdateScreen();
+		SCR_RunCinematic();
+		return;
+	}
+#endif
 	if( cls.key_dest == key_game && cls.state == ca_active && !Con_Visible() )
 		Platform_SetTimer( cl_maxframetime.value );
 
@@ -3791,6 +3809,16 @@ void CL_Init( void )
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: client datagram init ready\n" );
+	if( UI_UsingBuiltInFallbackMenu() )
+	{
+		cls.build_num = 0;
+		cls.initialized = true;
+		cl.maxclients = 1;
+		cls.olddemonum = -1;
+		cls.demonum = -1;
+		Con_Reportf( "Xash3D GameCube: menu-only bootstrap active\n" );
+		return;
+	}
 #endif
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));

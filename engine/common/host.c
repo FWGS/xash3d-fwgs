@@ -1262,7 +1262,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #endif
 	CL_Init();
 #if XASH_GAMECUBE
-	GC_MemSample( "client init" );
 	Con_Reportf( "Xash3D GameCube: engine subsystems ready\n" );
 #endif
 

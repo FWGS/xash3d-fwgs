@@ -199,23 +199,35 @@ static inline qboolean Q_isspace( const char *str )
 	return Q_istype( str, isspace );
 }
 
+#if XASH_GAMECUBE
+static inline qboolean Q_StringPtrLooksValid( const char *str )
+{
+	return str && (uintptr_t)str >= 0x1000;
+}
+#else
+static inline qboolean Q_StringPtrLooksValid( const char *str )
+{
+	return str != NULL;
+}
+#endif
+
 static inline int Q_strcmp( const char *s1, const char *s2 )
 {
-	if( likely( s1 && s2 ))
+	if( likely( Q_StringPtrLooksValid( s1 ) && Q_StringPtrLooksValid( s2 ) ))
 		return strcmp( s1, s2 );
 	return ( s1 ? 1 : 0 ) - ( s2 ? 1 : 0 );
 }
 
 static inline int Q_strncmp( const char *s1, const char *s2, size_t n )
 {
-	if( likely( s1 && s2 ))
+	if( likely( Q_StringPtrLooksValid( s1 ) && Q_StringPtrLooksValid( s2 ) ))
 		return strncmp( s1, s2, n );
 	return ( s1 ? 1 : 0 ) - ( s2 ? 1 : 0 );
 }
 
 static inline char *Q_strstr( const char *s1, const char *s2 )
 {
-	if( likely( s1 && s2 ))
+	if( likely( Q_StringPtrLooksValid( s1 ) && Q_StringPtrLooksValid( s2 ) ))
 		return (char *)strstr( s1, s2 );
 	return NULL;
 }

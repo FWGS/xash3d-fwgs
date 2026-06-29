@@ -1088,8 +1088,12 @@ void SCR_Init( void )
 #endif
 	if( !UI_LoadProgs( ))
 	{
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: screen using built-in menu renderer\n" );
+#else
 		Con_Printf( S_ERROR "can't initialize gameui DLL: %s\n", COM_GetLibraryError() ); // there is non fatal for us
 		host.allow_console = true; // we need console, because menu is missing
+#endif
 	}
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: screen gameui fallback ready\n" );

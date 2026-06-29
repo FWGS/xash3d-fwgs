@@ -236,7 +236,8 @@ static void *pfnMod_Extradata( int type, model_t *m )
 
 static void CL_ExtraUpdate( void )
 {
-	clgame.dllFuncs.IN_Accumulate();
+	if( clgame.dllFuncs.IN_Accumulate )
+		clgame.dllFuncs.IN_Accumulate();
 	S_ExtraUpdate();
 }
 
