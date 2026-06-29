@@ -32,7 +32,7 @@ struct base_command_hashmap_s
 static base_command_hashmap_t *hashed_cmds[HASH_SIZE];
 static poolhandle_t basecmd_pool;
 
-#define BaseCmd_HashKey( x ) COM_HashKey( name, HASH_SIZE )
+#define BaseCmd_HashKey( x ) COM_HashKey( (x), HASH_SIZE )
 
 /*
 ============

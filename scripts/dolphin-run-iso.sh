@@ -15,14 +15,17 @@ fi
 
 ISO="$(readlink -f "$ISO")"
 USER_DIR="${DOLPHIN_USER_DIR:-$ROOT/.ai/dolphin-user-run}"
+DOLPHIN_MMU="${DOLPHIN_MMU:-True}"
 mkdir -p "$USER_DIR/Config"
 
-cat > "$USER_DIR/Config/Dolphin.ini" <<'EOF'
+cat > "$USER_DIR/Config/Dolphin.ini" <<EOF
 [Core]
 CPUCore = 0
 CPUThread = False
 DSPHLE = True
 FastDiscSpeed = True
+MMU = ${DOLPHIN_MMU}
+AccurateCPUCache = ${DOLPHIN_MMU}
 SIDevice0 = 6
 SIDevice1 = 0
 SIDevice2 = 0

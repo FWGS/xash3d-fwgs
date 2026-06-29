@@ -33,7 +33,8 @@ static qboolean GCube_NullAudioInit( void );
 
 static qboolean GCube_AudioShouldStartVoice( void )
 {
-	if( cls.state != ca_active && cls.state != ca_cinematic && cls.state != ca_connected )
+	/* G48: defer ASND voice start until cls.state == ca_active gameplay. */
+	if( cls.state != ca_active )
 		return false;
 
 	/* Wait until the mixer has written ahead of the DMA read head. */

@@ -363,6 +363,10 @@ static int COUNT_BITS( uint mask )
 	return i;
 }
 
+#if XASH_GAMECUBE
+void GC_RefreshColormap565( void );
+#endif
+
 static void R_BuildScreenMap( void )
 {
 	uint rshift = FIRST_BIT( swblit.rmask ), gshift = FIRST_BIT( swblit.gmask ), bshift = FIRST_BIT( swblit.bmask );
@@ -422,6 +426,9 @@ static void R_BuildScreenMap( void )
 		}
 
 	}
+#endif
+#if XASH_GAMECUBE
+	GC_RefreshColormap565();
 #endif
 }
 
@@ -696,6 +703,18 @@ qboolean R_AllocScreen( void )
 	return true;
 }
 
+#if XASH_GAMECUBE
+static unsigned short gc_colormap565[256];
+
+void GC_RefreshColormap565( void )
+{
+	int i;
+
+	for( i = 0; i < 256; i++ )
+		gc_colormap565[i] = vid.screen[i];
+}
+#endif
+
 void R_BlitScreen( void )
 {
 	void *buffer = swblit.pLockBuffer();
@@ -772,6 +791,18 @@ void R_BlitScreen( void )
 		if( swblit.bpp == 2 )
 		{
 			unsigned short *pbuf = buffer;
+#if XASH_GAMECUBE
+			int v, u;
+
+			for( v = 0; v < vid.height; v++ )
+			{
+				const pixel_t *src_row = vid.buffer + vid.rowbytes * v;
+				unsigned short *dst_row = pbuf + swblit.stride * v;
+
+				for( u = 0; u < vid.width; u++ )
+					dst_row[u] = gc_colormap565[src_row[u]];
+			}
+#else
 			for( int v = 0; v < vid.height; v++ )
 			{
 				uint start = vid.rowbytes * v;
@@ -783,6 +814,7 @@ void R_BlitScreen( void )
 					pbuf[dstart + u] = s;
 				}
 			}
+#endif
 		}
 		else if( swblit.bpp == 4 )
 		{

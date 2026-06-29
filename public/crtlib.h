@@ -202,7 +202,14 @@ static inline qboolean Q_isspace( const char *str )
 #if XASH_GAMECUBE
 static inline qboolean Q_StringPtrLooksValid( const char *str )
 {
-	return str && (uintptr_t)str >= 0x1000;
+	uintptr_t p;
+
+	if( !str )
+		return false;
+
+	p = (uintptr_t)str;
+	/* MEM1 only; reject integer-as-pointer values (e.g. 0x656e6371 == "encq"). */
+	return p >= 0x80000000u && p < 0x81800000u;
 }
 #else
 static inline qboolean Q_StringPtrLooksValid( const char *str )
@@ -297,6 +304,10 @@ static inline int Q_stricmp( const char *s1, const char *s2 )
 {
 	if( likely( s1 && s2 ))
 	{
+#if XASH_GAMECUBE
+		if( unlikely( !Q_StringPtrLooksValid( s1 ) || !Q_StringPtrLooksValid( s2 )))
+			return ( Q_StringPtrLooksValid( s1 ) ? 1 : 0 ) - ( Q_StringPtrLooksValid( s2 ) ? 1 : 0 );
+#endif
 #if HAVE_STRICMP
 		return stricmp( s1, s2 );
 #elif HAVE_STRCASECMP
@@ -314,6 +325,10 @@ static inline int Q_strnicmp( const char *s1, const char *s2, size_t n )
 {
 	if( likely( s1 && s2 ))
 	{
+#if XASH_GAMECUBE
+		if( unlikely( !Q_StringPtrLooksValid( s1 ) || !Q_StringPtrLooksValid( s2 )))
+			return ( Q_StringPtrLooksValid( s1 ) ? 1 : 0 ) - ( Q_StringPtrLooksValid( s2 ) ? 1 : 0 );
+#endif
 #if HAVE_STRICMP
 		return strnicmp( s1, s2, n );
 #elif HAVE_STRCASECMP

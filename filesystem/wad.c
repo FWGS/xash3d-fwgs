@@ -152,7 +152,7 @@ static dlumpinfo_t *W_FindLump( wfile_t *wad, const char *name, const signed cha
 	while( left <= right )
 	{
 		int middle = (left + right) / 2;
-		int diff = Q_stricmp( wad->lumps[middle].name, name );
+		int diff = Q_strnicmp( wad->lumps[middle].name, name, sizeof( wad->lumps[middle].name ));
 
 		if( !diff )
 		{
@@ -192,7 +192,7 @@ static dlumpinfo_t *W_AddFileToWad( const char *wadfile, const char *name, wfile
 	while( left <= right )
 	{
 		int middle = ( left + right ) / 2;
-		int diff = Q_stricmp( wad->lumps[middle].name, name );
+		int diff = Q_strnicmp( wad->lumps[middle].name, name, sizeof( wad->lumps[middle].name ));
 
 		if( !diff )
 		{

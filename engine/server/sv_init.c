@@ -712,7 +712,7 @@ void SV_ActivateServer( int runPhysics )
 	if( Sys_CheckParm( "-gcmap" ))
 	{
 		GC_RestoreVideoMemoryAfterMapLoad();
-		R_GcmapMarkMapLoadComplete();
+		R_GcmapRestoreAfterMapLoad();
 	}
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 	GC_MemSample( "map active" );
@@ -1148,7 +1148,8 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	CRC32_MapFile( &sv.worldmapCRC, sv.model_precache[WORLD_INDEX], svs.maxclients > 1 );
 #if XASH_GAMECUBE
 	GC_MemSample( "bsp load" );
-	GC_DrawLoadingStatus( "SPAWNING ENTITIES", sv.name );
+	if( !Sys_CheckParm( "-gcmap" ))
+		GC_DrawLoadingStatus( "SPAWNING ENTITIES", sv.name );
 #endif
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ) && FS_FileExists( "progs.dat", false ))
@@ -1159,6 +1160,18 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		FS_Close( f );
 	}
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		for( i = WORLD_INDEX; i < sv.worldmodel->numsubmodels; i++ )
+		{
+			Q_snprintf( sv.model_precache[i+1], sizeof( sv.model_precache[i+1] ), "*%i", i );
+			sv.models[i+1] = Mod_FindName( sv.model_precache[i+1], false );
+			SetBits( sv.model_precache_flags[i+1], RES_FATALIFMISSING );
+		}
+	}
+	else
+#endif
 	for( i = WORLD_INDEX; i < sv.worldmodel->numsubmodels; i++ )
 	{
 		Q_snprintf( sv.model_precache[i+1], sizeof( sv.model_precache[i+1] ), "*%i", i );

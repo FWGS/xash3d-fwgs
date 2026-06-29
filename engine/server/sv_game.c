@@ -4773,7 +4773,7 @@ static enginefuncs_t gEngfuncs =
 	pfnPEntityOfEntOffset,
 	pfnEntOffsetOfPEntity,
 	pfnIndexOfEdict,
-	pfnPEntityOfEntIndexAllEntities,
+	pfnPEntityOfEntIndexBroken,
 	pfnFindEntityByVars,
 	pfnGetModelPtr,
 	pfnRegUserMsg,

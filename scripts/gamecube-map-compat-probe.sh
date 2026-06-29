@@ -15,7 +15,7 @@ PROBE_SCRIPT="scripts/dolphin-boot-probe.sh"
 LOG_BASE=".ai/logs/map-compat-$(date +%Y%m%d-%H%M%S)"
 TSV_FILE="$LOG_BASE/results.tsv"
 MD_FILE="$LOG_BASE/summary.md"
-PROBE_TIMEOUT="${MAP_COMPAT_TIMEOUT:-120}"
+PROBE_TIMEOUT="${MAP_COMPAT_TIMEOUT:-180}"
 
 mkdir -p "$LOG_BASE"
 
@@ -71,15 +71,19 @@ for bsp in "${map_files[@]}"; do
 	map_name="$(basename "$bsp" .bsp)"
 	echo "==> Probing map: $map_name"
 	
-	# Run probe with timeout
+	# dolphin-boot-probe.sh enforces DOLPHIN_TIMEOUT internally; do not wrap it in
+	# an outer timeout shorter than build + probe + frame-sample budget.
 	set +e
-	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" timeout "$PROBE_TIMEOUT" bash "$PROBE_SCRIPT" 2>&1)
+	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" DOLPHIN_TIMEOUT="$PROBE_TIMEOUT" bash "$PROBE_SCRIPT" 2>&1)
 	PROBE_EXIT=$?
 	set -e
 	
 	# Use the log directory reported by this probe. Falling back to "latest"
 	# is unsafe when the GUI/Aider/Codex can run Dolphin probes concurrently.
 	PROBE_LOG_DIR=$(printf "%s\n" "$PROBE_OUTPUT" | awk '/^Logs: / {print $2; found=1} END {exit found ? 0 : 1}' || true)
+	if [[ -z "$PROBE_LOG_DIR" ]]; then
+		PROBE_LOG_DIR=$(ls -td "$ROOT"/.ai/logs/dolphin-probe-* 2>/dev/null | head -n 1 || true)
+	fi
 	
 	STATUS="UNKNOWN"
 	BLOCKER=""
@@ -112,7 +116,7 @@ for bsp in "${map_files[@]}"; do
 		elif echo "$PROBE_OUTPUT" | grep -qsF "HOST_FAILURE"; then
 			STATUS="HOST_FAILURE"
 			BLOCKER="Dolphin/Host initialization failed"
-		elif [[ $PROBE_EXIT -eq 124 ]]; then
+		elif [[ $PROBE_EXIT -ne 0 ]] && echo "$PROBE_OUTPUT" | grep -qsF "MAP_TIMEOUT"; then
 			STATUS="TIMEOUT"
 			BLOCKER="Probe timed out after ${PROBE_TIMEOUT}s"
 		else

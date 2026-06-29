@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Build Xash3D FWGS for Nintendo GameCube (requires devkitPro)
 set -e
 

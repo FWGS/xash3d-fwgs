@@ -297,13 +297,6 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 	if( q == 0 || FBitSet( tex->flags, TF_NOMIPMAP ))
 		activeMips = 1;
 
-#if XASH_GAMECUBE
-	if( q == 0 )
-	{
-		gEngfuncs.Con_Reportf( "GC-Q0: %s %dx%d single-mip, alpha skipped\n", tex->name, tex->width, tex->height );
-	}
-#endif
-
 	for( uint j = 0; j < activeMips; j++ )
 	{
 		uint   width = Q_max( 1, ( tex->width >> j ));
@@ -473,13 +466,7 @@ static void GL_ProcessImage( image_t *tex, rgbdata_t *pic )
 		if( !FBitSet( tex->flags, TF_IMG_UPLOADED ) && FBitSet( tex->flags, TF_KEEP_SOURCE ))
 		{
 #if XASH_GAMECUBE
-			if( GC_GetVisualQuality() == 0 )
-			{
-				// quality 0 (low-memory mode): skip keeping original image
-				// to reduce texture-memory pressure
-				gEngfuncs.Con_Reportf( "GC-Q0: %s skip keep_source\n", tex->name );
-			}
-			else
+			if( GC_GetVisualQuality() != 0 )
 #endif
 				tex->original = gEngfuncs.FS_CopyImage( pic ); // because current pic will be expanded to rgba
 		}

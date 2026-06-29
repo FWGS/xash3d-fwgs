@@ -2117,6 +2117,13 @@ void Delta_WriteDescriptionToClient( sizebuf_t *msg )
 */
 void GAME_EXPORT Delta_AddEncoder( char *name, pfnDeltaEncode encodeFunc )
 {
+#if XASH_GAMECUBE
+	if( !Q_StringPtrLooksValid( name ))
+	{
+		Con_Printf( S_ERROR "%s: invalid encoder name pointer %p\n", __func__, name );
+		return;
+	}
+#endif
 	delta_info_t *dt = Delta_FindStructByEncoder( name );
 
 	if( !dt || !dt->bInitialized )

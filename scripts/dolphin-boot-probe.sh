@@ -32,7 +32,7 @@ probe_log_has() {
 }
 
 probe_guest_error() {
-	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)' \
+	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|Invalid read from|MMU fault|Program attempting to read' \
 		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
 }
 
@@ -48,14 +48,18 @@ finalize_probe() {
 	exit "$exit_code"
 }
 
+DOLPHIN_MMU="${DOLPHIN_MMU:-True}"
+
 mkdir -p "$USER_DIR/Config"
 
-cat > "$USER_DIR/Config/Dolphin.ini" <<'EOF'
+cat > "$USER_DIR/Config/Dolphin.ini" <<EOF
 [Core]
 CPUCore = 0
 CPUThread = False
 DSPHLE = True
 FastDiscSpeed = True
+MMU = ${DOLPHIN_MMU}
+AccurateCPUCache = ${DOLPHIN_MMU}
 SIDevice0 = 6
 SIDevice1 = 0
 SIDevice2 = 0
@@ -134,7 +138,7 @@ cleanup_flatpak_dolphin() {
 	fi
 }
 
-echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s)..."
+echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s, MMU=${DOLPHIN_MMU})..."
 set +e
 if (( DOLPHIN_IS_FLATPAK )); then
 	flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
