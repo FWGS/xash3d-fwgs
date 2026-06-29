@@ -27,6 +27,9 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 extern qboolean UI_UsingBuiltInFallbackMenu( void );
+void UI_GameCubeLeaveMenuOnlyBootstrap( void );
+void GC_DrawLoadingStatus( const char *message, const char *details );
+qboolean CL_GameCubeEnsureClientReady( void );
 #endif
 
 #define CL_CONNECTION_TIMEOUT 15.0f
@@ -3811,6 +3814,13 @@ void CL_Init( void )
 	Con_Reportf( "Xash3D GameCube: client datagram init ready\n" );
 	if( UI_UsingBuiltInFallbackMenu() )
 	{
+		if( !Sys_CheckParm( "-nosound" ))
+		{
+			S_Init();
+			Voice_Init( VOICE_DEFAULT_CODEC, 3, true );
+			Con_Reportf( "Xash3D GameCube: menu-only sound init ready\n" );
+		}
+
 		cls.build_num = 0;
 		cls.initialized = true;
 		cl.maxclients = 1;
@@ -3846,17 +3856,14 @@ void CL_Init( void )
 	}
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
-	{
-		Con_Reportf( "Xash3D GameCube: client identity skipped\n" );
-		Con_Reportf( "Xash3D GameCube: steam broker skipped\n" );
-	}
-	else
-#endif
+	Con_Reportf( "Xash3D GameCube: client identity skipped\n" );
+	Con_Reportf( "Xash3D GameCube: steam broker skipped\n" );
+#else
 	{
 		ID_Init();
 		SteamBroker_Init();
 	}
+#endif
 
 	// client must be always initialized last so it can fetch all cvars
 	if( !CL_LoadProgs( libpath ))
@@ -3874,6 +3881,47 @@ void CL_Init( void )
 	Con_Reportf( "Xash3D GameCube: client init ready\n" );
 #endif
 }
+
+#if XASH_GAMECUBE
+static qboolean gc_cl_deferred_init_done;
+
+qboolean CL_GameCubeEnsureClientReady( void )
+{
+	string libpath;
+
+	if( gc_cl_deferred_init_done )
+		return true;
+
+	if( !UI_UsingBuiltInFallbackMenu() )
+	{
+		gc_cl_deferred_init_done = true;
+		return true;
+	}
+
+	Con_Reportf( "Xash3D GameCube: deferred client init begin\n" );
+	GC_DrawLoadingStatus( "CLIENT INIT", "half-life" );
+
+	if( !Sys_CheckParm( "-nosound" ))
+	{
+		S_Init();
+		Voice_Init( VOICE_DEFAULT_CODEC, 3, true );
+		Con_Reportf( "Xash3D GameCube: deferred client sound ready\n" );
+	}
+
+	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
+	if( !CL_LoadProgs( libpath ))
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: deferred client init failed: %s\n", COM_GetLibraryError() );
+		return false;
+	}
+
+	cl.maxclients = 1;
+	UI_GameCubeLeaveMenuOnlyBootstrap();
+	gc_cl_deferred_init_done = true;
+	Con_Reportf( "Xash3D GameCube: deferred client init ready\n" );
+	return true;
+}
+#endif
 
 /*
 ===============

@@ -715,6 +715,62 @@ void GC_RefreshColormap565( void )
 }
 #endif
 
+#if XASH_GAMECUBE
+static const byte *gc_pending_cin_bgra;
+static int gc_pending_cin_w;
+static int gc_pending_cin_h;
+
+void R_SetPendingCinematicBGRA( int width, int height, const byte *bgra )
+{
+	gc_pending_cin_w = width;
+	gc_pending_cin_h = height;
+	gc_pending_cin_bgra = bgra;
+}
+
+static unsigned short R_BGRAtoRGB565( byte b, byte g, byte r )
+{
+	return (unsigned short)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
+}
+
+static void R_BlitPendingCinematicBGRA( unsigned short *dst, int dst_stride )
+{
+	const byte *src;
+	int x, y, w, h;
+	static qboolean logged;
+
+	if( !gc_pending_cin_bgra || gc_pending_cin_w <= 0 || gc_pending_cin_h <= 0 || !dst )
+		return;
+
+	w = Q_min( gc_pending_cin_w, vid.width );
+	h = Q_min( gc_pending_cin_h, vid.height );
+	src = gc_pending_cin_bgra;
+
+	if( !logged )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: intro AVI direct blit %dx%d -> stride %d\n",
+			w, h, dst_stride );
+		logged = true;
+	}
+
+	for( y = 0; y < h; y++ )
+	{
+		const byte *row = src + y * gc_pending_cin_w * 4;
+		unsigned short *out = dst + y * dst_stride;
+
+		for( x = 0; x < w; x++ )
+		{
+			const byte *p = row + x * 4;
+
+			out[x] = R_BGRAtoRGB565( p[0], p[1], p[2] );
+		}
+	}
+
+	gc_pending_cin_bgra = NULL;
+	gc_pending_cin_w = 0;
+	gc_pending_cin_h = 0;
+}
+#endif
+
 void R_BlitScreen( void )
 {
 	void *buffer = swblit.pLockBuffer();
@@ -729,6 +785,17 @@ void R_BlitScreen( void )
 
 	if( !vid.buffer )
 		return;
+
+#if XASH_GAMECUBE
+	if( gc_pending_cin_bgra && swblit.bpp == 2 && !swblit.rotate )
+	{
+		unsigned short *pbuf = buffer;
+
+		R_BlitPendingCinematicBGRA( pbuf, swblit.stride );
+		swblit.pUnlockBuffer();
+		return;
+	}
+#endif
 
 	if( swblit.rotate )
 	{
@@ -800,7 +867,7 @@ void R_BlitScreen( void )
 				unsigned short *dst_row = pbuf + swblit.stride * v;
 
 				for( u = 0; u < vid.width; u++ )
-					dst_row[u] = gc_colormap565[src_row[u]];
+					dst_row[u] = vid.screen[src_row[u]];
 			}
 #else
 			for( int v = 0; v < vid.height; v++ )

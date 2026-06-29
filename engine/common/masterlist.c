@@ -649,8 +649,12 @@ static void NET_LoadMasters( void )
 
 	if( !afile ) // file doesn't exist yet
 	{
+#if XASH_GAMECUBE
+		return;
+#else
 		Con_Reportf( "Cannot load xashcomm.lst\n" );
 		return;
+#endif
 	}
 
 	char *pfile = (char*)afile;

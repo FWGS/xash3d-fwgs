@@ -1259,4 +1259,10 @@ extern rgba_t g_color_table[8];
 extern triangleapi_t gTriApi;
 extern net_api_t gNetApi;
 
+#if XASH_GAMECUBE
+qboolean CL_GameCubeEnsureClientReady( void );
+void UI_GameCubeLeaveMenuOnlyBootstrap( void );
+qboolean UI_UsingBuiltInFallbackMenu( void );
+#endif
+
 #endif//CLIENT_H

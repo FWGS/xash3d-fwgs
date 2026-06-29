@@ -33,6 +33,7 @@ typedef struct cpk_decode_s
 	int		stride;
 	int		palette_video;
 	int		sega_film_skip_bytes;
+	int		coord_scale;
 	byte		*rgb;
 	cpk_strip_t	strips[CPK_MAX_STRIPS];
 } cpk_decode_t;
@@ -271,15 +272,36 @@ static qboolean Cinepak_DecodeInternal( cpk_decode_t *s )
 
 	for( i = 0; i < num_strips; i++ )
 	{
+		uint16_t raw_x1, raw_x2, raw_y1, raw_y2;
+
 		if(( s->data + 12 ) > eod )
 			return false;
 
 		s->strips[i].id = s->data[0];
-		if(!( s->strips[i].y1 = CPK_RB16( &s->data[4] )))
-			s->strips[i].y2 = ( s->strips[i].y1 = y0 ) + CPK_RB16( &s->data[8] );
-		else s->strips[i].y2 = CPK_RB16( &s->data[8] );
-		s->strips[i].x1 = CPK_RB16( &s->data[6] );
-		s->strips[i].x2 = CPK_RB16( &s->data[10] );
+		raw_y1 = CPK_RB16( &s->data[4] );
+		raw_x1 = CPK_RB16( &s->data[6] );
+		raw_x2 = CPK_RB16( &s->data[10] );
+		if( !raw_y1 )
+		{
+			raw_y1 = y0;
+			raw_y2 = raw_y1 + CPK_RB16( &s->data[8] );
+		}
+		else raw_y2 = CPK_RB16( &s->data[8] );
+
+		if( s->coord_scale > 1 )
+		{
+			s->strips[i].x1 = raw_x1 / s->coord_scale;
+			s->strips[i].x2 = raw_x2 / s->coord_scale;
+			s->strips[i].y1 = raw_y1 / s->coord_scale;
+			s->strips[i].y2 = raw_y2 / s->coord_scale;
+		}
+		else
+		{
+			s->strips[i].x1 = raw_x1;
+			s->strips[i].x2 = raw_x2;
+			s->strips[i].y1 = raw_y1;
+			s->strips[i].y2 = raw_y2;
+		}
 
 		strip_size = CPK_RB24( &s->data[1] ) - 12;
 		if( strip_size < 0 )
@@ -297,13 +319,13 @@ static qboolean Cinepak_DecodeInternal( cpk_decode_t *s )
 			return false;
 
 		s->data += strip_size;
-		y0 = s->strips[i].y2;
+		y0 = raw_y2;
 	}
 
 	return true;
 }
 
-qboolean Cinepak_Init( cinepak_decoder_t *dec, int width, int height, poolhandle_t mempool )
+qboolean Cinepak_Init( cinepak_decoder_t *dec, int width, int height, int src_width, int src_height, poolhandle_t mempool )
 {
 	int aligned_w = ( width + 3 ) & ~3;
 	int aligned_h = ( height + 3 ) & ~3;
@@ -315,6 +337,12 @@ qboolean Cinepak_Init( cinepak_decoder_t *dec, int width, int height, poolhandle
 	dec->width = aligned_w;
 	dec->height = aligned_h;
 	dec->stride = aligned_w * 3;
+	dec->coord_scale = 1;
+	if( src_width > 0 && src_height > 0 &&
+		( src_width != width || src_height != height ) &&
+		src_width % width == 0 && src_height % height == 0 &&
+		src_width / width == src_height / height )
+		dec->coord_scale = src_width / width;
 	dec->palette_video = false;
 	dec->sega_film_skip_bytes = -1;
 	dec->rgb = Mem_Malloc( mempool, dec->stride * aligned_h );
@@ -344,6 +372,7 @@ qboolean Cinepak_Decode( cinepak_decoder_t *dec, const byte *data, size_t size )
 	ctx.height = dec->height;
 	ctx.stride = dec->stride;
 	ctx.rgb = dec->rgb;
+	ctx.coord_scale = dec->coord_scale;
 	ctx.sega_film_skip_bytes = dec->sega_film_skip_bytes;
 
 	if( !Cinepak_PredecodeCheck( &ctx ))

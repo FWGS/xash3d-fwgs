@@ -433,7 +433,7 @@ void FS_Init( void )
 		host.menulib[0] = 0;
 
 #if XASH_GAMECUBE
-	FS_SetSmokeBootMode( Sys_CheckParm( "-gcmap" ));
+	FS_SetSmokeBootMode( Sys_CheckParm( "-gcmap" ) || !GCube_HasWritableStorage() );
 #endif
 }
 

@@ -67,6 +67,17 @@ void R_GetTextureParms( int *w, int *h, int texnum )
 Draw_StretchPicImplementation
 =============
 */
+#if XASH_GAMECUBE
+static int R_TextureRowStride( const image_t *pic )
+{
+	int stride = pic->width;
+
+	if( pic->srcWidth > stride )
+		stride = pic->srcWidth;
+	return stride;
+}
+#endif
+
 static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t *pic )
 {
 	int      skip;
@@ -128,6 +139,62 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 	else
 		buffer = pic->pixels[0];
 
+#if XASH_GAMECUBE
+	{
+		int row_stride = R_TextureRowStride( pic );
+
+#pragma omp parallel for schedule(static)
+		for( int v = 0; v < height; v++ )
+		{
+			int     alpha1 = vid.alpha;
+			pixel_t *dest = vid.buffer + ( y + v ) * vid.rowbytes + x;
+			uint    sv = ( skip + v ) * ( t2 - t1 ) / h + t1;
+			pixel_t *source = buffer + sv * row_stride + s1;
+
+			uint f = 0;
+			uint fstep = (( s2 - s1 ) << 16 ) / w;
+
+			for( uint u = 0; u < w; u++ )
+			{
+				pixel_t src = source[f >> 16];
+				int     alpha = alpha1;
+				f += fstep;
+
+				if( transparent )
+				{
+					alpha &= src >> ( 16 - 3 );
+					src = src << 3;
+				}
+
+				if( alpha == 0 )
+					continue;
+
+				if( vid.color != COLOR_WHITE )
+					src = vid.modmap[( src & 0xff00 ) | ( vid.color >> 8 )] << 8 | ( src & vid.color & 0xff ) | (( src & 0xff ) >> 3 );
+
+				if( vid.rendermode == kRenderTransAdd )
+				{
+					pixel_t screen = dest[u];
+					dest[u] = vid.addmap[( src & 0xff00 ) | ( screen >> 8 )] << 8 | ( screen & 0xff ) | (( src & 0xff ) >> 0 );
+				}
+				else if( vid.rendermode == kRenderScreenFadeModulate )
+				{
+					pixel_t screen = dest[u];
+					dest[u] = BLEND_COLOR( screen, vid.color );
+				}
+				else if( alpha < 7 ) // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
+				{
+					pixel_t screen = dest[u];                    //  | 0xff & screen & src ;
+					dest[u] = BLEND_ALPHA( alpha, src, screen ); // vid.alphamap[( alpha << 16)|(src & 0xff00)|(screen>>8)] << 8 | (screen & 0xff) >> 3 | ((src & 0xff) >> 3);
+				}
+				else
+					dest[u] = src;
+
+			}
+		}
+		return;
+	}
+#endif
 
 #pragma omp parallel for schedule(static)
 	for( int v = 0; v < height; v++ )
@@ -200,6 +267,21 @@ void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1,
 	pic = R_GetTexture( texnum );
 	if( !pic || pic->width <= 0 || pic->height <= 0 )
 		return;
+
+#if XASH_GAMECUBE
+	if( !Q_strcmp( pic->name, "*cintexture" ))
+	{
+		int row_stride = R_TextureRowStride( pic );
+		int col_stride = pic->height;
+
+		if( pic->srcHeight > col_stride )
+			col_stride = pic->srcHeight;
+
+		R_DrawStretchPicImplementation( x, y, w, h, row_stride * s1, col_stride * t1,
+			row_stride * s2, col_stride * t2, pic );
+		return;
+	}
+#endif
 
 	R_DrawStretchPicImplementation( x, y, w, h, pic->width * s1, pic->height * t1,
 		pic->width * s2, pic->height * t2, pic );
@@ -292,6 +374,18 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 	if( !tex )
 		return;
 
+#if XASH_GAMECUBE
+	{
+		qboolean is_cin = !Q_strcmp( tex->name, "*cintexture" );
+
+		if( is_cin )
+		{
+			width = cols;
+			height = rows;
+		}
+	}
+#endif
+
 	switch( fmt )
 	{
 	case PF_RGBA_32:
@@ -340,6 +434,10 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 		ClearBits( tex->flags, TF_HAS_ALPHA );
 	}
 
+	tex->width = width;
+	tex->height = height;
+	tex->srcWidth = cols;
+	tex->srcHeight = rows;
 	pixels = tex->pixels[0];
 #if XASH_GAMECUBE
 	GC_BuildRGB565Tables();
@@ -419,11 +517,13 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 
 #if XASH_GAMECUBE
 gc_texture_update_done:
+	if( !Q_strcmp( tex->name, "*cintexture" ))
+		R_SetPendingCinematicBGRA( cols, rows, buffer );
 	gc_update_count++;
 	if( gc_update_count <= 2 || gc_update_count == 15 || gc_update_count == 30 || gc_update_count == 60 )
 	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: texture update %u tex=%s %dx%d src=%dx%d fmt=%d mid565=%u,%u,%u packed=0x%04X\n",
-			gc_update_count, tex->name, width, height, cols, rows, fmt,
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: texture update %u tex=%s stored=%dx%d src=%dx%d fmt=%d mid565=%u,%u,%u packed=0x%04X\n",
+			gc_update_count, tex->name, tex->width, tex->height, cols, rows, fmt,
 			gc_mid_r, gc_mid_g, gc_mid_b, gc_mid_packed );
 	}
 #endif

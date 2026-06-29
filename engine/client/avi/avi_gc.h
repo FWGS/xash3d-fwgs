@@ -41,12 +41,15 @@ struct movie_state_s
 	double			start_time;
 	int			width;
 	int			height;
+	int			decode_scale;
 	int			upload_width;
 	int			upload_height;
 	int			x, y, w, h;
 	int			texture;
 	qboolean		active;
 	qboolean		paused;
+	qboolean		playback_started;
+	qboolean		frame_on_gpu;
 };
 
 #endif // AVI_GC_H

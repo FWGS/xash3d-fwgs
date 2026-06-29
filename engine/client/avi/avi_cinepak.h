@@ -15,11 +15,12 @@ typedef struct cinepak_decoder_s
 	int	width;
 	int	height;
 	int	stride;
+	int	coord_scale;
 	int	palette_video;
 	int	sega_film_skip_bytes;
 } cinepak_decoder_t;
 
-qboolean Cinepak_Init( cinepak_decoder_t *dec, int width, int height, poolhandle_t mempool );
+qboolean Cinepak_Init( cinepak_decoder_t *dec, int width, int height, int src_width, int src_height, poolhandle_t mempool );
 void Cinepak_Free( cinepak_decoder_t *dec );
 qboolean Cinepak_Decode( cinepak_decoder_t *dec, const byte *data, size_t size );
 

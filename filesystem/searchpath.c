@@ -232,6 +232,14 @@ void FS_AddGameDirectory( const char *dir, uint flags )
 	stringlist_t list;
 	searchpath_t *search;
 
+#if XASH_GAMECUBE
+	if( !FS_SysFolderExists( dir ))
+	{
+		Con_Reportf( "Xash3D GameCube: skipping missing searchpath %s\n", dir );
+		return;
+	}
+#endif
+
 	stringlistinit( &list );
 	listdirectory( &list, dir, false );
 	stringlistsort( &list );
@@ -412,7 +420,7 @@ void FS_AddGameHierarchy( const char *dir, uint flags )
 #if XASH_GAMECUBE
 	if( fs_gc_smoke_boot && !COM_StringEmpty( fs_rodir ))
 	{
-		Con_Reportf( "Xash3D GameCube: smoke boot skipping mutable searchpaths for %s\n", dir );
+		Con_Reportf( "Xash3D GameCube: read-only boot skipping mutable searchpaths for %s\n", dir );
 		return;
 	}
 #endif
@@ -681,6 +689,9 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 
 			if( !has_game_dir )
 			{
+#if XASH_GAMECUBE
+				if( COM_StringEmpty( fs_rodir ))
+#endif
 				Con_Printf( S_ERROR "game directory \"%s\" not exist\n", fs_gamedir );
 
 				// revert to base game directory

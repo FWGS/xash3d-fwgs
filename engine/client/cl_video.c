@@ -95,9 +95,45 @@ static int SCR_AddDefaultStartupVids( void )
 {
 	int c = 0;
 
-	c = SCR_AddStartupVid( c, "media/valve.avi" );
+	if( FS_FileExists( "media/sierra.avi", false ))
+		c = SCR_AddStartupVid( c, "media/sierra.avi" );
+	if( FS_FileExists( "media/valve.avi", false ))
+		c = SCR_AddStartupVid( c, "media/valve.avi" );
 	if( c > 0 )
 		Con_Reportf( "Xash3D GameCube: using read-only startup AVI playlist (%d)\n", c );
+	return c;
+}
+
+static int SCR_LoadStartupVidList( void )
+{
+	byte *afile;
+	char *pfile;
+	string token;
+	int c = 0;
+
+	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, NULL, false );
+	if( afile )
+	{
+		pfile = (char *)afile;
+
+		while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
+		{
+			if( Q_stricmp( COM_FileExtension( token ), "avi" ))
+				continue;
+			if( !FS_FileExists( token, false ))
+				continue;
+
+			c = SCR_AddStartupVid( c, token );
+			if( c >= MAX_MOVIES )
+				break;
+		}
+
+		Mem_Free( afile );
+	}
+
+	if( c <= 0 )
+		c = SCR_AddDefaultStartupVids();
+
 	return c;
 }
 #endif
@@ -128,29 +164,19 @@ void SCR_CheckStartupVids( void )
 	}
 
 #if XASH_GAMECUBE
-	c = SCR_AddDefaultStartupVids();
+	c = SCR_LoadStartupVidList();
 	if( c > 0 )
 		goto run_cinematic;
 #endif
 
 	if( !FS_FileExists( DEFAULT_VIDEOLIST_PATH, false ))
 	{
-#if XASH_GAMECUBE
-		c = SCR_AddDefaultStartupVids();
-		if( c > 0 )
-			goto run_cinematic;
-#endif
 		SCR_CreateStartupVids();
 	}
 
 	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, NULL, false );
 	if( !afile )
 	{
-#if XASH_GAMECUBE
-		c = SCR_AddDefaultStartupVids();
-		if( c > 0 )
-			goto run_cinematic;
-#endif
 		return; // something bad happens
 	}
 
@@ -176,6 +202,7 @@ run_cinematic:
 	if( c > 0 )
 	{
 		cls.movienum = 1;
+		Con_Reportf( "Xash3D GameCube: startup intro playlist (%d)\n", c );
 		if( !SCR_PlayCinematic( cls.movies[0] ))
 		{
 			cls.movienum = -1;
@@ -247,12 +274,13 @@ SCR_PlayCinematic
 qboolean SCR_PlayCinematic( const char *arg )
 {
 	int x, y, w, h;
+#if !XASH_GAMECUBE
 	double video_ratio, screen_ratio, scale;
+	const char	*fullpath = FS_GetDiskPath( arg, false );
+#endif
 #if XASH_GAMECUBE
 	string movie_path;
 	char *option;
-#else
-	const char	*fullpath = FS_GetDiskPath( arg, false );
 #endif
 
 #if !XASH_GAMECUBE
@@ -279,6 +307,13 @@ qboolean SCR_PlayCinematic( const char *arg )
 		return false;
 	}
 
+#if XASH_GAMECUBE
+	/* Fullscreen 320x240 upload matches the GameCube framebuffer. */
+	x = 0;
+	y = 0;
+	w = refState.width;
+	h = refState.height;
+#else
 	video_ratio = (double)w / (double)h;
 	screen_ratio = (double)refState.width / (double)refState.height;
 
@@ -300,6 +335,7 @@ qboolean SCR_PlayCinematic( const char *arg )
 		x = 0;
 		y = (refState.height - h) / 2.0;
 	}
+#endif
 
 	if( AVI_HaveAudioTrack( cin_state ))
 	{
@@ -351,7 +387,12 @@ void SCR_InitCinematic( void )
 {
 	AVI_Initailize ();
 	cin_state = AVI_GetState( CIN_MAIN );
+#if XASH_GAMECUBE
+	/* Match the 320x240 GameCube framebuffer one-to-one. */
+	cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 320, 240, NULL, TF_NOMIPMAP|TF_CLAMP );
+#else
 	cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 64, 64, NULL, TF_NOMIPMAP|TF_CLAMP );
+#endif
 }
 
 int SCR_GetCinematicTexture( void )

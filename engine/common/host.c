@@ -1375,6 +1375,14 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			{
 				Con_Reportf( "Xash3D GameCube: no gcmap argument\n" );
 			}
+
+			if( Sys_CheckParm( "-gcnewgame" ))
+			{
+				Con_Reportf( "Xash3D GameCube: gcnewgame begin\n" );
+				Cbuf_AddText( "gc_playstart\n" );
+				Cbuf_Execute();
+				Con_Reportf( "Xash3D GameCube: gcnewgame queued\n" );
+			}
 		}
 	#endif
 	SCR_CheckStartupVids();	// must be last

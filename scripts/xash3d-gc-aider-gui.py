@@ -79,8 +79,9 @@ TOP_DOCK_TITLES = ("Progress", "Model Server", "Automation", "Pipeline", "Tools"
 SETTINGS_PATH = DEFAULT_REPO / ".ai/state/xash3d-gc-aider-gui-settings.json"
 OVERNIGHT_SESSION_PATH = DEFAULT_REPO / ".ai/state/overnight-session-latest.md"
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL|SKIP)\]\s+(.+)$")
-QWABLE_5_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
-QWABLE_5_SERVED_NAME = "qwen-local"
+LOCAL_CODER_MODEL_ID = "Qwen/Qwen3-Coder-Next-FP8"
+LOCAL_CODER_SERVED_NAME = "qwen-local"
+LEGACY_MODEL_ID = "DJLougen/Qwable-5-27B-Coder"
 HEADER_LOGO = DEFAULT_REPO / "assets/ui/nintendo-gamecube-logo.svg"
 HEADER_MARK = DEFAULT_REPO / "assets/ui/gamecube-mark.svg"
 DOCK_CLOSE_ICON = DEFAULT_REPO / "assets/ui/dock-close-white.svg"
@@ -107,6 +108,18 @@ LOG_HIGHLIGHT_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
 	(re.compile(r"(?i)(WARNING|WARN:|blocked|OVER_BUDGET)"), GC_ORANGE),
 	(re.compile(r"(?i)(verify: OK|GIT SAVED|accepted patch|ENGINE_READY)"), GC_CYAN),
 )
+
+
+def local_coder_label() -> str:
+	return "Local Coder"
+
+
+def env_first(*names: str, default: str = "") -> str:
+	for name in names:
+		value = os.environ.get(name)
+		if value is not None and value != "":
+			return value
+	return default
 
 
 def load_font(path: Path, fallback: str) -> str:
@@ -161,11 +174,15 @@ def local_hf_snapshot(model_id: str) -> Path | None:
 	return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
-def default_qwable_model() -> str:
-	if os.environ.get("QWABLE_5_MODEL"):
-		return os.environ["QWABLE_5_MODEL"]
-	snapshot = local_hf_snapshot(QWABLE_5_MODEL_ID)
-	return str(snapshot) if snapshot else QWABLE_5_MODEL_ID
+def default_local_coder_model() -> str:
+	override = env_first("LOCAL_CODER_MODEL", "QWABLE_5_MODEL")
+	if override:
+		return override
+	snapshot = local_hf_snapshot(LOCAL_CODER_MODEL_ID)
+	if snapshot:
+		return str(snapshot)
+	legacy_snapshot = local_hf_snapshot(LEGACY_MODEL_ID)
+	return str(legacy_snapshot) if legacy_snapshot else LOCAL_CODER_MODEL_ID
 
 
 def gopex_vllm_launcher() -> list[str] | None:
@@ -177,22 +194,24 @@ def gopex_vllm_launcher() -> list[str] | None:
 	return None
 
 
-def vllm_qwable_command() -> str:
-	served_name = os.environ.get("QWABLE_5_SERVED_NAME", QWABLE_5_SERVED_NAME)
+def vllm_local_coder_command() -> str:
+	served_name = env_first("LOCAL_CODER_SERVED_NAME", "QWABLE_5_SERVED_NAME",
+		default=LOCAL_CODER_SERVED_NAME)
 	command = (gopex_vllm_launcher() or ["vllm"]) + [
-		"serve", default_qwable_model(),
+		"serve", default_local_coder_model(),
 		"--host", "127.0.0.1",
 		"--port", "8072",
 		"--served-model-name", served_name,
 		"--language-model-only",
-		"--max-model-len", os.environ.get("QWABLE_5_MAX_MODEL_LEN", "65536"),
-		"--max-num-seqs", os.environ.get("QWABLE_5_MAX_NUM_SEQS", "1"),
-		"--gpu-memory-utilization", os.environ.get("QWABLE_5_GPU_MEMORY_UTILIZATION", "0.85"),
+		"--max-model-len", env_first("LOCAL_CODER_MAX_MODEL_LEN", "QWABLE_5_MAX_MODEL_LEN", default="32768"),
+		"--max-num-seqs", env_first("LOCAL_CODER_MAX_NUM_SEQS", "QWABLE_5_MAX_NUM_SEQS", default="1"),
+		"--gpu-memory-utilization", env_first(
+			"LOCAL_CODER_GPU_MEMORY_UTILIZATION", "QWABLE_5_GPU_MEMORY_UTILIZATION", default="0.85"),
 	]
-	reasoning_parser = os.environ.get("QWABLE_5_REASONING_PARSER", "").strip()
+	reasoning_parser = env_first("LOCAL_CODER_REASONING_PARSER", "QWABLE_5_REASONING_PARSER").strip()
 	if reasoning_parser:
 		command.extend(["--reasoning-parser", reasoning_parser])
-	if os.environ.get("QWABLE_5_ENABLE_TOOL_CHOICE", "").strip() in {"1", "true", "yes"}:
+	if env_first("LOCAL_CODER_ENABLE_TOOL_CHOICE", "QWABLE_5_ENABLE_TOOL_CHOICE").strip() in {"1", "true", "yes"}:
 		command.extend([
 			"--enable-auto-tool-choice",
 			"--tool-call-parser", "qwen3_coder",
@@ -249,13 +268,13 @@ def migrate_model_command(command_text: str) -> str:
 	if seqs and seqs.isdigit() and int(seqs) > 2:
 		needs_rebuild = True
 	if command_has_flag(command, "--enable-auto-tool-choice") and \
-		os.environ.get("QWABLE_5_ENABLE_TOOL_CHOICE", "").strip().lower() not in {"1", "true", "yes"}:
+		env_first("LOCAL_CODER_ENABLE_TOOL_CHOICE", "QWABLE_5_ENABLE_TOOL_CHOICE").strip().lower() not in {"1", "true", "yes"}:
 		needs_rebuild = True
 	if command_has_flag(command, "--reasoning-parser") and \
-		not os.environ.get("QWABLE_5_REASONING_PARSER", "").strip():
+		not env_first("LOCAL_CODER_REASONING_PARSER", "QWABLE_5_REASONING_PARSER").strip():
 		needs_rebuild = True
 	if needs_rebuild:
-		return vllm_qwable_command()
+		return vllm_local_coder_command()
 	return command_text
 
 

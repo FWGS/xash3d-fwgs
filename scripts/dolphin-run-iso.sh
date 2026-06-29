@@ -16,6 +16,7 @@ fi
 ISO="$(readlink -f "$ISO")"
 USER_DIR="${DOLPHIN_USER_DIR:-$ROOT/.ai/dolphin-user-run}"
 DOLPHIN_MMU="${DOLPHIN_MMU:-True}"
+DOLPHIN_VIDEO="${DOLPHIN_VIDEO:-OGL}"
 mkdir -p "$USER_DIR/Config"
 
 cat > "$USER_DIR/Config/Dolphin.ini" <<EOF
@@ -30,6 +31,9 @@ SIDevice0 = 6
 SIDevice1 = 0
 SIDevice2 = 0
 SIDevice3 = 0
+[Audio]
+Enable = True
+Volume = 100
 [Interface]
 ConfirmStop = False
 EOF
@@ -67,8 +71,15 @@ fi
 
 echo "Launching $ISO"
 echo "  Profile: $USER_DIR"
+echo "  Video backend: $DOLPHIN_VIDEO (set DOLPHIN_VIDEO=Null for headless probes)"
 echo "  Look for: View -> Log -> OSReport  (or Log Window with OSREPORT enabled)"
 echo "  Expected guest line: Xash3D GameCube: bootstrap"
-echo "  Expected video: dark blue frame within ~1s (early splash)"
+echo "  Expected flow: intro AVI (~10 s) then Half-Life main menu"
+if [[ "${DOLPHIN_SKIP_BUILD:-0}" != "1" ]]; then
+	echo "  Building engine + ISO (set DOLPHIN_SKIP_BUILD=1 to skip)..."
+	bash "$ROOT/scripts/build-gamecube.sh"
+	ISO="${ISO:-OUT/xash3d-gc.iso}"
+	ISO="$(readlink -f "$ISO")"
+fi
 
-exec "${DOLPHIN_CMD[@]}" -u "$USER_DIR" -b -e "$ISO" -v Null
+exec "${DOLPHIN_CMD[@]}" -u "$USER_DIR" -b -e "$ISO" -v "$DOLPHIN_VIDEO"

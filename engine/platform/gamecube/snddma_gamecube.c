@@ -33,6 +33,14 @@ static qboolean GCube_NullAudioInit( void );
 
 static qboolean GCube_AudioShouldStartVoice( void )
 {
+	/* Intro/menu cinematics stream PCM through the raw channel mixer. */
+	if( cls.state == ca_cinematic && snd.streaming )
+	{
+		if((int)( snd.paintedtime - snd.soundtime ) <= 0 )
+			return false;
+		return true;
+	}
+
 	/* G48: defer ASND voice start until cls.state == ca_active gameplay. */
 	if( cls.state != ca_active )
 		return false;

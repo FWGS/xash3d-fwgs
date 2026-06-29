@@ -349,14 +349,16 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 static char *gc_argv[GC_MAX_ARGV];
 static char gc_smoke_map[MAX_QPATH] = GC_DEFAULT_SMOKE_MAP;
 static qboolean gc_smoke_map_configured;
+static qboolean gc_newgame_configured;
 
-static void GCube_LoadSmokeMapOverride( void )
+static void GCube_LoadDiscBootOverrides( void )
 {
 #if XASH_GAMECUBE
 	FILE *file;
 	char line[128];
 
 	gc_smoke_map_configured = false;
+	gc_newgame_configured = false;
 	Q_strncpy( gc_smoke_map, GC_DEFAULT_SMOKE_MAP, sizeof( gc_smoke_map ));
 
 	if( !gc_dvd_mounted )
@@ -382,6 +384,20 @@ static void GCube_LoadSmokeMapOverride( void )
 
 		while( *cursor == ' ' || *cursor == '\t' )
 			cursor++;
+		if( cursor[0] == '#' || cursor[0] == '\0' || cursor[0] == '\r' || cursor[0] == '\n' )
+			continue;
+
+		if( !Q_strnicmp( cursor, "newgame", 7 ))
+		{
+			char ch = cursor[7];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_newgame_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override newgame\n" );
+				continue;
+			}
+		}
+
 		if( Q_strnicmp( cursor, "map", 3 ) || ( cursor[3] != ' ' && cursor[3] != '\t' ))
 			continue;
 
@@ -417,7 +433,7 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		return in_argc;
 	}
 
-	GCube_LoadSmokeMapOverride();
+	GCube_LoadDiscBootOverrides();
 
 	gc_argv[fake_argc++] = "xash";
 	gc_argv[fake_argc++] = "-dev";
@@ -425,14 +441,18 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "-log";
 	gc_argv[fake_argc++] = "-game";
 	gc_argv[fake_argc++] = "valve";
-	gc_argv[fake_argc++] = "-nointro";
 	if( gc_smoke_map_configured )
 	{
+		gc_argv[fake_argc++] = "-nointro";
 		gc_argv[fake_argc++] = "-toconsole";
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
 		gc_argv[fake_argc++] = "map";
 		gc_argv[fake_argc++] = gc_smoke_map;
+	}
+	else if( gc_newgame_configured )
+	{
+		gc_argv[fake_argc++] = "-gcnewgame";
 	}
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "320";

@@ -102,11 +102,19 @@ static void GL_SetTextureDimensions( image_t *tex, int width, int height, int de
 	tex->srcWidth = width;
 	tex->srcHeight = height;
 
-	// low-memory/quality-0 path clamps textures smaller to reduce upload pressure
-	// quality 2 (high fidelity) preserves the default maxTextureSize of 1024
 #if XASH_GAMECUBE
+	/* Cinematic texture must stay at framebuffer size; never halve for quality tiers. */
+	if( !Q_strcmp( tex->name, "*cintexture" ))
+	{
+		tex->width = Q_max( 1, width );
+		tex->height = Q_max( 1, height );
+		tex->depth = Q_max( 1, depth );
+		return;
+	}
+
 	{
 		int q = GC_GetVisualQuality();
+
 		if( q == 0 )
 			maxTextureSize = 128;
 		else if( q == 1 )
@@ -788,7 +796,7 @@ int GAME_EXPORT GL_CreateTexture( const char *name, int width, int height, const
 	// Internal textures (default, particle, white, gray, black) are small utility
 	// textures; clamping to 64x64 in quality 0 saves memory without visual impact
 #if XASH_GAMECUBE
-	if( GC_GetVisualQuality() == 0 )
+	if( GC_GetVisualQuality() == 0 && Q_strcmp( name, "*cintexture" ))
 	{
 		if( r_empty.width > 64 ) r_empty.width = 64;
 		if( r_empty.height > 64 ) r_empty.height = 64;
@@ -798,6 +806,18 @@ int GAME_EXPORT GL_CreateTexture( const char *name, int width, int height, const
 #endif
 
 	int texnum = GL_LoadTextureInternal( name, &r_empty, flags );
+
+#if XASH_GAMECUBE
+	if( texnum > 0 && !Q_strcmp( name, "*cintexture" ))
+	{
+		image_t *cin = R_GetTexture( texnum );
+
+		cin->width = width;
+		cin->height = height;
+		cin->srcWidth = width;
+		cin->srcHeight = height;
+	}
+#endif
 
 	if( !Q_strcmp( name, REF_DEFAULT_TEXTURE ))
 		tr.defaultTexture = texnum;

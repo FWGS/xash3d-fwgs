@@ -9,45 +9,33 @@ fi
 
 # shellcheck source=scripts/dolphin-probe-lock.sh
 source scripts/dolphin-probe-lock.sh
+# shellcheck source=scripts/dolphin-probe-common.sh
+source scripts/dolphin-probe-common.sh
 
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
 ISO_PATH="$ROOT/$LOG_DIR/xash3d-gc.iso"
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
-TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
+DOLPHIN_RETAIL="${DOLPHIN_RETAIL:-0}"
+DOLPHIN_NEWGAME="${DOLPHIN_NEWGAME:-0}"
+if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
+	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-240}"
+elif (( DOLPHIN_NEWGAME )); then
+	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-240}"
+else
+	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
+fi
 FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
+RETAIL_MENU_MARKER="Xash3D GameCube: screen gameui fallback ready"
+INTRO_MARKER="Xash3D GameCube: intro AVI decoded first frame"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 INPUT_MARKER="Xash3D GameCube: input polling active"
 G45_READY_MARKER="Xash3D GameCube: G45 controller ready"
 G45_WAIT_MARKER="Xash3D GameCube: G45 controller waiting"
 G37_FATAL_MARKER="G37: Intentional fatal error triggered"
-
-probe_log_has() {
-	local needle="$1"
-	[[ -f "$LOG_DIR/stderr.log" ]] && grep -aqsF "$needle" "$LOG_DIR/stderr.log"
-	[[ -f "$LOG_DIR/stdout.log" ]] && grep -aqsF "$needle" "$LOG_DIR/stdout.log"
-}
-
-probe_guest_error() {
-	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|Invalid read from|MMU fault|Program attempting to read' \
-		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
-}
-
-finalize_probe() {
-	local status="$1"
-	local exit_code="$2"
-	python3 scripts/dolphin-probe-analyze.py \
-		--repo "$ROOT" \
-		--log-dir "$LOG_DIR" \
-		--smoke-map "$SMOKE_MAP" \
-		--probe-status "$status" \
-		--update-state
-	exit "$exit_code"
-}
-
 DOLPHIN_MMU="${DOLPHIN_MMU:-True}"
 
 mkdir -p "$USER_DIR/Config"
@@ -85,44 +73,68 @@ EOF
 
 echo "==> Building GameCube engine and DOL..."
 if ! bash scripts/build-gamecube.sh; then
-    echo "FAIL: Engine build failed."
-    exit 1
+	echo "FAIL: Engine build failed."
+	exit 1
 fi
 
 echo "==> Building GameCube disc image..."
 BUILD_ARGS=(--output "$ISO_PATH")
-if [[ -n "$SMOKE_MAP" ]]; then
+if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
+	SMOKE_MAP=""
+	BUILD_ARGS+=(--data Half-Life/valve)
+	echo "==> Retail disc mode (full valve assets, no smoke map)"
+	if (( DOLPHIN_NEWGAME )); then
+		BUILD_ARGS+=(--probe-newgame)
+	fi
+elif [[ -n "$SMOKE_MAP" ]]; then
 	BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")
 fi
 if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
-    echo "FAIL: Disc build failed."
-    exit 1
+	echo "FAIL: Disc build failed."
+	exit 1
 fi
 
 DOLPHIN_CMD=()
 DOLPHIN_IS_FLATPAK=0
-EXTRA_ARGS=()
+GUEST_ARGS=()
 if (( GC_FATAL_TEST )); then
-	EXTRA_ARGS+=("-gc_fatal_test" "1")
+	GUEST_ARGS+=("-gc_fatal_test" "1")
 fi
+if (( DOLPHIN_NEWGAME )); then
+	GUEST_ARGS+=("-gcnewgame")
+	if [[ -z "$SMOKE_MAP" ]] || [[ "$SMOKE_MAP" == "c0a0e" ]]; then
+		SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
+	fi
+	MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
+	echo "==> New Game probe mode (expect map ${SMOKE_MAP})"
+fi
+append_guest_args() {
+	local -n _cmd="$1"
+	if ((${#GUEST_ARGS[@]})); then
+		_cmd+=(-- "${GUEST_ARGS[@]}")
+	fi
+}
 
 if [[ "${DOLPHIN_EXECUTABLE:-}" == flatpak:* ]]; then
 	DOLPHIN_FLATPAK_ID="${DOLPHIN_EXECUTABLE#flatpak:}"
 	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "$DOLPHIN_FLATPAK_ID"
-		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
+		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	append_guest_args DOLPHIN_CMD
 	DOLPHIN_IS_FLATPAK=1
 elif [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
-	DOLPHIN_CMD=("$DOLPHIN_EXECUTABLE" -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
+	DOLPHIN_CMD=("$DOLPHIN_EXECUTABLE" -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	append_guest_args DOLPHIN_CMD
 elif command -v dolphin-emu >/dev/null 2>&1; then
-	DOLPHIN_CMD=(dolphin-emu -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
+	DOLPHIN_CMD=(dolphin-emu -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	append_guest_args DOLPHIN_CMD
 elif command -v dolphin >/dev/null 2>&1; then
-	DOLPHIN_CMD=(dolphin -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
+	DOLPHIN_CMD=(dolphin -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	append_guest_args DOLPHIN_CMD
 elif command -v flatpak >/dev/null 2>&1 && \
 	flatpak info "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1; then
-	# Dolphin's Flatpak has no home-directory access by default. Grant only this
-	# repository so it can read the ISO and use the isolated probe profile.
 	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}"
-		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null "${EXTRA_ARGS[@]}")
+		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	append_guest_args DOLPHIN_CMD
 	DOLPHIN_IS_FLATPAK=1
 else
 	echo "HOST_FAILURE: Dolphin executable or Flatpak was not found."
@@ -141,32 +153,7 @@ cleanup_flatpak_dolphin() {
 echo "==> Launching bounded Dolphin boot probe (${TIMEOUT_SEC}s, MMU=${DOLPHIN_MMU})..."
 set +e
 if (( DOLPHIN_IS_FLATPAK )); then
-	flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
-	trap cleanup_flatpak_dolphin EXIT
-	"${DOLPHIN_CMD[@]}" >"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log" &
-	DOLPHIN_WRAPPER_PID=$!
-	DOLPHIN_EXIT=124
-	DEADLINE=$(($(date +%s) + TIMEOUT_SEC))
-	MAP_READY_AT=0
-	while (( $(date +%s) < DEADLINE )); do
-		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
-			if (( MAP_READY_AT == 0 )); then
-				MAP_READY_AT=$(date +%s)
-			fi
-			if probe_guest_error; then
-				DOLPHIN_EXIT=3
-				break
-			fi
-			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= MAP_READY_AT + FRAME_SAMPLE_SEC )); then
-				DOLPHIN_EXIT=0
-				break
-			fi
-		elif probe_log_has "$GUEST_MARKER" && probe_guest_error; then
-			DOLPHIN_EXIT=3
-			break
-		fi
-		sleep 2
-	done
+	probe_wait_flatpak
 else
 	timeout --signal=TERM --kill-after=5 "$TIMEOUT_SEC" "${DOLPHIN_CMD[@]}" \
 		>"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log"
@@ -174,8 +161,7 @@ else
 fi
 set -e
 
-# Flatpak's wrapper can exit while the emulator process remains in the app
-# sandbox. Stop the instance launched by this bounded probe.
+sleep 2
 if (( DOLPHIN_IS_FLATPAK )); then
 	cleanup_flatpak_dolphin
 	trap - EXIT
@@ -184,10 +170,7 @@ fi
 
 echo "==> Analyzing probe results..."
 LOG_FILES=("$LOG_DIR/stdout.log" "$LOG_DIR/stderr.log")
-GUEST_FOUND=0
-READY_FOUND=0
-MAP_FOUND=0
-INPUT_FOUND=0
+GUEST_FOUND=0 READY_FOUND=0 MAP_FOUND=0 INPUT_FOUND=0
 grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
 grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
 grep -aqsF "$INPUT_MARKER" "${LOG_FILES[@]}" && INPUT_FOUND=1
@@ -195,105 +178,79 @@ if [[ -n "$SMOKE_MAP" ]]; then
 	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
 fi
 
-# G37: Check for intentional fatal error verification BEFORE other guest error checks.
-# When GC_FATAL_TEST is set, the guest is expected to trigger Sys_Error and halt.
 if (( GC_FATAL_TEST )) && probe_log_has "$G37_FATAL_MARKER" && probe_log_has "$GUEST_MARKER"; then
 	echo "G37_VERIFIED: Intentional fatal error triggered and breadcrumb reported."
 	echo "Logs: $LOG_DIR"
 	finalize_probe g37_verified 0
 fi
 
-if (( MAP_FOUND )) && (( INPUT_FOUND )); then
-	if probe_guest_error; then
-		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
-		echo "Logs: $LOG_DIR"
-		finalize_probe guest_failure 3
-	fi
-	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
-	if probe_log_has "$G45_READY_MARKER"; then
-		grep -ahF "$G45_READY_MARKER" "${LOG_FILES[@]}" | tail -1
-		echo "G45_STATUS: PASS"
-	elif probe_log_has "$G45_WAIT_MARKER"; then
-		echo "G45_STATUS: WAIT"
+if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( READY_FOUND )) && probe_log_has "$RETAIL_MENU_MARKER" && (( ! DOLPHIN_NEWGAME )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."
+	if probe_log_has "$INTRO_MARKER"; then
+		echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached menu on GameCube."
 	else
-		echo "G45_STATUS: WEAK"
+		echo "RETAIL_READY: Half-Life retail boot reached menu on GameCube (intro AVI marker not seen)."
 	fi
+	probe_report_g45
+	echo "Logs: $LOG_DIR"
+	finalize_probe retail_ready 0
+fi
+
+if (( MAP_FOUND )) && (( INPUT_FOUND )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map load was observed, followed by a guest error."
+	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
+	probe_report_g45
 	echo "Logs: $LOG_DIR"
 	finalize_probe map_ready 0
 fi
 
-# Map loaded but input not detected. This might be a partial success for map loading
-# but fails the "interactive" criteria of G19 if no controller is detected/polling.
 if (( MAP_FOUND )) && ! (( INPUT_FOUND )); then
-	if probe_guest_error; then
-		echo "GUEST_FAILURE: Map load was observed, followed by a guest error."
-		echo "Logs: $LOG_DIR"
-		finalize_probe guest_failure 3
-	fi
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map load was observed, followed by a guest error."
 	echo "MAP_LOADED_NO_INPUT: Map ${SMOKE_MAP} loaded but input polling marker was not found."
 	echo "Logs: $LOG_DIR"
 	finalize_probe map_loaded_no_input 0
 fi
 
-if (( READY_FOUND )) && [[ -z "$SMOKE_MAP" ]]; then
-	if probe_guest_error; then
-		echo "GUEST_FAILURE: Engine readiness was observed, followed by a guest error."
-		echo "Logs: $LOG_DIR"
-		finalize_probe guest_failure 3
-	fi
+if (( READY_FOUND )) && [[ -z "$SMOKE_MAP" ]] && [[ "$DOLPHIN_RETAIL" != "1" ]]; then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Engine readiness was observed, followed by a guest error."
 	echo "ENGINE_READY: Xash3D initialized its GameCube subsystems."
 	echo "Logs: $LOG_DIR"
 	finalize_probe engine_ready 0
 fi
 
-if (( GUEST_FOUND )) && probe_guest_error; then
-	if (( ! GC_FATAL_TEST )); then
-		echo "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
-		echo "Logs: $LOG_DIR"
-		finalize_probe guest_failure 3
-	fi
+if (( GUEST_FOUND )) && probe_guest_error && (( ! GC_FATAL_TEST )); then
+	probe_fail_guest guest_failure "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
 fi
 
 if grep -aEiq 'Unknown instruction|Invalid read from|IntCPU:|apploader.*(fail|error)' "${LOG_FILES[@]}"; then
-	echo "BOOT_FAILURE: Dolphin reached the disc but the guest image failed before bootstrap."
-	echo "Logs: $LOG_DIR"
-	finalize_probe boot_failure 3
+	probe_fail_guest boot_failure "BOOT_FAILURE: Dolphin reached the disc but the guest image failed before bootstrap."
 fi
 
 if (( DOLPHIN_EXIT == 124 || DOLPHIN_EXIT == 137 )); then
 	if [[ -n "$SMOKE_MAP" ]] && (( READY_FOUND )); then
 		echo "MAP_TIMEOUT: Engine readiness was observed, but ${SMOKE_MAP} did not load within ${TIMEOUT_SEC}s."
-		grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 	elif (( GUEST_FOUND )); then
 		echo "GUEST_TIMEOUT: Bootstrap was observed, but engine readiness was not reached within ${TIMEOUT_SEC}s."
-		grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 	else
 		echo "INCONCLUSIVE_TIMEOUT: No guest bootstrap within ${TIMEOUT_SEC}s."
 	fi
+	grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 	echo "Logs: $LOG_DIR"
 	finalize_probe map_timeout 4
 fi
 
 if (( DOLPHIN_EXIT != 0 )); then
-	if (( GUEST_FOUND )); then
-		if (( ! GC_FATAL_TEST )); then
-			echo "GUEST_FAILURE: Dolphin exited $DOLPHIN_EXIT after guest bootstrap."
-			echo "Logs: $LOG_DIR"
-			finalize_probe guest_failure 3
-		fi
+	if (( GUEST_FOUND )) && (( ! GC_FATAL_TEST )); then
+		probe_fail_guest guest_failure "GUEST_FAILURE: Dolphin exited $DOLPHIN_EXIT after guest bootstrap."
 	fi
 	if (( ! GUEST_FOUND )); then
-		echo "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
-		echo "Logs: $LOG_DIR"
-		finalize_probe host_failure 2
+		probe_fail_guest host_failure "HOST_FAILURE: Dolphin exited $DOLPHIN_EXIT before guest bootstrap."
 	fi
 fi
 
 if (( ! MAP_FOUND )) && (( ! READY_FOUND )) && (( ! GUEST_FOUND )); then
 	echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without reaching engine readiness."
-	if (( GUEST_FOUND )); then
-		grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
-	fi
+	(( GUEST_FOUND )) && grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 	echo "Logs: $LOG_DIR"
 	finalize_probe inconclusive_exit 4
 fi

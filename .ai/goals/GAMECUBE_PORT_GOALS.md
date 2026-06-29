@@ -1364,6 +1364,64 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not allow final sign-off to combine Dolphin evidence from one build with
   hardware/manual evidence from another build.
 
+## G78 [ ] Unify goal state into a single machine-readable source of truth
+
+- Replace the current split-brain goal model across markdown ledger entries,
+  `docs/GAMECUBE_PORT_PLAN.md`, GUI overrides, and
+  `.ai/logs/goal-loop-state.json` with one canonical machine-readable state file
+  and generated human-readable views.
+- Keep goal IDs, states, evidence links, notes, and manual/skip/block reasons in
+  the canonical store, then make the GUI, goal loop, evidence gates, and docs
+  read from the same data model instead of re-parsing independent text formats.
+- Fail verification when a goal state change updates only one surface or leaves
+  the canonical state and rendered ledger/docs out of sync.
+
+## G79 [ ] Split the porting GUI into model, process, and view layers
+
+- Break `scripts/xash3d-gc-aider-gui.py` into smaller modules so UI widgets,
+  persistent settings, process supervision, goal editing, Dolphin telemetry,
+  and overnight automation are no longer owned by one monolithic window class.
+- Define a stable internal API for goal refresh, process launch/stop, log
+  streaming, and dashboard snapshots so small UX changes no longer risk startup
+  regressions across unrelated features.
+- Keep behavior parity with the current GUI while adding module-level tests or
+  smoke checks for the extracted non-Qt logic.
+
+## G80 [ ] Add concurrency and mutation safety to goal and automation state
+
+- Protect `.ai/goals/GAMECUBE_PORT_GOALS.md`, `.ai/state/goal-loop-memory.json`,
+  and `.ai/logs/goal-loop-state.json` against overlapping GUI, supervisor, and
+  rescue writes using explicit locks or atomic write/replace flows.
+- Ensure the GUI cannot rewrite a selected goal while the goal loop is
+  simultaneously persisting state for the same goal without surfacing a conflict
+  or reloading the latest version first.
+- Add a verifier or stress script that simulates rapid refresh/skip/run/stop
+  operations and fails on malformed JSON, truncated ledgers, or lost updates.
+
+## G81 [ ] Remove auto-commit surprise paths from the automation harness
+
+- Change the Aider/goal-loop workflow so a normal automation pass cannot create
+  checkpoint or GUI-only commits without an explicit operator-approved policy or
+  a clearly surfaced local-only branch strategy.
+- Keep dirty-worktree preservation available, but make the default behavior
+  predictable: report what would be committed, why, and under which policy
+  before automation mutates Git history.
+- Record all autonomous Git mutations in a structured local audit log that the
+  GUI can display alongside the current pass and goal.
+
+## G82 [ ] Isolate GameCube boot-flow stabilization from fallback-menu UX work
+
+- Separate the GameCube boot path into explicit phases for intro AVI, renderer
+  readiness, software framebuffer availability, fallback menu rendering, and
+  client/game DLL bring-up so crashes can be attributed to one phase instead of
+  mixed boot/menu codepaths.
+- Remove or gate any renderer/menu drawing path that can issue GX software fill
+  or command execution before the required GameCube video buffers and client
+  state are known valid.
+- Add phase-specific logging and a reproducible smoke probe that reports the
+  exact last successful boot phase before an invalid read/write, guest crash, or
+  black-screen failure.
+
 ### G75 [Manual checkpoint] Sign off native Half-Life 1 GameCube completion
 
 - Confirm all automatic goals are complete, all manual hardware evidence has

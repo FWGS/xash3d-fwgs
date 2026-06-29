@@ -15,6 +15,35 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "server.h"
+#if XASH_GAMECUBE
+#include "client.h"
+#include "mod_local.h"
+
+void GC_DrawLoadingStatus( const char *message, const char *details );
+void R_GcmapRestoreAfterMapLoad( void );
+void GC_RestoreVideoMemoryAfterMapLoad( void );
+
+static void SV_GameCubePlayStart_f( void )
+{
+	const char *map = ( GI && !COM_StringEmpty( GI->startmap )) ? GI->startmap : "c0a0";
+
+	Con_Reportf( "Xash3D GameCube: play start begin %s\n", map );
+	GC_DrawLoadingStatus( "NEW GAME", map );
+	Mod_FreeUnused();
+	if( SV_SpawnServer( map, NULL, false ))
+	{
+		SV_SpawnEntities( map );
+		SV_ActivateServer( true );
+		Con_Reportf( "Xash3D GameCube: play start ready %s\n", map );
+	}
+	else
+	{
+		R_GcmapRestoreAfterMapLoad();
+		GC_RestoreVideoMemoryAfterMapLoad();
+		Con_Reportf( "Xash3D GameCube: play start failed %s\n", map );
+	}
+}
+#endif
 
 /*
 =================
@@ -1070,6 +1099,10 @@ void SV_InitHostCommands( void )
 	if( host.type == HOST_NORMAL )
 	{
 		Cmd_AddRestrictedCommand( "newgame", SV_NewGame_f, "begin new game" );
+#if XASH_GAMECUBE
+		Cmd_AddRestrictedCommand( "gc_playstart", SV_GameCubePlayStart_f,
+			"start Half-Life from the GameCube fallback menu" );
+#endif
 		Cmd_AddRestrictedCommand( "hazardcourse", SV_HazardCourse_f, "starting a Hazard Course" );
 		Cmd_AddRestrictedCommand( "map_background", SV_MapBackground_f, "set background map" );
 		Cmd_AddRestrictedCommand( "load", SV_Load_f, "load a saved game file" );

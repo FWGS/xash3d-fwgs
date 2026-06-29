@@ -234,12 +234,22 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
 	}
 }
 
+static qboolean GC_ShouldUseProbeInputFallback( void )
+{
+	/* Automated Dolphin probes do not receive real SI pad packets. */
+	if( Sys_CheckParm( "-gcmap" ))
+		return true;
+	/* Disc-only retail boots match the same headless Dolphin profile. */
+	if( !GCube_HasWritableStorage( ))
+		return true;
+	return false;
+}
+
 static void GC_EnableProbeInputFallback( void )
 {
 	if( gc_connected || gc_probe_synthetic )
 		return;
-	/* Automated Dolphin gcmap probes do not receive real SI pad packets. */
-	if( !Sys_CheckParm( "-gcmap" ))
+	if( !GC_ShouldUseProbeInputFallback( ))
 		return;
 
 	memset( gc_pad, 0, sizeof( gc_pad ));

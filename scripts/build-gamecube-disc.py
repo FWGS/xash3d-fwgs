@@ -598,6 +598,10 @@ def write_smoke_overrides(output: Path, smoke_map: str) -> None:
 	(media / "StartupVids.txt").write_text("", encoding="ascii")
 
 
+def write_probe_newgame_override(output: Path) -> None:
+	(output / "gamecube.cfg").write_text("newgame\n", encoding="ascii")
+
+
 def write_startup_vids(output: Path) -> None:
 	movies = [
 		relative
@@ -615,19 +619,42 @@ def write_startup_vids(output: Path) -> None:
 	)
 
 
-def create_startup_vids_overlay(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
+GC_RETAIL_VALVE_RC = """// GameCube retail boot (read-only disc)
+exec autoexec.cfg
+stuffcmds
+"""
+
+def create_retail_boot_overlays(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
+	"""Overlay read-only retail boot files without mutating the source tree."""
+	output.mkdir(parents=True, exist_ok=True)
+
+	(output / "config.cfg").write_text("\n", encoding="ascii")
+	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
+	(output / "valve.rc").write_text(GC_RETAIL_VALVE_RC, encoding="ascii")
+
+	overlays: list[tuple[str, Path]] = [
+		("config.cfg", output / "config.cfg"),
+		("autoexec.cfg", output / "autoexec.cfg"),
+		("valve.rc", output / "valve.rc"),
+	]
+
 	movies = [
 		relative
 		for relative in SMOKE_INTRO_MEDIA
 		if (source / relative).is_file()
 	]
-	if not movies:
-		return ()
+	if movies:
+		media = output / "media"
+		media.mkdir(exist_ok=True)
+		startup_vids = media / "StartupVids.txt"
+		startup_vids.write_text("".join(f"{movie}\n" for movie in movies), encoding="ascii")
+		overlays.append(("media/StartupVids.txt", startup_vids))
 
-	path = output / "media" / "StartupVids.txt"
-	path.parent.mkdir(parents=True, exist_ok=True)
-	path.write_text("".join(f"{movie}\n" for movie in movies), encoding="ascii")
-	return (("media/StartupVids.txt", path),)
+	return tuple(overlays)
+
+
+def create_startup_vids_overlay(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
+	return create_retail_boot_overlays(source, output)
 
 
 def smoke_map_resources(map_path: Path) -> set[str]:
@@ -912,6 +939,11 @@ def main() -> None:
 		help="stage boot essentials and original user-provided startup AVI files for local intro testing",
 	)
 	parser.add_argument(
+		"--probe-newgame",
+		action="store_true",
+		help="stage valve/gamecube.cfg with a newgame override for automated retail probes",
+	)
+	parser.add_argument(
 		"--apploader-source", type=Path, default=script_dir / "gamecube-apploader.c"
 	)
 	parser.add_argument(
@@ -925,6 +957,8 @@ def main() -> None:
 			
 	if args.smoke_map and args.intro_avi:
 		parser.error("--smoke-map and --intro-avi are mutually exclusive")
+	if args.smoke_map and args.probe_newgame:
+		parser.error("--smoke-map and --probe-newgame are mutually exclusive")
 
 	# Full retail builds validate source, then stage a normalized copy for the ISO.
 	if not args.smoke_map and not args.intro_avi:
@@ -992,6 +1026,9 @@ def main() -> None:
 				for error in validation_errors:
 					print(f"  - {error}", file=sys.stderr)
 				sys.exit(1)
+
+			if args.probe_newgame:
+				write_probe_newgame_override(staged_data)
 
 			overlay_root = Path(temp) / "overlay" / "valve"
 			overlays = create_startup_vids_overlay(args.data, overlay_root)
