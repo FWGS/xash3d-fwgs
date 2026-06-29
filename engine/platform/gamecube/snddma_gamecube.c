@@ -20,7 +20,6 @@ The engine mixer writes native PowerPC big-endian stereo 16-bit samples.
 static qboolean gc_audio_real;
 static qboolean gc_audio_unpaused;
 static qboolean gc_voice_started;
-static volatile int gc_audio_painting;
 static volatile int gc_audio_play_chunk;
 static volatile unsigned int gc_audio_chunks_submitted;
 static volatile unsigned int gc_audio_nonzero_chunks;
@@ -31,6 +30,18 @@ static unsigned int gc_audio_submit_polls;
 static int16_t gc_audio_chunk[2][GC_AUDIO_CHUNK_SAMPLES * 2] __attribute__((aligned( 32 )));
 
 static qboolean GCube_NullAudioInit( void );
+
+static qboolean GCube_AudioShouldStartVoice( void )
+{
+	if( cls.state != ca_active && cls.state != ca_cinematic && cls.state != ca_connected )
+		return false;
+
+	/* Wait until the mixer has written ahead of the DMA read head. */
+	if((int)( snd.paintedtime - snd.soundtime ) <= 0 )
+		return false;
+
+	return true;
+}
 
 static int GC_AudioPeak( const int16_t *samples, int sample_count )
 {
@@ -59,7 +70,7 @@ static void GC_AudioCopyChunk( int16_t *dest, int bytes )
 	if( !dest || bytes <= 0 )
 		return;
 
-	if( !snd.buffer || gc_audio_painting )
+	if( !snd.buffer )
 	{
 		memset( dest, 0, bytes );
 		gc_audio_last_peak = 0;
@@ -238,15 +249,11 @@ void SNDDMA_Shutdown( void )
 
 void SNDDMA_BeginPainting( void )
 {
-	gc_audio_painting = 1;
 }
 
 void SNDDMA_Submit( void )
 {
-	gc_audio_painting = 0;
-
-	if( gc_audio_real && !gc_audio_unpaused &&
-		( cls.state == ca_active || cls.state == ca_cinematic ))
+	if( gc_audio_real && !gc_audio_unpaused && GCube_AudioShouldStartVoice( ))
 	{
 		if( !gc_voice_started && !GCube_StartVoice( ))
 		{
@@ -257,7 +264,8 @@ void SNDDMA_Submit( void )
 
 		ASND_Pause( 0 );
 		gc_audio_unpaused = true;
-		Con_Reportf( "Xash3D GameCube: audio voice started state=%d\n", cls.state );
+		Con_Reportf( "Xash3D GameCube: audio voice started state=%d painted=%d sound=%d\n",
+			cls.state, snd.paintedtime, snd.soundtime );
 	}
 
 	if( gc_audio_real && gc_voice_started )

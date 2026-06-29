@@ -205,7 +205,7 @@ def read_tail(path: Path, limit: int = 64000) -> str:
 	return data[-limit:]
 
 
-GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
+GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL|SKIP)\]\s+(.+)$")
 
 
 def active_goal(root: Path) -> str:

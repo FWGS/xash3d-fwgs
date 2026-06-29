@@ -57,6 +57,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p "$LOG_BASE"
+echo "Campaign audit log directory: $LOG_BASE"
 
 CHAPTERS=(
 	"Black Mesa Inbound|c0a0e|c0a0 c0a0a c0a0b c0a0c c0a0d c0a0e"
@@ -129,11 +130,14 @@ for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 done
 
 if [[ "$DRY_RUN" == "1" ]]; then
+	echo "Campaign audit: dry run enabled; enumerating maps without launching probes."
 	for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 		IFS='|' read -r chapter representative full_maps <<<"$row"
 		maps="$representative"
 		[[ "$MODE" == "full" ]] && maps="$full_maps"
+		echo "Campaign audit: chapter '$chapter' -> maps: $maps"
 		for map_name in $maps; do
+			echo "Campaign audit: checking local BSP $MAP_SOURCE_DIR/${map_name}.bsp"
 			if map_exists "$map_name"; then
 				printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$chapter" "$map_name" "NOT_TESTED" "N/A" "dry run" "N/A" >> "$MAP_TSV"
 			else
@@ -146,6 +150,17 @@ else
 		echo "missing executable map compatibility script: $MAP_COMPAT_SCRIPT" >&2
 		exit 1
 	fi
+	echo "Campaign audit: using compatibility probe $MAP_COMPAT_SCRIPT"
+	echo "Campaign audit: selected mode '$MODE' with timeout ${PROBE_TIMEOUT}s"
+	for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
+		IFS='|' read -r chapter representative full_maps <<<"$row"
+		maps="$representative"
+		[[ "$MODE" == "full" ]] && maps="$full_maps"
+		echo "Campaign audit: chapter '$chapter' queued with maps: $maps"
+		for map_name in $maps; do
+			echo "Campaign audit: queue probe for $MAP_SOURCE_DIR/${map_name}.bsp"
+		done
+	done
 	MAP_COMPAT_TIMEOUT="$PROBE_TIMEOUT" "$MAP_COMPAT_SCRIPT" "${MAPS[@]}" | tee "$LOG_BASE/map-compat.log"
 	LATEST_MAP_LOG="$(ls -td .ai/logs/map-compat-* 2>/dev/null | head -n 1 || true)"
 	if [[ -z "$LATEST_MAP_LOG" || ! -s "$LATEST_MAP_LOG/results.tsv" ]]; then
@@ -154,12 +169,15 @@ else
 	fi
 	cp "$LATEST_MAP_LOG/results.tsv" "$LOG_BASE/raw-map-results.tsv"
 	cp "$LATEST_MAP_LOG/summary.md" "$LOG_BASE/raw-map-summary.md" 2>/dev/null || true
+	echo "Campaign audit: loaded probe results from $LATEST_MAP_LOG/results.tsv"
 
 	for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 		IFS='|' read -r chapter representative full_maps <<<"$row"
 		maps="$representative"
 		[[ "$MODE" == "full" ]] && maps="$full_maps"
+		echo "Campaign audit: extracting result rows for chapter '$chapter'"
 		for map_name in $maps; do
+			echo "Campaign audit: reading probe result for $map_name"
 			awk -F '\t' -v chapter="$chapter" -v map="$map_name" '
 				NR > 1 && $1 == map {
 					printf "%s\t%s\t%s\t%s\t%s\t%s\n", chapter, $1, $2, $3, $4, $5
@@ -173,6 +191,7 @@ for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 	IFS='|' read -r chapter representative full_maps <<<"$row"
 	maps="$representative"
 	[[ "$MODE" == "full" ]] && maps="$full_maps"
+	echo "Campaign audit: classifying chapter '$chapter'"
 	total=0
 	loaded=0
 	blocker=""
@@ -203,8 +222,10 @@ for row in "${AUDIT_CHAPTER_ROWS[@]}"; do
 		classification="blocked"
 	fi
 	printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$chapter" "$classification" "$loaded" "$total" "${blocker:-none}" "$MAP_TSV" >> "$CHAPTER_TSV"
+	echo "Campaign audit: chapter '$chapter' classified as $classification ($loaded/$total loaded)"
 done
 
+echo "Campaign audit: parsing trigger_changelevel entities from BSP files under $MAP_SOURCE_DIR"
 python3 - "$MAP_SOURCE_DIR" "$TRANSITION_TSV" "${AUDIT_CHAPTER_ROWS[@]}" <<'PY'
 import re
 import struct

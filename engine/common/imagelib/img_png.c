@@ -495,6 +495,32 @@ qboolean Image_LoadPNG( const char *name, const byte *buffer, fs_offset_t filesi
 
 	Mem_Free( uncompressed_buffer );
 
+#if XASH_GAMECUBE
+	{
+		int decode_width = image.width;
+		int decode_height = image.height;
+
+		if( Image_GCClampDecodeSize( name, &decode_width, &decode_height )
+			&& ( decode_width != image.width || decode_height != image.height ))
+		{
+			qboolean resampled = false;
+			byte *scaled = Image_ResampleInternal( image.rgba, image.width, image.height, decode_width, decode_height, image.type, &resampled );
+
+			if( resampled && scaled )
+			{
+				Mem_Free( image.rgba );
+				image.width = decode_width;
+				image.height = decode_height;
+				image.size = decode_width * decode_height * 4;
+				image.rgba = Mem_Malloc( host.imagepool, image.size );
+				memcpy( image.rgba, scaled, image.size );
+				Con_Reportf( "Xash3D GameCube: ImageLib load %s resampled to %dx%d alloc=%s\n",
+					name, decode_width, decode_height, Q_memprint( image.size ));
+			}
+		}
+	}
+#endif
+
 	return true;
 }
 

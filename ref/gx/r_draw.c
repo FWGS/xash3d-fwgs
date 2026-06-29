@@ -193,6 +193,9 @@ void Draw_Fill( int x, int y, int w, int h )
 	pixel_t src = vid.color;
 	int     alpha = vid.alpha;
 
+	if( !vid.buffer || vid.rowbytes <= 0 || vid.width <= 0 || vid.height <= 0 )
+		return;
+
 	if( x < 0 )
 		x = 0;
 

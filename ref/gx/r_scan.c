@@ -522,7 +522,7 @@ int kernel[2][2][2] =
 =============
 D_DrawSpans16
 
-  FIXME: actually make this subdivide by 16 instead of 8!!!
+GameCube uses SW_SPAN_CHUNK (16) to halve inverse-z setup cost per span.
 =============
 */
 void D_DrawSpans16( espan_t *pspan )
@@ -531,16 +531,16 @@ void D_DrawSpans16( espan_t *pspan )
 	pixel_t   *pbase, *pdest;
 	fixed16_t s, t, snext, tnext, sstep, tstep;
 	float     sdivz, tdivz, zi, z, du, dv, spancountminus1;
-	float     sdivz8stepu, tdivz8stepu, zi8stepu;
+	float     sdivzchunkstepu, tdivzchunkstepu, zichunkstepu;
 
 	sstep = 0; // keep compiler happy
 	tstep = 0; // ditto
 
 	pbase = cacheblock;
 
-	sdivz8stepu = d_sdivzstepu * 8;
-	tdivz8stepu = d_tdivzstepu * 8;
-	zi8stepu = d_zistepu * 8;
+	sdivzchunkstepu = d_sdivzstepu * SW_SPAN_CHUNK;
+	tdivzchunkstepu = d_tdivzstepu * SW_SPAN_CHUNK;
+	zichunkstepu = d_zistepu * SW_SPAN_CHUNK;
 
 	do
 	{
@@ -573,8 +573,8 @@ void D_DrawSpans16( espan_t *pspan )
 		do
 		{
 			// calculate s and t at the far end of the span
-			if( count >= 8 )
-				spancount = 8;
+			if( count >= SW_SPAN_CHUNK )
+				spancount = SW_SPAN_CHUNK;
 			else
 				spancount = count;
 
@@ -584,27 +584,27 @@ void D_DrawSpans16( espan_t *pspan )
 			{
 				// calculate s/z, t/z, zi->fixed s and t at far end of span,
 				// calculate s and t steps across span by shifting
-				sdivz += sdivz8stepu;
-				tdivz += tdivz8stepu;
-				zi += zi8stepu;
+				sdivz += sdivzchunkstepu;
+				tdivz += tdivzchunkstepu;
+				zi += zichunkstepu;
 				z = (float)0x10000 / zi; // prescale to 16.16 fixed-point
 
 				snext = (int)( sdivz * z ) + sadjust;
 				if( snext > bbextents )
 					snext = bbextents;
-				else if( snext < 8 )
-					snext = 8; // prevent round-off error on <0 steps from
+				else if( snext < SW_SPAN_CHUNK )
+					snext = SW_SPAN_CHUNK; // prevent round-off error on <0 steps from
 				//  from causing overstepping & running off the
 				//  edge of the texture
 
 				tnext = (int)( tdivz * z ) + tadjust;
 				if( tnext > bbextentt )
 					tnext = bbextentt;
-				else if( tnext < 8 )
-					tnext = 8; // guard against round-off error on <0 steps
+				else if( tnext < SW_SPAN_CHUNK )
+					tnext = SW_SPAN_CHUNK; // guard against round-off error on <0 steps
 
-				sstep = ( snext - s ) >> 3;
-				tstep = ( tnext - t ) >> 3;
+				sstep = ( snext - s ) >> SW_SPAN_CHUNK_SHIFT;
+				tstep = ( tnext - t ) >> SW_SPAN_CHUNK_SHIFT;
 			}
 			else
 			{
@@ -620,16 +620,16 @@ void D_DrawSpans16( espan_t *pspan )
 				snext = (int)( sdivz * z ) + sadjust;
 				if( snext > bbextents )
 					snext = bbextents;
-				else if( snext < 8 )
-					snext = 8; // prevent round-off error on <0 steps from
+				else if( snext < SW_SPAN_CHUNK )
+					snext = SW_SPAN_CHUNK; // prevent round-off error on <0 steps from
 				//  from causing overstepping & running off the
 				//  edge of the texture
 
 				tnext = (int)( tdivz * z ) + tadjust;
 				if( tnext > bbextentt )
 					tnext = bbextentt;
-				else if( tnext < 8 )
-					tnext = 8; // guard against round-off error on <0 steps
+				else if( tnext < SW_SPAN_CHUNK )
+					tnext = SW_SPAN_CHUNK; // guard against round-off error on <0 steps
 
 				if( spancount > 1 )
 				{
@@ -690,9 +690,7 @@ void D_DrawSpans16( espan_t *pspan )
 
 /*
 =============
-D_DrawSpans16
-
-  FIXME: actually make this subdivide by 16 instead of 8!!!
+D_AlphaSpans16
 =============
 */
 void D_AlphaSpans16( espan_t *pspan )
@@ -701,7 +699,7 @@ void D_AlphaSpans16( espan_t *pspan )
 	pixel_t   *pbase, *pdest;
 	fixed16_t s, t, snext, tnext, sstep, tstep;
 	float     sdivz, tdivz, zi, z, du, dv, spancountminus1;
-	float     sdivz8stepu, tdivz8stepu, zi8stepu;
+	float     sdivzchunkstepu, tdivzchunkstepu, zichunkstepu;
 	int       izi, izistep;
 	short     *pz;
 
@@ -710,9 +708,9 @@ void D_AlphaSpans16( espan_t *pspan )
 
 	pbase = cacheblock;
 
-	sdivz8stepu = d_sdivzstepu * 8;
-	tdivz8stepu = d_tdivzstepu * 8;
-	zi8stepu = d_zistepu * 8;
+	sdivzchunkstepu = d_sdivzstepu * SW_SPAN_CHUNK;
+	tdivzchunkstepu = d_tdivzstepu * SW_SPAN_CHUNK;
+	zichunkstepu = d_zistepu * SW_SPAN_CHUNK;
 	izistep = (int)( d_zistepu * 0x8000 * 0x10000 );
 
 	do
@@ -748,8 +746,8 @@ void D_AlphaSpans16( espan_t *pspan )
 		do
 		{
 			// calculate s and t at the far end of the span
-			if( count >= 8 )
-				spancount = 8;
+			if( count >= SW_SPAN_CHUNK )
+				spancount = SW_SPAN_CHUNK;
 			else
 				spancount = count;
 
@@ -759,27 +757,27 @@ void D_AlphaSpans16( espan_t *pspan )
 			{
 				// calculate s/z, t/z, zi->fixed s and t at far end of span,
 				// calculate s and t steps across span by shifting
-				sdivz += sdivz8stepu;
-				tdivz += tdivz8stepu;
-				zi += zi8stepu;
+				sdivz += sdivzchunkstepu;
+				tdivz += tdivzchunkstepu;
+				zi += zichunkstepu;
 				z = (float)0x10000 / zi; // prescale to 16.16 fixed-point
 
 				snext = (int)( sdivz * z ) + sadjust;
 				if( snext > bbextents )
 					snext = bbextents;
-				else if( snext < 8 )
-					snext = 8; // prevent round-off error on <0 steps from
+				else if( snext < SW_SPAN_CHUNK )
+					snext = SW_SPAN_CHUNK; // prevent round-off error on <0 steps from
 				//  from causing overstepping & running off the
 				//  edge of the texture
 
 				tnext = (int)( tdivz * z ) + tadjust;
 				if( tnext > bbextentt )
 					tnext = bbextentt;
-				else if( tnext < 8 )
-					tnext = 8; // guard against round-off error on <0 steps
+				else if( tnext < SW_SPAN_CHUNK )
+					tnext = SW_SPAN_CHUNK; // guard against round-off error on <0 steps
 
-				sstep = ( snext - s ) >> 3;
-				tstep = ( tnext - t ) >> 3;
+				sstep = ( snext - s ) >> SW_SPAN_CHUNK_SHIFT;
+				tstep = ( tnext - t ) >> SW_SPAN_CHUNK_SHIFT;
 			}
 			else
 			{
@@ -795,16 +793,16 @@ void D_AlphaSpans16( espan_t *pspan )
 				snext = (int)( sdivz * z ) + sadjust;
 				if( snext > bbextents )
 					snext = bbextents;
-				else if( snext < 8 )
-					snext = 8; // prevent round-off error on <0 steps from
+				else if( snext < SW_SPAN_CHUNK )
+					snext = SW_SPAN_CHUNK; // prevent round-off error on <0 steps from
 				//  from causing overstepping & running off the
 				//  edge of the texture
 
 				tnext = (int)( tdivz * z ) + tadjust;
 				if( tnext > bbextentt )
 					tnext = bbextentt;
-				else if( tnext < 8 )
-					tnext = 8; // guard against round-off error on <0 steps
+				else if( tnext < SW_SPAN_CHUNK )
+					tnext = SW_SPAN_CHUNK; // guard against round-off error on <0 steps
 
 				if( spancount > 1 )
 				{
@@ -890,9 +888,7 @@ void D_AlphaSpans16( espan_t *pspan )
 
 /*
 =============
-D_DrawSpans16
-
-  FIXME: actually make this subdivide by 16 instead of 8!!!
+D_BlendSpans16
 =============
 */
 void D_BlendSpans16( espan_t *pspan, int alpha )
@@ -901,7 +897,7 @@ void D_BlendSpans16( espan_t *pspan, int alpha )
 	pixel_t   *pbase, *pdest;
 	fixed16_t s, t, snext, tnext, sstep, tstep;
 	float     sdivz, tdivz, zi, z, du, dv, spancountminus1;
-	float     sdivz8stepu, tdivz8stepu, zi8stepu;
+	float     sdivzchunkstepu, tdivzchunkstepu, zichunkstepu;
 	int       izi, izistep;
 	short     *pz;
 
@@ -915,9 +911,9 @@ void D_BlendSpans16( espan_t *pspan, int alpha )
 
 	pbase = cacheblock;
 
-	sdivz8stepu = d_sdivzstepu * 8;
-	tdivz8stepu = d_tdivzstepu * 8;
-	zi8stepu = d_zistepu * 8;
+	sdivzchunkstepu = d_sdivzstepu * SW_SPAN_CHUNK;
+	tdivzchunkstepu = d_tdivzstepu * SW_SPAN_CHUNK;
+	zichunkstepu = d_zistepu * SW_SPAN_CHUNK;
 	izistep = (int)( d_zistepu * 0x8000 * 0x10000 );
 
 	do
@@ -953,8 +949,8 @@ void D_BlendSpans16( espan_t *pspan, int alpha )
 		do
 		{
 			// calculate s and t at the far end of the span
-			if( count >= 8 )
-				spancount = 8;
+			if( count >= SW_SPAN_CHUNK )
+				spancount = SW_SPAN_CHUNK;
 			else
 				spancount = count;
 
@@ -964,27 +960,27 @@ void D_BlendSpans16( espan_t *pspan, int alpha )
 			{
 				// calculate s/z, t/z, zi->fixed s and t at far end of span,
 				// calculate s and t steps across span by shifting
-				sdivz += sdivz8stepu;
-				tdivz += tdivz8stepu;
-				zi += zi8stepu;
+				sdivz += sdivzchunkstepu;
+				tdivz += tdivzchunkstepu;
+				zi += zichunkstepu;
 				z = (float)0x10000 / zi; // prescale to 16.16 fixed-point
 
 				snext = (int)( sdivz * z ) + sadjust;
 				if( snext > bbextents )
 					snext = bbextents;
-				else if( snext < 8 )
-					snext = 8; // prevent round-off error on <0 steps from
+				else if( snext < SW_SPAN_CHUNK )
+					snext = SW_SPAN_CHUNK; // prevent round-off error on <0 steps from
 				//  from causing overstepping & running off the
 				//  edge of the texture
 
 				tnext = (int)( tdivz * z ) + tadjust;
 				if( tnext > bbextentt )
 					tnext = bbextentt;
-				else if( tnext < 8 )
-					tnext = 8; // guard against round-off error on <0 steps
+				else if( tnext < SW_SPAN_CHUNK )
+					tnext = SW_SPAN_CHUNK; // guard against round-off error on <0 steps
 
-				sstep = ( snext - s ) >> 3;
-				tstep = ( tnext - t ) >> 3;
+				sstep = ( snext - s ) >> SW_SPAN_CHUNK_SHIFT;
+				tstep = ( tnext - t ) >> SW_SPAN_CHUNK_SHIFT;
 			}
 			else
 			{
@@ -1000,16 +996,16 @@ void D_BlendSpans16( espan_t *pspan, int alpha )
 				snext = (int)( sdivz * z ) + sadjust;
 				if( snext > bbextents )
 					snext = bbextents;
-				else if( snext < 8 )
-					snext = 8; // prevent round-off error on <0 steps from
+				else if( snext < SW_SPAN_CHUNK )
+					snext = SW_SPAN_CHUNK; // prevent round-off error on <0 steps from
 				//  from causing overstepping & running off the
 				//  edge of the texture
 
 				tnext = (int)( tdivz * z ) + tadjust;
 				if( tnext > bbextentt )
 					tnext = bbextentt;
-				else if( tnext < 8 )
-					tnext = 8; // guard against round-off error on <0 steps
+				else if( tnext < SW_SPAN_CHUNK )
+					tnext = SW_SPAN_CHUNK; // guard against round-off error on <0 steps
 
 				if( spancount > 1 )
 				{
@@ -1101,9 +1097,7 @@ void D_BlendSpans16( espan_t *pspan, int alpha )
 
 /*
 =============
-D_DrawSpans16
-
-  FIXME: actually make this subdivide by 16 instead of 8!!!
+D_AddSpans16
 =============
 */
 void D_AddSpans16( espan_t *pspan )
@@ -1112,7 +1106,7 @@ void D_AddSpans16( espan_t *pspan )
 	pixel_t   *pbase, *pdest;
 	fixed16_t s, t, snext, tnext, sstep, tstep;
 	float     sdivz, tdivz, zi, z, du, dv, spancountminus1;
-	float     sdivz8stepu, tdivz8stepu, zi8stepu;
+	float     sdivzchunkstepu, tdivzchunkstepu, zichunkstepu;
 	int       izi, izistep;
 	short     *pz;
 
@@ -1121,9 +1115,9 @@ void D_AddSpans16( espan_t *pspan )
 
 	pbase = cacheblock;
 
-	sdivz8stepu = d_sdivzstepu * 8;
-	tdivz8stepu = d_tdivzstepu * 8;
-	zi8stepu = d_zistepu * 8;
+	sdivzchunkstepu = d_sdivzstepu * SW_SPAN_CHUNK;
+	tdivzchunkstepu = d_tdivzstepu * SW_SPAN_CHUNK;
+	zichunkstepu = d_zistepu * SW_SPAN_CHUNK;
 	izistep = (int)( d_zistepu * 0x8000 * 0x10000 );
 
 	do
@@ -1159,8 +1153,8 @@ void D_AddSpans16( espan_t *pspan )
 		do
 		{
 			// calculate s and t at the far end of the span
-			if( count >= 8 )
-				spancount = 8;
+			if( count >= SW_SPAN_CHUNK )
+				spancount = SW_SPAN_CHUNK;
 			else
 				spancount = count;
 
@@ -1170,27 +1164,27 @@ void D_AddSpans16( espan_t *pspan )
 			{
 				// calculate s/z, t/z, zi->fixed s and t at far end of span,
 				// calculate s and t steps across span by shifting
-				sdivz += sdivz8stepu;
-				tdivz += tdivz8stepu;
-				zi += zi8stepu;
+				sdivz += sdivzchunkstepu;
+				tdivz += tdivzchunkstepu;
+				zi += zichunkstepu;
 				z = (float)0x10000 / zi; // prescale to 16.16 fixed-point
 
 				snext = (int)( sdivz * z ) + sadjust;
 				if( snext > bbextents )
 					snext = bbextents;
-				else if( snext < 8 )
-					snext = 8; // prevent round-off error on <0 steps from
+				else if( snext < SW_SPAN_CHUNK )
+					snext = SW_SPAN_CHUNK; // prevent round-off error on <0 steps from
 				//  from causing overstepping & running off the
 				//  edge of the texture
 
 				tnext = (int)( tdivz * z ) + tadjust;
 				if( tnext > bbextentt )
 					tnext = bbextentt;
-				else if( tnext < 8 )
-					tnext = 8; // guard against round-off error on <0 steps
+				else if( tnext < SW_SPAN_CHUNK )
+					tnext = SW_SPAN_CHUNK; // guard against round-off error on <0 steps
 
-				sstep = ( snext - s ) >> 3;
-				tstep = ( tnext - t ) >> 3;
+				sstep = ( snext - s ) >> SW_SPAN_CHUNK_SHIFT;
+				tstep = ( tnext - t ) >> SW_SPAN_CHUNK_SHIFT;
 			}
 			else
 			{
@@ -1206,16 +1200,16 @@ void D_AddSpans16( espan_t *pspan )
 				snext = (int)( sdivz * z ) + sadjust;
 				if( snext > bbextents )
 					snext = bbextents;
-				else if( snext < 8 )
-					snext = 8; // prevent round-off error on <0 steps from
+				else if( snext < SW_SPAN_CHUNK )
+					snext = SW_SPAN_CHUNK; // prevent round-off error on <0 steps from
 				//  from causing overstepping & running off the
 				//  edge of the texture
 
 				tnext = (int)( tdivz * z ) + tadjust;
 				if( tnext > bbextentt )
 					tnext = bbextentt;
-				else if( tnext < 8 )
-					tnext = 8; // guard against round-off error on <0 steps
+				else if( tnext < SW_SPAN_CHUNK )
+					tnext = SW_SPAN_CHUNK; // guard against round-off error on <0 steps
 
 				if( spancount > 1 )
 				{

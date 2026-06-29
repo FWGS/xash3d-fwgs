@@ -217,6 +217,201 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	image.depth = 1;
+#if XASH_GAMECUBE
+	{
+		const int src_columns = columns;
+		const int src_rows = rows;
+		int decode_width = image.width;
+		int decode_height = image.height;
+		qboolean downsample = Image_GCClampDecodeSize( name, &decode_width, &decode_height );
+
+		image.width = decode_width;
+		image.height = decode_height;
+		image.size = image.width * image.height * bpp;
+		Con_Reportf( "Xash3D GameCube: ImageLib load %s src=%dx%d decode=%dx%d alloc=%s\n",
+			name, src_columns, src_rows, image.width, image.height, Q_memprint( image.size ));
+		image.rgba = Mem_Malloc( host.imagepool, image.size );
+		if( downsample && bpp == 4 )
+			memset( image.rgba, 0, image.size );
+
+		for( row = src_rows - 1; row >= 0; row-- )
+		{
+			const int src_row = src_rows - 1 - row;
+
+			if( !downsample )
+				pixbuf = image.rgba + (row * src_columns * bpp);
+
+			for( column = 0; column < src_columns; column++ )
+			{
+				byte	red, green, blue, alpha;
+				word	shortPixel;
+				int	c, k, palIndex;
+
+				switch( bhdr.bitsPerPixel )
+				{
+				case 1:
+					alpha = *buf_p++;
+					column--;	// ingnore main iterations
+					for( c = 0, k = 128; c < 8; c++, k >>= 1 )
+					{
+						if( ++column >= src_columns )
+							break;
+						red = green = blue = (!!(alpha & k) == 1 ? 0xFF : 0x00);
+						if( downsample && bpp == 4 )
+							Image_GCWriteRgbaSample( image.rgba, image.width, image.height, src_columns, src_rows, column - 1, src_row, red, green, blue, 0x00 );
+						else
+						{
+							*pixbuf++ = red;
+							*pixbuf++ = green;
+							*pixbuf++ = blue;
+							*pixbuf++ = 0x00;
+						}
+					}
+					break;
+				case 4:
+				{
+					byte nibble_byte = *buf_p++;
+
+					palIndex = nibble_byte >> 4;
+					if( load_qfont )
+					{
+						red = 255; green = 255; blue = 255;
+						alpha = palette[palIndex][2];
+					}
+					else
+					{
+						red = palette[palIndex][2];
+						green = palette[palIndex][1];
+						blue = palette[palIndex][0];
+						alpha = palette[palIndex][3];
+					}
+					if( downsample && bpp == 4 )
+						Image_GCWriteRgbaSample( image.rgba, image.width, image.height, src_columns, src_rows, column, src_row, red, green, blue, alpha );
+					else
+					{
+						*pixbuf++ = red;
+						*pixbuf++ = green;
+						*pixbuf++ = blue;
+						*pixbuf++ = alpha;
+					}
+					if( ++column == src_columns ) break;
+					palIndex = nibble_byte & 0x0F;
+					if( load_qfont )
+					{
+						red = 255; green = 255; blue = 255;
+						alpha = palette[palIndex][2];
+					}
+					else
+					{
+						red = palette[palIndex][2];
+						green = palette[palIndex][1];
+						blue = palette[palIndex][0];
+						alpha = palette[palIndex][3];
+					}
+					if( downsample && bpp == 4 )
+						Image_GCWriteRgbaSample( image.rgba, image.width, image.height, src_columns, src_rows, column, src_row, red, green, blue, alpha );
+					else
+					{
+						*pixbuf++ = red;
+						*pixbuf++ = green;
+						*pixbuf++ = blue;
+						*pixbuf++ = alpha;
+					}
+					break;
+				}
+				case 8:
+					palIndex = *buf_p++;
+					red = palette[palIndex][2];
+					green = palette[palIndex][1];
+					blue = palette[palIndex][0];
+					alpha = palette[palIndex][3];
+
+					if( Image_CheckFlag( IL_KEEP_8BIT ))
+					{
+						if( downsample )
+						{
+							const int dst_col = ( column * image.width ) / src_columns;
+							const int dst_row = ( src_row * image.height ) / src_rows;
+							image.rgba[dst_row * image.width + dst_col] = palIndex;
+						}
+						else
+							*pixbuf++ = palIndex;
+					}
+					else if( downsample && bpp == 4 )
+						Image_GCWriteRgbaSample( image.rgba, image.width, image.height, src_columns, src_rows, column, src_row, red, green, blue, alpha );
+					else
+					{
+						*pixbuf++ = red;
+						*pixbuf++ = green;
+						*pixbuf++ = blue;
+						*pixbuf++ = alpha;
+					}
+					break;
+				case 16:
+					shortPixel = buf_p[0] | (buf_p[1] << 8);
+					buf_p += 2;
+					blue = (shortPixel & ( 31 << 10 )) >> 7;
+					green = (shortPixel & ( 31 << 5 )) >> 2;
+					red = (shortPixel & ( 31 )) << 3;
+					alpha = 0xff;
+					if( downsample && bpp == 4 )
+						Image_GCWriteRgbaSample( image.rgba, image.width, image.height, src_columns, src_rows, column, src_row, red, green, blue, alpha );
+					else
+					{
+						*pixbuf++ = red;
+						*pixbuf++ = green;
+						*pixbuf++ = blue;
+						*pixbuf++ = alpha;
+					}
+					break;
+				case 24:
+					blue = *buf_p++;
+					green = *buf_p++;
+					red = *buf_p++;
+					alpha = 0xFF;
+					if( downsample && bpp == 4 )
+						Image_GCWriteRgbaSample( image.rgba, image.width, image.height, src_columns, src_rows, column, src_row, red, green, blue, alpha );
+					else
+					{
+						*pixbuf++ = red;
+						*pixbuf++ = green;
+						*pixbuf++ = blue;
+						*pixbuf++ = alpha;
+					}
+					break;
+				case 32:
+					blue = *buf_p++;
+					green = *buf_p++;
+					red = *buf_p++;
+					alpha = *buf_p++;
+					if( alpha != 255 ) image.flags |= IMAGE_HAS_ALPHA;
+					if( downsample && bpp == 4 )
+						Image_GCWriteRgbaSample( image.rgba, image.width, image.height, src_columns, src_rows, column, src_row, red, green, blue, alpha );
+					else
+					{
+						*pixbuf++ = red;
+						*pixbuf++ = green;
+						*pixbuf++ = blue;
+						*pixbuf++ = alpha;
+					}
+					break;
+				default:
+					Mem_Free( image.palette );
+					Mem_Free( image.rgba );
+					return false;
+				}
+
+				if( red != green || green != blue )
+					image.flags |= IMAGE_HAS_COLOR;
+
+				reflectivity[0] += red;
+				reflectivity[1] += green;
+				reflectivity[2] += blue;
+			}
+			buf_p += padSize;	// actual only for 4-bit bmps
+		}
+	}
+#else
 	image.size = image.width * image.height * bpp;
 	image.rgba = Mem_Malloc( host.imagepool, image.size );
 
@@ -342,6 +537,7 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 		}
 		buf_p += padSize;	// actual only for 4-bit bmps
 	}
+#endif
 
 	VectorDivide( reflectivity, ( image.width * image.height ), image.fogParams );
 	if( image.palette )

@@ -273,7 +273,7 @@ static void GC_PresentBuffer( void )
 	/* G36: Emit frame budget markers only for early frames to establish visual evidence.
 	 * Suppress per-frame SYS_Report in steady-state to reduce route-time render cost.
 	 * The first present reports 0ms so short smoke probes still get a parsable sample. */
-	if( gc_present_count <= 2 )
+	if( gc_present_count <= 16 )
 	{
 		now = Sys_FloatTime();
 		elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;

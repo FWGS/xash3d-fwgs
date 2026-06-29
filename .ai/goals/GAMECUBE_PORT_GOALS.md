@@ -1207,7 +1207,7 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   frames. Keep this open until the displayed frame is visually correct; the
   current frame dump is no longer flat green, but it is still visibly corrupted.
 
-## G68 [ ] Complete full Half-Life campaign map and transition audit
+## G68 [SKIP] Complete full Half-Life campaign map and transition audit
 
 - Run the campaign audit over every retail Half-Life campaign BSP available in
   the operator's legal local assets, not just smoke or early-route maps.
@@ -1237,6 +1237,9 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   active gameplay/rendering for this chapter or the entity-memory blocker is
   explicitly classified.
 
+
+- Status: SKIPPED
+- Operator override: skipped from the GUI on 2026-06-28T23:41:23-07:00.
 ## G69 [x] Add sustained gameplay soak and leak regression gate
 
 - Provide a repeatable Dolphin or hardware-assisted route that runs for at least

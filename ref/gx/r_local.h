@@ -56,6 +56,14 @@ typedef int fixed16_t;
 #define SUBDIVIDE_SIZE      64
 #define MAX_DRAW_STACK      2           // normal view and menu view
 
+#if XASH_GAMECUBE
+#define SW_SPAN_CHUNK       16
+#define SW_SPAN_CHUNK_SHIFT 4
+#else
+#define SW_SPAN_CHUNK       8
+#define SW_SPAN_CHUNK_SHIFT 3
+#endif
+
 #define SHADEDOT_QUANT    16            // precalculated dot products for quantized angles
 #define SHADE_LAMBERT     1.4953241
 #define DEFAULT_ALPHATEST 0.0f

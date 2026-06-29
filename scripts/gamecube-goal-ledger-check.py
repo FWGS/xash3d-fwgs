@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 GOAL_HEADER_RE = re.compile(r"^##\s+(G\d+)\b(?P<rest>.*)$")
-VALID_GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
+VALID_GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL|SKIP)\]\s+(.+)$")
 
 
 @dataclass

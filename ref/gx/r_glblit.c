@@ -546,11 +546,17 @@ void R_GcmapTrimScreenBuffers( void )
 		d_pzbuffer = NULL;
 	}
 
+#if XASH_GAMECUBE
+	/* The platform video backend owns the persistent software framebuffer on
+	 * GameCube. Clear the renderer alias here, but do not free the storage. */
+	vid.buffer = NULL;
+#else
 	if( vid.buffer )
 	{
 		free( vid.buffer );
 		vid.buffer = NULL;
 	}
+#endif
 
 #if !XASH_GAMECUBE
 	if( glbuf )
@@ -638,14 +644,23 @@ qboolean R_AllocScreen( void )
 #endif
 	vid.width = gpGlobals->width;
 	vid.height = gpGlobals->height;
-	vid.rowbytes = gpGlobals->width; // rowpixels
+	vid.rowbytes = swblit.stride; // rowpixels
 	if( d_pzbuffer )
 		free( d_pzbuffer );
 	d_pzbuffer = malloc( vid.width * vid.height * 2 + 64 );
 
+#if XASH_GAMECUBE
+	vid.buffer = swblit.pLockBuffer();
+	if( !vid.buffer )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc missing software buffer\n" );
+		return false;
+	}
+#else
 	if( vid.buffer )
 		free( vid.buffer );
 	vid.buffer = malloc( vid.width * vid.height * sizeof( pixel_t ));
+#endif
 
 #if XASH_GAMECUBE
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc ready\n" );
@@ -665,6 +680,11 @@ void R_BlitScreen( void )
 		if( !buffer )
 			return;
 	}
+
+#if XASH_GAMECUBE
+	if( vid.buffer != buffer )
+		vid.buffer = buffer;
+#endif
 	// return;
 	// byte *buf = vid.buffer;
 

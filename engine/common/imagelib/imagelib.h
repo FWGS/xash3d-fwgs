@@ -185,4 +185,10 @@ qboolean Image_ValidSize( const char *name );
 qboolean Image_LumpValidSize( const char *name );
 qboolean Image_CheckFlag( int bit );
 
+#if XASH_GAMECUBE
+int Image_GCMaxLoadDimension( void );
+qboolean Image_GCClampDecodeSize( const char *name, int *width, int *height );
+void Image_GCWriteRgbaSample( byte *rgba, int out_width, int out_height, int src_width, int src_height, int col, int row, byte red, byte green, byte blue, byte alpha );
+#endif
+
 #endif//IMAGELIB_H

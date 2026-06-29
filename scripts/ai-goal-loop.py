@@ -25,7 +25,7 @@ try:
 except ImportError:  # pragma: no cover - non-Unix fallback
 	fcntl = None
 
-GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL)\]\s+(.+)$")
+GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL|SKIP)\]\s+(.+)$")
 DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35"})
 PROBE_AUTO_COMPLETE = {
 	"G19": "MAP_READY:",
@@ -640,12 +640,16 @@ class Goal:
 		return self.state == "MANUAL"
 
 	@property
+	def skipped(self) -> bool:
+		return self.state == "SKIP"
+
+	@property
 	def blocked(self) -> bool:
 		return bool(re.search(r"(?im)^\s*-\s*Status:\s*BLOCKED\b", self.body))
 
 	@property
 	def automatic_done(self) -> bool:
-		return self.complete or self.manual or self.blocked
+		return self.complete or self.manual or self.skipped or self.blocked
 
 
 def parse_goals(path: Path) -> list[Goal]:
@@ -668,7 +672,7 @@ def parse_goals(path: Path) -> list[Goal]:
 
 def port_plan_marks_goal_done(root: Path, goal: Goal) -> bool:
 	plan = root / "docs/GAMECUBE_PORT_PLAN.md"
-	if goal.complete or goal.manual or not plan.is_file():
+	if goal.complete or goal.manual or goal.skipped or not plan.is_file():
 		return False
 	text = plan.read_text(encoding="utf-8", errors="replace")
 	match = re.search(
@@ -2165,12 +2169,14 @@ def main() -> int:
 	save_loop_memory(root, memory)
 	if args.status_json:
 		print(json.dumps([asdict(goal) | {"complete": goal.complete,
-			"manual": goal.manual, "blocked": goal.blocked} for goal in goals]))
+			"manual": goal.manual, "skipped": goal.skipped,
+			"blocked": goal.blocked} for goal in goals]))
 		return 0
 	if args.list:
 		for goal in goals:
-			state = "manual" if goal.manual else "blocked" if goal.blocked \
-				else "complete" if goal.complete else "pending"
+			state = "manual" if goal.manual else "skipped" if goal.skipped \
+				else "blocked" if goal.blocked else "complete" if goal.complete \
+				else "pending"
 			print(f"{goal.goal_id}\t{state}\t{goal.title}")
 		return 0
 	loop_lock = acquire_loop_lock(root)
@@ -2200,8 +2206,8 @@ def main() -> int:
 		goal = next((item for item in goals if not item.automatic_done), None)
 		if goal is None:
 			write_state(state_file, state="complete", pass_index=pass_index - 1,
-				message="All automatic goals are complete or blocked")
-			print("All automatic GameCube port goals are complete or blocked.")
+				message="All automatic goals are complete, skipped, or blocked")
+			print("All automatic GameCube port goals are complete, skipped, or blocked.")
 			return 0
 		attempts[goal.goal_id] = attempts.get(goal.goal_id, 0) + 1
 		goal_number = int(goal.goal_id[1:]) if goal.goal_id[1:].isdigit() else 0

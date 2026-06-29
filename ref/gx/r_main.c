@@ -1158,6 +1158,10 @@ R_SetupRefParams must be called right before
 */
 void GAME_EXPORT R_RenderScene( void )
 {
+#if XASH_GAMECUBE
+	double gc_render_start = gEngfuncs.pfnTime();
+#endif
+
 	if( !WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		gEngfuncs.Host_Error( "%s: NULL worldmodel\n", __func__ );
 
@@ -1204,6 +1208,18 @@ void GAME_EXPORT R_RenderScene( void )
 	gEngfuncs.CL_ExtraUpdate(); // don't let sound get messed up if going slow
 
 	R_DrawEntitiesOnList();
+
+#if XASH_GAMECUBE
+	if( tr.framecount <= 32 )
+	{
+		double elapsed_ms = ( gEngfuncs.pfnTime() - gc_render_start ) * 1000.0;
+
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
+		if( elapsed_ms >= 33.0 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G49 slow render %.2fms frame=%d quality=%d\n",
+				elapsed_ms, tr.framecount, GC_GetVisualQuality() );
+	}
+#endif
 
 //	R_DrawWaterSurfaces();
 

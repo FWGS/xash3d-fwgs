@@ -265,6 +265,70 @@ qboolean Image_LumpValidSize( const char *name )
 	return true;
 }
 
+#if XASH_GAMECUBE
+int Image_GCMaxLoadDimension( void )
+{
+	int quality = 1;
+
+	if( Cvar_FindVar( "gc_quality" ))
+		quality = Cvar_VariableInteger( "gc_quality" );
+	if( quality < 0 )
+		quality = 0;
+	if( quality > 2 )
+		quality = 2;
+#if XASH_LOW_MEMORY
+	if( quality > 1 )
+		quality = 1;
+#endif
+	switch( quality )
+	{
+	case 0:
+	case 1:
+		return 64;
+	default:
+		return 128;
+	}
+}
+
+qboolean Image_GCClampDecodeSize( const char *name, int *width, int *height )
+{
+	int max_dim = Image_GCMaxLoadDimension();
+	const int orig_w = *width;
+	const int orig_h = *height;
+
+	if( Image_CheckFlag( IL_LOAD_PLAYER_DECAL ))
+	{
+		max_dim = Q_min( max_dim, PLDECAL_MAXWIDTH );
+		max_dim = Q_min( max_dim, PLDECAL_MAXHEIGHT );
+	}
+
+	if( orig_w <= max_dim && orig_h <= max_dim )
+		return false;
+
+	while( *width > max_dim || *height > max_dim )
+	{
+		*width = Q_max( 1, *width >> 1 );
+		*height = Q_max( 1, *height >> 1 );
+	}
+
+	Con_Reportf( "Xash3D GameCube: ImageLib clamp %s %dx%d -> %dx%d max=%d\n",
+		name ? name : "(null)", orig_w, orig_h, *width, *height, max_dim );
+	return true;
+}
+
+void Image_GCWriteRgbaSample( byte *rgba, int out_width, int out_height, int src_width, int src_height, int col, int row, byte red, byte green, byte blue, byte alpha )
+{
+	const int dst_col = ( col * out_width ) / src_width;
+	const int dst_row = ( row * out_height ) / src_height;
+	byte *dst = rgba + (( dst_row * out_width + dst_col ) * 4 );
+
+	dst[0] = red;
+	dst[1] = green;
+	dst[2] = blue;
+	dst[3] = alpha;
+}
+#endif
+
 /*
 =============
 Image_ComparePalette
@@ -1172,7 +1236,7 @@ qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 #if XASH_GAMECUBE
 	if( !Image_CheckFlag( IL_KEEP_8BIT ) && !FBitSet( image.flags, IMAGE_HAS_LUMA|IMAGE_QUAKESKY ))
 	{
-		const int max_size = 64;
+		const int max_size = Image_GCMaxLoadDimension();
 		if( scaled_width > max_size || scaled_height > max_size )
 		{
 			qboolean resampled = false;

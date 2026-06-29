@@ -131,6 +131,135 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 	columns = targa_header.width;
 	rows = targa_header.height;
 
+#if XASH_GAMECUBE
+	{
+		const int src_width = columns;
+		const int src_height = rows;
+		int decode_width = image.width;
+		int decode_height = image.height;
+		qboolean downsample = Image_GCClampDecodeSize( name, &decode_width, &decode_height );
+
+		image.width = decode_width;
+		image.height = decode_height;
+
+		image.size = image.width * image.height * 4;
+		Con_Reportf( "Xash3D GameCube: ImageLib load %s src=%dx%d decode=%dx%d alloc=%s\n",
+			name, src_width, src_height, image.width, image.height, Q_memprint( image.size ));
+		byte *targa_rgba = image.rgba = Mem_Malloc( host.imagepool, image.size );
+		if( downsample )
+			memset( targa_rgba, 0, image.size );
+
+		// if bit 5 of attributes isn't set, the image has been stored from bottom to top
+		if( !downsample && !Image_CheckFlag( IL_DONTFLIP_TGA ) && targa_header.attributes & 0x20 )
+		{
+			pixbuf = targa_rgba;
+			row_inc = 0;
+		}
+		else if( !downsample )
+		{
+			pixbuf = targa_rgba + ( rows - 1 ) * columns * 4;
+			row_inc = -columns * 4 * 2;
+		}
+		else
+		{
+			pixbuf = NULL;
+			row_inc = 0;
+		}
+
+		qboolean compressed = ( targa_header.image_type == 9 || targa_header.image_type == 10 || targa_header.image_type == 11 );
+		for( row = col = 0; row < rows; )
+		{
+			int pixelcount = 0x10000;
+			int readpixelcount = 0x10000;
+
+			if( compressed )
+			{
+				pixelcount = *buf_p++;
+				if( pixelcount & 0x80 )  // run-length packet
+					readpixelcount = 1;
+				pixelcount = 1 + ( pixelcount & 0x7f );
+			}
+
+			while( pixelcount-- && ( row < rows ) )
+			{
+				if( readpixelcount-- > 0 )
+				{
+					switch( targa_header.image_type )
+					{
+					case 1:
+					case 9:
+						// colormapped image
+						blue = *buf_p++;
+						if( blue < targa_header.colormap_length )
+						{
+							red = palette[blue][0];
+							green = palette[blue][1];
+							alpha = palette[blue][3];
+							blue = palette[blue][2];
+							if( alpha != 255 ) image.flags |= IMAGE_HAS_ALPHA;
+						}
+						break;
+					case 2:
+					case 10:
+						// 24 or 32 bit image
+						blue = *buf_p++;
+						green = *buf_p++;
+						red = *buf_p++;
+						alpha = 255;
+						if( targa_header.pixel_size == 32 )
+						{
+							alpha = *buf_p++;
+							if( alpha != 255 )
+								image.flags |= IMAGE_HAS_ALPHA;
+						}
+						break;
+					case 3:
+					case 11:
+						// greyscale image
+						blue = green = red = *buf_p++;
+						if( targa_header.pixel_size == 16 )
+						{
+							alpha = *buf_p++;
+							if( alpha != 255 )
+								image.flags |= IMAGE_HAS_ALPHA;
+						}
+						else
+							alpha = 255;
+						break;
+					}
+				}
+
+				if( red != green || green != blue )
+					image.flags |= IMAGE_HAS_COLOR;
+
+				reflectivity[0] += red;
+				reflectivity[1] += green;
+				reflectivity[2] += blue;
+
+				if( downsample )
+				{
+					Image_GCWriteRgbaSample( targa_rgba, image.width, image.height,
+						src_width, src_height, col, row, red, green, blue, alpha );
+				}
+				else
+				{
+					*pixbuf++ = red;
+					*pixbuf++ = green;
+					*pixbuf++ = blue;
+					*pixbuf++ = alpha;
+				}
+				if( ++col == columns )
+				{
+					// run spans across rows
+					row++;
+					col = 0;
+					if( !downsample )
+						pixbuf += row_inc;
+				}
+			}
+		}
+	}
+#else
 	image.size = image.width * image.height * 4;
 	byte *targa_rgba = image.rgba = Mem_Malloc( host.imagepool, image.size );
 
@@ -229,6 +358,7 @@ qboolean Image_LoadTGA( const char *name, const byte *buffer, fs_offset_t filesi
 			}
 		}
 	}
+#endif
 
 	VectorDivide( reflectivity, ( image.width * image.height ), image.fogParams );
 	image.depth = 1;
