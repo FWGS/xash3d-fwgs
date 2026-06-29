@@ -130,7 +130,7 @@ void Sys_InitLog( void )
 		if ( !s_ld.logfile )
 		{
 #if XASH_GAMECUBE
-			Con_Reportf( S_WARN "GameCube: file log unavailable for %s (%s); continuing with OSReport only\n",
+			Con_Reportf( S_WARN "GameCube: file log unavailable for %s (%s); continuing without file log\n",
 				s_ld.log_path, strerror( errno ));
 			s_ld.log_active = false;
 #else
