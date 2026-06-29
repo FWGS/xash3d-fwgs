@@ -981,6 +981,9 @@ D_FlushCaches
 */
 void D_FlushCaches( void )
 {
+	if( !sc_base )
+		return;
+
 	// if newmap, surfaces already freed
 	if( !tr.map_unload )
 	{
@@ -1006,6 +1009,9 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 {
 	surfcache_t *new;
 	qboolean    wrapped_this_time;
+
+	if( !sc_base )
+		return NULL;
 
 	if(( width < 0 ))// || (width > 256))
 		gEngfuncs.Host_Error( "%s: bad cache width %d\n", __func__, width );
