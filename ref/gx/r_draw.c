@@ -73,6 +73,15 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 	qboolean transparent = false;
 	pixel_t  *buffer;
 
+	if( !pic )
+		return;
+
+#if XASH_GAMECUBE
+	R_EnsureDrawBuffer();
+#endif
+	if( !vid.buffer || vid.rowbytes <= 0 || vid.width <= 0 || vid.height <= 0 )
+		return;
+
 	if( x < 0 )
 	{
 		s1 += ( -x ) * ( s2 - s1 ) / w;
@@ -88,6 +97,9 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 		t2 -= ( y + h - vid.height ) * ( t2 - t1 ) / h;
 		h = vid.height - y;
 	}
+
+	if( w <= 0 || h <= 0 )
+		return;
 
 	if( !pic->pixels[0] || s1 >= s2 || t1 >= t2 )
 		return;
@@ -176,16 +188,21 @@ R_DrawStretchPic
 */
 void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, int texnum )
 {
-	image_t *pic = R_GetTexture( texnum );
-	int     width = pic->width, height = pic->height;
-//	GL_Bind( XASH_TEXTURE0, texnum );
+	image_t *pic;
+
+	if( texnum <= 0 || w < 1.0f || h < 1.0f )
+		return;
 	if( s2 > 1.0f || t2 > 1.0f )
 		return;
 	if( s1 < 0.0f || t1 < 0.0f )
 		return;
-	if( w < 1.0f || h < 1.0f )
+
+	pic = R_GetTexture( texnum );
+	if( !pic || pic->width <= 0 || pic->height <= 0 )
 		return;
-	R_DrawStretchPicImplementation( x, y, w, h, width * s1, height * t1, width * s2, height * t2, pic );
+
+	R_DrawStretchPicImplementation( x, y, w, h, pic->width * s1, pic->height * t1,
+		pic->width * s2, pic->height * t2, pic );
 }
 
 void Draw_Fill( int x, int y, int w, int h )
@@ -193,6 +210,9 @@ void Draw_Fill( int x, int y, int w, int h )
 	pixel_t src = vid.color;
 	int     alpha = vid.alpha;
 
+#if XASH_GAMECUBE
+	R_EnsureDrawBuffer();
+#endif
 	if( !vid.buffer || vid.rowbytes <= 0 || vid.width <= 0 || vid.height <= 0 )
 		return;
 

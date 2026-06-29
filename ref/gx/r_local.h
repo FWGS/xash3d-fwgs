@@ -1122,6 +1122,7 @@ qboolean R_TryInitGcmapSurfaceCache( void );
 qboolean R_GcmapEnsureSurfaceCache( void );
 void R_BlitScreen( void );
 qboolean R_InitBlit( qboolean gl );
+void R_EnsureDrawBuffer( void );
 qboolean R_SetDisplayTransform( ref_screen_rotation_t rotate, int offset_x, int offset_y, float scale_x, float scale_y );
 
 //

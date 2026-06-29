@@ -567,6 +567,23 @@ void R_GcmapTrimScreenBuffers( void )
 #endif
 }
 
+void R_EnsureDrawBuffer( void )
+{
+#if XASH_GAMECUBE
+	void *buffer;
+
+	if( vid.buffer )
+		return;
+
+	if( !swblit.pLockBuffer )
+		return;
+
+	buffer = swblit.pLockBuffer();
+	if( buffer )
+		vid.buffer = buffer;
+#endif
+}
+
 qboolean R_AllocScreen( void );
 
 qboolean R_InitBlit( qboolean glblit )
