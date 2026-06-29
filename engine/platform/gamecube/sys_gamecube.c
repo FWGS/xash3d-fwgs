@@ -69,10 +69,14 @@ char *Posix_Input( void )
 }
 
 #if XASH_MESSAGEBOX == MSGBOX_GAMECUBE
+#include <ogc/system.h>
 void Platform_MessageBox( const char *title, const char *message, qboolean unused )
 {
 	(void)unused;
-	fprintf( stderr, "%s:\n%s\n", title, message );
+	if( title && message )
+		SYS_Report( "%s:\n%s\n", title, message );
+	else if( message )
+		SYS_Report( "%s\n", message );
 }
 #endif
 

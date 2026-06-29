@@ -23,6 +23,9 @@ GNU General Public License for more details.
 #include <sys/time.h>
 #endif
 #include "xash3d_mathlib.h"
+#if XASH_GAMECUBE
+#include <ogc/system.h>
+#endif
 #if XASH_WIN32
 #include <io.h>
 #endif
@@ -68,8 +71,11 @@ int Sys_LogFileNo( void )
 
 static void Sys_FlushStdout( void )
 {
-	// never printing anything to stdout on mobiles
-#if !XASH_MOBILE_PLATFORM
+#if XASH_GAMECUBE
+	/* libogc leaves stdout NULL until console init; fileno(NULL) faults at +0x6c */
+	if( stdout )
+		fflush( stdout );
+#elif !XASH_MOBILE_PLATFORM
 	fflush( stdout );
 #endif
 }
@@ -304,7 +310,15 @@ static void Sys_PrintStdout( const char *logtime, size_t logtime_len, const char
 	}
 #endif
 
-#if !XASH_MOBILE_PLATFORM && !XASH_WIN32 // Wcon does the job
+#if XASH_GAMECUBE
+	if( stripped && stripped[0] )
+	{
+		if( logtime_len != 0 )
+			SYS_Report( "%.*s%s", (int)logtime_len, logtime, stripped );
+		else
+			SYS_Report( "%s", stripped );
+	}
+#elif !XASH_MOBILE_PLATFORM && !XASH_WIN32 // Wcon does the job
 	Sys_PrintLogfile( STDOUT_FILENO, logtime, logtime_len, XASH_COLORIZE_CONSOLE ? msg : stripped, XASH_COLORIZE_CONSOLE );
 	Sys_FlushStdout();
 #endif

@@ -531,9 +531,17 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	if( !Avi )
 		return;
 
+	if( !filename || !filename[0] )
+	{
+		if( !quiet )
+			Con_Printf( S_ERROR "Couldn't open intro video (empty path)\n" );
+		return;
+	}
+
 	if( Avi->active )
 		AVI_CloseVideo( Avi );
 
+	safe_filename[0] = '\0';
 	Q_strncpy( safe_filename, filename, sizeof( safe_filename ));
 
 	Avi->file = FS_Open( safe_filename, "rb", false );
@@ -556,7 +564,7 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	if( !AVI_ParseHeader( Avi, quiet ))
 	{
 		if( !quiet )
-			Con_Printf( S_ERROR "Couldn't parse intro video %s\n", filename );
+			Con_Printf( S_ERROR "Couldn't parse intro video %s\n", safe_filename );
 		AVI_CloseVideo( Avi );
 		return;
 	}

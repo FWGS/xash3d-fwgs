@@ -44,5 +44,27 @@ fi
 ./waf install --destdir=OUT
 
 echo "GameCube build installed to OUT/"
-echo "For Dolphin disc testing, build/run OUT/xash3d-gc.iso with scripts/build-gamecube-disc.py."
+
+GC_DATA="${XASH3D_GC_DATA:-Half-Life/valve}"
+GC_ISO="${XASH3D_GC_ISO:-OUT/xash3d-gc.iso}"
+GC_SMOKE_MAP="${XASH3D_GC_SMOKE_MAP:-}"
+
+if [ -d "$GC_DATA" ]; then
+	DISC_ARGS=(--output "$GC_ISO" --data "$GC_DATA")
+	if [ -n "$GC_SMOKE_MAP" ]; then
+		DISC_ARGS+=(--smoke-map "$GC_SMOKE_MAP")
+	fi
+	echo "Building GameCube disc from $GC_DATA ..."
+	if python3 "$ROOT/scripts/build-gamecube-disc.py" "${DISC_ARGS[@]}"; then
+		echo "Disc image ready: $GC_ISO"
+	else
+		echo "Disc build failed. Engine build is still in OUT/bin/." >&2
+		exit 1
+	fi
+else
+	echo "Half-Life data not found at $GC_DATA; skipping disc build."
+	echo "Set XASH3D_GC_DATA or install retail assets, then run:"
+	echo "  python3 scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso --data Half-Life/valve"
+fi
+
 echo "For DOL testing, provide Half-Life assets at sd:/xash3d/valve/ before launching OUT/bin/boot.dol."

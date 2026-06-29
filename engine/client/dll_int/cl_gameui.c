@@ -610,17 +610,33 @@ static void GAME_EXPORT UI_DrawLogo( const char *filename, float x, float y, flo
 	if( !gameui.drawLogo )
 		return;
 
+	if( !filename || !filename[0] )
+	{
+		gameui.drawLogo = false;
+		return;
+	}
+
 	cin_state = AVI_GetState( CIN_LOGO );
 
 	if( !AVI_IsActive( cin_state ))
 	{
-		string		path;
-		const char	*fullpath;
+		string path;
 
 		// run cinematic if not
 		Q_snprintf( path, sizeof( path ), "media/%s", filename );
 		COM_DefaultExtension( path, ".avi", sizeof( path ));
-		fullpath = FS_GetDiskPath( path, false );
+#if XASH_GAMECUBE
+		if( !FS_FileExists( path, false ))
+		{
+			Con_Reportf( "Xash3D GameCube: UI logo %s not found\n", path );
+			gameui.drawLogo = false;
+			return;
+		}
+
+		Con_Reportf( "Xash3D GameCube: UI logo play %s\n", path );
+		AVI_OpenVideo( cin_state, path, false, true );
+#else
+		const char *fullpath = FS_GetDiskPath( path, false );
 
 		if( FS_FileExists( path, false ) && !fullpath )
 		{
@@ -629,7 +645,14 @@ static void GAME_EXPORT UI_DrawLogo( const char *filename, float x, float y, flo
 			return;
 		}
 
-		AVI_OpenVideo( cin_state, fullpath, false, true );
+		if( !FS_FileExists( path, false ) && !fullpath )
+		{
+			gameui.drawLogo = false;
+			return;
+		}
+
+		AVI_OpenVideo( cin_state, fullpath ? fullpath : path, false, true );
+#endif
 		if( !( AVI_GetVideoInfo( cin_state, &gameui.logo_xres, &gameui.logo_yres, &gameui.logo_length )))
 		{
 			AVI_CloseVideo( cin_state );

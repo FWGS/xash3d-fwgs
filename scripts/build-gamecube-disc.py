@@ -977,6 +977,7 @@ def main() -> None:
 				bootstrap_recursive=True,
 			)
 	else:
+		print("Staging retail Half-Life assets for GameCube (source files are not modified).")
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-retail-data-") as temp:
 			staged_root = Path(temp) / "valve"
 			staged_data, skipped = stage_retail_data(args.data, staged_root)
