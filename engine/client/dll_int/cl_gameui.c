@@ -183,6 +183,8 @@ static void UI_ToggleAllowConsole_f( void )
 
 void UI_UpdateMenu( float realtime )
 {
+	static qboolean s_gc_reported_first_redraw = false;
+
 	if( !gameui.hInstance )
 	{
 #if XASH_GAMECUBE
@@ -215,6 +217,14 @@ void UI_UpdateMenu( float realtime )
 	gameui.globals->demorecording = cls.demorecording;
 	gameui.globals->developer = host.allow_console;
 
+#if XASH_GAMECUBE
+	if( !s_gc_reported_first_redraw )
+	{
+		Con_Reportf( "Xash3D GameCube: gameui first redraw time=%.2f visible=%d keydest=%d\n",
+			realtime, UI_IsVisible() ? 1 : 0, cls.key_dest );
+		s_gc_reported_first_redraw = true;
+	}
+#endif
 	gameui.dllFuncs.pfnRedraw( realtime );
 	UI_UpdateUserinfo();
 }
@@ -1548,6 +1558,9 @@ qboolean UI_LoadProgs( void )
 
 	COM_GetCommonLibraryPath( LIBRARY_GAMEUI, dllpath, sizeof( dllpath ));
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: gameui load begin path=%s\n", dllpath );
+#endif
 	if(!( gameui.hInstance = COM_LoadLibrary( dllpath, false, false )))
 	{
 		string path = OS_LIB_PREFIX "menu." OS_LIB_EXT;
@@ -1567,6 +1580,9 @@ qboolean UI_LoadProgs( void )
 
 	FS_AllowDirectPaths( false );
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: gameui library handle ready\n" );
+#endif
 	if(( GetMenuAPI = (MENUAPI)COM_GetProcAddress( gameui.hInstance, "GetMenuAPI" )) == NULL )
 	{
 		COM_FreeLibrary( gameui.hInstance );
@@ -1583,6 +1599,9 @@ qboolean UI_LoadProgs( void )
 
 	gameui.mempool = Mem_AllocPool( "Menu Pool" );
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: gameui GetMenuAPI begin\n" );
+#endif
 	if( !GetMenuAPI( &gameui.dllFuncs, &gpEngfuncs, gameui.globals ))
 	{
 		COM_FreeLibrary( gameui.hInstance );
@@ -1591,6 +1610,9 @@ qboolean UI_LoadProgs( void )
 		gameui.hInstance = NULL;
 		return false;
 	}
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: gameui GetMenuAPI ready\n" );
+#endif
 
 	// make local copy of engfuncs to prevent overwrite it with user dll
 	gpExtendedfuncs = gExtendedfuncs;
@@ -1636,7 +1658,13 @@ qboolean UI_LoadProgs( void )
 	gameui.globals->developer = host.allow_console;
 
 	// initialize game
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: gameui pfnInit begin\n" );
+#endif
 	gameui.dllFuncs.pfnInit();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: gameui pfnInit ready\n" );
+#endif
 
 	return true;
 }

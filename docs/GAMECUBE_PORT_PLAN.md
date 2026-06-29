@@ -2137,6 +2137,14 @@ audit evidence has not yet been regenerated with the current build and harness.
   spawn/model precache. The current blocker is `Server Edicts Zone` OOM at
   `engine/server/sv_game.c:2946` allocating 736 bytes of entity private data
   after scientist/barney setup.
+- 2026-06-28 follow-up source pass lowers the GameCube low-memory default edict
+  budget from the HL25-era 1200 back to the pre-HL25 retail-style 900 via
+  `common/defaults.h`. Fresh Dolphin evidence from
+  `.ai/logs/map-compat-20260628-171933/summary.md` now classifies `c1a0` as
+  `MAP_LOADED` with 8.80 MiB peak MEM1. This clears the old
+  `Server Edicts Zone` private-data OOM and moves the first post-load blocker to
+  `ImageLib Pool` OOM allocating 64 KiB at `engine/common/imagelib/img_tga.c:135`
+  after `Xash3D GameCube: map loaded c1a0`.
 - Runtime transition behavior, player state, inventory, globals, save
   eligibility, renderer output, and memory headroom still require broader
   current-build Dolphin or hardware evidence.
@@ -2212,10 +2220,11 @@ until fresh G68/G69 evidence replaces stale `Sys_InitLog: can't create`
 map-compat blockers with current-build classifications.
 
 Fresh G68 blocker evidence from
-`.ai/logs/campaign-audit-g68-anomalous-aliased-clipnodes/summary.md` shows the
-worst current `c1a0` pressure has moved from BSP texture/lightmap/clipnode setup
-to spawn-time `Server Edicts Zone` private-data allocation at
-`engine/server/sv_game.c:2946`.
+`.ai/logs/map-compat-20260628-171933/summary.md` shows the worst current `c1a0`
+pressure has moved past spawn-time `Server Edicts Zone` private-data allocation.
+The first post-load failure is now `ImageLib Pool` OOM allocating 64 KiB at
+`engine/common/imagelib/img_tga.c:135` after `Xash3D GameCube: map loaded c1a0`
+with 8.80 MiB peak MEM1.
 
 **Commands:**
 

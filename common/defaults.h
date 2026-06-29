@@ -201,7 +201,13 @@ Default build-depended cvar and constant values
 #endif // DEFAULT_FULLSCREEN
 
 #ifndef DEFAULT_MAX_EDICTS
-	#define DEFAULT_MAX_EDICTS 1200 // was 900 before HL25
+	#if XASH_GAMECUBE && XASH_LOW_MEMORY == 2
+		// Retail HL shipped with lower edict headroom; keep GameCube on the
+		// pre-HL25 default to reclaim MEM1 for map/entity private data.
+		#define DEFAULT_MAX_EDICTS 900
+	#else
+		#define DEFAULT_MAX_EDICTS 1200 // was 900 before HL25
+	#endif
 #endif // DEFAULT_MAX_EDICTS
 
 
