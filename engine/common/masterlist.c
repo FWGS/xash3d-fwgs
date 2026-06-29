@@ -14,7 +14,9 @@ GNU General Public License for more details.
 */
 #include "common.h"
 #include "netchan.h"
+#include "net_ws.h"
 #include "server.h"
+#include "client.h"
 
 typedef struct master_s
 {
@@ -32,16 +34,26 @@ typedef struct master_s
 	double resolve_time;
 } master_t;
 
+typedef struct masterstatic_s
+{
+	struct masterstatic_s *next;
+	qboolean save;
+	qboolean in_flight;
+	char base[];
+} masterstatic_t;
+
 static struct masterlist_s
 {
 	master_t *head, *tail;
+	masterstatic_t *static_head, *static_tail;
 	qboolean modified;
 } ml;
 
 static CVAR_DEFINE_AUTO( sv_verbose_heartbeats, "0", 0, "print every heartbeat to console" );
 
-#define HEARTBEAT_SECONDS      ((sv_nat.value > 0.0f) ? 60.0f : 300.0f) // 1 or 5 minutes
-#define RESOLVE_EXPIRE_SECONDS (60.0f) // 1 minute to expire
+#define HEARTBEAT_SECONDS               ((sv_nat.value > 0.0f) ? 60.0f : 300.0f) // 1 or 5 minutes
+#define RESOLVE_EXPIRE_SECONDS          (60.0f)  // positive cache: 1 minute
+#define NEGATIVE_RESOLVE_EXPIRE_SECONDS (300.0f) // negative cache: 5 minutes
 
 static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t key, qboolean nat, const char *filter, connprotocol_t proto )
 {
@@ -53,9 +65,7 @@ static size_t NET_BuildMasterServerScanRequest( char *buf, size_t size, uint32_t
 
 	Q_strncpy( info, filter, remaining );
 
-#ifndef XASH_ALL_SERVERS
 	Info_SetValueForKey( info, "gamedir", GI->gamefolder, remaining );
-#endif // XASH_ALL_SERVERS
 
 	if( proto != PROTO_GOLDSRC )
 	{
@@ -86,11 +96,10 @@ NET_GetMasterHostByName
 */
 static net_gai_state_t NET_GetMasterHostByName( master_t *m )
 {
-	if( host.realtime > m->resolve_time )
-		m->adr.type = 0;
+	if( host.realtime < m->resolve_time )
+		return m->adr.type ? NET_EAI_OK : NET_EAI_NONAME;
 
-	if( m->adr.type )
-		return NET_EAI_OK;
+	m->adr.type = 0;
 
 	net_gai_state_t res = NET_StringToAdrNB( m->address, &m->adr, m->v6only );
 
@@ -100,10 +109,13 @@ static net_gai_state_t NET_GetMasterHostByName( master_t *m )
 		return res;
 	}
 
-	m->adr.type = 0;
 	if( res == NET_EAI_NONAME )
+	{
 		Con_Reportf( "Can't resolve adr: %s\n", m->address );
+		m->resolve_time = host.realtime + NEGATIVE_RESOLVE_EXPIRE_SECONDS;
+	}
 
+	m->adr.type = 0;
 	return res;
 }
 
@@ -200,8 +212,115 @@ void NET_MasterClear( void )
 }
 
 /*
+========================
+NET_QueryServerByAddress
+
+========================
+*/
+void NET_QueryServerByAddress( netadr_t adr, connprotocol_t proto )
+{
+	if( proto == PROTO_GOLDSRC )
+		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), (const byte *)A2S_GOLDSRC_INFO ); // includes null terminator
+	else
+		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO " %i", PROTOCOL_VERSION );
+}
+
+static int NET_ParseMasterStaticBody( const byte *body, size_t size )
+{
+	char line[1024];
+	int offset = 0;
+	int count = 0;
+
+	while( Q_memfgets( (byte *)body, size, &offset, line, sizeof( line )) != NULL )
+	{
+		char token[MAX_TOKEN];
+		char *pfile = line;
+		qboolean gs;
+		netadr_t adr = { 0 };
+
+		pfile = COM_ParseFileSafe( pfile, token, sizeof( token ), PFILE_HASH_AS_COMMENT, NULL, NULL );
+		if( !pfile || token[0] == '\0' )
+			continue;
+
+		if( !Q_strcmp( token, "ip" ))
+			gs = false;
+		else if( !Q_strcmp( token, "gs" ))
+			gs = true;
+		else
+			continue;
+
+		pfile = COM_ParseFileSafe( pfile, token, sizeof( token ), PFILE_HASH_AS_COMMENT, NULL, NULL );
+		if( !pfile )
+			continue;
+
+		if( !NET_StringToAdr( token, &adr ))
+		{
+			Con_Reportf( S_WARN "masterstatic: can't parse address \"%s\"\n", token );
+			continue;
+		}
+
+		if( adr.port == 0 )
+			adr.port = MSG_BigShort( PORT_SERVER );
+
+		NET_QueryServerByAddress( adr, gs );
+		count++;
+	}
+
+	return count;
+}
+
+/*
+========================
+NET_MasterStaticResponse
+
+========================
+*/
+static void NET_MasterStaticResponse( const char *url, qboolean success, const byte *data, size_t size, void *userdata )
+{
+	masterstatic_t *ms = (masterstatic_t *)userdata;
+
+	if( ms )
+		ms->in_flight = false;
+
+	if( !success || !data || size == 0 )
+	{
+		Con_Reportf( "masterstatic: %s returned no data\n", url );
+		return;
+	}
+
+	NET_Config( true, false ); // allow remote sends
+
+	int count = NET_ParseMasterStaticBody( data, size );
+
+	Con_Reportf( "masterstatic: %s yielded %d server(s)\n", url, count );
+
+#if !XASH_DEDICATED
+	CL_NotifyServerListResponse();
+#endif
+}
+
+static void NET_MasterStaticQuery( void )
+{
+	const char *gamedir = GI ? GI->gamefolder : "valve";
+
+	for( masterstatic_t *ms = ml.static_head; ms; ms = ms->next )
+	{
+		char url[1024];
+
+		if( ms->in_flight )
+			continue;
+
+		Q_snprintf( url, sizeof( url ), "%s/v1/servers/%s", ms->base, gamedir );
+
+		if( HTTP_GetToMemory( url, NET_MasterStaticResponse, ms ))
+			ms->in_flight = true;
+	}
+}
+
+/*
 =================
 NET_MasterQuery
+
 =================
 */
 qboolean NET_MasterQuery( uint32_t key, qboolean nat, const char *filter )
@@ -216,6 +335,8 @@ qboolean NET_MasterQuery( uint32_t key, qboolean nat, const char *filter )
 		len = NET_BuildMasterServerScanRequest( buf, sizeof( buf ), 0, false, filter, PROTO_GOLDSRC );
 		wait |= NET_SendToMasters( NS_CLIENT, len, buf, PROTO_GOLDSRC );
 	}
+
+	NET_MasterStaticQuery();
 
 	if( !wait )
 		NET_ClearSendState();
@@ -233,6 +354,28 @@ void NET_MasterHeartbeat( void )
 {
 	if(( !public_server.value && !sv_nat.value ) || svs.maxclients == 1 )
 		return; // only public servers send heartbeats
+
+	if( Host_IsDedicated() && public_server.value )
+	{
+		static qboolean shown_serverlist_notice = false;
+
+		if( !shown_serverlist_notice )
+		{
+			Con_Printf( "\n" );
+			Con_Printf( "********************************************************************************\n" );
+			Con_Printf( "*                                                                              *\n" );
+			Con_Printf( "*  You set `public 1` on a dedicated server.                                   *\n" );
+			Con_Printf( "*                                                                              *\n" );
+			Con_Printf( "*  Legacy UDP master servers are deprecated. To make your server visible in    *\n" );
+			Con_Printf( "*  the new HTTPS-based public server list, open a Pull Request to:             *\n" );
+			Con_Printf( "*                                                                              *\n" );
+			Con_Printf( "*      https://github.com/FWGS/server-list                                     *\n" );
+			Con_Printf( "*                                                                              *\n" );
+			Con_Printf( "********************************************************************************\n" );
+			Con_Printf( "\n" );
+			shown_serverlist_notice = true;
+		}
+	}
 
 	for( master_t *m = ml.head; m; m = m->next )
 	{
@@ -298,6 +441,7 @@ static master_t *NET_GetMasterFromAdr( netadr_t adr )
 /*
 ========================
 NET_GetMaster
+
 ========================
 */
 qboolean NET_GetMaster( netadr_t from, uint *challenge, double *last_heartbeat )
@@ -365,7 +509,7 @@ static master_t *NET_AddMaster( const char *addr )
 
 static void NET_AddMaster_f( void )
 {
-	if( Cmd_Argc() != 2 )
+	if( Cmd_Argc() != 2 && Cmd_Argc() != 3 )
 	{
 		Msg( S_USAGE "addmaster <address> [gs]\n");
 		return;
@@ -378,6 +522,54 @@ static void NET_AddMaster_f( void )
 		master->gs = true;
 
 	ml.modified = true; // save config
+}
+
+static masterstatic_t *NET_AddMasterStatic( const char *base )
+{
+	size_t base_len = Q_strlen( base );
+
+	while( base_len > 0 && base[base_len - 1] == '/' )
+		base_len--;
+
+	if( base_len == 0 )
+		return NULL;
+
+	for( masterstatic_t *ms = ml.static_head; ms; ms = ms->next )
+	{
+		if( Q_strlen( ms->base ) == base_len && !Q_strnicmp( ms->base, base, base_len ))
+			return ms;
+	}
+
+	masterstatic_t *ms = Mem_Calloc( host.mempool, sizeof( *ms ) + base_len + 1 );
+	memcpy( ms->base, base, base_len );
+
+	if( ml.static_tail )
+	{
+		ml.static_tail->next = ms;
+		ml.static_tail = ms;
+	}
+	else
+	{
+		ml.static_head = ml.static_tail = ms;
+	}
+
+	return ms;
+}
+
+static void NET_AddMasterStatic_f( void )
+{
+	if( Cmd_Argc() != 2 )
+	{
+		Msg( S_USAGE "addmasterstatic <base-url>\n" );
+		return;
+	}
+
+	masterstatic_t *ms = NET_AddMasterStatic( Cmd_Argv( 1 ));
+	if( !ms )
+		return;
+
+	ms->save = true;
+	ml.modified = true;
 }
 
 /*
@@ -397,6 +589,15 @@ static void NET_ClearMasters_f( void )
 	}
 
 	ml.tail = NULL;
+
+	while( ml.static_head )
+	{
+		masterstatic_t *head = ml.static_head;
+		ml.static_head = ml.static_head->next;
+		Mem_Free( head );
+	}
+
+	ml.static_tail = NULL;
 }
 
 /*
@@ -425,6 +626,13 @@ static void NET_ListMasters_f( void )
 
 		Con_Printf( "\n" );
 	}
+
+	if( ml.static_head )
+		Con_Printf( "Static master base URLs:\n" );
+
+	i = 1;
+	for( masterstatic_t *ms = ml.static_head; ms; i++, ms = ms->next )
+		Con_Printf( "%d\t%s%s\n", i, ms->base, ms->in_flight ? " (in flight)" : "" );
 }
 
 /*
@@ -471,6 +679,16 @@ static void NET_LoadMasters( void )
 			pfile = COM_ParseFile( pfile, token, sizeof( token ));
 			master = NET_AddMaster( token );
 			master->gs = true;
+		}
+		else if( !Q_strcmp( token, "masterstatic" ))
+		{
+			pfile = COM_ParseFile( pfile, token, sizeof( token ));
+			if( pfile )
+			{
+				masterstatic_t *ms = NET_AddMasterStatic( token );
+				if( ms )
+					ms->save = true;
+			}
 		}
 
 		if( master )
@@ -519,6 +737,14 @@ void NET_SaveMasters( void )
 		FS_Printf( f, "%s %s\n", key, m->address );
 	}
 
+	for( masterstatic_t *ms = ml.static_head; ms; ms = ms->next )
+	{
+		if( !ms->save )
+			continue;
+
+		FS_Printf( f, "masterstatic \"%s\"\n", ms->base );
+	}
+
 	FS_Close( f );
 }
 
@@ -532,26 +758,20 @@ Initialize master server list
 void NET_InitMasters( void )
 {
 	Cmd_AddRestrictedCommand( "addmaster", NET_AddMaster_f, "add address to masterserver list" );
+	Cmd_AddRestrictedCommand( "addmasterstatic", NET_AddMasterStatic_f, "add static HTTP masterserver base URL" );
 	Cmd_AddRestrictedCommand( "clearmasters", NET_ClearMasters_f, "clear masterserver list" );
 	Cmd_AddCommand( "listmasters", NET_ListMasters_f, "list masterservers" );
 
 	Cvar_RegisterVariable( &sv_verbose_heartbeats );
 
-	{ // IPv4-only
-		NET_AddMaster( "mentality.rip:27010" );
-		NET_AddMaster( "ms2.mentality.rip:27010" );
-		NET_AddMaster( "ms3.mentality.rip:27010" );
-	}
-
-	{ // IPv6-only
-		NET_AddMaster( "aaaa.mentality.rip:27010" )->v6only = true;
-		NET_AddMaster( "aaaa.ms2.mentality.rip:27010" )->v6only = true;
-	}
-
-	{ // testing servers, might be offline
-		NET_AddMaster( "mentality.rip:27011" );
-		NET_AddMaster( "aaaa.mentality.rip:27011" )->v6only = true;
-	}
+#if 0
+	NET_AddMasterStatic( "http://meltdown.lan/test" );
+#endif
+	// NOTE: do not use fwgs.github.io for GitHub pages
+	// because org-wide URL is xash.su (for legacy reasons)
+	NET_AddMasterStatic( "http://xash.su/server-list" );
+	// FIXME: https raw.githubcontent source
+	// FIXME: cloudflare'd sources both HTTP and HTTPS
 
 	NET_LoadMasters();
 }

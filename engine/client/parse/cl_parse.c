@@ -469,7 +469,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 	{
 		if( done_downloading && CL_PrecacheResources( ))
 		{
-			CL_RegisterResources( &msg, cls.legacymode );
+			CL_RegisterResources( &msg, cls.net_protocol );
 		}
 
 		Netchan_CreateFragments( &cls.netchan, &msg );
@@ -1186,8 +1186,8 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 			int type = MSG_ReadUBitLong( msg, 2 );
 			int delta_type;
 
-			if( player ) delta_type = DT_ENTITY_STATE_PLAYER_T;
-			else if( type != ENTITY_NORMAL ) delta_type = DT_CUSTOM_ENTITY_STATE_T;
+			if( FBitSet( type, ENTITY_BEAM )) delta_type = DT_CUSTOM_ENTITY_STATE_T;
+			else if( player ) delta_type = DT_ENTITY_STATE_PLAYER_T;
 			else delta_type = DT_ENTITY_STATE_T;
 
 			Delta_ReadGSFields( msg, delta_type, &ent->prevstate, &ent->baseline, 1.0f );

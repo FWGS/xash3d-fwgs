@@ -412,7 +412,7 @@ static void CL_WriteDemoHeader( const char *name )
 
 	demo.header.id = IDEMOHEADER;
 	demo.header.dem_protocol = DEMO_PROTOCOL;
-	demo.header.net_protocol = CL_GetDemoNetProtocol( cls.legacymode );
+	demo.header.net_protocol = CL_GetDemoNetProtocol( cls.net_protocol );
 	demo.header.host_fps = host_maxfps.value ? bound( MIN_FPS, host_maxfps.value, maxfps ) : maxfps;
 	Q_strncpy( demo.header.mapname, clgame.mapname, sizeof( demo.header.mapname ));
 	Q_strncpy( demo.header.comment, clgame.maptitle, sizeof( demo.header.comment ));
@@ -723,7 +723,7 @@ static void CL_DemoStartPlayback( int mode )
 
 	demo.starttime = CL_GetDemoPlaybackClock(); // for determining whether to read another message
 
-	CL_SetupNetchanForProtocol( cls.legacymode );
+	CL_SetupNetchanForProtocol( cls.net_protocol );
 
 	memset( demo.cmds, 0, sizeof( demo.cmds ));
 	demo.angle_position = 1;
@@ -1555,7 +1555,7 @@ void CL_PlayDemo_f( void )
 
 		if( neg ) cls.forcetrack = -cls.forcetrack;
 		CL_DemoStartPlayback( DEMO_QUAKE1 );
-		cls.legacymode = PROTO_QUAKE;
+		cls.net_protocol = PROTO_QUAKE;
 		return; // quake demo is started
 	}
 
@@ -1591,7 +1591,7 @@ void CL_PlayDemo_f( void )
 	CL_DemoStartPlayback( DEMO_XASH3D );
 
 	// must be after DemoStartPlayback, as CL_Disconnect_f resets the protocol
-	cls.legacymode = CL_GetProtocolFromDemo( demo.header.net_protocol );
+	cls.net_protocol = CL_GetProtocolFromDemo( demo.header.net_protocol );
 
 	// g-cont. is this need?
 	Q_strncpy( cls.servername, demoname, sizeof( cls.servername ));

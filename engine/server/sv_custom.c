@@ -543,6 +543,8 @@ void SV_SendResource( resource_t *pResource, sizebuf_t *msg )
 
 void SV_SendResources( sv_client_t *cl, sizebuf_t *msg )
 {
+	SetBits( cl->flags, FCL_EXPECT_RESOURCELIST );
+
 	MSG_BeginServerCmd( msg, svc_resourcerequest );
 	MSG_WriteLong( msg, svs.spawncount );
 	MSG_WriteLong( msg, 0 );

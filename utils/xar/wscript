@@ -12,7 +12,7 @@ def build(bld):
 	bld.program(source   = bld.path.ant_glob('*.c'),
 		target   = 'xar',
 		includes = '.',
-		use      = 'public filesystem_includes werror',
+		use      = 'public filesystem_includes werror yy_thunks',
 		rpath = bld.env.DEFAULT_RPATH,
 		install_path = bld.env.BINDIR,
 		subsystem = bld.env.CONSOLE_SUBSYSTEM

@@ -465,7 +465,7 @@ static void CL_ParseSoundPacketGS( sizebuf_t *msg )
 	float attn;
 	if( FBitSet( flags, SND_ATTENUATION ))
 		attn = (float)MSG_ReadByte( msg ) / 64.0f;
-	else attn = ATTN_NONE;
+	else attn = 1.0f;
 
 	int chan = MSG_ReadUBitLong( msg, 3 );
 	int entnum = MSG_ReadUBitLong( msg, MAX_GOLDSRC_ENTITY_BITS );

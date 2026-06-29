@@ -645,10 +645,9 @@ typedef struct
 	qboolean internetservers_pending; // if true, clean master server pings
 	qboolean internetservers_nat;
 	string   internetservers_customfilter;
-	uint32_t internetservers_key;     // compare key to validate master server reply
 
 	// multiprotocol support
-	connprotocol_t legacymode;
+	connprotocol_t net_protocol;
 	int extensions;
 
 	netadr_t serveradr;
@@ -793,6 +792,7 @@ void CL_SignonReply( connprotocol_t proto );
 void CL_ClearState( void );
 void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticket, size_t ticketlen );
+void CL_NotifyServerListResponse( void );
 
 //
 // cl_demo.c

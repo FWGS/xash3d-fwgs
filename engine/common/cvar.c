@@ -943,7 +943,7 @@ static qboolean Cvar_ShouldSetCvar( convar_t *v, qboolean isPrivileged )
 	if( isPrivileged )
 		return true;
 
-	if( FBitSet( v->flags, FCVAR_PRIVILEGED ))
+	if( FBitSet( v->flags, FCVAR_PRIVILEGED ) || v->name[0] == '@' )
 		return false;
 
 	if( cl_filterstuffcmd.value <= 0.0f )
