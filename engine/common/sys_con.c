@@ -105,6 +105,15 @@ void Sys_InitLog( void )
 	// create log if needed
 	if( s_ld.log_active )
 	{
+#if XASH_GAMECUBE
+		if( !GCube_HasWritableStorage( ))
+		{
+			Con_Reportf( S_WARN "GameCube: no writable storage, disabling file log (%s)\n", s_ld.log_path );
+			s_ld.log_active = false;
+		}
+		else
+#endif
+		{
 		const char *basedir = getenv( "XASH3D_BASEDIR" );
 
 		if( !COM_StringEmptyOrNULL( basedir ) && s_ld.log_path[0] != '/' )
@@ -128,6 +137,10 @@ void Sys_InitLog( void )
 #endif
 			return;
 		}
+
+#if XASH_GAMECUBE
+		} // close else block for GCube_HasWritableStorage
+#endif
 
 		s_ld.logfileno = fileno( s_ld.logfile );
 
