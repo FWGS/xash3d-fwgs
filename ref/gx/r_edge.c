@@ -948,6 +948,8 @@ static void D_AlphaSurf( surf_t *s )
 	{
 		// FIXME: make this passed in to D_CacheSurface
 		pcurrentcache = D_CacheSurface( pface, miplevel );
+		if( !pcurrentcache )
+			return;
 
 		cacheblock = (pixel_t *)pcurrentcache->data;
 		cachewidth = pcurrentcache->width;
@@ -1031,6 +1033,8 @@ static void D_SolidSurf( surf_t *s )
 
 	// FIXME: make this passed in to D_CacheSurface
 	pcurrentcache = D_CacheSurface( pface, miplevel );
+	if( !pcurrentcache )
+		return;
 
 	cacheblock = (pixel_t *)pcurrentcache->data;
 	cachewidth = pcurrentcache->width;
