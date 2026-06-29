@@ -255,11 +255,6 @@ void GCube_Init( void )
 	 * to ensure offline boot works without network hardware. */
 	NET_Config( false, false );
 
-	/* G40: Force game directory to "valve" for Half-Life campaign.
-	 * This ensures FS_LoadGameInfo/FS_Rescan find the correct game
-	 * hierarchy before argv processing completes. */
-	Cvar_Set( "game", "valve" );
-
 	gc_fat_mounted = fatInitDefault();
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
@@ -269,10 +264,12 @@ void GCube_Init( void )
 
 	if( !gc_dvd_mounted )
 	{
+		SYS_Report( "Xash3D GameCube: mounting DVD filesystem\n" );
 		DVD_Init();
 		gc_dvd_io = __io_gcdvd;
 		gc_dvd_io.readSectors = GCube_DVDReadSectors;
 		gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
+		SYS_Report( "Xash3D GameCube: DVD mount %s\n", gc_dvd_mounted ? "ok" : "failed" );
 	}
 	if( gc_dvd_mounted )
 		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n",
@@ -428,10 +425,10 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "-log";
 	gc_argv[fake_argc++] = "-game";
 	gc_argv[fake_argc++] = "valve";
+	gc_argv[fake_argc++] = "-nointro";
 	if( gc_smoke_map_configured )
 	{
 		gc_argv[fake_argc++] = "-toconsole";
-		gc_argv[fake_argc++] = "-nointro";
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
 		gc_argv[fake_argc++] = "map";

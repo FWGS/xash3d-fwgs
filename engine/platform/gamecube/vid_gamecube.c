@@ -16,6 +16,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 
 #if XASH_GAMECUBE
 #include <ogc/gx.h>
+#include <ogc/gu.h>
 #include <ogc/video.h>
 #include <ogc/color.h>
 #include <ogc/system.h>
@@ -44,6 +45,8 @@ static unsigned int gc_blank_present_count;
 static convar_t *gc_quality;
 static double gc_last_present_time;
 static double gc_worst_frame_ms;
+static GXTexObj gc_present_tex;
+static qboolean gc_present_tex_ready;
 #endif
 
 #define GC_VIDEO_SAFE_AREA_PERCENT 10
@@ -142,10 +145,88 @@ static void GC_InitVideoHardware( void )
 	/* Software renderer outputs 16-bit RGB565; force matching display format */
 	GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
 
+	GX_SetViewport( 0, 0, rmode->fbWidth, rmode->efbHeight, 0, 1 );
+	GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+	GX_SetNumChans( 1 );
+	GX_SetNumTexGens( 1 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+	GX_SetColorUpdate( GX_TRUE );
+	GX_SetCullMode( GX_CULL_NONE );
+
+	gc_present_tex_ready = false;
 	gc.initialized = true;
 	SYS_Report( "Xash3D GameCube: renderer initialized gx\n" );
 #endif
 }
+
+#if XASH_GAMECUBE
+static void GC_InitPresentTexture( void )
+{
+	if( !gc.buffer || gc.width <= 0 || gc.height <= 0 )
+	{
+		gc_present_tex_ready = false;
+		return;
+	}
+
+	GX_InitTexObj( &gc_present_tex, gc.buffer, (u16)gc.width, (u16)gc.height,
+		GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
+	GX_InitTexObjFilterMode( &gc_present_tex, GX_LINEAR, GX_LINEAR );
+	gc_present_tex_ready = true;
+}
+
+static void GC_PresentBufferViaGX( void )
+{
+	Mtx44 proj;
+	Mtx modelview;
+	f32 fb_w, fb_h;
+
+	if( !rmode || !xfb[which_fb] || !gc_present_tex_ready )
+		return;
+
+	fb_w = (f32)rmode->fbWidth;
+	fb_h = (f32)rmode->efbHeight;
+
+	guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
+	GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
+	guMtxIdentity( modelview );
+	GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
+
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_LoadTexObj( &gc_present_tex, GX_TEXMAP0 );
+
+	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+	GX_Position3f32( 0.0f, fb_h, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 0.0f, 1.0f );
+	GX_Position3f32( fb_w, fb_h, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 1.0f, 1.0f );
+	GX_Position3f32( fb_w, 0.0f, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 1.0f, 0.0f );
+	GX_Position3f32( 0.0f, 0.0f, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 0.0f, 0.0f );
+	GX_End();
+
+	GX_SetDispCopyGamma( GX_GM_1_0 );
+	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+	GX_CopyDisp( xfb[which_fb], GX_TRUE );
+	GX_DrawDone();
+}
+#endif
 
 static void GC_ShutdownVideoHardware( void )
 {
@@ -154,6 +235,7 @@ static void GC_ShutdownVideoHardware( void )
 		return;
 
 	gc.initialized = false;
+	gc_present_tex_ready = false;
 
 	GX_AbortFrame();
 	VIDEO_SetBlack( true );
@@ -187,20 +269,94 @@ static unsigned int GC_RGBPairToYUYV( unsigned short p1, unsigned short p2 )
 	return ( y1 << 24 ) | ( cb << 16 ) | ( y2 << 8 ) | cr;
 }
 
+static void GC_SampleBufferNonBlack( const unsigned short *src, int src_w, int src_h, int src_stride, qboolean *sampled_nonblack )
+{
+	int check_w, col2;
+	const unsigned short *scanrow;
+
+	if( !src || src_w <= 0 || src_h <= 0 || !sampled_nonblack )
+		return;
+
+	check_w = src_w < 8 ? src_w : 8;
+	scanrow = src;
+	for( col2 = 0; col2 < check_w; col2++ )
+	{
+		if( scanrow[col2] != 0 )
+		{
+			*sampled_nonblack = true;
+			return;
+		}
+	}
+
+	scanrow = src + ( src_h / 2 ) * src_stride;
+	col2 = src_w / 2;
+	if( col2 >= 0 && col2 < src_w && scanrow[col2] != 0 )
+		*sampled_nonblack = true;
+}
+
+static void GC_BlitSoftwareBufferScaled( const unsigned short *src, int src_w, int src_h, int src_stride,
+	unsigned int *dst, int copy_w, int copy_h, int row_pairs )
+{
+	int dst_y, dst_x, src_y, src_x;
+	const int pairs = src_w / 2;
+
+	if( src_w > 0 && src_h > 0 && ( src_w & 1 ) == 0 && ( copy_w & 1 ) == 0
+		&& src_w * 2 == copy_w && src_h * 2 == copy_h )
+	{
+		for( src_y = 0; src_y < src_h; src_y++ )
+		{
+			const unsigned short *scanline = src + src_y * src_stride;
+			unsigned int *out0 = dst + ( src_y * 2 ) * row_pairs;
+			unsigned int *out1 = out0 + row_pairs;
+
+			for( src_x = 0; src_x < pairs; src_x++ )
+			{
+				unsigned int yuyv = GC_RGBPairToYUYV( scanline[src_x * 2], scanline[src_x * 2 + 1] );
+				out0[src_x] = yuyv;
+				out1[src_x] = yuyv;
+			}
+		}
+		return;
+	}
+
+	if( src_w == copy_w && src_h == copy_h && pairs > 0 )
+	{
+		for( src_y = 0; src_y < src_h; src_y++ )
+		{
+			const unsigned short *scanline = src + src_y * src_stride;
+			unsigned int *out = dst + src_y * row_pairs;
+
+			for( src_x = 0; src_x < pairs; src_x++ )
+				out[src_x] = GC_RGBPairToYUYV( scanline[src_x * 2], scanline[src_x * 2 + 1] );
+		}
+		return;
+	}
+
+	for( dst_y = 0; dst_y < copy_h; dst_y++ )
+	{
+		int source_y = dst_y * src_h / copy_h;
+		unsigned int *out = dst + dst_y * row_pairs;
+		const unsigned short *scanline = src + source_y * src_stride;
+
+		for( dst_x = 0; dst_x < copy_w; dst_x += 2 )
+		{
+			unsigned short p1 = scanline[dst_x * src_w / copy_w];
+			unsigned short p2 = scanline[( dst_x + 1 ) * src_w / copy_w];
+			out[dst_x / 2] = GC_RGBPairToYUYV( p1, p2 );
+		}
+	}
+}
+
 static void GC_PresentBuffer( void )
 {
 #if XASH_GAMECUBE
 	unsigned short *src;
 	unsigned int *dst;
 	unsigned int *diag_rowdst;
-	int copy_w, copy_h, row, col2;
+	int copy_w, copy_h, row, col_diag;
 	int src_w, src_h;
-	int dst_x, dst_y;
 	qboolean sampled_nonblack;
 	size_t buf_size;
-	int col_diag;
-	int check_w;
-	unsigned short *scanrow;
 	unsigned short first_pixel;
 	double now;
 	double elapsed_ms;
@@ -211,16 +367,11 @@ static void GC_PresentBuffer( void )
 	copy_w = 0;
 	copy_h = 0;
 	row = 0;
-	col2 = 0;
 	src_w = 0;
 	src_h = 0;
-	dst_x = 0;
-	dst_y = 0;
 	sampled_nonblack = false;
 	buf_size = 0;
 	col_diag = 0;
-	check_w = 0;
-	scanrow = NULL;
 	first_pixel = 0;
 	now = 0.0;
 	elapsed_ms = 0.0;
@@ -233,10 +384,11 @@ static void GC_PresentBuffer( void )
 	copy_w = rmode->fbWidth;
 	copy_h = rmode->xfbHeight;
 	dst = (unsigned int *)xfb[which_fb];
-	VIDEO_ClearFrameBuffer( rmode, dst, COLOR_BLACK );
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
+		const int row_pairs = rmode->fbWidth / 2;
+
 		src = gc.buffer;
 		src_w = gc.width;
 		src_h = gc.height;
@@ -251,42 +403,19 @@ static void GC_PresentBuffer( void )
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
 
-		for( dst_y = 0; dst_y < copy_h; dst_y++ )
-		{
-			int source_y = dst_y * src_h / copy_h;
-			unsigned int *out = dst + dst_y * ( rmode->fbWidth / 2 );
-			unsigned short *scanline = src + source_y * gc.stride;
-
-			for( dst_x = 0; dst_x < copy_w; dst_x += 2 )
-			{
-				unsigned short p1 = scanline[dst_x * src_w / copy_w];
-				unsigned short p2 = scanline[( dst_x + 1 ) * src_w / copy_w];
-				out[dst_x / 2] = GC_RGBPairToYUYV( p1, p2 );
-			}
-		}
-
-		// G36: Detect non-black content on first frame only to stabilize frame budget
-		if( gc_present_count == 1 && src_h > 0 && src_w > 0 )
-		{
-			check_w = src_w < 8 ? src_w : 8;
-			scanrow = src;
-			col2 = 0;
-			for( col2 = 0; col2 < check_w; col2++ )
-			{
-				if( scanrow[col2] != 0 )
-				{
-					sampled_nonblack = true;
-					break;
-				}
-			}
-		}
+		if( gc_present_tex_ready && gc.initialized )
+			GC_PresentBufferViaGX();
 		else
-		{
-			sampled_nonblack = false;
-		}
+			GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
+
+		// G36: Detect non-black content only while probe frame samples are active.
+		if( gc_present_count <= 16 && src_h > 0 && src_w > 0 )
+			GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
 	}
 	else
 	{
+		VIDEO_ClearFrameBuffer( rmode, dst, COLOR_BLACK );
+
 		/* G36: Diagnostic blue fill only for first frame when buffer is missing.
 		 * Avoid wasting CPU cycles on full-screen fills after initial evidence
 		 * is captured. Leaves XFB black (zeroed) for subsequent frames. */
@@ -343,7 +472,7 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 		return false;
 
 #if XASH_GAMECUBE
-	gc_quality = Cvar_Get( "gc_quality", "1", FCVAR_ARCHIVE, "GameCube quality profile: 0=smoke, 1=release, 2=high telemetry-only" );
+	gc_quality = Cvar_Get( "gc_quality", "1", FCVAR_ARCHIVE, "GameCube quality profile: 0=playable/low-mem, 1=standard (default), 2=high telemetry-only" );
 	GC_ReportQualityProfile( "video-init" );
 #endif
 
@@ -425,6 +554,9 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	{
 		memset( gc.buffer, 0, needed_pixels * sizeof( unsigned short ));
 	}
+
+	for( size_t i = 0; i < needed_pixels; i++ )
+		gc.buffer[i] = 0x0010; /* dark blue boot backdrop */
 #else
 	if( gc.buffer )
 		free( gc.buffer );
@@ -433,6 +565,10 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 	if( !gc.buffer )
 		return false;
+
+#if XASH_GAMECUBE
+	GC_InitPresentTexture();
+#endif
 
 	*stride = gc.stride;
 	*bpp = gc.bpp;
@@ -532,10 +668,10 @@ void GC_TrimVideoMemoryForMapLoad( void )
 		gc.buffer = NULL;
 	}
 #else
-	gc.width = 0;
-	gc.height = 0;
-	gc.stride = 0;
-	gc.bpp = 0;
+	/* Keep gc.buffer dimensions valid for loading UI and restore. Renderer-side
+	 * buffers are trimmed separately; only drop the GX fast-present path so map
+	 * load status draws use the CPU blit and cannot block in GX_DrawDone. */
+	gc_present_tex_ready = false;
 #endif
 }
 
@@ -605,16 +741,25 @@ static unsigned char GC_FatalGlyphRow( char ch, int row )
 	}
 }
 
-static void GC_FatalPutPixel( unsigned short *dst, int x, int y, unsigned short color )
+static void GC_StatusPutPixel( unsigned short *dst, int stride, int width, int height, int x, int y, unsigned short color )
 {
-	if( x < 0 || y < 0 || !rmode || x >= rmode->fbWidth || y >= rmode->xfbHeight )
+	if( x < 0 || y < 0 || x >= width || y >= height )
 		return;
-	dst[y * rmode->fbWidth + x] = color;
+	dst[y * stride + x] = color;
 }
 
-static void GC_FatalDrawChar( unsigned short *dst, int x, int y, char ch, unsigned short color, int scale )
+static void GC_FatalPutPixel( unsigned short *dst, int x, int y, unsigned short color )
+{
+	if( !rmode )
+		return;
+	GC_StatusPutPixel( dst, rmode->fbWidth, rmode->fbWidth, rmode->xfbHeight, x, y, color );
+}
+
+static void GC_StatusDrawChar( unsigned short *dst, int stride, int width, int height,
+	int x, int y, char ch, unsigned short color, int scale )
 {
 	int row, col, sx, sy;
+
 	for( row = 0; row < 7; row++ )
 	{
 		unsigned char bits = GC_FatalGlyphRow( ch, row );
@@ -624,17 +769,36 @@ static void GC_FatalDrawChar( unsigned short *dst, int x, int y, char ch, unsign
 				continue;
 			for( sy = 0; sy < scale; sy++ )
 				for( sx = 0; sx < scale; sx++ )
-					GC_FatalPutPixel( dst, x + col * scale + sx, y + row * scale + sy, color );
+					GC_StatusPutPixel( dst, stride, width, height,
+						x + col * scale + sx, y + row * scale + sy, color );
 		}
 	}
 }
 
-static int GC_FatalDrawLine( unsigned short *dst, int x, int y, const char *text, unsigned short color, int scale, int max_chars )
+static void GC_FatalDrawChar( unsigned short *dst, int x, int y, char ch, unsigned short color, int scale )
+{
+	if( !rmode )
+		return;
+	GC_StatusDrawChar( dst, rmode->fbWidth, rmode->fbWidth, rmode->xfbHeight,
+		x, y, ch, color, scale );
+}
+
+static int GC_StatusDrawLine( unsigned short *dst, int stride, int width, int height,
+	int x, int y, const char *text, unsigned short color, int scale, int max_chars )
 {
 	int i;
+
 	for( i = 0; text && text[i] && text[i] != '\n' && i < max_chars; i++ )
-		GC_FatalDrawChar( dst, x + i * 6 * scale, y, text[i], color, scale );
+		GC_StatusDrawChar( dst, stride, width, height, x + i * 6 * scale, y, text[i], color, scale );
 	return i;
+}
+
+static int GC_FatalDrawLine( unsigned short *dst, int x, int y, const char *text, unsigned short color, int scale, int max_chars )
+{
+	if( !rmode )
+		return 0;
+	return GC_StatusDrawLine( dst, rmode->fbWidth, rmode->fbWidth, rmode->xfbHeight,
+		x, y, text, color, scale, max_chars );
 }
 
 static void GC_FatalDrawWrapped( unsigned short *dst, int x, int y, const char *text, unsigned short color, int scale, int max_chars, int max_lines )
@@ -652,6 +816,48 @@ static void GC_FatalDrawWrapped( unsigned short *dst, int x, int y, const char *
 	}
 }
 
+static void GC_DrawStatusPanelToBuffer( unsigned short *dst, int width, int height, int stride,
+	const char *message, const char *details )
+{
+	int row;
+	int col;
+	int panel_x;
+	int panel_y;
+	int panel_w;
+	int panel_h;
+	int text_scale;
+	int line_scale;
+
+	panel_x = width * 24 / 640;
+	panel_w = width - panel_x * 2;
+	panel_h = height * 92 / 480;
+	panel_y = height - panel_h - height * 24 / 480;
+	if( panel_y < height * 24 / 480 )
+		panel_y = height * 24 / 480;
+	text_scale = height >= 240 ? 2 : 1;
+	line_scale = height >= 240 ? 2 : 1;
+
+	for( row = panel_y; row < panel_y + panel_h && row < height; row++ )
+	{
+		unsigned short *rowdst = dst + row * stride;
+		for( col = panel_x; col < panel_x + panel_w && col < width; col++ )
+		{
+			if( row == panel_y || row == panel_y + panel_h - 1 ||
+				col == panel_x || col == panel_x + panel_w - 1 )
+				rowdst[col] = 0x07FF;
+			else
+				rowdst[col] = 0x0010;
+		}
+	}
+
+	GC_StatusDrawLine( dst, stride, width, height, panel_x + width * 18 / 640,
+		panel_y + height * 12 / 480, "LOADING", 0xFFFF, text_scale, 24 );
+	GC_StatusDrawLine( dst, stride, width, height, panel_x + width * 18 / 640,
+		panel_y + height * 38 / 480, message ? message : "PLEASE WAIT", 0xFFE0, text_scale, 34 );
+	GC_StatusDrawLine( dst, stride, width, height, panel_x + width * 18 / 640,
+		panel_y + height * 64 / 480, details ? details : "GAMECUBE VIDEO ALIVE", 0x07E0, line_scale, 72 );
+}
+
 /*
  * G60: Present loading progress without relying on renderer assets. Long map
  * loads can otherwise look like a hard hang on real hardware or composite
@@ -665,10 +871,26 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 	int row;
 	int col;
 	int panel_x;
-	int panel_y;
 	int panel_w;
 	int panel_h;
+	int panel_y;
 	size_t xfb_size;
+
+	if( gc.buffer && gc.width > 0 && gc.height > 0 )
+	{
+		for( row = 0; row < gc.height; row++ )
+		{
+			rowdst = gc.buffer + row * gc.stride;
+			for( col = 0; col < gc.width; col++ )
+				rowdst[col] = 0x0010;
+		}
+
+		GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride, message, details );
+		/* Avoid VIDEO_WaitVSync during Host_Init map load; it can stall for minutes in Dolphin. */
+		if( host.status != HOST_INIT )
+			GC_PresentBuffer();
+		return;
+	}
 
 	if( !rmode || !xfb[which_fb] )
 		return;
@@ -702,8 +924,11 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 	DCFlushRange( xfb[which_fb], (u32)xfb_size );
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
-	VIDEO_WaitVSync();
-	which_fb ^= 1;
+	if( host.status != HOST_INIT )
+	{
+		VIDEO_WaitVSync();
+		which_fb ^= 1;
+	}
 #endif
 }
 
@@ -794,14 +1019,31 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 #endif
 }
 
+void GC_BeginFrameBudgetProbe( void )
+{
+#if XASH_GAMECUBE
+	gc_present_count = 0;
+	gc_blank_present_count = 0;
+	gc_last_present_time = 0.0;
+	gc_worst_frame_ms = 0.0;
+#endif
+}
+
 void GC_RestoreVideoMemoryAfterMapLoad( void )
 {
 	uint stride, bpp, r, g, b;
+	int width, height;
 
-	if( gc.buffer || gc.width <= 0 || gc.height <= 0 )
+	if( gc.buffer && gc.width > 0 && gc.height > 0 )
+	{
+		GC_InitPresentTexture();
 		return;
+	}
 
-	SW_CreateBuffer( gc.width, gc.height, &stride, &bpp, &r, &g, &b );
+	width = refState.width > 0 ? refState.width : DEFAULT_MODE_WIDTH;
+	height = refState.height > 0 ? refState.height : DEFAULT_MODE_HEIGHT;
+	if( !SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
+		SYS_Report( "GX video: restore buffer failed %dx%d\n", width, height );
 }
 
 void GL_UpdateSwapInterval( void )
