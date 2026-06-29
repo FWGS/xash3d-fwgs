@@ -53,8 +53,8 @@ def main() -> int:
 	))
 	checks.append(Check(
 		"bounded ASND latency",
-		"PASS" if contains_all(audio, ("GC_AUDIO_CHUNK_SAMPLES", "512", "GC_AUDIO_DEFAULT_SAMPLES", "2048", "SOUND_DMA_SPEED")) and contains_all(sound_h, ("#define SOUND_DMA_SPEED SOUND_48k",)) else "FAIL",
-		"uses bounded 512-sample chunks and a documented 2048-sample stereo ring at 48 kHz",
+		"PASS" if contains_all(audio, ("GC_AUDIO_CHUNK_SAMPLES", "1024", "GC_AUDIO_DEFAULT_SAMPLES", "8192", "SOUND_DMA_SPEED")) and contains_all(sound_h, ("#define SOUND_DMA_SPEED SOUND_48k",)) else "FAIL",
+		"uses bounded 1024-sample ASND chunks and a documented 8192-sample stereo ring at 48 kHz",
 	))
 	checks.append(Check(
 		"double-buffered playback",
