@@ -61,6 +61,36 @@ void Platform_Minimize_f( void )
 {
 }
 
+void GC_EarlyBootSplash( void )
+{
+#if XASH_GAMECUBE
+	unsigned short *dst;
+
+	if( gc.initialized || rmode )
+		return;
+
+	SYS_Report( "Xash3D GameCube: early video splash\n" );
+	VIDEO_Init();
+	rmode = VIDEO_GetPreferredMode( NULL );
+	if( !rmode )
+		return;
+
+	VIDEO_Configure( rmode );
+	xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+	if( !xfb[0] )
+		return;
+
+	dst = (unsigned short *)xfb[0];
+	VIDEO_ClearFrameBuffer( rmode, dst, 0x0010 ); /* dark blue boot frame */
+	VIDEO_SetNextFramebuffer( xfb[0] );
+	VIDEO_SetBlack( false );
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+	if( rmode->viTVMode & VI_NON_INTERLACE )
+		VIDEO_WaitVSync();
+#endif
+}
+
 static void GC_InitVideoHardware( void )
 {
 #if XASH_GAMECUBE
@@ -71,10 +101,16 @@ static void GC_InitVideoHardware( void )
 		return;
 	gc_last_present_time = 0.0;
 	SYS_Report( "Xash3D GameCube: mem stage=video_init total=%.2f\n", 0.0 );
-	VIDEO_Init();
-	/* G44: Use libogc's region/cable-safe preferred mode. Do not force 480p. */
-	rmode = VIDEO_GetPreferredMode( NULL );
-	VIDEO_Configure( rmode );
+	if( !rmode )
+	{
+		VIDEO_Init();
+		rmode = VIDEO_GetPreferredMode( NULL );
+		VIDEO_Configure( rmode );
+	}
+	else
+	{
+		SYS_Report( "Xash3D GameCube: video init continuing after early splash\n" );
+	}
 	progressive = ( rmode->viTVMode & VI_NON_INTERLACE ) ? true : false;
 	safe_x = ( rmode->fbWidth * GC_VIDEO_SAFE_AREA_PERCENT ) / 100;
 	safe_y = ( rmode->xfbHeight * GC_VIDEO_SAFE_AREA_PERCENT ) / 100;
@@ -87,8 +123,10 @@ static void GC_InitVideoHardware( void )
 		GC_VIDEO_SAFE_AREA_PERCENT, safe_x, safe_y, safe_w, safe_h,
 		GC_VIDEO_MIN_READABLE_WIDTH, GC_VIDEO_MIN_READABLE_HEIGHT );
 
-	xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
-	xfb[1] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+	if( !xfb[0] )
+		xfb[0] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
+	if( !xfb[1] )
+		xfb[1] = MEM_K0_TO_K1( SYS_AllocateFramebuffer( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_SetBlack( false );
 	VIDEO_Flush();

@@ -147,6 +147,7 @@ void GCube_EarlyInit( void )
 	/* Make startup and fatal errors visible in Dolphin before video is ready. */
 	SYS_STDIO_Report( true );
 	SYS_Report( "Xash3D GameCube: bootstrap\n" );
+	GC_EarlyBootSplash();
 #endif
 }
 

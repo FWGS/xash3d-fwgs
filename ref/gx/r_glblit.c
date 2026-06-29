@@ -547,9 +547,13 @@ void R_GcmapTrimScreenBuffers( void )
 	}
 
 #if XASH_GAMECUBE
-	/* The platform video backend owns the persistent software framebuffer on
-	 * GameCube. Clear the renderer alias here, but do not free the storage. */
-	vid.buffer = NULL;
+	/* gc.buffer is owned by the platform video backend. Free only the renderer
+	 * colormap buffer allocated in R_AllocScreen(). */
+	if( vid.buffer )
+	{
+		free( vid.buffer );
+		vid.buffer = NULL;
+	}
 #else
 	if( vid.buffer )
 	{
@@ -570,17 +574,15 @@ void R_GcmapTrimScreenBuffers( void )
 void R_EnsureDrawBuffer( void )
 {
 #if XASH_GAMECUBE
-	void *buffer;
+	size_t pixels;
 
-	if( vid.buffer )
+	if( vid.buffer && vid.width > 0 && vid.height > 0 )
+		return;
+	if( vid.width <= 0 || vid.height <= 0 )
 		return;
 
-	if( !swblit.pLockBuffer )
-		return;
-
-	buffer = swblit.pLockBuffer();
-	if( buffer )
-		vid.buffer = buffer;
+	pixels = (size_t)vid.width * (size_t)vid.height;
+	vid.buffer = malloc( pixels * sizeof( pixel_t ));
 #endif
 }
 
@@ -661,16 +663,24 @@ qboolean R_AllocScreen( void )
 #endif
 	vid.width = gpGlobals->width;
 	vid.height = gpGlobals->height;
+#if XASH_GAMECUBE
+	vid.rowbytes = vid.width;
+#else
 	vid.rowbytes = swblit.stride; // rowpixels
+#endif
 	if( d_pzbuffer )
 		free( d_pzbuffer );
 	d_pzbuffer = malloc( vid.width * vid.height * 2 + 64 );
 
 #if XASH_GAMECUBE
-	vid.buffer = swblit.pLockBuffer();
+	/* The platform backend owns gc.buffer (RGB565). Keep renderer indices in a
+	 * separate buffer so R_BlitScreen can translate without aliasing. */
+	if( vid.buffer )
+		free( vid.buffer );
+	vid.buffer = malloc( vid.width * vid.height * sizeof( pixel_t ));
 	if( !vid.buffer )
 	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc missing software buffer\n" );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc missing colormap buffer\n" );
 		return false;
 	}
 #else
@@ -698,15 +708,9 @@ void R_BlitScreen( void )
 			return;
 	}
 
-#if XASH_GAMECUBE
-	if( vid.buffer != buffer )
-		vid.buffer = buffer;
-#endif
-	// return;
-	// byte *buf = vid.buffer;
+	if( !vid.buffer )
+		return;
 
-	// #pragma omp parallel for schedule(static)
-	// gEngfuncs.Con_Printf("swblit %d %d", swblit.bpp, vid.height );
 	if( swblit.rotate )
 	{
 		if( swblit.bpp == 2 )

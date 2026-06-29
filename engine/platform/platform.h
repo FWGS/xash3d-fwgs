@@ -121,6 +121,7 @@ void DOS_Shutdown( void );
 
 #if XASH_GAMECUBE
 void GCube_EarlyInit( void );
+void GC_EarlyBootSplash( void );
 void GCube_Init( void );
 void GCube_Shutdown( void );
 qboolean GCube_GetBasePath( char *buf, size_t buflen );
