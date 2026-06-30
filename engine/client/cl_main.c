@@ -42,6 +42,7 @@ static CVAR_DEFINE_AUTO( cl_logoext, "bmp", FCVAR_ARCHIVE, "temporary cvar to te
 static CVAR_DEFINE( cl_logoupdate, "@cl_logoupdate", "0", 0, "set by menu to trigger clan logo update" );
 CVAR_DEFINE_AUTO( cl_logomaxdim, "96", FCVAR_ARCHIVE, "maximum decal dimension" );
 static CVAR_DEFINE_AUTO( cl_test_bandwidth, "1", FCVAR_ARCHIVE, "test network bandwith before connection" );
+static CVAR_DEFINE_AUTO( cl_require_challenge_echo, "-1", FCVAR_ARCHIVE, "reject connect packets that don't echo challenge, protects against spoofed servers but breaks connection to old servers (-1 = engine default)" );
 
 CVAR_DEFINE( cl_draw_particles, "r_drawparticles", "1", FCVAR_CHEAT, "render particles" );
 CVAR_DEFINE( cl_draw_tracers, "r_drawtracers", "1", FCVAR_CHEAT, "render tracers" );
@@ -2446,6 +2447,29 @@ static void CL_ClientConnect( connprotocol_t proto, const char *c, netadr_t from
 			return;
 		}
 
+		const char *challenge_str = Info_ValueForKey( Cmd_Argv( 1 ), "challenge" );
+
+		if( COM_StringEmpty( challenge_str ))
+		{
+			qboolean require_challenge;
+
+			if( cl_require_challenge_echo.value < 0 )
+				require_challenge = false; // FIXME: flip once most servers migrate to newer engine version
+			else
+				require_challenge = !!cl_require_challenge_echo.value;
+
+			if( require_challenge )
+			{
+				Con_Printf( S_WARN "%s: %s did not echo challenge, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+				return;
+			}
+		}
+		else if( Q_atoi( challenge_str ) != cls.bandwidth_test.challenge )
+		{
+			Con_Printf( S_WARN "%s: challenge mismatch from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+			return;
+		}
+
 		if( cls.netchan_pending_cookie != 0 )
 		{
 			int server_extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
@@ -3498,6 +3522,7 @@ static void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_logoupdate );
 	Cvar_RegisterVariable( &cl_logomaxdim );
 	Cvar_RegisterVariable( &cl_test_bandwidth );
+	Cvar_RegisterVariable( &cl_require_challenge_echo );
 
 	Voice_RegisterCvars();
 	VGui_RegisterCvars();

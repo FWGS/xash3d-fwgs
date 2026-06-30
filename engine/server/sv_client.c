@@ -466,6 +466,7 @@ static void SV_ConnectClient( netadr_t from )
 	protinfo[0] = '\0';
 	Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", newcl->extensions );
 	Info_SetValueForKey( protinfo, "cheats", sv_cheats.value ? "1" : "0", sizeof( protinfo ));
+	Info_SetValueForKeyf( protinfo, "challenge", sizeof( protinfo ), "%d", challenge );
 	if( FBitSet( newcl->extensions, NET_EXT_NETCHAN_COOKIE ))
 		Info_SetValueForKeyf( protinfo, "cookie", sizeof( protinfo ), "%016"PRIx64, netchan_cookie );
 
