@@ -566,7 +566,7 @@ static texture_t *R_TextureAnimation( msurface_t *s )
 R_AddDynamicLights
 ===============
 */
-static void R_AddDynamicLights( const msurface_t *surf )
+static void R_AddDynamicLights( const msurface_t *surf, float sample_size, int smax, int tmax )
 {
 	const mextrasurf_t *info = surf->info;
 	int sample_frac = 1.0;
@@ -575,9 +575,6 @@ static void R_AddDynamicLights( const msurface_t *surf )
 	if( !surf->dlightbits )
 		return;
 
-	float sample_size = gEngfuncs.Mod_SampleSizeForFace( surf );
-	int smax = (info->lightextents[0] / sample_size) + 1;
-	int tmax = (info->lightextents[1] / sample_size) + 1;
 	mtexinfo_t *tex = surf->texinfo;
 
 	if( FBitSet( tex->flags, TEX_WORLD_LUXELS ))
@@ -624,14 +621,22 @@ static void R_AddDynamicLights( const msurface_t *surf )
 		float sl = DotProduct( impact, info->lmvecs[0] ) + info->lmvecs[0][3] - info->lightmapmins[0];
 		float tl = DotProduct( impact, info->lmvecs[1] ) + info->lmvecs[1][3] - info->lightmapmins[1];
 
-		for( int t = 0; t < tmax; t++ )
+		// dist >= max( sd, td ), so a luxel can only pass the test below when both
+		// sd and td are under minlight
+		float half = ( minlight + 1.0f ) / ( sample_size * sample_frac );
+		int s0 = Q_max( 0, (int)( sl / sample_size - half ));
+		int s1 = Q_min( smax - 1, (int)( sl / sample_size + half ));
+		int t0 = Q_max( 0, (int)( tl / sample_size - half ));
+		int t1 = Q_min( tmax - 1, (int)( tl / sample_size + half ));
+
+		for( int t = t0; t <= t1; t++ )
 		{
 			int td = (tl - sample_size * t) * sample_frac;
 
 			if( td < 0 )
 				td = -td;
 
-			for( int s = 0; s < smax; s++ )
+			for( int s = s0; s <= s1; s++ )
 			{
 				int sd = (sl - sample_size * s) * sample_frac;
 				float dist;
@@ -755,7 +760,7 @@ static void R_BuildLightMap( const msurface_t *surf, byte *dest, int stride, qbo
 
 	// add all the dynamic lights
 	if( surf->dlightframe == tr.framecount && dynamic )
-		R_AddDynamicLights( surf );
+		R_AddDynamicLights( surf, sample_size, smax, tmax );
 
 	for( int t = 0; t < tmax; t++ )
 	{
