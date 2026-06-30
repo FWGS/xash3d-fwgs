@@ -4,8 +4,12 @@
 
 from waflib import Build, Context, Logs, TaskGen
 from waflib.Tools import waf_unit_test, c_tests
+import clang_format
 import sys
 import os
+
+# we need version 17 minimum
+clang_format.CLANG_FORMAT_MIN_MAJOR = 17
 
 VERSION = '0.99'
 APPNAME = 'xash3d-fwgs'
@@ -31,6 +35,24 @@ def apply_subsystem_msvc(self):
 
 	if 'test' in self.features:
 		self.subsystem = self.env.CONSOLE_SUBSYSTEM
+
+@TaskGen.feature('format')
+@TaskGen.after_method('make_format_tasks')
+def use_xash_clang_format(self):
+	if self.bld.cmd != 'format':
+		return
+
+	wrapper = self.bld.bldnode.find_node('utils/xash-clang-format/xash-clang-format')
+	if not wrapper:
+		self.bld.fatal('no xash-clang-format found in build directory, reconfigure and rebuild with --enable-utils')
+		return
+
+	real_cf = clang_format.ClangFormatTask.binary
+	for t in self.tasks:
+		if isinstance(t, clang_format.ClangFormatTask):
+			t.binary = wrapper.abspath()
+			t.env.env = dict(os.environ, XASH_CLANG_FORMAT_BIN=real_cf)
+
 
 class Subproject:
 	def __init__(self, name, fnFilter = None):
@@ -113,8 +135,9 @@ SUBDIRS = [
 	Subproject('engine'), # keep latest for static linking
 
 	# enabled optionally
-	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
-	Subproject('utils/xar',        lambda x: x.env.ENABLE_UTILS and x.env.ENABLE_XAR),
+	Subproject('utils/mdldec',            lambda x: x.env.ENABLE_UTILS),
+	Subproject('utils/xar',               lambda x: x.env.ENABLE_UTILS and x.env.ENABLE_XAR),
+	Subproject('utils/xash-clang-format', lambda x: x.env.ENABLE_UTILS),
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
@@ -236,7 +259,7 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic force_32bit ninja')
+	conf.load('msvs subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic force_32bit ninja clang_format')
 
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
 	conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
