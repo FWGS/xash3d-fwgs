@@ -47,9 +47,6 @@ def options(opt):
 	grp.add_option('--enable-static-binary', action = 'store_true', dest = 'STATIC', default = False,
 		help = 'build static binary(not recommended, --single-binary required) [default: %(default)s]')
 
-	grp.add_option('--enable-engine-fuzz', action = 'store_true', dest = 'ENGINE_FUZZ', default = False,
-		help = 'add LLVM libFuzzer [default: %(default)s]' )
-
 	grp.add_option('--enable-ffmpeg', action = 'store_true', dest = 'FFMPEG', default = False,
 		help = 'enable ffmpeg based movie playback [default: %(default)s')
 
@@ -89,9 +86,10 @@ def configure(conf):
 	elif conf.env.DEST_OS == 'dos':
 		conf.options.STATIC = True
 
-	if conf.options.ENGINE_FUZZ:
+	if conf.options.ENABLE_FUZZER:
+		conf.define('XASH_LLVM_LIBFUZZER', 1)
 		conf.env.append_unique('CFLAGS', '-fsanitize=fuzzer-no-link')
-		conf.env.append_unique('LINKFLAGS', '-fsanitize=fuzzer')
+		conf.env.append_unique('LINKFLAGS', '-fsanitize=fuzzer-no-link')
 
 	# Client-only dependencies
 	if conf.env.CLIENT:

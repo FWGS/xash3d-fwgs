@@ -274,7 +274,7 @@ void FS_FreeStream( stream_t *stream )
 	stream->format->freefunc( stream );
 }
 
-#if XASH_ENGINE_TESTS
+#if XASH_LLVM_LIBFUZZER
 #define IMPLEMENT_SOUNDLIB_FUZZ_TARGET( export, target ) \
 int EXPORT export( const uint8_t *Data, size_t Size ); \
 int EXPORT export( const uint8_t *Data, size_t Size ) \
@@ -294,4 +294,4 @@ int EXPORT export( const uint8_t *Data, size_t Size ) \
 
 IMPLEMENT_SOUNDLIB_FUZZ_TARGET( Fuzz_Sound_LoadMPG, Sound_LoadMPG )
 IMPLEMENT_SOUNDLIB_FUZZ_TARGET( Fuzz_Sound_LoadWAV, Sound_LoadWAV )
-#endif
+#endif // XASH_LLVM_LIBFUZZER

@@ -653,7 +653,7 @@ void Mod_NeedCRC( const char *name, qboolean needCRC )
 	else ClearBits( p->flags, FCRC_SHOULD_CHECKSUM );
 }
 
-#if XASH_ENGINE_TESTS
+#if XASH_LLVM_LIBFUZZER
 
 static const uint8_t *fuzz_data;
 static size_t fuzz_size;
@@ -689,4 +689,4 @@ int EXPORT Fuzz_Mod_LoadModel( const uint8_t *Data, size_t Size )
 	return 0;
 }
 
-#endif // XASH_ENGINE_TESTS
+#endif // XASH_LLVM_LIBFUZZER

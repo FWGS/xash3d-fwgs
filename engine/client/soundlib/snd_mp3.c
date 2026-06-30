@@ -185,7 +185,7 @@ static qboolean Sound_ParseID3Tag( const byte *buffer, fs_offset_t filesize )
 	return true;
 }
 
-#if XASH_ENGINE_TESTS
+#if XASH_LLVM_LIBFUZZER
 int EXPORT Fuzz_Sound_ParseID3Tag( const uint8_t *Data, size_t Size );
 int EXPORT Fuzz_Sound_ParseID3Tag( const uint8_t *Data, size_t Size )
 {
@@ -193,7 +193,7 @@ int EXPORT Fuzz_Sound_ParseID3Tag( const uint8_t *Data, size_t Size )
 	Sound_ParseID3Tag( Data, Size );
 	return 0;
 }
-#endif
+#endif // XASH_LLVM_LIBFUZZER
 
 /*
 =================================================================

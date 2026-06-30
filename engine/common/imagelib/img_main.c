@@ -701,6 +701,10 @@ void Test_RunImagelib( void )
 
 	Z_Free( rgb.buffer );
 }
+#endif // XASH_ENGINE_TESTS
+
+#if XASH_LLVM_LIBFUZZER
+#include "sprite.h"
 
 #define IMPLEMENT_IMAGELIB_FUZZ_TARGET( export, target ) \
 int EXPORT export( const uint8_t *Data, size_t Size ); \
@@ -724,4 +728,29 @@ IMPLEMENT_IMAGELIB_FUZZ_TARGET( Fuzz_Image_LoadPNG, Image_LoadPNG )
 IMPLEMENT_IMAGELIB_FUZZ_TARGET( Fuzz_Image_LoadDDS, Image_LoadDDS )
 IMPLEMENT_IMAGELIB_FUZZ_TARGET( Fuzz_Image_LoadTGA, Image_LoadTGA )
 
-#endif /* XASH_ENGINE_TESTS */
+int EXPORT Fuzz_Image_LoadSPR( const uint8_t *Data, size_t Size );
+int EXPORT Fuzz_Image_LoadSPR( const uint8_t *Data, size_t Size )
+{
+	rgbdata_t *rgb;
+
+	// the real caller passes only the pixel data size, the frame header is extra
+	if( Size < sizeof( dspriteframe_t ))
+		return 0;
+
+	host.type = HOST_NORMAL;
+	Memory_Init();
+	Image_Init();
+
+	image.hint = IL_HINT_Q1; // installs the Quake palette so the decoder runs
+
+	if( Image_LoadSPR( "#internal.spr", Data, Size - sizeof( dspriteframe_t )))
+	{
+		rgb = ImagePack( "#internal.spr" );
+		FS_FreeImage( rgb );
+	}
+
+	Image_Shutdown();
+	return 0;
+}
+
+#endif // XASH_LLVM_LIBFUZZER

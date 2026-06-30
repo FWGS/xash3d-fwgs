@@ -86,6 +86,7 @@ SUBDIRS = [
 	Subproject('3rdparty/libbacktrace'),
 	Subproject('3rdparty/library_suffix'),
 	Subproject('3rdparty/yy-thunks'),
+	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
 	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
@@ -114,7 +115,6 @@ SUBDIRS = [
 	# enabled optionally
 	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
 	Subproject('utils/xar',        lambda x: x.env.ENABLE_UTILS and x.env.ENABLE_XAR),
-	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),

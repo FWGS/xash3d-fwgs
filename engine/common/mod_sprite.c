@@ -302,3 +302,34 @@ void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	Mod_SpriteLoadTextures( mod, buffer );
 #endif
 }
+
+#if XASH_LLVM_LIBFUZZER
+int EXPORT Fuzz_Mod_LoadSpriteModel( const uint8_t *Data, size_t Size );
+int EXPORT Fuzz_Mod_LoadSpriteModel( const uint8_t *Data, size_t Size )
+{
+	model_t mod = { .name = "#internal.spr", .needload = NL_NEEDS_LOADED };
+	qboolean loaded = false;
+	byte *buf;
+
+	if( Size == 0 )
+		return 0;
+
+	Memory_Init();
+
+	// dedicated mode exercises the parser/validator without needing a renderer
+	host.type = HOST_DEDICATED;
+	host.mempool = Mem_AllocPool( "fuzzing pool" );
+
+	// the loader byteswaps the buffer in place, so hand it a writable copy
+	buf = Mem_Malloc( host.mempool, Size );
+	memcpy( buf, Data, Size );
+
+	Mod_LoadSpriteModel( &mod, buf, Size, &loaded );
+
+	if( mod.mempool )
+		Mem_FreePool( &mod.mempool );
+	Mem_FreePool( &host.mempool );
+
+	return 0;
+}
+#endif // XASH_LLVM_LIBFUZZER
