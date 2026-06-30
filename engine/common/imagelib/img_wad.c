@@ -262,10 +262,10 @@ qboolean Image_LoadSPR( const char *name, const byte *buffer, fs_offset_t filesi
 	image.width = pin.width;
 	image.height = pin.height;
 
-	if( filesize < image.width * image.height )
+	if( filesize < (fs_offset_t)image.width * image.height )
 		return false;
 
-	if( filesize == ( image.width * image.height * 4 ))
+	if( filesize == (fs_offset_t)image.width * image.height * 4 )
 		truecolor = true;
 
 	// sorry, can't validate palette rendermode

@@ -65,7 +65,7 @@ static byte *Mod_SwapSpriteFrame( byte *p, byte *end, int bytes )
 	if( frame.width < 0 || frame.height < 0 )
 		return NULL;
 
-	size_t pixels = (size_t)frame.width * frame.height * bytes;
+	uint64_t pixels = (uint64_t)frame.width * frame.height * bytes;
 
 	if( pixels > (size_t)( end - p ))
 		return NULL;
@@ -89,7 +89,7 @@ static byte *Mod_SwapSpriteGroup( byte *p, byte *end, int bytes, int min_frames 
 	// swap intervals
 	int numframes = group.numframes;
 
-	if( numframes < min_frames || numframes * sizeof( dspriteinterval_t ) > (size_t)( end - p ))
+	if( numframes < min_frames || (size_t)numframes > (size_t)( end - p ) / sizeof( dspriteinterval_t ))
 		return NULL;
 
 	for( int i = 0; i < numframes; i++ )
@@ -248,17 +248,23 @@ void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		psprite->texFormat = SPR_ADDITIVE;
 		psprite->numframes = mod->numframes = pinq1->numframes;
 		psprite->facecull = SPR_CULL_FRONT;
-		psprite->radius = pinq1->boundingradius;
+		float radius = floorf( pinq1->boundingradius );
+		if( radius >= (float)INT_MAX )
+			psprite->radius = INT_MAX;
+		else if( radius < 0.0f || IS_NAN( radius ))
+			psprite->radius = 0;
+		else
+			psprite->radius = (int)radius;
 		psprite->synctype = pinq1->synctype;
 
 		// LadyHavoc: hack to allow sprites to be non-fullbright
 		if( Q_strchr( mod->name, '!' ))
 			psprite->texFormat = SPR_ALPHTEST;
 
-		mod->mins[0] = mod->mins[1] = -pinq1->bounds[0] * 0.5f;
 		mod->maxs[0] = mod->maxs[1] = pinq1->bounds[0] * 0.5f;
-		mod->mins[2] = -pinq1->bounds[1] * 0.5f;
+		mod->mins[0] = mod->mins[1] = -mod->maxs[0];
 		mod->maxs[2] = pinq1->bounds[1] * 0.5f;
+		mod->mins[2] = -mod->maxs[2];
 	}
 	else // if( version == SPRITE_VERSION_HL )
 	{
@@ -282,10 +288,10 @@ void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		psprite->radius = pinhl->boundingradius;
 		psprite->synctype = pinhl->synctype;
 
-		mod->mins[0] = mod->mins[1] = -pinhl->bounds[0] * 0.5f;
 		mod->maxs[0] = mod->maxs[1] = pinhl->bounds[0] * 0.5f;
-		mod->mins[2] = -pinhl->bounds[1] * 0.5f;
+		mod->mins[0] = mod->mins[1] = -mod->maxs[0];
 		mod->maxs[2] = pinhl->bounds[1] * 0.5f;
+		mod->mins[2] = -mod->maxs[2];
 	}
 
 	if( loaded )
