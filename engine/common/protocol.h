@@ -322,6 +322,7 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 #define A2A_NETINFO      "netinfo" // different format for client and server, see code
 #define A2A_GOLDSRC_PING "i" // reply with A2A_GOLDSRC_ACK
 #define A2A_GOLDSRC_ACK  "j" // no-op
+#define A2A_GOLDSRC_ACK_CHAR 'j'
 
 // from any to server
 #define A2S_GOLDSRC_INFO    "TSource Engine Query"
@@ -358,6 +359,7 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 #define S2C_GOLDSRC_REJECT_BADPASSWORD '8'
 #define S2C_GOLDSRC_REJECT             '9'
 #define S2C_GOLDSRC_CHALLENGE          "A00000000"
+#define S2C_GOLDSRC_CHALLENGE_CHAR     'A'
 #define S2C_GOLDSRC_CONNECTION         "B"
 
 // from any to client

@@ -99,7 +99,7 @@ CVAR_DEFINE_AUTO( rate, "25000", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, 
 
 CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "you wouldn't steal a car" );
 static CVAR_DEFINE_AUTO( cl_advertise_engine_in_name, "1", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "add [Xash3D] to the nickname when connecting to GoldSrc servers" );
-static CVAR_DEFINE_AUTO( cl_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
+CVAR_DEFINE_AUTO( cl_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
 static CVAR_DEFINE_AUTO( cl_autorecord, "0", 0, "automatically start recording a demo after joining the server" );
 
 client_t		cl;
@@ -2073,7 +2073,7 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	UI_AddServerToList( from, infostring );
 }
 
-static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legacy_format )
+void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legacy_format )
 {
 	static char	s[512+8];
 	int p, numcl, maxcl, password, remaining, bots;
@@ -2151,7 +2151,8 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolea
 
 	// now construct infostring for mainui
 	Info_SetValueForKeyf( s, "p", sizeof( s ), "%i", p );
-	Info_SetValueForKey( s, "gs", "1", sizeof( s )); // we only support GoldSrc here, Xash never should reply with this message
+	if( p == PROTOCOL_GOLDSRC_VERSION )
+		Info_SetValueForKey( s, "gs", "1", sizeof( s ));
 	Info_SetValueForKey( s, "map", map, sizeof( s ));
 	Info_SetValueForKey( s, "dm", "0", sizeof( s )); // obsolete keys
 	Info_SetValueForKey( s, "team", "0", sizeof( s ));
@@ -2183,95 +2184,6 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolea
 
 /*
 =================
-CL_ParseNETInfoMessage
-
-Handle a reply from a netinfo
-=================
-*/
-static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
-{
-	net_request_t	*nr = NULL;
-	static char	infostring[MAX_PRINT_MSG];
-	int		i, context, type;
-	int		errorBits = 0;
-	const char		*val;
-
-	context = Q_atoi( Cmd_Argv( 1 ));
-	type = Q_atoi( Cmd_Argv( 2 ));
-
-	// find request with specified context and type
-	for( i = 0; i < MAX_REQUESTS; i++ )
-	{
-		if( clgame.net_requests[i].resp.context == context && clgame.net_requests[i].resp.type == type )
-		{
-			nr = &clgame.net_requests[i];
-			break;
-		}
-	}
-
-	// not found, ignore
-	if( nr == NULL )
-		return;
-
-	// find the payload
-	s = Q_strchr( s, ' ' ); // skip netinfo
-	if( !s )
-		return;
-
-	s = Q_strchr( s + 1, ' ' ); // skip challenge
-	if( !s )
-		return;
-
-	s = Q_strchr( s + 1, ' ' ); // skip type
-	if( s )
-		s++; // skip final whitespace
-	else if( type != NETAPI_REQUEST_PING ) // ping have no payload, and that's ok
-		return;
-
-	if( s )
-	{
-		if( s[0] == '\\' )
-		{
-			// check for errors
-			val = Info_ValueForKey( s, "neterror" );
-
-			if( !Q_stricmp( val, "protocol" ))
-				SetBits( errorBits, NET_ERROR_PROTO_UNSUPPORTED );
-			else if( !Q_stricmp( val, "undefined" ))
-				SetBits( errorBits, NET_ERROR_UNDEFINED );
-			else if( !Q_stricmp( val, "forbidden" ))
-				SetBits( errorBits, NET_ERROR_FORBIDDEN );
-
-			CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
-		}
-		else
-		{
-			Q_strncpy( infostring, s, sizeof( infostring ));
-		}
-	}
-	else
-	{
-		infostring[0] = 0;
-	}
-
-	// setup the answer
-	nr->resp.response = infostring;
-	nr->resp.remote_address = from;
-	nr->resp.error = NET_SUCCESS;
-	nr->resp.ping = host.realtime - nr->timesend;
-
-	if( nr->timeout <= host.realtime )
-		SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
-	SetBits( nr->resp.error, errorBits ); // misc error bits
-
-	nr->pfnFunc( &nr->resp );
-
-	if( !FBitSet( nr->flags, FNETAPI_MULTIPLE_RESPONSE ))
-		memset( nr, 0, sizeof( *nr )); // done
-}
-
-/*
-=================
 CL_ProcessNetRequests
 
 check for timeouts
@@ -2281,6 +2193,8 @@ static void CL_ProcessNetRequests( void )
 {
 	net_request_t	*nr;
 	int		i;
+
+	CL_QueryFrame();
 
 	// find a request with specified context
 	for( i = 0; i < MAX_REQUESTS; i++ )
@@ -2698,6 +2612,10 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 {
 	char *args;
 	const char *c;
+	size_t rawsize = MSG_GetMaxBytes( msg );
+
+	if( CL_QueryHandlePacket( from, msg->pData, rawsize ))
+		return;
 
 	MSG_Clear( msg );
 	MSG_ReadLong( msg ); // skip the -1
@@ -2726,10 +2644,6 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	else if( c[0] == S2A_GOLDSRC_LEGACY_INFO )
 	{
 		CL_ParseGoldSrcStatusMessage( from, msg, true );
-	}
-	else if( !Q_strcmp( c, A2A_NETINFO ))
-	{
-		CL_ParseNETInfoMessage( from, args ); // server responding to a status broadcast
 	}
 	else if( c[0] == A2C_GOLDSRC_PRINT || !Q_strcmp( c, A2C_PRINT ))
 	{
@@ -2849,6 +2763,13 @@ static void CL_ReadNetMessage( void )
 	while( CL_GetMessage( net_message_buffer, &curSize ))
 	{
 		MSG_Init( &net_message, "ServerData", net_message_buffer, curSize );
+
+		// https://developer.valvesoftware.com/wiki/Server_queries#Goldsource_Server
+		if( MSG_GetMaxBytes( &net_message ) >= 4 && *(int *)net_message.pData == NET_HEADER_SPLITPACKET )
+		{
+			if( CL_QueryHandleSplitPacket( net_from, net_message.pData, curSize ))
+				continue;
+		}
 
 		// check for connectionless packet (0xffffffff) first
 		if( MSG_GetMaxBytes( &net_message ) >= 4 && *(int *)net_message.pData == -1 )
@@ -3500,6 +3421,8 @@ static void CL_InitLocal( void )
 	cls.state = ca_disconnected;
 	cls.signon = 0;
 	memset( &cls.serveradr, 0, sizeof( cls.serveradr ) );
+
+	CL_QueryInit();
 
 	cl.resourcesneeded.pNext = cl.resourcesneeded.pPrev = &cl.resourcesneeded;
 	cl.resourcesonhand.pNext = cl.resourcesonhand.pPrev = &cl.resourcesonhand;

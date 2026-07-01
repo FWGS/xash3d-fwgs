@@ -219,10 +219,10 @@ NET_QueryServerByAddress
 */
 void NET_QueryServerByAddress( netadr_t adr, connprotocol_t proto )
 {
-	if( proto == PROTO_GOLDSRC )
-		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), (const byte *)A2S_GOLDSRC_INFO ); // includes null terminator
-	else
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO " %i", PROTOCOL_VERSION );
+#if !XASH_DEDICATED
+	CL_QueryStartBrowserInfo( adr );
+	(void)proto;
+#endif
 }
 
 static int NET_ParseMasterStaticBody( const byte *body, size_t size )
