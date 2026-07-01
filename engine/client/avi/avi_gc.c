@@ -15,9 +15,23 @@ static movie_state_t avi[2];
 
 #define AVI_RL32( p ) ((uint32_t)((p)[0] | ((uint32_t)(p)[1] << 8) | ((uint32_t)(p)[2] << 16) | ((uint32_t)(p)[3] << 24)))
 #define AVI_RL16( p ) ((uint16_t)((p)[0] | ((uint16_t)(p)[1] << 8)))
+#define AVI_GCVID_MAGIC_0 'G'
+#define AVI_GCVID_MAGIC_1 'C'
+#define AVI_GCVID_MAGIC_2 'V'
+#define AVI_GCVID_MAGIC_3 '2'
+#define AVI_GCVID_HEADER_SIZE 28
+#define AVI_GCVID_FLAG_STATIC_HOLD ( 1u << 31 )
+#define AVI_GCVID_FLAG_BGRA32 ( 1u << 30 )
+#define AVI_GCVID_KEYFRAME 0
+#define AVI_GCVID_DELTAFRAME 1
+
+static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet );
+qboolean AVI_HaveAudioTrack( const movie_state_t *Avi );
+static fs_offset_t AVI_ScanFor( file_t *file, const char *tag, fs_offset_t start, fs_offset_t end );
+static void AVI_ParseAudioFormat( movie_state_t *Avi, fs_offset_t file_size );
 
 #if XASH_GAMECUBE
-#define GC_AVI_AUDIO_SLICE_BYTES	4096
+#define GC_AVI_AUDIO_SLICE_BYTES	16384
 #define GC_AVI_DECODE_SCALE		2
 #endif
 
@@ -38,6 +52,272 @@ static void AVI_RGB24ToBGRA( const byte *src, int src_stride, byte *dst, int wid
 			out[x * 4 + 3] = 255;
 		}
 	}
+}
+
+static qboolean AVI_GCVIDPath( const char *filename, char *path, size_t size )
+{
+	char *dot, *slash;
+
+	if( !filename || !filename[0] )
+		return false;
+
+	Q_strncpy( path, filename, size );
+	COM_FixSlashes( path );
+	dot = strrchr( path, '.' );
+	slash = strrchr( path, '/' );
+	if( dot && ( !slash || dot > slash ))
+		*dot = '\0';
+
+	Q_strncat( path, ".gcvid", size );
+	return true;
+}
+
+static qboolean AVI_OpenGCVID( movie_state_t *Avi, const char *filename, qboolean quiet )
+{
+	byte header[AVI_GCVID_HEADER_SIZE];
+	char path[MAX_SYSPATH];
+	uint width, height, tile_size;
+	size_t offset_table_bytes;
+
+	if( !Avi || !AVI_GCVIDPath( filename, path, sizeof( path )))
+		return false;
+
+	Avi->file = FS_Open( path, "rb", false );
+	if( !Avi->file )
+		return false;
+
+	if( FS_Read( Avi->file, header, sizeof( header )) != sizeof( header ) ||
+		header[0] != AVI_GCVID_MAGIC_0 || header[1] != AVI_GCVID_MAGIC_1 ||
+		header[2] != AVI_GCVID_MAGIC_2 || header[3] != AVI_GCVID_MAGIC_3 )
+	{
+		if( !quiet )
+			Con_Printf( S_ERROR "%s is not a valid GameCube intro stream\n", path );
+		AVI_CloseVideo( Avi );
+		return false;
+	}
+
+	width = AVI_RL32( header + 4 );
+	height = AVI_RL32( header + 8 );
+	Avi->fps_num = AVI_RL32( header + 12 );
+	Avi->fps_den = AVI_RL32( header + 16 );
+	Avi->frame_count = AVI_RL32( header + 20 );
+	tile_size = AVI_RL32( header + 24 );
+	Avi->raw_static_frame = ( tile_size & AVI_GCVID_FLAG_STATIC_HOLD ) != 0;
+	Avi->raw_rgb565 = ( tile_size & AVI_GCVID_FLAG_BGRA32 ) == 0;
+	tile_size &= ~AVI_GCVID_FLAG_BGRA32;
+	tile_size &= ~AVI_GCVID_FLAG_STATIC_HOLD;
+	if( width == 0 || height == 0 || Avi->fps_num == 0 || Avi->fps_den == 0 || Avi->frame_count == 0 )
+	{
+		if( !quiet )
+			Con_Printf( S_ERROR "%s has invalid GameCube intro metadata\n", path );
+		AVI_CloseVideo( Avi );
+		return false;
+	}
+
+	Avi->frame_size = (size_t)width * (size_t)height * ( Avi->raw_rgb565 ? 2 : 4 );
+	Avi->frame = Mem_Malloc( avi_mempool, Avi->frame_size );
+	if( !Avi->frame )
+	{
+		AVI_CloseVideo( Avi );
+		return false;
+	}
+
+	offset_table_bytes = (size_t)Avi->frame_count * sizeof( uint32_t );
+	Avi->raw_frame_offsets = Mem_Malloc( avi_mempool, offset_table_bytes );
+	if( !Avi->raw_frame_offsets )
+	{
+		AVI_CloseVideo( Avi );
+		return false;
+	}
+	if( FS_Read( Avi->file, Avi->raw_frame_offsets, offset_table_bytes ) != (fs_offset_t)offset_table_bytes )
+	{
+		AVI_CloseVideo( Avi );
+		return false;
+	}
+#if XASH_BIG_ENDIAN
+	for( uint i = 0; i < Avi->frame_count; i++ )
+		Avi->raw_frame_offsets[i] = LittleLong( Avi->raw_frame_offsets[i] );
+#endif
+
+	Avi->raw_video = true;
+	Avi->raw_delta_tiles = tile_size == 8;
+	Avi->width = (int)width;
+	Avi->height = (int)height;
+	Avi->decode_scale = 1;
+	Avi->upload_width = (int)width;
+	Avi->upload_height = (int)height;
+	Avi->data_offset = FS_Tell( Avi->file );
+	Avi->current_frame = (uint)-1;
+	Avi->active = true;
+	Con_Reportf( "Xash3D GameCube: intro GCVID opened %s (%ux%u, %u frames%s, %s)\n",
+		path, width, height, Avi->frame_count,
+		Avi->raw_static_frame ? ", static hold" : "",
+		Avi->raw_rgb565 ? "rgb565" : "bgra32" );
+	return true;
+}
+
+static void AVI_ClearAudioState( movie_state_t *Avi )
+{
+	if( !Avi )
+		return;
+
+	if( Avi->audio_file )
+		FS_Close( Avi->audio_file );
+	if( Avi->audio_chunk )
+		Mem_Free( Avi->audio_chunk );
+	if( Avi->audio_index )
+		Mem_Free( Avi->audio_index );
+
+	Avi->audio_file = NULL;
+	Avi->audio_chunk = NULL;
+	Avi->audio_index = NULL;
+	Avi->audio_chunk_count = 0;
+	Avi->audio_current_chunk = 0;
+	Avi->audio_chunk_size = 0;
+	Avi->audio_chunk_offset = 0;
+	Avi->audio_rate = 0;
+	Avi->audio_width = 0;
+	Avi->audio_channels = 0;
+	Avi->audio_bytes_submitted = 0;
+	Avi->audio_reported = false;
+	Avi->audio_channel_ready = false;
+}
+
+static void AVI_ResetSoundtrackRawChannel( movie_state_t *Avi )
+{
+	rawchan_t *ch;
+	uint audio_time;
+
+	if( !Avi || Avi->audio_channel_ready || !snd.initialized )
+		return;
+
+	ch = S_FindRawChannel( S_RAW_SOUND_SOUNDTRACK, true );
+	if( !ch )
+		return;
+
+	audio_time = snd.soundtime;
+	if( snd.paintedtime > (int)audio_time )
+		audio_time = snd.paintedtime;
+
+	ch->master_vol = 0;
+	ch->leftvol = 0;
+	ch->rightvol = 0;
+	ch->dist_mult = 0.0f;
+	ch->s_rawend = audio_time;
+	ch->oldtime = -1.0f;
+	ch->engine_reserved[0] = 0;
+	Avi->audio_channel_ready = true;
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: intro AVI reset soundtrack raw channel sound=%d painted=%d base=%u max=%lu\n",
+		snd.soundtime, snd.paintedtime, audio_time, (unsigned long)ch->max_samples );
+#endif
+}
+
+static void AVI_AttachAudioFromAVI( movie_state_t *Avi, const char *filename )
+{
+	byte riff[12];
+	byte idx_header[4];
+	byte *idx_data = NULL;
+	file_t *file = NULL;
+	fs_offset_t file_size, movi_pos, idx_pos;
+	uint idx_size, entries;
+	uint i, audio_count = 0, chunk_capacity = 0;
+	movie_state_t meta;
+
+	if( !Avi || !filename || !filename[0] )
+		return;
+
+	file = FS_Open( filename, "rb", false );
+	if( !file )
+		return;
+	memset( &meta, 0, sizeof( meta ));
+	meta.file = file;
+
+	if( FS_Seek( file, 0, SEEK_END ) == -1 )
+		goto fail;
+	file_size = FS_Tell( file );
+	if( FS_Seek( file, 0, SEEK_SET ) == -1 )
+		goto fail;
+	if( FS_Read( file, riff, sizeof( riff )) != sizeof( riff ) ||
+		memcmp( riff, "RIFF", 4 ) || memcmp( riff + 8, "AVI ", 4 ))
+		goto fail;
+
+	movi_pos = AVI_ScanFor( file, "movi", 0, file_size );
+	idx_pos = AVI_ScanFor( file, "idx1", Q_max( 0, file_size - 65536 ), file_size );
+	if( movi_pos < 0 || idx_pos < 0 )
+		goto fail;
+
+	AVI_ParseAudioFormat( &meta, file_size );
+	if( meta.audio_rate == 0 )
+		goto fail;
+
+	if( FS_Seek( file, idx_pos + 4, SEEK_SET ) == -1 )
+		goto fail;
+	if( FS_Read( file, idx_header, sizeof( idx_header )) != sizeof( idx_header ))
+		goto fail;
+	idx_size = AVI_RL32( idx_header );
+	if( idx_size < 16 || idx_size > 16 * 4096 )
+		goto fail;
+
+	idx_data = Mem_Malloc( avi_mempool, idx_size );
+	if( !idx_data )
+		goto fail;
+	if( FS_Read( file, idx_data, idx_size ) != (fs_offset_t)idx_size )
+		goto fail;
+
+	entries = idx_size / 16;
+	for( i = 0; i < entries; i++ )
+	{
+		const byte *entry = idx_data + i * 16;
+		if( entry[2] == 'w' && entry[3] == 'b' )
+		{
+			uint size = AVI_RL32( entry + 12 );
+			audio_count++;
+			if( size > chunk_capacity )
+				chunk_capacity = size;
+		}
+	}
+	if( audio_count == 0 || chunk_capacity == 0 )
+		goto fail;
+
+	AVI_ClearAudioState( Avi );
+	Avi->audio_file = file;
+	Avi->audio_rate = meta.audio_rate;
+	Avi->audio_width = meta.audio_width;
+	Avi->audio_channels = meta.audio_channels;
+	Avi->audio_index = Mem_Calloc( avi_mempool, audio_count * sizeof( avi_frame_index_t ));
+	Avi->audio_chunk = Mem_Malloc( avi_mempool, chunk_capacity );
+	if( !Avi->audio_index || !Avi->audio_chunk )
+		goto fail;
+
+	Avi->audio_chunk_count = 0;
+	Avi->chunk_capacity = chunk_capacity;
+	for( i = 0; i < entries; i++ )
+	{
+		const byte *entry = idx_data + i * 16;
+		if( entry[2] == 'w' && entry[3] == 'b' )
+		{
+			Avi->audio_index[Avi->audio_chunk_count].offset = movi_pos + AVI_RL32( entry + 8 );
+			Avi->audio_index[Avi->audio_chunk_count].size = AVI_RL32( entry + 12 );
+			Avi->audio_chunk_count++;
+		}
+	}
+	Avi->audio_current_chunk = 0;
+	Avi->audio_chunk_size = 0;
+	Avi->audio_chunk_offset = 0;
+	Avi->audio_bytes_submitted = 0;
+	Avi->audio_reported = false;
+	Mem_Free( idx_data );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: intro AVI audio attached %s rate=%u width=%u channels=%u chunks=%u\n",
+		filename, Avi->audio_rate, Avi->audio_width, Avi->audio_channels, Avi->audio_chunk_count );
+#endif
+	return;
+
+fail:
+	if( idx_data )
+		Mem_Free( idx_data );
+	AVI_ClearAudioState( Avi );
 }
 
 #if XASH_GAMECUBE
@@ -345,11 +625,85 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload )
 {
 	byte header[8];
+	byte tag;
+	byte count_bytes[2];
 	fs_offset_t pos;
 	uint chunk_size;
 
 	if( !Avi || frame >= Avi->frame_count )
 		return false;
+
+	if( Avi->raw_video )
+	{
+		if( Avi->raw_static_frame && Avi->current_frame != (uint)-1 )
+			return true;
+
+		uint start = 0;
+
+		if( Avi->raw_delta_tiles )
+		{
+			if( frame < Avi->current_frame )
+			{
+				Avi->current_frame = (uint)-1;
+				start = 0;
+			}
+			else start = ( Avi->current_frame == (uint)-1 ) ? 0 : ( Avi->current_frame + 1 );
+
+			for( uint f = start; f <= frame; f++ )
+			{
+				fs_offset_t offset = Avi->data_offset + (fs_offset_t)Avi->raw_frame_offsets[f];
+				if( FS_Seek( Avi->file, offset, SEEK_SET ) == -1 )
+					return false;
+				if( FS_Read( Avi->file, &tag, 1 ) != 1 )
+					return false;
+				if( tag == AVI_GCVID_KEYFRAME )
+				{
+					if( FS_Read( Avi->file, Avi->frame, Avi->frame_size ) != (fs_offset_t)Avi->frame_size )
+						return false;
+				}
+				else if( tag == AVI_GCVID_DELTAFRAME )
+				{
+					uint changed_tiles;
+					const uint tile_size = 8;
+					const uint tiles_x = (uint)Avi->width / tile_size;
+					byte tilebuf[tile_size * tile_size * 2];
+
+					if( FS_Read( Avi->file, count_bytes, sizeof( count_bytes )) != sizeof( count_bytes ))
+						return false;
+					changed_tiles = AVI_RL16( count_bytes );
+					for( uint tile = 0; tile < changed_tiles; tile++ )
+					{
+						byte index_bytes[2];
+						uint tile_index, tile_x, tile_y;
+
+						if( FS_Read( Avi->file, index_bytes, sizeof( index_bytes )) != sizeof( index_bytes ))
+							return false;
+						tile_index = AVI_RL16( index_bytes );
+						tile_x = tile_index % tiles_x;
+						tile_y = tile_index / tiles_x;
+						if( FS_Read( Avi->file, tilebuf, sizeof( tilebuf )) != sizeof( tilebuf ))
+							return false;
+						for( uint row = 0; row < tile_size; row++ )
+						{
+							byte *dst = Avi->frame + ((( tile_y * tile_size + row ) * Avi->width ) + tile_x * tile_size ) * 2;
+							memcpy( dst, tilebuf + row * tile_size * 2, tile_size * 2 );
+						}
+					}
+				}
+				else return false;
+			}
+			return true;
+		}
+
+		{
+			fs_offset_t offset = Avi->data_offset + (fs_offset_t)frame * (fs_offset_t)Avi->frame_size;
+			if( FS_Seek( Avi->file, offset, SEEK_SET ) == -1 )
+				return false;
+			if( FS_Read( Avi->file, Avi->frame, Avi->frame_size ) != (fs_offset_t)Avi->frame_size )
+				return false;
+		}
+		return true;
+	}
 
 	pos = Avi->index[frame].offset;
 	if( FS_Seek( Avi->file, pos, SEEK_SET ) == -1 )
@@ -466,26 +820,36 @@ qboolean AVI_HaveAudioTrack( const movie_state_t *Avi )
 static void AVI_StreamAudio( movie_state_t *Avi )
 {
 	uint bytes_per_sample;
+	uint audio_time;
 	rawchan_t *ch;
 	int movie_vol;
+	file_t *audio_file;
 
 	if( !AVI_HaveAudioTrack( Avi ) || !snd.initialized || cl.paused )
 		return;
+	audio_file = Avi->audio_file ? Avi->audio_file : Avi->file;
+	if( !audio_file )
+		return;
+
+	AVI_ResetSoundtrackRawChannel( Avi );
 
 	ch = S_FindRawChannel( S_RAW_SOUND_SOUNDTRACK, true );
 	if( !ch )
 		return;
 
 	movie_vol = 256;
+	audio_time = snd.soundtime;
+	if( snd.paintedtime > (int)audio_time )
+		audio_time = snd.paintedtime;
 
 	ch->master_vol = movie_vol;
 	ch->dist_mult = 0.0f;
-	if( ch->s_rawend < snd.soundtime )
-		ch->s_rawend = snd.soundtime;
+	if( ch->s_rawend < audio_time )
+		ch->s_rawend = audio_time;
 
 	bytes_per_sample = Avi->audio_width * Avi->audio_channels;
 	while( Avi->audio_current_chunk < Avi->audio_chunk_count &&
-		ch->s_rawend < snd.soundtime + ch->max_samples )
+		ch->s_rawend < audio_time + ch->max_samples )
 	{
 		avi_frame_index_t *chunk = &Avi->audio_index[Avi->audio_current_chunk];
 		uint buffer_samples;
@@ -507,8 +871,8 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 				continue;
 			}
 
-			if( FS_Seek( Avi->file, chunk->offset, SEEK_SET ) == -1 ||
-				FS_Read( Avi->file, header, sizeof( header )) != sizeof( header ))
+			if( FS_Seek( audio_file, chunk->offset, SEEK_SET ) == -1 ||
+				FS_Read( audio_file, header, sizeof( header )) != sizeof( header ))
 				break;
 
 			if( header[2] != 'w' || header[3] != 'b' )
@@ -523,13 +887,13 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 
 			chunk_size = AVI_RL32( header + 4 );
 			if( chunk_size == 0 || chunk_size > Avi->chunk_capacity ||
-				FS_Read( Avi->file, Avi->audio_chunk, chunk_size ) != (fs_offset_t)chunk_size )
+				FS_Read( audio_file, Avi->audio_chunk, chunk_size ) != (fs_offset_t)chunk_size )
 				break;
 
 			Avi->audio_chunk_size = chunk_size;
 		}
 
-		buffer_samples = ch->max_samples - ( ch->s_rawend - snd.soundtime );
+		buffer_samples = ch->max_samples - ( ch->s_rawend - audio_time );
 		file_samples = buffer_samples * ((float)Avi->audio_rate / SOUND_DMA_SPEED);
 		if( file_samples <= 1 )
 			return;
@@ -567,7 +931,7 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 		{
 			Con_Reportf( "Xash3D GameCube: intro AVI audio streaming chunks=%u bytes=%u rate=%u raw=%u/%u\n",
 				Avi->audio_current_chunk, Avi->audio_bytes_submitted, Avi->audio_rate,
-				ch->s_rawend - snd.soundtime, ch->max_samples );
+				ch->s_rawend - audio_time, ch->max_samples );
 			Avi->audio_reported = true;
 		}
 #endif
@@ -597,11 +961,39 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	safe_filename[0] = '\0';
 	Q_strncpy( safe_filename, filename, sizeof( safe_filename ));
 
+	if( AVI_OpenGCVID( Avi, safe_filename, true ))
+	{
+		if( load_audio )
+			AVI_AttachAudioFromAVI( Avi, safe_filename );
+		Avi->x = 0;
+		Avi->y = 0;
+		Avi->w = -1;
+		Avi->h = -1;
+		Avi->texture = 0;
+		Avi->start_time = Platform_DoubleTime();
+		Avi->playback_started = false;
+		return;
+	}
+
 	Avi->file = FS_Open( safe_filename, "rb", false );
 #if XASH_GAMECUBE
 	if( !Avi->file && !Q_strncmp( safe_filename, "media/", 6 ))
 	{
 		Q_snprintf( gc_fallback, sizeof( gc_fallback ), "valve/%s", safe_filename );
+		if( AVI_OpenGCVID( Avi, gc_fallback, true ))
+		{
+			if( load_audio )
+				AVI_AttachAudioFromAVI( Avi, gc_fallback );
+			Avi->x = 0;
+			Avi->y = 0;
+			Avi->w = -1;
+			Avi->h = -1;
+			Avi->texture = 0;
+			Avi->start_time = Platform_DoubleTime();
+			Avi->playback_started = false;
+			Con_Reportf( "Xash3D GameCube: intro GCVID opened via root fallback %s\n", gc_fallback );
+			return;
+		}
 		Avi->file = FS_Open( gc_fallback, "rb", false );
 		if( Avi->file )
 			Con_Reportf( "Xash3D GameCube: intro AVI opened via root fallback %s\n", gc_fallback );
@@ -640,7 +1032,6 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	if( AVI_DecodeFrame( Avi, 0, true ))
 		Avi->current_frame = 0;
 #endif
-	(void)load_audio;
 }
 
 void AVI_CloseVideo( movie_state_t *Avi )
@@ -658,7 +1049,10 @@ void AVI_CloseVideo( movie_state_t *Avi )
 	 */
 	if( Avi->file )
 		FS_Close( Avi->file );
+	if( Avi->audio_file )
+		FS_Close( Avi->audio_file );
 	Avi->file = NULL;
+	Avi->audio_file = NULL;
 	Avi->active = false;
 	Avi->paused = false;
 	Avi->playback_started = false;
@@ -667,12 +1061,17 @@ void AVI_CloseVideo( movie_state_t *Avi )
 	Avi->audio_current_chunk = 0;
 	Avi->audio_chunk_size = 0;
 	Avi->audio_chunk_offset = 0;
+	Avi->audio_rate = 0;
+	Avi->audio_width = 0;
+	Avi->audio_channels = 0;
 	Avi->audio_bytes_submitted = 0;
 	Avi->audio_reported = false;
 	return;
 #else
 	if( Avi->file )
 		FS_Close( Avi->file );
+	if( Avi->audio_file )
+		FS_Close( Avi->audio_file );
 	if( Avi->frame )
 		Mem_Free( Avi->frame );
 	if( Avi->upload_frame && Avi->upload_frame != Avi->frame )
@@ -705,6 +1104,9 @@ qboolean AVI_Think( movie_state_t *Avi )
 	if( Avi->paused )
 		return true;
 
+	if( AVI_HaveAudioTrack( Avi ) )
+		AVI_StreamAudio( Avi );
+
 	if( !Avi->playback_started )
 	{
 		/* Hold frame 0 on screen while boot finishes; clock starts after first present. */
@@ -714,18 +1116,26 @@ qboolean AVI_Think( movie_state_t *Avi )
 	{
 		elapsed = Platform_DoubleTime() - Avi->start_time;
 		target_frame = (uint)( elapsed * (double)Avi->fps_num / (double)Avi->fps_den );
+#if XASH_GAMECUBE
+		/* Raw GameCube startup streams should prefer wall-clock pacing over
+		 * strict every-frame decode. If we fall behind, jump forward instead of
+		 * stretching the intro into a slideshow. */
+		if( !Avi->raw_video && target_frame > Avi->current_frame + 1 )
+#else
 		if( target_frame > Avi->current_frame + 1 )
+#endif
 			target_frame = Avi->current_frame + 1;
 	}
 
 	if( target_frame >= Avi->frame_count )
 		return false;
 
-	if( Avi->playback_started )
-		AVI_StreamAudio( Avi );
-
 	need_upload = false;
-	if( target_frame != Avi->current_frame )
+	if( Avi->raw_static_frame && Avi->frame_on_gpu && Avi->current_frame != (uint)-1 )
+	{
+		Avi->current_frame = target_frame;
+	}
+	else if( target_frame != Avi->current_frame )
 	{
 		if( !AVI_DecodeFrame( Avi, target_frame, true ))
 			return false;
@@ -738,7 +1148,7 @@ qboolean AVI_Think( movie_state_t *Avi )
 	if( need_upload )
 	{
 		upload_pixels = Avi->frame;
-		upload_fmt = PF_BGRA_32;
+		upload_fmt = Avi->raw_rgb565 ? PF_RGB_565 : PF_BGRA_32;
 
 		if( Avi->texture == 0 )
 			ref.dllFuncs.GL_UpdateTexture( SCR_GetCinematicTexture(), Avi->upload_width, Avi->upload_height,
@@ -749,6 +1159,11 @@ qboolean AVI_Think( movie_state_t *Avi )
 
 		Avi->frame_on_gpu = true;
 #if XASH_GAMECUBE
+		if( AVI_HaveAudioTrack( Avi ) && !snd.streaming )
+		{
+			S_StartStreaming();
+			Con_Reportf( "Xash3D GameCube: intro AVI audio start synced to first uploaded frame\n" );
+		}
 		if( target_frame == 0 )
 			Con_Reportf( "Xash3D GameCube: intro AVI decoded first frame\n" );
 		if( target_frame <= 2 || target_frame == 15 || target_frame == 30 || target_frame == 60 )
@@ -758,14 +1173,11 @@ qboolean AVI_Think( movie_state_t *Avi )
 		}
 #endif
 	}
-
 	if( Avi->texture == 0 )
 	{
-#if !XASH_GAMECUBE
 		int w = Avi->w >= 0 ? Avi->w : refState.width;
 		int h = Avi->h >= 0 ? Avi->h : refState.height;
 		ref.dllFuncs.R_DrawStretchPic( Avi->x, Avi->y, w, h, 0, 0, 1, 1, SCR_GetCinematicTexture() );
-#endif
 	}
 
 	if( !Avi->playback_started )

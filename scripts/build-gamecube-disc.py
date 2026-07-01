@@ -55,6 +55,18 @@ APPLOADER_ADDRESS = 0x81200000
 APPLOADER_HEADER_OFFSET = 0x2440
 APPLOADER_DATA_OFFSET = APPLOADER_HEADER_OFFSET + 0x20
 BOOTSTRAP_EXCLUDED_EXTENSIONS = {".avi", ".gcvid", ".mdl", ".pak", ".pk3", ".wad", ".wav"}
+GCVID_MAGIC = b"GCV2"
+GCVID_HEADER_SIZE = 28
+GCVID_WIDTH = 640
+GCVID_HEIGHT = 480
+GCVID_FPS_NUM = 15
+GCVID_FPS_DEN = 1
+GCVID_TILE_SIZE = 8
+GCVID_FLAG_STATIC_HOLD = 1 << 31
+GCVID_FLAG_BGRA32 = 1 << 30
+GCVID_KEYFRAME = 0
+GCVID_DELTAFRAME = 1
+GCVID_STILL_FRAME_INDEX = 80
 
 
 def align(value: int, boundary: int) -> int:
@@ -649,12 +661,90 @@ def create_retail_boot_overlays(source: Path, output: Path) -> tuple[tuple[str, 
 		startup_vids = media / "StartupVids.txt"
 		startup_vids.write_text("".join(f"{movie}\n" for movie in movies), encoding="ascii")
 		overlays.append(("media/StartupVids.txt", startup_vids))
+		for relative in movies:
+			source_movie = source / relative
+			if not source_movie.is_file():
+				continue
+			gcvid_name = Path(relative).with_suffix(".gcvid").name
+			gcvid_output = media / gcvid_name
+			build_gcvid_companion(source_movie, gcvid_output)
+			overlays.append((f"media/{gcvid_name}", gcvid_output))
 
 	return tuple(overlays)
 
 
 def create_startup_vids_overlay(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
 	return create_retail_boot_overlays(source, output)
+
+
+def build_gcvid_companion(source_movie: Path, output_movie: Path) -> None:
+	ffmpeg = shutil.which("ffmpeg")
+	if ffmpeg is None:
+		raise FileNotFoundError("ffmpeg is required to build .gcvid intro companions")
+
+	raw_frames = subprocess.run(
+		[
+			ffmpeg,
+			"-v", "error",
+			"-i", str(source_movie),
+			"-an",
+			"-vf", f"fps={GCVID_FPS_NUM}/{GCVID_FPS_DEN},scale={GCVID_WIDTH}:{GCVID_HEIGHT},format=bgra",
+			"-pix_fmt", "bgra",
+			"-f", "rawvideo",
+			"-vsync", "cfr",
+			"-",
+		],
+		capture_output=True,
+		check=True,
+	)
+	frame_size = GCVID_WIDTH * GCVID_HEIGHT * 4
+	if len(raw_frames.stdout) % frame_size != 0:
+		raise ValueError(f"ffmpeg raw frame size mismatch for {source_movie}")
+	actual_frames = len(raw_frames.stdout) // frame_size
+	if actual_frames <= 0:
+		raise ValueError(f"ffmpeg produced no frames for {source_movie}")
+
+	if GCVID_WIDTH % GCVID_TILE_SIZE != 0 or GCVID_HEIGHT % GCVID_TILE_SIZE != 0:
+		raise ValueError("GCVID dimensions must divide evenly into tiles")
+
+	frames = [
+		raw_frames.stdout[i * frame_size:(i + 1) * frame_size]
+		for i in range(actual_frames)
+	]
+	still_frame_index = min(GCVID_STILL_FRAME_INDEX, actual_frames - 1)
+	still_frame = frames[still_frame_index]
+	offsets: list[int] = []
+	packets = bytearray()
+	offsets.extend(0 for _ in range(actual_frames))
+	packets.append(GCVID_KEYFRAME)
+	packets.extend(still_frame)
+
+	header = bytearray()
+	header.extend(GCVID_MAGIC)
+	header.extend(struct.pack("<I", GCVID_WIDTH))
+	header.extend(struct.pack("<I", GCVID_HEIGHT))
+	header.extend(struct.pack("<I", GCVID_FPS_NUM))
+	header.extend(struct.pack("<I", GCVID_FPS_DEN))
+	header.extend(struct.pack("<I", actual_frames))
+	header.extend(struct.pack("<I", GCVID_TILE_SIZE | GCVID_FLAG_STATIC_HOLD | GCVID_FLAG_BGRA32))
+	for offset in offsets:
+		header.extend(struct.pack("<I", offset))
+
+	output_movie.parent.mkdir(parents=True, exist_ok=True)
+	output_movie.write_bytes(bytes(header) + bytes(packets))
+	print(
+		f"Built static-hold GCVID {output_movie.name} from frame {still_frame_index} "
+		f"({GCVID_WIDTH}x{GCVID_HEIGHT}, duration {actual_frames} frames)"
+	)
+
+
+def build_intro_gcvid_companions(output: Path) -> None:
+	for relative in SMOKE_INTRO_MEDIA:
+		source_movie = output / relative
+		if not source_movie.is_file():
+			continue
+		gcvid = source_movie.with_suffix(".gcvid")
+		build_gcvid_companion(source_movie, gcvid)
 
 
 def smoke_map_resources(map_path: Path) -> set[str]:
@@ -724,6 +814,7 @@ def stage_intro_avi_data(source: Path, output: Path) -> Path:
 	extract_wad_lump(source / "gfx.wad", output, "conchars", "gfx/conchars")
 	for relative in SMOKE_INTRO_MEDIA:
 		copy_if_present(source, output, relative)
+	build_intro_gcvid_companions(output)
 	write_startup_vids(output)
 	(output / "custom").mkdir(exist_ok=True)
 	return output

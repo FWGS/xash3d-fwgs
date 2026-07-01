@@ -19,6 +19,7 @@ GNU General Public License for more details.
 static pixel_t gc_rgb565_r[256];
 static pixel_t gc_rgb565_g[256];
 static pixel_t gc_rgb565_b[256];
+static pixel_t gc_rgb565_to_sw[65536];
 static qboolean gc_rgb565_tables_ready;
 
 static void GC_BuildRGB565Tables( void )
@@ -41,6 +42,21 @@ static void GC_BuildRGB565Tables( void )
 		gc_rgb565_r[i] = (pixel_t)( r_major | r_minor );
 		gc_rgb565_g[i] = (pixel_t)( g_major | g_minor );
 		gc_rgb565_b[i] = (pixel_t)( b_major | b_minor );
+	}
+
+	for( unsigned int c = 0; c < ARRAYSIZE( gc_rgb565_to_sw ); c++ )
+	{
+		unsigned int r = ( c >> 11 ) & 0x1F;
+		unsigned int g = ( c >> 5 ) & 0x3F;
+		unsigned int b = c & 0x1F;
+		unsigned int major = ((( r >> 2 ) & MASK( 3 )) << 5 ) |
+			(((( g >> 3 ) & MASK( 3 )) << 2 )) |
+			((( b >> 3 ) & MASK( 2 )));
+		unsigned int minor = MOVE_BIT( r, 1, 5 ) | MOVE_BIT( r, 0, 2 ) |
+			MOVE_BIT( g, 2, 7 ) | MOVE_BIT( g, 1, 4 ) | MOVE_BIT( g, 0, 1 ) |
+			MOVE_BIT( b, 2, 6 ) | MOVE_BIT( b, 1, 3 ) | MOVE_BIT( b, 0, 0 );
+
+		gc_rgb565_to_sw[c] = (pixel_t)( major << 8 ) | ( minor & 0xFF );
 	}
 
 	gc_rgb565_tables_ready = true;
@@ -393,6 +409,7 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 	case PF_RGB_24:
 	case PF_BGR_24:
 	case PF_LUMINANCE:
+	case PF_RGB_565:
 		break;
 	default:
 		gEngfuncs.Con_DPrintf( S_ERROR "%s: unsupported pixel format %i\n", __func__, fmt );
@@ -441,6 +458,24 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 	pixels = tex->pixels[0];
 #if XASH_GAMECUBE
 	GC_BuildRGB565Tables();
+	if( fmt == PF_RGB_565 && cols == width && rows == height )
+	{
+		const pixel_t *src565 = (const pixel_t *)buffer;
+		size_t i;
+
+		for( i = 0; i < pixel_count; i++ )
+			pixels[i] = gc_rgb565_to_sw[src565[i]];
+		if( width > 0 && height > 0 )
+		{
+			size_t mid = (size_t)( height / 2 ) * (size_t)width + (size_t)( width / 2 );
+			pixel_t mid_src = src565[mid];
+			gc_mid_packed = pixels[mid];
+			gc_mid_r = ( mid_src >> 11 ) & 0x1F;
+			gc_mid_g = ( mid_src >> 5 ) & 0x3F;
+			gc_mid_b = mid_src & 0x1F;
+		}
+		goto gc_texture_update_done;
+	}
 	if( fmt == PF_RGB_24 && cols == width && rows == height )
 	{
 		const byte *src = buffer;
@@ -493,6 +528,12 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 				src = buffer + ( src_y * cols + src_x );
 				r = g = b = src[0];
 				break;
+			case PF_RGB_565:
+			{
+				const pixel_t *src565 = (const pixel_t *)buffer;
+				pixels[y * width + x] = gc_rgb565_to_sw[src565[src_y * cols + src_x]];
+				continue;
+			}
 			default:
 				return;
 			}
@@ -517,7 +558,7 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 
 #if XASH_GAMECUBE
 gc_texture_update_done:
-	if( !Q_strcmp( tex->name, "*cintexture" ))
+	if( fmt == PF_BGRA_32 && !Q_strcmp( tex->name, "*cintexture" ))
 		R_SetPendingCinematicBGRA( cols, rows, buffer );
 	gc_update_count++;
 	if( gc_update_count <= 2 || gc_update_count == 15 || gc_update_count == 30 || gc_update_count == 60 )

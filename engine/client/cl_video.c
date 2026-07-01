@@ -339,9 +339,9 @@ qboolean SCR_PlayCinematic( const char *arg )
 
 	if( AVI_HaveAudioTrack( cin_state ))
 	{
-		// begin streaming
+		// Reset any prior soundtrack state; GameCube starts audible playback
+		// after the first intro frame has been uploaded.
 		S_StopAllSounds( true );
-		S_StartStreaming();
 	}
 
 	AVI_SetParm( cin_state,

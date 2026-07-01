@@ -83,6 +83,7 @@ const bpc_desc_t PFDesc[PF_TOTALCOUNT] =
 { PF_RGB_24,        "RGB 24",    RF_RGBA,       3 },
 { PF_BGR_24,        "BGR 24",    RF_BGR,        3 },
 { PF_LUMINANCE,     "LUM 8",     RF_LUMINANCE,  1 },
+{ PF_RGB_565,       "RGB 565",   RF_RGBA,       2 },
 { PF_DXT1,          "DXT 1",     RF_COMPRESSED, 4 },
 { PF_DXT3,          "DXT 3",     RF_COMPRESSED, 4 },
 { PF_DXT5,          "DXT 5",     RF_COMPRESSED, 4 },

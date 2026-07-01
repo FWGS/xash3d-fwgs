@@ -312,8 +312,12 @@ static void GC_BlitSoftwareBufferScaled( const unsigned short *src, int src_w, i
 			for( src_x = 0; src_x < pairs; src_x++ )
 			{
 				unsigned int yuyv = GC_RGBPairToYUYV( scanline[src_x * 2], scanline[src_x * 2 + 1] );
-				out0[src_x] = yuyv;
-				out1[src_x] = yuyv;
+				int dst_pair = src_x * 2;
+
+				out0[dst_pair] = yuyv;
+				out0[dst_pair + 1] = yuyv;
+				out1[dst_pair] = yuyv;
+				out1[dst_pair + 1] = yuyv;
 			}
 		}
 		return;
@@ -403,10 +407,12 @@ static void GC_PresentBuffer( void )
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
 
-		if( gc_present_tex_ready && gc.initialized )
-			GC_PresentBufferViaGX();
-		else
-			GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
+		/* The software renderer keeps gc.buffer as a linear RGB565 framebuffer.
+		 * Feeding that memory directly to GX as a texture is incorrect because
+		 * GX_TF_RGB565 expects tiled texture layout, which produces striped and
+		 * color-shifted output on intro/menu full-screen draws. Prefer the
+		 * linear CPU/XFB copy path until we add a proper swizzle/upload step. */
+		GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
 
 		// G36: Detect non-black content only while probe frame samples are active.
 		if( gc_present_count <= 16 && src_h > 0 && src_w > 0 )

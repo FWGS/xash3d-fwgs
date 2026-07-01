@@ -287,18 +287,25 @@ def apply_model_tuning_to_environ(
 	aider_overhead: int,
 	reasoning_parser: bool = False,
 ) -> None:
+	os.environ["LOCAL_CODER_MAX_NUM_SEQS"] = str(max_num_seqs)
+	os.environ["LOCAL_CODER_GPU_MEMORY_UTILIZATION"] = f"{gpu_util:.2f}"
+	os.environ["LOCAL_CODER_MAX_MODEL_LEN"] = str(max_model_len)
 	os.environ["QWABLE_5_MAX_NUM_SEQS"] = str(max_num_seqs)
 	os.environ["QWABLE_5_GPU_MEMORY_UTILIZATION"] = f"{gpu_util:.2f}"
 	os.environ["QWABLE_5_MAX_MODEL_LEN"] = str(max_model_len)
 	os.environ["AIDER_MAX_CHAT_HISTORY_TOKENS"] = str(aider_history)
 	os.environ["AIDER_SYSTEM_OVERHEAD_TOKENS"] = str(aider_overhead)
 	if tool_choice:
+		os.environ["LOCAL_CODER_ENABLE_TOOL_CHOICE"] = "1"
 		os.environ["QWABLE_5_ENABLE_TOOL_CHOICE"] = "1"
 	else:
+		os.environ.pop("LOCAL_CODER_ENABLE_TOOL_CHOICE", None)
 		os.environ.pop("QWABLE_5_ENABLE_TOOL_CHOICE", None)
 	if reasoning_parser:
+		os.environ["LOCAL_CODER_REASONING_PARSER"] = "qwen3"
 		os.environ["QWABLE_5_REASONING_PARSER"] = "qwen3"
 	else:
+		os.environ.pop("LOCAL_CODER_REASONING_PARSER", None)
 		os.environ.pop("QWABLE_5_REASONING_PARSER", None)
 
 
@@ -317,7 +324,9 @@ def fetch_model_api_summary(api_base: str) -> str:
 	models = payload.get("data", []) if isinstance(payload, dict) else []
 	if not models:
 		return "Model API reachable but returned no models"
-	preferred = next((item for item in models if item.get("id") == QWABLE_5_SERVED_NAME), models[0])
+	served_name = env_first("LOCAL_CODER_SERVED_NAME", "QWABLE_5_SERVED_NAME",
+		default=LOCAL_CODER_SERVED_NAME)
+	preferred = next((item for item in models if item.get("id") == served_name), models[0])
 	model_id = preferred.get("id", "?")
 	for key in ("max_model_len", "context_length", "max_context_length"):
 		value = preferred.get(key)
@@ -327,15 +336,18 @@ def fetch_model_api_summary(api_base: str) -> str:
 
 
 def default_model_command() -> str:
-	if os.environ.get("QWABLE_5_COMMAND"):
-		return os.environ["QWABLE_5_COMMAND"]
+	override = env_first("LOCAL_CODER_COMMAND", "QWABLE_5_COMMAND")
+	if override:
+		return override
+	if shutil.which("local-coder"):
+		return "local-coder --host 127.0.0.1 --port 8072"
+	if gopex_vllm_launcher():
+		return vllm_local_coder_command()
+	if shutil.which("vllm"):
+		return vllm_local_coder_command()
 	if shutil.which("qwable-5"):
 		return "qwable-5 --host 127.0.0.1 --port 8072"
-	if gopex_vllm_launcher():
-		return vllm_qwable_command()
-	if shutil.which("vllm"):
-		return vllm_qwable_command()
-	return "qwable-5 --host 127.0.0.1 --port 8072"
+	return vllm_local_coder_command()
 
 
 def command_executable_problem(command: list[str], cwd: Path) -> str | None:
@@ -414,7 +426,7 @@ def gpu_memory_preflight_message(command: list[str]) -> str | None:
 		f"GPU {gpu_index} has {free_mib / 1024:.1f} GiB free of {total_mib / 1024:.1f} GiB, "
 		f"but --gpu-memory-utilization {utilization:.2f} asks vLLM for "
 		f"{requested_mib / 1024:.1f} GiB.\n\n"
-		"Free GPU memory, lower QWABLE_5_GPU_MEMORY_UTILIZATION, or reuse the "
+		"Free GPU memory, lower LOCAL_CODER_GPU_MEMORY_UTILIZATION, or reuse the "
 		"already-running model server instead of starting another one. If those "
 		"processes are stale, use the GUI Kill button or stop them before retrying."
 	)
@@ -900,8 +912,8 @@ def automatic_goals_remaining(repo: Path) -> int:
 def recommended_model_command_for_preflight() -> str:
 	saved = dict(os.environ)
 	try:
-		apply_model_tuning_to_environ(1, 0.85, 65536, False, 1024, 8192, False)
-		return vllm_qwable_command()
+		apply_model_tuning_to_environ(1, 0.85, 32768, False, 1024, 8192, False)
+		return vllm_local_coder_command()
 	finally:
 		os.environ.clear()
 		os.environ.update(saved)
@@ -1459,23 +1471,28 @@ class PortWindow(QMainWindow):
 			"OPENAI_API_BASE", "http://127.0.0.1:8072/v1"))
 		self.model_max_seqs_spin = QSpinBox()
 		self.model_max_seqs_spin.setRange(1, 8)
-		self.model_max_seqs_spin.setValue(int(os.environ.get("QWABLE_5_MAX_NUM_SEQS", "1")))
+		self.model_max_seqs_spin.setValue(int(
+			env_first("LOCAL_CODER_MAX_NUM_SEQS", "QWABLE_5_MAX_NUM_SEQS", default="1")))
 		self.model_gpu_util_spin = QDoubleSpinBox()
 		self.model_gpu_util_spin.setRange(0.50, 0.95)
 		self.model_gpu_util_spin.setSingleStep(0.05)
 		self.model_gpu_util_spin.setDecimals(2)
-		self.model_gpu_util_spin.setValue(float(os.environ.get("QWABLE_5_GPU_MEMORY_UTILIZATION", "0.85")))
+		self.model_gpu_util_spin.setValue(float(env_first(
+			"LOCAL_CODER_GPU_MEMORY_UTILIZATION", "QWABLE_5_GPU_MEMORY_UTILIZATION", default="0.85")))
 		self.model_max_len_spin = QSpinBox()
 		self.model_max_len_spin.setRange(8192, 131072)
 		self.model_max_len_spin.setSingleStep(1024)
-		self.model_max_len_spin.setValue(int(os.environ.get("QWABLE_5_MAX_MODEL_LEN", "65536")))
+		self.model_max_len_spin.setValue(int(
+			env_first("LOCAL_CODER_MAX_MODEL_LEN", "QWABLE_5_MAX_MODEL_LEN", default="32768")))
 		self.model_tool_choice = QCheckBox("Enable vLLM tool choice (Aider does not need this)")
 		self.model_tool_choice.setChecked(
-			os.environ.get("QWABLE_5_ENABLE_TOOL_CHOICE", "").strip().lower() in {"1", "true", "yes"})
+			env_first("LOCAL_CODER_ENABLE_TOOL_CHOICE", "QWABLE_5_ENABLE_TOOL_CHOICE").strip().lower()
+			in {"1", "true", "yes"})
 		self.model_reasoning_parser = QCheckBox(
 			"Enable vLLM reasoning parser (off for Aider diff output)")
 		self.model_reasoning_parser.setChecked(
-			os.environ.get("QWABLE_5_REASONING_PARSER", "").strip().lower() in {"qwen3", "1", "true", "yes"})
+			env_first("LOCAL_CODER_REASONING_PARSER", "QWABLE_5_REASONING_PARSER").strip().lower()
+			in {"qwen3", "1", "true", "yes"})
 		self.aider_history_spin = QSpinBox()
 		self.aider_history_spin.setRange(256, 4096)
 		self.aider_history_spin.setSingleStep(256)
@@ -1706,7 +1723,8 @@ class PortWindow(QMainWindow):
 		self.max_runtime_spin.setToolTip("Stop automation gracefully after this many hours")
 		self.auto_start_model = QCheckBox("Auto-start vLLM")
 		self.auto_start_model.setChecked(True)
-		self.auto_start_model.setToolTip("Launch qwable-5 automatically when starting overnight automation")
+		self.auto_start_model.setToolTip(
+			f"Launch the {local_coder_label().lower()} automatically when starting overnight automation")
 		overnight_row.addWidget(self.overnight_btn, 2)
 		overnight_row.addWidget(QLabel("Max runtime:"))
 		overnight_row.addWidget(self.max_runtime_spin)
@@ -2672,15 +2690,18 @@ class PortWindow(QMainWindow):
 			return False
 
 	def model_kill_pattern(self) -> str:
-		if os.environ.get("QWABLE_5_KILL_PATTERN"):
-			return os.environ["QWABLE_5_KILL_PATTERN"]
+		pattern = env_first("LOCAL_CODER_KILL_PATTERN", "QWABLE_5_KILL_PATTERN")
+		if pattern:
+			return pattern
 		try:
 			command = shlex.split(self.model_command_edit.text().strip())
 		except ValueError:
 			command = []
+		if "local-coder" in command:
+			return "local-coder"
 		if "qwable-5" in command:
 			return "qwable-5"
-		return Path(command[0]).name if command else "qwable-5"
+		return Path(command[0]).name if command else "local-coder"
 
 	def _chip_state_for_color(self, color: str) -> str:
 		return {
@@ -2752,7 +2773,7 @@ class PortWindow(QMainWindow):
 
 	def sync_model_command_from_tuning(self) -> None:
 		self.apply_automation_env_from_ui()
-		self.model_command_edit.setText(vllm_qwable_command())
+		self.model_command_edit.setText(vllm_local_coder_command())
 
 	def apply_recommended_model_settings(self) -> None:
 		self.model_max_seqs_spin.setValue(1)
@@ -2780,7 +2801,7 @@ class PortWindow(QMainWindow):
 			return
 		if self.refresh_model_api_summary():
 			self.set_model_state("MODEL  READY", GC_MINT)
-			self.status_label.setText("qwable-5 API is ready")
+			self.status_label.setText(f"{local_coder_label()} API is ready")
 			self.model_api_wait_attempts = 0
 			if self.pending_overnight_automation:
 				self.pending_overnight_automation = False
@@ -2794,7 +2815,7 @@ class PortWindow(QMainWindow):
 				self.model_api_wait_attempts = 0
 				QTimer.singleShot(15000, self.start_model_if_needed_for_overnight)
 			else:
-				self.status_label.setText("qwable-5 started but API is not responding yet")
+				self.status_label.setText(f"{local_coder_label()} started but API is not responding yet")
 				self.model_api_wait_attempts = 0
 			return
 		self.set_model_state("MODEL  WARMING", GC_ORANGE)
@@ -2834,14 +2855,15 @@ class PortWindow(QMainWindow):
 		if not self.valid_repo():
 			return
 		if self.model_process is not None:
-			self.status_label.setText("qwable-5 is already managed by this GUI")
+			self.status_label.setText(f"{local_coder_label()} is already managed by this GUI")
 			return
 		if self.model_port_open():
 			self.set_model_state("MODEL  READY", GC_MINT)
 			self.start_model_btn.setEnabled(False)
 			self.kill_model_btn.setEnabled(True)
-			self.status_label.setText("Reusing existing qwable-5 API server")
-			self.append("\nqwable-5 API is already reachable; not launching a duplicate model server.\n")
+			self.status_label.setText(f"Reusing existing {local_coder_label().lower()} API server")
+			self.append(
+				f"\n{local_coder_label()} API is already reachable; not launching a duplicate model server.\n")
 			return
 		command_text = self.model_command_edit.text().strip()
 		try:
@@ -2850,16 +2872,17 @@ class PortWindow(QMainWindow):
 			QMessageBox.warning(self, "Invalid model command", str(exc))
 			return
 		if not command:
-			QMessageBox.warning(self, "Invalid model command", "Enter a command to start qwable-5.")
+			QMessageBox.warning(
+				self, "Invalid model command", f"Enter a command to start the {local_coder_label().lower()}.")
 			return
 		problem = command_executable_problem(command, self.repo())
 		if problem:
 			message = (
 				f"Cannot start model command: {problem}\n\n"
-				"Install it, add it to PATH, or set QWABLE_5_COMMAND. "
+				"Install it, add it to PATH, or set LOCAL_CODER_COMMAND. "
 				"If you use vLLM, try:\n"
-				f"vllm serve {QWABLE_5_MODEL_ID} --host 127.0.0.1 --port 8072 "
-				f"--served-model-name {QWABLE_5_SERVED_NAME}"
+				f"vllm serve {LOCAL_CODER_MODEL_ID} --host 127.0.0.1 --port 8072 "
+				f"--served-model-name {LOCAL_CODER_SERVED_NAME}"
 			)
 			self.append(f"\nModel command problem: {problem}\n")
 			QMessageBox.warning(self, "Model command problem", message)
@@ -2883,9 +2906,9 @@ class PortWindow(QMainWindow):
 				"diff output; leave this off unless you are not using Aider.\n"
 			)
 
-		self.model_operation = "qwable-5"
+		self.model_operation = "local-coder"
 		self.append(f"\n\n$ {' '.join(command)}\n")
-		self.status_label.setText("Starting qwable-5")
+		self.status_label.setText(f"Starting {local_coder_label().lower()}")
 		self.set_model_state("MODEL STARTING", GC_ORANGE)
 		self.start_model_btn.setEnabled(False)
 		self.kill_model_btn.setEnabled(True)
@@ -2924,7 +2947,7 @@ class PortWindow(QMainWindow):
 		if self.closing:
 			self.model_process = None
 			return
-		self.append(f"\n[{self.model_operation or 'qwable-5'} exited {exit_code}]\n")
+		self.append(f"\n[{self.model_operation or 'local-coder'} exited {exit_code}]\n")
 		self.model_process = None
 		self.model_operation = ""
 		self.start_model_btn.setEnabled(True)
@@ -2939,20 +2962,22 @@ class PortWindow(QMainWindow):
 
 	def kill_model(self) -> None:
 		if self.model_process is not None:
-			self.append("\nStopping qwable-5 process…\n")
+			self.append(f"\nStopping {local_coder_label().lower()} process…\n")
 			self.model_process.terminate()
 			QTimer.singleShot(3000, lambda: self.model_process.kill() if self.model_process else None)
 			return
 
 		pattern = self.model_kill_pattern()
-		answer = QMessageBox.question(self, "Kill qwable-5?",
+		answer = QMessageBox.question(self, f"Kill {local_coder_label().lower()}?",
 			f"No GUI-managed model process is running. Send TERM to processes matching '{pattern}'?",
 			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
 			QMessageBox.StandardButton.No)
 		if answer != QMessageBox.StandardButton.Yes:
 			return
 		if not shutil.which("pkill"):
-			QMessageBox.warning(self, "pkill missing", "Cannot kill an external qwable-5 process without pkill.")
+			QMessageBox.warning(
+				self, "pkill missing",
+				f"Cannot kill an external {local_coder_label().lower()} process without pkill.")
 			return
 		result = subprocess.run(["pkill", "-TERM", "-f", pattern], cwd=self.repo(),
 			text=True, capture_output=True, check=False)
@@ -3853,8 +3878,8 @@ class PortWindow(QMainWindow):
 				"Keep the GUI open until GIT SAVED appears. Close anyway?"
 			)
 		else:
-			title = "qwable-5 is still running"
-			message = "Close the GUI and terminate the managed qwable-5 process?"
+			title = f"{local_coder_label()} is still running"
+			message = f"Close the GUI and terminate the managed {local_coder_label().lower()} process?"
 		answer = QMessageBox.question(self, title, message,
 			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
 			QMessageBox.StandardButton.No)

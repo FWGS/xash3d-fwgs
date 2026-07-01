@@ -27,7 +27,7 @@ typically expanded to rgba buffer
 NOTE: number at end of pixelformat name it's a total bitscount e.g. PF_RGB_24 == PF_RGB_888
 ========================================================================
 */
-#define ImageRAW( type )        ( type >= PF_RGBA_32 && type <= PF_LUMINANCE )
+#define ImageRAW( type )        ( type >= PF_RGBA_32 && type <= PF_RGB_565 )
 #define ImageCompressed( type ) ( type >= PF_DXT1 && type <= PF_KTX2_RAW )
 #define ImageBigEndian( type )  ( type == PF_BGRA_32 || type == PF_BGR_24 )
 
@@ -41,6 +41,7 @@ typedef enum
 	PF_RGB_24,	// uncompressed dds or another 24-bit image
 	PF_BGR_24,	// big-endian RGB (MacOS)
 	PF_LUMINANCE,
+	PF_RGB_565,	// packed GameCube-friendly RGB565 buffer
 	PF_DXT1,		// s3tc DXT1/BC1 format
 	PF_DXT3,		// s3tc DXT3/BC2 format
 	PF_DXT5,		// s3tc DXT5/BC3 format
