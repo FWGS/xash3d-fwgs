@@ -83,17 +83,6 @@ void R_GetTextureParms( int *w, int *h, int texnum )
 Draw_StretchPicImplementation
 =============
 */
-#if XASH_GAMECUBE
-static int R_TextureRowStride( const image_t *pic )
-{
-	int stride = pic->width;
-
-	if( pic->srcWidth > stride )
-		stride = pic->srcWidth;
-	return stride;
-}
-#endif
-
 static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, int t1, int s2, int t2, image_t *pic )
 {
 	int      skip;
@@ -157,7 +146,10 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 
 #if XASH_GAMECUBE
 	{
-		int row_stride = R_TextureRowStride( pic );
+		int row_stride = pic->width;
+
+		if( row_stride <= 0 )
+			return;
 
 #pragma omp parallel for schedule(static)
 		for( int v = 0; v < height; v++ )
@@ -285,16 +277,10 @@ void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1,
 		return;
 
 #if XASH_GAMECUBE
-	if( !Q_strcmp( pic->name, "*cintexture" ))
+	if( !Q_strcmp( pic->name, "*cintexture" ) && pic->srcWidth > 0 && pic->srcHeight > 0 )
 	{
-		int row_stride = R_TextureRowStride( pic );
-		int col_stride = pic->height;
-
-		if( pic->srcHeight > col_stride )
-			col_stride = pic->srcHeight;
-
-		R_DrawStretchPicImplementation( x, y, w, h, row_stride * s1, col_stride * t1,
-			row_stride * s2, col_stride * t2, pic );
+		R_DrawStretchPicImplementation( x, y, w, h, pic->srcWidth * s1, pic->srcHeight * t1,
+			pic->srcWidth * s2, pic->srcHeight * t2, pic );
 		return;
 	}
 #endif
@@ -558,8 +544,6 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 
 #if XASH_GAMECUBE
 gc_texture_update_done:
-	if( fmt == PF_BGRA_32 && !Q_strcmp( tex->name, "*cintexture" ))
-		R_SetPendingCinematicBGRA( cols, rows, buffer );
 	gc_update_count++;
 	if( gc_update_count <= 2 || gc_update_count == 15 || gc_update_count == 30 || gc_update_count == 60 )
 	{

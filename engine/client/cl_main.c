@@ -29,6 +29,7 @@ GNU General Public License for more details.
 extern qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
+qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
 #endif
 
@@ -3695,6 +3696,9 @@ void Host_ClientBegin( void )
 #if XASH_GAMECUBE
 	if( UI_UsingBuiltInFallbackMenu() )
 		return;
+
+	if( !CL_GameCubeClientProgsReady() )
+		return;
 #endif
 
 	// finalize connection process if needs
@@ -3724,6 +3728,14 @@ void Host_ClientFrame( void )
 	if( !cls.initialized ) return;
 #if XASH_GAMECUBE
 	if( UI_UsingBuiltInFallbackMenu() )
+	{
+		VID_CheckChanges();
+		SCR_UpdateScreen();
+		SCR_RunCinematic();
+		return;
+	}
+
+	if( !CL_GameCubeClientProgsReady() )
 	{
 		VID_CheckChanges();
 		SCR_UpdateScreen();
@@ -3785,6 +3797,10 @@ void Host_ClientFrame( void )
 }
 
 //============================================================================
+
+#if XASH_GAMECUBE
+static qboolean gc_cl_deferred_init_done;
+#endif
 
 /*
 ====================
@@ -3865,11 +3881,25 @@ void CL_Init( void )
 	}
 #endif
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		cls.build_num = 0;
+		cls.initialized = true;
+		cl.maxclients = 1;
+		cls.olddemonum = -1;
+		cls.demonum = -1;
+		Con_Reportf( "Xash3D GameCube: gcmap client init deferred\n" );
+		return;
+	}
+#endif
+
 	// client must be always initialized last so it can fetch all cvars
 	if( !CL_LoadProgs( libpath ))
 		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: client progs ready\n" );
+	gc_cl_deferred_init_done = true;
 #endif
 
 	cls.build_num = 0;
@@ -3883,25 +3913,25 @@ void CL_Init( void )
 }
 
 #if XASH_GAMECUBE
-static qboolean gc_cl_deferred_init_done;
+qboolean CL_GameCubeClientProgsReady( void )
+{
+	return gc_cl_deferred_init_done && clgame.hInstance != NULL;
+}
 
 qboolean CL_GameCubeEnsureClientReady( void )
 {
 	string libpath;
 
-	if( gc_cl_deferred_init_done )
+	if( gc_cl_deferred_init_done && clgame.hInstance )
 		return true;
 
-	if( !UI_UsingBuiltInFallbackMenu() )
-	{
-		gc_cl_deferred_init_done = true;
+	if( gc_cl_deferred_init_done && !Sys_CheckParm( "-gcmap" ) && !UI_UsingBuiltInFallbackMenu() )
 		return true;
-	}
 
 	Con_Reportf( "Xash3D GameCube: deferred client init begin\n" );
 	GC_DrawLoadingStatus( "CLIENT INIT", "half-life" );
 
-	if( !Sys_CheckParm( "-nosound" ))
+	if( !Sys_CheckParm( "-nosound" ) && !snd.initialized )
 	{
 		S_Init();
 		Voice_Init( VOICE_DEFAULT_CODEC, 3, true );
@@ -3916,7 +3946,8 @@ qboolean CL_GameCubeEnsureClientReady( void )
 	}
 
 	cl.maxclients = 1;
-	UI_GameCubeLeaveMenuOnlyBootstrap();
+	if( UI_UsingBuiltInFallbackMenu() )
+		UI_GameCubeLeaveMenuOnlyBootstrap();
 	gc_cl_deferred_init_done = true;
 	Con_Reportf( "Xash3D GameCube: deferred client init ready\n" );
 	return true;

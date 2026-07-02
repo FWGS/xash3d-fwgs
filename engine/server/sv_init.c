@@ -1150,6 +1150,8 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	GC_MemSample( "bsp load" );
 	if( !Sys_CheckParm( "-gcmap" ))
 		GC_DrawLoadingStatus( "SPAWNING ENTITIES", sv.name );
+	else
+		Con_Reportf( "Xash3D GameCube: submodel precache begin count=%d\n", sv.worldmodel->numsubmodels );
 #endif
 
 	if( FBitSet( host.features, ENGINE_QUAKE_COMPATIBLE ) && FS_FileExists( "progs.dat", false ))
@@ -1169,6 +1171,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 			sv.models[i+1] = Mod_FindName( sv.model_precache[i+1], false );
 			SetBits( sv.model_precache_flags[i+1], RES_FATALIFMISSING );
 		}
+		Con_Reportf( "Xash3D GameCube: submodel precache ready\n" );
 	}
 	else
 #endif
@@ -1205,6 +1208,11 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	// pregenerate test packet
 	SV_GenerateTestPacket();
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		Con_Reportf( "Xash3D GameCube: spawn server ready\n" );
+#endif
 
 	return true;
 }

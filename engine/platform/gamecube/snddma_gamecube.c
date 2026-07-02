@@ -27,6 +27,8 @@ static volatile int gc_audio_last_peak;
 static volatile int gc_audio_max_peak;
 static qboolean gc_audio_reported_nonzero;
 static unsigned int gc_audio_submit_polls;
+static u32 gc_audio_counter_base;
+static qboolean gc_audio_counter_valid;
 static int16_t gc_audio_chunk[2][GC_AUDIO_CHUNK_SAMPLES * 2] __attribute__((aligned( 32 )));
 
 static qboolean GCube_NullAudioInit( void );
@@ -148,6 +150,8 @@ static qboolean GCube_StartVoice( void )
 	if( status == SND_INVALID )
 		return false;
 
+	gc_audio_counter_base = ASND_GetSampleCounter();
+	gc_audio_counter_valid = true;
 	gc_voice_started = true;
 	gc_audio_play_chunk = 0;
 	return true;
@@ -186,6 +190,8 @@ static qboolean GCube_RealAudioInit( void )
 	gc_audio_max_peak = 0;
 	gc_audio_reported_nonzero = false;
 	gc_audio_submit_polls = 0;
+	gc_audio_counter_base = 0;
+	gc_audio_counter_valid = false;
 	snd.initialized = true;
 	snd.backend_name = "GameCube (ASND 48kHz)";
 	Con_Reportf( "Xash3D GameCube: audio backend ready (%d samples, %d Hz, voice deferred)\n",
@@ -209,6 +215,8 @@ static qboolean GCube_NullAudioInit( void )
 	gc_audio_max_peak = 0;
 	gc_audio_reported_nonzero = false;
 	gc_audio_submit_polls = 0;
+	gc_audio_counter_base = 0;
+	gc_audio_counter_valid = false;
 
 	snd.format.speed = SOUND_DMA_SPEED;
 	snd.format.width = 2;
@@ -245,6 +253,8 @@ void SNDDMA_Shutdown( void )
 	snd.initialized = false;
 	gc_audio_real = false;
 	gc_voice_started = false;
+	gc_audio_counter_base = 0;
+	gc_audio_counter_valid = false;
 
 	if( snd.buffer )
 	{

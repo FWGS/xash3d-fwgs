@@ -216,6 +216,10 @@ static MALLOC_LIKE( FS_FreeImage, 1 ) rgbdata_t *ImagePack( const char *name )
 	pack->palette = image.palette;
 	pack->encode = image.encode;
 
+#if XASH_GAMECUBE
+	Image_GCPurgeDecodeScratch();
+#endif
+
 	return pack;
 }
 

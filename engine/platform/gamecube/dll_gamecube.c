@@ -205,12 +205,14 @@ int setup_gamecube_dll_functions( void )
 	extern int setup_gamecube_ref_exports( void );
 	extern int setup_gamecube_client_exports( void );
 	extern int setup_gamecube_server_exports( void );
+	extern int setup_gamecube_menu_exports( void );
 	int ret = 0;
 
 	ret |= setup_gamecube_filesystem_exports();
 	ret |= setup_gamecube_ref_exports();
 	ret |= setup_gamecube_client_exports();
 	ret |= setup_gamecube_server_exports();
+	ret |= setup_gamecube_menu_exports();
 
 	return ret;
 }

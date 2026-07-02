@@ -4108,6 +4108,7 @@ qboolean CL_LoadProgs( const char *name )
 			Con_Reportf( S_WARN "%s: failed to get address of %s proc\n", __func__, cdll_new_exports[i].name );
 	}
 
+	Con_Reportf( "Xash3D GameCube: client pfnInitialize begin\n" );
 	if( !clgame.dllFuncs.pfnInitialize( &gEngfuncs, CLDLL_INTERFACE_VERSION ))
 	{
 		COM_PushLibraryError( "can't init client API" );
@@ -4116,6 +4117,9 @@ qboolean CL_LoadProgs( const char *name )
 		clgame.hInstance = NULL;
 		return false;
 	}
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client pfnInitialize ready\n" );
+#endif
 
 	Cvar_FullSet( "host_clientloaded", "1", FCVAR_READ_ONLY );
 

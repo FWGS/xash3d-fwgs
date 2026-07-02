@@ -34,5 +34,6 @@ void AVI_Shutdown( void );
 
 qboolean AVI_SetParm( movie_state_t *Avi, enum movie_parms_e parm, ... );
 qboolean AVI_Think( movie_state_t *Avi );
+qboolean AVI_IsSoundtrackActive( void );
 
 #endif // AVI_H

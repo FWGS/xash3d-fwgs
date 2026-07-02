@@ -5141,6 +5141,11 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			}
 			else ent = SV_AllocEdict();
 
+#if XASH_GAMECUBE
+			if( SV_GCMapSmokeRoute() && ( entity_index & 31 ) == 0 )
+				Con_Reportf( "Xash3D GameCube: entity spawn progress=%d\n", entity_index );
+#endif
+
 			if( !SV_ParseEdict( &entities, ent, entity_index++ ))
 				continue;
 
@@ -5202,8 +5207,22 @@ void SV_SpawnEntities( const char *mapname )
 	svgame.globals->startspot = SV_MakeString( sv.startspot );
 	svgame.globals->time = sv.time;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+	{
+		Con_Reportf( "Xash3D GameCube: entity lump spawn skipped for gcmap smoke route\n" );
+		return;
+	}
+#endif
+
 	// spawn the rest of the entities on the map
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: entity lump spawn begin\n" );
+#endif
 	SV_LoadFromFile( mapname, sv.worldmodel->entities );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: entity lump spawn ready\n" );
+#endif
 }
 
 void SV_UnloadProgs( void )

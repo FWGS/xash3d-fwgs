@@ -266,9 +266,31 @@ qboolean Image_LumpValidSize( const char *name )
 }
 
 #if XASH_GAMECUBE
-int Image_GCMaxLoadDimension( void )
+static qboolean Image_GCAllowLargeDecode( const char *name )
+{
+	static const char *allow[] =
+	{
+		"logo", "splash", "startup", "loading", "banner",
+		"valve", "sierra", "background", "title", NULL
+	};
+	int i;
+
+	if( !name || !name[0] )
+		return false;
+
+	for( i = 0; allow[i]; i++ )
+	{
+		if( Q_stristr( name, allow[i] ))
+			return true;
+	}
+
+	return false;
+}
+
+int Image_GCMaxLoadDimension( const char *name )
 {
 	int quality = 1;
+	int max_dim;
 
 	if( Cvar_FindVar( "gc_quality" ))
 		quality = Cvar_VariableInteger( "gc_quality" );
@@ -280,19 +302,42 @@ int Image_GCMaxLoadDimension( void )
 	if( quality > 1 )
 		quality = 1;
 #endif
+
 	switch( quality )
 	{
 	case 0:
+		max_dim = 64;
+		break;
+	case 2:
+		max_dim = 512;
+		break;
 	case 1:
-		return 64;
 	default:
-		return 128;
+		max_dim = 256;
+		break;
+	}
+
+	if( name && name[0] == '#' && Q_strstr( name, "_stb_font" ))
+		return Q_min( max_dim, 128 );
+
+	if( Image_GCAllowLargeDecode( name ) && quality >= 1 )
+		return Q_max( max_dim, 512 );
+
+	return max_dim;
+}
+
+void Image_GCPurgeDecodeScratch( void )
+{
+	if( image.tempbuffer )
+	{
+		Mem_Free( image.tempbuffer );
+		image.tempbuffer = NULL;
 	}
 }
 
 qboolean Image_GCClampDecodeSize( const char *name, int *width, int *height )
 {
-	int max_dim = Image_GCMaxLoadDimension();
+	int max_dim = Image_GCMaxLoadDimension( name );
 	const int orig_w = *width;
 	const int orig_h = *height;
 
@@ -1236,7 +1281,7 @@ qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 #if XASH_GAMECUBE
 	if( !Image_CheckFlag( IL_KEEP_8BIT ) && !FBitSet( image.flags, IMAGE_HAS_LUMA|IMAGE_QUAKESKY ))
 	{
-		const int max_size = Image_GCMaxLoadDimension();
+		const int max_size = Image_GCMaxLoadDimension( NULL );
 		if( scaled_width > max_size || scaled_height > max_size )
 		{
 			qboolean resampled = false;

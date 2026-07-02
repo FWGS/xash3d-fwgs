@@ -110,6 +110,7 @@ static int SCR_LoadStartupVidList( void )
 	char *pfile;
 	string token;
 	int c = 0;
+	const qboolean have_playlist = FS_FileExists( DEFAULT_VIDEOLIST_PATH, false );
 
 	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, NULL, false );
 	if( afile )
@@ -131,8 +132,10 @@ static int SCR_LoadStartupVidList( void )
 		Mem_Free( afile );
 	}
 
-	if( c <= 0 )
+	if( c <= 0 && !have_playlist )
 		c = SCR_AddDefaultStartupVids();
+	else if( c <= 0 && have_playlist )
+		Con_Reportf( "Xash3D GameCube: startup intro playlist explicitly disabled\n" );
 
 	return c;
 }
@@ -167,6 +170,15 @@ void SCR_CheckStartupVids( void )
 	c = SCR_LoadStartupVidList();
 	if( c > 0 )
 		goto run_cinematic;
+	if( FS_FileExists( DEFAULT_VIDEOLIST_PATH, false ) )
+	{
+		cls.movienum = -1;
+		Con_Reportf( "Xash3D GameCube: activating menu without startup cinematic\n" );
+		CL_CheckStartupDemos();
+		if( cls.movienum == -1 && cls.demonum == -1 && cls.state == ca_disconnected )
+			UI_SetActiveMenu( true );
+		return;
+	}
 #endif
 
 	if( !FS_FileExists( DEFAULT_VIDEOLIST_PATH, false ))
@@ -274,8 +286,8 @@ SCR_PlayCinematic
 qboolean SCR_PlayCinematic( const char *arg )
 {
 	int x, y, w, h;
-#if !XASH_GAMECUBE
 	double video_ratio, screen_ratio, scale;
+#if !XASH_GAMECUBE
 	const char	*fullpath = FS_GetDiskPath( arg, false );
 #endif
 #if XASH_GAMECUBE
@@ -307,13 +319,6 @@ qboolean SCR_PlayCinematic( const char *arg )
 		return false;
 	}
 
-#if XASH_GAMECUBE
-	/* Fullscreen 320x240 upload matches the GameCube framebuffer. */
-	x = 0;
-	y = 0;
-	w = refState.width;
-	h = refState.height;
-#else
 	video_ratio = (double)w / (double)h;
 	screen_ratio = (double)refState.width / (double)refState.height;
 
@@ -335,7 +340,6 @@ qboolean SCR_PlayCinematic( const char *arg )
 		x = 0;
 		y = (refState.height - h) / 2.0;
 	}
-#endif
 
 	if( AVI_HaveAudioTrack( cin_state ))
 	{
@@ -369,12 +373,18 @@ void SCR_StopCinematic( void )
 	if( cls.state != ca_cinematic )
 		return;
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: stop cinematic movienum=%d state=%d\n", cls.movienum, cls.state );
+#endif
 	AVI_CloseVideo( cin_state );
 	S_StopStreaming();
 
 	cls.state = ca_disconnected;
 	cls.signon = 0;
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: activating menu after cinematic\n" );
+#endif
 	UI_SetActiveMenu( true );
 }
 
@@ -388,8 +398,9 @@ void SCR_InitCinematic( void )
 	AVI_Initailize ();
 	cin_state = AVI_GetState( CIN_MAIN );
 #if XASH_GAMECUBE
-	/* Match the 320x240 GameCube framebuffer one-to-one. */
-	cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 320, 240, NULL, TF_NOMIPMAP|TF_CLAMP );
+	/* Keep the cinematic texture at the source intro resolution so the
+	 * renderer can scale the full frame instead of baking in a 320x240 copy. */
+	cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 640, 480, NULL, TF_NOMIPMAP|TF_CLAMP );
 #else
 	cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 64, 64, NULL, TF_NOMIPMAP|TF_CLAMP );
 #endif

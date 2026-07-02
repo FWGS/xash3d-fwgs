@@ -16,6 +16,7 @@ GNU General Public License for more details.
 #include "common.h"
 #include "sound.h"
 #include "client.h"
+#include "avi/avi.h"
 #include "con_nprint.h"
 #include "pm_local.h"
 #include "platform/platform.h"
@@ -1228,13 +1229,13 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 S_RawSamplesStereo
 ===================
 */
-uint S_RawSamplesStereoFrac( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data, uint *samplefrac_io )
+uint S_RawSamplesStereoFracTimed( portable_samplepair_t *rawsamples, uint rawend, uint min_rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data, uint *samplefrac_io )
 {
 	uint	src;
 	uint samplefrac;
 
-	if( rawend < snd.paintedtime )
-		rawend = snd.paintedtime;
+	if( rawend < min_rawend )
+		rawend = min_rawend;
 
 	uint fracstep = ((double) rate / (double)SOUND_DMA_SPEED) * (double)(1 << S_RAW_SAMPLES_PRECISION_BITS);
 	samplefrac = samplefrac_io ? *samplefrac_io : 0;
@@ -1287,9 +1288,17 @@ uint S_RawSamplesStereoFrac( portable_samplepair_t *rawsamples, uint rawend, uin
 	}
 
 	if( samplefrac_io )
-		*samplefrac_io = samplefrac - ( samples << S_RAW_SAMPLES_PRECISION_BITS );
+	{
+		src = samplefrac >> S_RAW_SAMPLES_PRECISION_BITS;
+		*samplefrac_io = samplefrac - ( src << S_RAW_SAMPLES_PRECISION_BITS );
+	}
 
 	return rawend;
+}
+
+uint S_RawSamplesStereoFrac( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data, uint *samplefrac_io )
+{
+	return S_RawSamplesStereoFracTimed( rawsamples, rawend, snd.paintedtime, max_samples, samples, rate, width, channels, data, samplefrac_io );
 }
 
 uint S_RawSamplesStereo( portable_samplepair_t *rawsamples, uint rawend, uint max_samples, uint samples, uint rate, word width, word channels, const byte *data )
@@ -1319,6 +1328,25 @@ void S_RawEntSamples( int entnum, uint samples, uint rate, word width, word chan
 	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
 	samplefrac = (uint)ch->engine_reserved[0];
 	ch->s_rawend = S_RawSamplesStereoFrac( ch->rawsamples, ch->s_rawend, ch->max_samples, samples, rate, width, channels, data, &samplefrac );
+	ch->engine_reserved[0] = samplefrac;
+	ch->leftvol = ch->rightvol = snd_vol;
+}
+
+void S_RawEntSamplesTimed( int entnum, uint min_rawend, uint samples, uint rate, word width, word channels, const byte *data, int snd_vol, float attn )
+{
+	rawchan_t *ch;
+	uint samplefrac;
+
+	if( snd_vol < 0 )
+		snd_vol = 0;
+
+	if( !( ch = S_FindRawChannel( entnum, true )))
+		return;
+
+	ch->master_vol = snd_vol;
+	ch->dist_mult = (attn / SND_CLIP_DISTANCE);
+	samplefrac = (uint)ch->engine_reserved[0];
+	ch->s_rawend = S_RawSamplesStereoFracTimed( ch->rawsamples, ch->s_rawend, min_rawend, ch->max_samples, samples, rate, width, channels, data, &samplefrac );
 	ch->engine_reserved[0] = samplefrac;
 	ch->leftvol = ch->rightvol = snd_vol;
 }
@@ -1562,7 +1590,15 @@ static void S_UpdateChannels( void )
 	// soundtime - total samples that have been played out to hardware at dmaspeed
 	// paintedtime - total samples that have been mixed at speed
 	// endtime - target for samples in mixahead buffer at speed
-	endtime = snd.soundtime + s_mixahead.value * SOUND_DMA_SPEED;
+	{
+		float mixahead = s_mixahead.value;
+
+#if XASH_GAMECUBE
+		if( AVI_IsSoundtrackActive() && mixahead > 0.04f )
+			mixahead = 0.04f;
+#endif
+		endtime = snd.soundtime + mixahead * SOUND_DMA_SPEED;
+	}
 	samps = snd.samples >> 1;
 
 	if((int)(endtime - snd.soundtime) > samps )

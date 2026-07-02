@@ -40,6 +40,7 @@ struct movie_state_s
 	uint			audio_chunk_offset;
 	qboolean		audio_reported;
 	qboolean		audio_channel_ready;
+	qboolean		audio_playback_started;
 	uint			fps_num;
 	uint			fps_den;
 	uint			current_frame;
@@ -59,6 +60,8 @@ struct movie_state_s
 	qboolean		paused;
 	qboolean		playback_started;
 	qboolean		frame_on_gpu;
+	qboolean		ui_logo;
+	uint			debug_think_calls;
 };
 
 #endif // AVI_GC_H

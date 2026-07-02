@@ -339,6 +339,11 @@ MENU_RESOURCE_ASSETS = (
 	"resource/background/800_3_d_loading.tga",
 )
 
+MENU_RESOURCE_DIRS = (
+	"resource",
+	"gfx/shell",
+)
+
 
 SMOKE_HUD_RES = 320
 
@@ -636,19 +641,34 @@ exec autoexec.cfg
 stuffcmds
 """
 
-def create_retail_boot_overlays(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
+def create_retail_boot_overlays(
+	source: Path,
+	output: Path,
+	include_startup_vids: bool = True,
+) -> tuple[tuple[str, Path], ...]:
 	"""Overlay read-only retail boot files without mutating the source tree."""
 	output.mkdir(parents=True, exist_ok=True)
 
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
+	(output / "mainui.cfg").write_text("\n", encoding="ascii")
 	(output / "valve.rc").write_text(GC_RETAIL_VALVE_RC, encoding="ascii")
 
 	overlays: list[tuple[str, Path]] = [
 		("config.cfg", output / "config.cfg"),
 		("autoexec.cfg", output / "autoexec.cfg"),
+		("mainui.cfg", output / "mainui.cfg"),
 		("valve.rc", output / "valve.rc"),
 	]
+
+	media = output / "media"
+	media.mkdir(exist_ok=True)
+	startup_vids = media / "StartupVids.txt"
+
+	if not include_startup_vids:
+		startup_vids.write_text("", encoding="ascii")
+		overlays.append(("media/StartupVids.txt", startup_vids))
+		return tuple(overlays)
 
 	movies = [
 		relative
@@ -656,9 +676,6 @@ def create_retail_boot_overlays(source: Path, output: Path) -> tuple[tuple[str, 
 		if (source / relative).is_file()
 	]
 	if movies:
-		media = output / "media"
-		media.mkdir(exist_ok=True)
-		startup_vids = media / "StartupVids.txt"
 		startup_vids.write_text("".join(f"{movie}\n" for movie in movies), encoding="ascii")
 		overlays.append(("media/StartupVids.txt", startup_vids))
 		for relative in movies:
@@ -673,8 +690,12 @@ def create_retail_boot_overlays(source: Path, output: Path) -> tuple[tuple[str, 
 	return tuple(overlays)
 
 
-def create_startup_vids_overlay(source: Path, output: Path) -> tuple[tuple[str, Path], ...]:
-	return create_retail_boot_overlays(source, output)
+def create_startup_vids_overlay(
+	source: Path,
+	output: Path,
+	include_startup_vids: bool = True,
+) -> tuple[tuple[str, Path], ...]:
+	return create_retail_boot_overlays(source, output, include_startup_vids)
 
 
 def build_gcvid_companion(source_movie: Path, output_movie: Path) -> None:
@@ -774,6 +795,8 @@ def stage_smoke_data(source: Path, output: Path, smoke_map: str) -> Path:
 		copy_if_present(source, output, relative)
 	for relative in MENU_RESOURCE_ASSETS:
 		copy_if_present(source, output, relative)
+	for relative in MENU_RESOURCE_DIRS:
+		copy_tree_if_present(source, output, relative)
 	write_smoke_overrides(output, smoke_map)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
@@ -808,9 +831,12 @@ def stage_intro_avi_data(source: Path, output: Path) -> Path:
 		copy_if_present(source, output, relative)
 	for relative in MENU_RESOURCE_ASSETS:
 		copy_if_present(source, output, relative)
+	for relative in MENU_RESOURCE_DIRS:
+		copy_tree_if_present(source, output, relative)
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
+	(output / "mainui.cfg").write_text("\n", encoding="ascii")
 	extract_wad_lump(source / "gfx.wad", output, "conchars", "gfx/conchars")
 	for relative in SMOKE_INTRO_MEDIA:
 		copy_if_present(source, output, relative)
@@ -1035,6 +1061,11 @@ def main() -> None:
 		help="stage valve/gamecube.cfg with a newgame override for automated retail probes",
 	)
 	parser.add_argument(
+		"--skip-startup-vids",
+		action="store_true",
+		help="overlay an empty media/StartupVids.txt for faster retail menu boot validation",
+	)
+	parser.add_argument(
 		"--apploader-source", type=Path, default=script_dir / "gamecube-apploader.c"
 	)
 	parser.add_argument(
@@ -1122,7 +1153,11 @@ def main() -> None:
 				write_probe_newgame_override(staged_data)
 
 			overlay_root = Path(temp) / "overlay" / "valve"
-			overlays = create_startup_vids_overlay(args.data, overlay_root)
+			overlays = create_startup_vids_overlay(
+				args.data,
+				overlay_root,
+				include_startup_vids=not args.skip_startup_vids,
+			)
 			build_disc(
 				args.dol,
 				staged_data,

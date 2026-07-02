@@ -31,15 +31,16 @@ typedef struct gc_menu_item_s
 	const char *label;
 	const char *description;
 	const char *command;
-	int icon_index;
 } gc_menu_item_t;
 
 static qboolean gc_menu_visible;
 static qboolean gc_menu_builtin_fallback;
+static qboolean gc_menu_vidinit_pending;
 static int gc_menu_selection;
 static int gc_menu_logo;
 static int gc_menu_icons;
 static int gc_menu_icons_focus;
+static int gc_menu_logo_blur[4];
 #define GC_MENU_ICON_WIDTH	49
 #define GC_MENU_ICON_HEIGHT	32
 #define GC_MENU_MAX_BG_PIECES 64
@@ -58,9 +59,9 @@ static int gc_menu_background_height = 600;
 
 static const gc_menu_item_t gc_menu_items[] =
 {
-	{ "New Game", "Start a new single player game.", "gc_playstart", 0 },
-	{ "Load Game", "Load a previously saved game.", "menu_loadgame", 1 },
-	{ "Options", "Change game settings, configure controls.", "menu_options", 3 },
+	{ "New Game", "Start a new single player game.", "gc_playstart" },
+	{ "Load Game", "Load a previously saved game.", "menu_loadgame" },
+	{ "Options", "Change game settings, configure controls.", "menu_options" },
 };
 
 static qboolean UI_GCFallbackMenuCommandsSafe( void )
@@ -107,8 +108,9 @@ static void UI_GCLoadFallbackMenuLayout( void )
 		if( piece->texnum <= 0 )
 			break;
 
-		piece->w = 256;
-		piece->h = 256;
+		R_GetTextureParms( &piece->w, &piece->h, piece->texnum );
+		if( piece->w <= 0 || piece->h <= 0 )
+			break;
 
 		pfile = COM_ParseFile( pfile, token, sizeof( token )); // fit/scaled attribute
 		if( !pfile )
@@ -141,8 +143,10 @@ static void UI_GCLoadFallbackMenuTextures( void )
 		return;
 
 	gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/logo_game.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
-	gc_menu_icons = ref.dllFuncs.GL_LoadTexture( "resource/game_menu.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
-	gc_menu_icons_focus = ref.dllFuncs.GL_LoadTexture( "resource/game_menu_mouseover.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	gc_menu_logo_blur[0] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_0.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	gc_menu_logo_blur[1] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_1.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	gc_menu_logo_blur[2] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_2.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	gc_menu_logo_blur[3] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_3.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 	UI_GCLoadFallbackMenuLayout();
 
 	if( gc_menu_background_count <= 0 )
@@ -173,6 +177,14 @@ static void UI_GCLoadFallbackMenuTextures( void )
 	}
 
 	loaded = true;
+}
+
+void UI_PreloadBuiltInFallbackMenuAssets( void )
+{
+	if( !gc_menu_builtin_fallback )
+		return;
+
+	UI_GCLoadFallbackMenuTextures();
 }
 
 static void UI_GCDrawFallbackMenuBackground( void )
@@ -212,51 +224,56 @@ static void UI_GCDrawMenuString( int x, int y, const char *text, int r, int g, i
 	Con_DrawString( x, y, text, color );
 }
 
-static void UI_GCDrawMenuIcon( int x, int y, int icon_index, qboolean selected )
+static void UI_GCDrawMenuMarker( int x, int y, qboolean selected )
 {
-	int texnum = selected ? gc_menu_icons_focus : gc_menu_icons;
-	float u0, u1;
-	int icon_w, icon_h;
-
-	if( texnum <= 0 || icon_index < 0 )
+	if( !selected )
 		return;
 
-	icon_w = ( GC_MENU_ICON_WIDTH * refState.width ) / 640;
-	icon_h = ( GC_MENU_ICON_HEIGHT * refState.height ) / 480;
-	u0 = (float)( icon_index * GC_MENU_ICON_WIDTH ) / ( GC_MENU_ICON_WIDTH * 4.0f );
-	u1 = u0 + ( GC_MENU_ICON_WIDTH / ( GC_MENU_ICON_WIDTH * 4.0f ));
-
-	ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
-	ref.dllFuncs.R_DrawStretchPic( x, y, icon_w, icon_h, u0, 0.0f, u1, 1.0f, texnum );
+	ref.dllFuncs.FillRGBA( kRenderTransTexture,
+		x, y + ( 4 * refState.height ) / 480,
+		( 18 * refState.width ) / 640, ( 20 * refState.height ) / 480,
+		255, 190, 48, 220 );
 }
 
 static void UI_GCDrawFallbackMenu( void )
 {
 	int base_x = ( 70 * refState.width ) / 640;
 	int icon_x = ( 26 * refState.width ) / 640;
-	int base_y = ( 249 * refState.height ) / 480;
-	int desc_x = ( 192 * refState.width ) / 640;
-	int row_h = ( 31 * refState.height ) / 480;
+	int base_y = ( 252 * refState.height ) / 480;
+	int row_h = ( 34 * refState.height ) / 480;
 	qboolean commands_safe = UI_GCFallbackMenuCommandsSafe();
+	const gc_menu_item_t *selected_item = &gc_menu_items[bound( 0, gc_menu_selection,
+		(int)ARRAYSIZE( gc_menu_items ) - 1 )];
 
 	UI_GCLoadFallbackMenuTextures();
 	UI_GCDrawFallbackMenuBackground();
 
+	for( int i = 0; i < (int)ARRAYSIZE( gc_menu_logo_blur ); i++ )
+	{
+		if( gc_menu_logo_blur[i] <= 0 )
+			continue;
+
+		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
+		ref.dllFuncs.Color4ub( 168, 112, 24, i == 1 ? 72 : 56 );
+		ref.dllFuncs.R_DrawStretchPic( refState.width * 0.17f, refState.height * 0.20f,
+			refState.width * 0.38f, refState.height * 0.43f, 0, 0, 1, 1, gc_menu_logo_blur[i] );
+	}
+	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+
 	if( gc_menu_logo > 0 )
 	{
-		float logo_w = refState.width * 0.76f;
+		float logo_w = refState.width * 0.70f;
 		float logo_h = logo_w / 16.0f;
 		float logo_x = ( refState.width - logo_w ) * 0.5f;
 		float logo_y = refState.height * 0.12f;
 
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-		ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		ref.dllFuncs.Color4ub( 214, 138, 26, 255 );
 		ref.dllFuncs.R_DrawStretchPic( logo_x, logo_y, logo_w, logo_h, 0, 0, 1, 1, gc_menu_logo );
 	}
 	else
 	{
-		UI_GCDrawMenuString( refState.width / 7, refState.height / 8, "HALF-LIFE", 235, 235, 235, true );
+		UI_GCDrawMenuString( refState.width / 7, refState.height / 8, "HALF-LIFE", 214, 138, 26, true );
 	}
 
 	for( int i = 0; i < (int)ARRAYSIZE( gc_menu_items ); i++ )
@@ -265,17 +282,19 @@ static void UI_GCDrawFallbackMenu( void )
 		qboolean selected = ( i == gc_menu_selection );
 		int y = base_y + i * row_h;
 
-		UI_GCDrawMenuIcon( icon_x, y, item->icon_index, selected );
+		UI_GCDrawMenuMarker( icon_x, y, selected );
 		UI_GCDrawMenuString( base_x, y, item->label,
 			selected ? ( commands_safe ? 255 : 196 ) : ( commands_safe ? 224 : 168 ),
 			selected ? ( commands_safe ? 214 : 176 ) : ( commands_safe ? 170 : 140 ),
 			selected ? ( commands_safe ? 48 : 64 ) : ( commands_safe ? 16 : 40 ), true );
-		UI_GCDrawMenuString( desc_x, y, item->description, 108, 108, 108, false );
 	}
+
+	UI_GCDrawMenuString( base_x, base_y + (int)ARRAYSIZE( gc_menu_items ) * row_h + row_h,
+		selected_item->description, 112, 112, 112, false );
 
 	if( !commands_safe )
 	{
-		UI_GCDrawMenuString( base_x, base_y + (int)ARRAYSIZE( gc_menu_items ) * row_h + row_h / 2,
+		UI_GCDrawMenuString( base_x, base_y + (int)ARRAYSIZE( gc_menu_items ) * row_h + row_h + 18,
 			"Starting up...", 120, 120, 120, false );
 	}
 }
@@ -432,6 +451,18 @@ void UI_SetActiveMenu( qboolean fActive )
 		return;
 	}
 
+#if XASH_GAMECUBE
+	if( fActive && gc_menu_vidinit_pending )
+	{
+		gc_menu_vidinit_pending = false;
+		gameui.globals->scrWidth = refState.width;
+		gameui.globals->scrHeight = refState.height;
+		Con_Reportf( "Xash3D GameCube: gameui deferred vidinit begin\n" );
+		gameui.dllFuncs.pfnVidInit();
+		Con_Reportf( "Xash3D GameCube: gameui deferred vidinit ready\n" );
+	}
+#endif
+
 	gameui.drawLogo = fActive;
 	gameui.dllFuncs.pfnSetActiveMenu( fActive );
 
@@ -441,6 +472,22 @@ void UI_SetActiveMenu( qboolean fActive )
 		movie_state_t *cin_state = AVI_GetState( CIN_LOGO );
 		AVI_CloseVideo( cin_state );
 	}
+}
+
+void UI_NotifyVidInit( void )
+{
+	if( !gameui.hInstance )
+		return;
+
+#if XASH_GAMECUBE
+	if( gc_menu_vidinit_pending )
+	{
+		Con_Reportf( "Xash3D GameCube: gameui vidinit deferred until menu activation\n" );
+		return;
+	}
+#endif
+
+	gameui.dllFuncs.pfnVidInit();
 }
 
 void UI_AddServerToList( netadr_t adr, const char *info )
@@ -1698,6 +1745,9 @@ void UI_UnloadProgs( void )
 	COM_FreeLibrary( gameui.hInstance );
 	Mem_FreePool( &gameui.mempool );
 	memset( &gameui, 0, sizeof( gameui ));
+#if XASH_GAMECUBE
+	gc_menu_vidinit_pending = false;
+#endif
 }
 
 void *UI_GetMenuFactory( void )
@@ -1724,12 +1774,6 @@ qboolean UI_LoadProgs( void )
 	gameui.globals = &gpGlobals;
 
 	COM_GetCommonLibraryPath( LIBRARY_GAMEUI, dllpath, sizeof( dllpath ));
-
-#if XASH_GAMECUBE
-	gc_menu_builtin_fallback = true;
-	Con_Reportf( "Xash3D GameCube: using built-in fallback menu\n" );
-	return false;
-#endif
 	if(!( gameui.hInstance = COM_LoadLibrary( dllpath, false, false )))
 	{
 		string path = OS_LIB_PREFIX "menu." OS_LIB_EXT;
@@ -1830,9 +1874,10 @@ qboolean UI_LoadProgs( void )
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: gameui pfnInit begin\n" );
 #endif
-	gameui.dllFuncs.pfnInit();
+gameui.dllFuncs.pfnInit();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: gameui pfnInit ready\n" );
+	gc_menu_vidinit_pending = true;
 #endif
 
 	return true;

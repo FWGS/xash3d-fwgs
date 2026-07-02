@@ -21,6 +21,23 @@ static image_t r_images[MAX_TEXTURES];
 static image_t *r_imagesHashTable[TEXTURES_HASH_SIZE];
 static uint    r_numImages;
 
+#if XASH_GAMECUBE
+static qboolean GC_IsFullRes2DImage( const image_t *tex )
+{
+	if( !tex || COM_StringEmpty( tex->name ))
+		return false;
+
+	if( !Q_strnicmp( tex->name, "gfx/", 4 ))
+		return true;
+	if( !Q_strnicmp( tex->name, "resource/", 9 ))
+		return true;
+	if( tex->name[0] == '#' )
+		return true;
+
+	return false;
+}
+#endif
+
 #define IsLightMap( tex ) ( FBitSet(( tex )->flags, TF_ATLAS_PAGE ))
 /*
 =================
@@ -117,9 +134,12 @@ static void GL_SetTextureDimensions( image_t *tex, int width, int height, int de
 
 		if( q == 0 )
 			maxTextureSize = 128;
-		else if( q == 1 )
+		else if( q == 1 && !GC_IsFullRes2DImage( tex ))
 			maxTextureSize = 256;
-		// else quality 2: keep maxTextureSize at 1024 (default)
+		/* Menu/HUD/UI images are frequently drawn fullscreen. Keep their
+		 * source resolution at standard quality so
+		 * assets like gfx/shell/splash.bmp do not get visibly pixelated. */
+		// else quality 2 or UI image: keep maxTextureSize at 1024 (default)
 	}
 #endif
 

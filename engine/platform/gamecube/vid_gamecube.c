@@ -553,6 +553,8 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 		if( !new_buffer )
 			return false;
 
+		if( gc.buffer )
+			free( gc.buffer );
 		gc.buffer = new_buffer;
 		gc.buffer_pixels = needed_pixels;
 	}

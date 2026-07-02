@@ -211,7 +211,7 @@ def build(bld):
 			'-lm', '-lSceShaccCgExt', '-lkubridge_stub', '-ltaihen_stub', '-lSceShaccCg_stub', '-lSceKernelModulemgr_stub', '-lSceSblSsMgr_stub', '-lSceVshBridge_stub', '-lSceKernelDmacMgr_stub', '-lSceLibKernel_stub',
 		]
 	elif bld.env.DEST_OS == 'gamecube':
-		libs += ['filesystem_stdio', 'ref_gx']
+		libs += ['filesystem_stdio', 'ref_gx', 'menu']
 		hlsdk_dest = os.environ.get('HLSDK_GAMECUBE_DESTDIR',
 			os.path.join(bld.path.parent.abspath(), 'OUT', 'hlsdk-gamecube'))
 		hlsdk_server = os.path.join(hlsdk_dest, 'valve', 'dlls', 'libhl_gamecube_ppc.a')

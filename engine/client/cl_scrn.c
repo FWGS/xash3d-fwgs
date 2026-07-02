@@ -1008,7 +1008,7 @@ void SCR_VidInit( void )
 	CL_ClearSpriteTextures(); // now all hud sprites are invalid
 
 	// vid_state has changed
-	if( gameui.hInstance ) gameui.dllFuncs.pfnVidInit();
+	UI_NotifyVidInit();
 	if( clgame.hInstance ) clgame.dllFuncs.pfnVidInit();
 #if XASH_GAMECUBE
 	if( clgame.hInstance )
@@ -1081,13 +1081,15 @@ void SCR_Init( void )
 	{
 #if XASH_GAMECUBE
 		Con_Reportf( "Xash3D GameCube: screen using built-in menu renderer\n" );
+		UI_PreloadBuiltInFallbackMenuAssets();
 #else
 		Con_Printf( S_ERROR "can't initialize gameui DLL: %s\n", COM_GetLibraryError() ); // there is non fatal for us
 		host.allow_console = true; // we need console, because menu is missing
 #endif
 	}
 #if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: screen gameui fallback ready\n" );
+	Con_Reportf( "Xash3D GameCube: screen gameui init ready (fallback=%d)\n",
+		UI_UsingBuiltInFallbackMenu() ? 1 : 0 );
 #endif
 #if XASH_GAMECUBE
 	}
@@ -1126,7 +1128,16 @@ void SCR_Init( void )
 
 	if( host.allow_console && Sys_CheckParm( "-toconsole" ))
 		Cbuf_AddText( "toggleconsole\n" );
-	else UI_SetActiveMenu( true );
+	else
+	{
+#if XASH_GAMECUBE
+		extern int GC_GetVisualQuality( void );
+		if( GC_GetVisualQuality( ) != 0 && FS_FileExists( DEFAULT_VIDEOLIST_PATH, false ) )
+			Con_Reportf( "Xash3D GameCube: deferring menu activation until startup cinematic ends\n" );
+		else
+#endif
+		UI_SetActiveMenu( true );
+	}
 
 	scr_init = true;
 #if XASH_GAMECUBE

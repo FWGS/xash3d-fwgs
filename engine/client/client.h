@@ -1171,6 +1171,7 @@ qboolean UI_LoadProgs( void );
 void UI_UpdateMenu( float realtime );
 void UI_KeyEvent( int key, qboolean down );
 void UI_MouseMove( int x, int y );
+void UI_NotifyVidInit( void );
 void UI_SetActiveMenu( qboolean fActive );
 void UI_AddServerToList( netadr_t adr, const char *info );
 void UI_GetCursorPos( int *pos_x, int *pos_y );
@@ -1260,9 +1261,11 @@ extern triangleapi_t gTriApi;
 extern net_api_t gNetApi;
 
 #if XASH_GAMECUBE
+qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 qboolean UI_UsingBuiltInFallbackMenu( void );
+void UI_PreloadBuiltInFallbackMenuAssets( void );
 #endif
 
 #endif//CLIENT_H
