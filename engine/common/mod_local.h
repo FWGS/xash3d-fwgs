@@ -159,7 +159,14 @@ model_t *Mod_ForName( const char *name, qboolean crash, qboolean trackCRC );
 qboolean Mod_ValidateCRC( const char *name, uint32_t crc );
 void Mod_NeedCRC( const char *name, qboolean needCRC );
 void Mod_FreeUnused( void );
+void Mod_GcmapMarkPrecacheFreeable( void );
 void Mod_LoadDetailTextures( model_t *mod );
+#if XASH_GAMECUBE
+poolhandle_t Mod_GameCubeSharedModelStubPool( void );
+poolhandle_t Mod_GameCubeSharedStudioPool( void );
+void Mod_ReleaseBrushSourceBuffer( void *buf );
+void Mod_GameCubeFreeMallocSurfaces( model_t *mod );
+#endif
 
 //
 // mod_alias.c

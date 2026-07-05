@@ -300,17 +300,26 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 #if XASH_GAMECUBE
 	int resampleWidth = tex->width;
 	int resampleHeight = tex->height;
-	if( q == 0 )
+	qboolean clamp_ui = false;
+
+	/* Menu/UI textures (TF_NOMIPMAP|TF_CLAMP) are large TGA tiles; always cap
+	 * them on GameCube so the retail main menu fits MEM1. */
+	if( FBitSet( tex->flags, TF_NOMIPMAP ) && FBitSet( tex->flags, TF_CLAMP ))
+		clamp_ui = true;
+
+	if( q == 0 || clamp_ui )
 	{
 		resampleWidth = Q_min( resampleWidth, 128 );
 		resampleHeight = Q_min( resampleHeight, 128 );
+		tex->width = resampleWidth;
+		tex->height = resampleHeight;
 	}
 #endif
 
 	if((( pic->width != tex->width ) || ( pic->height != tex->height )))
 	{
 #if XASH_GAMECUBE
-		if( q == 0 )
+		if( q == 0 || clamp_ui )
 			data = GL_ResampleTexture( buf, pic->width, pic->height, resampleWidth, resampleHeight, normalMap );
 		else
 #endif
@@ -333,34 +342,34 @@ static qboolean GL_UploadTexture( image_t *tex, rgbdata_t *pic )
 
 		// increase size to workaround triangle renderer bugs
 		// it seems to assume memory readable. maybe it was pointed to WAD?
+#if XASH_GAMECUBE
+		tex->pixels[j] = (pixel_t *)Mem_TryCalloc( r_temppool, width * height * sizeof( pixel_t ));
+#else
 		tex->pixels[j] = (pixel_t *)Mem_Calloc( r_temppool, width * height * sizeof( pixel_t ));
+#endif
 
 		// guard against OOM in low-memory mode
 		if( !tex->pixels[j] )
 		{
 			gEngfuncs.Con_Reportf( S_ERROR "%s: OOM allocating %ux%ux%u pixels, truncating mips at %u\n", __func__, width, height, tex->depth, j );
-				// GL_ResampleTexture owns a shared temp buffer; do not free it here.
-				// Free alpha_pixels if allocated for mips before failure
-				if( tex->alpha_pixels )
+			if( tex->alpha_pixels )
 			{
 				Mem_Free( tex->alpha_pixels );
 				tex->alpha_pixels = NULL;
 			}
-			// In low-memory mode, truncate mipmap chain instead of failing entirely
 #if XASH_GAMECUBE
-			if( q == 0 )
+			/* Skip or partially keep the texture so map load can finish. */
+			tex->numMips = j;
+			if( tex->numMips == 0 )
 			{
-				tex->numMips = j;
-				if( tex->numMips == 0 )
-				{
-					gEngfuncs.Con_Reportf( S_ERROR "%s: OOM on first mip, cannot proceed\n", __func__ );
-					return false;
-				}
-				gEngfuncs.Con_Reportf( S_WARN "%s: Q0 fallback, %s using %u mips\n", __func__, tex->name, tex->numMips );
-				return true;
+				gEngfuncs.Con_Reportf( S_WARN "%s: skipping texture %s (OOM on first mip)\n", __func__, tex->name );
+				return false;
 			}
-#endif
+			gEngfuncs.Con_Reportf( S_WARN "%s: %s using %u mips after OOM\n", __func__, tex->name, tex->numMips );
+			return true;
+#else
 			return false;
+#endif
 		}
 
 		// quality 0 (low-memory): never allocate alpha_pixels to reduce pressure
@@ -1125,6 +1134,41 @@ void R_InitImages( void )
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer images command ready\n" );
 #endif
 }
+
+#if XASH_GAMECUBE
+/*
+===============
+R_GcFreeMenuImages
+
+Drop menu/UI textures so MEM1 can absorb a retail BSP load after the main menu.
+Keeps builtin/world textures intact.
+===============
+*/
+void R_GcFreeMenuImages( void )
+{
+	image_t *tex;
+	int     i;
+	int     freed = 0;
+
+	for( i = 1, tex = r_images + 1; i < (int)r_numImages; i++, tex++ )
+	{
+		if( !tex->pixels[0] && !tex->name[0] )
+			continue;
+		if( tex->name[0] == '*' )
+			continue; /* builtin / cinematic slots */
+		if( !( FBitSet( tex->flags, TF_IMAGE ) || FBitSet( tex->flags, TF_FONT )
+			|| ( tex->name[0] == '#' && Q_strstr( tex->name, "_stb_font" ))
+			|| !Q_strnicmp( tex->name, "resource/", 9 )
+			|| !Q_strnicmp( tex->name, "gfx/shell/", 10 )))
+			continue;
+
+		GL_DeleteTexture( tex );
+		freed++;
+	}
+
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: freed %d menu/UI textures for map load\n", freed );
+}
+#endif
 
 /*
 ===============

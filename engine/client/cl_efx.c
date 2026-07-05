@@ -86,7 +86,13 @@ CL_InitParticles
 */
 void CL_InitParticles( void )
 {
-	cl_particles = Mem_Calloc( cls.mempool, sizeof( particle_t ) * GI->max_particles );
+	int max_particles = GI->max_particles;
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		max_particles = Q_min( max_particles, 48 );
+#endif
+
+	cl_particles = Mem_Calloc( cls.mempool, sizeof( particle_t ) * max_particles );
 	CL_ClearParticles ();
 
 	// this is used for EF_BRIGHTFIELD
@@ -110,16 +116,22 @@ CL_ClearParticles
 */
 void CL_ClearParticles( void )
 {
+	int max_particles = GI->max_particles;
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		max_particles = Q_min( max_particles, 48 );
+#endif
+
 	if( !cl_particles ) return;
 
 	cl_free_particles = cl_particles;
 	cl_active_particles = NULL;
 	cl_active_tracers = NULL;
 
-	for( int i = 0; i < GI->max_particles - 1; i++ )
+	for( int i = 0; i < max_particles - 1; i++ )
 		cl_particles[i].next = &cl_particles[i+1];
 
-	cl_particles[GI->max_particles-1].next = NULL;
+	cl_particles[max_particles-1].next = NULL;
 }
 
 /*

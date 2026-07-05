@@ -176,15 +176,21 @@ CL_ClearTempEnts
 */
 static void CL_ClearTempEnts( void )
 {
+	int max_tents = GI->max_tents;
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		max_tents = Q_min( max_tents, 4 );
+#endif
+
 	if( !cl_tempents ) return;
 
-	for( int i = 0; i < GI->max_tents - 1; i++ )
+	for( int i = 0; i < max_tents - 1; i++ )
 	{
 		cl_tempents[i].next = &cl_tempents[i+1];
 		cl_tempents[i].entity.trivial_accept = INVALID_HANDLE;
 	}
 
-	cl_tempents[GI->max_tents-1].next = NULL;
+	cl_tempents[max_tents-1].next = NULL;
 	cl_free_tents = cl_tempents;
 	cl_active_tents = NULL;
 }
@@ -197,7 +203,12 @@ CL_InitTempents
 */
 void CL_InitTempEnts( void )
 {
-	cl_tempents = Mem_Calloc( cls.mempool, sizeof( TEMPENTITY ) * GI->max_tents );
+	int max_tents = GI->max_tents;
+#if XASH_GAMECUBE
+	max_tents = Q_min( max_tents, Sys_CheckParm( "-gcmap" ) ? 4 : 64 );
+#endif
+
+	cl_tempents = Mem_Calloc( cls.mempool, sizeof( TEMPENTITY ) * max_tents );
 	CL_ClearTempEnts();
 
 	// load tempent sprites (glowshell, muzzleflashes etc)

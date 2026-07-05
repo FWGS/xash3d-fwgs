@@ -581,16 +581,26 @@ Output:
 Each surface has a linked list of its visible spans
 ==============
 */
-void R_ScanEdges( void )
+static void R_ScanEdgesWithSpans( espan_t *basespan_p, int maxspans )
 {
-	int  iv;
-	byte basespans[MAXSPANS * sizeof( espan_t ) + CACHE_SIZE];
+	int iv;
+	int bottom;
+	int span_budget;
 
-	espan_t *basespan_p = (espan_t *)
-			      ((uintptr_t)( basespans + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
-	max_span_p = &basespan_p[MAXSPANS - RI.vrect.width];
+	span_budget = maxspans - RI.vrect.width;
+	if( span_budget < 64 )
+		span_budget = 64;
 
+	max_span_p = &basespan_p[span_budget];
 	span_p = basespan_p;
+
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_ScanEdges enter vrect=%d,%d %dx%d maxspans=%d\n",
+			RI.vrect.x, RI.vrect.y, RI.vrect.width, RI.vrect.height, maxspans );
+	}
+#endif
 
 // clear active edges to just the background edges around the whole screen
 // FIXME: most of this only needs to be set up once
@@ -622,7 +632,7 @@ void R_ScanEdges( void )
 //
 // process all scan lines
 //
-	int bottom = RI.vrectbottom - 1;
+	bottom = RI.vrectbottom - 1;
 
 	for( iv = 0; iv < bottom; iv++ )
 	{
@@ -642,6 +652,13 @@ void R_ScanEdges( void )
 		// the next scan
 		if( span_p > max_span_p )
 		{
+#if XASH_GAMECUBE
+			if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+			{
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: R_ScanEdges span flush iv=%d used=%ld limit=%ld\n",
+					iv, (long)( span_p - basespan_p ), (long)( max_span_p - basespan_p ));
+			}
+#endif
 			D_DrawSurfaces();
 
 			// clear the surface span pointers
@@ -672,6 +689,55 @@ void R_ScanEdges( void )
 
 // draw whatever's left in the span list
 	D_DrawSurfaces();
+
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_ScanEdges ready final_used=%ld\n",
+			(long)( span_p - basespan_p ));
+	}
+#endif
+}
+
+#if XASH_GAMECUBE
+espan_t *R_GcmapProbeSpanBase( int *maxspans );
+qboolean R_GcmapEnsureWorldRenderScratch( void );
+#endif
+
+void R_ScanEdges( void )
+{
+#if XASH_GAMECUBE
+	/* Heap spans for world-render probe — avoid MAXSPANS (~96 KiB) on stack. */
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	{
+		int maxspans = 0;
+
+		if( !R_GcmapEnsureWorldRenderScratch() )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_ScanEdges probe scratch allocation failed\n" );
+			return;
+		}
+
+		espan_t *basespan_p = R_GcmapProbeSpanBase( &maxspans );
+
+		if( !basespan_p || maxspans <= 0 )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_ScanEdges probe spans unavailable maxspans=%d base=%p\n",
+				maxspans, (void *)basespan_p );
+			return;
+		}
+
+		R_ScanEdgesWithSpans( basespan_p, maxspans );
+		return;
+	}
+#endif
+	{
+		byte basespans[MAXSPANS * sizeof( espan_t ) + CACHE_SIZE];
+		espan_t *basespan_p = (espan_t *)
+				      ((uintptr_t)( basespans + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
+
+		R_ScanEdgesWithSpans( basespan_p, MAXSPANS );
+	}
 }
 
 
@@ -1031,6 +1097,36 @@ static void D_SolidSurf( surf_t *s )
 	while( 1 << miplevel > gEngfuncs.Mod_SampleSizeForFace( pface ))
 		miplevel--;
 
+#if XASH_GAMECUBE
+	/* World-render probe: flat-fill RGB565 directly (blit skips vid.screen). */
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	{
+		/* Cycle through saturated primaries so surfaces are obviously non-black. */
+		static const pixel_t gc_probe_colors[6] = {
+			0xF800, /* red */
+			0x07E0, /* green */
+			0x001F, /* blue */
+			0xFFE0, /* yellow */
+			0xF81F, /* magenta */
+			0x07FF, /* cyan */
+		};
+		pixel_t fill = gc_probe_colors[((uintptr_t)pface >> 5 ) % 6];
+
+		D_FlatFillSurface( s, fill );
+		D_DrawZSpans( s->spans );
+		if( s->insubmodel )
+		{
+			VectorCopy( world_transformed_modelorg, transformed_modelorg );
+			VectorCopy( RI.base_vpn, RI.vforward );
+			VectorCopy( RI.base_vup, RI.vup );
+			VectorCopy( RI.base_vright, RI.vright );
+			R_TransformFrustum();
+			RI.currententity = NULL;
+		}
+		return;
+	}
+#endif
+
 	// FIXME: make this passed in to D_CacheSurface
 	pcurrentcache = D_CacheSurface( pface, miplevel );
 	if( !pcurrentcache )
@@ -1126,4 +1222,3 @@ void D_DrawSurfaces( void )
 	VectorSubtract( RI.rvp.vieworigin, vec3_origin, tr.modelorg );
 	R_TransformFrustum();
 }
-

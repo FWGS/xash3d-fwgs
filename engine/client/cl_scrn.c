@@ -19,6 +19,9 @@ GNU General Public License for more details.
 #include "qfont.h"
 #include "input.h"
 #include "library.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 
 CVAR_DEFINE_AUTO( scr_centertime, "2.5", 0, "centerprint hold time" );
 CVAR_DEFINE_AUTO( scr_loading, "0", 0, "loading bar progress" );
@@ -61,6 +64,29 @@ static void SCR_GameCubeLoadingStatus( const char *message, const char *details,
 	Con_Reportf( "Xash3D GameCube: G60 visible loading feedback message='%s' detail='%s'\n",
 		message ? message : "LOADING", details ? details : "" );
 	scr_gc_next_loading_status = host.realtime + 2.0;
+}
+
+void R_GcFreeMenuImages( void );
+
+void GC_TrimClientSubsystemsForMapLoad( void )
+{
+	/* Match the -gcmap smoke memory profile: no menu/UI textures and no client
+	 * progs while the ~2 MiB BSP file buffer is resident. */
+	UI_SetActiveMenu( false );
+	Key_SetKeyDest( key_game );
+	if( gameui.hInstance )
+	{
+		UI_UnloadProgs();
+		Con_Reportf( "Xash3D GameCube: menu unloaded for map load\n" );
+	}
+	CL_GameCubeUnloadClientForMapLoad();
+	Image_GCPurgeDecodeScratch();
+	R_GcFreeMenuImages();
+	if( host.imagepool )
+		Mem_EmptyPool( host.imagepool );
+	/* Grab the BSP staging block while freed client pools are still coalesced. */
+	GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
+	Con_Reportf( "Xash3D GameCube: client subsystems trimmed for map load\n" );
 }
 #endif
 
@@ -905,6 +931,9 @@ void SCR_RegisterTextures( void )
 	uint flags = TF_IMAGE|TF_ALLOW_NEAREST;
 
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		return;
+
 	{
 		extern int GC_GetVisualQuality( void );
 		// Quality 0 still needs loading texture for visual evidence during map load
@@ -1069,13 +1098,22 @@ void SCR_Init( void )
 	Cmd_AddCommand( "sizedown", SCR_SizeDown_f, "screen size down to 10 points" );
 
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
 	{
-		if( GC_GetVisualQuality( ) == 0 )
-		{
-			Con_Reportf( "Xash3D GameCube: screen gameui skipped\n" );
-			host.allow_console = true;
-		}
-		else
+		scr_init = true;
+		Con_Reportf( "Xash3D GameCube: screen init minimal for gcmap smoke route\n" );
+		return;
+	}
+#endif
+
+#if XASH_GAMECUBE
+	/* Smoke/map probes may skip mainui to save MEM1; retail menu boot always loads it. */
+	if( GC_GetVisualQuality( ) == 0 && Sys_CheckParm( "-gcmap" ))
+	{
+		Con_Reportf( "Xash3D GameCube: screen gameui skipped for gcmap smoke route\n" );
+		host.allow_console = true;
+	}
+	else
 #endif
 	if( !UI_LoadProgs( ))
 	{
@@ -1090,9 +1128,6 @@ void SCR_Init( void )
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: screen gameui init ready (fallback=%d)\n",
 		UI_UsingBuiltInFallbackMenu() ? 1 : 0 );
-#endif
-#if XASH_GAMECUBE
-	}
 #endif
 
 #if XASH_GAMECUBE
@@ -1132,7 +1167,7 @@ void SCR_Init( void )
 	{
 #if XASH_GAMECUBE
 		extern int GC_GetVisualQuality( void );
-		if( GC_GetVisualQuality( ) != 0 && FS_FileExists( DEFAULT_VIDEOLIST_PATH, false ) )
+		if( GC_GetVisualQuality( ) != 0 && SCR_HaveStartupVids( ))
 			Con_Reportf( "Xash3D GameCube: deferring menu activation until startup cinematic ends\n" );
 		else
 #endif

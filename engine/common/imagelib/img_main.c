@@ -14,7 +14,12 @@ GNU General Public License for more details.
 */
 
 #include <math.h>
+#include <stdlib.h>
 #include "imagelib.h"
+
+#if XASH_GAMECUBE
+extern fs_api_t g_fsapi;
+#endif
 
 #define DEBUG_LOOKUPS_COUNT 0
 #define USE_FS_SEARCH_FOR_LOOKUPS 1
@@ -318,7 +323,12 @@ static qboolean Image_ProbeLoad_( const loadpixformat_t *fmt, const char *name, 
 	string path;
 
 	Q_snprintf( path, sizeof( path ), "%s%s.%s", name, suffix, fmt->ext );
+#if XASH_GAMECUBE
+	/* Keep transient source blobs out of the filesystem pool on GC. */
+	byte *f = g_fsapi.LoadFileMalloc( path, &filesize, false );
+#else
 	byte *f = FS_LoadFile( path, &filesize, false );
+#endif
 
 	Image_IncrementLookupTime();
 
@@ -326,7 +336,11 @@ static qboolean Image_ProbeLoad_( const loadpixformat_t *fmt, const char *name, 
 	{
 		success = Image_ProbeLoadBuffer_( fmt, path, f, filesize, override_hint );
 
+#if XASH_GAMECUBE
+		free( f );
+#else
 		Mem_Free( f );
+#endif
 	}
 
 	return success;
@@ -362,22 +376,36 @@ static qboolean Image_ProbeLoad2( const char *name, const char *suffix, int over
 		if( i == t->numfilenames )
 			continue;
 
-		byte *data = FS_LoadFile( t->filenames[i], &filesize, false );
-		Image_IncrementLookupTime();
+	#if XASH_GAMECUBE
+			byte *data = g_fsapi.LoadFileMalloc( t->filenames[i], &filesize, false );
+	#else
+			byte *data = FS_LoadFile( t->filenames[i], &filesize, false );
+	#endif
+			Image_IncrementLookupTime();
 
-		// can't load file, ignore
-		if( unlikely( !data || filesize <= 0 ))
-			continue;
+			// can't load file, ignore
+			if( unlikely( !data || filesize <= 0 ))
+				continue;
 
-		if( Image_ProbeLoadBuffer_( fmt, t->filenames[i], data, filesize, override_hint ))
-		{
+			if( Image_ProbeLoadBuffer_( fmt, t->filenames[i], data, filesize, override_hint ))
+			{
+	#if XASH_GAMECUBE
+				free( data );
+	#else
+				Mem_Free( data );
+	#endif
+				Mem_Free( t );
+				return true;
+			}
+
+	#if XASH_GAMECUBE
+			free( data );
+	#else
 			Mem_Free( data );
-			Mem_Free( t );
-			return true;
+	#endif
 		}
-	}
 
-	Mem_Free( t );
+		Mem_Free( t );
 	return false;
 }
 

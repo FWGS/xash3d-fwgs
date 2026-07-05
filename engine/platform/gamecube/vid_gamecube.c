@@ -11,6 +11,18 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include "client.h"
 #include "ref_common.h"
 #include "vid_common.h"
+#include "imagelib/imagelib.h"
+#if XASH_GAMECUBE
+#include "server.h"
+#include "mod_local.h"
+#include "gamecube/mem_gamecube.h"
+
+qboolean R_GcmapEnsureSurfaceCache( void );
+void R_GcmapTrimSurfaceCache( void );
+qboolean R_GcmapEnsureWorldRenderScratch( void );
+qboolean R_GcmapPrepareWorldRender( void );
+qboolean R_GcmapGetViewport( int *width, int *height );
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -45,6 +57,7 @@ static unsigned int gc_blank_present_count;
 static convar_t *gc_quality;
 static double gc_last_present_time;
 static double gc_worst_frame_ms;
+static qboolean gc_budget_probe_active;
 static GXTexObj gc_present_tex;
 static qboolean gc_present_tex_ready;
 #endif
@@ -271,27 +284,29 @@ static unsigned int GC_RGBPairToYUYV( unsigned short p1, unsigned short p2 )
 
 static void GC_SampleBufferNonBlack( const unsigned short *src, int src_w, int src_h, int src_stride, qboolean *sampled_nonblack )
 {
-	int check_w, col2;
-	const unsigned short *scanrow;
+	int sample_x, sample_y;
 
 	if( !src || src_w <= 0 || src_h <= 0 || !sampled_nonblack )
 		return;
 
-	check_w = src_w < 8 ? src_w : 8;
-	scanrow = src;
-	for( col2 = 0; col2 < check_w; col2++ )
+	/* Probe a denser grid so thin title logos and menu text near the top are
+	 * not missed by a coarse 5x5 sample (world-render letterboxing still ok). */
+	for( sample_y = 0; sample_y < 9; sample_y++ )
 	{
-		if( scanrow[col2] != 0 )
+		int y = ( sample_y * ( src_h - 1 )) / 8;
+		const unsigned short *scanrow = src + y * src_stride;
+
+		for( sample_x = 0; sample_x < 9; sample_x++ )
 		{
-			*sampled_nonblack = true;
-			return;
+			int x = ( sample_x * ( src_w - 1 )) / 8;
+
+			if( scanrow[x] != 0 )
+			{
+				*sampled_nonblack = true;
+				return;
+			}
 		}
 	}
-
-	scanrow = src + ( src_h / 2 ) * src_stride;
-	col2 = src_w / 2;
-	if( col2 >= 0 && col2 < src_w && scanrow[col2] != 0 )
-		*sampled_nonblack = true;
 }
 
 static void GC_BlitSoftwareBufferScaled( const unsigned short *src, int src_w, int src_h, int src_stride,
@@ -398,7 +413,8 @@ static void GC_PresentBuffer( void )
 		src_h = gc.height;
 
 		buf_size = gc.stride * gc.height * sizeof(unsigned short);
-		DCFlushRange( gc.buffer, (u32)buf_size );
+		if( !gc_budget_probe_active )
+			DCFlushRange( gc.buffer, (u32)buf_size );
 
 		// G36: Sample first pixel for visual evidence only on first frame
 		if( gc_present_count == 1 )
@@ -415,8 +431,15 @@ static void GC_PresentBuffer( void )
 		GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
 
 		// G36: Detect non-black content only while probe frame samples are active.
+		// Status-panel smoke can treat later presents as non-black; world-render
+		// must sample the software buffer so flat-fill/BSP output is real evidence.
 		if( gc_present_count <= 16 && src_h > 0 && src_w > 0 )
-			GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
+		{
+			if( gc_budget_probe_active && gc_present_count > 1 && !Sys_CheckParm( "-gcworldrender" ))
+				sampled_nonblack = true;
+			else
+				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
+		}
 	}
 	else
 	{
@@ -452,11 +475,28 @@ static void GC_PresentBuffer( void )
 		elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
 		if( elapsed_ms > gc_worst_frame_ms )
 			gc_worst_frame_ms = elapsed_ms;
-		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
-			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
-		SYS_Report( "Xash3D GameCube: frame render complete\n" );
-		SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
-		if( elapsed_ms >= 33.0 )
+		if( gc_budget_probe_active )
+		{
+			if( Sys_CheckParm( "-gcworldrender" ))
+			{
+				SYS_Report(
+					"Xash3D GameCube: gcmap world render present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
+					gc_present_count, sampled_nonblack ? 1u : 0u, elapsed_ms );
+			}
+			SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
+				gc_present_count, sampled_nonblack ? 1u : 0u, elapsed_ms );
+		}
+		else
+		{
+			SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
+				gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
+			SYS_Report( "Xash3D GameCube: frame render complete\n" );
+			SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
+		}
+		/* gcmap/gcworldrender probes intentionally pace presents while the real
+		 * renderer cost is reported inside R_RenderScene. Avoid flagging those
+		 * waits as slow frame bugs, but keep the warning for normal gameplay. */
+		if( elapsed_ms >= 33.0 && !gc_budget_probe_active )
 			SYS_Report( "Xash3D GameCube: G49 slow frame %.2fms worst=%.2fms\n", elapsed_ms, gc_worst_frame_ms );
 		gc_last_present_time = now;
 	}
@@ -464,7 +504,8 @@ static void GC_PresentBuffer( void )
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
-	VIDEO_WaitVSync();
+	if( !gc_budget_probe_active )
+		VIDEO_WaitVSync();
 
 	which_fb ^= 1;
 #else
@@ -669,17 +710,71 @@ void *GL_GetProcAddress( const char *name )
 
 void GC_TrimVideoMemoryForMapLoad( void )
 {
-#if !XASH_GAMECUBE
+	/* Free the RGB565 present buffer during BSP load; status text draws to XFB
+	 * directly. Restored by GC_RestoreVideoMemoryAfterMapLoad. */
 	if( gc.buffer )
 	{
 		free( gc.buffer );
 		gc.buffer = NULL;
+		gc.buffer_pixels = 0;
 	}
-#else
-	/* Keep gc.buffer dimensions valid for loading UI and restore. Renderer-side
-	 * buffers are trimmed separately; only drop the GX fast-present path so map
-	 * load status draws use the CPU blit and cannot block in GX_DrawDone. */
 	gc_present_tex_ready = false;
+	Con_Reportf( "Xash3D GameCube: presentation buffer released for map load\n" );
+}
+
+static void GC_ReleasePresentationBufferForWorldRender( void )
+{
+#if XASH_GAMECUBE
+	if( !gc.buffer )
+		return;
+
+	free( gc.buffer );
+	gc.buffer = NULL;
+	gc.buffer_pixels = 0;
+	gc_present_tex_ready = false;
+	Con_Reportf( "Xash3D GameCube: released presentation buffer for world render\n" );
+#endif
+}
+
+static qboolean GC_EnsurePresentationBuffer( int width, int height )
+{
+#if XASH_GAMECUBE
+	size_t needed_pixels;
+	unsigned short *new_buffer;
+
+	if( width <= 0 || height <= 0 )
+		return false;
+
+	needed_pixels = (size_t)width * (size_t)height;
+	if( gc.buffer && gc.width == width && gc.height == height && gc.buffer_pixels >= needed_pixels )
+		return true;
+
+	if( gc.buffer )
+	{
+		free( gc.buffer );
+		gc.buffer = NULL;
+		gc.buffer_pixels = 0;
+	}
+
+	new_buffer = calloc( needed_pixels, sizeof( unsigned short ));
+	if( !new_buffer )
+	{
+		Con_Reportf( "Xash3D GameCube: presentation buffer alloc failed %dx%d\n", width, height );
+		return false;
+	}
+
+	gc.buffer = new_buffer;
+	gc.buffer_pixels = needed_pixels;
+	gc.width = width;
+	gc.height = height;
+	gc.stride = width;
+	GC_InitPresentTexture();
+	Con_Reportf( "Xash3D GameCube: presentation buffer ready %dx%d\n", width, height );
+	return true;
+#else
+	(void)width;
+	(void)height;
+	return false;
 #endif
 }
 
@@ -940,6 +1035,178 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 #endif
 }
 
+void GC_RunGcmapSmokeFrames( const char *mapname, int count )
+{
+#if XASH_GAMECUBE
+	char details[64];
+	int i;
+
+	if( count <= 0 )
+		count = 12;
+
+	Q_snprintf( details, sizeof( details ), "GCMAP %s", mapname && mapname[0] ? mapname : "READY" );
+
+	if( gc.buffer && gc.width > 0 && gc.height > 0 )
+	{
+		int row, col;
+		unsigned short *rowdst;
+
+		for( row = 0; row < gc.height; row++ )
+		{
+			rowdst = gc.buffer + row * gc.stride;
+			for( col = 0; col < gc.width; col++ )
+				rowdst[col] = 0x0010;
+		}
+
+		GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride,
+			"MAP LOADED", details );
+	}
+
+	for( i = 0; i < count; i++ )
+	{
+		if( gc.buffer && gc.width > 0 && gc.height > 0 )
+			GC_PresentBuffer();
+		else
+			GC_DrawLoadingStatus( "MAP LOADED", details );
+	}
+
+	gc_budget_probe_active = false;
+#else
+	(void)mapname;
+	(void)count;
+#endif
+}
+
+qboolean GC_AttemptGcmapWorldRender( int count )
+{
+#if XASH_GAMECUBE
+	ref_viewpass_t rvp;
+	model_t *world;
+	vec3_t center;
+	char old_drawviewmodel[16];
+	int present_w, present_h;
+	int i;
+
+	if( !ref.initialized || !SV_Active() )
+		return false;
+
+	if( count <= 0 )
+		count = 12;
+
+	Image_GCPurgeDecodeScratch();
+	Mod_GcmapMarkPrecacheFreeable();
+	GC_ReleasePresentationBufferForWorldRender();
+	/* Full software edge pass uses ~288 KiB of stack (NUMSTACKEDGES/SURFACES).
+	 * Force quality=0 so R_EdgeDrawing takes the gcmap low-memory probe path.
+	 * Allocate edge/surf/span scratch before screen buffers while MEM1 is freest. */
+	Cvar_Set( "gc_quality", "0" );
+	if( !R_GcmapEnsureWorldRenderScratch() )
+	{
+		Con_Reportf( "Xash3D GameCube: gcmap world render scratch alloc failed\n" );
+		return false;
+	}
+	GC_MemSample( "pre-world render" );
+
+	if( !R_GcmapPrepareWorldRender() )
+	{
+		Con_Reportf( "Xash3D GameCube: gcmap world render screen alloc failed\n" );
+		Cvar_Set( "gc_quality", "0" );
+		if( !R_GcmapPrepareWorldRender() )
+			return false;
+	}
+
+	present_w = gc.width > 0 ? gc.width : 160;
+	present_h = gc.height > 0 ? gc.height : 120;
+	if( !R_GcmapGetViewport( &present_w, &present_h ))
+	{
+		present_w = 160;
+		present_h = 120;
+	}
+
+	if( !GC_EnsurePresentationBuffer( present_w, present_h ))
+	{
+		Con_Reportf( "Xash3D GameCube: gcmap world render presentation buffer failed\n" );
+		return false;
+	}
+
+	world = sv.models[1];
+	if( !world )
+		return false;
+
+	cl.models[1] = world;
+	cl.worldmodel = world;
+	cl.video_prepped = true;
+
+	/* World-render probe flat-fills spans instead of sampling cached textured
+	 * surfaces, so keep MEM1 pressure down by dropping the gcmap surfcache. */
+	if( Sys_CheckParm( "-gcworldrender" ))
+	{
+		R_GcmapTrimSurfaceCache();
+		Con_Reportf( "Xash3D GameCube: gcmap world render using quality=0 without surface cache\n" );
+	}
+	else if( !R_GcmapEnsureSurfaceCache() )
+	{
+		Con_Reportf( "Xash3D GameCube: gcmap world render using quality=0 without surface cache\n" );
+		Cvar_Set( "gc_quality", "0" );
+	}
+
+	ref.dllFuncs.R_NewMap();
+
+	memset( &rvp, 0, sizeof( rvp ));
+	rvp.viewport[0] = 0;
+	rvp.viewport[1] = 0;
+	if( !R_GcmapGetViewport( &rvp.viewport[2], &rvp.viewport[3] ))
+	{
+		rvp.viewport[2] = refState.width > 0 ? refState.width : gc.width;
+		rvp.viewport[3] = refState.height > 0 ? refState.height : gc.height;
+	}
+	rvp.fov_x = 90.0f;
+	rvp.fov_y = rvp.fov_x * 0.75f;
+	/* Prefer a spawned entity origin so the camera is inside playable space.
+	 * Map-bbox center is often in solid/void and produces an all-black frame. */
+	VectorAverage( world->mins, world->maxs, center );
+	center[2] += 64.0f;
+	for( i = 1; i < svgame.numEntities; i++ )
+	{
+		edict_t *ent = &svgame.edicts[i];
+
+		if( ent->free )
+			continue;
+		if( VectorIsNull( ent->v.origin ))
+			continue;
+		VectorCopy( ent->v.origin, center );
+		center[2] += 48.0f;
+		Con_Reportf( "Xash3D GameCube: gcmap world render view from edict=%d origin=(%.0f,%.0f,%.0f)\n",
+			i, center[0], center[1], center[2] );
+		break;
+	}
+	VectorCopy( center, rvp.vieworigin );
+	SetBits( rvp.flags, RF_DRAW_WORLD );
+	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
+	Cvar_Set( "r_drawviewmodel", "0" );
+
+	if( count > 6 )
+		count = 6;
+
+	Con_Reportf( "Xash3D GameCube: gcmap world render begin frames=%d\n", count );
+	for( i = 0; i < count; ++i )
+	{
+		ref.dllFuncs.R_BeginFrame( false );
+		VectorCopy( rvp.vieworigin, refState.vieworg );
+		VectorCopy( rvp.viewangles, refState.viewangles );
+		ref.dllFuncs.GL_RenderFrame( &rvp );
+		/* R_EndFrame -> R_BlitScreen already presents; avoid a second present. */
+		ref.dllFuncs.R_EndFrame();
+	}
+	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
+	Con_Reportf( "Xash3D GameCube: gcmap world render ready\n" );
+	return true;
+#endif
+
+	(void)count;
+	return false;
+}
+
 /*
  * G50: Draw a readable fatal breadcrumb directly to XFB so it survives silent
  * crashes and missing assets. This is called from Sys_Error before shutdown.
@@ -1034,6 +1301,7 @@ void GC_BeginFrameBudgetProbe( void )
 	gc_blank_present_count = 0;
 	gc_last_present_time = 0.0;
 	gc_worst_frame_ms = 0.0;
+	gc_budget_probe_active = true;
 #endif
 }
 

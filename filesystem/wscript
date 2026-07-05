@@ -47,6 +47,7 @@ def build(bld):
 			'FS_FindLibrary=GCFS_FindLibrary',
 			'FS_LoadDirectFile=GCFS_LoadDirectFile',
 			'FS_LoadFile=GCFS_LoadFile',
+			'FS_LoadFileMalloc=GCFS_LoadFileMalloc',
 			'FS_LoadGameInfo=GCFS_LoadGameInfo',
 			'FS_Open=GCFS_Open',
 			'FS_Search=GCFS_Search',

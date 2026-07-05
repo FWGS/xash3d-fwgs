@@ -23,6 +23,10 @@ GNU General Public License for more details.
 #include "const.h"
 #include "render_api.h"	// modelstate_t
 #include "ref_common.h" // decals
+#if XASH_GAMECUBE
+#include "imagelib.h"
+#include "gamecube/mem_gamecube.h"
+#endif
 
 // GameAPI functions declarations
 static int GAME_EXPORT pfnModelIndex( const char *m );
@@ -961,6 +965,10 @@ static void GAME_EXPORT SV_FreePrivateData( edict_t *pEdict )
 
 	if( Mem_IsAllocatedExt( svgame.mempool, pEdict->pvPrivateData ))
 		Mem_Free( pEdict->pvPrivateData );
+#if XASH_GAMECUBE
+	else if( Sys_CheckParm( "-gcmap" ))
+		free( pEdict->pvPrivateData );
+#endif
 
 	pEdict->pvPrivateData = NULL;
 }
@@ -2942,8 +2950,22 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 
 	if( cb > 0 )
 	{
+		size_t size = (cb + 15) & ~15;
+
 		// a poke646 have memory corrupt in somewhere - this is trashed last sixteen bytes :(
-		pEdict->pvPrivateData = Mem_Calloc( svgame.mempool, (cb + 15) & ~15 );
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+		{
+			pEdict->pvPrivateData = malloc( size );
+			if( pEdict->pvPrivateData )
+				memset( pEdict->pvPrivateData, 0, size );
+			else
+				Con_Reportf( S_ERROR "Xash3D GameCube: ent private data malloc failed size=%zu edict=%d classname=%s\n",
+					size, NUM_FOR_EDICT( pEdict ), SV_ClassName( pEdict ));
+		}
+		else
+#endif
+			pEdict->pvPrivateData = Mem_Calloc( svgame.mempool, size );
 	}
 
 	return pEdict->pvPrivateData;
@@ -4886,6 +4908,29 @@ static qboolean SV_GCMapParseEOF( const char *stage, int entity_index, const cha
 		stage, entity_index, classname ? classname : "<unknown>" );
 	return true;
 }
+
+static qboolean SV_GCMapShouldInhibitClass( const char *classname )
+{
+	if( COM_StringEmpty( classname ))
+		return false;
+
+	/* Smoke probes are about verifying native BSP/map rendering inside MEM1, not
+	 * fully simulating HL single-player logic. Strip the heaviest dynamic gameplay
+	 * entities so large retail maps can reach MAP_READY under GameCube limits. */
+	if( !Q_strnicmp( classname, "monster_", 8 )
+	 || !Q_strnicmp( classname, "weapon_", 7 )
+	 || !Q_strnicmp( classname, "ammo_", 5 )
+	 || !Q_strnicmp( classname, "item_", 5 )
+	 || !Q_stricmp( classname, "world_items" )
+	 || !Q_strnicmp( classname, "cycler", 6 )
+	 || !Q_strnicmp( classname, "info_node", 9 )
+	 || !Q_stricmp( classname, "scripted_sequence" )
+	 || !Q_stricmp( classname, "aiscripted_sequence" )
+	 || !Q_stricmp( classname, "scripted_sentence" ))
+		return true;
+
+	return false;
+}
 #endif
 
 /*
@@ -4896,12 +4941,15 @@ Parses an edict out of the given string, returning the new position
 ed should be a properly initialized empty edict.
 ====================
 */
-static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
+static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qboolean *inhibited_early )
 {
 	KeyValueData	pkvd[256]; // per one entity
 	qboolean		adjust_origin = false, customentity;
 	int		numpairs = 0;
 	const char	*classname = NULL;
+
+	if( inhibited_early )
+		*inhibited_early = false;
 
 	// go through all the dictionary pairs
 	while( 1 )
@@ -5012,6 +5060,16 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index )
 		SV_FreeKeyValueStrings( pkvd, numpairs );
 		return false;
 	}
+
+#if XASH_GAMECUBE
+	if( SV_GCMapSmokeRoute() && SV_GCMapShouldInhibitClass( classname ))
+	{
+		if( inhibited_early )
+			*inhibited_early = true;
+		SV_FreeKeyValueStrings( pkvd, numpairs );
+		return false;
+	}
+#endif
 
 	ent = SV_AllocPrivateData( ent, ent->v.classname, &customentity );
 
@@ -5131,6 +5189,8 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 		// parse ents
 		while(( entities = COM_ParseFile( entities, token, sizeof( token ))) != NULL )
 		{
+			qboolean inhibited_early = false;
+
 			if( token[0] != '{' )
 				Host_Error( "%s: found %s when expecting {\n", __func__, token );
 
@@ -5146,8 +5206,36 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				Con_Reportf( "Xash3D GameCube: entity spawn progress=%d\n", entity_index );
 #endif
 
-			if( !SV_ParseEdict( &entities, ent, entity_index++ ))
+			if( !SV_ParseEdict( &entities, ent, entity_index++, &inhibited_early ))
+			{
+				if( inhibited_early )
+				{
+					SV_FreeEdict( ent );
+					inhibited++;
+				}
 				continue;
+			}
+
+#if XASH_GAMECUBE
+			if( SV_GCMapSmokeRoute() )
+			{
+				const char *spawn_class = SV_ClassName( ent );
+
+				if( entity_index >= 120 )
+					Con_Reportf( "Xash3D GameCube: entity spawn step=%d classname=%s\n",
+						entity_index - 1, spawn_class );
+
+				if( SV_GCMapShouldInhibitClass( spawn_class ))
+				{
+					if(( entity_index & 31 ) == 0 )
+						Con_Reportf( "Xash3D GameCube: gcmap inhibited entity=%d classname=%s\n",
+							entity_index - 1, spawn_class );
+					SV_FreeEdict( ent );
+					inhibited++;
+					continue;
+				}
+			}
+#endif
 
 			if( svgame.dllFuncs.pfnSpawn( ent ) == -1 )
 			{
@@ -5210,8 +5298,9 @@ void SV_SpawnEntities( const char *mapname )
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ))
 	{
-		Con_Reportf( "Xash3D GameCube: entity lump spawn skipped for gcmap smoke route\n" );
-		return;
+		Image_GCPurgeDecodeScratch();
+		Con_Reportf( "Xash3D GameCube: pre-entity memory trim\n" );
+		GC_MemSample( "pre-entity spawn" );
 	}
 #endif
 
@@ -5222,6 +5311,8 @@ void SV_SpawnEntities( const char *mapname )
 	SV_LoadFromFile( mapname, sv.worldmodel->entities );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: entity lump spawn ready\n" );
+	if( Sys_CheckParm( "-gcmap" ))
+		GC_MemSample( "entity spawn" );
 #endif
 }
 

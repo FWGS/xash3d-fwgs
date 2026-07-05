@@ -1,13 +1,12 @@
 #include "common.h"
-#if !XASH_GAMECUBE_HLSDK_STATIC
 #include "client.h"
-#endif
 #include "gamecube/dll_gamecube.h"
 
 #if XASH_GAMECUBE_HLSDK_STATIC
 #define GC_CLIENT_SYMBOL( name ) gamecube_hlsdk_client_##name
-extern void EXPORT GC_CLIENT_SYMBOL( Initialize )( void );
-extern void EXPORT GC_CLIENT_SYMBOL( HUD_VidInit )( void );
+
+extern int EXPORT GC_CLIENT_SYMBOL( Initialize )( cl_enginefunc_t *pEnginefuncs, int iVersion );
+extern int EXPORT GC_CLIENT_SYMBOL( HUD_VidInit )( void );
 extern void EXPORT GC_CLIENT_SYMBOL( HUD_Init )( void );
 extern void EXPORT GC_CLIENT_SYMBOL( HUD_Shutdown )( void );
 extern void EXPORT GC_CLIENT_SYMBOL( HUD_Redraw )( void );
@@ -46,6 +45,29 @@ extern void EXPORT GC_CLIENT_SYMBOL( KB_Find )( void );
 extern void EXPORT GC_CLIENT_SYMBOL( HUD_GetStudioModelInterface )( void );
 extern void EXPORT GC_CLIENT_SYMBOL( HUD_DirectorMessage )( void );
 extern void EXPORT GC_CLIENT_SYMBOL( HUD_VoiceStatus )( void );
+
+static int EXPORT GC_Client_Initialize_Bridge( cl_enginefunc_t *pEnginefuncs, int iVersion )
+{
+	Con_Reportf( "Xash3D GameCube: client bridge Initialize begin version=%d\n", iVersion );
+	int ret = GC_CLIENT_SYMBOL( Initialize )( pEnginefuncs, iVersion );
+	Con_Reportf( "Xash3D GameCube: client bridge Initialize end ret=%d\n", ret );
+	return ret;
+}
+
+static int EXPORT GC_Client_HUD_VidInit_Bridge( void )
+{
+	Con_Reportf( "Xash3D GameCube: client bridge HUD_VidInit begin\n" );
+	int ret = GC_CLIENT_SYMBOL( HUD_VidInit )();
+	Con_Reportf( "Xash3D GameCube: client bridge HUD_VidInit end ret=%d\n", ret );
+	return ret;
+}
+
+static void EXPORT GC_Client_HUD_Init_Bridge( void )
+{
+	Con_Reportf( "Xash3D GameCube: client bridge HUD_Init begin\n" );
+	GC_CLIENT_SYMBOL( HUD_Init )();
+	Con_Reportf( "Xash3D GameCube: client bridge HUD_Init end\n" );
+}
 #else
 extern void EXPORT GetClientAPI( cldll_func_t *funcs );
 #endif
@@ -53,9 +75,9 @@ extern void EXPORT GetClientAPI( cldll_func_t *funcs );
 static dllexport_t gamecube_client_exports[] =
 {
 #if XASH_GAMECUBE_HLSDK_STATIC
-	{ "Initialize", (void *)GC_CLIENT_SYMBOL( Initialize ) },
-	{ "HUD_VidInit", (void *)GC_CLIENT_SYMBOL( HUD_VidInit ) },
-	{ "HUD_Init", (void *)GC_CLIENT_SYMBOL( HUD_Init ) },
+	{ "Initialize", (void *)GC_Client_Initialize_Bridge },
+	{ "HUD_VidInit", (void *)GC_Client_HUD_VidInit_Bridge },
+	{ "HUD_Init", (void *)GC_Client_HUD_Init_Bridge },
 	{ "HUD_Shutdown", (void *)GC_CLIENT_SYMBOL( HUD_Shutdown ) },
 	{ "HUD_Redraw", (void *)GC_CLIENT_SYMBOL( HUD_Redraw ) },
 	{ "HUD_UpdateClientData", (void *)GC_CLIENT_SYMBOL( HUD_UpdateClientData ) },

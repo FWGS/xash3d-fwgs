@@ -19,7 +19,11 @@ typedef struct dll_s
 	struct dll_s *next;
 } dll_t;
 
+#define GAMECUBE_MAX_REGISTERED_DLLS 64
+
 static dll_t *dll_list;
+static dll_t dll_storage[GAMECUBE_MAX_REGISTERED_DLLS];
+static int dll_storage_count;
 static char *dll_err = NULL;
 #if XASH_GAMECUBE
 static int gc_registered_dll_count;
@@ -184,9 +188,13 @@ int dll_register( const char *name, dllexport_t *exports )
 	if( dlfind( name ))
 		return -2;
 
-	entry = calloc( 1, sizeof( dll_t ));
-	if( !entry )
+	/* Keep the static GameCube loader table out of the CRT heap. Early file
+	 * staging and map-load experiments can fragment or corrupt malloc-backed
+	 * allocations before the server/client modules are looked up again. */
+	if( dll_storage_count >= GAMECUBE_MAX_REGISTERED_DLLS )
 		return -3;
+	entry = &dll_storage[dll_storage_count++];
+	memset( entry, 0, sizeof( *entry ));
 
 	entry->name = name;
 	entry->exp = exports;

@@ -27,7 +27,7 @@ int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
 
 #if XASH_GAMECUBE
-#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 192
+#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 96
 
 static int CL_GameCubeClientEdictLimit( int requested )
 {
@@ -847,7 +847,14 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		CL_ClearState ();
 
 	// Re-init hud video, especially if we changed game directories
-	clgame.dllFuncs.pfnVidInit();
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	{
+		Con_Reportf( "Xash3D GameCube: serverdata HUD vidinit skipped for local gcmap\n" );
+	}
+	else
+#endif
+		clgame.dllFuncs.pfnVidInit();
 
 	cls.state = ca_connected;
 
@@ -998,6 +1005,10 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 
 	if( !cls.changelevel && !cls.changedemo )
 		CL_InitEdicts( cl.maxclients ); // re-arrange edicts
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+		Con_Reportf( "Xash3D GameCube: serverdata client edicts ready\n" );
+#endif
 
 	// get splash name
 	if( cls.demoplayback && ( cls.demonum != -1 ))
@@ -1005,6 +1016,15 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	else Cvar_Set( "cl_levelshot_name", va( "levelshots/%s_%s", clgame.mapname, refState.wideScreen ? "16x9" : "4x3" ));
 	Cvar_SetValue( "scr_loading", 0.0f ); // reset progress bar
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	{
+		Cvar_Set( "cl_levelshot_name", "*black" );
+		cls.scrshot_request = scrshot_inactive;
+		Con_Reportf( "Xash3D GameCube: serverdata levelshot skipped for local gcmap\n" );
+	}
+	else
+#endif
 	if(( cl_allow_levelshots.value && !cls.changelevel ) || cl.background )
 	{
 		if( !FS_FileExists( va( "%s.bmp", cl_levelshot_name.string ), true ))
@@ -1014,7 +1034,15 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 
 	for( i = 0; i < MAX_CLIENTS; i++ )
 		COM_ClearCustomizationList( &cl.players[i].customdata, true );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+		Con_Reportf( "Xash3D GameCube: serverdata customizations cleared\n" );
+#endif
 	CL_CreateCustomizationList();
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+		Con_Reportf( "Xash3D GameCube: serverdata customization ready\n" );
+#endif
 
 	// request resources from server
 	if( proto == PROTO_GOLDSRC )
@@ -1025,6 +1053,11 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	{
 		CL_ServerCommand( true, "sendres %i\n", cl.servercount );
 	}
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+		Con_Reportf( "Xash3D GameCube: serverdata sendres queued servercount=%d proto=%d\n",
+			cl.servercount, proto );
+#endif
 
 	memset( &clgame.movevars, 0, sizeof( clgame.movevars ));
 	memset( &clgame.oldmovevars, 0, sizeof( clgame.oldmovevars ));
@@ -1881,6 +1914,10 @@ CL_ParseResourceList
 void CL_ParseResourceList( sizebuf_t *msg, connprotocol_t proto )
 {
 	int total = MSG_ReadUBitLong( msg, proto == PROTO_GOLDSRC ? MAX_GOLDSRC_RESOURCE_BITS : MAX_RESOURCE_BITS );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+		Con_Reportf( "Xash3D GameCube: resource list received total=%d proto=%d\n", total, proto );
+#endif
 
 	for( int i = 0; i < total; i++ )
 	{
@@ -1902,6 +1939,10 @@ void CL_ParseResourceList( sizebuf_t *msg, connprotocol_t proto )
 	}
 
 	CL_ParseConsistencyInfo( msg, proto );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+		Con_Reportf( "Xash3D GameCube: resource consistency parsed\n" );
+#endif
 
 	CL_StartResourceDownloading( "Verifying and downloading resources...\n", false );
 }

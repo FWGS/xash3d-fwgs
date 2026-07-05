@@ -543,6 +543,17 @@ void V_PostRender( void )
 	ref.dllFuncs.R_AllowFog( false );
 	ref.dllFuncs.R_Set2DMode( true );
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && cls.state == ca_active )
+	{
+		/* Smoke-map probes only need world rendering evidence. */
+		ref.dllFuncs.R_AllowFog( true );
+		Platform_SetTimer( 0.0f );
+		ref.dllFuncs.R_EndFrame();
+		return;
+	}
+#endif
+
 	if( cls.state == ca_active && cls.signon == SIGNONS && cls.scrshot_action != scrshot_mapshot )
 	{
 		SCR_TileClear();

@@ -350,6 +350,7 @@ static char *gc_argv[GC_MAX_ARGV];
 static char gc_smoke_map[MAX_QPATH] = GC_DEFAULT_SMOKE_MAP;
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
+static qboolean gc_world_render_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -359,6 +360,7 @@ static void GCube_LoadDiscBootOverrides( void )
 
 	gc_smoke_map_configured = false;
 	gc_newgame_configured = false;
+	gc_world_render_configured = false;
 	Q_strncpy( gc_smoke_map, GC_DEFAULT_SMOKE_MAP, sizeof( gc_smoke_map ));
 
 	if( !gc_dvd_mounted )
@@ -398,6 +400,17 @@ static void GCube_LoadDiscBootOverrides( void )
 			}
 		}
 
+		if( !Q_strnicmp( cursor, "gcworldrender", 13 ))
+		{
+			char ch = cursor[13];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_world_render_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override gcworldrender\n" );
+				continue;
+			}
+		}
+
 		if( Q_strnicmp( cursor, "map", 3 ) || ( cursor[3] != ' ' && cursor[3] != '\t' ))
 			continue;
 
@@ -415,7 +428,7 @@ static void GCube_LoadDiscBootOverrides( void )
 			Q_strncpy( gc_smoke_map, mapname, sizeof( gc_smoke_map ));
 			gc_smoke_map_configured = true;
 			SYS_Report( "Xash3D GameCube: smoke map override %s\n", gc_smoke_map );
-			break;
+			continue;
 		}
 	}
 
@@ -447,6 +460,10 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = "-toconsole";
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
+		gc_argv[fake_argc++] = "-gcnolightmaps";
+		gc_argv[fake_argc++] = "-gcnobevels";
+		if( gc_world_render_configured )
+			gc_argv[fake_argc++] = "-gcworldrender";
 		gc_argv[fake_argc++] = "map";
 		gc_argv[fake_argc++] = gc_smoke_map;
 	}

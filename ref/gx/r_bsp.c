@@ -626,11 +626,24 @@ R_RenderWorld
 */
 void R_RenderWorld( void )
 {
+#if XASH_GAMECUBE
+	static cl_entity_t gc_world_ent;
+#endif
+
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
 
 	// auto cycle the world frame for texture animation
 	RI.currententity = CL_GetEntityByIndex( 0 );
+#if XASH_GAMECUBE
+	/* gcmap defers client edict init; provide a minimal world entity. */
+	if( !RI.currententity )
+	{
+		memset( &gc_world_ent, 0, sizeof( gc_world_ent ));
+		gc_world_ent.model = WORLDMODEL;
+		RI.currententity = &gc_world_ent;
+	}
+#endif
 	// RI.currententity->frame = (int)(gp_cl->time*2);
 
 	VectorCopy( RI.rvp.vieworigin, tr.modelorg );

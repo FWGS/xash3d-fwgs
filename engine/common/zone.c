@@ -242,16 +242,10 @@ static qboolean Mem_CheckAllocHeaderSmall( const char *func, const memheader_sma
 	return true;
 }
 
-void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
-	if( size <= 0 )
+	if( size <= 0 || !poolptr )
 		return NULL;
-
-	if( unlikely( !poolptr ))
-	{
-		Sys_Error( "%s: pool == NULL (alloc at %s:%i)\n", __func__, filename, fileline );
-		return NULL;
-	}
 
 	mempool_t *pool = Mem_FindPool( poolptr );
 	if( !pool )
@@ -263,11 +257,7 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 		memheader_small_t *mem = Q_malloc( blocksize );
 
 		if( mem == NULL )
-		{
-			Mem_ReportOOM( pool, size );
-			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 			return NULL;
-		}
 
 		Mem_InitAllocSmall( mem, size );
 		Mem_PoolAdd( pool, size, blocksize );
@@ -278,17 +268,13 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 
 		return (byte *)mem + sizeof( memheader_small_t );
 	}
-	else
+
 	{
 		size_t blocksize = sizeof( memheader_t ) + size + sizeof( byte );
 		memheader_t *mem = Q_malloc( blocksize );
 
 		if( mem == NULL )
-		{
-			Mem_ReportOOM( pool, size );
-			Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 			return NULL;
-		}
 
 		Mem_InitAllocBig( mem, size, filename, fileline );
 		Mem_PoolAdd( pool, size, blocksize );
@@ -298,6 +284,29 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 			memset((byte *)mem + sizeof( memheader_t ), 0, size );
 
 		return (byte *)mem + sizeof( memheader_t );
+	}
+}
+
+void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+{
+	void *ptr = _Mem_TryAlloc( poolptr, size, clear, filename, fileline );
+
+	if( ptr || size <= 0 )
+		return ptr;
+
+	if( unlikely( !poolptr ))
+	{
+		Sys_Error( "%s: pool == NULL (alloc at %s:%i)\n", __func__, filename, fileline );
+		return NULL;
+	}
+
+	{
+		mempool_t *pool = Mem_FindPool( poolptr );
+
+		if( pool )
+			Mem_ReportOOM( pool, size );
+		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
+		return NULL;
 	}
 }
 

@@ -37,6 +37,33 @@ GNU General Public License for more details.
 #include "vgui_draw.h"
 #include "sound.h"		// SND_STOP_LOOPING
 #include "platform/platform.h"
+#if XASH_GAMECUBE
+extern qboolean GCube_HasWritableStorage( void );
+
+static void CL_GameCubeApplySmokeClientBudgets( void )
+{
+	gameinfo_t *mutable_gi;
+	/* Retail play keeps modest FX budgets so the world BSP (~2 MiB) and client
+	 * can coexist. Smoke probes stay even tighter. */
+	int particles = Sys_CheckParm( "-gcmap" ) ? 48 : 256;
+	int beams = Sys_CheckParm( "-gcmap" ) ? 4 : 16;
+	int tents = Sys_CheckParm( "-gcmap" ) ? 4 : 64;
+
+	if( GI )
+	{
+		mutable_gi = (gameinfo_t *)GI;
+		mutable_gi->max_particles = Q_min( mutable_gi->max_particles, particles );
+		mutable_gi->max_beams = Q_min( mutable_gi->max_beams, beams );
+		mutable_gi->max_tents = Q_min( mutable_gi->max_tents, tents );
+		particles = mutable_gi->max_particles;
+		beams = mutable_gi->max_beams;
+		tents = mutable_gi->max_tents;
+	}
+
+	Con_Reportf( "Xash3D GameCube: client budgets particles=%d beams=%d tempents=%d\n",
+		particles, beams, tents );
+}
+#endif
 
 #define MAX_LINELENGTH	80
 #define TEXT_MSGNAME	"TextMessage"
@@ -177,6 +204,13 @@ static void CL_InitCDAudio( const char *filename )
 
 	if( !FS_FileExists( filename, false ))
 	{
+#if XASH_GAMECUBE
+		if( !GCube_HasWritableStorage( ))
+		{
+			Con_Reportf( "Xash3D GameCube: CD audio playlist missing and writable storage unavailable, skipping %s\n", filename );
+			return;
+		}
+#endif
 		// create a default playlist
 		CL_CreatePlaylist( filename );
 	}
@@ -995,6 +1029,16 @@ void CL_ClearWorld( void )
 	clgame.numStatics = 0;
 }
 
+#if XASH_GAMECUBE
+static cl_entity_t gc_gcmap_bootstrap_entities[2];
+static entity_state_t gc_gcmap_bootstrap_packet_entities[64];
+
+static qboolean CL_GameCubeUseStaticGcmapBootstrapEdicts( int maxclients )
+{
+	return Sys_CheckParm( "-gcmap" ) && maxclients <= 1 && clgame.maxEntities <= 2;
+}
+#endif
+
 void CL_InitEdicts( int maxclients )
 {
 	Assert( clgame.entities == NULL );
@@ -1005,17 +1049,30 @@ void CL_InitEdicts( int maxclients )
 #endif
 	cls.num_client_entities = CL_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && maxclients <= 1 )
-		cls.num_client_entities = 64;
-	Con_Reportf( "Xash3D GameCube: client edicts alloc max=%d bytes=%u packet_entities=%d\n",
+	if( maxclients <= 1 )
+		cls.num_client_entities = Sys_CheckParm( "-gcmap" ) ? 64 : 128;
+	Con_Reportf( "Xash3D GameCube: client edicts alloc request max=%d bytes=%u packet_entities=%d\n",
 		clgame.maxEntities, (uint)( sizeof( cl_entity_t ) * clgame.maxEntities ),
 		cls.num_client_entities );
+
+	if( CL_GameCubeUseStaticGcmapBootstrapEdicts( maxclients ))
+	{
+		memset( gc_gcmap_bootstrap_entities, 0, sizeof( gc_gcmap_bootstrap_entities ));
+		memset( gc_gcmap_bootstrap_packet_entities, 0, sizeof( gc_gcmap_bootstrap_packet_entities ));
+		cls.packet_entities = gc_gcmap_bootstrap_packet_entities;
+		clgame.entities = gc_gcmap_bootstrap_entities;
+		clgame.static_entities = NULL;
+		clgame.numStatics = 0;
+		Con_Reportf( "Xash3D GameCube: client edicts using static gcmap bootstrap tables\n" );
+		goto init_remaps;
+	}
 #endif
 	cls.packet_entities = Mem_Realloc( clgame.mempool, cls.packet_entities, sizeof( entity_state_t ) * cls.num_client_entities );
 	clgame.entities = Mem_Calloc( clgame.mempool, sizeof( cl_entity_t ) * clgame.maxEntities );
 	clgame.static_entities = NULL; // will be initialized later
 	clgame.numStatics = 0;
 
+init_remaps:
 	if(( clgame.maxRemapInfos - 1 ) != clgame.maxEntities )
 	{
 		CL_ClearAllRemaps (); // purge old remap info
@@ -1031,7 +1088,14 @@ void CL_FreeEdicts( void )
 	ref.dllFuncs.R_ProcessEntData( false, NULL, 0 );
 
 	if( clgame.entities )
+#if XASH_GAMECUBE
+	{
+		if( clgame.entities != gc_gcmap_bootstrap_entities )
+			Mem_Free( clgame.entities );
+	}
+#else
 		Mem_Free( clgame.entities );
+#endif
 	clgame.entities = NULL;
 
 	if( clgame.static_entities )
@@ -1039,7 +1103,14 @@ void CL_FreeEdicts( void )
 	clgame.static_entities = NULL;
 
 	if( cls.packet_entities )
+#if XASH_GAMECUBE
+	{
+		if( cls.packet_entities != gc_gcmap_bootstrap_packet_entities )
+			Z_Free( cls.packet_entities );
+	}
+#else
 		Z_Free( cls.packet_entities );
+#endif
 
 	cls.packet_entities = NULL;
 	cls.num_client_entities = 0;
@@ -1779,11 +1850,20 @@ static int GAME_EXPORT pfnHookUserMsg( const char *pszName, pfnUserMsgHook pfn )
 	if( !pszName || !*pszName || !pfn )
 		return 0;
 
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: HookUserMsg begin name=%s\n", pszName );
+#endif
+
 	for( i = 0; i < MAX_USER_MESSAGES && clgame.msg[i].name[0]; i++ )
 	{
 		// see if already hooked
 		if( !Q_stricmp( clgame.msg[i].name, pszName ))
+		{
+#if XASH_GAMECUBE
+			Con_Reportf( "Xash3D GameCube: HookUserMsg existing name=%s slot=%d\n", pszName, i );
+#endif
 			return 1;
+		}
 	}
 
 	if( i == MAX_USER_MESSAGES )
@@ -1795,6 +1875,10 @@ static int GAME_EXPORT pfnHookUserMsg( const char *pszName, pfnUserMsgHook pfn )
 	// hook new message
 	Q_strncpy( clgame.msg[i].name, pszName, sizeof( clgame.msg[i].name ));
 	clgame.msg[i].func = pfn;
+
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: HookUserMsg ready name=%s slot=%d\n", pszName, i );
+#endif
 
 	return 1;
 }
@@ -4140,10 +4224,21 @@ qboolean CL_LoadProgs( const char *name )
 	}
 	else
 	{
-		CL_InitTitles( "titles.txt" );
-		CL_InitParticles( );
-		CL_InitViewBeams( );
-		CL_InitTempEnts( );
+#if XASH_GAMECUBE
+		CL_GameCubeApplySmokeClientBudgets();
+		if( Sys_CheckParm( "-gcmap" ))
+		{
+			Con_Reportf( "Xash3D GameCube: titles init skipped for gcmap smoke route\n" );
+			Con_Reportf( "Xash3D GameCube: transient client effects skipped for gcmap smoke route\n" );
+		}
+		else
+#endif
+		{
+			CL_InitTitles( "titles.txt" );
+			CL_InitParticles( );
+			CL_InitViewBeams( );
+			CL_InitTempEnts( );
+		}
 
 		if( !R_InitRenderAPI( ))	// Xash3D extension
 			Con_Reportf( S_WARN "%s: couldn't get render API\n", __func__ );
@@ -4159,6 +4254,9 @@ qboolean CL_LoadProgs( const char *name )
 #endif
 
 	// initialize game
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client callback begin\n" );
+#endif
 	clgame.dllFuncs.pfnInit();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: client callback initialized\n" );

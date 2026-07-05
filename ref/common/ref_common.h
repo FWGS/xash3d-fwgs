@@ -67,8 +67,11 @@ DECLARE_ENGINE_SHARED_CVAR_LIST()
 #define ENGINE_GET_PARM( parm ) ENGINE_GET_PARM_( (parm), 0 )
 
 #if XASH_GAMECUBE
+void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline );
 #define Mem_Malloc( pool, size )       gEngfuncs._Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size )       gEngfuncs._Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#define Mem_TryMalloc( pool, size )    _Mem_TryAlloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_TryCalloc( pool, size )    _Mem_TryAlloc( pool, size, true, __FILE__, __LINE__ )
 #define Mem_Realloc( pool, ptr, size ) gEngfuncs._Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
 #define Mem_Free( mem )                gEngfuncs._Mem_Free( mem, __FILE__, __LINE__ )
 #define Mem_AllocPool( name )          gEngfuncs._Mem_AllocPool( name, 0, __FILE__, __LINE__ )

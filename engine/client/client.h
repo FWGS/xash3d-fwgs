@@ -1222,6 +1222,9 @@ void SCR_FreeCinematic( void );
 qboolean SCR_PlayCinematic( const char *name );
 qboolean SCR_DrawCinematic( void );
 qboolean SCR_NextMovie( void );
+#if XASH_GAMECUBE
+qboolean SCR_HaveStartupVids( void );
+#endif
 void SCR_RunCinematic( void );
 void SCR_StopCinematic( void );
 void CL_PlayVideo_f( void );
@@ -1263,6 +1266,7 @@ extern net_api_t gNetApi;
 #if XASH_GAMECUBE
 qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
+void CL_GameCubeUnloadClientForMapLoad( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_PreloadBuiltInFallbackMenuAssets( void );

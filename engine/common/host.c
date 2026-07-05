@@ -44,7 +44,11 @@ GNU General Public License for more details.
 void R_GcmapRestoreAfterMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
+void GC_TrimClientSubsystemsForMapLoad( void );
 void GC_BeginFrameBudgetProbe( void );
+void GC_RunGcmapSmokeFrames( const char *mapname, int count );
+qboolean GC_AttemptGcmapWorldRender( int count );
+qboolean R_GcmapEnsureSurfaceCache( void );
 #endif
 
 host_parm_t host;	// host parms
@@ -1038,6 +1042,10 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 #endif
 
 	Memory_Init(); // init memory subsystem
+#if XASH_GAMECUBE
+	/* Reserve a contiguous BSP staging buffer before menu/client churn fragments MEM1. */
+	GC_InitMapLoadBuffer();
+#endif
 
 	host.mempool = Mem_AllocPool( "Zone Engine" );
 
@@ -1357,6 +1365,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				Con_Reportf( "Xash3D GameCube: queue map %s\n", gcmap );
 				Con_Reportf( "Xash3D GameCube: direct map begin\n" );
 				GC_DrawLoadingStatus( "DIRECT MAP LOAD", gcmap );
+				GC_TrimClientSubsystemsForMapLoad();
 				Mod_FreeUnused();
 				if( SV_SpawnServer( gcmap, NULL, false ))
 				{
@@ -1398,23 +1407,40 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 	oldtime = Platform_DoubleTime() - 0.1;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && SV_Active( ))
-	{
-		int i;
-
-		Con_Reportf( "Xash3D GameCube: gcmap smoke frames begin\n" );
-		GC_BeginFrameBudgetProbe();
-		for( i = 0; i < 16; i++ )
-			COM_Frame( 0.05 );
-		Con_Reportf( "Xash3D GameCube: gcmap smoke frames ready\n" );
-		GC_MemSample( "frame render" );
-	}
-#endif
-
-#if XASH_GAMECUBE
 	if( !Host_IsDedicated( ))
 		host.status = HOST_FRAME;
 #endif
+
+	#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ) && SV_Active( ))
+		{
+			qboolean force_status_panel = Sys_CheckParm( "-gcstatuspanel" ) ? true : false;
+
+			Con_Reportf( "Xash3D GameCube: gcmap smoke frames begin\n" );
+			GC_BeginFrameBudgetProbe();
+
+			if( force_status_panel )
+			{
+				Con_Reportf( "Xash3D GameCube: gcmap status-panel route forced\n" );
+				GC_RunGcmapSmokeFrames( sv.name, 12 );
+			}
+			else if( Sys_CheckParm( "-gcworldrender" ))
+			{
+				if( !GC_AttemptGcmapWorldRender( 12 ))
+				{
+					Con_Reportf( "Xash3D GameCube: gcmap world render unavailable, using status-panel fallback\n" );
+					GC_RunGcmapSmokeFrames( sv.name, 12 );
+				}
+			}
+			else
+			{
+				GC_RunGcmapSmokeFrames( sv.name, 12 );
+			}
+
+			Con_Reportf( "Xash3D GameCube: gcmap smoke frames ready\n" );
+			GC_MemSample( "frame render" );
+		}
+	#endif
 
 	if( Host_IsDedicated( ))
 	{

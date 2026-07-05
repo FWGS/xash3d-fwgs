@@ -1172,7 +1172,6 @@ void GC_ReportQualityProfile( const char *stage )
 void Mod_StudioLoadGcmapStub( model_t *mod, qboolean *loaded )
 {
 	static studiohdr_t stub;
-	studiohdr_t *phdr;
 
 	if( !stub.ident )
 	{
@@ -1185,15 +1184,13 @@ void Mod_StudioLoadGcmapStub( model_t *mod, qboolean *loaded )
 		VectorSet( stub.bbmax, 16.0f, 16.0f, 16.0f );
 	}
 
-	mod->cache.data = Mem_Calloc( mod->mempool, sizeof( stub ));
-	memcpy( mod->cache.data, &stub, sizeof( stub ));
-	phdr = mod->cache.data;
+	mod->cache.data = &stub;
 
-	VectorCopy( phdr->bbmin, mod->mins );
-	VectorCopy( phdr->bbmax, mod->maxs );
+	VectorCopy( stub.bbmin, mod->mins );
+	VectorCopy( stub.bbmax, mod->maxs );
 	mod->numframes = 1;
 	mod->radius = RadiusFromBounds( mod->mins, mod->maxs );
-	mod->flags = phdr->flags;
+	mod->flags = stub.flags;
 
 	if( loaded ) *loaded = true;
 }
@@ -1204,7 +1201,10 @@ void Mod_LoadStudioGcmapStub( model_t *mod, qboolean *loaded )
 
 	if( loaded ) *loaded = false;
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
-	mod->mempool = Mem_AllocPool( poolname );
+	if( Sys_CheckParm( "-gcmap" ))
+		mod->mempool = Mod_GameCubeSharedModelStubPool();
+	else
+		mod->mempool = Mem_AllocPool( poolname );
 	mod->type = mod_studio;
 	Mod_StudioLoadGcmapStub( mod, loaded );
 }
@@ -1232,7 +1232,10 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
 
 	if( loaded ) *loaded = false;
-	mod->mempool = Mem_AllocPool( poolname );
+	if( Sys_CheckParm( "-gcmap" ))
+		mod->mempool = Mod_GameCubeSharedModelStubPool();
+	else
+		mod->mempool = Mem_AllocPool( poolname );
 	mod->type = mod_studio;
 
 #if XASH_GAMECUBE

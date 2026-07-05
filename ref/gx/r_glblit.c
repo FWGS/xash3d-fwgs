@@ -547,9 +547,15 @@ static void R_BuildBlendMaps( void )
 
 void R_GcmapTrimScreenBuffers( void )
 {
+#if XASH_GAMECUBE
+	R_GcmapReleaseDynamicScreenBuffers();
+	return;
+#endif
+
 	if( d_pzbuffer )
 	{
-		free( d_pzbuffer );
+		if( !R_GcmapOwnsStaticZBuffer() )
+			free( d_pzbuffer );
 		d_pzbuffer = NULL;
 	}
 
@@ -558,7 +564,8 @@ void R_GcmapTrimScreenBuffers( void )
 	 * colormap buffer allocated in R_AllocScreen(). */
 	if( vid.buffer )
 	{
-		free( vid.buffer );
+		if( !R_GcmapOwnsStaticViewBuffer() )
+			free( vid.buffer );
 		vid.buffer = NULL;
 	}
 #else
@@ -676,18 +683,33 @@ qboolean R_AllocScreen( void )
 	vid.rowbytes = swblit.stride; // rowpixels
 #endif
 	if( d_pzbuffer )
-		free( d_pzbuffer );
+	{
+		if( !R_GcmapOwnsStaticZBuffer() )
+			free( d_pzbuffer );
+	}
 	d_pzbuffer = malloc( vid.width * vid.height * 2 + 64 );
+	if( !d_pzbuffer )
+	{
+#if XASH_GAMECUBE
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc missing z buffer\n" );
+#endif
+		return false;
+	}
 
 #if XASH_GAMECUBE
 	/* The platform backend owns gc.buffer (RGB565). Keep renderer indices in a
 	 * separate buffer so R_BlitScreen can translate without aliasing. */
 	if( vid.buffer )
-		free( vid.buffer );
+	{
+		if( !R_GcmapOwnsStaticViewBuffer() )
+			free( vid.buffer );
+	}
 	vid.buffer = malloc( vid.width * vid.height * sizeof( pixel_t ));
 	if( !vid.buffer )
 	{
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc missing colormap buffer\n" );
+		free( d_pzbuffer );
+		d_pzbuffer = NULL;
 		return false;
 	}
 #else
@@ -860,14 +882,38 @@ void R_BlitScreen( void )
 			unsigned short *pbuf = buffer;
 #if XASH_GAMECUBE
 			int v, u;
+			const qboolean rgb565_direct = gEngfuncs.Sys_CheckParm( "-gcworldrender" ) != 0;
+			uint dst_stride = swblit.stride;
+
+			if( rgb565_direct && vid.width > 0 && swblit.stride != (uint)vid.width )
+			{
+				/* Recreate presentation buffer at the software renderer size. */
+				if( swblit.pCreateBuffer )
+					swblit.pCreateBuffer( vid.width, vid.height, &swblit.stride, &swblit.bpp,
+						&swblit.rmask, &swblit.gmask, &swblit.bmask );
+				buffer = swblit.pLockBuffer();
+				if( !buffer )
+					return;
+				pbuf = buffer;
+				dst_stride = swblit.stride;
+			}
 
 			for( v = 0; v < vid.height; v++ )
 			{
 				const pixel_t *src_row = vid.buffer + vid.rowbytes * v;
-				unsigned short *dst_row = pbuf + swblit.stride * v;
+				unsigned short *dst_row = pbuf + dst_stride * v;
 
-				for( u = 0; u < vid.width; u++ )
-					dst_row[u] = vid.screen[src_row[u]];
+				if( rgb565_direct )
+				{
+					/* World-render probe stores RGB565 in vid.buffer already. */
+					for( u = 0; u < vid.width; u++ )
+						dst_row[u] = src_row[u];
+				}
+				else
+				{
+					for( u = 0; u < vid.width; u++ )
+						dst_row[u] = vid.screen[src_row[u]];
+				}
 			}
 #else
 			for( int v = 0; v < vid.height; v++ )

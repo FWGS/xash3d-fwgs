@@ -100,6 +100,69 @@ int          r_numallocatededges;
 
 float        r_aliasuvscale = 1.0;
 
+#if XASH_GAMECUBE
+/* Reduced edge/surface/span budgets for -gcworldrender: heap-backed, not stack. */
+#define GC_PROBE_NUMEDGES 512
+#define GC_PROBE_NUMSURFS 256
+#define GC_PROBE_NUMSPANS 512
+
+static edge_t *gc_probe_edges;
+static surf_t *gc_probe_surfaces;
+static byte   *gc_probe_spans;
+static int     gc_probe_numedges;
+static int     gc_probe_numsurfs;
+static int     gc_probe_numspans;
+
+qboolean R_GcmapEnsureWorldRenderScratch( void )
+{
+	size_t edge_bytes, surf_bytes, span_bytes;
+
+	if( gc_probe_edges && gc_probe_surfaces && gc_probe_spans &&
+		gc_probe_numedges > 0 && gc_probe_numsurfs > 0 && gc_probe_numspans > 0 )
+		return true;
+
+	edge_bytes = ( GC_PROBE_NUMEDGES + 2 ) * sizeof( edge_t ) + CACHE_SIZE;
+	/* +1 so surfaces[1]..surfaces[N] stay in-bounds without surfaces-- underflow. */
+	surf_bytes = ( GC_PROBE_NUMSURFS + 1 ) * sizeof( surf_t ) + CACHE_SIZE;
+	span_bytes = GC_PROBE_NUMSPANS * sizeof( espan_t ) + CACHE_SIZE;
+
+	if( !gc_probe_edges )
+		gc_probe_edges = (edge_t *)malloc( edge_bytes );
+	if( !gc_probe_surfaces )
+		gc_probe_surfaces = (surf_t *)malloc( surf_bytes );
+	if( !gc_probe_spans )
+		gc_probe_spans = (byte *)malloc( span_bytes );
+
+	if( !gc_probe_edges || !gc_probe_surfaces || !gc_probe_spans )
+	{
+		free( gc_probe_edges );
+		free( gc_probe_surfaces );
+		free( gc_probe_spans );
+		gc_probe_edges = NULL;
+		gc_probe_surfaces = NULL;
+		gc_probe_spans = NULL;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap world-render scratch unavailable\n" );
+		return false;
+	}
+
+	gc_probe_numedges = GC_PROBE_NUMEDGES;
+	gc_probe_numsurfs = GC_PROBE_NUMSURFS;
+	gc_probe_numspans = GC_PROBE_NUMSPANS;
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap world-render scratch ready edges=%d surfs=%d spans=%d\n",
+		gc_probe_numedges, gc_probe_numsurfs, gc_probe_numspans );
+	return true;
+}
+
+espan_t *R_GcmapProbeSpanBase( int *maxspans )
+{
+	if( !gc_probe_spans )
+		return NULL;
+	if( maxspans )
+		*maxspans = gc_probe_numspans;
+	return (espan_t *)(((uintptr_t)gc_probe_spans + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
+}
+#endif
+
 static int R_RankForRenderMode( int rendermode )
 {
 	switch( rendermode )
@@ -1039,7 +1102,53 @@ void R_DrawBrushModel( cl_entity_t *pent )
 R_EdgeDrawing
 ================
 */
-static void R_EdgeDrawing( void )
+#if XASH_GAMECUBE
+static void R_EdgeDrawingGcmapProbe( void )
+{
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+		return;
+
+	if( !R_GcmapEnsureWorldRenderScratch() )
+		return;
+
+	r_numallocatededges = gc_probe_numedges;
+	r_cnumsurfs = gc_probe_numsurfs;
+	r_edges = (edge_t *)(((uintptr_t)gc_probe_edges + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
+	/* Keep surfaces[0] as an in-bounds dummy; background is surfaces[1]. */
+	surfaces = (surf_t *)(((uintptr_t)gc_probe_surfaces + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
+	surf_max = &surfaces[r_cnumsurfs + 1];
+	memset( &surfaces[1], 0, sizeof( surf_t ));
+	R_SurfacePatch();
+
+	if( tr.framecount <= 1 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing heap world pass edges=%d surfs=%d\n",
+			r_numallocatededges, r_cnumsurfs );
+
+	if( vid.buffer && vid.width > 0 && vid.height > 0 )
+		memset( vid.buffer, 0, (size_t)vid.width * (size_t)vid.height * sizeof( pixel_t ));
+
+	R_BeginEdgeFrame();
+	R_RenderWorld();
+	/* Skip bmodels: R_DrawBrushModel still uses stack edge tables. */
+	R_ScanEdges();
+
+	if( tr.framecount <= 1 && vid.buffer )
+	{
+		size_t n = (size_t)vid.width * (size_t)vid.height;
+		size_t nonzero = 0;
+		size_t p;
+
+		for( p = 0; p < n; p++ )
+		{
+			if( vid.buffer[p] )
+				nonzero++;
+		}
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap world pixels nonzero=%zu/%zu\n", nonzero, n );
+	}
+}
+#endif
+
+static void R_EdgeDrawingStack( void )
 {
 	edge_t ledges[NUMSTACKEDGES
 		      + (( CACHE_SIZE - 1 ) / sizeof( edge_t )) + 1];
@@ -1048,38 +1157,6 @@ static void R_EdgeDrawing( void )
 
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
-
-#if XASH_GAMECUBE
-	{
-		// G24a: low-memory mode skips heavy world edge pass but keeps state valid
-		if( GC_IsLowMemoryMode() )
-		{
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing skipping world pass (quality=0)\n" );
-			// Still allocate edge/surface arrays to keep renderer state consistent
-			if( auxedges )
-			{
-				r_edges = auxedges;
-			}
-			else
-			{
-				r_edges = (edge_t *)
-				  (((uintptr_t)&ledges[0] + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
-			}
-
-			if( r_surfsonstack )
-			{
-				surfaces = (surf_t *)(((uintptr_t)&lsurfs + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
-				surf_max = &surfaces[r_cnumsurfs];
-				memset( surfaces, 0, sizeof( surf_t ));
-				surfaces--;
-				R_SurfacePatch();
-			}
-
-			R_BeginEdgeFrame();
-			return;
-		}
-	}
-#endif
 
 	if( auxedges )
 	{
@@ -1116,6 +1193,24 @@ static void R_EdgeDrawing( void )
 	R_ScanEdges();
 }
 
+static void R_EdgeDrawing( void )
+{
+#if XASH_GAMECUBE
+	/* Keep large stack tables out of this frame: they live only in R_EdgeDrawingStack. */
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	{
+		if( !gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing skipping world pass (gcmap smoke)\n" );
+			return;
+		}
+		R_EdgeDrawingGcmapProbe();
+		return;
+	}
+#endif
+	R_EdgeDrawingStack();
+}
+
 /*
 ===============
 R_MarkLeaves
@@ -1123,6 +1218,38 @@ R_MarkLeaves
 */
 static void R_MarkLeaves( void )
 {
+#if XASH_GAMECUBE
+	if( GC_IsLowMemoryMode() && !gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	{
+		tr.visframecount++;
+		r_oldviewcluster = r_viewcluster;
+		return;
+	}
+
+	/* World-render probe: mark every leaf visible (skip FatPVS recursion). */
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	{
+		int i;
+
+		tr.visframecount++;
+		r_oldviewcluster = r_viewcluster;
+		for( i = 0; i < WORLDMODEL->numleafs; i++ )
+		{
+			mnode_t *node = (mnode_t *)&WORLDMODEL->leafs[i + 1];
+
+			do
+			{
+				if( node->visframe == tr.visframecount )
+					break;
+				node->visframe = tr.visframecount;
+				node = node->parent;
+			}
+			while( node );
+		}
+		return;
+	}
+#endif
+
 	if( r_oldviewcluster == r_viewcluster && !r_novis.value && r_viewcluster != -1 )
 		return;
 
@@ -1160,6 +1287,8 @@ void GAME_EXPORT R_RenderScene( void )
 {
 #if XASH_GAMECUBE
 	double gc_render_start = gEngfuncs.pfnTime();
+
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene enter quality=%d\n", GC_GetVisualQuality() );
 #endif
 
 	if( !WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
@@ -1190,6 +1319,11 @@ void GAME_EXPORT R_RenderScene( void )
 	R_SetupFrustum();
 	R_SetupFrame();
 
+#if XASH_GAMECUBE
+	if( GC_IsLowMemoryMode() )
+		tr.dlightframecount = tr.framecount;
+	else
+#endif
 	tr.dlightframecount = R_PushDlights( WORLDMODEL, tr.framecount );
 	R_SetupModelviewMatrix( RI.worldviewMatrix );
 	R_SetupProjectionMatrix( RI.projectionMatrix );
@@ -1204,6 +1338,27 @@ void GAME_EXPORT R_RenderScene( void )
 	// R_PushDlights (r_worldmodel); ??
 	// R_DrawWorld();
 	R_EdgeDrawing();
+
+#if XASH_GAMECUBE
+	/* gcmap routes skip entity lists: R_DrawBrushModel still uses stack edge tables. */
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	{
+		if( tr.framecount <= 32 )
+		{
+			double elapsed_ms = ( gEngfuncs.pfnTime() - gc_render_start ) * 1000.0;
+
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap render time=%.2fms frame=%d worldrender=%d\n",
+				elapsed_ms, tr.framecount, gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 1 : 0 );
+			if( elapsed_ms >= 33.0 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: G49 slow gcmap render %.2fms frame=%d quality=%d\n",
+					elapsed_ms, tr.framecount, GC_GetVisualQuality() );
+		}
+		if( tr.framecount <= 1 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene gcmap route complete worldrender=%d\n",
+				gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 1 : 0 );
+		return;
+	}
+#endif
 
 	gEngfuncs.CL_ExtraUpdate(); // don't let sound get messed up if going slow
 
@@ -1268,6 +1423,22 @@ R_RenderFrame
 */
 void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 {
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	{
+		if( r_norefresh->value )
+			return;
+		if( gpGlobals->height > vid.height || gpGlobals->width > vid.width )
+			return;
+
+		R_SetupRefParams( rvp );
+		tr.fCustomRendering = false;
+		tr.realframecount++;
+		R_RenderScene();
+		return;
+	}
+#endif
+
 	if( r_norefresh->value )
 		return;
 
@@ -1279,7 +1450,7 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 	R_SetupRefParams( rvp );
 
 	// completely override rendering
-	if( gEngfuncs.drawFuncs->GL_RenderFrame != NULL )
+	if( gEngfuncs.drawFuncs != NULL && gEngfuncs.drawFuncs->GL_RenderFrame != NULL )
 	{
 		tr.fCustomRendering = true;
 
@@ -1375,18 +1546,34 @@ void GAME_EXPORT R_NewMap( void )
 
 #if XASH_GAMECUBE
 	{
+		const qboolean gc_world_probe = GC_IsLowMemoryMode() && gEngfuncs.Sys_CheckParm( "-gcworldrender" );
+
 		// G24a: low-memory smoke path caps surfaces before MINSURFACES floor
 		if( GC_IsLowMemoryMode() )
 		{
+			if( gc_world_probe )
+			{
+				if( r_cnumsurfs <= 0 || r_cnumsurfs > GC_PROBE_NUMSURFS )
+					r_cnumsurfs = GC_PROBE_NUMSURFS;
+			}
+			else
+			{
+				if( r_cnumsurfs > NUMSTACKSURFACES )
+					r_cnumsurfs = NUMSTACKSURFACES;
+				if( r_cnumsurfs < MINSURFACES )
+					r_cnumsurfs = MINSURFACES;
+			}
 			if( r_cnumsurfs > NUMSTACKSURFACES )
 				r_cnumsurfs = NUMSTACKSURFACES;
-			if( r_cnumsurfs < MINSURFACES )
-				r_cnumsurfs = MINSURFACES;
 		}
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer surface budget capped to %d (quality=%d)\n", r_cnumsurfs, GC_GetVisualQuality() );
 	}
 #endif
-	if( r_cnumsurfs <= MINSURFACES )
+	if( r_cnumsurfs <= MINSURFACES
+#if XASH_GAMECUBE
+	 && !( GC_IsLowMemoryMode() && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+#endif
+	)
 		r_cnumsurfs = MINSURFACES;
 
 	if( r_cnumsurfs > NUMSTACKSURFACES )
@@ -1412,9 +1599,19 @@ void GAME_EXPORT R_NewMap( void )
 
 #if XASH_GAMECUBE
 	{
+		const qboolean gc_world_probe = GC_IsLowMemoryMode() && gEngfuncs.Sys_CheckParm( "-gcworldrender" );
+
 		// G24a: low-memory smoke path caps edges to stack budget
-		if( GC_IsLowMemoryMode() && r_numallocatededges > NUMSTACKEDGES )
-			r_numallocatededges = NUMSTACKEDGES;
+		if( GC_IsLowMemoryMode() )
+		{
+			if( gc_world_probe )
+			{
+				if( r_numallocatededges <= 0 || r_numallocatededges > GC_PROBE_NUMEDGES )
+					r_numallocatededges = GC_PROBE_NUMEDGES;
+			}
+			else if( r_numallocatededges > NUMSTACKEDGES )
+				r_numallocatededges = NUMSTACKEDGES;
+		}
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer edge budget capped to %d (quality=%d)\n", r_numallocatededges, GC_GetVisualQuality() );
 	}
 #endif
@@ -1509,6 +1706,11 @@ qboolean GAME_EXPORT R_Init( void )
 	gEngfuncs.Cvar_RegisterVariable( &r_studio_sort_textures );
 
 	r_temppool = Mem_AllocPool( "ref_gx zone" );
+
+#if XASH_GAMECUBE
+	gc_probe_edges = NULL;
+	gc_probe_surfaces = NULL;
+#endif
 
 #if XASH_GAMECUBE
 	glblit = false;
@@ -1607,6 +1809,17 @@ qboolean GAME_EXPORT R_Init( void )
 
 void GAME_EXPORT R_Shutdown( void )
 {
+#if XASH_GAMECUBE
+	free( gc_probe_edges );
+	free( gc_probe_surfaces );
+	free( gc_probe_spans );
+	gc_probe_edges = NULL;
+	gc_probe_surfaces = NULL;
+	gc_probe_spans = NULL;
+	gc_probe_numedges = 0;
+	gc_probe_numsurfs = 0;
+	gc_probe_numspans = 0;
+#endif
 	R_ShutdownImages();
 	gEngfuncs.R_Free_Video();
 }

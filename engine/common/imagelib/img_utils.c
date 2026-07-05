@@ -317,6 +317,15 @@ int Image_GCMaxLoadDimension( const char *name )
 		break;
 	}
 
+	/* Menu background/logo tiles: keep decode buffers small so the retail
+	 * main menu can load without killing the ImageLib pool. Return early so
+	 * AllowLargeDecode("logo"/"background") cannot raise the cap again. */
+	if( name && Q_stristr( name, "resource/gc_menu" ))
+		return Q_min( max_dim, 256 );
+	if( name && ( Q_stristr( name, "resource/background" ) || Q_stristr( name, "resource/logo" )
+		|| Q_stristr( name, "gfx/shell" )))
+		return Q_min( max_dim, 128 );
+
 	if( name && name[0] == '#' && Q_strstr( name, "_stb_font" ))
 		return Q_min( max_dim, 128 );
 
@@ -1313,7 +1322,13 @@ qboolean Image_AddIndexedImageToPack( const byte *in, int width, int height )
 	else Image_CopyPalette32bit();
 
 	// reallocate image buffer
+#if XASH_GAMECUBE
+	image.rgba = Mem_TryMalloc( host.imagepool, image.size );
+	if( !image.rgba )
+		return false;
+#else
 	image.rgba = Mem_Malloc( host.imagepool, image.size );
+#endif
 	if( !expand_to_rgba ) memcpy( image.rgba, source, image.size );
 	else if( !Image_Copy8bitRGBA( source, image.rgba, mipsize ))
 		return false; // probably pallette not installed

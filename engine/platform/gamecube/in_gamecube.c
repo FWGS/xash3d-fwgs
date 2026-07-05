@@ -81,6 +81,19 @@ static qboolean gc_no_controller_logged;
 static qboolean gc_probe_synthetic;
 static int gc_active_port = -1;
 static u32 gc_controller_type;
+static convar_t *gc_pad_port;
+
+static qboolean GC_IsGameCubeControllerType( u32 type )
+{
+	if( type == SI_GC_WAVEBIRD )
+		return true;
+	return ( type & SI_TYPE_MASK ) == SI_TYPE_GC;
+}
+
+static qboolean GC_PortReady( int port )
+{
+	return port >= 0 && port < PAD_CHANMAX && gc_pad[port].err == PAD_ERR_NONE;
+}
 
 static s8 GC_ApplyStickDeadzone( s8 stick )
 {
@@ -94,6 +107,44 @@ static u8 GC_ApplyTriggerDeadzone( u8 trigger )
 	if( trigger < GC_TRIGGER_DEAD )
 		return 0;
 	return trigger;
+}
+
+static qboolean GC_PortHasActivity( int port )
+{
+	if( !GC_PortReady( port ))
+		return false;
+
+	if( gc_pad[port].button != 0 )
+		return true;
+	if( GC_ApplyStickDeadzone( gc_pad[port].stickX ) != 0 || GC_ApplyStickDeadzone( gc_pad[port].stickY ) != 0 )
+		return true;
+	if( GC_ApplyStickDeadzone( gc_pad[port].substickX ) != 0 || GC_ApplyStickDeadzone( gc_pad[port].substickY ) != 0 )
+		return true;
+	if( GC_ApplyTriggerDeadzone( gc_pad[port].triggerL ) != 0 || GC_ApplyTriggerDeadzone( gc_pad[port].triggerR ) != 0 )
+		return true;
+
+	return false;
+}
+
+static int GC_PreferredPort( void )
+{
+	int port;
+
+	if( !gc_pad_port )
+		return GC_PAD_PREFERRED;
+
+	port = (int)gc_pad_port->value;
+	if( port < 0 || port > PAD_CHANMAX )
+		return GC_PAD_PREFERRED;
+	if( port == 0 )
+		return -1; /* auto */
+
+	return port - 1;
+}
+
+static qboolean GC_HasForcedPreferredPort( void )
+{
+	return GC_PreferredPort() >= 0;
 }
 
 static short GC_StickToShort( s8 stick )
@@ -121,18 +172,59 @@ static const char *GC_ControllerTypeName( u32 type )
 	return "third-party";
 }
 
+static u32 GC_SanitizeControllerType( int port, qboolean connected, u32 type )
+{
+	if( !connected )
+		return 0;
+
+	if( GC_IsGameCubeControllerType( type ))
+		return type;
+
+	/* PAD_Read already decoded a healthy GameCube packet for this port.
+	 * Treat transient SI type regressions as noisy polls instead of
+	 * disconnect/reconnect events so native pads stay stable. */
+	if( port == gc_active_port && GC_IsGameCubeControllerType( gc_controller_type ))
+		return gc_controller_type;
+
+	if( gc_probe_synthetic && port == GC_PAD_PREFERRED )
+		return SI_GC_STANDARD;
+
+	return SI_GC_STANDARD;
+}
+
 static int GC_FindActivePort( void )
 {
+	int preferred = GC_PreferredPort();
+	int activity_port = -1;
 	int port;
 
-	if( gc_pad[GC_PAD_PREFERRED].err == PAD_ERR_NONE )
-		return GC_PAD_PREFERRED;
+	/* Forced port selection is authoritative when that port is ready. This lets
+	 * players move control to another port without rebooting the console. */
+	if( preferred >= 0 && GC_PortReady( preferred ))
+		return preferred;
+
+	/* In auto mode, let actual player input on another connected pad take over
+	 * without requiring a disconnect/reconnect dance. */
+	for( port = 0; port < PAD_CHANMAX; port++ )
+	{
+		if( GC_PortHasActivity( port ))
+		{
+			activity_port = port;
+			break;
+		}
+	}
+	if( activity_port >= 0 && activity_port != gc_active_port )
+		return activity_port;
+
+	/* Keep the current real controller active until it actually disconnects. */
+	if( gc_connected && !gc_probe_synthetic && GC_PortReady( gc_active_port ))
+		return gc_active_port;
 
 	for( port = 0; port < PAD_CHANMAX; port++ )
 	{
-		if( port == GC_PAD_PREFERRED )
+		if( port == preferred )
 			continue;
-		if( gc_pad[port].err == PAD_ERR_NONE )
+		if( GC_PortReady( port ))
 			return port;
 	}
 
@@ -278,9 +370,28 @@ void Platform_RunEvents( void )
 	PAD_Read( gc_pad );
 	PAD_Clamp( gc_pad );
 
+	/* Automated Dolphin probes run without real SI packets. Once we switch to
+	 * the synthetic neutral pad, keep that state sticky instead of flapping
+	 * through no-controller reconnect loops every frame. */
+	if( gc_probe_synthetic && GC_ShouldUseProbeInputFallback( ))
+	{
+		if( !gc_connected )
+		{
+			gc_connected = true;
+			gc_active_port = GC_PAD_PREFERRED;
+			gc_controller_type = SI_GC_STANDARD;
+		}
+		if( !gc_input_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: input polling active\n" );
+			gc_input_logged = true;
+		}
+		return;
+	}
+
 	port = GC_FindActivePort();
 	connected = ( port >= 0 );
-	type = connected ? SI_GetType( port ) : 0;
+	type = GC_SanitizeControllerType( port, connected, connected ? SI_GetType( port ) : 0 );
 
 	if( !connected )
 		GC_EnableProbeInputFallback();
@@ -292,12 +403,19 @@ void Platform_RunEvents( void )
 		type = gc_controller_type;
 	}
 	else
-		type = connected ? SI_GetType( port ) : 0;
+		type = GC_SanitizeControllerType( port, connected, connected ? SI_GetType( port ) : 0 );
 
 	if( !connected && !gc_no_controller_logged )
 	{
-		Con_Reportf( "Joystick: no GameCube controller detected; waiting for port %d reconnect\n",
-			GC_PAD_PREFERRED + 1 );
+		if( GC_HasForcedPreferredPort( ))
+		{
+			Con_Reportf( "Joystick: no GameCube controller detected; waiting for forced port %d reconnect\n",
+				GC_PreferredPort() + 1 );
+		}
+		else
+		{
+			Con_Reportf( "Joystick: no GameCube controller detected; waiting for any port reconnect\n" );
+		}
 		Con_Reportf( "Xash3D GameCube: G45 controller waiting\n" );
 		gc_no_controller_logged = true;
 	}
@@ -311,6 +429,8 @@ void Platform_RunEvents( void )
 		gc_connected = connected;
 		gc_active_port = port;
 		gc_controller_type = type;
+		if( connected && GC_IsGameCubeControllerType( type ))
+			gc_probe_synthetic = false;
 
 		if( connected )
 			GC_HandleConnectionChange( port, type, true );
@@ -342,9 +462,19 @@ int Platform_JoyInit( void )
 	int port;
 
 	PAD_Init();
+	gc_pad_port = Cvar_Get( "gc_pad_port", "0", FCVAR_ARCHIVE,
+		"Preferred GameCube controller port: 0=auto, 1-4=force preferred port" );
 	GC_LogButtonMap();
-	Con_Reportf( "Joystick: GameCube controller preferred port %d; deadzone stick=%d trigger=%d\n",
-		GC_PAD_PREFERRED + 1, GC_STICK_DEAD, GC_TRIGGER_DEAD );
+	if( GC_HasForcedPreferredPort( ))
+	{
+		Con_Reportf( "Joystick: GameCube controller preferred port %d; deadzone stick=%d trigger=%d\n",
+			GC_PreferredPort() + 1, GC_STICK_DEAD, GC_TRIGGER_DEAD );
+	}
+	else
+	{
+		Con_Reportf( "Joystick: GameCube controller preferred port auto; deadzone stick=%d trigger=%d\n",
+			GC_STICK_DEAD, GC_TRIGGER_DEAD );
+	}
 	Con_Reportf( "Joystick: fallback scans ports 1-4 for reconnect\n" );
 
 	/* Dolphin and cold hardware can need several SI polls before PAD_ERR_NONE. */
@@ -358,7 +488,9 @@ int Platform_JoyInit( void )
 		{
 			gc_connected = true;
 			gc_active_port = port;
-			gc_controller_type = SI_GetType( port );
+			gc_controller_type = GC_SanitizeControllerType( port, true, SI_GetType( port ));
+			if( GC_IsGameCubeControllerType( gc_controller_type ))
+				gc_probe_synthetic = false;
 			GC_HandleConnectionChange( port, gc_controller_type, true );
 			Con_Reportf( "Xash3D GameCube: input polling active\n" );
 			gc_input_logged = true;

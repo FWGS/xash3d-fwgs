@@ -981,16 +981,6 @@ void Delta_Shutdown( void )
 
 		if( dt_info[i].pFields && dt_info[i].fieldsDynamic )
 		{
-#if XASH_GAMECUBE
-			if( Sys_CheckParm( "-gcmap" ))
-			{
-				Con_Reportf( S_WARN "Xash3D GameCube: leaking delta table %s during gcmap shutdown\n", dt_info[i].pName );
-				dt_info[i].pFields = NULL;
-				dt_info[i].fieldsDynamic = false;
-				dt_info[i].bInitialized = false;
-				continue;
-			}
-#endif
 			Z_Free( dt_info[i].pFields );
 			dt_info[i].pFields = NULL;
 		}

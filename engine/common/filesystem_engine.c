@@ -63,6 +63,11 @@ byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamediro
 	return g_fsapi.LoadFile( path, filesizeptr, gamedironly );
 }
 
+byte *FS_LoadFileMalloc( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
+{
+	return g_fsapi.LoadFileMalloc( path, filesizeptr, gamedironly );
+}
+
 byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 {
 	return g_fsapi.LoadDirectFile( path, filesizeptr );

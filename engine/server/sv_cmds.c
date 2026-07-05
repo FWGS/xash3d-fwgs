@@ -20,8 +20,10 @@ GNU General Public License for more details.
 #include "mod_local.h"
 
 void GC_DrawLoadingStatus( const char *message, const char *details );
+void GC_TrimClientSubsystemsForMapLoad( void );
 void R_GcmapRestoreAfterMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
+qboolean CL_GameCubeEnsureClientReady( void );
 
 static void SV_GameCubePlayStart_f( void )
 {
@@ -29,17 +31,25 @@ static void SV_GameCubePlayStart_f( void )
 
 	Con_Reportf( "Xash3D GameCube: play start begin %s\n", map );
 	GC_DrawLoadingStatus( "NEW GAME", map );
+	/* Drop menu/UI/client allocations before the BSP buffer (often ~2 MiB). */
+	GC_TrimClientSubsystemsForMapLoad();
 	Mod_FreeUnused();
 	if( SV_SpawnServer( map, NULL, false ))
 	{
 		SV_SpawnEntities( map );
 		SV_ActivateServer( true );
+		if( !CL_GameCubeEnsureClientReady() )
+		{
+			Con_Reportf( "Xash3D GameCube: play start client reload failed %s\n", map );
+			return;
+		}
 		Con_Reportf( "Xash3D GameCube: play start ready %s\n", map );
 	}
 	else
 	{
 		R_GcmapRestoreAfterMapLoad();
 		GC_RestoreVideoMemoryAfterMapLoad();
+		(void)CL_GameCubeEnsureClientReady();
 		Con_Reportf( "Xash3D GameCube: play start failed %s\n", map );
 	}
 }

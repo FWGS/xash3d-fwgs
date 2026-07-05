@@ -435,6 +435,9 @@ void R_InitDlightTexture( void );
 void R_TextureList_f( void );
 void R_InitImages( void );
 void R_ShutdownImages( void );
+#if XASH_GAMECUBE
+void R_GcFreeMenuImages( void );
+#endif
 int R_TexMemory( void );
 
 //
@@ -1120,6 +1123,14 @@ void R_DrawBrushModel( cl_entity_t *pent );
 void R_InitCaches( void );
 qboolean R_TryInitGcmapSurfaceCache( void );
 qboolean R_GcmapEnsureSurfaceCache( void );
+void R_GcmapTrimSurfaceCache( void );
+qboolean R_GcmapPrepareWorldRender( void );
+qboolean R_GcmapAllocMinimalScreen( void );
+qboolean R_GcmapGetViewport( int *width, int *height );
+void R_GcmapReleaseDynamicScreenBuffers( void );
+qboolean R_GcmapOwnsStaticScreenBuffers( void );
+qboolean R_GcmapOwnsStaticZBuffer( void );
+qboolean R_GcmapOwnsStaticViewBuffer( void );
 void R_BlitScreen( void );
 qboolean R_InitBlit( qboolean gl );
 void R_EnsureDrawBuffer( void );

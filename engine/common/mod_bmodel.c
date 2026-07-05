@@ -23,6 +23,32 @@ GNU General Public License for more details.
 #include "enginefeatures.h"
 #include "client.h"
 #include "server.h"			// LUMP_ error codes
+
+#if XASH_GAMECUBE
+#include <stdlib.h>
+#include "gamecube/mem_gamecube.h"
+
+static void Mod_GCFreeBspPin( void **ptr )
+{
+	if( !ptr || !*ptr )
+		return;
+	free( *ptr );
+	*ptr = NULL;
+}
+
+typedef struct gc_bsp_deferred_s
+{
+	void  *markfaces;
+	void  *leafs;
+	void  *nodes;
+	void  *clipnodes;
+	byte  *lightdata;
+	size_t lightdatasize;
+} gc_bsp_deferred_t;
+
+static gc_bsp_deferred_t gc_bsp_deferred;
+static void *gc_surfaces_malloc_block;
+#endif
 #include "swaplib.h"
 #include "ref_common.h"
 #if defined( HAVE_OPENMP )
@@ -2652,6 +2678,13 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 			out[i] = mod->surfaces + in[i];
 		}
 	}
+
+#if XASH_GAMECUBE
+	if( bmod->version == QBSP2_VERSION )
+		Mod_GCFreeBspPin( (void **)&bmod->markfaces32 );
+	else
+		Mod_GCFreeBspPin( (void **)&bmod->markfaces );
+#endif
 }
 
 static qboolean Mod_LooksLikeWaterTexture( const char *name )
@@ -3371,6 +3404,11 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 		if( faceinfo != NULL && in->faceinfo != -1 && in->faceinfo < bmod->numfaceinfo )
 			out->faceinfo = &faceinfo[in->faceinfo];
 	}
+
+#if XASH_GAMECUBE
+	Mod_GCFreeBspPin( (void **)&bmod->faceinfo );
+	Mod_GCFreeBspPin( (void **)&bmod->texinfo );
+#endif
 }
 
 /*
@@ -3385,9 +3423,28 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	int          prev_lightofs = -1;
 	int          lightofs;
 	msurface_t   *out;
+	mextrasurf_t *info;
+#if XASH_GAMECUBE
+	const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+	byte         *surf_block = (byte *)malloc( surf_bytes );
 
+	if( surf_block )
+	{
+		gc_surfaces_malloc_block = surf_block;
+		memset( surf_block, 0, surf_bytes );
+		Con_Reportf( "Xash3D GameCube: world surfaces via malloc %s\n", Q_memprint( surf_bytes ));
+	}
+	else
+	{
+		surf_block = Mem_Calloc( mod->mempool, surf_bytes );
+	}
+
+	mod->surfaces = out = (msurface_t *)surf_block;
+	info = (mextrasurf_t *)( surf_block + bmod->numsurfaces * sizeof( msurface_t ));
+#else
 	mod->surfaces = out = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( msurface_t ));
-	mextrasurf_t *info = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( mextrasurf_t ));
+	info = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( mextrasurf_t ));
+#endif
 	mod->numsurfaces = bmod->numsurfaces;
 
 	// predict samplecount based on bspversion
@@ -3521,6 +3578,13 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		}
 		else Con_DPrintf( S_WARN "lighting invalid samplecount: %g, defaulting to %i\n", samples, bmod->lightmap_samples );
 	}
+
+#if XASH_GAMECUBE
+	if( bmod->version == QBSP2_VERSION )
+		Mod_GCFreeBspPin( (void **)&bmod->surfaces32 );
+	else
+		Mod_GCFreeBspPin( (void **)&bmod->surfaces );
+#endif
 }
 
 /*
@@ -3629,7 +3693,372 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 
 	// sets nodes and leafs
 	Mod_SetParent( mod, mod->nodes, NULL );
+
+#if XASH_GAMECUBE
+	if( bmod->version == QBSP2_VERSION )
+		Mod_GCFreeBspPin( (void **)&bmod->nodes32 );
+	else
+		Mod_GCFreeBspPin( (void **)&bmod->nodes );
+#endif
 }
+
+#if XASH_GAMECUBE
+static byte *Mod_GCPinBspLump( poolhandle_t pool, const byte *src, size_t size )
+{
+	byte *copy;
+
+	if( !src || size == 0 )
+		return NULL;
+
+	copy = (byte *)malloc( size );
+	if( !copy )
+	{
+		copy = Mem_Malloc( pool, size );
+		if( copy )
+			memcpy( copy, src, size );
+		return copy;
+	}
+
+	memcpy( copy, src, size );
+	return copy;
+}
+
+static qboolean Mod_GCPointerInBuffer( const void *ptr, const byte *base, size_t size )
+{
+	const byte *p = (const byte *)ptr;
+
+	if( !ptr || !base || size == 0 )
+		return false;
+
+	return p >= base && p < base + size;
+}
+
+static void Mod_GCStashDeferredLump( void **slot, const byte *src, size_t size )
+{
+	if( !slot || !src || size == 0 )
+		return;
+
+	*slot = Mod_GCPinBspLump( 0, src, size );
+}
+
+static void Mod_GCDropDeferredBspLumpsBeforeSurfaces( void )
+{
+	Mod_GCFreeBspPin( &gc_bsp_deferred.leafs );
+	Mod_GCFreeBspPin( &gc_bsp_deferred.nodes );
+	Mod_GCFreeBspPin( &gc_bsp_deferred.clipnodes );
+	GC_MemSample( "bsp-deferred-drop" );
+}
+
+void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
+{
+	if( !gc_surfaces_malloc_block )
+		return;
+
+	if( mod && mod->surfaces == (msurface_t *)gc_surfaces_malloc_block )
+		mod->surfaces = NULL;
+
+	free( gc_surfaces_malloc_block );
+	gc_surfaces_malloc_block = NULL;
+}
+
+static void Mod_GCRestoreDeferredMarkfaces( dbspmodel_t *bmod )
+{
+	if( !gc_bsp_deferred.markfaces )
+		return;
+
+	if( bmod->version == QBSP2_VERSION )
+		bmod->markfaces32 = (dmarkface32_t *)gc_bsp_deferred.markfaces;
+	else
+		bmod->markfaces = (dmarkface_t *)gc_bsp_deferred.markfaces;
+	gc_bsp_deferred.markfaces = NULL;
+}
+
+static void Mod_GCRestoreDeferredLeafs( dbspmodel_t *bmod )
+{
+	if( !gc_bsp_deferred.leafs )
+		return;
+
+	if( bmod->version == QBSP2_VERSION )
+		bmod->leafs32 = (dleaf32_t *)gc_bsp_deferred.leafs;
+	else
+		bmod->leafs = (dleaf_t *)gc_bsp_deferred.leafs;
+	gc_bsp_deferred.leafs = NULL;
+}
+
+static void Mod_GCRestoreDeferredNodes( dbspmodel_t *bmod )
+{
+	if( !gc_bsp_deferred.nodes )
+		return;
+
+	if( bmod->version == QBSP2_VERSION )
+		bmod->nodes32 = (dnode32_t *)gc_bsp_deferred.nodes;
+	else
+		bmod->nodes = (dnode_t *)gc_bsp_deferred.nodes;
+	gc_bsp_deferred.nodes = NULL;
+}
+
+static void Mod_GCRestoreDeferredClipnodes( dbspmodel_t *bmod )
+{
+	if( !gc_bsp_deferred.clipnodes )
+		return;
+
+	if( bmod->version == QBSP2_VERSION
+		|| ( bmod->isbsp30ext && bmod->numclipnodes >= MAX_MAP_CLIPNODES_HLBSP ))
+		bmod->clipnodes32 = (dclipnode32_t *)gc_bsp_deferred.clipnodes;
+	else
+		bmod->clipnodes = (dclipnode_t *)gc_bsp_deferred.clipnodes;
+	gc_bsp_deferred.clipnodes = NULL;
+}
+
+static void Mod_GCRestoreDeferredLightdata( dbspmodel_t *bmod )
+{
+	if( !gc_bsp_deferred.lightdata || !gc_bsp_deferred.lightdatasize )
+		return;
+
+	bmod->lightdata = gc_bsp_deferred.lightdata;
+	bmod->lightdatasize = gc_bsp_deferred.lightdatasize;
+	gc_bsp_deferred.lightdata = NULL;
+	gc_bsp_deferred.lightdatasize = 0;
+}
+
+static const mlumpinfo_t *Mod_GCFindStdLumpInfo( int lumpnum )
+{
+	for( int i = 0; i < ARRAYSIZE( srclumps ); i++ )
+	{
+		if( srclumps[i].lumpnumber == lumpnum )
+			return &srclumps[i];
+	}
+	return NULL;
+}
+
+static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lumpnum )
+{
+	const mlumpinfo_t *info = Mod_GCFindStdLumpInfo( lumpnum );
+	file_t *f;
+	dheader_t header;
+	dlump_t lump;
+	byte *lumpbuf;
+	size_t real_entrysize;
+	size_t numelems;
+	char bsppath[MAX_QPATH];
+
+	if( !info )
+		return false;
+
+	if( Q_stristr( mod->name, ".bsp" ))
+		Q_strncpy( bsppath, mod->name, sizeof( bsppath ));
+	else
+		Q_snprintf( bsppath, sizeof( bsppath ), "%s.bsp", mod->name );
+	f = FS_Open( bsppath, "rb", false );
+	if( !f )
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: failed to reopen %s for lump %i\n", bsppath, lumpnum );
+		return false;
+	}
+
+	if( FS_Read( f, &header, sizeof( header )) != sizeof( header ))
+	{
+		FS_Close( f );
+		return false;
+	}
+
+	le_struct_swap( dheader_swap, &header );
+
+	if( header.version != bmod->version )
+	{
+		FS_Close( f );
+		return false;
+	}
+
+	lump = header.lumps[lumpnum];
+	if( lump.filelen <= 0 )
+	{
+		FS_Close( f );
+		return false;
+	}
+
+	real_entrysize = info->entrysize;
+	if( bmod->version == QBSP2_VERSION && info->entrysize32 > 0 )
+		real_entrysize = info->entrysize32;
+	else if( bmod->version == HLBSP_VERSION && bmod->isbsp30ext
+		&& info->lumpnumber == LUMP_CLIPNODES
+		&& (( lump.filelen % info->entrysize ) || ( lump.filelen / info->entrysize32 ) >= MAX_MAP_CLIPNODES_HLBSP ))
+		real_entrysize = info->entrysize32;
+
+	if( lump.filelen % real_entrysize )
+	{
+		FS_Close( f );
+		return false;
+	}
+
+	numelems = lump.filelen / real_entrysize;
+	lumpbuf = (byte *)malloc( lump.filelen );
+	if( !lumpbuf )
+	{
+		FS_Close( f );
+		return false;
+	}
+
+	FS_Seek( f, lump.fileofs, SEEK_SET );
+	if( FS_Read( f, lumpbuf, lump.filelen ) != lump.filelen )
+	{
+		free( lumpbuf );
+		FS_Close( f );
+		return false;
+	}
+	FS_Close( f );
+
+#if XASH_BIG_ENDIAN
+	{
+		const swap_struct_def_t *swap = real_entrysize == info->entrysize32 ? info->swap32 : info->swap;
+		size_t swaplen = real_entrysize == info->entrysize32 ? info->swaplen32 : info->swaplen;
+
+		if( swap )
+		{
+			for( size_t j = 0; j < numelems; j++ )
+				swap_struct_( swap, swaplen, lumpbuf + j * real_entrysize );
+		}
+		else if( real_entrysize > 1 )
+		{
+			for( size_t j = 0; j < numelems; j++ )
+				swap_field_( lumpbuf + j * real_entrysize, real_entrysize );
+		}
+	}
+#endif
+
+	*(byte **)((byte *)bmod + info->dataofs) = lumpbuf;
+	*(size_t *)((byte *)bmod + info->countofs) = numelems;
+	Con_Reportf( "Xash3D GameCube: reloaded BSP lump %s (%s) from disc\n",
+		info->loadname, Q_memprint( lump.filelen ));
+	return true;
+}
+
+static void Mod_GCEnsureBspLump( model_t *mod, dbspmodel_t *bmod, int lumpnum )
+{
+	const mlumpinfo_t *info = Mod_GCFindStdLumpInfo( lumpnum );
+	void *current;
+
+	if( !info )
+		return;
+
+	current = *(void **)((byte *)bmod + info->dataofs);
+	if( current )
+		return;
+
+	Mod_GCReloadStdBspLump( mod, bmod, lumpnum );
+}
+
+static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen )
+{
+	size_t leaf_esize, node_esize, clip_esize, face_esize, mark_esize;
+
+	if( !mod_base || bufferlen == 0 )
+		return;
+
+	if( !Mod_GCPointerInBuffer( bmod->leafs, mod_base, bufferlen )
+		&& !Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen )
+		&& !Mod_GCPointerInBuffer( bmod->markfaces, mod_base, bufferlen ))
+		return;
+
+	memset( &gc_bsp_deferred, 0, sizeof( gc_bsp_deferred ));
+
+	leaf_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dleaf32_t ) : sizeof( dleaf_t );
+	node_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dnode32_t ) : sizeof( dnode_t );
+	face_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dface32_t ) : sizeof( dface_t );
+	mark_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dmarkface32_t ) : sizeof( dmarkface_t );
+	if( bmod->version == QBSP2_VERSION
+		|| ( bmod->isbsp30ext && bmod->numclipnodes >= MAX_MAP_CLIPNODES_HLBSP ))
+		clip_esize = sizeof( dclipnode32_t );
+	else
+		clip_esize = sizeof( dclipnode_t );
+
+	if( Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen ))
+	{
+		byte *copy = Mod_GCPinBspLump( mod->mempool, (byte *)bmod->surfaces, bmod->numsurfaces * face_esize );
+		if( bmod->version == QBSP2_VERSION )
+			bmod->surfaces32 = (dface32_t *)copy;
+		else
+			bmod->surfaces = (dface_t *)copy;
+	}
+
+	if( bmod->numtexinfo && Mod_GCPointerInBuffer( bmod->texinfo, mod_base, bufferlen ))
+	{
+		bmod->texinfo = (dtexinfo_t *)Mod_GCPinBspLump( mod->mempool, (byte *)bmod->texinfo,
+			bmod->numtexinfo * sizeof( dtexinfo_t ));
+	}
+
+	if( bmod->numfaceinfo && Mod_GCPointerInBuffer( bmod->faceinfo, mod_base, bufferlen ))
+	{
+		bmod->faceinfo = (dfaceinfo_t *)Mod_GCPinBspLump( mod->mempool, (byte *)bmod->faceinfo,
+			bmod->numfaceinfo * sizeof( dfaceinfo_t ));
+	}
+
+	if( bmod->visdatasize && Mod_GCPointerInBuffer( bmod->visdata, mod_base, bufferlen ))
+	{
+		bmod->visdata = Mod_GCPinBspLump( mod->mempool, bmod->visdata, bmod->visdatasize );
+	}
+
+	if( Mod_GCPointerInBuffer( bmod->markfaces, mod_base, bufferlen ))
+	{
+		if( bmod->version == QBSP2_VERSION )
+			bmod->markfaces32 = NULL;
+		else
+			bmod->markfaces = NULL;
+	}
+
+	if( Mod_GCPointerInBuffer( bmod->leafs, mod_base, bufferlen ))
+	{
+		if( bmod->version == QBSP2_VERSION )
+			bmod->leafs32 = NULL;
+		else
+			bmod->leafs = NULL;
+	}
+
+	if( Mod_GCPointerInBuffer( bmod->nodes, mod_base, bufferlen ))
+	{
+		if( bmod->version == QBSP2_VERSION )
+			bmod->nodes32 = NULL;
+		else
+			bmod->nodes = NULL;
+	}
+
+	if( Mod_GCPointerInBuffer( bmod->clipnodes, mod_base, bufferlen ))
+	{
+		if( clip_esize == sizeof( dclipnode32_t ))
+			bmod->clipnodes32 = NULL;
+		else
+			bmod->clipnodes = NULL;
+	}
+
+	if( bmod->lightdatasize && Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen )
+		&& !Sys_CheckParm( "-gcnolightmaps" ) && bmod->lightdatasize <= ( 256 * 1024 ))
+	{
+		Mod_GCStashDeferredLump( (void **)&gc_bsp_deferred.lightdata, bmod->lightdata, bmod->lightdatasize );
+		gc_bsp_deferred.lightdatasize = bmod->lightdatasize;
+		bmod->lightdata = NULL;
+		bmod->lightdatasize = 0;
+	}
+	else if( Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen ))
+	{
+		bmod->lightdata = NULL;
+		bmod->lightdatasize = 0;
+	}
+
+	if( bmod->deluxdatasize && Mod_GCPointerInBuffer( bmod->deluxdata, mod_base, bufferlen ))
+		bmod->deluxdata = NULL, bmod->deluxdatasize = 0;
+
+	if( bmod->shadowdatasize && Mod_GCPointerInBuffer( bmod->shadowdata, mod_base, bufferlen ))
+		bmod->shadowdata = NULL, bmod->shadowdatasize = 0;
+
+	if( bmod->rgblightdatasize && Mod_GCPointerInBuffer( bmod->rgblightdata, mod_base, bufferlen ))
+		bmod->rgblightdata = NULL, bmod->rgblightdatasize = 0;
+
+	Con_Reportf( "Xash3D GameCube: released BSP source buffer %s before surface load\n",
+		Q_memprint( bufferlen ));
+	GC_MemSample( "bsp-buffer-release" );
+	Mod_ReleaseBrushSourceBuffer( mod_base );
+}
+#endif
 
 /*
 =================
@@ -3732,6 +4161,13 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 	// do some final things for world
 	if( bmod->isworld && Mod_CheckWaterAlphaSupport( mod, bmod ))
 		SetBits( world.flags, FWORLD_WATERALPHA );
+
+#if XASH_GAMECUBE
+	if( bmod->version == QBSP2_VERSION )
+		Mod_GCFreeBspPin( (void **)&bmod->leafs32 );
+	else
+		Mod_GCFreeBspPin( (void **)&bmod->leafs );
+#endif
 }
 
 /*
@@ -3882,9 +4318,13 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 #if XASH_GAMECUBE
 	if( bmod->version != QBSP2_VERSION && !bmod->isbsp30ext )
 	{
+		const size_t clip_sz = bmod->numclipnodes * sizeof( mclipnode16_t );
+
 		Con_Reportf( "Xash3D GameCube: using compact clipnodes count=%zu\n", bmod->numclipnodes );
 		mod->numclipnodes = bmod->numclipnodes;
-		mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
+		mod->clipnodes16 = Mem_Malloc( mod->mempool, clip_sz );
+		memcpy( mod->clipnodes16, bmod->clipnodes, clip_sz );
+		Mod_GCFreeBspPin( (void **)&bmod->clipnodes );
 		return;
 	}
 #endif
@@ -3923,6 +4363,13 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 
 	// FIXME: fill mod->clipnodes?
 	mod->numclipnodes = bmod->numclipnodes;
+
+#if XASH_GAMECUBE
+	if( bmod->version == QBSP2_VERSION )
+		Mod_GCFreeBspPin( (void **)&bmod->clipnodes32 );
+	else
+		Mod_GCFreeBspPin( (void **)&bmod->clipnodes );
+#endif
 }
 
 /*
@@ -3936,8 +4383,23 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 	if( !bmod->visdata || !bmod->visdatasize )
 		return;
 
+#if XASH_GAMECUBE
+	/* Optional: renderer can fall back to full-vis leaf marking. */
+	mod->visdata = Mem_TryMalloc( mod->mempool, bmod->visdatasize );
+	if( !mod->visdata )
+	{
+		Con_Reportf( "Xash3D GameCube: skipping visdata (%s) under memory pressure\n",
+			Q_memprint( bmod->visdatasize ));
+		return;
+	}
+#else
 	mod->visdata = Mem_Malloc( mod->mempool, bmod->visdatasize );
+#endif
 	memcpy( mod->visdata, bmod->visdata, bmod->visdatasize );
+
+#if XASH_GAMECUBE
+	Mod_GCFreeBspPin( (void **)&bmod->visdata );
+#endif
 }
 
 /*
@@ -3985,6 +4447,10 @@ Mod_LoadLighting
 */
 static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 {
+#if XASH_GAMECUBE
+	Mod_GCRestoreDeferredLightdata( bmod );
+#endif
+
 	if( !bmod->lightdatasize )
 		return;
 
@@ -4383,6 +4849,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadTextures( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel textures ready\n" );
+	Mod_GCReleaseBspSourceBuffer( mod, bmod, mod_base, bufferlen );
 	Con_Reportf( "Xash3D GameCube: bmodel visibility begin\n" );
 #endif
 	Mod_LoadVisibility( mod, bmod );
@@ -4393,6 +4860,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadTexInfo( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel texinfo ready\n" );
+	GC_MemSample( "pre-surfaces" );
 	Con_Reportf( "Xash3D GameCube: bmodel surfaces begin\n" );
 #endif
 	Mod_LoadSurfaces( mod, bmod );
@@ -4403,18 +4871,23 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadLighting( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
+	Mod_GCFreeBspPin( (void **)&bmod->lightdata );
+	Mod_GCEnsureBspLump( mod, bmod, LUMP_MARKSURFACES );
 #endif
 	Mod_LoadMarkSurfaces( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel marksurfaces ready\n" );
+	Mod_GCEnsureBspLump( mod, bmod, LUMP_LEAFS );
 #endif
 	Mod_LoadLeafs( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel leafs ready\n" );
+	Mod_GCEnsureBspLump( mod, bmod, LUMP_NODES );
 #endif
 	Mod_LoadNodes( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel nodes ready\n" );
+	Mod_GCEnsureBspLump( mod, bmod, LUMP_CLIPNODES );
 #endif
 	Mod_LoadClipnodes( mod, bmod );
 #if XASH_GAMECUBE

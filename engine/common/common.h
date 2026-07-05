@@ -368,6 +368,8 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean cl
 	ALLOC_CHECK( 3 ) WARN_UNUSED_RESULT;
 void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
+	ALLOC_CHECK( 2 ) MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 poolhandle_t _Mem_AllocPool( const char *name, unsigned int flags, const char *filename, int fileline )
 	WARN_UNUSED_RESULT;
 
@@ -384,6 +386,8 @@ size_t Mem_TotalRealSize( void );
 
 #define Mem_Malloc( pool, size ) _Mem_Alloc( pool, size, false, __FILE__, __LINE__ )
 #define Mem_Calloc( pool, size ) _Mem_Alloc( pool, size, true, __FILE__, __LINE__ )
+#define Mem_TryMalloc( pool, size ) _Mem_TryAlloc( pool, size, false, __FILE__, __LINE__ )
+#define Mem_TryCalloc( pool, size ) _Mem_TryAlloc( pool, size, true, __FILE__, __LINE__ )
 #define Mem_Realloc( pool, ptr, size ) _Mem_Realloc( pool, ptr, size, true, __FILE__, __LINE__ )
 #define Mem_Free( mem ) _Mem_Free( mem, __FILE__, __LINE__ )
 #define Mem_Free2( ptr ) { \
@@ -410,6 +414,8 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 	MALLOC_LIKE( FS_Close, 1 ) WARN_UNUSED_RESULT;
 byte *FS_LoadFile( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
 	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
+byte *FS_LoadFileMalloc( const char *path, fs_offset_t *filesizeptr, qboolean gamedironly )
+	MALLOC_LIKE( free, 1 ) WARN_UNUSED_RESULT;
 byte *FS_LoadDirectFile( const char *path, fs_offset_t *filesizeptr )
 	MALLOC_LIKE( _Mem_Free, 1 ) WARN_UNUSED_RESULT;
 void FS_Rescan_f( void );
@@ -500,6 +506,10 @@ qboolean Image_CustomPalette( void );
 void Image_ClearForceFlags( void );
 void Image_SetMDLPointer( byte *p );
 void Image_CheckPaletteQ1( void );
+#if XASH_GAMECUBE
+void Image_GCPurgeDecodeScratch( void );
+void GC_TrimClientSubsystemsForMapLoad( void );
+#endif
 
 extern const bpc_desc_t PFDesc[PF_TOTALCOUNT];	// image get pixelformat
 

@@ -709,11 +709,8 @@ void SV_ActivateServer( int runPhysics )
 
 	Log_Printf( "Started map \"%s\" (CRC \"%u\")\n", sv.name, sv.worldmapCRC );
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
-	{
-		GC_RestoreVideoMemoryAfterMapLoad();
-		R_GcmapRestoreAfterMapLoad();
-	}
+	GC_RestoreVideoMemoryAfterMapLoad();
+	R_GcmapRestoreAfterMapLoad();
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 	GC_MemSample( "map active" );
 #endif
@@ -1130,16 +1127,13 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 #endif
 #if XASH_GAMECUBE
 	GC_MemSetMap( sv.name );
-	// Free unused models (e.g., from previous map) before loading the new world
-	// to prevent exceeding the 24 MiB MEM1 limit during BSP load.
+	// Free unused models and screen buffers before the BSP file buffer so retail
+	// New Game (menu already resident) has the same headroom as -gcmap smoke.
 	Mod_FreeUnused();
-	if( Sys_CheckParm( "-gcmap" ))
-	{
-		GC_DrawLoadingStatus( "PREPARING MAP", sv.name );
-		R_GcmapTrimForMapLoad();
-		GC_TrimVideoMemoryForMapLoad();
-		Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
-	}
+	GC_DrawLoadingStatus( "PREPARING MAP", sv.name );
+	R_GcmapTrimForMapLoad();
+	GC_TrimVideoMemoryForMapLoad();
+	Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
 #endif
 #if XASH_GAMECUBE
 	GC_DrawLoadingStatus( "LOADING BSP", sv.model_precache[WORLD_INDEX] );

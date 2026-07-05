@@ -326,6 +326,19 @@ void R_DrawSurface( void )
 	}
 	mt = r_drawsurf.image;
 
+#if XASH_GAMECUBE
+	if( !mt || !mt->pixels[r_drawsurf.surfmip] )
+	{
+		if( gEngfuncs.Sys_CheckParm( "-gcmap" ) && r_gc_surface_cache_skip_reports < 16 )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_DrawSurface skip missing image mip=%d\n",
+				r_drawsurf.surfmip );
+			r_gc_surface_cache_skip_reports++;
+		}
+		return;
+	}
+#endif
+
 	r_source = mt->pixels[r_drawsurf.surfmip];
 
 // the fractional light values should range from 0 to (VID_GRADES - 1) << 16
@@ -905,6 +918,20 @@ void R_InitCaches( void )
 	}
 #endif
 
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	{
+		if( sc_base )
+		{
+			D_FlushCaches();
+			free( sc_base );
+			sc_base = sc_rover = NULL;
+		}
+		R_TryInitGcmapSurfaceCache();
+		return;
+	}
+#endif
+
 	// round up to page size
 	size = ( size + 8191 ) & ~8191;
 
@@ -927,7 +954,7 @@ void R_InitCaches( void )
 #if XASH_GAMECUBE
 qboolean R_TryInitGcmapSurfaceCache( void )
 {
-	int size = GC_SURFACE_CACHE_DEFAULT;
+	int size, try_size;
 
 	if( sc_base )
 		return true;
@@ -935,26 +962,31 @@ qboolean R_TryInitGcmapSurfaceCache( void )
 	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ))
 		return false;
 
+	size = GC_SURFACE_CACHE_DEFAULT;
 	if( size > GC_SURFACE_CACHE_MAX )
 		size = GC_SURFACE_CACHE_MAX;
 
-	size = ( size + 8191 ) & ~8191;
-	sc_base = malloc( size );
-	if( !sc_base )
+	for( try_size = size; try_size >= 32768; try_size >>= 1 )
 	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache deferred (%s unavailable)\n",
-			Q_memprint( size ));
-		return false;
+		int alloc_size = ( try_size + 8191 ) & ~8191;
+
+		sc_base = malloc( alloc_size );
+		if( !sc_base )
+			continue;
+
+		sc_size = alloc_size;
+		sc_rover = sc_base;
+		memset( sc_base, 0, alloc_size );
+		sc_base->next = NULL;
+		sc_base->owner = NULL;
+		sc_base->size = sc_size;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( alloc_size ));
+		return true;
 	}
 
-	sc_size = size;
-	sc_rover = sc_base;
-	memset( sc_base, 0, size );
-	sc_base->next = NULL;
-	sc_base->owner = NULL;
-	sc_base->size = sc_size;
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( size ));
-	return true;
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache deferred (%s unavailable)\n",
+		Q_memprint( size ));
+	return false;
 }
 #endif
 

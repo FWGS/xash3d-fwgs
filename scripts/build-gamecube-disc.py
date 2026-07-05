@@ -67,6 +67,11 @@ GCVID_FLAG_BGRA32 = 1 << 30
 GCVID_KEYFRAME = 0
 GCVID_DELTAFRAME = 1
 GCVID_STILL_FRAME_INDEX = 80
+GCVID_LOGO_WIDTH = 640
+GCVID_LOGO_HEIGHT = 100
+GCVID_LOGO_FPS_NUM = 24
+GCVID_LOGO_FPS_DEN = 1
+GCVID_LOGO_STILL_FRAME_INDEX = 80
 
 
 def align(value: int, boundary: int) -> int:
@@ -542,6 +547,168 @@ def should_skip_retail_asset(filename: str) -> bool:
 	return ext.lower() in UNSUPPORTED_EXTENSIONS
 
 
+def _gc_menu_parse_layout(source: Path, layout: Path) -> tuple[int, int, list[tuple[Path, int, int]]]:
+	tiles: list[tuple[Path, int, int]] = []
+	bg_w, bg_h = 800, 600
+	for line in layout.read_text(encoding="utf-8", errors="replace").splitlines():
+		parts = line.split()
+		if not parts:
+			continue
+		if parts[0] == "resolution" and len(parts) >= 3:
+			bg_w, bg_h = int(parts[1]), int(parts[2])
+			continue
+		if len(parts) < 4 or not parts[0].startswith("resource/background/"):
+			continue
+		# Layout columns are: path, fit/scaled, x, y (x/y are the last two ints).
+		try:
+			x = int(parts[-2])
+			y = int(parts[-1])
+		except ValueError:
+			continue
+		tile_path = source / parts[0]
+		if not tile_path.is_file():
+			continue
+		tiles.append((tile_path, x, y))
+	return bg_w, bg_h, tiles
+
+
+def _gc_menu_nonblack_ratio(image) -> float:
+	# Sample a downscaled copy so HD layouts stay cheap to score.
+	sample = image.resize((80, 40))
+	pixels = sample.load()
+	width, height = sample.size
+	total = width * height
+	if total <= 0:
+		return 0.0
+	nonblack = 0
+	for y in range(height):
+		for x in range(width):
+			pixel = pixels[x, y]
+			if pixel[0] > 12 or pixel[1] > 12 or pixel[2] > 12:
+				nonblack += 1
+	return nonblack / float(total)
+
+
+def _gc_menu_boost_visibility(image):
+	"""Lift very dark Steam/HD menu tiles so RGB565 presents stay readable."""
+	from PIL import Image, ImageEnhance, ImageOps
+
+	rgb = image.convert("RGB")
+	rgb = ImageOps.autocontrast(rgb, cutoff=1)
+	rgb = ImageEnhance.Brightness(rgb).enhance(1.55)
+	rgb = ImageEnhance.Contrast(rgb).enhance(1.25)
+	# Classic HL menu reads as cool blue-grey; keep a light tint after boost.
+	tinted = Image.new("RGB", rgb.size)
+	src = rgb.load()
+	dst = tinted.load()
+	for y in range(rgb.size[1]):
+		for x in range(rgb.size[0]):
+			r, g, b = src[x, y]
+			dst[x, y] = (
+				min(255, int(r * 0.85 + 8)),
+				min(255, int(g * 0.90 + 12)),
+				min(255, int(b * 1.10 + 28)),
+			)
+	return tinted.convert("RGBA")
+
+
+def _gc_menu_synthetic_background(size: tuple[int, int]):
+	"""Fallback when retail tiles are missing or pure black placeholders."""
+	from PIL import Image
+
+	width, height = size
+	image = Image.new("RGBA", size)
+	pixels = image.load()
+	for y in range(height):
+		for x in range(width):
+			# Vertical cool gradient with a faint warm highlight on the left,
+			# similar to the retail menu's industrial backdrop.
+			t = y / max(1, height - 1)
+			warm = max(0, 48 - abs(x - width * 0.28) * 0.35)
+			pixels[x, y] = (
+				int(18 + warm + t * 10),
+				int(24 + warm * 0.5 + t * 14),
+				int(40 + t * 36),
+				255,
+			)
+	return image
+
+
+def stage_gc_menu_assets(source: Path, output: Path) -> bool:
+	"""Bake a single MEM1-friendly retail menu background and title logo."""
+	try:
+		from PIL import Image
+	except ImportError:
+		print("Warning: Pillow not installed; skipping GameCube menu background bake.", file=sys.stderr)
+		return False
+
+	candidates = [
+		source / "resource" / "BackgroundLayout.txt",
+		source / "resource" / "HD_BackgroundLayout.txt",
+	]
+	best = None
+	best_ratio = -1.0
+	best_label = ""
+
+	for layout in candidates:
+		if not layout.is_file():
+			continue
+		bg_w, bg_h, tiles = _gc_menu_parse_layout(source, layout)
+		if not tiles:
+			continue
+		canvas = Image.new("RGBA", (bg_w, bg_h), (24, 28, 40, 255))
+		for tile_path, x, y in tiles:
+			tile = Image.open(tile_path).convert("RGBA")
+			canvas.paste(tile, (x, y))
+		ratio = _gc_menu_nonblack_ratio(canvas)
+		if ratio > best_ratio:
+			best = canvas
+			best_ratio = ratio
+			best_label = f"{layout.name} ({len(tiles)} tiles, nonblack={ratio:.1%})"
+
+	menu_dir = output / "resource" / "gc_menu"
+	menu_dir.mkdir(parents=True, exist_ok=True)
+
+	# 160x120 keeps the RGBA decode buffer under 80 KiB for MEM1 menu boot.
+	if best is not None and best_ratio >= 0.02:
+		background = _gc_menu_boost_visibility(
+			best.resize((160, 120), Image.Resampling.LANCZOS))
+		source_note = best_label
+	else:
+		background = _gc_menu_synthetic_background((160, 120))
+		source_note = "synthetic fallback (retail tiles missing or pure black)"
+
+	background_path = menu_dir / "background.tga"
+	background.save(background_path, format="TGA")
+
+	# Prefer the full title logo (white + alpha), tinted HL orange for the
+	# software renderer path that may not keep a separate alpha plane.
+	logo = None
+	logo_src = source / "resource" / "logo.tga"
+	if logo_src.is_file():
+		src = Image.open(logo_src).convert("RGBA")
+		alpha = src.split()[3]
+		logo = Image.merge(
+			"RGBA",
+			(
+				Image.new("L", src.size, 214),
+				Image.new("L", src.size, 138),
+				Image.new("L", src.size, 26),
+				alpha,
+			),
+		)
+	else:
+		logo_src = source / "resource" / "logo_game.tga"
+		if logo_src.is_file():
+			logo = Image.open(logo_src).convert("RGBA")
+	if logo is not None:
+		logo.thumbnail((256, 32), Image.Resampling.LANCZOS)
+		logo.save(menu_dir / "logo.tga", format="TGA")
+
+	print(f"GameCube menu assets: baked {background_path.relative_to(output)} from {source_note}")
+	return True
+
+
 def stage_retail_data(source: Path, output: Path) -> tuple[Path, int]:
 	"""
 	Copy retail Half-Life assets into a GameCube-friendly staging tree.
@@ -605,11 +772,14 @@ def extract_wad_lump(wad_path: Path, output: Path, lump_name: str, relative: str
 			return
 
 
-def write_smoke_overrides(output: Path, smoke_map: str) -> None:
+def write_smoke_overrides(output: Path, smoke_map: str, *, world_render: bool = False) -> None:
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
-	(output / "gamecube.cfg").write_text(f"map {Path(smoke_map).stem}\n", encoding="ascii")
+	lines = [f"map {Path(smoke_map).stem}"]
+	if world_render:
+		lines.append("gcworldrender")
+	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 	media = output / "media"
 	media.mkdir(exist_ok=True)
 	(media / "StartupVids.txt").write_text("", encoding="ascii")
@@ -634,6 +804,26 @@ def write_startup_vids(output: Path) -> None:
 		"".join(f"{movie}\n" for movie in movies),
 		encoding="ascii",
 	)
+
+
+def build_logo_gcvid_companion(source: Path, output: Path) -> Path | None:
+	"""Create a lightweight GameCube-native companion for the retail menu logo movie."""
+	source_movie = source / "media/logo.avi"
+	if not source_movie.is_file():
+		return None
+
+	output_movie = output / "media/logo.gcvid"
+	build_gcvid_companion(
+		source_movie,
+		output_movie,
+		width=GCVID_LOGO_WIDTH,
+		height=GCVID_LOGO_HEIGHT,
+		fps_num=GCVID_LOGO_FPS_NUM,
+		fps_den=GCVID_LOGO_FPS_DEN,
+		still_frame_index=GCVID_LOGO_STILL_FRAME_INDEX,
+		rgb565=True,
+	)
+	return output_movie
 
 
 GC_RETAIL_VALVE_RC = """// GameCube retail boot (read-only disc)
@@ -663,6 +853,9 @@ def create_retail_boot_overlays(
 
 	media = output / "media"
 	media.mkdir(exist_ok=True)
+	logo_gcvid = build_logo_gcvid_companion(source, output)
+	if logo_gcvid is not None:
+		overlays.append(("media/logo.gcvid", logo_gcvid))
 	startup_vids = media / "StartupVids.txt"
 
 	if not include_startup_vids:
@@ -698,7 +891,17 @@ def create_startup_vids_overlay(
 	return create_retail_boot_overlays(source, output, include_startup_vids)
 
 
-def build_gcvid_companion(source_movie: Path, output_movie: Path) -> None:
+def build_gcvid_companion(
+	source_movie: Path,
+	output_movie: Path,
+	*,
+	width: int = GCVID_WIDTH,
+	height: int = GCVID_HEIGHT,
+	fps_num: int = GCVID_FPS_NUM,
+	fps_den: int = GCVID_FPS_DEN,
+	still_frame_index: int = GCVID_STILL_FRAME_INDEX,
+	rgb565: bool = False,
+) -> None:
 	ffmpeg = shutil.which("ffmpeg")
 	if ffmpeg is None:
 		raise FileNotFoundError("ffmpeg is required to build .gcvid intro companions")
@@ -709,7 +912,7 @@ def build_gcvid_companion(source_movie: Path, output_movie: Path) -> None:
 			"-v", "error",
 			"-i", str(source_movie),
 			"-an",
-			"-vf", f"fps={GCVID_FPS_NUM}/{GCVID_FPS_DEN},scale={GCVID_WIDTH}:{GCVID_HEIGHT},format=bgra",
+			"-vf", f"fps={fps_num}/{fps_den},scale={width}:{height},format=bgra",
 			"-pix_fmt", "bgra",
 			"-f", "rawvideo",
 			"-vsync", "cfr",
@@ -718,36 +921,48 @@ def build_gcvid_companion(source_movie: Path, output_movie: Path) -> None:
 		capture_output=True,
 		check=True,
 	)
-	frame_size = GCVID_WIDTH * GCVID_HEIGHT * 4
+	frame_size = width * height * 4
 	if len(raw_frames.stdout) % frame_size != 0:
 		raise ValueError(f"ffmpeg raw frame size mismatch for {source_movie}")
 	actual_frames = len(raw_frames.stdout) // frame_size
 	if actual_frames <= 0:
 		raise ValueError(f"ffmpeg produced no frames for {source_movie}")
 
-	if GCVID_WIDTH % GCVID_TILE_SIZE != 0 or GCVID_HEIGHT % GCVID_TILE_SIZE != 0:
-		raise ValueError("GCVID dimensions must divide evenly into tiles")
+	tile_size = GCVID_TILE_SIZE
+	if width % GCVID_TILE_SIZE != 0 or height % GCVID_TILE_SIZE != 0:
+		tile_size = 0
 
 	frames = [
 		raw_frames.stdout[i * frame_size:(i + 1) * frame_size]
 		for i in range(actual_frames)
 	]
-	still_frame_index = min(GCVID_STILL_FRAME_INDEX, actual_frames - 1)
+	still_frame_index = min(still_frame_index, actual_frames - 1)
 	still_frame = frames[still_frame_index]
 	offsets: list[int] = []
 	packets = bytearray()
 	offsets.extend(0 for _ in range(actual_frames))
 	packets.append(GCVID_KEYFRAME)
-	packets.extend(still_frame)
+	if rgb565:
+		for pixel in range(0, len(still_frame), 4):
+			b = still_frame[pixel + 0]
+			g = still_frame[pixel + 1]
+			r = still_frame[pixel + 2]
+			rgb565_pixel = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+			packets.extend(struct.pack("<H", rgb565_pixel))
+	else:
+		packets.extend(still_frame)
 
 	header = bytearray()
 	header.extend(GCVID_MAGIC)
-	header.extend(struct.pack("<I", GCVID_WIDTH))
-	header.extend(struct.pack("<I", GCVID_HEIGHT))
-	header.extend(struct.pack("<I", GCVID_FPS_NUM))
-	header.extend(struct.pack("<I", GCVID_FPS_DEN))
+	header.extend(struct.pack("<I", width))
+	header.extend(struct.pack("<I", height))
+	header.extend(struct.pack("<I", fps_num))
+	header.extend(struct.pack("<I", fps_den))
 	header.extend(struct.pack("<I", actual_frames))
-	header.extend(struct.pack("<I", GCVID_TILE_SIZE | GCVID_FLAG_STATIC_HOLD | GCVID_FLAG_BGRA32))
+	flags = tile_size | GCVID_FLAG_STATIC_HOLD
+	if not rgb565:
+		flags |= GCVID_FLAG_BGRA32
+	header.extend(struct.pack("<I", flags))
 	for offset in offsets:
 		header.extend(struct.pack("<I", offset))
 
@@ -755,7 +970,8 @@ def build_gcvid_companion(source_movie: Path, output_movie: Path) -> None:
 	output_movie.write_bytes(bytes(header) + bytes(packets))
 	print(
 		f"Built static-hold GCVID {output_movie.name} from frame {still_frame_index} "
-		f"({GCVID_WIDTH}x{GCVID_HEIGHT}, duration {actual_frames} frames)"
+		f"({width}x{height}, duration {actual_frames} frames, "
+		f"{'rgb565' if rgb565 else 'bgra32'})"
 	)
 
 
@@ -766,6 +982,7 @@ def build_intro_gcvid_companions(output: Path) -> None:
 			continue
 		gcvid = source_movie.with_suffix(".gcvid")
 		build_gcvid_companion(source_movie, gcvid)
+	build_logo_gcvid_companion(output, output)
 
 
 def smoke_map_resources(map_path: Path) -> set[str]:
@@ -783,7 +1000,7 @@ def smoke_map_resources(map_path: Path) -> set[str]:
 	return resources
 
 
-def stage_smoke_data(source: Path, output: Path, smoke_map: str) -> Path:
+def stage_smoke_data(source: Path, output: Path, smoke_map: str, *, world_render: bool = False) -> Path:
 	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
 	map_relative = f"maps/{map_name}"
 	map_source = source / map_relative
@@ -797,7 +1014,7 @@ def stage_smoke_data(source: Path, output: Path, smoke_map: str) -> Path:
 		copy_if_present(source, output, relative)
 	for relative in MENU_RESOURCE_DIRS:
 		copy_tree_if_present(source, output, relative)
-	write_smoke_overrides(output, smoke_map)
+	write_smoke_overrides(output, smoke_map, world_render=world_render)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
 	for relative in SMOKE_PRECACHE_MODELS:
@@ -1051,6 +1268,11 @@ def main() -> None:
 		help="stage only the files needed for a bounded legal local map smoke test",
 	)
 	parser.add_argument(
+		"--world-render",
+		action="store_true",
+		help="enable gcmap world render probe via gamecube.cfg gcworldrender override",
+	)
+	parser.add_argument(
 		"--intro-avi",
 		action="store_true",
 		help="stage boot essentials and original user-provided startup AVI files for local intro testing",
@@ -1081,6 +1303,8 @@ def main() -> None:
 		parser.error("--smoke-map and --intro-avi are mutually exclusive")
 	if args.smoke_map and args.probe_newgame:
 		parser.error("--smoke-map and --probe-newgame are mutually exclusive")
+	if args.world_render and not args.smoke_map:
+		parser.error("--world-render requires --smoke-map")
 
 	# Full retail builds validate source, then stage a normalized copy for the ISO.
 	if not args.smoke_map and not args.intro_avi:
@@ -1094,7 +1318,9 @@ def main() -> None:
 	extras = args.extras if args.extras.exists() else None
 	if args.smoke_map:
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-smoke-data-") as temp:
-			smoke_data = stage_smoke_data(args.data, Path(temp) / "valve", args.smoke_map)
+			smoke_data = stage_smoke_data(
+				args.data, Path(temp) / "valve", args.smoke_map, world_render=args.world_render
+			)
 			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
 			if validation_errors:
 				print("Smoke asset validation failed:", file=sys.stderr)
@@ -1142,6 +1368,8 @@ def main() -> None:
 					f"Retail staging: omitted {skipped} unsupported file(s) "
 					f"({', '.join(sorted(UNSUPPORTED_EXTENSIONS))})."
 				)
+			if not stage_gc_menu_assets(args.data, staged_data):
+				print("Warning: GameCube retail menu background bake failed.", file=sys.stderr)
 			validation_errors = validate_staged_retail_assets(staged_data)
 			if validation_errors:
 				print("Staged retail asset validation failed:", file=sys.stderr)

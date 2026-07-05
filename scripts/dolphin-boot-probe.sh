@@ -8,9 +8,9 @@ if [[ -f scripts/gamecube-env.sh ]]; then
 fi
 
 # shellcheck source=scripts/dolphin-probe-lock.sh
-source scripts/dolphin-probe-lock.sh
+source scripts/dolphin-probe-lock.sh || exit $?
 # shellcheck source=scripts/dolphin-probe-common.sh
-source scripts/dolphin-probe-common.sh
+source scripts/dolphin-probe-common.sh || exit $?
 
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
 ISO_PATH="$ROOT/$LOG_DIR/xash3d-gc.iso"
@@ -22,14 +22,16 @@ if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
 elif (( DOLPHIN_NEWGAME )); then
 	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-240}"
 else
-	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-60}"
+	# Entity spawn on large smoke maps (c1a0) needs headroom after BSP load.
+	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-180}"
 fi
 FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
+DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
-RETAIL_MENU_MARKER="Xash3D GameCube: screen gameui fallback ready"
+RETAIL_MENU_MARKER="Xash3D GameCube: retail menu steam background ready"
 INTRO_MARKER="Xash3D GameCube: intro AVI decoded first frame"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 INPUT_MARKER="Xash3D GameCube: input polling active"
@@ -55,6 +57,15 @@ SIDevice3 = 0
 [Interface]
 ConfirmStop = False
 EOF
+
+if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
+	cat > "$USER_DIR/Config/GFX.ini" <<'EOF'
+[Settings]
+DumpFrames = True
+DumpFramesSilent = True
+DumpFramesAsImages = True
+EOF
+fi
 
 cat > "$USER_DIR/Config/Logger.ini" <<'EOF'
 [Logs]
@@ -83,11 +94,19 @@ if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
 	SMOKE_MAP=""
 	BUILD_ARGS+=(--data Half-Life/valve)
 	echo "==> Retail disc mode (full valve assets, no smoke map)"
+	if [[ "${DOLPHIN_SKIP_INTRO:-0}" == "1" ]]; then
+		BUILD_ARGS+=(--skip-startup-vids)
+		echo "==> Skipping startup cinematic for faster menu validation"
+	fi
 	if (( DOLPHIN_NEWGAME )); then
 		BUILD_ARGS+=(--probe-newgame)
 	fi
 elif [[ -n "$SMOKE_MAP" ]]; then
 	BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")
+	if (( DOLPHIN_WORLD_RENDER )); then
+		BUILD_ARGS+=(--world-render)
+		echo "==> World render probe mode (gcworldrender in gamecube.cfg)"
+	fi
 fi
 if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
 	echo "FAIL: Disc build failed."

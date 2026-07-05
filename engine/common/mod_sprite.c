@@ -187,24 +187,31 @@ static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_versio
 #if XASH_GAMECUBE
 void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded )
 {
-	msprite_t *psprite;
+	static msprite_t stub;
 	char poolname[MAX_VA_STRING];
 
 	if( loaded )
 		*loaded = false;
 
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
-	mod->mempool = Mem_AllocPool( poolname );
+	if( Sys_CheckParm( "-gcmap" ))
+		mod->mempool = Mod_GameCubeSharedModelStubPool();
+	else
+		mod->mempool = Mem_AllocPool( poolname );
 	mod->type = mod_sprite;
 
-	psprite = Mem_Calloc( mod->mempool, sizeof( msprite_t ));
-	mod->cache.data = psprite;
+	if( stub.numframes == 0 )
+	{
+		memset( &stub, 0, sizeof( stub ));
+		stub.type = SPR_FWD_PARALLEL;
+		stub.texFormat = SPR_ALPHTEST;
+		stub.numframes = 1;
+		stub.facecull = SPR_CULL_FRONT;
+		stub.radius = 1.0f;
+	}
 
-	psprite->type = SPR_FWD_PARALLEL;
-	psprite->texFormat = SPR_ALPHTEST;
-	psprite->numframes = mod->numframes = 1;
-	psprite->facecull = SPR_CULL_FRONT;
-	psprite->radius = 1.0f;
+	mod->cache.data = &stub;
+	mod->numframes = 1;
 
 	mod->mins[0] = mod->mins[1] = -1.0f;
 	mod->maxs[0] = mod->maxs[1] = 1.0f;

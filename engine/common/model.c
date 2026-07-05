@@ -28,6 +28,25 @@ static model_info_t	mod_crcinfo[MAX_MODELS];
 static model_t	mod_known[MAX_MODELS];
 static int	mod_numknown = 0;
 poolhandle_t      com_studiocache;		// cache for submodels
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+static poolhandle_t gc_gcmap_stubpool;
+
+static qboolean Mod_GCMapVerboseModelLoad( const char *name )
+{
+	if( !Sys_CheckParm( "-gcmap" ))
+		return false;
+	if( !name )
+		return false;
+
+	/* High-traffic campaign chapters precache hundreds of weapon/item stubs.
+	 * Keep OSReport readable and avoid probe slowdowns by logging only the
+	 * world BSP and unusual failure paths, not every successful stub load. */
+	if( !Q_strnicmp( name, "maps/", 5 ))
+		return true;
+	return false;
+}
+#endif
 CVAR_DEFINE( mod_studiocache, "r_studiocache", "1", FCVAR_ARCHIVE, "enables studio cache for speedup tracing hitboxes" );
 CVAR_DEFINE_AUTO( r_wadtextures, "0", FCVAR_LATCH, "completely ignore textures in the bsp-file if enabled" );
 CVAR_DEFINE_AUTO( r_showhull, "0", 0, "draw collision hulls 1-3" );
@@ -129,6 +148,25 @@ static void Mod_FreeUserData( model_t *mod )
 	}
 }
 
+#if XASH_GAMECUBE
+static void Mod_FreeLoadBuffer( void *buf )
+{
+	if( !buf )
+		return;
+	if( GC_ReleaseMapLoadBuffer( buf ))
+		return;
+	Mem_Free( buf );
+}
+
+void Mod_ReleaseBrushSourceBuffer( void *buf )
+{
+	Mod_FreeLoadBuffer( buf );
+	GC_DiscardMapLoadBuffer();
+}
+#else
+#define Mod_FreeLoadBuffer( buf ) Mem_Free( buf )
+#endif
+
 /*
 ================
 Mod_FreeModel
@@ -144,13 +182,20 @@ void Mod_FreeModel( model_t *mod )
 	{
 		Mod_FreeUserData( mod );
 #if XASH_GAMECUBE
+		if( mod->type == mod_brush )
+			Mod_GameCubeFreeMallocSurfaces( mod );
 		if( mod->type == mod_brush && mod->cache.data )
 		{
-			Mem_Free( mod->cache.data );
+			Mod_FreeLoadBuffer( mod->cache.data );
 			mod->cache.data = NULL;
 		}
 #endif
+#if XASH_GAMECUBE
+		if( mod->mempool != gc_gcmap_stubpool )
+			Mem_FreePool( &mod->mempool );
+#else
 		Mem_FreePool( &mod->mempool );
+#endif
 	}
 
 	if( mod->type == mod_brush && FBitSet( mod->flags, MODEL_WORLD ) )
@@ -183,6 +228,9 @@ Mod_Init
 void Mod_Init( void )
 {
 	com_studiocache = Mem_AllocPool( "Studio Cache" );
+#if XASH_GAMECUBE
+	gc_gcmap_stubpool = Mem_AllocPool( "GCMap Model Stub Pool" );
+#endif
 	Cvar_RegisterVariable( &mod_studiocache );
 	Cvar_RegisterVariable( &r_wadtextures );
 	Cvar_RegisterVariable( &r_showhull );
@@ -207,6 +255,10 @@ void Mod_FreeAll( void )
 #endif
 	for( int i = 0; i < mod_numknown; i++ )
 		Mod_FreeModel( &mod_known[i] );
+#if XASH_GAMECUBE
+	if( gc_gcmap_stubpool )
+		Mem_EmptyPool( gc_gcmap_stubpool );
+#endif
 	mod_numknown = 0;
 }
 
@@ -230,7 +282,17 @@ void Mod_Shutdown( void )
 {
 	Mod_FreeAll();
 	Mem_FreePool( &com_studiocache );
+#if XASH_GAMECUBE
+	Mem_FreePool( &gc_gcmap_stubpool );
+#endif
 }
+
+#if XASH_GAMECUBE
+poolhandle_t Mod_GameCubeSharedModelStubPool( void )
+{
+	return gc_gcmap_stubpool;
+}
+#endif
 
 /*
 ===============================================================================
@@ -331,7 +393,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	Q_strncpy( loadname, tempname, sizeof( loadname ));
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && ( !Q_strncmp( tempname, "maps", 4 ) || !Q_strncmp( tempname, "models", 6 )))
+	if( Mod_GCMapVerboseModelLoad( tempname ))
 	{
 		Con_Reportf( "Xash3D GameCube: Mod_LoadModel request mod='%s' temp='%s'\n", mod->name, tempname );
 	}
@@ -344,7 +406,6 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 
 		if( ext && !Q_stricmp( ext, "mdl" ))
 		{
-			Con_Reportf( "loading %s\n", mod->name );
 			mod->needload = NL_PRESENT;
 			Mod_LoadStudioGcmapStub( mod, &loaded );
 			if( !loaded )
@@ -362,7 +423,6 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 
 		if( ext && !Q_stricmp( ext, "spr" ))
 		{
-			Con_Reportf( "loading %s\n", mod->name );
 			mod->needload = NL_PRESENT;
 			Mod_LoadSpriteGcmapStub( mod, &loaded );
 			if( !loaded )
@@ -377,7 +437,48 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	}
 #endif
 
-	byte *buf = FS_LoadFile( loadname, &length, false );
+	byte *buf = NULL;
+#if XASH_GAMECUBE
+	/* Prefer the early-reserved contiguous buffer for world BSPs so retail New
+	 * Game is not blocked by heap fragmentation after menu/client churn. */
+	if( !Q_strnicmp( loadname, "maps/", 5 ))
+	{
+		fs_offset_t filesize = FS_FileSize( loadname, false );
+
+		if( filesize > (fs_offset_t)sizeof( uint ))
+		{
+			buf = GC_BorrowMapLoadBuffer( (size_t)filesize );
+			if( buf )
+			{
+				file_t *f = FS_Open( loadname, "rb", false );
+
+				if( f )
+				{
+					length = FS_Read( f, buf, filesize );
+					FS_Close( f );
+					if( length == filesize )
+					{
+						Con_Reportf( "Xash3D GameCube: map load using reserved buffer %s\n",
+							Q_memprint( (size_t)filesize ));
+					}
+					else
+					{
+						GC_ReleaseMapLoadBuffer( buf );
+						buf = NULL;
+						length = 0;
+					}
+				}
+				else
+				{
+					GC_ReleaseMapLoadBuffer( buf );
+					buf = NULL;
+				}
+			}
+		}
+	}
+	if( !buf )
+#endif
+		buf = FS_LoadFile( loadname, &length, false );
 
 	if( !buf || length < sizeof( uint ))
 	{
@@ -421,7 +522,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		Mod_LoadBrushModel( mod, buf, length, &loaded );
 		break;
 	default:
-		Mem_Free( buf );
+		Mod_FreeLoadBuffer( buf );
 		if( crash ) Host_Error( "%s has unknown format\n", tempname );
 		else Con_Printf( S_ERROR "%s has unknown format\n", tempname );
 		return NULL;
@@ -459,7 +560,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	if( !loaded || !loaded2 )
 	{
 		Mod_FreeModel( mod );
-		Mem_Free( buf );
+		Mod_FreeLoadBuffer( buf );
 
 		if( crash ) Host_Error( "Could not load model %s\n", tempname );
 		else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
@@ -492,7 +593,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 #if XASH_GAMECUBE
 		if( mod->type != mod_brush || mod->cache.data != buf )
 #endif
-			Mem_Free( buf );
+			Mod_FreeLoadBuffer( buf );
 
 		return mod;
 	}
@@ -606,6 +707,39 @@ void Mod_FreeUnused( void )
 			Mod_FreeModel( mod );
 	}
 }
+
+#if XASH_GAMECUBE
+void Mod_GcmapMarkPrecacheFreeable( void )
+{
+	model_t *mod;
+	int i, marked;
+
+	if( !Sys_CheckParm( "-gcmap" ))
+		return;
+
+	marked = 0;
+	for( i = 1, mod = &mod_known[1]; i < mod_numknown; i++, mod++ )
+	{
+		if( mod->needload == NL_UNREFERENCED )
+			continue;
+		if( mod->name[0] == '*' )
+			continue;
+		if( mod->needload == NL_PRESENT )
+		{
+			mod->needload = NL_FREE_UNUSED;
+			marked++;
+		}
+	}
+
+	Mem_EmptyPool( com_studiocache );
+	Mod_ClearStudioCache();
+	Mod_FreeUnused();
+	Con_Reportf( "Xash3D GameCube: gcmap released %d precache models for world render\n", marked );
+#if XASH_GAMECUBE
+	GC_MemSample( "post-precache free" );
+#endif
+}
+#endif
 
 /*
 ===============================================================================

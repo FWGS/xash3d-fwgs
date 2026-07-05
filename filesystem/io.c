@@ -37,6 +37,10 @@ GNU General Public License for more details.
 #include "filesystem_internal.h"
 #include "common/com_strings.h"
 
+#if XASH_GAMECUBE
+extern int Sys_CheckParm( const char *parm );
+#endif
+
 #define FILE_COPY_SIZE		(1024 * 1024)
 
 static void FS_Purge( file_t *file )
@@ -698,6 +702,11 @@ static byte *FS_LoadFile_( const char *path, fs_offset_t *filesizeptr, const qbo
 
 	if( !search )
 		return NULL;
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ))
+		Con_Reportf( "Xash3D GameCube: FS_LoadFile path=%s net=%s\n", path, netpath );
+#endif
 
 	return FS_LoadFileFromArchive( search, netpath, pack_ind, filesizeptr, !custom_alloc );
 }

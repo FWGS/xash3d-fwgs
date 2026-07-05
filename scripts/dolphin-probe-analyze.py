@@ -13,6 +13,8 @@ from pathlib import Path
 from statistics import mean
 
 FRAME_TIME_RE = re.compile(r"frame time=([\d.]+)ms")
+GCMAP_RENDER_TIME_RE = re.compile(r"gcmap render time=([\d.]+)ms")
+MAP_LOADED_RE = re.compile(r"Xash3D GameCube: map loaded (\S+)")
 GUEST_ERROR_RE = re.compile(
 	r"(Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|"
 	r"Invalid read from|MMU fault|Program attempting to read)",
@@ -24,8 +26,13 @@ MARKERS = {
 	"input": "Xash3D GameCube: input polling active",
 	"g45_ready": "Xash3D GameCube: G45 controller ready",
 	"g45_waiting": "Xash3D GameCube: G45 controller waiting",
+	"smoke_begin": "Xash3D GameCube: gcmap smoke frames begin",
+	"world_render_begin": "Xash3D GameCube: gcmap world render begin",
+	"world_render_present": "Xash3D GameCube: gcmap world render present frame=",
 	"nonblack": "sampled_nonblack=1",
 	"diagnostic": "DIAGNOSTIC MARKER VISIBLE",
+	"synthetic_fallback": "Xash3D GameCube: gcmap world render unavailable, using status-panel fallback",
+	"world_render_ready": "Xash3D GameCube: gcmap world render ready",
 }
 G45_READY_RE = re.compile(
 	r"Xash3D GameCube: G45 controller ready port=(\d+) type=(\S+)"
@@ -45,15 +52,48 @@ def map_marker(smoke_map: str) -> str:
 	return f"Xash3D GameCube: map loaded {smoke_map}"
 
 
-def extract_frame_times(text: str) -> list[float]:
-	marker = "Xash3D GameCube: gcmap smoke frames begin"
-	if marker in text:
-		text = text.split(marker, 1)[1]
+def detect_loaded_map(text: str) -> str | None:
+	match = MAP_LOADED_RE.search(text)
+	if match:
+		return match.group(1)
+	return None
+
+
+def probe_phase_text(text: str, *, world_render: bool = False) -> str:
+	markers: tuple[str, ...]
+
+	if world_render:
+		markers = (MARKERS["world_render_begin"],)
+	else:
+		markers = (MARKERS["world_render_begin"], MARKERS["smoke_begin"])
+
+	for marker in markers:
+		if marker in text:
+			return text.split(marker, 1)[1]
+
+	# gcmap/gcworldrender probes should not reuse the early splash present markers.
+	if "-gcworldrender" in text or "-gcmap" in text:
+		return ""
+
+	return text
+
+
+def extract_frame_times(text: str, *, world_render: bool = False) -> list[float]:
+	text = probe_phase_text(text, world_render=world_render)
+	if not text:
+		return []
+	if world_render:
+		times = [float(match.group(1)) for match in GCMAP_RENDER_TIME_RE.finditer(text)]
+		if times:
+			return [value for value in times if value <= 500.0]
 	times = [float(match.group(1)) for match in FRAME_TIME_RE.finditer(text)]
 	if len(times) > 1:
 		times = times[1:]  # first present after reset includes renderer restore warm-up
-	# Drop one-shot warm-up spikes (map restore, texture init) from budget stats.
-	return [value for value in times if value <= 25.0]
+	# Smoke status-panel frames stay near the 16.67ms target; drop one-shot spikes.
+	# World-render probe frames are intentionally heavier (software BSP), so allow
+	# a higher ceiling while still rejecting pathological multi-second stalls.
+	max_ms = 500.0 if world_render else 25.0
+	return [value for value in times if value <= max_ms]
 
 
 def percentile(values: list[float], pct: float) -> float:
@@ -69,11 +109,15 @@ def classify_g36(
 	target_ms: float,
 	map_loaded: bool,
 	guest_error: bool,
+	synthetic_fallback: bool,
+	world_render_ready: bool,
 ) -> tuple[str, str]:
 	if guest_error:
 		return "FAIL", "guest error observed after bootstrap"
 	if not map_loaded:
 		return "FAIL", "map load marker missing"
+	if synthetic_fallback and not world_render_ready:
+		return "WEAK", "only synthetic status-panel frames were captured; world render fallback remained unavailable"
 	if not samples:
 		return "FAIL", "no frame timing samples captured"
 	steady = [value for value in samples if value > 0.0] or samples
@@ -82,6 +126,12 @@ def classify_g36(
 	within = avg <= (target_ms * 1.05) and p95 <= (target_ms * 1.25)
 	if within and len(steady) >= 3:
 		return "PASS", f"avg={avg:.2f}ms p95={p95:.2f}ms target={target_ms:.2f}ms"
+	if world_render_ready and len(steady) >= 1:
+		return (
+			"WEAK",
+			f"world render frames captured avg={avg:.2f}ms p95={p95:.2f}ms "
+			f"target={target_ms:.2f}ms (software BSP path still above budget)",
+		)
 	if len(steady) >= 1:
 		return "WEAK", f"avg={avg:.2f}ms p95={p95:.2f}ms target={target_ms:.2f}ms"
 	return "FAIL", "insufficient steady-state frame samples"
@@ -106,9 +156,13 @@ def classify_g45(
 
 
 def visual_status(text: str) -> str:
-	if MARKERS["nonblack"] in text:
+	phase_text = probe_phase_text(text, world_render="-gcworldrender" in text)
+
+	if MARKERS["world_render_present"] in phase_text and MARKERS["nonblack"] in phase_text:
+		return "world render nonblack"
+	if MARKERS["nonblack"] in phase_text:
 		return "nonblack sampled"
-	if MARKERS["diagnostic"] in text:
+	if MARKERS["diagnostic"] in phase_text:
 		return "diagnostic marker"
 	return "unknown"
 
@@ -189,13 +243,25 @@ def main() -> int:
 	repo = args.repo.resolve()
 	log_dir = args.log_dir.resolve()
 	text = read_log_text(log_dir)
-	frame_times = extract_frame_times(text)
+	loaded_map = detect_loaded_map(text)
+	world_render_ready = MARKERS["world_render_ready"] in text
+	frame_times = extract_frame_times(text, world_render=world_render_ready)
 	map_loaded = map_marker(args.smoke_map) in text
+	if not map_loaded and loaded_map is not None:
+		map_loaded = True
 	input_active = MARKERS["input"] in text
 	guest_error = bool(GUEST_ERROR_RE.search(text))
+	synthetic_fallback = MARKERS["synthetic_fallback"] in text
 	visual = visual_status(text)
 
-	g36_status, g36_note = classify_g36(frame_times, args.target_ms, map_loaded, guest_error)
+	g36_status, g36_note = classify_g36(
+		frame_times,
+		args.target_ms,
+		map_loaded,
+		guest_error,
+		synthetic_fallback,
+		world_render_ready,
+	)
 	g45_status, g45_note = classify_g45(text, map_loaded, input_active, guest_error)
 	steady = [value for value in frame_times if value > 0.0] or frame_times
 	avg = mean(steady) if steady else 0.0

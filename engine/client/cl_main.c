@@ -3698,7 +3698,9 @@ void Host_ClientBegin( void )
 		return;
 
 	if( !CL_GameCubeClientProgsReady() )
+	{
 		return;
+	}
 #endif
 
 	// finalize connection process if needs
@@ -3737,6 +3739,17 @@ void Host_ClientFrame( void )
 
 	if( !CL_GameCubeClientProgsReady() )
 	{
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcmap" ))
+		{
+			/* Map-load smoke keeps client progs deferred; avoid renderer/texture
+			 * work that allocates from the filesystem pool while BSP data
+			 * still owns most of MEM1. */
+			if( host.renderinfo_changed )
+				host.renderinfo_changed = false;
+			return;
+		}
+#endif
 		VID_CheckChanges();
 		SCR_UpdateScreen();
 		SCR_RunCinematic();
@@ -3884,6 +3897,7 @@ void CL_Init( void )
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcmap" ))
 	{
+		memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
 		cls.build_num = 0;
 		cls.initialized = true;
 		cl.maxclients = 1;
@@ -3922,10 +3936,7 @@ qboolean CL_GameCubeEnsureClientReady( void )
 {
 	string libpath;
 
-	if( gc_cl_deferred_init_done && clgame.hInstance )
-		return true;
-
-	if( gc_cl_deferred_init_done && !Sys_CheckParm( "-gcmap" ) && !UI_UsingBuiltInFallbackMenu() )
+	if( clgame.hInstance )
 		return true;
 
 	Con_Reportf( "Xash3D GameCube: deferred client init begin\n" );
@@ -3951,6 +3962,24 @@ qboolean CL_GameCubeEnsureClientReady( void )
 	gc_cl_deferred_init_done = true;
 	Con_Reportf( "Xash3D GameCube: deferred client init ready\n" );
 	return true;
+}
+
+void CL_GameCubeUnloadClientForMapLoad( void )
+{
+	if( clgame.hInstance )
+	{
+		CL_UnloadProgs();
+		gc_cl_deferred_init_done = false;
+		Con_Reportf( "Xash3D GameCube: client progs unloaded for map load\n" );
+	}
+
+	/* Sound was started with the first client bring-up; drop it so the BSP
+	 * texture pass has the same headroom as the -gcmap smoke route. */
+	if( snd.initialized )
+	{
+		S_Shutdown();
+		Con_Reportf( "Xash3D GameCube: sound shutdown for map load\n" );
+	}
 }
 #endif
 

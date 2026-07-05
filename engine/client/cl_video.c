@@ -139,6 +139,11 @@ static int SCR_LoadStartupVidList( void )
 
 	return c;
 }
+
+qboolean SCR_HaveStartupVids( void )
+{
+	return SCR_LoadStartupVidList() > 0;
+}
 #endif
 
 void SCR_CheckStartupVids( void )
