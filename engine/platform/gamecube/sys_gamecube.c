@@ -277,8 +277,6 @@ void GCube_Init( void )
 		gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
 		if( !gc_dvd_mounted )
 			Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed (skipping mount)\n" );
-		if( !gc_dvd_mounted )
-			Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed (skipping mount)\n" );
 	} // G72: Skip DVD mount failure to allow runtime probe to proceed
 	if( gc_dvd_mounted )
 		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n", ISO9660_GetVolumeLabel( GC_DVD_DEVICE ) );
