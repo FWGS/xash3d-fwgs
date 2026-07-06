@@ -11,6 +11,8 @@ from pathlib import Path
 
 
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL|SKIP)\]\s+(.+)$")
+PATH_RE = re.compile(r"(?:^|[\s(])((?:\.?\.?/)?(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+)")
+WHITESPACE_RE = re.compile(r"\s+")
 
 COMMON_READ_CONTEXT = (
 	".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
@@ -215,12 +217,25 @@ def latest_recent_step(memory: dict[str, object]) -> dict[str, object] | None:
 	return None
 
 
+def sanitize_for_prompt(text: str, *, limit: int) -> str:
+	text = text.replace("\x00", " ")
+	text = PATH_RE.sub(lambda match: match.group(0).replace(match.group(1), "[path]"), text)
+	text = text.replace("SEARCH/REPLACE", "patch block")
+	text = WHITESPACE_RE.sub(" ", text).strip()
+	if len(text) <= limit:
+		return text
+	cut = text[:limit].rstrip()
+	if " " in cut:
+		cut = cut.rsplit(" ", 1)[0]
+	return cut + "..."
+
+
 def runtime_summary(root: Path) -> str:
 	latest = root / ".ai/state/dolphin-harness-latest.md"
 	if latest.is_file():
 		text = latest.read_text(encoding="utf-8", errors="replace").strip()
 		if text:
-			return text[:2400]
+			return sanitize_for_prompt(text, limit=420)
 	return "No Dolphin runtime summary recorded yet."
 
 
@@ -240,8 +255,14 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	read_context = existing_paths(root, tuple(str(path) for path in recipe["read_context"]))
 	read_context.extend(path for path in COMMON_READ_CONTEXT if (root / path).is_file() and path not in read_context)
 	goal_label = f"{goal.goal_id} {goal.title}" if goal is not None else "the final GameCube port objective"
-	observation = str(recent.get("observation") or "").strip() or "No captured observation."
-	intent = str(recent.get("intent") or "").strip() or "Use the freshest runtime evidence."
+	observation = sanitize_for_prompt(
+		str(recent.get("observation") or "").strip() or "No captured observation.",
+		limit=280,
+	)
+	intent = sanitize_for_prompt(
+		str(recent.get("intent") or "").strip() or "Use the freshest runtime evidence.",
+		limit=140,
+	)
 	reason = (
 		f"Recent automation evidence classified the blocker as `{failure_class}` while advancing "
 		f"{goal_label}. The next pass should remove that blocker directly instead of waiting for a fixed goal transition."
@@ -262,13 +283,15 @@ Task:
 - Make exactly one small, source-first patch in the loaded editable files.
 - Prefer removing the current blocker over adding more instrumentation.
 - Keep the patch under 160 changed lines.
+- Touch only one editable file unless a second file is strictly required to keep the build valid.
 - Do not write docs-only status updates.
 - If the loaded files are insufficient for a safe fix, tighten the automation path or budget only when that is the blocker itself.
 - Do not ask for manual confirmation; choose the smallest safe patch and proceed.
 
 Output rules:
-- Start immediately with SEARCH/REPLACE blocks for the chosen file.
-- No prose, no checklist, no planning text.
+- Return only SEARCH/REPLACE blocks or the exact string NO_EDIT.
+- No prose, no checklist, no planning text, no markdown fences, no explanations.
+- Keep the full reply under 60 lines.
 """
 	return WorkItem(
 		kind="discovery",

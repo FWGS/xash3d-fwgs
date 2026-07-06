@@ -20,7 +20,8 @@ DEFAULT_API_BASE = "http://127.0.0.1:8072/v1"
 DEFAULT_MODEL = "qwen-local"
 DEFAULT_MAX_CONTEXT = 65536
 METADATA_PATH = Path(".ai/aider-model-metadata.json")
-SYSTEM_OVERHEAD_TOKENS = 24576
+DEFAULT_SYSTEM_OVERHEAD_TOKENS = 24576
+LOW_VRAM_SYSTEM_OVERHEAD_TOKENS = 8192
 BYTES_PER_TOKEN = 3.5
 
 
@@ -51,6 +52,10 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	profile = os.environ.get("AI_LOCAL_PROFILE", "").strip().lower()
 	low_vram = profile in {"rtx-pro-4000-24gb", "rtx4000-24gb", "24gb"} or \
 		os.environ.get("AIDER_LOW_VRAM_PROFILE") in {"1", "true", "yes"}
+	system_overhead_tokens = int(os.environ.get(
+		"AIDER_SYSTEM_OVERHEAD_TOKENS",
+		str(LOW_VRAM_SYSTEM_OVERHEAD_TOKENS if low_vram else DEFAULT_SYSTEM_OVERHEAD_TOKENS),
+	))
 	if low_vram:
 		max_context = min(max_context, 32768)
 	attempt = max(1, min(attempt, 4))
@@ -63,7 +68,7 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		max(128, min(256, max_output_cap // 6)),
 	]
 	output_tiers = [max(128, int(value * attempt_scale)) for value in output_tiers]
-	input_budget = max(4096, max_context - output_tiers[0] - SYSTEM_OVERHEAD_TOKENS)
+	input_budget = max(4096, max_context - output_tiers[0] - system_overhead_tokens)
 	max_bytes = int(input_budget * BYTES_PER_TOKEN)
 	if max_context >= 60000:
 		context_tiers = [
@@ -82,8 +87,12 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	context_tiers = [max(1500, int(value * attempt_scale)) for value in context_tiers]
 	history = max(128, min(512, int(max_context // 160 * attempt_scale)))
 	if low_vram:
-		output_tiers = [max(128, min(value, cap)) for value, cap in zip(output_tiers, (768, 512, 384, 256))]
-		context_tiers = [max(1500, int(value * 0.7)) for value in context_tiers]
+		output_tiers = [max(128, min(value, cap)) for value, cap in zip(output_tiers, (512, 384, 256, 192))]
+		low_vram_context_floors = (14000, 12000, 9000, 7000)
+		context_tiers = [
+			max(floor, int(value * 0.7))
+			for value, floor in zip(context_tiers, low_vram_context_floors)
+		]
 		history = max(128, min(history, 256))
 	return {
 		"AIDER_MODEL_MAX_CONTEXT": max_context,
