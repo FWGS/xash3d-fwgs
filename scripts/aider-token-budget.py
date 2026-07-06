@@ -62,10 +62,10 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	attempt_scale = {1: 1.0, 2: 0.75, 3: 0.5, 4: 0.35}[attempt]
 	max_output_cap = max(512, min(2048, max_context // 16))
 	output_tiers = [
-		max(384, min(1024, max_output_cap // 2)),
-		max(256, min(768, max_output_cap // 3)),
-		max(192, min(512, max_output_cap // 4)),
-		max(128, min(256, max_output_cap // 6)),
+		max(450, min(1200, max_output_cap // 2)),
+		max(300, min(900, max_output_cap // 3)),
+		max(220, min(600, max_output_cap // 4)),
+		max(150, min(350, max_output_cap // 6)),
 	]
 	output_tiers = [max(128, int(value * attempt_scale)) for value in output_tiers]
 	input_budget = max(4096, max_context - output_tiers[0] - system_overhead_tokens)
