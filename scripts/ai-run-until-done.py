@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timezone
 import time
 import tempfile
 from itertools import count
@@ -20,6 +21,15 @@ try:
 	import fcntl
 except ImportError:  # pragma: no cover - non-Unix fallback
 	fcntl = None
+
+
+DISCOVERY_STATE_PATH = Path(".ai/state/discovery-supervisor.json")
+DISCOVERY_RETRY_RESULTS = {
+	10: "no_edit",
+	18: "model_budget",
+	19: "no_edit",
+}
+DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19}
 
 
 def run(command: list[str], root: Path, env: dict[str, str] | None = None) -> int:
@@ -126,6 +136,40 @@ def next_work_item(root: Path, mode: str) -> dict[str, object] | None:
 	return None
 
 
+def record_discovery_feedback(root: Path, item: dict[str, object], status: int,
+	result: str, intent: str, observation: str) -> None:
+	path = root / DISCOVERY_STATE_PATH
+	path.parent.mkdir(parents=True, exist_ok=True)
+	repeat_count = 1
+	if path.is_file():
+		try:
+			previous = json.loads(path.read_text(encoding="utf-8"))
+		except (OSError, json.JSONDecodeError):
+			previous = None
+		if isinstance(previous, dict) and \
+			previous.get("item_id") == item.get("item_id") and \
+			previous.get("result") == result:
+			repeat_count = int(previous.get("repeat_count") or 1) + 1
+	payload = {
+		"goal": item.get("source_goal_id"),
+		"item_id": item.get("item_id"),
+		"title": item.get("title"),
+		"kind": item.get("kind"),
+		"exit_code": status,
+		"phase": "discovery-pass",
+		"result": result,
+		"intent": intent,
+		"observation": observation,
+		"repeat_count": repeat_count,
+		"timestamp": datetime.now(timezone.utc).isoformat(),
+	}
+	path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def clear_discovery_feedback(root: Path) -> None:
+	(root / DISCOVERY_STATE_PATH).unlink(missing_ok=True)
+
+
 def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 	task = str(item.get("task") or "").strip()
 	if not task:
@@ -145,10 +189,31 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		env["AI_DIRTY_COMMIT_SUBJECT"] = "chore: checkpoint dirty discovery state"
 		env.setdefault("AIDER_AUTOMATION", "1")
 		env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
+		env.setdefault("AI_REVIEW_ALLOW_SOURCE_ONLY_DISCOVERY", "1")
 		status = run(["scripts/ai-aider-pass.sh", str(root), str(task_path), *context, *read_context], root, env=env)
 		if status != 0:
+			result = DISCOVERY_RETRY_RESULTS.get(status, "runtime_probe")
+			intent = {
+				10: "Tighten the automation path before retrying the runtime fix.",
+				18: "Reduce context and output pressure before retrying the runtime fix.",
+				19: "Restore at least one editable file to the discovery pass before retrying.",
+			}.get(status, "Inspect the failed discovery pass before retrying.")
+			observation = f"Discovery pass `{item.get('item_id')}` exited {status} before an accepted patch."
+			record_discovery_feedback(root, item, status, result, intent, observation)
 			return status
-		return run(["scripts/ai-review.sh"], root, env=env)
+		status = run(["scripts/ai-review.sh"], root, env=env)
+		if status != 0:
+			record_discovery_feedback(
+				root,
+				item,
+				status,
+				"review_reject",
+				"Align the discovery path with the acceptance gates before retrying source edits.",
+				f"Discovery pass `{item.get('item_id')}` built and committed, but the acceptance review rejected the result.",
+			)
+			return status
+		clear_discovery_feedback(root)
+		return 0
 	finally:
 		task_path.unlink(missing_ok=True)
 
@@ -206,6 +271,10 @@ def main() -> int:
 			print(f"\n== supervisor cycle {cycle}/{cycle_limit}: discovery - {label} ==", flush=True)
 			status = run_discovery_pass(root, work_item)
 		if status == 0:
+			continue
+		if work_item.get("kind") == "discovery" and status in DISCOVERY_FAST_RETRY_STATUSES:
+			print(f"run-until-done: child exit {status}; retrying immediately with refreshed discovery state",
+				file=sys.stderr, flush=True)
 			continue
 		print(f"run-until-done: child exit {status}; continuing after {args.sleep}s",
 			file=sys.stderr, flush=True)

@@ -75,6 +75,8 @@ class AiAutonomyTests(unittest.TestCase):
 			self.assertEqual(items[0].kind, "discovery")
 			self.assertEqual(items[0].failure_class, "memory_pressure")
 			self.assertIn("G36", items[0].task)
+			self.assertIn("Loaded editable files:", items[0].task)
+			self.assertIn("engine/common/zone.c", items[0].task)
 
 	def test_low_vram_budget_caps_context_and_history(self) -> None:
 		module = load_script_module("aider_token_budget", Path(__file__).resolve().parents[1] / "scripts/aider-token-budget.py")
@@ -96,6 +98,88 @@ class AiAutonomyTests(unittest.TestCase):
 		self.assertEqual(budgets["AIDER_MODEL_MAX_CONTEXT"], 32768)
 		self.assertLessEqual(budgets["AIDER_MAX_CHAT_HISTORY_TOKENS"], 256)
 		self.assertLessEqual(budgets["AIDER_OUTPUT_TOKENS_INITIAL"], 768)
+
+	def test_discovery_supervisor_state_overrides_runtime_probe_retry(self) -> None:
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / ".ai/goals").mkdir(parents=True)
+			(root / ".ai/state").mkdir(parents=True)
+			(root / ".ai/prompts").mkdir(parents=True)
+			(root / "scripts").mkdir(parents=True)
+			(root / ".ai/goals/GAMECUBE_PORT_GOALS.md").write_text(
+				"## G72 [ ] close runtime blocker\n- Status: ACTIVE\n",
+				encoding="utf-8",
+			)
+			(root / ".ai/state/discovery-supervisor.json").write_text(json.dumps({
+				"result": "review_reject",
+				"intent": "Align the discovery path with the acceptance gates before retrying source edits.",
+				"observation": "A source-only discovery commit built successfully but the review gate rejected it.",
+			}), encoding="utf-8")
+			for prompt in (
+				".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
+				".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
+				".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
+			):
+				(root / prompt).write_text("context", encoding="utf-8")
+			for path in (
+				"scripts/ai-review.sh",
+				"scripts/ai-run-until-done.py",
+				"scripts/ai-aider-pass.sh",
+				"scripts/ai-auto-discover.py",
+			):
+				(root / path).write_text("# stub\n", encoding="utf-8")
+
+			module = load_script_module(
+				"ai_auto_discover_review_reject",
+				Path(__file__).resolve().parents[1] / "scripts/ai-auto-discover.py",
+			)
+			items = module.discover_items(root)
+			self.assertTrue(items)
+			self.assertEqual(items[0].kind, "discovery")
+			self.assertEqual(items[0].failure_class, "review_reject")
+			self.assertIn("acceptance gates", items[0].task)
+
+	def test_repeated_no_edit_escalates_to_model_budget(self) -> None:
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / ".ai/goals").mkdir(parents=True)
+			(root / ".ai/state").mkdir(parents=True)
+			(root / ".ai/prompts").mkdir(parents=True)
+			(root / "scripts").mkdir(parents=True)
+			(root / ".ai/goals/GAMECUBE_PORT_GOALS.md").write_text(
+				"## G72 [ ] close runtime blocker\n- Status: ACTIVE\n",
+				encoding="utf-8",
+			)
+			(root / ".ai/state/discovery-supervisor.json").write_text(json.dumps({
+				"result": "no_edit",
+				"repeat_count": 2,
+				"intent": "Tighten the automation path before retrying the runtime fix.",
+				"observation": "Discovery pass exited 10 before an accepted patch.",
+			}), encoding="utf-8")
+			(root / ".ai/README.md").write_text("context", encoding="utf-8")
+			for prompt in (
+				".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
+				".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
+				".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
+			):
+				(root / prompt).write_text("context", encoding="utf-8")
+			for path in (
+				"scripts/aider-token-budget.py",
+				"scripts/ai-aider-pass.sh",
+				"scripts/xash3d-gc-aider-gui.py",
+				"scripts/gamecube-env.sh",
+			):
+				(root / path).write_text("# stub\n", encoding="utf-8")
+
+			module = load_script_module(
+				"ai_auto_discover_model_budget",
+				Path(__file__).resolve().parents[1] / "scripts/ai-auto-discover.py",
+			)
+			items = module.discover_items(root)
+			self.assertTrue(items)
+			self.assertEqual(items[0].kind, "discovery")
+			self.assertEqual(items[0].failure_class, "model_budget")
+			self.assertIn("Repeated no-edit discovery loop detected", items[0].task)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,15 @@ echo "== AI review =="
 changed="$(git diff --name-only HEAD~1..HEAD || true)"
 echo "$changed"
 
+source_only_discovery_ok() {
+  [[ "${AI_REVIEW_ALLOW_SOURCE_ONLY_DISCOVERY:-0}" == "1" ]] || return 1
+  [[ -n "$changed" ]] || return 1
+  if grep -Evq '^(engine/|ref/|common/|filesystem/|public/|stub/)' <<<"$changed"; then
+    return 1
+  fi
+  return 0
+}
+
 # Commit messages are generated deterministically by the harness. Keep the
 # subject conventional; allow a structured body for goal evidence and context.
 subject="$(git log -1 --format=%s)"
@@ -44,7 +53,9 @@ fi
 # Port plan must be updated unless a deliberately sliced G24 renderer pass kept
 # the large plan out of model context to avoid local token-limit failures.
 if ! git diff --name-only HEAD~1..HEAD | grep -qx 'docs/GAMECUBE_PORT_PLAN.md'; then
-  if [[ "$subject" == "chore: update GameCube porting GUI" ]] && \
+  if source_only_discovery_ok; then
+    echo "review: accepting source-only discovery commit without port plan"
+  elif [[ "$subject" == "chore: update GameCube porting GUI" ]] && \
     [[ -z "$(git diff --name-only HEAD~1..HEAD | grep -Ev '^(scripts/xash3d-gc-aider-gui\.(py|sh))$' || true)" ]]; then
     echo "review: accepting standalone GUI maintenance commit without port plan"
   elif [[ "$subject" =~ ^feat:\ (wire|bound|stabilize|reduce|simplify)\ GameCube\ .* ]] && \

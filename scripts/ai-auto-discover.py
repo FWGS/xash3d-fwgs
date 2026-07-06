@@ -19,6 +19,7 @@ COMMON_READ_CONTEXT = (
 	".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
 	".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
 )
+DISCOVERY_STATE_PATH = Path(".ai/state/discovery-supervisor.json")
 
 DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 	"memory_pressure": {
@@ -124,6 +125,17 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		),
 		"read_context": (".ai/README.md",),
 	},
+	"review_reject": {
+		"title": "align discovery passes with the acceptance gates",
+		"subject": "chore: align GameCube discovery acceptance gates",
+		"context": (
+			"scripts/ai-review.sh",
+			"scripts/ai-run-until-done.py",
+			"scripts/ai-aider-pass.sh",
+			"scripts/ai-auto-discover.py",
+		),
+		"read_context": (".ai/README.md",),
+	},
 }
 
 
@@ -204,6 +216,39 @@ def load_memory(root: Path) -> dict[str, object]:
 	return data if isinstance(data, dict) else {}
 
 
+def load_discovery_state(root: Path) -> dict[str, object] | None:
+	path = root / DISCOVERY_STATE_PATH
+	if not path.is_file():
+		return None
+	try:
+		data = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return None
+	return data if isinstance(data, dict) else None
+
+
+def normalize_discovery_state(state: dict[str, object]) -> dict[str, object]:
+	result = str(state.get("result") or "").strip()
+	repeat_count = int(state.get("repeat_count") or 1)
+	if result == "no_edit" and repeat_count >= 2:
+		state = dict(state)
+		state["result"] = "model_budget"
+		state["intent"] = "Repeated NO_EDIT responses mean the automation context or prompt budget still needs tightening."
+		state["observation"] = (
+			f"Repeated no-edit discovery loop detected ({repeat_count} consecutive passes); "
+			"switch to budget/context repair instead of replaying the same task."
+		)
+	elif result == "model_budget" and repeat_count >= 2:
+		state = dict(state)
+		state["result"] = "review_reject"
+		state["intent"] = "Repeated automation repair failures mean the discovery acceptance path itself needs alignment."
+		state["observation"] = (
+			f"Repeated model-budget repair loop detected ({repeat_count} consecutive passes); "
+			"inspect the discovery acceptance path and retry policy."
+		)
+	return state
+
+
 def latest_recent_step(memory: dict[str, object]) -> dict[str, object] | None:
 	conact = memory.get("conact")
 	if not isinstance(conact, dict):
@@ -254,6 +299,8 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
 	read_context = existing_paths(root, tuple(str(path) for path in recipe["read_context"]))
 	read_context.extend(path for path in COMMON_READ_CONTEXT if (root / path).is_file() and path not in read_context)
+	context_list = "\n".join(f"- {path}" for path in context) or "- none"
+	read_context_list = "\n".join(f"- {path}" for path in read_context) or "- none"
 	goal_label = f"{goal.goal_id} {goal.title}" if goal is not None else "the final GameCube port objective"
 	observation = sanitize_for_prompt(
 		str(recent.get("observation") or "").strip() or "No captured observation.",
@@ -279,8 +326,15 @@ Reason this task was synthesized:
 Fresh runtime evidence:
 {runtime_summary(root)}
 
+Loaded editable files:
+{context_list}
+
+Loaded read-only files:
+{read_context_list}
+
 Task:
 - Make exactly one small, source-first patch in the loaded editable files.
+- Choose from the loaded editable files listed above; do not claim that no editable files were provided unless the list is literally empty.
 - Prefer removing the current blocker over adding more instrumentation.
 - Keep the patch under 160 changed lines.
 - Touch only one editable file unless a second file is strictly required to keep the build valid.
@@ -340,7 +394,9 @@ def discover_items(root: Path) -> list[WorkItem]:
 	items: list[WorkItem] = []
 	if goal is not None:
 		items.append(build_goal_item(goal))
-	recent = latest_recent_step(load_memory(root))
+	recent = load_discovery_state(root) or latest_recent_step(load_memory(root))
+	if recent is not None:
+		recent = normalize_discovery_state(recent)
 	if recent is not None:
 		discovered = build_discovered_item(root, goal, recent)
 		if discovered is not None:

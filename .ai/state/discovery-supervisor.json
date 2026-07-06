@@ -1,0 +1,12 @@
+{
+  "goal": "G72",
+  "item_id": "discovery:no_edit:G72",
+  "title": "unblock the harness from repeated no-edit loops",
+  "kind": "discovery",
+  "exit_code": 10,
+  "phase": "discovery-pass",
+  "result": "no_edit",
+  "intent": "Tighten the automation path before retrying the runtime fix.",
+  "observation": "Discovery pass `discovery:no_edit:G72` exited 10 before an accepted patch.",
+  "timestamp": "2026-07-06T19:16:39.500151+00:00"
+}

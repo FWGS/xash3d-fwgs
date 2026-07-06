@@ -365,6 +365,17 @@ context_args_for_attempt() {
 	done
 }
 
+editable_context_arg_count() {
+	local arg
+	local count=0
+	for arg in "$@"; do
+		if [[ "$arg" == "--file" ]]; then
+			count=$(( count + 1 ))
+		fi
+	done
+	printf '%s\n' "$count"
+}
+
 run_aider_with_recovery() {
 	local label="$1"
 	local editable_only=0
@@ -395,6 +406,12 @@ run_aider_with_recovery() {
 			mapfile -t context_args < <(editable_context_args_for_attempt "$attempt")
 		else
 			mapfile -t context_args < <(context_args_for_attempt "$attempt")
+		fi
+		local editable_count
+		editable_count="$(editable_context_arg_count "${context_args[@]}")"
+		if (( editable_count == 0 )); then
+			echo "ai-aider-pass: no editable context remains after budgeting on attempt=$attempt" >&2
+			return 19
 		fi
 		settings_args=()
 		if (( attempt > 1 )) || [[ "${AIDER_FORCE_TEMP_MODEL_SETTINGS:-1}" == "1" ]]; then

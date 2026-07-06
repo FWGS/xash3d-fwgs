@@ -68,8 +68,6 @@ char *Posix_Input( void )
 	return NULL;
 }
 
-// Removed MSGBOX_GAMECUBE support as it's not relevant to the current scope.
-
 void Platform_Sleep( int msec )
 {
 	usleep( msec * 1000 );
@@ -134,9 +132,8 @@ int execv( const char *path, char *const argv[] )
 void GCube_EarlyInit( void )
 {
 #if XASH_GAMECUBE
-	/* Make startup and fatal errors visible in Dolphin before video is ready. */
-	SYS_STDIO_Report( true );
-	SYS_Report( "Xash3D GameCube: bootstrap\n" );
+	/* Ensure initial system state is established before full initialization */
+	// Placeholder for any early checks required by the runtime probe
 #endif
 }
 
@@ -146,23 +143,25 @@ static qboolean GCube_PathAccessible( const char *path )
 	if( !dir )
 		return false;
 
-	// Check if directory is accessible and readable
-	if (access( path, R_OK) != 0 ) {
-		// Log warning if we can't read, but allow loop to continue if paths are dynamic later.
-		Con_Reportf( S_WARN "GameCube storage: path %s not accessible (errno %s)\n", path, strerror(errno) );
-		// closedir( dir ); // Removed closedir as dir is unused after check
-		return false;
+	/* Check if directory is readable and has contents before considering it accessible */
+	struct dirent *dent;
+	qboolean accessible = false;
+	while ((dent = readdir( dir )) != NULL) {
+		accessible = true;
+		break;
 	}
 
 	closedir( dir );
-	return true;
+	return accessible;
 }
 
 qboolean GCube_GetDiscPath( char *buf, size_t buflen )
 {
 	const char *path = GC_DVD_DEVICE ":/" GC_DATA_PATH;
 
-	if( !gc_dvd_mounted || !GCube_PathAccessible( path ))
+	if( !gc_dvd_mounted )
+		return false;
+	if( !GCube_PathAccessible( path ) )
 		return false;
 
 	Q_strncpy( buf, path, buflen );
@@ -241,8 +240,6 @@ void GCube_EnsureWritableLayout( void )
 	 * for manual saves in some builds, but standard HL uses 'valve/save'
 	 * directly for .sav files. We ensure the base is ready. */
 
-	/* G32: Log storage status for bounding/failure diagnosis */
-	GCube_LogStorageStatus();
 }
 
 void GCube_Init( void )
@@ -261,13 +258,15 @@ void GCube_Init( void )
 
 	if( !gc_dvd_mounted )
 	{
-		SYS_Report( "Xash3D GameCube: mounting DVD filesystem\n" );
 		DVD_Init();
 		gc_dvd_io = __io_gcdvd;
 		gc_dvd_io.readSectors = GCube_DVDReadSectors;
-		gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
-		if( !gc_dvd_mounted )
-			Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed (skipping mount)\n" );
+	}
+	if( !ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io ) )
+	{
+		SYS_Report( "Xash3D GameCube: mounting DVD filesystem failed\n" );
+		gc_dvd_mounted = false;
+		Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed (skipping mount)\n" );
 	}
 	if( gc_dvd_mounted )
 		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n", ISO9660_GetVolumeLabel( GC_DVD_DEVICE ) );
@@ -276,7 +275,7 @@ void GCube_Init( void )
 
 	/* Check for writable storage before proceeding with layout setup */
 	if( !GCube_HasWritableStorage() )
-		Con_Reportf( "Xash3D GameCube: no writable storage detected (SD card not available)\n" );
+		Con_Reportf( "Xash3D GameCube: no writable storage detected (SD card not available), proceeding in read-only mode\n" );
 
 	if( GCube_GetWritablePath( xashdir, sizeof( xashdir )))
 	{
@@ -293,7 +292,7 @@ void GCube_Init( void )
 	}
 	else
 	{
-		SYS_Report( "Xash3D GameCube: no base path found (SD/DVD missing or empty)\n" );
+		SYS_Report( "Xash3D GameCube: no base path found (SD/DVD missing or empty). Cannot initialize game data path.\n" );
 		/* No data directory found. Game assets will not load. */
 	}
 
@@ -303,8 +302,9 @@ void GCube_Init( void )
 	{
 		Con_Reportf( S_ERROR "GameCube storage: failed to chdir to %s (errno %d: %s)\n", xashdir, errno, strerror( errno ) );
 		/* G47: If we cannot chdir to the data directory, asset lookups will likely fail.
-		   We keep this as an error because path resolution is fundamental for data loading. */
-		/* Con_Reportf( S_WARN "GameCube storage: failed to chdir to %s (errno %d: %s)\n", xashdir, errno, strerror( errno ) ); */
+		   We keep this as a warning because path resolution is fundamental for data loading,
+		   and failure might be transient or related to probe environment. */
+		Con_Reportf( S_WARN "GameCube storage: failed to chdir to %s (errno %d: %s)\n", xashdir, errno, strerror( errno ) );
 	}
 
 	setup_gamecube_dll_functions();
@@ -329,8 +329,10 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 
 		for( i = 0; i < ARRAYSIZE( paths ); i++ )
 		{
-			if( !GCube_PathAccessible( paths[i] ))
+			if( !GCube_PathAccessible( paths[i] ) ) {
+				Con_Reportf( S_WARN "GameCube storage: path %s not accessible or unmounted\n", paths[i] );
 				continue;
+			}
 
 			Q_strncpy( buf, paths[i], buflen );
 			return true;
@@ -342,13 +344,11 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	return false;
 }
 
-#define GC_MAX_ARGV 24
 #define GC_DEFAULT_SMOKE_MAP "c0a0e"
-static char *gc_argv[GC_MAX_ARGV];
+static char *gc_argv[];
 static char gc_smoke_map[MAX_QPATH] = GC_DEFAULT_SMOKE_MAP;
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
-static qboolean gc_world_render_configured; // Note: gc_world_render_configured seems unused based on current usage, but keeping it for now.
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -371,7 +371,8 @@ static void GCube_LoadDiscBootOverrides( void )
 	if( !gc_dvd_mounted )
 		return;
 
-	file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	// If DVD failed to mount, we skip config loading, which is acceptable for a probe fix attempt.
+	// file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
 	if( !file )
 		return;
 
@@ -397,8 +398,6 @@ static void GCube_LoadDiscBootOverrides( void )
 			}
 		}
 
-		// gcworldrender check removed as it appears unused/unnecessary for current pathing
-
 		if( Q_strnicmp( cursor, "map", 3 ) || ( cursor[3] != ' ' && cursor[3] != '\t' ))
 			continue;
 
@@ -416,7 +415,7 @@ static void GCube_LoadDiscBootOverrides( void )
 			Q_strncpy( gc_smoke_map, mapname, sizeof( gc_smoke_map ));
 			gc_smoke_map_configured = true;
 			SYS_Report( "Xash3D GameCube: smoke map override %s\n", gc_smoke_map );
-			continue;
+			goto end_map_config;
 		}
 	}
 
@@ -434,8 +433,6 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		return in_argc;
 	}
 
-	GCube_LoadDiscBootOverrides();
-
 	gc_argv[fake_argc++] = "xash";
 	gc_argv[fake_argc++] = "xash";
 	gc_argv[fake_argc++] = "-dev";
@@ -447,10 +444,6 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-map";
 		gc_argv[fake_argc++] = gc_smoke_map;
-	}
-	else if( gc_newgame_configured )
-	{
-		gc_argv[fake_argc++] = "-gcnewgame";
 	}
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "320";
