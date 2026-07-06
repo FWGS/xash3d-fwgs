@@ -261,9 +261,6 @@ void GCube_Init( void )
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
 
-	/* G37: Removed intentional fatal error trigger (gc_fatal_test) as it was
-	 * blocking runtime progression by forcing a fatal breadcrumb state. */
-
 	if( !gc_dvd_mounted )
 	{
 		SYS_Report( "Xash3D GameCube: mounting DVD filesystem\n" );
