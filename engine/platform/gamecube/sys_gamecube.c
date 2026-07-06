@@ -297,10 +297,6 @@ void GCube_Init( void )
 	{
 		Con_Reportf( "Xash3D GameCube: read-only fallback %s (no SD)\n", xashdir );
 	}
-	else if( GCube_GetBasePath( xashdir, sizeof( xashdir )))
-	{
-		Con_Reportf( S_WARN "GameCube storage: using legacy base path %s\n", xashdir );
-	}
 	else
 	{
 		SYS_Report( "Xash3D GameCube: no base path found (SD/DVD missing or empty)\n" );
