@@ -157,6 +157,12 @@ static qboolean GCube_PathAccessible( const char *path )
 	if( !dir )
 		return false;
 
+	// Check if directory is accessible and readable
+	if (access( path, R_OK) != 0 ) {
+		closedir( dir );
+		return false;
+	}
+
 	closedir( dir );
 	return true;
 }
