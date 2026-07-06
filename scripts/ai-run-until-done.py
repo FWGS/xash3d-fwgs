@@ -226,7 +226,7 @@ def main() -> int:
 	parser.add_argument("--max-cycles", type=int, default=0,
 		help="maximum supervisor cycles; 0 means unlimited")
 	parser.add_argument("--recoverable-retries", type=int, default=8)
-	parser.add_argument("--sleep", type=int, default=15)
+	parser.add_argument("--sleep", type=int, default=20)
 	parser.add_argument("--discovery-mode",
 		choices=("off", "after-goals", "prefer", "only"),
 		default=os.environ.get("AI_AUTO_DISCOVERY", "after-goals"),
