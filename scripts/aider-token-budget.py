@@ -72,10 +72,10 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	max_bytes = int(input_budget * BYTES_PER_TOKEN)
 	if max_context >= 60000:
 		context_tiers = [
-			max(12000, min(24000, max_bytes // 4)),
-			max(8000, min(14000, max_bytes // 6)),
-			max(5000, min(9000, max_bytes // 8)),
-			max(3000, min(5000, max_bytes // 12)),
+			max(12500, min(24000, max_bytes // 4)),
+			max(8500, min(14000, max_bytes // 6)),
+			max(5500, min(9000, max_bytes // 8)),
+			max(3500, min(5000, max_bytes // 12)),
 		]
 	else:
 		context_tiers = [
