@@ -309,6 +309,11 @@ def apply_model_tuning_to_environ(
 		os.environ.pop("QWABLE_5_REASONING_PARSER", None)
 
 
+def apply_low_vram_profile_to_environ() -> None:
+	os.environ["AI_LOCAL_PROFILE"] = "rtx-pro-4000-24gb"
+	os.environ["AIDER_LOW_VRAM_PROFILE"] = "1"
+
+
 def fetch_model_api_summary(api_base: str) -> str:
 	url = f"{api_base.rstrip('/')}/models"
 	headers = {"Accept": "application/json"}
@@ -1504,6 +1509,9 @@ class PortWindow(QMainWindow):
 		recommended_btn = QPushButton("Apply Recommended")
 		recommended_btn.setToolTip("Rebuild the launch command for single-client Aider automation")
 		recommended_btn.clicked.connect(self.apply_recommended_model_settings)
+		low_vram_btn = QPushButton("Apply 24 GB")
+		low_vram_btn.setToolTip("Use a safer profile for a 24 GB RTX Pro 4000 path")
+		low_vram_btn.clicked.connect(self.apply_24gb_model_settings)
 		test_api_btn = QPushButton("Test API")
 		test_api_btn.clicked.connect(self.refresh_model_api_summary)
 		preflight_btn = QPushButton("Context Preflight")
@@ -1521,6 +1529,7 @@ class PortWindow(QMainWindow):
 		model_controls.addWidget(self.start_model_btn)
 		model_controls.addWidget(self.kill_model_btn)
 		model_controls.addWidget(recommended_btn)
+		model_controls.addWidget(low_vram_btn)
 		model_controls.addWidget(test_api_btn)
 		model_controls.addWidget(preflight_btn)
 		self.model_status_label = QLabel("Model API not checked yet")
@@ -2776,6 +2785,8 @@ class PortWindow(QMainWindow):
 		self.model_command_edit.setText(vllm_local_coder_command())
 
 	def apply_recommended_model_settings(self) -> None:
+		os.environ["AI_LOCAL_PROFILE"] = "default"
+		os.environ.pop("AIDER_LOW_VRAM_PROFILE", None)
 		self.model_max_seqs_spin.setValue(1)
 		self.model_gpu_util_spin.setValue(0.85)
 		self.model_max_len_spin.setValue(65536)
@@ -2785,6 +2796,18 @@ class PortWindow(QMainWindow):
 		self.aider_overhead_spin.setValue(8192)
 		self.sync_model_command_from_tuning()
 		self.status_label.setText("Applied recommended model tuning for single-client Aider automation")
+
+	def apply_24gb_model_settings(self) -> None:
+		apply_low_vram_profile_to_environ()
+		self.model_max_seqs_spin.setValue(1)
+		self.model_gpu_util_spin.setValue(0.72)
+		self.model_max_len_spin.setValue(32768)
+		self.model_tool_choice.setChecked(False)
+		self.model_reasoning_parser.setChecked(False)
+		self.aider_history_spin.setValue(256)
+		self.aider_overhead_spin.setValue(16384)
+		self.sync_model_command_from_tuning()
+		self.status_label.setText("Applied 24 GB local-model tuning for autonomous Aider automation")
 
 	def refresh_model_api_summary(self) -> bool:
 		summary = fetch_model_api_summary(self.model_api_edit.text().strip())
