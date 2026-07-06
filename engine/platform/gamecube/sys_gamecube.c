@@ -152,14 +152,15 @@ static qboolean GCube_PathAccessible( const char *path )
 
 	/* Check if directory is readable and has contents before considering it accessible */
 	struct dirent *dent;
-	qboolean accessible = false;
 	while ((dent = readdir( dir )) != NULL) {
-		accessible = true;
+		// Simply checking existence is often enough, but we preserve the structure
+		// if we must ensure non-empty. However, for robustness against probe issues,
+		// we just check if opening succeeded.
 		break;
 	}
 
 	closedir( dir );
-	return accessible;
+	return true;
 }
 
 qboolean GCube_GetDiscPath( char *buf, size_t buflen )
