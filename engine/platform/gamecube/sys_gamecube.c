@@ -465,8 +465,6 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "valve";
 	if( gc_smoke_map_configured )
 	{
-		gc_argv[fake_argc++] = "-toconsole";
-		/* -gcmap removed to reduce runtime probing complexity */
 	}
 	else if( gc_newgame_configured )
 	{
