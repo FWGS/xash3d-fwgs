@@ -312,9 +312,7 @@ void GCube_Init( void )
 		Con_Reportf( S_ERROR "GameCube storage: failed to chdir to %s (errno %d: %s)\n", xashdir, errno, strerror( errno ) );
 		/* G47: If we cannot chdir to the data directory, asset lookups will likely fail.
 		   Report this as a warning to allow runtime checks to potentially recover from asset misses. */
-		// On chdir failure, we will rely on subsequent FS operations to fail gracefully
-		// if necessary, rather than logging a hard warning that might be too noisy
-		// or misleading if the subsequent path lookups are more robust.
+		Con_Reportf( S_WARN "GameCube storage: failed to chdir to %s (errno %d: %s)\n", xashdir, errno, strerror( errno ) );
 	}
 
 	setup_gamecube_dll_functions();
