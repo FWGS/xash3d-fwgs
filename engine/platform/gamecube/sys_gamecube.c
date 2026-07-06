@@ -140,6 +140,7 @@ void GCube_EarlyInit( void )
 {
 #if XASH_GAMECUBE
 	/* Ensure initial system state is established before full initialization */
+	Con_Reportf( "GameCube: Executing early initialization sequence for runtime probe compatibility.\n" );
 	// Placeholder for any early checks required by the runtime probe
 #endif
 }
