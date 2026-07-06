@@ -282,8 +282,7 @@ void GCube_Init( void )
 			SYS_Report( "Xash3D GameCube: DVD mount ok\n" );
 	}
 	if( gc_dvd_mounted )
-		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n",
-			ISO9660_GetVolumeLabel( GC_DVD_DEVICE ));
+		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n", ISO9660_GetVolumeLabel( GC_DVD_DEVICE ) );
 	else
 		Con_Reportf( S_WARN "DVD filesystem init failed\n" );
 
