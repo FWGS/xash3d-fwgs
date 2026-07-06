@@ -1,13 +1,13 @@
 {
   "goal": "G72",
-  "item_id": "discovery:no_edit:G72",
-  "title": "unblock the harness from repeated no-edit loops",
+  "item_id": "discovery:model_budget:G72",
+  "title": "reduce local-model context pressure for autonomous passes",
   "kind": "discovery",
   "exit_code": 1,
   "phase": "discovery-pass",
   "result": "review_reject",
   "intent": "Align the discovery path with the acceptance gates before retrying source edits.",
-  "observation": "Discovery pass `discovery:no_edit:G72` built and committed, but the acceptance review rejected the result.",
+  "observation": "Discovery pass `discovery:model_budget:G72` built and committed, but the acceptance review rejected the result.",
   "repeat_count": 1,
-  "timestamp": "2026-07-06T19:51:45.882089+00:00"
+  "timestamp": "2026-07-06T19:52:50.129817+00:00"
 }
