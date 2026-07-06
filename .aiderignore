@@ -14,3 +14,46 @@
 3rdparty/opusfile/opusfile
 3rdparty/vgui_support
 3rdparty/vorbis/vorbis-src
+#
+# Keep Aider focused on files we actually patch.
+# This repo contains large generated/runtime trees that inflate startup scans
+# without helping the GameCube porting loop.
+#
+
+# Generated automation output
+.ai/logs/
+.ai/tmp/
+.ai/dolphin-user-run/
+.ai/manual-intro-telemetry/
+.ai/slices/
+
+# Local Aider caches/history
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v4/
+
+# Build and packaged outputs
+build/
+OUT/
+.builds/
+.waf3-*/
+
+# Local game assets copied for disc/image staging
+Half-Life/
+
+# Large vendored trees that we do not edit in the autonomous loop
+3rdparty/dolphin/
+3rdparty/mbedtls/
+3rdparty/opus/
+3rdparty/opusfile/
+3rdparty/vorbis/
+3rdparty/libogg/
+3rdparty/libbacktrace/
+3rdparty/bzip2/
+3rdparty/extras/
+3rdparty/MultiEmulator/
+3rdparty/gl-wes-v2/
+3rdparty/gl4es/
+3rdparty/nanogl/
+3rdparty/vgui_support/
+3rdparty/library_suffix/
