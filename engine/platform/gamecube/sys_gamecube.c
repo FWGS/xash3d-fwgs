@@ -190,8 +190,10 @@ qboolean GCube_HasWritableStorage( void )
 
 static void GCube_MkdirIgnoreExists( const char *path )
 {
-	if( mkdir( path, 0777 ) != 0 && errno != EEXIST )
-		Con_Reportf( S_WARN "GameCube storage: failed to create %s (%s)\n", path, strerror( errno ));
+	if( mkdir( path, 0777 ) != 0 ) {
+		if (errno != EEXIST)
+			Con_Reportf( S_WARN "GameCube storage: failed to create %s (%s)\n", path, strerror( errno ));
+	}
 }
 
 /*
