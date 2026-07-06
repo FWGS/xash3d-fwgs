@@ -468,8 +468,6 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = gc_smoke_map;
 		gc_argv[fake_argc++] = "-gcnolightmaps";
 		gc_argv[fake_argc++] = "-gcnobevels";
-		if( gc_world_render_configured )
-			gc_argv[fake_argc++] = "-gcworldrender";
 		gc_argv[fake_argc++] = "map";
 		gc_argv[fake_argc++] = gc_smoke_map;
 	}
