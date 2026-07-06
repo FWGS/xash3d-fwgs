@@ -271,7 +271,10 @@ void GCube_Init( void )
 		gc_dvd_io = __io_gcdvd;
 		gc_dvd_io.readSectors = GCube_DVDReadSectors;
 		gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
-		SYS_Report( "Xash3D GameCube: DVD mount %s\n", gc_dvd_mounted ? "ok" : "failed" );
+		if( !gc_dvd_mounted )
+			Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed\n" );
+		else
+			SYS_Report( "Xash3D GameCube: DVD mount ok\n" );
 	}
 	if( gc_dvd_mounted )
 		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n",
