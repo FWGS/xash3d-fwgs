@@ -456,6 +456,7 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	GCube_LoadDiscBootOverrides();
 
 	gc_argv[fake_argc++] = "xash";
+	gc_argv[fake_argc++] = "xash";
 	gc_argv[fake_argc++] = "-dev";
 	gc_argv[fake_argc++] = "2";
 	gc_argv[fake_argc++] = "-log";
