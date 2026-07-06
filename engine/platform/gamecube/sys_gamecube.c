@@ -55,6 +55,13 @@ void Platform_ShellExecute( const char *path, const char *parms )
 	(void)parms;
 }
 
+void Platform_MessageBox( const char *title, const char *message, qboolean parentMainWindow )
+{
+	(void)parentMainWindow;
+	SYS_Report( "%s: %s\n", title, message );
+	fprintf( stderr, "%s:\n%s\n", title, message );
+}
+
 void Posix_Daemonize( void )
 {
 }
@@ -345,7 +352,7 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 }
 
 #define GC_DEFAULT_SMOKE_MAP "c0a0e"
-static char *gc_argv[];
+static char *gc_argv[16];
 static char gc_smoke_map[MAX_QPATH] = GC_DEFAULT_SMOKE_MAP;
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
@@ -371,10 +378,10 @@ static void GCube_LoadDiscBootOverrides( void )
 	if( !gc_dvd_mounted )
 		return;
 
-	// If DVD failed to mount, we skip config loading, which is acceptable for a probe fix attempt.
-	// file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
-	if( !file )
-		return;
+		// If DVD failed to mount, we skip config loading, which is acceptable for a probe fix attempt.
+		file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+		if( !file )
+			return;
 
 	while( fgets( line, sizeof( line ), file ))
 	{
@@ -412,12 +419,12 @@ static void GCube_LoadDiscBootOverrides( void )
 		}
 		if( len > 0 && len < sizeof( gc_smoke_map ) && !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
 		{
-			Q_strncpy( gc_smoke_map, mapname, sizeof( gc_smoke_map ));
-			gc_smoke_map_configured = true;
-			SYS_Report( "Xash3D GameCube: smoke map override %s\n", gc_smoke_map );
-			goto end_map_config;
+				Q_strncpy( gc_smoke_map, mapname, sizeof( gc_smoke_map ));
+				gc_smoke_map_configured = true;
+				SYS_Report( "Xash3D GameCube: smoke map override %s\n", gc_smoke_map );
+				break;
+			}
 		}
-	}
 
 	fclose( file );
 #endif

@@ -3,11 +3,11 @@
   "item_id": "discovery:no_edit:G72",
   "title": "unblock the harness from repeated no-edit loops",
   "kind": "discovery",
-  "exit_code": 18,
+  "exit_code": 1,
   "phase": "discovery-pass",
-  "result": "model_budget",
-  "intent": "Reduce context and output pressure before retrying the runtime fix.",
-  "observation": "Discovery pass `discovery:no_edit:G72` exited 18 before an accepted patch.",
+  "result": "review_reject",
+  "intent": "Align the discovery path with the acceptance gates before retrying source edits.",
+  "observation": "Discovery pass `discovery:no_edit:G72` built and committed, but the acceptance review rejected the result.",
   "repeat_count": 1,
-  "timestamp": "2026-07-06T19:20:26.476423+00:00"
+  "timestamp": "2026-07-06T19:51:45.882089+00:00"
 }

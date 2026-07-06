@@ -75,8 +75,7 @@ class AiAutonomyTests(unittest.TestCase):
 			self.assertEqual(items[0].kind, "discovery")
 			self.assertEqual(items[0].failure_class, "memory_pressure")
 			self.assertIn("G36", items[0].task)
-			self.assertIn("Loaded editable files:", items[0].task)
-			self.assertIn("engine/common/zone.c", items[0].task)
+			self.assertIn("editable files already in chat", items[0].task)
 
 	def test_low_vram_budget_caps_context_and_history(self) -> None:
 		module = load_script_module("aider_token_budget", Path(__file__).resolve().parents[1] / "scripts/aider-token-budget.py")
