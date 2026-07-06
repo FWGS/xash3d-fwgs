@@ -463,12 +463,16 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-nointro";
 		gc_argv[fake_argc++] = "-toconsole";
-		gc_argv[fake_argc++] = "-gcmap";
-		gc_argv[fake_argc++] = gc_smoke_map;
-		gc_argv[fake_argc++] = "-gcnolightmaps";
-		gc_argv[fake_argc++] = "-gcnobevels";
-		gc_argv[fake_argc++] = "map";
-		gc_argv[fake_argc++] = gc_smoke_map;
+		if( gc_smoke_map_configured )
+		{
+			gc_argv[fake_argc++] = "-nointro";
+			gc_argv[fake_argc++] = "-toconsole";
+			gc_argv[fake_argc++] = "-gcmap";
+			gc_argv[fake_argc++] = gc_smoke_map;
+			/* Removed -gcnolightmaps and -gcnobevels as per memory budget notes for lighter startup */
+			gc_argv[fake_argc++] = "map";
+			gc_argv[fake_argc++] = gc_smoke_map;
+		}
 	}
 	else if( gc_newgame_configured )
 	{
