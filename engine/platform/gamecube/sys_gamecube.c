@@ -407,16 +407,6 @@ static void GCube_LoadDiscBootOverrides( void )
 		}
 
 		// gcworldrender check removed as it appears unused/unnecessary for current pathing
-		// Removed check: if( !Q_strnicmp( cursor, "gcworldrender", 13 ))
-		// {
-		// 	char ch = cursor[13];
-		// 	if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
-		// 	{
-		// 		gc_world_render_configured = true;
-		// 		SYS_Report( "Xash3D GameCube: disc boot override gcworldrender\n" );
-		// 		continue;
-		// 	}
-		// }
 
 		if( Q_strnicmp( cursor, "map", 3 ) || ( cursor[3] != ' ' && cursor[3] != '\t' ))
 			continue;
