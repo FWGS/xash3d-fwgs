@@ -357,7 +357,7 @@ static char *gc_argv[GC_MAX_ARGV];
 static char gc_smoke_map[MAX_QPATH] = GC_DEFAULT_SMOKE_MAP;
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
-static qboolean gc_world_render_configured;
+static qboolean gc_world_render_configured; // Note: gc_world_render_configured seems unused based on current usage, but keeping it for now.
 
 static void GCube_LoadDiscBootOverrides( void )
 {
