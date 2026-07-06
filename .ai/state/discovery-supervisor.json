@@ -1,0 +1,13 @@
+{
+  "goal": "G72",
+  "item_id": "discovery:runtime_probe:G72",
+  "title": "remove the latest runtime blocker with a source-first patch",
+  "kind": "discovery",
+  "exit_code": 19,
+  "phase": "discovery-pass",
+  "result": "no_edit",
+  "intent": "Restore at least one editable file to the discovery pass before retrying.",
+  "observation": "Discovery pass `discovery:runtime_probe:G72` exited 19 before an accepted patch.",
+  "repeat_count": 1,
+  "timestamp": "2026-07-06T20:08:33.487118+00:00"
+}
