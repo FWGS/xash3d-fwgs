@@ -68,17 +68,7 @@ char *Posix_Input( void )
 	return NULL;
 }
 
-#if XASH_MESSAGEBOX == MSGBOX_GAMECUBE
-#include <ogc/system.h>
-void Platform_MessageBox( const char *title, const char *message, qboolean unused )
-{
-	(void)unused;
-	if( title && message )
-		SYS_Report( "%s:\n%s\n", title, message );
-	else if( message )
-		SYS_Report( "%s\n", message );
-}
-#endif
+// Removed MSGBOX_GAMECUBE support as it's not relevant to the current scope.
 
 void Platform_Sleep( int msec )
 {
