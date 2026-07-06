@@ -60,7 +60,7 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		max_context = min(max_context, 32768)
 	attempt = max(1, min(attempt, 4))
 	attempt_scale = {1: 1.0, 2: 0.75, 3: 0.5, 4: 0.35}[attempt]
-	max_output_cap = max(512, min(2048, max_context // 16))
+	max_output_cap = max(512, min(1024, max_context // 16))
 	output_tiers = [
 		max(450, min(1200, max_output_cap // 2)),
 		max(300, min(900, max_output_cap // 3)),
