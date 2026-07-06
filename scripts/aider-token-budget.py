@@ -91,10 +91,10 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		# Relax context floor slightly to avoid immediate budget failures during recovery
 		low_vram_context_floors = (16000, 13000, 10000, 8000)
 		context_tiers = [
-			max(floor, int(value * 0.7))
+			max(floor, int(value * 0.65))
 			for value, floor in zip(context_tiers, low_vram_context_floors)
 		]
-		history = max(128, min(history, 256))
+		history = max(128, min(history, 220))
 	return {
 		"AIDER_MODEL_MAX_CONTEXT": max_context,
 		"AIDER_MODEL_MAX_OUTPUT": max_output_cap,
