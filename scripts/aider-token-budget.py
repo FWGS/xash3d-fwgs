@@ -89,7 +89,7 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	if low_vram:
 		output_tiers = [max(128, min(value, cap)) for value, cap in zip(output_tiers, (512, 384, 256, 192))]
 		# Relax context floor slightly to avoid immediate budget failures during recovery
-		low_vram_context_floors = (16000, 13000, 10000, 8000)
+		low_vram_context_floors = (17000, 14000, 11000, 9000)
 		context_tiers = [
 			max(floor, int(value * 0.65))
 			for value, floor in zip(context_tiers, low_vram_context_floors)
