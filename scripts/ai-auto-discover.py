@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -21,6 +22,7 @@ COMMON_READ_CONTEXT = (
 )
 DISCOVERY_STATE_PATH = Path(".ai/state/discovery-supervisor.json")
 AUTOMATION_FAILURES = {"no_edit", "model_budget", "review_reject"}
+RUNTIME_DIRTY_RE = re.compile(r"^(engine/|ref/|common/|filesystem/|public/|stub/)")
 
 DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 	"memory_pressure": {
@@ -225,9 +227,44 @@ def load_discovery_state(root: Path) -> dict[str, object] | None:
 	return data if isinstance(data, dict) else None
 
 
-def normalize_discovery_state(state: dict[str, object]) -> dict[str, object]:
+def dirty_runtime_paths(root: Path) -> list[str]:
+	result = subprocess.run(
+		["git", "status", "--short"],
+		cwd=root,
+		text=True,
+		capture_output=True,
+		check=False,
+	)
+	if result.returncode != 0:
+		return []
+	paths: list[str] = []
+	for raw_line in result.stdout.splitlines():
+		line = raw_line.rstrip()
+		if not line:
+			continue
+		path = line[3:]
+		if " -> " in path:
+			path = path.split(" -> ", 1)[1]
+		if RUNTIME_DIRTY_RE.match(path):
+			paths.append(path)
+	return paths
+
+
+def normalize_discovery_state(root: Path, state: dict[str, object]) -> dict[str, object]:
 	result = str(state.get("result") or "").strip()
 	repeat_count = int(state.get("repeat_count") or 1)
+	runtime_dirty = dirty_runtime_paths(root)
+	if result in AUTOMATION_FAILURES and runtime_dirty:
+		state = dict(state)
+		state["result"] = "runtime_probe"
+		state["intent"] = "Dirty engine or runtime files already exist; prefer a bounded runtime source pass over more automation repair."
+		state["observation"] = (
+			"Dirty runtime paths already exist in the worktree: " +
+			", ".join(runtime_dirty[:4]) +
+			(" ..." if len(runtime_dirty) > 4 else "") +
+			". Return to a bounded runtime source patch instead of mixing more automation edits."
+		)
+		return state
 	if result == "no_edit" and repeat_count >= 2:
 		state = dict(state)
 		state["result"] = "model_budget"
@@ -410,7 +447,7 @@ def discover_items(root: Path) -> list[WorkItem]:
 		items.append(build_goal_item(goal))
 	recent = load_discovery_state(root) or latest_recent_step(load_memory(root))
 	if recent is not None:
-		recent = normalize_discovery_state(recent)
+		recent = normalize_discovery_state(root, recent)
 	if recent is not None:
 		discovered = build_discovered_item(root, goal, recent)
 		if discovered is not None:

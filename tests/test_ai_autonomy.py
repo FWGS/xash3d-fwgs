@@ -180,6 +180,57 @@ class AiAutonomyTests(unittest.TestCase):
 			self.assertEqual(items[0].failure_class, "model_budget")
 			self.assertIn("Repeated no-edit discovery loop detected", items[0].task)
 
+	def test_dirty_runtime_tree_forces_runtime_probe_over_automation_repair(self) -> None:
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			subprocess = __import__("subprocess")
+			subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+			subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+			subprocess.run(["git", "config", "user.name", "test"], cwd=root, check=True)
+
+			(root / ".ai/goals").mkdir(parents=True)
+			(root / ".ai/state").mkdir(parents=True)
+			(root / ".ai/prompts").mkdir(parents=True)
+			(root / "engine/common").mkdir(parents=True)
+			(root / "engine/platform/gamecube").mkdir(parents=True)
+			(root / "engine/common/host.c").write_text("/* host */\n", encoding="utf-8")
+			(root / "engine/common/model.c").write_text("/* model */\n", encoding="utf-8")
+			(root / "engine/client").mkdir(parents=True)
+			(root / "engine/client/cl_main.c").write_text("/* cl */\n", encoding="utf-8")
+			(root / "engine/server").mkdir(parents=True)
+			(root / "engine/server/sv_init.c").write_text("/* sv */\n", encoding="utf-8")
+			(root / "engine/platform/gamecube/sys_gamecube.c").write_text("/* gc */\n", encoding="utf-8")
+			(root / ".ai/goals/GAMECUBE_PORT_GOALS.md").write_text(
+				"## G72 [ ] close runtime blocker\n- Status: ACTIVE\n",
+				encoding="utf-8",
+			)
+			(root / ".ai/state/discovery-supervisor.json").write_text(json.dumps({
+				"result": "model_budget",
+				"repeat_count": 1,
+				"intent": "Reduce context and output pressure before retrying the runtime fix.",
+				"observation": "Discovery pass exited 18 before an accepted patch.",
+			}), encoding="utf-8")
+			for prompt in (
+				".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
+				".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
+				".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
+				".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
+			):
+				(root / prompt).write_text("context", encoding="utf-8")
+			subprocess.run(["git", "add", "."], cwd=root, check=True)
+			subprocess.run(["git", "commit", "-qm", "chore: seed"], cwd=root, check=True)
+			(root / "engine/platform/gamecube/sys_gamecube.c").write_text("/* dirty gc */\n", encoding="utf-8")
+
+			module = load_script_module(
+				"ai_auto_discover_dirty_runtime",
+				Path(__file__).resolve().parents[1] / "scripts/ai-auto-discover.py",
+			)
+			items = module.discover_items(root)
+			self.assertTrue(items)
+			self.assertEqual(items[0].kind, "discovery")
+			self.assertEqual(items[0].failure_class, "runtime_probe")
+			self.assertIn("Dirty engine or runtime files already exist", items[0].task)
+
 
 if __name__ == "__main__":
 	unittest.main()
