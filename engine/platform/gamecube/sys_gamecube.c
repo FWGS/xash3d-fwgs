@@ -160,7 +160,7 @@ static qboolean GCube_PathAccessible( const char *path )
 	if (access( path, R_OK) != 0 ) {
 		// Log warning if we can't read, but allow loop to continue if paths are dynamic later.
 		Con_Reportf( S_WARN "GameCube storage: path %s not accessible (errno %s)\n", path, strerror(errno) );
-		closedir( dir );
+		// closedir( dir ); // Removed closedir as dir is unused after check
 		return false;
 	}
 
