@@ -48,6 +48,19 @@ typedef struct gc_bsp_deferred_s
 
 static gc_bsp_deferred_t gc_bsp_deferred;
 static void *gc_surfaces_malloc_block;
+static void *gc_texinfo_malloc_block;
+static qboolean gc_retain_bsp_source_buffer;
+static byte *gc_bsp_scratch_base;
+static size_t gc_bsp_scratch_size;
+
+typedef struct gc_bsp_busy_range_s
+{
+	size_t start;
+	size_t end;
+} gc_bsp_busy_range_t;
+
+static qboolean Mod_GCPointerInBuffer( const void *ptr, const byte *base, size_t size );
+static void *Mod_GCAllocBspScratch( byte *base, size_t size, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align );
 #endif
 #include "swaplib.h"
 #include "ref_common.h"
@@ -165,6 +178,10 @@ typedef struct
 	qboolean  isbsp30ext;
 
 } dbspmodel_t;
+
+#if XASH_GAMECUBE
+static void Mod_GCInvalidateScratchOverlap( dbspmodel_t *bmod, byte *mod_base, size_t bufferlen, byte *scratch, size_t scratch_size );
+#endif
 
 typedef struct
 {
@@ -3370,7 +3387,7 @@ Mod_LoadTexInfo
 static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 {
 	mfaceinfo_t	*fout, *faceinfo;
-	mtexinfo_t	*out;
+	mtexinfo_t	*out = NULL;
 
 	// trying to load faceinfo
 	faceinfo = fout = Mem_Calloc( mod->mempool, bmod->numfaceinfo * sizeof( *fout ));
@@ -3384,7 +3401,35 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 		fout->groupid = fin->groupid;
 	}
 
-	mod->texinfo = out = Mem_Calloc( mod->mempool, bmod->numtexinfo * sizeof( *out ));
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld && bmod->numtexinfo > 0 )
+	{
+		size_t texinfo_bytes = bmod->numtexinfo * sizeof( *out );
+
+		if( bmod->lightdata && bmod->lightdatasize >= texinfo_bytes )
+		{
+			out = (mtexinfo_t *)bmod->lightdata;
+			memset( out, 0, texinfo_bytes );
+			bmod->lightdata = NULL;
+			bmod->lightdatasize = 0;
+			gc_retain_bsp_source_buffer = true;
+			Con_Reportf( "Xash3D GameCube: world texinfo using BSP scratch %s\n", Q_memprint( texinfo_bytes ));
+		}
+		if( !out )
+		{
+			out = (mtexinfo_t *)malloc( texinfo_bytes );
+			if( out )
+			{
+				memset( out, 0, texinfo_bytes );
+				gc_texinfo_malloc_block = out;
+				Con_Reportf( "Xash3D GameCube: world texinfo via malloc %s\n", Q_memprint( texinfo_bytes ));
+			}
+		}
+	}
+#endif
+	if( !out )
+		out = Mem_Calloc( mod->mempool, bmod->numtexinfo * sizeof( *out ));
+	mod->texinfo = out;
 	mod->numtexinfo = bmod->numtexinfo;
 	dtexinfo_t	*in = bmod->texinfo;
 
@@ -3405,10 +3450,6 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 			out->faceinfo = &faceinfo[in->faceinfo];
 	}
 
-#if XASH_GAMECUBE
-	Mod_GCFreeBspPin( (void **)&bmod->faceinfo );
-	Mod_GCFreeBspPin( (void **)&bmod->texinfo );
-#endif
 }
 
 /*
@@ -3426,17 +3467,91 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	mextrasurf_t *info;
 #if XASH_GAMECUBE
 	const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
-	byte         *surf_block = (byte *)malloc( surf_bytes );
+	byte         *surf_block = NULL;
 
-	if( surf_block )
+	if( Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld
+		&& gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 	{
-		gc_surfaces_malloc_block = surf_block;
-		memset( surf_block, 0, surf_bytes );
-		Con_Reportf( "Xash3D GameCube: world surfaces via malloc %s\n", Q_memprint( surf_bytes ));
+		gc_bsp_busy_range_t busy[4];
+		size_t busy_count = 0;
+
+		if( bmod->version == QBSP2_VERSION )
+		{
+			if( Mod_GCPointerInBuffer( bmod->surfaces32, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)bmod->surfaces32;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + bmod->numsurfaces * sizeof( dface32_t );
+				busy_count++;
+			}
+		}
+		else if( Mod_GCPointerInBuffer( bmod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+		{
+			const byte *p = (const byte *)bmod->surfaces;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + bmod->numsurfaces * sizeof( dface_t );
+			busy_count++;
+		}
+
+		if( Mod_GCPointerInBuffer( bmod->lightdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->lightdatasize )
+		{
+			const byte *p = (const byte *)bmod->lightdata;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + bmod->lightdatasize;
+			busy_count++;
+		}
+
+		if( Mod_GCPointerInBuffer( bmod->deluxdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->deluxdatasize )
+		{
+			const byte *p = (const byte *)bmod->deluxdata;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + bmod->deluxdatasize;
+			busy_count++;
+		}
+
+		if( Mod_GCPointerInBuffer( bmod->shadowdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->shadowdatasize )
+		{
+			const byte *p = (const byte *)bmod->shadowdata;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + bmod->shadowdatasize;
+			busy_count++;
+		}
+
+		for( size_t i = 0; i < busy_count; i++ )
+		{
+			for( size_t j = i + 1; j < busy_count; j++ )
+			{
+				if( busy[j].start < busy[i].start )
+				{
+					gc_bsp_busy_range_t tmp = busy[i];
+					busy[i] = busy[j];
+					busy[j] = tmp;
+				}
+			}
+		}
+
+		surf_block = (byte *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, surf_bytes, 32 );
+		if( surf_block )
+		{
+			memset( surf_block, 0, surf_bytes );
+			Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, surf_block, surf_bytes );
+			Con_Reportf( "Xash3D GameCube: world surfaces using BSP scratch %s\n", Q_memprint( surf_bytes ));
+		}
 	}
-	else
+
+	if( !surf_block )
 	{
-		surf_block = Mem_Calloc( mod->mempool, surf_bytes );
+		surf_block = (byte *)malloc( surf_bytes );
+		if( surf_block )
+		{
+			gc_surfaces_malloc_block = surf_block;
+			memset( surf_block, 0, surf_bytes );
+			Con_Reportf( "Xash3D GameCube: world surfaces via malloc %s\n", Q_memprint( surf_bytes ));
+		}
+		else
+		{
+			surf_block = Mem_Calloc( mod->mempool, surf_bytes );
+		}
 	}
 
 	mod->surfaces = out = (msurface_t *)surf_block;
@@ -3733,6 +3848,122 @@ static qboolean Mod_GCPointerInBuffer( const void *ptr, const byte *base, size_t
 	return p >= base && p < base + size;
 }
 
+static size_t Mod_GCAlignDown( size_t value, size_t align )
+{
+	if( align <= 1 )
+		return value;
+	return value & ~( align - 1 );
+}
+
+static void *Mod_GCAllocBspScratch( byte *base, size_t size, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align )
+{
+	size_t best_start = 0;
+	size_t best_end = 0;
+	size_t cursor;
+
+	if( !base || size == 0 || alloc_size == 0 )
+		return NULL;
+
+	alloc_size = ALIGN( alloc_size, align );
+	cursor = size;
+
+	for( size_t i = 0; i <= busy_count; i++ )
+	{
+		size_t gap_start = 0;
+		size_t gap_end = cursor;
+
+		if( i < busy_count )
+		{
+			gap_start = busy[i].end;
+			cursor = busy[i].start;
+		}
+
+		if( gap_end <= gap_start )
+			continue;
+
+		size_t gap_start_aligned = ALIGN( gap_start, align );
+		size_t gap_end_aligned = Mod_GCAlignDown( gap_end, align );
+
+		if( gap_end_aligned <= gap_start_aligned )
+			continue;
+
+		if( gap_end_aligned - gap_start_aligned < alloc_size )
+			continue;
+
+		best_end = gap_end_aligned;
+		best_start = best_end - alloc_size;
+		break;
+	}
+
+	if( best_end <= best_start )
+		return NULL;
+
+	return base + best_start;
+}
+
+static void Mod_GCInvalidateScratchOverlap( dbspmodel_t *bmod, byte *mod_base, size_t bufferlen, byte *scratch, size_t scratch_size )
+{
+	const byte *scratch_end = scratch + scratch_size;
+
+	if( !bmod || !mod_base || bufferlen == 0 || !scratch || scratch_size == 0 )
+		return;
+
+	if( bmod->version == QBSP2_VERSION )
+	{
+		if( Mod_GCPointerInBuffer( bmod->markfaces32, mod_base, bufferlen )
+			&& (const byte *)bmod->markfaces32 < scratch_end
+			&& (const byte *)bmod->markfaces32 + bmod->nummarkfaces * sizeof( dmarkface32_t ) > scratch )
+			bmod->markfaces32 = NULL;
+
+		if( Mod_GCPointerInBuffer( bmod->leafs32, mod_base, bufferlen )
+			&& (const byte *)bmod->leafs32 < scratch_end
+			&& (const byte *)bmod->leafs32 + bmod->numleafs * sizeof( dleaf32_t ) > scratch )
+			bmod->leafs32 = NULL;
+
+		if( Mod_GCPointerInBuffer( bmod->nodes32, mod_base, bufferlen )
+			&& (const byte *)bmod->nodes32 < scratch_end
+			&& (const byte *)bmod->nodes32 + bmod->numnodes * sizeof( dnode32_t ) > scratch )
+			bmod->nodes32 = NULL;
+
+		if( Mod_GCPointerInBuffer( bmod->surfaces32, mod_base, bufferlen )
+			&& (const byte *)bmod->surfaces32 < scratch_end
+			&& (const byte *)bmod->surfaces32 + bmod->numsurfaces * sizeof( dface32_t ) > scratch )
+			bmod->surfaces32 = NULL;
+	}
+	else
+	{
+		if( Mod_GCPointerInBuffer( bmod->markfaces, mod_base, bufferlen )
+			&& (const byte *)bmod->markfaces < scratch_end
+			&& (const byte *)bmod->markfaces + bmod->nummarkfaces * sizeof( dmarkface_t ) > scratch )
+			bmod->markfaces = NULL;
+
+		if( Mod_GCPointerInBuffer( bmod->leafs, mod_base, bufferlen )
+			&& (const byte *)bmod->leafs < scratch_end
+			&& (const byte *)bmod->leafs + bmod->numleafs * sizeof( dleaf_t ) > scratch )
+			bmod->leafs = NULL;
+
+		if( Mod_GCPointerInBuffer( bmod->nodes, mod_base, bufferlen )
+			&& (const byte *)bmod->nodes < scratch_end
+			&& (const byte *)bmod->nodes + bmod->numnodes * sizeof( dnode_t ) > scratch )
+			bmod->nodes = NULL;
+
+		if( Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen )
+			&& (const byte *)bmod->surfaces < scratch_end
+			&& (const byte *)bmod->surfaces + bmod->numsurfaces * sizeof( dface_t ) > scratch )
+			bmod->surfaces = NULL;
+	}
+
+	if( Mod_GCPointerInBuffer( bmod->clipnodes, mod_base, bufferlen )
+		&& (const byte *)bmod->clipnodes < scratch_end
+		&& (const byte *)bmod->clipnodes + bmod->numclipnodes * sizeof( dclipnode_t ) > scratch )
+		bmod->clipnodes = NULL;
+
+	if( Mod_GCPointerInBuffer( bmod->clipnodes32, mod_base, bufferlen )
+		&& (const byte *)bmod->clipnodes32 < scratch_end
+		&& (const byte *)bmod->clipnodes32 + bmod->numclipnodes * sizeof( dclipnode32_t ) > scratch )
+		bmod->clipnodes32 = NULL;
+}
+
 static void Mod_GCStashDeferredLump( void **slot, const byte *src, size_t size )
 {
 	if( !slot || !src || size == 0 )
@@ -3751,14 +3982,23 @@ static void Mod_GCDropDeferredBspLumpsBeforeSurfaces( void )
 
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 {
-	if( !gc_surfaces_malloc_block )
+	if( gc_surfaces_malloc_block )
+	{
+		if( mod && mod->surfaces == (msurface_t *)gc_surfaces_malloc_block )
+			mod->surfaces = NULL;
+
+		free( gc_surfaces_malloc_block );
+		gc_surfaces_malloc_block = NULL;
+	}
+
+	if( !gc_texinfo_malloc_block )
 		return;
 
-	if( mod && mod->surfaces == (msurface_t *)gc_surfaces_malloc_block )
-		mod->surfaces = NULL;
+	if( mod && mod->texinfo == (mtexinfo_t *)gc_texinfo_malloc_block )
+		mod->texinfo = NULL;
 
-	free( gc_surfaces_malloc_block );
-	gc_surfaces_malloc_block = NULL;
+	free( gc_texinfo_malloc_block );
+	gc_texinfo_malloc_block = NULL;
 }
 
 static void Mod_GCRestoreDeferredMarkfaces( dbspmodel_t *bmod )
@@ -3950,53 +4190,30 @@ static void Mod_GCEnsureBspLump( model_t *mod, dbspmodel_t *bmod, int lumpnum )
 
 static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen )
 {
-	size_t leaf_esize, node_esize, clip_esize, face_esize, mark_esize;
+	size_t leaf_esize, node_esize, clip_esize;
 
 	if( !mod_base || bufferlen == 0 )
 		return;
+	if( gc_retain_bsp_source_buffer )
+	{
+		Con_Reportf( "Xash3D GameCube: retaining BSP source buffer for gcmap scratch\n" );
+		return;
+	}
 
 	if( !Mod_GCPointerInBuffer( bmod->leafs, mod_base, bufferlen )
-		&& !Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen )
-		&& !Mod_GCPointerInBuffer( bmod->markfaces, mod_base, bufferlen ))
+		&& !Mod_GCPointerInBuffer( bmod->markfaces, mod_base, bufferlen )
+		&& !Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen ))
 		return;
 
 	memset( &gc_bsp_deferred, 0, sizeof( gc_bsp_deferred ));
 
 	leaf_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dleaf32_t ) : sizeof( dleaf_t );
 	node_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dnode32_t ) : sizeof( dnode_t );
-	face_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dface32_t ) : sizeof( dface_t );
-	mark_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dmarkface32_t ) : sizeof( dmarkface_t );
 	if( bmod->version == QBSP2_VERSION
 		|| ( bmod->isbsp30ext && bmod->numclipnodes >= MAX_MAP_CLIPNODES_HLBSP ))
 		clip_esize = sizeof( dclipnode32_t );
 	else
 		clip_esize = sizeof( dclipnode_t );
-
-	if( Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen ))
-	{
-		byte *copy = Mod_GCPinBspLump( mod->mempool, (byte *)bmod->surfaces, bmod->numsurfaces * face_esize );
-		if( bmod->version == QBSP2_VERSION )
-			bmod->surfaces32 = (dface32_t *)copy;
-		else
-			bmod->surfaces = (dface_t *)copy;
-	}
-
-	if( bmod->numtexinfo && Mod_GCPointerInBuffer( bmod->texinfo, mod_base, bufferlen ))
-	{
-		bmod->texinfo = (dtexinfo_t *)Mod_GCPinBspLump( mod->mempool, (byte *)bmod->texinfo,
-			bmod->numtexinfo * sizeof( dtexinfo_t ));
-	}
-
-	if( bmod->numfaceinfo && Mod_GCPointerInBuffer( bmod->faceinfo, mod_base, bufferlen ))
-	{
-		bmod->faceinfo = (dfaceinfo_t *)Mod_GCPinBspLump( mod->mempool, (byte *)bmod->faceinfo,
-			bmod->numfaceinfo * sizeof( dfaceinfo_t ));
-	}
-
-	if( bmod->visdatasize && Mod_GCPointerInBuffer( bmod->visdata, mod_base, bufferlen ))
-	{
-		bmod->visdata = Mod_GCPinBspLump( mod->mempool, bmod->visdata, bmod->visdatasize );
-	}
 
 	if( Mod_GCPointerInBuffer( bmod->markfaces, mod_base, bufferlen ))
 	{
@@ -4773,6 +4990,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	dbspmodel_t *bmod = Mem_Calloc( mod->mempool, sizeof( *bmod ));
 #if XASH_GAMECUBE
 	qboolean retain_bsp_buffer = false;
+	gc_retain_bsp_source_buffer = false;
+	gc_bsp_scratch_base = mod_base;
+	gc_bsp_scratch_size = bufferlen;
 #endif
 	bmod->version = header->version;	// share up global
 	if( isworld )
@@ -4849,7 +5069,6 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadTextures( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel textures ready\n" );
-	Mod_GCReleaseBspSourceBuffer( mod, bmod, mod_base, bufferlen );
 	Con_Reportf( "Xash3D GameCube: bmodel visibility begin\n" );
 #endif
 	Mod_LoadVisibility( mod, bmod );
@@ -4872,6 +5091,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
 	Mod_GCFreeBspPin( (void **)&bmod->lightdata );
+	Mod_GCReleaseBspSourceBuffer( mod, bmod, mod_base, bufferlen );
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_MARKSURFACES );
 #endif
 	Mod_LoadMarkSurfaces( mod, bmod );
@@ -4892,6 +5112,8 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadClipnodes( mod, bmod );
 #if XASH_GAMECUBE
 	if( bmod->version != QBSP2_VERSION && !bmod->isbsp30ext && bmod->clipnodes_out == NULL )
+		retain_bsp_buffer = true;
+	if( gc_retain_bsp_source_buffer )
 		retain_bsp_buffer = true;
 #endif
 #if XASH_GAMECUBE
