@@ -140,9 +140,7 @@ void GCube_EarlyInit( void )
 {
 #if XASH_GAMECUBE
 	/* Ensure initial system state is established before full initialization */
-	Con_Reportf( "GameCube: Executing early initialization sequence for runtime probe compatibility.\n" );
-	// Placeholder for any early checks required by the runtime probe
-	gc_smoke_map_configured = true;
+	Con_Reportf( "GameCube: Executing early initialization sequence.\n" );
 #endif
 }
 
@@ -153,13 +151,7 @@ static qboolean GCube_PathAccessible( const char *path )
 		return false;
 
 	/* Check if directory is readable and has contents before considering it accessible */
-	struct dirent *dent;
-	while ((dent = readdir( dir )) != NULL) {
-		// Simply checking existence is often enough, but we preserve the structure
-		// if we must ensure non-empty. However, for robustness against probe issues,
-		// we just check if opening succeeded.
-		break;
-	}
+	// Simply checking if we can open and read the directory is sufficient for probe compatibility.
 
 	closedir( dir );
 	return true;
@@ -314,7 +306,7 @@ void GCube_Init( void )
 		/* G47: If we cannot chdir to the data directory, asset lookups will likely fail.
 		   We keep this as a warning because path resolution is fundamental for data loading,
 		   and failure might be transient or related to probe environment. */
-		Con_Reportf( S_WARN "GameCube storage: failed to chdir to %s (errno %d: %s)\n", xashdir, errno, strerror( errno ) );
+		Con_Reportf( S_ERROR "GameCube storage: failed to chdir to %s (errno %d: %s)\n", xashdir, errno, strerror( errno ) );
 	}
 
 	setup_gamecube_dll_functions();
@@ -356,7 +348,7 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 
 #define GC_DEFAULT_SMOKE_MAP "c0a0e"
 static char *gc_argv[16];
-static char gc_smoke_map[MAX_QPATH] = GC_DEFAULT_SMOKE_MAP;
+static char gc_smoke_map[MAX_QPATH];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
 
@@ -368,11 +360,9 @@ static void GCube_LoadDiscBootOverrides( void )
 
 	gc_smoke_map_configured = false;
 	gc_newgame_configured = false;
-	Q_strncpy( gc_smoke_map, GC_DEFAULT_SMOKE_MAP, sizeof( gc_smoke_map ));
 
 	if( !gc_dvd_mounted )
 	{
-		DVD_Init();
 		gc_dvd_io = __io_gcdvd;
 		gc_dvd_io.readSectors = GCube_DVDReadSectors;
 		gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
@@ -382,7 +372,7 @@ static void GCube_LoadDiscBootOverrides( void )
 		return;
 
 		// If DVD failed to mount, we skip config loading, which is acceptable for a probe fix attempt.
-		file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+		file = fopen( GC_DATA_PATH "/valve/gamecube.cfg", "r" );
 		if( !file )
 			return;
 
