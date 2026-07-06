@@ -6,12 +6,12 @@ show-model-warnings: false
 
 architect: false
 edit-format: diff
-thinking-tokens: 0
+thinking-tokens: "0"
 check-model-accepts-settings: false
 
-map-tokens: 0
+map-tokens: "0"
 map-refresh: auto
-max-chat-history-tokens: 8192
+max-chat-history-tokens: "8192" # 8192 tokens is the maximum for the model
 
 auto-commits: false
 dirty-commits: false

@@ -48,6 +48,11 @@ def fetch_max_context(api_base: str, model: str) -> int:
 
 def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	"""Scale output/context/history budgets from the live model context window."""
+	profile = os.environ.get("AI_LOCAL_PROFILE", "").strip().lower()
+	low_vram = profile in {"rtx-pro-4000-24gb", "rtx4000-24gb", "24gb"} or \
+		os.environ.get("AIDER_LOW_VRAM_PROFILE") in {"1", "true", "yes"}
+	if low_vram:
+		max_context = min(max_context, 32768)
 	attempt = max(1, min(attempt, 4))
 	attempt_scale = {1: 1.0, 2: 0.75, 3: 0.5, 4: 0.35}[attempt]
 	max_output_cap = max(512, min(2048, max_context // 16))
@@ -76,6 +81,10 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		]
 	context_tiers = [max(1500, int(value * attempt_scale)) for value in context_tiers]
 	history = max(128, min(512, int(max_context // 160 * attempt_scale)))
+	if low_vram:
+		output_tiers = [max(128, min(value, cap)) for value, cap in zip(output_tiers, (768, 512, 384, 256))]
+		context_tiers = [max(1500, int(value * 0.7)) for value in context_tiers]
+		history = max(128, min(history, 256))
 	return {
 		"AIDER_MODEL_MAX_CONTEXT": max_context,
 		"AIDER_MODEL_MAX_OUTPUT": max_output_cap,

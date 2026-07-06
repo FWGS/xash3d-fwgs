@@ -2150,6 +2150,7 @@ def main() -> int:
 	memory = load_loop_memory(root)
 	interrupted_signal = 0
 	load_dotenv(root / ".env")
+	os.environ.setdefault("OPENAI_API_KEY", "local")
 
 	def stop_cleanly(signum: int, _frame: object) -> None:
 		nonlocal interrupted_signal
@@ -2188,9 +2189,6 @@ def main() -> int:
 		parser.error("--max-passes must be zero or positive")
 	if commit_dirty_worktree(root) != 0:
 		print("goal-loop: failed to checkpoint the dirty worktree", file=sys.stderr)
-		return 2
-	if not os.environ.get("OPENAI_API_KEY"):
-		print("goal-loop: OPENAI_API_KEY must be supplied by the launch environment", file=sys.stderr)
 		return 2
 	api_base = os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1")
 	if not model_ready(api_base):
