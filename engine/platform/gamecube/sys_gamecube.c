@@ -285,6 +285,10 @@ void GCube_Init( void )
 	else
 		Con_Reportf( S_WARN "DVD filesystem init failed\n" );
 
+	/* Check for writable storage before proceeding with layout setup */
+	if( !GCube_HasWritableStorage() )
+		Con_Reportf( "Xash3D GameCube: no writable storage detected (SD card not available)\n" );
+
 	if( GCube_GetWritablePath( xashdir, sizeof( xashdir )))
 	{
 		GCube_EnsureWritableLayout();
