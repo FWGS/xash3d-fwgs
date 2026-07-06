@@ -9,7 +9,7 @@ echo "$changed"
 source_only_discovery_ok() {
   [[ "${AI_REVIEW_ALLOW_SOURCE_ONLY_DISCOVERY:-0}" == "1" ]] || return 1
   [[ -n "$changed" ]] || return 1
-  if grep -Evq '^(engine/|ref/|common/|filesystem/|public/|stub/)' <<<"$changed"; then
+  if grep -Evq '^(engine/|ref/|common/|filesystem/|public/|stub/|scripts/ai-|scripts/aider-|scripts/gamecube-env\.sh|scripts/xash3d-gc-aider-gui\.py)' <<<"$changed"; then
     return 1
   fi
   return 0
