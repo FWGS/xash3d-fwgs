@@ -309,7 +309,6 @@ void GCube_Init( void )
 	}
 
 	setup_gamecube_dll_functions();
-	GC_MemSample( "filesystem" );
 #endif
 }
 
