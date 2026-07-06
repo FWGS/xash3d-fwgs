@@ -299,7 +299,7 @@ void GCube_Init( void )
 	{
 		SYS_Report( "Xash3D GameCube: no base path found (SD/DVD missing or empty)\n" );
 		Con_Reportf( S_ERROR "No data directory found. Game assets will not load.\n" );
-		Sys_Error( "GameCube: unable to locate any data directory (SD/DVD missing or empty)\n" );
+		/* Removed Sys_Error as it might crash on missing assets in read-only mode */
 	}
 
 	if( chdir( xashdir ) == 0 )
