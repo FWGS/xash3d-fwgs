@@ -1133,6 +1133,27 @@ The RC script now records bounded retry attempts for Dolphin gates and uses a
 smoke-specific staged-content audit, preventing transient emulator stalls or
 known smoke-package aliases from producing false release-gate failures.
 
+**G36 verification refresh (2026-07-07):**
+
+```sh
+DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
+```
+
+Result: `.ai/logs/dolphin-probe-20260707-002931` reached map-ready runtime
+evidence with controller and visual markers:
+
+```text
+MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.
+G45_STATUS: PASS
+VISUAL_STATUS: nonblack sampled
+FRAME_BUDGET_STATS: samples=11 avg=17.46ms p95=17.46ms max=17.46ms target=16.67ms
+G36_STATUS: PASS
+```
+
+The 2026-07-07 source fix keeps the gcmap smoke/probe presentation buffer at a
+readable 320x240 before the static evidence frames are drawn, avoiding repeated
+full 640x480 RGB565-to-XFB conversion work during the frame-budget sample.
+
 ## G37 — Fatal breadcrumb reporting (COMPLETE 2026-06-26)
 
 GameCube fatal exits now emit a compact OSReport breadcrumb block from
@@ -1351,11 +1372,13 @@ proprietary Nintendo SDK builds, BIOS/IPL-dependent behavior, writes to
 480p-only/16:9-only behavior, keyboard/mouse-only gameplay, and bundled
 proprietary assets.
 
-Latest G36 evidence: `.ai/logs/dolphin-probe-20260626-005218` reported:
+Latest G36 evidence: `.ai/logs/dolphin-probe-20260707-002931` reported:
 
 ```text
 MAP_READY: Xash3D loaded c0a0e on GameCube with interactive input.
-FRAME_BUDGET_STATS: samples=3 avg=0.00ms p95=0.00ms max=0.00ms target=16.67ms
+G45_STATUS: PASS
+VISUAL_STATUS: nonblack sampled
+FRAME_BUDGET_STATS: samples=11 avg=17.46ms p95=17.46ms max=17.46ms target=16.67ms
 G36_STATUS: PASS
 ```
 

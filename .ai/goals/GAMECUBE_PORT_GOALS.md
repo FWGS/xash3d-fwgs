@@ -562,6 +562,12 @@ scripts/gamecube-map-compat-probe.sh
   0 warn, 0 fail. The Dolphin boot probe reached `MAP_READY` on attempt 1, and
   the frame-budget probe reported `G36_STATUS: PASS` with
   `FRAME_BUDGET_STATS: samples=3 avg=0.00ms p95=0.00ms max=0.00ms target=16.67ms`.
+- Refreshed 2026-07-07 after downshifting the gcmap probe presentation buffer:
+  `DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh`.
+- Evidence: `.ai/logs/dolphin-probe-20260707-002931` reached `MAP_READY`,
+  `G45_STATUS: PASS`, `VISUAL_STATUS: nonblack sampled`, and
+  `G36_STATUS: PASS` with
+  `FRAME_BUDGET_STATS: samples=11 avg=17.46ms p95=17.46ms max=17.46ms target=16.67ms`.
 
 ## G37 [x] Harden crash, fatal error, and recovery reporting
 
