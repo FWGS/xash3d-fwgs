@@ -81,7 +81,6 @@ void GC_TrimClientSubsystemsForMapLoad( void )
 	}
 	CL_GameCubeUnloadClientForMapLoad();
 	Image_GCPurgeDecodeScratch();
-	R_GcFreeMenuImages();
 	if( host.imagepool )
 		Mem_EmptyPool( host.imagepool );
 	/* Grab the BSP staging block while freed client pools are still coalesced. */
