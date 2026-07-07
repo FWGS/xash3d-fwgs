@@ -303,6 +303,7 @@ void GCube_Init( void )
 	{
 		GCube_EnsureWritableLayout();
 		Con_Reportf( "Xash3D GameCube: writable storage %s\n", xashdir );
+		Platform_Sleep( 50 );
 	}
 	else if( GCube_GetDiscPath( xashdir, sizeof( xashdir )))
 	{
