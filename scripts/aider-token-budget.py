@@ -79,10 +79,10 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		]
 	else:
 		context_tiers = [
-			max(4000, min(12000, max_bytes // 5)),
-			max(3000, min(8000, max_bytes // 7)),
-			max(2000, min(5000, max_bytes // 10)),
-			max(1500, min(3000, max_bytes // 14)),
+			max(3800, min(12000, max_bytes // 5)),
+			max(2800, min(8000, max_bytes // 7)),
+			max(1800, min(5000, max_bytes // 10)),
+			max(1400, min(3000, max_bytes // 14)),
 		]
 	context_tiers = [max(1500, int(value * attempt_scale)) for value in context_tiers]
 	history = max(128, min(512, int(max_context // 160 * attempt_scale)))
