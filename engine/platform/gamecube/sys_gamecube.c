@@ -167,7 +167,7 @@ void GCube_EarlyInit( void )
 #if XASH_GAMECUBE
 	/* Ensure initial system state is established before full initialization to stabilize timing for map loading. */
 	Con_Reportf( "GameCube: Starting early initialization sequence.\n" );
-	Platform_Sleep( 100 ); /* Wait briefly for underlying hardware/OS setup to stabilize timing */
+	Platform_Sleep( 200 ); /* Increased wait time for underlying hardware/OS setup to stabilize timing and resolve map load timeouts */
 #endif
 }
 
