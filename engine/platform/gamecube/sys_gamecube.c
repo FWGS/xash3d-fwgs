@@ -462,6 +462,7 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	else
 	{
 		gc_argv[fake_argc++] = "-gcmap";
+		// Ensure a deterministic map is always provided if no override is found.
 		gc_argv[fake_argc++] = gc_smoke_map_configured ? gc_smoke_map : GC_DEFAULT_SMOKE_MAP;
 	}
 	gc_argv[fake_argc++] = "-width";
