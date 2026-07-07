@@ -167,7 +167,7 @@ void GCube_EarlyInit( void )
 #if XASH_GAMECUBE
 	/* Ensure initial system state is established before full initialization */
 	Con_Reportf( "GameCube: Executing early initialization sequence.\n" );
-	Platform_Sleep( 50 );
+	Platform_Sleep( 100 );
 #endif
 }
 
