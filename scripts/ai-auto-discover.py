@@ -389,7 +389,7 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 			frame_budget_guidance = (
 				"Frame-budget guidance:\n"
 				"- Timing samples exist; this is over-budget telemetry, not missing telemetry.\n"
-				"- Do not edit `sys_gamecube.c`, `Platform_DoubleTime`, DVD, or base-path code.\n"
+				"- Do not edit startup, clock, DVD, or base-path code.\n"
 				"- Reduce frame/render cost while preserving MAP_READY/G45/nonblack.\n\n"
 			)
 		objective_guidance = (

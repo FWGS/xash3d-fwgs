@@ -131,6 +131,9 @@ for the active phase. Post-G36 frame/performance passes set
 `AI_FORBIDDEN_EDIT_PATHS=engine/platform/gamecube/sys_gamecube.c` so the loop
 does not drift back into startup, DVD, or base-path cleanup unless the current
 blocker is explicitly boot, storage, or filesystem related.
+Those passes also set `AIDER_PRESERVE_CONTEXT_ORDER=1`, keeping the highest
+value runtime source file first when the local model budget only permits one
+editable file.
 
 ## Release candidate gate
 

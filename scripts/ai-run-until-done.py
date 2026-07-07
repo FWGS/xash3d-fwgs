@@ -30,8 +30,9 @@ DISCOVERY_RETRY_RESULTS = {
 	18: "model_budget",
 	19: "no_edit",
 	20: "runtime_probe",
+	21: "runtime_probe",
 }
-DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19, 20}
+DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19, 20, 21}
 AUTOMATION_DISCOVERY_RESULTS = {"no_edit", "model_budget", "review_reject"}
 RUNTIME_DISCOVERY_RESULTS = {
 	"runtime_probe",
@@ -267,6 +268,7 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		env.setdefault("AI_REVIEW_ALLOW_SOURCE_ONLY_DISCOVERY", "1")
 		if is_runtime_discovery_item(item):
 			env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c")
+			env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
 		clear_discovery_feedback(root)
 		status = run(["scripts/ai-aider-pass.sh", str(root), str(task_path), *context, *read_context], root, env=env)
 		if status != 0:
@@ -275,6 +277,7 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 				10: "Retry from fresh runtime evidence with the same bounded source context.",
 				18: "Keep the next pass runtime-focused with reduced context pressure.",
 				19: "Restore at least one editable file to the discovery pass before retrying.",
+				21: "Discard the forbidden startup-file edit and retry on the loaded runtime file.",
 			}.get(status, "Inspect the failed discovery pass before retrying.")
 			observation = f"Discovery pass `{item.get('item_id')}` exited {status} before an accepted patch."
 			record_discovery_feedback(root, item, status, result, intent, observation)

@@ -126,9 +126,10 @@ def budget_context(root: Path, specs: list[ContextSpec], attempt: int,
 		elif spec.mode == "slice":
 			reads.append(spec)
 
-	# Prefer smaller editable files first; keep required ordering stable.
-	editable.sort(key=lambda item: (0 if item.mode == "required" else 1,
-		file_size(root, item.path)))
+	if os.environ.get("AIDER_PRESERVE_CONTEXT_ORDER", "0").lower() not in {"1", "true", "yes"}:
+		# Prefer smaller editable files first; keep required ordering stable.
+		editable.sort(key=lambda item: (0 if item.mode == "required" else 1,
+			file_size(root, item.path)))
 
 	selected_editables: list[ContextSpec] = []
 	selected_reads: list[ContextSpec] = []
