@@ -537,6 +537,22 @@ edit_path_allowed() {
 	return 1
 }
 
+edit_path_forbidden() {
+	local candidate="$1"
+	local forbidden
+	[[ -n "${AI_FORBIDDEN_EDIT_PATHS:-}" ]] || return 1
+	IFS=',' read -r -a _forbidden_paths <<<"$AI_FORBIDDEN_EDIT_PATHS"
+	for forbidden in "${_forbidden_paths[@]}"; do
+		forbidden="${forbidden#"${forbidden%%[![:space:]]*}"}"
+		forbidden="${forbidden%"${forbidden##*[![:space:]]}"}"
+		[[ -n "$forbidden" ]] || continue
+		if [[ "$candidate" == "$forbidden" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
 build_allowed_edit_paths() {
 	local path extra
 	ALLOWED_EDIT_PATHS=()
@@ -571,6 +587,11 @@ reject_out_of_scope_edits() {
 	build_allowed_edit_paths
 	while IFS= read -r changed_file; do
 		[[ -n "$changed_file" ]] || continue
+		if edit_path_forbidden "$changed_file"; then
+			echo "ai-aider-pass: forbidden edit for this pass: $changed_file" >&2
+			echo "ai-aider-pass: forbidden files: ${AI_FORBIDDEN_EDIT_PATHS}" >&2
+			return 21
+		fi
 		if ! edit_path_allowed "$changed_file"; then
 			echo "ai-aider-pass: edit outside loaded editable context: $changed_file" >&2
 			echo "ai-aider-pass: allowed editable files: ${ALLOWED_EDIT_PATHS[*]}" >&2
@@ -588,6 +609,11 @@ unstage_out_of_scope_edits() {
 	build_allowed_edit_paths
 	while IFS= read -r staged_file; do
 		[[ -n "$staged_file" ]] || continue
+		if edit_path_forbidden "$staged_file"; then
+			echo "ai-aider-pass: unstaging forbidden edit for this pass: $staged_file" >&2
+			git restore --staged -- "$staged_file" 2>/dev/null || true
+			continue
+		fi
 		if ! edit_path_allowed "$staged_file"; then
 			echo "ai-aider-pass: unstaging edit outside loaded editable context: $staged_file" >&2
 			git restore --staged -- "$staged_file" 2>/dev/null || true

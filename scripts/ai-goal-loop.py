@@ -2329,6 +2329,8 @@ def main() -> int:
 					pass_env.setdefault("AI_G24_SUBGOAL", str(active_subgoal["id"]))
 			if goal.goal_id == "G36":
 				pass_env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
+			if goal.goal_id == "G72":
+				pass_env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c")
 			pass_env["AI_COMMIT_BODY"] = goal_commit_body(goal,
 				attempt=attempts[goal.goal_id],
 				context_files=context_files,

@@ -265,6 +265,8 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		env.setdefault("AIDER_AUTOMATION", "1")
 		env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 		env.setdefault("AI_REVIEW_ALLOW_SOURCE_ONLY_DISCOVERY", "1")
+		if is_runtime_discovery_item(item):
+			env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c")
 		clear_discovery_feedback(root)
 		status = run(["scripts/ai-aider-pass.sh", str(root), str(task_path), *context, *read_context], root, env=env)
 		if status != 0:

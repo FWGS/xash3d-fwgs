@@ -7,7 +7,7 @@ import argparse
 from re_agent import __version__
 
 
-def build_parser() -> argparse.ArgumentParser:
+def runtime_probe() -> argparse.ArgumentParser:
 	parser = argparse.ArgumentParser(prog="re-agent", description="Autonomous reverse engineering agent")
 	parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 	parser.add_argument("--config", default="re-agent.yaml", help="Config file path")
