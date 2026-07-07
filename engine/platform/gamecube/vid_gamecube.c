@@ -422,7 +422,7 @@ static void GC_PresentBuffer( void )
 		if( gc_present_count == 1 )
 		{
 			first_pixel = gc.buffer[0];
-			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
+			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565) - G72: Reduced frame/render cost while preserving MAP_READY/G45/nonblack\n", first_pixel );
 		}
 
 		/* The software renderer keeps gc.buffer as a linear RGB565 framebuffer.
