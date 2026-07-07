@@ -280,9 +280,6 @@ void GCube_EnsureWritableLayout( void )
 void GCube_Init( void )
 {
 #if XASH_GAMECUBE
-	/* Ensure initial system state is established before full initialization to stabilize timing for map loading. */
-	GCube_EarlyInit();
-
 	char xashdir[MAX_SYSPATH];
 
 	/* G29: Initialize networking for local loopback single-player.
