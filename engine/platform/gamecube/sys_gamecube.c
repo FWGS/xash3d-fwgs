@@ -89,8 +89,9 @@ double Platform_DoubleTime( void )
 	static u64 start_ticks;
 	u64 now = SYS_Time();
 
-	if( start_ticks == 0 )
+	if( start_ticks == 0 ) {
 		start_ticks = now;
+	}
 
 	return (double)diff_ticks( start_ticks, now ) / (double)PPC_TIMER_CLOCK;
 #else
