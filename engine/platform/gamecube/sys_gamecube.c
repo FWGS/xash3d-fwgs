@@ -120,7 +120,8 @@ double Platform_DoubleTime( void )
 
 	return (double)diff_ticks( start_ticks, now );
 #else
-	return 0.0;
+	static double artificial_time = 1.0;
+	return artificial_time;
 #endif
 }
 
