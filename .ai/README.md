@@ -133,7 +133,10 @@ does not drift back into startup, DVD, or base-path cleanup unless the current
 blocker is explicitly boot, storage, or filesystem related.
 Those passes also set `AIDER_PRESERVE_CONTEXT_ORDER=1`, keeping the highest
 value runtime source file first when the local model budget only permits one
-editable file.
+editable file. Because these runs disable repo-map and chat-history restore,
+they use lower estimator slack (`AIDER_CONFIG_PROMPT_SLACK_TOKENS=8000` and
+`AIDER_RESERVED_OUTPUT_SLACK=1024`) so `vid_gamecube.c` can remain editable
+without tripping the pre-flight budget gate.
 
 ## Release candidate gate
 

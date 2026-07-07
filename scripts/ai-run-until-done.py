@@ -269,6 +269,8 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		if is_runtime_discovery_item(item):
 			env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c")
 			env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
+			env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "8000")
+			env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "1024")
 		clear_discovery_feedback(root)
 		status = run(["scripts/ai-aider-pass.sh", str(root), str(task_path), *context, *read_context], root, env=env)
 		if status != 0:
