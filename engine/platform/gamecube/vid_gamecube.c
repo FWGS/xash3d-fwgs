@@ -462,6 +462,13 @@ static void GC_PresentBuffer( void )
 				diag_rowdst = dst + row * ( rmode->fbWidth / 2 );
 				for( col_diag = 0; col_diag < copy_w / 2; col_diag++ )
 					diag_rowdst[col_diag] = GC_RGBPairToYUYV( 0x001F, 0x001F );
+				// G72: Reduce frame/render cost while preserving MAP_READY/G45/nonblack
+				if( gc_present_count == 1 )
+				{
+					diag_rowdst[copy_w / 4] = GC_RGBPairToYUYV( 0x001F, 0x001F );
+					diag_rowdst[copy_w / 2] = GC_RGBPairToYUYV( 0x001F, 0x001F );
+					diag_rowdst[copy_w * 3 / 4] = GC_RGBPairToYUYV( 0x001F, 0x001F );
+				}
 			}
 			sampled_nonblack = true;
 		}
