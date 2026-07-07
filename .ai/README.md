@@ -126,6 +126,12 @@ default so restarts continue through renderer/client/model source slices instead
 of adding more probe-only diagnostics. Set `AI_G36_ALLOW_PROBE_CONTEXT=1` only
 when intentionally cleaning or changing the probe script itself.
 
+Runtime discovery can also forbid files that are technically editable but wrong
+for the active phase. Post-G36 frame/performance passes set
+`AI_FORBIDDEN_EDIT_PATHS=engine/platform/gamecube/sys_gamecube.c` so the loop
+does not drift back into startup, DVD, or base-path cleanup unless the current
+blocker is explicitly boot, storage, or filesystem related.
+
 ## Release candidate gate
 
 Use the release-candidate gate before advancing G36+ goals:
