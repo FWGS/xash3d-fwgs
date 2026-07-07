@@ -331,6 +331,15 @@ def existing_paths(root: Path, paths: tuple[str, ...]) -> list[str]:
 	return [path for path in paths if (root / path).is_file()]
 
 
+def runtime_port_status(root: Path) -> str:
+	parts: list[str] = []
+	if (root / "OUT/bin/boot.dol").is_file() and (root / "OUT/xash3d-gc.iso").is_file():
+		parts.append("The native build/package path is already working (`OUT/bin/boot.dol` and `OUT/xash3d-gc.iso` exist).")
+	parts.append("What remains is runtime porting: boot cleanly, load a map, reach controller-ready, confirm stable visual output, confirm stable audio, and avoid fatal/runtime regressions.")
+	parts.append("Do not spend this pass on supervisor or review-gate tuning.")
+	return " ".join(parts)
+
+
 def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, object]) -> WorkItem | None:
 	failure_class = str(recent.get("result") or "").strip() or "runtime_probe"
 	recipe = DISCOVERY_RECIPES.get(failure_class)
@@ -363,10 +372,20 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		f"Loaded editable files:\n{context_list}\n\n"
 		"If the loaded editable file list above is not empty, choose from that list and do not claim that no editable files were provided.\n\n"
 	)
+	objective_guidance = ""
 	if failure_class in AUTOMATION_FAILURES:
 		evidence_heading = "Automation evidence"
 		evidence_body = "The latest accepted path stalled in the supervisor or harness layer; prefer a minimal automation fix or return to the smallest runtime source patch."
 	else:
+		objective_guidance = (
+			"Porting priority:\n"
+			f"{runtime_port_status(root)}\n\n"
+			"Runtime loop for this pass:\n"
+			"- Use the current probe failure as the source of truth, not old supervisor churn.\n"
+			"- Fix the next real GameCube runtime blocker in source code.\n"
+			"- After this patch, bounded verification/probe steps should capture the next fresh failure.\n"
+			"- Do not change automation policy in this pass.\n\n"
+		)
 		editable_guidance = (
 			"The harness will load the editable files directly into chat for this pass. "
 			"Act on the editable files already present in chat and do not ask for their filenames.\n\n"
@@ -383,7 +402,7 @@ Reason this task was synthesized:
 {evidence_heading}:
 {evidence_body}
 
-{editable_guidance}Task:
+{objective_guidance}{editable_guidance}Task:
 - Make exactly one small, source-first patch in the loaded editable files already in chat.
 - Do not claim that no editable files were provided when editable files are already loaded in chat.
 - Prefer removing the current blocker over adding more instrumentation.
