@@ -1,0 +1,224 @@
+(APIServer pid=3488166) INFO 07-07 15:30:28 [api_utils.py:339] 
+(APIServer pid=3488166) INFO 07-07 15:30:28 [api_utils.py:339]        █     █     █▄   ▄█
+(APIServer pid=3488166) INFO 07-07 15:30:28 [api_utils.py:339]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.24.0
+(APIServer pid=3488166) INFO 07-07 15:30:28 [api_utils.py:339]   █▄█▀ █     █     █     █  model   Qwen/Qwen2.5-Coder-7B-Instruct
+(APIServer pid=3488166) INFO 07-07 15:30:28 [api_utils.py:339]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=3488166) INFO 07-07 15:30:28 [api_utils.py:339] 
+(APIServer pid=3488166) INFO 07-07 15:30:28 [api_utils.py:273] non-default args: {'model_tag': 'Qwen/Qwen2.5-Coder-7B-Instruct', 'host': '127.0.0.1', 'port': 8072, 'model': 'Qwen/Qwen2.5-Coder-7B-Instruct', 'served_model_name': ['qwen-local']}
+(APIServer pid=3488166) INFO 07-07 15:30:30 [model.py:598] Resolved architecture: Qwen2ForCausalLM
+(APIServer pid=3488166) INFO 07-07 15:30:30 [model.py:1725] Using max model len 32768
+(APIServer pid=3488166) INFO 07-07 15:30:30 [vllm.py:1006] Asynchronous scheduling is enabled.
+(APIServer pid=3488166) INFO 07-07 15:30:30 [kernel.py:276] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=3489597) INFO 07-07 15:30:39 [core.py:114] Initializing a V1 LLM engine (v0.24.0) with config: model='Qwen/Qwen2.5-Coder-7B-Instruct', speculative_config=None, tokenizer='Qwen/Qwen2.5-Coder-7B-Instruct', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=32768, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=None, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_verbose=False), seed=0, served_model_name=qwen-local, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['none'], 'ir_enable_torch_wrap': True, 'splitting_ops': ['vllm::unified_attention_with_output', 'vllm::unified_mla_attention_with_output', 'vllm::mamba_mixer2', 'vllm::mamba_mixer', 'vllm::short_conv', 'vllm::linear_attention', 'vllm::plamo2_mamba_mixer', 'vllm::qwen_gdn_attention_core', 'vllm::gdn_attention_core_xpu', 'vllm::olmo_hybrid_gdn_full_forward', 'vllm::kda_attention', 'vllm::sparse_attn_indexer', 'vllm::rocm_aiter_sparse_attn_indexer', 'vllm::deepseek_v4_attention', 'vllm::unified_kv_cache_update', 'vllm::unified_mla_kv_cache_update'], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [2048], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256, 272, 288, 304, 320, 336, 352, 368, 384, 400, 416, 432, 448, 464, 480, 496, 512], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False}, 'max_cudagraph_capture_size': 512, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=3489597) INFO 07-07 15:30:39 [parallel_state.py:1588] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://192.168.1.244:40319 backend=nccl
+(EngineCore pid=3489597) INFO 07-07 15:30:39 [parallel_state.py:1923] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231] EngineCore failed to start.
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231] Traceback (most recent call last):
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core.py", line 1200, in run_engine_core
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     return func(*args, **kwargs)
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core.py", line 966, in __init__
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     super().__init__(
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     ~~~~~~~~~~~~~~~~^
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]         vllm_config,
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]         ^^^^^^^^^^^^
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     ...<3 lines>...
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]         internal_dp_balancing,
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]         ^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     )
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     ^
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core.py", line 123, in __init__
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     self.model_executor = executor_class(vllm_config)
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]                           ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     return func(*args, **kwargs)
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/executor/abstract.py", line 109, in __init__
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     self._init_executor()
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     ~~~~~~~~~~~~~~~~~~~^^
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/executor/uniproc_executor.py", line 63, in _init_executor
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     self.driver_worker.init_device()
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/worker/worker_base.py", line 331, in init_device
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     self.worker.init_device()  # type: ignore
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     ~~~~~~~~~~~~~~~~~~~~~~~^^
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     return func(*args, **kwargs)
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/worker/gpu_worker.py", line 342, in init_device
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     self.requested_memory = request_memory(init_snapshot, self.cache_config)
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]                             ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/worker/utils.py", line 415, in request_memory
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     raise ValueError(
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     ...<7 lines>...
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231]     )
+(EngineCore pid=3489597) ERROR 07-07 15:30:39 [core.py:1231] ValueError: Free memory on device cuda:0 (8.63/23.43 GiB) on startup is less than desired GPU memory utilization (0.92, 21.55 GiB). Decrease GPU memory utilization or reduce GPU memory used by other processes.
+(EngineCore pid=3489597) Process EngineCore:
+(EngineCore pid=3489597) Traceback (most recent call last):
+(EngineCore pid=3489597)   File "/usr/lib/python3.14/multiprocessing/process.py", line 320, in _bootstrap
+(EngineCore pid=3489597)     self.run()
+(EngineCore pid=3489597)     ~~~~~~~~^^
+(EngineCore pid=3489597)   File "/usr/lib/python3.14/multiprocessing/process.py", line 108, in run
+(EngineCore pid=3489597)     self._target(*self._args, **self._kwargs)
+(EngineCore pid=3489597)     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core.py", line 1235, in run_engine_core
+(EngineCore pid=3489597)     raise e
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core.py", line 1200, in run_engine_core
+(EngineCore pid=3489597)     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=3489597)     return func(*args, **kwargs)
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core.py", line 966, in __init__
+(EngineCore pid=3489597)     super().__init__(
+(EngineCore pid=3489597)     ~~~~~~~~~~~~~~~~^
+(EngineCore pid=3489597)         vllm_config,
+(EngineCore pid=3489597)         ^^^^^^^^^^^^
+(EngineCore pid=3489597)     ...<3 lines>...
+(EngineCore pid=3489597)         internal_dp_balancing,
+(EngineCore pid=3489597)         ^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=3489597)     )
+(EngineCore pid=3489597)     ^
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core.py", line 123, in __init__
+(EngineCore pid=3489597)     self.model_executor = executor_class(vllm_config)
+(EngineCore pid=3489597)                           ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=3489597)     return func(*args, **kwargs)
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/executor/abstract.py", line 109, in __init__
+(EngineCore pid=3489597)     self._init_executor()
+(EngineCore pid=3489597)     ~~~~~~~~~~~~~~~~~~~^^
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/executor/uniproc_executor.py", line 63, in _init_executor
+(EngineCore pid=3489597)     self.driver_worker.init_device()
+(EngineCore pid=3489597)     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/worker/worker_base.py", line 331, in init_device
+(EngineCore pid=3489597)     self.worker.init_device()  # type: ignore
+(EngineCore pid=3489597)     ~~~~~~~~~~~~~~~~~~~~~~~^^
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=3489597)     return func(*args, **kwargs)
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/worker/gpu_worker.py", line 342, in init_device
+(EngineCore pid=3489597)     self.requested_memory = request_memory(init_snapshot, self.cache_config)
+(EngineCore pid=3489597)                             ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=3489597)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/worker/utils.py", line 415, in request_memory
+(EngineCore pid=3489597)     raise ValueError(
+(EngineCore pid=3489597)     ...<7 lines>...
+(EngineCore pid=3489597)     )
+(EngineCore pid=3489597) ValueError: Free memory on device cuda:0 (8.63/23.43 GiB) on startup is less than desired GPU memory utilization (0.92, 21.55 GiB). Decrease GPU memory utilization or reduce GPU memory used by other processes.
+[rank0]:[W707 15:30:40.202810634 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+(APIServer pid=3488166) Traceback (most recent call last):
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/bin/vllm", line 6, in <module>
+(APIServer pid=3488166)     sys.exit(main())
+(APIServer pid=3488166)              ~~~~^^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/entrypoints/cli/main.py", line 95, in main
+(APIServer pid=3488166)     args.dispatch_function(args)
+(APIServer pid=3488166)     ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/entrypoints/cli/serve.py", line 148, in cmd
+(APIServer pid=3488166)     uvloop.run(run_server(args))
+(APIServer pid=3488166)     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=3488166)     return __asyncio.run(
+(APIServer pid=3488166)            ~~~~~~~~~~~~~^
+(APIServer pid=3488166)         wrapper(),
+(APIServer pid=3488166)         ^^^^^^^^^^
+(APIServer pid=3488166)     ...<2 lines>...
+(APIServer pid=3488166)         **run_kwargs
+(APIServer pid=3488166)         ^^^^^^^^^^^^
+(APIServer pid=3488166)     )
+(APIServer pid=3488166)     ^
+(APIServer pid=3488166)   File "/usr/lib/python3.14/asyncio/runners.py", line 204, in run
+(APIServer pid=3488166)     return runner.run(main)
+(APIServer pid=3488166)            ~~~~~~~~~~^^^^^^
+(APIServer pid=3488166)   File "/usr/lib/python3.14/asyncio/runners.py", line 127, in run
+(APIServer pid=3488166)     return self._loop.run_until_complete(task)
+(APIServer pid=3488166)            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+(APIServer pid=3488166)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=3488166)     return await main
+(APIServer pid=3488166)            ^^^^^^^^^^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/entrypoints/openai/api_server.py", line 663, in run_server
+(APIServer pid=3488166)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/entrypoints/openai/api_server.py", line 677, in run_server_worker
+(APIServer pid=3488166)     async with build_async_engine_client(
+(APIServer pid=3488166)                ~~~~~~~~~~~~~~~~~~~~~~~~~^
+(APIServer pid=3488166)         args,
+(APIServer pid=3488166)         ^^^^^
+(APIServer pid=3488166)         client_config=client_config,
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)     ) as engine_client:
+(APIServer pid=3488166)     ^
+(APIServer pid=3488166)   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
+(APIServer pid=3488166)     return await anext(self.gen)
+(APIServer pid=3488166)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/entrypoints/openai/api_server.py", line 99, in build_async_engine_client
+(APIServer pid=3488166)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=3488166)                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+(APIServer pid=3488166)         engine_args,
+(APIServer pid=3488166)         ^^^^^^^^^^^^
+(APIServer pid=3488166)         usage_context=usage_context,
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)         client_config=client_config,
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)     ) as engine:
+(APIServer pid=3488166)     ^
+(APIServer pid=3488166)   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
+(APIServer pid=3488166)     return await anext(self.gen)
+(APIServer pid=3488166)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/entrypoints/openai/api_server.py", line 135, in build_async_engine_client_from_engine_args
+(APIServer pid=3488166)     async_llm = AsyncLLM.from_vllm_config(
+(APIServer pid=3488166)         vllm_config=vllm_config,
+(APIServer pid=3488166)     ...<6 lines>...
+(APIServer pid=3488166)         client_index=client_index,
+(APIServer pid=3488166)     )
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/async_llm.py", line 217, in from_vllm_config
+(APIServer pid=3488166)     return cls(
+(APIServer pid=3488166)         vllm_config=vllm_config,
+(APIServer pid=3488166)     ...<9 lines>...
+(APIServer pid=3488166)         client_index=client_index,
+(APIServer pid=3488166)     )
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/async_llm.py", line 146, in __init__
+(APIServer pid=3488166)     self.engine_core = EngineCoreClient.make_async_mp_client(
+(APIServer pid=3488166)                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+(APIServer pid=3488166)         vllm_config=vllm_config,
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)     ...<4 lines>...
+(APIServer pid=3488166)         client_index=client_index,
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)     )
+(APIServer pid=3488166)     ^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=3488166)     return func(*args, **kwargs)
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core_client.py", line 132, in make_async_mp_client
+(APIServer pid=3488166)     return AsyncMPClient(*client_args)
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=3488166)     return func(*args, **kwargs)
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core_client.py", line 963, in __init__
+(APIServer pid=3488166)     super().__init__(
+(APIServer pid=3488166)     ~~~~~~~~~~~~~~~~^
+(APIServer pid=3488166)         asyncio_mode=True,
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)     ...<3 lines>...
+(APIServer pid=3488166)         client_addresses=client_addresses,
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)     )
+(APIServer pid=3488166)     ^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/core_client.py", line 573, in __init__
+(APIServer pid=3488166)     with launch_core_engines(
+(APIServer pid=3488166)          ~~~~~~~~~~~~~~~~~~~^
+(APIServer pid=3488166)         vllm_config, executor_class, log_stats, addresses
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)     ) as (engine_manager, coordinator, addresses, tensor_queue):
+(APIServer pid=3488166)     ^
+(APIServer pid=3488166)   File "/usr/lib/python3.14/contextlib.py", line 148, in __exit__
+(APIServer pid=3488166)     next(self.gen)
+(APIServer pid=3488166)     ~~~~^^^^^^^^^^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/utils.py", line 1213, in launch_core_engines
+(APIServer pid=3488166)     wait_for_engine_startup(
+(APIServer pid=3488166)     ~~~~~~~~~~~~~~~~~~~~~~~^
+(APIServer pid=3488166)         handshake_socket,
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)     ...<6 lines>...
+(APIServer pid=3488166)         coordinator.proc if coordinator else None,
+(APIServer pid=3488166)         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=3488166)     )
+(APIServer pid=3488166)     ^
+(APIServer pid=3488166)   File "/home/tim/GopexLLC/.venv/lib/python3.14/site-packages/vllm/v1/engine/utils.py", line 1272, in wait_for_engine_startup
+(APIServer pid=3488166)     raise RuntimeError(
+(APIServer pid=3488166)     ...<3 lines>...
+(APIServer pid=3488166)     )
+(APIServer pid=3488166) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
