@@ -92,13 +92,19 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		"read_context": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",),
 	},
 	"runtime_probe": {
-		"title": "remove the latest runtime blocker with a source-first patch",
-		"subject": "fix: resolve GameCube runtime blocker",
+		"title": "reduce the current GameCube frame/runtime cost",
+		"subject": "perf: reduce GameCube runtime frame cost",
 		"context": (
-			"engine/platform/gamecube/sys_gamecube.c",
+			"engine/platform/gamecube/vid_gamecube.c",
+			"engine/client/cl_scrn.c",
+			"ref/gx/r_main.c",
+			"ref/gx/r_surf.c",
+			"engine/common/mod_bmodel.c",
 		),
 		"read_context": (
 			".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
+			".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
+			".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
 		),
 		"include_common_reads": False,
 	},
@@ -373,9 +379,18 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		evidence_heading = "Automation evidence"
 		evidence_body = "The latest accepted path stalled in the supervisor or harness layer; prefer a minimal automation fix or return to the smallest runtime source patch."
 	else:
+		frame_budget_guidance = ""
+		if "Captured " in evidence_body and "frame timing sample" in evidence_body and "avg=" in evidence_body:
+			frame_budget_guidance = (
+				"Frame-budget guidance:\n"
+				"- Latest Dolphin evidence already has timing samples; this is over-budget telemetry, not missing telemetry.\n"
+				"- Do not edit `engine/platform/gamecube/sys_gamecube.c`, `Platform_DoubleTime`, DVD mounting, or base-path code for this blocker.\n"
+				"- Reduce route-time render/frame cost in the loaded renderer/client/model source files while preserving MAP_READY/G45/nonblack output.\n\n"
+			)
 		objective_guidance = (
 			"Porting priority:\n"
 			f"{runtime_port_status(root)}\n\n"
+			f"{frame_budget_guidance}"
 			"Runtime loop for this pass:\n"
 			"- Use the current probe failure as the source of truth, not old supervisor churn.\n"
 			"- Fix the next real GameCube runtime blocker in source code.\n"
