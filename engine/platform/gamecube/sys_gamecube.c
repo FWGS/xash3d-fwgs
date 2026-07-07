@@ -33,7 +33,31 @@ static qboolean gc_fat_mounted;
 static qboolean gc_dvd_mounted;
 static DISC_INTERFACE gc_dvd_io;
 
+static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer );
+static qboolean GCube_MountDisc( void );
 static void GCube_LoadDiscBootOverrides( void );
+
+static qboolean GCube_MountDisc( void )
+{
+	if( gc_dvd_mounted )
+		return true;
+
+	SYS_Report( "Xash3D GameCube: DVD mount begin\n" );
+	DVD_Init();
+	gc_dvd_io = __io_gcdvd;
+	gc_dvd_io.readSectors = GCube_DVDReadSectors;
+
+	if( !ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io ) )
+	{
+		SYS_Report( "Xash3D GameCube: mounting DVD filesystem failed\n" );
+		gc_dvd_mounted = false;
+		return false;
+	}
+
+	gc_dvd_mounted = true;
+	SYS_Report( "Xash3D GameCube: DVD mount ready\n" );
+	return true;
+}
 
 static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 {
@@ -256,24 +280,12 @@ void GCube_Init( void )
 	 * to ensure offline boot works without network hardware. */
 	NET_Config( false, false );
 
-	GCube_LoadDiscBootOverrides();
-
 	gc_fat_mounted = fatInitDefault();
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
 
-	if( !gc_dvd_mounted )
-	{
-		DVD_Init();
-		gc_dvd_io = __io_gcdvd;
-		gc_dvd_io.readSectors = GCube_DVDReadSectors;
-	}
-	if( !ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io ) )
-	{
-		SYS_Report( "Xash3D GameCube: mounting DVD filesystem failed\n" );
-		gc_dvd_mounted = false;
+	if( !GCube_MountDisc() )
 		Con_Reportf( S_WARN "Xash3D GameCube: DVD mount failed (skipping mount)\n" );
-	}
 	if( gc_dvd_mounted )
 		Con_Reportf( "GameCube DVD filesystem mounted (%s)\n", ISO9660_GetVolumeLabel( GC_DVD_DEVICE ) );
 	else
@@ -304,7 +316,10 @@ void GCube_Init( void )
 	}
 
 	if( chdir( xashdir ) == 0 )
+	{
 		Con_Reportf( "GameCube data directory: %s\n", xashdir );
+		GCube_LoadDiscBootOverrides();
+	}
 	else
 	{
 		Con_Reportf( S_ERROR "GameCube storage: failed to chdir to %s (errno %d: %s)\n", xashdir, errno, strerror( errno ) );
@@ -365,19 +380,14 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_smoke_map_configured = false;
 	gc_newgame_configured = false;
 
-	if( !gc_dvd_mounted )
-	{
-		gc_dvd_io = __io_gcdvd;
-		gc_dvd_io.readSectors = GCube_DVDReadSectors;
-		gc_dvd_mounted = ISO9660_Mount( GC_DVD_DEVICE, &gc_dvd_io );
-	}
-
-	if( !gc_dvd_mounted )
+	if( !GCube_MountDisc() )
 		return;
 
 	/* If running on read-only boot without a config file, the default smoke
 	 * map below still gives the probe a deterministic map-load route. */
-	file = fopen( GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	if( !file )
+		file = fopen( GC_DATA_PATH "/valve/gamecube.cfg", "r" );
 	if( !file )
 		return;
 
@@ -437,6 +447,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		return in_argc;
 	}
 
+	GCube_LoadDiscBootOverrides();
+
 	gc_argv[fake_argc++] = "xash";
 	gc_argv[fake_argc++] = "xash";
 	gc_argv[fake_argc++] = "-dev";
@@ -444,8 +456,15 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "-log";
 	gc_argv[fake_argc++] = "-game";
 	gc_argv[fake_argc++] = "valve";
-	gc_argv[fake_argc++] = "-map";
-	gc_argv[fake_argc++] = gc_smoke_map_configured ? gc_smoke_map : GC_DEFAULT_SMOKE_MAP;
+	if( gc_newgame_configured )
+	{
+		gc_argv[fake_argc++] = "-gcnewgame";
+	}
+	else
+	{
+		gc_argv[fake_argc++] = "-gcmap";
+		gc_argv[fake_argc++] = gc_smoke_map_configured ? gc_smoke_map : GC_DEFAULT_SMOKE_MAP;
+	}
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "640";
 	gc_argv[fake_argc++] = "-height";

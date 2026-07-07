@@ -3468,8 +3468,13 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 #if XASH_GAMECUBE
 	const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
 	byte         *surf_block = NULL;
+	qboolean     use_bsp_surface_scratch = false;
+	qboolean     fast_gcmap_surfaces = Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld;
 
-	if( Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld
+	/* Surface output is populated while the original BSP face lump is still
+	 * being read. Keep it off the BSP scratch buffer until overlap handling is
+	 * proven safe on hardware/Dolphin. */
+	if( use_bsp_surface_scratch && Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld
 		&& gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 	{
 		gc_bsp_busy_range_t busy[4];
@@ -3556,6 +3561,8 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 
 	mod->surfaces = out = (msurface_t *)surf_block;
 	info = (mextrasurf_t *)( surf_block + bmod->numsurfaces * sizeof( msurface_t ));
+	if( fast_gcmap_surfaces )
+		Con_Reportf( "Xash3D GameCube: world surfaces fast gcmap setup count=%zu\n", bmod->numsurfaces );
 #else
 	mod->surfaces = out = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( msurface_t ));
 	info = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( mextrasurf_t ));
@@ -3635,10 +3642,14 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		if( FBitSet( out->texinfo->flags, TEX_SPECIAL ))
 			SetBits( out->flags, SURF_DRAWTILED );
 
+#if XASH_GAMECUBE
+		if( fast_gcmap_surfaces )
+			continue;
+#endif
 		Mod_CalcSurfaceBounds( mod, out, bmod );
 		Mod_CalcSurfaceExtents( mod, out, bmod );
 #if XASH_GAMECUBE
-		if( !Sys_CheckParm( "-gcnobevels" ))
+		if( !Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnobevels" ))
 #endif
 		Mod_CreateFaceBevels( mod, out, bmod );
 
@@ -4601,6 +4612,14 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 		return;
 
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld )
+	{
+		Con_Reportf( "Xash3D GameCube: skipping world visdata for gcmap full-vis fallback (%s)\n",
+			Q_memprint( bmod->visdatasize ));
+		bmod->visdata = NULL;
+		return;
+	}
+
 	/* Optional: renderer can fall back to full-vis leaf marking. */
 	mod->visdata = Mem_TryMalloc( mod->mempool, bmod->visdatasize );
 	if( !mod->visdata )
