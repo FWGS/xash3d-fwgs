@@ -1072,7 +1072,7 @@ void GC_RunGcmapSmokeFrames( const char *mapname, int count )
 		}
 
 		GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride,
-			"MAP LOADED", details );
+			"MAP READY", details );
 	}
 
 	for( i = 0; i < count; i++ )
