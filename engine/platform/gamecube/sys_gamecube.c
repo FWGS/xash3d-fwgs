@@ -110,11 +110,12 @@ void Platform_Sleep( int msec )
 double Platform_DoubleTime( void )
 {
 #if XASH_GAMECUBE
-	static u64 start_ticks;
+	static u64 start_ticks = 0;
 	u64 now = SYS_Time();
 
 	if( start_ticks == 0 ) {
 		start_ticks = now;
+		return 0.0; // Return 0 if first call, to avoid initial large delta
 	}
 
 	return (double)diff_ticks( start_ticks, now );
