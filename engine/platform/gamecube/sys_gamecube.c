@@ -119,7 +119,7 @@ double Platform_DoubleTime( void )
 
 	double clock = (double)PPC_TIMER_CLOCK;
 	if (clock <= 0.0) return 0.0;
-	return (double)diff_ticks( start_ticks, now ) / clock;
+	else return (double)diff_ticks( start_ticks, now ) / clock;
 #else
 	return 0.0;
 #endif
