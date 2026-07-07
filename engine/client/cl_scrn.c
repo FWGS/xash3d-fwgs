@@ -193,6 +193,8 @@ void SCR_DrawPos( void )
 			return; // Skip expensive debug draw in quality 0 to stabilize frame budget
 		if( GC_GetVisualQuality( ) == 1 )
 			return; // Additional check for G72 optimization
+		if( GC_GetVisualQuality( ) == 2 )
+			return; // Additional check for G72 optimization
 	}
 #endif
 
