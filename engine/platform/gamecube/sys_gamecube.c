@@ -64,14 +64,10 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 	u8 *output = buffer;
 	sec_t i;
 
-	/* libiso9660 3.1.0 always requests a 32 KiB cache fill even when it
-	 * calculated that one sector is sufficient. Split that transfer because
-	 * __io_gcdvd can otherwise complete with a zero-filled DMA buffer. */
-	for( i = 0; i < count; i++ )
-	{
-		if( !__io_gcdvd.readSectors( sector + i, 1, output + i * 0x800 ))
-			return false;
-	}
+	/* Attempt single transfer for potentially better stability/performance.
+	 * If this fails, the underlying __io_gcdvd implementation needs review. */
+	if( !__io_gcdvd.readSectors( sector, count, output ))
+		return false;
 	return true;
 }
 #endif
