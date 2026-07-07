@@ -299,6 +299,7 @@ void GCube_Init( void )
 	else
 	{
 		SYS_Report( "Xash3D GameCube: no base path found (SD/DVD missing or empty). Cannot initialize game data path.\n" );
+		Con_Reportf( S_ERROR "Xash3D GameCube: FATAL: Cannot initialize game data path.\n" );
 		/* No data directory found. Game assets will not load. */
 	}
 
