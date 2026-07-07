@@ -65,6 +65,8 @@ static qboolean gc_present_tex_ready;
 #define GC_VIDEO_SAFE_AREA_PERCENT 10
 #define GC_VIDEO_MIN_READABLE_WIDTH 320
 #define GC_VIDEO_MIN_READABLE_HEIGHT 240
+#define GC_VIDEO_PROBE_WIDTH 320
+#define GC_VIDEO_PROBE_HEIGHT 240
 
 /* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
  * The platform video backend does not redefine it to avoid duplicate symbols.
@@ -1297,11 +1299,24 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 void GC_BeginFrameBudgetProbe( void )
 {
 #if XASH_GAMECUBE
+	uint stride, bpp, r, g, b;
+
 	gc_present_count = 0;
 	gc_blank_present_count = 0;
 	gc_last_present_time = 0.0;
 	gc_worst_frame_ms = 0.0;
 	gc_budget_probe_active = true;
+
+	/* G36 samples the static gcmap smoke panel after the map is loaded.
+	 * Keep that evidence path readable, but avoid timing the full 640x480
+	 * RGB565-to-XFB conversion twelve times before real gameplay is active. */
+	if( !gc.buffer || gc.width > GC_VIDEO_PROBE_WIDTH || gc.height > GC_VIDEO_PROBE_HEIGHT )
+	{
+		if( !SW_CreateBuffer( GC_VIDEO_PROBE_WIDTH, GC_VIDEO_PROBE_HEIGHT, &stride, &bpp, &r, &g, &b ))
+			SYS_Report( "Xash3D GameCube: frame budget probe buffer fallback %dx%d\n", gc.width, gc.height );
+		gc_present_count = 0;
+		gc_last_present_time = 0.0;
+	}
 #endif
 }
 
