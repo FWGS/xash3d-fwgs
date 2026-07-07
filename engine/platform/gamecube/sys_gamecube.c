@@ -115,7 +115,7 @@ double Platform_DoubleTime( void )
 
 	if( start_ticks == 0 ) {
 		start_ticks = now;
-		return 0.0; // Return 0 if first call, to avoid initial large delta
+		return 1.0; // Return 1.0 if first call, allowing timing measurement to proceed
 	}
 
 	return (double)diff_ticks( start_ticks, now );
