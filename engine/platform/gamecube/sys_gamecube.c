@@ -117,7 +117,9 @@ double Platform_DoubleTime( void )
 		start_ticks = now;
 	}
 
-	return (double)diff_ticks( start_ticks, now ) / (double)PPC_TIMER_CLOCK;
+	double clock = (double)PPC_TIMER_CLOCK;
+	if (clock == 0.0) clock = 1.0;
+	return (double)diff_ticks( start_ticks, now ) / clock;
 #else
 	return 0.0;
 #endif
