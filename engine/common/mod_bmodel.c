@@ -28,13 +28,7 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include "gamecube/mem_gamecube.h"
 
-static void Mod_GCFreeBspPin( void **ptr )
-{
-	if( !ptr || !*ptr )
-		return;
-	free( *ptr );
-	*ptr = NULL;
-}
+static void Mod_GCFreeBspPin( void **ptr );
 
 typedef struct gc_bsp_deferred_s
 {
@@ -61,6 +55,21 @@ typedef struct gc_bsp_busy_range_s
 
 static qboolean Mod_GCPointerInBuffer( const void *ptr, const byte *base, size_t size );
 static void *Mod_GCAllocBspScratch( byte *base, size_t size, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align );
+
+static void Mod_GCFreeBspPin( void **ptr )
+{
+	if( !ptr || !*ptr )
+		return;
+
+	if( gc_retain_bsp_source_buffer && Mod_GCPointerInBuffer( *ptr, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		*ptr = NULL;
+		return;
+	}
+
+	free( *ptr );
+	*ptr = NULL;
+}
 #endif
 #include "swaplib.h"
 #include "ref_common.h"
@@ -3644,7 +3653,11 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 
 #if XASH_GAMECUBE
 		if( fast_gcmap_surfaces )
+		{
+			if(( i & 255 ) == 255 )
+				Con_Reportf( "Xash3D GameCube: world surfaces fast progress %d/%zu\n", i + 1, bmod->numsurfaces );
 			continue;
+		}
 #endif
 		Mod_CalcSurfaceBounds( mod, out, bmod );
 		Mod_CalcSurfaceExtents( mod, out, bmod );
@@ -3683,6 +3696,11 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 			ref.dllFuncs.GL_SubdivideSurface( mod, out ); // cut up polygon for warps
 #endif
 	}
+
+#if XASH_GAMECUBE
+	if( fast_gcmap_surfaces )
+		Con_Reportf( "Xash3D GameCube: world surfaces fast loop ready\n" );
+#endif
 
 	// now we have enough data to trying determine samplecount per lightmap pixel
 	if( test_lightsize > 0 && prev_lightofs != -1 && next_lightofs != -1 && next_lightofs != 99999999 )
