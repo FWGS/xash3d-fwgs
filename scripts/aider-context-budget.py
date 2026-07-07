@@ -30,8 +30,8 @@ SYSTEM_OVERHEAD_TOKENS = int(os.environ.get("AIDER_SYSTEM_OVERHEAD_TOKENS", "245
 DEFAULT_MAX_CONTEXT = int(os.environ.get("AIDER_MODEL_MAX_CONTEXT", "65536"))
 
 EDITABLE_TOTAL_LIMITS = [
-	int(os.environ.get("AIDER_EDITABLE_BYTES_INITIAL", "24000")),
-	int(os.environ.get("AIDER_EDITABLE_BYTES_RETRY_1", "16000")),
+	int(os.environ.get("AIDER_EDITABLE_BYTES_INITIAL", "40000")),
+	int(os.environ.get("AIDER_EDITABLE_BYTES_RETRY_1", "32000")),
 	int(os.environ.get("AIDER_EDITABLE_BYTES_RETRY_2", "10000")),
 	int(os.environ.get("AIDER_EDITABLE_BYTES_RETRY_3", "7000")),
 ]
@@ -42,7 +42,7 @@ READ_TOTAL_LIMITS = [
 	int(os.environ.get("AIDER_READ_BYTES_RETRY_3", "2000")),
 ]
 MAX_EDITABLE_COUNT = [3, 2, 1, 1]
-MAX_SINGLE_EDITABLE = int(os.environ.get("AIDER_MAX_EDITABLE_FILE_BYTES", "24000"))
+MAX_SINGLE_EDITABLE = int(os.environ.get("AIDER_MAX_EDITABLE_FILE_BYTES", "40000"))
 
 # When a source path is too large to --file safely, use read-only slices instead.
 FILE_SLICES: dict[str, str] = {
@@ -138,19 +138,22 @@ def budget_context(root: Path, specs: list[ContextSpec], attempt: int,
 	for spec in editable:
 		size = file_size(root, spec.path)
 		if size > MAX_SINGLE_EDITABLE:
-			slice_spec = slice_for_path(spec.path)
-			if slice_spec:
+			slice_spec = None if selected_editables else slice_for_path(spec.path)
+			if slice_spec and read_bytes + 8000 <= read_limit:
 				selected_reads.append(slice_spec)
+				read_bytes += 8000
 			continue
 		if len(selected_editables) >= max_editables:
-			slice_spec = slice_for_path(spec.path)
-			if slice_spec:
+			slice_spec = None if selected_editables else slice_for_path(spec.path)
+			if slice_spec and read_bytes + 8000 <= read_limit:
 				selected_reads.append(slice_spec)
+				read_bytes += 8000
 			continue
 		if editable_bytes + size > editable_limit:
-			slice_spec = slice_for_path(spec.path)
-			if slice_spec:
+			slice_spec = None if selected_editables else slice_for_path(spec.path)
+			if slice_spec and read_bytes + 8000 <= read_limit:
 				selected_reads.append(slice_spec)
+				read_bytes += 8000
 			continue
 		selected_editables.append(spec)
 		editable_bytes += size

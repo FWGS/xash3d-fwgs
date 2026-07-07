@@ -103,8 +103,6 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		),
 		"read_context": (
 			".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
-			".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
-			".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
 		),
 		"include_common_reads": False,
 	},
@@ -325,7 +323,17 @@ def runtime_summary(root: Path) -> str:
 	if latest.is_file():
 		text = latest.read_text(encoding="utf-8", errors="replace").strip()
 		if text:
-			return sanitize_for_prompt(text, limit=420)
+			status = re.search(r"(?m)^- Status:\s*(.+)$", text)
+			analysis = re.search(r"(?m)^- Analysis:\s*(.+)$", text)
+			model = re.search(r"(?s)## Model Analysis\s*(.+)$", text)
+			parts = []
+			if status:
+				parts.append(f"Status={status.group(1).strip()}")
+			if analysis:
+				parts.append(f"Analysis={analysis.group(1).strip()}")
+			if model:
+				parts.append(model.group(1).strip())
+			return sanitize_for_prompt(" ".join(parts) or text, limit=320)
 	return "No Dolphin runtime summary recorded yet."
 
 
@@ -364,10 +372,7 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		str(recent.get("intent") or "").strip() or "Use the freshest runtime evidence.",
 		limit=140,
 	)
-	reason = (
-		f"Recent automation evidence classified the blocker as `{failure_class}` while advancing "
-		f"{goal_label}. The next pass should remove that blocker directly instead of waiting for a fixed goal transition."
-	)
+	reason = f"Recent evidence classified the blocker as `{failure_class}` while advancing {goal_label}."
 	evidence_heading = "Fresh runtime evidence"
 	evidence_body = runtime_summary(root)
 	editable_guidance = (
@@ -383,50 +388,40 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		if "Captured " in evidence_body and "frame timing sample" in evidence_body and "avg=" in evidence_body:
 			frame_budget_guidance = (
 				"Frame-budget guidance:\n"
-				"- Latest Dolphin evidence already has timing samples; this is over-budget telemetry, not missing telemetry.\n"
-				"- Do not edit `engine/platform/gamecube/sys_gamecube.c`, `Platform_DoubleTime`, DVD mounting, or base-path code for this blocker.\n"
-				"- Reduce route-time render/frame cost in the loaded renderer/client/model source files while preserving MAP_READY/G45/nonblack output.\n\n"
+				"- Timing samples exist; this is over-budget telemetry, not missing telemetry.\n"
+				"- Do not edit `sys_gamecube.c`, `Platform_DoubleTime`, DVD, or base-path code.\n"
+				"- Reduce frame/render cost while preserving MAP_READY/G45/nonblack.\n\n"
 			)
 		objective_guidance = (
 			"Porting priority:\n"
 			f"{runtime_port_status(root)}\n\n"
 			f"{frame_budget_guidance}"
-			"Runtime loop for this pass:\n"
-			"- Use the current probe failure as the source of truth, not old supervisor churn.\n"
-			"- Fix the next real GameCube runtime blocker in source code.\n"
-			"- After this patch, bounded verification/probe steps should capture the next fresh failure.\n"
-			"- Do not change automation policy in this pass.\n\n"
+			"Runtime loop: use current probe evidence, make one source patch, do not change automation policy.\n\n"
 		)
 		editable_guidance = (
-			"The harness will load the editable files directly into chat for this pass. "
-			"Act on the editable files already present in chat and do not ask for their filenames.\n\n"
+			"Act only on editable files already loaded in chat.\n\n"
 		)
 	task = f"""Advance the GameCube port with one bounded autonomous pass.
 
-Current objective: {goal_label}
-Discovered blocker class: {failure_class}
-Reason this task was synthesized:
-- {reason}
-- Latest intent: {intent}
-- Latest observation: {observation}
+Objective: {goal_label}
+Blocker: {failure_class}
+Reason: {reason}
+Intent: {intent}
+Observation: {observation}
 
 {evidence_heading}:
 {evidence_body}
 
 {objective_guidance}{editable_guidance}Task:
-- Make exactly one small, source-first patch in the loaded editable files already in chat.
-- Do not claim that no editable files were provided when editable files are already loaded in chat.
-- Prefer removing the current blocker over adding more instrumentation.
-- Keep the patch under 160 changed lines.
-- Touch only one editable file unless a second file is strictly required to keep the build valid.
-- Do not write docs-only status updates.
-- If the loaded files are insufficient for a safe fix, tighten the automation path or budget only when that is the blocker itself.
-- Do not ask for manual confirmation; choose the smallest safe patch and proceed.
+- Make one small source-first patch in loaded editable files.
+- Prefer reducing the current blocker over instrumentation.
+- Touch one editable file unless a second is required to build.
+- No docs-only updates or manual questions.
 
 Output rules:
-- Return only SEARCH/REPLACE blocks or the exact string NO_EDIT.
-- No prose, no checklist, no planning text, no markdown fences, no explanations.
-- Keep the full reply under 60 lines.
+- Return only SEARCH/REPLACE blocks or NO_EDIT.
+- No prose, checklist, plan, markdown fences, or explanations.
+- Keep the reply under 60 lines.
 """
 	return WorkItem(
 		kind="discovery",

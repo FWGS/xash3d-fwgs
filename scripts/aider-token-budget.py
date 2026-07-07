@@ -95,6 +95,12 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 			for value, floor in zip(context_tiers, low_vram_context_floors)
 		]
 		history = max(128, min(history, 220))
+	editable_tiers = context_tiers
+	if low_vram:
+		# Source-first discovery must preserve at least one medium-sized frame
+		# source file; the preflight estimator still rejects combinations that
+		# exceed the actual model window.
+		editable_tiers = (40000, 40000, 40000, 40000)
 	return {
 		"AIDER_MODEL_MAX_CONTEXT": max_context,
 		"AIDER_MODEL_MAX_OUTPUT": max_output_cap,
@@ -106,10 +112,10 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		"AIDER_CONTEXT_BYTES_RETRY_1": context_tiers[1],
 		"AIDER_CONTEXT_BYTES_RETRY_2": context_tiers[2],
 		"AIDER_CONTEXT_BYTES_RETRY_3": context_tiers[3],
-		"AIDER_EDITABLE_BYTES_INITIAL": context_tiers[0],
-		"AIDER_EDITABLE_BYTES_RETRY_1": context_tiers[1],
-		"AIDER_EDITABLE_BYTES_RETRY_2": context_tiers[2],
-		"AIDER_EDITABLE_BYTES_RETRY_3": context_tiers[3],
+		"AIDER_EDITABLE_BYTES_INITIAL": editable_tiers[0],
+		"AIDER_EDITABLE_BYTES_RETRY_1": editable_tiers[1],
+		"AIDER_EDITABLE_BYTES_RETRY_2": editable_tiers[2],
+		"AIDER_EDITABLE_BYTES_RETRY_3": editable_tiers[3],
 		"AIDER_READ_BYTES_INITIAL": max(2000, context_tiers[0] // 2),
 		"AIDER_READ_BYTES_RETRY_1": max(1500, context_tiers[1] // 2),
 		"AIDER_READ_BYTES_RETRY_2": max(1000, context_tiers[2] // 2),

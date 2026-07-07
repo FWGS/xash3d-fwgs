@@ -123,6 +123,7 @@ if [[ -z "$AIDER_CONFIG" ]]; then
 	fi
 fi
 TEMP_MODEL_SETTINGS=()
+BUDGETED_CONTEXT_ACTIVE=0
 
 cleanup_temp_settings() {
 	rm -f "${TEMP_MODEL_SETTINGS[@]}"
@@ -294,8 +295,10 @@ load_budgeted_context() {
 		budget_args+=("$spec")
 	done
 	mapfile -t BUDGETED_CONTEXT_SPECS < <("${budget_args[@]}" 2>/dev/null) || true
+	BUDGETED_CONTEXT_ACTIVE=1
 	if (( ${#BUDGETED_CONTEXT_SPECS[@]} == 0 )); then
 		BUDGETED_CONTEXT_SPECS=("${RAW_CONTEXT_SPECS[@]}")
+		BUDGETED_CONTEXT_ACTIVE=0
 	fi
 	rebuild_context_arrays
 	echo "ai-aider-pass: budget attempt=$attempt files=${#CONTEXT_FILES[@]} reads=${#READ_CONTEXT_FILES[@]}" >&2
@@ -338,7 +341,7 @@ editable_context_args_for_attempt() {
 	local context_file size
 	for context_file in "${CONTEXT_FILES[@]}"; do
 		[[ -f "$context_file" ]] || continue
-		if (( limit > 0 )) && ! is_required_context_file "$context_file"; then
+		if (( ! BUDGETED_CONTEXT_ACTIVE && limit > 0 )) && ! is_required_context_file "$context_file"; then
 			size="$(stat -c '%s' "$context_file")"
 			if (( size > limit )); then
 				echo "ai-aider-pass: repair retry $attempt omits $context_file (${size} bytes > ${limit})" >&2
@@ -355,7 +358,7 @@ context_args_for_attempt() {
 	local context_file size
 	for context_file in "${CONTEXT_FILES[@]}"; do
 		[[ -f "$context_file" ]] || continue
-		if (( limit > 0 )) && ! is_required_context_file "$context_file"; then
+		if (( ! BUDGETED_CONTEXT_ACTIVE && limit > 0 )) && ! is_required_context_file "$context_file"; then
 			size="$(stat -c '%s' "$context_file")"
 			if (( size > limit )); then
 				echo "ai-aider-pass: retry $attempt omits $context_file (${size} bytes > ${limit})" >&2
