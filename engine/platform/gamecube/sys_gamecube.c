@@ -351,7 +351,7 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 		for( i = 0; i < ARRAYSIZE( paths ); i++ )
 		{
 			if( !GCube_PathAccessible( paths[i] ) ) {
-				Con_Reportf( S_WARN "GameCube storage: path %s not accessible or unmounted\n", paths[i] );
+				Con_Reportf( S_WARN "GameCube storage: path %s inaccessible or unmounted\n", paths[i] );
 				continue;
 			}
 
