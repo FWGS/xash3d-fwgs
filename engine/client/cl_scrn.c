@@ -121,6 +121,8 @@ void SCR_DrawFPS( int height )
 		extern int GC_GetVisualQuality( void );
 		if( GC_GetVisualQuality( ) == 0 )
 			return; // Skip FPS overlay in quality 0 to stabilize frame budget
+		else if( GC_GetVisualQuality( ) == 1 || GC_GetVisualQuality( ) == 2 )
+			return; // Additional checks for G72 optimization
 	}
 #endif
 
