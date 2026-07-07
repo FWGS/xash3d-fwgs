@@ -89,10 +89,10 @@ def extract_frame_times(text: str, *, world_render: bool = False) -> list[float]
 	times = [float(match.group(1)) for match in FRAME_TIME_RE.finditer(text)]
 	if len(times) > 1:
 		times = times[1:]  # first present after reset includes renderer restore warm-up
-	# Smoke status-panel frames stay near the 16.67ms target; drop one-shot spikes.
-	# World-render probe frames are intentionally heavier (software BSP), so allow
-	# a higher ceiling while still rejecting pathological multi-second stalls.
-	max_ms = 500.0 if world_render else 25.0
+	# Keep bounded smoke-route samples even when they are over budget. The G36
+	# classifier should report WEAK/FAIL from measured evidence, not erase the
+	# samples and claim no timing data was captured.
+	max_ms = 500.0
 	return [value for value in times if value <= max_ms]
 
 
@@ -120,6 +120,7 @@ def classify_g36(
 		return "WEAK", "only synthetic status-panel frames were captured; world render fallback remained unavailable"
 	if not samples:
 		return "FAIL", "no frame timing samples captured"
+
 	steady = [value for value in samples if value > 0.0] or samples
 	avg = mean(steady)
 	p95 = percentile(steady, 95.0)
