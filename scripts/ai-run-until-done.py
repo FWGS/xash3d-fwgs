@@ -32,6 +32,13 @@ DISCOVERY_RETRY_RESULTS = {
 }
 DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19}
 AUTOMATION_DISCOVERY_RESULTS = {"no_edit", "model_budget", "review_reject"}
+RUNTIME_DISCOVERY_RESULTS = {
+	"runtime_probe",
+	"memory_pressure",
+	"visual_runtime",
+	"audio_runtime",
+	"asset_lookup",
+}
 
 
 def run(command: list[str], root: Path, env: dict[str, str] | None = None) -> int:
@@ -172,6 +179,31 @@ def clear_discovery_feedback(root: Path) -> None:
 	(root / DISCOVERY_STATE_PATH).unlink(missing_ok=True)
 
 
+def is_runtime_discovery_item(item: dict[str, object]) -> bool:
+	if item.get("kind") != "discovery":
+		return False
+	failure_class = str(item.get("failure_class") or "").strip()
+	if failure_class in RUNTIME_DISCOVERY_RESULTS:
+		return True
+	subject = str(item.get("commit_subject") or "")
+	return "GameCube runtime" in subject or "runtime blocker" in subject
+
+
+def refresh_runtime_probe(root: Path, env: dict[str, str]) -> None:
+	if os.environ.get("AI_REFRESH_RUNTIME_PROBE", "1").lower() in {"0", "false", "no"}:
+		return
+	if not (root / "scripts/dolphin-boot-probe.sh").is_file():
+		print("run-until-done: runtime probe refresh skipped; probe script is missing",
+			file=sys.stderr, flush=True)
+		return
+	probe_env = env.copy()
+	probe_env.setdefault("DOLPHIN_TIMEOUT", os.environ.get("AI_RUNTIME_PROBE_TIMEOUT", "90"))
+	status = run(["scripts/dolphin-boot-probe.sh"], root, env=probe_env)
+	if status != 0:
+		print(f"run-until-done: runtime probe refresh exited {status}; continuing with refreshed evidence",
+			file=sys.stderr, flush=True)
+
+
 def reset_stale_discovery_state(root: Path) -> bool:
 	path = root / DISCOVERY_STATE_PATH
 	harness = root / HARNESS_STATE_PATH
@@ -234,6 +266,8 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 				f"Discovery pass `{item.get('item_id')}` built and committed, but the acceptance review rejected the result.",
 			)
 			return status
+		if is_runtime_discovery_item(item):
+			refresh_runtime_probe(root, env)
 		clear_discovery_feedback(root)
 		return 0
 	finally:

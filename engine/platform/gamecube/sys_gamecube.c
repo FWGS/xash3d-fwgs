@@ -27,6 +27,7 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 
 #define GC_DATA_PATH "xash3d"
 #define GC_DVD_DEVICE "gcdisc"
+#define GC_DEFAULT_SMOKE_MAP "c0a0e"
 
 static qboolean gc_fat_mounted;
 static qboolean gc_dvd_mounted;
@@ -168,10 +169,7 @@ qboolean GCube_GetDiscPath( char *buf, size_t buflen )
 	if( !GCube_PathAccessible( path ) )
 		return false;
 
-	/* Fallback to base path if direct path fails check */
-	if( !GCube_GetBasePath( buf, buflen ) )
-		return false;
-
+	Q_strncpy( buf, path, buflen );
 	return true;
 }
 
@@ -375,8 +373,8 @@ static void GCube_LoadDiscBootOverrides( void )
 	if( !gc_dvd_mounted )
 		return;
 
-	// If DVD failed to mount, we skip config loading, which is acceptable for a probe fix attempt.
-	// Note: If running on read-only boot without DVD, this file might not exist, which is handled below.
+	/* If running on read-only boot without a config file, the default smoke
+	 * map below still gives the probe a deterministic map-load route. */
 	file = fopen( GC_DATA_PATH "/valve/gamecube.cfg", "r" );
 	if( !file )
 		return;
@@ -445,11 +443,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "-log";
 	gc_argv[fake_argc++] = "-game";
 	gc_argv[fake_argc++] = "valve";
-	if( gc_smoke_map_configured )
-	{
-		gc_argv[fake_argc++] = "-map";
-		gc_argv[fake_argc++] = gc_smoke_map;
-	}
+	gc_argv[fake_argc++] = "-map";
+	gc_argv[fake_argc++] = gc_smoke_map_configured ? gc_smoke_map : GC_DEFAULT_SMOKE_MAP;
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "640";
 	gc_argv[fake_argc++] = "-height";

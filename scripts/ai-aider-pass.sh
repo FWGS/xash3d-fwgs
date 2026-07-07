@@ -643,6 +643,51 @@ for line in matches[-24:]:
 PY
 }
 
+repair_context_files_for_verify_log() {
+	local verify_log="$1"
+	shift
+	python3 - "$verify_log" "$@" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+log_path = Path(sys.argv[1])
+context_files = list(sys.argv[2:])
+markers = ("engine/", "ref/", "common/", "filesystem/", "public/", "stub/")
+
+
+def normalize(path: str) -> str:
+	path = path.replace("\\", "/")
+	while path.startswith("../"):
+		path = path[3:]
+	if path.startswith("./"):
+		path = path[2:]
+	for marker in markers:
+		index = path.find(marker)
+		if index >= 0:
+			return path[index:]
+	return path
+
+
+context_by_norm = {normalize(path): path for path in context_files}
+text = log_path.read_text(encoding="utf-8", errors="replace")
+path_re = re.compile(
+	r"(?P<path>(?:\.\./|\./|/)?[^\s:]*"
+	r"(?:engine|ref|common|filesystem|public|stub)/[^\s:]+)"
+	r":\d+(?::\d+)?:"
+)
+
+for match in path_re.finditer(text):
+	normalized = normalize(match.group("path"))
+	if normalized in context_by_norm:
+		print(context_by_norm[normalized])
+		raise SystemExit(0)
+
+for path in context_files:
+	print(path)
+PY
+}
+
 discard_failed_patch() {
 	git reset >/dev/null 2>&1 || true
 	local changed=()
@@ -660,19 +705,39 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 	echo "ai-aider-pass: first verification failed; requesting one autonomous repair" >&2
 	cleanup_stale_git_lock 0
 	git reset
+	ORIGINAL_CONTEXT_FILES=("${CONTEXT_FILES[@]}")
+	ORIGINAL_READ_CONTEXT_FILES=("${READ_CONTEXT_FILES[@]}")
+	ORIGINAL_REQUIRED_CONTEXT_FILES=("${REQUIRED_CONTEXT_FILES[@]}")
+	ORIGINAL_RAW_CONTEXT_SPECS=("${RAW_CONTEXT_SPECS[@]}")
+	mapfile -t REPAIR_CONTEXT_FILES < <(repair_context_files_for_verify_log "$VERIFY_LOG" "${ORIGINAL_CONTEXT_FILES[@]}")
+	if (( ${#REPAIR_CONTEXT_FILES[@]} == 0 )); then
+		REPAIR_CONTEXT_FILES=("${ORIGINAL_CONTEXT_FILES[@]}")
+	fi
+	CONTEXT_FILES=("${REPAIR_CONTEXT_FILES[@]}")
+	READ_CONTEXT_FILES=()
+	REQUIRED_CONTEXT_FILES=()
+	RAW_CONTEXT_SPECS=()
+	for context_file in "${CONTEXT_FILES[@]}"; do
+		RAW_CONTEXT_SPECS+=("file:$context_file")
+	done
+	echo "ai-aider-pass: repair context narrowed to: ${CONTEXT_FILES[*]}" >&2
 	REPAIR_ALLOWED="$(printf '%s\n' "${CONTEXT_FILES[@]}")"
 	REPAIR_MESSAGE="$(printf '%s\n' \
 		'The current uncommitted patch failed verification. Fix the compiler or verifier failure now.' \
 		'There is no interactive human. Do not ask questions, explain options, or only propose commands.' \
-		'Make the smallest safe edit in the already loaded editable files only, and do not commit.' \
-		'Do not edit scripts/dolphin-boot-probe.sh, scripts/dolphin-probe-analyze.py, scripts/xash3d-gc-aider-gui.py, or other harness/GUI files unless they are listed below.' \
-		'Do not add files mentioned by build progress logs.' \
+		'Make the smallest safe edit in the already loaded editable file or files only, and do not commit.' \
+		'Do not add or edit helper scripts mentioned by logs, diagnostics, or progress output.' \
+		'Do not add files merely because they appear in build progress logs.' \
 		'' 'Editable files for this repair pass:' "$REPAIR_ALLOWED" \
 		'' 'Verification errors:'; verification_summary "$VERIFY_LOG")"
 	set +e
 	run_aider_with_recovery "autonomous repair" --editable-only --message "$REPAIR_MESSAGE"
 	REPAIR_STATUS="$?"
 	set -e
+	CONTEXT_FILES=("${ORIGINAL_CONTEXT_FILES[@]}")
+	READ_CONTEXT_FILES=("${ORIGINAL_READ_CONTEXT_FILES[@]}")
+	REQUIRED_CONTEXT_FILES=("${ORIGINAL_REQUIRED_CONTEXT_FILES[@]}")
+	RAW_CONTEXT_SPECS=("${ORIGINAL_RAW_CONTEXT_SPECS[@]}")
 	if (( REPAIR_STATUS == 124 || REPAIR_STATUS == 137 )); then
 		echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
 		discard_failed_patch
