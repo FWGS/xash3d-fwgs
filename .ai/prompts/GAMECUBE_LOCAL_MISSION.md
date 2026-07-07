@@ -33,6 +33,10 @@ Avoid these failure modes:
 - Do not reopen stale blockers when newer Dolphin memory has advanced past
   them. Preserve active-rendering/nonblack evidence unless a newer run
   regresses.
+- For G36, distinguish missing telemetry from over-budget telemetry. If the
+  latest harness reports captured frame samples around 67ms, do not make
+  generic clock cleanup; reduce the GameCube smoke/render path cost or improve
+  real frame pacing evidence while preserving MAP_READY/G45/nonblack output.
 - Do not claim hardware-complete from Dolphin evidence.
 - Do not copy proprietary Nintendo SDK code, headers, text, assets, BIOS/IPL
   material, or local Half-Life content into Git or release packages.

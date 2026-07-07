@@ -1049,10 +1049,16 @@ def conact_extract_facts(goal: Goal, phase: str, exit_code: int,
 			"VI/XFB appears alive, but renderer content may still be black or missing; prefer renderer/client source fixes over more probe parsing.",
 			goal.goal_id, evidence))
 	if "frame budget" in joined or goal.goal_id in {"G36", "G49"}:
+		detail = "Probe instrumentation is already extensive; avoid adding more G36_PATCH detectors unless replacing duplicated logic."
+		if "captured" in joined and "frame timing sample" in joined and "avg=" in joined:
+			detail = (
+				"G36 has frame timing telemetry now; focus on reducing over-budget GameCube "
+				"frame/render cost or improving real frame pacing evidence, not generic clock cleanup."
+			)
 		facts.append(conact_fact(
 			"runtime.frame_budget.g36_focus",
 			"G36 should prioritize source-level frame/visual fixes",
-			"Probe instrumentation is already extensive; avoid adding more G36_PATCH detectors unless replacing duplicated logic.",
+			detail,
 			goal.goal_id, evidence))
 	if "token/context" in joined or "context limit" in joined:
 		facts.append(conact_fact(
@@ -1689,8 +1695,11 @@ add, or request any file that was not added as editable context.
 
 Task:
 - Prefer source-level work over more probe-script instrumentation. G36 already
-  has enough probe diagnostics to identify missing frame-budget or visual
-  markers.
+  has enough probe diagnostics to identify frame-budget or visual markers.
+- If latest Dolphin memory says `Captured ... frame timing sample(s)` with
+  `avg=...ms`, treat G36 as over-budget telemetry, not missing telemetry. Do
+  not make generic `Platform_DoubleTime`, base-path, or DVD cleanup unless the
+  fresh probe specifically regressed there.
 - If Dolphin logs show `Client Edicts Zone` OOM or `_mem_alloc: failed`, make
   a GameCube-only client pool or allocation change in the loaded client/zone
   sources before touching harness scripts.

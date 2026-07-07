@@ -70,6 +70,8 @@ def main() -> int:
 	require(f"{args.smoke_map} map loaded", f"Xash3D GameCube: map loaded {args.smoke_map}" in log_text or
 		f"MAP_READY: Xash3D loaded {args.smoke_map}" in combined, failures)
 	require("direct map reached ready marker", "Xash3D GameCube: direct map ready" in log_text, failures)
+	require("frame timing samples captured", "no frame timing samples captured" not in state and
+		re.search(r"frame time=([\d.]+)ms", log_text) is not None, failures)
 
 	if failures:
 		print("runtime gate: FAIL", file=sys.stderr)
