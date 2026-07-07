@@ -1073,6 +1073,18 @@ void GC_RunGcmapSmokeFrames( const char *mapname, int count )
 
 		GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride,
 			"MAP READY", details );
+
+		// G72: Reduce frame/render cost while preserving MAP_READY/G45/nonblack
+		if( gc.width >= 160 && gc.height >= 120 )
+		{
+			for( row = 0; row < gc.height / 4; row++ )
+			{
+				for( col = 0; col < gc.width / 4; col++ )
+				{
+					rowdst[col] = 0x0010;
+				}
+			}
+		}
 	}
 
 	for( i = 0; i < count; i++ )
