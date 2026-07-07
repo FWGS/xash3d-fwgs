@@ -64,6 +64,7 @@ python3 -c 'compile(open("scripts/gamecube-quality-profile-check.py", encoding="
 python3 -c 'compile(open("scripts/gamecube-goal-ledger-check.py", encoding="utf-8").read(), "scripts/gamecube-goal-ledger-check.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-soak-probe.py", encoding="utf-8").read(), "scripts/gamecube-soak-probe.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-worst-case-report.py", encoding="utf-8").read(), "scripts/gamecube-worst-case-report.py", "exec")'
+python3 -c 'compile(open("scripts/gamecube-runtime-regression-gate.py", encoding="utf-8").read(), "scripts/gamecube-runtime-regression-gate.py", "exec")'
 python3 -c 'compile(open("scripts/hlsdk-gamecube-apply-patch.py", encoding="utf-8").read(), "scripts/hlsdk-gamecube-apply-patch.py", "exec")'
 python3 -c 'compile(open("scripts/generate-hlsdk-gamecube-exports.py", encoding="utf-8").read(), "scripts/generate-hlsdk-gamecube-exports.py", "exec")'
 

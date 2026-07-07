@@ -29,8 +29,9 @@ DISCOVERY_RETRY_RESULTS = {
 	10: "no_edit",
 	18: "model_budget",
 	19: "no_edit",
+	20: "runtime_probe",
 }
-DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19}
+DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19, 20}
 AUTOMATION_DISCOVERY_RESULTS = {"no_edit", "model_budget", "review_reject"}
 RUNTIME_DISCOVERY_RESULTS = {
 	"runtime_probe",
@@ -195,19 +196,33 @@ def retry_result_for_discovery_item(item: dict[str, object], status: int) -> str
 	return DISCOVERY_RETRY_RESULTS.get(status, "runtime_probe")
 
 
-def refresh_runtime_probe(root: Path, env: dict[str, str]) -> None:
+def refresh_runtime_probe(root: Path, env: dict[str, str]) -> int:
 	if os.environ.get("AI_REFRESH_RUNTIME_PROBE", "1").lower() in {"0", "false", "no"}:
-		return
+		return 0
 	if not (root / "scripts/dolphin-boot-probe.sh").is_file():
 		print("run-until-done: runtime probe refresh skipped; probe script is missing",
 			file=sys.stderr, flush=True)
-		return
+		return 0
 	probe_env = env.copy()
 	probe_env.setdefault("DOLPHIN_TIMEOUT", os.environ.get("AI_RUNTIME_PROBE_TIMEOUT", "90"))
 	status = run(["scripts/dolphin-boot-probe.sh"], root, env=probe_env)
 	if status != 0:
 		print(f"run-until-done: runtime probe refresh exited {status}; continuing with refreshed evidence",
 			file=sys.stderr, flush=True)
+	return status
+
+
+def runtime_regression_gate(root: Path, env: dict[str, str]) -> int:
+	if os.environ.get("AI_RUNTIME_REGRESSION_GATE", "1").lower() in {"0", "false", "no"}:
+		return 0
+	if not (root / "scripts/gamecube-runtime-regression-gate.py").is_file():
+		print("run-until-done: runtime regression gate skipped; gate script is missing",
+			file=sys.stderr, flush=True)
+		return 0
+	return subprocess.run(
+		["python3", "scripts/gamecube-runtime-regression-gate.py", "--repo", str(root)],
+		cwd=root, env=env, check=False,
+	).returncode
 
 
 def reset_stale_discovery_state(root: Path) -> bool:
@@ -274,7 +289,18 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 			)
 			return status
 		if is_runtime_discovery_item(item):
-			refresh_runtime_probe(root, env)
+			probe_status = refresh_runtime_probe(root, env)
+			gate_status = runtime_regression_gate(root, env)
+			if probe_status != 0 or gate_status != 0:
+				record_discovery_feedback(
+					root,
+					item,
+					20,
+					"runtime_probe",
+					"Restore the GameCube smoke route before accepting another runtime change.",
+					f"Discovery pass `{item.get('item_id')}` was rejected by the runtime regression gate.",
+				)
+				return 20
 		clear_discovery_feedback(root)
 		return 0
 	finally:
