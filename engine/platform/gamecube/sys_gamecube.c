@@ -408,12 +408,11 @@ static void GCube_LoadDiscBootOverrides( void )
 		while( *mapname == ' ' || *mapname == '\t' )
 			mapname++;
 		len = strlen( mapname );
-		while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ||
-			mapname[len - 1] == ' ' || mapname[len - 1] == '\t' ))
+		while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ))
 		{
 			mapname[--len] = '\0';
 		}
-		if( len > 0 && len < sizeof( gc_smoke_map ) && !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
+		if( len > 0 && len < sizeof( gc_smoke_map ) && !strchr( mapname, '/' ) && !strchr( mapname, '\\' ) )
 		{
 				Q_strncpy( gc_smoke_map, mapname, sizeof( gc_smoke_map ));
 				gc_smoke_map_configured = true;
