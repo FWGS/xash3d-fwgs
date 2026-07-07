@@ -24,12 +24,14 @@ except ImportError:  # pragma: no cover - non-Unix fallback
 
 
 DISCOVERY_STATE_PATH = Path(".ai/state/discovery-supervisor.json")
+HARNESS_STATE_PATH = Path(".ai/state/dolphin-harness-latest.md")
 DISCOVERY_RETRY_RESULTS = {
 	10: "no_edit",
 	18: "model_budget",
 	19: "no_edit",
 }
 DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19}
+AUTOMATION_DISCOVERY_RESULTS = {"no_edit", "model_budget", "review_reject"}
 
 
 def run(command: list[str], root: Path, env: dict[str, str] | None = None) -> int:
@@ -170,6 +172,26 @@ def clear_discovery_feedback(root: Path) -> None:
 	(root / DISCOVERY_STATE_PATH).unlink(missing_ok=True)
 
 
+def reset_stale_discovery_state(root: Path) -> bool:
+	path = root / DISCOVERY_STATE_PATH
+	harness = root / HARNESS_STATE_PATH
+	if not path.is_file() or not harness.is_file():
+		return False
+	try:
+		payload = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		path.unlink(missing_ok=True)
+		return True
+	if not isinstance(payload, dict):
+		path.unlink(missing_ok=True)
+		return True
+	result = str(payload.get("result") or "").strip()
+	if result not in AUTOMATION_DISCOVERY_RESULTS:
+		return False
+	path.unlink(missing_ok=True)
+	return True
+
+
 def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 	task = str(item.get("task") or "").strip()
 	if not task:
@@ -237,6 +259,9 @@ def main() -> int:
 	if fcntl is not None and supervisor_lock is None:
 		return 2
 	load_dotenv(root / ".env")
+	if reset_stale_discovery_state(root):
+		print("run-until-done: cleared stale automation discovery state; resuming from fresh runtime evidence",
+			file=sys.stderr, flush=True)
 	os.environ.setdefault("OPENAI_API_KEY", "local")
 	api_base = os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1")
 
