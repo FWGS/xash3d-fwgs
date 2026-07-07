@@ -172,12 +172,18 @@ void GCube_EarlyInit( void )
 
 static qboolean GCube_PathAccessible( const char *path )
 {
+	struct stat st;
+	if( stat( path, &st ) != 0 )
+		return false;
+
+	// Check if it's a directory
+	if( !S_ISDIR( st.st_mode ) )
+		return false;
+
+	// Attempt to open to ensure readability/accessibility in the current FS context
 	DIR *dir = opendir( path );
 	if( !dir )
 		return false;
-
-	/* Check if directory is readable and has contents before considering it accessible */
-	// Simply checking if we can open and read the directory is sufficient for probe compatibility.
 
 	closedir( dir );
 	return true;
