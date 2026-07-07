@@ -95,10 +95,6 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		"title": "remove the latest runtime blocker with a source-first patch",
 		"subject": "fix: resolve GameCube runtime blocker",
 		"context": (
-			"engine/common/host.c",
-			"engine/common/model.c",
-			"engine/client/cl_main.c",
-			"engine/server/sv_init.c",
 			"engine/platform/gamecube/sys_gamecube.c",
 		),
 		"read_context": (
