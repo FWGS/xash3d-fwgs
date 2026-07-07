@@ -54,7 +54,7 @@ edit_path_forbidden() {
 		forbidden="${forbidden#"${forbidden%%[![:space:]]*}"}"
 		forbidden="${forbidden%"${forbidden##*[![:space:]]}"}"
 		[[ -n "$forbidden" ]] || continue
-		if [[ "$candidate" == "$forbidden" ]]; then
+		if [[ "$candidate" == "$forbidden" || "$candidate" == "$forbidden"/* ]]; then
 			return 0
 		fi
 	done

@@ -2330,7 +2330,7 @@ def main() -> int:
 			if goal.goal_id == "G36":
 				pass_env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 			if goal.goal_id == "G72":
-				pass_env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c")
+				pass_env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,re_agent,mathweb,main.py,hello.py")
 				pass_env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
 				pass_env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "8000")
 				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "1024")

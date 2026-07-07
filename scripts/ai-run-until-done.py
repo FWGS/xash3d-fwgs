@@ -252,6 +252,13 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		return 1
 	context = [str(path) for path in item.get("context", []) if isinstance(path, str)]
 	read_context = [f"read:{path}" for path in item.get("read_context", []) if isinstance(path, str)]
+	if is_runtime_discovery_item(item) and context:
+		task += (
+			"\nRuntime child-process constraint:\n"
+			f"- The intended editable file for this pass is exactly `{context[0]}`.\n"
+			"- Do not output patches for any other path, demo app, scaffold, or helper package.\n"
+			"- If no safe patch exists in that file, output exactly `NO_EDIT`.\n"
+		)
 	subject = str(item.get("commit_subject") or "chore: apply discovered GameCube fix")
 	body = str(item.get("commit_body") or "")
 	with tempfile.NamedTemporaryFile("w", suffix=".md", prefix="xash3d-gc-discovery-",
@@ -267,7 +274,7 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 		env.setdefault("AI_REVIEW_ALLOW_SOURCE_ONLY_DISCOVERY", "1")
 		if is_runtime_discovery_item(item):
-			env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c")
+			env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,re_agent,mathweb,main.py,hello.py")
 			env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
 			env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "8000")
 			env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "1024")
