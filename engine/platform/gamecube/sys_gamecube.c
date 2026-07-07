@@ -165,9 +165,9 @@ int execv( const char *path, char *const argv[] )
 void GCube_EarlyInit( void )
 {
 #if XASH_GAMECUBE
-	/* Ensure initial system state is established before full initialization */
-	Con_Reportf( "GameCube: Executing early initialization sequence.\n" );
-	Platform_Sleep( 500 );
+	/* Ensure initial system state is established before full initialization to stabilize timing for map loading. */
+	Con_Reportf( "GameCube: Executing early initialization sequence (500ms wait).\n" );
+	Platform_Sleep( 1000 );
 #endif
 }
 
