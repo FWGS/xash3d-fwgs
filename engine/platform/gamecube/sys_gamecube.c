@@ -277,14 +277,12 @@ void GCube_EnsureWritableLayout( void )
 void GCube_Init( void )
 {
 #if XASH_GAMECUBE
+	/* Ensure initial system state is established before full initialization to stabilize timing for map loading. */
+	GCube_EarlyInit();
+
 	char xashdir[MAX_SYSPATH];
 
 	/* G29: Initialize networking for local loopback single-player.
-	 * Disable external network dependencies (master servers, HTTP)
-	 * to ensure offline boot works without network hardware. */
-	NET_Config( false, false );
-
-	gc_fat_mounted = fatInitDefault();
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
 
