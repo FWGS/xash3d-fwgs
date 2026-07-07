@@ -110,18 +110,18 @@ void Platform_Sleep( int msec )
 double Platform_DoubleTime( void )
 {
 #if XASH_GAMECUBE
-	static u64 start_ticks = 0;
+	static u64 start_ticks;
 	u64 now = SYS_Time();
 
 	if( start_ticks == 0 ) {
 		start_ticks = now;
-		return 1.0; // Baseline set on first call
 	}
 
-	return (double)diff_ticks( start_ticks, now );
+	double clock = (double)PPC_TIMER_CLOCK;
+	if (clock <= 0.0) return 0.0;
+	else return (double)diff_ticks( start_ticks, now ) / clock;
 #else
-	static double artificial_time = 1.0;
-	return artificial_time;
+	return 0.0;
 #endif
 }
 
