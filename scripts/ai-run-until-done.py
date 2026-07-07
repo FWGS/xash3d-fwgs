@@ -189,6 +189,12 @@ def is_runtime_discovery_item(item: dict[str, object]) -> bool:
 	return "GameCube runtime" in subject or "runtime blocker" in subject
 
 
+def retry_result_for_discovery_item(item: dict[str, object], status: int) -> str:
+	if is_runtime_discovery_item(item) and status in DISCOVERY_RETRY_RESULTS:
+		return "runtime_probe"
+	return DISCOVERY_RETRY_RESULTS.get(status, "runtime_probe")
+
+
 def refresh_runtime_probe(root: Path, env: dict[str, str]) -> None:
 	if os.environ.get("AI_REFRESH_RUNTIME_PROBE", "1").lower() in {"0", "false", "no"}:
 		return
@@ -244,12 +250,13 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		env.setdefault("AIDER_AUTOMATION", "1")
 		env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 		env.setdefault("AI_REVIEW_ALLOW_SOURCE_ONLY_DISCOVERY", "1")
+		clear_discovery_feedback(root)
 		status = run(["scripts/ai-aider-pass.sh", str(root), str(task_path), *context, *read_context], root, env=env)
 		if status != 0:
-			result = DISCOVERY_RETRY_RESULTS.get(status, "runtime_probe")
+			result = retry_result_for_discovery_item(item, status)
 			intent = {
-				10: "Tighten the automation path before retrying the runtime fix.",
-				18: "Reduce context and output pressure before retrying the runtime fix.",
+				10: "Retry from fresh runtime evidence with the same bounded source context.",
+				18: "Keep the next pass runtime-focused with reduced context pressure.",
 				19: "Restore at least one editable file to the discovery pass before retrying.",
 			}.get(status, "Inspect the failed discovery pass before retrying.")
 			observation = f"Discovery pass `{item.get('item_id')}` exited {status} before an accepted patch."

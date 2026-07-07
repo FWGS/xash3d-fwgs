@@ -67,11 +67,23 @@ for context_file in "${CONTEXT_INPUTS[@]}"; do
 	fi
 done
 
+drop_ephemeral_discovery_state() {
+	local state_file=".ai/state/discovery-supervisor.json"
+	if [[ -e "$state_file" ]]; then
+		rm -f "$state_file"
+	fi
+}
+
+dirty_status_without_ephemeral_state() {
+	drop_ephemeral_discovery_state
+	git status --porcelain
+}
+
 if gamecube_gui_wip_dirty && [[ "${AI_SKIP_DIRTY_CHECKPOINT:-0}" != "1" ]]; then
 	echo "ai-aider-pass: committing standalone GUI changes before goal pass" >&2
 	gamecube_commit_gui_wip || exit 2
 fi
-if [[ -n "$(git status --porcelain)" ]]; then
+if [[ -n "$(dirty_status_without_ephemeral_state)" ]]; then
 	if [[ "${AI_SKIP_DIRTY_CHECKPOINT:-0}" == "1" ]]; then
 		echo "ai-aider-pass: leaving remaining dirty files for goal-loop checkpoint" >&2
 		git status --short >&2

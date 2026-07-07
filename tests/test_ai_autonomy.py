@@ -138,15 +138,20 @@ class AiAutonomyTests(unittest.TestCase):
 			self.assertEqual(items[0].failure_class, "review_reject")
 			self.assertIn("acceptance gates", items[0].task)
 
-	def test_repeated_no_edit_escalates_to_model_budget(self) -> None:
+	def test_repeated_no_edit_with_harness_evidence_returns_to_runtime_probe(self) -> None:
 		with tempfile.TemporaryDirectory() as tmpdir:
 			root = Path(tmpdir)
 			(root / ".ai/goals").mkdir(parents=True)
 			(root / ".ai/state").mkdir(parents=True)
 			(root / ".ai/prompts").mkdir(parents=True)
+			(root / "engine/platform/gamecube").mkdir(parents=True)
 			(root / "scripts").mkdir(parents=True)
 			(root / ".ai/goals/GAMECUBE_PORT_GOALS.md").write_text(
 				"## G72 [ ] close runtime blocker\n- Status: ACTIVE\n",
+				encoding="utf-8",
+			)
+			(root / ".ai/state/dolphin-harness-latest.md").write_text(
+				"Status: host_failure\nmap load marker missing\n",
 				encoding="utf-8",
 			)
 			(root / ".ai/state/discovery-supervisor.json").write_text(json.dumps({
@@ -162,13 +167,7 @@ class AiAutonomyTests(unittest.TestCase):
 				".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
 			):
 				(root / prompt).write_text("context", encoding="utf-8")
-			for path in (
-				"scripts/aider-token-budget.py",
-				"scripts/ai-aider-pass.sh",
-				"scripts/xash3d-gc-aider-gui.py",
-				"scripts/gamecube-env.sh",
-			):
-				(root / path).write_text("# stub\n", encoding="utf-8")
+			(root / "engine/platform/gamecube/sys_gamecube.c").write_text("/* gc */\n", encoding="utf-8")
 
 			module = load_script_module(
 				"ai_auto_discover_model_budget",
@@ -177,8 +176,9 @@ class AiAutonomyTests(unittest.TestCase):
 			items = module.discover_items(root)
 			self.assertTrue(items)
 			self.assertEqual(items[0].kind, "discovery")
-			self.assertEqual(items[0].failure_class, "model_budget")
-			self.assertIn("Repeated no-edit discovery loop detected", items[0].task)
+			self.assertEqual(items[0].failure_class, "runtime_probe")
+			self.assertEqual(items[0].context, ["engine/platform/gamecube/sys_gamecube.c"])
+			self.assertIn("return to fresh runtime evidence", items[0].task)
 
 	def test_dirty_runtime_tree_forces_runtime_probe_over_automation_repair(self) -> None:
 		with tempfile.TemporaryDirectory() as tmpdir:

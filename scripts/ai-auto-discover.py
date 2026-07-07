@@ -98,9 +98,9 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 			"engine/platform/gamecube/sys_gamecube.c",
 		),
 		"read_context": (
-			".ai/prompts/GAMECUBE_LOCAL_EXAMPLES.md",
-			".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
+			".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
 		),
+		"include_common_reads": False,
 	},
 	"no_edit": {
 		"title": "unblock the harness from repeated no-edit loops",
@@ -261,13 +261,13 @@ def normalize_discovery_state(root: Path, state: dict[str, object]) -> dict[str,
 			". Return to a bounded runtime source patch instead of mixing more automation edits."
 		)
 		return state
-	if result == "no_edit" and repeat_count >= 2:
+	if result in AUTOMATION_FAILURES and (root / ".ai/state/dolphin-harness-latest.md").is_file():
 		state = dict(state)
-		state["result"] = "model_budget"
-		state["intent"] = "Repeated NO_EDIT responses mean the automation context or prompt budget still needs tightening."
+		state["result"] = "runtime_probe"
+		state["intent"] = "Automation recovery signal received; resume the smallest GameCube runtime source pass instead of editing the supervisor."
 		state["observation"] = (
-			f"Repeated no-edit discovery loop detected ({repeat_count} consecutive passes); "
-			"switch to budget/context repair instead of replaying the same task."
+			f"Discovery recovery result `{result}` repeated {repeat_count} time(s); "
+			"treat it as a cue to return to fresh runtime evidence rather than spending another cycle on automation files."
 		)
 	elif result == "model_budget" and repeat_count >= 2:
 		state = dict(state)
