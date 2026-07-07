@@ -34,11 +34,50 @@ command -v aider >/dev/null 2>&1 || {
 	exit 1
 }
 
+if [[ -z "${AI_FORBIDDEN_EDIT_PATHS:-}" ]] &&
+	[[ "${AI_COMMIT_SUBJECT:-}" =~ ^perf:\ (reduce\ GameCube\ runtime\ frame\ cost|close\ GameCube\ worst-case\ scenes)$ ]]; then
+	AI_FORBIDDEN_EDIT_PATHS="engine/platform/gamecube/sys_gamecube.c"
+fi
+
 CONTEXT_FILES=()
 READ_CONTEXT_FILES=()
 REQUIRED_CONTEXT_FILES=()
 ALLOWED_EDIT_PATHS=()
 RAW_CONTEXT_SPECS=()
+
+edit_path_forbidden() {
+	local candidate="$1"
+	local forbidden
+	[[ -n "${AI_FORBIDDEN_EDIT_PATHS:-}" ]] || return 1
+	IFS=',' read -r -a _forbidden_paths <<<"$AI_FORBIDDEN_EDIT_PATHS"
+	for forbidden in "${_forbidden_paths[@]}"; do
+		forbidden="${forbidden#"${forbidden%%[![:space:]]*}"}"
+		forbidden="${forbidden%"${forbidden##*[![:space:]]}"}"
+		[[ -n "$forbidden" ]] || continue
+		if [[ "$candidate" == "$forbidden" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+cleanup_forbidden_dirty_paths() {
+	local status path
+	[[ -n "${AI_FORBIDDEN_EDIT_PATHS:-}" ]] || return 0
+	while IFS= read -r status; do
+		[[ -n "$status" ]] || continue
+		path="${status:3}"
+		if [[ "$path" == *" -> "* ]]; then
+			path="${path##* -> }"
+		fi
+		if edit_path_forbidden "$path"; then
+			echo "ai-aider-pass: discarding forbidden dirty path before checkpoint: $path" >&2
+			git restore --staged -- "$path" 2>/dev/null || true
+			git restore --worktree -- "$path" 2>/dev/null || true
+		fi
+	done < <(git status --porcelain)
+}
+
 for context_file in "${CONTEXT_INPUTS[@]}"; do
 	context_mode="file"
 	if [[ "$context_file" == read:* ]]; then
@@ -76,6 +115,7 @@ drop_ephemeral_discovery_state() {
 
 dirty_status_without_ephemeral_state() {
 	drop_ephemeral_discovery_state
+	cleanup_forbidden_dirty_paths
 	git status --porcelain
 }
 
@@ -537,22 +577,6 @@ edit_path_allowed() {
 	return 1
 }
 
-edit_path_forbidden() {
-	local candidate="$1"
-	local forbidden
-	[[ -n "${AI_FORBIDDEN_EDIT_PATHS:-}" ]] || return 1
-	IFS=',' read -r -a _forbidden_paths <<<"$AI_FORBIDDEN_EDIT_PATHS"
-	for forbidden in "${_forbidden_paths[@]}"; do
-		forbidden="${forbidden#"${forbidden%%[![:space:]]*}"}"
-		forbidden="${forbidden%"${forbidden##*[![:space:]]}"}"
-		[[ -n "$forbidden" ]] || continue
-		if [[ "$candidate" == "$forbidden" ]]; then
-			return 0
-		fi
-	done
-	return 1
-}
-
 build_allowed_edit_paths() {
 	local path extra
 	ALLOWED_EDIT_PATHS=()
@@ -612,11 +636,13 @@ unstage_out_of_scope_edits() {
 		if edit_path_forbidden "$staged_file"; then
 			echo "ai-aider-pass: unstaging forbidden edit for this pass: $staged_file" >&2
 			git restore --staged -- "$staged_file" 2>/dev/null || true
+			git restore --worktree -- "$staged_file" 2>/dev/null || true
 			continue
 		fi
 		if ! edit_path_allowed "$staged_file"; then
 			echo "ai-aider-pass: unstaging edit outside loaded editable context: $staged_file" >&2
 			git restore --staged -- "$staged_file" 2>/dev/null || true
+			git restore --worktree -- "$staged_file" 2>/dev/null || true
 		fi
 	done < <(git diff --cached --name-only)
 }
