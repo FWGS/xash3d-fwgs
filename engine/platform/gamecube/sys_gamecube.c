@@ -64,10 +64,14 @@ static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 	u8 *output = buffer;
 	sec_t i;
 
-	/* Attempt single transfer for potentially better stability/performance.
-	 * If this fails, the underlying __io_gcdvd implementation needs review. */
-	if( !__io_gcdvd.readSectors( sector, count, output ))
-		return false;
+	/* libiso9660 3.1.0 always requests a 32 KiB cache fill even when it
+	 * calculated that one sector is sufficient. Split that transfer because
+	 * __io_gcdvd can otherwise complete with a zero-filled DMA buffer. */
+	for( i = 0; i < count; i++ )
+	{
+		if( !__io_gcdvd.readSectors( sector + i, 1, output + i * 0x800 ))
+			return false;
+	}
 	return true;
 }
 #endif
@@ -283,6 +287,11 @@ void GCube_Init( void )
 	char xashdir[MAX_SYSPATH];
 
 	/* G29: Initialize networking for local loopback single-player.
+	 * Disable external network dependencies (master servers, HTTP)
+	 * to ensure offline boot works without network hardware. */
+	NET_Config( false, false );
+
+	gc_fat_mounted = fatInitDefault();
 	if( !gc_fat_mounted )
 		Con_Reportf( S_WARN "SD card init failed\n" );
 
@@ -301,7 +310,6 @@ void GCube_Init( void )
 	{
 		GCube_EnsureWritableLayout();
 		Con_Reportf( "Xash3D GameCube: writable storage %s\n", xashdir );
-		Platform_Sleep( 50 );
 	}
 	else if( GCube_GetDiscPath( xashdir, sizeof( xashdir )))
 	{
