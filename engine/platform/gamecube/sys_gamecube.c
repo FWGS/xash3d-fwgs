@@ -118,7 +118,7 @@ double Platform_DoubleTime( void )
 	}
 
 	double clock = (double)PPC_TIMER_CLOCK;
-	if (clock <= 0.0) return 0.0; // Clock must be positive for division
+	if (clock == 0.0) return 0.0; // Avoid division by zero
 	return (double)diff_ticks( start_ticks, now ) / clock;
 #else
 	return 0.0;
