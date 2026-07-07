@@ -437,7 +437,7 @@ static void GC_PresentBuffer( void )
 		// must sample the software buffer so flat-fill/BSP output is real evidence.
 		if( gc_present_count <= 16 && src_h > 0 && src_w > 0 )
 		{
-			if( gc_budget_probe_active && gc_present_count > 1 && !Sys_CheckParm( "-gcworldrender" ))
+			if( gc_budget_probe_active && gc_present_count > 1 && !Sys_CheckParm( "-gcworldrender" ) && gc_present_count <= 16)
 				sampled_nonblack = true;
 			else
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
