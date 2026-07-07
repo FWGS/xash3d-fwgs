@@ -32,6 +32,8 @@ static qboolean gc_fat_mounted;
 static qboolean gc_dvd_mounted;
 static DISC_INTERFACE gc_dvd_io;
 
+static void GCube_LoadDiscBootOverrides( void );
+
 static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer )
 {
 	u8 *output = buffer;
@@ -166,7 +168,10 @@ qboolean GCube_GetDiscPath( char *buf, size_t buflen )
 	if( !GCube_PathAccessible( path ) )
 		return false;
 
-	Q_strncpy( buf, path, buflen );
+	/* Fallback to base path if direct path fails check */
+	if( !GCube_GetBasePath( buf, buflen ) )
+		return false;
+
 	return true;
 }
 
@@ -216,9 +221,7 @@ static void GCube_LogStorageStatus( void )
 		return;
 	}
 
-	/* fatGetSpace availability varies across devkitPro/libogc versions.
-	 * Skip dynamic free-space query to maintain build compatibility.
-	 * Storage write failures are still reported via Con_Reportf in Host_WriteConfig/FS_SaveVFSConfig. */
+	/* Dynamic free-space query is omitted to maintain build compatibility. */
 #endif
 }
 
@@ -253,6 +256,8 @@ void GCube_Init( void )
 	 * Disable external network dependencies (master servers, HTTP)
 	 * to ensure offline boot works without network hardware. */
 	NET_Config( false, false );
+
+	GCube_LoadDiscBootOverrides();
 
 	gc_fat_mounted = fatInitDefault();
 	if( !gc_fat_mounted )
@@ -346,7 +351,6 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	return false;
 }
 
-#define GC_DEFAULT_SMOKE_MAP "c0a0e"
 static char *gc_argv[16];
 static char gc_smoke_map[MAX_QPATH];
 static qboolean gc_smoke_map_configured;
@@ -371,10 +375,11 @@ static void GCube_LoadDiscBootOverrides( void )
 	if( !gc_dvd_mounted )
 		return;
 
-		// If DVD failed to mount, we skip config loading, which is acceptable for a probe fix attempt.
-		file = fopen( GC_DATA_PATH "/valve/gamecube.cfg", "r" );
-		if( !file )
-			return;
+	// If DVD failed to mount, we skip config loading, which is acceptable for a probe fix attempt.
+	// Note: If running on read-only boot without DVD, this file might not exist, which is handled below.
+	file = fopen( GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	if( !file )
+		return;
 
 	while( fgets( line, sizeof( line ), file ))
 	{
@@ -446,9 +451,9 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = gc_smoke_map;
 	}
 	gc_argv[fake_argc++] = "-width";
-	gc_argv[fake_argc++] = "320";
+	gc_argv[fake_argc++] = "640";
 	gc_argv[fake_argc++] = "-height";
-	gc_argv[fake_argc++] = "240";
+	gc_argv[fake_argc++] = "480";
 
 	*out_argv = gc_argv;
 	return fake_argc;
