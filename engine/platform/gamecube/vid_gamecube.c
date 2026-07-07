@@ -431,6 +431,10 @@ static void GC_PresentBuffer( void )
 		 * color-shifted output on intro/menu full-screen draws. Prefer the
 		 * linear CPU/XFB copy path until we add a proper swizzle/upload step. */
 		GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
+		if( gc_budget_probe_active && gc_present_count > 1 && !Sys_CheckParm( "-gcworldrender" ) && gc_present_count <= 16)
+		{
+			GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
+		}
 
 		// G36: Detect non-black content only while probe frame samples are active.
 		// Status-panel smoke can treat later presents as non-black; world-render
