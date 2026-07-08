@@ -1,0 +1,30 @@
+{
+  "blocked_default_paths": [
+    "engine/platform/gamecube/vid_gamecube.c"
+  ],
+  "phase_order": [
+    "discover_gamecube_build_surface",
+    "fix_first_compile_error",
+    "fix_first_link_error",
+    "build_boot_dol",
+    "dolphin_smoke_boot",
+    "hardware_smoke_notes"
+  ],
+  "fallback_subsystem_queue": [
+    "scripts",
+    "build",
+    "cmake",
+    "engine/platform/gamecube",
+    "engine/common",
+    "engine/filesystem",
+    "engine/client",
+    "engine/server",
+    "ref/gx",
+    "3rdparty/hlsdk-portable"
+  ],
+  "notes": [
+    "Do not default to vid_gamecube.c.",
+    "Only touch vid_gamecube.c when a build error, runtime probe, or hardware smoke result directly names it.",
+    "Prefer build-system and current fatal-error files before optimization work."
+  ]
+}
