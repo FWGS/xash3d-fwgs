@@ -20,6 +20,10 @@ except ImportError:  # pragma: no cover
 
 
 def repo_root(start: Path | None = None) -> Path:
+    env_root = os.environ.get("XASH3D_GC_ROOT") or os.environ.get("REPO")
+    if env_root:
+        return Path(env_root).resolve()
+
     if start is None:
         start = Path(__file__).resolve()
 

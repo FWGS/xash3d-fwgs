@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${1:-/home/tim/Desktop/xash3d-gc}"
+REPO="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 TASK_FILE="${2:-.ai/tasks/current.md}"
 CONTEXT_INPUTS=("${@:3}")
 

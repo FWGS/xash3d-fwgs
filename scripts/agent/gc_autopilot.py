@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -124,12 +125,19 @@ def write_ai_task(report):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-steps", type=int, default=8)
+    ap.add_argument("--repo", type=Path, default=REPO)
     ap.add_argument(
         "--delegate-loop",
         action="store_true",
         help="run the full gc_run_until_done supervisor/aider loop instead of reagent-only steps",
     )
     args = ap.parse_args()
+    root = args.repo.resolve()
+    os.environ["XASH3D_GC_ROOT"] = str(root)
+
+    global REPORT, TASK_OUT
+    REPORT = root / ".ai/reagent-last-probe.json"
+    TASK_OUT = root / ".ai/next-patch-task.txt"
 
     if args.delegate_loop:
         from gc_run_until_done import main as run_until_done_main

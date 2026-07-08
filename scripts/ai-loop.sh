@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PASSES="${1:-5}"
-REPO="${2:-/home/tim/Desktop/xash3d-gc}"
+REPO="${2:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
 if [[ ! "$PASSES" =~ ^[1-9][0-9]*$ ]]; then
 	echo "usage: $0 [positive-pass-count] [repository]" >&2

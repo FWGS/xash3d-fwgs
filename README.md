@@ -142,6 +142,27 @@ To build you should clone [SDL](https://github.com/libsdl-org/SDL) from `SDL2` b
 
 ### GameCube
 
+This fork includes a GameCube auto-porting pipeline built around the scripts in
+[`scripts/`](scripts/).
+
+1. Install `devkitPro` with `devkitPPC` and `libogc`, and make sure `python3`
+   is available.
+2. Provide legal Half-Life assets at `Half-Life/valve` if you want ISO builds,
+   or copy assets to `sd:/xash3d/valve/` for direct `boot.dol` testing.
+3. Start the automation from the repo root with:
+   `scripts/gamecube-autoport.sh`
+
+Useful modes:
+
+* `scripts/gamecube-autoport.sh goal-runner --chunk-passes 20 --recoverable-retries 8`
+  runs the main evidence-gated port loop.
+* `scripts/gamecube-autoport.sh reagent`
+  runs one compile/probe classification pass and writes `.ai/reagent-last-probe.json`.
+* `scripts/gamecube-autoport.sh supervisor`
+  runs the phased engine-build, disc-build, and Dolphin boot flow.
+
+Manual artifact builds are still available through `scripts/build-gamecube.sh`.
+
 ### Running tests
 
 Tests are enabled with `--enable-tests` passed to `./waf configure` and can be run with `./waf --alltests`.
