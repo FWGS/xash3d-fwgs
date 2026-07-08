@@ -1020,20 +1020,9 @@ void SCR_VidInit( void )
 			return;
 		}
 	}
+#endif
 
-	/* G72: Reduce frame/render cost while preserving MAP_READY/G45/nonblack */
-	if( gc.width >= 160 && gc.height >= 120 )
-	{
-		for( row = 0; row < gc.height / 4; row++ )
-		{
-			for( col = 0; col < gc.width / 4; col++ )
-			{
-				rowdst[col] = 0x0010;
-			}
-		}
-	}
-
-	memset( &clgame.ds, 0, sizeof( clgame.ds )); // reset a draw state
+        memset( &clgame.ds, 0, sizeof( clgame.ds )); // reset a draw state
 	memset( &gameui.ds, 0, sizeof( gameui.ds )); // reset a draw state
 	memset( &clgame.centerPrint, 0, sizeof( clgame.centerPrint ));
 

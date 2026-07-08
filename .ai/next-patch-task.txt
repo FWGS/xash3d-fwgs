@@ -1,0 +1,51 @@
+Auto-port task for Xash3D GameCube
+===================================
+
+Failure kind: compile
+Build phase: gamecube_engine_build
+Build command: scripts/build-gamecube.sh
+Patch targets: ['engine/client/cl_scrn.c']
+
+Rules:
+- Patch only the first real failure file.
+- Do not touch engine/platform/gamecube/vid_gamecube.c unless the failure names it.
+- Do not patch generated build/ files.
+- Do not patch public/miniz.c when it is only a compiler note.
+- Keep the patch tiny and compile-driven.
+
+Error context:
+--------------
+[175/592] Processing ref/common/ref_math.c
+[177/592] Processing ref/common/ref_light.c
+[178/592] Processing ref/common/ref_math.c
+[179/592] Processing ref/common/ref_image.c
+[180/592] Processing public/build_vcs.c
+[486/592] Processing engine/client/cl_scrn.c
+[587/592] Linking build/public/libbuild_vcs.a
+../engine/client/cl_scrn.c: In function 'SCR_VidInit':
+../engine/client/cl_scrn.c:1025:13: error: 'gc' undeclared (first use in this function)
+ 1025 |         if( gc.width >= 160 && gc.height >= 120 )
+      |             ^~
+../engine/client/cl_scrn.c:1025:13: note: each undeclared identifier is reported only once for each function it appears in
+../engine/client/cl_scrn.c:1027:22: error: 'row' undeclared (first use in this function); did you mean 'pow'?
+ 1027 |                 for( row = 0; row < gc.height / 4; row++ )
+      |                      ^~~
+      |                      pow
+../engine/client/cl_scrn.c:1029:30: error: 'col' undeclared (first use in this function); did you mean 'cl'?
+ 1029 |                         for( col = 0; col < gc.width / 4; col++ )
+      |                              ^~~
+      |                              cl
+../engine/client/cl_scrn.c:1031:33: error: 'rowdst' undeclared (first use in this function)
+ 1031 |                                 rowdst[col] = 0x0010;
+      |                                 ^~~~~~
+../engine/client/cl_scrn.c: At top level:
+../engine/client/cl_scrn.c:1014: error: unterminated #if
+ 1014 | #if XASH_GAMECUBE
+
+../public/miniz.c:3216:9: note: '#pragma message: Using fopen, ftello, fseeko, stat() etc. path for file I/O - this path may not support large files.'
+ 3216 | #pragma message("Using fopen, ftello, fseeko, stat() etc. path for file I/O - this path may not support large files.")
+      |         ^~~~~~~
+
+Waf: Leaving directory `/home/tim/Desktop/xash3d-gc/build'
+Build failed
+ -> task in 'xash' failed with exit status 1 (run with -v to display more information)
