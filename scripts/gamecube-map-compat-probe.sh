@@ -14,11 +14,11 @@ fi
 
 # Defaults
 MAP_SOURCE_DIR="${MAP_SOURCE_DIR:-Half-Life/valve/maps}"
-PROBE_SCRIPT="GC_BOOT_PROBE_TIMEOUT="$MAP_PROBE_TIMEOUT" scripts/dolphin-boot-probe.sh"
+PROBE_SCRIPT="scripts/dolphin-boot-probe.sh"
 LOG_BASE=".ai/logs/map-compat-$(date +%Y%m%d-%H%M%S)"
 TSV_FILE="$LOG_BASE/results.tsv"
 MD_FILE="$LOG_BASE/summary.md"
-PROBE_TIMEOUT="${MAP_COMPAT_TIMEOUT:-180}"
+PROBE_TIMEOUT="${MAP_PROBE_TIMEOUT:-${MAP_COMPAT_TIMEOUT:-180}}"
 
 mkdir -p "$LOG_BASE"
 
@@ -77,7 +77,7 @@ for bsp in "${map_files[@]}"; do
 	# dolphin-boot-probe.sh enforces DOLPHIN_TIMEOUT internally; do not wrap it in
 	# an outer timeout shorter than build + probe + frame-sample budget.
 	set +e
-	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" DOLPHIN_TIMEOUT="$PROBE_TIMEOUT" bash "$PROBE_SCRIPT" 2>&1)
+	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" DOLPHIN_TIMEOUT="$PROBE_TIMEOUT" GC_BOOT_PROBE_TIMEOUT="$PROBE_TIMEOUT" bash "$PROBE_SCRIPT" 2>&1)
 	PROBE_EXIT=$?
 	set -e
 	
