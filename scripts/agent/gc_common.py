@@ -163,13 +163,30 @@ def run(cmd: list[str], *, cwd: Path | None = None, timeout: int | None = None) 
     return proc.returncode, output
 
 
-def git_changed_files() -> list[str]:
-    _, out = run(["git", "status", "--short"])
+def git_status_lines(*, ignore_submodules: str = "untracked") -> list[str]:
+    _, out = run(["git", "status", "--short", f"--ignore-submodules={ignore_submodules}"])
+    return out.splitlines()
+
+
+def git_changed_files(*, ignore_submodules: str = "untracked") -> list[str]:
     files = []
-    for line in out.splitlines():
+    for line in git_status_lines(ignore_submodules=ignore_submodules):
         if len(line) > 3:
             files.append(line[3:].strip())
     return files
+
+
+def git_dirty_submodule_gitlinks() -> list[str]:
+    dirty = []
+    for line in git_status_lines(ignore_submodules="none"):
+        if len(line) <= 3:
+            continue
+        path = line[3:].strip()
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1].strip()
+        if path in {"3rdparty/dolphin", "3rdparty/library_suffix"}:
+            dirty.append(path)
+    return dirty
 
 
 def git_dirty_source_paths() -> list[str]:
@@ -204,7 +221,12 @@ def git_dirty_source_paths() -> list[str]:
 
 
 def commit_changes(message: str) -> bool:
-    if not git_changed_files():
+    sync_script = REPO / "scripts/gamecube-submodule-sync.sh"
+    if sync_script.is_file():
+        run(["bash", str(sync_script), "--no-parent-commit"])
+
+    changed = git_changed_files()
+    if not changed:
         print("No changes to commit.")
         return False
 

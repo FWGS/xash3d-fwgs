@@ -42,10 +42,11 @@
 	url = https://github.com/FWGS/xash3d-maintui.git
 [submodule "3rdparty/library_suffix"]
 	path = 3rdparty/library_suffix
-	url = https://github.com/FWGS/library-suffix.git
+	url = https://github.com/timfox/library-suffix.git
 [submodule "3rdparty/mbedtls/mbedtls"]
 	path = 3rdparty/mbedtls/mbedtls
 	url = https://github.com/FWGS/mbedtls-releases.git
 [submodule "3rdparty/dolphin"]
 	path = 3rdparty/dolphin
 	url = https://github.com/timfox/dolphin
+	ignore = untracked

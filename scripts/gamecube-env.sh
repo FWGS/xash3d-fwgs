@@ -154,12 +154,16 @@ gamecube_checkpoint_dirty_worktree() {
 	local body="${2:-Checkpoint uncommitted work before automation starts.}"
 
 	gamecube_commit_gui_wip || return $?
-	if [[ -z "$(git status --porcelain)" ]]; then
+	if [[ -z "$(git status --porcelain --ignore-submodules=untracked)" ]]; then
 		return 0
 	fi
 	if [[ "$(git log -1 --format=%s 2>/dev/null || true)" == "$subject" ]]; then
 		echo "gamecube-env: skipping duplicate checkpoint commit: $subject" >&2
 		return 0
+	fi
+
+	if [[ -x scripts/gamecube-submodule-sync.sh ]]; then
+		scripts/gamecube-submodule-sync.sh --no-parent-commit || return $?
 	fi
 
 	git add -A

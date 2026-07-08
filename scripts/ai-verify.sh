@@ -32,6 +32,7 @@ for shell_script in \
 	scripts/gamecube-rc-check.sh \
 	scripts/gamecube-env.sh \
 	scripts/gc-port-loop.sh \
+	scripts/gamecube-submodule-sync.sh \
 	scripts/ai-commit-gui-wip.sh
 do
 	bash -n "$shell_script"
