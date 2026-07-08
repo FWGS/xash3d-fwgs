@@ -231,6 +231,18 @@ Handoff supervisor command:
 scripts/ai-run-until-done.py --chunk-passes 20 --recoverable-retries 8
 ```
 
+Compile/probe-driven port automation command:
+
+```sh
+scripts/gc-port-loop.sh
+```
+
+This runs `scripts/agent/gc_port_supervisor.py` through build, disc, Dolphin boot,
+and map-compat probes. On failure it applies known deterministic fixes, then
+feeds the first failing source file to `scripts/ai-aider-pass.sh` with mission
+context. Install an unattended user systemd service with
+`scripts/gc-port-install-automation.sh`.
+
 The supervisor requires `OPENAI_API_KEY` and a reachable
 `OPENAI_API_BASE`/Qwable-compatible model server. It continues through bounded
 goal-loop chunks until automatic goals are complete, blocked, or a

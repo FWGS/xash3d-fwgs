@@ -2,9 +2,14 @@
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
-REPO = Path("/home/tim/Desktop/xash3d-gc")
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from gc_common import REPO, normalize_repo_path, repo_path_pattern
 AGENDA_PATH = REPO / ".ai/gc-reagent-agenda.json"
 REPORT_PATH = REPO / ".ai/reagent-last-probe.json"
 LAST_LOG_PATH = REPO / ".ai/logs/reagent-last-build.log"
@@ -76,23 +81,6 @@ def is_source_path(path):
     return p.suffix in SOURCE_EXTS or p.name in SOURCE_FILENAMES
 
 
-def normalize_repo_path(path):
-    path = path.strip().strip('"').strip("'")
-
-    if path.startswith(str(REPO)):
-        try:
-            return str(Path(path).resolve().relative_to(REPO))
-        except ValueError:
-            return path
-
-    path = path.lstrip("./")
-
-    if path.startswith("../"):
-        path = path[3:]
-
-    return path
-
-
 def git_dirty_source_state():
     code, out = run(["git", "status", "--short"])
 
@@ -157,7 +145,7 @@ def compiler_error_lines(log):
     # Match real compiler diagnostics only. Do not match Waf configure text like
     # "-Werror=implicit-function-declaration".
     diagnostic = re.compile(
-        r"^(?:\.\./|/home/tim/Desktop/xash3d-gc/)"
+        rf"^(?:\.\./|{repo_path_pattern()}/)"
         r"[^:\n]+:\d+(?::\d+)?:\s+"
         r"(?:fatal error|error|warning|note):"
     )
@@ -237,13 +225,13 @@ def extract_failure_files(log):
         r"^\.\./([^:\n]+):\d+:\s+(?:fatal error|error|warning|note):",
 
         # absolute repo path:line:col: error:
-        r"^(/home/tim/Desktop/xash3d-gc/[^:\n]+):\d+:\d+:\s+(?:fatal error|error|warning|note):",
+        rf"^({repo_path_pattern()}/[^:\n]+):\d+:\d+:\s+(?:fatal error|error|warning|note):",
 
         # absolute repo path:line: error:
-        r"^(/home/tim/Desktop/xash3d-gc/[^:\n]+):\d+:\s+(?:fatal error|error|warning|note):",
+        rf"^({repo_path_pattern()}/[^:\n]+):\d+:\s+(?:fatal error|error|warning|note):",
 
         # Python tracebacks.
-        r'File "(/home/tim/Desktop/xash3d-gc/[^"\n]+)", line \d+',
+        rf'File "({repo_path_pattern()}/[^"\n]+)", line \d+',
     ]
 
     for line in log.splitlines():

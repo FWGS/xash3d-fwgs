@@ -31,6 +31,7 @@ for shell_script in \
 	scripts/gamecube-campaign-audit.sh \
 	scripts/gamecube-rc-check.sh \
 	scripts/gamecube-env.sh \
+	scripts/gc-port-loop.sh \
 	scripts/ai-commit-gui-wip.sh
 do
 	bash -n "$shell_script"
@@ -58,6 +59,15 @@ python3 -c 'compile(open("scripts/dolphin-probe-analyze.py", encoding="utf-8").r
 python3 -c 'compile(open("scripts/xash3d-gc-aider-gui.py", encoding="utf-8").read(), "scripts/xash3d-gc-aider-gui.py", "exec")'
 python3 -c 'compile(open("scripts/ai-goal-loop.py", encoding="utf-8").read(), "scripts/ai-goal-loop.py", "exec")'
 python3 -c 'compile(open("scripts/ai-run-until-done.py", encoding="utf-8").read(), "scripts/ai-run-until-done.py", "exec")'
+for agent_script in \
+	scripts/agent/gc_common.py \
+	scripts/agent/gc_port_supervisor.py \
+	scripts/agent/gc_reagent.py \
+	scripts/agent/gc_autopilot.py \
+	scripts/agent/gc_run_until_done.py
+do
+	python3 -c "compile(open('$agent_script', encoding='utf-8').read(), '$agent_script', 'exec')"
+done
 python3 -c 'compile(open("scripts/ai-evidence-gate.py", encoding="utf-8").read(), "scripts/ai-evidence-gate.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-homebrew-compliance-check.py", encoding="utf-8").read(), "scripts/gamecube-homebrew-compliance-check.py", "exec")'
 python3 -c 'compile(open("scripts/gamecube-quality-profile-check.py", encoding="utf-8").read(), "scripts/gamecube-quality-profile-check.py", "exec")'

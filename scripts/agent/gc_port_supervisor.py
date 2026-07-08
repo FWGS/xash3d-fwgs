@@ -5,10 +5,15 @@ import os
 import re
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 
-REPO = Path("/home/tim/Desktop/xash3d-gc")
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from gc_common import REPO, repo_path_pattern
 STATE = REPO / ".ai/gc-port-supervisor.json"
 LOG_DIR = REPO / ".ai/logs/supervisor"
 TASK_OUT = REPO / ".ai/next-patch-task.txt"
@@ -232,10 +237,11 @@ def classify_failure(log):
 
 
 def extract_patch_targets(log):
+    repo_pat = repo_path_pattern()
     patterns = [
         r"^\.\./([^:\n]+):\d+(?::\d+)?:\s+(?:fatal error|error):",
-        r"^(/home/tim/Desktop/xash3d-gc/[^:\n]+):\d+(?::\d+)?:\s+(?:fatal error|error):",
-        r'File "(/home/tim/Desktop/xash3d-gc/[^"\n]+)", line \d+',
+        rf"^({repo_pat}/[^:\n]+):\d+(?::\d+)?:\s+(?:fatal error|error):",
+        rf'File "({repo_pat}/[^"\n]+)", line \d+',
     ]
 
     found = []

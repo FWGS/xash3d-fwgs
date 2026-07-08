@@ -1,53 +1,23 @@
 #!/usr/bin/env python3
 import argparse
 import json
-import subprocess
+import sys
 from pathlib import Path
 
-REPO = Path("/home/tim/Desktop/xash3d-gc")
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from gc_common import REPO, commit_changes, run
+
 REPORT = REPO / ".ai/reagent-last-probe.json"
 TASK_OUT = REPO / ".ai/next-patch-task.txt"
-
-
-def run(cmd, *, check=False):
-    print("+", " ".join(cmd), flush=True)
-    p = subprocess.run(
-        cmd,
-        cwd=REPO,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    print(p.stdout)
-    if check and p.returncode != 0:
-        raise SystemExit(p.returncode)
-    return p.returncode, p.stdout
 
 
 def load_report():
     if not REPORT.exists():
         return None
     return json.loads(REPORT.read_text(encoding="utf-8"))
-
-
-def git_changed_files():
-    code, out = run(["git", "status", "--short"])
-    files = []
-    for line in out.splitlines():
-        if len(line) > 3:
-            files.append(line[3:].strip())
-    return files
-
-
-def commit_changes(message):
-    changed = git_changed_files()
-    if not changed:
-        print("No changes to commit.")
-        return False
-
-    run(["git", "add", "-A"], check=True)
-    code, out = run(["git", "commit", "-m", message])
-    return code == 0
 
 
 def run_reagent():
@@ -154,7 +124,17 @@ def write_ai_task(report):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-steps", type=int, default=8)
+    ap.add_argument(
+        "--delegate-loop",
+        action="store_true",
+        help="run the full gc_run_until_done supervisor/aider loop instead of reagent-only steps",
+    )
     args = ap.parse_args()
+
+    if args.delegate_loop:
+        from gc_run_until_done import main as run_until_done_main
+
+        return run_until_done_main()
 
     for step in range(1, args.max_steps + 1):
         print(f"\n=== GC AUTOPILOT STEP {step}/{args.max_steps} ===")
