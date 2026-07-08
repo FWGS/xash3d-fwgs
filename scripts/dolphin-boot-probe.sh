@@ -1,4 +1,34 @@
 #!/usr/bin/env bash
+
+# Whole-script timeout wrapper.
+# The Dolphin process itself may have its own timeout, but the shell probe can
+# still hang around locks, log tails, analyzers, or escaped child processes.
+if [ "${GC_BOOT_PROBE_INNER:-0}" != "1" ]; then
+    PROBE_TIMEOUT="${GC_BOOT_PROBE_TIMEOUT:-240}"
+    export GC_BOOT_PROBE_INNER=1
+    exec timeout --foreground --signal=TERM --kill-after=10 "$PROBE_TIMEOUT" "$0" "$@"
+fi
+
+cleanup_boot_probe_processes() {
+    # Only clean the probe/emulator family for this repo.
+    pkill -TERM -f 'dolphin-emu|DolphinQt|xash3d-gc.iso' 2>/dev/null || true
+    sleep 1
+    pkill -KILL -f 'dolphin-emu|DolphinQt|xash3d-gc.iso' 2>/dev/null || true
+}
+
+cleanup_boot_probe_locks() {
+    rm -f .ai/dolphin-probe.lock .ai/goal-supervisor.lock .ai/goal-loop.lock 2>/dev/null || true
+}
+
+on_boot_probe_exit() {
+    rc=$?
+    cleanup_boot_probe_processes
+    cleanup_boot_probe_locks
+    exit "$rc"
+}
+
+trap on_boot_probe_exit EXIT INT TERM
+
 set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
