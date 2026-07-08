@@ -7,6 +7,7 @@ from pathlib import Path
 REPO = Path("/home/tim/Desktop/xash3d-gc")
 AGENDA_PATH = REPO / ".ai/gc-reagent-agenda.json"
 REPORT_PATH = REPO / ".ai/reagent-last-probe.json"
+LAST_LOG_PATH = REPO / ".ai/logs/reagent-last-build.log"
 
 DEFAULT_BLOCKED_PATHS = {
     "engine/platform/gamecube/vid_gamecube.c",
@@ -14,26 +15,24 @@ DEFAULT_BLOCKED_PATHS = {
 
 DEFAULT_FALLBACK_QUEUE = [
     "scripts",
-    "engine/platform/gamecube",
+    "engine/client",
     "engine/common",
     "engine/filesystem",
-    "engine/client",
+    "engine/platform/gamecube",
     "engine/server",
     "ref/gx",
     "3rdparty/hlsdk-portable",
 ]
 
-SOURCE_EXTS = {".c", ".cpp", ".h", ".hpp", ".cmake", ".py", ".sh"}
+SOURCE_EXTS = {".c", ".cpp", ".cc", ".h", ".hpp", ".hh", ".cmake", ".py", ".sh"}
 SOURCE_FILENAMES = {"CMakeLists.txt", "wscript", "wscript_build"}
 
 WATCHED_SOURCE_ROOTS = [
     "scripts",
-    "engine/platform/gamecube",
-    "engine/common",
-    "engine/filesystem",
-    "engine/client",
-    "engine/server",
-    "ref/gx",
+    "engine",
+    "ref",
+    "stub",
+    "public",
     "3rdparty/hlsdk-portable",
 ]
 
@@ -77,88 +76,8 @@ def is_source_path(path):
     return p.suffix in SOURCE_EXTS or p.name in SOURCE_FILENAMES
 
 
-def git_dirty_source_state():
-    code, out = run(["git", "status", "--short"])
-
-    dirty_source = []
-    for line in out.splitlines():
-        # status format: XY path
-        path = line[3:] if len(line) > 3 else line
-        path = path.strip()
-
-        if " -> " in path:
-            path = path.split(" -> ", 1)[1].strip()
-
-        if any(path.startswith(root + "/") or path == root for root in WATCHED_SOURCE_ROOTS):
-            if is_source_path(path):
-                dirty_source.append(line)
-
-    return dirty_source, out
-
-
-def choose_build_command():
-    preferred = [
-        (["scripts/build-gamecube.sh"], "gamecube_engine_build"),
-        (["python3", "scripts/build-gamecube-disc.py", "--output", "OUT/xash3d-gc.iso"], "gamecube_disc_build"),
-        (["scripts/dolphin-boot-probe.sh", "OUT/xash3d-gc.iso"], "dolphin_boot_probe"),
-        (["scripts/gamecube-rc-check.sh"], "gamecube_rc_gate"),
-    ]
-
-    for cmd, reason in preferred:
-        if (REPO / cmd[0]).exists():
-            return cmd, reason
-
-    return None, "no_gamecube_build_surface"
-
-
-def extract_error_context(log):
-    lines = log.splitlines()
-    patterns = [
-        "fatal error:",
-        " error:",
-        "undefined reference",
-        "collect2: error",
-        "ld returned",
-        "gmake:",
-        "make:",
-        "No such file or directory",
-        "Traceback",
-        "Exception",
-        "ERROR",
-    ]
-
-    for i, line in enumerate(lines):
-        low = line.lower()
-        if any(p.lower() in low for p in patterns):
-            start = max(0, i - 12)
-            end = min(len(lines), i + 24)
-            return "\n".join(lines[start:end])
-
-    return "\n".join(lines[-100:])
-
-
-def classify_failure(log):
-    low = log.lower()
-
-    if "no_gamecube_build_surface" in low:
-        return "no_gamecube_build_surface"
-    if "fatal error:" in low and "no such file or directory" in low:
-        return "missing_header"
-    if "undefined reference" in low or "ld returned" in low or "collect2: error" in low:
-        return "linker"
-    if "fatal error:" in low or " error:" in low:
-        return "compile"
-    if "traceback" in low or "exception" in low:
-        return "script_exception"
-    if "gmake:" in low or "make:" in low:
-        return "build_system"
-    if "warning:" in low:
-        return "warning_only"
-    return "runtime_or_unknown"
-
-
 def normalize_repo_path(path):
-    path = path.strip()
+    path = path.strip().strip('"').strip("'")
 
     if path.startswith(str(REPO)):
         try:
@@ -167,41 +86,165 @@ def normalize_repo_path(path):
             return path
 
     path = path.lstrip("./")
+
+    if path.startswith("../"):
+        path = path[3:]
+
     return path
+
+
+def git_dirty_source_state():
+    code, out = run(["git", "status", "--short"])
+
+    dirty_source = []
+    for line in out.splitlines():
+        path = line[3:] if len(line) > 3 else line
+        path = path.strip()
+
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1].strip()
+
+        if path.startswith(".ai/reagent-last-probe.json"):
+            continue
+        if path.startswith(".ai/logs/"):
+            continue
+        if path == "nohup.out":
+            continue
+
+        if any(path.startswith(root + "/") or path == root for root in WATCHED_SOURCE_ROOTS):
+            if is_source_path(path):
+                dirty_source.append(line)
+
+    return dirty_source, out
+
+
+def phase_commands():
+    return [
+        (["scripts/build-gamecube.sh"], "gamecube_engine_build"),
+        (["python3", "scripts/build-gamecube-disc.py", "--output", "OUT/xash3d-gc.iso"], "gamecube_disc_build"),
+        (["scripts/dolphin-boot-probe.sh", "OUT/xash3d-gc.iso"], "dolphin_boot_probe"),
+    ]
+
+
+def available_phase_commands():
+    phases = []
+    for cmd, reason in phase_commands():
+        if (REPO / cmd[0]).exists():
+            phases.append((cmd, reason))
+    return phases
+
+
+def compiler_error_lines(log):
+    lines = log.splitlines()
+
+    # Match real compiler diagnostics only. Do not match Waf configure text like
+    # "-Werror=implicit-function-declaration".
+    diagnostic = re.compile(
+        r"^(?:\.\./|/home/tim/Desktop/xash3d-gc/)"
+        r"[^:\n]+:\d+(?::\d+)?:\s+"
+        r"(?:fatal error|error|warning|note):"
+    )
+
+    hits = []
+    for i, line in enumerate(lines):
+        if diagnostic.search(line):
+            hits.append(i)
+
+    return hits
+
+
+def extract_error_context(log):
+    lines = log.splitlines()
+    hits = compiler_error_lines(log)
+
+    if hits:
+        i = hits[0]
+        start = max(0, i - 8)
+        end = min(len(lines), i + 36)
+        return "\n".join(lines[start:end])
+
+    linker_patterns = [
+        re.compile(r"undefined reference"),
+        re.compile(r"collect2: error"),
+        re.compile(r"ld returned"),
+    ]
+
+    for i, line in enumerate(lines):
+        if any(rx.search(line) for rx in linker_patterns):
+            start = max(0, i - 16)
+            end = min(len(lines), i + 40)
+            return "\n".join(lines[start:end])
+
+    script_patterns = [
+        re.compile(r"Traceback"),
+        re.compile(r"Exception:"),
+        re.compile(r"^ERROR:"),
+    ]
+
+    for i, line in enumerate(lines):
+        if any(rx.search(line) for rx in script_patterns):
+            start = max(0, i - 12)
+            end = min(len(lines), i + 40)
+            return "\n".join(lines[start:end])
+
+    # Last useful fallback: show the end where Waf reports the failed task.
+    return "\n".join(lines[-180:])
+
+
+def classify_failure(error_context):
+    low = error_context.lower()
+
+    if "undefined reference" in low or "ld returned" in low or "collect2: error" in low:
+        return "linker"
+    if "fatal error:" in low and "no such file or directory" in low:
+        return "missing_header"
+    if ": error:" in low or "fatal error:" in low:
+        return "compile"
+    if "traceback" in low or "exception:" in low:
+        return "script_exception"
+    if "build failed" in low:
+        return "build_system"
+    if ": warning:" in low:
+        return "warning_only"
+    return "runtime_or_unknown"
 
 
 def extract_failure_files(log):
     files = []
 
     patterns = [
-        # /home/tim/Desktop/xash3d-gc/foo/bar.c:12:34: error:
-        r"(/home/tim/Desktop/xash3d-gc/[^:\n]+):\d+:\d+:\s+(?:fatal error|error|warning):",
+        # ../engine/client/cl_scrn.c:1025:13: error:
+        r"^\.\./([^:\n]+):\d+:\d+:\s+(?:fatal error|error|warning|note):",
 
-        # from /home/tim/Desktop/xash3d-gc/foo/bar.c:12
-        r"from (/home/tim/Desktop/xash3d-gc/[^:\n]+):\d+",
+        # ../engine/client/cl_scrn.c:1014: error:
+        r"^\.\./([^:\n]+):\d+:\s+(?:fatal error|error|warning|note):",
 
-        # Python/script tracebacks
+        # absolute repo path:line:col: error:
+        r"^(/home/tim/Desktop/xash3d-gc/[^:\n]+):\d+:\d+:\s+(?:fatal error|error|warning|note):",
+
+        # absolute repo path:line: error:
+        r"^(/home/tim/Desktop/xash3d-gc/[^:\n]+):\d+:\s+(?:fatal error|error|warning|note):",
+
+        # Python tracebacks.
         r'File "(/home/tim/Desktop/xash3d-gc/[^"\n]+)", line \d+',
-
-        # CMake/make object paths that preserve source-ish names
-        r"Building [A-Z]+ object .*?\.dir/(.+?)\.o",
     ]
 
-    for pat in patterns:
-        for m in re.finditer(pat, log):
+    for line in log.splitlines():
+        for pat in patterns:
+            m = re.search(pat, line)
+            if not m:
+                continue
+
             candidate = normalize_repo_path(m.group(1))
 
-            # CMake object path can look like foo.cpp, or foo.cpp.1, or __/path/foo.c
-            candidate = candidate.replace("__/", "../")
-            candidate = re.sub(r"\.\d+$", "", candidate)
-
-            if candidate.startswith("../"):
-                candidate = candidate[3:]
+            if candidate.startswith("build/"):
+                continue
+            if candidate.startswith(".ai/"):
+                continue
 
             if is_source_path(candidate):
                 files.append(candidate)
 
-    # Keep order but dedupe.
     seen = set()
     ordered = []
     for f in files:
@@ -212,9 +255,12 @@ def extract_failure_files(log):
     return ordered
 
 
-def choose_patch_targets(error_context, agenda):
+def choose_patch_targets(error_context, full_log, agenda):
     blocked = set(agenda.get("blocked_default_paths", []))
+
     failure_files = extract_failure_files(error_context)
+    if not failure_files:
+        failure_files = extract_failure_files(full_log)
 
     selected = []
     for f in failure_files:
@@ -242,6 +288,8 @@ def choose_patch_targets(error_context, agenda):
                 rel = str(child.relative_to(REPO))
                 if rel in blocked:
                     continue
+                if rel.startswith("build/") or rel.startswith(".ai/"):
+                    continue
                 if is_source_path(rel):
                     fallback.append(rel)
                     break
@@ -253,7 +301,7 @@ def write_report(report):
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     REPORT_PATH.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"Wrote {REPORT_PATH}")
-    print(json.dumps(report, indent=2)[:6000])
+    print(json.dumps(report, indent=2)[:8000])
 
 
 def main():
@@ -266,7 +314,7 @@ def main():
         report = {
             "build_ok": False,
             "failure_kind": "dirty_source_tree",
-            "message": "Source tree already has edits; refusing to stack patches.",
+            "message": "Source tree already has edits; refusing to stack automated patches.",
             "dirty_source": dirty_source,
             "git_status": status,
             "agenda": agenda,
@@ -274,41 +322,61 @@ def main():
         write_report(report)
         return 2
 
-    build_cmd, build_reason = choose_build_command()
-
-    if build_cmd is None:
+    phases = available_phase_commands()
+    if not phases:
         report = {
             "build_ok": False,
             "failure_kind": "no_gamecube_build_surface",
-            "build_reason": build_reason,
-            "message": "No GameCube build script found. Expected scripts/build-gamecube.sh.",
+            "message": "No GameCube build/probe scripts found. Expected scripts/build-gamecube.sh.",
             "git_status": status,
             "agenda": agenda,
         }
         write_report(report)
         return 1
 
-    code, build_log = run(build_cmd)
+    combined_log = ""
+    last_cmd = None
+    last_reason = None
+    last_code = 0
 
-    error_context = extract_error_context(build_log)
+    for cmd, reason in phases:
+        last_cmd = cmd
+        last_reason = reason
+        code, log = run(cmd)
+        last_code = code
+        combined_log += f"\n\n===== PHASE {reason}: {' '.join(cmd)} =====\n"
+        combined_log += log
+
+        if code != 0:
+            break
+
+    LAST_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LAST_LOG_PATH.write_text(combined_log, encoding="utf-8")
+
+    error_context = extract_error_context(combined_log)
     failure = classify_failure(error_context)
-    patch_targets, target_reason = choose_patch_targets(error_context, agenda)
+    patch_targets, target_reason = choose_patch_targets(error_context, combined_log, agenda)
 
     report = {
-        "build_ok": code == 0,
+        "build_ok": last_code == 0,
         "failure_kind": failure,
-        "build_reason": build_reason,
-        "build_cmd": build_cmd,
+        "build_reason": last_reason,
+        "build_cmd": last_cmd,
         "patch_targets": patch_targets,
         "patch_target_reason": target_reason,
         "error_context": error_context,
-        "log_tail": "\n".join(build_log.splitlines()[-160:]),
+        "log_path": str(LAST_LOG_PATH.relative_to(REPO)),
         "git_status": status,
         "agenda": agenda,
+        "next_action": (
+            "patch_first_failure_file"
+            if patch_targets
+            else "inspect_log_manually"
+        ),
     }
 
     write_report(report)
-    return 0 if code == 0 else 1
+    return 0 if last_code == 0 else 1
 
 
 if __name__ == "__main__":
