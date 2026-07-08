@@ -32,6 +32,12 @@ PHASES = [
         "timeout": 240,
         "success": ["MAP_READY:", "G36_STATUS: PASS", "G45_STATUS: PASS", "VISUAL_STATUS: nonblack"],
     },
+    {
+        "name": "map_compat_probe",
+        "cmd": ["scripts/gamecube-map-compat-probe.sh", "c0a0e", "c1a0", "c1a0d", "c2a1"],
+        "timeout": 900,
+        "success": ["MAP_COMPAT_PROBE: PASS"],
+    },
 ]
 
 IGNORE_PATCH_TARGETS = {
