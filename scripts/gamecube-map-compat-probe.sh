@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-MAP_PROBE_TIMEOUT=\"${MAP_PROBE_TIMEOUT:-180}\"
-export GC_BOOT_PROBE_TIMEOUT=\"${GC_BOOT_PROBE_TIMEOUT:-$MAP_PROBE_TIMEOUT}\"
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
