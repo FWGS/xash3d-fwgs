@@ -122,7 +122,7 @@ def phase_commands():
     return [
         (["scripts/build-gamecube.sh"], "gamecube_engine_build"),
         (["python3", "scripts/build-gamecube-disc.py", "--output", "OUT/xash3d-gc.iso"], "gamecube_disc_build"),
-        (["scripts/dolphin-boot-probe.sh", "OUT/xash3d-gc.iso"], "dolphin_boot_probe"),
+        (["python3", "scripts/agent/gc_bounded_dolphin_probe.py", "OUT/xash3d-gc.iso", "--timeout", "210"], "dolphin_boot_probe"),
     ]
 
 
