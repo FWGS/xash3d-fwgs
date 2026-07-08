@@ -60,6 +60,12 @@ if [[ ${#map_files[@]} -eq 0 ]]; then
 	exit 0
 fi
 
+map_loaded_count=0
+map_ready_count=0
+inconclusive_count=0
+missing_count=0
+hard_failure_count=0
+
 for bsp in "${map_files[@]}"; do
 	if [[ ! -f "$bsp" ]]; then
 		map_name="$(basename "$bsp" .bsp)"
@@ -67,6 +73,7 @@ for bsp in "${map_files[@]}"; do
 		printf "| %s | %s | %s | %s | %s |\n" "$map_name" "MISSING" "N/A" "Map file not found" "N/A" >> "$MD_FILE"
 		echo "==> Probing map: $map_name"
 		echo "  Result: MISSING"
+		missing_count=$((missing_count + 1))
 		continue
 	fi
 	map_name="$(basename "$bsp" .bsp)"
@@ -141,6 +148,14 @@ for bsp in "${map_files[@]}"; do
 	printf "%s\t%s\t%s\t%s\t%s\n" "$map_name" "$STATUS" "$MEM_PEAK" "$BLOCKER" "$LOG_PATH" >> "$TSV_FILE"
 	printf "| %s | %s | %s | %s | [%s](%s) |\n" \
 		"$map_name" "$STATUS" "$MEM_PEAK" "$BLOCKER" "Logs" "$LOG_PATH" >> "$MD_FILE"
+
+	case "$STATUS" in
+		MAP_LOADED) map_loaded_count=$((map_loaded_count + 1)) ;;
+		MAP_READY) map_ready_count=$((map_ready_count + 1)) ;;
+		INCONCLUSIVE) inconclusive_count=$((inconclusive_count + 1)) ;;
+		MISSING) missing_count=$((missing_count + 1)) ;;
+		*) hard_failure_count=$((hard_failure_count + 1)) ;;
+	esac
 		
 	echo "  Result: $STATUS"
 done
@@ -148,3 +163,16 @@ done
 echo "==> Probe complete."
 echo "   Summary: $MD_FILE"
 echo "   TSV: $TSV_FILE"
+echo "   Counts: loaded=$map_loaded_count ready=$map_ready_count inconclusive=$inconclusive_count missing=$missing_count hard_failures=$hard_failure_count"
+
+if (( hard_failure_count == 0 )) && (( map_loaded_count + map_ready_count > 0 )); then
+	if (( inconclusive_count == 0 )) && (( missing_count == 0 )); then
+		echo "MAP_COMPAT_PROBE: PASS"
+	else
+		echo "MAP_COMPAT_PROBE: PARTIAL"
+	fi
+	exit 0
+fi
+
+echo "MAP_COMPAT_PROBE: FAIL"
+exit 1

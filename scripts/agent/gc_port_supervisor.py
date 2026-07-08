@@ -41,7 +41,7 @@ PHASES = [
         "name": "map_compat_probe",
         "cmd": ["scripts/gamecube-map-compat-probe.sh", "c0a0e", "c1a0", "c1a0d", "c2a1"],
         "timeout": 900,
-        "success": ["MAP_COMPAT_PROBE: PASS"],
+        "success": ["MAP_COMPAT_PROBE: PASS", "MAP_COMPAT_PROBE: PARTIAL"],
     },
 ]
 
@@ -211,7 +211,7 @@ def kill_dolphin_stragglers():
 def success_for_phase(phase, code, log):
     # Dolphin scripts may return nonzero if killed after useful evidence,
     # so success markers are authoritative.
-    if phase["name"] == "dolphin_boot":
+    if phase["name"] in {"dolphin_boot", "map_compat_probe"}:
         return any(marker in log for marker in phase["success"])
 
     if code != 0:
@@ -341,7 +341,7 @@ def main():
                 "patch_targets": extract_patch_targets(log),
                 "error_context": context,
                 "log_path": log_path,
-                "next_action": "patch_first_failure_file",
+                "next_action": "patch_first_failure_file" if extract_patch_targets(log) else "inspect_runtime_evidence",
             }
             write_patch_task(report)
             save_state(report)

@@ -266,8 +266,7 @@ GOAL_CONTEXT = {
 	"G72": ("engine/platform/gamecube/vid_gamecube.c",
 		"engine/common/zone.c", "ref/gx/r_main.c", "ref/gx/r_surf.c",
 		"scripts/gamecube-rc-check.sh",
-		"scripts/gamecube-worst-case-report.py",
-		".ai/prompts/GAMECUBE_MEMORY_BUDGET.md"),
+		"scripts/gamecube-worst-case-report.py"),
 	"G73": ("scripts/build-gamecube.sh", "scripts/build-gamecube-disc.py",
 		"scripts/gamecube-reproducibility-check.py",
 		"scripts/gamecube-release-compliance.py",
@@ -318,6 +317,12 @@ GOAL_CONTEXT_SLICES = {
 		("engine/client/parse/cl_parse.c", "engine/client/cl_main.c"),
 		("engine/common/model.c", "engine/client/parse/cl_parse.c"),
 		("scripts/dolphin-vision-test.py", "engine/client/parse/cl_parse.c"),
+	),
+	"G72": (
+		("scripts/gamecube-worst-case-report.py",),
+		("engine/platform/gamecube/vid_gamecube.c", "ref/gx/r_surf.c"),
+		("engine/common/zone.c", "ref/gx/r_main.c"),
+		("scripts/gamecube-rc-check.sh", "scripts/gamecube-worst-case-report.py"),
 	),
 }
 G24_SUBGOALS = (
