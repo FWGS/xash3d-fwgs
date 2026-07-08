@@ -126,10 +126,27 @@ def phase_commands():
     ]
 
 
+def phase_entrypoint_exists(cmd):
+    if not cmd:
+        return False
+
+    # Commands launched through Python should validate the script path, not
+    # REPO/python3.
+    if cmd[0] == "python3" and len(cmd) > 1:
+        return (REPO / cmd[1]).exists()
+
+    # Repo-local script path.
+    if "/" in cmd[0]:
+        return (REPO / cmd[0]).exists()
+
+    # System command such as python3, timeout, bash, etc.
+    return True
+
+
 def available_phase_commands():
     phases = []
     for cmd, reason in phase_commands():
-        if (REPO / cmd[0]).exists():
+        if phase_entrypoint_exists(cmd):
             phases.append((cmd, reason))
     return phases
 
