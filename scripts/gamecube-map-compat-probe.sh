@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+MAP_PROBE_TIMEOUT=\"${MAP_PROBE_TIMEOUT:-180}\"
+export GC_BOOT_PROBE_TIMEOUT=\"${GC_BOOT_PROBE_TIMEOUT:-$MAP_PROBE_TIMEOUT}\"
+
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
@@ -11,7 +14,7 @@ fi
 
 # Defaults
 MAP_SOURCE_DIR="${MAP_SOURCE_DIR:-Half-Life/valve/maps}"
-PROBE_SCRIPT="scripts/dolphin-boot-probe.sh"
+PROBE_SCRIPT="GC_BOOT_PROBE_TIMEOUT="$MAP_PROBE_TIMEOUT" scripts/dolphin-boot-probe.sh"
 LOG_BASE=".ai/logs/map-compat-$(date +%Y%m%d-%H%M%S)"
 TSV_FILE="$LOG_BASE/results.tsv"
 MD_FILE="$LOG_BASE/summary.md"
