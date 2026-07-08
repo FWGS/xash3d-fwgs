@@ -68,34 +68,41 @@ def patch_cl_scrn_bad_gamecube_block():
 
     text = path.read_text(encoding="utf-8")
 
-    marker = "        /* G72: Reduce frame/render cost while preserving MAP_READY/G45/nonblack */"
-    after = "        memset( &clgame.ds, 0, sizeof( clgame.ds ));"
+    needle = "if( gc.width >= 160 && gc.height >= 120 )"
+    reset = "memset( &clgame.ds, 0, sizeof( clgame.ds ));"
 
-    if marker not in text:
-        return False, "G72 broken block marker not found"
+    if needle not in text:
+        return False, "gc.width broken SCR_VidInit block not found"
 
-    marker_i = text.index(marker)
-    after_i = text.find(after, marker_i)
-    if after_i == -1:
-        return False, "SCR_VidInit draw-state reset not found after marker"
+    needle_i = text.index(needle)
+    reset_i = text.find(reset, needle_i)
+    if reset_i == -1:
+        return False, "draw-state reset not found after broken SCR_VidInit block"
 
-    before = text[:marker_i]
-    after_text = text[after_i:]
+    # Remove optional comment immediately before the bad block.
+    remove_start = text.rfind("/*", 0, needle_i)
+    if remove_start == -1 or remove_start < text.rfind("#endif", 0, needle_i):
+        remove_start = text.rfind("\n", 0, needle_i) + 1
 
-    guard_i = before.rfind("#if XASH_GAMECUBE")
-    if guard_i == -1:
-        return False, "No preceding #if XASH_GAMECUBE found"
+    # Find the GameCube guard that encloses the bad block.
+    guard_i = text.rfind("#if XASH_GAMECUBE", 0, needle_i)
+    endif_i = text.rfind("#endif", 0, needle_i)
 
-    guard_block = before[guard_i:]
-    if "#endif" not in guard_block:
-        replacement = before.rstrip() + "\n#endif\n\n" + after_text
+    before = text[:remove_start].rstrip()
+    after = text[reset_i:]
+
+    # If the bad block lives inside an unclosed #if XASH_GAMECUBE, close it.
+    if guard_i != -1 and (endif_i == -1 or endif_i < guard_i):
+        patched = before + "\n#endif\n\n        " + after.lstrip()
     else:
-        replacement = before + after_text
+        patched = before + "\n\n        " + after.lstrip()
 
-    path.write_text(replacement, encoding="utf-8")
-    print(f"Patched {path.relative_to(REPO)}: removed broken G72 SCR_VidInit loop")
+    if patched == text:
+        return False, "patch produced no change"
+
+    path.write_text(patched, encoding="utf-8")
+    print(f"Patched {path.relative_to(REPO)}: removed bad gc.width SCR_VidInit block")
     return True, str(path.relative_to(REPO))
-
 
 def apply_known_fix(report):
     failure = report.get("failure_kind")
