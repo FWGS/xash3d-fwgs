@@ -95,15 +95,13 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		"title": "reduce the current GameCube frame/runtime cost",
 		"subject": "perf: reduce GameCube runtime frame cost",
 		"context": (
-			"engine/platform/gamecube/vid_gamecube.c",
-			"engine/client/cl_scrn.c",
-			"ref/gx/r_main.c",
-			"ref/gx/r_surf.c",
-			"engine/common/mod_bmodel.c",
+			"scripts/dolphin-probe-analyze.py",
+			"scripts/gamecube-worst-case-report.py",
+			"scripts/dolphin-boot-probe.sh",
+			"scripts/gamecube-map-compat-probe.sh",
+			"scripts/gamecube-rc-check.sh",
 		),
-		"read_context": (
-			".ai/prompts/GAMECUBE_LOCAL_MISSION.md",
-		),
+		"read_context": (),
 		"include_common_reads": False,
 	},
 	"no_edit": {
@@ -341,6 +339,10 @@ def existing_paths(root: Path, paths: tuple[str, ...]) -> list[str]:
 	return [path for path in paths if (root / path).is_file()]
 
 
+def sort_paths_by_size(root: Path, paths: list[str]) -> list[str]:
+	return sorted(paths, key=lambda path: ((root / path).stat().st_size, path))
+
+
 def runtime_port_status(root: Path) -> str:
 	parts: list[str] = []
 	if (root / "OUT/bin/boot.dol").is_file() and (root / "OUT/xash3d-gc.iso").is_file():
@@ -359,6 +361,8 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	if recipe is None:
 		return None
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
+	if failure_class == "runtime_probe" and context:
+		context = sort_paths_by_size(root, context)[:1]
 	read_context = existing_paths(root, tuple(str(path) for path in recipe["read_context"]))
 	if recipe.get("include_common_reads", True):
 		read_context.extend(path for path in COMMON_READ_CONTEXT if (root / path).is_file() and path not in read_context)

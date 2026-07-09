@@ -256,7 +256,6 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		task += (
 			"\nRuntime child-process constraint:\n"
 			f"- The intended editable file for this pass is exactly `{context[0]}`.\n"
-			"- Do not output patches for any other path, demo app, scaffold, or helper package.\n"
 			"- If no safe patch exists in that file, output exactly `NO_EDIT`.\n"
 		)
 	subject = str(item.get("commit_subject") or "chore: apply discovered GameCube fix")
@@ -276,8 +275,8 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		if is_runtime_discovery_item(item):
 			env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,re_agent,mathweb,main.py,hello.py")
 			env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
-			env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "8000")
-			env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "1024")
+			env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
+			env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
 		clear_discovery_feedback(root)
 		status = run(["scripts/ai-aider-pass.sh", str(root), str(task_path), *context, *read_context], root, env=env)
 		if status != 0:
