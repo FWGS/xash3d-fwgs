@@ -252,7 +252,7 @@ def normalize_discovery_state(root: Path, state: dict[str, object]) -> dict[str,
 	result = str(state.get("result") or "").strip()
 	repeat_count = int(state.get("repeat_count") or 1)
 	runtime_dirty = dirty_runtime_paths(root)
-	if result in AUTOMATION_FAILURES and runtime_dirty:
+	if result in {"model_budget", "review_reject"} and runtime_dirty:
 		state = dict(state)
 		state["result"] = "runtime_probe"
 		state["intent"] = "Dirty engine or runtime files already exist; prefer a bounded runtime source pass over more automation repair."
@@ -263,7 +263,7 @@ def normalize_discovery_state(root: Path, state: dict[str, object]) -> dict[str,
 			". Return to a bounded runtime source patch instead of mixing more automation edits."
 		)
 		return state
-	if result in AUTOMATION_FAILURES and (root / ".ai/state/dolphin-harness-latest.md").is_file():
+	if result in {"model_budget", "review_reject"} and (root / ".ai/state/dolphin-harness-latest.md").is_file():
 		state = dict(state)
 		state["result"] = "runtime_probe"
 		state["intent"] = "Automation recovery signal received; resume the smallest GameCube runtime source pass instead of editing the supervisor."
