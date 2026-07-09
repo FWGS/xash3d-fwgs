@@ -21,6 +21,7 @@ fi
 export OPENAI_API_KEY
 export OPENAI_API_BASE="${OPENAI_API_BASE:-http://127.0.0.1:8072/v1}"
 export GC_PORT_CONTINUOUS="${GC_PORT_CONTINUOUS:-1}"
+export PYTHONUNBUFFERED=1
 
 mkdir -p .ai/logs
 LOGFILE="${GC_PORT_LOOP_LOG:-.ai/logs/gc-port-loop-$(date +%Y%m%d).log}"

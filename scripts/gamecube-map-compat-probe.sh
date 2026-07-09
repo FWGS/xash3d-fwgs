@@ -186,7 +186,7 @@ if (( hard_failure_count == 0 )) && (( map_loaded_count + map_ready_count > 0 ))
 			echo "MAP_COMPAT_PROBE: PASS"
 		else
 			if (( map_ready_count < map_count )); then
-				echo "MAP_READY_GAP: need MAP_READY on all maps (${map_ready_count}/${map_count} ready, ${map_loaded_count} loaded-only)"
+				echo "MAP_READY_GAP: need MAP_READY on all maps: ${map_ready_count}/${map_count} ready, ${map_loaded_count} loaded-only"
 			fi
 			echo "MAP_COMPAT_PROBE: PARTIAL"
 		fi

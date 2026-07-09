@@ -44,6 +44,10 @@ source scripts/dolphin-probe-common.sh || exit $?
 
 LOG_DIR=".ai/logs/dolphin-probe-$(date +%Y%m%d-%H%M%S)"
 ISO_PATH="$ROOT/$LOG_DIR/xash3d-gc.iso"
+PREBUILT_ISO="${1:-${DOLPHIN_PREBUILT_ISO:-}}"
+if [[ -n "$PREBUILT_ISO" && "$PREBUILT_ISO" != /* ]]; then
+	PREBUILT_ISO="$ROOT/$PREBUILT_ISO"
+fi
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 DOLPHIN_RETAIL="${DOLPHIN_RETAIL:-0}"
 DOLPHIN_NEWGAME="${DOLPHIN_NEWGAME:-0}"
@@ -113,6 +117,11 @@ WriteToWindow = False
 EOF
 
 echo "==> Building GameCube engine and DOL..."
+if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
+	echo "==> Using pre-built ISO (DOLPHIN_SKIP_BUILD=1): $PREBUILT_ISO"
+	mkdir -p "$(dirname "$ISO_PATH")"
+	cp -f "$PREBUILT_ISO" "$ISO_PATH"
+else
 if ! bash scripts/build-gamecube.sh; then
 	echo "FAIL: Engine build failed."
 	exit 1
@@ -141,6 +150,7 @@ fi
 if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
 	echo "FAIL: Disc build failed."
 	exit 1
+fi
 fi
 
 DOLPHIN_CMD=()

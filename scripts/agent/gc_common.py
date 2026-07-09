@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import urlparse
@@ -311,14 +312,33 @@ def load_port_automation_tier() -> str:
 
 
 def save_port_automation_tier(tier: str, *, note: str | None = None) -> None:
-    if tier not in PORT_AUTOMATION_TIERS:
+    if tier not in PORT_AUTOMATION_TIERS and tier != "complete":
         raise ValueError(f"unknown automation tier: {tier}")
 
     TIER_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = {"tier": tier}
     if note:
         payload["note"] = note
+    if tier == "complete":
+        payload["completed_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     TIER_STATE_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def port_automation_is_complete() -> bool:
+    if not TIER_STATE_PATH.is_file():
+        return False
+    try:
+        payload = json.loads(TIER_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return payload.get("tier") == "complete"
+
+
+def mark_port_automation_complete(*, note: str | None = None) -> None:
+    save_port_automation_tier(
+        "complete",
+        note=note or "all automation tiers passed",
+    )
 
 
 def advance_port_automation_tier(current: str) -> str | None:

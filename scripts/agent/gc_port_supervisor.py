@@ -33,7 +33,12 @@ PHASES_BASE = [
     },
     {
         "name": "dolphin_boot",
-        "cmd": ["scripts/dolphin-boot-probe.sh", "OUT/xash3d-gc.iso"],
+        "cmd": [
+            "env",
+            "DOLPHIN_SKIP_BUILD=1",
+            "scripts/dolphin-boot-probe.sh",
+            "OUT/xash3d-gc.iso",
+        ],
         "timeout": 240,
         "success": ["MAP_READY:", "G36_STATUS: PASS", "G45_STATUS: PASS", "VISUAL_STATUS: nonblack"],
     },
@@ -94,6 +99,20 @@ BLOCKED_DEFAULT_TARGETS = {
 
 SOURCE_EXTS = {".c", ".cpp", ".cc", ".h", ".hpp", ".hh", ".py", ".sh"}
 
+PHASE_DEFAULT_TARGETS: dict[str, list[str]] = {
+    "build_engine": ["wscript", "engine/common/mod_bmodel.c"],
+    "build_disc": ["scripts/build-gamecube-disc.py"],
+    "dolphin_boot": ["engine/platform/gamecube/in_gamecube.c", "engine/client/cl_scrn.c"],
+    "map_compat_probe": ["engine/platform/gamecube/in_gamecube.c", "engine/common/mod_bmodel.c"],
+    "runtime_regression": ["engine/client/cl_scrn.c", "ref/gx/r_main.c"],
+}
+
+SCRIPT_EXCEPTION_TARGETS: dict[str, list[str]] = {
+    "map_compat_probe": ["scripts/gamecube-map-compat-probe.sh"],
+    "dolphin_boot": ["scripts/dolphin-boot-probe.sh", "scripts/dolphin-probe-common.sh"],
+    "build_disc": ["scripts/build-gamecube-disc.py"],
+}
+
 
 def run(cmd, timeout, phase):
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -140,7 +159,8 @@ def run(cmd, timeout, phase):
     finally:
         text = "".join(output)
         log_path.write_text(text, encoding="utf-8")
-        kill_dolphin_stragglers()
+        if phase in {"dolphin_boot", "map_compat_probe", "runtime_regression"}:
+            kill_dolphin_stragglers()
 
     return proc.returncode if proc.returncode is not None else 124, text, str(log_path.relative_to(REPO))
 
@@ -195,7 +215,11 @@ def kill_dolphin_stragglers():
 
     skip_markers = [
         "dolphin-boot-probe.sh",
+        "gamecube-map-compat-probe.sh",
         "gc_port_supervisor.py",
+        "gc_run_until_done.py",
+        "build-gamecube-disc.py",
+        "build-gamecube.sh",
         "python3 scripts/agent",
         "/bin/bash",
     ]
@@ -272,7 +296,7 @@ def classify_failure(log):
         return "missing_header"
     if re.search(r"^\.\./[^:\n]+:\d+(?::\d+)?:\s+error:", log, re.M):
         return "compile"
-    if "traceback" in low:
+    if "traceback" in low or "syntax error" in low:
         return "script_exception"
     if "timeout:" in low:
         return "timeout"
@@ -287,6 +311,7 @@ def extract_patch_targets(log, failure_kind: str | None = None):
         rf'File "({repo_pat}/[^"\n]+)", line \d+',
         r"(?:at=| at )\.?\.?/?(engine/[^:\s\n]+):\d+",
         r"(?:at=| at )\.?\.?/?(ref/[^:\s\n]+):\d+",
+        r"^([A-Za-z0-9_./-]+\.(?:sh|py)):\s+line\s+\d+:",
     ]
 
     found = []
@@ -335,6 +360,19 @@ def extract_patch_targets(log, failure_kind: str | None = None):
             seen.add(item)
             out.append(item)
     return out[:3]
+
+
+def default_patch_targets(failed_phase: str | None, failure_kind: str | None) -> list[str]:
+    if failure_kind == "script_exception" and failed_phase:
+        return list(SCRIPT_EXCEPTION_TARGETS.get(failed_phase, []))
+
+    if failure_kind == "runtime_probe" and failed_phase == "map_compat_probe":
+        return list(PHASE_DEFAULT_TARGETS["map_compat_probe"])
+
+    if failed_phase:
+        return list(PHASE_DEFAULT_TARGETS.get(failed_phase, []))
+
+    return []
 
 
 def write_patch_task(report):
@@ -421,6 +459,8 @@ def main():
             context = first_error_context(log)
             failure_kind = classify_failure(log)
             patch_targets = extract_patch_targets(log, failure_kind)
+            if not patch_targets:
+                patch_targets = default_patch_targets(phase["name"], failure_kind)
             report = {
                 "ok": False,
                 "tier": tier,

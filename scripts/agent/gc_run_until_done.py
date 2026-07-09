@@ -21,7 +21,9 @@ from gc_common import (
     commit_changes,
     git_blocks_port_automation,
     load_port_automation_tier,
+    mark_port_automation_complete,
     model_ready,
+    port_automation_is_complete,
     run,
     save_port_automation_tier,
 )
@@ -130,11 +132,24 @@ def run_aider_pass(report: dict) -> int:
     env.setdefault("AIDER_AUTOMATION", "1")
     env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
     env.setdefault("AI_ENFORCE_EDITABLE_CONTEXT", "1")
-    env.setdefault(
-        "AI_FORBIDDEN_EDIT_PATHS",
-        "scripts/ai-run-until-done.py,scripts/ai-aider-pass.sh,scripts/ai-auto-discover.py,"
-        "scripts/ai-goal-loop.py,scripts/gamecube-autoport.sh,docs/",
-    )
+
+    forbidden = [
+        "scripts/ai-run-until-done.py",
+        "scripts/ai-aider-pass.sh",
+        "scripts/ai-auto-discover.py",
+        "scripts/ai-goal-loop.py",
+        "scripts/gamecube-autoport.sh",
+        "docs/",
+    ]
+    if report.get("failure_kind") != "script_exception":
+        forbidden.extend(
+            [
+                "scripts/gamecube-map-compat-probe.sh",
+                "scripts/dolphin-boot-probe.sh",
+                "scripts/dolphin-probe-common.sh",
+            ]
+        )
+    env.setdefault("AI_FORBIDDEN_EDIT_PATHS", ",".join(forbidden))
     env.setdefault("AIDER_CONTEXT_BYTES_INITIAL", "8000")
     env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "6000")
     env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "4000")
@@ -194,6 +209,10 @@ def main() -> int:
     try:
         api_base = os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1")
         cycles = count(1) if args.max_cycles == 0 else range(1, args.max_cycles + 1)
+        if port_automation_is_complete() and not args.probe_only and not args.tier:
+            print("gc-run-until-done: all automation tiers already complete.")
+            return 0
+
         tier = args.tier or load_port_automation_tier()
         print(f"gc-run-until-done: automation tier={tier}", flush=True)
 
@@ -239,6 +258,10 @@ def main() -> int:
 
                 if next_tier is None:
                     print("gc-run-until-done: all automation tiers passed.")
+                    if args.continuous and not args.probe_only:
+                        mark_port_automation_complete(
+                            note=f"final tier '{tier}' passed",
+                        )
                 else:
                     print(f"gc-run-until-done: tier '{tier}' passed.")
                 return 0
@@ -261,6 +284,14 @@ def main() -> int:
             if aider_status in FAST_RETRY_STATUSES:
                 print(
                     f"gc-run-until-done: recoverable child exit {aider_status}; retrying after {args.sleep}s",
+                    file=sys.stderr,
+                )
+                time.sleep(args.sleep)
+                continue
+
+            if report.get("failure_kind") == "script_exception":
+                print(
+                    "gc-run-until-done: harness script failure; retrying supervisor after short sleep",
                     file=sys.stderr,
                 )
                 time.sleep(args.sleep)

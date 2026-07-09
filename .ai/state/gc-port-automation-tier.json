@@ -1,0 +1,4 @@
+{
+  "tier": "runtime_gate",
+  "note": "advanced from map_ready after supervisor pass"
+}
