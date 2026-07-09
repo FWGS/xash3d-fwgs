@@ -356,10 +356,23 @@ preflight_context_estimate() {
 	estimate_args=(python3 scripts/aider-context-estimate.py --repo "$REPO"
 		--attempt "$attempt" --output-tokens "$max_tokens" --max-context "$max_context"
 		--task-file "$TASK_FILE")
-	local spec
-	for spec in "${RAW_CONTEXT_SPECS[@]}"; do
-		estimate_args+=("$spec")
-	done
+	local spec context_file
+	if (( BUDGETED_CONTEXT_ACTIVE )); then
+		for context_file in "${CONTEXT_FILES[@]}"; do
+			if is_required_context_file "$context_file"; then
+				estimate_args+=("required:${context_file}")
+			else
+				estimate_args+=("$context_file")
+			fi
+		done
+		for context_file in "${READ_CONTEXT_FILES[@]}"; do
+			estimate_args+=("read:${context_file}")
+		done
+	else
+		for spec in "${RAW_CONTEXT_SPECS[@]}"; do
+			estimate_args+=("$spec")
+		done
+	fi
 	estimate_output="$("${estimate_args[@]}" --quiet 2>&1)" || estimate_status=$?
 	estimate_status="${estimate_status:-0}"
 	if (( estimate_status == 0 )); then

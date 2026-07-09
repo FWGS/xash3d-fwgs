@@ -320,9 +320,9 @@ GOAL_CONTEXT_SLICES = {
 	),
 	"G72": (
 		("scripts/gamecube-worst-case-report.py",),
-		("engine/platform/gamecube/vid_gamecube.c", "ref/gx/r_surf.c"),
-		("engine/common/zone.c", "ref/gx/r_main.c"),
-		("scripts/gamecube-rc-check.sh", "scripts/gamecube-worst-case-report.py"),
+		("scripts/gamecube-worst-case-report.py",),
+		("scripts/gamecube-worst-case-report.py",),
+		("scripts/gamecube-worst-case-report.py",),
 	),
 }
 G24_SUBGOALS = (
@@ -1957,6 +1957,10 @@ def restore_failed_pass_worktree(root: Path, goal: Goal | None = None) -> None:
 	if goal is not None and salvage_recoverable_edits(root, goal):
 		if not git_dirty(root):
 			return
+	if os.environ.get("AI_SKIP_FAILED_PASS_RESET", "0").lower() in {"1", "true", "yes"}:
+		print("goal-loop: preserving uncommitted changes after failed pass because AI_SKIP_FAILED_PASS_RESET is enabled",
+			file=sys.stderr, flush=True)
+		return
 	print("goal-loop: discarding uncommitted changes from failed pass",
 		file=sys.stderr, flush=True)
 	run(["git", "reset", "--hard", "HEAD"], root)
@@ -2337,8 +2341,8 @@ def main() -> int:
 			if goal.goal_id == "G72":
 				pass_env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,re_agent,mathweb,main.py,hello.py")
 				pass_env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
-				pass_env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "8000")
-				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "1024")
+				pass_env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
+				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
 			pass_env["AI_COMMIT_BODY"] = goal_commit_body(goal,
 				attempt=attempts[goal.goal_id],
 				context_files=context_files,

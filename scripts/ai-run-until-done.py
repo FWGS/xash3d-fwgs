@@ -378,6 +378,13 @@ def main() -> int:
 			status = run_discovery_pass(root, work_item)
 		if status == 0:
 			continue
+		if work_item.get("kind") == "goal" and status == 3:
+			print(
+				"run-until-done: goal loop stopped for review/RC gate after hitting its bounded attempt limit",
+				file=sys.stderr,
+				flush=True,
+			)
+			return 3
 		if work_item.get("kind") == "discovery" and status in DISCOVERY_FAST_RETRY_STATUSES:
 			print(f"run-until-done: child exit {status}; retrying immediately with refreshed discovery state",
 				file=sys.stderr, flush=True)

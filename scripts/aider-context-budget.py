@@ -159,6 +159,15 @@ def budget_context(root: Path, specs: list[ContextSpec], attempt: int,
 		selected_editables.append(spec)
 		editable_bytes += size
 
+	if not selected_editables:
+		for spec in editable:
+			size = file_size(root, spec.path)
+			if size <= 0 or size > MAX_SINGLE_EDITABLE:
+				continue
+			selected_editables.append(spec)
+			editable_bytes = size
+			break
+
 	for spec in reads:
 		size = file_size(root, spec.path)
 		if read_bytes + size > read_limit:
