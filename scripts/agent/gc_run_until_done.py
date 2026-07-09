@@ -281,6 +281,17 @@ def main() -> int:
             aider_status = run_aider_pass(report)
             if aider_status == 0:
                 continue
+            if (
+                aider_status == 18
+                and report.get("failure_kind") == "script_exception"
+                and any(str(t).endswith(".sh") for t in (report.get("patch_targets") or []))
+            ):
+                print(
+                    "gc-run-until-done: harness script too large for Aider budget; retrying supervisor",
+                    file=sys.stderr,
+                )
+                time.sleep(args.sleep)
+                continue
             if aider_status in FAST_RETRY_STATUSES:
                 print(
                     f"gc-run-until-done: recoverable child exit {aider_status}; retrying after {args.sleep}s",

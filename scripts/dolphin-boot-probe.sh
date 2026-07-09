@@ -122,35 +122,35 @@ if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
 	mkdir -p "$(dirname "$ISO_PATH")"
 	cp -f "$PREBUILT_ISO" "$ISO_PATH"
 else
-if ! bash scripts/build-gamecube.sh; then
-	echo "FAIL: Engine build failed."
-	exit 1
-fi
+	if ! bash scripts/build-gamecube.sh; then
+		echo "FAIL: Engine build failed."
+		exit 1
+	fi
 
-echo "==> Building GameCube disc image..."
-BUILD_ARGS=(--output "$ISO_PATH")
-if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
-	SMOKE_MAP=""
-	BUILD_ARGS+=(--data Half-Life/valve)
-	echo "==> Retail disc mode (full valve assets, no smoke map)"
-	if [[ "${DOLPHIN_SKIP_INTRO:-0}" == "1" ]]; then
-		BUILD_ARGS+=(--skip-startup-vids)
-		echo "==> Skipping startup cinematic for faster menu validation"
+	echo "==> Building GameCube disc image..."
+	BUILD_ARGS=(--output "$ISO_PATH")
+	if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
+		SMOKE_MAP=""
+		BUILD_ARGS+=(--data Half-Life/valve)
+		echo "==> Retail disc mode (full valve assets, no smoke map)"
+		if [[ "${DOLPHIN_SKIP_INTRO:-0}" == "1" ]]; then
+			BUILD_ARGS+=(--skip-startup-vids)
+			echo "==> Skipping startup cinematic for faster menu validation"
+		fi
+		if (( DOLPHIN_NEWGAME )); then
+			BUILD_ARGS+=(--probe-newgame)
+		fi
+	elif [[ -n "$SMOKE_MAP" ]]; then
+		BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")
+		if (( DOLPHIN_WORLD_RENDER )); then
+			BUILD_ARGS+=(--world-render)
+			echo "==> World render probe mode (gcworldrender in gamecube.cfg)"
+		fi
 	fi
-	if (( DOLPHIN_NEWGAME )); then
-		BUILD_ARGS+=(--probe-newgame)
+	if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
+		echo "FAIL: Disc build failed."
+		exit 1
 	fi
-elif [[ -n "$SMOKE_MAP" ]]; then
-	BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")
-	if (( DOLPHIN_WORLD_RENDER )); then
-		BUILD_ARGS+=(--world-render)
-		echo "==> World render probe mode (gcworldrender in gamecube.cfg)"
-	fi
-fi
-if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
-	echo "FAIL: Disc build failed."
-	exit 1
-fi
 fi
 
 DOLPHIN_CMD=()

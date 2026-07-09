@@ -1,4 +1,5 @@
 {
-  "tier": "runtime_gate",
-  "note": "advanced from map_ready after supervisor pass"
+  "tier": "complete",
+  "note": "runtime_gate tier passed on cycle 4",
+  "completed_at": "2026-07-09T13:29:25-0700"
 }

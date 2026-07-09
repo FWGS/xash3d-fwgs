@@ -236,6 +236,7 @@ PORT_AUTOMATION_DIRTY_OK_PREFIXES = (
     "scripts/agent/",
     "scripts/ai-auto-discover.py",
     "scripts/gamecube-map-compat-probe.sh",
+    "scripts/dolphin-boot-probe.sh",
     "scripts/gc-port-loop.sh",
     "scripts/gamecube-autoport.sh",
     ".ai/prompts/GAMECUBE_PORT_PATCH.md",
