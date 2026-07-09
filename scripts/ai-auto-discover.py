@@ -109,29 +109,26 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		"subject": "chore: tighten GameCube automation context",
 		"context": (
 			"scripts/ai-run-until-done.py",
-			"scripts/ai-auto-discover.py",
 		),
-		"read_context": (".ai/README.md",),
+		"read_context": (),
 		"include_common_reads": False,
 	},
 	"model_budget": {
 		"title": "reduce local-model context pressure for autonomous passes",
 		"subject": "chore: reduce GameCube local model budget pressure",
 		"context": (
-			"scripts/aider-token-budget.py",
 			"scripts/ai-aider-pass.sh",
 		),
-		"read_context": (".ai/README.md",),
+		"read_context": (),
 		"include_common_reads": False,
 	},
 	"review_reject": {
 		"title": "align discovery passes with the acceptance gates",
 		"subject": "chore: align GameCube discovery acceptance gates",
 		"context": (
-			"scripts/ai-review.sh",
 			"scripts/ai-run-until-done.py",
 		),
-		"read_context": (".ai/README.md",),
+		"read_context": (),
 		"include_common_reads": False,
 	},
 }
@@ -361,7 +358,7 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	if recipe is None:
 		return None
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
-	if failure_class == "runtime_probe" and context:
+	if failure_class in {"runtime_probe", "no_edit", "review_reject"} and context:
 		context = sort_paths_by_size(root, context)[:1]
 	read_context = existing_paths(root, tuple(str(path) for path in recipe["read_context"]))
 	if recipe.get("include_common_reads", True):

@@ -279,6 +279,9 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 			env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
 			env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
 			env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
+		elif str(item.get("failure_class") or "") in AUTOMATION_DISCOVERY_RESULTS:
+			env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
+			env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
 		clear_discovery_feedback(root)
 		status = run(["scripts/ai-aider-pass.sh", str(root), str(task_path), *context, *read_context], root, env=env)
 		if status != 0:
