@@ -18,7 +18,8 @@ After=network.target
 Type=simple
 WorkingDirectory=$ROOT
 EnvironmentFile=-$ROOT/.env
-ExecStart=$ROOT/scripts/gc-port-loop.sh --max-cycles 0 --sleep 20
+Environment=GC_PORT_CONTINUOUS=1
+ExecStart=$ROOT/scripts/gc-port-loop.sh --max-cycles 0 --sleep 20 --continuous
 Restart=on-failure
 RestartSec=30
 

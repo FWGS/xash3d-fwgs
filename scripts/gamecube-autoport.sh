@@ -20,8 +20,8 @@ usage() {
 Usage: scripts/gamecube-autoport.sh [mode] [options]
 
 Modes:
-  goal-runner   Run the main evidence-gated auto-port loop (default).
-  port-loop     Run the supervisor-driven GameCube port loop (build → probe → patch).
+  port-loop     Run the supervisor-driven GameCube port loop (default).
+  goal-runner   Run the legacy goal-ledger auto-port loop.
   reagent       Run the compile/probe classifier once.
   autopilot     Run the legacy deterministic fixer loop.
   supervisor    Run the phased build/disc/Dolphin supervisor.
@@ -33,7 +33,7 @@ Examples:
 EOF
 }
 
-mode="${1:-goal-runner}"
+mode="${1:-port-loop}"
 if [[ $# -gt 0 ]]; then
 	shift
 fi

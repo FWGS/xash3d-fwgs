@@ -17,6 +17,7 @@ LOG_BASE=".ai/logs/map-compat-$(date +%Y%m%d-%H%M%S)"
 TSV_FILE="$LOG_BASE/results.tsv"
 MD_FILE="$LOG_BASE/summary.md"
 PROBE_TIMEOUT="${MAP_PROBE_TIMEOUT:-${MAP_COMPAT_TIMEOUT:-180}}"
+REQUIRE_READY="${GC_MAP_COMPAT_REQUIRE_READY:-0}"
 
 mkdir -p "$LOG_BASE"
 
@@ -104,8 +105,13 @@ for bsp in "${map_files[@]}"; do
 		STDOUT_LOG="$PROBE_LOG_DIR/stdout.log"
 		
 		# Check for success markers
-		if grep -qsF "Xash3D GameCube: map loaded ${map_name}" "$STDERR_LOG" 2>/dev/null || \
-		   grep -qsF "Xash3D GameCube: map loaded ${map_name}" "$STDOUT_LOG" 2>/dev/null; then
+		if echo "$PROBE_OUTPUT" | grep -qsF "MAP_READY:"; then
+			STATUS="MAP_READY"
+		elif grep -aqsF "Xash3D GameCube: map loaded ${map_name}" "$STDERR_LOG" 2>/dev/null && \
+		     grep -aqsF "Xash3D GameCube: input polling active" "$STDERR_LOG" 2>/dev/null; then
+			STATUS="MAP_READY"
+		elif grep -aqsF "Xash3D GameCube: map loaded ${map_name}" "$STDERR_LOG" 2>/dev/null || \
+		   grep -aqsF "Xash3D GameCube: map loaded ${map_name}" "$STDOUT_LOG" 2>/dev/null; then
 			STATUS="MAP_LOADED"
 		elif echo "$PROBE_OUTPUT" | grep -qsF "MAP_READY"; then
 			STATUS="MAP_READY"
@@ -172,7 +178,20 @@ echo "   Summary: $MD_FILE"
 echo "   TSV: $TSV_FILE"
 echo "   Counts: loaded=$map_loaded_count ready=$map_ready_count inconclusive=$inconclusive_count missing=$missing_count hard_failures=$hard_failure_count"
 
+map_count=${#map_files[@]}
+
 if (( hard_failure_count == 0 )) && (( map_loaded_count + map_ready_count > 0 )); then
+	if [[ "$REQUIRE_READY" == "1" ]]; then
+		if (( map_ready_count == map_count )) && (( inconclusive_count == 0 )) && (( missing_count == 0 )); then
+			echo "MAP_COMPAT_PROBE: PASS"
+		else
+			if (( map_ready_count < map_count )); then
+				echo "MAP_READY_GAP: need MAP_READY on all maps (${map_ready_count}/${map_count} ready, ${map_loaded_count} loaded-only)"
+			fi
+			echo "MAP_COMPAT_PROBE: PARTIAL"
+		fi
+		exit 0
+	fi
 	if (( inconclusive_count == 0 )) && (( missing_count == 0 )); then
 		echo "MAP_COMPAT_PROBE: PASS"
 	else

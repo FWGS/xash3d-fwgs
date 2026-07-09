@@ -13,12 +13,12 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from gc_common import REPO, repo_path_pattern
+from gc_common import REPO, repo_path_pattern, load_port_automation_tier
 STATE = REPO / ".ai/gc-port-supervisor.json"
 LOG_DIR = REPO / ".ai/logs/supervisor"
 TASK_OUT = REPO / ".ai/next-patch-task.txt"
 
-PHASES = [
+PHASES_BASE = [
     {
         "name": "build_engine",
         "cmd": ["scripts/build-gamecube.sh"],
@@ -44,6 +44,45 @@ PHASES = [
         "success": ["MAP_COMPAT_PROBE: PASS", "MAP_COMPAT_PROBE: PARTIAL"],
     },
 ]
+
+RUNTIME_GATE_PHASE = {
+    "name": "runtime_regression",
+    "cmd": ["python3", "scripts/gamecube-runtime-regression-gate.py"],
+    "timeout": 120,
+    "success": ["runtime gate: OK"],
+}
+
+
+def phases_for_tier(tier: str) -> list[dict]:
+    phases = [dict(phase) for phase in PHASES_BASE]
+
+    if tier == "map_loaded":
+        return phases
+
+    if tier == "map_ready":
+        for phase in phases:
+            if phase["name"] == "map_compat_probe":
+                phase["cmd"] = [
+                    "env",
+                    "GC_MAP_COMPAT_REQUIRE_READY=1",
+                    *phase["cmd"],
+                ]
+                phase["success"] = ["MAP_COMPAT_PROBE: PASS"]
+        return phases
+
+    if tier == "runtime_gate":
+        for phase in phases:
+            if phase["name"] == "map_compat_probe":
+                phase["cmd"] = [
+                    "env",
+                    "GC_MAP_COMPAT_REQUIRE_READY=1",
+                    *phase["cmd"],
+                ]
+                phase["success"] = ["MAP_COMPAT_PROBE: PASS"]
+        phases.append(RUNTIME_GATE_PHASE)
+        return phases
+
+    return phases
 
 IGNORE_PATCH_TARGETS = {
     "public/miniz.c",
@@ -211,7 +250,7 @@ def kill_dolphin_stragglers():
 def success_for_phase(phase, code, log):
     # Dolphin scripts may return nonzero if killed after useful evidence,
     # so success markers are authoritative.
-    if phase["name"] in {"dolphin_boot", "map_compat_probe"}:
+    if phase["name"] in {"dolphin_boot", "map_compat_probe", "runtime_regression"}:
         return any(marker in log for marker in phase["success"])
 
     if code != 0:
@@ -225,7 +264,7 @@ def classify_failure(log):
 
     if "mem fail" in low or "_mem_alloc: out of memory" in low or "xash3d gamecube: fatal message=" in low:
         return "memory"
-    if "guest_failure" in low or "map_loaded_no_input" in low:
+    if "guest_failure" in low or "map_loaded_no_input" in low or "map_ready_gap" in low:
         return "runtime_probe"
     if "undefined reference" in low or "collect2: error" in low or "ld returned" in low:
         return "linker"
@@ -280,6 +319,15 @@ def extract_patch_targets(log, failure_kind: str | None = None):
             ]
         )
 
+    if failure_kind == "runtime_probe" and not found:
+        found.extend(
+            [
+                "engine/platform/gamecube/in_gamecube.c",
+                "engine/client/cl_scrn.c",
+                "ref/gx/r_main.c",
+            ]
+        )
+
     seen = set()
     out = []
     for item in found:
@@ -320,8 +368,22 @@ def first_error_context(log):
             return "\n".join(lines[max(0, i - 8):min(len(lines), i + 36)])
 
     for i, line in enumerate(lines):
+        low = line.lower()
+        if "xash3d gamecube:" in low and (
+            "fatal message=" in low
+            or "mem fail" in low
+            or "map_loaded_no_input" in low
+            or "map_ready_gap" in low
+        ):
+            return "\n".join(lines[max(0, i - 12):min(len(lines), i + 40)])
+
+    for i, line in enumerate(lines):
         if "undefined reference" in line or "Traceback" in line or "ERROR:" in line:
             return "\n".join(lines[max(0, i - 12):min(len(lines), i + 40)])
+
+    for i, line in enumerate(lines):
+        if "runtime gate: fail" in line.lower() or "missing:" in line.lower():
+            return "\n".join(lines[max(0, i - 8):min(len(lines), i + 24)])
 
     return "\n".join(lines[-120:])
 
@@ -336,11 +398,20 @@ def save_state(report):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stop-after", choices=["build_engine", "build_disc", "dolphin_boot"])
+    ap.add_argument(
+        "--tier",
+        choices=["map_loaded", "map_ready", "runtime_gate"],
+        help="automation acceptance tier (default: GC_PORT_SUPERVISOR_TIER or saved state)",
+    )
     args = ap.parse_args()
+
+    tier = args.tier or load_port_automation_tier()
+    phases = phases_for_tier(tier)
+    print(f"Supervisor automation tier: {tier}", flush=True)
 
     full_log = ""
 
-    for phase in PHASES:
+    for phase in phases:
         code, log, log_path = run(phase["cmd"], phase["timeout"], phase["name"])
         full_log += f"\n\n===== {phase['name']} =====\n{log}"
 
@@ -352,6 +423,7 @@ def main():
             patch_targets = extract_patch_targets(log, failure_kind)
             report = {
                 "ok": False,
+                "tier": tier,
                 "failed_phase": phase["name"],
                 "exit_code": code,
                 "failure_kind": failure_kind,
@@ -376,10 +448,11 @@ def main():
 
     report = {
         "ok": True,
+        "tier": tier,
         "failed_phase": None,
         "failure_kind": None,
         "patch_targets": [],
-        "next_action": "hardware_handoff_or_expand_tests",
+        "next_action": "advance_automation_tier" if tier != "runtime_gate" else "hardware_handoff",
         "artifacts": [
             "OUT/bin/boot.dol",
             "OUT/xash3d-gc.iso",

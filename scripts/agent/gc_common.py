@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import fcntl
+import json
 import os
 import re
 import subprocess
@@ -234,6 +235,9 @@ PORT_AUTOMATION_DIRTY_OK_PREFIXES = (
     "scripts/agent/",
     "scripts/ai-auto-discover.py",
     "scripts/gamecube-map-compat-probe.sh",
+    "scripts/gc-port-loop.sh",
+    "scripts/gamecube-autoport.sh",
+    ".ai/prompts/GAMECUBE_PORT_PATCH.md",
 )
 
 
@@ -283,3 +287,45 @@ def ensure_agent_imports() -> None:
     script_dir = Path(__file__).resolve().parent
     if str(script_dir) not in sys.path:
         sys.path.insert(0, str(script_dir))
+
+
+PORT_AUTOMATION_TIERS = ("map_loaded", "map_ready", "runtime_gate")
+TIER_STATE_PATH = REPO / ".ai/state/gc-port-automation-tier.json"
+
+
+def load_port_automation_tier() -> str:
+    env_tier = os.environ.get("GC_PORT_SUPERVISOR_TIER", "").strip()
+    if env_tier in PORT_AUTOMATION_TIERS:
+        return env_tier
+
+    if TIER_STATE_PATH.is_file():
+        try:
+            data = json.loads(TIER_STATE_PATH.read_text(encoding="utf-8"))
+            tier = str(data.get("tier") or "").strip()
+            if tier in PORT_AUTOMATION_TIERS:
+                return tier
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    return PORT_AUTOMATION_TIERS[0]
+
+
+def save_port_automation_tier(tier: str, *, note: str | None = None) -> None:
+    if tier not in PORT_AUTOMATION_TIERS:
+        raise ValueError(f"unknown automation tier: {tier}")
+
+    TIER_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"tier": tier}
+    if note:
+        payload["note"] = note
+    TIER_STATE_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def advance_port_automation_tier(current: str) -> str | None:
+    try:
+        index = PORT_AUTOMATION_TIERS.index(current)
+    except ValueError:
+        return PORT_AUTOMATION_TIERS[0]
+    if index + 1 >= len(PORT_AUTOMATION_TIERS):
+        return None
+    return PORT_AUTOMATION_TIERS[index + 1]

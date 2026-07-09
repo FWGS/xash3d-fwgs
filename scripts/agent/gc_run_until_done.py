@@ -16,11 +16,14 @@ from gc_autopilot import apply_known_fix
 from gc_common import (
     REPO,
     SupervisorLock,
+    advance_port_automation_tier,
     bootstrap_env,
     commit_changes,
     git_blocks_port_automation,
+    load_port_automation_tier,
     model_ready,
     run,
+    save_port_automation_tier,
 )
 
 STATE_PATH = REPO / ".ai/gc-port-supervisor.json"
@@ -86,8 +89,17 @@ def write_aider_task(report: dict) -> Path:
     return TASK_FILE
 
 
-def run_supervisor(stop_after: str | None) -> tuple[int, dict | None]:
-    cmd = ["python3", "scripts/agent/gc_port_supervisor.py"]
+def aider_extra_reads(report: dict) -> list[str]:
+    kind = report.get("failure_kind")
+    if kind == "memory":
+        return ["read:.ai/prompts/GAMECUBE_MEMORY_BUDGET.md"]
+    if kind == "runtime_probe":
+        return ["read:.ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md"]
+    return []
+
+
+def run_supervisor(stop_after: str | None, tier: str) -> tuple[int, dict | None]:
+    cmd = ["python3", "scripts/agent/gc_port_supervisor.py", "--tier", tier]
     if stop_after:
         cmd.extend(["--stop-after", stop_after])
     code, _ = run(cmd)
@@ -123,14 +135,21 @@ def run_aider_pass(report: dict) -> int:
         "scripts/ai-run-until-done.py,scripts/ai-aider-pass.sh,scripts/ai-auto-discover.py,"
         "scripts/ai-goal-loop.py,scripts/gamecube-autoport.sh,docs/",
     )
+    env.setdefault("AIDER_CONTEXT_BYTES_INITIAL", "8000")
+    env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "6000")
+    env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "4000")
+    env.setdefault("AIDER_CONTEXT_BYTES_RETRY_3", "3000")
+    env.setdefault("AIDER_MAX_CHAT_HISTORY_TOKENS", "256")
+    env.setdefault("AIDER_OUTPUT_TOKEN_BUDGET_INITIAL", "384")
+    env.setdefault("GC_PORT_AIDER_PASS", "1")
 
     cmd = [
         "scripts/ai-aider-pass.sh",
         str(REPO),
         str(task_path),
         primary,
-        "read:.ai/prompts/GAMECUBE_LOCAL_MISSION.md",
-        "read:.ai/prompts/GAMECUBE_FAILURE_MEMORY.md",
+        "read:.ai/prompts/GAMECUBE_PORT_PATCH.md",
+        *aider_extra_reads(report),
     ]
 
     print("+", " ".join(cmd), flush=True)
@@ -152,6 +171,17 @@ def main() -> int:
         action="store_true",
         help="run one supervisor pass and exit without patching",
     )
+    parser.add_argument(
+        "--continuous",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="advance automation tiers after each passing supervisor run (default: on)",
+    )
+    parser.add_argument(
+        "--tier",
+        choices=["map_loaded", "map_ready", "runtime_gate"],
+        help="force a specific automation tier for this run",
+    )
     args = parser.parse_args()
 
     bootstrap_env()
@@ -164,6 +194,8 @@ def main() -> int:
     try:
         api_base = os.environ.get("OPENAI_API_BASE", "http://127.0.0.1:8072/v1")
         cycles = count(1) if args.max_cycles == 0 else range(1, args.max_cycles + 1)
+        tier = args.tier or load_port_automation_tier()
+        print(f"gc-run-until-done: automation tier={tier}", flush=True)
 
         for cycle in cycles:
             dirty = git_blocks_port_automation()
@@ -184,15 +216,31 @@ def main() -> int:
                 continue
 
             limit = "unlimited" if args.max_cycles == 0 else str(args.max_cycles)
-            print(f"\n== gc port automation cycle {cycle}/{limit} ==", flush=True)
+            print(f"\n== gc port automation cycle {cycle}/{limit} (tier={tier}) ==", flush=True)
 
-            code, report = run_supervisor(args.stop_after)
+            code, report = run_supervisor(args.stop_after, tier)
             if report is None:
                 print("gc-run-until-done: supervisor produced no state report", file=sys.stderr)
                 return 1
 
             if report.get("ok"):
-                print("gc-run-until-done: GameCube pipeline passed all supervisor phases.")
+                next_tier = advance_port_automation_tier(tier)
+                if args.continuous and next_tier and not args.probe_only:
+                    print(
+                        f"gc-run-until-done: tier '{tier}' passed; advancing to '{next_tier}'.",
+                        flush=True,
+                    )
+                    save_port_automation_tier(
+                        next_tier,
+                        note=f"advanced from {tier} after supervisor pass",
+                    )
+                    tier = next_tier
+                    continue
+
+                if next_tier is None:
+                    print("gc-run-until-done: all automation tiers passed.")
+                else:
+                    print(f"gc-run-until-done: tier '{tier}' passed.")
                 return 0
 
             if args.probe_only:

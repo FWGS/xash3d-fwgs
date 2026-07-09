@@ -20,5 +20,9 @@ fi
 : "${OPENAI_API_KEY:=local}"
 export OPENAI_API_KEY
 export OPENAI_API_BASE="${OPENAI_API_BASE:-http://127.0.0.1:8072/v1}"
+export GC_PORT_CONTINUOUS="${GC_PORT_CONTINUOUS:-1}"
 
-exec python3 scripts/agent/gc_run_until_done.py "$@"
+mkdir -p .ai/logs
+LOGFILE="${GC_PORT_LOOP_LOG:-.ai/logs/gc-port-loop-$(date +%Y%m%d).log}"
+
+exec python3 scripts/agent/gc_run_until_done.py "$@" 2>&1 | tee -a "$LOGFILE"
