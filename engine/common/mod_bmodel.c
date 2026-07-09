@@ -61,7 +61,7 @@ static void Mod_GCFreeBspPin( void **ptr )
 	if( !ptr || !*ptr )
 		return;
 
-	if( gc_retain_bsp_source_buffer && Mod_GCPointerInBuffer( *ptr, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	if( Mod_GCPointerInBuffer( *ptr, gc_bsp_scratch_base, gc_bsp_scratch_size ))
 	{
 		*ptr = NULL;
 		return;
@@ -187,6 +187,28 @@ typedef struct
 	qboolean  isbsp30ext;
 
 } dbspmodel_t;
+
+#if XASH_GAMECUBE
+static void Mod_GCFreeGcmapPreSurfaceLumps( dbspmodel_t *bmod )
+{
+	if( !Sys_CheckParm( "-gcmap" ) || !bmod->isworld || !gc_bsp_scratch_base )
+		return;
+
+	Mod_GCFreeBspPin( (void **)&bmod->entdata );
+	Mod_GCFreeBspPin( (void **)&bmod->planes );
+	Mod_GCFreeBspPin( (void **)&bmod->vertexes );
+	Mod_GCFreeBspPin( (void **)&bmod->submodels );
+	Mod_GCFreeBspPin( (void **)&bmod->surfedges );
+	if( bmod->version == QBSP2_VERSION )
+		Mod_GCFreeBspPin( (void **)&bmod->edges32 );
+	else
+		Mod_GCFreeBspPin( (void **)&bmod->edges );
+	Mod_GCFreeBspPin( (void **)&bmod->texinfo );
+	if( bmod->visdata )
+		Mod_GCFreeBspPin( (void **)&bmod->visdata );
+	Con_Reportf( "Xash3D GameCube: freed pre-surface BSP scratch lumps\n" );
+}
+#endif
 
 #if XASH_GAMECUBE
 static void Mod_GCInvalidateScratchOverlap( dbspmodel_t *bmod, byte *mod_base, size_t bufferlen, byte *scratch, size_t scratch_size );
@@ -3293,6 +3315,15 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 
 	Mod_LoadAllTextures( mod, bmod );
 	Mod_SequenceAllAnimatedTextures( mod );
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcmap" ) && bmod->isworld )
+	{
+		Mod_GCFreeBspPin( (void **)&bmod->textures );
+		bmod->texdatasize = 0;
+		Con_Reportf( "Xash3D GameCube: released textures lump from BSP scratch\n" );
+	}
+#endif
 }
 
 #if !XASH_DEDICATED
@@ -3475,10 +3506,12 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	msurface_t   *out;
 	mextrasurf_t *info;
 #if XASH_GAMECUBE
-	const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
-	byte         *surf_block = NULL;
-	qboolean     use_bsp_surface_scratch = false;
 	qboolean     fast_gcmap_surfaces = Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld;
+	const size_t surf_bytes = fast_gcmap_surfaces
+		? ( bmod->numsurfaces * sizeof( msurface_t ) + sizeof( mextrasurf_t ))
+		: ( bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t )));
+	byte         *surf_block = NULL;
+	qboolean     use_bsp_surface_scratch = fast_gcmap_surfaces;
 
 	/* Surface output is populated while the original BSP face lump is still
 	 * being read. Keep it off the BSP scratch buffer until overlap handling is
@@ -3571,7 +3604,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	mod->surfaces = out = (msurface_t *)surf_block;
 	info = (mextrasurf_t *)( surf_block + bmod->numsurfaces * sizeof( msurface_t ));
 	if( fast_gcmap_surfaces )
-		Con_Reportf( "Xash3D GameCube: world surfaces fast gcmap setup count=%zu\n", bmod->numsurfaces );
+		Con_Reportf( "Xash3D GameCube: compact gcmap layout surfaces=%zu extra=1\n", bmod->numsurfaces );
 #else
 	mod->surfaces = out = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( msurface_t ));
 	info = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( mextrasurf_t ));
@@ -3584,11 +3617,17 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	else
 		bmod->lightmap_samples = 3;
 
-	for( int i = 0; i < bmod->numsurfaces; i++, out++, info++ )
+	for( int i = 0; i < bmod->numsurfaces; i++, out++ )
 	{
+#if XASH_GAMECUBE
+		mextrasurf_t *surf_extra = fast_gcmap_surfaces ? info : ( info + i );
+#else
+		mextrasurf_t *surf_extra = info + i;
+#endif
+
 		// setup crosslinks between two parts of msurface_t
-		out->info = info;
-		info->surf = out;
+		out->info = surf_extra;
+		surf_extra->surf = out;
 
 		if( bmod->version == QBSP2_VERSION )
 		{
@@ -4217,6 +4256,51 @@ static void Mod_GCEnsureBspLump( model_t *mod, dbspmodel_t *bmod, int lumpnum )
 	Mod_GCReloadStdBspLump( mod, bmod, lumpnum );
 }
 
+static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen );
+
+static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen )
+{
+	byte *pinned;
+
+	if( !Sys_CheckParm( "-gcmap" ) || !bmod->isworld || !mod_base || bufferlen == 0 )
+		return;
+
+	if( !gc_retain_bsp_source_buffer
+		&& !( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, mod_base, bufferlen )))
+		return;
+
+	if( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, mod_base, bufferlen ))
+	{
+		size_t texinfo_bytes = mod->numtexinfo * sizeof( mtexinfo_t );
+
+		pinned = Mod_GCPinBspLump( mod->mempool, (const byte *)mod->texinfo, texinfo_bytes );
+		if( !pinned )
+		{
+			Con_Reportf( S_ERROR "Xash3D GameCube: failed to pin gcmap texinfo before BSP release\n" );
+			return;
+		}
+		mod->texinfo = (mtexinfo_t *)pinned;
+		gc_texinfo_malloc_block = pinned;
+	}
+
+	if( bmod->version == QBSP2_VERSION )
+	{
+		if( Mod_GCPointerInBuffer( bmod->surfaces32, mod_base, bufferlen ))
+			bmod->surfaces32 = NULL;
+	}
+	else if( Mod_GCPointerInBuffer( bmod->surfaces, mod_base, bufferlen ))
+	{
+		bmod->surfaces = NULL;
+	}
+
+	gc_retain_bsp_source_buffer = false;
+	Con_Reportf( "Xash3D GameCube: releasing gcmap BSP staging %s before surfaces\n",
+		Q_memprint( bufferlen ));
+	Mod_GCReleaseBspSourceBuffer( mod, bmod, mod_base, bufferlen );
+	gc_bsp_scratch_base = NULL;
+	gc_bsp_scratch_size = 0;
+}
+
 static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen )
 {
 	size_t leaf_esize, node_esize, clip_esize;
@@ -4634,7 +4718,7 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 	{
 		Con_Reportf( "Xash3D GameCube: skipping world visdata for gcmap full-vis fallback (%s)\n",
 			Q_memprint( bmod->visdatasize ));
-		bmod->visdata = NULL;
+		Mod_GCFreeBspPin( (void **)&bmod->visdata );
 		return;
 	}
 
@@ -5116,7 +5200,10 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadTexInfo( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel texinfo ready\n" );
+	Mod_GCFreeGcmapPreSurfaceLumps( bmod );
+	Mod_GCReleaseGcmapPreSurfaceStaging( mod, bmod, mod_base, bufferlen );
 	GC_MemSample( "pre-surfaces" );
+	Mod_GCEnsureBspLump( mod, bmod, LUMP_FACES );
 	Con_Reportf( "Xash3D GameCube: bmodel surfaces begin\n" );
 #endif
 	Mod_LoadSurfaces( mod, bmod );
@@ -5128,7 +5215,6 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
 	Mod_GCFreeBspPin( (void **)&bmod->lightdata );
-	Mod_GCReleaseBspSourceBuffer( mod, bmod, mod_base, bufferlen );
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_MARKSURFACES );
 #endif
 	Mod_LoadMarkSurfaces( mod, bmod );

@@ -21,6 +21,7 @@ Usage: scripts/gamecube-autoport.sh [mode] [options]
 
 Modes:
   goal-runner   Run the main evidence-gated auto-port loop (default).
+  port-loop     Run the supervisor-driven GameCube port loop (build → probe → patch).
   reagent       Run the compile/probe classifier once.
   autopilot     Run the legacy deterministic fixer loop.
   supervisor    Run the phased build/disc/Dolphin supervisor.
@@ -44,6 +45,9 @@ case "$mode" in
 		;;
 	goal-runner)
 		exec python3 scripts/ai-run-until-done.py --repo "$ROOT" "$@"
+		;;
+	port-loop)
+		exec bash scripts/gc-port-loop.sh "$@"
 		;;
 	reagent)
 		exec python3 scripts/agent/gc_reagent.py "$@"

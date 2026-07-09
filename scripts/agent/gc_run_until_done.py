@@ -18,7 +18,7 @@ from gc_common import (
     SupervisorLock,
     bootstrap_env,
     commit_changes,
-    git_dirty_source_paths,
+    git_blocks_port_automation,
     model_ready,
     run,
 )
@@ -118,6 +118,11 @@ def run_aider_pass(report: dict) -> int:
     env.setdefault("AIDER_AUTOMATION", "1")
     env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
     env.setdefault("AI_ENFORCE_EDITABLE_CONTEXT", "1")
+    env.setdefault(
+        "AI_FORBIDDEN_EDIT_PATHS",
+        "scripts/ai-run-until-done.py,scripts/ai-aider-pass.sh,scripts/ai-auto-discover.py,"
+        "scripts/ai-goal-loop.py,scripts/gamecube-autoport.sh,docs/",
+    )
 
     cmd = [
         "scripts/ai-aider-pass.sh",
@@ -161,10 +166,10 @@ def main() -> int:
         cycles = count(1) if args.max_cycles == 0 else range(1, args.max_cycles + 1)
 
         for cycle in cycles:
-            dirty = git_dirty_source_paths()
+            dirty = git_blocks_port_automation()
             if dirty and not args.probe_only:
                 print(
-                    "gc-run-until-done: source tree already has edits; refusing to stack automated patches:",
+                    "gc-run-until-done: non-port source edits present; refusing to stack automated patches:",
                     ", ".join(dirty[:5]),
                     file=sys.stderr,
                 )

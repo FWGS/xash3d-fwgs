@@ -223,6 +223,10 @@ def success_for_phase(phase, code, log):
 def classify_failure(log):
     low = log.lower()
 
+    if "mem fail" in low or "_mem_alloc: out of memory" in low or "xash3d gamecube: fatal message=" in low:
+        return "memory"
+    if "guest_failure" in low or "map_loaded_no_input" in low:
+        return "runtime_probe"
     if "undefined reference" in low or "collect2: error" in low or "ld returned" in low:
         return "linker"
     if re.search(r"^\.\./[^:\n]+:\d+(?::\d+)?:\s+fatal error:", log, re.M):
@@ -236,12 +240,14 @@ def classify_failure(log):
     return "runtime_or_unknown"
 
 
-def extract_patch_targets(log):
+def extract_patch_targets(log, failure_kind: str | None = None):
     repo_pat = repo_path_pattern()
     patterns = [
         r"^\.\./([^:\n]+):\d+(?::\d+)?:\s+(?:fatal error|error):",
         rf"^({repo_pat}/[^:\n]+):\d+(?::\d+)?:\s+(?:fatal error|error):",
         rf'File "({repo_pat}/[^"\n]+)", line \d+',
+        r"(?:at=| at )\.?\.?/?(engine/[^:\s\n]+):\d+",
+        r"(?:at=| at )\.?\.?/?(ref/[^:\s\n]+):\d+",
     ]
 
     found = []
@@ -264,6 +270,15 @@ def extract_patch_targets(log):
                 continue
             if Path(target).suffix in SOURCE_EXTS:
                 found.append(target)
+
+    if failure_kind == "memory" and not found:
+        found.extend(
+            [
+                "engine/common/mod_bmodel.c",
+                "engine/platform/gamecube/mem_gamecube.c",
+                "engine/common/zone.c",
+            ]
+        )
 
     seen = set()
     out = []
@@ -333,15 +348,17 @@ def main():
 
         if not ok:
             context = first_error_context(log)
+            failure_kind = classify_failure(log)
+            patch_targets = extract_patch_targets(log, failure_kind)
             report = {
                 "ok": False,
                 "failed_phase": phase["name"],
                 "exit_code": code,
-                "failure_kind": classify_failure(log),
-                "patch_targets": extract_patch_targets(log),
+                "failure_kind": failure_kind,
+                "patch_targets": patch_targets,
                 "error_context": context,
                 "log_path": log_path,
-                "next_action": "patch_first_failure_file" if extract_patch_targets(log) else "inspect_runtime_evidence",
+                "next_action": "patch_first_failure_file" if patch_targets else "inspect_runtime_evidence",
             }
             write_patch_task(report)
             save_state(report)

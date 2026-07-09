@@ -224,6 +224,28 @@ def git_dirty_source_paths() -> list[str]:
     return dirty
 
 
+PORT_AUTOMATION_DIRTY_OK_PREFIXES = (
+    "engine/",
+    "ref/",
+    "stub/",
+    "public/",
+    "filesystem/",
+    "common/",
+    "scripts/agent/",
+    "scripts/ai-auto-discover.py",
+    "scripts/gamecube-map-compat-probe.sh",
+)
+
+
+def git_blocks_port_automation() -> list[str]:
+    dirty = git_dirty_source_paths()
+    return [
+        path
+        for path in dirty
+        if not any(path.startswith(prefix) for prefix in PORT_AUTOMATION_DIRTY_OK_PREFIXES)
+    ]
+
+
 def commit_changes(message: str) -> bool:
     sync_script = REPO / "scripts/gamecube-submodule-sync.sh"
     if sync_script.is_file():

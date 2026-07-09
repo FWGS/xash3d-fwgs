@@ -92,26 +92,26 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		"read_context": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",),
 	},
 	"runtime_probe": {
-		"title": "reduce the current GameCube frame/runtime cost",
-		"subject": "perf: reduce GameCube runtime frame cost",
+		"title": "fix the current GameCube map/runtime blocker",
+		"subject": "fix: resolve GameCube map runtime blocker",
 		"context": (
-			"scripts/dolphin-probe-analyze.py",
-			"scripts/gamecube-worst-case-report.py",
-			"scripts/dolphin-boot-probe.sh",
-			"scripts/gamecube-map-compat-probe.sh",
-			"scripts/gamecube-rc-check.sh",
+			"engine/common/mod_bmodel.c",
+			"engine/platform/gamecube/mem_gamecube.c",
+			"engine/common/model.c",
+			"engine/common/zone.c",
+			"ref/gx/r_main.c",
 		),
-		"read_context": (),
-		"include_common_reads": False,
+		"read_context": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
 	},
 	"no_edit": {
-		"title": "unblock the harness from repeated no-edit loops",
-		"subject": "chore: tighten GameCube automation context",
+		"title": "make one bounded GameCube source fix from fresh probe evidence",
+		"subject": "fix: resolve GameCube runtime blocker from probe evidence",
 		"context": (
-			"scripts/ai-run-until-done.py",
+			"engine/common/mod_bmodel.c",
+			"engine/platform/gamecube/mem_gamecube.c",
+			"engine/common/model.c",
 		),
-		"read_context": (),
-		"include_common_reads": False,
+		"read_context": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
 	},
 	"model_budget": {
 		"title": "reduce local-model context pressure for autonomous passes",
@@ -123,13 +123,14 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		"include_common_reads": False,
 	},
 	"review_reject": {
-		"title": "align discovery passes with the acceptance gates",
-		"subject": "chore: align GameCube discovery acceptance gates",
+		"title": "repair the latest GameCube source patch from verifier evidence",
+		"subject": "fix: resolve GameCube verifier rejection in source",
 		"context": (
-			"scripts/ai-run-until-done.py",
+			"engine/common/mod_bmodel.c",
+			"engine/platform/gamecube/mem_gamecube.c",
+			"engine/common/model.c",
 		),
-		"read_context": (),
-		"include_common_reads": False,
+		"read_context": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
 	},
 }
 
@@ -359,7 +360,7 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		return None
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
 	if failure_class in {"runtime_probe", "no_edit", "review_reject"} and context:
-		context = sort_paths_by_size(root, context)[:1]
+		context = [path for path in context if path.startswith(("engine/", "ref/"))][:1]
 	read_context = existing_paths(root, tuple(str(path) for path in recipe["read_context"]))
 	if recipe.get("include_common_reads", True):
 		read_context.extend(path for path in COMMON_READ_CONTEXT if (root / path).is_file() and path not in read_context)
@@ -383,7 +384,11 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	objective_guidance = ""
 	if failure_class in AUTOMATION_FAILURES:
 		evidence_heading = "Automation evidence"
-		evidence_body = "The latest accepted path stalled in the supervisor or harness layer; prefer a minimal automation fix or return to the smallest runtime source patch."
+		evidence_body = (
+			f"{runtime_summary(root)}\n"
+			"The latest pass stalled before a source edit landed. Do not spend this pass on "
+			"supervisor, discovery, or harness scripts unless a probe parser is objectively wrong."
+		)
 	else:
 		frame_budget_guidance = ""
 		if "Captured " in evidence_body and "frame timing sample" in evidence_body and "avg=" in evidence_body:

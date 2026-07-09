@@ -121,6 +121,13 @@ for bsp in "${map_files[@]}"; do
 			if [[ -z "$BLOCKER" ]]; then
 				BLOCKER=$(grep -ahm1 -iE "error|fail" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || echo "Guest failure")
 			fi
+		elif grep -aqF "Xash3D GameCube: fatal message=" "$STDERR_LOG" 2>/dev/null || \
+		     grep -aqF "Xash3D GameCube: mem FAIL" "$STDERR_LOG" 2>/dev/null; then
+			STATUS="GUEST_FAILURE"
+			BLOCKER=$(grep -ahm1 "Xash3D GameCube: fatal message=" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
+			if [[ -z "$BLOCKER" ]]; then
+				BLOCKER=$(grep -ahm1 "Xash3D GameCube: mem FAIL" "$STDERR_LOG" "$STDOUT_LOG" 2>/dev/null || true)
+			fi
 		elif echo "$PROBE_OUTPUT" | grep -qsF "HOST_FAILURE"; then
 			STATUS="HOST_FAILURE"
 			BLOCKER="Dolphin/Host initialization failed"

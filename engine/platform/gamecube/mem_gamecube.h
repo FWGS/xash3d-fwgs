@@ -11,7 +11,7 @@ void GC_MemSample( const char *stage );
 void GC_MemFail( const char *subsystem, size_t size, const char *file, int line );
 
 /* Default contiguous BSP staging size (covers retail c1a1/c2a2-class maps). */
-#define GC_MAPLOAD_BUFFER_DEFAULT (2200u * 1024u)
+#define GC_MAPLOAD_BUFFER_DEFAULT (3072u * 1024u)
 void GC_InitMapLoadBuffer( void );
 void GC_PrepareMapLoadBuffer( size_t size );
 void *GC_BorrowMapLoadBuffer( size_t size );
