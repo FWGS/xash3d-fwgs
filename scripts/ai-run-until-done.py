@@ -128,6 +128,7 @@ def discovered_items(root: Path) -> list[dict[str, object]]:
 	return data if isinstance(data, list) else []
 
 
+
 def next_work_item(root: Path, mode: str) -> dict[str, object] | None:
 	goal = next_automatic_goal(root)
 	if mode == "off":
@@ -144,6 +145,11 @@ def next_work_item(root: Path, mode: str) -> dict[str, object] | None:
 		return {"kind": "goal", "label": goal}
 	if mode in {"after-goals", "prefer"}:
 		return discovery
+
+	# Handle no_edit status
+	if goal and goal.get("status") == "no_edit":
+		return {"kind": "goal", "label": goal}
+
 	return None
 
 
