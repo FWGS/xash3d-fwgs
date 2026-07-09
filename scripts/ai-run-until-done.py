@@ -192,6 +192,8 @@ def is_runtime_discovery_item(item: dict[str, object]) -> bool:
 
 
 def retry_result_for_discovery_item(item: dict[str, object], status: int) -> str:
+	if status == 10:
+		return "no_edit"
 	if is_runtime_discovery_item(item) and status in DISCOVERY_RETRY_RESULTS:
 		return "runtime_probe"
 	return DISCOVERY_RETRY_RESULTS.get(status, "runtime_probe")
