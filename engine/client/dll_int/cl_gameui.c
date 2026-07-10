@@ -36,6 +36,8 @@ typedef struct gc_menu_item_s
 static qboolean gc_menu_visible;
 static qboolean gc_menu_builtin_fallback;
 static qboolean gc_menu_vidinit_pending;
+static qboolean gc_menu_use_baked_retail;
+static qboolean gc_menu_reported_retail_ready;
 static int gc_menu_selection;
 static int gc_menu_logo;
 static int gc_menu_icons;
@@ -142,12 +144,35 @@ static void UI_GCLoadFallbackMenuTextures( void )
 	if( loaded )
 		return;
 
-	gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/logo_game.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/logo.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+	if( gc_menu_logo <= 0 )
+		gc_menu_logo = ref.dllFuncs.GL_LoadTexture( "resource/logo_game.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 	gc_menu_logo_blur[0] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_0.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 	gc_menu_logo_blur[1] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_1.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 	gc_menu_logo_blur[2] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_2.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
 	gc_menu_logo_blur[3] = ref.dllFuncs.GL_LoadTexture( "resource/logo_big_blurred_3.tga", NULL, 0, TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
-	UI_GCLoadFallbackMenuLayout();
+
+	{
+		int baked_bg = ref.dllFuncs.GL_LoadTexture( "resource/gc_menu/background.tga", NULL, 0,
+			TF_IMAGE|TF_NOMIPMAP|TF_CLAMP );
+		if( baked_bg > 0 )
+		{
+			gc_menu_bg_piece_t *piece = &gc_menu_background[0];
+
+			gc_menu_use_baked_retail = true;
+			gc_menu_background_width = 160;
+			gc_menu_background_height = 120;
+			gc_menu_background_count = 1;
+			piece->texnum = baked_bg;
+			piece->x = 0;
+			piece->y = 0;
+			piece->w = gc_menu_background_width;
+			piece->h = gc_menu_background_height;
+		}
+	}
+
+	if( !gc_menu_use_baked_retail )
+		UI_GCLoadFallbackMenuLayout();
 
 	if( gc_menu_background_count <= 0 )
 	{
@@ -179,6 +204,11 @@ static void UI_GCLoadFallbackMenuTextures( void )
 	loaded = true;
 }
 
+void UI_EnableBuiltInFallbackMenu( void )
+{
+	gc_menu_builtin_fallback = true;
+}
+
 void UI_PreloadBuiltInFallbackMenuAssets( void )
 {
 	if( !gc_menu_builtin_fallback )
@@ -192,7 +222,8 @@ static void UI_GCDrawFallbackMenuBackground( void )
 	float scale_x = refState.width / (float)gc_menu_background_width;
 	float scale_y = refState.height / (float)gc_menu_background_height;
 
-	ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, refState.width, refState.height, 0, 0, 0, 255 );
+	if( !gc_menu_use_baked_retail )
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, refState.width, refState.height, 0, 0, 0, 255 );
 
 	for( int i = 0; i < gc_menu_background_count; i++ )
 	{
@@ -201,12 +232,16 @@ static void UI_GCDrawFallbackMenuBackground( void )
 			continue;
 
 		ref.dllFuncs.GL_SetRenderMode( kRenderTransTexture );
-		ref.dllFuncs.Color4ub( 150, 150, 150, 255 );
+		if( gc_menu_use_baked_retail )
+			ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
+		else
+			ref.dllFuncs.Color4ub( 150, 150, 150, 255 );
 		ref.dllFuncs.R_DrawStretchPic( piece->x * scale_x, piece->y * scale_y,
 			piece->w * scale_x, piece->h * scale_y, 0, 0, 1, 1, piece->texnum );
 	}
 
-	ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, refState.width, refState.height, 0, 0, 0, 88 );
+	if( !gc_menu_use_baked_retail )
+		ref.dllFuncs.FillRGBA( kRenderTransTexture, 0, 0, refState.width, refState.height, 0, 0, 0, 88 );
 	ref.dllFuncs.Color4ub( 255, 255, 255, 255 );
 }
 
@@ -247,6 +282,12 @@ static void UI_GCDrawFallbackMenu( void )
 
 	UI_GCLoadFallbackMenuTextures();
 	UI_GCDrawFallbackMenuBackground();
+
+	if( gc_menu_use_baked_retail && !gc_menu_reported_retail_ready )
+	{
+		Con_Reportf( "Xash3D GameCube: retail menu steam background ready\n" );
+		gc_menu_reported_retail_ready = true;
+	}
 
 	for( int i = 0; i < (int)ARRAYSIZE( gc_menu_logo_blur ); i++ )
 	{

@@ -51,6 +51,11 @@ fi
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 DOLPHIN_RETAIL="${DOLPHIN_RETAIL:-0}"
 DOLPHIN_NEWGAME="${DOLPHIN_NEWGAME:-0}"
+if (( DOLPHIN_NEWGAME )); then
+	# Retail New Game probes need full valve assets and gamecube.cfg newgame override.
+	DOLPHIN_RETAIL=1
+	DOLPHIN_SKIP_INTRO=1
+fi
 if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
 	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-240}"
 elif (( DOLPHIN_NEWGAME )); then
@@ -60,7 +65,11 @@ else
 	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-180}"
 fi
 FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
-SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
+if (( DOLPHIN_NEWGAME )); then
+	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
+else
+	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
+fi
 DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GUEST_MARKER="Xash3D GameCube: bootstrap"
@@ -117,14 +126,28 @@ WriteToWindow = False
 EOF
 
 echo "==> Building GameCube engine and DOL..."
+SKIP_ENGINE=0
+SKIP_DISC=0
 if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
+	SKIP_ENGINE=1
+	# Retail / New Game probes stage different gamecube.cfg than the default ISO.
+	if [[ "$DOLPHIN_RETAIL" != "1" ]] && ! (( DOLPHIN_NEWGAME )); then
+		SKIP_DISC=1
+	fi
+fi
+
+if (( SKIP_DISC )); then
 	echo "==> Using pre-built ISO (DOLPHIN_SKIP_BUILD=1): $PREBUILT_ISO"
 	mkdir -p "$(dirname "$ISO_PATH")"
 	cp -f "$PREBUILT_ISO" "$ISO_PATH"
 else
-	if ! bash scripts/build-gamecube.sh; then
-		echo "FAIL: Engine build failed."
-		exit 1
+	if (( SKIP_ENGINE )); then
+		echo "==> Skipping engine rebuild (DOLPHIN_SKIP_BUILD=1); rebuilding disc image..."
+	else
+		if ! bash scripts/build-gamecube.sh; then
+			echo "FAIL: Engine build failed."
+			exit 1
+		fi
 	fi
 
 	echo "==> Building GameCube disc image..."
@@ -161,9 +184,7 @@ if (( GC_FATAL_TEST )); then
 fi
 if (( DOLPHIN_NEWGAME )); then
 	GUEST_ARGS+=("-gcnewgame")
-	if [[ -z "$SMOKE_MAP" ]] || [[ "$SMOKE_MAP" == "c0a0e" ]]; then
-		SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
-	fi
+	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
 	MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 	echo "==> New Game probe mode (expect map ${SMOKE_MAP})"
 fi
@@ -174,25 +195,41 @@ append_guest_args() {
 	fi
 }
 
+DOLPHIN_VIDEO_BACKEND="${DOLPHIN_VIDEO:-Null}"
+DOLPHIN_BATCH_MODE=1
+if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
+	DOLPHIN_VIDEO_BACKEND="${DOLPHIN_VIDEO:-OpenGL}"
+	if [[ "${DOLPHIN_CAPTURE_MENU:-0}" == "1" ]]; then
+		DOLPHIN_BATCH_MODE=0
+		TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-120}"
+	fi
+fi
+DOLPHIN_MODE_ARGS=()
+if (( DOLPHIN_BATCH_MODE )); then
+	DOLPHIN_MODE_ARGS=(-l -b)
+else
+	DOLPHIN_MODE_ARGS=(-l)
+fi
+
 if [[ "${DOLPHIN_EXECUTABLE:-}" == flatpak:* ]]; then
 	DOLPHIN_FLATPAK_ID="${DOLPHIN_EXECUTABLE#flatpak:}"
 	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "$DOLPHIN_FLATPAK_ID"
-		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+		-u "$USER_DIR" "${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
 	append_guest_args DOLPHIN_CMD
 	DOLPHIN_IS_FLATPAK=1
 elif [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
-	DOLPHIN_CMD=("$DOLPHIN_EXECUTABLE" -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	DOLPHIN_CMD=("$DOLPHIN_EXECUTABLE" -u "$USER_DIR" "${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
 	append_guest_args DOLPHIN_CMD
 elif command -v dolphin-emu >/dev/null 2>&1; then
-	DOLPHIN_CMD=(dolphin-emu -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	DOLPHIN_CMD=(dolphin-emu -u "$USER_DIR" "${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
 	append_guest_args DOLPHIN_CMD
 elif command -v dolphin >/dev/null 2>&1; then
-	DOLPHIN_CMD=(dolphin -u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+	DOLPHIN_CMD=(dolphin -u "$USER_DIR" "${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
 	append_guest_args DOLPHIN_CMD
 elif command -v flatpak >/dev/null 2>&1 && \
 	flatpak info "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1; then
 	DOLPHIN_CMD=(flatpak run --filesystem="$ROOT" "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}"
-		-u "$USER_DIR" -l -b -e "$ISO_PATH" -v Null)
+		-u "$USER_DIR" "${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
 	append_guest_args DOLPHIN_CMD
 	DOLPHIN_IS_FLATPAK=1
 else

@@ -191,7 +191,7 @@ typedef struct
 #if XASH_GAMECUBE
 static void Mod_GCFreeGcmapPreSurfaceLumps( dbspmodel_t *bmod )
 {
-	if( !Sys_CheckParm( "-gcmap" ) || !bmod->isworld || !gc_bsp_scratch_base )
+	if( !GC_MapLoadMemoryOpt() || !bmod->isworld || !gc_bsp_scratch_base )
 		return;
 
 	Mod_GCFreeBspPin( (void **)&bmod->entdata );
@@ -2410,7 +2410,7 @@ static int Mod_LoadEntities_splitstr_handler( char *prev, char *next, void *user
 		return 0;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt() )
 		return 0;
 #endif
 
@@ -2487,7 +2487,7 @@ static void Mod_LoadEntities( model_t *mod, const dbspmodel_t *bmod )
 		return;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt() )
 	{
 		Con_Reportf( "Xash3D GameCube: bmodel entities copied %zu bytes\n", entdatasize );
 		return;
@@ -3317,7 +3317,7 @@ static void Mod_LoadTextures( model_t *mod, dbspmodel_t *bmod )
 	Mod_SequenceAllAnimatedTextures( mod );
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && bmod->isworld )
+	if( GC_MapLoadMemoryOpt() && bmod->isworld )
 	{
 		Mod_GCFreeBspPin( (void **)&bmod->textures );
 		bmod->texdatasize = 0;
@@ -3442,7 +3442,7 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 	}
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld && bmod->numtexinfo > 0 )
+	if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld && bmod->numtexinfo > 0 )
 	{
 		size_t texinfo_bytes = bmod->numtexinfo * sizeof( *out );
 
@@ -3506,7 +3506,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	msurface_t   *out;
 	mextrasurf_t *info;
 #if XASH_GAMECUBE
-	qboolean     fast_gcmap_surfaces = Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld;
+	qboolean     fast_gcmap_surfaces = GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld;
 	const size_t surf_bytes = fast_gcmap_surfaces
 		? ( bmod->numsurfaces * sizeof( msurface_t ) + sizeof( mextrasurf_t ))
 		: ( bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t )));
@@ -3516,7 +3516,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	/* Surface output is populated while the original BSP face lump is still
 	 * being read. Keep it off the BSP scratch buffer until overlap handling is
 	 * proven safe on hardware/Dolphin. */
-	if( use_bsp_surface_scratch && Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld
+	if( use_bsp_surface_scratch && GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld
 		&& gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 	{
 		gc_bsp_busy_range_t busy[4];
@@ -4262,7 +4262,7 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 {
 	byte *pinned;
 
-	if( !Sys_CheckParm( "-gcmap" ) || !bmod->isworld || !mod_base || bufferlen == 0 )
+	if( !GC_MapLoadMemoryOpt() || !bmod->isworld || !mod_base || bufferlen == 0 )
 		return;
 
 	if( !gc_retain_bsp_source_buffer
@@ -4714,7 +4714,7 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 		return;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && mod->type == mod_brush && bmod->isworld )
+	if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld )
 	{
 		Con_Reportf( "Xash3D GameCube: skipping world visdata for gcmap full-vis fallback (%s)\n",
 			Q_memprint( bmod->visdatasize ));

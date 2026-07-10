@@ -83,8 +83,6 @@ void GC_TrimClientSubsystemsForMapLoad( void )
 	Image_GCPurgeDecodeScratch();
 	if( host.imagepool )
 		Mem_EmptyPool( host.imagepool );
-	/* Grab the BSP staging block while freed client pools are still coalesced. */
-	GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
 	Con_Reportf( "Xash3D GameCube: client subsystems trimmed for map load\n" );
 }
 #endif
@@ -1124,6 +1122,7 @@ void SCR_Init( void )
 	{
 #if XASH_GAMECUBE
 		Con_Reportf( "Xash3D GameCube: screen using built-in menu renderer\n" );
+		UI_EnableBuiltInFallbackMenu();
 		UI_PreloadBuiltInFallbackMenuAssets();
 #else
 		Con_Printf( S_ERROR "can't initialize gameui DLL: %s\n", COM_GetLibraryError() ); // there is non fatal for us

@@ -1269,6 +1269,7 @@ qboolean CL_GameCubeEnsureClientReady( void );
 void CL_GameCubeUnloadClientForMapLoad( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 qboolean UI_UsingBuiltInFallbackMenu( void );
+void UI_EnableBuiltInFallbackMenu( void );
 void UI_PreloadBuiltInFallbackMenuAssets( void );
 #endif
 

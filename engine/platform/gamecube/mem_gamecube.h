@@ -14,10 +14,16 @@ void GC_MemFail( const char *subsystem, size_t size, const char *file, int line 
 #define GC_MAPLOAD_BUFFER_DEFAULT (3072u * 1024u)
 void GC_InitMapLoadBuffer( void );
 void GC_PrepareMapLoadBuffer( size_t size );
+void GC_PrepareMapLoadBufferForMap( const char *mapname );
 void *GC_BorrowMapLoadBuffer( size_t size );
 qboolean GC_ReleaseMapLoadBuffer( void *ptr );
 void GC_DiscardMapLoadBuffer( void );
 qboolean GC_IsMapLoadBuffer( const void *ptr );
+
+/* True during -gcmap smoke loads and retail New Game (gc_playstart) map loads. */
+void GC_BeginMapLoadMemoryOpt( void );
+void GC_EndMapLoadMemoryOpt( void );
+qboolean GC_MapLoadMemoryOpt( void );
 
 #else
 
@@ -32,9 +38,13 @@ static inline void GC_MemFail( const char *subsystem, size_t size, const char *f
 }
 static inline void GC_InitMapLoadBuffer( void ) { }
 static inline void GC_PrepareMapLoadBuffer( size_t size ) { (void)size; }
+static inline void GC_PrepareMapLoadBufferForMap( const char *mapname ) { (void)mapname; }
 static inline void *GC_BorrowMapLoadBuffer( size_t size ) { (void)size; return NULL; }
 static inline qboolean GC_ReleaseMapLoadBuffer( void *ptr ) { (void)ptr; return false; }
 static inline void GC_DiscardMapLoadBuffer( void ) { }
 static inline qboolean GC_IsMapLoadBuffer( const void *ptr ) { (void)ptr; return false; }
+static inline void GC_BeginMapLoadMemoryOpt( void ) { }
+static inline void GC_EndMapLoadMemoryOpt( void ) { }
+static inline qboolean GC_MapLoadMemoryOpt( void ) { return false; }
 
 #endif

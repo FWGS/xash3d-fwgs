@@ -1366,6 +1366,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				Con_Reportf( "Xash3D GameCube: direct map begin\n" );
 				GC_DrawLoadingStatus( "DIRECT MAP LOAD", gcmap );
 				GC_TrimClientSubsystemsForMapLoad();
+				GC_PrepareMapLoadBufferForMap( gcmap );
 				Mod_FreeUnused();
 				if( SV_SpawnServer( gcmap, NULL, false ))
 				{

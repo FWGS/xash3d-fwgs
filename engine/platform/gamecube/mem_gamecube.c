@@ -12,11 +12,11 @@ static char gc_mem_map[MAX_QPATH] = "(none)";
 static size_t gc_mem_last;
 static size_t gc_mem_hwm;
 
-/* Contiguous staging buffer for maps/*.bsp. Reserved early so retail New Game
- * is not blocked by heap fragmentation after menu/client churn. */
+/* Contiguous staging buffer for maps/*.bsp. Borrowed after menu/client trim. */
 static byte *gc_mapload_buf;
 static size_t gc_mapload_buf_size;
 static qboolean gc_mapload_buf_in_use;
+static int gc_mapload_memopt_depth;
 
 void GC_MemSetMap( const char *mapname )
 {
@@ -48,7 +48,7 @@ void GC_MemFail( const char *subsystem, size_t size, const char *file, int line 
 
 void GC_InitMapLoadBuffer( void )
 {
-	/* Buffer is prepared in GC_PrepareMapLoadBuffer after menu/client trim. */
+	/* Prepared on demand in GC_PrepareMapLoadBuffer after client/menu trim. */
 }
 
 void GC_PrepareMapLoadBuffer( size_t size )
@@ -58,11 +58,28 @@ void GC_PrepareMapLoadBuffer( size_t size )
 	if( size == 0 )
 		size = GC_MAPLOAD_BUFFER_DEFAULT;
 
-	/* Allocate immediately after large client/menu frees so the CRT still has
-	 * a contiguous hole big enough for the resident world BSP. */
 	buf = GC_BorrowMapLoadBuffer( size );
 	if( buf )
 		GC_ReleaseMapLoadBuffer( buf );
+}
+
+void GC_PrepareMapLoadBufferForMap( const char *mapname )
+{
+	char path[MAX_QPATH];
+	fs_offset_t filesize;
+
+	if( !mapname || !mapname[0] )
+	{
+		GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
+		return;
+	}
+
+	Q_snprintf( path, sizeof( path ), "maps/%s.bsp", mapname );
+	filesize = FS_FileSize( path, false );
+	if( filesize > 0 )
+		GC_PrepareMapLoadBuffer( (size_t)filesize );
+	else
+		GC_PrepareMapLoadBuffer( GC_MAPLOAD_BUFFER_DEFAULT );
 }
 
 void *GC_BorrowMapLoadBuffer( size_t size )
@@ -84,7 +101,6 @@ void *GC_BorrowMapLoadBuffer( size_t size )
 
 	if( !gc_mapload_buf )
 	{
-		/* Exact fit plus a small margin; kept for the resident world model. */
 		size_t alloc_size = ( size + 4095u ) & ~4095u;
 		gc_mapload_buf = (byte *)malloc( alloc_size );
 		if( !gc_mapload_buf )
@@ -128,5 +144,21 @@ void GC_DiscardMapLoadBuffer( void )
 		gc_mapload_buf = NULL;
 		gc_mapload_buf_size = 0;
 	}
+}
+
+void GC_BeginMapLoadMemoryOpt( void )
+{
+	gc_mapload_memopt_depth++;
+}
+
+void GC_EndMapLoadMemoryOpt( void )
+{
+	if( gc_mapload_memopt_depth > 0 )
+		gc_mapload_memopt_depth--;
+}
+
+qboolean GC_MapLoadMemoryOpt( void )
+{
+	return gc_mapload_memopt_depth > 0 || Sys_CheckParm( "-gcmap" ) != 0;
 }
 #endif

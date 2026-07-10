@@ -3895,7 +3895,7 @@ void CL_Init( void )
 #endif
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ))
 	{
 		memset( &clgame.drawFuncs, 0, sizeof( clgame.drawFuncs ));
 		cls.build_num = 0;
@@ -3903,7 +3903,7 @@ void CL_Init( void )
 		cl.maxclients = 1;
 		cls.olddemonum = -1;
 		cls.demonum = -1;
-		Con_Reportf( "Xash3D GameCube: gcmap client init deferred\n" );
+		Con_Reportf( "Xash3D GameCube: map-load client init deferred\n" );
 		return;
 	}
 #endif

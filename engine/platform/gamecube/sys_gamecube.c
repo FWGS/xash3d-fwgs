@@ -391,6 +391,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	file = fopen( GC_DVD_DEVICE ":/" GC_DATA_PATH "/valve/gamecube.cfg", "r" );
 	if( !file )
 		file = fopen( GC_DATA_PATH "/valve/gamecube.cfg", "r" );
+	/* No gamecube.cfg map override means retail menu boot, not smoke map load. */
 	if( !file )
 		return;
 
@@ -463,11 +464,14 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-gcnewgame";
 	}
-	else
+	else if( gc_smoke_map_configured )
 	{
 		gc_argv[fake_argc++] = "-gcmap";
-		// Ensure a deterministic map is always provided if no override is found.
-		gc_argv[fake_argc++] = gc_smoke_map_configured ? gc_smoke_map : GC_DEFAULT_SMOKE_MAP;
+		gc_argv[fake_argc++] = gc_smoke_map;
+	}
+	else
+	{
+		SYS_Report( "Xash3D GameCube: disc boot override menu\n" );
 	}
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "640";

@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include "client.h"
 #include "mod_local.h"
+#include "gamecube/mem_gamecube.h"
 
 void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_TrimClientSubsystemsForMapLoad( void );
@@ -31,8 +32,10 @@ static void SV_GameCubePlayStart_f( void )
 
 	Con_Reportf( "Xash3D GameCube: play start begin %s\n", map );
 	GC_DrawLoadingStatus( "NEW GAME", map );
+	GC_BeginMapLoadMemoryOpt();
 	/* Drop menu/UI/client allocations before the BSP buffer (often ~2 MiB). */
 	GC_TrimClientSubsystemsForMapLoad();
+	GC_PrepareMapLoadBufferForMap( map );
 	Mod_FreeUnused();
 	if( SV_SpawnServer( map, NULL, false ))
 	{
@@ -41,9 +44,11 @@ static void SV_GameCubePlayStart_f( void )
 		if( !CL_GameCubeEnsureClientReady() )
 		{
 			Con_Reportf( "Xash3D GameCube: play start client reload failed %s\n", map );
+			GC_EndMapLoadMemoryOpt();
 			return;
 		}
 		Con_Reportf( "Xash3D GameCube: play start ready %s\n", map );
+		GC_EndMapLoadMemoryOpt();
 	}
 	else
 	{
@@ -51,6 +56,7 @@ static void SV_GameCubePlayStart_f( void )
 		GC_RestoreVideoMemoryAfterMapLoad();
 		(void)CL_GameCubeEnsureClientReady();
 		Con_Reportf( "Xash3D GameCube: play start failed %s\n", map );
+		GC_EndMapLoadMemoryOpt();
 	}
 }
 #endif

@@ -1059,6 +1059,8 @@ def stage_intro_avi_data(source: Path, output: Path) -> Path:
 		copy_if_present(source, output, relative)
 	build_intro_gcvid_companions(output)
 	write_startup_vids(output)
+	if not stage_gc_menu_assets(source, output):
+		print("Warning: GameCube retail menu background bake failed.", file=sys.stderr)
 	(output / "custom").mkdir(exist_ok=True)
 	return output
 
