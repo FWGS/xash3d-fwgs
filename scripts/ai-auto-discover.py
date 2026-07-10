@@ -95,23 +95,25 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		"title": "fix the current GameCube map/runtime blocker",
 		"subject": "fix: resolve GameCube map runtime blocker",
 		"context": (
-			"engine/common/mod_bmodel.c",
 			"engine/platform/gamecube/mem_gamecube.c",
 			"engine/common/model.c",
 			"engine/common/zone.c",
+			"engine/common/mod_bmodel.c",
 			"ref/gx/r_main.c",
 		),
 		"read_context": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
+		"include_common_reads": False,
 	},
 	"no_edit": {
 		"title": "make one bounded GameCube source fix from fresh probe evidence",
 		"subject": "fix: resolve GameCube runtime blocker from probe evidence",
 		"context": (
-			"engine/common/mod_bmodel.c",
 			"engine/platform/gamecube/mem_gamecube.c",
 			"engine/common/model.c",
+			"engine/common/mod_bmodel.c",
 		),
 		"read_context": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
+		"include_common_reads": False,
 	},
 	"model_budget": {
 		"title": "reduce local-model context pressure for autonomous passes",
@@ -126,11 +128,12 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		"title": "repair the latest GameCube source patch from verifier evidence",
 		"subject": "fix: resolve GameCube verifier rejection in source",
 		"context": (
-			"engine/common/mod_bmodel.c",
 			"engine/platform/gamecube/mem_gamecube.c",
 			"engine/common/model.c",
+			"engine/common/mod_bmodel.c",
 		),
 		"read_context": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
+		"include_common_reads": False,
 	},
 }
 
@@ -360,7 +363,8 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		return None
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
 	if failure_class in {"runtime_probe", "no_edit", "review_reject"} and context:
-		context = [path for path in context if path.startswith(("engine/", "ref/"))][:1]
+		engine_or_ref = [path for path in context if path.startswith(("engine/", "ref/"))]
+		context = sort_paths_by_size(root, engine_or_ref or context)[:1]
 	read_context = existing_paths(root, tuple(str(path) for path in recipe["read_context"]))
 	if recipe.get("include_common_reads", True):
 		read_context.extend(path for path in COMMON_READ_CONTEXT if (root / path).is_file() and path not in read_context)
