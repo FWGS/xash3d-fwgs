@@ -43,6 +43,7 @@ typedef struct gc_bsp_deferred_s
 static gc_bsp_deferred_t gc_bsp_deferred;
 static void *gc_surfaces_malloc_block;
 static void *gc_texinfo_malloc_block;
+static void *gc_nodes_malloc_block;
 static qboolean gc_retain_bsp_source_buffer;
 static byte *gc_bsp_scratch_base;
 static size_t gc_bsp_scratch_size;
@@ -3777,9 +3778,25 @@ Mod_LoadNodes
 */
 static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 {
-	mnode_t	*out;
+	mnode_t	*out = NULL;
 
-	mod->nodes = out = (mnode_t *)Mem_Calloc( mod->mempool, bmod->numnodes * sizeof( *out ));
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld && bmod->numnodes > 0 )
+	{
+		size_t node_bytes = bmod->numnodes * sizeof( *out );
+
+		out = (mnode_t *)malloc( node_bytes );
+		if( out )
+		{
+			memset( out, 0, node_bytes );
+			gc_nodes_malloc_block = out;
+			Con_Reportf( "Xash3D GameCube: world nodes via malloc %s\n", Q_memprint( node_bytes ));
+		}
+	}
+#endif
+	if( !out )
+		out = (mnode_t *)Mem_Calloc( mod->mempool, bmod->numnodes * sizeof( *out ));
+	mod->nodes = out;
 	mod->numnodes = bmod->numnodes;
 
 	for( int i = 0; i < mod->numnodes; i++, out++ )
@@ -4060,13 +4077,23 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 	}
 
 	if( !gc_texinfo_malloc_block )
-		return;
+		goto free_nodes;
 
 	if( mod && mod->texinfo == (mtexinfo_t *)gc_texinfo_malloc_block )
 		mod->texinfo = NULL;
 
 	free( gc_texinfo_malloc_block );
 	gc_texinfo_malloc_block = NULL;
+
+free_nodes:
+	if( !gc_nodes_malloc_block )
+		return;
+
+	if( mod && mod->nodes == (mnode_t *)gc_nodes_malloc_block )
+		mod->nodes = NULL;
+
+	free( gc_nodes_malloc_block );
+	gc_nodes_malloc_block = NULL;
 }
 
 static void Mod_GCRestoreDeferredMarkfaces( dbspmodel_t *bmod )
