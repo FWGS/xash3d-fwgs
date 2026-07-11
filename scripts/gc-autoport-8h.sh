@@ -30,8 +30,8 @@ export OPENAI_API_BASE="${OPENAI_API_BASE:-http://127.0.0.1:8072/v1}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
 export XASH3D_GC_ROOT="$ROOT"
 export AI_SKIP_FAILED_PASS_RESET="${AI_SKIP_FAILED_PASS_RESET:-1}"
-# Prefer evidence-driven discovery into engine sources; skip docs-only wins.
-export AI_AUTO_DISCOVERY="${AI_AUTO_DISCOVERY:-prefer}"
+# Prefer open source goals (G72/G82); use discovery only after goals stall.
+export AI_AUTO_DISCOVERY="${AI_AUTO_DISCOVERY:-after-goals}"
 DISCOVERY_MODE="${AI_AUTO_DISCOVERY}"
 export AI_MAX_ATTEMPTS_PER_GOAL="${AI_MAX_ATTEMPTS_PER_GOAL:-0}"
 export AI_DISCOVERY_STUCK_THRESHOLD="${AI_DISCOVERY_STUCK_THRESHOLD:-3}"
