@@ -563,8 +563,8 @@ static void R_SetupFrame( void )
 =============
 R_DrawStudioEntitiesLowRes
 
-New Game low-res path: solid studio + normal sprites. Skips brush (stack
-edge tables) and translucent/glow paths until those are fully RGB565-safe.
+New Game low-res: solid studio, sprites (incl. glow/add), and EFX particles.
+Skips brush (stack edge tables). Affine spans write display RGB565.
 =============
 */
 #if XASH_GAMECUBE
@@ -573,8 +573,9 @@ static void R_DrawStudioEntitiesLowRes( void )
 	unsigned drawn = 0;
 	unsigned sprites = 0;
 	const unsigned max_studio = 8;
-	const unsigned max_sprites = 8;
+	const unsigned max_sprites = 16;
 	qboolean drew_view = false;
+	static qboolean gc_fx_marker_logged;
 
 	tr.blend = 1.0f;
 	d_pdrawspans = R_PolysetFillSpans8;
@@ -600,8 +601,6 @@ static void R_DrawStudioEntitiesLowRes( void )
 		{
 			if( sprites >= max_sprites )
 				continue;
-			if( RI.currententity->curstate.rendermode != kRenderNormal )
-				continue;
 			R_SetUpWorldTransform();
 			R_DrawSpriteModel( RI.currententity );
 			sprites++;
@@ -616,6 +615,17 @@ static void R_DrawStudioEntitiesLowRes( void )
 		R_SetUpWorldTransform();
 		R_DrawViewModel();
 		drew_view = true;
+	}
+
+	/* Particles / tempents (additive) into the RGB565 world buffer. */
+	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
+	{
+		gEngfuncs.CL_DrawEFX( tr.frametime, false );
+		if( !gc_fx_marker_logged )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: RGB565 particles/EFX active\n" );
+			gc_fx_marker_logged = true;
+		}
 	}
 
 	d_gc_span_rgb565 = false;
