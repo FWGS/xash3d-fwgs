@@ -25,6 +25,35 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #if XASH_GAMECUBE
 qboolean d_gc_span_rgb565;
+
+/* Soft palette → display RGB565 helpers for alpha/add spans on the New Game FB. */
+static inline pixel_t GC_SpanSoftTo565( pixel_t soft )
+{
+	return vid.screen[soft];
+}
+
+static inline pixel_t GC_SpanRGB565Lerp( pixel_t src, pixel_t dst, int alpha )
+{
+	unsigned int sr = ( src >> 11 ) & 0x1F, sg = ( src >> 5 ) & 0x3F, sb = src & 0x1F;
+	unsigned int dr = ( dst >> 11 ) & 0x1F, dg = ( dst >> 5 ) & 0x3F, db = dst & 0x1F;
+	unsigned int r = ( sr * (unsigned)alpha + dr * (unsigned)( 7 - alpha )) / 7u;
+	unsigned int g = ( sg * (unsigned)alpha + dg * (unsigned)( 7 - alpha )) / 7u;
+	unsigned int b = ( sb * (unsigned)alpha + db * (unsigned)( 7 - alpha )) / 7u;
+
+	return (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+}
+
+static inline pixel_t GC_SpanRGB565Add( pixel_t src, pixel_t dst )
+{
+	unsigned int r = (( dst >> 11 ) & 0x1F ) + (( src >> 11 ) & 0x1F );
+	unsigned int g = (( dst >> 5 ) & 0x3F ) + (( src >> 5 ) & 0x3F );
+	unsigned int b = ( dst & 0x1F ) + ( src & 0x1F );
+
+	if( r > 31 ) r = 31;
+	if( g > 63 ) g = 63;
+	if( b > 31 ) b = 31;
+	return (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+}
 #endif
 
 pixel_t    *r_turb_pbase, *r_turb_pdest;
@@ -76,6 +105,18 @@ static void D_DrawTurbulent8ZSpan( void )
 		if( *r_turb_pz <= ( r_turb_izi >> 16 ))
 		{
 			pixel_t btemp = *( r_turb_pbase + ( tturb << 6 ) + sturb );
+#if XASH_GAMECUBE
+			if( d_gc_span_rgb565 )
+			{
+				pixel_t src565 = GC_SpanSoftTo565( btemp );
+
+				if( alpha >= 7 )
+					*r_turb_pdest = src565;
+				else
+					*r_turb_pdest = GC_SpanRGB565Lerp( src565, *r_turb_pdest, alpha );
+			}
+			else
+#endif
 			if( alpha == 7 )
 				*r_turb_pdest = btemp;
 			else
@@ -843,6 +884,11 @@ void D_AlphaSpans16( espan_t *pspan )
 					{
 						if( *pz <= ( izi >> 16 ))
 						{
+#if XASH_GAMECUBE
+							if( d_gc_span_rgb565 )
+								*pdest = GC_SpanSoftTo565( btemp );
+							else
+#endif
 							*pdest = btemp;
 							*pz = izi >> 16;
 						}
@@ -883,6 +929,11 @@ void D_AlphaSpans16( espan_t *pspan )
 						btemp = *( pbase + idiths + iditht * cachewidth );
 						if( btemp != TRANSPARENT_COLOR )
 						{
+#if XASH_GAMECUBE
+							if( d_gc_span_rgb565 )
+								*pdest = GC_SpanSoftTo565( btemp );
+							else
+#endif
 							*pdest = btemp;
 							*pz = izi >> 16;
 						}
@@ -1047,9 +1098,23 @@ void D_BlendSpans16( espan_t *pspan, int alpha )
 
 						if( btemp != TRANSPARENT_COLOR )
 						{
-							if( alpha != 7 )
-								btemp = BLEND_ALPHA( alpha, btemp, *pdest );
-							*pdest = btemp;
+#if XASH_GAMECUBE
+							if( d_gc_span_rgb565 )
+							{
+								pixel_t src565 = GC_SpanSoftTo565( btemp );
+
+								if( alpha >= 7 )
+									*pdest = src565;
+								else
+									*pdest = GC_SpanRGB565Lerp( src565, *pdest, alpha );
+							}
+							else
+#endif
+							{
+								if( alpha != 7 )
+									btemp = BLEND_ALPHA( alpha, btemp, *pdest );
+								*pdest = btemp;
+							}
 						}
 						// *pz    = izi >> 16;
 					}
@@ -1089,9 +1154,23 @@ void D_BlendSpans16( espan_t *pspan, int alpha )
 
 						if( btemp != TRANSPARENT_COLOR )
 						{
-							if( alpha != 7 )
-								btemp = BLEND_ALPHA( alpha, btemp, *pdest );
-							*pdest = btemp;
+#if XASH_GAMECUBE
+							if( d_gc_span_rgb565 )
+							{
+								pixel_t src565 = GC_SpanSoftTo565( btemp );
+
+								if( alpha >= 7 )
+									*pdest = src565;
+								else
+									*pdest = GC_SpanRGB565Lerp( src565, *pdest, alpha );
+							}
+							else
+#endif
+							{
+								if( alpha != 7 )
+									btemp = BLEND_ALPHA( alpha, btemp, *pdest );
+								*pdest = btemp;
+							}
 						}
 						// *pz    = izi >> 16;
 					}
@@ -1251,8 +1330,15 @@ void D_AddSpans16( espan_t *pspan )
 
 						if( btemp != TRANSPARENT_COLOR )
 						{
-							btemp = BLEND_ADD( btemp, *pdest );
-							*pdest = btemp;
+#if XASH_GAMECUBE
+							if( d_gc_span_rgb565 )
+								*pdest = GC_SpanRGB565Add( GC_SpanSoftTo565( btemp ), *pdest );
+							else
+#endif
+							{
+								btemp = BLEND_ADD( btemp, *pdest );
+								*pdest = btemp;
+							}
 						}
 						// *pz    = izi >> 16;
 					}
@@ -1292,8 +1378,15 @@ void D_AddSpans16( espan_t *pspan )
 
 						if( btemp != TRANSPARENT_COLOR )
 						{
-							btemp = BLEND_ADD( btemp, *pdest );
-							*pdest = btemp;
+#if XASH_GAMECUBE
+							if( d_gc_span_rgb565 )
+								*pdest = GC_SpanRGB565Add( GC_SpanSoftTo565( btemp ), *pdest );
+							else
+#endif
+							{
+								btemp = BLEND_ADD( btemp, *pdest );
+								*pdest = btemp;
+							}
 						}
 						// *pz    = izi >> 16;
 					}

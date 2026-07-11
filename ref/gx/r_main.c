@@ -563,8 +563,8 @@ static void R_SetupFrame( void )
 =============
 R_DrawStudioEntitiesLowRes
 
-New Game low-res: solid studio, sprites (incl. glow/add), and EFX particles.
-Skips brush (stack edge tables). Affine spans write display RGB565.
+New Game low-res: solid studio/sprites, translucent brushes (glass),
+studio/sprites, and EFX particles. Affine/alpha spans write display RGB565.
 =============
 */
 #if XASH_GAMECUBE
@@ -572,10 +572,13 @@ static void R_DrawStudioEntitiesLowRes( void )
 {
 	unsigned drawn = 0;
 	unsigned sprites = 0;
+	unsigned brushes = 0;
 	const unsigned max_studio = 8;
 	const unsigned max_sprites = 16;
+	const unsigned max_brushes = 6;
 	qboolean drew_view = false;
 	static qboolean gc_fx_marker_logged;
+	static qboolean gc_trans_brush_marker_logged;
 
 	tr.blend = 1.0f;
 	d_pdrawspans = R_PolysetFillSpans8;
@@ -628,7 +631,7 @@ static void R_DrawStudioEntitiesLowRes( void )
 		}
 	}
 
-	/* Bounded translucent studio/sprites (glass, glows already in solid list). */
+	/* Bounded translucent brushes (glass/grates) + studio/sprites. */
 	d_pdrawspans = R_PolysetDrawSpans8_33;
 	for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
@@ -644,7 +647,15 @@ static void R_DrawStudioEntitiesLowRes( void )
 		if( tr.blend <= 0.0f )
 			continue;
 
-		if( RI.currentmodel->type == mod_studio )
+		if( RI.currentmodel->type == mod_brush )
+		{
+			if( brushes >= max_brushes )
+				continue;
+			R_SetUpWorldTransform();
+			R_DrawBrushModel( RI.currententity );
+			brushes++;
+		}
+		else if( RI.currentmodel->type == mod_studio )
 		{
 			if( drawn >= max_studio )
 				continue;
@@ -662,13 +673,19 @@ static void R_DrawStudioEntitiesLowRes( void )
 		}
 	}
 
+	if( brushes && !gc_trans_brush_marker_logged )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: RGB565 translucent brushes active\n" );
+		gc_trans_brush_marker_logged = true;
+	}
+
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 		gEngfuncs.CL_DrawEFX( tr.frametime, true );
 
 	d_gc_span_rgb565 = false;
-	if( tr.framecount <= 1 || (( tr.framecount & 31 ) == 0 ) || drawn || sprites || drew_view )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res ents studio=%u sprites=%u solids=%u trans=%u viewmodel=%d frame=%d\n",
-			drawn, sprites, tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities,
+	if( tr.framecount <= 1 || (( tr.framecount & 31 ) == 0 ) || drawn || sprites || brushes || drew_view )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res ents studio=%u sprites=%u brushes=%u solids=%u trans=%u viewmodel=%d frame=%d\n",
+			drawn, sprites, brushes, tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities,
 			drew_view ? 1 : 0, tr.framecount );
 }
 #endif
@@ -1088,13 +1105,118 @@ static void R_DrawBEntitiesOnList( void )
 }
 
 extern qboolean alphaspans;
+
+#if XASH_GAMECUBE
 /*
 =============
-R_DrawBEntitiesOnList
+R_DrawBrushModelProbe
+
+Translucent brush ents on the New Game / world-render probe path.
+Reuses static probe edge BSS — never NUMSTACKEDGES on the GameCube stack.
+=============
+*/
+static void R_DrawBrushModelProbe( cl_entity_t *pent )
+{
+	vec3_t mins, maxs;
+	float  minmaxs[6];
+	vec3_t oldorigin;
+	mnode_t *topnode;
+	int clipflags;
+
+	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+		return;
+	if( !R_GcmapEnsureWorldRenderScratch() )
+		return;
+
+	r_numallocatededges = gc_probe_numedges;
+	r_cnumsurfs = gc_probe_numsurfs;
+	r_edges = (edge_t *)(((uintptr_t)gc_probe_edges + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
+	surfaces = (surf_t *)(((uintptr_t)gc_probe_surfaces + CACHE_SIZE - 1 ) & ~( CACHE_SIZE - 1 ));
+	surf_max = &surfaces[r_cnumsurfs + 1];
+	memset( &surfaces[1], 0, sizeof( surf_t ));
+	R_SurfacePatch();
+
+	R_BeginEdgeFrame();
+
+	VectorCopy( tr.modelorg, oldorigin );
+	insubmodel = true;
+	RI.currententity = pent;
+	RI.currentmodel = pent->model;
+
+	if( !RI.currentmodel || RI.currentmodel->nummodelsurfaces == 0
+	    || RI.currentmodel->type != mod_brush )
+	{
+		insubmodel = false;
+		return;
+	}
+
+	RotatedBBox( RI.currentmodel->mins, RI.currentmodel->maxs,
+		     RI.currententity->angles, mins, maxs );
+	VectorAdd( mins, RI.currententity->origin, minmaxs );
+	VectorAdd( maxs, RI.currententity->origin, ( minmaxs + 3 ));
+
+	clipflags = R_BmodelCheckBBox( minmaxs );
+	if( clipflags == BMODEL_FULLY_CLIPPED )
+	{
+		insubmodel = false;
+		return;
+	}
+
+	topnode = R_FindTopnode( minmaxs, minmaxs + 3 );
+	if( !topnode )
+	{
+		insubmodel = false;
+		return;
+	}
+
+	alphaspans = true;
+	VectorCopy( RI.currententity->origin, r_entorigin );
+	VectorSubtract( RI.rvp.vieworigin, r_entorigin, tr.modelorg );
+	r_pcurrentvertbase = RI.currentmodel->vertexes;
+	R_RotateBmodel();
+
+	Matrix4x4_CreateFromEntity( RI.objectMatrix, RI.currententity->angles, RI.currententity->origin, 1 );
+	R_PushDlightsForBmodel( RI.currentmodel, tr.dlightframecount, RI.objectMatrix );
+	tr.modelviewIdentity = false;
+
+	RI.currententity->topnode = topnode;
+	if( topnode->contents >= 0 )
+	{
+		r_clipflags = clipflags;
+		R_DrawSolidClippedSubmodelPolygons( RI.currentmodel, topnode );
+	}
+	else
+		R_DrawSubmodelPolygons( RI.currentmodel, clipflags, topnode );
+	RI.currententity->topnode = NULL;
+
+	VectorCopy( RI.base_vpn, RI.vforward );
+	VectorCopy( RI.base_vup, RI.vup );
+	VectorCopy( RI.base_vright, RI.vright );
+	VectorCopy( oldorigin, tr.modelorg );
+	R_TransformFrustum();
+
+	insubmodel = false;
+	R_ScanEdges();
+	alphaspans = false;
+}
+#endif
+
+/*
+=============
+R_DrawBrushModel
 =============
 */
 void R_DrawBrushModel( cl_entity_t *pent )
 {
+#if XASH_GAMECUBE
+	/* Probe path: no stack edge tables (NUMSTACKEDGES would blow MEM1). */
+	if( GC_UseLowResWorldProbe() )
+	{
+		R_DrawBrushModelProbe( pent );
+		return;
+	}
+#endif
+
 	vec3_t mins, maxs;
 	float  minmaxs[6];
 	edge_t ledges[NUMSTACKEDGES
@@ -1231,7 +1353,7 @@ static void R_EdgeDrawingGcmapProbe( void )
 	R_BeginEdgeFrame();
 	R_RenderWorld();
 	/* Opaque brush entities (tram, doors, …) share the probe edge/span BSS.
-	 * Skip R_DrawBrushModel (translucent) — that path still uses stack tables. */
+	 * Translucent brushes draw later via R_DrawBrushModelProbe. */
 	R_DrawBEntitiesOnList();
 	if( tr.framecount <= 1 )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels in edge pass count=%u\n",
@@ -1444,9 +1566,8 @@ void GAME_EXPORT R_RenderScene( void )
 	R_EdgeDrawing();
 
 #if XASH_GAMECUBE
-	/* -gcmap smoke: world only. New Game low-res: world + bounded studio.
-	 * Skip R_DrawBrushModel / sprites (stack tables / soft-pixel paths).
-	 * Keep "gcmap render time=" so New Game presents do not pollute G36. */
+	/* -gcmap smoke: world only. New Game low-res: world + bounded ents
+	 * (studio/sprites/translucent brushes via probe BSS). */
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
