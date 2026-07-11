@@ -30,7 +30,7 @@ int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
 
 #if XASH_GAMECUBE
-#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 96
+#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 64
 
 static qboolean CL_GameCubeMapRoute( void )
 {
@@ -50,7 +50,8 @@ static int CL_GameCubeClientEdictLimit( int requested )
 	if( Sys_GetParmFromCmdLine( "-gcmaxentities", value ))
 		limit = Q_atoi( value );
 
-	limit = bound( MIN_EDICTS, limit, requested );
+	/* Allow GC map-route caps below MIN_EDICTS when intentionally small. */
+	limit = bound( 2, limit, requested );
 	Con_Reportf( "Xash3D GameCube: client edicts capped for map route max=%d requested=%d\n",
 		limit, requested );
 	return limit;
@@ -520,12 +521,27 @@ void CL_BatchResourceRequest( qboolean initialize )
 #endif
 		}
 
-		Netchan_CreateFragments( &cls.netchan, &msg );
-		Netchan_FragSend( &cls.netchan );
 #if XASH_GAMECUBE
-		if( CL_GameCubeMapRoute())
-			Con_Reportf( "Xash3D GameCube: resource batch fragments sent\n" );
+		if( CL_GameCubeLocalMapRoute() && Host_IsLocalClient() )
+		{
+			/* Avoid Netchan fragment buffers — MEM1 is exhausted after c0a0 precache. */
+			if( MSG_GetNumBytesWritten( &msg ) > 0 )
+			{
+				CL_ServerCommand( true, "spawn %i\n", cl.servercount );
+				MSG_Clear( &msg );
+			}
+			Con_Reportf( "Xash3D GameCube: resource batch fragments skipped (local spawn)\n" );
+		}
+		else
 #endif
+		{
+			Netchan_CreateFragments( &cls.netchan, &msg );
+			Netchan_FragSend( &cls.netchan );
+#if XASH_GAMECUBE
+			if( CL_GameCubeMapRoute())
+				Con_Reportf( "Xash3D GameCube: resource batch fragments sent\n" );
+#endif
+		}
 	}
 }
 
@@ -1815,7 +1831,16 @@ void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto )
 	}
 
 	if( !cls.demoplayback )
+#if XASH_GAMECUBE
+	{
+		if( !CL_GameCubeLocalMapRoute())
+			CL_SendConsistencyInfo( msg, proto );
+		else
+			Con_Reportf( "Xash3D GameCube: consistency info skipped for local map route\n" );
+	}
+#else
 		CL_SendConsistencyInfo( msg, proto );
+#endif
 
 	// All done precaching.
 	cl.worldmodel = CL_ModelHandle( 1 ); // get world pointer
@@ -1830,6 +1855,9 @@ void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto )
 			Con_Printf( "Setting up renderer...\n" );
 
 			// load tempent sprites (glowshell, muzzleflashes etc)
+#if XASH_GAMECUBE
+			if( !CL_GameCubeLocalMapRoute())
+#endif
 			CL_LoadClientSprites ();
 
 			// invalidate all decal indexes
@@ -1840,11 +1868,17 @@ void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto )
 			CL_ClearWorld ();
 
 			// load skybox
+#if XASH_GAMECUBE
+			if( !CL_GameCubeLocalMapRoute())
+#endif
 			R_SetupSky( clgame.movevars.skyName );
 
 			// tell rendering system we have a new set of models.
 			ref.dllFuncs.R_NewMap ();
 
+#if XASH_GAMECUBE
+			if( !CL_GameCubeLocalMapRoute())
+#endif
 			Mod_LoadDetailTextures( cl.worldmodel );
 
 			// check if this map must start from dark screen

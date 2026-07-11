@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #include "client.h"
 #include "avi/avi.h"
 #include "con_nprint.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 #include "pm_local.h"
 #include "platform/platform.h"
 
@@ -2090,9 +2093,9 @@ qboolean S_Init( void )
 
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: sound effects init begin\n" );
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 	{
-		Con_Reportf( "Xash3D GameCube: sound dsp init skipped for gcmap smoke route\n" );
+		Con_Reportf( "Xash3D GameCube: sound dsp init skipped for map-load memopt\n" );
 	}
 	else
 #endif
@@ -2109,9 +2112,9 @@ qboolean S_Init( void )
 	S_InitSounds ();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: sound defaults ready\n" );
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 	{
-		Con_Reportf( "Xash3D GameCube: vox init skipped for gcmap smoke route\n" );
+		Con_Reportf( "Xash3D GameCube: vox init skipped for map-load memopt\n" );
 	}
 	else
 #endif

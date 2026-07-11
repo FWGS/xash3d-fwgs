@@ -16,6 +16,9 @@ GNU General Public License for more details.
 #include "common.h"
 #include "client.h"
 #include "sound.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 
 // during registration it is possible to have more sounds
 // than could actually be referenced during gameplay,
@@ -85,7 +88,7 @@ static wavdata_t *S_CreateDefaultSound( void )
 	uint channels = 1;
 	uint width = 2;
 #if XASH_GAMECUBE
-	qboolean tinyFallback = Sys_CheckParm( "-gcmap" );
+	qboolean tinyFallback = GC_MapLoadMemoryOpt();
 #endif
 	size_t size = samples * width * channels;
 
@@ -136,10 +139,10 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		return NULL;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Q_stricmp( sfx->name, "*default" ))
+	if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" ))
 	{
 		if( s_gcmapSoundSkips < 8 )
-			Con_Reportf( "Xash3D GameCube: sound load skipped for gcmap %s\n", sfx->name );
+			Con_Reportf( "Xash3D GameCube: sound load skipped for map-load memopt %s\n", sfx->name );
 		s_gcmapSoundSkips++;
 		return NULL;
 	}
@@ -161,9 +164,9 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	if( !sc )
 	{
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ) && Q_stricmp( sfx->name, "*default" ))
+		if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" ))
 		{
-			Con_Reportf( "Xash3D GameCube: sound fallback skipped for gcmap %s\n", sfx->name );
+			Con_Reportf( "Xash3D GameCube: sound fallback skipped for map-load memopt %s\n", sfx->name );
 			return NULL;
 		}
 #endif

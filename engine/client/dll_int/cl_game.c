@@ -1033,12 +1033,14 @@ void CL_ClearWorld( void )
 }
 
 #if XASH_GAMECUBE
-static cl_entity_t gc_gcmap_bootstrap_entities[2];
+#define GC_GCMAP_STATIC_CLIENT_EDICTS 64
+static cl_entity_t gc_gcmap_bootstrap_entities[GC_GCMAP_STATIC_CLIENT_EDICTS];
 static entity_state_t gc_gcmap_bootstrap_packet_entities[64];
 
 static qboolean CL_GameCubeUseStaticGcmapBootstrapEdicts( int maxclients )
 {
-	return GC_MapLoadMemoryOpt() && maxclients <= 1 && clgame.maxEntities <= 2;
+	return GC_MapLoadMemoryOpt() && maxclients <= 1
+		&& clgame.maxEntities <= GC_GCMAP_STATIC_CLIENT_EDICTS;
 }
 #endif
 
