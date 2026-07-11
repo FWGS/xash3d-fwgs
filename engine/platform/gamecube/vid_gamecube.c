@@ -54,6 +54,8 @@ static GXRModeObj *rmode = NULL;
 static uint8_t gx_fifo[256 * 1024] __attribute__((aligned(32)));
 static unsigned int gc_present_count;
 static unsigned int gc_blank_present_count;
+static unsigned int gc_budget_sample_count;
+static unsigned int gc_budget_warmup_left;
 static convar_t *gc_quality;
 static double gc_last_present_time;
 static double gc_worst_frame_ms;
@@ -70,6 +72,9 @@ static qboolean gc_present_tex_ready;
 /* Post-map New Game G36 presents — smaller than smoke so RGB→XFB stays cheap. */
 #define GC_VIDEO_NEWGAME_PROBE_WIDTH 160
 #define GC_VIDEO_NEWGAME_PROBE_HEIGHT 120
+/* Skip first Host_Frames after ca_active (connect SCR / one-shot loads). */
+#define GC_VIDEO_BUDGET_WARMUP_PRESENTS 4
+#define GC_VIDEO_BUDGET_SAMPLE_TARGET 16
 
 /* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
  * The platform video backend does not redefine it to avoid duplicate symbols.
@@ -446,9 +451,6 @@ static void GC_PresentBuffer( void )
 
 	gc_present_count++;
 
-	if( gc_budget_probe_active && gc_present_count > 16 )
-		gc_budget_probe_active = false;
-
 	copy_w = rmode->fbWidth;
 	copy_h = rmode->xfbHeight;
 	dst = (unsigned int *)xfb[which_fb];
@@ -481,9 +483,9 @@ static void GC_PresentBuffer( void )
 
 		/* Sample non-black once per early present. Budget probes can treat the
 		 * status panel as non-black without a second full-buffer scan. */
-		if( gc_present_count <= 16 && src_h > 0 && src_w > 0 )
+		if(( gc_budget_probe_active || gc_present_count <= 16 ) && src_h > 0 && src_w > 0 )
 		{
-			if( gc_budget_probe_active && gc_present_count > 1 && !Sys_CheckParm( "-gcworldrender" ))
+			if( gc_budget_probe_active && !Sys_CheckParm( "-gcworldrender" ))
 				sampled_nonblack = true;
 			else
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
@@ -512,34 +514,45 @@ static void GC_PresentBuffer( void )
 		}
 	}
 
+	/* G36: After New Game arm, skip connect warm-up presents then sample
+	 * steady Host_Frame intervals (not synthetic fill bursts). */
+	now = Sys_FloatTime();
+	elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
+	if( elapsed_ms > gc_worst_frame_ms )
+		gc_worst_frame_ms = elapsed_ms;
 
-	/* G36: Emit frame budget markers only for early frames to establish visual evidence.
-	 * Suppress per-frame SYS_Report in steady-state to reduce route-time render cost.
-	 * The first present reports 0ms so short smoke probes still get a parsable sample. */
-	if( gc_present_count <= 16 )
+	if( gc_budget_probe_active )
 	{
-		now = Sys_FloatTime();
-		elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
-		if( elapsed_ms > gc_worst_frame_ms )
-			gc_worst_frame_ms = elapsed_ms;
-		if( gc_budget_probe_active )
+		if( gc_budget_warmup_left > 0 )
 		{
-			/* One present line per frame — duplicate world-render reports were
-			 * burning host I/O during already-tight budget probes. */
+			gc_budget_warmup_left--;
+			gc_last_present_time = now;
+		}
+		else if( gc_budget_sample_count < GC_VIDEO_BUDGET_SAMPLE_TARGET )
+		{
+			gc_budget_sample_count++;
 			SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
-				gc_present_count, sampled_nonblack ? 1u : 0u, elapsed_ms );
+				gc_budget_sample_count, sampled_nonblack ? 1u : 0u, elapsed_ms );
+			gc_last_present_time = now;
+			if( gc_budget_sample_count >= GC_VIDEO_BUDGET_SAMPLE_TARGET )
+				gc_budget_probe_active = false;
 		}
 		else
 		{
-			/* One line for smoke evidence — three SYS_Reports per present were
-			 * dominating host I/O on short Dolphin probes. */
-			SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u frame time=%.2fms\n",
-				gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count, elapsed_ms );
+			gc_budget_probe_active = false;
+			gc_last_present_time = now;
 		}
+	}
+	else if( gc_present_count <= 16 )
+	{
+		/* One line for smoke evidence — three SYS_Reports per present were
+		 * dominating host I/O on short Dolphin probes. */
+		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u frame time=%.2fms\n",
+			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count, elapsed_ms );
 		/* gcmap/gcworldrender probes intentionally pace presents while the real
 		 * renderer cost is reported inside R_RenderScene. Avoid flagging those
 		 * waits as slow frame bugs, but keep the warning for normal gameplay. */
-		if( elapsed_ms >= 33.0 && !gc_budget_probe_active )
+		if( elapsed_ms >= 33.0 )
 			SYS_Report( "Xash3D GameCube: G49 slow frame %.2fms worst=%.2fms\n", elapsed_ms, gc_worst_frame_ms );
 		gc_last_present_time = now;
 	}
@@ -1387,6 +1400,8 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	/* Match smoke-probe present cost: half-res buffer, skip VSync, cheap samples. */
 	gc_present_count = 0;
 	gc_blank_present_count = 0;
+	gc_budget_sample_count = 0;
+	gc_budget_warmup_left = GC_VIDEO_BUDGET_WARMUP_PRESENTS;
 	gc_last_present_time = 0.0;
 	gc_worst_frame_ms = 0.0;
 	gc_budget_probe_active = true;
@@ -1405,17 +1420,8 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=%d)\n",
 		gc.width, gc.height, gc_budget_probe_active ? 1 : 0 );
 
-	/* Emit a few present samples immediately. After New Game ca_active the
-	 * next Host_Frame can stall for seconds in server/entity logic; G36 still
-	 * needs post-arm present timings with the map resident. */
-	{
-		int i;
-		for( i = 0; i < 8; i++ )
-		{
-			GC_FillBudgetProbeFrameBuffer();
-			GC_PresentBuffer();
-		}
-	}
+	/* Sample real Host_Frame presents after warm-up. Synthetic fill bursts are
+	 * no longer needed now that post-ca_active frames keep running. */
 #endif
 }
 
@@ -1426,6 +1432,8 @@ void GC_BeginFrameBudgetProbe( void )
 
 	gc_present_count = 0;
 	gc_blank_present_count = 0;
+	gc_budget_sample_count = 0;
+	gc_budget_warmup_left = 0;
 	gc_last_present_time = 0.0;
 	gc_worst_frame_ms = 0.0;
 	gc_budget_probe_active = true;
