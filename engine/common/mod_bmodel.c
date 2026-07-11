@@ -2972,8 +2972,15 @@ static void Mod_LoadTextureData( model_t *mod, dbspmodel_t *bmod, int textureInd
 	// check for multi-layered sky texture (quake1 specific)
 	if( bmod->isworld && Q_strncmp( mipTex.name, "sky", 3 ) == 0 && ( mipTex.width / mipTex.height ) == 2 )
 	{
+#if XASH_GAMECUBE
+		/* Cloud split needs a large transient RGBA buffer and the GX path
+		 * never consumed solid/alpha layers. Fall through and load the sky
+		 * mip as a single scrolling layer for textured sky fills. */
+		Con_Reportf( "Xash3D GameCube: loading sky as single layer for %s\n", mipTex.name );
+#else
 		Mod_InitSkyClouds( mod, &mipTex, texture, usesCustomPalette ); // load quake sky
 		return;
+#endif
 	}
 
 	// FIXME: for ENGINE_IMPROVED_LINETRACE we need to load textures on server too

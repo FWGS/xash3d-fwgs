@@ -879,6 +879,57 @@ static void D_CalcGradients( msurface_t *pface )
 }
 
 
+#if XASH_GAMECUBE
+/*
+==============
+D_SkyFillSurfaceRGB565
+
+Screen-space scroll of a soft-palette sky/skybox mip into the RGB565 FB.
+==============
+*/
+static void D_SkyFillSurfaceRGB565( surf_t *surf, image_t *mt )
+{
+	const int tw = mt->width;
+	const int th = mt->height;
+	const pixel_t *src = mt->pixels[0];
+	const int scroll_s = ((int)( gp_cl->time * 12.0f )) & 1023;
+	const int scroll_t = ((int)( gp_cl->time * 6.0f )) & 1023;
+	static qboolean gc_sky_marker_logged;
+
+	if( !src || tw <= 0 || th <= 0 )
+		return;
+
+	for( espan_t *span = surf->spans; span; span = span->pnext )
+	{
+		pixel_t *pdest = d_viewbuffer + r_screenwidth * span->v;
+		const int v = span->v;
+		int       u2 = span->u + span->count - 1;
+		int       u;
+
+		for( u = span->u; u <= u2; u++ )
+		{
+			int s = ( u + scroll_s ) % tw;
+			int t = ( v + scroll_t ) % th;
+			pixel_t soft;
+
+			if( s < 0 )
+				s += tw;
+			if( t < 0 )
+				t += th;
+			soft = src[t * tw + s];
+			if( soft != TRANSPARENT_COLOR )
+				pdest[u] = vid.screen[soft];
+		}
+	}
+
+	if( !gc_sky_marker_logged )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: RGB565 textured sky active (%dx%d)\n", tw, th );
+		gc_sky_marker_logged = true;
+	}
+}
+#endif
+
 /*
 ==============
 D_BackgroundSurf
@@ -895,10 +946,52 @@ static void D_BackgroundSurf( surf_t *s )
 	d_ziorigin = -0.9;
 
 #if XASH_GAMECUBE
-	/* Low-res RGB565 present: soft clearcolor indices look wrong on GX. */
+	/* Low-res: prefer skybox / sky mip over flat blue so tram windows show sky. */
 	if( GC_UseLowResWorldProbe() )
-		D_FlatFillSurface( s, 0x5ADB ); /* sky-ish blue */
-	else
+	{
+		image_t *mt = NULL;
+		int      i;
+
+		/* skybox order: rt bk lf ft up dn — prefer up, then ft, then any. */
+		if( tr.skyboxTextures[4] )
+			mt = R_GetTexture( tr.skyboxTextures[4] );
+		if(( !mt || !mt->pixels[0] ) && tr.skyboxTextures[3] )
+			mt = R_GetTexture( tr.skyboxTextures[3] );
+		if( !mt || !mt->pixels[0] )
+		{
+			for( i = 0; i < 6; i++ )
+			{
+				if( !tr.skyboxTextures[i] )
+					continue;
+				mt = R_GetTexture( tr.skyboxTextures[i] );
+				if( mt && mt->pixels[0] )
+					break;
+				mt = NULL;
+			}
+		}
+		if(( !mt || !mt->pixels[0] ) && s->msurf && s->msurf->texinfo && s->msurf->texinfo->texture )
+		{
+			mt = R_GetTexture( s->msurf->texinfo->texture->gl_texturenum );
+			if( !mt || !mt->pixels[0] )
+				mt = NULL;
+		}
+
+		if( mt && mt->pixels[0] )
+			D_SkyFillSurfaceRGB565( s, mt );
+		else
+		{
+			static qboolean gc_sky_flat_logged;
+
+			D_FlatFillSurface( s, 0x5ADB ); /* sky-ish blue fallback */
+			if( !gc_sky_flat_logged )
+			{
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: RGB565 sky flat fallback (no sky mip/skybox)\n" );
+				gc_sky_flat_logged = true;
+			}
+		}
+		D_DrawZSpans( s->spans );
+		return;
+	}
 #endif
 	D_FlatFillSurface( s, (int)sw_clearcolor.value & 0xFFFF );
 	D_DrawZSpans( s->spans );
@@ -1286,7 +1379,7 @@ void D_DrawSurfaces( void )
 
 			if( alphaspans )
 				D_AlphaSurf( s );
-			else if( s->flags & SURF_DRAWSKY )
+			else if(( s->flags & SURF_DRAWSKY ) || ( s == &surfaces[1] ))
 				D_BackgroundSurf( s );
 			else if( s->flags & SURF_DRAWTURB )
 				D_TurbulentSurf( s );
