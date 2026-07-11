@@ -364,7 +364,7 @@ static void SV_CreateGenericResources( void )
 	char	filename[MAX_QPATH];
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && !COM_StringEmptyOrNULL( sv.name ))
+	if( GC_MapLoadMemoryOpt() && !COM_StringEmptyOrNULL( sv.name ))
 	{
 		Q_snprintf( filename, sizeof( filename ), "maps/%s.res", sv.name );
 		COM_FixSlashes( filename );
@@ -409,7 +409,7 @@ static void SV_CreateResourceList( void )
 		s = sv.files_precache[i];
 		if( COM_StringEmptyOrNULL( s )) break; // end of list
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ))
+		if( GC_MapLoadMemoryOpt())
 			nSize = 0;
 		else
 #endif
@@ -435,7 +435,7 @@ static void SV_CreateResourceList( void )
 		else
 		{
 #if XASH_GAMECUBE
-			if( Sys_CheckParm( "-gcmap" ))
+			if( GC_MapLoadMemoryOpt())
 				nSize = 0;
 			else
 #endif
@@ -449,7 +449,7 @@ static void SV_CreateResourceList( void )
 		s = sv.model_precache[i];
 		if( COM_StringEmptyOrNULL( s )) break; // end of list
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ) || s[0] == '*' )
+		if( GC_MapLoadMemoryOpt() || s[0] == '*' )
 			nSize = 0;
 		else
 			nSize = FS_FileSize( s, false );
@@ -470,7 +470,7 @@ static void SV_CreateResourceList( void )
 		s = sv.event_precache[i];
 		if( COM_StringEmptyOrNULL( s )) break; // end of list
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ))
+		if( GC_MapLoadMemoryOpt())
 			nSize = 0;
 		else
 #endif
@@ -649,7 +649,7 @@ void SV_ActivateServer( int runPhysics )
 	SV_CreateGenericResources();
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 	{
 		sv.frametime = 0.001;
 		numFrames = 0;
@@ -1037,7 +1037,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		Cbuf_AddTextf( "exec %s\n", cycle );
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 		Con_Reportf( "Xash3D GameCube: map load cfg skipped\n" );
 	else
 #endif
@@ -1079,7 +1079,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 
 	// enforce hpk_max_size
 #if XASH_GAMECUBE
-	if( !Sys_CheckParm( "-gcmap" ))
+	if( !GC_MapLoadMemoryOpt())
 #endif
 		HPAK_CheckSize( hpk_custom_file.string );
 
@@ -1142,7 +1142,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	CRC32_MapFile( &sv.worldmapCRC, sv.model_precache[WORLD_INDEX], svs.maxclients > 1 );
 #if XASH_GAMECUBE
 	GC_MemSample( "bsp load" );
-	if( !Sys_CheckParm( "-gcmap" ))
+	if( !GC_MapLoadMemoryOpt())
 		GC_DrawLoadingStatus( "SPAWNING ENTITIES", sv.name );
 	else
 		Con_Reportf( "Xash3D GameCube: submodel precache begin count=%d\n", sv.worldmodel->numsubmodels );
@@ -1157,7 +1157,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	}
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 	{
 		for( i = WORLD_INDEX; i < sv.worldmodel->numsubmodels; i++ )
 		{
@@ -1204,7 +1204,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	SV_GenerateTestPacket();
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 		Con_Reportf( "Xash3D GameCube: spawn server ready\n" );
 #endif
 

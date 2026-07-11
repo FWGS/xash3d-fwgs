@@ -20,6 +20,9 @@ GNU General Public License for more details.
 #endif // XASH_SDL
 
 #include "common.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 #include "client.h"
 #include "const.h"
 #include "triangleapi.h"
@@ -45,9 +48,9 @@ static void CL_GameCubeApplySmokeClientBudgets( void )
 	gameinfo_t *mutable_gi;
 	/* Retail play keeps modest FX budgets so the world BSP (~2 MiB) and client
 	 * can coexist. Smoke probes stay even tighter. */
-	int particles = Sys_CheckParm( "-gcmap" ) ? 48 : 256;
-	int beams = Sys_CheckParm( "-gcmap" ) ? 4 : 16;
-	int tents = Sys_CheckParm( "-gcmap" ) ? 4 : 64;
+	int particles = GC_MapLoadMemoryOpt() ? 48 : 256;
+	int beams = GC_MapLoadMemoryOpt() ? 4 : 16;
+	int tents = GC_MapLoadMemoryOpt() ? 4 : 64;
 
 	if( GI )
 	{
@@ -1035,7 +1038,7 @@ static entity_state_t gc_gcmap_bootstrap_packet_entities[64];
 
 static qboolean CL_GameCubeUseStaticGcmapBootstrapEdicts( int maxclients )
 {
-	return Sys_CheckParm( "-gcmap" ) && maxclients <= 1 && clgame.maxEntities <= 2;
+	return GC_MapLoadMemoryOpt() && maxclients <= 1 && clgame.maxEntities <= 2;
 }
 #endif
 
@@ -1050,7 +1053,7 @@ void CL_InitEdicts( int maxclients )
 	cls.num_client_entities = CL_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
 #if XASH_GAMECUBE
 	if( maxclients <= 1 )
-		cls.num_client_entities = Sys_CheckParm( "-gcmap" ) ? 64 : 128;
+		cls.num_client_entities = GC_MapLoadMemoryOpt() ? 64 : 128;
 	Con_Reportf( "Xash3D GameCube: client edicts alloc request max=%d bytes=%u packet_entities=%d\n",
 		clgame.maxEntities, (uint)( sizeof( cl_entity_t ) * clgame.maxEntities ),
 		cls.num_client_entities );
@@ -1297,7 +1300,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 			return true;
 		}
 #if XASH_GAMECUBE
-		else if( Sys_CheckParm( "-gcmap" ))
+		else if( GC_MapLoadMemoryOpt())
 		{
 			Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
 			if( loaded )
@@ -4226,7 +4229,7 @@ qboolean CL_LoadProgs( const char *name )
 	{
 #if XASH_GAMECUBE
 		CL_GameCubeApplySmokeClientBudgets();
-		if( Sys_CheckParm( "-gcmap" ))
+		if( GC_MapLoadMemoryOpt())
 		{
 			Con_Reportf( "Xash3D GameCube: titles init skipped for gcmap smoke route\n" );
 			Con_Reportf( "Xash3D GameCube: transient client effects skipped for gcmap smoke route\n" );

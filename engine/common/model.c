@@ -34,7 +34,7 @@ static poolhandle_t gc_gcmap_stubpool;
 
 static qboolean Mod_GCMapVerboseModelLoad( const char *name )
 {
-	if( !Sys_CheckParm( "-gcmap" ))
+	if( !GC_MapLoadMemoryOpt())
 		return false;
 	if( !name )
 		return false;
@@ -400,7 +400,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 #endif
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 	{
 		const char *ext = COM_FileExtension( tempname );
 
@@ -483,7 +483,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	if( !buf || length < sizeof( uint ))
 	{
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ) && ( !Q_strncmp( loadname, "maps", 4 ) || !Q_strncmp( loadname, "models", 6 )))
+		if( GC_MapLoadMemoryOpt() && ( !Q_strncmp( loadname, "maps", 4 ) || !Q_strncmp( loadname, "models", 6 )))
 		{
 			fs_offset_t filesize = FS_FileSize( loadname, false );
 			qboolean exists = FS_FileExists( loadname, false );
@@ -671,7 +671,7 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 	world.loading = true;
 	model_t *pworld = Mod_FindName( name, false );
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 	{
 		fs_offset_t filesize = FS_FileSize( name, false );
 		qboolean exists = FS_FileExists( name, false );
@@ -714,7 +714,7 @@ void Mod_GcmapMarkPrecacheFreeable( void )
 	model_t *mod;
 	int i, marked;
 
-	if( !Sys_CheckParm( "-gcmap" ))
+	if( !GC_MapLoadMemoryOpt())
 		return;
 
 	marked = 0;

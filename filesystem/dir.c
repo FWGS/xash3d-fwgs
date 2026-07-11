@@ -55,7 +55,11 @@ typedef struct dir_s
 
 static qboolean Platform_GetDirectoryCaseSensitivity( const char *dir )
 {
-#if XASH_WIN32 || XASH_PSVITA || XASH_NSWITCH
+#if XASH_WIN32 || XASH_PSVITA || XASH_NSWITCH || XASH_GAMECUBE
+	/* GameCube disc/SD content is staged with normalized lowercase names.
+	 * Skip the case-fix directory cache — indexing valve/ on ISO9660
+	 * allocates tens of KiB per folder and OOMs after retail BSP load. */
+	(void)dir;
 	return false;
 #elif XASH_ANDROID
 	// on Android, doing code below causes crash in MediaProviderGoogle.apk!libfuse_jni.so

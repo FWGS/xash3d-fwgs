@@ -41,6 +41,9 @@ static void SV_GameCubePlayStart_f( void )
 	{
 		SV_SpawnEntities( map );
 		SV_ActivateServer( true );
+		/* World is resident; free BSP staging and unused stubs before client. */
+		GC_DiscardMapLoadBuffer();
+		Mod_GcmapMarkPrecacheFreeable();
 		if( !CL_GameCubeEnsureClientReady() )
 		{
 			Con_Reportf( "Xash3D GameCube: play start client reload failed %s\n", map );

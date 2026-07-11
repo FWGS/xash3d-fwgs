@@ -14,6 +14,9 @@ GNU General Public License for more details.
 */
 
 #include "common.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 #include "server.h"
 #include "studio.h"
 #include "r_studioint.h"
@@ -1201,7 +1204,7 @@ void Mod_LoadStudioGcmapStub( model_t *mod, qboolean *loaded )
 
 	if( loaded ) *loaded = false;
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 		mod->mempool = Mod_GameCubeSharedModelStubPool();
 	else
 		mod->mempool = Mem_AllocPool( poolname );
@@ -1232,7 +1235,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
 
 	if( loaded ) *loaded = false;
-	if( Sys_CheckParm( "-gcmap" ))
+	if( GC_MapLoadMemoryOpt())
 		mod->mempool = Mod_GameCubeSharedModelStubPool();
 	else
 		mod->mempool = Mem_AllocPool( poolname );

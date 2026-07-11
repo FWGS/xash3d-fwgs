@@ -14,12 +14,12 @@ probe_guest_error() {
 finalize_probe() {
 	local status="$1"
 	local exit_code="$2"
-	python3 scripts/dolphin-probe-analyze.py \
+	timeout --signal=TERM --kill-after=5 60 python3 scripts/dolphin-probe-analyze.py \
 		--repo "$ROOT" \
 		--log-dir "$LOG_DIR" \
 		--smoke-map "$SMOKE_MAP" \
 		--probe-status "$status" \
-		--update-state
+		--update-state || echo "WARNING: dolphin-probe-analyze timed out or failed"
 	exit "$exit_code"
 }
 

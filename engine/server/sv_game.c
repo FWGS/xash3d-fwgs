@@ -4896,7 +4896,7 @@ static void SV_FreeKeyValueStrings( KeyValueData *kvd, int numpairs )
 #if XASH_GAMECUBE
 static qboolean SV_GCMapSmokeRoute( void )
 {
-	return Sys_CheckParm( "-gcmap" ) != 0;
+	return GC_MapLoadMemoryOpt();
 }
 
 static qboolean SV_GCMapParseEOF( const char *stage, int entity_index, const char *classname )
