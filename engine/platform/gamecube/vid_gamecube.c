@@ -18,6 +18,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include "gamecube/mem_gamecube.h"
 
 qboolean R_GcmapEnsureSurfaceCache( void );
+qboolean R_TryInitLowResSurfaceCache( void );
 void R_GcmapTrimSurfaceCache( void );
 qboolean R_GcmapEnsureWorldRenderScratch( void );
 qboolean R_GcmapPrepareWorldRender( void );
@@ -1503,6 +1504,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		SYS_Report( "Xash3D GameCube: newgame world presentation buffer failed\n" );
 		return false;
 	}
+
+	/* Static surface cache for textured spans feeding the GX present path. */
+	if( !R_TryInitLowResSurfaceCache() )
+		SYS_Report( "Xash3D GameCube: newgame textured cache unavailable (flat fill)\n" );
 
 	refState.width = present_w;
 	refState.height = present_h;

@@ -65,6 +65,10 @@ surfcache_t     *sc_rover;
 static surfcache_t *sc_base;
 #if XASH_GAMECUBE
 static int r_gc_surface_cache_skip_reports;
+/* Static BSS so New Game textured spans never malloc after present buffers. */
+static byte gc_lowres_surfcache_store[GC_SURFACE_CACHE_LOWRES + 32]
+	__attribute__((aligned( 32 )));
+static qboolean gc_sc_static;
 #endif
 
 
@@ -941,10 +945,23 @@ void R_InitCaches( void )
 	if( sc_base )
 	{
 		D_FlushCaches(  );
-		Mem_Free( sc_base );
+#if XASH_GAMECUBE
+		if( !gc_sc_static )
+		{
+			if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+				free( sc_base );
+			else
+#endif
+			Mem_Free( sc_base );
+#if XASH_GAMECUBE
+		}
+#endif
 	}
 	sc_base = (surfcache_t *)Mem_Calloc( r_temppool, size );
 	sc_rover = sc_base;
+#if XASH_GAMECUBE
+	gc_sc_static = false;
+#endif
 
 	sc_base->next = NULL;
 	sc_base->owner = NULL;
@@ -980,6 +997,7 @@ qboolean R_TryInitGcmapSurfaceCache( void )
 		sc_base->next = NULL;
 		sc_base->owner = NULL;
 		sc_base->size = sc_size;
+		gc_sc_static = false;
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( alloc_size ));
 		return true;
 	}
@@ -996,12 +1014,39 @@ void R_GcmapTrimSurfaceCache( void )
 	if( sc_base )
 	{
 		D_FlushCaches();
-		if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
-			free( sc_base );
-		else
-			Mem_Free( sc_base );
+		if( !gc_sc_static )
+		{
+			if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+				free( sc_base );
+			else
+				Mem_Free( sc_base );
+		}
 		sc_base = sc_rover = NULL;
+		gc_sc_static = false;
 	}
+}
+
+qboolean R_GcmapHasSurfaceCache( void )
+{
+	return sc_base != NULL;
+}
+
+qboolean R_TryInitLowResSurfaceCache( void )
+{
+	if( sc_base )
+		return true;
+
+	sc_base = (surfcache_t *)gc_lowres_surfcache_store;
+	sc_size = GC_SURFACE_CACHE_LOWRES;
+	sc_rover = sc_base;
+	memset( sc_base, 0, sc_size );
+	sc_base->next = NULL;
+	sc_base->owner = NULL;
+	sc_base->size = sc_size;
+	gc_sc_static = true;
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res surface cache %s (static)\n",
+		Q_memprint( sc_size ));
+	return true;
 }
 #endif
 
@@ -1049,14 +1094,25 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 		gEngfuncs.Host_Error( "%s: bad cache width %d\n", __func__, width );
 
 	if(( size <= 0 ) || ( size > 0x10000000 ))
+	{
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || GC_UseLowResWorldProbe() )
+		{
+			if( r_gc_surface_cache_skip_reports < 16 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache skip bad size %d\n", size );
+			r_gc_surface_cache_skip_reports++;
+			return NULL;
+		}
+#endif
 		gEngfuncs.Host_Error( "%s: bad cache size %d\n", __func__, size );
+	}
 
 	size = offsetof( surfcache_t, data ) + size;
 	size = ( size + 3 ) & ~3;
 	if( size > sc_size )
 	{
 #if XASH_GAMECUBE
-		if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+		if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || GC_UseLowResWorldProbe() )
 		{
 			if( r_gc_surface_cache_skip_reports < 16 )
 				gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache skip alloc=%i cache=%i\n",
@@ -1092,7 +1148,7 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 			if( !sc_rover )
 			{
 #if XASH_GAMECUBE
-				if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+				if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || GC_UseLowResWorldProbe() )
 				{
 					if( r_gc_surface_cache_skip_reports < 16 )
 						gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache exhausted alloc=%i cache=%i\n",
@@ -1389,6 +1445,33 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		r_drawsurf.rowbytes = r_drawsurf.surfwidth;
 		r_drawsurf.surfheight = surface->extents[1] >> miplevel;
 	}
+
+#if XASH_GAMECUBE
+	/* Low-res New Game: prefer face extents and keep at least 1×1 so textured
+	 * spans can allocate into the static cache (lightextents are often empty). */
+	if( GC_UseLowResWorldProbe() )
+	{
+		int w = surface->extents[0] >> miplevel;
+		int h = surface->extents[1] >> miplevel;
+		int mip = miplevel;
+
+		while(( w <= 0 || h <= 0 ) && mip > 0 )
+		{
+			mip--;
+			w = surface->extents[0] >> mip;
+			h = surface->extents[1] >> mip;
+		}
+		if( w <= 0 )
+			w = 8;
+		if( h <= 0 )
+			h = 8;
+		r_drawsurf.surfmip = mip;
+		r_drawsurf.surfwidth = w;
+		r_drawsurf.surfheight = h;
+		r_drawsurf.rowbytes = w;
+		surfscale = 1.0 / ( 1 << mip );
+	}
+#endif
 
 
 //

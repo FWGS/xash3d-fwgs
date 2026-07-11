@@ -1098,22 +1098,51 @@ static void D_SolidSurf( surf_t *s )
 		miplevel--;
 
 #if XASH_GAMECUBE
-	/* Low-res world probe: flat-fill RGB565 directly (blit skips vid.screen). */
+	/* Low-res New Game: textured spans → RGB565 for the GX present path.
+	 * Flat RGB565 fill remains the fallback so geometry stays visible. */
 	if( GC_UseLowResWorldProbe() )
 	{
-		/* Cycle through saturated primaries so surfaces are obviously non-black. */
-		static const pixel_t gc_probe_colors[6] = {
-			0xF800, /* red */
-			0x07E0, /* green */
-			0x001F, /* blue */
-			0xFFE0, /* yellow */
-			0xF81F, /* magenta */
-			0x07FF, /* cyan */
-		};
-		pixel_t fill = gc_probe_colors[((uintptr_t)pface >> 5 ) % 6];
+		d_gc_span_rgb565 = true;
+		if( R_GcmapHasSurfaceCache() )
+		{
+			pcurrentcache = D_CacheSurface( pface, miplevel );
+			if( pcurrentcache )
+			{
+				cacheblock = (pixel_t *)pcurrentcache->data;
+				cachewidth = pcurrentcache->width;
+				D_CalcGradients( pface );
+				D_DrawSpans16( s->spans );
+				D_DrawZSpans( s->spans );
+				d_gc_span_rgb565 = false;
+				if( s->insubmodel )
+				{
+					VectorCopy( world_transformed_modelorg, transformed_modelorg );
+					VectorCopy( RI.base_vpn, RI.vforward );
+					VectorCopy( RI.base_vup, RI.vup );
+					VectorCopy( RI.base_vright, RI.vright );
+					R_TransformFrustum();
+					RI.currententity = NULL;
+				}
+				return;
+			}
+		}
+		d_gc_span_rgb565 = false;
 
-		D_FlatFillSurface( s, fill );
-		D_DrawZSpans( s->spans );
+		/* Cycle through saturated primaries so uncached surfaces stay visible. */
+		{
+			static const pixel_t gc_probe_colors[6] = {
+				0xF800, /* red */
+				0x07E0, /* green */
+				0x001F, /* blue */
+				0xFFE0, /* yellow */
+				0xF81F, /* magenta */
+				0x07FF, /* cyan */
+			};
+			pixel_t fill = gc_probe_colors[((uintptr_t)pface >> 5 ) % 6];
+
+			D_FlatFillSurface( s, fill );
+			D_DrawZSpans( s->spans );
+		}
 		if( s->insubmodel )
 		{
 			VectorCopy( world_transformed_modelorg, transformed_modelorg );

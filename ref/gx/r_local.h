@@ -536,6 +536,7 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage );
 #if XASH_GAMECUBE
 #define GC_SURFACE_CACHE_DEFAULT 262144
 #define GC_SURFACE_CACHE_MAX     262144
+#define GC_SURFACE_CACHE_LOWRES  65536 /* static BSS textured spans for New Game */
 qboolean R_Init_refgx( void );
 void R_Shutdown_refgx( void );
 #define R_Init R_Init_refgx
@@ -1007,6 +1008,11 @@ extern fixed16_t   bbextents, bbextentt;
 
 
 void D_DrawSpans16( espan_t *pspans );
+#if XASH_GAMECUBE
+/* When set, D_DrawSpans16 writes display RGB565 via vid.screen[] so low-res
+ * New Game frames stay compatible with the GX present path + flat fills. */
+extern qboolean d_gc_span_rgb565;
+#endif
 void D_DrawZSpans( espan_t *pspans );
 void Turbulent8( espan_t *pspan );
 void NonTurbulent8( espan_t *pspan ); // PGM
@@ -1139,6 +1145,8 @@ void R_InitCaches( void );
 qboolean R_TryInitGcmapSurfaceCache( void );
 qboolean R_GcmapEnsureSurfaceCache( void );
 void R_GcmapTrimSurfaceCache( void );
+qboolean R_GcmapHasSurfaceCache( void );
+qboolean R_TryInitLowResSurfaceCache( void );
 qboolean R_GcmapPrepareWorldRender( void );
 qboolean R_GcmapAllocMinimalScreen( void );
 qboolean R_GcmapGetViewport( int *width, int *height );

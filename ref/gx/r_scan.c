@@ -23,6 +23,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "r_local.h"
 
+#if XASH_GAMECUBE
+qboolean d_gc_span_rgb565;
+#endif
+
 pixel_t    *r_turb_pbase, *r_turb_pdest;
 short      *r_turb_pz;
 fixed16_t  r_turb_s, r_turb_t, r_turb_sstep, r_turb_tstep;
@@ -644,6 +648,11 @@ void D_DrawSpans16( espan_t *pspan )
 			{
 				do
 				{
+#if XASH_GAMECUBE
+					if( d_gc_span_rgb565 )
+						*pdest++ = vid.screen[*( pbase + ( s >> 16 ) + ( t >> 16 ) * cachewidth )];
+					else
+#endif
 					*pdest++ = *( pbase + ( s >> 16 ) + ( t >> 16 ) * cachewidth );
 					s += sstep;
 					t += tstep;
@@ -672,6 +681,11 @@ void D_DrawSpans16( espan_t *pspan )
 					iditht = iditht ? iditht - 1 : iditht;
 
 
+#if XASH_GAMECUBE
+					if( d_gc_span_rgb565 )
+						*pdest++ = vid.screen[*( pbase + idiths + iditht * cachewidth )];
+					else
+#endif
 					*pdest++ = *( pbase + idiths + iditht * cachewidth );
 					s += sstep;
 					t += tstep;
