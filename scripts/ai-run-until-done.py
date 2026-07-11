@@ -34,6 +34,7 @@ DISCOVERY_RETRY_RESULTS = {
 }
 DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19, 20, 21}
 AUTOMATION_DISCOVERY_RESULTS = {"no_edit", "model_budget", "review_reject"}
+STUCK_DISCOVERY_RESULTS = {"no_edit", "model_budget"}
 RUNTIME_DISCOVERY_RESULTS = {
 	"runtime_probe",
 	"memory_pressure",
@@ -41,6 +42,57 @@ RUNTIME_DISCOVERY_RESULTS = {
 	"audio_runtime",
 	"asset_lookup",
 }
+HEARTBEAT_PATH = Path(".ai/state/autoport-heartbeat.json")
+
+
+def stuck_discovery_threshold() -> int:
+	try:
+		return max(1, int(os.environ.get("AI_DISCOVERY_STUCK_THRESHOLD", "3")))
+	except ValueError:
+		return 3
+
+
+def stuck_discovery_backoff_sec() -> int:
+	try:
+		return max(0, int(os.environ.get("AI_DISCOVERY_STUCK_BACKOFF", "60")))
+	except ValueError:
+		return 60
+
+
+def load_discovery_feedback(root: Path) -> dict[str, object] | None:
+	path = root / DISCOVERY_STATE_PATH
+	if not path.is_file():
+		return None
+	try:
+		payload = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return None
+	return payload if isinstance(payload, dict) else None
+
+
+def discovery_is_stuck(root: Path) -> bool:
+	payload = load_discovery_feedback(root)
+	if not payload:
+		return False
+	result = str(payload.get("result") or "").strip()
+	if result not in STUCK_DISCOVERY_RESULTS:
+		return False
+	try:
+		repeat_count = int(payload.get("repeat_count") or 1)
+	except (TypeError, ValueError):
+		repeat_count = 1
+	return repeat_count >= stuck_discovery_threshold()
+
+
+def write_heartbeat(root: Path, **fields: object) -> None:
+	path = root / HEARTBEAT_PATH
+	path.parent.mkdir(parents=True, exist_ok=True)
+	payload = {
+		"pid": os.getpid(),
+		"timestamp": datetime.now(timezone.utc).isoformat(),
+		**fields,
+	}
+	path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def run(command: list[str], root: Path, env: dict[str, str] | None = None) -> int:
@@ -136,19 +188,34 @@ def next_work_item(root: Path, mode: str) -> dict[str, object] | None:
 
 	items = discovered_items(root)
 	discovery = next((item for item in items if item.get("kind") == "discovery"), None)
+	stuck = discovery_is_stuck(root)
 
 	if mode == "only":
 		return discovery
 	if mode == "prefer" and discovery is not None:
+		if stuck and goal is not None:
+			print(
+				"run-until-done: discovery stuck on repeated no-edit/budget; "
+				f"falling back to goal {goal}",
+				file=sys.stderr,
+				flush=True,
+			)
+			clear_discovery_feedback(root)
+			return {"kind": "goal", "label": goal}
 		return discovery
 	if goal is not None:
 		return {"kind": "goal", "label": goal}
 	if mode in {"after-goals", "prefer"}:
+		if stuck and mode == "prefer":
+			print(
+				"run-until-done: discovery stuck and no open goals remain; "
+				f"backing off {stuck_discovery_backoff_sec()}s before retry",
+				file=sys.stderr,
+				flush=True,
+			)
+			time.sleep(stuck_discovery_backoff_sec())
+			clear_discovery_feedback(root)
 		return discovery
-
-	# Handle no_edit status
-	if goal and goal.get("status") == "no_edit":
-		return {"kind": "goal", "label": goal}
 
 	return None
 
@@ -362,10 +429,12 @@ def main() -> int:
 		parser.error("--max-cycles must be zero or positive")
 
 	cycles = count(1) if args.max_cycles == 0 else range(1, args.max_cycles + 1)
+	write_heartbeat(root, state="starting", discovery_mode=args.discovery_mode)
 	for cycle in cycles:
 		if not model_ready(api_base):
 			print(f"run-until-done: model API is not reachable at {api_base}; retrying after {args.sleep}s",
 				file=sys.stderr, flush=True)
+			write_heartbeat(root, state="waiting-for-model", cycle=cycle, api_base=api_base)
 			time.sleep(args.sleep)
 			continue
 		work_item = next_work_item(root, args.discovery_mode)
@@ -374,18 +443,24 @@ def main() -> int:
 				print("run-until-done: all automatic goals are complete or blocked")
 			else:
 				print("run-until-done: no automatic goals or discovered work items remain")
+			write_heartbeat(root, state="exhausted", cycle=cycle)
 			return 0
 		cycle_limit = "unlimited" if args.max_cycles == 0 else str(args.max_cycles)
 		if work_item.get("kind") == "goal":
 			label = str(work_item.get("label"))
 			print(f"\n== supervisor cycle {cycle}/{cycle_limit}: {label} ==", flush=True)
+			write_heartbeat(root, state="running", cycle=cycle, kind="goal", label=label)
 			status = run(["scripts/ai-goal-loop.py", "--repo", str(root),
 				"--max-passes", str(args.chunk_passes),
 				"--recoverable-retries", str(args.recoverable_retries)], root)
 		else:
 			label = str(work_item.get("title") or work_item.get("item_id") or "discovered task")
 			print(f"\n== supervisor cycle {cycle}/{cycle_limit}: discovery - {label} ==", flush=True)
+			write_heartbeat(root, state="running", cycle=cycle, kind="discovery",
+				label=label, item_id=work_item.get("item_id"))
 			status = run_discovery_pass(root, work_item)
+		write_heartbeat(root, state="cycle-complete", cycle=cycle,
+			kind=work_item.get("kind"), label=label, exit_code=status)
 		if status == 0:
 			continue
 		if work_item.get("kind") == "goal" and status == 3:
@@ -396,6 +471,18 @@ def main() -> int:
 			)
 			return 3
 		if work_item.get("kind") == "discovery" and status in DISCOVERY_FAST_RETRY_STATUSES:
+			if discovery_is_stuck(root):
+				backoff = stuck_discovery_backoff_sec()
+				print(
+					f"run-until-done: discovery stuck after exit {status}; "
+					f"backing off {backoff}s and rotating to goals next cycle",
+					file=sys.stderr,
+					flush=True,
+				)
+				write_heartbeat(root, state="discovery-stuck-backoff", cycle=cycle,
+					exit_code=status, backoff_sec=backoff)
+				time.sleep(backoff)
+				continue
 			print(f"run-until-done: child exit {status}; retrying immediately with refreshed discovery state",
 				file=sys.stderr, flush=True)
 			continue

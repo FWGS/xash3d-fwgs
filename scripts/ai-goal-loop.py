@@ -498,9 +498,7 @@ GOAL_READ_CONTEXT = {
 	"G71": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
 		".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
-	"G72": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",
-		".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",
-		".ai/prompts/GAMECUBE_AUDIO_NOTES.md"),
+	"G72": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
 	"G73": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G74": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
@@ -870,6 +868,25 @@ def clip_text(text: str, limit: int = 360) -> str:
 	if len(text) <= limit:
 		return text
 	return text[:limit - 3].rstrip() + "..."
+
+
+def neutralize_aider_file_mentions(text: str, *, editable: set[str] | None = None) -> str:
+	"""Rewrite oversized path mentions so Aider --yes-always does not auto-add them."""
+	editable = editable or set()
+	replacements = {
+		"docs/GAMECUBE_PORT_PLAN.md": "the GameCube port plan doc",
+		"scripts/gamecube-rc-check.sh": "the RC check script",
+		".ai/goals/GAMECUBE_PORT_GOALS.md": "the GameCube goal ledger",
+		"docs/GAMECUBE_HARDWARE_VALIDATION.md": "the hardware validation doc",
+		"docs/GAMECUBE_HARDWARE_MATRIX.md": "the hardware matrix doc",
+	}
+	out = text
+	for path, alias in replacements.items():
+		if path in editable:
+			continue
+		out = out.replace(f"`{path}`", alias)
+		out = out.replace(path, alias)
+	return out
 
 
 def latest_dolphin_memory_run(data: object) -> dict[str, object] | None:
@@ -1649,7 +1666,7 @@ Repository context:
 Repository context (abbreviated):
 {clip_text(git_context(root), 1200)}
 """
-	goal_body = goal.body
+	goal_body = neutralize_aider_file_mentions(goal.body)
 	if goal.goal_id == "G24":
 		subgoal = g24_subgoal_for_attempt(attempt)
 		subgoal_files = ", ".join(str(path) for path in subgoal.get("files", ()))
@@ -1849,7 +1866,7 @@ Output rules:
 - If the loaded files are insufficient for a source/verifier patch, make no edit
   instead of writing victory documentation.
 """
-	return f"""You are autonomously advancing the native Xash3D GameCube port.
+	prompt_text = f"""You are autonomously advancing the native Xash3D GameCube port.
 
 Active goal: {goal.goal_id} — {goal.title}
 Attempt on this goal: {attempt}
@@ -1873,8 +1890,8 @@ same SEARCH/REPLACE block.
 
 Rules:
 - Keep the commit below 400 changed lines and do not delete tracked files.
-- Update `docs/GAMECUBE_PORT_PLAN.md` with commands and concrete evidence when
-  it is loaded in the editable context.
+- Update the GameCube port plan doc with commands and concrete evidence only
+  when that file is already loaded in the editable context.
 - If marking `{goal.goal_id}` done, include a command, result, and log path or
   runtime artifact in the goal notes and port plan; docs-only reasoning is not
   enough for completion.
@@ -1885,7 +1902,9 @@ Rules:
 - Use the investigation memory as prior evidence, but verify stale hypotheses
   against current source, logs, or artifacts before acting on them.
 - Stop after this coherent patch; the goal runner decides what comes next.
+- Do not ask Aider to open docs or scripts that are not already in the chat.
 """
+	return neutralize_aider_file_mentions(prompt_text)
 
 
 def write_state(path: Path, **values: object) -> None:

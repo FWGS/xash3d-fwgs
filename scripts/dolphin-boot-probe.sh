@@ -130,8 +130,11 @@ SKIP_ENGINE=0
 SKIP_DISC=0
 if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
 	SKIP_ENGINE=1
-	# Retail / New Game probes stage different gamecube.cfg than the default ISO.
-	if [[ "$DOLPHIN_RETAIL" != "1" ]] && ! (( DOLPHIN_NEWGAME )); then
+	# OUT/xash3d-gc.iso is the retail/menu handoff image (no `map <smoke>` in
+	# valve/gamecube.cfg). Reusing it for default smoke probes leaves the guest
+	# stuck in mainui.cfg. Only reuse the ISO as-is for retail/menu validation
+	# or when the caller sets DOLPHIN_REUSE_ISO=1.
+	if [[ "$DOLPHIN_RETAIL" == "1" ]] || [[ "${DOLPHIN_REUSE_ISO:-0}" == "1" ]]; then
 		SKIP_DISC=1
 	fi
 fi

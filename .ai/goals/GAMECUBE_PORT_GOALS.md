@@ -1292,8 +1292,12 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Record media type, filesystem, loader route, free-space state, slot/path,
   artifact hash, map, save name, and before/after file listing evidence.
 
-## G72 [ ] Close worst-case performance and memory optimization
+## G72 [SKIP] Close worst-case performance and memory optimization
 
+- Status: SKIP for local 7B overnight runs — Aider auto-loads oversized docs and
+  `scripts/gamecube-worst-case-report.py` alone exceeds the 32k context budget
+  with the current prompt overhead. Re-open with a smaller editable slice or a
+  larger-context model.
 - Identify the worst currently supported scenes from the campaign audit and
   soak logs, then either optimize them or explicitly lower/default the quality
   profile until they meet the release frame and memory thresholds.

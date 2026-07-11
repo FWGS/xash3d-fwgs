@@ -274,13 +274,19 @@ def kill_dolphin_stragglers():
 def success_for_phase(phase, code, log):
     # Dolphin scripts may return nonzero if killed after useful evidence,
     # so success markers are authoritative.
-    if phase["name"] in {"dolphin_boot", "map_compat_probe", "runtime_regression"}:
-        return any(marker in log for marker in phase["success"])
+    markers = phase["success"]
+    if phase["name"] == "dolphin_boot":
+        # Require the full boot contract. Matching only G45/visual previously
+        # let menu-stuck MAP_TIMEOUT runs advance into runtime_gate.
+        return all(marker in log for marker in markers)
+
+    if phase["name"] in {"map_compat_probe", "runtime_regression"}:
+        return any(marker in log for marker in markers)
 
     if code != 0:
         return False
 
-    return any(marker in log for marker in phase["success"])
+    return any(marker in log for marker in markers)
 
 
 def classify_failure(log):
