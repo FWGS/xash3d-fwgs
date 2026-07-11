@@ -59,6 +59,7 @@ static unsigned int gc_budget_sample_count;
 static unsigned int gc_budget_warmup_left;
 static unsigned int gc_light_present_left;
 static qboolean gc_newgame_world_ready;
+static qboolean gc_gx_present_logged;
 static convar_t *gc_quality;
 static double gc_last_present_time;
 static double gc_worst_frame_ms;
@@ -198,6 +199,11 @@ static void GC_InitVideoHardware( void )
 }
 
 #if XASH_GAMECUBE
+/* Linear→tiled staging for GX_TF_RGB565 (4×4). Sized for New Game / probe presents. */
+#define GC_GX_TILE_MAX_W 320
+#define GC_GX_TILE_MAX_H 240
+static u16 gc_tiled_rgb565[GC_GX_TILE_MAX_W * GC_GX_TILE_MAX_H] __attribute__((aligned( 32 )));
+
 static void GC_InitPresentTexture( void )
 {
 	if( !gc.buffer || gc.width <= 0 || gc.height <= 0 )
@@ -212,6 +218,60 @@ static void GC_InitPresentTexture( void )
 	gc_present_tex_ready = true;
 }
 
+static void GC_InitPresentTextureTiled( void *tiled, int width, int height )
+{
+	if( !tiled || width <= 0 || height <= 0 )
+	{
+		gc_present_tex_ready = false;
+		return;
+	}
+
+	GX_InitTexObj( &gc_present_tex, tiled, (u16)width, (u16)height,
+		GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
+	GX_InitTexObjFilterMode( &gc_present_tex, GX_NEAR, GX_NEAR );
+	gc_present_tex_ready = true;
+}
+
+static void GC_SwizzleRGB565ToTiled( const unsigned short *src, int src_stride,
+	int width, int height, unsigned short *dst )
+{
+	int tile_x, tile_y, x, y;
+	unsigned short *out = dst;
+
+	/* GX_TF_RGB565 stores 4×4 tiles contiguously. */
+	for( tile_y = 0; tile_y < height; tile_y += 4 )
+	{
+		for( tile_x = 0; tile_x < width; tile_x += 4 )
+		{
+			for( y = 0; y < 4; y++ )
+			{
+				const unsigned short *row = src + ( tile_y + y ) * src_stride + tile_x;
+
+				out[0] = row[0];
+				out[1] = row[1];
+				out[2] = row[2];
+				out[3] = row[3];
+				out += 4;
+			}
+		}
+	}
+}
+
+static qboolean GC_CanPresentViaGX( int width, int height )
+{
+	if( !gc.initialized || !rmode || !xfb[which_fb] )
+		return false;
+	if( width <= 0 || height <= 0 )
+		return false;
+	if(( width & 3 ) || ( height & 3 ))
+		return false;
+	if( width > GC_GX_TILE_MAX_W || height > GC_GX_TILE_MAX_H )
+		return false;
+	/* Prefer GX for New Game world + G36 probe buffers (≤320×240). */
+	return gc_newgame_world_ready || gc_budget_probe_active
+		|| Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcworldrender" );
+}
+
 static void GC_PresentBufferViaGX( void )
 {
 	Mtx44 proj;
@@ -224,11 +284,21 @@ static void GC_PresentBufferViaGX( void )
 	fb_w = (f32)rmode->fbWidth;
 	fb_h = (f32)rmode->efbHeight;
 
+	GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
+	GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
+	GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
+	GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
+	GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
+	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+	GX_SetDispCopyGamma( GX_GM_1_0 );
+
 	guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
 	GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
 	guMtxIdentity( modelview );
 	GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
 
+	GX_InvVtxCache();
+	GX_InvalidateTexAll();
 	GX_ClearVtxDesc();
 	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
@@ -236,22 +306,21 @@ static void GC_PresentBufferViaGX( void )
 	GX_LoadTexObj( &gc_present_tex, GX_TEXMAP0 );
 
 	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
-	GX_Position3f32( 0.0f, fb_h, 0.0f );
-	GX_Color1u32( 0xFFFFFFFF );
-	GX_TexCoord2f32( 0.0f, 1.0f );
-	GX_Position3f32( fb_w, fb_h, 0.0f );
-	GX_Color1u32( 0xFFFFFFFF );
-	GX_TexCoord2f32( 1.0f, 1.0f );
-	GX_Position3f32( fb_w, 0.0f, 0.0f );
-	GX_Color1u32( 0xFFFFFFFF );
-	GX_TexCoord2f32( 1.0f, 0.0f );
 	GX_Position3f32( 0.0f, 0.0f, 0.0f );
 	GX_Color1u32( 0xFFFFFFFF );
 	GX_TexCoord2f32( 0.0f, 0.0f );
+	GX_Position3f32( fb_w, 0.0f, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 1.0f, 0.0f );
+	GX_Position3f32( fb_w, fb_h, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 1.0f, 1.0f );
+	GX_Position3f32( 0.0f, fb_h, 0.0f );
+	GX_Color1u32( 0xFFFFFFFF );
+	GX_TexCoord2f32( 0.0f, 1.0f );
 	GX_End();
 
-	GX_SetDispCopyGamma( GX_GM_1_0 );
-	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+	GX_DrawDone();
 	GX_CopyDisp( xfb[which_fb], GX_TRUE );
 	GX_DrawDone();
 }
@@ -280,7 +349,7 @@ static unsigned int GC_RGBPairToYUYV( unsigned short p1, unsigned short p2 )
 
 	/* Budget/New Game presents only need a readable non-black XFB; skip full
 	 * BT.601 conversion (dominant cost of the software present path). */
-	if( gc_budget_probe_active )
+	if( gc_budget_probe_active || gc_newgame_world_ready )
 	{
 		y1 = (( p1 >> 5 ) & 0x3F ) << 2;
 		y2 = (( p2 >> 5 ) & 0x3F ) << 2;
@@ -464,14 +533,13 @@ static void GC_PresentBuffer( void )
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
 		const int row_pairs = rmode->fbWidth / 2;
+		qboolean used_gx = false;
 
 		src = gc.buffer;
 		src_w = gc.width;
 		src_h = gc.height;
 
 		buf_size = gc.stride * gc.height * sizeof(unsigned short);
-		if( !gc_budget_probe_active )
-			DCFlushRange( gc.buffer, (u32)buf_size );
 
 		/* G36: Sample first pixel for visual evidence only on first frame. */
 		if( gc_present_count == 1 )
@@ -480,18 +548,34 @@ static void GC_PresentBuffer( void )
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
 
-		/* The software renderer keeps gc.buffer as a linear RGB565 framebuffer.
-		 * Feeding that memory directly to GX as a texture is incorrect because
-		 * GX_TF_RGB565 expects tiled texture layout, which produces striped and
-		 * color-shifted output on intro/menu full-screen draws. Prefer the
-		 * linear CPU/XFB copy path until we add a proper swizzle/upload step. */
-		GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
+		/* Native GX present: tile linear RGB565 → EFB textured quad → XFB.
+		 * Avoids the CPU 160×120→640×480 YUYV scale that dominates post-G36 lag. */
+		if( GC_CanPresentViaGX( src_w, src_h ))
+		{
+			GC_SwizzleRGB565ToTiled( src, gc.stride, src_w, src_h, gc_tiled_rgb565 );
+			DCFlushRange( gc_tiled_rgb565, (u32)((size_t)src_w * (size_t)src_h * sizeof( u16 )));
+			GC_InitPresentTextureTiled( gc_tiled_rgb565, src_w, src_h );
+			GC_PresentBufferViaGX();
+			used_gx = true;
+			if( !gc_gx_present_logged )
+			{
+				SYS_Report( "Xash3D GameCube: GX present path active %dx%d\n", src_w, src_h );
+				gc_gx_present_logged = true;
+			}
+		}
+		else
+		{
+			if( !gc_budget_probe_active )
+				DCFlushRange( gc.buffer, (u32)buf_size );
+			GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
+		}
 
 		/* Sample non-black once per early present. Budget probes can treat the
 		 * status panel as non-black without a second full-buffer scan. */
-		if(( gc_budget_probe_active || gc_present_count <= 16 ) && src_h > 0 && src_w > 0 )
+		if(( gc_budget_probe_active || gc_newgame_world_ready || gc_present_count <= 16 )
+			&& src_h > 0 && src_w > 0 )
 		{
-			if( gc_budget_probe_active && !Sys_CheckParm( "-gcworldrender" ))
+			if(( gc_budget_probe_active || used_gx ) && !Sys_CheckParm( "-gcworldrender" ))
 				sampled_nonblack = true;
 			else
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
@@ -566,7 +650,9 @@ static void GC_PresentBuffer( void )
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
-	if( !gc_budget_probe_active )
+	/* Skip VSync during G36 budget samples and New Game low-res world presents
+	 * so Host_Frame is not gated on the 16.7ms VI period. */
+	if( !gc_budget_probe_active && !gc_newgame_world_ready )
 		VIDEO_WaitVSync();
 
 	which_fb ^= 1;
@@ -1510,6 +1596,7 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 		Cvar_Set( "gc_quality", "0" );
 
 	gc_newgame_world_ready = false;
+	gc_gx_present_logged = false;
 
 	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=%d)\n",
 		gc.width, gc.height, gc_budget_probe_active ? 1 : 0 );
