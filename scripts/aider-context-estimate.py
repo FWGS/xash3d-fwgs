@@ -21,10 +21,20 @@ RESERVED_OUTPUT_SLACK = int(os.environ.get("AIDER_RESERVED_OUTPUT_SLACK", "2048"
 CONFIG_PROMPT_SLACK_TOKENS = int(os.environ.get("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "12000"))
 
 
-def estimate_tokens(editable_bytes: int, read_bytes: int, output_tokens: int) -> int:
+def estimate_tokens(editable_bytes: int, read_bytes: int, output_tokens: int,
+	max_context: int = DEFAULT_MAX_CONTEXT) -> int:
+	# The budget module defaults to a 24k "system" pad meant for 65k+ windows.
+	# On a local 32k model that pad alone makes every medium source file OVER_BUDGET.
+	system_overhead = _budget.SYSTEM_OVERHEAD_TOKENS
+	if max_context <= 32768:
+		system_overhead = min(system_overhead, int(os.environ.get(
+			"AIDER_SYSTEM_OVERHEAD_TOKENS_32K", "4096")))
+	config_slack = CONFIG_PROMPT_SLACK_TOKENS
+	if max_context <= 32768:
+		config_slack = min(config_slack, int(os.environ.get(
+			"AIDER_CONFIG_PROMPT_SLACK_TOKENS_32K", "1536")))
 	return int((editable_bytes + read_bytes) / _budget.BYTES_PER_TOKEN) + \
-		_budget.SYSTEM_OVERHEAD_TOKENS + CONFIG_PROMPT_SLACK_TOKENS + \
-		output_tokens + RESERVED_OUTPUT_SLACK
+		system_overhead + config_slack + output_tokens + RESERVED_OUTPUT_SLACK
 
 
 def main() -> int:
@@ -57,10 +67,13 @@ def main() -> int:
 		if spec.mode == "slice":
 			# Slice excerpts are much smaller than the full source file.
 			read_bytes += min(size, 8000)
-	if args.task_file and (root / args.task_file).is_file():
+	if args.task_file and args.task_file.is_file():
+		read_bytes += args.task_file.stat().st_size
+	elif args.task_file and (root / args.task_file).is_file():
 		read_bytes += (root / args.task_file).stat().st_size
 
-	total_tokens = estimate_tokens(editable_bytes, read_bytes, args.output_tokens)
+	total_tokens = estimate_tokens(editable_bytes, read_bytes, args.output_tokens,
+		max_context=args.max_context)
 	status = "OK" if total_tokens <= args.max_context else "OVER_BUDGET"
 	message = (
 		f"{status}: attempt={args.attempt} editable={editable_bytes} read={read_bytes} "

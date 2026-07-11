@@ -505,8 +505,8 @@ GOAL_READ_CONTEXT = {
 	"G71": (".ai/prompts/GAMECUBE_STORAGE_NOTES.md",
 		".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
-	"G72": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
-	"G82": (".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",),
+	"G72": (),
+	"G82": (),
 	"G73": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G74": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
@@ -2208,6 +2208,10 @@ def context_for_goal(goal_id: str, root: Path, attempt: int,
 
 def read_context_for_goal(goal_id: str, root: Path, attempt: int = 1) -> list[str]:
 	"""Return focused read-only notes for the active goal."""
+	# Local overnight / source-first passes: skip large prompt notes so the
+	# editable engine file itself can fit the 32k window.
+	if os.environ.get("AI_SOURCE_FIRST", "0").lower() in {"1", "true", "yes"}:
+		return []
 	if os.environ.get("AIDER_AUTOMATION", "1") == "1" and attempt >= 3:
 		return []
 	common_reads = () if os.environ.get("AIDER_AUTOMATION", "1") == "1" else COMMON_READ_CONTEXT
@@ -2424,9 +2428,16 @@ def main() -> int:
 				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
 				pass_env.setdefault("AI_VERIFY_REPAIR_ATTEMPTS", "2")
 				pass_env.setdefault("AIDER_MAX_EDITABLE_FILE_BYTES", "45000")
+				pass_env.setdefault("AIDER_SYSTEM_OVERHEAD_TOKENS", "4096")
+				pass_env.setdefault("AIDER_MODEL_MAX_CONTEXT", "32768")
 			pass_env.setdefault("AI_KEEP_FAILED_PATCH", os.environ.get("AI_KEEP_FAILED_PATCH", "1"))
 			pass_env.setdefault("AI_SKIP_FAILED_PASS_RESET",
 				os.environ.get("AI_SKIP_FAILED_PASS_RESET", "1"))
+			if os.environ.get("AI_SOURCE_FIRST", "0").lower() in {"1", "true", "yes"}:
+				pass_env.setdefault("AIDER_SYSTEM_OVERHEAD_TOKENS", "4096")
+				pass_env.setdefault("AIDER_MODEL_MAX_CONTEXT", "32768")
+				pass_env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
+				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
 			pass_env["AI_COMMIT_BODY"] = goal_commit_body(goal,
 				attempt=attempts[goal.goal_id],
 				context_files=context_files,
