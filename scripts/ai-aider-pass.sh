@@ -514,7 +514,12 @@ run_aider_with_recovery() {
 			2>&1 | tee -a "$LOG" "$attempt_log"
 		status="${PIPESTATUS[0]:-1}"
 		set -e
-		if (( status == 124 || status == 137 )); then
+		# 137 = SIGKILL (often OOM killer). Do not pretend it is a soft timeout.
+		if (( status == 137 )); then
+			echo "ai-aider-pass: ${label} was SIGKILL/OOM (exit 137); see $LOG" >&2
+			return 22
+		fi
+		if (( status == 124 )); then
 			return 17
 		fi
 		if token_limit_seen "$attempt_log"; then
@@ -541,7 +546,12 @@ run_aider_with_recovery "Aider" --message-file "$TASK_FILE"
 AIDER_STATUS="$?"
 set -e
 
-if (( AIDER_STATUS == 124 || AIDER_STATUS == 137 )); then
+if (( AIDER_STATUS == 137 )); then
+	echo "ai-aider-pass: Aider was SIGKILL/OOM (exit 137); see $LOG" >&2
+	exit 22
+fi
+
+if (( AIDER_STATUS == 124 || AIDER_STATUS == 17 )); then
 	echo "ai-aider-pass: Aider model call timed out after ${AIDER_MODEL_TIMEOUT_SEC}s; see $LOG" >&2
 	exit 17
 fi
@@ -846,7 +856,12 @@ if ! run_precommit_verifier "$VERIFY_LOG"; then
 		READ_CONTEXT_FILES=("${ORIGINAL_READ_CONTEXT_FILES[@]}")
 		REQUIRED_CONTEXT_FILES=("${ORIGINAL_REQUIRED_CONTEXT_FILES[@]}")
 		RAW_CONTEXT_SPECS=("${ORIGINAL_RAW_CONTEXT_SPECS[@]}")
-		if (( REPAIR_STATUS == 124 || REPAIR_STATUS == 137 || REPAIR_STATUS == 17 )); then
+		if (( REPAIR_STATUS == 137 || REPAIR_STATUS == 22 )); then
+			echo "ai-aider-pass: autonomous repair was SIGKILL/OOM" >&2
+			discard_failed_patch
+			exit 22
+		fi
+		if (( REPAIR_STATUS == 124 || REPAIR_STATUS == 17 )); then
 			echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
 			discard_failed_patch
 			exit 17

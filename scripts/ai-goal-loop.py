@@ -11,6 +11,7 @@ import signal
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path as _PortLockPath
 _PORT_LOCKS = (
 	_PortLockPath(__file__).resolve().parents[1] / '.ai' / 'MANUAL_PORT_LOCK',
@@ -273,9 +274,7 @@ GOAL_CONTEXT = {
 		"engine/common/filesystem_engine.c",
 		"docs/GAMECUBE_PORT_PLAN.md"),
 	"G72": ("engine/platform/gamecube/vid_gamecube.c",
-		"engine/common/zone.c", "ref/gx/r_main.c", "ref/gx/r_surf.c",
-		"scripts/gamecube-rc-check.sh",
-		"scripts/gamecube-worst-case-report.py"),
+		"engine/platform/gamecube/mem_gamecube.c"),
 	"G73": ("scripts/build-gamecube.sh", "scripts/build-gamecube-disc.py",
 		"scripts/gamecube-reproducibility-check.py",
 		"scripts/gamecube-release-compliance.py",
@@ -328,11 +327,10 @@ GOAL_CONTEXT_SLICES = {
 		("scripts/dolphin-vision-test.py", "engine/client/parse/cl_parse.c"),
 	),
 	"G72": (
-		# Prefer files that fit the local 7B editable budget; keep repairing
-		# the same dirty file instead of rotating into OVER_BUDGET r_main/r_surf.
+		# Local 7B: only files that fit overnight editable budget. Never rotate
+		# into zone.c / r_main / r_surf — those OOM the vLLM worker (exit -9).
 		("engine/platform/gamecube/mem_gamecube.c",),
 		("engine/platform/gamecube/vid_gamecube.c",),
-		("engine/common/zone.c",),
 	),
 	"G82": (
 		("engine/platform/gamecube/vid_gamecube.c",),
@@ -612,10 +610,12 @@ RECOVERABLE_EXIT_CODES = {
 	16: "Automation harness preflight failed",
 	17: "Aider model call timed out",
 	18: "Aider hit a token/context limit",
+	22: "Aider was SIGKILL/OOM; cooling down",
 }
 AUTO_RESCUE_FAILURE_CLASSES = {
 	"asset_lookup",
 	"audio_runtime",
+	"gpu_oom",
 	"memory_pressure",
 	"model_budget",
 	"no_edit",
@@ -1373,6 +1373,8 @@ def failure_class_for(exit_code: int, evidence: list[dict[str, object]], phase: 
 	joined = " ".join(str(item.get("text", "")) for item in evidence).lower()
 	if exit_code == 0:
 		return "accepted"
+	if exit_code in {22, 137, -9} or "sigkill" in joined or "oom" in joined:
+		return "gpu_oom"
 	if "token" in joined or "context" in joined:
 		return "model_budget"
 	if "aider made no edit" in joined:
@@ -2478,14 +2480,16 @@ def main() -> int:
 			if goal.goal_id == "G36":
 				pass_env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 			if goal.goal_id == "G72":
-				pass_env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,engine/server/,re_agent,mathweb,main.py,hello.py")
+				pass_env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,engine/server/,engine/common/zone.c,ref/gx/r_main.c,re_agent,mathweb,main.py,hello.py")
 				pass_env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
 				pass_env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
 				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
 				pass_env.setdefault("AI_VERIFY_REPAIR_ATTEMPTS", "2")
-				pass_env.setdefault("AIDER_MAX_EDITABLE_FILE_BYTES", "45000")
+				pass_env.setdefault("AIDER_MAX_EDITABLE_FILE_BYTES", "20000")
 				pass_env.setdefault("AIDER_SYSTEM_OVERHEAD_TOKENS", "4096")
 				pass_env.setdefault("AIDER_MODEL_MAX_CONTEXT", "32768")
+				pass_env.setdefault("AIDER_LOW_VRAM_PROFILE", "1")
+				pass_env.setdefault("AI_LOCAL_PROFILE", "rtx4000-24gb")
 			pass_env.setdefault("AI_KEEP_FAILED_PATCH", os.environ.get("AI_KEEP_FAILED_PATCH", "1"))
 			pass_env.setdefault("AI_SKIP_FAILED_PASS_RESET",
 				os.environ.get("AI_SKIP_FAILED_PASS_RESET", "1"))
@@ -2607,6 +2611,10 @@ def main() -> int:
 					exit_code=result.returncode, message=f"{reason}; retrying goal")
 				print(f"{reason}; retrying this goal with a tighter context.",
 					file=sys.stderr)
+				if result.returncode == 22:
+					backoff = int(os.environ.get("AI_OOM_BACKOFF_SEC", "90"))
+					print(f"goal-loop: OOM cooldown {backoff}s", file=sys.stderr, flush=True)
+					time.sleep(backoff)
 				continue
 			write_state(state_file, state="failed", pass_index=pass_index,
 				goal=asdict(goal), exit_code=result.returncode)

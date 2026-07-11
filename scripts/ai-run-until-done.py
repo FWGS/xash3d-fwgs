@@ -488,7 +488,20 @@ def main() -> int:
 			continue
 		print(f"run-until-done: child exit {status}; continuing after {args.sleep}s",
 			file=sys.stderr, flush=True)
-		time.sleep(args.sleep)
+		# SIGKILL/OOM (-9/137/22): cool down so the next pass does not instantly
+		# re-OOM the local 7B worker on GPU1.
+		if status in {-9, 137, 22}:
+			backoff = int(os.environ.get("AI_OOM_BACKOFF_SEC", "90"))
+			print(
+				f"run-until-done: OOM/SIGKILL detected; backing off {backoff}s before next cycle",
+				file=sys.stderr,
+				flush=True,
+			)
+			write_heartbeat(root, state="oom-backoff", cycle=cycle,
+				exit_code=status, backoff_sec=backoff)
+			time.sleep(backoff)
+		else:
+			time.sleep(args.sleep)
 		continue
 
 	if args.max_cycles > 0:

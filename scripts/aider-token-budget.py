@@ -118,10 +118,17 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		]
 		history = max(64, min(history, 128))
 	editable_tiers = context_tiers
-	if low_vram:
-		# Source-first discovery must preserve at least one medium-sized frame
-		# source file; the preflight estimator still rejects combinations that
-		# exceed the actual model window.
+	if low_vram and source_first:
+		# Overnight must not force 40k editables into a 32k window — that OOMs
+		# the 7B worker. Cap around medium platform files (mem/vid).
+		editable_tiers = (
+			min(20000, max(8000, context_tiers[0])),
+			min(16000, max(6000, context_tiers[1])),
+			min(12000, max(5000, context_tiers[2])),
+			min(10000, max(4000, context_tiers[3])),
+		)
+	elif low_vram:
+		# Non-overnight discovery may still need one medium frame source file.
 		editable_tiers = (40000, 40000, 40000, 40000)
 	return {
 		"AIDER_MODEL_MAX_CONTEXT": max_context,
