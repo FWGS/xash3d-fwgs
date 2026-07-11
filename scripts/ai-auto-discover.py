@@ -363,7 +363,9 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
 	if failure_class in {"runtime_probe", "no_edit", "review_reject"} and context:
 		engine_or_ref = [path for path in context if path.startswith(("engine/", "ref/"))]
-		context = sort_paths_by_size(root, engine_or_ref or context)[:1]
+		# Keep recipe order (source-first targets first). Sorting by size always
+		# preferred tiny mem_gamecube.c and caused overnight NO_EDIT thrash.
+		context = (engine_or_ref or context)[:1]
 	read_context = existing_paths(root, tuple(str(path) for path in recipe["read_context"]))
 	if recipe.get("include_common_reads", True):
 		read_context.extend(path for path in COMMON_READ_CONTEXT if (root / path).is_file() and path not in read_context)
