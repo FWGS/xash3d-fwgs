@@ -4747,7 +4747,10 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 		return;
 
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld )
+	/* Smoke (-gcmap) still drops visdata to save MEM1. New Game / world-render
+	 * keep it (~50 KiB) so the renderer can FatPVS-cull instead of full-vis. */
+	if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld
+	    && !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcworldrender" ))
 	{
 		Con_Reportf( "Xash3D GameCube: skipping world visdata for gcmap full-vis fallback (%s)\n",
 			Q_memprint( bmod->visdatasize ));
@@ -4761,8 +4764,10 @@ static void Mod_LoadVisibility( model_t *mod, dbspmodel_t *bmod )
 	{
 		Con_Reportf( "Xash3D GameCube: skipping visdata (%s) under memory pressure\n",
 			Q_memprint( bmod->visdatasize ));
+		Mod_GCFreeBspPin( (void **)&bmod->visdata );
 		return;
 	}
+	Con_Reportf( "Xash3D GameCube: world visdata retained (%s)\n", Q_memprint( bmod->visdatasize ));
 #else
 	mod->visdata = Mem_Malloc( mod->mempool, bmod->visdatasize );
 #endif

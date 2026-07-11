@@ -1452,9 +1452,9 @@ static void R_MarkLeaves( void )
 		return;
 	}
 
-	/* New Game frees world visdata (~50 KiB) for MEM1; FatPVS degenerates to
-	 * full-vis anyway — mark every leaf without depending on RI.visbytes. */
-	if( GC_UseLowResWorldProbe() )
+	/* Low-res without visdata (smoke / OOM): mark every leaf. With visdata
+	 * (New Game), fall through to FatPVS so edge/surf budgets stay useful. */
+	if( GC_UseLowResWorldProbe() && !( WORLDMODEL && WORLDMODEL->visdata ))
 	{
 		int i;
 
@@ -1503,6 +1503,10 @@ static void R_MarkLeaves( void )
 			while( node );
 		}
 	}
+#if XASH_GAMECUBE
+	if( GC_UseLowResWorldProbe() && tr.framecount <= 1 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: FatPVS leaf mark active (low-res)\n" );
+#endif
 }
 
 /*
