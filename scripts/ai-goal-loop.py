@@ -319,10 +319,17 @@ GOAL_CONTEXT_SLICES = {
 		("scripts/dolphin-vision-test.py", "engine/client/parse/cl_parse.c"),
 	),
 	"G72": (
-		("scripts/gamecube-worst-case-report.py",),
-		("scripts/gamecube-worst-case-report.py",),
-		("scripts/gamecube-worst-case-report.py",),
-		("scripts/gamecube-worst-case-report.py",),
+		("engine/platform/gamecube/vid_gamecube.c",),
+		("ref/gx/r_main.c",),
+		("ref/gx/r_surf.c",),
+		("engine/common/zone.c",),
+		("engine/platform/gamecube/mem_gamecube.c",),
+	),
+	"G82": (
+		("engine/platform/gamecube/vid_gamecube.c",),
+		("engine/platform/gamecube/sys_gamecube.c",),
+		("engine/client/cl_main.c",),
+		("engine/client/cl_scrn.c",),
 	),
 }
 G24_SUBGOALS = (
@@ -499,6 +506,7 @@ GOAL_READ_CONTEXT = {
 		".ai/prompts/GAMECUBE_HARDWARE_NOTES.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G72": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
+	"G82": (".ai/prompts/GAMECUBE_GX_RENDERING_NOTES.md",),
 	"G73": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
 		".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md"),
 	"G74": (".ai/prompts/GAMECUBE_CONTEXT_INDEX.md",
@@ -582,6 +590,7 @@ GOAL_COMMIT_SUBJECT = {
 	"G70": "test: capture GameCube audio video evidence",
 	"G71": "test: prove GameCube persistent storage",
 	"G72": "perf: close GameCube worst-case scenes",
+	"G82": "fix: stabilize GameCube boot-flow phases",
 	"G73": "build: prove GameCube clean release rebuild",
 	"G74": "docs: freeze GameCube final limitations",
 	"G75": "test: sign off native Half-Life completion",
@@ -1672,6 +1681,16 @@ Repository context (abbreviated):
 {clip_text(git_context(root), 1200)}
 """
 	goal_body = neutralize_aider_file_mentions(goal.body)
+	if os.environ.get("AI_SOURCE_FIRST", "0") in {"1", "true", "TRUE", "yes"}:
+		# Keep acceptance criteria short so local 7B passes stay on source edits.
+		goal_body = "\n".join(
+			line for line in goal_body.splitlines()
+			if not line.strip().startswith("- Progress evidence")
+			and not line.strip().startswith("- Boundary:")
+			and "Status: SKIP" not in line
+		)
+		if len(goal_body) > 1200:
+			goal_body = goal_body[:1197].rstrip() + "..."
 	if goal.goal_id == "G24":
 		subgoal = g24_subgoal_for_attempt(attempt)
 		subgoal_files = ", ".join(str(path) for path in subgoal.get("files", ()))
@@ -1894,15 +1913,17 @@ the patch. Keep the reply under one file when possible and avoid repeating the
 same SEARCH/REPLACE block.
 
 Rules:
+- Prefer one small GameCube engine/renderer/platform source edit.
+- Do not write or expand documentation unless a source file is already loaded
+  and the edit is required to keep the build compiling.
 - Keep the commit below 400 changed lines and do not delete tracked files.
 - Update the GameCube port plan doc with commands and concrete evidence only
   when that file is already loaded in the editable context.
 - If marking `{goal.goal_id}` done, include a command, result, and log path or
-  runtime artifact in the goal notes and port plan; docs-only reasoning is not
-  enough for completion.
+  runtime artifact in the goal notes; docs-only reasoning is not enough.
 - Update this goal's notes when useful.
 - Mark `{goal.goal_id}` done only when every acceptance criterion is demonstrated.
-  Otherwise leave it unchecked and state the next blocker in the port plan.
+  Otherwise leave it unchecked and state the next blocker briefly.
 - Never mark MANUAL goals complete.
 - Use the investigation memory as prior evidence, but verify stale hypotheses
   against current source, logs, or artifacts before acting on them.
@@ -2351,6 +2372,13 @@ def main() -> int:
 			pass_env["AI_ALLOWED_EDIT_EXTRA"] = ",".join(allowed_extra)
 			pass_env.setdefault("AIDER_AUTOMATION", "1")
 			pass_env["AI_SKIP_DIRTY_CHECKPOINT"] = "1"
+			# Overnight source-first mode: never require port-plan doc edits.
+			if os.environ.get("AI_SOURCE_FIRST", "0") in {"1", "true", "TRUE", "yes"}:
+				pass_env["AI_VERIFY_REQUIRE_DOC_UPDATE"] = "0"
+			pass_env.setdefault(
+				"AI_VERIFY_REQUIRE_DOC_UPDATE",
+				os.environ.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "0"),
+			)
 			if goal.goal_id == "G24":
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "2048")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "1536")

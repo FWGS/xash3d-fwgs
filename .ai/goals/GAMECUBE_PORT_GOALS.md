@@ -1292,12 +1292,11 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Record media type, filesystem, loader route, free-space state, slot/path,
   artifact hash, map, save name, and before/after file listing evidence.
 
-## G72 [SKIP] Close worst-case performance and memory optimization
+## G72 [ ] Close worst-case performance and memory optimization
 
-- Status: SKIP for local 7B overnight runs — Aider auto-loads oversized docs and
-  `scripts/gamecube-worst-case-report.py` alone exceeds the 32k context budget
-  with the current prompt overhead. Re-open with a smaller editable slice or a
-  larger-context model.
+- Status: SOURCE-FIRST overnight — prefer engine/renderer patches that reduce
+  frame/present cost or MEM1 pressure. Do not edit docs or the worst-case report
+  script unless a verifier gate is broken.
 - Identify the worst currently supported scenes from the campaign audit and
   soak logs, then either optimize them or explicitly lower/default the quality
   profile until they meet the release frame and memory thresholds.
@@ -1319,8 +1318,10 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   stale map-compat runtime blockers (`Sys_InitLog: can't create`) and need fresh
   G68/G69 runtime evidence before final performance/quality claims can be made.
 
-## G73 [ ] Prove clean checkout release rebuild and archive reproducibility
+## G73 [SKIP] Prove clean checkout release rebuild and archive reproducibility
 
+- Status: SKIP for local overnight source-porting — documentation/reproducibility
+  gate, not an engine source goal.
 - Rebuild the release candidate from a clean checkout using only documented
   devkitPPC/libogc tooling, external HLSDK source, and user-owned Half-Life
   assets staged outside Git.
@@ -1340,8 +1341,9 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   current changes are committed by rebuilding in a second checkout and comparing
   manifests against the same release-candidate artifact set.
 
-## G74 [ ] Burn down final blockers and freeze known limitations
+## G74 [SKIP] Burn down final blockers and freeze known limitations
 
+- Status: SKIP for local overnight source-porting — release-notes/docs burn-down.
 - Convert every remaining failed RC gate, campaign-audit blocker, hardware
   matrix gap, crash breadcrumb, missing asset, performance miss, save issue, and
   audio/video limitation into either a fixed source change or a documented known
@@ -1352,8 +1354,9 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not leave any open automatic goal, ambiguous "maybe fixed" note, or
   undocumented operator workaround before final sign-off.
 
-## G76 [ ] Freeze release candidate documentation and known limitations
+## G76 [SKIP] Freeze release candidate documentation and known limitations
 
+- Status: SKIP for local overnight source-porting — release notes/docs only.
 - Generate or update README/release notes with controls, supported loaders,
   supported storage routes, video modes, audio status, save status, quality
   profiles, known map blockers, and troubleshooting.
@@ -1362,8 +1365,9 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Keep known limitations explicit rather than implying full Half-Life
   completion when only a subset of campaign evidence exists.
 
-## G77 [ ] Prove Dolphin and hardware evidence parity for the final artifact
+## G77 [SKIP] Prove Dolphin and hardware evidence parity for the final artifact
 
+- Status: SKIP for local overnight source-porting — hardware/operator evidence.
 - For the same release-candidate commit and artifact hash, compare Dolphin
   evidence against real GameCube/Wii GameCube-mode evidence for boot, menu,
   active rendering, audio, controller input, save/config route, fatal breadcrumb,
@@ -1374,8 +1378,9 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not allow final sign-off to combine Dolphin evidence from one build with
   hardware/manual evidence from another build.
 
-## G78 [ ] Unify goal state into a single machine-readable source of truth
+## G78 [SKIP] Unify goal state into a single machine-readable source of truth
 
+- Status: SKIP for local overnight source-porting — automation harness meta-work.
 - Replace the current split-brain goal model across markdown ledger entries,
   `docs/GAMECUBE_PORT_PLAN.md`, GUI overrides, and
   `.ai/logs/goal-loop-state.json` with one canonical machine-readable state file
@@ -1386,8 +1391,9 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Fail verification when a goal state change updates only one surface or leaves
   the canonical state and rendered ledger/docs out of sync.
 
-## G79 [ ] Split the porting GUI into model, process, and view layers
+## G79 [SKIP] Split the porting GUI into model, process, and view layers
 
+- Status: SKIP for local overnight source-porting — GUI refactor, not engine.
 - Break `scripts/xash3d-gc-aider-gui.py` into smaller modules so UI widgets,
   persistent settings, process supervision, goal editing, Dolphin telemetry,
   and overnight automation are no longer owned by one monolithic window class.
@@ -1397,8 +1403,9 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Keep behavior parity with the current GUI while adding module-level tests or
   smoke checks for the extracted non-Qt logic.
 
-## G80 [ ] Add concurrency and mutation safety to goal and automation state
+## G80 [SKIP] Add concurrency and mutation safety to goal and automation state
 
+- Status: SKIP for local overnight source-porting — automation harness meta-work.
 - Protect `.ai/goals/GAMECUBE_PORT_GOALS.md`, `.ai/state/goal-loop-memory.json`,
   and `.ai/logs/goal-loop-state.json` against overlapping GUI, supervisor, and
   rescue writes using explicit locks or atomic write/replace flows.
@@ -1408,8 +1415,9 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Add a verifier or stress script that simulates rapid refresh/skip/run/stop
   operations and fails on malformed JSON, truncated ledgers, or lost updates.
 
-## G81 [ ] Remove auto-commit surprise paths from the automation harness
+## G81 [SKIP] Remove auto-commit surprise paths from the automation harness
 
+- Status: SKIP for local overnight source-porting — automation harness meta-work.
 - Change the Aider/goal-loop workflow so a normal automation pass cannot create
   checkpoint or GUI-only commits without an explicit operator-approved policy or
   a clearly surfaced local-only branch strategy.
