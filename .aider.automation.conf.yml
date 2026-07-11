@@ -24,4 +24,5 @@ auto-lint: false
 auto-test: false
 
 read:
+  # Keep automation slim; overnight overrides this via .aider.overnight.conf.yml.
   - .ai/prompts/GAMECUBE_LOCAL_MISSION.md

@@ -1,5 +1,6 @@
 # Ultra-slim Aider profile for local 32k overnight passes.
-# No always-on prompt corpus — keep room for one engine source file.
+# Explicit empty/near-empty read list is required: Aider merges this file with
+# `.aider.conf.yml`, and omitting `read:` keeps the full prompt corpus.
 model: openai/qwen-local
 openai-api-base: http://127.0.0.1:8072/v1
 model-settings-file: .ai/aider-model-settings.yml
@@ -22,3 +23,7 @@ show-diffs: true
 
 auto-lint: false
 auto-test: false
+
+# Override the default 9-file prompt corpus from .aider.conf.yml.
+read:
+  - .ai/prompts/GAMECUBE_OVERNIGHT_BRIEF.md

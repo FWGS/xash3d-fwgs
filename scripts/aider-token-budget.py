@@ -60,13 +60,27 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		max_context = min(max_context, 32768)
 	attempt = max(1, min(attempt, 4))
 	attempt_scale = {1: 1.0, 2: 0.75, 3: 0.5, 4: 0.35}[attempt]
-	max_output_cap = max(512, min(1024, max_context // 16))
+	# Overnight/source-first needs room for a full SEARCH/REPLACE; 1024 (and the
+	# low-VRAM 512 clamp) truncates diffs mid-hunk on the local 7B.
+	source_first = os.environ.get("AI_SOURCE_FIRST", "0").lower() in {"1", "true", "yes"} \
+		or os.environ.get("AIDER_OVERNIGHT", "0").lower() in {"1", "true", "yes"}
+	if source_first:
+		max_output_cap = max(1024, min(2048, max_context // 12))
+	else:
+		max_output_cap = max(512, min(1024, max_context // 16))
 	output_tiers = [
 		max(450, min(1200, max_output_cap // 2)),
 		max(300, min(900, max_output_cap // 3)),
 		max(220, min(600, max_output_cap // 4)),
 		max(150, min(350, max_output_cap // 6)),
 	]
+	if source_first:
+		output_tiers = [
+			max(1024, min(2048, max_output_cap)),
+			max(768, min(1536, (max_output_cap * 3) // 4)),
+			max(512, min(1024, max_output_cap // 2)),
+			max(384, min(768, max_output_cap // 3)),
+		]
 	output_tiers = [max(128, int(value * attempt_scale)) for value in output_tiers]
 	input_budget = max(4096, max_context - output_tiers[0] - system_overhead_tokens)
 	max_bytes = int(input_budget * BYTES_PER_TOKEN)
@@ -86,7 +100,7 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		]
 	context_tiers = [max(1500, int(value * attempt_scale)) for value in context_tiers]
 	history = max(128, min(512, int(max_context // 160 * attempt_scale)))
-	if low_vram:
+	if low_vram and not source_first:
 		output_tiers = [max(128, min(value, cap)) for value, cap in zip(output_tiers, (512, 384, 256, 192))]
 		# Relax context floor slightly to avoid immediate budget failures during recovery
 		low_vram_context_floors = (17000, 14000, 11000, 9000)
@@ -95,6 +109,14 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 			for value, floor in zip(context_tiers, low_vram_context_floors)
 		]
 		history = max(128, min(history, 220))
+	elif low_vram and source_first:
+		# Keep enough editable room, but do not crush output back to 512.
+		low_vram_context_floors = (14000, 11000, 8000, 6000)
+		context_tiers = [
+			max(floor, int(value * 0.75))
+			for value, floor in zip(context_tiers, low_vram_context_floors)
+		]
+		history = max(64, min(history, 128))
 	editable_tiers = context_tiers
 	if low_vram:
 		# Source-first discovery must preserve at least one medium-sized frame
