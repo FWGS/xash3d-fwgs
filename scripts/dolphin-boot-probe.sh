@@ -67,6 +67,7 @@ fi
 FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 if (( DOLPHIN_NEWGAME )); then
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
+	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-16}"
 else
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
 fi
@@ -77,6 +78,8 @@ READY_MARKER="Xash3D GameCube: engine subsystems ready"
 RETAIL_MENU_MARKER="Xash3D GameCube: retail menu steam background ready"
 INTRO_MARKER="Xash3D GameCube: intro AVI decoded first frame"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
+PLAY_READY_MARKER="Xash3D GameCube: play start ready ${SMOKE_MAP}"
+FRAME_ARMED_MARKER="Xash3D GameCube: frame budget samples armed after map ready"
 INPUT_MARKER="Xash3D GameCube: input polling active"
 G45_READY_MARKER="Xash3D GameCube: G45 controller ready"
 G45_WAIT_MARKER="Xash3D GameCube: G45 controller waiting"

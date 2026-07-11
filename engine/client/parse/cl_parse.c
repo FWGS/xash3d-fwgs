@@ -21,6 +21,9 @@ GNU General Public License for more details.
 #include "shake.h"
 #include "input.h"
 #include "eiface.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 
 #if XASH_LOW_MEMORY != 2
 int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
@@ -28,6 +31,16 @@ int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 
 #if XASH_GAMECUBE
 #define GC_GCMAP_DEFAULT_CLIENT_EDICTS 96
+
+static qboolean CL_GameCubeMapRoute( void )
+{
+	return Sys_CheckParm( "-gcmap" ) != 0 || GC_MapLoadMemoryOpt();
+}
+
+static qboolean CL_GameCubeLocalMapRoute( void )
+{
+	return Host_IsLocalClient() && CL_GameCubeMapRoute();
+}
 
 static int CL_GameCubeClientEdictLimit( int requested )
 {
@@ -38,7 +51,7 @@ static int CL_GameCubeClientEdictLimit( int requested )
 		limit = Q_atoi( value );
 
 	limit = bound( MIN_EDICTS, limit, requested );
-	Con_Reportf( "Xash3D GameCube: client edicts capped for gcmap max=%d requested=%d\n",
+	Con_Reportf( "Xash3D GameCube: client edicts capped for map route max=%d requested=%d\n",
 		limit, requested );
 	return limit;
 }
@@ -488,21 +501,21 @@ void CL_BatchResourceRequest( qboolean initialize )
 	{
 		qboolean precache_ready = false;
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ))
+		if( CL_GameCubeMapRoute())
 			Con_Reportf( "Xash3D GameCube: resource batch done=%d state=%d custom=%d\n",
 				done_downloading, cls.state, cls.dl.custom );
 #endif
 		if( done_downloading )
 			precache_ready = CL_PrecacheResources();
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ))
+		if( CL_GameCubeMapRoute())
 			Con_Reportf( "Xash3D GameCube: resource batch precache=%d\n", precache_ready );
 #endif
 		if( done_downloading && precache_ready )
 		{
 			CL_RegisterResources( &msg, cls.legacymode );
 #if XASH_GAMECUBE
-			if( Sys_CheckParm( "-gcmap" ))
+			if( CL_GameCubeMapRoute())
 				Con_Reportf( "Xash3D GameCube: resource batch register sent\n" );
 #endif
 		}
@@ -510,7 +523,7 @@ void CL_BatchResourceRequest( qboolean initialize )
 		Netchan_CreateFragments( &cls.netchan, &msg );
 		Netchan_FragSend( &cls.netchan );
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ))
+		if( CL_GameCubeMapRoute())
 			Con_Reportf( "Xash3D GameCube: resource batch fragments sent\n" );
 #endif
 	}
@@ -571,7 +584,7 @@ static void CL_StartResourceDownloading( const char *pszMessage, qboolean bCusto
 		Con_DPrintf( "%s", pszMessage );
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() && !bCustom )
+	if( CL_GameCubeLocalMapRoute() && !bCustom )
 	{
 		Con_Reportf( "Xash3D GameCube: resource estimate skipped for local gcmap\n" );
 		cls.dl.nTotalSize = 0;
@@ -848,7 +861,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 
 	// Re-init hud video, especially if we changed game directories
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	if( CL_GameCubeLocalMapRoute() )
 	{
 		Con_Reportf( "Xash3D GameCube: serverdata HUD vidinit skipped for local gcmap\n" );
 	}
@@ -893,7 +906,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		clgame.maxEntities = GI->max_edicts + (( cl.maxclients - 1 ) * 15 );
 		clgame.maxEntities = Q_min( clgame.maxEntities, MAX_GOLDSRC_EDICTS );
 #if XASH_GAMECUBE
-			if( Sys_CheckParm( "-gcmap" ) && cl.maxclients <= 1 )
+			if( CL_GameCubeMapRoute() && cl.maxclients <= 1 )
 				clgame.maxEntities = CL_GameCubeClientEdictLimit( clgame.maxEntities );
 #endif
 			clgame.maxModels = 512; // ???
@@ -908,7 +921,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		clgame.maxEntities = MSG_ReadWord( msg );
 		clgame.maxEntities = bound( MIN_EDICTS, clgame.maxEntities, MAX_EDICTS );
 #if XASH_GAMECUBE
-			if( Sys_CheckParm( "-gcmap" ) && cl.maxclients <= 1 )
+			if( CL_GameCubeMapRoute() && cl.maxclients <= 1 )
 				clgame.maxEntities = CL_GameCubeClientEdictLimit( clgame.maxEntities );
 #endif
 			clgame.maxModels = MSG_ReadWord( msg );
@@ -936,6 +949,14 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	}
 
 	Q_snprintf( mapfile, sizeof( mapfile ), "maps/%s.bsp", clgame.mapname );
+#if XASH_GAMECUBE
+	if( CL_GameCubeLocalMapRoute() )
+	{
+		cl.worldmapCRC = cl.checksum;
+		Con_Reportf( "Xash3D GameCube: serverdata map CRC skipped for local map route\n" );
+	}
+	else
+#endif
 	if( CRC32_MapFile( &cl.worldmapCRC, mapfile, cl.maxclients > 1 ))
 	{
 		// validate map checksum
@@ -989,8 +1010,22 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		S_StopBackgroundTrack ();
 	}
 
+#if XASH_GAMECUBE
+	if( CL_GameCubeLocalMapRoute() )
+		Con_Reportf( "Xash3D GameCube: serverdata pre-edict connect steps\n" );
+#endif
 	if( !cls.changedemo )
-		UI_SetActiveMenu( cl.background );
+	{
+#if XASH_GAMECUBE
+		if( CL_GameCubeLocalMapRoute() && !cl.background )
+		{
+			UI_SetActiveMenu( false );
+			Con_Reportf( "Xash3D GameCube: serverdata keep menu inactive for local map route\n" );
+		}
+		else
+#endif
+			UI_SetActiveMenu( cl.background );
+	}
 	else if( !cls.demoplayback )
 		Key_SetKeyDest( key_menu );
 
@@ -1006,7 +1041,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	if( !cls.changelevel && !cls.changedemo )
 		CL_InitEdicts( cl.maxclients ); // re-arrange edicts
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	if( CL_GameCubeLocalMapRoute() )
 		Con_Reportf( "Xash3D GameCube: serverdata client edicts ready\n" );
 #endif
 
@@ -1017,7 +1052,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	Cvar_SetValue( "scr_loading", 0.0f ); // reset progress bar
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	if( CL_GameCubeLocalMapRoute() )
 	{
 		Cvar_Set( "cl_levelshot_name", "*black" );
 		cls.scrshot_request = scrshot_inactive;
@@ -1035,12 +1070,12 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	for( i = 0; i < MAX_CLIENTS; i++ )
 		COM_ClearCustomizationList( &cl.players[i].customdata, true );
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	if( CL_GameCubeLocalMapRoute() )
 		Con_Reportf( "Xash3D GameCube: serverdata customizations cleared\n" );
 #endif
 	CL_CreateCustomizationList();
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	if( CL_GameCubeLocalMapRoute() )
 		Con_Reportf( "Xash3D GameCube: serverdata customization ready\n" );
 #endif
 
@@ -1054,7 +1089,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		CL_ServerCommand( true, "sendres %i\n", cl.servercount );
 	}
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	if( CL_GameCubeLocalMapRoute() )
 		Con_Reportf( "Xash3D GameCube: serverdata sendres queued servercount=%d proto=%d\n",
 			cl.servercount, proto );
 #endif
@@ -1915,7 +1950,7 @@ void CL_ParseResourceList( sizebuf_t *msg, connprotocol_t proto )
 {
 	int total = MSG_ReadUBitLong( msg, proto == PROTO_GOLDSRC ? MAX_GOLDSRC_RESOURCE_BITS : MAX_RESOURCE_BITS );
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	if( CL_GameCubeLocalMapRoute() )
 		Con_Reportf( "Xash3D GameCube: resource list received total=%d proto=%d\n", total, proto );
 #endif
 
@@ -1940,7 +1975,7 @@ void CL_ParseResourceList( sizebuf_t *msg, connprotocol_t proto )
 
 	CL_ParseConsistencyInfo( msg, proto );
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && Host_IsLocalClient() )
+	if( CL_GameCubeLocalMapRoute() )
 		Con_Reportf( "Xash3D GameCube: resource consistency parsed\n" );
 #endif
 

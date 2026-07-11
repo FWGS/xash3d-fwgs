@@ -59,6 +59,11 @@ static int EXPORT GC_Client_HUD_VidInit_Bridge( void )
 	Con_Reportf( "Xash3D GameCube: client bridge HUD_VidInit begin\n" );
 	int ret = GC_CLIENT_SYMBOL( HUD_VidInit )();
 	Con_Reportf( "Xash3D GameCube: client bridge HUD_VidInit end ret=%d\n", ret );
+	if( ret )
+	{
+		extern void GC_ArmPostMapFrameBudgetSamples( void );
+		GC_ArmPostMapFrameBudgetSamples();
+	}
 	return ret;
 }
 

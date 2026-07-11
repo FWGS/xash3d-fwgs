@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #include "multi_emulator.h"
 
 #if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
 extern qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
@@ -1793,6 +1794,9 @@ void CL_Disconnect( void )
 	memset( &cls.bandwidth_test, 0, sizeof( cls.bandwidth_test ));
 	cls.signon = 0;
 	cls.legacymode = PROTO_CURRENT;
+#if XASH_GAMECUBE
+	GC_ClearMapLoadMemoryOpt();
+#endif
 
 	// back to menu in non-developer mode
 	if( host_developer.value || cls.key_dest == key_menu )

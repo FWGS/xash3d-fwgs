@@ -180,8 +180,11 @@ void SCR_CheckStartupVids( void )
 		cls.movienum = -1;
 		Con_Reportf( "Xash3D GameCube: activating menu without startup cinematic\n" );
 		CL_CheckStartupDemos();
-		if( cls.movienum == -1 && cls.demonum == -1 && cls.state == ca_disconnected )
+		if( cls.movienum == -1 && cls.demonum == -1 && cls.state == ca_disconnected
+			&& !SV_Active() && Sys_CheckParm( "-gcnewgame" ) == 0 && Sys_CheckParm( "-gcmap" ) == 0 )
 			UI_SetActiveMenu( true );
+		else if( SV_Active() || Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
+			Con_Reportf( "Xash3D GameCube: skip menu activate (listen server already active)\n" );
 		return;
 	}
 #endif

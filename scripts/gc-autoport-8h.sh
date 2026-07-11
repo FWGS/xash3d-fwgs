@@ -9,6 +9,11 @@ if [[ -z "$ROOT" ]]; then
 fi
 cd "$ROOT"
 
+if [[ -f "$ROOT/.ai/MANUAL_PORT_LOCK" || -f "$ROOT/.ai/AUTOPORT_OPERATOR_HOLD" || -f "/home/tim/Desktop/xash3d-gc-locks/MANUAL_PORT_LOCK" ]]; then
+	echo "ERROR: manual port lock is set; refusing overnight autoport."
+	exit 75
+fi
+
 if [[ -f "$ROOT/scripts/gamecube-env.sh" ]]; then
 	# shellcheck disable=SC1091
 	source "$ROOT/scripts/gamecube-env.sh"

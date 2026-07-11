@@ -24,6 +24,7 @@ void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_TrimClientSubsystemsForMapLoad( void );
 void R_GcmapRestoreAfterMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
+void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean CL_GameCubeEnsureClientReady( void );
 
 static void SV_GameCubePlayStart_f( void )
@@ -51,6 +52,7 @@ static void SV_GameCubePlayStart_f( void )
 			return;
 		}
 		Con_Reportf( "Xash3D GameCube: play start ready %s\n", map );
+		GC_ArmPostMapFrameBudgetSamples();
 		GC_EndMapLoadMemoryOpt();
 	}
 	else

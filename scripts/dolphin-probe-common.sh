@@ -54,6 +54,16 @@ probe_wait_flatpak() {
 	local map_ready_at=0 retail_ready_at=0
 	while (( $(date +%s) < deadline )); do
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
+			if (( DOLPHIN_NEWGAME )); then
+				if ! probe_log_has "${PLAY_READY_MARKER:-Xash3D GameCube: play start ready}"; then
+					sleep 2
+					continue
+				fi
+				if [[ -n "${FRAME_ARMED_MARKER:-}" ]] && ! probe_log_has "$FRAME_ARMED_MARKER"; then
+					sleep 2
+					continue
+				fi
+			fi
 			(( map_ready_at == 0 )) && map_ready_at=$(date +%s)
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
