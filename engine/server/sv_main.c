@@ -600,22 +600,6 @@ static qboolean SV_RunGameFrame( void )
 	if( !sv.simulating )
 		return true;
 
-#if XASH_GAMECUBE
-	/* First simulating frames after New Game connect can stall forever inside
-	 * HL entity thinks (trains/multi_managers on c0a0). Skip physics briefly. */
-	{
-		static int gc_skip_physics_frames;
-
-		if( ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
-			&& gc_skip_physics_frames < 48 )
-		{
-			gc_skip_physics_frames++;
-			sv.time += ( sv_fps.value == 0.0f ) ? sv.frametime : host.frametime;
-			return true;
-		}
-	}
-#endif
-
 	if( sv_fps.value != 0.0f )
 	{
 		double		fps = (1.0 / (double)( sv_fps.value - 0.01f )); // FP issues
