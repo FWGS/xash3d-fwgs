@@ -1098,22 +1098,51 @@ static void D_SolidSurf( surf_t *s )
 		miplevel--;
 
 #if XASH_GAMECUBE
-	/* Low-res world probe: flat-fill RGB565 directly (blit skips vid.screen). */
+	/* Low-res New Game world: textured spans when a surface cache is live so the
+	 * GX present path shows real materials. Flat RGB565 fill is only used when
+	 * no cache is available (blit copies those values directly). */
 	if( GC_UseLowResWorldProbe() )
 	{
-		/* Cycle through saturated primaries so surfaces are obviously non-black. */
-		static const pixel_t gc_probe_colors[6] = {
-			0xF800, /* red */
-			0x07E0, /* green */
-			0x001F, /* blue */
-			0xFFE0, /* yellow */
-			0xF81F, /* magenta */
-			0x07FF, /* cyan */
-		};
-		pixel_t fill = gc_probe_colors[((uintptr_t)pface >> 5 ) % 6];
+		if( R_GcmapHasSurfaceCache() )
+		{
+			pcurrentcache = D_CacheSurface( pface, miplevel );
+			if( pcurrentcache )
+			{
+				cacheblock = (pixel_t *)pcurrentcache->data;
+				cachewidth = pcurrentcache->width;
+				D_CalcGradients( pface );
+				D_DrawSpans16( s->spans );
+			}
+			/* Uncached surfaces stay cleared; mixing RGB565 fills would break
+			 * the SW→RGB565 blit used for textured frames. */
+			D_DrawZSpans( s->spans );
+			if( s->insubmodel )
+			{
+				VectorCopy( world_transformed_modelorg, transformed_modelorg );
+				VectorCopy( RI.base_vpn, RI.vforward );
+				VectorCopy( RI.base_vup, RI.vup );
+				VectorCopy( RI.base_vright, RI.vright );
+				R_TransformFrustum();
+				RI.currententity = NULL;
+			}
+			return;
+		}
 
-		D_FlatFillSurface( s, fill );
-		D_DrawZSpans( s->spans );
+		/* No surface cache: flat primaries so GX still shows non-black geometry. */
+		{
+			static const pixel_t gc_probe_colors[6] = {
+				0xF800, /* red */
+				0x07E0, /* green */
+				0x001F, /* blue */
+				0xFFE0, /* yellow */
+				0xF81F, /* magenta */
+				0x07FF, /* cyan */
+			};
+			pixel_t fill = gc_probe_colors[((uintptr_t)pface >> 5 ) % 6];
+
+			D_FlatFillSurface( s, fill );
+			D_DrawZSpans( s->spans );
+		}
 		if( s->insubmodel )
 		{
 			VectorCopy( world_transformed_modelorg, transformed_modelorg );

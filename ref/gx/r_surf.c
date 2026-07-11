@@ -65,6 +65,7 @@ surfcache_t     *sc_rover;
 static surfcache_t *sc_base;
 #if XASH_GAMECUBE
 static int r_gc_surface_cache_skip_reports;
+static qboolean gc_sc_malloc; /* true when sc_base came from malloc(), not Mem_Calloc */
 #endif
 
 
@@ -941,10 +942,18 @@ void R_InitCaches( void )
 	if( sc_base )
 	{
 		D_FlushCaches(  );
+#if XASH_GAMECUBE
+		if( gc_sc_malloc )
+			free( sc_base );
+		else
+#endif
 		Mem_Free( sc_base );
 	}
 	sc_base = (surfcache_t *)Mem_Calloc( r_temppool, size );
 	sc_rover = sc_base;
+#if XASH_GAMECUBE
+	gc_sc_malloc = false;
+#endif
 
 	sc_base->next = NULL;
 	sc_base->owner = NULL;
@@ -955,14 +964,18 @@ void R_InitCaches( void )
 qboolean R_TryInitGcmapSurfaceCache( void )
 {
 	int size, try_size;
+	const qboolean lowres_world = GC_UseLowResWorldProbe();
 
 	if( sc_base )
 		return true;
 
-	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !lowres_world )
 		return false;
 
-	size = GC_SURFACE_CACHE_DEFAULT;
+	/* New Game world presents allocate after screen/present buffers — prefer a
+	 * smaller cache so textured spans still fit in remaining MEM1. */
+	size = lowres_world && !gEngfuncs.Sys_CheckParm( "-gcmap" )
+		? GC_SURFACE_CACHE_LOWRES : GC_SURFACE_CACHE_DEFAULT;
 	if( size > GC_SURFACE_CACHE_MAX )
 		size = GC_SURFACE_CACHE_MAX;
 
@@ -980,6 +993,7 @@ qboolean R_TryInitGcmapSurfaceCache( void )
 		sc_base->next = NULL;
 		sc_base->owner = NULL;
 		sc_base->size = sc_size;
+		gc_sc_malloc = true;
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( alloc_size ));
 		return true;
 	}
@@ -996,12 +1010,18 @@ void R_GcmapTrimSurfaceCache( void )
 	if( sc_base )
 	{
 		D_FlushCaches();
-		if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+		if( gc_sc_malloc || gEngfuncs.Sys_CheckParm( "-gcmap" ))
 			free( sc_base );
 		else
 			Mem_Free( sc_base );
 		sc_base = sc_rover = NULL;
+		gc_sc_malloc = false;
 	}
+}
+
+qboolean R_GcmapHasSurfaceCache( void )
+{
+	return sc_base != NULL;
 }
 #endif
 
@@ -1049,14 +1069,26 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 		gEngfuncs.Host_Error( "%s: bad cache width %d\n", __func__, width );
 
 	if(( size <= 0 ) || ( size > 0x10000000 ))
+	{
+#if XASH_GAMECUBE
+		/* New Game / gcmap: skip degenerate surfaces instead of killing the host. */
+		if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || GC_UseLowResWorldProbe() )
+		{
+			if( r_gc_surface_cache_skip_reports < 16 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache skip bad size %d\n", size );
+			r_gc_surface_cache_skip_reports++;
+			return NULL;
+		}
+#endif
 		gEngfuncs.Host_Error( "%s: bad cache size %d\n", __func__, size );
+	}
 
 	size = offsetof( surfcache_t, data ) + size;
 	size = ( size + 3 ) & ~3;
 	if( size > sc_size )
 	{
 #if XASH_GAMECUBE
-		if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+		if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || GC_UseLowResWorldProbe() )
 		{
 			if( r_gc_surface_cache_skip_reports < 16 )
 				gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache skip alloc=%i cache=%i\n",
@@ -1092,7 +1124,7 @@ static surfcache_t     *D_SCAlloc( int width, int size )
 			if( !sc_rover )
 			{
 #if XASH_GAMECUBE
-				if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+				if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || GC_UseLowResWorldProbe() )
 				{
 					if( r_gc_surface_cache_skip_reports < 16 )
 						gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache exhausted alloc=%i cache=%i\n",
@@ -1389,6 +1421,18 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		r_drawsurf.rowbytes = r_drawsurf.surfwidth;
 		r_drawsurf.surfheight = surface->extents[1] >> miplevel;
 	}
+
+#if XASH_GAMECUBE
+	/* Low-res New Game: many faces have empty lightextents after compact map
+	 * load. Fall back to face extents so textured spans can allocate. */
+	if( GC_UseLowResWorldProbe()
+		&& ( r_drawsurf.surfwidth <= 0 || r_drawsurf.surfheight <= 0 ))
+	{
+		r_drawsurf.surfwidth = surface->extents[0] >> miplevel;
+		r_drawsurf.surfheight = surface->extents[1] >> miplevel;
+		r_drawsurf.rowbytes = r_drawsurf.surfwidth;
+	}
+#endif
 
 
 //

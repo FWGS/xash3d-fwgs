@@ -18,6 +18,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include "gamecube/mem_gamecube.h"
 
 qboolean R_GcmapEnsureSurfaceCache( void );
+qboolean R_TryInitGcmapSurfaceCache( void );
 void R_GcmapTrimSurfaceCache( void );
 qboolean R_GcmapEnsureWorldRenderScratch( void );
 qboolean R_GcmapPrepareWorldRender( void );
@@ -533,7 +534,6 @@ static void GC_PresentBuffer( void )
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
 		const int row_pairs = rmode->fbWidth / 2;
-		qboolean used_gx = false;
 
 		src = gc.buffer;
 		src_w = gc.width;
@@ -556,7 +556,6 @@ static void GC_PresentBuffer( void )
 			DCFlushRange( gc_tiled_rgb565, (u32)((size_t)src_w * (size_t)src_h * sizeof( u16 )));
 			GC_InitPresentTextureTiled( gc_tiled_rgb565, src_w, src_h );
 			GC_PresentBufferViaGX();
-			used_gx = true;
 			if( !gc_gx_present_logged )
 			{
 				SYS_Report( "Xash3D GameCube: GX present path active %dx%d\n", src_w, src_h );
@@ -571,11 +570,14 @@ static void GC_PresentBuffer( void )
 		}
 
 		/* Sample non-black once per early present. Budget probes can treat the
-		 * status panel as non-black without a second full-buffer scan. */
+		 * status panel as non-black without a second full-buffer scan. New Game
+		 * world frames always sample the RGB565 buffer so GX present cannot
+		 * fake visual evidence from an empty framebuffer. */
 		if(( gc_budget_probe_active || gc_newgame_world_ready || gc_present_count <= 16 )
 			&& src_h > 0 && src_w > 0 )
 		{
-			if(( gc_budget_probe_active || used_gx ) && !Sys_CheckParm( "-gcworldrender" ))
+			if( gc_budget_probe_active && !Sys_CheckParm( "-gcworldrender" )
+				&& !gc_newgame_world_ready )
 				sampled_nonblack = true;
 			else
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
@@ -1502,6 +1504,11 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		SYS_Report( "Xash3D GameCube: newgame world presentation buffer failed\n" );
 		return false;
 	}
+
+	/* Re-arm a compact surface cache after present buffers so GX world frames
+	 * can draw textured spans instead of flat RGB565 fills. */
+	if( !R_TryInitGcmapSurfaceCache() )
+		SYS_Report( "Xash3D GameCube: newgame textured span cache unavailable (flat fill)\n" );
 
 	refState.width = present_w;
 	refState.height = present_h;
