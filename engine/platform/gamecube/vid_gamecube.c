@@ -431,17 +431,12 @@ static void GC_PresentBuffer( void )
 		 * color-shifted output on intro/menu full-screen draws. Prefer the
 		 * linear CPU/XFB copy path until we add a proper swizzle/upload step. */
 		GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
-		if( gc_budget_probe_active && gc_present_count > 1 && !Sys_CheckParm( "-gcworldrender" ) && gc_present_count <= 16)
-		{
-			GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
-		}
 
-		// G36: Detect non-black content only while probe frame samples are active.
-		// Status-panel smoke can treat later presents as non-black; world-render
-		// must sample the software buffer so flat-fill/BSP output is real evidence.
+		/* Sample non-black once per early present. Budget probes can treat the
+		 * status panel as non-black without a second full-buffer scan. */
 		if( gc_present_count <= 16 && src_h > 0 && src_w > 0 )
 		{
-			if( gc_budget_probe_active && gc_present_count > 1 && !Sys_CheckParm( "-gcworldrender" ) && gc_present_count <= 16)
+			if( gc_budget_probe_active && gc_present_count > 1 && !Sys_CheckParm( "-gcworldrender" ))
 				sampled_nonblack = true;
 			else
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
@@ -456,19 +451,11 @@ static void GC_PresentBuffer( void )
 		 * is captured. Leaves XFB black (zeroed) for subsequent frames. */
 		if( gc_present_count == 1 )
 		{
-			col_diag = 0;
 			for( row = 0; row < copy_h; row++ )
 			{
 				diag_rowdst = dst + row * ( rmode->fbWidth / 2 );
 				for( col_diag = 0; col_diag < copy_w / 2; col_diag++ )
 					diag_rowdst[col_diag] = GC_RGBPairToYUYV( 0x001F, 0x001F );
-				// G72: Reduce frame/render cost while preserving MAP_READY/G45/nonblack
-				if( gc_present_count == 1 )
-				{
-					diag_rowdst[copy_w / 4] = GC_RGBPairToYUYV( 0x001F, 0x001F );
-					diag_rowdst[copy_w / 2] = GC_RGBPairToYUYV( 0x001F, 0x001F );
-					diag_rowdst[copy_w * 3 / 4] = GC_RGBPairToYUYV( 0x001F, 0x001F );
-				}
 			}
 			sampled_nonblack = true;
 		}

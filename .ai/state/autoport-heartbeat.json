@@ -1,8 +1,9 @@
 {
-  "pid": 3331615,
-  "timestamp": "2026-07-11T08:00:32.615408+00:00",
+  "pid": 3423172,
+  "timestamp": "2026-07-11T08:05:25.571934+00:00",
   "state": "running",
-  "cycle": 3,
-  "kind": "goal",
-  "label": "G68 Complete full Half-Life campaign map and transition audit"
+  "cycle": 2,
+  "kind": "discovery",
+  "label": "fix the current GameCube map/runtime blocker",
+  "item_id": "discovery:runtime_probe:G73"
 }
