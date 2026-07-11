@@ -242,6 +242,7 @@ static qboolean Mem_CheckAllocHeaderSmall( const char *func, const memheader_sma
 	return true;
 }
 
+
 void *_Mem_TryAlloc( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )
 {
 	if( size <= 0 || !poolptr )
