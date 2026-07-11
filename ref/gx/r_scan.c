@@ -48,6 +48,11 @@ static void D_DrawTurbulent8Span( void )
 	{
 		sturb = (( r_turb_s + r_turb_turb[( r_turb_t >> 16 ) & ( CYCLE - 1 )] ) >> 16 ) & 63;
 		tturb = (( r_turb_t + r_turb_turb[( r_turb_s >> 16 ) & ( CYCLE - 1 )] ) >> 16 ) & 63;
+#if XASH_GAMECUBE
+		if( d_gc_span_rgb565 )
+			*r_turb_pdest++ = vid.screen[*( r_turb_pbase + ( tturb << 6 ) + sturb )];
+		else
+#endif
 		*r_turb_pdest++ = *( r_turb_pbase + ( tturb << 6 ) + sturb );
 		r_turb_s += r_turb_sstep;
 		r_turb_t += r_turb_tstep;

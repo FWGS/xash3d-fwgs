@@ -894,6 +894,12 @@ static void D_BackgroundSurf( surf_t *s )
 	d_zistepv = 0;
 	d_ziorigin = -0.9;
 
+#if XASH_GAMECUBE
+	/* Low-res RGB565 present: soft clearcolor indices look wrong on GX. */
+	if( GC_UseLowResWorldProbe() )
+		D_FlatFillSurface( s, 0x5ADB ); /* sky-ish blue */
+	else
+#endif
 	D_FlatFillSurface( s, (int)sw_clearcolor.value & 0xFFFF );
 	D_DrawZSpans( s->spans );
 }
@@ -905,13 +911,30 @@ D_TurbulentSurf
 */
 static void D_TurbulentSurf( surf_t *s )
 {
+	image_t *mt;
+
 	d_zistepu = s->d_zistepu;
 	d_zistepv = s->d_zistepv;
 	d_ziorigin = s->d_ziorigin;
 
 	pface = s->msurf;
+	if( !pface || !pface->texinfo || !pface->texinfo->texture )
+		return;
+
 	miplevel = 0;
-	cacheblock = R_GetTexture( pface->texinfo->texture->gl_texturenum )->pixels[0];
+	mt = R_GetTexture( pface->texinfo->texture->gl_texturenum );
+#if XASH_GAMECUBE
+	if( !mt || !mt->pixels[0] )
+	{
+		if( GC_UseLowResWorldProbe() )
+			D_FlatFillSurface( s, 0x027F ); /* deep water blue */
+		else
+			D_FlatFillSurface( s, 0x0004 );
+		D_DrawZSpans( s->spans );
+		return;
+	}
+#endif
+	cacheblock = mt->pixels[0];
 	cachewidth = 64;
 
 	if( s->insubmodel )
@@ -930,6 +953,10 @@ static void D_TurbulentSurf( surf_t *s )
 
 	D_CalcGradients( pface );
 
+#if XASH_GAMECUBE
+	if( GC_UseLowResWorldProbe() )
+		d_gc_span_rgb565 = true;
+#endif
 // ============
 // PGM
 	// textures that aren't warping are just flowing. Use NonTurbulent8 instead
@@ -939,6 +966,9 @@ static void D_TurbulentSurf( surf_t *s )
 		Turbulent8( s->spans );
 // PGM
 // ============
+#if XASH_GAMECUBE
+	d_gc_span_rgb565 = false;
+#endif
 
 	D_DrawZSpans( s->spans );
 
@@ -1098,16 +1128,32 @@ static void D_SolidSurf( surf_t *s )
 		miplevel--;
 
 #if XASH_GAMECUBE
-	/* Low-res New Game: textured spans → RGB565 for the GX present path.
+	/* Low-res New Game: textured+lit spans → RGB565 for the GX present path.
+	 * Prefer mip≥1 so more surfaces fit the static cache with lightmaps.
 	 * Flat RGB565 fill remains the fallback so geometry stays visible. */
 	if( GC_UseLowResWorldProbe() )
 	{
+		static unsigned gc_lit_hits, gc_lit_miss;
+		static qboolean gc_lit_marker_logged;
+
+		if( miplevel < 1 )
+			miplevel = 1;
+
 		d_gc_span_rgb565 = true;
 		if( R_GcmapHasSurfaceCache() )
 		{
 			pcurrentcache = D_CacheSurface( pface, miplevel );
 			if( pcurrentcache )
 			{
+				gc_lit_hits++;
+				if( !gc_lit_marker_logged )
+				{
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: textured+lit RGB565 spans active\n" );
+					gc_lit_marker_logged = true;
+				}
+				if( tr.framecount <= 1 && ( gc_lit_hits + gc_lit_miss ) == 1 )
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: surfcache lit begin frame=%d\n",
+						tr.framecount );
 				cacheblock = (pixel_t *)pcurrentcache->data;
 				cachewidth = pcurrentcache->width;
 				D_CalcGradients( pface );
@@ -1126,7 +1172,11 @@ static void D_SolidSurf( surf_t *s )
 				return;
 			}
 		}
+		gc_lit_miss++;
 		d_gc_span_rgb565 = false;
+		if( tr.framecount <= 1 || ( tr.framecount & 31 ) == 0 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: surfcache lit hits=%u miss=%u frame=%d\n",
+				gc_lit_hits, gc_lit_miss, tr.framecount );
 
 		/* Cycle through saturated primaries so uncached surfaces stay visible. */
 		{

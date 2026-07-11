@@ -102,10 +102,11 @@ float        r_aliasuvscale = 1.0;
 
 #if XASH_GAMECUBE
 /* Reduced edge/surface/span budgets for low-res world probe: static BSS, not heap.
- * MEM1 is too fragmented after New Game connect for reliable malloc here. */
-#define GC_PROBE_NUMEDGES 512
-#define GC_PROBE_NUMSURFS 256
-#define GC_PROBE_NUMSPANS 512
+ * MEM1 is too fragmented after New Game connect for reliable malloc here.
+ * Sized for world + opaque brush movers (tram/doors) in the shared edge pass. */
+#define GC_PROBE_NUMEDGES 768
+#define GC_PROBE_NUMSURFS 384
+#define GC_PROBE_NUMSPANS 768
 
 static byte gc_probe_edges_store[( GC_PROBE_NUMEDGES + 2 ) * sizeof( edge_t ) + CACHE_SIZE]
 	__attribute__((aligned( 32 )));
@@ -891,8 +892,9 @@ R_DrawBEntitiesOnList
 static void R_DrawBEntitiesOnList( void )
 {
 #if XASH_GAMECUBE
-	// G24a: low-memory smoke path skips bmodel edge pass until stable
-	if( GC_IsLowMemoryMode() )
+	/* Low-memory smoke skips bmodels, but the low-res New Game / world-render
+	 * probe already owns heap/static edge tables — merge brush movers there. */
+	if( GC_IsLowMemoryMode() && !GC_UseLowResWorldProbe() )
 	{
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_DrawBEntitiesOnList skipping (quality=0)\n" );
 		return;
@@ -1114,7 +1116,12 @@ static void R_EdgeDrawingGcmapProbe( void )
 
 	R_BeginEdgeFrame();
 	R_RenderWorld();
-	/* Skip bmodels: R_DrawBrushModel still uses stack edge tables. */
+	/* Opaque brush entities (tram, doors, …) share the probe edge/span BSS.
+	 * Skip R_DrawBrushModel (translucent) — that path still uses stack tables. */
+	R_DrawBEntitiesOnList();
+	if( tr.framecount <= 1 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels in edge pass count=%u\n",
+			tr.draw_list->num_edge_entities );
 	R_ScanEdges();
 
 	if( tr.framecount <= 1 && vid.buffer )

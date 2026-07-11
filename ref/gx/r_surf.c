@@ -189,10 +189,19 @@ static void R_BuildLightMap( void )
 	int                tmax = ( info->lightextents[1] / sample_size ) + 1;
 	int                size = smax * tmax;
 
+	if( size <= 0 )
+		size = 1;
+	if( size > (int)( sizeof( blocklights ) / sizeof( blocklights[0] )))
+		size = (int)( sizeof( blocklights ) / sizeof( blocklights[0] ));
+
 	if( FBitSet( surf->flags, SURF_CONVEYOR ))
 	{
 		smax = ( info->lightextents[0] * 3 / sample_size ) + 1;
 		size = smax * tmax;
+		if( size <= 0 )
+			size = 1;
+		if( size > (int)( sizeof( blocklights ) / sizeof( blocklights[0] )))
+			size = (int)( sizeof( blocklights ) / sizeof( blocklights[0] ));
 		memset( blocklights, 0xff, sizeof( uint ) * size );
 		return;
 	}
@@ -213,8 +222,22 @@ static void R_BuildLightMap( void )
 			blocklights[i] += ( lm[i].r + lm[i].g + lm[i].b ) * scale;
 	}
 
+#if XASH_GAMECUBE
+	/* Low-res New Game: surfaces without samples still need a mid light grade
+	 * so textured spans are not crushed to black by BLEND_LM. */
+	if( GC_UseLowResWorldProbe() && !surf->samples )
+	{
+		for( int i = 0; i < size; i++ )
+			blocklights[i] = 96 * 3 * 256;
+	}
+#endif
+
 	// add all the dynamic lights
-	if( surf->dlightframe == tr.framecount )
+	if( surf->dlightframe == tr.framecount
+#if XASH_GAMECUBE
+	    && !GC_UseLowResWorldProbe() /* static lightmaps only on low-res path */
+#endif
+	  )
 		R_AddDynamicLights( surf );
 
 	// bound, invert, and shift
@@ -372,6 +395,16 @@ void R_DrawSurface( void )
 		if( r_numvblocks > 4 )
 			r_numvblocks = 4;
 	}
+	/* Keep light-column walks inside the built lightmap. */
+	if( GC_UseLowResWorldProbe() && r_lightwidth > 0 )
+	{
+		int light_rows = (( r_drawsurf.surf->info->lightextents[1] / sample_size ) + 1 );
+
+		if( r_numhblocks > r_lightwidth )
+			r_numhblocks = r_lightwidth;
+		if( light_rows > 0 && r_numvblocks > light_rows )
+			r_numvblocks = light_rows;
+	}
 #endif
 
 // ==============================
@@ -401,10 +434,8 @@ void R_DrawSurface( void )
 	if( r_drawsurf.surf->texinfo->flags & TEX_WORLD_LUXELS )
 	{
 #if XASH_GAMECUBE
-		// G24b: quality 0 skips world-luxels light interpolation setup entirely
-		// and delegates to the unlit fallback in R_DrawSurfaceBlock8_World.
-		// Decals are also skipped for quality 0 to preserve budget.
-		if( !GC_GetVisualQuality() )
+		/* Quality 0 smoke skips world-luxels lighting; New Game low-res keeps it. */
+		if( !GC_GetVisualQuality() && !GC_UseLowResWorldProbe() )
 		{
 			r_lightptr = blocklights;
 			prowdestbase = r_drawsurf.surfdat;
@@ -500,9 +531,8 @@ void R_DrawSurfaceBlock8_World( void )
 	int     lightpos = 0;
 
 #if XASH_GAMECUBE
-	// G24b: quality 0 uses unlit fallback for world-luxels to avoid expensive
-	// light interpolation on low-memory smoke path. Quality 1/2 retain full path.
-	if( !GC_GetVisualQuality() )
+	/* Quality 0 smoke stays unlit; New Game low-res applies lightmaps. */
+	if( !GC_GetVisualQuality() && !GC_UseLowResWorldProbe() )
 	{
 		psource = pbasesource;
 		prowdest = prowdestbase;
@@ -603,9 +633,8 @@ void R_DrawSurfaceBlock8_Generic( void )
 	pixel_t pix, *psource, *prowdest;
 
 #if XASH_GAMECUBE
-	// G24b: quality 0 uses unlit fallback for generic lightmaps to avoid expensive
-	// light interpolation on low-memory smoke path. Quality 1/2 retain full path.
-	if( !GC_GetVisualQuality() )
+	/* Quality 0 smoke stays unlit; New Game low-res applies lightmaps. */
+	if( !GC_GetVisualQuality() && !GC_UseLowResWorldProbe() )
 	{
 		psource = pbasesource;
 		prowdest = prowdestbase;
@@ -1383,19 +1412,29 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	cache = CACHESPOT( surface )[miplevel];
 
 #if XASH_GAMECUBE
-	// G24b: bound surface cache on low-memory path (quality 0) to static
-	// surfaces only. Dynamic lights, animated/conveyor surfaces, alpha/sky
-	// images, and world-luxels surfaces all skip caching to preserve budget.
-	// World-luxels use their own unlit fallback in R_DrawSurfaceBlock8_World.
-	// Quality 1/2 preserve full caching behavior for higher fidelity.
-	if( !GC_GetVisualQuality() &&
-	    ( surface->dlightframe == tr.framecount ||
-	      surface->flags & ( SURF_CONVEYOR | SURF_DRAWTILED ) ||
-	      surface->texinfo->flags & TEX_WORLD_LUXELS ||
-	      r_drawsurf.image->flags & ( TF_HAS_ALPHA | TF_SKY ) ))
+	/* Quality 0 smoke skips heavy cache entries. New Game low-res keeps static
+	 * world surfaces (including world-luxels) so textures+lightmaps can land. */
+	if( !GC_GetVisualQuality() )
 	{
-		CACHESPOT( surface )[miplevel] = NULL;
-		cache = NULL;
+		qboolean skip_cache;
+
+		if( GC_UseLowResWorldProbe() )
+		{
+			skip_cache = ( surface->flags & ( SURF_CONVEYOR | SURF_DRAWTILED )) ||
+				( r_drawsurf.image->flags & ( TF_HAS_ALPHA | TF_SKY ));
+		}
+		else
+		{
+			skip_cache = ( surface->dlightframe == tr.framecount ||
+				( surface->flags & ( SURF_CONVEYOR | SURF_DRAWTILED )) ||
+				( surface->texinfo->flags & TEX_WORLD_LUXELS ) ||
+				( r_drawsurf.image->flags & ( TF_HAS_ALPHA | TF_SKY )));
+		}
+		if( skip_cache )
+		{
+			CACHESPOT( surface )[miplevel] = NULL;
+			cache = NULL;
+		}
 	}
 #endif
 
@@ -1447,19 +1486,39 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	}
 
 #if XASH_GAMECUBE
-	/* Low-res New Game: prefer face extents and keep at least 1×1 so textured
-	 * spans can allocate into the static cache (lightextents are often empty). */
+	/* Low-res New Game: size from lightmap extents when present so light
+	 * columns match; otherwise face extents (lightextents are often empty). */
 	if( GC_UseLowResWorldProbe() )
 	{
-		int w = surface->extents[0] >> miplevel;
-		int h = surface->extents[1] >> miplevel;
+		int w, h;
 		int mip = miplevel;
+		const qboolean use_lm = !( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
+			surface->info->lightextents[0] > 0 && surface->info->lightextents[1] > 0;
+
+		if( use_lm )
+		{
+			w = surface->info->lightextents[0] >> mip;
+			h = surface->info->lightextents[1] >> mip;
+		}
+		else
+		{
+			w = surface->extents[0] >> mip;
+			h = surface->extents[1] >> mip;
+		}
 
 		while(( w <= 0 || h <= 0 ) && mip > 0 )
 		{
 			mip--;
-			w = surface->extents[0] >> mip;
-			h = surface->extents[1] >> mip;
+			if( use_lm )
+			{
+				w = surface->info->lightextents[0] >> mip;
+				h = surface->info->lightextents[1] >> mip;
+			}
+			else
+			{
+				w = surface->extents[0] >> mip;
+				h = surface->extents[1] >> mip;
+			}
 		}
 		if( w <= 0 )
 			w = 8;
@@ -1518,12 +1577,22 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		cache->mipscale = surfscale;
 	}
 
-	if( surface->dlightframe == tr.framecount )
+	if( surface->dlightframe == tr.framecount
+#if XASH_GAMECUBE
+	    && !GC_UseLowResWorldProbe()
+#endif
+	  )
 		cache->dlight = 1;
 	else
 		cache->dlight = 0;
 
 	r_drawsurf.surfdat = (pixel_t *)cache->data;
+
+#if XASH_GAMECUBE
+	/* Clear before lit draw so capped light blocks never leave garbage texels. */
+	if( GC_UseLowResWorldProbe() && cache->width > 0 && r_drawsurf.surfheight > 0 )
+		memset( cache->data, 0, (size_t)cache->width * (size_t)r_drawsurf.surfheight * sizeof( pixel_t ));
+#endif
 
 	cache->image = r_drawsurf.image;
 	cache->lightadj[0] = r_drawsurf.lightadj[0];
@@ -1540,13 +1609,10 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 
 	{
-		// G24b: skip expensive lightmap building for quality 0 surfaces
-		// that use the unlit fallback paths to preserve iteration budget.
-		// Quality 1/2 retain full lightmap computation.
 #if XASH_GAMECUBE
-		if( !GC_GetVisualQuality() )
+		/* Quality 0 smoke skips lightmaps; New Game low-res builds them. */
+		if( !GC_GetVisualQuality() && !GC_UseLowResWorldProbe() )
 		{
-			// zero out blocklights so fallback draw paths have a clean slate
 			int sample_size = LM_SAMPLE_SIZE_AUTO( surface );
 			int smax = ( surface->info->lightextents[0] / sample_size ) + 1;
 			int tmax = ( surface->info->lightextents[1] / sample_size ) + 1;

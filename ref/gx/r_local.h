@@ -536,7 +536,7 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage );
 #if XASH_GAMECUBE
 #define GC_SURFACE_CACHE_DEFAULT 262144
 #define GC_SURFACE_CACHE_MAX     262144
-#define GC_SURFACE_CACHE_LOWRES  65536 /* static BSS textured spans for New Game */
+#define GC_SURFACE_CACHE_LOWRES  131072 /* static BSS textured+lit spans for New Game */
 qboolean R_Init_refgx( void );
 void R_Shutdown_refgx( void );
 #define R_Init R_Init_refgx
