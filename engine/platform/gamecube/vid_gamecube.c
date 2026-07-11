@@ -267,9 +267,9 @@ static qboolean GC_CanPresentViaGX( int width, int height )
 		return false;
 	if( width > GC_GX_TILE_MAX_W || height > GC_GX_TILE_MAX_H )
 		return false;
-	/* Prefer GX for New Game world + G36 probe buffers (≤320×240). */
-	return gc_newgame_world_ready || gc_budget_probe_active
-		|| Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcworldrender" );
+	/* Prefer native GX (tiled RGB565 → EFB → XFB) for any buffer that fits
+	 * the tile staging area. Avoids CPU YUYV upscale on GameCube. */
+	return true;
 }
 
 static void GC_PresentBufferViaGX( void )
@@ -533,7 +533,6 @@ static void GC_PresentBuffer( void )
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
 		const int row_pairs = rmode->fbWidth / 2;
-		qboolean used_gx = false;
 
 		src = gc.buffer;
 		src_w = gc.width;
@@ -556,7 +555,6 @@ static void GC_PresentBuffer( void )
 			DCFlushRange( gc_tiled_rgb565, (u32)((size_t)src_w * (size_t)src_h * sizeof( u16 )));
 			GC_InitPresentTextureTiled( gc_tiled_rgb565, src_w, src_h );
 			GC_PresentBufferViaGX();
-			used_gx = true;
 			if( !gc_gx_present_logged )
 			{
 				SYS_Report( "Xash3D GameCube: GX present path active %dx%d\n", src_w, src_h );
@@ -571,11 +569,14 @@ static void GC_PresentBuffer( void )
 		}
 
 		/* Sample non-black once per early present. Budget probes can treat the
-		 * status panel as non-black without a second full-buffer scan. */
+		 * status panel as non-black without a second full-buffer scan. New Game
+		 * world frames always sample the RGB565 buffer so GX present cannot
+		 * fake visual evidence from an empty framebuffer. */
 		if(( gc_budget_probe_active || gc_newgame_world_ready || gc_present_count <= 16 )
 			&& src_h > 0 && src_w > 0 )
 		{
-			if(( gc_budget_probe_active || used_gx ) && !Sys_CheckParm( "-gcworldrender" ))
+			if( gc_budget_probe_active && !Sys_CheckParm( "-gcworldrender" )
+				&& !gc_newgame_world_ready )
 				sampled_nonblack = true;
 			else
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
