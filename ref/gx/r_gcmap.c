@@ -5,8 +5,11 @@ r_gcmap.c - GameCube smoke boot memory trims
 
 #if XASH_GAMECUBE
 static qboolean gc_renderer_trimmed;
-static short gc_gcmap_static_zbuffer[160 * 128];
-static pixel_t gc_gcmap_static_viewbuffer[160 * 128];
+/* Sized for New Game 256×192 GX presents (and smaller gcmap probes). */
+#define GC_GCMAP_STATIC_MAX_W 256
+#define GC_GCMAP_STATIC_MAX_H 192
+static short gc_gcmap_static_zbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
+static pixel_t gc_gcmap_static_viewbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 
 void R_GcmapTrimScreenBuffers( void );
 void R_GcmapTrimSurfaceCache( void );
@@ -139,13 +142,13 @@ qboolean R_GcmapAllocMinimalScreen( void )
 		 * generic half-res smoke path so software BSP fill fits GameCube CPU. */
 		w = 128;
 		h = 96;
-		use_static_screen = ( w <= 160 && h <= 128 ) ? true : false;
+		use_static_screen = ( w <= GC_GCMAP_STATIC_MAX_W && h <= GC_GCMAP_STATIC_MAX_H ) ? true : false;
 	}
 	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
-		/* New Game Host_Frame world: fit static z/view buffers, match G36 probe. */
-		w = 160;
-		h = 120;
+		/* New Game Host_Frame world: sharper than 160×120, still tileable for GX. */
+		w = GC_GCMAP_STATIC_MAX_W;
+		h = GC_GCMAP_STATIC_MAX_H;
 		use_static_screen = true;
 	}
 	if( w < 128 )
@@ -154,6 +157,14 @@ qboolean R_GcmapAllocMinimalScreen( void )
 		h = 96;
 	else if( !gEngfuncs.Sys_CheckParm( "-gcworldrender" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && h < 128 )
 		h = 128;
+
+	if( use_static_screen )
+	{
+		if( w > GC_GCMAP_STATIC_MAX_W )
+			w = GC_GCMAP_STATIC_MAX_W;
+		if( h > GC_GCMAP_STATIC_MAX_H )
+			h = GC_GCMAP_STATIC_MAX_H;
+	}
 
 	vid.width = w;
 	vid.height = h;

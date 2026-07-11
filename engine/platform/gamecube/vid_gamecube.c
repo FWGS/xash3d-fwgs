@@ -75,8 +75,8 @@ static qboolean gc_present_tex_ready;
 #define GC_VIDEO_PROBE_WIDTH 320
 #define GC_VIDEO_PROBE_HEIGHT 240
 /* Post-map New Game G36 presents — smaller than smoke so RGB→XFB stays cheap. */
-#define GC_VIDEO_NEWGAME_PROBE_WIDTH 160
-#define GC_VIDEO_NEWGAME_PROBE_HEIGHT 120
+#define GC_VIDEO_NEWGAME_PROBE_WIDTH 256
+#define GC_VIDEO_NEWGAME_PROBE_HEIGHT 192
 /* Skip first Host_Frame after arm (connect residual), then sample. */
 #define GC_VIDEO_BUDGET_WARMUP_PRESENTS 1
 #define GC_VIDEO_BUDGET_SAMPLE_TARGET 16
@@ -437,7 +437,7 @@ static void GC_BlitSoftwareBufferScaled( const unsigned short *src, int src_w, i
 		return;
 	}
 
-	/* New Game G36 probe: 160x120 → 640x480 nearest (4×) without per-pixel divides. */
+	/* Exact 4× nearest (e.g. 160×120 → 640×480) without per-pixel divides. */
 	if( src_w > 0 && src_h > 0 && ( src_w & 1 ) == 0 && ( copy_w & 1 ) == 0
 		&& src_w * 4 == copy_w && src_h * 4 == copy_h )
 	{
@@ -549,7 +549,7 @@ static void GC_PresentBuffer( void )
 		}
 
 		/* Native GX present: tile linear RGB565 → EFB textured quad → XFB.
-		 * Avoids the CPU 160×120→640×480 YUYV scale that dominates post-G36 lag. */
+		 * Avoids the CPU nearest-neighbor YUYV scale that dominates post-G36 lag. */
 		if( GC_CanPresentViaGX( src_w, src_h ))
 		{
 			GC_SwizzleRGB565ToTiled( src, gc.stride, src_w, src_h, gc_tiled_rgb565 );
@@ -1277,12 +1277,12 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 			return false;
 	}
 
-	present_w = gc.width > 0 ? gc.width : 160;
-	present_h = gc.height > 0 ? gc.height : 120;
+	present_w = gc.width > 0 ? gc.width : GC_VIDEO_NEWGAME_PROBE_WIDTH;
+	present_h = gc.height > 0 ? gc.height : GC_VIDEO_NEWGAME_PROBE_HEIGHT;
 	if( !R_GcmapGetViewport( &present_w, &present_h ))
 	{
-		present_w = 160;
-		present_h = 120;
+		present_w = GC_VIDEO_NEWGAME_PROBE_WIDTH;
+		present_h = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
 	}
 
 	if( !GC_EnsurePresentationBuffer( present_w, present_h ))
@@ -1569,7 +1569,7 @@ void GC_PresentBudgetProbeFrame( void )
 #if XASH_GAMECUBE
 	/* Present the probe RGB565 buffer directly. R_EndFrame -> R_BlitScreen
 	 * copies from the software renderer (still full-res) into gc.buffer and
-	 * cannot sample Host_Frame intervals after Arm shrinks to 160x120. */
+	 * cannot sample Host_Frame intervals after Arm shrinks the present buffer. */
 	GC_PresentBuffer();
 #endif
 }
@@ -1609,7 +1609,7 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 
 	/* Host_Frame SCR collects G36 samples on the light fill path. Do not
 	 * exhaust the probe with a synthetic burst — that forced V_RenderView
-	 * immediately after and stalled presents (160x120 vs world buffer). */
+	 * immediately after and stalled presents (probe vs world buffer). */
 	gc_light_present_left = GC_VIDEO_BUDGET_SAMPLE_TARGET + GC_VIDEO_LIGHT_PRESENT_GRACE;
 #endif
 }

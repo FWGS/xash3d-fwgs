@@ -617,7 +617,7 @@ static void R_DrawStudioEntitiesLowRes( void )
 		drew_view = true;
 	}
 
-	/* Particles / tempents (additive) into the RGB565 world buffer. */
+	/* Particles / tempents into the RGB565 world buffer. */
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
 		gEngfuncs.CL_DrawEFX( tr.frametime, false );
@@ -628,10 +628,48 @@ static void R_DrawStudioEntitiesLowRes( void )
 		}
 	}
 
+	/* Bounded translucent studio/sprites (glass, glows already in solid list). */
+	d_pdrawspans = R_PolysetDrawSpans8_33;
+	for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
+	{
+		RI.currententity = tr.draw_list->trans_entities[i];
+		RI.currentmodel = RI.currententity->model;
+
+		if( !RI.currentmodel )
+			continue;
+		if( RI.currententity->curstate.rendermode != kRenderNormal )
+			tr.blend = CL_FxBlend( RI.currententity ) / 255.0f;
+		else
+			tr.blend = 1.0f;
+		if( tr.blend <= 0.0f )
+			continue;
+
+		if( RI.currentmodel->type == mod_studio )
+		{
+			if( drawn >= max_studio )
+				continue;
+			R_SetUpWorldTransform();
+			R_DrawStudioModel( RI.currententity );
+			drawn++;
+		}
+		else if( RI.currentmodel->type == mod_sprite )
+		{
+			if( sprites >= max_sprites )
+				continue;
+			R_SetUpWorldTransform();
+			R_DrawSpriteModel( RI.currententity );
+			sprites++;
+		}
+	}
+
+	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
+		gEngfuncs.CL_DrawEFX( tr.frametime, true );
+
 	d_gc_span_rgb565 = false;
 	if( tr.framecount <= 1 || (( tr.framecount & 31 ) == 0 ) || drawn || sprites || drew_view )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res ents studio=%u sprites=%u solids=%u viewmodel=%d frame=%d\n",
-			drawn, sprites, tr.draw_list->num_solid_entities, drew_view ? 1 : 0, tr.framecount );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res ents studio=%u sprites=%u solids=%u trans=%u viewmodel=%d frame=%d\n",
+			drawn, sprites, tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities,
+			drew_view ? 1 : 0, tr.framecount );
 }
 #endif
 
