@@ -319,11 +319,11 @@ GOAL_CONTEXT_SLICES = {
 		("scripts/dolphin-vision-test.py", "engine/client/parse/cl_parse.c"),
 	),
 	"G72": (
-		("engine/platform/gamecube/vid_gamecube.c",),
-		("ref/gx/r_main.c",),
-		("ref/gx/r_surf.c",),
-		("engine/common/zone.c",),
+		# Prefer files that fit the local 7B editable budget; keep repairing
+		# the same dirty file instead of rotating into OVER_BUDGET r_main/r_surf.
 		("engine/platform/gamecube/mem_gamecube.c",),
+		("engine/platform/gamecube/vid_gamecube.c",),
+		("engine/common/zone.c",),
 	),
 	"G82": (
 		("engine/platform/gamecube/vid_gamecube.c",),
@@ -599,6 +599,7 @@ GOAL_COMMIT_SUBJECT = {
 }
 RECOVERABLE_EXIT_CODES = {
 	10: "Aider made no edit",
+	15: "Verifier rejected patch; kept for repair",
 	16: "Automation harness preflight failed",
 	17: "Aider model call timed out",
 	18: "Aider hit a token/context limit",
@@ -2116,9 +2117,35 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 	return commit_with_body(root, subject, body)
 
 
+def dirty_source_context(root: Path) -> list[str]:
+	"""Prefer repairing already-dirty engine/ref files over rotating slices."""
+	if os.environ.get("AI_SKIP_FAILED_PASS_RESET", "0").lower() not in {"1", "true", "yes"} \
+			and os.environ.get("AI_KEEP_FAILED_PATCH", "0").lower() not in {"1", "true", "yes"}:
+		return []
+	result = subprocess.run(
+		["git", "diff", "--name-only", "--diff-filter=ACMR", "--", "engine/", "ref/", "common/"],
+		cwd=root, text=True, capture_output=True, check=False,
+	)
+	paths = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+	selected: list[str] = []
+	for path in paths:
+		if (root / path).is_file():
+			selected.append(f"required:{path}")
+	return selected[:2]
+
+
 def context_for_goal(goal_id: str, root: Path, attempt: int,
 	memory: dict[str, object] | None = None) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
+	dirty = dirty_source_context(root)
+	if dirty:
+		print(
+			"goal-loop: continuing repair on dirty source files: "
+			+ ", ".join(item.removeprefix("required:") for item in dirty),
+			file=sys.stderr,
+			flush=True,
+		)
+		return dirty
 	if goal_id == "G24":
 		return g24_subgoal_files(attempt, root)
 	blocked_paths = conact_blocked_context_paths(goal_id, memory or {})
@@ -2395,6 +2422,11 @@ def main() -> int:
 				pass_env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
 				pass_env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
 				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
+				pass_env.setdefault("AI_VERIFY_REPAIR_ATTEMPTS", "2")
+				pass_env.setdefault("AIDER_MAX_EDITABLE_FILE_BYTES", "45000")
+			pass_env.setdefault("AI_KEEP_FAILED_PATCH", os.environ.get("AI_KEEP_FAILED_PATCH", "1"))
+			pass_env.setdefault("AI_SKIP_FAILED_PASS_RESET",
+				os.environ.get("AI_SKIP_FAILED_PASS_RESET", "1"))
 			pass_env["AI_COMMIT_BODY"] = goal_commit_body(goal,
 				attempt=attempts[goal.goal_id],
 				context_files=context_files,

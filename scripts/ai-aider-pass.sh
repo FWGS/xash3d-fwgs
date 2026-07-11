@@ -768,7 +768,20 @@ for path in context_files:
 PY
 }
 
+keep_failed_patch_enabled() {
+	[[ "${AI_SKIP_FAILED_PASS_RESET:-0}" =~ ^(1|true|TRUE|yes)$ ]] || \
+		[[ "${AI_KEEP_FAILED_PATCH:-0}" =~ ^(1|true|TRUE|yes)$ ]]
+}
+
 discard_failed_patch() {
+	if keep_failed_patch_enabled; then
+		# Leave the broken patch in the worktree so the next pass can repair it
+		# instead of burning cycles on edit→verify-fail→wipe thrash.
+		git reset >/dev/null 2>&1 || true
+		echo "ai-aider-pass: keeping failed patch for repair (AI_SKIP_FAILED_PASS_RESET/AI_KEEP_FAILED_PATCH)" >&2
+		git status --short >&2 || true
+		return 0
+	fi
 	git reset >/dev/null 2>&1 || true
 	local changed=()
 	mapfile -t changed < <(git diff --name-only)
@@ -782,72 +795,100 @@ VERIFY_LOG=".ai/logs/aider-verify-$STAMP-1.log"
 echo
 echo "== pre-commit verifier =="
 if ! run_precommit_verifier "$VERIFY_LOG"; then
-	echo "ai-aider-pass: first verification failed; requesting one autonomous repair" >&2
-	cleanup_stale_git_lock 0
-	git reset
+	# Default to two repair attempts when keeping failed patches overnight.
+	if keep_failed_patch_enabled; then
+		VERIFY_REPAIR_ATTEMPTS="${AI_VERIFY_REPAIR_ATTEMPTS:-2}"
+	else
+		VERIFY_REPAIR_ATTEMPTS="${AI_VERIFY_REPAIR_ATTEMPTS:-1}"
+	fi
 	ORIGINAL_CONTEXT_FILES=("${CONTEXT_FILES[@]}")
 	ORIGINAL_READ_CONTEXT_FILES=("${READ_CONTEXT_FILES[@]}")
 	ORIGINAL_REQUIRED_CONTEXT_FILES=("${REQUIRED_CONTEXT_FILES[@]}")
 	ORIGINAL_RAW_CONTEXT_SPECS=("${RAW_CONTEXT_SPECS[@]}")
-	mapfile -t REPAIR_CONTEXT_FILES < <(repair_context_files_for_verify_log "$VERIFY_LOG" "${ORIGINAL_CONTEXT_FILES[@]}")
-	if (( ${#REPAIR_CONTEXT_FILES[@]} == 0 )); then
-		REPAIR_CONTEXT_FILES=("${ORIGINAL_CONTEXT_FILES[@]}")
-	fi
-	CONTEXT_FILES=("${REPAIR_CONTEXT_FILES[@]}")
-	READ_CONTEXT_FILES=()
-	REQUIRED_CONTEXT_FILES=()
-	RAW_CONTEXT_SPECS=()
-	for context_file in "${CONTEXT_FILES[@]}"; do
-		RAW_CONTEXT_SPECS+=("file:$context_file")
+	repair_round=0
+	verify_ok=0
+	while (( repair_round < VERIFY_REPAIR_ATTEMPTS )); do
+		repair_round=$((repair_round + 1))
+		echo "ai-aider-pass: verification failed; autonomous repair ${repair_round}/${VERIFY_REPAIR_ATTEMPTS}" >&2
+		cleanup_stale_git_lock 0
+		git reset
+		mapfile -t REPAIR_CONTEXT_FILES < <(repair_context_files_for_verify_log "$VERIFY_LOG" "${ORIGINAL_CONTEXT_FILES[@]}")
+		if (( ${#REPAIR_CONTEXT_FILES[@]} == 0 )); then
+			REPAIR_CONTEXT_FILES=("${ORIGINAL_CONTEXT_FILES[@]}")
+		fi
+		# Prefer already-dirty source files so repair stays on the broken patch.
+		mapfile -t DIRTY_REPAIR_FILES < <(git diff --name-only --diff-filter=ACMR -- 'engine/' 'ref/' 'common/' 2>/dev/null || true)
+		if (( ${#DIRTY_REPAIR_FILES[@]} )); then
+			REPAIR_CONTEXT_FILES=("${DIRTY_REPAIR_FILES[@]}")
+		fi
+		CONTEXT_FILES=("${REPAIR_CONTEXT_FILES[@]}")
+		READ_CONTEXT_FILES=()
+		REQUIRED_CONTEXT_FILES=()
+		RAW_CONTEXT_SPECS=()
+		for context_file in "${CONTEXT_FILES[@]}"; do
+			RAW_CONTEXT_SPECS+=("file:$context_file")
+		done
+		echo "ai-aider-pass: repair context narrowed to: ${CONTEXT_FILES[*]}" >&2
+		REPAIR_ALLOWED="$(printf '%s\n' "${CONTEXT_FILES[@]}")"
+		REPAIR_MESSAGE="$(printf '%s\n' \
+			'The current uncommitted patch failed verification. Fix the compiler or verifier failure now.' \
+			'There is no interactive human. Do not ask questions, explain options, or only propose commands.' \
+			'Make the smallest safe edit in the already loaded editable file or files only, and do not commit.' \
+			'Do not add or edit helper scripts mentioned by logs, diagnostics, or progress output.' \
+			'Do not add files merely because they appear in build progress logs.' \
+			'' 'Editable files for this repair pass:' "$REPAIR_ALLOWED" \
+			'' 'Verification errors:'; verification_summary "$VERIFY_LOG")"
+		set +e
+		run_aider_with_recovery "autonomous repair ${repair_round}" --editable-only --message "$REPAIR_MESSAGE"
+		REPAIR_STATUS="$?"
+		set -e
+		CONTEXT_FILES=("${ORIGINAL_CONTEXT_FILES[@]}")
+		READ_CONTEXT_FILES=("${ORIGINAL_READ_CONTEXT_FILES[@]}")
+		REQUIRED_CONTEXT_FILES=("${ORIGINAL_REQUIRED_CONTEXT_FILES[@]}")
+		RAW_CONTEXT_SPECS=("${ORIGINAL_RAW_CONTEXT_SPECS[@]}")
+		if (( REPAIR_STATUS == 124 || REPAIR_STATUS == 137 || REPAIR_STATUS == 17 )); then
+			echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
+			discard_failed_patch
+			exit 17
+		fi
+		if (( REPAIR_STATUS == 18 )); then
+			echo "ai-aider-pass: autonomous repair hit a token/context limit after retries; see $LOG" >&2
+			discard_failed_patch
+			exit 18
+		fi
+		if (( REPAIR_STATUS != 0 )); then
+			echo "ai-aider-pass: autonomous repair exited $REPAIR_STATUS" >&2
+			if (( repair_round >= VERIFY_REPAIR_ATTEMPTS )); then
+				discard_failed_patch
+				exit "$REPAIR_STATUS"
+			fi
+			continue
+		fi
+		if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
+			echo "ai-aider-pass: flattening unexpected repair commit back to staged changes" >&2
+			git reset --soft "$BASELINE"
+		fi
+		if ! stage_and_validate_patch; then
+			if (( repair_round >= VERIFY_REPAIR_ATTEMPTS )); then
+				discard_failed_patch
+				exit 15
+			fi
+			continue
+		fi
+		VERIFY_LOG=".ai/logs/aider-verify-$STAMP-r${repair_round}.log"
+		echo
+		echo "== repaired pre-commit verifier (round ${repair_round}) =="
+		if run_precommit_verifier "$VERIFY_LOG"; then
+			verify_ok=1
+			break
+		fi
 	done
-	echo "ai-aider-pass: repair context narrowed to: ${CONTEXT_FILES[*]}" >&2
-	REPAIR_ALLOWED="$(printf '%s\n' "${CONTEXT_FILES[@]}")"
-	REPAIR_MESSAGE="$(printf '%s\n' \
-		'The current uncommitted patch failed verification. Fix the compiler or verifier failure now.' \
-		'There is no interactive human. Do not ask questions, explain options, or only propose commands.' \
-		'Make the smallest safe edit in the already loaded editable file or files only, and do not commit.' \
-		'Do not add or edit helper scripts mentioned by logs, diagnostics, or progress output.' \
-		'Do not add files merely because they appear in build progress logs.' \
-		'' 'Editable files for this repair pass:' "$REPAIR_ALLOWED" \
-		'' 'Verification errors:'; verification_summary "$VERIFY_LOG")"
-	set +e
-	run_aider_with_recovery "autonomous repair" --editable-only --message "$REPAIR_MESSAGE"
-	REPAIR_STATUS="$?"
-	set -e
-	CONTEXT_FILES=("${ORIGINAL_CONTEXT_FILES[@]}")
-	READ_CONTEXT_FILES=("${ORIGINAL_READ_CONTEXT_FILES[@]}")
-	REQUIRED_CONTEXT_FILES=("${ORIGINAL_REQUIRED_CONTEXT_FILES[@]}")
-	RAW_CONTEXT_SPECS=("${ORIGINAL_RAW_CONTEXT_SPECS[@]}")
-	if (( REPAIR_STATUS == 124 || REPAIR_STATUS == 137 )); then
-		echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
-		discard_failed_patch
-		exit 17
-	fi
-	if (( REPAIR_STATUS == 17 )); then
-		echo "ai-aider-pass: autonomous repair timed out after ${AIDER_MODEL_TIMEOUT_SEC}s" >&2
-		discard_failed_patch
-		exit 17
-	fi
-	if (( REPAIR_STATUS == 18 )); then
-		echo "ai-aider-pass: autonomous repair hit a token/context limit after retries; see $LOG" >&2
-		discard_failed_patch
-		exit 18
-	fi
-	if (( REPAIR_STATUS != 0 )); then
-		echo "ai-aider-pass: autonomous repair exited $REPAIR_STATUS" >&2
-		discard_failed_patch
-		exit "$REPAIR_STATUS"
-	fi
-	if [[ "$BASELINE" != "$(git rev-parse HEAD)" ]]; then
-		echo "ai-aider-pass: flattening unexpected repair commit back to staged changes" >&2
-		git reset --soft "$BASELINE"
-	fi
-	stage_and_validate_patch
-	VERIFY_LOG=".ai/logs/aider-verify-$STAMP-2.log"
-	echo
-	echo "== repaired pre-commit verifier =="
-	if ! run_precommit_verifier "$VERIFY_LOG"; then
-		echo "ai-aider-pass: repaired patch still fails; discarding failed patch" >&2
+	if (( ! verify_ok )); then
+		if keep_failed_patch_enabled; then
+			echo "ai-aider-pass: repaired patch still fails; keeping it for the next goal pass" >&2
+		else
+			echo "ai-aider-pass: repaired patch still fails; discarding failed patch" >&2
+		fi
 		discard_failed_patch
 		exit 15
 	fi
