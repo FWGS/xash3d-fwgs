@@ -127,9 +127,9 @@ DISCOVERY_RECIPES: dict[str, dict[str, object]] = {
 		"title": "repair the latest GameCube source patch from verifier evidence",
 		"subject": "fix: resolve GameCube verifier rejection in source",
 		"context": (
+			"engine/platform/gamecube/vid_gamecube.c",
+			"ref/gx/r_main.c",
 			"engine/platform/gamecube/mem_gamecube.c",
-			"engine/common/model.c",
-			"engine/common/mod_bmodel.c",
 		),
 		"read_context": (".ai/prompts/GAMECUBE_MEMORY_BUDGET.md",),
 		"include_common_reads": False,

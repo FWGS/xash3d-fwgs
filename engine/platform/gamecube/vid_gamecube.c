@@ -287,20 +287,24 @@ static unsigned int GC_RGBPairToYUYV( unsigned short p1, unsigned short p2 )
 static void GC_SampleBufferNonBlack( const unsigned short *src, int src_w, int src_h, int src_stride, qboolean *sampled_nonblack )
 {
 	int sample_x, sample_y;
+	int grid;
+	int denom;
 
 	if( !src || src_w <= 0 || src_h <= 0 || !sampled_nonblack )
 		return;
 
-	/* Probe a denser grid so thin title logos and menu text near the top are
-	 * not missed by a coarse 5x5 sample (world-render letterboxing still ok). */
-	for( sample_y = 0; sample_y < 9; sample_y++ )
+	/* Budget probes only need a cheap non-black signal. Keep the denser 9x9
+	 * grid for normal presents so thin menu/title pixels are still caught. */
+	grid = gc_budget_probe_active ? 5 : 9;
+	denom = grid - 1;
+	for( sample_y = 0; sample_y < grid; sample_y++ )
 	{
-		int y = ( sample_y * ( src_h - 1 )) / 8;
+		int y = ( sample_y * ( src_h - 1 )) / denom;
 		const unsigned short *scanrow = src + y * src_stride;
 
-		for( sample_x = 0; sample_x < 9; sample_x++ )
+		for( sample_x = 0; sample_x < grid; sample_x++ )
 		{
-			int x = ( sample_x * ( src_w - 1 )) / 8;
+			int x = ( sample_x * ( src_w - 1 )) / denom;
 
 			if( scanrow[x] != 0 )
 			{
@@ -418,11 +422,11 @@ static void GC_PresentBuffer( void )
 		if( !gc_budget_probe_active )
 			DCFlushRange( gc.buffer, (u32)buf_size );
 
-		// G36: Sample first pixel for visual evidence only on first frame
+		/* G36: Sample first pixel for visual evidence only on first frame. */
 		if( gc_present_count == 1 )
 		{
 			first_pixel = gc.buffer[0];
-			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565) - G72: Reduced frame/render cost while preserving MAP_READY/G45/nonblack\n", first_pixel );
+			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
 
 		/* The software renderer keeps gc.buffer as a linear RGB565 framebuffer.
@@ -477,12 +481,8 @@ static void GC_PresentBuffer( void )
 			gc_worst_frame_ms = elapsed_ms;
 		if( gc_budget_probe_active )
 		{
-			if( Sys_CheckParm( "-gcworldrender" ))
-			{
-				SYS_Report(
-					"Xash3D GameCube: gcmap world render present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
-					gc_present_count, sampled_nonblack ? 1u : 0u, elapsed_ms );
-			}
+			/* One present line per frame — duplicate world-render reports were
+			 * burning host I/O during already-tight budget probes. */
 			SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
 				gc_present_count, sampled_nonblack ? 1u : 0u, elapsed_ms );
 		}

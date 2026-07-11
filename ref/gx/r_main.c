@@ -1287,8 +1287,6 @@ void GAME_EXPORT R_RenderScene( void )
 {
 #if XASH_GAMECUBE
 	double gc_render_start = gEngfuncs.pfnTime();
-
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene enter quality=%d\n", GC_GetVisualQuality() );
 #endif
 
 	if( !WORLDMODEL && FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
