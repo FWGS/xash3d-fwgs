@@ -882,13 +882,10 @@ void R_BlitScreen( void )
 			unsigned short *pbuf = buffer;
 #if XASH_GAMECUBE
 			int v, u;
-			const qboolean lowres_world = GC_UseLowResWorldProbe();
-			/* Textured low-res frames store SW-packed pixels; convert via vid.screen.
-			 * Flat-fill-only frames store raw RGB565 and copy through. */
-			const qboolean rgb565_direct = lowres_world && !R_GcmapHasSurfaceCache();
+			const qboolean rgb565_direct = GC_UseLowResWorldProbe();
 			uint dst_stride = swblit.stride;
 
-			if( lowres_world && vid.width > 0 && swblit.stride != (uint)vid.width )
+			if( rgb565_direct && vid.width > 0 && swblit.stride != (uint)vid.width )
 			{
 				/* Recreate presentation buffer at the software renderer size. */
 				if( swblit.pCreateBuffer )
@@ -908,6 +905,7 @@ void R_BlitScreen( void )
 
 				if( rgb565_direct )
 				{
+					/* World-render probe stores RGB565 in vid.buffer already. */
 					for( u = 0; u < vid.width; u++ )
 						dst_row[u] = src_row[u];
 				}

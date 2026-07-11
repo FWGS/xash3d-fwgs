@@ -536,7 +536,6 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage );
 #if XASH_GAMECUBE
 #define GC_SURFACE_CACHE_DEFAULT 262144
 #define GC_SURFACE_CACHE_MAX     262144
-#define GC_SURFACE_CACHE_LOWRES  131072 /* New Game textured spans after present alloc */
 qboolean R_Init_refgx( void );
 void R_Shutdown_refgx( void );
 #define R_Init R_Init_refgx
@@ -1140,7 +1139,6 @@ void R_InitCaches( void );
 qboolean R_TryInitGcmapSurfaceCache( void );
 qboolean R_GcmapEnsureSurfaceCache( void );
 void R_GcmapTrimSurfaceCache( void );
-qboolean R_GcmapHasSurfaceCache( void );
 qboolean R_GcmapPrepareWorldRender( void );
 qboolean R_GcmapAllocMinimalScreen( void );
 qboolean R_GcmapGetViewport( int *width, int *height );
