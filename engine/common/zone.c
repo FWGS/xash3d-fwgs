@@ -306,6 +306,16 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 
 		if( pool )
 			Mem_ReportOOM( pool, size );
+#if XASH_GAMECUBE
+		/* FileSystem loads (fonts/sounds/extras) can soft-fail after New Game;
+		 * callers already treat NULL as missing content. Fatals here abort G36. */
+		if( pool && !Q_stricmp( pool->name, "FileSystem Pool" ))
+		{
+			Con_Reportf( "Xash3D GameCube: soft-fail FS alloc size=%s at %s:%i\n",
+				Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
+#endif
 		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 		return NULL;
 	}

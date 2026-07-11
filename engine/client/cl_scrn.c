@@ -777,6 +777,20 @@ text to the screen.
 void SCR_UpdateScreen( void )
 {
 	qboolean screen_redraw = true; // assume screen has been redrawn
+#if XASH_GAMECUBE
+	/* Host_Frame light presents must call GC_PresentBuffer directly. Going
+	 * through V_PreRender/R_EndFrame/R_BlitScreen after Arm shrinks to 160x120
+	 * either no-ops or overwrites the probe fill from the full-res SW FB. */
+	if( cls.state == ca_active && GC_ShouldUseLightPresent() )
+	{
+		if( cls.disable_screen )
+			cls.disable_screen = 0.0f;
+		GC_FillBudgetProbeFrameBuffer();
+		GC_PresentBudgetProbeFrame();
+		GC_NoteLightPresentFrame();
+		return;
+	}
+#endif
 
 	if( !V_PreRender( )) return;
 
@@ -802,13 +816,8 @@ void SCR_UpdateScreen( void )
 	case ca_active:
 		Con_RunConsole ();
 #if XASH_GAMECUBE
-		/* G36 post-map window: present a filled buffer instead of a full
-		 * software world render (dominant Host_Frame cost on New Game). */
-		if( GC_IsFrameBudgetProbeActive() )
-		{
-			GC_FillBudgetProbeFrameBuffer();
-			break;
-		}
+		if( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
+			GC_RestoreVideoMemoryAfterMapLoad();
 #endif
 		V_RenderView();
 		break;

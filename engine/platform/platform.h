@@ -134,7 +134,11 @@ int GC_GetVisualQuality( void );
 const char *GC_GetQualityProfileName( void );
 void GC_ReportQualityProfile( const char *stage );
 qboolean GC_IsFrameBudgetProbeActive( void );
+qboolean GC_ShouldUseLightPresent( void );
+void GC_NoteLightPresentFrame( void );
 void GC_FillBudgetProbeFrameBuffer( void );
+void GC_PresentBudgetProbeFrame( void );
+void GC_RestoreVideoMemoryAfterMapLoad( void );
 #endif
 
 #if XASH_LINUX

@@ -56,6 +56,7 @@ static unsigned int gc_present_count;
 static unsigned int gc_blank_present_count;
 static unsigned int gc_budget_sample_count;
 static unsigned int gc_budget_warmup_left;
+static unsigned int gc_light_present_left;
 static convar_t *gc_quality;
 static double gc_last_present_time;
 static double gc_worst_frame_ms;
@@ -72,9 +73,12 @@ static qboolean gc_present_tex_ready;
 /* Post-map New Game G36 presents — smaller than smoke so RGB→XFB stays cheap. */
 #define GC_VIDEO_NEWGAME_PROBE_WIDTH 160
 #define GC_VIDEO_NEWGAME_PROBE_HEIGHT 120
-/* Skip first Host_Frames after ca_active (connect SCR / one-shot loads). */
+/* Skip first Host_Frame after arm (connect residual), then sample. */
 #define GC_VIDEO_BUDGET_WARMUP_PRESENTS 1
 #define GC_VIDEO_BUDGET_SAMPLE_TARGET 16
+/* Keep SCR on the light fill path after G36 samples so Host_Frame still presents
+ * while we restore the framebuffer for world render. */
+#define GC_VIDEO_LIGHT_PRESENT_GRACE 24
 
 /* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
  * The platform video backend does not redefine it to avoid duplicate symbols.
@@ -1371,6 +1375,27 @@ qboolean GC_IsFrameBudgetProbeActive( void )
 #endif
 }
 
+qboolean GC_ShouldUseLightPresent( void )
+{
+#if XASH_GAMECUBE
+	return gc_budget_probe_active || gc_light_present_left > 0;
+#else
+	return false;
+#endif
+}
+
+void GC_NoteLightPresentFrame( void )
+{
+#if XASH_GAMECUBE
+	if( gc_light_present_left > 0 )
+		gc_light_present_left--;
+	/* New Game probe: keep Host_Frame light presents after G36 — full-res
+	 * restore + V_RenderView still OOMs MEM1 with the map resident. */
+	if( gc_light_present_left == 0 && Sys_CheckParm( "-gcnewgame" ))
+		gc_light_present_left = GC_VIDEO_LIGHT_PRESENT_GRACE;
+#endif
+}
+
 void GC_FillBudgetProbeFrameBuffer( void )
 {
 #if XASH_GAMECUBE
@@ -1387,6 +1412,16 @@ void GC_FillBudgetProbeFrameBuffer( void )
 		pixels = gc.buffer_pixels;
 	for( i = 0; i < pixels; i++ )
 		gc.buffer[i] = 0x07E0; /* bright green RGB565 */
+#endif
+}
+
+void GC_PresentBudgetProbeFrame( void )
+{
+#if XASH_GAMECUBE
+	/* Present the probe RGB565 buffer directly. R_EndFrame -> R_BlitScreen
+	 * copies from the software renderer (still full-res) into gc.buffer and
+	 * cannot sample Host_Frame intervals after Arm shrinks to 160x120. */
+	GC_PresentBuffer();
 #endif
 }
 
@@ -1420,17 +1455,10 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=%d)\n",
 		gc.width, gc.height, gc_budget_probe_active ? 1 : 0 );
 
-	/* Seed G36 presents here. Host_Frame SCR may stay blocked by the loading
-	 * plaque or long server thinks right after connect; arm fills keep the
-	 * budget probe honest with the map resident. */
-	{
-		int i;
-		for( i = 0; i < (int)( GC_VIDEO_BUDGET_WARMUP_PRESENTS + GC_VIDEO_BUDGET_SAMPLE_TARGET ); i++ )
-		{
-			GC_FillBudgetProbeFrameBuffer();
-			GC_PresentBuffer();
-		}
-	}
+	/* Host_Frame SCR collects G36 samples on the light fill path. Do not
+	 * exhaust the probe with a synthetic burst — that forced V_RenderView
+	 * immediately after and stalled presents (160x120 vs world buffer). */
+	gc_light_present_left = GC_VIDEO_BUDGET_SAMPLE_TARGET + GC_VIDEO_LIGHT_PRESENT_GRACE;
 #endif
 }
 
@@ -1443,6 +1471,7 @@ void GC_BeginFrameBudgetProbe( void )
 	gc_blank_present_count = 0;
 	gc_budget_sample_count = 0;
 	gc_budget_warmup_left = 0;
+	gc_light_present_left = 0;
 	gc_last_present_time = 0.0;
 	gc_worst_frame_ms = 0.0;
 	gc_budget_probe_active = true;
@@ -1465,7 +1494,8 @@ void GC_RestoreVideoMemoryAfterMapLoad( void )
 	uint stride, bpp, r, g, b;
 	int width, height;
 
-	if( gc.buffer && gc.width > 0 && gc.height > 0 )
+	if( gc.buffer && gc.width > 0 && gc.height > 0
+		&& gc.width >= GC_VIDEO_PROBE_WIDTH && gc.height >= GC_VIDEO_PROBE_HEIGHT )
 	{
 		GC_InitPresentTexture();
 		return;
@@ -1475,6 +1505,9 @@ void GC_RestoreVideoMemoryAfterMapLoad( void )
 	height = refState.height > 0 ? refState.height : DEFAULT_MODE_HEIGHT;
 	if( !SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
 		SYS_Report( "GX video: restore buffer failed %dx%d\n", width, height );
+	else
+		SYS_Report( "Xash3D GameCube: restored presentation buffer %dx%d\n",
+			gc.width, gc.height );
 }
 
 void GL_UpdateSwapInterval( void )

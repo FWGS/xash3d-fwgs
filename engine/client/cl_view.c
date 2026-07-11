@@ -343,7 +343,7 @@ qboolean V_PreRender( void )
 #if XASH_GAMECUBE
 		/* G36/New Game: allow presents once budget sampling is armed so the
 		 * post-ca_active window is not blocked by the loading plaque. */
-		if( GC_IsFrameBudgetProbeActive() )
+		if( GC_ShouldUseLightPresent() )
 		{
 			cls.disable_screen = 0.0f;
 		}
@@ -556,9 +556,9 @@ void V_PostRender( void )
 	ref.dllFuncs.R_Set2DMode( true );
 
 #if XASH_GAMECUBE
-	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || GC_IsFrameBudgetProbeActive() ))
+	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || GC_ShouldUseLightPresent() ))
 	{
-		/* Smoke / G36 budget probes only need presentable non-black frames. */
+		/* Smoke / G36 / post-connect light presents only need a non-black frame. */
 		ref.dllFuncs.R_AllowFog( true );
 		Platform_SetTimer( 0.0f );
 		ref.dllFuncs.R_EndFrame();

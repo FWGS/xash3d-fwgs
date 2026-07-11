@@ -563,6 +563,19 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		return NULL;
 	}*/
 
+#if XASH_GAMECUBE
+	/* Console/UI fonts from extras.pk3 are ~34KB each and not needed after
+	 * New Game; loading them post-connect OOMs the FileSystem pool. */
+	if( Q_stristr( path, ".fnt" ) || Q_stristr( path, ".ttf" )
+		|| Q_stristr( path, "FiraSans" ) || Q_stristr( path, "tahoma" )
+		|| Q_stristr( path, "gamecontrollerdb" ) || Q_stristr( path, ".pem" ))
+	{
+		Con_Reportf( "Xash3D GameCube: skip zip payload %s size=%li\n",
+			path, (long)file->size );
+		return NULL;
+	}
+#endif
+
 	decompressed_buffer = (byte *)pfnAlloc( file->size + 1 );
 	if( unlikely( !decompressed_buffer ))
 	{
@@ -649,22 +662,14 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		int zlib_result;
 		int zinit;
 
-#if XASH_GAMECUBE
-		/* Skip huge extras.pk3 payloads (fonts/certs/db) after map load — they
-		 * thrash MEM1 and are not required for New Game playability. */
-		if( file->size > ( 96 * 1024 )
-			&& ( Q_stristr( path, ".ttf" ) || Q_stristr( path, ".pem" )
-				|| Q_stristr( path, "gamecontrollerdb" )
-				|| Q_stristr( path, "FiraSans" ) || Q_stristr( path, "tahoma" )))
+		compressed_buffer = (byte *)Mem_Malloc( fs_mempool, file->compressed_size + 1 );
+		if( unlikely( !compressed_buffer ))
 		{
-			Con_Reportf( "Xash3D GameCube: skip large deflated zip %s size=%li\n",
-				path, (long)file->size );
+			Con_Reportf( S_ERROR "%s: can't alloc %li compressed bytes for %s\n",
+				__func__, (long)file->compressed_size + 1, file->name );
 			pfnFree( decompressed_buffer );
 			return NULL;
 		}
-#endif
-
-		compressed_buffer = (byte *)Mem_Malloc( fs_mempool, file->compressed_size + 1 );
 
 		c = FS_Read( search->zip->handle, compressed_buffer, file->compressed_size );
 		if( c != file->compressed_size )

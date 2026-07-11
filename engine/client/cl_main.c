@@ -3803,7 +3803,15 @@ void Host_ClientFrame( void )
 	CL_CheckForResend ();
 
 	// procssing resources on handle
+#if XASH_GAMECUBE
+	{
+		int gc_res_iters = 0;
+		while( CL_RequestMissingResources() && gc_res_iters++ < 64 )
+			;
+	}
+#else
 	while( CL_RequestMissingResources( ));
+#endif
 
 	// handle thirdperson camera
 	CL_MoveThirdpersonCamera();
