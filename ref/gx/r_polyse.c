@@ -1187,7 +1187,13 @@ void R_PolysetFillSpans8( spanpackage_t *pspanpackage )
 						return;
 #endif
 					pixel_t src = *lptex;
-					*lpdest = vid.colormap[( src >> 3 ) | (( llight & 0x1F00 ) << 5 )] | ( src & 7 );
+					pixel_t soft = vid.colormap[( src >> 3 ) | (( llight & 0x1F00 ) << 5 )] | ( src & 7 );
+#if XASH_GAMECUBE
+					if( d_gc_span_rgb565 )
+						*lpdest = vid.screen[soft];
+					else
+#endif
+					*lpdest = soft;
 					*lpz = lzi >> 16;
 				}
 				lpdest++;

@@ -561,6 +561,60 @@ static void R_SetupFrame( void )
 
 /*
 =============
+R_DrawStudioEntitiesLowRes
+
+New Game low-res path: solid studio only. Skips brush (stack edge tables)
+and sprites/translucents until those paths are RGB565-safe.
+=============
+*/
+#if XASH_GAMECUBE
+static void R_DrawStudioEntitiesLowRes( void )
+{
+	unsigned drawn = 0;
+	const unsigned max_studio = 8;
+	qboolean drew_view = false;
+
+	tr.blend = 1.0f;
+	d_pdrawspans = R_PolysetFillSpans8;
+	GL_SetRenderMode( kRenderNormal );
+	d_gc_span_rgb565 = true;
+
+	for( int i = 0; i < tr.draw_list->num_solid_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
+	{
+		RI.currententity = tr.draw_list->solid_entities[i];
+		RI.currentmodel = RI.currententity->model;
+
+		if( !RI.currentmodel )
+			continue;
+		if( RI.currentmodel->type != mod_studio )
+			continue;
+		if( drawn >= max_studio )
+			break;
+
+		R_SetUpWorldTransform();
+		R_DrawStudioModel( RI.currententity );
+		drawn++;
+	}
+
+	/* View weapon when present — tram intro often has none yet. */
+	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW )
+	    && tr.viewent && tr.viewent->model && tr.viewent->model->type == mod_studio
+	    && r_drawviewmodel && r_drawviewmodel->value )
+	{
+		R_SetUpWorldTransform();
+		R_DrawViewModel();
+		drew_view = true;
+	}
+
+	d_gc_span_rgb565 = false;
+	if( tr.framecount <= 1 || (( tr.framecount & 31 ) == 0 ) || drawn || drew_view )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res studio draw count=%u solids=%u viewmodel=%d frame=%d\n",
+			drawn, tr.draw_list->num_solid_entities, drew_view ? 1 : 0, tr.framecount );
+}
+#endif
+
+/*
+=============
 R_DrawEntitiesOnList
 =============
 */
@@ -1330,11 +1384,14 @@ void GAME_EXPORT R_RenderScene( void )
 	R_EdgeDrawing();
 
 #if XASH_GAMECUBE
-	/* gcmap / New Game low-res routes skip entity lists: R_DrawBrushModel
-	 * still uses stack edge tables. Keep "gcmap render time=" (not "frame time=")
-	 * so New Game world presents do not pollute G36 Host_Frame samples. */
+	/* -gcmap smoke: world only. New Game low-res: world + bounded studio.
+	 * Skip R_DrawBrushModel / sprites (stack tables / soft-pixel paths).
+	 * Keep "gcmap render time=" so New Game presents do not pollute G36. */
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+			R_DrawStudioEntitiesLowRes();
+
 		if( tr.framecount <= 32 )
 		{
 			double elapsed_ms = ( gEngfuncs.pfnTime() - gc_render_start ) * 1000.0;
