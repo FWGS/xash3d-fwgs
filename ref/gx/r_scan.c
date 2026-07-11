@@ -696,7 +696,14 @@ void D_DrawSpans16( espan_t *pspan )
 				{
 #if XASH_GAMECUBE
 					if( d_gc_span_rgb565 )
-						*pdest++ = vid.screen[*( pbase + ( s >> 16 ) + ( t >> 16 ) * cachewidth )];
+					{
+						pixel_t soft = *( pbase + ( s >> 16 ) + ( t >> 16 ) * cachewidth );
+
+						/* Alpha-keyed world textures ({fence, grate}) punch through. */
+						if( soft != TRANSPARENT_COLOR )
+							*pdest = GC_SpanSoftTo565( soft );
+						pdest++;
+					}
 					else
 #endif
 					*pdest++ = *( pbase + ( s >> 16 ) + ( t >> 16 ) * cachewidth );
@@ -729,7 +736,13 @@ void D_DrawSpans16( espan_t *pspan )
 
 #if XASH_GAMECUBE
 					if( d_gc_span_rgb565 )
-						*pdest++ = vid.screen[*( pbase + idiths + iditht * cachewidth )];
+					{
+						pixel_t soft = *( pbase + idiths + iditht * cachewidth );
+
+						if( soft != TRANSPARENT_COLOR )
+							*pdest = GC_SpanSoftTo565( soft );
+						pdest++;
+					}
 					else
 #endif
 					*pdest++ = *( pbase + idiths + iditht * cachewidth );

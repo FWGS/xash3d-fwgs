@@ -405,8 +405,11 @@ void R_DrawSurface( void )
 		if( r_numvblocks > 4 )
 			r_numvblocks = 4;
 	}
-	/* Keep light-column walks inside the built lightmap. */
-	if( GC_UseLowResWorldProbe() && r_lightwidth > 0 )
+	/* Keep light-column walks inside the built lightmap (when one exists).
+	 * Tiled / no-LM faces use extents-sized caches — do not crush to 1×1. */
+	if( GC_UseLowResWorldProbe()
+	    && r_drawsurf.surf->info->lightextents[0] > 0
+	    && r_drawsurf.surf->info->lightextents[1] > 0 )
 	{
 		int light_rows = (( r_drawsurf.surf->info->lightextents[1] / sample_size ) + 1 );
 
@@ -1434,16 +1437,16 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	cache = CACHESPOT( surface )[miplevel];
 
 #if XASH_GAMECUBE
-	/* Quality 0 smoke skips heavy cache entries. New Game low-res keeps static
-	 * world surfaces (including world-luxels) so textures+lightmaps can land. */
+	/* Quality 0 smoke skips heavy cache entries. New Game low-res caches
+	 * conveyor / tiled / alpha faces so they are not neon flat-fills.
+	 * Keep TF_SKY out — sky still uses the flat background path. */
 	if( !GC_GetVisualQuality() )
 	{
 		qboolean skip_cache;
 
 		if( GC_UseLowResWorldProbe() )
 		{
-			skip_cache = ( surface->flags & ( SURF_CONVEYOR | SURF_DRAWTILED )) ||
-				( r_drawsurf.image->flags & ( TF_HAS_ALPHA | TF_SKY ));
+			skip_cache = ( r_drawsurf.image->flags & TF_SKY ) ? true : false;
 		}
 		else
 		{
