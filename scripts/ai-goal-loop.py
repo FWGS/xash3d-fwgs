@@ -1555,7 +1555,12 @@ def memory_summary(memory: dict[str, object], goal: Goal, attempt: int | None = 
 					f"{call.get('phase')} exit {call.get('exit_code')}"
 					f"{' -> ' + call['log'] if call.get('log') else ''}"
 				)
-	return "\n".join(lines)
+	summary = "\n".join(lines)
+	# Local 7B overnight runs cannot afford large ConAct dumps in every prompt.
+	limit = int(os.environ.get("AI_MEMORY_SUMMARY_CHARS", "1800"))
+	if os.environ.get("AIDER_AUTOMATION", "1") == "1" and len(summary) > limit:
+		return summary[: max(0, limit - 3)].rstrip() + "..."
+	return summary
 
 
 def insert_goal_evidence(text: str, goal_id: str, evidence_lines: list[str]) -> str:
