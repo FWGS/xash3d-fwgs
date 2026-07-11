@@ -11,6 +11,15 @@ import signal
 import shutil
 import subprocess
 import sys
+from pathlib import Path as _PortLockPath
+_PORT_LOCKS = (
+	_PortLockPath(__file__).resolve().parents[1] / '.ai' / 'MANUAL_PORT_LOCK',
+	_PortLockPath('/home/tim/Desktop/xash3d-gc-locks/MANUAL_PORT_LOCK'),
+)
+for _lock in _PORT_LOCKS:
+	if _lock.is_file():
+		print(f'ERROR: manual port lock is set ({_lock}); refusing ai-goal-loop.', file=sys.stderr)
+		raise SystemExit(75)
 import tempfile
 from itertools import count
 from dataclasses import asdict, dataclass

@@ -1038,6 +1038,13 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 	gameui.globals->maxClients = cl.maxclients;
 	Q_strncpy( gameui.globals->maptitle, clgame.maptitle, sizeof( gameui.globals->maptitle ));
 
+#if XASH_GAMECUBE
+	if( CL_GameCubeLocalMapRoute() && clgame.entities && !cls.changelevel && !cls.changedemo )
+	{
+		CL_FreeEdicts();
+		Con_Reportf( "Xash3D GameCube: serverdata freed bootstrap edicts before resize\n" );
+	}
+#endif
 	if( !cls.changelevel && !cls.changedemo )
 		CL_InitEdicts( cl.maxclients ); // re-arrange edicts
 #if XASH_GAMECUBE
