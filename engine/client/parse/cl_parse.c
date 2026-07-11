@@ -1035,10 +1035,20 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 
 	// will be changed later
 	cl.viewentity = cl.playernum + 1;
-	gameui.globals->maxClients = cl.maxclients;
-	Q_strncpy( gameui.globals->maptitle, clgame.maptitle, sizeof( gameui.globals->maptitle ));
+	if( gameui.globals )
+	{
+		gameui.globals->maxClients = cl.maxclients;
+		Q_strncpy( gameui.globals->maptitle, clgame.maptitle, sizeof( gameui.globals->maptitle ));
+	}
+#if XASH_GAMECUBE
+	else if( CL_GameCubeLocalMapRoute() )
+		Con_Reportf( "Xash3D GameCube: serverdata gameui.globals unavailable\n" );
+#endif
 
 #if XASH_GAMECUBE
+	if( CL_GameCubeLocalMapRoute() )
+		Con_Reportf( "Xash3D GameCube: serverdata edicts entities=%p changelevel=%d\n",
+			(void *)clgame.entities, cls.changelevel ? 1 : 0 );
 	if( CL_GameCubeLocalMapRoute() && clgame.entities && !cls.changelevel && !cls.changedemo )
 	{
 		CL_FreeEdicts();
