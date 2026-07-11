@@ -29,6 +29,7 @@ MARKERS = {
 	"smoke_begin": "Xash3D GameCube: gcmap smoke frames begin",
 	"world_render_begin": "Xash3D GameCube: gcmap world render begin",
 	"world_render_present": "Xash3D GameCube: gcmap world render present frame=",
+	"frame_armed": "Xash3D GameCube: frame budget samples armed after map ready",
 	"nonblack": "sampled_nonblack=1",
 	"diagnostic": "DIAGNOSTIC MARKER VISIBLE",
 	"synthetic_fallback": "Xash3D GameCube: gcmap world render unavailable, using status-panel fallback",
@@ -65,7 +66,11 @@ def probe_phase_text(text: str, *, world_render: bool = False) -> str:
 	if world_render:
 		markers = (MARKERS["world_render_begin"],)
 	else:
-		markers = (MARKERS["world_render_begin"], MARKERS["smoke_begin"])
+		markers = (
+			MARKERS["frame_armed"],
+			MARKERS["world_render_begin"],
+			MARKERS["smoke_begin"],
+		)
 
 	for marker in markers:
 		if marker in text:

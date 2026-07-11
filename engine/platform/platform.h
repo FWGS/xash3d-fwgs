@@ -133,6 +133,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 int GC_GetVisualQuality( void );
 const char *GC_GetQualityProfileName( void );
 void GC_ReportQualityProfile( const char *stage );
+qboolean GC_IsFrameBudgetProbeActive( void );
+void GC_FillBudgetProbeFrameBuffer( void );
 #endif
 
 #if XASH_LINUX

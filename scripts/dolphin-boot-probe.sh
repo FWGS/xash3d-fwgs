@@ -257,9 +257,7 @@ set +e
 if (( DOLPHIN_IS_FLATPAK )); then
 	probe_wait_flatpak
 else
-	timeout --signal=TERM --kill-after=5 "$TIMEOUT_SEC" "${DOLPHIN_CMD[@]}" \
-		>"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log"
-	DOLPHIN_EXIT=$?
+	probe_wait_native
 fi
 set -e
 

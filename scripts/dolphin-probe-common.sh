@@ -7,7 +7,7 @@ probe_log_has() {
 }
 
 probe_guest_error() {
-	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|Invalid read from|MMU fault|Program attempting to read' \
+	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|Invalid read from|MMU fault|Program attempting to read|trashed (small )?header sentinel' \
 		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
 }
 
@@ -86,4 +86,58 @@ probe_wait_flatpak() {
 		fi
 		sleep 2
 	done
+}
+
+# Native dolphin-emu: same readiness/sample gate as Flatpak, then stop the process.
+probe_wait_native() {
+	"${DOLPHIN_CMD[@]}" >"$LOG_DIR/stdout.log" 2>"$LOG_DIR/stderr.log" &
+	DOLPHIN_WRAPPER_PID=$!
+	DOLPHIN_EXIT=124
+	local deadline=$(( $(date +%s) + TIMEOUT_SEC ))
+	local map_ready_at=0 retail_ready_at=0
+	while (( $(date +%s) < deadline )); do
+		if ! kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
+			wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
+			DOLPHIN_EXIT=$?
+			return
+		fi
+		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
+			if (( DOLPHIN_NEWGAME )); then
+				if ! probe_log_has "${PLAY_READY_MARKER:-Xash3D GameCube: play start ready}"; then
+					sleep 2
+					continue
+				fi
+				if [[ -n "${FRAME_ARMED_MARKER:-}" ]] && ! probe_log_has "$FRAME_ARMED_MARKER"; then
+					sleep 2
+					continue
+				fi
+			fi
+			(( map_ready_at == 0 )) && map_ready_at=$(date +%s)
+			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
+				DOLPHIN_EXIT=0; break
+			fi
+		elif [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && probe_log_has "$RETAIL_MENU_MARKER" && probe_log_has "$READY_MARKER"; then
+			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+			if (( FRAME_SAMPLE_SEC <= 0 || probe_log_has "$INPUT_MARKER" )); then
+				if (( FRAME_SAMPLE_SEC > 0 && probe_log_has "$INPUT_MARKER" )); then
+					(( retail_ready_at == 0 )) && retail_ready_at=$(date +%s)
+					if (( $(date +%s) >= retail_ready_at + FRAME_SAMPLE_SEC )); then
+						DOLPHIN_EXIT=0; break
+					fi
+				else
+					DOLPHIN_EXIT=0; break
+				fi
+			fi
+		elif probe_log_has "$GUEST_MARKER" && probe_guest_error; then
+			DOLPHIN_EXIT=3; break
+		fi
+		sleep 2
+	done
+	if kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
+		kill -TERM "$DOLPHIN_WRAPPER_PID" 2>/dev/null || true
+		sleep 1
+		kill -KILL "$DOLPHIN_WRAPPER_PID" 2>/dev/null || true
+		wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
+	fi
 }

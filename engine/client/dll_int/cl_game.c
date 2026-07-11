@@ -1033,9 +1033,9 @@ void CL_ClearWorld( void )
 }
 
 #if XASH_GAMECUBE
-#define GC_GCMAP_STATIC_CLIENT_EDICTS 64
+#define GC_GCMAP_STATIC_CLIENT_EDICTS 256
 static cl_entity_t gc_gcmap_bootstrap_entities[GC_GCMAP_STATIC_CLIENT_EDICTS];
-static entity_state_t gc_gcmap_bootstrap_packet_entities[64];
+static entity_state_t gc_gcmap_bootstrap_packet_entities[128];
 
 static qboolean CL_GameCubeUseStaticGcmapBootstrapEdicts( int maxclients )
 {
@@ -1055,7 +1055,7 @@ void CL_InitEdicts( int maxclients )
 	cls.num_client_entities = CL_UPDATE_BACKUP * NUM_PACKET_ENTITIES;
 #if XASH_GAMECUBE
 	if( maxclients <= 1 )
-		cls.num_client_entities = GC_MapLoadMemoryOpt() ? 64 : 128;
+		cls.num_client_entities = 128;
 	Con_Reportf( "Xash3D GameCube: client edicts alloc request max=%d bytes=%u packet_entities=%d\n",
 		clgame.maxEntities, (uint)( sizeof( cl_entity_t ) * clgame.maxEntities ),
 		cls.num_client_entities );

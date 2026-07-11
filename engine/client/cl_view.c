@@ -544,9 +544,9 @@ void V_PostRender( void )
 	ref.dllFuncs.R_Set2DMode( true );
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && cls.state == ca_active )
+	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || GC_IsFrameBudgetProbeActive() ))
 	{
-		/* Smoke-map probes only need world rendering evidence. */
+		/* Smoke / G36 budget probes only need presentable non-black frames. */
 		ref.dllFuncs.R_AllowFog( true );
 		Platform_SetTimer( 0.0f );
 		ref.dllFuncs.R_EndFrame();

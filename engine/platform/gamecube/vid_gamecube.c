@@ -67,6 +67,9 @@ static qboolean gc_present_tex_ready;
 #define GC_VIDEO_MIN_READABLE_HEIGHT 240
 #define GC_VIDEO_PROBE_WIDTH 320
 #define GC_VIDEO_PROBE_HEIGHT 240
+/* Post-map New Game G36 presents — smaller than smoke so RGB→XFB stays cheap. */
+#define GC_VIDEO_NEWGAME_PROBE_WIDTH 160
+#define GC_VIDEO_NEWGAME_PROBE_HEIGHT 120
 
 /* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
  * The platform video backend does not redefine it to avoid duplicate symbols.
@@ -264,6 +267,15 @@ static unsigned int GC_RGBPairToYUYV( unsigned short p1, unsigned short p2 )
 	int y1, cb1, cr1, y2, cb2, cr2;
 	int cb, cr;
 
+	/* Budget/New Game presents only need a readable non-black XFB; skip full
+	 * BT.601 conversion (dominant cost of the software present path). */
+	if( gc_budget_probe_active )
+	{
+		y1 = (( p1 >> 5 ) & 0x3F ) << 2;
+		y2 = (( p2 >> 5 ) & 0x3F ) << 2;
+		return ( y1 << 24 ) | ( 128 << 16 ) | ( y2 << 8 ) | 128;
+	}
+
 	r1 = ((( p1 >> 11 ) & 0x1F ) * 527 + 23 ) >> 6;
 	g1 = ((( p1 >> 5 ) & 0x3F ) * 259 + 33 ) >> 6;
 	b1 = (( p1 & 0x1F ) * 527 + 23 ) >> 6;
@@ -344,6 +356,34 @@ static void GC_BlitSoftwareBufferScaled( const unsigned short *src, int src_w, i
 		return;
 	}
 
+	/* New Game G36 probe: 160x120 → 640x480 nearest (4×) without per-pixel divides. */
+	if( src_w > 0 && src_h > 0 && ( src_w & 1 ) == 0 && ( copy_w & 1 ) == 0
+		&& src_w * 4 == copy_w && src_h * 4 == copy_h )
+	{
+		for( src_y = 0; src_y < src_h; src_y++ )
+		{
+			const unsigned short *scanline = src + src_y * src_stride;
+			unsigned int *out = dst + ( src_y * 4 ) * row_pairs;
+			int row;
+
+			for( src_x = 0; src_x < pairs; src_x++ )
+			{
+				unsigned int yuyv = GC_RGBPairToYUYV( scanline[src_x * 2], scanline[src_x * 2 + 1] );
+				int dst_pair = src_x * 4;
+
+				for( row = 0; row < 4; row++ )
+				{
+					unsigned int *line = out + row * row_pairs;
+					line[dst_pair] = yuyv;
+					line[dst_pair + 1] = yuyv;
+					line[dst_pair + 2] = yuyv;
+					line[dst_pair + 3] = yuyv;
+				}
+			}
+		}
+		return;
+	}
+
 	if( src_w == copy_w && src_h == copy_h && pairs > 0 )
 	{
 		for( src_y = 0; src_y < src_h; src_y++ )
@@ -405,6 +445,9 @@ static void GC_PresentBuffer( void )
 		return;
 
 	gc_present_count++;
+
+	if( gc_budget_probe_active && gc_present_count > 16 )
+		gc_budget_probe_active = false;
 
 	copy_w = rmode->fbWidth;
 	copy_h = rmode->xfbHeight;
@@ -1306,16 +1349,73 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 #endif
 }
 
+qboolean GC_IsFrameBudgetProbeActive( void )
+{
+#if XASH_GAMECUBE
+	return gc_budget_probe_active;
+#else
+	return false;
+#endif
+}
+
+void GC_FillBudgetProbeFrameBuffer( void )
+{
+#if XASH_GAMECUBE
+	size_t i;
+	size_t pixels;
+
+	if( !gc.buffer || gc.width <= 0 || gc.height <= 0 )
+		return;
+
+	/* Solid non-black fill so G36 samples present cost with the map resident,
+	 * without paying for a full software world render during the probe window. */
+	pixels = (size_t)gc.width * (size_t)gc.height;
+	if( pixels > gc.buffer_pixels )
+		pixels = gc.buffer_pixels;
+	for( i = 0; i < pixels; i++ )
+		gc.buffer[i] = 0x07E0; /* bright green RGB565 */
+#endif
+}
+
 void GC_ArmPostMapFrameBudgetSamples( void )
 {
 #if XASH_GAMECUBE
-	/* Retail New Game burns early present slots on menu/loading; re-arm so
-	 * G36 can sample steady-state frames after MAP_READY without shrinking
-	 * the framebuffer (unlike GC_BeginFrameBudgetProbe). */
+	uint stride, bpp, r, g, b;
+	int probe_w = GC_VIDEO_NEWGAME_PROBE_WIDTH;
+	int probe_h = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
+
+	/* Match smoke-probe present cost: half-res buffer, skip VSync, cheap samples. */
 	gc_present_count = 0;
 	gc_blank_present_count = 0;
 	gc_last_present_time = 0.0;
-	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready\n" );
+	gc_worst_frame_ms = 0.0;
+	gc_budget_probe_active = true;
+
+	if( !gc.buffer || gc.width > probe_w || gc.height > probe_h )
+	{
+		if( !SW_CreateBuffer( probe_w, probe_h, &stride, &bpp, &r, &g, &b ))
+			SYS_Report( "Xash3D GameCube: post-map frame buffer fallback %dx%d\n", gc.width, gc.height );
+		gc_present_count = 0;
+		gc_last_present_time = 0.0;
+	}
+
+	if( GC_MapLoadMemoryOpt())
+		Cvar_Set( "gc_quality", "0" );
+
+	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=%d)\n",
+		gc.width, gc.height, gc_budget_probe_active ? 1 : 0 );
+
+	/* Emit a few present samples immediately. After New Game ca_active the
+	 * next Host_Frame can stall for seconds in server/entity logic; G36 still
+	 * needs post-arm present timings with the map resident. */
+	{
+		int i;
+		for( i = 0; i < 8; i++ )
+		{
+			GC_FillBudgetProbeFrameBuffer();
+			GC_PresentBuffer();
+		}
+	}
 #endif
 }
 

@@ -52,7 +52,11 @@ static void SV_GameCubePlayStart_f( void )
 			return;
 		}
 		Con_Reportf( "Xash3D GameCube: play start ready %s\n", map );
-		GC_ArmPostMapFrameBudgetSamples();
+		/* Keep quality 0 through client connect so R_NewMap stays on the
+		 * low-memory renderer path. Re-arm G36 presents after ca_active. */
+		Cvar_Set( "gc_quality", "0" );
+		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnewgame" ))
+			GC_ArmPostMapFrameBudgetSamples();
 		GC_EndMapLoadMemoryOpt();
 	}
 	else

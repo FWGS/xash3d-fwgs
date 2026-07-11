@@ -30,6 +30,7 @@ GNU General Public License for more details.
 extern qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
+void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
 #endif
@@ -338,6 +339,13 @@ static void CL_CheckClientState( void )
 		cls.changedemo = false;		// changedemo is done
 		cl.first_frame = true;		// first rendering frame
 
+#if XASH_GAMECUBE
+		/* Arm G36 samples after the client is playable, not during connect
+		 * (spawnbaseline / resource parse dominates those present intervals). */
+		if( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
+			GC_ArmPostMapFrameBudgetSamples();
+#endif
+
 		CL_UpdateLogo();
 
 		SCR_MakeLevelShot();		// make levelshot if needs
@@ -420,7 +428,9 @@ void CL_SignonReply( connprotocol_t proto )
 	case 1:
 		CL_ServerCommand( true, proto == PROTO_GOLDSRC ? "sendents" : "begin" );
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ))
+		/* -dev 2 enables Mem_PrintStats here; GC map routes can have transient
+		 * heap noise during connect — don't abort signon on a stats sweep. */
+		if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
 			break;
 #endif
 		if( host_developer.value >= DEV_EXTENDED )

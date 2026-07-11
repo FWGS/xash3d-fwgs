@@ -745,7 +745,11 @@ static void CL_DeltaEntity( sizebuf_t *msg, frame_t *frame, int newnum, entity_s
 	{
 		Con_DPrintf( S_ERROR "%s: invalid newnum: %d\n", __func__, newnum );
 		if( has_update )
-			MSG_ReadDeltaEntity( msg, old, state, newnum, delta_type, cl.mtime[0] );
+		{
+			entity_state_t discarded = { 0 };
+			/* Consume bits with a valid index — OOB numbers reject without reading. */
+			MSG_ReadDeltaEntity( msg, old ? old : &discarded, &discarded, 1, delta_type, cl.mtime[0] );
+		}
 		return;
 	}
 

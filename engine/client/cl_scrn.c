@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "library.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include "platform/platform.h"
 #endif
 
 CVAR_DEFINE_AUTO( scr_centertime, "2.5", 0, "centerprint hold time" );
@@ -800,6 +801,15 @@ void SCR_UpdateScreen( void )
 		break;
 	case ca_active:
 		Con_RunConsole ();
+#if XASH_GAMECUBE
+		/* G36 post-map window: present a filled buffer instead of a full
+		 * software world render (dominant Host_Frame cost on New Game). */
+		if( GC_IsFrameBudgetProbeActive() )
+		{
+			GC_FillBudgetProbeFrameBuffer();
+			break;
+		}
+#endif
 		V_RenderView();
 		break;
 	case ca_cinematic:

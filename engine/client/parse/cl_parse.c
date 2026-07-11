@@ -30,7 +30,7 @@ int CL_UPDATE_BACKUP = SINGLEPLAYER_BACKUP;
 #endif
 
 #if XASH_GAMECUBE
-#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 64
+#define GC_GCMAP_DEFAULT_CLIENT_EDICTS 256
 
 static qboolean CL_GameCubeMapRoute( void )
 {
@@ -1334,7 +1334,33 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 		player = CL_IsPlayerIndex( newnum );
 
 		if( newnum >= clgame.maxEntities )
+		{
+#if XASH_GAMECUBE
+			/* Local GC map route caps client edicts for memory; still consume
+			 * baseline deltas so connect can finish past high entity indices.
+			 * Pass a valid dummy entity number — MSG_ReadDeltaEntity rejects
+			 * OOB numbers without consuming bits and desyncs the stream. */
+			if( CL_GameCubeLocalMapRoute() )
+			{
+				entity_state_t discarded = nullstate;
+
+				if( proto == PROTO_GOLDSRC )
+				{
+					int type = MSG_ReadUBitLong( msg, 2 );
+					int delta_type;
+
+					if( player ) delta_type = DT_ENTITY_STATE_PLAYER_T;
+					else if( type != ENTITY_NORMAL ) delta_type = DT_CUSTOM_ENTITY_STATE_T;
+					else delta_type = DT_ENTITY_STATE_T;
+
+					Delta_ReadGSFields( msg, delta_type, &nullstate, &discarded, 1.0f );
+				}
+				else MSG_ReadDeltaEntity( msg, &nullstate, &discarded, 1, player, 1.0f );
+				continue;
+			}
+#endif
 			Host_Error( "%s: no free edicts\n", __func__ );
+		}
 
 		ent = CL_EDICT_NUM( newnum );
 		ent->prevstate = nullstate;
@@ -1364,7 +1390,8 @@ void CL_ParseBaseline( sizebuf_t *msg, connprotocol_t proto )
 		else
 		{
 			int newnum = MSG_ReadUBitLong( msg, MAX_ENTITY_BITS );
-			MSG_ReadDeltaEntity( msg, &nullstate, &cl.instanced_baseline[i], newnum, false, 1.0f );
+			int storenum = ( newnum >= 0 && newnum < clgame.maxEntities ) ? newnum : 1;
+			MSG_ReadDeltaEntity( msg, &nullstate, &cl.instanced_baseline[i], storenum, false, 1.0f );
 		}
 	}
 }
