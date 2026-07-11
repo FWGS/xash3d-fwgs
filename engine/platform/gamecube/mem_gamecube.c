@@ -17,6 +17,7 @@ static byte *gc_mapload_buf;
 static size_t gc_mapload_buf_size;
 static qboolean gc_mapload_buf_in_use;
 static int gc_mapload_memopt_depth;
+static qboolean gc_mapload_memopt_session; /* stays on after playstart until cleared */
 
 void GC_MemSetMap( const char *mapname )
 {
@@ -153,6 +154,7 @@ void GC_DiscardMapLoadBuffer( void )
 void GC_BeginMapLoadMemoryOpt( void )
 {
 	gc_mapload_memopt_depth++;
+	gc_mapload_memopt_session = true;
 }
 
 void GC_EndMapLoadMemoryOpt( void )
@@ -161,8 +163,17 @@ void GC_EndMapLoadMemoryOpt( void )
 		gc_mapload_memopt_depth--;
 }
 
+void GC_ClearMapLoadMemoryOpt( void )
+{
+	gc_mapload_memopt_depth = 0;
+	gc_mapload_memopt_session = false;
+}
+
 qboolean GC_MapLoadMemoryOpt( void )
 {
-	return gc_mapload_memopt_depth > 0 || Sys_CheckParm( "-gcmap" ) != 0;
+	return gc_mapload_memopt_session
+		|| gc_mapload_memopt_depth > 0
+		|| Sys_CheckParm( "-gcmap" ) != 0
+		|| Sys_CheckParm( "-gcnewgame" ) != 0;
 }
 #endif

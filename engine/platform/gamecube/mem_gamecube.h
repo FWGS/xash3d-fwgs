@@ -23,6 +23,7 @@ qboolean GC_IsMapLoadBuffer( const void *ptr );
 /* True during -gcmap smoke loads and retail New Game (gc_playstart) map loads. */
 void GC_BeginMapLoadMemoryOpt( void );
 void GC_EndMapLoadMemoryOpt( void );
+void GC_ClearMapLoadMemoryOpt( void );
 qboolean GC_MapLoadMemoryOpt( void );
 
 #else
@@ -45,6 +46,7 @@ static inline void GC_DiscardMapLoadBuffer( void ) { }
 static inline qboolean GC_IsMapLoadBuffer( const void *ptr ) { (void)ptr; return false; }
 static inline void GC_BeginMapLoadMemoryOpt( void ) { }
 static inline void GC_EndMapLoadMemoryOpt( void ) { }
+static inline void GC_ClearMapLoadMemoryOpt( void ) { }
 static inline qboolean GC_MapLoadMemoryOpt( void ) { return false; }
 
 #endif

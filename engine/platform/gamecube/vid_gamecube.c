@@ -1306,6 +1306,19 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 #endif
 }
 
+void GC_ArmPostMapFrameBudgetSamples( void )
+{
+#if XASH_GAMECUBE
+	/* Retail New Game burns early present slots on menu/loading; re-arm so
+	 * G36 can sample steady-state frames after MAP_READY without shrinking
+	 * the framebuffer (unlike GC_BeginFrameBudgetProbe). */
+	gc_present_count = 0;
+	gc_blank_present_count = 0;
+	gc_last_present_time = 0.0;
+	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready\n" );
+#endif
+}
+
 void GC_BeginFrameBudgetProbe( void )
 {
 #if XASH_GAMECUBE
