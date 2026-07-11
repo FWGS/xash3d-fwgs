@@ -16,6 +16,9 @@ GNU General Public License for more details.
 
 #include <stddef.h>
 #include "soundlib.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 
 static const byte *iff_data;
 static const byte *iff_dataPtr;
@@ -315,9 +318,9 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	// Load the data
 	sound.size = sound.samples * sound.width * sound.channels;
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ) && sound.size > 8192 )
+	if( GC_MapLoadMemoryOpt() && sound.size > 8192 )
 	{
-		Con_Reportf( "Xash3D GameCube: WAV skipped for gcmap %s size=%u\n",
+		Con_Reportf( "Xash3D GameCube: WAV skipped for map-load memopt %s size=%u\n",
 			name, (uint)sound.size );
 		return false;
 	}
