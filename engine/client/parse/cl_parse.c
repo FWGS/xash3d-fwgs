@@ -226,7 +226,14 @@ void CL_ParseMovevars( sizebuf_t *msg )
 
 	// update sky if changed
 	if( Q_strcmp( clgame.oldmovevars.skyName, clgame.movevars.skyName ) && cl.video_prepped )
-		R_SetupSky( clgame.movevars.skyName );
+	{
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcnewgame" ))
+			R_SetupSkyLeanGameCube( clgame.movevars.skyName );
+		else
+#endif
+			R_SetupSky( clgame.movevars.skyName );
+	}
 
 	clgame.oldmovevars = clgame.movevars;
 	clgame.entities->curstate.scale = clgame.movevars.waveHeight;
@@ -1896,9 +1903,15 @@ void CL_RegisterResources( sizebuf_t *msg, connprotocol_t proto )
 
 			// load skybox
 #if XASH_GAMECUBE
-			if( !CL_GameCubeLocalMapRoute())
-#endif
+			/* Smoke skips skybox. New Game defers one lean side until
+			 * GC_PrepareNewGameWorldPresent (map-prep MEM1 is too tight). */
+			if( Sys_CheckParm( "-gcnewgame" ))
+				Con_Reportf( "Xash3D GameCube: lean skybox deferred until world present\n" );
+			else if( !CL_GameCubeLocalMapRoute())
+				R_SetupSky( clgame.movevars.skyName );
+#else
 			R_SetupSky( clgame.movevars.skyName );
+#endif
 
 			// tell rendering system we have a new set of models.
 			ref.dllFuncs.R_NewMap ();

@@ -71,7 +71,14 @@ static void CL_ParseNewMovevars( sizebuf_t *msg )
 
 	// update sky if changed
 	if( Q_strcmp( clgame.oldmovevars.skyName, clgame.movevars.skyName ) && cl.video_prepped )
-		R_SetupSky( clgame.movevars.skyName );
+	{
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcnewgame" ))
+			R_SetupSkyLeanGameCube( clgame.movevars.skyName );
+		else
+#endif
+			R_SetupSky( clgame.movevars.skyName );
+	}
 
 	clgame.oldmovevars = clgame.movevars;
 

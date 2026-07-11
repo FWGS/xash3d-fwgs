@@ -123,10 +123,15 @@ void R_SetupSky( const char *name )
 		loadname[len - 1] = '\0';
 
 	// to prevent infinite recursion if default skybox was missed
-	if( !CheckSkybox( loadname, sidenames ) && Q_stricmp( name, DEFAULT_SKYBOX_NAME ))
+	if( !CheckSkybox( loadname, sidenames ))
 	{
-		Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", name );
-		R_SetupSky( DEFAULT_SKYBOX_NAME ); // force to default
+		if( Q_stricmp( name, DEFAULT_SKYBOX_NAME ))
+		{
+			Con_Reportf( S_WARN "missed or incomplete skybox '%s'\n", name );
+			R_SetupSky( DEFAULT_SKYBOX_NAME ); // force to default
+		}
+		else
+			Con_Reportf( S_WARN "missed or incomplete default skybox '%s'\n", name );
 		return;
 	}
 
@@ -148,6 +153,9 @@ void R_SetupSky( const char *name )
 		SetBits( world.flags, FWORLD_CUSTOM_SKYBOX );
 		Con_DPrintf( "done\n" );
 		ref.dllFuncs.R_SetupSky( skyboxTextures );
+#if XASH_GAMECUBE
+		Con_Reportf( "Xash3D GameCube: skybox loaded '%s'\n", name );
+#endif
 		return; // loaded
 	}
 
@@ -158,6 +166,71 @@ void R_SetupSky( const char *name )
 			ref.dllFuncs.GL_FreeTexture( skyboxTextures[i] );
 	}
 }
+
+#if XASH_GAMECUBE
+/*
+=============
+R_SetupSkyLeanGameCube
+
+New Game only: load a single skybox side (prefer BMP) for RGB565 background fills.
+Avoids six 256² TGA decodes that exhaust MEM1 during map prep.
+=============
+*/
+void R_SetupSkyLeanGameCube( const char *name )
+{
+	static const char *sides[] = { "up", "ft" };
+	int skyboxTextures[SKYBOX_MAX_SIDES] = { 0 };
+	string loadname;
+	int tex = 0;
+	int s;
+	const char *loaded_side = NULL;
+
+	if( COM_StringEmptyOrNULL( name ))
+	{
+		ref.dllFuncs.R_SetupSky( NULL );
+		return;
+	}
+
+	Q_snprintf( loadname, sizeof( loadname ), "gfx/env/%s", name );
+	COM_StripExtension( loadname );
+
+	Image_GCPurgeDecodeScratch();
+	ref.dllFuncs.R_SetupSky( NULL );
+
+	/* BMP only (8-bit 256² ≈ 66 KiB on disc). Never fall through to TGA. */
+	for( s = 0; s < (int)ARRAYSIZE( sides ); s++ )
+	{
+		char sidename[MAX_VA_STRING];
+
+		Q_snprintf( sidename, sizeof( sidename ), "%s%s.bmp", loadname, sides[s] );
+		tex = ref.dllFuncs.GL_LoadTexture( sidename, NULL, 0, TF_CLAMP|TF_SKY|TF_NOMIPMAP );
+		if( tex )
+		{
+			skyboxTextures[s == 0 ? 4 : 3] = tex;
+			loaded_side = sides[s];
+			break;
+		}
+		Image_GCPurgeDecodeScratch();
+	}
+
+	if( !tex && Q_stricmp( name, DEFAULT_SKYBOX_NAME ))
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: lean skybox '%s' missing, trying '%s'\n",
+			name, DEFAULT_SKYBOX_NAME );
+		R_SetupSkyLeanGameCube( DEFAULT_SKYBOX_NAME );
+		return;
+	}
+
+	if( tex )
+	{
+		SetBits( world.flags, FWORLD_CUSTOM_SKYBOX );
+		ref.dllFuncs.R_SetupSky( skyboxTextures );
+		Con_Reportf( "Xash3D GameCube: lean skybox loaded '%s' side=%s\n", name, loaded_side );
+	}
+	else
+		Con_Reportf( S_WARN "Xash3D GameCube: lean skybox '%s' failed\n", name );
+}
+#endif
 
 void GAME_EXPORT GL_FreeImage( const char *name )
 {

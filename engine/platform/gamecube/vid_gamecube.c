@@ -1509,6 +1509,14 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	if( !R_TryInitLowResSurfaceCache() )
 		SYS_Report( "Xash3D GameCube: newgame textured cache unavailable (flat fill)\n" );
 
+	/* One desert side for RGB565 sky fills — deferred past map-prep OOM cliff. */
+	{
+		const char *sky = clgame.movevars.skyName;
+		if( COM_StringEmptyOrNULL( sky ))
+			sky = DEFAULT_SKYBOX_NAME;
+		R_SetupSkyLeanGameCube( sky );
+	}
+
 	refState.width = present_w;
 	refState.height = present_h;
 	gc_light_present_left = 0;

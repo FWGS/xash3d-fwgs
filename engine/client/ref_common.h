@@ -52,6 +52,9 @@ static inline void R_GetTextureParms( int *w, int *h, int texnum )
 void GL_RenderFrame( const struct ref_viewpass_s *rvp );
 
 void R_SetupSky( const char *name );
+#if XASH_GAMECUBE
+void R_SetupSkyLeanGameCube( const char *name );
+#endif
 
 // common engine and renderer cvars
 extern convar_t r_decals;
