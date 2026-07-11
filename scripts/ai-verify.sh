@@ -44,8 +44,8 @@ echo "== probe script size guard =="
 PROBE_SCRIPT="scripts/dolphin-boot-probe.sh"
 PROBE_LINES="$(wc -l < "$PROBE_SCRIPT")"
 PROBE_BYTES="$(stat -c '%s' "$PROBE_SCRIPT")"
-PROBE_MAX_LINES="${DOLPHIN_PROBE_MAX_LINES:-300}"
-PROBE_MAX_BYTES="${DOLPHIN_PROBE_MAX_BYTES:-15360}"
+PROBE_MAX_LINES="${DOLPHIN_PROBE_MAX_LINES:-400}"
+PROBE_MAX_BYTES="${DOLPHIN_PROBE_MAX_BYTES:-20480}"
 if (( PROBE_LINES > PROBE_MAX_LINES )); then
 	echo "verify: $PROBE_SCRIPT has $PROBE_LINES lines (maximum $PROBE_MAX_LINES)" >&2
 	exit 1

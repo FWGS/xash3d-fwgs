@@ -35,6 +35,10 @@ void GC_MemSample( const char *stage )
 
 	gc_mem_last = total;
 
+	/* G72: unchanged totals are noise during map load; keep FAIL path chatty. */
+	if( delta == 0 )
+		return;
+
 	Con_Reportf( "Xash3D GameCube: mem stage=%s total=%s delta=%s hwm=%s map=%s\n",
 		stage, Q_memprint( total ), Q_memprint( delta ), Q_memprint( gc_mem_hwm ), gc_mem_map );
 }

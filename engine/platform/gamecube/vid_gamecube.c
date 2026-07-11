@@ -488,10 +488,10 @@ static void GC_PresentBuffer( void )
 		}
 		else
 		{
-			SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u\n",
-				gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count );
-			SYS_Report( "Xash3D GameCube: frame render complete\n" );
-			SYS_Report( "Xash3D GameCube: frame time=%.2fms\n", elapsed_ms );
+			/* One line for smoke evidence — three SYS_Reports per present were
+			 * dominating host I/O on short Dolphin probes. */
+			SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u frame time=%.2fms\n",
+				gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count, elapsed_ms );
 		}
 		/* gcmap/gcworldrender probes intentionally pace presents while the real
 		 * renderer cost is reported inside R_RenderScene. Avoid flagging those

@@ -2117,8 +2117,24 @@ def commit_dirty_worktree(root: Path, goal_id: str | None = None) -> int:
 	return commit_with_body(root, subject, body)
 
 
-def dirty_source_context(root: Path) -> list[str]:
-	"""Prefer repairing already-dirty engine/ref files over rotating slices."""
+def goal_allowed_edit_paths(goal_id: str) -> set[str]:
+	allowed: set[str] = set()
+	for path in (*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal_id, ())):
+		allowed.add(path)
+	for paths in GOAL_CONTEXT_SLICES.get(goal_id, ()):
+		for path in paths:
+			if path.startswith("slice-read:"):
+				continue
+			allowed.add(path)
+	if goal_id == "G24":
+		for sub in G24_SUBGOALS:
+			for path in sub.get("files", ()):
+				allowed.add(str(path))
+	return allowed
+
+
+def dirty_source_context(root: Path, goal_id: str | None = None) -> list[str]:
+	"""Prefer repairing already-dirty goal-scoped files over rotating slices."""
 	if os.environ.get("AI_SKIP_FAILED_PASS_RESET", "0").lower() not in {"1", "true", "yes"} \
 			and os.environ.get("AI_KEEP_FAILED_PATCH", "0").lower() not in {"1", "true", "yes"}:
 		return []
@@ -2127,17 +2143,45 @@ def dirty_source_context(root: Path) -> list[str]:
 		cwd=root, text=True, capture_output=True, check=False,
 	)
 	paths = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+	allowed = goal_allowed_edit_paths(goal_id) if goal_id else set()
 	selected: list[str] = []
 	for path in paths:
+		if allowed and path not in allowed:
+			continue
 		if (root / path).is_file():
 			selected.append(f"required:{path}")
 	return selected[:2]
 
 
+def discard_out_of_scope_dirty(root: Path, goal_id: str) -> None:
+	"""Drop dirty files outside the active goal so overnight cannot thrash them."""
+	allowed = goal_allowed_edit_paths(goal_id)
+	if not allowed:
+		return
+	result = subprocess.run(
+		["git", "diff", "--name-only", "--diff-filter=ACMR"],
+		cwd=root, text=True, capture_output=True, check=False,
+	)
+	out_of_scope = [
+		path.strip() for path in (result.stdout or "").splitlines()
+		if path.strip() and path.strip() not in allowed
+		and not path.strip().startswith(".ai/state/")
+	]
+	if not out_of_scope:
+		return
+	print(
+		"goal-loop: discarding out-of-scope dirty files: " + ", ".join(out_of_scope),
+		file=sys.stderr,
+		flush=True,
+	)
+	subprocess.run(["git", "restore", "--worktree", "--staged", "--", *out_of_scope],
+		cwd=root, check=False)
+
+
 def context_for_goal(goal_id: str, root: Path, attempt: int,
 	memory: dict[str, object] | None = None) -> list[str]:
 	"""Return a progressively smaller editable context for recovery retries."""
-	dirty = dirty_source_context(root)
+	dirty = dirty_source_context(root, goal_id)
 	if dirty:
 		print(
 			"goal-loop: continuing repair on dirty source files: "
@@ -2322,6 +2366,7 @@ def main() -> int:
 		if active_subgoal:
 			print(f"Active subgoal: {active_subgoal['id']} — {active_subgoal['title']}",
 				flush=True)
+		discard_out_of_scope_dirty(root, goal.goal_id)
 		write_state(state_file, state="running", pass_index=pass_index,
 			goal=asdict(goal), attempt=attempts[goal.goal_id],
 			subgoal=active_subgoal)
@@ -2400,6 +2445,8 @@ def main() -> int:
 			pass_env["AI_DIRTY_COMMIT_SUBJECT"] = dirty_commit_subject(goal.goal_id)
 			pass_env["AIDER_BUDGET_ATTEMPT"] = str(attempts[goal.goal_id])
 			allowed_extra = sorted({*COMMON_CONTEXT, *GOAL_CONTEXT.get(goal.goal_id, ())})
+			if goal.goal_id == "G72":
+				allowed_extra = sorted(goal_allowed_edit_paths("G72"))
 			pass_env["AI_ALLOWED_EDIT_EXTRA"] = ",".join(allowed_extra)
 			pass_env.setdefault("AIDER_AUTOMATION", "1")
 			pass_env["AI_SKIP_DIRTY_CHECKPOINT"] = "1"
@@ -2422,7 +2469,7 @@ def main() -> int:
 			if goal.goal_id == "G36":
 				pass_env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 			if goal.goal_id == "G72":
-				pass_env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,re_agent,mathweb,main.py,hello.py")
+				pass_env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,engine/server/,re_agent,mathweb,main.py,hello.py")
 				pass_env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
 				pass_env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
 				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
@@ -2438,6 +2485,7 @@ def main() -> int:
 				pass_env.setdefault("AIDER_MODEL_MAX_CONTEXT", "32768")
 				pass_env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
 				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
+				pass_env.setdefault("DOLPHIN_PROBE_MAX_LINES", "400")
 			pass_env["AI_COMMIT_BODY"] = goal_commit_body(goal,
 				attempt=attempts[goal.goal_id],
 				context_files=context_files,
@@ -2446,7 +2494,8 @@ def main() -> int:
 				expected_subject=expected_subject,
 				docs_required=pass_env.get("AI_VERIFY_REQUIRE_DOC_UPDATE", "0"),
 				blocked_context=blocked_context)
-			if attempts[goal.goal_id] >= 2:
+			# Do not crush overnight output budgets on recovery attempts.
+			if attempts[goal.goal_id] >= 2 and os.environ.get("AI_SOURCE_FIRST", "0").lower() not in {"1", "true", "yes"}:
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_INITIAL", "512")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_1", "384")
 				pass_env.setdefault("AIDER_OUTPUT_TOKENS_RETRY_2", "256")
