@@ -559,7 +559,14 @@ void V_PostRender( void )
 	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
 		|| GC_ShouldUseLightPresent() ))
 	{
-		/* Smoke / G36 / New Game low-res world: present without HUD/VGUI allocs. */
+		/* Smoke / G36 light presents: no HUD. New Game after world present:
+		 * draw lean client HUD into the RGB565 framebuffer (no VGUI/menu). */
+		if( Sys_CheckParm( "-gcnewgame" ) && !GC_ShouldUseLightPresent()
+			&& cls.signon == SIGNONS && cls.scrshot_action != scrshot_mapshot )
+		{
+			CL_DrawHUD( CL_ACTIVE );
+			Con_DrawConsole();
+		}
 		ref.dllFuncs.R_AllowFog( true );
 		Platform_SetTimer( 0.0f );
 		ref.dllFuncs.R_EndFrame();

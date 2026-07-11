@@ -563,15 +563,17 @@ static void R_SetupFrame( void )
 =============
 R_DrawStudioEntitiesLowRes
 
-New Game low-res path: solid studio only. Skips brush (stack edge tables)
-and sprites/translucents until those paths are RGB565-safe.
+New Game low-res path: solid studio + normal sprites. Skips brush (stack
+edge tables) and translucent/glow paths until those are fully RGB565-safe.
 =============
 */
 #if XASH_GAMECUBE
 static void R_DrawStudioEntitiesLowRes( void )
 {
 	unsigned drawn = 0;
+	unsigned sprites = 0;
 	const unsigned max_studio = 8;
+	const unsigned max_sprites = 8;
 	qboolean drew_view = false;
 
 	tr.blend = 1.0f;
@@ -586,14 +588,24 @@ static void R_DrawStudioEntitiesLowRes( void )
 
 		if( !RI.currentmodel )
 			continue;
-		if( RI.currentmodel->type != mod_studio )
-			continue;
-		if( drawn >= max_studio )
-			break;
-
-		R_SetUpWorldTransform();
-		R_DrawStudioModel( RI.currententity );
-		drawn++;
+		if( RI.currentmodel->type == mod_studio )
+		{
+			if( drawn >= max_studio )
+				continue;
+			R_SetUpWorldTransform();
+			R_DrawStudioModel( RI.currententity );
+			drawn++;
+		}
+		else if( RI.currentmodel->type == mod_sprite )
+		{
+			if( sprites >= max_sprites )
+				continue;
+			if( RI.currententity->curstate.rendermode != kRenderNormal )
+				continue;
+			R_SetUpWorldTransform();
+			R_DrawSpriteModel( RI.currententity );
+			sprites++;
+		}
 	}
 
 	/* View weapon when present — tram intro often has none yet. */
@@ -607,9 +619,9 @@ static void R_DrawStudioEntitiesLowRes( void )
 	}
 
 	d_gc_span_rgb565 = false;
-	if( tr.framecount <= 1 || (( tr.framecount & 31 ) == 0 ) || drawn || drew_view )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res studio draw count=%u solids=%u viewmodel=%d frame=%d\n",
-			drawn, tr.draw_list->num_solid_entities, drew_view ? 1 : 0, tr.framecount );
+	if( tr.framecount <= 1 || (( tr.framecount & 31 ) == 0 ) || drawn || sprites || drew_view )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res ents studio=%u sprites=%u solids=%u viewmodel=%d frame=%d\n",
+			drawn, sprites, tr.draw_list->num_solid_entities, drew_view ? 1 : 0, tr.framecount );
 }
 #endif
 

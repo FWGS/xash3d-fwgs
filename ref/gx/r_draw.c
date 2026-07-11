@@ -147,9 +147,17 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 #if XASH_GAMECUBE
 	{
 		int row_stride = pic->width;
+		const qboolean rgb565_fb = GC_UseLowResWorldProbe();
+		static qboolean gc_rgb565_2d_logged;
 
 		if( row_stride <= 0 )
 			return;
+
+		if( rgb565_fb && !gc_rgb565_2d_logged )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: RGB565 2D/HUD draw active\n" );
+			gc_rgb565_2d_logged = true;
+		}
 
 #pragma omp parallel for schedule(static)
 		for( int v = 0; v < height; v++ )
@@ -179,6 +187,29 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 
 				if( vid.color != COLOR_WHITE )
 					src = vid.modmap[( src & 0xff00 ) | ( vid.color >> 8 )] << 8 | ( src & vid.color & 0xff ) | (( src & 0xff ) >> 3 );
+
+				/* New Game world FB is display RGB565; soft blend tables do not apply. */
+				if( rgb565_fb )
+				{
+					pixel_t src565 = vid.screen[src];
+
+					if( vid.rendermode == kRenderTransAdd )
+					{
+						pixel_t d = dest[u];
+						unsigned int r = (( d >> 11 ) & 0x1F ) + (( src565 >> 11 ) & 0x1F );
+						unsigned int g = (( d >> 5 ) & 0x3F ) + (( src565 >> 5 ) & 0x3F );
+						unsigned int b = ( d & 0x1F ) + ( src565 & 0x1F );
+						if( r > 31 ) r = 31;
+						if( g > 63 ) g = 63;
+						if( b > 31 ) b = 31;
+						dest[u] = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+					}
+					else if( alpha < 4 )
+						continue;
+					else
+						dest[u] = src565;
+					continue;
+				}
 
 				if( vid.rendermode == kRenderTransAdd )
 				{
@@ -296,6 +327,9 @@ void Draw_Fill( int x, int y, int w, int h )
 
 #if XASH_GAMECUBE
 	R_EnsureDrawBuffer();
+	const qboolean rgb565_fb = GC_UseLowResWorldProbe();
+	if( rgb565_fb )
+		src = vid.screen[vid.color];
 #endif
 	if( !vid.buffer || vid.rowbytes <= 0 || vid.width <= 0 || vid.height <= 0 )
 		return;
@@ -333,6 +367,28 @@ void Draw_Fill( int x, int y, int w, int h )
 		{
 			if( alpha == 0 )
 				continue;
+
+#if XASH_GAMECUBE
+			if( rgb565_fb )
+			{
+				if( vid.rendermode == kRenderTransAdd )
+				{
+					pixel_t d = dest[u];
+					unsigned int r = (( d >> 11 ) & 0x1F ) + (( src >> 11 ) & 0x1F );
+					unsigned int g = (( d >> 5 ) & 0x3F ) + (( src >> 5 ) & 0x3F );
+					unsigned int b = ( d & 0x1F ) + ( src & 0x1F );
+					if( r > 31 ) r = 31;
+					if( g > 63 ) g = 63;
+					if( b > 31 ) b = 31;
+					dest[u] = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+				}
+				else if( alpha < 4 )
+					continue;
+				else
+					dest[u] = src;
+				continue;
+			}
+#endif
 
 			if( vid.rendermode == kRenderTransAdd )
 			{
