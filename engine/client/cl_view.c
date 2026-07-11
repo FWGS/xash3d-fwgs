@@ -341,21 +341,33 @@ qboolean V_PreRender( void )
 	if( cls.disable_screen )
 	{
 #if XASH_GAMECUBE
-		double load_elapsed = host.realtime - cls.disable_screen;
-		if( load_elapsed >= 2.0 && !gc_loading_feedback_logged )
+		/* G36/New Game: allow presents once budget sampling is armed so the
+		 * post-ca_active window is not blocked by the loading plaque. */
+		if( GC_IsFrameBudgetProbeActive() )
 		{
-			Con_Reportf( "Xash3D GameCube: G49 loading feedback elapsed=%.2f threshold=2.0\n", load_elapsed );
-			gc_loading_feedback_logged = true;
-		}
-		if( load_elapsed < 2.0 )
-			gc_loading_feedback_logged = false;
-#endif
-		if(( host.realtime - cls.disable_screen ) > cl_timeout.value )
-		{
-			Con_Reportf( "%s: loading plaque timed out\n", __func__ );
 			cls.disable_screen = 0.0f;
 		}
-		return false;
+		else
+#endif
+		{
+#if XASH_GAMECUBE
+			double load_elapsed = host.realtime - cls.disable_screen;
+			if( load_elapsed >= 2.0 && !gc_loading_feedback_logged )
+			{
+				Con_Reportf( "Xash3D GameCube: G49 loading feedback elapsed=%.2f threshold=2.0\n", load_elapsed );
+				gc_loading_feedback_logged = true;
+			}
+			if( load_elapsed < 2.0 )
+				gc_loading_feedback_logged = false;
+#endif
+			if(( host.realtime - cls.disable_screen ) > cl_timeout.value )
+			{
+				Con_Reportf( "%s: loading plaque timed out\n", __func__ );
+				cls.disable_screen = 0.0f;
+			}
+			else
+				return false;
+		}
 	}
 
 	V_CheckGamma();

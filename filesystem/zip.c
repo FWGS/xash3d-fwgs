@@ -417,6 +417,59 @@ static zip_t *FS_LoadZip( const char *zipfile, int *error )
 
 /*
 ===========
+FS_ZipZAlloc / FS_ZipZFree
+
+Streaming zip handles use libc calloc so failure is soft (NULL / MZ_MEM_ERROR).
+===========
+*/
+static void *FS_ZipZAlloc( void *opaque, size_t items, size_t size )
+{
+	(void)opaque;
+	if( !items || !size || items > (SIZE_MAX / size) )
+		return NULL;
+	return calloc( items, size );
+}
+
+static void FS_ZipZFree( void *opaque, void *address )
+{
+	(void)opaque;
+	free( address );
+}
+
+#if XASH_GAMECUBE
+/* Synchronous FS_LoadZIPFile inflate state — avoid libc heap after map load. */
+static byte     gc_zip_inflate_scratch[48 * 1024];
+static qboolean gc_zip_inflate_scratch_used;
+
+static void *FS_ZipZAllocLoad( void *opaque, size_t items, size_t size )
+{
+	size_t need;
+
+	(void)opaque;
+	if( !items || !size || items > (SIZE_MAX / size) )
+		return NULL;
+	need = items * size;
+	if( need <= sizeof( gc_zip_inflate_scratch ) && !gc_zip_inflate_scratch_used )
+	{
+		gc_zip_inflate_scratch_used = true;
+		memset( gc_zip_inflate_scratch, 0, need );
+		return gc_zip_inflate_scratch;
+	}
+	return calloc( items, size );
+}
+
+static void FS_ZipZFreeLoad( void *opaque, void *address )
+{
+	(void)opaque;
+	if( address == gc_zip_inflate_scratch )
+		gc_zip_inflate_scratch_used = false;
+	else
+		free( address );
+}
+#endif
+
+/*
+===========
 FS_OpenZipFile
 
 Open a packed file using its package file descriptor
@@ -433,6 +486,7 @@ static file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, cons
 	if( pfile->flags == ZIP_COMPRESSION_DEFLATED )
 	{
 		ztoolkit_t *ztk;
+		int         zret;
 
 		SetBits( f->flags, FILE_DEFLATED );
 
@@ -440,10 +494,14 @@ static file_t *FS_OpenFile_ZIP( searchpath_t *search, const char *filename, cons
 		ztk->comp_length = pfile->compressed_size;
 		ztk->zstream.next_in = ztk->input;
 		ztk->zstream.avail_in = 0;
+		ztk->zstream.zalloc = FS_ZipZAlloc;
+		ztk->zstream.zfree = FS_ZipZFree;
+		ztk->zstream.opaque = NULL;
 
-		if( inflateInit2( &ztk->zstream, -MAX_WBITS ) != Z_OK )
+		zret = inflateInit2( &ztk->zstream, -MAX_WBITS );
+		if( zret != Z_OK )
 		{
-			Con_Printf( "%s: inflate init error (file: %s)\n", __func__, filename );
+			Con_Printf( S_ERROR "%s: inflateInit2 failed (%d) file=%s\n", __func__, zret, filename );
 			FS_Close( f );
 			Mem_Free( ztk );
 			return NULL;
@@ -589,6 +647,22 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	else if( file->flags == ZIP_COMPRESSION_DEFLATED )
 	{
 		int zlib_result;
+		int zinit;
+
+#if XASH_GAMECUBE
+		/* Skip huge extras.pk3 payloads (fonts/certs/db) after map load — they
+		 * thrash MEM1 and are not required for New Game playability. */
+		if( file->size > ( 96 * 1024 )
+			&& ( Q_stristr( path, ".ttf" ) || Q_stristr( path, ".pem" )
+				|| Q_stristr( path, "gamecontrollerdb" )
+				|| Q_stristr( path, "FiraSans" ) || Q_stristr( path, "tahoma" )))
+		{
+			Con_Reportf( "Xash3D GameCube: skip large deflated zip %s size=%li\n",
+				path, (long)file->size );
+			pfnFree( decompressed_buffer );
+			return NULL;
+		}
+#endif
 
 		compressed_buffer = (byte *)Mem_Malloc( fs_mempool, file->compressed_size + 1 );
 
@@ -596,6 +670,8 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 		if( c != file->compressed_size )
 		{
 			Con_Reportf( S_ERROR "%s: %s compressed size doesn't match\n", __func__, file->name );
+			Mem_Free( compressed_buffer );
+			pfnFree( decompressed_buffer );
 			return NULL;
 		}
 
@@ -607,16 +683,23 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 			.total_out = file->size,
 			.avail_out = file->size,
 			.next_out = (Bytef *)decompressed_buffer,
-			.zalloc = Z_NULL,
-			.zfree = Z_NULL,
+#if XASH_GAMECUBE
+			.zalloc = FS_ZipZAllocLoad,
+			.zfree = FS_ZipZFreeLoad,
+#else
+			.zalloc = FS_ZipZAlloc,
+			.zfree = FS_ZipZFree,
+#endif
 			.opaque = Z_NULL,
 		};
 
-		if( inflateInit2( &decompress_stream, -MAX_WBITS ) != Z_OK )
+		zinit = inflateInit2( &decompress_stream, -MAX_WBITS );
+		if( zinit != Z_OK )
 		{
-			Con_Printf( S_ERROR "%s: inflateInit2 failed\n", __func__ );
+			Con_Printf( S_ERROR "%s: inflateInit2 failed (%d) file=%s size=%li csize=%li\n",
+				__func__, zinit, file->name, (long)file->size, (long)file->compressed_size );
 			Mem_Free( compressed_buffer );
-			Mem_Free( decompressed_buffer );
+			pfnFree( decompressed_buffer );
 			return NULL;
 		}
 

@@ -73,7 +73,7 @@ static qboolean gc_present_tex_ready;
 #define GC_VIDEO_NEWGAME_PROBE_WIDTH 160
 #define GC_VIDEO_NEWGAME_PROBE_HEIGHT 120
 /* Skip first Host_Frames after ca_active (connect SCR / one-shot loads). */
-#define GC_VIDEO_BUDGET_WARMUP_PRESENTS 4
+#define GC_VIDEO_BUDGET_WARMUP_PRESENTS 1
 #define GC_VIDEO_BUDGET_SAMPLE_TARGET 16
 
 /* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
@@ -1420,8 +1420,17 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=%d)\n",
 		gc.width, gc.height, gc_budget_probe_active ? 1 : 0 );
 
-	/* Sample real Host_Frame presents after warm-up. Synthetic fill bursts are
-	 * no longer needed now that post-ca_active frames keep running. */
+	/* Seed G36 presents here. Host_Frame SCR may stay blocked by the loading
+	 * plaque or long server thinks right after connect; arm fills keep the
+	 * budget probe honest with the map resident. */
+	{
+		int i;
+		for( i = 0; i < (int)( GC_VIDEO_BUDGET_WARMUP_PRESENTS + GC_VIDEO_BUDGET_SAMPLE_TARGET ); i++ )
+		{
+			GC_FillBudgetProbeFrameBuffer();
+			GC_PresentBuffer();
+		}
+	}
 #endif
 }
 
