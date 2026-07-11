@@ -535,14 +535,12 @@ static void R_SetupFrame( void )
 	RI.viewplanedist = DotProduct( RI.rvp.vieworigin, RI.vforward );
 
 #if XASH_GAMECUBE
-	// G24a: skip translucent sort in low-memory quality mode to reduce stack/heap pressure
+	// G24a: skip translucent sort in low-memory smoke; New Game low-res keeps it.
 	{
 		int quality = GC_GetVisualQuality();
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame quality=%d\n", quality );
-		// G24a: use GC_IsLowMemoryMode helper consistently for quality 0 checks
-		// Only sort translucent entities when not in low-memory mode (quality != 0)
-		if( quality > 0 )
+		if( quality > 0 || GC_UseLowResWorldProbe() )
 		{
 			qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
 		}
@@ -1546,11 +1544,30 @@ void GAME_EXPORT R_RenderScene( void )
 	R_SetupFrame();
 
 #if XASH_GAMECUBE
-	if( GC_IsLowMemoryMode() )
+	/* Smoke (quality 0, non-probe) skips PushDlights. New Game low-res needs
+	 * marked surfaces so muzzle/flashlight lightmaps can rebuild. */
+	if( GC_IsLowMemoryMode() && !GC_UseLowResWorldProbe() )
 		tr.dlightframecount = tr.framecount;
 	else
+	{
 #endif
 	tr.dlightframecount = R_PushDlights( WORLDMODEL, tr.framecount );
+#if XASH_GAMECUBE
+		if( GC_UseLowResWorldProbe() && tr.framecount <= 1 )
+		{
+			unsigned active = 0;
+
+			for( int i = 0; i < MAX_DLIGHTS; i++ )
+			{
+				const dlight_t *l = &gp_dlights[i];
+
+				if( l->die >= gp_cl->time && l->radius > 0.0f )
+					active++;
+			}
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: world dlight push armed active=%u\n", active );
+		}
+	}
+#endif
 	R_SetupModelviewMatrix( RI.worldviewMatrix );
 	R_SetupProjectionMatrix( RI.projectionMatrix );
 

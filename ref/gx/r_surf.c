@@ -233,12 +233,22 @@ static void R_BuildLightMap( void )
 #endif
 
 	// add all the dynamic lights
-	if( surf->dlightframe == tr.framecount
-#if XASH_GAMECUBE
-	    && !GC_UseLowResWorldProbe() /* static lightmaps only on low-res path */
-#endif
-	  )
+	if( surf->dlightframe == tr.framecount )
+	{
 		R_AddDynamicLights( surf );
+#if XASH_GAMECUBE
+		if( GC_UseLowResWorldProbe() )
+		{
+			static qboolean gc_dlight_marker_logged;
+
+			if( !gc_dlight_marker_logged && surf->dlightbits )
+			{
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: RGB565 world dlights active\n" );
+				gc_dlight_marker_logged = true;
+			}
+		}
+#endif
+	}
 
 	// bound, invert, and shift
 	for( int i = 0; i < size; i++ )
@@ -1235,13 +1245,25 @@ static void R_DrawSurfaceDecals( void )
 	msurface_t *fa = r_drawsurf.surf;
 
 #if XASH_GAMECUBE
-	// G24b: skip decals for quality 0 to preserve budget
-	if( !GC_GetVisualQuality() )
+	// Smoke quality 0 skips decals; New Game low-res keeps them in the surfcache.
+	if( !GC_GetVisualQuality() && !GC_UseLowResWorldProbe() )
 		return;
 #endif
 
 	for( decal_t *p = fa->pdecals; p; p = p->pnext )
 	{
+#if XASH_GAMECUBE
+		if( GC_UseLowResWorldProbe() )
+		{
+			static qboolean gc_decal_marker_logged;
+
+			if( !gc_decal_marker_logged )
+			{
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: RGB565 world decals active\n" );
+				gc_decal_marker_logged = true;
+			}
+		}
+#endif
 		pixel_t      *dest, *source;
 		image_t      *tex = R_GetTexture( p->texture );
 		int          s1 = 0, t1 = 0, s2 = tex->width, t2 = tex->height;
@@ -1577,11 +1599,7 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		cache->mipscale = surfscale;
 	}
 
-	if( surface->dlightframe == tr.framecount
-#if XASH_GAMECUBE
-	    && !GC_UseLowResWorldProbe()
-#endif
-	  )
+	if( surface->dlightframe == tr.framecount )
 		cache->dlight = 1;
 	else
 		cache->dlight = 0;
@@ -1629,10 +1647,9 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	}
 
 #if XASH_GAMECUBE
-	// G24b: skip decals for quality 0 world-luxels surfaces to preserve budget.
-	// Decals for world-luxels were already skipped in the early-return path of
-	// R_DrawSurface() for quality 0; skip here too so D_CacheSurface() stays clean.
-	if( !GC_GetVisualQuality() && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
+	/* Smoke quality 0 skips world-luxels decals; New Game low-res draws them. */
+	if( !GC_GetVisualQuality() && !GC_UseLowResWorldProbe()
+	    && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
 		return cache;
 #endif
 	R_DrawSurfaceDecals();
