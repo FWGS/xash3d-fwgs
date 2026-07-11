@@ -138,6 +138,7 @@ qboolean GC_ShouldUseLightPresent( void );
 void GC_NoteLightPresentFrame( void );
 void GC_FillBudgetProbeFrameBuffer( void );
 void GC_PresentBudgetProbeFrame( void );
+qboolean GC_PrepareNewGameWorldPresent( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 #endif
 

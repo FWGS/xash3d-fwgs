@@ -22,6 +22,7 @@ void R_GcmapTrimSurfaceCache( void );
 qboolean R_GcmapEnsureWorldRenderScratch( void );
 qboolean R_GcmapPrepareWorldRender( void );
 qboolean R_GcmapGetViewport( int *width, int *height );
+qboolean GC_PrepareNewGameWorldPresent( void );
 #endif
 #include <stdlib.h>
 #include <string.h>
@@ -57,6 +58,7 @@ static unsigned int gc_blank_present_count;
 static unsigned int gc_budget_sample_count;
 static unsigned int gc_budget_warmup_left;
 static unsigned int gc_light_present_left;
+static qboolean gc_newgame_world_ready;
 static convar_t *gc_quality;
 static double gc_last_present_time;
 static double gc_worst_frame_ms;
@@ -1375,9 +1377,64 @@ qboolean GC_IsFrameBudgetProbeActive( void )
 #endif
 }
 
+qboolean GC_PrepareNewGameWorldPresent( void )
+{
+#if XASH_GAMECUBE
+	int present_w = GC_VIDEO_NEWGAME_PROBE_WIDTH;
+	int present_h = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
+
+	if( gc_newgame_world_ready )
+		return true;
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return false;
+
+	Image_GCPurgeDecodeScratch();
+	Mod_GcmapMarkPrecacheFreeable();
+	Cvar_Set( "gc_quality", "0" );
+
+	if( !R_GcmapEnsureWorldRenderScratch() )
+	{
+		SYS_Report( "Xash3D GameCube: newgame world scratch alloc failed\n" );
+		return false;
+	}
+
+	R_GcmapTrimSurfaceCache();
+	if( !R_GcmapPrepareWorldRender() )
+	{
+		SYS_Report( "Xash3D GameCube: newgame world screen alloc failed\n" );
+		return false;
+	}
+
+	if( !R_GcmapGetViewport( &present_w, &present_h ))
+	{
+		present_w = GC_VIDEO_NEWGAME_PROBE_WIDTH;
+		present_h = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
+	}
+
+	if( !GC_EnsurePresentationBuffer( present_w, present_h ))
+	{
+		SYS_Report( "Xash3D GameCube: newgame world presentation buffer failed\n" );
+		return false;
+	}
+
+	refState.width = present_w;
+	refState.height = present_h;
+	gc_light_present_left = 0;
+	gc_budget_probe_active = false;
+	gc_newgame_world_ready = true;
+	SYS_Report( "Xash3D GameCube: newgame low-res world present %dx%d\n", present_w, present_h );
+	GC_MemSample( "newgame world present" );
+	return true;
+#else
+	return false;
+#endif
+}
+
 qboolean GC_ShouldUseLightPresent( void )
 {
 #if XASH_GAMECUBE
+	if( gc_newgame_world_ready )
+		return false;
 	return gc_budget_probe_active || gc_light_present_left > 0;
 #else
 	return false;
@@ -1389,10 +1446,10 @@ void GC_NoteLightPresentFrame( void )
 #if XASH_GAMECUBE
 	if( gc_light_present_left > 0 )
 		gc_light_present_left--;
-	/* New Game probe: keep Host_Frame light presents after G36 — full-res
-	 * restore + V_RenderView still OOMs MEM1 with the map resident. */
-	if( gc_light_present_left == 0 && Sys_CheckParm( "-gcnewgame" ))
-		gc_light_present_left = GC_VIDEO_LIGHT_PRESENT_GRACE;
+	/* After G36 samples + grace, switch New Game to low-res world presents. */
+	if( gc_light_present_left == 0 && !gc_budget_probe_active
+		&& Sys_CheckParm( "-gcnewgame" ) && !gc_newgame_world_ready )
+		GC_PrepareNewGameWorldPresent();
 #endif
 }
 
@@ -1451,6 +1508,8 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 
 	if( GC_MapLoadMemoryOpt())
 		Cvar_Set( "gc_quality", "0" );
+
+	gc_newgame_world_ready = false;
 
 	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=%d)\n",
 		gc.width, gc.height, gc_budget_probe_active ? 1 : 0 );

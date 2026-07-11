@@ -707,8 +707,8 @@ qboolean R_GcmapEnsureWorldRenderScratch( void );
 void R_ScanEdges( void )
 {
 #if XASH_GAMECUBE
-	/* Heap spans for world-render probe — avoid MAXSPANS (~96 KiB) on stack. */
-	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	/* Heap spans for low-res world probe — avoid MAXSPANS (~96 KiB) on stack. */
+	if( GC_UseLowResWorldProbe() )
 	{
 		int maxspans = 0;
 
@@ -1098,8 +1098,8 @@ static void D_SolidSurf( surf_t *s )
 		miplevel--;
 
 #if XASH_GAMECUBE
-	/* World-render probe: flat-fill RGB565 directly (blit skips vid.screen). */
-	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	/* Low-res world probe: flat-fill RGB565 directly (blit skips vid.screen). */
+	if( GC_UseLowResWorldProbe() )
 	{
 		/* Cycle through saturated primaries so surfaces are obviously non-black. */
 		static const pixel_t gc_probe_colors[6] = {

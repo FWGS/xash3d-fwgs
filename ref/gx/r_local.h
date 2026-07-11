@@ -365,6 +365,21 @@ static inline qboolean GC_IsLowMemoryMode( void )
 	return ( GC_GetVisualQuality() == 0 ) ? qtrue : qfalse;
 }
 
+/*
+** GC_UseLowResWorldProbe
+** Heap-backed edge/span path for -gcworldrender and New Game (-gcnewgame)
+** low-res world presents. Avoids NUMSTACKEDGES on the GameCube stack.
+*/
+static inline qboolean GC_UseLowResWorldProbe( void )
+{
+#if XASH_GAMECUBE
+	return ( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+		|| gEngfuncs.Sys_CheckParm( "-gcnewgame" )) ? qtrue : qfalse;
+#else
+	return qfalse;
+#endif
+}
+
 typedef struct image_s
 {
 	char           name[256];       // game path, including extension (can be store image programs)

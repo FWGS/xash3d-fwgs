@@ -104,7 +104,7 @@ qboolean R_GcmapEnsureSurfaceCache( void )
 
 qboolean R_GcmapPrepareWorldRender( void )
 {
-	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 		return false;
 
 	if( vid.buffer && d_pzbuffer && vid.width > 0 && vid.height > 0 )
@@ -125,7 +125,7 @@ qboolean R_GcmapAllocMinimalScreen( void )
 	size_t pixels;
 	qboolean use_static_screen = false;
 
-	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	if( !gEngfuncs.Sys_CheckParm( "-gcmap" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 		return false;
 
 	if( vid.buffer && d_pzbuffer && vid.width > 0 && vid.height > 0 )
@@ -141,11 +141,18 @@ qboolean R_GcmapAllocMinimalScreen( void )
 		h = 96;
 		use_static_screen = ( w <= 160 && h <= 128 ) ? true : false;
 	}
+	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	{
+		/* New Game Host_Frame world: fit static z/view buffers, match G36 probe. */
+		w = 160;
+		h = 120;
+		use_static_screen = true;
+	}
 	if( w < 128 )
 		w = 128;
 	if( h < 96 )
 		h = 96;
-	else if( !gEngfuncs.Sys_CheckParm( "-gcworldrender" ) && h < 128 )
+	else if( !gEngfuncs.Sys_CheckParm( "-gcworldrender" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && h < 128 )
 		h = 128;
 
 	vid.width = w;
@@ -153,7 +160,7 @@ qboolean R_GcmapAllocMinimalScreen( void )
 	vid.rowbytes = w;
 	pixels = (size_t)w * (size_t)h;
 
-	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
 		gpGlobals->width = w;
 		gpGlobals->height = h;

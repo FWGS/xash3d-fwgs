@@ -882,7 +882,7 @@ void R_BlitScreen( void )
 			unsigned short *pbuf = buffer;
 #if XASH_GAMECUBE
 			int v, u;
-			const qboolean rgb565_direct = gEngfuncs.Sys_CheckParm( "-gcworldrender" ) != 0;
+			const qboolean rgb565_direct = GC_UseLowResWorldProbe();
 			uint dst_stride = swblit.stride;
 
 			if( rgb565_direct && vid.width > 0 && swblit.stride != (uint)vid.width )

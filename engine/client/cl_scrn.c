@@ -816,7 +816,9 @@ void SCR_UpdateScreen( void )
 	case ca_active:
 		Con_RunConsole ();
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
+		/* New Game keeps the 160x120 world present path; do not restore 640x480. */
+		if( !Sys_CheckParm( "-gcnewgame" )
+			&& ( GC_MapLoadMemoryOpt() ))
 			GC_RestoreVideoMemoryAfterMapLoad();
 #endif
 		V_RenderView();

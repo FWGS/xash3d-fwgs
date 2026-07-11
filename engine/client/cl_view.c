@@ -556,9 +556,10 @@ void V_PostRender( void )
 	ref.dllFuncs.R_Set2DMode( true );
 
 #if XASH_GAMECUBE
-	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || GC_ShouldUseLightPresent() ))
+	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
+		|| GC_ShouldUseLightPresent() ))
 	{
-		/* Smoke / G36 / post-connect light presents only need a non-black frame. */
+		/* Smoke / G36 / New Game low-res world: present without HUD/VGUI allocs. */
 		ref.dllFuncs.R_AllowFog( true );
 		Platform_SetTimer( 0.0f );
 		ref.dllFuncs.R_EndFrame();

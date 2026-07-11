@@ -101,10 +101,18 @@ int          r_numallocatededges;
 float        r_aliasuvscale = 1.0;
 
 #if XASH_GAMECUBE
-/* Reduced edge/surface/span budgets for -gcworldrender: heap-backed, not stack. */
+/* Reduced edge/surface/span budgets for low-res world probe: static BSS, not heap.
+ * MEM1 is too fragmented after New Game connect for reliable malloc here. */
 #define GC_PROBE_NUMEDGES 512
 #define GC_PROBE_NUMSURFS 256
 #define GC_PROBE_NUMSPANS 512
+
+static byte gc_probe_edges_store[( GC_PROBE_NUMEDGES + 2 ) * sizeof( edge_t ) + CACHE_SIZE]
+	__attribute__((aligned( 32 )));
+static byte gc_probe_surfaces_store[( GC_PROBE_NUMSURFS + 1 ) * sizeof( surf_t ) + CACHE_SIZE]
+	__attribute__((aligned( 32 )));
+static byte gc_probe_spans_store[GC_PROBE_NUMSPANS * sizeof( espan_t ) + CACHE_SIZE]
+	__attribute__((aligned( 32 )));
 
 static edge_t *gc_probe_edges;
 static surf_t *gc_probe_surfaces;
@@ -115,40 +123,17 @@ static int     gc_probe_numspans;
 
 qboolean R_GcmapEnsureWorldRenderScratch( void )
 {
-	size_t edge_bytes, surf_bytes, span_bytes;
-
 	if( gc_probe_edges && gc_probe_surfaces && gc_probe_spans &&
 		gc_probe_numedges > 0 && gc_probe_numsurfs > 0 && gc_probe_numspans > 0 )
 		return true;
 
-	edge_bytes = ( GC_PROBE_NUMEDGES + 2 ) * sizeof( edge_t ) + CACHE_SIZE;
-	/* +1 so surfaces[1]..surfaces[N] stay in-bounds without surfaces-- underflow. */
-	surf_bytes = ( GC_PROBE_NUMSURFS + 1 ) * sizeof( surf_t ) + CACHE_SIZE;
-	span_bytes = GC_PROBE_NUMSPANS * sizeof( espan_t ) + CACHE_SIZE;
-
-	if( !gc_probe_edges )
-		gc_probe_edges = (edge_t *)malloc( edge_bytes );
-	if( !gc_probe_surfaces )
-		gc_probe_surfaces = (surf_t *)malloc( surf_bytes );
-	if( !gc_probe_spans )
-		gc_probe_spans = (byte *)malloc( span_bytes );
-
-	if( !gc_probe_edges || !gc_probe_surfaces || !gc_probe_spans )
-	{
-		free( gc_probe_edges );
-		free( gc_probe_surfaces );
-		free( gc_probe_spans );
-		gc_probe_edges = NULL;
-		gc_probe_surfaces = NULL;
-		gc_probe_spans = NULL;
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap world-render scratch unavailable\n" );
-		return false;
-	}
-
+	gc_probe_edges = (edge_t *)gc_probe_edges_store;
+	gc_probe_surfaces = (surf_t *)gc_probe_surfaces_store;
+	gc_probe_spans = gc_probe_spans_store;
 	gc_probe_numedges = GC_PROBE_NUMEDGES;
 	gc_probe_numsurfs = GC_PROBE_NUMSURFS;
 	gc_probe_numspans = GC_PROBE_NUMSPANS;
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap world-render scratch ready edges=%d surfs=%d spans=%d\n",
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap world-render scratch ready edges=%d surfs=%d spans=%d (static)\n",
 		gc_probe_numedges, gc_probe_numsurfs, gc_probe_numspans );
 	return true;
 }
@@ -1197,13 +1182,13 @@ static void R_EdgeDrawing( void )
 {
 #if XASH_GAMECUBE
 	/* Keep large stack tables out of this frame: they live only in R_EdgeDrawingStack. */
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) && !GC_UseLowResWorldProbe() )
 	{
-		if( !gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
-		{
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing skipping world pass (gcmap smoke)\n" );
-			return;
-		}
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing skipping world pass (gcmap smoke)\n" );
+		return;
+	}
+	if( GC_UseLowResWorldProbe() )
+	{
 		R_EdgeDrawingGcmapProbe();
 		return;
 	}
@@ -1219,15 +1204,15 @@ R_MarkLeaves
 static void R_MarkLeaves( void )
 {
 #if XASH_GAMECUBE
-	if( GC_IsLowMemoryMode() && !gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	if( GC_IsLowMemoryMode() && !GC_UseLowResWorldProbe() )
 	{
 		tr.visframecount++;
 		r_oldviewcluster = r_viewcluster;
 		return;
 	}
 
-	/* World-render probe: mark every leaf visible (skip FatPVS recursion). */
-	if( gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	/* Low-res world probe: mark every leaf visible (skip FatPVS recursion). */
+	if( GC_UseLowResWorldProbe() )
 	{
 		int i;
 
@@ -1338,22 +1323,24 @@ void GAME_EXPORT R_RenderScene( void )
 	R_EdgeDrawing();
 
 #if XASH_GAMECUBE
-	/* gcmap routes skip entity lists: R_DrawBrushModel still uses stack edge tables. */
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	/* gcmap / New Game low-res routes skip entity lists: R_DrawBrushModel
+	 * still uses stack edge tables. Keep "gcmap render time=" (not "frame time=")
+	 * so New Game world presents do not pollute G36 Host_Frame samples. */
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( tr.framecount <= 32 )
 		{
 			double elapsed_ms = ( gEngfuncs.pfnTime() - gc_render_start ) * 1000.0;
 
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap render time=%.2fms frame=%d worldrender=%d\n",
-				elapsed_ms, tr.framecount, gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 1 : 0 );
+				elapsed_ms, tr.framecount, GC_UseLowResWorldProbe() ? 1 : 0 );
 			if( elapsed_ms >= 33.0 )
 				gEngfuncs.Con_Reportf( "Xash3D GameCube: G49 slow gcmap render %.2fms frame=%d quality=%d\n",
 					elapsed_ms, tr.framecount, GC_GetVisualQuality() );
 		}
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene gcmap route complete worldrender=%d\n",
-				gEngfuncs.Sys_CheckParm( "-gcworldrender" ) ? 1 : 0 );
+				GC_UseLowResWorldProbe() ? 1 : 0 );
 		return;
 	}
 #endif
@@ -1544,7 +1531,7 @@ void GAME_EXPORT R_NewMap( void )
 
 #if XASH_GAMECUBE
 	{
-		const qboolean gc_world_probe = GC_IsLowMemoryMode() && gEngfuncs.Sys_CheckParm( "-gcworldrender" );
+		const qboolean gc_world_probe = GC_IsLowMemoryMode() && GC_UseLowResWorldProbe();
 
 		// G24a: low-memory smoke path caps surfaces before MINSURFACES floor
 		if( GC_IsLowMemoryMode() )
@@ -1569,7 +1556,7 @@ void GAME_EXPORT R_NewMap( void )
 #endif
 	if( r_cnumsurfs <= MINSURFACES
 #if XASH_GAMECUBE
-	 && !( GC_IsLowMemoryMode() && gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+	 && !( GC_IsLowMemoryMode() && GC_UseLowResWorldProbe() )
 #endif
 	)
 		r_cnumsurfs = MINSURFACES;
@@ -1597,7 +1584,7 @@ void GAME_EXPORT R_NewMap( void )
 
 #if XASH_GAMECUBE
 	{
-		const qboolean gc_world_probe = GC_IsLowMemoryMode() && gEngfuncs.Sys_CheckParm( "-gcworldrender" );
+		const qboolean gc_world_probe = GC_IsLowMemoryMode() && GC_UseLowResWorldProbe();
 
 		// G24a: low-memory smoke path caps edges to stack budget
 		if( GC_IsLowMemoryMode() )
