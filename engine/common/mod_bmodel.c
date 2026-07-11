@@ -2129,6 +2129,12 @@ static void Mod_SetupHull( dbspmodel_t *bmod, model_t *mod, int headnode, int hu
 				}
 				else
 				{
+#if XASH_GAMECUBE
+					/* Prefer the owned compact array when BSP pin was freed. */
+					if( world->clipnodes16 )
+						hull->clipnodes16 = world->clipnodes16;
+					else
+#endif
 					hull->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
 				}
 			}

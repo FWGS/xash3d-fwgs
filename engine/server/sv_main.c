@@ -17,6 +17,9 @@ GNU General Public License for more details.
 #include "server.h"
 #include "net_encode.h"
 #include "platform/platform.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 
 // server cvars
 CVAR_DEFINE_AUTO( sv_lan, "0", 0, "server is a lan server ( no heartbeat, no authentication, no non-class C addresses, 9999.0 rate, etc." );
@@ -596,6 +599,22 @@ static qboolean SV_RunGameFrame( void )
 
 	if( !sv.simulating )
 		return true;
+
+#if XASH_GAMECUBE
+	/* First simulating frames after New Game connect can stall forever inside
+	 * HL entity thinks (trains/multi_managers on c0a0). Skip physics briefly. */
+	{
+		static int gc_skip_physics_frames;
+
+		if( ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
+			&& gc_skip_physics_frames < 48 )
+		{
+			gc_skip_physics_frames++;
+			sv.time += ( sv_fps.value == 0.0f ) ? sv.frametime : host.frametime;
+			return true;
+		}
+	}
+#endif
 
 	if( sv_fps.value != 0.0f )
 	{

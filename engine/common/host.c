@@ -671,8 +671,25 @@ void Host_Frame( double time )
 	Host_InputFrame ();  // input frame
 	Host_ClientBegin (); // begin client
 	Host_GetCommands (); // dedicated in
+#if XASH_GAMECUBE
+	/* After New Game ca_active, keep presenting even if server think stalls.
+	 * Use signon as well as cls.state: the connect frame still has ca_connected
+	 * when Host_Frame chooses its branch, then CheckClientState flips active. */
+	if( ( cls.state == ca_active || cls.signon == SIGNONS )
+		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() ))
+	{
+		Host_ClientFrame ();
+		Host_ServerFrame ();
+	}
+	else
+	{
+		Host_ServerFrame ();
+		Host_ClientFrame ();
+	}
+#else
 	Host_ServerFrame (); // server frame
 	Host_ClientFrame (); // client frame
+#endif
 #if !XASH_GAMECUBE
 	HTTP_Run();			 // both server and client
 #endif

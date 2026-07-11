@@ -3717,9 +3717,6 @@ void Host_ClientBegin( void )
 	}
 #endif
 
-	// finalize connection process if needs
-	CL_CheckClientState();
-
 	// check if logo cvars changed and re-upload if needed
 	CL_CheckLogoChanged();
 
@@ -3784,6 +3781,10 @@ void Host_ClientFrame( void )
 
 	// read updates from server
 	CL_ReadPackets ();
+
+	/* Finalize ca_active after packets so New Game arm/presents happen in
+	 * Host_ClientFrame (before the next Host_ServerFrame can stall). */
+	CL_CheckClientState();
 
 	// do prediction again in case we got
 	// a new portion updates from server
