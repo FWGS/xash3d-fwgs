@@ -1572,6 +1572,10 @@ static void R_StudioSetupSkin( studiohdr_t *ptexturehdr, int index )
 
 	if( r_lightmap->value && !r_fullbright->value )
 		GL_Bind( XASH_TEXTURE0, tr.whiteTexture );
+#if XASH_GAMECUBE
+	else if( !ptexture[index].index )
+		GL_Bind( XASH_TEXTURE0, tr.whiteTexture ); /* New Game mesh-only studios */
+#endif
 	else
 		GL_Bind( XASH_TEXTURE0, ptexture[index].index );
 }

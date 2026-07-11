@@ -164,6 +164,7 @@ void Mod_LoadDetailTextures( model_t *mod );
 #if XASH_GAMECUBE
 poolhandle_t Mod_GameCubeSharedModelStubPool( void );
 poolhandle_t Mod_GameCubeSharedStudioPool( void );
+void Mod_GCLoadNewGameStudios( void );
 void Mod_ReleaseBrushSourceBuffer( void *buf );
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod );
 #endif

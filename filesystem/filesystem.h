@@ -271,6 +271,7 @@ typedef int (*FSAPI)( int version, fs_api_t *api, fs_globals_t **globals, const 
 
 #if XASH_GAMECUBE
 void FS_SetSmokeBootMode( qboolean enable );
+void FS_ClearFindMissCache( void );
 #endif
 
 #ifdef __cplusplus

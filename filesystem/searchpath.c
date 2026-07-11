@@ -44,6 +44,11 @@ void FS_SetSmokeBootMode( qboolean enable )
 	fs_gc_smoke_boot = enable;
 }
 
+void FS_ClearFindMissCache( void )
+{
+	fs_gc_miss_count = 0;
+}
+
 static qboolean FS_FindMissCached( const char *name )
 {
 	int i;

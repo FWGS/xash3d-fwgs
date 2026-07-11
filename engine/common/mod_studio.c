@@ -1227,17 +1227,32 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	studiohdr_t	*phdr;
 	qboolean textures_loaded = false;
 	qboolean skip_studio_textures = false;
+	qboolean gc_real_studio = false;
+	qboolean gc_mesh_only = false;
 
 #if XASH_GAMECUBE
 	skip_studio_textures = (GC_GetVisualQuality( ) == 0);
+	/* New Game allowlisted MDLs: keep mesh, skip texel upload (white skins). */
+	if( Sys_CheckParm( "-gcnewgame" ) && buffer && buffersize > sizeof( studiohdr_t ))
+	{
+		Cvar_Set( "gc_quality", "0" );
+		skip_studio_textures = false;
+		gc_real_studio = true;
+		gc_mesh_only = true;
+	}
 #endif
 
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
 
 	if( loaded ) *loaded = false;
-	if( GC_MapLoadMemoryOpt())
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() && !gc_real_studio )
 		mod->mempool = Mod_GameCubeSharedModelStubPool();
+	else if( gc_mesh_only )
+		/* Mesh-only New Game studios: keep cache on malloc, not MEM1 pools. */
+		mod->mempool = 0;
 	else
+#endif
 		mod->mempool = Mem_AllocPool( poolname );
 	mod->type = mod_studio;
 
@@ -1254,7 +1269,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		return;	// bad model
 
 #if !XASH_DEDICATED
-	if( !skip_studio_textures && !Host_IsDedicated( ) && phdr->numtextures == 0 )
+	if( !gc_mesh_only && !skip_studio_textures && !Host_IsDedicated( ) && phdr->numtextures == 0 )
 	{
 		studiohdr_t *thdr;
 		void *buffer2;
@@ -1301,11 +1316,33 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		size_t cache_length = phdr->length;
 
 		// NOTE: don't modify source buffer because it's used for CRC computing
+#if XASH_GAMECUBE
+		if( gc_mesh_only )
+		{
+			mod->cache.data = calloc( 1, cache_length );
+			if( !mod->cache.data )
+			{
+				Con_Reportf( S_ERROR "Xash3D GameCube: studio malloc failed '%s' (%s)\n",
+					mod->name, Q_memprint( cache_length ));
+				return;
+			}
+		}
+		else
+#endif
 		mod->cache.data = Mem_Calloc( mod->mempool, cache_length );
 		memcpy( mod->cache.data, buffer, cache_length );
 		phdr = mod->cache.data;
 #if XASH_GAMECUBE
-		if( skip_studio_textures )
+		if( gc_mesh_only && phdr->numtextures > 0 && phdr->textureindex > 0 )
+		{
+			mstudiotexture_t *ptex = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
+			int i;
+
+			/* Keep width/height for UVs; clear GL texnums so soft path binds white. */
+			for( i = 0; i < phdr->numtextures; i++ )
+				ptex[i].index = 0;
+		}
+		else if( skip_studio_textures )
 		{
 			phdr->numtextures = 0;
 			phdr->textureindex = 0;
@@ -1314,7 +1351,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 #endif
 
 #if !XASH_DEDICATED
-		if( !skip_studio_textures && !Host_IsDedicated( ))
+		if( !gc_mesh_only && !skip_studio_textures && !Host_IsDedicated( ))
 			ref.dllFuncs.Mod_StudioLoadTextures( mod, phdr );
 #endif
 	}

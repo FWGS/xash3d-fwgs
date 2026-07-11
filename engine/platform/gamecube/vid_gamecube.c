@@ -1517,6 +1517,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		R_SetupSkyLeanGameCube( sky );
 	}
 
+	/* After sky proves FS/MEM headroom, promote a few mesh-only studios. */
+	Mod_GCLoadNewGameStudios();
+
 	refState.width = present_w;
 	refState.height = present_h;
 	gc_light_present_left = 0;

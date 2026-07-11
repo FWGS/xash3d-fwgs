@@ -30,7 +30,230 @@ static int	mod_numknown = 0;
 poolhandle_t      com_studiocache;		// cache for submodels
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+void FS_ClearFindMissCache( void );
 static poolhandle_t gc_gcmap_stubpool;
+
+/* New Game only: a few real MDLs (NPCs/viewweapons) instead of empty stubs.
+ * Mesh-only (no studio texel upload) — skins bind white under quality 0. */
+#define GC_REAL_STUDIO_MAX_NPC    4
+#define GC_REAL_STUDIO_MAX_VIEW   2
+#define GC_REAL_STUDIO_MAX_BYTES  (400 * 1024)
+
+static int    gc_real_studio_npc;
+static int    gc_real_studio_view;
+static size_t gc_real_studio_bytes;
+
+static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmodel )
+{
+	char bare[64];
+	static const char *npcs[] = {
+		"scientist", "barney", "gman", "player",
+		"headcrab", "houndeye", "zombie",
+		"scientist01", "scientist02", "scientist03",
+		NULL
+	};
+	static const char *views[] = {
+		"v_crowbar", "v_9mmhandgun", "v_9mmar", "v_shotgun", "v_357",
+		"w_crowbar", "w_9mmhandgun",
+		NULL
+	};
+	int i;
+
+	if( is_viewmodel )
+		*is_viewmodel = false;
+	if( !name || !name[0] )
+		return false;
+
+	COM_FileBase( name, bare, sizeof( bare ));
+	for( i = 0; npcs[i]; i++ )
+	{
+		if( !Q_stricmp( bare, npcs[i] ))
+			return true;
+	}
+	for( i = 0; views[i]; i++ )
+	{
+		if( !Q_stricmp( bare, views[i] ))
+		{
+			if( is_viewmodel )
+				*is_viewmodel = true;
+			return true;
+		}
+	}
+	return false;
+}
+
+static qboolean Mod_GCAllowRealStudioLoad( const char *name, size_t filesize )
+{
+	qboolean is_view = false;
+
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return false;
+	if( !Mod_GCStudioNameAllowed( name, &is_view ))
+		return false;
+	if( is_view )
+	{
+		if( gc_real_studio_view >= GC_REAL_STUDIO_MAX_VIEW )
+			return false;
+	}
+	else if( gc_real_studio_npc >= GC_REAL_STUDIO_MAX_NPC )
+		return false;
+	if( filesize < sizeof( studiohdr_t ) || filesize > ( 220 * 1024 ))
+		return false;
+	if( gc_real_studio_bytes + filesize > GC_REAL_STUDIO_MAX_BYTES )
+		return false;
+	return true;
+}
+
+static void Mod_GCNoteRealStudioLoaded( const char *name, size_t filesize )
+{
+	qboolean is_view = false;
+
+	Mod_GCStudioNameAllowed( name, &is_view );
+	if( is_view )
+		gc_real_studio_view++;
+	else
+		gc_real_studio_npc++;
+	gc_real_studio_bytes += filesize;
+	Con_Reportf( "Xash3D GameCube: real studio loaded '%s' (%s) npc=%d view=%d budget=%s/%s\n",
+		name, Q_memprint( filesize ), gc_real_studio_npc, gc_real_studio_view,
+		Q_memprint( gc_real_studio_bytes ), Q_memprint( GC_REAL_STUDIO_MAX_BYTES ));
+}
+
+/*
+=============
+Mod_GCLoadStudioFile
+
+Read an MDL via FS (prefer tiny gc_studio/ mirror — retail models/ is too large
+for reliable ISO9660 lookup after map prep).
+=============
+*/
+static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length )
+{
+	char bare[64];
+	char mirror[MAX_QPATH];
+	byte *buf;
+
+	*length = 0;
+	COM_FileBase( model_path, bare, sizeof( bare ));
+	Q_snprintf( mirror, sizeof( mirror ), "gc_studio/%s.mdl", bare );
+
+	buf = FS_LoadFileMalloc( mirror, length, false );
+	if( buf && *length >= (fs_offset_t)sizeof( studiohdr_t ))
+	{
+		Con_Reportf( "Xash3D GameCube: deferred studio read '%s' via %s (%s)\n",
+			model_path, mirror, Q_memprint( (size_t)*length ));
+		return buf;
+	}
+	if( buf )
+	{
+		free( buf );
+		buf = NULL;
+	}
+	*length = 0;
+
+	buf = FS_LoadFileMalloc( model_path, length, false );
+	if( buf && *length >= (fs_offset_t)sizeof( studiohdr_t ))
+	{
+		Con_Reportf( "Xash3D GameCube: deferred studio read '%s' via models/ (%s)\n",
+			model_path, Q_memprint( (size_t)*length ));
+		return buf;
+	}
+	if( buf )
+	{
+		free( buf );
+		buf = NULL;
+	}
+	*length = 0;
+	return NULL;
+}
+
+/*
+=============
+Mod_GCLoadNewGameStudios
+
+Promote allowlisted stub MDLs to mesh-only real studios after map prep / netchan
+are past the MEM1 cliff (same deferral idea as lean skybox).
+=============
+*/
+void Mod_GCLoadNewGameStudios( void )
+{
+	/* Smallest first — maximize chance of fitting the byte budget. */
+	static const char *promote[] = {
+		"models/w_crowbar.mdl",
+		NULL
+	};
+	int i;
+
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return;
+
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+
+	for( i = 0; promote[i]; i++ )
+	{
+		model_t *mod;
+		byte *buf;
+		fs_offset_t length = 0;
+		qboolean loaded = false;
+		studiohdr_t *hdr;
+
+		buf = Mod_GCLoadStudioFile( promote[i], &length );
+		if( !buf || length < (fs_offset_t)sizeof( studiohdr_t ))
+		{
+			Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' read=%li\n",
+				promote[i], (long)length );
+			if( buf )
+				free( buf );
+			continue;
+		}
+
+		if( !Mod_GCAllowRealStudioLoad( promote[i], (size_t)length ))
+		{
+			Con_Reportf( "Xash3D GameCube: deferred studio budget skip '%s' (%s)\n",
+				promote[i], Q_memprint( (size_t)length ));
+			free( buf );
+			continue;
+		}
+
+		mod = Mod_FindName( promote[i], false );
+		if( !mod )
+		{
+			Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' (not registered)\n",
+				promote[i] );
+			free( buf );
+			continue;
+		}
+
+		hdr = (studiohdr_t *)mod->cache.data;
+		if( hdr && hdr->numbodyparts > 0 )
+		{
+			free( buf );
+			continue;
+		}
+
+		mod->cache.data = NULL;
+		if( mod->mempool == gc_gcmap_stubpool )
+			mod->mempool = 0;
+		mod->needload = NL_PRESENT;
+		mod->type = mod_studio;
+
+		Image_GCPurgeDecodeScratch();
+		Mod_LoadStudioModel( mod, buf, (size_t)length, &loaded );
+		free( buf );
+
+		if( loaded )
+			Mod_GCNoteRealStudioLoaded( promote[i], (size_t)length );
+		else
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: deferred studio promote failed '%s'\n", promote[i] );
+			Mod_LoadStudioGcmapStub( mod, &loaded );
+		}
+	}
+
+	Con_Reportf( "Xash3D GameCube: deferred studio done npc=%d view=%d budget=%s\n",
+		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
+}
 
 static qboolean Mod_GCMapVerboseModelLoad( const char *name )
 {
@@ -189,6 +412,12 @@ void Mod_FreeModel( model_t *mod )
 			Mod_FreeLoadBuffer( mod->cache.data );
 			mod->cache.data = NULL;
 		}
+		/* Mesh-only New Game studios keep cache on malloc (mempool == 0). */
+		if( mod->type == mod_studio && !mod->mempool && mod->cache.data )
+		{
+			free( mod->cache.data );
+			mod->cache.data = NULL;
+		}
 #endif
 #if XASH_GAMECUBE
 		if( mod->mempool != gc_gcmap_stubpool )
@@ -258,6 +487,9 @@ void Mod_FreeAll( void )
 #if XASH_GAMECUBE
 	if( gc_gcmap_stubpool )
 		Mem_EmptyPool( gc_gcmap_stubpool );
+	gc_real_studio_npc = 0;
+	gc_real_studio_view = 0;
+	gc_real_studio_bytes = 0;
 #endif
 	mod_numknown = 0;
 }
@@ -406,6 +638,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 
 		if( ext && !Q_stricmp( ext, "mdl" ))
 		{
+			/* Real meshes are promoted after map prep in Mod_GCLoadNewGameStudios. */
 			mod->needload = NL_PRESENT;
 			Mod_LoadStudioGcmapStub( mod, &loaded );
 			if( !loaded )
@@ -726,6 +959,13 @@ void Mod_GcmapMarkPrecacheFreeable( void )
 			continue;
 		if( mod->needload == NL_PRESENT )
 		{
+			/* Keep New Game deferred real studio meshes for world present. */
+			if( Sys_CheckParm( "-gcnewgame" ) && mod->type == mod_studio )
+			{
+				studiohdr_t *hdr = (studiohdr_t *)mod->cache.data;
+				if( hdr && hdr->numbodyparts > 0 )
+					continue;
+			}
 			mod->needload = NL_FREE_UNUSED;
 			marked++;
 		}

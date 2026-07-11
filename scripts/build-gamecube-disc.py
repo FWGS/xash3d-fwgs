@@ -288,6 +288,9 @@ def build_iso9660(
 						child.relative_to(data).as_posix(),
 						compress_type=compress_type,
 					)
+			studio_count = inject_gc_studio_into_bootstrap(archive, data)
+			if studio_count:
+				print(f"GameCube studio mirror: injected {studio_count} MDL(s) into bootstrap pk3")
 
 		if extras is not None:
 			command.append(f"/xash3d/valve/extras.pk3={extras}")
@@ -707,6 +710,27 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 
 	print(f"GameCube menu assets: baked {background_path.relative_to(output)} from {source_note}")
 	return True
+
+
+# Small allowlist injected into gamecube-bootstrap.pk3 as gc_studio/*.mdl so
+# New Game can load real meshes without ISO9660 lookups in huge models/, and
+# without mounting an extra ZIP (which tips the New Game MEM1 cliff).
+GC_STUDIO_MODELS = (
+	"models/w_crowbar.mdl",
+)
+
+
+def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
+	"""Add allowlisted MDLs into an existing bootstrap ZIP under gc_studio/."""
+	staged = 0
+	for relative in GC_STUDIO_MODELS:
+		src = data / relative
+		if not src.is_file():
+			continue
+		arcname = f"gc_studio/{Path(relative).name.lower()}"
+		archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
+		staged += 1
+	return staged
 
 
 def stage_retail_data(source: Path, output: Path) -> tuple[Path, int]:
