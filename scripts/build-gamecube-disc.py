@@ -716,6 +716,7 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 # New Game can load real meshes without ISO9660 lookups in huge models/, and
 # without mounting an extra ZIP (which tips the New Game MEM1 cliff).
 GC_STUDIO_MODELS = (
+	"models/v_crowbar.mdl",
 	"models/w_crowbar.mdl",
 )
 

@@ -177,8 +177,9 @@ are past the MEM1 cliff (same deferral idea as lean skybox).
 */
 void Mod_GCLoadNewGameStudios( void )
 {
-	/* Smallest first — maximize chance of fitting the byte budget. */
+	/* Viewmodel first (visible on New Game); world crowbar is tiny. */
 	static const char *promote[] = {
+		"models/v_crowbar.mdl",
 		"models/w_crowbar.mdl",
 		NULL
 	};
@@ -206,6 +207,28 @@ void Mod_GCLoadNewGameStudios( void )
 			if( buf )
 				free( buf );
 			continue;
+		}
+
+		/* Shrink file buffer to mesh-only before cache alloc — halves peak MEM. */
+		{
+			studiohdr_t *sh = (studiohdr_t *)buf;
+			size_t mesh = (size_t)length;
+
+			if( sh->texturedataindex > (int)sizeof( studiohdr_t )
+				&& (size_t)sh->texturedataindex < mesh )
+				mesh = (size_t)sh->texturedataindex;
+			if( mesh < (size_t)length )
+			{
+				byte *slim = (byte *)realloc( buf, mesh );
+
+				if( slim )
+				{
+					buf = slim;
+					length = (fs_offset_t)mesh;
+					sh = (studiohdr_t *)buf;
+					sh->length = (int)mesh;
+				}
+			}
 		}
 
 		if( !Mod_GCAllowRealStudioLoad( promote[i], (size_t)length ))
@@ -243,7 +266,14 @@ void Mod_GCLoadNewGameStudios( void )
 		free( buf );
 
 		if( loaded )
-			Mod_GCNoteRealStudioLoaded( promote[i], (size_t)length );
+		{
+			size_t kept = length;
+			studiohdr_t *loaded_hdr = (studiohdr_t *)mod->cache.data;
+
+			if( loaded_hdr && loaded_hdr->length > 0 && (size_t)loaded_hdr->length < kept )
+				kept = (size_t)loaded_hdr->length;
+			Mod_GCNoteRealStudioLoaded( promote[i], kept );
+		}
 		else
 		{
 			Con_Reportf( S_WARN "Xash3D GameCube: deferred studio promote failed '%s'\n", promote[i] );

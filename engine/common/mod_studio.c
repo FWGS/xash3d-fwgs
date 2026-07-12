@@ -1110,6 +1110,13 @@ static studiohdr_t *Mod_MaybeTruncateStudioTextureData( model_t *mod )
 #if XASH_LOW_MEMORY
 	studiohdr_t *phdr = (studiohdr_t *)mod->cache.data;
 
+	if( !phdr )
+		return NULL;
+
+	/* Mesh-only New Game studios already truncated into a malloc block. */
+	if( !mod->mempool )
+		return phdr;
+
 	if( phdr->texturedataindex <= sizeof( studiohdr_t ) || phdr->texturedataindex > phdr->length )
 		return phdr;
 
@@ -1319,6 +1326,12 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 #if XASH_GAMECUBE
 		if( gc_mesh_only )
 		{
+			/* Drop embedded texel blobs — white bind only needs mesh + texhdr UVs. */
+			if( phdr->texturedataindex > (int)sizeof( studiohdr_t )
+				&& (size_t)phdr->texturedataindex < cache_length
+				&& (size_t)phdr->texturedataindex <= buffersize )
+				cache_length = (size_t)phdr->texturedataindex;
+
 			mod->cache.data = calloc( 1, cache_length );
 			if( !mod->cache.data )
 			{
@@ -1326,28 +1339,38 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 					mod->name, Q_memprint( cache_length ));
 				return;
 			}
+			memcpy( mod->cache.data, buffer, cache_length );
+			phdr = (studiohdr_t *)mod->cache.data;
+			phdr->length = (int)cache_length;
+			if( phdr->numtextures > 0 && phdr->textureindex > 0
+				&& (size_t)phdr->textureindex + phdr->numtextures * sizeof( mstudiotexture_t ) <= cache_length )
+			{
+				mstudiotexture_t *ptex = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
+				int i;
+
+				for( i = 0; i < phdr->numtextures; i++ )
+					ptex[i].index = 0;
+			}
+			Con_Reportf( "Xash3D GameCube: mesh-only studio cache '%s' %s (file %s)\n",
+				mod->name, Q_memprint( cache_length ), Q_memprint( buffersize ));
 		}
 		else
 #endif
+		{
 		mod->cache.data = Mem_Calloc( mod->mempool, cache_length );
 		memcpy( mod->cache.data, buffer, cache_length );
 		phdr = mod->cache.data;
 #if XASH_GAMECUBE
-		if( gc_mesh_only && phdr->numtextures > 0 && phdr->textureindex > 0 )
-		{
-			mstudiotexture_t *ptex = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
-			int i;
-
-			/* Keep width/height for UVs; clear GL texnums so soft path binds white. */
-			for( i = 0; i < phdr->numtextures; i++ )
-				ptex[i].index = 0;
-		}
-		else if( skip_studio_textures )
+		if( skip_studio_textures )
 		{
 			phdr->numtextures = 0;
 			phdr->textureindex = 0;
 			phdr->texturedataindex = 0;
 		}
+#endif
+		}
+#if XASH_GAMECUBE
+		/* gc_mesh_only path already finalized phdr above. */
 #endif
 
 #if !XASH_DEDICATED
