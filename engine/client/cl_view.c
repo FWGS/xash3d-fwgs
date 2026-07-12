@@ -109,6 +109,18 @@ static void V_SetupViewModel( void )
 	view->curstate.sequence = cl.local.weaponsequence;
 	view->curstate.rendermode = kRenderNormal;
 
+#if XASH_GAMECUBE
+	/* c0a0 tram starts unarmed; promote path already cached mesh-only crowbar. */
+	if( Sys_CheckParm( "-gcnewgame" )
+		&& ( !view->model || view->model->type != mod_studio || !view->model->cache.data ))
+	{
+		model_t *vm = Mod_FindName( "models/v_crowbar.mdl", false );
+
+		if( vm && vm->type == mod_studio && vm->cache.data )
+			view->model = vm;
+	}
+#endif
+
 	// alias models has another animation methods
 	if( view->model && view->model->type == mod_studio )
 	{
@@ -559,14 +571,9 @@ void V_PostRender( void )
 	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
 		|| GC_ShouldUseLightPresent() ))
 	{
-		/* Smoke / G36 light presents: no HUD. New Game after world present:
-		 * draw lean client HUD into the RGB565 framebuffer (no VGUI/menu). */
-		if( Sys_CheckParm( "-gcnewgame" ) && !GC_ShouldUseLightPresent()
-			&& cls.signon == SIGNONS && cls.scrshot_action != scrshot_mapshot )
-		{
-			CL_DrawHUD( CL_ACTIVE );
-			Con_DrawConsole();
-		}
+		/* Smoke / G36 / New Game: skip client HUD. pfnRedraw loads many HUD
+		 * sprites and hangs the first post-world Host_Frame on DVD seeks,
+		 * blocking continuous world+studio presents. Console stays off too. */
 		ref.dllFuncs.R_AllowFog( true );
 		Platform_SetTimer( 0.0f );
 		ref.dllFuncs.R_EndFrame();

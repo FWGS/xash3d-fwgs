@@ -681,10 +681,13 @@ static void R_DrawStudioEntitiesLowRes( void )
 		gEngfuncs.CL_DrawEFX( tr.frametime, true );
 
 	d_gc_span_rgb565 = false;
-	if( tr.framecount <= 1 || (( tr.framecount & 31 ) == 0 ) || drawn || sprites || brushes || drew_view )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res ents studio=%u sprites=%u brushes=%u solids=%u trans=%u viewmodel=%d frame=%d\n",
+	if( tr.framecount <= 8 || (( tr.framecount & 31 ) == 0 ) || drawn || sprites || drew_view )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res ents studio=%u sprites=%u brushes=%u solids=%u trans=%u viewmodel=%d%s%s frame=%d\n",
 			drawn, sprites, brushes, tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities,
-			drew_view ? 1 : 0, tr.framecount );
+			drew_view ? 1 : 0,
+			( tr.viewent && tr.viewent->model ) ? " vm=" : "",
+			( tr.viewent && tr.viewent->model ) ? tr.viewent->model->name : "",
+			tr.framecount );
 }
 #endif
 
