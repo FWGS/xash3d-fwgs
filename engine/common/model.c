@@ -595,7 +595,10 @@ model_t *Mod_FindName( const char *filename, qboolean trackCRC )
 	{
 		if( !Q_stricmp( mod->name, modname ))
 		{
-			if( mod->mempool || mod->name[0] == '*' )
+			/* Mesh-only GC studios keep cache on calloc (mempool==0). Treat
+			 * any model with cache.data as already loaded so Mod_ForName does
+			 * not downgrade them back to gcmap stubs. */
+			if( mod->mempool || mod->cache.data || mod->name[0] == '*' )
 				mod->needload = NL_PRESENT;
 			else
 				mod->needload = NL_NEEDS_LOADED;
@@ -649,7 +652,8 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	}
 
 	// check if already loaded (or inline bmodel)
-	if( mod->mempool || mod->name[0] == '*' )
+	/* Mesh-only New Game studios use calloc cache with mempool==0 — still loaded. */
+	if( mod->mempool || mod->cache.data || mod->name[0] == '*' )
 	{
 		mod->needload = NL_PRESENT;
 		return mod;
