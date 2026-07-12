@@ -1239,7 +1239,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 
 #if XASH_GAMECUBE
 	skip_studio_textures = (GC_GetVisualQuality( ) == 0);
-	/* New Game allowlisted MDLs: keep mesh, skip texel upload (white skins). */
+	/* New Game allowlisted MDLs: lean mesh + soft skin upload (malloc cache). */
 	if( Sys_CheckParm( "-gcnewgame" ) && buffer && buffersize > sizeof( studiohdr_t ))
 	{
 		Cvar_Set( "gc_quality", "0" );
@@ -1256,7 +1256,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	if( GC_MapLoadMemoryOpt() && !gc_real_studio )
 		mod->mempool = Mod_GameCubeSharedModelStubPool();
 	else if( gc_mesh_only )
-		/* Mesh-only New Game studios: keep cache on malloc, not MEM1 pools. */
+		/* Lean New Game studios: keep cache on malloc, not MEM1 pools. */
 		mod->mempool = 0;
 	else
 #endif
@@ -1326,33 +1326,43 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 #if XASH_GAMECUBE
 		if( gc_mesh_only )
 		{
-			/* Drop embedded texel blobs — white bind only needs mesh + texhdr UVs. */
-			if( phdr->texturedataindex > (int)sizeof( studiohdr_t )
-				&& (size_t)phdr->texturedataindex < cache_length
-				&& (size_t)phdr->texturedataindex <= buffersize )
-				cache_length = (size_t)phdr->texturedataindex;
+			/* Upload soft skins from the file buffer first, then malloc only the
+			 * mesh+texhdr slice — avoids file+full-cache peak (crowbar ~46KB
+			 * failed calloc while the promote buffer was still live). */
+			size_t mesh = cache_length;
+			studiohdr_t *src = (studiohdr_t *)buffer;
 
-			mod->cache.data = calloc( 1, cache_length );
+			if( src->length > 0 && (size_t)src->length < mesh )
+				mesh = (size_t)src->length;
+			if( mesh > buffersize )
+				mesh = buffersize;
+
+#if !XASH_DEDICATED
+			if( !skip_studio_textures && !Host_IsDedicated( )
+				&& src->numtextures > 0 && src->textureindex > 0
+				&& src->texturedataindex > (int)sizeof( studiohdr_t )
+				&& (size_t)src->texturedataindex <= buffersize )
+			{
+				ref.dllFuncs.Mod_StudioLoadTextures( mod, src );
+				mesh = (size_t)src->texturedataindex;
+			}
+#endif
+			mod->cache.data = calloc( 1, mesh );
 			if( !mod->cache.data )
 			{
 				Con_Reportf( S_ERROR "Xash3D GameCube: studio malloc failed '%s' (%s)\n",
-					mod->name, Q_memprint( cache_length ));
+					mod->name, Q_memprint( mesh ));
 				return;
 			}
-			memcpy( mod->cache.data, buffer, cache_length );
+			memcpy( mod->cache.data, buffer, mesh );
 			phdr = (studiohdr_t *)mod->cache.data;
-			phdr->length = (int)cache_length;
-			if( phdr->numtextures > 0 && phdr->textureindex > 0
-				&& (size_t)phdr->textureindex + phdr->numtextures * sizeof( mstudiotexture_t ) <= cache_length )
-			{
-				mstudiotexture_t *ptex = (mstudiotexture_t *)((byte *)phdr + phdr->textureindex );
-				int i;
-
-				for( i = 0; i < phdr->numtextures; i++ )
-					ptex[i].index = 0;
-			}
-			Con_Reportf( "Xash3D GameCube: mesh-only studio cache '%s' %s (file %s)\n",
-				mod->name, Q_memprint( cache_length ), Q_memprint( buffersize ));
+			phdr->length = (int)mesh;
+			if( src->numtextures > 0 )
+				Con_Reportf( "Xash3D GameCube: studio skins loaded '%s' n=%d kept=%s\n",
+					mod->name, phdr->numtextures, Q_memprint( mesh ));
+			else
+				Con_Reportf( "Xash3D GameCube: lean studio cache '%s' %s\n",
+					mod->name, Q_memprint( mesh ));
 		}
 		else
 #endif
@@ -1369,9 +1379,6 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 		}
 #endif
 		}
-#if XASH_GAMECUBE
-		/* gc_mesh_only path already finalized phdr above. */
-#endif
 
 #if !XASH_DEDICATED
 		if( !gc_mesh_only && !skip_studio_textures && !Host_IsDedicated( ))

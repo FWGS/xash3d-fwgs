@@ -3096,9 +3096,10 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 
 #if XASH_GAMECUBE
 	/* Bounded low-memory mode: skip studio texture loading under -gcmap to preserve
-	 * MEM1 headroom for BSP parse peak. Full games should use -gclowmem with explicit
-	 * streaming or caps (see GAMECUBE_MEMORY_BUDGET.md). */
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	 * MEM1 headroom for BSP parse peak. New Game allowlisted studios are deferred
+	 * past that cliff and upload lean skins here. */
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" )
+		&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 		return;
 #endif
 
@@ -3106,10 +3107,21 @@ void GAME_EXPORT Mod_StudioLoadTextures( model_t *mod, void *data )
 		return;
 
 	mstudiotexture_t *ptexture = (mstudiotexture_t *)(((byte *)phdr ) + phdr->textureindex );
-	if( phdr->textureindex > 0 )
+	if( phdr->textureindex > 0 && phdr->numtextures > 0 )
 	{
+		int loaded = 0;
+
 		for( int i = 0; i < phdr->numtextures; i++ )
+		{
 			R_StudioLoadTexture( mod, phdr, &ptexture[i] );
+			if( ptexture[i].index )
+				loaded++;
+		}
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: studio soft skins '%s' %d/%d\n",
+				mod->name, loaded, phdr->numtextures );
+#endif
 	}
 }
 

@@ -173,7 +173,7 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length )
 =============
 Mod_GCLoadNewGameStudios
 
-Promote allowlisted stub MDLs to mesh-only real studios after map prep / netchan
+Promote allowlisted stub MDLs to lean mesh+skin studios after map prep / netchan
 are past the MEM1 cliff (same deferral idea as lean skybox).
 =============
 */
@@ -182,8 +182,8 @@ void Mod_GCLoadNewGameStudios( void )
 	/* Tiny world NPC first (roach ~7KB); gman (~76KB) fails libc malloc after
 	 * crowbars on GC. Tram PVS often has solids=0 — force-draw in low-res. */
 	static const char *promote[] = {
-		"models/roach.mdl",
 		"models/v_crowbar.mdl",
+		"models/roach.mdl",
 		"models/w_crowbar.mdl",
 		NULL
 	};
@@ -213,35 +213,8 @@ void Mod_GCLoadNewGameStudios( void )
 			continue;
 		}
 
-		/* Shrink file buffer to mesh-only before cache alloc — halves peak MEM.
-		 * Some retail MDLs leave texturedataindex=0; textureindex still marks
-		 * the start of texhdr/texel blobs we can drop for white-bind draw. */
-		{
-			studiohdr_t *sh = (studiohdr_t *)buf;
-			size_t mesh = (size_t)length;
-
-			if( sh->texturedataindex > (int)sizeof( studiohdr_t )
-				&& (size_t)sh->texturedataindex < mesh )
-				mesh = (size_t)sh->texturedataindex;
-			else if( sh->textureindex > (int)sizeof( studiohdr_t )
-				&& (size_t)sh->textureindex < mesh )
-				mesh = (size_t)sh->textureindex;
-			if( mesh < (size_t)length )
-			{
-				byte *slim = (byte *)realloc( buf, mesh );
-
-				if( slim )
-				{
-					buf = slim;
-					length = (fs_offset_t)mesh;
-					sh = (studiohdr_t *)buf;
-					sh->length = (int)mesh;
-					sh->numtextures = 0;
-					sh->textureindex = 0;
-					sh->texturedataindex = 0;
-				}
-			}
-		}
+		/* Keep embedded skins for allowlisted New Game studios (roach/crowbar
+		 * are tiny). Soft path uploads paletted texels then drops the blob. */
 
 		if( !Mod_GCAllowRealStudioLoad( promote[i], (size_t)length ))
 		{
@@ -276,6 +249,7 @@ void Mod_GCLoadNewGameStudios( void )
 		Image_GCPurgeDecodeScratch();
 		Mod_LoadStudioModel( mod, buf, (size_t)length, &loaded );
 		free( buf );
+		Image_GCPurgeDecodeScratch();
 
 		if( loaded )
 		{
