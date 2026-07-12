@@ -694,7 +694,14 @@ static void R_DrawStudioEntitiesLowRes( void )
 		}
 	}
 
-	/* Bounded translucent brushes (glass/grates) + studio/sprites. */
+	/* Bounded translucent brushes (glass/grates) + studio/sprites.
+	 * Skip after one draw during silent G36 windows (160×120 fill is tight). */
+	{
+		static qboolean trans_brush_once;
+		extern qboolean GC_IsFrameBudgetProbeActive( void );
+		const qboolean skip_trans_brushes =
+			( GC_IsFrameBudgetProbeActive() && trans_brush_once );
+
 	d_pdrawspans = R_PolysetDrawSpans8_33;
 	for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
@@ -712,11 +719,12 @@ static void R_DrawStudioEntitiesLowRes( void )
 
 		if( RI.currentmodel->type == mod_brush )
 		{
-			if( brushes >= max_brushes )
+			if( skip_trans_brushes || brushes >= max_brushes )
 				continue;
 			R_SetUpWorldTransform();
 			R_DrawBrushModel( RI.currententity );
 			brushes++;
+			trans_brush_once = true;
 		}
 		else if( RI.currentmodel->type == mod_studio )
 		{
@@ -734,6 +742,7 @@ static void R_DrawStudioEntitiesLowRes( void )
 			R_DrawSpriteModel( RI.currententity );
 			sprites++;
 		}
+	}
 	}
 
 	if( brushes && !gc_trans_brush_marker_logged )
@@ -1120,8 +1129,8 @@ static void R_DrawBEntitiesOnList( void )
 		/* New Game q0: cap opaque movers so tram/doors return without blowing
 		 * the G36 present window (full edge list can be large on c0a0). */
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetVisualQuality() <= 0
-			&& edge_count > 2 )
-			edge_count = 2;
+			&& edge_count > 4 )
+			edge_count = 4;
 #endif
 
 	for( int i = 0; i < edge_count && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
@@ -1449,9 +1458,17 @@ static void R_EdgeDrawingGcmapProbe( void )
 	R_RenderWorld();
 	/* Opaque brush entities (tram, doors, …) share the probe edge/span BSS.
 	 * Translucent brushes draw later via R_DrawBrushModelProbe.
-	 * New Game quality 0 previously skipped this entirely — re-enable with
-	 * the bounded path inside R_DrawBEntitiesOnList. */
-	R_DrawBEntitiesOnList();
+	 * During silent G36 windows draw once then skip (160×120 fill budget). */
+	{
+		static qboolean bmodels_once;
+		extern qboolean GC_IsFrameBudgetProbeActive( void );
+
+		if( !( GC_IsFrameBudgetProbeActive() && bmodels_once ))
+		{
+			R_DrawBEntitiesOnList();
+			bmodels_once = true;
+		}
+	}
 	if( tr.framecount <= 1 )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels in edge pass count=%u\n",
 			tr.draw_list->num_edge_entities );

@@ -6,9 +6,9 @@ r_gcmap.c - GameCube smoke boot memory trims
 #if XASH_GAMECUBE
 static qboolean gc_renderer_trimmed;
 /* Sized for New Game GX presents (and smaller gcmap probes).
- * Match the proven gcworldrender 128×96 fill budget for G36. */
-#define GC_GCMAP_STATIC_MAX_W 128
-#define GC_GCMAP_STATIC_MAX_H 96
+ * 160×120 keeps G36 headroom while improving readable world detail. */
+#define GC_GCMAP_STATIC_MAX_W 160
+#define GC_GCMAP_STATIC_MAX_H 120
 static short gc_gcmap_static_zbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 static pixel_t gc_gcmap_static_viewbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 
@@ -141,8 +141,8 @@ qboolean R_GcmapAllocMinimalScreen( void )
 	{
 		/* Probe route: keep the world pass visible but tighter than the
 		 * generic half-res smoke path so software BSP fill fits GameCube CPU. */
-		w = 128;
-		h = 96;
+		w = 160;
+		h = 120;
 		use_static_screen = ( w <= GC_GCMAP_STATIC_MAX_W && h <= GC_GCMAP_STATIC_MAX_H ) ? true : false;
 	}
 	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
@@ -152,10 +152,10 @@ qboolean R_GcmapAllocMinimalScreen( void )
 		h = GC_GCMAP_STATIC_MAX_H;
 		use_static_screen = true;
 	}
-	if( w < 128 )
-		w = 128;
-	if( h < 96 )
-		h = 96;
+	if( w < 160 )
+		w = 160;
+	if( h < 120 )
+		h = 120;
 	else if( !gEngfuncs.Sys_CheckParm( "-gcworldrender" ) && !gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && h < 128 )
 		h = 128;
 

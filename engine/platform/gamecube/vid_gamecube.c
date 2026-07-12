@@ -74,9 +74,9 @@ static qboolean gc_present_tex_ready;
 #define GC_VIDEO_MIN_READABLE_HEIGHT 240
 #define GC_VIDEO_PROBE_WIDTH 320
 #define GC_VIDEO_PROBE_HEIGHT 240
-/* Post-map New Game G36 presents — match r_gcmap static screen (128×96). */
-#define GC_VIDEO_NEWGAME_PROBE_WIDTH 128
-#define GC_VIDEO_NEWGAME_PROBE_HEIGHT 96
+/* Post-map New Game G36 presents — match r_gcmap static screen (160×120). */
+#define GC_VIDEO_NEWGAME_PROBE_WIDTH 160
+#define GC_VIDEO_NEWGAME_PROBE_HEIGHT 120
 /* Skip first Host_Frame after arm (connect residual), then sample. */
 #define GC_VIDEO_BUDGET_WARMUP_PRESENTS 1
 #define GC_VIDEO_BUDGET_SAMPLE_TARGET 16
