@@ -734,6 +734,8 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 GC_STUDIO_MODELS = (
 	"models/v_crowbar.mdl",
 	"models/w_crowbar.mdl",
+	# Small world NPC — gman (~76KB) OOMs libc malloc after crowbars on GC.
+	"models/roach.mdl",
 )
 
 # Direct-load HUD sheets for lean New Game Redraw (ISO9660 sprites/ lookups
@@ -765,6 +767,8 @@ def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 		if not src.is_file():
 			continue
 		arcname = relative.lower()
+		if arcname in archive.NameToInfo:
+			continue
 		archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
 		staged += 1
 	return staged

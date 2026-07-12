@@ -41,6 +41,7 @@ typedef struct gc_bsp_deferred_s
 } gc_bsp_deferred_t;
 
 static gc_bsp_deferred_t gc_bsp_deferred;
+static void *gc_marksurfaces_malloc_block;
 static void *gc_surfaces_malloc_block;
 static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
@@ -2697,7 +2698,24 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 {
 	msurface_t	**out;
 
+#if XASH_GAMECUBE
+	{
+		const size_t mark_bytes = bmod->nummarkfaces * sizeof( *out );
+		out = (msurface_t **)malloc( mark_bytes );
+		if( out )
+		{
+			gc_marksurfaces_malloc_block = out;
+			Con_Reportf( "Xash3D GameCube: world marksurfaces via malloc %s\n", Q_memprint( mark_bytes ));
+		}
+		else
+		{
+			out = Mem_Malloc( mod->mempool, mark_bytes );
+		}
+		mod->marksurfaces = out;
+	}
+#else
 	mod->marksurfaces = out = Mem_Malloc( mod->mempool, bmod->nummarkfaces * sizeof( *out ));
+#endif
 	mod->nummarksurfaces = bmod->nummarkfaces;
 
 	if( bmod->version == QBSP2_VERSION )
@@ -3923,14 +3941,10 @@ static byte *Mod_GCPinBspLump( poolhandle_t pool, const byte *src, size_t size )
 	if( !src || size == 0 )
 		return NULL;
 
+	(void)pool;
 	copy = (byte *)malloc( size );
 	if( !copy )
-	{
-		copy = Mem_Malloc( pool, size );
-		if( copy )
-			memcpy( copy, src, size );
-		return copy;
-	}
+		return NULL;
 
 	memcpy( copy, src, size );
 	return copy;
@@ -4080,6 +4094,15 @@ static void Mod_GCDropDeferredBspLumpsBeforeSurfaces( void )
 
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 {
+	if( gc_marksurfaces_malloc_block )
+	{
+		if( mod && mod->marksurfaces == (msurface_t **)gc_marksurfaces_malloc_block )
+			mod->marksurfaces = NULL;
+
+		free( gc_marksurfaces_malloc_block );
+		gc_marksurfaces_malloc_block = NULL;
+	}
+
 	if( gc_surfaces_malloc_block )
 	{
 		if( mod && mod->surfaces == (msurface_t *)gc_surfaces_malloc_block )
@@ -4316,7 +4339,9 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 		pinned = Mod_GCPinBspLump( mod->mempool, (const byte *)mod->texinfo, texinfo_bytes );
 		if( !pinned )
 		{
-			Con_Reportf( S_ERROR "Xash3D GameCube: failed to pin gcmap texinfo before BSP release\n" );
+			Con_Reportf( S_WARN "Xash3D GameCube: retaining gcmap BSP staging; texinfo pin skipped (%s)\n",
+				Q_memprint( texinfo_bytes ));
+			gc_retain_bsp_source_buffer = true;
 			return;
 		}
 		mod->texinfo = (mtexinfo_t *)pinned;

@@ -542,14 +542,14 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	if( FS_Seek( search->zip->handle, file->offset, SEEK_SET ) == -1 )
 	{
 #if XASH_GAMECUBE
-		if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
-			Con_Reportf( "Xash3D GameCube: zip seek failed %s offset=%li size=%li csize=%li flags=%d\n",
-				path, (long)file->offset, (long)file->size, (long)file->compressed_size, file->flags );
+		Con_Reportf( "Xash3D GameCube: zip seek failed %s offset=%li size=%li csize=%li flags=%d\n",
+			path, (long)file->offset, (long)file->size, (long)file->compressed_size, file->flags );
 #endif
 		return NULL;
 	}
 #if XASH_GAMECUBE
-	if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
+	if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 )
+		|| !Q_strncmp( path, "gc_studio/", 10 ))
 		Con_Reportf( "Xash3D GameCube: zip load %s offset=%li size=%li csize=%li flags=%d\n",
 			path, (long)file->offset, (long)file->size, (long)file->compressed_size, file->flags );
 #endif
@@ -591,7 +591,8 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 	if( file->flags == ZIP_COMPRESSION_NO_COMPRESSION )
 	{
 #if XASH_GAMECUBE
-		if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
+		/* DVD/ISO9660 short-reads large ZIP STORED payloads unless chunked.
+		 * Crowbar (~46KB) worked in one shot; gman (~76KB) under gc_studio/ failed. */
 		{
 			fs_offset_t total = 0;
 			const fs_offset_t chunk_size = 32 * 1024;
@@ -611,31 +612,27 @@ static byte *FS_LoadZIPFile( searchpath_t *search, const char *path, int pack_in
 				}
 
 				total += got;
-
-				if(( total & (( 256 * 1024 ) - 1 )) == 0 || total == file->size )
-					Con_Reportf( "Xash3D GameCube: zip chunk read %s total=%li/%li\n",
-						path, (long)total, (long)file->size );
 			}
 
 			c = total;
 		}
-		else
-#endif
+#else
 		{
 		c = FS_Read( search->zip->handle, decompressed_buffer, file->size );
 		}
+#endif
 		if( c != file->size )
 		{
 #if XASH_GAMECUBE
-			if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
-				Con_Reportf( "Xash3D GameCube: zip stored read short %s read=%li expected=%li\n",
-					path, (long)c, (long)file->size );
+			Con_Reportf( "Xash3D GameCube: zip stored read short %s read=%li expected=%li\n",
+				path, (long)c, (long)file->size );
 #endif
 			Con_Reportf( S_ERROR "%s: %s size doesn't match\n", __func__, file->name );
 			return NULL;
 		}
 #if XASH_GAMECUBE
-		if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 ))
+		if( !Q_strncmp( path, "maps/", 5 ) || !Q_strncmp( path, "models/", 7 )
+			|| !Q_strncmp( path, "gc_studio/", 10 ))
 			Con_Reportf( "Xash3D GameCube: zip read ready %s\n", path );
 #endif
 

@@ -47,7 +47,7 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 {
 	char bare[64];
 	static const char *npcs[] = {
-		"scientist", "barney", "gman", "player",
+		"scientist", "barney", "gman", "player", "roach",
 		"headcrab", "houndeye", "zombie",
 		"scientist01", "scientist02", "scientist03",
 		NULL
@@ -144,6 +144,8 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length )
 			model_path, mirror, Q_memprint( (size_t)*length ));
 		return buf;
 	}
+	Con_Reportf( "Xash3D GameCube: deferred studio mirror miss '%s' buf=%p len=%li exists=%d\n",
+		mirror, buf, (long)*length, FS_FileExists( mirror, false ) ? 1 : 0 );
 	if( buf )
 	{
 		free( buf );
@@ -177,8 +179,10 @@ are past the MEM1 cliff (same deferral idea as lean skybox).
 */
 void Mod_GCLoadNewGameStudios( void )
 {
-	/* Viewmodel first (visible on New Game); world crowbar is tiny. */
+	/* Tiny world NPC first (roach ~7KB); gman (~76KB) fails libc malloc after
+	 * crowbars on GC. Tram PVS often has solids=0 — force-draw in low-res. */
 	static const char *promote[] = {
+		"models/roach.mdl",
 		"models/v_crowbar.mdl",
 		"models/w_crowbar.mdl",
 		NULL
@@ -209,7 +213,9 @@ void Mod_GCLoadNewGameStudios( void )
 			continue;
 		}
 
-		/* Shrink file buffer to mesh-only before cache alloc — halves peak MEM. */
+		/* Shrink file buffer to mesh-only before cache alloc — halves peak MEM.
+		 * Some retail MDLs leave texturedataindex=0; textureindex still marks
+		 * the start of texhdr/texel blobs we can drop for white-bind draw. */
 		{
 			studiohdr_t *sh = (studiohdr_t *)buf;
 			size_t mesh = (size_t)length;
@@ -217,6 +223,9 @@ void Mod_GCLoadNewGameStudios( void )
 			if( sh->texturedataindex > (int)sizeof( studiohdr_t )
 				&& (size_t)sh->texturedataindex < mesh )
 				mesh = (size_t)sh->texturedataindex;
+			else if( sh->textureindex > (int)sizeof( studiohdr_t )
+				&& (size_t)sh->textureindex < mesh )
+				mesh = (size_t)sh->textureindex;
 			if( mesh < (size_t)length )
 			{
 				byte *slim = (byte *)realloc( buf, mesh );
@@ -227,6 +236,9 @@ void Mod_GCLoadNewGameStudios( void )
 					length = (fs_offset_t)mesh;
 					sh = (studiohdr_t *)buf;
 					sh->length = (int)mesh;
+					sh->numtextures = 0;
+					sh->textureindex = 0;
+					sh->texturedataindex = 0;
 				}
 			}
 		}

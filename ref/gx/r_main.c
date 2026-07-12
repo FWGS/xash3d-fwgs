@@ -608,6 +608,54 @@ static void R_DrawStudioEntitiesLowRes( void )
 		}
 	}
 
+	/* c0a0 tram spawn often has no studio ents in PVS — force one promoted
+	 * world mesh so the low-res studio path is exercised beyond viewmodels. */
+	if( drawn == 0 && gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
+	{
+		model_t *gm = gEngfuncs.Mod_ForName( "models/roach.mdl", false, false );
+
+		if( gm && gm->type == mod_studio && gm->cache.data )
+		{
+			studiohdr_t *hdr = (studiohdr_t *)gm->cache.data;
+
+			/* Stub / empty promotes have no bodyparts — skip false studio=1. */
+			if( hdr && hdr->numbodyparts > 0 )
+			{
+				static cl_entity_t probe;
+				static qboolean probe_logged;
+				vec3_t origin;
+
+				memset( &probe, 0, sizeof( probe ));
+				probe.model = gm;
+				VectorCopy( RI.rvp.vieworigin, origin );
+				VectorMA( origin, 72.0f, RI.vforward, origin );
+				origin[2] -= 16.0f;
+				VectorCopy( origin, probe.origin );
+				VectorCopy( origin, probe.curstate.origin );
+				VectorCopy( RI.rvp.viewangles, probe.angles );
+				probe.angles[YAW] += 180.0f;
+				VectorCopy( probe.angles, probe.curstate.angles );
+				probe.curstate.animtime = (float)gp_cl->time;
+				probe.curstate.framerate = 1.0f;
+				probe.curstate.sequence = 0;
+				probe.curstate.rendermode = kRenderNormal;
+				probe.curstate.solid = SOLID_NOT;
+
+				RI.currententity = &probe;
+				RI.currentmodel = gm;
+				R_SetUpWorldTransform();
+				R_DrawStudioModel( &probe );
+				drawn++;
+				if( !probe_logged )
+				{
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res forced world studio models/roach.mdl\n" );
+					probe_logged = true;
+				}
+			}
+		}
+	}
+
 	/* View weapon when present — tram intro often has none yet. */
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW )
 	    && tr.viewent && tr.viewent->model && tr.viewent->model->type == mod_studio
