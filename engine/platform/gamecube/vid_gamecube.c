@@ -330,7 +330,12 @@ static void GC_PresentBufferViaGX( void )
 
 	GX_DrawDone();
 	GX_CopyDisp( xfb[which_fb], GX_TRUE );
-	GX_DrawDone();
+	/* Second sync wait is only needed when the next CPU work can race the
+	 * copy; silent G36 windows skip it to reclaim present ms at 160×120. */
+	if( !gc_budget_probe_active )
+		GX_DrawDone();
+	else
+		GX_Flush();
 }
 #endif
 

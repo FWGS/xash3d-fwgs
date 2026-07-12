@@ -747,6 +747,8 @@ GC_HUD_SPRITES = (
 	"sprites/320_pain.spr",
 	"sprites/320_train.spr",
 	"sprites/crosshairs.spr",
+	# Unique name so retail ISO9660 sprites/320hud2.spr cannot shadow a bad read.
+	("sprites/320hud2.spr", "sprites/gc_320hud2.spr"),
 )
 
 # Lean skybox BMPs for New Game RGB565 fills. Use gc_desert* names so retail
@@ -807,13 +809,17 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 
 
 def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
-	"""Add allowlisted HUD sprites into bootstrap under their normal sprites/ paths."""
+	"""Add allowlisted HUD sprites into bootstrap under their disc paths."""
 	staged = 0
-	for relative in GC_HUD_SPRITES:
-		src = data / relative
+	for entry in GC_HUD_SPRITES:
+		if isinstance( entry, tuple ):
+			src_rel, arc_rel = entry
+		else:
+			src_rel = arc_rel = entry
+		src = data / src_rel
 		if not src.is_file():
 			continue
-		arcname = relative.lower()
+		arcname = arc_rel.lower()
 		if arcname in archive.NameToInfo:
 			continue
 		archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)

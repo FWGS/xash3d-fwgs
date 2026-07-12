@@ -1292,6 +1292,13 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 
 	m_pSprite->numtexinfo = texFlags; // store texFlags for renderer into numtexinfo
 
+#if XASH_GAMECUBE
+	/* New Game bootstrap HUD sheets can be false-miss-cached after earlier
+	 * ISO9660 probes (hud.txt / VidInit). Clear once before the exists check. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !FS_FileExists( szSpriteName, false ))
+		FS_ClearFindMissCache();
+#endif
+
 	if( !FS_FileExists( szSpriteName, false ) )
 	{
 		if( cls.state != ca_active && cl.maxclients > 1 )
