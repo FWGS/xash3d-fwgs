@@ -886,7 +886,10 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 #if XASH_GAMECUBE
 	if( CL_GameCubeLocalMapRoute() )
 	{
-		Con_Reportf( "Xash3D GameCube: serverdata HUD vidinit skipped for local gcmap\n" );
+		/* Full hud.txt preload at quality 1 OOMs on New Game. Lean VidInit runs
+		 * later at world present (gc_quality=0). GetSpriteRes no longer maps
+		 * unset m_iMaxRes to sprites/0_*.spr. */
+		Con_Reportf( "Xash3D GameCube: serverdata HUD vidinit deferred for local map route\n" );
 	}
 	else
 #endif

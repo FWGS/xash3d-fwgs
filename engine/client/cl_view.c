@@ -571,9 +571,11 @@ void V_PostRender( void )
 	if( cls.state == ca_active && ( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" )
 		|| GC_ShouldUseLightPresent() ))
 	{
-		/* Smoke / G36 / New Game: skip client HUD. pfnRedraw loads many HUD
-		 * sprites and hangs the first post-world Host_Frame on DVD seeks,
-		 * blocking continuous world+studio presents. Console stays off too. */
+		/* Smoke/G36 light presents: no HUD. New Game after world present:
+		 * draw lean HLSDK HUD (320 sheets / direct LoadSprite) into RGB565. */
+		if( Sys_CheckParm( "-gcnewgame" ) && !GC_ShouldUseLightPresent()
+			&& cls.signon == SIGNONS && cls.scrshot_action != scrshot_mapshot )
+			CL_DrawHUD( CL_ACTIVE );
 		ref.dllFuncs.R_AllowFog( true );
 		Platform_SetTimer( 0.0f );
 		ref.dllFuncs.R_EndFrame();

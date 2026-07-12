@@ -1521,6 +1521,15 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * Viewmodel bind is forced in V_SetupViewModel (tram starts unarmed). */
 	Mod_GCLoadNewGameStudios();
 
+	/* Lean HUD VidInit at quality 0: set 320 sheet names without hud.txt.
+	 * Clear FS miss-cache so bootstrap-injected sprites/320_pain.spr is visible. */
+	FS_ClearFindMissCache();
+	if( clgame.dllFuncs.pfnVidInit )
+	{
+		clgame.dllFuncs.pfnVidInit();
+		Con_Reportf( "Xash3D GameCube: newgame lean HUD VidInit after world present\n" );
+	}
+
 	refState.width = present_w;
 	refState.height = present_h;
 	gc_light_present_left = 0;

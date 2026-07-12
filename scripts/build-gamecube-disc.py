@@ -291,6 +291,9 @@ def build_iso9660(
 			studio_count = inject_gc_studio_into_bootstrap(archive, data)
 			if studio_count:
 				print(f"GameCube studio mirror: injected {studio_count} MDL(s) into bootstrap pk3")
+			hud_count = inject_gc_hud_into_bootstrap(archive, data)
+			if hud_count:
+				print(f"GameCube HUD mirror: injected {hud_count} sprite(s) into bootstrap pk3")
 
 		if extras is not None:
 			command.append(f"/xash3d/valve/extras.pk3={extras}")
@@ -733,6 +736,13 @@ GC_STUDIO_MODELS = (
 	"models/w_crowbar.mdl",
 )
 
+# Direct-load HUD sheets for lean New Game Redraw (ISO9660 sprites/ lookups
+# false-miss like models/). Keep the set tiny — bootstrap MEM is tight.
+GC_HUD_SPRITES = (
+	"sprites/320_pain.spr",
+	"sprites/320_train.spr",
+)
+
 
 def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	"""Add allowlisted MDLs into an existing bootstrap ZIP under gc_studio/."""
@@ -742,6 +752,19 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		if not src.is_file():
 			continue
 		arcname = f"gc_studio/{Path(relative).name.lower()}"
+		archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
+		staged += 1
+	return staged
+
+
+def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
+	"""Add allowlisted HUD sprites into bootstrap under their normal sprites/ paths."""
+	staged = 0
+	for relative in GC_HUD_SPRITES:
+		src = data / relative
+		if not src.is_file():
+			continue
+		arcname = relative.lower()
 		archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
 		staged += 1
 	return staged
