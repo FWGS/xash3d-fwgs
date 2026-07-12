@@ -357,13 +357,22 @@ SMOKE_HUD_RES = 320
 
 SMOKE_HUD_SPRITES = (
 	"sprites/animglow01.spr",
+	"sprites/camera.spr",
+	"sprites/crosshairs.spr",
 	"sprites/dot.spr",
 	"sprites/hud.txt",
+	"sprites/iplayer.spr",
+	"sprites/iplayerblue.spr",
+	"sprites/iplayerdead.spr",
+	"sprites/iplayerred.spr",
+	"sprites/laserbeam.spr",
 	"sprites/muzzleflash1.spr",
 	"sprites/muzzleflash2.spr",
 	"sprites/muzzleflash3.spr",
 	"sprites/richo1.spr",
 	"sprites/shellchrome.spr",
+	"sprites/tile.spr",
+	"sprites/voiceicon.spr",
 )
 
 
@@ -407,6 +416,10 @@ def smoke_hud_resources(source: Path, res: int = SMOKE_HUD_RES) -> tuple[str, ..
 		resources.add(f"sprites/{weapon_txt.name}")
 		resources.update(_sprite_txt_sheet_paths(weapon_txt, res))
 
+	# Some HLSDK HUD elements are loaded directly via LoadSprite("sprites/%d_*.spr")
+	# instead of being enumerated in hud.txt/weapon_*.txt.
+	resources.add(f"sprites/{res}_pain.spr")
+	resources.add(f"sprites/{res}_train.spr")
 	resources.add(f"sprites/{res}_logo.spr")
 	return tuple(sorted(resources))
 

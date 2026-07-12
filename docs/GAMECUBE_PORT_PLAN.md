@@ -2261,6 +2261,13 @@ The first post-load failure is now `ImageLib Pool` OOM allocating 64 KiB at
 `engine/common/imagelib/img_tga.c:135` after `Xash3D GameCube: map loaded c1a0`
 with 8.80 MiB peak MEM1.
 
+**Progress (2026-07-11):** The New Game / gcmap disc staging set now includes
+resolution-matched direct-load HLSDK HUD sprites outside `hud.txt`,
+including the pain compass/train icon sheets plus spectator and voice overlay
+sprites loaded by exact filename, so the local probe path does not need the old
+GameCube HUD sprite stub when those assets are present in the legal local
+`Half-Life/valve` tree.
+
 **Commands:**
 
 ```sh
