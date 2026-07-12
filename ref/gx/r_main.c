@@ -573,7 +573,7 @@ static void R_DrawStudioEntitiesLowRes( void )
 	unsigned brushes = 0;
 	const unsigned max_studio = 4;
 	const unsigned max_sprites = 2;
-	const unsigned max_brushes = 0;
+	const unsigned max_brushes = 2;
 	qboolean drew_view = false;
 	static qboolean gc_fx_marker_logged;
 	static qboolean gc_trans_brush_marker_logged;
@@ -1113,7 +1113,18 @@ static void R_DrawBEntitiesOnList( void )
 	vec3_t oldorigin = Vec3( tr.modelorg );
 	insubmodel = true;
 
-	for( int i = 0; i < tr.draw_list->num_edge_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
+	{
+		int edge_count = tr.draw_list->num_edge_entities;
+		int drawn_bmodels = 0;
+#if XASH_GAMECUBE
+		/* New Game q0: cap opaque movers so tram/doors return without blowing
+		 * the G36 present window (full edge list can be large on c0a0). */
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetVisualQuality() <= 0
+			&& edge_count > 2 )
+			edge_count = 2;
+#endif
+
+	for( int i = 0; i < edge_count && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 	{
 		RI.currententity = tr.draw_list->edge_entities[i];
 		RI.currentmodel = RI.currententity->model;
@@ -1166,6 +1177,7 @@ static void R_DrawBEntitiesOnList( void )
 			R_DrawSubmodelPolygons( RI.currentmodel, clipflags, topnode );
 		}
 		RI.currententity->topnode = NULL;
+		drawn_bmodels++;
 
 		// put back world rotation and frustum clipping
 		// FIXME: R_RotateBmodel should just work off base_vxx
@@ -1174,6 +1186,14 @@ static void R_DrawBEntitiesOnList( void )
 		VectorCopy( RI.base_vright, RI.vright );
 		VectorCopy( oldorigin, tr.modelorg );
 		R_TransformFrustum();
+	}
+
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& GC_GetVisualQuality() <= 0 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res opaque bmodels drawn=%d of %u\n",
+			drawn_bmodels, tr.draw_list->num_edge_entities );
+#endif
 	}
 
 	insubmodel = false;
@@ -1428,16 +1448,13 @@ static void R_EdgeDrawingGcmapProbe( void )
 	R_BeginEdgeFrame();
 	R_RenderWorld();
 	/* Opaque brush entities (tram, doors, …) share the probe edge/span BSS.
-	 * Translucent brushes draw later via R_DrawBrushModelProbe. */
-	if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetVisualQuality() <= 0 ))
-	{
-		R_DrawBEntitiesOnList();
-		if( tr.framecount <= 1 )
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels in edge pass count=%u\n",
-				tr.draw_list->num_edge_entities );
-	}
-	else if( tr.framecount <= 1 )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels skipped (newgame quality 0)\n" );
+	 * Translucent brushes draw later via R_DrawBrushModelProbe.
+	 * New Game quality 0 previously skipped this entirely — re-enable with
+	 * the bounded path inside R_DrawBEntitiesOnList. */
+	R_DrawBEntitiesOnList();
+	if( tr.framecount <= 1 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels in edge pass count=%u\n",
+			tr.draw_list->num_edge_entities );
 	R_ScanEdges();
 
 	if( tr.framecount <= 1 && vid.buffer )
