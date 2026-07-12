@@ -294,6 +294,9 @@ def build_iso9660(
 			hud_count = inject_gc_hud_into_bootstrap(archive, data)
 			if hud_count:
 				print(f"GameCube HUD mirror: injected {hud_count} sprite(s) into bootstrap pk3")
+			sky_count = inject_gc_sky_into_bootstrap(archive, data)
+			if sky_count:
+				print(f"GameCube sky mirror: injected {sky_count} lean BMP(s) into bootstrap pk3")
 
 		if extras is not None:
 			command.append(f"/xash3d/valve/extras.pk3={extras}")
@@ -744,6 +747,49 @@ GC_HUD_SPRITES = (
 	"sprites/320_pain.spr",
 	"sprites/320_train.spr",
 )
+
+# Lean skybox BMPs for New Game RGB565 fills. Use gc_desert* names so retail
+# ISO9660 gfx/env/desert*.bmp cannot shadow a failed decode over the ZIP copy.
+GC_SKY_SIDES = (
+	("gfx/env/desertup.bmp", "gfx/env/gc_desertup.bmp"),
+	("gfx/env/desertft.bmp", "gfx/env/gc_desertft.bmp"),
+	("gfx/env/desertbk.bmp", "gfx/env/gc_desertbk.bmp"),
+	("gfx/env/desertrt.bmp", "gfx/env/gc_desertrt.bmp"),
+)
+
+
+def _downsample_bmp_to_bytes(src: Path, size: int = 64) -> bytes | None:
+	"""Return a size×size 8-bit BMP suitable for ImageLib sky loads."""
+	try:
+		from PIL import Image
+	except ImportError:
+		return None
+	if not src.is_file():
+		return None
+	with Image.open(src) as img:
+		img = img.convert("P")
+		img = img.resize((size, size), Image.Resampling.NEAREST)
+		import io
+
+		buf = io.BytesIO()
+		img.save(buf, format="BMP")
+		return buf.getvalue()
+
+
+def inject_gc_sky_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
+	"""Add lean 64×64 desert sky BMPs into bootstrap under gc_desert* names."""
+	staged = 0
+	for src_rel, arc_rel in GC_SKY_SIDES:
+		src = data / src_rel
+		payload = _downsample_bmp_to_bytes(src, 64)
+		if not payload:
+			continue
+		arcname = arc_rel.lower()
+		if arcname in archive.NameToInfo:
+			continue
+		archive.writestr(arcname, payload, compress_type=zipfile.ZIP_STORED)
+		staged += 1
+	return staged
 
 
 def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:

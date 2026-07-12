@@ -946,14 +946,27 @@ static void D_BackgroundSurf( surf_t *s )
 	d_ziorigin = -0.9;
 
 #if XASH_GAMECUBE
-	/* Low-res: prefer skybox / sky mip over flat blue so tram windows show sky. */
+	/* Low-res: pick a loaded skybox side from view forward for tram windows. */
 	if( GC_UseLowResWorldProbe() )
 	{
 		image_t *mt = NULL;
 		int      i;
+		int      prefer = 4; /* up */
+		float    ax = fabs( RI.vforward[0] );
+		float    ay = fabs( RI.vforward[1] );
+		float    az = fabs( RI.vforward[2] );
 
-		/* skybox order: rt bk lf ft up dn — prefer up, then ft, then any. */
-		if( tr.skyboxTextures[4] )
+		/* skybox order: rt bk lf ft up dn — dominant view axis. */
+		if( az >= ax && az >= ay )
+			prefer = ( RI.vforward[2] >= 0.0f ) ? 4 : 5;
+		else if( ax >= ay )
+			prefer = ( RI.vforward[0] >= 0.0f ) ? 0 : 2;
+		else
+			prefer = ( RI.vforward[1] >= 0.0f ) ? 3 : 1;
+
+		if( tr.skyboxTextures[prefer] )
+			mt = R_GetTexture( tr.skyboxTextures[prefer] );
+		if(( !mt || !mt->pixels[0] ) && tr.skyboxTextures[4] )
 			mt = R_GetTexture( tr.skyboxTextures[4] );
 		if(( !mt || !mt->pixels[0] ) && tr.skyboxTextures[3] )
 			mt = R_GetTexture( tr.skyboxTextures[3] );
