@@ -573,7 +573,8 @@ static void R_DrawStudioEntitiesLowRes( void )
 	unsigned brushes = 0;
 	const unsigned max_studio = 4;
 	const unsigned max_sprites = 2;
-	const unsigned max_brushes = 2;
+	/* Cap 3 outside silent G36 windows (budget still skips after one draw). */
+	const unsigned max_brushes = 3;
 	qboolean drew_view = false;
 	static qboolean gc_fx_marker_logged;
 	static qboolean gc_trans_brush_marker_logged;
@@ -1127,10 +1128,11 @@ static void R_DrawBEntitiesOnList( void )
 		int drawn_bmodels = 0;
 #if XASH_GAMECUBE
 		/* New Game q0: cap opaque movers so tram/doors return without blowing
-		 * the G36 present window (full edge list can be large on c0a0). */
+		 * the G36 present window (full edge list can be large on c0a0).
+		 * Silent budget windows still draw this path only once. */
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetVisualQuality() <= 0
-			&& edge_count > 4 )
-			edge_count = 4;
+			&& edge_count > 6 )
+			edge_count = 6;
 #endif
 
 	for( int i = 0; i < edge_count && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )

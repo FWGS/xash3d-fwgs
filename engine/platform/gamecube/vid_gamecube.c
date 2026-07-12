@@ -226,17 +226,33 @@ static void GC_InitPresentTexture( void )
 	gc_present_tex_ready = true;
 }
 
+static int gc_tiled_tex_w;
+static int gc_tiled_tex_h;
+static void *gc_tiled_tex_ptr;
+static qboolean gc_gx_present_pipe_ready;
+
 static void GC_InitPresentTextureTiled( void *tiled, int width, int height )
 {
 	if( !tiled || width <= 0 || height <= 0 )
 	{
 		gc_present_tex_ready = false;
+		gc_tiled_tex_ptr = NULL;
+		gc_tiled_tex_w = 0;
+		gc_tiled_tex_h = 0;
 		return;
 	}
+
+	/* Same staging buffer + size: keep the TexObj; DCFlush + Invalidate refresh data. */
+	if( gc_present_tex_ready && tiled == gc_tiled_tex_ptr
+		&& width == gc_tiled_tex_w && height == gc_tiled_tex_h )
+		return;
 
 	GX_InitTexObj( &gc_present_tex, tiled, (u16)width, (u16)height,
 		GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
 	GX_InitTexObjFilterMode( &gc_present_tex, GX_NEAR, GX_NEAR );
+	gc_tiled_tex_ptr = tiled;
+	gc_tiled_tex_w = width;
+	gc_tiled_tex_h = height;
 	gc_present_tex_ready = true;
 }
 
@@ -295,8 +311,6 @@ static qboolean GC_CanPresentViaGX( int width, int height )
 
 static void GC_PresentBufferViaGX( void )
 {
-	Mtx44 proj;
-	Mtx modelview;
 	f32 fb_w, fb_h;
 
 	if( !rmode || !xfb[which_fb] || !gc_present_tex_ready )
@@ -305,25 +319,35 @@ static void GC_PresentBufferViaGX( void )
 	fb_w = (f32)rmode->fbWidth;
 	fb_h = (f32)rmode->efbHeight;
 
-	GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
-	GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
-	GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
-	GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
-	GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
-	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
-	GX_SetDispCopyGamma( GX_GM_1_0 );
+	/* One-time ortho / copy / vtx setup; per-frame we only refresh the
+	 * textured quad after DCFlush of the tiled RGB565 staging buffer. */
+	if( !gc_gx_present_pipe_ready )
+	{
+		Mtx44 proj;
+		Mtx modelview;
 
-	guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
-	GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
-	guMtxIdentity( modelview );
-	GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
+		GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
+		GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
+		GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
+		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
+		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
+		GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+		GX_SetDispCopyGamma( GX_GM_1_0 );
+
+		guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
+		GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
+		guMtxIdentity( modelview );
+		GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
+
+		GX_ClearVtxDesc();
+		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+		gc_gx_present_pipe_ready = true;
+	}
 
 	GX_InvVtxCache();
 	GX_InvalidateTexAll();
-	GX_ClearVtxDesc();
-	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
 	GX_LoadTexObj( &gc_present_tex, GX_TEXMAP0 );
 
 	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
@@ -360,6 +384,10 @@ static void GC_ShutdownVideoHardware( void )
 
 	gc.initialized = false;
 	gc_present_tex_ready = false;
+	gc_gx_present_pipe_ready = false;
+	gc_tiled_tex_ptr = NULL;
+	gc_tiled_tex_w = 0;
+	gc_tiled_tex_h = 0;
 
 	GX_AbortFrame();
 	VIDEO_SetBlack( true );
