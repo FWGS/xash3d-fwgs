@@ -746,6 +746,7 @@ GC_STUDIO_MODELS = (
 GC_HUD_SPRITES = (
 	"sprites/320_pain.spr",
 	"sprites/320_train.spr",
+	"sprites/crosshairs.spr",
 )
 
 # Lean skybox BMPs for New Game RGB565 fills. Use gc_desert* names so retail
