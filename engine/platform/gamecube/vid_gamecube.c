@@ -84,6 +84,13 @@ static qboolean gc_present_tex_ready;
  * while we restore the framebuffer for world render. */
 #define GC_VIDEO_LIGHT_PRESENT_GRACE 24
 
+#if XASH_GAMECUBE
+/* Collected during the probe window; flushed to OSReport only after sampling so
+ * SYS_Report I/O does not inflate the measured Host_Frame intervals. */
+static float gc_budget_sample_ms[GC_VIDEO_BUDGET_SAMPLE_TARGET];
+static uint8_t gc_budget_sample_nonblack[GC_VIDEO_BUDGET_SAMPLE_TARGET];
+#endif
+
 /* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
  * The platform video backend does not redefine it to avoid duplicate symbols.
  * Quality 0: Low (smoke/minimal visuals, reduced particles)
@@ -622,12 +629,24 @@ static void GC_PresentBuffer( void )
 		}
 		else if( gc_budget_sample_count < GC_VIDEO_BUDGET_SAMPLE_TARGET )
 		{
+			gc_budget_sample_ms[gc_budget_sample_count] = (float)elapsed_ms;
+			gc_budget_sample_nonblack[gc_budget_sample_count] = sampled_nonblack ? 1 : 0;
 			gc_budget_sample_count++;
-			SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
-				gc_budget_sample_count, sampled_nonblack ? 1u : 0u, elapsed_ms );
 			gc_last_present_time = now;
 			if( gc_budget_sample_count >= GC_VIDEO_BUDGET_SAMPLE_TARGET )
+			{
+				unsigned int i;
+
 				gc_budget_probe_active = false;
+				/* Emit after the timed window so analyzer still sees frame time=. */
+				for( i = 0; i < gc_budget_sample_count; i++ )
+				{
+					SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
+						i + 1, gc_budget_sample_nonblack[i], gc_budget_sample_ms[i] );
+				}
+				SYS_Report( "Xash3D GameCube: budget sample flush count=%u worst=%.2fms\n",
+					gc_budget_sample_count, gc_worst_frame_ms );
+			}
 		}
 		else
 		{
@@ -635,10 +654,11 @@ static void GC_PresentBuffer( void )
 			gc_last_present_time = now;
 		}
 	}
-	else if( gc_present_count <= 16 )
+	else if( gc_present_count <= 16 && !gc_newgame_world_ready )
 	{
 		/* One line for smoke evidence — three SYS_Reports per present were
-		 * dominating host I/O on short Dolphin probes. */
+		 * dominating host I/O on short Dolphin probes. Skip once New Game
+		 * world is up; that path uses silent budget sampling instead. */
 		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u frame time=%.2fms\n",
 			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count, elapsed_ms );
 		/* gcmap/gcworldrender probes intentionally pace presents while the real
@@ -646,6 +666,10 @@ static void GC_PresentBuffer( void )
 		 * waits as slow frame bugs, but keep the warning for normal gameplay. */
 		if( elapsed_ms >= 33.0 )
 			SYS_Report( "Xash3D GameCube: G49 slow frame %.2fms worst=%.2fms\n", elapsed_ms, gc_worst_frame_ms );
+		gc_last_present_time = now;
+	}
+	else
+	{
 		gc_last_present_time = now;
 	}
 
@@ -1533,9 +1557,18 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	refState.width = present_w;
 	refState.height = present_h;
 	gc_light_present_left = 0;
-	gc_budget_probe_active = false;
+	/* Re-arm silent G36 sampling for the real world path (not light fills). */
+	gc_present_count = 0;
+	gc_blank_present_count = 0;
+	gc_budget_sample_count = 0;
+	gc_budget_warmup_left = GC_VIDEO_BUDGET_WARMUP_PRESENTS;
+	gc_last_present_time = 0.0;
+	gc_worst_frame_ms = 0.0;
+	gc_budget_probe_active = true;
 	gc_newgame_world_ready = true;
 	SYS_Report( "Xash3D GameCube: newgame low-res world present %dx%d\n", present_w, present_h );
+	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=1)\n",
+		present_w, present_h );
 	GC_MemSample( "newgame world present" );
 	return true;
 #else

@@ -729,13 +729,22 @@ static void R_DrawStudioEntitiesLowRes( void )
 		gEngfuncs.CL_DrawEFX( tr.frametime, true );
 
 	d_gc_span_rgb565 = false;
-	if( tr.framecount <= 8 || (( tr.framecount & 31 ) == 0 ) || drawn || sprites || drew_view )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res ents studio=%u sprites=%u brushes=%u solids=%u trans=%u viewmodel=%d%s%s frame=%d\n",
-			drawn, sprites, brushes, tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities,
-			drew_view ? 1 : 0,
-			( tr.viewent && tr.viewent->model ) ? " vm=" : "",
-			( tr.viewent && tr.viewent->model ) ? tr.viewent->model->name : "",
-			tr.framecount );
+	/* OSReport is expensive on Dolphin — do not log every frame just because
+	 * studio/viewmodel stayed non-zero (force-draw + crowbar are steady). */
+	{
+		static int last_ents_log_frame = -999;
+
+		if( tr.framecount <= 4 || ( tr.framecount - last_ents_log_frame ) >= 64 )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res ents studio=%u sprites=%u brushes=%u solids=%u trans=%u viewmodel=%d%s%s frame=%d\n",
+				drawn, sprites, brushes, tr.draw_list->num_solid_entities, tr.draw_list->num_trans_entities,
+				drew_view ? 1 : 0,
+				( tr.viewent && tr.viewent->model ) ? " vm=" : "",
+				( tr.viewent && tr.viewent->model ) ? tr.viewent->model->name : "",
+				tr.framecount );
+			last_ents_log_frame = tr.framecount;
+		}
+	}
 }
 #endif
 
