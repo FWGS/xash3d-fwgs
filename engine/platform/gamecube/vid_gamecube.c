@@ -243,10 +243,11 @@ static void GC_InitPresentTextureTiled( void *tiled, int width, int height )
 static void GC_SwizzleRGB565ToTiled( const unsigned short *src, int src_stride,
 	int width, int height, unsigned short *dst )
 {
-	int tile_x, tile_y, x, y;
+	int tile_x, tile_y, y;
 	unsigned short *out = dst;
 
-	/* GX_TF_RGB565 stores 4×4 tiles contiguously. */
+	/* GX_TF_RGB565 stores 4×4 tiles contiguously.
+	 * Copy each tile row as two u32 loads when naturally aligned. */
 	for( tile_y = 0; tile_y < height; tile_y += 4 )
 	{
 		for( tile_x = 0; tile_x < width; tile_x += 4 )
@@ -254,11 +255,23 @@ static void GC_SwizzleRGB565ToTiled( const unsigned short *src, int src_stride,
 			for( y = 0; y < 4; y++ )
 			{
 				const unsigned short *row = src + ( tile_y + y ) * src_stride + tile_x;
+#if defined( __GNUC__ )
+				if( (((unsigned long)row) & 3 ) == 0 && (((unsigned long)out) & 3 ) == 0 )
+				{
+					const unsigned int *r32 = (const unsigned int *)(const void *)row;
+					unsigned int *o32 = (unsigned int *)(void *)out;
 
-				out[0] = row[0];
-				out[1] = row[1];
-				out[2] = row[2];
-				out[3] = row[3];
+					o32[0] = r32[0];
+					o32[1] = r32[1];
+				}
+				else
+#endif
+				{
+					out[0] = row[0];
+					out[1] = row[1];
+					out[2] = row[2];
+					out[3] = row[3];
+				}
 				out += 4;
 			}
 		}
