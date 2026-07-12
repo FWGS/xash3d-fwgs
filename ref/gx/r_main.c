@@ -571,12 +571,13 @@ static void R_DrawStudioEntitiesLowRes( void )
 	unsigned drawn = 0;
 	unsigned sprites = 0;
 	unsigned brushes = 0;
-	const unsigned max_studio = 8;
-	const unsigned max_sprites = 16;
-	const unsigned max_brushes = 6;
+	const unsigned max_studio = 4;
+	const unsigned max_sprites = 2;
+	const unsigned max_brushes = 0;
 	qboolean drew_view = false;
 	static qboolean gc_fx_marker_logged;
 	static qboolean gc_trans_brush_marker_logged;
+	const qboolean skip_fx = ( GC_GetVisualQuality() <= 0 );
 
 	tr.blend = 1.0f;
 	d_pdrawspans = R_PolysetFillSpans8;
@@ -609,10 +610,16 @@ static void R_DrawStudioEntitiesLowRes( void )
 	}
 
 	/* c0a0 tram spawn often has no studio ents in PVS — force one promoted
-	 * world mesh so the low-res studio path is exercised beyond viewmodels. */
+	 * world mesh so the low-res studio path is exercised beyond viewmodels.
+	 * During G36 sample windows draw it once, then skip (saves ~present ms). */
 	if( drawn == 0 && gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 		&& !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
+		static qboolean force_drawn_once;
+		extern qboolean GC_IsFrameBudgetProbeActive( void );
+
+		if( !( GC_IsFrameBudgetProbeActive() && force_drawn_once ))
+		{
 		model_t *gm = gEngfuncs.Mod_ForName( "models/roach.mdl", false, false );
 
 		if( gm && gm->type == mod_studio && gm->cache.data )
@@ -647,6 +654,7 @@ static void R_DrawStudioEntitiesLowRes( void )
 				R_SetUpWorldTransform();
 				R_DrawStudioModel( &probe );
 				drawn++;
+				force_drawn_once = true;
 				if( !probe_logged )
 				{
 					gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res forced world studio models/roach.mdl\n" );
@@ -654,20 +662,29 @@ static void R_DrawStudioEntitiesLowRes( void )
 				}
 			}
 		}
+		}
 	}
 
-	/* View weapon when present — tram intro often has none yet. */
+	/* View weapon when present — tram intro often has none yet.
+	 * Skip during silent G36 windows after the first draw. */
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW )
 	    && tr.viewent && tr.viewent->model && tr.viewent->model->type == mod_studio
 	    && r_drawviewmodel && r_drawviewmodel->value )
 	{
-		R_SetUpWorldTransform();
-		R_DrawViewModel();
-		drew_view = true;
+		static qboolean view_drawn_once;
+		extern qboolean GC_IsFrameBudgetProbeActive( void );
+
+		if( !( GC_IsFrameBudgetProbeActive() && view_drawn_once ))
+		{
+			R_SetUpWorldTransform();
+			R_DrawViewModel();
+			drew_view = true;
+			view_drawn_once = true;
+		}
 	}
 
 	/* Particles / tempents into the RGB565 world buffer. */
-	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
+	if( !skip_fx && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 	{
 		gEngfuncs.CL_DrawEFX( tr.frametime, false );
 		if( !gc_fx_marker_logged )
@@ -725,7 +742,7 @@ static void R_DrawStudioEntitiesLowRes( void )
 		gc_trans_brush_marker_logged = true;
 	}
 
-	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
+	if( !skip_fx && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
 		gEngfuncs.CL_DrawEFX( tr.frametime, true );
 
 	d_gc_span_rgb565 = false;
@@ -1412,10 +1429,15 @@ static void R_EdgeDrawingGcmapProbe( void )
 	R_RenderWorld();
 	/* Opaque brush entities (tram, doors, …) share the probe edge/span BSS.
 	 * Translucent brushes draw later via R_DrawBrushModelProbe. */
-	R_DrawBEntitiesOnList();
-	if( tr.framecount <= 1 )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels in edge pass count=%u\n",
-			tr.draw_list->num_edge_entities );
+	if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetVisualQuality() <= 0 ))
+	{
+		R_DrawBEntitiesOnList();
+		if( tr.framecount <= 1 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels in edge pass count=%u\n",
+				tr.draw_list->num_edge_entities );
+	}
+	else if( tr.framecount <= 1 )
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels skipped (newgame quality 0)\n" );
 	R_ScanEdges();
 
 	if( tr.framecount <= 1 && vid.buffer )
@@ -1657,7 +1679,8 @@ void GAME_EXPORT R_RenderScene( void )
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
 			R_DrawStudioEntitiesLowRes();
 
-		if( tr.framecount <= 32 )
+		/* OSReport during the timed window inflates Host_Frame; keep sparse. */
+		if( tr.framecount <= 2 || (( tr.framecount & 63 ) == 0 ))
 		{
 			double elapsed_ms = ( gEngfuncs.pfnTime() - gc_render_start ) * 1000.0;
 

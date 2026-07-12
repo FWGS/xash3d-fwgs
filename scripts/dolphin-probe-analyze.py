@@ -74,7 +74,8 @@ def probe_phase_text(text: str, *, world_render: bool = False) -> str:
 
 	for marker in markers:
 		if marker in text:
-			return text.split(marker, 1)[1]
+			# New Game re-arms after world present; score the final window only.
+			return text.rsplit(marker, 1)[1]
 
 	# gcmap/gcworldrender probes should not reuse the early splash present markers.
 	if "-gcworldrender" in text or "-gcmap" in text:

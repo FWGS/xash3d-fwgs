@@ -5,9 +5,10 @@ r_gcmap.c - GameCube smoke boot memory trims
 
 #if XASH_GAMECUBE
 static qboolean gc_renderer_trimmed;
-/* Sized for New Game 256×192 GX presents (and smaller gcmap probes). */
-#define GC_GCMAP_STATIC_MAX_W 256
-#define GC_GCMAP_STATIC_MAX_H 192
+/* Sized for New Game GX presents (and smaller gcmap probes).
+ * Match the proven gcworldrender 128×96 fill budget for G36. */
+#define GC_GCMAP_STATIC_MAX_W 128
+#define GC_GCMAP_STATIC_MAX_H 96
 static short gc_gcmap_static_zbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 static pixel_t gc_gcmap_static_viewbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 
@@ -146,7 +147,7 @@ qboolean R_GcmapAllocMinimalScreen( void )
 	}
 	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
-		/* New Game Host_Frame world: sharper than 160×120, still tileable for GX. */
+		/* New Game Host_Frame world: fill cost must fit ~16.7ms on Dolphin. */
 		w = GC_GCMAP_STATIC_MAX_W;
 		h = GC_GCMAP_STATIC_MAX_H;
 		use_static_screen = true;

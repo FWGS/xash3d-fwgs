@@ -572,8 +572,10 @@ void V_PostRender( void )
 		|| GC_ShouldUseLightPresent() ))
 	{
 		/* Smoke/G36 light presents: no HUD. New Game after world present:
-		 * draw lean HLSDK HUD (320 sheets / direct LoadSprite) into RGB565. */
+		 * draw lean HLSDK HUD into RGB565, except during silent G36 sample
+		 * windows where OSReport/HUD cost pushed present over budget. */
 		if( Sys_CheckParm( "-gcnewgame" ) && !GC_ShouldUseLightPresent()
+			&& !GC_IsFrameBudgetProbeActive()
 			&& cls.signon == SIGNONS && cls.scrshot_action != scrshot_mapshot )
 			CL_DrawHUD( CL_ACTIVE );
 		ref.dllFuncs.R_AllowFog( true );

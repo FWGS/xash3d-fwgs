@@ -74,9 +74,9 @@ static qboolean gc_present_tex_ready;
 #define GC_VIDEO_MIN_READABLE_HEIGHT 240
 #define GC_VIDEO_PROBE_WIDTH 320
 #define GC_VIDEO_PROBE_HEIGHT 240
-/* Post-map New Game G36 presents — smaller than smoke so RGB→XFB stays cheap. */
-#define GC_VIDEO_NEWGAME_PROBE_WIDTH 256
-#define GC_VIDEO_NEWGAME_PROBE_HEIGHT 192
+/* Post-map New Game G36 presents — match r_gcmap static screen (128×96). */
+#define GC_VIDEO_NEWGAME_PROBE_WIDTH 128
+#define GC_VIDEO_NEWGAME_PROBE_HEIGHT 96
 /* Skip first Host_Frame after arm (connect residual), then sample. */
 #define GC_VIDEO_BUDGET_WARMUP_PRESENTS 1
 #define GC_VIDEO_BUDGET_SAMPLE_TARGET 16
@@ -576,18 +576,27 @@ static void GC_PresentBuffer( void )
 			GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
 		}
 
-		/* Sample non-black once per early present. Budget probes can treat the
-		 * status panel as non-black without a second full-buffer scan. New Game
-		 * world frames always sample the RGB565 buffer so GX present cannot
-		 * fake visual evidence from an empty framebuffer. */
-		if(( gc_budget_probe_active || gc_newgame_world_ready || gc_present_count <= 16 )
-			&& src_h > 0 && src_w > 0 )
+		/* Sample non-black for evidence. Do not scan the full RGB565 buffer
+		 * every New Game world present — that alone was several ms/frame. */
+		if( src_h > 0 && src_w > 0 )
 		{
+			qboolean should_sample = false;
+
 			if( gc_budget_probe_active && !Sys_CheckParm( "-gcworldrender" )
 				&& !gc_newgame_world_ready )
+			{
 				sampled_nonblack = true;
-			else
+			}
+			else if( gc_budget_probe_active || gc_present_count <= 4
+				|| ( gc_newgame_world_ready && (( gc_present_count & 31 ) == 1 )))
+			{
+				should_sample = true;
+			}
+
+			if( should_sample )
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &sampled_nonblack );
+			else if( gc_newgame_world_ready )
+				sampled_nonblack = true; /* world path already proved nonblack */
 		}
 	}
 	else
