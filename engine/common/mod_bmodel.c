@@ -1890,13 +1890,164 @@ Mod_SetParent
 */
 static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 {
-	node->parent = parent;
+	typedef struct
+	{
+		mnode_t *node;
+		mnode_t *parent;
+	} mod_parent_frame_t;
 
-	if( node->contents < 0 )
-		return; // it's leaf
+	mod_parent_frame_t *stack;
+	byte *node_seen = NULL;
+	byte *leaf_seen = NULL;
+	size_t stack_capacity;
+	size_t stack_size = 0;
+	size_t duplicate_nodes = 0;
+	size_t duplicate_leafs = 0;
 
-	Mod_SetParent( mod, node_child( node, 0, mod ), node );
-	Mod_SetParent( mod, node_child( node, 1, mod ), node );
+	if( !node )
+		return;
+
+	stack_capacity = mod ? (size_t)Q_max( mod->numnodes, 1 ) : 1;
+	stack = malloc( stack_capacity * sizeof( *stack ));
+	if( mod )
+	{
+		if( mod->numnodes > 0 )
+			node_seen = calloc( mod->numnodes, sizeof( *node_seen ));
+		if( mod->numleafs > 0 )
+			leaf_seen = calloc( mod->numleafs, sizeof( *leaf_seen ));
+	}
+
+	if( !stack || ( mod && (( mod->numnodes > 0 && !node_seen ) || ( mod->numleafs > 0 && !leaf_seen ))))
+	{
+		free( stack );
+		free( node_seen );
+		free( leaf_seen );
+		node->parent = parent;
+
+		if( node->contents < 0 )
+			return; // it's leaf
+
+		Mod_SetParent( mod, node_child( node, 0, mod ), node );
+		Mod_SetParent( mod, node_child( node, 1, mod ), node );
+		return;
+	}
+
+	stack[stack_size].node = node;
+	stack[stack_size].parent = parent;
+	stack_size++;
+
+	while( stack_size > 0 )
+	{
+		mnode_t *cur;
+		mnode_t *cur_parent;
+		size_t node_index = 0;
+		size_t leaf_index = 0;
+		qboolean is_leaf = false;
+
+		stack_size--;
+		cur = stack[stack_size].node;
+		cur_parent = stack[stack_size].parent;
+
+		if( mod )
+		{
+			const byte *cur_ptr = (const byte *)cur;
+			const byte *nodes_begin = (const byte *)mod->nodes;
+			const byte *nodes_end = nodes_begin + mod->numnodes * sizeof( *mod->nodes );
+			const byte *leafs_begin = (const byte *)mod->leafs;
+			const byte *leafs_end = leafs_begin + mod->numleafs * sizeof( *mod->leafs );
+
+			if( cur_ptr >= nodes_begin && cur_ptr < nodes_end )
+			{
+				node_index = (size_t)( cur - mod->nodes );
+
+				if( node_seen && node_seen[node_index] )
+				{
+					duplicate_nodes++;
+					continue;
+				}
+
+				if( node_seen )
+					node_seen[node_index] = 1;
+			}
+			else if( cur_ptr >= leafs_begin && cur_ptr < leafs_end )
+			{
+				is_leaf = true;
+				leaf_index = (size_t)((mleaf_t *)cur - mod->leafs );
+
+				if( leaf_seen && leaf_seen[leaf_index] )
+				{
+					duplicate_leafs++;
+					continue;
+				}
+
+				if( leaf_seen )
+					leaf_seen[leaf_index] = 1;
+
+				if( cur->contents >= 0 )
+				{
+					free( stack );
+					free( node_seen );
+					free( leaf_seen );
+					Host_Error( "%s: leaf %zu has non-leaf contents %d in %s\n",
+						__func__, leaf_index, cur->contents, mod->name );
+					return;
+				}
+			}
+			else
+			{
+				free( stack );
+				free( node_seen );
+				free( leaf_seen );
+				Host_Error( "%s: child pointer %p is outside node/leaf ranges for %s\n",
+					__func__, (void *)cur, mod->name );
+				return;
+			}
+		}
+
+		cur->parent = cur_parent;
+
+		if( cur->contents < 0 )
+			continue; // it's leaf
+
+		if( is_leaf )
+		{
+			free( stack );
+			free( node_seen );
+			free( leaf_seen );
+			Host_Error( "%s: leaf %zu treated as internal node in %s\n",
+				__func__, leaf_index, mod->name );
+			return;
+		}
+
+		if( stack_size + 2 > stack_capacity )
+		{
+			free( stack );
+			free( node_seen );
+			free( leaf_seen );
+			Host_Error( "%s: parent walk stack overflow for %s (%zu nodes)\n",
+				__func__, mod ? mod->name : "<unknown>", stack_capacity );
+			return;
+		}
+
+		stack[stack_size].node = node_child( cur, 1, mod );
+		stack[stack_size].parent = cur;
+		stack_size++;
+		stack[stack_size].node = node_child( cur, 0, mod );
+		stack[stack_size].parent = cur;
+		stack_size++;
+	}
+
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() && mod && ( duplicate_nodes || duplicate_leafs ))
+	{
+		Con_Reportf( "Xash3D GameCube: parent walk dedup nodes=%zu leafs=%zu map=%s\n",
+			duplicate_nodes, duplicate_leafs, mod->name );
+	}
+#endif
+
+	free( stack );
+	free( node_seen );
+	free( leaf_seen );
 }
 
 /*
@@ -3858,8 +4009,12 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 			size_t node_bytes = bmod->numnodes * sizeof( *out );
 			gc_bsp_busy_range_t busy[6];
 			size_t busy_count = 0;
+			const qboolean use_bsp_node_scratch = false;
 
-			if( gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+			/* Keep world node storage off BSP scratch until shared-child parent
+			 * linking is fully validated on retained-staging maps. */
+			if( use_bsp_node_scratch && gc_retain_bsp_source_buffer
+				&& gc_bsp_scratch_base && gc_bsp_scratch_size )
 			{
 				if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
 				{
@@ -4044,7 +4199,15 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 	}
 
 	// sets nodes and leafs
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() && bmod->isworld )
+		Con_Reportf( "Xash3D GameCube: world node parent walk begin\n" );
+#endif
 	Mod_SetParent( mod, mod->nodes, NULL );
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() && bmod->isworld )
+		Con_Reportf( "Xash3D GameCube: world node parent walk ready\n" );
+#endif
 
 #if XASH_GAMECUBE
 	if( bmod->version == QBSP2_VERSION )
@@ -4465,8 +4628,21 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 	if( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, mod_base, bufferlen ))
 	{
 		size_t texinfo_bytes = mod->numtexinfo * sizeof( mtexinfo_t );
+		qboolean texinfo_heap_owned = false;
 
-		pinned = Mod_GCPinBspLump( mod->mempool, (const byte *)mod->texinfo, texinfo_bytes );
+		pinned = malloc( texinfo_bytes );
+		if( pinned )
+		{
+			memcpy( pinned, mod->texinfo, texinfo_bytes );
+			texinfo_heap_owned = true;
+		}
+		else
+		{
+			pinned = Mem_Malloc( mod->mempool, texinfo_bytes );
+			if( pinned )
+				memcpy( pinned, mod->texinfo, texinfo_bytes );
+		}
+
 		if( !pinned )
 		{
 			Con_Reportf( S_WARN "Xash3D GameCube: retaining gcmap BSP staging; texinfo pin skipped (%s)\n",
@@ -4475,7 +4651,8 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 			return;
 		}
 		mod->texinfo = (mtexinfo_t *)pinned;
-		gc_texinfo_malloc_block = pinned;
+		if( texinfo_heap_owned )
+			gc_texinfo_malloc_block = pinned;
 	}
 
 	if( bmod->version == QBSP2_VERSION )
@@ -4592,17 +4769,21 @@ Mod_LoadLeafs
 */
 static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 {
-	mleaf_t	*out;
+	mleaf_t	*out = NULL;
 	int	visclusters = 0;
 
 #if XASH_GAMECUBE
 	{
 		const size_t leaf_bytes = bmod->numleafs * sizeof( *out );
-		gc_bsp_busy_range_t busy[5];
-		size_t busy_count = 0;
+			gc_bsp_busy_range_t busy[5];
+			size_t busy_count = 0;
+			const qboolean use_bsp_leaf_scratch = false;
 
-		if( GC_MapLoadMemoryOpt() && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
-		{
+			/* Keep world leaf storage off BSP scratch until overlap handling is
+			 * proven across larger campaign maps. */
+			if( use_bsp_leaf_scratch && GC_MapLoadMemoryOpt()
+				&& gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+			{
 			if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
 			{
 				const byte *p = (const byte *)mod->surfaces;

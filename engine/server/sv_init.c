@@ -645,8 +645,21 @@ void SV_ActivateServer( int runPhysics )
 
 	SV_SetStringArrayMode( true );
 
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt())
+	{
+		/* GameCube local map routes never download or verify remote assets.
+		 * Skipping resource-list construction avoids large local signon payloads
+		 * and integrity paths that assume a normal client/server transfer. */
+		sv.num_resources = 0;
+		Con_Reportf( "Xash3D GameCube: resource sync skipped for local map route\n" );
+	}
+	else
+#endif
+	{
 	// parse user-specified resources
 	SV_CreateGenericResources();
+	}
 
 #if XASH_GAMECUBE
 	if( GC_MapLoadMemoryOpt())
@@ -674,11 +687,16 @@ void SV_ActivateServer( int runPhysics )
 	// create a baseline for more efficient communications
 	SV_CreateBaseline();
 
+#if XASH_GAMECUBE
+	if( !GC_MapLoadMemoryOpt())
+#endif
+	{
 	// collect all info from precached resources
 	SV_CreateResourceList();
 
 	// check and count all files that marked by user as unmodified (typically is a player models etc)
 	SV_TransferConsistencyInfo();
+	}
 
 	// send serverinfo to all connected clients
 	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
@@ -686,6 +704,14 @@ void SV_ActivateServer( int runPhysics )
 		if( cl->state < cs_connected )
 			continue;
 
+#if XASH_GAMECUBE
+		if( GC_MapLoadMemoryOpt() )
+		{
+			memset( &cl->netchan, 0, sizeof( cl->netchan ));
+			Con_Reportf( "Xash3D GameCube: local client netchan reset for map route\n" );
+		}
+		else
+#endif
 		Netchan_Clear( &cl->netchan );
 		cl->delta_sequence = -1;
 
