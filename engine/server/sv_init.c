@@ -1127,12 +1127,20 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 #endif
 #if XASH_GAMECUBE
 	GC_MemSetMap( sv.name );
+	Con_Reportf( "Xash3D GameCube: pre-spawn mem map set\n" );
 	// Free unused models and screen buffers before the BSP file buffer so retail
 	// New Game (menu already resident) has the same headroom as -gcmap smoke.
+	Con_Reportf( "Xash3D GameCube: pre-spawn Mod_FreeUnused begin\n" );
 	Mod_FreeUnused();
+	Con_Reportf( "Xash3D GameCube: pre-spawn Mod_FreeUnused ready\n" );
 	GC_DrawLoadingStatus( "PREPARING MAP", sv.name );
+	Con_Reportf( "Xash3D GameCube: pre-spawn loading status ready\n" );
+	Con_Reportf( "Xash3D GameCube: pre-spawn renderer trim begin\n" );
 	R_GcmapTrimForMapLoad();
+	Con_Reportf( "Xash3D GameCube: pre-spawn renderer trim ready\n" );
+	Con_Reportf( "Xash3D GameCube: pre-spawn video trim begin\n" );
 	GC_TrimVideoMemoryForMapLoad();
+	Con_Reportf( "Xash3D GameCube: pre-spawn video trim ready\n" );
 	Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
 #endif
 #if XASH_GAMECUBE

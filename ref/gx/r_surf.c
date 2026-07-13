@@ -69,6 +69,9 @@ static int r_gc_surface_cache_skip_reports;
 static byte gc_lowres_surfcache_store[GC_SURFACE_CACHE_LOWRES + 32]
 	__attribute__((aligned( 32 )));
 static qboolean gc_sc_static;
+static qboolean gc_sc_heap;
+static void R_FreeGameCubeSurfaceCache( void );
+static qboolean R_TryInitGameCubeSurfaceCacheSized( int size, qboolean allow_lowres_static );
 #endif
 
 
@@ -988,21 +991,20 @@ void R_InitCaches( void )
 	{
 		D_FlushCaches(  );
 #if XASH_GAMECUBE
-		if( !gc_sc_static )
-		{
-			if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
-				free( sc_base );
-			else
-#endif
-			Mem_Free( sc_base );
-#if XASH_GAMECUBE
-		}
+		R_FreeGameCubeSurfaceCache();
+#else
+		Mem_Free( sc_base );
 #endif
 	}
+#if XASH_GAMECUBE
+	if( R_TryInitGameCubeSurfaceCacheSized( size, true ))
+		return;
+#endif
 	sc_base = (surfcache_t *)Mem_Calloc( r_temppool, size );
 	sc_rover = sc_base;
 #if XASH_GAMECUBE
 	gc_sc_static = false;
+	gc_sc_heap = false;
 #endif
 
 	sc_base->next = NULL;
@@ -1011,6 +1013,17 @@ void R_InitCaches( void )
 }
 
 #if XASH_GAMECUBE
+static void R_FreeGameCubeSurfaceCache( void )
+{
+	if( !sc_base || gc_sc_static )
+		return;
+
+	if( gc_sc_heap )
+		free( sc_base );
+	else
+		Mem_Free( sc_base );
+}
+
 qboolean R_TryInitGcmapSurfaceCache( void )
 {
 	int size, try_size;
@@ -1040,9 +1053,48 @@ qboolean R_TryInitGcmapSurfaceCache( void )
 		sc_base->owner = NULL;
 		sc_base->size = sc_size;
 		gc_sc_static = false;
+		gc_sc_heap = true;
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( alloc_size ));
 		return true;
 	}
+
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache deferred (%s unavailable)\n",
+		Q_memprint( size ));
+	return false;
+}
+
+static qboolean R_TryInitGameCubeSurfaceCacheSized( int size, qboolean allow_lowres_static )
+{
+	int try_size;
+
+	if( sc_base )
+		return true;
+
+	if( size > GC_SURFACE_CACHE_MAX )
+		size = GC_SURFACE_CACHE_MAX;
+
+	for( try_size = size; try_size >= 32768; try_size >>= 1 )
+	{
+		int alloc_size = ( try_size + 8191 ) & ~8191;
+
+		sc_base = malloc( alloc_size );
+		if( !sc_base )
+			continue;
+
+		sc_size = alloc_size;
+		sc_rover = sc_base;
+		memset( sc_base, 0, alloc_size );
+		sc_base->next = NULL;
+		sc_base->owner = NULL;
+		sc_base->size = sc_size;
+		gc_sc_static = false;
+		gc_sc_heap = true;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( alloc_size ));
+		return true;
+	}
+
+	if( allow_lowres_static )
+		return R_TryInitLowResSurfaceCache();
 
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache deferred (%s unavailable)\n",
 		Q_memprint( size ));
@@ -1056,15 +1108,10 @@ void R_GcmapTrimSurfaceCache( void )
 	if( sc_base )
 	{
 		D_FlushCaches();
-		if( !gc_sc_static )
-		{
-			if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
-				free( sc_base );
-			else
-				Mem_Free( sc_base );
-		}
+		R_FreeGameCubeSurfaceCache();
 		sc_base = sc_rover = NULL;
 		gc_sc_static = false;
+		gc_sc_heap = false;
 	}
 }
 
@@ -1086,6 +1133,7 @@ qboolean R_TryInitLowResSurfaceCache( void )
 	sc_base->owner = NULL;
 	sc_base->size = sc_size;
 	gc_sc_static = true;
+	gc_sc_heap = false;
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res surface cache %s (static)\n",
 		Q_memprint( sc_size ));
 	return true;
