@@ -42,6 +42,7 @@ typedef struct gc_bsp_deferred_s
 
 static gc_bsp_deferred_t gc_bsp_deferred;
 static void *gc_marksurfaces_malloc_block;
+static void *gc_leafs_malloc_block;
 static void *gc_surfaces_malloc_block;
 static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
@@ -2696,11 +2697,74 @@ Mod_LoadMarkSurfaces
 */
 static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 {
-	msurface_t	**out;
+	msurface_t	**out = NULL;
 
 #if XASH_GAMECUBE
 	{
 		const size_t mark_bytes = bmod->nummarkfaces * sizeof( *out );
+		gc_bsp_busy_range_t busy[4];
+		size_t busy_count = 0;
+
+		if( GC_MapLoadMemoryOpt() && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+		{
+			if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->surfaces;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start
+					+ bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+				busy_count++;
+			}
+
+			if( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->texinfo;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + mod->numtexinfo * sizeof( mtexinfo_t );
+				busy_count++;
+			}
+
+			if( bmod->version == QBSP2_VERSION )
+			{
+				if( bmod->markfaces32 && Mod_GCPointerInBuffer( bmod->markfaces32, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+				{
+					const byte *p = (const byte *)bmod->markfaces32;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + bmod->nummarkfaces * sizeof( dmarkface32_t );
+					busy_count++;
+				}
+			}
+			else if( bmod->markfaces && Mod_GCPointerInBuffer( bmod->markfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)bmod->markfaces;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + bmod->nummarkfaces * sizeof( dmarkface_t );
+				busy_count++;
+			}
+
+			for( size_t i = 0; i < busy_count; i++ )
+			{
+				for( size_t j = i + 1; j < busy_count; j++ )
+				{
+					if( busy[j].start < busy[i].start )
+					{
+						gc_bsp_busy_range_t tmp = busy[i];
+						busy[i] = busy[j];
+						busy[j] = tmp;
+					}
+				}
+			}
+
+			out = (msurface_t **)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, mark_bytes, 32 );
+			if( out )
+			{
+				Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, (byte *)out, mark_bytes );
+				Con_Reportf( "Xash3D GameCube: world marksurfaces using BSP scratch %s\n", Q_memprint( mark_bytes ));
+			}
+		}
+
+		if( !out )
+		{
 		out = (msurface_t **)malloc( mark_bytes );
 		if( out )
 		{
@@ -2710,6 +2774,7 @@ static void Mod_LoadMarkSurfaces( model_t *mod, dbspmodel_t *bmod )
 		else
 		{
 			out = Mem_Malloc( mod->mempool, mark_bytes );
+		}
 		}
 		mod->marksurfaces = out;
 	}
@@ -3538,18 +3603,14 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	msurface_t   *out;
 	mextrasurf_t *info;
 #if XASH_GAMECUBE
-	qboolean     fast_gcmap_surfaces = GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld;
-	const size_t surf_bytes = fast_gcmap_surfaces
-		? ( bmod->numsurfaces * sizeof( msurface_t ) + sizeof( mextrasurf_t ))
-		: ( bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t )));
+	const size_t surf_bytes = bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
 	byte         *surf_block = NULL;
-	qboolean     use_bsp_surface_scratch = fast_gcmap_surfaces;
+	qboolean     use_bsp_surface_scratch = GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld;
 
 	/* Surface output is populated while the original BSP face lump is still
 	 * being read. Keep it off the BSP scratch buffer until overlap handling is
 	 * proven safe on hardware/Dolphin. */
-	if( use_bsp_surface_scratch && GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld
-		&& gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+	if( use_bsp_surface_scratch && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 	{
 		gc_bsp_busy_range_t busy[4];
 		size_t busy_count = 0;
@@ -3635,8 +3696,6 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 
 	mod->surfaces = out = (msurface_t *)surf_block;
 	info = (mextrasurf_t *)( surf_block + bmod->numsurfaces * sizeof( msurface_t ));
-	if( fast_gcmap_surfaces )
-		Con_Reportf( "Xash3D GameCube: compact gcmap layout surfaces=%zu extra=1\n", bmod->numsurfaces );
 #else
 	mod->surfaces = out = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( msurface_t ));
 	info = Mem_Calloc( mod->mempool, bmod->numsurfaces * sizeof( mextrasurf_t ));
@@ -3651,11 +3710,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 
 	for( int i = 0; i < bmod->numsurfaces; i++, out++ )
 	{
-#if XASH_GAMECUBE
-		mextrasurf_t *surf_extra = fast_gcmap_surfaces ? info : ( info + i );
-#else
 		mextrasurf_t *surf_extra = info + i;
-#endif
 
 		// setup crosslinks between two parts of msurface_t
 		out->info = surf_extra;
@@ -3722,14 +3777,6 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		if( FBitSet( out->texinfo->flags, TEX_SPECIAL ))
 			SetBits( out->flags, SURF_DRAWTILED );
 
-#if XASH_GAMECUBE
-		if( fast_gcmap_surfaces )
-		{
-			if(( i & 255 ) == 255 )
-				Con_Reportf( "Xash3D GameCube: world surfaces fast progress %d/%zu\n", i + 1, bmod->numsurfaces );
-			continue;
-		}
-#endif
 		Mod_CalcSurfaceBounds( mod, out, bmod );
 		Mod_CalcSurfaceExtents( mod, out, bmod );
 #if XASH_GAMECUBE
@@ -3767,12 +3814,6 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 			ref.dllFuncs.GL_SubdivideSurface( mod, out ); // cut up polygon for warps
 #endif
 	}
-
-#if XASH_GAMECUBE
-	if( fast_gcmap_surfaces )
-		Con_Reportf( "Xash3D GameCube: world surfaces fast loop ready\n" );
-#endif
-
 	// now we have enough data to trying determine samplecount per lightmap pixel
 	if( test_lightsize > 0 && prev_lightofs != -1 && next_lightofs != -1 && next_lightofs != 99999999 )
 	{
@@ -3811,20 +3852,100 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 {
 	mnode_t	*out = NULL;
 
-#if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld && bmod->numnodes > 0 )
-	{
-		size_t node_bytes = bmod->numnodes * sizeof( *out );
-
-		out = (mnode_t *)malloc( node_bytes );
-		if( out )
+	#if XASH_GAMECUBE
+		if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld && bmod->numnodes > 0 )
 		{
-			memset( out, 0, node_bytes );
-			gc_nodes_malloc_block = out;
-			Con_Reportf( "Xash3D GameCube: world nodes via malloc %s\n", Q_memprint( node_bytes ));
+			size_t node_bytes = bmod->numnodes * sizeof( *out );
+			gc_bsp_busy_range_t busy[6];
+			size_t busy_count = 0;
+
+			if( gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+			{
+				if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+				{
+					const byte *p = (const byte *)mod->surfaces;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start
+						+ bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+					busy_count++;
+				}
+
+				if( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+				{
+					const byte *p = (const byte *)mod->texinfo;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + mod->numtexinfo * sizeof( mtexinfo_t );
+					busy_count++;
+				}
+
+				if( mod->marksurfaces && Mod_GCPointerInBuffer( mod->marksurfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+				{
+					const byte *p = (const byte *)mod->marksurfaces;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + mod->nummarksurfaces * sizeof( *mod->marksurfaces );
+					busy_count++;
+				}
+
+				if( mod->leafs && Mod_GCPointerInBuffer( mod->leafs, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+				{
+					const byte *p = (const byte *)mod->leafs;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + mod->numleafs * sizeof( *mod->leafs );
+					busy_count++;
+				}
+
+				if( bmod->version == QBSP2_VERSION )
+				{
+					if( bmod->nodes32 && Mod_GCPointerInBuffer( bmod->nodes32, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+					{
+						const byte *p = (const byte *)bmod->nodes32;
+						busy[busy_count].start = p - gc_bsp_scratch_base;
+						busy[busy_count].end = busy[busy_count].start + bmod->numnodes * sizeof( dnode32_t );
+						busy_count++;
+					}
+				}
+				else if( bmod->nodes && Mod_GCPointerInBuffer( bmod->nodes, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+				{
+					const byte *p = (const byte *)bmod->nodes;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + bmod->numnodes * sizeof( dnode_t );
+					busy_count++;
+				}
+
+				for( size_t i = 0; i < busy_count; i++ )
+				{
+					for( size_t j = i + 1; j < busy_count; j++ )
+					{
+						if( busy[j].start < busy[i].start )
+						{
+							gc_bsp_busy_range_t tmp = busy[i];
+							busy[i] = busy[j];
+							busy[j] = tmp;
+						}
+					}
+				}
+
+				out = (mnode_t *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, node_bytes, 32 );
+				if( out )
+				{
+					memset( out, 0, node_bytes );
+					Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, (byte *)out, node_bytes );
+					Con_Reportf( "Xash3D GameCube: world nodes using BSP scratch %s\n", Q_memprint( node_bytes ));
+				}
+			}
+
+			if( !out )
+			{
+				out = (mnode_t *)malloc( node_bytes );
+				if( out )
+				{
+					memset( out, 0, node_bytes );
+					gc_nodes_malloc_block = out;
+					Con_Reportf( "Xash3D GameCube: world nodes via malloc %s\n", Q_memprint( node_bytes ));
+				}
+			}
 		}
-	}
-#endif
+	#endif
 	if( !out )
 		out = (mnode_t *)Mem_Calloc( mod->mempool, bmod->numnodes * sizeof( *out ));
 	mod->nodes = out;
@@ -4101,6 +4222,15 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 
 		free( gc_marksurfaces_malloc_block );
 		gc_marksurfaces_malloc_block = NULL;
+	}
+
+	if( gc_leafs_malloc_block )
+	{
+		if( mod && mod->leafs == (mleaf_t *)gc_leafs_malloc_block )
+			mod->leafs = NULL;
+
+		free( gc_leafs_malloc_block );
+		gc_leafs_malloc_block = NULL;
 	}
 
 	if( gc_surfaces_malloc_block )
@@ -4465,7 +4595,99 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 	mleaf_t	*out;
 	int	visclusters = 0;
 
+#if XASH_GAMECUBE
+	{
+		const size_t leaf_bytes = bmod->numleafs * sizeof( *out );
+		gc_bsp_busy_range_t busy[5];
+		size_t busy_count = 0;
+
+		if( GC_MapLoadMemoryOpt() && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+		{
+			if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->surfaces;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start
+					+ bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+				busy_count++;
+			}
+
+			if( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->texinfo;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + mod->numtexinfo * sizeof( mtexinfo_t );
+				busy_count++;
+			}
+
+			if( mod->marksurfaces && Mod_GCPointerInBuffer( mod->marksurfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->marksurfaces;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + mod->nummarksurfaces * sizeof( *mod->marksurfaces );
+				busy_count++;
+			}
+
+			if( bmod->version == QBSP2_VERSION )
+			{
+				if( bmod->leafs32 && Mod_GCPointerInBuffer( bmod->leafs32, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+				{
+					const byte *p = (const byte *)bmod->leafs32;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + bmod->numleafs * sizeof( dleaf32_t );
+					busy_count++;
+				}
+			}
+			else if( bmod->leafs && Mod_GCPointerInBuffer( bmod->leafs, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)bmod->leafs;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + bmod->numleafs * sizeof( dleaf_t );
+				busy_count++;
+			}
+
+			for( size_t i = 0; i < busy_count; i++ )
+			{
+				for( size_t j = i + 1; j < busy_count; j++ )
+				{
+					if( busy[j].start < busy[i].start )
+					{
+						gc_bsp_busy_range_t tmp = busy[i];
+						busy[i] = busy[j];
+						busy[j] = tmp;
+					}
+				}
+			}
+
+			out = (mleaf_t *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, leaf_bytes, 32 );
+			if( out )
+			{
+				memset( out, 0, leaf_bytes );
+				Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, (byte *)out, leaf_bytes );
+				Con_Reportf( "Xash3D GameCube: world leafs using BSP scratch %s\n", Q_memprint( leaf_bytes ));
+			}
+		}
+
+		if( !out )
+		{
+			out = (mleaf_t *)malloc( leaf_bytes );
+			if( out )
+			{
+				gc_leafs_malloc_block = out;
+				memset( out, 0, leaf_bytes );
+				Con_Reportf( "Xash3D GameCube: world leafs via malloc %s\n", Q_memprint( leaf_bytes ));
+			}
+			else
+			{
+				out = (mleaf_t *)Mem_Calloc( mod->mempool, leaf_bytes );
+			}
+		}
+
+		mod->leafs = out;
+	}
+#else
 	mod->leafs = out = (mleaf_t *)Mem_Calloc( mod->mempool, bmod->numleafs * sizeof( *out ));
+#endif
 	mod->numleafs = bmod->numleafs;
 
 	if( bmod->isworld )
