@@ -2179,10 +2179,121 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 	}
 	else
 	{
-		mclipnode16_t *out;
+		mclipnode16_t *out = NULL;
 		mnode_t *in = mod->nodes;
 
-		hull->clipnodes16 = out = Mem_Malloc( mod->mempool, mod->numnodes * sizeof( *hull->clipnodes16 ));
+#if XASH_GAMECUBE
+		if( GC_MapLoadMemoryOpt() && bmod->isworld && gc_retain_bsp_source_buffer
+			&& gc_bsp_scratch_base && gc_bsp_scratch_size && mod->numnodes > 0 )
+		{
+			const size_t hull0_bytes = mod->numnodes * sizeof( *hull->clipnodes16 );
+			gc_bsp_busy_range_t busy[10];
+			size_t busy_count = 0;
+
+			if( mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->surfaces;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start
+					+ bmod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+				busy_count++;
+			}
+
+			if( mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->texinfo;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + mod->numtexinfo * sizeof( mtexinfo_t );
+				busy_count++;
+			}
+
+			if( mod->marksurfaces && Mod_GCPointerInBuffer( mod->marksurfaces, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->marksurfaces;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + mod->nummarksurfaces * sizeof( *mod->marksurfaces );
+				busy_count++;
+			}
+
+			if( mod->leafs && Mod_GCPointerInBuffer( mod->leafs, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->leafs;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + mod->numleafs * sizeof( *mod->leafs );
+				busy_count++;
+			}
+
+			if( mod->nodes && Mod_GCPointerInBuffer( mod->nodes, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->nodes;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + mod->numnodes * sizeof( *mod->nodes );
+				busy_count++;
+			}
+
+			if( mod->clipnodes16 && Mod_GCPointerInBuffer( mod->clipnodes16, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+			{
+				const byte *p = (const byte *)mod->clipnodes16;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + mod->numclipnodes * sizeof( *mod->clipnodes16 );
+				busy_count++;
+			}
+
+			if( Mod_GCPointerInBuffer( bmod->lightdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->lightdatasize )
+			{
+				const byte *p = (const byte *)bmod->lightdata;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + bmod->lightdatasize;
+				busy_count++;
+			}
+
+			if( Mod_GCPointerInBuffer( bmod->deluxdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->deluxdatasize )
+			{
+				const byte *p = (const byte *)bmod->deluxdata;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + bmod->deluxdatasize;
+				busy_count++;
+			}
+
+			if( Mod_GCPointerInBuffer( bmod->shadowdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->shadowdatasize )
+			{
+				const byte *p = (const byte *)bmod->shadowdata;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + bmod->shadowdatasize;
+				busy_count++;
+			}
+
+			if( Mod_GCPointerInBuffer( bmod->rgblightdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->rgblightdatasize )
+			{
+				const byte *p = (const byte *)bmod->rgblightdata;
+				busy[busy_count].start = p - gc_bsp_scratch_base;
+				busy[busy_count].end = busy[busy_count].start + bmod->rgblightdatasize;
+				busy_count++;
+			}
+
+			for( size_t i = 0; i < busy_count; i++ )
+			{
+				for( size_t j = i + 1; j < busy_count; j++ )
+				{
+					if( busy[j].start < busy[i].start )
+					{
+						gc_bsp_busy_range_t tmp = busy[i];
+						busy[i] = busy[j];
+						busy[j] = tmp;
+					}
+				}
+			}
+
+			out = (mclipnode16_t *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size, busy, busy_count, hull0_bytes, 32 );
+			if( out )
+			{
+				hull->clipnodes16 = out;
+				Con_Reportf( "Xash3D GameCube: world hull0 using BSP scratch %s\n", Q_memprint( hull0_bytes ));
+			}
+		}
+#endif
+		if( !out )
+			hull->clipnodes16 = out = Mem_Malloc( mod->mempool, mod->numnodes * sizeof( *hull->clipnodes16 ));
 
 		for( int i = 0; i < mod->numnodes; i++, out++, in++ )
 		{
@@ -4007,13 +4118,13 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 		if( GC_MapLoadMemoryOpt() && mod->type == mod_brush && bmod->isworld && bmod->numnodes > 0 )
 		{
 			size_t node_bytes = bmod->numnodes * sizeof( *out );
-			gc_bsp_busy_range_t busy[6];
+			gc_bsp_busy_range_t busy[9];
 			size_t busy_count = 0;
-			const qboolean use_bsp_node_scratch = false;
+			const qboolean use_bsp_node_scratch = true;
 
-			/* Scratch-backed nodes still destabilize some retained-staging maps.
-			 * Keep nodes on owned memory while other large world lumps remain in
-			 * BSP scratch to balance stability against MEM1 pressure. */
+			/* Nodes are one of the last world lumps still stressing MEM1 on large
+			 * retained-staging maps. Keep them on BSP scratch when we can, while
+			 * explicitly avoiding deferred lighting lumps that will be needed later. */
 			if( use_bsp_node_scratch && gc_retain_bsp_source_buffer
 				&& gc_bsp_scratch_base && gc_bsp_scratch_size )
 			{
@@ -4047,6 +4158,38 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 					const byte *p = (const byte *)mod->leafs;
 					busy[busy_count].start = p - gc_bsp_scratch_base;
 					busy[busy_count].end = busy[busy_count].start + mod->numleafs * sizeof( *mod->leafs );
+					busy_count++;
+				}
+
+				if( Mod_GCPointerInBuffer( bmod->lightdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->lightdatasize )
+				{
+					const byte *p = (const byte *)bmod->lightdata;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + bmod->lightdatasize;
+					busy_count++;
+				}
+
+				if( Mod_GCPointerInBuffer( bmod->deluxdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->deluxdatasize )
+				{
+					const byte *p = (const byte *)bmod->deluxdata;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + bmod->deluxdatasize;
+					busy_count++;
+				}
+
+				if( Mod_GCPointerInBuffer( bmod->shadowdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->shadowdatasize )
+				{
+					const byte *p = (const byte *)bmod->shadowdata;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + bmod->shadowdatasize;
+					busy_count++;
+				}
+
+				if( Mod_GCPointerInBuffer( bmod->rgblightdata, gc_bsp_scratch_base, gc_bsp_scratch_size ) && bmod->rgblightdatasize )
+				{
+					const byte *p = (const byte *)bmod->rgblightdata;
+					busy[busy_count].start = p - gc_bsp_scratch_base;
+					busy[busy_count].end = busy[busy_count].start + bmod->rgblightdatasize;
 					busy_count++;
 				}
 
@@ -4264,16 +4407,13 @@ static void *Mod_GCAllocBspScratch( byte *base, size_t size, const gc_bsp_busy_r
 	alloc_size = ALIGN( alloc_size, align );
 	cursor = size;
 
-	for( size_t i = 0; i <= busy_count; i++ )
+	for( size_t i = busy_count; i > 0; i-- )
 	{
-		size_t gap_start = 0;
+		const gc_bsp_busy_range_t *range = &busy[i - 1];
+		size_t gap_start = range->end;
 		size_t gap_end = cursor;
 
-		if( i < busy_count )
-		{
-			gap_start = busy[i].end;
-			cursor = busy[i].start;
-		}
+		cursor = range->start;
 
 		if( gap_end <= gap_start )
 			continue;
@@ -4290,6 +4430,20 @@ static void *Mod_GCAllocBspScratch( byte *base, size_t size, const gc_bsp_busy_r
 		best_end = gap_end_aligned;
 		best_start = best_end - alloc_size;
 		break;
+	}
+
+	if( best_end <= best_start )
+	{
+		size_t gap_start = 0;
+		size_t gap_end = cursor;
+		size_t gap_start_aligned = ALIGN( gap_start, align );
+		size_t gap_end_aligned = Mod_GCAlignDown( gap_end, align );
+
+		if( gap_end_aligned > gap_start_aligned && gap_end_aligned - gap_start_aligned >= alloc_size )
+		{
+			best_end = gap_end_aligned;
+			best_start = best_end - alloc_size;
+		}
 	}
 
 	if( best_end <= best_start )
@@ -5121,9 +5275,22 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 
 		Con_Reportf( "Xash3D GameCube: using compact clipnodes count=%zu\n", bmod->numclipnodes );
 		mod->numclipnodes = bmod->numclipnodes;
-		mod->clipnodes16 = Mem_Malloc( mod->mempool, clip_sz );
-		memcpy( mod->clipnodes16, bmod->clipnodes, clip_sz );
-		Mod_GCFreeBspPin( (void **)&bmod->clipnodes );
+
+		/* GoldSrc dclipnode_t and runtime mclipnode16_t share the same packed
+		 * layout. When retained staging is already keeping the BSP source alive,
+		 * alias the lump directly instead of spending another MEM1 copy. */
+		if( GC_MapLoadMemoryOpt() && gc_retain_bsp_source_buffer && bmod->clipnodes )
+		{
+			mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
+			Con_Reportf( "Xash3D GameCube: compact clipnodes aliased from BSP source %s\n",
+				Q_memprint( clip_sz ));
+		}
+		else
+		{
+			mod->clipnodes16 = Mem_Malloc( mod->mempool, clip_sz );
+			memcpy( mod->clipnodes16, bmod->clipnodes, clip_sz );
+			Mod_GCFreeBspPin( (void **)&bmod->clipnodes );
+		}
 		return;
 	}
 #endif
@@ -5683,12 +5850,6 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadSurfaces( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel surfaces ready\n" );
-	Con_Reportf( "Xash3D GameCube: bmodel lighting begin\n" );
-#endif
-	Mod_LoadLighting( mod, bmod );
-#if XASH_GAMECUBE
-	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
-	Mod_GCFreeBspPin( (void **)&bmod->lightdata );
 	Mod_GCEnsureBspLump( mod, bmod, LUMP_MARKSURFACES );
 #endif
 	Mod_LoadMarkSurfaces( mod, bmod );
@@ -5729,6 +5890,12 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_SetupSubmodels( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel submodels ready\n" );
+	Con_Reportf( "Xash3D GameCube: bmodel lighting begin\n" );
+#endif
+	Mod_LoadLighting( mod, bmod );
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
+	Mod_GCFreeBspPin( (void **)&bmod->lightdata );
 #endif
 
 	if( isworld )

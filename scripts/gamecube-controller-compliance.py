@@ -88,8 +88,8 @@ def main() -> int:
 	))
 	checks.append(Check(
 		"A/B/Start mapping",
-		"PASS" if contains_all(source, ("PAD_BUTTON_A", "K_B_BUTTON", "PAD_BUTTON_B", "K_A_BUTTON", "PAD_BUTTON_START", "K_PAUSE")) else "FAIL",
-		"keeps A confirm/use, B cancel/back, and Start pause consistent with existing engine mapping",
+		"PASS" if contains_all(source, ("PAD_BUTTON_A", "K_B_BUTTON", "PAD_BUTTON_B", "K_A_BUTTON", "PAD_BUTTON_START", "K_START_BUTTON")) else "FAIL",
+		"keeps A confirm/use, B cancel/back, and Start routed through the engine gamepad start key",
 	))
 	checks.append(Check(
 		"hardware protocol coverage",

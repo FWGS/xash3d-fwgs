@@ -60,16 +60,18 @@ typedef struct gc_button_map_s
 
 static const gc_button_map_t gc_buttons[] =
 {
-	{ PAD_BUTTON_A,     K_B_BUTTON,     "A",     "confirm/use/jump" },
-	{ PAD_BUTTON_B,     K_A_BUTTON,     "B",     "cancel/attack" },
-	{ PAD_BUTTON_X,     K_Y_BUTTON,     "X",     "alternate" },
-	{ PAD_BUTTON_Y,     K_X_BUTTON,     "Y",     "alternate" },
-	{ PAD_BUTTON_START, K_PAUSE,        "Start", "pause/menu" },
-	{ PAD_TRIGGER_Z,    K_Z_BUTTON,     "Z",     "crouch/flashlight" },
-	{ PAD_BUTTON_UP,    K_MWHEELUP,     "D-Up",  "prev weapon" },
-	{ PAD_BUTTON_DOWN,  K_F10,          "D-Down","console toggle" },
-	{ PAD_BUTTON_LEFT,  K_LEFTARROW,    "D-Left","menu left" },
-	{ PAD_BUTTON_RIGHT, K_MWHEELDOWN,   "D-Right","next weapon/menu right" },
+	{ PAD_BUTTON_A,     K_B_BUTTON,     "A",     "use/confirm" },
+	{ PAD_BUTTON_B,     K_A_BUTTON,     "B",     "jump/back" },
+	{ PAD_BUTTON_X,     K_Y_BUTTON,     "X",     "flashlight" },
+	{ PAD_BUTTON_Y,     K_X_BUTTON,     "Y",     "reload" },
+	{ PAD_BUTTON_START, K_START_BUTTON, "Start", "pause/menu" },
+	{ PAD_TRIGGER_Z,    K_Z_BUTTON,     "Z",     "last weapon" },
+	{ PAD_TRIGGER_L,    K_L1_BUTTON,    "L",     "duck" },
+	{ PAD_TRIGGER_R,    K_R1_BUTTON,    "R",     "attack" },
+	{ PAD_BUTTON_UP,    K_DPAD_UP,      "D-Up",  "spray" },
+	{ PAD_BUTTON_DOWN,  K_DPAD_DOWN,    "D-Down","last weapon" },
+	{ PAD_BUTTON_LEFT,  K_DPAD_LEFT,    "D-Left","previous weapon" },
+	{ PAD_BUTTON_RIGHT, K_DPAD_RIGHT,   "D-Right","next weapon" },
 };
 
 static u16 prev_buttons;
@@ -82,6 +84,31 @@ static qboolean gc_probe_synthetic;
 static int gc_active_port = -1;
 static u32 gc_controller_type;
 static convar_t *gc_pad_port;
+static qboolean gc_bindings_applied;
+
+typedef struct gc_default_bind_s
+{
+	int key;
+	const char *binding;
+} gc_default_bind_t;
+
+static const gc_default_bind_t gc_default_binds[] =
+{
+	{ K_A_BUTTON, "+jump" },
+	{ K_B_BUTTON, "+use" },
+	{ K_X_BUTTON, "+reload" },
+	{ K_Y_BUTTON, "impulse 100" },
+	{ K_START_BUTTON, "cancelselect" },
+	{ K_DPAD_UP, "impulse 201" },
+	{ K_DPAD_DOWN, "lastinv" },
+	{ K_DPAD_LEFT, "invprev" },
+	{ K_DPAD_RIGHT, "invnext" },
+	{ K_L1_BUTTON, "+duck" },
+	{ K_R1_BUTTON, "+attack" },
+	{ K_JOY1, "+speed" },
+	{ K_JOY2, "+attack2" },
+	{ K_Z_BUTTON, "lastinv" },
+};
 
 static qboolean GC_IsGameCubeControllerType( u32 type )
 {
@@ -243,6 +270,30 @@ static void GC_LogButtonMap( void )
 	}
 }
 
+static void GC_ApplyDefaultBindings( void )
+{
+	size_t applied = 0;
+
+	if( gc_bindings_applied || !host.config_executed )
+		return;
+
+	for( size_t i = 0; i < ARRAYSIZE( gc_default_binds ); i++ )
+	{
+		const gc_default_bind_t *bind = &gc_default_binds[i];
+		const char *current = Key_GetBinding( bind->key );
+
+		if( !COM_StringEmptyOrNULL( current ))
+			continue;
+
+		Key_SetBinding( bind->key, bind->binding );
+		applied++;
+	}
+
+	gc_bindings_applied = true;
+	Con_Reportf( "Xash3D GameCube: default controller binds ready port=%d applied=%zu\n",
+		GC_HasForcedPreferredPort() ? GC_PreferredPort() + 1 : 1, applied );
+}
+
 static void GC_UpdateButtons( u16 held )
 {
 	size_t i;
@@ -369,6 +420,7 @@ void Platform_RunEvents( void )
 	PAD_ScanPads();
 	PAD_Read( gc_pad );
 	PAD_Clamp( gc_pad );
+	GC_ApplyDefaultBindings();
 
 	/* Automated Dolphin probes run without real SI packets. Once we switch to
 	 * the synthetic neutral pad, keep that state sticky instead of flapping
@@ -462,8 +514,9 @@ int Platform_JoyInit( void )
 	int port;
 
 	PAD_Init();
-	gc_pad_port = Cvar_Get( "gc_pad_port", "0", FCVAR_ARCHIVE,
+	gc_pad_port = Cvar_Get( "gc_pad_port", "1", FCVAR_ARCHIVE,
 		"Preferred GameCube controller port: 0=auto, 1-4=force preferred port" );
+	gc_bindings_applied = false;
 	GC_LogButtonMap();
 	if( GC_HasForcedPreferredPort( ))
 	{
