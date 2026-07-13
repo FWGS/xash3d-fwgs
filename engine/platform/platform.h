@@ -112,6 +112,7 @@ void PSVita_Shutdown( void );
 qboolean PSVita_GetBasePath( char *buf, const size_t buflen );
 int PSVita_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 void PSVita_InputUpdate( void );
+void PSVita_Exit( int code ) __attribute__((noreturn));
 #endif
 
 #if XASH_DOS

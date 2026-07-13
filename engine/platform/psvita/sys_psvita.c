@@ -184,6 +184,27 @@ void PSVita_Shutdown( void )
 	vrtld_quit( );
 }
 
+/*
+===========
+PSVita_Exit
+
+Terminate the process directly instead of returning up through main() and the
+C runtime's exit sequence. Xash unloads the game libraries (client/menu/server)
+during shutdown, but any function-local static destructor they registered via
+atexit() cannot be removed on dlclose (it has no DSO handle), so it is left
+dangling in the newlib exit list. Returning normally would make __call_exitprocs
+call that pointer into now-unmapped memory -> prefetch abort on Quit.
+sceKernelExitProcess() skips the atexit chain entirely, which is the correct
+way to terminate a Vita application anyway.
+===========
+*/
+void PSVita_Exit( int code )
+{
+	sceKernelExitProcess( code );
+	// not reached
+	for( ;; );
+}
+
 qboolean PSVita_GetBasePath( char *buf, const size_t buflen )
 {
 	// check if a xash3d folder exists on one of these drives

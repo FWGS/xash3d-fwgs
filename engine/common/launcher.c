@@ -45,6 +45,17 @@ int main( int argc, char **argv )
 	szArgc = argc;
 	szArgv = argv;
 #endif // XASH_PSVITA
-	return Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, Sys_ChangeGame );
+
+	{
+		int ret = Host_Main( szArgc, szArgv, XASH_GAMEDIR, 0, Sys_ChangeGame );
+#if XASH_PSVITA
+		// Returning from main() on the Vita runs the C runtime's atexit chain
+		// (__call_exitprocs). By then the game libraries have been dlclose'd, so
+		// any atexit/static-destructor entry pointing into them dangles and
+		// crashes on Quit. Exit the process directly, skipping atexit.
+		PSVita_Exit( ret );
+#endif
+		return ret;
+	}
 }
 #endif // XASH_ENABLE_MAIN
