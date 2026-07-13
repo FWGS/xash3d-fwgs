@@ -4011,8 +4011,9 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 			size_t busy_count = 0;
 			const qboolean use_bsp_node_scratch = false;
 
-			/* Keep world node storage off BSP scratch until shared-child parent
-			 * linking is fully validated on retained-staging maps. */
+			/* Scratch-backed nodes still destabilize some retained-staging maps.
+			 * Keep nodes on owned memory while other large world lumps remain in
+			 * BSP scratch to balance stability against MEM1 pressure. */
 			if( use_bsp_node_scratch && gc_retain_bsp_source_buffer
 				&& gc_bsp_scratch_base && gc_bsp_scratch_size )
 			{
@@ -4636,12 +4637,12 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 			memcpy( pinned, mod->texinfo, texinfo_bytes );
 			texinfo_heap_owned = true;
 		}
-		else
-		{
-			pinned = Mem_Malloc( mod->mempool, texinfo_bytes );
-			if( pinned )
-				memcpy( pinned, mod->texinfo, texinfo_bytes );
-		}
+			else
+			{
+				pinned = Mem_TryMalloc( mod->mempool, texinfo_bytes );
+				if( pinned )
+					memcpy( pinned, mod->texinfo, texinfo_bytes );
+			}
 
 		if( !pinned )
 		{
@@ -4777,10 +4778,10 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 		const size_t leaf_bytes = bmod->numleafs * sizeof( *out );
 			gc_bsp_busy_range_t busy[5];
 			size_t busy_count = 0;
-			const qboolean use_bsp_leaf_scratch = false;
+			const qboolean use_bsp_leaf_scratch = true;
 
-			/* Keep world leaf storage off BSP scratch until overlap handling is
-			 * proven across larger campaign maps. */
+			/* Retained-staging maps need scratch-backed leaf storage to stay
+			 * within MEM1; the parent walk now guards against overlap fallout. */
 			if( use_bsp_leaf_scratch && GC_MapLoadMemoryOpt()
 				&& gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 			{
