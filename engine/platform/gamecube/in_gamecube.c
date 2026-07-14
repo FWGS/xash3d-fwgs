@@ -61,15 +61,15 @@ typedef struct gc_button_map_s
 static const gc_button_map_t gc_buttons[] =
 {
 	{ PAD_BUTTON_A,     K_B_BUTTON,     "A",     "use/confirm" },
-	{ PAD_BUTTON_B,     K_A_BUTTON,     "B",     "jump/back" },
-	{ PAD_BUTTON_X,     K_Y_BUTTON,     "X",     "flashlight" },
-	{ PAD_BUTTON_Y,     K_X_BUTTON,     "Y",     "reload" },
+	{ PAD_BUTTON_B,     K_A_BUTTON,     "B",     "melee attack" },
+	{ PAD_BUTTON_X,     K_Y_BUTTON,     "X",     "strafe" },
+	{ PAD_BUTTON_Y,     K_X_BUTTON,     "Y",     "jump" },
 	{ PAD_BUTTON_START, K_START_BUTTON, "Start", "pause/menu" },
-	{ PAD_TRIGGER_Z,    K_Z_BUTTON,     "Z",     "last weapon" },
+	{ PAD_TRIGGER_Z,    K_Z_BUTTON,     "Z",     "reload" },
 	{ PAD_TRIGGER_L,    K_L1_BUTTON,    "L",     "duck" },
 	{ PAD_TRIGGER_R,    K_R1_BUTTON,    "R",     "attack" },
-	{ PAD_BUTTON_UP,    K_DPAD_UP,      "D-Up",  "spray" },
-	{ PAD_BUTTON_DOWN,  K_DPAD_DOWN,    "D-Down","last weapon" },
+	{ PAD_BUTTON_UP,    K_DPAD_UP,      "D-Up",  "previous weapon" },
+	{ PAD_BUTTON_DOWN,  K_DPAD_DOWN,    "D-Down","next weapon" },
 	{ PAD_BUTTON_LEFT,  K_DPAD_LEFT,    "D-Left","previous weapon" },
 	{ PAD_BUTTON_RIGHT, K_DPAD_RIGHT,   "D-Right","next weapon" },
 };
@@ -85,6 +85,10 @@ static int gc_active_port = -1;
 static u32 gc_controller_type;
 static convar_t *gc_pad_port;
 static qboolean gc_bindings_applied;
+static int gc_probe_action_stage;
+static double gc_probe_action_time;
+static qboolean gc_probe_action_logged;
+static qboolean gc_probe_action_complete_logged;
 
 typedef struct gc_default_bind_s
 {
@@ -94,20 +98,20 @@ typedef struct gc_default_bind_s
 
 static const gc_default_bind_t gc_default_binds[] =
 {
-	{ K_A_BUTTON, "+jump" },
+	{ K_A_BUTTON, "slot1; +attack" },
 	{ K_B_BUTTON, "+use" },
-	{ K_X_BUTTON, "+reload" },
-	{ K_Y_BUTTON, "impulse 100" },
+	{ K_X_BUTTON, "+jump" },
+	{ K_Y_BUTTON, "+strafe" },
 	{ K_START_BUTTON, "cancelselect" },
-	{ K_DPAD_UP, "impulse 201" },
-	{ K_DPAD_DOWN, "lastinv" },
+	{ K_DPAD_UP, "invprev" },
+	{ K_DPAD_DOWN, "invnext" },
 	{ K_DPAD_LEFT, "invprev" },
 	{ K_DPAD_RIGHT, "invnext" },
 	{ K_L1_BUTTON, "+duck" },
 	{ K_R1_BUTTON, "+attack" },
 	{ K_JOY1, "+speed" },
 	{ K_JOY2, "+attack2" },
-	{ K_Z_BUTTON, "lastinv" },
+	{ K_Z_BUTTON, "+reload" },
 };
 
 static qboolean GC_IsGameCubeControllerType( u32 type )
@@ -368,6 +372,10 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
 		prev_buttons = 0;
 		prev_side = prev_fwd = prev_pitch = prev_yaw = prev_lt = prev_rt = 0;
 		gc_no_controller_logged = false;
+		gc_probe_action_stage = 0;
+		gc_probe_action_time = 0.0;
+		gc_probe_action_logged = false;
+		gc_probe_action_complete_logged = false;
 		GC_LogControllerState( port, type, true );
 	}
 	else
@@ -410,6 +418,54 @@ static void GC_EnableProbeInputFallback( void )
 	gc_input_logged = true;
 }
 
+static u16 GC_ProbeSyntheticHeldButtons( void )
+{
+	if( !gc_probe_synthetic || !Sys_CheckParm( "-gcnewgame" ))
+		return 0;
+
+	if( !SV_Active() )
+		return 0;
+
+	if( !gc_probe_action_logged )
+	{
+		gc_probe_action_logged = true;
+		gc_probe_action_stage = 0;
+		Con_Reportf( "Xash3D GameCube: probe gameplay input begin\n" );
+	}
+
+	switch( gc_probe_action_stage )
+	{
+	case 0:
+		gc_probe_action_stage = 1;
+		Con_Reportf( "Xash3D GameCube: probe gameplay action attack\n" );
+		return PAD_TRIGGER_R;
+	case 1:
+		gc_probe_action_stage = 2;
+		return 0;
+	case 2:
+		gc_probe_action_stage = 3;
+		Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
+		return PAD_BUTTON_B;
+	case 3:
+		gc_probe_action_stage = 4;
+		return 0;
+	case 4:
+		gc_probe_action_stage = 5;
+		Con_Reportf( "Xash3D GameCube: probe gameplay action use\n" );
+		return PAD_BUTTON_A;
+	case 5:
+		gc_probe_action_stage = 6;
+		if( !gc_probe_action_complete_logged )
+		{
+			gc_probe_action_complete_logged = true;
+			Con_Reportf( "Xash3D GameCube: probe gameplay input ready\n" );
+		}
+		return 0;
+	default:
+		return 0;
+	}
+}
+
 void Platform_RunEvents( void )
 {
 	int port;
@@ -438,6 +494,8 @@ void Platform_RunEvents( void )
 			Con_Reportf( "Xash3D GameCube: input polling active\n" );
 			gc_input_logged = true;
 		}
+		held = GC_ProbeSyntheticHeldButtons();
+		GC_UpdateButtons( held );
 		return;
 	}
 
@@ -517,6 +575,10 @@ int Platform_JoyInit( void )
 	gc_pad_port = Cvar_Get( "gc_pad_port", "1", FCVAR_ARCHIVE,
 		"Preferred GameCube controller port: 0=auto, 1-4=force preferred port" );
 	gc_bindings_applied = false;
+	gc_probe_action_stage = 0;
+	gc_probe_action_time = 0.0;
+	gc_probe_action_logged = false;
+	gc_probe_action_complete_logged = false;
 	GC_LogButtonMap();
 	if( GC_HasForcedPreferredPort( ))
 	{

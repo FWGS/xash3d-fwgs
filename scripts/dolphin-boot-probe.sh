@@ -76,6 +76,7 @@ GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 RETAIL_MENU_MARKER="Xash3D GameCube: retail menu steam background ready"
+RETAIL_MENU_INTERACTIVE_MARKER="Xash3D GameCube: retail menu button text ready"
 INTRO_MARKER="Xash3D GameCube: intro AVI decoded first frame"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 PLAY_READY_MARKER="Xash3D GameCube: play start ready ${SMOKE_MAP}"
@@ -284,12 +285,13 @@ if (( GC_FATAL_TEST )) && probe_log_has "$G37_FATAL_MARKER" && probe_log_has "$G
 	finalize_probe g37_verified 0
 fi
 
-if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( READY_FOUND )) && probe_log_has "$RETAIL_MENU_MARKER" && (( ! DOLPHIN_NEWGAME )); then
+if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( READY_FOUND )) && (( ! DOLPHIN_NEWGAME )) && \
+	( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" ); then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."
 	if probe_log_has "$INTRO_MARKER"; then
-		echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached menu on GameCube."
+		echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached the interactive menu on GameCube."
 	else
-		echo "RETAIL_READY: Half-Life retail boot reached menu on GameCube (intro AVI marker not seen)."
+		echo "RETAIL_READY: Half-Life retail boot reached the interactive menu on GameCube (intro AVI marker not seen)."
 	fi
 	probe_report_g45
 	echo "Logs: $LOG_DIR"

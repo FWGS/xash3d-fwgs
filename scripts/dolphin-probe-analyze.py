@@ -38,6 +38,11 @@ MARKERS = {
 G45_READY_RE = re.compile(
 	r"Xash3D GameCube: G45 controller ready port=(\d+) type=(\S+)"
 )
+PROBE_ACTION_MARKERS = (
+	"Xash3D GameCube: probe gameplay action attack",
+	"Xash3D GameCube: probe gameplay action jump",
+	"Xash3D GameCube: probe gameplay action use",
+)
 
 
 def read_log_text(log_dir: Path) -> str:
@@ -162,6 +167,15 @@ def classify_g45(
 	return "FAIL", "controller readiness markers missing"
 
 
+def probe_action_status(text: str) -> tuple[str, str]:
+	seen = [marker.rsplit(" ", 1)[1] for marker in PROBE_ACTION_MARKERS if marker in text]
+	if len(seen) == len(PROBE_ACTION_MARKERS):
+		return "PASS", ",".join(seen)
+	if seen:
+		return "WEAK", ",".join(seen)
+	return "WAIT", "none"
+
+
 def visual_status(text: str) -> str:
 	phase_text = probe_phase_text(text, world_render="-gcworldrender" in text)
 
@@ -270,6 +284,7 @@ def main() -> int:
 		world_render_ready,
 	)
 	g45_status, g45_note = classify_g45(text, map_loaded, input_active, guest_error)
+	action_status, action_note = probe_action_status(text)
 	steady = [value for value in frame_times if value > 0.0] or frame_times
 	avg = mean(steady) if steady else 0.0
 	p95 = percentile(steady, 95.0) if steady else 0.0
@@ -289,6 +304,8 @@ def main() -> int:
 		f"G45_SUMMARY: {g45_note}; map_loaded={'yes' if map_loaded else 'no'}; "
 		f"input={'yes' if input_active else 'no'}"
 	)
+	print(f"G45_ACTION_STATUS: {action_status}")
+	print(f"G45_ACTION_SUMMARY: {action_note}")
 	print(f"VISUAL_STATUS: {visual}")
 
 	probe_status = args.probe_status.lower()
@@ -315,6 +332,7 @@ def main() -> int:
 		analysis = (
 			f"Probe status={probe_status}. {g36_note}. "
 			f"G45={g45_status} ({g45_note}). "
+			f"G45_ACTION={action_status} ({action_note}). "
 			f"Captured {len(frame_times)} frame timing sample(s)."
 		)
 		write_harness_latest(

@@ -69,15 +69,15 @@ probe_wait_flatpak() {
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi
-		elif [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && probe_log_has "$RETAIL_MENU_MARKER" && probe_log_has "$READY_MARKER"; then
+		elif [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && probe_log_has "$READY_MARKER" && \
+			( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" ); then
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
-			if (( FRAME_SAMPLE_SEC <= 0 || probe_log_has "$INPUT_MARKER" )); then
-				if (( FRAME_SAMPLE_SEC > 0 && probe_log_has "$INPUT_MARKER" )); then
-					(( retail_ready_at == 0 )) && retail_ready_at=$(date +%s)
-					if (( $(date +%s) >= retail_ready_at + FRAME_SAMPLE_SEC )); then
-						DOLPHIN_EXIT=0; break
-					fi
-				else
+			if (( FRAME_SAMPLE_SEC <= 0 )); then
+				DOLPHIN_EXIT=0; break
+			fi
+			if probe_log_has "$INPUT_MARKER"; then
+				(( retail_ready_at == 0 )) && retail_ready_at=$(date +%s)
+				if (( $(date +%s) >= retail_ready_at + FRAME_SAMPLE_SEC )); then
 					DOLPHIN_EXIT=0; break
 				fi
 			fi
@@ -117,15 +117,15 @@ probe_wait_native() {
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi
-		elif [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && probe_log_has "$RETAIL_MENU_MARKER" && probe_log_has "$READY_MARKER"; then
+		elif [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && probe_log_has "$READY_MARKER" && \
+			( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" ); then
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
-			if (( FRAME_SAMPLE_SEC <= 0 || probe_log_has "$INPUT_MARKER" )); then
-				if (( FRAME_SAMPLE_SEC > 0 && probe_log_has "$INPUT_MARKER" )); then
-					(( retail_ready_at == 0 )) && retail_ready_at=$(date +%s)
-					if (( $(date +%s) >= retail_ready_at + FRAME_SAMPLE_SEC )); then
-						DOLPHIN_EXIT=0; break
-					fi
-				else
+			if (( FRAME_SAMPLE_SEC <= 0 )); then
+				DOLPHIN_EXIT=0; break
+			fi
+			if probe_log_has "$INPUT_MARKER"; then
+				(( retail_ready_at == 0 )) && retail_ready_at=$(date +%s)
+				if (( $(date +%s) >= retail_ready_at + FRAME_SAMPLE_SEC )); then
 					DOLPHIN_EXIT=0; break
 				fi
 			fi

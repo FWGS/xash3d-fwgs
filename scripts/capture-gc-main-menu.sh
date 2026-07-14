@@ -27,15 +27,24 @@ python3 scripts/build-gamecube-disc.py \
 	--output OUT/xash3d-gc.iso \
 	--skip-startup-vids
 
+echo "==> Rendering baked menu preview..."
+python3 scripts/render-gc-menu-screenshot.py --data "$DATA" --out-dir "$OUT_DIR"
+
 echo "==> Booting retail menu in Dolphin..."
 export DOLPHIN_RETAIL=1
 export DOLPHIN_SKIP_BUILD=1
 export DOLPHIN_CAPTURE_MENU=1
-export DOLPHIN_TIMEOUT="${DOLPHIN_MENU_TIMEOUT:-90}"
-export GC_BOOT_PROBE_TIMEOUT="${GC_BOOT_PROBE_TIMEOUT:-120}"
+export DOLPHIN_TIMEOUT="${DOLPHIN_MENU_TIMEOUT:-150}"
+export GC_BOOT_PROBE_TIMEOUT="${GC_BOOT_PROBE_TIMEOUT:-180}"
+set +e
 scripts/dolphin-boot-probe.sh OUT/xash3d-gc.iso 2>&1 | tee "$LOG_DIR/probe.log"
+PROBE_RC=${PIPESTATUS[0]}
+set -e
 
-python3 scripts/render-gc-menu-screenshot.py --data "$DATA" --out-dir "$OUT_DIR"
+if (( PROBE_RC != 0 )) && ! grep -aq 'RETAIL_READY:' "$LOG_DIR/probe.log"; then
+	echo "FAIL: retail menu probe failed before reaching menu (rc=$PROBE_RC)" >&2
+	exit "$PROBE_RC"
+fi
 
 PROBE_LOG="$(grep -a '^Logs:' "$LOG_DIR/probe.log" | tail -1 | awk '{print $2}')"
 if [[ -z "$PROBE_LOG" ]]; then
@@ -67,3 +76,4 @@ if [[ -f "$OUT_DIR/gc-main-menu-vs-retail.png" ]]; then
 fi
 
 grep -a 'retail menu steam background ready\|RETAIL_READY\|MAP_READY' "$LOG_DIR/probe.log" || true
+exit 0
