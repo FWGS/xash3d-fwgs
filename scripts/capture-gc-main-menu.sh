@@ -12,6 +12,7 @@ fi
 
 DATA="${GC_RETAIL_DATA:-Half-Life/valve}"
 OUT_DIR="${GC_MENU_SCREENSHOT_DIR:-.ai/screenshots}"
+ISO_PATH="${GC_MENU_ISO_PATH:-.ai/menu-test.iso}"
 LOG_DIR=".ai/logs/gc-main-menu-$(date +%Y%m%d-%H%M%S)"
 SCREENSHOT="$OUT_DIR/gc-main-menu.png"
 REFERENCE="$OUT_DIR/retail-main-menu-reference.png"
@@ -24,7 +25,7 @@ bash scripts/build-gamecube.sh
 echo "==> Building retail menu disc (skip startup vids)..."
 python3 scripts/build-gamecube-disc.py \
 	--data "$DATA" \
-	--output OUT/xash3d-gc.iso \
+	--output "$ISO_PATH" \
 	--skip-startup-vids
 
 echo "==> Rendering baked menu preview..."
@@ -37,7 +38,7 @@ export DOLPHIN_CAPTURE_MENU=1
 export DOLPHIN_TIMEOUT="${DOLPHIN_MENU_TIMEOUT:-150}"
 export GC_BOOT_PROBE_TIMEOUT="${GC_BOOT_PROBE_TIMEOUT:-180}"
 set +e
-scripts/dolphin-boot-probe.sh OUT/xash3d-gc.iso 2>&1 | tee "$LOG_DIR/probe.log"
+scripts/dolphin-boot-probe.sh "$ISO_PATH" 2>&1 | tee "$LOG_DIR/probe.log"
 PROBE_RC=${PIPESTATUS[0]}
 set -e
 

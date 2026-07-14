@@ -1154,6 +1154,7 @@ void R_GcmapReleaseDynamicScreenBuffers( void );
 qboolean R_GcmapOwnsStaticScreenBuffers( void );
 qboolean R_GcmapOwnsStaticZBuffer( void );
 qboolean R_GcmapOwnsStaticViewBuffer( void );
+qboolean R_GCIsStaticCinematicPixels( const pixel_t *pixels );
 void R_BlitScreen( void );
 qboolean R_InitBlit( qboolean gl );
 void R_EnsureDrawBuffer( void );

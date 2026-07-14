@@ -146,7 +146,12 @@ fi
 if (( SKIP_DISC )); then
 	echo "==> Using pre-built ISO (DOLPHIN_SKIP_BUILD=1): $PREBUILT_ISO"
 	mkdir -p "$(dirname "$ISO_PATH")"
-	cp -f "$PREBUILT_ISO" "$ISO_PATH"
+	rm -f "$ISO_PATH"
+	if ! ln "$PREBUILT_ISO" "$ISO_PATH" 2>/dev/null; then
+		if ! ln -s "$PREBUILT_ISO" "$ISO_PATH" 2>/dev/null; then
+			cp -f "$PREBUILT_ISO" "$ISO_PATH"
+		fi
+	fi
 else
 	if (( SKIP_ENGINE )); then
 		echo "==> Skipping engine rebuild (DOLPHIN_SKIP_BUILD=1); rebuilding disc image..."

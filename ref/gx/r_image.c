@@ -640,7 +640,12 @@ static void GL_DeleteTexture( image_t *tex )
 	for( int i = 0; i < 4; i++ )
 	{
 		if( tex->pixels[i] )
-			Mem_Free( tex->pixels[i] );
+		{
+#if XASH_GAMECUBE
+			if( !R_GCIsStaticCinematicPixels( tex->pixels[i] ))
+#endif
+				Mem_Free( tex->pixels[i] );
+		}
 	}
 	if( tex->alpha_pixels )
 		Mem_Free( tex->alpha_pixels );

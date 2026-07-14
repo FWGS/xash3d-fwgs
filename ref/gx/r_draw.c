@@ -16,11 +16,19 @@ GNU General Public License for more details.
 #include "r_local.h"
 
 #if XASH_GAMECUBE
+#define GC_CINEMATIC_MAX_WIDTH 640
+#define GC_CINEMATIC_MAX_HEIGHT 480
 static pixel_t gc_rgb565_r[256];
 static pixel_t gc_rgb565_g[256];
 static pixel_t gc_rgb565_b[256];
 static pixel_t gc_rgb565_to_sw[65536];
+static pixel_t gc_cinematic_pixels[GC_CINEMATIC_MAX_WIDTH * GC_CINEMATIC_MAX_HEIGHT] __attribute__((aligned( 32 )));
 static qboolean gc_rgb565_tables_ready;
+
+qboolean R_GCIsStaticCinematicPixels( const pixel_t *pixels )
+{
+	return pixels == gc_cinematic_pixels;
+}
 
 static void GC_BuildRGB565Tables( void )
 {
@@ -465,7 +473,10 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 		{
 			if( tex->pixels[i] )
 			{
-				Mem_Free( tex->pixels[i] );
+	#if XASH_GAMECUBE
+				if( !R_GCIsStaticCinematicPixels( tex->pixels[i] ))
+	#endif
+					Mem_Free( tex->pixels[i] );
 				tex->pixels[i] = NULL;
 			}
 		}
@@ -475,6 +486,15 @@ void GAME_EXPORT GL_UpdateTexture( int texnum, int cols, int rows, int width, in
 			tex->alpha_pixels = NULL;
 		}
 
+	#if XASH_GAMECUBE
+		if( !Q_strcmp( tex->name, "*cintexture" ) &&
+			width <= GC_CINEMATIC_MAX_WIDTH && height <= GC_CINEMATIC_MAX_HEIGHT )
+		{
+			memset( gc_cinematic_pixels, 0, pixel_count * sizeof( pixel_t ));
+			tex->pixels[0] = gc_cinematic_pixels;
+		}
+		else
+	#endif
 		tex->pixels[0] = (pixel_t *)Mem_Calloc( r_temppool, pixel_count * sizeof( pixel_t ));
 		if( !tex->pixels[0] )
 		{
