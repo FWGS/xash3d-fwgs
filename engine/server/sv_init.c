@@ -792,15 +792,17 @@ void SV_DeactivateServer( void )
 
 		for( int i = 0; i < svs.maxclients; i++ )
 		{
-			// release client frames
-			if( svs.clients[i].frames )
-			{
-#if XASH_GAMECUBE
-				if( svs.clients[i].frames_malloced )
-					free( svs.clients[i].frames );
-				else
-#endif
-					Mem_Free( svs.clients[i].frames );
+				// release client frames
+				if( svs.clients[i].frames )
+				{
+	#if XASH_GAMECUBE
+					if( SV_IsStaticClientFrames( svs.clients[i].frames ))
+						memset( svs.clients[i].frames, 0, sizeof( client_frame_t ) * SINGLEPLAYER_BACKUP );
+					else if( svs.clients[i].frames_malloced )
+						free( svs.clients[i].frames );
+					else
+	#endif
+						Mem_Free( svs.clients[i].frames );
 			}
 			svs.clients[i].frames = NULL;
 #if XASH_GAMECUBE

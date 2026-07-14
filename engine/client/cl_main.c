@@ -3974,6 +3974,10 @@ qboolean CL_GameCubeEnsureClientReady( void )
 		Voice_Init( VOICE_DEFAULT_CODEC, 3, true );
 		Con_Reportf( "Xash3D GameCube: deferred client sound ready\n" );
 	}
+	else if( snd.initialized )
+	{
+		Con_Reportf( "Xash3D GameCube: deferred client sound backend retained\n" );
+	}
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 	if( !CL_LoadProgs( libpath ))
@@ -4003,8 +4007,7 @@ void CL_GameCubeUnloadClientForMapLoad( void )
 	 * texture pass has the same headroom as the -gcmap smoke route. */
 	if( snd.initialized )
 	{
-		S_Shutdown();
-		Con_Reportf( "Xash3D GameCube: sound shutdown for map load\n" );
+		S_GameCubeTrimForMapLoad();
 	}
 }
 #endif

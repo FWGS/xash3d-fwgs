@@ -110,6 +110,9 @@ void SX_ClearState( void );
 qboolean S_Init( void );
 qboolean S_InitSoundAPI( void );
 void S_Shutdown( void );
+#if XASH_GAMECUBE
+void S_GameCubeTrimForMapLoad( void );
+#endif
 void S_SoundList_f( void );
 void S_SoundInfo_f( void );
 

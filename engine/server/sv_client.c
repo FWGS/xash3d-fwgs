@@ -38,12 +38,23 @@ static void SV_UserinfoChanged( sv_client_t *cl );
 static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
 
 #if XASH_GAMECUBE
+static client_frame_t gc_singleplayer_frames[SINGLEPLAYER_BACKUP];
+
+qboolean SV_IsStaticClientFrames( const client_frame_t *frames )
+{
+	return frames == gc_singleplayer_frames;
+}
+
 static void SV_FreeClientFrames( sv_client_t *cl )
 {
 	if( !cl || !cl->frames )
 		return;
 
-	if( cl->frames_malloced )
+	if( SV_IsStaticClientFrames( cl->frames ))
+	{
+		memset( gc_singleplayer_frames, 0, sizeof( gc_singleplayer_frames ));
+	}
+	else if( cl->frames_malloced )
 		free( cl->frames );
 	else
 		Mem_Free( cl->frames );
@@ -444,33 +455,45 @@ static void SV_ConnectClient( netadr_t from )
 	// accept the new client
 	sv.current_client = newcl;
 #if XASH_GAMECUBE
-		{
-			const size_t frame_bytes = sizeof( client_frame_t ) * SV_UPDATE_BACKUP;
-			void *old_frames = newcl->frames;
-			const qboolean old_frames_malloced = newcl->frames_malloced;
-
-		frames = (client_frame_t *)malloc( frame_bytes );
-		if( frames )
-		{
-			memset( frames, 0, frame_bytes );
-			frames_malloced = true;
-			Con_Reportf( "Xash3D GameCube: client frames via malloc %s\n", Q_memprint( frame_bytes ));
-		}
-		else
-		{
-			if( old_frames && !old_frames_malloced )
-				frames = Mem_Realloc( host.mempool, old_frames, frame_bytes );
-			else
-				frames = Mem_Malloc( host.mempool, frame_bytes );
-			memset( frames, 0, frame_bytes );
-		}
-
-			if( old_frames && frames != old_frames )
 			{
-				if( old_frames_malloced )
-					SV_FreeClientFrames( newcl );
+				const size_t frame_bytes = sizeof( client_frame_t ) * SV_UPDATE_BACKUP;
+				void *old_frames = newcl->frames;
+				const qboolean old_frames_malloced = newcl->frames_malloced;
+
+				if( svs.maxclients == 1 && SV_UPDATE_BACKUP == SINGLEPLAYER_BACKUP )
+				{
+					frames = gc_singleplayer_frames;
+					memset( frames, 0, sizeof( gc_singleplayer_frames ));
+					Con_Reportf( "Xash3D GameCube: client frames using static singleplayer buffer %s\n",
+						Q_memprint( sizeof( gc_singleplayer_frames )));
+				}
 				else
-					Mem_Free( old_frames );
+				{
+					frames = (client_frame_t *)malloc( frame_bytes );
+					if( frames )
+					{
+						memset( frames, 0, frame_bytes );
+						frames_malloced = true;
+						Con_Reportf( "Xash3D GameCube: client frames via malloc %s\n", Q_memprint( frame_bytes ));
+					}
+					else
+					{
+						if( old_frames && !old_frames_malloced && !SV_IsStaticClientFrames( old_frames ))
+							frames = Mem_Realloc( host.mempool, old_frames, frame_bytes );
+						else
+							frames = Mem_Malloc( host.mempool, frame_bytes );
+						memset( frames, 0, frame_bytes );
+					}
+				}
+
+				if( old_frames && frames != old_frames )
+				{
+					if( SV_IsStaticClientFrames( old_frames ))
+						memset( old_frames, 0, sizeof( gc_singleplayer_frames ));
+					else if( old_frames_malloced )
+						SV_FreeClientFrames( newcl );
+					else
+						Mem_Free( old_frames );
 			}
 		}
 #else

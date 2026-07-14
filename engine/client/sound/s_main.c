@@ -2164,3 +2164,33 @@ void S_Shutdown( void )
 	SNDDMA_Shutdown ();
 	Mem_FreePool( &sndpool );
 }
+
+#if XASH_GAMECUBE
+void S_GameCubeTrimForMapLoad( void )
+{
+	if( !snd.initialized )
+		return;
+
+	S_StopBackgroundTrack();
+	S_StopAllSounds( false );
+	S_FreeRawChannels();
+	S_FreeSounds();
+	VOX_Shutdown();
+	SX_Free();
+
+	snd.soundtime = 0;
+	snd.paintedtime = 0;
+	snd.samplepos = 0;
+
+	if( snd.buffer )
+		S_ClearBuffer();
+
+	if( sndpool )
+		Mem_EmptyPool( sndpool );
+
+	/* Recreate the tiny fallback entry so later late-precached sounds still
+	 * have a valid placeholder without rebuilding the DMA backend. */
+	S_InitSounds();
+	Con_Reportf( "Xash3D GameCube: sound trimmed for map load\n" );
+}
+#endif
