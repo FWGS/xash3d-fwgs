@@ -691,13 +691,13 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	menu_dir = output / "resource" / "gc_menu"
 	menu_dir.mkdir(parents=True, exist_ok=True)
 
-	# 160x120 keeps the RGBA decode buffer under 80 KiB for MEM1 menu boot.
+	# 128x96 keeps the transient RGBA decode buffer under 50 KiB for MEM1 menu boot.
 	if best is not None and best_ratio >= 0.02:
 		background = _gc_menu_boost_visibility(
-			best.resize((160, 120), Image.Resampling.LANCZOS))
+			best.resize((128, 96), Image.Resampling.LANCZOS))
 		source_note = best_label
 	else:
-		background = _gc_menu_synthetic_background((160, 120))
+		background = _gc_menu_synthetic_background((128, 96))
 		source_note = "synthetic fallback (retail tiles missing or pure black)"
 
 	background_path = menu_dir / "background.tga"
@@ -995,7 +995,7 @@ def create_retail_boot_overlays(
 				continue
 			gcvid_name = Path(relative).with_suffix(".gcvid").name
 			gcvid_output = media / gcvid_name
-			build_gcvid_companion(source_movie, gcvid_output)
+			build_gcvid_companion(source_movie, gcvid_output, rgb565=True)
 			overlays.append((f"media/{gcvid_name}", gcvid_output))
 
 	return tuple(overlays)
@@ -1099,7 +1099,7 @@ def build_intro_gcvid_companions(output: Path) -> None:
 		if not source_movie.is_file():
 			continue
 		gcvid = source_movie.with_suffix(".gcvid")
-		build_gcvid_companion(source_movie, gcvid)
+		build_gcvid_companion(source_movie, gcvid, rgb565=True)
 	build_logo_gcvid_companion(output, output)
 
 

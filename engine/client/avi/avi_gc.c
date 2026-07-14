@@ -35,6 +35,13 @@ static void AVI_ParseAudioFormat( movie_state_t *Avi, fs_offset_t file_size );
 #define GC_AVI_AUDIO_SLICE_BYTES	16384
 #define GC_AVI_AUDIO_LEAD_SAMPLES	2048
 #define GC_AVI_DECODE_SCALE		1
+#define GC_AVI_STATIC_FRAME_MAX_BYTES	( 640 * 480 * 2 )
+static byte gc_avi_static_frame[GC_AVI_STATIC_FRAME_MAX_BYTES] __attribute__((aligned( 32 )));
+
+static qboolean AVI_UsesStaticFrameBuffer( const movie_state_t *Avi )
+{
+	return Avi && Avi->frame == gc_avi_static_frame;
+}
 #endif
 
 static void AVI_RGB24ToBGRA( const byte *src, int src_stride, byte *dst, int width, int height )
@@ -117,6 +124,14 @@ static qboolean AVI_OpenGCVID( movie_state_t *Avi, const char *filename, qboolea
 	}
 
 	Avi->frame_size = (size_t)width * (size_t)height * ( Avi->raw_rgb565 ? 2 : 4 );
+#if XASH_GAMECUBE
+	if( Avi->raw_rgb565 && Avi->frame_size <= GC_AVI_STATIC_FRAME_MAX_BYTES )
+	{
+		memset( gc_avi_static_frame, 0, Avi->frame_size );
+		Avi->frame = gc_avi_static_frame;
+	}
+	else
+#endif
 	Avi->frame = Mem_Malloc( avi_mempool, Avi->frame_size );
 	if( !Avi->frame )
 	{
@@ -1150,7 +1165,12 @@ void AVI_CloseVideo( movie_state_t *Avi )
 	if( Avi->audio_file )
 		FS_Close( Avi->audio_file );
 	if( Avi->frame )
-		Mem_Free( Avi->frame );
+	{
+#if XASH_GAMECUBE
+		if( !AVI_UsesStaticFrameBuffer( Avi ))
+#endif
+			Mem_Free( Avi->frame );
+	}
 	if( Avi->upload_frame && Avi->upload_frame != Avi->frame )
 		Mem_Free( Avi->upload_frame );
 	if( Avi->chunk )

@@ -141,6 +141,9 @@ static void UI_GCLoadFallbackMenuTextures( void )
 	static qboolean loaded;
 	char path[MAX_QPATH];
 
+	if( cls.state == ca_cinematic )
+		return;
+
 	if( loaded )
 		return;
 
@@ -158,16 +161,24 @@ static void UI_GCLoadFallbackMenuTextures( void )
 		if( baked_bg > 0 )
 		{
 			gc_menu_bg_piece_t *piece = &gc_menu_background[0];
+			int baked_w = 0;
+			int baked_h = 0;
+
+			R_GetTextureParms( &baked_w, &baked_h, baked_bg );
+			if( baked_w <= 0 )
+				baked_w = 128;
+			if( baked_h <= 0 )
+				baked_h = 96;
 
 			gc_menu_use_baked_retail = true;
-			gc_menu_background_width = 160;
-			gc_menu_background_height = 120;
+			gc_menu_background_width = baked_w;
+			gc_menu_background_height = baked_h;
 			gc_menu_background_count = 1;
 			piece->texnum = baked_bg;
 			piece->x = 0;
 			piece->y = 0;
-			piece->w = gc_menu_background_width;
-			piece->h = gc_menu_background_height;
+			piece->w = baked_w;
+			piece->h = baked_h;
 		}
 	}
 
@@ -386,6 +397,11 @@ static void UI_ToggleAllowConsole_f( void )
 void UI_UpdateMenu( float realtime )
 {
 	static qboolean s_gc_reported_first_redraw = false;
+
+#if XASH_GAMECUBE
+	if( cls.state == ca_cinematic && !UI_IsVisible() )
+		return;
+#endif
 
 	if( !gameui.hInstance )
 	{
