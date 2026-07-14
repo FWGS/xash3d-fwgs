@@ -643,7 +643,59 @@ static void FS_ValidateDirectories( const char *path, qboolean *has_base_dir, qb
 	}
 
 	stringlistfreecontents( &dirs );
+
+#if XASH_GAMECUBE
+	/* libogc ISO9660 readdir can omit otherwise-readable directories.
+	 * Probe known names directly so smoke/retail discs still validate. */
+	if( !*has_game_dir && !COM_StringEmpty( fs_gamedir ))
+	{
+		char buf[MAX_SYSPATH];
+
+		if( !Q_strcmp( path, "./" ) || !Q_strcmp( path, "." ))
+			Q_snprintf( buf, sizeof( buf ), "%s/liblist.gam", fs_gamedir );
+		else
+			Q_snprintf( buf, sizeof( buf ), "%s/%s/liblist.gam", path, fs_gamedir );
+		if( FS_SysFileExists( buf ))
+			*has_game_dir = true;
+	}
+	if( !*has_base_dir && !COM_StringEmpty( fs_basedir ))
+	{
+		char buf[MAX_SYSPATH];
+
+		if( !Q_strcmp( path, "./" ) || !Q_strcmp( path, "." ))
+			Q_snprintf( buf, sizeof( buf ), "%s/liblist.gam", fs_basedir );
+		else
+			Q_snprintf( buf, sizeof( buf ), "%s/%s/liblist.gam", path, fs_basedir );
+		if( FS_SysFileExists( buf ))
+			*has_base_dir = true;
+	}
+#endif
 }
+
+#if XASH_GAMECUBE
+static void FS_EnsureKnownGameDirListed( stringlist_t *dirs, const char *path, const char *dirname )
+{
+	char buf[MAX_SYSPATH];
+	int i;
+
+	if( COM_StringEmpty( dirname ))
+		return;
+
+	for( i = 0; i < dirs->numstrings; i++ )
+	{
+		if( !Q_stricmp( dirs->strings[i], dirname ))
+			return;
+	}
+
+	if( !Q_strcmp( path, "./" ) || !Q_strcmp( path, "." ))
+		Q_snprintf( buf, sizeof( buf ), "%s/liblist.gam", dirname );
+	else
+		Q_snprintf( buf, sizeof( buf ), "%s/%s/liblist.gam", path, dirname );
+
+	if( FS_SysFileExists( buf ))
+		stringlistappend( dirs, dirname );
+}
+#endif
 
 /*
 ================
@@ -720,6 +772,12 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 	{
 		stringlistinit( &dirs );
 		listdirectory( &dirs, fs_rodir, true );
+#if XASH_GAMECUBE
+		/* libogc ISO9660 readdir can omit valid gamedirs on disc.
+		 * Probe the known base/game folders directly before sorting. */
+		FS_EnsureKnownGameDirListed( &dirs, fs_rodir, fs_basedir );
+		FS_EnsureKnownGameDirListed( &dirs, fs_rodir, fs_gamedir );
+#endif
 		stringlistsort( &dirs );
 
 		for( int i = 0; i < dirs.numstrings; i++ )
@@ -776,6 +834,56 @@ qboolean FS_InitStdio( qboolean unused_set_to_true, const char *rootdir, const c
 	}
 
 	stringlistfreecontents( &dirs );
+
+#if XASH_GAMECUBE
+	/* Seed requested gamedirs when disc readdir skipped them.
+	 * Direct liblist.gam / gameinfo.txt stats remain reliable even when
+	 * directory iterators drop entries (see FS_FindFile_DIR). */
+	{
+		const char *candidates[2];
+		int candidate_count = 0;
+
+		if( !COM_StringEmpty( fs_gamedir ))
+			candidates[candidate_count++] = fs_gamedir;
+		if( !COM_StringEmpty( fs_basedir ) && Q_stricmp( fs_basedir, fs_gamedir ))
+			candidates[candidate_count++] = fs_basedir;
+
+		for( int c = 0; c < candidate_count; c++ )
+		{
+			const char *gamedir = candidates[c];
+			int j;
+			qboolean present = false;
+
+			for( j = 0; j < FI.numgames; j++ )
+			{
+				if( FI.games[j] && !Q_stricmp( FI.games[j]->gamefolder, gamedir ))
+				{
+					present = true;
+					break;
+				}
+			}
+			if( present )
+				continue;
+
+			if( FI.games[FI.numgames] == NULL )
+				FI.games[FI.numgames] = Mem_Calloc( fs_mempool, sizeof( *FI.games[FI.numgames] ));
+
+			if( !COM_StringEmpty( fs_rodir ) &&
+				FS_ParseGameInfo( gamedir, FI.games[FI.numgames], true ))
+			{
+				FI.numgames++;
+				Con_Reportf( "Xash3D GameCube: seeded game directory '%s' after incomplete disc readdir\n",
+					gamedir );
+			}
+			else if( FS_ParseGameInfo( gamedir, FI.games[FI.numgames], false ))
+			{
+				FI.numgames++;
+				Con_Reportf( "Xash3D GameCube: seeded game directory '%s' after incomplete disc readdir\n",
+					gamedir );
+			}
+		}
+	}
+#endif
 
 	Con_Reportf( "%s: done\n", __func__ );
 

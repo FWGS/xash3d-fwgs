@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 
 # Whole-script timeout wrapper.
-# The Dolphin process itself may have its own timeout, but the shell probe can
-# still hang around locks, log tails, analyzers, or escaped child processes.
+# The Dolphin process itself has its own bounded runtime, but the shell probe
+# also needs enough headroom for rebuilds, ISO generation, and log analysis.
 if [ "${GC_BOOT_PROBE_INNER:-0}" != "1" ]; then
-    PROBE_TIMEOUT="${GC_BOOT_PROBE_TIMEOUT:-240}"
-    export GC_BOOT_PROBE_INNER=1
-    exec timeout --foreground --signal=TERM --kill-after=10 "$PROBE_TIMEOUT" "$0" "$@"
+	if [ -n "${GC_BOOT_PROBE_TIMEOUT:-}" ]; then
+		PROBE_TIMEOUT="$GC_BOOT_PROBE_TIMEOUT"
+	else
+		EMU_TIMEOUT="${DOLPHIN_TIMEOUT:-180}"
+		PROBE_TIMEOUT=$(( EMU_TIMEOUT + 300 ))
+		if [ "$PROBE_TIMEOUT" -lt 420 ]; then
+			PROBE_TIMEOUT=420
+		fi
+	fi
+	export GC_BOOT_PROBE_INNER=1
+	exec timeout --foreground --signal=TERM --kill-after=10 "$PROBE_TIMEOUT" "$0" "$@"
 fi
 
 cleanup_boot_probe_processes() {

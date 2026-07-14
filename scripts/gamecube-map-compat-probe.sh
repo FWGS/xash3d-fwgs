@@ -83,7 +83,8 @@ for bsp in "${map_files[@]}"; do
 	# dolphin-boot-probe.sh enforces DOLPHIN_TIMEOUT internally; do not wrap it in
 	# an outer timeout shorter than build + probe + frame-sample budget.
 	set +e
-	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" DOLPHIN_TIMEOUT="$PROBE_TIMEOUT" GC_BOOT_PROBE_TIMEOUT="$PROBE_TIMEOUT" bash "$PROBE_SCRIPT" 2>&1)
+	PROBE_WRAPPER_TIMEOUT="${GC_BOOT_PROBE_TIMEOUT:-$(( PROBE_TIMEOUT + 300 ))}"
+	PROBE_OUTPUT=$(DOLPHIN_SMOKE_MAP="$map_name" DOLPHIN_TIMEOUT="$PROBE_TIMEOUT" GC_BOOT_PROBE_TIMEOUT="$PROBE_WRAPPER_TIMEOUT" bash "$PROBE_SCRIPT" 2>&1)
 	PROBE_EXIT=$?
 	set -e
 	

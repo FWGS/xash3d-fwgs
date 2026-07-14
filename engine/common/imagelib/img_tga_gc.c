@@ -22,6 +22,7 @@ typedef struct gc_tga_decode_s
 	int		out_height;
 	int		src_width;
 	int		src_height;
+	int		bytes_per_pixel;
 	qboolean	downsample;
 	qboolean	compressed;
 	byte		*row_ptr;
@@ -94,15 +95,23 @@ static void GC_TGA_WritePixel( gc_tga_decode_t *dec, int col, int row, byte red,
 {
 	if( dec->downsample )
 	{
-		Image_GCWriteRgbaSample( dec->rgba, dec->out_width, dec->out_height,
-			dec->src_width, dec->src_height, col, row, red, green, blue, alpha );
+		const int dst_col = ( col * dec->out_width ) / dec->src_width;
+		const int dst_row = ( row * dec->out_height ) / dec->src_height;
+		byte *dst = dec->rgba + (( dst_row * dec->out_width + dst_col ) * dec->bytes_per_pixel );
+
+		dst[0] = red;
+		dst[1] = green;
+		dst[2] = blue;
+		if( dec->bytes_per_pixel == 4 )
+			dst[3] = alpha;
 		return;
 	}
 
 	*dec->row_ptr++ = red;
 	*dec->row_ptr++ = green;
 	*dec->row_ptr++ = blue;
-	*dec->row_ptr++ = alpha;
+	if( dec->bytes_per_pixel == 4 )
+		*dec->row_ptr++ = alpha;
 }
 
 static void GC_TGA_AdvanceRow( gc_tga_decode_t *dec, int *col, int *row )
@@ -130,18 +139,40 @@ static qboolean GC_TGA_SetupOutput( gc_tga_decode_t *dec )
 {
 	int decode_width = dec->src_width;
 	int decode_height = dec->src_height;
+	qboolean needs_alpha = false;
+
+	switch( dec->header->image_type )
+	{
+	case 1:
+	case 9:
+		needs_alpha = ( dec->header->colormap_size == 32 );
+		break;
+	case 2:
+	case 10:
+		needs_alpha = ( dec->header->pixel_size == 32 );
+		break;
+	case 3:
+	case 11:
+		needs_alpha = ( dec->header->pixel_size == 16 );
+		break;
+	default:
+		needs_alpha = true;
+		break;
+	}
 
 	dec->downsample = Image_GCClampDecodeSize( dec->name, &decode_width, &decode_height );
 	dec->out_width = decode_width;
 	dec->out_height = decode_height;
+	dec->bytes_per_pixel = needs_alpha ? 4 : 3;
 
 	image.width = dec->out_width;
 	image.height = dec->out_height;
-	image.size = (size_t)dec->out_width * (size_t)dec->out_height * 4;
+	image.type = needs_alpha ? PF_RGBA_32 : PF_RGB_24;
+	image.size = (size_t)dec->out_width * (size_t)dec->out_height * dec->bytes_per_pixel;
 
-	Con_Reportf( "Xash3D GameCube: ImageLib TGA %s src=%dx%d decode=%dx%d alloc=%s\n",
+	Con_Reportf( "Xash3D GameCube: ImageLib TGA %s src=%dx%d decode=%dx%d bpp=%d alloc=%s\n",
 		dec->name, dec->src_width, dec->src_height, dec->out_width, dec->out_height,
-		Q_memprint( image.size ));
+		dec->bytes_per_pixel * 8, Q_memprint( image.size ));
 
 	dec->rgba = image.rgba = Mem_Malloc( host.imagepool, image.size );
 	if( !dec->rgba )
@@ -162,8 +193,8 @@ static qboolean GC_TGA_SetupOutput( gc_tga_decode_t *dec )
 	}
 	else
 	{
-		dec->row_ptr = dec->rgba + ( dec->src_height - 1 ) * dec->src_width * 4;
-		dec->row_inc = -dec->src_width * 4 * 2;
+		dec->row_ptr = dec->rgba + ( dec->src_height - 1 ) * dec->src_width * dec->bytes_per_pixel;
+		dec->row_inc = -dec->src_width * dec->bytes_per_pixel * 2;
 	}
 
 	return true;

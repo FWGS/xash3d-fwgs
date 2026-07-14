@@ -1285,9 +1285,20 @@ void GC_RunGcmapSmokeFrames( const char *mapname, int count )
 #if XASH_GAMECUBE
 	char details[64];
 	int i;
+	unsigned int required_count;
+	double smoke_samples_ms[GC_VIDEO_BUDGET_SAMPLE_TARGET];
+	unsigned int smoke_sample_count;
+	qboolean log_smoke_samples;
+
+	smoke_sample_count = 0;
+	log_smoke_samples = gc_budget_probe_active && !Sys_CheckParm( "-gcnewgame" );
 
 	if( count <= 0 )
 		count = 12;
+
+	required_count = GC_GetFrameBudgetSampleTarget() + GC_VIDEO_BUDGET_WARMUP_PRESENTS;
+	if( gc_budget_probe_active && count < (int)required_count )
+		count = (int)required_count;
 
 	Q_snprintf( details, sizeof( details ), "GCMAP %s", mapname && mapname[0] ? mapname : "READY" );
 
@@ -1321,10 +1332,33 @@ void GC_RunGcmapSmokeFrames( const char *mapname, int count )
 
 	for( i = 0; i < count; i++ )
 	{
+		double start = 0.0;
+		double end = 0.0;
+
+		if( log_smoke_samples && smoke_sample_count < GC_VIDEO_BUDGET_SAMPLE_TARGET )
+			start = Sys_FloatTime();
+
 		if( gc.buffer && gc.width > 0 && gc.height > 0 )
 			GC_PresentBuffer();
 		else
 			GC_DrawLoadingStatus( "MAP LOADED", details );
+
+		if( log_smoke_samples && smoke_sample_count < GC_VIDEO_BUDGET_SAMPLE_TARGET )
+		{
+			end = Sys_FloatTime();
+			smoke_samples_ms[smoke_sample_count++] = ( end - start ) * 1000.0;
+		}
+	}
+
+	if( log_smoke_samples )
+	{
+		for( i = 0; i < (int)smoke_sample_count; i++ )
+		{
+			SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=1 frame time=%.2fms\n",
+				(unsigned int)( i + 1 ), smoke_samples_ms[i] );
+		}
+		SYS_Report( "Xash3D GameCube: budget sample flush count=%u worst=%.2fms\n",
+			smoke_sample_count, gc_worst_frame_ms );
 	}
 
 	gc_budget_probe_active = false;
