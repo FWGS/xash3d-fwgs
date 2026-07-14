@@ -1569,20 +1569,34 @@ static void SV_PutClientInServer( sv_client_t *cl )
 		MSG_BeginServerCmd( &msg, svc_signonnum );
 		MSG_WriteByte( &msg, 1 );
 
-		if( MSG_CheckOverflow( &msg ))
-		{
-			if( svs.maxclients == 1 )
-				Host_Error( "spawn player: overflowed\n" );
-			else SV_DropClient( cl, false );
-		}
-		else
-		{
-			// send initialization data
-			Netchan_CreateFragments( &cl->netchan, &msg );
-			Netchan_FragSend( &cl->netchan );
+			if( MSG_CheckOverflow( &msg ))
+			{
+				if( svs.maxclients == 1 )
+					Host_Error( "spawn player: overflowed\n" );
+				else SV_DropClient( cl, false );
+			}
+			else
+			{
+#if XASH_GAMECUBE
+				if( svs.maxclients == 1 && Sys_CheckParm( "-gcnewgame" )
+					&& MSG_GetNumBytesWritten( &msg ) > 0
+					&& MSG_GetNumBytesWritten( &msg ) < NET_MAX_MESSAGE )
+				{
+					MSG_WriteBits( &cl->netchan.message, MSG_GetData( &msg ), MSG_GetNumBitsWritten( &msg ));
+					Netchan_TransmitBits( &cl->netchan, 0, NULL );
+					Con_Reportf( "Xash3D GameCube: server spawn sent inline bytes=%d\n",
+						MSG_GetNumBytesWritten( &msg ));
+				}
+				else
+#endif
+				// send initialization data
+				{
+					Netchan_CreateFragments( &cl->netchan, &msg );
+					Netchan_FragSend( &cl->netchan );
+				}
+			}
 		}
 	}
-}
 
 /*
 ===========
