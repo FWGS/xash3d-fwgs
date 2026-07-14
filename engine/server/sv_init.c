@@ -790,13 +790,23 @@ void SV_DeactivateServer( void )
 	SV_EmptyStringPool( true );
 	Mem_EmptyPool( svgame.stringspool );
 
-	for( int i = 0; i < svs.maxclients; i++ )
-	{
-		// release client frames
-		if( svs.clients[i].frames )
-			Mem_Free( svs.clients[i].frames );
-		svs.clients[i].frames = NULL;
-	}
+		for( int i = 0; i < svs.maxclients; i++ )
+		{
+			// release client frames
+			if( svs.clients[i].frames )
+			{
+#if XASH_GAMECUBE
+				if( svs.clients[i].frames_malloced )
+					free( svs.clients[i].frames );
+				else
+#endif
+					Mem_Free( svs.clients[i].frames );
+			}
+			svs.clients[i].frames = NULL;
+#if XASH_GAMECUBE
+			svs.clients[i].frames_malloced = false;
+#endif
+		}
 
 	svgame.globals->maxEntities = GI->max_edicts;
 	svgame.globals->maxClients = svs.maxclients;

@@ -5,6 +5,8 @@ r_gcmap.c - GameCube smoke boot memory trims
 
 #if XASH_GAMECUBE
 static qboolean gc_renderer_trimmed;
+static qboolean gc_static_map_arena_in_use;
+static qboolean gc_static_map_arena_dirty;
 /* Sized for New Game GX presents (and smaller gcmap probes).
  * 160×120 keeps G36 headroom while improving readable world detail. */
 #define GC_GCMAP_STATIC_MAX_W 160
@@ -16,6 +18,7 @@ void R_GcmapTrimScreenBuffers( void );
 void R_GcmapTrimSurfaceCache( void );
 qboolean R_TryInitGcmapSurfaceCache( void );
 qboolean R_AllocScreen( void );
+void R_GCRebuildBlendMaps( void );
 
 qboolean R_GcmapOwnsStaticScreenBuffers( void )
 {
@@ -61,6 +64,33 @@ qboolean R_GcmapGetViewport( int *width, int *height )
 	return true;
 }
 
+void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity )
+{
+	byte *base = (byte *)&vid.colormap[0];
+	size_t arena_size = sizeof( vid.colormap ) + sizeof( vid.screen ) + sizeof( vid.screen32 )
+		+ sizeof( vid.addmap ) + sizeof( vid.modmap ) + sizeof( vid.alphamap );
+
+	if( capacity )
+		*capacity = arena_size;
+	if( !gc_renderer_trimmed || gc_static_map_arena_in_use || size == 0 || size > arena_size )
+		return NULL;
+
+	gc_static_map_arena_in_use = true;
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: map-load buffer using renderer static arena %s\n",
+		Q_memprint( size ));
+	return base;
+}
+
+qboolean R_GCReleaseMapLoadStaticArena( void *ptr )
+{
+	if( !ptr || ptr != (void *)&vid.colormap[0] || !gc_static_map_arena_in_use )
+		return false;
+
+	gc_static_map_arena_in_use = false;
+	gc_static_map_arena_dirty = true;
+	return true;
+}
+
 void R_GcmapTrimForMapLoad( void )
 {
 	if( gc_renderer_trimmed )
@@ -76,6 +106,13 @@ void R_GcmapRestoreAfterMapLoad( void )
 {
 	if( !gc_renderer_trimmed )
 		return;
+
+	if( gc_static_map_arena_dirty )
+	{
+		R_GCRebuildBlendMaps();
+		gc_static_map_arena_dirty = false;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer lookup tables rebuilt after map load\n" );
+	}
 
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
 	{

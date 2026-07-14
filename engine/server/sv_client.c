@@ -14,6 +14,9 @@ GNU General Public License for more details.
 */
 
 #include <inttypes.h>
+#if XASH_GAMECUBE
+#include <stdlib.h>
+#endif
 #include "common.h"
 #include "const.h"
 #include "server.h"
@@ -33,6 +36,22 @@ static int	g_userid = 1;
 
 static void SV_UserinfoChanged( sv_client_t *cl );
 static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
+
+#if XASH_GAMECUBE
+static void SV_FreeClientFrames( sv_client_t *cl )
+{
+	if( !cl || !cl->frames )
+		return;
+
+	if( cl->frames_malloced )
+		free( cl->frames );
+	else
+		Mem_Free( cl->frames );
+
+	cl->frames = NULL;
+	cl->frames_malloced = false;
+}
+#endif
 
 /*
 =================
@@ -296,6 +315,9 @@ static void SV_ConnectClient( netadr_t from )
 	char userinfo[MAX_INFO_STRING];
 	char protinfo[MAX_INFO_STRING];
 	client_frame_t *frames;
+#if XASH_GAMECUBE
+	qboolean frames_malloced = false;
+#endif
 	sv_client_t *newcl = NULL;
 	int qport, version;
 	int challenge;
@@ -421,8 +443,40 @@ static void SV_ConnectClient( netadr_t from )
 	// build a new connection
 	// accept the new client
 	sv.current_client = newcl;
+#if XASH_GAMECUBE
+		{
+			const size_t frame_bytes = sizeof( client_frame_t ) * SV_UPDATE_BACKUP;
+			void *old_frames = newcl->frames;
+			const qboolean old_frames_malloced = newcl->frames_malloced;
+
+		frames = (client_frame_t *)malloc( frame_bytes );
+		if( frames )
+		{
+			memset( frames, 0, frame_bytes );
+			frames_malloced = true;
+			Con_Reportf( "Xash3D GameCube: client frames via malloc %s\n", Q_memprint( frame_bytes ));
+		}
+		else
+		{
+			if( old_frames && !old_frames_malloced )
+				frames = Mem_Realloc( host.mempool, old_frames, frame_bytes );
+			else
+				frames = Mem_Malloc( host.mempool, frame_bytes );
+			memset( frames, 0, frame_bytes );
+		}
+
+			if( old_frames && frames != old_frames )
+			{
+				if( old_frames_malloced )
+					SV_FreeClientFrames( newcl );
+				else
+					Mem_Free( old_frames );
+			}
+		}
+#else
 	frames = Mem_Realloc( host.mempool, newcl->frames, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
 	memset( frames, 0, sizeof( client_frame_t ) * SV_UPDATE_BACKUP );
+#endif
 	SV_ClearResourceLists( newcl );
 
 	// a1ba: preserve physinfo and viewent as it's set by game logic before client connect!
@@ -440,6 +494,9 @@ static void SV_ConnectClient( netadr_t from )
 
 	newcl->edict = SV_EdictNum(( newcl - svs.clients ) + 1 );
 	newcl->frames = frames;
+#if XASH_GAMECUBE
+	newcl->frames_malloced = frames_malloced;
+#endif
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;	// now expect "spawn" command
 	newcl->extensions = FBitSet( extensions, NET_EXT_SPLITSIZE | NET_EXT_NETCHAN_COOKIE );
@@ -523,7 +580,13 @@ edict_t *GAME_EXPORT SV_FakeConnect( const char *netname )
 	// accept the new client
 	sv.current_client = cl;
 	if( cl->frames )
+	{
+#if XASH_GAMECUBE
+		SV_FreeClientFrames( cl );
+#else
 		Mem_Free( cl->frames );	// fakeclients doesn't have frames
+#endif
+	}
 	SV_ClearResourceLists( cl );
 
 	memset( cl, 0, sizeof( *cl ));
@@ -632,8 +695,17 @@ void SV_DropClient( sv_client_t *cl, qboolean crash )
 	cl->name[0] = 0;
 
 	if( cl->frames )
+	{
+#if XASH_GAMECUBE
+		SV_FreeClientFrames( cl );
+#else
 		Mem_Free( cl->frames ); // release delta
+		cl->frames = NULL;
+#endif
+	}
+#if !XASH_GAMECUBE
 	cl->frames = NULL;
+#endif
 
 	if( NET_CompareBaseAdr( cl->netchan.remote_address, host.rd.address ))
 		SV_EndRedirect( &host.rd );

@@ -545,6 +545,15 @@ static void R_BuildBlendMaps( void )
 	}
 }
 
+void R_GCRebuildBlendMaps( void )
+{
+	memset( vid.colormap, 0, sizeof( vid.colormap ));
+	memset( vid.addmap, 0, sizeof( vid.addmap ));
+	memset( vid.modmap, 0, sizeof( vid.modmap ));
+	memset( vid.alphamap, 0, sizeof( vid.alphamap ));
+	R_BuildBlendMaps();
+}
+
 void R_GcmapTrimScreenBuffers( void )
 {
 #if XASH_GAMECUBE

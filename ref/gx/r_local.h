@@ -1154,6 +1154,8 @@ void R_GcmapReleaseDynamicScreenBuffers( void );
 qboolean R_GcmapOwnsStaticScreenBuffers( void );
 qboolean R_GcmapOwnsStaticZBuffer( void );
 qboolean R_GcmapOwnsStaticViewBuffer( void );
+void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
+qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
 qboolean R_GCIsStaticCinematicPixels( const pixel_t *pixels );
 void R_BlitScreen( void );
 qboolean R_InitBlit( qboolean gl );

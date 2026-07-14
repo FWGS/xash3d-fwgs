@@ -256,6 +256,9 @@ typedef struct sv_client_s
 	double resourcelist_next_changetime;
 
 	client_frame_t *frames; // updates can be delta'd from here
+#if XASH_GAMECUBE
+	qboolean       frames_malloced;
+#endif
 	event_state_t  events;  // delta-updated events cycle
 } sv_client_t;
 

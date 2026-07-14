@@ -46,6 +46,7 @@ static void *gc_leafs_malloc_block;
 static void *gc_surfaces_malloc_block;
 static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
+static void *gc_clipnodes_malloc_block;
 static qboolean gc_retain_bsp_source_buffer;
 static byte *gc_bsp_scratch_base;
 static size_t gc_bsp_scratch_size;
@@ -4042,7 +4043,7 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		Mod_CalcSurfaceBounds( mod, out, bmod );
 		Mod_CalcSurfaceExtents( mod, out, bmod );
 #if XASH_GAMECUBE
-		if( !Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnobevels" ))
+		if( !GC_MapLoadMemoryOpt() && !Sys_CheckParm( "-gcnobevels" ))
 #endif
 		Mod_CreateFaceBevels( mod, out, bmod );
 
@@ -4571,13 +4572,28 @@ void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 
 free_nodes:
 	if( !gc_nodes_malloc_block )
-		return;
+		goto free_clipnodes;
 
 	if( mod && mod->nodes == (mnode_t *)gc_nodes_malloc_block )
 		mod->nodes = NULL;
 
 	free( gc_nodes_malloc_block );
 	gc_nodes_malloc_block = NULL;
+
+free_clipnodes:
+	if( !gc_clipnodes_malloc_block )
+		return;
+
+	if( mod )
+	{
+		if( mod->clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
+			mod->clipnodes16 = NULL;
+		if( mod->hulls[1].clipnodes16 == (mclipnode16_t *)gc_clipnodes_malloc_block )
+			mod->hulls[1].clipnodes16 = NULL;
+	}
+
+	free( gc_clipnodes_malloc_block );
+	gc_clipnodes_malloc_block = NULL;
 }
 
 static void Mod_GCRestoreDeferredMarkfaces( dbspmodel_t *bmod )
@@ -5279,18 +5295,40 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 		/* GoldSrc dclipnode_t and runtime mclipnode16_t share the same packed
 		 * layout. When retained staging is already keeping the BSP source alive,
 		 * alias the lump directly instead of spending another MEM1 copy. */
-		if( GC_MapLoadMemoryOpt() && gc_retain_bsp_source_buffer && bmod->clipnodes )
-		{
-			mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
-			Con_Reportf( "Xash3D GameCube: compact clipnodes aliased from BSP source %s\n",
-				Q_memprint( clip_sz ));
-		}
-		else
-		{
-			mod->clipnodes16 = Mem_Malloc( mod->mempool, clip_sz );
-			memcpy( mod->clipnodes16, bmod->clipnodes, clip_sz );
-			Mod_GCFreeBspPin( (void **)&bmod->clipnodes );
-		}
+			if( GC_MapLoadMemoryOpt() && gc_retain_bsp_source_buffer && bmod->clipnodes )
+			{
+				mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
+				Con_Reportf( "Xash3D GameCube: compact clipnodes aliased from BSP source %s\n",
+					Q_memprint( clip_sz ));
+			}
+			else if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->clipnodes )
+			{
+				mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
+				gc_clipnodes_malloc_block = bmod->clipnodes;
+				Con_Reportf( "Xash3D GameCube: compact clipnodes aliased from heap lump %s\n",
+					Q_memprint( clip_sz ));
+			}
+			else
+			{
+				void *clip_block = NULL;
+
+				if( GC_MapLoadMemoryOpt() && bmod->isworld )
+				{
+					clip_block = malloc( clip_sz );
+					if( clip_block )
+					{
+						gc_clipnodes_malloc_block = clip_block;
+						Con_Reportf( "Xash3D GameCube: world clipnodes via malloc %s\n", Q_memprint( clip_sz ));
+					}
+				}
+
+				if( !clip_block )
+					clip_block = Mem_Malloc( mod->mempool, clip_sz );
+
+				mod->clipnodes16 = clip_block;
+				memcpy( mod->clipnodes16, bmod->clipnodes, clip_sz );
+				Mod_GCFreeBspPin( (void **)&bmod->clipnodes );
+			}
 		return;
 	}
 #endif

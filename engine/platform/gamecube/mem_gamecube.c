@@ -8,16 +8,17 @@ Copyright (C) 2026 xash3d-gc contributors
 #include "mem_gamecube.h"
 #include <stdlib.h>
 
+void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
+qboolean R_GCReleaseMapLoadStaticArena( void *ptr );
+
 static char gc_mem_map[MAX_QPATH] = "(none)";
 static size_t gc_mem_last;
 static size_t gc_mem_hwm;
 
 /* Contiguous staging buffer for maps/*.bsp. Borrowed after menu/client trim. */
-static byte gc_mapload_static[GC_MAPLOAD_BUFFER_DEFAULT];
 static byte *gc_mapload_buf;
 static size_t gc_mapload_buf_size;
 static qboolean gc_mapload_buf_in_use;
-static qboolean gc_mapload_buf_dynamic;
 static int gc_mapload_memopt_depth;
 static qboolean gc_mapload_memopt_session; /* stays on after playstart until cleared */
 
@@ -101,37 +102,34 @@ void *GC_BorrowMapLoadBuffer( size_t size )
 	{
 		if( gc_mapload_buf_in_use )
 			return NULL;
-		if( gc_mapload_buf_dynamic )
+		if( !R_GCReleaseMapLoadStaticArena( gc_mapload_buf ))
 			free( gc_mapload_buf );
 		gc_mapload_buf = NULL;
 		gc_mapload_buf_size = 0;
-		gc_mapload_buf_dynamic = false;
 	}
 
 	if( !gc_mapload_buf )
 	{
 		size_t alloc_size = ( size + 4095u ) & ~4095u;
+		size_t static_capacity = 0;
 
-		if( alloc_size <= sizeof( gc_mapload_static ))
+		gc_mapload_buf = (byte *)R_GCBorrowMapLoadStaticArena( alloc_size, &static_capacity );
+		if( gc_mapload_buf )
 		{
-			gc_mapload_buf = gc_mapload_static;
-			gc_mapload_buf_dynamic = false;
-			Con_Reportf( "Xash3D GameCube: map-load buffer using static staging %s\n",
-				Q_memprint( alloc_size ));
+			gc_mapload_buf_size = static_capacity;
+			gc_mapload_buf_in_use = true;
+			return gc_mapload_buf;
 		}
-		else
+
+		gc_mapload_buf = (byte *)malloc( alloc_size );
+		if( !gc_mapload_buf )
 		{
-			gc_mapload_buf = (byte *)malloc( alloc_size );
-			if( !gc_mapload_buf )
-			{
-				Con_Reportf( S_ERROR "Xash3D GameCube: map-load buffer alloc failed (%s)\n",
-					Q_memprint( alloc_size ));
-				return NULL;
-			}
-			gc_mapload_buf_dynamic = true;
-			Con_Reportf( "Xash3D GameCube: map-load buffer ready %s\n", Q_memprint( alloc_size ));
+			Con_Reportf( S_ERROR "Xash3D GameCube: map-load buffer alloc failed (%s)\n",
+				Q_memprint( alloc_size ));
+			return NULL;
 		}
 		gc_mapload_buf_size = alloc_size;
+		Con_Reportf( "Xash3D GameCube: map-load buffer ready %s\n", Q_memprint( alloc_size ));
 	}
 
 	gc_mapload_buf_in_use = true;
@@ -159,15 +157,18 @@ void GC_DiscardMapLoadBuffer( void )
 
 	if( gc_mapload_buf )
 	{
-		if( gc_mapload_buf_dynamic )
+		if( R_GCReleaseMapLoadStaticArena( gc_mapload_buf ))
 		{
-			Con_Reportf( "Xash3D GameCube: map-load buffer discarded %s\n",
-				Q_memprint( gc_mapload_buf_size ));
-			free( gc_mapload_buf );
 			gc_mapload_buf = NULL;
 			gc_mapload_buf_size = 0;
-			gc_mapload_buf_dynamic = false;
+			return;
 		}
+
+		Con_Reportf( "Xash3D GameCube: map-load buffer discarded %s\n",
+			Q_memprint( gc_mapload_buf_size ));
+		free( gc_mapload_buf );
+		gc_mapload_buf = NULL;
+		gc_mapload_buf_size = 0;
 	}
 }
 
