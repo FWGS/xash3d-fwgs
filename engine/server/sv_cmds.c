@@ -22,7 +22,9 @@ GNU General Public License for more details.
 
 void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_TrimClientSubsystemsForMapLoad( void );
+void R_GcmapTrimForMapLoad( void );
 void R_GcmapRestoreAfterMapLoad( void );
+void GC_TrimVideoMemoryForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean CL_GameCubeEnsureClientReady( void );
@@ -34,10 +36,12 @@ static void SV_GameCubePlayStart_f( void )
 	Con_Reportf( "Xash3D GameCube: play start begin %s\n", map );
 	GC_DrawLoadingStatus( "NEW GAME", map );
 	GC_BeginMapLoadMemoryOpt();
-	/* Drop menu/UI/client allocations before the BSP buffer (often ~2 MiB). */
+	/* Reserve the BSP buffer at the lowest-memory point we can reach. */
 	GC_TrimClientSubsystemsForMapLoad();
-	GC_PrepareMapLoadBufferForMap( map );
 	Mod_FreeUnused();
+	R_GcmapTrimForMapLoad();
+	GC_TrimVideoMemoryForMapLoad();
+	GC_PrepareMapLoadBufferForMap( map );
 	if( SV_SpawnServer( map, NULL, false ))
 	{
 		SV_SpawnEntities( map );

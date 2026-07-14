@@ -42,7 +42,9 @@ GNU General Public License for more details.
 #include "library.h"
 #if XASH_GAMECUBE
 void R_GcmapRestoreAfterMapLoad( void );
+void R_GcmapTrimForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
+void GC_TrimVideoMemoryForMapLoad( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_TrimClientSubsystemsForMapLoad( void );
 void GC_BeginFrameBudgetProbe( void );
@@ -1383,8 +1385,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				Con_Reportf( "Xash3D GameCube: direct map begin\n" );
 				GC_DrawLoadingStatus( "DIRECT MAP LOAD", gcmap );
 				GC_TrimClientSubsystemsForMapLoad();
-				GC_PrepareMapLoadBufferForMap( gcmap );
 				Mod_FreeUnused();
+				R_GcmapTrimForMapLoad();
+				GC_TrimVideoMemoryForMapLoad();
+				GC_PrepareMapLoadBufferForMap( gcmap );
 				if( SV_SpawnServer( gcmap, NULL, false ))
 				{
 					SV_SpawnEntities( gcmap );
