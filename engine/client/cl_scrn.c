@@ -779,9 +779,13 @@ void SCR_UpdateScreen( void )
 	qboolean screen_redraw = true; // assume screen has been redrawn
 #if XASH_GAMECUBE
 	static qboolean gc_newgame_probe_rearm_logged;
+	static qboolean gc_light_present_entry_logged;
 
 	if( cls.state != ca_active )
+	{
 		gc_newgame_probe_rearm_logged = false;
+		gc_light_present_entry_logged = false;
+	}
 
 	if( cls.state == ca_active && Sys_CheckParm( "-gcnewgame" )
 		&& !GC_IsNewGameWorldReady() && !GC_IsFrameBudgetProbeActive()
@@ -800,6 +804,12 @@ void SCR_UpdateScreen( void )
 	 * either no-ops or overwrites the probe fill from the full-res SW FB. */
 	if( cls.state == ca_active && GC_ShouldUseLightPresent() )
 	{
+		if( !gc_light_present_entry_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: SCR light-present branch entered signon=%d disable=%.2f\n",
+				cls.signon, cls.disable_screen );
+			gc_light_present_entry_logged = true;
+		}
 		if( cls.disable_screen )
 			cls.disable_screen = 0.0f;
 		GC_FillBudgetProbeFrameBuffer();

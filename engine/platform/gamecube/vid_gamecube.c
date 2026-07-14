@@ -80,6 +80,7 @@ static qboolean gc_present_tex_ready;
 /* Skip first Host_Frame after arm (connect residual), then sample. */
 #define GC_VIDEO_BUDGET_WARMUP_PRESENTS 1
 #define GC_VIDEO_BUDGET_SAMPLE_TARGET 16
+#define GC_VIDEO_NEWGAME_BUDGET_SAMPLE_TARGET 4
 /* Keep SCR on the light fill path after G36 samples so Host_Frame still presents
  * while we restore the framebuffer for world render. */
 #define GC_VIDEO_LIGHT_PRESENT_GRACE 24
@@ -90,6 +91,15 @@ static qboolean gc_present_tex_ready;
 static float gc_budget_sample_ms[GC_VIDEO_BUDGET_SAMPLE_TARGET];
 static uint8_t gc_budget_sample_nonblack[GC_VIDEO_BUDGET_SAMPLE_TARGET];
 #endif
+
+static unsigned int GC_GetFrameBudgetSampleTarget( void )
+{
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ))
+		return GC_VIDEO_NEWGAME_BUDGET_SAMPLE_TARGET;
+#endif
+	return GC_VIDEO_BUDGET_SAMPLE_TARGET;
+}
 
 /* GC_GetVisualQuality is provided by ref/gx/r_local.h as an inline helper.
  * The platform video backend does not redefine it to avoid duplicate symbols.
@@ -682,13 +692,18 @@ static void GC_PresentBuffer( void )
 			gc_budget_warmup_left--;
 			gc_last_present_time = now;
 		}
-		else if( gc_budget_sample_count < GC_VIDEO_BUDGET_SAMPLE_TARGET )
+		else if( gc_budget_sample_count < GC_GetFrameBudgetSampleTarget() )
 		{
 			gc_budget_sample_ms[gc_budget_sample_count] = (float)elapsed_ms;
 			gc_budget_sample_nonblack[gc_budget_sample_count] = sampled_nonblack ? 1 : 0;
 			gc_budget_sample_count++;
+			if( Sys_CheckParm( "-gcnewgame" ))
+			{
+				SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
+					gc_budget_sample_count, sampled_nonblack ? 1u : 0u, elapsed_ms );
+			}
 			gc_last_present_time = now;
-			if( gc_budget_sample_count >= GC_VIDEO_BUDGET_SAMPLE_TARGET )
+			if( gc_budget_sample_count >= GC_GetFrameBudgetSampleTarget() )
 			{
 				unsigned int i;
 
@@ -1685,6 +1700,16 @@ void GC_FillBudgetProbeFrameBuffer( void )
 void GC_PresentBudgetProbeFrame( void )
 {
 #if XASH_GAMECUBE
+	static qboolean gc_probe_present_logged;
+
+	if( !gc_probe_present_logged )
+	{
+		SYS_Report( "Xash3D GameCube: budget probe present call active=%u world_ready=%u light_left=%u count=%u\n",
+			gc_budget_probe_active ? 1u : 0u, gc_newgame_world_ready ? 1u : 0u,
+			gc_light_present_left, gc_budget_sample_count );
+		gc_probe_present_logged = true;
+	}
+
 	/* Present the probe RGB565 buffer directly. R_EndFrame -> R_BlitScreen
 	 * copies from the software renderer (still full-res) into gc.buffer and
 	 * cannot sample Host_Frame intervals after Arm shrinks the present buffer. */
@@ -1728,8 +1753,8 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	/* Host_Frame SCR collects G36 samples on the light fill path. Do not
 	 * exhaust the probe with a synthetic burst — that forced V_RenderView
 	 * immediately after and stalled presents (probe vs world buffer). */
-	gc_light_present_left = GC_VIDEO_BUDGET_SAMPLE_TARGET + GC_VIDEO_LIGHT_PRESENT_GRACE;
-#endif
+		gc_light_present_left = GC_GetFrameBudgetSampleTarget() + GC_VIDEO_LIGHT_PRESENT_GRACE;
+	#endif
 }
 
 void GC_BeginFrameBudgetProbe( void )

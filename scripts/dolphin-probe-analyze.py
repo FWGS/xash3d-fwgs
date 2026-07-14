@@ -47,7 +47,7 @@ PROBE_ACTION_MARKERS = (
 
 def read_log_text(log_dir: Path) -> str:
 	parts: list[str] = []
-	for name in ("stderr.log", "stdout.log"):
+	for name in ("stderr.log", "stdout.log", "dolphin-user/Logs/dolphin.log"):
 		path = log_dir / name
 		if path.is_file():
 			parts.append(path.read_text(encoding="utf-8", errors="replace"))

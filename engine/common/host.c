@@ -661,6 +661,9 @@ Host_Frame
 */
 void Host_Frame( double time )
 {
+	static unsigned int gc_probe_hostframe_logs;
+	static qboolean gc_probe_stage_logs;
+
 	// decide the simulation time
 	if( !Host_FilterTime( time ))
 		return;
@@ -670,8 +673,34 @@ void Host_Frame( double time )
 	if( host.framecount == 0 )
 		Con_DPrintf( "Time to first frame: %.3f seconds\n", t1 - host.starttime );
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsFrameBudgetProbeActive() && !GC_IsNewGameWorldReady() )
+	{
+		if( gc_probe_hostframe_logs < 8 )
+		{
+			Con_Reportf( "Xash3D GameCube: Host_Frame probe frame=%u state=%d signon=%d disable=%.2f\n",
+				gc_probe_hostframe_logs + 1, cls.state, cls.signon, cls.disable_screen );
+			gc_probe_hostframe_logs++;
+		}
+		gc_probe_stage_logs = true;
+	}
+	else
+	{
+		gc_probe_hostframe_logs = 0;
+		gc_probe_stage_logs = false;
+	}
+#endif
+
 	Host_InputFrame ();  // input frame
+#if XASH_GAMECUBE
+	if( gc_probe_stage_logs )
+		Con_Reportf( "Xash3D GameCube: Host_Frame after input state=%d signon=%d\n", cls.state, cls.signon );
+#endif
 	Host_ClientBegin (); // begin client
+#if XASH_GAMECUBE
+	if( gc_probe_stage_logs )
+		Con_Reportf( "Xash3D GameCube: Host_Frame after client begin state=%d signon=%d\n", cls.state, cls.signon );
+#endif
 	Host_GetCommands (); // dedicated in
 #if XASH_GAMECUBE
 	/* After New Game ca_active, keep presenting even if server think stalls.
@@ -680,8 +709,14 @@ void Host_Frame( double time )
 	if( ( cls.state == ca_active || cls.signon == SIGNONS )
 		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() ))
 	{
+		if( gc_probe_stage_logs )
+			Con_Reportf( "Xash3D GameCube: Host_Frame before client frame state=%d signon=%d\n", cls.state, cls.signon );
 		Host_ClientFrame ();
+		if( gc_probe_stage_logs )
+			Con_Reportf( "Xash3D GameCube: Host_Frame after client frame state=%d signon=%d\n", cls.state, cls.signon );
 		Host_ServerFrame ();
+		if( gc_probe_stage_logs )
+			Con_Reportf( "Xash3D GameCube: Host_Frame after server frame state=%d signon=%d\n", cls.state, cls.signon );
 	}
 	else
 	{
