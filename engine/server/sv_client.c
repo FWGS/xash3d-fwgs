@@ -1726,6 +1726,12 @@ static qboolean SV_New_f( sv_client_t *cl )
 	memset( msg_buf, 0, sizeof( msg_buf ));
 	MSG_Init( &msg, "New", msg_buf, sizeof( msg_buf ));
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ))
+		Con_Reportf( "Xash3D GameCube: server new command state=%d spawncount=%d\n",
+			cl->state, svs.spawncount );
+#endif
+
 	if( cl->state != cs_connected )
 		return false;
 
@@ -1766,8 +1772,22 @@ static qboolean SV_New_f( sv_client_t *cl )
 	// g-cont. why this is there?
 	memset( &cl->lastcmd, 0, sizeof( cl->lastcmd ));
 
-	Netchan_CreateFragments( &cl->netchan, &msg );
-	Netchan_FragSend( &cl->netchan );
+#if XASH_GAMECUBE
+	if( svs.maxclients == 1 && Sys_CheckParm( "-gcnewgame" )
+		&& MSG_GetNumBytesWritten( &msg ) > 0
+		&& MSG_GetNumBytesWritten( &msg ) < NET_MAX_MESSAGE )
+	{
+		MSG_WriteBits( &cl->netchan.message, MSG_GetData( &msg ), MSG_GetNumBitsWritten( &msg ));
+		Netchan_TransmitBits( &cl->netchan, 0, NULL );
+		Con_Reportf( "Xash3D GameCube: server new sent inline bytes=%d\n",
+			MSG_GetNumBytesWritten( &msg ));
+	}
+	else
+#endif
+	{
+		Netchan_CreateFragments( &cl->netchan, &msg );
+		Netchan_FragSend( &cl->netchan );
+	}
 
 	return true;
 }
@@ -2265,6 +2285,12 @@ SV_Spawn_f
 */
 static qboolean SV_Spawn_f( sv_client_t *cl )
 {
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ))
+		Con_Reportf( "Xash3D GameCube: server spawn command state=%d arg=%s spawncount=%d\n",
+			cl->state, Cmd_Argc() > 1 ? Cmd_Argv( 1 ) : "<none>", svs.spawncount );
+#endif
+
 	if( cl->state != cs_connected )
 		return false;
 
@@ -2296,6 +2322,11 @@ SV_Begin_f
 */
 static qboolean SV_Begin_f( sv_client_t *cl )
 {
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ))
+		Con_Reportf( "Xash3D GameCube: server begin command state=%d\n", cl->state );
+#endif
+
 	// make sure client has passed connection process correctly
 	if( cl->state != cs_spawning )
 		return false;

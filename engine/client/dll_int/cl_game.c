@@ -1036,6 +1036,7 @@ void CL_ClearWorld( void )
 #define GC_GCMAP_STATIC_CLIENT_EDICTS 256
 static cl_entity_t gc_gcmap_bootstrap_entities[GC_GCMAP_STATIC_CLIENT_EDICTS];
 static entity_state_t gc_gcmap_bootstrap_packet_entities[128];
+remap_info_t *gc_gcmap_bootstrap_remap_info[GC_GCMAP_STATIC_CLIENT_EDICTS + 1];
 
 static qboolean CL_GameCubeUseStaticGcmapBootstrapEdicts( int maxclients )
 {
@@ -1082,6 +1083,14 @@ init_remaps:
 	{
 		CL_ClearAllRemaps (); // purge old remap info
 		clgame.maxRemapInfos = clgame.maxEntities + 1;
+#if XASH_GAMECUBE
+		if( CL_GameCubeUseStaticGcmapBootstrapEdicts( maxclients ))
+		{
+			memset( gc_gcmap_bootstrap_remap_info, 0, sizeof( gc_gcmap_bootstrap_remap_info ));
+			clgame.remap_info = gc_gcmap_bootstrap_remap_info;
+		}
+		else
+#endif
 		clgame.remap_info = (remap_info_t **)Mem_Calloc( clgame.mempool, sizeof( remap_info_t* ) * clgame.maxRemapInfos );
 	}
 

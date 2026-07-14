@@ -15,6 +15,12 @@ GNU General Public License for more details.
 
 #include "common.h"
 #include "client.h"
+
+#if XASH_GAMECUBE
+extern int GC_MapLoadMemoryOpt( void );
+#define GC_GCMAP_STATIC_CLIENT_EDICTS 256
+extern remap_info_t *gc_gcmap_bootstrap_remap_info[GC_GCMAP_STATIC_CLIENT_EDICTS + 1];
+#endif
 #include "studio.h"
 
 /*
@@ -441,7 +447,12 @@ void CL_ClearAllRemaps( void )
 			if( clgame.remap_info[i] )
 				CL_FreeRemapInfo( clgame.remap_info[i] );
 		}
+#if XASH_GAMECUBE
+		if( clgame.remap_info != gc_gcmap_bootstrap_remap_info )
+			Mem_Free( clgame.remap_info );
+#else
 		Mem_Free( clgame.remap_info );
+#endif
 	}
 	clgame.remap_info = NULL;
 }

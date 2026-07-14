@@ -238,6 +238,14 @@ static void CL_CreateResourceList( void )
 	ClearBits( cl_logofile.flags, FCVAR_CHANGED );
 	ClearBits( cl_logocolor.flags, FCVAR_CHANGED );
 	ClearBits( cl_logoext.flags, FCVAR_CHANGED );
+	#endif
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
+	{
+		Con_Reportf( "Xash3D GameCube: client decal resource skipped for low-memory route\n" );
+		return;
+	}
 #endif
 
 	// sanitize cvar value
@@ -1777,6 +1785,12 @@ static void CL_Reconnect( qboolean setup_netchan )
 	cls.demonum = cls.movienum = -1;	// not in the demo loop now
 	cls.state = ca_connected;
 	cls.signon = 0;
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ))
+		Con_Reportf( "Xash3D GameCube: local reconnect setup=%d state=%d signon=%d\n",
+			setup_netchan ? 1 : 0, cls.state, cls.signon );
+#endif
 
 	CL_ServerCommand( true, "new" );
 

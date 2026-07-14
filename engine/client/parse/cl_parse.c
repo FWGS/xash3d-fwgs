@@ -197,6 +197,12 @@ static void CL_ParseSignon( sizebuf_t *msg, connprotocol_t proto )
 {
 	int	i = MSG_ReadByte( msg );
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ))
+		Con_Reportf( "Xash3D GameCube: parse signon recv=%d old=%d state=%d\n",
+			i, cls.signon, cls.state );
+#endif
+
 	if( i <= cls.signon )
 	{
 		Con_Reportf( S_ERROR "received signon %i when at %i\n", i, cls.signon );
@@ -534,6 +540,8 @@ void CL_BatchResourceRequest( qboolean initialize )
 			/* Avoid Netchan fragment buffers — MEM1 is exhausted after c0a0 precache. */
 			if( MSG_GetNumBytesWritten( &msg ) > 0 )
 			{
+				Con_Reportf( "Xash3D GameCube: local spawn shortcut queued bytes=%d servercount=%d\n",
+					MSG_GetNumBytesWritten( &msg ), cl.servercount );
 				CL_ServerCommand( true, "spawn %i\n", cl.servercount );
 				MSG_Clear( &msg );
 			}

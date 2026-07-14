@@ -52,6 +52,10 @@ GNU General Public License for more details.
 #include "filesystem_internal.h"
 #include "common/com_strings.h"
 
+#if XASH_GAMECUBE
+extern int Sys_CheckParm( const char *parm );
+#endif
+
 #if !defined( O_BINARY )
 	#define O_BINARY 0
 #endif
@@ -412,6 +416,11 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 
 		return NULL;
 	}
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ))
+		Con_Reportf( "Xash3D GameCube: FS_SysOpen path=%s mode=%s\n", filepath, mode );
+#endif
 
 	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
 	file->filetime = memfile ? 0 : FS_SysFileTime( filepath );
