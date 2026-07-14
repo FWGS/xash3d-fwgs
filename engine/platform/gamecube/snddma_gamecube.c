@@ -20,6 +20,7 @@ The engine mixer writes native PowerPC big-endian stereo 16-bit samples.
 static qboolean gc_audio_real;
 static qboolean gc_audio_unpaused;
 static qboolean gc_voice_started;
+static qboolean gc_audio_buffer_malloced;
 static volatile int gc_audio_play_chunk;
 static volatile unsigned int gc_audio_chunks_submitted;
 static volatile unsigned int gc_audio_nonzero_chunks;
@@ -160,6 +161,8 @@ static qboolean GCube_StartVoice( void )
 static qboolean GCube_RealAudioInit( void )
 {
 	int samplecount;
+	size_t buffer_bytes;
+	qboolean gc_mapload_audio_pin;
 
 	ASND_Init();
 	/* ASND_Init leaves playback paused; unpause on first mix submit. */
@@ -172,7 +175,28 @@ static qboolean GCube_RealAudioInit( void )
 	snd.format.width = 2;
 	snd.format.channels = 2;
 	snd.samples = samplecount * snd.format.channels;
-	snd.buffer = Mem_Calloc( sndpool, snd.samples * snd.format.width );
+	buffer_bytes = (size_t)snd.samples * (size_t)snd.format.width;
+	gc_mapload_audio_pin = ( Sys_CheckParm( "-gcnewgame" ) != 0 );
+	snd.buffer = NULL;
+	gc_audio_buffer_malloced = false;
+
+	/* The deferred New Game client reload runs after the world is resident and
+	 * can hit a hard Sound Zone OOM before Mem_Calloc returns. Pin this small
+	 * audio ring outside the zone so gameplay startup can finish. */
+	if( gc_mapload_audio_pin )
+	{
+		snd.buffer = malloc( buffer_bytes );
+		if( snd.buffer )
+		{
+			memset( snd.buffer, 0, buffer_bytes );
+			gc_audio_buffer_malloced = true;
+			Con_Reportf( "Xash3D GameCube: audio ring pinned via malloc %s for newgame\n",
+				Q_memprint( buffer_bytes ));
+		}
+	}
+
+	if( !snd.buffer )
+		snd.buffer = Mem_Calloc( sndpool, buffer_bytes );
 	if( !snd.buffer )
 	{
 		ASND_End();
@@ -217,6 +241,7 @@ static qboolean GCube_NullAudioInit( void )
 	gc_audio_submit_polls = 0;
 	gc_audio_counter_base = 0;
 	gc_audio_counter_valid = false;
+	gc_audio_buffer_malloced = false;
 
 	snd.format.speed = SOUND_DMA_SPEED;
 	snd.format.width = 2;
@@ -258,12 +283,16 @@ void SNDDMA_Shutdown( void )
 
 	if( snd.buffer )
 	{
-		Mem_Free( snd.buffer );
+		if( gc_audio_buffer_malloced )
+			free( snd.buffer );
+		else
+			Mem_Free( snd.buffer );
 		snd.buffer = NULL;
 	}
 
 	snd.samples = 0;
 	snd.samplepos = 0;
+	gc_audio_buffer_malloced = false;
 }
 
 void SNDDMA_BeginPainting( void )

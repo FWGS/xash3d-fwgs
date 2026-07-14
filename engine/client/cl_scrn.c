@@ -778,6 +778,23 @@ void SCR_UpdateScreen( void )
 {
 	qboolean screen_redraw = true; // assume screen has been redrawn
 #if XASH_GAMECUBE
+	static qboolean gc_newgame_probe_rearm_logged;
+
+	if( cls.state != ca_active )
+		gc_newgame_probe_rearm_logged = false;
+
+	if( cls.state == ca_active && Sys_CheckParm( "-gcnewgame" )
+		&& !GC_IsNewGameWorldReady() && !GC_IsFrameBudgetProbeActive()
+		&& !GC_ShouldUseLightPresent() )
+	{
+		if( !gc_newgame_probe_rearm_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: re-arming newgame post-map frame budget probe\n" );
+			gc_newgame_probe_rearm_logged = true;
+		}
+		GC_ArmPostMapFrameBudgetSamples();
+	}
+
 	/* Host_Frame light presents must call GC_PresentBuffer directly. Going
 	 * through V_PreRender/R_EndFrame/R_BlitScreen after Arm shrinks to 160x120
 	 * either no-ops or overwrites the probe fill from the full-res SW FB. */

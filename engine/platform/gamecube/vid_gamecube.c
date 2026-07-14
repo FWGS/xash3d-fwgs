@@ -1544,6 +1544,15 @@ qboolean GC_IsFrameBudgetProbeActive( void )
 #endif
 }
 
+qboolean GC_IsNewGameWorldReady( void )
+{
+#if XASH_GAMECUBE
+	return gc_newgame_world_ready;
+#else
+	return false;
+#endif
+}
+
 qboolean GC_PrepareNewGameWorldPresent( void )
 {
 #if XASH_GAMECUBE
