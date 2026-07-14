@@ -113,6 +113,11 @@ typedef struct
 	byte         addmap[256 * 256];
 	byte         modmap[256 * 256];
 	pixel_t      alphamap[3 * 1024 * 256];
+#if XASH_GAMECUBE
+	/* Contiguous with tables above; widens map-load staging beyond 2.5 MiB so
+	 * early campaign BSPs (c1a1+) fit without a heap calloc under MEM1 pressure. */
+	byte         mapload_pad[1024 * 1024];
+#endif
 	pixel_t      color;
 	qboolean     is2d;
 	byte         alpha;

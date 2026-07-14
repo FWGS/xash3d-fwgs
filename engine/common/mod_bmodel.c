@@ -4840,8 +4840,14 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 	Con_Reportf( "Xash3D GameCube: releasing gcmap BSP staging %s before surfaces\n",
 		Q_memprint( bufferlen ));
 	Mod_GCReleaseBspSourceBuffer( mod, bmod, mod_base, bufferlen );
-	gc_bsp_scratch_base = NULL;
-	gc_bsp_scratch_size = 0;
+	/* Staging lumps are cleared, but the map-load arena stays allocated
+	 * (GC_ReleaseMapLoadBuffer only clears in-use). Re-arm it as free scratch
+	 * so surface/leaf/node tables can settle without a peaky heap calloc. */
+	gc_bsp_scratch_base = mod_base;
+	gc_bsp_scratch_size = bufferlen;
+	gc_retain_bsp_source_buffer = true;
+	Con_Reportf( "Xash3D GameCube: rearmed BSP scratch for surfaces %s\n",
+		Q_memprint( bufferlen ));
 }
 
 static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen )

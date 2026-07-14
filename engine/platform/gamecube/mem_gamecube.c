@@ -124,6 +124,13 @@ void *GC_BorrowMapLoadBuffer( size_t size )
 		gc_mapload_buf = (byte *)malloc( alloc_size );
 		if( !gc_mapload_buf )
 		{
+			/* One more shot after releasing decode scratch; keeps mid-size BSPs
+			 * loading when the renderer arena is still a few hundred KB short. */
+			Image_GCPurgeDecodeScratch();
+			gc_mapload_buf = (byte *)malloc( alloc_size );
+		}
+		if( !gc_mapload_buf )
+		{
 			Con_Reportf( S_ERROR "Xash3D GameCube: map-load buffer alloc failed (%s)\n",
 				Q_memprint( alloc_size ));
 			return NULL;

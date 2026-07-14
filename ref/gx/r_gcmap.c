@@ -68,16 +68,23 @@ void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity )
 {
 	byte *base = (byte *)&vid.colormap[0];
 	size_t arena_size = sizeof( vid.colormap ) + sizeof( vid.screen ) + sizeof( vid.screen32 )
-		+ sizeof( vid.addmap ) + sizeof( vid.modmap ) + sizeof( vid.alphamap );
+		+ sizeof( vid.addmap ) + sizeof( vid.modmap ) + sizeof( vid.alphamap )
+		+ sizeof( vid.mapload_pad );
 
 	if( capacity )
 		*capacity = arena_size;
-	if( !gc_renderer_trimmed || gc_static_map_arena_in_use || size == 0 || size > arena_size )
+	if( !gc_renderer_trimmed || gc_static_map_arena_in_use || size == 0 )
 		return NULL;
+	if( size > arena_size )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: map-load arena too small need=%s have=%s\n",
+			Q_memprint( size ), Q_memprint( arena_size ));
+		return NULL;
+	}
 
 	gc_static_map_arena_in_use = true;
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: map-load buffer using renderer static arena %s\n",
-		Q_memprint( size ));
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: map-load buffer using renderer static arena %s/%s\n",
+		Q_memprint( size ), Q_memprint( arena_size ));
 	return base;
 }
 
