@@ -1130,6 +1130,16 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		Con_Reportf( "Xash3D GameCube: serverdata customization ready\n" );
 #endif
 
+#if XASH_GAMECUBE
+	if( CL_GameCubeLocalMapRoute() )
+	{
+		cls.state = ca_validate;
+		CL_ServerCommand( true, "spawn %i\n", cl.servercount );
+		Con_Reportf( "Xash3D GameCube: serverdata spawn shortcut queued servercount=%d proto=%d\n",
+			cl.servercount, proto );
+	}
+	else
+	#endif
 	// request resources from server
 	if( proto == PROTO_GOLDSRC )
 	{
@@ -1140,7 +1150,7 @@ static void CL_ParseServerData( sizebuf_t *msg, connprotocol_t proto )
 		CL_ServerCommand( true, "sendres %i\n", cl.servercount );
 	}
 #if XASH_GAMECUBE
-	if( CL_GameCubeLocalMapRoute() )
+	if( !CL_GameCubeLocalMapRoute() )
 		Con_Reportf( "Xash3D GameCube: serverdata sendres queued servercount=%d proto=%d\n",
 			cl.servercount, proto );
 #endif

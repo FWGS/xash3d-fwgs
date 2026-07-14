@@ -27,6 +27,11 @@ AVI PLAYING
 static movie_state_t	*cin_state;
 static int		cin_texture;
 
+#if XASH_GAMECUBE
+static qboolean gc_startup_vid_playlist_found;
+static qboolean gc_startup_vid_playlist_disabled;
+#endif
+
 /*
 ==================
 SCR_NextMovie
@@ -112,6 +117,11 @@ static int SCR_LoadStartupVidList( void )
 	int c = 0;
 	const qboolean have_playlist = FS_FileExists( DEFAULT_VIDEOLIST_PATH, false );
 
+#if XASH_GAMECUBE
+	gc_startup_vid_playlist_found = have_playlist;
+	gc_startup_vid_playlist_disabled = false;
+#endif
+
 	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, NULL, false );
 	if( afile )
 	{
@@ -135,7 +145,12 @@ static int SCR_LoadStartupVidList( void )
 	if( c <= 0 && !have_playlist )
 		c = SCR_AddDefaultStartupVids();
 	else if( c <= 0 && have_playlist )
+	{
+#if XASH_GAMECUBE
+		gc_startup_vid_playlist_disabled = true;
+#endif
 		Con_Reportf( "Xash3D GameCube: startup intro playlist explicitly disabled\n" );
+	}
 
 	return c;
 }
@@ -172,10 +187,18 @@ void SCR_CheckStartupVids( void )
 	}
 
 #if XASH_GAMECUBE
+	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" )) && SV_Active() )
+	{
+		cls.movienum = -1;
+		Con_Reportf( "Xash3D GameCube: skip startup video scan for local map route\n" );
+		CL_CheckStartupDemos();
+		return;
+	}
+
 	c = SCR_LoadStartupVidList();
 	if( c > 0 )
 		goto run_cinematic;
-	if( FS_FileExists( DEFAULT_VIDEOLIST_PATH, false ) )
+	if( gc_startup_vid_playlist_found && gc_startup_vid_playlist_disabled )
 	{
 		cls.movienum = -1;
 		Con_Reportf( "Xash3D GameCube: activating menu without startup cinematic\n" );
@@ -186,10 +209,10 @@ void SCR_CheckStartupVids( void )
 		else if( SV_Active() || Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
 			Con_Reportf( "Xash3D GameCube: skip menu activate (listen server already active)\n" );
 		return;
-	}
-#endif
+		}
+	#endif
 
-	if( !FS_FileExists( DEFAULT_VIDEOLIST_PATH, false ))
+	if( !gc_startup_vid_playlist_found )
 	{
 		SCR_CreateStartupVids();
 	}
