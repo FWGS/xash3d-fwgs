@@ -49,6 +49,8 @@ static void SV_GameCubePlayStart_f( void )
 		/* World is resident; free BSP staging and unused stubs before client. */
 		GC_DiscardMapLoadBuffer();
 		Mod_GcmapMarkPrecacheFreeable();
+		/* Keep the deferred client bring-up on the lean renderer/HUD path. */
+		Cvar_Set( "gc_quality", "0" );
 		if( !CL_GameCubeEnsureClientReady() )
 		{
 			Con_Reportf( "Xash3D GameCube: play start client reload failed %s\n", map );

@@ -277,9 +277,12 @@ fi
 echo "==> Analyzing probe results..."
 LOG_FILES=("$LOG_DIR/stdout.log" "$LOG_DIR/stderr.log")
 GUEST_FOUND=0 READY_FOUND=0 MAP_FOUND=0 INPUT_FOUND=0
+PLAY_READY_FOUND=0 FRAME_ARMED_FOUND=0
 grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
 grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
 grep -aqsF "$INPUT_MARKER" "${LOG_FILES[@]}" && INPUT_FOUND=1
+grep -aqsF "$PLAY_READY_MARKER" "${LOG_FILES[@]}" && PLAY_READY_FOUND=1
+grep -aqsF "$FRAME_ARMED_MARKER" "${LOG_FILES[@]}" && FRAME_ARMED_FOUND=1
 if [[ -n "$SMOKE_MAP" ]]; then
 	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
 fi
@@ -303,12 +306,19 @@ if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( READY_FOUND )) && (( ! DOLPHIN_NEWGAME )
 	finalize_probe retail_ready 0
 fi
 
-if (( MAP_FOUND )) && (( INPUT_FOUND )); then
+if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( !DOLPHIN_NEWGAME || ( PLAY_READY_FOUND && FRAME_ARMED_FOUND ) )); then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map load was observed, followed by a guest error."
 	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
 	probe_report_g45
 	echo "Logs: $LOG_DIR"
 	finalize_probe map_ready 0
+fi
+
+if (( DOLPHIN_NEWGAME )) && (( MAP_FOUND )) && (( INPUT_FOUND )) && (( PLAY_READY_FOUND )) && (( !FRAME_ARMED_FOUND )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: New Game reached play-start, followed by a guest error before frame-budget arming."
+	echo "NEWGAME_PARTIAL_READY: Map ${SMOKE_MAP} loaded and play-start completed, but post-map frame-budget arming was not observed."
+	echo "Logs: $LOG_DIR"
+	finalize_probe newgame_partial_ready 4
 fi
 
 if (( MAP_FOUND )) && ! (( INPUT_FOUND )); then

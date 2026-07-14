@@ -331,6 +331,11 @@ with new cls.state
 */
 static void CL_CheckClientState( void )
 {
+#if XASH_GAMECUBE
+	static int gc_wait_state = -1;
+	static int gc_wait_signon = -1;
+#endif
+
 	// first update is the pre-final signon stage
 	if(( cls.state == ca_connected || cls.state == ca_validate ) && ( cls.signon == SIGNONS ))
 	{
@@ -377,6 +382,23 @@ static void CL_CheckClientState( void )
 			Cbuf_AddTextf( "record %s_%s\n", Q_timestamp( TIME_FILENAME ), clgame.mapname );
 		}
 	}
+#if XASH_GAMECUBE
+	else if( Sys_CheckParm( "-gcnewgame" ) && cls.state >= ca_connected && cls.state != ca_active )
+	{
+		if( gc_wait_state != cls.state || gc_wait_signon != cls.signon )
+		{
+			Con_Reportf( "Xash3D GameCube: newgame client wait state=%d signon=%d/%d\n",
+				cls.state, cls.signon, SIGNONS );
+			gc_wait_state = cls.state;
+			gc_wait_signon = cls.signon;
+		}
+	}
+	else
+	{
+		gc_wait_state = -1;
+		gc_wait_signon = -1;
+	}
+#endif
 }
 
 static int CL_GetGoldSrcFragmentSize( void *unused, fragsize_t mode )

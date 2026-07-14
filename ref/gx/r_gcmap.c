@@ -114,11 +114,11 @@ void R_GcmapRestoreAfterMapLoad( void )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer lookup tables rebuilt after map load\n" );
 	}
 
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( !R_TryInitGcmapSurfaceCache() )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache restore deferred after map load\n" );
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen restore deferred for gcmap smoke route\n" );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen restore deferred for GameCube low-memory route\n" );
 	}
 	else
 	{
