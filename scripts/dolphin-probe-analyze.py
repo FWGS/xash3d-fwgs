@@ -43,6 +43,14 @@ PROBE_ACTION_MARKERS = (
 	"Xash3D GameCube: probe gameplay action jump",
 	"Xash3D GameCube: probe gameplay action use",
 )
+MENU_ACTION_MARKERS = (
+	"Xash3D GameCube: probe menu action down",
+	"Xash3D GameCube: probe menu action confirm",
+	"Xash3D GameCube: probe menu action back",
+)
+MENU_DESTINATION_MARKERS = (
+	("Xash3D GameCube: retail menu options opened", "options"),
+)
 
 
 def read_log_text(log_dir: Path) -> str:
@@ -122,7 +130,10 @@ def classify_g36(
 	guest_error: bool,
 	synthetic_fallback: bool,
 	world_render_ready: bool,
+	probe_status: str,
 ) -> tuple[str, str]:
+	if probe_status == "retail_ready":
+		return "SKIP", "frame-budget grading is not applicable to retail menu boots"
 	if guest_error:
 		return "FAIL", "guest error observed after bootstrap"
 	if not map_loaded:
@@ -168,11 +179,25 @@ def classify_g45(
 
 
 def probe_action_status(text: str) -> tuple[str, str]:
-	seen = [marker.rsplit(" ", 1)[1] for marker in PROBE_ACTION_MARKERS if marker in text]
-	if len(seen) == len(PROBE_ACTION_MARKERS):
-		return "PASS", ",".join(seen)
-	if seen:
-		return "WEAK", ",".join(seen)
+	gameplay_seen = [marker.rsplit(" ", 1)[1] for marker in PROBE_ACTION_MARKERS if marker in text]
+	menu_seen = [marker.rsplit(" ", 1)[1] for marker in MENU_ACTION_MARKERS if marker in text]
+	menu_destinations = [name for marker, name in MENU_DESTINATION_MARKERS if marker in text]
+	if len(gameplay_seen) == len(PROBE_ACTION_MARKERS):
+		return "PASS", ",".join(gameplay_seen)
+	if menu_destinations:
+		return "PASS", "menu:auto," + ",".join(menu_destinations)
+	if len(menu_seen) == len(MENU_ACTION_MARKERS):
+		summary = "menu:" + ",".join(menu_seen)
+		if menu_destinations:
+			summary += "," + ",".join(menu_destinations)
+		return "PASS", summary
+	if gameplay_seen:
+		return "WEAK", ",".join(gameplay_seen)
+	if menu_seen:
+		summary = "menu:" + ",".join(menu_seen)
+		if menu_destinations:
+			summary += "," + ",".join(menu_destinations)
+		return "WEAK", summary
 	return "WAIT", "none"
 
 
@@ -282,6 +307,7 @@ def main() -> int:
 		guest_error,
 		synthetic_fallback,
 		world_render_ready,
+		args.probe_status.lower(),
 	)
 	g45_status, g45_note = classify_g45(text, map_loaded, input_active, guest_error)
 	action_status, action_note = probe_action_status(text)
@@ -321,7 +347,9 @@ def main() -> int:
 		harness_status = probe_status or "unknown"
 
 	if args.update_state:
-		if g36_status == "PASS":
+		if harness_status == "retail_ready":
+			next_action = "Continue menu interaction or visual validation; G36 does not apply to retail menu boots."
+		elif g36_status == "PASS":
 			next_action = "Continue G36 optimization with RC evidence and visual validation."
 		elif harness_status == "map_ready" and g36_status == "WEAK":
 			next_action = "Collect more frame samples or reduce steady-state CPU cost for G36."

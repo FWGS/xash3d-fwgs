@@ -89,6 +89,7 @@ static int gc_probe_action_stage;
 static double gc_probe_action_time;
 static qboolean gc_probe_action_logged;
 static qboolean gc_probe_action_complete_logged;
+static qboolean gc_probe_menu_ready_logged;
 
 typedef struct gc_default_bind_s
 {
@@ -376,6 +377,7 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
 		gc_probe_action_time = 0.0;
 		gc_probe_action_logged = false;
 		gc_probe_action_complete_logged = false;
+		gc_probe_menu_ready_logged = false;
 		GC_LogControllerState( port, type, true );
 	}
 	else
@@ -395,6 +397,9 @@ static qboolean GC_ShouldUseProbeInputFallback( void )
 		return true;
 	return false;
 }
+
+#define GC_PROBE_MENU_START_DELAY 0.35
+#define GC_PROBE_MENU_STEP_DELAY  0.15
 
 static void GC_EnableProbeInputFallback( void )
 {
@@ -416,49 +421,141 @@ static void GC_EnableProbeInputFallback( void )
 		GC_PAD_PREFERRED + 1 );
 	Con_Reportf( "Xash3D GameCube: input polling active\n" );
 	gc_input_logged = true;
+	Cvar_SetValue( "gc_menu_probe_auto", Sys_CheckParm( "-gcnewgame" ) ? 0.0f : 1.0f );
 }
 
 static u16 GC_ProbeSyntheticHeldButtons( void )
 {
-	if( !gc_probe_synthetic || !Sys_CheckParm( "-gcnewgame" ))
+	if( !gc_probe_synthetic )
 		return 0;
 
-	if( !SV_Active() )
+	if( Sys_CheckParm( "-gcnewgame" ))
+	{
+		if( !SV_Active() )
+			return 0;
+
+		if( !gc_probe_action_logged )
+		{
+			gc_probe_action_logged = true;
+			gc_probe_action_stage = 0;
+			Con_Reportf( "Xash3D GameCube: probe gameplay input begin\n" );
+		}
+
+		switch( gc_probe_action_stage )
+		{
+		case 0:
+			gc_probe_action_stage = 1;
+			Con_Reportf( "Xash3D GameCube: probe gameplay action attack\n" );
+			return PAD_TRIGGER_R;
+		case 1:
+			gc_probe_action_stage = 2;
+			return 0;
+		case 2:
+			gc_probe_action_stage = 3;
+			Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
+			return PAD_BUTTON_B;
+		case 3:
+			gc_probe_action_stage = 4;
+			return 0;
+		case 4:
+			gc_probe_action_stage = 5;
+			Con_Reportf( "Xash3D GameCube: probe gameplay action use\n" );
+			return PAD_BUTTON_A;
+		case 5:
+			gc_probe_action_stage = 6;
+			if( !gc_probe_action_complete_logged )
+			{
+				gc_probe_action_complete_logged = true;
+				Con_Reportf( "Xash3D GameCube: probe gameplay input ready\n" );
+			}
+			return 0;
+		default:
+			return 0;
+		}
+	}
+
+	if( cls.key_dest == key_console )
 		return 0;
+
+	if( Cvar_VariableValue( "gc_menu_ready" ) < 1.0f )
+		return 0;
+
+	if( !gc_probe_menu_ready_logged )
+	{
+		gc_probe_menu_ready_logged = true;
+		Con_Reportf( "Xash3D GameCube: probe menu ready gate open\n" );
+	}
 
 	if( !gc_probe_action_logged )
 	{
 		gc_probe_action_logged = true;
 		gc_probe_action_stage = 0;
-		Con_Reportf( "Xash3D GameCube: probe gameplay input begin\n" );
+		gc_probe_action_time = host.realtime;
+		Con_Reportf( "Xash3D GameCube: probe menu input begin\n" );
+		return 0;
 	}
 
 	switch( gc_probe_action_stage )
 	{
 	case 0:
+		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_START_DELAY )
+			return 0;
 		gc_probe_action_stage = 1;
-		Con_Reportf( "Xash3D GameCube: probe gameplay action attack\n" );
-		return PAD_TRIGGER_R;
+		gc_probe_action_time = host.realtime;
+		Con_Reportf( "Xash3D GameCube: probe menu action down\n" );
+		return PAD_BUTTON_DOWN;
 	case 1:
+		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+			return 0;
 		gc_probe_action_stage = 2;
+		gc_probe_action_time = host.realtime;
 		return 0;
 	case 2:
+		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+			return 0;
 		gc_probe_action_stage = 3;
-		Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
-		return PAD_BUTTON_B;
+		gc_probe_action_time = host.realtime;
+		return PAD_BUTTON_DOWN;
 	case 3:
+		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+			return 0;
 		gc_probe_action_stage = 4;
+		gc_probe_action_time = host.realtime;
 		return 0;
 	case 4:
+		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+			return 0;
 		gc_probe_action_stage = 5;
-		Con_Reportf( "Xash3D GameCube: probe gameplay action use\n" );
-		return PAD_BUTTON_A;
+		gc_probe_action_time = host.realtime;
+		return PAD_BUTTON_DOWN;
 	case 5:
+		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+			return 0;
 		gc_probe_action_stage = 6;
+		gc_probe_action_time = host.realtime;
+		Con_Reportf( "Xash3D GameCube: probe menu action confirm\n" );
+		return PAD_BUTTON_A;
+	case 6:
+		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+			return 0;
+		gc_probe_action_stage = 7;
+		gc_probe_action_time = host.realtime;
+		return 0;
+	case 7:
+		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+			return 0;
+		gc_probe_action_stage = 8;
+		gc_probe_action_time = host.realtime;
+		Con_Reportf( "Xash3D GameCube: probe menu action back\n" );
+		return PAD_BUTTON_B;
+	case 8:
+		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+			return 0;
+		gc_probe_action_stage = 9;
 		if( !gc_probe_action_complete_logged )
 		{
 			gc_probe_action_complete_logged = true;
-			Con_Reportf( "Xash3D GameCube: probe gameplay input ready\n" );
+			Con_Reportf( "Xash3D GameCube: probe menu input ready\n" );
 		}
 		return 0;
 	default:
@@ -574,11 +671,18 @@ int Platform_JoyInit( void )
 	PAD_Init();
 	gc_pad_port = Cvar_Get( "gc_pad_port", "1", FCVAR_ARCHIVE,
 		"Preferred GameCube controller port: 0=auto, 1-4=force preferred port" );
+	Cvar_Get( "gc_menu_ready", "0", 0,
+		"Retail menu UI readiness marker for synthetic GameCube probes" );
+	Cvar_Get( "gc_menu_probe_auto", "0", 0,
+		"Retail menu probe auto-opens Options once mainui reports ready" );
+	Cvar_SetValue( "gc_menu_ready", 0.0f );
+	Cvar_SetValue( "gc_menu_probe_auto", 0.0f );
 	gc_bindings_applied = false;
 	gc_probe_action_stage = 0;
 	gc_probe_action_time = 0.0;
 	gc_probe_action_logged = false;
 	gc_probe_action_complete_logged = false;
+	gc_probe_menu_ready_logged = false;
 	GC_LogButtonMap();
 	if( GC_HasForcedPreferredPort( ))
 	{
