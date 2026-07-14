@@ -1148,6 +1148,17 @@ static edict_t* SV_AllocPrivateData( edict_t *ent, string_t className, qboolean 
 
 	SpawnEdict( &ent->v );
 
+#if XASH_GAMECUBE
+	/* HLSDK GetClassPtr links run even when malloc fails; drop those edicts. */
+	if( Sys_CheckParm( "-gcmap" ) && !ent->pvPrivateData )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: dropping entity after private-data alloc miss classname=%s\n",
+			pszClassName );
+		SV_FreeEdict( ent );
+		return NULL;
+	}
+#endif
+
 	return ent;
 }
 
@@ -4926,7 +4937,39 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 	 || !Q_strnicmp( classname, "info_node", 9 )
 	 || !Q_stricmp( classname, "scripted_sequence" )
 	 || !Q_stricmp( classname, "aiscripted_sequence" )
-	 || !Q_stricmp( classname, "scripted_sentence" ))
+	 || !Q_stricmp( classname, "scripted_sentence" )
+	 || !Q_stricmp( classname, "func_healthcharger" )
+	 || !Q_stricmp( classname, "func_recharge" )
+	 || !Q_stricmp( classname, "func_pushable" )
+	 || !Q_stricmp( classname, "ambient_generic" )
+	 || !Q_stricmp( classname, "env_sprite" )
+	 || !Q_stricmp( classname, "env_glow" )
+	 || !Q_stricmp( classname, "env_beam" )
+	 || !Q_stricmp( classname, "env_laser" )
+	 || !Q_stricmp( classname, "env_explosion" )
+	 || !Q_stricmp( classname, "multi_manager" )
+	 || !Q_stricmp( classname, "multisource" )
+	 || !Q_stricmp( classname, "infodecal" )
+	 || !Q_stricmp( classname, "info_target" )
+	 || !Q_stricmp( classname, "path_track" )
+	 || !Q_stricmp( classname, "path_corner" )
+	 || !Q_stricmp( classname, "trigger_auto" )
+	 || !Q_stricmp( classname, "speaker" )
+	 || !Q_stricmp( classname, "func_breakable" )
+	 || !Q_stricmp( classname, "func_illusionary" )
+	 || !Q_stricmp( classname, "func_pendulum" )
+	 || !Q_stricmp( classname, "func_wall_toggle" )
+	 || !Q_stricmp( classname, "func_rotating" )
+	 || !Q_stricmp( classname, "func_wall" )
+	 || !Q_stricmp( classname, "func_ladder" )
+	 || !Q_stricmp( classname, "func_water" )
+	 || !Q_stricmp( classname, "func_conveyor" )
+	 || !Q_stricmp( classname, "light" )
+	 || !Q_stricmp( classname, "light_spot" )
+	 || !Q_stricmp( classname, "env_spark" )
+	 || !Q_stricmp( classname, "env_shake" )
+	 || !Q_stricmp( classname, "env_shooter" )
+	 || !Q_strnicmp( classname, "trigger_", 8 ))
 		return true;
 
 	return false;
@@ -5221,13 +5264,14 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 			{
 				const char *spawn_class = SV_ClassName( ent );
 
-				if( entity_index >= 120 )
+				/* Light sampling for late spawns; full spam stalls Dolphin OSReport. */
+				if( entity_index >= 90 && ( entity_index & 15 ) == 0 )
 					Con_Reportf( "Xash3D GameCube: entity spawn step=%d classname=%s\n",
 						entity_index - 1, spawn_class );
 
 				if( SV_GCMapShouldInhibitClass( spawn_class ))
 				{
-					if(( entity_index & 31 ) == 0 )
+					if(( entity_index & 63 ) == 0 )
 						Con_Reportf( "Xash3D GameCube: gcmap inhibited entity=%d classname=%s\n",
 							entity_index - 1, spawn_class );
 					SV_FreeEdict( ent );
@@ -5246,6 +5290,13 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					inhibited++;
 				}
 			}
+#if XASH_GAMECUBE
+			else if( SV_GCMapSmokeRoute() && entity_index >= 90 && ( entity_index & 15 ) == 0 )
+			{
+				Con_Reportf( "Xash3D GameCube: entity spawn done=%d classname=%s\n",
+					entity_index - 1, SV_ClassName( ent ));
+			}
+#endif
 		}
 
 		Con_DPrintf( "\n%i entities inhibited\n", inhibited );
