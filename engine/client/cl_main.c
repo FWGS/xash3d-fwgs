@@ -3740,20 +3740,8 @@ Host_ClientBegin
 */
 void Host_ClientBegin( void )
 {
-#if XASH_GAMECUBE
-	qboolean gc_probe_trace = Sys_CheckParm( "-gcnewgame" )
-		&& GC_IsFrameBudgetProbeActive() && !GC_IsNewGameWorldReady();
-#endif
 	// exec console commands
-#if XASH_GAMECUBE
-	if( gc_probe_trace )
-		Con_Reportf( "Xash3D GameCube: Host_ClientBegin before cbuf state=%d signon=%d\n", cls.state, cls.signon );
-#endif
 	Cbuf_Execute ();
-#if XASH_GAMECUBE
-	if( gc_probe_trace )
-		Con_Reportf( "Xash3D GameCube: Host_ClientBegin after cbuf state=%d signon=%d\n", cls.state, cls.signon );
-#endif
 
 	// if client is not active, do nothing
 	if( !cls.initialized ) return;
@@ -3772,26 +3760,10 @@ void Host_ClientBegin( void )
 	CL_CheckLogoChanged();
 
 	// tell the client.dll about client data
-#if XASH_GAMECUBE
-	if( gc_probe_trace )
-		Con_Reportf( "Xash3D GameCube: Host_ClientBegin before update client data\n" );
-#endif
 	CL_UpdateClientData();
-#if XASH_GAMECUBE
-	if( gc_probe_trace )
-		Con_Reportf( "Xash3D GameCube: Host_ClientBegin after update client data\n" );
-#endif
 
 	// if running the server locally, make intentions now
-#if XASH_GAMECUBE
-	if( gc_probe_trace )
-		Con_Reportf( "Xash3D GameCube: Host_ClientBegin before local sendcommand active=%d\n", SV_Active() ? 1 : 0 );
-#endif
 	if( SV_Active( )) CL_SendCommand ();
-#if XASH_GAMECUBE
-	if( gc_probe_trace )
-		Con_Reportf( "Xash3D GameCube: Host_ClientBegin after local sendcommand\n" );
-#endif
 
 	SteamBroker_Frame();
 }
@@ -3836,23 +3808,6 @@ void Host_ClientFrame( void )
 #endif
 	if( cls.key_dest == key_game && cls.state == ca_active && !Con_Visible() )
 		Platform_SetTimer( cl_maxframetime.value );
-
-#if XASH_GAMECUBE
-	{
-		static unsigned int gc_probe_clientframe_logs;
-
-		if( !GC_IsFrameBudgetProbeActive() || GC_IsNewGameWorldReady() || cls.state != ca_active )
-		{
-			gc_probe_clientframe_logs = 0;
-		}
-		else if( Sys_CheckParm( "-gcnewgame" ) && gc_probe_clientframe_logs < 6 )
-		{
-			Con_Reportf( "Xash3D GameCube: Host_ClientFrame armed frame=%u signon=%d disable=%.2f keydest=%d\n",
-				gc_probe_clientframe_logs + 1, cls.signon, cls.disable_screen, cls.key_dest );
-			gc_probe_clientframe_logs++;
-		}
-	}
-#endif
 
 	// if running the server remotely, send intentions now after
 	// the incoming messages have been read

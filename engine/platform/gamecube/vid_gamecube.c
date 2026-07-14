@@ -764,6 +764,7 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 
 #if XASH_GAMECUBE
 	gc_quality = Cvar_Get( "gc_quality", "1", FCVAR_ARCHIVE, "GameCube quality profile: 0=playable/low-mem, 1=standard (default), 2=high telemetry-only" );
+	Cvar_Get( "gc_hud_probe_skip", "0", 0, "GameCube HUD UpdateClientData skip gate during post-map probe" );
 	GC_ReportQualityProfile( "video-init" );
 #endif
 
@@ -1645,6 +1646,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_worst_frame_ms = 0.0;
 	gc_budget_probe_active = true;
 	gc_newgame_world_ready = true;
+	Cvar_Set( "gc_hud_probe_skip", "0" );
 	SYS_Report( "Xash3D GameCube: newgame low-res world present %dx%d\n", present_w, present_h );
 	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=1)\n",
 		present_w, present_h );
@@ -1700,16 +1702,6 @@ void GC_FillBudgetProbeFrameBuffer( void )
 void GC_PresentBudgetProbeFrame( void )
 {
 #if XASH_GAMECUBE
-	static qboolean gc_probe_present_logged;
-
-	if( !gc_probe_present_logged )
-	{
-		SYS_Report( "Xash3D GameCube: budget probe present call active=%u world_ready=%u light_left=%u count=%u\n",
-			gc_budget_probe_active ? 1u : 0u, gc_newgame_world_ready ? 1u : 0u,
-			gc_light_present_left, gc_budget_sample_count );
-		gc_probe_present_logged = true;
-	}
-
 	/* Present the probe RGB565 buffer directly. R_EndFrame -> R_BlitScreen
 	 * copies from the software renderer (still full-res) into gc.buffer and
 	 * cannot sample Host_Frame intervals after Arm shrinks the present buffer. */
@@ -1746,6 +1738,7 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 
 	gc_newgame_world_ready = false;
 	gc_gx_present_logged = false;
+	Cvar_Set( "gc_hud_probe_skip", "1" );
 
 	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=%d)\n",
 		gc.width, gc.height, gc_budget_probe_active ? 1 : 0 );

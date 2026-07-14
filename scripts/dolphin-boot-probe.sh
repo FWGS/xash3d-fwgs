@@ -77,6 +77,8 @@ GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 RETAIL_MENU_MARKER="Xash3D GameCube: retail menu steam background ready"
 RETAIL_MENU_INTERACTIVE_MARKER="Xash3D GameCube: retail menu button text ready"
+RETAIL_MENU_BG_FALLBACK_MARKER="Xash3D GameCube: mainui vidinit background ready"
+RETAIL_MENU_READY_FALLBACK_MARKER="Xash3D GameCube: mainui vidinit menu ready"
 INTRO_MARKER="Xash3D GameCube: intro AVI decoded first frame"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 PLAY_READY_MARKER="Xash3D GameCube: play start ready ${SMOKE_MAP}"
@@ -294,7 +296,8 @@ if (( GC_FATAL_TEST )) && probe_log_has "$G37_FATAL_MARKER" && probe_log_has "$G
 fi
 
 if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( READY_FOUND )) && (( ! DOLPHIN_NEWGAME )) && \
-	( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" ); then
+	( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" || \
+	probe_log_has "$RETAIL_MENU_BG_FALLBACK_MARKER" || probe_log_has "$RETAIL_MENU_READY_FALLBACK_MARKER" ); then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."
 	if probe_log_has "$INTRO_MARKER"; then
 		echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached the interactive menu on GameCube."
