@@ -827,11 +827,6 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 	needed_pixels = (size_t)width * (size_t)height;
 
-	gc.width = width;
-	gc.height = height;
-	gc.stride = width;
-	gc.bpp = 2;
-
 #if XASH_GAMECUBE
 	if( !gc.buffer || gc.buffer_pixels < needed_pixels )
 	{
@@ -849,12 +844,24 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 		memset( gc.buffer, 0, needed_pixels * sizeof( unsigned short ));
 	}
 
+	gc.width = width;
+	gc.height = height;
+	gc.stride = width;
+	gc.bpp = 2;
+
 	for( size_t i = 0; i < needed_pixels; i++ )
 		gc.buffer[i] = 0x0010; /* dark blue boot backdrop */
 #else
 	if( gc.buffer )
 		free( gc.buffer );
 	gc.buffer = calloc( needed_pixels, sizeof( unsigned short ));
+	if( !gc.buffer )
+		return false;
+
+	gc.width = width;
+	gc.height = height;
+	gc.stride = width;
+	gc.bpp = 2;
 #endif
 
 	if( !gc.buffer )
@@ -1815,9 +1822,15 @@ void GC_RestoreVideoMemoryAfterMapLoad( void )
 {
 	uint stride, bpp, r, g, b;
 	int width, height;
+	static const int fallbacks[][2] = {
+		{ GC_VIDEO_PROBE_WIDTH, GC_VIDEO_PROBE_HEIGHT },
+		{ GC_VIDEO_NEWGAME_PROBE_WIDTH, GC_VIDEO_NEWGAME_PROBE_HEIGHT },
+	};
+	size_t i;
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0
-		&& gc.width >= GC_VIDEO_PROBE_WIDTH && gc.height >= GC_VIDEO_PROBE_HEIGHT )
+		&& gc.width >= GC_VIDEO_NEWGAME_PROBE_WIDTH
+		&& gc.height >= GC_VIDEO_NEWGAME_PROBE_HEIGHT )
 	{
 		GC_InitPresentTexture();
 		return;
@@ -1825,11 +1838,37 @@ void GC_RestoreVideoMemoryAfterMapLoad( void )
 
 	width = refState.width > 0 ? refState.width : DEFAULT_MODE_WIDTH;
 	height = refState.height > 0 ? refState.height : DEFAULT_MODE_HEIGHT;
-	if( !SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
-		SYS_Report( "GX video: restore buffer failed %dx%d\n", width, height );
-	else
+
+	/* After map load MEM1 is tight: prefer the lean probe buffer under
+	 * map-load memory opt instead of failing a full 640x480 calloc. */
+	if( GC_MapLoadMemoryOpt()
+		|| Sys_CheckParm( "-gcmap" )
+		|| Sys_CheckParm( "-gcnewgame" ))
+	{
+		width = GC_VIDEO_PROBE_WIDTH;
+		height = GC_VIDEO_PROBE_HEIGHT;
+	}
+
+	if( SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
+	{
 		SYS_Report( "Xash3D GameCube: restored presentation buffer %dx%d\n",
 			gc.width, gc.height );
+		return;
+	}
+
+	for( i = 0; i < sizeof( fallbacks ) / sizeof( fallbacks[0] ); i++ )
+	{
+		if( fallbacks[i][0] == width && fallbacks[i][1] == height )
+			continue;
+		if( SW_CreateBuffer( fallbacks[i][0], fallbacks[i][1], &stride, &bpp, &r, &g, &b ))
+		{
+			SYS_Report( "Xash3D GameCube: restored presentation buffer %dx%d (fallback after %dx%d fail)\n",
+				gc.width, gc.height, width, height );
+			return;
+		}
+	}
+
+	SYS_Report( "GX video: restore buffer failed %dx%d\n", width, height );
 }
 
 void GL_UpdateSwapInterval( void )
