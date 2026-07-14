@@ -738,6 +738,7 @@ void SV_ActivateServer( int runPhysics )
 	GC_RestoreVideoMemoryAfterMapLoad();
 	R_GcmapRestoreAfterMapLoad();
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
+	GC_ReportBootPhase( GC_BOOT_MAP );
 	GC_MemSample( "map active" );
 #endif
 

@@ -104,8 +104,9 @@ static void Sys_GameCubeFatalBreadcrumb( const char *message )
 
 	SYS_Report( "Xash3D GameCube: fatal breadcrumb begin\n" );
 	SYS_Report( "Xash3D GameCube: fatal message=%s\n", message ? message : "<null>" );
-	SYS_Report( "Xash3D GameCube: fatal status=%d frame=%u errorframe=%u route=%s gcmap=%s subsystem=%s build=%s mem=%s\n",
-		host.status, host.framecount, host.errorframe, route, gcmap[0] ? gcmap : "<none>", subsystem, g_buildcommit, mem );
+	SYS_Report( "Xash3D GameCube: fatal status=%d frame=%u errorframe=%u route=%s gcmap=%s subsystem=%s boot=%s build=%s mem=%s\n",
+		host.status, host.framecount, host.errorframe, route, gcmap[0] ? gcmap : "<none>", subsystem,
+		GC_GetBootPhaseName( GC_GetBootPhase()), g_buildcommit, mem );
 	SYS_Report( "Xash3D GameCube: fatal breadcrumb end\n" );
 	Q_snprintf( details, sizeof( details ), "SUBSYSTEM %s\nBUILD %s\nMAP %s\nROUTE %s\nMEM %s\nFRAME %u",
 		subsystem, g_buildcommit, gcmap[0] ? gcmap : "NONE", route, mem, host.framecount );

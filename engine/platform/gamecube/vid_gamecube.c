@@ -67,6 +67,48 @@ static double gc_worst_frame_ms;
 static qboolean gc_budget_probe_active;
 static GXTexObj gc_present_tex;
 static qboolean gc_present_tex_ready;
+static gc_boot_phase_t gc_boot_phase = GC_BOOT_NONE;
+#endif
+
+#if XASH_GAMECUBE
+const char *GC_GetBootPhaseName( gc_boot_phase_t phase )
+{
+	switch( phase )
+	{
+	case GC_BOOT_EARLY: return "early";
+	case GC_BOOT_RENDERER: return "renderer";
+	case GC_BOOT_SW_FB: return "sw_fb";
+	case GC_BOOT_ENGINE: return "engine";
+	case GC_BOOT_CLIENT: return "client";
+	case GC_BOOT_MENU: return "menu";
+	case GC_BOOT_INTRO: return "intro";
+	case GC_BOOT_MAP: return "map";
+	default: return "none";
+	}
+}
+
+gc_boot_phase_t GC_GetBootPhase( void )
+{
+	return gc_boot_phase;
+}
+
+void GC_ReportBootPhase( gc_boot_phase_t phase )
+{
+	gc_boot_phase_t prev = gc_boot_phase;
+
+	if( phase < gc_boot_phase )
+		return;
+
+	gc_boot_phase = phase;
+	SYS_Report( "Xash3D GameCube: boot phase=%s last=%s\n",
+		GC_GetBootPhaseName( phase ), GC_GetBootPhaseName( prev ));
+}
+
+qboolean GC_BootDrawAllowed( void )
+{
+	/* Fallback menu FillRGBA / present need a validated software framebuffer. */
+	return gc_boot_phase >= GC_BOOT_SW_FB && gc.buffer != NULL && gc.width > 0 && gc.height > 0;
+}
 #endif
 
 #define GC_VIDEO_SAFE_AREA_PERCENT 10
@@ -213,6 +255,7 @@ static void GC_InitVideoHardware( void )
 	gc_present_tex_ready = false;
 	gc.initialized = true;
 	SYS_Report( "Xash3D GameCube: renderer initialized gx\n" );
+	GC_ReportBootPhase( GC_BOOT_RENDERER );
 #endif
 }
 
@@ -876,6 +919,9 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	*r = 0xF800;
 	*g = 0x07E0;
 	*b = 0x001F;
+#if XASH_GAMECUBE
+	GC_ReportBootPhase( GC_BOOT_SW_FB );
+#endif
 	return true;
 }
 

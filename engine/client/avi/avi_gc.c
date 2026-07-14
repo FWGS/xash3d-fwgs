@@ -1287,7 +1287,10 @@ qboolean AVI_Think( movie_state_t *Avi )
 			Con_Reportf( "Xash3D GameCube: intro AVI audio start synced to first uploaded frame\n" );
 		}
 		if( target_frame == 0 )
+		{
 			Con_Reportf( "Xash3D GameCube: intro AVI decoded first frame\n" );
+			GC_ReportBootPhase( GC_BOOT_INTRO );
+		}
 		if( target_frame <= 2 || target_frame == 15 || target_frame == 30 || target_frame == 60 )
 		{
 			Con_Reportf( "Xash3D GameCube: intro AVI uploaded frame=%u upload=%dx%d\n",

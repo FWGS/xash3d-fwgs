@@ -169,7 +169,9 @@ int execv( const char *path, char *const argv[] )
 void GCube_EarlyInit( void )
 {
 #if XASH_GAMECUBE
-	Con_Reportf( "GameCube: Starting early initialization sequence.\n" );
+	/* Probe scripts match this marker as the guest bootstrap heartbeat. */
+	SYS_Report( "Xash3D GameCube: bootstrap\n" );
+	GC_ReportBootPhase( GC_BOOT_EARLY );
 #endif
 }
 

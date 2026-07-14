@@ -120,6 +120,19 @@ void DOS_Shutdown( void );
 #endif
 
 #if XASH_GAMECUBE
+typedef enum
+{
+	GC_BOOT_NONE = 0,
+	GC_BOOT_EARLY,
+	GC_BOOT_RENDERER,
+	GC_BOOT_SW_FB,
+	GC_BOOT_ENGINE,
+	GC_BOOT_CLIENT,
+	GC_BOOT_MENU,
+	GC_BOOT_INTRO,
+	GC_BOOT_MAP
+} gc_boot_phase_t;
+
 void GCube_EarlyInit( void );
 void GC_EarlyBootSplash( void );
 void GCube_Init( void );
@@ -133,6 +146,10 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 int GC_GetVisualQuality( void );
 const char *GC_GetQualityProfileName( void );
 void GC_ReportQualityProfile( const char *stage );
+void GC_ReportBootPhase( gc_boot_phase_t phase );
+gc_boot_phase_t GC_GetBootPhase( void );
+const char *GC_GetBootPhaseName( gc_boot_phase_t phase );
+qboolean GC_BootDrawAllowed( void );
 qboolean GC_IsFrameBudgetProbeActive( void );
 qboolean GC_ShouldUseLightPresent( void );
 void GC_NoteLightPresentFrame( void );

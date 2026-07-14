@@ -15,6 +15,7 @@ from statistics import mean
 FRAME_TIME_RE = re.compile(r"frame time=([\d.]+)ms")
 GCMAP_RENDER_TIME_RE = re.compile(r"gcmap render time=([\d.]+)ms")
 MAP_LOADED_RE = re.compile(r"Xash3D GameCube: map loaded (\S+)")
+BOOT_PHASE_RE = re.compile(r"Xash3D GameCube: boot phase=(\S+)")
 GUEST_ERROR_RE = re.compile(
 	r"(Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|"
 	r"Invalid read from|MMU fault|Program attempting to read)",
@@ -315,11 +316,14 @@ def main() -> int:
 	avg = mean(steady) if steady else 0.0
 	p95 = percentile(steady, 95.0) if steady else 0.0
 	max_ms = max(steady) if steady else 0.0
+	boot_phases = BOOT_PHASE_RE.findall(text)
+	last_boot_phase = boot_phases[-1] if boot_phases else "none"
 
 	print(
 		f"FRAME_BUDGET_STATS: samples={len(frame_times)} "
 		f"avg={avg:.2f}ms p95={p95:.2f}ms max={max_ms:.2f}ms target={args.target_ms:.2f}ms"
 	)
+	print(f"BOOT_PHASE: {last_boot_phase}")
 	print(f"G36_STATUS: {g36_status}")
 	print(
 		f"G36_SUMMARY: {g36_note}; map_loaded={'yes' if map_loaded else 'no'}; "

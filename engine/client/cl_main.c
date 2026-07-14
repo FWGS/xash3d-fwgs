@@ -3782,7 +3782,8 @@ void Host_ClientFrame( void )
 	if( UI_UsingBuiltInFallbackMenu() )
 	{
 		VID_CheckChanges();
-		SCR_UpdateScreen();
+		if( GC_BootDrawAllowed() )
+			SCR_UpdateScreen();
 		SCR_RunCinematic();
 		return;
 	}
@@ -3801,7 +3802,8 @@ void Host_ClientFrame( void )
 		}
 #endif
 		VID_CheckChanges();
-		SCR_UpdateScreen();
+		if( GC_BootDrawAllowed() )
+			SCR_UpdateScreen();
 		SCR_RunCinematic();
 		return;
 	}
@@ -3918,6 +3920,7 @@ void CL_Init( void )
 		cls.olddemonum = -1;
 		cls.demonum = -1;
 		Con_Reportf( "Xash3D GameCube: menu-only bootstrap active\n" );
+		GC_ReportBootPhase( GC_BOOT_CLIENT );
 		return;
 	}
 #endif
@@ -3985,6 +3988,7 @@ void CL_Init( void )
 	cls.demonum = -1;
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: client init ready\n" );
+	GC_ReportBootPhase( GC_BOOT_CLIENT );
 #endif
 }
 
