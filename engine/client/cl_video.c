@@ -453,9 +453,8 @@ void SCR_InitCinematic( void )
 	AVI_Initailize ();
 	cin_state = AVI_GetState( CIN_MAIN );
 #if XASH_GAMECUBE
-	/* Keep the cinematic texture at the source intro resolution so the
-	 * renderer can scale the full frame instead of baking in a 320x240 copy. */
-	cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 640, 480, NULL, TF_NOMIPMAP|TF_CLAMP );
+	/* Match GC cinematic BSS / half-res intro upload ceiling (ref/gx r_draw.c). */
+	cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 320, 240, NULL, TF_NOMIPMAP|TF_CLAMP );
 #else
 	cin_texture = ref.dllFuncs.GL_CreateTexture( "*cintexture", 64, 64, NULL, TF_NOMIPMAP|TF_CLAMP );
 #endif

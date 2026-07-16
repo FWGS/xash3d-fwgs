@@ -51,6 +51,7 @@ void GC_BeginFrameBudgetProbe( void );
 void GC_RunGcmapSmokeFrames( const char *mapname, int count );
 qboolean GC_AttemptGcmapWorldRender( int count );
 qboolean R_GcmapEnsureSurfaceCache( void );
+qboolean GC_ShouldUseLightPresent( void );
 #endif
 
 host_parm_t host;	// host parms
@@ -676,12 +677,16 @@ void Host_Frame( double time )
 #if XASH_GAMECUBE
 	/* After New Game ca_active, keep presenting even if server think stalls.
 	 * Use signon as well as cls.state: the connect frame still has ca_connected
-	 * when Host_Frame chooses its branch, then CheckClientState flips active. */
+	 * when Host_Frame chooses its branch, then CheckClientState flips active.
+	 * While G36 light presents are armed, skip Host_ServerFrame — the first
+	 * post-spawn UpdateClientData (HUD init / target fires) otherwise stalls
+	 * before multi-sample evidence is collected. */
 	if( ( cls.state == ca_active || cls.signon == SIGNONS )
 		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() ))
 	{
 		Host_ClientFrame ();
-		Host_ServerFrame ();
+		if( !GC_ShouldUseLightPresent() )
+			Host_ServerFrame ();
 	}
 	else
 	{

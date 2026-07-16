@@ -87,6 +87,8 @@ static convar_t *gc_pad_port;
 static qboolean gc_bindings_applied;
 static int gc_probe_action_stage;
 static double gc_probe_action_time;
+static uint gc_probe_action_frame;
+static double gc_probe_action_diag_time;
 static qboolean gc_probe_action_logged;
 static qboolean gc_probe_action_complete_logged;
 static qboolean gc_probe_menu_ready_logged;
@@ -403,6 +405,17 @@ static qboolean GC_ShouldUseProbeInputFallback( void )
  * exits on RETAIL_READY. */
 #define GC_PROBE_MENU_START_DELAY 0.05
 #define GC_PROBE_MENU_STEP_DELAY  0.05
+#define GC_PROBE_MENU_START_FRAMES 2
+#define GC_PROBE_MENU_STEP_FRAMES  2
+
+static qboolean GC_ProbeMenuStageReady( double delay, uint frames )
+{
+	if( host.realtime - gc_probe_action_time >= delay )
+		return true;
+	if( host.framecount - gc_probe_action_frame >= frames )
+		return true;
+	return false;
+}
 
 static void GC_EnableProbeInputFallback( void )
 {
@@ -441,6 +454,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		{
 			gc_probe_action_logged = true;
 			gc_probe_action_stage = 0;
+			gc_probe_action_frame = host.framecount;
 			Con_Reportf( "Xash3D GameCube: probe gameplay input begin\n" );
 		}
 
@@ -478,10 +492,26 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 	}
 
 	if( cls.key_dest == key_console )
+	{
+		if( gc_probe_action_logged && host.realtime - gc_probe_action_diag_time >= 1.0 )
+		{
+			gc_probe_action_diag_time = host.realtime;
+			Con_Reportf( "Xash3D GameCube: probe menu blocked keydest=console stage=%d realtime=%.2f\n",
+				gc_probe_action_stage, host.realtime );
+		}
 		return 0;
+	}
 
 	if( Cvar_VariableValue( "gc_menu_ready" ) < 1.0f )
+	{
+		if( gc_probe_action_logged && host.realtime - gc_probe_action_diag_time >= 1.0 )
+		{
+			gc_probe_action_diag_time = host.realtime;
+			Con_Reportf( "Xash3D GameCube: probe menu blocked ready=0 stage=%d realtime=%.2f\n",
+				gc_probe_action_stage, host.realtime );
+		}
 		return 0;
+	}
 
 	if( !gc_probe_menu_ready_logged )
 	{
@@ -492,69 +522,58 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 	if( !gc_probe_action_logged )
 	{
 		gc_probe_action_logged = true;
-		gc_probe_action_stage = 0;
+		gc_probe_action_stage = 1;
 		gc_probe_action_time = host.realtime;
+		gc_probe_action_frame = host.framecount;
+		gc_probe_action_diag_time = host.realtime;
 		Con_Reportf( "Xash3D GameCube: probe menu input begin\n" );
-		return 0;
+		Con_Reportf( "Xash3D GameCube: probe menu action down\n" );
+		return PAD_BUTTON_DOWN;
 	}
 
 	switch( gc_probe_action_stage )
 	{
-	case 0:
-		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_START_DELAY )
-			return 0;
-		gc_probe_action_stage = 1;
-		gc_probe_action_time = host.realtime;
-		Con_Reportf( "Xash3D GameCube: probe menu action down\n" );
-		return PAD_BUTTON_DOWN;
 	case 1:
-		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
 		gc_probe_action_stage = 2;
 		gc_probe_action_time = host.realtime;
+		gc_probe_action_frame = host.framecount;
 		return 0;
 	case 2:
-		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
 		gc_probe_action_stage = 3;
 		gc_probe_action_time = host.realtime;
-		return PAD_BUTTON_DOWN;
+		gc_probe_action_frame = host.framecount;
+		Con_Reportf( "Xash3D GameCube: probe menu action confirm\n" );
+		return PAD_BUTTON_A;
 	case 3:
-		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
 		gc_probe_action_stage = 4;
 		gc_probe_action_time = host.realtime;
+		gc_probe_action_frame = host.framecount;
 		return 0;
 	case 4:
-		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
 		gc_probe_action_stage = 5;
 		gc_probe_action_time = host.realtime;
-		return PAD_BUTTON_DOWN;
+		gc_probe_action_frame = host.framecount;
+		Con_Reportf( "Xash3D GameCube: probe menu action back\n" );
+		return PAD_BUTTON_B;
 	case 5:
-		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
 		gc_probe_action_stage = 6;
 		gc_probe_action_time = host.realtime;
-		Con_Reportf( "Xash3D GameCube: probe menu action confirm\n" );
-		return PAD_BUTTON_A;
+		gc_probe_action_frame = host.framecount;
+		return 0;
 	case 6:
-		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
+		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
 		gc_probe_action_stage = 7;
-		gc_probe_action_time = host.realtime;
-		return 0;
-	case 7:
-		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
-			return 0;
-		gc_probe_action_stage = 8;
-		gc_probe_action_time = host.realtime;
-		Con_Reportf( "Xash3D GameCube: probe menu action back\n" );
-		return PAD_BUTTON_B;
-	case 8:
-		if( host.realtime - gc_probe_action_time < GC_PROBE_MENU_STEP_DELAY )
-			return 0;
-		gc_probe_action_stage = 9;
 		if( !gc_probe_action_complete_logged )
 		{
 			gc_probe_action_complete_logged = true;
@@ -683,6 +702,8 @@ int Platform_JoyInit( void )
 	gc_bindings_applied = false;
 	gc_probe_action_stage = 0;
 	gc_probe_action_time = 0.0;
+	gc_probe_action_frame = 0;
+	gc_probe_action_diag_time = 0.0;
 	gc_probe_action_logged = false;
 	gc_probe_action_complete_logged = false;
 	gc_probe_menu_ready_logged = false;

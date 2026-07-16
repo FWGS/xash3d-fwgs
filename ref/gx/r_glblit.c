@@ -808,6 +808,18 @@ void R_BlitScreen( void )
 
 	if( !buffer || gpGlobals->width != vid.width || gpGlobals->height != vid.height )
 	{
+#if XASH_GAMECUBE
+		/* New Game keeps a lean present buffer after map-load trim. Do not
+		 * re-AllocScreen(640x480) into exhausted MEM1 — that path stalls the
+		 * connect Host_Frame. Skip the blit until world/probe screens match. */
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& ( !vid.buffer || gpGlobals->width != vid.width || gpGlobals->height != vid.height ))
+		{
+			if( buffer )
+				swblit.pUnlockBuffer();
+			return;
+		}
+#endif
 		R_AllocScreen();
 		buffer = swblit.pLockBuffer();
 		if( !buffer )

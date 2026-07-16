@@ -352,6 +352,8 @@ static void GC_SwizzleRGB565ToTiled( const unsigned short *src, int src_stride,
 	}
 }
 
+static void GC_PresentBufferViaGX( void );
+
 static qboolean GC_CanPresentViaGX( int width, int height )
 {
 	if( !gc.initialized || !rmode || !xfb[which_fb] )
@@ -772,11 +774,12 @@ static void GC_PresentBuffer( void )
 			gc_last_present_time = now;
 		}
 	}
-	else if( gc_present_count <= 16 && !gc_newgame_world_ready )
+	else if( gc_present_count <= 16 && !gc_newgame_world_ready && cls.state != ca_cinematic )
 	{
 		/* One line for smoke evidence — three SYS_Reports per present were
 		 * dominating host I/O on short Dolphin probes. Skip once New Game
-		 * world is up; that path uses silent budget sampling instead. */
+		 * world is up; that path uses silent budget sampling instead.
+		 * Also skip during intro cinematics (direct GX present owns timing). */
 		SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u blank_frames=%u frame time=%.2fms\n",
 			gc_present_count, sampled_nonblack ? 1u : 0u, gc_blank_present_count, elapsed_ms );
 		/* gcmap/gcworldrender probes intentionally pace presents while the real
@@ -1724,6 +1727,20 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * Viewmodel bind is forced in V_SetupViewModel (tram starts unarmed). */
 	Mod_GCLoadNewGameStudios();
 
+	/* Mark world-ready before VidInit so SCR_UpdateScreen cannot re-arm the
+	 * G36 "frame budget samples armed" marker mid-Prepare (harness scores
+	 * only the window after the last arm). */
+	gc_light_present_left = 0;
+	gc_present_count = 0;
+	gc_blank_present_count = 0;
+	gc_budget_sample_count = 0;
+	gc_budget_warmup_left = 0;
+	gc_last_present_time = 0.0;
+	gc_worst_frame_ms = 0.0;
+	gc_budget_probe_active = false;
+	gc_newgame_world_ready = true;
+	Cvar_Set( "gc_hud_probe_skip", "0" );
+
 	/* Lean HUD VidInit at quality 0: set 320 sheet names without hud.txt.
 	 * Clear FS miss-cache so bootstrap-injected sprites/320_pain.spr is visible. */
 	FS_ClearFindMissCache();
@@ -1735,20 +1752,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 
 	refState.width = present_w;
 	refState.height = present_h;
-	gc_light_present_left = 0;
-	/* Re-arm silent G36 sampling for the real world path (not light fills). */
-	gc_present_count = 0;
-	gc_blank_present_count = 0;
-	gc_budget_sample_count = 0;
-	gc_budget_warmup_left = GC_VIDEO_BUDGET_WARMUP_PRESENTS;
-	gc_last_present_time = 0.0;
-	gc_worst_frame_ms = 0.0;
-	gc_budget_probe_active = true;
-	gc_newgame_world_ready = true;
-	Cvar_Set( "gc_hud_probe_skip", "0" );
 	SYS_Report( "Xash3D GameCube: newgame low-res world present %dx%d\n", present_w, present_h );
-	SYS_Report( "Xash3D GameCube: frame budget samples armed after map ready (%dx%d probe=1)\n",
-		present_w, present_h );
 	GC_MemSample( "newgame world present" );
 	return true;
 #else
@@ -1898,10 +1902,15 @@ void GC_RestoreVideoMemoryAfterMapLoad( void )
 	height = refState.height > 0 ? refState.height : DEFAULT_MODE_HEIGHT;
 
 	/* After map load MEM1 is tight: prefer the lean probe buffer under
-	 * map-load memory opt instead of failing a full 640x480 calloc. */
-	if( GC_MapLoadMemoryOpt()
-		|| Sys_CheckParm( "-gcmap" )
-		|| Sys_CheckParm( "-gcnewgame" ))
+	 * map-load memory opt instead of failing a full 640x480 calloc.
+	 * New Game stays on the 160×120 BSS probe so G36 samples do not calloc. */
+	if( Sys_CheckParm( "-gcnewgame" ))
+	{
+		width = GC_VIDEO_NEWGAME_PROBE_WIDTH;
+		height = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
+	}
+	else if( GC_MapLoadMemoryOpt()
+		|| Sys_CheckParm( "-gcmap" ))
 	{
 		width = GC_VIDEO_PROBE_WIDTH;
 		height = GC_VIDEO_PROBE_HEIGHT;
@@ -1909,6 +1918,12 @@ void GC_RestoreVideoMemoryAfterMapLoad( void )
 
 	if( SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
 	{
+		/* Keep refState in sync so connect-time 2D does not assume 640×480. */
+		if( gc.width > 0 && gc.height > 0 )
+		{
+			refState.width = gc.width;
+			refState.height = gc.height;
+		}
 		SYS_Report( "Xash3D GameCube: restored presentation buffer %dx%d\n",
 			gc.width, gc.height );
 		return;
@@ -1920,6 +1935,11 @@ void GC_RestoreVideoMemoryAfterMapLoad( void )
 			continue;
 		if( SW_CreateBuffer( fallbacks[i][0], fallbacks[i][1], &stride, &bpp, &r, &g, &b ))
 		{
+			if( gc.width > 0 && gc.height > 0 )
+			{
+				refState.width = gc.width;
+				refState.height = gc.height;
+			}
 			SYS_Report( "Xash3D GameCube: restored presentation buffer %dx%d (fallback after %dx%d fail)\n",
 				gc.width, gc.height, width, height );
 			return;

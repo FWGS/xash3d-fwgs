@@ -809,6 +809,23 @@ void SCR_UpdateScreen( void )
 		GC_NoteLightPresentFrame();
 		return;
 	}
+
+	/* After map-load the present buffer is 160×120 while the soft renderer
+	 * screen is still deferred at 640×480. StretchPic/R_BlitScreen during
+	 * connect stalls Host_Frame before the local server can accept — New Game
+	 * never reaches ca_active / G36 arm. Keep frames alive until sign-on. */
+	if( Sys_CheckParm( "-gcnewgame" )
+		&& cls.state >= ca_connecting && cls.state < ca_active )
+	{
+		static qboolean gc_connect_skip_logged;
+
+		if( !gc_connect_skip_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: skipping connect-time screen update for newgame\n" );
+			gc_connect_skip_logged = true;
+		}
+		return;
+	}
 #endif
 
 	if( !V_PreRender( )) return;
