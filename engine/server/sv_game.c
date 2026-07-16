@@ -35,6 +35,11 @@ static int GAME_EXPORT pfnModelIndex( const char *m );
 static byte fatphs[(MAX_MAP_LEAFS+7)/8];
 static byte clientpvs[(MAX_MAP_LEAFS+7)/8];	// for find client in PVS
 
+#if XASH_GAMECUBE
+/* Player CBasePlayer private block when MEM1 malloc fails during -gcnewgame. */
+static byte gc_player_private_fallback[4096];
+#endif
+
 // exports
 #if XASH_WIN32
 typedef void (__cdecl *LINK_ENTITY_FUNC)( entvars_t *pev );
@@ -260,6 +265,17 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 		ent->v.model = SV_MakeString( sv.model_precache[i] );
 		ent->v.modelindex = i;
 		mod = sv.models[i];
+#if XASH_GAMECUBE
+		/* Precache stubs may have been freed for world-render headroom;
+		 * re-bind before touching mod->type (dangling pointer crash). */
+		if( GC_MapLoadMemoryOpt()
+			&& ( !mod || mod->needload == NL_UNREFERENCED || !mod->name[0] ))
+		{
+			Con_Reportf( "Xash3D GameCube: SV_SetModel rebinding %s index=%d\n", name, i );
+			mod = Mod_ForName( name, false, true );
+			sv.models[i] = mod;
+		}
+#endif
 	}
 	else
 	{
@@ -972,7 +988,9 @@ static void GAME_EXPORT SV_FreePrivateData( edict_t *pEdict )
 	if( Mem_IsAllocatedExt( svgame.mempool, pEdict->pvPrivateData ))
 		Mem_Free( pEdict->pvPrivateData );
 #if XASH_GAMECUBE
-	else if( Sys_CheckParm( "-gcmap" ))
+	else if( pEdict->pvPrivateData == gc_player_private_fallback )
+		; /* static New Game player fallback — never free() */
+	else if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
 		free( pEdict->pvPrivateData );
 #endif
 
@@ -2988,10 +3006,26 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 		 * GetClassPtr linking against a NULL private block. */
 		if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
 		{
+			qboolean used_fallback = false;
+
 			pEdict->pvPrivateData = malloc( size );
+			if( !pEdict->pvPrivateData )
+				pEdict->pvPrivateData = Mem_TryCalloc( svgame.mempool, size );
+			/* Player spawn must not return NULL — GetClassPtr crashes. Keep a
+			 * static fallback for the single-player client edict under New Game. */
+			if( !pEdict->pvPrivateData && Sys_CheckParm( "-gcnewgame" )
+				&& NUM_FOR_EDICT( pEdict ) == 1 && size <= sizeof( gc_player_private_fallback ))
+			{
+				memset( gc_player_private_fallback, 0, sizeof( gc_player_private_fallback ));
+				pEdict->pvPrivateData = gc_player_private_fallback;
+				used_fallback = true;
+				Con_Reportf( "Xash3D GameCube: ent private data using static player fallback size=%zu\n",
+					size );
+			}
 			if( pEdict->pvPrivateData )
 			{
-				memset( pEdict->pvPrivateData, 0, size );
+				if( !used_fallback )
+					memset( pEdict->pvPrivateData, 0, size );
 				if( Sys_CheckParm( "-gcnewgame" ) && size >= 1024 )
 					Con_Reportf( "Xash3D GameCube: ent private data malloc size=%zu edict=%d classname=%s\n",
 						size, NUM_FOR_EDICT( pEdict ), SV_ClassName( pEdict ));

@@ -43,7 +43,7 @@ def retail_reference(source: Path) -> "Image.Image":
 		canvas = Image.new("RGBA", (bg_w, bg_h), (24, 28, 40, 255))
 		for tile_path, x, y in tiles:
 			canvas.paste(Image.open(tile_path).convert("RGBA"), (x, y))
-		return disc._gc_menu_boost_visibility(canvas)
+		return canvas
 	raise FileNotFoundError("no usable BackgroundLayout in valve tree")
 
 
@@ -61,14 +61,27 @@ def gc_menu_preview(source: Path, output_root: Path) -> "Image.Image":
 	draw = ImageDraw.Draw(canvas)
 	if logo_path.is_file():
 		logo = Image.open(logo_path).convert("RGBA")
-		logo = logo.resize((int(640 * 0.70), int(640 * 0.70 / 16)), Image.Resampling.LANCZOS)
-		canvas.paste(logo, (int((640 - logo.width) / 2), int(480 * 0.12)), logo)
+		logo_w = int(640 * 0.74)
+		logo_h = max(1, int(logo.height * (logo_w / float(logo.width))))
+		logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+		canvas.paste(logo, (int((640 - logo.width) / 2), int(480 * 0.08)), logo)
 
-	menu_x, menu_y = 70, 252
-	for index, label in enumerate(("New Game", "Load Game", "Options")):
-		color = (255, 214, 48, 255) if index == 0 else (224, 170, 16, 255)
-		draw.text((menu_x, menu_y + index * 34), label, fill=color)
-	draw.text((menu_x, menu_y + 3 * 34 + 34), "Start a new single player game.", fill=(112, 112, 112, 255))
+	menu_items = (
+		("New game", "Start a new single player game."),
+		("Load game", "Load a previously saved game."),
+		("Find servers", "Search for online multiplayer servers."),
+		("Create server", "Host an online multiplayer server for others to join."),
+		("Options", "Change game settings, configure controls."),
+		("Quit", "Quit playing Half-Life."),
+	)
+	menu_x, menu_desc_x = 57, 192
+	menu_y, row_h = 270, 42
+	for index, (label, desc) in enumerate(menu_items):
+		y = menu_y + index * row_h
+		label_color = (255, 207, 24, 255) if index == 0 else (230, 184, 16, 255)
+		desc_color = (110, 110, 110, 255)
+		draw.text((menu_x, y), label, fill=label_color)
+		draw.text((menu_desc_x, y + 2), desc, fill=desc_color)
 	return canvas
 
 

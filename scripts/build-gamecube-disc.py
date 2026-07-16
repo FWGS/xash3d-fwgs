@@ -611,27 +611,15 @@ def _gc_menu_nonblack_ratio(image) -> float:
 	return nonblack / float(total)
 
 
-def _gc_menu_boost_visibility(image):
-	"""Lift very dark Steam/HD menu tiles so RGB565 presents stay readable."""
-	from PIL import Image, ImageEnhance, ImageOps
+def _gc_menu_preserve_retail_tone(image):
+	"""Keep the retail menu moody and dark instead of over-brightening it."""
+	from PIL import ImageEnhance
 
-	rgb = image.convert("RGB")
-	rgb = ImageOps.autocontrast(rgb, cutoff=1)
-	rgb = ImageEnhance.Brightness(rgb).enhance(1.55)
-	rgb = ImageEnhance.Contrast(rgb).enhance(1.25)
-	# Classic HL menu reads as cool blue-grey; keep a light tint after boost.
-	tinted = Image.new("RGB", rgb.size)
-	src = rgb.load()
-	dst = tinted.load()
-	for y in range(rgb.size[1]):
-		for x in range(rgb.size[0]):
-			r, g, b = src[x, y]
-			dst[x, y] = (
-				min(255, int(r * 0.85 + 8)),
-				min(255, int(g * 0.90 + 12)),
-				min(255, int(b * 1.10 + 28)),
-			)
-	return tinted.convert("RGBA")
+	rgba = image.convert("RGBA")
+	rgb = rgba.convert("RGB")
+	# Very small contrast lift so 128x96 survives RGB565 without blowing out the art.
+	rgb = ImageEnhance.Contrast(rgb).enhance(1.04)
+	return rgb.convert("RGBA")
 
 
 def _gc_menu_synthetic_background(size: tuple[int, int]):
@@ -693,7 +681,7 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 
 	# 128x96 keeps the transient RGBA decode buffer under 50 KiB for MEM1 menu boot.
 	if best is not None and best_ratio >= 0.02:
-		background = _gc_menu_boost_visibility(
+		background = _gc_menu_preserve_retail_tone(
 			best.resize((128, 96), Image.Resampling.LANCZOS))
 		source_note = best_label
 	else:
@@ -703,22 +691,12 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	background_path = menu_dir / "background.tga"
 	background.save(background_path, format="TGA")
 
-	# Prefer the full title logo (white + alpha), tinted HL orange for the
-	# software renderer path that may not keep a separate alpha plane.
+	# Prefer the original white retail title logo so the baked menu matches the
+	# real menu composition instead of the earlier orange fallback treatment.
 	logo = None
 	logo_src = source / "resource" / "logo.tga"
 	if logo_src.is_file():
-		src = Image.open(logo_src).convert("RGBA")
-		alpha = src.split()[3]
-		logo = Image.merge(
-			"RGBA",
-			(
-				Image.new("L", src.size, 214),
-				Image.new("L", src.size, 138),
-				Image.new("L", src.size, 26),
-				alpha,
-			),
-		)
+		logo = Image.open(logo_src).convert("RGBA")
 	else:
 		logo_src = source / "resource" / "logo_game.tga"
 		if logo_src.is_file():
