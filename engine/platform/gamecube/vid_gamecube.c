@@ -122,10 +122,11 @@ qboolean GC_BootDrawAllowed( void )
 /* Skip first Host_Frame after arm (connect residual), then sample. */
 #define GC_VIDEO_BUDGET_WARMUP_PRESENTS 1
 #define GC_VIDEO_BUDGET_SAMPLE_TARGET 16
-#define GC_VIDEO_NEWGAME_BUDGET_SAMPLE_TARGET 4
+#define GC_VIDEO_NEWGAME_BUDGET_SAMPLE_TARGET 8
 /* Keep SCR on the light fill path after G36 samples so Host_Frame still presents
- * while we restore the framebuffer for world render. */
-#define GC_VIDEO_LIGHT_PRESENT_GRACE 24
+ * while we restore the framebuffer for world render. Short grace so real hardware
+ * reaches the low-res world path quickly after evidence is collected. */
+#define GC_VIDEO_LIGHT_PRESENT_GRACE 8
 
 #if XASH_GAMECUBE
 /* Collected during the probe window; flushed to OSReport only after sampling so
@@ -264,6 +265,10 @@ static void GC_InitVideoHardware( void )
 #define GC_GX_TILE_MAX_W 320
 #define GC_GX_TILE_MAX_H 240
 static u16 gc_tiled_rgb565[GC_GX_TILE_MAX_W * GC_GX_TILE_MAX_H] __attribute__((aligned( 32 )));
+/* Post-map MEM1 cannot calloc a present FB; keep a BSS New Game probe buffer
+ * so G36 never falls back to a 640×480 CPU blit on real hardware. */
+static unsigned short gc_probe_rgb565[GC_VIDEO_NEWGAME_PROBE_WIDTH * GC_VIDEO_NEWGAME_PROBE_HEIGHT] __attribute__((aligned( 32 )));
+static qboolean gc_buffer_owns_heap;
 
 static void GC_InitPresentTexture( void )
 {
@@ -844,6 +849,11 @@ void R_Free_Video( void )
 		gc.buffer = NULL;
 	}
 #else
+	if( gc.buffer && gc_buffer_owns_heap )
+		free( gc.buffer );
+	gc.buffer = NULL;
+	gc.buffer_pixels = 0;
+	gc_buffer_owns_heap = false;
 	gc.width = 0;
 	gc.height = 0;
 	gc.stride = 0;
@@ -871,16 +881,28 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 	needed_pixels = (size_t)width * (size_t)height;
 
 #if XASH_GAMECUBE
-	if( !gc.buffer || gc.buffer_pixels < needed_pixels )
+	/* Prefer BSS New Game probe FB for anything that fits — avoids post-map
+	 * calloc failure that left presents stuck at 640×480 on real hardware. */
+	if( needed_pixels <= (size_t)( GC_VIDEO_NEWGAME_PROBE_WIDTH * GC_VIDEO_NEWGAME_PROBE_HEIGHT ))
+	{
+		if( gc.buffer && gc_buffer_owns_heap )
+			free( gc.buffer );
+		gc.buffer = gc_probe_rgb565;
+		gc.buffer_pixels = (size_t)( GC_VIDEO_NEWGAME_PROBE_WIDTH * GC_VIDEO_NEWGAME_PROBE_HEIGHT );
+		gc_buffer_owns_heap = false;
+		memset( gc.buffer, 0, needed_pixels * sizeof( unsigned short ));
+	}
+	else if( !gc.buffer || gc.buffer_pixels < needed_pixels || !gc_buffer_owns_heap )
 	{
 		unsigned short *new_buffer = calloc( needed_pixels, sizeof( unsigned short ));
 		if( !new_buffer )
 			return false;
 
-		if( gc.buffer )
+		if( gc.buffer && gc_buffer_owns_heap )
 			free( gc.buffer );
 		gc.buffer = new_buffer;
 		gc.buffer_pixels = needed_pixels;
+		gc_buffer_owns_heap = true;
 	}
 	else
 	{
@@ -1012,9 +1034,11 @@ void GC_TrimVideoMemoryForMapLoad( void )
 	 * directly. Restored by GC_RestoreVideoMemoryAfterMapLoad. */
 	if( gc.buffer )
 	{
-		free( gc.buffer );
+		if( gc_buffer_owns_heap )
+			free( gc.buffer );
 		gc.buffer = NULL;
 		gc.buffer_pixels = 0;
+		gc_buffer_owns_heap = false;
 	}
 	gc_present_tex_ready = false;
 	Con_Reportf( "Xash3D GameCube: presentation buffer released for map load\n" );
@@ -1026,9 +1050,11 @@ static void GC_ReleasePresentationBufferForWorldRender( void )
 	if( !gc.buffer )
 		return;
 
-	free( gc.buffer );
+	if( gc_buffer_owns_heap )
+		free( gc.buffer );
 	gc.buffer = NULL;
 	gc.buffer_pixels = 0;
+	gc_buffer_owns_heap = false;
 	gc_present_tex_ready = false;
 	Con_Reportf( "Xash3D GameCube: released presentation buffer for world render\n" );
 #endif
@@ -1037,36 +1063,22 @@ static void GC_ReleasePresentationBufferForWorldRender( void )
 static qboolean GC_EnsurePresentationBuffer( int width, int height )
 {
 #if XASH_GAMECUBE
-	size_t needed_pixels;
-	unsigned short *new_buffer;
+	uint stride, bpp, r, g, b;
 
 	if( width <= 0 || height <= 0 )
 		return false;
 
-	needed_pixels = (size_t)width * (size_t)height;
-	if( gc.buffer && gc.width == width && gc.height == height && gc.buffer_pixels >= needed_pixels )
+	if( gc.buffer && gc.width == width && gc.height == height
+		&& gc.buffer_pixels >= (size_t)width * (size_t)height )
 		return true;
 
-	if( gc.buffer )
-	{
-		free( gc.buffer );
-		gc.buffer = NULL;
-		gc.buffer_pixels = 0;
-	}
-
-	new_buffer = calloc( needed_pixels, sizeof( unsigned short ));
-	if( !new_buffer )
+	/* Route through SW_CreateBuffer so New Game / probe sizes bind BSS. */
+	if( !SW_CreateBuffer( width, height, &stride, &bpp, &r, &g, &b ))
 	{
 		Con_Reportf( "Xash3D GameCube: presentation buffer alloc failed %dx%d\n", width, height );
 		return false;
 	}
 
-	gc.buffer = new_buffer;
-	gc.buffer_pixels = needed_pixels;
-	gc.width = width;
-	gc.height = height;
-	gc.stride = width;
-	GC_InitPresentTexture();
 	Con_Reportf( "Xash3D GameCube: presentation buffer ready %dx%d\n", width, height );
 	return true;
 #else

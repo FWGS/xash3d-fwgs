@@ -398,8 +398,11 @@ static qboolean GC_ShouldUseProbeInputFallback( void )
 	return false;
 }
 
-#define GC_PROBE_MENU_START_DELAY 0.35
-#define GC_PROBE_MENU_STEP_DELAY  0.15
+/* Retail menu probes stop shortly after the menu becomes interactive, so keep
+ * synthetic navigation brisk enough to emit breadcrumbs before the harness
+ * exits on RETAIL_READY. */
+#define GC_PROBE_MENU_START_DELAY 0.05
+#define GC_PROBE_MENU_STEP_DELAY  0.05
 
 static void GC_EnableProbeInputFallback( void )
 {

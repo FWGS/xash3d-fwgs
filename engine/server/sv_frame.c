@@ -82,6 +82,102 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 		cl->num_viewents = 0;
 	}
 
+#if XASH_GAMECUBE
+	/* New Game: pack entities in-engine. Avoid HLSDK AddToFullPack/Classify —
+	 * stub-freed studio ents and hull-only players (no model string) DSI or get
+	 * skipped. Prefer the local player + brush submodels; drop dangling studios. */
+	if( Sys_CheckParm( "-gcnewgame" ) && from_client )
+	{
+		int		e;
+		int		player_e = NUM_FOR_EDICT( pClient );
+
+		for( e = 1; e < svgame.numEntities; e++ )
+		{
+			edict_t		*ent = SV_EdictNum( e );
+			entity_state_t	*state;
+			model_t		*mod;
+			qboolean	is_player = ( e >= 1 && e <= svs.maxclients );
+
+			if( !SV_IsValidEdict( ent ))
+				continue;
+			if( CHECKVISBIT( ents->sended, e ))
+				continue;
+
+			if( is_player )
+			{
+				sv_client_t *pcl = &svs.clients[e - 1];
+
+				if( pcl->state != cs_spawned )
+					continue;
+				if( e != player_e )
+					continue; /* single-player: only the local client */
+			}
+			else
+			{
+				if( !ent->v.modelindex )
+					continue;
+				if( FBitSet( ent->v.effects, EF_NODRAW ))
+					continue;
+
+				mod = SV_ModelHandle( ent->v.modelindex );
+				if( !mod )
+				{
+					/* Freed studio stub — never touch Classify on these. */
+					if( ent->v.modelindex > 1
+						&& sv.model_precache[ent->v.modelindex][0]
+						&& Q_stristr( sv.model_precache[ent->v.modelindex], ".mdl" ))
+						continue;
+				}
+				else if( mod->type == mod_studio )
+				{
+					if( mod->needload == NL_UNREFERENCED || !mod->name[0] )
+						continue;
+				}
+				else if( mod->type != mod_brush )
+				{
+					continue; /* sprites/etc. stay inhibited for New Game MEM1 */
+				}
+			}
+
+			if( ents->num_entities >= ( MAX_VISIBLE_PACKET - 1 ))
+			{
+				c_notsend++;
+				continue;
+			}
+
+			state = &ents->entities[ents->num_entities];
+			memset( state, 0, sizeof( *state ));
+			state->number = e;
+			state->entityType = ENTITY_NORMAL;
+			VectorCopy( ent->v.origin, state->origin );
+			VectorCopy( ent->v.angles, state->angles );
+			VectorCopy( ent->v.mins, state->mins );
+			VectorCopy( ent->v.maxs, state->maxs );
+			state->modelindex = ent->v.modelindex;
+			state->sequence = ent->v.sequence;
+			state->frame = ent->v.frame;
+			state->colormap = ent->v.colormap;
+			state->solid = (int)ent->v.solid;
+			state->movetype = (int)ent->v.movetype;
+			state->effects = ent->v.effects;
+			state->rendermode = ent->v.rendermode;
+			state->renderamt = (int)ent->v.renderamt;
+			state->renderfx = ent->v.renderfx;
+			state->friction = ent->v.friction;
+			state->gravity = ent->v.gravity;
+			if( is_player )
+			{
+				state->usehull = FBitSet( ent->v.flags, FL_DUCKING ) ? 1 : 0;
+				state->health = (int)ent->v.health;
+			}
+			SETVISBIT( ents->sended, e );
+			ents->num_entities++;
+			c_fullsend++;
+		}
+		return;
+	}
+#endif
+
 	svgame.dllFuncs.pfnSetupVisibility( pViewEnt, pClient, &clientpvs, &clientphs );
 	if( !clientpvs ) fullvis = true;
 
@@ -678,6 +774,20 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 	byte	msg_buf[MAX_DATAGRAM];
 	sizebuf_t	msg;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	{
+		static int gc_datagram_log;
+		if( gc_datagram_log < 3 )
+		{
+			Con_Reportf( "Xash3D GameCube: SendClientDatagram begin seq=%d model=%d\n",
+				cl->netchan.outgoing_sequence,
+				cl->edict ? cl->edict->v.modelindex : -1 );
+			gc_datagram_log++;
+		}
+	}
+#endif
+
 	memset( msg_buf, 0, sizeof( msg_buf ));
 	MSG_Init( &msg, "Datagram", msg_buf, sizeof( msg_buf ));
 
@@ -685,8 +795,54 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 	MSG_BeginServerCmd( &msg, svc_time );
 	MSG_WriteFloat( &msg, sv.time );
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	{
+		static int gc_cd_log;
+		if( gc_cd_log < 3 )
+		{
+			Con_Reportf( "Xash3D GameCube: WriteClientdata begin\n" );
+			gc_cd_log++;
+		}
+	}
+#endif
 	SV_WriteClientdataToMessage( cl, &msg );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	{
+		static int gc_cd_ready_log;
+		if( gc_cd_ready_log < 3 )
+		{
+			Con_Reportf( "Xash3D GameCube: WriteClientdata ready\n" );
+			gc_cd_ready_log++;
+		}
+	}
+#endif
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	{
+		static int gc_ents_log;
+		if( gc_ents_log < 3 )
+		{
+			Con_Reportf( "Xash3D GameCube: WriteEntities begin\n" );
+			gc_ents_log++;
+		}
+	}
+#endif
 	SV_WriteEntitiesToClient( cl, &msg );
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
+	{
+		static int gc_datagram_ready_log;
+		if( gc_datagram_ready_log < 3 )
+		{
+			Con_Reportf( "Xash3D GameCube: SendClientDatagram ready bytes=%d\n",
+				MSG_GetNumBytesWritten( &msg ));
+			gc_datagram_ready_log++;
+		}
+	}
+#endif
 
 	// copy the accumulated multicast datagram
 	// for this client out to the message

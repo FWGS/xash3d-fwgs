@@ -11,6 +11,25 @@ probe_guest_error() {
 		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
 }
 
+probe_retail_menu_seen() {
+	[[ "${DOLPHIN_RETAIL:-0}" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && \
+		( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" || \
+		probe_log_has "$RETAIL_MENU_BG_FALLBACK_MARKER" || probe_log_has "$RETAIL_MENU_READY_FALLBACK_MARKER" )
+}
+
+probe_retail_menu_ready() {
+	if ! probe_retail_menu_seen; then
+		return 1
+	fi
+
+	if [[ "${DOLPHIN_REQUIRE_MENU_ACTIONS:-0}" == "1" ]]; then
+		probe_log_has "$MENU_ACTION_READY_MARKER"
+		return
+	fi
+
+	return 0
+}
+
 finalize_probe() {
 	local status="$1"
 	local exit_code="$2"
@@ -69,9 +88,7 @@ probe_wait_flatpak() {
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi
-		elif [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && \
-			( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" || \
-			probe_log_has "$RETAIL_MENU_BG_FALLBACK_MARKER" || probe_log_has "$RETAIL_MENU_READY_FALLBACK_MARKER" ); then
+		elif probe_retail_menu_ready; then
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
 			if (( FRAME_SAMPLE_SEC <= 0 )); then
 				DOLPHIN_EXIT=0; break
@@ -118,9 +135,7 @@ probe_wait_native() {
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi
-		elif [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && \
-			( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" || \
-			probe_log_has "$RETAIL_MENU_BG_FALLBACK_MARKER" || probe_log_has "$RETAIL_MENU_READY_FALLBACK_MARKER" ); then
+		elif probe_retail_menu_ready; then
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
 			if (( FRAME_SAMPLE_SEC <= 0 )); then
 				DOLPHIN_EXIT=0; break

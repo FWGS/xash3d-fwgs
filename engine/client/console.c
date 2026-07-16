@@ -57,6 +57,17 @@ static qboolean g_messagemode_privileged = true;
 #define CON_LINES_COUNT	con.lines_count
 #define CON_LINES_LAST()	CON_LINES( CON_LINES_COUNT - 1 )
 
+#if XASH_GAMECUBE
+static qboolean Con_GameCubeDeferFontLoad( void )
+{
+	if( GCube_HasWritableStorage( ))
+		return false;
+	if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
+		return false;
+	return true;
+}
+#endif
+
 // console color typeing
 rgba_t g_color_table[8] =
 {
@@ -601,6 +612,11 @@ Con_LoadConchars
 */
 static void Con_LoadConchars( void )
 {
+#if XASH_GAMECUBE
+	if( Con_GameCubeDeferFontLoad() && cls.key_dest != key_console )
+		return;
+#endif
+
 	// load all the console fonts
 	for( int i = 0; i < CON_NUMFONTS; i++ )
 		Con_LoadConsoleFont( i, con.chars + i );
@@ -1983,6 +1999,11 @@ void Con_DrawConsole( void )
 	// never draw console when changelevel in-progress
 	if( cls.state != ca_disconnected && ( cls.changelevel || cls.changedemo ))
 		return;
+
+#if XASH_GAMECUBE
+	if( !con.curFont && cls.key_dest == key_console )
+		Con_LoadConchars();
+#endif
 
 	// check for console width changes from a vid mode change
 	Con_CheckResize ();

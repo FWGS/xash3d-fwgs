@@ -252,6 +252,51 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 	Q_strncpy( name, modelname, sizeof( name ));
 	COM_FixSlashes( name );
 
+#if XASH_GAMECUBE
+	/* Player MDL rebind after precache free OOMs/crashes under New Game MEM1.
+	 * Keep a default player hull without studio reload or world relink.
+	 * Use the real precache slot (not world index 1) so entity frames do not
+	 * treat the client as a brush model; clear dangling stub pointers. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Q_stricmp( name, "models/player.mdl" ))
+	{
+		vec3_t mins = { -16.0f, -16.0f, -36.0f };
+		vec3_t maxs = { 16.0f, 16.0f, 36.0f };
+		int pi;
+		int player_index = 0;
+
+		Con_Reportf( "Xash3D GameCube: SV_SetModel player hull-only begin\n" );
+		for( pi = 1; pi < MAX_MODELS && sv.model_precache[pi][0]; pi++ )
+		{
+			if( !Q_stricmp( sv.model_precache[pi], name ))
+			{
+				player_index = pi;
+				break;
+			}
+		}
+		if( !player_index )
+			player_index = 1;
+
+		ent->v.modelindex = player_index;
+		ent->v.model = 0;
+		if( player_index > 1
+			&& ( !sv.models[player_index]
+				|| sv.models[player_index]->needload == NL_UNREFERENCED
+				|| !sv.models[player_index]->name[0]
+				|| sv.models[player_index]->type != mod_studio ))
+		{
+			/* Freed stub / wrong type — never leave a dangling pointer for
+			 * AddToFullPack / studio extradata during the first entity frame. */
+			sv.models[player_index] = NULL;
+		}
+		VectorCopy( mins, ent->v.mins );
+		VectorCopy( maxs, ent->v.maxs );
+		VectorSubtract( maxs, mins, ent->v.size );
+		Con_Reportf( "Xash3D GameCube: SV_SetModel player hull-only done index=%d\n",
+			player_index );
+		return;
+	}
+#endif
+
 	i = SV_ModelIndex( name );
 	if( i == 0 )
 	{

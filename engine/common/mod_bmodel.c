@@ -51,6 +51,10 @@ static qboolean gc_retain_bsp_source_buffer;
 static byte *gc_bsp_scratch_base;
 static size_t gc_bsp_scratch_size;
 static size_t gc_bsp_scratch_carve_high;
+static file_t *gc_bsp_reload_file;
+static char gc_bsp_reload_path[MAX_QPATH];
+static dheader_t gc_bsp_reload_header;
+static qboolean gc_bsp_reload_header_ok;
 
 typedef struct gc_bsp_busy_range_s
 {
@@ -1917,25 +1921,57 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 	size_t stack_size = 0;
 	size_t duplicate_nodes = 0;
 	size_t duplicate_leafs = 0;
+#if XASH_GAMECUBE
+	/* Avoid libc heap at world-load time — MEM1 is already dominated by the
+	 * map-load arena (c1a1f: 3574 nodes / 2443 leafs OOMs malloc here). */
+	enum { GC_PARENT_WALK_MAX = 4096 };
+	static mod_parent_frame_t gc_parent_stack[GC_PARENT_WALK_MAX];
+	static byte gc_parent_node_seen[GC_PARENT_WALK_MAX];
+	static byte gc_parent_leaf_seen[GC_PARENT_WALK_MAX];
+	qboolean used_static = false;
+#endif
 
 	if( !node )
 		return;
 
 	stack_capacity = mod ? (size_t)Q_max( mod->numnodes, 1 ) : 1;
-	stack = malloc( stack_capacity * sizeof( *stack ));
-	if( mod )
+#if XASH_GAMECUBE
+	if( mod
+		&& (size_t)mod->numnodes <= (size_t)GC_PARENT_WALK_MAX
+		&& (size_t)mod->numleafs <= (size_t)GC_PARENT_WALK_MAX )
 	{
-		if( mod->numnodes > 0 )
-			node_seen = calloc( mod->numnodes, sizeof( *node_seen ));
-		if( mod->numleafs > 0 )
-			leaf_seen = calloc( mod->numleafs, sizeof( *leaf_seen ));
+		stack = gc_parent_stack;
+		node_seen = ( mod->numnodes > 0 ) ? gc_parent_node_seen : NULL;
+		leaf_seen = ( mod->numleafs > 0 ) ? gc_parent_leaf_seen : NULL;
+		if( node_seen )
+			memset( node_seen, 0, (size_t)mod->numnodes );
+		if( leaf_seen )
+			memset( leaf_seen, 0, (size_t)mod->numleafs );
+		used_static = true;
+	}
+	else
+#endif
+	{
+		stack = malloc( stack_capacity * sizeof( *stack ));
+		if( mod )
+		{
+			if( mod->numnodes > 0 )
+				node_seen = calloc( mod->numnodes, sizeof( *node_seen ));
+			if( mod->numleafs > 0 )
+				leaf_seen = calloc( mod->numleafs, sizeof( *leaf_seen ));
+		}
 	}
 
 	if( !stack || ( mod && (( mod->numnodes > 0 && !node_seen ) || ( mod->numleafs > 0 && !leaf_seen ))))
 	{
-		free( stack );
-		free( node_seen );
-		free( leaf_seen );
+#if XASH_GAMECUBE
+		if( !used_static )
+#endif
+		{
+			free( stack );
+			free( node_seen );
+			free( leaf_seen );
+		}
 #if XASH_GAMECUBE
 		/* Recursive fallback can blow the GameCube call stack once the iterative
 		 * workspace fails under MEM1 pressure. Fail loudly instead of hanging. */
@@ -2007,9 +2043,14 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 
 				if( cur->contents >= 0 )
 				{
-					free( stack );
-					free( node_seen );
-					free( leaf_seen );
+#if XASH_GAMECUBE
+					if( !used_static )
+#endif
+					{
+						free( stack );
+						free( node_seen );
+						free( leaf_seen );
+					}
 					Host_Error( "%s: leaf %zu has non-leaf contents %d in %s\n",
 						__func__, leaf_index, cur->contents, mod->name );
 					return;
@@ -2017,9 +2058,14 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 			}
 			else
 			{
-				free( stack );
-				free( node_seen );
-				free( leaf_seen );
+#if XASH_GAMECUBE
+				if( !used_static )
+#endif
+				{
+					free( stack );
+					free( node_seen );
+					free( leaf_seen );
+				}
 				Host_Error( "%s: child pointer %p is outside node/leaf ranges for %s\n",
 					__func__, (void *)cur, mod->name );
 				return;
@@ -2033,9 +2079,14 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 
 		if( is_leaf )
 		{
-			free( stack );
-			free( node_seen );
-			free( leaf_seen );
+#if XASH_GAMECUBE
+			if( !used_static )
+#endif
+			{
+				free( stack );
+				free( node_seen );
+				free( leaf_seen );
+			}
 			Host_Error( "%s: leaf %zu treated as internal node in %s\n",
 				__func__, leaf_index, mod->name );
 			return;
@@ -2043,9 +2094,14 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 
 		if( stack_size + 2 > stack_capacity )
 		{
-			free( stack );
-			free( node_seen );
-			free( leaf_seen );
+#if XASH_GAMECUBE
+			if( !used_static )
+#endif
+			{
+				free( stack );
+				free( node_seen );
+				free( leaf_seen );
+			}
 			Host_Error( "%s: parent walk stack overflow for %s (%zu nodes)\n",
 				__func__, mod ? mod->name : "<unknown>", stack_capacity );
 			return;
@@ -2065,11 +2121,13 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 		Con_Reportf( "Xash3D GameCube: parent walk dedup nodes=%zu leafs=%zu map=%s\n",
 			duplicate_nodes, duplicate_leafs, mod->name );
 	}
+	if( !used_static )
 #endif
-
-	free( stack );
-	free( node_seen );
-	free( leaf_seen );
+	{
+		free( stack );
+		free( node_seen );
+		free( leaf_seen );
+	}
 }
 
 /*
@@ -4825,7 +4883,6 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 {
 	const mlumpinfo_t *info = Mod_GCFindStdLumpInfo( lumpnum );
 	file_t *f;
-	dheader_t header;
 	dlump_t lump;
 	byte *lumpbuf;
 	size_t real_entrysize;
@@ -4840,34 +4897,54 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 		Q_strncpy( bsppath, mod->name, sizeof( bsppath ));
 	else
 		Q_snprintf( bsppath, sizeof( bsppath ), "%s.bsp", mod->name );
-	f = FS_Open( bsppath, "rb", false );
-	if( !f )
+
+	/* Keep one DVD handle across faces/markfaces/leafs/nodes — repeated
+	 * FS_Open under post-carve MEM1 fails on real hardware and Dolphin. */
+	if( !gc_bsp_reload_file || Q_stricmp( gc_bsp_reload_path, bsppath ))
 	{
-		Con_Reportf( S_ERROR "Xash3D GameCube: failed to reopen %s for lump %i\n", bsppath, lumpnum );
-		return false;
+		int retry;
+
+		if( gc_bsp_reload_file )
+		{
+			FS_Close( gc_bsp_reload_file );
+			gc_bsp_reload_file = NULL;
+			gc_bsp_reload_header_ok = false;
+		}
+
+		for( retry = 0; retry < 4 && !gc_bsp_reload_file; retry++ )
+			gc_bsp_reload_file = FS_Open( bsppath, "rb", false );
+
+		if( !gc_bsp_reload_file )
+		{
+			Con_Reportf( S_ERROR "Xash3D GameCube: failed to reopen %s for lump %i\n", bsppath, lumpnum );
+			return false;
+		}
+
+		Q_strncpy( gc_bsp_reload_path, bsppath, sizeof( gc_bsp_reload_path ));
+		if( FS_Read( gc_bsp_reload_file, &gc_bsp_reload_header, sizeof( gc_bsp_reload_header ))
+			!= sizeof( gc_bsp_reload_header ))
+		{
+			Con_Reportf( S_ERROR "Xash3D GameCube: header read failed for lump %s\n", info->loadname );
+			FS_Close( gc_bsp_reload_file );
+			gc_bsp_reload_file = NULL;
+			return false;
+		}
+		le_struct_swap( dheader_swap, &gc_bsp_reload_header );
+		gc_bsp_reload_header_ok = true;
 	}
 
-	if( FS_Read( f, &header, sizeof( header )) != sizeof( header ))
-	{
-		Con_Reportf( S_ERROR "Xash3D GameCube: header read failed for lump %s\n", info->loadname );
-		FS_Close( f );
-		return false;
-	}
+	f = gc_bsp_reload_file;
 
-	le_struct_swap( dheader_swap, &header );
-
-	if( header.version != bmod->version )
+	if( !gc_bsp_reload_header_ok || gc_bsp_reload_header.version != bmod->version )
 	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: version mismatch reloading lump %s\n", info->loadname );
-		FS_Close( f );
 		return false;
 	}
 
-	lump = header.lumps[lumpnum];
+	lump = gc_bsp_reload_header.lumps[lumpnum];
 	if( lump.filelen <= 0 )
 	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: empty lump %s\n", info->loadname );
-		FS_Close( f );
 		return false;
 	}
 
@@ -4883,7 +4960,6 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: misaligned lump %s len=%u esize=%zu\n",
 			info->loadname, lump.filelen, real_entrysize );
-		FS_Close( f );
 		return false;
 	}
 
@@ -4907,7 +4983,6 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: OOM reloading lump %s (%s)\n",
 			info->loadname, Q_memprint( lump.filelen ));
-		FS_Close( f );
 		return false;
 	}
 
@@ -4917,10 +4992,8 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 		Con_Reportf( S_ERROR "Xash3D GameCube: read failed for lump %s\n", info->loadname );
 		if( !scratch_backed )
 			free( lumpbuf );
-		FS_Close( f );
 		return false;
 	}
-	FS_Close( f );
 
 #if XASH_BIG_ENDIAN
 	{
@@ -4947,6 +5020,17 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 	return true;
 }
 
+static void Mod_GCCloseBspReloadFile( void )
+{
+	if( gc_bsp_reload_file )
+	{
+		FS_Close( gc_bsp_reload_file );
+		gc_bsp_reload_file = NULL;
+	}
+	gc_bsp_reload_path[0] = '\0';
+	gc_bsp_reload_header_ok = false;
+}
+
 static void Mod_GCEnsureBspLump( model_t *mod, dbspmodel_t *bmod, int lumpnum )
 {
 	const mlumpinfo_t *info = Mod_GCFindStdLumpInfo( lumpnum );
@@ -4963,7 +5047,14 @@ static void Mod_GCEnsureBspLump( model_t *mod, dbspmodel_t *bmod, int lumpnum )
 	}
 
 	if( !Mod_GCReloadStdBspLump( mod, bmod, lumpnum ))
+	{
 		Con_Reportf( S_ERROR "Xash3D GameCube: EnsureBspLump failed %s\n", info->loadname );
+		/* Only leafs/nodes hang the load when missing; markfaces/faces can
+		 * still recover from carved scratch in some map-load paths. */
+		if( bmod->isworld && ( lumpnum == LUMP_LEAFS || lumpnum == LUMP_NODES ))
+			Host_Error( "Xash3D GameCube: missing world BSP lump '%s' after disc reopen\n",
+				info->loadname );
+	}
 }
 
 static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen );
@@ -6155,6 +6246,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 #endif
 	Mod_LoadClipnodes( mod, bmod );
 #if XASH_GAMECUBE
+	Mod_GCCloseBspReloadFile();
 	if( bmod->version != QBSP2_VERSION && !bmod->isbsp30ext && bmod->clipnodes_out == NULL )
 		retain_bsp_buffer = true;
 	if( gc_retain_bsp_source_buffer )

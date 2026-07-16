@@ -1528,6 +1528,10 @@ static void SV_PutClientInServer( sv_client_t *cl )
 			Con_Reportf( "Xash3D GameCube: ClientPutInServer begin edict=%d\n",
 				NUM_FOR_EDICT( ent ));
 #endif
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcnewgame" ))
+			Con_Reportf( "Xash3D GameCube: ClientPutInServer calling game DLL\n" );
+#endif
 		svgame.dllFuncs.pfnClientPutInServer( ent );
 #if XASH_GAMECUBE
 		if( Sys_CheckParm( "-gcnewgame" ))
@@ -2358,6 +2362,13 @@ static qboolean SV_Begin_f( sv_client_t *cl )
 	// now client is spawned
 	cl->state = cs_spawned;
 	cl->connecttime = host.realtime;
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ))
+		Con_Reportf( "Xash3D GameCube: server begin ready cs_spawned edict=%d model=%d\n",
+			cl->edict ? NUM_FOR_EDICT( cl->edict ) : -1,
+			cl->edict ? cl->edict->v.modelindex : -1 );
+#endif
 
 	return true;
 }

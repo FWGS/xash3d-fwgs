@@ -633,6 +633,9 @@ SV_LinkEdict
 void GAME_EXPORT SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 {
 	areanode_t	*node;
+#if XASH_GAMECUBE
+	qboolean	gc_skip_leafs = false;
+#endif
 
 	if( ent->area.prev ) SV_UnlinkEdict( ent );	// unlink from old position
 	if( ent == svgame.edicts ) return;		// don't add the world
@@ -640,6 +643,23 @@ void GAME_EXPORT SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 
 	// set the abs box
 	svgame.dllFuncs.pfnSetAbsBox( ent );
+
+#if XASH_GAMECUBE
+	/* New Game player spawn can LinkEdict before leaf/node scratch is stable
+	 * enough for SV_FindTouchedLeafs (DSI after hull-only SetModel). Keep abs
+	 * box + areanode membership; skip PVS leaf walk for the client entity. */
+	if( Sys_CheckParm( "-gcnewgame" ) && FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
+	{
+		gc_skip_leafs = true;
+		ent->num_leafs = 0;
+		ent->headnode = -1;
+		if( !VectorIsNull( ent->v.mins ) || !VectorIsNull( ent->v.maxs ))
+		{
+			VectorAdd( ent->v.origin, ent->v.mins, ent->v.absmin );
+			VectorAdd( ent->v.origin, ent->v.maxs, ent->v.absmax );
+		}
+	}
+#endif
 
 	if( ent->v.movetype == MOVETYPE_FOLLOW && SV_IsValidEdict( ent->v.aiment ))
 	{
@@ -655,7 +675,11 @@ void GAME_EXPORT SV_LinkEdict( edict_t *ent, qboolean touch_triggers )
 		ent->num_leafs = 0;
 		ent->headnode = -1;
 
+#if XASH_GAMECUBE
+		if( !gc_skip_leafs && ent->v.modelindex )
+#else
 		if( ent->v.modelindex )
+#endif
 			SV_FindTouchedLeafs( ent, sv.worldmodel, sv.worldmodel->nodes, &headnode );
 
 		if( ent->num_leafs > MAX_ENT_LEAFS( FBitSet( sv.worldmodel->flags, MODEL_QBSP2 )))

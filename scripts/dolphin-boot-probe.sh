@@ -87,6 +87,7 @@ RETAIL_MENU_MARKER="Xash3D GameCube: retail menu steam background ready"
 RETAIL_MENU_INTERACTIVE_MARKER="Xash3D GameCube: retail menu button text ready"
 RETAIL_MENU_BG_FALLBACK_MARKER="Xash3D GameCube: mainui vidinit background ready"
 RETAIL_MENU_READY_FALLBACK_MARKER="Xash3D GameCube: mainui vidinit menu ready"
+MENU_ACTION_READY_MARKER="Xash3D GameCube: probe menu input ready"
 INTRO_MARKER="Xash3D GameCube: intro AVI decoded first frame"
 MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 PLAY_READY_MARKER="Xash3D GameCube: play start ready ${SMOKE_MAP}"
@@ -303,9 +304,17 @@ if (( GC_FATAL_TEST )) && probe_log_has "$G37_FATAL_MARKER" && probe_log_has "$G
 	finalize_probe g37_verified 0
 fi
 
-if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && \
-	( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" || \
-	probe_log_has "$RETAIL_MENU_BG_FALLBACK_MARKER" || probe_log_has "$RETAIL_MENU_READY_FALLBACK_MARKER" ); then
+RETAIL_MENU_SEEN=0
+RETAIL_MENU_READY=0
+if probe_retail_menu_seen; then
+	RETAIL_MENU_SEEN=1
+fi
+if probe_retail_menu_ready; then
+	RETAIL_MENU_READY=1
+fi
+
+if (( RETAIL_MENU_READY )); then
+	if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )); then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."
 	if probe_log_has "$INTRO_MARKER"; then
 		echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached the interactive menu on GameCube."
@@ -315,6 +324,7 @@ if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && \
 	probe_report_g45
 	echo "Logs: $LOG_DIR"
 	finalize_probe retail_ready 0
+	fi
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( !DOLPHIN_NEWGAME || ( PLAY_READY_FOUND && FRAME_ARMED_FOUND ) )); then
@@ -352,6 +362,12 @@ if (( READY_FOUND )) && (( GUEST_FOUND )) && (( DOLPHIN_NEWGAME )) && ! (( MAP_F
 	grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 	echo "Logs: $LOG_DIR"
 	finalize_probe newgame_early_exit 4
+fi
+
+if (( RETAIL_MENU_SEEN )) && [[ "${DOLPHIN_REQUIRE_MENU_ACTIONS:-0}" == "1" ]] && ! (( RETAIL_MENU_READY )); then
+	echo "RETAIL_MENU_WAIT: retail menu reached readiness markers, but synthetic menu actions did not complete."
+	echo "Logs: $LOG_DIR"
+	finalize_probe retail_menu_wait 4
 fi
 
 if (( GUEST_FOUND )) && probe_guest_error && (( ! GC_FATAL_TEST )); then
