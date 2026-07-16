@@ -50,6 +50,7 @@ static void *gc_clipnodes_malloc_block;
 static qboolean gc_retain_bsp_source_buffer;
 static byte *gc_bsp_scratch_base;
 static size_t gc_bsp_scratch_size;
+static size_t gc_bsp_scratch_carve_high;
 
 typedef struct gc_bsp_busy_range_s
 {
@@ -60,12 +61,24 @@ typedef struct gc_bsp_busy_range_s
 static qboolean Mod_GCPointerInBuffer( const void *ptr, const byte *base, size_t size );
 static void *Mod_GCAllocBspScratch( byte *base, size_t size, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align );
 
+static qboolean Mod_GCPointerInScratchArena( const void *ptr )
+{
+	/* Include the high-end carve reserved for deferred nodes/clipnodes. */
+	size_t full_size;
+
+	if( !gc_bsp_scratch_base )
+		return false;
+
+	full_size = gc_bsp_scratch_size + gc_bsp_scratch_carve_high;
+	return Mod_GCPointerInBuffer( ptr, gc_bsp_scratch_base, full_size );
+}
+
 static void Mod_GCFreeBspPin( void **ptr )
 {
 	if( !ptr || !*ptr )
 		return;
 
-	if( Mod_GCPointerInBuffer( *ptr, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	if( Mod_GCPointerInScratchArena( *ptr ))
 	{
 		*ptr = NULL;
 		return;
@@ -1923,6 +1936,13 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 		free( stack );
 		free( node_seen );
 		free( leaf_seen );
+#if XASH_GAMECUBE
+		/* Recursive fallback can blow the GameCube call stack once the iterative
+		 * workspace fails under MEM1 pressure. Fail loudly instead of hanging. */
+		Host_Error( "%s: out of memory for parent walk (%d nodes, %d leafs)\n",
+			__func__, mod ? mod->numnodes : 0, mod ? mod->numleafs : 0 );
+		return;
+#else
 		node->parent = parent;
 
 		if( node->contents < 0 )
@@ -1931,6 +1951,7 @@ static void Mod_SetParent( model_t *mod, mnode_t *node, mnode_t *parent )
 		Mod_SetParent( mod, node_child( node, 0, mod ), node );
 		Mod_SetParent( mod, node_child( node, 1, mod ), node );
 		return;
+#endif
 	}
 
 	stack[stack_size].node = node;
@@ -4248,6 +4269,15 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 	#endif
 	if( !out )
 		out = (mnode_t *)Mem_Calloc( mod->mempool, bmod->numnodes * sizeof( *out ));
+#if XASH_GAMECUBE
+	if(( bmod->version == QBSP2_VERSION && !bmod->nodes32 )
+		|| ( bmod->version != QBSP2_VERSION && !bmod->nodes ))
+	{
+		Host_Error( "%s: missing disc node lump for %s after EnsureBspLump\n",
+			__func__, mod->name );
+		return;
+	}
+#endif
 	mod->nodes = out;
 	mod->numnodes = bmod->numnodes;
 
@@ -4666,6 +4696,131 @@ static const mlumpinfo_t *Mod_GCFindStdLumpInfo( int lumpnum )
 	return NULL;
 }
 
+static size_t Mod_GCCollectWorldScratchBusy( model_t *mod, dbspmodel_t *bmod, gc_bsp_busy_range_t *busy, size_t busy_cap )
+{
+	size_t busy_count = 0;
+
+	if( !busy || busy_cap == 0 || !gc_bsp_scratch_base || gc_bsp_scratch_size == 0 )
+		return 0;
+
+	if( mod && mod->surfaces && Mod_GCPointerInBuffer( mod->surfaces, gc_bsp_scratch_base, gc_bsp_scratch_size )
+		&& busy_count < busy_cap )
+	{
+		const byte *p = (const byte *)mod->surfaces;
+		busy[busy_count].start = p - gc_bsp_scratch_base;
+		busy[busy_count].end = busy[busy_count].start
+			+ (size_t)mod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+		busy_count++;
+	}
+
+	if( mod && mod->texinfo && Mod_GCPointerInBuffer( mod->texinfo, gc_bsp_scratch_base, gc_bsp_scratch_size )
+		&& busy_count < busy_cap )
+	{
+		const byte *p = (const byte *)mod->texinfo;
+		busy[busy_count].start = p - gc_bsp_scratch_base;
+		busy[busy_count].end = busy[busy_count].start + (size_t)mod->numtexinfo * sizeof( mtexinfo_t );
+		busy_count++;
+	}
+
+	if( mod && mod->marksurfaces && Mod_GCPointerInBuffer( mod->marksurfaces, gc_bsp_scratch_base, gc_bsp_scratch_size )
+		&& busy_count < busy_cap )
+	{
+		const byte *p = (const byte *)mod->marksurfaces;
+		busy[busy_count].start = p - gc_bsp_scratch_base;
+		busy[busy_count].end = busy[busy_count].start + (size_t)mod->nummarksurfaces * sizeof( *mod->marksurfaces );
+		busy_count++;
+	}
+
+	if( mod && mod->leafs && Mod_GCPointerInBuffer( mod->leafs, gc_bsp_scratch_base, gc_bsp_scratch_size )
+		&& busy_count < busy_cap )
+	{
+		const byte *p = (const byte *)mod->leafs;
+		busy[busy_count].start = p - gc_bsp_scratch_base;
+		busy[busy_count].end = busy[busy_count].start + (size_t)mod->numleafs * sizeof( *mod->leafs );
+		busy_count++;
+	}
+
+	if( mod && mod->nodes && Mod_GCPointerInBuffer( mod->nodes, gc_bsp_scratch_base, gc_bsp_scratch_size )
+		&& busy_count < busy_cap )
+	{
+		const byte *p = (const byte *)mod->nodes;
+		busy[busy_count].start = p - gc_bsp_scratch_base;
+		busy[busy_count].end = busy[busy_count].start + (size_t)mod->numnodes * sizeof( *mod->nodes );
+		busy_count++;
+	}
+
+	if( bmod && Mod_GCPointerInBuffer( bmod->lightdata, gc_bsp_scratch_base, gc_bsp_scratch_size )
+		&& bmod->lightdatasize && busy_count < busy_cap )
+	{
+		const byte *p = (const byte *)bmod->lightdata;
+		busy[busy_count].start = p - gc_bsp_scratch_base;
+		busy[busy_count].end = busy[busy_count].start + bmod->lightdatasize;
+		busy_count++;
+	}
+
+	if( bmod && bmod->version == QBSP2_VERSION )
+	{
+		if( bmod->nodes32 && Mod_GCPointerInBuffer( bmod->nodes32, gc_bsp_scratch_base, gc_bsp_scratch_size )
+			&& busy_count < busy_cap )
+		{
+			const byte *p = (const byte *)bmod->nodes32;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + bmod->numnodes * sizeof( dnode32_t );
+			busy_count++;
+		}
+		if( bmod->leafs32 && Mod_GCPointerInBuffer( bmod->leafs32, gc_bsp_scratch_base, gc_bsp_scratch_size )
+			&& busy_count < busy_cap )
+		{
+			const byte *p = (const byte *)bmod->leafs32;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + bmod->numleafs * sizeof( dleaf32_t );
+			busy_count++;
+		}
+	}
+	else if( bmod )
+	{
+		if( bmod->nodes && Mod_GCPointerInBuffer( bmod->nodes, gc_bsp_scratch_base, gc_bsp_scratch_size )
+			&& busy_count < busy_cap )
+		{
+			const byte *p = (const byte *)bmod->nodes;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + bmod->numnodes * sizeof( dnode_t );
+			busy_count++;
+		}
+		if( bmod->leafs && Mod_GCPointerInBuffer( bmod->leafs, gc_bsp_scratch_base, gc_bsp_scratch_size )
+			&& busy_count < busy_cap )
+		{
+			const byte *p = (const byte *)bmod->leafs;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + bmod->numleafs * sizeof( dleaf_t );
+			busy_count++;
+		}
+		if( bmod->clipnodes && Mod_GCPointerInBuffer( bmod->clipnodes, gc_bsp_scratch_base, gc_bsp_scratch_size )
+			&& busy_count < busy_cap )
+		{
+			const byte *p = (const byte *)bmod->clipnodes;
+			busy[busy_count].start = p - gc_bsp_scratch_base;
+			busy[busy_count].end = busy[busy_count].start + bmod->numclipnodes * sizeof( dclipnode_t );
+			busy_count++;
+		}
+	}
+
+	for( size_t i = 0; i < busy_count; i++ )
+	{
+		for( size_t j = i + 1; j < busy_count; j++ )
+		{
+			if( busy[j].start < busy[i].start )
+			{
+				gc_bsp_busy_range_t tmp = busy[i];
+				busy[i] = busy[j];
+				busy[j] = tmp;
+			}
+		}
+	}
+
+	return busy_count;
+}
+
 static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lumpnum )
 {
 	const mlumpinfo_t *info = Mod_GCFindStdLumpInfo( lumpnum );
@@ -4675,6 +4830,7 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 	byte *lumpbuf;
 	size_t real_entrysize;
 	size_t numelems;
+	qboolean scratch_backed = false;
 	char bsppath[MAX_QPATH];
 
 	if( !info )
@@ -4693,6 +4849,7 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 
 	if( FS_Read( f, &header, sizeof( header )) != sizeof( header ))
 	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: header read failed for lump %s\n", info->loadname );
 		FS_Close( f );
 		return false;
 	}
@@ -4701,6 +4858,7 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 
 	if( header.version != bmod->version )
 	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: version mismatch reloading lump %s\n", info->loadname );
 		FS_Close( f );
 		return false;
 	}
@@ -4708,6 +4866,7 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 	lump = header.lumps[lumpnum];
 	if( lump.filelen <= 0 )
 	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: empty lump %s\n", info->loadname );
 		FS_Close( f );
 		return false;
 	}
@@ -4722,14 +4881,32 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 
 	if( lump.filelen % real_entrysize )
 	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: misaligned lump %s len=%u esize=%zu\n",
+			info->loadname, lump.filelen, real_entrysize );
 		FS_Close( f );
 		return false;
 	}
 
 	numelems = lump.filelen / real_entrysize;
 	lumpbuf = (byte *)malloc( lump.filelen );
+	if( !lumpbuf && gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
+	{
+		gc_bsp_busy_range_t busy[12];
+		size_t busy_count = Mod_GCCollectWorldScratchBusy( mod, bmod, busy, ARRAYSIZE( busy ));
+
+		lumpbuf = (byte *)Mod_GCAllocBspScratch( gc_bsp_scratch_base, gc_bsp_scratch_size,
+			busy, busy_count, lump.filelen, 32 );
+		if( lumpbuf )
+		{
+			scratch_backed = true;
+			Con_Reportf( "Xash3D GameCube: reloading BSP lump %s via scratch %s\n",
+				info->loadname, Q_memprint( lump.filelen ));
+		}
+	}
 	if( !lumpbuf )
 	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: OOM reloading lump %s (%s)\n",
+			info->loadname, Q_memprint( lump.filelen ));
 		FS_Close( f );
 		return false;
 	}
@@ -4737,7 +4914,9 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 	FS_Seek( f, lump.fileofs, SEEK_SET );
 	if( FS_Read( f, lumpbuf, lump.filelen ) != lump.filelen )
 	{
-		free( lumpbuf );
+		Con_Reportf( S_ERROR "Xash3D GameCube: read failed for lump %s\n", info->loadname );
+		if( !scratch_backed )
+			free( lumpbuf );
 		FS_Close( f );
 		return false;
 	}
@@ -4763,8 +4942,8 @@ static qboolean Mod_GCReloadStdBspLump( model_t *mod, dbspmodel_t *bmod, int lum
 
 	*(byte **)((byte *)bmod + info->dataofs) = lumpbuf;
 	*(size_t *)((byte *)bmod + info->countofs) = numelems;
-	Con_Reportf( "Xash3D GameCube: reloaded BSP lump %s (%s) from disc\n",
-		info->loadname, Q_memprint( lump.filelen ));
+	Con_Reportf( "Xash3D GameCube: reloaded BSP lump %s (%s)%s from disc\n",
+		info->loadname, Q_memprint( lump.filelen ), scratch_backed ? " [scratch]" : "" );
 	return true;
 }
 
@@ -4778,9 +4957,13 @@ static void Mod_GCEnsureBspLump( model_t *mod, dbspmodel_t *bmod, int lumpnum )
 
 	current = *(void **)((byte *)bmod + info->dataofs);
 	if( current )
+	{
+		Con_Reportf( "Xash3D GameCube: EnsureBspLump skip %s (already resident)\n", info->loadname );
 		return;
+	}
 
-	Mod_GCReloadStdBspLump( mod, bmod, lumpnum );
+	if( !Mod_GCReloadStdBspLump( mod, bmod, lumpnum ))
+		Con_Reportf( S_ERROR "Xash3D GameCube: EnsureBspLump failed %s\n", info->loadname );
 }
 
 static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen );
@@ -4844,10 +5027,13 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 	 * (GC_ReleaseMapLoadBuffer only clears in-use). Re-arm it as free scratch
 	 * so surface/leaf/node tables can settle without a peaky heap calloc. */
 	gc_bsp_scratch_base = mod_base;
-	gc_bsp_scratch_size = bufferlen;
+	gc_bsp_scratch_size = bufferlen > gc_bsp_scratch_carve_high
+		? bufferlen - gc_bsp_scratch_carve_high
+		: bufferlen;
 	gc_retain_bsp_source_buffer = true;
-	Con_Reportf( "Xash3D GameCube: rearmed BSP scratch for surfaces %s\n",
-		Q_memprint( bufferlen ));
+	Con_Reportf( "Xash3D GameCube: rearmed BSP scratch for surfaces %s%s\n",
+		Q_memprint( gc_bsp_scratch_size ),
+		gc_bsp_scratch_carve_high ? " (clipnodes carved high)" : "" );
 }
 
 static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte *mod_base, size_t bufferlen )
@@ -4867,8 +5053,6 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		&& !Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen ))
 		return;
 
-	memset( &gc_bsp_deferred, 0, sizeof( gc_bsp_deferred ));
-
 	leaf_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dleaf32_t ) : sizeof( dleaf_t );
 	node_esize = ( bmod->version == QBSP2_VERSION ) ? sizeof( dnode32_t ) : sizeof( dnode_t );
 	if( bmod->version == QBSP2_VERSION
@@ -4876,6 +5060,55 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		clip_esize = sizeof( dclipnode32_t );
 	else
 		clip_esize = sizeof( dclipnode_t );
+
+	/* Preserve nodes+clipnodes before wiping deferred slots / shredding the
+	 * staging arena. Prefer a high-end arena carve (not a heap pin): New Game
+	 * still needs heap for later FS_Open of leafs/markfaces, and disc reopen of
+	 * nodes/clipnodes frequently fails once MEM1/file tables tip. */
+	{
+		void *node_stash = NULL;
+		void *clip_stash = NULL;
+		size_t node_bytes = 0;
+		size_t clip_bytes = 0;
+		size_t carve_total = 0;
+
+		if( bmod->numnodes > 0 && Mod_GCPointerInBuffer( bmod->nodes, mod_base, bufferlen ))
+			node_bytes = bmod->numnodes * node_esize;
+		if( bmod->numclipnodes > 0 && Mod_GCPointerInBuffer( bmod->clipnodes, mod_base, bufferlen ))
+			clip_bytes = bmod->numclipnodes * clip_esize;
+
+		if( node_bytes )
+			carve_total += ALIGN( node_bytes, 32 );
+		if( clip_bytes )
+			carve_total += ALIGN( clip_bytes, 32 );
+
+		if( carve_total > 0 && carve_total < bufferlen )
+		{
+			byte *carve_ptr = mod_base + bufferlen - carve_total;
+
+			if( node_bytes )
+			{
+				const size_t carve = ALIGN( node_bytes, 32 );
+				node_stash = carve_ptr;
+				memcpy( node_stash, bmod->nodes, node_bytes );
+				carve_ptr += carve;
+				Con_Reportf( "Xash3D GameCube: carved nodes into BSP scratch high %s\n",
+					Q_memprint( node_bytes ));
+			}
+			if( clip_bytes )
+			{
+				clip_stash = carve_ptr;
+				memcpy( clip_stash, bmod->clipnodes, clip_bytes );
+				Con_Reportf( "Xash3D GameCube: carved clipnodes into BSP scratch high %s\n",
+					Q_memprint( clip_bytes ));
+			}
+			gc_bsp_scratch_carve_high = carve_total;
+		}
+
+		memset( &gc_bsp_deferred, 0, sizeof( gc_bsp_deferred ));
+		gc_bsp_deferred.nodes = node_stash;
+		gc_bsp_deferred.clipnodes = clip_stash;
+	}
 
 	if( Mod_GCPointerInBuffer( bmod->markfaces, mod_base, bufferlen ))
 	{
@@ -5298,43 +5531,45 @@ static void Mod_LoadClipnodes( model_t *mod, dbspmodel_t *bmod )
 		Con_Reportf( "Xash3D GameCube: using compact clipnodes count=%zu\n", bmod->numclipnodes );
 		mod->numclipnodes = bmod->numclipnodes;
 
-		/* GoldSrc dclipnode_t and runtime mclipnode16_t share the same packed
-		 * layout. When retained staging is already keeping the BSP source alive,
-		 * alias the lump directly instead of spending another MEM1 copy. */
-			if( GC_MapLoadMemoryOpt() && gc_retain_bsp_source_buffer && bmod->clipnodes )
+		/* New Game can leave heap dry after retaining visdata. Prefer aliasing a
+		 * disc/scratch reload over a second peaky MEM1 copy (Mem_Malloc fatals). */
+		if( !bmod->clipnodes )
+			Mod_GCEnsureBspLump( mod, bmod, LUMP_CLIPNODES );
+
+		if( !bmod->clipnodes && mod->visdata && GC_MapLoadMemoryOpt() )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: dropping retained visdata to reload clipnodes\n" );
+			/* Fall back to full-vis leaf marking for this map session. */
+			Mem_Free( mod->visdata );
+			mod->visdata = NULL;
+			/* Clear leaf compressed_vis pointers that referenced the freed block. */
+			if( mod->leafs )
 			{
-				mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
-				Con_Reportf( "Xash3D GameCube: compact clipnodes aliased from BSP source %s\n",
-					Q_memprint( clip_sz ));
+				for( int i = 0; i < mod->numleafs; i++ )
+					mod->leafs[i].compressed_vis = NULL;
 			}
-			else if( GC_MapLoadMemoryOpt() && bmod->isworld && bmod->clipnodes )
+			Mod_GCEnsureBspLump( mod, bmod, LUMP_CLIPNODES );
+		}
+
+		if( bmod->clipnodes )
+		{
+			mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
+			if( Mod_GCPointerInScratchArena( bmod->clipnodes ))
 			{
-				mod->clipnodes16 = (mclipnode16_t *)bmod->clipnodes;
-				gc_clipnodes_malloc_block = bmod->clipnodes;
-				Con_Reportf( "Xash3D GameCube: compact clipnodes aliased from heap lump %s\n",
+				Con_Reportf( "Xash3D GameCube: compact clipnodes aliased from BSP scratch %s\n",
 					Q_memprint( clip_sz ));
 			}
 			else
 			{
-				void *clip_block = NULL;
-
-				if( GC_MapLoadMemoryOpt() && bmod->isworld )
-				{
-					clip_block = malloc( clip_sz );
-					if( clip_block )
-					{
-						gc_clipnodes_malloc_block = clip_block;
-						Con_Reportf( "Xash3D GameCube: world clipnodes via malloc %s\n", Q_memprint( clip_sz ));
-					}
-				}
-
-				if( !clip_block )
-					clip_block = Mem_Malloc( mod->mempool, clip_sz );
-
-				mod->clipnodes16 = clip_block;
-				memcpy( mod->clipnodes16, bmod->clipnodes, clip_sz );
-				Mod_GCFreeBspPin( (void **)&bmod->clipnodes );
+				gc_clipnodes_malloc_block = bmod->clipnodes;
+				Con_Reportf( "Xash3D GameCube: compact clipnodes aliased from heap lump %s\n",
+					Q_memprint( clip_sz ));
 			}
+			return;
+		}
+
+		Host_Error( "%s: missing clipnodes for %s under GameCube memory pressure\n",
+			__func__, mod->name );
 		return;
 	}
 #endif
@@ -5799,6 +6034,7 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	gc_retain_bsp_source_buffer = false;
 	gc_bsp_scratch_base = mod_base;
 	gc_bsp_scratch_size = bufferlen;
+	gc_bsp_scratch_carve_high = 0;
 #endif
 	bmod->version = header->version;	// share up global
 	if( isworld )
@@ -5904,12 +6140,16 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_LoadLeafs( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel leafs ready\n" );
-	Mod_GCEnsureBspLump( mod, bmod, LUMP_NODES );
+	Mod_GCRestoreDeferredNodes( bmod );
+	if( !bmod->nodes && !bmod->nodes32 )
+		Mod_GCEnsureBspLump( mod, bmod, LUMP_NODES );
 #endif
 	Mod_LoadNodes( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel nodes ready\n" );
-	Mod_GCEnsureBspLump( mod, bmod, LUMP_CLIPNODES );
+	Mod_GCRestoreDeferredClipnodes( bmod );
+	if( !bmod->clipnodes && !bmod->clipnodes32 )
+		Mod_GCEnsureBspLump( mod, bmod, LUMP_CLIPNODES );
 #endif
 	Mod_LoadClipnodes( mod, bmod );
 #if XASH_GAMECUBE

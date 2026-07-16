@@ -4925,9 +4925,27 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 	if( COM_StringEmpty( classname ))
 		return false;
 
-	/* Smoke probes are about verifying native BSP/map rendering inside MEM1, not
-	 * fully simulating HL single-player logic. Strip the heaviest dynamic gameplay
-	 * entities so large retail maps can reach MAP_READY under GameCube limits. */
+	/* New Game (-gcnewgame) still runs under map-load memopt, but must keep world
+	 * decoration, nodes, and triggers so ClientPutInServer / graph setup can finish.
+	 * Only strip the heaviest gameplay classes there. */
+	if( Sys_CheckParm( "-gcnewgame" ))
+	{
+		if( !Q_strnicmp( classname, "monster_", 8 )
+		 || !Q_strnicmp( classname, "weapon_", 7 )
+		 || !Q_strnicmp( classname, "ammo_", 5 )
+		 || !Q_strnicmp( classname, "item_", 5 )
+		 || !Q_stricmp( classname, "world_items" )
+		 || !Q_strnicmp( classname, "cycler", 6 )
+		 || !Q_stricmp( classname, "scripted_sequence" )
+		 || !Q_stricmp( classname, "aiscripted_sequence" )
+		 || !Q_stricmp( classname, "scripted_sentence" ))
+			return true;
+		return false;
+	}
+
+	/* Smoke probes (-gcmap) are about verifying native BSP/map rendering inside
+	 * MEM1, not fully simulating HL single-player logic. Strip the heaviest
+	 * dynamic gameplay entities so large retail maps can reach MAP_READY. */
 	if( !Q_strnicmp( classname, "monster_", 8 )
 	 || !Q_strnicmp( classname, "weapon_", 7 )
 	 || !Q_strnicmp( classname, "ammo_", 5 )

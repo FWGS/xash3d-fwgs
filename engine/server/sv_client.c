@@ -1523,7 +1523,15 @@ static void SV_PutClientInServer( sv_client_t *cl )
 
 		// fisrt entering
 		svgame.globals->time = sv.time;
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcnewgame" ))
+			Con_Reportf( "Xash3D GameCube: ClientPutInServer begin\n" );
+#endif
 		svgame.dllFuncs.pfnClientPutInServer( ent );
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcnewgame" ))
+			Con_Reportf( "Xash3D GameCube: ClientPutInServer ready\n" );
+#endif
 
 		if( sv.background )	// don't attack player in background mode
 			SetBits( ent->v.flags, FL_GODMODE|FL_NOTARGET );
