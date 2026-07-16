@@ -794,9 +794,9 @@ static void GC_PresentBuffer( void )
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
-	/* Skip VSync during G36 budget samples and New Game low-res world presents
-	 * so Host_Frame is not gated on the 16.7ms VI period. */
-	if( !gc_budget_probe_active && !gc_newgame_world_ready )
+	/* Skip VSync during G36 budget samples, New Game low-res world presents,
+	 * and startup cinematics so Host_Frame is not gated on the 16.7ms VI period. */
+	if( !gc_budget_probe_active && !gc_newgame_world_ready && cls.state != ca_cinematic )
 		VIDEO_WaitVSync();
 
 	which_fb ^= 1;

@@ -16,8 +16,9 @@ GNU General Public License for more details.
 #include "r_local.h"
 
 #if XASH_GAMECUBE
-#define GC_CINEMATIC_MAX_WIDTH 640
-#define GC_CINEMATIC_MAX_HEIGHT 480
+/* Matches half-res intro decode/upload (avi_gc GC_AVI_DECODE_SCALE). */
+#define GC_CINEMATIC_MAX_WIDTH 320
+#define GC_CINEMATIC_MAX_HEIGHT 240
 static pixel_t gc_rgb565_r[256];
 static pixel_t gc_rgb565_g[256];
 static pixel_t gc_rgb565_b[256];

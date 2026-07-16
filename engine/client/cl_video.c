@@ -30,6 +30,7 @@ static int		cin_texture;
 #if XASH_GAMECUBE
 static qboolean gc_startup_vid_playlist_found;
 static qboolean gc_startup_vid_playlist_disabled;
+static int gc_startup_vid_playlist_count = -1;
 #endif
 
 /*
@@ -118,8 +119,13 @@ static int SCR_LoadStartupVidList( void )
 	const qboolean have_playlist = FS_FileExists( DEFAULT_VIDEOLIST_PATH, false );
 
 #if XASH_GAMECUBE
+	if( gc_startup_vid_playlist_count >= 0 )
+		return gc_startup_vid_playlist_count;
+
 	gc_startup_vid_playlist_found = have_playlist;
 	gc_startup_vid_playlist_disabled = false;
+	Con_Reportf( "Xash3D GameCube: loading startup vid playlist (exists=%u)\n",
+		have_playlist ? 1u : 0u );
 #endif
 
 	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, NULL, false );
@@ -131,6 +137,9 @@ static int SCR_LoadStartupVidList( void )
 		{
 			if( Q_stricmp( COM_FileExtension( token ), "avi" ))
 				continue;
+#if XASH_GAMECUBE
+			Con_Reportf( "Xash3D GameCube: startup vid candidate %s\n", token );
+#endif
 			if( !FS_FileExists( token, false ))
 				continue;
 
@@ -152,6 +161,10 @@ static int SCR_LoadStartupVidList( void )
 		Con_Reportf( "Xash3D GameCube: startup intro playlist explicitly disabled\n" );
 	}
 
+#if XASH_GAMECUBE
+	gc_startup_vid_playlist_count = c;
+	Con_Reportf( "Xash3D GameCube: startup vid playlist ready count=%d\n", c );
+#endif
 	return c;
 }
 
@@ -164,9 +177,11 @@ qboolean SCR_HaveStartupVids( void )
 void SCR_CheckStartupVids( void )
 {
 	int	c = 0;
+#if !XASH_GAMECUBE
 	byte *afile;
 	char *pfile;
 	string	token;
+#endif
 
 #if 0
 	if( host_developer.value )
@@ -187,6 +202,7 @@ void SCR_CheckStartupVids( void )
 	}
 
 #if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: startup vid check begin\n" );
 	if(( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" )) && SV_Active() )
 	{
 		cls.movienum = -1;
@@ -196,6 +212,8 @@ void SCR_CheckStartupVids( void )
 	}
 
 	c = SCR_LoadStartupVidList();
+	Con_Reportf( "Xash3D GameCube: startup vid list count=%d found=%u disabled=%u\n",
+		c, gc_startup_vid_playlist_found ? 1u : 0u, gc_startup_vid_playlist_disabled ? 1u : 0u );
 	if( c > 0 )
 		goto run_cinematic;
 	if( gc_startup_vid_playlist_found && gc_startup_vid_playlist_disabled )
@@ -209,34 +227,31 @@ void SCR_CheckStartupVids( void )
 		else if( SV_Active() || Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
 			Con_Reportf( "Xash3D GameCube: skip menu activate (listen server already active)\n" );
 		return;
-		}
-	#endif
+	}
 
 	if( !gc_startup_vid_playlist_found )
 	{
 		SCR_CreateStartupVids();
+		c = SCR_LoadStartupVidList();
+		Con_Reportf( "Xash3D GameCube: startup vid list after create count=%d\n", c );
 	}
-
+#else
 	afile = FS_LoadFile( DEFAULT_VIDEOLIST_PATH, NULL, false );
 	if( !afile )
-	{
-		return; // something bad happens
-	}
+		return;
 
 	pfile = (char *)afile;
-
 	while(( pfile = COM_ParseFile( pfile, token, sizeof( token ))) != NULL )
 	{
 		Q_strncpy( cls.movies[c], token, sizeof( cls.movies[0] ));
-
 		if( ++c > MAX_MOVIES - 1 )
 		{
 			Con_Printf( S_WARN "too many movies (%d) specified in %s\n", MAX_MOVIES, DEFAULT_VIDEOLIST_PATH );
 			break;
 		}
 	}
-
 	Mem_Free( afile );
+#endif
 
 run_cinematic:
 	// run cinematic
@@ -253,9 +268,14 @@ run_cinematic:
 		}
 		return;
 	}
-#endif
+	Con_Reportf( "Xash3D GameCube: startup intro playlist empty after scan\n" );
+	cls.movienum = -1;
+	CL_CheckStartupDemos();
+	return;
+#else
 	SCR_NextMovie ();
 	Cbuf_Execute();
+#endif
 }
 
 /*
@@ -301,7 +321,11 @@ qboolean SCR_DrawCinematic( void )
 		return false;
 
 	ref.dllFuncs.GL_SetRenderMode( kRenderNormal );
+#if !XASH_GAMECUBE
+	/* Desktop keeps letterbox clear; GameCube skips the extra fullscreen pass
+	 * so intro presents stay lean on real hardware. */
 	ref.dllFuncs.R_DrawStretchPic( 0, 0, refState.width, refState.height, 0, 0, 1, 1, R_GetBuiltinTexture( REF_BLACK_TEXTURE ));
+#endif
 
 	if( !AVI_Think( cin_state ))
 		return SCR_NextMovie();

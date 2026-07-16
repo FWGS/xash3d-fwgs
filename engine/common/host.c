@@ -1339,6 +1339,13 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 		{
 			Con_Reportf( "Xash3D GameCube: startup configs skipped\n" );
 		}
+		else if( !GCube_HasWritableStorage() && !Sys_CheckParm( "-gcnewgame" ))
+		{
+			/* Read-only retail menu boots already seed controller defaults and do
+			 * not need desktop-era config replay before the menu becomes usable. */
+			host.config_executed = true;
+			Con_Reportf( "Xash3D GameCube: startup config replay skipped for read-only retail menu boot\n" );
+		}
 		else
 #endif
 		{

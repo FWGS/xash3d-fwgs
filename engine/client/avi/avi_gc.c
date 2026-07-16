@@ -34,8 +34,11 @@ static void AVI_ParseAudioFormat( movie_state_t *Avi, fs_offset_t file_size );
 #if XASH_GAMECUBE
 #define GC_AVI_AUDIO_SLICE_BYTES	16384
 #define GC_AVI_AUDIO_LEAD_SAMPLES	2048
-#define GC_AVI_DECODE_SCALE		1
-#define GC_AVI_STATIC_FRAME_MAX_BYTES	( 640 * 480 * 2 )
+/* Quarter-res Cinepak fallback when no .gcvid companion is present. */
+#define GC_AVI_DECODE_SCALE		4
+#define GC_AVI_UPLOAD_MAX_W		160
+#define GC_AVI_UPLOAD_MAX_H		120
+#define GC_AVI_STATIC_FRAME_MAX_BYTES	( 320 * 240 * 2 )
 static byte gc_avi_static_frame[GC_AVI_STATIC_FRAME_MAX_BYTES] __attribute__((aligned( 32 )));
 
 static qboolean AVI_UsesStaticFrameBuffer( const movie_state_t *Avi )
@@ -93,12 +96,16 @@ static qboolean AVI_OpenGCVID( movie_state_t *Avi, const char *filename, qboolea
 
 	Avi->file = FS_Open( path, "rb", false );
 	if( !Avi->file )
+	{
+		Con_Reportf( "Xash3D GameCube: intro GCVID missing %s\n", path );
 		return false;
+	}
 
 	if( FS_Read( Avi->file, header, sizeof( header )) != sizeof( header ) ||
 		header[0] != AVI_GCVID_MAGIC_0 || header[1] != AVI_GCVID_MAGIC_1 ||
 		header[2] != AVI_GCVID_MAGIC_2 || header[3] != AVI_GCVID_MAGIC_3 )
 	{
+		Con_Reportf( "Xash3D GameCube: intro GCVID bad magic %s\n", path );
 		if( !quiet )
 			Con_Printf( S_ERROR "%s is not a valid GameCube intro stream\n", path );
 		AVI_CloseVideo( Avi );
@@ -157,7 +164,8 @@ static qboolean AVI_OpenGCVID( movie_state_t *Avi, const char *filename, qboolea
 #endif
 
 	Avi->raw_video = true;
-	Avi->raw_delta_tiles = tile_size == 8;
+	/* Static-hold companions store one keyframe; never walk a fake delta timeline. */
+	Avi->raw_delta_tiles = !Avi->raw_static_frame && tile_size == 8;
 	Avi->width = (int)width;
 	Avi->height = (int)height;
 	Avi->decode_scale = 1;
@@ -371,26 +379,37 @@ fail:
 #if XASH_GAMECUBE
 static void AVI_GCConfigureVideoPath( movie_state_t *Avi )
 {
-	Avi->decode_scale = GC_AVI_DECODE_SCALE;
-	if( Avi->ui_logo && Avi->width >= 320 && Avi->height >= 64 )
-		Avi->decode_scale = 2;
+	Avi->decode_scale = 1;
+	/* Fullscreen intros + logo: decode at half resolution via Cinepak coord_scale. */
+	if( Avi->width >= 320 && Avi->height >= 64 )
+		Avi->decode_scale = GC_AVI_DECODE_SCALE;
+	if( Avi->decode_scale < 1 )
+		Avi->decode_scale = 1;
 	Avi->upload_width = Avi->width / Avi->decode_scale;
 	Avi->upload_height = Avi->height / Avi->decode_scale;
-	Con_Reportf( "Xash3D GameCube: intro AVI path %dx%d -> upload %dx%d\n",
-		Avi->width, Avi->height, Avi->upload_width, Avi->upload_height );
+	if( Avi->upload_width < 1 )
+		Avi->upload_width = 1;
+	if( Avi->upload_height < 1 )
+		Avi->upload_height = 1;
+	Con_Reportf( "Xash3D GameCube: intro AVI path %dx%d -> decode/upload %dx%d (scale %d)\n",
+		Avi->width, Avi->height, Avi->upload_width, Avi->upload_height, Avi->decode_scale );
 }
 
 static void AVI_GCDownsampleToBGRA( const movie_state_t *Avi )
 {
 	const byte *src = Avi->decoder.rgb;
 	int src_stride = Avi->decoder.stride;
-	int step = Avi->decode_scale;
+	int step = 1;
 	int dw = Avi->upload_width;
 	int dh = Avi->upload_height;
 	int x, y;
 
-	if( !src || !Avi->frame || dw <= 0 || dh <= 0 || step <= 0 )
+	if( !src || !Avi->frame || dw <= 0 || dh <= 0 )
 		return;
+
+	/* Prefer 1:1 convert when Cinepak already decoded into upload size. */
+	if( Avi->decoder.width > dw && dw > 0 && ( Avi->decoder.width % dw ) == 0 )
+		step = Avi->decoder.width / dw;
 
 	for( y = 0; y < dh; y++ )
 	{
@@ -655,7 +674,9 @@ static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet )
 		return false;
 	Avi->upload_frame = Avi->frame;
 
-	if( !Cinepak_Init( &Avi->decoder, Avi->width, Avi->height, Avi->width, Avi->height, avi_mempool ))
+	/* Decode directly into upload resolution (coord_scale) to cut MEM1 + CPU. */
+	if( !Cinepak_Init( &Avi->decoder, Avi->upload_width, Avi->upload_height,
+		Avi->width, Avi->height, avi_mempool ))
 		return false;
 #else
 	Avi->upload_width = Avi->width;
@@ -813,8 +834,8 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 	if(( frame == 0 || frame == 15 || frame == 30 || frame == 60 ) && Avi->decoder.rgb )
 	{
 		const byte *mid = Avi->decoder.rgb +
-			( Avi->height / 2 ) * Avi->decoder.stride +
-			( Avi->width / 2 ) * 3;
+			( Avi->decoder.height / 2 ) * Avi->decoder.stride +
+			( Avi->decoder.width / 2 ) * 3;
 		Con_Reportf( "Xash3D GameCube: intro AVI frame %u mid rgb=%u,%u,%u\n",
 			frame, mid[0], mid[1], mid[2] );
 	}
@@ -1030,6 +1051,8 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	safe_filename[0] = '\0';
 	Q_strncpy( safe_filename, filename, sizeof( safe_filename ));
 
+	/* Static-hold .gcvid companions are the lean MEM1 path. Native Cinepak AVI
+	 * remains supported as fallback when no companion is present. */
 	if( AVI_OpenGCVID( Avi, safe_filename, true ))
 	{
 		if( load_audio )
@@ -1081,44 +1104,64 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 		}
 		Avi->file = FS_Open( gc_fallback, "rb", false );
 		if( Avi->file )
+		{
+			Q_strncpy( safe_filename, gc_fallback, sizeof( safe_filename ));
 			Con_Reportf( "Xash3D GameCube: intro AVI opened via root fallback %s\n", gc_fallback );
+		}
 	}
 #endif
-	if( !Avi->file )
+	if( Avi->file && AVI_ParseHeader( Avi, quiet ))
 	{
-		if( !quiet )
-			Con_Printf( S_ERROR "Couldn't open intro video %s\n", safe_filename );
+		Con_Reportf( "Xash3D GameCube: intro AVI opened %s (%ux%u source, %ux%u upload, %u frames)\n",
+			safe_filename, Avi->width, Avi->height, Avi->upload_width, Avi->upload_height, Avi->frame_count );
+		Avi->x = 0;
+		Avi->y = 0;
+		Avi->w = -1;
+		Avi->h = -1;
+		Avi->texture = 0;
+		Avi->current_frame = (uint)-1;
+		Avi->start_time = 0;
+		Avi->playback_started = false;
+		Avi->audio_playback_started = false;
+		Avi->frame_on_gpu = false;
+		Avi->debug_think_calls = 0;
+		Avi->paused = false;
+		Avi->active = true;
+		if( AVI_DecodeFrame( Avi, 0, true ))
+			Avi->current_frame = 0;
 		return;
 	}
 
-	if( !AVI_ParseHeader( Avi, quiet ))
+	if( Avi->file )
 	{
-		if( !quiet )
-			Con_Printf( S_ERROR "Couldn't parse intro video %s\n", safe_filename );
-		AVI_CloseVideo( Avi );
-		return;
+		FS_Close( Avi->file );
+		Avi->file = NULL;
 	}
-
-	Con_Reportf( "Xash3D GameCube: intro AVI opened %s (%ux%u source, %ux%u upload, %u frames)\n",
-		safe_filename, Avi->width, Avi->height, Avi->upload_width, Avi->upload_height, Avi->frame_count );
-	Avi->x = 0;
-	Avi->y = 0;
-	Avi->w = -1;
-	Avi->h = -1;
-	Avi->texture = 0;
-	Avi->current_frame = (uint)-1;
-	Avi->start_time = 0;
-	Avi->playback_started = false;
-	Avi->audio_playback_started = false;
-	Avi->frame_on_gpu = false;
-	Avi->debug_think_calls = 0;
-	Avi->paused = false;
-	Avi->active = true;
+	AVI_ClearAudioState( Avi );
 #if XASH_GAMECUBE
-	/* Retail valve.avi uses all-intra Cinepak; warm frame 0 before first present. */
-	if( AVI_DecodeFrame( Avi, 0, true ))
-		Avi->current_frame = 0;
+	if( Avi->decoder.rgb )
+	{
+		Mem_Free( Avi->decoder.rgb );
+		Avi->decoder.rgb = NULL;
+	}
+	memset( &Avi->decoder, 0, sizeof( Avi->decoder ));
+	if( Avi->frame && !AVI_UsesStaticFrameBuffer( Avi ))
+		Mem_Free( Avi->frame );
+#else
+	Cinepak_Free( &Avi->decoder );
+	if( Avi->frame )
+		Mem_Free( Avi->frame );
 #endif
+	Avi->frame = NULL;
+	Avi->upload_frame = NULL;
+	if( Avi->index )
+		Mem_Free( Avi->index );
+	Avi->index = NULL;
+	if( Avi->chunk )
+		Mem_Free( Avi->chunk );
+	Avi->chunk = NULL;
+	if( !quiet )
+		Con_Printf( S_ERROR "Couldn't open intro video %s\n", safe_filename );
 }
 
 void AVI_CloseVideo( movie_state_t *Avi )
@@ -1218,14 +1261,12 @@ qboolean AVI_Think( movie_state_t *Avi )
 		elapsed = Platform_DoubleTime() - Avi->start_time;
 		target_frame = (uint)( elapsed * (double)Avi->fps_num / (double)Avi->fps_den );
 #if XASH_GAMECUBE
-		/* Raw GameCube startup streams should prefer wall-clock pacing over
-		 * strict every-frame decode. If we fall behind, jump forward instead of
-		 * stretching the intro into a slideshow. */
-		if( !Avi->raw_video && target_frame > Avi->current_frame + 1 )
+		/* Prefer wall-clock pacing on GameCube (Cinepak and GCVID). If we fall
+		 * behind, jump forward instead of stretching the intro into a slideshow. */
 #else
 		if( target_frame > Avi->current_frame + 1 )
-#endif
 			target_frame = Avi->current_frame + 1;
+#endif
 	}
 
 #if XASH_GAMECUBE
@@ -1235,7 +1276,11 @@ qboolean AVI_Think( movie_state_t *Avi )
 			Avi->debug_think_calls, Avi->playback_started ? 1u : 0u, Avi->current_frame,
 			target_frame, Avi->start_time, Platform_DoubleTime() );
 	}
-	if( Avi->playback_started && ( target_frame == 15 || target_frame == 30 || target_frame == 60 || target_frame == 120 ))
+	if( Avi->playback_started &&
+		(( Avi->current_frame < 15 && target_frame >= 15 ) ||
+		 ( Avi->current_frame < 30 && target_frame >= 30 ) ||
+		 ( Avi->current_frame < 60 && target_frame >= 60 ) ||
+		 ( Avi->current_frame < 120 && target_frame >= 120 )))
 	{
 		Con_Reportf( "Xash3D GameCube: intro AVI progress frame=%u/%u elapsed=%.2f\n",
 			target_frame, Avi->frame_count, elapsed );
