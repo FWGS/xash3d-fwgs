@@ -235,6 +235,12 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 		return;
 	}
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && modelname[0] != '*' )
+		Con_Reportf( "Xash3D GameCube: SV_SetModel begin %s edict=%d\n",
+			modelname, NUM_FOR_EDICT( ent ));
+#endif
+
 	if( *modelname == '\\' || *modelname == '/' )
 		modelname++;
 
@@ -1885,11 +1891,23 @@ int GAME_EXPORT pfnDropToFloor( edict_t *e )
 	if( !SV_IsValidEdict( e ))
 		return 0;
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && e->v.flags & FL_CLIENT )
+		Con_Reportf( "Xash3D GameCube: DropToFloor begin player edict=%d\n",
+			NUM_FOR_EDICT( e ));
+#endif
+
 	monsterClip = FBitSet( e->v.flags, FL_MONSTERCLIP ) ? true : false;
 	vec3_t end = Vec3( e->v.origin );
 	end[2] -= 256.0f;
 
 	trace = SV_Move( e->v.origin, e->v.mins, e->v.maxs, end, MOVE_NORMAL, e, monsterClip );
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && e->v.flags & FL_CLIENT )
+		Con_Reportf( "Xash3D GameCube: DropToFloor ready frac=%.3f allsolid=%d\n",
+			trace.fraction, trace.allsolid ? 1 : 0 );
+#endif
 
 	if( trace.allsolid )
 		return -1;
@@ -2965,14 +2983,24 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 
 		// a poke646 have memory corrupt in somewhere - this is trashed last sixteen bytes :(
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ))
+		/* Soft-fail under GameCube map-load pressure. Mem_Calloc Host_Errors and
+		 * -gcnewgame ClientPutInServer needs a recoverable miss so we can skip
+		 * GetClassPtr linking against a NULL private block. */
+		if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
 		{
 			pEdict->pvPrivateData = malloc( size );
 			if( pEdict->pvPrivateData )
+			{
 				memset( pEdict->pvPrivateData, 0, size );
+				if( Sys_CheckParm( "-gcnewgame" ) && size >= 1024 )
+					Con_Reportf( "Xash3D GameCube: ent private data malloc size=%zu edict=%d classname=%s\n",
+						size, NUM_FOR_EDICT( pEdict ), SV_ClassName( pEdict ));
+			}
 			else
+			{
 				Con_Reportf( S_ERROR "Xash3D GameCube: ent private data malloc failed size=%zu edict=%d classname=%s\n",
 					size, NUM_FOR_EDICT( pEdict ), SV_ClassName( pEdict ));
+			}
 		}
 		else
 #endif
@@ -4927,7 +4955,8 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 
 	/* New Game (-gcnewgame) still runs under map-load memopt, but must keep world
 	 * decoration, nodes, and triggers so ClientPutInServer / graph setup can finish.
-	 * Only strip the heaviest gameplay classes there. */
+	 * Strip heavy gameplay plus sprite/sound decor that burns MEM1 on retail c0a0
+	 * (env_glow/env_sprite flare loads previously OOMed past HUD_Init). */
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( !Q_strnicmp( classname, "monster_", 8 )
@@ -4938,7 +4967,18 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		 || !Q_strnicmp( classname, "cycler", 6 )
 		 || !Q_stricmp( classname, "scripted_sequence" )
 		 || !Q_stricmp( classname, "aiscripted_sequence" )
-		 || !Q_stricmp( classname, "scripted_sentence" ))
+		 || !Q_stricmp( classname, "scripted_sentence" )
+		 || !Q_stricmp( classname, "ambient_generic" )
+		 || !Q_stricmp( classname, "env_sprite" )
+		 || !Q_stricmp( classname, "env_glow" )
+		 || !Q_stricmp( classname, "env_beam" )
+		 || !Q_stricmp( classname, "env_laser" )
+		 || !Q_stricmp( classname, "env_explosion" )
+		 || !Q_stricmp( classname, "env_message" )
+		 || !Q_stricmp( classname, "infodecal" )
+		 || !Q_stricmp( classname, "speaker" )
+		 || !Q_stricmp( classname, "multi_manager" )
+		 || !Q_stricmp( classname, "multisource" ))
 			return true;
 		return false;
 	}

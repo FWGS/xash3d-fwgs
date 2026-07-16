@@ -421,7 +421,7 @@ static void GC_EnableProbeInputFallback( void )
 		GC_PAD_PREFERRED + 1 );
 	Con_Reportf( "Xash3D GameCube: input polling active\n" );
 	gc_input_logged = true;
-	Cvar_SetValue( "gc_menu_probe_auto", Sys_CheckParm( "-gcnewgame" ) ? 0.0f : 1.0f );
+	Cvar_SetValue( "gc_menu_probe_auto", Sys_CheckParm( "-gcmenuauto" ) ? 1.0f : 0.0f );
 }
 
 static u16 GC_ProbeSyntheticHeldButtons( void )

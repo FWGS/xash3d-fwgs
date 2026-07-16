@@ -303,7 +303,7 @@ if (( GC_FATAL_TEST )) && probe_log_has "$G37_FATAL_MARKER" && probe_log_has "$G
 	finalize_probe g37_verified 0
 fi
 
-if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( READY_FOUND )) && (( ! DOLPHIN_NEWGAME )) && \
+if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && \
 	( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" || \
 	probe_log_has "$RETAIL_MENU_BG_FALLBACK_MARKER" || probe_log_has "$RETAIL_MENU_READY_FALLBACK_MARKER" ); then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."

@@ -1040,8 +1040,20 @@ remap_info_t *gc_gcmap_bootstrap_remap_info[GC_GCMAP_STATIC_CLIENT_EDICTS + 1];
 
 static qboolean CL_GameCubeUseStaticGcmapBootstrapEdicts( int maxclients )
 {
-	return GC_MapLoadMemoryOpt() && maxclients <= 1
-		&& clgame.maxEntities <= GC_GCMAP_STATIC_CLIENT_EDICTS;
+	if( maxclients > 1 || clgame.maxEntities > GC_GCMAP_STATIC_CLIENT_EDICTS )
+		return false;
+
+	if( GC_MapLoadMemoryOpt() )
+		return true;
+
+	/* Retail read-only menu boots do not need heap-backed packet/entity tables
+	 * before gameplay. Reuse the smoke bootstrap storage so the main menu can
+	 * survive without SD-backed writable storage. */
+	if( !GCube_HasWritableStorage() && !Sys_CheckParm( "-gcnewgame" )
+		&& !Sys_CheckParm( "-gcmap" ))
+		return true;
+
+	return false;
 }
 #endif
 

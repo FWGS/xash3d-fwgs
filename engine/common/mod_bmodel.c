@@ -5025,7 +5025,9 @@ static void Mod_GCReleaseGcmapPreSurfaceStaging( model_t *mod, dbspmodel_t *bmod
 	Mod_GCReleaseBspSourceBuffer( mod, bmod, mod_base, bufferlen );
 	/* Staging lumps are cleared, but the map-load arena stays allocated
 	 * (GC_ReleaseMapLoadBuffer only clears in-use). Re-arm it as free scratch
-	 * so surface/leaf/node tables can settle without a peaky heap calloc. */
+	 * so surface/leaf/node tables can settle without a peaky heap calloc.
+	 * Required for New Game too: the enlarged BSS mapload arena leaves too
+	 * little MEM1 for a 661 Kb surface malloc (Sys_Error on Mem_Calloc fallback). */
 	gc_bsp_scratch_base = mod_base;
 	gc_bsp_scratch_size = bufferlen > gc_bsp_scratch_carve_high
 		? bufferlen - gc_bsp_scratch_carve_high
