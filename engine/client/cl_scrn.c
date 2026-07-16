@@ -786,7 +786,8 @@ void SCR_UpdateScreen( void )
 	}
 
 	if( cls.state == ca_active && Sys_CheckParm( "-gcnewgame" )
-		&& !GC_IsNewGameWorldReady() && !GC_IsFrameBudgetProbeActive()
+		&& !GC_IsNewGameWorldReady() && !GC_IsNewGameG36Done()
+		&& !GC_IsFrameBudgetProbeActive()
 		&& !GC_ShouldUseLightPresent() )
 	{
 		if( !gc_newgame_probe_rearm_logged )
@@ -807,6 +808,26 @@ void SCR_UpdateScreen( void )
 		GC_FillBudgetProbeFrameBuffer();
 		GC_PresentBudgetProbeFrame();
 		GC_NoteLightPresentFrame();
+		return;
+	}
+
+	/* After G36, V_RenderView currently stalls Host_Frame on New Game. Keep
+	 * presenting the lean probe buffer so hardware still sees continuous
+	 * nonblack frames while world-render think/draw is brought up. */
+	if( cls.state == ca_active && Sys_CheckParm( "-gcnewgame" )
+		&& GC_IsNewGameG36Done() )
+	{
+		static qboolean gc_post_g36_present_logged;
+
+		if( cls.disable_screen )
+			cls.disable_screen = 0.0f;
+		if( !gc_post_g36_present_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: post-G36 sustained present (world render deferred)\n" );
+			gc_post_g36_present_logged = true;
+		}
+		GC_FillBudgetProbeFrameBuffer();
+		GC_PresentBudgetProbeFrame();
 		return;
 	}
 

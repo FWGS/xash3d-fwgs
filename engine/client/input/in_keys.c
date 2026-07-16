@@ -689,6 +689,17 @@ void GAME_EXPORT Key_Event( int key, int down )
 {
 	key = Key_Rotate( key );
 
+#if XASH_GAMECUBE
+	if( cls.key_dest == key_menu && ( key == K_DPAD_DOWN || key == K_DOWNARROW ||
+		key == K_A_BUTTON || key == K_B_BUTTON || key == K_ENTER ||
+		key == K_KP_ENTER || key == K_ESCAPE ))
+	{
+		Con_Reportf( "Xash3D GameCube: key_event menu key=%s down=%d repeats=%d binding=%s\n",
+			Key_KeynumToString( key ), down, keys[key].repeats,
+			keys[key].binding ? keys[key].binding : "<null>" );
+	}
+#endif
+
 	if( OSK_KeyEvent( key, down ) )
 		return;
 

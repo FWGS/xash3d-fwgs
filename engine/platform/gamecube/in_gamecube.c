@@ -310,10 +310,30 @@ static void GC_UpdateButtons( u16 held )
 		const gc_button_map_t *btn = &gc_buttons[i];
 
 		if(( held & btn->pad_mask ) && !( prev_buttons & btn->pad_mask ))
+		{
+#if XASH_GAMECUBE
+			if( gc_probe_synthetic && cls.key_dest == key_menu )
+			{
+				Con_Reportf( "Xash3D GameCube: probe dispatch press pad=%s key=%s stage=%d frame=%u realtime=%.2f\n",
+					btn->gc_name, Key_KeynumToString( btn->key ), gc_probe_action_stage,
+					host.framecount, host.realtime );
+			}
+#endif
 			Key_Event( btn->key, true );
+		}
 
 		if(!( held & btn->pad_mask ) && ( prev_buttons & btn->pad_mask ))
+		{
+#if XASH_GAMECUBE
+			if( gc_probe_synthetic && cls.key_dest == key_menu )
+			{
+				Con_Reportf( "Xash3D GameCube: probe dispatch release pad=%s key=%s stage=%d frame=%u realtime=%.2f\n",
+					btn->gc_name, Key_KeynumToString( btn->key ), gc_probe_action_stage,
+					host.framecount, host.realtime );
+			}
+#endif
 			Key_Event( btn->key, false );
+		}
 	}
 
 	prev_buttons = held;
@@ -539,6 +559,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		gc_probe_action_stage = 2;
 		gc_probe_action_time = host.realtime;
 		gc_probe_action_frame = host.framecount;
+		Con_Reportf( "Xash3D GameCube: probe menu release down\n" );
 		return 0;
 	case 2:
 		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
@@ -554,6 +575,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		gc_probe_action_stage = 4;
 		gc_probe_action_time = host.realtime;
 		gc_probe_action_frame = host.framecount;
+		Con_Reportf( "Xash3D GameCube: probe menu release confirm\n" );
 		return 0;
 	case 4:
 		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
@@ -569,6 +591,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		gc_probe_action_stage = 6;
 		gc_probe_action_time = host.realtime;
 		gc_probe_action_frame = host.framecount;
+		Con_Reportf( "Xash3D GameCube: probe menu release back\n" );
 		return 0;
 	case 6:
 		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))

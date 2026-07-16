@@ -60,6 +60,7 @@ static unsigned int gc_budget_sample_count;
 static unsigned int gc_budget_warmup_left;
 static unsigned int gc_light_present_left;
 static qboolean gc_newgame_world_ready;
+static qboolean gc_newgame_g36_done; /* sticky: never re-arm probe after first flush */
 static qboolean gc_gx_present_logged;
 static convar_t *gc_quality;
 static double gc_last_present_time;
@@ -758,6 +759,8 @@ static void GC_PresentBuffer( void )
 				unsigned int i;
 
 				gc_budget_probe_active = false;
+				if( Sys_CheckParm( "-gcnewgame" ))
+					gc_newgame_g36_done = true;
 				/* Emit after the timed window so analyzer still sees frame time=. */
 				for( i = 0; i < gc_budget_sample_count; i++ )
 				{
@@ -1671,6 +1674,15 @@ qboolean GC_IsNewGameWorldReady( void )
 #endif
 }
 
+qboolean GC_IsNewGameG36Done( void )
+{
+#if XASH_GAMECUBE
+	return gc_newgame_g36_done;
+#else
+	return false;
+#endif
+}
+
 qboolean GC_PrepareNewGameWorldPresent( void )
 {
 #if XASH_GAMECUBE
@@ -1739,6 +1751,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_worst_frame_ms = 0.0;
 	gc_budget_probe_active = false;
 	gc_newgame_world_ready = true;
+	gc_newgame_g36_done = true;
 	Cvar_Set( "gc_hud_probe_skip", "0" );
 
 	/* Lean HUD VidInit at quality 0: set 320 sheet names without hud.txt.
@@ -1754,6 +1767,18 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	refState.height = present_h;
 	SYS_Report( "Xash3D GameCube: newgame low-res world present %dx%d\n", present_w, present_h );
 	GC_MemSample( "newgame world present" );
+
+	/* Emit sustained presents here: the Dolphin probe often exits as soon as
+	 * G36 evidence is scored, before the next Host_Frame can run SCR. */
+	{
+		int i;
+		Con_Reportf( "Xash3D GameCube: post-G36 sustained present (world render deferred)\n" );
+		for( i = 0; i < 8; i++ )
+		{
+			GC_FillBudgetProbeFrameBuffer();
+			GC_PresentBudgetProbeFrame();
+		}
+	}
 	return true;
 #else
 	return false;
@@ -1818,6 +1843,11 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	uint stride, bpp, r, g, b;
 	int probe_w = GC_VIDEO_NEWGAME_PROBE_WIDTH;
 	int probe_h = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
+
+	/* After the first G36 flush, stay on the world-present path. Re-arming
+	 * cleared world_ready and re-ran Prepare every few frames (VidInit thrash). */
+	if( gc_newgame_g36_done )
+		return;
 
 	/* Match smoke-probe present cost: half-res buffer, skip VSync, cheap samples. */
 	gc_present_count = 0;

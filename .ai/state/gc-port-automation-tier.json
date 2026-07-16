@@ -1,4 +1,4 @@
 {
-  "tier": "runtime_gate",
-  "note": "advanced from map_ready after supervisor pass"
+  "tier": "hardware_handoff",
+  "note": "New Game MAP_READY+G36 PASS; retail RETAIL_READY; post-G36 world render deferred with sustained presents; handoff packet ready"
 }
