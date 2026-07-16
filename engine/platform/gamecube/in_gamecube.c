@@ -547,7 +547,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		gc_probe_action_time = host.realtime;
 		gc_probe_action_frame = host.framecount;
 		Con_Reportf( "Xash3D GameCube: probe menu action confirm\n" );
-		return PAD_BUTTON_A;
+		return PAD_BUTTON_B;
 	case 3:
 		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
@@ -562,7 +562,7 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		gc_probe_action_time = host.realtime;
 		gc_probe_action_frame = host.framecount;
 		Con_Reportf( "Xash3D GameCube: probe menu action back\n" );
-		return PAD_BUTTON_B;
+		return PAD_BUTTON_A;
 	case 5:
 		if( !GC_ProbeMenuStageReady( GC_PROBE_MENU_STEP_DELAY, GC_PROBE_MENU_STEP_FRAMES ))
 			return 0;
