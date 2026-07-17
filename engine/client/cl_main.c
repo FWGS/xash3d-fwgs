@@ -31,6 +31,8 @@ extern qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_ArmPostMapFrameBudgetSamples( void );
+qboolean GC_IsNewGameG36Done( void );
+qboolean GC_IsNewGameWorldReady( void );
 qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
 #endif
@@ -3805,6 +3807,25 @@ void Host_ClientFrame( void )
 		if( GC_BootDrawAllowed() )
 			SCR_UpdateScreen();
 		SCR_RunCinematic();
+		return;
+	}
+
+	/* G85: after New Game world present is armed, skip heavy client emit/
+	 * prediction that can stall Host_Frame before SCR sustains frames.
+	 * SCR_UpdateScreen drives GC_RenderNewGameWorldFrames(1) each tick. */
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
+		&& GC_IsNewGameWorldReady() )
+	{
+		static int gc_scr_sustain_log;
+
+		VID_CheckChanges();
+		SCR_UpdateScreen();
+		SND_UpdateSound();
+		if( gc_scr_sustain_log < 2 )
+		{
+			Con_Reportf( "Xash3D GameCube: post-G36 SCR sustain ClientFrame\n" );
+			gc_scr_sustain_log++;
+		}
 		return;
 	}
 #endif

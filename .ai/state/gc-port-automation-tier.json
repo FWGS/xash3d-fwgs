@@ -1,4 +1,4 @@
 {
-  "tier": "newgame_pvs",
-  "note": "G83 DONE 2026-07-16: load-time cluster PVS cache + MarkLeaves apply; next auto G84 bounded entity think; G85-G88 then G82; G72 deferred"
+  "tier": "bounded_think",
+  "note": "G84 DONE 2026-07-16: post-G36 Host_ServerFrame runs bounded SV_Physics (player PreThink + up to 8 non-pusher nextthinks). Next auto G85 sustain SCR world presents; then G86-G94, G82; G72 deferred"
 }

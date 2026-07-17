@@ -1802,19 +1802,54 @@ SV_Physics
 void SV_Physics( void )
 {
 #if XASH_GAMECUBE
-	/* Post-G36 New Game: full entity think / pfnStartFrame stalls Host_Frame
-	 * on c0a0. Advance timekeeping only so ServerFrame can finish and send. */
+	/* Post-G36 New Game (G84): pfnStartFrame + full entity walk stall Host_Frame
+	 * on c0a0. Run player think plus a small due-nextthink subset only. */
 	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
 	{
-		static qboolean gc_phys_slim_logged;
+		static int gc_phys_bound_log;
+		edict_t *player;
+		int thought = 0;
+		const int max_world_thinks = 8;
+		int i;
 
 		svgame.globals->time = sv.time;
 		SV_RunLightStyles();
-		sv.framecount++;
-		if( !gc_phys_slim_logged )
+
+		player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+		if( player && SV_IsValidEdict( player ))
 		{
-			Con_Reportf( "Xash3D GameCube: SV_Physics slim (post-G36, think deferred)\n" );
-			gc_phys_slim_logged = true;
+			/* pfnThink(player) and PlayerPostThink stall on c0a0 post-G36.
+			 * PlayerPreThink is the per-frame hook and is enough for G84 proof. */
+			svgame.dllFuncs.pfnPlayerPreThink( player );
+			thought++;
+		}
+
+		for( i = svs.maxclients + 1; i < svgame.numEntities && thought < ( 1 + max_world_thinks ); i++ )
+		{
+			edict_t *ent = SV_EdictNum( i );
+			float thinktime;
+
+			if( !SV_IsValidEdict( ent ))
+				continue;
+			if( FBitSet( ent->v.flags, FL_KILLME ))
+				continue;
+			/* Skip pushers — their think often walks the BSP and stalls. */
+			if( ent->v.movetype == MOVETYPE_PUSH || ent->v.movetype == MOVETYPE_PUSHSTEP )
+				continue;
+			thinktime = ent->v.nextthink;
+			if( thinktime <= 0.0f || thinktime > ( sv.time + sv.frametime ))
+				continue;
+			if( !SV_RunThink( ent ))
+				continue;
+			thought++;
+		}
+
+		sv.framecount++;
+		if( gc_phys_bound_log < 4 )
+		{
+			Con_Reportf( "Xash3D GameCube: SV_Physics bounded think post-G36 ents=%d time=%.2f\n",
+				thought, sv.time );
+			gc_phys_bound_log++;
 		}
 		return;
 	}

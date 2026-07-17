@@ -672,12 +672,12 @@ Host_ServerFrame
 void Host_ServerFrame( void )
 {
 #if XASH_GAMECUBE
-	/* Post-G36 New Game: the full server tick (packets/resources/physics/think)
-	 * stalls Host_Frame on c0a0. Keep time moving and skip the heavy work so
-	 * world presents remain interactive while think is brought up. */
+	/* Post-G36 New Game: full packets/resources/physics still stall Host_Frame
+	 * on c0a0. Advance time and run bounded think (G84) so player/entity
+	 * nextthink can progress without the full server tick. */
 	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
 	{
-		static int gc_sf_slim_log;
+		static int gc_sf_bound_log;
 
 		if( !svs.initialized )
 			return;
@@ -685,13 +685,13 @@ void Host_ServerFrame( void )
 			sv.frametime = host.frametime;
 		svgame.globals->frametime = sv.frametime;
 		svgame.globals->time = sv.time;
+		SV_Physics();
 		sv.time += sv.frametime;
-		sv.framecount++;
-		if( gc_sf_slim_log < 3 )
+		if( gc_sf_bound_log < 4 )
 		{
-			Con_Reportf( "Xash3D GameCube: Host_ServerFrame post-G36 slim tick time=%.2f\n",
+			Con_Reportf( "Xash3D GameCube: Host_ServerFrame post-G36 bounded tick time=%.2f\n",
 				sv.time );
-			gc_sf_slim_log++;
+			gc_sf_bound_log++;
 		}
 		return;
 	}

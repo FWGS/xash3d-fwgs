@@ -2057,7 +2057,7 @@ full suite (with no failed gates) is covered by ongoing RC gate runs under
 G36/G41. The automation should not loop on G64; the suite exists and is the
 canonical release gate.
 
-## Final Completion Gates (G67-G77) and New Game bring-up (G83-G88)
+## Final Completion Gates (G67-G77) and New Game bring-up (G83-G94)
 
 The remaining release work needs stricter gates than "the engine boots" or
 "early maps run." A native Half-Life 1 GameCube port should not be called
@@ -2082,7 +2082,7 @@ Endgame / release goals in `.ai/goals/GAMECUBE_PORT_GOALS.md`:
 - **G70:** Manually capture target-display audio/video evidence.
 - **G71:** Manually prove persistent save/config storage on real media.
 - **G72:** Close worst-case performance and memory optimization (SKIP until
-  G83–G88 produce fresh New Game gameplay evidence).
+  G83–G94 produce fresh New Game gameplay evidence).
 - **G73:** Prove clean checkout release rebuild and archive reproducibility.
 - **G74:** Burn down final blockers and freeze known limitations.
 - **G76:** Freeze release-candidate documentation and known limitations.
@@ -2093,34 +2093,50 @@ New Game interactive bring-up goals (2026-07-16):
 
 - **G83:** Fix BSP `PointInLeaf` / parent-cycle PVS for New Game — DONE
   (2026-07-16, load-time PVS cache).
-- **G84:** Restore bounded post-G36 server entity think.
+- **G84:** Restore bounded post-G36 server entity think — DONE (2026-07-16,
+  player PreThink + optional non-pusher nextthink subset).
 - **G85:** Sustain world presents from the client/SCR frame loop.
 - **G86:** Prove player move/look on New Game `c0a0`.
 - **G87:** Restore post-G36 `WriteEntities` client snapshots.
 - **G88:** First door/button/trigger interaction on the New Game route.
-- **G82:** Finish boot-phase isolation (lower priority than G83–G88).
 
-Automation may complete G67-G69, G83-G88, G82, then G72-G74, G76, and the
+New Game consolidation goals (added 2026-07-16, after G88):
+
+- **G89:** Make PVS follow a moving camera (fix G83's single-cluster snapshot,
+  either by root-causing the BSP scratch overwrite or caching per-cluster rows).
+- **G90:** Route New Game presents through `V_RenderView`/SCR instead of the
+  bespoke `GC_RenderNewGameWorldFrames` helper; HUD + viewmodel over world.
+- **G91:** First gameplay SFX/sentence after G36 (tram announcer, ambient, or
+  use-denial buzz) without audio ring underruns.
+- **G92:** Survive the first tram-route changelevel; tear down and re-capture
+  the PVS cache and low-res screens for the second map.
+- **G93:** Step world presents up from 160×120 (target 320×240) while keeping
+  the G36 frame budget green.
+- **G94:** Save/load round trip from a live New Game session under the
+  bounded-server path.
+- **G82:** Finish boot-phase isolation (lower priority than G83–G94).
+
+Automation may complete G67-G69, G83-G94, G82, then G72-G74, G76, and the
 documentation/evidence comparison parts of G77 with source, scripts, logs, and
 release evidence. G70, G71, and G75 remain manual because physical audio/video,
 persistent media, and final hardware-completion claims require operator evidence
 from the exact release artifact hash. G77 must not pass until Dolphin and
 hardware evidence refer to the same commit and artifact hashes.
 
-## G83–G88 — New Game post-G36 bring-up (IN PROGRESS 2026-07-16)
+## G83–G94 — New Game post-G36 bring-up (IN PROGRESS 2026-07-16)
 
 **Baseline evidence:**
 - World render: `.ai/logs/dolphin-probe-20260715-230720` —
   `gcmap world pixels nonzero=17687/19200`, `newgame world render ready`.
 - Slim server: `.ai/logs/dolphin-probe-20260715-231411` —
   `Host_ServerFrame post-G36 slim tick`, `post-G36 slim server ticks ready`.
-- **G83 DONE:** `.ai/logs/dolphin-probe-20260716-213816` —
-  `Capture FatPVS cluster=0 leaves=122 nodes=271`, `cached FatPVS leaf mark
-  active`, pixels `17687/19200`, `MAP_READY`/`G36 PASS`. BSP scratch is captured
-  at load (`GC_CaptureNewGamePVSFromModel` after submodels); render applies the
-  cache instead of live PointInLeaf/full-vis.
+- **G84 DONE:** `.ai/logs/dolphin-probe-20260716-221201` —
+  `SV_Physics bounded think post-G36 ents=1`, `Host_ServerFrame post-G36
+  bounded tick`, `post-G36 bounded server ticks ready`. Player
+  `pfnPlayerPreThink` each tick; full `pfnStartFrame` / entity walk still
+  deferred.
 
-**Next automatic goal:** G84 (bounded post-G36 entity think). Command:
+**Next automatic goal:** G85 (sustain world presents from SCR). Command:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```
@@ -2267,10 +2283,10 @@ release run is intentionally separate: before final G75 sign-off, run
 `RC_SOAK_DRY_RUN=0 RC_SOAK_STRICT=1` against the release artifact and attach the
 result to the final evidence packet.
 
-## G72 — Worst-case performance and memory optimization gate (SKIP until G83–G88)
+## G72 — Worst-case performance and memory optimization gate (SKIP until G83–G94)
 
 **Status (2026-07-16):** SKIPPED for overnight source-porting until New Game
-interactive bring-up (G83–G88) produces fresh gameplay evidence. Reopen after
+interactive bring-up (G83–G94) produces fresh gameplay evidence. Reopen after
 real PVS + entity think + sustained presents land.
 
 `scripts/gamecube-worst-case-report.py` is the G72 evidence reducer. It consumes

@@ -17,19 +17,27 @@ Automation tier: `newgame_pvs` (see `.ai/state/gc-port-automation-tier.json`).
 - Spawn-time `WriteEntities` completes (`SendClientDatagram ready bytes=180`)
 - G83: load-time cluster PVS cache → `cached FatPVS leaf mark active`
   (`leaves=122 nodes=271`, probe `20260716-213816`)
+- G84: bounded post-G36 think → `SV_Physics bounded think post-G36 ents=1`
+  + `Host_ServerFrame post-G36 bounded tick` (probe `20260716-221201`)
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G84** — Restore bounded post-G36 entity think (not time-only slim ticks)
-2. **G85** — Sustain world presents from `SCR_UpdateScreen` (not only Prepare)
-3. **G86** — Player move/look from New Game spawn with controller or probe input
-4. **G87** — Post-G36 `WriteEntities` / client snapshots during gameplay
-5. **G88** — First door/button/trigger interaction on the New Game route
-6. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
-7. **G72** — Deferred until G84–G88 produce fresh worst-case gameplay evidence
+1. **G85** — Sustain world presents from `SCR_UpdateScreen` (not only Prepare)
+2. **G86** — Player move/look from New Game spawn with controller or probe input
+3. **G87** — Post-G36 `WriteEntities` / client snapshots during gameplay
+4. **G88** — First door/button/trigger interaction on the New Game route
+5. **G89** — PVS follows a moving camera (multi-cluster; fixes G83 snapshot staleness)
+6. **G90** — Route presents through `V_RenderView`/SCR instead of the bespoke helper
+7. **G91** — First gameplay SFX/sentence after G36 (tram announcer or use-buzz)
+8. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
+9. **G93** — Step world presents up from 160×120 within the G36 frame budget
+10. **G94** — Save/load round trip from a live New Game session
+11. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
+12. **G72** — Deferred until G85–G94 produce fresh worst-case gameplay evidence
 
 Evidence anchors:
 - `.ai/logs/dolphin-probe-20260715-230720` (first world-render PASS)
 - `.ai/logs/dolphin-probe-20260716-213816` (G83 cached FatPVS + pixels)
+- `.ai/logs/dolphin-probe-20260716-221201` (G84 bounded player PreThink)
 - `.ai/logs/dolphin-probe-20260715-231411` (slim server ticks PASS)
 
 ## G01 [x] Audit `SV_InitEdict` overflow warning
@@ -1193,7 +1201,7 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   have already been addressed or instrumented.
 - Follow-up (2026-07-15): retail New Game (`-gcnewgame` / `c0a0`) now reaches
   post-G36 low-res world render with nonzero pixels. Remaining gameplay bring-up
-  is tracked under G83–G88 rather than reopening G65.
+  is tracked under G83–G94 rather than reopening G65.
 
 ### G66 [Manual checkpoint] Sign off a real hardware release candidate
 
@@ -1323,7 +1331,7 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 
 ## G72 [SKIP] Close worst-case performance and memory optimization
 
-- Status: SKIP for local overnight source-porting until G83–G88 land fresh New
+- Status: SKIP for local overnight source-porting until G83–G94 land fresh New
   Game gameplay evidence. Worst-case claims from stale map-compat rows are not
   actionable while post-G36 think/PVS are still slimmed.
 - Identify the worst currently supported scenes from the campaign audit and
@@ -1479,9 +1487,17 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not solve this by permanently disabling world render or reintroducing
   green-only post-G36 fills.
 
-## G84 [ ] Restore bounded post-G36 server entity think
+## G84 [x] Restore bounded post-G36 server entity think
 
-- Status: SOURCE-FIRST — depends on G83 not regressing world presents.
+- Status: DONE (2026-07-16) — post-G36 `Host_ServerFrame` calls bounded
+  `SV_Physics` instead of time-only slim ticks. Player gets
+  `pfnPlayerPreThink` each tick; up to 8 non-pusher world ents with due
+  `nextthink` get `SV_RunThink`. Skips `pfnStartFrame`, full entity walk,
+  `pfnThink(player)`, and `PlayerPostThink` (those stall on c0a0).
+  Evidence: `.ai/logs/dolphin-probe-20260716-221201` —
+  `SV_Physics bounded think post-G36 ents=1`, `Host_ServerFrame post-G36
+  bounded tick`, `post-G36 bounded server ticks ready`, pixels
+  `17687/19200`, `MAP_READY` + `G36 PASS`.
 - Today post-G36 `Host_ServerFrame` only advances `sv.time` (slim tick). Full
   `SV_Physics` / `pfnStartFrame` stalls on `c0a0`.
 - Acceptance:
@@ -1550,6 +1566,96 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not claim G62/G63 complete from this goal.
 - Evidence: New Game or early-route Dolphin probe log + port plan note.
 
+## G89 [ ] Make New Game PVS follow a moving camera
+
+- Status: SOURCE-FIRST after G86. The G83 cache is a single-cluster snapshot
+  taken at load; once the player moves clusters (G86), the cached leaf marks
+  go stale and either over-draw or cull the wrong rooms.
+- Two acceptable routes (pick one, document the choice):
+  1. Root-cause route: find what overwrites BSP scratch between world load and
+    New Game present (`plane0` changes from `0x814c5db0` to garbage), stop or
+    pin that region, then re-enable live `Mod_PointInLeaf` + `R_FatPVS` at
+    render. Also explains why promoted malloc node trees stall `R_RenderFace`.
+  2. Cache route: extend `GC_CaptureNewGamePVSFromModel` to decompress and
+    store PVS rows (plus parent marks) for every reachable cluster on the
+    route at load (~`visbytes * clusters`, budget it), and have
+    `GC_ApplyNewGameCachedVis` select the row from the current camera cluster.
+- Acceptance:
+  - Camera movement across at least two clusters updates the marked leaf set
+    (OSReport shows cluster change + differing `leaves=` counts).
+  - No PointInLeaf/FatPVS hang; world pixels stay nonzero after the move.
+  - `MAP_READY` / `G36` remain PASS.
+- Evidence: `.ai/logs/dolphin-probe-*` with cluster-change markers; plan note.
+
+## G90 [ ] Route New Game presents through the standard render path
+
+- Status: SOURCE-FIRST after G85. Today post-G36 world frames come from
+  `GC_RenderNewGameWorldFrames` (a bespoke GL_RenderFrame probe) while
+  `V_RenderView` / full `SCR_UpdateScreen` still stall on this route.
+- Acceptance:
+  - `SCR_UpdateScreen` reaches `V_RenderView` (or a bounded GameCube variant)
+    for New Game without hanging Host_Frame; the bespoke helper becomes a
+    fallback, not the primary path.
+  - Lean HUD (already VidInit'd in Prepare) and the viewmodel draw at least
+    once over the world render without stalling.
+  - World pixels, MAP_READY, and G36 markers stay green.
+- Prefer isolating which stage of `V_RenderView` stalls (RenderFrame args,
+  draw lists, post-effects) over duplicating more of it in platform code.
+- Evidence: New Game probe log showing V_RenderView-path presents + HUD marker.
+
+## G91 [ ] Bring up gameplay audio on the New Game route
+
+- Status: SOURCE-FIRST after G84. Boot/menu audio and the audio ring already
+  work (`audio voice started`); gameplay-triggered sounds after G36 are
+  unproven on the slim/bounded server path.
+- Acceptance:
+  - At least one server- or client-triggered gameplay sound plays post-G36
+    (tram announcer sentence, ambient_generic, or a `+use` denial buzz).
+  - OSReport shows the sound start (channel/sfx name) during sustained world
+    presents without Host_Frame stalls or audio ring underruns.
+  - No regression to MAP_READY / G36 / world pixels.
+- Keep the existing streaming-music policy (G27) unchanged; this is SFX and
+  sentences only.
+- Evidence: New Game probe log with sound-start markers; plan note.
+
+## G92 [ ] Survive changelevel on the New Game route (c0a0 → c0a0a/c0a1)
+
+- Status: SOURCE-FIRST after G88. Generic changelevel landed in G31, but the
+  New Game low-res present path pins buffers, caches PVS at load, and marks
+  precache freeable — none of which is re-run on a level transition.
+- Acceptance:
+  - Trigger (or console-force) the first tram-route changelevel after New Game
+    world presents; second map reaches its own world present without a hang.
+  - G83 PVS cache and low-res screen/scratch are torn down and re-captured for
+    the new world model (fresh `Capture FatPVS` marker with the new map name).
+  - No double-free or stale `sv.models[1]` use across the transition.
+- Evidence: probe log spanning both maps with per-map capture + pixel markers.
+
+## G93 [ ] Step New Game world presents up from 160×120 within frame budget
+
+- Status: SOURCE-FIRST after G85/G90. 160×120 was chosen for G36 headroom;
+  render frames now cost ~3 ms, leaving budget for more resolution.
+- Acceptance:
+  - New Game world presents at 320×240 (or the largest size that keeps p95
+    frame time ≤ 16.7 ms on the G36 sampler) with textured spans intact.
+  - `FRAME_BUDGET_STATS` from the probe stays within target; no OOM in
+    Prepare (screen, zbuffer, surface cache all still allocate).
+  - Keep a compile- or cvar-selectable fallback to 160×120.
+- Evidence: probe log with new resolution marker + passing budget stats.
+
+## G94 [ ] Save/load round trip from a live New Game session
+
+- Status: SOURCE-FIRST after G84/G87. G32/G58 proved save/load on smoke
+  routes; a save taken during the post-G36 bounded-server New Game session
+  (slim ticks, partial think) has never been round-tripped.
+- Acceptance:
+  - Issue a save after New Game world presents; reload it (same boot or next
+    boot) and reach world presents again with player origin restored.
+  - Saved game does not persist slim-tick side effects that break a later
+    full-physics resume (document any fields intentionally reset).
+  - Storage writes respect the existing writable-media policy (G28/G46).
+- Evidence: probe or scripted run log showing save write + restore markers.
+
 ## G82 [ ] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
 - Separate the GameCube boot path into explicit phases for intro AVI, renderer
@@ -1567,7 +1673,7 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   quality profiles. Keep G82 open until a dedicated phase-failure smoke probe
   reports the last successful phase on an intentional early fault (missing
   buffer, menu-before-vid, or intro fault) without relying on New Game alone.
-- Ordering note: G83–G88 are higher priority for playable New Game bring-up;
+- Ordering note: G83–G94 are higher priority for playable New Game bring-up;
   automation should complete those before spending passes on G82 polish unless
   a boot-phase crash blocks New Game.
 
@@ -1582,5 +1688,5 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Mark the port complete only if the release notes, known limitations, legal
   asset boundary, source archive, binary artifacts, and hardware evidence all
   describe the same final commit and artifact hashes.
-- Additional prerequisite (2026-07-16): G83–G88 New Game interactive bring-up
+- Additional prerequisite (2026-07-16): G83–G94 New Game interactive bring-up
   must be complete or explicitly limited in release notes before G75 sign-off.

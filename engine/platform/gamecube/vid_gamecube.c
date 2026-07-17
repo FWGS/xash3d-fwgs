@@ -2042,15 +2042,29 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	{
 		static qboolean ready_logged;
 		static unsigned sustained_frames;
+		static unsigned scr_frames;
 
 		sustained_frames += (unsigned)count;
+		/* Prepare bursts use count>1; SCR_UpdateScreen always asks for 1. */
+		if( count == 1 )
+			scr_frames += 1;
 		if( !ready_logged )
 		{
 			Con_Reportf( "Xash3D GameCube: newgame world render ready\n" );
 			ready_logged = true;
 		}
-		if( sustained_frames == 8 || sustained_frames == 16 || ( sustained_frames > 0 && ( sustained_frames % 32 ) == 0 ))
-			Con_Reportf( "Xash3D GameCube: newgame world render sustained frames=%u\n", sustained_frames );
+		if( sustained_frames == 8 || sustained_frames == 16
+			|| ( sustained_frames > 0 && ( sustained_frames % 32 ) == 0 ))
+		{
+			Con_Reportf( "Xash3D GameCube: newgame world render sustained frames=%u scr=%u\n",
+				sustained_frames, scr_frames );
+		}
+		if( scr_frames == 8 || scr_frames == 16
+			|| ( scr_frames > 0 && ( scr_frames % 32 ) == 0 ))
+		{
+			Con_Reportf( "Xash3D GameCube: newgame world render SCR frames=%u\n",
+				scr_frames );
+		}
 	}
 	return true;
 #else
@@ -2170,7 +2184,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 
 		for( i = 0; i < 2; i++ )
 			Host_ServerFrame();
-		Con_Reportf( "Xash3D GameCube: post-G36 slim server ticks ready\n" );
+		Con_Reportf( "Xash3D GameCube: post-G36 bounded server ticks ready\n" );
 	}
 	return true;
 #else
