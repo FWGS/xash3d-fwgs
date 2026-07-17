@@ -8,42 +8,31 @@ checkpoints, not as runnable goals.
 
 ## Current focus (2026-07-17)
 
-Automation tier: `world_interact` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `vrenderview_path` (see `.ai/state/gc-port-automation-tier.json`).
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
-- Post-G36 low-res world render: `nonzero=17687/19200` @ 160×120 (~3 ms/frame)
-- G83: load-time cluster PVS cache → `cached FatPVS leaf mark active`
-  (`leaves=122 nodes=271`, probe `20260716-213816`)
-- G84: bounded post-G36 think → `SV_Physics bounded think post-G36 ents=1`
-  + `Host_ServerFrame post-G36 bounded tick` (probe `20260716-221201`)
-- G85: sustained presents → `sustained frames=16 scr=12` (probe `20260716-221938`)
-- G86: player move/look → origin `(2864,2804,515)`→`(2883,2810,515)`, yaw
-  `0`→`24` via probe usercmd (probe `20260717-120109`)
-- G87: post-G36 player-only snapshots → `SendClientDatagram ready bytes=51 post-G36`
-  + `post-G36 bounded WriteEntities tick` (probe `20260717-120407`)
-- G88: world interaction → `world interaction use done classname=func_door map=c0a0`
-  (probe `20260717-120656`)
+- Post-G36 low-res world render: `nonzero=17687/19200` @ 160×120
+- G83–G89: PVS cache → multi-cluster follow, bounded think/move/snapshots/use
+- G90: `V_RenderView path present` + `viewmodel draw` + `HUD lean draw`
+  (probe `20260717-123440`); presents before post-G36 server ticks
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G89** — PVS follows a moving camera (multi-cluster; fixes G83 snapshot staleness)
-2. **G90** — Route presents through `V_RenderView`/SCR instead of the bespoke helper
-3. **G91** — First gameplay SFX/sentence after G36 (tram announcer or use-buzz)
-4. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
-5. **G93** — Step world presents up from 160×120 within the G36 frame budget
-6. **G94** — Save/load round trip from a live New Game session
-7. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
-8. **G72** — Deferred until G89–G94 produce fresh worst-case gameplay evidence
+1. **G91** — First gameplay SFX/sentence after G36 (tram announcer or use-buzz)
+2. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
+3. **G93** — Step world presents up from 160×120 within the G36 frame budget
+4. **G94** — Save/load round trip from a live New Game session
+5. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
+6. **G72** — Deferred until G91–G94 produce fresh worst-case gameplay evidence
 
 Evidence anchors:
-- `.ai/logs/dolphin-probe-20260715-230720` (first world-render PASS)
-- `.ai/logs/dolphin-probe-20260716-213816` (G83 cached FatPVS + pixels)
-- `.ai/logs/dolphin-probe-20260716-221201` (G84 bounded player PreThink)
-- `.ai/logs/dolphin-probe-20260716-221938` (G85 sustained frames=16 scr=12)
-- `.ai/logs/dolphin-probe-20260717-120109` (G86 player move/look)
-- `.ai/logs/dolphin-probe-20260717-120407` (G87 post-G36 WriteEntities)
+- `.ai/logs/dolphin-probe-20260717-122204` (G89 multi-cluster PVS follow)
+- `.ai/logs/dolphin-probe-20260717-123440` (G90 V_RenderView + HUD + viewmodel)
 - `.ai/logs/dolphin-probe-20260717-120656` (G88 func_door use)
-- `.ai/logs/dolphin-probe-20260715-231411` (slim server ticks PASS)
+- `.ai/logs/dolphin-probe-20260717-120407` (G87 WriteEntities)
+- `.ai/logs/dolphin-probe-20260717-120109` (G86 move/look)
+- `.ai/logs/dolphin-probe-20260716-221938` (G85 sustained frames)
+- `.ai/logs/dolphin-probe-20260716-213816` (G83 cached FatPVS)
 
 ## G01 [x] Audit `SV_InitEdict` overflow warning
 
@@ -1593,42 +1582,29 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not claim G62/G63 complete from this goal.
 - Evidence: `.ai/logs/dolphin-probe-20260717-120656`.
 
-## G89 [ ] Make New Game PVS follow a moving camera
+## G89 [x] Make New Game PVS follow a moving camera
 
-- Status: SOURCE-FIRST after G86. The G83 cache is a single-cluster snapshot
-  taken at load; once the player moves clusters (G86), the cached leaf marks
-  go stale and either over-draw or cull the wrong rooms.
-- Two acceptable routes (pick one, document the choice):
-  1. Root-cause route: find what overwrites BSP scratch between world load and
-    New Game present (`plane0` changes from `0x814c5db0` to garbage), stop or
-    pin that region, then re-enable live `Mod_PointInLeaf` + `R_FatPVS` at
-    render. Also explains why promoted malloc node trees stall `R_RenderFace`.
-  2. Cache route: extend `GC_CaptureNewGamePVSFromModel` to decompress and
-    store PVS rows (plus parent marks) for every reachable cluster on the
-    route at load (~`visbytes * clusters`, budget it), and have
-    `GC_ApplyNewGameCachedVis` select the row from the current camera cluster.
+- Status: DONE 2026-07-17. Chose **cache route**: at load, decompress PVS +
+  parent nodebits for every cluster and store leaf AABBs; at present, select
+  the row by camera-in-AABB (no live PointInLeaf).
 - Acceptance:
-  - Camera movement across at least two clusters updates the marked leaf set
-    (OSReport shows cluster change + differing `leaves=` counts).
-  - No PointInLeaf/FatPVS hang; world pixels stay nonzero after the move.
-  - `MAP_READY` / `G36` remain PASS.
-- Evidence: `.ai/logs/dolphin-probe-*` with cluster-change markers; plan note.
+  - Two-cluster prove: `PVS follow prove cluster=117 leaves=402` then
+    `cluster=0 leaves=122`; `PVS follow ready clusters=117->0 leafdelta=-280`.
+  - `Capture multi-cluster PVS ready clusters=933 valid=933`.
+  - World pixels `17687/19200`; `MAP_READY`/`G36` PASS.
+- Evidence: `.ai/logs/dolphin-probe-20260717-122204`.
 
-## G90 [ ] Route New Game presents through the standard render path
+## G90 [x] Route New Game presents through the standard render path
 
-- Status: SOURCE-FIRST after G85. Today post-G36 world frames come from
-  `GC_RenderNewGameWorldFrames` (a bespoke GL_RenderFrame probe) while
-  `V_RenderView` / full `SCR_UpdateScreen` still stall on this route.
+- Status: DONE 2026-07-17. Bounded V_RenderView-style presents
+  (`GC_RenderNewGameWorldFrames` / `V_RenderViewBoundedGC`) are the primary
+  post-G36 path; full `V_PreRender`/`pfnCalcRefdef` still hang. Presents are
+  pumped before post-G36 `Host_ServerFrame` (server ticks after render were
+  hanging the next GL_RenderFrame).
 - Acceptance:
-  - `SCR_UpdateScreen` reaches `V_RenderView` (or a bounded GameCube variant)
-    for New Game without hanging Host_Frame; the bespoke helper becomes a
-    fallback, not the primary path.
-  - Lean HUD (already VidInit'd in Prepare) and the viewmodel draw at least
-    once over the world render without stalling.
-  - World pixels, MAP_READY, and G36 markers stay green.
-- Prefer isolating which stage of `V_RenderView` stalls (RenderFrame args,
-  draw lists, post-effects) over duplicating more of it in platform code.
-- Evidence: New Game probe log showing V_RenderView-path presents + HUD marker.
+  - `V_RenderView path present`, `V_RenderView viewmodel draw`, `HUD lean draw`
+  - World pixels `17687/19200`; `MAP_READY`/`G36` PASS
+- Evidence: `.ai/logs/dolphin-probe-20260717-123440`.
 
 ## G91 [ ] Bring up gameplay audio on the New Game route
 

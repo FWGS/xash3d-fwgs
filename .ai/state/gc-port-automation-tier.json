@@ -1,4 +1,4 @@
 {
-  "tier": "world_interact",
-  "note": "G88 DONE 2026-07-17: world interaction use done classname=func_door map=c0a0 (probe 20260717-120656). G86 move + G87 snapshots also green this session. Next auto G89 PVS follow camera; then G90-G94, G82; G72 deferred"
+  "tier": "vrenderview_path",
+  "note": "G90 DONE 2026-07-17: V_RenderView path present + viewmodel + HUD lean draw (probe 20260717-123440). G89 multi-cluster PVS also green. Next auto G91 gameplay audio; then G92-G94, G82; G72 deferred"
 }

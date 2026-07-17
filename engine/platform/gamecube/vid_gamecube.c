@@ -63,12 +63,27 @@ static qboolean gc_newgame_world_ready;
 static qboolean gc_newgame_g36_done; /* sticky: never re-arm probe after first flush */
 static int gc_newgame_viewcluster = -1;
 static qboolean gc_newgame_pvs_ready;
-static byte *gc_newgame_vis;
-static byte *gc_newgame_nodebits;
+static byte *gc_newgame_vis; /* active row pointer into pvs table */
+static byte *gc_newgame_nodebits; /* active row pointer into node table */
+static byte *gc_newgame_pvs_table; /* [numclusters][visbytes] */
+static byte *gc_newgame_node_table; /* [numclusters][nodebytes] */
+static byte *gc_newgame_cluster_valid; /* one byte per cluster */
+static int gc_newgame_numclusters;
+static int gc_newgame_visbytes;
+static int gc_newgame_nodebytes;
 static int gc_newgame_numleafs;
 static int gc_newgame_numnodes;
 static int gc_newgame_vis_leafs;
 static int gc_newgame_vis_nodes;
+typedef struct
+{
+	vec3_t	mins;
+	vec3_t	maxs;
+	int	cluster;
+} gc_newgame_leafbox_t;
+static gc_newgame_leafbox_t *gc_newgame_leafboxes;
+static int gc_newgame_nleafboxes;
+static qboolean gc_newgame_pvs_follow_proved;
 static qboolean gc_gx_present_logged;
 static convar_t *gc_quality;
 static double gc_last_present_time;
@@ -1765,16 +1780,277 @@ qboolean GC_ApplyNewGameCachedVis( int visframe )
 #endif
 }
 
+#if XASH_GAMECUBE
+/* Local RLE decompress — Mod_DecompressPVS is static in mod_bmodel.c. */
+static void GC_DecompressPVS( byte *out, const byte *in, size_t visbytes )
+{
+	byte *dst = out;
+
+	if( !in )
+	{
+		memset( out, 0xFF, visbytes );
+		return;
+	}
+
+	while( dst < out + visbytes )
+	{
+		if( *in )
+		{
+			*dst++ = *in++;
+		}
+		else
+		{
+			size_t c = in[1];
+
+			if( c == 0 )
+			{
+				memset( dst, 0xFF, (size_t)( out + visbytes - dst ));
+				return;
+			}
+			if( c > (size_t)( out + visbytes - dst ))
+				c = (size_t)( out + visbytes - dst );
+			memset( dst, 0, c );
+			in += 2;
+			dst += c;
+		}
+	}
+}
+
+static void GC_CountActiveVisRows( void )
+{
+	int i;
+
+	gc_newgame_vis_leafs = 0;
+	gc_newgame_vis_nodes = 0;
+	if( !gc_newgame_vis || !gc_newgame_nodebits )
+		return;
+	for( i = 0; i < gc_newgame_numleafs; i++ )
+	{
+		if( gc_newgame_vis[i >> 3] & ( 1 << ( i & 7 )))
+			gc_newgame_vis_leafs++;
+	}
+	for( i = 0; i < gc_newgame_numnodes; i++ )
+	{
+		if( gc_newgame_nodebits[i >> 3] & ( 1 << ( i & 7 )))
+			gc_newgame_vis_nodes++;
+	}
+}
+
+static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
+{
+	int prev = gc_newgame_viewcluster;
+
+	if( !gc_newgame_pvs_table || !gc_newgame_node_table || !gc_newgame_cluster_valid )
+		return false;
+	if( cluster < 0 || cluster >= gc_newgame_numclusters )
+		return false;
+	if( !gc_newgame_cluster_valid[cluster] )
+		return false;
+
+	gc_newgame_vis = gc_newgame_pvs_table + (size_t)cluster * (size_t)gc_newgame_visbytes;
+	gc_newgame_nodebits = gc_newgame_node_table + (size_t)cluster * (size_t)gc_newgame_nodebytes;
+	gc_newgame_viewcluster = cluster;
+	GC_CountActiveVisRows();
+
+	if( log_change && prev != cluster )
+	{
+		SYS_Report( "Xash3D GameCube: PVS cluster change %d->%d leaves=%d nodes=%d\n",
+			prev, cluster, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
+	}
+	return true;
+}
+
+static int GC_SelectClusterForOrigin( const float *org )
+{
+	int i;
+	int best = -1;
+	float best_vol = 1e30f;
+
+	if( !org || !gc_newgame_leafboxes || gc_newgame_nleafboxes <= 0 )
+		return gc_newgame_viewcluster;
+
+	for( i = 0; i < gc_newgame_nleafboxes; i++ )
+	{
+		const gc_newgame_leafbox_t *box = &gc_newgame_leafboxes[i];
+		float vol;
+		vec3_t size;
+
+		if( box->cluster < 0 )
+			continue;
+		if( org[0] < box->mins[0] || org[0] > box->maxs[0]
+			|| org[1] < box->mins[1] || org[1] > box->maxs[1]
+			|| org[2] < box->mins[2] || org[2] > box->maxs[2] )
+			continue;
+
+		VectorSubtract( box->maxs, box->mins, size );
+		vol = size[0] * size[1] * size[2];
+		if( vol <= 0.0f )
+			vol = 1.0f;
+		if( vol < best_vol )
+		{
+			best_vol = vol;
+			best = box->cluster;
+		}
+	}
+
+	return ( best >= 0 ) ? best : gc_newgame_viewcluster;
+}
+
 /*
- * G83: capture PointInLeaf + FatPVS while BSP scratch nodes are still intact.
- * Must run at world-load (or before G36) — later present paths reuse the arena.
- * Pass the world model explicitly; sv.models[1] may not be linked yet during load.
+ * G89: select cached PVS row for the camera origin via load-time leaf AABBs
+ * (no live PointInLeaf — BSP scratch may be corrupted by present time).
+ */
+qboolean GC_UpdateNewGamePVSForOrigin( const float *org )
+{
+	int cluster;
+
+	if( !gc_newgame_pvs_ready || !org )
+		return false;
+
+	cluster = GC_SelectClusterForOrigin( org );
+	return GC_SetActiveNewGameCluster( cluster, true );
+}
+
+static void GC_BuildNodebitsForVisRow( model_t *wmodel, const byte *vis, byte *nodebits )
+{
+	const int parent_limit = wmodel->numnodes > 0 ? wmodel->numnodes + 8 : 4096;
+	int i;
+
+	memset( nodebits, 0, (size_t)gc_newgame_nodebytes );
+
+	for( i = 0; i < wmodel->numleafs; i++ )
+	{
+		mnode_t *node;
+		int parent_depth = 0;
+
+		if( !( vis[i >> 3] & ( 1 << ( i & 7 ))))
+			continue;
+		if( i + 1 >= wmodel->numleafs )
+			continue;
+		node = (mnode_t *)&wmodel->leafs[i + 1];
+		do
+		{
+			if( node->contents >= 0 )
+			{
+				const int nidx = (int)( node - wmodel->nodes );
+
+				if( nidx >= 0 && nidx < wmodel->numnodes )
+					nodebits[nidx >> 3] |= (byte)( 1 << ( nidx & 7 ));
+			}
+			node = node->parent;
+			if( ++parent_depth > parent_limit )
+				break;
+		}
+		while( node );
+	}
+}
+
+static void GC_FreeNewGamePVSCache( void )
+{
+	if( gc_newgame_pvs_table )
+	{
+		free( gc_newgame_pvs_table );
+		gc_newgame_pvs_table = NULL;
+	}
+	if( gc_newgame_node_table )
+	{
+		free( gc_newgame_node_table );
+		gc_newgame_node_table = NULL;
+	}
+	if( gc_newgame_cluster_valid )
+	{
+		free( gc_newgame_cluster_valid );
+		gc_newgame_cluster_valid = NULL;
+	}
+	if( gc_newgame_leafboxes )
+	{
+		free( gc_newgame_leafboxes );
+		gc_newgame_leafboxes = NULL;
+	}
+	gc_newgame_vis = NULL;
+	gc_newgame_nodebits = NULL;
+	gc_newgame_nleafboxes = 0;
+	gc_newgame_numclusters = 0;
+	gc_newgame_pvs_ready = false;
+	gc_newgame_pvs_follow_proved = false;
+}
+
+static void GC_ProveNewGamePVSFollow( void )
+{
+	int c0, c1, i;
+	int leaves0, nodes0, leaves1, nodes1;
+
+	if( gc_newgame_pvs_follow_proved || !gc_newgame_pvs_ready )
+		return;
+
+	c0 = gc_newgame_viewcluster;
+	c1 = -1;
+	for( i = 0; i < gc_newgame_numclusters; i++ )
+	{
+		if( i == c0 )
+			continue;
+		if( gc_newgame_cluster_valid[i] )
+		{
+			c1 = i;
+			break;
+		}
+	}
+	if( c1 < 0 )
+	{
+		SYS_Report( "Xash3D GameCube: PVS follow prove skipped (only one cluster)\n" );
+		gc_newgame_pvs_follow_proved = true;
+		return;
+	}
+
+	if( !GC_SetActiveNewGameCluster( c0, false ))
+		return;
+	leaves0 = gc_newgame_vis_leafs;
+	nodes0 = gc_newgame_vis_nodes;
+	SYS_Report( "Xash3D GameCube: PVS follow prove cluster=%d leaves=%d nodes=%d\n",
+		c0, leaves0, nodes0 );
+
+	if( !GC_SetActiveNewGameCluster( c1, true ))
+		return;
+	leaves1 = gc_newgame_vis_leafs;
+	nodes1 = gc_newgame_vis_nodes;
+	SYS_Report( "Xash3D GameCube: PVS follow prove cluster=%d leaves=%d nodes=%d\n",
+		c1, leaves1, nodes1 );
+
+	gc_newgame_pvs_follow_proved = true;
+	SYS_Report( "Xash3D GameCube: PVS follow ready clusters=%d->%d leafdelta=%d\n",
+		c0, c1, leaves1 - leaves0 );
+
+	/* Restore origin-based cluster when possible (player / first leafbox). */
+	if( svgame.edicts && svs.maxclients >= 1 )
+	{
+		edict_t *player = SV_EdictNum( 1 );
+
+		if( player && !player->free && !VectorIsNull( player->v.origin ))
+		{
+			vec3_t eye;
+
+			VectorCopy( player->v.origin, eye );
+			eye[2] += 48.0f;
+			GC_UpdateNewGamePVSForOrigin( eye );
+			return;
+		}
+	}
+	GC_SetActiveNewGameCluster( c0, false );
+}
+#endif
+
+/*
+ * G83/G89: capture PointInLeaf + per-cluster PVS while BSP scratch is intact.
+ * G89 stores every cluster row + leaf AABBs so present-time selection needs no
+ * live tree walks after scratch reuse.
  */
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 {
 #if XASH_GAMECUBE
 	vec3_t vieworigin;
 	mleaf_t *viewleaf;
+	int max_cluster = -1;
+	int i;
 
 	if( !Sys_CheckParm( "-gcnewgame" ))
 		return;
@@ -1799,8 +2075,6 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 	vieworigin[2] += 64.0f;
 	if( svgame.edicts )
 	{
-		int i;
-
 		for( i = 1; i < svgame.numEntities; i++ )
 		{
 			edict_t *ent = &svgame.edicts[i];
@@ -1819,8 +2093,6 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 	/* Load-time world center is often solid; pick any non-solid leaf cluster. */
 	if( gc_newgame_viewcluster < 0 && wmodel->leafs )
 	{
-		int i;
-
 		for( i = 1; i < wmodel->numleafs; i++ )
 		{
 			mleaf_t *leaf = &wmodel->leafs[i];
@@ -1843,108 +2115,105 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		gc_newgame_viewcluster, viewleaf ? viewleaf->contents : 0,
 		vieworigin[0], vieworigin[1], vieworigin[2] );
 
-	if( gc_newgame_viewcluster < 0 || !wmodel->visdata || world.visbytes <= 0 )
+	if( !wmodel->visdata || world.visbytes <= 0 )
 	{
-		SYS_Report( "Xash3D GameCube: Capture FatPVS skipped cluster=%d vis=%d\n",
-			gc_newgame_viewcluster, wmodel->visdata ? 1 : 0 );
+		SYS_Report( "Xash3D GameCube: Capture FatPVS skipped vis=%d\n",
+			wmodel->visdata ? 1 : 0 );
+		return;
+	}
+
+	for( i = 1; i < wmodel->numleafs; i++ )
+	{
+		if( wmodel->leafs[i].cluster > max_cluster )
+			max_cluster = wmodel->leafs[i].cluster;
+	}
+	if( max_cluster < 0 )
+	{
+		SYS_Report( "Xash3D GameCube: Capture FatPVS skipped (no clusters)\n" );
 		return;
 	}
 
 	{
 		const size_t visbytes = world.visbytes;
 		const size_t nodebytes = (size_t)( wmodel->numnodes + 7 ) / 8;
-		int i;
-		byte *leafpvs;
+		const int numclusters = max_cluster + 1;
+		int valid_clusters = 0;
 
-		if( gc_newgame_vis )
-		{
-			free( gc_newgame_vis );
-			gc_newgame_vis = NULL;
-		}
-		if( gc_newgame_nodebits )
-		{
-			free( gc_newgame_nodebits );
-			gc_newgame_nodebits = NULL;
-		}
+		GC_FreeNewGamePVSCache();
 
-		gc_newgame_vis = (byte *)malloc( visbytes );
-		gc_newgame_nodebits = (byte *)calloc( 1, nodebytes );
-		if( !gc_newgame_vis || !gc_newgame_nodebits )
+		gc_newgame_visbytes = (int)visbytes;
+		gc_newgame_nodebytes = (int)nodebytes;
+		gc_newgame_numclusters = numclusters;
+		gc_newgame_numleafs = wmodel->numleafs;
+		gc_newgame_numnodes = wmodel->numnodes;
+		gc_newgame_nleafboxes = wmodel->numleafs > 1 ? wmodel->numleafs - 1 : 0;
+
+		gc_newgame_pvs_table = (byte *)calloc( (size_t)numclusters, visbytes );
+		gc_newgame_node_table = (byte *)calloc( (size_t)numclusters, nodebytes );
+		gc_newgame_cluster_valid = (byte *)calloc( (size_t)numclusters, 1 );
+		gc_newgame_leafboxes = gc_newgame_nleafboxes > 0
+			? (gc_newgame_leafbox_t *)calloc( (size_t)gc_newgame_nleafboxes, sizeof( gc_newgame_leafbox_t ))
+			: NULL;
+
+		if( !gc_newgame_pvs_table || !gc_newgame_node_table || !gc_newgame_cluster_valid
+			|| ( gc_newgame_nleafboxes > 0 && !gc_newgame_leafboxes ))
 		{
-			if( gc_newgame_vis )
-			{
-				free( gc_newgame_vis );
-				gc_newgame_vis = NULL;
-			}
-			if( gc_newgame_nodebits )
-			{
-				free( gc_newgame_nodebits );
-				gc_newgame_nodebits = NULL;
-			}
-			SYS_Report( "Xash3D GameCube: Capture FatPVS cache alloc failed\n" );
+			SYS_Report( "Xash3D GameCube: Capture FatPVS multi-cluster alloc failed clusters=%d\n",
+				numclusters );
+			GC_FreeNewGamePVSCache();
 			return;
 		}
 
-		/* Cluster PVS only — Mod_FatPVS radius recursion hangs on c0a0 load. */
-		SYS_Report( "Xash3D GameCube: Capture leaf PVS begin cluster=%d\n", gc_newgame_viewcluster );
-		leafpvs = Mod_GetPVSForPoint( vieworigin );
-		if( !leafpvs )
+		SYS_Report( "Xash3D GameCube: Capture multi-cluster PVS begin clusters=%d visbytes=%d\n",
+			numclusters, (int)visbytes );
+
+		for( i = 1; i < wmodel->numleafs; i++ )
 		{
-			SYS_Report( "Xash3D GameCube: Capture leaf PVS failed cluster=%d\n", gc_newgame_viewcluster );
-			free( gc_newgame_vis );
-			free( gc_newgame_nodebits );
-			gc_newgame_vis = NULL;
-			gc_newgame_nodebits = NULL;
-			return;
+			mleaf_t *leaf = &wmodel->leafs[i];
+			gc_newgame_leafbox_t *box = &gc_newgame_leafboxes[i - 1];
+			byte *row;
+
+			VectorCopy( leaf->minmaxs, box->mins );
+			VectorCopy( leaf->minmaxs + 3, box->maxs );
+			box->cluster = leaf->cluster;
+
+			if( leaf->cluster < 0 || leaf->cluster >= numclusters )
+				continue;
+			if( gc_newgame_cluster_valid[leaf->cluster] )
+				continue;
+
+			row = gc_newgame_pvs_table + (size_t)leaf->cluster * visbytes;
+			GC_DecompressPVS( row, leaf->compressed_vis, visbytes );
+			GC_BuildNodebitsForVisRow( wmodel, row,
+				gc_newgame_node_table + (size_t)leaf->cluster * nodebytes );
+			gc_newgame_cluster_valid[leaf->cluster] = 1;
+			valid_clusters++;
 		}
-		memcpy( gc_newgame_vis, leafpvs, visbytes );
-		SYS_Report( "Xash3D GameCube: Capture leaf PVS ready cluster=%d\n", gc_newgame_viewcluster );
 
+		if( gc_newgame_viewcluster < 0 || !gc_newgame_cluster_valid[gc_newgame_viewcluster] )
 		{
-			const int parent_limit = wmodel->numnodes > 0 ? wmodel->numnodes + 8 : 4096;
-
-			gc_newgame_numleafs = wmodel->numleafs;
-			gc_newgame_numnodes = wmodel->numnodes;
-			gc_newgame_vis_leafs = 0;
-			gc_newgame_vis_nodes = 0;
-			memset( gc_newgame_nodebits, 0, nodebytes );
-
-			for( i = 0; i < wmodel->numleafs; i++ )
+			for( i = 0; i < numclusters; i++ )
 			{
-				mnode_t *node;
-				int parent_depth = 0;
-
-				if( !( gc_newgame_vis[i >> 3] & ( 1 << ( i & 7 ))))
-					continue;
-				gc_newgame_vis_leafs++;
-				/* leafs[0] is solid; vis bit i maps to leafs[i+1] (stock MarkLeaves). */
-				if( i + 1 >= wmodel->numleafs )
-					continue;
-				node = (mnode_t *)&wmodel->leafs[i + 1];
-				do
+				if( gc_newgame_cluster_valid[i] )
 				{
-					if( node->contents >= 0 )
-					{
-						const int nidx = (int)( node - wmodel->nodes );
-
-						if( nidx >= 0 && nidx < wmodel->numnodes
-							&& !( gc_newgame_nodebits[nidx >> 3] & ( 1 << ( nidx & 7 ))))
-						{
-							gc_newgame_nodebits[nidx >> 3] |= (byte)( 1 << ( nidx & 7 ));
-							gc_newgame_vis_nodes++;
-						}
-					}
-					node = node->parent;
-					if( ++parent_depth > parent_limit )
-						break;
+					gc_newgame_viewcluster = i;
+					break;
 				}
-				while( node );
 			}
+		}
+
+		if( gc_newgame_viewcluster < 0 || !GC_SetActiveNewGameCluster( gc_newgame_viewcluster, false ))
+		{
+			SYS_Report( "Xash3D GameCube: Capture multi-cluster PVS failed (no valid row)\n" );
+			GC_FreeNewGamePVSCache();
+			return;
 		}
 
 		gc_newgame_pvs_ready = true;
 		SYS_Report( "Xash3D GameCube: Capture FatPVS cluster=%d leaves=%d nodes=%d\n",
 			gc_newgame_viewcluster, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
+		SYS_Report( "Xash3D GameCube: Capture multi-cluster PVS ready clusters=%d valid=%d\n",
+			numclusters, valid_clusters );
 	}
 #else
 	(void)wmodel;
@@ -1954,6 +2223,88 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 void GC_CaptureNewGamePVS( void )
 {
 	GC_CaptureNewGamePVSFromModel( NULL );
+}
+
+/*
+ * G90: single New Game world pass for V_RenderViewBoundedGC.
+ * Caller owns R_BeginFrame / R_EndFrame (V_PreRender / V_PostRender).
+ */
+qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel )
+{
+#if XASH_GAMECUBE
+	ref_viewpass_t rvp;
+	model_t *world;
+	vec3_t center;
+	char old_drawviewmodel[16];
+	int i;
+
+	if( !ref.initialized || !SV_Active() )
+		return false;
+	if( !gc_newgame_world_ready )
+		return false;
+
+	world = sv.models[1];
+	if( !world )
+		return false;
+
+	cl.models[1] = world;
+	cl.worldmodel = world;
+	cl.video_prepped = true;
+
+	memset( &rvp, 0, sizeof( rvp ));
+	rvp.viewport[0] = 0;
+	rvp.viewport[1] = 0;
+	if( !R_GcmapGetViewport( &rvp.viewport[2], &rvp.viewport[3] ))
+	{
+		rvp.viewport[2] = refState.width > 0 ? refState.width : gc.width;
+		rvp.viewport[3] = refState.height > 0 ? refState.height : gc.height;
+	}
+	rvp.fov_x = 90.0f;
+	rvp.fov_y = rvp.fov_x * 0.75f;
+	VectorAverage( world->mins, world->maxs, center );
+	center[2] += 64.0f;
+	{
+		edict_t *player = ( svgame.edicts && svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+
+		if( player && !player->free && !VectorIsNull( player->v.origin ))
+		{
+			VectorCopy( player->v.origin, center );
+			center[2] += 48.0f;
+			VectorCopy( player->v.v_angle, rvp.viewangles );
+		}
+		else
+		{
+			for( i = 1; i < svgame.numEntities; i++ )
+			{
+				edict_t *ent = &svgame.edicts[i];
+
+				if( ent->free || VectorIsNull( ent->v.origin ))
+					continue;
+				VectorCopy( ent->v.origin, center );
+				center[2] += 48.0f;
+				break;
+			}
+		}
+	}
+	VectorCopy( center, rvp.vieworigin );
+	GC_UpdateNewGamePVSForOrigin( center );
+	GC_ProveNewGamePVSFollow();
+	SetBits( rvp.flags, RF_DRAW_WORLD );
+
+	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
+	Cvar_Set( "r_drawviewmodel", draw_viewmodel ? "1" : "0" );
+
+	VectorCopy( rvp.vieworigin, refState.vieworg );
+	VectorCopy( rvp.viewangles, refState.viewangles );
+	/* Match GC_RenderNewGameWorldFrames: do not call R_Set2DMode before the
+	 * world pass — it has hung Host_Frame on the post-G36 pump. */
+	ref.dllFuncs.GL_RenderFrame( &rvp );
+	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
+	return true;
+#else
+	(void)draw_viewmodel;
+	return false;
+#endif
 }
 
 /*
@@ -2030,6 +2381,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		}
 	}
 	VectorCopy( center, rvp.vieworigin );
+	/* G89: select multi-cluster PVS for camera; prove two-cluster switch once. */
+	GC_UpdateNewGamePVSForOrigin( center );
+	GC_ProveNewGamePVSFollow();
 	SetBits( rvp.flags, RF_DRAW_WORLD );
 	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
 	Cvar_Set( "r_drawviewmodel", "0" );
@@ -2191,24 +2545,46 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	}
 	else
 	{
-		/* Probe may kill Dolphin as soon as G36/MAP_READY scores. Run a couple
-		 * of post-G36 server ticks here so physics/messages evidence lands in
-		 * the same OSReport window as world render. */
 		int i;
+
+		/* G85/G90: pump V_RenderView-style presents BEFORE post-G36 server
+		 * ticks — Host_ServerFrame (move/snapshots) has been leaving the
+		 * next GL_RenderFrame hung on this route. */
+		Con_Reportf( "Xash3D GameCube: post-G36 sustained world present\n" );
+		for( i = 0; i < 8; i++ )
+		{
+			if( !GC_RenderNewGameWorldFrames( 1 ))
+			{
+				Con_Reportf( "Xash3D GameCube: V_RenderViewBoundedGC fail pump=%d\n", i );
+				break;
+			}
+			if( i == 0 )
+				Con_Reportf( "Xash3D GameCube: V_RenderView path present\n" );
+			if( i == 1 )
+			{
+				char old_vm[16];
+				Q_snprintf( old_vm, sizeof( old_vm ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
+				Cvar_Set( "r_drawviewmodel", "1" );
+				if( GC_RenderNewGameWorldFrames( 1 ))
+					Con_Reportf( "Xash3D GameCube: V_RenderView viewmodel draw\n" );
+				Cvar_Set( "r_drawviewmodel", old_vm );
+			}
+			if( i == 2 && cls.signon == SIGNONS )
+			{
+				ref.dllFuncs.R_BeginFrame( false );
+				ref.dllFuncs.R_AllowFog( false );
+				ref.dllFuncs.R_Set2DMode( true );
+				CL_DrawHUD( CL_ACTIVE );
+				Con_Reportf( "Xash3D GameCube: HUD lean draw\n" );
+				ref.dllFuncs.R_AllowFog( true );
+				Platform_SetTimer( 0.0f );
+				ref.dllFuncs.R_EndFrame();
+			}
+		}
 
 		for( i = 0; i < 2; i++ )
 			Host_ServerFrame();
 		Con_Reportf( "Xash3D GameCube: post-G36 bounded server ticks ready\n" );
-
-		/* G85: pump single-frame presents the same way SCR_UpdateScreen does
-		 * (count=1) before the probe exits on G36 alone. Host_Frame continues
-		 * this via the lean ClientFrame path. */
-		Con_Reportf( "Xash3D GameCube: post-G36 sustained world present\n" );
-		for( i = 0; i < 12; i++ )
-		{
-			if( !GC_RenderNewGameWorldFrames( 1 ))
-				break;
-		}
 	}
 	return true;
 #else

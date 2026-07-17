@@ -163,6 +163,9 @@ qboolean GC_HasNewGameCachedVis( void ); /* G83: prepare-time FatPVS + parent ma
 qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without tree walks */
 void GC_CaptureNewGamePVS( void ); /* G83: PointInLeaf+FatPVS before scratch reuse */
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
+qboolean GC_UpdateNewGamePVSForOrigin( const float *org ); /* G89: select cluster row by AABB */
+/* G90: one world GL_RenderFrame without R_Begin/EndFrame (V_Pre/Post own the frame). */
+qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel );
 qboolean GC_RenderNewGameWorldFrames( int count );
 /* G86: fill a post-G36 New Game usercmd from probe-synthetic or live PAD. */
 #include "q_client.h"

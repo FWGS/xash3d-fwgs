@@ -995,6 +995,9 @@ void V_Shutdown( void );
 qboolean V_PreRender( void );
 void V_PostRender( void );
 void V_RenderView( void );
+#if XASH_GAMECUBE
+qboolean V_RenderViewBoundedGC( void );
+#endif
 
 //
 // cl_pmove.c

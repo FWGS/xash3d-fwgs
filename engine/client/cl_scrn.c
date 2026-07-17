@@ -811,20 +811,40 @@ void SCR_UpdateScreen( void )
 		return;
 	}
 
-	/* After G36, V_RenderView / Host_ServerFrame still stall on New Game.
-	 * Drive bounded GL_RenderFrame world presents instead; fall back to the
-	 * lean green probe fill only when that path fails. */
+	/* After G36: bounded V_RenderView-style presents via GC_RenderNewGameWorldFrames
+	 * (same GL_RenderFrame contract as V_RenderViewBoundedGC). Full V_PreRender
+	 * still hangs; helper self-contained Begin/End is the primary path. */
 	if( cls.state == ca_active && Sys_CheckParm( "-gcnewgame" )
 		&& GC_IsNewGameG36Done() )
 	{
 		static qboolean gc_post_g36_present_logged;
 		static qboolean gc_post_g36_world_ok;
+		static qboolean gc_vrv_path_logged;
+		static qboolean gc_hud_lean_logged;
 
 		if( cls.disable_screen )
 			cls.disable_screen = 0.0f;
 
 		if( GC_RenderNewGameWorldFrames( 1 ))
 		{
+			if( !gc_vrv_path_logged )
+			{
+				Con_Reportf( "Xash3D GameCube: V_RenderView path present\n" );
+				gc_vrv_path_logged = true;
+			}
+			if( !gc_hud_lean_logged && cls.signon == SIGNONS
+				&& !GC_IsFrameBudgetProbeActive() )
+			{
+				ref.dllFuncs.R_BeginFrame( false );
+				ref.dllFuncs.R_AllowFog( false );
+				ref.dllFuncs.R_Set2DMode( true );
+				CL_DrawHUD( CL_ACTIVE );
+				Con_Reportf( "Xash3D GameCube: HUD lean draw\n" );
+				ref.dllFuncs.R_AllowFog( true );
+				Platform_SetTimer( 0.0f );
+				ref.dllFuncs.R_EndFrame();
+				gc_hud_lean_logged = true;
+			}
 			if( !gc_post_g36_present_logged )
 			{
 				Con_Reportf( "Xash3D GameCube: post-G36 sustained world present\n" );

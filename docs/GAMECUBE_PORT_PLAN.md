@@ -2103,15 +2103,15 @@ New Game interactive bring-up goals (2026-07-16):
   (2026-07-17, player-only datagrams; UpdateClientData deferred).
 - **G88:** First door/button/trigger interaction on the New Game route — DONE
   (2026-07-17, `pfnUse` on `func_door` from bounded think).
-- **G89:** Make PVS follow a moving camera (fix G83's single-cluster snapshot,
-  either by root-causing the BSP scratch overwrite or caching per-cluster rows).
+- **G89:** Make PVS follow a moving camera — DONE (2026-07-17, multi-cluster
+  cache + AABB select; live PointInLeaf still deferred).
+- **G90:** Route New Game presents through `V_RenderView`/SCR — DONE
+  (2026-07-17, bounded path + HUD + viewmodel; full V_PreRender deferred).
 
 New Game consolidation goals (added 2026-07-16, after G88):
 
-- **G89:** Make PVS follow a moving camera (fix G83's single-cluster snapshot,
-  either by root-causing the BSP scratch overwrite or caching per-cluster rows).
-- **G90:** Route New Game presents through `V_RenderView`/SCR instead of the
-  bespoke `GC_RenderNewGameWorldFrames` helper; HUD + viewmodel over world.
+- **G89:** Make PVS follow a moving camera — DONE (see above).
+- **G90:** Route New Game presents through `V_RenderView`/SCR — DONE (see above).
 - **G91:** First gameplay SFX/sentence after G36 (tram announcer, ambient, or
   use-denial buzz) without audio ring underruns.
 - **G92:** Survive the first tram-route changelevel; tear down and re-capture
@@ -2159,8 +2159,15 @@ hardware evidence refer to the same commit and artifact hashes.
 - **G88 DONE:** `.ai/logs/dolphin-probe-20260717-120656` —
   `world interaction use done classname=func_door map=c0a0` at player
   `(2874,2806,515)` (nearest door was far; use completed without hang).
+- **G89 DONE:** `.ai/logs/dolphin-probe-20260717-122204` —
+  `Capture multi-cluster PVS ready clusters=933 valid=933`,
+  `PVS follow prove cluster=117 leaves=402` / `cluster=0 leaves=122`,
+  `PVS follow ready clusters=117->0 leafdelta=-280`, pixels `17687/19200`.
+- **G90 DONE:** `.ai/logs/dolphin-probe-20260717-123440` —
+  `V_RenderView path present`, `V_RenderView viewmodel draw`, `HUD lean draw`,
+  presents before post-G36 server ticks (ticks-after-render hung GL).
 
-**Next automatic goal:** G89 (PVS follows moving camera). Command:
+**Next automatic goal:** G91 (gameplay audio). Command:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```

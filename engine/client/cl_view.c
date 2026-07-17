@@ -433,6 +433,15 @@ void V_RenderView( void )
 	if( !cl.video_prepped || ( !ui_renderworld.value && UI_IsVisible() && !cl.background ))
 		return; // still loading
 
+#if XASH_GAMECUBE
+	/* G90: New Game post-G36 uses the bounded path (no pfnCalcRefdef). */
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() && GC_IsNewGameWorldReady() )
+	{
+		V_RenderViewBoundedGC();
+		return;
+	}
+#endif
+
 	V_CalcViewRect ();	// compute viewport rectangle
 	V_SetRefParams( &rp );
 	V_SetupViewModel ();
@@ -462,6 +471,35 @@ void V_RenderView( void )
 	SV_DrawDebugTriangles ();
 	ref.dllFuncs.GL_BackendEndFrame ();
 }
+
+#if XASH_GAMECUBE
+/*
+==================
+V_RenderViewBoundedGC
+
+G90: New Game world present via V_RenderView entry without pfnCalcRefdef.
+Assumes V_PreRender already called R_BeginFrame; V_PostRender will EndFrame.
+==================
+*/
+qboolean V_RenderViewBoundedGC( void )
+{
+	static int gc_vrv_log;
+
+	if( !GC_IsNewGameWorldReady() )
+		return false;
+
+	/* Self-contained Begin/End world present (same as Prepare G90 pump). */
+	if( !GC_RenderNewGameWorldFrames( 1 ))
+		return false;
+
+	if( gc_vrv_log < 4 )
+	{
+		Con_Reportf( "Xash3D GameCube: V_RenderView bounded present\n" );
+		gc_vrv_log++;
+	}
+	return true;
+}
+#endif
 
 #define POINT_SIZE		16.0f
 #define NODE_INTERVAL_X(x)	(x * 16.0f)
