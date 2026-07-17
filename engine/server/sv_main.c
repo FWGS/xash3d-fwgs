@@ -687,6 +687,8 @@ void Host_ServerFrame( void )
 		svgame.globals->time = sv.time;
 		SV_Physics();
 		sv.time += sv.frametime;
+		/* G87: player-only snapshots after think (skips UpdateClientData). */
+		SV_SendClientMessagesBoundedGC();
 		if( gc_sf_bound_log < 4 )
 		{
 			Con_Reportf( "Xash3D GameCube: Host_ServerFrame post-G36 bounded tick time=%.2f\n",

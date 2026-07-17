@@ -17,6 +17,9 @@ GNU General Public License for more details.
 #include "server.h"
 #include "const.h"
 #include "net_encode.h"
+#if XASH_GAMECUBE
+#include "platform/platform.h"
+#endif
 
 typedef struct
 {
@@ -85,11 +88,13 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 #if XASH_GAMECUBE
 	/* New Game: pack entities in-engine. Avoid HLSDK AddToFullPack/Classify —
 	 * stub-freed studio ents and hull-only players (no model string) DSI or get
-	 * skipped. Prefer the local player + brush submodels; drop dangling studios. */
+	 * skipped. Prefer the local player + brush submodels; drop dangling studios.
+	 * After G36 (G87): player-only — full brush walk can stall Host_Frame. */
 	if( Sys_CheckParm( "-gcnewgame" ) && from_client )
 	{
 		int		e;
 		int		player_e = NUM_FOR_EDICT( pClient );
+		qboolean	player_only = GC_IsNewGameG36Done();
 
 		for( e = 1; e < svgame.numEntities; e++ )
 		{
@@ -114,6 +119,8 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 			}
 			else
 			{
+				if( player_only )
+					continue;
 				if( !ent->v.modelindex )
 					continue;
 				if( FBitSet( ent->v.effects, EF_NODRAW ))
@@ -651,6 +658,27 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 
 	memset( &frame->clientdata, 0, sizeof( frame->clientdata ));
 
+#if XASH_GAMECUBE
+	/* Post-G36: pfnUpdateClientData / GetWeaponData stall Host_Frame on c0a0.
+	 * Fill a minimal clientdata_t from the edict so snapshots can resume (G87). */
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
+	{
+		VectorCopy( clent->v.origin, frame->clientdata.origin );
+		VectorCopy( clent->v.velocity, frame->clientdata.velocity );
+		VectorCopy( clent->v.view_ofs, frame->clientdata.view_ofs );
+		VectorCopy( clent->v.punchangle, frame->clientdata.punchangle );
+		frame->clientdata.viewmodel = (int)clent->v.viewmodel;
+		frame->clientdata.flags = (int)clent->v.flags;
+		frame->clientdata.waterlevel = (int)clent->v.waterlevel;
+		frame->clientdata.watertype = (int)clent->v.watertype;
+		frame->clientdata.health = clent->v.health;
+		frame->clientdata.maxspeed = clent->v.maxspeed;
+		frame->clientdata.fov = 90.0f;
+		frame->clientdata.weapons = (int)clent->v.weapons;
+		frame->clientdata.deadflag = (int)clent->v.deadflag;
+	}
+	else
+#endif
 	// update clientdata_t
 	svgame.dllFuncs.pfnUpdateClientData( clent, FBitSet( cl->flags, FCL_LOCAL_WEAPONS ), &frame->clientdata );
 
@@ -674,7 +702,12 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 	// write clientdata_t
 	MSG_WriteClientData( msg, from_cd, to_cd, sv.time );
 
+#if XASH_GAMECUBE
+	if( !( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
+		&& FBitSet( cl->flags, FCL_LOCAL_WEAPONS ) && svgame.dllFuncs.pfnGetWeaponData( clent, frame->weapondata ))
+#else
 	if( FBitSet( cl->flags, FCL_LOCAL_WEAPONS ) && svgame.dllFuncs.pfnGetWeaponData( clent, frame->weapondata ))
+#endif
 	{
 		memset( &nullwd, 0, sizeof( nullwd ));
 
@@ -835,10 +868,11 @@ static void SV_SendClientDatagram( sv_client_t *cl )
 	if( Sys_CheckParm( "-gcnewgame" ) && cl->state == cs_spawned )
 	{
 		static int gc_datagram_ready_log;
-		if( gc_datagram_ready_log < 3 )
+		if( gc_datagram_ready_log < 6 )
 		{
-			Con_Reportf( "Xash3D GameCube: SendClientDatagram ready bytes=%d\n",
-				MSG_GetNumBytesWritten( &msg ));
+			Con_Reportf( "Xash3D GameCube: SendClientDatagram ready bytes=%d%s\n",
+				MSG_GetNumBytesWritten( &msg ),
+				GC_IsNewGameG36Done() ? " post-G36" : "" );
 			gc_datagram_ready_log++;
 		}
 	}
@@ -1050,6 +1084,50 @@ void SV_SendClientMessages( void )
 	// reset current client
 	sv.current_client = NULL;
 }
+
+#if XASH_GAMECUBE
+/*
+=======================
+SV_SendClientMessagesBoundedGC
+
+G87: post-G36 New Game snapshots without the full SendClientMessages gate
+(client may not be emitting move packets under lean Host_ClientFrame).
+=======================
+*/
+void SV_SendClientMessagesBoundedGC( void )
+{
+	sv_client_t *cl;
+	int i;
+	static int gc_bound_dgram_log;
+
+	if( sv.state == ss_dead )
+		return;
+
+	for( i = 0, cl = svs.clients; i < svs.maxclients; i++, cl++ )
+	{
+		if( cl->state != cs_spawned || FBitSet( cl->flags, FCL_FAKECLIENT ))
+			continue;
+
+		/* Keep failure-time choke from suppressing post-G36 snapshots while the
+		 * lean client path is not sending usercmds every frame. */
+		cl->netchan.last_received = host.realtime;
+		cl->next_messagetime = host.realtime;
+		ClearBits( cl->flags, FCL_SEND_NET_MESSAGE );
+
+		sv.current_client = cl;
+		SV_SendClientDatagram( cl );
+		cl->next_messagetime = host.realtime + sv.frametime + cl->next_messageinterval;
+
+		if( gc_bound_dgram_log < 4 )
+		{
+			Con_Reportf( "Xash3D GameCube: post-G36 bounded WriteEntities tick\n" );
+			gc_bound_dgram_log++;
+		}
+	}
+
+	sv.current_client = NULL;
+}
+#endif
 
 /*
 =======================

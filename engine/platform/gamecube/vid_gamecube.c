@@ -2003,17 +2003,31 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	rvp.fov_y = rvp.fov_x * 0.75f;
 	VectorAverage( world->mins, world->maxs, center );
 	center[2] += 64.0f;
-	for( i = 1; i < svgame.numEntities; i++ )
+	/* Prefer local player (edict 1) so G86 move/look updates the camera. */
 	{
-		edict_t *ent = &svgame.edicts[i];
+		edict_t *player = ( svgame.edicts && svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
 
-		if( ent->free )
-			continue;
-		if( VectorIsNull( ent->v.origin ))
-			continue;
-		VectorCopy( ent->v.origin, center );
-		center[2] += 48.0f;
-		break;
+		if( player && !player->free && !VectorIsNull( player->v.origin ))
+		{
+			VectorCopy( player->v.origin, center );
+			center[2] += 48.0f;
+			VectorCopy( player->v.v_angle, rvp.viewangles );
+		}
+		else
+		{
+			for( i = 1; i < svgame.numEntities; i++ )
+			{
+				edict_t *ent = &svgame.edicts[i];
+
+				if( ent->free )
+					continue;
+				if( VectorIsNull( ent->v.origin ))
+					continue;
+				VectorCopy( ent->v.origin, center );
+				center[2] += 48.0f;
+				break;
+			}
+		}
 	}
 	VectorCopy( center, rvp.vieworigin );
 	SetBits( rvp.flags, RF_DRAW_WORLD );

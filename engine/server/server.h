@@ -523,6 +523,9 @@ void SV_WaterMove( edict_t *ent );
 // sv_send.c
 //
 void SV_SendClientMessages( void );
+#if XASH_GAMECUBE
+void SV_SendClientMessagesBoundedGC( void );
+#endif
 void SV_ClientPrintf( sv_client_t *cl, const char *fmt, ... ) FORMAT_CHECK( 2 );
 
 //

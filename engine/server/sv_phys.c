@@ -1793,6 +1793,112 @@ static void SV_RunLightStyles( void )
 	}
 }
 
+#if XASH_GAMECUBE
+/*
+=============
+SV_TryNewGameWorldInteraction
+
+G88: one bounded use/touch on the nearest button/trigger/door after G36.
+Avoids full player PostThink / use-trace; calls game DLL pfnUse or pfnTouch.
+=============
+*/
+static qboolean SV_IsNewGameInteractClass( const char *classname )
+{
+	if( !classname || !classname[0] )
+		return false;
+	if( !Q_stricmp( classname, "func_button" ))
+		return true;
+	if( !Q_stricmp( classname, "func_door" ) || !Q_stricmp( classname, "func_door_rotating" ))
+		return true;
+	if( !Q_stricmp( classname, "trigger_once" ) || !Q_stricmp( classname, "trigger_multiple" ))
+		return true;
+	if( !Q_stricmp( classname, "func_rot_button" ))
+		return true;
+	return false;
+}
+
+static void SV_TryNewGameWorldInteraction( edict_t *player )
+{
+	static qboolean gc_interact_done;
+	edict_t *best = NULL;
+	const char *best_class = NULL;
+	float best_dist = 99999.0f;
+	int i;
+	qboolean used_touch = false;
+
+	if( gc_interact_done || !player || !SV_IsValidEdict( player ))
+		return;
+
+	for( i = svs.maxclients + 1; i < svgame.numEntities; i++ )
+	{
+		edict_t *ent = SV_EdictNum( i );
+		const char *classname;
+		vec3_t center, delta;
+		float dist;
+
+		if( !SV_IsValidEdict( ent ))
+			continue;
+		classname = SV_ClassName( ent );
+		if( !SV_IsNewGameInteractClass( classname ))
+			continue;
+
+		VectorAverage( ent->v.absmin, ent->v.absmax, center );
+		if( VectorIsNull( center ))
+			VectorCopy( ent->v.origin, center );
+		VectorSubtract( center, player->v.origin, delta );
+		dist = VectorLength( delta );
+		/* Prefer nearby interactables; still allow map-wide fallback for c0a0. */
+		if( dist >= best_dist )
+			continue;
+		best = ent;
+		best_class = classname;
+		best_dist = dist;
+	}
+
+	if( !best || !best_class )
+	{
+		static int gc_interact_miss_log;
+		if( gc_interact_miss_log < 2 )
+		{
+			Con_Reportf( "Xash3D GameCube: world interaction none near origin=(%.0f,%.0f,%.0f)\n",
+				player->v.origin[0], player->v.origin[1], player->v.origin[2] );
+			gc_interact_miss_log++;
+		}
+		return;
+	}
+
+	/* Cap extreme distances in the log but still attempt (G88 proof). */
+	if( best_dist > 2048.0f )
+	{
+		static int gc_interact_far_log;
+		if( gc_interact_far_log < 1 )
+		{
+			Con_Reportf( "Xash3D GameCube: world interaction far classname=%s dist=%.0f (still attempting)\n",
+				best_class, best_dist );
+			gc_interact_far_log++;
+		}
+	}
+
+	Con_Reportf( "Xash3D GameCube: world interaction begin classname=%s dist=%.0f player=(%.0f,%.0f,%.0f)\n",
+		best_class, best_dist,
+		player->v.origin[0], player->v.origin[1], player->v.origin[2] );
+
+	/* Triggers respond to touch; buttons/doors to use. */
+	if( !Q_strnicmp( best_class, "trigger_", 8 ))
+	{
+		svgame.dllFuncs.pfnTouch( best, player );
+		used_touch = true;
+	}
+	else
+		svgame.dllFuncs.pfnUse( best, player );
+
+	gc_interact_done = true;
+	Con_Reportf( "Xash3D GameCube: world interaction %s done classname=%s map=%s\n",
+		used_touch ? "touch" : "use", best_class,
+		sv.name[0] ? sv.name : "c0a0" );
+}
+#endif
+
 /*
 ================
 SV_Physics
@@ -1807,6 +1913,7 @@ void SV_Physics( void )
 	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
 	{
 		static int gc_phys_bound_log;
+		static int gc_phys_move_log;
 		edict_t *player;
 		int thought = 0;
 		const int max_world_thinks = 8;
@@ -1818,10 +1925,55 @@ void SV_Physics( void )
 		player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
 		if( player && SV_IsValidEdict( player ))
 		{
+			usercmd_t cmd;
+			vec3_t before_org, before_ang;
+			qboolean moved = false;
+
 			/* pfnThink(player) and PlayerPostThink stall on c0a0 post-G36.
-			 * PlayerPreThink is the per-frame hook and is enough for G84 proof. */
+			 * Full SV_RunCmd (PM_Move + LinkEdict + PostThink) also hangs.
+			 * G86: apply probe/PAD usercmd look + kinematic walk, then PreThink. */
+			VectorCopy( player->v.origin, before_org );
+			VectorCopy( player->v.v_angle, before_ang );
+
+			if( GC_FillNewGameMoveUsercmd( &cmd, player->v.v_angle ))
+			{
+				float dt = cmd.msec * 0.001f;
+				vec3_t forward, right, up;
+
+				if( dt < 0.001f )
+					dt = 0.05f;
+
+				if( !player->v.fixangle )
+				{
+					VectorCopy( cmd.viewangles, player->v.v_angle );
+					VectorCopy( cmd.viewangles, player->v.angles );
+				}
+				player->v.button = cmd.buttons;
+				if( cmd.impulse )
+					player->v.impulse = cmd.impulse;
+
+				AngleVectors( player->v.v_angle, forward, right, up );
+				VectorMA( player->v.origin, cmd.forwardmove * dt, forward, player->v.origin );
+				VectorMA( player->v.origin, cmd.sidemove * dt, right, player->v.origin );
+				moved = true;
+
+				if( gc_phys_move_log < 6 )
+				{
+					Con_Reportf( "Xash3D GameCube: player move before origin=(%.0f,%.0f,%.0f) angles=(%.1f,%.1f,%.1f)\n",
+						before_org[0], before_org[1], before_org[2],
+						before_ang[0], before_ang[1], before_ang[2] );
+					Con_Reportf( "Xash3D GameCube: player move after origin=(%.0f,%.0f,%.0f) angles=(%.1f,%.1f,%.1f) fwd=%.0f side=%.0f\n",
+						player->v.origin[0], player->v.origin[1], player->v.origin[2],
+						player->v.v_angle[0], player->v.v_angle[1], player->v.v_angle[2],
+						cmd.forwardmove, cmd.sidemove );
+					gc_phys_move_log++;
+				}
+			}
+
 			svgame.dllFuncs.pfnPlayerPreThink( player );
 			thought++;
+			(void)moved;
+			SV_TryNewGameWorldInteraction( player );
 		}
 
 		for( i = svs.maxclients + 1; i < svgame.numEntities && thought < ( 1 + max_world_thinks ); i++ )

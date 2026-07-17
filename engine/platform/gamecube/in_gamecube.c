@@ -775,4 +775,67 @@ void Platform_JoyShutdown( void )
 		GC_ReleaseAllInput();
 }
 
+/*
+===========
+GC_FillNewGameMoveUsercmd
+
+G86: after New Game world present, produce a usercmd for bounded server move.
+Probe-synthetic injects forward + yaw for several frames; a live pad maps the
+main stick to move and C-stick to look.
+===========
+*/
+qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles )
+{
+	static int gc_move_inject_frames;
+	static qboolean gc_move_begin_logged;
+	int port;
+	float stick_x, stick_y, cstick_x, cstick_y;
+
+	if( !cmd || !cur_angles )
+		return false;
+	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_IsNewGameG36Done() )
+		return false;
+
+	memset( cmd, 0, sizeof( *cmd ));
+	VectorCopy( cur_angles, cmd->viewangles );
+	cmd->msec = 50;
+
+	port = ( gc_active_port >= 0 ) ? gc_active_port : GC_PAD_PREFERRED;
+
+	if( gc_probe_synthetic || !gc_connected )
+	{
+		/* Synthetic: walk forward and yaw for a few post-G36 ticks. */
+		if( gc_move_inject_frames >= 8 )
+			return false;
+
+		if( !gc_move_begin_logged )
+		{
+			gc_move_begin_logged = true;
+			Con_Reportf( "Xash3D GameCube: probe gameplay move/look begin\n" );
+		}
+
+		cmd->forwardmove = 200.0f;
+		cmd->viewangles[YAW] = anglemod( cur_angles[YAW] + 12.0f );
+		gc_move_inject_frames++;
+		return true;
+	}
+
+	if( port < 0 || port >= PAD_CHANMAX )
+		return false;
+
+	stick_x = (float)GC_ApplyStickDeadzone( gc_pad[port].stickX ) / GC_STICK_RANGE;
+	stick_y = (float)GC_ApplyStickDeadzone( -gc_pad[port].stickY ) / GC_STICK_RANGE;
+	cstick_x = (float)GC_ApplyStickDeadzone( gc_pad[port].substickX ) / GC_STICK_RANGE;
+	cstick_y = (float)GC_ApplyStickDeadzone( -gc_pad[port].substickY ) / GC_STICK_RANGE;
+
+	if( stick_x == 0.0f && stick_y == 0.0f && cstick_x == 0.0f && cstick_y == 0.0f )
+		return false;
+
+	cmd->forwardmove = stick_y * 200.0f;
+	cmd->sidemove = stick_x * 200.0f;
+	cmd->viewangles[YAW] = anglemod( cur_angles[YAW] - cstick_x * 8.0f );
+	cmd->viewangles[PITCH] = bound( -89.0f, cur_angles[PITCH] + cstick_y * 6.0f, 89.0f );
+	return true;
+}
+
 #endif /* XASH_GAMECUBE && XASH_INPUT == INPUT_GAMECUBE */

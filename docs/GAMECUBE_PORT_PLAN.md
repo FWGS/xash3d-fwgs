@@ -2097,9 +2097,14 @@ New Game interactive bring-up goals (2026-07-16):
   player PreThink + optional non-pusher nextthink subset).
 - **G85:** Sustain world presents from the client/SCR frame loop — DONE
   (2026-07-16, count=1 SCR-style pump + lean ClientFrame).
-- **G86:** Prove player move/look on New Game `c0a0`.
-- **G87:** Restore post-G36 `WriteEntities` client snapshots.
-- **G88:** First door/button/trigger interaction on the New Game route.
+- **G86:** Prove player move/look on New Game `c0a0` — DONE (2026-07-17,
+  probe usercmd + kinematic walk; full PM_Move deferred).
+- **G87:** Restore post-G36 `WriteEntities` client snapshots — DONE
+  (2026-07-17, player-only datagrams; UpdateClientData deferred).
+- **G88:** First door/button/trigger interaction on the New Game route — DONE
+  (2026-07-17, `pfnUse` on `func_door` from bounded think).
+- **G89:** Make PVS follow a moving camera (fix G83's single-cluster snapshot,
+  either by root-causing the BSP scratch overwrite or caching per-cluster rows).
 
 New Game consolidation goals (added 2026-07-16, after G88):
 
@@ -2143,8 +2148,19 @@ hardware evidence refer to the same commit and artifact hashes.
   `post-G36 sustained world present`, `sustained frames=16 scr=12`,
   `SCR frames=8`. Prepare pumps count=1 frames; lean `Host_ClientFrame`
   continues SCR presents. Camera origin from spawned entity (`2864,2804,563`).
+- **G86 DONE:** `.ai/logs/dolphin-probe-20260717-120109` —
+  `probe gameplay move/look begin`, player origin
+  `(2864,2804,515)`→`(2883,2810,515)`, yaw `0`→`24` under synthetic usercmd,
+  `MAP_READY`/`G36`/`G45` PASS. Full `SV_RunCmd`/`PM_Move` still deferred.
+- **G87 DONE:** `.ai/logs/dolphin-probe-20260717-120407` —
+  `SendClientDatagram ready bytes=51 post-G36`,
+  `post-G36 bounded WriteEntities tick`. Player-only pack; skips
+  `pfnUpdateClientData` / brush walk.
+- **G88 DONE:** `.ai/logs/dolphin-probe-20260717-120656` —
+  `world interaction use done classname=func_door map=c0a0` at player
+  `(2874,2806,515)` (nearest door was far; use completed without hang).
 
-**Next automatic goal:** G86 (player move/look). Command:
+**Next automatic goal:** G89 (PVS follows moving camera). Command:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```

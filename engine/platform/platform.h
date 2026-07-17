@@ -164,6 +164,9 @@ qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without t
 void GC_CaptureNewGamePVS( void ); /* G83: PointInLeaf+FatPVS before scratch reuse */
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 qboolean GC_RenderNewGameWorldFrames( int count );
+/* G86: fill a post-G36 New Game usercmd from probe-synthetic or live PAD. */
+#include "q_client.h"
+qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles );
 void GC_ArmPostMapFrameBudgetSamples( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 #endif

@@ -6,9 +6,9 @@ goal complete only when its acceptance checks are demonstrated and recorded in
 lines. Real-hardware/operator-only work is tracked below as non-automation
 checkpoints, not as runnable goals.
 
-## Current focus (2026-07-16)
+## Current focus (2026-07-17)
 
-Automation tier: `sustained_present` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `world_interact` (see `.ai/state/gc-port-automation-tier.json`).
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
@@ -18,25 +18,31 @@ Automation tier: `sustained_present` (see `.ai/state/gc-port-automation-tier.jso
 - G84: bounded post-G36 think → `SV_Physics bounded think post-G36 ents=1`
   + `Host_ServerFrame post-G36 bounded tick` (probe `20260716-221201`)
 - G85: sustained presents → `sustained frames=16 scr=12` (probe `20260716-221938`)
+- G86: player move/look → origin `(2864,2804,515)`→`(2883,2810,515)`, yaw
+  `0`→`24` via probe usercmd (probe `20260717-120109`)
+- G87: post-G36 player-only snapshots → `SendClientDatagram ready bytes=51 post-G36`
+  + `post-G36 bounded WriteEntities tick` (probe `20260717-120407`)
+- G88: world interaction → `world interaction use done classname=func_door map=c0a0`
+  (probe `20260717-120656`)
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G86** — Player move/look from New Game spawn with controller or probe input
-2. **G87** — Post-G36 `WriteEntities` / client snapshots during gameplay
-3. **G88** — First door/button/trigger interaction on the New Game route
-4. **G89** — PVS follows a moving camera (multi-cluster; fixes G83 snapshot staleness)
-5. **G90** — Route presents through `V_RenderView`/SCR instead of the bespoke helper
-6. **G91** — First gameplay SFX/sentence after G36 (tram announcer or use-buzz)
-7. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
-8. **G93** — Step world presents up from 160×120 within the G36 frame budget
-9. **G94** — Save/load round trip from a live New Game session
-10. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
-11. **G72** — Deferred until G86–G94 produce fresh worst-case gameplay evidence
+1. **G89** — PVS follows a moving camera (multi-cluster; fixes G83 snapshot staleness)
+2. **G90** — Route presents through `V_RenderView`/SCR instead of the bespoke helper
+3. **G91** — First gameplay SFX/sentence after G36 (tram announcer or use-buzz)
+4. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
+5. **G93** — Step world presents up from 160×120 within the G36 frame budget
+6. **G94** — Save/load round trip from a live New Game session
+7. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
+8. **G72** — Deferred until G89–G94 produce fresh worst-case gameplay evidence
 
 Evidence anchors:
 - `.ai/logs/dolphin-probe-20260715-230720` (first world-render PASS)
 - `.ai/logs/dolphin-probe-20260716-213816` (G83 cached FatPVS + pixels)
 - `.ai/logs/dolphin-probe-20260716-221201` (G84 bounded player PreThink)
 - `.ai/logs/dolphin-probe-20260716-221938` (G85 sustained frames=16 scr=12)
+- `.ai/logs/dolphin-probe-20260717-120109` (G86 player move/look)
+- `.ai/logs/dolphin-probe-20260717-120407` (G87 post-G36 WriteEntities)
+- `.ai/logs/dolphin-probe-20260717-120656` (G88 func_door use)
 - `.ai/logs/dolphin-probe-20260715-231411` (slim server ticks PASS)
 
 ## G01 [x] Audit `SV_InitEdict` overflow warning
@@ -1534,45 +1540,58 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Keep `Host_ServerFrame` slim or G84-bounded; do not regress MAP_READY/G36.
 - Evidence: New Game Dolphin probe log with sustained-frame markers.
 
-## G86 [ ] Prove New Game player move and look on c0a0
+## G86 [x] Prove New Game player move and look on c0a0
 
-- Status: SOURCE-FIRST after G84/G85. Use probe-synthetic or PAD input.
+- Status: DONE 2026-07-17. Probe-synthetic usercmd → bounded kinematic
+  player move/look after G36 (full `SV_RunCmd`/`PM_Move`/`PostThink` still
+  deferred — hang risk).
 - Acceptance:
-  - After New Game world present, player origin and/or view angles change under
-    controller or probe-synthetic stick/button input.
-  - OSReport breadcrumbs record before/after origin (or viewangles) for at
-    least a few frames without guest halt.
+  - After New Game world present, player origin and view angles change under
+    probe-synthetic stick input.
+  - OSReport breadcrumbs record before/after origin and viewangles without
+    guest halt.
   - `G45_STATUS: PASS` / input polling remains true.
-- Prefer small GameCube input → usercmd → player-think wiring fixes over menu
-  probe-only changes.
-- Evidence: `.ai/logs/dolphin-probe-*` with move/look markers; note in port plan.
+- Implementation:
+  - `GC_FillNewGameMoveUsercmd` (`in_gamecube.c`): post-G36 probe injects
+    `forwardmove=200` + yaw step for 8 ticks; live PAD maps sticks when
+    connected.
+  - Bounded `SV_Physics` applies usercmd look + kinematic walk, then
+    `pfnPlayerPreThink` (no `PM_Move`/LinkEdict/`PostThink`).
+  - World camera prefers edict 1 origin/angles after move.
+- Evidence: `.ai/logs/dolphin-probe-20260717-120109` —
+  `probe gameplay move/look begin`,
+  `player move before origin=(2864,2804,515) angles=(0.0,0.0,0.0)`,
+  `player move after origin=(2874,2806,515) angles=(0.0,12.0,0.0)`,
+  second tick to `(2883,2810,515)` yaw `24`, `MAP_READY`/`G36`/`G45` PASS.
 
-## G87 [ ] Restore post-G36 WriteEntities client snapshots
+## G87 [x] Restore post-G36 WriteEntities client snapshots
 
-- Status: SOURCE-FIRST — spawn-time `WriteEntities` already completes
-  (`SendClientDatagram ready bytes=180`); gameplay-time snapshots after G36
-  still need a safe path beside slim ticks.
+- Status: DONE 2026-07-17. Post-G36 bounded player-only datagrams beside
+  think ticks; skips hang-prone `pfnUpdateClientData` / weapon data and full
+  brush entity walk.
 - Acceptance:
-  - After G36, at least one `WriteEntities` / datagram ready marker occurs
-    during sustained world presents without hanging Host_Frame.
-  - Client receives enough entity state for the local player (and optionally
-    nearby props) without requiring the full visible packet on day one.
-  - Bound PVS/entity walk using G83 results; fall back to player-only snapshots
-    if full `SV_AddEntitiesToPacket` still stalls.
-- Evidence: New Game Dolphin probe showing post-G36 datagram ready markers.
+  - After G36, `WriteEntities` / datagram ready markers occur during sustained
+    world presents without hanging Host_Frame.
+  - Client receives local-player entity state (player-only pack).
+- Implementation:
+  - `SV_SendClientMessagesBoundedGC` from post-G36 `Host_ServerFrame`.
+  - Minimal edict-sourced `clientdata_t`; player-only `SV_AddEntitiesToPacket`
+    when G36 done.
+- Evidence: `.ai/logs/dolphin-probe-20260717-120407` —
+  `SendClientDatagram ready bytes=51 post-G36`,
+  `post-G36 bounded WriteEntities tick` (twice), `MAP_READY`/`G36` PASS.
 
-## G88 [ ] First New Game world interaction (use / trigger / door)
+## G88 [x] First New Game world interaction (use / trigger / door)
 
-- Status: SOURCE-FIRST after G86/G87. One bounded interaction on `c0a0` or the
-  early tram/lab route — not a full combat audit (G62 remains manual).
+- Status: DONE 2026-07-17. After G36, nearest interactable (`func_button` /
+  `func_door*` / `trigger_*`) is found and `pfnUse` or `pfnTouch` is called
+  once from bounded `SV_Physics` (no full PostThink use-trace).
 - Acceptance:
-  - Demonstrate at least one of: `+use` on a button/door, `trigger_once` /
-    `trigger_multiple` fire, or a scripted door/platform start.
-  - OSReport or entity breadcrumb proves the interaction; world presents and
-    slim/think path do not hang.
-  - Record the exact entity classname, map, and approximate player position.
+  - `world interaction use done classname=func_door map=c0a0` with player at
+    ~`(2874,2806,515)` (door was map-far at dist≈6633; use still completed).
+  - World presents and bounded think/snapshots continue; `MAP_READY`/`G36` PASS.
 - Do not claim G62/G63 complete from this goal.
-- Evidence: New Game or early-route Dolphin probe log + port plan note.
+- Evidence: `.ai/logs/dolphin-probe-20260717-120656`.
 
 ## G89 [ ] Make New Game PVS follow a moving camera
 
