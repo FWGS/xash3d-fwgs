@@ -2095,7 +2095,8 @@ New Game interactive bring-up goals (2026-07-16):
   (2026-07-16, load-time PVS cache).
 - **G84:** Restore bounded post-G36 server entity think — DONE (2026-07-16,
   player PreThink + optional non-pusher nextthink subset).
-- **G85:** Sustain world presents from the client/SCR frame loop.
+- **G85:** Sustain world presents from the client/SCR frame loop — DONE
+  (2026-07-16, count=1 SCR-style pump + lean ClientFrame).
 - **G86:** Prove player move/look on New Game `c0a0`.
 - **G87:** Restore post-G36 `WriteEntities` client snapshots.
 - **G88:** First door/button/trigger interaction on the New Game route.
@@ -2130,13 +2131,20 @@ hardware evidence refer to the same commit and artifact hashes.
   `gcmap world pixels nonzero=17687/19200`, `newgame world render ready`.
 - Slim server: `.ai/logs/dolphin-probe-20260715-231411` —
   `Host_ServerFrame post-G36 slim tick`, `post-G36 slim server ticks ready`.
+- **G83 DONE:** `.ai/logs/dolphin-probe-20260716-213816` —
+  `Capture FatPVS cluster=0 leaves=122 nodes=271`, `cached FatPVS leaf mark
+  active`, pixels `17687/19200`, `MAP_READY`/`G36 PASS`.
 - **G84 DONE:** `.ai/logs/dolphin-probe-20260716-221201` —
   `SV_Physics bounded think post-G36 ents=1`, `Host_ServerFrame post-G36
   bounded tick`, `post-G36 bounded server ticks ready`. Player
   `pfnPlayerPreThink` each tick; full `pfnStartFrame` / entity walk still
   deferred.
+- **G85 DONE:** `.ai/logs/dolphin-probe-20260716-221938` —
+  `post-G36 sustained world present`, `sustained frames=16 scr=12`,
+  `SCR frames=8`. Prepare pumps count=1 frames; lean `Host_ClientFrame`
+  continues SCR presents. Camera origin from spawned entity (`2864,2804,563`).
 
-**Next automatic goal:** G85 (sustain world presents from SCR). Command:
+**Next automatic goal:** G86 (player move/look). Command:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```

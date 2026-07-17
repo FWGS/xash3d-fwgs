@@ -8,36 +8,35 @@ checkpoints, not as runnable goals.
 
 ## Current focus (2026-07-16)
 
-Automation tier: `newgame_pvs` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `sustained_present` (see `.ai/state/gc-port-automation-tier.json`).
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
 - Post-G36 low-res world render: `nonzero=17687/19200` @ 160×120 (~3 ms/frame)
-- Post-G36 slim `Host_ServerFrame` time ticks (`post-G36 slim server ticks ready`)
-- Spawn-time `WriteEntities` completes (`SendClientDatagram ready bytes=180`)
 - G83: load-time cluster PVS cache → `cached FatPVS leaf mark active`
   (`leaves=122 nodes=271`, probe `20260716-213816`)
 - G84: bounded post-G36 think → `SV_Physics bounded think post-G36 ents=1`
   + `Host_ServerFrame post-G36 bounded tick` (probe `20260716-221201`)
+- G85: sustained presents → `sustained frames=16 scr=12` (probe `20260716-221938`)
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G85** — Sustain world presents from `SCR_UpdateScreen` (not only Prepare)
-2. **G86** — Player move/look from New Game spawn with controller or probe input
-3. **G87** — Post-G36 `WriteEntities` / client snapshots during gameplay
-4. **G88** — First door/button/trigger interaction on the New Game route
-5. **G89** — PVS follows a moving camera (multi-cluster; fixes G83 snapshot staleness)
-6. **G90** — Route presents through `V_RenderView`/SCR instead of the bespoke helper
-7. **G91** — First gameplay SFX/sentence after G36 (tram announcer or use-buzz)
-8. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
-9. **G93** — Step world presents up from 160×120 within the G36 frame budget
-10. **G94** — Save/load round trip from a live New Game session
-11. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
-12. **G72** — Deferred until G85–G94 produce fresh worst-case gameplay evidence
+1. **G86** — Player move/look from New Game spawn with controller or probe input
+2. **G87** — Post-G36 `WriteEntities` / client snapshots during gameplay
+3. **G88** — First door/button/trigger interaction on the New Game route
+4. **G89** — PVS follows a moving camera (multi-cluster; fixes G83 snapshot staleness)
+5. **G90** — Route presents through `V_RenderView`/SCR instead of the bespoke helper
+6. **G91** — First gameplay SFX/sentence after G36 (tram announcer or use-buzz)
+7. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
+8. **G93** — Step world presents up from 160×120 within the G36 frame budget
+9. **G94** — Save/load round trip from a live New Game session
+10. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
+11. **G72** — Deferred until G86–G94 produce fresh worst-case gameplay evidence
 
 Evidence anchors:
 - `.ai/logs/dolphin-probe-20260715-230720` (first world-render PASS)
 - `.ai/logs/dolphin-probe-20260716-213816` (G83 cached FatPVS + pixels)
 - `.ai/logs/dolphin-probe-20260716-221201` (G84 bounded player PreThink)
+- `.ai/logs/dolphin-probe-20260716-221938` (G85 sustained frames=16 scr=12)
 - `.ai/logs/dolphin-probe-20260715-231411` (slim server ticks PASS)
 
 ## G01 [x] Audit `SV_InitEdict` overflow warning
@@ -1494,12 +1493,13 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `pfnPlayerPreThink` each tick; up to 8 non-pusher world ents with due
   `nextthink` get `SV_RunThink`. Skips `pfnStartFrame`, full entity walk,
   `pfnThink(player)`, and `PlayerPostThink` (those stall on c0a0).
-  Evidence: `.ai/logs/dolphin-probe-20260716-221201` —
+  Evidence: `.ai/logs/dolphin-probe-20260716-221823` —
   `SV_Physics bounded think post-G36 ents=1`, `Host_ServerFrame post-G36
   bounded tick`, `post-G36 bounded server ticks ready`, pixels
   `17687/19200`, `MAP_READY` + `G36 PASS`.
-- Today post-G36 `Host_ServerFrame` only advances `sv.time` (slim tick). Full
-  `SV_Physics` / `pfnStartFrame` stalls on `c0a0`.
+- Remaining limit: full post-G36 `SV_Physics` / `pfnStartFrame` still stall on
+  `c0a0`, so the bounded path remains GameCube-specific scaffolding rather than
+  a full restore of world-wide server think.
 - Acceptance:
   - After G36, server think runs for at least the player edict (and optionally
     a small bounded entity subset) without hanging Host_Frame.
@@ -1511,9 +1511,17 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   unbounded think for every edict in one patch.
 - Evidence: `.ai/logs/dolphin-probe-*` from `DOLPHIN_NEWGAME=1`.
 
-## G85 [ ] Sustain New Game world presents from the client frame loop
+## G85 [x] Sustain New Game world presents from the client frame loop
 
-- Status: SOURCE-FIRST — `GC_PrepareNewGameWorldPresent` already renders a
+- Status: DONE (2026-07-16) — after Prepare arms world present, it pumps
+  twelve `GC_RenderNewGameWorldFrames(1)` calls (same count=1 contract as
+  `SCR_UpdateScreen`). `Host_ClientFrame` also takes a lean post-G36 path that
+  calls `SCR_UpdateScreen` and skips `pfnFrame`/EmitEntities stalls. Camera
+  uses the first spawned entity origin (`2864,2804,563` on c0a0). Evidence:
+  `.ai/logs/dolphin-probe-20260716-221938` —
+  `post-G36 sustained world present`, `sustained frames=16 scr=12`,
+  `SCR frames=8`, pixels `17687/19200`, `MAP_READY` + `G36 PASS`.
+- Status was: SOURCE-FIRST — `GC_PrepareNewGameWorldPresent` already renders a
   burst of frames; SCR must keep presenting after the probe would otherwise
   exit on G36 alone.
 - Acceptance:

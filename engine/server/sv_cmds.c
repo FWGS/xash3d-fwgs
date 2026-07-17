@@ -46,11 +46,17 @@ static void SV_GameCubePlayStart_f( void )
 	{
 		SV_SpawnEntities( map );
 		SV_ActivateServer( true );
+		Con_Reportf( "Xash3D GameCube: play start post-activate %s\n", map );
 		/* World is resident; free BSP staging and unused stubs before client. */
+		Con_Reportf( "Xash3D GameCube: play start discard map buffer begin %s\n", map );
 		GC_DiscardMapLoadBuffer();
+		Con_Reportf( "Xash3D GameCube: play start discard map buffer ready %s\n", map );
+		Con_Reportf( "Xash3D GameCube: play start mark precache freeable begin %s\n", map );
 		Mod_GcmapMarkPrecacheFreeable();
+		Con_Reportf( "Xash3D GameCube: play start mark precache freeable ready %s\n", map );
 		/* Keep the deferred client bring-up on the lean renderer/HUD path. */
 		Cvar_Set( "gc_quality", "0" );
+		Con_Reportf( "Xash3D GameCube: play start ensure client begin %s\n", map );
 		if( !CL_GameCubeEnsureClientReady() )
 		{
 			Con_Reportf( "Xash3D GameCube: play start client reload failed %s\n", map );

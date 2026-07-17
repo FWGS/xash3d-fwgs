@@ -2185,6 +2185,16 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		for( i = 0; i < 2; i++ )
 			Host_ServerFrame();
 		Con_Reportf( "Xash3D GameCube: post-G36 bounded server ticks ready\n" );
+
+		/* G85: pump single-frame presents the same way SCR_UpdateScreen does
+		 * (count=1) before the probe exits on G36 alone. Host_Frame continues
+		 * this via the lean ClientFrame path. */
+		Con_Reportf( "Xash3D GameCube: post-G36 sustained world present\n" );
+		for( i = 0; i < 12; i++ )
+		{
+			if( !GC_RenderNewGameWorldFrames( 1 ))
+				break;
+		}
 	}
 	return true;
 #else

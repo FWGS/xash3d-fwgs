@@ -1,4 +1,4 @@
 {
-  "tier": "bounded_think",
-  "note": "G84 DONE 2026-07-16: post-G36 Host_ServerFrame runs bounded SV_Physics (player PreThink + up to 8 non-pusher nextthinks). Next auto G85 sustain SCR world presents; then G86-G94, G82; G72 deferred"
+  "tier": "sustained_present",
+  "note": "G85 DONE 2026-07-16: sustained frames=16 scr=12 via Prepare count=1 pump + lean Host_ClientFrame SCR path. G84 bounded think also green. Next auto G86 player move/look; then G87-G94, G82; G72 deferred"
 }

@@ -3810,9 +3810,8 @@ void Host_ClientFrame( void )
 		return;
 	}
 
-	/* G85: after New Game world present is armed, skip heavy client emit/
-	 * prediction that can stall Host_Frame before SCR sustains frames.
-	 * SCR_UpdateScreen drives GC_RenderNewGameWorldFrames(1) each tick. */
+	/* G85: after New Game world present is armed, present via SCR first and
+	 * skip pfnFrame/EmitEntities that can stall Host_Frame before sustained frames. */
 	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
 		&& GC_IsNewGameWorldReady() )
 	{
