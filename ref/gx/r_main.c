@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #include "library.h"
 #if XASH_GAMECUBE
 #include "mem_gamecube.h"
+int GC_GetNewGameViewCluster( void );
+qboolean GC_HasNewGameCachedVis( void );
+qboolean GC_ApplyNewGameCachedVis( int visframe );
 #endif
 // #include "beamdef.h"
 #include "entity_types.h"
@@ -521,6 +524,14 @@ R_FindViewLeaf
 void R_FindViewLeaf( void )
 {
 	RI.oldviewleaf = RI.viewleaf;
+#if XASH_GAMECUBE
+	/* G83: BSP scratch is corrupt by first world present; use prepare-time cluster. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetNewGameViewCluster() >= 0 )
+	{
+		RI.viewleaf = NULL;
+		return;
+	}
+#endif
 	RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes, WORLDMODEL );
 }
 
@@ -567,17 +578,19 @@ static void R_SetupFrame( void )
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 #if XASH_GAMECUBE
-		/* New Game low-res: avoid PointInLeaf until BSP parent/child walks are
-		 * proven cycle-free; force a full-vis mark via r_viewcluster = -1. */
-		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
-		{
-			RI.oldviewleaf = RI.viewleaf;
-			RI.viewleaf = WORLDMODEL && WORLDMODEL->leafs ? WORLDMODEL->leafs : NULL;
-			r_viewcluster = -1;
-		}
-		else
+		if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: PointInLeaf begin\n" );
 #endif
 		R_FindViewLeaf();
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && tr.framecount <= 1 )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: PointInLeaf cluster=%d contents=%d (prepare=%d)\n",
+				RI.viewleaf ? RI.viewleaf->cluster : GC_GetNewGameViewCluster(),
+				RI.viewleaf ? RI.viewleaf->contents : 0,
+				GC_GetNewGameViewCluster() );
+		}
+#endif
 	}
 
 	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
@@ -1490,7 +1503,15 @@ static void R_EdgeDrawingGcmapProbe( void )
 		memset( vid.buffer, 0, (size_t)vid.width * (size_t)vid.height * sizeof( pixel_t ));
 
 	R_BeginEdgeFrame();
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing after BeginEdgeFrame\n" );
+#endif
 	R_RenderWorld();
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing after RenderWorld\n" );
+#endif
 	/* Opaque brush entities (tram, doors, …) share the probe edge/span BSS.
 	 * Translucent brushes draw later via R_DrawBrushModelProbe.
 	 * During silent G36 windows draw once then skip (160×120 fill budget). */
@@ -1508,6 +1529,10 @@ static void R_EdgeDrawingGcmapProbe( void )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: low-res bmodels in edge pass count=%u\n",
 			tr.draw_list->num_edge_entities );
 	R_ScanEdges();
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing after ScanEdges\n" );
+#endif
 
 	if( tr.framecount <= 1 && vid.buffer )
 	{
@@ -1603,21 +1628,15 @@ static void R_MarkLeaves( void )
 		return;
 	}
 
-	/* Low-res without visdata (smoke / OOM): mark every leaf. With visdata
-	 * (New Game), fall through to FatPVS so edge/surf budgets stay useful.
-	 * First New Game frames force full-vis — FatPVS can cycle on c0a0 before
-	 * PointInLeaf/cluster state is trustworthy. */
-	/* Low-res without visdata (smoke / OOM): mark every leaf. New Game keeps
-	 * full-vis until FatPVS/PointInLeaf are cycle-safe on c0a0. */
-	if( GC_UseLowResWorldProbe() && ( !( WORLDMODEL && WORLDMODEL->visdata )
-		|| gEngfuncs.Sys_CheckParm( "-gcnewgame" )))
+	/* Low-res without visdata: mark every leaf. New Game with prepare-time
+	 * FatPVS cache applies that mark below (not full-vis). */
+	if( GC_UseLowResWorldProbe() && !( WORLDMODEL && WORLDMODEL->visdata )
+		&& !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
 		int i;
 
 		tr.visframecount++;
 		r_oldviewcluster = r_viewcluster;
-		/* Mark leafs/nodes directly — parent chains can cycle on GameCube BSP
-		 * bring-up and hang New Game world frames. */
 		if( WORLDMODEL && WORLDMODEL->leafs )
 		{
 			for( i = 0; i < WORLDMODEL->numleafs; i++ )
@@ -1629,7 +1648,48 @@ static void R_MarkLeaves( void )
 				WORLDMODEL->nodes[i].visframe = tr.visframecount;
 		}
 		if( tr.framecount <= 1 )
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: full-vis leaf mark active (low-res newgame)\n" );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: full-vis leaf mark active (low-res no visdata)\n" );
+		return;
+	}
+
+	/* G83: apply prepare-time FatPVS + parent marks — no live tree walks. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe()
+		&& GC_HasNewGameCachedVis() )
+	{
+		tr.visframecount++;
+		r_oldviewcluster = r_viewcluster;
+		if( GC_ApplyNewGameCachedVis( tr.visframecount ))
+		{
+			if( tr.framecount <= 1 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: cached FatPVS leaf mark active cluster=%d\n",
+					r_viewcluster );
+			return;
+		}
+		/* Apply failed — do not fall through to a second full-vis stamp. */
+		if( tr.framecount <= 1 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: cached FatPVS apply failed; using full-vis\n" );
+	}
+
+	/* New Game fallback if prepare cache missing: full-vis (keeps pixels). */
+	if( GC_UseLowResWorldProbe() && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	{
+		int i;
+
+		tr.visframecount++;
+		r_oldviewcluster = r_viewcluster;
+		if( WORLDMODEL && WORLDMODEL->leafs )
+		{
+			for( i = 0; i < WORLDMODEL->numleafs; i++ )
+				((mnode_t *)&WORLDMODEL->leafs[i + 1])->visframe = tr.visframecount;
+		}
+		if( WORLDMODEL && WORLDMODEL->nodes )
+		{
+			for( i = 0; i < WORLDMODEL->numnodes; i++ )
+				WORLDMODEL->nodes[i].visframe = tr.visframecount;
+		}
+		if( tr.framecount <= 1 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: full-vis leaf mark fallback (low-res newgame) cluster=%d\n",
+				r_viewcluster );
 		return;
 	}
 #endif
@@ -1648,19 +1708,32 @@ static void R_MarkLeaves( void )
 		if( vis[i >> 3] & ( 1 << ( i & 7 )))
 		{
 			mnode_t *node = (mnode_t *) &WORLDMODEL->leafs[i + 1];
+#if XASH_GAMECUBE
+			int parent_depth = 0;
+			const int parent_limit = WORLDMODEL->numnodes > 0 ? WORLDMODEL->numnodes + 8 : 4096;
+#endif
 			do
 			{
 				if( node->visframe == tr.visframecount )
 					break;
 				node->visframe = tr.visframecount;
 				node = node->parent;
+#if XASH_GAMECUBE
+				if( ++parent_depth > parent_limit )
+				{
+					if( tr.framecount <= 1 )
+						gEngfuncs.Con_Reportf( "Xash3D GameCube: MarkLeaves parent walk limit leaf=%d\n", i );
+					break;
+				}
+#endif
 			}
 			while( node );
 		}
 	}
 #if XASH_GAMECUBE
 	if( GC_UseLowResWorldProbe() && tr.framecount <= 1 )
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: FatPVS leaf mark active (low-res)\n" );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: FatPVS leaf mark active (low-res)%s\n",
+			gEngfuncs.Sys_CheckParm( "-gcnewgame" ) ? " newgame" : "" );
 #endif
 }
 

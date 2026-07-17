@@ -158,6 +158,11 @@ void GC_PresentBudgetProbeFrame( void );
 qboolean GC_PrepareNewGameWorldPresent( void );
 qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_IsNewGameG36Done( void );
+int GC_GetNewGameViewCluster( void ); /* G83: load/prepare-time PointInLeaf cluster, or -1 */
+qboolean GC_HasNewGameCachedVis( void ); /* G83: prepare-time FatPVS + parent mark ready */
+qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without tree walks */
+void GC_CaptureNewGamePVS( void ); /* G83: PointInLeaf+FatPVS before scratch reuse */
+void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 qboolean GC_RenderNewGameWorldFrames( int count );
 void GC_ArmPostMapFrameBudgetSamples( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );

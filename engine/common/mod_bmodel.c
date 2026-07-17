@@ -28,6 +28,9 @@ GNU General Public License for more details.
 #include <stdlib.h>
 #include "gamecube/mem_gamecube.h"
 
+void GC_CaptureNewGamePVS( void );
+void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
+
 static void Mod_GCFreeBspPin( void **ptr );
 
 typedef struct gc_bsp_deferred_s
@@ -1164,7 +1167,13 @@ static void Mod_DecompressPVS( byte *const out, const byte *in, size_t visbytes 
 		else // zero repeated `c` times
 		{
 			size_t c = in[1];
-			if( c > out + visbytes - dst )
+			/* A zero run-length never advances dst and spins forever. */
+			if( c == 0 )
+			{
+				memset( dst, 0xFF, out + visbytes - dst );
+				return;
+			}
+			if( c > (size_t)( out + visbytes - dst ))
 				c = out + visbytes - dst;
 
 			memset( dst, 0, c );
@@ -1213,20 +1222,23 @@ mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node, model_t *mod )
 
 #if XASH_GAMECUBE
 	{
-		/* Corrupt/partial node graphs can cycle forever on New Game presents. */
 		int depth = 0;
-		const int depth_limit = ( mod && mod->numnodes > 0 ) ? ( mod->numnodes + 8 ) : 8192;
+		const int depth_limit = ( mod && mod->numnodes > 0 )
+			? ( mod->numnodes + 8 ) : 8192;
 
-		while( depth++ < depth_limit )
+		while( node && depth++ < depth_limit )
 		{
 			if( node->contents < 0 )
 				return (mleaf_t *)node;
-			node = node_child( node, PlaneDiff( p, node->plane ) <= 0, mod );
-			if( !node )
+			if( !node->plane )
 				break;
+			node = node_child( node, PlaneDiff( p, node->plane ) <= 0, mod );
 		}
-		Con_Reportf( "Xash3D GameCube: Mod_PointInLeaf depth limit map=%s nodes=%d\n",
-			mod && mod->name ? mod->name : "?", mod ? mod->numnodes : -1 );
+		if( depth >= depth_limit )
+		{
+			Con_Reportf( "Xash3D GameCube: Mod_PointInLeaf depth limit map=%s nodes=%d\n",
+				mod && mod->name ? mod->name : "?", mod ? mod->numnodes : -1 );
+		}
 		if( mod && mod->leafs )
 			return mod->leafs;
 		return NULL;
@@ -1273,10 +1285,26 @@ Mod_FatPVS_RecursiveBSPNode
 
 ==================
 */
+#if XASH_GAMECUBE
+static int gc_fatpvs_visits;
+static int gc_fatpvs_visit_limit;
+#endif
+
 static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *visbuffer, int visbytes, mnode_t *node, qboolean phs )
 {
-	while( node->contents >= 0 )
+#if XASH_GAMECUBE
+	if( !node || gc_fatpvs_visits >= gc_fatpvs_visit_limit )
+		return;
+	gc_fatpvs_visits++;
+#endif
+
+	while( node && node->contents >= 0 )
 	{
+#if XASH_GAMECUBE
+		if( gc_fatpvs_visits >= gc_fatpvs_visit_limit )
+			return;
+		gc_fatpvs_visits++;
+#endif
 		float d = PlaneDiff( org, node->plane );
 
 		if( d > radius )
@@ -1290,6 +1318,9 @@ static void Mod_FatPVS_RecursiveBSPNode( const vec3_t org, float radius, byte *v
 			node = node_child( node, 1, worldmodel );
 		}
 	}
+
+	if( !node )
+		return;
 
 	// if this leaf is in a cluster, accumulate the vis bits
 	if(((mleaf_t *)node)->cluster >= 0 )
@@ -1340,7 +1371,20 @@ int Mod_FatPVS( const vec3_t org, float radius, byte *visbuffer, int visbytes, q
 
 	if( !merge ) memset( visbuffer, 0x00, bytes );
 
+#if XASH_GAMECUBE
+	/* Bound tree walks: corrupt children must not stall New Game presents. */
+	gc_fatpvs_visits = 0;
+	gc_fatpvs_visit_limit = worldmodel->numnodes > 0 ? ( worldmodel->numnodes * 2 + 16 ) : 4096;
+#endif
 	Mod_FatPVS_RecursiveBSPNode( org, radius, visbuffer, bytes, worldmodel->nodes, phs );
+#if XASH_GAMECUBE
+	if( gc_fatpvs_visits >= gc_fatpvs_visit_limit )
+	{
+		Con_Reportf( "Xash3D GameCube: Mod_FatPVS visit limit map=%s visits=%d\n",
+			worldmodel->name ? worldmodel->name : "?", gc_fatpvs_visits );
+		memset( visbuffer, 0xFF, bytes );
+	}
+#endif
 
 	return bytes;
 }
@@ -4226,7 +4270,8 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 
 			/* Nodes are one of the last world lumps still stressing MEM1 on large
 			 * retained-staging maps. Keep them on BSP scratch when we can, while
-			 * explicitly avoiding deferred lighting lumps that will be needed later. */
+			 * explicitly avoiding deferred lighting lumps that will be needed later.
+			 * New Game relocates nodes to the model pool after load (G83). */
 			if( use_bsp_node_scratch && gc_retain_bsp_source_buffer
 				&& gc_bsp_scratch_base && gc_bsp_scratch_size )
 			{
@@ -4336,15 +4381,15 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 			}
 
 			if( !out )
+		{
+			out = (mnode_t *)malloc( node_bytes );
+			if( out )
 			{
-				out = (mnode_t *)malloc( node_bytes );
-				if( out )
-				{
-					memset( out, 0, node_bytes );
-					gc_nodes_malloc_block = out;
-					Con_Reportf( "Xash3D GameCube: world nodes via malloc %s\n", Q_memprint( node_bytes ));
-				}
+				memset( out, 0, node_bytes );
+				gc_nodes_malloc_block = out;
+				Con_Reportf( "Xash3D GameCube: world nodes via malloc %s\n", Q_memprint( node_bytes ));
 			}
+		}
 		}
 	#endif
 	if( !out )
@@ -4462,6 +4507,78 @@ static void Mod_LoadNodes( model_t *mod, dbspmodel_t *bmod )
 #if XASH_GAMECUBE
 	if( GC_MapLoadMemoryOpt() && bmod->isworld )
 		Con_Reportf( "Xash3D GameCube: world node parent walk ready\n" );
+
+	/* Promotion disabled: malloc node trees stall R_RenderFace on c0a0 while
+	 * scratch-backed trees still draw. PointInLeaf is sampled in Prepare before
+	 * scratch reuse; render uses full-vis (G83). */
+	if( 0 && bmod->isworld
+		&& ( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcworldrender" ))
+		&& bmod->version != QBSP2_VERSION
+		&& bmod->nodes && mod->nodes && mod->leafs
+		&& gc_bsp_scratch_base && gc_bsp_scratch_size
+		&& Mod_GCPointerInBuffer( mod->nodes, gc_bsp_scratch_base, gc_bsp_scratch_size ))
+	{
+		const size_t node_bytes = (size_t)mod->numnodes * sizeof( mnode_t );
+		const size_t leaf_bytes = (size_t)mod->numleafs * sizeof( mleaf_t );
+		mnode_t *new_nodes = (mnode_t *)malloc( node_bytes );
+		mleaf_t *new_leafs = (mleaf_t *)malloc( leaf_bytes );
+
+		if( new_nodes && new_leafs )
+		{
+			int i;
+
+			memcpy( new_leafs, mod->leafs, leaf_bytes );
+			memset( new_nodes, 0, node_bytes );
+
+			for( i = 0; i < mod->numnodes; i++ )
+			{
+				dnode_t *in = &bmod->nodes[i];
+				mnode_t *out = &new_nodes[i];
+				int j;
+
+				for( j = 0; j < 3; j++ )
+				{
+					out->minmaxs[j + 0] = in->mins[j];
+					out->minmaxs[j + 3] = in->maxs[j];
+				}
+				out->plane = mod->planes + in->planenum;
+				out->firstsurface_0 = in->firstface;
+				out->numsurfaces_0 = in->numfaces;
+				for( j = 0; j < 2; j++ )
+				{
+					int p = in->children[j];
+
+					if( p >= 0 )
+						out->children_[j] = new_nodes + p;
+					else
+						out->children_[j] = (mnode_t *)( new_leafs + ( -1 - p ));
+				}
+			}
+
+			mod->nodes = new_nodes;
+			mod->leafs = new_leafs;
+			/* Not tracked in gc_nodes_malloc_block — survive FreeMallocSurfaces. */
+			Mod_SetParent( mod, mod->nodes, NULL );
+			Con_Reportf( "Xash3D GameCube: promoted world nodes/leafs off scratch (%s+%s)\n",
+				Q_memprint( node_bytes ), Q_memprint( leaf_bytes ));
+		}
+		else
+		{
+			free( new_nodes );
+			free( new_leafs );
+			Con_Reportf( S_WARN "Xash3D GameCube: node/leaf promote alloc failed\n" );
+		}
+	}
+
+	if( GC_MapLoadMemoryOpt() && bmod->isworld )
+	{
+		vec3_t test_origin = { 0.0f, 0.0f, 0.0f };
+		mleaf_t *test_leaf = Mod_PointInLeaf( test_origin, mod->nodes, mod );
+
+		Con_Reportf( "Xash3D GameCube: load-time PointInLeaf origin=(0,0,0) cluster=%d contents=%d\n",
+			test_leaf ? test_leaf->cluster : -999,
+			test_leaf ? test_leaf->contents : 0 );
+	}
 #endif
 
 #if XASH_GAMECUBE
@@ -5305,7 +5422,8 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			const qboolean use_bsp_leaf_scratch = true;
 
 			/* Retained-staging maps need scratch-backed leaf storage to stay
-			 * within MEM1; the parent walk now guards against overlap fallout. */
+			 * within MEM1; the parent walk now guards against overlap fallout.
+			 * New Game relocates leafs to the model pool after load (G83). */
 			if( use_bsp_leaf_scratch && GC_MapLoadMemoryOpt()
 				&& gc_retain_bsp_source_buffer && gc_bsp_scratch_base && gc_bsp_scratch_size )
 			{
@@ -5459,13 +5577,22 @@ static void Mod_LoadLeafs( model_t *mod, dbspmodel_t *bmod )
 			{
 				if( p < bmod->visdatasize )
 					out->compressed_vis = mod->visdata + p;
-				else Con_Reportf( S_WARN "Mod_LoadLeafs: invalid visofs for leaf #%i\n", i );
+				else
+				{
+					out->compressed_vis = NULL;
+					Con_Reportf( S_WARN "Mod_LoadLeafs: invalid visofs for leaf #%i\n", i );
+				}
 			}
+			else out->compressed_vis = NULL;
 		}
-		else out->cluster = -1; // no visclusters on bmodels
-
-		if( p == -1 ) out->compressed_vis = NULL;
-		else out->compressed_vis = mod->visdata + p;
+		else
+		{
+			out->cluster = -1; // no visclusters on bmodels
+			if( p == -1 || !mod->visdata || p < 0 || (size_t)p >= bmod->visdatasize )
+				out->compressed_vis = NULL;
+			else
+				out->compressed_vis = mod->visdata + p;
+		}
 
 		// gl underwater warp
 		if( out->contents != CONTENTS_EMPTY )
@@ -6290,6 +6417,12 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_SetupSubmodels( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel submodels ready\n" );
+	/* G83: capture after SetupSubmodels so numleafs == visleafs (not lump count). */
+	if( isworld && Sys_CheckParm( "-gcnewgame" ))
+	{
+		worldmodel = mod;
+		GC_CaptureNewGamePVSFromModel( mod );
+	}
 	Con_Reportf( "Xash3D GameCube: bmodel lighting begin\n" );
 #endif
 	Mod_LoadLighting( mod, bmod );

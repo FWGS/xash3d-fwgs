@@ -61,6 +61,14 @@ static unsigned int gc_budget_warmup_left;
 static unsigned int gc_light_present_left;
 static qboolean gc_newgame_world_ready;
 static qboolean gc_newgame_g36_done; /* sticky: never re-arm probe after first flush */
+static int gc_newgame_viewcluster = -1;
+static qboolean gc_newgame_pvs_ready;
+static byte *gc_newgame_vis;
+static byte *gc_newgame_nodebits;
+static int gc_newgame_numleafs;
+static int gc_newgame_numnodes;
+static int gc_newgame_vis_leafs;
+static int gc_newgame_vis_nodes;
 static qboolean gc_gx_present_logged;
 static convar_t *gc_quality;
 static double gc_last_present_time;
@@ -1683,6 +1691,271 @@ qboolean GC_IsNewGameG36Done( void )
 #endif
 }
 
+int GC_GetNewGameViewCluster( void )
+{
+#if XASH_GAMECUBE
+	return gc_newgame_viewcluster;
+#else
+	return -1;
+#endif
+}
+
+qboolean GC_HasNewGameCachedVis( void )
+{
+#if XASH_GAMECUBE
+	return gc_newgame_pvs_ready;
+#else
+	return false;
+#endif
+}
+
+qboolean GC_ApplyNewGameCachedVis( int visframe )
+{
+#if XASH_GAMECUBE
+	model_t *wmodel;
+	int i;
+	int leaf_mark = gc_newgame_numleafs;
+	int node_mark = gc_newgame_numnodes;
+
+	if( !gc_newgame_pvs_ready || !gc_newgame_vis || !gc_newgame_nodebits )
+	{
+		SYS_Report( "Xash3D GameCube: ApplyCachedVis fail ready=%d vis=%p nodes=%p\n",
+			gc_newgame_pvs_ready ? 1 : 0, (void *)gc_newgame_vis, (void *)gc_newgame_nodebits );
+		return false;
+	}
+
+	wmodel = sv.models[1];
+#if !XASH_DEDICATED
+	if( !wmodel )
+		wmodel = cl.worldmodel;
+#endif
+	if( !wmodel || !wmodel->leafs || !wmodel->nodes )
+	{
+		SYS_Report( "Xash3D GameCube: ApplyCachedVis fail world=%p leafs=%p nodes=%p\n",
+			(void *)wmodel,
+			wmodel ? (void *)wmodel->leafs : NULL,
+			wmodel ? (void *)wmodel->nodes : NULL );
+		return false;
+	}
+
+	if( wmodel->numleafs != gc_newgame_numleafs || wmodel->numnodes != gc_newgame_numnodes )
+	{
+		SYS_Report( "Xash3D GameCube: ApplyCachedVis size mismatch world=%d/%d cache=%d/%d\n",
+			wmodel->numleafs, wmodel->numnodes, gc_newgame_numleafs, gc_newgame_numnodes );
+		if( leaf_mark > wmodel->numleafs )
+			leaf_mark = wmodel->numleafs;
+		if( node_mark > wmodel->numnodes )
+			node_mark = wmodel->numnodes;
+	}
+
+	for( i = 0; i < leaf_mark; i++ )
+	{
+		if( gc_newgame_vis[i >> 3] & ( 1 << ( i & 7 )))
+			((mnode_t *)&wmodel->leafs[i + 1])->visframe = visframe;
+	}
+	for( i = 0; i < node_mark; i++ )
+	{
+		if( gc_newgame_nodebits[i >> 3] & ( 1 << ( i & 7 )))
+			wmodel->nodes[i].visframe = visframe;
+	}
+	return true;
+#else
+	(void)visframe;
+	return false;
+#endif
+}
+
+/*
+ * G83: capture PointInLeaf + FatPVS while BSP scratch nodes are still intact.
+ * Must run at world-load (or before G36) — later present paths reuse the arena.
+ * Pass the world model explicitly; sv.models[1] may not be linked yet during load.
+ */
+void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
+{
+#if XASH_GAMECUBE
+	vec3_t vieworigin;
+	mleaf_t *viewleaf;
+
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return;
+	if( gc_newgame_pvs_ready )
+		return;
+	if( !wmodel )
+		wmodel = sv.models[1];
+
+	gc_newgame_viewcluster = -1;
+	gc_newgame_vis_leafs = 0;
+	gc_newgame_vis_nodes = 0;
+
+	SYS_Report( "Xash3D GameCube: CaptureNewGamePVS begin\n" );
+
+	if( !wmodel || !wmodel->nodes || !wmodel->leafs )
+	{
+		SYS_Report( "Xash3D GameCube: CaptureNewGamePVS skipped (no world nodes)\n" );
+		return;
+	}
+
+	VectorAverage( wmodel->mins, wmodel->maxs, vieworigin );
+	vieworigin[2] += 64.0f;
+	if( svgame.edicts )
+	{
+		int i;
+
+		for( i = 1; i < svgame.numEntities; i++ )
+		{
+			edict_t *ent = &svgame.edicts[i];
+
+			if( ent->free || VectorIsNull( ent->v.origin ))
+				continue;
+			VectorCopy( ent->v.origin, vieworigin );
+			vieworigin[2] += 48.0f;
+			break;
+		}
+	}
+
+	viewleaf = Mod_PointInLeaf( vieworigin, wmodel->nodes, wmodel );
+	gc_newgame_viewcluster = viewleaf ? viewleaf->cluster : -1;
+
+	/* Load-time world center is often solid; pick any non-solid leaf cluster. */
+	if( gc_newgame_viewcluster < 0 && wmodel->leafs )
+	{
+		int i;
+
+		for( i = 1; i < wmodel->numleafs; i++ )
+		{
+			mleaf_t *leaf = &wmodel->leafs[i];
+			vec3_t leaf_origin;
+
+			if( leaf->cluster < 0 || leaf->contents >= 0 )
+				continue;
+			VectorAverage( leaf->minmaxs, leaf->minmaxs + 3, leaf_origin );
+			viewleaf = Mod_PointInLeaf( leaf_origin, wmodel->nodes, wmodel );
+			if( viewleaf && viewleaf->cluster >= 0 )
+			{
+				VectorCopy( leaf_origin, vieworigin );
+				gc_newgame_viewcluster = viewleaf->cluster;
+				break;
+			}
+		}
+	}
+
+	SYS_Report( "Xash3D GameCube: Capture PointInLeaf cluster=%d contents=%d origin=(%.0f,%.0f,%.0f)\n",
+		gc_newgame_viewcluster, viewleaf ? viewleaf->contents : 0,
+		vieworigin[0], vieworigin[1], vieworigin[2] );
+
+	if( gc_newgame_viewcluster < 0 || !wmodel->visdata || world.visbytes <= 0 )
+	{
+		SYS_Report( "Xash3D GameCube: Capture FatPVS skipped cluster=%d vis=%d\n",
+			gc_newgame_viewcluster, wmodel->visdata ? 1 : 0 );
+		return;
+	}
+
+	{
+		const size_t visbytes = world.visbytes;
+		const size_t nodebytes = (size_t)( wmodel->numnodes + 7 ) / 8;
+		int i;
+		byte *leafpvs;
+
+		if( gc_newgame_vis )
+		{
+			free( gc_newgame_vis );
+			gc_newgame_vis = NULL;
+		}
+		if( gc_newgame_nodebits )
+		{
+			free( gc_newgame_nodebits );
+			gc_newgame_nodebits = NULL;
+		}
+
+		gc_newgame_vis = (byte *)malloc( visbytes );
+		gc_newgame_nodebits = (byte *)calloc( 1, nodebytes );
+		if( !gc_newgame_vis || !gc_newgame_nodebits )
+		{
+			if( gc_newgame_vis )
+			{
+				free( gc_newgame_vis );
+				gc_newgame_vis = NULL;
+			}
+			if( gc_newgame_nodebits )
+			{
+				free( gc_newgame_nodebits );
+				gc_newgame_nodebits = NULL;
+			}
+			SYS_Report( "Xash3D GameCube: Capture FatPVS cache alloc failed\n" );
+			return;
+		}
+
+		/* Cluster PVS only — Mod_FatPVS radius recursion hangs on c0a0 load. */
+		SYS_Report( "Xash3D GameCube: Capture leaf PVS begin cluster=%d\n", gc_newgame_viewcluster );
+		leafpvs = Mod_GetPVSForPoint( vieworigin );
+		if( !leafpvs )
+		{
+			SYS_Report( "Xash3D GameCube: Capture leaf PVS failed cluster=%d\n", gc_newgame_viewcluster );
+			free( gc_newgame_vis );
+			free( gc_newgame_nodebits );
+			gc_newgame_vis = NULL;
+			gc_newgame_nodebits = NULL;
+			return;
+		}
+		memcpy( gc_newgame_vis, leafpvs, visbytes );
+		SYS_Report( "Xash3D GameCube: Capture leaf PVS ready cluster=%d\n", gc_newgame_viewcluster );
+
+		{
+			const int parent_limit = wmodel->numnodes > 0 ? wmodel->numnodes + 8 : 4096;
+
+			gc_newgame_numleafs = wmodel->numleafs;
+			gc_newgame_numnodes = wmodel->numnodes;
+			gc_newgame_vis_leafs = 0;
+			gc_newgame_vis_nodes = 0;
+			memset( gc_newgame_nodebits, 0, nodebytes );
+
+			for( i = 0; i < wmodel->numleafs; i++ )
+			{
+				mnode_t *node;
+				int parent_depth = 0;
+
+				if( !( gc_newgame_vis[i >> 3] & ( 1 << ( i & 7 ))))
+					continue;
+				gc_newgame_vis_leafs++;
+				/* leafs[0] is solid; vis bit i maps to leafs[i+1] (stock MarkLeaves). */
+				if( i + 1 >= wmodel->numleafs )
+					continue;
+				node = (mnode_t *)&wmodel->leafs[i + 1];
+				do
+				{
+					if( node->contents >= 0 )
+					{
+						const int nidx = (int)( node - wmodel->nodes );
+
+						if( nidx >= 0 && nidx < wmodel->numnodes
+							&& !( gc_newgame_nodebits[nidx >> 3] & ( 1 << ( nidx & 7 ))))
+						{
+							gc_newgame_nodebits[nidx >> 3] |= (byte)( 1 << ( nidx & 7 ));
+							gc_newgame_vis_nodes++;
+						}
+					}
+					node = node->parent;
+					if( ++parent_depth > parent_limit )
+						break;
+				}
+				while( node );
+			}
+		}
+
+		gc_newgame_pvs_ready = true;
+		SYS_Report( "Xash3D GameCube: Capture FatPVS cluster=%d leaves=%d nodes=%d\n",
+			gc_newgame_viewcluster, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
+	}
+#else
+	(void)wmodel;
+#endif
+}
+
+void GC_CaptureNewGamePVS( void )
+{
+	GC_CaptureNewGamePVSFromModel( NULL );
+}
+
 /*
  * Bounded low-res world presents for New Game after G36.
  * Bypasses V_RenderView / Host_ServerFrame (both stall on this path) and
@@ -1796,6 +2069,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		return true;
 	if( !Sys_CheckParm( "-gcnewgame" ))
 		return false;
+
+	/* Prefer Arm-time capture; retry here if map-ready ran before entities. */
+	GC_CaptureNewGamePVS();
 
 	Image_GCPurgeDecodeScratch();
 	Mod_GcmapMarkPrecacheFreeable();
@@ -1965,6 +2241,10 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	 * cleared world_ready and re-ran Prepare every few frames (VidInit thrash). */
 	if( gc_newgame_g36_done )
 		return;
+
+	/* G83: capture PointInLeaf/FatPVS before G36 light presents reuse BSP scratch. */
+	if( Sys_CheckParm( "-gcnewgame" ))
+		GC_CaptureNewGamePVS();
 
 	/* Match smoke-probe present cost: half-res buffer, skip VSync, cheap samples. */
 	gc_present_count = 0;

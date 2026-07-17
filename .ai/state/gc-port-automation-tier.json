@@ -1,4 +1,4 @@
 {
-  "tier": "slim_server",
-  "note": "New Game: 4x world render nonzero=17687/19200; post-G36 slim Host_ServerFrame ticks PASS; full entity think/PVS still deferred"
+  "tier": "newgame_pvs",
+  "note": "G83 DONE 2026-07-16: load-time cluster PVS cache + MarkLeaves apply; next auto G84 bounded entity think; G85-G88 then G82; G72 deferred"
 }

@@ -21,6 +21,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "r_local.h"
 
+#if XASH_GAMECUBE
+int GC_GetNewGameViewCluster( void );
+#endif
+
 #define NUM_MIPS 4
 
 surfcache_t  *d_initial_rover;
@@ -280,10 +284,10 @@ void R_SetupFrameQ( void )
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
 #if XASH_GAMECUBE
-		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_GetNewGameViewCluster() >= 0 )
 		{
-			RI.viewleaf = WORLDMODEL && WORLDMODEL->leafs ? WORLDMODEL->leafs : NULL;
-			r_viewcluster = -1;
+			RI.viewleaf = NULL;
+			r_viewcluster = GC_GetNewGameViewCluster();
 		}
 		else
 #endif

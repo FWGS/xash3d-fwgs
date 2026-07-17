@@ -1,10 +1,8 @@
 Auto-port task for Xash3D GameCube
 ===================================
 
-Failed phase: runtime_regression
-Failure kind: runtime_or_unknown
-Patch targets: ['engine/client/cl_scrn.c', 'ref/gx/r_main.c']
-Log path: .ai/logs/supervisor/runtime_regression.log
+Current goal: G83 Fix GameCube BSP PointInLeaf and parent-cycle PVS
+Patch targets: ['engine/common/mod_bmodel.c', 'ref/gx/r_main.c', 'ref/gx/r_misc.c']
 
 Rules:
 - Patch only the first target unless the error requires a header/source pair.
@@ -13,19 +11,10 @@ Rules:
 - Ignore public/miniz.c pragma notes.
 - Keep the patch small and compile/probe-driven.
 
-Error context:
---------------
-runtime gate: FAIL
-runtime gate: logs=.ai/logs/dolphin-probe-20260710-233634
-- missing: state status is map_ready
-- missing: c0a0e map loaded
-- missing: direct map reached ready marker
+Acceptance:
+- Mod_PointInLeaf + MarkLeaves/FatPVS work on -gcnewgame c0a0 without hang
+- MAP_READY + G36 PASS + nonzero world pixels retained
+- Evidence in docs/GAMECUBE_PORT_PLAN.md
 
-
-Automation pass rules:
-- Patch only the first named target unless a header/source pair is required.
-- Do not touch generated build/ files.
-- Do not touch engine/platform/gamecube/vid_gamecube.c unless the error names it.
-- Ignore public/miniz.c pragma notes.
-- Keep the patch small and compile/probe-driven.
-- There is no interactive human; do not ask questions.
+Verify:
+DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh

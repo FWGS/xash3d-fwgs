@@ -2057,7 +2057,7 @@ full suite (with no failed gates) is covered by ongoing RC gate runs under
 G36/G41. The automation should not loop on G64; the suite exists and is the
 canonical release gate.
 
-## Final Completion Gates (G67-G77)
+## Final Completion Gates (G67-G77) and New Game bring-up (G83-G88)
 
 The remaining release work needs stricter gates than "the engine boots" or
 "early maps run." A native Half-Life 1 GameCube port should not be called
@@ -2067,7 +2067,12 @@ persistent storage, worst-case performance, clean release rebuilds, final known
 limitations, Dolphin/hardware evidence parity, and final artifact-matched
 hardware sign-off.
 
-New endgame goals added to `.ai/goals/GAMECUBE_PORT_GOALS.md`:
+**Current automation focus (2026-07-16):** New Game post-G36 slim_server tier is
+proven on Dolphin (`MAP_READY`, G36 PASS, world pixels nonzero, slim server
+ticks). Source queue is G83→G88 before reopening G72 worst-case work. See
+`.ai/goals/GAMECUBE_PORT_GOALS.md` "Current focus".
+
+Endgame / release goals in `.ai/goals/GAMECUBE_PORT_GOALS.md`:
 
 - **G67:** Prove native GoldSrc content-format compatibility for BSP, WAD, PAK,
   MDL, SPR, WAV, image, sky/decal, sentence, and config/script assets.
@@ -2076,19 +2081,49 @@ New endgame goals added to `.ai/goals/GAMECUBE_PORT_GOALS.md`:
 - **G69:** Add sustained gameplay soak and leak regression evidence.
 - **G70:** Manually capture target-display audio/video evidence.
 - **G71:** Manually prove persistent save/config storage on real media.
-- **G72:** Close worst-case performance and memory optimization.
+- **G72:** Close worst-case performance and memory optimization (SKIP until
+  G83–G88 produce fresh New Game gameplay evidence).
 - **G73:** Prove clean checkout release rebuild and archive reproducibility.
 - **G74:** Burn down final blockers and freeze known limitations.
 - **G76:** Freeze release-candidate documentation and known limitations.
 - **G77:** Prove Dolphin and hardware evidence parity for the final artifact.
 - **G75:** Manually sign off native Half-Life 1 GameCube completion.
 
-Automation may complete G67-G69, G72-G74, G76, and the documentation/evidence
-comparison parts of G77 with source, scripts, logs, and release evidence. G70,
-G71, and G75 remain manual because physical audio/video, persistent media, and
-final hardware-completion claims require operator evidence from the exact
-release artifact hash. G77 must not pass until Dolphin and hardware evidence
-refer to the same commit and artifact hashes.
+New Game interactive bring-up goals (2026-07-16):
+
+- **G83:** Fix BSP `PointInLeaf` / parent-cycle PVS for New Game — DONE
+  (2026-07-16, load-time PVS cache).
+- **G84:** Restore bounded post-G36 server entity think.
+- **G85:** Sustain world presents from the client/SCR frame loop.
+- **G86:** Prove player move/look on New Game `c0a0`.
+- **G87:** Restore post-G36 `WriteEntities` client snapshots.
+- **G88:** First door/button/trigger interaction on the New Game route.
+- **G82:** Finish boot-phase isolation (lower priority than G83–G88).
+
+Automation may complete G67-G69, G83-G88, G82, then G72-G74, G76, and the
+documentation/evidence comparison parts of G77 with source, scripts, logs, and
+release evidence. G70, G71, and G75 remain manual because physical audio/video,
+persistent media, and final hardware-completion claims require operator evidence
+from the exact release artifact hash. G77 must not pass until Dolphin and
+hardware evidence refer to the same commit and artifact hashes.
+
+## G83–G88 — New Game post-G36 bring-up (IN PROGRESS 2026-07-16)
+
+**Baseline evidence:**
+- World render: `.ai/logs/dolphin-probe-20260715-230720` —
+  `gcmap world pixels nonzero=17687/19200`, `newgame world render ready`.
+- Slim server: `.ai/logs/dolphin-probe-20260715-231411` —
+  `Host_ServerFrame post-G36 slim tick`, `post-G36 slim server ticks ready`.
+- **G83 DONE:** `.ai/logs/dolphin-probe-20260716-213816` —
+  `Capture FatPVS cluster=0 leaves=122 nodes=271`, `cached FatPVS leaf mark
+  active`, pixels `17687/19200`, `MAP_READY`/`G36 PASS`. BSP scratch is captured
+  at load (`GC_CaptureNewGamePVSFromModel` after submodels); render applies the
+  cache instead of live PointInLeaf/full-vis.
+
+**Next automatic goal:** G84 (bounded post-G36 entity think). Command:
+```sh
+DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+```
 
 ## G67 — Native GoldSrc Content-Format Compatibility (COMPLETE 2026-06-28)
 
@@ -2232,7 +2267,11 @@ release run is intentionally separate: before final G75 sign-off, run
 `RC_SOAK_DRY_RUN=0 RC_SOAK_STRICT=1` against the release artifact and attach the
 result to the final evidence packet.
 
-## G72 — Worst-case performance and memory optimization gate (PENDING)
+## G72 — Worst-case performance and memory optimization gate (SKIP until G83–G88)
+
+**Status (2026-07-16):** SKIPPED for overnight source-porting until New Game
+interactive bring-up (G83–G88) produces fresh gameplay evidence. Reopen after
+real PVS + entity think + sustained presents land.
 
 `scripts/gamecube-worst-case-report.py` is the G72 evidence reducer. It consumes
 map compatibility TSVs, campaign-audit TSVs, soak probe TSVs, and source profile

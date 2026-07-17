@@ -6,6 +6,32 @@ goal complete only when its acceptance checks are demonstrated and recorded in
 lines. Real-hardware/operator-only work is tracked below as non-automation
 checkpoints, not as runnable goals.
 
+## Current focus (2026-07-16)
+
+Automation tier: `newgame_pvs` (see `.ai/state/gc-port-automation-tier.json`).
+
+**Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
+- `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
+- Post-G36 low-res world render: `nonzero=17687/19200` @ 160×120 (~3 ms/frame)
+- Post-G36 slim `Host_ServerFrame` time ticks (`post-G36 slim server ticks ready`)
+- Spawn-time `WriteEntities` completes (`SendClientDatagram ready bytes=180`)
+- G83: load-time cluster PVS cache → `cached FatPVS leaf mark active`
+  (`leaves=122 nodes=271`, probe `20260716-213816`)
+
+**Immediate source queue (open automatic goals, in order):**
+1. **G84** — Restore bounded post-G36 entity think (not time-only slim ticks)
+2. **G85** — Sustain world presents from `SCR_UpdateScreen` (not only Prepare)
+3. **G86** — Player move/look from New Game spawn with controller or probe input
+4. **G87** — Post-G36 `WriteEntities` / client snapshots during gameplay
+5. **G88** — First door/button/trigger interaction on the New Game route
+6. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
+7. **G72** — Deferred until G84–G88 produce fresh worst-case gameplay evidence
+
+Evidence anchors:
+- `.ai/logs/dolphin-probe-20260715-230720` (first world-render PASS)
+- `.ai/logs/dolphin-probe-20260716-213816` (G83 cached FatPVS + pixels)
+- `.ai/logs/dolphin-probe-20260715-231411` (slim server ticks PASS)
+
 ## G01 [x] Audit `SV_InitEdict` overflow warning
 
 - A fresh GameCube build on 2026-06-21 completed without the warning; searches
@@ -1165,6 +1191,9 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Do not reopen old blockers unless a fresh Dolphin run regresses: `c0a0e`
   path lookup, `Client Edicts Zone` OOM, and `demoheader.tmp` read-only writes
   have already been addressed or instrumented.
+- Follow-up (2026-07-15): retail New Game (`-gcnewgame` / `c0a0`) now reaches
+  post-G36 low-res world render with nonzero pixels. Remaining gameplay bring-up
+  is tracked under G83–G88 rather than reopening G65.
 
 ### G66 [Manual checkpoint] Sign off a real hardware release candidate
 
@@ -1292,11 +1321,11 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Record media type, filesystem, loader route, free-space state, slot/path,
   artifact hash, map, save name, and before/after file listing evidence.
 
-## G72 [ ] Close worst-case performance and memory optimization
+## G72 [SKIP] Close worst-case performance and memory optimization
 
-- Status: SOURCE-FIRST overnight — prefer engine/renderer patches that reduce
-  frame/present cost or MEM1 pressure. Do not edit docs or the worst-case report
-  script unless a verifier gate is broken.
+- Status: SKIP for local overnight source-porting until G83–G88 land fresh New
+  Game gameplay evidence. Worst-case claims from stale map-compat rows are not
+  actionable while post-G36 think/PVS are still slimmed.
 - Identify the worst currently supported scenes from the campaign audit and
   soak logs, then either optimize them or explicitly lower/default the quality
   profile until they meet the release frame and memory thresholds.
@@ -1314,9 +1343,8 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   evidence rows, no hard MEM1 failures, and all source profile guards present
   (`--low-memory-mode=2`, default `gc_quality=1`, texture clamps, surface-cache
   bounds, and world-edge bounds).
-- Boundary: G72 remains open because the highest-risk scenes still come from
-  stale map-compat runtime blockers (`Sys_InitLog: can't create`) and need fresh
-  G68/G69 runtime evidence before final performance/quality claims can be made.
+- Reopen when: New Game sustains player think + real PVS world presents, then
+  regenerate worst-case evidence from current-build Dolphin logs.
 
 ## G73 [SKIP] Prove clean checkout release rebuild and archive reproducibility
 
@@ -1427,6 +1455,101 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Record all autonomous Git mutations in a structured local audit log that the
   GUI can display alongside the current pass and goal.
 
+## G83 [x] Fix GameCube BSP PointInLeaf and parent-cycle PVS
+
+- Status: DONE (2026-07-16) — BSP scratch nodes are overwritten between world
+  load and New Game present; live PointInLeaf/FatPVS at render hang. Fix:
+  capture cluster leaf-PVS + parent marks in `GC_CaptureNewGamePVSFromModel`
+  after `Mod_SetupSubmodels` (while scratch is intact); render skips live
+  PointInLeaf and applies the cache in `R_MarkLeaves` (`cached FatPVS leaf mark
+  active`). Evidence: `.ai/logs/dolphin-probe-20260716-213816` —
+  `Capture FatPVS cluster=0 leaves=122 nodes=271`, `cached FatPVS leaf mark
+  active`, `gcmap world pixels nonzero=17687/19200`, `MAP_READY` + `G36 PASS`.
+- Root cause: New Game full-vis was required because `Mod_PointInLeaf` and
+  parent walks can cycle on `c0a0`; FatPVS hangs Host_Frame before edge pixels.
+- Acceptance:
+  - `Mod_PointInLeaf` returns a leaf for the New Game camera origin without
+    hitting the depth-limit fallback.
+  - `R_MarkLeaves` uses cluster/FatPVS (or a proven bounded PVS) instead of
+    marking every leaf/node for `-gcnewgame`.
+  - `DOLPHIN_NEWGAME=1` probe still reaches `MAP_READY`, `G36_STATUS: PASS`,
+    and `gcmap world pixels nonzero=` with no PointInLeaf/FatPVS hang.
+- Evidence: dated `.ai/logs/dolphin-probe-*/stderr.log` plus a short note in
+  `docs/GAMECUBE_PORT_PLAN.md`.
+- Do not solve this by permanently disabling world render or reintroducing
+  green-only post-G36 fills.
+
+## G84 [ ] Restore bounded post-G36 server entity think
+
+- Status: SOURCE-FIRST — depends on G83 not regressing world presents.
+- Today post-G36 `Host_ServerFrame` only advances `sv.time` (slim tick). Full
+  `SV_Physics` / `pfnStartFrame` stalls on `c0a0`.
+- Acceptance:
+  - After G36, server think runs for at least the player edict (and optionally
+    a small bounded entity subset) without hanging Host_Frame.
+  - OSReport shows `Host_ServerFrame post-G36` progress past slim time-only
+    ticks (e.g. physics/think ready markers).
+  - New Game world render markers remain green (`world render ready`, nonzero
+    pixels, `MAP_READY`/`G36` PASS).
+- Prefer GameCube-only guards in `sv_phys.c` / `sv_main.c`; do not re-enable
+  unbounded think for every edict in one patch.
+- Evidence: `.ai/logs/dolphin-probe-*` from `DOLPHIN_NEWGAME=1`.
+
+## G85 [ ] Sustain New Game world presents from the client frame loop
+
+- Status: SOURCE-FIRST — `GC_PrepareNewGameWorldPresent` already renders a
+  burst of frames; SCR must keep presenting after the probe would otherwise
+  exit on G36 alone.
+- Acceptance:
+  - `SCR_UpdateScreen` post-G36 path calls `GC_RenderNewGameWorldFrames`
+    repeatedly without falling back to green fill.
+  - OSReport shows `newgame world render sustained frames=16` (or higher) from
+    the Host_Frame/SCR path, not only the Prepare burst.
+  - Camera uses a spawned entity origin when available (already preferred in
+    the render helper); document if still using map-center fallback.
+- Keep `Host_ServerFrame` slim or G84-bounded; do not regress MAP_READY/G36.
+- Evidence: New Game Dolphin probe log with sustained-frame markers.
+
+## G86 [ ] Prove New Game player move and look on c0a0
+
+- Status: SOURCE-FIRST after G84/G85. Use probe-synthetic or PAD input.
+- Acceptance:
+  - After New Game world present, player origin and/or view angles change under
+    controller or probe-synthetic stick/button input.
+  - OSReport breadcrumbs record before/after origin (or viewangles) for at
+    least a few frames without guest halt.
+  - `G45_STATUS: PASS` / input polling remains true.
+- Prefer small GameCube input → usercmd → player-think wiring fixes over menu
+  probe-only changes.
+- Evidence: `.ai/logs/dolphin-probe-*` with move/look markers; note in port plan.
+
+## G87 [ ] Restore post-G36 WriteEntities client snapshots
+
+- Status: SOURCE-FIRST — spawn-time `WriteEntities` already completes
+  (`SendClientDatagram ready bytes=180`); gameplay-time snapshots after G36
+  still need a safe path beside slim ticks.
+- Acceptance:
+  - After G36, at least one `WriteEntities` / datagram ready marker occurs
+    during sustained world presents without hanging Host_Frame.
+  - Client receives enough entity state for the local player (and optionally
+    nearby props) without requiring the full visible packet on day one.
+  - Bound PVS/entity walk using G83 results; fall back to player-only snapshots
+    if full `SV_AddEntitiesToPacket` still stalls.
+- Evidence: New Game Dolphin probe showing post-G36 datagram ready markers.
+
+## G88 [ ] First New Game world interaction (use / trigger / door)
+
+- Status: SOURCE-FIRST after G86/G87. One bounded interaction on `c0a0` or the
+  early tram/lab route — not a full combat audit (G62 remains manual).
+- Acceptance:
+  - Demonstrate at least one of: `+use` on a button/door, `trigger_once` /
+    `trigger_multiple` fire, or a scripted door/platform start.
+  - OSReport or entity breadcrumb proves the interaction; world presents and
+    slim/think path do not hang.
+  - Record the exact entity classname, map, and approximate player position.
+- Do not claim G62/G63 complete from this goal.
+- Evidence: New Game or early-route Dolphin probe log + port plan note.
+
 ## G82 [ ] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
 - Separate the GameCube boot path into explicit phases for intro AVI, renderer
@@ -1439,6 +1562,14 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Add phase-specific logging and a reproducible smoke probe that reports the
   exact last successful boot phase before an invalid read/write, guest crash, or
   black-screen failure.
+- Progress (2026-07-15): New Game path already emits boot-phase / map / G36 /
+  world-present breadcrumbs and gates draws via `GC_BootDrawAllowed` /
+  quality profiles. Keep G82 open until a dedicated phase-failure smoke probe
+  reports the last successful phase on an intentional early fault (missing
+  buffer, menu-before-vid, or intro fault) without relying on New Game alone.
+- Ordering note: G83–G88 are higher priority for playable New Game bring-up;
+  automation should complete those before spending passes on G82 polish unless
+  a boot-phase crash blocks New Game.
 
 ### G75 [Manual checkpoint] Sign off native Half-Life 1 GameCube completion
 
@@ -1451,3 +1582,5 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Mark the port complete only if the release notes, known limitations, legal
   asset boundary, source archive, binary artifacts, and hardware evidence all
   describe the same final commit and artifact hashes.
+- Additional prerequisite (2026-07-16): G83–G88 New Game interactive bring-up
+  must be complete or explicitly limited in release notes before G75 sign-off.
