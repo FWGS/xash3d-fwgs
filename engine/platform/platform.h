@@ -166,6 +166,8 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 qboolean GC_UpdateNewGamePVSForOrigin( const float *org ); /* G89: select cluster row by AABB */
 /* G90: one world GL_RenderFrame without R_Begin/EndFrame (V_Pre/Post own the frame). */
 qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel );
+/* G91: play one local gameplay SFX after New Game world present. */
+void GC_PlayNewGameGameplaySound( void );
 qboolean GC_RenderNewGameWorldFrames( int count );
 /* G86: fill a post-G36 New Game usercmd from probe-synthetic or live PAD. */
 #include "q_client.h"

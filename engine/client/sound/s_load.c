@@ -33,10 +33,31 @@ static sfx_t    *s_sfxHashList[MAX_SFX_HASH];
 static qboolean s_registering = false;
 #if XASH_GAMECUBE
 static int      s_gcmapSoundSkips = 0;
+static qboolean s_gc_allow_gameplay_sfx;
 #endif
 
 #define SENTENCE_INDEX -99999 // unique sentence index
 static string   s_sentenceImmediateName;	// keep dummy sentence name
+
+#if XASH_GAMECUBE
+/*
+===========
+S_AllowNextGameplaySoundLoad
+
+G91: -gcnewgame keeps MapLoadMemoryOpt true for the whole session, which skips
+all S_LoadSound. Allow exactly one gameplay SFX through the gate.
+===========
+*/
+void S_AllowNextGameplaySoundLoad( void )
+{
+	s_gc_allow_gameplay_sfx = true;
+}
+
+void S_DisallowGameplaySoundLoad( void )
+{
+	s_gc_allow_gameplay_sfx = false;
+}
+#endif
 
 /*
 =================
@@ -139,13 +160,16 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		return NULL;
 
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" ))
+	if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" )
+		&& !s_gc_allow_gameplay_sfx )
 	{
 		if( s_gcmapSoundSkips < 8 )
 			Con_Reportf( "Xash3D GameCube: sound load skipped for map-load memopt %s\n", sfx->name );
 		s_gcmapSoundSkips++;
 		return NULL;
 	}
+	if( s_gc_allow_gameplay_sfx )
+		Con_Reportf( "Xash3D GameCube: sound load allowed for gameplay sfx %s\n", sfx->name );
 #endif
 
 	// load it from disk

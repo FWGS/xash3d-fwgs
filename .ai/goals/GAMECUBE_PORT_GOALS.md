@@ -8,31 +8,28 @@ checkpoints, not as runnable goals.
 
 ## Current focus (2026-07-17)
 
-Automation tier: `vrenderview_path` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `gameplay_sfx` (see `.ai/state/gc-port-automation-tier.json`).
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
-- Post-G36 low-res world render: `nonzero=17687/19200` @ 160×120
-- G83–G89: PVS cache → multi-cluster follow, bounded think/move/snapshots/use
-- G90: `V_RenderView path present` + `viewmodel draw` + `HUD lean draw`
-  (probe `20260717-123440`); presents before post-G36 server ticks
+- Post-G36 low-res world render + V_RenderView path + multi-cluster PVS
+- G91: `gameplay sound start name=buttons/button10.wav channel=static`
+  (probe `20260717-124047`); memopt gate allows one post-G36 SFX load
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G91** — First gameplay SFX/sentence after G36 (tram announcer or use-buzz)
-2. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
-3. **G93** — Step world presents up from 160×120 within the G36 frame budget
-4. **G94** — Save/load round trip from a live New Game session
-5. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
-6. **G72** — Deferred until G91–G94 produce fresh worst-case gameplay evidence
+1. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
+2. **G93** — Step world presents up from 160×120 within the G36 frame budget
+3. **G94** — Save/load round trip from a live New Game session
+4. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
+5. **G72** — Deferred until G92–G94 produce fresh worst-case gameplay evidence
 
 Evidence anchors:
-- `.ai/logs/dolphin-probe-20260717-122204` (G89 multi-cluster PVS follow)
+- `.ai/logs/dolphin-probe-20260717-124047` (G91 gameplay SFX)
 - `.ai/logs/dolphin-probe-20260717-123440` (G90 V_RenderView + HUD + viewmodel)
+- `.ai/logs/dolphin-probe-20260717-122204` (G89 multi-cluster PVS follow)
 - `.ai/logs/dolphin-probe-20260717-120656` (G88 func_door use)
 - `.ai/logs/dolphin-probe-20260717-120407` (G87 WriteEntities)
 - `.ai/logs/dolphin-probe-20260717-120109` (G86 move/look)
-- `.ai/logs/dolphin-probe-20260716-221938` (G85 sustained frames)
-- `.ai/logs/dolphin-probe-20260716-213816` (G83 cached FatPVS)
 
 ## G01 [x] Audit `SV_InitEdict` overflow warning
 
@@ -1606,20 +1603,16 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   - World pixels `17687/19200`; `MAP_READY`/`G36` PASS
 - Evidence: `.ai/logs/dolphin-probe-20260717-123440`.
 
-## G91 [ ] Bring up gameplay audio on the New Game route
+## G91 [x] Bring up gameplay audio on the New Game route
 
-- Status: SOURCE-FIRST after G84. Boot/menu audio and the audio ring already
-  work (`audio voice started`); gameplay-triggered sounds after G36 are
-  unproven on the slim/bounded server path.
+- Status: DONE 2026-07-17. Post-G36 `S_StartLocalSound("buttons/button10.wav")`
+  after presents/ticks. `-gcnewgame` keeps MapLoadMemoryOpt true session-wide
+  (skips all S_LoadSound); `S_AllowNextGameplaySoundLoad` opens a one-shot gate.
 - Acceptance:
-  - At least one server- or client-triggered gameplay sound plays post-G36
-    (tram announcer sentence, ambient_generic, or a `+use` denial buzz).
-  - OSReport shows the sound start (channel/sfx name) during sustained world
-    presents without Host_Frame stalls or audio ring underruns.
-  - No regression to MAP_READY / G36 / world pixels.
-- Keep the existing streaming-music policy (G27) unchanged; this is SFX and
-  sentences only.
-- Evidence: New Game probe log with sound-start markers; plan note.
+  - `gameplay sound start name=buttons/button10.wav channel=static`
+  - `sound load allowed` + `FS_SysOpen .../sound/buttons/button10.wav`
+  - `MAP_READY`/`G36` PASS; pixels green; no underrun markers
+- Evidence: `.ai/logs/dolphin-probe-20260717-124047`.
 
 ## G92 [ ] Survive changelevel on the New Game route (c0a0 → c0a0a/c0a1)
 

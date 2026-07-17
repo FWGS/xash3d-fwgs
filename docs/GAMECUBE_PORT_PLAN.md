@@ -2107,13 +2107,14 @@ New Game interactive bring-up goals (2026-07-16):
   cache + AABB select; live PointInLeaf still deferred).
 - **G90:** Route New Game presents through `V_RenderView`/SCR — DONE
   (2026-07-17, bounded path + HUD + viewmodel; full V_PreRender deferred).
+- **G91:** First gameplay SFX after G36 — DONE (2026-07-17,
+  `buttons/button10.wav` via one-shot memopt allow).
 
 New Game consolidation goals (added 2026-07-16, after G88):
 
 - **G89:** Make PVS follow a moving camera — DONE (see above).
 - **G90:** Route New Game presents through `V_RenderView`/SCR — DONE (see above).
-- **G91:** First gameplay SFX/sentence after G36 (tram announcer, ambient, or
-  use-denial buzz) without audio ring underruns.
+- **G91:** First gameplay SFX/sentence after G36 — DONE (see above).
 - **G92:** Survive the first tram-route changelevel; tear down and re-capture
   the PVS cache and low-res screens for the second map.
 - **G93:** Step world presents up from 160×120 (target 320×240) while keeping
@@ -2166,8 +2167,11 @@ hardware evidence refer to the same commit and artifact hashes.
 - **G90 DONE:** `.ai/logs/dolphin-probe-20260717-123440` —
   `V_RenderView path present`, `V_RenderView viewmodel draw`, `HUD lean draw`,
   presents before post-G36 server ticks (ticks-after-render hung GL).
+- **G91 DONE:** `.ai/logs/dolphin-probe-20260717-124047` —
+  `gameplay sound begin/start/ready name=buttons/button10.wav`,
+  `sound load allowed`, `FS_SysOpen .../sound/buttons/button10.wav`.
 
-**Next automatic goal:** G91 (gameplay audio). Command:
+**Next automatic goal:** G92 (changelevel + PVS re-capture). Command:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
 ```

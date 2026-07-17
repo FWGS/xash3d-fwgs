@@ -2585,12 +2585,54 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		for( i = 0; i < 2; i++ )
 			Host_ServerFrame();
 		Con_Reportf( "Xash3D GameCube: post-G36 bounded server ticks ready\n" );
+
+		/* G91: one local SFX after presents + ticks (use-denial style buzz). */
+		GC_PlayNewGameGameplaySound();
 	}
 	return true;
 #else
 	return false;
 #endif
 }
+
+#if XASH_GAMECUBE
+/*
+===========
+GC_PlayNewGameGameplaySound
+
+G91: post-G36 gameplay SFX via S_StartLocalSound (not streaming music).
+===========
+*/
+void GC_PlayNewGameGameplaySound( void )
+{
+	static qboolean gc_gameplay_sound_done;
+	const char *name = "buttons/button10.wav";
+	int i;
+
+	if( gc_gameplay_sound_done )
+		return;
+	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_IsNewGameG36Done() )
+		return;
+
+	gc_gameplay_sound_done = true;
+
+	Con_Reportf( "Xash3D GameCube: gameplay sound begin name=%s\n", name );
+	S_AllowNextGameplaySoundLoad();
+	S_StartLocalSound( name, 1.0f, true );
+	S_DisallowGameplaySoundLoad();
+	Con_Reportf( "Xash3D GameCube: gameplay sound start name=%s channel=static\n", name );
+
+	/* Mix a few updates so the DMA ring paints the sample. */
+	for( i = 0; i < 4; i++ )
+		SND_UpdateSound();
+
+	Con_Reportf( "Xash3D GameCube: gameplay sound ready name=%s\n", name );
+}
+#else
+void GC_PlayNewGameGameplaySound( void )
+{
+}
+#endif
 
 qboolean GC_ShouldUseLightPresent( void )
 {

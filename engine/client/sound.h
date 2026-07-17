@@ -100,6 +100,10 @@ sfx_t *S_FindName( const char *name, qboolean *pfInCache );
 sound_t S_RegisterSound( const char *name );
 void S_FreeSound( sfx_t *sfx );
 void S_InitSounds( void );
+#if XASH_GAMECUBE
+void S_AllowNextGameplaySoundLoad( void );
+void S_DisallowGameplaySoundLoad( void );
+#endif
 
 // s_dsp.c
 void SX_Init( void );
