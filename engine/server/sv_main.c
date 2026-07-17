@@ -671,6 +671,31 @@ Host_ServerFrame
 */
 void Host_ServerFrame( void )
 {
+#if XASH_GAMECUBE
+	/* Post-G36 New Game: the full server tick (packets/resources/physics/think)
+	 * stalls Host_Frame on c0a0. Keep time moving and skip the heavy work so
+	 * world presents remain interactive while think is brought up. */
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
+	{
+		static int gc_sf_slim_log;
+
+		if( !svs.initialized )
+			return;
+		if( sv_fps.value == 0.0f )
+			sv.frametime = host.frametime;
+		svgame.globals->frametime = sv.frametime;
+		svgame.globals->time = sv.time;
+		sv.time += sv.frametime;
+		sv.framecount++;
+		if( gc_sf_slim_log < 3 )
+		{
+			Con_Reportf( "Xash3D GameCube: Host_ServerFrame post-G36 slim tick time=%.2f\n",
+				sv.time );
+			gc_sf_slim_log++;
+		}
+		return;
+	}
+#endif
 	// update dedicated server status line in console
 	SV_UpdateStatusLine ();
 

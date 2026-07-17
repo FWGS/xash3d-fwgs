@@ -1211,6 +1211,27 @@ mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node, model_t *mod )
 {
 	Assert( node != NULL );
 
+#if XASH_GAMECUBE
+	{
+		/* Corrupt/partial node graphs can cycle forever on New Game presents. */
+		int depth = 0;
+		const int depth_limit = ( mod && mod->numnodes > 0 ) ? ( mod->numnodes + 8 ) : 8192;
+
+		while( depth++ < depth_limit )
+		{
+			if( node->contents < 0 )
+				return (mleaf_t *)node;
+			node = node_child( node, PlaneDiff( p, node->plane ) <= 0, mod );
+			if( !node )
+				break;
+		}
+		Con_Reportf( "Xash3D GameCube: Mod_PointInLeaf depth limit map=%s nodes=%d\n",
+			mod && mod->name ? mod->name : "?", mod ? mod->numnodes : -1 );
+		if( mod && mod->leafs )
+			return mod->leafs;
+		return NULL;
+	}
+#else
 	while( 1 )
 	{
 		if( node->contents < 0 )
@@ -1220,6 +1241,7 @@ mleaf_t *Mod_PointInLeaf( const vec3_t p, mnode_t *node, model_t *mod )
 
 	// never reached
 	return NULL;
+#endif
 }
 
 /*

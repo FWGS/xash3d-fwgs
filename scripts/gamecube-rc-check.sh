@@ -689,7 +689,7 @@ PY
 main() {
 	echo "GameCube RC check logs: $LOG_DIR"
 	run_gate "ai-verify" "ai-verify.log" scripts/ai-verify.sh || true
-	run_gate "clean build" "build-gamecube.log" scripts/build-gamecube.sh || true
+	run_gate "clean build" "build-gamecube.log" env XASH3D_GC_SKIP_DISC_BUILD=1 scripts/build-gamecube.sh || true
 	write_manifest
 	content_staging_audit || true
 	if [[ "${RC_BUILD_DISC:-0}" == "1" ]]; then

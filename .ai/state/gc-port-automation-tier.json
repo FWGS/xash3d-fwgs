@@ -1,4 +1,4 @@
 {
-  "tier": "hardware_handoff",
-  "note": "New Game MAP_READY+G36 PASS; retail RETAIL_READY; post-G36 world render deferred with sustained presents; handoff packet ready"
+  "tier": "slim_server",
+  "note": "New Game: 4x world render nonzero=17687/19200; post-G36 slim Host_ServerFrame ticks PASS; full entity think/PVS still deferred"
 }

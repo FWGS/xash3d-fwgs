@@ -158,6 +158,7 @@ void GC_PresentBudgetProbeFrame( void );
 qboolean GC_PrepareNewGameWorldPresent( void );
 qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_IsNewGameG36Done( void );
+qboolean GC_RenderNewGameWorldFrames( int count );
 void GC_ArmPostMapFrameBudgetSamples( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 #endif

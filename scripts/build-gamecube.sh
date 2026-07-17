@@ -32,7 +32,9 @@ mkdir -p OUT/bin
 cp build/engine/xash OUT/bin/xash
 
 if command -v powerpc-eabi-strip >/dev/null 2>&1; then
-	powerpc-eabi-strip OUT/bin/xash
+	if ! powerpc-eabi-strip OUT/bin/xash; then
+		echo "warning: powerpc-eabi-strip failed; keeping unstripped OUT/bin/xash" >&2
+	fi
 fi
 
 if command -v elf2dol >/dev/null 2>&1; then
@@ -48,6 +50,14 @@ echo "GameCube build installed to OUT/"
 GC_DATA="${XASH3D_GC_DATA:-Half-Life/valve}"
 GC_ISO="${XASH3D_GC_ISO:-OUT/xash3d-gc.iso}"
 GC_SMOKE_MAP="${XASH3D_GC_SMOKE_MAP:-}"
+GC_SKIP_DISC_BUILD="${XASH3D_GC_SKIP_DISC_BUILD:-0}"
+
+if [ "$GC_SKIP_DISC_BUILD" = "1" ]; then
+	echo "Skipping disc build (XASH3D_GC_SKIP_DISC_BUILD=1)."
+	echo "For disc packaging, run: python3 scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso --data ${GC_DATA}"
+	echo "For DOL testing, provide Half-Life assets at sd:/xash3d/valve/ before launching OUT/bin/boot.dol."
+	exit 0
+fi
 
 if [ -d "$GC_DATA" ]; then
 	DISC_ARGS=(--output "$GC_ISO" --data "$GC_DATA")

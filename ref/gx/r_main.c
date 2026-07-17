@@ -539,22 +539,55 @@ static void R_SetupFrame( void )
 	{
 		int quality = GC_GetVisualQuality();
 		if( tr.framecount <= 1 )
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame quality=%d\n", quality );
-		if( quality > 0 || GC_UseLowResWorldProbe() )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame quality=%d trans=%u\n",
+				quality, tr.draw_list ? tr.draw_list->num_trans_entities : 0 );
+		/* Bound qsort: a stale/corrupt count hangs the first New Game world frame. */
+		if(( quality > 0 || GC_UseLowResWorldProbe() )
+			&& tr.draw_list
+			&& tr.draw_list->num_trans_entities > 0
+			&& tr.draw_list->num_trans_entities <= MAX_VISIBLE_PACKET )
 		{
 			qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
+		}
+		else if( tr.draw_list && tr.draw_list->num_trans_entities > MAX_VISIBLE_PACKET )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame dropping bad trans count %u\n",
+				tr.draw_list->num_trans_entities );
+			tr.draw_list->num_trans_entities = 0;
 		}
 	}
 #else
 	qsort( tr.draw_list->trans_entities, tr.draw_list->num_trans_entities, sizeof( cl_entity_t * ), (void *)R_TransEntityCompare );
 #endif
 
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame after sort\n" );
+
 	// current viewleaf
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
+	{
+#if XASH_GAMECUBE
+		/* New Game low-res: avoid PointInLeaf until BSP parent/child walks are
+		 * proven cycle-free; force a full-vis mark via r_viewcluster = -1. */
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		{
+			RI.oldviewleaf = RI.viewleaf;
+			RI.viewleaf = WORLDMODEL && WORLDMODEL->leafs ? WORLDMODEL->leafs : NULL;
+			r_viewcluster = -1;
+		}
+		else
+#endif
 		R_FindViewLeaf();
+	}
+
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame after viewleaf\n" );
 
 	// setup twice until globals fully refactored
 	R_SetupFrameQ();
+
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_SetupFrame ready\n" );
 }
 
 /*
@@ -1571,28 +1604,32 @@ static void R_MarkLeaves( void )
 	}
 
 	/* Low-res without visdata (smoke / OOM): mark every leaf. With visdata
-	 * (New Game), fall through to FatPVS so edge/surf budgets stay useful. */
-	if( GC_UseLowResWorldProbe() && !( WORLDMODEL && WORLDMODEL->visdata ))
+	 * (New Game), fall through to FatPVS so edge/surf budgets stay useful.
+	 * First New Game frames force full-vis — FatPVS can cycle on c0a0 before
+	 * PointInLeaf/cluster state is trustworthy. */
+	/* Low-res without visdata (smoke / OOM): mark every leaf. New Game keeps
+	 * full-vis until FatPVS/PointInLeaf are cycle-safe on c0a0. */
+	if( GC_UseLowResWorldProbe() && ( !( WORLDMODEL && WORLDMODEL->visdata )
+		|| gEngfuncs.Sys_CheckParm( "-gcnewgame" )))
 	{
 		int i;
 
 		tr.visframecount++;
 		r_oldviewcluster = r_viewcluster;
-		for( i = 0; i < WORLDMODEL->numleafs; i++ )
+		/* Mark leafs/nodes directly — parent chains can cycle on GameCube BSP
+		 * bring-up and hang New Game world frames. */
+		if( WORLDMODEL && WORLDMODEL->leafs )
 		{
-			mnode_t *node = (mnode_t *)&WORLDMODEL->leafs[i + 1];
-
-			do
-			{
-				if( node->visframe == tr.visframecount )
-					break;
-				node->visframe = tr.visframecount;
-				node = node->parent;
-			}
-			while( node );
+			for( i = 0; i < WORLDMODEL->numleafs; i++ )
+				((mnode_t *)&WORLDMODEL->leafs[i + 1])->visframe = tr.visframecount;
+		}
+		if( WORLDMODEL && WORLDMODEL->nodes )
+		{
+			for( i = 0; i < WORLDMODEL->numnodes; i++ )
+				WORLDMODEL->nodes[i].visframe = tr.visframecount;
 		}
 		if( tr.framecount <= 1 )
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: full-vis leaf mark active (low-res, no visdata)\n" );
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: full-vis leaf mark active (low-res newgame)\n" );
 		return;
 	}
 #endif
@@ -1666,12 +1703,22 @@ void GAME_EXPORT R_RenderScene( void )
 
 
 	R_SetupFrustum();
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene after frustum\n" );
+#endif
 	R_SetupFrame();
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene after setupframe\n" );
+#endif
 
 #if XASH_GAMECUBE
-	/* Smoke (quality 0, non-probe) skips PushDlights. New Game low-res needs
-	 * marked surfaces so muzzle/flashlight lightmaps can rebuild. */
-	if( GC_IsLowMemoryMode() && !GC_UseLowResWorldProbe() )
+	/* Smoke (quality 0, non-probe) skips PushDlights. New Game low-res skips
+	 * PushDlights too — walking the full c0a0 tree stalls Host_Frame before
+	 * edge pixels land. */
+	if(( GC_IsLowMemoryMode() && !GC_UseLowResWorldProbe() )
+		|| gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 		tr.dlightframecount = tr.framecount;
 	else
 	{
@@ -1692,6 +1739,8 @@ void GAME_EXPORT R_RenderScene( void )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: world dlight push armed active=%u\n", active );
 		}
 	}
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene after dlights\n" );
 #endif
 	R_SetupModelviewMatrix( RI.worldviewMatrix );
 	R_SetupProjectionMatrix( RI.projectionMatrix );
@@ -1703,10 +1752,17 @@ void GAME_EXPORT R_RenderScene( void )
 	// R_Clear( ~0 );
 
 	R_MarkLeaves();
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene after markleaves\n" );
+#endif
 	// R_PushDlights (r_worldmodel); ??
 	// R_DrawWorld();
 	R_EdgeDrawing();
-
+#if XASH_GAMECUBE
+	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene after edges\n" );
+#endif
 #if XASH_GAMECUBE
 	/* -gcmap smoke: world only. New Game low-res: world + bounded ents
 	 * (studio/sprites/translucent brushes via probe BSS). */
@@ -1797,13 +1853,16 @@ R_RenderFrame
 void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 {
 #if XASH_GAMECUBE
-	if( gEngfuncs.Sys_CheckParm( "-gcmap" ))
+	/* Direct world probe path: skip viewmodel events / client draw hooks that
+	 * are not populated for -gcmap smoke or post-G36 New Game presents. */
+	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( r_norefresh->value )
 			return;
 		if( gpGlobals->height > vid.height || gpGlobals->width > vid.width )
 			return;
 
+		R_ClearScene();
 		R_SetupRefParams( rvp );
 		tr.fCustomRendering = false;
 		tr.realframecount++;

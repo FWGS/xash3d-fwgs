@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-
-# Whole-script timeout wrapper.
-# The Dolphin process itself has its own bounded runtime, but the shell probe
-# also needs enough headroom for rebuilds, ISO generation, and log analysis.
+# Whole-script timeout wrapper with enough headroom for rebuild/disc/log work.
 if [ "${GC_BOOT_PROBE_INNER:-0}" != "1" ]; then
 	if [ -n "${GC_BOOT_PROBE_TIMEOUT:-}" ]; then
 		PROBE_TIMEOUT="$GC_BOOT_PROBE_TIMEOUT"
@@ -60,7 +57,6 @@ USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 DOLPHIN_RETAIL="${DOLPHIN_RETAIL:-0}"
 DOLPHIN_NEWGAME="${DOLPHIN_NEWGAME:-0}"
 if (( DOLPHIN_NEWGAME )); then
-	# Retail New Game probes need full valve assets and gamecube.cfg newgame override.
 	DOLPHIN_RETAIL=1
 	DOLPHIN_SKIP_INTRO=1
 fi
@@ -145,8 +141,6 @@ SKIP_ENGINE=0
 SKIP_DISC=0
 if [[ "${DOLPHIN_SKIP_BUILD:-0}" == "1" && -f "$PREBUILT_ISO" ]]; then
 	SKIP_ENGINE=1
-	# New Game needs valve/gamecube.cfg rewritten with `newgame` — never reuse ISO.
-	# Retail menu validation may reuse OUT/xash3d-gc.iso; smoke maps must rebuild.
 	if (( DOLPHIN_NEWGAME )); then
 		SKIP_DISC=0
 	elif [[ "$DOLPHIN_RETAIL" == "1" ]] || [[ "${DOLPHIN_REUSE_ISO:-0}" == "1" ]]; then
@@ -163,15 +157,15 @@ if (( SKIP_DISC )); then
 			cp -f "$PREBUILT_ISO" "$ISO_PATH"
 		fi
 	fi
-else
-	if (( SKIP_ENGINE )); then
-		echo "==> Skipping engine rebuild (DOLPHIN_SKIP_BUILD=1); rebuilding disc image..."
 	else
-		if ! bash scripts/build-gamecube.sh; then
-			echo "FAIL: Engine build failed."
-			exit 1
+		if (( SKIP_ENGINE )); then
+			echo "==> Skipping engine rebuild (DOLPHIN_SKIP_BUILD=1); rebuilding disc image..."
+		else
+			if ! XASH3D_GC_SKIP_DISC_BUILD=1 bash scripts/build-gamecube.sh; then
+				echo "FAIL: Engine build failed."
+				exit 1
+			fi
 		fi
-	fi
 
 	echo "==> Building GameCube disc image..."
 	BUILD_ARGS=(--output "$ISO_PATH")
@@ -313,18 +307,16 @@ if probe_retail_menu_ready; then
 	RETAIL_MENU_READY=1
 fi
 
-if (( RETAIL_MENU_READY )); then
-	if [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )); then
-	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."
-	if probe_log_has "$INTRO_MARKER"; then
-		echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached the interactive menu on GameCube."
+if (( RETAIL_MENU_READY )) && [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEWGAME )); then
+		probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Retail boot reached menu, followed by a guest error."
+		if probe_log_has "$INTRO_MARKER"; then
+			echo "RETAIL_READY: Half-Life retail boot played intro AVI and reached the interactive menu on GameCube."
 	else
 		echo "RETAIL_READY: Half-Life retail boot reached the interactive menu on GameCube (intro AVI marker not seen)."
 	fi
-	probe_report_g45
-	echo "Logs: $LOG_DIR"
-	finalize_probe retail_ready 0
-	fi
+		probe_report_g45
+		echo "Logs: $LOG_DIR"
+		finalize_probe retail_ready 0
 fi
 
 if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( !DOLPHIN_NEWGAME || ( PLAY_READY_FOUND && FRAME_ARMED_FOUND ) )); then

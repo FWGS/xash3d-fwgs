@@ -279,8 +279,18 @@ void R_SetupFrameQ( void )
 // current viewleaf
 	if( FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 	{
-		RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes, WORLDMODEL );
-		r_viewcluster = RI.viewleaf->cluster;
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		{
+			RI.viewleaf = WORLDMODEL && WORLDMODEL->leafs ? WORLDMODEL->leafs : NULL;
+			r_viewcluster = -1;
+		}
+		else
+#endif
+		{
+			RI.viewleaf = gEngfuncs.Mod_PointInLeaf( RI.rvp.vieworigin, WORLDMODEL->nodes, WORLDMODEL );
+			r_viewcluster = RI.viewleaf ? RI.viewleaf->cluster : -1;
+		}
 	}
 
 	vrect_t vrect =

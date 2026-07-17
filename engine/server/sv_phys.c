@@ -19,6 +19,9 @@ GNU General Public License for more details.
 #include "library.h"
 #include "triangleapi.h"
 #include "ref_common.h"
+#if XASH_GAMECUBE
+#include "platform/platform.h"
+#endif
 
 typedef int (*PHYSICAPI)( int, server_physics_api_t*, physics_interface_t* );
 #if !XASH_DEDICATED
@@ -1798,6 +1801,24 @@ SV_Physics
 */
 void SV_Physics( void )
 {
+#if XASH_GAMECUBE
+	/* Post-G36 New Game: full entity think / pfnStartFrame stalls Host_Frame
+	 * on c0a0. Advance timekeeping only so ServerFrame can finish and send. */
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
+	{
+		static qboolean gc_phys_slim_logged;
+
+		svgame.globals->time = sv.time;
+		SV_RunLightStyles();
+		sv.framecount++;
+		if( !gc_phys_slim_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: SV_Physics slim (post-G36, think deferred)\n" );
+			gc_phys_slim_logged = true;
+		}
+		return;
+	}
+#endif
 	SV_CheckAllEnts ();
 
 	svgame.globals->time = sv.time;

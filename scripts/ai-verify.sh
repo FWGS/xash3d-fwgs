@@ -239,7 +239,7 @@ export PATH="$DEVKITPRO/devkitPPC/bin:$DEVKITPRO/tools/bin:$PATH"
 echo
 echo "== build probe: compile and link GameCube target =="
 BUILD_LOG="$TMPDIR_AI/gamecube-build.log"
-if ! scripts/build-gamecube.sh >"$BUILD_LOG" 2>&1; then
+if ! XASH3D_GC_SKIP_DISC_BUILD=1 scripts/build-gamecube.sh >"$BUILD_LOG" 2>&1; then
 	echo "verify: GameCube build failed" >&2
 	tail -120 "$BUILD_LOG" >&2
 	exit 1

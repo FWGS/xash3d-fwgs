@@ -52,10 +52,10 @@ void GC_RunGcmapSmokeFrames( const char *mapname, int count );
 qboolean GC_AttemptGcmapWorldRender( int count );
 qboolean R_GcmapEnsureSurfaceCache( void );
 qboolean GC_ShouldUseLightPresent( void );
-qboolean GC_IsNewGameG36Done( void );
 #endif
 
-host_parm_t host;	// host parms
+host_parm_t		host;	// host parms
+
 static jmp_buf return_from_main_buf;
 
 /*
@@ -676,20 +676,18 @@ void Host_Frame( double time )
 	Host_ClientBegin (); // begin client
 	Host_GetCommands (); // dedicated in
 #if XASH_GAMECUBE
-	/* After New Game ca_active, keep presenting even if server think stalls.
+	/* After New Game ca_active, keep presenting even if heavy server work stalls.
 	 * Use signon as well as cls.state: the connect frame still has ca_connected
 	 * when Host_Frame chooses its branch, then CheckClientState flips active.
 	 * While G36 light presents are armed, skip Host_ServerFrame — the first
 	 * post-spawn UpdateClientData (HUD init / target fires) otherwise stalls
 	 * before multi-sample evidence is collected.
-	 * After G36, keep skipping ServerFrame for -gcnewgame: WriteEntities /
-	 * entity think still stalls; client continues low-res world presents. */
+	 * After G36, run ServerFrame again with WriteEntities skipped (slim path). */
 	if( ( cls.state == ca_active || cls.signon == SIGNONS )
 		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() ))
 	{
 		Host_ClientFrame ();
-		if( !GC_ShouldUseLightPresent()
-			&& !( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() ))
+		if( !GC_ShouldUseLightPresent() )
 			Host_ServerFrame ();
 	}
 	else

@@ -1683,6 +1683,109 @@ qboolean GC_IsNewGameG36Done( void )
 #endif
 }
 
+/*
+ * Bounded low-res world presents for New Game after G36.
+ * Bypasses V_RenderView / Host_ServerFrame (both stall on this path) and
+ * reuses the same GL_RenderFrame probe used by -gcworldrender / -gcmap.
+ */
+qboolean GC_RenderNewGameWorldFrames( int count )
+{
+#if XASH_GAMECUBE
+	ref_viewpass_t rvp;
+	model_t *world;
+	vec3_t center;
+	char old_drawviewmodel[16];
+	int i;
+
+	if( !ref.initialized || !SV_Active() )
+		return false;
+	if( !gc_newgame_world_ready )
+		return false;
+	if( count <= 0 )
+		count = 1;
+	if( count > 4 )
+		count = 4;
+
+	world = sv.models[1];
+	if( !world )
+		return false;
+
+	cl.models[1] = world;
+	cl.worldmodel = world;
+	cl.video_prepped = true;
+
+	/* Skip R_NewMap here: on New Game it re-enters texture/surface setup and
+	 * stalls Host_Frame. Prepare already allocated low-res screens, scratch,
+	 * and lean sky — render with the resident world model only. */
+
+	memset( &rvp, 0, sizeof( rvp ));
+	rvp.viewport[0] = 0;
+	rvp.viewport[1] = 0;
+	if( !R_GcmapGetViewport( &rvp.viewport[2], &rvp.viewport[3] ))
+	{
+		rvp.viewport[2] = refState.width > 0 ? refState.width : gc.width;
+		rvp.viewport[3] = refState.height > 0 ? refState.height : gc.height;
+	}
+	rvp.fov_x = 90.0f;
+	rvp.fov_y = rvp.fov_x * 0.75f;
+	VectorAverage( world->mins, world->maxs, center );
+	center[2] += 64.0f;
+	for( i = 1; i < svgame.numEntities; i++ )
+	{
+		edict_t *ent = &svgame.edicts[i];
+
+		if( ent->free )
+			continue;
+		if( VectorIsNull( ent->v.origin ))
+			continue;
+		VectorCopy( ent->v.origin, center );
+		center[2] += 48.0f;
+		break;
+	}
+	VectorCopy( center, rvp.vieworigin );
+	SetBits( rvp.flags, RF_DRAW_WORLD );
+	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
+	Cvar_Set( "r_drawviewmodel", "0" );
+
+	{
+		static int render_log;
+
+		if( render_log < 3 )
+		{
+			Con_Reportf( "Xash3D GameCube: newgame world render begin frames=%d origin=(%.0f,%.0f,%.0f)\n",
+				count, center[0], center[1], center[2] );
+			render_log++;
+		}
+	}
+	for( i = 0; i < count; ++i )
+	{
+		ref.dllFuncs.R_BeginFrame( false );
+		VectorCopy( rvp.vieworigin, refState.vieworg );
+		VectorCopy( rvp.viewangles, refState.viewangles );
+		ref.dllFuncs.GL_RenderFrame( &rvp );
+		ref.dllFuncs.R_EndFrame();
+	}
+	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
+	{
+		static qboolean ready_logged;
+		static unsigned sustained_frames;
+
+		sustained_frames += (unsigned)count;
+		if( !ready_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: newgame world render ready\n" );
+			ready_logged = true;
+		}
+		if( sustained_frames == 8 || sustained_frames == 16 || ( sustained_frames > 0 && ( sustained_frames % 32 ) == 0 ))
+			Con_Reportf( "Xash3D GameCube: newgame world render sustained frames=%u\n", sustained_frames );
+	}
+	return true;
+#else
+	(void)count;
+	return false;
+#endif
+}
+
 qboolean GC_PrepareNewGameWorldPresent( void )
 {
 #if XASH_GAMECUBE
@@ -1768,16 +1871,30 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	SYS_Report( "Xash3D GameCube: newgame low-res world present %dx%d\n", present_w, present_h );
 	GC_MemSample( "newgame world present" );
 
-	/* Emit sustained presents here: the Dolphin probe often exits as soon as
-	 * G36 evidence is scored, before the next Host_Frame can run SCR. */
+	/* Prefer real low-res world frames here: the Dolphin probe often exits as
+	 * soon as G36 evidence is scored, before the next Host_Frame can run SCR.
+	 * Fall back to lean green fills if the world path is not ready yet. */
+	if( !GC_RenderNewGameWorldFrames( 4 ))
 	{
 		int i;
+
 		Con_Reportf( "Xash3D GameCube: post-G36 sustained present (world render deferred)\n" );
 		for( i = 0; i < 8; i++ )
 		{
 			GC_FillBudgetProbeFrameBuffer();
 			GC_PresentBudgetProbeFrame();
 		}
+	}
+	else
+	{
+		/* Probe may kill Dolphin as soon as G36/MAP_READY scores. Run a couple
+		 * of post-G36 server ticks here so physics/messages evidence lands in
+		 * the same OSReport window as world render. */
+		int i;
+
+		for( i = 0; i < 2; i++ )
+			Host_ServerFrame();
+		Con_Reportf( "Xash3D GameCube: post-G36 slim server ticks ready\n" );
 	}
 	return true;
 #else
