@@ -2116,9 +2116,9 @@ New Game consolidation goals (added 2026-07-16, after G88):
 - **G90:** Route New Game presents through `V_RenderView`/SCR — DONE (see above).
 - **G91:** First gameplay SFX/sentence after G36 — DONE (see above).
 - **G92:** Survive the first tram-route changelevel; tear down and re-capture
-  the PVS cache and low-res screens for the second map.
+  the PVS cache and low-res screens for the second map — DONE (2026-07-17).
 - **G93:** Step world presents up from 160×120 (target 320×240) while keeping
-  the G36 frame budget green.
+  the G36 frame budget green — DONE (2026-07-17).
 - **G94:** Save/load round trip from a live New Game session under the
   bounded-server path.
 - **G82:** Finish boot-phase isolation (lower priority than G83–G94).
@@ -2170,10 +2170,19 @@ hardware evidence refer to the same commit and artifact hashes.
 - **G91 DONE:** `.ai/logs/dolphin-probe-20260717-124047` —
   `gameplay sound begin/start/ready name=buttons/button10.wav`,
   `sound load allowed`, `FS_SysOpen .../sound/buttons/button10.wav`.
+- **G92 DONE:** `.ai/logs/dolphin-probe-20260717-145327` —
+  `changelevel begin map=c0a0a from=c0a0`, `Capture FatPVS map=c0a0a`,
+  `newgame low-res world present map=c0a0a 160x120`, `MAP_READY`/`G36` PASS.
+  SCR skips world present during changelevel plaque; `Mod_FreeLoadBuffer`
+  refuses Mem_Free of retained BSP scratch/arena.
+- **G93 DONE:** `.ai/logs/dolphin-probe-20260717-145537` —
+  `newgame low-res world present map=c0a0 320x240`, pixels `70610/76800`,
+  `G36 PASS`; `-gcnewgame160` fallback retained; changelevel still presents
+  `map=c0a0a 320x240`.
 
-**Next automatic goal:** G92 (changelevel + PVS re-capture). Command:
+**Next automatic goal:** G94 (save/load round trip). Command:
 ```sh
-DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh
+DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=48 scripts/dolphin-boot-probe.sh
 ```
 
 ## G67 — Native GoldSrc Content-Format Compatibility (COMPLETE 2026-06-28)

@@ -1,4 +1,4 @@
 {
-  "tier": "gameplay_sfx",
-  "note": "G91 DONE 2026-07-17: gameplay sound start buttons/button10.wav via S_AllowNextGameplaySoundLoad (probe 20260717-124047). Next auto G92 changelevel; then G93-G94, G82; G72 deferred"
+  "tier": "world_res_320",
+  "note": "G93 DONE 2026-07-17: New Game presents at 320x240 (pixels 70610/76800, G36 PASS); -gcnewgame160 fallback. Probe 20260717-145537. Next auto G94 save/load; then G82; G72 deferred"
 }

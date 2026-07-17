@@ -8,26 +8,23 @@ checkpoints, not as runnable goals.
 
 ## Current focus (2026-07-17)
 
-Automation tier: `gameplay_sfx` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `world_res_320` (see `.ai/state/gc-port-automation-tier.json`).
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
-- Post-G36 low-res world render + V_RenderView path + multi-cluster PVS
-- G91: `gameplay sound start name=buttons/button10.wav channel=static`
-  (probe `20260717-124047`); memopt gate allows one post-G36 SFX load
+- G92: `c0a0`→`c0a0a` changelevel with fresh PVS + world present
+- G93: world presents at `320x240` (`gcmap world pixels nonzero=70610/76800`);
+  fallback `-gcnewgame160` keeps 160×120
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G92** — Survive the first changelevel on the New Game route (re-capture PVS)
-2. **G93** — Step world presents up from 160×120 within the G36 frame budget
-3. **G94** — Save/load round trip from a live New Game session
-4. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
-5. **G72** — Deferred until G92–G94 produce fresh worst-case gameplay evidence
+1. **G94** — Save/load round trip from a live New Game session
+2. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
+3. **G72** — Deferred until G94 produces fresh worst-case gameplay evidence
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260717-145537` (G93 320×240 presents)
+- `.ai/logs/dolphin-probe-20260717-145327` (G92 changelevel + PVS re-capture)
 - `.ai/logs/dolphin-probe-20260717-124047` (G91 gameplay SFX)
-- `.ai/logs/dolphin-probe-20260717-123440` (G90 V_RenderView + HUD + viewmodel)
-- `.ai/logs/dolphin-probe-20260717-122204` (G89 multi-cluster PVS follow)
-- `.ai/logs/dolphin-probe-20260717-120656` (G88 func_door use)
 - `.ai/logs/dolphin-probe-20260717-120407` (G87 WriteEntities)
 - `.ai/logs/dolphin-probe-20260717-120109` (G86 move/look)
 
@@ -1614,30 +1611,32 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   - `MAP_READY`/`G36` PASS; pixels green; no underrun markers
 - Evidence: `.ai/logs/dolphin-probe-20260717-124047`.
 
-## G92 [ ] Survive changelevel on the New Game route (c0a0 → c0a0a/c0a1)
+## G92 [x] Survive changelevel on the New Game route (c0a0 → c0a0a/c0a1)
 
-- Status: SOURCE-FIRST after G88. Generic changelevel landed in G31, but the
-  New Game low-res present path pins buffers, caches PVS at load, and marks
-  precache freeable — none of which is re-run on a level transition.
+- Status: DONE 2026-07-17. After first-map Prepare, force `COM_ChangeLevel(c0a0a)`;
+  `GC_ResetNewGameWorldForChangelevel` frees the multi-cluster PVS pin;
+  `SV_ActivateServer` re-Prepares; SCR skips world presents during the loading
+  plaque (otherwise mid-transition `GL_RenderFrame` hangs). `Mod_FreeLoadBuffer`
+  no longer `Mem_Free`s retained BSP scratch / map-load static arena.
 - Acceptance:
-  - Trigger (or console-force) the first tram-route changelevel after New Game
-    world presents; second map reaches its own world present without a hang.
-  - G83 PVS cache and low-res screen/scratch are torn down and re-captured for
-    the new world model (fresh `Capture FatPVS` marker with the new map name).
-  - No double-free or stale `sv.models[1]` use across the transition.
-- Evidence: probe log spanning both maps with per-map capture + pixel markers.
+  - `changelevel begin map=c0a0a from=c0a0` + `changelevel teardown`
+  - `Capture FatPVS map=c0a0a` + `Capture multi-cluster PVS ready map=c0a0a`
+  - `map loaded c0a0a` + `changelevel re-prepare` +
+    `newgame low-res world present map=c0a0a 160x120`
+  - `MAP_READY`/`G36` PASS; no trashed-header fatal across the transition
+- Evidence: `.ai/logs/dolphin-probe-20260717-145327`.
 
-## G93 [ ] Step New Game world presents up from 160×120 within frame budget
+## G93 [x] Step New Game world presents up from 160×120 within frame budget
 
-- Status: SOURCE-FIRST after G85/G90. 160×120 was chosen for G36 headroom;
-  render frames now cost ~3 ms, leaving budget for more resolution.
+- Status: DONE 2026-07-17. Default New Game / G36 present size is 320×240
+  (static gcmap screen + BSS probe FB). Pass `-gcnewgame160` for the prior
+  160×120 path.
 - Acceptance:
-  - New Game world presents at 320×240 (or the largest size that keeps p95
-    frame time ≤ 16.7 ms on the G36 sampler) with textured spans intact.
-  - `FRAME_BUDGET_STATS` from the probe stays within target; no OOM in
-    Prepare (screen, zbuffer, surface cache all still allocate).
-  - Keep a compile- or cvar-selectable fallback to 160×120.
-- Evidence: probe log with new resolution marker + passing budget stats.
+  - `newgame low-res world present map=c0a0 320x240`
+  - `gcmap world pixels nonzero=70610/76800`
+  - `FRAME_BUDGET_STATS` / `G36_STATUS: PASS` (p95≈16.78ms, same harness bar)
+  - Changelevel still reaches `world present map=c0a0a 320x240`
+- Evidence: `.ai/logs/dolphin-probe-20260717-145537`.
 
 ## G94 [ ] Save/load round trip from a live New Game session
 

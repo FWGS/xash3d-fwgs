@@ -68,6 +68,19 @@ typedef struct gc_bsp_busy_range_s
 static qboolean Mod_GCPointerInBuffer( const void *ptr, const byte *base, size_t size );
 static void *Mod_GCAllocBspScratch( byte *base, size_t size, const gc_bsp_busy_range_t *busy, size_t busy_count, size_t alloc_size, size_t align );
 
+qboolean Mod_GCIsRetainedBspScratch( const void *buf )
+{
+	return buf != NULL && buf == gc_bsp_scratch_base;
+}
+
+void Mod_GCClearRetainedBspScratch( void )
+{
+	gc_bsp_scratch_base = NULL;
+	gc_bsp_scratch_size = 0;
+	gc_bsp_scratch_carve_high = 0;
+	gc_retain_bsp_source_buffer = false;
+}
+
 static qboolean Mod_GCPointerInScratchArena( const void *ptr )
 {
 	/* Include the high-end carve reserved for deferred nodes/clipnodes. */

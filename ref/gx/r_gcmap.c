@@ -8,9 +8,9 @@ static qboolean gc_renderer_trimmed;
 static qboolean gc_static_map_arena_in_use;
 static qboolean gc_static_map_arena_dirty;
 /* Sized for New Game GX presents (and smaller gcmap probes).
- * 160×120 keeps G36 headroom while improving readable world detail. */
-#define GC_GCMAP_STATIC_MAX_W 160
-#define GC_GCMAP_STATIC_MAX_H 120
+ * G93: 320×240 is the default New Game world path; -gcnewgame160 keeps 160×120. */
+#define GC_GCMAP_STATIC_MAX_W 320
+#define GC_GCMAP_STATIC_MAX_H 240
 static short gc_gcmap_static_zbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 static pixel_t gc_gcmap_static_viewbuffer[GC_GCMAP_STATIC_MAX_W * GC_GCMAP_STATIC_MAX_H];
 
@@ -96,6 +96,11 @@ qboolean R_GCReleaseMapLoadStaticArena( void *ptr )
 	gc_static_map_arena_in_use = false;
 	gc_static_map_arena_dirty = true;
 	return true;
+}
+
+qboolean R_GCIsMapLoadStaticArena( const void *ptr )
+{
+	return ptr != NULL && ptr == (const void *)&vid.colormap[0];
 }
 
 void R_GcmapTrimForMapLoad( void )
@@ -191,9 +196,17 @@ qboolean R_GcmapAllocMinimalScreen( void )
 	}
 	else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
-		/* New Game Host_Frame world: fill cost must fit ~16.7ms on Dolphin. */
-		w = GC_GCMAP_STATIC_MAX_W;
-		h = GC_GCMAP_STATIC_MAX_H;
+		/* G93: default 320×240; -gcnewgame160 restores the G36-safe fallback. */
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame160" ))
+		{
+			w = 160;
+			h = 120;
+		}
+		else
+		{
+			w = GC_GCMAP_STATIC_MAX_W;
+			h = GC_GCMAP_STATIC_MAX_H;
+		}
 		use_static_screen = true;
 	}
 	if( w < 160 )

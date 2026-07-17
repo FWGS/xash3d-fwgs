@@ -30,6 +30,9 @@ void R_GcmapMarkMapLoadComplete( void );
 void GC_TrimVideoMemoryForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
+qboolean GC_IsNewGameG36Done( void );
+qboolean GC_IsNewGameWorldReady( void );
+qboolean GC_PrepareNewGameWorldPresent( void );
 #endif
 
 #if XASH_LOW_MEMORY != 2
@@ -740,6 +743,12 @@ void SV_ActivateServer( int runPhysics )
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 	GC_ReportBootPhase( GC_BOOT_MAP );
 	GC_MemSample( "map active" );
+	/* G92: after changelevel, G36 is already done — re-Prepare for the new map. */
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() && !GC_IsNewGameWorldReady() )
+	{
+		Con_Reportf( "Xash3D GameCube: changelevel re-prepare map=%s\n", sv.name );
+		GC_PrepareNewGameWorldPresent();
+	}
 #endif
 
 	// dedicated server purge unused resources here

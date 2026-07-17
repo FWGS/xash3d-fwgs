@@ -37,6 +37,7 @@ half-life implementation of saverestore system
 #define GC_SAVE_META_MAGIC		"XASHGC_SAVE_META"
 #define GC_SAVE_META_VERSION		1
 #define GC_SAVE_META_EXTENSION		".gcmeta"
+void GC_ResetNewGameWorldForChangelevel( void );
 #endif // XASH_GAMECUBE
 
 #define SAVE_HEAPSIZE		0x400000				// reserve 4Mb for now
@@ -2164,6 +2165,11 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 		Con_Printf( S_ERROR "server not running\n");
 		return;
 	}
+
+#if XASH_GAMECUBE
+	/* G92: drop New Game PVS pins before the world model is unloaded. */
+	GC_ResetNewGameWorldForChangelevel();
+#endif
 
 	if( start )
 	{

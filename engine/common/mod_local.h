@@ -167,6 +167,9 @@ poolhandle_t Mod_GameCubeSharedStudioPool( void );
 void Mod_GCLoadNewGameStudios( void );
 void Mod_ReleaseBrushSourceBuffer( void *buf );
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod );
+/* G92: retained BSP scratch is not a Mem_ block — skip Mem_Free on changelevel. */
+qboolean Mod_GCIsRetainedBspScratch( const void *buf );
+void Mod_GCClearRetainedBspScratch( void );
 #endif
 
 //

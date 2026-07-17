@@ -822,8 +822,19 @@ void SCR_UpdateScreen( void )
 		static qboolean gc_vrv_path_logged;
 		static qboolean gc_hud_lean_logged;
 
+		/* G92: never world-present during changelevel loading plaque —
+		 * BeginLoadingPlaque calls SCR_UpdateScreen before disable_screen
+		 * is set, and a mid-transition GL_RenderFrame hangs the guest. */
+		if( cls.draw_changelevel || GameState->nextstate == STATE_CHANGELEVEL
+			|| GameState->curstate == STATE_CHANGELEVEL )
+			return;
+
 		if( cls.disable_screen )
 			cls.disable_screen = 0.0f;
+
+		/* G92: if changelevel cleared world_ready, re-Prepare before present. */
+		if( !GC_IsNewGameWorldReady() )
+			GC_PrepareNewGameWorldPresent();
 
 		if( GC_RenderNewGameWorldFrames( 1 ))
 		{

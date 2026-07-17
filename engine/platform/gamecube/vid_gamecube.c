@@ -24,6 +24,8 @@ qboolean R_GcmapEnsureWorldRenderScratch( void );
 qboolean R_GcmapPrepareWorldRender( void );
 qboolean R_GcmapGetViewport( int *width, int *height );
 qboolean GC_PrepareNewGameWorldPresent( void );
+void R_GcmapTrimForMapLoad( void );
+void Mod_GCClearRetainedBspScratch( void );
 #endif
 #include <stdlib.h>
 #include <string.h>
@@ -140,9 +142,12 @@ qboolean GC_BootDrawAllowed( void )
 #define GC_VIDEO_MIN_READABLE_HEIGHT 240
 #define GC_VIDEO_PROBE_WIDTH 320
 #define GC_VIDEO_PROBE_HEIGHT 240
-/* Post-map New Game G36 presents — match r_gcmap static screen (160×120). */
-#define GC_VIDEO_NEWGAME_PROBE_WIDTH 160
-#define GC_VIDEO_NEWGAME_PROBE_HEIGHT 120
+/* G93: New Game world/G36 default 320×240 (matches r_gcmap static screen).
+ * Pass -gcnewgame160 to keep the prior 160×120 G36-safe path. */
+#define GC_VIDEO_NEWGAME_PROBE_WIDTH 320
+#define GC_VIDEO_NEWGAME_PROBE_HEIGHT 240
+#define GC_VIDEO_NEWGAME_FALLBACK_WIDTH 160
+#define GC_VIDEO_NEWGAME_FALLBACK_HEIGHT 120
 /* Skip first Host_Frame after arm (connect residual), then sample. */
 #define GC_VIDEO_BUDGET_WARMUP_PRESENTS 1
 #define GC_VIDEO_BUDGET_SAMPLE_TARGET 16
@@ -151,6 +156,22 @@ qboolean GC_BootDrawAllowed( void )
  * while we restore the framebuffer for world render. Short grace so real hardware
  * reaches the low-res world path quickly after evidence is collected. */
 #define GC_VIDEO_LIGHT_PRESENT_GRACE 8
+
+#if XASH_GAMECUBE
+static void GC_GetNewGamePresentSize( int *width, int *height )
+{
+	if( Sys_CheckParm( "-gcnewgame160" ))
+	{
+		*width = GC_VIDEO_NEWGAME_FALLBACK_WIDTH;
+		*height = GC_VIDEO_NEWGAME_FALLBACK_HEIGHT;
+	}
+	else
+	{
+		*width = GC_VIDEO_NEWGAME_PROBE_WIDTH;
+		*height = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
+	}
+}
+#endif
 
 #if XASH_GAMECUBE
 /* Collected during the probe window; flushed to OSReport only after sampling so
@@ -1975,6 +1996,32 @@ static void GC_FreeNewGamePVSCache( void )
 	gc_newgame_pvs_follow_proved = false;
 }
 
+/*
+===========
+GC_ResetNewGameWorldForChangelevel
+
+G92: drop first-map PVS pins and world-ready so the next map can Capture +
+Prepare again. Keep G36 done sticky (do not re-arm the budget probe).
+===========
+*/
+void GC_ResetNewGameWorldForChangelevel( void )
+{
+#if XASH_GAMECUBE
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return;
+
+	SYS_Report( "Xash3D GameCube: changelevel teardown map=%s world_ready=%d pvs=%d\n",
+		sv.name[0] ? sv.name : "?", gc_newgame_world_ready ? 1 : 0,
+		gc_newgame_pvs_ready ? 1 : 0 );
+	GC_FreeNewGamePVSCache();
+	gc_newgame_world_ready = false;
+	gc_newgame_viewcluster = -1;
+	Mod_GCClearRetainedBspScratch();
+#else
+	;
+#endif
+}
+
 static void GC_ProveNewGamePVSFollow( void )
 {
 	int c0, c1, i;
@@ -2210,10 +2257,11 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		}
 
 		gc_newgame_pvs_ready = true;
-		SYS_Report( "Xash3D GameCube: Capture FatPVS cluster=%d leaves=%d nodes=%d\n",
+		SYS_Report( "Xash3D GameCube: Capture FatPVS map=%s cluster=%d leaves=%d nodes=%d\n",
+			sv.name[0] ? sv.name : "?",
 			gc_newgame_viewcluster, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
-		SYS_Report( "Xash3D GameCube: Capture multi-cluster PVS ready clusters=%d valid=%d\n",
-			numclusters, valid_clusters );
+		SYS_Report( "Xash3D GameCube: Capture multi-cluster PVS ready map=%s clusters=%d valid=%d\n",
+			sv.name[0] ? sv.name : "?", numclusters, valid_clusters );
 	}
 #else
 	(void)wmodel;
@@ -2444,8 +2492,10 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 qboolean GC_PrepareNewGameWorldPresent( void )
 {
 #if XASH_GAMECUBE
-	int present_w = GC_VIDEO_NEWGAME_PROBE_WIDTH;
-	int present_h = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
+	int present_w;
+	int present_h;
+
+	GC_GetNewGamePresentSize( &present_w, &present_h );
 
 	if( gc_newgame_world_ready )
 		return true;
@@ -2473,10 +2523,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	}
 
 	if( !R_GcmapGetViewport( &present_w, &present_h ))
-	{
-		present_w = GC_VIDEO_NEWGAME_PROBE_WIDTH;
-		present_h = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
-	}
+		GC_GetNewGamePresentSize( &present_w, &present_h );
 
 	if( !GC_EnsurePresentationBuffer( present_w, present_h ))
 	{
@@ -2526,7 +2573,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 
 	refState.width = present_w;
 	refState.height = present_h;
-	SYS_Report( "Xash3D GameCube: newgame low-res world present %dx%d\n", present_w, present_h );
+	SYS_Report( "Xash3D GameCube: newgame low-res world present map=%s %dx%d\n",
+		sv.name[0] ? sv.name : "?", present_w, present_h );
 	GC_MemSample( "newgame world present" );
 
 	/* Prefer real low-res world frames here: the Dolphin probe often exits as
@@ -2588,6 +2636,22 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 
 		/* G91: one local SFX after presents + ticks (use-denial style buzz). */
 		GC_PlayNewGameGameplaySound();
+
+		/* G92: force first tram-route changelevel after c0a0 world present.
+		 * COM_ChangeLevel bypasses the framecount lock. Do not trim/free here —
+		 * Host_ServerFrame still runs before STATE_CHANGELEVEL; SV_ChangeLevel
+		 * tears down PVS and SpawnServer trims renderer/video for the load. */
+		if( !Q_stricmp( sv.name, "c0a0" ))
+		{
+			static qboolean gc_changelevel_queued;
+
+			if( !gc_changelevel_queued )
+			{
+				gc_changelevel_queued = true;
+				SYS_Report( "Xash3D GameCube: changelevel begin map=c0a0a from=%s\n", sv.name );
+				COM_ChangeLevel( "c0a0a", NULL, false );
+			}
+		}
 	}
 	return true;
 #else
@@ -2690,8 +2754,10 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 {
 #if XASH_GAMECUBE
 	uint stride, bpp, r, g, b;
-	int probe_w = GC_VIDEO_NEWGAME_PROBE_WIDTH;
-	int probe_h = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
+	int probe_w;
+	int probe_h;
+
+	GC_GetNewGamePresentSize( &probe_w, &probe_h );
 
 	/* After the first G36 flush, stay on the world-present path. Re-arming
 	 * cleared world_ready and re-ran Prepare every few frames (VidInit thrash). */

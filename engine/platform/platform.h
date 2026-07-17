@@ -168,6 +168,8 @@ qboolean GC_UpdateNewGamePVSForOrigin( const float *org ); /* G89: select cluste
 qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel );
 /* G91: play one local gameplay SFX after New Game world present. */
 void GC_PlayNewGameGameplaySound( void );
+/* G92: free PVS/screens sticky flags so changelevel can re-capture. */
+void GC_ResetNewGameWorldForChangelevel( void );
 qboolean GC_RenderNewGameWorldFrames( int count );
 /* G86: fill a post-G36 New Game usercmd from probe-synthetic or live PAD. */
 #include "q_client.h"
