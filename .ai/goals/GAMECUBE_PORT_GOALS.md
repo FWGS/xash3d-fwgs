@@ -13,16 +13,16 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + interactive input (`G45`)
 - G92–G99: presents, save/load, campaign audit, lean PVS, landmark inventory
-- G100: landmark hop re-creates crowbar+glock entity shells (`granted=2`)
-- G101: lean-N multi-cluster FatPVS follow after changelevel (`slots=4`)
-- G102: landmark weapon Spawn + lean-attach (`granted=2`, entities kept)
+- G100–G102: landmark weapon create/spawn/lean-attach
+- G103: landmark inventory-chain attach (`m_rgpPlayerItems` + `m_pActiveItem`)
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G102 closed. Remaining items are SKIP (G73–G81) or manual
-  checkpoints (G70/G71/G75). Natural follow-ons: DefaultTouch/AddPlayerItem
-  inventory chain, Deploy/viewmodel, or LRU lean-N PVS expansion.
+- None — G103 closed. Remaining items are SKIP (G73–G81) or manual
+  checkpoints (G70/G71/G75). Natural follow-ons: Deploy/viewmodel draw,
+  DefaultTouch/IsPlayer root cause, or LRU lean-N PVS expansion.
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260718-010723` (G103 inventory-attach granted=2)
 - `.ai/logs/dolphin-probe-20260718-003429` (G102 spawn+lean-attach granted=2)
 - `.ai/logs/dolphin-probe-20260718-001842` (G101 lean-N follow slots=4 c0→c1)
 - `.ai/logs/dolphin-probe-20260718-000808` (G100 weapons granted=2)
@@ -1831,6 +1831,30 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   ```sh
   DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
     DOLPHIN_G95=1 DOLPHIN_G102=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
+    scripts/dolphin-boot-probe.sh
+  ```
+
+## G103 [x] Landmark inventory-chain weapon attach (m_rgpPlayerItems)
+
+- Status: DONE 2026-07-18. Resolves CBasePlayer on the large private-data edict
+  (often edict 2, not client edict 1). After `pfnSpawn`, links weapons into
+  `m_rgpPlayerItems` / `m_pActiveItem` via measured HLSDK offsets when
+  DefaultTouch no-ops. Ammo restore also works once the correct private edict
+  is used.
+- Acceptance:
+  - `c0a0`→`c0a0a` logs inventory-attach for crowbar+glock and
+    `G103 landmark weapons granted=2` with ammo1=99 ammo2=88.
+- Evidence: `.ai/logs/dolphin-probe-20260718-010723` —
+  `G103 grant using priv_edict=2 (client_edict=1)`,
+  `G103 inventory-attach classname=weapon_crowbar slot=0`,
+  `G103 inventory-attach classname=weapon_9mmhandgun slot=1`,
+  `G103 landmark weapons granted=2 weapons=0x6 ammo1=99 ammo2=88`.
+- Intentional limits: Deploy/viewmodel still open; DefaultTouch/IsPlayer still
+  no-ops (touchfn is set; inventory link is engine-side).
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+    DOLPHIN_G95=1 DOLPHIN_G103=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
     scripts/dolphin-boot-probe.sh
   ```
 

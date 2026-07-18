@@ -257,42 +257,55 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
 		echo "==> Waiting for G101 lean-N PVS follow on ${DOLPHIN_CHANGELEVEL}"
 	fi
-	if [[ "${DOLPHIN_G97:-0}" == "1" || "${DOLPHIN_G98:-0}" == "1" || "${DOLPHIN_G99:-0}" == "1" || "${DOLPHIN_G100:-0}" == "1" || "${DOLPHIN_G102:-0}" == "1" ]]; then
+	if [[ "${DOLPHIN_G97:-0}" == "1" || "${DOLPHIN_G98:-0}" == "1" || "${DOLPHIN_G99:-0}" == "1" || "${DOLPHIN_G100:-0}" == "1" || "${DOLPHIN_G102:-0}" == "1" || "${DOLPHIN_G103:-0}" == "1" ]]; then
 		G97_DONE_MARKER="Xash3D GameCube: G97 landmark restore health=77"
 		G98_DONE_MARKER="Xash3D GameCube: G98 landmark restore health=77 armor=50 weapons=0x6"
 		G99_DONE_MARKER="Xash3D GameCube: G99 landmark restore health=77 armor=50 weapons=0x6 ammo1=99 ammo2=88"
 		G100_DONE_MARKER="Xash3D GameCube: G100 landmark weapons granted=2"
 		G102_DONE_MARKER="Xash3D GameCube: G102 landmark weapons granted=2"
+		G103_DONE_MARKER="Xash3D GameCube: G103 landmark weapons granted=2"
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
-		if [[ "${DOLPHIN_G102:-0}" == "1" ]]; then
+		if [[ "${DOLPHIN_G103:-0}" == "1" ]]; then
 			G97_DONE_MARKER=""
 			G98_DONE_MARKER=""
 			G99_DONE_MARKER=""
 			G100_DONE_MARKER=""
+			G102_DONE_MARKER=""
+			echo "==> Waiting for G103 landmark inventory-attach grant"
+		elif [[ "${DOLPHIN_G102:-0}" == "1" ]]; then
+			G97_DONE_MARKER=""
+			G98_DONE_MARKER=""
+			G99_DONE_MARKER=""
+			G100_DONE_MARKER=""
+			G103_DONE_MARKER=""
 			echo "==> Waiting for G102 landmark weapon Spawn/Touch grant"
 		elif [[ "${DOLPHIN_G100:-0}" == "1" ]]; then
 			G97_DONE_MARKER=""
 			G98_DONE_MARKER=""
 			G99_DONE_MARKER=""
 			G102_DONE_MARKER=""
+			G103_DONE_MARKER=""
 			echo "==> Waiting for G100 landmark weapon grant"
 		elif [[ "${DOLPHIN_G99:-0}" == "1" ]]; then
 			G97_DONE_MARKER=""
 			G98_DONE_MARKER=""
 			G100_DONE_MARKER=""
 			G102_DONE_MARKER=""
+			G103_DONE_MARKER=""
 			echo "==> Waiting for G99 landmark ammo restore"
 		elif [[ "${DOLPHIN_G98:-0}" == "1" ]]; then
 			G97_DONE_MARKER=""
 			G99_DONE_MARKER=""
 			G100_DONE_MARKER=""
 			G102_DONE_MARKER=""
+			G103_DONE_MARKER=""
 			echo "==> Waiting for G98 landmark inventory restore"
 		else
 			G98_DONE_MARKER=""
 			G99_DONE_MARKER=""
 			G100_DONE_MARKER=""
 			G102_DONE_MARKER=""
+			G103_DONE_MARKER=""
 			echo "==> Waiting for G97 landmark health restore"
 		fi
 	fi

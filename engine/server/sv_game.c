@@ -3102,6 +3102,14 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 			{
 				if( !used_fallback )
 					memset( pEdict->pvPrivateData, 0, size );
+				/* CBasePlayer is ~1920 bytes; track the host edict for lean inventory. */
+				if( size >= 1800 )
+				{
+					extern edict_t *gc_hl_player_priv_edict;
+					extern void *gc_hl_player_priv_ptr;
+					gc_hl_player_priv_edict = pEdict;
+					gc_hl_player_priv_ptr = pEdict->pvPrivateData;
+				}
 				if( Sys_CheckParm( "-gcnewgame" ) && size >= 1024 )
 					Con_Reportf( "Xash3D GameCube: ent private data malloc size=%zu edict=%d classname=%s\n",
 						size, NUM_FOR_EDICT( pEdict ), SV_ClassName( pEdict ));

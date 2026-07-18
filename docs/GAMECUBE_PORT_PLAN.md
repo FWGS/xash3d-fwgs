@@ -2209,12 +2209,21 @@ hardware evidence refer to the same commit and artifact hashes.
 - **G102 DONE:** `.ai/logs/dolphin-probe-20260718-003429` —
   landmark weapon `pfnSpawn` + lean-attach `granted=2` (Touch/AddPlayerItem
   still no-ops; entities kept with owner bind).
+- **G103 DONE:** `.ai/logs/dolphin-probe-20260718-010723` —
+  inventory-chain attach on priv_edict=2 (`m_rgpPlayerItems` slots 0/1) with
+  `granted=2` and ammo1=99 ammo2=88.
 
-**Next automatic goal:** none open. G68/G72/G95–G102 closed; remaining automatic
+**Next automatic goal:** none open. G68/G72/G95–G103 closed; remaining automatic
 goals are SKIP (G73–G81) or manual (G70/G71/G75).
 New Game regression:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=32 scripts/dolphin-boot-probe.sh
+```
+G103 landmark inventory-attach:
+```sh
+DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+  DOLPHIN_G95=1 DOLPHIN_G103=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
+  scripts/dolphin-boot-probe.sh
 ```
 G102 landmark weapon Spawn/lean-attach:
 ```sh
