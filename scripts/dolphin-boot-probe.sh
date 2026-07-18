@@ -209,6 +209,10 @@ if (( SKIP_DISC )); then
 			BUILD_ARGS+=(--probe-landmark "$DOLPHIN_LANDMARK")
 			echo "==> G97–G100 landmark probe (${DOLPHIN_LANDMARK})"
 		fi
+		if [[ "${DOLPHIN_G101:-0}" == "1" ]]; then
+			BUILD_ARGS+=(--probe-leanpvs)
+			echo "==> G101 lean-N PVS probe (leanpvs in gamecube.cfg)"
+		fi
 	fi
 	if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
 		echo "FAIL: Disc build failed."
@@ -236,38 +240,59 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
 		echo "==> Waiting for G95 world present on ${DOLPHIN_CHANGELEVEL}"
 	fi
-	if [[ "${DOLPHIN_G96:-0}" == "1" ]]; then
+	if [[ "${DOLPHIN_G96:-0}" == "1" || "${DOLPHIN_G101:-0}" == "1" ]]; then
 		G96_DONE_MARKER="Xash3D GameCube: Capture FatPVS lean map=${DOLPHIN_CHANGELEVEL}"
-		# Also accept full multi-cluster success on the destination.
-		G96_ALT_MARKER="Xash3D GameCube: Capture FatPVS map=${DOLPHIN_CHANGELEVEL}"
+		# G101 forces lean-N; do not accept full multi-cluster as success.
+		if [[ "${DOLPHIN_G101:-0}" == "1" ]]; then
+			G96_ALT_MARKER=""
+		else
+			G96_ALT_MARKER="Xash3D GameCube: Capture FatPVS map=${DOLPHIN_CHANGELEVEL}"
+		fi
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
 		echo "==> Waiting for G96 lean/full FatPVS capture on ${DOLPHIN_CHANGELEVEL}"
 	fi
-	if [[ "${DOLPHIN_G97:-0}" == "1" || "${DOLPHIN_G98:-0}" == "1" || "${DOLPHIN_G99:-0}" == "1" || "${DOLPHIN_G100:-0}" == "1" ]]; then
+	if [[ "${DOLPHIN_G101:-0}" == "1" ]]; then
+		G101_DONE_MARKER="Xash3D GameCube: PVS lean follow ready"
+		G101_ALT_MARKER=""
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+		echo "==> Waiting for G101 lean-N PVS follow on ${DOLPHIN_CHANGELEVEL}"
+	fi
+	if [[ "${DOLPHIN_G97:-0}" == "1" || "${DOLPHIN_G98:-0}" == "1" || "${DOLPHIN_G99:-0}" == "1" || "${DOLPHIN_G100:-0}" == "1" || "${DOLPHIN_G102:-0}" == "1" ]]; then
 		G97_DONE_MARKER="Xash3D GameCube: G97 landmark restore health=77"
 		G98_DONE_MARKER="Xash3D GameCube: G98 landmark restore health=77 armor=50 weapons=0x6"
 		G99_DONE_MARKER="Xash3D GameCube: G99 landmark restore health=77 armor=50 weapons=0x6 ammo1=99 ammo2=88"
 		G100_DONE_MARKER="Xash3D GameCube: G100 landmark weapons granted=2"
+		G102_DONE_MARKER="Xash3D GameCube: G102 landmark weapons granted=2"
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
-		if [[ "${DOLPHIN_G100:-0}" == "1" ]]; then
+		if [[ "${DOLPHIN_G102:-0}" == "1" ]]; then
 			G97_DONE_MARKER=""
 			G98_DONE_MARKER=""
 			G99_DONE_MARKER=""
+			G100_DONE_MARKER=""
+			echo "==> Waiting for G102 landmark weapon Spawn/Touch grant"
+		elif [[ "${DOLPHIN_G100:-0}" == "1" ]]; then
+			G97_DONE_MARKER=""
+			G98_DONE_MARKER=""
+			G99_DONE_MARKER=""
+			G102_DONE_MARKER=""
 			echo "==> Waiting for G100 landmark weapon grant"
 		elif [[ "${DOLPHIN_G99:-0}" == "1" ]]; then
 			G97_DONE_MARKER=""
 			G98_DONE_MARKER=""
 			G100_DONE_MARKER=""
+			G102_DONE_MARKER=""
 			echo "==> Waiting for G99 landmark ammo restore"
 		elif [[ "${DOLPHIN_G98:-0}" == "1" ]]; then
 			G97_DONE_MARKER=""
 			G99_DONE_MARKER=""
 			G100_DONE_MARKER=""
+			G102_DONE_MARKER=""
 			echo "==> Waiting for G98 landmark inventory restore"
 		else
 			G98_DONE_MARKER=""
 			G99_DONE_MARKER=""
 			G100_DONE_MARKER=""
+			G102_DONE_MARKER=""
 			echo "==> Waiting for G97 landmark health restore"
 		fi
 	fi

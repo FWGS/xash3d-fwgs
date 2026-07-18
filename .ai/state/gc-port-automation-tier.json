@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G99 DONE: lean landmark hop c0a0→c0a0a restores health/armor/weapons + m_rgAmmo ammo1=99 ammo2=88 via priv_edict (.ai/logs/dolphin-probe-20260717-233356). Automatic queue empty except SKIP/manual. Next natural: multi-cluster lean PVS follow or weapon entity rebuild."
+  "note": "G102 DONE: landmark weapon pfnSpawn + lean-attach granted=2 (Touch/AddPlayerItem still no-ops; .ai/logs/dolphin-probe-20260718-003429). Automatic queue empty except SKIP/manual. Next natural: DefaultTouch/AddPlayerItem inventory chain, Deploy/viewmodel, or LRU lean-N PVS."
 }

@@ -417,6 +417,7 @@ static qboolean gc_newgame_configured;
 static qboolean gc_phase_test_configured;
 static qboolean gc_changelevel_configured;
 static qboolean gc_landmark_configured;
+static qboolean gc_leanpvs_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -430,6 +431,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_phase_test_configured = false;
 	gc_changelevel_configured = false;
 	gc_landmark_configured = false;
+	gc_leanpvs_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
@@ -476,6 +478,17 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_newsaveload_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override newsaveload\n" );
+				continue;
+			}
+		}
+
+		if( !Q_strnicmp( cursor, "leanpvs", 7 ))
+		{
+			char ch = cursor[7];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_leanpvs_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override leanpvs\n" );
 				continue;
 			}
 		}
@@ -620,6 +633,8 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	}
 	if( gc_newsaveload_configured )
 		gc_argv[fake_argc++] = "-gcnewsaveload";
+	if( gc_leanpvs_configured )
+		gc_argv[fake_argc++] = "-gcleanpvs";
 	if( gc_phase_test_configured )
 	{
 		gc_argv[fake_argc++] = "-gc_phase_test";

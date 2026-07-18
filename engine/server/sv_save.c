@@ -2482,12 +2482,13 @@ static const char *GC_WeaponClassForBit( int bit )
 /*
  * On GameCube New Game, clients[0].edict (often edict 1) can lack pvPrivateData
  * while the linked CBasePlayer private block lands on a nearby edict. Prefer the
- * client slot when present; otherwise find FL_CLIENT / first large private block.
+ * client slot when present; otherwise find classname "player" / FL_CLIENT.
  */
 static edict_t *GC_LeanPlayerPrivateEdict( void )
 {
 	edict_t	*pl;
-	edict_t	*fallback = NULL;
+	edict_t	*by_class = NULL;
+	edict_t	*by_flag = NULL;
 	int	i;
 
 	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
@@ -2499,16 +2500,25 @@ static edict_t *GC_LeanPlayerPrivateEdict( void )
 
 	for( i = 1; i < svgame.numEntities; i++ )
 	{
-		edict_t	*e = &svgame.edicts[i];
+		edict_t		*e = &svgame.edicts[i];
+		const char	*cn;
 
 		if( !SV_IsValidEdict( e ) || !e->pvPrivateData )
 			continue;
-		if( FBitSet( e->v.flags, FL_CLIENT ))
-			return e;
-		if( !fallback )
-			fallback = e;
+		cn = SV_GetString( e->v.classname );
+		if( cn && !Q_strcmp( cn, "player" ))
+		{
+			by_class = e;
+			break;
+		}
+		if( !by_flag && FBitSet( e->v.flags, FL_CLIENT ))
+			by_flag = e;
 	}
-	return fallback ? fallback : pl;
+	if( by_class )
+		return by_class;
+	if( by_flag )
+		return by_flag;
+	return pl;
 }
 
 static int *GC_PlayerAmmoSlots( edict_t *priv_ed )
@@ -2522,8 +2532,9 @@ static int *GC_PlayerAmmoSlots( edict_t *priv_ed )
 }
 
 /*
- * G100: recreate owned weapons like CBasePlayer::GiveNamedItem — create, spawn,
- * touch onto the private-data player edict. Returns number granted.
+ * G100/G102: recreate owned weapons like CBasePlayer::GiveNamedItem — create,
+ * spawn, touch onto the private-data player edict. Returns number granted
+ * (owned weapon entities kept alive).
  */
 static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 {
@@ -2533,11 +2544,19 @@ static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 	if( !touch_player || !weapons )
 		return 0;
 
+	/* DefaultTouch / CanHavePlayerItem require a living player pev. */
+	ClearBits( touch_player->v.flags, FL_KILLME );
+	SetBits( touch_player->v.flags, FL_CLIENT );
+	touch_player->v.deadflag = DEAD_NO;
+	if( touch_player->v.health <= 0.0f )
+		touch_player->v.health = 100.0f;
+
 	for( bit = 1; bit <= 15; bit++ )
 	{
 		const char	*classname;
 		edict_t		*ent;
 		string_t	cls;
+		int		spawn_ret;
 
 		if( !( weapons & ( 1 << bit )))
 			continue;
@@ -2551,20 +2570,66 @@ static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 		if( !ent )
 		{
 			gc_lean_weapon_grant_active = false;
-			Con_Reportf( S_WARN "Xash3D GameCube: G100 give failed classname=%s\n", classname );
+			Con_Reportf( S_WARN "Xash3D GameCube: G102 give failed classname=%s\n", classname );
 			continue;
 		}
 
 		VectorCopy( touch_player->v.origin, ent->v.origin );
 		SetBits( ent->v.spawnflags, GC_SF_NORESPAWN );
-		if( svgame.dllFuncs.pfnSpawn )
-			svgame.dllFuncs.pfnSpawn( ent );
+		ClearBits( ent->v.flags, FL_KILLME );
+
+		Con_Reportf( "Xash3D GameCube: G102 give spawn begin classname=%s edict=%d\n",
+			classname, NUM_FOR_EDICT( ent ));
+		spawn_ret = svgame.dllFuncs.pfnSpawn ? svgame.dllFuncs.pfnSpawn( ent ) : -1;
+		Con_Reportf( "Xash3D GameCube: G102 give spawn done classname=%s ret=%d\n",
+			classname, spawn_ret );
+
+		if( spawn_ret == -1 || !SV_IsValidEdict( ent ) || ent->free )
+		{
+			if( SV_IsValidEdict( ent ) && !ent->free )
+				SV_FreeEdict( ent );
+			gc_lean_weapon_grant_active = false;
+			Con_Reportf( S_WARN "Xash3D GameCube: G102 give spawn rejected classname=%s\n", classname );
+			continue;
+		}
+
+		ClearBits( ent->v.flags, FL_KILLME );
+		Con_Reportf( "Xash3D GameCube: G102 give touch begin classname=%s player=%d playercls=%s wpnflags=0x%x\n",
+			classname, NUM_FOR_EDICT( touch_player ),
+			SV_GetString( touch_player->v.classname ),
+			(unsigned)ent->v.flags );
 		if( svgame.dllFuncs.pfnTouch )
 			svgame.dllFuncs.pfnTouch( ent, touch_player );
+
+		/* DefaultTouch→AddPlayerItem may no-op if CBasePlayer IsPlayer/item
+		 * chain is not live after changelevel. Fall back to lean owner bind. */
+		if( ent->free || ent->v.owner != touch_player )
+		{
+			ent->v.owner = touch_player;
+			ent->v.aiment = touch_player;
+			ent->v.movetype = MOVETYPE_FOLLOW;
+			ent->v.solid = SOLID_NOT;
+			ent->v.effects |= EF_NODRAW;
+			SetBits( touch_player->v.weapons, ( 1 << bit ));
+			Con_Reportf( "Xash3D GameCube: G102 give lean-attach classname=%s owner=%d\n",
+				classname, NUM_FOR_EDICT( touch_player ));
+		}
+		else
+		{
+			Con_Reportf( "Xash3D GameCube: G102 give touch classname=%s owner=%d weapons=0x%x\n",
+				classname, NUM_FOR_EDICT( ent->v.owner ),
+				(unsigned)touch_player->v.weapons );
+		}
+
+		if( !ent->free && ent->v.owner == touch_player )
+			granted++;
+		else if( SV_IsValidEdict( ent ) && !ent->free )
+			SV_FreeEdict( ent );
+
 		gc_lean_weapon_grant_active = false;
-		granted++;
 	}
 	gc_lean_weapon_grant_active = false;
+	touch_player->v.weapons |= weapons;
 	return granted;
 }
 
@@ -2773,7 +2838,7 @@ void GC_LeanLandmarkGrantWeapons( void )
 	else
 		pl->v.weapons = gc_g100_grant_weapons;
 
-	Con_Reportf( "Xash3D GameCube: G100 landmark weapons granted=%d weapons=0x%x ammo1=%d ammo2=%d\n",
+	Con_Reportf( "Xash3D GameCube: G102 landmark weapons granted=%d weapons=0x%x ammo1=%d ammo2=%d\n",
 		granted, (unsigned)pl->v.weapons,
 		gc_g100_grant_have_ammo ? gc_g100_grant_ammo[1] : 0,
 		gc_g100_grant_have_ammo ? gc_g100_grant_ammo[2] : 0 );

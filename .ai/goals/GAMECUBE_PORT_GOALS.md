@@ -6,20 +6,26 @@ goal complete only when its acceptance checks are demonstrated and recorded in
 lines. Real-hardware/operator-only work is tracked below as non-automation
 checkpoints, not as runnable goals.
 
-## Current focus (2026-07-17)
+## Current focus (2026-07-18)
 
 Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.json`).
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
-- `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
-- G92–G96: presents, save/load, campaign audit, lean PVS after changelevel
-- G97–G99: landmark hop restores health/armor/weapons + `m_rgAmmo` (ammo1=99, ammo2=88)
+- `MAP_READY` + interactive input (`G45`)
+- G92–G99: presents, save/load, campaign audit, lean PVS, landmark inventory
+- G100: landmark hop re-creates crowbar+glock entity shells (`granted=2`)
+- G101: lean-N multi-cluster FatPVS follow after changelevel (`slots=4`)
+- G102: landmark weapon Spawn + lean-attach (`granted=2`, entities kept)
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G99 closed. Remaining items are SKIP (G73–G81) or manual
-  checkpoints (G70/G71/G75).
+- None — G102 closed. Remaining items are SKIP (G73–G81) or manual
+  checkpoints (G70/G71/G75). Natural follow-ons: DefaultTouch/AddPlayerItem
+  inventory chain, Deploy/viewmodel, or LRU lean-N PVS expansion.
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260718-003429` (G102 spawn+lean-attach granted=2)
+- `.ai/logs/dolphin-probe-20260718-001842` (G101 lean-N follow slots=4 c0→c1)
+- `.ai/logs/dolphin-probe-20260718-000808` (G100 weapons granted=2)
 - `.ai/logs/dolphin-probe-20260717-233356` (G99 landmark ammo1=99 ammo2=88)
 - `.ai/logs/dolphin-probe-20260717-231959` (G98 landmark restore armor/weapons)
 - `.ai/logs/dolphin-probe-20260717-230837` (G97 landmark restore health=77)
@@ -1754,11 +1760,77 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `G99 landmark restore health=77 armor=50 weapons=0x6 ammo1=99 ammo2=88`.
 - Intentional limits: weapon entity/`m_pActiveItem` CLASSPTR chain still not
   rebuilt; offsetof is HLSDK-layout-specific; multi-cluster lean PVS follow
-  still open (G96 limit).
+  addressed by G101.
 - Command:
   ```sh
   DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
     DOLPHIN_G95=1 DOLPHIN_G99=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
+    scripts/dolphin-boot-probe.sh
+  ```
+
+## G100 [x] Lean landmark weapon-entity re-grant
+
+- Status: DONE 2026-07-18. After G99 restore, defer weapon rebuild until
+  post-present. Create crowbar+glock named entities from the weapons bitmask
+  (`granted=2`). `pfnSpawn`/`pfnTouch` hang under MEM1 after changelevel
+  (even with w_/v_ SetModel stubs), so grant is create-and-free for now.
+- Acceptance:
+  - `c0a0`→`c0a0a` landmark hop logs
+    `G100 landmark weapons granted=2 weapons=0x6 ammo1=99 ammo2=88`.
+- Evidence: `.ai/logs/dolphin-probe-20260718-000808` —
+  `G100 give created classname=weapon_crowbar`,
+  `G100 give created classname=weapon_9mmhandgun`,
+  `G100 landmark weapons granted=2 weapons=0x6 ammo1=99 ammo2=88`.
+- Intentional limits: full GiveNamedItem Touch/AddPlayerItem still open (G102
+  covers Spawn + lean-attach); Deploy/viewmodel not restored.
+- Command:
+  ```sh
+  DOLPHIN_NEWGAME=1 DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a \
+    DOLPHIN_LANDMARK=c0a0toa DOLPHIN_G95=1 DOLPHIN_G100=1 \
+    DOLPHIN_TIMEOUT=150 DOLPHIN_FRAME_SAMPLE_SEC=6 scripts/dolphin-boot-probe.sh
+  ```
+
+## G101 [x] Multi-cluster lean FatPVS follow after changelevel
+
+- Status: DONE 2026-07-18. Extends G96 single-row lean cache to
+  `GC_LEAN_PVS_SLOTS` (4) rows + leaf AABBs. On multi-cluster OOM (or
+  `-gcleanpvs` / disc `leanpvs`), capture spawn + nearby visible clusters
+  while BSP leafs are intact; origin updates switch among cached slots.
+- Acceptance:
+  - `c1a0`→`c1a0a` with `DOLPHIN_G101=1` logs lean-N capture (`slots=4`) and
+    `PVS lean follow ready slots=4 clusters=0->1`.
+- Evidence: `.ai/logs/dolphin-probe-20260718-001842` —
+  `Capture FatPVS lean-N map=c1a0a slots=4 c0=0 c1=1`,
+  `PVS lean follow 0->1 slot=1`,
+  `PVS lean follow ready slots=4 clusters=0->1 leafdelta=-31`.
+- Intentional limits: only N nearby clusters (not full map); disc `leanpvs`
+  forces lean path for reproducible probes when full tables still fit MEM1.
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0a DOLPHIN_G95=1 DOLPHIN_G101=1 \
+    DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=12 scripts/dolphin-boot-probe.sh
+  ```
+
+## G102 [x] Landmark weapon Spawn + lean-attach after changelevel
+
+- Status: DONE 2026-07-18. Extends G100 create-and-free: `pfnSpawn` completes
+  under PrecacheModel/SetModel/`LinkEdict` stubs; `pfnTouch`/AddPlayerItem still
+  no-ops after changelevel, so grant falls back to lean owner bind
+  (`MOVETYPE_FOLLOW` + weapons bits) and keeps weapon edicts alive.
+- Acceptance:
+  - `c0a0`→`c0a0a` landmark hop logs spawn done for crowbar+glock and
+    `G102 landmark weapons granted=2`.
+- Evidence: `.ai/logs/dolphin-probe-20260718-003429` —
+  `G102 give spawn done classname=weapon_crowbar ret=0`,
+  `G102 give lean-attach classname=weapon_crowbar owner=1`,
+  `G102 give lean-attach classname=weapon_9mmhandgun owner=1`,
+  `G102 landmark weapons granted=2 weapons=0x6`.
+- Intentional limits: DefaultTouch→AddPlayerItem→Deploy inventory chain still
+  open; viewmodel draw not restored.
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+    DOLPHIN_G95=1 DOLPHIN_G102=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
     scripts/dolphin-boot-probe.sh
   ```
 

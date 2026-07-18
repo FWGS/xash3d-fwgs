@@ -878,6 +878,7 @@ def write_smoke_overrides(
 	phasetest: str | None = None,
 	changelevel: str | None = None,
 	landmark: str | None = None,
+	leanpvs: bool = False,
 ) -> None:
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
@@ -890,6 +891,8 @@ def write_smoke_overrides(
 		lines.append("gcworldrender")
 	if phasetest:
 		lines.append(f"phasetest {phasetest}")
+	if leanpvs:
+		lines.append("leanpvs")
 	if changelevel and landmark:
 		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
 	elif changelevel:
@@ -909,6 +912,7 @@ def write_probe_newgame_override(
 	changelevel: str | None = None,
 	landmark: str | None = None,
 	smoke_map: str | None = None,
+	leanpvs: bool = False,
 ) -> None:
 	lines = []
 	# G68/G100: bake map so -gcmap+newgame early changelevel path can plant inventory.
@@ -919,6 +923,8 @@ def write_probe_newgame_override(
 		lines.append("newsaveload")
 	if phasetest:
 		lines.append(f"phasetest {phasetest}")
+	if leanpvs:
+		lines.append("leanpvs")
 	if changelevel and landmark:
 		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
 	elif changelevel:
@@ -1153,6 +1159,7 @@ def stage_smoke_data(
 	phasetest: str | None = None,
 	changelevel: str | None = None,
 	landmark: str | None = None,
+	leanpvs: bool = False,
 ) -> Path:
 	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
 	map_relative = f"maps/{map_name}"
@@ -1174,6 +1181,7 @@ def stage_smoke_data(
 		phasetest=phasetest,
 		changelevel=changelevel,
 		landmark=landmark,
+		leanpvs=leanpvs,
 	)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
@@ -1476,6 +1484,11 @@ def main() -> None:
 		help="with --probe-changelevel, stage landmark <NAME> for G97 smooth hop probes",
 	)
 	parser.add_argument(
+		"--probe-leanpvs",
+		action="store_true",
+		help="stage gamecube.cfg leanpvs to force G101 lean-N FatPVS (skip full multi-cluster)",
+	)
+	parser.add_argument(
 		"--skip-startup-vids",
 		action="store_true",
 		help="overlay an empty media/StartupVids.txt for faster retail menu boot validation",
@@ -1527,6 +1540,7 @@ def main() -> None:
 				phasetest=args.probe_phasetest,
 				changelevel=args.probe_changelevel,
 				landmark=args.probe_landmark,
+				leanpvs=args.probe_leanpvs,
 			)
 			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
 			if validation_errors:
@@ -1593,6 +1607,7 @@ def main() -> None:
 					landmark=args.probe_landmark,
 					# G68/G100: start map for -gcmap early changelevel + landmark plant.
 					smoke_map="c0a0" if args.probe_changelevel else None,
+					leanpvs=args.probe_leanpvs,
 				)
 			elif args.probe_phasetest:
 				write_probe_phasetest_override(staged_data, args.probe_phasetest)

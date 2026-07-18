@@ -296,46 +296,19 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 		return;
 	}
 
-	/* G100 lean weapon grant: studio Mod_ForName after changelevel hangs under
-	 * MEM1. Bind a precache slot / empty hull so GiveNamedItem touch can finish. */
+	/* G100/G102 lean weapon grant: studio Mod_ForName after changelevel hangs
+	 * under MEM1. Bind empty hull without precache scans / MakeString. */
 	if( ( gc_lean_weapon_grant_active || Sys_CheckParm( "-gcchangelevel" ))
-		&& ( !Q_strnicmp( name, "models/w_", 9 ) || !Q_strnicmp( name, "models/v_", 9 )))
+		&& ( !Q_strnicmp( name, "models/w_", 9 )
+			|| !Q_strnicmp( name, "models/v_", 9 )
+			|| !Q_strnicmp( name, "models/p_", 9 )))
 	{
-		int	wi;
-		int	weapon_index = 0;
-
-		Con_Reportf( "Xash3D GameCube: SV_SetModel weapon stub enter active=%d name=%s\n",
-			gc_lean_weapon_grant_active ? 1 : 0, name );
-
-		for( wi = 1; wi < MAX_MODELS && sv.model_precache[wi][0]; wi++ )
-		{
-			if( !Q_stricmp( sv.model_precache[wi], name ))
-			{
-				weapon_index = wi;
-				break;
-			}
-		}
-		if( !weapon_index )
-		{
-			for( wi = 1; wi < MAX_MODELS; wi++ )
-			{
-				if( !sv.model_precache[wi][0] )
-				{
-					Q_strncpy( sv.model_precache[wi], name, sizeof( sv.model_precache[wi] ));
-					weapon_index = wi;
-					break;
-				}
-			}
-		}
-		if( !weapon_index )
-			weapon_index = 1;
-
-		ent->v.modelindex = weapon_index;
-		ent->v.model = SV_MakeString( sv.model_precache[weapon_index] );
-		sv.models[weapon_index] = NULL;
-		SV_SetMinMaxSize( ent, vec3_origin, vec3_origin, true );
-		Con_Reportf( "Xash3D GameCube: SV_SetModel weapon stub %s index=%d\n",
-			name, weapon_index );
+		ent->v.modelindex = 1;
+		ent->v.model = 0;
+		VectorClear( ent->v.mins );
+		VectorClear( ent->v.maxs );
+		VectorClear( ent->v.size );
+		Con_Reportf( "Xash3D GameCube: SV_SetModel weapon stub %s\n", name );
 		return;
 	}
 #endif
@@ -1422,6 +1395,21 @@ static int GAME_EXPORT pfnPrecacheModel( const char *s )
 		optional = true;
 		s++;
 	}
+
+#if XASH_GAMECUBE
+	/* G102: weapon Precache() walks Mod_ForName under MEM1 after changelevel.
+	 * Reserve a stub index without loading studio data during lean grant. */
+	if( gc_lean_weapon_grant_active
+		&& ( !Q_strnicmp( s, "models/", 7 )
+			|| !Q_strnicmp( s, "sprites/", 8 )))
+	{
+		i = SV_ModelIndex( s );
+		if( i <= 0 )
+			i = 1;
+		Con_Reportf( "Xash3D GameCube: pfnPrecacheModel grant stub %s -> %d\n", s, i );
+		return i;
+	}
+#endif
 
 	if(( i = SV_ModelIndex( s )) == 0 )
 		return 0;
