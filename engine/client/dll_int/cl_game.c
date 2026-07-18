@@ -41,7 +41,6 @@ GNU General Public License for more details.
 #include "sound.h"		// SND_STOP_LOOPING
 #include "platform/platform.h"
 #if XASH_GAMECUBE
-extern qboolean GCube_HasWritableStorage( void );
 
 static void CL_GameCubeApplySmokeClientBudgets( void )
 {
@@ -208,7 +207,7 @@ static void CL_InitCDAudio( const char *filename )
 	if( !FS_FileExists( filename, false ))
 	{
 #if XASH_GAMECUBE
-		if( !GCube_HasWritableStorage( ))
+		if( !GCube_HasPersistentWritableStorage( ))
 		{
 			Con_Reportf( "Xash3D GameCube: CD audio playlist missing and writable storage unavailable, skipping %s\n", filename );
 			return;

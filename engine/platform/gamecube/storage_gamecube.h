@@ -10,6 +10,7 @@ Copyright (C) 2026 xash3d-gc contributors
 qboolean GCube_GetDiscPath( char *buf, size_t buflen );
 qboolean GCube_GetWritablePath( char *buf, size_t buflen );
 qboolean GCube_HasWritableStorage( void );
+qboolean GCube_HasPersistentWritableStorage( void );
 void GCube_EnsureWritableLayout( void );
 
 #endif /* STORAGE_GAMECUBE_H */

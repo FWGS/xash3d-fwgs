@@ -102,11 +102,11 @@ const char *GC_GetBootPhaseName( gc_boot_phase_t phase )
 	switch( phase )
 	{
 	case GC_BOOT_EARLY: return "early";
+	case GC_BOOT_ENGINE: return "engine";
 	case GC_BOOT_RENDERER: return "renderer";
 	case GC_BOOT_SW_FB: return "sw_fb";
-	case GC_BOOT_ENGINE: return "engine";
-	case GC_BOOT_CLIENT: return "client";
 	case GC_BOOT_MENU: return "menu";
+	case GC_BOOT_CLIENT: return "client";
 	case GC_BOOT_INTRO: return "intro";
 	case GC_BOOT_MAP: return "map";
 	default: return "none";
@@ -116,6 +116,18 @@ const char *GC_GetBootPhaseName( gc_boot_phase_t phase )
 gc_boot_phase_t GC_GetBootPhase( void )
 {
 	return gc_boot_phase;
+}
+
+/* G82: intentional early fault after reporting a named phase (probe smoke). */
+static void GC_MaybePhaseFault( gc_boot_phase_t phase )
+{
+	char want[32];
+
+	if( !Sys_GetParmFromCmdLine( "-gc_phase_test", want ))
+		return;
+	if( Q_stricmp( want, GC_GetBootPhaseName( phase )))
+		return;
+	Sys_Error( "G82: Intentional phase fault at %s\n", GC_GetBootPhaseName( phase ));
 }
 
 void GC_ReportBootPhase( gc_boot_phase_t phase )
@@ -128,6 +140,7 @@ void GC_ReportBootPhase( gc_boot_phase_t phase )
 	gc_boot_phase = phase;
 	SYS_Report( "Xash3D GameCube: boot phase=%s last=%s\n",
 		GC_GetBootPhaseName( phase ), GC_GetBootPhaseName( prev ));
+	GC_MaybePhaseFault( phase );
 }
 
 qboolean GC_BootDrawAllowed( void )
@@ -2022,6 +2035,22 @@ void GC_ResetNewGameWorldForChangelevel( void )
 #endif
 }
 
+/*
+===========
+GC_MarkNewGameWorldStale
+
+G94: clear world_ready so Prepare re-presents, but keep the PVS cache.
+===========
+*/
+void GC_MarkNewGameWorldStale( void )
+{
+#if XASH_GAMECUBE
+	SYS_Report( "Xash3D GameCube: G94 world stale (keep pvs=%d)\n",
+		gc_newgame_pvs_ready ? 1 : 0 );
+	gc_newgame_world_ready = false;
+#endif
+}
+
 static void GC_ProveNewGamePVSFollow( void )
 {
 	int c0, c1, i;
@@ -2575,6 +2604,31 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	refState.height = present_h;
 	SYS_Report( "Xash3D GameCube: newgame low-res world present map=%s %dx%d\n",
 		sv.name[0] ? sv.name : "?", present_w, present_h );
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+	{
+		static int gc_g94_present_n;
+		edict_t *pl;
+
+		GC_G94ApplyPendingRestore();
+		pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+		gc_g94_present_n++;
+
+		if( pl )
+		{
+			SYS_Report( "Xash3D GameCube: G94 present origin=(%.0f,%.0f,%.0f)\n",
+				pl->v.origin[0], pl->v.origin[1], pl->v.origin[2] );
+		}
+		SYS_Report( "Xash3D GameCube: G94 round trip present map=%s\n",
+			sv.name[0] ? sv.name : "?" );
+		if( gc_g94_present_n >= 2 )
+		{
+			SYS_Report( "Xash3D GameCube: G94 load restore present map=%s origin=(%.0f,%.0f,%.0f)\n",
+				sv.name[0] ? sv.name : "?",
+				pl ? pl->v.origin[0] : 0.0f,
+				pl ? pl->v.origin[1] : 0.0f,
+				pl ? pl->v.origin[2] : 0.0f );
+		}
+	}
 	GC_MemSample( "newgame world present" );
 
 	/* Prefer real low-res world frames here: the Dolphin probe often exits as
@@ -2634,14 +2688,50 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			Host_ServerFrame();
 		Con_Reportf( "Xash3D GameCube: post-G36 bounded server ticks ready\n" );
 
-		/* G91: one local SFX after presents + ticks (use-denial style buzz). */
-		GC_PlayNewGameGameplaySound();
+		/* G94: skip gameplay SFX — SoundLib alloc can fatal under MEM1 before
+		 * the lean save blob is written. G91 still covered on non-G94 New Game. */
+		if( !Sys_CheckParm( "-gcnewsaveload" ))
+			GC_PlayNewGameGameplaySound();
 
+		/* G94: same-boot save→load before G92 changelevel (needs -gcnewsaveload).
+		 * Probe RAM bank satisfies GCube_HasWritableStorage without SD. */
+		if( Sys_CheckParm( "-gcnewsaveload" ))
+		{
+			static qboolean gc_saveload_queued;
+			edict_t *pl;
+
+			if( !gc_saveload_queued )
+			{
+				gc_saveload_queued = true;
+				pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+				SYS_Report( "Xash3D GameCube: G94 save/load begin map=%s\n",
+					sv.name[0] ? sv.name : "?" );
+				if( pl )
+				{
+					SYS_Report( "Xash3D GameCube: G94 save origin=(%.0f,%.0f,%.0f)\n",
+						pl->v.origin[0], pl->v.origin[1], pl->v.origin[2] );
+				}
+				/* Keep PVS — lean RAM save is tiny; freeing PVS then reallocating
+				 * the probe bank starved Capture on the re-Prepare. */
+				if( SV_SaveGame( "g94test" ))
+				{
+					SYS_Report( "Xash3D GameCube: G94 save ready name=g94test\n" );
+					if( SV_LoadGame( "save/g94test.sav" ))
+					{
+						SYS_Report( "Xash3D GameCube: G94 load ready name=g94test\n" );
+						return GC_PrepareNewGameWorldPresent();
+					}
+					SYS_Report( "Xash3D GameCube: G94 load failed name=g94test\n" );
+				}
+				else
+				{
+					SYS_Report( "Xash3D GameCube: G94 save failed name=g94test\n" );
+				}
+			}
+		}
 		/* G92: force first tram-route changelevel after c0a0 world present.
-		 * COM_ChangeLevel bypasses the framecount lock. Do not trim/free here —
-		 * Host_ServerFrame still runs before STATE_CHANGELEVEL; SV_ChangeLevel
-		 * tears down PVS and SpawnServer trims renderer/video for the load. */
-		if( !Q_stricmp( sv.name, "c0a0" ))
+		 * Skipped during G94 save/load probes. */
+		else if( !Q_stricmp( sv.name, "c0a0" ))
 		{
 			static qboolean gc_changelevel_queued;
 

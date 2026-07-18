@@ -70,8 +70,11 @@ probe_wait_flatpak() {
 	DOLPHIN_WRAPPER_PID=$!
 	DOLPHIN_EXIT=124
 	local deadline=$(( $(date +%s) + TIMEOUT_SEC ))
-	local map_ready_at=0 retail_ready_at=0
+	local map_ready_at=0 retail_ready_at=0 g94_sample_armed=0
 	while (( $(date +%s) < deadline )); do
+		if [[ -n "${G82_FAULT_MARKER:-}" ]] && probe_log_has "$G82_FAULT_MARKER"; then
+			DOLPHIN_EXIT=0; break
+		fi
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
 			if (( DOLPHIN_NEWGAME )); then
 				if ! probe_log_has "${PLAY_READY_MARKER:-Xash3D GameCube: play start ready}"; then
@@ -85,6 +88,16 @@ probe_wait_flatpak() {
 			fi
 			(( map_ready_at == 0 )) && map_ready_at=$(date +%s)
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+			# G94: do not stop until post-load world present is observed.
+			if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			# Once G94 restore present is seen, restart the sample window.
+			if [[ -n "${G94_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
+				map_ready_at=$(date +%s)
+				g94_sample_armed=1
+			fi
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi
@@ -112,12 +125,15 @@ probe_wait_native() {
 	DOLPHIN_WRAPPER_PID=$!
 	DOLPHIN_EXIT=124
 	local deadline=$(( $(date +%s) + TIMEOUT_SEC ))
-	local map_ready_at=0 retail_ready_at=0
+	local map_ready_at=0 retail_ready_at=0 g94_sample_armed=0
 	while (( $(date +%s) < deadline )); do
 		if ! kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
 			wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
 			DOLPHIN_EXIT=$?
 			return
+		fi
+		if [[ -n "${G82_FAULT_MARKER:-}" ]] && probe_log_has "$G82_FAULT_MARKER"; then
+			DOLPHIN_EXIT=0; break
 		fi
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
 			if (( DOLPHIN_NEWGAME )); then
@@ -132,6 +148,14 @@ probe_wait_native() {
 			fi
 			(( map_ready_at == 0 )) && map_ready_at=$(date +%s)
 			if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+			if [[ -n "${G94_DONE_MARKER:-}" ]] && ! probe_log_has "$G94_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G94_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
+				map_ready_at=$(date +%s)
+				g94_sample_armed=1
+			fi
 			if (( FRAME_SAMPLE_SEC <= 0 || $(date +%s) >= map_ready_at + FRAME_SAMPLE_SEC )); then
 				DOLPHIN_EXIT=0; break
 			fi

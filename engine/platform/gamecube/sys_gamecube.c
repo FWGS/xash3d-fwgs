@@ -31,6 +31,7 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 
 static qboolean gc_fat_mounted;
 static qboolean gc_dvd_mounted;
+static qboolean gc_newsaveload_configured;
 static DISC_INTERFACE gc_dvd_io;
 
 static bool GCube_DVDReadSectors( sec_t sector, sec_t count, void *buffer );
@@ -209,11 +210,22 @@ qboolean GCube_GetDiscPath( char *buf, size_t buflen )
 
 qboolean GCube_GetWritablePath( char *buf, size_t buflen )
 {
-	if( !gc_fat_mounted || !GCube_PathAccessible( "sd:/" ))
-		return false;
+	if( gc_fat_mounted && GCube_PathAccessible( "sd:/" ))
+	{
+		Q_strncpy( buf, "sd:/" GC_DATA_PATH, buflen );
+		return true;
+	}
 
-	Q_strncpy( buf, "sd:/" GC_DATA_PATH, buflen );
-	return true;
+	/* G94: disc-only Dolphin probes use a RAM save bank under this prefix.
+	 * Prefer the disc-override flag: ISO boots rebuild argv and may not see
+	 * Dolphin -- guest args. This path is save-only — never chdir/root here. */
+	if( gc_newsaveload_configured || Sys_CheckParm( "-gcnewsaveload" ))
+	{
+		Q_strncpy( buf, "gcprobe:/" GC_DATA_PATH, buflen );
+		return true;
+	}
+
+	return false;
 }
 
 qboolean GCube_HasWritableStorage( void )
@@ -221,6 +233,18 @@ qboolean GCube_HasWritableStorage( void )
 	char path[MAX_SYSPATH];
 
 	return GCube_GetWritablePath( path, sizeof( path ));
+}
+
+qboolean GCube_HasPersistentWritableStorage( void )
+{
+	/* Real SD only. G94 gcprobe: counts as writable for save/load cmds but
+	 * must not trigger mkdir/fopen/config playlist writes on a fake device. */
+	return gc_fat_mounted && GCube_PathAccessible( "sd:/" );
+}
+
+static qboolean GCube_IsProbeSavePath( const char *path )
+{
+	return path && !Q_strnicmp( path, "gcprobe:", 8 );
 }
 
 static void GCube_MkdirIgnoreExists( const char *path )
@@ -266,6 +290,13 @@ void GCube_EnsureWritableLayout( void )
 	if( !GCube_GetWritablePath( base, sizeof( base )))
 		return;
 
+	/* G94 probe RAM bank is not a libogc device — skip mkdir/chdir. */
+	if( GCube_IsProbeSavePath( base ))
+	{
+		Con_Reportf( "Xash3D GameCube: G94 probe save bank ready (no FS mkdir)\n" );
+		return;
+	}
+
 	GCube_MkdirIgnoreExists( base );
 	Q_snprintf( valve, sizeof( valve ), "%s/valve", base );
 	GCube_MkdirIgnoreExists( valve );
@@ -283,6 +314,7 @@ void GCube_Init( void )
 {
 #if XASH_GAMECUBE
 	char xashdir[MAX_SYSPATH];
+	char writepath[MAX_SYSPATH];
 
 	/* G29: Initialize networking for local loopback single-player.
 	 * Disable external network dependencies (master servers, HTTP)
@@ -304,32 +336,32 @@ void GCube_Init( void )
 	if( !GCube_HasWritableStorage() )
 		Con_Reportf( "Xash3D GameCube: no writable storage detected (SD card not available), proceeding in read-only mode\n" );
 
-	if( GCube_GetWritablePath( xashdir, sizeof( xashdir )))
+	if( GCube_GetWritablePath( writepath, sizeof( writepath )))
 	{
 		GCube_EnsureWritableLayout();
-		Con_Reportf( "Xash3D GameCube: writable storage %s\n", xashdir );
+		Con_Reportf( "Xash3D GameCube: writable storage %s\n", writepath );
 	}
-	else if( GCube_GetDiscPath( xashdir, sizeof( xashdir )))
+
+	/* Game data root must be real media (SD or disc). Never chdir into gcprobe:. */
+	if( GCube_GetBasePath( xashdir, sizeof( xashdir )))
 	{
-		Con_Reportf( "Xash3D GameCube: read-only fallback %s (no SD)\n", xashdir );
-	}
-	else if( GCube_GetBasePath( xashdir, sizeof( xashdir ) ) )
-	{
-		Con_Reportf( "Xash3D GameCube: read-only fallback %s (no SD)\n", xashdir );
+		if( !gc_fat_mounted )
+			Con_Reportf( "Xash3D GameCube: read-only fallback %s (no SD)\n", xashdir );
 	}
 	else
 	{
 		SYS_Report( "Xash3D GameCube: no base path found (SD/DVD missing or empty). Cannot initialize game data path.\n" );
 		Con_Reportf( S_ERROR "Xash3D GameCube: FATAL: Cannot initialize game data path.\n" );
 		/* No data directory found. Game assets will not load. */
+		xashdir[0] = '\0';
 	}
 
-	if( chdir( xashdir ) == 0 )
+	if( xashdir[0] && chdir( xashdir ) == 0 )
 	{
 		Con_Reportf( "GameCube data directory: %s\n", xashdir );
 		GCube_LoadDiscBootOverrides();
 	}
-	else
+	else if( xashdir[0] )
 	{
 		Con_Reportf( S_ERROR "GameCube storage: failed to chdir to %s (errno %d: %s). Asset lookups will likely fail.\n", xashdir, errno, strerror( errno ) );
 	}
@@ -341,8 +373,12 @@ void GCube_Init( void )
 qboolean GCube_GetBasePath( char *buf, size_t buflen )
 {
 #if XASH_GAMECUBE
-	if( GCube_GetWritablePath( buf, buflen ))
+	/* Prefer real SD; never use the G94 probe RAM bank as the game root. */
+	if( gc_fat_mounted && GCube_PathAccessible( "sd:/" ))
+	{
+		Q_strncpy( buf, "sd:/" GC_DATA_PATH, buflen );
 		return true;
+	}
 	if( GCube_GetDiscPath( buf, buflen ))
 		return true;
 
@@ -371,10 +407,12 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	return false;
 }
 
-static char *gc_argv[16];
+static char *gc_argv[20];
 static char gc_smoke_map[MAX_QPATH];
+static char gc_phase_test[32];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
+static qboolean gc_phase_test_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -384,6 +422,9 @@ static void GCube_LoadDiscBootOverrides( void )
 
 	gc_smoke_map_configured = false;
 	gc_newgame_configured = false;
+	gc_newsaveload_configured = false;
+	gc_phase_test_configured = false;
+	gc_phase_test[0] = '\0';
 
 	if( !GCube_MountDisc() )
 		return;
@@ -401,6 +442,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	{
 		char *cursor = line;
 		char *mapname;
+		char *phase;
 		size_t len;
 
 		while( *cursor == ' ' || *cursor == '\t' )
@@ -419,6 +461,36 @@ static void GCube_LoadDiscBootOverrides( void )
 			}
 		}
 
+		if( !Q_strnicmp( cursor, "newsaveload", 11 ))
+		{
+			char ch = cursor[11];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_newsaveload_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override newsaveload\n" );
+				continue;
+			}
+		}
+
+		if( !Q_strnicmp( cursor, "phasetest", 9 ) && ( cursor[9] == ' ' || cursor[9] == '\t' ))
+		{
+			phase = cursor + 9;
+			while( *phase == ' ' || *phase == '\t' )
+				phase++;
+			len = strlen( phase );
+			while( len > 0 && ( phase[len - 1] == '\r' || phase[len - 1] == '\n' ))
+			{
+				phase[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_phase_test ))
+			{
+				Q_strncpy( gc_phase_test, phase, sizeof( gc_phase_test ));
+				gc_phase_test_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override phasetest %s\n", gc_phase_test );
+			}
+			continue;
+		}
+
 		if( Q_strnicmp( cursor, "map", 3 ) || ( cursor[3] != ' ' && cursor[3] != '\t' ))
 			continue;
 
@@ -432,12 +504,11 @@ static void GCube_LoadDiscBootOverrides( void )
 		}
 		if( len > 0 && len < sizeof( gc_smoke_map ) && !strchr( mapname, '/' ) && !strchr( mapname, '\\' ) )
 		{
-				Q_strncpy( gc_smoke_map, mapname, sizeof( gc_smoke_map ));
-				gc_smoke_map_configured = true;
-				SYS_Report( "Xash3D GameCube: smoke map override %s\n", gc_smoke_map );
-				break;
-			}
+			Q_strncpy( gc_smoke_map, mapname, sizeof( gc_smoke_map ));
+			gc_smoke_map_configured = true;
+			SYS_Report( "Xash3D GameCube: smoke map override %s\n", gc_smoke_map );
 		}
+	}
 
 	fclose( file );
 #endif
@@ -474,6 +545,13 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	else
 	{
 		SYS_Report( "Xash3D GameCube: disc boot override menu\n" );
+	}
+	if( gc_newsaveload_configured )
+		gc_argv[fake_argc++] = "-gcnewsaveload";
+	if( gc_phase_test_configured )
+	{
+		gc_argv[fake_argc++] = "-gc_phase_test";
+		gc_argv[fake_argc++] = gc_phase_test;
 	}
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "640";

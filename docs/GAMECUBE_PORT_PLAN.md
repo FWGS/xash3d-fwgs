@@ -2120,8 +2120,8 @@ New Game consolidation goals (added 2026-07-16, after G88):
 - **G93:** Step world presents up from 160×120 (target 320×240) while keeping
   the G36 frame budget green — DONE (2026-07-17).
 - **G94:** Save/load round trip from a live New Game session under the
-  bounded-server path.
-- **G82:** Finish boot-phase isolation (lower priority than G83–G94).
+  bounded-server path — DONE (2026-07-17).
+- **G82:** Finish boot-phase isolation — DONE (2026-07-17).
 
 Automation may complete G67-G69, G83-G94, G82, then G72-G74, G76, and the
 documentation/evidence comparison parts of G77 with source, scripts, logs, and
@@ -2130,7 +2130,7 @@ persistent media, and final hardware-completion claims require operator evidence
 from the exact release artifact hash. G77 must not pass until Dolphin and
 hardware evidence refer to the same commit and artifact hashes.
 
-## G83–G94 — New Game post-G36 bring-up (IN PROGRESS 2026-07-16)
+## G83–G94 — New Game post-G36 bring-up (COMPLETE 2026-07-17)
 
 **Baseline evidence:**
 - World render: `.ai/logs/dolphin-probe-20260715-230720` —
@@ -2179,11 +2179,36 @@ hardware evidence refer to the same commit and artifact hashes.
   `newgame low-res world present map=c0a0 320x240`, pixels `70610/76800`,
   `G36 PASS`; `-gcnewgame160` fallback retained; changelevel still presents
   `map=c0a0a 320x240`.
+- **G94 DONE:** `.ai/logs/dolphin-probe-20260717-155659` —
+  lean `G94SAVE1` blob (map/origin/angles/health) after world present;
+  `G94 lean save ready` / `G94 lean restore applied` /
+  `G94 load restore present map=c0a0 origin=(2883,2810,515)`;
+  `MAP_READY`/`G36 PASS`. Full `SV_SaveGame` still OOM under MEM1; disc
+  `newsaveload` override + RAM bank when no SD; PVS kept across round trip.
 
-**Next automatic goal:** G94 (save/load round trip). Command:
+**Next automatic goal:** G72 (worst-case performance/memory) — REOPENED;
+fresh New Game report at `.ai/logs/worst-case-g72-current`. New Game regression:
 ```sh
-DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=48 scripts/dolphin-boot-probe.sh
+DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=32 scripts/dolphin-boot-probe.sh
 ```
+G82 phase-fault smoke:
+```sh
+GC_PHASE_TEST=sw_fb DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
+```
+G72 report:
+```sh
+scripts/gamecube-worst-case-report.py --log-dir .ai/logs/worst-case-g72-current
+```
+
+## G82 — Boot-phase isolation (COMPLETE 2026-07-17)
+
+Chronological `GC_ReportBootPhase` order
+(`early`→`engine`→`renderer`→`sw_fb`→`menu`→`client`→`intro`→`map`),
+`GC_BootDrawAllowed` for fallback menu, and intentional
+`phasetest`/`-gc_phase_test` fault with `boot=` fatal breadcrumb.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260717-160152` —
+`G82_VERIFIED: last_successful_phase=sw_fb fault_at=sw_fb`, `BOOT_PHASE: sw_fb`.
 
 ## G67 — Native GoldSrc Content-Format Compatibility (COMPLETE 2026-06-28)
 
@@ -2327,15 +2352,14 @@ release run is intentionally separate: before final G75 sign-off, run
 `RC_SOAK_DRY_RUN=0 RC_SOAK_STRICT=1` against the release artifact and attach the
 result to the final evidence packet.
 
-## G72 — Worst-case performance and memory optimization gate (SKIP until G83–G94)
+## G72 — Worst-case performance and memory optimization gate (REOPENED 2026-07-17)
 
-**Status (2026-07-16):** SKIPPED for overnight source-porting until New Game
-interactive bring-up (G83–G94) produces fresh gameplay evidence. Reopen after
-real PVS + entity think + sustained presents land.
+**Status (2026-07-17):** REOPENED after G83–G94 + G82. Fresh New Game
+evidence ingested by the reducer.
 
 `scripts/gamecube-worst-case-report.py` is the G72 evidence reducer. It consumes
-map compatibility TSVs, campaign-audit TSVs, soak probe TSVs, and source profile
-guards, then writes:
+map compatibility TSVs, campaign-audit TSVs, soak probe TSVs, Dolphin probe
+stderr (New Game mem HWM / G36), and source profile guards, then writes:
 
 - `summary.md` for release review.
 - `worst-scenes.tsv` for the highest-risk map/route candidates.
@@ -2347,25 +2371,12 @@ bounds, and world-edge bounds) and fails if any scene records critical MEM1
 pressure. In strict mode it also fails while runtime blockers remain unclassified.
 The RC suite now runs this as `worst-case performance/memory report`.
 
-**Current evidence:** `.ai/logs/worst-case-g72-current/summary.md` reports 366
-evidence rows, no hard MEM1 failures, and no missing source guards. The current
-profile decision is conservative: keep `gc_quality=1`, but do not close G72
-until fresh G68/G69 evidence replaces stale `Sys_InitLog: can't create`
-map-compat blockers with current-build classifications.
-
-Fresh G68 blocker evidence from
-`.ai/logs/map-compat-20260628-171933/summary.md` shows the worst current `c1a0`
-pressure has moved past spawn-time `Server Edicts Zone` private-data allocation.
-The first post-load failure is now `ImageLib Pool` OOM allocating 64 KiB at
-`engine/common/imagelib/img_tga.c:135` after `Xash3D GameCube: map loaded c1a0`
-with 8.80 MiB peak MEM1.
-
-**Progress (2026-07-11):** The New Game / gcmap disc staging set now includes
-resolution-matched direct-load HLSDK HUD sprites outside `hud.txt`,
-including the pain compass/train icon sheets plus spectator and voice overlay
-sprites loaded by exact filename, so the local probe path does not need the old
-GameCube HUD sprite stub when those assets are present in the legal local
-`Half-Life/valve` tree.
+**Current evidence:** `.ai/logs/worst-case-g72-current/summary.md` (regenerated
+2026-07-17 from New Game probes) — `newgame/c0a0` PASS HWM≈3.78 MiB
+p95≈16.68ms; no hard MEM1 failures; source guards PASS; keep `gc_quality=1`.
+Stale map-compat INCONCLUSIVE rows for `c1a0`/`c0a0e` remain until G68
+classification. Do not close G72 for campaign-wide claims until those are
+replaced or explicitly limited in release notes.
 
 **Commands:**
 

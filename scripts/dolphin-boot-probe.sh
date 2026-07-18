@@ -77,6 +77,7 @@ else
 fi
 DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
+GC_PHASE_TEST="${GC_PHASE_TEST:-}"
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 RETAIL_MENU_MARKER="Xash3D GameCube: retail menu steam background ready"
@@ -92,6 +93,10 @@ INPUT_MARKER="Xash3D GameCube: input polling active"
 G45_READY_MARKER="Xash3D GameCube: G45 controller ready"
 G45_WAIT_MARKER="Xash3D GameCube: G45 controller waiting"
 G37_FATAL_MARKER="G37: Intentional fatal error triggered"
+G82_FAULT_MARKER=""
+if [[ -n "$GC_PHASE_TEST" ]]; then
+	G82_FAULT_MARKER="G82: Intentional phase fault at ${GC_PHASE_TEST}"
+fi
 DOLPHIN_MMU="${DOLPHIN_MMU:-True}"
 
 mkdir -p "$USER_DIR/Config"
@@ -179,6 +184,11 @@ if (( SKIP_DISC )); then
 		fi
 		if (( DOLPHIN_NEWGAME )); then
 			BUILD_ARGS+=(--probe-newgame)
+			# ISO boots rebuild argv from gamecube.cfg; Dolphin -- guest args
+			# do not reach the DOL, so bake G94 into the disc override.
+			if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
+				BUILD_ARGS+=(--probe-newsaveload)
+			fi
 		fi
 	elif [[ -n "$SMOKE_MAP" ]]; then
 		BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")
@@ -186,6 +196,10 @@ if (( SKIP_DISC )); then
 			BUILD_ARGS+=(--world-render)
 			echo "==> World render probe mode (gcworldrender in gamecube.cfg)"
 		fi
+	fi
+	if [[ -n "$GC_PHASE_TEST" ]]; then
+		BUILD_ARGS+=(--probe-phasetest "$GC_PHASE_TEST")
+		echo "==> G82 phase-fault probe (phasetest ${GC_PHASE_TEST})"
 	fi
 	if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
 		echo "FAIL: Disc build failed."
@@ -199,11 +213,23 @@ GUEST_ARGS=()
 if (( GC_FATAL_TEST )); then
 	GUEST_ARGS+=("-gc_fatal_test" "1")
 fi
+if [[ -n "$GC_PHASE_TEST" ]]; then
+	GUEST_ARGS+=("-gc_phase_test" "$GC_PHASE_TEST")
+	echo "==> Waiting for G82 intentional phase fault at ${GC_PHASE_TEST}"
+fi
 if (( DOLPHIN_NEWGAME )); then
 	GUEST_ARGS+=("-gcnewgame")
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
 	MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 	echo "==> New Game probe mode (expect map ${SMOKE_MAP})"
+	if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
+		GUEST_ARGS+=("-gcnewsaveload")
+		echo "==> G94 save/load probe (-gcnewsaveload, RAM bank if no SD)"
+		# Keep sampling until post-load world present (not just G36 arming).
+		G94_DONE_MARKER="Xash3D GameCube: G94 load restore present"
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-30}"
+		echo "==> Waiting for G94 load restore present before sampling exit"
+	fi
 fi
 append_guest_args() {
 	local -n _cmd="$1"
@@ -298,6 +324,21 @@ if (( GC_FATAL_TEST )) && probe_log_has "$G37_FATAL_MARKER" && probe_log_has "$G
 	finalize_probe g37_verified 0
 fi
 
+if [[ -n "$GC_PHASE_TEST" ]] && [[ -n "$G82_FAULT_MARKER" ]] \
+	&& probe_log_has "$G82_FAULT_MARKER" \
+	&& probe_log_has "boot phase=${GC_PHASE_TEST}" \
+	&& grep -aqsE "boot=${GC_PHASE_TEST}([[:space:]]|$)" "${LOG_FILES[@]}"; then
+	echo "G82_VERIFIED: last_successful_phase=${GC_PHASE_TEST} fault_at=${GC_PHASE_TEST}"
+	echo "Logs: $LOG_DIR"
+	finalize_probe g82_verified 0
+fi
+
+if [[ -n "$GC_PHASE_TEST" ]]; then
+	echo "G82_FAIL: expected intentional phase fault at ${GC_PHASE_TEST} with boot breadcrumb."
+	echo "Logs: $LOG_DIR"
+	finalize_probe g82_fail 3
+fi
+
 RETAIL_MENU_SEEN=0
 RETAIL_MENU_READY=0
 if probe_retail_menu_seen; then
@@ -362,7 +403,7 @@ if (( RETAIL_MENU_SEEN )) && [[ "${DOLPHIN_REQUIRE_MENU_ACTIONS:-0}" == "1" ]] &
 	finalize_probe retail_menu_wait 4
 fi
 
-if (( GUEST_FOUND )) && probe_guest_error && (( ! GC_FATAL_TEST )); then
+if (( GUEST_FOUND )) && probe_guest_error && (( ! GC_FATAL_TEST )) && [[ -z "$GC_PHASE_TEST" ]]; then
 	probe_fail_guest guest_failure "GUEST_FAILURE: Bootstrap was followed by a guest-engine error."
 fi
 

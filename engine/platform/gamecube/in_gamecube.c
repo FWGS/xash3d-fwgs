@@ -414,8 +414,8 @@ static qboolean GC_ShouldUseProbeInputFallback( void )
 	/* Automated Dolphin probes do not receive real SI pad packets. */
 	if( Sys_CheckParm( "-gcmap" ))
 		return true;
-	/* Disc-only retail boots match the same headless Dolphin profile. */
-	if( !GCube_HasWritableStorage( ))
+	/* Disc-only / G94 probe boots match the headless Dolphin profile. */
+	if( !GCube_HasPersistentWritableStorage( ))
 		return true;
 	return false;
 }

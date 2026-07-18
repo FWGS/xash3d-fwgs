@@ -20,6 +20,9 @@ GNU General Public License for more details.
 #include "render_api.h"	// decallist_t
 #include "sound.h"		// S_GetDynamicSounds
 #include "ref_common.h" // decals
+#if XASH_GAMECUBE
+#include <stdlib.h>
+#endif
 
 /*
 ==============================================================================
@@ -37,12 +40,35 @@ half-life implementation of saverestore system
 #define GC_SAVE_META_MAGIC		"XASHGC_SAVE_META"
 #define GC_SAVE_META_VERSION		1
 #define GC_SAVE_META_EXTENSION		".gcmeta"
+/* G94: lean sysheap after PVS free — zone MEM1 cannot host SAVE_HEAPSIZE. */
+#define GC_PROBE_SAVE_HEAPSIZE		0x30000			/* 192 KiB */
+#define GC_PROBE_SAVE_HASHSTRINGS	0x1FF			/* 511 tokens */
 void GC_ResetNewGameWorldForChangelevel( void );
+void GC_MarkNewGameWorldStale( void );
+static qboolean gc_save_use_sysheap;
 #endif // XASH_GAMECUBE
 
 #define SAVE_HEAPSIZE		0x400000				// reserve 4Mb for now
 #define SAVE_HASHSTRINGS		0xFFF				// 4095 unique strings
 
+#if XASH_GAMECUBE
+static int SV_SaveHeapSize( void )
+{
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+		return GC_PROBE_SAVE_HEAPSIZE;
+	return SAVE_HEAPSIZE;
+}
+
+static int SV_SaveHashStrings( void )
+{
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+		return GC_PROBE_SAVE_HASHSTRINGS;
+	return SAVE_HASHSTRINGS;
+}
+#else
+#define SV_SaveHeapSize()	SAVE_HEAPSIZE
+#define SV_SaveHashStrings()	SAVE_HASHSTRINGS
+#endif
 // savedata headers
 typedef struct
 {
@@ -378,6 +404,25 @@ static int DirectoryCount( const char *pPath )
 	int	count;
 	search_t	*t;
 
+#if XASH_GAMECUBE
+	/* G94 probe bank is not visible to FS_Search. */
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+	{
+		char path[MAX_OSPATH];
+		const char *exts[] = { "HL1", "HL2", "HL3" };
+		int i, n = 0;
+
+		(void)pPath;
+		for( i = 0; i < 3; i++ )
+		{
+			Q_snprintf( path, sizeof( path ), DEFAULT_SAVE_DIRECTORY "%s.%s", sv.name, exts[i] );
+			if( FS_FileExists( path, true ))
+				n++;
+		}
+		return n;
+	}
+#endif
+
 	t = FS_Search( pPath, true, true );	// lookup only in gamedir
 	if( !t ) return 0; // empty
 
@@ -396,10 +441,15 @@ reserve space for ETABLE's
 */
 static void InitEntityTable( SAVERESTOREDATA *pSaveData, int entityCount )
 {
+#if XASH_GAMECUBE
+	if( gc_save_use_sysheap )
+		pSaveData->pTable = (ENTITYTABLE *)calloc( (size_t)entityCount, sizeof( ENTITYTABLE ));
+	else
+#endif
 	pSaveData->pTable = Mem_Calloc( host.mempool, sizeof( ENTITYTABLE ) * entityCount );
 	pSaveData->tableCount = entityCount;
 
-	// setup entitytable
+	/* setup entitytable */
 	for( int i = 0; i < entityCount; i++ )
 	{
 		ENTITYTABLE *pTable = &pSaveData->pTable[i];
@@ -701,6 +751,13 @@ static void GC_WriteSaveMetadata( const char *savePath, const char *saveName )
 		return;
 	}
 
+	/* Probe bank has no rename/delete; CRC metadata is SD/G46 only. */
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+	{
+		Con_Reportf( "Xash3D GameCube: G94 save metadata skipped (probe bank)\n" );
+		return;
+	}
+
 	if( GCube_GetWritablePath( writablePath, sizeof( writablePath )))
 		storageRoute = writablePath;
 
@@ -755,6 +812,38 @@ put the HL1-HL3 files into .sav file
 static void DirectoryCopy( const char *pPath, file_t *pFile )
 {
 	search_t	*t;
+
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+	{
+		const char *exts[] = { "HL1", "HL2", "HL3" };
+		int i;
+
+		(void)pPath;
+		for( i = 0; i < 3; i++ )
+		{
+			char	path[MAX_OSPATH];
+			char	szName[MAX_OSPATH];
+			file_t	*pCopy;
+			int	fileSize;
+
+			Q_snprintf( path, sizeof( path ), DEFAULT_SAVE_DIRECTORY "%s.%s", sv.name, exts[i] );
+			if( !FS_FileExists( path, true ))
+				continue;
+			pCopy = FS_Open( path, "rb", true );
+			if( !pCopy )
+				continue;
+			fileSize = FS_FileLength( pCopy );
+			memset( szName, 0, sizeof( szName ));
+			Q_snprintf( szName, sizeof( szName ), "%s.%s", sv.name, exts[i] );
+			FS_Write( pFile, szName, MAX_OSPATH );
+			FS_Write( pFile, &fileSize, sizeof( int ));
+			FS_FileCopy( pFile, pCopy, fileSize );
+			FS_Close( pCopy );
+		}
+		return;
+	}
+#endif
 
 	t = FS_Search( pPath, true, true );
 	if( !t ) return; // nothing to copy ?
@@ -822,8 +911,33 @@ static SAVERESTOREDATA *SaveInit( int size, int tokenCount )
 {
 	SAVERESTOREDATA	*pSaveData;
 
-	pSaveData = Mem_Calloc( host.mempool, sizeof( SAVERESTOREDATA ) + size );
-	pSaveData->pTokens = (char **)Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
+#if XASH_GAMECUBE
+	gc_save_use_sysheap = false;
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+	{
+		pSaveData = (SAVERESTOREDATA *)calloc( 1, sizeof( SAVERESTOREDATA ) + (size_t)size );
+		if( !pSaveData )
+		{
+			Con_Printf( S_ERROR "SaveInit: calloc %d bytes failed\n",
+				(int)( sizeof( SAVERESTOREDATA ) + size ));
+			return NULL;
+		}
+		pSaveData->pTokens = (char **)calloc( (size_t)tokenCount, sizeof( char* ));
+		if( !pSaveData->pTokens )
+		{
+			free( pSaveData );
+			Con_Printf( S_ERROR "SaveInit: calloc tokens failed\n" );
+			return NULL;
+		}
+		gc_save_use_sysheap = true;
+		Con_Reportf( "Xash3D GameCube: G94 SaveInit sysheap size=%d tokens=%d\n", size, tokenCount );
+	}
+	else
+#endif
+	{
+		pSaveData = Mem_Calloc( host.mempool, sizeof( SAVERESTOREDATA ) + size );
+		pSaveData->pTokens = (char **)Mem_Calloc( host.mempool, tokenCount * sizeof( char* ));
+	}
 	pSaveData->tokenCount = tokenCount;
 
 	pSaveData->pBaseData = (char *)(pSaveData + 1); // skip the save structure);
@@ -872,6 +986,11 @@ static void SaveFinish( SAVERESTOREDATA *pSaveData )
 
 	if( pSaveData->pTokens )
 	{
+#if XASH_GAMECUBE
+		if( gc_save_use_sysheap )
+			free( pSaveData->pTokens );
+		else
+#endif
 		Mem_Free( pSaveData->pTokens );
 		pSaveData->pTokens = NULL;
 		pSaveData->tokenCount = 0;
@@ -879,12 +998,25 @@ static void SaveFinish( SAVERESTOREDATA *pSaveData )
 
 	if( pSaveData->pTable )
 	{
+#if XASH_GAMECUBE
+		if( gc_save_use_sysheap )
+			free( pSaveData->pTable );
+		else
+#endif
 		Mem_Free( pSaveData->pTable );
 		pSaveData->pTable = NULL;
 		pSaveData->tableCount = 0;
 	}
 
 	svgame.globals->pSaveData = NULL;
+#if XASH_GAMECUBE
+	if( gc_save_use_sysheap )
+	{
+		free( pSaveData );
+		gc_save_use_sysheap = false;
+	}
+	else
+#endif
 	Mem_Free( pSaveData );
 }
 
@@ -1588,15 +1720,42 @@ static SAVERESTOREDATA *SaveGameState( int changelevel )
 	if( !svgame.dllFuncs.pfnParmsChangeLevel )
 		return NULL;
 
-	pSaveData = SaveInit( SAVE_HEAPSIZE, SAVE_HASHSTRINGS );
+	pSaveData = SaveInit( SV_SaveHeapSize(), SV_SaveHashStrings() );
+	if( !pSaveData )
+		return NULL;
 
 	Q_snprintf( name, sizeof( name ), DEFAULT_SAVE_DIRECTORY "%s.HL1", sv.name );
 	COM_FixSlashes( name );
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+		Con_Reportf( "Xash3D GameCube: G94 SaveGameState entities=%d\n", svgame.numEntities );
+#endif
 	// initialize entity table to count moved entities
 	InitEntityTable( pSaveData, svgame.numEntities );
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+	{
+		if( !pSaveData->pTable )
+		{
+			Con_Reportf( S_ERROR "Xash3D GameCube: G94 entity table alloc failed\n" );
+			SaveFinish( pSaveData );
+			return NULL;
+		}
+		Con_Reportf( "Xash3D GameCube: G94 entity table ready count=%d\n", pSaveData->tableCount );
+	}
+#endif
 
 	// Build the adjacent map list
+#if XASH_GAMECUBE
+	/* G94: skip adjacency walk — New Game probe only needs same-map restore. */
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+	{
+		pSaveData->connectionCount = 0;
+		Con_Reportf( "Xash3D GameCube: G94 ParmsChangeLevel skipped (probe)\n" );
+	}
+	else
+#endif
 	svgame.dllFuncs.pfnParmsChangeLevel();
 
 	// Write the global data
@@ -1819,7 +1978,9 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 		return false;
 
 	SaveFinish( pSaveData );
-	pSaveData = SaveInit( SAVE_HEAPSIZE, SAVE_HASHSTRINGS ); // re-init the buffer
+	pSaveData = SaveInit( SV_SaveHeapSize(), SV_SaveHashStrings() ); // re-init the buffer
+	if( !pSaveData )
+		return false;
 
 	Q_strncpy( hlPath, DEFAULT_SAVE_DIRECTORY "*.HL?", sizeof( hlPath ) );
 	Q_strncpy( gameHeader.mapName, sv.name, sizeof( gameHeader.mapName )); // get the name of level where a player
@@ -1853,6 +2014,9 @@ static qboolean SaveGameSlot( const char *pSaveName, const char *pSaveComment )
 	}
 
 	// pending the preview image for savegame
+#if XASH_GAMECUBE
+	if( !Sys_CheckParm( "-gcnewsaveload" ))
+#endif
 	Cbuf_AddTextf( "saveshot \"%s\"\n", pSaveName );
 	Con_Printf( "Saving game to %s...\n", name );
 
@@ -2227,6 +2391,110 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 	}
 }
 
+#if XASH_GAMECUBE
+#define GC_G94_SAVE_MAGIC		"G94SAVE1"
+
+typedef struct gc_g94_save_s
+{
+	char	magic[8];
+	char	map[32];
+	vec3_t	origin;
+	vec3_t	angles;
+	float	health;
+} gc_g94_save_t;
+
+static gc_g94_save_t	gc_g94_pending;
+static qboolean		gc_g94_pending_valid;
+
+/*
+=============
+GC_G94LeanSave / GC_G94LeanLoad
+
+G94 New Game probe path: MEM1 cannot host SAVE_HEAPSIZE or a full entity dump.
+Keep a tiny same-map blob in BSS (no 160 KiB probe FS bank) so post-load
+CapturePVS still has sysheap headroom.
+=============
+*/
+static qboolean GC_G94LeanSave( const char *savename )
+{
+	edict_t	*pl;
+
+	if( !sv.name[0] )
+		return false;
+	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+	if( !pl )
+		return false;
+
+	memset( &gc_g94_pending, 0, sizeof( gc_g94_pending ));
+	memcpy( gc_g94_pending.magic, GC_G94_SAVE_MAGIC, sizeof( gc_g94_pending.magic ));
+	Q_strncpy( gc_g94_pending.map, sv.name, sizeof( gc_g94_pending.map ));
+	VectorCopy( pl->v.origin, gc_g94_pending.origin );
+	VectorCopy( pl->v.angles, gc_g94_pending.angles );
+	gc_g94_pending.health = pl->v.health;
+	gc_g94_pending_valid = true;
+	Con_Reportf( "Xash3D GameCube: G94 lean save ready name=%s map=%s origin=(%.0f,%.0f,%.0f)\n",
+		savename, gc_g94_pending.map,
+		gc_g94_pending.origin[0], gc_g94_pending.origin[1], gc_g94_pending.origin[2] );
+	return true;
+}
+
+static qboolean GC_G94LeanLoad( const char *pPath )
+{
+	if( !gc_g94_pending_valid
+		|| memcmp( gc_g94_pending.magic, GC_G94_SAVE_MAGIC, sizeof( gc_g94_pending.magic )))
+		return false;
+
+	Con_Printf( "Loading game from %s...\n", pPath ? pPath : "g94-ram" );
+	Con_Reportf( "Xash3D GameCube: G94 lean load map=%s origin=(%.0f,%.0f,%.0f)\n",
+		gc_g94_pending.map,
+		gc_g94_pending.origin[0], gc_g94_pending.origin[1], gc_g94_pending.origin[2] );
+
+	/* Same-map: keep PVS, restore origin, mark world stale for re-present. */
+	if( SV_Active() && !Q_stricmp( gc_g94_pending.map, sv.name ))
+	{
+		GC_G94ApplyPendingRestore();
+		GC_MarkNewGameWorldStale();
+		Con_Reportf( "Xash3D GameCube: G94 lean same-map restore queued\n" );
+		return true;
+	}
+
+	if( !SV_InitGame( false ))
+		return false;
+	svs.initialized = true;
+	Cvar_FullSet( "maxplayers", "1", FCVAR_LATCH );
+	Cvar_SetValue( "deathmatch", 0 );
+	Cvar_SetValue( "coop", 0 );
+	COM_LoadGame( gc_g94_pending.map );
+	return true;
+}
+
+void GC_G94ApplyPendingRestore( void )
+{
+	edict_t	*pl;
+
+	if( !gc_g94_pending_valid )
+		return;
+	if( Q_stricmp( sv.name, gc_g94_pending.map ))
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: G94 pending restore map mismatch (%s vs %s)\n",
+			sv.name, gc_g94_pending.map );
+		gc_g94_pending_valid = false;
+		return;
+	}
+	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+	if( !pl )
+		return;
+	VectorCopy( gc_g94_pending.origin, pl->v.origin );
+	VectorCopy( gc_g94_pending.angles, pl->v.angles );
+	VectorCopy( gc_g94_pending.angles, pl->v.v_angle );
+	if( gc_g94_pending.health > 0.0f )
+		pl->v.health = gc_g94_pending.health;
+	gc_g94_pending_valid = false;
+	Con_Reportf( "Xash3D GameCube: G94 lean restore applied origin=(%.0f,%.0f,%.0f)\n",
+		pl->v.origin[0], pl->v.origin[1], pl->v.origin[2] );
+}
+#endif // XASH_GAMECUBE
+
 /*
 =============
 SV_LoadGame
@@ -2247,6 +2515,12 @@ qboolean SV_LoadGame( const char *pPath )
 
 	if( COM_StringEmptyOrNULL( pPath ))
 		return false;
+
+#if XASH_GAMECUBE
+	/* G94 RAM slot — no disc/SD file required. */
+	if( Sys_CheckParm( "-gcnewsaveload" ) && GC_G94LeanLoad( pPath ))
+		return true;
+#endif
 
 	// silently ignore if missed
 	if( !FS_FileExists( pPath, true ))
@@ -2339,6 +2613,12 @@ qboolean SV_SaveGame( const char *pName )
 		}
 	}
 	else Q_strncpy( savename, pName, sizeof( savename ));
+
+#if XASH_GAMECUBE
+	/* G94: lean probe blob — full SaveGameSlot needs ~4 MiB zone heap. */
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+		return GC_G94LeanSave( savename );
+#endif
 
 #if !XASH_DEDICATED
 	// unload previous image from memory (it's will be overwritten)

@@ -122,13 +122,14 @@ void DOS_Shutdown( void );
 #if XASH_GAMECUBE
 typedef enum
 {
+	/* Chronological boot order (monotonic GC_ReportBootPhase). */
 	GC_BOOT_NONE = 0,
 	GC_BOOT_EARLY,
+	GC_BOOT_ENGINE,		/* server/core ready; about to CL_Init */
 	GC_BOOT_RENDERER,
 	GC_BOOT_SW_FB,
-	GC_BOOT_ENGINE,
-	GC_BOOT_CLIENT,
-	GC_BOOT_MENU,
+	GC_BOOT_MENU,		/* SCR_Init / fallback menu during VID_Init */
+	GC_BOOT_CLIENT,		/* CL_Init complete */
 	GC_BOOT_INTRO,
 	GC_BOOT_MAP
 } gc_boot_phase_t;
@@ -141,6 +142,7 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen );
 qboolean GCube_GetDiscPath( char *buf, size_t buflen );
 qboolean GCube_GetWritablePath( char *buf, size_t buflen );
 qboolean GCube_HasWritableStorage( void );
+qboolean GCube_HasPersistentWritableStorage( void );
 void GCube_EnsureWritableLayout( void );
 int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv );
 int GC_GetVisualQuality( void );
@@ -170,6 +172,8 @@ qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel );
 void GC_PlayNewGameGameplaySound( void );
 /* G92: free PVS/screens sticky flags so changelevel can re-capture. */
 void GC_ResetNewGameWorldForChangelevel( void );
+void GC_MarkNewGameWorldStale( void );
+void GC_G94ApplyPendingRestore( void );
 qboolean GC_RenderNewGameWorldFrames( int count );
 /* G86: fill a post-G36 New Game usercmd from probe-synthetic or live PAD. */
 #include "q_client.h"

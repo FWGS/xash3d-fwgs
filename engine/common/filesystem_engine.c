@@ -114,7 +114,7 @@ static void FS_LoadVFSConfig( const char *gamedir )
 		return;
 
 #if XASH_GAMECUBE
-	if( !GCube_HasWritableStorage( ))
+	if( !GCube_HasPersistentWritableStorage( ))
 	{
 		Con_Reportf( "%s: no writable storage, skipping vfs.cfg load\n", __func__ );
 		return;
@@ -140,7 +140,7 @@ static void FS_LoadVFSConfig( const char *gamedir )
 void FS_SaveVFSConfig( void )
 {
 #if XASH_GAMECUBE
-	if( !GCube_HasWritableStorage( ))
+	if( !GCube_HasPersistentWritableStorage( ))
 	{
 		Con_Reportf( "%s: no writable storage, skipping vfs.cfg save\n", __func__ );
 		return;
@@ -301,8 +301,17 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
 	return false;
 #elif XASH_GAMECUBE
-	if( GCube_GetWritablePath( out, size ))
-		return true;
+	/* Prefer SD when mounted; else disc. Never use G94 gcprobe: as FS root. */
+	{
+		char path[MAX_SYSPATH];
+
+		if( GCube_GetWritablePath( path, sizeof( path ))
+			&& Q_strnicmp( path, "gcprobe:", 8 ))
+		{
+			Q_strncpy( out, path, size );
+			return true;
+		}
+	}
 	if( GCube_GetDiscPath( out, size ))
 		return true;
 	if( getcwd( out, size ))
@@ -438,7 +447,10 @@ void FS_Init( void )
 		host.menulib[0] = 0;
 
 #if XASH_GAMECUBE
-	FS_SetSmokeBootMode( Sys_CheckParm( "-gcmap" ) || !GCube_HasWritableStorage() );
+	/* Keep disc-only smoke searchpaths unless real SD is mounted.
+	 * G94 gcprobe: is save-only and must not disable smoke layout. */
+	FS_SetSmokeBootMode( Sys_CheckParm( "-gcmap" )
+		|| !GCube_HasPersistentWritableStorage() );
 #endif
 }
 

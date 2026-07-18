@@ -60,7 +60,7 @@ static qboolean g_messagemode_privileged = true;
 #if XASH_GAMECUBE
 static qboolean Con_GameCubeDeferFontLoad( void )
 {
-	if( GCube_HasWritableStorage( ))
+	if( GCube_HasPersistentWritableStorage( ))
 		return false;
 	if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
 		return false;

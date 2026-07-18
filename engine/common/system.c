@@ -94,8 +94,10 @@ static void Sys_GameCubeFatalBreadcrumb( const char *message )
 	const char *subsystem = Sys_GameCubeFatalSubsystem( message );
 	const char *mem = Q_memprint( Mem_TotalRealSize() );
 
-	if( GCube_HasWritableStorage() )
+	if( GCube_HasPersistentWritableStorage() )
 		route = "sd";
+	else if( GCube_GetWritablePath( base, sizeof( base )) && !Q_strnicmp( base, "gcprobe:", 8 ))
+		route = "probe";
 	else if( GCube_GetBasePath( base, sizeof( base )))
 		route = !Q_strnicmp( base, "gcdisc:", 7 ) ? "disc" : "other";
 

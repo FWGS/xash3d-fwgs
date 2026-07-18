@@ -870,21 +870,43 @@ def extract_wad_lump(wad_path: Path, output: Path, lump_name: str, relative: str
 			return
 
 
-def write_smoke_overrides(output: Path, smoke_map: str, *, world_render: bool = False) -> None:
+def write_smoke_overrides(
+	output: Path,
+	smoke_map: str,
+	*,
+	world_render: bool = False,
+	phasetest: str | None = None,
+) -> None:
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
 	lines = [f"map {Path(smoke_map).stem}"]
 	if world_render:
 		lines.append("gcworldrender")
+	if phasetest:
+		lines.append(f"phasetest {phasetest}")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 	media = output / "media"
 	media.mkdir(exist_ok=True)
 	(media / "StartupVids.txt").write_text("", encoding="ascii")
 
 
-def write_probe_newgame_override(output: Path) -> None:
-	(output / "gamecube.cfg").write_text("newgame\n", encoding="ascii")
+def write_probe_newgame_override(
+	output: Path,
+	newsaveload: bool = False,
+	phasetest: str | None = None,
+) -> None:
+	lines = ["newgame"]
+	if newsaveload:
+		lines.append("newsaveload")
+	if phasetest:
+		lines.append(f"phasetest {phasetest}")
+	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
+
+
+def write_probe_phasetest_override(output: Path, phase: str) -> None:
+	"""Menu/retail boot with an intentional G82 phase fault (no map/newgame)."""
+	(output / "gamecube.cfg").write_text(f"phasetest {phase}\n", encoding="ascii")
 
 
 def write_startup_vids(output: Path) -> None:
@@ -1098,7 +1120,14 @@ def smoke_map_resources(map_path: Path) -> set[str]:
 	return resources
 
 
-def stage_smoke_data(source: Path, output: Path, smoke_map: str, *, world_render: bool = False) -> Path:
+def stage_smoke_data(
+	source: Path,
+	output: Path,
+	smoke_map: str,
+	*,
+	world_render: bool = False,
+	phasetest: str | None = None,
+) -> Path:
 	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
 	map_relative = f"maps/{map_name}"
 	map_source = source / map_relative
@@ -1112,7 +1141,9 @@ def stage_smoke_data(source: Path, output: Path, smoke_map: str, *, world_render
 		copy_if_present(source, output, relative)
 	for relative in MENU_RESOURCE_DIRS:
 		copy_tree_if_present(source, output, relative)
-	write_smoke_overrides(output, smoke_map, world_render=world_render)
+	write_smoke_overrides(
+		output, smoke_map, world_render=world_render, phasetest=phasetest
+	)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
 	for relative in SMOKE_PRECACHE_MODELS:
@@ -1383,6 +1414,16 @@ def main() -> None:
 		help="stage valve/gamecube.cfg with a newgame override for automated retail probes",
 	)
 	parser.add_argument(
+		"--probe-newsaveload",
+		action="store_true",
+		help="with --probe-newgame, also stage newsaveload for G94 RAM save/load probes",
+	)
+	parser.add_argument(
+		"--probe-phasetest",
+		metavar="PHASE",
+		help="stage gamecube.cfg phasetest <PHASE> for G82 intentional boot-phase fault smoke",
+	)
+	parser.add_argument(
 		"--skip-startup-vids",
 		action="store_true",
 		help="overlay an empty media/StartupVids.txt for faster retail menu boot validation",
@@ -1403,8 +1444,16 @@ def main() -> None:
 		parser.error("--smoke-map and --intro-avi are mutually exclusive")
 	if args.smoke_map and args.probe_newgame:
 		parser.error("--smoke-map and --probe-newgame are mutually exclusive")
+	if args.probe_newsaveload and not args.probe_newgame:
+		parser.error("--probe-newsaveload requires --probe-newgame")
 	if args.world_render and not args.smoke_map:
 		parser.error("--world-render requires --smoke-map")
+	if args.probe_phasetest:
+		phase = args.probe_phasetest.strip().lower()
+		valid = {"early", "engine", "renderer", "sw_fb", "menu", "client", "intro", "map"}
+		if phase not in valid:
+			parser.error(f"--probe-phasetest must be one of: {', '.join(sorted(valid))}")
+		args.probe_phasetest = phase
 
 	# Full retail builds validate source, then stage a normalized copy for the ISO.
 	if not args.smoke_map and not args.intro_avi:
@@ -1419,7 +1468,11 @@ def main() -> None:
 	if args.smoke_map:
 		with tempfile.TemporaryDirectory(prefix="xash3d-gc-smoke-data-") as temp:
 			smoke_data = stage_smoke_data(
-				args.data, Path(temp) / "valve", args.smoke_map, world_render=args.world_render
+				args.data,
+				Path(temp) / "valve",
+				args.smoke_map,
+				world_render=args.world_render,
+				phasetest=args.probe_phasetest,
 			)
 			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
 			if validation_errors:
@@ -1478,7 +1531,13 @@ def main() -> None:
 				sys.exit(1)
 
 			if args.probe_newgame:
-				write_probe_newgame_override(staged_data)
+				write_probe_newgame_override(
+					staged_data,
+					newsaveload=args.probe_newsaveload,
+					phasetest=args.probe_phasetest,
+				)
+			elif args.probe_phasetest:
+				write_probe_phasetest_override(staged_data, args.probe_phasetest)
 
 			overlay_root = Path(temp) / "overlay" / "valve"
 			overlays = create_startup_vids_overlay(

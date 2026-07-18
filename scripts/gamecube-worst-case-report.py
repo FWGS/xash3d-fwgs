@@ -128,24 +128,121 @@ def collect_campaign(root: Path) -> list[Evidence]:
 
 
 def collect_soak(root: Path) -> list[Evidence]:
-    paths = sorted((root / ".ai/logs").glob("soak-*/results.tsv"))
+	paths = sorted((root / ".ai/logs").glob("soak-*/results.tsv"))
+	evidence: list[Evidence] = []
+	for path, row in iter_tsv(paths):
+		scene = row.get("map", "unknown")
+		status = row.get("status", "UNKNOWN")
+		hwm = size_to_bytes(row.get("hwm_bytes", ""))
+		frame_p95 = None if row.get("frame_p95_ms") in {"", "N/A", None} else float(row["frame_p95_ms"])
+		frame_max = None if row.get("frame_max_ms") in {"", "N/A", None} else float(row["frame_max_ms"])
+		blocker = row.get("note", "")
+		evidence.append(Evidence(
+			source=path.relative_to(root).as_posix(),
+			scene=scene,
+			status=status,
+			hwm_bytes=hwm,
+			frame_p95_ms=frame_p95,
+			frame_max_ms=frame_max,
+			blocker=blocker,
+			recommendation=recommendation_for(status, hwm, blocker),
+		))
+	return evidence
+
+
+MEM_STAGE_RE = re.compile(
+    r"mem stage=(?P<stage>\S+)\s+total=(?P<total>[0-9.]+)\s*(?P<tunit>Kb|KiB|Mb|MiB|Gb|GiB|bytes)?"
+    r".*?hwm=(?P<hwm>[0-9.]+)\s*(?P<hunit>Kb|KiB|Mb|MiB|Gb|GiB|bytes)"
+    r".*?map=(?P<map>\S+)",
+    re.I,
+)
+FRAME_BUDGET_RE = re.compile(
+    r"FRAME_BUDGET_STATS:\s*samples=(?P<samples>\d+)\s+"
+    r"avg=(?P<avg>[0-9.]+)ms\s+p95=(?P<p95>[0-9.]+)ms\s+"
+    r"max=(?P<max>[0-9.]+)ms",
+    re.I,
+)
+G36_STATUS_RE = re.compile(r"G36_STATUS:\s*(?P<status>\S+)")
+MAP_LOADED_RE = re.compile(r"map loaded\s+(?P<map>\S+)")
+
+
+def collect_dolphin_probes(root: Path) -> list[Evidence]:
+    """Ingest recent Dolphin New Game / smoke probe logs for G72 ceilings."""
     evidence: list[Evidence] = []
-    for path, row in iter_tsv(paths):
-        scene = row.get("map", "unknown")
-        status = row.get("status", "UNKNOWN")
-        hwm = size_to_bytes(row.get("hwm_bytes", ""))
-        frame_p95 = None if row.get("frame_p95_ms") in {"", "N/A", None} else float(row["frame_p95_ms"])
-        frame_max = None if row.get("frame_max_ms") in {"", "N/A", None} else float(row["frame_max_ms"])
-        blocker = row.get("note", "")
+    probe_dirs = sorted((root / ".ai/logs").glob("dolphin-probe-*"), reverse=True)
+    # Prefer dated dirs; skip named copies like dolphin-probe-g94-run1.txt files.
+    probe_dirs = [path for path in probe_dirs if path.is_dir()][:40]
+
+    for probe_dir in probe_dirs:
+        stderr = probe_dir / "stderr.log"
+        if not stderr.is_file():
+            continue
+        text = read(stderr)
+        # Also fold in harness analyze lines if a probe wrapper saved them beside logs.
+        for extra_name in ("analyze.txt", "probe-summary.txt", "stdout.log"):
+            extra = probe_dir / extra_name
+            if extra.is_file():
+                text += "\n" + read(extra)
+
+        hwm_bytes: int | None = None
+        scene = "unknown"
+        for match in MEM_STAGE_RE.finditer(text):
+            size = size_to_bytes(f"{match.group('hwm')} {match.group('hunit')}")
+            if size is not None and (hwm_bytes is None or size > hwm_bytes):
+                hwm_bytes = size
+            map_name = match.group("map")
+            if map_name and map_name not in {"(none)", "none", "<none>"}:
+                scene = map_name
+        if scene == "unknown":
+            loaded = MAP_LOADED_RE.findall(text)
+            if loaded:
+                scene = loaded[-1]
+
+        frame_p95 = None
+        frame_max = None
+        budget = FRAME_BUDGET_RE.search(text)
+        if budget and int(budget.group("samples")) > 0:
+            frame_p95 = float(budget.group("p95"))
+            frame_max = float(budget.group("max"))
+
+        g36 = G36_STATUS_RE.search(text)
+        if "G94 load restore present" in text or "G94 lean save ready" in text:
+            status = "PASS"
+            blocker = "newgame save/load probe"
+        elif "changelevel" in text and "world present" in text:
+            status = "PASS"
+            blocker = "newgame changelevel probe"
+        elif g36 and g36.group("status").upper() == "PASS":
+            status = "PASS"
+            blocker = "dolphin newgame/smoke probe"
+        elif "G82: Intentional phase fault" in text:
+            status = "PASS"
+            blocker = "g82 intentional phase fault (boot isolation)"
+            if scene == "unknown":
+                scene = "boot"
+        elif "map loaded" in text:
+            status = "MAP_LOADED"
+            blocker = "dolphin probe map loaded"
+        elif hwm_bytes is None and scene == "unknown":
+            continue
+        else:
+            status = "INCONCLUSIVE"
+            blocker = "dolphin probe without clear G36/map pass"
+
+        # Prefer named New Game route scenes in the risk table.
+        if "newgame" in text.lower() or "gcnewgame" in text.lower():
+            if scene not in {"unknown", "boot"}:
+                scene = f"newgame/{scene}"
+
         evidence.append(Evidence(
-            source=path.relative_to(root).as_posix(),
+            source=probe_dir.relative_to(root).as_posix(),
             scene=scene,
             status=status,
-            hwm_bytes=hwm,
+            hwm_bytes=hwm_bytes,
             frame_p95_ms=frame_p95,
             frame_max_ms=frame_max,
             blocker=blocker,
-            recommendation=recommendation_for(status, hwm, blocker),
+            recommendation=recommendation_for(status, hwm_bytes, blocker),
         ))
     return evidence
 
@@ -216,7 +313,12 @@ def main() -> int:
     log_dir = args.log_dir or root / ".ai/logs" / f"worst-case-{stamp}"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    evidence = collect_map_compat(root) + collect_campaign(root) + collect_soak(root)
+    evidence = (
+        collect_map_compat(root)
+        + collect_campaign(root)
+        + collect_soak(root)
+        + collect_dolphin_probes(root)
+    )
     current_evidence = latest_per_scene(root, evidence)
     source_status = source_profile_status(root)
     hard_failures = [

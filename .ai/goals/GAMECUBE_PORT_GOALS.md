@@ -15,13 +15,17 @@ Automation tier: `world_res_320` (see `.ai/state/gc-port-automation-tier.json`).
 - G92: `c0a0`→`c0a0a` changelevel with fresh PVS + world present
 - G93: world presents at `320x240` (`gcmap world pixels nonzero=70610/76800`);
   fallback `-gcnewgame160` keeps 160×120
+- G94: lean save/load after world present restores origin `(2883,2810,515)`
+  and reaches `G94 load restore present` (RAM bank when no SD)
+- G82: intentional `phasetest sw_fb` reports `boot=sw_fb` + `G82_VERIFIED`
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G94** — Save/load round trip from a live New Game session
-2. **G82** — Finish boot-phase isolation (partially landed; keep until probe-proof)
-3. **G72** — Deferred until G94 produces fresh worst-case gameplay evidence
+1. **G72** — Close worst-case performance and memory optimization
+   (reopened: G83–G94 + G82 complete; regenerate from current New Game logs)
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260717-160152` (G82 phase-fault at sw_fb)
+- `.ai/logs/dolphin-probe-20260717-155659` (G94 save/load restore present)
 - `.ai/logs/dolphin-probe-20260717-145537` (G93 320×240 presents)
 - `.ai/logs/dolphin-probe-20260717-145327` (G92 changelevel + PVS re-capture)
 - `.ai/logs/dolphin-probe-20260717-124047` (G91 gameplay SFX)
@@ -1317,11 +1321,10 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Record media type, filesystem, loader route, free-space state, slot/path,
   artifact hash, map, save name, and before/after file listing evidence.
 
-## G72 [SKIP] Close worst-case performance and memory optimization
+## G72 [ ] Close worst-case performance and memory optimization
 
-- Status: SKIP for local overnight source-porting until G83–G94 land fresh New
-  Game gameplay evidence. Worst-case claims from stale map-compat rows are not
-  actionable while post-G36 think/PVS are still slimmed.
+- Status: REOPENED 2026-07-17 after G83–G94 New Game bring-up and G82
+  phase isolation. Prior SKIP held until fresh post-G36 evidence existed.
 - Identify the worst currently supported scenes from the campaign audit and
   soak logs, then either optimize them or explicitly lower/default the quality
   profile until they meet the release frame and memory thresholds.
@@ -1339,8 +1342,15 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   evidence rows, no hard MEM1 failures, and all source profile guards present
   (`--low-memory-mode=2`, default `gc_quality=1`, texture clamps, surface-cache
   bounds, and world-edge bounds).
-- Reopen when: New Game sustains player think + real PVS world presents, then
-  regenerate worst-case evidence from current-build Dolphin logs.
+- Next: regenerate worst-case evidence from current-build Dolphin New Game /
+  changelevel / save-load logs (G92–G94 anchors), then close or further optimize.
+- Progress (2026-07-17): Report now ingests Dolphin probe stderr + analyze
+  sidecars. Regenerated `.ai/logs/worst-case-g72-20260717-newgame` /
+  `.ai/logs/worst-case-g72-current`:
+  - `newgame/c0a0` PASS HWM≈3.78 MiB p95≈16.68ms (G94 probe 20260717-155659)
+  - source guards PASS; hard MEM1 failures 0; profile stays `gc_quality=1`
+  - Stale map-compat `c1a0`/`c0a0e` INCONCLUSIVE rows still appear; classify
+    or replace via G68 before claiming campaign-wide worst-case closure.
 
 ## G73 [SKIP] Prove clean checkout release rebuild and archive reproducibility
 
@@ -1638,39 +1648,57 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   - Changelevel still reaches `world present map=c0a0a 320x240`
 - Evidence: `.ai/logs/dolphin-probe-20260717-145537`.
 
-## G94 [ ] Save/load round trip from a live New Game session
+## G94 [x] Save/load round trip from a live New Game session
 
-- Status: SOURCE-FIRST after G84/G87. G32/G58 proved save/load on smoke
-  routes; a save taken during the post-G36 bounded-server New Game session
-  (slim ticks, partial think) has never been round-tripped.
+- Status: DONE 2026-07-17. Full `SV_SaveGame` OOM'd under post-G36 MEM1; lean
+  BSS blob (`G94SAVE1`: map + origin + angles + health) round-trips in place
+  on the same map without freeing PVS. Disc `gamecube.cfg` bakes `newsaveload`
+  (ISO boots ignore Dolphin `--` guest args). Probe uses RAM bank when no SD;
+  `gcprobe:` is never the FS root (avoids mkdir hang). Gameplay SFX skipped
+  under `-gcnewsaveload` to keep MEM1 for the second present.
 - Acceptance:
   - Issue a save after New Game world presents; reload it (same boot or next
     boot) and reach world presents again with player origin restored.
   - Saved game does not persist slim-tick side effects that break a later
     full-physics resume (document any fields intentionally reset).
   - Storage writes respect the existing writable-media policy (G28/G46).
-- Evidence: probe or scripted run log showing save write + restore markers.
+- Evidence: `.ai/logs/dolphin-probe-20260717-155659` —
+  `G94 lean save ready ... origin=(2883,2810,515)`,
+  `G94 lean restore applied origin=(2883,2810,515)`,
+  `G94 load restore present map=c0a0 origin=(2883,2810,515)`,
+  `MAP_READY` / `G36_STATUS: PASS`.
+- Command:
+  ```sh
+  DOLPHIN_NEWGAME=1 DOLPHIN_G94=1 DOLPHIN_TIMEOUT=240 DOLPHIN_FRAME_SAMPLE_SEC=20 scripts/dolphin-boot-probe.sh
+  ```
 
-## G82 [ ] Isolate GameCube boot-flow stabilization from fallback-menu UX work
+## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
-- Separate the GameCube boot path into explicit phases for intro AVI, renderer
-  readiness, software framebuffer availability, fallback menu rendering, and
-  client/game DLL bring-up so crashes can be attributed to one phase instead of
-  mixed boot/menu codepaths.
-- Remove or gate any renderer/menu drawing path that can issue GX software fill
-  or command execution before the required GameCube video buffers and client
-  state are known valid.
-- Add phase-specific logging and a reproducible smoke probe that reports the
-  exact last successful boot phase before an invalid read/write, guest crash, or
-  black-screen failure.
-- Progress (2026-07-15): New Game path already emits boot-phase / map / G36 /
-  world-present breadcrumbs and gates draws via `GC_BootDrawAllowed` /
-  quality profiles. Keep G82 open until a dedicated phase-failure smoke probe
-  reports the last successful phase on an intentional early fault (missing
-  buffer, menu-before-vid, or intro fault) without relying on New Game alone.
-- Ordering note: G83–G94 are higher priority for playable New Game bring-up;
-  automation should complete those before spending passes on G82 polish unless
-  a boot-phase crash blocks New Game.
+- Status: DONE 2026-07-17. Boot phases are chronological
+  (`early`→`engine`→`renderer`→`sw_fb`→`menu`→`client`→`intro`→`map`);
+  `GC_BootDrawAllowed` still gates fallback-menu draws until `sw_fb` + buffer.
+  Disc/probe `phasetest <phase>` / `-gc_phase_test` injects
+  `G82: Intentional phase fault at <phase>` after that phase reports; fatal
+  breadcrumb carries `boot=<phase>`. Probe prints `G82_VERIFIED`.
+- Acceptance:
+  - Separate GameCube boot path into explicit phases for intro AVI, renderer
+    readiness, software framebuffer availability, fallback menu rendering, and
+    client/game DLL bring-up so crashes can be attributed to one phase instead of
+    mixed boot/menu codepaths.
+  - Remove or gate any renderer/menu drawing path that can issue GX software fill
+    or command execution before the required GameCube video buffers and client
+    state are known valid.
+  - Add phase-specific logging and a reproducible smoke probe that reports the
+    exact last successful boot phase before an invalid read/write, guest crash, or
+    black-screen failure.
+- Evidence: `.ai/logs/dolphin-probe-20260717-160152` —
+  `boot phase=early`→`engine`→`renderer`→`sw_fb`,
+  `G82: Intentional phase fault at sw_fb`,
+  `fatal ... boot=sw_fb`, `G82_VERIFIED`, `BOOT_PHASE: sw_fb`.
+- Command:
+  ```sh
+  GC_PHASE_TEST=sw_fb DOLPHIN_TIMEOUT=90 scripts/dolphin-boot-probe.sh
+  ```
 
 ### G75 [Manual checkpoint] Sign off native Half-Life 1 GameCube completion
 

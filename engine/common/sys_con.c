@@ -112,7 +112,7 @@ void Sys_InitLog( void )
 	if( s_ld.log_active )
 	{
 #if XASH_GAMECUBE
-		if( !GCube_HasWritableStorage( ))
+		if( !GCube_HasPersistentWritableStorage( ))
 		{
 			Con_Reportf( S_WARN "GameCube: no writable storage, disabling file log (%s)\n", s_ld.log_path );
 			s_ld.log_active = false;

@@ -1163,7 +1163,7 @@ static void Host_InitCommon( int argc, char **argv, const char *progname, qboole
 
 #if !XASH_DEDICATED
 #if XASH_GAMECUBE
-	if( GCube_HasWritableStorage( ))
+	if( GCube_HasPersistentWritableStorage( ))
 		Cmd_AddRestrictedCommand( "host_writeconfig", Host_WriteConfig, "save current configuration" );
 	else
 		Con_Reportf( "host_writeconfig: disabled (no writable storage, using read-only disc)\n" );
@@ -1294,11 +1294,12 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #if XASH_GAMECUBE
 	GC_MemSample( "server init" );
 	Con_Reportf( "Xash3D GameCube: server init ready\n" );
+	/* Report engine before CL_Init so renderer/sw_fb/menu/client can advance. */
+	GC_ReportBootPhase( GC_BOOT_ENGINE );
 #endif
 	CL_Init();
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: engine subsystems ready\n" );
-	GC_ReportBootPhase( GC_BOOT_ENGINE );
 #endif
 
 #if !XASH_GAMECUBE
@@ -1543,7 +1544,7 @@ void Host_ShutdownWithReason( const char *reason )
 	if( host.type == HOST_NORMAL && !error )
 		Host_WriteConfig();
 #else
-	if( host.type == HOST_NORMAL && !error && GCube_HasWritableStorage( ))
+	if( host.type == HOST_NORMAL && !error && GCube_HasPersistentWritableStorage( ))
 		Host_WriteConfig();
 	else if( host.type == HOST_NORMAL && !error )
 		Con_Reportf( "%s: no writable storage, skipping config save\n", __func__ );

@@ -36,8 +36,8 @@ GNU General Public License for more details.
 #include "filesystem.h"
 #include "filesystem_internal.h"
 #include "common/com_strings.h"
-
 #if XASH_GAMECUBE
+#include "probe_save_gc.h"
 extern int Sys_CheckParm( const char *parm );
 #endif
 
@@ -102,6 +102,14 @@ file_t *FS_Open( const char *filepath, const char *mode, qboolean gamedironly )
 	if( FS_CheckNastyPath( filepath ))
 		return NULL;
 
+#if XASH_GAMECUBE
+	{
+		file_t *probe = GC_ProbeSaveOpen( filepath, mode );
+		if( probe )
+			return probe;
+	}
+#endif
+
 	// if the file is opened in "write", "append", or "read/write" mode
 	if( mode[0] == 'w' || mode[0] == 'a'|| mode[0] == 'e' || Q_strchr( mode, '+' ))
 	{
@@ -130,6 +138,15 @@ Close a file
 int FS_Close( file_t *file )
 {
 	if( !file ) return 0;
+
+#if XASH_GAMECUBE
+	if( GC_ProbeSaveIsHandle( file ))
+	{
+		GC_ProbeSaveClose( file );
+		Mem_Free( file );
+		return 0;
+	}
+#endif
 
 	FS_BackupFileName( file, NULL, 0 );
 
@@ -160,6 +177,14 @@ int FS_Flush( file_t *file )
 {
 	if( !file ) return 0;
 
+#if XASH_GAMECUBE
+	if( GC_ProbeSaveIsHandle( file ))
+	{
+		FS_Purge( file );
+		return 0;
+	}
+#endif
+
 	// purge cached data
 	FS_Purge( file );
 
@@ -187,6 +212,11 @@ fs_offset_t FS_Write( file_t *file, const void *data, size_t datasize )
 	fs_offset_t result;
 
 	if( !file ) return 0;
+
+#if XASH_GAMECUBE
+	if( GC_ProbeSaveIsHandle( file ))
+		return GC_ProbeSaveWrite( file, data, datasize );
+#endif
 
 	// if necessary, seek to the exact file position we're supposed to be
 	if( file->buff_ind != file->buff_len )
@@ -222,6 +252,21 @@ fs_offset_t FS_Read( file_t *file, void *buffer, size_t buffersize )
 
 	// nothing to copy
 	if( buffersize == 0 ) return 1;
+
+#if XASH_GAMECUBE
+	if( GC_ProbeSaveIsHandle( file ))
+	{
+		if( file->ungetc != EOF )
+		{
+			((char *)buffer)[0] = file->ungetc;
+			file->ungetc = EOF;
+			if( buffersize == 1 )
+				return 1;
+			return 1 + GC_ProbeSaveRead( file, (char *)buffer + 1, buffersize - 1 );
+		}
+		return GC_ProbeSaveRead( file, buffer, buffersize );
+	}
+#endif
 
 	// Get rid of the ungetc character
 	if( file->ungetc != EOF )
@@ -523,6 +568,11 @@ NOTE: it's not compatible with lseek!
 */
 int FS_Seek( file_t *file, fs_offset_t offset, int whence )
 {
+#if XASH_GAMECUBE
+	if( GC_ProbeSaveIsHandle( file ))
+		return GC_ProbeSaveSeek( file, offset, whence ) < 0 ? -1 : 0;
+#endif
+
 	// compute the file offset
 	switch( whence )
 	{
@@ -848,6 +898,10 @@ Look for a file in the packages and in the filesystem
 */
 int GAME_EXPORT FS_FileExists( const char *filename, int gamedironly )
 {
+#if XASH_GAMECUBE
+	if( GC_ProbeSaveFileExists( filename ))
+		return true;
+#endif
 	return FS_FindFile( filename, NULL, NULL, 0, gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 ) != NULL;
 }
 
