@@ -2729,17 +2729,38 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				}
 			}
 		}
-		/* G92: force first tram-route changelevel after c0a0 world present.
-		 * Skipped during G94 save/load probes. */
-		else if( !Q_stricmp( sv.name, "c0a0" ))
+		/* G92/G68: force changelevel after first-map world present.
+		 * Skipped during G94 save/load probes. Default tram hop c0a0→c0a0a;
+		 * `-gcchangelevel <map>` overrides the destination. */
+		else
 		{
 			static qboolean gc_changelevel_queued;
+			static char gc_cl_from[MAX_QPATH];
+			char dest[MAX_QPATH];
+			const char *to = "c0a0a";
 
-			if( !gc_changelevel_queued )
+			if( Sys_GetParmFromCmdLine( "-gcchangelevel", dest ))
+				to = dest;
+			else if( Q_stricmp( sv.name, "c0a0" ))
+				to = NULL;
+
+			if( to != NULL && !gc_changelevel_queued && Q_stricmp( sv.name, to ))
 			{
 				gc_changelevel_queued = true;
-				SYS_Report( "Xash3D GameCube: changelevel begin map=c0a0a from=%s\n", sv.name );
-				COM_ChangeLevel( "c0a0a", NULL, false );
+				Q_strncpy( gc_cl_from, sv.name, sizeof( gc_cl_from ));
+				SYS_Report( "Xash3D GameCube: changelevel begin map=%s from=%s\n",
+					to, sv.name );
+				COM_ChangeLevel( to, NULL, false );
+			}
+			else if( to != NULL && gc_changelevel_queued && !Q_stricmp( sv.name, to ))
+			{
+				static qboolean gc_cl_ready_logged;
+				if( !gc_cl_ready_logged )
+				{
+					gc_cl_ready_logged = true;
+					SYS_Report( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
+						gc_cl_from[0] ? gc_cl_from : "?", sv.name );
+				}
 			}
 		}
 	}

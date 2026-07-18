@@ -407,12 +407,14 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	return false;
 }
 
-static char *gc_argv[20];
+static char *gc_argv[24];
 static char gc_smoke_map[MAX_QPATH];
 static char gc_phase_test[32];
+static char gc_changelevel_map[MAX_QPATH];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
 static qboolean gc_phase_test_configured;
+static qboolean gc_changelevel_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -424,7 +426,9 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_newgame_configured = false;
 	gc_newsaveload_configured = false;
 	gc_phase_test_configured = false;
+	gc_changelevel_configured = false;
 	gc_phase_test[0] = '\0';
+	gc_changelevel_map[0] = '\0';
 
 	if( !GCube_MountDisc() )
 		return;
@@ -491,6 +495,27 @@ static void GCube_LoadDiscBootOverrides( void )
 			continue;
 		}
 
+		if( !Q_strnicmp( cursor, "changelevel", 11 ) && ( cursor[11] == ' ' || cursor[11] == '\t' ))
+		{
+			mapname = cursor + 11;
+			while( *mapname == ' ' || *mapname == '\t' )
+				mapname++;
+			len = strlen( mapname );
+			while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ))
+			{
+				mapname[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_changelevel_map )
+				&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
+			{
+				Q_strncpy( gc_changelevel_map, mapname, sizeof( gc_changelevel_map ));
+				gc_changelevel_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override changelevel %s\n",
+					gc_changelevel_map );
+			}
+			continue;
+		}
+
 		if( Q_strnicmp( cursor, "map", 3 ) || ( cursor[3] != ' ' && cursor[3] != '\t' ))
 			continue;
 
@@ -552,6 +577,11 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-gc_phase_test";
 		gc_argv[fake_argc++] = gc_phase_test;
+	}
+	if( gc_changelevel_configured )
+	{
+		gc_argv[fake_argc++] = "-gcchangelevel";
+		gc_argv[fake_argc++] = gc_changelevel_map;
 	}
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "640";

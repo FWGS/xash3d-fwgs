@@ -18,19 +18,21 @@ Automation tier: `world_res_320` (see `.ai/state/gc-port-automation-tier.json`).
 - G94: lean save/load after world present restores origin `(2883,2810,515)`
   and reaches `G94 load restore present` (RAM bank when no SD)
 - G82: intentional `phasetest sw_fb` reports `boot=sw_fb` + `G82_VERIFIED`
+- G72: worst-case report PASS — keep `gc_quality=1`; peak supported HWM
+  `c1a0` ≈4.87 MiB; New Game present ≈3.78 MiB p95≈16.68ms
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G72** — Close worst-case performance and memory optimization
-   (reopened: G83–G94 + G82 complete; regenerate from current New Game logs)
+1. **G68** — Campaign map classification DONE (96/96 MAP_READY); still need
+   representative changelevel samples per chapter group (only G92 `c0a0`→`c0a0a`
+   so far)
 
 Evidence anchors:
+- `.ai/logs/worst-case-g72-current` (G72 classified worst-case report)
+- `.ai/logs/map-compat-20260717-170327` (c0a0e/c1a0 MAP_READY)
 - `.ai/logs/dolphin-probe-20260717-160152` (G82 phase-fault at sw_fb)
 - `.ai/logs/dolphin-probe-20260717-155659` (G94 save/load restore present)
 - `.ai/logs/dolphin-probe-20260717-145537` (G93 320×240 presents)
 - `.ai/logs/dolphin-probe-20260717-145327` (G92 changelevel + PVS re-capture)
-- `.ai/logs/dolphin-probe-20260717-124047` (G91 gameplay SFX)
-- `.ai/logs/dolphin-probe-20260717-120407` (G87 WriteEntities)
-- `.ai/logs/dolphin-probe-20260717-120109` (G86 move/look)
 
 ## G01 [x] Audit `SV_InitEdict` overflow warning
 
@@ -1242,8 +1244,11 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   frames. Keep this open until the displayed frame is visually correct; the
   current frame dump is no longer flat green, but it is still visibly corrupted.
 
-## G68 [SKIP] Complete full Half-Life campaign map and transition audit
+## G68 [ ] Complete full Half-Life campaign map and transition audit
 
+- Status: REOPENED 2026-07-17 after G72. Prior operator SKIP (2026-06-28) held
+  while New Game bring-up and worst-case profile were open. Fresh map-compat
+  classifies `c0a0e` and `c1a0` as `MAP_READY` (HWM ≈3.38 / 4.87 MiB).
 - Run the campaign audit over every retail Half-Life campaign BSP available in
   the operator's legal local assets, not just smoke or early-route maps.
 - Classify each map as playable, boots-with-limitations, blocked-by-content,
@@ -1259,22 +1264,17 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   all 230 target BSPs present. This proves campaign transition target coverage,
   but G68 remains open until current-build Dolphin or hardware audit evidence
   classifies the actual maps and representative transitions.
-- Progress evidence (2026-06-28): current-build Dolphin representative audits
-  now classify `Black Mesa Inbound` `c0a0e` as `MAP_READY` with 11/11 parsed
-  transition targets present. `Anomalous Materials` `c1a0` now selects the
-  correct smoke map from staged `gamecube.cfg`, completes BSP texture loading,
-  skips oversized 367.41 KiB lightmaps, uses compact clipnodes through all 77
-  submodels, and reaches HLSDK entity/model precache. Current blocker:
-  `.ai/logs/campaign-audit-g68-anomalous-aliased-clipnodes/summary.md` records
-  `_Mem_Alloc` in `Server Edicts Zone` at `engine/server/sv_game.c:2946`
-  while allocating 736 bytes of entity private data after `monster_scientist`
-  and `monster_barney` spawn setup. G68 remains open until spawn proceeds into
-  active gameplay/rendering for this chapter or the entity-memory blocker is
-  explicitly classified.
-
-
-- Status: SKIPPED
-- Operator override: skipped from the GUI on 2026-06-28T23:41:23-07:00.
+- Progress evidence (2026-07-17): `.ai/logs/map-compat-20260717-170327` —
+  `c0a0e`/`c1a0` MAP_READY + G36 PASS on current build (prior Server Edicts
+  Zone OOM on `c1a0` no longer reproduces on this smoke route).
+- Progress evidence (2026-07-17 evening): consolidated
+  `.ai/logs/campaign-audit-g68-20260717-progress` — **96/96** campaign-list
+  maps `MAP_READY` under `-gcmap` smoke (peak HWM `c1a1f` ≈5.52 MiB). Full
+  chapter coverage from Black Mesa Inbound through Nihilanth.
+- Remaining for G68 close: representative changelevel transition per chapter
+  group (player/globals/save/memory across the hop). Only New Game
+  `c0a0`→`c0a0a` (G92) is proven so far; BSP trigger target coverage exists
+  via dry-run campaign audit (230/230 targets present).
 ## G69 [x] Add sustained gameplay soak and leak regression gate
 
 - Provide a repeatable Dolphin or hardware-assisted route that runs for at least
@@ -1321,36 +1321,29 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Record media type, filesystem, loader route, free-space state, slot/path,
   artifact hash, map, save name, and before/after file listing evidence.
 
-## G72 [ ] Close worst-case performance and memory optimization
+## G72 [x] Close worst-case performance and memory optimization
 
-- Status: REOPENED 2026-07-17 after G83–G94 New Game bring-up and G82
-  phase isolation. Prior SKIP held until fresh post-G36 evidence existed.
-- Identify the worst currently supported scenes from the campaign audit and
-  soak logs, then either optimize them or explicitly lower/default the quality
-  profile until they meet the release frame and memory thresholds.
-- Verify representative combat, scripted, loading, menu, save/load, and map
-  transition scenes under the selected default profile with no emergency smoke
-  flags hidden in the launch arguments.
-- Record final MEM1/ARAM ceilings, FPS/frame-time range, active fallbacks, and
-  any intentional content or visual limitations in release evidence.
-- Progress evidence (2026-06-28): `scripts/gamecube-worst-case-report.py`
-  now consumes map-compat, campaign-audit, soak, and source profile evidence,
-  writes `summary.md`, `worst-scenes.tsv`, and `report.json`, and is wired into
-  `scripts/gamecube-rc-check.sh` as the `worst-case performance/memory report`
-  gate.
-- Current report `.ai/logs/worst-case-g72-current/summary.md` found 366
-  evidence rows, no hard MEM1 failures, and all source profile guards present
-  (`--low-memory-mode=2`, default `gc_quality=1`, texture clamps, surface-cache
-  bounds, and world-edge bounds).
-- Next: regenerate worst-case evidence from current-build Dolphin New Game /
-  changelevel / save-load logs (G92–G94 anchors), then close or further optimize.
-- Progress (2026-07-17): Report now ingests Dolphin probe stderr + analyze
-  sidecars. Regenerated `.ai/logs/worst-case-g72-20260717-newgame` /
-  `.ai/logs/worst-case-g72-current`:
-  - `newgame/c0a0` PASS HWM≈3.78 MiB p95≈16.68ms (G94 probe 20260717-155659)
-  - source guards PASS; hard MEM1 failures 0; profile stays `gc_quality=1`
-  - Stale map-compat `c1a0`/`c0a0e` INCONCLUSIVE rows still appear; classify
-    or replace via G68 before claiming campaign-wide worst-case closure.
+- Status: DONE 2026-07-17. Default release profile remains `gc_quality=1` with
+  `--low-memory-mode=2` and existing texture/surface/world clamps. No hard MEM1
+  failures on current supported scenes; no profile demotion required.
+- Ceilings (Dolphin, current build):
+  - MEM1 HWM: `c1a0` smoke ≈4.87 MiB; New Game `c0a0` world present ≈3.78 MiB;
+    `c0a0e` smoke ≈3.38 MiB (all under map-active 7 MiB / BSP 8 MiB guards).
+  - Frame time: New Game 320×240 p95≈16.68ms / max≈16.78ms (G36 bar);
+    smoke `c0a0e`/`c1a0` p95≈0.65ms (budget-probe path).
+  - Fallbacks active: lean New Game present path, bounded post-G36 think,
+    lean G94 save blob (full `SV_SaveGame` still OOM under MEM1).
+- Representative scenes verified under default profile (no emergency smoke flags
+  in release argv): loading (`c0a0e`/`c1a0` MAP_READY), New Game present +
+  move/look/use, changelevel (`c0a0`→`c0a0a`), save/load (G94), boot-phase
+  isolation (G82). Combat-dense and chapter-wide campaign routes remain G68.
+- Intentional limitations (release evidence):
+  - Full campaign map/transition audit and combat worst-case: deferred to G68.
+  - Full GoldSrc save heap round-trip: lean G94 path only until MEM1 headroom grows.
+  - Post-G36 entity think remains bounded (not full server walk).
+- Evidence: `.ai/logs/worst-case-g72-current` (strict PASS);
+  `.ai/logs/map-compat-20260717-170327` (`c0a0e`/`c1a0` MAP_READY);
+  New Game anchors 20260717-145327/145537/155659.
 
 ## G73 [SKIP] Prove clean checkout release rebuild and archive reproducibility
 

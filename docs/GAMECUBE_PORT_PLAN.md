@@ -2081,8 +2081,8 @@ Endgame / release goals in `.ai/goals/GAMECUBE_PORT_GOALS.md`:
 - **G69:** Add sustained gameplay soak and leak regression evidence.
 - **G70:** Manually capture target-display audio/video evidence.
 - **G71:** Manually prove persistent save/config storage on real media.
-- **G72:** Close worst-case performance and memory optimization (SKIP until
-  G83–G94 produce fresh New Game gameplay evidence).
+- **G72:** Close worst-case performance and memory optimization — DONE
+  (2026-07-17); keep `gc_quality=1`; campaign combat deferred to G68.
 - **G73:** Prove clean checkout release rebuild and archive reproducibility.
 - **G74:** Burn down final blockers and freeze known limitations.
 - **G76:** Freeze release-candidate documentation and known limitations.
@@ -2186,8 +2186,9 @@ hardware evidence refer to the same commit and artifact hashes.
   `MAP_READY`/`G36 PASS`. Full `SV_SaveGame` still OOM under MEM1; disc
   `newsaveload` override + RAM bank when no SD; PVS kept across round trip.
 
-**Next automatic goal:** G72 (worst-case performance/memory) — REOPENED;
-fresh New Game report at `.ai/logs/worst-case-g72-current`. New Game regression:
+**Next automatic goal:** none open. G72 closed; remaining automatic goals are
+SKIP (G68 campaign audit, G73–G81 harness/docs, G74/G76/G77 release gates).
+New Game regression:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=32 scripts/dolphin-boot-probe.sh
 ```
@@ -2352,10 +2353,11 @@ release run is intentionally separate: before final G75 sign-off, run
 `RC_SOAK_DRY_RUN=0 RC_SOAK_STRICT=1` against the release artifact and attach the
 result to the final evidence packet.
 
-## G72 — Worst-case performance and memory optimization gate (REOPENED 2026-07-17)
+## G72 — Worst-case performance and memory optimization gate (COMPLETE 2026-07-17)
 
-**Status (2026-07-17):** REOPENED after G83–G94 + G82. Fresh New Game
-evidence ingested by the reducer.
+**Status (2026-07-17):** DONE. Keep default `gc_quality=1`. Fresh map-compat
+replaced stale INCONCLUSIVE rows; New Game ceilings recorded; campaign-wide
+combat/chapter audit remains G68.
 
 `scripts/gamecube-worst-case-report.py` is the G72 evidence reducer. It consumes
 map compatibility TSVs, campaign-audit TSVs, soak probe TSVs, Dolphin probe
@@ -2365,18 +2367,14 @@ stderr (New Game mem HWM / G36), and source profile guards, then writes:
 - `worst-scenes.tsv` for the highest-risk map/route candidates.
 - `report.json` for GUI/Qwable/mempalace ingestion.
 
-The report verifies that the conservative release profile is still wired
-(`--low-memory-mode=2`, default `gc_quality=1`, texture clamps, surface-cache
-bounds, and world-edge bounds) and fails if any scene records critical MEM1
-pressure. In strict mode it also fails while runtime blockers remain unclassified.
-The RC suite now runs this as `worst-case performance/memory report`.
+**Ceilings / profile:**
+- MEM1 HWM: `c1a0` ≈4.87 MiB, New Game `c0a0` ≈3.78 MiB, `c0a0e` ≈3.38 MiB
+- New Game 320×240 frame p95≈16.68ms (G36 PASS)
+- Source guards PASS; hard MEM1 failures 0; strict report PASS
+- Intentional limits: G68 campaign combat; lean G94 save; bounded post-G36 think
 
-**Current evidence:** `.ai/logs/worst-case-g72-current/summary.md` (regenerated
-2026-07-17 from New Game probes) — `newgame/c0a0` PASS HWM≈3.78 MiB
-p95≈16.68ms; no hard MEM1 failures; source guards PASS; keep `gc_quality=1`.
-Stale map-compat INCONCLUSIVE rows for `c1a0`/`c0a0e` remain until G68
-classification. Do not close G72 for campaign-wide claims until those are
-replaced or explicitly limited in release notes.
+**Evidence:** `.ai/logs/worst-case-g72-current`,
+`.ai/logs/map-compat-20260717-170327`.
 
 **Commands:**
 

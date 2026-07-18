@@ -876,6 +876,7 @@ def write_smoke_overrides(
 	*,
 	world_render: bool = False,
 	phasetest: str | None = None,
+	changelevel: str | None = None,
 ) -> None:
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
@@ -885,6 +886,8 @@ def write_smoke_overrides(
 		lines.append("gcworldrender")
 	if phasetest:
 		lines.append(f"phasetest {phasetest}")
+	if changelevel:
+		lines.append(f"changelevel {Path(changelevel).stem}")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 	media = output / "media"
 	media.mkdir(exist_ok=True)
@@ -895,12 +898,15 @@ def write_probe_newgame_override(
 	output: Path,
 	newsaveload: bool = False,
 	phasetest: str | None = None,
+	changelevel: str | None = None,
 ) -> None:
 	lines = ["newgame"]
 	if newsaveload:
 		lines.append("newsaveload")
 	if phasetest:
 		lines.append(f"phasetest {phasetest}")
+	if changelevel:
+		lines.append(f"changelevel {Path(changelevel).stem}")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
@@ -1127,6 +1133,7 @@ def stage_smoke_data(
 	*,
 	world_render: bool = False,
 	phasetest: str | None = None,
+	changelevel: str | None = None,
 ) -> Path:
 	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
 	map_relative = f"maps/{map_name}"
@@ -1142,7 +1149,11 @@ def stage_smoke_data(
 	for relative in MENU_RESOURCE_DIRS:
 		copy_tree_if_present(source, output, relative)
 	write_smoke_overrides(
-		output, smoke_map, world_render=world_render, phasetest=phasetest
+		output,
+		smoke_map,
+		world_render=world_render,
+		phasetest=phasetest,
+		changelevel=changelevel,
 	)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
@@ -1163,6 +1174,17 @@ def stage_smoke_data(
 	resources = smoke_map_resources(map_source)
 	for resource in sorted(resources):
 		copy_if_present(source, output, resource)
+
+	if changelevel:
+		dest_stem = Path(changelevel).stem
+		dest_name = f"{dest_stem}.bsp"
+		dest_relative = f"maps/{dest_name}"
+		dest_source = source / dest_relative
+		if not dest_source.is_file():
+			raise FileNotFoundError(f"changelevel map does not exist: {dest_source}")
+		copy_if_present(source, output, dest_relative)
+		for resource in sorted(smoke_map_resources(dest_source)):
+			copy_if_present(source, output, resource)
 
 	(output / "custom").mkdir(exist_ok=True)
 	(output / "maps").mkdir(exist_ok=True)
@@ -1424,6 +1446,11 @@ def main() -> None:
 		help="stage gamecube.cfg phasetest <PHASE> for G82 intentional boot-phase fault smoke",
 	)
 	parser.add_argument(
+		"--probe-changelevel",
+		metavar="MAP",
+		help="stage gamecube.cfg changelevel <MAP> for G68 transition probes (with --smoke-map or --probe-newgame)",
+	)
+	parser.add_argument(
 		"--skip-startup-vids",
 		action="store_true",
 		help="overlay an empty media/StartupVids.txt for faster retail menu boot validation",
@@ -1473,6 +1500,7 @@ def main() -> None:
 				args.smoke_map,
 				world_render=args.world_render,
 				phasetest=args.probe_phasetest,
+				changelevel=args.probe_changelevel,
 			)
 			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
 			if validation_errors:
@@ -1535,6 +1563,7 @@ def main() -> None:
 					staged_data,
 					newsaveload=args.probe_newsaveload,
 					phasetest=args.probe_phasetest,
+					changelevel=args.probe_changelevel,
 				)
 			elif args.probe_phasetest:
 				write_probe_phasetest_override(staged_data, args.probe_phasetest)

@@ -78,6 +78,7 @@ fi
 DOLPHIN_WORLD_RENDER="${DOLPHIN_WORLD_RENDER:-0}"
 GC_FATAL_TEST="${GC_FATAL_TEST:-0}"
 GC_PHASE_TEST="${GC_PHASE_TEST:-}"
+DOLPHIN_CHANGELEVEL="${DOLPHIN_CHANGELEVEL:-}"
 GUEST_MARKER="Xash3D GameCube: bootstrap"
 READY_MARKER="Xash3D GameCube: engine subsystems ready"
 RETAIL_MENU_MARKER="Xash3D GameCube: retail menu steam background ready"
@@ -201,6 +202,10 @@ if (( SKIP_DISC )); then
 		BUILD_ARGS+=(--probe-phasetest "$GC_PHASE_TEST")
 		echo "==> G82 phase-fault probe (phasetest ${GC_PHASE_TEST})"
 	fi
+	if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
+		BUILD_ARGS+=(--probe-changelevel "$DOLPHIN_CHANGELEVEL")
+		echo "==> G68 changelevel probe (to ${DOLPHIN_CHANGELEVEL})"
+	fi
 	if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
 		echo "FAIL: Disc build failed."
 		exit 1
@@ -217,11 +222,20 @@ if [[ -n "$GC_PHASE_TEST" ]]; then
 	GUEST_ARGS+=("-gc_phase_test" "$GC_PHASE_TEST")
 	echo "==> Waiting for G82 intentional phase fault at ${GC_PHASE_TEST}"
 fi
+if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
+	GUEST_ARGS+=("-gcchangelevel" "$DOLPHIN_CHANGELEVEL")
+	G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
+	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
+	echo "==> Waiting for G68 changelevel ready ${SMOKE_MAP}→${DOLPHIN_CHANGELEVEL}"
+fi
 if (( DOLPHIN_NEWGAME )); then
 	GUEST_ARGS+=("-gcnewgame")
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
 	MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
 	echo "==> New Game probe mode (expect map ${SMOKE_MAP})"
+	if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
+		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
+	fi
 	if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 		GUEST_ARGS+=("-gcnewsaveload")
 		echo "==> G94 save/load probe (-gcnewsaveload, RAM bank if no SD)"

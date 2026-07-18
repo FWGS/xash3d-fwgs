@@ -1,4 +1,4 @@
 {
   "tier": "world_res_320",
-  "note": "G94+G82 DONE. G72 REOPENED: worst-case report regenerated (.ai/logs/worst-case-g72-current) with newgame/c0a0 HWM~3.78MiB p95~16.68ms; keep gc_quality=1. Next: classify stale map-compat or document G68-deferred campaign limits"
+  "note": "G72 DONE. G68 map classification DONE 96/96 MAP_READY (peak c1a1f~5.52MiB). Remaining: per-chapter changelevel samples (only G92 c0a0->c0a0a so far). Progress .ai/logs/campaign-audit-g68-20260717-progress"
 }

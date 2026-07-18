@@ -69,6 +69,30 @@ static void SV_GameCubePlayStart_f( void )
 		Cvar_Set( "gc_quality", "0" );
 		if( Sys_CheckParm( "-gcmap" ) && !Sys_CheckParm( "-gcnewgame" ))
 			GC_ArmPostMapFrameBudgetSamples();
+		/* G68: after first map is playable, force a probe changelevel hop. */
+		if( Sys_CheckParm( "-gcchangelevel" ))
+		{
+			static char gc_cl_from[MAX_QPATH];
+			static qboolean gc_cl_issued;
+			char dest[MAX_QPATH];
+
+			if( !gc_cl_issued && Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+				&& Q_stricmp( dest, map ))
+			{
+				Q_strncpy( gc_cl_from, map, sizeof( gc_cl_from ));
+				gc_cl_issued = true;
+				SYS_Report( "Xash3D GameCube: changelevel begin map=%s from=%s\n",
+					dest, map );
+				COM_ChangeLevel( dest, NULL, false );
+			}
+			else if( gc_cl_issued && gc_cl_from[0]
+				&& Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+				&& !Q_stricmp( dest, map ))
+			{
+				SYS_Report( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
+					gc_cl_from, map );
+			}
+		}
 		GC_EndMapLoadMemoryOpt();
 	}
 	else
