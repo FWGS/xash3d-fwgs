@@ -2860,7 +2860,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				if( pl && landmark[0] )
 				{
 					pl->v.health = 77.0f;
-					SYS_Report( "Xash3D GameCube: G97 probe health set=77\n" );
+					pl->v.armorvalue = 50.0f;
+					pl->v.weapons = ( 1 << 1 ) | ( 1 << 2 );
+					SYS_Report( "Xash3D GameCube: G98 probe inventory set health=77 armor=50 weapons=0x6\n" );
 				}
 				SYS_Report( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
 					to, sv.name, landmark[0] ? landmark : "(none)" );

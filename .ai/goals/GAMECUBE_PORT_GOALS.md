@@ -13,13 +13,14 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
 - G92–G96: presents, save/load, campaign audit, lean PVS after changelevel
-- G97: landmark hop `c0a0`→`c0a0a` (`c0a0toa`) restores health=77
+- G97–G98: landmark hop `c0a0`→`c0a0a` restores health=77, armor=50, weapons=0x6
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G97 closed. Remaining items are SKIP (G73–G81) or manual
+- None — G98 closed. Remaining items are SKIP (G73–G81) or manual
   checkpoints (G70/G71/G75).
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260717-231959` (G98 landmark restore armor/weapons)
 - `.ai/logs/dolphin-probe-20260717-230837` (G97 landmark restore health=77)
 - `.ai/logs/dolphin-probe-20260717-223809` (G96 lean FatPVS map=c1a0a)
 - `.ai/logs/dolphin-probe-20260717-223433` (G95 present map=c1a0a after changelevel)
@@ -1714,6 +1715,27 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   ```sh
   DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
     DOLPHIN_G95=1 DOLPHIN_G97=1 DOLPHIN_TIMEOUT=150 DOLPHIN_FRAME_SAMPLE_SEC=8 \
+    scripts/dolphin-boot-probe.sh
+  ```
+
+## G98 [x] Lean landmark weapons and armor continuity
+
+- Status: DONE 2026-07-17. Extends G97 lean BSS hop (`G98LAND1`) with
+  `pev->weapons` bitmask and `armorvalue` across landmark changelevel.
+- Acceptance:
+  - `c0a0`→`c0a0a` landmark `c0a0toa`, probe inventory forced to health=77,
+    armor=50, weapons=0x6 (crowbar+glock) before hop; restore logs the same.
+- Evidence: `.ai/logs/dolphin-probe-20260717-231959` —
+  `G98 probe inventory set health=77 armor=50 weapons=0x6`,
+  `G98 landmark stash ... health=77 armor=50 weapons=0x6 have_lm=1`,
+  `G98 landmark restore health=77 armor=50 weapons=0x6 origin=(0,816,-449)`.
+- Intentional limits: ammo/`m_rgAmmo` and active weapon private data still not
+  in the lean blob; HUD may not reflect owned weapons until DLL private state
+  is carried.
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+    DOLPHIN_G95=1 DOLPHIN_G98=1 DOLPHIN_TIMEOUT=150 DOLPHIN_FRAME_SAMPLE_SEC=8 \
     scripts/dolphin-boot-probe.sh
   ```
 

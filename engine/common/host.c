@@ -1436,13 +1436,16 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 							if( Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
 								&& Q_stricmp( dest, sv.name ))
 							{
-								/* G97: distinctive health proves continuity across hop. */
+								/* G97/G98: distinctive inventory proves continuity across hop. */
 								pl = ( svs.clients && svs.clients[0].edict )
 									? svs.clients[0].edict : NULL;
 								if( pl )
 								{
 									pl->v.health = 77.0f;
-									Con_Reportf( "Xash3D GameCube: G97 probe health set=77\n" );
+									pl->v.armorvalue = 50.0f;
+									/* WEAPON_CROWBAR=1, WEAPON_GLOCK=2 */
+									pl->v.weapons = ( 1 << 1 ) | ( 1 << 2 );
+									Con_Reportf( "Xash3D GameCube: G98 probe inventory set health=77 armor=50 weapons=0x6\n" );
 								}
 								landmark[0] = '\0';
 								if( !Sys_GetParmFromCmdLine( "-gclandmark", landmark ))

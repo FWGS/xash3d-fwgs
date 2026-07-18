@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G97 DONE: lean landmark hop c0a0→c0a0a restores health=77 (.ai/logs/dolphin-probe-20260717-230837). Automatic queue empty except SKIP/manual."
+  "note": "G98 DONE: lean landmark hop c0a0→c0a0a restores health=77 armor=50 weapons=0x6 (.ai/logs/dolphin-probe-20260717-231959). Automatic queue empty except SKIP/manual."
 }

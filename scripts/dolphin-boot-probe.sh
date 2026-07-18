@@ -207,7 +207,7 @@ if (( SKIP_DISC )); then
 		echo "==> G68 changelevel probe (to ${DOLPHIN_CHANGELEVEL})"
 		if [[ -n "${DOLPHIN_LANDMARK:-}" ]]; then
 			BUILD_ARGS+=(--probe-landmark "$DOLPHIN_LANDMARK")
-			echo "==> G97 landmark probe (${DOLPHIN_LANDMARK})"
+			echo "==> G97/G98 landmark probe (${DOLPHIN_LANDMARK})"
 		fi
 	fi
 	if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
@@ -243,10 +243,18 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
 		echo "==> Waiting for G96 lean/full FatPVS capture on ${DOLPHIN_CHANGELEVEL}"
 	fi
-	if [[ "${DOLPHIN_G97:-0}" == "1" ]]; then
+	if [[ "${DOLPHIN_G97:-0}" == "1" || "${DOLPHIN_G98:-0}" == "1" ]]; then
 		G97_DONE_MARKER="Xash3D GameCube: G97 landmark restore health=77"
+		G98_DONE_MARKER="Xash3D GameCube: G98 landmark restore health=77 armor=50 weapons=0x6"
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
-		echo "==> Waiting for G97 landmark health restore"
+		if [[ "${DOLPHIN_G98:-0}" == "1" ]]; then
+			# Prefer G98 inventory marker; keep G97 as optional fallback unset.
+			G97_DONE_MARKER=""
+			echo "==> Waiting for G98 landmark inventory restore"
+		else
+			G98_DONE_MARKER=""
+			echo "==> Waiting for G97 landmark health restore"
+		fi
 	fi
 fi
 if (( DOLPHIN_NEWGAME )); then

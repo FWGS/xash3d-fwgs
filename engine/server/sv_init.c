@@ -761,7 +761,7 @@ void SV_ActivateServer( int runPhysics )
 		}
 		Q_strncpy( gc_cl_prev, sv.name, sizeof( gc_cl_prev ));
 
-		/* G97: apply lean landmark before world present. */
+		/* G97/G98: apply lean landmark before world present. */
 		GC_LeanLandmarkRestore();
 
 		/* G95: G68 may changelevel before first-map G36. Always re-Prepare
