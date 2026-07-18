@@ -914,6 +914,7 @@ def write_probe_newgame_override(
 	landmark: str | None = None,
 	smoke_map: str | None = None,
 	leanpvs: bool = False,
+	fullphysics: bool = False,
 ) -> None:
 	lines = []
 	# G68/G100: bake map so -gcmap+newgame early changelevel path can plant inventory.
@@ -926,6 +927,8 @@ def write_probe_newgame_override(
 		lines.append(f"phasetest {phasetest}")
 	if leanpvs:
 		lines.append("leanpvs")
+	if fullphysics:
+		lines.append("fullphysics")
 	if changelevel and landmark:
 		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
 	elif changelevel:
@@ -1490,6 +1493,11 @@ def main() -> None:
 		help="stage gamecube.cfg leanpvs to force G101 lean-N FatPVS (skip full multi-cluster)",
 	)
 	parser.add_argument(
+		"--probe-fullphysics",
+		action="store_true",
+		help="with --probe-newgame, bypass bounded server substitutes and run normal Xash3D physics",
+	)
+	parser.add_argument(
 		"--skip-startup-vids",
 		action="store_true",
 		help="overlay an empty media/StartupVids.txt for faster retail menu boot validation",
@@ -1609,6 +1617,7 @@ def main() -> None:
 					# G68/G100: start map for -gcmap early changelevel + landmark plant.
 					smoke_map="c0a0" if args.probe_changelevel else None,
 					leanpvs=args.probe_leanpvs,
+					fullphysics=args.probe_fullphysics,
 				)
 			elif args.probe_phasetest:
 				write_probe_phasetest_override(staged_data, args.probe_phasetest)

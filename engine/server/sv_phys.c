@@ -1908,9 +1908,15 @@ SV_Physics
 void SV_Physics( void )
 {
 #if XASH_GAMECUBE
+	static int gc_fullphysics_log;
+	qboolean gc_fullphysics_trace = Sys_CheckParm( "-gcnewgame" )
+		&& Sys_CheckParm( "-gcfullphysics" )
+		&& gc_fullphysics_log < 2;
+
 	/* Post-G36 New Game (G84): pfnStartFrame + full entity walk stall Host_Frame
 	 * on c0a0. Run player think plus a small due-nextthink subset only. */
-	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
+		&& !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		static int gc_phys_bound_log;
 		static int gc_phys_move_log;
@@ -2113,12 +2119,28 @@ void SV_Physics( void )
 		return;
 	}
 #endif
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+		Con_Reportf( "Xash3D GameCube: full physics begin entities=%d\n", svgame.numEntities );
+#endif
 	SV_CheckAllEnts ();
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+		Con_Reportf( "Xash3D GameCube: full physics check ents ready\n" );
+#endif
 
 	svgame.globals->time = sv.time;
 
 	// let the progs know that a new frame has started
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+		Con_Reportf( "Xash3D GameCube: full physics StartFrame begin\n" );
+#endif
 	svgame.dllFuncs.pfnStartFrame();
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+		Con_Reportf( "Xash3D GameCube: full physics StartFrame ready\n" );
+#endif
 
 	// treat each object in turn
 	for( int i = 0; i < svgame.numEntities; i++ )
@@ -2131,8 +2153,24 @@ void SV_Physics( void )
 		if( i > 0 && i <= svs.maxclients )
 			continue;
 
+#if XASH_GAMECUBE
+		if( gc_fullphysics_trace )
+			Con_Reportf( "Xash3D GameCube: full physics entity begin index=%d class=%s move=%d solid=%d\n",
+				i, SV_GetString( ent->v.classname ), ent->v.movetype, ent->v.solid );
+#endif
 		SV_Physics_Entity( ent );
+#if XASH_GAMECUBE
+		if( gc_fullphysics_trace )
+			Con_Reportf( "Xash3D GameCube: full physics entity ready index=%d\n", i );
+#endif
 	}
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+	{
+		Con_Reportf( "Xash3D GameCube: full physics entities ready\n" );
+		gc_fullphysics_log++;
+	}
+#endif
 
 	if( svgame.globals->force_retouch != 0.0f )
 		svgame.globals->force_retouch--;

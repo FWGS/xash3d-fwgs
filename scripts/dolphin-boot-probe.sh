@@ -190,6 +190,10 @@ if (( SKIP_DISC )); then
 			if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 				BUILD_ARGS+=(--probe-newsaveload)
 			fi
+			if [[ "${DOLPHIN_FULLPHYSICS:-0}" == "1" ]]; then
+				BUILD_ARGS+=(--probe-fullphysics)
+				echo "==> Native full server/physics probe"
+			fi
 		fi
 	elif [[ -n "$SMOKE_MAP" ]]; then
 		BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")

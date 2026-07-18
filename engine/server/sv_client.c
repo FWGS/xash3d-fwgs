@@ -39,6 +39,7 @@ static void SV_ExecuteClientCommand( sv_client_t *cl, const char *s );
 
 #if XASH_GAMECUBE
 static client_frame_t gc_singleplayer_frames[SINGLEPLAYER_BACKUP];
+static int SV_GetFragmentSize( void *pcl, fragsize_t mode );
 
 qboolean SV_IsStaticClientFrames( const client_frame_t *frames )
 {
@@ -84,6 +85,29 @@ qboolean SV_GCPrimeDirectMapPlayer( void )
 	Con_Reportf( "Xash3D GameCube: direct-map player prime ready edict=%d private=%p origin=(%.0f,%.0f,%.0f)\n",
 		NUM_FOR_EDICT( ent ), ent->pvPrivateData,
 		ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+
+	/* The direct map route has already performed the spawn half of local
+	 * sign-on above. Complete its normal begin transition for native physics. */
+	if( Sys_CheckParm( "-gcfullphysics" ))
+	{
+		netadr_t loopback = { .type = NA_LOOPBACK };
+
+		memset( gc_singleplayer_frames, 0, sizeof( gc_singleplayer_frames ));
+		cl->frames = gc_singleplayer_frames;
+		cl->frames_malloced = false;
+		Netchan_Setup( NS_SERVER, &cl->netchan, loopback, 0, cl,
+			SV_GetFragmentSize, 0 );
+		MSG_Init( &cl->datagram, "Datagram", cl->datagram_buf,
+			sizeof( cl->datagram_buf ));
+		cl->delta_sequence = -1;
+		cl->connection_started = host.realtime;
+		cl->next_messageinterval = 0.05;
+		cl->state = cs_spawned;
+		cl->connecttime = host.realtime;
+		SetBits( cl->flags, FCL_RESEND_USERINFO|FCL_RESEND_MOVEVARS );
+		Con_Reportf( "Xash3D GameCube: direct-map client ready cs_spawned frames=%p\n",
+			cl->frames );
+	}
 	return true;
 }
 

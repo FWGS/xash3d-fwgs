@@ -597,6 +597,20 @@ static qboolean SV_RunGameFrame( void )
 {
 	sv.simulating = SV_IsSimulating();
 
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" ))
+	{
+		static int gc_simulating_log;
+
+		if( gc_simulating_log < 4 )
+		{
+			Con_Reportf( "Xash3D GameCube: full server simulating=%d active=%d cl_ingame=%d paused=%d residual=%.4f\n",
+				sv.simulating, SV_HasActivePlayers(), CL_IsInGame(), sv.paused, sv.time_residual );
+			gc_simulating_log++;
+		}
+	}
+#endif
+
 	if( !sv.simulating )
 		return true;
 
@@ -672,10 +686,16 @@ Host_ServerFrame
 void Host_ServerFrame( void )
 {
 #if XASH_GAMECUBE
+	static int gc_fullphysics_log;
+	qboolean gc_fullphysics = Sys_CheckParm( "-gcnewgame" )
+		&& Sys_CheckParm( "-gcfullphysics" ) && GC_IsNewGameG36Done();
+	qboolean gc_fullphysics_trace = Sys_CheckParm( "-gcnewgame" )
+		&& Sys_CheckParm( "-gcfullphysics" ) && gc_fullphysics_log < 2;
+
 	/* Post-G36 New Game: full packets/resources/physics still stall Host_Frame
 	 * on c0a0. Advance time and run bounded think (G84) so player/entity
 	 * nextthink can progress without the full server tick. */
-	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() && !gc_fullphysics )
 	{
 		static int gc_sf_bound_log;
 
@@ -697,6 +717,8 @@ void Host_ServerFrame( void )
 		}
 		return;
 	}
+	if( gc_fullphysics_trace )
+		Con_Reportf( "Xash3D GameCube: full server frame begin\n" );
 #endif
 	// update dedicated server status line in console
 	SV_UpdateStatusLine ();
@@ -716,6 +738,10 @@ void Host_ServerFrame( void )
 
 	// read packets from clients
 	SV_ReadPackets ();
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+		Con_Reportf( "Xash3D GameCube: full server packets ready\n" );
+#endif
 
 	// refresh physic movevars on the client side
 	SV_UpdateMovevars ( false );
@@ -728,9 +754,20 @@ void Host_ServerFrame( void )
 
 	// let everything in the world think and move
 	if( !SV_RunGameFrame ()) return;
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+		Con_Reportf( "Xash3D GameCube: full server game frame ready\n" );
+#endif
 
 	// send messages back to the clients that had packets read this frame
 	SV_SendClientMessages ();
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+	{
+		Con_Reportf( "Xash3D GameCube: full server messages ready\n" );
+		gc_fullphysics_log++;
+	}
+#endif
 
 	// clear edict flags for next frame
 	SV_PrepWorldFrame ();
