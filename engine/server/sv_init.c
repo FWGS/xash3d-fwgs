@@ -712,7 +712,7 @@ void SV_ActivateServer( int runPhysics )
 			continue;
 
 #if XASH_GAMECUBE
-		if( GC_MapLoadMemoryOpt() )
+		if( GC_MapLoadMemoryOpt() && !Sys_CheckParm( "-gcfullphysics" ))
 		{
 			memset( &cl->netchan, 0, sizeof( cl->netchan ));
 			Con_Reportf( "Xash3D GameCube: local client netchan reset for map route\n" );

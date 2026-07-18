@@ -2153,16 +2153,7 @@ void SV_Physics( void )
 		if( i > 0 && i <= svs.maxclients )
 			continue;
 
-#if XASH_GAMECUBE
-		if( gc_fullphysics_trace )
-			Con_Reportf( "Xash3D GameCube: full physics entity begin index=%d class=%s move=%d solid=%d\n",
-				i, SV_GetString( ent->v.classname ), ent->v.movetype, ent->v.solid );
-#endif
 		SV_Physics_Entity( ent );
-#if XASH_GAMECUBE
-		if( gc_fullphysics_trace )
-			Con_Reportf( "Xash3D GameCube: full physics entity ready index=%d\n", i );
-#endif
 	}
 #if XASH_GAMECUBE
 	if( gc_fullphysics_trace )

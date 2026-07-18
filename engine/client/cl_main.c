@@ -3778,6 +3778,12 @@ Host_ClientFrame
 */
 void Host_ClientFrame( void )
 {
+#if XASH_GAMECUBE
+	static int gc_fullphysics_client_log;
+	qboolean gc_fullphysics_trace = Sys_CheckParm( "-gcnewgame" )
+		&& Sys_CheckParm( "-gcfullphysics" ) && GC_IsNewGameG36Done()
+		&& gc_fullphysics_client_log < 2;
+#endif
 	// if client is not active, do nothing
 	if( !cls.initialized ) return;
 #if XASH_GAMECUBE
@@ -3813,7 +3819,7 @@ void Host_ClientFrame( void )
 	/* G85: after New Game world present is armed, present via SCR first and
 	 * skip pfnFrame/EmitEntities that can stall Host_Frame before sustained frames. */
 	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
-		&& GC_IsNewGameWorldReady() )
+		&& GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		static int gc_scr_sustain_log;
 
@@ -3836,12 +3842,18 @@ void Host_ClientFrame( void )
 	if( !SV_Active( )) CL_SendCommand ();
 
 	clgame.dllFuncs.pfnFrame( host.frametime );
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client DLL frame ready\n" );
+#endif
 
 	// remember last received framenum
 	CL_SetLastUpdate ();
 
 	// read updates from server
 	CL_ReadPackets ();
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client packets ready state=%d signon=%d\n", cls.state, cls.signon );
+#endif
 
 	/* Finalize ca_active after packets so New Game arm/presents happen in
 	 * Host_ClientFrame (before the next Host_ServerFrame can stall). */
@@ -3850,12 +3862,21 @@ void Host_ClientFrame( void )
 	// do prediction again in case we got
 	// a new portion updates from server
 	CL_RedoPrediction ();
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client prediction ready\n" );
+#endif
 
 	// update voice
 	Voice_Idle( host.frametime );
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client voice ready\n" );
+#endif
 
 	// emit visible entities
 	CL_EmitEntities ();
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client entities ready\n" );
+#endif
 
 	// in case we lost connection
 	CL_CheckForResend ();
@@ -3870,6 +3891,9 @@ void Host_ClientFrame( void )
 #else
 	while( CL_RequestMissingResources( ));
 #endif
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client resources ready\n" );
+#endif
 
 	// handle thirdperson camera
 	CL_MoveThirdpersonCamera();
@@ -3882,9 +3906,19 @@ void Host_ClientFrame( void )
 
 	// update the screen
 	SCR_UpdateScreen ();
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace ) Con_Reportf( "Xash3D GameCube: native client screen ready\n" );
+#endif
 
 	// update audio
 	SND_UpdateSound ();
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+	{
+		Con_Reportf( "Xash3D GameCube: native client frame ready\n" );
+		gc_fullphysics_client_log++;
+	}
+#endif
 
 	// play avi-files
 	SCR_RunCinematic ();

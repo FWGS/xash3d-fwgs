@@ -884,6 +884,11 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	edict_t	*clent;
 	double	frametime;
 	usercmd_t cmd;
+#if XASH_GAMECUBE
+	static int gc_fullphysics_cmd_log;
+	qboolean gc_fullphysics_trace = Sys_CheckParm( "-gcnewgame" )
+		&& Sys_CheckParm( "-gcfullphysics" ) && gc_fullphysics_cmd_log < 6;
+#endif
 
 	// if the player got kicked, do not process commands
 	if( cl->state <= cs_zombie )
@@ -957,10 +962,25 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	SV_SetupPMove( svgame.pmove, cl, ucmd, cl->physinfo );
 
 	// motor!
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+		Con_Reportf( "Xash3D GameCube: native usercmd PM_Move begin msec=%u buttons=0x%x move=(%.0f,%.0f,%.0f)\n",
+			(unsigned)ucmd->msec, (unsigned)ucmd->buttons,
+			ucmd->forwardmove, ucmd->sidemove, ucmd->upmove );
+#endif
 	svgame.dllFuncs.pfnPM_Move( svgame.pmove, true );
 
 	// copy results back to client
 	SV_FinishPMove( svgame.pmove, cl );
+#if XASH_GAMECUBE
+	if( gc_fullphysics_trace )
+	{
+		Con_Reportf( "Xash3D GameCube: native usercmd PM_Move ready origin=(%.0f,%.0f,%.0f) velocity=(%.0f,%.0f,%.0f)\n",
+			clent->v.origin[0], clent->v.origin[1], clent->v.origin[2],
+			clent->v.velocity[0], clent->v.velocity[1], clent->v.velocity[2] );
+		gc_fullphysics_cmd_log++;
+	}
+#endif
 
 	if( clent->v.solid != SOLID_NOT && !sv.playersonly )
 	{

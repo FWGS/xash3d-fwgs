@@ -684,7 +684,8 @@ void Host_Frame( double time )
 	 * before multi-sample evidence is collected.
 	 * After G36, run ServerFrame again with WriteEntities skipped (slim path). */
 	if( ( cls.state == ca_active || cls.signon == SIGNONS )
-		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() ))
+		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_MapLoadMemoryOpt() )
+		&& !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		Host_ClientFrame ();
 		if( !GC_ShouldUseLightPresent() )

@@ -95,8 +95,19 @@ qboolean SV_GCPrimeDirectMapPlayer( void )
 		memset( gc_singleplayer_frames, 0, sizeof( gc_singleplayer_frames ));
 		cl->frames = gc_singleplayer_frames;
 		cl->frames_malloced = false;
-		Netchan_Setup( NS_SERVER, &cl->netchan, loopback, 0, cl,
-			SV_GetFragmentSize, 0 );
+		if( !cl->netchan.message.pData )
+		{
+			Netchan_Setup( NS_SERVER, &cl->netchan, loopback, 0, cl,
+				SV_GetFragmentSize, 0 );
+			Con_Reportf( "Xash3D GameCube: direct-map loopback netchan initialized\n" );
+		}
+		else
+		{
+			cl->netchan.client = cl;
+			cl->netchan.pfnBlockSize = SV_GetFragmentSize;
+			Con_Reportf( "Xash3D GameCube: direct-map loopback netchan preserved seq=%u\n",
+				cl->netchan.outgoing_sequence );
+		}
 		MSG_Init( &cl->datagram, "Datagram", cl->datagram_buf,
 			sizeof( cl->datagram_buf ));
 		cl->delta_sequence = -1;
