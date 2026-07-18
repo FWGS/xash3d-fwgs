@@ -2494,10 +2494,9 @@ static const char *GC_WeaponClassForBit( int bit )
 }
 
 /*
- * On GameCube, the client edict (often #1) may lack a live CBasePlayer block
- * while GetClassPtr allocated it on a neighboring edict (~1920+ bytes). Prefer
- * the tracked large private-data host, then classname/FL_CLIENT, never a
- * private-data-less client slot.
+ * Resolve only a constructed player object. Prefer the tracked reserved client
+ * edict, then explicit player classname/FL_CLIENT candidates; never substitute
+ * an arbitrary large C++ entity such as CSoundEnt.
  */
 static edict_t *GC_LeanPlayerPrivateEdict( void )
 {

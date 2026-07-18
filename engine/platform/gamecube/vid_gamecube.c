@@ -76,6 +76,13 @@ static int gc_newgame_lean_cluster; /* G96 compat: first lean slot cluster id */
 #define GC_LEAN_PVS_SLOTS		4 /* G101: small multi-room follow cache */
 static int gc_newgame_lean_slots; /* 1..GC_LEAN_PVS_SLOTS populated */
 static int gc_newgame_lean_clusters[GC_LEAN_PVS_SLOTS]; /* real cluster id per slot */
+static unsigned int gc_newgame_lean_age[GC_LEAN_PVS_SLOTS];
+static unsigned int gc_newgame_lean_clock;
+static byte *gc_newgame_compressed_pvs; /* G107: compact rows for lean LRU misses */
+static int *gc_newgame_compressed_ofs; /* cluster -> packed row offset, -1 unavailable */
+static size_t gc_newgame_compressed_size;
+static byte *gc_newgame_packed_nodebits; /* fixed node row per retained cluster */
+static size_t gc_newgame_packed_nodebits_size;
 static int gc_newgame_visbytes;
 static int gc_newgame_nodebytes;
 static int gc_newgame_numleafs;
@@ -1875,6 +1882,8 @@ static void GC_CountActiveVisRows( void )
 	}
 }
 
+static void GC_BuildNodebitsForVisRow( model_t *wmodel, const byte *vis, byte *nodebits );
+
 static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 {
 	int prev = gc_newgame_viewcluster;
@@ -1895,12 +1904,64 @@ static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 			gc_newgame_nodebits = gc_newgame_node_table + (size_t)slot * (size_t)gc_newgame_nodebytes;
 			gc_newgame_viewcluster = cluster;
 			gc_newgame_lean_cluster = cluster;
+			gc_newgame_lean_age[slot] = ++gc_newgame_lean_clock;
 			GC_CountActiveVisRows();
 			if( log_change && prev != cluster )
 			{
 				SYS_Report( "Xash3D GameCube: PVS lean follow %d->%d slot=%d leaves=%d nodes=%d\n",
 					prev, cluster, slot, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
 			}
+			return true;
+		}
+
+		/* G107: materialize an uncached row into the least-recently-used slot. */
+		if( cluster >= 0 && cluster < gc_newgame_numclusters
+			&& gc_newgame_compressed_pvs && gc_newgame_compressed_ofs
+			&& gc_newgame_packed_nodebits
+			&& gc_newgame_compressed_ofs[cluster] >= 0 )
+		{
+			model_t *wmodel = sv.models[1];
+			unsigned int oldest = ~0U;
+			int evicted;
+			int lru_slot = 0;
+
+#if !XASH_DEDICATED
+			if( !wmodel )
+				wmodel = cl.worldmodel;
+#endif
+			if( !wmodel || !wmodel->leafs || !wmodel->nodes )
+				return false;
+
+			if( gc_newgame_lean_slots < GC_LEAN_PVS_SLOTS )
+				slot = gc_newgame_lean_slots++;
+			else
+			{
+				for( slot = 0; slot < gc_newgame_lean_slots; slot++ )
+				{
+					if( gc_newgame_lean_age[slot] < oldest )
+					{
+						oldest = gc_newgame_lean_age[slot];
+						lru_slot = slot;
+					}
+				}
+				slot = lru_slot;
+			}
+			evicted = gc_newgame_cluster_valid[slot] ? gc_newgame_lean_clusters[slot] : -1;
+			gc_newgame_vis = gc_newgame_pvs_table + (size_t)slot * (size_t)gc_newgame_visbytes;
+			gc_newgame_nodebits = gc_newgame_node_table + (size_t)slot * (size_t)gc_newgame_nodebytes;
+			GC_DecompressPVS( gc_newgame_vis,
+				gc_newgame_compressed_pvs + gc_newgame_compressed_ofs[cluster],
+				(size_t)gc_newgame_visbytes );
+			memcpy( gc_newgame_nodebits,
+				gc_newgame_packed_nodebits + (size_t)cluster * (size_t)gc_newgame_nodebytes,
+				(size_t)gc_newgame_nodebytes );
+			gc_newgame_cluster_valid[slot] = 1;
+			gc_newgame_lean_clusters[slot] = cluster;
+			gc_newgame_lean_age[slot] = ++gc_newgame_lean_clock;
+			gc_newgame_viewcluster = cluster;
+			GC_CountActiveVisRows();
+			SYS_Report( "Xash3D GameCube: PVS lean LRU load cluster=%d slot=%d evict=%d leaves=%d nodes=%d\n",
+				cluster, slot, evicted, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
 			return true;
 		}
 		return false;
@@ -2018,6 +2079,125 @@ static void GC_BuildNodebitsForVisRow( model_t *wmodel, const byte *vis, byte *n
 	}
 }
 
+static size_t GC_CompressedPVSRowSize( const byte *in, size_t visbytes )
+{
+	size_t consumed = 0;
+	size_t produced = 0;
+
+	if( !in )
+		return 0;
+	while( produced < visbytes )
+	{
+		byte value = in[consumed++];
+
+		if( value )
+			produced++;
+		else
+		{
+			byte run = in[consumed++];
+
+			if( !run )
+				break;
+			produced += (size_t)run < visbytes - produced ? (size_t)run : visbytes - produced;
+		}
+	}
+	return consumed;
+}
+
+static qboolean GC_CaptureLeanCompressedPVS( model_t *wmodel, int numclusters, size_t visbytes )
+{
+	size_t total = 0;
+	int i;
+
+	gc_newgame_compressed_ofs = (int *)malloc( (size_t)numclusters * sizeof( int ));
+	if( !gc_newgame_compressed_ofs )
+		return false;
+	for( i = 0; i < numclusters; i++ )
+		gc_newgame_compressed_ofs[i] = -1;
+
+	for( i = 1; i < wmodel->numleafs; i++ )
+	{
+		mleaf_t *leaf = &wmodel->leafs[i];
+		size_t row_size;
+
+		if( leaf->cluster < 0 || leaf->cluster >= numclusters
+			|| gc_newgame_compressed_ofs[leaf->cluster] != -1 || !leaf->compressed_vis )
+			continue;
+		row_size = GC_CompressedPVSRowSize( leaf->compressed_vis, visbytes );
+		if( total > (size_t)INT_MAX || row_size > (size_t)INT_MAX - total )
+			return false;
+		gc_newgame_compressed_ofs[leaf->cluster] = (int)row_size;
+		total += row_size;
+	}
+	if( !total )
+		return false;
+
+	gc_newgame_compressed_pvs = (byte *)malloc( total );
+	if( !gc_newgame_compressed_pvs )
+		return false;
+
+	total = 0;
+	for( i = 1; i < wmodel->numleafs; i++ )
+	{
+		mleaf_t *leaf = &wmodel->leafs[i];
+		int cluster = leaf->cluster;
+		size_t row_size;
+
+		if( cluster < 0 || cluster >= numclusters || !leaf->compressed_vis
+			|| gc_newgame_compressed_ofs[cluster] < 0 )
+			continue;
+		row_size = (size_t)gc_newgame_compressed_ofs[cluster];
+		gc_newgame_compressed_ofs[cluster] = (int)total;
+		memcpy( gc_newgame_compressed_pvs + total, leaf->compressed_vis, row_size );
+		total += row_size;
+		/* Mark copied clusters so duplicate leaves are skipped. */
+		gc_newgame_compressed_ofs[cluster] = -( gc_newgame_compressed_ofs[cluster] + 2 );
+	}
+	for( i = 0; i < numclusters; i++ )
+	{
+		if( gc_newgame_compressed_ofs[i] <= -2 )
+			gc_newgame_compressed_ofs[i] = -gc_newgame_compressed_ofs[i] - 2;
+	}
+	gc_newgame_compressed_size = total;
+	SYS_Report( "Xash3D GameCube: Capture FatPVS lean LRU rows=%d packed=%u\n",
+		numclusters, (unsigned)total );
+	return true;
+}
+
+static qboolean GC_CaptureLeanNodebits( model_t *wmodel, int numclusters )
+{
+	byte *vis_scratch = gc_newgame_pvs_table;
+	byte *node_scratch = gc_newgame_node_table;
+	int cluster;
+
+	if( !gc_newgame_compressed_pvs || !gc_newgame_compressed_ofs
+		|| !vis_scratch || !node_scratch || gc_newgame_nodebytes <= 0 )
+		return false;
+	gc_newgame_packed_nodebits_size = (size_t)numclusters * (size_t)gc_newgame_nodebytes;
+	gc_newgame_packed_nodebits = (byte *)malloc( gc_newgame_packed_nodebits_size );
+	if( !gc_newgame_packed_nodebits )
+	{
+		gc_newgame_packed_nodebits_size = 0;
+		return false;
+	}
+	memset( gc_newgame_packed_nodebits, 0, gc_newgame_packed_nodebits_size );
+
+	for( cluster = 0; cluster < numclusters; cluster++ )
+	{
+		if( gc_newgame_compressed_ofs[cluster] < 0 )
+			continue;
+		GC_DecompressPVS( vis_scratch,
+			gc_newgame_compressed_pvs + gc_newgame_compressed_ofs[cluster],
+			(size_t)gc_newgame_visbytes );
+		GC_BuildNodebitsForVisRow( wmodel, vis_scratch, node_scratch );
+		memcpy( gc_newgame_packed_nodebits + (size_t)cluster * (size_t)gc_newgame_nodebytes,
+			node_scratch, (size_t)gc_newgame_nodebytes );
+	}
+	SYS_Report( "Xash3D GameCube: Capture FatPVS lean LRU nodebits=%u\n",
+		(unsigned)gc_newgame_packed_nodebits_size );
+	return true;
+}
+
 static void GC_FreeNewGamePVSCache( void )
 {
 	if( gc_newgame_pvs_table )
@@ -2040,6 +2220,23 @@ static void GC_FreeNewGamePVSCache( void )
 		free( gc_newgame_leafboxes );
 		gc_newgame_leafboxes = NULL;
 	}
+	if( gc_newgame_compressed_pvs )
+	{
+		free( gc_newgame_compressed_pvs );
+		gc_newgame_compressed_pvs = NULL;
+	}
+	if( gc_newgame_compressed_ofs )
+	{
+		free( gc_newgame_compressed_ofs );
+		gc_newgame_compressed_ofs = NULL;
+	}
+	if( gc_newgame_packed_nodebits )
+	{
+		free( gc_newgame_packed_nodebits );
+		gc_newgame_packed_nodebits = NULL;
+	}
+	gc_newgame_compressed_size = 0;
+	gc_newgame_packed_nodebits_size = 0;
 	gc_newgame_vis = NULL;
 	gc_newgame_nodebits = NULL;
 	gc_newgame_nleafboxes = 0;
@@ -2048,6 +2245,8 @@ static void GC_FreeNewGamePVSCache( void )
 	gc_newgame_lean_cluster = -1;
 	gc_newgame_lean_slots = 0;
 	memset( gc_newgame_lean_clusters, -1, sizeof( gc_newgame_lean_clusters ));
+	memset( gc_newgame_lean_age, 0, sizeof( gc_newgame_lean_age ));
+	gc_newgame_lean_clock = 0;
 	gc_newgame_pvs_ready = false;
 	gc_newgame_pvs_follow_proved = false;
 }
@@ -2157,6 +2356,37 @@ static void GC_ProveNewGamePVSFollow( void )
 	{
 		SYS_Report( "Xash3D GameCube: PVS lean follow ready slots=%d clusters=%d->%d leafdelta=%d\n",
 			gc_newgame_lean_slots, c0, c1, leaves1 - leaves0 );
+		if( gc_newgame_compressed_ofs )
+		{
+			int miss = -1;
+
+			for( i = 0; i < gc_newgame_numclusters; i++ )
+			{
+				int slot;
+				qboolean cached = false;
+
+				if( gc_newgame_compressed_ofs[i] < 0 )
+					continue;
+				for( slot = 0; slot < gc_newgame_lean_slots; slot++ )
+				{
+					if( gc_newgame_cluster_valid[slot] && gc_newgame_lean_clusters[slot] == i )
+					{
+						cached = true;
+						break;
+					}
+				}
+				if( !cached )
+				{
+					miss = i;
+					break;
+				}
+			}
+			if( miss >= 0 && GC_SetActiveNewGameCluster( miss, true ))
+			{
+				SYS_Report( "Xash3D GameCube: PVS lean LRU ready slots=%d loaded=%d packed=%u\n",
+					gc_newgame_lean_slots, miss, (unsigned)gc_newgame_compressed_size );
+			}
+		}
 	}
 	else
 	{
@@ -2398,6 +2628,28 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 				VectorCopy( leaf->minmaxs + 3, box->maxs );
 				box->cluster = leaf->cluster;
 			}
+			if( !GC_CaptureLeanCompressedPVS( wmodel, numclusters, visbytes )
+				|| !GC_CaptureLeanNodebits( wmodel, numclusters ))
+			{
+				SYS_Report( "Xash3D GameCube: Capture FatPVS lean LRU store unavailable\n" );
+				if( gc_newgame_compressed_pvs )
+				{
+					free( gc_newgame_compressed_pvs );
+					gc_newgame_compressed_pvs = NULL;
+				}
+				if( gc_newgame_compressed_ofs )
+				{
+					free( gc_newgame_compressed_ofs );
+					gc_newgame_compressed_ofs = NULL;
+				}
+				if( gc_newgame_packed_nodebits )
+				{
+					free( gc_newgame_packed_nodebits );
+					gc_newgame_packed_nodebits = NULL;
+				}
+				gc_newgame_compressed_size = 0;
+				gc_newgame_packed_nodebits_size = 0;
+			}
 
 			/* Slot 0: spawn cluster. */
 			spawn_row = gc_newgame_pvs_table;
@@ -2405,6 +2657,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			GC_BuildNodebitsForVisRow( wmodel, spawn_row, gc_newgame_node_table );
 			gc_newgame_cluster_valid[0] = 1;
 			gc_newgame_lean_clusters[0] = lean_cluster;
+			gc_newgame_lean_age[0] = ++gc_newgame_lean_clock;
 			lean_slots = 1;
 
 			/* Slots 1..N-1: nearby clusters visible from spawn (capture now;
@@ -2437,6 +2690,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 					gc_newgame_node_table + (size_t)lean_slots * nodebytes );
 				gc_newgame_cluster_valid[lean_slots] = 1;
 				gc_newgame_lean_clusters[lean_slots] = c;
+				gc_newgame_lean_age[lean_slots] = ++gc_newgame_lean_clock;
 				lean_slots++;
 			}
 
