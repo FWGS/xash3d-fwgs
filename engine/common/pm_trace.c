@@ -679,7 +679,19 @@ int PM_PointContents( playermove_t *pmove, const vec3_t p )
 		return CONTENTS_NONE;
 
 	// get base contents from world
+#if XASH_GAMECUBE
+	/* Hull 0 can reside in reusable BSP scratch on the low-memory route.
+	 * The retained render BSP describes the same point contents and remains
+	 * valid for native movement after world presentation reuses that scratch. */
+	model_t *worldmodel = pmove->physents[0].model;
+	mleaf_t *worldleaf = worldmodel->nodes
+		? Mod_PointInLeaf( p, worldmodel->nodes + worldmodel->hulls[0].firstclipnode, worldmodel )
+		: NULL;
+	int contents = worldleaf ? worldleaf->contents
+		: PM_HullPointContents( &worldmodel->hulls[0], 0, p );
+#else
 	int contents = PM_HullPointContents( &pmove->physents[0].model->hulls[0], 0, p );
+#endif
 
 	for( int i = 1; i < pmove->numphysent; i++ )
 	{
@@ -709,7 +721,14 @@ int PM_PointContents( playermove_t *pmove, const vec3_t p )
 		}
 
 		// test hull for intersection with this model
+#if XASH_GAMECUBE
+		mleaf_t *leaf = pe->model->nodes
+			? Mod_PointInLeaf( test, pe->model->nodes + hull->firstclipnode, pe->model )
+			: NULL;
+		if(( leaf ? leaf->contents : PM_HullPointContents( hull, hull->firstclipnode, test )) == CONTENTS_EMPTY )
+#else
 		if( PM_HullPointContents( hull, hull->firstclipnode, test ) == CONTENTS_EMPTY )
+#endif
 			continue;
 
 		// compare contents ranking

@@ -832,8 +832,9 @@ static void CL_CreateCmd( void )
 		cl.frametime_remainder -= ms2;
 	}
 
-	// ms can't be negative, rely on error accumulation only if FPS > 1000
-	ms = Q_min( ms, 255 );
+	/* usercmd_t::msec is an int8_t for ABI compatibility. Slow frames must
+	 * stay nonnegative so the server can split long commands safely. */
+	ms = bound( 0, ms, 127 );
 
 	CL_SetSolidEntities();
 	CL_PushPMStates();
@@ -886,6 +887,16 @@ static void CL_CreateCmd( void )
 	if( !cls.demoplayback ) cl.cmd = pcmd->cmd;
 
 	// predict all unacknowledged movements
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& cl_nopred.value )
+	{
+		static int gc_nopred_cmd_log;
+		if( gc_nopred_cmd_log++ < 2 )
+			Con_Reportf( "Xash3D GameCube: native command prediction skipped\n" );
+	}
+	else
+#endif
 	CL_PredictMovement( false );
 }
 
