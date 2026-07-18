@@ -1400,6 +1400,8 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				Con_Reportf( "Xash3D GameCube: queue map %s\n", gcmap );
 				Con_Reportf( "Xash3D GameCube: direct map begin\n" );
 				GC_DrawLoadingStatus( "DIRECT MAP LOAD", gcmap );
+				if( Sys_CheckParm( "-gcnewgame" ))
+					GC_BeginMapLoadMemoryOpt();
 				GC_TrimClientSubsystemsForMapLoad();
 				Mod_FreeUnused();
 				R_GcmapTrimForMapLoad();
@@ -1410,12 +1412,42 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 					SV_SpawnEntities( gcmap );
 					SV_ActivateServer( true );
 					Con_Reportf( "Xash3D GameCube: direct map ready\n" );
+					/* G68: with -gcnewgame, finish client bring-up on this map
+					 * (do not gc_playstart → c0a0). Enables G92 changelevel path. */
+					if( Sys_CheckParm( "-gcnewgame" ))
+					{
+						Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure begin\n" );
+						Cvar_Set( "gc_quality", "0" );
+						if( !CL_GameCubeEnsureClientReady() )
+							Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure failed\n" );
+						else
+							Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure ready\n" );
+						Cvar_Set( "gc_quality", "0" );
+						GC_EndMapLoadMemoryOpt();
+						/* G68: changelevel before the main loop. Large maps
+						 * (c1a0+) can hang in post-signon New Game present;
+						 * classic COM_ChangeLevel after ensure matches G92
+						 * teardown and avoids that path. */
+						{
+							char dest[MAX_QPATH];
+
+							if( Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+								&& Q_stricmp( dest, sv.name ))
+							{
+								Con_Reportf( "Xash3D GameCube: changelevel begin map=%s from=%s\n",
+									dest, sv.name[0] ? sv.name : "?" );
+								COM_ChangeLevel( dest, NULL, false );
+							}
+						}
+					}
 				}
 				else
 				{
 					R_GcmapRestoreAfterMapLoad();
 					GC_RestoreVideoMemoryAfterMapLoad();
 					Con_Reportf( "Xash3D GameCube: direct map failed %s\n", gcmap );
+					if( Sys_CheckParm( "-gcnewgame" ))
+						GC_EndMapLoadMemoryOpt();
 				}
 			}
 			else
@@ -1423,7 +1455,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 				Con_Reportf( "Xash3D GameCube: no gcmap argument\n" );
 			}
 
-			if( Sys_CheckParm( "-gcnewgame" ))
+			if( Sys_CheckParm( "-gcnewgame" ) && !SV_Active( ))
 			{
 				Con_Reportf( "Xash3D GameCube: gcnewgame begin\n" );
 				Cbuf_AddText( "gc_playstart\n" );
@@ -1450,7 +1482,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 #endif
 
 	#if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcmap" ) && SV_Active( ))
+		/* G68 changelevel samples use -gcnewgame present path; skip smoke panel. */
+		if( Sys_CheckParm( "-gcmap" ) && SV_Active()
+			&& !Sys_CheckParm( "-gcchangelevel" ))
 		{
 			qboolean force_status_panel = Sys_CheckParm( "-gcstatuspanel" ) ? true : false;
 

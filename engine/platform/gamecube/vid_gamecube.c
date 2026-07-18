@@ -2020,7 +2020,7 @@ Prepare again. Keep G36 done sticky (do not re-arm the budget probe).
 void GC_ResetNewGameWorldForChangelevel( void )
 {
 #if XASH_GAMECUBE
-	if( !Sys_CheckParm( "-gcnewgame" ))
+	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
 		return;
 
 	SYS_Report( "Xash3D GameCube: changelevel teardown map=%s world_ready=%d pvs=%d\n",
@@ -2029,7 +2029,8 @@ void GC_ResetNewGameWorldForChangelevel( void )
 	GC_FreeNewGamePVSCache();
 	gc_newgame_world_ready = false;
 	gc_newgame_viewcluster = -1;
-	Mod_GCClearRetainedBspScratch();
+	/* Keep retained BSP tracking until FreeModel; clearing early makes
+	 * Mod_FreeLoadBuffer treat the arena as a Mem_ block and corrupts heap. */
 #else
 	;
 #endif
@@ -2730,9 +2731,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 		}
 		/* G92/G68: force changelevel after first-map world present.
-		 * Skipped during G94 save/load probes. Default tram hop c0a0→c0a0a;
-		 * `-gcchangelevel <map>` overrides the destination. */
-		else
+		 * Skipped when Host_Main already queued -gcmap+-gcchangelevel
+		 * (large maps hang before present). Skipped during G94 save/load.
+		 * Default tram hop c0a0→c0a0a; `-gcchangelevel <map>` overrides. */
+		else if( !Sys_CheckParm( "-gcmap" ))
 		{
 			static qboolean gc_changelevel_queued;
 			static char gc_cl_from[MAX_QPATH];

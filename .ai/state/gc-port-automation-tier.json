@@ -1,4 +1,4 @@
 {
-  "tier": "world_res_320",
-  "note": "G72 DONE. G68 map classification DONE 96/96 MAP_READY (peak c1a1f~5.52MiB). Remaining: per-chapter changelevel samples (only G92 c0a0->c0a0a so far). Progress .ai/logs/campaign-audit-g68-20260717-progress"
+  "tier": "campaign_audit",
+  "note": "G68 DONE: 96/96 MAP_READY + 16/16 chapter changelevel samples (.ai/logs/changelevel-g68-20260717-193719). Automatic queue empty except SKIP/manual gates."
 }

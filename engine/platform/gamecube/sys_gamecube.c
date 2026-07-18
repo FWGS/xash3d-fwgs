@@ -559,15 +559,13 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "-game";
 	gc_argv[fake_argc++] = "valve";
 	if( gc_newgame_configured )
-	{
 		gc_argv[fake_argc++] = "-gcnewgame";
-	}
-	else if( gc_smoke_map_configured )
+	if( gc_smoke_map_configured )
 	{
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
 	}
-	else
+	if( !gc_newgame_configured && !gc_smoke_map_configured )
 	{
 		SYS_Report( "Xash3D GameCube: disc boot override menu\n" );
 	}

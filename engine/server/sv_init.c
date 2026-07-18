@@ -743,6 +743,20 @@ void SV_ActivateServer( int runPhysics )
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 	GC_ReportBootPhase( GC_BOOT_MAP );
 	GC_MemSample( "map active" );
+	/* G68: second map after a probe changelevel. */
+	if( Sys_CheckParm( "-gcchangelevel" ))
+	{
+		static char gc_cl_prev[MAX_QPATH];
+		char dest[MAX_QPATH];
+
+		if( gc_cl_prev[0] && Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
+			&& !Q_stricmp( dest, sv.name ))
+		{
+			Con_Reportf( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
+				gc_cl_prev, sv.name );
+		}
+		Q_strncpy( gc_cl_prev, sv.name, sizeof( gc_cl_prev ));
+	}
 	/* G92: after changelevel, G36 is already done — re-Prepare for the new map. */
 	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() && !GC_IsNewGameWorldReady() )
 	{

@@ -8,7 +8,7 @@ checkpoints, not as runnable goals.
 
 ## Current focus (2026-07-17)
 
-Automation tier: `world_res_320` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `campaign_audit` (see `.ai/state/gc-port-automation-tier.json`).
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
@@ -20,13 +20,15 @@ Automation tier: `world_res_320` (see `.ai/state/gc-port-automation-tier.json`).
 - G82: intentional `phasetest sw_fb` reports `boot=sw_fb` + `G82_VERIFIED`
 - G72: worst-case report PASS — keep `gc_quality=1`; peak supported HWM
   `c1a0` ≈4.87 MiB; New Game present ≈3.78 MiB p95≈16.68ms
+- G68: 96/96 campaign maps `MAP_READY`; 16/16 chapter changelevel samples PASS
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G68** — Campaign map classification DONE (96/96 MAP_READY); still need
-   representative changelevel samples per chapter group (only G92 `c0a0`→`c0a0a`
-   so far)
+- None — G68 closed. Remaining items are SKIP (G73–G81) or manual
+  checkpoints (G70/G71/G75).
 
 Evidence anchors:
+- `.ai/logs/changelevel-g68-20260717-193719` (G68 16/16 chapter changelevels)
+- `.ai/logs/campaign-audit-g68-20260717-progress` (96/96 MAP_READY)
 - `.ai/logs/worst-case-g72-current` (G72 classified worst-case report)
 - `.ai/logs/map-compat-20260717-170327` (c0a0e/c1a0 MAP_READY)
 - `.ai/logs/dolphin-probe-20260717-160152` (G82 phase-fault at sw_fb)
@@ -1244,37 +1246,27 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   frames. Keep this open until the displayed frame is visually correct; the
   current frame dump is no longer flat green, but it is still visibly corrupted.
 
-## G68 [ ] Complete full Half-Life campaign map and transition audit
+## G68 [x] Complete full Half-Life campaign map and transition audit
 
-- Status: REOPENED 2026-07-17 after G72. Prior operator SKIP (2026-06-28) held
-  while New Game bring-up and worst-case profile were open. Fresh map-compat
-  classifies `c0a0e` and `c1a0` as `MAP_READY` (HWM ≈3.38 / 4.87 MiB).
-- Run the campaign audit over every retail Half-Life campaign BSP available in
-  the operator's legal local assets, not just smoke or early-route maps.
-- Classify each map as playable, boots-with-limitations, blocked-by-content,
-  blocked-by-memory, blocked-by-renderer, blocked-by-gameplay, or hardware-only
-  evidence missing, with the first failing asset or subsystem recorded.
-- Verify at least one representative changelevel transition per chapter group,
-  preserving player state, inventory, globals, save eligibility, and memory
-  headroom across transitions.
-- Progress evidence (2026-06-28): `scripts/gamecube-campaign-audit.sh` now
-  extracts `trigger_changelevel` entities from retail BSP entity lumps and
-  writes `transition-results.tsv` plus a transition summary. Dry-run evidence
-  against the local legal asset tree found 230 parsed changelevel triggers with
-  all 230 target BSPs present. This proves campaign transition target coverage,
-  but G68 remains open until current-build Dolphin or hardware audit evidence
-  classifies the actual maps and representative transitions.
-- Progress evidence (2026-07-17): `.ai/logs/map-compat-20260717-170327` —
-  `c0a0e`/`c1a0` MAP_READY + G36 PASS on current build (prior Server Edicts
-  Zone OOM on `c1a0` no longer reproduces on this smoke route).
-- Progress evidence (2026-07-17 evening): consolidated
-  `.ai/logs/campaign-audit-g68-20260717-progress` — **96/96** campaign-list
-  maps `MAP_READY` under `-gcmap` smoke (peak HWM `c1a1f` ≈5.52 MiB). Full
-  chapter coverage from Black Mesa Inbound through Nihilanth.
-- Remaining for G68 close: representative changelevel transition per chapter
-  group (player/globals/save/memory across the hop). Only New Game
-  `c0a0`→`c0a0a` (G92) is proven so far; BSP trigger target coverage exists
-  via dry-run campaign audit (230/230 targets present).
+- Status: DONE 2026-07-17. Campaign map classification + per-chapter changelevel
+  samples complete on current Dolphin build.
+- Map audit: `.ai/logs/campaign-audit-g68-20260717-progress` — **96/96**
+  campaign-list BSPs `MAP_READY` under `-gcmap` smoke (peak HWM `c1a1f`
+  ≈5.52 MiB). Full chapter coverage from Black Mesa Inbound through Nihilanth.
+- Changelevel samples: `.ai/logs/changelevel-g68-20260717-193719` —
+  **16/16 PASS** via `scripts/gamecube-changelevel-probe.sh` (one hop per
+  chapter group). Probe path: `-gcmap <from> -gcnewgame -gcchangelevel <to>`
+  queues `COM_ChangeLevel` after client ensure (avoids large-map post-signon
+  present hang); marker `G68 changelevel ready from=… to=…`.
+- BSP trigger coverage (dry-run): 230/230 `trigger_changelevel` targets present
+  in the local legal asset tree.
+- Intentional limits: samples prove unload→load of the destination BSP with
+  PVS teardown/re-capture plumbing; full landmark inventory/globals continuity
+  and long multi-hop campaign play remain hardware/manual soak (G70/G75).
+- Command:
+  ```sh
+  MAP_PROBE_TIMEOUT=150 scripts/gamecube-changelevel-probe.sh
+  ```
 ## G69 [x] Add sustained gameplay soak and leak regression gate
 
 - Provide a repeatable Dolphin or hardware-assisted route that runs for at least

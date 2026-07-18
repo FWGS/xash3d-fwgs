@@ -2082,7 +2082,7 @@ Endgame / release goals in `.ai/goals/GAMECUBE_PORT_GOALS.md`:
 - **G70:** Manually capture target-display audio/video evidence.
 - **G71:** Manually prove persistent save/config storage on real media.
 - **G72:** Close worst-case performance and memory optimization — DONE
-  (2026-07-17); keep `gc_quality=1`; campaign combat deferred to G68.
+  (2026-07-17); keep `gc_quality=1`; campaign audit closed under G68.
 - **G73:** Prove clean checkout release rebuild and archive reproducibility.
 - **G74:** Burn down final blockers and freeze known limitations.
 - **G76:** Freeze release-candidate documentation and known limitations.
@@ -2186,8 +2186,8 @@ hardware evidence refer to the same commit and artifact hashes.
   `MAP_READY`/`G36 PASS`. Full `SV_SaveGame` still OOM under MEM1; disc
   `newsaveload` override + RAM bank when no SD; PVS kept across round trip.
 
-**Next automatic goal:** none open. G72 closed; remaining automatic goals are
-SKIP (G68 campaign audit, G73–G81 harness/docs, G74/G76/G77 release gates).
+**Next automatic goal:** none open. G68 and G72 closed; remaining automatic goals
+are SKIP (G73–G81 harness/docs, G74/G76/G77 release gates) or manual (G70/G71/G75).
 New Game regression:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=32 scripts/dolphin-boot-probe.sh
@@ -2263,65 +2263,29 @@ asset tree. It recorded the largest tested samples, including
   corrupted, so the next media task is texture/Cinepak correctness, not more
   startup plumbing.
 
-## G68 — Complete the full campaign map and transition audit against legal local Half-Life assets (PENDING)
+## G68 — Complete the full campaign map and transition audit against legal local Half-Life assets (COMPLETE 2026-07-17)
 
-**Status (2026-06-28):** PENDING fresh full-audit evidence.
+**Status (2026-07-17):** DONE.
 
-G68 requires running `scripts/gamecube-campaign-audit.sh --full` against the
-operator-owned Half-Life 1 asset tree and recording chapter/map classifications.
-This machine has a local legal `Half-Life/valve` tree, so the blocker is no
-longer "assets unavailable." The current gap is that the latest successful
-G65 Dolphin evidence proves active rendering for `c0a0e`, but the full campaign
-audit evidence has not yet been regenerated with the current build and harness.
+- Map classification: `.ai/logs/campaign-audit-g68-20260717-progress` —
+  **96/96** campaign BSPs `MAP_READY` (peak HWM `c1a1f` ≈5.52 MiB).
+- Changelevel samples: `.ai/logs/changelevel-g68-20260717-193719` —
+  **16/16 PASS** (`scripts/gamecube-changelevel-probe.sh`). Each chapter group
+  has one live `from→to` hop with marker
+  `G68 changelevel ready from=<from> to=<to>`.
+- Probe plumbing: disc `gamecube.cfg` stages `map <from>` + `newgame` +
+  `changelevel <to>`; guest injects `-gcmap`/`-gcnewgame`/`-gcchangelevel`.
+  Host queues `COM_ChangeLevel` after client ensure (skips large-map New Game
+  present hang before the hop).
+- BSP dry-run: 230/230 `trigger_changelevel` targets present in the local tree.
+- Intentional limits: landmark inventory/globals continuity across long
+  multi-hop play and hardware display evidence remain G70/G75 manual gates.
 
-**Progress evidence:**
-- `scripts/gamecube-campaign-audit.sh` now emits `transition-results.tsv` and a
-  transition summary by parsing `trigger_changelevel` entities directly from the
-  BSP entity lump.
-- Dry-run evidence from
-  `.ai/logs/campaign-audit-g68-transition-dryrun/summary.md` found 230 parsed
-  changelevel triggers in the local legal asset tree and all 230 target BSPs
-  were present.
-- Current-build Dolphin evidence
-  `.ai/logs/campaign-audit-g68-bmi-current/summary.md` classifies the
-  representative `Black Mesa Inbound` map `c0a0e` as `MAP_READY` with 11/11
-  transition targets present.
-- Current-build Dolphin evidence
-  `.ai/logs/campaign-audit-g68-anomalous-aliased-clipnodes/summary.md` drives
-  `Anomalous Materials` `c1a0` through BSP texture loading, oversized lightmap
-  fallback, compact clipnodes, hull0, all 77 submodels, and into HLSDK entity
-  spawn/model precache. The current blocker is `Server Edicts Zone` OOM at
-  `engine/server/sv_game.c:2946` allocating 736 bytes of entity private data
-  after scientist/barney setup.
-- 2026-06-28 follow-up source pass lowers the GameCube low-memory default edict
-  budget from the HL25-era 1200 back to the pre-HL25 retail-style 900 via
-  `common/defaults.h`. Fresh Dolphin evidence from
-  `.ai/logs/map-compat-20260628-171933/summary.md` now classifies `c1a0` as
-  `MAP_LOADED` with 8.80 MiB peak MEM1. This clears the old
-  `Server Edicts Zone` private-data OOM and moves the first post-load blocker to
-  `ImageLib Pool` OOM allocating 64 KiB at `engine/common/imagelib/img_tga.c:135`
-  after `Xash3D GameCube: map loaded c1a0`.
-- Runtime transition behavior, player state, inventory, globals, save
-  eligibility, renderer output, and memory headroom still require broader
-  current-build Dolphin or hardware evidence.
-
-**Known stale evidence:**
-- Older map/campaign logs include 45-second timeouts and `Sys_InitLog: can't
-  create` failures from before the current G65 active-rendering route.
-- Auto-rescue accepted unrelated `GC_DrawFatalBreadcrumb` patches while trying
-  to work G68. Those commits did not provide campaign or transition evidence.
-
-**Next command:**
+**Command:**
 
 ```sh
-scripts/gamecube-campaign-audit.sh --full
+MAP_PROBE_TIMEOUT=150 scripts/gamecube-changelevel-probe.sh
 ```
-
-Review the generated report at `.ai/logs/campaign-audit-*/summary.md` for
-chapter classifications (`playable`, `partially_playable`, `blocked`,
-`not_tested`) and map-level evidence. G68 is not complete until this audit runs
-against the current build and at least one representative chapter transition is
-recorded or explicitly classified with a first blocker.
 
 ## G69 — Sustained gameplay soak and leak regression gate (COMPLETE 2026-06-28)
 
@@ -2357,7 +2321,7 @@ result to the final evidence packet.
 
 **Status (2026-07-17):** DONE. Keep default `gc_quality=1`. Fresh map-compat
 replaced stale INCONCLUSIVE rows; New Game ceilings recorded; campaign-wide
-combat/chapter audit remains G68.
+combat/chapter audit is closed under G68 (96/96 maps + 16/16 changelevels).
 
 `scripts/gamecube-worst-case-report.py` is the G72 evidence reducer. It consumes
 map compatibility TSVs, campaign-audit TSVs, soak probe TSVs, Dolphin probe

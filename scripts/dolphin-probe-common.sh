@@ -161,7 +161,15 @@ probe_wait_native() {
 				sleep 2
 				continue
 			fi
+			if [[ -n "${G68_DONE_MARKER:-}" ]] && ! probe_log_has "$G68_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			if [[ -n "${G94_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
+				map_ready_at=$(date +%s)
+				g94_sample_armed=1
+			fi
+			if [[ -n "${G68_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi

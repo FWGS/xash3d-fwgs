@@ -882,6 +882,9 @@ def write_smoke_overrides(
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
 	lines = [f"map {Path(smoke_map).stem}"]
+	if changelevel:
+		# G68: enable New Game PVS/present/changelevel path on the smoke map.
+		lines.append("newgame")
 	if world_render:
 		lines.append("gcworldrender")
 	if phasetest:
