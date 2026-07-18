@@ -2071,6 +2071,37 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   yaw `-0.5`; sustained world presentation and all three gameplay actions
   continue. Client prediction remains disabled on this MEM1 route while the
   server runs authoritative native PMove.
+## G114 [x] Restore native HLSDK client, weapon, and HUD server updates
+
+- Status: DONE 2026-07-18. Full-physics runs now call the original statically
+  linked HLSDK `CBasePlayer::UpdateClientData`, exported `UpdateClientData`,
+  and `GetWeaponData` paths instead of the post-G36 minimal snapshot fallback.
+  World hull 0 is retained outside reusable BSP scratch for full physics, so
+  the original status-bar world trace remains valid after renderer startup.
+- Acceptance:
+  - Original client-data and weapon-data callbacks return on repeated snapshots.
+  - The complete original server HUD update and status trace return.
+  - PMove, controller axes, gameplay actions, transition, and world rendering
+    continue in the same native run.
+- Evidence: `.ai/logs/dolphin-probe-20260718-155019` reports native client and
+  weapon data twice, a returning status trace and complete HUD update, axis
+  movement delta `(0.45,0.00,-2.22)`, all three gameplay actions, `c1a0a`
+  world presentation, and no exception. The generic analyzer still expects the
+  pre-transition map label and therefore reports its known marker timeout.
+## G115 [x] Register statically linked HLSDK HUD user-message handlers
+
+- Status: DONE 2026-07-18. The allocation-free quality-0 HUD path now hooks
+  original HLSDK message wrappers before returning, without constructing
+  sprite or HUD-element lists.
+- Acceptance: `ResetHUD`, `InitHUD`, `Flashlight`, `Geiger`, `HideWeapon`,
+  `SetFOV`, `Health`, `Battery`, `Damage`, `FlashBat`, `Train`, and
+  `WeaponList` messages dispatch to non-null handlers during full physics.
+- Preserve the legal asset boundary: use only the compatible statically linked
+  HLSDK client code and user-supplied `valve/` assets.
+- Evidence: `.ai/logs/dolphin-probe-20260718-155507` registers every required
+  handler, contains no `CL_ParseUserMessage` or `No pfn` errors, then completes
+  native HUD/status updates, PMove axis displacement, attack/jump/use,
+  transition, and sustained world rendering.
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
 - Status: DONE 2026-07-17. Boot phases are chronological

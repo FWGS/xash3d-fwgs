@@ -2603,6 +2603,37 @@ movement helper remains only as fallback scaffolding outside `-gcfullphysics`.
 
 **Evidence:** `.ai/logs/dolphin-probe-20260718-142612`.
 
+## G114 — Native HLSDK snapshot and HUD server updates (COMPLETE 2026-07-18)
+
+The `-gcfullphysics` route no longer substitutes minimal post-G36 client data
+or skips weapon snapshots. It runs the original statically linked HLSDK server
+callbacks, including the complete player HUD-state update. Full physics also
+pins world hull 0 in the model pool instead of reusable renderer scratch, which
+keeps the original status-bar `TraceLine` valid after world presentation.
+
+The `c0a0` to `c1a0a` probe returned repeated `UpdateClientData` and
+`GetWeaponData` callbacks, completed the HUD status trace, then continued
+through native PMove, controller-axis displacement, attack/jump/use, and
+sustained low-resolution world rendering. The same run exposed the missing
+static client message registration resolved by G115 below.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-155019`.
+
+## G115 — Static HLSDK HUD message registration (COMPLETE 2026-07-18)
+
+The GameCube quality-0 HUD path previously returned before all original
+`HOOK_MESSAGE` calls, so valid server HUD updates arrived without client
+handlers. The low-memory path now registers the original statically linked
+HLSDK wrappers while still avoiding HUD-list and sprite allocation.
+
+The validation run registered ResetHUD, InitHUD, FOV, geiger, flashlight,
+health, damage, battery, train, weapon, ammo, and status handlers. It produced
+no missing-handler parse errors and continued through native server snapshots,
+status traces, PMove/controller displacement, gameplay actions, transition,
+and world presentation.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-155507`.
+
 ## Next wake-up commands
 
 ```sh

@@ -627,6 +627,11 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 	weapon_data_t	*from_wd, *to_wd;
 	client_frame_t	*frame;
 	edict_t		*clent;
+#if XASH_GAMECUBE
+	static int	gc_clientdata_log;
+	static int	gc_weapondata_log;
+	qboolean	gc_native_callbacks;
+#endif
 
 	memset( &nullcd, 0, sizeof( nullcd ));
 	frame = &cl->frames[cl->netchan.outgoing_sequence & SV_UPDATE_MASK];
@@ -659,9 +664,13 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 	memset( &frame->clientdata, 0, sizeof( frame->clientdata ));
 
 #if XASH_GAMECUBE
+	gc_native_callbacks = Sys_CheckParm( "-gcnewgame" )
+		&& Sys_CheckParm( "-gcfullphysics" ) && GC_IsNewGameG36Done();
+
 	/* Post-G36: pfnUpdateClientData / GetWeaponData stall Host_Frame on c0a0.
-	 * Fill a minimal clientdata_t from the edict so snapshots can resume (G87). */
-	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
+	 * Keep the minimal snapshot only for reduced bring-up modes (G87). */
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
+		&& !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		VectorCopy( clent->v.origin, frame->clientdata.origin );
 		VectorCopy( clent->v.velocity, frame->clientdata.velocity );
@@ -681,6 +690,15 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 #endif
 	// update clientdata_t
 	svgame.dllFuncs.pfnUpdateClientData( clent, FBitSet( cl->flags, FCL_LOCAL_WEAPONS ), &frame->clientdata );
+
+#if XASH_GAMECUBE
+	if( gc_native_callbacks && gc_clientdata_log++ < 2 )
+	{
+		Con_Reportf( "Xash3D GameCube: native UpdateClientData ready health=%.0f weapons=0x%x fov=%.0f viewmodel=%d\n",
+			frame->clientdata.health, frame->clientdata.weapons,
+			frame->clientdata.fov, frame->clientdata.viewmodel );
+	}
+#endif
 
 	MSG_BeginServerCmd( msg, svc_clientdata );
 	if( FBitSet( cl->flags, FCL_HLTV_PROXY )) return;	// don't send more nothing
@@ -703,7 +721,8 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 	MSG_WriteClientData( msg, from_cd, to_cd, sv.time );
 
 #if XASH_GAMECUBE
-	if( !( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() )
+	if( !( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
+		&& !Sys_CheckParm( "-gcfullphysics" ))
 		&& FBitSet( cl->flags, FCL_LOCAL_WEAPONS ) && svgame.dllFuncs.pfnGetWeaponData( clent, frame->weapondata ))
 #else
 	if( FBitSet( cl->flags, FCL_LOCAL_WEAPONS ) && svgame.dllFuncs.pfnGetWeaponData( clent, frame->weapondata ))
@@ -719,6 +738,11 @@ static void SV_WriteClientdataToMessage( sv_client_t *cl, sizebuf_t *msg )
 
 			MSG_WriteWeaponData( msg, from_wd, to_wd, sv.time, i );
 		}
+
+#if XASH_GAMECUBE
+		if( gc_native_callbacks && gc_weapondata_log++ < 2 )
+			Con_Reportf( "Xash3D GameCube: native GetWeaponData ready\n" );
+#endif
 	}
 
 	// end marker

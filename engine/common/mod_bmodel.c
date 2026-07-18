@@ -2342,7 +2342,10 @@ static void Mod_MakeHull0( model_t *mod, const dbspmodel_t *bmod )
 		mnode_t *in = mod->nodes;
 
 #if XASH_GAMECUBE
-		if( GC_MapLoadMemoryOpt() && bmod->isworld && gc_retain_bsp_source_buffer
+		/* Native physics and game-DLL traces need hull 0 after rendering has
+		 * reused the low-memory BSP scratch arena. Keep it in the model pool. */
+		if( GC_MapLoadMemoryOpt() && !Sys_CheckParm( "-gcfullphysics" )
+			&& bmod->isworld && gc_retain_bsp_source_buffer
 			&& gc_bsp_scratch_base && gc_bsp_scratch_size && mod->numnodes > 0 )
 		{
 			const size_t hull0_bytes = mod->numnodes * sizeof( *hull->clipnodes16 );
