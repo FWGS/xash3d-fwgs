@@ -564,6 +564,17 @@ static void SV_TouchLinks( edict_t *ent, areanode_t *node )
 		// never touch the triggers when "playersonly" is active
 		if( !sv.playersonly )
 		{
+#if XASH_GAMECUBE
+			static int gc_trigger_touch_log;
+
+			if( gc_trigger_touch_log < 6 && Sys_CheckParm( "-gcnewgame" )
+				&& FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
+			{
+				Con_Reportf( "Xash3D GameCube: native trigger touch ent=%d trigger=%d classname=%s\n",
+					NUM_FOR_EDICT( ent ), NUM_FOR_EDICT( touch ), SV_ClassName( touch ));
+				gc_trigger_touch_log++;
+			}
+#endif
 			svgame.globals->time = sv.time;
 			svgame.dllFuncs.pfnTouch( touch, ent );
 		}

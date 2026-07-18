@@ -1914,10 +1914,18 @@ void SV_Physics( void )
 	{
 		static int gc_phys_bound_log;
 		static int gc_phys_move_log;
+		static int gc_phys_clip_log;
+		static int gc_phys_relink_log;
+		static qboolean gc_phys_clip_proof_done;
+		static int gc_phys_think_cursor;
 		edict_t *player;
 		int thought = 0;
 		const int max_world_thinks = 8;
-		int i;
+		int world_thought = 0;
+		int scanned = 0;
+		int first_world = svs.maxclients + 1;
+		int world_count = svgame.numEntities - first_world;
+		int last_thought = -1;
 
 		svgame.globals->time = sv.time;
 		SV_RunLightStyles();
@@ -1931,14 +1939,15 @@ void SV_Physics( void )
 
 			/* pfnThink(player) and PlayerPostThink stall on c0a0 post-G36.
 			 * Full SV_RunCmd (PM_Move + LinkEdict + PostThink) also hangs.
-			 * G86: apply probe/PAD usercmd look + kinematic walk, then PreThink. */
+			 * G86/G109: apply usercmd look + hull-clipped walk, then PreThink. */
 			VectorCopy( player->v.origin, before_org );
 			VectorCopy( player->v.v_angle, before_ang );
 
 			if( GC_FillNewGameMoveUsercmd( &cmd, player->v.v_angle ))
 			{
 				float dt = cmd.msec * 0.001f;
-				vec3_t forward, right, up;
+				vec3_t forward, right, up, desired;
+				trace_t move_trace;
 
 				if( dt < 0.001f )
 					dt = 0.05f;
@@ -1953,9 +1962,52 @@ void SV_Physics( void )
 					player->v.impulse = cmd.impulse;
 
 				AngleVectors( player->v.v_angle, forward, right, up );
-				VectorMA( player->v.origin, cmd.forwardmove * dt, forward, player->v.origin );
-				VectorMA( player->v.origin, cmd.sidemove * dt, right, player->v.origin );
-				moved = true;
+				VectorMA( player->v.origin, cmd.forwardmove * dt, forward, desired );
+				VectorMA( desired, cmd.sidemove * dt, right, desired );
+				move_trace = SV_Move( player->v.origin, player->v.mins, player->v.maxs,
+					desired, MOVE_NORMAL, player, false );
+				if( !move_trace.allsolid && !move_trace.startsolid )
+				{
+					VectorCopy( move_trace.endpos, player->v.origin );
+					moved = move_trace.fraction > 0.0f;
+					if( moved )
+					{
+						/* G111: area relinking is stable, so restore normal trigger touches. */
+						SV_LinkEdict( player, true );
+						if( gc_phys_relink_log < 6 )
+						{
+							Con_Reportf( "Xash3D GameCube: player relink origin=(%.0f %.0f %.0f) abs=(%.0f %.0f %.0f)/(%.0f %.0f %.0f) linked=%d triggers=1\n",
+								player->v.origin[0], player->v.origin[1], player->v.origin[2],
+								player->v.absmin[0], player->v.absmin[1], player->v.absmin[2],
+								player->v.absmax[0], player->v.absmax[1], player->v.absmax[2],
+								player->area.prev != NULL );
+							gc_phys_relink_log++;
+						}
+					}
+				}
+
+				if( gc_phys_clip_log < 6 )
+				{
+					Con_Reportf( "Xash3D GameCube: player clip move fraction=%.3f startsolid=%d allsolid=%d hull=(%.0f %.0f %.0f)/(%.0f %.0f %.0f)\n",
+						move_trace.fraction, move_trace.startsolid, move_trace.allsolid,
+						player->v.mins[0], player->v.mins[1], player->v.mins[2],
+						player->v.maxs[0], player->v.maxs[1], player->v.maxs[2] );
+					gc_phys_clip_log++;
+				}
+
+				if( !gc_phys_clip_proof_done )
+				{
+					vec3_t proof_end;
+					trace_t proof_trace;
+
+					VectorMA( player->v.origin, 8192.0f, forward, proof_end );
+					proof_trace = SV_Move( player->v.origin, player->v.mins, player->v.maxs,
+						proof_end, MOVE_NORMAL, player, false );
+					Con_Reportf( "Xash3D GameCube: player clip proof fraction=%.3f startsolid=%d allsolid=%d end=(%.0f %.0f %.0f)\n",
+						proof_trace.fraction, proof_trace.startsolid, proof_trace.allsolid,
+						proof_trace.endpos[0], proof_trace.endpos[1], proof_trace.endpos[2] );
+					gc_phys_clip_proof_done = true;
+				}
 
 				if( gc_phys_move_log < 6 )
 				{
@@ -1970,37 +2022,55 @@ void SV_Physics( void )
 				}
 			}
 
-			svgame.dllFuncs.pfnPlayerPreThink( player );
-			thought++;
-			(void)moved;
-			SV_TryNewGameWorldInteraction( player );
+				svgame.dllFuncs.pfnPlayerPreThink( player );
+				thought++;
+				SV_TryNewGameWorldInteraction( player );
 		}
 
-		for( i = svs.maxclients + 1; i < svgame.numEntities && thought < ( 1 + max_world_thinks ); i++ )
+		/* Preserve the cap, but rotate the starting edict so frequently-due
+		 * low slots cannot permanently starve later gameplay entities. */
+		if( world_count > 0 )
 		{
-			edict_t *ent = SV_EdictNum( i );
-			float thinktime;
+			int entnum;
 
-			if( !SV_IsValidEdict( ent ))
-				continue;
-			if( FBitSet( ent->v.flags, FL_KILLME ))
-				continue;
-			/* Skip pushers — their think often walks the BSP and stalls. */
-			if( ent->v.movetype == MOVETYPE_PUSH || ent->v.movetype == MOVETYPE_PUSHSTEP )
-				continue;
-			thinktime = ent->v.nextthink;
-			if( thinktime <= 0.0f || thinktime > ( sv.time + sv.frametime ))
-				continue;
-			if( !SV_RunThink( ent ))
-				continue;
-			thought++;
+			if( gc_phys_think_cursor < first_world || gc_phys_think_cursor >= svgame.numEntities )
+				gc_phys_think_cursor = first_world;
+			entnum = gc_phys_think_cursor;
+
+			while( scanned < world_count && world_thought < max_world_thinks )
+			{
+				edict_t *ent = SV_EdictNum( entnum );
+				float thinktime;
+
+				scanned++;
+				entnum++;
+				if( entnum >= svgame.numEntities )
+					entnum = first_world;
+
+				if( !SV_IsValidEdict( ent ))
+					continue;
+				if( FBitSet( ent->v.flags, FL_KILLME ))
+					continue;
+				/* Skip pushers — their think often walks the BSP and stalls. */
+				if( ent->v.movetype == MOVETYPE_PUSH || ent->v.movetype == MOVETYPE_PUSHSTEP )
+					continue;
+				thinktime = ent->v.nextthink;
+				if( thinktime <= 0.0f || thinktime > ( sv.time + sv.frametime ))
+					continue;
+				last_thought = NUM_FOR_EDICT( ent );
+				world_thought++;
+				thought++;
+				SV_RunThink( ent );
+			}
+
+			gc_phys_think_cursor = entnum;
 		}
 
 		sv.framecount++;
 		if( gc_phys_bound_log < 4 )
 		{
-			Con_Reportf( "Xash3D GameCube: SV_Physics bounded think post-G36 ents=%d time=%.2f\n",
-				thought, sv.time );
+			Con_Reportf( "Xash3D GameCube: SV_Physics bounded think post-G36 ents=%d world=%d scanned=%d next=%d last=%d time=%.2f\n",
+				thought, world_thought, scanned, gc_phys_think_cursor, last_thought, sv.time );
 			gc_phys_bound_log++;
 		}
 		return;

@@ -5307,9 +5307,8 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		clip_esize = sizeof( dclipnode_t );
 
 	/* Preserve nodes+clipnodes before wiping deferred slots / shredding the
-	 * staging arena. Prefer a high-end arena carve (not a heap pin): New Game
-	 * still needs heap for later FS_Open of leafs/markfaces, and disc reopen of
-	 * nodes/clipnodes frequently fails once MEM1/file tables tip. */
+	 * staging arena. Nodes may use the high carve; collision clipnodes need a
+	 * persistent pin because renderer lookup-table restore reuses the arena. */
 	{
 		void *node_stash = NULL;
 		void *clip_stash = NULL;
@@ -5322,10 +5321,24 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 		if( bmod->numclipnodes > 0 && Mod_GCPointerInBuffer( bmod->clipnodes, mod_base, bufferlen ))
 			clip_bytes = bmod->numclipnodes * clip_esize;
 
+		/* Renderer restore rebuilds lookup tables over the static map-load arena.
+		 * Collision clipnodes must outlive that reuse; pin the compact lump now. */
+		if( clip_bytes )
+		{
+			clip_stash = malloc( clip_bytes );
+			if( !clip_stash )
+			{
+				Host_Error( "Xash3D GameCube: unable to pin collision clipnodes (%s)\n",
+					Q_memprint( clip_bytes ));
+				return;
+			}
+			memcpy( clip_stash, bmod->clipnodes, clip_bytes );
+			Con_Reportf( "Xash3D GameCube: pinned clipnodes outside BSP scratch %s\n",
+				Q_memprint( clip_bytes ));
+		}
+
 		if( node_bytes )
 			carve_total += ALIGN( node_bytes, 32 );
-		if( clip_bytes )
-			carve_total += ALIGN( clip_bytes, 32 );
 
 		if( carve_total > 0 && carve_total < bufferlen )
 		{
@@ -5335,17 +5348,10 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 			{
 				const size_t carve = ALIGN( node_bytes, 32 );
 				node_stash = carve_ptr;
-				memcpy( node_stash, bmod->nodes, node_bytes );
+				memmove( node_stash, bmod->nodes, node_bytes );
 				carve_ptr += carve;
 				Con_Reportf( "Xash3D GameCube: carved nodes into BSP scratch high %s\n",
 					Q_memprint( node_bytes ));
-			}
-			if( clip_bytes )
-			{
-				clip_stash = carve_ptr;
-				memcpy( clip_stash, bmod->clipnodes, clip_bytes );
-				Con_Reportf( "Xash3D GameCube: carved clipnodes into BSP scratch high %s\n",
-					Q_memprint( clip_bytes ));
 			}
 			gc_bsp_scratch_carve_high = carve_total;
 		}

@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G106 DONE: direct-map ClientPutInServer constructs CBasePlayer on client edict 1; real DefaultTouch attaches crowbar+glock after landmark hop (.ai/logs/dolphin-probe-20260718-032131). Automatic queue empty except SKIP/manual. Next natural: LRU lean-N PVS."
+  "note": "G111 DONE: accepted bounded player moves now complete trigger-aware server area relinks; six repeated traversals remain stable after changelevel (.ai/logs/dolphin-probe-20260718-055613). Automatic queue empty except SKIP/manual."
 }

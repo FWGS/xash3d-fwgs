@@ -2208,10 +2208,11 @@ hardware evidence refer to the same commit and artifact hashes.
   on `c1a0`→`c1a0a` with disc `leanpvs` / `-gcleanpvs`.
 - **G102 DONE:** `.ai/logs/dolphin-probe-20260718-003429` —
   landmark weapon `pfnSpawn` + lean-attach `granted=2` (Touch/AddPlayerItem
-  still no-ops; entities kept with owner bind).
+  still no-ops at this historical stage; resolved by G106).
 - **G103 DONE:** `.ai/logs/dolphin-probe-20260718-010723` —
   inventory-chain attach on priv_edict=2 (`m_rgpPlayerItems` slots 0/1) with
-  `granted=2` and ammo1=99 ammo2=88.
+  `granted=2` and ammo1=99 ammo2=88; the edict-2 misclassification was resolved
+  by G106.
 - **G104 DONE:** `.ai/logs/dolphin-probe-20260718-013800` —
   lean Deploy sets `viewmodel=models/v_9mmhandgun.mdl` /
   `weaponmodel=models/p_9mmhandgun.mdl` / anim `onehanded` after inventory
@@ -2219,9 +2220,26 @@ hardware evidence refer to the same commit and artifact hashes.
 - **G105 DONE:** `.ai/logs/dolphin-probe-20260718-014519` —
   real studio `v_9mmhandgun.mdl` promoted + `G105 viewmodel draw
   models/v_9mmhandgun.mdl` after landmark Deploy on `c0a0a`.
+- **G106 DONE:** `.ai/logs/dolphin-probe-20260718-032131` —
+  real `CBasePlayer` on client edict 1 + DLL DefaultTouch inventory attach.
+- **G107 DONE:** `.ai/logs/dolphin-probe-20260718-034958` —
+  four-slot lean PVS LRU evicts/reloads packed all-cluster rows on `c1a0a`
+  while retaining the 4.90 MiB high-water mark.
+- **G108 DONE:** `.ai/logs/dolphin-probe-20260718-044542` —
+  bounded post-G36 world thinks retain the eight-entity cap but use a
+  changelevel-safe round-robin cursor, preventing low-edict starvation.
+- **G109 DONE:** `.ai/logs/dolphin-probe-20260718-052139` —
+  compact BSP clipnodes persist outside renderer scratch; bounded player hull
+  movement and a real fraction-0.025 world collision return after changelevel.
+- **G110 DONE:** `.ai/logs/dolphin-probe-20260718-052721` —
+  accepted bounded moves refresh player absolute bounds and server area
+  membership; six moving links remain valid through continued gameplay.
+- **G111 DONE:** `.ai/logs/dolphin-probe-20260718-055613` —
+  six trigger-enabled area relinks return after changelevel while collision,
+  rendering, bounded thinks, input, and audio continue.
 
-**Next automatic goal:** none open. G68/G72/G95–G105 closed; remaining automatic
-goals are SKIP (G73–G81) or manual (G70/G71/G75).
+**Next automatic goal:** none open. G68/G72/G95–G111 are closed; remaining
+automatic goals are SKIP (G73–G81) or manual (G70/G71/G75).
 New Game regression:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=32 scripts/dolphin-boot-probe.sh
@@ -2481,6 +2499,78 @@ inventory link remains only as a fallback. G104 deploy and G105 viewmodel draw
 still pass.
 
 **Evidence:** `.ai/logs/dolphin-probe-20260718-032131`.
+
+## G107 — Bounded lean PVS LRU (COMPLETE 2026-07-18)
+
+Forced lean PVS now keeps four decompressed live rows while retaining compact
+compressed PVS data and prebuilt node masks for all valid clusters. Camera
+movement into an uncached leaf replaces the least-recently-used slot without
+walking BSP parent pointers after scratch reuse.
+
+On `c1a0`→`c1a0a`, 781 cluster rows occupy 30,314 compressed bytes and 230,395
+bytes of prebuilt node masks. Runtime evicted/reloaded clusters 429 and 1,
+continued rendering and gameplay input, and retained the existing 4.90 MiB
+MEM1 high-water mark.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-034958`.
+
+## G108 — Fair bounded world-think scheduling (COMPLETE 2026-07-18)
+
+The post-G36 GameCube scaffold still deliberately caps world entity thinks at
+eight and excludes BSP pushers, but it no longer starts every frame at the
+first non-client edict. A persistent cursor rotates at the cap and is normalized
+against the current edict range after changelevel, preventing frequently-due
+low-numbered entities from starving later gameplay entities.
+
+On the `c0a0`→`c1a0a` retail probe, four scheduler ticks scanned all 122 world
+slots and dispatched one to five due entities per tick, including edicts 46,
+48, 54, and 76. Changelevel, world rendering, lean PVS, snapshots, movement,
+actions, and gameplay audio continued. The generic harness result is not a G36
+performance pass: the marker-focused run captured no timing samples and its
+expected initial map label differed from the retail boot map.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-044542`.
+
+## G109 — Bounded collision-clipped movement (COMPLETE 2026-07-18)
+
+The retained hull graph was valid on disc and during `Mod_SetupSubmodels`, but
+its compact clipnodes were aliased into the renderer lookup-table arena. Once
+map loading released that arena, `R_GCRebuildBlendMaps` overwrote the live
+clipnodes and later world traces stalled in `PM_RecursiveHullCheck`.
+
+The 59–60 KB compact clipnode lump is now copied to a normal heap pin before
+renderer scratch is released. Existing GameCube model cleanup owns and frees
+the pin across changelevel. Post-G36 usercmd translation now runs through
+`SV_Move` with the real player hull. Clear ten-unit moves return fraction 1.0;
+a non-mutating 8,192-unit proof sweep hits world geometry at fraction 0.025 and
+ends at `(456,2112,785)`. Rendering, lean PVS, bounded thinks, G45 actions, and
+gameplay audio continue, with a 3.59 MiB HWM on the tested route.
+
+This remains narrower than full PMove: stepping, gravity, impacts, trigger
+touches, and PlayerPostThink are still deferred.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-052139`.
+
+## G110 — Server area relink after bounded movement (COMPLETE 2026-07-18)
+
+G109 changed `origin` without updating the player's absolute box or area link.
+G110 added `SV_LinkEdict(player, false)` while preserving the GameCube BSP-leaf
+guard; G111 later enabled trigger traversal. Six `c1a0a` moves advanced origin
+250→300 with matching bounds and `linked=1`, followed by collision traces,
+bounded thinks, input, rendering, and audio. Full PMove remains deferred.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-052721`.
+
+## G111 — Trigger-aware bounded movement relink (COMPLETE 2026-07-18)
+
+Accepted moves now call `SV_LinkEdict(player, true)`, restoring area-tree
+trigger traversal without the BSP render-leaf walk. Six `c1a0a` relinks report
+`linked=1 triggers=1`, then collision, rendering, bounded thinks, audio, and
+input continue. This route did not overlap a linked trigger; G88 remains the
+DLL-touch proof, while a capped marker will identify future native overlaps.
+Full PMove, stepping, gravity, impacts, and PlayerPostThink remain deferred.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-055613`.
 
 ## Next wake-up commands
 

@@ -18,12 +18,22 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G104: lean Deploy/viewmodel after inventory attach
 - G105: landmark first-person viewmodel studio draw
 - G106: real client-edict `CBasePlayer` + DLL `DefaultTouch` inventory attach
+- G107: four-slot lean PVS LRU with packed all-cluster backing rows
+- G108: fair round-robin scheduling for bounded post-G36 world thinks
+- G109: persistent BSP clipnodes + collision-clipped bounded player movement
+- G110: server area relink after accepted bounded player movement
+- G111: trigger-aware relink traversal after bounded player movement
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G106 closed. Remaining items are SKIP (G73–G81) or manual
-  checkpoints (G70/G71/G75). Natural follow-on: LRU lean-N PVS expansion.
+- None — G111 closed. Remaining items are SKIP (G73–G81) or manual
+  checkpoints (G70/G71/G75).
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260718-055613` (G111 trigger-aware relink traversal)
+- `.ai/logs/dolphin-probe-20260718-052721` (G110 moving abs bounds + area relink)
+- `.ai/logs/dolphin-probe-20260718-052139` (G109 retained hull + collision proof)
+- `.ai/logs/dolphin-probe-20260718-044542` (G108 bounded think scheduler)
+- `.ai/logs/dolphin-probe-20260718-034958` (G107 lean PVS LRU eviction/reload)
 - `.ai/logs/dolphin-probe-20260718-032131` (G106 real player + DefaultTouch attach)
 - `.ai/logs/dolphin-probe-20260718-014519` (G105 viewmodel draw v_9mmhandgun)
 - `.ai/logs/dolphin-probe-20260718-013800` (G104 deploy viewmodel=v_9mmhandgun)
@@ -1926,6 +1936,110 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
     scripts/dolphin-boot-probe.sh
   ```
 
+## G107 [x] Add bounded LRU replacement to lean-N PVS
+
+- Status: DONE 2026-07-18. The G101 four-row cache could only follow among
+  clusters selected during BSP load. Lean capture now retains packed compressed
+  PVS rows plus prebuilt node masks for every valid cluster; camera misses
+  decompress/copy into the least-recently-used one of four live slots. Node
+  ancestry is never walked after BSP scratch reuse.
+- Acceptance:
+  - Forced lean `c1a0`→`c1a0a` captures 781 packed rows and keeps four live slots.
+  - Runtime loads an uncached camera cluster and another proof cluster with
+    explicit slot eviction, then continues world rendering and gameplay input.
+  - MEM1 high-water remains 4.90 MiB, matching the prior large-map ceiling.
+- Evidence: `.ai/logs/dolphin-probe-20260718-034958` —
+  `Capture FatPVS lean LRU rows=781 packed=30314`,
+  `Capture FatPVS lean LRU nodebits=230395`,
+  `PVS lean LRU load cluster=429 slot=1 evict=1`,
+  `PVS lean LRU load cluster=1 slot=2 evict=2`, and
+  `PVS lean LRU ready slots=4 loaded=1 packed=30314`.
+## G108 [x] Fairly schedule bounded post-G36 entity thinks
+
+- Status: DONE 2026-07-18. The G84 world-think loop always restarted at the
+  first non-client edict, so eight frequently-due low slots could starve every
+  later entity. It now keeps a changelevel-safe round-robin cursor while
+  preserving the existing eight-world-think cap and pusher exclusions.
+- Acceptance:
+  - The bounded path rotates its next scan position whenever the cap is reached.
+  - A real post-changelevel map scans its complete world-edict range and runs
+    later due entities without increasing the cap or enabling full physics.
+  - World present, lean PVS, player input, snapshots, and audio continue after
+    the scheduler runs.
+- Evidence: `.ai/logs/dolphin-probe-20260718-044542` — four bounded ticks scan
+  122 world slots and run due entities through edict 76 (`world=1..5`,
+  `scanned=122`, `last=46..76`); `G68 changelevel ready`, G95 world present,
+  G101 PVS follow, gameplay input, and gameplay sound all occur. The generic
+  analyzer reports FAIL because this marker-focused retail run has no frame
+  timing samples and expects the pre-transition map label; this is not claimed
+  as G36 performance evidence.
+## G109 [x] Restore bounded collision-clipped player movement
+
+- Status: DONE 2026-07-18. The compact clipnodes were retained inside the
+  renderer lookup-table arena; `R_GCRebuildBlendMaps` overwrote them after map
+  load, causing `PM_RecursiveHullCheck` to stall. The compact 59–60 KB lump is
+  now pinned on the heap before renderer scratch is released, with existing
+  changelevel cleanup taking ownership. G86 movement now uses `SV_Move`.
+- Acceptance:
+  - Validate retained world hull planes/clipnodes after BSP scratch reuse and
+    reject or repair cycles/corruption before post-G36 movement.
+  - A bounded player hull trace returns with a fraction/end position and cannot
+    spin indefinitely on malformed collision data.
+  - Player movement, bounded server ticks, world presents, G45 actions, and
+    lean PVS continue after the trace.
+- Evidence: `.ai/logs/dolphin-probe-20260718-052139` — both maps report
+  `pinned clipnodes outside BSP scratch` and heap aliases; normal movement
+  traces return `fraction=1.000` with hull `(-16 -16 -36)/(16 16 36)`. A
+  non-mutating long trace hits the world at `fraction=0.025`, end
+  `(456 2112 785)`, then bounded thinks, G45 actions, PVS, render, and audio
+  continue. MEM1 HWM remains 3.59 MiB on this route.
+- Full PMove, stepping, impacts, trigger touches, gravity, and PostThink remain
+  intentionally out of scope.
+## G110 [x] Relink bounded player movement into the server area tree
+
+- Status: DONE 2026-07-18. G110 established that each accepted G109
+  hull-clipped move could call `SV_LinkEdict(player, false)`, refreshing the
+  player's absolute bounds and broadphase area membership without invoking
+  trigger callbacks. G111 subsequently enables trigger traversal. The existing
+  GameCube client guard continues to skip the unstable BSP render-leaf walk.
+- Acceptance:
+  - A successful bounded move updates `absmin`/`absmax` from the new origin and
+    leaves the player linked into a server area node.
+  - Relinking does not invoke trigger touches or reintroduce the post-G36 BSP
+    traversal stall.
+  - Bounded thinks, world interaction, G45 input, rendering, and gameplay audio
+    continue after repeated relinks.
+- Evidence: `.ai/logs/dolphin-probe-20260718-052721` — six consecutive moves
+  advance origin 250→300 and report matching hull bounds with `linked=1`;
+  fraction-1.000 collision traces, world interaction, rotating bounded thinks,
+  jump/use input, gameplay sound, and `probe gameplay input ready` all continue.
+  The marker-focused probe was intentionally stopped after acceptance evidence,
+  before the generic harness's known map-label/timing timeout.
+- Full PMove, stepping, gravity, impacts, trigger touches, and PostThink remain
+  intentionally out of scope.
+## G111 [x] Restore trigger-aware relinking after bounded movement
+
+- Status: DONE 2026-07-18. The accepted-move relink now uses
+  `SV_LinkEdict(player, true)`, restoring the normal server area-tree trigger
+  traversal while retaining the GameCube client render-leaf guard. A capped
+  native callback marker is available when a linked trigger actually overlaps.
+- Acceptance:
+  - Repeated trigger-enabled relinks return with translated absolute bounds and
+    valid area membership after changelevel.
+  - Collision clipping, world rendering, bounded thinks, input, and audio
+    continue after trigger traversal.
+  - Do not claim a native callback unless the test route geometrically overlaps
+    a linked trigger; retain G88's direct DLL touch as the callback proof.
+- Evidence: `.ai/logs/dolphin-probe-20260718-055613` — six consecutive moves
+  advance origin 250→300 with matching hull bounds and report
+  `linked=1 triggers=1`. The route does not overlap a linked trigger, so no
+  `native trigger touch` marker appears; the separate bounded G88 touch still
+  fires `trigger_multiple`. Fraction-0.025 world collision, sustained world
+  present, rotating bounded thinks, gameplay sound, jump/use, and input-ready
+  all continue. The generic analyzer's expected pre-transition map label and
+  absent timing samples remain unrelated to this marker-focused acceptance.
+- Full PMove, stepping, gravity, impacts, and PlayerPostThink remain out of
+  scope.
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
 - Status: DONE 2026-07-17. Boot phases are chronological
