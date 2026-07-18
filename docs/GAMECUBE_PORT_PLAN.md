@@ -2237,8 +2237,11 @@ hardware evidence refer to the same commit and artifact hashes.
 - **G111 DONE:** `.ai/logs/dolphin-probe-20260718-055613` —
   six trigger-enabled area relinks return after changelevel while collision,
   rendering, bounded thinks, input, and audio continue.
+- **G112 DONE:** `.ai/logs/dolphin-probe-20260718-070101` —
+  flat world support is found 20.97 units below the hull and correctly remains
+  airborne beyond the 18-unit step limit.
 
-**Next automatic goal:** none open. G68/G72/G95–G111 are closed; remaining
+**Next automatic goal:** none open. G68/G72/G95–G112 are closed; remaining
 automatic goals are SKIP (G73–G81) or manual (G70/G71/G75).
 New Game regression:
 ```sh
@@ -2571,6 +2574,17 @@ DLL-touch proof, while a capped marker will identify future native overlaps.
 Full PMove, stepping, gravity, impacts, and PlayerPostThink remain deferred.
 
 **Evidence:** `.ai/logs/dolphin-probe-20260718-055613`.
+
+## G112 — Bounded ground-support categorization (COMPLETE 2026-07-18)
+
+Each bounded move traces the player hull 64 units down, accepts only walkable
+support within the 18-unit step height, and refreshes `FL_ONGROUND` plus
+`groundentity`. On `c1a0a`, six traces find world support (`ent=0`, `normalz=1`)
+20.97 units below the hull, correctly leaving the player airborne at z=785.
+Collision, rendering, relinks, bounded thinks, audio, and input continue;
+gravity and landing remain deferred.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-070101`.
 
 ## Next wake-up commands
 

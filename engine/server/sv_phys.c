@@ -1916,6 +1916,7 @@ void SV_Physics( void )
 		static int gc_phys_move_log;
 		static int gc_phys_clip_log;
 		static int gc_phys_relink_log;
+		static int gc_phys_ground_log;
 		static qboolean gc_phys_clip_proof_done;
 		static int gc_phys_think_cursor;
 		edict_t *player;
@@ -1983,6 +1984,42 @@ void SV_Physics( void )
 								player->area.prev != NULL );
 							gc_phys_relink_log++;
 						}
+					}
+				}
+
+				{
+						vec3_t ground_end;
+						trace_t ground_trace;
+						qboolean onground;
+						float ground_dist;
+
+						VectorCopy( player->v.origin, ground_end );
+						ground_end[2] -= 64.0f;
+						ground_trace = SV_Move( player->v.origin, player->v.mins, player->v.maxs,
+							ground_end, MOVE_NORMAL, player, false );
+						ground_dist = ground_trace.fraction * 64.0f;
+						onground = player->v.velocity[2] <= 180.0f
+							&& !ground_trace.startsolid && !ground_trace.allsolid
+							&& ground_dist <= 18.0f && ground_trace.plane.normal[2] >= 0.7f;
+						if( onground )
+						{
+							VectorCopy( ground_trace.endpos, player->v.origin );
+							SetBits( player->v.flags, FL_ONGROUND );
+							player->v.groundentity = ground_trace.ent;
+							SV_LinkEdict( player, true );
+					}
+					else
+					{
+						ClearBits( player->v.flags, FL_ONGROUND );
+						player->v.groundentity = NULL;
+					}
+
+					if( gc_phys_ground_log < 6 )
+					{
+							Con_Reportf( "Xash3D GameCube: player ground dist=%.2f normalz=%.3f onground=%d ent=%d\n",
+								ground_dist, ground_trace.plane.normal[2], onground,
+							SV_IsValidEdict( ground_trace.ent ) ? NUM_FOR_EDICT( ground_trace.ent ) : -1 );
+						gc_phys_ground_log++;
 					}
 				}
 

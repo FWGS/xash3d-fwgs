@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G111 DONE: accepted bounded player moves now complete trigger-aware server area relinks; six repeated traversals remain stable after changelevel (.ai/logs/dolphin-probe-20260718-055613). Automatic queue empty except SKIP/manual."
+  "note": "G112 DONE: bounded ground traces find flat world support 20.97 units below the player and correctly keep FL_ONGROUND clear beyond the 18-unit step limit (.ai/logs/dolphin-probe-20260718-070101). Automatic queue empty except SKIP/manual."
 }

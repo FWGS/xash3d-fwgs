@@ -23,12 +23,14 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G109: persistent BSP clipnodes + collision-clipped bounded player movement
 - G110: server area relink after accepted bounded player movement
 - G111: trigger-aware relink traversal after bounded player movement
+- G112: bounded ground-support categorization after movement
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G111 closed. Remaining items are SKIP (G73–G81) or manual
+- None — G112 closed. Remaining items are SKIP (G73–G81) or manual
   checkpoints (G70/G71/G75).
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260718-070101` (G112 20.97-unit world support trace)
 - `.ai/logs/dolphin-probe-20260718-055613` (G111 trigger-aware relink traversal)
 - `.ai/logs/dolphin-probe-20260718-052721` (G110 moving abs bounds + area relink)
 - `.ai/logs/dolphin-probe-20260718-052139` (G109 retained hull + collision proof)
@@ -2040,6 +2042,17 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   absent timing samples remain unrelated to this marker-focused acceptance.
 - Full PMove, stepping, gravity, impacts, and PlayerPostThink remain out of
   scope.
+## G112 [x] Refresh bounded player ground support after movement
+
+- Status: DONE 2026-07-18. A 64-unit downward player hull trace accepts only
+  walkable support within the 18-unit step height, refreshing
+  `FL_ONGROUND`/`groundentity` and clearing stale state while airborne.
+- Acceptance: report support distance, plane, ground state, and edict while
+  preserving collision, relinking, rendering, bounded thinks, input, and audio.
+- Evidence: `.ai/logs/dolphin-probe-20260718-070101` — six traces find flat
+  world support (`normalz=1`, `ent=0`) 20.97 units below the hull and correctly
+  report `onground=0`. The player remains at z=785; gameplay continues through
+  input-ready. Gravity and landing are intentionally deferred.
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
 - Status: DONE 2026-07-17. Boot phases are chronological
