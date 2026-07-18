@@ -24,6 +24,7 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G110: server area relink after accepted bounded player movement
 - G111: trigger-aware relink traversal after bounded player movement
 - G112: bounded ground-support categorization after movement
+- G113: standard controller axes through loopback usercmds and native HLSDK PMove
 
 **Immediate source queue (open automatic goals, in order):**
 - None — G112 closed. Remaining items are SKIP (G73–G81) or manual
@@ -31,6 +32,7 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 
 Evidence anchors:
 - `.ai/logs/dolphin-probe-20260718-070101` (G112 20.97-unit world support trace)
+- `.ai/logs/dolphin-probe-20260718-142612` (G113 native axis usercmd + HLSDK PMove)
 - `.ai/logs/dolphin-probe-20260718-055613` (G111 trigger-aware relink traversal)
 - `.ai/logs/dolphin-probe-20260718-052721` (G110 moving abs bounds + area relink)
 - `.ai/logs/dolphin-probe-20260718-052139` (G109 retained hull + collision proof)
@@ -2053,6 +2055,22 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   world support (`normalz=1`, `ent=0`) 20.97 units below the hull and correctly
   report `onground=0`. The player remains at z=785; gameplay continues through
   input-ready. Gravity and landing are intentionally deferred.
+## G113 [x] Route controller axes through native HLSDK PMove
+
+- Status: DONE 2026-07-18. The full-physics probe now emits synthetic stick
+  axes through the same `Joy_AxisMotionEvent` path used by physical GameCube
+  controllers. Standard client command generation, loopback networking, and
+  `SV_RunCmd` deliver nonzero movement to the statically linked HLSDK PMove.
+- Acceptance:
+  - A nonzero standard `forwardmove` reaches `SV_RunCmd` without calling the
+    bounded `GC_FillNewGameMoveUsercmd` scaffold.
+  - Repeated PMove calls accumulate horizontal displacement and look yaw.
+  - World rendering and attack/jump/use input continue with native physics.
+- Evidence: `.ai/logs/dolphin-probe-20260718-142612` reports
+  `move=(266,0)`, horizontal velocity `30.0`, delta `(0.24,0.00,-1.39)`, and
+  yaw `-0.5`; sustained world presentation and all three gameplay actions
+  continue. Client prediction remains disabled on this MEM1 route while the
+  server runs authoritative native PMove.
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
 - Status: DONE 2026-07-17. Boot phases are chronological

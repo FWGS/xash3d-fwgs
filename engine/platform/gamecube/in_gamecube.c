@@ -92,6 +92,8 @@ static double gc_probe_action_diag_time;
 static qboolean gc_probe_action_logged;
 static qboolean gc_probe_action_complete_logged;
 static qboolean gc_probe_menu_ready_logged;
+static int gc_probe_native_move_frames;
+static qboolean gc_probe_native_move_logged;
 
 typedef struct gc_default_bind_s
 {
@@ -478,6 +480,8 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 			gc_probe_action_stage = 0;
 			gc_probe_action_logged = false;
 			gc_probe_action_complete_logged = false;
+			gc_probe_native_move_frames = 0;
+			gc_probe_native_move_logged = false;
 			GC_UpdateButtons( 0 );
 			return 0;
 		}
@@ -620,6 +624,32 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 	}
 }
 
+static void GC_UpdateProbeSyntheticAxes( void )
+{
+	short forward = 0;
+	short yaw = 0;
+
+	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& cls.state == ca_active && cls.signon == SIGNONS
+		&& gc_probe_action_stage >= 6 && gc_probe_native_move_frames < 32 )
+	{
+		/* Follow the physical-pad axis route so the probe exercises standard
+		 * client usercmd creation and server HLSDK PMove. */
+		forward = GC_StickToShort( -48 );
+		yaw = GC_StickToShort( 24 );
+		if( gc_probe_native_move_frames++ == 0 )
+			Con_Reportf( "Xash3D GameCube: probe native move/look begin\n" );
+	}
+	else if( gc_probe_native_move_frames == 32 && !gc_probe_native_move_logged )
+	{
+		gc_probe_native_move_logged = true;
+		Con_Reportf( "Xash3D GameCube: probe native move/look ready\n" );
+	}
+
+	GC_UpdateAxis( JOY_AXIS_FWD, forward, &prev_fwd );
+	GC_UpdateAxis( JOY_AXIS_YAW, yaw, &prev_yaw );
+}
+
 void Platform_RunEvents( void )
 {
 	int port;
@@ -650,6 +680,7 @@ void Platform_RunEvents( void )
 		}
 		held = GC_ProbeSyntheticHeldButtons();
 		GC_UpdateButtons( held );
+		GC_UpdateProbeSyntheticAxes();
 		return;
 	}
 
@@ -742,6 +773,8 @@ int Platform_JoyInit( void )
 	gc_probe_action_logged = false;
 	gc_probe_action_complete_logged = false;
 	gc_probe_menu_ready_logged = false;
+	gc_probe_native_move_frames = 0;
+	gc_probe_native_move_logged = false;
 	GC_LogButtonMap();
 	if( GC_HasForcedPreferredPort( ))
 	{

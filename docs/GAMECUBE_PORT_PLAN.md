@@ -2586,6 +2586,23 @@ gravity and landing remain deferred.
 
 **Evidence:** `.ai/logs/dolphin-probe-20260718-070101`.
 
+## G113 — Native controller-axis PMove (COMPLETE 2026-07-18)
+
+The `-gcfullphysics` route now drives the same joystick-axis events used by a
+physical GameCube pad through standard client command creation and loopback
+networking. The statically linked server HLSDK receives `forwardmove=266` in
+`SV_RunCmd`; 32 authoritative PMove calls produce horizontal velocity `30.0`,
+horizontal displacement `0.24`, falling displacement `-1.39`, and yaw `-0.5`.
+Attack, jump, use, sustained world presentation, and the standard client frame
+continue after the movement sequence.
+
+This supersedes the earlier G109-G112 statement that full PMove, gravity, and
+stepping were wholly deferred. Server-authoritative HLSDK PMove is active;
+client prediction remains disabled for the current MEM1 route and the bounded
+movement helper remains only as fallback scaffolding outside `-gcfullphysics`.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-142612`.
+
 ## Next wake-up commands
 
 ```sh

@@ -886,8 +886,13 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	usercmd_t cmd;
 #if XASH_GAMECUBE
 	static int gc_fullphysics_cmd_log;
+	static qboolean gc_native_move_logged;
+	static int gc_native_move_cmds;
+	static vec3_t gc_native_move_start;
 	qboolean gc_fullphysics_trace = Sys_CheckParm( "-gcnewgame" )
 		&& Sys_CheckParm( "-gcfullphysics" ) && gc_fullphysics_cmd_log < 6;
+	qboolean gc_native_move_trace = false;
+	vec3_t gc_native_move_origin;
 #endif
 
 	// if the player got kicked, do not process commands
@@ -963,6 +968,16 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 
 	// motor!
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& !gc_native_move_logged
+		&& ( ucmd->forwardmove != 0.0f || ucmd->sidemove != 0.0f ))
+	{
+		gc_native_move_logged = true;
+		gc_native_move_trace = true;
+		VectorCopy( clent->v.origin, gc_native_move_origin );
+		Con_Reportf( "Xash3D GameCube: native axis usercmd begin move=(%.0f,%.0f) yaw=%.0f\n",
+			ucmd->forwardmove, ucmd->sidemove, ucmd->viewangles[YAW] );
+	}
 	if( gc_fullphysics_trace )
 		Con_Reportf( "Xash3D GameCube: native usercmd PM_Move begin msec=%u buttons=0x%x move=(%.0f,%.0f,%.0f)\n",
 			(unsigned)ucmd->msec, (unsigned)ucmd->buttons,
@@ -980,6 +995,24 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 			clent->v.velocity[0], clent->v.velocity[1], clent->v.velocity[2] );
 		gc_fullphysics_cmd_log++;
 	}
+	if( gc_native_move_trace )
+	{
+		VectorCopy( gc_native_move_origin, gc_native_move_start );
+		Con_Reportf( "Xash3D GameCube: native axis usercmd ready delta=(%.2f,%.2f,%.2f) velocity=(%.1f,%.1f,%.1f) movetype=%d flags=0x%x\n",
+			clent->v.origin[0] - gc_native_move_origin[0],
+			clent->v.origin[1] - gc_native_move_origin[1],
+			clent->v.origin[2] - gc_native_move_origin[2],
+			clent->v.velocity[0], clent->v.velocity[1], clent->v.velocity[2],
+			(int)clent->v.movetype, (unsigned)clent->v.flags );
+	}
+	if(( ucmd->forwardmove != 0.0f || ucmd->sidemove != 0.0f )
+		&& ++gc_native_move_cmds == 32 )
+		Con_Reportf( "Xash3D GameCube: native axis movement ready delta=(%.2f,%.2f,%.2f) velocity=(%.1f,%.1f,%.1f) yaw=%.1f\n",
+			clent->v.origin[0] - gc_native_move_start[0],
+			clent->v.origin[1] - gc_native_move_start[1],
+			clent->v.origin[2] - gc_native_move_start[2],
+			clent->v.velocity[0], clent->v.velocity[1], clent->v.velocity[2],
+			clent->v.v_angle[YAW] );
 #endif
 
 	if( clent->v.solid != SOLID_NOT && !sv.playersonly )
