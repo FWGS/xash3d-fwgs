@@ -2466,7 +2466,7 @@ static int		gc_g100_grant_ammo[GC_HL_MAX_AMMO_SLOTS];
 static qboolean		gc_g100_grant_pending;
 static qboolean		gc_g100_grant_have_ammo;
 
-/* Updated from pfnPvAllocEntPrivateData when size looks like CBasePlayer. */
+/* Updated when pfnPvAllocEntPrivateData allocates a large reserved client edict. */
 edict_t			*gc_hl_player_priv_edict;
 void			*gc_hl_player_priv_ptr;
 
@@ -2504,7 +2504,6 @@ static edict_t *GC_LeanPlayerPrivateEdict( void )
 	edict_t	*pl;
 	edict_t	*by_class = NULL;
 	edict_t	*by_flag = NULL;
-	edict_t	*by_vtbl = NULL;
 	int	i;
 
 	if( gc_hl_player_priv_edict
@@ -2539,14 +2538,12 @@ static edict_t *GC_LeanPlayerPrivateEdict( void )
 		}
 		if( !by_flag && FBitSet( e->v.flags, FL_CLIENT ))
 			by_flag = e;
-		if( !by_vtbl )
-			by_vtbl = e;
 	}
 	if( by_class )
 		return by_class;
 	if( by_flag )
 		return by_flag;
-	return by_vtbl;
+	return NULL;
 }
 
 static int *GC_PlayerAmmoSlots( edict_t *priv_ed )
@@ -2707,6 +2704,15 @@ static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 
 	client_ed = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : touch_player;
 
+	/*
+	 * Let the real pickup path observe missing weapons instead of the restored
+	 * post-changelevel bitmask; AddPlayerItem/CanHavePlayerItem may reject a
+	 * duplicate before it ever links m_pPlayer/m_rgpPlayerItems.
+	 */
+	ClearBits( touch_player->v.weapons, weapons );
+	if( client_ed && client_ed != touch_player )
+		ClearBits( client_ed->v.weapons, weapons );
+
 	ClearBits( touch_player->v.flags, FL_KILLME );
 	SetBits( touch_player->v.flags, FL_CLIENT );
 	touch_player->v.deadflag = DEAD_NO;
@@ -2763,16 +2769,18 @@ static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 			continue;
 		}
 
-		/* Still attempt Touch first; fall back to direct inventory link. */
+		/* Prefer the real DLL pickup path; retain the measured-layout fallback. */
 		ClearBits( ent->v.flags, FL_KILLME );
 		if( svgame.dllFuncs.pfnTouch )
 			svgame.dllFuncs.pfnTouch( ent, touch_player );
 
 		if( !ent->free && ent->v.owner == touch_player )
 		{
-			Con_Reportf( "Xash3D GameCube: G103 give touch-attach classname=%s owner=%d weapons=0x%x\n",
+			Con_Reportf( "Xash3D GameCube: G103 give touch-attach classname=%s owner=%d weapons=0x%x item_player=%p item_id=%d\n",
 				classname, NUM_FOR_EDICT( ent->v.owner ),
-				(unsigned)touch_player->v.weapons );
+				(unsigned)touch_player->v.weapons,
+				*(void **)((byte *)ent->pvPrivateData + GC_HL_ITEM_PLAYER_OFF ),
+				*(int *)((byte *)ent->pvPrivateData + GC_HL_ITEM_ID_OFF ) );
 			granted++;
 			deploy_bit = bit;
 		}

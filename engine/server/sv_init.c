@@ -747,6 +747,8 @@ void SV_ActivateServer( int runPhysics )
 	Con_Reportf( "Xash3D GameCube: map loaded %s\n", sv.name );
 	GC_ReportBootPhase( GC_BOOT_MAP );
 	GC_MemSample( "map active" );
+	if( Sys_CheckParm( "-gcnewgame" ) && !SV_GCPrimeDirectMapPlayer() )
+		Con_Reportf( S_WARN "Xash3D GameCube: direct-map player unavailable map=%s\n", sv.name );
 	/* G68: second map after a probe changelevel. */
 	if( Sys_CheckParm( "-gcchangelevel" ))
 	{

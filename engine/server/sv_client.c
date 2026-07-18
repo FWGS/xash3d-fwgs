@@ -45,6 +45,48 @@ qboolean SV_IsStaticClientFrames( const client_frame_t *frames )
 	return frames == gc_singleplayer_frames;
 }
 
+/*
+ * The -gcmap New Game route activates a server before loopback sign-on runs.
+ * Give that route a genuine CBasePlayer on the reserved client edict so its
+ * bounded gameplay probes do not borrow an unrelated map entity's C++ block.
+ * Normal sign-on remains authoritative and will reinitialize this edict.
+ */
+qboolean SV_GCPrimeDirectMapPlayer( void )
+{
+	sv_client_t	*cl;
+	edict_t		*ent;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) || !svs.clients || svs.maxclients != 1 )
+		return false;
+
+	cl = &svs.clients[0];
+	ent = cl->edict ? cl->edict : SV_EdictNum( 1 );
+	if( !ent || !SV_IsValidEdict( ent ))
+		return false;
+	if( ent->pvPrivateData && FBitSet( ent->v.flags, FL_CLIENT ))
+		return true;
+
+	SV_InitEdict( ent );
+	cl->edict = ent;
+	ent->v.netname = SV_MakeString( cl->name[0] ? cl->name : "Gordon" );
+	ent->v.colormap = NUM_FOR_EDICT( ent );
+	svgame.globals->time = sv.time;
+	Con_Reportf( "Xash3D GameCube: direct-map player prime begin edict=%d\n",
+		NUM_FOR_EDICT( ent ));
+	svgame.dllFuncs.pfnClientPutInServer( ent );
+	if( !ent->pvPrivateData || !FBitSet( ent->v.flags, FL_CLIENT ))
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: direct-map player prime failed private=%p flags=0x%x\n",
+			ent->pvPrivateData, (unsigned)ent->v.flags );
+		return false;
+	}
+
+	Con_Reportf( "Xash3D GameCube: direct-map player prime ready edict=%d private=%p origin=(%.0f,%.0f,%.0f)\n",
+		NUM_FOR_EDICT( ent ), ent->pvPrivateData,
+		ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+	return true;
+}
+
 static void SV_FreeClientFrames( sv_client_t *cl )
 {
 	if( !cl || !cl->frames )

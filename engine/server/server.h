@@ -628,6 +628,7 @@ uint SV_MapIsValid( const char *filename, const char *landmark_name );
 void SV_StartSound( edict_t *ent, int chan, const char *sample, float vol, float attn, int flags, int pitch );
 #if XASH_GAMECUBE
 qboolean SV_IsStaticClientFrames( const client_frame_t *frames );
+qboolean SV_GCPrimeDirectMapPlayer( void );
 void GC_LeanLandmarkProbePlantAmmo( void );
 void GC_LeanLandmarkRestore( void );
 void GC_LeanLandmarkGrantWeapons( void );

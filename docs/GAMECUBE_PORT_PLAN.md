@@ -2465,6 +2465,23 @@ suite and record the artifact hash before collecting G70/G71/G75 manual proof.
 Then update `docs/GAMECUBE_HARDWARE_MATRIX.md` and
 `docs/GAMECUBE_HARDWARE_VALIDATION.md` with the artifact-matched comparison.
 
+## G106 — Real direct-map player ownership and weapon pickup (COMPLETE 2026-07-18)
+
+The direct `-gcmap -gcnewgame` route now calls the game DLL's
+`ClientPutInServer` callback on reserved client edict 1 after each map
+activation. Large private-data tracking is limited to client edicts; this
+prevents the 2176-byte `CSoundEnt` on edict 2 from being treated and mutated as
+a `CBasePlayer`.
+
+The `c0a0`→`c0a0a` landmark probe allocates the measured 1920-byte
+`CBasePlayer` on edict 1 on both maps. HLSDK `DefaultTouch` then attaches the
+crowbar and Glock through the normal DLL inventory path (`owner=1`, non-null
+`m_pPlayer`, item IDs 1/2, weapon bits `0x2`→`0x6`). The measured-layout direct
+inventory link remains only as a fallback. G104 deploy and G105 viewmodel draw
+still pass.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-032131`.
+
 ## Next wake-up commands
 
 ```sh

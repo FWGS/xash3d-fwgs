@@ -17,13 +17,14 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G103: landmark inventory-chain attach (`m_rgpPlayerItems` + `m_pActiveItem`)
 - G104: lean Deploy/viewmodel after inventory attach
 - G105: landmark first-person viewmodel studio draw
+- G106: real client-edict `CBasePlayer` + DLL `DefaultTouch` inventory attach
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G105 closed. Remaining items are SKIP (G73–G81) or manual
-  checkpoints (G70/G71/G75). Natural follow-ons: DefaultTouch/IsPlayer
-  root cause, or LRU lean-N PVS expansion.
+- None — G106 closed. Remaining items are SKIP (G73–G81) or manual
+  checkpoints (G70/G71/G75). Natural follow-on: LRU lean-N PVS expansion.
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260718-032131` (G106 real player + DefaultTouch attach)
 - `.ai/logs/dolphin-probe-20260718-014519` (G105 viewmodel draw v_9mmhandgun)
 - `.ai/logs/dolphin-probe-20260718-013800` (G104 deploy viewmodel=v_9mmhandgun)
 - `.ai/logs/dolphin-probe-20260718-010723` (G103 inventory-attach granted=2)
@@ -1873,8 +1874,8 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Evidence: `.ai/logs/dolphin-probe-20260718-013800` —
   `G104 deploy viewmodel=models/v_9mmhandgun.mdl weaponmodel=models/p_9mmhandgun.mdl anim=onehanded bit=2`,
   `G104 landmark weapons granted=2 weapons=0x6 ammo1=99 ammo2=88 viewmodel=models/v_9mmhandgun.mdl`.
-- Intentional limits: studio draw of viewmodel still open; DefaultTouch/IsPlayer
-  still no-ops.
+- Historical limit: studio draw was completed by G105; the DefaultTouch/player
+  ownership issue was completed by G106.
 - Command:
   ```sh
   DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
@@ -1893,12 +1894,35 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `real studio loaded 'models/v_9mmhandgun.mdl' (60.80 Kb) … view=2`,
   `G104 deploy viewmodel=models/v_9mmhandgun.mdl`,
   `G105 viewmodel draw models/v_9mmhandgun.mdl`.
-- Intentional limits: DefaultTouch/IsPlayer still no-ops; world `w_` weapon
-  meshes not re-promoted this pass.
+- Historical limit: DefaultTouch/player ownership was completed by G106; world
+  `w_` weapon meshes were not re-promoted in this pass.
 - Command:
   ```sh
   DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
     DOLPHIN_G95=1 DOLPHIN_G105=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
+    scripts/dolphin-boot-probe.sh
+  ```
+
+## G106 [x] Construct the direct-map player on the reserved client edict
+
+- Status: DONE 2026-07-18. The previous size-only private-data tracker mistook
+  the 2176-byte `CSoundEnt` allocation on edict 2 for `CBasePlayer`. The
+  `-gcmap -gcnewgame` route now primes `ClientPutInServer` on reserved edict 1
+  after every map activation; player tracking is restricted to client edicts.
+- Acceptance:
+  - Both sides of `c0a0`→`c0a0a` allocate `sizeof(CBasePlayer)=1920` on edict 1.
+  - Crowbar and Glock use the real DLL touch path with owner 1, non-null
+    `m_pPlayer`, item IDs 1/2, and weapon bits progressing `0x2`→`0x6`.
+  - G104 deploy and G105 viewmodel draw remain intact.
+- Evidence: `.ai/logs/dolphin-probe-20260718-032131` —
+  `direct-map player prime ready edict=1`,
+  `G103 give touch-attach ... owner=1 ... item_player=0x8150da80 item_id=1`,
+  `G103 give touch-attach ... owner=1 ... item_player=0x8150da80 item_id=2`,
+  `G104 landmark weapons granted=2`, and `G105 viewmodel draw`.
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+    DOLPHIN_G95=1 DOLPHIN_G104=1 DOLPHIN_TIMEOUT=240 DOLPHIN_FRAME_SAMPLE_SEC=6 \
     scripts/dolphin-boot-probe.sh
   ```
 

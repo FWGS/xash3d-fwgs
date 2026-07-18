@@ -3102,8 +3102,10 @@ static void *GAME_EXPORT pfnPvAllocEntPrivateData( edict_t *pEdict, long cb )
 			{
 				if( !used_fallback )
 					memset( pEdict->pvPrivateData, 0, size );
-				/* CBasePlayer is ~1920 bytes; track the host edict for lean inventory. */
-				if( size >= 1800 )
+				/* Only reserved client edicts can host CBasePlayer. CSoundEnt is
+				 * also larger than 1800 bytes and is commonly allocated on edict 2. */
+				if( size >= 1800 && NUM_FOR_EDICT( pEdict ) >= 1
+					&& NUM_FOR_EDICT( pEdict ) <= svs.maxclients )
 				{
 					extern edict_t *gc_hl_player_priv_edict;
 					extern void *gc_hl_player_priv_ptr;
