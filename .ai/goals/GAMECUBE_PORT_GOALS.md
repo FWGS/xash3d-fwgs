@@ -8,7 +8,7 @@ checkpoints, not as runnable goals.
 
 ## Current focus (2026-07-17)
 
-Automation tier: `campaign_audit` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `lean_pvs_changelevel` (see `.ai/state/gc-port-automation-tier.json`).
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
@@ -21,12 +21,16 @@ Automation tier: `campaign_audit` (see `.ai/state/gc-port-automation-tier.json`)
 - G72: worst-case report PASS — keep `gc_quality=1`; peak supported HWM
   `c1a0` ≈4.87 MiB; New Game present ≈3.78 MiB p95≈16.68ms
 - G68: 96/96 campaign maps `MAP_READY`; 16/16 chapter changelevel samples PASS
+- G95: post-changelevel world present on large map `c1a0`→`c1a0a`
+- G96: lean FatPVS capture on destination when multi-cluster OOM
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G68 closed. Remaining items are SKIP (G73–G81) or manual
+- None — G96 closed. Remaining items are SKIP (G73–G81) or manual
   checkpoints (G70/G71/G75).
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260717-223809` (G96 lean FatPVS map=c1a0a)
+- `.ai/logs/dolphin-probe-20260717-223433` (G95 present map=c1a0a after changelevel)
 - `.ai/logs/changelevel-g68-20260717-193719` (G68 16/16 chapter changelevels)
 - `.ai/logs/campaign-audit-g68-20260717-progress` (96/96 MAP_READY)
 - `.ai/logs/worst-case-g72-current` (G72 classified worst-case report)
@@ -1655,6 +1659,50 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Command:
   ```sh
   DOLPHIN_NEWGAME=1 DOLPHIN_G94=1 DOLPHIN_TIMEOUT=240 DOLPHIN_FRAME_SAMPLE_SEC=20 scripts/dolphin-boot-probe.sh
+  ```
+
+## G95 [x] Post-changelevel world present on large campaign maps
+
+- Status: DONE 2026-07-17. G68 early `COM_ChangeLevel` after client ensure
+  skipped first-map G36, so destination maps never re-Prepared. `SV_ActivateServer`
+  now calls `GC_PrepareNewGameWorldPresent` on the second `-gcchangelevel` map
+  even when G36 was never armed.
+- Acceptance:
+  - `c1a0`→`c1a0a` emits `G68 changelevel ready` then
+    `newgame low-res world present map=c1a0a` with nonzero world pixels.
+- Evidence: `.ai/logs/dolphin-probe-20260717-223433` —
+  `G95 post-changelevel prepare map=c1a0a`,
+  `newgame low-res world present map=c1a0a 320x240`,
+  `gcmap world pixels nonzero=76800/76800`,
+  `post-G36 sustained world present`.
+- Intentional limits: multi-cluster FatPVS alloc can still fail under MEM1 on
+  the destination (present continues without cached PVS). Landmark inventory
+  continuity remains a later goal.
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0a DOLPHIN_G95=1 DOLPHIN_TIMEOUT=180 \
+    DOLPHIN_FRAME_SAMPLE_SEC=12 scripts/dolphin-boot-probe.sh
+  ```
+
+## G96 [x] Lean FatPVS capture after changelevel under MEM1 pressure
+
+- Status: DONE 2026-07-17. Full multi-cluster PVS tables OOM on large
+  destination maps (`c1a0a` ≈781 clusters). Capture now falls back to a single
+  spawn-cluster row while BSP leafs are still valid (before scratch reuse),
+  and skips corrupt post-scratch PointInLeaf retries.
+- Acceptance:
+  - `c1a0`→`c1a0a` emits `Capture FatPVS lean map=c1a0a cluster=…` (or full
+    `Capture FatPVS map=c1a0a`) and still reaches world present.
+- Evidence: `.ai/logs/dolphin-probe-20260717-223809` —
+  `Capture FatPVS multi-cluster alloc failed clusters=781`,
+  `Capture FatPVS lean map=c1a0a cluster=0 leaves=74 nodes=210`,
+  `newgame low-res world present map=c1a0a 320x240`.
+- Intentional limits: lean mode pins one cluster (no multi-room PVS follow);
+  landmark inventory continuity still open.
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0a DOLPHIN_G95=1 DOLPHIN_G96=1 \
+    DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=12 scripts/dolphin-boot-probe.sh
   ```
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work

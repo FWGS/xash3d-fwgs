@@ -1,4 +1,4 @@
 {
-  "tier": "campaign_audit",
-  "note": "G68 DONE: 96/96 MAP_READY + 16/16 chapter changelevel samples (.ai/logs/changelevel-g68-20260717-193719). Automatic queue empty except SKIP/manual gates."
+  "tier": "lean_pvs_changelevel",
+  "note": "G96 DONE: lean FatPVS on c1a0a after multi-cluster OOM (.ai/logs/dolphin-probe-20260717-223809). Automatic queue empty except SKIP/manual."
 }

@@ -227,6 +227,18 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 	G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
 	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 	echo "==> Waiting for G68 changelevel ready ${SMOKE_MAP}→${DOLPHIN_CHANGELEVEL}"
+	if [[ "${DOLPHIN_G95:-0}" == "1" ]]; then
+		G95_DONE_MARKER="Xash3D GameCube: newgame low-res world present map=${DOLPHIN_CHANGELEVEL}"
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+		echo "==> Waiting for G95 world present on ${DOLPHIN_CHANGELEVEL}"
+	fi
+	if [[ "${DOLPHIN_G96:-0}" == "1" ]]; then
+		G96_DONE_MARKER="Xash3D GameCube: Capture FatPVS lean map=${DOLPHIN_CHANGELEVEL}"
+		# Also accept full multi-cluster success on the destination.
+		G96_ALT_MARKER="Xash3D GameCube: Capture FatPVS map=${DOLPHIN_CHANGELEVEL}"
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+		echo "==> Waiting for G96 lean/full FatPVS capture on ${DOLPHIN_CHANGELEVEL}"
+	fi
 fi
 if (( DOLPHIN_NEWGAME )); then
 	GUEST_ARGS+=("-gcnewgame")

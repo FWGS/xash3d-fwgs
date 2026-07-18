@@ -2185,12 +2185,29 @@ hardware evidence refer to the same commit and artifact hashes.
   `G94 load restore present map=c0a0 origin=(2883,2810,515)`;
   `MAP_READY`/`G36 PASS`. Full `SV_SaveGame` still OOM under MEM1; disc
   `newsaveload` override + RAM bank when no SD; PVS kept across round trip.
+- **G95 DONE:** `.ai/logs/dolphin-probe-20260717-223433` —
+  `c1a0`→`c1a0a` then `G95 post-changelevel prepare`,
+  `newgame low-res world present map=c1a0a 320x240`,
+  `gcmap world pixels nonzero=76800/76800`.
+- **G96 DONE:** `.ai/logs/dolphin-probe-20260717-223809` —
+  `Capture FatPVS lean map=c1a0a cluster=0 leaves=74 nodes=210` after
+  multi-cluster alloc failure; world present retained.
 
-**Next automatic goal:** none open. G68 and G72 closed; remaining automatic goals
-are SKIP (G73–G81 harness/docs, G74/G76/G77 release gates) or manual (G70/G71/G75).
+**Next automatic goal:** none open. G68/G72/G95/G96 closed; remaining automatic
+goals are SKIP (G73–G81) or manual (G70/G71/G75).
 New Game regression:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=32 scripts/dolphin-boot-probe.sh
+```
+G95 large-map post-changelevel present:
+```sh
+DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0a DOLPHIN_G95=1 DOLPHIN_TIMEOUT=180 \
+  DOLPHIN_FRAME_SAMPLE_SEC=12 scripts/dolphin-boot-probe.sh
+```
+G96 lean FatPVS after changelevel:
+```sh
+DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0a DOLPHIN_G95=1 DOLPHIN_G96=1 \
+  DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=12 scripts/dolphin-boot-probe.sh
 ```
 G82 phase-fault smoke:
 ```sh

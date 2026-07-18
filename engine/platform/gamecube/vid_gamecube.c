@@ -67,10 +67,12 @@ static int gc_newgame_viewcluster = -1;
 static qboolean gc_newgame_pvs_ready;
 static byte *gc_newgame_vis; /* active row pointer into pvs table */
 static byte *gc_newgame_nodebits; /* active row pointer into node table */
-static byte *gc_newgame_pvs_table; /* [numclusters][visbytes] */
-static byte *gc_newgame_node_table; /* [numclusters][nodebytes] */
-static byte *gc_newgame_cluster_valid; /* one byte per cluster */
+static byte *gc_newgame_pvs_table; /* [numclusters][visbytes] or lean single row */
+static byte *gc_newgame_node_table; /* [numclusters][nodebytes] or lean single row */
+static byte *gc_newgame_cluster_valid; /* one byte per cluster (full) or lean=1 */
 static int gc_newgame_numclusters;
+static qboolean gc_newgame_pvs_lean; /* G96: one cached cluster when multi-row OOM */
+static int gc_newgame_lean_cluster; /* real cluster id stored in lean row 0 */
 static int gc_newgame_visbytes;
 static int gc_newgame_nodebytes;
 static int gc_newgame_numleafs;
@@ -1876,6 +1878,23 @@ static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 
 	if( !gc_newgame_pvs_table || !gc_newgame_node_table || !gc_newgame_cluster_valid )
 		return false;
+
+	if( gc_newgame_pvs_lean )
+	{
+		if( cluster != gc_newgame_lean_cluster )
+			return false;
+		gc_newgame_vis = gc_newgame_pvs_table;
+		gc_newgame_nodebits = gc_newgame_node_table;
+		gc_newgame_viewcluster = cluster;
+		GC_CountActiveVisRows();
+		if( log_change && prev != cluster )
+		{
+			SYS_Report( "Xash3D GameCube: PVS lean cluster %d leaves=%d nodes=%d\n",
+				cluster, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
+		}
+		return true;
+	}
+
 	if( cluster < 0 || cluster >= gc_newgame_numclusters )
 		return false;
 	if( !gc_newgame_cluster_valid[cluster] )
@@ -1941,6 +1960,10 @@ qboolean GC_UpdateNewGamePVSForOrigin( const float *org )
 	if( !gc_newgame_pvs_ready || !org )
 		return false;
 
+	/* G96 lean cache is a single spawn-cluster row; keep it pinned. */
+	if( gc_newgame_pvs_lean )
+		return GC_SetActiveNewGameCluster( gc_newgame_lean_cluster, false );
+
 	cluster = GC_SelectClusterForOrigin( org );
 	return GC_SetActiveNewGameCluster( cluster, true );
 }
@@ -2005,6 +2028,8 @@ static void GC_FreeNewGamePVSCache( void )
 	gc_newgame_nodebits = NULL;
 	gc_newgame_nleafboxes = 0;
 	gc_newgame_numclusters = 0;
+	gc_newgame_pvs_lean = false;
+	gc_newgame_lean_cluster = -1;
 	gc_newgame_pvs_ready = false;
 	gc_newgame_pvs_follow_proved = false;
 }
@@ -2166,6 +2191,14 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 
 	viewleaf = Mod_PointInLeaf( vieworigin, wmodel->nodes, wmodel );
 	gc_newgame_viewcluster = viewleaf ? viewleaf->cluster : -1;
+	/* Reject clearly corrupted leaf walks (scratch reuse / bad nodes). */
+	if( viewleaf && ( viewleaf->contents >= 0
+		|| gc_newgame_viewcluster < -1
+		|| gc_newgame_viewcluster >= wmodel->numleafs ))
+	{
+		gc_newgame_viewcluster = -1;
+		viewleaf = NULL;
+	}
 
 	/* Load-time world center is often solid; pick any non-solid leaf cluster. */
 	if( gc_newgame_viewcluster < 0 && wmodel->leafs )
@@ -2209,6 +2242,13 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		SYS_Report( "Xash3D GameCube: Capture FatPVS skipped (no clusters)\n" );
 		return;
 	}
+	/* G96: after scratch reuse leaf.cluster fields can be garbage. */
+	if( max_cluster >= wmodel->numleafs || max_cluster > 4096 )
+	{
+		SYS_Report( "Xash3D GameCube: Capture FatPVS skipped (corrupt max_cluster=%d leafs=%d)\n",
+			max_cluster, wmodel->numleafs );
+		return;
+	}
 
 	{
 		const size_t visbytes = world.visbytes;
@@ -2235,9 +2275,70 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		if( !gc_newgame_pvs_table || !gc_newgame_node_table || !gc_newgame_cluster_valid
 			|| ( gc_newgame_nleafboxes > 0 && !gc_newgame_leafboxes ))
 		{
+			mleaf_t *vleaf = NULL;
+			int lean_cluster = gc_newgame_viewcluster;
+
+			/* G96: capture one cluster while BSP leafs are still valid (before
+			 * scratch reuse). Full multi-row tables OOM after changelevel. */
 			SYS_Report( "Xash3D GameCube: Capture FatPVS multi-cluster alloc failed clusters=%d\n",
 				numclusters );
 			GC_FreeNewGamePVSCache();
+
+			if( lean_cluster < 0 )
+			{
+				for( i = 1; i < wmodel->numleafs; i++ )
+				{
+					if( wmodel->leafs[i].cluster >= 0 && wmodel->leafs[i].contents < 0 )
+					{
+						lean_cluster = wmodel->leafs[i].cluster;
+						break;
+					}
+				}
+			}
+			if( lean_cluster < 0 )
+				return;
+
+			for( i = 1; i < wmodel->numleafs; i++ )
+			{
+				if( wmodel->leafs[i].cluster == lean_cluster )
+				{
+					vleaf = &wmodel->leafs[i];
+					break;
+				}
+			}
+			if( !vleaf )
+				return;
+
+			gc_newgame_visbytes = (int)visbytes;
+			gc_newgame_nodebytes = (int)nodebytes;
+			gc_newgame_numclusters = numclusters;
+			gc_newgame_numleafs = wmodel->numleafs;
+			gc_newgame_numnodes = wmodel->numnodes;
+			gc_newgame_nleafboxes = 0;
+			gc_newgame_pvs_lean = true;
+			gc_newgame_lean_cluster = lean_cluster;
+			gc_newgame_pvs_table = (byte *)calloc( 1, visbytes );
+			gc_newgame_node_table = (byte *)calloc( 1, nodebytes );
+			gc_newgame_cluster_valid = (byte *)calloc( 1, 1 );
+			if( !gc_newgame_pvs_table || !gc_newgame_node_table || !gc_newgame_cluster_valid )
+			{
+				SYS_Report( "Xash3D GameCube: Capture FatPVS lean alloc failed\n" );
+				GC_FreeNewGamePVSCache();
+				return;
+			}
+			GC_DecompressPVS( gc_newgame_pvs_table, vleaf->compressed_vis, visbytes );
+			GC_BuildNodebitsForVisRow( wmodel, gc_newgame_pvs_table, gc_newgame_node_table );
+			gc_newgame_cluster_valid[0] = 1;
+			gc_newgame_viewcluster = lean_cluster;
+			if( !GC_SetActiveNewGameCluster( lean_cluster, false ))
+			{
+				GC_FreeNewGamePVSCache();
+				return;
+			}
+			gc_newgame_pvs_ready = true;
+			SYS_Report( "Xash3D GameCube: Capture FatPVS lean map=%s cluster=%d leaves=%d nodes=%d\n",
+				sv.name[0] ? sv.name : "?",
+				lean_cluster, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
 			return;
 		}
 
