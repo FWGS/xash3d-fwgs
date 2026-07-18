@@ -21,6 +21,9 @@ GNU General Public License for more details.
 #include "sound.h"
 #include "input.h" // touch
 #include "platform/platform.h" // GL_UpdateSwapInterval
+#if XASH_GAMECUBE
+#include "mod_local.h"
+#endif
 
 #if XASH_GAMECUBE
 static qboolean gc_loading_feedback_logged;
@@ -110,14 +113,22 @@ static void V_SetupViewModel( void )
 	view->curstate.rendermode = kRenderNormal;
 
 #if XASH_GAMECUBE
-	/* c0a0 tram starts unarmed; promote path already cached mesh-only crowbar. */
-	if( Sys_CheckParm( "-gcnewgame" )
-		&& ( !view->model || view->model->type != mod_studio || !view->model->cache.data ))
+	/* Prefer landmark Deploy viewmodel (glock after hop); else crowbar. */
+	if( Sys_CheckParm( "-gcnewgame" ))
 	{
-		model_t *vm = Mod_FindName( "models/v_crowbar.mdl", false );
+		const char *prefer = Mod_GCLandmarkViewModelPath();
+		model_t *vm = NULL;
 
+		if( prefer && prefer[0] )
+			vm = Mod_FindName( prefer, false );
 		if( vm && vm->type == mod_studio && vm->cache.data )
 			view->model = vm;
+		else if( !view->model || view->model->type != mod_studio || !view->model->cache.data )
+		{
+			vm = Mod_FindName( "models/v_crowbar.mdl", false );
+			if( vm && vm->type == mod_studio && vm->cache.data )
+				view->model = vm;
+		}
 	}
 #endif
 

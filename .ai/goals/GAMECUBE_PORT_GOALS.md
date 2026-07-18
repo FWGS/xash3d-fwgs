@@ -15,13 +15,17 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G92–G99: presents, save/load, campaign audit, lean PVS, landmark inventory
 - G100–G102: landmark weapon create/spawn/lean-attach
 - G103: landmark inventory-chain attach (`m_rgpPlayerItems` + `m_pActiveItem`)
+- G104: lean Deploy/viewmodel after inventory attach
+- G105: landmark first-person viewmodel studio draw
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G103 closed. Remaining items are SKIP (G73–G81) or manual
-  checkpoints (G70/G71/G75). Natural follow-ons: Deploy/viewmodel draw,
-  DefaultTouch/IsPlayer root cause, or LRU lean-N PVS expansion.
+- None — G105 closed. Remaining items are SKIP (G73–G81) or manual
+  checkpoints (G70/G71/G75). Natural follow-ons: DefaultTouch/IsPlayer
+  root cause, or LRU lean-N PVS expansion.
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260718-014519` (G105 viewmodel draw v_9mmhandgun)
+- `.ai/logs/dolphin-probe-20260718-013800` (G104 deploy viewmodel=v_9mmhandgun)
 - `.ai/logs/dolphin-probe-20260718-010723` (G103 inventory-attach granted=2)
 - `.ai/logs/dolphin-probe-20260718-003429` (G102 spawn+lean-attach granted=2)
 - `.ai/logs/dolphin-probe-20260718-001842` (G101 lean-N follow slots=4 c0→c1)
@@ -1855,6 +1859,46 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   ```sh
   DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
     DOLPHIN_G95=1 DOLPHIN_G103=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
+    scripts/dolphin-boot-probe.sh
+  ```
+
+## G104 [x] Lean Deploy/viewmodel after landmark inventory attach
+
+- Status: DONE 2026-07-18. After G103 inventory-chain attach, sets
+  `viewmodel` / `weaponmodel` and `m_szAnimExtention` without HLSDK Deploy /
+  SendWeaponAnim. Prefers glock bit 2; syncs client edict + priv edict.
+- Acceptance:
+  - `c0a0`→`c0a0a` logs `G104 deploy viewmodel=models/v_9mmhandgun.mdl` and
+    `G104 landmark weapons granted=2` with non-`-` viewmodel.
+- Evidence: `.ai/logs/dolphin-probe-20260718-013800` —
+  `G104 deploy viewmodel=models/v_9mmhandgun.mdl weaponmodel=models/p_9mmhandgun.mdl anim=onehanded bit=2`,
+  `G104 landmark weapons granted=2 weapons=0x6 ammo1=99 ammo2=88 viewmodel=models/v_9mmhandgun.mdl`.
+- Intentional limits: studio draw of viewmodel still open; DefaultTouch/IsPlayer
+  still no-ops.
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+    DOLPHIN_G95=1 DOLPHIN_G104=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
+    scripts/dolphin-boot-probe.sh
+  ```
+
+## G105 [x] Landmark first-person viewmodel studio draw
+
+- Status: DONE 2026-07-18. Injects `v_9mmhandgun.mdl` into `gc_studio/`,
+  promotes it with crowbar under the real-studio budget, and after G104 Deploy
+  binds + presents one `r_drawviewmodel` frame on `c0a0a`.
+- Acceptance:
+  - `c0a0`→`c0a0a` logs `G105 viewmodel draw models/v_9mmhandgun.mdl`.
+- Evidence: `.ai/logs/dolphin-probe-20260718-014519` —
+  `real studio loaded 'models/v_9mmhandgun.mdl' (60.80 Kb) … view=2`,
+  `G104 deploy viewmodel=models/v_9mmhandgun.mdl`,
+  `G105 viewmodel draw models/v_9mmhandgun.mdl`.
+- Intentional limits: DefaultTouch/IsPlayer still no-ops; world `w_` weapon
+  meshes not re-promoted this pass.
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+    DOLPHIN_G95=1 DOLPHIN_G105=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
     scripts/dolphin-boot-probe.sh
   ```
 

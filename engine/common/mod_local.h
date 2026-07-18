@@ -165,6 +165,9 @@ void Mod_LoadDetailTextures( model_t *mod );
 poolhandle_t Mod_GameCubeSharedModelStubPool( void );
 poolhandle_t Mod_GameCubeSharedStudioPool( void );
 void Mod_GCLoadNewGameStudios( void );
+/* G105: promote one allowlisted viewmodel after landmark Deploy (or no-op if live). */
+qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path );
+const char *Mod_GCLandmarkViewModelPath( void );
 void Mod_ReleaseBrushSourceBuffer( void *buf );
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod );
 /* G92: retained BSP scratch is not a Mem_ block — skip Mem_Free on changelevel. */

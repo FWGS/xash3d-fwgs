@@ -36,12 +36,13 @@ static poolhandle_t gc_gcmap_stubpool;
 /* New Game only: a few real MDLs (NPCs/viewweapons) instead of empty stubs.
  * Mesh-only (no studio texel upload) — skins bind white under quality 0. */
 #define GC_REAL_STUDIO_MAX_NPC    4
-#define GC_REAL_STUDIO_MAX_VIEW   2
+#define GC_REAL_STUDIO_MAX_VIEW   3
 #define GC_REAL_STUDIO_MAX_BYTES  (400 * 1024)
 
 static int    gc_real_studio_npc;
 static int    gc_real_studio_view;
 static size_t gc_real_studio_bytes;
+static char   gc_landmark_viewmodel[64];
 
 static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmodel )
 {
@@ -54,7 +55,6 @@ static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmode
 	};
 	static const char *views[] = {
 		"v_crowbar", "v_9mmhandgun", "v_9mmar", "v_shotgun", "v_357",
-		"w_crowbar", "w_9mmhandgun",
 		NULL
 	};
 	int i;
@@ -169,6 +169,98 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length )
 	return NULL;
 }
 
+const char *Mod_GCLandmarkViewModelPath( void )
+{
+	return gc_landmark_viewmodel[0] ? gc_landmark_viewmodel : NULL;
+}
+
+static qboolean Mod_GCPromoteStudioPath( const char *path )
+{
+	model_t *mod;
+	byte *buf;
+	fs_offset_t length = 0;
+	qboolean loaded = false;
+	studiohdr_t *hdr;
+
+	if( !path || !path[0] )
+		return false;
+
+	buf = Mod_GCLoadStudioFile( path, &length );
+	if( !buf || length < (fs_offset_t)sizeof( studiohdr_t ))
+	{
+		Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' read=%li\n",
+			path, (long)length );
+		if( buf )
+			free( buf );
+		return false;
+	}
+
+	if( !Mod_GCAllowRealStudioLoad( path, (size_t)length ))
+	{
+		Con_Reportf( "Xash3D GameCube: deferred studio budget skip '%s' (%s)\n",
+			path, Q_memprint( (size_t)length ));
+		free( buf );
+		return false;
+	}
+
+	mod = Mod_FindName( path, true );
+	if( !mod )
+	{
+		Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' (not registered)\n", path );
+		free( buf );
+		return false;
+	}
+
+	hdr = (studiohdr_t *)mod->cache.data;
+	if( hdr && hdr->numbodyparts > 0 )
+	{
+		free( buf );
+		return true;
+	}
+
+	mod->cache.data = NULL;
+	if( mod->mempool == gc_gcmap_stubpool )
+		mod->mempool = 0;
+	mod->needload = NL_PRESENT;
+	mod->type = mod_studio;
+
+	Image_GCPurgeDecodeScratch();
+	Mod_LoadStudioModel( mod, buf, (size_t)length, &loaded );
+	free( buf );
+	Image_GCPurgeDecodeScratch();
+
+	if( loaded )
+	{
+		size_t kept = length;
+		studiohdr_t *loaded_hdr = (studiohdr_t *)mod->cache.data;
+
+		if( loaded_hdr && loaded_hdr->length > 0 && (size_t)loaded_hdr->length < kept )
+			kept = (size_t)loaded_hdr->length;
+		Mod_GCNoteRealStudioLoaded( path, kept );
+		return true;
+	}
+
+	Con_Reportf( S_WARN "Xash3D GameCube: deferred studio promote failed '%s'\n", path );
+	Mod_LoadStudioGcmapStub( mod, &loaded );
+	return false;
+}
+
+qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path )
+{
+	qboolean ok;
+
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return false;
+	if( !model_path || !model_path[0] )
+		return false;
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+	ok = Mod_GCPromoteStudioPath( model_path );
+	if( ok )
+		Q_strncpy( gc_landmark_viewmodel, model_path, sizeof( gc_landmark_viewmodel ));
+	return ok;
+}
+
 /*
 =============
 Mod_GCLoadNewGameStudios
@@ -179,12 +271,11 @@ are past the MEM1 cliff (same deferral idea as lean skybox).
 */
 void Mod_GCLoadNewGameStudios( void )
 {
-	/* Tiny world NPC first (roach ~7KB); gman (~76KB) fails libc malloc after
-	 * crowbars on GC. Tram PVS often has solids=0 — force-draw in low-res. */
+	/* First-person view models first so landmark Deploy can bind glock after hop. */
 	static const char *promote[] = {
 		"models/v_crowbar.mdl",
+		"models/v_9mmhandgun.mdl",
 		"models/roach.mdl",
-		"models/w_crowbar.mdl",
 		NULL
 	};
 	int i;
@@ -196,76 +287,7 @@ void Mod_GCLoadNewGameStudios( void )
 	Image_GCPurgeDecodeScratch();
 
 	for( i = 0; promote[i]; i++ )
-	{
-		model_t *mod;
-		byte *buf;
-		fs_offset_t length = 0;
-		qboolean loaded = false;
-		studiohdr_t *hdr;
-
-		buf = Mod_GCLoadStudioFile( promote[i], &length );
-		if( !buf || length < (fs_offset_t)sizeof( studiohdr_t ))
-		{
-			Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' read=%li\n",
-				promote[i], (long)length );
-			if( buf )
-				free( buf );
-			continue;
-		}
-
-		/* Keep embedded skins for allowlisted New Game studios (roach/crowbar
-		 * are tiny). Soft path uploads paletted texels then drops the blob. */
-
-		if( !Mod_GCAllowRealStudioLoad( promote[i], (size_t)length ))
-		{
-			Con_Reportf( "Xash3D GameCube: deferred studio budget skip '%s' (%s)\n",
-				promote[i], Q_memprint( (size_t)length ));
-			free( buf );
-			continue;
-		}
-
-		mod = Mod_FindName( promote[i], false );
-		if( !mod )
-		{
-			Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' (not registered)\n",
-				promote[i] );
-			free( buf );
-			continue;
-		}
-
-		hdr = (studiohdr_t *)mod->cache.data;
-		if( hdr && hdr->numbodyparts > 0 )
-		{
-			free( buf );
-			continue;
-		}
-
-		mod->cache.data = NULL;
-		if( mod->mempool == gc_gcmap_stubpool )
-			mod->mempool = 0;
-		mod->needload = NL_PRESENT;
-		mod->type = mod_studio;
-
-		Image_GCPurgeDecodeScratch();
-		Mod_LoadStudioModel( mod, buf, (size_t)length, &loaded );
-		free( buf );
-		Image_GCPurgeDecodeScratch();
-
-		if( loaded )
-		{
-			size_t kept = length;
-			studiohdr_t *loaded_hdr = (studiohdr_t *)mod->cache.data;
-
-			if( loaded_hdr && loaded_hdr->length > 0 && (size_t)loaded_hdr->length < kept )
-				kept = (size_t)loaded_hdr->length;
-			Mod_GCNoteRealStudioLoaded( promote[i], kept );
-		}
-		else
-		{
-			Con_Reportf( S_WARN "Xash3D GameCube: deferred studio promote failed '%s'\n", promote[i] );
-			Mod_LoadStudioGcmapStub( mod, &loaded );
-		}
-	}
+		Mod_GCPromoteStudioPath( promote[i] );
 
 	Con_Reportf( "Xash3D GameCube: deferred studio done npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
@@ -516,6 +538,7 @@ void Mod_FreeAll( void )
 	gc_real_studio_npc = 0;
 	gc_real_studio_view = 0;
 	gc_real_studio_bytes = 0;
+	gc_landmark_viewmodel[0] = '\0';
 #endif
 	mod_numknown = 0;
 }

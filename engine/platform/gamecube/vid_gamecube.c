@@ -2738,6 +2738,37 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 #endif
 }
 
+/*
+ * G105: after landmark Deploy promoted the first-person mesh, force one
+ * r_drawviewmodel present and log the bound model path.
+ */
+void GC_PresentLandmarkViewModel( void )
+{
+#if XASH_GAMECUBE
+	const char *path;
+	model_t *vm;
+
+	path = Mod_GCLandmarkViewModelPath();
+	if( !path || !path[0] || !gc_newgame_world_ready )
+		return;
+
+	vm = Mod_FindName( path, false );
+	if( !vm || vm->type != mod_studio || !vm->cache.data )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: G105 viewmodel missing cache %s\n", path );
+		return;
+	}
+
+	clgame.viewent.model = vm;
+	ref.dllFuncs.R_BeginFrame( false );
+	if( GC_RenderNewGameWorldPassNoFrame( true ))
+		Con_Reportf( "Xash3D GameCube: G105 viewmodel draw %s\n", path );
+	else
+		Con_Reportf( S_WARN "Xash3D GameCube: G105 viewmodel present failed %s\n", path );
+	ref.dllFuncs.R_EndFrame();
+#endif
+}
+
 qboolean GC_PrepareNewGameWorldPresent( void )
 {
 #if XASH_GAMECUBE

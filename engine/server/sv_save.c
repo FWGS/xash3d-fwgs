@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #include "ref_common.h" // decals
 #if XASH_GAMECUBE
 #include <stdlib.h>
+#include "mod_local.h"
 #endif
 
 /*
@@ -2420,12 +2421,14 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 #define GC_HL_PLAYER_AMMO_OFF		0x4ec	/* 1260 */
 #define GC_HL_PLAYER_ITEMS_OFF		0x4c8	/* 1224 m_rgpPlayerItems[6] */
 #define GC_HL_PLAYER_ACTIVE_OFF		0x4e0	/* 1248 m_pActiveItem */
+#define GC_HL_PLAYER_ANIMEXT_OFF	0x624	/* 1572 m_szAnimExtention[32] */
 #define GC_HL_ITEM_PLAYER_OFF		0x80	/* 128 m_pPlayer */
 #define GC_HL_ITEM_NEXT_OFF		0x84	/* 132 m_pNext */
 #define GC_HL_ITEM_ID_OFF		0x88	/* 136 m_iId */
 #define GC_HL_ENTITY_TOUCH_OFF		24	/* CBaseEntity::m_pfnTouch */
 #define GC_HL_MAX_AMMO_SLOTS		32
 #define GC_HL_MAX_ITEM_TYPES		6
+#define GC_HL_ANIMEXT_SIZE		32
 #define GC_SF_NORESPAWN			( 1 << 30 )
 
 typedef struct gc_g94_save_s
@@ -2623,16 +2626,86 @@ static qboolean GC_LeanInventoryAttachWeapon( edict_t *player, edict_t *weapon, 
 }
 
 /*
- * G100/G103: recreate owned weapons like CBasePlayer::GiveNamedItem — create,
- * spawn, then inventory-attach (Touch/AddPlayerItem still unreliable post-hop).
+ * G104: lean DefaultDeploy — set viewmodel/weaponmodel + anim extension without
+ * calling HLSDK Deploy (studio/SendWeaponAnim still MEM1-risky after hop).
+ * Assemble "models/<leaf>" at runtime from leaf names (keeps this TU's rodata
+ * smaller; full paths are allocated into the string pool via SV_AllocString).
+ */
+static qboolean GC_LeanDeployWeapon( edict_t *player, edict_t *client_ed, int bit )
+{
+	const char	*viewleaf = NULL;
+	const char	*weaponleaf = NULL;
+	const char	*animext = NULL;
+	const char	*viewmodel;
+	const char	*weaponmodel;
+	char		viewpath[64];
+	char		weaponpath[64];
+	byte		*ppriv;
+	edict_t		*sync[2];
+	int		i, n;
+
+	switch( bit )
+	{
+	case 1:
+		viewleaf = "v_crowbar.mdl";
+		weaponleaf = "p_crowbar.mdl";
+		animext = "crowbar";
+		break;
+	case 2:
+		viewleaf = "v_9mmhandgun.mdl";
+		weaponleaf = "p_9mmhandgun.mdl";
+		animext = "onehanded";
+		break;
+	default:
+		return false;
+	}
+
+	Q_snprintf( viewpath, sizeof( viewpath ), "models/%s", viewleaf );
+	Q_snprintf( weaponpath, sizeof( weaponpath ), "models/%s", weaponleaf );
+	viewmodel = viewpath;
+	weaponmodel = weaponpath;
+
+	if( !player || !player->pvPrivateData || !viewmodel )
+		return false;
+
+	ppriv = (byte *)player->pvPrivateData;
+	Q_strncpy( (char *)( ppriv + GC_HL_PLAYER_ANIMEXT_OFF ), animext, GC_HL_ANIMEXT_SIZE );
+
+	n = 0;
+	sync[n++] = player;
+	if( client_ed && client_ed != player )
+		sync[n++] = client_ed;
+
+	for( i = 0; i < n; i++ )
+	{
+		sync[i]->v.viewmodel = SV_AllocString( viewmodel );
+		sync[i]->v.weaponmodel = SV_AllocString( weaponmodel );
+	}
+
+	Con_Reportf( "Xash3D GameCube: G104 deploy viewmodel=%s weaponmodel=%s anim=%s bit=%d\n",
+		viewmodel, weaponmodel, animext, bit );
+#if XASH_GAMECUBE
+	/* G105: promote the Deployed first-person mesh so V_SetupViewModel can bind it. */
+	if( !Mod_GCEnsureLandmarkViewModel( viewmodel ))
+		Con_Reportf( S_WARN "Xash3D GameCube: G105 viewmodel promote failed %s\n", viewmodel );
+#endif
+	return true;
+}
+
+/*
+ * G100/G103/G104: recreate owned weapons — spawn, inventory-attach, lean-deploy.
  */
 static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 {
 	int	bit;
 	int	granted = 0;
+	int	deploy_bit = 0;
+	edict_t	*client_ed;
 
 	if( !touch_player || !weapons )
 		return 0;
+
+	client_ed = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : touch_player;
 
 	ClearBits( touch_player->v.flags, FL_KILLME );
 	SetBits( touch_player->v.flags, FL_CLIENT );
@@ -2701,10 +2774,12 @@ static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 				classname, NUM_FOR_EDICT( ent->v.owner ),
 				(unsigned)touch_player->v.weapons );
 			granted++;
+			deploy_bit = bit;
 		}
 		else if( !ent->free && GC_LeanInventoryAttachWeapon( touch_player, ent, bit ))
 		{
 			granted++;
+			deploy_bit = bit;
 		}
 		else
 		{
@@ -2717,6 +2792,15 @@ static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 	}
 	gc_lean_weapon_grant_active = false;
 	touch_player->v.weapons |= weapons;
+
+	/* Prefer glock (bit 2) for deploy when present; else last attached. */
+	if( weapons & ( 1 << 2 ))
+		deploy_bit = 2;
+	else if( weapons & ( 1 << 1 ))
+		deploy_bit = 1;
+	if( deploy_bit && granted > 0 )
+		GC_LeanDeployWeapon( touch_player, client_ed, deploy_bit );
+
 	return granted;
 }
 
@@ -2933,10 +3017,11 @@ void GC_LeanLandmarkGrantWeapons( void )
 	else
 		pl->v.weapons = gc_g100_grant_weapons;
 
-	Con_Reportf( "Xash3D GameCube: G103 landmark weapons granted=%d weapons=0x%x ammo1=%d ammo2=%d\n",
+	Con_Reportf( "Xash3D GameCube: G104 landmark weapons granted=%d weapons=0x%x ammo1=%d ammo2=%d viewmodel=%s\n",
 		granted, (unsigned)pl->v.weapons,
 		gc_g100_grant_have_ammo ? gc_g100_grant_ammo[1] : 0,
-		gc_g100_grant_have_ammo ? gc_g100_grant_ammo[2] : 0 );
+		gc_g100_grant_have_ammo ? gc_g100_grant_ammo[2] : 0,
+		pl->v.viewmodel ? SV_GetString( pl->v.viewmodel ) : "-" );
 }
 
 /*

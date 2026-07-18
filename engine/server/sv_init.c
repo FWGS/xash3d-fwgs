@@ -36,6 +36,7 @@ qboolean GC_PrepareNewGameWorldPresent( void );
 void GC_ArmPostMapFrameBudgetSamples( void );
 void GC_LeanLandmarkRestore( void );
 void GC_LeanLandmarkGrantWeapons( void );
+void GC_PresentLandmarkViewModel( void );
 #endif
 
 #if XASH_LOW_MEMORY != 2
@@ -781,7 +782,10 @@ void SV_ActivateServer( int runPhysics )
 
 		/* G100: weapon SetModel after present — safer MEM1 headroom. */
 		if( second_map )
+		{
 			GC_LeanLandmarkGrantWeapons();
+			GC_PresentLandmarkViewModel();
+		}
 	}
 	/* G92: after changelevel, G36 is already done — re-Prepare for the new map. */
 	else if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() && !GC_IsNewGameWorldReady() )

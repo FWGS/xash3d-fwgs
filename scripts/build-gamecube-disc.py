@@ -716,6 +716,7 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 # without mounting an extra ZIP (which tips the New Game MEM1 cliff).
 GC_STUDIO_MODELS = (
 	"models/v_crowbar.mdl",
+	"models/v_9mmhandgun.mdl",
 	"models/w_crowbar.mdl",
 	# Small world NPC — gman (~76KB) OOMs libc malloc after crowbars on GC.
 	"models/roach.mdl",

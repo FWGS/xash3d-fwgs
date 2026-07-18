@@ -141,6 +141,20 @@ probe_wait_flatpak() {
 				sleep 2
 				continue
 			fi
+			# G104: landmark lean Deploy/viewmodel after inventory attach.
+			if [[ -n "${G104_DONE_MARKER:-}" ]] && ! probe_log_has "$G104_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G104_DEPLOY_MARKER:-}" ]] && ! probe_log_has "$G104_DEPLOY_MARKER"; then
+				sleep 2
+				continue
+			fi
+			# G105: landmark first-person viewmodel draw after Deploy.
+			if [[ -n "${G105_DONE_MARKER:-}" ]] && ! probe_log_has "$G105_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			# G101: lean-N multi-cluster PVS follow after changelevel.
 			if [[ -n "${G101_DONE_MARKER:-}" ]]; then
 				if ! probe_log_has "$G101_DONE_MARKER" \
@@ -154,7 +168,7 @@ probe_wait_flatpak() {
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
-			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
+			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
@@ -251,6 +265,18 @@ probe_wait_native() {
 				sleep 2
 				continue
 			fi
+			if [[ -n "${G104_DONE_MARKER:-}" ]] && ! probe_log_has "$G104_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G104_DEPLOY_MARKER:-}" ]] && ! probe_log_has "$G104_DEPLOY_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G105_DONE_MARKER:-}" ]] && ! probe_log_has "$G105_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			if [[ -n "${G101_DONE_MARKER:-}" ]]; then
 				if ! probe_log_has "$G101_DONE_MARKER" \
 					&& { [[ -z "${G101_ALT_MARKER:-}" ]] || ! probe_log_has "$G101_ALT_MARKER"; }; then
@@ -262,7 +288,7 @@ probe_wait_native() {
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
-			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
+			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi

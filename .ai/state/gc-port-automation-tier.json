@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G103 DONE: landmark inventory-chain attach on priv_edict=2 (m_rgpPlayerItems slots 0/1, granted=2, ammo99/88; .ai/logs/dolphin-probe-20260718-010723). Automatic queue empty except SKIP/manual. Next natural: Deploy/viewmodel, DefaultTouch/IsPlayer fix, or LRU lean-N PVS."
+  "note": "G105 DONE: landmark viewmodel draw models/v_9mmhandgun.mdl after G104 Deploy (.ai/logs/dolphin-probe-20260718-014519). Automatic queue empty except SKIP/manual. Next natural: DefaultTouch/IsPlayer fix, or LRU lean-N PVS."
 }

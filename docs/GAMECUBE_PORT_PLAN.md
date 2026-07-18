@@ -2212,12 +2212,31 @@ hardware evidence refer to the same commit and artifact hashes.
 - **G103 DONE:** `.ai/logs/dolphin-probe-20260718-010723` —
   inventory-chain attach on priv_edict=2 (`m_rgpPlayerItems` slots 0/1) with
   `granted=2` and ammo1=99 ammo2=88.
+- **G104 DONE:** `.ai/logs/dolphin-probe-20260718-013800` —
+  lean Deploy sets `viewmodel=models/v_9mmhandgun.mdl` /
+  `weaponmodel=models/p_9mmhandgun.mdl` / anim `onehanded` after inventory
+  attach; `granted=2` with ammo1=99 ammo2=88.
+- **G105 DONE:** `.ai/logs/dolphin-probe-20260718-014519` —
+  real studio `v_9mmhandgun.mdl` promoted + `G105 viewmodel draw
+  models/v_9mmhandgun.mdl` after landmark Deploy on `c0a0a`.
 
-**Next automatic goal:** none open. G68/G72/G95–G103 closed; remaining automatic
+**Next automatic goal:** none open. G68/G72/G95–G105 closed; remaining automatic
 goals are SKIP (G73–G81) or manual (G70/G71/G75).
 New Game regression:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=32 scripts/dolphin-boot-probe.sh
+```
+G105 landmark viewmodel draw:
+```sh
+DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+  DOLPHIN_G95=1 DOLPHIN_G105=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
+  scripts/dolphin-boot-probe.sh
+```
+G104 landmark Deploy/viewmodel:
+```sh
+DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+  DOLPHIN_G95=1 DOLPHIN_G104=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
+  scripts/dolphin-boot-probe.sh
 ```
 G103 landmark inventory-attach:
 ```sh
