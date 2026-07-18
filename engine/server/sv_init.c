@@ -35,6 +35,7 @@ qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_PrepareNewGameWorldPresent( void );
 void GC_ArmPostMapFrameBudgetSamples( void );
 void GC_LeanLandmarkRestore( void );
+void GC_LeanLandmarkGrantWeapons( void );
 #endif
 
 #if XASH_LOW_MEMORY != 2
@@ -761,7 +762,7 @@ void SV_ActivateServer( int runPhysics )
 		}
 		Q_strncpy( gc_cl_prev, sv.name, sizeof( gc_cl_prev ));
 
-		/* G97/G98: apply lean landmark before world present. */
+		/* G97–G100: apply lean landmark before world present. */
 		GC_LeanLandmarkRestore();
 
 		/* G95: G68 may changelevel before first-map G36. Always re-Prepare
@@ -777,6 +778,10 @@ void SV_ActivateServer( int runPhysics )
 				GC_ArmPostMapFrameBudgetSamples();
 			}
 		}
+
+		/* G100: weapon SetModel after present — safer MEM1 headroom. */
+		if( second_map )
+			GC_LeanLandmarkGrantWeapons();
 	}
 	/* G92: after changelevel, G36 is already done — re-Prepare for the new map. */
 	else if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() && !GC_IsNewGameWorldReady() )

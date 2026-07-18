@@ -47,7 +47,10 @@ void GC_ResetNewGameWorldForChangelevel( void );
 void GC_MarkNewGameWorldStale( void );
 static qboolean GC_LeanLandmarkStash( const char *landmark );
 void GC_LeanLandmarkRestore( void );
+void GC_LeanLandmarkProbePlantAmmo( void );
+void GC_LeanLandmarkGrantWeapons( void );
 static qboolean gc_save_use_sysheap;
+qboolean gc_lean_weapon_grant_active;
 #endif // XASH_GAMECUBE
 
 #define SAVE_HEAPSIZE		0x400000				// reserve 4Mb for now
@@ -2352,7 +2355,7 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 	if( loadfromsavedgame )
 	{
 #if XASH_GAMECUBE
-		/* G97/G98: full SaveGameState OOMs under MEM1 — lean BSS landmark hop. */
+		/* G97–G100: full SaveGameState OOMs under MEM1 — lean BSS landmark hop. */
 		if( startspot && startspot[0] && GC_LeanLandmarkStash( startspot ))
 		{
 			lean_landmark = true;
@@ -2410,7 +2413,13 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 
 #if XASH_GAMECUBE
 #define GC_G94_SAVE_MAGIC		"G94SAVE1"
-#define GC_G98_LAND_MAGIC		"G98LAND1"
+#define GC_G100_LAND_MAGIC		"G100LAND"
+
+/* CBasePlayer::m_rgAmmo offsetof in portable HLSDK GameCube build
+ * (measured 2026-07-17: sizeof(CBasePlayer)=0x780). Runtime alloc is 2176. */
+#define GC_HL_PLAYER_AMMO_OFF		0x4ec
+#define GC_HL_MAX_AMMO_SLOTS		32
+#define GC_SF_NORESPAWN			( 1 << 30 )
 
 typedef struct gc_g94_save_s
 {
@@ -2421,9 +2430,8 @@ typedef struct gc_g94_save_s
 	float	health;
 } gc_g94_save_t;
 
-/* G97 health/origin + G98 weapons/armor. Ammo lives in CBasePlayer private
- * data and still needs a separate lean path. */
-typedef struct gc_g98_landmark_s
+/* G97–G99 inventory blob + G100 weapon-entity re-grant from weapons bits. */
+typedef struct gc_g100_landmark_s
 {
 	char	magic[8];
 	char	landmark[32];
@@ -2434,13 +2442,156 @@ typedef struct gc_g98_landmark_s
 	float	health;
 	float	armorvalue;
 	int	weapons;
+	int	ammo[GC_HL_MAX_AMMO_SLOTS];
 	qboolean	have_landmark;
-} gc_g98_landmark_t;
+	qboolean	have_ammo;
+} gc_g100_landmark_t;
 
 static gc_g94_save_t	gc_g94_pending;
 static qboolean		gc_g94_pending_valid;
-static gc_g98_landmark_t	gc_g98_pending;
-static qboolean		gc_g98_pending_valid;
+static gc_g100_landmark_t	gc_g100_pending;
+static qboolean		gc_g100_pending_valid;
+static int		gc_g100_grant_weapons;
+static int		gc_g100_grant_ammo[GC_HL_MAX_AMMO_SLOTS];
+static qboolean		gc_g100_grant_pending;
+static qboolean		gc_g100_grant_have_ammo;
+
+/* HL weapon bit → classname (matches portable HLSDK LINK_ENTITY names). */
+static const char *GC_WeaponClassForBit( int bit )
+{
+	switch( bit )
+	{
+	case 1: return "weapon_crowbar";
+	case 2: return "weapon_9mmhandgun";
+	case 3: return "weapon_357";
+	case 4: return "weapon_9mmAR";
+	case 6: return "weapon_crossbow";
+	case 7: return "weapon_shotgun";
+	case 8: return "weapon_rpg";
+	case 9: return "weapon_gauss";
+	case 10: return "weapon_egon";
+	case 11: return "weapon_hornetgun";
+	case 12: return "weapon_handgrenade";
+	case 13: return "weapon_tripmine";
+	case 14: return "weapon_satchel";
+	case 15: return "weapon_snark";
+	default: return NULL;
+	}
+}
+
+/*
+ * On GameCube New Game, clients[0].edict (often edict 1) can lack pvPrivateData
+ * while the linked CBasePlayer private block lands on a nearby edict. Prefer the
+ * client slot when present; otherwise find FL_CLIENT / first large private block.
+ */
+static edict_t *GC_LeanPlayerPrivateEdict( void )
+{
+	edict_t	*pl;
+	edict_t	*fallback = NULL;
+	int	i;
+
+	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+	if( pl && pl->pvPrivateData )
+		return pl;
+
+	if( !svgame.edicts )
+		return pl;
+
+	for( i = 1; i < svgame.numEntities; i++ )
+	{
+		edict_t	*e = &svgame.edicts[i];
+
+		if( !SV_IsValidEdict( e ) || !e->pvPrivateData )
+			continue;
+		if( FBitSet( e->v.flags, FL_CLIENT ))
+			return e;
+		if( !fallback )
+			fallback = e;
+	}
+	return fallback ? fallback : pl;
+}
+
+static int *GC_PlayerAmmoSlots( edict_t *priv_ed )
+{
+	byte	*priv;
+
+	if( !priv_ed || !priv_ed->pvPrivateData )
+		return NULL;
+	priv = (byte *)priv_ed->pvPrivateData;
+	return (int *)( priv + GC_HL_PLAYER_AMMO_OFF );
+}
+
+/*
+ * G100: recreate owned weapons like CBasePlayer::GiveNamedItem — create, spawn,
+ * touch onto the private-data player edict. Returns number granted.
+ */
+static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
+{
+	int	bit;
+	int	granted = 0;
+
+	if( !touch_player || !weapons )
+		return 0;
+
+	for( bit = 1; bit <= 15; bit++ )
+	{
+		const char	*classname;
+		edict_t		*ent;
+		string_t	cls;
+
+		if( !( weapons & ( 1 << bit )))
+			continue;
+		classname = GC_WeaponClassForBit( bit );
+		if( !classname )
+			continue;
+
+		cls = SV_AllocString( classname );
+		gc_lean_weapon_grant_active = true;
+		ent = SV_CreateNamedEntity( NULL, cls );
+		if( !ent )
+		{
+			gc_lean_weapon_grant_active = false;
+			Con_Reportf( S_WARN "Xash3D GameCube: G100 give failed classname=%s\n", classname );
+			continue;
+		}
+
+		VectorCopy( touch_player->v.origin, ent->v.origin );
+		SetBits( ent->v.spawnflags, GC_SF_NORESPAWN );
+		if( svgame.dllFuncs.pfnSpawn )
+			svgame.dllFuncs.pfnSpawn( ent );
+		if( svgame.dllFuncs.pfnTouch )
+			svgame.dllFuncs.pfnTouch( ent, touch_player );
+		gc_lean_weapon_grant_active = false;
+		granted++;
+	}
+	gc_lean_weapon_grant_active = false;
+	return granted;
+}
+
+/* Shared probe helper: plant distinctive inventory into entvars + private data. */
+void GC_LeanLandmarkProbePlantAmmo( void )
+{
+	edict_t	*entvars_ed;
+	edict_t	*priv_ed;
+	int	*ammo;
+
+	entvars_ed = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+	priv_ed = GC_LeanPlayerPrivateEdict();
+	if( entvars_ed )
+	{
+		entvars_ed->v.health = 77.0f;
+		entvars_ed->v.armorvalue = 50.0f;
+		entvars_ed->v.weapons = ( 1 << 1 ) | ( 1 << 2 );
+	}
+	ammo = GC_PlayerAmmoSlots( priv_ed );
+	if( ammo )
+	{
+		ammo[1] = 99;
+		ammo[2] = 88;
+	}
+	Con_Reportf( "Xash3D GameCube: G100 probe inventory set health=77 armor=50 weapons=0x6 ammo1=99 ammo2=88 priv_edict=%d\n",
+		priv_ed ? NUM_FOR_EDICT( priv_ed ) : -1 );
+}
 
 static qboolean GC_FindInfoLandmarkOrigin( const char *name, vec3_t out )
 {
@@ -2473,13 +2624,15 @@ static qboolean GC_FindInfoLandmarkOrigin( const char *name, vec3_t out )
 =============
 GC_LeanLandmarkStash / GC_LeanLandmarkRestore
 
-G97/G98: MEM1 cannot host SaveGameState for smooth changelevel. Keep health,
-armor, weapons bitmask, and landmark-relative placement in BSS across the hop.
+G97–G100: MEM1 cannot host SaveGameState for smooth changelevel. Keep health,
+armor, weapons bitmask, m_rgAmmo in BSS; G100 re-grants weapon entities.
 =============
 */
 static qboolean GC_LeanLandmarkStash( const char *landmark )
 {
 	edict_t	*pl;
+	edict_t	*priv_ed;
+	int	*ammo;
 
 	if( !landmark || !landmark[0] || !sv.name[0] )
 		return false;
@@ -2487,67 +2640,143 @@ static qboolean GC_LeanLandmarkStash( const char *landmark )
 	if( !pl )
 		return false;
 
-	memset( &gc_g98_pending, 0, sizeof( gc_g98_pending ));
-	memcpy( gc_g98_pending.magic, GC_G98_LAND_MAGIC, sizeof( gc_g98_pending.magic ));
-	Q_strncpy( gc_g98_pending.landmark, landmark, sizeof( gc_g98_pending.landmark ));
-	Q_strncpy( gc_g98_pending.from_map, sv.name, sizeof( gc_g98_pending.from_map ));
-	VectorCopy( pl->v.origin, gc_g98_pending.player_origin );
-	VectorCopy( pl->v.angles, gc_g98_pending.player_angles );
-	gc_g98_pending.health = pl->v.health;
-	gc_g98_pending.armorvalue = pl->v.armorvalue;
-	gc_g98_pending.weapons = pl->v.weapons;
-	gc_g98_pending.have_landmark = GC_FindInfoLandmarkOrigin( landmark, gc_g98_pending.landmark_origin );
-	gc_g98_pending_valid = true;
-	Con_Reportf( "Xash3D GameCube: G98 landmark stash from=%s to_landmark=%s health=%.0f armor=%.0f weapons=0x%x have_lm=%d\n",
-		gc_g98_pending.from_map, gc_g98_pending.landmark, gc_g98_pending.health,
-		gc_g98_pending.armorvalue, (unsigned)gc_g98_pending.weapons,
-		gc_g98_pending.have_landmark ? 1 : 0 );
+	memset( &gc_g100_pending, 0, sizeof( gc_g100_pending ));
+	memcpy( gc_g100_pending.magic, GC_G100_LAND_MAGIC, sizeof( gc_g100_pending.magic ));
+	Q_strncpy( gc_g100_pending.landmark, landmark, sizeof( gc_g100_pending.landmark ));
+	Q_strncpy( gc_g100_pending.from_map, sv.name, sizeof( gc_g100_pending.from_map ));
+	VectorCopy( pl->v.origin, gc_g100_pending.player_origin );
+	VectorCopy( pl->v.angles, gc_g100_pending.player_angles );
+	gc_g100_pending.health = pl->v.health;
+	gc_g100_pending.armorvalue = pl->v.armorvalue;
+	gc_g100_pending.weapons = pl->v.weapons;
+	gc_g100_pending.have_landmark = GC_FindInfoLandmarkOrigin( landmark, gc_g100_pending.landmark_origin );
+	priv_ed = GC_LeanPlayerPrivateEdict();
+	ammo = GC_PlayerAmmoSlots( priv_ed );
+	if( ammo )
+	{
+		memcpy( gc_g100_pending.ammo, ammo, sizeof( gc_g100_pending.ammo ));
+		gc_g100_pending.have_ammo = true;
+	}
+	gc_g100_pending_valid = true;
+	Con_Reportf( "Xash3D GameCube: G100 landmark stash from=%s to_landmark=%s health=%.0f armor=%.0f weapons=0x%x ammo1=%d ammo2=%d have_lm=%d priv_edict=%d\n",
+		gc_g100_pending.from_map, gc_g100_pending.landmark, gc_g100_pending.health,
+		gc_g100_pending.armorvalue, (unsigned)gc_g100_pending.weapons,
+		gc_g100_pending.ammo[1], gc_g100_pending.ammo[2],
+		gc_g100_pending.have_landmark ? 1 : 0,
+		priv_ed ? NUM_FOR_EDICT( priv_ed ) : -1 );
 	return true;
 }
 
 void GC_LeanLandmarkRestore( void )
 {
 	edict_t	*pl;
+	edict_t	*priv_ed;
 	vec3_t	new_lm;
 	vec3_t	offset;
+	int	*ammo;
 
-	if( !gc_g98_pending_valid
-		|| memcmp( gc_g98_pending.magic, GC_G98_LAND_MAGIC, sizeof( gc_g98_pending.magic )))
+	if( !gc_g100_pending_valid
+		|| memcmp( gc_g100_pending.magic, GC_G100_LAND_MAGIC, sizeof( gc_g100_pending.magic )))
 		return;
 
 	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
 	if( !pl )
 	{
-		Con_Reportf( S_WARN "Xash3D GameCube: G98 landmark restore missing player\n" );
+		Con_Reportf( S_WARN "Xash3D GameCube: G100 landmark restore missing player\n" );
 		return;
 	}
 
 	VectorClear( offset );
-	if( gc_g98_pending.have_landmark
-		&& GC_FindInfoLandmarkOrigin( gc_g98_pending.landmark, new_lm ))
+	if( gc_g100_pending.have_landmark
+		&& GC_FindInfoLandmarkOrigin( gc_g100_pending.landmark, new_lm ))
 	{
-		VectorSubtract( new_lm, gc_g98_pending.landmark_origin, offset );
-		VectorAdd( gc_g98_pending.player_origin, offset, pl->v.origin );
+		VectorSubtract( new_lm, gc_g100_pending.landmark_origin, offset );
+		VectorAdd( gc_g100_pending.player_origin, offset, pl->v.origin );
 	}
 	else
 	{
 		/* Landmark missing: drop at spawn origin kept from stash as best effort. */
-		VectorCopy( gc_g98_pending.player_origin, pl->v.origin );
+		VectorCopy( gc_g100_pending.player_origin, pl->v.origin );
 	}
-	VectorCopy( gc_g98_pending.player_angles, pl->v.angles );
-	VectorCopy( gc_g98_pending.player_angles, pl->v.v_angle );
-	if( gc_g98_pending.health > 0.0f )
-		pl->v.health = gc_g98_pending.health;
-	if( gc_g98_pending.armorvalue > 0.0f )
-		pl->v.armorvalue = gc_g98_pending.armorvalue;
-	pl->v.weapons = gc_g98_pending.weapons;
+	VectorCopy( gc_g100_pending.player_angles, pl->v.angles );
+	VectorCopy( gc_g100_pending.player_angles, pl->v.v_angle );
+	if( gc_g100_pending.health > 0.0f )
+		pl->v.health = gc_g100_pending.health;
+	if( gc_g100_pending.armorvalue > 0.0f )
+		pl->v.armorvalue = gc_g100_pending.armorvalue;
+	pl->v.weapons = gc_g100_pending.weapons;
 
-	Con_Reportf( "Xash3D GameCube: G98 landmark restore health=%.0f armor=%.0f weapons=0x%x origin=(%.0f,%.0f,%.0f) landmark=%s\n",
+	priv_ed = GC_LeanPlayerPrivateEdict();
+	if( !priv_ed )
+		priv_ed = pl;
+
+	if( gc_g100_pending.have_ammo )
+	{
+		ammo = GC_PlayerAmmoSlots( priv_ed );
+		if( ammo )
+			memcpy( ammo, gc_g100_pending.ammo, sizeof( gc_g100_pending.ammo ));
+	}
+
+	/* Queue weapon entity rebuild after world present (SetModel is unsafe here). */
+	gc_g100_grant_weapons = gc_g100_pending.weapons;
+	gc_g100_grant_have_ammo = gc_g100_pending.have_ammo;
+	if( gc_g100_pending.have_ammo )
+		memcpy( gc_g100_grant_ammo, gc_g100_pending.ammo, sizeof( gc_g100_grant_ammo ));
+	gc_g100_grant_pending = ( gc_g100_grant_weapons != 0 );
+
+	Con_Reportf( "Xash3D GameCube: G100 landmark restore health=%.0f armor=%.0f weapons=0x%x ammo1=%d ammo2=%d origin=(%.0f,%.0f,%.0f) landmark=%s\n",
 		pl->v.health, pl->v.armorvalue, (unsigned)pl->v.weapons,
+		gc_g100_pending.ammo[1], gc_g100_pending.ammo[2],
 		pl->v.origin[0], pl->v.origin[1], pl->v.origin[2],
-		gc_g98_pending.landmark );
-	gc_g98_pending_valid = false;
+		gc_g100_pending.landmark );
+	gc_g100_pending_valid = false;
 	svgame.globals->changelevel = false;
+}
+
+/*
+=============
+GC_LeanLandmarkGrantWeapons
+
+G100: recreate owned weapons after world present (not during ActivateServer).
+=============
+*/
+void GC_LeanLandmarkGrantWeapons( void )
+{
+	edict_t	*pl;
+	edict_t	*priv_ed;
+	int	*ammo;
+	int	granted;
+
+	if( !gc_g100_grant_pending )
+		return;
+	gc_g100_grant_pending = false;
+
+	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+	if( !pl || !gc_g100_grant_weapons )
+		return;
+
+	priv_ed = GC_LeanPlayerPrivateEdict();
+	if( !priv_ed )
+		priv_ed = pl;
+	if( priv_ed != pl )
+		VectorCopy( pl->v.origin, priv_ed->v.origin );
+
+	granted = GC_LeanGiveWeaponsFromBits( priv_ed, gc_g100_grant_weapons );
+	if( gc_g100_grant_have_ammo )
+	{
+		ammo = GC_PlayerAmmoSlots( priv_ed );
+		if( ammo )
+			memcpy( ammo, gc_g100_grant_ammo, sizeof( gc_g100_grant_ammo ));
+	}
+	if( priv_ed != pl && priv_ed->v.weapons )
+		pl->v.weapons = priv_ed->v.weapons;
+	else
+		pl->v.weapons = gc_g100_grant_weapons;
+
+	Con_Reportf( "Xash3D GameCube: G100 landmark weapons granted=%d weapons=0x%x ammo1=%d ammo2=%d\n",
+		granted, (unsigned)pl->v.weapons,
+		gc_g100_grant_have_ammo ? gc_g100_grant_ammo[1] : 0,
+		gc_g100_grant_have_ammo ? gc_g100_grant_ammo[2] : 0 );
 }
 
 /*

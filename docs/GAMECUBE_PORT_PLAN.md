@@ -2197,12 +2197,21 @@ hardware evidence refer to the same commit and artifact hashes.
   before world present.
 - **G98 DONE:** `.ai/logs/dolphin-probe-20260717-231959` —
   same hop with `G98 landmark restore health=77 armor=50 weapons=0x6`.
+- **G99 DONE:** `.ai/logs/dolphin-probe-20260717-233356` —
+  same hop with `G99 landmark restore ... ammo1=99 ammo2=88` via private-data
+  edict resolution.
 
-**Next automatic goal:** none open. G68/G72/G95–G98 closed; remaining automatic
+**Next automatic goal:** none open. G68/G72/G95–G99 closed; remaining automatic
 goals are SKIP (G73–G81) or manual (G70/G71/G75).
 New Game regression:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=32 scripts/dolphin-boot-probe.sh
+```
+G99 landmark ammo continuity:
+```sh
+DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+  DOLPHIN_G95=1 DOLPHIN_G99=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
+  scripts/dolphin-boot-probe.sh
 ```
 G98 landmark inventory continuity:
 ```sh

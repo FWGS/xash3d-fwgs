@@ -2850,20 +2850,13 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			if( to != NULL && !gc_changelevel_queued && Q_stricmp( sv.name, to ))
 			{
 				char landmark[MAX_QPATH];
-				edict_t *pl;
 
 				gc_changelevel_queued = true;
 				Q_strncpy( gc_cl_from, sv.name, sizeof( gc_cl_from ));
 				landmark[0] = '\0';
 				Sys_GetParmFromCmdLine( "-gclandmark", landmark );
-				pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
-				if( pl && landmark[0] )
-				{
-					pl->v.health = 77.0f;
-					pl->v.armorvalue = 50.0f;
-					pl->v.weapons = ( 1 << 1 ) | ( 1 << 2 );
-					SYS_Report( "Xash3D GameCube: G98 probe inventory set health=77 armor=50 weapons=0x6\n" );
-				}
+				if( landmark[0] )
+					GC_LeanLandmarkProbePlantAmmo();
 				SYS_Report( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
 					to, sv.name, landmark[0] ? landmark : "(none)" );
 				COM_ChangeLevel( to, landmark[0] ? landmark : NULL, false );

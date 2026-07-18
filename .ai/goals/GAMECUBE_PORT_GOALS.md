@@ -13,13 +13,14 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
 - G92–G96: presents, save/load, campaign audit, lean PVS after changelevel
-- G97–G98: landmark hop `c0a0`→`c0a0a` restores health=77, armor=50, weapons=0x6
+- G97–G99: landmark hop restores health/armor/weapons + `m_rgAmmo` (ammo1=99, ammo2=88)
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G98 closed. Remaining items are SKIP (G73–G81) or manual
+- None — G99 closed. Remaining items are SKIP (G73–G81) or manual
   checkpoints (G70/G71/G75).
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260717-233356` (G99 landmark ammo1=99 ammo2=88)
 - `.ai/logs/dolphin-probe-20260717-231959` (G98 landmark restore armor/weapons)
 - `.ai/logs/dolphin-probe-20260717-230837` (G97 landmark restore health=77)
 - `.ai/logs/dolphin-probe-20260717-223809` (G96 lean FatPVS map=c1a0a)
@@ -1736,6 +1737,28 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   ```sh
   DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
     DOLPHIN_G95=1 DOLPHIN_G98=1 DOLPHIN_TIMEOUT=150 DOLPHIN_FRAME_SAMPLE_SEC=8 \
+    scripts/dolphin-boot-probe.sh
+  ```
+
+## G99 [x] Lean landmark ammo (m_rgAmmo) private-data continuity
+
+- Status: DONE 2026-07-17. Extends lean BSS hop (`G99LAND1`) with the
+  `CBasePlayer::m_rgAmmo[32]` slice at offsetof `0x4ec`. On GameCube New Game
+  the client edict often lacks `pvPrivateData`; stash/restore resolve the
+  linked private-data edict (typically edict 2).
+- Acceptance:
+  - `c0a0`→`c0a0a` landmark `c0a0toa`, probe plants ammo1=99 ammo2=88; restore
+    logs the same values with health/armor/weapons.
+- Evidence: `.ai/logs/dolphin-probe-20260717-233356` —
+  `G99 landmark stash ... ammo1=99 ammo2=88 ... priv_edict=2`,
+  `G99 landmark restore health=77 armor=50 weapons=0x6 ammo1=99 ammo2=88`.
+- Intentional limits: weapon entity/`m_pActiveItem` CLASSPTR chain still not
+  rebuilt; offsetof is HLSDK-layout-specific; multi-cluster lean PVS follow
+  still open (G96 limit).
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+    DOLPHIN_G95=1 DOLPHIN_G99=1 DOLPHIN_TIMEOUT=120 DOLPHIN_FRAME_SAMPLE_SEC=6 \
     scripts/dolphin-boot-probe.sh
   ```
 

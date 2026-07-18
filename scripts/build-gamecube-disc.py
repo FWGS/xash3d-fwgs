@@ -907,14 +907,24 @@ def write_probe_newgame_override(
 	newsaveload: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
+	landmark: str | None = None,
+	smoke_map: str | None = None,
 ) -> None:
-	lines = ["newgame"]
+	lines = []
+	# G68/G100: bake map so -gcmap+newgame early changelevel path can plant inventory.
+	if smoke_map:
+		lines.append(f"map {Path(smoke_map).stem}")
+	lines.append("newgame")
 	if newsaveload:
 		lines.append("newsaveload")
 	if phasetest:
 		lines.append(f"phasetest {phasetest}")
-	if changelevel:
+	if changelevel and landmark:
+		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
+	elif changelevel:
 		lines.append(f"changelevel {Path(changelevel).stem}")
+	elif landmark:
+		lines.append(f"landmark {landmark}")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
@@ -1580,6 +1590,9 @@ def main() -> None:
 					newsaveload=args.probe_newsaveload,
 					phasetest=args.probe_phasetest,
 					changelevel=args.probe_changelevel,
+					landmark=args.probe_landmark,
+					# G68/G100: start map for -gcmap early changelevel + landmark plant.
+					smoke_map="c0a0" if args.probe_changelevel else None,
 				)
 			elif args.probe_phasetest:
 				write_probe_phasetest_override(staged_data, args.probe_phasetest)

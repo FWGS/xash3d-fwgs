@@ -295,6 +295,49 @@ void GAME_EXPORT SV_SetModel( edict_t *ent, const char *modelname )
 			player_index );
 		return;
 	}
+
+	/* G100 lean weapon grant: studio Mod_ForName after changelevel hangs under
+	 * MEM1. Bind a precache slot / empty hull so GiveNamedItem touch can finish. */
+	if( ( gc_lean_weapon_grant_active || Sys_CheckParm( "-gcchangelevel" ))
+		&& ( !Q_strnicmp( name, "models/w_", 9 ) || !Q_strnicmp( name, "models/v_", 9 )))
+	{
+		int	wi;
+		int	weapon_index = 0;
+
+		Con_Reportf( "Xash3D GameCube: SV_SetModel weapon stub enter active=%d name=%s\n",
+			gc_lean_weapon_grant_active ? 1 : 0, name );
+
+		for( wi = 1; wi < MAX_MODELS && sv.model_precache[wi][0]; wi++ )
+		{
+			if( !Q_stricmp( sv.model_precache[wi], name ))
+			{
+				weapon_index = wi;
+				break;
+			}
+		}
+		if( !weapon_index )
+		{
+			for( wi = 1; wi < MAX_MODELS; wi++ )
+			{
+				if( !sv.model_precache[wi][0] )
+				{
+					Q_strncpy( sv.model_precache[wi], name, sizeof( sv.model_precache[wi] ));
+					weapon_index = wi;
+					break;
+				}
+			}
+		}
+		if( !weapon_index )
+			weapon_index = 1;
+
+		ent->v.modelindex = weapon_index;
+		ent->v.model = SV_MakeString( sv.model_precache[weapon_index] );
+		sv.models[weapon_index] = NULL;
+		SV_SetMinMaxSize( ent, vec3_origin, vec3_origin, true );
+		Con_Reportf( "Xash3D GameCube: SV_SetModel weapon stub %s index=%d\n",
+			name, weapon_index );
+		return;
+	}
 #endif
 
 	i = SV_ModelIndex( name );
