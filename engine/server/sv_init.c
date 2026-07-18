@@ -34,6 +34,7 @@ qboolean GC_IsNewGameG36Done( void );
 qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_PrepareNewGameWorldPresent( void );
 void GC_ArmPostMapFrameBudgetSamples( void );
+void GC_LeanLandmarkRestore( void );
 #endif
 
 #if XASH_LOW_MEMORY != 2
@@ -759,6 +760,9 @@ void SV_ActivateServer( int runPhysics )
 				gc_cl_prev, sv.name );
 		}
 		Q_strncpy( gc_cl_prev, sv.name, sizeof( gc_cl_prev ));
+
+		/* G97: apply lean landmark before world present. */
+		GC_LeanLandmarkRestore();
 
 		/* G95: G68 may changelevel before first-map G36. Always re-Prepare
 		 * on the destination so large maps still get a world present. */

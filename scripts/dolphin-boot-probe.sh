@@ -205,6 +205,10 @@ if (( SKIP_DISC )); then
 	if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		BUILD_ARGS+=(--probe-changelevel "$DOLPHIN_CHANGELEVEL")
 		echo "==> G68 changelevel probe (to ${DOLPHIN_CHANGELEVEL})"
+		if [[ -n "${DOLPHIN_LANDMARK:-}" ]]; then
+			BUILD_ARGS+=(--probe-landmark "$DOLPHIN_LANDMARK")
+			echo "==> G97 landmark probe (${DOLPHIN_LANDMARK})"
+		fi
 	fi
 	if ! python3 scripts/build-gamecube-disc.py "${BUILD_ARGS[@]}"; then
 		echo "FAIL: Disc build failed."
@@ -238,6 +242,11 @@ if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		G96_ALT_MARKER="Xash3D GameCube: Capture FatPVS map=${DOLPHIN_CHANGELEVEL}"
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
 		echo "==> Waiting for G96 lean/full FatPVS capture on ${DOLPHIN_CHANGELEVEL}"
+	fi
+	if [[ "${DOLPHIN_G97:-0}" == "1" ]]; then
+		G97_DONE_MARKER="Xash3D GameCube: G97 landmark restore health=77"
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+		echo "==> Waiting for G97 landmark health restore"
 	fi
 fi
 if (( DOLPHIN_NEWGAME )); then

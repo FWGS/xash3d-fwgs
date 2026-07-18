@@ -2192,17 +2192,21 @@ hardware evidence refer to the same commit and artifact hashes.
 - **G96 DONE:** `.ai/logs/dolphin-probe-20260717-223809` —
   `Capture FatPVS lean map=c1a0a cluster=0 leaves=74 nodes=210` after
   multi-cluster alloc failure; world present retained.
+- **G97 DONE:** `.ai/logs/dolphin-probe-20260717-230837` —
+  landmark `c0a0toa` hop `c0a0`→`c0a0a` with `G97 landmark restore health=77`
+  before world present.
 
-**Next automatic goal:** none open. G68/G72/G95/G96 closed; remaining automatic
+**Next automatic goal:** none open. G68/G72/G95–G97 closed; remaining automatic
 goals are SKIP (G73–G81) or manual (G70/G71/G75).
 New Game regression:
 ```sh
 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=32 scripts/dolphin-boot-probe.sh
 ```
-G95 large-map post-changelevel present:
+G97 landmark health continuity:
 ```sh
-DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0a DOLPHIN_G95=1 DOLPHIN_TIMEOUT=180 \
-  DOLPHIN_FRAME_SAMPLE_SEC=12 scripts/dolphin-boot-probe.sh
+DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+  DOLPHIN_G95=1 DOLPHIN_G97=1 DOLPHIN_TIMEOUT=150 DOLPHIN_FRAME_SAMPLE_SEC=8 \
+  scripts/dolphin-boot-probe.sh
 ```
 G96 lean FatPVS after changelevel:
 ```sh

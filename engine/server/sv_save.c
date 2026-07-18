@@ -45,6 +45,8 @@ half-life implementation of saverestore system
 #define GC_PROBE_SAVE_HASHSTRINGS	0x1FF			/* 511 tokens */
 void GC_ResetNewGameWorldForChangelevel( void );
 void GC_MarkNewGameWorldStale( void );
+static qboolean GC_LeanLandmarkStash( const char *landmark );
+void GC_LeanLandmarkRestore( void );
 static qboolean gc_save_use_sysheap;
 #endif // XASH_GAMECUBE
 
@@ -2323,6 +2325,9 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 	char		_startspot[MAX_QPATH];
 	char		*startspot = NULL;
 	SAVERESTOREDATA	*pSaveData = NULL;
+#if XASH_GAMECUBE
+	qboolean	lean_landmark = false;
+#endif
 
 	if( sv.state != ss_active )
 	{
@@ -2346,6 +2351,17 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 
 	if( loadfromsavedgame )
 	{
+#if XASH_GAMECUBE
+		/* G97: full SaveGameState OOMs under MEM1 — lean BSS landmark hop. */
+		if( startspot && startspot[0] && GC_LeanLandmarkStash( startspot ))
+		{
+			lean_landmark = true;
+			loadfromsavedgame = false;
+			svgame.globals->changelevel = true;
+		}
+		else
+#endif
+		{
 		// smooth transition in-progress
 		svgame.globals->changelevel = true;
 
@@ -2359,6 +2375,7 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 			Sys_Warn( "Can't write save file for performaing change level; check permissions" );
 			svgame.globals->changelevel = false;
 			return;
+		}
 		}
 	}
 
@@ -2393,6 +2410,7 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 
 #if XASH_GAMECUBE
 #define GC_G94_SAVE_MAGIC		"G94SAVE1"
+#define GC_G97_LAND_MAGIC		"G97LAND1"
 
 typedef struct gc_g94_save_s
 {
@@ -2403,8 +2421,123 @@ typedef struct gc_g94_save_s
 	float	health;
 } gc_g94_save_t;
 
+typedef struct gc_g97_landmark_s
+{
+	char	magic[8];
+	char	landmark[32];
+	char	from_map[32];
+	vec3_t	player_origin;
+	vec3_t	player_angles;
+	vec3_t	landmark_origin;
+	float	health;
+	qboolean	have_landmark;
+} gc_g97_landmark_t;
+
 static gc_g94_save_t	gc_g94_pending;
 static qboolean		gc_g94_pending_valid;
+static gc_g97_landmark_t	gc_g97_pending;
+static qboolean		gc_g97_pending_valid;
+
+static qboolean GC_FindInfoLandmarkOrigin( const char *name, vec3_t out )
+{
+	int	i;
+
+	if( !name || !name[0] || !svgame.edicts )
+		return false;
+
+	for( i = 0; i < svgame.numEntities; i++ )
+	{
+		edict_t		*e = &svgame.edicts[i];
+		const char	*cn;
+		const char	*tn;
+
+		if( !SV_IsValidEdict( e ))
+			continue;
+		cn = SV_GetString( e->v.classname );
+		if( Q_strcmp( cn, "info_landmark" ))
+			continue;
+		tn = SV_GetString( e->v.targetname );
+		if( Q_strcmp( tn, name ))
+			continue;
+		VectorCopy( e->v.origin, out );
+		return true;
+	}
+	return false;
+}
+
+/*
+=============
+GC_LeanLandmarkStash / GC_LeanLandmarkRestore
+
+G97: MEM1 cannot host SaveGameState for smooth changelevel. Keep health +
+landmark-relative placement in BSS across the hop.
+=============
+*/
+static qboolean GC_LeanLandmarkStash( const char *landmark )
+{
+	edict_t	*pl;
+
+	if( !landmark || !landmark[0] || !sv.name[0] )
+		return false;
+	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+	if( !pl )
+		return false;
+
+	memset( &gc_g97_pending, 0, sizeof( gc_g97_pending ));
+	memcpy( gc_g97_pending.magic, GC_G97_LAND_MAGIC, sizeof( gc_g97_pending.magic ));
+	Q_strncpy( gc_g97_pending.landmark, landmark, sizeof( gc_g97_pending.landmark ));
+	Q_strncpy( gc_g97_pending.from_map, sv.name, sizeof( gc_g97_pending.from_map ));
+	VectorCopy( pl->v.origin, gc_g97_pending.player_origin );
+	VectorCopy( pl->v.angles, gc_g97_pending.player_angles );
+	gc_g97_pending.health = pl->v.health;
+	gc_g97_pending.have_landmark = GC_FindInfoLandmarkOrigin( landmark, gc_g97_pending.landmark_origin );
+	gc_g97_pending_valid = true;
+	Con_Reportf( "Xash3D GameCube: G97 landmark stash from=%s to_landmark=%s health=%.0f have_lm=%d\n",
+		gc_g97_pending.from_map, gc_g97_pending.landmark, gc_g97_pending.health,
+		gc_g97_pending.have_landmark ? 1 : 0 );
+	return true;
+}
+
+void GC_LeanLandmarkRestore( void )
+{
+	edict_t	*pl;
+	vec3_t	new_lm;
+	vec3_t	offset;
+
+	if( !gc_g97_pending_valid
+		|| memcmp( gc_g97_pending.magic, GC_G97_LAND_MAGIC, sizeof( gc_g97_pending.magic )))
+		return;
+
+	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+	if( !pl )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: G97 landmark restore missing player\n" );
+		return;
+	}
+
+	VectorClear( offset );
+	if( gc_g97_pending.have_landmark
+		&& GC_FindInfoLandmarkOrigin( gc_g97_pending.landmark, new_lm ))
+	{
+		VectorSubtract( new_lm, gc_g97_pending.landmark_origin, offset );
+		VectorAdd( gc_g97_pending.player_origin, offset, pl->v.origin );
+	}
+	else
+	{
+		/* Landmark missing: drop at spawn origin kept from stash as best effort. */
+		VectorCopy( gc_g97_pending.player_origin, pl->v.origin );
+	}
+	VectorCopy( gc_g97_pending.player_angles, pl->v.angles );
+	VectorCopy( gc_g97_pending.player_angles, pl->v.v_angle );
+	if( gc_g97_pending.health > 0.0f )
+		pl->v.health = gc_g97_pending.health;
+
+	Con_Reportf( "Xash3D GameCube: G97 landmark restore health=%.0f origin=(%.0f,%.0f,%.0f) landmark=%s\n",
+		pl->v.health, pl->v.origin[0], pl->v.origin[1], pl->v.origin[2],
+		gc_g97_pending.landmark );
+	gc_g97_pending_valid = false;
+	svgame.globals->changelevel = false;
+}
 
 /*
 =============

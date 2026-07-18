@@ -1,4 +1,4 @@
 {
-  "tier": "lean_pvs_changelevel",
-  "note": "G96 DONE: lean FatPVS on c1a0a after multi-cluster OOM (.ai/logs/dolphin-probe-20260717-223809). Automatic queue empty except SKIP/manual."
+  "tier": "landmark_changelevel",
+  "note": "G97 DONE: lean landmark hop c0a0→c0a0a restores health=77 (.ai/logs/dolphin-probe-20260717-230837). Automatic queue empty except SKIP/manual."
 }

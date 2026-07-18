@@ -407,14 +407,16 @@ qboolean GCube_GetBasePath( char *buf, size_t buflen )
 	return false;
 }
 
-static char *gc_argv[24];
+static char *gc_argv[32];
 static char gc_smoke_map[MAX_QPATH];
 static char gc_phase_test[32];
 static char gc_changelevel_map[MAX_QPATH];
+static char gc_landmark_name[MAX_QPATH];
 static qboolean gc_smoke_map_configured;
 static qboolean gc_newgame_configured;
 static qboolean gc_phase_test_configured;
 static qboolean gc_changelevel_configured;
+static qboolean gc_landmark_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -427,8 +429,10 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_newsaveload_configured = false;
 	gc_phase_test_configured = false;
 	gc_changelevel_configured = false;
+	gc_landmark_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
+	gc_landmark_name[0] = '\0';
 
 	if( !GCube_MountDisc() )
 		return;
@@ -508,10 +512,55 @@ static void GCube_LoadDiscBootOverrides( void )
 			if( len > 0 && len < sizeof( gc_changelevel_map )
 				&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
 			{
-				Q_strncpy( gc_changelevel_map, mapname, sizeof( gc_changelevel_map ));
-				gc_changelevel_configured = true;
-				SYS_Report( "Xash3D GameCube: disc boot override changelevel %s\n",
-					gc_changelevel_map );
+				/* Optional: changelevel <map> <landmark> */
+				{
+					char *sp = strchr( mapname, ' ' );
+					if( !sp )
+						sp = strchr( mapname, '\t' );
+					if( sp )
+					{
+						*sp++ = '\0';
+						while( *sp == ' ' || *sp == '\t' )
+							sp++;
+						len = strlen( mapname );
+						if( *sp && strlen( sp ) < sizeof( gc_landmark_name )
+							&& !strchr( sp, '/' ) && !strchr( sp, '\\' ))
+						{
+							Q_strncpy( gc_landmark_name, sp, sizeof( gc_landmark_name ));
+							gc_landmark_configured = true;
+							SYS_Report( "Xash3D GameCube: disc boot override landmark %s\n",
+								gc_landmark_name );
+						}
+					}
+				}
+				if( len > 0 && len < sizeof( gc_changelevel_map ))
+				{
+					Q_strncpy( gc_changelevel_map, mapname, sizeof( gc_changelevel_map ));
+					gc_changelevel_configured = true;
+					SYS_Report( "Xash3D GameCube: disc boot override changelevel %s\n",
+						gc_changelevel_map );
+				}
+			}
+			continue;
+		}
+
+		if( !Q_strnicmp( cursor, "landmark", 8 ) && ( cursor[8] == ' ' || cursor[8] == '\t' ))
+		{
+			mapname = cursor + 8;
+			while( *mapname == ' ' || *mapname == '\t' )
+				mapname++;
+			len = strlen( mapname );
+			while( len > 0 && ( mapname[len - 1] == '\r' || mapname[len - 1] == '\n' ))
+			{
+				mapname[--len] = '\0';
+			}
+			if( len > 0 && len < sizeof( gc_landmark_name )
+				&& !strchr( mapname, '/' ) && !strchr( mapname, '\\' ))
+			{
+				Q_strncpy( gc_landmark_name, mapname, sizeof( gc_landmark_name ));
+				gc_landmark_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override landmark %s\n",
+					gc_landmark_name );
 			}
 			continue;
 		}
@@ -580,6 +629,11 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	{
 		gc_argv[fake_argc++] = "-gcchangelevel";
 		gc_argv[fake_argc++] = gc_changelevel_map;
+	}
+	if( gc_landmark_configured )
+	{
+		gc_argv[fake_argc++] = "-gclandmark";
+		gc_argv[fake_argc++] = gc_landmark_name;
 	}
 	gc_argv[fake_argc++] = "-width";
 	gc_argv[fake_argc++] = "640";

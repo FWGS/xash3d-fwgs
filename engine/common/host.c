@@ -1430,13 +1430,27 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 						 * teardown and avoids that path. */
 						{
 							char dest[MAX_QPATH];
+							char landmark[MAX_QPATH];
+							edict_t *pl;
 
 							if( Sys_GetParmFromCmdLine( "-gcchangelevel", dest )
 								&& Q_stricmp( dest, sv.name ))
 							{
-								Con_Reportf( "Xash3D GameCube: changelevel begin map=%s from=%s\n",
-									dest, sv.name[0] ? sv.name : "?" );
-								COM_ChangeLevel( dest, NULL, false );
+								/* G97: distinctive health proves continuity across hop. */
+								pl = ( svs.clients && svs.clients[0].edict )
+									? svs.clients[0].edict : NULL;
+								if( pl )
+								{
+									pl->v.health = 77.0f;
+									Con_Reportf( "Xash3D GameCube: G97 probe health set=77\n" );
+								}
+								landmark[0] = '\0';
+								if( !Sys_GetParmFromCmdLine( "-gclandmark", landmark ))
+									landmark[0] = '\0';
+								Con_Reportf( "Xash3D GameCube: changelevel begin map=%s from=%s landmark=%s\n",
+									dest, sv.name[0] ? sv.name : "?",
+									landmark[0] ? landmark : "(none)" );
+								COM_ChangeLevel( dest, landmark[0] ? landmark : NULL, false );
 							}
 						}
 					}

@@ -8,34 +8,24 @@ checkpoints, not as runnable goals.
 
 ## Current focus (2026-07-17)
 
-Automation tier: `lean_pvs_changelevel` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.json`).
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + `G36_STATUS: PASS` + interactive input (`G45`)
-- G92: `c0a0`→`c0a0a` changelevel with fresh PVS + world present
-- G93: world presents at `320x240` (`gcmap world pixels nonzero=70610/76800`);
-  fallback `-gcnewgame160` keeps 160×120
-- G94: lean save/load after world present restores origin `(2883,2810,515)`
-  and reaches `G94 load restore present` (RAM bank when no SD)
-- G82: intentional `phasetest sw_fb` reports `boot=sw_fb` + `G82_VERIFIED`
-- G72: worst-case report PASS — keep `gc_quality=1`; peak supported HWM
-  `c1a0` ≈4.87 MiB; New Game present ≈3.78 MiB p95≈16.68ms
-- G68: 96/96 campaign maps `MAP_READY`; 16/16 chapter changelevel samples PASS
-- G95: post-changelevel world present on large map `c1a0`→`c1a0a`
-- G96: lean FatPVS capture on destination when multi-cluster OOM
+- G92–G96: presents, save/load, campaign audit, lean PVS after changelevel
+- G97: landmark hop `c0a0`→`c0a0a` (`c0a0toa`) restores health=77
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G96 closed. Remaining items are SKIP (G73–G81) or manual
+- None — G97 closed. Remaining items are SKIP (G73–G81) or manual
   checkpoints (G70/G71/G75).
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260717-230837` (G97 landmark restore health=77)
 - `.ai/logs/dolphin-probe-20260717-223809` (G96 lean FatPVS map=c1a0a)
 - `.ai/logs/dolphin-probe-20260717-223433` (G95 present map=c1a0a after changelevel)
 - `.ai/logs/changelevel-g68-20260717-193719` (G68 16/16 chapter changelevels)
 - `.ai/logs/campaign-audit-g68-20260717-progress` (96/96 MAP_READY)
 - `.ai/logs/worst-case-g72-current` (G72 classified worst-case report)
-- `.ai/logs/map-compat-20260717-170327` (c0a0e/c1a0 MAP_READY)
-- `.ai/logs/dolphin-probe-20260717-160152` (G82 phase-fault at sw_fb)
 - `.ai/logs/dolphin-probe-20260717-155659` (G94 save/load restore present)
 - `.ai/logs/dolphin-probe-20260717-145537` (G93 320×240 presents)
 - `.ai/logs/dolphin-probe-20260717-145327` (G92 changelevel + PVS re-capture)
@@ -1703,6 +1693,28 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   ```sh
   DOLPHIN_SMOKE_MAP=c1a0 DOLPHIN_CHANGELEVEL=c1a0a DOLPHIN_G95=1 DOLPHIN_G96=1 \
     DOLPHIN_TIMEOUT=180 DOLPHIN_FRAME_SAMPLE_SEC=12 scripts/dolphin-boot-probe.sh
+  ```
+
+## G97 [x] Lean landmark changelevel with health continuity
+
+- Status: DONE 2026-07-17. Full `SaveGameState` for smooth `changelevel2`
+  OOMs under MEM1. Lean BSS stash carries health + landmark-relative origin
+  across the hop (`G97LAND1`). Disc supports `changelevel <map> <landmark>`.
+- Acceptance:
+  - `c0a0`→`c0a0a` with landmark `c0a0toa`, probe health forced to 77 before
+    hop, restore logs `G97 landmark restore health=77`.
+- Evidence: `.ai/logs/dolphin-probe-20260717-230837` —
+  `G97 probe health set=77`,
+  `G97 landmark stash ... health=77 have_lm=1`,
+  `G97 landmark restore health=77 origin=(0,816,-449) landmark=c0a0toa`,
+  then `world present map=c0a0a`.
+- Intentional limits: weapons/ammo/inventory globals not in the lean blob yet;
+  full GoldSrc adjacency save still blocked by MEM1.
+- Command:
+  ```sh
+  DOLPHIN_SMOKE_MAP=c0a0 DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa \
+    DOLPHIN_G95=1 DOLPHIN_G97=1 DOLPHIN_TIMEOUT=150 DOLPHIN_FRAME_SAMPLE_SEC=8 \
+    scripts/dolphin-boot-probe.sh
   ```
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work

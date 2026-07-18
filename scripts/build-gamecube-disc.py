@@ -877,6 +877,7 @@ def write_smoke_overrides(
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
+	landmark: str | None = None,
 ) -> None:
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
@@ -889,8 +890,12 @@ def write_smoke_overrides(
 		lines.append("gcworldrender")
 	if phasetest:
 		lines.append(f"phasetest {phasetest}")
-	if changelevel:
+	if changelevel and landmark:
+		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
+	elif changelevel:
 		lines.append(f"changelevel {Path(changelevel).stem}")
+	elif landmark:
+		lines.append(f"landmark {landmark}")
 	(output / "gamecube.cfg").write_text("\n".join(lines) + "\n", encoding="ascii")
 	media = output / "media"
 	media.mkdir(exist_ok=True)
@@ -1137,6 +1142,7 @@ def stage_smoke_data(
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
+	landmark: str | None = None,
 ) -> Path:
 	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
 	map_relative = f"maps/{map_name}"
@@ -1157,6 +1163,7 @@ def stage_smoke_data(
 		world_render=world_render,
 		phasetest=phasetest,
 		changelevel=changelevel,
+		landmark=landmark,
 	)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
@@ -1454,6 +1461,11 @@ def main() -> None:
 		help="stage gamecube.cfg changelevel <MAP> for G68 transition probes (with --smoke-map or --probe-newgame)",
 	)
 	parser.add_argument(
+		"--probe-landmark",
+		metavar="NAME",
+		help="with --probe-changelevel, stage landmark <NAME> for G97 smooth hop probes",
+	)
+	parser.add_argument(
 		"--skip-startup-vids",
 		action="store_true",
 		help="overlay an empty media/StartupVids.txt for faster retail menu boot validation",
@@ -1504,6 +1516,7 @@ def main() -> None:
 				world_render=args.world_render,
 				phasetest=args.probe_phasetest,
 				changelevel=args.probe_changelevel,
+				landmark=args.probe_landmark,
 			)
 			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
 			if validation_errors:
