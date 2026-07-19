@@ -3484,11 +3484,10 @@ void GC_PlayNewGameGameplaySound( void )
 	gc_gameplay_sound_done = true;
 	gc_gameplay_sound_queued = false;
 
-	/* G124/G125: under fullphysics, preload stock fire + footsteps while MEM1
-	 * is free and keep them resident. Order matters: pl_gun3 first (~13 KiB
-	 * FS+migrate), then four pl_step* (~10 KiB). Together ~24 KiB < 48 KiB
-	 * budget. Releasing after decode poisoned FS Find for later sound loads;
-	 * coexistence is cache hits, not reload-after-free. */
+	/* G124–G126: under fullphysics, preload stock fire, footsteps, and one
+	 * ricochet while MEM1 is free; keep them resident. Order: pl_gun3 (~13 KiB),
+	 * pl_step1..4 (~10 KiB), ric1 (~6 KiB) → ~30 KiB < 48 KiB budget. Dynamic
+	 * ric2–5 Find/FS loads fail under freelist pressure after fire. */
 	if( Sys_CheckParm( "-gcfullphysics" ))
 	{
 		static const char *const preload[] = {
@@ -3497,20 +3496,21 @@ void GC_PlayNewGameGameplaySound( void )
 			"player/pl_step2.wav",
 			"player/pl_step3.wav",
 			"player/pl_step4.wav",
+			"weapons/ric1.wav",
 		};
 		int s;
 
 		FS_ClearFindMissCache();
-		Con_Reportf( "Xash3D GameCube: G125 preload fire+steps begin budget_used=%u\n",
+		Con_Reportf( "Xash3D GameCube: G126 preload fire+steps+ric begin budget_used=%u\n",
 			(uint)S_GCGameplaySfxBudgetUsed() );
 		for( s = 0; s < (int)( sizeof( preload ) / sizeof( preload[0] )); s++ )
 		{
 			sound_t handle = S_RegisterSound( preload[s] );
 
-			Con_Reportf( "Xash3D GameCube: G125 preload %s handle=%d budget_used=%u\n",
+			Con_Reportf( "Xash3D GameCube: G126 preload %s handle=%d budget_used=%u\n",
 				preload[s], (int)handle, (uint)S_GCGameplaySfxBudgetUsed() );
 		}
-		Con_Reportf( "Xash3D GameCube: G125 preload fire+steps ready budget_used=%u\n",
+		Con_Reportf( "Xash3D GameCube: G126 preload fire+steps+ric ready budget_used=%u\n",
 			(uint)S_GCGameplaySfxBudgetUsed() );
 		return;
 	}

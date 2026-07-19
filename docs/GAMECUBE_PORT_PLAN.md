@@ -2760,6 +2760,15 @@ Fullphysics now preloads `pl_gun3` then `pl_step1..4` and keeps them resident
 `G125 preload ... budget_used=23614`, `G122 EV_FireGlock`, ric1 load,
 `audio submitted ... peak=19054`, no soft-fail / couldn't-load for pl_gun3.
 
+## G126 — Combat ricochet + HUD soft-fail under MEM1 (COMPLETE 2026-07-19)
+
+Preload+pin `ric1` with fire/steps (~30 KiB); alias ric2–5→ric1 under memopt;
+HUD soft-fails stub instead of aborting (optional `gc_320hud2` fallback).
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-013339` —
+`G126 preload ... ready budget_used=29611`, soft-fail HUD stub, `G122
+EV_FireGlock`, ASND peak>0, no ric2–5 FS loads after fire.
+
 ## Next wake-up commands
 
 ```sh

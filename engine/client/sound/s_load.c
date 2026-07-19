@@ -174,10 +174,11 @@ static size_t S_GCMakeRoomForBudgetedLoad( const sfx_t *keep, size_t want, size_
 				continue;
 			if( S_GCSfxIsPlaying( sfx ))
 				continue;
-			/* G125: pin preloaded fire + footsteps — eviction then reload
-			 * fails FS Find under MEM1 freelist pressure. */
+			/* G125/G126: pin preloaded fire, footsteps, and ricochet — eviction
+			 * then reload fails FS Find under MEM1 freelist pressure. */
 			if( !Q_strnicmp( sfx->name, "player/pl_step", 14 )
-				|| !Q_stricmp( sfx->name, "weapons/pl_gun3.wav" ))
+				|| !Q_stricmp( sfx->name, "weapons/pl_gun3.wav" )
+				|| !Q_strnicmp( sfx->name, "weapons/ric", 11 ))
 				continue;
 			if( max_victim && sfx->cache->size > max_victim )
 				continue;
@@ -672,6 +673,14 @@ sound_t S_RegisterSound( const char *name )
 	// some stupid mappers used leading '/' or '\' in path to models or sounds
 	if( name[0] == '/' || name[0] == '\\' ) name++;
 	if( name[0] == '/' || name[0] == '\\' ) name++;
+
+#if XASH_GAMECUBE
+	/* G126: only ric1 is preloaded; alias ric2–5 so dynamic Find/FS never runs. */
+	if( GC_MapLoadMemoryOpt()
+		&& !Q_strnicmp( name, "weapons/ric", 11 )
+		&& Q_stricmp( name, "weapons/ric1.wav" ))
+		name = "weapons/ric1.wav";
+#endif
 
 	sfx = S_FindName( name, NULL );
 	if( !sfx ) return -1;

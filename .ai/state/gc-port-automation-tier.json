@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G125 DONE: preload pl_gun3 then pl_step1..4 resident (~23614 B); fire cache-hit + ric1 + ASND peak (.ai/logs/dolphin-probe-20260719-005629). Next: pick following MEM1 gameplay polish goal."
+  "note": "G126 DONE: preload fire+steps+ric1 (~29611 B); alias ric2-5; HUD soft-fail stub. Evidence .ai/logs/dolphin-probe-20260719-013339. Next: pick following MEM1 gameplay polish goal (HUD real sheets, tracers, Find-after-free, or present/XFB)."
 }

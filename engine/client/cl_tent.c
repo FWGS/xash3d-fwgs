@@ -23,6 +23,9 @@ GNU General Public License for more details.
 #include "studio.h"
 #include "wadfile.h"	// acess decal size
 #include "sound.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 
 /*
 ==============================================================
@@ -300,6 +303,11 @@ static void CL_TempEntPlaySound( TEMPENTITY *pTemp, float damp )
 		soundname = SoundList_GetRandom( BounceWood );
 		break;
 	case BOUNCE_SHRAP:
+#if XASH_GAMECUBE
+		if( GC_MapLoadMemoryOpt())
+			soundname = "weapons/ric1.wav";
+		else
+#endif
 		soundname = SoundList_GetRandom( Ricochet );
 		break;
 	case BOUNCE_SHOTSHELL:
@@ -1466,12 +1474,27 @@ Make a random ricochet sound
 */
 static void R_RicochetSoundByName( const vec3_t pos, const char *name )
 {
+#if XASH_GAMECUBE
+	/* G126: only ric1 is preloaded/pinned; alias all ric* here too
+	 * (CL_TempEntPlaySound BOUNCE_SHRAP picks random ric before ByName). */
+	if( GC_MapLoadMemoryOpt()
+		&& name && !Q_strnicmp( name, "weapons/ric", 11 ))
+		name = "weapons/ric1.wav";
+#endif
 	sound_t handle = S_RegisterSound( name );
 	S_StartSound( pos, 0, CHAN_AUTO, handle, VOL_NORM, 1.0, 100, 0 );
 }
 
 static void R_RicochetSoundByIndex( const vec3_t pos, int idx )
 {
+#if XASH_GAMECUBE
+	/* G126: only ric1 is preloaded/pinned under memopt; other variants miss. */
+	if( GC_MapLoadMemoryOpt())
+	{
+		R_RicochetSoundByName( pos, "weapons/ric1.wav" );
+		return;
+	}
+#endif
 	const char *name = SoundList_Get( Ricochet, idx );
 	if( name )
 		R_RicochetSoundByName( pos, name );
@@ -1479,6 +1502,14 @@ static void R_RicochetSoundByIndex( const vec3_t pos, int idx )
 
 void GAME_EXPORT R_RicochetSound( const vec3_t pos )
 {
+#if XASH_GAMECUBE
+	/* G126: only ric1 is preloaded/pinned under memopt; other variants miss. */
+	if( GC_MapLoadMemoryOpt())
+	{
+		R_RicochetSoundByName( pos, "weapons/ric1.wav" );
+		return;
+	}
+#endif
 	const char *name = SoundList_GetRandom( Ricochet );
 	if( name )
 		R_RicochetSoundByName( pos, name );

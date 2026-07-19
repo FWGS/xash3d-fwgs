@@ -1314,11 +1314,99 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 
 #if XASH_GAMECUBE
 	/* New Game bootstrap HUD sheets can be false-miss-cached after earlier
-	 * ISO9660 probes (hud.txt / VidInit). Clear once before the exists check. */
-	if( Sys_CheckParm( "-gcnewgame" ) && !FS_FileExists( szSpriteName, false ))
-		FS_ClearFindMissCache();
-#endif
+	 * ISO9660 probes (hud.txt / VidInit). Clear once before the exists check.
+	 * Retail 320hud2 can also miss while the injected gc_320hud2.spr is present. */
+	{
+		char altname[MAX_QPATH];
+		const char *loadname = szSpriteName;
 
+		if( Sys_CheckParm( "-gcnewgame" ) && !FS_FileExists( loadname, false ))
+			FS_ClearFindMissCache();
+
+		if( !FS_FileExists( loadname, false )
+			&& !Q_stricmp( loadname, "sprites/320hud2.spr" ))
+		{
+			Q_strncpy( altname, "sprites/gc_320hud2.spr", sizeof( altname ));
+			if( FS_FileExists( altname, false ))
+			{
+				loadname = altname;
+				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
+					szSpriteName, loadname );
+			}
+		}
+
+		if( !FS_FileExists( loadname, false ))
+		{
+			if( cls.state != ca_active && cl.maxclients > 1 )
+			{
+				CL_AddClientResource( szSpriteName, t_model );
+				m_pSprite->needload = NL_NEEDS_LOADED;
+				return true;
+			}
+			else if( GC_MapLoadMemoryOpt())
+			{
+				Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
+				if( loaded )
+				{
+					m_pSprite->needload = NL_PRESENT;
+					Con_Reportf( "Xash3D GameCube: HUD sprite stub %s\n", szSpriteName );
+					return true;
+				}
+
+				Mod_FreeModel( m_pSprite );
+				return false;
+			}
+			else
+			{
+				Con_Reportf( S_ERROR "Could not load HUD sprite %s\n", szSpriteName );
+				Mod_FreeModel( m_pSprite );
+				return false;
+			}
+		}
+
+		{
+			fs_offset_t size;
+			byte *buf = FS_LoadFile( loadname, &size, false );
+			if( buf == NULL )
+			{
+				/* Exists on disc but FileSystem pool soft-failed (e.g. 320hud2 after
+				 * 320hud1). Stub under memopt so HUD redraw continues. */
+				if( GC_MapLoadMemoryOpt())
+				{
+					Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
+					if( loaded )
+					{
+						m_pSprite->needload = NL_PRESENT;
+						Con_Reportf( "Xash3D GameCube: HUD sprite stub after soft-fail %s\n",
+							szSpriteName );
+						return true;
+					}
+					Mod_FreeModel( m_pSprite );
+				}
+				return false;
+			}
+
+			if( type == SPR_MAPSPRITE )
+				Mod_LoadMapSprite( m_pSprite, buf, size, &loaded );
+			else
+			{
+				Mod_LoadSpriteModel( m_pSprite, buf, size, &loaded );
+				ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf, size );
+			}
+
+			Mem_Free( buf );
+
+			if( !loaded )
+			{
+				Mod_FreeModel( m_pSprite );
+				return false;
+			}
+
+			m_pSprite->needload = NL_PRESENT;
+			return true;
+		}
+	}
+#else
 	if( !FS_FileExists( szSpriteName, false ) )
 	{
 		if( cls.state != ca_active && cl.maxclients > 1 )
@@ -1328,21 +1416,6 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 			m_pSprite->needload = NL_NEEDS_LOADED;
 			return true;
 		}
-#if XASH_GAMECUBE
-		else if( GC_MapLoadMemoryOpt())
-		{
-			Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
-			if( loaded )
-			{
-				m_pSprite->needload = NL_PRESENT;
-				Con_Reportf( "Xash3D GameCube: HUD sprite stub %s\n", szSpriteName );
-				return true;
-			}
-
-			Mod_FreeModel( m_pSprite );
-			return false;
-		}
-#endif
 		else
 		{
 			Con_Reportf( S_ERROR "Could not load HUD sprite %s\n", szSpriteName );
@@ -1375,6 +1448,7 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 	m_pSprite->needload = NL_PRESENT;
 
 	return true;
+#endif
 }
 
 /*

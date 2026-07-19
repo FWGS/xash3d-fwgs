@@ -24,11 +24,13 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G123: memopt `player/pl_step2.wav` after evicting `button10` + SoundLib migrate
 - G124: preload all four `pl_step*` under budget before fire (LRU for small SFX)
 - G125: preload `pl_gun3` then steps (~24 KiB resident); fire+walk coexist via cache
+- G126: preload `ric1` + alias ric*; HUD soft-fail stub
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(queue empty after G125 — pick next MEM1 gameplay polish goal)*
+1. *(queue empty after G126 — pick next MEM1 gameplay polish goal)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260719-013339` (G126 fire+steps+ric preload, no ric2–5 FS, HUD soft-fail stub)
 - `.ai/logs/dolphin-probe-20260719-005629` (G125 fire+steps preload, cache-hit fire, ric1 load, PCM peak)
 - `.ai/logs/dolphin-probe-20260718-215805` (G124 four pl_step* preload decodes)
 - `.ai/logs/dolphin-probe-20260718-213330` (G123 pl_step2 decode + button10 evict)
@@ -2267,6 +2269,22 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `G122 EV_FireGlock` with no subsequent `couldn't load` / soft-fail for
   `pl_gun3`, `weapons/ric1.wav` load ok, `audio submitted ... peak=19054`.
 - Screenshots: `.ai/screenshots/demo-stages/` (menu + live loading framedumps).
+
+## G126 [x] Combat ricochet + HUD soft-fail under MEM1
+
+- Status: DONE 2026-07-19. Preload `weapons/ric1.wav` with fire+steps
+  (`budget_used=29611`); pin `weapons/ric*`; alias ric2–5→ric1 in
+  `S_RegisterSound` / ricochet play paths; HUD `FS_LoadFile` soft-fail stubs
+  under memopt (fallback to `gc_320hud2.spr` when retail miss).
+- Acceptance:
+  - `G126 preload fire+steps+ric ready` with ric1 in budget (~30 KiB).
+  - No post-fire `FS_LoadFile` / decode for `weapons/ric2..5`.
+  - Soft-fail HUD path stubs without aborting redraw.
+  - Fire still `G122 EV_FireGlock` + nonzero ASND peak.
+- Evidence: `.ai/logs/dolphin-probe-20260719-013339` —
+  `G126 preload ... ready budget_used=29611`,
+  `HUD sprite stub after soft-fail sprites/320hud1.spr`,
+  `G122 EV_FireGlock`, `audio submitted ... peak=2402`, no ric2–5 load.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
