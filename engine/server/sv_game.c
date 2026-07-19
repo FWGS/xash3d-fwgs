@@ -4336,8 +4336,17 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 		// invoker edict pointer but to preserve behaviour check for them both
 		//
 		// if it breaks some mods, probably sv.current_client semantics must be reworked to match GoldSrc
+#if XASH_GAMECUBE
+		/* G120: GameCube listen-server has no reliable client weapon-event
+		 * prediction yet; still deliver FEV_NOTHOST fire events so pl_gun*.wav
+		 * reaches the local client through the standard playback path. */
+		if( FBitSet( flags, FEV_NOTHOST ) && ( cl == sv.current_client || cl->edict == pInvoker )
+			&& FBitSet( cl->flags, FCL_LOCAL_WEAPONS ) && !Sys_CheckParm( "-gcfullphysics" ))
+			continue;
+#else
 		if( FBitSet( flags, FEV_NOTHOST ) && ( cl == sv.current_client || cl->edict == pInvoker ) && FBitSet( cl->flags, FCL_LOCAL_WEAPONS ))
 			continue;	// will be played on client side
+#endif
 
 		if( FBitSet( flags, FEV_HOSTONLY ) && cl->edict != pInvoker )
 			continue;	// sending only to invoker

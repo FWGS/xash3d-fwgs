@@ -982,6 +982,29 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 		Con_Reportf( "Xash3D GameCube: native usercmd PM_Move begin msec=%u buttons=0x%x move=(%.0f,%.0f,%.0f)\n",
 			(unsigned)ucmd->msec, (unsigned)ucmd->buttons,
 			ucmd->forwardmove, ucmd->sidemove, ucmd->upmove );
+	if( Sys_CheckParm( "-gcfullphysics" ) && ( ucmd->buttons & IN_ATTACK ))
+	{
+		static qboolean gc_g120_attack_logged;
+
+		if( !gc_g120_attack_logged && clent->pvPrivateData )
+		{
+			byte	*ppriv = (byte *)clent->pvPrivateData;
+			void	*active = *(void **)( ppriv + 0x4e0 ); /* GC_HL_PLAYER_ACTIVE_OFF */
+			float	nextatk = *(float *)( ppriv + 0x264 ); /* GC_HL_PLAYER_NEXTATTACK_OFF */
+			int	clip = -999;
+			float	nextpri = 0.0f;
+
+			if( active )
+			{
+				clip = *(int *)( (byte *)active + 0xb0 );
+				nextpri = *(float *)( (byte *)active + 0x9c );
+			}
+			gc_g120_attack_logged = true;
+			Con_Reportf( "Xash3D GameCube: G120 attack usercmd buttons=0x%x pev->button=0x%x active=%p nextatk=%.3f clip=%d nextpri=%.3f\n",
+				(unsigned)ucmd->buttons, (unsigned)clent->v.button,
+				active, nextatk, clip, nextpri );
+		}
+	}
 #endif
 	svgame.dllFuncs.pfnPM_Move( svgame.pmove, true );
 

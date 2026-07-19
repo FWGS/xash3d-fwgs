@@ -107,9 +107,19 @@ static qboolean gc_budget_probe_active;
 static GXTexObj gc_present_tex;
 static qboolean gc_present_tex_ready;
 static gc_boot_phase_t gc_boot_phase = GC_BOOT_NONE;
+static qboolean gc_gameplay_sound_done;
+static qboolean gc_gameplay_sound_queued;
+static void GC_FreeNewGamePVSCache( void );
+static void GC_ResetNewGameGameplaySoundState( void );
 #endif
 
 #if XASH_GAMECUBE
+static void GC_ResetNewGameGameplaySoundState( void )
+{
+	gc_gameplay_sound_done = false;
+	gc_gameplay_sound_queued = false;
+}
+
 const char *GC_GetBootPhaseName( gc_boot_phase_t phase )
 {
 	switch( phase )
@@ -934,6 +944,19 @@ void R_Free_Video( void )
 	gc.height = 0;
 	gc.stride = 0;
 	gc.bpp = 0;
+	GC_FreeNewGamePVSCache();
+	gc_newgame_world_ready = false;
+	gc_newgame_viewcluster = -1;
+	gc_newgame_g36_done = false;
+	gc_budget_probe_active = false;
+	gc_light_present_left = 0;
+	gc_present_count = 0;
+	gc_blank_present_count = 0;
+	gc_budget_sample_count = 0;
+	gc_budget_warmup_left = 0;
+	gc_last_present_time = 0.0;
+	gc_worst_frame_ms = 0.0;
+	GC_ResetNewGameGameplaySoundState();
 #endif
 
 	GC_ShutdownVideoHardware();
@@ -3296,9 +3319,7 @@ so CL_ClearState cannot wipe the channel before the mixer/ASND path runs.
 */
 void GC_PlayNewGameGameplaySound( void )
 {
-	static qboolean gc_gameplay_sound_done;
-	static qboolean gc_gameplay_sound_queued;
-	const char *name = "buttons/button10.wav";
+	const char *name = "weapons/pl_gun1.wav";
 	int i;
 
 	if( gc_gameplay_sound_done )
@@ -3329,12 +3350,12 @@ void GC_PlayNewGameGameplaySound( void )
 		snd.paintedtime = snd.soundtime;
 	}
 
-	S_AllowNextGameplaySoundLoad();
+	/* G118: budget gate in S_LoadSound — no one-shot Allow/Disallow. */
 	S_StartLocalSound( name, 1.0f, true );
-	S_DisallowGameplaySoundLoad();
-	Con_Reportf( "Xash3D GameCube: gameplay sound start name=%s channel=static\n", name );
+	Con_Reportf( "Xash3D GameCube: gameplay sound start name=%s channel=static budget_used=%u\n",
+		name, (uint)S_GCGameplaySfxBudgetUsed() );
 
-	/* Mix enough updates for the 11 kHz clip to reach the 48 kHz DMA ring. */
+	/* Mix enough updates for the clip to reach the 48 kHz DMA ring. */
 	for( i = 0; i < 8; i++ )
 		SND_UpdateSound();
 
@@ -3411,6 +3432,10 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	 * cleared world_ready and re-ran Prepare every few frames (VidInit thrash). */
 	if( gc_newgame_g36_done )
 		return;
+
+	/* Fresh post-map probe window for a new session: allow one gameplay SFX
+	 * again once the client reaches ca_active. */
+	GC_ResetNewGameGameplaySoundState();
 
 	/* G83: capture PointInLeaf/FatPVS before G36 light presents reuse BSP scratch. */
 	if( Sys_CheckParm( "-gcnewgame" ))

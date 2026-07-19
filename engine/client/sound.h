@@ -103,6 +103,7 @@ void S_InitSounds( void );
 #if XASH_GAMECUBE
 void S_AllowNextGameplaySoundLoad( void );
 void S_DisallowGameplaySoundLoad( void );
+size_t S_GCGameplaySfxBudgetUsed( void );
 #endif
 
 // s_dsp.c

@@ -32,8 +32,23 @@ static sfx_t    s_knownSfx[MAX_SFX];
 static sfx_t    *s_sfxHashList[MAX_SFX_HASH];
 static qboolean s_registering = false;
 #if XASH_GAMECUBE
+/* G118: under MapLoadMemoryOpt, allow small gameplay WAVs until this budget fills.
+ * Per-file hard cap stays 8192 B in Sound_LoadWAV; this tracks cumulative cache. */
+#define GC_SFX_BUDGET_BYTES		(48u * 1024u)
+#define GC_SFX_MAX_FILE_BYTES	8192u
+#define GC_SOUND_RUNTIME_BUDGETED	BIT( 2 )
 static int      s_gcmapSoundSkips = 0;
-static qboolean s_gc_allow_gameplay_sfx;
+static size_t   s_gc_sfx_budget_used;
+
+static qboolean S_GCAllowRuntimeSoundLoad( void )
+{
+	if( !GC_MapLoadMemoryOpt() )
+		return false;
+
+	/* Keep map/bootstrap lean; allow a capped trickle once in-world. */
+	return cls.state == ca_active && !s_registering
+		&& s_gc_sfx_budget_used < GC_SFX_BUDGET_BYTES;
+}
 #endif
 
 #define SENTENCE_INDEX -99999 // unique sentence index
@@ -42,20 +57,23 @@ static string   s_sentenceImmediateName;	// keep dummy sentence name
 #if XASH_GAMECUBE
 /*
 ===========
-S_AllowNextGameplaySoundLoad
+S_AllowNextGameplaySoundLoad / S_DisallowGameplaySoundLoad
 
-G91: -gcnewgame keeps MapLoadMemoryOpt true for the whole session, which skips
-all S_LoadSound. Allow exactly one gameplay SFX through the gate.
+G91 legacy hooks. G118 uses a cumulative byte budget for gameplay loads, so
+these are no-ops kept for call-site compatibility.
 ===========
 */
 void S_AllowNextGameplaySoundLoad( void )
 {
-	s_gc_allow_gameplay_sfx = true;
 }
 
 void S_DisallowGameplaySoundLoad( void )
 {
-	s_gc_allow_gameplay_sfx = false;
+}
+
+size_t S_GCGameplaySfxBudgetUsed( void )
+{
+	return s_gc_sfx_budget_used;
 }
 #endif
 
@@ -161,14 +179,14 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 
 #if XASH_GAMECUBE
 	if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" )
-		&& !s_gc_allow_gameplay_sfx )
+		&& !S_GCAllowRuntimeSoundLoad() )
 	{
 		if( s_gcmapSoundSkips < 8 )
 			Con_Reportf( "Xash3D GameCube: sound load skipped for map-load memopt %s\n", sfx->name );
 		s_gcmapSoundSkips++;
 		return NULL;
 	}
-	if( s_gc_allow_gameplay_sfx )
+	if( S_GCAllowRuntimeSoundLoad() )
 		Con_Reportf( "Xash3D GameCube: sound load allowed for gameplay sfx %s\n", sfx->name );
 #endif
 
@@ -205,9 +223,22 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		Sound_Process( &sc, SOUND_44k, sc->width, sc->channels, SOUND_RESAMPLE );
 
 #if XASH_GAMECUBE
-	if( s_gc_allow_gameplay_sfx )
+	if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" ))
 	{
 		int peak = 0;
+
+		if( sc->size > GC_SFX_MAX_FILE_BYTES
+			|| s_gc_sfx_budget_used + sc->size > GC_SFX_BUDGET_BYTES )
+		{
+			Con_Reportf( "Xash3D GameCube: gameplay sfx budget refused name=%s size=%u used=%u cap=%u\n",
+				sfx->name, (uint)sc->size, (uint)s_gc_sfx_budget_used, (uint)GC_SFX_BUDGET_BYTES );
+			FS_FreeSound( sc );
+			return NULL;
+		}
+
+		s_gc_sfx_budget_used += sc->size;
+		SetBits( sc->flags, GC_SOUND_RUNTIME_BUDGETED );
+
 		if( sc->width == 2 )
 		{
 			const int16_t *samples = (const int16_t *)sc->buffer;
@@ -222,12 +253,13 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		{
 			for( size_t i = 0; i < sc->size; i++ )
 			{
-				int value = abs((int)sc->buffer[i] - 128 );
+				int value = abs((signed char)sc->buffer[i] );
 				if( value > peak ) peak = value;
 			}
 		}
-		Con_Reportf( "Xash3D GameCube: gameplay sound decoded samples=%u bytes=%u rate=%u width=%u channels=%u peak=%d\n",
-			sc->samples, (uint)sc->size, sc->rate, sc->width, sc->channels, peak );
+		Con_Reportf( "Xash3D GameCube: gameplay sound decoded samples=%u bytes=%u rate=%u width=%u channels=%u peak=%d budget_used=%u cap=%u\n",
+			sc->samples, (uint)sc->size, sc->rate, sc->width, sc->channels, peak,
+			(uint)s_gc_sfx_budget_used, (uint)GC_SFX_BUDGET_BYTES );
 	}
 #endif
 
@@ -327,10 +359,26 @@ void S_FreeSound( sfx_t *sfx )
 
 	if( clgame.soundFuncs.pfnS_FreeSound )
 	{
+#if XASH_GAMECUBE
+		if( sfx->cache && FBitSet( sfx->cache->flags, GC_SOUND_RUNTIME_BUDGETED ))
+		{
+			if( sfx->cache->size > s_gc_sfx_budget_used )
+				s_gc_sfx_budget_used = 0;
+			else s_gc_sfx_budget_used -= sfx->cache->size;
+		}
+#endif
 		clgame.soundFuncs.pfnS_FreeSound( sfx, sfx - s_knownSfx );
 		return;
 	}
 
+#if XASH_GAMECUBE
+	if( sfx->cache && FBitSet( sfx->cache->flags, GC_SOUND_RUNTIME_BUDGETED ))
+	{
+		if( sfx->cache->size > s_gc_sfx_budget_used )
+			s_gc_sfx_budget_used = 0;
+		else s_gc_sfx_budget_used -= sfx->cache->size;
+	}
+#endif
 	if( sfx->cache )
 		FS_FreeSound( sfx->cache );
 	memset( sfx, 0, sizeof( *sfx ));
@@ -448,6 +496,10 @@ S_InitSounds
 */
 void S_InitSounds( void )
 {
+#if XASH_GAMECUBE
+	s_gc_sfx_budget_used = 0;
+	s_gcmapSoundSkips = 0;
+#endif
 	// create unused 0-entry
 	Q_strncpy( s_knownSfx->name, "*default", sizeof( s_knownSfx->name ));
 	s_knownSfx->hashValue = COM_HashKey( s_knownSfx->name, MAX_SFX_HASH );

@@ -1614,6 +1614,9 @@ static void SV_PutClientInServer( sv_client_t *cl )
 		if( Sys_CheckParm( "-gcnewgame" ))
 			Con_Reportf( "Xash3D GameCube: ClientPutInServer ready private=%p model=%d\n",
 				ent->pvPrivateData, ent->v.modelindex );
+		/* G119: put-in rebuilds CBasePlayer; re-grant queued landmark inventory. */
+		if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcchangelevel" ))
+			GC_LeanLandmarkGrantWeaponsAfterPutInServer();
 #endif
 
 		if( sv.background )	// don't attack player in background mode

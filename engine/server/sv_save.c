@@ -50,6 +50,8 @@ static qboolean GC_LeanLandmarkStash( const char *landmark );
 void GC_LeanLandmarkRestore( void );
 void GC_LeanLandmarkProbePlantAmmo( void );
 void GC_LeanLandmarkGrantWeapons( void );
+void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void );
+void GC_PresentLandmarkViewModel( void );
 static qboolean gc_save_use_sysheap;
 qboolean gc_lean_weapon_grant_active;
 #endif // XASH_GAMECUBE
@@ -2417,14 +2419,18 @@ void SV_ChangeLevel( qboolean loadfromsavedgame, const char *mapname, const char
 #define GC_G100_LAND_MAGIC		"G100LAND"
 
 /* CBasePlayer / CBasePlayerItem layout (powerpc-eabi HLSDK GameCube build,
- * measured 2026-07-18: sizeof(CBasePlayer)=1920, Item=140). */
+ * measured 2026-07-18: sizeof(CBasePlayer)=1920, Item=140, Weapon=204). */
 #define GC_HL_PLAYER_AMMO_OFF		0x4ec	/* 1260 */
 #define GC_HL_PLAYER_ITEMS_OFF		0x4c8	/* 1224 m_rgpPlayerItems[6] */
 #define GC_HL_PLAYER_ACTIVE_OFF		0x4e0	/* 1248 m_pActiveItem */
 #define GC_HL_PLAYER_ANIMEXT_OFF	0x624	/* 1572 m_szAnimExtention[32] */
+#define GC_HL_PLAYER_NEXTATTACK_OFF	0x264	/* 612 m_flNextAttack (CLIENT_WEAPONS countdown) */
 #define GC_HL_ITEM_PLAYER_OFF		0x80	/* 128 m_pPlayer */
 #define GC_HL_ITEM_NEXT_OFF		0x84	/* 132 m_pNext */
 #define GC_HL_ITEM_ID_OFF		0x88	/* 136 m_iId */
+#define GC_HL_WEAPON_NEXTPRIMARY_OFF	0x9c	/* 156 m_flNextPrimaryAttack */
+#define GC_HL_WEAPON_CLIP_OFF		0xb0	/* 176 m_iClip */
+#define GC_HL_WEAPON_INRELOAD_OFF	0xbc	/* 188 m_fInReload */
 #define GC_HL_ENTITY_TOUCH_OFF		24	/* CBaseEntity::m_pfnTouch */
 #define GC_HL_MAX_AMMO_SLOTS		32
 #define GC_HL_MAX_ITEM_TYPES		6
@@ -2689,6 +2695,56 @@ static qboolean GC_LeanDeployWeapon( edict_t *player, edict_t *client_ed, int bi
 }
 
 /*
+ * G120: after lean Deploy, clear deploy-gate timers and ensure m_pActiveItem +
+ * clip so fullphysics ItemPostFrame can reach HLSDK PrimaryAttack. Does not
+ * invent combat — only restores the post-Deploy ready state G104 skipped.
+ */
+static void GC_LeanWeaponCombatReady( edict_t *player, int bit )
+{
+	byte	*ppriv;
+	byte	*wpriv;
+	void	**items;
+	int	slot;
+	int	clip;
+
+	if( !player || !player->pvPrivateData || !Sys_CheckParm( "-gcfullphysics" ))
+		return;
+
+	ppriv = (byte *)player->pvPrivateData;
+	*(float *)( ppriv + GC_HL_PLAYER_NEXTATTACK_OFF ) = -0.001f;
+
+	wpriv = *(byte **)( ppriv + GC_HL_PLAYER_ACTIVE_OFF );
+	slot = GC_WeaponSlotForBit( bit );
+	if( ( !wpriv || *(int *)( wpriv + GC_HL_ITEM_ID_OFF ) != bit )
+		&& slot >= 0 && slot < GC_HL_MAX_ITEM_TYPES )
+	{
+		items = (void **)( ppriv + GC_HL_PLAYER_ITEMS_OFF );
+		wpriv = (byte *)items[slot];
+		if( wpriv )
+			*(void **)( ppriv + GC_HL_PLAYER_ACTIVE_OFF ) = wpriv;
+	}
+
+	if( !wpriv )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: G120 weapon ready skipped (no active item) bit=%d\n", bit );
+		return;
+	}
+
+	*(float *)( wpriv + GC_HL_WEAPON_NEXTPRIMARY_OFF ) = -1.0f;
+	*(int *)( wpriv + GC_HL_WEAPON_INRELOAD_OFF ) = 0;
+	clip = *(int *)( wpriv + GC_HL_WEAPON_CLIP_OFF );
+	/* Glock needs a loaded clip; crowbar uses WEAPON_NOCLIP (-1). */
+	if( bit == 2 && clip <= 0 )
+	{
+		clip = 17;
+		*(int *)( wpriv + GC_HL_WEAPON_CLIP_OFF ) = clip;
+	}
+
+	Con_Reportf( "Xash3D GameCube: G120 weapon ready active=%p bit=%d clip=%d nextatk=%.3f\n",
+		wpriv, bit, clip, *(float *)( ppriv + GC_HL_PLAYER_NEXTATTACK_OFF ));
+}
+
+/*
  * G100/G103/G104: recreate owned weapons — spawn, inventory-attach, lean-deploy.
  */
 static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
@@ -2806,17 +2862,23 @@ static int GC_LeanGiveWeaponsFromBits( edict_t *touch_player, int weapons )
 	else if( weapons & ( 1 << 1 ))
 		deploy_bit = 1;
 	if( deploy_bit && granted > 0 )
+	{
 		GC_LeanDeployWeapon( touch_player, client_ed, deploy_bit );
+		GC_LeanWeaponCombatReady( touch_player, deploy_bit );
+	}
 
 	return granted;
 }
 
-/* Shared probe helper: plant distinctive inventory into entvars + private data. */
+/* Shared probe helper: plant distinctive inventory into entvars + private data,
+ * and queue G100/G104 weapon recreate on the destination map (works with or
+ * without a landmark startspot). */
 void GC_LeanLandmarkProbePlantAmmo( void )
 {
 	edict_t	*entvars_ed;
 	edict_t	*priv_ed;
 	int	*ammo;
+	int	weapons = ( 1 << 1 ) | ( 1 << 2 );
 
 	entvars_ed = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
 	priv_ed = GC_LeanPlayerPrivateEdict();
@@ -2824,7 +2886,7 @@ void GC_LeanLandmarkProbePlantAmmo( void )
 	{
 		entvars_ed->v.health = 77.0f;
 		entvars_ed->v.armorvalue = 50.0f;
-		entvars_ed->v.weapons = ( 1 << 1 ) | ( 1 << 2 );
+		entvars_ed->v.weapons = weapons;
 	}
 	ammo = GC_PlayerAmmoSlots( priv_ed );
 	if( ammo )
@@ -2832,8 +2894,18 @@ void GC_LeanLandmarkProbePlantAmmo( void )
 		ammo[1] = 99;
 		ammo[2] = 88;
 	}
-	Con_Reportf( "Xash3D GameCube: G100 probe inventory set health=77 armor=50 weapons=0x6 ammo1=99 ammo2=88 priv_edict=%d\n",
-		priv_ed ? NUM_FOR_EDICT( priv_ed ) : -1 );
+
+	/* G119: always queue grant so fullphysics -gcchangelevel (no landmark)
+	 * still recreates crowbar+glock after hop. Landmark restore may overwrite. */
+	gc_g100_grant_weapons = weapons;
+	memset( gc_g100_grant_ammo, 0, sizeof( gc_g100_grant_ammo ));
+	gc_g100_grant_ammo[1] = 99;
+	gc_g100_grant_ammo[2] = 88;
+	gc_g100_grant_have_ammo = true;
+	gc_g100_grant_pending = true;
+
+	Con_Reportf( "Xash3D GameCube: G100 probe inventory set health=77 armor=50 weapons=0x%x ammo1=99 ammo2=88 priv_edict=%d grant_pending=1\n",
+		weapons, priv_ed ? NUM_FOR_EDICT( priv_ed ) : -1 );
 }
 
 static qboolean GC_FindInfoLandmarkOrigin( const char *name, vec3_t out )
@@ -3029,6 +3101,28 @@ void GC_LeanLandmarkGrantWeapons( void )
 		gc_g100_grant_have_ammo ? gc_g100_grant_ammo[1] : 0,
 		gc_g100_grant_have_ammo ? gc_g100_grant_ammo[2] : 0,
 		pl->v.viewmodel ? SV_GetString( pl->v.viewmodel ) : "-" );
+}
+
+/*
+=============
+GC_LeanLandmarkGrantWeaponsAfterPutInServer
+
+G119: ClientPutInServer rebuilds CBasePlayer and wipes inventory granted during
+ActivateServer. Re-arm and grant after the DLL put-in returns.
+=============
+*/
+void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void )
+{
+	if( !Sys_CheckParm( "-gcnewgame" ) || !gc_g100_grant_weapons )
+		return;
+
+	gc_g100_grant_pending = true;
+	Con_Reportf( "Xash3D GameCube: G119 re-grant after ClientPutInServer weapons=0x%x\n",
+		(unsigned)gc_g100_grant_weapons );
+	GC_LeanLandmarkGrantWeapons();
+#if XASH_GAMECUBE
+	GC_PresentLandmarkViewModel();
+#endif
 }
 
 /*

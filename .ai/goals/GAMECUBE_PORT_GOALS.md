@@ -16,12 +16,16 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G106–G112: DefaultTouch player, lean PVS LRU, thinks, collision/relink/ground
 - G113–G116: native axes/PMove, HLSDK HUD snapshots/messages, client prediction
 - G117: decoded `button10.wav` mixed at full volume into nonzero ASND PCM
+- G118: cumulative 48 KiB memopt SFX budget; `weapons/pl_gun1.wav` via standard load
+- G119: fullphysics post-PutInServer re-grant; `weapons=0x6` / viewmodel survive
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G117 closed. Remaining items are SKIP (G73–G81) or manual
-  checkpoints (G70/G71/G75).
+1. **G120** — Route attack into HLSDK `ItemPostFrame`/`PrimaryAttack` so
+   weapon fire SFX load through the G118 budget (not only deferred probe SFX)
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260718-201558` (G119 re-grant + UpdateClientData weapons=0x6)
+- `.ai/logs/dolphin-probe-20260718-200408` (G118 pl_gun1 budget load + nonzero ASND)
 - `.ai/logs/dolphin-probe-20260718-193416` (G117 mixer ready + nonzero ASND PCM)
 - `.ai/logs/dolphin-probe-20260718-181611` (G116 native client prediction)
 - `.ai/logs/dolphin-probe-20260718-070101` (G112 20.97-unit world support trace)
@@ -2126,6 +2130,52 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `painted=5760→sound=0`, decode `peak=128`, `mixer ready volume=(255,255)`,
   and `audio submitted nonzero PCM chunks=1 peak=22644`, with attack/jump/use,
   native HUD updates, axis PMove, and sustained world presentation continuing.
+
+## G118 [x] Allow cumulative byte-budget gameplay SFX under MapLoadMemoryOpt
+
+- Status: DONE 2026-07-18. Replaced the one-shot memopt allow with a 48 KiB
+  cumulative decoded-SFX budget (8192 B per file via existing WAV skip). Bulk
+  precache stays blocked while registering; `ca_active` loads use the budget.
+- Acceptance:
+  - Probe plays `weapons/pl_gun1.wav` via `S_StartLocalSound` without
+    `S_AllowNextGameplaySoundLoad`.
+  - Decode `peak>0` with `budget_used` telemetry; mixer/ASND nonzero PCM.
+  - No MEM1 / Sound Zone fatal on fullphysics New Game probe.
+- Evidence: `.ai/logs/dolphin-probe-20260718-200408` —
+  `sound load allowed for gameplay sfx weapons/pl_gun1.wav`,
+  `decoded ... peak=128 budget_used=6255 cap=49152`,
+  `mixer ready name=weapons/pl_gun1.wav ... volume=(255,255)`,
+  `audio submitted nonzero PCM chunks=1 peak=22823`.
+
+## G119 [x] Fullphysics weapon grant without landmark hop
+
+- Status: DONE 2026-07-18. Bare `-gcchangelevel` now queues grant from
+  `GC_LeanLandmarkProbePlantAmmo`. Early grant on fullphysics second_map is
+  deferred; `GC_LeanLandmarkGrantWeaponsAfterPutInServer` re-arms and grants
+  after `pfnClientPutInServer` so inventory is not wiped.
+- Acceptance:
+  - Destination map logs `G104 landmark weapons granted>=1` with weapons bits.
+  - Native `UpdateClientData` reports nonzero `weapons` and non-zero viewmodel.
+  - Attack/jump/use continue; fire SFX may load via G118 budget (best-effort).
+  - No MEM1 fatal.
+- Evidence: `.ai/logs/dolphin-probe-20260718-201558` —
+  `G119 re-grant after ClientPutInServer weapons=0x6`,
+  `G104 landmark weapons granted=2 weapons=0x6`,
+  `UpdateClientData ... weapons=0x6 ... viewmodel=107`,
+  attack/jump/use + `pl_gun1` budget load + ASND `peak=22823`.
+
+## G120 [ ] HLSDK PrimaryAttack on fullphysics attack
+
+- Status: SOURCE-FIRST after G119. Inventory and viewmodel survive PutInServer,
+  but probe attack does not yet prove HLSDK `ItemPostFrame`/`PrimaryAttack`
+  (deferred `pl_gun1` is not weapon fire).
+- Wire or unblock the standard player weapon frame so `IN_ATTACK` reaches
+  `PrimaryAttack` under MEM1 fullphysics without reinventing combat.
+- Acceptance:
+  - Guest log shows `PrimaryAttack` (or equivalent HLSDK fire marker) on probe attack.
+  - Weapon fire WAV loads through G118 budget with decode `peak>0`.
+  - `UpdateClientData` keeps nonzero weapons/viewmodel; no MEM1 fatal.
+
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
 - Status: DONE 2026-07-17. Boot phases are chronological

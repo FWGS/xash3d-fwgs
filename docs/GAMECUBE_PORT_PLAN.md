@@ -2664,6 +2664,41 @@ updates, attack/jump/use, axis PMove, and world presentation continue.
 
 **Evidence:** `.ai/logs/dolphin-probe-20260718-193416`.
 
+## G118 — Cumulative gameplay SFX byte budget (COMPLETE 2026-07-18)
+
+Session-wide `MapLoadMemoryOpt` no longer depends on a one-shot allow gate for
+in-world SFX. `S_LoadSound` permits decoded samples ≤8192 B until a 48 KiB
+cumulative `sndpool` budget is exhausted; registration/precache stays blocked.
+`S_AllowNextGameplaySoundLoad` / `Disallow` are retained as no-ops.
+
+The deferred ca_active probe now starts `weapons/pl_gun1.wav` through the
+standard path and reports budget telemetry plus nonzero ASND PCM.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-200408` —
+`budget_used=6255 cap=49152`, mixer `volume=(255,255)`,
+`audio submitted nonzero PCM chunks=1 peak=22823`.
+
+## G119 — Fullphysics weapon grant after PutInServer (COMPLETE 2026-07-18)
+
+Bare `-gcchangelevel` now queues crowbar|glock + ammo into the existing G100
+grant path. Under `-gcfullphysics`, early second_map grant is skipped so
+`ClientPutInServer` cannot wipe recreated weapons; after put-in the engine
+re-arms `gc_g100_grant_pending` and runs `GC_LeanLandmarkGrantWeapons` plus
+viewmodel present.
+
+Dolphin fullphysics New Game→c1a0a reports `G119 re-grant after
+ClientPutInServer weapons=0x6`, `G104 landmark weapons granted=2`, and
+`UpdateClientData ... weapons=0x6 ... viewmodel=107` while attack/jump/use
+and G118 budget SFX continue.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-201558`.
+
+## G120 — HLSDK PrimaryAttack on fullphysics attack (OPEN)
+
+Inventory survives put-in, but probe attack has not yet proven HLSDK
+`ItemPostFrame`/`PrimaryAttack`. Next work: unblock the standard weapon frame
+so `IN_ATTACK` fires the glock and loads fire WAVs through the G118 budget.
+
 ## Next wake-up commands
 
 ```sh

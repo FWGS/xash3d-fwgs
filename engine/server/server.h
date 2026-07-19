@@ -632,6 +632,7 @@ qboolean SV_GCPrimeDirectMapPlayer( void );
 void GC_LeanLandmarkProbePlantAmmo( void );
 void GC_LeanLandmarkRestore( void );
 void GC_LeanLandmarkGrantWeapons( void );
+void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void );
 /* G100: SV_SetModel stubs w_/v_ models while this is true. */
 extern qboolean gc_lean_weapon_grant_active;
 #endif

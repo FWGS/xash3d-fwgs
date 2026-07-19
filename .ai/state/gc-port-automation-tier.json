@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G117 DONE: deferred ca_active gameplay SFX + mix-window rewind delivers buttons/button10.wav through the mixer into nonzero ASND PCM (peak=22644) while native HUD/PMove continue (.ai/logs/dolphin-probe-20260718-193416). Automatic queue empty except SKIP/manual."
+  "note": "G119 DONE: fullphysics post-PutInServer re-grant keeps weapons=0x6 viewmodel=107 (.ai/logs/dolphin-probe-20260718-201558). Next: G120 HLSDK PrimaryAttack on probe attack through G118 SFX budget."
 }

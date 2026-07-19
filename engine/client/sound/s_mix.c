@@ -357,13 +357,14 @@ static int S_MixNormalChannelsToRoombuffer( portable_samplepair_t *dst, int end 
 		}
 
 #if XASH_GAMECUBE
-		if( !Q_stricmp( ch->sfx->name, "buttons/button10.wav" ))
+		if( !Q_stricmp( ch->sfx->name, "buttons/button10.wav" )
+			|| !Q_stricmp( ch->sfx->name, "weapons/pl_gun1.wav" ))
 		{
 			static qboolean gc_gameplay_mix_logged;
 			if( !gc_gameplay_mix_logged )
 			{
-				Con_Reportf( "Xash3D GameCube: gameplay sound mixer ready frames=%d volume=(%d,%d) master=%d sample=%.0f\n",
-					num_samples, ch->leftvol, ch->rightvol, ch->master_vol, ch->sample );
+				Con_Reportf( "Xash3D GameCube: gameplay sound mixer ready name=%s frames=%d volume=(%d,%d) master=%d sample=%.0f\n",
+					ch->sfx->name, num_samples, ch->leftvol, ch->rightvol, ch->master_vol, ch->sample );
 				gc_gameplay_mix_logged = true;
 			}
 		}

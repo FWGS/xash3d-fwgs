@@ -782,8 +782,10 @@ void SV_ActivateServer( int runPhysics )
 			}
 		}
 
-		/* G100: weapon SetModel after present — safer MEM1 headroom. */
-		if( second_map )
+		/* G100: weapon SetModel after present — safer MEM1 headroom.
+		 * G119 fullphysics: skip here — ClientPutInServer rebuilds the player
+		 * and wipes inventory; grant runs again after put-in. */
+		if( second_map && !Sys_CheckParm( "-gcfullphysics" ))
 		{
 			GC_LeanLandmarkGrantWeapons();
 			GC_PresentLandmarkViewModel();
