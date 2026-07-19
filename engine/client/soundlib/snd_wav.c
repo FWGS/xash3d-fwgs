@@ -318,16 +318,41 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	// Load the data
 	sound.size = sound.samples * sound.width * sound.channels;
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt() && sound.size > 8192 )
+	/* G121: align with GC_SFX_MAX_FILE_BYTES (16 KiB) so stock pl_gun3 loads. */
+	if( GC_MapLoadMemoryOpt() && sound.size > ( 16u * 1024u ))
 	{
 		Con_Reportf( "Xash3D GameCube: WAV skipped for map-load memopt %s size=%u\n",
 			name, (uint)sound.size );
 		return false;
 	}
-#endif
-	sound.wav = Mem_Malloc( host.soundpool, sound.size );
+	/* G122: convert PCM in the FS file buffer — avoids a second 13 KiB SoundLib
+	 * alloc while the file is still live (that dual peak OOMs after changelevel). */
+	if( GC_MapLoadMemoryOpt() )
+	{
+		byte *pcm = (byte *)( buffer + ( iff_dataPtr - buffer ));
 
-	memcpy( sound.wav, buffer + (iff_dataPtr - buffer), sound.size );
+		if( !pcm || pcm + sound.size > (const byte *)iff_end )
+		{
+			Con_DPrintf( S_ERROR "%s: %s PCM out of bounds\n", __func__, name );
+			return false;
+		}
+		sound.wav = pcm;
+		sound.gc_inplace_file = true;
+	}
+	else
+#endif
+	{
+		sound.wav = Mem_Malloc( host.soundpool, sound.size );
+#if XASH_GAMECUBE
+		if( !sound.wav )
+		{
+			Con_Reportf( "Xash3D GameCube: WAV alloc soft-fail %s size=%u\n",
+				name, (uint)sound.size );
+			return false;
+		}
+#endif
+		memcpy( sound.wav, buffer + (iff_dataPtr - buffer), sound.size );
+	}
 
 	// swap 16-bit samples from little endian to native
 	if( sound.width == 2 )

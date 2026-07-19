@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include "imagelib.h"
 #include "gamecube/mem_gamecube.h"
+void CL_GCRelinkEventHooks( void );
 #endif
 
 // GameAPI functions declarations
@@ -4209,6 +4210,11 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 	// first check event for out of bounds
 	if( eventindex < 1 || eventindex >= MAX_EVENTS )
 	{
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcfullphysics" ))
+			Con_Reportf( "Xash3D GameCube: G121 PlaybackEvent invalid eventindex=%u flags=0x%x\n",
+				(unsigned)eventindex, flags );
+#endif
 		Con_Printf( S_ERROR "%s: invalid eventindex %i\n", __func__, eventindex );
 		return;
 	}
@@ -4216,6 +4222,11 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 	// check event for precached
 	if( COM_StringEmptyOrNULL( sv.event_precache[eventindex] ))
 	{
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcfullphysics" ))
+			Con_Reportf( "Xash3D GameCube: G121 PlaybackEvent not precached index=%u\n",
+				(unsigned)eventindex );
+#endif
 		Con_Printf( S_ERROR "%s: event %i was not precached\n", __func__, eventindex );
 		return;
 	}
@@ -4323,8 +4334,15 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 
 		if( SV_IsValidEdict( pInvoker ))
 		{
+#if XASH_GAMECUBE
+			/* G121: lean FatPVS/PHS after changelevel can exclude the local
+			 * shooter; always deliver the invoker's own weapon events. */
+			if( cl->edict != pInvoker && !SV_CheckClientVisiblity( cl, mask ))
+				continue;
+#else
 			if( !SV_CheckClientVisiblity( cl, mask ))
 				continue;
+#endif
 		}
 
 		// a1ba: GoldSrc never cleans up host_client pointer (similar to sv.current_client)
@@ -4337,9 +4355,9 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 		//
 		// if it breaks some mods, probably sv.current_client semantics must be reworked to match GoldSrc
 #if XASH_GAMECUBE
-		/* G120: GameCube listen-server has no reliable client weapon-event
-		 * prediction yet; still deliver FEV_NOTHOST fire events so pl_gun*.wav
-		 * reaches the local client through the standard playback path. */
+		/* G121: deliver FEV_NOTHOST weapon events to the local client so
+		 * EV_FireGlock can play stock pl_gun3 through the standard path
+		 * (client weapon-event prediction is not proven under MEM1 yet). */
 		if( FBitSet( flags, FEV_NOTHOST ) && ( cl == sv.current_client || cl->edict == pInvoker )
 			&& FBitSet( cl->flags, FCL_LOCAL_WEAPONS ) && !Sys_CheckParm( "-gcfullphysics" ))
 			continue;
@@ -4352,7 +4370,23 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 			continue;	// sending only to invoker
 
 		// all checks passed, send the event
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcfullphysics" ))
+			CL_GCRelinkEventHooks();
+		if( Sys_CheckParm( "-gcfullphysics" ) && eventindex > 0 )
+		{
+			static qboolean gc_g121_event_logged;
+			const char *evname = sv.event_precache[eventindex];
 
+			if( !gc_g121_event_logged )
+			{
+				gc_g121_event_logged = true;
+				Con_Reportf( "Xash3D GameCube: G121 PlaybackEvent deliver index=%u name=%s flags=0x%x client=%d\n",
+					(unsigned)eventindex, evname ? evname : "(null)", flags,
+					cl ? (int)( cl - svs.clients ) : -1 );
+			}
+		}
+#endif
 		// reliable event
 		if( FBitSet( flags, FEV_RELIABLE ))
 		{

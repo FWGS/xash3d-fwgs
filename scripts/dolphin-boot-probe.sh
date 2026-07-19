@@ -118,7 +118,7 @@ SIDevice3 = 0
 ConfirmStop = False
 EOF
 
-if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
+if [[ "$DOLPHIN_RETAIL" == "1" || "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
 	cat > "$USER_DIR/Config/GFX.ini" <<'EOF'
 [Settings]
 DumpFrames = True

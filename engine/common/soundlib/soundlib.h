@@ -53,6 +53,10 @@ typedef struct sndlib_s
 	uint		flags;		// additional sound flags
 	size_t		size;		// sound unpacked size (for bounds checking)
 	byte		*wav;		// sound pointer (see sound_type for details)
+#if XASH_GAMECUBE
+	/* G122: PCM borrowed from FS_LoadFile buffer (no SoundLib duplicate). */
+	qboolean	gc_inplace_file;
+#endif
 
 	byte		*tempbuffer;	// for convert operations
 	int		cmd_flags;

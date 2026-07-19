@@ -3319,7 +3319,8 @@ so CL_ClearState cannot wipe the channel before the mixer/ASND path runs.
 */
 void GC_PlayNewGameGameplaySound( void )
 {
-	const char *name = "weapons/pl_gun1.wav";
+	/* G117/G118 mixer path; keep distinct from G120 PrimaryAttack pl_gun1. */
+	const char *name = "buttons/button10.wav";
 	int i;
 
 	if( gc_gameplay_sound_done )
@@ -3337,6 +3338,31 @@ void GC_PlayNewGameGameplaySound( void )
 
 	gc_gameplay_sound_done = true;
 	gc_gameplay_sound_queued = false;
+
+	/* G124: under fullphysics, preload stock footsteps while MEM1 is still
+	 * free — post-pl_gun3 opens for pl_step* are unreliable on gcdisc. */
+	if( Sys_CheckParm( "-gcfullphysics" ))
+	{
+		static const char *const steps[] = {
+			"player/pl_step1.wav",
+			"player/pl_step2.wav",
+			"player/pl_step3.wav",
+			"player/pl_step4.wav",
+		};
+		int s;
+
+		Con_Reportf( "Xash3D GameCube: G124 preload footsteps begin budget_used=%u\n",
+			(uint)S_GCGameplaySfxBudgetUsed() );
+		for( s = 0; s < (int)( sizeof( steps ) / sizeof( steps[0] )); s++ )
+		{
+			sound_t handle = S_RegisterSound( steps[s] );
+			Con_Reportf( "Xash3D GameCube: G124 preload %s handle=%d budget_used=%u\n",
+				steps[s], (int)handle, (uint)S_GCGameplaySfxBudgetUsed() );
+		}
+		Con_Reportf( "Xash3D GameCube: G124 preload footsteps ready budget_used=%u\n",
+			(uint)S_GCGameplaySfxBudgetUsed() );
+		return;
+	}
 
 	Con_Reportf( "Xash3D GameCube: gameplay sound begin name=%s state=%d\n",
 		name, cls.state );

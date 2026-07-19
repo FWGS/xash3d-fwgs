@@ -2693,11 +2693,67 @@ and G118 budget SFX continue.
 
 **Evidence:** `.ai/logs/dolphin-probe-20260718-201558`.
 
-## G120 — HLSDK PrimaryAttack on fullphysics attack (OPEN)
+## G120 — HLSDK PrimaryAttack on fullphysics attack (COMPLETE 2026-07-18)
 
-Inventory survives put-in, but probe attack has not yet proven HLSDK
-`ItemPostFrame`/`PrimaryAttack`. Next work: unblock the standard weapon frame
-so `IN_ATTACK` fires the glock and loads fire WAVs through the G118 budget.
+G104 lean deploy left weapons cosmetic. `GC_LeanWeaponCombatReady` now clears
+deploy-gate timers and ensures glock clip under `-gcfullphysics` so
+`ItemPostFrame` reaches `PrimaryAttack`. GameCube fire uses `EMIT_SOUND` of
+`weapons/pl_gun1.wav` (within the 8192 B G118 per-file wall; stock `pl_gun3`
+is 13 KiB). Listen-server `SV_StartSound` also plays that sample locally so
+the budgeted decoder runs when loopback sound msgs do not.
+
+Dolphin reports `ItemPostFrame id=2`, `PrimaryAttack weapon=glock`,
+`G120 SV_StartSound local weapons/pl_gun1.wav`, decode `peak=128
+budget_used=10077`, and `clip=16` after the shot.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-205118`.
+
+## G121 — Client EV_FireGlock without local SV bridge (COMPLETE 2026-07-18)
+
+Removed the G120 listen-server `SV_StartSound` shortcut and HLSDK
+`EMIT_SOUND` stand-in. Fullphysics now delivers `FEV_NOTHOST` weapon events
+to the local invoker (lean FatPVS could drop the shooter), relinks client
+event hooks after `CL_ClearState` wiped `cl.event_precache`, and runs stock
+`EV_FireGlock`. Under MEM1 the event plays `weapons/pl_gun1.wav` (stock
+`pl_gun3` still OOMs SoundLib); SoundLib pool allocs soft-fail like FileSystem.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-211713` —
+`G121 EV_FireGlock weapons/pl_gun1.wav`, decode `peak=128 budget_used=10077`.
+
+## G122 — MEM1 headroom for stock pl_gun3 (COMPLETE 2026-07-18)
+
+Post-changelevel MEM1 could load the FS file (~13 KiB) but not a second SoundLib
+PCM buffer (fatal at `snd_wav.c` 12.90 KiB). Memopt WAV decode now converts in
+the FS buffer and packs `wavdata_t` in-place when the file fits, so stock
+`EV_FireGlock` → `weapons/pl_gun3.wav` needs no `pl_gun1` stand-in.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-212457` —
+`G122 WAV in-place pack bytes=13209`, `G122 EV_FireGlock weapons/pl_gun3.wav`,
+decode `peak=128 budget_used=17031`.
+
+## G123 — Memopt player footstep SFX (COMPLETE 2026-07-18)
+
+In-place packs retained FS file buffers and starved the next small load.
+Migrate to SoundLib when a tight copy fits; evict finished `button10` before
+`player/pl_step*`. First footstep after fire decodes under budget.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-213330` —
+`G123 evict ... button10`, `G123 WAV migrated bytes=2430`,
+`decoded ... pl_step2 peak=119 budget_used=15639`.
+
+## G124 — Budgeted SFX LRU / footstep preload (COMPLETE 2026-07-18)
+
+Post-fire footstep opens on gcdisc fail under MEM1 even when budget remains.
+Fullphysics now preloads `player/pl_step1..4` via `S_RegisterSound` while MEM1
+is free; small-victim LRU reclaim covers non-step loads.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-215805` —
+four `pl_step*` decodes `peak>0`, `budget_used=10405`, no fatal.
+
+## G125 — Stock pl_gun3 after footstep preload (OPEN)
+
+`pl_gun3` fails to decode after the footstep preload (SysOpen succeeds). Need
+fire + preloaded steps to coexist.
 
 ## Next wake-up commands
 

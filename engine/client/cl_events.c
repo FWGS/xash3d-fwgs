@@ -18,6 +18,9 @@ GNU General Public License for more details.
 #include "event_flags.h"
 #include "net_encode.h"
 #include "con_nprint.h"
+#if XASH_GAMECUBE
+#include "server.h" /* listen-server event precache resync after changelevel */
+#endif
 
 /*
 ===============
@@ -143,6 +146,42 @@ void CL_SetEventIndex( const char *szEvName, int ev_index )
 		}
 	}
 }
+
+#if XASH_GAMECUBE
+/*
+=============
+CL_GCRelinkEventHooks
+
+G121: CL_ClearState wipes cl.event_precache on changelevel. On the listen
+server, rebuild names from sv.event_precache and re-link HookEvent slots so
+CL_FireEvent can reach EV_FireGlock.
+=============
+*/
+void CL_GCRelinkEventHooks( void )
+{
+	static qboolean gc_g121_relink_logged;
+	int	linked = 0;
+	int	i;
+
+	if( !svs.initialized )
+		return;
+
+	for( i = 1; i < MAX_EVENTS; i++ )
+	{
+		if( !sv.event_precache[i][0] )
+			break;
+		Q_strncpy( cl.event_precache[i], sv.event_precache[i], sizeof( cl.event_precache[i] ));
+		CL_SetEventIndex( cl.event_precache[i], i );
+		linked++;
+	}
+
+	if( !gc_g121_relink_logged && linked > 0 )
+	{
+		gc_g121_relink_logged = true;
+		Con_Reportf( "Xash3D GameCube: G121 event hooks relinked count=%d\n", linked );
+	}
+}
+#endif
 
 /*
 =============

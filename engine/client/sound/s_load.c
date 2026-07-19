@@ -18,6 +18,7 @@ GNU General Public License for more details.
 #include "sound.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include "filesystem.h"
 #endif
 
 // during registration it is possible to have more sounds
@@ -33,12 +34,24 @@ static sfx_t    *s_sfxHashList[MAX_SFX_HASH];
 static qboolean s_registering = false;
 #if XASH_GAMECUBE
 /* G118: under MapLoadMemoryOpt, allow small gameplay WAVs until this budget fills.
- * Per-file hard cap stays 8192 B in Sound_LoadWAV; this tracks cumulative cache. */
+ * G121: per-file hard cap raised to 16 KiB (pl_gun3); Sound_LoadWAV matches. */
 #define GC_SFX_BUDGET_BYTES		(48u * 1024u)
-#define GC_SFX_MAX_FILE_BYTES	8192u
+/* G121: stock glock fire is pl_gun3.wav (~13 KiB PCM @ 22 kHz); keep under
+ * the session budget while allowing one fire WAV through EV_PlaySound. */
+#define GC_SFX_MAX_FILE_BYTES	(16u * 1024u)
+/* G124: gentle reclaim for small footsteps; hard retry drops one fire WAV. */
+#define GC_SFX_LOAD_HEADROOM_SOFT	(4u * 1024u)
+#define GC_SFX_LOAD_HEADROOM_HARD	(8u * 1024u)
+#define GC_SFX_LRU_SLOTS		32
 #define GC_SOUND_RUNTIME_BUDGETED	BIT( 2 )
 static int      s_gcmapSoundSkips = 0;
 static size_t   s_gc_sfx_budget_used;
+static struct
+{
+	sfx_t *sfx;
+	uint   stamp;
+} s_gc_lru[GC_SFX_LRU_SLOTS];
+static uint     s_gc_sfx_lru_clock;
 
 static qboolean S_GCAllowRuntimeSoundLoad( void )
 {
@@ -48,6 +61,144 @@ static qboolean S_GCAllowRuntimeSoundLoad( void )
 	/* Keep map/bootstrap lean; allow a capped trickle once in-world. */
 	return cls.state == ca_active && !s_registering
 		&& s_gc_sfx_budget_used < GC_SFX_BUDGET_BYTES;
+}
+
+static qboolean S_GCSfxIsPlaying( const sfx_t *sfx )
+{
+	int ch;
+
+	for( ch = 0; ch < snd.max_channels; ch++ )
+	{
+		if( snd.channels[ch].sfx == sfx )
+			return true;
+	}
+	return false;
+}
+
+static void S_GCTouchBudgetedLru( sfx_t *sfx )
+{
+	int i;
+	int free_slot = -1;
+
+	if( !sfx )
+		return;
+
+	for( i = 0; i < GC_SFX_LRU_SLOTS; i++ )
+	{
+		if( s_gc_lru[i].sfx == sfx )
+		{
+			s_gc_lru[i].stamp = ++s_gc_sfx_lru_clock;
+			return;
+		}
+		if( free_slot < 0 && !s_gc_lru[i].sfx )
+			free_slot = i;
+	}
+
+	if( free_slot < 0 )
+		free_slot = 0; /* rare: overwrite oldest slot metadata only */
+	s_gc_lru[free_slot].sfx = sfx;
+	s_gc_lru[free_slot].stamp = ++s_gc_sfx_lru_clock;
+}
+
+static void S_GCClearLruSlot( const sfx_t *sfx )
+{
+	int i;
+
+	for( i = 0; i < GC_SFX_LRU_SLOTS; i++ )
+	{
+		if( s_gc_lru[i].sfx == sfx )
+		{
+			s_gc_lru[i].sfx = NULL;
+			s_gc_lru[i].stamp = 0;
+			return;
+		}
+	}
+}
+
+/*
+===========
+S_GCEvictBudgetedSfx
+
+Drop one budgeted cache entry and clear channels that reference it.
+===========
+*/
+static void S_GCEvictBudgetedSfx( sfx_t *sfx )
+{
+	int ch;
+
+	if( !sfx || !sfx->cache || !FBitSet( sfx->cache->flags, GC_SOUND_RUNTIME_BUDGETED ))
+		return;
+
+	Con_Reportf( "Xash3D GameCube: G124 LRU evict sfx %s bytes=%u\n",
+		sfx->name, (uint)sfx->cache->size );
+	for( ch = 0; ch < snd.max_channels; ch++ )
+	{
+		if( snd.channels[ch].sfx == sfx )
+			snd.channels[ch].sfx = NULL;
+	}
+	S_GCClearLruSlot( sfx );
+	S_FreeSound( sfx );
+}
+
+/*
+===========
+S_GCMakeRoomForBudgetedLoad
+
+G124: reclaim MEM1 from least-recent non-playing budgeted SFX.
+Soft path only drops small one-shots (≤ max_victim); hard retry may drop a
+retained in-place fire WAV after a failed load.
+===========
+*/
+static size_t S_GCMakeRoomForBudgetedLoad( const sfx_t *keep, size_t want, size_t max_victim )
+{
+	size_t freed = 0;
+
+	if( want == 0 )
+		want = GC_SFX_LOAD_HEADROOM_SOFT;
+
+	while( freed < want )
+	{
+		sfx_t *victim = NULL;
+		uint victim_lru = ~0u;
+		uint i;
+
+		for( i = 0; i < s_numSfx; i++ )
+		{
+			sfx_t *sfx = &s_knownSfx[i];
+			uint stamp = 0;
+			int slot;
+
+			if( sfx == keep || !sfx->name[0] || !sfx->cache )
+				continue;
+			if( !FBitSet( sfx->cache->flags, GC_SOUND_RUNTIME_BUDGETED ))
+				continue;
+			if( S_GCSfxIsPlaying( sfx ))
+				continue;
+			if( max_victim && sfx->cache->size > max_victim )
+				continue;
+
+			for( slot = 0; slot < GC_SFX_LRU_SLOTS; slot++ )
+			{
+				if( s_gc_lru[slot].sfx == sfx )
+				{
+					stamp = s_gc_lru[slot].stamp;
+					break;
+				}
+			}
+			if( stamp > victim_lru )
+				continue;
+			victim_lru = stamp;
+			victim = sfx;
+		}
+
+		if( !victim )
+			break;
+
+		freed += victim->cache->size;
+		S_GCEvictBudgetedSfx( victim );
+	}
+
+	return freed;
 }
 #endif
 
@@ -172,7 +323,13 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 
 	// see if still in memory
 	if( sfx->cache )
+	{
+#if XASH_GAMECUBE
+		if( FBitSet( sfx->cache->flags, GC_SOUND_RUNTIME_BUDGETED ))
+			S_GCTouchBudgetedLru( sfx );
+#endif
 		return sfx->cache;
+	}
 
 	if( COM_StringEmptyOrNULL( sfx->name ))
 		return NULL;
@@ -187,7 +344,36 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 		return NULL;
 	}
 	if( S_GCAllowRuntimeSoundLoad() )
+	{
+		/* Drop finished button10 only; do not rotate other pl_step* here —
+		 * preload needs all four resident, and soft eviction was discarding
+		 * them one-by-one before the next RegisterSound. */
+		if( !Q_strnicmp( sfx->name, "player/pl_step", 14 ))
+		{
+			uint i;
+			for( i = 0; i < s_numSfx; i++ )
+			{
+				sfx_t *other = &s_knownSfx[i];
+				if( other->cache && !Q_stricmp( other->name, "buttons/button10.wav" ))
+					S_GCEvictBudgetedSfx( other );
+			}
+		}
+		else
+		{
+			/* G125: weapon fire needs a ~13 KiB FS file buffer — reclaim every
+			 * small budgeted SFX (preloaded steps) before the first attempt. */
+			size_t want = GC_SFX_LOAD_HEADROOM_SOFT;
+			if( !Q_strnicmp( sfx->name, "weapons/", 8 ))
+				want = 16u * 1024u;
+			{
+				size_t reclaimed = S_GCMakeRoomForBudgetedLoad( sfx, want, 8u * 1024u );
+				if( reclaimed )
+					Con_Reportf( "Xash3D GameCube: G125 LRU reclaimed=%u before %s\n",
+						(uint)reclaimed, sfx->name );
+			}
+		}
 		Con_Reportf( "Xash3D GameCube: sound load allowed for gameplay sfx %s\n", sfx->name );
+	}
 #endif
 
 	// load it from disk
@@ -206,13 +392,29 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	if( !sc )
 	{
 #if XASH_GAMECUBE
-		if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" ))
+		if( GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" )
+			&& S_GCAllowRuntimeSoundLoad() )
+		{
+			size_t reclaimed = S_GCMakeRoomForBudgetedLoad( sfx, 16u * 1024u, 8u * 1024u );
+			FS_ClearFindMissCache();
+			if( reclaimed )
+				Con_Reportf( "Xash3D GameCube: G125 LRU retry reclaimed=%u for %s\n",
+					(uint)reclaimed, sfx->name );
+			if( sfx->name[0] == '*' )
+				sc = FS_LoadSound( sfx->name + 1, NULL, 0 );
+			else
+				sc = FS_LoadSound( sfx->name, NULL, 0 );
+			if( sc )
+				Con_Reportf( "Xash3D GameCube: G125 load retry ok for %s\n", sfx->name );
+		}
+		if( !sc && GC_MapLoadMemoryOpt() && Q_stricmp( sfx->name, "*default" ))
 		{
 			Con_Reportf( "Xash3D GameCube: sound fallback skipped for map-load memopt %s\n", sfx->name );
 			return NULL;
 		}
 #endif
-		sc = S_CreateDefaultSound();
+		if( !sc )
+			sc = S_CreateDefaultSound();
 	}
 
 	if( sc->rate < SOUND_11k ) // some bad sounds
@@ -238,6 +440,7 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 
 		s_gc_sfx_budget_used += sc->size;
 		SetBits( sc->flags, GC_SOUND_RUNTIME_BUDGETED );
+		S_GCTouchBudgetedLru( sfx );
 
 		if( sc->width == 2 )
 		{
@@ -499,6 +702,8 @@ void S_InitSounds( void )
 #if XASH_GAMECUBE
 	s_gc_sfx_budget_used = 0;
 	s_gcmapSoundSkips = 0;
+	s_gc_sfx_lru_clock = 0;
+	memset( s_gc_lru, 0, sizeof( s_gc_lru ));
 #endif
 	// create unused 0-entry
 	Q_strncpy( s_knownSfx->name, "*default", sizeof( s_knownSfx->name ));

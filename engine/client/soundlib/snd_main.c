@@ -25,11 +25,19 @@ static void Sound_Reset( void )
 
 	sound.wav = NULL;
 	sound.size = 0;
+#if XASH_GAMECUBE
+	sound.gc_inplace_file = false;
+#endif
 }
 
 static MALLOC_LIKE( FS_FreeSound, 1 ) wavdata_t *SoundPack( void )
 {
 	wavdata_t *pack = Mem_Malloc( host.soundpool, sizeof( *pack ) + sound.size );
+
+#if XASH_GAMECUBE
+	if( !pack )
+		return NULL;
+#endif
 
 	pack->size = sound.size;
 	pack->loop_start = sound.loopstart;
@@ -41,11 +49,76 @@ static MALLOC_LIKE( FS_FreeSound, 1 ) wavdata_t *SoundPack( void )
 	pack->channels = sound.channels;
 	memcpy( pack->buffer, sound.wav, sound.size );
 
-	Mem_Free( sound.wav );
+#if XASH_GAMECUBE
+	/* Borrowed FS file PCM must not be Mem_Free'd — caller frees the file. */
+	if( !sound.gc_inplace_file )
+#endif
+		Mem_Free( sound.wav );
 	sound.wav = NULL;
+#if XASH_GAMECUBE
+	sound.gc_inplace_file = false;
+#endif
 
 	return pack;
 }
+
+#if XASH_GAMECUBE
+/*
+================
+SoundPackInPlaceFile
+
+G122: reuse the FS_LoadFile buffer as wavdata_t + PCM so MEM1 never needs
+file + decode + pack peak (~3x). Stock pl_gun3 fits (file 13336 >= header+PCM).
+
+G123: when SoundLib can take a tight copy, migrate off the FS buffer so the
+larger file allocation returns to the freelist for subsequent small SFX.
+================
+*/
+static MALLOC_LIKE( FS_FreeSound, 1 ) wavdata_t *SoundPackInPlaceFile( byte *f, fs_offset_t filesize )
+{
+	size_t need = sizeof( wavdata_t ) + sound.size;
+	byte *pcm = sound.wav;
+
+	if( !f || !pcm || !sound.gc_inplace_file )
+		return NULL;
+	if( pcm < f || (size_t)( pcm - f ) + sound.size > (size_t)filesize )
+		return NULL;
+	if( (size_t)filesize < need )
+		return NULL;
+
+	memmove( f + sizeof( wavdata_t ), pcm, sound.size );
+
+	{
+		wavdata_t *pack = (wavdata_t *)f;
+		wavdata_t *owned;
+
+		pack->size = sound.size;
+		pack->loop_start = sound.loopstart;
+		pack->samples = sound.samples;
+		pack->type = sound.type;
+		pack->flags = sound.flags;
+		pack->rate = (word)sound.rate;
+		pack->width = (byte)sound.width;
+		pack->channels = (byte)sound.channels;
+		sound.wav = NULL;
+		sound.gc_inplace_file = false;
+
+		owned = Mem_Malloc( host.soundpool, need );
+		if( owned )
+		{
+			memcpy( owned, pack, need );
+			Mem_Free( f );
+			Con_Reportf( "Xash3D GameCube: G123 WAV migrated bytes=%u file=%u\n",
+				(uint)owned->size, (uint)filesize );
+			return owned;
+		}
+
+		Con_Reportf( "Xash3D GameCube: G122 WAV in-place pack bytes=%u file=%u\n",
+			(uint)pack->size, (uint)filesize );
+		return pack;
+	}
+}
+#endif
 
 /*
 ================
@@ -97,6 +170,19 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 			if( f && filesize > 0 )
 			{
 				success = format->loadfunc( path, f, filesize );
+#if XASH_GAMECUBE
+				if( success && sound.gc_inplace_file )
+				{
+					wavdata_t *pack = SoundPackInPlaceFile( f, filesize );
+					if( pack )
+						return pack;
+					pack = SoundPack();
+					Mem_Free( f );
+					if( pack )
+						return pack;
+					return NULL;
+				}
+#endif
 				Mem_Free( f ); // release buffer
 			}
 
@@ -108,6 +194,19 @@ wavdata_t *FS_LoadSound( const char *filename, const byte *buffer, size_t size )
 			if( f && filesize > 0 )
 			{
 				success = format->loadfunc( path, f, filesize );
+#if XASH_GAMECUBE
+				if( success && sound.gc_inplace_file )
+				{
+					wavdata_t *pack = SoundPackInPlaceFile( f, filesize );
+					if( pack )
+						return pack;
+					pack = SoundPack();
+					Mem_Free( f );
+					if( pack )
+						return pack;
+					return NULL;
+				}
+#endif
 				Mem_Free( f ); // release buffer
 			}
 

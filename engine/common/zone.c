@@ -315,6 +315,14 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 				Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
+		/* G121: SoundLib WAV decode must soft-fail under MEM1 so EV_PlaySound
+		 * can fall back instead of Host_Error on a 13 KiB fire sample. */
+		if( pool && !Q_stricmp( pool->name, "SoundLib Pool" ))
+		{
+			Con_Reportf( "Xash3D GameCube: soft-fail SoundLib alloc size=%s at %s:%i\n",
+				Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
 #endif
 		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 		return NULL;
