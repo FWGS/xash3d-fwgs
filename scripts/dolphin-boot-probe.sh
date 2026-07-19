@@ -102,6 +102,11 @@ DOLPHIN_MMU="${DOLPHIN_MMU:-True}"
 
 mkdir -p "$USER_DIR/Config"
 
+DUMP_FRAMES=0
+if [[ "$DOLPHIN_RETAIL" == "1" || "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
+	DUMP_FRAMES=1
+fi
+
 cat > "$USER_DIR/Config/Dolphin.ini" <<EOF
 [Core]
 CPUCore = 0
@@ -118,11 +123,14 @@ SIDevice3 = 0
 ConfirmStop = False
 EOF
 
-if [[ "$DOLPHIN_RETAIL" == "1" || "${DOLPHIN_DUMP_FRAMES:-0}" == "1" ]]; then
-	cat > "$USER_DIR/Config/GFX.ini" <<'EOF'
-[Settings]
+if (( DUMP_FRAMES )); then
+	cat >> "$USER_DIR/Config/Dolphin.ini" <<'EOF'
+[Movie]
 DumpFrames = True
 DumpFramesSilent = True
+EOF
+	cat > "$USER_DIR/Config/GFX.ini" <<'EOF'
+[Settings]
 DumpFramesAsImages = True
 EOF
 fi

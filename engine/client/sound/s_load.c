@@ -174,6 +174,11 @@ static size_t S_GCMakeRoomForBudgetedLoad( const sfx_t *keep, size_t want, size_
 				continue;
 			if( S_GCSfxIsPlaying( sfx ))
 				continue;
+			/* G125: pin preloaded fire + footsteps — eviction then reload
+			 * fails FS Find under MEM1 freelist pressure. */
+			if( !Q_strnicmp( sfx->name, "player/pl_step", 14 )
+				|| !Q_stricmp( sfx->name, "weapons/pl_gun3.wav" ))
+				continue;
 			if( max_victim && sfx->cache->size > max_victim )
 				continue;
 

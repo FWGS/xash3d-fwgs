@@ -23,11 +23,13 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G122: stock `pl_gun3.wav` via in-place WAV pack (no dual SoundLib peak)
 - G123: memopt `player/pl_step2.wav` after evicting `button10` + SoundLib migrate
 - G124: preload all four `pl_step*` under budget before fire (LRU for small SFX)
+- G125: preload `pl_gun3` then steps (~24 KiB resident); fire+walk coexist via cache
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G125** — keep stock `pl_gun3` loadable after footstep preload (coexistence)
+1. *(queue empty after G125 — pick next MEM1 gameplay polish goal)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260719-005629` (G125 fire+steps preload, cache-hit fire, ric1 load, PCM peak)
 - `.ai/logs/dolphin-probe-20260718-215805` (G124 four pl_step* preload decodes)
 - `.ai/logs/dolphin-probe-20260718-213330` (G123 pl_step2 decode + button10 evict)
 - `.ai/logs/dolphin-probe-20260718-212457` (G122 EV_FireGlock + pl_gun3 in-place decode)
@@ -2251,16 +2253,20 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `pl_step1..4` with `peak>0`, `preload footsteps ready budget_used=10405`,
   no fatal.
 
-## G125 [ ] Stock pl_gun3 after footstep preload
+## G125 [x] Stock pl_gun3 after footstep preload
 
-- Status: SOURCE-FIRST after G124. Preloaded steps decode, but subsequent
-  `weapons/pl_gun3.wav` FS load fails (SysOpen ok, decode miss) even after
-  LRU-evicting the steps.
-- Restore coexistence: fire SFX loads after footsteps without fatal, and at
-  least one preloaded step remains usable (cache hit) on walk.
+- Status: DONE 2026-07-19. Releasing migrated step caches poisoned later
+  `FS_FindFile` for sounds. Fix: preload `weapons/pl_gun3.wav` first, then
+  `player/pl_step1..4`, keep all resident (~23614 B / 48 KiB), pin them from
+  LRU eviction. Fire hits cache; ricochet still loads; ASND PCM peak>0.
 - Acceptance:
-  - `G122 EV_FireGlock` + `decoded ... pl_gun3` (or migrated) `peak>0`.
-  - A later `player/pl_step*` plays from cache or re-decode without fatal.
+  - `G122 EV_FireGlock` + `pl_gun3` decode `peak>0` (preload) without reload miss.
+  - Preloaded steps remain cached (`budget_used` includes them) for walk.
+- Evidence: `.ai/logs/dolphin-probe-20260719-005629` —
+  `G125 preload fire+steps ready budget_used=23614`,
+  `G122 EV_FireGlock` with no subsequent `couldn't load` / soft-fail for
+  `pl_gun3`, `weapons/ric1.wav` load ok, `audio submitted ... peak=19054`.
+- Screenshots: `.ai/screenshots/demo-stages/` (menu + live loading framedumps).
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

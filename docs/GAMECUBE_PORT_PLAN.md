@@ -2750,10 +2750,15 @@ is free; small-victim LRU reclaim covers non-step loads.
 **Evidence:** `.ai/logs/dolphin-probe-20260718-215805` —
 four `pl_step*` decodes `peak>0`, `budget_used=10405`, no fatal.
 
-## G125 — Stock pl_gun3 after footstep preload (OPEN)
+## G125 — Stock pl_gun3 after footstep preload (COMPLETE 2026-07-19)
 
-`pl_gun3` fails to decode after the footstep preload (SysOpen succeeds). Need
-fire + preloaded steps to coexist.
+Releasing migrated footstep caches after preload broke later sound Finds.
+Fullphysics now preloads `pl_gun3` then `pl_step1..4` and keeps them resident
+(~24 KiB) under the 48 KiB SFX budget; pins protect them from LRU.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-005629` —
+`G125 preload ... budget_used=23614`, `G122 EV_FireGlock`, ric1 load,
+`audio submitted ... peak=19054`, no soft-fail / couldn't-load for pl_gun3.
 
 ## Next wake-up commands
 

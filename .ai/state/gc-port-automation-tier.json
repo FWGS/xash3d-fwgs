@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G124 DONE: fullphysics preloads pl_step1..4 (four decodes peak>0, budget_used=10405) (.ai/logs/dolphin-probe-20260718-215805). Next: G125 pl_gun3 coexistence after footstep preload."
+  "note": "G125 DONE: preload pl_gun3 then pl_step1..4 resident (~23614 B); fire cache-hit + ric1 + ASND peak (.ai/logs/dolphin-probe-20260719-005629). Next: pick following MEM1 gameplay polish goal."
 }
