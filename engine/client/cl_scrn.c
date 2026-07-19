@@ -822,6 +822,9 @@ void SCR_UpdateScreen( void )
 		static qboolean gc_vrv_path_logged;
 		static qboolean gc_hud_lean_logged;
 
+		/* G117: emit deferred gameplay SFX once ca_active (queued in Prepare). */
+		GC_PlayNewGameGameplaySound();
+
 		/* G92: never world-present during changelevel loading plaque —
 		 * BeginLoadingPlaque calls SCR_UpdateScreen before disable_screen
 		 * is set, and a mid-transition GL_RenderFrame hangs the guest. */

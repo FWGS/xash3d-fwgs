@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G112 DONE: bounded ground traces find flat world support 20.97 units below the player and correctly keep FL_ONGROUND clear beyond the 18-unit step limit (.ai/logs/dolphin-probe-20260718-070101). Automatic queue empty except SKIP/manual."
+  "note": "G117 DONE: deferred ca_active gameplay SFX + mix-window rewind delivers buttons/button10.wav through the mixer into nonzero ASND PCM (peak=22644) while native HUD/PMove continue (.ai/logs/dolphin-probe-20260718-193416). Automatic queue empty except SKIP/manual."
 }

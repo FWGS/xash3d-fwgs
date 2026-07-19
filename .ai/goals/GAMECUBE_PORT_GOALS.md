@@ -12,25 +12,18 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + interactive input (`G45`)
-- G92–G99: presents, save/load, campaign audit, lean PVS, landmark inventory
-- G100–G102: landmark weapon create/spawn/lean-attach
-- G103: landmark inventory-chain attach (`m_rgpPlayerItems` + `m_pActiveItem`)
-- G104: lean Deploy/viewmodel after inventory attach
-- G105: landmark first-person viewmodel studio draw
-- G106: real client-edict `CBasePlayer` + DLL `DefaultTouch` inventory attach
-- G107: four-slot lean PVS LRU with packed all-cluster backing rows
-- G108: fair round-robin scheduling for bounded post-G36 world thinks
-- G109: persistent BSP clipnodes + collision-clipped bounded player movement
-- G110: server area relink after accepted bounded player movement
-- G111: trigger-aware relink traversal after bounded player movement
-- G112: bounded ground-support categorization after movement
-- G113: standard controller axes through loopback usercmds and native HLSDK PMove
+- G92–G105: presents, save/load, lean PVS, landmark inventory/viewmodel
+- G106–G112: DefaultTouch player, lean PVS LRU, thinks, collision/relink/ground
+- G113–G116: native axes/PMove, HLSDK HUD snapshots/messages, client prediction
+- G117: decoded `button10.wav` mixed at full volume into nonzero ASND PCM
 
 **Immediate source queue (open automatic goals, in order):**
-- None — G112 closed. Remaining items are SKIP (G73–G81) or manual
+- None — G117 closed. Remaining items are SKIP (G73–G81) or manual
   checkpoints (G70/G71/G75).
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260718-193416` (G117 mixer ready + nonzero ASND PCM)
+- `.ai/logs/dolphin-probe-20260718-181611` (G116 native client prediction)
 - `.ai/logs/dolphin-probe-20260718-070101` (G112 20.97-unit world support trace)
 - `.ai/logs/dolphin-probe-20260718-142612` (G113 native axis usercmd + HLSDK PMove)
 - `.ai/logs/dolphin-probe-20260718-055613` (G111 trigger-aware relink traversal)
@@ -2118,6 +2111,21 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   authoritative axis velocity `(30.0,-0.1,249.1)`, all gameplay actions,
   native HUD updates, transition, and sustained world presentation. No forced
   prediction-disable/skip marker or exception appears.
+## G117 [x] Submit nonzero native gameplay PCM to GameCube ASND
+
+- Status: DONE 2026-07-18. Gameplay SFX is queued from Prepare and emitted only
+  after `cls.state == ca_active`, so local reconnect cannot wipe the channel.
+  The mixahead window is rewound when pre-voice silence has filled it, then
+  `buttons/button10.wav` mixes at full volume into the DMA ring.
+- Acceptance:
+  - A legally supplied `buttons/button10.wav` decodes with a nonzero source peak.
+  - The standard mixer consumes the channel at nonzero left/right volume.
+  - ASND receives at least one nonzero PCM chunk while native gameplay,
+    prediction, HUD updates, and rendering continue.
+- Evidence: `.ai/logs/dolphin-probe-20260718-193416` reports mix-window rewind
+  `painted=5760→sound=0`, decode `peak=128`, `mixer ready volume=(255,255)`,
+  and `audio submitted nonzero PCM chunks=1 peak=22644`, with attack/jump/use,
+  native HUD updates, axis PMove, and sustained world presentation continuing.
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
 - Status: DONE 2026-07-17. Boot phases are chronological

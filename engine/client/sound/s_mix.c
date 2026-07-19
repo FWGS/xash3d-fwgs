@@ -356,6 +356,19 @@ static int S_MixNormalChannelsToRoombuffer( portable_samplepair_t *dst, int end 
 			continue;
 		}
 
+#if XASH_GAMECUBE
+		if( !Q_stricmp( ch->sfx->name, "buttons/button10.wav" ))
+		{
+			static qboolean gc_gameplay_mix_logged;
+			if( !gc_gameplay_mix_logged )
+			{
+				Con_Reportf( "Xash3D GameCube: gameplay sound mixer ready frames=%d volume=(%d,%d) master=%d sample=%.0f\n",
+					num_samples, ch->leftvol, ch->rightvol, ch->master_vol, ch->sample );
+				gc_gameplay_mix_logged = true;
+			}
+		}
+#endif
+
 		// if the sound is unaudible, skip it
 		// if it's also not looping, free it
 		if( ch->leftvol < 8 && ch->rightvol < 8 )

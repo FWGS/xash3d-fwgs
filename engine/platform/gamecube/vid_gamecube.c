@@ -15,6 +15,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #if XASH_GAMECUBE
 #include "server.h"
 #include "mod_local.h"
+#include "sound.h"
 #include "gamecube/mem_gamecube.h"
 
 qboolean R_GcmapEnsureSurfaceCache( void );
@@ -3287,12 +3288,16 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 ===========
 GC_PlayNewGameGameplaySound
 
-G91: post-G36 gameplay SFX via S_StartLocalSound (not streaming music).
+G91/G117: post-G36 gameplay SFX via S_StartLocalSound (not streaming music).
+
+Prepare queues the one-shot before local reconnect; emit only once ca_active
+so CL_ClearState cannot wipe the channel before the mixer/ASND path runs.
 ===========
 */
 void GC_PlayNewGameGameplaySound( void )
 {
 	static qboolean gc_gameplay_sound_done;
+	static qboolean gc_gameplay_sound_queued;
 	const char *name = "buttons/button10.wav";
 	int i;
 
@@ -3300,17 +3305,37 @@ void GC_PlayNewGameGameplaySound( void )
 		return;
 	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_IsNewGameG36Done() )
 		return;
+	if( Sys_CheckParm( "-gcnewsaveload" ))
+		return;
+
+	gc_gameplay_sound_queued = true;
+
+	/* G117: Prepare runs before local reconnect (state drops, channels clear). */
+	if( cls.state != ca_active )
+		return;
 
 	gc_gameplay_sound_done = true;
+	gc_gameplay_sound_queued = false;
 
-	Con_Reportf( "Xash3D GameCube: gameplay sound begin name=%s\n", name );
+	Con_Reportf( "Xash3D GameCube: gameplay sound begin name=%s state=%d\n",
+		name, cls.state );
+
+	/* Pre-voice paints fill silence up to mixahead while soundtime stays 0.
+	 * Rewind so the late channel can paint into the live DMA window. */
+	if( snd.initialized && (int)( snd.paintedtime - snd.soundtime ) > 64 )
+	{
+		Con_Reportf( "Xash3D GameCube: gameplay sound mix window rewind painted=%d sound=%d\n",
+			snd.paintedtime, snd.soundtime );
+		snd.paintedtime = snd.soundtime;
+	}
+
 	S_AllowNextGameplaySoundLoad();
 	S_StartLocalSound( name, 1.0f, true );
 	S_DisallowGameplaySoundLoad();
 	Con_Reportf( "Xash3D GameCube: gameplay sound start name=%s channel=static\n", name );
 
-	/* Mix a few updates so the DMA ring paints the sample. */
-	for( i = 0; i < 4; i++ )
+	/* Mix enough updates for the 11 kHz clip to reach the 48 kHz DMA ring. */
+	for( i = 0; i < 8; i++ )
 		SND_UpdateSound();
 
 	Con_Reportf( "Xash3D GameCube: gameplay sound ready name=%s\n", name );

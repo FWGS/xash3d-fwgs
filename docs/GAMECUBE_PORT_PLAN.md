@@ -2648,6 +2648,22 @@ sustained rendering continued without a prediction-disable marker or fault.
 
 **Evidence:** `.ai/logs/dolphin-probe-20260718-181611`.
 
+## G117 — Nonzero gameplay PCM to ASND (COMPLETE 2026-07-18)
+
+The G91 one-shot `buttons/button10.wav` path decoded correctly under memopt
+allow, but Prepare emitted it before local reconnect cleared channels, and
+pre-voice mixahead had already filled the DMA ring with silence so late
+channels never painted.
+
+G117 queues the SFX from Prepare and emits only after `cls.state == ca_active`
+(SCR post-G36 path). When `paintedtime` sits at the mixahead ceiling with
+`soundtime=0`, the mix window is rewound so the standard mixer can paint the
+channel. Dolphin then reports decode `peak=128`, mixer volumes `(255,255)`,
+and `audio submitted nonzero PCM chunks=1 peak=22644` while native HUD
+updates, attack/jump/use, axis PMove, and world presentation continue.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-193416`.
+
 ## Next wake-up commands
 
 ```sh

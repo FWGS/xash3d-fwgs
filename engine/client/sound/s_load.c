@@ -204,6 +204,33 @@ wavdata_t *S_LoadSound( sfx_t *sfx )
 	else if( sc->rate > SOUND_22k && sc->rate != SOUND_44k ) // some bad sounds
 		Sound_Process( &sc, SOUND_44k, sc->width, sc->channels, SOUND_RESAMPLE );
 
+#if XASH_GAMECUBE
+	if( s_gc_allow_gameplay_sfx )
+	{
+		int peak = 0;
+		if( sc->width == 2 )
+		{
+			const int16_t *samples = (const int16_t *)sc->buffer;
+			for( size_t i = 0; i < sc->size / sizeof( *samples ); i++ )
+			{
+				int value = samples[i];
+				if( value < 0 ) value = -value;
+				if( value > peak ) peak = value;
+			}
+		}
+		else
+		{
+			for( size_t i = 0; i < sc->size; i++ )
+			{
+				int value = abs((int)sc->buffer[i] - 128 );
+				if( value > peak ) peak = value;
+			}
+		}
+		Con_Reportf( "Xash3D GameCube: gameplay sound decoded samples=%u bytes=%u rate=%u width=%u channels=%u peak=%d\n",
+			sc->samples, (uint)sc->size, sc->rate, sc->width, sc->channels, peak );
+	}
+#endif
+
 	sfx->cache = sc;
 
 	return sfx->cache;

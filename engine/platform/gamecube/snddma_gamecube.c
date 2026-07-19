@@ -329,8 +329,9 @@ void SNDDMA_Submit( void )
 		else if( !gc_audio_reported_nonzero && gc_audio_submit_polls == 300 )
 		{
 			Con_Reportf(
-				"Xash3D GameCube: audio still silent chunks=%u peak=%d\n",
-				gc_audio_chunks_submitted, gc_audio_last_peak );
+				"Xash3D GameCube: audio still silent chunks=%u peak=%d painted=%d sound=%d samplepos=%d\n",
+				gc_audio_chunks_submitted, gc_audio_last_peak,
+				snd.paintedtime, snd.soundtime, snd.samplepos );
 		}
 	}
 }
