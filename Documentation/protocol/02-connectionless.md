@@ -12,14 +12,18 @@ All connectionless packets have `\xff\xff\xff\xff` (32-bit integer set to all on
 
 - [Any](#any)
   - [Any to Any](#any-to-any)
-    - [`A2A_NETINFO`](#a2a_netinfo)
-    - [`A2A_INFO`](#a2a_info)
     - [`A2A_PING` and `A2A_GOLDSRC_PING`](#a2a_ping-and-a2a_goldsrc_ping)
     - [`A2A_ACK` and `A2A_GOLDSRC_ACK`](#a2a_ack-and-a2a_goldsrc_ack)
+    - [Deprecated queries](#deprecated-queries)
+      - [`A2A_NETINFO`](#a2a_netinfo)
+      - [`A2A_INFO`](#a2a_info)
   - [Any to Client](#any-to-client)
     - [`A2C_PRINT` and `A2C_GOLDSRC_PRINT`](#a2c_print-and-a2c_goldsrc_print)
   - [Any to Server and Server to Any](#any-to-server-and-server-to-any)
-    - [`A2S_GOLDSRC_INFO`, `A2S_GOLDSRC_RULES` and `A2S_GOLDSRC_PLAYERS` and their responses](#a2s_goldsrc_info-a2s_goldsrc_rules-and-a2s_goldsrc_players-and-their-responses)
+    - [GoldSrc server queries](#goldsrc-server-queries)
+    - [`A2S_GOLDSRC_INFO`](#a2s_goldsrc_info)
+    - [`A2S_GOLDSRC_PLAYERS`](#a2s_goldsrc_players)
+    - [`A2S_GOLDSRC_RULES`](#a2s_goldsrc_rules)
   - [Any to Master](#any-to-master)
     - [`S2M_SCAN_REQUEST`](#s2m_scan_request)
   - [Master to Any](#master-to-any)
@@ -50,7 +54,23 @@ All connectionless packets have `\xff\xff\xff\xff` (32-bit integer set to all on
 
 ### Any to Any
 
-#### `A2A_NETINFO`
+#### `A2A_PING` and `A2A_GOLDSRC_PING`
+
+Simple ping message.
+* Request, in ASCII: `ping` or `i` in GoldSrc format
+* Response is always `A2A_ACK` or `A2A_GOLDSRC_ACK`
+
+#### `A2A_ACK` and `A2A_GOLDSRC_ACK`
+
+Simple ack message.
+* Request, in ASCII: `ack` or `j` in GoldSrc format
+* Response: none
+
+#### Deprecated queries
+
+These text-based Xash protocol queries are deprecated in favor of [GoldSrc server queries](#goldsrc-server-queries), which Xash3D FWGS servers implement as well. The server still responds to them for compatibility with older clients, but new implementations must not send them.
+
+##### `A2A_NETINFO`
 
 Used to implement Half-Life's NetAPI. 
 * Request message, in ASCII: `netinfo <version> <context> <request_id>`
@@ -81,7 +101,7 @@ Possible requests and response formats:
 * On any other server will respond with `neterror` set to `undefined`
 * If protocol version doesn't match, server responds with `neterror` set to `protocol`
 
-#### `A2A_INFO`
+##### `A2A_INFO`
 
 Used to request server's details.
 * Request message, in ASCII: `info <version>`
@@ -101,18 +121,6 @@ Used to request server's details.
   - `password` set to 1 if server is protected with password otherwise 0
   - `host` is server's name
 
-#### `A2A_PING` and `A2A_GOLDSRC_PING`
-
-Simple ping message.
-* Request, in ASCII: `ping` or `i` in GoldSrc format
-* Response is always `A2A_ACK` or `A2A_GOLDSRC_ACK`
-
-#### `A2A_ACK` and `A2A_GOLDSRC_ACK`
-
-Simple ack message.
-* Request, in ASCII: `ack` or `j` in GoldSrc format
-* Response: none
-
 ### Any to Client
 
 #### `A2C_PRINT` and `A2C_GOLDSRC_PRINT`
@@ -124,9 +132,62 @@ Simple print message.
 
 ### Any to Server and Server to Any
 
-#### `A2S_GOLDSRC_INFO`, `A2S_GOLDSRC_RULES` and `A2S_GOLDSRC_PLAYERS` and their responses
+#### GoldSrc server queries
 
-These match Source Engine Query messages used in GoldSrc and Source engine and implemented for compatibility with existing tools. Read documentation for them on VDC: https://developer.valvesoftware.com/wiki/Server_queries
+These match Source Engine Query messages used in GoldSrc and Source engine and implemented for compatibility with existing server browsers and monitoring tools. The client uses them to query GoldSrc servers in the server browser, and as text-based Xash protocol queries are [deprecated](#deprecated-queries), it will use them to query Xash servers as well. Read documentation for them on VDC: https://developer.valvesoftware.com/wiki/Server_queries
+
+Unlike other connectionless messages these are binary: integers are little-endian, floats are 32-bit IEEE 754 and strings are null-terminated.
+
+`A2S_GOLDSRC_PLAYERS` and `A2S_GOLDSRC_RULES` requests carry a 32-bit challenge, `A2S_GOLDSRC_INFO` may have one appended after the query string. When no challenge is known yet, `\xff\xff\xff\xff` is sent in it's place. The server may answer with a challenge instead of the data: byte `A` (`0x41`) followed by a 32-bit challenge value, 9 bytes total with the header. The request is then repeated with the received challenge. Don't confuse this message with textual `S2C_GOLDSRC_CHALLENGE` used during connection, they only share the first byte. Xash servers respond to queries immediately and never send query challenges, GoldSrc servers require them since the 2020 update.
+
+Responses that don't fit into a single packet (usually rules) come from GoldSrc servers split into fragments. Such packets start with `\xfe\xff\xff\xff` instead of `\xff\xff\xff\xff`, followed by a 32-bit sequence number, same in all fragments of one response, and a byte with total fragment count in the lower 4 bits and this fragment's index in the upper 4 bits. Fragment payloads concatenated in index order form a normal `\xff\xff\xff\xff` message. Xash servers never split query responses and send them as single datagrams.
+
+#### `A2S_GOLDSRC_INFO`
+
+Used to request server's details.
+
+* Request: `TSource Engine Query\0`, optionally followed by a 32-bit challenge. Xash servers ignore it.
+* Response: byte `I` (`S2A_GOLDSRC_INFO`), followed by:
+  - byte: protocol version, 48 on GoldSrc, 49 on Xash3D FWGS
+  - string: server's name
+  - string: server's current level
+  - string: game directory name
+  - string: game description
+  - int16: Steam AppID, always 0 on Xash servers
+  - byte: total player count, bots included
+  - byte: max players limit
+  - byte: bot count
+  - byte: server type, `d` for dedicated or `l` for listen server
+  - byte: server's operating system, `w` for Windows, `l` for Linux, `m` for macOS
+  - byte: set to 1 if server is protected with password otherwise 0
+  - byte: set to 1 if server is VAC secured, Xash servers put the `secure` value from gameinfo here
+  - string: server's version
+
+Same as the Source engine response format but without the extra data flag and its fields.
+
+Legacy GoldSrc servers respond with the obsolete `m` format (`S2A_GOLDSRC_LEGACY_INFO`) instead, see VDC for its layout. Xash servers never send it but the client understands it and assumes protocol 48.
+
+#### `A2S_GOLDSRC_PLAYERS`
+
+Used to request server's player list.
+
+* Request: byte `U` (`0x55`), then a 32-bit challenge.
+* Response: byte `D` (`S2A_GOLDSRC_PLAYERS`), followed by a byte with total player count, then for each player:
+  - byte: player's index. Xash servers send sequential indexes starting from 0, GoldSrc servers always send 0 here.
+  - string: player's name
+  - int32: player's kill count
+  - float: time in seconds the player is connected, -1.0 for bots on Xash servers
+
+Xash server doesn't respond at all if the player list is empty, the server is protected with password or exposing the player list is disabled with `sv_expose_player_list` cvar.
+
+#### `A2S_GOLDSRC_RULES`
+
+Used to request server's game rules.
+
+* Request: byte `V` (`0x56`), then a 32-bit challenge.
+* Response: byte `E` (`S2A_GOLDSRC_RULES`), followed by an int16 with total rule count, then rule name and rule value strings for each.
+
+Only server cvars (`FCVAR_SERVER`) are sent. Values of protected cvars (`FCVAR_PROTECTED`) are replaced with `1` if the value is set otherwise `0`. If there are no cvars to expose, server doesn't respond at all.
 
 ### Any to Master
 
@@ -154,7 +215,7 @@ These match Source Engine Query messages used in GoldSrc and Source engine and i
   - `reserved` is single reserved 8-bit byte
   - Following is list of IP addresses in binary form: 6-bytes for IPv4 address + port and 18-bytes for IPv6 address + port
   - If port is 0, it means the end of list, otherwise it's the last IP used for pagination (not implemented in Xash3D)
-* Response: client doesn't make response to master server but might request `A2S_INFO` from servers
+* Response: client doesn't make response to master server but might request `A2S_GOLDSRC_INFO` from servers
 
 ## Master and game server
 
