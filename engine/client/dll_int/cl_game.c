@@ -51,6 +51,11 @@ static void CL_GameCubeApplySmokeClientBudgets( void )
 	int beams = GC_MapLoadMemoryOpt() ? 4 : 16;
 	int tents = GC_MapLoadMemoryOpt() ? 4 : 64;
 
+	/* G127: fullphysics combat needs more than the lean 48-tracer pool;
+	 * 96 coexists with HUD+SFX preload. Larger pools (192) hung the probe. */
+	if( Sys_CheckParm( "-gcfullphysics" ))
+		particles = Q_max( particles, 96 );
+
 	if( GI )
 	{
 		mutable_gi = (gameinfo_t *)GI;
@@ -1524,6 +1529,43 @@ model_t *CL_LoadClientSprite( const char *filename )
 {
 	return CL_LoadSpriteModel( filename, SPR_CLIENT, 0 );
 }
+
+#if XASH_GAMECUBE
+/*
+=============
+CL_GCPreloadNewGameHudSprites
+
+G127: load fat 320 HUD sheets while MEM1 still has a contiguous FS block.
+Gameplay SFX preload (~30 KiB SoundLib) after this starves a later 66 KiB
+320hud1 soft-fail. Keep sheet names as SPR_HUDSPRITE so Redraw reuses them.
+=============
+*/
+HSPRITE EXPORT pfnSPR_Load( const char *szPicName );
+
+void CL_GCPreloadNewGameHudSprites( void )
+{
+	/* Only the fat sheet: smaller 320hud2/4/crosshairs still load after SFX.
+	 * Preloading 320hud1+320hud2 together starved SoundLib (~13 KiB soft-fail). */
+	static const char *const sheets[] = {
+		"sprites/320hud1.spr",
+	};
+	int i;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_MapLoadMemoryOpt())
+		return;
+
+	FS_ClearFindMissCache();
+	Con_Reportf( "Xash3D GameCube: G127 HUD sheet preload begin\n" );
+	for( i = 0; i < (int)( sizeof( sheets ) / sizeof( sheets[0] )); i++ )
+	{
+		HSPRITE handle = pfnSPR_Load( sheets[i] );
+
+		Con_Reportf( "Xash3D GameCube: G127 HUD sheet %s handle=%d\n",
+			sheets[i], (int)handle );
+	}
+	Con_Reportf( "Xash3D GameCube: G127 HUD sheet preload ready\n" );
+}
+#endif
 
 /*
 ===============================================================================

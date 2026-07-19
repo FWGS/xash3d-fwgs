@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G126 DONE: preload fire+steps+ric1 (~29611 B); alias ric2-5; HUD soft-fail stub. Evidence .ai/logs/dolphin-probe-20260719-013339. Next: pick following MEM1 gameplay polish goal (HUD real sheets, tracers, Find-after-free, or present/XFB)."
+  "note": "G133 DONE: capture-time texinfo → textured+lit RGB565 spans (probe 20260719-051017). Next: more visible faces / real lightmap samples / clearer stage-04."
 }

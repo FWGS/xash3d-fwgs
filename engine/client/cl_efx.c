@@ -6,6 +6,9 @@
 #include "r_efx.h"
 #include "cl_tent.h"
 #include "pm_local.h"
+#if XASH_GAMECUBE
+#include "gamecube/mem_gamecube.h"
+#endif
 #define PART_SIZE	Q_max( 0.5f, cl_draw_particles.value )
 
 /*
@@ -237,13 +240,29 @@ static particle_t *R_AllocTracer( const vec3_t org, const vec3_t vel, float life
 
 	if( !cl_free_particles )
 	{
-		if( cl_lasttimewarn < host.realtime )
+#if XASH_GAMECUBE
+		/* G127: reclaim finished tracers/particles before declaring overflow.
+		 * One glock burst can allocate faster than the draw path frees. */
+		R_FreeDeadParticles( &cl_active_tracers );
+		R_FreeDeadParticles( &cl_active_particles );
+#endif
+		if( !cl_free_particles )
 		{
-			// don't spam about overflow
-			Con_DPrintf( S_ERROR "Overflow %d tracers\n", GI->max_particles );
-			cl_lasttimewarn = host.realtime + 1.0f;
+			if( cl_lasttimewarn < host.realtime )
+			{
+#if XASH_GAMECUBE
+				/* G127: rapid probe fire can exhaust the lean shared pool;
+				 * do not spam S_ERROR — allocation already soft-fails. */
+				Con_Reportf( "Xash3D GameCube: tracer pool exhausted (%d)\n",
+					GI->max_particles );
+#else
+				// don't spam about overflow
+				Con_DPrintf( S_ERROR "Overflow %d tracers\n", GI->max_particles );
+#endif
+				cl_lasttimewarn = host.realtime + 1.0f;
+			}
+			return NULL;
 		}
-		return NULL;
 	}
 
 	p = cl_free_particles;
@@ -1737,6 +1756,12 @@ void GAME_EXPORT R_BulletImpactParticles( const vec3_t pos )
 
 	int quantity = (1000.0f - dist) / 100.0f;
 	if( quantity == 0 ) quantity = 1;
+#if XASH_GAMECUBE
+	/* G127: close-range impacts request quantity*4 particles from the shared
+	 * pool and starve tracers (Overflow N). Cap the burst under MEM1. */
+	if(( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcfullphysics" )) && quantity > 2 )
+		quantity = 2;
+#endif
 
 	int color = 3 - ((30 * quantity) / 100 );
 	R_SparkStreaks( pos, 2, -200, 200 );
@@ -1793,6 +1818,11 @@ create a splash of streaks
 void GAME_EXPORT R_StreakSplash( const vec3_t pos, const vec3_t dir, int color, int count, float speed, int velocityMin, int velocityMax )
 {
 	vec3_t		vel, vel2;
+#if XASH_GAMECUBE
+	/* G127: TE_STREAK_SPLASH count is a short and can exceed the lean pool. */
+	if(( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcfullphysics" )) && count > 8 )
+		count = 8;
+#endif
 
 	VectorScale( dir, speed, vel );
 
@@ -1895,6 +1925,12 @@ create a streak tracers
 void GAME_EXPORT R_SparkStreaks( const vec3_t pos, int count, int velocityMin, int velocityMax )
 {
 	vec3_t		vel;
+#if XASH_GAMECUBE
+	/* G127: one impact can request dozens of streaks and fill the shared
+	 * particle/tracer pool (Overflow N tracers). Keep a small burst. */
+	if(( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcfullphysics" )) && count > 6 )
+		count = 6;
+#endif
 
 	for( int i = 0; i<count; i++ )
 	{
@@ -1925,6 +1961,10 @@ void GAME_EXPORT R_Implosion( const vec3_t end, float radius, int count, float l
 
 	if( life <= 0.0f ) life = 0.1f; // to avoid divide by zero
 	float factor = -1.0 / life;
+#if XASH_GAMECUBE
+	if(( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcfullphysics" )) && count > 8 )
+		count = 8;
+#endif
 
 	for( int i = 0; i < count; i++ )
 	{

@@ -1226,6 +1226,49 @@ static void D_SolidSurf( surf_t *s )
 	if( !pface )
 		return;
 
+#if XASH_GAMECUBE
+	/* G132/G133: null texinfo → flat fill; captured faces now carry texinfo. */
+	if( GC_UseLowResWorldProbe() && gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && !pface->texinfo )
+	{
+		espan_t *span;
+		unsigned short color = 0x8410; /* mid gray */
+		static qboolean flat_logged;
+
+		if( pface->plane )
+		{
+			float ny = fabs( pface->plane->normal[2] );
+			if( ny > 0.7f )
+				color = 0x5AAB; /* floor/ceiling greenish */
+			else if( pface->plane->normal[0] > 0.5f )
+				color = 0xA514;
+			else if( pface->plane->normal[0] < -0.5f )
+				color = 0x7BEF;
+			else
+				color = 0x9CD3;
+		}
+		for( span = s->spans; span; span = span->pnext )
+		{
+			unsigned short *p = (unsigned short *)((byte *)d_viewbuffer
+				+ span->v * r_screenwidth * 2) + span->u;
+			short *z = d_pzbuffer + span->v * d_zwidth + span->u;
+			int u;
+			const short zi = (short)( s->nearzi * 32768.0f );
+
+			for( u = 0; u < span->count; u++ )
+			{
+				p[u] = color;
+				z[u] = zi;
+			}
+		}
+		if( !flat_logged )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G132 flat solid spans active\n" );
+			flat_logged = true;
+		}
+		return;
+	}
+#endif
+
 	if( pface->flags & SURF_CONVEYOR )
 		miplevel = 1;
 	else
@@ -1241,7 +1284,16 @@ static void D_SolidSurf( surf_t *s )
 	{
 		static unsigned gc_lit_hits, gc_lit_miss;
 		static qboolean gc_lit_marker_logged;
+		static qboolean gc_solid_enter_logged;
 
+		if( !gc_solid_enter_logged )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: D_SolidSurf low-res enter cache=%d\n",
+				R_GcmapHasSurfaceCache() ? 1 : 0 );
+			gc_solid_enter_logged = true;
+		}
+
+		/* Prefer mip≥1 so surfaces still fit; mip≥2 starved small faces. */
 		if( miplevel < 1 )
 			miplevel = 1;
 
@@ -1280,21 +1332,24 @@ static void D_SolidSurf( surf_t *s )
 		}
 		gc_lit_miss++;
 		d_gc_span_rgb565 = false;
-		if( tr.framecount <= 1 || ( tr.framecount & 31 ) == 0 )
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: surfcache lit hits=%u miss=%u frame=%d\n",
-				gc_lit_hits, gc_lit_miss, tr.framecount );
+		if( gc_lit_miss <= 8 || tr.framecount <= 2 || ( tr.framecount & 31 ) == 0 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: surfcache lit hits=%u miss=%u frame=%d mip=%d\n",
+				gc_lit_hits, gc_lit_miss, tr.framecount, miplevel );
 
-		/* Cycle through saturated primaries so uncached surfaces stay visible. */
+		/* G129/G130: coherent sky/wall flat fills — rainbow primaries looked like
+		 * TV static after green-only YUYV DumpFrames. Slightly vary wall tone by
+		 * face pointer so adjacent planes separate after dump coalesce. */
 		{
-			static const pixel_t gc_probe_colors[6] = {
-				0xF800, /* red */
-				0x07E0, /* green */
-				0x001F, /* blue */
-				0xFFE0, /* yellow */
-				0xF81F, /* magenta */
-				0x07FF, /* cyan */
-			};
-			pixel_t fill = gc_probe_colors[((uintptr_t)pface >> 5 ) % 6];
+			pixel_t fill;
+
+			if( pface && ( pface->flags & ( SURF_DRAWSKY | SURF_DRAWTURB )))
+				fill = 0x5ADB; /* sky blue */
+			else
+			{
+				unsigned face_tone = (unsigned)( (uintptr_t)pface >> 4 );
+				/* 0xA514 base gray ± small green/blue steps (still flat, not neon). */
+				fill = (pixel_t)( 0xA514 + ( face_tone & 0x18 ) - ( face_tone & 0x06 ));
+			}
 
 			D_FlatFillSurface( s, fill );
 			D_DrawZSpans( s->spans );
@@ -1385,20 +1440,51 @@ void D_DrawSurfaces( void )
 
 	if( !sw_drawflat.value )
 	{
+#if XASH_GAMECUBE
+		unsigned n_span = 0, n_sky = 0, n_turb = 0, n_solid = 0, n_alpha = 0;
+#endif
 		for( surf_t *s = &surfaces[1]; s < surface_p; s++ )
 		{
 			if( !s->spans )
 				continue;
+#if XASH_GAMECUBE
+			n_span++;
+#endif
 
 			if( alphaspans )
+			{
+#if XASH_GAMECUBE
+				n_alpha++;
+#endif
 				D_AlphaSurf( s );
+			}
 			else if(( s->flags & SURF_DRAWSKY ) || ( s == &surfaces[1] ))
+			{
+#if XASH_GAMECUBE
+				n_sky++;
+#endif
 				D_BackgroundSurf( s );
+			}
 			else if( s->flags & SURF_DRAWTURB )
+			{
+#if XASH_GAMECUBE
+				n_turb++;
+#endif
 				D_TurbulentSurf( s );
+			}
 			else
+			{
+#if XASH_GAMECUBE
+				n_solid++;
+#endif
 				D_SolidSurf( s );
+			}
 		}
+#if XASH_GAMECUBE
+		if( GC_UseLowResWorldProbe() && ( tr.framecount <= 2 || ( tr.framecount & 31 ) == 0 ))
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: drawsurfs span=%u sky=%u turb=%u solid=%u alpha=%u frame=%d\n",
+				n_span, n_sky, n_turb, n_solid, n_alpha, tr.framecount );
+#endif
 	}
 	else
 		D_DrawflatSurfaces();

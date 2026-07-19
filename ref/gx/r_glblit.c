@@ -809,21 +809,47 @@ void R_BlitScreen( void )
 	if( !buffer || gpGlobals->width != vid.width || gpGlobals->height != vid.height )
 	{
 #if XASH_GAMECUBE
-		/* New Game keeps a lean present buffer after map-load trim. Do not
-		 * re-AllocScreen(640x480) into exhausted MEM1 — that path stalls the
-		 * connect Host_Frame. Skip the blit until world/probe screens match. */
+		/* G129: New Game keeps lean 320×240 screens. Do not re-AllocScreen into
+		 * MEM1, but still blit when vid.buffer is valid — silent skip left
+		 * gc.buffer as stale noise behind the WORLD PRESENT panel. */
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& vid.buffer && vid.width > 0 && vid.height > 0 )
+		{
+			if( gpGlobals->width != vid.width || gpGlobals->height != vid.height )
+			{
+				static qboolean g129_blit_sync_logged;
+
+				gpGlobals->width = vid.width;
+				gpGlobals->height = vid.height;
+				if( !g129_blit_sync_logged )
+				{
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: G129 blit sync gpGlobals=%dx%d\n",
+						vid.width, vid.height );
+					g129_blit_sync_logged = true;
+				}
+			}
+			if( !buffer )
+			{
+				buffer = swblit.pLockBuffer();
+				if( !buffer )
+					return;
+			}
+		}
+		else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" )
 			&& ( !vid.buffer || gpGlobals->width != vid.width || gpGlobals->height != vid.height ))
 		{
 			if( buffer )
 				swblit.pUnlockBuffer();
 			return;
 		}
+		else
 #endif
-		R_AllocScreen();
-		buffer = swblit.pLockBuffer();
-		if( !buffer )
-			return;
+		{
+			R_AllocScreen();
+			buffer = swblit.pLockBuffer();
+			if( !buffer )
+				return;
+		}
 	}
 
 	if( !vid.buffer )

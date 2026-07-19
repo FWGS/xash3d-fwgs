@@ -21,6 +21,7 @@ GNU General Public License for more details.
 int GC_GetNewGameViewCluster( void );
 qboolean GC_HasNewGameCachedVis( void );
 qboolean GC_ApplyNewGameCachedVis( int visframe );
+void GC_ApplyNewGameSurfVis( int surf_frame );
 #endif
 // #include "beamdef.h"
 #include "entity_types.h"
@@ -1509,6 +1510,10 @@ static void R_EdgeDrawingGcmapProbe( void )
 #endif
 	R_RenderWorld();
 #if XASH_GAMECUBE
+	{
+		extern void R_GcReportFaceEmit( void );
+		R_GcReportFaceEmit();
+	}
 	if( tr.framecount <= 1 && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_EdgeDrawing after RenderWorld\n" );
 #endif
@@ -1660,6 +1665,7 @@ static void R_MarkLeaves( void )
 		r_oldviewcluster = r_viewcluster;
 		if( GC_ApplyNewGameCachedVis( tr.visframecount ))
 		{
+			GC_ApplyNewGameSurfVis( tr.framecount );
 			if( tr.framecount <= 1 )
 				gEngfuncs.Con_Reportf( "Xash3D GameCube: cached FatPVS leaf mark active cluster=%d\n",
 					r_viewcluster );
@@ -1933,7 +1939,16 @@ void GAME_EXPORT R_RenderFrame( const ref_viewpass_t *rvp )
 		if( r_norefresh->value )
 			return;
 		if( gpGlobals->height > vid.height || gpGlobals->width > vid.width )
-			return;
+		{
+			/* G129: sync lean New Game screens instead of silently skipping draw. */
+			if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && vid.width > 0 && vid.height > 0 )
+			{
+				gpGlobals->width = vid.width;
+				gpGlobals->height = vid.height;
+			}
+			else
+				return;
+		}
 
 		R_ClearScene();
 		R_SetupRefParams( rvp );

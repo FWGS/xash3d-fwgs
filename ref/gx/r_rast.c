@@ -31,6 +31,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static unsigned int cacheoffset;
 static int c_faceclip;                                             // number of faces clipped
+#if XASH_GAMECUBE
+static unsigned r_gc_face_try;
+static unsigned r_gc_face_emit;
+static unsigned r_gc_face_noemit;
+#endif
 static medge16_t *r_pedge;
 static qboolean r_leftclipped, r_rightclipped;
 static qboolean makeleftedge, makerightedge;
@@ -418,6 +423,10 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 	}
 
 	c_faceclip++;
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+		r_gc_face_try++;
+#endif
 
 // set up clip planes
 	clipplane_t *pclip = NULL;
@@ -556,7 +565,17 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 
 // if no edges made it out, return without posting the surface
 	if( !r_emitted )
+	{
+#if XASH_GAMECUBE
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+			r_gc_face_noemit++;
+#endif
 		return;
+	}
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+		r_gc_face_emit++;
+#endif
 
 //	r_polycount++;
 
@@ -583,6 +602,19 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 
 	surface_p++;
 }
+
+#if XASH_GAMECUBE
+void R_GcReportFaceEmit( void )
+{
+	if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() ))
+		return;
+	if( tr.framecount > 2 && ( tr.framecount & 31 ) != 0 )
+		return;
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: G132 faces try=%u emit=%u noemit=%u frame=%d\n",
+		r_gc_face_try, r_gc_face_emit, r_gc_face_noemit, tr.framecount );
+	r_gc_face_try = r_gc_face_emit = r_gc_face_noemit = 0;
+}
+#endif
 
 
 /*

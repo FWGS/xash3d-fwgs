@@ -868,6 +868,9 @@ client_textmessage_t *CL_TextMessageGet( const char *pName );
 void NetAPI_CancelAllRequests( void );
 model_t *CL_LoadClientSprite( const char *filename );
 model_t *CL_LoadModel( const char *modelname, int *index );
+#if XASH_GAMECUBE
+void CL_GCPreloadNewGameHudSprites( void );
+#endif
 HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags );
 void SPR_AdjustSize( float *x, float *y, float *w, float *h );
 int CL_GetScreenInfo( SCREENINFO *pscrinfo );

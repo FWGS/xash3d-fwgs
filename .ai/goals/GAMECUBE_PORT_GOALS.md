@@ -25,11 +25,25 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G124: preload all four `pl_step*` under budget before fire (LRU for small SFX)
 - G125: preload `pl_gun3` then steps (~24 KiB resident); fire+walk coexist via cache
 - G126: preload `ric1` + alias ric*; HUD soft-fail stub
+- G127: preload `320hud1` before SFX; particles=96; FX burst caps
+- G128: CPU YUYV dump presents + WORLD PRESENT framedump
+- G129: coherent world dump (blit sync + sky/wall fills)
+- G130: posterize WORLD PRESENT dumps (room-plane DumpFrames)
+- G131: unsigned zi depth dumps + look-into-map; flat→color coalesce
+- G132: capture-time faces + flat solid spans (solid>0 WORLD PRESENT)
+- G133: capture texinfo → textured+lit RGB565 spans
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(queue empty after G126 — pick next MEM1 gameplay polish goal)*
+1. *(queue empty after G133 — next: more faces / real lightmaps / stage-04 clarity)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260719-051017` (G133 textured+lit RGB565 on cap faces)
+- `.ai/logs/dolphin-probe-20260719-050525` (G132 cap faces emit + flat solid spans)
+- `.ai/logs/dolphin-probe-20260719-040343` (G131 depth + color-coalesce WORLD PRESENT)
+- `.ai/logs/dolphin-probe-20260719-034456` (G130 posterize WORLD PRESENT dump)
+- `.ai/logs/dolphin-probe-20260719-032144` (G129 sky backdrop + WORLD PRESENT dump)
+- `.ai/logs/dolphin-probe-20260719-030808` (G128 CPU dump presents + WORLD PRESENT framedump)
+- `.ai/logs/dolphin-probe-20260719-025133` (G127 HUD 320hud1 preload + SFX coexist, particles=96)
 - `.ai/logs/dolphin-probe-20260719-013339` (G126 fire+steps+ric preload, no ric2–5 FS, HUD soft-fail stub)
 - `.ai/logs/dolphin-probe-20260719-005629` (G125 fire+steps preload, cache-hit fire, ric1 load, PCM peak)
 - `.ai/logs/dolphin-probe-20260718-215805` (G124 four pl_step* preload decodes)
@@ -2285,6 +2299,107 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `G126 preload ... ready budget_used=29611`,
   `HUD sprite stub after soft-fail sprites/320hud1.spr`,
   `G122 EV_FireGlock`, `audio submitted ... peak=2402`, no ric2–5 load.
+
+## G127 [x] Real HUD sheets before SFX + tracer headroom
+
+- Status: DONE 2026-07-19. Fat `sprites/320hud1.spr` (~66 KiB) soft-failed
+  after gameplay SFX preload. Fix: `CL_GCPreloadNewGameHudSprites` loads it
+  after lean VidInit and before SFX. Fullphysics particle budget raised to 96;
+  impact/streak/implosion bursts capped under MEM1; tracer reclaim before
+  soft exhaust (no S_ERROR spam).
+- Acceptance:
+  - `G127 HUD sheet sprites/320hud1.spr handle=` non-zero (real load).
+  - No post-SFX `HUD sprite stub after soft-fail sprites/320hud1.spr`.
+  - `G127 preload fire+steps+ric ready budget_used=29611` still succeeds.
+  - `client budgets particles=96`.
+  - Fire + nonzero ASND peak.
+- Evidence: `.ai/logs/dolphin-probe-20260719-025133` —
+  `G127 HUD sheet ... handle=1`, `preload ... ready budget_used=29611`,
+  `G122 EV_FireGlock`, `audio submitted ... peak=13771`, no 320hud1 soft-fail stub.
+
+## G128 [x] Readable Dolphin world framedumps via CPU XFB present
+
+- Status: DONE 2026-07-19. GX tiled presents dump as period-32 noise. After
+  world+HUD, stamp HL status panel (`WORLD PRESENT` + map) onto the SW buffer
+  and force CPU YUYV→XFB presents with VSync so DumpFrames latches readable
+  frames.
+- Acceptance:
+  - `G128 CPU dump presents ready` in OSREPORT.
+  - DumpFrames PNG showing `WORLD PRESENT` status panel (not pure period-32 noise).
+  - Saved `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+- Evidence: `.ai/logs/dolphin-probe-20260719-030808` —
+  `G128 CPU dump presents begin/ready`, framedump_14 with WORLD PRESENT +
+  `MAP C1A0A` panel; screenshot copied to demo-stages.
+
+## G129 [x] Coherent world pixels for WORLD PRESENT dumps
+
+- Status: DONE 2026-07-19. Silent blit skip / rainbow flat-fills / green-only
+  YUYV made DumpFrames look like static. Sync gpGlobals for New Game blit,
+  validate retained screen size, coherent sky/wall flat fills, BT.601 on CPU
+  dump presents, and always flood a sky backdrop before the WORLD PRESENT panel.
+- Acceptance:
+  - `G129 sky backdrop fill` logged with world nonblack telemetry.
+  - stage-04 dump shows solid sky + WORLD PRESENT panel (not speckled noise).
+- Evidence: `.ai/logs/dolphin-probe-20260719-032144` —
+  `G129 sky backdrop fill (world nonblack=1140/1200)`,
+  `G128 CPU dump presents ready`;
+  `.ai/screenshots/demo-stages/stage-04-world-present.png` (solid sky + panel).
+
+## G130 [x] Posterize WORLD PRESENT DumpFrames (room planes)
+
+- Status: DONE 2026-07-19. Soft-edge color still speckles; zi nearly empty
+  (`depth=19`). Coalesce 4×4, binary sky/wall/dark classify, 16×16 majority,
+  stamp WORLD PRESENT panel, 6× CPU YUYV presents. Loading presents also force
+  one CPU dump so stage-01-live stays readable.
+- Acceptance:
+  - `G130 posterize dump` logged with color nonblack telemetry.
+  - stage-04 DumpFrames shows low unique colors + panel (not GX period-32).
+- Evidence: `.ai/logs/dolphin-probe-20260719-034456` —
+  `G130 posterize dump (depth=19 color nonblack=1140/1200)`,
+  framedump_12 (~95% wall plane + panel);
+  `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G131 [x] Depth-aware WORLD PRESENT dumps (unsigned zi + look-into-map)
+
+- Status: DONE 2026-07-19. G130 treated signed zi≤0 as empty (`depth=19`);
+  near surfaces store izi>>16 in the high half. Treat z as unsigned (skip only
+  0xFFFF), continuous percentile shade, aim dump camera at map center, and if
+  the depth image is flat (≤3 tones) fall back to 4×4 color coalesce so
+  face-toned walls keep spatial structure.
+- Acceptance:
+  - `G131 depth dump shade valid=` with tens of thousands of samples.
+  - `G131 dump look angles=` logged; stage-04 shows spatial structure + panel.
+- Evidence: `.ai/logs/dolphin-probe-20260719-040343` —
+  `valid=38415/76800`, `G131 depth flat→color coalesce`, framedump_14
+  (uniq≈69, spat≈63); `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G132 [x] Capture-time faces → flat solid spans (WORLD PRESENT)
+
+- Status: DONE 2026-07-19. Scratch-backed `msurface_t` / node walks are dead by
+  present (`faces try=0`, promote OOM). Capture up to 256 visible faces while
+  BSP is valid (plane/edges), draw them via `R_RenderFace` with null texinfo,
+  and flat-fill RGB565+zi in `D_SolidSurf`. Camera snaps to capture origin when
+  lean PVS cannot follow the player cluster.
+- Acceptance:
+  - `G132 captured draw faces=` and `G132 cap faces drawn=` logged.
+  - `drawsurfs … solid>0` and `G132 flat solid spans active`.
+  - stage-04 DumpFrames shows multi-tone world + panel (not sky-only).
+- Evidence: `.ai/logs/dolphin-probe-20260719-050525` —
+  `captured draw faces=256`, `faces try=175 emit=15`, `solid=10`,
+  `flat solid spans active`; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G133 [x] Capture texinfo → textured+lit RGB565 spans
+
+- Status: DONE 2026-07-19. Extend G132 face capture with `mtexinfo_t` (texture*)
+  + `mextrasurf_t` (lightextents / CACHESPOT). Null-samples use the existing
+  mid-grade light path. Captured faces hit `D_CacheSurface` → RGB565 spans.
+- Acceptance:
+  - `G133 captured draw faces=… textured=…`
+  - `textured+lit RGB565 spans active` / `surfcache lit begin`
+  - `drawsurfs … solid>0`; stage-04 refreshed.
+- Evidence: `.ai/logs/dolphin-probe-20260719-051017` —
+  `textured=256`, `textured+lit RGB565 spans active`, `solid=10`;
+  `.ai/screenshots/demo-stages/stage-04-world-present.png`.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

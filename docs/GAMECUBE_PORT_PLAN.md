@@ -2769,6 +2769,73 @@ HUD soft-fails stub instead of aborting (optional `gc_320hud2` fallback).
 `G126 preload ... ready budget_used=29611`, soft-fail HUD stub, `G122
 EV_FireGlock`, ASND peak>0, no ric2–5 FS loads after fire.
 
+## G127 — Real HUD sheets before SFX + tracer headroom (COMPLETE 2026-07-19)
+
+Preload `320hud1` after lean VidInit before gameplay SFX so the 66 KiB FS
+alloc succeeds; keep fire/steps/ric preload. Fullphysics particles=96 with
+MEM1 FX burst caps and soft tracer exhaust (no S_ERROR spam).
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-025133` —
+`G127 HUD sheet ... handle=1`, `budget_used=29611`, fire + ASND peak,
+no 320hud1 soft-fail stub.
+
+## G128 — Readable Dolphin world framedumps via CPU XFB (COMPLETE 2026-07-19)
+
+Stamp `WORLD PRESENT` + map onto the SW buffer after world render; force CPU
+YUYV→XFB presents with VSync so Dolphin DumpFrames is not GX period-32 noise.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-030808` —
+`G128 CPU dump presents ready`; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G129 — Coherent world pixels for WORLD PRESENT dumps (COMPLETE 2026-07-19)
+
+Blit sync + coherent flat fills + BT.601 dump YUYV + sky backdrop before panel.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-032144` —
+`G129 sky backdrop fill (world nonblack=1140/1200)`;
+`.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G130 — Posterize WORLD PRESENT DumpFrames (COMPLETE 2026-07-19)
+
+Coalesce + sky/wall/dark classify + 16×16 majority on the SW buffer before the
+panel; 6× CPU YUYV presents. Loading status also forces one CPU dump present.
+Zi still nearly empty (`depth=19`); textured+lit spans remain next.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-034456` —
+`G130 posterize dump (depth=19 color nonblack=1140/1200)`;
+`.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G131 — Depth-aware WORLD PRESENT dumps (COMPLETE 2026-07-19)
+
+Unsigned zi sampling (near surfaces were rejected as signed-negative), dump
+camera aimed at map center, continuous depth shade with percentile stretch, and
+flat-depth fallback to color coalesce. Textured+lit spans remain next.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-040343` —
+`G131 depth dump shade valid=38415/76800`, `G131 depth flat→color coalesce`;
+`.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G132 — Capture-time faces → flat solid spans (COMPLETE 2026-07-19)
+
+Scratch `msurface_t` / BSP node walks are unusable by present (`faces try=0`;
+full surface promote OOMs). Capture ≤256 visible faces (plane+edges) while BSP
+is valid; draw via `R_RenderFace` with null texinfo; flat RGB565+zi in
+`D_SolidSurf`. Lean PVS miss snaps camera to capture origin.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-050525` —
+`G132 captured draw faces=256`, `faces try=175 emit=15`, `solid=10`,
+`G132 flat solid spans active`; stage-04 refreshed. Next: capture/retain
+texinfo for textured+lit RGB565.
+
+## G133 — Capture texinfo → textured+lit RGB565 (COMPLETE 2026-07-19)
+
+Face capture now copies `mtexinfo_t` + extrasurf extents; samples forced NULL
+(mid-grade light). Emitted solids hit surfcache → `textured+lit RGB565 spans`.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-051017` —
+`G133 captured draw faces=256 textured=256`, `textured+lit RGB565 spans active`,
+`solid=10`; stage-04 refreshed.
+
 ## Next wake-up commands
 
 ```sh

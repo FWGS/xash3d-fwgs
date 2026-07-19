@@ -4775,6 +4775,69 @@ static void Mod_GCDropDeferredBspLumpsBeforeSurfaces( void )
 	GC_MemSample( "bsp-deferred-drop" );
 }
 
+void Mod_GameCubeFreeMallocSurfaces( model_t *mod );
+
+/*
+ * G132: copy scratch-backed world surfaces into malloc so New Game present
+ * still has valid plane/edge fields after BSP scratch reuse.
+ */
+qboolean Mod_GCPromoteWorldSurfaces( model_t *mod )
+{
+	size_t bytes;
+	byte *block;
+	msurface_t *old_surf;
+	msurface_t *new_surf;
+	mextrasurf_t *new_info;
+	int i;
+
+	if( !mod || !mod->surfaces || mod->numsurfaces <= 0 )
+		return false;
+	if( !Mod_GCPointerInScratchArena( mod->surfaces ))
+		return true; /* already outside scratch */
+	if( gc_surfaces_malloc_block )
+		return true; /* already promoted this map */
+
+	bytes = (size_t)mod->numsurfaces * ( sizeof( msurface_t ) + sizeof( mextrasurf_t ));
+	block = (byte *)malloc( bytes );
+	if( !block )
+	{
+		Con_Reportf( "Xash3D GameCube: G132 surface promote OOM %s\n", Q_memprint( bytes ));
+		return false;
+	}
+
+	memcpy( block, mod->surfaces, bytes );
+	old_surf = mod->surfaces;
+	new_surf = (msurface_t *)block;
+	new_info = (mextrasurf_t *)( block + (size_t)mod->numsurfaces * sizeof( msurface_t ));
+
+	for( i = 0; i < mod->numsurfaces; i++ )
+	{
+		new_surf[i].info = &new_info[i];
+		new_info[i].surf = &new_surf[i];
+	}
+
+	if( mod->marksurfaces && mod->nummarksurfaces > 0 )
+	{
+		for( i = 0; i < mod->nummarksurfaces; i++ )
+		{
+			msurface_t *ms = mod->marksurfaces[i];
+			ptrdiff_t idx;
+
+			if( !ms )
+				continue;
+			idx = ms - old_surf;
+			if( idx >= 0 && idx < mod->numsurfaces )
+				mod->marksurfaces[i] = &new_surf[idx];
+		}
+	}
+
+	mod->surfaces = new_surf;
+	gc_surfaces_malloc_block = block;
+	Con_Reportf( "Xash3D GameCube: G132 promoted world surfaces via malloc %s\n",
+		Q_memprint( bytes ));
+	return true;
+}
+
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 {
 	if( gc_marksurfaces_malloc_block )

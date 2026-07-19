@@ -24,6 +24,7 @@ void R_GcmapTrimSurfaceCache( void );
 qboolean R_GcmapEnsureWorldRenderScratch( void );
 qboolean R_GcmapPrepareWorldRender( void );
 qboolean R_GcmapGetViewport( int *width, int *height );
+unsigned R_GcmapShadeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride );
 qboolean GC_PrepareNewGameWorldPresent( void );
 void R_GcmapTrimForMapLoad( void );
 void Mod_GCClearRetainedBspScratch( void );
@@ -70,6 +71,8 @@ static byte *gc_newgame_vis; /* active row pointer into pvs table */
 static byte *gc_newgame_nodebits; /* active row pointer into node table */
 static byte *gc_newgame_pvs_table; /* [numclusters][visbytes] or lean slots */
 static byte *gc_newgame_node_table; /* [numclusters][nodebytes] or lean slots */
+static byte *gc_newgame_surf_table; /* G132: [numclusters][surfbytes] marksurface bits at capture */
+static byte *gc_newgame_surfbits; /* active row into surf_table */
 static byte *gc_newgame_cluster_valid; /* one byte per cluster (full) or per lean slot */
 static int gc_newgame_numclusters;
 static qboolean gc_newgame_pvs_lean; /* G96/G101: compact cache when multi-row OOM */
@@ -86,10 +89,125 @@ static byte *gc_newgame_packed_nodebits; /* fixed node row per retained cluster 
 static size_t gc_newgame_packed_nodebits_size;
 static int gc_newgame_visbytes;
 static int gc_newgame_nodebytes;
+static int gc_newgame_surfbytes;
 static int gc_newgame_numleafs;
 static int gc_newgame_numnodes;
+static int gc_newgame_numsurfaces;
 static int gc_newgame_vis_leafs;
 static int gc_newgame_vis_nodes;
+/* G132: compact face records captured while msurface_t is still valid. */
+#define GC_MAX_CAP_FACES 256
+typedef struct
+{
+	int		firstedge;
+	int		numedges;
+	int		flags;
+	mplane_t	plane;
+	mtexinfo_t	texinfo;	/* G133: copy — texture* stays in model pool */
+	mextrasurf_t	info;		/* lightextents + CACHESPOT reserved */
+	short		texturemins[2];
+	short		extents[2];
+	byte		styles[MAXLIGHTMAPS];
+	color24		*samples;	/* may be NULL after scratch reuse */
+} gc_cap_face_t;
+static gc_cap_face_t gc_newgame_cap_faces[GC_MAX_CAP_FACES];
+static msurface_t gc_newgame_draw_surfs[GC_MAX_CAP_FACES];
+static int gc_newgame_cap_face_count;
+static int gc_newgame_cap_tex_faces; /* faces that kept a live texture* */
+
+int GC_GetNewGameCapFaceCount( void )
+{
+	return gc_newgame_cap_face_count;
+}
+
+msurface_t *GC_GetNewGameDrawSurfs( void )
+{
+	return gc_newgame_cap_face_count > 0 ? gc_newgame_draw_surfs : NULL;
+}
+
+static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbits )
+{
+	int i;
+
+	gc_newgame_cap_face_count = 0;
+	gc_newgame_cap_tex_faces = 0;
+	if( !wmodel || !wmodel->surfaces || !surfbits || gc_newgame_surfbytes <= 0 )
+		return;
+
+	for( i = 0; i < wmodel->numsurfaces && gc_newgame_cap_face_count < GC_MAX_CAP_FACES; i++ )
+	{
+		msurface_t *src;
+		gc_cap_face_t *dst;
+		msurface_t *draw;
+
+		if( !( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
+			continue;
+		src = &wmodel->surfaces[i];
+		if( !src->plane || src->numedges < 3 || src->numedges > 32 )
+			continue;
+		if( src->firstedge < 0
+			|| src->firstedge + src->numedges > wmodel->numsurfedges )
+			continue;
+		/* Prefer solid world faces for textured spans; sky stays background. */
+		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+			continue;
+
+		dst = &gc_newgame_cap_faces[gc_newgame_cap_face_count];
+		draw = &gc_newgame_draw_surfs[gc_newgame_cap_face_count];
+		memset( dst, 0, sizeof( *dst ));
+		dst->firstedge = src->firstedge;
+		dst->numedges = src->numedges;
+		dst->flags = src->flags;
+		dst->plane = *src->plane;
+		dst->texturemins[0] = src->texturemins[0];
+		dst->texturemins[1] = src->texturemins[1];
+		dst->extents[0] = src->extents[0];
+		dst->extents[1] = src->extents[1];
+		memcpy( dst->styles, src->styles, sizeof( dst->styles ));
+		dst->samples = src->samples; /* may dangle later — lit path tolerates NULL */
+
+		if( src->texinfo && src->texinfo->texture )
+		{
+			dst->texinfo = *src->texinfo;
+			dst->texinfo.faceinfo = NULL; /* may point into scratch */
+			gc_newgame_cap_tex_faces++;
+		}
+		if( src->info )
+		{
+			dst->info = *src->info;
+			dst->info.surf = draw;
+			dst->info.bevel = NULL;
+			dst->info.deluxemap = NULL;
+			memset( dst->info.reserved, 0, sizeof( dst->info.reserved ));
+		}
+		else
+		{
+			dst->info.lightextents[0] = src->extents[0];
+			dst->info.lightextents[1] = src->extents[1];
+			dst->info.lightmapmins[0] = src->texturemins[0];
+			dst->info.lightmapmins[1] = src->texturemins[1];
+			dst->info.surf = draw;
+		}
+
+		memset( draw, 0, sizeof( *draw ));
+		draw->firstedge = dst->firstedge;
+		draw->numedges = dst->numedges;
+		draw->flags = dst->flags;
+		draw->plane = &dst->plane;
+		draw->texturemins[0] = dst->texturemins[0];
+		draw->texturemins[1] = dst->texturemins[1];
+		draw->extents[0] = dst->extents[0];
+		draw->extents[1] = dst->extents[1];
+		memcpy( draw->styles, dst->styles, sizeof( draw->styles ));
+		draw->samples = NULL; /* force mid-grade light; samples may be scratch */
+		draw->info = &dst->info;
+		if( dst->texinfo.texture )
+			draw->texinfo = &dst->texinfo;
+		gc_newgame_cap_face_count++;
+	}
+	SYS_Report( "Xash3D GameCube: G133 captured draw faces=%d textured=%d\n",
+		gc_newgame_cap_face_count, gc_newgame_cap_tex_faces );
+}
 typedef struct
 {
 	vec3_t	mins;
@@ -100,6 +218,11 @@ static gc_newgame_leafbox_t *gc_newgame_leafboxes;
 static int gc_newgame_nleafboxes;
 static qboolean gc_newgame_pvs_follow_proved;
 static qboolean gc_gx_present_logged;
+/* G128: remaining presents that must use CPU YUYV→XFB so Dolphin DumpFrames
+ * captures a readable image (GX tiled path dumps as period-32 noise). */
+static int gc_cpu_dump_presents_left;
+static qboolean gc_dump_look_into_map;
+static vec3_t gc_newgame_capture_origin; /* G132: dump camera aim target */
 static convar_t *gc_quality;
 static double gc_last_present_time;
 static double gc_worst_frame_ms;
@@ -542,9 +665,10 @@ static unsigned int GC_RGBPairToYUYV( unsigned short p1, unsigned short p2 )
 	int y1, cb1, cr1, y2, cb2, cr2;
 	int cb, cr;
 
-	/* Budget/New Game presents only need a readable non-black XFB; skip full
-	 * BT.601 conversion (dominant cost of the software present path). */
-	if( gc_budget_probe_active || gc_newgame_world_ready )
+	/* Budget presents only need a readable non-black XFB; skip full BT.601.
+	 * G129: CPU dump presents use full conversion so sky/wall colors survive. */
+	if(( gc_budget_probe_active || gc_newgame_world_ready )
+		&& gc_cpu_dump_presents_left <= 0 )
 	{
 		y1 = (( p1 >> 5 ) & 0x3F ) << 2;
 		y2 = (( p2 >> 5 ) & 0x3F ) << 2;
@@ -725,6 +849,9 @@ static void GC_PresentBuffer( void )
 	copy_h = rmode->xfbHeight;
 	dst = (unsigned int *)xfb[which_fb];
 
+	{
+	qboolean g128_cpu_dump = false;
+
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
 		const int row_pairs = rmode->fbWidth / 2;
@@ -743,8 +870,10 @@ static void GC_PresentBuffer( void )
 		}
 
 		/* Native GX present: tile linear RGB565 → EFB textured quad → XFB.
-		 * Avoids the CPU nearest-neighbor YUYV scale that dominates post-G36 lag. */
-		if( GC_CanPresentViaGX( src_w, src_h ))
+		 * Avoids the CPU nearest-neighbor YUYV scale that dominates post-G36 lag.
+		 * G128: force CPU YUYV for a few post-world dump frames — Dolphin
+		 * DumpFramesAsImages of the GX path is period-32 tiled noise. */
+		if( gc_cpu_dump_presents_left <= 0 && GC_CanPresentViaGX( src_w, src_h ))
 		{
 			GC_SwizzleRGB565ToTiled( src, gc.stride, src_w, src_h, gc_tiled_rgb565 );
 			DCFlushRange( gc_tiled_rgb565, (u32)((size_t)src_w * (size_t)src_h * sizeof( u16 )));
@@ -761,6 +890,18 @@ static void GC_PresentBuffer( void )
 			if( !gc_budget_probe_active )
 				DCFlushRange( gc.buffer, (u32)buf_size );
 			GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
+			if( gc_cpu_dump_presents_left > 0 )
+			{
+				qboolean dump_nonblack = false;
+
+				g128_cpu_dump = true;
+				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &dump_nonblack );
+				Con_Reportf( "Xash3D GameCube: G128 CPU dump present left=%d nonblack=%d %dx%d\n",
+					gc_cpu_dump_presents_left, dump_nonblack ? 1 : 0, src_w, src_h );
+				gc_cpu_dump_presents_left--;
+				if( gc_cpu_dump_presents_left == 0 )
+					Con_Reportf( "Xash3D GameCube: G128 CPU dump presents ready\n" );
+			}
 		}
 
 		/* Sample non-black for evidence. Do not scan the full RGB565 buffer
@@ -881,11 +1022,14 @@ static void GC_PresentBuffer( void )
 	VIDEO_SetNextFramebuffer( xfb[which_fb] );
 	VIDEO_Flush();
 	/* Skip VSync during G36 budget samples, New Game low-res world presents,
-	 * and startup cinematics so Host_Frame is not gated on the 16.7ms VI period. */
-	if( !gc_budget_probe_active && !gc_newgame_world_ready && cls.state != ca_cinematic )
+	 * and startup cinematics so Host_Frame is not gated on the 16.7ms VI period.
+	 * G128 CPU dump presents keep VSync so Dolphin DumpFrames can latch XFB. */
+	if( g128_cpu_dump
+		|| ( !gc_budget_probe_active && !gc_newgame_world_ready && cls.state != ca_cinematic ))
 		VIDEO_WaitVSync();
 
 	which_fb ^= 1;
+	} /* g128_cpu_dump scope */
 #else
 	(void)0;
 #endif
@@ -1491,6 +1635,163 @@ static void GC_DrawProgressBar( unsigned short *dst, int width, int height, int 
 		}
 	}
 }
+
+/* G130: 4×4 mode filter — soft-edge / tiny-poly rasters speckled DumpFrames.
+ * Quantize each block to its most common RGB565 so large sky/wall regions stay
+ * as a readable room silhouette for demo screenshots. */
+static void GC_CoalesceDumpWorldBuffer( unsigned short *dst, int width, int height, int stride )
+{
+	const int block = 4;
+	int by, bx, y, x, i;
+	unsigned short colors[16];
+	unsigned counts[16];
+	unsigned nuniq;
+	unsigned short mode;
+	unsigned best;
+
+	if( !dst || width <= 0 || height <= 0 || stride < width )
+		return;
+
+	for( by = 0; by < height; by += block )
+	{
+		int bh = block;
+		if( by + bh > height )
+			bh = height - by;
+
+		for( bx = 0; bx < width; bx += block )
+		{
+			int bw = block;
+			if( bx + bw > width )
+				bw = width - bx;
+
+			nuniq = 0;
+			for( y = 0; y < bh; y++ )
+			{
+				const unsigned short *row = dst + ( by + y ) * stride + bx;
+				for( x = 0; x < bw; x++ )
+				{
+					unsigned short p = row[x];
+					qboolean found = false;
+
+					for( i = 0; i < (int)nuniq; i++ )
+					{
+						if( colors[i] == p )
+						{
+							counts[i]++;
+							found = true;
+							break;
+						}
+					}
+					if( !found && nuniq < 16 )
+					{
+						colors[nuniq] = p;
+						counts[nuniq] = 1;
+						nuniq++;
+					}
+				}
+			}
+
+			mode = colors[0];
+			best = counts[0];
+			for( i = 1; i < (int)nuniq; i++ )
+			{
+				if( counts[i] > best )
+				{
+					best = counts[i];
+					mode = colors[i];
+				}
+			}
+
+			for( y = 0; y < bh; y++ )
+			{
+				unsigned short *row = dst + ( by + y ) * stride + bx;
+				for( x = 0; x < bw; x++ )
+					row[x] = mode;
+			}
+		}
+	}
+}
+
+/* G130: snap every pixel to sky vs wall so DumpFrames show a room silhouette.
+ * Soft-edge / textured-sky speckles collapse to two planes (+ dark). */
+static void GC_PosterizeDumpWorldBuffer( unsigned short *dst, int width, int height, int stride )
+{
+	const unsigned short sky = 0x5ADB;
+	const unsigned short wall = 0xA514;
+	const unsigned short dark = 0x10A2;
+	const int block = 16;
+	int y, x, by, bx;
+
+	if( !dst || width <= 0 || height <= 0 || stride < width )
+		return;
+
+	for( y = 0; y < height; y++ )
+	{
+		unsigned short *row = dst + y * stride;
+
+		for( x = 0; x < width; x++ )
+		{
+			unsigned short p = row[x];
+			int pr = ( p >> 11 ) & 0x1F;
+			int pg = ( p >> 5 ) & 0x3F;
+			int pb = p & 0x1F;
+			int luma = ( pr * 2 + pg + pb );
+
+			if( luma < 12 )
+				row[x] = dark;
+			else if( pb >= pr + 4 && pb >= ( pg >> 1 ) )
+				row[x] = sky;
+			else
+				row[x] = wall;
+		}
+	}
+
+	/* Large-block majority — kills residual period banding so DumpFrames
+	 * read as room planes instead of mottled tiles. */
+	for( by = 0; by < height; by += block )
+	{
+		int bh = block;
+		if( by + bh > height )
+			bh = height - by;
+
+		for( bx = 0; bx < width; bx += block )
+		{
+			int bw = block;
+			unsigned nsky = 0, nwall = 0, ndark = 0;
+			unsigned short fill;
+			if( bx + bw > width )
+				bw = width - bx;
+
+			for( y = 0; y < bh; y++ )
+			{
+				const unsigned short *row = dst + ( by + y ) * stride + bx;
+				for( x = 0; x < bw; x++ )
+				{
+					if( row[x] == sky )
+						nsky++;
+					else if( row[x] == dark )
+						ndark++;
+					else
+						nwall++;
+				}
+			}
+
+			if( nsky >= nwall && nsky >= ndark )
+				fill = sky;
+			else if( ndark >= nwall && ndark >= nsky )
+				fill = dark;
+			else
+				fill = wall;
+
+			for( y = 0; y < bh; y++ )
+			{
+				unsigned short *row = dst + ( by + y ) * stride + bx;
+				for( x = 0; x < bw; x++ )
+					row[x] = fill;
+			}
+		}
+	}
+}
 #endif
 
 static void GC_DrawStatusPanelToBuffer( unsigned short *dst, int width, int height, int stride,
@@ -1563,9 +1864,15 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 	{
 		GC_BlitLoadingBackground( gc.buffer, gc.width, gc.height, gc.stride );
 		GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride, message, details );
-		/* Avoid VIDEO_WaitVSync during Host_Init map load; it can stall for minutes in Dolphin. */
+		/* Avoid VIDEO_WaitVSync during Host_Init map load; it can stall for minutes in Dolphin.
+		 * G130: force one CPU YUYV present so DumpFrames keep the loading plaque
+		 * (GX tiled presents read as period-32 noise behind the panel). */
 		if( host.status != HOST_INIT )
+		{
+			if( gc_cpu_dump_presents_left < 1 )
+				gc_cpu_dump_presents_left = 1;
 			GC_PresentBuffer();
+		}
 		return;
 	}
 
@@ -1982,11 +2289,15 @@ qboolean GC_ApplyNewGameCachedVis( int visframe )
 	{
 		if( gc_newgame_vis[i >> 3] & ( 1 << ( i & 7 )))
 			((mnode_t *)&wmodel->leafs[i + 1])->visframe = visframe;
+		else
+			((mnode_t *)&wmodel->leafs[i + 1])->visframe = 0;
 	}
 	for( i = 0; i < node_mark; i++ )
 	{
 		if( gc_newgame_nodebits[i >> 3] & ( 1 << ( i & 7 )))
 			wmodel->nodes[i].visframe = visframe;
+		else
+			wmodel->nodes[i].visframe = 0;
 	}
 	return true;
 #else
@@ -2053,6 +2364,85 @@ static void GC_CountActiveVisRows( void )
 
 static void GC_BuildNodebitsForVisRow( model_t *wmodel, const byte *vis, byte *nodebits );
 
+/* G132: capture marksurface indices while BSP pointers are still valid. */
+static void GC_BuildSurfbitsForVisRow( model_t *wmodel, const byte *vis, byte *surfbits )
+{
+	int i;
+
+	if( !surfbits || gc_newgame_surfbytes <= 0 || !wmodel || !wmodel->surfaces )
+		return;
+	memset( surfbits, 0, (size_t)gc_newgame_surfbytes );
+
+	for( i = 0; i < wmodel->numleafs; i++ )
+	{
+		mleaf_t *pleaf;
+		msurface_t **mark;
+		int c;
+
+		if( !( vis[i >> 3] & ( 1 << ( i & 7 ))))
+			continue;
+		if( i + 1 >= wmodel->numleafs )
+			continue;
+		pleaf = &wmodel->leafs[i + 1];
+		mark = pleaf->firstmarksurface;
+		c = pleaf->nummarksurfaces;
+		if( !mark || c <= 0 || c > 4096 )
+			continue;
+		do
+		{
+			const int sidx = (int)( *mark - wmodel->surfaces );
+
+			if( sidx >= 0 && sidx < wmodel->numsurfaces )
+				surfbits[sidx >> 3] |= (byte)( 1 << ( sidx & 7 ));
+			mark++;
+		}
+		while( --c );
+	}
+}
+
+void GC_ApplyNewGameSurfVis( int surf_frame )
+{
+#if XASH_GAMECUBE
+	model_t *wmodel;
+	int i;
+	int stamped = 0;
+
+	if( !gc_newgame_surfbits || gc_newgame_numsurfaces <= 0 || surf_frame <= 0 )
+		return;
+
+	wmodel = sv.models[1];
+#if !XASH_DEDICATED
+	if( !wmodel )
+		wmodel = cl.worldmodel;
+#endif
+	if( !wmodel || !wmodel->surfaces )
+		return;
+	if( wmodel->numsurfaces < gc_newgame_numsurfaces )
+		gc_newgame_numsurfaces = wmodel->numsurfaces;
+
+	for( i = 0; i < gc_newgame_numsurfaces; i++ )
+	{
+		if( !( gc_newgame_surfbits[i >> 3] & ( 1 << ( i & 7 ))))
+			continue;
+		wmodel->surfaces[i].visframe = surf_frame;
+		stamped++;
+	}
+	if( stamped > 0 )
+	{
+		static int surf_log;
+
+		if( surf_log < 3 )
+		{
+			SYS_Report( "Xash3D GameCube: G132 surfbits stamp count=%d surf_frame=%d\n",
+				stamped, surf_frame );
+			surf_log++;
+		}
+	}
+#else
+	(void)surf_frame;
+#endif
+}
+
 static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 {
 	int prev = gc_newgame_viewcluster;
@@ -2071,6 +2461,9 @@ static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 				return false;
 			gc_newgame_vis = gc_newgame_pvs_table + (size_t)slot * (size_t)gc_newgame_visbytes;
 			gc_newgame_nodebits = gc_newgame_node_table + (size_t)slot * (size_t)gc_newgame_nodebytes;
+			gc_newgame_surfbits = ( gc_newgame_surf_table && gc_newgame_surfbytes > 0 )
+				? gc_newgame_surf_table + (size_t)slot * (size_t)gc_newgame_surfbytes
+				: NULL;
 			gc_newgame_viewcluster = cluster;
 			gc_newgame_lean_cluster = cluster;
 			gc_newgame_lean_age[slot] = ++gc_newgame_lean_clock;
@@ -2118,12 +2511,17 @@ static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 			evicted = gc_newgame_cluster_valid[slot] ? gc_newgame_lean_clusters[slot] : -1;
 			gc_newgame_vis = gc_newgame_pvs_table + (size_t)slot * (size_t)gc_newgame_visbytes;
 			gc_newgame_nodebits = gc_newgame_node_table + (size_t)slot * (size_t)gc_newgame_nodebytes;
+			gc_newgame_surfbits = ( gc_newgame_surf_table && gc_newgame_surfbytes > 0 )
+				? gc_newgame_surf_table + (size_t)slot * (size_t)gc_newgame_surfbytes
+				: NULL;
 			GC_DecompressPVS( gc_newgame_vis,
 				gc_newgame_compressed_pvs + gc_newgame_compressed_ofs[cluster],
 				(size_t)gc_newgame_visbytes );
 			memcpy( gc_newgame_nodebits,
 				gc_newgame_packed_nodebits + (size_t)cluster * (size_t)gc_newgame_nodebytes,
 				(size_t)gc_newgame_nodebytes );
+			if( gc_newgame_surfbits )
+				memset( gc_newgame_surfbits, 0, (size_t)gc_newgame_surfbytes );
 			gc_newgame_cluster_valid[slot] = 1;
 			gc_newgame_lean_clusters[slot] = cluster;
 			gc_newgame_lean_age[slot] = ++gc_newgame_lean_clock;
@@ -2143,6 +2541,9 @@ static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 
 	gc_newgame_vis = gc_newgame_pvs_table + (size_t)cluster * (size_t)gc_newgame_visbytes;
 	gc_newgame_nodebits = gc_newgame_node_table + (size_t)cluster * (size_t)gc_newgame_nodebytes;
+	gc_newgame_surfbits = ( gc_newgame_surf_table && gc_newgame_surfbytes > 0 )
+		? gc_newgame_surf_table + (size_t)cluster * (size_t)gc_newgame_surfbytes
+		: NULL;
 	gc_newgame_viewcluster = cluster;
 	GC_CountActiveVisRows();
 
@@ -2154,20 +2555,63 @@ static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change )
 	return true;
 }
 
+static int GC_VisLeafsForCluster( int cluster )
+{
+	const byte *vis;
+	const byte *nodebits;
+	int i, leaves = 0;
+
+	if( cluster < 0 || !gc_newgame_pvs_table || !gc_newgame_cluster_valid )
+		return 0;
+	if( gc_newgame_pvs_lean )
+	{
+		int slot;
+
+		for( slot = 0; slot < gc_newgame_lean_slots; slot++ )
+		{
+			if( gc_newgame_lean_clusters[slot] != cluster || !gc_newgame_cluster_valid[slot] )
+				continue;
+			vis = gc_newgame_pvs_table + (size_t)slot * (size_t)gc_newgame_visbytes;
+			for( i = 0; i < gc_newgame_numleafs; i++ )
+			{
+				if( vis[i >> 3] & ( 1 << ( i & 7 )))
+					leaves++;
+			}
+			return leaves;
+		}
+		return 0;
+	}
+	if( cluster >= gc_newgame_numclusters || !gc_newgame_cluster_valid[cluster] )
+		return 0;
+	vis = gc_newgame_pvs_table + (size_t)cluster * (size_t)gc_newgame_visbytes;
+	nodebits = gc_newgame_node_table + (size_t)cluster * (size_t)gc_newgame_nodebytes;
+	(void)nodebits;
+	for( i = 0; i < gc_newgame_numleafs; i++ )
+	{
+		if( vis[i >> 3] & ( 1 << ( i & 7 )))
+			leaves++;
+	}
+	return leaves;
+}
+
 static int GC_SelectClusterForOrigin( const float *org )
 {
 	int i;
 	int best = -1;
+	int best_leaves = -1;
 	float best_vol = 1e30f;
 
 	if( !org || !gc_newgame_leafboxes || gc_newgame_nleafboxes <= 0 )
 		return gc_newgame_viewcluster;
 
+	/* G132: overlapping leaf AABBs are common — prefer the densest cached PVS
+	 * among hits so a tiny overlapping leaf does not starve solid spans. */
 	for( i = 0; i < gc_newgame_nleafboxes; i++ )
 	{
 		const gc_newgame_leafbox_t *box = &gc_newgame_leafboxes[i];
 		float vol;
 		vec3_t size;
+		int leaves;
 
 		if( box->cluster < 0 )
 			continue;
@@ -2176,12 +2620,14 @@ static int GC_SelectClusterForOrigin( const float *org )
 			|| org[2] < box->mins[2] || org[2] > box->maxs[2] )
 			continue;
 
+		leaves = GC_VisLeafsForCluster( box->cluster );
 		VectorSubtract( box->maxs, box->mins, size );
 		vol = size[0] * size[1] * size[2];
 		if( vol <= 0.0f )
 			vol = 1.0f;
-		if( vol < best_vol )
+		if( leaves > best_leaves || ( leaves == best_leaves && vol < best_vol ))
 		{
+			best_leaves = leaves;
 			best_vol = vol;
 			best = box->cluster;
 		}
@@ -2379,6 +2825,11 @@ static void GC_FreeNewGamePVSCache( void )
 		free( gc_newgame_node_table );
 		gc_newgame_node_table = NULL;
 	}
+	if( gc_newgame_surf_table )
+	{
+		free( gc_newgame_surf_table );
+		gc_newgame_surf_table = NULL;
+	}
 	if( gc_newgame_cluster_valid )
 	{
 		free( gc_newgame_cluster_valid );
@@ -2408,8 +2859,13 @@ static void GC_FreeNewGamePVSCache( void )
 	gc_newgame_packed_nodebits_size = 0;
 	gc_newgame_vis = NULL;
 	gc_newgame_nodebits = NULL;
+	gc_newgame_surfbits = NULL;
 	gc_newgame_nleafboxes = 0;
 	gc_newgame_numclusters = 0;
+	gc_newgame_surfbytes = 0;
+	gc_newgame_numsurfaces = 0;
+	gc_newgame_cap_face_count = 0;
+	gc_newgame_cap_tex_faces = 0;
 	gc_newgame_pvs_lean = false;
 	gc_newgame_lean_cluster = -1;
 	gc_newgame_lean_slots = 0;
@@ -2665,6 +3121,23 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 	SYS_Report( "Xash3D GameCube: Capture PointInLeaf cluster=%d contents=%d origin=(%.0f,%.0f,%.0f)\n",
 		gc_newgame_viewcluster, viewleaf ? viewleaf->contents : 0,
 		vieworigin[0], vieworigin[1], vieworigin[2] );
+	VectorCopy( vieworigin, gc_newgame_capture_origin );
+
+	/* G132: promote surfaces on the post-changelevel map only — promoting on
+	 * c0a0 plus FatPVS OOMs the guest before changelevel. */
+	{
+		static int capture_gen;
+		char cl_dest[64];
+
+		capture_gen++;
+		cl_dest[0] = '\0';
+		Sys_GetParmFromCmdLine( "-gcchangelevel", cl_dest );
+		if( capture_gen > 1 || ( cl_dest[0] && sv.name[0] && !Q_stricmp( sv.name, cl_dest )))
+		{
+			if( !Mod_GCPromoteWorldSurfaces( wmodel ))
+				SYS_Report( "Xash3D GameCube: G132 surface promote skipped\n" );
+		}
+	}
 
 	if( !wmodel->visdata || world.visbytes <= 0 )
 	{
@@ -2704,6 +3177,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		gc_newgame_numclusters = numclusters;
 		gc_newgame_numleafs = wmodel->numleafs;
 		gc_newgame_numnodes = wmodel->numnodes;
+		gc_newgame_numsurfaces = wmodel->numsurfaces;
+		gc_newgame_surfbytes = ( wmodel->numsurfaces > 0 )
+			? (int)(( (size_t)wmodel->numsurfaces + 7 ) / 8) : 0;
 		gc_newgame_nleafboxes = wmodel->numleafs > 1 ? wmodel->numleafs - 1 : 0;
 
 		/* G101: -gcleanpvs forces lean-N path (probe / MEM1-safe follow). */
@@ -2767,6 +3243,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			gc_newgame_numclusters = numclusters;
 			gc_newgame_numleafs = wmodel->numleafs;
 			gc_newgame_numnodes = wmodel->numnodes;
+			gc_newgame_numsurfaces = wmodel->numsurfaces;
+			gc_newgame_surfbytes = ( wmodel->numsurfaces > 0 )
+				? (int)(( (size_t)wmodel->numsurfaces + 7 ) / 8) : 0;
 			gc_newgame_nleafboxes = wmodel->numleafs > 1 ? wmodel->numleafs - 1 : 0;
 			gc_newgame_pvs_lean = true;
 			gc_newgame_lean_cluster = lean_cluster;
@@ -2775,6 +3254,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 
 			gc_newgame_pvs_table = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, visbytes );
 			gc_newgame_node_table = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, nodebytes );
+			gc_newgame_surf_table = ( gc_newgame_surfbytes > 0 )
+				? (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, (size_t)gc_newgame_surfbytes )
+				: NULL;
 			gc_newgame_cluster_valid = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, 1 );
 			gc_newgame_leafboxes = gc_newgame_nleafboxes > 0
 				? (gc_newgame_leafbox_t *)calloc( (size_t)gc_newgame_nleafboxes, sizeof( gc_newgame_leafbox_t ))
@@ -2824,6 +3306,8 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			spawn_row = gc_newgame_pvs_table;
 			GC_DecompressPVS( spawn_row, vleaf->compressed_vis, visbytes );
 			GC_BuildNodebitsForVisRow( wmodel, spawn_row, gc_newgame_node_table );
+			if( gc_newgame_surf_table )
+				GC_BuildSurfbitsForVisRow( wmodel, spawn_row, gc_newgame_surf_table );
 			gc_newgame_cluster_valid[0] = 1;
 			gc_newgame_lean_clusters[0] = lean_cluster;
 			gc_newgame_lean_age[0] = ++gc_newgame_lean_clock;
@@ -2857,6 +3341,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 				GC_DecompressPVS( row, leaf->compressed_vis, visbytes );
 				GC_BuildNodebitsForVisRow( wmodel, row,
 					gc_newgame_node_table + (size_t)lean_slots * nodebytes );
+				if( gc_newgame_surf_table )
+					GC_BuildSurfbitsForVisRow( wmodel, row,
+						gc_newgame_surf_table + (size_t)lean_slots * (size_t)gc_newgame_surfbytes );
 				gc_newgame_cluster_valid[lean_slots] = 1;
 				gc_newgame_lean_clusters[lean_slots] = c;
 				gc_newgame_lean_age[lean_slots] = ++gc_newgame_lean_clock;
@@ -2874,6 +3361,8 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			SYS_Report( "Xash3D GameCube: Capture FatPVS lean map=%s cluster=%d slots=%d leaves=%d nodes=%d\n",
 				sv.name[0] ? sv.name : "?",
 				lean_cluster, lean_slots, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
+			if( gc_newgame_surfbits )
+				GC_CaptureDrawFacesFromSurfbits( wmodel, gc_newgame_surfbits );
 			if( lean_slots > 1 )
 			{
 				SYS_Report( "Xash3D GameCube: Capture FatPVS lean-N map=%s slots=%d c0=%d c1=%d\n",
@@ -2885,6 +3374,15 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 
 		SYS_Report( "Xash3D GameCube: Capture multi-cluster PVS begin clusters=%d visbytes=%d\n",
 			numclusters, (int)visbytes );
+
+		/* G132: best-effort surfbits — must not force lean fallback on OOM. */
+		if( gc_newgame_surfbytes > 0 && !gc_newgame_surf_table )
+		{
+			gc_newgame_surf_table = (byte *)calloc( (size_t)numclusters, (size_t)gc_newgame_surfbytes );
+			if( !gc_newgame_surf_table )
+				SYS_Report( "Xash3D GameCube: Capture surfbits skipped (OOM clusters=%d bytes=%d)\n",
+					numclusters, gc_newgame_surfbytes );
+		}
 
 		for( i = 1; i < wmodel->numleafs; i++ )
 		{
@@ -2905,6 +3403,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			GC_DecompressPVS( row, leaf->compressed_vis, visbytes );
 			GC_BuildNodebitsForVisRow( wmodel, row,
 				gc_newgame_node_table + (size_t)leaf->cluster * nodebytes );
+			if( gc_newgame_surf_table )
+				GC_BuildSurfbitsForVisRow( wmodel, row,
+					gc_newgame_surf_table + (size_t)leaf->cluster * (size_t)gc_newgame_surfbytes );
 			gc_newgame_cluster_valid[leaf->cluster] = 1;
 			valid_clusters++;
 		}
@@ -2934,6 +3435,8 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			gc_newgame_viewcluster, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
 		SYS_Report( "Xash3D GameCube: Capture multi-cluster PVS ready map=%s clusters=%d valid=%d\n",
 			sv.name[0] ? sv.name : "?", numclusters, valid_clusters );
+		if( gc_newgame_surfbits )
+			GC_CaptureDrawFacesFromSurfbits( wmodel, gc_newgame_surfbits );
 	}
 #else
 	(void)wmodel;
@@ -3099,6 +3602,51 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				break;
 			}
 		}
+	}
+	/* G132: if lean PVS cannot follow the player cluster, render from the
+	 * capture-room origin so surfbits/nodebits match the camera. */
+	{
+		int wanted = GC_SelectClusterForOrigin( center );
+		int active;
+
+		GC_UpdateNewGamePVSForOrigin( center );
+		active = gc_newgame_viewcluster;
+		if( wanted >= 0 && active >= 0 && wanted != active
+			&& !VectorIsNull( gc_newgame_capture_origin ))
+		{
+			SYS_Report( "Xash3D GameCube: G132 camera snap capture (want=%d active=%d)\n",
+				wanted, active );
+			VectorCopy( gc_newgame_capture_origin, center );
+			GC_UpdateNewGamePVSForOrigin( center );
+			rvp.viewangles[0] = -12.0f;
+			rvp.viewangles[1] = 0.0f;
+			rvp.viewangles[2] = 0.0f;
+		}
+	}
+	/* G132: aim toward capture-room origin (or player forward) so frustum keeps
+	 * nearby walls — map AABB center often points into empty space after move. */
+	if( gc_dump_look_into_map )
+	{
+		vec3_t look;
+		float look_len;
+
+		VectorSubtract( gc_newgame_capture_origin, center, look );
+		look_len = VectorLength( look );
+		if( look_len > 64.0f )
+		{
+			VectorAngles( look, rvp.viewangles );
+			rvp.viewangles[2] = 0.0f;
+			if( rvp.viewangles[0] > -5.0f )
+				rvp.viewangles[0] = -10.0f;
+		}
+		else
+		{
+			/* Same room as capture — keep player yaw, pitch down for floors. */
+			rvp.viewangles[0] = -12.0f;
+			rvp.viewangles[2] = 0.0f;
+		}
+		Con_Reportf( "Xash3D GameCube: G132 dump look angles=(%.0f,%.0f,%.0f) aimlen=%.0f\n",
+			rvp.viewangles[0], rvp.viewangles[1], rvp.viewangles[2], look_len );
 	}
 	VectorCopy( center, rvp.vieworigin );
 	/* G89: select multi-cluster PVS for camera; prove two-cluster switch once. */
@@ -3273,6 +3821,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		clgame.dllFuncs.pfnVidInit();
 		Con_Reportf( "Xash3D GameCube: newgame lean HUD VidInit after world present\n" );
 	}
+	/* G127: fat HUD sheets before SFX preload / changelevel Redraw. */
+	CL_GCPreloadNewGameHudSprites();
 
 	refState.width = present_w;
 	refState.height = present_h;
@@ -3356,6 +3906,101 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				Platform_SetTimer( 0.0f );
 				ref.dllFuncs.R_EndFrame();
 			}
+		}
+
+		/* G128/G130: after world+HUD, paint a depth-shaded room preview (or
+		 * coalesce/sky fallback), stamp HL status panel, then force CPU YUYV
+		 * XFB blits so Dolphin DumpFrames shows identifiable WORLD PRESENT. */
+		{
+			int dump_i;
+			char details[64];
+
+			if( GC_RenderNewGameWorldFrames( 1 ) && gc.buffer && gc.width > 0 && gc.height > 0 )
+			{
+				unsigned nonblack = 0;
+				unsigned samples = 0;
+				unsigned depth_valid;
+				int sx, sy;
+
+				for( sy = 0; sy < gc.height; sy += 8 )
+				{
+					for( sx = 0; sx < gc.width; sx += 8 )
+					{
+						unsigned short p = gc.buffer[sy * gc.stride + sx];
+						samples++;
+						if( p > 0x0020 )
+							nonblack++;
+					}
+				}
+
+				/* Re-render once aiming into the map so depth has structure. */
+				gc_dump_look_into_map = true;
+				GC_RenderNewGameWorldFrames( 1 );
+				gc_dump_look_into_map = false;
+
+				depth_valid = R_GcmapShadeDumpFromDepth( gc.buffer, gc.width, gc.height, gc.stride );
+				if( depth_valid >= 64 )
+				{
+					unsigned short seen[16];
+					unsigned seen_n = 0;
+					unsigned depth_var = 0;
+
+					for( sy = 0; sy < gc.height; sy += 16 )
+					{
+						for( sx = 0; sx < gc.width; sx += 16 )
+						{
+							unsigned short p = gc.buffer[sy * gc.stride + sx];
+							unsigned u;
+							qboolean found = false;
+							for( u = 0; u < seen_n; u++ )
+							{
+								if( seen[u] == p )
+								{
+									found = true;
+									break;
+								}
+							}
+							if( !found && seen_n < 16 )
+								seen[seen_n++] = p;
+						}
+					}
+					/* Uniform wall-facing depth still looks flat — keep color
+					 * coalesced with per-face wall tones instead. */
+					if( seen_n <= 3 )
+					{
+						gc_dump_look_into_map = true;
+						GC_RenderNewGameWorldFrames( 1 );
+						gc_dump_look_into_map = false;
+						GC_CoalesceDumpWorldBuffer( gc.buffer, gc.width, gc.height, gc.stride );
+						Con_Reportf( "Xash3D GameCube: G131 depth flat→color coalesce (depth=%u tones=%u)\n",
+							depth_valid, seen_n );
+					}
+					else
+					{
+						Con_Reportf( "Xash3D GameCube: G131 depth dump ready (color nonblack=%u/%u depth=%u tones=%u)\n",
+							nonblack, samples, depth_valid, seen_n );
+					}
+					depth_var = seen_n;
+					(void)depth_var;
+				}
+				else
+				{
+					/* Soft-edge color speckles + empty zi → coalesce then
+					 * posterize to sky/wall palette for readable DumpFrames. */
+					GC_CoalesceDumpWorldBuffer( gc.buffer, gc.width, gc.height, gc.stride );
+					GC_PosterizeDumpWorldBuffer( gc.buffer, gc.width, gc.height, gc.stride );
+					Con_Reportf( "Xash3D GameCube: G130 posterize dump (depth=%u color nonblack=%u/%u)\n",
+						depth_valid, nonblack, samples );
+				}
+				Q_snprintf( details, sizeof( details ), "MAP=%s",
+					sv.name[0] ? sv.name : "?" );
+				GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride,
+					"WORLD PRESENT", details );
+			}
+			gc_cpu_dump_presents_left = 6;
+			Con_Reportf( "Xash3D GameCube: G128 CPU dump presents begin\n" );
+			for( dump_i = 0; dump_i < 6; dump_i++ )
+				GC_PresentBuffer();
 		}
 
 		for( i = 0; i < 2; i++ )
@@ -3501,16 +4146,16 @@ void GC_PlayNewGameGameplaySound( void )
 		int s;
 
 		FS_ClearFindMissCache();
-		Con_Reportf( "Xash3D GameCube: G126 preload fire+steps+ric begin budget_used=%u\n",
+		Con_Reportf( "Xash3D GameCube: G127 preload fire+steps+ric begin budget_used=%u\n",
 			(uint)S_GCGameplaySfxBudgetUsed() );
 		for( s = 0; s < (int)( sizeof( preload ) / sizeof( preload[0] )); s++ )
 		{
 			sound_t handle = S_RegisterSound( preload[s] );
 
-			Con_Reportf( "Xash3D GameCube: G126 preload %s handle=%d budget_used=%u\n",
+			Con_Reportf( "Xash3D GameCube: G127 preload %s handle=%d budget_used=%u\n",
 				preload[s], (int)handle, (uint)S_GCGameplaySfxBudgetUsed() );
 		}
-		Con_Reportf( "Xash3D GameCube: G126 preload fire+steps+ric ready budget_used=%u\n",
+		Con_Reportf( "Xash3D GameCube: G127 preload fire+steps+ric ready budget_used=%u\n",
 			(uint)S_GCGameplaySfxBudgetUsed() );
 		return;
 	}

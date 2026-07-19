@@ -162,8 +162,26 @@ qboolean R_GcmapPrepareWorldRender( void )
 
 	if( vid.buffer && d_pzbuffer && vid.width > 0 && vid.height > 0 )
 	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap world render reusing retained screen buffers\n" );
-		return true;
+		int target_w = 320;
+		int target_h = 240;
+
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame160" )
+			|| gEngfuncs.Sys_CheckParm( "-gcworldrender" ))
+		{
+			target_w = 160;
+			target_h = 120;
+		}
+		/* G129: only reuse when retained screens match the lean present size. */
+		if( vid.width == target_w && vid.height == target_h )
+		{
+			gpGlobals->width = vid.width;
+			gpGlobals->height = vid.height;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap world render reusing retained screen buffers\n" );
+			return true;
+		}
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G129 drop retained screen %dx%d (want %dx%d)\n",
+			vid.width, vid.height, target_w, target_h );
+		R_GcmapReleaseDynamicScreenBuffers();
 	}
 
 	if( R_GcmapAllocMinimalScreen() )
@@ -182,7 +200,24 @@ qboolean R_GcmapAllocMinimalScreen( void )
 		return false;
 
 	if( vid.buffer && d_pzbuffer && vid.width > 0 && vid.height > 0 )
-		return true;
+	{
+		int want_w = GC_GCMAP_STATIC_MAX_W;
+		int want_h = GC_GCMAP_STATIC_MAX_H;
+
+		if( gEngfuncs.Sys_CheckParm( "-gcworldrender" )
+			|| gEngfuncs.Sys_CheckParm( "-gcnewgame160" ))
+		{
+			want_w = 160;
+			want_h = 120;
+		}
+		if( vid.width == want_w && vid.height == want_h )
+		{
+			gpGlobals->width = vid.width;
+			gpGlobals->height = vid.height;
+			return true;
+		}
+		R_GcmapReleaseDynamicScreenBuffers();
+	}
 
 	w = gpGlobals->width > 0 ? gpGlobals->width : 320;
 	h = gpGlobals->height > 0 ? gpGlobals->height : 240;
@@ -265,5 +300,160 @@ qboolean R_GcmapAllocMinimalScreen( void )
 
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: gcmap minimal screen ready %dx%d\n", w, h );
 	return true;
+}
+
+/*
+=============
+R_GcmapShadeDumpFromDepth
+
+G130/G131: paint a readable depth-shaded RGB565 preview into the present buffer
+for Dolphin DumpFrames. Soft-edge color rasters speckled; 1/z from d_pzbuffer
+shows room structure (near=warm wall, far=sky).
+
+G131: store is short, but izi>>16 often lands in the high half for near
+surfaces (zi≥1 → negative as signed). Treat samples as unsigned and only skip
+the 0xFFFF clear value.
+=============
+*/
+unsigned R_GcmapShadeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride )
+{
+	int x, y;
+	unsigned zmin = 0xFFFF;
+	unsigned zmax = 0;
+	unsigned valid = 0;
+	const unsigned short sky = 0x5ADB;
+	unsigned hist[256];
+	unsigned cum;
+	unsigned target_lo, target_hi;
+	unsigned zlo = 0, zhi = 0xFFFF;
+	int bi;
+	qboolean zlo_set = false;
+
+	if( !dst || !d_pzbuffer || vid.width <= 0 || vid.height <= 0 || d_zwidth <= 0 )
+		return 0;
+	if( dst_w <= 0 || dst_h <= 0 || dst_stride < dst_w )
+		return 0;
+
+	memset( hist, 0, sizeof( hist ));
+
+	for( y = 0; y < vid.height; y++ )
+	{
+		const short *zrow = d_pzbuffer + y * (int)d_zwidth;
+
+		for( x = 0; x < vid.width; x++ )
+		{
+			unsigned z = (unsigned short)zrow[x];
+
+			if( z == 0xFFFF )
+				continue;
+			valid++;
+			hist[z >> 8]++;
+			if( z < zmin )
+				zmin = z;
+			if( z > zmax )
+				zmax = z;
+		}
+	}
+
+	if( valid < 64 || zmax <= zmin )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G131 depth dump skip valid=%u z=%u..%u\n",
+			valid, zmin, zmax );
+		return valid;
+	}
+
+	/* Percentile stretch — a few outlier zi values were collapsing the whole
+	 * frame to one mid-tone. Use ~5th/95th percentile of the high byte. */
+	target_lo = valid / 20;
+	target_hi = valid - target_lo;
+	if( target_hi <= target_lo )
+		target_hi = target_lo + 1;
+	cum = 0;
+	zlo = zmin;
+	zhi = zmax;
+	for( bi = 0; bi < 256; bi++ )
+	{
+		cum += hist[bi];
+		if( !zlo_set && cum >= target_lo )
+		{
+			zlo = (unsigned)bi << 8;
+			zlo_set = true;
+		}
+		if( cum >= target_hi )
+		{
+			zhi = ((unsigned)bi << 8 ) | 0xFF;
+			break;
+		}
+	}
+	if( zhi <= zlo )
+	{
+		zlo = zmin;
+		zhi = zmax;
+	}
+	/* If percentiles collapsed (near-wall spawn), fall back to full range. */
+	if(( zhi - zlo ) < 512 )
+	{
+		zlo = zmin;
+		zhi = zmax;
+	}
+
+	for( y = 0; y < dst_h; y++ )
+	{
+		int sy = ( y * vid.height ) / dst_h;
+		unsigned short *drow;
+		const short *zrow;
+
+		if( sy >= vid.height )
+			sy = vid.height - 1;
+		drow = dst + y * dst_stride;
+		zrow = d_pzbuffer + sy * (int)d_zwidth;
+
+		for( x = 0; x < dst_w; x++ )
+		{
+			int sx = ( x * vid.width ) / dst_w;
+			unsigned z;
+			unsigned t;
+			int r, g, b;
+
+			if( sx >= vid.width )
+				sx = vid.width - 1;
+			z = (unsigned short)zrow[sx];
+			if( z == 0xFFFF )
+			{
+				drow[x] = sky;
+				continue;
+			}
+			if( z <= zlo )
+				t = 0;
+			else if( z >= zhi )
+				t = 255;
+			else
+				t = (( z - zlo ) * 255u ) / ( zhi - zlo );
+			if( t < 128 )
+			{
+				r = 90 + (int)(( 164 - 90 ) * t / 128);
+				g = 89 + (int)(( 161 - 89 ) * t / 128);
+				b = 222 + (int)(( 164 - 222 ) * t / 128);
+			}
+			else
+			{
+				unsigned u = t - 128;
+				r = 164 + (int)(( 213 - 164 ) * u / 127);
+				g = 161 + (int)(( 182 - 161 ) * u / 127);
+				b = 164 + (int)(( 0 - 164 ) * u / 127);
+			}
+			if( r < 0 ) r = 0;
+			if( g < 0 ) g = 0;
+			if( b < 0 ) b = 0;
+			if( r > 255 ) r = 255;
+			if( g > 255 ) g = 255;
+			if( b > 255 ) b = 255;
+			drow[x] = (unsigned short)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
+		}
+	}
+
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: G131 depth dump shade valid=%u/%u z=%u..%u p=%u..%u %dx%d\n",
+		valid, (unsigned)vid.width * (unsigned)vid.height, zmin, zmax, zlo, zhi, dst_w, dst_h );
+	return valid;
 }
 #endif

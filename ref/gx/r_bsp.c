@@ -518,21 +518,33 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 	{
 		mleaf_t *pleaf = (mleaf_t *)node;
 
-		msurface_t **mark = pleaf->firstmarksurface;
-		c = pleaf->nummarksurfaces;
-
-		if( c )
+#if XASH_GAMECUBE
+		/* G132: marksurfaces dangle after BSP scratch reuse — surf visframe
+		 * comes from capture-time GC_ApplyNewGameSurfVis instead. */
+		if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() ))
+#endif
 		{
-			do
+			msurface_t **mark = pleaf->firstmarksurface;
+			c = pleaf->nummarksurfaces;
+
+			if( c )
 			{
-				( *mark )->visframe = tr.framecount;
-				mark++;
+				do
+				{
+					( *mark )->visframe = tr.framecount;
+					mark++;
+				}
+				while( --c );
 			}
-			while( --c );
 		}
 
 		// deal with model fragments in this leaf
+#if XASH_GAMECUBE
+		if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+			&& pleaf->efrags )
+#else
 		if( pleaf->efrags )
+#endif
 		{
 			gEngfuncs.R_StoreEfrags( &pleaf->efrags, tr.realframecount );
 		}
@@ -576,18 +588,50 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 		// draw stuff
 		c = node_numsurfaces( node, WORLDMODEL );
 		int firstsurface = node_firstsurface( node, WORLDMODEL );
+#if XASH_GAMECUBE
+		/* G132: scratch-corrupted node surface counts can hang the walk. */
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+		{
+			if( c < 0 || c > 256 || firstsurface < 0
+				|| !WORLDMODEL->surfaces
+				|| firstsurface + c > WORLDMODEL->numsurfaces )
+				c = 0;
+		}
+#endif
 
 		if( c )
 		{
 			msurface_t *surf = WORLDMODEL->surfaces + firstsurface;
+#if XASH_GAMECUBE
+			static unsigned gc_nodes_with_surfs;
+			static unsigned gc_surfs_seen;
+			static unsigned gc_surfs_visok;
+			static unsigned gc_surfs_drawn;
+#endif
+
+#if XASH_GAMECUBE
+			if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+				gc_nodes_with_surfs++;
+#endif
 
 			if( dot < -BACKFACE_EPSILON )
 			{
 				do
 				{
+#if XASH_GAMECUBE
+					if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+						gc_surfs_seen++;
+#endif
 					if(( surf->flags & SURF_PLANEBACK )
 					   && ( surf->visframe == tr.framecount ))
 					{
+#if XASH_GAMECUBE
+						if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+						{
+							gc_surfs_visok++;
+							gc_surfs_drawn++;
+						}
+#endif
 						R_RenderFace( surf, clipflags );
 					}
 
@@ -599,16 +643,41 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 			{
 				do
 				{
+#if XASH_GAMECUBE
+					if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+						gc_surfs_seen++;
+#endif
 					if( !( surf->flags & SURF_PLANEBACK )
 					    && ( surf->visframe == tr.framecount ))
 					{
+#if XASH_GAMECUBE
+						if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+						{
+							gc_surfs_visok++;
+							gc_surfs_drawn++;
+						}
+#endif
 						R_RenderFace( surf, clipflags );
 					}
+#if XASH_GAMECUBE
+					else if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe()
+						&& ( surf->visframe == tr.framecount ))
+						gc_surfs_visok++;
+#endif
 
 					surf++;
 				}
 				while( --c );
 			}
+
+#if XASH_GAMECUBE
+			if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe()
+				&& tr.framecount <= 2 && gc_nodes_with_surfs <= 3 )
+			{
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: G132 nodedraw seen=%u visok=%u drawn=%u nodes=%u frame=%d\n",
+					gc_surfs_seen, gc_surfs_visok, gc_surfs_drawn, gc_nodes_with_surfs, tr.framecount );
+			}
+#endif
 
 			// all surfaces on the same node share the same sequence number
 			r_currentkey++;
@@ -628,6 +697,7 @@ void R_RenderWorld( void )
 {
 #if XASH_GAMECUBE
 	static cl_entity_t gc_world_ent;
+	unsigned nodes_enter = 0, leaf_enter = 0, surf_call = 0;
 #endif
 
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
@@ -650,5 +720,55 @@ void R_RenderWorld( void )
 	RI.currentmodel = WORLDMODEL;
 	r_pcurrentvertbase = RI.currentmodel->vertexes;
 
+#if XASH_GAMECUBE
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe()
+		&& tr.framecount <= 2 && RI.currentmodel && RI.currentmodel->nodes )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G132 worldroot vis=%d want=%d nodes=%d surfs=%d\n",
+			RI.currentmodel->nodes[0].visframe, tr.visframecount,
+			RI.currentmodel->numnodes, RI.currentmodel->numsurfaces );
+	}
+	/* G132: BSP node walk is unreliable after scratch reuse. Draw compact
+	 * faces captured while msurface_t was still valid. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )
+	{
+		extern int GC_GetNewGameCapFaceCount( void );
+		extern msurface_t *GC_GetNewGameDrawSurfs( void );
+		msurface_t *draw = GC_GetNewGameDrawSurfs();
+		int n = GC_GetNewGameCapFaceCount();
+		int drawn = 0;
+		int i;
+
+		if( draw && n > 0 )
+		{
+			for( i = 0; i < n; i++ )
+			{
+				float dot;
+				msurface_t *surf = &draw[i];
+
+				if( !surf->plane )
+					continue;
+				dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
+				if( surf->flags & SURF_PLANEBACK )
+				{
+					if( dot > -BACKFACE_EPSILON )
+						continue;
+				}
+				else
+				{
+					if( dot < BACKFACE_EPSILON )
+						continue;
+				}
+				surf->visframe = tr.framecount;
+				R_RenderFace( surf, 15 );
+				drawn++;
+			}
+		}
+		if( tr.framecount <= 2 )
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G133 cap faces drawn=%d of %d frame=%d\n",
+				drawn, n, tr.framecount );
+		return;
+	}
+#endif
 	R_RecursiveWorldNode( RI.currentmodel->nodes, 15 );
 }
