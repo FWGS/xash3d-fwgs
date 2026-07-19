@@ -1419,13 +1419,6 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 					{
 						Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure begin\n" );
 						Cvar_Set( "gc_quality", "0" );
-						if( Sys_CheckParm( "-gcfullphysics" ))
-						{
-							/* Keep movement authoritative while client-side HLSDK
-							 * prediction is still too expensive for the MEM1 route. */
-							Cvar_Set( "cl_nopred", "1" );
-							Con_Reportf( "Xash3D GameCube: native client prediction disabled\n" );
-						}
 						if( !CL_GameCubeEnsureClientReady() )
 							Con_Reportf( "Xash3D GameCube: gcmap+newgame client ensure failed\n" );
 						else

@@ -887,16 +887,6 @@ static void CL_CreateCmd( void )
 	if( !cls.demoplayback ) cl.cmd = pcmd->cmd;
 
 	// predict all unacknowledged movements
-#if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
-		&& cl_nopred.value )
-	{
-		static int gc_nopred_cmd_log;
-		if( gc_nopred_cmd_log++ < 2 )
-			Con_Reportf( "Xash3D GameCube: native command prediction skipped\n" );
-	}
-	else
-#endif
 	CL_PredictMovement( false );
 }
 

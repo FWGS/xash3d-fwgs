@@ -900,6 +900,16 @@ Runs prediction code for user cmd
 static void CL_RunUsercmd( local_state_t *from, local_state_t *to, usercmd_t *u, qboolean runfuncs, double *time, unsigned int random_seed )
 {
 	usercmd_t		cmd;
+#if XASH_GAMECUBE
+	static int		gc_native_prediction_log;
+	static qboolean	gc_native_axis_prediction_log;
+	vec3_t			gc_prediction_start;
+	qboolean		gc_axis_prediction = u->forwardmove != 0.0f
+		|| u->sidemove != 0.0f || u->upmove != 0.0f;
+	qboolean		gc_trace_prediction = Sys_CheckParm( "-gcnewgame" )
+		&& Sys_CheckParm( "-gcfullphysics" ) && ( gc_native_prediction_log < 4
+			|| ( gc_axis_prediction && !gc_native_axis_prediction_log ));
+#endif
 
 	if( u->msec > 50 )
 	{
@@ -925,7 +935,33 @@ static void CL_RunUsercmd( local_state_t *from, local_state_t *to, usercmd_t *u,
 		CL_SetupPMove( clgame.pmove, from, &cmd, runfuncs, *time );
 
 		// motor!
+#if XASH_GAMECUBE
+		if( gc_trace_prediction )
+		{
+			VectorCopy( clgame.pmove->origin, gc_prediction_start );
+			Con_Reportf( "Xash3D GameCube: native client PM_Move begin msec=%d move=(%.0f,%.0f,%.0f)\n",
+				cmd.msec, cmd.forwardmove, cmd.sidemove, cmd.upmove );
+		}
+#endif
 		clgame.dllFuncs.pfnPlayerMove( clgame.pmove, false );
+#if XASH_GAMECUBE
+		if( gc_trace_prediction )
+		{
+			Con_Reportf( "Xash3D GameCube: native client PM_Move ready origin=(%.1f,%.1f,%.1f) velocity=(%.1f,%.1f,%.1f)\n",
+				clgame.pmove->origin[0], clgame.pmove->origin[1], clgame.pmove->origin[2],
+				clgame.pmove->velocity[0], clgame.pmove->velocity[1], clgame.pmove->velocity[2] );
+			if( gc_axis_prediction && !gc_native_axis_prediction_log )
+			{
+				Con_Reportf( "Xash3D GameCube: native client axis prediction ready delta=(%.2f,%.2f,%.2f) velocity=(%.1f,%.1f,%.1f)\n",
+					clgame.pmove->origin[0] - gc_prediction_start[0],
+					clgame.pmove->origin[1] - gc_prediction_start[1],
+					clgame.pmove->origin[2] - gc_prediction_start[2],
+					clgame.pmove->velocity[0], clgame.pmove->velocity[1], clgame.pmove->velocity[2] );
+				gc_native_axis_prediction_log = true;
+			}
+			gc_native_prediction_log++;
+		}
+#endif
 
 		// copy results back to client
 		CL_FinishPMove( clgame.pmove, to );

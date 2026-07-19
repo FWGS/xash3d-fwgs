@@ -2102,6 +2102,22 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   handler, contains no `CL_ParseUserMessage` or `No pfn` errors, then completes
   native HUD/status updates, PMove axis displacement, attack/jump/use,
   transition, and sustained world rendering.
+## G116 [x] Restore statically linked HLSDK client prediction
+
+- Status: DONE 2026-07-18. Removed the GameCube-only forced `cl_nopred=1` now
+  that retained world collision and native client state support original
+  prediction.
+- Acceptance:
+  - Standard client command generation calls the statically linked HLSDK
+    `HUD_PlayerMove` with prediction enabled.
+  - Predicted movement returns with finite origin/velocity and server PMove
+    still receives the same commands through loopback networking.
+  - HUD messages, gameplay actions, transition, and world rendering continue.
+- Evidence: `.ai/logs/dolphin-probe-20260718-181611` reports client HLSDK
+  PMove for `move=(267,0,0)`, finite predicted velocity `(2.7,-0.0,265.1)`,
+  authoritative axis velocity `(30.0,-0.1,249.1)`, all gameplay actions,
+  native HUD updates, transition, and sustained world presentation. No forced
+  prediction-disable/skip marker or exception appears.
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
 - Status: DONE 2026-07-17. Boot phases are chronological

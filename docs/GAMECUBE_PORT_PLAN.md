@@ -2634,6 +2634,20 @@ and world presentation.
 
 **Evidence:** `.ai/logs/dolphin-probe-20260718-155507`.
 
+## G116 — Native HLSDK client prediction (COMPLETE 2026-07-18)
+
+The direct-map full-physics route no longer forces `cl_nopred=1`. With world
+hull 0 retained and static client state initialized, standard command creation
+now runs the original statically linked HLSDK client PMove before sending the
+same command through loopback to authoritative server PMove.
+
+The controlled probe predicted a `forwardmove=267` command with finite client
+velocity, then recorded authoritative horizontal server velocity and movement.
+HUD message dispatch, attack/jump/use, the `c0a0` to `c1a0a` transition, and
+sustained rendering continued without a prediction-disable marker or fault.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260718-181611`.
+
 ## Next wake-up commands
 
 ```sh
