@@ -41,7 +41,9 @@ def configure(conf):
 			return
 
 		if major < CLANG_FORMAT_MIN_MAJOR:
-			conf.fatal('clang-format %d found, need >= %d' % (major, CLANG_FORMAT_MIN_MAJOR))
+			Logs.warn('clang-format %d found, need >= %d, format command won\'t be available' % (major, CLANG_FORMAT_MIN_MAJOR))
+			conf.env.CLANG_FORMAT = []
+			return
 
 		conf.msg('Checking clang-format version', major)
 
