@@ -46,6 +46,7 @@ void R_GcmapTrimForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 void GC_TrimVideoMemoryForMapLoad( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
+void GC_SetLoadingProgress( float progress );
 void GC_TrimClientSubsystemsForMapLoad( void );
 void GC_BeginFrameBudgetProbe( void );
 void GC_RunGcmapSmokeFrames( const char *mapname, int count );
@@ -1400,6 +1401,7 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			{
 				Con_Reportf( "Xash3D GameCube: queue map %s\n", gcmap );
 				Con_Reportf( "Xash3D GameCube: direct map begin\n" );
+				GC_SetLoadingProgress( 0.10f );
 				GC_DrawLoadingStatus( "DIRECT MAP LOAD", gcmap );
 				if( Sys_CheckParm( "-gcnewgame" ))
 					GC_BeginMapLoadMemoryOpt();

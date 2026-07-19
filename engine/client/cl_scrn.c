@@ -44,6 +44,7 @@ static qboolean scr_gc_ux_policy_logged;
 static double scr_gc_next_loading_status;
 
 void GC_DrawLoadingStatus( const char *message, const char *details );
+void GC_SetLoadingProgress( float progress );
 
 static void SCR_GameCubeReportUXPolicy( void )
 {
@@ -611,6 +612,7 @@ void SCR_BeginLoadingPlaque( qboolean is_background )
 	if( is_background ) IN_MouseSavePos( );
 	cls.draw_changelevel = !is_background;
 #if XASH_GAMECUBE
+	GC_SetLoadingProgress( is_background ? 0.55f : 0.85f );
 	SCR_GameCubeLoadingStatus(
 		is_background ? "BACKGROUND LOAD" : "MAP LOAD",
 		"PLEASE WAIT - VIDEO ALIVE",

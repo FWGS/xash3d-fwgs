@@ -30,6 +30,7 @@ void R_GcmapMarkMapLoadComplete( void );
 void GC_TrimVideoMemoryForMapLoad( void );
 void GC_RestoreVideoMemoryAfterMapLoad( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
+void GC_SetLoadingProgress( float progress );
 qboolean GC_IsNewGameG36Done( void );
 qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_PrepareNewGameWorldPresent( void );
@@ -1229,6 +1230,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Con_Reportf( "Xash3D GameCube: pre-spawn Mod_FreeUnused begin\n" );
 	Mod_FreeUnused();
 	Con_Reportf( "Xash3D GameCube: pre-spawn Mod_FreeUnused ready\n" );
+	GC_SetLoadingProgress( 0.15f );
 	GC_DrawLoadingStatus( "PREPARING MAP", sv.name );
 	Con_Reportf( "Xash3D GameCube: pre-spawn loading status ready\n" );
 	Con_Reportf( "Xash3D GameCube: pre-spawn renderer trim begin\n" );
@@ -1240,6 +1242,7 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 	Con_Reportf( "Xash3D GameCube: pre-spawn memory trim\n" );
 #endif
 #if XASH_GAMECUBE
+	GC_SetLoadingProgress( 0.40f );
 	GC_DrawLoadingStatus( "LOADING BSP", sv.model_precache[WORLD_INDEX] );
 #endif
 	sv.worldmodel = sv.models[WORLD_INDEX] = Mod_LoadWorld( sv.model_precache[WORLD_INDEX], true );
@@ -1247,7 +1250,10 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 #if XASH_GAMECUBE
 	GC_MemSample( "bsp load" );
 	if( !GC_MapLoadMemoryOpt())
+	{
+		GC_SetLoadingProgress( 0.75f );
 		GC_DrawLoadingStatus( "SPAWNING ENTITIES", sv.name );
+	}
 	else
 		Con_Reportf( "Xash3D GameCube: submodel precache begin count=%d\n", sv.worldmodel->numsubmodels );
 #endif

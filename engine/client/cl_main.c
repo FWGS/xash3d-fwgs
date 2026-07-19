@@ -30,6 +30,7 @@ GNU General Public License for more details.
 extern qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 void GC_DrawLoadingStatus( const char *message, const char *details );
+void GC_SetLoadingProgress( float progress );
 void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean GC_IsNewGameG36Done( void );
 qboolean GC_IsNewGameWorldReady( void );
@@ -4061,6 +4062,7 @@ qboolean CL_GameCubeEnsureClientReady( void )
 		return true;
 
 	Con_Reportf( "Xash3D GameCube: deferred client init begin\n" );
+	GC_SetLoadingProgress( 0.90f );
 	GC_DrawLoadingStatus( "CLIENT INIT", "half-life" );
 
 	if( !Sys_CheckParm( "-nosound" ) && !snd.initialized )

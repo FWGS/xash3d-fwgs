@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "gamecube/mem_gamecube.h"
 
 void GC_DrawLoadingStatus( const char *message, const char *details );
+void GC_SetLoadingProgress( float progress );
 void GC_TrimClientSubsystemsForMapLoad( void );
 void R_GcmapTrimForMapLoad( void );
 void R_GcmapRestoreAfterMapLoad( void );
@@ -34,6 +35,7 @@ static void SV_GameCubePlayStart_f( void )
 	const char *map = ( GI && !COM_StringEmpty( GI->startmap )) ? GI->startmap : "c0a0";
 
 	Con_Reportf( "Xash3D GameCube: play start begin %s\n", map );
+	GC_SetLoadingProgress( 0.05f );
 	GC_DrawLoadingStatus( "NEW GAME", map );
 	GC_BeginMapLoadMemoryOpt();
 	/* Reserve the BSP buffer at the lowest-memory point we can reach. */

@@ -1,15 +1,18 @@
 GameCube Dolphin stage demo screenshots (2026-07-19)
 
-stage-00-main-menu.png
-  Half-Life main menu (retail menu path / baked GC menu assets).
+stage-00-intro-bald-scientist.png
+  HL1 intro plaque: bald Black Mesa scientist (Walter) + HALF-LIFE title.
 
-stage-01-map-load-please-wait.png
-  Live Dolphin DumpFrames: MAP LOAD / PLEASE WAIT - VIDEO ALIVE.
+stage-00b-main-menu.png
+  Half-Life main menu (retail menu path).
 
-stage-02-loading-bsp.png / stage-03-loading-bsp-progress.png
-  Live Dolphin DumpFrames: LOADING BSP during New Game / changelevel.
+stage-01-live-dolphin-loading.png
+  Live Dolphin DumpFrames of the new G60 loading UI (scientist + progress bar).
 
-Gameplay (c1a0a after changelevel, G125 fire+steps) is proven in
-.ai/logs/dolphin-probe-20260719-005629 OSREPORT (G125 preload, G122 fire,
-ric1, ASND peak). Dolphin DumpFrames/XFB after the SW loading screens currently
-captures EFB noise for this GX present path — window grabs match that noise.
+stage-01-map-load-please-wait.png / stage-02-loading-bsp.png / stage-03-loading-progress.png
+  Host-rendered previews of the baked loading.tga + progress bar at ~85%/40%/75%.
+
+Engine notes:
+  Disc bake: resource/gc_menu/loading.tga + intro.tga
+  Runtime: GC_DrawLoadingStatus + GC_SetLoadingProgress
+  Probe: .ai/logs/dolphin-probe-20260719-011630 (HL1 loading plaque ready)

@@ -711,6 +711,115 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	return True
 
 
+def stage_gc_loading_assets(source: Path, output: Path) -> bool:
+	"""Bake MEM1-friendly HL1 loading plaque: bald scientist + lambda motif.
+
+	Used by GC_DrawLoadingStatus (G60) so map load shows retail-themed art and
+	a progress bar instead of a flat debug color field.
+	"""
+	try:
+		from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
+	except ImportError:
+		print("Warning: Pillow not installed; skipping GameCube loading plaque bake.", file=sys.stderr)
+		return False
+
+	menu_dir = output / "resource" / "gc_menu"
+	menu_dir.mkdir(parents=True, exist_ok=True)
+
+	# Distressed lambda wallpaper from HD loading tiles when present.
+	bg = Image.new("RGB", (320, 240), (18, 16, 14))
+	layout = source / "resource" / "HD_BackgroundLoadingLayout.txt"
+	if layout.is_file():
+		bg_w, bg_h, tiles = _gc_menu_parse_layout(source, layout)
+		if tiles:
+			canvas = Image.new("RGB", (bg_w, bg_h), (0, 0, 0))
+			for tile_path, x, y in tiles:
+				try:
+					canvas.paste(Image.open(tile_path).convert("RGB"), (x, y))
+				except OSError:
+					continue
+			boosted = ImageEnhance.Contrast(canvas).enhance(3.2)
+			boosted = ImageEnhance.Brightness(boosted).enhance(3.8)
+			bg = boosted.resize((320, 240), Image.Resampling.LANCZOS)
+			bg = ImageEnhance.Color(bg).enhance(0.35)
+
+	# Soft vignette + dark lower band reserved for status/progress UI.
+	vignette = Image.new("L", (320, 240), 0)
+	vdraw = ImageDraw.Draw(vignette)
+	vdraw.ellipse((-40, -60, 360, 280), fill=220)
+	vignette = vignette.filter(ImageFilter.GaussianBlur(28))
+	bg = Image.composite(bg, Image.new("RGB", (320, 240), (8, 8, 8)), vignette)
+	band = Image.new("RGBA", (320, 240), (0, 0, 0, 0))
+	ImageDraw.Draw(band).rectangle((0, 168, 320, 240), fill=(10, 10, 12, 210))
+	bg = Image.alpha_composite(bg.convert("RGBA"), band).convert("RGB")
+
+	# Bald Black Mesa scientist (Walter) — the iconic HL1 "bald guy".
+	scientist = source / "models" / "player" / "scientist" / "Scientist.bmp"
+	if not scientist.is_file():
+		scientist = source / "models" / "player" / "scientist" / "scientist.bmp"
+	if scientist.is_file():
+		char = Image.open(scientist).convert("RGBA")
+		# Drop near-black backdrop so he composites cleanly.
+		datas = char.getdata()
+		cleaned = []
+		for r, g, b, a in datas:
+			if r < 12 and g < 12 and b < 12:
+				cleaned.append((0, 0, 0, 0))
+			else:
+				cleaned.append((r, g, b, 255))
+		char.putdata(cleaned)
+		char = char.resize((118, 144), Image.Resampling.NEAREST)
+		bg_rgba = bg.convert("RGBA")
+		bg_rgba.paste(char, (18, 28), char)
+		bg = bg_rgba.convert("RGB")
+
+	# Lambda watermark from retail gfx when available.
+	lam = source / "gfx" / "lambda.bmp"
+	if lam.is_file():
+		mark = Image.open(lam).convert("RGBA").resize((48, 48), Image.Resampling.NEAREST)
+		mark.putalpha(mark.split()[0].point(lambda v: 90 if v > 8 else 0))
+		layered = bg.convert("RGBA")
+		layered.paste(mark, (250, 28), mark)
+		bg = layered.convert("RGB")
+
+	loading_path = menu_dir / "loading.tga"
+	bg.save(loading_path, format="TGA")
+
+	# Intro still: bald scientist plaque used for stage demos / boot hold.
+	intro = Image.new("RGB", (320, 240), (0, 0, 0))
+	if scientist.is_file():
+		char = Image.open(scientist).convert("RGBA")
+		datas = char.getdata()
+		cleaned = []
+		for r, g, b, a in datas:
+			if r < 12 and g < 12 and b < 12:
+				cleaned.append((0, 0, 0, 0))
+			else:
+				cleaned.append((r, g, b, 255))
+		char.putdata(cleaned)
+		char = char.resize((150, 184), Image.Resampling.NEAREST)
+		frame = Image.new("RGBA", (320, 240), (0, 0, 0, 255))
+		# Sepia-ish HL portrait plate.
+		plate = Image.new("RGB", (200, 200), (42, 32, 22))
+		plate_draw = ImageDraw.Draw(plate)
+		plate_draw.rectangle((2, 2, 197, 197), outline=(160, 110, 40), width=2)
+		frame.paste(plate, (60, 20))
+		frame.paste(char, (85, 28), char)
+		# Title strip under the plate.
+		td = ImageDraw.Draw(frame)
+		td.rectangle((60, 222, 260, 236), fill=(20, 16, 12))
+		td.text((96, 224), "HALF-LIFE", fill=(230, 170, 50))
+		intro = frame.convert("RGB")
+	intro_path = menu_dir / "intro.tga"
+	intro.save(intro_path, format="TGA")
+
+	print(
+		f"GameCube loading assets: baked {loading_path.relative_to(output)} "
+		f"and {intro_path.relative_to(output)} (bald scientist + HL motif)"
+	)
+	return True
+
+
 # Small allowlist injected into gamecube-bootstrap.pk3 as gc_studio/*.mdl so
 # New Game can load real meshes without ISO9660 lookups in huge models/, and
 # without mounting an extra ZIP (which tips the New Game MEM1 cliff).
@@ -1244,6 +1353,8 @@ def stage_intro_avi_data(source: Path, output: Path) -> Path:
 	write_startup_vids(output)
 	if not stage_gc_menu_assets(source, output):
 		print("Warning: GameCube retail menu background bake failed.", file=sys.stderr)
+	if not stage_gc_loading_assets(source, output):
+		print("Warning: GameCube loading plaque bake failed.", file=sys.stderr)
 	(output / "custom").mkdir(exist_ok=True)
 	return output
 
@@ -1600,6 +1711,8 @@ def main() -> None:
 				)
 			if not stage_gc_menu_assets(args.data, staged_data):
 				print("Warning: GameCube retail menu background bake failed.", file=sys.stderr)
+			if not stage_gc_loading_assets(args.data, staged_data):
+				print("Warning: GameCube loading plaque bake failed.", file=sys.stderr)
 			validation_errors = validate_staged_retail_assets(staged_data)
 			if validation_errors:
 				print("Staged retail asset validation failed:", file=sys.stderr)

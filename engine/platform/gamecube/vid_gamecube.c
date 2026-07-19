@@ -1328,6 +1328,171 @@ static void GC_FatalDrawWrapped( unsigned short *dst, int x, int y, const char *
 	}
 }
 
+#if XASH_GAMECUBE
+/* HL1-themed loading plaque (baked at disc build). Keep tiny for MEM1. */
+#define GC_LOADING_BG_W		160
+#define GC_LOADING_BG_H		120
+static unsigned short gc_loading_bg[GC_LOADING_BG_W * GC_LOADING_BG_H];
+static qboolean gc_loading_bg_ready;
+static float gc_loading_progress;
+
+void GC_SetLoadingProgress( float progress )
+{
+	if( progress < 0.0f )
+		progress = 0.0f;
+	if( progress > 1.0f )
+		progress = 1.0f;
+	gc_loading_progress = progress;
+}
+
+float GC_GetLoadingProgress( void )
+{
+	return gc_loading_progress;
+}
+
+static unsigned short GC_RGB8To565( int r, int g, int b )
+{
+	if( r < 0 ) r = 0;
+	if( g < 0 ) g = 0;
+	if( b < 0 ) b = 0;
+	if( r > 255 ) r = 255;
+	if( g > 255 ) g = 255;
+	if( b > 255 ) b = 255;
+	return (unsigned short)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
+}
+
+static qboolean GC_LoadLoadingBackground( void )
+{
+	byte *file;
+	fs_offset_t size = 0;
+	const byte *p;
+	int id_len, cmap_type, image_type, bpp, width, height, x, y;
+	int row_stride;
+	qboolean top_origin;
+
+	if( gc_loading_bg_ready )
+		return true;
+
+	file = FS_LoadFile( "resource/gc_menu/loading.tga", &size, false );
+	if( !file || size < 18 )
+	{
+		if( file )
+			Mem_Free( file );
+		return false;
+	}
+
+	id_len = file[0];
+	cmap_type = file[1];
+	image_type = file[2];
+	width = file[12] | ( file[13] << 8 );
+	height = file[14] | ( file[15] << 8 );
+	bpp = file[16];
+	top_origin = ( file[17] & 0x20 ) != 0;
+
+	if( cmap_type != 0 || ( image_type != 2 && image_type != 10 ) || ( bpp != 24 && bpp != 32 )
+		|| width <= 0 || height <= 0 )
+	{
+		Mem_Free( file );
+		return false;
+	}
+
+	/* Only uncompressed truecolor for the baked plaque. */
+	if( image_type != 2 )
+	{
+		Mem_Free( file );
+		return false;
+	}
+
+	p = file + 18 + id_len;
+	row_stride = width * ( bpp / 8 );
+	if( 18 + id_len + (fs_offset_t)row_stride * height > size )
+	{
+		Mem_Free( file );
+		return false;
+	}
+
+	for( y = 0; y < GC_LOADING_BG_H; y++ )
+	{
+		int src_y = ( y * height ) / GC_LOADING_BG_H;
+		if( !top_origin )
+			src_y = height - 1 - src_y;
+		for( x = 0; x < GC_LOADING_BG_W; x++ )
+		{
+			int src_x = ( x * width ) / GC_LOADING_BG_W;
+			const byte *px = p + src_y * row_stride + src_x * ( bpp / 8 );
+			/* TGA is BGR(A). */
+			gc_loading_bg[y * GC_LOADING_BG_W + x] = GC_RGB8To565( px[2], px[1], px[0] );
+		}
+	}
+
+	Mem_Free( file );
+	gc_loading_bg_ready = true;
+	Con_Reportf( "Xash3D GameCube: HL1 loading plaque ready %dx%d\n",
+		GC_LOADING_BG_W, GC_LOADING_BG_H );
+	return true;
+}
+
+static void GC_BlitLoadingBackground( unsigned short *dst, int width, int height, int stride )
+{
+	int row, col;
+
+	if( !GC_LoadLoadingBackground())
+	{
+		unsigned short fill = GC_RGB8To565( 16, 14, 12 );
+		for( row = 0; row < height; row++ )
+		{
+			unsigned short *rowdst = dst + row * stride;
+			for( col = 0; col < width; col++ )
+				rowdst[col] = fill;
+		}
+		return;
+	}
+
+	for( row = 0; row < height; row++ )
+	{
+		int src_y = ( row * GC_LOADING_BG_H ) / height;
+		unsigned short *rowdst = dst + row * stride;
+		const unsigned short *src_row = gc_loading_bg + src_y * GC_LOADING_BG_W;
+
+		for( col = 0; col < width; col++ )
+			rowdst[col] = src_row[( col * GC_LOADING_BG_W ) / width];
+	}
+}
+
+static void GC_DrawProgressBar( unsigned short *dst, int width, int height, int stride,
+	int bar_x, int bar_y, int bar_w, int bar_h, float progress )
+{
+	int row, col;
+	int fill_w;
+	unsigned short border = GC_RGB8To565( 200, 140, 40 );   /* HL gold */
+	unsigned short track = GC_RGB8To565( 28, 24, 20 );
+	unsigned short fill = GC_RGB8To565( 230, 120, 20 );     /* HL orange */
+
+	if( bar_w < 8 || bar_h < 4 )
+		return;
+	if( progress < 0.0f )
+		progress = 0.0f;
+	if( progress > 1.0f )
+		progress = 1.0f;
+	fill_w = (int)( ( bar_w - 2 ) * progress + 0.5f );
+
+	for( row = bar_y; row < bar_y + bar_h && row < height; row++ )
+	{
+		unsigned short *rowdst = dst + row * stride;
+		for( col = bar_x; col < bar_x + bar_w && col < width; col++ )
+		{
+			int local = col - bar_x;
+			if( row == bar_y || row == bar_y + bar_h - 1 || local == 0 || local == bar_w - 1 )
+				rowdst[col] = border;
+			else if( local - 1 < fill_w )
+				rowdst[col] = fill;
+			else
+				rowdst[col] = track;
+		}
+	}
+}
+#endif
+
 static void GC_DrawStatusPanelToBuffer( unsigned short *dst, int width, int height, int stride,
 	const char *message, const char *details )
 {
@@ -1339,13 +1504,16 @@ static void GC_DrawStatusPanelToBuffer( unsigned short *dst, int width, int heig
 	int panel_h;
 	int text_scale;
 	int line_scale;
+	int bar_x, bar_y, bar_w, bar_h;
+	unsigned short border = 0xFB40; /* HL amber border */
+	unsigned short fill = 0x10A2;   /* dark brown-black panel */
 
 	panel_x = width * 24 / 640;
 	panel_w = width - panel_x * 2;
-	panel_h = height * 92 / 480;
-	panel_y = height - panel_h - height * 24 / 480;
-	if( panel_y < height * 24 / 480 )
-		panel_y = height * 24 / 480;
+	panel_h = height * 110 / 480;
+	panel_y = height - panel_h - height * 18 / 480;
+	if( panel_y < height * 18 / 480 )
+		panel_y = height * 18 / 480;
 	text_scale = height >= 240 ? 2 : 1;
 	line_scale = height >= 240 ? 2 : 1;
 
@@ -1356,18 +1524,28 @@ static void GC_DrawStatusPanelToBuffer( unsigned short *dst, int width, int heig
 		{
 			if( row == panel_y || row == panel_y + panel_h - 1 ||
 				col == panel_x || col == panel_x + panel_w - 1 )
-				rowdst[col] = 0x07FF;
+				rowdst[col] = border;
 			else
-				rowdst[col] = 0x0010;
+				rowdst[col] = fill;
 		}
 	}
 
 	GC_StatusDrawLine( dst, stride, width, height, panel_x + width * 18 / 640,
-		panel_y + height * 12 / 480, "LOADING", 0xFFFF, text_scale, 24 );
+		panel_y + height * 10 / 480, "HALF-LIFE", 0xFE60, text_scale, 24 );
 	GC_StatusDrawLine( dst, stride, width, height, panel_x + width * 18 / 640,
-		panel_y + height * 38 / 480, message ? message : "PLEASE WAIT", 0xFFE0, text_scale, 34 );
+		panel_y + height * 34 / 480, message ? message : "PLEASE WAIT", 0xFFE0, text_scale, 34 );
 	GC_StatusDrawLine( dst, stride, width, height, panel_x + width * 18 / 640,
-		panel_y + height * 64 / 480, details ? details : "GAMECUBE VIDEO ALIVE", 0x07E0, line_scale, 72 );
+		panel_y + height * 56 / 480, details ? details : "LOADING", 0xC618, line_scale, 72 );
+
+#if XASH_GAMECUBE
+	bar_x = panel_x + width * 18 / 640;
+	bar_w = panel_w - width * 36 / 640;
+	bar_h = height >= 240 ? 10 : 6;
+	bar_y = panel_y + panel_h - bar_h - height * 10 / 480;
+	GC_DrawProgressBar( dst, width, height, stride, bar_x, bar_y, bar_w, bar_h, gc_loading_progress );
+#else
+	(void)bar_x; (void)bar_y; (void)bar_w; (void)bar_h;
+#endif
 }
 
 /*
@@ -1379,24 +1557,11 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 {
 #if XASH_GAMECUBE
 	unsigned short *dst;
-	unsigned short *rowdst;
-	int row;
-	int col;
-	int panel_x;
-	int panel_w;
-	int panel_h;
-	int panel_y;
 	size_t xfb_size;
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
-		for( row = 0; row < gc.height; row++ )
-		{
-			rowdst = gc.buffer + row * gc.stride;
-			for( col = 0; col < gc.width; col++ )
-				rowdst[col] = 0x0010;
-		}
-
+		GC_BlitLoadingBackground( gc.buffer, gc.width, gc.height, gc.stride );
 		GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride, message, details );
 		/* Avoid VIDEO_WaitVSync during Host_Init map load; it can stall for minutes in Dolphin. */
 		if( host.status != HOST_INIT )
@@ -1408,29 +1573,9 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 		return;
 
 	dst = (unsigned short *)xfb[which_fb];
-	panel_x = 24;
-	panel_w = rmode->fbWidth - 48;
-	panel_h = 92;
-	panel_y = rmode->xfbHeight - panel_h - 24;
-	if( panel_y < 24 )
-		panel_y = 24;
-
-	for( row = panel_y; row < panel_y + panel_h && row < rmode->xfbHeight; row++ )
-	{
-		rowdst = dst + row * rmode->fbWidth;
-		for( col = panel_x; col < panel_x + panel_w && col < rmode->fbWidth; col++ )
-		{
-			if( row == panel_y || row == panel_y + panel_h - 1 ||
-				col == panel_x || col == panel_x + panel_w - 1 )
-				rowdst[col] = 0x07FF; /* cyan border */
-			else
-				rowdst[col] = 0x0010; /* dark blue panel */
-		}
-	}
-
-	GC_FatalDrawLine( dst, panel_x + 18, panel_y + 12, "LOADING", 0xFFFF, 2, 24 );
-	GC_FatalDrawLine( dst, panel_x + 18, panel_y + 38, message ? message : "PLEASE WAIT", 0xFFE0, 2, 34 );
-	GC_FatalDrawLine( dst, panel_x + 18, panel_y + 64, details ? details : "GAMECUBE VIDEO ALIVE", 0x07E0, 1, 72 );
+	GC_BlitLoadingBackground( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth );
+	GC_DrawStatusPanelToBuffer( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth,
+		message, details );
 
 	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
 	DCFlushRange( xfb[which_fb], (u32)xfb_size );
