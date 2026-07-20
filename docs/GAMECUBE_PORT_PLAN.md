@@ -2937,6 +2937,37 @@ Evidence: `.ai/logs/dolphin-probe-20260720-132518` —
 `G143 scrub dump speckles (fill=199 neon=69 outliers=58)`, keep textured;
 wall-region chroma counts → empty vs G142; framedump_10 → stage-04.
 
+## G144 — Live GX present scrub (COMPLETE 2026-07-20)
+
+Dump-only scrub left post-dump GX frames noisy (framedump_11). Run neon/outlier
+scrub before each New Game present when not in CPU-dump latch. Do **not**
+zero→sky flood on live frames (that filled ~20k voids on incomplete buffers).
+
+Evidence: `.ai/logs/dolphin-probe-20260720-133426` —
+`G144 live world scrub before present (neon/outlier)`, `GX present path active`;
+framedump_10/15 chroma~0; stage-04 + stage-04b-live-gx-present.png.
+
+## G145 — Live span-crack fill (COMPLETE 2026-07-20)
+
+G144 skipped all zero-fills on live → dark jagged span cracks on walls. Enable
+neighbor crack fill when the frame is mostly drawn (`nonblack*5 >= samples*2`);
+still skip blanket sky-flood on live.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-133810` —
+`G145 live scrub (cracks=1 neon/outlier) nonblack=862/1200`;
+wall-band near-black 0.25%→0.02% vs G144; stage-04 / 04b refreshed.
+
+## G146 — UV-matched surfcache mip (COMPLETE 2026-07-20)
+
+Quality-0 path clamped surfcache to 64×64 without raising mip, so
+`D_CalcGradients` still sampled the full surface UV range → OOB/wrap dark
+cracks and chroma noise. Bump mip until the block fits ≤64×64; sync span
+`miplevel` from `cache->mipscale` before gradients.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-134636` —
+`G146 surfcache mip 0→2 size … (UV-matched)` (no `clamping surface cache`);
+wall dark40 924→78, dark_runs 6→4; stage-04 / 04b refreshed.
+
 ## Next wake-up commands
 
 ```sh

@@ -15,11 +15,13 @@ stage-01-map-load-please-wait.png / stage-02-loading-bsp.png / stage-03-loading-
   Host-rendered previews of the baked loading.tga + progress bar at ~85%/40%/75%.
 
 stage-04-world-present.png
-  Dolphin DumpFrames after G143: textured keep + outlier scrub (wall chroma→0)
-  + G142 stretched sky on c1a0a WORLD PRESENT.
-  Probe: .ai/logs/dolphin-probe-20260720-132518 (framedump_10, outliers=58).
+  Dolphin DumpFrames after G146: UV-matched surfcache + scrub + GX present.
+  Probe: .ai/logs/dolphin-probe-20260720-134636 (framedump_10).
+
+stage-04b-live-gx-present.png
+  Live GX present (framedump_15); wall dark40 924→78 vs G145.
 
 Engine notes:
   Disc bake: resource/gc_menu/loading.tga + intro.tga
   Runtime: GC_DrawLoadingStatus + GC_SetLoadingProgress
-  Dump path: G143 outlier scrub + G142 sky + G128 CPU presents
+  Dump/live: G146 UV-matched cache + G145 crack fill + G143/G144 scrub

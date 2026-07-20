@@ -1838,28 +1838,48 @@ static unsigned short GC_DumpNeighborFill( const unsigned short *dst, int width,
 }
 
 static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int height, int stride,
-	qboolean quiet, qboolean fill_zeros );
+	qboolean quiet, qboolean fill_cracks, qboolean sky_flood );
 
-/* G144 live: neon/outlier only — zero→sky flood destroys incomplete frames. */
+/* G145 live: neighbor-fill span cracks when the frame is mostly drawn; never
+ * blanket sky-flood zeros (that wrecked incomplete early buffers in G144). */
 static void GC_ScrubLiveWorldSpeckles( unsigned short *dst, int width, int height, int stride )
 {
-	static qboolean g144_logged;
+	static qboolean g145_logged;
+	unsigned nonblack = 0, samples = 0;
+	int y, x;
+	qboolean fill_cracks;
 
-	GC_ScrubWorldSpecklesPasses( dst, width, height, stride, true, false );
-	if( !g144_logged )
+	if( !dst || width <= 0 || height <= 0 || stride < width )
+		return;
+
+	for( y = 0; y < height; y += 8 )
 	{
-		g144_logged = true;
-		Con_Reportf( "Xash3D GameCube: G144 live world scrub before present (neon/outlier)\n" );
+		const unsigned short *row = dst + y * stride;
+		for( x = 0; x < width; x += 8 )
+		{
+			samples++;
+			if( row[x] > 0x0020 )
+				nonblack++;
+		}
+	}
+	fill_cracks = ( samples > 0 ) && ( nonblack * 5 >= samples * 2 );
+
+	GC_ScrubWorldSpecklesPasses( dst, width, height, stride, true, fill_cracks, false );
+	if( !g145_logged )
+	{
+		g145_logged = true;
+		Con_Reportf( "Xash3D GameCube: G145 live scrub (cracks=%d neon/outlier) nonblack=%u/%u\n",
+			fill_cracks ? 1 : 0, nonblack, samples );
 	}
 }
 
 static void GC_ScrubDumpWorldSpeckles( unsigned short *dst, int width, int height, int stride )
 {
-	GC_ScrubWorldSpecklesPasses( dst, width, height, stride, false, true );
+	GC_ScrubWorldSpecklesPasses( dst, width, height, stride, false, true, true );
 }
 
 static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int height, int stride,
-	qboolean quiet, qboolean fill_zeros )
+	qboolean quiet, qboolean fill_cracks, qboolean sky_flood )
 {
 	const unsigned short sky = 0x5ADB;
 	int y, x;
@@ -1869,7 +1889,7 @@ static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int hei
 	if( !dst || width <= 0 || height <= 0 || stride < width )
 		return;
 
-	if( fill_zeros )
+	if( fill_cracks )
 	{
 		/* Pass 1: span cracks — replace isolated zeros with wall neighbor mode. */
 		for( y = 0; y < height; y++ )
@@ -1889,7 +1909,10 @@ static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int hei
 				}
 			}
 		}
+	}
 
+	if( sky_flood )
+	{
 		/* Pass 2: remaining zeros are real sky voids. */
 		for( y = 0; y < height; y++ )
 		{
@@ -1919,7 +1942,7 @@ static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int hei
 	}
 
 	/* Pass 4: isolated sky speckles inside walls (leftover crack flood). */
-	if( fill_zeros )
+	if( sky_flood )
 	for( y = 0; y < height; y++ )
 	{
 		unsigned short *row = dst + y * stride;

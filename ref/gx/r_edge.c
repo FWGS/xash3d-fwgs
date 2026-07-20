@@ -1335,6 +1335,16 @@ static void D_SolidSurf( surf_t *s )
 						tr.framecount );
 				cacheblock = (pixel_t *)pcurrentcache->data;
 				cachewidth = pcurrentcache->width;
+				/* G146: span UV mip must match the cache mipscale (may be
+				 * higher than D_MipLevelForScale after budget fit). */
+				if( pcurrentcache->mipscale <= 0.15f )
+					miplevel = 3;
+				else if( pcurrentcache->mipscale <= 0.3f )
+					miplevel = 2;
+				else if( pcurrentcache->mipscale <= 0.6f )
+					miplevel = 1;
+				else
+					miplevel = 0;
 				D_CalcGradients( pface );
 				/* Cache already holds display RGB565 after G134 tile path. */
 				d_gc_span_rgb565 = false;

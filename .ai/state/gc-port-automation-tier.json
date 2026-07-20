@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G143 COMPLETE: wall chroma outlier scrub on textured DumpFrames. Next: live-frame polish / non-dump path quality."
+  "note": "G146 COMPLETE: UV-matched surfcache mip bump (no 64x64 clamp cracks). Next: remaining span cracks / more face emit."
 }

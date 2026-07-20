@@ -1803,11 +1803,14 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 
 #if XASH_GAMECUBE
 	/* Low-res New Game: size from lightmap extents when present so light
-	 * columns match; otherwise face extents (lightextents are often empty). */
+	 * columns match; otherwise face extents (lightextents are often empty).
+	 * G146: bump mip until the block fits ≤64×64 — never clamp width/height
+	 * alone (that desyncs D_CalcGradients UV space → dark span cracks). */
 	if( GC_UseLowResWorldProbe() )
 	{
 		int w, h;
 		int mip = miplevel;
+		int start_mip;
 		const qboolean use_lm = !( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
 			surface->info->lightextents[0] > 0 && surface->info->lightextents[1] > 0;
 
@@ -1836,6 +1839,21 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 				h = surface->extents[1] >> mip;
 			}
 		}
+		start_mip = mip;
+		while(( w > 64 || h > 64 ) && mip < 3 )
+		{
+			mip++;
+			if( use_lm )
+			{
+				w = surface->info->lightextents[0] >> mip;
+				h = surface->info->lightextents[1] >> mip;
+			}
+			else
+			{
+				w = surface->extents[0] >> mip;
+				h = surface->extents[1] >> mip;
+			}
+		}
 		if( w <= 0 )
 			w = 16;
 		if( h <= 0 )
@@ -1846,11 +1864,33 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			w = 16;
 		if( h < 16 )
 			h = 16;
+		/* Last resort if still huge at mip3 (rare). Keep UV space consistent
+		 * by also raising surfscale to match the clamped block. */
+		if( w > 64 || h > 64 )
+		{
+			float sx = ( w > 64 ) ? ( 64.0f / (float)w ) : 1.0f;
+			float sy = ( h > 64 ) ? ( 64.0f / (float)h ) : 1.0f;
+			float s = ( sx < sy ) ? sx : sy;
+
+			if( w > 64 )
+				w = 64;
+			if( h > 64 )
+				h = 64;
+			surfscale = ( 1.0 / ( 1 << mip )) * s;
+		}
+		else
+			surfscale = 1.0 / ( 1 << mip );
+		if( mip != start_mip && r_gc_surface_cache_skip_reports < 8 )
+		{
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G146 surfcache mip %d→%d size %dx%d (UV-matched)\n",
+				start_mip, mip, w, h );
+			r_gc_surface_cache_skip_reports++;
+		}
 		r_drawsurf.surfmip = mip;
 		r_drawsurf.surfwidth = w;
 		r_drawsurf.surfheight = h;
 		r_drawsurf.rowbytes = w;
-		surfscale = 1.0 / ( 1 << mip );
 	}
 #endif
 
@@ -1863,12 +1903,13 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 #if XASH_GAMECUBE
 		// G24b: bound surface cache allocation size for low-memory quality 0
 		// to avoid blowing budget on large animated/dynamic surfaces.
-		// Quality 1/2 preserve existing behavior.
+		// Quality 1/2 preserve existing behavior. New Game low-res already
+		// UV-matched via G146 mip bump — do not clamp dimensions here.
 		int alloc_width = r_drawsurf.surfwidth;
 		int alloc_height = r_drawsurf.surfheight;
-		if( GC_GetVisualQuality() == 0 )
+		if( GC_GetVisualQuality() == 0 && !GC_UseLowResWorldProbe() )
 		{
-			// Clamp to 64x64 for quality 0 to preserve cache budget
+			// Clamp to 64x64 for quality 0 smoke to preserve cache budget
 			if( alloc_width > 64 )
 				alloc_width = 64;
 			if( alloc_height > 64 )
@@ -1898,6 +1939,10 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		cache->owner = &CACHESPOT( surface )[miplevel];
 		cache->mipscale = surfscale;
 	}
+#if XASH_GAMECUBE
+	else if( GC_UseLowResWorldProbe() )
+		cache->mipscale = surfscale;
+#endif
 
 	if( surface->dlightframe == tr.framecount )
 		cache->dlight = 1;
