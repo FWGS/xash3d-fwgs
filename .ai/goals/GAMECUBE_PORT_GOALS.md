@@ -54,7 +54,7 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G153: GX lightmaps (capture bake + TEV2 MODULATE)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(none — G153 complete; next: GX viewmodel/studio)*
+1. *(none — G155 complete; next: retain viewmodel studio cache / FOV polish)*
 
 Evidence anchors:
 - `.ai/logs/dolphin-probe-20260720-150403` (G153 lightmapped=199 TEV2; capture bake)
@@ -2575,6 +2575,41 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Evidence: `.ai/logs/dolphin-probe-20260720-150403` —
   `G153 captured … lm=0`, `G153 GX lightmapped faces=199 of 199 (Flipper TEV2)`.
 - Next: keep real samples through capture; GX viewmodel.
+
+## G154 [x] Real lightmap samples for Flipper LM bake
+
+- Status: DONE 2026-07-20. Capture faces **after** lighting. Large lightmaps
+  (>256 KiB) are dropped from scratch so surfaces can settle, then
+  `LUMP_LIGHTING` is reloaded from disc for bake-only bind (no full MEM1
+  residency). Multi-cluster PVS without a surf table builds a one-row
+  surfbits fallback so changelevel maps still capture faces.
+- Acceptance:
+  - `G154 captured … lm=` with lm>0 (ideally =face count)
+  - `G154 disc lightmap bind size=`
+  - Cap faces still draw after changelevel (`G133 cap faces drawn=` >0)
+- Evidence: `.ai/logs/dolphin-probe-20260720-152030` —
+  `G154 disc lightmap bind size=601.95 Kb`,
+  `G154 captured … lm=256` (c0a0 and c1a0a),
+  `G133 cap faces drawn=199 of 256`.
+- Next: GX studio/viewmodel; confirm live GX draw after reconnect.
+
+## G155 [x] GX studio / viewmodel on Flipper (TriAPI → EFB)
+
+- Status: DONE 2026-07-20. When `GC_UseGxWorldDraw()` is armed, TriAPI
+  studio meshes emit world-space GX triangles (TEX0 MODULATE) into the EFB
+  instead of soft polyset. Viewmodel uses Z-always overlay. One Prepare-time
+  smoke frame after `G151` enable proves the path before reconnect stalls SCR.
+- Acceptance:
+  - `G155 GX studio tris=` with tris>0
+  - Same smoke also logs `G151 GX world faces drawn=` / `G154 GX lightmapped`
+- Evidence: `.ai/logs/dolphin-probe-20260720-153823` —
+  `G151 GX world faces drawn=199 of 256`,
+  `G154 GX lightmapped faces=199 of 199`,
+  `G155 GX studio tris=14 viewmodel=0`,
+  `G155 GX live smoke frame`.
+- Residual: landmark `v_9mmhandgun` often missing cache at smoke/Deploy
+  (`G105 promote failed`); Flipper path is proven via forced world studio.
+- Next: retain viewmodel studio cache through reconnect; FOV/origin polish.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

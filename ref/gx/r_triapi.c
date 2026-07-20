@@ -28,6 +28,10 @@ static int         vertcount, n;
 static int         mode;
 static short       s, t;
 static uint        light;
+#if XASH_GAMECUBE
+static float       gx_u, gx_v;
+static struct { float x, y, z, u, v; } gx_triv[3];
+#endif
 
 /*
 ===============================================================
@@ -196,7 +200,10 @@ void GAME_EXPORT TriTexCoord2f( float u, float v )
 	while( v1 > 1 )
 		v1 = v1 - 1;
 
-
+#if XASH_GAMECUBE
+	gx_u = (float)u1;
+	gx_v = (float)v1;
+#endif
 	s = r_affinetridesc.skinwidth * bound( 0.01, u1, 0.99 );
 	t = r_affinetridesc.skinheight * bound( 0.01, v1, 0.99 );
 }
@@ -220,6 +227,78 @@ TriVertex3f
 */
 void GAME_EXPORT TriVertex3f( float x, float y, float z )
 {
+#if XASH_GAMECUBE
+	/* G155: Flipper studio/viewmodel — emit world-space tris into EFB. */
+	if( R_GXStudioIsActive() )
+	{
+		R_GXStudioColor( light );
+
+		if( mode == TRI_TRIANGLES )
+		{
+			gx_triv[vertcount].x = x;
+			gx_triv[vertcount].y = y;
+			gx_triv[vertcount].z = z;
+			gx_triv[vertcount].u = gx_u;
+			gx_triv[vertcount].v = gx_v;
+			vertcount++;
+			if( vertcount == 3 )
+			{
+				R_GXStudioEmitTri(
+					gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v,
+					gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v,
+					gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v );
+				vertcount = 0;
+			}
+			return;
+		}
+		if( mode == TRI_TRIANGLE_FAN )
+		{
+			gx_triv[vertcount].x = x;
+			gx_triv[vertcount].y = y;
+			gx_triv[vertcount].z = z;
+			gx_triv[vertcount].u = gx_u;
+			gx_triv[vertcount].v = gx_v;
+			vertcount++;
+			if( vertcount >= 3 )
+			{
+				R_GXStudioEmitTri(
+					gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v,
+					gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v,
+					gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v );
+				gx_triv[1] = gx_triv[2];
+				vertcount = 2;
+			}
+			return;
+		}
+		if( mode == TRI_TRIANGLE_STRIP )
+		{
+			gx_triv[n].x = x;
+			gx_triv[n].y = y;
+			gx_triv[n].z = z;
+			gx_triv[n].u = gx_u;
+			gx_triv[n].v = gx_v;
+			n++;
+			vertcount++;
+			if( n == 3 )
+				n = 0;
+			if( vertcount >= 3 )
+			{
+				if( vertcount & 1 )
+					R_GXStudioEmitTri(
+						gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v,
+						gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v,
+						gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v );
+				else
+					R_GXStudioEmitTri(
+						gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v,
+						gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v,
+						gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v );
+			}
+			return;
+		}
+		return;
+	}
+#endif
 	if( mode == TRI_TRIANGLES )
 	{
 		R_SetupFinalVert( &triv[vertcount], x, y, z, light << 8, s, t );

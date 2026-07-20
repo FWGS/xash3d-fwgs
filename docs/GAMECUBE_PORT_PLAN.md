@@ -3048,6 +3048,28 @@ Evidence: `.ai/logs/dolphin-probe-20260720-150403` —
 `G153 GX lightmapped faces=199 of 199 (Flipper TEV2)`.
 Next: retain real samples through capture; GX viewmodel.
 
+## G154 — Real LM samples for Flipper bake (COMPLETE 2026-07-20)
+
+Face capture runs after lighting. Large lightmaps leave scratch for surface
+tables; New Game reloads `LUMP_LIGHTING` from disc for a bake-only bind, then
+releases it. Multi-cluster PVS without a full surf table falls back to a
+single-row surfbits bake so c1a0a still gets faces.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-152030` —
+`G154 captured … lm=256` (c0a0 + c1a0a), `G133 cap faces drawn=199 of 256`.
+Next: GX viewmodel / studio on Flipper.
+
+## G155 — GX studio/viewmodel Flipper (COMPLETE 2026-07-20)
+
+TriAPI studio meshes emit GX triangles into the EFB when GX world live is
+armed. Prepare runs one smoke `GL_RenderFrame` after G151 enable so Flipper
+world+studio are proven before reconnect stalls SCR.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-153823` —
+`G151 GX world faces drawn=199`, `G154 GX lightmapped faces=199`,
+`G155 GX studio tris=14 viewmodel=0`.
+Next: keep `v_9mmhandgun` resident through Deploy/reconnect.
+
 ## Next wake-up commands
 
 ```sh

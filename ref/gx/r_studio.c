@@ -2856,6 +2856,15 @@ R_DrawStudioModel
 */
 void R_DrawStudioModel( cl_entity_t *e )
 {
+#if XASH_GAMECUBE
+	qboolean gx_studio = false;
+
+	if( e && GC_UseGxWorldDraw() )
+	{
+		R_GXStudioBegin( false );
+		gx_studio = true;
+	}
+#endif
 	R_StudioSetupTimings();
 
 	if( e->player )
@@ -2867,7 +2876,13 @@ void R_DrawStudioModel( cl_entity_t *e )
 		cl_entity_t *parent = CL_GetEntityByIndex( e->curstate.aiment );
 
 		if( !parent || !parent->model || parent->model->type != mod_studio )
+		{
+#if XASH_GAMECUBE
+			if( gx_studio )
+				R_GXStudioEnd();
+#endif
 			return;
+		}
 
 		parent = R_FindParentEntity( e, tr.draw_list->solid_entities, tr.draw_list->num_solid_entities );
 
@@ -2889,6 +2904,10 @@ void R_DrawStudioModel( cl_entity_t *e )
 	{
 		R_StudioDrawModelInternal( e, STUDIO_RENDER | STUDIO_EVENTS );
 	}
+#if XASH_GAMECUBE
+	if( gx_studio )
+		R_GXStudioEnd();
+#endif
 }
 
 
@@ -2934,6 +2953,9 @@ R_DrawViewModel
 void R_DrawViewModel( void )
 {
 	cl_entity_t *view = tr.viewent;
+#if XASH_GAMECUBE
+	qboolean gx_studio = false;
+#endif
 
 	R_GatherPlayerLight( view );
 
@@ -2974,6 +2996,15 @@ void R_DrawViewModel( void )
 		// pglFrontFace( GL_CW );
 	}
 
+#if XASH_GAMECUBE
+	/* G155: Flipper viewmodel into EFB when GX world live is armed. */
+	if( GC_UseGxWorldDraw() && RI.currententity->model->type == mod_studio )
+	{
+		R_GXStudioBegin( true );
+		gx_studio = true;
+	}
+#endif
+
 	switch( RI.currententity->model->type )
 	{
 	case mod_alias:
@@ -2984,6 +3015,11 @@ void R_DrawViewModel( void )
 		R_StudioDrawModelInternal( RI.currententity, STUDIO_RENDER );
 		break;
 	}
+
+#if XASH_GAMECUBE
+	if( gx_studio )
+		R_GXStudioEnd();
+#endif
 
 	// restore depth range
 	// pglDepthRange( gldepthmin, gldepthmax );

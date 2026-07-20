@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G153 COMPLETE: GX lightmaps (TEV2 MODULATE, capture bake). Next: retain real LM samples / GX viewmodel."
+  "note": "G155 COMPLETE: GX studio TriAPI→EFB (tris=14 smoke). Next: retain viewmodel studio cache through reconnect."
 }

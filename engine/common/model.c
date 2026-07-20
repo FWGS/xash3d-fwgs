@@ -43,6 +43,50 @@ static int    gc_real_studio_npc;
 static int    gc_real_studio_view;
 static size_t gc_real_studio_bytes;
 static char   gc_landmark_viewmodel[64];
+static model_t *gc_pinned_viewmodels[GC_REAL_STUDIO_MAX_VIEW];
+static int     gc_pinned_viewmodel_count;
+
+static qboolean Mod_GCIsPinnedViewModel( const model_t *mod )
+{
+	int i;
+
+	if( !mod )
+		return false;
+	for( i = 0; i < gc_pinned_viewmodel_count; i++ )
+	{
+		if( gc_pinned_viewmodels[i] == mod )
+			return true;
+	}
+	return false;
+}
+
+static void Mod_GCPinViewModel( model_t *mod )
+{
+	int i;
+
+	if( !mod || Mod_GCIsPinnedViewModel( mod ))
+		return;
+	if( gc_pinned_viewmodel_count >= GC_REAL_STUDIO_MAX_VIEW )
+		return;
+	for( i = 0; i < gc_pinned_viewmodel_count; i++ )
+	{
+		if( gc_pinned_viewmodels[i] == mod )
+			return;
+	}
+	gc_pinned_viewmodels[gc_pinned_viewmodel_count++] = mod;
+	Con_Reportf( "Xash3D GameCube: G156 pinned viewmodel %s\n",
+		mod->name[0] ? mod->name : "?" );
+}
+
+static qboolean Mod_GCStudioAlreadyResident( model_t *mod )
+{
+	studiohdr_t *hdr;
+
+	if( !mod || !mod->cache.data )
+		return false;
+	hdr = (studiohdr_t *)mod->cache.data;
+	return ( hdr->numbodyparts > 0 ) ? true : false;
+}
 
 static qboolean Mod_GCStudioNameAllowed( const char *name, qboolean *is_viewmodel )
 {
@@ -180,10 +224,20 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 	byte *buf;
 	fs_offset_t length = 0;
 	qboolean loaded = false;
-	studiohdr_t *hdr;
+	qboolean is_view = false;
 
 	if( !path || !path[0] )
 		return false;
+
+	/* G156: reuse resident mesh — never re-read 130KB from disc under MEM1. */
+	mod = Mod_FindName( path, false );
+	if( Mod_GCStudioAlreadyResident( mod ))
+	{
+		Mod_GCStudioNameAllowed( path, &is_view );
+		if( is_view )
+			Mod_GCPinViewModel( mod );
+		return true;
+	}
 
 	buf = Mod_GCLoadStudioFile( path, &length );
 	if( !buf || length < (fs_offset_t)sizeof( studiohdr_t ))
@@ -211,10 +265,12 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 		return false;
 	}
 
-	hdr = (studiohdr_t *)mod->cache.data;
-	if( hdr && hdr->numbodyparts > 0 )
+	if( Mod_GCStudioAlreadyResident( mod ))
 	{
 		free( buf );
+		Mod_GCStudioNameAllowed( path, &is_view );
+		if( is_view )
+			Mod_GCPinViewModel( mod );
 		return true;
 	}
 
@@ -237,6 +293,9 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 		if( loaded_hdr && loaded_hdr->length > 0 && (size_t)loaded_hdr->length < kept )
 			kept = (size_t)loaded_hdr->length;
 		Mod_GCNoteRealStudioLoaded( path, kept );
+		Mod_GCStudioNameAllowed( path, &is_view );
+		if( is_view )
+			Mod_GCPinViewModel( mod );
 		return true;
 	}
 
@@ -248,11 +307,22 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path )
 {
 	qboolean ok;
+	model_t *mod;
 
 	if( !Sys_CheckParm( "-gcnewgame" ))
 		return false;
 	if( !model_path || !model_path[0] )
 		return false;
+
+	/* Fast path: already resident + pinned. */
+	mod = Mod_FindName( model_path, false );
+	if( Mod_GCStudioAlreadyResident( mod ))
+	{
+		Mod_GCPinViewModel( mod );
+		Q_strncpy( gc_landmark_viewmodel, model_path, sizeof( gc_landmark_viewmodel ));
+		return true;
+	}
+
 	FS_ClearFindMissCache();
 	Image_GCPurgeDecodeScratch();
 	ok = Mod_GCPromoteStudioPath( model_path );
@@ -449,6 +519,17 @@ void Mod_FreeModel( model_t *mod )
 	if( !mod || mod->needload == NL_UNREFERENCED )
 		return;
 
+#if XASH_GAMECUBE
+	/* G156: landmark viewweapons stay resident for Flipper / Deploy rebinds. */
+	if( Mod_GCIsPinnedViewModel( mod ))
+	{
+		Con_Reportf( "Xash3D GameCube: G156 skip free pinned viewmodel %s\n",
+			mod->name[0] ? mod->name : "?" );
+		mod->needload = NL_PRESENT;
+		return;
+	}
+#endif
+
 	if( mod->type != mod_brush || mod->name[0] != '*' )
 	{
 		Mod_FreeUserData( mod );
@@ -529,6 +610,11 @@ void Mod_FreeAll( void )
 {
 #if !XASH_DEDICATED
 	Mod_ReleaseHullPolygons();
+#endif
+#if XASH_GAMECUBE
+	/* Full purge — drop G156 pins so FreeModel can reclaim viewweapons. */
+	gc_pinned_viewmodel_count = 0;
+	memset( gc_pinned_viewmodels, 0, sizeof( gc_pinned_viewmodels ));
 #endif
 	for( int i = 0; i < mod_numknown; i++ )
 		Mod_FreeModel( &mod_known[i] );

@@ -1,8 +1,8 @@
 /*
 Copyright (C) 2026 Xash3D FWGS GameCube port
 
-G151/G152: Flipper GX world draw — cap faces as EFB triangles.
-G152 adds soft→RGB565 tiled texture upload + UV'd REPLACE TEV.
+G151–G154: Flipper GX world draw — cap faces as EFB triangles + LM.
+G155: Flipper GX studio/viewmodel via TriAPI → EFB overlay.
 */
 #include "r_local.h"
 
@@ -38,6 +38,14 @@ static qboolean r_gx_tex_logged;
 static int r_gx_tex_draws;
 static int r_gx_flat_draws;
 
+/* G155 studio overlay */
+static qboolean r_gx_studio_active;
+static qboolean r_gx_studio_viewmodel;
+static qboolean r_gx_studio_logged;
+static int r_gx_studio_tris;
+static u32 r_gx_studio_color = 0xFFFFFFFF;
+static unsigned r_gx_studio_bound_tex;
+
 qboolean R_GXWorldDrewThisFrame( void )
 {
 	return r_gx_world_drew;
@@ -46,6 +54,11 @@ qboolean R_GXWorldDrewThisFrame( void )
 void R_GXClearWorldDrewFlag( void )
 {
 	r_gx_world_drew = false;
+}
+
+qboolean R_GXStudioIsActive( void )
+{
+	return r_gx_studio_active;
 }
 
 static void R_GXLoadMtx44FromXash( Mtx44 out, const matrix4x4 in )
@@ -142,20 +155,18 @@ static void R_GXTexCacheReset( void )
 	r_gx_tex_world = NULL;
 }
 
-static gc_gx_tex_t *R_GXBindTexture( texture_t *mt )
+static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 {
 	image_t *img;
-	unsigned texnum;
 	int i, slot, victim, src_w, src_h, dst_w, dst_h;
 	int x, y, step_x, step_y;
 	u16 linear[GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM];
 	size_t bytes;
 	gc_gx_tex_t *t;
 
-	if( !mt || mt->gl_texturenum <= 0 )
+	if( texnum == 0 )
 		return NULL;
 
-	texnum = (unsigned)mt->gl_texturenum;
 	img = R_GetTexture( texnum );
 	if( !img || !img->pixels[0] || img->width < 1 || img->height < 1 )
 		return NULL;
@@ -241,9 +252,15 @@ static gc_gx_tex_t *R_GXBindTexture( texture_t *mt )
 	t->h = dst_h;
 	t->valid = true;
 	r_gx_tex_lru[slot] = ++r_gx_tex_clock;
-
 	GX_LoadTexObj( &t->obj, GX_TEXMAP0 );
 	return t;
+}
+
+static gc_gx_tex_t *R_GXBindTexture( texture_t *mt )
+{
+	if( !mt || mt->gl_texturenum <= 0 )
+		return NULL;
+	return R_GXBindTexnum( (unsigned)mt->gl_texturenum );
 }
 
 static void R_GXClearEfbSky( GXRModeObj *rmode )
@@ -617,10 +634,148 @@ int R_GXDrawNewGameCapFaces( void )
 	if( !r_gx_lm_logged && drawn > 0 )
 	{
 		r_gx_lm_logged = true;
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: G153 GX lightmapped faces=%d of %d (Flipper TEV2)\n",
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G154 GX lightmapped faces=%d of %d (Flipper TEV2)\n",
 			r_gx_lm_draws, drawn );
 	}
 	return drawn;
+}
+
+/*
+================
+G155: Flipper studio / viewmodel overlay (TriAPI → EFB)
+================
+*/
+static void R_GXPrepareStudioState( qboolean viewmodel )
+{
+	GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
+	Mtx44 proj;
+	Mtx mv;
+
+	if( rmode )
+	{
+		GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight, 0.0f, 1.0f );
+		GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
+		GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
+		GX_SetColorUpdate( GX_TRUE );
+	}
+
+	/* Drop world lightmap stage; studio is TEX0 MODULATE only. */
+	GX_SetNumTexGens( 1 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+	GX_SetNumChans( 1 );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+	GX_SetCullMode( viewmodel ? GX_CULL_NONE : GX_CULL_BACK );
+	/* Viewmodel: always on top so the gun is not buried by world depth. */
+	if( viewmodel )
+		GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+	else
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+
+	R_GXLoadMtx44FromXash( proj, RI.projectionMatrix );
+	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
+	R_GXLoadMtxFromXashMV( mv, RI.worldviewMatrix );
+	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+}
+
+void R_GXStudioBegin( qboolean viewmodel )
+{
+	if( !GC_UseGxWorldDraw() )
+		return;
+
+	r_gx_studio_active = true;
+	r_gx_studio_viewmodel = viewmodel;
+	r_gx_studio_tris = 0;
+	r_gx_studio_bound_tex = 0;
+	r_gx_studio_color = 0xFFFFFFFFu;
+	R_GXPrepareStudioState( viewmodel );
+}
+
+void R_GXStudioEnd( void )
+{
+	if( !r_gx_studio_active )
+		return;
+
+	GX_DrawDone();
+	if( r_gx_studio_tris > 0 )
+	{
+		r_gx_world_drew = true;
+		GC_MarkGxWorldEfbReady();
+		if( !r_gx_studio_logged )
+		{
+			r_gx_studio_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G155 GX studio tris=%d viewmodel=%d (Flipper EFB)\n",
+				r_gx_studio_tris, r_gx_studio_viewmodel ? 1 : 0 );
+		}
+	}
+	r_gx_studio_active = false;
+}
+
+void R_GXStudioBindTexnum( unsigned texnum )
+{
+	if( !r_gx_studio_active )
+		return;
+	if( texnum == r_gx_studio_bound_tex && texnum != 0 )
+		return;
+	if( R_GXBindTexnum( texnum ))
+		r_gx_studio_bound_tex = texnum;
+}
+
+void R_GXStudioTexCoord( float u, float v )
+{
+	(void)u;
+	(void)v;
+	/* UVs passed per-vertex through TriAPI → R_GXStudioEmitTri. */
+}
+
+void R_GXStudioColor( unsigned light8 )
+{
+	/* light is 0–31 from TriAPI soft path (<<8 in TriVertex). Approximate grey. */
+	unsigned l = light8 & 0xFFu;
+	unsigned c;
+
+	if( l > 31 )
+		l = 31;
+	c = ( l * 255u ) / 31u;
+	r_gx_studio_color = ( c << 24 ) | ( c << 16 ) | ( c << 8 ) | 0xFFu;
+}
+
+void R_GXStudioEmitTri(
+	float x0, float y0, float z0, float u0, float v0,
+	float x1, float y1, float z1, float u1, float v1,
+	float x2, float y2, float z2, float u2, float v2 )
+{
+	if( !r_gx_studio_active )
+		return;
+
+	if( r_gx_studio_bound_tex == 0 )
+		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
+
+	GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 3 );
+	GX_Position3f32( x0, y0, z0 );
+	GX_Color1u32( r_gx_studio_color );
+	GX_TexCoord2f32( u0, v0 );
+	GX_Position3f32( x1, y1, z1 );
+	GX_Color1u32( r_gx_studio_color );
+	GX_TexCoord2f32( u1, v1 );
+	GX_Position3f32( x2, y2, z2 );
+	GX_Color1u32( r_gx_studio_color );
+	GX_TexCoord2f32( u2, v2 );
+	GX_End();
+	r_gx_studio_tris++;
 }
 
 #else /* !XASH_GAMECUBE */
@@ -628,5 +783,20 @@ int R_GXDrawNewGameCapFaces( void )
 qboolean R_GXWorldDrewThisFrame( void ) { return false; }
 void R_GXClearWorldDrewFlag( void ) {}
 int R_GXDrawNewGameCapFaces( void ) { return 0; }
+qboolean R_GXStudioIsActive( void ) { return false; }
+void R_GXStudioBegin( qboolean viewmodel ) { (void)viewmodel; }
+void R_GXStudioEnd( void ) {}
+void R_GXStudioBindTexnum( unsigned texnum ) { (void)texnum; }
+void R_GXStudioTexCoord( float u, float v ) { (void)u; (void)v; }
+void R_GXStudioColor( unsigned light8 ) { (void)light8; }
+void R_GXStudioEmitTri(
+	float x0, float y0, float z0, float u0, float v0,
+	float x1, float y1, float z1, float u1, float v1,
+	float x2, float y2, float z2, float u2, float v2 )
+{
+	(void)x0; (void)y0; (void)z0; (void)u0; (void)v0;
+	(void)x1; (void)y1; (void)z1; (void)u1; (void)v1;
+	(void)x2; (void)y2; (void)z2; (void)u2; (void)v2;
+}
 
 #endif

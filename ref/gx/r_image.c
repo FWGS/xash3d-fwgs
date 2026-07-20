@@ -89,6 +89,10 @@ void GAME_EXPORT GL_Bind( int tmu, unsigned int texnum )
 
 	r_affinetridesc.skinwidth = image->width;
 	r_affinetridesc.skinheight = image->height;
+#if XASH_GAMECUBE
+	if( R_GXStudioIsActive() )
+		R_GXStudioBindTexnum( texnum );
+#endif
 }
 
 /*

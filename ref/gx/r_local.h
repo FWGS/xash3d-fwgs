@@ -394,6 +394,15 @@ void *GC_GetGxVideoMode( void );
 qboolean R_GXWorldDrewThisFrame( void );
 void R_GXClearWorldDrewFlag( void );
 int R_GXDrawNewGameCapFaces( void );
+qboolean R_GXStudioIsActive( void );
+void R_GXStudioBegin( qboolean viewmodel );
+void R_GXStudioEnd( void );
+void R_GXStudioBindTexnum( unsigned texnum );
+void R_GXStudioColor( unsigned light8 );
+void R_GXStudioEmitTri(
+	float x0, float y0, float z0, float u0, float v0,
+	float x1, float y1, float z1, float u1, float v1,
+	float x2, float y2, float z2, float u2, float v2 );
 #endif
 
 typedef struct image_s

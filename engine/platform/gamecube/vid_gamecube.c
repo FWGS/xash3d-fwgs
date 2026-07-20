@@ -4221,6 +4221,21 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			sv.name[0] ? sv.name : "?", numclusters, valid_clusters );
 		if( gc_newgame_surfbits )
 			GC_CaptureDrawFacesFromSurfbits( wmodel, gc_newgame_surfbits );
+		else if( gc_newgame_surfbytes > 0 && gc_newgame_vis )
+		{
+			/* G154: multi-cluster may skip the full surf table under MEM1;
+			 * bake Flipper faces from the active vis row alone. */
+			byte *row_bits = (byte *)calloc( 1, (size_t)gc_newgame_surfbytes );
+
+			if( row_bits )
+			{
+				GC_BuildSurfbitsForVisRow( wmodel, gc_newgame_vis, row_bits );
+				GC_CaptureDrawFacesFromSurfbits( wmodel, row_bits );
+				free( row_bits );
+			}
+			else
+				SYS_Report( "Xash3D GameCube: G154 face bake skipped (surfbits row OOM)\n" );
+		}
 	}
 #else
 	(void)wmodel;
@@ -4860,6 +4875,30 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				GC_PresentBuffer();
 			/* Soft DumpFrames done — subsequent live presents use Flipper GX world. */
 			GC_EnableGxWorldLive();
+			/* G155/G156: Flipper smoke with landmark viewmodel if resident. */
+			{
+				const char *vpath = Mod_GCLandmarkViewModelPath();
+				model_t *vm = NULL;
+
+				if( !vpath || !vpath[0] )
+					vpath = "models/v_9mmhandgun.mdl";
+				if( Mod_GCEnsureLandmarkViewModel( vpath ))
+					vm = Mod_FindName( vpath, false );
+				if( vm && vm->type == mod_studio && vm->cache.data )
+				{
+					clgame.viewent.model = vm;
+					Con_Reportf( "Xash3D GameCube: G156 smoke bind viewmodel %s\n", vpath );
+				}
+				ref.dllFuncs.R_BeginFrame( false );
+				if( GC_RenderNewGameWorldPassNoFrame( true ))
+				{
+					Con_Reportf( "Xash3D GameCube: G155 GX live smoke frame\n" );
+					GC_PresentBuffer();
+				}
+				else
+					Con_Reportf( S_WARN "Xash3D GameCube: G155 GX live smoke failed\n" );
+				ref.dllFuncs.R_EndFrame();
+			}
 		}
 
 		for( i = 0; i < 2; i++ )
