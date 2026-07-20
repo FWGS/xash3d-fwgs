@@ -4887,6 +4887,15 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				if( vm && vm->type == mod_studio && vm->cache.data )
 				{
 					clgame.viewent.model = vm;
+					/* Match landmark Deploy: place gun at the probe eye. */
+					VectorCopy( refState.vieworg, clgame.viewent.origin );
+					VectorCopy( refState.viewangles, clgame.viewent.angles );
+					VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
+					VectorCopy( clgame.viewent.angles, clgame.viewent.curstate.angles );
+					clgame.viewent.curstate.animtime = (float)cl.time;
+					clgame.viewent.curstate.framerate = 1.0f;
+					clgame.viewent.curstate.sequence = 0;
+					clgame.viewent.curstate.rendermode = kRenderNormal;
 					Con_Reportf( "Xash3D GameCube: G156 smoke bind viewmodel %s\n", vpath );
 				}
 				ref.dllFuncs.R_BeginFrame( false );

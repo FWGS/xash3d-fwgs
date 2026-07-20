@@ -395,6 +395,7 @@ qboolean R_GXWorldDrewThisFrame( void );
 void R_GXClearWorldDrewFlag( void );
 int R_GXDrawNewGameCapFaces( void );
 qboolean R_GXStudioIsActive( void );
+int R_GXStudioLastTriCount( void );
 void R_GXStudioBegin( qboolean viewmodel );
 void R_GXStudioEnd( void );
 void R_GXStudioBindTexnum( unsigned texnum );

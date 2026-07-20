@@ -52,11 +52,15 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G151: Flipper GX EFB world tris (live); soft spans only for DumpFrames
 - G152: GX textured faces (soft→RGB565 tiled + TEV MODULATE)
 - G153: GX lightmaps (capture bake + TEV2 MODULATE)
+- G154: real LM samples via disc bind for Flipper bake
+- G155: GX studio TriAPI → EFB (world studio path)
+- G156: pin landmark viewmodel + Flipper smoke `viewmodel=1`
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(none — G155 complete; next: retain viewmodel studio cache / FOV polish)*
+1. *(none — G156 complete; next: viewmodel FOV/origin polish; live GX after reconnect)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260720-155105` (G156: G155 tris=908 viewmodel=1)
 - `.ai/logs/dolphin-probe-20260720-150403` (G153 lightmapped=199 TEV2; capture bake)
 - `.ai/logs/dolphin-probe-20260720-145710` (G152 textured=199 flat=0 Flipper TEV)
 - `.ai/logs/dolphin-probe-20260720-140641` (G148 area-pri + 96px cache; outdoor long_runs 4→1)
@@ -2607,9 +2611,24 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `G154 GX lightmapped faces=199 of 199`,
   `G155 GX studio tris=14 viewmodel=0`,
   `G155 GX live smoke frame`.
-- Residual: landmark `v_9mmhandgun` often missing cache at smoke/Deploy
-  (`G105 promote failed`); Flipper path is proven via forced world studio.
-- Next: retain viewmodel studio cache through reconnect; FOV/origin polish.
+- Residual (closed by G156): landmark `v_9mmhandgun` often missing cache at
+  smoke/Deploy; Flipper path first proven via forced world studio.
+
+## G156 [x] Retain landmark viewmodel for Flipper draw
+
+- Status: DONE 2026-07-20. Pin `v_*` meshes so reconnect/`Mod_FreeModel` cannot
+  drop them; promote/ensure paths reuse resident cache (no 130 KiB re-read);
+  Prepare smoke binds `clgame.viewent` and draws viewmodel before forced world
+  studio so G155 attributes tris to the gun.
+- Acceptance:
+  - `G156 pinned viewmodel models/v_9mmhandgun.mdl`
+  - `G156 smoke bind viewmodel models/v_9mmhandgun.mdl`
+  - `G155 GX studio tris=` with `viewmodel=1`
+- Evidence: `.ai/logs/dolphin-probe-20260720-155105` —
+  `G156 pinned viewmodel` (crowbar + 9mm),
+  `G156 smoke bind viewmodel models/v_9mmhandgun.mdl`,
+  `G155 GX studio tris=908 viewmodel=1`.
+- Next: viewmodel FOV/origin polish; live GX frames after reconnect (SCR stall).
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

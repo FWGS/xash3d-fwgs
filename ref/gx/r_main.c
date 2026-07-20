@@ -658,11 +658,41 @@ static void R_DrawStudioEntitiesLowRes( void )
 		}
 	}
 
+	/* G156: draw viewmodel before forced world studio when Flipper is live
+	 * so G155 can attribute tris to the gun (roach previously logged first). */
+	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW )
+	    && tr.viewent && tr.viewent->model && tr.viewent->model->type == mod_studio
+	    && r_drawviewmodel && r_drawviewmodel->value )
+	{
+		static qboolean view_drawn_once;
+		extern qboolean GC_IsFrameBudgetProbeActive( void );
+		const qboolean gc_force_vm = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& GC_UseLowResWorldProbe();
+
+		if( gc_force_vm || !( GC_IsFrameBudgetProbeActive() && view_drawn_once ))
+		{
+			static qboolean g149_vm_logged;
+
+			R_SetUpWorldTransform();
+			R_DrawViewModel();
+			drew_view = true;
+			view_drawn_once = true;
+			if( gc_force_vm && !g149_vm_logged )
+			{
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: G149 low-res viewmodel draw %s\n",
+					tr.viewent->model->name[0] ? tr.viewent->model->name : "?" );
+				g149_vm_logged = true;
+			}
+		}
+	}
+
 	/* c0a0 tram spawn often has no studio ents in PVS — force one promoted
 	 * world mesh so the low-res studio path is exercised beyond viewmodels.
-	 * During G36 sample windows draw it once, then skip (saves ~present ms). */
-	if( drawn == 0 && gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-		&& !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ))
+	 * During G36 sample windows draw it once, then skip (saves ~present ms).
+	 * Skip when Flipper already has a viewmodel this frame (G156 smoke). */
+	if( drawn == 0 && !drew_view && gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW )
+		&& !( GC_UseGxWorldDraw() && tr.viewent && tr.viewent->model ))
 	{
 		static qboolean force_drawn_once;
 		extern qboolean GC_IsFrameBudgetProbeActive( void );
@@ -711,35 +741,6 @@ static void R_DrawStudioEntitiesLowRes( void )
 				}
 			}
 		}
-		}
-	}
-
-	/* View weapon when present — tram intro often has none yet.
-	 * Skip during silent G36 windows after the first draw, except G149
-	 * New Game when r_drawviewmodel is explicitly enabled (landmark Deploy). */
-	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW )
-	    && tr.viewent && tr.viewent->model && tr.viewent->model->type == mod_studio
-	    && r_drawviewmodel && r_drawviewmodel->value )
-	{
-		static qboolean view_drawn_once;
-		extern qboolean GC_IsFrameBudgetProbeActive( void );
-		const qboolean gc_force_vm = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
-			&& GC_UseLowResWorldProbe();
-
-		if( gc_force_vm || !( GC_IsFrameBudgetProbeActive() && view_drawn_once ))
-		{
-			static qboolean g149_vm_logged;
-
-			R_SetUpWorldTransform();
-			R_DrawViewModel();
-			drew_view = true;
-			view_drawn_once = true;
-			if( gc_force_vm && !g149_vm_logged )
-			{
-				gEngfuncs.Con_Reportf( "Xash3D GameCube: G149 low-res viewmodel draw %s\n",
-					tr.viewent->model->name[0] ? tr.viewent->model->name : "?" );
-				g149_vm_logged = true;
-			}
 		}
 	}
 

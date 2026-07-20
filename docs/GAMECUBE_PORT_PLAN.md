@@ -3070,6 +3070,18 @@ Evidence: `.ai/logs/dolphin-probe-20260720-153823` —
 `G155 GX studio tris=14 viewmodel=0`.
 Next: keep `v_9mmhandgun` resident through Deploy/reconnect.
 
+## G156 — Pin landmark viewmodel for Flipper (COMPLETE 2026-07-20)
+
+Pin `v_*` studio meshes across `Mod_FreeModel`; promote/ensure reuse resident
+cache under MEM1; smoke binds viewent and draws gun before forced world studio.
+G155 one-shot log upgrades to `viewmodel=1` when gun tris emit.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-155105` —
+`G156 pinned viewmodel models/v_9mmhandgun.mdl`,
+`G156 smoke bind viewmodel`,
+`G155 GX studio tris=908 viewmodel=1`.
+Next: viewmodel FOV/origin polish; live GX after reconnect.
+
 ## Next wake-up commands
 
 ```sh

@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G155 COMPLETE: GX studio TriAPI→EFB (tris=14 smoke). Next: retain viewmodel studio cache through reconnect."
+  "note": "G156 COMPLETE: pinned v_9mmhandgun + Flipper smoke viewmodel=1 (tris=908). Next: viewmodel FOV/origin polish; live GX after reconnect."
 }

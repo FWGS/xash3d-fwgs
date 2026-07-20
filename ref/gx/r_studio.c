@@ -531,7 +531,13 @@ static void R_StudioSetUpTransform( cl_entity_t *e )
 	}
 
 	if( !FBitSet( gp_host->features, ENGINE_COMPENSATE_QUAKE_BUG ))
-		angles[PITCH] = -angles[PITCH]; // stupid quake bug
+	{
+#if XASH_GAMECUBE
+		/* G157: viewmodels use engine viewangles as-is (client CalcRefdef absent). */
+		if( e != tr.viewent )
+#endif
+			angles[PITCH] = -angles[PITCH]; // stupid quake bug
+	}
 
 	// don't rotate clients, only aim
 	if( e->player )
@@ -2984,6 +2990,35 @@ void R_DrawViewModel( void )
 	if( !RI.currententity->model )
 		return;
 
+#if XASH_GAMECUBE
+	/* G157: no client CalcRefdef — pin gun to the current eye every draw. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw() )
+	{
+		vec3_t delta;
+		static qboolean g157_pose_logged;
+
+		VectorCopy( RI.rvp.vieworigin, view->origin );
+		VectorCopy( RI.rvp.viewangles, view->angles );
+		VectorCopy( view->origin, view->curstate.origin );
+		VectorCopy( view->angles, view->curstate.angles );
+		if( view->curstate.animtime <= 0.0f )
+		{
+			view->curstate.animtime = (float)gp_cl->time;
+			view->curstate.framerate = 1.0f;
+		}
+		VectorSubtract( view->origin, RI.rvp.vieworigin, delta );
+		if( !g157_pose_logged )
+		{
+			g157_pose_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G157 viewmodel pose origin=(%.0f,%.0f,%.0f) angles=(%.0f,%.0f,%.0f) dist=%.2f\n",
+				view->origin[0], view->origin[1], view->origin[2],
+				view->angles[0], view->angles[1], view->angles[2],
+				VectorLength( delta ));
+		}
+	}
+#endif
+
 	// adjust the depth range to prevent view model from poking into walls
 	// pglDepthRange( gldepthmin, gldepthmin + 0.3f * ( gldepthmax - gldepthmin ));
 	s_ziscale = (float)0x8000 * (float)0x10000 * 3.0f;
@@ -3018,7 +3053,23 @@ void R_DrawViewModel( void )
 
 #if XASH_GAMECUBE
 	if( gx_studio )
+	{
+		int vm_tris = R_GXStudioLastTriCount();
+
 		R_GXStudioEnd();
+		if( vm_tris <= 0 )
+		{
+			static qboolean g156_vm_empty_logged;
+			if( !g156_vm_empty_logged )
+			{
+				g156_vm_empty_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G156 GX viewmodel emitted 0 tris (%s)\n",
+					RI.currententity->model->name[0]
+						? RI.currententity->model->name : "?" );
+			}
+		}
+	}
 #endif
 
 	// restore depth range

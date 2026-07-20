@@ -3,6 +3,7 @@ Copyright (C) 2026 Xash3D FWGS GameCube port
 
 G151–G154: Flipper GX world draw — cap faces as EFB triangles + LM.
 G155: Flipper GX studio/viewmodel via TriAPI → EFB overlay.
+G157: viewmodel eye-pose sync + narrower Flipper FOV.
 */
 #include "r_local.h"
 
@@ -11,6 +12,7 @@ G155: Flipper GX studio/viewmodel via TriAPI → EFB overlay.
 #include <ogc/gx.h>
 #include <malloc.h>
 #include <string.h>
+#include <math.h>
 
 extern qboolean GC_UseGxWorldDraw( void );
 extern void GC_MarkGxWorldEfbReady( void );
@@ -18,6 +20,8 @@ extern void *GC_GetGxVideoMode( void );
 
 #define GC_GX_TEX_SLOTS		24
 #define GC_GX_TEX_MAX_DIM	64	/* MEM1: 24 × 64×64×2 ≈ 192 KiB tiled staging */
+/* G157: GoldSrc uses world FOV for viewmodels; narrow FOV buried the gun. */
+#define GC_GX_VIEWMODEL_FOV	90.0f
 
 typedef struct
 {
@@ -42,9 +46,19 @@ static int r_gx_flat_draws;
 static qboolean r_gx_studio_active;
 static qboolean r_gx_studio_viewmodel;
 static qboolean r_gx_studio_logged;
+static qboolean r_gx_studio_vm_logged;
 static int r_gx_studio_tris;
+static int r_gx_studio_world_tris_acc;
+static int r_gx_studio_vm_tris_acc;
 static u32 r_gx_studio_color = 0xFFFFFFFF;
 static unsigned r_gx_studio_bound_tex;
+/* G157: NDC band of viewmodel verts (Quake-style clip / w). */
+static matrix4x4 r_gx_studio_mvp;
+static qboolean r_gx_studio_mvp_valid;
+static float r_gx_vm_ndc_ymin = 1e9f;
+static float r_gx_vm_ndc_ymax = -1e9f;
+static int r_gx_vm_ndc_samples;
+static float r_gx_vm_fov_x;
 
 qboolean R_GXWorldDrewThisFrame( void )
 {
@@ -59,6 +73,11 @@ void R_GXClearWorldDrewFlag( void )
 qboolean R_GXStudioIsActive( void )
 {
 	return r_gx_studio_active;
+}
+
+int R_GXStudioLastTriCount( void )
+{
+	return r_gx_studio_tris;
 }
 
 static void R_GXLoadMtx44FromXash( Mtx44 out, const matrix4x4 in )
@@ -645,11 +664,33 @@ int R_GXDrawNewGameCapFaces( void )
 G155: Flipper studio / viewmodel overlay (TriAPI → EFB)
 ================
 */
+static void R_GXStudioNoteNdcVert( float x, float y, float z )
+{
+	float clip_y, clip_w, ndc_y;
+
+	if( !r_gx_studio_viewmodel || !r_gx_studio_mvp_valid )
+		return;
+
+	clip_y = r_gx_studio_mvp[1][0] * x + r_gx_studio_mvp[1][1] * y
+		+ r_gx_studio_mvp[1][2] * z + r_gx_studio_mvp[1][3];
+	clip_w = r_gx_studio_mvp[3][0] * x + r_gx_studio_mvp[3][1] * y
+		+ r_gx_studio_mvp[3][2] * z + r_gx_studio_mvp[3][3];
+	if( fabsf( clip_w ) < 1e-5f )
+		return;
+	ndc_y = clip_y / clip_w;
+	if( ndc_y < r_gx_vm_ndc_ymin )
+		r_gx_vm_ndc_ymin = ndc_y;
+	if( ndc_y > r_gx_vm_ndc_ymax )
+		r_gx_vm_ndc_ymax = ndc_y;
+	r_gx_vm_ndc_samples++;
+}
+
 static void R_GXPrepareStudioState( qboolean viewmodel )
 {
 	GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
 	Mtx44 proj;
 	Mtx mv;
+	matrix4x4 vm_proj;
 
 	if( rmode )
 	{
@@ -676,7 +717,30 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 
-	R_GXLoadMtx44FromXash( proj, RI.projectionMatrix );
+	r_gx_studio_mvp_valid = false;
+	r_gx_vm_fov_x = RI.rvp.fov_x;
+	if( viewmodel )
+	{
+		/* G157: match world FOV; eye-pose sync does the framing work. */
+		float fov_x = GC_GX_VIEWMODEL_FOV;
+		float fov_y = fov_x * 0.75f;
+		float zNear = 4.0f;
+		float zFar = Q_max( 256.0f, RI.farClip );
+		float yMax = zNear * tanf( fov_y * M_PI_F / 360.0f );
+		float xMax = zNear * tanf( fov_x * M_PI_F / 360.0f );
+
+		r_gx_vm_fov_x = fov_x;
+		Matrix4x4_CreateProjection( vm_proj, xMax, -xMax, yMax, -yMax, zNear, zFar );
+		R_GXLoadMtx44FromXash( proj, vm_proj );
+		Matrix4x4_Concat( r_gx_studio_mvp, vm_proj, RI.worldviewMatrix );
+		r_gx_studio_mvp_valid = true;
+		r_gx_vm_ndc_ymin = 1e9f;
+		r_gx_vm_ndc_ymax = -1e9f;
+		r_gx_vm_ndc_samples = 0;
+	}
+	else
+		R_GXLoadMtx44FromXash( proj, RI.projectionMatrix );
+
 	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
 	R_GXLoadMtxFromXashMV( mv, RI.worldviewMatrix );
 	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
@@ -713,12 +777,39 @@ void R_GXStudioEnd( void )
 	{
 		r_gx_world_drew = true;
 		GC_MarkGxWorldEfbReady();
-		if( !r_gx_studio_logged )
+		/* G156: accumulate world vs viewmodel — forced roach often draws first
+		 * and would otherwise own the one-shot log with viewmodel=0. */
+		if( r_gx_studio_viewmodel )
+			r_gx_studio_vm_tris_acc += r_gx_studio_tris;
+		else
+			r_gx_studio_world_tris_acc += r_gx_studio_tris;
+		if( r_gx_studio_viewmodel && !r_gx_studio_vm_logged )
+		{
+			r_gx_studio_vm_logged = true;
+			r_gx_studio_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G155 GX studio tris=%d viewmodel=1 (Flipper EFB)\n",
+				r_gx_studio_vm_tris_acc );
+			if( r_gx_vm_ndc_samples > 0 )
+			{
+				float mid = 0.5f * ( r_gx_vm_ndc_ymin + r_gx_vm_ndc_ymax );
+				float span = r_gx_vm_ndc_ymax - r_gx_vm_ndc_ymin;
+				/* Quake clip: +ndc_y is up. Hands should sit in the lower
+				 * half with a visible on-screen band (ymax > -1). */
+				int lower = ( mid < 0.0f && r_gx_vm_ndc_ymax > -1.0f
+					&& span > 0.15f ) ? 1 : 0;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G157 viewmodel fov=%.0f ndc_y=[%.2f,%.2f] mid=%.2f lower=%d samples=%d\n",
+					r_gx_vm_fov_x, r_gx_vm_ndc_ymin, r_gx_vm_ndc_ymax, mid, lower,
+					r_gx_vm_ndc_samples );
+			}
+		}
+		else if( !r_gx_studio_logged )
 		{
 			r_gx_studio_logged = true;
 			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: G155 GX studio tris=%d viewmodel=%d (Flipper EFB)\n",
-				r_gx_studio_tris, r_gx_studio_viewmodel ? 1 : 0 );
+				"Xash3D GameCube: G155 GX studio tris=%d viewmodel=0 (Flipper EFB)\n",
+				r_gx_studio_world_tris_acc );
 		}
 	}
 	r_gx_studio_active = false;
@@ -763,6 +854,10 @@ void R_GXStudioEmitTri(
 
 	if( r_gx_studio_bound_tex == 0 )
 		R_GXStudioBindTexnum( (unsigned)tr.whiteTexture );
+
+	R_GXStudioNoteNdcVert( x0, y0, z0 );
+	R_GXStudioNoteNdcVert( x1, y1, z1 );
+	R_GXStudioNoteNdcVert( x2, y2, z2 );
 
 	GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 3 );
 	GX_Position3f32( x0, y0, z0 );
