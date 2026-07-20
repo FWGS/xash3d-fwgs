@@ -72,8 +72,112 @@ static qboolean gc_sc_static;
 static qboolean gc_sc_heap;
 static void R_FreeGameCubeSurfaceCache( void );
 static qboolean R_TryInitGameCubeSurfaceCacheSized( int size, qboolean allow_lowres_static );
+static void R_GCEnsureLowResSoftSurfaceCache( const surfcache_t *cache );
+static void R_GCConvertLowResSurfaceCacheToRGB565( const surfcache_t *cache );
 #endif
 
+#if XASH_GAMECUBE
+static void R_GCEnsureLowResSoftSurfaceCache( const surfcache_t *cache )
+{
+	unsigned nz = 0;
+	int n, i, lim;
+
+	if( !GC_UseLowResWorldProbe() || !cache || !cache->data || !r_drawsurf.image
+		|| !r_drawsurf.image->pixels[0] || r_drawsurf.surfwidth <= 0
+		|| r_drawsurf.surfheight <= 0 )
+		return;
+
+	n = cache->width * r_drawsurf.surfheight;
+	lim = n < 256 ? n : 256;
+	for( i = 0; i < lim; i++ )
+	{
+		if( ((pixel_t *)cache->data)[i] )
+			nz++;
+	}
+
+	/* Block drawers often leave the cache empty on lean extents
+	 * (r_numhblocks=0 / bad lightwalk). Tile fullbright soft texels before
+	 * decals so later soft-space blends still work. */
+	if( nz < 8 )
+	{
+		const image_t *img = r_drawsurf.image;
+		const int tw = img->width > 0 ? img->width : 1;
+		const int th = img->height > 0 ? img->height : 1;
+		const pixel_t *src = img->pixels[0];
+		pixel_t *dst = (pixel_t *)cache->data;
+		int y, x;
+		static qboolean g134_tile_logged;
+
+		for( y = 0; y < r_drawsurf.surfheight; y++ )
+		{
+			pixel_t *row = dst + y * cache->width;
+			const pixel_t *srow = src + ( y % th ) * tw;
+			for( x = 0; x < r_drawsurf.surfwidth; x++ )
+				row[x] = srow[x % tw];
+		}
+		if( !g134_tile_logged )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G134 tile soft tex into cache %s %dx%d\n",
+				img->name[0] ? img->name : "?", r_drawsurf.surfwidth, r_drawsurf.surfheight );
+			g134_tile_logged = true;
+		}
+	}
+}
+
+static void R_GCConvertLowResSurfaceCacheToRGB565( const surfcache_t *cache )
+{
+	pixel_t *dst;
+	int y, x;
+	unsigned uniq = 0;
+	unsigned short seen[48];
+	static qboolean g138_conv_logged;
+
+	if( !GC_UseLowResWorldProbe() || !cache || !cache->data || !r_drawsurf.image
+		|| !r_drawsurf.image->pixels[0] || r_drawsurf.surfwidth <= 0
+		|| r_drawsurf.surfheight <= 0 )
+		return;
+
+	dst = (pixel_t *)cache->data;
+	for( y = 0; y < r_drawsurf.surfheight; y++ )
+	{
+		pixel_t *row = dst + y * cache->width;
+		for( x = 0; x < r_drawsurf.surfwidth; x++ )
+		{
+			pixel_t soft = row[x];
+			pixel_t rgb;
+			unsigned u;
+			qboolean found = false;
+
+			if( soft == TRANSPARENT_COLOR )
+				continue;
+			/* Soft texels are major<<8|minor (GL_UploadTexture) or
+			 * 8-bit soft from BLEND_LM — both index vid.screen[]. */
+			rgb = vid.screen[soft & 0xFFFF];
+			row[x] = rgb;
+			if( !g138_conv_logged && uniq < 48 )
+			{
+				for( u = 0; u < uniq; u++ )
+				{
+					if( seen[u] == rgb )
+					{
+						found = true;
+						break;
+					}
+				}
+				if( !found )
+					seen[uniq++] = rgb;
+			}
+		}
+	}
+
+	if( !g138_conv_logged )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G138 soft->RGB565 cache uniq=%u %dx%d\n",
+			uniq, r_drawsurf.surfwidth, r_drawsurf.surfheight );
+		g138_conv_logged = true;
+	}
+}
+#endif
 
 static void R_BuildLightMap( void );
 /*
@@ -1745,92 +1849,7 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		// rasterize the surface into the cache
 		R_DrawSurface();
 #if XASH_GAMECUBE
-		if( GC_UseLowResWorldProbe() && cache && cache->data && r_drawsurf.image
-			&& r_drawsurf.image->pixels[0] && r_drawsurf.surfwidth > 0
-			&& r_drawsurf.surfheight > 0 )
-		{
-			unsigned nz = 0;
-			int n = cache->width * r_drawsurf.surfheight;
-			int i;
-			int lim = n < 256 ? n : 256;
-			for( i = 0; i < lim; i++ )
-				if( ((pixel_t *)cache->data)[i] )
-					nz++;
-			/* Block drawers often leave the cache empty on lean extents
-			 * (r_numhblocks=0 / bad lightwalk). Tile fullbright soft texels. */
-			if( nz < 8 )
-			{
-				const image_t *img = r_drawsurf.image;
-				const int tw = img->width > 0 ? img->width : 1;
-				const int th = img->height > 0 ? img->height : 1;
-				const pixel_t *src = img->pixels[0];
-				pixel_t *dst = (pixel_t *)cache->data;
-				int y, x;
-				static qboolean g134_tile_logged;
-
-				for( y = 0; y < r_drawsurf.surfheight; y++ )
-				{
-					pixel_t *row = dst + y * cache->width;
-					const pixel_t *srow = src + ( y % th ) * tw;
-					for( x = 0; x < r_drawsurf.surfwidth; x++ )
-						row[x] = srow[x % tw];
-				}
-				if( !g134_tile_logged )
-				{
-					gEngfuncs.Con_Reportf( "Xash3D GameCube: G134 tile soft tex into cache %s %dx%d\n",
-						img->name[0] ? img->name : "?", r_drawsurf.surfwidth, r_drawsurf.surfheight );
-					g134_tile_logged = true;
-				}
-			}
-			/* Soft texels are major<<8|minor (see GL_UploadTexture). Map through
-			 * vid.screen[] once so spans write display RGB565 directly.
-			 * G138: do not treat soft as a 0..255 palette index. */
-			{
-				pixel_t *dst = (pixel_t *)cache->data;
-				int y, x;
-				unsigned uniq = 0;
-				unsigned short seen[48];
-				static qboolean g138_conv_logged;
-
-				for( y = 0; y < r_drawsurf.surfheight; y++ )
-				{
-					pixel_t *row = dst + y * cache->width;
-					for( x = 0; x < r_drawsurf.surfwidth; x++ )
-					{
-						pixel_t soft = row[x];
-						pixel_t rgb;
-						unsigned u;
-						qboolean found = false;
-
-						if( soft == TRANSPARENT_COLOR )
-							continue;
-						/* Soft texels are major<<8|minor (GL_UploadTexture) or
-						 * 8-bit soft from BLEND_LM — both index vid.screen[]. */
-						rgb = vid.screen[soft & 0xFFFF];
-						row[x] = rgb;
-						if( !g138_conv_logged && uniq < 48 )
-						{
-							for( u = 0; u < uniq; u++ )
-							{
-								if( seen[u] == rgb )
-								{
-									found = true;
-									break;
-								}
-							}
-							if( !found )
-								seen[uniq++] = rgb;
-						}
-					}
-				}
-				if( !g138_conv_logged )
-				{
-					gEngfuncs.Con_Reportf( "Xash3D GameCube: G138 soft->RGB565 cache uniq=%u %dx%d\n",
-						uniq, r_drawsurf.surfwidth, r_drawsurf.surfheight );
-					g138_conv_logged = true;
-				}
-			}
-		}
+		R_GCEnsureLowResSoftSurfaceCache( cache );
 #endif
 	}
 
@@ -1840,7 +1859,11 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 	    && ( surface->texinfo->flags & TEX_WORLD_LUXELS ))
 		return cache;
 #endif
-	R_DrawSurfaceDecals();
+R_DrawSurfaceDecals();
+
+#if XASH_GAMECUBE
+	R_GCConvertLowResSurfaceCacheToRGB565( cache );
+#endif
 
 	return cache;
 }
