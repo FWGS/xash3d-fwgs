@@ -32,11 +32,13 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G131: unsigned zi depth dumps + look-into-map; flat→color coalesce
 - G132: capture-time faces + flat solid spans (solid>0 WORLD PRESENT)
 - G133: capture texinfo → textured+lit RGB565 spans
+- G134: keep textured RGB565 dumps + soft cache tile (skip depth overwrite)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(queue empty after G133 — next: more faces / real lightmaps / stage-04 clarity)*
+1. *(queue empty after G134 — next: real lightmap samples / clearer stage-04 / more faces)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260719-121916` (G134 tile soft tex + keep textured dump)
 - `.ai/logs/dolphin-probe-20260719-051017` (G133 textured+lit RGB565 on cap faces)
 - `.ai/logs/dolphin-probe-20260719-050525` (G132 cap faces emit + flat solid spans)
 - `.ai/logs/dolphin-probe-20260719-040343` (G131 depth + color-coalesce WORLD PRESENT)
@@ -2400,6 +2402,23 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Evidence: `.ai/logs/dolphin-probe-20260719-051017` —
   `textured=256`, `textured+lit RGB565 spans active`, `solid=10`;
   `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G134 [x] Keep textured RGB565 WORLD PRESENT dumps
+
+- Status: DONE 2026-07-19. G131 depth shade/coalesce was overwriting G133
+  textured buffers. Prefer keeping RGB565 when nonblack/uniq look textured;
+  force CPU YUYV dump presents; flood black→sky.
+  Also fixed empty surfcache: quality-0 only has mip0 (mip≥1 skipped draw),
+  and lean extents left caches memset-empty — tile soft texels then
+  `vid.screen[]` → RGB565 for direct spans.
+- Acceptance:
+  - `G134 keep textured dump (nonblack=… uniq=…)`
+  - `G134 tile soft tex into cache` when block drawers leave empty cache
+  - No `G131 depth flat→color coalesce` on textured New Game path
+  - stage-04 refreshed from CPU dump presents
+- Evidence: `.ai/logs/dolphin-probe-20260719-121916` —
+  `G134 tile soft tex into cache`, `G134 keep textured dump … uniq=32`,
+  no G131 coalesce; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

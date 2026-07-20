@@ -1293,9 +1293,17 @@ static void D_SolidSurf( surf_t *s )
 			gc_solid_enter_logged = true;
 		}
 
-		/* Prefer mip≥1 so surfaces still fit; mip≥2 starved small faces. */
+		/* Quality 0 only uploads mip0; forcing mip≥1 left pixels[1] NULL and
+		 * R_DrawSurface returned without filling the surfcache (flat teal). */
 		if( miplevel < 1 )
 			miplevel = 1;
+		if( pface->texinfo && pface->texinfo->texture )
+		{
+			image_t *img = R_GetTexture( pface->texinfo->texture->gl_texturenum );
+
+			while( miplevel > 0 && ( !img || !img->pixels[miplevel] ))
+				miplevel--;
+		}
 
 		d_gc_span_rgb565 = true;
 		if( R_GcmapHasSurfaceCache() )
@@ -1315,6 +1323,8 @@ static void D_SolidSurf( surf_t *s )
 				cacheblock = (pixel_t *)pcurrentcache->data;
 				cachewidth = pcurrentcache->width;
 				D_CalcGradients( pface );
+				/* Cache already holds display RGB565 after G134 tile path. */
+				d_gc_span_rgb565 = false;
 				D_DrawSpans16( s->spans );
 				D_DrawZSpans( s->spans );
 				d_gc_span_rgb565 = false;

@@ -2836,6 +2836,16 @@ Face capture now copies `mtexinfo_t` + extrasurf extents; samples forced NULL
 `G133 captured draw faces=256 textured=256`, `textured+lit RGB565 spans active`,
 `solid=10`; stage-04 refreshed.
 
+## G134 — Keep textured RGB565 dumps (COMPLETE 2026-07-19)
+
+Skip G131 depth-shade/coalesce when post-render RGB565 already has content.
+Tile soft textures into empty surfcache (mip0 + lean extents), convert via
+`vid.screen[]`, force CPU YUYV dump presents from world-ready onward.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-121916` —
+`G134 tile soft tex into cache`, `G134 keep textured dump … uniq=32`,
+no G131 coalesce; stage-04 refreshed.
+
 ## Next wake-up commands
 
 ```sh

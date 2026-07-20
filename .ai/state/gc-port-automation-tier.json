@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G133 DONE: capture-time texinfo → textured+lit RGB565 spans (probe 20260719-051017). Next: more visible faces / real lightmap samples / clearer stage-04."
+  "note": "G134 DONE: keep textured dumps + soft cache tile (probe 20260719-121916). Next: real lightmaps / clearer stage-04 / more faces."
 }

@@ -227,11 +227,13 @@ static void R_BuildLightMap( void )
 
 #if XASH_GAMECUBE
 	/* Low-res New Game: surfaces without samples still need a mid light grade
-	 * so textured spans are not crushed to black by BLEND_LM. */
+	 * so textured spans are not crushed to black by BLEND_LM.
+	 * LightToTexGamma() only accepts 0..1023 (returns 0 for larger!).
+	 * Seed a safe pre-gamma value; final grade is forced after the loop. */
 	if( GC_UseLowResWorldProbe() && !surf->samples )
 	{
 		for( int i = 0; i < size; i++ )
-			blocklights[i] = 96 * 3 * 256;
+			blocklights[i] = 900 << 6; /* >>6 = 900 */
 	}
 #endif
 
@@ -257,8 +259,12 @@ static void R_BuildLightMap( void )
 	for( int i = 0; i < size; i++ )
 	{
 		int t;
+		uint lg_in = blocklights[i] >> 6;
+		/* Soft lightgammatable is 1024 entries; clamp instead of zeroing. */
+		if( lg_in > 1023 )
+			lg_in = 1023;
 		if( blocklights[i] < 65280 )
-			t = LightToTexGamma( blocklights[i] >> 6 ) << 6;
+			t = LightToTexGamma( lg_in ) << 6;
 		else
 			t = (int)blocklights[i];
 
@@ -271,6 +277,16 @@ static void R_BuildLightMap( void )
 
 		blocklights[i] = t;
 	}
+
+#if XASH_GAMECUBE
+	/* Force a readable BLEND_LM grade for null-sample capture faces.
+	 * Post-loop values top out ~0x0A00 via the /2048/3 path; pin mid-bright. */
+	if( GC_UseLowResWorldProbe() && !surf->samples )
+	{
+		for( int i = 0; i < size; i++ )
+			blocklights[i] = 0x1400;
+	}
+#endif
 }
 
 
@@ -369,13 +385,22 @@ void R_DrawSurface( void )
 #if XASH_GAMECUBE
 	if( !mt || !mt->pixels[r_drawsurf.surfmip] )
 	{
-		if( gEngfuncs.Sys_CheckParm( "-gcmap" ) && r_gc_surface_cache_skip_reports < 16 )
+		/* Quality 0 only has mip0 — fall back instead of leaving an empty cache. */
+		if( mt && mt->pixels[0] && r_drawsurf.surfmip != 0 )
 		{
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: R_DrawSurface skip missing image mip=%d\n",
-				r_drawsurf.surfmip );
-			r_gc_surface_cache_skip_reports++;
+			r_drawsurf.surfmip = 0;
 		}
-		return;
+		else
+		{
+			if(( gEngfuncs.Sys_CheckParm( "-gcmap" ) || GC_UseLowResWorldProbe() )
+				&& r_gc_surface_cache_skip_reports < 16 )
+			{
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: R_DrawSurface skip missing image mip=%d\n",
+					r_drawsurf.surfmip );
+				r_gc_surface_cache_skip_reports++;
+			}
+			return;
+		}
 	}
 #endif
 
@@ -420,6 +445,15 @@ void R_DrawSurface( void )
 			r_numhblocks = r_lightwidth;
 		if( light_rows > 0 && r_numvblocks > light_rows )
 			r_numvblocks = light_rows;
+	}
+	/* mip0 block is 16px: widths <16 yielded r_numhblocks=0, left memset
+	 * cache empty → vid.screen[0] flat teal spans. */
+	if( GC_UseLowResWorldProbe() )
+	{
+		if( r_numhblocks <= 0 && r_drawsurf.surfwidth > 0 )
+			r_numhblocks = 1;
+		if( r_numvblocks <= 0 && r_drawsurf.surfheight > 0 )
+			r_numvblocks = 1;
 	}
 #endif
 
@@ -530,7 +564,16 @@ void R_DrawSurface( void )
 
 // =============================================================================
 
-#define BLEND_LM( pix, light ) vid.colormap[( pix >> 3 ) | (( light & 0x1f00 ) << 5 )] | ( pix & 7 );
+#if XASH_GAMECUBE
+/* Null-sample New Game faces: keep fullbright soft texels. BLEND_LM mid-grade
+ * was collapsing every texel toward one dark teal after vid.screen[]. */
+#define BLEND_LM( pix, light ) \
+	(( GC_UseLowResWorldProbe() && r_drawsurf.surf && !r_drawsurf.surf->samples ) \
+		? (pix) \
+		: ( vid.colormap[( pix >> 3 ) | (( light & 0x1f00 ) << 5 )] | ( pix & 7 )))
+#else
+#define BLEND_LM( pix, light ) ( vid.colormap[( pix >> 3 ) | (( light & 0x1f00 ) << 5 )] | ( pix & 7 ))
+#endif
 
 /*
 ================
@@ -1594,9 +1637,15 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			}
 		}
 		if( w <= 0 )
-			w = 8;
+			w = 16;
 		if( h <= 0 )
-			h = 8;
+			h = 16;
+		/* mip0 light blocks are 16×16 — keep at least one full block so
+		 * R_DrawSurface does not early-out after memset (flat teal). */
+		if( w < 16 )
+			w = 16;
+		if( h < 16 )
+			h = 16;
 		r_drawsurf.surfmip = mip;
 		r_drawsurf.surfwidth = w;
 		r_drawsurf.surfheight = h;
@@ -1695,6 +1744,61 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 		}
 		// rasterize the surface into the cache
 		R_DrawSurface();
+#if XASH_GAMECUBE
+		if( GC_UseLowResWorldProbe() && cache && cache->data && r_drawsurf.image
+			&& r_drawsurf.image->pixels[0] && r_drawsurf.surfwidth > 0
+			&& r_drawsurf.surfheight > 0 )
+		{
+			unsigned nz = 0;
+			int n = cache->width * r_drawsurf.surfheight;
+			int i;
+			int lim = n < 256 ? n : 256;
+			for( i = 0; i < lim; i++ )
+				if( ((pixel_t *)cache->data)[i] )
+					nz++;
+			/* Block drawers often leave the cache empty on lean extents
+			 * (r_numhblocks=0 / bad lightwalk). Tile fullbright soft texels. */
+			if( nz < 8 )
+			{
+				const image_t *img = r_drawsurf.image;
+				const int tw = img->width > 0 ? img->width : 1;
+				const int th = img->height > 0 ? img->height : 1;
+				const pixel_t *src = img->pixels[0];
+				pixel_t *dst = (pixel_t *)cache->data;
+				int y, x;
+				static qboolean g134_tile_logged;
+
+				for( y = 0; y < r_drawsurf.surfheight; y++ )
+				{
+					pixel_t *row = dst + y * cache->width;
+					const pixel_t *srow = src + ( y % th ) * tw;
+					for( x = 0; x < r_drawsurf.surfwidth; x++ )
+						row[x] = srow[x % tw];
+				}
+				if( !g134_tile_logged )
+				{
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: G134 tile soft tex into cache %s %dx%d\n",
+						img->name[0] ? img->name : "?", r_drawsurf.surfwidth, r_drawsurf.surfheight );
+					g134_tile_logged = true;
+				}
+			}
+			/* Soft texels → display RGB565 once so spans can write directly. */
+			{
+				pixel_t *dst = (pixel_t *)cache->data;
+				int y, x;
+				for( y = 0; y < r_drawsurf.surfheight; y++ )
+				{
+					pixel_t *row = dst + y * cache->width;
+					for( x = 0; x < r_drawsurf.surfwidth; x++ )
+					{
+						pixel_t soft = row[x];
+						if( soft != TRANSPARENT_COLOR )
+							row[x] = vid.screen[soft];
+					}
+				}
+			}
+		}
+#endif
 	}
 
 #if XASH_GAMECUBE
