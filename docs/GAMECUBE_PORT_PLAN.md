@@ -2877,14 +2877,65 @@ plane+texture-id solid RGB565 spans; keep when uniq≥6.
 
 ## G138 — Textured spans + chroma-reject dumps (COMPLETE 2026-07-20)
 
-Re-enable New Game textured surfcache path. Soft→RGB565 still dumps as chroma
-(uniq saturates ≥48) — reject and use G136 zi silhouette for DumpFrames. Live
-renders stay textured.
+Re-enable surfcache textured spans; reject soft chroma DumpFrames (uniq≥48)
+and fall back to G136 zi near/wall/sky.
 
-**Evidence:** `.ai/logs/dolphin-probe-20260720-003435` —
+Evidence: `.ai/logs/dolphin-probe-20260720-003435` —
 `G138 textured spans active`, `G138 reject chroma dump … uniq=64`,
-`G136 depth posterize … near/wall/sky`, framedump_9 uniq≈62;
+`G136 depth posterize … near=20273 wall=43854 sky=12673`;
 `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G139 — Soft major<<8|minor → RGB565 keep (COMPLETE 2026-07-20)
+
+Root cause: Quake `BLEND_LM` colormap treats soft as 8-bit palette indices, but
+GC textures store `major<<8|minor`. Lit faces wrote garbage → pink/cyan DumpFrames.
+Fix: keep fullbright soft through `BLEND_LM` on low-res New Game; unpack once in
+`R_GCSoftMajorMinorToRGB565`; drop keep `uniq<48` (real materials saturate).
+
+Evidence: `.ai/logs/dolphin-probe-20260720-124858` —
+`G139 soft->RGB565 cache uniq=64`, `G139 textured spans active`,
+`G139 keep textured dump (nonblack=1198/1200 uniq=64)`;
+framedump_10 → `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G140 — Lit soft→RGB565 + New Game cache defer (COMPLETE 2026-07-20)
+
+`BLEND_LM` unpacks soft→RGB565 with Quake light grade (no colormap). Polyset /
+studio paths use `R_GCSoftToRGB565` and skip `BLEND_COLOR` corruption. New Game
+refuses crumb 32/64 KiB heap surfcache on early restore (starved HUD_Init).
+
+Evidence: `.ai/logs/dolphin-probe-20260720-130403` —
+`G140 textured+lit spans active`, `G139 keep textured dump`→keep path,
+framedump_10 → `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G141 — DumpFrames speckle scrub (COMPLETE 2026-07-20)
+
+Span cracks left 0 then sky-flooded as blue lines through walls; neon green
+speckles survived keep. `GC_ScrubDumpWorldSpeckles` fills isolated zeros from
+neighbors, sky-floods the rest, scrubs neon/isolated sky before the panel.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-131510` —
+`G141 scrub dump speckles (fill=199 neon=93)`, `G141 keep textured dump`;
+world-region blue shred 544→0 vs G140; framedump_10 → stage-04.
+
+## G142 — Stretch skybox face (COMPLETE 2026-07-20)
+
+Lean desert sky is 64×64; screen-space `(u+scroll)%tw` tiled every 64 source
+pixels (DumpFrames seams at 128/256/384…). Stretch one face across the FB with
+`s = u*tw/screen_w` (no modulo, no scroll).
+
+Evidence: `.ai/logs/dolphin-probe-20260720-132108` —
+`G142 stretched sky active (64x64 -> 320x240)`; top-row color jumps 5→0 vs G141;
+framedump_10 → `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G143 — Wall chroma outlier scrub (COMPLETE 2026-07-20)
+
+Residual soft-decode sparks (orange/cyan/chartreuse) survived neon heuristics.
+Expand neon classes and add Pass 5: saturated pixels that disagree with the
+local wall mode (`sat≥12` and RGB565 distance ≥16) are replaced.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-132518` —
+`G143 scrub dump speckles (fill=199 neon=69 outliers=58)`, keep textured;
+wall-region chroma counts → empty vs G142; framedump_10 → stage-04.
 
 ## Next wake-up commands
 

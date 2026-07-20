@@ -884,7 +884,9 @@ static void D_CalcGradients( msurface_t *pface )
 ==============
 D_SkyFillSurfaceRGB565
 
-Screen-space scroll of a soft-palette sky/skybox mip into the RGB565 FB.
+G142: stretch one skybox face across the framebuffer (no screen-space % tiling).
+Old (u+scroll)%tw repeated the lean 64×64 desert side every 64px → DumpFrames
+seams at 128/256/384… after 2× YUYV present.
 ==============
 */
 static void D_SkyFillSurfaceRGB565( surf_t *surf, image_t *mt )
@@ -892,11 +894,11 @@ static void D_SkyFillSurfaceRGB565( surf_t *surf, image_t *mt )
 	const int tw = mt->width;
 	const int th = mt->height;
 	const pixel_t *src = mt->pixels[0];
-	const int scroll_s = ((int)( gp_cl->time * 12.0f )) & 1023;
-	const int scroll_t = ((int)( gp_cl->time * 6.0f )) & 1023;
+	const int screen_w = r_screenwidth > 0 ? r_screenwidth : 320;
+	const int screen_h = ( vid.height > 0 ) ? (int)vid.height : 240;
 	static qboolean gc_sky_marker_logged;
 
-	if( !src || tw <= 0 || th <= 0 )
+	if( !src || tw <= 0 || th <= 0 || screen_w <= 0 || screen_h <= 0 )
 		return;
 
 	for( espan_t *span = surf->spans; span; span = span->pnext )
@@ -905,26 +907,32 @@ static void D_SkyFillSurfaceRGB565( surf_t *surf, image_t *mt )
 		const int v = span->v;
 		int       u2 = span->u + span->count - 1;
 		int       u;
+		int       t = ( v * th ) / screen_h;
+
+		if( t < 0 )
+			t = 0;
+		else if( t >= th )
+			t = th - 1;
 
 		for( u = span->u; u <= u2; u++ )
 		{
-			int s = ( u + scroll_s ) % tw;
-			int t = ( v + scroll_t ) % th;
+			int s = ( u * tw ) / screen_w;
 			pixel_t soft;
 
 			if( s < 0 )
-				s += tw;
-			if( t < 0 )
-				t += th;
+				s = 0;
+			else if( s >= tw )
+				s = tw - 1;
 			soft = src[t * tw + s];
 			if( soft != TRANSPARENT_COLOR )
-				pdest[u] = vid.screen[soft];
+				pdest[u] = R_GCSoftToRGB565( soft );
 		}
 	}
 
 	if( !gc_sky_marker_logged )
 	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: RGB565 textured sky active (%dx%d)\n", tw, th );
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G142 stretched sky active (%dx%d -> %dx%d)\n",
+			tw, th, screen_w, screen_h );
 		gc_sky_marker_logged = true;
 	}
 }
@@ -1277,16 +1285,14 @@ static void D_SolidSurf( surf_t *s )
 		miplevel--;
 
 #if XASH_GAMECUBE
-	/* Low-res New Game: textured+lit RGB565 via surfcache (G138).
-	 * G137 face-solid bypass skipped real textures; with G136 YUYV(p,p) and
-	 * deferred CPU dumps, soft→vid.screen[] major<<8|minor should DumpFrames
-	 * as muted walls instead of pink/cyan chroma. */
+	/* Low-res New Game: textured+lit RGB565 via surfcache (G140).
+	 * BLEND_LM unpacks soft→lit RGB565; convert scrubs transparent. */
 	if( GC_UseLowResWorldProbe() )
 	{
 		static unsigned gc_lit_hits, gc_lit_miss;
 		static qboolean gc_lit_marker_logged;
 		static qboolean gc_solid_enter_logged;
-		static qboolean g138_tex_logged;
+		static qboolean g140_tex_logged;
 
 		if( !gc_solid_enter_logged )
 		{
@@ -1319,10 +1325,10 @@ static void D_SolidSurf( surf_t *s )
 					gEngfuncs.Con_Reportf( "Xash3D GameCube: textured+lit RGB565 spans active\n" );
 					gc_lit_marker_logged = true;
 				}
-				if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && !g138_tex_logged )
+				if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && !g140_tex_logged )
 				{
-					gEngfuncs.Con_Reportf( "Xash3D GameCube: G138 textured spans active\n" );
-					g138_tex_logged = true;
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: G140 textured+lit spans active\n" );
+					g140_tex_logged = true;
 				}
 				if( tr.framecount <= 1 && ( gc_lit_hits + gc_lit_miss ) == 1 )
 					gEngfuncs.Con_Reportf( "Xash3D GameCube: surfcache lit begin frame=%d\n",

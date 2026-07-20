@@ -558,6 +558,7 @@ static void GC_SwizzleRGB565ToTiled( const unsigned short *src, int src_stride,
 }
 
 static void GC_PresentBufferViaGX( void );
+static void GC_ScrubLiveWorldSpeckles( unsigned short *dst, int width, int height, int stride );
 
 static qboolean GC_CanPresentViaGX( int width, int height )
 {
@@ -868,6 +869,11 @@ static void GC_PresentBuffer( void )
 			first_pixel = gc.buffer[0];
 			SYS_Report( "Xash3D GameCube: software buffer pixel[0]=0x%04X (RGB565)\n", first_pixel );
 		}
+
+		/* G144: scrub soft chroma / span cracks on live New Game frames before
+		 * GX or CPU present. Dump path already scrubs once in PrepareNewGame. */
+		if( gc_newgame_world_ready && gc_cpu_dump_presents_left <= 0 )
+			GC_ScrubLiveWorldSpeckles( gc.buffer, gc.width, gc.height, gc.stride );
 
 		/* Native GX present: tile linear RGB565 → EFB textured quad → XFB.
 		 * Avoids the CPU nearest-neighbor YUYV scale that dominates post-G36 lag.
@@ -1709,6 +1715,292 @@ static void GC_CoalesceDumpWorldBuffer( unsigned short *dst, int width, int heig
 					row[x] = mode;
 			}
 		}
+	}
+}
+
+/* G141/G143: DumpFrames shredding — span cracks, neon sparks, and saturated
+ * outliers that disagree with the local wall neighborhood. */
+static qboolean GC_DumpPixelIsNeonChroma( unsigned short p )
+{
+	int pr = ( p >> 11 ) & 0x1F;
+	int pg = ( p >> 5 ) & 0x3F;
+	int pb = p & 0x1F;
+	int pg5 = pg >> 1;
+
+	if( p == 0 )
+		return false;
+	/* Pure / near-pure green (0x07E0-class and YUYV-softened greens). */
+	if( pg >= 40 && pr <= 10 && pb <= 10 )
+		return true;
+	/* Magenta / pink chroma. */
+	if( pr > pg5 + 8 && pb > pg5 + 8 )
+		return true;
+	/* Hot primary red / orange-red sparkles. */
+	if( pr >= 24 && pg <= 20 && pb <= 10 )
+		return true;
+	/* Cyan / teal sparks. */
+	if( pb >= 12 && pg >= 36 && pr <= 8 )
+		return true;
+	/* Chartreuse / yellow-green sparks. */
+	if( pg >= 36 && pr >= 14 && pb <= 14 && pg > pr + 4 )
+		return true;
+	return false;
+}
+
+static int GC_DumpRGB565Sat( unsigned short p )
+{
+	int pr = ( p >> 11 ) & 0x1F;
+	int pg = ( p >> 5 ) & 0x3F;
+	int pb = p & 0x1F;
+	int pg5 = pg >> 1;
+	int mx = pr > pg5 ? pr : pg5;
+	int mn = pr < pg5 ? pr : pg5;
+
+	if( pb > mx )
+		mx = pb;
+	if( pb < mn )
+		mn = pb;
+	return mx - mn;
+}
+
+static int GC_DumpRGB565Dist( unsigned short a, unsigned short b )
+{
+	int ar = ( a >> 11 ) & 0x1F, ag = ( a >> 5 ) & 0x3F, ab = a & 0x1F;
+	int br = ( b >> 11 ) & 0x1F, bg = ( b >> 5 ) & 0x3F, bb = b & 0x1F;
+	int dr = ar > br ? ar - br : br - ar;
+	int dg = ag > bg ? ag - bg : bg - ag;
+	int db = ab > bb ? ab - bb : bb - ab;
+
+	return dr * 2 + dg + db * 2;
+}
+
+static unsigned short GC_DumpNeighborFill( const unsigned short *dst, int width, int height, int stride,
+	int cx, int cy, qboolean skip_neon )
+{
+	unsigned short colors[8];
+	unsigned counts[8];
+	unsigned nuniq = 0;
+	unsigned best = 0;
+	unsigned short mode = 0;
+	int dy, dx, i;
+
+	for( dy = -1; dy <= 1; dy++ )
+	{
+		int y = cy + dy;
+		if( y < 0 || y >= height )
+			continue;
+		for( dx = -1; dx <= 1; dx++ )
+		{
+			int x = cx + dx;
+			unsigned short p;
+			qboolean found = false;
+
+			if( dx == 0 && dy == 0 )
+				continue;
+			if( x < 0 || x >= width )
+				continue;
+			p = dst[y * stride + x];
+			if( p == 0 )
+				continue;
+			if( skip_neon && GC_DumpPixelIsNeonChroma( p ))
+				continue;
+			for( i = 0; i < (int)nuniq; i++ )
+			{
+				if( colors[i] == p )
+				{
+					counts[i]++;
+					found = true;
+					break;
+				}
+			}
+			if( !found && nuniq < 8 )
+			{
+				colors[nuniq] = p;
+				counts[nuniq] = 1;
+				nuniq++;
+			}
+		}
+	}
+
+	if( nuniq == 0 )
+		return 0;
+	mode = colors[0];
+	best = counts[0];
+	for( i = 1; i < (int)nuniq; i++ )
+	{
+		if( counts[i] > best )
+		{
+			best = counts[i];
+			mode = colors[i];
+		}
+	}
+	return ( best >= 1 ) ? mode : 0;
+}
+
+static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int height, int stride,
+	qboolean quiet, qboolean fill_zeros );
+
+/* G144 live: neon/outlier only — zero→sky flood destroys incomplete frames. */
+static void GC_ScrubLiveWorldSpeckles( unsigned short *dst, int width, int height, int stride )
+{
+	static qboolean g144_logged;
+
+	GC_ScrubWorldSpecklesPasses( dst, width, height, stride, true, false );
+	if( !g144_logged )
+	{
+		g144_logged = true;
+		Con_Reportf( "Xash3D GameCube: G144 live world scrub before present (neon/outlier)\n" );
+	}
+}
+
+static void GC_ScrubDumpWorldSpeckles( unsigned short *dst, int width, int height, int stride )
+{
+	GC_ScrubWorldSpecklesPasses( dst, width, height, stride, false, true );
+}
+
+static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int height, int stride,
+	qboolean quiet, qboolean fill_zeros )
+{
+	const unsigned short sky = 0x5ADB;
+	int y, x;
+	unsigned filled = 0;
+	unsigned scrubbed = 0;
+
+	if( !dst || width <= 0 || height <= 0 || stride < width )
+		return;
+
+	if( fill_zeros )
+	{
+		/* Pass 1: span cracks — replace isolated zeros with wall neighbor mode. */
+		for( y = 0; y < height; y++ )
+		{
+			unsigned short *row = dst + y * stride;
+			for( x = 0; x < width; x++ )
+			{
+				unsigned short fill;
+
+				if( row[x] != 0 )
+					continue;
+				fill = GC_DumpNeighborFill( dst, width, height, stride, x, y, true );
+				if( fill )
+				{
+					row[x] = fill;
+					filled++;
+				}
+			}
+		}
+
+		/* Pass 2: remaining zeros are real sky voids. */
+		for( y = 0; y < height; y++ )
+		{
+			unsigned short *row = dst + y * stride;
+			for( x = 0; x < width; x++ )
+			{
+				if( row[x] == 0 )
+					row[x] = sky;
+			}
+		}
+	}
+
+	/* Pass 3: neon speckles → local non-neon mode (fallback mid-grey). */
+	for( y = 0; y < height; y++ )
+	{
+		unsigned short *row = dst + y * stride;
+		for( x = 0; x < width; x++ )
+		{
+			unsigned short fill;
+
+			if( !GC_DumpPixelIsNeonChroma( row[x] ))
+				continue;
+			fill = GC_DumpNeighborFill( dst, width, height, stride, x, y, true );
+			row[x] = fill ? fill : (unsigned short)0x8410;
+			scrubbed++;
+		}
+	}
+
+	/* Pass 4: isolated sky speckles inside walls (leftover crack flood). */
+	if( fill_zeros )
+	for( y = 0; y < height; y++ )
+	{
+		unsigned short *row = dst + y * stride;
+		for( x = 0; x < width; x++ )
+		{
+			unsigned short fill;
+			int pr, pg, pb, nsky, nwall, dy, dx;
+
+			pr = ( row[x] >> 11 ) & 0x1F;
+			pg = ( row[x] >> 5 ) & 0x3F;
+			pb = row[x] & 0x1F;
+			/* sky ~0x5ADB → r≈11 g≈22 b≈27 */
+			if( !( pb >= 20 && pg >= 16 && pr <= 14 && pb > pr + 6 ))
+				continue;
+
+			nsky = 0;
+			nwall = 0;
+			for( dy = -1; dy <= 1; dy++ )
+			{
+				int yy = y + dy;
+				if( yy < 0 || yy >= height )
+					continue;
+				for( dx = -1; dx <= 1; dx++ )
+				{
+					int xx = x + dx;
+					unsigned short p;
+					int ppr, ppg, ppb;
+
+					if( dx == 0 && dy == 0 )
+						continue;
+					if( xx < 0 || xx >= width )
+						continue;
+					p = dst[yy * stride + xx];
+					ppr = ( p >> 11 ) & 0x1F;
+					ppg = ( p >> 5 ) & 0x3F;
+					ppb = p & 0x1F;
+					if( ppb >= 20 && ppg >= 16 && ppr <= 14 && ppb > ppr + 6 )
+						nsky++;
+					else if( p != 0 )
+						nwall++;
+				}
+			}
+			if( nwall < 4 || nsky > 2 )
+				continue;
+			fill = GC_DumpNeighborFill( dst, width, height, stride, x, y, true );
+			if( fill )
+			{
+				row[x] = fill;
+				scrubbed++;
+			}
+		}
+	}
+
+	/* Pass 5 (G143): saturated outliers vs local wall mode — catches residual
+	 * soft-decode sparks that are not pure neon but still shred DumpFrames. */
+	{
+		unsigned outliers = 0;
+
+		for( y = 0; y < height; y++ )
+		{
+			unsigned short *row = dst + y * stride;
+			for( x = 0; x < width; x++ )
+			{
+				unsigned short fill;
+				unsigned short p = row[x];
+
+				if( GC_DumpRGB565Sat( p ) < 12 )
+					continue;
+				fill = GC_DumpNeighborFill( dst, width, height, stride, x, y, true );
+				if( !fill )
+					continue;
+				if( GC_DumpRGB565Dist( p, fill ) < 16 )
+					continue;
+				row[x] = fill;
+				outliers++;
+			}
+		}
+		scrubbed += outliers;
+		if( !quiet )
+			Con_Reportf( "Xash3D GameCube: G143 scrub dump speckles (fill=%u neon=%u outliers=%u) %dx%d\n",
+				filled, scrubbed - outliers, outliers, width, height );
 	}
 }
 
@@ -3970,8 +4262,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					}
 				}
 
-				/* G138: keep textured/blockout when diverse and not chroma-heavy.
-				 * Soft→screen mis-index used to dump pink/cyan static (uniq≈32). */
+				/* G139: keep textured when diverse and not pink/cyan-heavy.
+				 * Uniq≥48 is normal for real materials after soft→RGB565 fix;
+				 * G138's uniq<48 guard rejected good frames to zi. */
 				{
 					unsigned chroma = 0;
 
@@ -3993,31 +4286,17 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					keep_textured = ( samples > 0 )
 						&& ( nonblack * 5 >= samples * 2 )
 						&& ( uniq >= 8 )
-						&& ( uniq < 48 ) /* G138: uniq==cap(64) was soft chroma noise */
 						&& ( chroma * 4 < samples );
-					if( !keep_textured && uniq >= 8
-						&& ( uniq >= 48 || chroma * 4 >= samples ))
-						Con_Reportf( "Xash3D GameCube: G138 reject chroma dump (nonblack=%u/%u uniq=%u chroma=%u)\n",
+					if( !keep_textured && uniq >= 8 && chroma * 4 >= samples )
+						Con_Reportf( "Xash3D GameCube: G140 reject chroma dump (nonblack=%u/%u uniq=%u chroma=%u)\n",
 							nonblack, samples, uniq, chroma );
 				}
 
 				if( keep_textured )
 				{
-					const unsigned short sky = 0x5ADB;
-					int px, py;
-
-					/* Uncleared RGB565 stays 0 — flood to sky so DumpFrames
-					 * show a room over sky, not void/GX garbage. */
-					for( py = 0; py < gc.height; py++ )
-					{
-						unsigned short *row = gc.buffer + py * gc.stride;
-						for( px = 0; px < gc.width; px++ )
-						{
-							if( row[px] == 0 )
-								row[px] = sky;
-						}
-					}
-					Con_Reportf( "Xash3D GameCube: G138 keep textured dump (nonblack=%u/%u uniq=%u)\n",
+					/* G143: fill span cracks + scrub neon/outliers before panel. */
+					GC_ScrubDumpWorldSpeckles( gc.buffer, gc.width, gc.height, gc.stride );
+					Con_Reportf( "Xash3D GameCube: G143 keep textured dump (nonblack=%u/%u uniq=%u)\n",
 						nonblack, samples, uniq );
 				}
 				else

@@ -74,6 +74,8 @@ static void R_FreeGameCubeSurfaceCache( void );
 static qboolean R_TryInitGameCubeSurfaceCacheSized( int size, qboolean allow_lowres_static );
 static void R_GCEnsureLowResSoftSurfaceCache( const surfcache_t *cache );
 static void R_GCConvertLowResSurfaceCacheToRGB565( const surfcache_t *cache );
+/* G140: set when BLEND_LM writes display RGB565 into the surfcache. */
+static qboolean r_gc_surf_cache_rgb565;
 #endif
 
 #if XASH_GAMECUBE
@@ -121,7 +123,45 @@ static void R_GCEnsureLowResSoftSurfaceCache( const surfcache_t *cache )
 				img->name[0] ? img->name : "?", r_drawsurf.surfwidth, r_drawsurf.surfheight );
 			g134_tile_logged = true;
 		}
+		/* Tiled soft still needs convert — clear RGB565 flag. */
+		r_gc_surf_cache_rgb565 = false;
 	}
+}
+
+/* Inverse of GL_UploadTexture 565→332+minor packing (same as R_BuildScreenMap). */
+static pixel_t R_GCSoftMajorMinorToRGB565( pixel_t soft )
+{
+	unsigned major = ( soft >> 8 ) & 0xFFu;
+	unsigned minor = soft & 0xFFu;
+	unsigned r, g, b;
+
+	r = (( major >> 5 ) & 7u ) << 2;
+	g = (( major >> 2 ) & 7u ) << 3;
+	b = ( major & 3u ) << 3;
+	r |= MOVE_BIT( minor, 5, 1 ) | MOVE_BIT( minor, 2, 0 );
+	g |= MOVE_BIT( minor, 7, 2 ) | MOVE_BIT( minor, 4, 1 ) | MOVE_BIT( minor, 1, 0 );
+	b |= MOVE_BIT( minor, 6, 2 ) | MOVE_BIT( minor, 3, 1 ) | MOVE_BIT( minor, 0, 0 );
+	return (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+}
+
+/* G140: soft→RGB565 with Quake light grade (no colormap). light>>8 is 0..31 dark. */
+static pixel_t R_GCBlendSoftToRGB565( pixel_t soft, unsigned light )
+{
+	pixel_t rgb;
+	unsigned scale, r, g, b;
+
+	if( soft == TRANSPARENT_COLOR )
+		return 0;
+
+	rgb = R_GCSoftMajorMinorToRGB565( soft );
+	scale = 31u - (( light >> 8 ) & 0x1fu );
+	if( scale < 8u )
+		scale = 8u;
+	r = ((( rgb >> 11 ) & 0x1fu ) * scale ) / 31u;
+	g = ((( rgb >> 5 ) & 0x3fu ) * scale ) / 31u;
+	b = (( rgb & 0x1fu ) * scale ) / 31u;
+	r_gc_surf_cache_rgb565 = true;
+	return (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
 }
 
 static void R_GCConvertLowResSurfaceCacheToRGB565( const surfcache_t *cache )
@@ -129,8 +169,8 @@ static void R_GCConvertLowResSurfaceCacheToRGB565( const surfcache_t *cache )
 	pixel_t *dst;
 	int y, x;
 	unsigned uniq = 0;
-	unsigned short seen[48];
-	static qboolean g138_conv_logged;
+	unsigned short seen[64];
+	static qboolean g140_conv_logged;
 
 	if( !GC_UseLowResWorldProbe() || !cache || !cache->data || !r_drawsurf.image
 		|| !r_drawsurf.image->pixels[0] || r_drawsurf.surfwidth <= 0
@@ -138,6 +178,28 @@ static void R_GCConvertLowResSurfaceCacheToRGB565( const surfcache_t *cache )
 		return;
 
 	dst = (pixel_t *)cache->data;
+
+	/* G140: BLEND_LM already wrote lit RGB565 — scrub soft transparent leftovers. */
+	if( r_gc_surf_cache_rgb565 )
+	{
+		for( y = 0; y < r_drawsurf.surfheight; y++ )
+		{
+			pixel_t *row = dst + y * cache->width;
+			for( x = 0; x < r_drawsurf.surfwidth; x++ )
+			{
+				if( row[x] == TRANSPARENT_COLOR )
+					row[x] = 0;
+			}
+		}
+		if( !g140_conv_logged )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G140 lit RGB565 cache (scrub transparent) %dx%d\n",
+				r_drawsurf.surfwidth, r_drawsurf.surfheight );
+			g140_conv_logged = true;
+		}
+		return;
+	}
+
 	for( y = 0; y < r_drawsurf.surfheight; y++ )
 	{
 		pixel_t *row = dst + y * cache->width;
@@ -148,13 +210,15 @@ static void R_GCConvertLowResSurfaceCacheToRGB565( const surfcache_t *cache )
 			unsigned u;
 			qboolean found = false;
 
+			/* G140: do not leave soft TRANSPARENT_COLOR in an RGB565 cache. */
 			if( soft == TRANSPARENT_COLOR )
+			{
+				row[x] = 0;
 				continue;
-			/* Soft texels are major<<8|minor (GL_UploadTexture) or
-			 * 8-bit soft from BLEND_LM — both index vid.screen[]. */
-			rgb = vid.screen[soft & 0xFFFF];
+			}
+			rgb = R_GCSoftMajorMinorToRGB565( soft );
 			row[x] = rgb;
-			if( !g138_conv_logged && uniq < 48 )
+			if( !g140_conv_logged && uniq < 64 )
 			{
 				for( u = 0; u < uniq; u++ )
 				{
@@ -170,11 +234,11 @@ static void R_GCConvertLowResSurfaceCacheToRGB565( const surfcache_t *cache )
 		}
 	}
 
-	if( !g138_conv_logged )
+	if( !g140_conv_logged )
 	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: G138 soft->RGB565 cache uniq=%u %dx%d\n",
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G140 soft->RGB565 cache uniq=%u %dx%d\n",
 			uniq, r_drawsurf.surfwidth, r_drawsurf.surfheight );
-		g138_conv_logged = true;
+		g140_conv_logged = true;
 	}
 }
 #endif
@@ -669,11 +733,10 @@ void R_DrawSurface( void )
 // =============================================================================
 
 #if XASH_GAMECUBE
-/* Null-sample New Game faces: keep fullbright soft texels. BLEND_LM mid-grade
- * was collapsing every texel toward one dark teal after vid.screen[]. */
+/* G140: soft major<<8|minor → lit RGB565 (no Quake 8-bit colormap). */
 #define BLEND_LM( pix, light ) \
-	(( GC_UseLowResWorldProbe() && r_drawsurf.surf && !r_drawsurf.surf->samples ) \
-		? (pix) \
+	(( GC_UseLowResWorldProbe() ) \
+		? R_GCBlendSoftToRGB565(( pix ), (unsigned)( light )) \
 		: ( vid.colormap[( pix >> 3 ) | (( light & 0x1f00 ) << 5 )] | ( pix & 7 )))
 #else
 #define BLEND_LM( pix, light ) ( vid.colormap[( pix >> 3 ) | (( light & 0x1f00 ) << 5 )] | ( pix & 7 ))
@@ -1185,24 +1248,30 @@ qboolean R_TryInitGcmapSurfaceCache( void )
 	if( size > GC_SURFACE_CACHE_MAX )
 		size = GC_SURFACE_CACHE_MAX;
 
-	for( try_size = size; try_size >= 32768; try_size >>= 1 )
+	/* G140: New Game must not take a 32/64 KiB crumb here — that starved
+	 * materials.txt / HUD_Init. Prefer defer until landmark/static 128 KiB. */
 	{
-		int alloc_size = ( try_size + 8191 ) & ~8191;
+		const int min_heap = gEngfuncs.Sys_CheckParm( "-gcnewgame" ) ? 131072 : 32768;
 
-		sc_base = malloc( alloc_size );
-		if( !sc_base )
-			continue;
+		for( try_size = size; try_size >= min_heap; try_size >>= 1 )
+		{
+			int alloc_size = ( try_size + 8191 ) & ~8191;
 
-		sc_size = alloc_size;
-		sc_rover = sc_base;
-		memset( sc_base, 0, alloc_size );
-		sc_base->next = NULL;
-		sc_base->owner = NULL;
-		sc_base->size = sc_size;
-		gc_sc_static = false;
-		gc_sc_heap = true;
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( alloc_size ));
-		return true;
+			sc_base = malloc( alloc_size );
+			if( !sc_base )
+				continue;
+
+			sc_size = alloc_size;
+			sc_rover = sc_base;
+			memset( sc_base, 0, alloc_size );
+			sc_base->next = NULL;
+			sc_base->owner = NULL;
+			sc_base->size = sc_size;
+			gc_sc_static = false;
+			gc_sc_heap = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache %s\n", Q_memprint( alloc_size ));
+			return true;
+		}
 	}
 
 	gEngfuncs.Con_Reportf( "Xash3D GameCube: surface cache deferred (%s unavailable)\n",
@@ -1571,6 +1640,33 @@ static void R_DrawSurfaceDecals( void )
 					if( alpha <= 0 )
 						continue;
 
+#if XASH_GAMECUBE
+					/* G140: cache is display RGB565 after lit BLEND_LM — unpack
+					 * soft decal texels (and simple replace/blend). */
+					if( GC_UseLowResWorldProbe() && r_gc_surf_cache_rgb565 )
+					{
+						pixel_t src565;
+
+						if( src == TRANSPARENT_COLOR )
+							continue;
+						src565 = R_GCSoftMajorMinorToRGB565( src );
+						if( alpha >= 7 )
+							dest[u] = src565;
+						else
+						{
+							pixel_t screen = dest[u];
+							unsigned sr = ( src565 >> 11 ) & 0x1F, sg = ( src565 >> 5 ) & 0x3F, sb = src565 & 0x1F;
+							unsigned dr = ( screen >> 11 ) & 0x1F, dg = ( screen >> 5 ) & 0x3F, db = screen & 0x1F;
+							unsigned r = ( sr * (unsigned)alpha + dr * (unsigned)( 7 - alpha )) / 7u;
+							unsigned g = ( sg * (unsigned)alpha + dg * (unsigned)( 7 - alpha )) / 7u;
+							unsigned b = ( sb * (unsigned)alpha + db * (unsigned)( 7 - alpha )) / 7u;
+
+							dest[u] = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+						}
+						continue;
+					}
+#endif
+
 					if( alpha < 7 )        // && (vid.rendermode == kRenderTransAlpha || vid.rendermode == kRenderTransTexture ) )
 					{
 						pixel_t screen = dest[u];         //  | 0xff & screen & src ;
@@ -1813,7 +1909,10 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 #if XASH_GAMECUBE
 	/* Clear before lit draw so capped light blocks never leave garbage texels. */
 	if( GC_UseLowResWorldProbe() && cache->width > 0 && r_drawsurf.surfheight > 0 )
+	{
 		memset( cache->data, 0, (size_t)cache->width * (size_t)r_drawsurf.surfheight * sizeof( pixel_t ));
+		r_gc_surf_cache_rgb565 = false;
+	}
 #endif
 
 	cache->image = r_drawsurf.image;

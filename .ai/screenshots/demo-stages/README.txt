@@ -15,11 +15,11 @@ stage-01-map-load-please-wait.png / stage-02-loading-bsp.png / stage-03-loading-
   Host-rendered previews of the baked loading.tga + progress bar at ~85%/40%/75%.
 
 stage-04-world-present.png
-  Dolphin DumpFrames after G138: textured spans run live; dump rejects soft
-  chroma (uniq≥48) and uses G136 zi near/wall/sky + WORLD PRESENT panel.
-  Probe: .ai/logs/dolphin-probe-20260720-003435 (framedump_9, uniq≈62 pink=0).
+  Dolphin DumpFrames after G143: textured keep + outlier scrub (wall chroma→0)
+  + G142 stretched sky on c1a0a WORLD PRESENT.
+  Probe: .ai/logs/dolphin-probe-20260720-132518 (framedump_10, outliers=58).
 
 Engine notes:
   Disc bake: resource/gc_menu/loading.tga + intro.tga
   Runtime: GC_DrawLoadingStatus + GC_SetLoadingProgress
-  Dump path: R_GcmapShadeDumpFromDepth / GC_CoalesceDumpWorldBuffer + G128 CPU presents
+  Dump path: G143 outlier scrub + G142 sky + G128 CPU presents

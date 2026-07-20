@@ -37,11 +37,19 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G136: zi 3-plane silhouette + CPU YUYV 2×/4× combing fix
 - G137: New Game face-solid blockout DumpFrames (skip soft-tile chroma)
 - G138: textured spans + chroma-reject DumpFrames (zi fallback when uniq high)
+- G139: soft major<<8|minor→RGB565 keep (no Quake colormap BLEND_LM)
+- G140: lit soft→RGB565 + polyset unpack; New Game defer crumb surfcache
+- G141: DumpFrames speckle scrub (span-crack fill + neon/sky scrub)
+- G142: stretch skybox face (no 64px screen-tile seams)
+- G143: wall chroma outlier scrub on textured DumpFrames
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(none — G138 complete; next: true soft→RGB565 that keeps textured dumps)*
+1. *(none — G143 complete; next: live-frame polish / non-dump path quality)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260720-132518` (G143 scrub outliers=58, wall chroma→0, framedump_10)
+- `.ai/logs/dolphin-probe-20260720-132108` (G142 stretched sky, framedump_10 seams 5→0)
+- `.ai/logs/dolphin-probe-20260720-131510` (G141 scrub fill=199 neon=93, framedump_10)
 - `.ai/logs/dolphin-probe-20260720-003435` (G138 textured+reject chroma→G136 zi, framedump_9)
 - `.ai/logs/dolphin-probe-20260720-001831` (G137 face-solid keep uniq=24, framedump_7)
 - `.ai/logs/dolphin-probe-20260720-000728` (G136 zi posterize near/wall/sky, framedump_9 uniq≈62)

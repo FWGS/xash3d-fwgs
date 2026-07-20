@@ -26,10 +26,29 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #if XASH_GAMECUBE
 qboolean d_gc_span_rgb565;
 
+/* Soft major<<8|minor → display RGB565 (shared by spans / polyset). */
+pixel_t R_GCSoftToRGB565( pixel_t soft )
+{
+	unsigned major = ( soft >> 8 ) & 0xFFu;
+	unsigned minor = soft & 0xFFu;
+	unsigned r, g, b;
+
+	if( soft == TRANSPARENT_COLOR )
+		return 0;
+
+	r = (( major >> 5 ) & 7u ) << 2;
+	g = (( major >> 2 ) & 7u ) << 3;
+	b = ( major & 3u ) << 3;
+	r |= MOVE_BIT( minor, 5, 1 ) | MOVE_BIT( minor, 2, 0 );
+	g |= MOVE_BIT( minor, 7, 2 ) | MOVE_BIT( minor, 4, 1 ) | MOVE_BIT( minor, 1, 0 );
+	b |= MOVE_BIT( minor, 6, 2 ) | MOVE_BIT( minor, 3, 1 ) | MOVE_BIT( minor, 0, 0 );
+	return (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+}
+
 /* Soft palette → display RGB565 helpers for alpha/add spans on the New Game FB. */
 static inline pixel_t GC_SpanSoftTo565( pixel_t soft )
 {
-	return vid.screen[soft];
+	return R_GCSoftToRGB565( soft );
 }
 
 static inline pixel_t GC_SpanRGB565Lerp( pixel_t src, pixel_t dst, int alpha )

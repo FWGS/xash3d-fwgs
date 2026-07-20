@@ -771,20 +771,23 @@ void R_PolysetDrawSpansBlended( spanpackage_t *pspanpackage )
 
 					pixel_t temp = *lptex; // vid.colormap[*lptex + ( llight & 0xFF00 )];
 					int     alpha = vid.alpha;
-					temp = BLEND_COLOR( temp, vid.color );
 
 #if XASH_GAMECUBE
+					/* G140: unpack soft before BLEND_COLOR (modmap corrupts major<<8|minor). */
 					if( d_gc_span_rgb565 )
 					{
 						if( alpha >= 4 )
-							*lpdest = vid.screen[temp];
+							*lpdest = R_GCSoftToRGB565( temp );
 					}
 					else
 #endif
+					{
+					temp = BLEND_COLOR( temp, vid.color );
 					if( alpha == 7 )
 						*lpdest = temp;
 					else if( alpha )
 						*lpdest = BLEND_ALPHA( alpha, temp, *lpdest ); // vid.alphamap[temp+ *lpdest*256];
+					}
 				}
 				lpdest++;
 				lzi += r_zistepx;
@@ -865,12 +868,12 @@ void R_PolysetDrawSpansAdditive( spanpackage_t *pspanpackage )
 #endif
 
 					pixel_t temp = *lptex; // vid.colormap[*lptex + ( llight & 0xFF00 )];
-					temp = BLEND_COLOR( temp, vid.color );
 
 #if XASH_GAMECUBE
+					/* G140: unpack soft before BLEND_COLOR. */
 					if( d_gc_span_rgb565 )
 					{
-						pixel_t src565 = vid.screen[temp];
+						pixel_t src565 = R_GCSoftToRGB565( temp );
 						pixel_t d = *lpdest;
 						unsigned int r = (( d >> 11 ) & 0x1F ) + (( src565 >> 11 ) & 0x1F );
 						unsigned int g = (( d >> 5 ) & 0x3F ) + (( src565 >> 5 ) & 0x3F );
@@ -882,7 +885,10 @@ void R_PolysetDrawSpansAdditive( spanpackage_t *pspanpackage )
 					}
 					else
 #endif
+					{
+					temp = BLEND_COLOR( temp, vid.color );
 					*lpdest = BLEND_ADD( temp, *lpdest );
+					}
 
 				}
 				lpdest++;
@@ -962,12 +968,12 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage )
 						return;
 #endif
 					pixel_t temp = *lptex; // vid.colormap[*lptex + ( llight & 0xFF00 )];
-					temp = BLEND_COLOR( temp, vid.color );
 
 #if XASH_GAMECUBE
+					/* G140: unpack soft before BLEND_COLOR. */
 					if( d_gc_span_rgb565 )
 					{
-						pixel_t src565 = vid.screen[temp];
+						pixel_t src565 = R_GCSoftToRGB565( temp );
 						pixel_t d = *lpdest;
 						unsigned int r = (( d >> 11 ) & 0x1F ) + (( src565 >> 11 ) & 0x1F );
 						unsigned int g = (( d >> 5 ) & 0x3F ) + (( src565 >> 5 ) & 0x3F );
@@ -979,7 +985,10 @@ void R_PolysetDrawSpansGlow( spanpackage_t *pspanpackage )
 					}
 					else
 #endif
+					{
+					temp = BLEND_COLOR( temp, vid.color );
 					*lpdest = BLEND_ADD( temp, *lpdest );
+					}
 
 				}
 				lpdest++;
@@ -1063,19 +1072,22 @@ void R_PolysetDrawSpansTextureBlended( spanpackage_t *pspanpackage )
 
 					int     alpha = temp >> 13;
 					temp = temp << 3;
-					temp = BLEND_COLOR( temp, vid.color );
 #if XASH_GAMECUBE
+					/* G140: unpack soft before BLEND_COLOR. */
 					if( d_gc_span_rgb565 )
 					{
 						if( alpha >= 4 )
-							*lpdest = vid.screen[temp];
+							*lpdest = R_GCSoftToRGB565( temp );
 					}
 					else
 #endif
+					{
+					temp = BLEND_COLOR( temp, vid.color );
 					if( alpha == 7 )
 						*lpdest = temp;
 					else if( alpha )
 						*lpdest = BLEND_ALPHA( alpha, temp, *lpdest ); // vid.alphamap[temp+ *lpdest*256];
+					}
 				}
 				lpdest++;
 				lzi += r_zistepx;
@@ -1153,7 +1165,7 @@ void R_PolysetDrawSpans8_33( spanpackage_t *pspanpackage )
 					if( d_gc_span_rgb565 )
 					{
 						if( alpha >= 4 )
-							*lpdest = vid.screen[temp];
+							*lpdest = R_GCSoftToRGB565( temp );
 					}
 					else
 #endif
@@ -1241,13 +1253,27 @@ void R_PolysetFillSpans8( spanpackage_t *pspanpackage )
 						return;
 #endif
 					pixel_t src = *lptex;
-					pixel_t soft = vid.colormap[( src >> 3 ) | (( llight & 0x1F00 ) << 5 )] | ( src & 7 );
 #if XASH_GAMECUBE
+					/* G140: major<<8|minor skins — skip Quake colormap, unpack + shade. */
 					if( d_gc_span_rgb565 )
-						*lpdest = vid.screen[soft];
+					{
+						pixel_t rgb = R_GCSoftToRGB565( src );
+						unsigned scale = 31u - (( llight >> 8 ) & 0x1fu );
+						unsigned r, g, b;
+
+						if( scale < 8u )
+							scale = 8u;
+						r = ((( rgb >> 11 ) & 0x1fu ) * scale ) / 31u;
+						g = ((( rgb >> 5 ) & 0x3fu ) * scale ) / 31u;
+						b = (( rgb & 0x1fu ) * scale ) / 31u;
+						*lpdest = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+					}
 					else
 #endif
+					{
+					pixel_t soft = vid.colormap[( src >> 3 ) | (( llight & 0x1F00 ) << 5 )] | ( src & 7 );
 					*lpdest = soft;
+					}
 					*lpz = lzi >> 16;
 				}
 				lpdest++;

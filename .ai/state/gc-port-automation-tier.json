@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G138 COMPLETE: textured spans live; DumpFrames reject soft chroma (uniq>=48) and use G136 zi. Next: fix soft→RGB565 so textured dumps keep."
+  "note": "G143 COMPLETE: wall chroma outlier scrub on textured DumpFrames. Next: live-frame polish / non-dump path quality."
 }

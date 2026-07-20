@@ -1014,9 +1014,10 @@ extern fixed16_t   bbextents, bbextentt;
 
 void D_DrawSpans16( espan_t *pspans );
 #if XASH_GAMECUBE
-/* When set, D_DrawSpans16 writes display RGB565 via vid.screen[] so low-res
+/* When set, D_DrawSpans16 writes display RGB565 via R_GCSoftToRGB565 so low-res
  * New Game frames stay compatible with the GX present path + flat fills. */
 extern qboolean d_gc_span_rgb565;
+pixel_t R_GCSoftToRGB565( pixel_t soft );
 #endif
 void D_DrawZSpans( espan_t *pspans );
 void Turbulent8( espan_t *pspan );
