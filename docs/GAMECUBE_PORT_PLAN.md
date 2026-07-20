@@ -2968,6 +2968,86 @@ Evidence: `.ai/logs/dolphin-probe-20260720-134636` —
 `G146 surfcache mip 0→2 size … (UV-matched)` (no `clamping surface cache`);
 wall dark40 924→78, dark_runs 6→4; stage-04 / 04b refreshed.
 
+## G147 — Full face emit + near-black crack scrub (COMPLETE 2026-07-20)
+
+Cap faces used `clipflags=15` + shared-edge FULLY_CLIPPED cache → only
+`emit=15/175`. Drop frustum clipflags for New Game caps, always clip edges
+fresh, clamp span `bbextents` to the UV-matched cache, and scrub near-black
+crack pixels (not just zeros) when neighbors are brighter.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-135208` —
+`G147 faces try=175 emit=175 noemit=0`, `G147 live scrub …`,
+`G143 scrub … (fill=0 neon=0 outliers=0)`; dark20 24→0, dark_runs 4→2;
+stage-04 / 04b refreshed.
+
+## G148 — Larger UV cache + area-prioritized faces (COMPLETE 2026-07-20)
+
+Raise New Game surfcache fit limit 64→96 (richer mip0/1 blocks). Capture
+192/256 slots from area≥2048 faces first, then fill remaining in order so
+outdoor towers are not starved by tiny detail polys. Raising BSS face/edge
+caps OOMed FatPVS/surfbits — keep 256/768.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-140641` —
+`G148 captured draw faces=256`, `surfcache mip … size 40x80`,
+outdoor framedump_17 long dark runs 4→1; dump uniq 2194→4054;
+stage-04 / 04b / 04c-outdoor refreshed.
+
+## G149 — Viewmodel in DumpFrames (COMPLETE 2026-07-20)
+
+G128 WORLD PRESENT dumps finished before G104 Deploy, so early DumpFrames
+never showed the gun. Bypass health/viewentity early-outs for New Game
+low-res when `v_9mmhandgun` is bound; composite the mesh into the dump
+buffer before CPU YUYV presents; after Deploy stamp VIEWMODEL and re-arm
+CPU dump presents.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-142850` —
+`G149 dump composite viewmodel models/v_9mmhandgun.mdl`,
+`G149 viewmodel dump presents begin`, framedump_17 VIEWMODEL panel,
+framedump_18 outdoor gun silhouette; stage-04d / 04e refreshed.
+Residual: gun often center-screen (viewent origin/FOV not full client Calc)
+until a later polish goal.
+
+## G150 — Top-K face coverage + sky-hole rim fill (COMPLETE 2026-07-20)
+
+G148 preferred area≥2048 in surface order, so early small “large” faces
+filled the 256 cap before outdoor towers. Online top-224 by area (replace
+min-area slot), 32 connector slots, sort largest-first before draw, and
+multipass rim-fill of enclosed sky pixels in scrub — still no BSS raise.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-143953` —
+`G150 captured draw faces=256 … replaced=174`, emit 179→199,
+outdoor mid wall 77%→90%, sky-hole candidates 40→28; stage-04c refreshed.
+
+## G151 — Flipper GX EFB world (COMPLETE 2026-07-20)
+
+`ref/gx` was soft Quake spans with GX only as a fullscreen present blit.
+After soft DumpFrames latch, New Game live draws cap faces as GX triangles
+into the EFB (`r_gx_world.c`) and `GX_CopyDisp` to XFB. Escape: `-gcsoftworld`.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-145123` —
+`G151 GX world live enabled (Flipper EFB)`,
+`G151 GX world faces drawn=199 of 256 (Flipper EFB)`.
+Next: textured GX faces + GX viewmodel.
+
+## G152 — GX textured faces (COMPLETE 2026-07-20)
+
+Soft mip0 → RGB565 → tiled `GX_TF_RGB565` (24-slot LRU, max 64×64).
+Per-face UVs from `texinfo->vecs`; TEV MODULATE with vertex white.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-145710` —
+`G152 GX textured faces=199 flat=0 (Flipper TEV)`.
+Next: lightmaps on TEV; GX viewmodel.
+
+## G153 — GX lightmaps TEV2 (COMPLETE 2026-07-20)
+
+Bake ≤8×8 tiled RGB565 lightmaps at face capture (32 KiB BSS). Live path
+binds TEX1 + TEV stage1 MODULATE. When `samples` already freed, mid-grade
+bake still drives the Flipper combine (`lm=0` capture, lightmapped=199 draw).
+
+Evidence: `.ai/logs/dolphin-probe-20260720-150403` —
+`G153 GX lightmapped faces=199 of 199 (Flipper TEV2)`.
+Next: retain real samples through capture; GX viewmodel.
+
 ## Next wake-up commands
 
 ```sh

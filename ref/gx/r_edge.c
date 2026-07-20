@@ -1346,6 +1346,12 @@ static void D_SolidSurf( surf_t *s )
 				else
 					miplevel = 0;
 				D_CalcGradients( pface );
+				/* G147: bbextents from face luxels can exceed the UV-matched
+				 * cache → OOB reads leave near-black span cracks. */
+				if( cachewidth > 1 )
+					bbextents = ( cachewidth << 16 ) - 1;
+				if( pcurrentcache->height > 1 )
+					bbextentt = ( pcurrentcache->height << 16 ) - 1;
 				/* Cache already holds display RGB565 after G134 tile path. */
 				d_gc_span_rgb565 = false;
 				D_DrawSpans16( s->spans );

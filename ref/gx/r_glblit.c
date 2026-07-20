@@ -804,7 +804,24 @@ static void R_BlitPendingCinematicBGRA( unsigned short *dst, int dst_stride )
 
 void R_BlitScreen( void )
 {
-	void *buffer = swblit.pLockBuffer();
+	void *buffer;
+
+#if XASH_GAMECUBE
+	/* G151: world already in EFB — skip soft blit, just present CopyDisp. */
+	{
+		extern qboolean R_GXWorldDrewThisFrame( void );
+		extern void R_GXClearWorldDrewFlag( void );
+
+		if( R_GXWorldDrewThisFrame() )
+		{
+			R_GXClearWorldDrewFlag();
+			gEngfuncs.SW_UnlockBuffer();
+			return;
+		}
+	}
+#endif
+
+	buffer = swblit.pLockBuffer();
 
 	if( !buffer || gpGlobals->width != vid.width || gpGlobals->height != vid.height )
 	{

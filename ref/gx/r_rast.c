@@ -447,6 +447,12 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 	makeleftedge = makerightedge = false;
 	pedges = RI.currentmodel->edges16;
 	r_lastvertvalid = false;
+#if XASH_GAMECUBE
+	/* G147: shared-edge FULLY_CLIPPED cache from earlier faces skipped later
+	 * windings; always clip fresh for New Game cap draws. */
+	const qboolean gc_fresh_edges = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+		&& GC_UseLowResWorldProbe();
+#endif
 
 	for( int i = 0; i < fa->numedges; i++ )
 	{
@@ -457,7 +463,11 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 			r_pedge = &pedges[lindex];
 
 			// if the edge is cached, we can just reuse the edge
-			if( !insubmodel )
+			if( !insubmodel
+#if XASH_GAMECUBE
+				&& !gc_fresh_edges
+#endif
+				)
 			{
 				if( r_pedge->cachededgeoffset & FULLY_CLIPPED_CACHED )
 				{
@@ -501,7 +511,11 @@ void R_RenderFace( msurface_t *fa, int clipflags )
 			lindex = -lindex;
 			r_pedge = &pedges[lindex];
 			// if the edge is cached, we can just reuse the edge
-			if( !insubmodel )
+			if( !insubmodel
+#if XASH_GAMECUBE
+				&& !gc_fresh_edges
+#endif
+				)
 			{
 				if( r_pedge->cachededgeoffset & FULLY_CLIPPED_CACHED )
 				{
@@ -610,7 +624,7 @@ void R_GcReportFaceEmit( void )
 		return;
 	if( tr.framecount > 2 && ( tr.framecount & 31 ) != 0 )
 		return;
-	gEngfuncs.Con_Reportf( "Xash3D GameCube: G132 faces try=%u emit=%u noemit=%u frame=%d\n",
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: G147 faces try=%u emit=%u noemit=%u frame=%d\n",
 		r_gc_face_try, r_gc_face_emit, r_gc_face_noemit, tr.framecount );
 	r_gc_face_try = r_gc_face_emit = r_gc_face_noemit = 0;
 }

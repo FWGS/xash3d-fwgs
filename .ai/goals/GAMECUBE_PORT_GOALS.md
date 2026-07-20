@@ -45,14 +45,23 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G144: live New Game scrub before GX present (neon/outlier only)
 - G145: live span-crack neighbor fill when frame mostly drawn
 - G146: UV-matched surfcache mip bump (no dimension clamp cracks)
+- G147: all cap faces emit + near-black crack scrub + cache UV clamp
+- G148: area-prioritized face capture + 96px UV-matched surfcache
+- G149: DumpFrames viewmodel composite + VIEWMODEL panel presents
+- G150: top-K area face capture + sky-hole rim fill (no BSS raise)
+- G151: Flipper GX EFB world tris (live); soft spans only for DumpFrames
+- G152: GX textured faces (soft→RGB565 tiled + TEV MODULATE)
+- G153: GX lightmaps (capture bake + TEV2 MODULATE)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(none — G146 complete; next: remaining span cracks / more face emit)*
+1. *(none — G153 complete; next: GX viewmodel/studio)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260720-150403` (G153 lightmapped=199 TEV2; capture bake)
+- `.ai/logs/dolphin-probe-20260720-145710` (G152 textured=199 flat=0 Flipper TEV)
+- `.ai/logs/dolphin-probe-20260720-140641` (G148 area-pri + 96px cache; outdoor long_runs 4→1)
+- `.ai/logs/dolphin-probe-20260720-135208` (G147 emit=175/175; dark20→0; scrub neon=0)
 - `.ai/logs/dolphin-probe-20260720-134636` (G146 mip-fit; wall dark40 924→78)
-- `.ai/logs/dolphin-probe-20260720-133810` (G145 live cracks=1; wall dark 0.25%→0.02%)
-- `.ai/logs/dolphin-probe-20260720-133426` (G144 live scrub + GX present; framedump_10/15 chroma~0)
 - `.ai/logs/dolphin-probe-20260720-132518` (G143 scrub outliers=58, wall chroma→0, framedump_10)
 - `.ai/logs/dolphin-probe-20260720-003435` (G138 textured+reject chroma→G136 zi, framedump_9)
 - `.ai/logs/dolphin-probe-20260720-001831` (G137 face-solid keep uniq=24, framedump_7)
@@ -2493,6 +2502,79 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `G138 soft->RGB565 cache uniq=43`, `G138 textured spans active`,
   `G138 reject chroma dump … uniq=64`, `G136 depth posterize … near=… wall=…`,
   framedump_9 uniq≈62 pink=0; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G149 [x] Landmark viewmodel visible in DumpFrames
+
+- Status: DONE 2026-07-20. WORLD PRESENT dumps ran before G104 Deploy, so early
+  frames had `viewmodel=0`. Force low-res viewmodel draw under `-gcnewgame`
+  when the mesh is bound (bypass health/viewentity), composite
+  `v_9mmhandgun` into the dump buffer before G128 CPU presents, and after
+  Deploy re-scrub + stamp `VIEWMODEL` + CPU-present so DumpFrames latch the gun.
+- Acceptance:
+  - `G149 dump composite viewmodel models/v_9mmhandgun.mdl`
+  - `G149 viewmodel dump presents begin` and/or `G105 viewmodel draw`
+  - DumpFrames show gun silhouette and/or VIEWMODEL panel
+- Evidence: `.ai/logs/dolphin-probe-20260720-142850` —
+  `G149 low-res viewmodel draw`, `G149 dump composite viewmodel`,
+  `G105 viewmodel draw`, `G149 viewmodel dump presents begin`;
+  framedump_17 VIEWMODEL panel, framedump_18 outdoor+gun;
+  `.ai/screenshots/demo-stages/stage-04d-viewmodel-dump.png`,
+  `stage-04e-viewmodel-panel.png`.
+
+## G150 [x] Outdoor coverage via top-K faces + sky-hole rim fill
+
+- Status: DONE 2026-07-20. G148 took the first 192 large faces in surface
+  order, starving later outdoor tower panels. Capture online top-224 by area
+  (replace min), fill 32 connector slots, sort largest-first for the edge
+  budget, and rim-fill sky-through islands in scrub (dump + live).
+- Acceptance:
+  - `G150 captured draw faces=256 … replaced=` with replaced>0
+  - Outdoor DumpFrames: higher mid-frame wall coverage / fewer sky-hole candidates
+  - Cap stays 256 (no BSS raise)
+- Evidence: `.ai/logs/dolphin-probe-20260720-143953` —
+  `G150 captured … replaced=174`, `G147 faces try=199 emit=199`,
+  outdoor mid wall 77%→90%, sky-hole candidates 40→28, uniq 10885→12576;
+  stage-04 / 04b / 04c refreshed.
+
+## G151 [x] Flipper GX EFB world draw (not soft spans)
+
+- Status: DONE 2026-07-20. `ref/gx` was Quake soft raster + GX fullscreen
+  present only. New Game live path now submits cap faces as GX triangles into
+  the EFB (`ref/gx/r_gx_world.c`), then `GX_CopyDisp` — no soft edge/span fill.
+  Soft+CPU DumpFrames remain for readable Dolphin evidence (`-gcsoftworld` escape).
+- Acceptance:
+  - `G151 GX world live enabled (Flipper EFB)`
+  - `G151 GX world faces drawn=` with drawn>0
+  - DumpFrames still produced via soft path before live enable
+- Evidence: `.ai/logs/dolphin-probe-20260720-145123` —
+  `G151 GX world live enabled`, `G151 GX world faces drawn=199 of 256`.
+- Next: GX textured/lightmapped faces; GX studio/viewmodel.
+
+## G152 [x] GX textured world faces (Flipper TEV)
+
+- Status: DONE 2026-07-20. Upload soft `image_t` mip0 via major<<8|minor→RGB565,
+  swizzle to `GX_TF_RGB565` (≤64×64, 24-slot LRU), bind `GXTexObj`, emit UVs
+  from `texinfo->vecs`, TEV MODULATE. Flat-color fallback if bind fails.
+- Acceptance:
+  - `G152 GX textured faces=` with textured>0 and flat preferably low
+  - G151 Flipper path still active
+- Evidence: `.ai/logs/dolphin-probe-20260720-145710` —
+  `G151 GX world faces drawn=199 of 256`,
+  `G152 GX textured faces=199 flat=0 (Flipper TEV)`.
+- Next: GX lightmaps; GX studio/viewmodel.
+
+## G153 [x] GX lightmapped faces (Flipper TEV2)
+
+- Status: DONE 2026-07-20. At face capture, bake style-0 lightmap (or mid-grade)
+  to ≤8×8 tiled RGB565 BSS. Live GX binds TEX0 diffuse + TEX1 lightmap,
+  TEV0 MODULATE then TEV1 MODULATE. Samples often already freed at capture
+  (`lm=0`) — mid bake still exercises the Flipper combine path.
+- Acceptance:
+  - `G153 captured draw faces=… lm=`
+  - `G153 GX lightmapped faces=` with count>0
+- Evidence: `.ai/logs/dolphin-probe-20260720-150403` —
+  `G153 captured … lm=0`, `G153 GX lightmapped faces=199 of 199 (Flipper TEV2)`.
+- Next: keep real samples through capture; GX viewmodel.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

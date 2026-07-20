@@ -160,6 +160,11 @@ void GC_PresentBudgetProbeFrame( void );
 qboolean GC_PrepareNewGameWorldPresent( void );
 qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_IsNewGameG36Done( void );
+/* G151: Flipper GX world draw (live); soft spans remain for DumpFrames. */
+qboolean GC_UseGxWorldDraw( void );
+void GC_MarkGxWorldEfbReady( void );
+void GC_EnableGxWorldLive( void );
+void *GC_GetGxVideoMode( void );
 int GC_GetNewGameViewCluster( void ); /* G83: load/prepare-time PointInLeaf cluster, or -1 */
 qboolean GC_HasNewGameCachedVis( void ); /* G83: prepare-time FatPVS + parent mark ready */
 qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without tree walks */
@@ -167,6 +172,7 @@ qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without t
 void GC_ApplyNewGameSurfVis( int surf_frame );
 int GC_GetNewGameCapFaceCount( void );
 struct msurface_s *GC_GetNewGameDrawSurfs( void );
+const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h );
 void GC_CaptureNewGamePVS( void ); /* G83: PointInLeaf+FatPVS before scratch reuse */
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 qboolean GC_UpdateNewGamePVSForOrigin( const float *org ); /* G89: select cluster row by AABB */

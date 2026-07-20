@@ -2944,6 +2944,12 @@ void R_DrawViewModel( void )
 		return;
 
 	// ignore in thirdperson, camera view or client is died
+#if XASH_GAMECUBE
+	/* G149: New Game landmark Deploy presents before UpdateClientData has
+	 * health/viewentity; still draw when the viewmodel mesh is bound. */
+	if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe()
+		&& view && view->model && view->model->type == mod_studio ))
+#endif
 	if( ENGINE_GET_PARM( PARM_LOCAL_HEALTH ) <= 0 || !CL_IsViewEntityLocalPlayer())
 		return;
 

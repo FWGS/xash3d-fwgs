@@ -1804,13 +1804,14 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 #if XASH_GAMECUBE
 	/* Low-res New Game: size from lightmap extents when present so light
 	 * columns match; otherwise face extents (lightextents are often empty).
-	 * G146: bump mip until the block fits ≤64×64 — never clamp width/height
+	 * G146/G148: bump mip until the block fits ≤96×96 — never clamp width/height
 	 * alone (that desyncs D_CalcGradients UV space → dark span cracks). */
 	if( GC_UseLowResWorldProbe() )
 	{
 		int w, h;
 		int mip = miplevel;
 		int start_mip;
+		const int max_dim = 96;
 		const qboolean use_lm = !( surface->texinfo->flags & TEX_WORLD_LUXELS ) &&
 			surface->info->lightextents[0] > 0 && surface->info->lightextents[1] > 0;
 
@@ -1840,7 +1841,7 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			}
 		}
 		start_mip = mip;
-		while(( w > 64 || h > 64 ) && mip < 3 )
+		while(( w > max_dim || h > max_dim ) && mip < 3 )
 		{
 			mip++;
 			if( use_lm )
@@ -1866,16 +1867,16 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 			h = 16;
 		/* Last resort if still huge at mip3 (rare). Keep UV space consistent
 		 * by also raising surfscale to match the clamped block. */
-		if( w > 64 || h > 64 )
+		if( w > max_dim || h > max_dim )
 		{
-			float sx = ( w > 64 ) ? ( 64.0f / (float)w ) : 1.0f;
-			float sy = ( h > 64 ) ? ( 64.0f / (float)h ) : 1.0f;
+			float sx = ( w > max_dim ) ? ( (float)max_dim / (float)w ) : 1.0f;
+			float sy = ( h > max_dim ) ? ( (float)max_dim / (float)h ) : 1.0f;
 			float s = ( sx < sy ) ? sx : sy;
 
-			if( w > 64 )
-				w = 64;
-			if( h > 64 )
-				h = 64;
+			if( w > max_dim )
+				w = max_dim;
+			if( h > max_dim )
+				h = max_dim;
 			surfscale = ( 1.0 / ( 1 << mip )) * s;
 		}
 		else

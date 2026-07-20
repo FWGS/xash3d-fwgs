@@ -15,13 +15,16 @@ stage-01-map-load-please-wait.png / stage-02-loading-bsp.png / stage-03-loading-
   Host-rendered previews of the baked loading.tga + progress bar at ~85%/40%/75%.
 
 stage-04-world-present.png
-  Dolphin DumpFrames after G146: UV-matched surfcache + scrub + GX present.
-  Probe: .ai/logs/dolphin-probe-20260720-134636 (framedump_10).
+  Dolphin DumpFrames after G148: area-prioritized faces + 96px cache.
+  Probe: .ai/logs/dolphin-probe-20260720-140641 (framedump_10).
 
 stage-04b-live-gx-present.png
-  Live GX present (framedump_15); wall dark40 924→78 vs G145.
+  Live GX present (framedump_15); uniq 2194→4054 vs G147.
+
+stage-04c-outdoor-c1a0a.png
+  Outdoor c1a0a (framedump_17); long dark runs 4→1 vs G147.
 
 Engine notes:
   Disc bake: resource/gc_menu/loading.tga + intro.tga
   Runtime: GC_DrawLoadingStatus + GC_SetLoadingProgress
-  Dump/live: G146 UV-matched cache + G145 crack fill + G143/G144 scrub
+  Dump/live: G148 area-pri faces + 96px cache + G147 emit/scrub

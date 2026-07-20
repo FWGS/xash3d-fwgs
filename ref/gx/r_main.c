@@ -107,7 +107,8 @@ float        r_aliasuvscale = 1.0;
 #if XASH_GAMECUBE
 /* Reduced edge/surface/span budgets for low-res world probe: static BSS, not heap.
  * MEM1 is too fragmented after New Game connect for reliable malloc here.
- * Sized for world + opaque brush movers (tram/doors) in the shared edge pass. */
+ * Sized for world + opaque brush movers (tram/doors) in the shared edge pass.
+ * Do not raise casually — larger BSS OOMs FatPVS/surfbits capture (G148). */
 #define GC_PROBE_NUMEDGES 768
 #define GC_PROBE_NUMSURFS 384
 #define GC_PROBE_NUMSPANS 768
@@ -714,20 +715,31 @@ static void R_DrawStudioEntitiesLowRes( void )
 	}
 
 	/* View weapon when present — tram intro often has none yet.
-	 * Skip during silent G36 windows after the first draw. */
+	 * Skip during silent G36 windows after the first draw, except G149
+	 * New Game when r_drawviewmodel is explicitly enabled (landmark Deploy). */
 	if( !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW )
 	    && tr.viewent && tr.viewent->model && tr.viewent->model->type == mod_studio
 	    && r_drawviewmodel && r_drawviewmodel->value )
 	{
 		static qboolean view_drawn_once;
 		extern qboolean GC_IsFrameBudgetProbeActive( void );
+		const qboolean gc_force_vm = gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+			&& GC_UseLowResWorldProbe();
 
-		if( !( GC_IsFrameBudgetProbeActive() && view_drawn_once ))
+		if( gc_force_vm || !( GC_IsFrameBudgetProbeActive() && view_drawn_once ))
 		{
+			static qboolean g149_vm_logged;
+
 			R_SetUpWorldTransform();
 			R_DrawViewModel();
 			drew_view = true;
 			view_drawn_once = true;
+			if( gc_force_vm && !g149_vm_logged )
+			{
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: G149 low-res viewmodel draw %s\n",
+					tr.viewent->model->name[0] ? tr.viewent->model->name : "?" );
+				g149_vm_logged = true;
+			}
 		}
 	}
 
@@ -1483,6 +1495,18 @@ static void R_EdgeDrawingGcmapProbe( void )
 {
 	if( !FBitSet( RI.rvp.flags, RF_DRAW_WORLD ))
 		return;
+
+	/* G151: Flipper GX world — no soft edges/spans. */
+	if( GC_UseGxWorldDraw() )
+	{
+		extern int R_GXDrawNewGameCapFaces( void );
+		extern void R_GXClearWorldDrewFlag( void );
+
+		R_GXClearWorldDrewFlag();
+		VectorCopy( RI.rvp.vieworigin, tr.modelorg );
+		R_GXDrawNewGameCapFaces();
+		return;
+	}
 
 	if( !R_GcmapEnsureWorldRenderScratch() )
 		return;

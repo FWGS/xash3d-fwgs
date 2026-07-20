@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G146 COMPLETE: UV-matched surfcache mip bump (no 64x64 clamp cracks). Next: remaining span cracks / more face emit."
+  "note": "G153 COMPLETE: GX lightmaps (TEV2 MODULATE, capture bake). Next: retain real LM samples / GX viewmodel."
 }

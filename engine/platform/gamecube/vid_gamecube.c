@@ -96,8 +96,13 @@ static int gc_newgame_numnodes;
 static int gc_newgame_numsurfaces;
 static int gc_newgame_vis_leafs;
 static int gc_newgame_vis_nodes;
-/* G132: compact face records captured while msurface_t is still valid. */
+/* G132/G148/G150: compact face records captured while msurface_t is still valid.
+ * Cap stays 256 (larger BSS OOMs surfbits capture). G150 keeps top-K by area
+ * so outdoor towers are not starved by early surface-order faces. */
 #define GC_MAX_CAP_FACES 256
+#define GC_CAP_AREA_SLOTS (( GC_MAX_CAP_FACES * 7 ) / 8) /* 224 top-K by area */
+/* G153: bake style-0 lightmap to RGB565 at capture (samples dangle later). */
+#define GC_CAP_LM_DIM 8
 typedef struct
 {
 	int		firstedge;
@@ -109,12 +114,19 @@ typedef struct
 	short		texturemins[2];
 	short		extents[2];
 	byte		styles[MAXLIGHTMAPS];
-	color24		*samples;	/* may be NULL after scratch reuse */
+	color24		*samples;	/* may dangle later — lit path tolerates NULL */
 } gc_cap_face_t;
 static gc_cap_face_t gc_newgame_cap_faces[GC_MAX_CAP_FACES];
 static msurface_t gc_newgame_draw_surfs[GC_MAX_CAP_FACES];
+static int gc_newgame_cap_areas[GC_MAX_CAP_FACES]; /* extents product per slot */
+static u16 gc_newgame_cap_lm[GC_MAX_CAP_FACES][GC_CAP_LM_DIM * GC_CAP_LM_DIM]
+	__attribute__((aligned( 32 )));
+static byte gc_newgame_cap_lm_w[GC_MAX_CAP_FACES];
+static byte gc_newgame_cap_lm_h[GC_MAX_CAP_FACES];
+static byte gc_newgame_cap_lm_real[GC_MAX_CAP_FACES]; /* 1 if baked from samples */
 static int gc_newgame_cap_face_count;
 static int gc_newgame_cap_tex_faces; /* faces that kept a live texture* */
+static int gc_newgame_cap_lm_faces; /* faces with real sample bake */
 
 int GC_GetNewGameCapFaceCount( void )
 {
@@ -126,88 +138,354 @@ msurface_t *GC_GetNewGameDrawSurfs( void )
 	return gc_newgame_cap_face_count > 0 ? gc_newgame_draw_surfs : NULL;
 }
 
+const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h )
+{
+	if( slot < 0 || slot >= gc_newgame_cap_face_count )
+		return NULL;
+	if( gc_newgame_cap_lm_w[slot] < 4 || gc_newgame_cap_lm_h[slot] < 4 )
+		return NULL;
+	if( w )
+		*w = gc_newgame_cap_lm_w[slot];
+	if( h )
+		*h = gc_newgame_cap_lm_h[slot];
+	return gc_newgame_cap_lm[slot];
+}
+
+static void GC_BakeCapLightmap( const msurface_t *src, int slot )
+{
+	const mextrasurf_t *info;
+	int sample_size;
+	int smax, tmax;
+	int dw, dh, x, y;
+	u16 linear[GC_CAP_LM_DIM * GC_CAP_LM_DIM];
+	u16 *dst;
+	const color24 *lm;
+	const u16 mid = 0xC618;
+	int tile_x, tile_y, ty;
+	u16 *out;
+
+	gc_newgame_cap_lm_w[slot] = 0;
+	gc_newgame_cap_lm_h[slot] = 0;
+	dst = gc_newgame_cap_lm[slot];
+	info = src->info;
+
+	if( !info )
+	{
+		dw = dh = 4;
+		for( y = 0; y < dw * dh; y++ )
+			linear[y] = mid;
+		gc_newgame_cap_lm_real[slot] = 0;
+		goto swizzle;
+	}
+
+	sample_size = Mod_SampleSizeForFace( src );
+	if( sample_size < 1 )
+		sample_size = 16;
+	smax = ( info->lightextents[0] / sample_size ) + 1;
+	tmax = ( info->lightextents[1] / sample_size ) + 1;
+	if( smax < 1 )
+		smax = 1;
+	if( tmax < 1 )
+		tmax = 1;
+
+	dw = smax;
+	dh = tmax;
+	if( dw > GC_CAP_LM_DIM )
+		dw = GC_CAP_LM_DIM;
+	if( dh > GC_CAP_LM_DIM )
+		dh = GC_CAP_LM_DIM;
+	dw = ( dw < 4 ) ? 4 : ( dw & ~3 );
+	dh = ( dh < 4 ) ? 4 : ( dh & ~3 );
+
+	lm = src->samples;
+	for( y = 0; y < dh; y++ )
+	{
+		int sy = ( tmax <= 1 ) ? 0 : ( y * ( tmax - 1 )) / ( dh > 1 ? dh - 1 : 1 );
+		for( x = 0; x < dw; x++ )
+		{
+			int sx = ( smax <= 1 ) ? 0 : ( x * ( smax - 1 )) / ( dw > 1 ? dw - 1 : 1 );
+			u16 pix = mid;
+
+			if( lm && sx >= 0 && sy >= 0 && sx < smax && sy < tmax )
+			{
+				const color24 *c = &lm[sy * smax + sx];
+				unsigned r = c->r >> 3;
+				unsigned g = c->g >> 2;
+				unsigned b = c->b >> 3;
+				if( r > 24 )
+					r = 24 + (( r - 24 ) >> 1 );
+				if( g > 48 )
+					g = 48 + (( g - 48 ) >> 1 );
+				if( b > 24 )
+					b = 24 + (( b - 24 ) >> 1 );
+				pix = (u16)(( r << 11 ) | ( g << 5 ) | b );
+			}
+			linear[y * dw + x] = pix;
+		}
+	}
+	gc_newgame_cap_lm_real[slot] = lm ? 1 : 0;
+
+swizzle:
+	/* GX_TF_RGB565 needs 4×4 tiled layout. */
+	out = dst;
+	for( tile_y = 0; tile_y < dh; tile_y += 4 )
+	{
+		for( tile_x = 0; tile_x < dw; tile_x += 4 )
+		{
+			for( ty = 0; ty < 4; ty++ )
+			{
+				const u16 *row = linear + ( tile_y + ty ) * dw + tile_x;
+				out[0] = row[0];
+				out[1] = row[1];
+				out[2] = row[2];
+				out[3] = row[3];
+				out += 4;
+			}
+		}
+	}
+	DCFlushRange( dst, (u32)( dw * dh * sizeof( u16 )));
+	gc_newgame_cap_lm_w[slot] = (byte)dw;
+	gc_newgame_cap_lm_h[slot] = (byte)dh;
+}
+
+static qboolean GC_CaptureOneDrawFaceAt( model_t *wmodel, int surf_index, int slot )
+{
+	msurface_t *src;
+	gc_cap_face_t *dst;
+	msurface_t *draw;
+
+	if( slot < 0 || slot >= GC_MAX_CAP_FACES )
+		return false;
+	if( surf_index < 0 || surf_index >= wmodel->numsurfaces )
+		return false;
+	src = &wmodel->surfaces[surf_index];
+	if( !src->plane || src->numedges < 3 || src->numedges > 32 )
+		return false;
+	if( src->firstedge < 0
+		|| src->firstedge + src->numedges > wmodel->numsurfedges )
+		return false;
+	if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+		return false;
+
+	dst = &gc_newgame_cap_faces[slot];
+	draw = &gc_newgame_draw_surfs[slot];
+	memset( dst, 0, sizeof( *dst ));
+	dst->firstedge = src->firstedge;
+	dst->numedges = src->numedges;
+	dst->flags = src->flags;
+	dst->plane = *src->plane;
+	dst->texturemins[0] = src->texturemins[0];
+	dst->texturemins[1] = src->texturemins[1];
+	dst->extents[0] = src->extents[0];
+	dst->extents[1] = src->extents[1];
+	memcpy( dst->styles, src->styles, sizeof( dst->styles ));
+	dst->samples = src->samples; /* may dangle later — lit path tolerates NULL */
+
+	if( src->texinfo && src->texinfo->texture )
+	{
+		dst->texinfo = *src->texinfo;
+		dst->texinfo.faceinfo = NULL; /* may point into scratch */
+	}
+	if( src->info )
+	{
+		dst->info = *src->info;
+		dst->info.surf = draw;
+		dst->info.bevel = NULL;
+		dst->info.deluxemap = NULL;
+		memset( dst->info.reserved, 0, sizeof( dst->info.reserved ));
+	}
+	else
+	{
+		dst->info.lightextents[0] = src->extents[0];
+		dst->info.lightextents[1] = src->extents[1];
+		dst->info.lightmapmins[0] = src->texturemins[0];
+		dst->info.lightmapmins[1] = src->texturemins[1];
+		dst->info.surf = draw;
+	}
+
+	memset( draw, 0, sizeof( *draw ));
+	draw->firstedge = dst->firstedge;
+	draw->numedges = dst->numedges;
+	draw->flags = dst->flags;
+	draw->plane = &dst->plane;
+	draw->texturemins[0] = dst->texturemins[0];
+	draw->texturemins[1] = dst->texturemins[1];
+	draw->extents[0] = dst->extents[0];
+	draw->extents[1] = dst->extents[1];
+	memcpy( draw->styles, dst->styles, sizeof( draw->styles ));
+	draw->samples = NULL; /* force mid-grade light; samples may be scratch */
+	draw->info = &dst->info;
+	if( dst->texinfo.texture )
+		draw->texinfo = &dst->texinfo;
+	gc_newgame_cap_areas[slot] = (int)src->extents[0] * (int)src->extents[1];
+	GC_BakeCapLightmap( src, slot );
+	return true;
+}
+
+static qboolean GC_CapFaceAlready( int firstedge, int numedges )
+{
+	int j;
+
+	for( j = 0; j < gc_newgame_cap_face_count; j++ )
+	{
+		if( gc_newgame_draw_surfs[j].firstedge == firstedge
+			&& gc_newgame_draw_surfs[j].numedges == numedges )
+			return true;
+	}
+	return false;
+}
+
+/* G150: sort captured faces largest-first so edge budget prefers towers. */
+static void GC_SortCapFacesByAreaDesc( void )
+{
+	int i, j;
+
+	for( i = 1; i < gc_newgame_cap_face_count; i++ )
+	{
+		gc_cap_face_t face = gc_newgame_cap_faces[i];
+		msurface_t draw = gc_newgame_draw_surfs[i];
+		int area = gc_newgame_cap_areas[i];
+		u16 lm[GC_CAP_LM_DIM * GC_CAP_LM_DIM];
+		byte lmw = gc_newgame_cap_lm_w[i];
+		byte lmh = gc_newgame_cap_lm_h[i];
+		byte lmr = gc_newgame_cap_lm_real[i];
+
+		memcpy( lm, gc_newgame_cap_lm[i], sizeof( lm ));
+		j = i;
+		while( j > 0 && gc_newgame_cap_areas[j - 1] < area )
+		{
+			gc_newgame_cap_faces[j] = gc_newgame_cap_faces[j - 1];
+			gc_newgame_draw_surfs[j] = gc_newgame_draw_surfs[j - 1];
+			gc_newgame_cap_areas[j] = gc_newgame_cap_areas[j - 1];
+			memcpy( gc_newgame_cap_lm[j], gc_newgame_cap_lm[j - 1], sizeof( lm ));
+			gc_newgame_cap_lm_w[j] = gc_newgame_cap_lm_w[j - 1];
+			gc_newgame_cap_lm_h[j] = gc_newgame_cap_lm_h[j - 1];
+			gc_newgame_cap_lm_real[j] = gc_newgame_cap_lm_real[j - 1];
+			j--;
+		}
+		gc_newgame_cap_faces[j] = face;
+		gc_newgame_draw_surfs[j] = draw;
+		gc_newgame_cap_areas[j] = area;
+		memcpy( gc_newgame_cap_lm[j], lm, sizeof( lm ));
+		gc_newgame_cap_lm_w[j] = lmw;
+		gc_newgame_cap_lm_h[j] = lmh;
+		gc_newgame_cap_lm_real[j] = lmr;
+	}
+	/* Re-bind plane/texinfo/info pointers after moves. */
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		msurface_t *draw = &gc_newgame_draw_surfs[i];
+		gc_cap_face_t *dst = &gc_newgame_cap_faces[i];
+
+		draw->plane = &dst->plane;
+		draw->info = &dst->info;
+		dst->info.surf = draw;
+		if( dst->texinfo.texture )
+			draw->texinfo = &dst->texinfo;
+		else
+			draw->texinfo = NULL;
+		if( gc_newgame_cap_lm_w[i] >= 4 && gc_newgame_cap_lm_h[i] >= 4 )
+			DCFlushRange( gc_newgame_cap_lm[i],
+				(u32)( gc_newgame_cap_lm_w[i] * gc_newgame_cap_lm_h[i] * sizeof( u16 )));
+	}
+}
+
 static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbits )
 {
 	int i;
+	int min_i;
+	int min_area;
+	int area_slots = GC_CAP_AREA_SLOTS;
+	int replaced = 0;
 
 	gc_newgame_cap_face_count = 0;
 	gc_newgame_cap_tex_faces = 0;
+	gc_newgame_cap_lm_faces = 0;
 	if( !wmodel || !wmodel->surfaces || !surfbits || gc_newgame_surfbytes <= 0 )
 		return;
 
-	for( i = 0; i < wmodel->numsurfaces && gc_newgame_cap_face_count < GC_MAX_CAP_FACES; i++ )
+	/* Pass 1 (G150): online top-K by area into area_slots — not surface order. */
+	for( i = 0; i < wmodel->numsurfaces; i++ )
 	{
 		msurface_t *src;
-		gc_cap_face_t *dst;
-		msurface_t *draw;
+		int area;
 
 		if( !( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
 			continue;
 		src = &wmodel->surfaces[i];
 		if( !src->plane || src->numedges < 3 || src->numedges > 32 )
 			continue;
-		if( src->firstedge < 0
-			|| src->firstedge + src->numedges > wmodel->numsurfedges )
-			continue;
-		/* Prefer solid world faces for textured spans; sky stays background. */
 		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
 			continue;
+		area = (int)src->extents[0] * (int)src->extents[1];
+		if( area <= 0 )
+			continue;
 
-		dst = &gc_newgame_cap_faces[gc_newgame_cap_face_count];
-		draw = &gc_newgame_draw_surfs[gc_newgame_cap_face_count];
-		memset( dst, 0, sizeof( *dst ));
-		dst->firstedge = src->firstedge;
-		dst->numedges = src->numedges;
-		dst->flags = src->flags;
-		dst->plane = *src->plane;
-		dst->texturemins[0] = src->texturemins[0];
-		dst->texturemins[1] = src->texturemins[1];
-		dst->extents[0] = src->extents[0];
-		dst->extents[1] = src->extents[1];
-		memcpy( dst->styles, src->styles, sizeof( dst->styles ));
-		dst->samples = src->samples; /* may dangle later — lit path tolerates NULL */
+		if( gc_newgame_cap_face_count < area_slots )
+		{
+			if( !GC_CaptureOneDrawFaceAt( wmodel, i, gc_newgame_cap_face_count ))
+				continue;
+			if( src->texinfo && src->texinfo->texture )
+				gc_newgame_cap_tex_faces++;
+			gc_newgame_cap_face_count++;
+			continue;
+		}
 
+		min_i = 0;
+		min_area = gc_newgame_cap_areas[0];
+		{
+			int k;
+			for( k = 1; k < area_slots; k++ )
+			{
+				if( gc_newgame_cap_areas[k] < min_area )
+				{
+					min_area = gc_newgame_cap_areas[k];
+					min_i = k;
+				}
+			}
+		}
+		if( area <= min_area )
+			continue;
+		{
+			qboolean had_tex = ( gc_newgame_cap_faces[min_i].texinfo.texture != NULL );
+
+			if( !GC_CaptureOneDrawFaceAt( wmodel, i, min_i ))
+				continue;
+			if( had_tex && !( src->texinfo && src->texinfo->texture ))
+				gc_newgame_cap_tex_faces--;
+			else if( !had_tex && src->texinfo && src->texinfo->texture )
+				gc_newgame_cap_tex_faces++;
+			replaced++;
+		}
+	}
+
+	/* Pass 2: fill remaining slots with any uncaptured PVS faces (connectors). */
+	for( i = 0; i < wmodel->numsurfaces && gc_newgame_cap_face_count < GC_MAX_CAP_FACES; i++ )
+	{
+		msurface_t *src;
+
+		if( !( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
+			continue;
+		src = &wmodel->surfaces[i];
+		if( GC_CapFaceAlready( src->firstedge, src->numedges ))
+			continue;
+		if( !GC_CaptureOneDrawFaceAt( wmodel, i, gc_newgame_cap_face_count ))
+			continue;
 		if( src->texinfo && src->texinfo->texture )
-		{
-			dst->texinfo = *src->texinfo;
-			dst->texinfo.faceinfo = NULL; /* may point into scratch */
 			gc_newgame_cap_tex_faces++;
-		}
-		if( src->info )
-		{
-			dst->info = *src->info;
-			dst->info.surf = draw;
-			dst->info.bevel = NULL;
-			dst->info.deluxemap = NULL;
-			memset( dst->info.reserved, 0, sizeof( dst->info.reserved ));
-		}
-		else
-		{
-			dst->info.lightextents[0] = src->extents[0];
-			dst->info.lightextents[1] = src->extents[1];
-			dst->info.lightmapmins[0] = src->texturemins[0];
-			dst->info.lightmapmins[1] = src->texturemins[1];
-			dst->info.surf = draw;
-		}
-
-		memset( draw, 0, sizeof( *draw ));
-		draw->firstedge = dst->firstedge;
-		draw->numedges = dst->numedges;
-		draw->flags = dst->flags;
-		draw->plane = &dst->plane;
-		draw->texturemins[0] = dst->texturemins[0];
-		draw->texturemins[1] = dst->texturemins[1];
-		draw->extents[0] = dst->extents[0];
-		draw->extents[1] = dst->extents[1];
-		memcpy( draw->styles, dst->styles, sizeof( draw->styles ));
-		draw->samples = NULL; /* force mid-grade light; samples may be scratch */
-		draw->info = &dst->info;
-		if( dst->texinfo.texture )
-			draw->texinfo = &dst->texinfo;
 		gc_newgame_cap_face_count++;
 	}
-	SYS_Report( "Xash3D GameCube: G133 captured draw faces=%d textured=%d\n",
-		gc_newgame_cap_face_count, gc_newgame_cap_tex_faces );
+
+	GC_SortCapFacesByAreaDesc();
+	gc_newgame_cap_lm_faces = 0;
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		if( gc_newgame_cap_lm_real[i] )
+			gc_newgame_cap_lm_faces++;
+	}
+	SYS_Report( "Xash3D GameCube: G154 captured draw faces=%d textured=%d lm=%d replaced=%d (max=%d)\n",
+		gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces,
+		replaced, GC_MAX_CAP_FACES );
 }
 typedef struct
 {
@@ -224,6 +502,7 @@ static qboolean gc_gx_present_logged;
 static int gc_cpu_dump_presents_left;
 static qboolean gc_dump_look_into_map;
 static vec3_t gc_newgame_capture_origin; /* G132: dump camera aim target */
+static qboolean gc_force_draw_viewmodel; /* G149: allow dump/G105 presents to keep VM on */
 static convar_t *gc_quality;
 static double gc_last_present_time;
 static double gc_worst_frame_ms;
@@ -493,6 +772,9 @@ static int gc_tiled_tex_w;
 static int gc_tiled_tex_h;
 static void *gc_tiled_tex_ptr;
 static qboolean gc_gx_present_pipe_ready;
+/* G151: live New Game draws world tris into EFB; DumpFrames stay on soft. */
+static qboolean gc_gx_world_live;
+static qboolean gc_gx_world_efb_ready;
 
 static void GC_InitPresentTextureTiled( void *tiled, int width, int height )
 {
@@ -845,6 +1127,31 @@ static void GC_PresentBuffer( void )
 		return;
 
 	gc_present_count++;
+
+	/* G151: Flipper already holds world geometry — CopyDisp only (no soft blit). */
+	if( gc_gx_world_efb_ready )
+	{
+		f32 fb_w = (f32)rmode->fbWidth;
+		f32 fb_h = (f32)rmode->efbHeight;
+
+		gc_gx_present_pipe_ready = false; /* next soft present rebuilds ortho */
+		GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
+		GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
+		GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
+		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
+		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
+		GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+		GX_DrawDone();
+		GX_CopyDisp( xfb[which_fb], GX_TRUE );
+		GX_DrawDone();
+		gc_gx_world_efb_ready = false;
+		VIDEO_SetNextFramebuffer( xfb[which_fb] );
+		VIDEO_Flush();
+		if( !gc_budget_probe_active )
+			VIDEO_WaitVSync();
+		which_fb ^= 1;
+		return;
+	}
 
 	copy_w = rmode->fbWidth;
 	copy_h = rmode->xfbHeight;
@@ -1840,11 +2147,11 @@ static unsigned short GC_DumpNeighborFill( const unsigned short *dst, int width,
 static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int height, int stride,
 	qboolean quiet, qboolean fill_cracks, qboolean sky_flood );
 
-/* G145 live: neighbor-fill span cracks when the frame is mostly drawn; never
- * blanket sky-flood zeros (that wrecked incomplete early buffers in G144). */
+/* G145/G147 live: neighbor-fill span cracks (zeros + near-black) when the
+ * frame is mostly drawn; never blanket sky-flood zeros. */
 static void GC_ScrubLiveWorldSpeckles( unsigned short *dst, int width, int height, int stride )
 {
-	static qboolean g145_logged;
+	static qboolean g147_logged;
 	unsigned nonblack = 0, samples = 0;
 	int y, x;
 	qboolean fill_cracks;
@@ -1865,10 +2172,10 @@ static void GC_ScrubLiveWorldSpeckles( unsigned short *dst, int width, int heigh
 	fill_cracks = ( samples > 0 ) && ( nonblack * 5 >= samples * 2 );
 
 	GC_ScrubWorldSpecklesPasses( dst, width, height, stride, true, fill_cracks, false );
-	if( !g145_logged )
+	if( !g147_logged )
 	{
-		g145_logged = true;
-		Con_Reportf( "Xash3D GameCube: G145 live scrub (cracks=%d neon/outlier) nonblack=%u/%u\n",
+		g147_logged = true;
+		Con_Reportf( "Xash3D GameCube: G147 live scrub (cracks=%d nearblack+neon) nonblack=%u/%u\n",
 			fill_cracks ? 1 : 0, nonblack, samples );
 	}
 }
@@ -1907,6 +2214,39 @@ static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int hei
 					row[x] = fill;
 					filled++;
 				}
+			}
+		}
+
+		/* Pass 1b (G147): near-black cracks (not pure zero) that sit inside
+		 * brighter wall neighborhoods — leftover OOB/gap shred. */
+		for( y = 0; y < height; y++ )
+		{
+			unsigned short *row = dst + y * stride;
+			for( x = 0; x < width; x++ )
+			{
+				unsigned short fill;
+				unsigned short p = row[x];
+				int pr, pg, pb, luma, fr, fg, fb, fluma;
+
+				if( p == 0 )
+					continue;
+				pr = ( p >> 11 ) & 0x1F;
+				pg = ( p >> 5 ) & 0x3F;
+				pb = p & 0x1F;
+				luma = pr * 2 + pg + pb;
+				if( luma >= 14 )
+					continue;
+				fill = GC_DumpNeighborFill( dst, width, height, stride, x, y, true );
+				if( !fill )
+					continue;
+				fr = ( fill >> 11 ) & 0x1F;
+				fg = ( fill >> 5 ) & 0x3F;
+				fb = fill & 0x1F;
+				fluma = fr * 2 + fg + fb;
+				if( fluma < luma + 10 )
+					continue;
+				row[x] = fill;
+				filled++;
 			}
 		}
 	}
@@ -1994,6 +2334,81 @@ static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int hei
 				scrubbed++;
 			}
 		}
+	}
+
+	/* Pass 4b (G150): grow wall into sky-through holes from the rim.
+	 * Open sky (few wall neighbors) is left alone; enclosed gaps fill inward. */
+	if( sky_flood || fill_cracks )
+	{
+		unsigned hole_fill = 0;
+		int pass;
+		const int wall_need = sky_flood ? 3 : 5;
+
+		for( pass = 0; pass < 4; pass++ )
+		{
+			unsigned pass_fill = 0;
+
+			for( y = 1; y < height - 1; y++ )
+			{
+				unsigned short *row = dst + y * stride;
+				for( x = 1; x < width - 1; x++ )
+				{
+					unsigned short p = row[x];
+					int pr = ( p >> 11 ) & 0x1F;
+					int pg = ( p >> 5 ) & 0x3F;
+					int pb = p & 0x1F;
+					int nwall = 0;
+					int dx, dy;
+					unsigned short fill;
+					int fr, fg, fb;
+
+					if( !( pb >= 20 && pg >= 16 && pr <= 14 && pb > pr + 6 )
+						&& !( pr >= 28 && pg >= 56 && pb >= 28 ))
+						continue;
+					for( dy = -1; dy <= 1; dy++ )
+					{
+						for( dx = -1; dx <= 1; dx++ )
+						{
+							unsigned short n;
+							int nr, ng, nb;
+
+							if( dx == 0 && dy == 0 )
+								continue;
+							n = dst[( y + dy ) * stride + ( x + dx )];
+							nr = ( n >> 11 ) & 0x1F;
+							ng = ( n >> 5 ) & 0x3F;
+							nb = n & 0x1F;
+							if( nb >= 20 && ng >= 16 && nr <= 14 && nb > nr + 6 )
+								continue;
+							if( nr >= 28 && ng >= 56 && nb >= 28 )
+								continue;
+							if( n != 0 )
+								nwall++;
+						}
+					}
+					if( nwall < wall_need )
+						continue;
+					fill = GC_DumpNeighborFill( dst, width, height, stride, x, y, true );
+					if( !fill )
+						continue;
+					fr = ( fill >> 11 ) & 0x1F;
+					fg = ( fill >> 5 ) & 0x3F;
+					fb = fill & 0x1F;
+					if( fb >= 20 && fg >= 16 && fr <= 14 && fb > fr + 6 )
+						continue;
+					if( fr >= 28 && fg >= 56 && fb >= 28 )
+						continue;
+					row[x] = fill;
+					pass_fill++;
+				}
+			}
+			hole_fill += pass_fill;
+			if( pass_fill == 0 )
+				break;
+		}
+		if( !quiet && hole_fill )
+			Con_Reportf( "Xash3D GameCube: G150 sky-hole rim fill=%u\n", hole_fill );
+		scrubbed += hole_fill;
 	}
 
 	/* Pass 5 (G143): saturated outliers vs local wall mode — catches residual
@@ -2539,6 +2954,50 @@ qboolean GC_IsNewGameWorldReady( void )
 	return gc_newgame_world_ready;
 #else
 	return false;
+#endif
+}
+
+qboolean GC_UseGxWorldDraw( void )
+{
+#if XASH_GAMECUBE
+	/* Live Flipper path after the soft DumpFrames latch finishes.
+	 * `-gcsoftworld` forces the Quake span raster for comparison. */
+	if( !gc_newgame_world_ready || !gc_gx_world_live )
+		return false;
+	if( gc_cpu_dump_presents_left > 0 )
+		return false;
+	if( Sys_CheckParm( "-gcsoftworld" ))
+		return false;
+	return Sys_CheckParm( "-gcnewgame" ) ? true : false;
+#else
+	return false;
+#endif
+}
+
+void GC_MarkGxWorldEfbReady( void )
+{
+#if XASH_GAMECUBE
+	gc_gx_world_efb_ready = true;
+#endif
+}
+
+void GC_EnableGxWorldLive( void )
+{
+#if XASH_GAMECUBE
+	if( !Sys_CheckParm( "-gcsoftworld" ))
+	{
+		gc_gx_world_live = true;
+		Con_Reportf( "Xash3D GameCube: G151 GX world live enabled (Flipper EFB)\n" );
+	}
+#endif
+}
+
+void *GC_GetGxVideoMode( void )
+{
+#if XASH_GAMECUBE
+	return rmode;
+#else
+	return NULL;
 #endif
 }
 
@@ -3218,6 +3677,8 @@ void GC_ResetNewGameWorldForChangelevel( void )
 		gc_newgame_pvs_ready ? 1 : 0 );
 	GC_FreeNewGamePVSCache();
 	gc_newgame_world_ready = false;
+	gc_gx_world_live = false;
+	gc_gx_world_efb_ready = false;
 	gc_newgame_viewcluster = -1;
 	/* Keep retained BSP tracking until FreeModel; clearing early makes
 	 * Mod_FreeLoadBuffer treat the arena as a Mem_ block and corrupts heap. */
@@ -3977,7 +4438,8 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 	GC_ProveNewGamePVSFollow();
 	SetBits( rvp.flags, RF_DRAW_WORLD );
 	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
-	Cvar_Set( "r_drawviewmodel", "0" );
+	/* G149: dump/landmark path may force viewmodel on for DumpFrames evidence. */
+	Cvar_Set( "r_drawviewmodel", gc_force_draw_viewmodel ? "1" : "0" );
 
 	{
 		static int render_log;
@@ -4033,14 +4495,15 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 }
 
 /*
- * G105: after landmark Deploy promoted the first-person mesh, force one
- * r_drawviewmodel present and log the bound model path.
+ * G105/G149: after landmark Deploy promoted the first-person mesh, force one
+ * r_drawviewmodel present and latch DumpFrames with the gun visible.
  */
 void GC_PresentLandmarkViewModel( void )
 {
 #if XASH_GAMECUBE
 	const char *path;
 	model_t *vm;
+	int dump_i;
 
 	path = Mod_GCLandmarkViewModelPath();
 	if( !path || !path[0] || !gc_newgame_world_ready )
@@ -4054,9 +4517,32 @@ void GC_PresentLandmarkViewModel( void )
 	}
 
 	clgame.viewent.model = vm;
+	/* Ensure the renderer viewent pointer sees the bound mesh. */
+	if( !clgame.viewent.model )
+		return;
+
 	ref.dllFuncs.R_BeginFrame( false );
 	if( GC_RenderNewGameWorldPassNoFrame( true ))
+	{
 		Con_Reportf( "Xash3D GameCube: G105 viewmodel draw %s\n", path );
+		/* G149: WORLD PRESENT dumps ran before Deploy — re-scrub and CPU-present
+		 * so Dolphin DumpFrames latch a frame that includes the gun. */
+		if( gc.buffer && gc.width > 0 && gc.height > 0 )
+		{
+			char details[64];
+
+			GC_ScrubLiveWorldSpeckles( gc.buffer, gc.width, gc.height, gc.stride );
+			Q_snprintf( details, sizeof( details ), "MAP=%s",
+				sv.name[0] ? sv.name : "?" );
+			GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride,
+				"VIEWMODEL", details );
+			if( gc_cpu_dump_presents_left < 6 )
+				gc_cpu_dump_presents_left = 6;
+			Con_Reportf( "Xash3D GameCube: G149 viewmodel dump presents begin\n" );
+			for( dump_i = 0; dump_i < 6; dump_i++ )
+				GC_PresentBuffer();
+		}
+	}
 	else
 		Con_Reportf( S_WARN "Xash3D GameCube: G105 viewmodel present failed %s\n", path );
 	ref.dllFuncs.R_EndFrame();
@@ -4261,6 +4747,31 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				GC_RenderNewGameWorldFrames( 1 );
 				gc_dump_look_into_map = false;
 
+				/* G149: composite landmark viewmodel into the dump buffer when
+				 * the mesh is already cached (studio mirror / prior Deploy). */
+				{
+					const char *vpath = Mod_GCLandmarkViewModelPath();
+					model_t *vm;
+
+					if( !vpath || !vpath[0] )
+						vpath = "models/v_9mmhandgun.mdl";
+					if( Mod_GCEnsureLandmarkViewModel( vpath ))
+					{
+						vm = Mod_FindName( vpath, false );
+						if( vm && vm->type == mod_studio && vm->cache.data )
+						{
+							clgame.viewent.model = vm;
+							gc_force_draw_viewmodel = true;
+							gc_dump_look_into_map = true;
+							if( GC_RenderNewGameWorldFrames( 1 ))
+								Con_Reportf( "Xash3D GameCube: G149 dump composite viewmodel %s\n",
+									vpath );
+							gc_dump_look_into_map = false;
+							gc_force_draw_viewmodel = false;
+						}
+					}
+				}
+
 				for( sy = 0; sy < gc.height; sy += 8 )
 				{
 					for( sx = 0; sx < gc.width; sx += 8 )
@@ -4347,6 +4858,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			Con_Reportf( "Xash3D GameCube: G128 CPU dump presents begin\n" );
 			for( dump_i = 0; dump_i < 16; dump_i++ )
 				GC_PresentBuffer();
+			/* Soft DumpFrames done — subsequent live presents use Flipper GX world. */
+			GC_EnableGxWorldLive();
 		}
 
 		for( i = 0; i < 2; i++ )

@@ -760,7 +760,9 @@ void R_RenderWorld( void )
 						continue;
 				}
 				surf->visframe = tr.framecount;
-				R_RenderFace( surf, 15 );
+				/* G147: clipflags=15 frustum-clipped most cap faces (emit≈15/175).
+				 * Near-plane clip in R_EmitEdge is enough for the low-res probe. */
+				R_RenderFace( surf, 0 );
 				drawn++;
 			}
 		}

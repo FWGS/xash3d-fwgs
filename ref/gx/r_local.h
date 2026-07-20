@@ -385,6 +385,17 @@ static inline qboolean GC_UseLowResWorldProbe( void )
 #endif
 }
 
+#if XASH_GAMECUBE
+/* G151: Flipper GX world draw (defined in engine platform). */
+qboolean GC_UseGxWorldDraw( void );
+void GC_MarkGxWorldEfbReady( void );
+void GC_EnableGxWorldLive( void );
+void *GC_GetGxVideoMode( void );
+qboolean R_GXWorldDrewThisFrame( void );
+void R_GXClearWorldDrewFlag( void );
+int R_GXDrawNewGameCapFaces( void );
+#endif
+
 typedef struct image_s
 {
 	char           name[256];       // game path, including extension (can be store image programs)

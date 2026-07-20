@@ -3967,7 +3967,10 @@ static void Mod_LoadTexInfo( model_t *mod, dbspmodel_t *bmod )
 	{
 		size_t texinfo_bytes = bmod->numtexinfo * sizeof( *out );
 
-		if( bmod->lightdata && bmod->lightdatasize >= texinfo_bytes )
+		/* G154: New Game must keep BSP lightmaps intact for Flipper LM bake —
+		 * do not overwrite the lighting lump with texinfo. */
+		if( bmod->lightdata && bmod->lightdatasize >= texinfo_bytes
+			&& !Sys_CheckParm( "-gcnewgame" ))
 		{
 			out = (mtexinfo_t *)bmod->lightdata;
 			memset( out, 0, texinfo_bytes );
@@ -4260,10 +4263,14 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 	}
 
 #if XASH_GAMECUBE
-	if( bmod->version == QBSP2_VERSION )
-		Mod_GCFreeBspPin( (void **)&bmod->surfaces32 );
-	else
-		Mod_GCFreeBspPin( (void **)&bmod->surfaces );
+	/* G154: keep dfaces until lighting so lightofs can bind samples for bake. */
+	if( !( Sys_CheckParm( "-gcnewgame" ) && bmod->isworld ))
+	{
+		if( bmod->version == QBSP2_VERSION )
+			Mod_GCFreeBspPin( (void **)&bmod->surfaces32 );
+		else
+			Mod_GCFreeBspPin( (void **)&bmod->surfaces );
+	}
 #endif
 }
 
@@ -5460,12 +5467,27 @@ static void Mod_GCReleaseBspSourceBuffer( model_t *mod, dbspmodel_t *bmod, byte 
 	}
 
 	if( bmod->lightdatasize && Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen )
-		&& !Sys_CheckParm( "-gcnolightmaps" ) && bmod->lightdatasize <= ( 256 * 1024 ))
+		&& !Sys_CheckParm( "-gcnolightmaps" ))
 	{
-		Mod_GCStashDeferredLump( (void **)&gc_bsp_deferred.lightdata, bmod->lightdata, bmod->lightdatasize );
-		gc_bsp_deferred.lightdatasize = bmod->lightdatasize;
-		bmod->lightdata = NULL;
-		bmod->lightdatasize = 0;
+		if( bmod->lightdatasize <= ( 256 * 1024 ))
+		{
+			Mod_GCStashDeferredLump( (void **)&gc_bsp_deferred.lightdata, bmod->lightdata, bmod->lightdatasize );
+			gc_bsp_deferred.lightdatasize = bmod->lightdatasize;
+			bmod->lightdata = NULL;
+			bmod->lightdatasize = 0;
+		}
+		else if( Sys_CheckParm( "-gcnewgame" ))
+		{
+			/* G154: keep large lightmaps in BSP scratch (no multi-MB malloc).
+			 * Busy ranges protect the lump until face bake completes. */
+			Con_Reportf( "Xash3D GameCube: G154 retaining scratch lightmaps for bake size=%s\n",
+				Q_memprint( bmod->lightdatasize ));
+		}
+		else
+		{
+			bmod->lightdata = NULL;
+			bmod->lightdatasize = 0;
+		}
 	}
 	else if( Mod_GCPointerInBuffer( bmod->lightdata, mod_base, bufferlen ))
 	{
@@ -6046,6 +6068,31 @@ static void Mod_LoadLighting( model_t *mod, dbspmodel_t *bmod )
 		return;
 	}
 
+	/* G154: New Game keeps a temporary bind into deferred/scratch light data
+	 * so face capture can bake Flipper LM tiles without a full MEM1 copy. */
+	if( Sys_CheckParm( "-gcnewgame" ) && bmod->isworld && bmod->lightmap_samples == 3
+		&& bmod->lightdata
+		&& ( bmod->lightdatasize > ( 256 * 1024 )
+			|| Mod_GCPointerInBuffer( bmod->lightdata, gc_bsp_scratch_base, gc_bsp_scratch_size )))
+	{
+		int i;
+
+		mod->lightdata = (color24 *)bmod->lightdata;
+		SetBits( mod->flags, MODEL_COLORED_LIGHTING );
+		for( i = 0; i < mod->numsurfaces; i++ )
+		{
+			int lightofs = ( bmod->version == QBSP2_VERSION )
+				? bmod->surfaces32[i].lightofs
+				: bmod->surfaces[i].lightofs;
+
+			if( lightofs != -1 )
+				mod->surfaces[i].samples = mod->lightdata + ( lightofs / bmod->lightmap_samples );
+		}
+		Con_Reportf( "Xash3D GameCube: G154 temp lightmap bind size=%s (bake-only)\n",
+			Q_memprint( bmod->lightdatasize ));
+		return;
+	}
+
 	if( bmod->lightdatasize > ( 256 * 1024 ))
 	{
 		Con_Reportf( "Xash3D GameCube: lightmaps skipped size=%s\n", Q_memprint( bmod->lightdatasize ));
@@ -6502,17 +6549,33 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_SetupSubmodels( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel submodels ready\n" );
-	/* G83: capture after SetupSubmodels so numleafs == visleafs (not lump count). */
-	if( isworld && Sys_CheckParm( "-gcnewgame" ))
-	{
-		worldmodel = mod;
-		GC_CaptureNewGamePVSFromModel( mod );
-	}
 	Con_Reportf( "Xash3D GameCube: bmodel lighting begin\n" );
 #endif
 	Mod_LoadLighting( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel lighting ready\n" );
+	/* G154: capture FatPVS + faces AFTER lighting so samples bake into Flipper LM. */
+	if( isworld && Sys_CheckParm( "-gcnewgame" ))
+	{
+		worldmodel = mod;
+		GC_CaptureNewGamePVSFromModel( mod );
+		/* Drop temporary LM bind; baked tiles live in cap BSS. */
+		if( mod->lightdata
+			&& ( Mod_GCPointerInBuffer( mod->lightdata, gc_bsp_scratch_base, gc_bsp_scratch_size )
+				|| mod->lightdata == (color24 *)bmod->lightdata ))
+		{
+			int i;
+
+			for( i = 0; i < mod->numsurfaces; i++ )
+				mod->surfaces[i].samples = NULL;
+			mod->lightdata = NULL;
+			Con_Reportf( "Xash3D GameCube: G154 released temp lightmap after face bake\n" );
+		}
+		if( bmod->version == QBSP2_VERSION )
+			Mod_GCFreeBspPin( (void **)&bmod->surfaces32 );
+		else
+			Mod_GCFreeBspPin( (void **)&bmod->surfaces );
+	}
 	Mod_GCFreeBspPin( (void **)&bmod->lightdata );
 #endif
 
