@@ -1161,6 +1161,7 @@ qboolean R_GcmapOwnsStaticZBuffer( void );
 qboolean R_GcmapOwnsStaticViewBuffer( void );
 #if XASH_GAMECUBE
 unsigned R_GcmapShadeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride );
+unsigned R_GcmapPosterizeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride );
 #endif
 void *R_GCBorrowMapLoadStaticArena( size_t size, size_t *capacity );
 qboolean R_GCReleaseMapLoadStaticArena( void *ptr );

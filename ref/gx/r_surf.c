@@ -1782,19 +1782,52 @@ surfcache_t *D_CacheSurface( msurface_t *surface, int miplevel )
 					g134_tile_logged = true;
 				}
 			}
-			/* Soft texels → display RGB565 once so spans can write directly. */
+			/* Soft texels are major<<8|minor (see GL_UploadTexture). Map through
+			 * vid.screen[] once so spans write display RGB565 directly.
+			 * G138: do not treat soft as a 0..255 palette index. */
 			{
 				pixel_t *dst = (pixel_t *)cache->data;
 				int y, x;
+				unsigned uniq = 0;
+				unsigned short seen[48];
+				static qboolean g138_conv_logged;
+
 				for( y = 0; y < r_drawsurf.surfheight; y++ )
 				{
 					pixel_t *row = dst + y * cache->width;
 					for( x = 0; x < r_drawsurf.surfwidth; x++ )
 					{
 						pixel_t soft = row[x];
-						if( soft != TRANSPARENT_COLOR )
-							row[x] = vid.screen[soft];
+						pixel_t rgb;
+						unsigned u;
+						qboolean found = false;
+
+						if( soft == TRANSPARENT_COLOR )
+							continue;
+						/* Soft texels are major<<8|minor (GL_UploadTexture) or
+						 * 8-bit soft from BLEND_LM — both index vid.screen[]. */
+						rgb = vid.screen[soft & 0xFFFF];
+						row[x] = rgb;
+						if( !g138_conv_logged && uniq < 48 )
+						{
+							for( u = 0; u < uniq; u++ )
+							{
+								if( seen[u] == rgb )
+								{
+									found = true;
+									break;
+								}
+							}
+							if( !found )
+								seen[uniq++] = rgb;
+						}
 					}
+				}
+				if( !g138_conv_logged )
+				{
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: G138 soft->RGB565 cache uniq=%u %dx%d\n",
+						uniq, r_drawsurf.surfwidth, r_drawsurf.surfheight );
+					g138_conv_logged = true;
 				}
 			}
 		}

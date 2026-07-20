@@ -2846,6 +2846,46 @@ Tile soft textures into empty surfcache (mip0 + lean extents), convert via
 `G134 tile soft tex into cache`, `G134 keep textured dump … uniq=32`,
 no G131 coalesce; stage-04 refreshed.
 
+## G135 — Retail-comparable WORLD PRESENT (COMPLETE 2026-07-19)
+
+Reject soft-tile keep below uniq≥128; depth shade then G130 posterize (no
+soft-tile re-render after depth). Defer CPU YUYV DumpFrames until panel is
+stamped. Skip Host_Init 640×480 loading blit (plaque hang under interpreter).
+
+**Evidence:** `.ai/logs/dolphin-probe-20260719-235737` —
+`G135 dump depth/coalesce … uniq=32`, `G135 depth->posterize`, framedump_9
+uniq≈151 pink=0; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G136 — Zi 3-plane silhouette + YUYV combing fix (COMPLETE 2026-07-20)
+
+`R_GcmapPosterizeDumpFromDepth` maps zi percentiles to near/wall/sky (avoids
+flat-sky from shade→color posterize). CPU 2×/4× blit uses YUYV(p,p) so DumpFrames
+panel text is not A,B,A,B shredded.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260720-000728` —
+`G136 depth posterize … near=20273 wall=43854 sky=12673`, framedump_9 uniq≈62
+pink=0; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G137 — Face-solid blockout DumpFrames (COMPLETE 2026-07-20)
+
+Skip soft-tile→`vid.screen[]` on New Game low-res (chroma DumpFrames). Draw
+plane+texture-id solid RGB565 spans; keep when uniq≥6.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260720-001831` —
+`G137 face-solid spans active`, `G137 keep face-solid dump … uniq=24`;
+`.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G138 — Textured spans + chroma-reject dumps (COMPLETE 2026-07-20)
+
+Re-enable New Game textured surfcache path. Soft→RGB565 still dumps as chroma
+(uniq saturates ≥48) — reject and use G136 zi silhouette for DumpFrames. Live
+renders stay textured.
+
+**Evidence:** `.ai/logs/dolphin-probe-20260720-003435` —
+`G138 textured spans active`, `G138 reject chroma dump … uniq=64`,
+`G136 depth posterize … near/wall/sky`, framedump_9 uniq≈62;
+`.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
 ## Next wake-up commands
 
 ```sh

@@ -1277,14 +1277,16 @@ static void D_SolidSurf( surf_t *s )
 		miplevel--;
 
 #if XASH_GAMECUBE
-	/* Low-res New Game: textured+lit spans → RGB565 for the GX present path.
-	 * Prefer mip≥1 so more surfaces fit the static cache with lightmaps.
-	 * Flat RGB565 fill remains the fallback so geometry stays visible. */
+	/* Low-res New Game: textured+lit RGB565 via surfcache (G138).
+	 * G137 face-solid bypass skipped real textures; with G136 YUYV(p,p) and
+	 * deferred CPU dumps, soft→vid.screen[] major<<8|minor should DumpFrames
+	 * as muted walls instead of pink/cyan chroma. */
 	if( GC_UseLowResWorldProbe() )
 	{
 		static unsigned gc_lit_hits, gc_lit_miss;
 		static qboolean gc_lit_marker_logged;
 		static qboolean gc_solid_enter_logged;
+		static qboolean g138_tex_logged;
 
 		if( !gc_solid_enter_logged )
 		{
@@ -1317,6 +1319,11 @@ static void D_SolidSurf( surf_t *s )
 					gEngfuncs.Con_Reportf( "Xash3D GameCube: textured+lit RGB565 spans active\n" );
 					gc_lit_marker_logged = true;
 				}
+				if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && !g138_tex_logged )
+				{
+					gEngfuncs.Con_Reportf( "Xash3D GameCube: G138 textured spans active\n" );
+					g138_tex_logged = true;
+				}
 				if( tr.framecount <= 1 && ( gc_lit_hits + gc_lit_miss ) == 1 )
 					gEngfuncs.Con_Reportf( "Xash3D GameCube: surfcache lit begin frame=%d\n",
 						tr.framecount );
@@ -1346,23 +1353,54 @@ static void D_SolidSurf( surf_t *s )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: surfcache lit hits=%u miss=%u frame=%d mip=%d\n",
 				gc_lit_hits, gc_lit_miss, tr.framecount, miplevel );
 
-		/* G129/G130: coherent sky/wall flat fills — rainbow primaries looked like
-		 * TV static after green-only YUYV DumpFrames. Slightly vary wall tone by
-		 * face pointer so adjacent planes separate after dump coalesce. */
+		/* Cache miss: G137-style plane+tex solid (readable blockout, no chroma). */
 		{
-			pixel_t fill;
+			espan_t *span;
+			unsigned short color = 0x8410;
+			unsigned tex_tone = 0;
 
-			if( pface && ( pface->flags & ( SURF_DRAWSKY | SURF_DRAWTURB )))
-				fill = 0x5ADB; /* sky blue */
+			if( pface->flags & ( SURF_DRAWSKY | SURF_DRAWTURB ))
+			{
+				color = 0x5ADB;
+			}
 			else
 			{
-				unsigned face_tone = (unsigned)( (uintptr_t)pface >> 4 );
-				/* 0xA514 base gray ± small green/blue steps (still flat, not neon). */
-				fill = (pixel_t)( 0xA514 + ( face_tone & 0x18 ) - ( face_tone & 0x06 ));
+				if( pface->texinfo && pface->texinfo->texture )
+					tex_tone = (unsigned)pface->texinfo->texture->gl_texturenum * 0x9E3779B9u;
+
+				if( pface->plane )
+				{
+					float nx = pface->plane->normal[0];
+					float ny = pface->plane->normal[1];
+					float nz = pface->plane->normal[2];
+					float anz = fabs( nz );
+
+					if( anz > 0.7f )
+						color = ( nz > 0.0f ) ? 0x6B8D : 0x4208;
+					else if( fabs( nx ) >= fabs( ny ))
+						color = ( nx > 0.0f ) ? 0xA514 : 0x8C71;
+					else
+						color = ( ny > 0.0f ) ? 0x9CD3 : 0x7BEF;
+				}
+				color = (unsigned short)(( color & 0xF7DE )
+					+ (( tex_tone >> 16 ) & 0x18 )
+					- (( tex_tone >> 8 ) & 0x06 ));
 			}
 
-			D_FlatFillSurface( s, fill );
-			D_DrawZSpans( s->spans );
+			for( span = s->spans; span; span = span->pnext )
+			{
+				unsigned short *p = (unsigned short *)((byte *)d_viewbuffer
+					+ span->v * r_screenwidth * 2) + span->u;
+				short *z = d_pzbuffer + span->v * d_zwidth + span->u;
+				int u;
+				const short zi = (short)( s->nearzi * 32768.0f );
+
+				for( u = 0; u < span->count; u++ )
+				{
+					p[u] = color;
+					z[u] = zi;
+				}
+			}
 		}
 		if( s->insubmodel )
 		{

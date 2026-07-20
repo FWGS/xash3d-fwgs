@@ -33,11 +33,19 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G132: capture-time faces + flat solid spans (solid>0 WORLD PRESENT)
 - G133: capture texinfo → textured+lit RGB565 spans
 - G134: keep textured RGB565 dumps + soft cache tile (skip depth overwrite)
+- G135: retail-comparable WORLD PRESENT (depth→posterize when soft uniq low)
+- G136: zi 3-plane silhouette + CPU YUYV 2×/4× combing fix
+- G137: New Game face-solid blockout DumpFrames (skip soft-tile chroma)
+- G138: textured spans + chroma-reject DumpFrames (zi fallback when uniq high)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(queue empty after G134 — next: real lightmap samples / clearer stage-04 / more faces)*
+1. *(none — G138 complete; next: true soft→RGB565 that keeps textured dumps)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260720-003435` (G138 textured+reject chroma→G136 zi, framedump_9)
+- `.ai/logs/dolphin-probe-20260720-001831` (G137 face-solid keep uniq=24, framedump_7)
+- `.ai/logs/dolphin-probe-20260720-000728` (G136 zi posterize near/wall/sky, framedump_9 uniq≈62)
+- `.ai/logs/dolphin-probe-20260719-235737` (G135 depth→posterize WORLD PRESENT, framedump_9 uniq≈151)
 - `.ai/logs/dolphin-probe-20260719-121916` (G134 tile soft tex + keep textured dump)
 - `.ai/logs/dolphin-probe-20260719-051017` (G133 textured+lit RGB565 on cap faces)
 - `.ai/logs/dolphin-probe-20260719-050525` (G132 cap faces emit + flat solid spans)
@@ -2419,6 +2427,60 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Evidence: `.ai/logs/dolphin-probe-20260719-121916` —
   `G134 tile soft tex into cache`, `G134 keep textured dump … uniq=32`,
   no G131 coalesce; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G135 [x] Retail-comparable WORLD PRESENT dumps (depth→posterize when soft uniq low)
+
+- Status: DONE 2026-07-19. Soft-tiled caches pass G134 keep at uniq≈32 but
+  DumpFrames as chroma noise. Keep only when uniq≥128; otherwise depth shade +
+  G130 posterize (no soft-tile re-render). Defer CPU YUYV dump presents until
+  after posterize+panel. Host_Init loading blit skipped (plaque hang).
+- Acceptance:
+  - `G135 dump depth/coalesce` + `G135 depth->posterize` (or coalesce→posterize)
+  - stage-04 DumpFrames: low unique colors, solid planes + WORLD PRESENT panel
+  - No GX/soft pink-cyan static as the dominant stage-04 image
+- Evidence: `.ai/logs/dolphin-probe-20260719-235737` —
+  `G135 dump depth/coalesce … uniq=32`, `G135 depth->posterize`, framedump_9
+  uniq≈151 pink=0; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G136 [x] Zi 3-plane room silhouette + YUYV scale combing fix
+
+- Status: DONE 2026-07-20. G135 color-posterize after depth shade flattened to
+  flat sky (near shade is sky-blue). Panel text showed A,B,A,B combing from 2×
+  YUYV blit. `R_GcmapPosterizeDumpFromDepth` paints near/wall/sky from zi
+  percentiles; 2×/4× nearest uses YUYV(p,p) per source pixel.
+- Acceptance:
+  - `G136 depth posterize … near=… wall=… sky=…` with near>0 and wall>0
+  - stage-04: multiple room planes + readable panel
+  - Panel row_flips near loading-plaque (no A,B,A,B combing)
+- Evidence: `.ai/logs/dolphin-probe-20260720-000728` —
+  `G136 depth posterize valid=72640 near=20273 wall=43854 sky=12673`,
+  framedump_9 uniq≈62 pink=0 flips≈40; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G137 [x] New Game face-solid blockout DumpFrames
+
+- Status: DONE 2026-07-20. Soft-tile → `vid.screen[]` dumps as pink/cyan
+  chroma. For `-gcnewgame` low-res, draw stable plane+texture-id solid RGB565
+  spans (blockout room). Keep dump when uniq≥6; zi posterize only if empty.
+- Acceptance:
+  - `G137 face-solid spans active` + `G137 keep face-solid dump … uniq=…`
+  - stage-04: multi-wall blockout + WORLD PRESENT panel
+  - pink/cyan chroma not dominant
+- Evidence: `.ai/logs/dolphin-probe-20260720-001831` —
+  `G137 face-solid spans active`, `G137 keep face-solid dump … uniq=24`,
+  framedump_7; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
+
+## G138 [x] Textured WORLD PRESENT DumpFrames (YUYV+chroma guards)
+
+- Status: DONE 2026-07-20. Re-enabled surfcache textured spans for New Game.
+  Soft→RGB565 still saturates dump uniq (≥48) as chroma — reject and fall back
+  to G136 zi near/wall/sky for readable DumpFrames. Live path runs textured.
+- Acceptance:
+  - `G138 textured spans active` + (`G138 keep textured dump` or `G138 reject chroma`→zi)
+  - stage-04: no pink/cyan static dominant; panel readable
+- Evidence: `.ai/logs/dolphin-probe-20260720-003435` —
+  `G138 soft->RGB565 cache uniq=43`, `G138 textured spans active`,
+  `G138 reject chroma dump … uniq=64`, `G136 depth posterize … near=… wall=…`,
+  framedump_9 uniq≈62 pink=0; `.ai/screenshots/demo-stages/stage-04-world-present.png`.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

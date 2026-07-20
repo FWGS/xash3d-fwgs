@@ -25,6 +25,7 @@ qboolean R_GcmapEnsureWorldRenderScratch( void );
 qboolean R_GcmapPrepareWorldRender( void );
 qboolean R_GcmapGetViewport( int *width, int *height );
 unsigned R_GcmapShadeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride );
+unsigned R_GcmapPosterizeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride );
 qboolean GC_PrepareNewGameWorldPresent( void );
 void R_GcmapTrimForMapLoad( void );
 void Mod_GCClearRetainedBspScratch( void );
@@ -735,21 +736,21 @@ static void GC_BlitSoftwareBufferScaled( const unsigned short *src, int src_w, i
 	if( src_w > 0 && src_h > 0 && ( src_w & 1 ) == 0 && ( copy_w & 1 ) == 0
 		&& src_w * 2 == copy_w && src_h * 2 == copy_h )
 	{
+		/* G136: each source pixel → two identical dest pixels = one YUYV(p,p).
+		 * Old path duplicated YUYV(A,B) → A,B,A,B combing on DumpFrames text. */
 		for( src_y = 0; src_y < src_h; src_y++ )
 		{
 			const unsigned short *scanline = src + src_y * src_stride;
 			unsigned int *out0 = dst + ( src_y * 2 ) * row_pairs;
 			unsigned int *out1 = out0 + row_pairs;
 
-			for( src_x = 0; src_x < pairs; src_x++ )
+			for( src_x = 0; src_x < src_w; src_x++ )
 			{
-				unsigned int yuyv = GC_RGBPairToYUYV( scanline[src_x * 2], scanline[src_x * 2 + 1] );
-				int dst_pair = src_x * 2;
+				unsigned short p = scanline[src_x];
+				unsigned int yuyv = GC_RGBPairToYUYV( p, p );
 
-				out0[dst_pair] = yuyv;
-				out0[dst_pair + 1] = yuyv;
-				out1[dst_pair] = yuyv;
-				out1[dst_pair + 1] = yuyv;
+				out0[src_x] = yuyv;
+				out1[src_x] = yuyv;
 			}
 		}
 		return;
@@ -765,18 +766,17 @@ static void GC_BlitSoftwareBufferScaled( const unsigned short *src, int src_w, i
 			unsigned int *out = dst + ( src_y * 4 ) * row_pairs;
 			int row;
 
-			for( src_x = 0; src_x < pairs; src_x++ )
+			for( src_x = 0; src_x < src_w; src_x++ )
 			{
-				unsigned int yuyv = GC_RGBPairToYUYV( scanline[src_x * 2], scanline[src_x * 2 + 1] );
-				int dst_pair = src_x * 4;
+				unsigned short p = scanline[src_x];
+				unsigned int yuyv = GC_RGBPairToYUYV( p, p );
+				int dst_pair = src_x * 2;
 
 				for( row = 0; row < 4; row++ )
 				{
 					unsigned int *line = out + row * row_pairs;
 					line[dst_pair] = yuyv;
 					line[dst_pair + 1] = yuyv;
-					line[dst_pair + 2] = yuyv;
-					line[dst_pair + 3] = yuyv;
 				}
 			}
 		}
@@ -1860,19 +1860,27 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 	unsigned short *dst;
 	size_t xfb_size;
 
+	/* Host_Init direct-map path: decode the HL plaque once for later DumpFrames,
+	 * but skip filling the boot 640×480 SW buffer / XFB. Under Dolphin interpreter
+	 * + DumpFrames that fill can stall past probe timeouts (plaque ready, then no
+	 * further OSReport). Post-init presents still blit+CPU-YUYV normally. */
+	if( host.status == HOST_INIT )
+	{
+		(void)GC_LoadLoadingBackground();
+		Con_Reportf( "Xash3D GameCube: loading status %s (%s) init-skip-present\n",
+			message ? message : "?", details ? details : "" );
+		return;
+	}
+
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
 		GC_BlitLoadingBackground( gc.buffer, gc.width, gc.height, gc.stride );
 		GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride, message, details );
-		/* Avoid VIDEO_WaitVSync during Host_Init map load; it can stall for minutes in Dolphin.
-		 * G130: force one CPU YUYV present so DumpFrames keep the loading plaque
+		/* G130: force one CPU YUYV present so DumpFrames keep the loading plaque
 		 * (GX tiled presents read as period-32 noise behind the panel). */
-		if( host.status != HOST_INIT )
-		{
-			if( gc_cpu_dump_presents_left < 1 )
-				gc_cpu_dump_presents_left = 1;
-			GC_PresentBuffer();
-		}
+		if( gc_cpu_dump_presents_left < 1 )
+			gc_cpu_dump_presents_left = 1;
+		GC_PresentBuffer();
 		return;
 	}
 
@@ -3811,9 +3819,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_budget_probe_active = false;
 	gc_newgame_world_ready = true;
 	gc_newgame_g36_done = true;
-	/* Prefer CPU YUYV once world presents start — GX DumpFrames are noise. */
-	if( gc_cpu_dump_presents_left < 48 )
-		gc_cpu_dump_presents_left = 48;
+	/* G135: do NOT arm CPU dump presents yet. Soft-tiled RGB565 blits dump as
+	 * chroma noise and steal Dolphin DumpFrames slots before depth/coalesce.
+	 * GX is fine for the pre-dump pump; G128 arms after WORLD PRESENT panel. */
+	gc_cpu_dump_presents_left = 0;
 	Cvar_Set( "gc_hud_probe_skip", "0" );
 
 	/* Lean HUD VidInit at quality 0: set 320 sheet names without hud.txt.
@@ -3880,10 +3889,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		 * ticks — Host_ServerFrame (move/snapshots) has been leaving the
 		 * next GL_RenderFrame hung on this route. */
 		Con_Reportf( "Xash3D GameCube: post-G36 sustained world present\n" );
-		/* Keep DumpFrames on CPU YUYV for the whole post-G36 window —
-		 * GX tiled presents read as period-32 noise in Dolphin. */
-		if( gc_cpu_dump_presents_left < 32 )
-			gc_cpu_dump_presents_left = 32;
+		/* Pre-dump pump may use GX; DumpFrames evidence comes after G135. */
 		for( i = 0; i < 8; i++ )
 		{
 			if( !GC_RenderNewGameWorldFrames( 1 ))
@@ -3928,16 +3934,14 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				unsigned nonblack = 0;
 				unsigned samples = 0;
 				unsigned uniq = 0;
-				unsigned short seen_cols[32];
+				unsigned short seen_cols[64];
 				unsigned depth_valid;
 				qboolean keep_textured;
 				int sx, sy;
 
-				/* Force CPU YUYV for dump re-render + follow-up presents —
-				 * GX tiled DumpFrames read as period-32 noise. */
-				gc_cpu_dump_presents_left = 8;
-
-				/* Aim into the map so captured faces fill the frame. */
+				/* Aim into the map so captured faces fill the frame.
+				 * Keep cpu_dump_presents_left=0 during this re-render so we
+				 * do not DumpFrames the soft-tiled buffer before coalesce. */
 				gc_dump_look_into_map = true;
 				GC_RenderNewGameWorldFrames( 1 );
 				gc_dump_look_into_map = false;
@@ -3961,16 +3965,41 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 								break;
 							}
 						}
-						if( !found && uniq < 32 )
+						if( !found && uniq < 64 )
 							seen_cols[uniq++] = p;
 					}
 				}
 
-				/* Textured+lit spans produce many unique RGB565 tones; flat
-				 * solids / empty clears do not. Prefer keeping that buffer. */
-				keep_textured = ( samples > 0 )
-					&& ( nonblack * 5 >= samples * 2 )
-					&& ( uniq >= 8 );
+				/* G138: keep textured/blockout when diverse and not chroma-heavy.
+				 * Soft→screen mis-index used to dump pink/cyan static (uniq≈32). */
+				{
+					unsigned chroma = 0;
+
+					for( sy = 0; sy < gc.height; sy += 8 )
+					{
+						for( sx = 0; sx < gc.width; sx += 8 )
+						{
+							unsigned short p = gc.buffer[sy * gc.stride + sx];
+							int pr = ( p >> 11 ) & 0x1F;
+							int pg = ( p >> 5 ) & 0x3F;
+							int pb = p & 0x1F;
+							int pg5 = pg >> 1;
+
+							if(( pr > pg5 + 6 && pb > pg5 + 6 )
+								|| ( pb > pr + 6 && pb > pg5 + 4 && pr < 10 ))
+								chroma++;
+						}
+					}
+					keep_textured = ( samples > 0 )
+						&& ( nonblack * 5 >= samples * 2 )
+						&& ( uniq >= 8 )
+						&& ( uniq < 48 ) /* G138: uniq==cap(64) was soft chroma noise */
+						&& ( chroma * 4 < samples );
+					if( !keep_textured && uniq >= 8
+						&& ( uniq >= 48 || chroma * 4 >= samples ))
+						Con_Reportf( "Xash3D GameCube: G138 reject chroma dump (nonblack=%u/%u uniq=%u chroma=%u)\n",
+							nonblack, samples, uniq, chroma );
+				}
 
 				if( keep_textured )
 				{
@@ -3988,60 +4017,20 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 								row[px] = sky;
 						}
 					}
-					Con_Reportf( "Xash3D GameCube: G134 keep textured dump (nonblack=%u/%u uniq=%u)\n",
+					Con_Reportf( "Xash3D GameCube: G138 keep textured dump (nonblack=%u/%u uniq=%u)\n",
 						nonblack, samples, uniq );
 				}
 				else
 				{
-					depth_valid = R_GcmapShadeDumpFromDepth( gc.buffer, gc.width, gc.height, gc.stride );
-					if( depth_valid >= 64 )
+					Con_Reportf( "Xash3D GameCube: G135 dump depth/coalesce (nonblack=%u/%u uniq=%u)\n",
+						nonblack, samples, uniq );
+					/* G136: zi→3-plane silhouette fallback. */
+					depth_valid = R_GcmapPosterizeDumpFromDepth( gc.buffer, gc.width, gc.height, gc.stride );
+					if( depth_valid < 64 )
 					{
-						unsigned short seen[16];
-						unsigned seen_n = 0;
-
-						for( sy = 0; sy < gc.height; sy += 16 )
-						{
-							for( sx = 0; sx < gc.width; sx += 16 )
-							{
-								unsigned short p = gc.buffer[sy * gc.stride + sx];
-								unsigned u;
-								qboolean found = false;
-								for( u = 0; u < seen_n; u++ )
-								{
-									if( seen[u] == p )
-									{
-										found = true;
-										break;
-									}
-								}
-								if( !found && seen_n < 16 )
-									seen[seen_n++] = p;
-							}
-						}
-						/* Uniform wall-facing depth still looks flat — keep color
-						 * coalesced with per-face wall tones instead. */
-						if( seen_n <= 3 )
-						{
-							gc_dump_look_into_map = true;
-							GC_RenderNewGameWorldFrames( 1 );
-							gc_dump_look_into_map = false;
-							GC_CoalesceDumpWorldBuffer( gc.buffer, gc.width, gc.height, gc.stride );
-							Con_Reportf( "Xash3D GameCube: G131 depth flat→color coalesce (depth=%u tones=%u)\n",
-								depth_valid, seen_n );
-						}
-						else
-						{
-							Con_Reportf( "Xash3D GameCube: G131 depth dump ready (color nonblack=%u/%u depth=%u tones=%u)\n",
-								nonblack, samples, depth_valid, seen_n );
-						}
-					}
-					else
-					{
-						/* Soft-edge color speckles + empty zi → coalesce then
-						 * posterize to sky/wall palette for readable DumpFrames. */
 						GC_CoalesceDumpWorldBuffer( gc.buffer, gc.width, gc.height, gc.stride );
 						GC_PosterizeDumpWorldBuffer( gc.buffer, gc.width, gc.height, gc.stride );
-						Con_Reportf( "Xash3D GameCube: G130 posterize dump (depth=%u color nonblack=%u/%u)\n",
+						Con_Reportf( "Xash3D GameCube: G136 coalesce->posterize fallback (depth=%u color nonblack=%u/%u)\n",
 							depth_valid, nonblack, samples );
 					}
 				}
@@ -4050,9 +4039,11 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride,
 					"WORLD PRESENT", details );
 			}
-			gc_cpu_dump_presents_left = 6;
+			/* G135: only now arm CPU YUYV — depth/coalesce + panel are ready.
+			 * Extra WaitVSync presents give DumpFrames a G131-style late latch. */
+			gc_cpu_dump_presents_left = 16;
 			Con_Reportf( "Xash3D GameCube: G128 CPU dump presents begin\n" );
-			for( dump_i = 0; dump_i < 6; dump_i++ )
+			for( dump_i = 0; dump_i < 16; dump_i++ )
 				GC_PresentBuffer();
 		}
 

@@ -456,4 +456,138 @@ unsigned R_GcmapShadeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, i
 		valid, (unsigned)vid.width * (unsigned)vid.height, zmin, zmax, zlo, zhi, dst_w, dst_h );
 	return valid;
 }
+
+/*
+=============
+R_GcmapPosterizeDumpFromDepth
+
+G136: paint a 3-plane room silhouette from zi percentiles directly. Color
+posterize after continuous depth shade collapsed to flat sky — near shade is
+sky-blue, so the G130 blue→sky heuristic ate the whole frame.
+=============
+*/
+unsigned R_GcmapPosterizeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride )
+{
+	int x, y;
+	unsigned zmin = 0xFFFF;
+	unsigned zmax = 0;
+	unsigned valid = 0;
+	const unsigned short sky = 0x5ADB;
+	const unsigned short wall = 0xA514;
+	const unsigned short near_wall = 0x6B4D;
+	unsigned hist[256];
+	unsigned cum;
+	unsigned target_a, target_b;
+	unsigned za = 0, zb = 0xFFFF;
+	int bi;
+	qboolean za_set = false;
+	unsigned nsky = 0, nwall = 0, nnear = 0;
+
+	if( !dst || !d_pzbuffer || vid.width <= 0 || vid.height <= 0 || d_zwidth <= 0 )
+		return 0;
+	if( dst_w <= 0 || dst_h <= 0 || dst_stride < dst_w )
+		return 0;
+
+	memset( hist, 0, sizeof( hist ));
+
+	for( y = 0; y < vid.height; y++ )
+	{
+		const short *zrow = d_pzbuffer + y * (int)d_zwidth;
+
+		for( x = 0; x < vid.width; x++ )
+		{
+			unsigned z = (unsigned short)zrow[x];
+
+			if( z == 0xFFFF )
+				continue;
+			valid++;
+			hist[z >> 8]++;
+			if( z < zmin )
+				zmin = z;
+			if( z > zmax )
+				zmax = z;
+		}
+	}
+
+	if( valid < 64 || zmax <= zmin )
+	{
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G136 depth posterize skip valid=%u z=%u..%u\n",
+			valid, zmin, zmax );
+		return valid;
+	}
+
+	/* ~33rd / ~66th percentile of high byte → near / mid / far bands. */
+	target_a = valid / 3;
+	target_b = ( valid * 2 ) / 3;
+	if( target_b <= target_a )
+		target_b = target_a + 1;
+	cum = 0;
+	za = zmin;
+	zb = zmax;
+	for( bi = 0; bi < 256; bi++ )
+	{
+		cum += hist[bi];
+		if( !za_set && cum >= target_a )
+		{
+			za = (unsigned)bi << 8;
+			za_set = true;
+		}
+		if( cum >= target_b )
+		{
+			zb = ((unsigned)bi << 8 ) | 0xFF;
+			break;
+		}
+	}
+	if( zb <= za )
+	{
+		za = zmin + ( zmax - zmin ) / 3;
+		zb = zmin + ( 2 * ( zmax - zmin ) ) / 3;
+	}
+
+	for( y = 0; y < dst_h; y++ )
+	{
+		int sy = ( y * vid.height ) / dst_h;
+		unsigned short *drow;
+		const short *zrow;
+
+		if( sy >= vid.height )
+			sy = vid.height - 1;
+		drow = dst + y * dst_stride;
+		zrow = d_pzbuffer + sy * (int)d_zwidth;
+
+		for( x = 0; x < dst_w; x++ )
+		{
+			int sx = ( x * vid.width ) / dst_w;
+			unsigned z;
+
+			if( sx >= vid.width )
+				sx = vid.width - 1;
+			z = (unsigned short)zrow[sx];
+			if( z == 0xFFFF )
+			{
+				drow[x] = sky;
+				nsky++;
+			}
+			else if( z <= za )
+			{
+				drow[x] = near_wall;
+				nnear++;
+			}
+			else if( z <= zb )
+			{
+				drow[x] = wall;
+				nwall++;
+			}
+			else
+			{
+				drow[x] = sky;
+				nsky++;
+			}
+		}
+	}
+
+	gEngfuncs.Con_Reportf( "Xash3D GameCube: G136 depth posterize valid=%u near=%u wall=%u sky=%u z=%u..%u bands=%u..%u %dx%d\n",
+		valid, nnear, nwall, nsky, zmin, zmax, za, zb, dst_w, dst_h );
+	return valid;
+}
 #endif

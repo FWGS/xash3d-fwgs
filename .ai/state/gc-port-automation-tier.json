@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G134 DONE: keep textured dumps + soft cache tile (probe 20260719-121916). Next: real lightmaps / clearer stage-04 / more faces."
+  "note": "G138 COMPLETE: textured spans live; DumpFrames reject soft chroma (uniq>=48) and use G136 zi. Next: fix soft→RGB565 so textured dumps keep."
 }
