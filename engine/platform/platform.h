@@ -171,8 +171,11 @@ qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without t
 /* G132: stamp msurface visframe from capture-time bits (marksurfaces dangle after scratch). */
 void GC_ApplyNewGameSurfVis( int surf_frame );
 int GC_GetNewGameCapFaceCount( void );
+int GC_GetNewGameCapGeneration( void ); /* G179: bumps when cap faces/LMs rewrite */
 struct msurface_s *GC_GetNewGameDrawSurfs( void );
 const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h );
+const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h ); /* G180 */
+void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t );
 void GC_CaptureNewGamePVS( void ); /* G83: PointInLeaf+FatPVS before scratch reuse */
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
 qboolean GC_UpdateNewGamePVSForOrigin( const float *org ); /* G89: select cluster row by AABB */

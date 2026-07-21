@@ -31,6 +31,7 @@ void R_GcmapTrimForMapLoad( void );
 void Mod_GCClearRetainedBspScratch( void );
 #endif
 #include <stdlib.h>
+#include <malloc.h>
 #include <string.h>
 
 #if XASH_GAMECUBE
@@ -131,6 +132,11 @@ static int gc_newgame_vis_nodes;
 #define GC_CAP_AREA_SLOTS (( GC_MAX_CAP_FACES * 7 ) / 8) /* 280 top-K by area */
 /* G153/G176: bake style-0 lightmap to RGB565 at capture (must be multiple of 4). */
 #define GC_CAP_LM_DIM 4
+/* G180: pack 4×4 face LMs into one Flipper atlas (32×16 tiles = 512 slots). */
+#define GC_LM_ATLAS_W 128
+#define GC_LM_ATLAS_H 64
+#define GC_LM_ATLAS_COLS ( GC_LM_ATLAS_W / GC_CAP_LM_DIM )
+#define GC_LM_ATLAS_ROWS ( GC_LM_ATLAS_H / GC_CAP_LM_DIM )
 typedef struct
 {
 	int		firstedge;
@@ -149,17 +155,26 @@ static msurface_t gc_newgame_draw_surfs[GC_MAX_CAP_FACES];
 static int gc_newgame_cap_areas[GC_MAX_CAP_FACES]; /* extents product per slot */
 static u16 gc_newgame_cap_lm[GC_MAX_CAP_FACES][GC_CAP_LM_DIM * GC_CAP_LM_DIM]
 	__attribute__((aligned( 32 )));
+static u16 *gc_newgame_cap_lm_atlas; /* G180: memalign 128×64 RGB565 */
 static byte gc_newgame_cap_lm_w[GC_MAX_CAP_FACES];
 static byte gc_newgame_cap_lm_h[GC_MAX_CAP_FACES];
 static byte gc_newgame_cap_lm_real[GC_MAX_CAP_FACES]; /* 1 if baked from samples */
 static int gc_newgame_cap_face_count;
 static int gc_newgame_cap_tex_faces; /* faces that kept a live texture* */
 static int gc_newgame_cap_lm_faces; /* faces with real sample bake */
+static int gc_newgame_cap_generation; /* bumps when faces/LMs rewrite */
+static qboolean gc_newgame_cap_lm_atlas_ready;
 static qboolean gc_g176_logged;
+static qboolean gc_g180_logged;
 
 int GC_GetNewGameCapFaceCount( void )
 {
 	return gc_newgame_cap_face_count;
+}
+
+int GC_GetNewGameCapGeneration( void )
+{
+	return gc_newgame_cap_generation;
 }
 
 msurface_t *GC_GetNewGameDrawSurfs( void )
@@ -178,6 +193,96 @@ const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h )
 	if( h )
 		*h = gc_newgame_cap_lm_h[slot];
 	return gc_newgame_cap_lm[slot];
+}
+
+const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h )
+{
+	if( !gc_newgame_cap_lm_atlas_ready || !gc_newgame_cap_lm_atlas
+		|| gc_newgame_cap_face_count <= 0 )
+		return NULL;
+	if( w )
+		*w = GC_LM_ATLAS_W;
+	if( h )
+		*h = GC_LM_ATLAS_H;
+	return gc_newgame_cap_lm_atlas;
+}
+
+void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t )
+{
+	int col, row;
+	float u, v;
+
+	if( !out_s || !out_t )
+		return;
+	if( slot < 0 || slot >= gc_newgame_cap_face_count
+		|| gc_newgame_cap_lm_w[slot] < 4 || gc_newgame_cap_lm_h[slot] < 4 )
+	{
+		*out_s = *out_t = 0.0f;
+		return;
+	}
+	col = slot % GC_LM_ATLAS_COLS;
+	row = slot / GC_LM_ATLAS_COLS;
+	/* Half-texel inset so LINEAR filter stays inside the 4×4 cell. */
+	if( s < 0.0f )
+		s = 0.0f;
+	else if( s > 1.0f )
+		s = 1.0f;
+	if( t < 0.0f )
+		t = 0.0f;
+	else if( t > 1.0f )
+		t = 1.0f;
+	u = (float)( col * GC_CAP_LM_DIM ) + 0.5f + s * (float)( GC_CAP_LM_DIM - 1 );
+	v = (float)( row * GC_CAP_LM_DIM ) + 0.5f + t * (float)( GC_CAP_LM_DIM - 1 );
+	*out_s = u / (float)GC_LM_ATLAS_W;
+	*out_t = v / (float)GC_LM_ATLAS_H;
+}
+
+/* Pack already-tiled 4×4 face LMs into one GX_TF_RGB565 atlas. */
+static void GC_PackCapLightmapAtlas( void )
+{
+	int i;
+	const u16 mid = 0xC618;
+	const size_t bytes = (size_t)GC_LM_ATLAS_W * (size_t)GC_LM_ATLAS_H * sizeof( u16 );
+
+	gc_newgame_cap_lm_atlas_ready = false;
+	if( !gc_newgame_cap_lm_atlas )
+	{
+		gc_newgame_cap_lm_atlas = (u16 *)memalign( 32, bytes );
+		if( !gc_newgame_cap_lm_atlas )
+		{
+			Con_Reportf( "Xash3D GameCube: G180 lightmap atlas alloc failed\n" );
+			return;
+		}
+	}
+
+	for( i = 0; i < GC_LM_ATLAS_W * GC_LM_ATLAS_H; i++ )
+		gc_newgame_cap_lm_atlas[i] = mid;
+
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		int col, row, tile;
+
+		if( gc_newgame_cap_lm_w[i] < 4 || gc_newgame_cap_lm_h[i] < 4 )
+			continue;
+		col = i % GC_LM_ATLAS_COLS;
+		row = i / GC_LM_ATLAS_COLS;
+		if( row >= GC_LM_ATLAS_ROWS )
+			break;
+		/* Each face LM is one 4×4 GX tile (16 texels in tile order). */
+		tile = row * GC_LM_ATLAS_COLS + col;
+		memcpy( &gc_newgame_cap_lm_atlas[tile * ( GC_CAP_LM_DIM * GC_CAP_LM_DIM )],
+			gc_newgame_cap_lm[i],
+			GC_CAP_LM_DIM * GC_CAP_LM_DIM * sizeof( u16 ));
+	}
+	DCFlushRange( gc_newgame_cap_lm_atlas, (u32)bytes );
+	gc_newgame_cap_lm_atlas_ready = ( gc_newgame_cap_face_count > 0 );
+
+	if( !gc_g180_logged && gc_newgame_cap_lm_atlas_ready )
+	{
+		gc_g180_logged = true;
+		Con_Reportf( "Xash3D GameCube: G180 lightmap atlas %dx%d faces=%d cols=%d\n",
+			GC_LM_ATLAS_W, GC_LM_ATLAS_H, gc_newgame_cap_face_count, GC_LM_ATLAS_COLS );
+	}
 }
 
 static void GC_BakeCapLightmap( const msurface_t *src, int slot )
@@ -573,6 +678,8 @@ static void GC_SortCapFacesByAreaDesc( void )
 			DCFlushRange( gc_newgame_cap_lm[i],
 				(u32)( gc_newgame_cap_lm_w[i] * gc_newgame_cap_lm_h[i] * sizeof( u16 )));
 	}
+	GC_PackCapLightmapAtlas();
+	gc_newgame_cap_generation++;
 }
 
 static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbits )
@@ -587,6 +694,7 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	gc_newgame_cap_face_count = 0;
 	gc_newgame_cap_tex_faces = 0;
 	gc_newgame_cap_lm_faces = 0;
+	gc_newgame_cap_lm_atlas_ready = false;
 	if( !wmodel || !wmodel->surfaces || !surfbits || gc_newgame_surfbytes <= 0 )
 		return;
 
@@ -4421,6 +4529,7 @@ static void GC_FreeNewGamePVSCache( void )
 	gc_newgame_cap_face_count = 0;
 	gc_cap_refresh_pending = false;
 	gc_newgame_cap_tex_faces = 0;
+	gc_newgame_cap_lm_atlas_ready = false;
 	gc_newgame_pvs_lean = false;
 	gc_newgame_lean_cluster = -1;
 	gc_newgame_lean_slots = 0;

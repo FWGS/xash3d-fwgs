@@ -4,6 +4,10 @@ Copyright (C) 2026 Xash3D FWGS GameCube port
 G151–G154: Flipper GX world draw — cap faces as EFB triangles + LM.
 G155: Flipper GX studio/viewmodel via TriAPI → EFB overlay.
 G157: viewmodel eye-pose sync + narrower Flipper FOV.
+G178: cache world TEV/vtx + TEXMAP0 binds.
+G179: lean sync — skip hot InvalidateTexAll, Flush not DrawDone, cache LM objs.
+G180: pack face lightmaps into one TEXMAP1 atlas.
+G181: cluster TEXMAP0 binds within area-order bands.
 */
 #include "r_local.h"
 
@@ -17,6 +21,7 @@ G157: viewmodel eye-pose sync + narrower Flipper FOV.
 extern qboolean GC_UseGxWorldDraw( void );
 extern void GC_MarkGxWorldEfbReady( void );
 extern void *GC_GetGxVideoMode( void );
+extern void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t );
 
 #define GC_GX_TEX_SLOTS		24
 #define GC_GX_TEX_MAX_DIM	64	/* MEM1: 24 × 64×64×2 ≈ 192 KiB tiled staging */
@@ -39,6 +44,34 @@ static qboolean r_gx_world_logged;
 static qboolean r_gx_tex_logged;
 static int r_gx_tex_draws;
 static int r_gx_flat_draws;
+/* G178: avoid re-emitting identical world TEV/vtx state for every face. */
+enum
+{
+	GC_GX_FACE_MODE_NONE = 0,
+	GC_GX_FACE_MODE_FLAT,
+	GC_GX_FACE_MODE_TEXTURED,
+	GC_GX_FACE_MODE_LIT
+};
+static int r_gx_face_mode;
+static unsigned r_gx_bound_texnum;
+static int r_gx_state_sets;
+static int r_gx_state_reuses;
+static int r_gx_tex_loads;
+static int r_gx_tex_reuses;
+static qboolean r_gx_state_cache_logged;
+/* G179: lightmap atlas bind (G180) + lean texture invalidation. */
+static GXTexObj r_gx_lm_atlas_obj;
+static qboolean r_gx_lm_atlas_valid;
+static int r_gx_lm_atlas_gen = -1;
+static qboolean r_gx_lm_atlas_bound;
+static int r_gx_cap_generation = -1;
+static int r_gx_lm_inits;
+static int r_gx_lm_loads;
+static int r_gx_lm_reuses;
+static int r_gx_tex_invalidates;
+static qboolean r_gx_sync_lean_logged;
+static qboolean r_gx_lm_atlas_logged;
+static qboolean r_gx_tex_band_logged;
 
 /* G155 studio overlay */
 static qboolean r_gx_studio_active;
@@ -196,7 +229,14 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 		if( r_gx_tex[i].valid && r_gx_tex[i].texnum == texnum )
 		{
 			r_gx_tex_lru[i] = ++r_gx_tex_clock;
-			GX_LoadTexObj( &r_gx_tex[i].obj, GX_TEXMAP0 );
+			if( r_gx_bound_texnum != texnum )
+			{
+				GX_LoadTexObj( &r_gx_tex[i].obj, GX_TEXMAP0 );
+				r_gx_bound_texnum = texnum;
+				r_gx_tex_loads++;
+			}
+			else
+				r_gx_tex_reuses++;
 			return &r_gx_tex[i];
 		}
 	}
@@ -272,7 +312,12 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 	t->h = dst_h;
 	t->valid = true;
 	r_gx_tex_lru[slot] = ++r_gx_tex_clock;
+	/* New tiled texels — invalidate once here, not every world pass. */
+	GX_InvalidateTexAll();
+	r_gx_tex_invalidates++;
 	GX_LoadTexObj( &t->obj, GX_TEXMAP0 );
+	r_gx_bound_texnum = texnum;
+	r_gx_tex_loads++;
 	return t;
 }
 
@@ -281,6 +326,49 @@ static gc_gx_tex_t *R_GXBindTexture( texture_t *mt )
 	if( !mt || mt->gl_texturenum <= 0 )
 		return NULL;
 	return R_GXBindTexnum( (unsigned)mt->gl_texturenum );
+}
+
+/*
+================
+G181: keep area-major order (coverage) but stable-sort by texture inside
+coarse bands so TEXMAP0 runs cluster without a full texture-only reorder.
+================
+*/
+#define GC_GX_TEX_BANDS 8
+
+static unsigned R_GXSurfTexKey( const msurface_t *surf )
+{
+	if( !surf || !surf->texinfo || !surf->texinfo->texture )
+		return 0u;
+	return (unsigned)surf->texinfo->texture->gl_texturenum;
+}
+
+static void R_GXOrderFacesByTexBands( const msurface_t *draw, int n, int *order )
+{
+	int b, i, j;
+
+	for( i = 0; i < n; i++ )
+		order[i] = i;
+
+	for( b = 0; b < GC_GX_TEX_BANDS; b++ )
+	{
+		const int band0 = ( b * n ) / GC_GX_TEX_BANDS;
+		const int band1 = (( b + 1 ) * n ) / GC_GX_TEX_BANDS;
+
+		for( i = band0 + 1; i < band1; i++ )
+		{
+			const int slot = order[i];
+			const unsigned key = R_GXSurfTexKey( &draw[slot] );
+
+			j = i;
+			while( j > band0 && R_GXSurfTexKey( &draw[order[j - 1]] ) > key )
+			{
+				order[j] = order[j - 1];
+				j--;
+			}
+			order[j] = slot;
+		}
+	}
 }
 
 static void R_GXClearEfbSky( GXRModeObj *rmode )
@@ -358,7 +446,10 @@ static void R_GXSetupWorld3DState( void )
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
 	GX_InvVtxCache();
-	GX_InvalidateTexAll();
+	/* G179: InvalidateTexAll only on cap rewrite / tex upload, not every pass. */
+	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+	r_gx_bound_texnum = 0;
+	r_gx_lm_atlas_bound = false;
 }
 
 static void R_GXFaceST( const msurface_t *surf, const float *pos, float *s, float *t )
@@ -403,20 +494,37 @@ static void R_GXFaceLMST( const msurface_t *surf, const float *pos, float *s, fl
 	*t /= lh;
 }
 
-static qboolean R_GXBindLightmap( int slot, GXTexObj *obj )
+static qboolean R_GXBindLightmapAtlas( void )
 {
-	extern const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h );
-	const unsigned short *lm;
+	extern const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h );
+	extern int GC_GetNewGameCapGeneration( void );
+	const unsigned short *atlas;
 	int w = 0, h = 0;
+	int gen;
 
-	lm = GC_GetNewGameCapLightmap( slot, &w, &h );
-	if( !lm || w < 4 || h < 4 )
+	atlas = GC_GetNewGameCapLightmapAtlas( &w, &h );
+	if( !atlas || w < 4 || h < 4 )
 		return false;
 
-	GX_InitTexObj( obj, (void *)lm, (u16)w, (u16)h,
-		GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
-	GX_InitTexObjFilterMode( obj, GX_LINEAR, GX_LINEAR );
-	GX_LoadTexObj( obj, GX_TEXMAP1 );
+	gen = GC_GetNewGameCapGeneration();
+	if( !r_gx_lm_atlas_valid || gen != r_gx_lm_atlas_gen )
+	{
+		GX_InitTexObj( &r_gx_lm_atlas_obj, (void *)atlas, (u16)w, (u16)h,
+			GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
+		GX_InitTexObjFilterMode( &r_gx_lm_atlas_obj, GX_LINEAR, GX_LINEAR );
+		r_gx_lm_atlas_valid = true;
+		r_gx_lm_atlas_gen = gen;
+		r_gx_lm_inits++;
+	}
+
+	if( !r_gx_lm_atlas_bound )
+	{
+		GX_LoadTexObj( &r_gx_lm_atlas_obj, GX_TEXMAP1 );
+		r_gx_lm_atlas_bound = true;
+		r_gx_lm_loads++;
+	}
+	else
+		r_gx_lm_reuses++;
 	return true;
 }
 
@@ -436,7 +544,6 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	gc_gx_tex_t *gxt = NULL;
 	qboolean textured = false;
 	qboolean lit = false;
-	GXTexObj lmobj;
 
 	if( !surf || !world || !world->vertexes || !world->surfedges )
 		return 0;
@@ -482,10 +589,13 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			textured = true;
 			for( i = 0; i < nverts; i++ )
 			{
+				float ls, lt;
+
 				R_GXFaceST( surf, pts[i], &sts[i][0], &sts[i][1] );
-				R_GXFaceLMST( surf, pts[i], &lmst[i][0], &lmst[i][1] );
+				R_GXFaceLMST( surf, pts[i], &ls, &lt );
+				GC_GetNewGameCapLightmapAtlasUV( slot, ls, lt, &lmst[i][0], &lmst[i][1] );
 			}
-			lit = R_GXBindLightmap( slot, &lmobj );
+			lit = R_GXBindLightmapAtlas();
 		}
 	}
 	if( !textured )
@@ -493,20 +603,27 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 
 	if( textured && lit )
 	{
-		GX_SetNumTexGens( 2 );
-		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
-		GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
-		GX_SetNumTevStages( 2 );
-		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
-		GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
-		GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
-		GX_SetTevOp( GX_TEVSTAGE1, GX_MODULATE );
-		GX_ClearVtxDesc();
-		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
-		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
+		if( r_gx_face_mode != GC_GX_FACE_MODE_LIT )
+		{
+			GX_SetNumTexGens( 2 );
+			GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+			GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
+			GX_SetNumTevStages( 2 );
+			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+			GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+			GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
+			GX_SetTevOp( GX_TEVSTAGE1, GX_MODULATE );
+			GX_ClearVtxDesc();
+			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+			GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+			GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
+			GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
+			r_gx_face_mode = GC_GX_FACE_MODE_LIT;
+			r_gx_state_sets++;
+		}
+		else
+			r_gx_state_reuses++;
 
 		GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts - 2 ) * 3 ));
 		for( i = 1; i < nverts - 1; i++ )
@@ -530,15 +647,22 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	}
 	else if( textured )
 	{
-		GX_SetNumTexGens( 1 );
-		GX_SetNumTevStages( 1 );
-		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
-		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
-		GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
-		GX_ClearVtxDesc();
-		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+		if( r_gx_face_mode != GC_GX_FACE_MODE_TEXTURED )
+		{
+			GX_SetNumTexGens( 1 );
+			GX_SetNumTevStages( 1 );
+			GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+			GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+			GX_ClearVtxDesc();
+			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+			GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+			r_gx_face_mode = GC_GX_FACE_MODE_TEXTURED;
+			r_gx_state_sets++;
+		}
+		else
+			r_gx_state_reuses++;
 
 		GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts - 2 ) * 3 ));
 		for( i = 1; i < nverts - 1; i++ )
@@ -558,13 +682,20 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	}
 	else
 	{
-		GX_SetNumTexGens( 0 );
-		GX_SetNumTevStages( 1 );
-		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
-		GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
-		GX_ClearVtxDesc();
-		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+		if( r_gx_face_mode != GC_GX_FACE_MODE_FLAT )
+		{
+			GX_SetNumTexGens( 0 );
+			GX_SetNumTevStages( 1 );
+			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+			GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+			GX_ClearVtxDesc();
+			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+			r_gx_face_mode = GC_GX_FACE_MODE_FLAT;
+			r_gx_state_sets++;
+		}
+		else
+			r_gx_state_reuses++;
 
 		GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts - 2 ) * 3 ));
 		for( i = 1; i < nverts - 1; i++ )
@@ -585,10 +716,13 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 int R_GXDrawNewGameCapFaces( void )
 {
 	extern int GC_GetNewGameCapFaceCount( void );
+	extern int GC_GetNewGameCapGeneration( void );
 	extern msurface_t *GC_GetNewGameDrawSurfs( void );
 	msurface_t *draw;
 	model_t *world;
 	int n, i, drawn = 0;
+	int gen;
+	int order[320];
 
 	if( !GC_UseGxWorldDraw() )
 		return 0;
@@ -598,6 +732,8 @@ int R_GXDrawNewGameCapFaces( void )
 	n = GC_GetNewGameCapFaceCount();
 	if( !world || !draw || n <= 0 )
 		return 0;
+	if( n > (int)( sizeof( order ) / sizeof( order[0] )))
+		n = (int)( sizeof( order ) / sizeof( order[0] ));
 
 	if( r_gx_tex_world != world )
 	{
@@ -605,18 +741,42 @@ int R_GXDrawNewGameCapFaces( void )
 		r_gx_tex_world = world;
 		r_gx_tex_logged = false;
 		r_gx_lm_logged = false;
+		r_gx_sync_lean_logged = false;
+		r_gx_lm_atlas_logged = false;
+		r_gx_tex_band_logged = false;
+	}
+
+	gen = GC_GetNewGameCapGeneration();
+	if( gen != r_gx_cap_generation )
+	{
+		/* Cap faces/LMs rewrote — invalidate once; atlas texobj rebuilds on bind. */
+		GX_InvalidateTexAll();
+		r_gx_tex_invalidates++;
+		r_gx_lm_atlas_valid = false;
+		r_gx_lm_atlas_bound = false;
+		r_gx_cap_generation = gen;
 	}
 
 	RI.currentmodel = world;
 	r_gx_tex_draws = 0;
 	r_gx_flat_draws = 0;
 	r_gx_lm_draws = 0;
+	r_gx_state_sets = 0;
+	r_gx_state_reuses = 0;
+	r_gx_tex_loads = 0;
+	r_gx_tex_reuses = 0;
+	r_gx_lm_inits = 0;
+	r_gx_lm_loads = 0;
+	r_gx_lm_reuses = 0;
 	R_GXSetupWorld3DState();
+
+	R_GXOrderFacesByTexBands( draw, n, order );
 
 	for( i = 0; i < n; i++ )
 	{
 		float dot;
-		msurface_t *surf = &draw[i];
+		const int slot = order[i];
+		msurface_t *surf = &draw[slot];
 
 		if( !surf->plane )
 			continue;
@@ -631,10 +791,12 @@ int R_GXDrawNewGameCapFaces( void )
 			if( dot < BACKFACE_EPSILON )
 				continue;
 		}
-		drawn += R_GXEmitFace( surf, world, i );
+		/* slot stays the atlas/LM index — only draw order changes. */
+		drawn += R_GXEmitFace( surf, world, slot );
 	}
 
-	GX_DrawDone();
+	/* G179: defer GPU sync to present — Flush keeps the pipe moving. */
+	GX_Flush();
 	r_gx_world_drew = ( drawn > 0 );
 	if( r_gx_world_drew )
 		GC_MarkGxWorldEfbReady();
@@ -656,6 +818,34 @@ int R_GXDrawNewGameCapFaces( void )
 		r_gx_lm_logged = true;
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: G154 GX lightmapped faces=%d of %d (Flipper TEV2)\n",
 			r_gx_lm_draws, drawn );
+	}
+	if( !r_gx_state_cache_logged && drawn > 0 && r_gx_state_reuses > 0 )
+	{
+		r_gx_state_cache_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G178 GX world state cache faces=%d sets=%d reuses=%d texloads=%d texreuses=%d\n",
+			drawn, r_gx_state_sets, r_gx_state_reuses, r_gx_tex_loads, r_gx_tex_reuses );
+	}
+	if( !r_gx_sync_lean_logged && drawn > 0 )
+	{
+		r_gx_sync_lean_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G179 GX world sync lean faces=%d lm_inits=%d lm_loads=%d lm_reuses=%d tex_inv=%d flush=1\n",
+			drawn, r_gx_lm_inits, r_gx_lm_loads, r_gx_lm_reuses, r_gx_tex_invalidates );
+	}
+	if( !r_gx_lm_atlas_logged && drawn > 0 && r_gx_lm_loads > 0 && r_gx_lm_loads <= 2 )
+	{
+		r_gx_lm_atlas_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G180 GX lightmap atlas faces=%d lm_inits=%d lm_loads=%d lm_reuses=%d\n",
+			drawn, r_gx_lm_inits, r_gx_lm_loads, r_gx_lm_reuses );
+	}
+	if( !r_gx_tex_band_logged && drawn > 0 )
+	{
+		r_gx_tex_band_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G181 GX tex band order faces=%d bands=%d texloads=%d texreuses=%d\n",
+			drawn, GC_GX_TEX_BANDS, r_gx_tex_loads, r_gx_tex_reuses );
 	}
 	return drawn;
 }

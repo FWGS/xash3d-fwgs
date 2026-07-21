@@ -76,11 +76,19 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G175: outdoor Flipper refresh via slots↔cands trade (4×64, no BSS growth)
 - G176: face cap 256→320 via LM tile 8→4 trade (no BSS growth)
 - G177: soft DumpFrames HUD composite (lean sheets into WORLD PRESENT)
+- G178: cache native GX world TEV/vtx state + repeated texture binds
+- G179: lean GX world sync (Flush, selective InvalidateTexAll, LM texobj cache)
+- G180: pack face lightmaps into one TEXMAP1 atlas
+- G181: cluster TEXMAP0 binds within area-order bands
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(none — G177 complete; next open polish TBD)*
+1. *(none — G181 complete; next: Flipper HUD or further profile-driven GX)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260721-011535` (G181 texloads 149→61; render 1.43 ms; G180/G179/G155 green)
+- `.ai/logs/dolphin-probe-20260721-011033` (G180 LM atlas loads=1; render 1.38 ms; G179/G178/G155 green)
+- `.ai/logs/dolphin-probe-20260721-005057` (G179 sync lean; render 1.28 ms; G178/G177/G155 green)
+- `.ai/logs/dolphin-probe-20260721-004211` (G178 sets=1 reuses=248; render 1.65 ms; G177/G176/G155 green)
 - `.ai/logs/dolphin-probe-20260721-002355` (G177 soft dump HUD sheets=4; G176/G174/G155 green)
 - `.ai/logs/dolphin-probe-20260721-001608` (G176 cap=320 drawn=249 rim=133; G175/G174/G155 green)
 - `.ai/logs/dolphin-probe-20260721-000815` (G175 mid_new=23 wall_new=15 cands=64; rim=187; G174/G155 green)
@@ -3026,6 +3034,80 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `G161 soft dump viewmodel ready`;
   `.ai/screenshots/demo-stages/stage-04u-g177-soft-hud.png`.
 - Residual: further GX polish (LM sharpness / Flipper HUD).
+
+## G178 [x] Cache native GX world state
+
+- Status: DONE 2026-07-21. The native world loop re-emitted identical
+  `GX_SetNumTexGens`, TEV, vertex descriptor, and attribute state for every
+  lightmapped face. Cache the active face mode and currently bound TEXMAP0
+  object within each world pass.
+- Acceptance:
+  - `G178 GX world state cache faces=N sets≤3 reuses>0`
+  - `G151` still draws 249/320; G177/G176/G155 remain green
+  - Sustained `gcmap render time` does not regress from the prior ~1.83 ms
+- Evidence: `.ai/logs/dolphin-probe-20260721-004211` —
+  `G178 … faces=249 sets=1 reuses=248 texloads=149 texreuses=100`,
+  sustained `gcmap render time=1.65ms frame=64`, `G151 … drawn=249 of 320`,
+  `G155 … viewmodel=1`, `G177 … sheets=4`;
+  `.ai/screenshots/demo-stages/stage-04v-g178-state-cache.png`.
+- Residual: 149 TEXMAP0 loads for 249 faces. A texture-only grouping experiment
+  cut this to 18 but regressed sustained render 1.70→2.42 ms due to lost
+  overdraw-friendly ordering; it was reverted.
+
+## G179 [x] Lean native GX world sync
+
+- Status: DONE 2026-07-21. After G178, each world pass still paid
+  `GX_InvalidateTexAll` every setup, `GX_DrawDone` before present, and
+  per-face `GX_InitTexObj`+`LoadTexObj` for lightmaps. Keep draw order;
+  invalidate only on cap rewrite / texture upload; Flush after world faces;
+  cache LM texobjs across frames.
+- Acceptance:
+  - `G179 GX world sync lean faces=N lm_inits≥0 lm_loads>0 flush=1`
+  - `G178` / `G151` / `G177` / `G155` remain green
+  - Sustained `gcmap render time` ≤ prior 1.65 ms (or clear CPU win with no visual regression)
+- Evidence: `.ai/logs/dolphin-probe-20260721-005057` —
+  `G179 … faces=249 lm_inits=249 lm_loads=249 tex_inv=19 flush=1`,
+  sustained `gcmap render time=1.28ms frame=64` (was 1.65 ms),
+  `G178 … sets=1 reuses=248`, `G151 … drawn=249 of 320`,
+  `G155 … viewmodel=1`, `G177 … sheets=4`;
+  `.ai/screenshots/demo-stages/stage-04w-g179-sync-lean.png`.
+- Residual: 249 TEXMAP1 loads remain (per-face LM); atlas is a later goal.
+
+## G180 [x] Pack face lightmaps into one atlas
+
+- Status: DONE 2026-07-21. Each lit face still `GX_LoadTexObj` on
+  TEXMAP1 (249/frame). Pack 4×4 face LMs into a 128×64 RGB565 atlas
+  (memalign, not BSS) and remap LM UVs — one bind per world pass, draw
+  order unchanged. Half-texel UV inset keeps LINEAR filter in-cell.
+- Acceptance:
+  - `G180 GX lightmap atlas faces=N lm_loads≤2`
+  - `G180 lightmap atlas 128x64` (pack marker)
+  - G179/G178/G151/G155 green; sustained render near prior ~1.28 ms
+- Evidence: `.ai/logs/dolphin-probe-20260721-011033` —
+  `G180 lightmap atlas 128x64 faces=320 cols=32`,
+  `G180 GX lightmap atlas faces=249 lm_inits=1 lm_loads=1 lm_reuses=248`,
+  `G179 … lm_loads=1 lm_reuses=248`, sustained `gcmap render time=1.38ms frame=64`,
+  `G151 … drawn=249 of 320`, `G155 … viewmodel=1`;
+  `.ai/screenshots/demo-stages/stage-04x-g180-lm-atlas.png`.
+- Residual: 149 TEXMAP0 loads remain; Flipper HUD still soft-dump only.
+
+## G181 [x] Cluster TEXMAP0 binds within area bands
+
+- Status: DONE 2026-07-21. Full texture-only sort (rejected earlier) cut
+  loads 149→18 but regressed render via overdraw. Instead, keep area-major
+  order and stable-sort by `gl_texturenum` inside 8 equal bands; LM atlas
+  slots stay index-stable.
+- Acceptance:
+  - `G181 GX tex band order faces=N bands=8 texloads<149`
+  - G180/G179/G178/G155 green; sustained render ≲ 1.5 ms (no G179-style regress)
+- Evidence: `.ai/logs/dolphin-probe-20260721-011535` —
+  `G181 … faces=249 bands=8 texloads=61 texreuses=188` (was 149/100),
+  `G178 … texloads=61 texreuses=188`,
+  sustained `gcmap render time=1.43ms frame=64`,
+  `G180 … lm_loads=1`, `G151 … drawn=249 of 320`, `G155 … viewmodel=1`,
+  `G177 … sheets=4`;
+  `.ai/screenshots/demo-stages/stage-04y-g181-tex-bands.png`.
+- Residual: 61 TEXMAP0 loads; Flipper HUD still soft-dump only.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

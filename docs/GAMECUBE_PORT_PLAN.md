@@ -3316,7 +3316,54 @@ PRESENT / VIEWMODEL panels (`CL_DrawHUD` after scrub).
 Evidence: `.ai/logs/dolphin-probe-20260721-002355` —
 `G177 soft dump HUD composite sheets=4`, `RGB565 2D/HUD draw active`;
 `stage-04u-g177-soft-hud.png`.
-Next: open polish (further GX).
+Next: remove per-face native GX state churn (G178).
+
+## G178 — Cache native GX world state (COMPLETE 2026-07-21)
+
+Cache world face mode and TEXMAP0 binding within a pass. The 249-face landmark
+frame now emits one TEV/vtx state setup and reuses it 248 times; repeated
+adjacent texture binds are skipped. Sustained render marker improved
+1.83→1.65 ms.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-004211` —
+`G178 … sets=1 reuses=248 texloads=149 texreuses=100`;
+`stage-04v-g178-state-cache.png`.
+Texture-only grouping was tested in `.ai/logs/dolphin-probe-20260721-003728`:
+loads fell 149→18, but sustained render regressed 1.70→2.42 ms from increased
+overdraw. Reverted; preserve the existing area/coverage order.
+Next: lean GX sync without reordering draws (G179).
+
+## G179 — Lean native GX world sync (COMPLETE 2026-07-21)
+
+Skip hot-path `GX_InvalidateTexAll` (invalidate on cap rewrite / texture
+upload only), replace world-pass `GX_DrawDone` with `GX_Flush`, and cache
+lightmap `GXTexObj` so faces only re-Init when dimensions change. Sustained
+render improved 1.65→1.28 ms with draw order unchanged.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-005057` —
+`G179 … faces=249 lm_inits=249 lm_loads=249 tex_inv=19 flush=1`;
+`gcmap render time=1.28ms frame=64`; `stage-04w-g179-sync-lean.png`.
+Next: lightmap atlas (one TEXMAP1 bind) or Flipper HUD path.
+
+## G180 — Pack face lightmaps into one atlas (COMPLETE 2026-07-21)
+
+Pack 4×4 face LMs into a memaligned 128×64 RGB565 atlas; bind TEXMAP1 once
+per world pass and remap LM UVs with half-texel inset. Draw order unchanged.
+TEXMAP1 loads 249→1; sustained render ~1.38 ms (was 1.28 ms under G179).
+
+Evidence: `.ai/logs/dolphin-probe-20260721-011033` —
+`G180 … lm_loads=1 lm_reuses=248`; `stage-04x-g180-lm-atlas.png`.
+Next: Flipper HUD path or TEXMAP0 bind reduction without reordering draws.
+
+## G181 — Cluster TEXMAP0 binds within area bands (COMPLETE 2026-07-21)
+
+Stable-sort by texture inside 8 area-order bands. TEXMAP0 loads 149→61 with
+sustained render ~1.43 ms (no overdraw regression like the rejected full
+texture sort).
+
+Evidence: `.ai/logs/dolphin-probe-20260721-011535` —
+`G181 … texloads=61 texreuses=188`; `stage-04y-g181-tex-bands.png`.
+Next: Flipper HUD path, or finer TEXMAP0 clustering if still CPU-bound.
 
 ## Next wake-up commands
 
