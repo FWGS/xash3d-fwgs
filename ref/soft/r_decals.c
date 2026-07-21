@@ -470,6 +470,8 @@ static decal_t *R_DecalIntersect( decalinfo_t *decalinfo, msurface_t *surf, int 
 				}
 			}
 		}
+
+		if( pDecal == pDecal->pnext ) break;
 		pDecal = pDecal->pnext;
 	}
 	return plast;
@@ -523,7 +525,10 @@ static void R_AddDecalToSurface( decal_t *pdecal, msurface_t *surf, decalinfo_t 
 	if( pold )
 	{
 		while( pold->pnext )
+		{
+			if( pold == pold->pnext ) break;
 			pold = pold->pnext;
+		}
 		pold->pnext = pdecal;
 	}
 	else
@@ -599,8 +604,10 @@ static void R_DecalSurface( msurface_t *surf, decalinfo_t *decalinfo )
 	{
 		// NOTE: we may have the decal on this surface that come from another level.
 		// check duplicate with same position and texture
-		while( decal != NULL && decal != decal->pnext )
+		while( decal != NULL )
 		{
+			if( decal == decal->pnext ) break;
+
 			if( VectorCompare( decal->position, decalinfo->m_Position ) && decal->texture == decalinfo->m_iTexture )
 				return; // decal already exists, don't place it again
 			decal = decal->pnext;
