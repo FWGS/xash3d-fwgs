@@ -203,6 +203,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 #if XASH_GAMECUBE
 void Mod_LoadStudioGcmapStub( model_t *mod, qboolean *loaded );
 void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded );
+qboolean Mod_GCIsSpriteStub( const model_t *mod );
 #endif
 void Mod_InitStudioAPI( void );
 void Mod_InitStudioHull( void );

@@ -837,8 +837,10 @@ GC_HUD_SPRITES = (
 	"sprites/320_pain.spr",
 	"sprites/320_train.spr",
 	"sprites/crosshairs.spr",
-	# Unique name so retail ISO9660 sprites/320hud2.spr cannot shadow a bad read.
+	# Unique names so retail ISO9660 sprites/320hud*.spr cannot shadow a bad read.
 	("sprites/320hud2.spr", "sprites/gc_320hud2.spr"),
+	# G173: lean 128×128 downsample of fat 320hud1 (~66 KiB → ~17 KiB).
+	("sprites/320hud1.spr", "sprites/gc_320hud1.spr"),
 )
 
 # Lean skybox BMPs for New Game RGB565 fills. Use gc_desert* names so retail
@@ -898,11 +900,66 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 	return staged
 
 
+def lean_hl_spr_bytes(src: Path, scale: int = 2) -> bytes | None:
+	"""Nearest-neighbor downsample a single-frame HL SPR (G173: 320hud1 256→128)."""
+	import math
+
+	try:
+		d = src.read_bytes()
+	except OSError:
+		return None
+	if len(d) < 44 or d[:4] != b"IDSP":
+		return None
+	ver = struct.unpack_from("<i", d, 4)[0]
+	if ver != 2:
+		return None
+	typ = struct.unpack_from("<i", d, 8)[0]
+	tex = struct.unpack_from("<i", d, 12)[0]
+	face = struct.unpack_from("<i", d, 32)[0]
+	sync = struct.unpack_from("<i", d, 36)[0]
+	ncolors = struct.unpack_from("<h", d, 40)[0]
+	if ncolors <= 0 or ncolors > 256:
+		return None
+	pal_off = 42
+	frame_off = pal_off + ncolors * 3
+	if frame_off + 20 > len(d):
+		return None
+	ftype = struct.unpack_from("<i", d, frame_off)[0]
+	if ftype != 0:
+		return None
+	ox, oy, w, h = struct.unpack_from("<iiii", d, frame_off + 4)
+	pix_off = frame_off + 20
+	if w <= 0 or h <= 0 or pix_off + w * h > len(d):
+		return None
+	if scale < 1 or (w % scale) or (h % scale):
+		return None
+	nw, nh = w // scale, h // scale
+	pix = d[pix_off : pix_off + w * h]
+	out_pix = bytearray(nw * nh)
+	for y in range(nh):
+		sy = y * scale
+		for x in range(nw):
+			out_pix[y * nw + x] = pix[sy * w + x * scale]
+	br = math.sqrt((nw * 0.5) ** 2 + (nh * 0.5) ** 2)
+	out = bytearray()
+	out += b"IDSP"
+	out += struct.pack("<iii", 2, typ, tex)
+	out += struct.pack("<f", br)
+	out += struct.pack("<ff", float(nw), float(nh))
+	out += struct.pack("<iii", 1, face, sync)
+	out += struct.pack("<h", ncolors)
+	out += d[pal_off:frame_off]
+	out += struct.pack("<i", 0)
+	out += struct.pack("<iiii", ox // scale, oy // scale, nw, nh)
+	out += out_pix
+	return bytes(out)
+
+
 def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	"""Add allowlisted HUD sprites into bootstrap under their disc paths."""
 	staged = 0
 	for entry in GC_HUD_SPRITES:
-		if isinstance( entry, tuple ):
+		if isinstance(entry, tuple):
 			src_rel, arc_rel = entry
 		else:
 			src_rel = arc_rel = entry
@@ -912,7 +969,14 @@ def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 		arcname = arc_rel.lower()
 		if arcname in archive.NameToInfo:
 			continue
-		archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
+		# G173: store a lean downsample for fat hud1 under the gc_ alias.
+		if arc_rel.endswith("gc_320hud1.spr"):
+			payload = lean_hl_spr_bytes(src, scale=2)
+			if not payload:
+				continue
+			archive.writestr(arcname, payload, compress_type=zipfile.ZIP_STORED)
+		else:
+			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
 		staged += 1
 	return staged
 

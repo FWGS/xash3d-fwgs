@@ -870,6 +870,7 @@ model_t *CL_LoadClientSprite( const char *filename );
 model_t *CL_LoadModel( const char *modelname, int *index );
 #if XASH_GAMECUBE
 void CL_GCPreloadNewGameHudSprites( void );
+void CL_GCPreloadNewGameHudSpritesLate( void );
 #endif
 HSPRITE pfnSPR_LoadExt( const char *szPicName, uint texFlags );
 void SPR_AdjustSize( float *x, float *y, float *w, float *h );

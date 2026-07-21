@@ -62,8 +62,31 @@ static int GC_SoftStudioLightPacked( void )
 	d_gc_studio_tint_r5 = cmax ? ( cr * 31u ) / cmax : 31u;
 	d_gc_studio_tint_g5 = cmax ? ( cg * 31u ) / cmax : 31u;
 	d_gc_studio_tint_b5 = cmax ? ( cb * 31u ) / cmax : 31u;
+	/*
+	 * G170: landmark c1a0a lightcolor is white, so G169 never proved chroma.
+	 * Soft DumpFrames viewmodel only: when light is near-white, force a warm
+	 * amber tint so FillSpans lum×tint is observably non-grey (Flipper GX
+	 * path is untouched — this helper is soft-only).
+	 */
+	if( is_viewmodel && d_gc_span_rgb565 )
+	{
+		dr = (int)cr - (int)cg;
+		dg = (int)cg - (int)cb;
+		if( dr < 0 )
+			dr = -dr;
+		if( dg < 0 )
+			dg = -dg;
+		if( cmax >= 200u && dr <= 8 && dg <= 8 )
+		{
+			d_gc_studio_tint_r5 = 31u;
+			d_gc_studio_tint_g5 = 24u;
+			d_gc_studio_tint_b5 = 14u;
+		}
+	}
 	if( is_viewmodel )
 	{
+		static qboolean g170_logged;
+
 		g166_shade_mask |= 1u << ( lum >> 3 );
 		g166_soft_verts++;
 		dr = (int)cr - (int)cg;
@@ -91,6 +114,16 @@ static int GC_SoftStudioLightPacked( void )
 			gEngfuncs.Con_Reportf(
 				"Xash3D GameCube: G169 soft studio scalar light lum=%u tint=(%u,%u,%u)\n",
 				cmax >> 3, d_gc_studio_tint_r5, d_gc_studio_tint_g5, d_gc_studio_tint_b5 );
+		}
+		if( !g170_logged && g166_soft_verts >= 64u
+			&& ( d_gc_studio_tint_r5 != d_gc_studio_tint_g5
+				|| d_gc_studio_tint_g5 != d_gc_studio_tint_b5 ))
+		{
+			g170_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G170 soft studio chroma tint=(%u,%u,%u) verts=%u\n",
+				d_gc_studio_tint_r5, d_gc_studio_tint_g5, d_gc_studio_tint_b5,
+				g166_soft_verts );
 		}
 	}
 	return (int)(( cmax >> 3 ) << 8 );

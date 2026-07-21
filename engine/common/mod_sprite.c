@@ -188,9 +188,10 @@ static qboolean Mod_SwapSprite( void *buffer, size_t buffersize, int *out_versio
 }
 
 #if XASH_GAMECUBE
+static msprite_t gc_sprite_stub;
+
 void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded )
 {
-	static msprite_t stub;
 	char poolname[MAX_VA_STRING];
 
 	if( loaded )
@@ -203,17 +204,17 @@ void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded )
 		mod->mempool = Mem_AllocPool( poolname );
 	mod->type = mod_sprite;
 
-	if( stub.numframes == 0 )
+	if( gc_sprite_stub.numframes == 0 )
 	{
-		memset( &stub, 0, sizeof( stub ));
-		stub.type = SPR_FWD_PARALLEL;
-		stub.texFormat = SPR_ALPHTEST;
-		stub.numframes = 1;
-		stub.facecull = SPR_CULL_FRONT;
-		stub.radius = 1.0f;
+		memset( &gc_sprite_stub, 0, sizeof( gc_sprite_stub ));
+		gc_sprite_stub.type = SPR_FWD_PARALLEL;
+		gc_sprite_stub.texFormat = SPR_ALPHTEST;
+		gc_sprite_stub.numframes = 1;
+		gc_sprite_stub.facecull = SPR_CULL_FRONT;
+		gc_sprite_stub.radius = 1.0f;
 	}
 
-	mod->cache.data = &stub;
+	mod->cache.data = &gc_sprite_stub;
 	mod->numframes = 1;
 
 	mod->mins[0] = mod->mins[1] = -1.0f;
@@ -223,6 +224,12 @@ void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded )
 
 	if( loaded )
 		*loaded = true;
+}
+
+qboolean Mod_GCIsSpriteStub( const model_t *mod )
+{
+	return ( mod != NULL && mod->type == mod_sprite
+		&& mod->cache.data == &gc_sprite_stub );
 }
 #endif
 

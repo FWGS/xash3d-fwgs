@@ -1339,6 +1339,18 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 					szSpriteName, loadname );
 			}
 		}
+		/* G173: fat retail 320hud1 often ISO-misses / OOMs; lean bootstrap alias. */
+		if( !FS_FileExists( loadname, false )
+			&& !Q_stricmp( loadname, "sprites/320hud1.spr" ))
+		{
+			Q_strncpy( altname, "sprites/gc_320hud1.spr", sizeof( altname ));
+			if( FS_FileExists( altname, false ))
+			{
+				loadname = altname;
+				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
+					szSpriteName, loadname );
+			}
+		}
 
 		if( !FS_FileExists( loadname, false ))
 		{
@@ -1371,11 +1383,42 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 
 		{
 			fs_offset_t size;
-			byte *buf = FS_LoadFile( loadname, &size, false );
+			byte *buf = NULL;
+			qboolean used_sys = false;
+
+			/*
+			 * G172: HUD sheets under memopt prefer libc malloc — FileSystem pool
+			 * soft-fails on ~12–17 KiB after studios even when malloc still has a hole.
+			 */
+			if( GC_MapLoadMemoryOpt()
+				&& ( type == SPR_HUDSPRITE || type == SPR_CLIENT ))
+			{
+				Image_GCPurgeDecodeScratch();
+				buf = FS_LoadFileMalloc( loadname, &size, false );
+				if( buf )
+				{
+					used_sys = true;
+					Con_Reportf( "Xash3D GameCube: G172 HUD sprite sys-malloc %s size=%s\n",
+						loadname, Q_memprint( (size_t)size ));
+				}
+			}
+			if( buf == NULL )
+				buf = FS_LoadFile( loadname, &size, false );
+			if( buf == NULL && GC_MapLoadMemoryOpt()
+				&& ( type == SPR_HUDSPRITE || type == SPR_CLIENT ))
+			{
+				Image_GCPurgeDecodeScratch();
+				buf = FS_LoadFileMalloc( loadname, &size, false );
+				if( buf )
+				{
+					used_sys = true;
+					Con_Reportf( "Xash3D GameCube: G172 HUD sprite sys-malloc %s size=%s\n",
+						loadname, Q_memprint( (size_t)size ));
+				}
+			}
 			if( buf == NULL )
 			{
-				/* Exists on disc but FileSystem pool soft-failed (e.g. 320hud2 after
-				 * 320hud1). Stub under memopt so HUD redraw continues. */
+				/* Exists on disc but alloc soft-failed. Stub under memopt so HUD continues. */
 				if( GC_MapLoadMemoryOpt())
 				{
 					Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
@@ -1399,7 +1442,10 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 				ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf, size );
 			}
 
-			Mem_Free( buf );
+			if( used_sys )
+				free( buf );
+			else
+				Mem_Free( buf );
 
 			if( !loaded )
 			{
@@ -1535,35 +1581,129 @@ model_t *CL_LoadClientSprite( const char *filename )
 =============
 CL_GCPreloadNewGameHudSprites
 
-G127: load fat 320 HUD sheets while MEM1 still has a contiguous FS block.
-Gameplay SFX preload (~30 KiB SoundLib) after this starves a later 66 KiB
-320hud1 soft-fail. Keep sheet names as SPR_HUDSPRITE so Redraw reuses them.
+G127/G172: load HUD sheets while MEM1 still has a contiguous block (before
+deferred studios). Fat 320hud1 first, then lean bootstrap sheets. Keep sheet
+names as SPR_HUDSPRITE so Redraw reuses them.
 =============
 */
 HSPRITE EXPORT pfnSPR_Load( const char *szPicName );
 
 void CL_GCPreloadNewGameHudSprites( void )
 {
-	/* Only the fat sheet: smaller 320hud2/4/crosshairs still load after SFX.
-	 * Preloading 320hud1+320hud2 together starved SoundLib (~13 KiB soft-fail). */
+	/*
+	 * G172: after studios, load lean HUD sheets (sys-malloc fallback on FS soft-fail).
+	 * Fat 320hud1 stays in the late pass so viewmodels keep MEM1.
+	 */
 	static const char *const sheets[] = {
-		"sprites/320hud1.spr",
+		"sprites/gc_320hud2.spr",
+		"sprites/320_train.spr",
+		"sprites/crosshairs.spr",
 	};
 	int i;
+	int real = 0;
+	static qboolean g172_logged;
 
 	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_MapLoadMemoryOpt())
 		return;
 
+	Image_GCPurgeDecodeScratch();
 	FS_ClearFindMissCache();
 	Con_Reportf( "Xash3D GameCube: G127 HUD sheet preload begin\n" );
 	for( i = 0; i < (int)( sizeof( sheets ) / sizeof( sheets[0] )); i++ )
 	{
 		HSPRITE handle = pfnSPR_Load( sheets[i] );
+		model_t *mod = NULL;
+		qboolean is_real = false;
 
-		Con_Reportf( "Xash3D GameCube: G127 HUD sheet %s handle=%d\n",
-			sheets[i], (int)handle );
+		if( handle > 0 && handle <= MAX_CLIENT_SPRITES )
+			mod = &clgame.sprites[handle - 1];
+		is_real = ( mod && !Mod_GCIsSpriteStub( mod ));
+		if( is_real )
+			real++;
+		Con_Reportf( "Xash3D GameCube: G127 HUD sheet %s handle=%d real=%d\n",
+			sheets[i], (int)handle, is_real ? 1 : 0 );
 	}
 	Con_Reportf( "Xash3D GameCube: G127 HUD sheet preload ready\n" );
+	if( !g172_logged && real >= 2 )
+	{
+		g172_logged = true;
+		Con_Reportf( "Xash3D GameCube: G172 HUD sheets loaded real=%d of %d\n",
+			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
+	}
+}
+
+/*
+=============
+CL_GCPreloadNewGameHudSpritesLate
+
+G172: after SFX preload, free any gcmap stubs and retry small HUD sheets.
+=============
+*/
+void CL_GCPreloadNewGameHudSpritesLate( void )
+{
+	static const char *const sheets[] = {
+		"sprites/320hud1.spr", /* G173: resolves to lean gc_320hud1 via fallback */
+		"sprites/gc_320hud2.spr",
+		"sprites/320_train.spr",
+		"sprites/crosshairs.spr",
+	};
+	int i;
+	int real = 0;
+	qboolean hud1_real = false;
+	static qboolean g173_late_logged;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_MapLoadMemoryOpt())
+		return;
+
+	Image_GCPurgeDecodeScratch();
+	FS_ClearFindMissCache();
+	Con_Reportf( "Xash3D GameCube: G172 HUD sheet late preload begin\n" );
+	for( i = 0; i < (int)( sizeof( sheets ) / sizeof( sheets[0] )); i++ )
+	{
+		model_t *mod;
+		HSPRITE handle;
+		int j;
+		qboolean is_real;
+
+		for( j = 0; j < MAX_CLIENT_SPRITES; j++ )
+		{
+			mod = &clgame.sprites[j];
+			if( mod->needload == NL_UNREFERENCED )
+				continue;
+			if( Q_stricmp( mod->name, sheets[i] )
+				&& !( !Q_stricmp( sheets[i], "sprites/320hud1.spr" )
+					&& !Q_stricmp( mod->name, "sprites/gc_320hud1.spr" )))
+				continue;
+			if( Mod_GCIsSpriteStub( mod ))
+			{
+				Mod_FreeModel( mod );
+				memset( mod, 0, sizeof( *mod ));
+				mod->needload = NL_UNREFERENCED;
+			}
+			break;
+		}
+
+		handle = pfnSPR_Load( sheets[i] );
+		mod = ( handle > 0 && handle <= MAX_CLIENT_SPRITES )
+			? &clgame.sprites[handle - 1] : NULL;
+		is_real = ( mod && !Mod_GCIsSpriteStub( mod ));
+		if( is_real )
+		{
+			real++;
+			if( !Q_stricmp( sheets[i], "sprites/320hud1.spr" )
+				|| ( mod && !Q_stricmp( mod->name, "sprites/gc_320hud1.spr" )))
+				hud1_real = true;
+		}
+		Con_Reportf( "Xash3D GameCube: G172 HUD sheet late %s handle=%d real=%d\n",
+			sheets[i], (int)handle, is_real ? 1 : 0 );
+	}
+	Con_Reportf( "Xash3D GameCube: G172 HUD sheet late preload ready real=%d\n", real );
+	if( !g173_late_logged && hud1_real )
+	{
+		g173_late_logged = true;
+		Con_Reportf( "Xash3D GameCube: G173 HUD hud1 lean real=%d of %d\n",
+			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
+	}
 }
 #endif
 

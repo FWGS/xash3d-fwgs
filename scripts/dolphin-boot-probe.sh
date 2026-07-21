@@ -381,9 +381,12 @@ if (( DOLPHIN_NEWGAME )); then
 		G167_DONE_MARKER="Xash3D GameCube: G167 viewmodel depth range"
 		G168_DONE_MARKER="Xash3D GameCube: G168 studio chrome uv samples="
 		G169_DONE_MARKER="Xash3D GameCube: G169 soft studio scalar light"
-		G170_DONE_MARKER="Xash3D GameCube: G170 outdoor refresh"
+		G170_DONE_MARKER="Xash3D GameCube: G170 soft studio chroma tint="
+		G171_DONE_MARKER="Xash3D GameCube: G171 outdoor refresh"
+		G172_DONE_MARKER="Xash3D GameCube: G172 HUD sheets loaded"
+		G173_DONE_MARKER="Xash3D GameCube: G173 HUD hud1 lean"
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
-		echo "==> Waiting for G170 outdoor refresh + G169/G168/G167/G166/G165/G164/G163/G162/G161/G159 markers"
+		echo "==> Waiting for G173 HUD hud1 + G172/G171/G170/G169/G168/G167/G166/G165/G164/G163/G162/G161/G159 markers"
 	fi
 	if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 		GUEST_ARGS+=("-gcnewsaveload")

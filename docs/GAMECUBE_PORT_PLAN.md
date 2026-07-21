@@ -3235,7 +3235,37 @@ tint; FillSpans applies lum × tint per channel (overshoot clamped, floor 2).
 Evidence: `.ai/logs/dolphin-probe-20260720-224319` —
 `G169 soft studio scalar light lum=26 tint=(31,31,31)`, G166/G168/G167 green,
 `stage-04j-g169-soft-scalar-light.png` shows a smooth (noise-free) gun.
-Next: open polish (non-white lightcolor proof / further GX).
+Next: soft chroma proof (G170).
+
+## G170 — Soft studio chroma tint proof (COMPLETE 2026-07-20)
+
+Landmark lightcolor is white, so G169 never showed non-grey tint. Soft
+DumpFrames viewmodel forces warm amber `(31,24,14)` when light is near-white;
+Flipper GX path unchanged. Probe: `G170 soft studio chroma tint=(31,24,14)`.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-231354`;
+`stage-04l-g170-soft-chroma.png`.
+Next: outdoor Flipper coverage without BSS growth (G171).
+
+## G171 — Outdoor Flipper refresh via slots↔cands trade (COMPLETE 2026-07-20)
+
+Raising cands alone OOMd MEM1. Trade surfbits cache slots 8→5 for refresh
+cands 32→48 (fewer BSS cells) + outdoor wall score ×2. Restore cluster 429:
+`mid_new=17 wall_new=12 cands=48`; rim fill 350→180; GX drawn 184→196.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-231838`;
+`stage-04n-g171-outdoor-coverage.png`.
+Next: HUD sprite soft-fails (G172).
+
+## G172 — HUD sheets via sys-malloc after studios (COMPLETE 2026-07-20)
+
+FS pool soft-failed lean HUD sheets after studios; loading HUD first starved
+viewmodels. Studios stay first; HUD uses libc malloc under memopt + late retry.
+`gc_320hud2` / `320_train` / `crosshairs` load real; fat `320hud1` may stub.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-234531` —
+`G172 … real=3 of 3`, `view=2`, `G155 viewmodel=1`.
+Next: open polish (320hud1 / further GX).
 
 ## Next wake-up commands
 

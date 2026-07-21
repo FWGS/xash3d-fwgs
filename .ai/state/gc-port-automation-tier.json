@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G169 COMPLETE: soft studio scalar light + constant tint (fixed G166 span shred; lum=26 tint=31,31,31). Next: open polish (non-white lightcolor proof / further GX)."
+  "note": "G172 COMPLETE: HUD sheets via sys-malloc after studios (real=3/3; view=2; G155 viewmodel=1). Next: open polish (fat 320hud1 stub / further GX)."
 }

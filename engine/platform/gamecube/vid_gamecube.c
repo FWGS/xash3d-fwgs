@@ -74,11 +74,11 @@ static byte *gc_newgame_pvs_table; /* [numclusters][visbytes] or lean slots */
 static byte *gc_newgame_node_table; /* [numclusters][nodebytes] or lean slots */
 static byte *gc_newgame_surf_table; /* G132: [numclusters][surfbytes] marksurface bits at capture */
 static byte *gc_newgame_surfbits; /* active row into surf_table */
-/* G163/G170: when full surf_table OOMs, keep a few capture-time rows (marks die later).
- * G170 raises refresh cand budget 32→64 so outdoor clusters can admit more wall faces
- * without growing the 256-face BSS cap (larger caps OOM surfbits). */
-#define GC_SURFBITS_CACHE_SLOTS 8
-#define GC_CAP_REFRESH_NEW_MAX 64
+/* G163/G171: when full surf_table OOMs, keep a few capture-time rows (marks die later).
+ * G171: trade cache slots 8→5 for refresh cands 32→48 (same/less BSS cells: 240 vs 256)
+ * so outdoor restore can admit more wall faces without the 64-cand MEM1 OOM. */
+#define GC_SURFBITS_CACHE_SLOTS 5
+#define GC_CAP_REFRESH_NEW_MAX 48
 static byte *gc_newgame_surf_cache;
 static int gc_newgame_surf_cache_cluster[GC_SURFBITS_CACHE_SLOTS];
 static int gc_newgame_surf_cache_slots;
@@ -99,7 +99,7 @@ typedef struct
 static gc_refresh_cand_t gc_refresh_cands[GC_SURFBITS_CACHE_SLOTS][GC_CAP_REFRESH_NEW_MAX];
 static int gc_refresh_ncands[GC_SURFBITS_CACHE_SLOTS];
 static int gc_g165_eye_cluster = -1; /* G165: player-eye cluster for restore refresh */
-static qboolean gc_g170_logged;
+static qboolean gc_g171_logged;
 static byte *gc_newgame_cluster_valid; /* one byte per cluster (full) or per lean slot */
 static int gc_newgame_numclusters;
 static qboolean gc_newgame_pvs_lean; /* G96/G101: compact cache when multi-row OOM */
@@ -787,12 +787,17 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 	int i, k;
 	int ncand = 0;
 	int wall_boost = 0;
+	int leaves;
+	qboolean outdoor;
 
 	if( cache_slot < 0 || cache_slot >= GC_SURFBITS_CACHE_SLOTS )
 		return;
 	gc_refresh_ncands[cache_slot] = 0;
 	if( !wmodel || !wmodel->surfaces || !surfbits || gc_newgame_surfbytes <= 0 )
 		return;
+
+	leaves = GC_VisLeafsForCluster( gc_newgame_surf_cache_cluster[cache_slot] );
+	outdoor = ( leaves > 0 && leaves <= 48 );
 
 	for( i = 0; i < wmodel->numsurfaces; i++ )
 	{
@@ -818,7 +823,11 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
 		if( is_wall )
 		{
-			area += ( area >> 1 );
+			/* G171: outdoor walls +100% so towers fill the larger cand set. */
+			if( outdoor )
+				area += area;
+			else
+				area += ( area >> 1 );
 			wall_boost++;
 		}
 
@@ -986,11 +995,11 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 	{
 		SYS_Report( "Xash3D GameCube: G165 restore refresh cluster=%d mid_new=%d cands=%d leaves=%d\n",
 			gc_newgame_viewcluster, mid_new, ncand, leaves );
-		/* G170: prove outdoor refresh admitted more walls than the old 32-cand path. */
-		if( !gc_g170_logged && ( mid_new >= 20 || ( ncand >= 48 && wall_new >= 8 )))
+		/* G171: prove slots↔cands trade (48 cands) admitted outdoor walls. */
+		if( !gc_g171_logged && ncand >= 40 && ( mid_new >= 18 || wall_new >= 10 ))
 		{
-			gc_g170_logged = true;
-			SYS_Report( "Xash3D GameCube: G170 outdoor refresh mid_new=%d wall_new=%d cands=%d leaves=%d cluster=%d\n",
+			gc_g171_logged = true;
+			SYS_Report( "Xash3D GameCube: G171 outdoor refresh mid_new=%d wall_new=%d cands=%d leaves=%d cluster=%d\n",
 				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
 		}
 	}
@@ -4307,7 +4316,7 @@ static void GC_FreeNewGamePVSCache( void )
 	gc_newgame_surf_cache_slots = 0;
 	memset( gc_refresh_ncands, 0, sizeof( gc_refresh_ncands ));
 	gc_g165_eye_cluster = -1;
-	gc_g170_logged = false;
+	gc_g171_logged = false;
 	if( gc_newgame_cluster_valid )
 	{
 		free( gc_newgame_cluster_valid );
@@ -5031,9 +5040,10 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 					max_c = i;
 				}
 			}
-			/* G165 first: exact outdoor leaf-count, then near-band. */
+			/* G165/G171: exact outdoor leaf-count, then near-band.
+			 * With 5 slots, reserve 1 for max_c / leafbox (was -2 with 8). */
 			for( i = 0; i < numclusters
-				&& gc_newgame_surf_cache_slots < GC_SURFBITS_CACHE_SLOTS - 2; i++ )
+				&& gc_newgame_surf_cache_slots < GC_SURFBITS_CACHE_SLOTS - 1; i++ )
 			{
 				int leaves;
 
@@ -5052,7 +5062,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 				}
 			}
 			for( i = 0; i < numclusters
-				&& gc_newgame_surf_cache_slots < GC_SURFBITS_CACHE_SLOTS - 2; i++ )
+				&& gc_newgame_surf_cache_slots < GC_SURFBITS_CACHE_SLOTS - 1; i++ )
 			{
 				int leaves;
 
@@ -5068,7 +5078,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			if( gc_newgame_leafboxes && gc_newgame_nleafboxes > 0 )
 			{
 				for( i = 0; i < gc_newgame_nleafboxes
-					&& gc_newgame_surf_cache_slots < GC_SURFBITS_CACHE_SLOTS - 1; i++ )
+					&& gc_newgame_surf_cache_slots < GC_SURFBITS_CACHE_SLOTS; i++ )
 				{
 					const gc_newgame_leafbox_t *box = &gc_newgame_leafboxes[i];
 					vec3_t mid;
@@ -5558,7 +5568,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	}
 
 	/* After sky proves FS/MEM headroom, promote a few mesh-only studios.
-	 * Viewmodel bind is forced in V_SetupViewModel (tram starts unarmed). */
+	 * Viewmodel bind is forced in V_SetupViewModel (tram starts unarmed).
+	 * G172: keep studios BEFORE HUD — even lean sheets starve 47–134 KiB MDLs. */
 	Mod_GCLoadNewGameStudios();
 
 	/* Mark world-ready before VidInit so SCR_UpdateScreen cannot re-arm the
@@ -5580,15 +5591,14 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_cpu_dump_presents_left = 0;
 	Cvar_Set( "gc_hud_probe_skip", "0" );
 
-	/* Lean HUD VidInit at quality 0: set 320 sheet names without hud.txt.
-	 * Clear FS miss-cache so bootstrap-injected sprites/320_pain.spr is visible. */
+	/* G172: lean HUD after studios; FS pool soft-fails retry via sys-malloc. */
+	Image_GCPurgeDecodeScratch();
 	FS_ClearFindMissCache();
 	if( clgame.dllFuncs.pfnVidInit )
 	{
 		clgame.dllFuncs.pfnVidInit();
 		Con_Reportf( "Xash3D GameCube: newgame lean HUD VidInit after world present\n" );
 	}
-	/* G127: fat HUD sheets before SFX preload / changelevel Redraw. */
 	CL_GCPreloadNewGameHudSprites();
 
 	refState.width = present_w;
@@ -6008,6 +6018,8 @@ void GC_PlayNewGameGameplaySound( void )
 		}
 		Con_Reportf( "Xash3D GameCube: G127 preload fire+steps+ric ready budget_used=%u\n",
 			(uint)S_GCGameplaySfxBudgetUsed() );
+		/* G172: retry HUD sheets after SFX while freelist may have coalesced. */
+		CL_GCPreloadNewGameHudSpritesLate();
 		return;
 	}
 

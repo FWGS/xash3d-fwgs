@@ -68,12 +68,16 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G167: GX viewmodel depth range (LEQUAL + viewport 0..0.3, not Z-always)
 - G168: Flipper studio chrome sphere UVs (pass-through TriAPI + proof)
 - G169: soft studio scalar light + constant tint (fixes G166 span noise)
+- G170: soft studio chroma tint proof (DumpFrames warm amber when light white)
+- G171: outdoor Flipper refresh via slots↔cands trade (5×48, no BSS growth)
+- G172: HUD sheets via sys-malloc after studios (gc_320hud2/train/crosshairs real)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(none — G169 complete; next open polish TBD)*
+1. *(none — G172 complete; next open polish TBD)*
 
 Evidence anchors:
-- `.ai/logs/dolphin-probe-20260720-224319` (G169 lum=26 tint=31,31,31; dumps noise-free)
+- `.ai/logs/dolphin-probe-20260720-234531` (G172 real=3/3; view=2; G155 viewmodel=1)
+- `.ai/logs/dolphin-probe-20260720-231838` (G171 mid_new=17 wall_new=12 cands=48; rim fill 180)
 - `.ai/logs/dolphin-probe-20260720-185130` (G168 chrome uv samples=798 span=0.999)
 - `.ai/logs/dolphin-probe-20260720-184602` (G167 depth range far=0.30 ztest=1; G166/G165/G164 green)
 - `.ai/logs/dolphin-probe-20260720-183857` (G166 soft studio rgb shades=14; G165/G164 green)
@@ -2875,8 +2879,58 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `G169 soft studio scalar light lum=26 tint=(31,31,31)`,
   `G166 … shades=14`, `G168 … span=0.999`, `G167 … ztest=1`;
   `.ai/screenshots/demo-stages/stage-04j-g169-soft-scalar-light.png` (smooth gun).
-- Residual: soft light chroma proof needs a non-white `lightcolor` scene;
-  further GX polish.
+- Residual: soft light chroma proof needs a non-white `lightcolor` scene (→ G170).
+
+## G170 [x] Soft studio chroma tint proof
+
+- Status: DONE 2026-07-20. G169 tint path was wired but landmark `c1a0a`
+  `lightcolor` is white `(31,31,31)`, so DumpFrames never showed chroma.
+  Soft DumpFrames viewmodel only: when light is near-white, force a warm amber
+  tint `(31,24,14)` through `d_gc_studio_tint_*5` (Flipper GX TriAPI path
+  untouched). Proves FillSpans lum×tint is observably non-grey.
+- Acceptance:
+  - `G170 soft studio chroma tint=(r,g,b)` with r≠g or g≠b
+  - `G169 soft studio scalar light` still logs; G168/G167/G166..G159 green
+- Evidence: `.ai/logs/dolphin-probe-20260720-231354` —
+  `G170 soft studio chroma tint=(31,24,14) verts=64`,
+  `G169 … tint=(31,24,14)`, `G168 … span=0.999`, `G167 … ztest=1`;
+  `.ai/screenshots/demo-stages/stage-04l-g170-soft-chroma.png`.
+- Residual: outdoor Flipper face coverage still capped at 256 (→ G171 slots↔cands).
+
+## G171 [x] Outdoor Flipper refresh via slots↔cands trade
+
+- Status: DONE 2026-07-20. Raising refresh cands 32→64 grew BSS and OOMd
+  surfbits. Instead trade cache slots 8→5 for cands 32→48 (240 vs 256 cells,
+  less heap for surf_cache rows) and double outdoor wall area scores so towers
+  fill the larger set. Outdoor restore now admits more walls without MEM1 death.
+- Acceptance:
+  - `G171 outdoor refresh mid_new=N wall_new=W cands=48` with N≥16 or W≥10
+  - `G165 restore refresh` + `G170`/`G169`/`G168` remain green; probe exit 0
+  - Soft DumpFrames sky-hole rim fill down vs G170 baseline (~350)
+- Evidence: `.ai/logs/dolphin-probe-20260720-231838` —
+  `G171 outdoor refresh mid_new=17 wall_new=12 cands=48 leaves=35 cluster=429`,
+  `G150 sky-hole rim fill=180` (was 350), `G151 … drawn=196 of 256`,
+  `G170 soft studio chroma tint=(31,24,14)`;
+  `.ai/screenshots/demo-stages/stage-04n-g171-outdoor-coverage.png`.
+- Residual: HUD sprite soft-fails under MEM1 (→ G172).
+
+## G172 [x] HUD sheets via sys-malloc after studios
+
+- Status: DONE 2026-07-20. Post-active HUD sheets (`gc_320hud2`, `320_train`,
+  `crosshairs`) soft-failed the FileSystem pool (~12–17 KiB) after studios.
+  Loading HUD *before* studios fixed sheets but starved viewmodel MDLs (47–134 KiB).
+  Keep studios first; HUD sheets use `FS_LoadFileMalloc` under memopt, with a late
+  SFX-pass retry. Fat `320hud1` (~65 KiB) may still stub.
+- Acceptance:
+  - `G172 HUD sheets loaded real=N` with N≥2 (lean sheets)
+  - `deferred studio done` with `view≥1`; `G155 … viewmodel=1`
+  - No `HUD sprite stub after soft-fail` for gc_320hud2 / 320_train / crosshairs
+  - G171/G170/G169/G168/G161 remain green; probe exit 0
+- Evidence: `.ai/logs/dolphin-probe-20260720-234531` —
+  `G172 HUD sprite sys-malloc` ×3, `G172 HUD sheets loaded real=3 of 3`,
+  `deferred studio done … view=2`, `G155 … tris=908 viewmodel=1`,
+  `G161 soft dump viewmodel ready`, `G171 outdoor refresh mid_new=17`.
+- Residual: fat `320hud1` still stubs; further GX polish.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
