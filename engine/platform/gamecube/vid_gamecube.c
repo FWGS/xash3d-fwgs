@@ -74,9 +74,11 @@ static byte *gc_newgame_pvs_table; /* [numclusters][visbytes] or lean slots */
 static byte *gc_newgame_node_table; /* [numclusters][nodebytes] or lean slots */
 static byte *gc_newgame_surf_table; /* G132: [numclusters][surfbytes] marksurface bits at capture */
 static byte *gc_newgame_surfbits; /* active row into surf_table */
-/* G163: when full surf_table OOMs, keep a few capture-time rows (marks die later). */
+/* G163/G170: when full surf_table OOMs, keep a few capture-time rows (marks die later).
+ * G170 raises refresh cand budget 32→64 so outdoor clusters can admit more wall faces
+ * without growing the 256-face BSS cap (larger caps OOM surfbits). */
 #define GC_SURFBITS_CACHE_SLOTS 8
-#define GC_CAP_REFRESH_NEW_MAX 32
+#define GC_CAP_REFRESH_NEW_MAX 64
 static byte *gc_newgame_surf_cache;
 static int gc_newgame_surf_cache_cluster[GC_SURFBITS_CACHE_SLOTS];
 static int gc_newgame_surf_cache_slots;
@@ -97,6 +99,7 @@ typedef struct
 static gc_refresh_cand_t gc_refresh_cands[GC_SURFBITS_CACHE_SLOTS][GC_CAP_REFRESH_NEW_MAX];
 static int gc_refresh_ncands[GC_SURFBITS_CACHE_SLOTS];
 static int gc_g165_eye_cluster = -1; /* G165: player-eye cluster for restore refresh */
+static qboolean gc_g170_logged;
 static byte *gc_newgame_cluster_valid; /* one byte per cluster (full) or per lean slot */
 static int gc_newgame_numclusters;
 static qboolean gc_newgame_pvs_lean; /* G96/G101: compact cache when multi-row OOM */
@@ -680,12 +683,35 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 }
 
 /*
- * G163: live cluster face refresh without sample LM rebake.
- * Deferred + incremental: keep baked faces; admit up to 32 new top-area faces
- * with mid-grade LM only. Full rebuild mid-PVS hung Host_Frame on c1a0a.
- * Face geom must be snapshotted at capture — live plane* dangles at present.
+ * G163/G170: live cluster face refresh without sample LM rebake.
+ * Deferred + incremental: keep baked faces; admit up to GC_CAP_REFRESH_NEW_MAX
+ * new top-area faces with mid-grade LM only. Full rebuild mid-PVS hung Host_Frame
+ * on c1a0a. Face geom must be snapshotted at capture — live plane* dangles at present.
  */
 static qboolean gc_cap_refresh_pending;
+
+/* Prefer larger faces first so outdoor wall swaps beat leftover floors. */
+static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
+{
+	int i, j;
+	int n;
+
+	if( cache_slot < 0 || cache_slot >= GC_SURFBITS_CACHE_SLOTS )
+		return;
+	n = gc_refresh_ncands[cache_slot];
+	for( i = 0; i < n - 1; i++ )
+	{
+		for( j = i + 1; j < n; j++ )
+		{
+			if( gc_refresh_cands[cache_slot][j].area > gc_refresh_cands[cache_slot][i].area )
+			{
+				gc_refresh_cand_t tmp = gc_refresh_cands[cache_slot][i];
+				gc_refresh_cands[cache_slot][i] = gc_refresh_cands[cache_slot][j];
+				gc_refresh_cands[cache_slot][j] = tmp;
+			}
+		}
+	}
+}
 
 static void GC_BuildSurfbitsForVisRow( model_t *wmodel, const byte *vis, byte *surfbits );
 static byte *GC_LookupSurfbitsCache( int cluster );
@@ -860,12 +886,19 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 	int i, k;
 	int mid_new = 0;
 	int wall_boost = 0;
+	int wall_new = 0;
 	int prev_count = gc_newgame_cap_face_count;
 	int ncand;
+	int leaves;
+	qboolean outdoor;
 
 	if( cache_slot < 0 || cache_slot >= GC_SURFBITS_CACHE_SLOTS )
 		return;
 	ncand = gc_refresh_ncands[cache_slot];
+	leaves = GC_VisLeafsForCluster( gc_newgame_viewcluster );
+	outdoor = ( leaves > 0 && leaves <= 48 );
+	/* G170: largest cands first; outdoor wall preference below. */
+	GC_SortRefreshCandsByAreaDesc( cache_slot );
 	SYS_Report( "Xash3D GameCube: G163 refresh begin cluster=%d faces=%d cands=%d\n",
 		gc_newgame_viewcluster, prev_count, ncand );
 
@@ -873,11 +906,13 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 	{
 		const gc_refresh_cand_t *cand = &gc_refresh_cands[cache_slot][i];
 		int slot = -1;
-		int min_i, min_area;
+		int min_i, min_score;
+		qboolean cand_wall;
 
 		if( GC_CapFaceAlready( cand->firstedge, cand->numedges ))
 			continue;
-		if( fabs( cand->plane.normal[2] ) < 0.35f )
+		cand_wall = ( fabs( cand->plane.normal[2] ) < 0.35f );
+		if( cand_wall )
 			wall_boost++;
 
 		if( gc_newgame_cap_face_count < GC_MAX_CAP_FACES )
@@ -885,20 +920,40 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		else
 		{
 			min_i = 0;
-			min_area = gc_newgame_cap_areas[0];
+			/*
+			 * Score: lower = better victim. Outdoor: prefer replacing floors
+			 * (high |nz|) so wall cands can punch sky holes closed.
+			 */
+			min_score = gc_newgame_cap_areas[0];
+			if( !gc_newgame_cap_lm_real[0] )
+				min_score -= 1;
+			if( outdoor && fabs( gc_newgame_cap_faces[0].plane.normal[2] ) >= 0.35f )
+				min_score -= ( gc_newgame_cap_areas[0] >> 2 );
 			for( k = 1; k < GC_MAX_CAP_FACES; k++ )
 			{
-				int a = gc_newgame_cap_areas[k];
+				int score = gc_newgame_cap_areas[k];
+
 				if( !gc_newgame_cap_lm_real[k] )
-					a -= 1;
-				if( a < min_area )
+					score -= 1;
+				if( outdoor && fabs( gc_newgame_cap_faces[k].plane.normal[2] ) >= 0.35f )
+					score -= ( gc_newgame_cap_areas[k] >> 2 );
+				if( score < min_score )
 				{
-					min_area = a;
+					min_score = score;
 					min_i = k;
 				}
 			}
-			if( cand->area <= gc_newgame_cap_areas[min_i] )
-				continue;
+			{
+				int threshold = gc_newgame_cap_areas[min_i];
+				int cand_score = cand->area;
+
+				/* Outdoor wall vs floor: 25% area boost so towers beat leftover floors. */
+				if( outdoor && cand_wall
+					&& fabs( gc_newgame_cap_faces[min_i].plane.normal[2] ) >= 0.35f )
+					cand_score += ( cand->area >> 2 );
+				if( cand_score <= threshold )
+					continue;
+			}
 			slot = min_i;
 		}
 
@@ -907,6 +962,8 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		if( slot == gc_newgame_cap_face_count )
 			gc_newgame_cap_face_count++;
 		mid_new++;
+		if( cand_wall )
+			wall_new++;
 	}
 
 	if( mid_new > 0 )
@@ -925,13 +982,16 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		gc_newgame_cap_face_count, prev_count, prev_count, mid_new, gc_newgame_cap_lm_faces,
 		wall_boost, gc_newgame_viewcluster );
 	/* G165: sparse clusters (outdoor / landmark camera) — leaves typically << indoor. */
+	if( outdoor )
 	{
-		int leaves = GC_VisLeafsForCluster( gc_newgame_viewcluster );
-
-		if( leaves > 0 && leaves <= 48 )
+		SYS_Report( "Xash3D GameCube: G165 restore refresh cluster=%d mid_new=%d cands=%d leaves=%d\n",
+			gc_newgame_viewcluster, mid_new, ncand, leaves );
+		/* G170: prove outdoor refresh admitted more walls than the old 32-cand path. */
+		if( !gc_g170_logged && ( mid_new >= 20 || ( ncand >= 48 && wall_new >= 8 )))
 		{
-			SYS_Report( "Xash3D GameCube: G165 restore refresh cluster=%d mid_new=%d cands=%d leaves=%d\n",
-				gc_newgame_viewcluster, mid_new, ncand, leaves );
+			gc_g170_logged = true;
+			SYS_Report( "Xash3D GameCube: G170 outdoor refresh mid_new=%d wall_new=%d cands=%d leaves=%d cluster=%d\n",
+				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
 		}
 	}
 }
@@ -4247,6 +4307,7 @@ static void GC_FreeNewGamePVSCache( void )
 	gc_newgame_surf_cache_slots = 0;
 	memset( gc_refresh_ncands, 0, sizeof( gc_refresh_ncands ));
 	gc_g165_eye_cluster = -1;
+	gc_g170_logged = false;
 	if( gc_newgame_cluster_valid )
 	{
 		free( gc_newgame_cluster_valid );

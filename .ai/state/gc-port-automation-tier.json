@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G168 COMPLETE: Flipper studio chrome UVs (samples=798 span=0.999). Next: open polish (soft light chroma / further GX)."
+  "note": "G169 COMPLETE: soft studio scalar light + constant tint (fixed G166 span shred; lum=26 tint=31,31,31). Next: open polish (non-white lightcolor proof / further GX)."
 }

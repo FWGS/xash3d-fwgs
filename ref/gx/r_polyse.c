@@ -1254,23 +1254,25 @@ void R_PolysetFillSpans8( spanpackage_t *pspanpackage )
 #endif
 					pixel_t src = *lptex;
 #if XASH_GAMECUBE
-					/* G140/G166: major<<8|minor skins — RGB light (R5G5B5<<8), not grey ramp. */
+					/* G140/G166/G169: major<<8|minor skins — scalar Gouraud
+					 * luminance in llight, constant RGB tint per entity.
+					 * (A packed R5G5B5 llight bled between channels when the
+					 * rasterizer stepped it as one scalar → red/green noise.) */
 					if( d_gc_span_rgb565 )
 					{
 						pixel_t rgb = R_GCSoftToRGB565( src );
-						unsigned packed = ((unsigned)llight >> 8 ) & 0x7fffu;
-						unsigned lr = ( packed >> 10 ) & 0x1fu;
-						unsigned lg = ( packed >> 5 ) & 0x1fu;
-						unsigned lb = packed & 0x1fu;
-						unsigned r, g, b;
+						int li = llight >> 8; /* clamp: light stepping overshoots */
+						unsigned lum, lr, lg, lb, r, g, b;
 
+						if( li > 31 )
+							li = 31;
 						/* Floor so near-black lights still leave a silhouette. */
-						if( lr < 2u )
-							lr = 2u;
-						if( lg < 2u )
-							lg = 2u;
-						if( lb < 2u )
-							lb = 2u;
+						if( li < 2 )
+							li = 2;
+						lum = (unsigned)li;
+						lr = ( lum * d_gc_studio_tint_r5 ) / 31u;
+						lg = ( lum * d_gc_studio_tint_g5 ) / 31u;
+						lb = ( lum * d_gc_studio_tint_b5 ) / 31u;
 						r = ((( rgb >> 11 ) & 0x1fu ) * lr ) / 31u;
 						g = ((( rgb >> 5 ) & 0x3fu ) * lg ) / 31u;
 						b = (( rgb & 0x1fu ) * lb ) / 31u;

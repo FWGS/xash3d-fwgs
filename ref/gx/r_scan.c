@@ -25,6 +25,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #if XASH_GAMECUBE
 qboolean d_gc_span_rgb565;
+/* G169: constant per-entity studio light tint (R5/G5/B5); the polyset scalar
+ * llight carries luminance only so channel bleed cannot shred spans. */
+unsigned d_gc_studio_tint_r5 = 31u;
+unsigned d_gc_studio_tint_g5 = 31u;
+unsigned d_gc_studio_tint_b5 = 31u;
 
 /* Soft major<<8|minor → display RGB565 (shared by spans / polyset). */
 pixel_t R_GCSoftToRGB565( pixel_t soft )

@@ -46,11 +46,22 @@ static int GC_SoftStudioLightPacked( void )
 	unsigned cg = ( gx_rgba >> 16 ) & 0xFFu;
 	unsigned cb = ( gx_rgba >> 8 ) & 0xFFu;
 	unsigned lum = ( cr + cg + cb ) / 3u;
-	unsigned packed;
+	unsigned cmax = cr > cg ? cr : cg;
 	int dr, dg;
 	const qboolean is_viewmodel = ( tr.viewent != NULL && RI.currententity == tr.viewent );
 
-	packed = (( cr >> 3 ) << 10 ) | (( cg >> 3 ) << 5 ) | ( cb >> 3 );
+	if( cb > cmax )
+		cmax = cb;
+	/*
+	 * G169: the polyset rasterizer interpolates vertex light as ONE scalar
+	 * (llight += r_lstepx); a packed R5G5B5 there bleeds between channels
+	 * and shreds spans into red/green noise (G166 regression). Studio light
+	 * is lightcolor (constant per entity) x per-vertex scalar, so pass the
+	 * scalar (max channel) for interpolation and keep the RGB tint constant.
+	 */
+	d_gc_studio_tint_r5 = cmax ? ( cr * 31u ) / cmax : 31u;
+	d_gc_studio_tint_g5 = cmax ? ( cg * 31u ) / cmax : 31u;
+	d_gc_studio_tint_b5 = cmax ? ( cb * 31u ) / cmax : 31u;
 	if( is_viewmodel )
 	{
 		g166_shade_mask |= 1u << ( lum >> 3 );
@@ -77,9 +88,12 @@ static int GC_SoftStudioLightPacked( void )
 			gEngfuncs.Con_Reportf(
 				"Xash3D GameCube: G166 soft studio rgb shades=%d chroma=%u verts=%u mask=0x%08x\n",
 				shades, g166_chroma_verts, g166_soft_verts, g166_shade_mask );
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G169 soft studio scalar light lum=%u tint=(%u,%u,%u)\n",
+				cmax >> 3, d_gc_studio_tint_r5, d_gc_studio_tint_g5, d_gc_studio_tint_b5 );
 		}
 	}
-	return (int)( packed << 8 );
+	return (int)(( cmax >> 3 ) << 8 );
 }
 #endif
 

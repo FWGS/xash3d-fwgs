@@ -79,7 +79,7 @@ probe_wait_flatpak() {
 			if (( DOLPHIN_NEWGAME )); then
 				# Landmark Flipper/G16x markers prove play progressed past
 				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
-				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" ]]; then
+				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" && -z "${G169_DONE_MARKER:-}" && -z "${G170_DONE_MARKER:-}" ]]; then
 					if ! probe_log_has "${PLAY_READY_MARKER:-Xash3D GameCube: play start ready}"; then
 						sleep 2
 						continue
@@ -209,6 +209,16 @@ probe_wait_flatpak() {
 				sleep 2
 				continue
 			fi
+			# G169: soft studio scalar light + constant tint (no span noise).
+			if [[ -n "${G169_DONE_MARKER:-}" ]] && ! probe_log_has "$G169_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			# G170: outdoor Flipper refresh cand budget + wall preference.
+			if [[ -n "${G170_DONE_MARKER:-}" ]] && ! probe_log_has "$G170_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			# G101: lean-N multi-cluster PVS follow after changelevel.
 			if [[ -n "${G101_DONE_MARKER:-}" ]]; then
 				if ! probe_log_has "$G101_DONE_MARKER" \
@@ -229,7 +239,7 @@ probe_wait_flatpak() {
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
-			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" || -n "${G158_DONE_MARKER:-}" || -n "${G159_DONE_MARKER:-}" || -n "${G161_DONE_MARKER:-}" || -n "${G162_DONE_MARKER:-}" || -n "${G163_DONE_MARKER:-}" || -n "${G164_DONE_MARKER:-}" || -n "${G165_DONE_MARKER:-}" || -n "${G166_DONE_MARKER:-}" || -n "${G167_DONE_MARKER:-}" || -n "${G168_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
+			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" || -n "${G158_DONE_MARKER:-}" || -n "${G159_DONE_MARKER:-}" || -n "${G161_DONE_MARKER:-}" || -n "${G162_DONE_MARKER:-}" || -n "${G163_DONE_MARKER:-}" || -n "${G164_DONE_MARKER:-}" || -n "${G165_DONE_MARKER:-}" || -n "${G166_DONE_MARKER:-}" || -n "${G167_DONE_MARKER:-}" || -n "${G168_DONE_MARKER:-}" || -n "${G169_DONE_MARKER:-}" || -n "${G170_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
@@ -274,7 +284,7 @@ probe_wait_native() {
 			if (( DOLPHIN_NEWGAME )); then
 				# Landmark Flipper/G16x markers prove play progressed past
 				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
-				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" ]]; then
+				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" && -z "${G169_DONE_MARKER:-}" && -z "${G170_DONE_MARKER:-}" ]]; then
 					if ! probe_log_has "${PLAY_READY_MARKER:-Xash3D GameCube: play start ready}"; then
 						sleep 2
 						continue
@@ -382,6 +392,14 @@ probe_wait_native() {
 				sleep 2
 				continue
 			fi
+			if [[ -n "${G169_DONE_MARKER:-}" ]] && ! probe_log_has "$G169_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G170_DONE_MARKER:-}" ]] && ! probe_log_has "$G170_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			if [[ -n "${G101_DONE_MARKER:-}" ]]; then
 				if ! probe_log_has "$G101_DONE_MARKER" \
 					&& { [[ -z "${G101_ALT_MARKER:-}" ]] || ! probe_log_has "$G101_ALT_MARKER"; }; then
@@ -400,7 +418,7 @@ probe_wait_native() {
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
-			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" || -n "${G158_DONE_MARKER:-}" || -n "${G159_DONE_MARKER:-}" || -n "${G161_DONE_MARKER:-}" || -n "${G162_DONE_MARKER:-}" || -n "${G163_DONE_MARKER:-}" || -n "${G164_DONE_MARKER:-}" || -n "${G165_DONE_MARKER:-}" || -n "${G166_DONE_MARKER:-}" || -n "${G167_DONE_MARKER:-}" || -n "${G168_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
+			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" || -n "${G158_DONE_MARKER:-}" || -n "${G159_DONE_MARKER:-}" || -n "${G161_DONE_MARKER:-}" || -n "${G162_DONE_MARKER:-}" || -n "${G163_DONE_MARKER:-}" || -n "${G164_DONE_MARKER:-}" || -n "${G165_DONE_MARKER:-}" || -n "${G166_DONE_MARKER:-}" || -n "${G167_DONE_MARKER:-}" || -n "${G168_DONE_MARKER:-}" || -n "${G169_DONE_MARKER:-}" || -n "${G170_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi

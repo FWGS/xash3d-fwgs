@@ -3223,7 +3223,19 @@ Chrome mesh draws on the landmark viewmodel prove sphere-map coverage.
 
 Evidence: `.ai/logs/dolphin-probe-20260720-185130` —
 `G168 studio chrome uv samples=798 u=[0.000,0.999] v=[0.007,0.998] span=0.999`.
-Next: open polish (soft light chroma / further GX).
+Next: fix G166 span noise (G169).
+
+## G169 — Soft studio scalar light + constant tint (COMPLETE 2026-07-20)
+
+G166 packed R5G5B5 into the polyset scalar `llight`; interpolation bled bits
+between channels and shredded DumpFrames guns into red/green noise. TriAPI now
+interpolates max-channel luminance only and exports the constant per-entity
+tint; FillSpans applies lum × tint per channel (overshoot clamped, floor 2).
+
+Evidence: `.ai/logs/dolphin-probe-20260720-224319` —
+`G169 soft studio scalar light lum=26 tint=(31,31,31)`, G166/G168/G167 green,
+`stage-04j-g169-soft-scalar-light.png` shows a smooth (noise-free) gun.
+Next: open polish (non-white lightcolor proof / further GX).
 
 ## Next wake-up commands
 

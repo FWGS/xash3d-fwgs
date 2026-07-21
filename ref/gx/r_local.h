@@ -1042,6 +1042,10 @@ void D_DrawSpans16( espan_t *pspans );
 /* When set, D_DrawSpans16 writes display RGB565 via R_GCSoftToRGB565 so low-res
  * New Game frames stay compatible with the GX present path + flat fills. */
 extern qboolean d_gc_span_rgb565;
+/* G169: constant studio light tint applied per span (llight stays scalar). */
+extern unsigned d_gc_studio_tint_r5;
+extern unsigned d_gc_studio_tint_g5;
+extern unsigned d_gc_studio_tint_b5;
 pixel_t R_GCSoftToRGB565( pixel_t soft );
 #endif
 void D_DrawZSpans( espan_t *pspans );

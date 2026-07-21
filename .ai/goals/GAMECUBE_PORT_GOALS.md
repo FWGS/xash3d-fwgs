@@ -67,11 +67,13 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G166: soft DumpFrames studio RGB lighting (R5G5B5 TriAPI light)
 - G167: GX viewmodel depth range (LEQUAL + viewport 0..0.3, not Z-always)
 - G168: Flipper studio chrome sphere UVs (pass-through TriAPI + proof)
+- G169: soft studio scalar light + constant tint (fixes G166 span noise)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(none — G168 complete; next open polish TBD)*
+1. *(none — G169 complete; next open polish TBD)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260720-224319` (G169 lum=26 tint=31,31,31; dumps noise-free)
 - `.ai/logs/dolphin-probe-20260720-185130` (G168 chrome uv samples=798 span=0.999)
 - `.ai/logs/dolphin-probe-20260720-184602` (G167 depth range far=0.30 ztest=1; G166/G165/G164 green)
 - `.ai/logs/dolphin-probe-20260720-183857` (G166 soft studio rgb shades=14; G165/G164 green)
@@ -2854,7 +2856,27 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Evidence: `.ai/logs/dolphin-probe-20260720-185130` —
   `G168 studio chrome uv samples=798 u=[0.000,0.999] v=[0.007,0.998] span=0.999`,
   `G155 … viewmodel=1`, `G167 … ztest=1`, `G164 shades=29`.
-- Residual: soft light chroma when `lightcolor` is non-white; further GX polish.
+- Residual: G166 packed-RGB llight shredded soft spans (→ G169).
+
+## G169 [x] Soft studio scalar light + constant tint
+
+- Status: DONE 2026-07-20. G166 packed R5G5B5 into the polyset vertex light,
+  but the rasterizer interpolates `llight` as ONE scalar (`llight += r_lstepx`),
+  so channel bits bled into each other mid-span — DumpFrames guns shredded into
+  red/green noise. Studio light is `lightcolor` (constant per entity) × a
+  per-vertex scalar: TriAPI now passes the max-channel luminance for
+  interpolation and exports the normalized tint (`d_gc_studio_tint_*5`);
+  `R_PolysetFillSpans8` applies lum × tint per channel with clamped overshoot.
+- Acceptance:
+  - `G169 soft studio scalar light lum=N tint=(r,g,b)`
+  - `G166 soft studio rgb shades=` still >8; G168/G167/G165..G159 green
+  - DumpFrames viewmodel renders smooth (no red/green span shred)
+- Evidence: `.ai/logs/dolphin-probe-20260720-224319` —
+  `G169 soft studio scalar light lum=26 tint=(31,31,31)`,
+  `G166 … shades=14`, `G168 … span=0.999`, `G167 … ztest=1`;
+  `.ai/screenshots/demo-stages/stage-04j-g169-soft-scalar-light.png` (smooth gun).
+- Residual: soft light chroma proof needs a non-white `lightcolor` scene;
+  further GX polish.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 
