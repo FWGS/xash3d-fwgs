@@ -30,7 +30,57 @@ static short       s, t;
 static uint        light;
 #if XASH_GAMECUBE
 static float       gx_u, gx_v;
-static struct { float x, y, z, u, v; } gx_triv[3];
+static unsigned    gx_rgba = 0xFFFFFFFFu; /* G164: per-vertex RGBA for GX studio */
+static struct { float x, y, z, u, v; unsigned c; } gx_triv[3];
+/* G166: soft DumpFrames studio RGB light (R5G5B5<<8), not greyscale Quake ramp.
+ * Only attribute shade stats to the viewmodel so world studio props do not
+ * lock a weak early log before G161 soft dump. */
+static unsigned    g166_shade_mask;
+static unsigned    g166_chroma_verts;
+static unsigned    g166_soft_verts;
+static qboolean    g166_logged;
+
+static int GC_SoftStudioLightPacked( void )
+{
+	unsigned cr = ( gx_rgba >> 24 ) & 0xFFu;
+	unsigned cg = ( gx_rgba >> 16 ) & 0xFFu;
+	unsigned cb = ( gx_rgba >> 8 ) & 0xFFu;
+	unsigned lum = ( cr + cg + cb ) / 3u;
+	unsigned packed;
+	int dr, dg;
+	const qboolean is_viewmodel = ( tr.viewent != NULL && RI.currententity == tr.viewent );
+
+	packed = (( cr >> 3 ) << 10 ) | (( cg >> 3 ) << 5 ) | ( cb >> 3 );
+	if( is_viewmodel )
+	{
+		g166_shade_mask |= 1u << ( lum >> 3 );
+		g166_soft_verts++;
+		dr = (int)cr - (int)cg;
+		dg = (int)cg - (int)cb;
+		if( dr < 0 )
+			dr = -dr;
+		if( dg < 0 )
+			dg = -dg;
+		if( dr > 8 || dg > 8 )
+			g166_chroma_verts++;
+		if( !g166_logged && g166_soft_verts >= 64u )
+		{
+			unsigned mask = g166_shade_mask;
+			int shades = 0;
+
+			while( mask )
+			{
+				shades += (int)( mask & 1u );
+				mask >>= 1;
+			}
+			g166_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G166 soft studio rgb shades=%d chroma=%u verts=%u mask=0x%08x\n",
+				shades, g166_chroma_verts, g166_soft_verts, g166_shade_mask );
+		}
+	}
+	return (int)( packed << 8 );
+}
 #endif
 
 /*
@@ -95,6 +145,17 @@ void GAME_EXPORT _TriColor4f( float rr, float gg, float bb, float aa )
 	light = ( rr + gg + bb ) * 31 / 3;
 	if( light > 31 )
 		light = 31;
+
+#if XASH_GAMECUBE
+	/* G164/G166: full RGB for GX studio Gouraud and soft DumpFrames lighting. */
+	{
+		unsigned cr = rr <= 0.0f ? 0u : ( rr >= 1.0f ? 255u : (unsigned)( rr * 255.0f ));
+		unsigned cg = gg <= 0.0f ? 0u : ( gg >= 1.0f ? 255u : (unsigned)( gg * 255.0f ));
+		unsigned cb = bb <= 0.0f ? 0u : ( bb >= 1.0f ? 255u : (unsigned)( bb * 255.0f ));
+
+		gx_rgba = ( cr << 24 ) | ( cg << 16 ) | ( cb << 8 ) | 0xFFu;
+	}
+#endif
 
 	if( !vid.is2d && vid.rendermode == kRenderNormal )
 		return;
@@ -183,6 +244,29 @@ TriTexCoord2f
 */
 void GAME_EXPORT TriTexCoord2f( float u, float v )
 {
+#if XASH_GAMECUBE
+	/* G168: Flipper studio matches GL — pass UVs through (chrome sphere maps
+	 * land in 0..1; soft fmod/wrap was for affine texel coords only). */
+	if( R_GXStudioIsActive() )
+	{
+		float uu = u, vv = v;
+
+		gx_u = u;
+		gx_v = v;
+		while( uu < 0.0f )
+			uu += 1.0f;
+		while( vv < 0.0f )
+			vv += 1.0f;
+		while( uu > 1.0f )
+			uu -= 1.0f;
+		while( vv > 1.0f )
+			vv -= 1.0f;
+		s = r_affinetridesc.skinwidth * bound( 0.01, uu, 0.99 );
+		t = r_affinetridesc.skinheight * bound( 0.01, vv, 0.99 );
+		return;
+	}
+#endif
+	{
 	double u1 = 0, v1 = 0;
 	u = fmodf( u, 10 );
 	v = fmodf( v, 10 );
@@ -206,6 +290,7 @@ void GAME_EXPORT TriTexCoord2f( float u, float v )
 #endif
 	s = r_affinetridesc.skinwidth * bound( 0.01, u1, 0.99 );
 	t = r_affinetridesc.skinheight * bound( 0.01, v1, 0.99 );
+	}
 }
 
 /*
@@ -228,11 +313,10 @@ TriVertex3f
 void GAME_EXPORT TriVertex3f( float x, float y, float z )
 {
 #if XASH_GAMECUBE
-	/* G155: Flipper studio/viewmodel — emit world-space tris into EFB. */
+	/* G155: Flipper studio/viewmodel — emit world-space tris into EFB.
+	 * G164: per-vertex RGBA rides in gx_triv for Gouraud shading. */
 	if( R_GXStudioIsActive() )
 	{
-		R_GXStudioColor( light );
-
 		if( mode == TRI_TRIANGLES )
 		{
 			gx_triv[vertcount].x = x;
@@ -240,13 +324,14 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 			gx_triv[vertcount].z = z;
 			gx_triv[vertcount].u = gx_u;
 			gx_triv[vertcount].v = gx_v;
+			gx_triv[vertcount].c = gx_rgba;
 			vertcount++;
 			if( vertcount == 3 )
 			{
-				R_GXStudioEmitTri(
-					gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v,
-					gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v,
-					gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v );
+				R_GXStudioEmitTriC(
+					gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v, gx_triv[0].c,
+					gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v, gx_triv[1].c,
+					gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v, gx_triv[2].c );
 				vertcount = 0;
 			}
 			return;
@@ -258,13 +343,14 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 			gx_triv[vertcount].z = z;
 			gx_triv[vertcount].u = gx_u;
 			gx_triv[vertcount].v = gx_v;
+			gx_triv[vertcount].c = gx_rgba;
 			vertcount++;
 			if( vertcount >= 3 )
 			{
-				R_GXStudioEmitTri(
-					gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v,
-					gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v,
-					gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v );
+				R_GXStudioEmitTriC(
+					gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v, gx_triv[0].c,
+					gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v, gx_triv[1].c,
+					gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v, gx_triv[2].c );
 				gx_triv[1] = gx_triv[2];
 				vertcount = 2;
 			}
@@ -277,6 +363,7 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 			gx_triv[n].z = z;
 			gx_triv[n].u = gx_u;
 			gx_triv[n].v = gx_v;
+			gx_triv[n].c = gx_rgba;
 			n++;
 			vertcount++;
 			if( n == 3 )
@@ -284,15 +371,15 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 			if( vertcount >= 3 )
 			{
 				if( vertcount & 1 )
-					R_GXStudioEmitTri(
-						gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v,
-						gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v,
-						gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v );
+					R_GXStudioEmitTriC(
+						gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v, gx_triv[0].c,
+						gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v, gx_triv[1].c,
+						gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v, gx_triv[2].c );
 				else
-					R_GXStudioEmitTri(
-						gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v,
-						gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v,
-						gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v );
+					R_GXStudioEmitTriC(
+						gx_triv[2].x, gx_triv[2].y, gx_triv[2].z, gx_triv[2].u, gx_triv[2].v, gx_triv[2].c,
+						gx_triv[1].x, gx_triv[1].y, gx_triv[1].z, gx_triv[1].u, gx_triv[1].v, gx_triv[1].c,
+						gx_triv[0].x, gx_triv[0].y, gx_triv[0].z, gx_triv[0].u, gx_triv[0].v, gx_triv[0].c );
 			}
 			return;
 		}
@@ -301,7 +388,11 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 #endif
 	if( mode == TRI_TRIANGLES )
 	{
+#if XASH_GAMECUBE
+		R_SetupFinalVert( &triv[vertcount], x, y, z, GC_SoftStudioLightPacked(), s, t );
+#else
 		R_SetupFinalVert( &triv[vertcount], x, y, z, light << 8, s, t );
+#endif
 		vertcount++;
 		if( vertcount == 3 )
 		{
@@ -312,7 +403,11 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 	}
 	if( mode == TRI_TRIANGLE_FAN )
 	{
+#if XASH_GAMECUBE
+		R_SetupFinalVert( &triv[vertcount], x, y, z, GC_SoftStudioLightPacked(), s, t );
+#else
 		R_SetupFinalVert( &triv[vertcount], x, y, z, light << 8, s, t );
+#endif
 		vertcount++;
 		if( vertcount >= 3 )
 		{
@@ -324,7 +419,11 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 	}
 	if( mode == TRI_TRIANGLE_STRIP )
 	{
+#if XASH_GAMECUBE
+		R_SetupFinalVert( &triv[n], x, y, z, GC_SoftStudioLightPacked(), s, t );
+#else
 		R_SetupFinalVert( &triv[n], x, y, z, light << 8, s, t );
+#endif
 		n++;
 		vertcount++;
 		if( n == 3 )

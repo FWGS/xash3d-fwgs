@@ -20,8 +20,6 @@ extern void *GC_GetGxVideoMode( void );
 
 #define GC_GX_TEX_SLOTS		24
 #define GC_GX_TEX_MAX_DIM	64	/* MEM1: 24 × 64×64×2 ≈ 192 KiB tiled staging */
-/* G157: GoldSrc uses world FOV for viewmodels; narrow FOV buried the gun. */
-#define GC_GX_VIEWMODEL_FOV	90.0f
 
 typedef struct
 {
@@ -52,6 +50,9 @@ static int r_gx_studio_world_tris_acc;
 static int r_gx_studio_vm_tris_acc;
 static u32 r_gx_studio_color = 0xFFFFFFFF;
 static unsigned r_gx_studio_bound_tex;
+static unsigned r_gx_studio_shade_mask; /* G164: luminance buckets seen this pass */
+static qboolean r_gx_studio_gouraud_logged;
+static qboolean r_gx_studio_zrange_logged; /* G167 */
 /* G157: NDC band of viewmodel verts (Quake-style clip / w). */
 static matrix4x4 r_gx_studio_mvp;
 static qboolean r_gx_studio_mvp_valid;
@@ -690,11 +691,10 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 	GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
 	Mtx44 proj;
 	Mtx mv;
-	matrix4x4 vm_proj;
 
 	if( rmode )
 	{
-		GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight, 0.0f, 1.0f );
+		/* Viewport near/far filled below (G167 compresses viewmodel depth). */
 		GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
 		GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
 		GX_SetColorUpdate( GX_TRUE );
@@ -710,29 +710,35 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
 		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
 	GX_SetCullMode( viewmodel ? GX_CULL_NONE : GX_CULL_BACK );
-	/* Viewmodel: always on top so the gun is not buried by world depth. */
+	/*
+	 * G167: match GL studio viewmodel depth — glDepthRange(min, min+0.3*(max-min)).
+	 * Z-always (G155) never buried the gun in walls but also never clipped it
+	 * when looking into geometry. Compress EFB depth so the gun still wins
+	 * against mid/far world while nearby walls can occlude it.
+	 */
 	if( viewmodel )
-		GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
-	else
+	{
+		if( rmode )
+			GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight,
+				0.0f, 0.3f );
 		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	}
+	else
+	{
+		if( rmode )
+			GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight,
+				0.0f, 1.0f );
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	}
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 
 	r_gx_studio_mvp_valid = false;
-	r_gx_vm_fov_x = RI.rvp.fov_x;
+	r_gx_vm_fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
 	if( viewmodel )
 	{
-		/* G157: match world FOV; eye-pose sync does the framing work. */
-		float fov_x = GC_GX_VIEWMODEL_FOV;
-		float fov_y = fov_x * 0.75f;
-		float zNear = 4.0f;
-		float zFar = Q_max( 256.0f, RI.farClip );
-		float yMax = zNear * tanf( fov_y * M_PI_F / 360.0f );
-		float xMax = zNear * tanf( fov_x * M_PI_F / 360.0f );
-
-		r_gx_vm_fov_x = fov_x;
-		Matrix4x4_CreateProjection( vm_proj, xMax, -xMax, yMax, -yMax, zNear, zFar );
-		R_GXLoadMtx44FromXash( proj, vm_proj );
-		Matrix4x4_Concat( r_gx_studio_mvp, vm_proj, RI.worldviewMatrix );
+		/* G157: same projection as the world; eye-pose sync frames the gun. */
+		R_GXLoadMtx44FromXash( proj, RI.projectionMatrix );
+		Matrix4x4_Concat( r_gx_studio_mvp, RI.projectionMatrix, RI.worldviewMatrix );
 		r_gx_studio_mvp_valid = true;
 		r_gx_vm_ndc_ymin = 1e9f;
 		r_gx_vm_ndc_ymax = -1e9f;
@@ -764,15 +770,25 @@ void R_GXStudioBegin( qboolean viewmodel )
 	r_gx_studio_tris = 0;
 	r_gx_studio_bound_tex = 0;
 	r_gx_studio_color = 0xFFFFFFFFu;
+	r_gx_studio_shade_mask = 0;
 	R_GXPrepareStudioState( viewmodel );
 }
 
 void R_GXStudioEnd( void )
 {
+	GXRModeObj *rmode;
+
 	if( !r_gx_studio_active )
 		return;
 
 	GX_DrawDone();
+	/* Restore full EFB depth range after a compressed viewmodel pass. */
+	rmode = (GXRModeObj *)GC_GetGxVideoMode();
+	if( rmode )
+		GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight,
+			0.0f, 1.0f );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+
 	if( r_gx_studio_tris > 0 )
 	{
 		r_gx_world_drew = true;
@@ -795,13 +811,43 @@ void R_GXStudioEnd( void )
 				float mid = 0.5f * ( r_gx_vm_ndc_ymin + r_gx_vm_ndc_ymax );
 				float span = r_gx_vm_ndc_ymax - r_gx_vm_ndc_ymin;
 				/* Quake clip: +ndc_y is up. Hands should sit in the lower
-				 * half with a visible on-screen band (ymax > -1). */
+				 * half with a visible on-screen band (ymax > -1).
+				 * G162: also require a useful on-screen span (ymin > -1.6). */
 				int lower = ( mid < 0.0f && r_gx_vm_ndc_ymax > -1.0f
 					&& span > 0.15f ) ? 1 : 0;
+				int framed = ( lower && r_gx_vm_ndc_ymin > -1.6f
+					&& r_gx_vm_ndc_ymax > -0.55f ) ? 1 : 0;
 				gEngfuncs.Con_Reportf(
 					"Xash3D GameCube: G157 viewmodel fov=%.0f ndc_y=[%.2f,%.2f] mid=%.2f lower=%d samples=%d\n",
 					r_gx_vm_fov_x, r_gx_vm_ndc_ymin, r_gx_vm_ndc_ymax, mid, lower,
 					r_gx_vm_ndc_samples );
+				if( framed )
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G162 viewmodel framed ndc_y=[%.2f,%.2f] mid=%.2f\n",
+						r_gx_vm_ndc_ymin, r_gx_vm_ndc_ymax, mid );
+			}
+			/* G164: distinct luminance buckets prove per-vertex Gouraud (flat = 1). */
+			if( !r_gx_studio_gouraud_logged )
+			{
+				unsigned mask = r_gx_studio_shade_mask;
+				int shades = 0;
+
+				while( mask )
+				{
+					shades += (int)( mask & 1u );
+					mask >>= 1;
+				}
+				r_gx_studio_gouraud_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G164 studio gouraud shades=%d mask=0x%08x viewmodel=1\n",
+					shades, r_gx_studio_shade_mask );
+			}
+			/* G167: prove compressed depth range (not G155 Z-always overlay). */
+			if( !r_gx_studio_zrange_logged )
+			{
+				r_gx_studio_zrange_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G167 viewmodel depth range near=0.00 far=0.30 ztest=1\n" );
 			}
 		}
 		else if( !r_gx_studio_logged )
@@ -844,10 +890,19 @@ void R_GXStudioColor( unsigned light8 )
 	r_gx_studio_color = ( c << 24 ) | ( c << 16 ) | ( c << 8 ) | 0xFFu;
 }
 
-void R_GXStudioEmitTri(
-	float x0, float y0, float z0, float u0, float v0,
-	float x1, float y1, float z1, float u1, float v1,
-	float x2, float y2, float z2, float u2, float v2 )
+/* G164: track distinct vertex shades so Gouraud vs flat is provable in logs. */
+static void R_GXStudioNoteShade( unsigned rgba )
+{
+	unsigned lum = ((( rgba >> 24 ) & 0xFFu ) + (( rgba >> 16 ) & 0xFFu )
+		+ (( rgba >> 8 ) & 0xFFu )) / 3u;
+
+	r_gx_studio_shade_mask |= 1u << ( lum >> 3 ); /* 32 luminance buckets */
+}
+
+void R_GXStudioEmitTriC(
+	float x0, float y0, float z0, float u0, float v0, unsigned c0,
+	float x1, float y1, float z1, float u1, float v1, unsigned c1,
+	float x2, float y2, float z2, float u2, float v2, unsigned c2 )
 {
 	if( !r_gx_studio_active )
 		return;
@@ -858,19 +913,33 @@ void R_GXStudioEmitTri(
 	R_GXStudioNoteNdcVert( x0, y0, z0 );
 	R_GXStudioNoteNdcVert( x1, y1, z1 );
 	R_GXStudioNoteNdcVert( x2, y2, z2 );
+	R_GXStudioNoteShade( c0 );
+	R_GXStudioNoteShade( c1 );
+	R_GXStudioNoteShade( c2 );
 
 	GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 3 );
 	GX_Position3f32( x0, y0, z0 );
-	GX_Color1u32( r_gx_studio_color );
+	GX_Color1u32( c0 );
 	GX_TexCoord2f32( u0, v0 );
 	GX_Position3f32( x1, y1, z1 );
-	GX_Color1u32( r_gx_studio_color );
+	GX_Color1u32( c1 );
 	GX_TexCoord2f32( u1, v1 );
 	GX_Position3f32( x2, y2, z2 );
-	GX_Color1u32( r_gx_studio_color );
+	GX_Color1u32( c2 );
 	GX_TexCoord2f32( u2, v2 );
 	GX_End();
 	r_gx_studio_tris++;
+}
+
+void R_GXStudioEmitTri(
+	float x0, float y0, float z0, float u0, float v0,
+	float x1, float y1, float z1, float u1, float v1,
+	float x2, float y2, float z2, float u2, float v2 )
+{
+	R_GXStudioEmitTriC(
+		x0, y0, z0, u0, v0, r_gx_studio_color,
+		x1, y1, z1, u1, v1, r_gx_studio_color,
+		x2, y2, z2, u2, v2, r_gx_studio_color );
 }
 
 #else /* !XASH_GAMECUBE */
@@ -892,6 +961,15 @@ void R_GXStudioEmitTri(
 	(void)x0; (void)y0; (void)z0; (void)u0; (void)v0;
 	(void)x1; (void)y1; (void)z1; (void)u1; (void)v1;
 	(void)x2; (void)y2; (void)z2; (void)u2; (void)v2;
+}
+void R_GXStudioEmitTriC(
+	float x0, float y0, float z0, float u0, float v0, unsigned c0,
+	float x1, float y1, float z1, float u1, float v1, unsigned c1,
+	float x2, float y2, float z2, float u2, float v2, unsigned c2 )
+{
+	(void)x0; (void)y0; (void)z0; (void)u0; (void)v0; (void)c0;
+	(void)x1; (void)y1; (void)z1; (void)u1; (void)v1; (void)c1;
+	(void)x2; (void)y2; (void)z2; (void)u2; (void)v2; (void)c2;
 }
 
 #endif

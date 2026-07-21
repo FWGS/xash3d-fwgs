@@ -34,8 +34,17 @@ void GC_SetLoadingProgress( float progress );
 void GC_ArmPostMapFrameBudgetSamples( void );
 qboolean GC_IsNewGameG36Done( void );
 qboolean GC_IsNewGameWorldReady( void );
+qboolean GC_RenderNewGameWorldFrames( int count );
+qboolean GC_UseGxWorldDraw( void );
 qboolean CL_GameCubeClientProgsReady( void );
 qboolean CL_GameCubeEnsureClientReady( void );
+static qboolean gc_g159_reconnect_active_pending;
+static qboolean gc_g158_reconnect_seen;
+
+qboolean CL_GameCubePostReconnect( void )
+{
+	return gc_g158_reconnect_seen;
+}
 #endif
 
 #define CL_CONNECTION_TIMEOUT 15.0f
@@ -362,6 +371,29 @@ static void CL_CheckClientState( void )
 		{
 			SCR_EndLoadingPlaque();
 			GC_ArmPostMapFrameBudgetSamples();
+		}
+
+		/* G159: Flipper presents immediately on post-reconnect ca_active —
+		 * fullphysics spawn can otherwise starve SCR until the probe exits. */
+		if( gc_g159_reconnect_active_pending
+			&& Sys_CheckParm( "-gcnewgame" )
+			&& GC_IsNewGameG36Done() && GC_IsNewGameWorldReady() )
+		{
+			int i;
+
+			gc_g159_reconnect_active_pending = false;
+			cls.draw_changelevel = false;
+			if( cls.disable_screen )
+				cls.disable_screen = 0.0f;
+			Con_Reportf( "Xash3D GameCube: G159 ca_active present begin gx=%d\n",
+				GC_UseGxWorldDraw() ? 1 : 0 );
+			for( i = 0; i < 3; i++ )
+			{
+				if( !GC_RenderNewGameWorldFrames( 1 ))
+					break;
+			}
+			Con_Reportf( "Xash3D GameCube: G159 live GX present ca_active gx=%d\n",
+				GC_UseGxWorldDraw() ? 1 : 0 );
 		}
 #endif
 
@@ -1792,8 +1824,28 @@ static void CL_Reconnect( qboolean setup_netchan )
 
 #if XASH_GAMECUBE
 	if( Sys_CheckParm( "-gcnewgame" ))
+	{
 		Con_Reportf( "Xash3D GameCube: local reconnect setup=%d state=%d signon=%d\n",
 			setup_netchan ? 1 : 0, cls.state, cls.signon );
+		/* G158: Flipper presents before fullphysics/spawn can stall Host_Frame. */
+		if( GC_IsNewGameG36Done() && GC_IsNewGameWorldReady() )
+		{
+			int i;
+
+			gc_g159_reconnect_active_pending = true;
+			gc_g158_reconnect_seen = true;
+			cls.draw_changelevel = false;
+			Con_Reportf( "Xash3D GameCube: G158 reconnect present begin gx=%d\n",
+				GC_UseGxWorldDraw() ? 1 : 0 );
+			for( i = 0; i < 3; i++ )
+			{
+				if( !GC_RenderNewGameWorldFrames( 1 ))
+					break;
+			}
+			Con_Reportf( "Xash3D GameCube: G158 live GX present reconnect state=%d signon=%d gx=%d\n",
+				cls.state, cls.signon, GC_UseGxWorldDraw() ? 1 : 0 );
+		}
+	}
 #endif
 
 	CL_ServerCommand( true, "new" );

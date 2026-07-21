@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
 #include "platform/platform.h"
+qboolean CL_GameCubePostReconnect( void );
 #endif
 
 CVAR_DEFINE_AUTO( scr_centertime, "2.5", 0, "centerprint hold time" );
@@ -636,6 +637,12 @@ SCR_EndLoadingPlaque
 void SCR_EndLoadingPlaque( void )
 {
 	cls.disable_screen = 0.0f;
+#if XASH_GAMECUBE
+	/* New Game never reaches V_PostRender's CL_DrawHUD(CL_CHANGELEVEL), so the
+	 * plaque latch would otherwise stick and silence post-G36 / post-reconnect
+	 * world presents forever. */
+	cls.draw_changelevel = false;
+#endif
 	Con_ClearNotify();
 //	SNDDMA_UnlockSound();
 }
@@ -823,16 +830,27 @@ void SCR_UpdateScreen( void )
 		static qboolean gc_post_g36_world_ok;
 		static qboolean gc_vrv_path_logged;
 		static qboolean gc_hud_lean_logged;
+		static qboolean g159_ca_active_present_logged;
+		static unsigned g159_ca_active_presents;
 
 		/* G117: emit deferred gameplay SFX once ca_active (queued in Prepare). */
 		GC_PlayNewGameGameplaySound();
 
 		/* G92: never world-present during changelevel loading plaque —
 		 * BeginLoadingPlaque calls SCR_UpdateScreen before disable_screen
-		 * is set, and a mid-transition GL_RenderFrame hangs the guest. */
-		if( cls.draw_changelevel || GameState->nextstate == STATE_CHANGELEVEL
+		 * is set, and a mid-transition GL_RenderFrame hangs the guest.
+		 * G159: once world Flipper is armed, clear a sticky plaque latch so
+		 * post-reconnect ca_active keeps presenting. */
+		if( GameState->nextstate == STATE_CHANGELEVEL
 			|| GameState->curstate == STATE_CHANGELEVEL )
 			return;
+		if( cls.draw_changelevel )
+		{
+			if( GC_IsNewGameWorldReady() )
+				cls.draw_changelevel = false;
+			else
+				return;
+		}
 
 		if( cls.disable_screen )
 			cls.disable_screen = 0.0f;
@@ -843,10 +861,27 @@ void SCR_UpdateScreen( void )
 
 		if( GC_RenderNewGameWorldFrames( 1 ))
 		{
+			if( CL_GameCubePostReconnect() )
+				g159_ca_active_presents++;
 			if( !gc_vrv_path_logged )
 			{
 				Con_Reportf( "Xash3D GameCube: V_RenderView path present\n" );
 				gc_vrv_path_logged = true;
+			}
+			if( CL_GameCubePostReconnect() && !g159_ca_active_present_logged )
+			{
+				g159_ca_active_present_logged = true;
+				Con_Reportf(
+					"Xash3D GameCube: G159 live GX present ca_active gx=%d\n",
+					GC_UseGxWorldDraw() ? 1 : 0 );
+			}
+			else if( CL_GameCubePostReconnect()
+				&& ( g159_ca_active_presents == 8 || g159_ca_active_presents == 16
+					|| ( g159_ca_active_presents > 0 && ( g159_ca_active_presents % 32 ) == 0 )))
+			{
+				Con_Reportf(
+					"Xash3D GameCube: G159 ca_active presents=%u gx=%d\n",
+					g159_ca_active_presents, GC_UseGxWorldDraw() ? 1 : 0 );
 			}
 			if( !gc_hud_lean_logged && cls.signon == SIGNONS
 				&& !GC_IsFrameBudgetProbeActive() )
@@ -884,11 +919,47 @@ void SCR_UpdateScreen( void )
 	/* After map-load the present buffer is 160×120 while the soft renderer
 	 * screen is still deferred at 640×480. StretchPic/R_BlitScreen during
 	 * connect stalls Host_Frame before the local server can accept — New Game
-	 * never reaches ca_active / G36 arm. Keep frames alive until sign-on. */
+	 * never reaches ca_active / G36 arm. Keep frames alive until sign-on.
+	 *
+	 * G158: once Prepare has armed the world (and Flipper), reconnect often
+	 * stalls at signon=1/2 without ca_active. Keep bounded GX/soft presents
+	 * running so live frames continue past loopback:reconnect. */
 	if( Sys_CheckParm( "-gcnewgame" )
 		&& cls.state >= ca_connecting && cls.state < ca_active )
 	{
 		static qboolean gc_connect_skip_logged;
+		static qboolean g158_reconnect_present_logged;
+		static unsigned g158_reconnect_presents;
+
+		if( GC_IsNewGameG36Done() && GC_IsNewGameWorldReady()
+			&& GameState->nextstate != STATE_CHANGELEVEL
+			&& GameState->curstate != STATE_CHANGELEVEL )
+		{
+			/* G159: sticky plaque must not block Flipper during reconnect. */
+			if( cls.draw_changelevel )
+				cls.draw_changelevel = false;
+			if( cls.disable_screen )
+				cls.disable_screen = 0.0f;
+			if( GC_RenderNewGameWorldFrames( 1 ))
+			{
+				g158_reconnect_presents++;
+				if( !g158_reconnect_present_logged )
+				{
+					g158_reconnect_present_logged = true;
+					Con_Reportf(
+						"Xash3D GameCube: G158 live GX present reconnect state=%d signon=%d gx=%d\n",
+						cls.state, cls.signon, GC_UseGxWorldDraw() ? 1 : 0 );
+				}
+				else if( g158_reconnect_presents == 8 || g158_reconnect_presents == 16
+					|| ( g158_reconnect_presents > 0 && ( g158_reconnect_presents % 32 ) == 0 ))
+				{
+					Con_Reportf(
+						"Xash3D GameCube: G158 reconnect presents=%u state=%d signon=%d\n",
+						g158_reconnect_presents, cls.state, cls.signon );
+				}
+			}
+			return;
+		}
 
 		if( !gc_connect_skip_logged )
 		{

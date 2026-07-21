@@ -55,11 +55,35 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G154: real LM samples via disc bind for Flipper bake
 - G155: GX studio TriAPI → EFB (world studio path)
 - G156: pin landmark viewmodel + Flipper smoke `viewmodel=1`
+- G157: eye-pose sync for viewmodel (dist=0) + NDC lower-half check
+- G158: live Flipper presents through loopback reconnect (`gx=1`)
+- G159: sustained Flipper presents after post-reconnect `ca_active` (`gx=1`)
+- G160: outdoor wall-boost top-K + lean PVS LRU surfbits rebuild
+- G161: soft DumpFrames viewmodel while Flipper live (one-shot composite)
+- G162: viewmodel frame offset (forward+up) + top VIEWMODEL DumpFrames panel
+- G163: live cluster face refresh without LM rebake (capture cands + mid LM)
+- G164: GX studio Gouraud shading (per-vertex RGB light through TriAPI)
+- G165: restore-cluster face refresh (outdoor cands @ capture/Prepare)
+- G166: soft DumpFrames studio RGB lighting (R5G5B5 TriAPI light)
+- G167: GX viewmodel depth range (LEQUAL + viewport 0..0.3, not Z-always)
+- G168: Flipper studio chrome sphere UVs (pass-through TriAPI + proof)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(none — G156 complete; next: viewmodel FOV/origin polish; live GX after reconnect)*
+1. *(none — G168 complete; next open polish TBD)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260720-185130` (G168 chrome uv samples=798 span=0.999)
+- `.ai/logs/dolphin-probe-20260720-184602` (G167 depth range far=0.30 ztest=1; G166/G165/G164 green)
+- `.ai/logs/dolphin-probe-20260720-183857` (G166 soft studio rgb shades=14; G165/G164 green)
+- `.ai/logs/dolphin-probe-20260720-182331` (G165 restore refresh cluster=429 mid_new=14)
+- `.ai/logs/dolphin-probe-20260720-175743` (G164 gouraud shades=29 mask=0xfffffff8; tris=908)
+- `.ai/logs/dolphin-probe-20260720-174928` (G163 mid_new=32 reused baked LM; explore c=543)
+- `.ai/logs/dolphin-probe-20260720-165932` (G162 framed ndc mid=-0.28; soft dump + gun visible)
+- `.ai/logs/dolphin-probe-20260720-165320` (G161 soft dump viewmodel ready + G159 ca_active)
+- `.ai/logs/dolphin-probe-20260720-163223` (G160 wallboost=272/238; outdoor mid_sky 4.9%→0.3%)
+- `.ai/logs/dolphin-probe-20260720-162647` (G159 ca_active present gx=1)
+- `.ai/logs/dolphin-probe-20260720-161818` (G158 reconnect present gx=1)
+- `.ai/logs/dolphin-probe-20260720-160332` (G157 pose dist=0 fov=90 lower=1)
 - `.ai/logs/dolphin-probe-20260720-155105` (G156: G155 tris=908 viewmodel=1)
 - `.ai/logs/dolphin-probe-20260720-150403` (G153 lightmapped=199 TEV2; capture bake)
 - `.ai/logs/dolphin-probe-20260720-145710` (G152 textured=199 flat=0 Flipper TEV)
@@ -2629,6 +2653,208 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `G156 smoke bind viewmodel models/v_9mmhandgun.mdl`,
   `G155 GX studio tris=908 viewmodel=1`.
 - Next: viewmodel FOV/origin polish; live GX frames after reconnect (SCR stall).
+
+## G157 [x] Viewmodel eye-pose sync for Flipper
+
+- Status: DONE 2026-07-20. Without client `CalcRefdef`, New Game left
+  `clgame.viewent` at a stale/world origin so the gun floated as a tiny center
+  speck. Each `R_DrawViewModel` now copies `RI.rvp` eye origin/angles; skip
+  Quake pitch negate for the viewent; GX smoke reports NDC band.
+- Acceptance:
+  - `G157 viewmodel pose … dist=0.00`
+  - `G157 viewmodel fov=` with `lower=1`
+  - `G155 GX studio tris=` `viewmodel=1` still holds
+- Evidence: `.ai/logs/dolphin-probe-20260720-160332` —
+  `G157 viewmodel pose origin=(240,2112,833) … dist=0.00`,
+  `G155 GX studio tris=908 viewmodel=1`,
+  `G157 viewmodel fov=90 ndc_y=[-3.66,-0.30] mid=-1.98 lower=1`.
+- Residual: soft DumpFrames still mostly miss Flipper EFB gun; panel can cover
+  the lower band.
+
+## G158 [x] Live GX presents through loopback reconnect
+
+- Status: DONE 2026-07-20. After G151 smoke, `loopback:reconnect` dropped
+  below `ca_active` and SCR skipped presents while fullphysics stalled before
+  the next SCR call. `CL_Reconnect` now issues bounded
+  `GC_RenderNewGameWorldFrames` while GX is still armed; SCR also presents
+  during connect when G36+world_ready.
+- Acceptance:
+  - `G158 live GX present reconnect` with `gx=1`
+  - Still reaches post-reconnect `SendClientDatagram … post-G36`
+- Evidence: `.ai/logs/dolphin-probe-20260720-161818` —
+  `G151 GX world live enabled`,
+  `G158 reconnect present begin gx=1`,
+  `G158 live GX present reconnect state=2 signon=0 gx=1`,
+  later `SendClientDatagram ready bytes=… post-G36`.
+- Residual: after `client connected`, SCR presents were not evidenced (sticky
+  plaque / G149 dump re-arm). Next was G159.
+
+## G159 [x] Sustained live GX after post-reconnect ca_active
+
+- Status: DONE 2026-07-20. Reconnect already reached `ca_active`
+  (`client connected`). Residual was missing Flipper SCR presents after that
+  point: sticky `draw_changelevel`, reconnect G149 CPU-dump re-arm, and probe
+  exit armed on G158 before post-active evidence. Cleared plaque on
+  `EndLoadingPlaque` / Flipper-ready paths; skip G149 dump re-arm once Flipper
+  is live; force bounded presents on post-reconnect `ca_active`; probe waits
+  for the G159 marker.
+- Acceptance:
+  - `G159 live GX present ca_active` with `gx=1`
+- Evidence: `.ai/logs/dolphin-probe-20260720-162647` —
+  `G159 skip viewmodel dump re-arm (Flipper live)`,
+  `G159 ca_active present begin gx=1`,
+  `G159 live GX present ca_active gx=1`,
+  then `client connected at 2.80 sec`.
+- Residual: post-active HUD sprite soft-fails under MEM1; outdoor Flipper still
+  shows sky-through holes (static 256-face cap). Next is G160.
+
+## G160 [x] Outdoor Flipper hole fill (wall-boost + LRU surfbits)
+
+- Status: DONE 2026-07-20. G150 top-K still starved outdoor towers vs floors.
+  +50% score for near-vertical walls in the 256-face top-K; lean PVS LRU now
+  rebuilds marksurface bits (was memset-empty). Full face re-capture on cluster
+  switch was attempted but stalls Host_Frame on 256× LM rebake — deferred.
+- Acceptance:
+  - `G160 captured draw faces=… wallboost=` with wallboost>0
+  - Outdoor DumpFrames mid-band sky holes down vs G150 baseline
+- Evidence: `.ai/logs/dolphin-probe-20260720-163223` —
+  `G160 captured … wallboost=272` / `wallboost=238`,
+  framedump_17 mid_sky 4.9%→0.3%.
+- Residual: live cluster face refresh without LM rebake; soft DumpFrames viewmodel
+  addressed in G161.
+
+## G161 [x] Soft DumpFrames viewmodel while Flipper live
+
+- Status: DONE 2026-07-20. After G159, Deploy hit `G159 skip viewmodel dump
+  re-arm (Flipper live)`, so soft DumpFrames never latched the gun. One-shot
+  G161 path: arm `gc_cpu_dump_presents_left` so `GC_UseGxWorldDraw` is false,
+  eye-sync + soft-composite `v_9mmhandgun` into `gc.buffer`, present gun then
+  stamp VIEWMODEL, clear dump arm so Flipper resumes. Probe waits for
+  `G161 soft dump viewmodel ready` with G159.
+- Acceptance:
+  - `G161 soft dump composite viewmodel models/v_9mmhandgun.mdl`
+  - `G161 soft dump viewmodel ready`
+  - DumpFrames include VIEWMODEL panel (and/or soft gun latch)
+  - `G159 live GX present ca_active gx=1` still after G161
+- Evidence: `.ai/logs/dolphin-probe-20260720-165320` —
+  G161 composite/presents/ready, G159 ca_active gx=1;
+  framedump_25 VIEWMODEL panel;
+  `.ai/screenshots/demo-stages/stage-04d-viewmodel-dump.png`,
+  `stage-04e-viewmodel-panel.png`.
+- Residual: soft gun silhouette still weak vs G149 look-into-map dumps (lower
+  FOV / panel); live face refresh without LM rebake remains open. Soft framing
+  addressed in G162.
+
+## G162 [x] Soft DumpFrames viewmodel framing (offset + top panel)
+
+- Status: DONE 2026-07-20. G157 eye-pin left the gun mostly below the frustum
+  (`ndc mid≈-2`, tip-only). Apply New Game viewmodel origin nudge
+  `forward=5 up=12`; stamp VIEWMODEL panel at top so lower FOV stays clear;
+  accept when `G162 viewmodel framed` (ndc ymin>-1.6, ymax>-0.55).
+- Acceptance:
+  - `G162 viewmodel frame offset forward=5 up=12`
+  - `G162 viewmodel framed ndc_y=[…]` with mid in lower third
+  - `G162 soft dump viewmodel framed`
+  - DumpFrames show a substantial gun silhouette (not tip-only)
+- Evidence: `.ai/logs/dolphin-probe-20260720-165932` —
+  `G162 viewmodel framed ndc_y=[-1.27,0.70] mid=-0.28`,
+  `G162 soft dump viewmodel framed`, framedump_25 gun + top VIEWMODEL panel;
+  `.ai/screenshots/demo-stages/stage-04d-viewmodel-dump.png`,
+  `stage-04e-viewmodel-panel.png`.
+- Residual: live cluster face refresh without LM rebake (G163); soft studio shading.
+
+## G163 [x] Live cluster face refresh without LM rebake
+
+- Status: DONE 2026-07-20. Full 256-face rebuild mid-PVS hung Host_Frame; live
+  `msurface_t->plane` dangles at present. Defer refresh off the PVS switch path;
+  on c1a0a surf-table OOM keep a 4-slot capture-time surfbits+cand cache; admit
+  up to 32 new top-area faces with mid-grade LM only (reuse baked sample LM).
+- Acceptance:
+  - `G163 refresh cands ready` at capture (planes still valid)
+  - `G163 refreshed draw faces=` with `mid_new>0` and no sample LM rebake hang
+  - PVS prove / explore still completes; G162/G161/G159 markers remain green
+- Evidence: `.ai/logs/dolphin-probe-20260720-174928` —
+  `G163 explore cluster=543`, `mid_new=32` `lm=224` (32 mid replaces),
+  `G163 refreshed draw faces=256 prev=256 reused_lm=256 mid_new=32`.
+- Residual: restore cluster without capture cands skips refresh; soft studio shading.
+
+## G164 [x] GX studio Gouraud shading (per-vertex light)
+
+- Status: DONE 2026-07-20. G155 emitted every GX studio vertex with the last
+  TriAPI grey (`r_gx_studio_color`), so meshes were flat per triangle and
+  dropped `lightcolor` RGB. `_TriColor4f` now snapshots full RGBA (`gx_rgba`)
+  before its rendermode early-return; `TriVertex3f` buffers it per vertex and
+  `R_GXStudioEmitTriC` sends true per-vertex colors to the TEV MODULATE stage.
+- Acceptance:
+  - `G164 studio gouraud shades=N` with N > 8 distinct luminance buckets
+    (flat shading would report 1)
+  - G163/G162/G161/G159 markers stay green; probe exit 0
+- Evidence: `.ai/logs/dolphin-probe-20260720-175743` —
+  `G164 studio gouraud shades=29 mask=0xfffffff8 viewmodel=1`,
+  `G155 GX studio tris=908 viewmodel=1`.
+- Residual: studio chrome UVs on Flipper (depth range → G167).
+
+## G165 [x] Restore-cluster face refresh (outdoor cands)
+
+- Status: DONE 2026-07-20. G163 skipped Flipper refresh on prove restore to
+  outdoor cluster 429 (`no capture cands`). Capture now prioritizes outdoor-band
+  PVS rows (~35 vis leaves); Prepare also caches the camera/restore cluster
+  before scratch purge. Deferred refresh admits mid-grade LM faces for that set.
+- Acceptance:
+  - `G165 restore cands ready cluster=` at capture/Prepare
+  - `G165 restore refresh cluster=` with `mid_new>0` (no skip for restore cluster)
+  - G164/G163/G162/G161/G159 remain green
+- Evidence: `.ai/logs/dolphin-probe-20260720-182331` —
+  `G165 restore cands ready cluster=429 leaves=35`,
+  `G165 restore refresh cluster=429 mid_new=14 cands=32 leaves=35`,
+  `G163 refreshed … mid_new=14 … cluster=429`.
+- Residual: studio chrome UVs on Flipper (soft RGB → G166; depth → G167).
+
+## G166 [x] Soft DumpFrames studio RGB lighting
+
+- Status: DONE 2026-07-20. Soft TriAPI path collapsed studio light to greyscale
+  (`light<<8`) and shaded skins with an inverted Quake ramp, so G161 DumpFrames
+  guns looked like a grey silhouette. Soft verts now pack `gx_rgba` as R5G5B5<<8;
+  `R_PolysetFillSpans8` modulates skin RGB by those channels (high=bright).
+  Shade stats are attributed only to the viewmodel entity so world props cannot
+  lock a weak early log.
+- Acceptance:
+  - `G166 soft studio rgb shades=N` with N > 8 (viewmodel Gouraud)
+  - G165/G164/G163/G162/G161/G159 remain green; probe exit 0
+- Evidence: `.ai/logs/dolphin-probe-20260720-183857` —
+  `G166 soft studio rgb shades=14 chroma=0 verts=64 mask=0xf55821e0`,
+  `G164 studio gouraud shades=29`, `G165 restore refresh cluster=429 mid_new=14`,
+  `G161 soft dump viewmodel ready`.
+- Residual: soft light chroma when `lightcolor` is non-white (chrome → G168).
+
+## G167 [x] GX viewmodel depth range (not Z-always)
+
+- Status: DONE 2026-07-20. G155 drew the Flipper viewmodel with
+  `GX_ALWAYS` so walls never buried the gun — and never clipped it when looking
+  into geometry. Match GL `glDepthRange(min, min+0.3*(max-min))`: enable Z-test
+  write with viewport depth compressed to `[0, 0.3]`, restore `[0, 1]` on End.
+- Acceptance:
+  - `G167 viewmodel depth range near=0.00 far=0.30 ztest=1`
+  - `G155` viewmodel=1 + `G164`/`G166`/`G165` remain green; probe exit 0
+- Evidence: `.ai/logs/dolphin-probe-20260720-184602` —
+  `G167 viewmodel depth range near=0.00 far=0.30 ztest=1`,
+  `G155 GX studio tris=908 viewmodel=1`, `G164 shades=29`,
+  `G162 viewmodel framed … mid=-0.28`, `G166 shades=14`.
+- Residual: studio chrome UVs on Flipper (→ G168).
+
+## G168 [x] Flipper studio chrome sphere UVs
+
+- Status: DONE 2026-07-20. Soft TriAPI folded all UVs through fmod/wrap before
+  Flipper saw them; chrome sphere maps on `v_9mmhandgun` (and peers) were
+  unproven. GX studio now passes TriTexCoord UVs through like GL; chrome mesh
+  draw logs UV bounds to prove sphere variation.
+- Acceptance:
+  - `G168 studio chrome uv samples=N` with N≥16 and `span` > 0.1
+  - G167/G166/G165/G164/G155 remain green; probe exit 0
+- Evidence: `.ai/logs/dolphin-probe-20260720-185130` —
+  `G168 studio chrome uv samples=798 u=[0.000,0.999] v=[0.007,0.998] span=0.999`,
+  `G155 … viewmodel=1`, `G167 … ztest=1`, `G164 shades=29`.
+- Residual: soft light chroma when `lightcolor` is non-white; further GX polish.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

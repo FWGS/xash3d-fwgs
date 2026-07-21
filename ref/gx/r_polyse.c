@@ -1254,18 +1254,26 @@ void R_PolysetFillSpans8( spanpackage_t *pspanpackage )
 #endif
 					pixel_t src = *lptex;
 #if XASH_GAMECUBE
-					/* G140: major<<8|minor skins — skip Quake colormap, unpack + shade. */
+					/* G140/G166: major<<8|minor skins — RGB light (R5G5B5<<8), not grey ramp. */
 					if( d_gc_span_rgb565 )
 					{
 						pixel_t rgb = R_GCSoftToRGB565( src );
-						unsigned scale = 31u - (( llight >> 8 ) & 0x1fu );
+						unsigned packed = ((unsigned)llight >> 8 ) & 0x7fffu;
+						unsigned lr = ( packed >> 10 ) & 0x1fu;
+						unsigned lg = ( packed >> 5 ) & 0x1fu;
+						unsigned lb = packed & 0x1fu;
 						unsigned r, g, b;
 
-						if( scale < 8u )
-							scale = 8u;
-						r = ((( rgb >> 11 ) & 0x1fu ) * scale ) / 31u;
-						g = ((( rgb >> 5 ) & 0x3fu ) * scale ) / 31u;
-						b = (( rgb & 0x1fu ) * scale ) / 31u;
+						/* Floor so near-black lights still leave a silhouette. */
+						if( lr < 2u )
+							lr = 2u;
+						if( lg < 2u )
+							lg = 2u;
+						if( lb < 2u )
+							lb = 2u;
+						r = ((( rgb >> 11 ) & 0x1fu ) * lr ) / 31u;
+						g = ((( rgb >> 5 ) & 0x3fu ) * lg ) / 31u;
+						b = (( rgb & 0x1fu ) * lb ) / 31u;
 						*lpdest = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
 					}
 					else

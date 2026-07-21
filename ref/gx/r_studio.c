@@ -1762,6 +1762,13 @@ static void R_StudioDrawChromeMesh( short *ptricmds, vec3_t *pstudionorms, float
 	int      i, idx;
 	qboolean glowShell = ( scale > 0.0f ) ? true : false;
 	vec3_t   vert;
+#if XASH_GAMECUBE
+	/* G168: prove chrome sphere UVs reach Flipper with real variation. */
+	static qboolean g168_logged;
+	int             chrome_samples = 0;
+	float           chrome_umin = 1e9f, chrome_umax = -1e9f;
+	float           chrome_vmin = 1e9f, chrome_vmax = -1e9f;
+#endif
 
 	while(( i = *( ptricmds++ )))
 	{
@@ -1778,27 +1785,75 @@ static void R_StudioDrawChromeMesh( short *ptricmds, vec3_t *pstudionorms, float
 			if( glowShell )
 			{
 				color24 *clr = &RI.currententity->curstate.rendercolor;
+				float   cu, cv;
 
 				idx = g_studio.normaltable[ptricmds[0]];
 				av = g_studio.verts[ptricmds[0]];
 				lv = g_studio.norms[ptricmds[0]];
 				VectorMA( av, scale, lv, vert );
 				TriColor4ub( clr->r, clr->g, clr->b, 255 );
-				TriTexCoord2f( g_studio.chrome[idx][0] * s, g_studio.chrome[idx][1] * t );
+				cu = g_studio.chrome[idx][0] * s;
+				cv = g_studio.chrome[idx][1] * t;
+				TriTexCoord2f( cu, cv );
+#if XASH_GAMECUBE
+				if( R_GXStudioIsActive() )
+				{
+					if( cu < chrome_umin )
+						chrome_umin = cu;
+					if( cu > chrome_umax )
+						chrome_umax = cu;
+					if( cv < chrome_vmin )
+						chrome_vmin = cv;
+					if( cv > chrome_vmax )
+						chrome_vmax = cv;
+					chrome_samples++;
+				}
+#endif
 				TriVertex3fv( vert );
 			}
 			else
 			{
+				float cu, cv;
+
 				idx = ptricmds[1];
 				lv = (float *)g_studio.lightvalues[ptricmds[1]];
 				R_StudioSetColorBegin( ptricmds, pstudionorms );
-				TriTexCoord2f( g_studio.chrome[idx][0] * s, g_studio.chrome[idx][1] * t );
+				cu = g_studio.chrome[idx][0] * s;
+				cv = g_studio.chrome[idx][1] * t;
+				TriTexCoord2f( cu, cv );
+#if XASH_GAMECUBE
+				if( R_GXStudioIsActive() )
+				{
+					if( cu < chrome_umin )
+						chrome_umin = cu;
+					if( cu > chrome_umax )
+						chrome_umax = cu;
+					if( cv < chrome_vmin )
+						chrome_vmin = cv;
+					if( cv > chrome_vmax )
+						chrome_vmax = cv;
+					chrome_samples++;
+				}
+#endif
 				TriVertex3fv( g_studio.verts[ptricmds[0]] );
 			}
 		}
 
 		TriEnd();
 	}
+#if XASH_GAMECUBE
+	if( R_GXStudioIsActive() && !g168_logged && chrome_samples >= 16 )
+	{
+		float uspan = chrome_umax - chrome_umin;
+		float vspan = chrome_vmax - chrome_vmin;
+		float span = uspan > vspan ? uspan : vspan;
+
+		g168_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G168 studio chrome uv samples=%d u=[%.3f,%.3f] v=[%.3f,%.3f] span=%.3f\n",
+			chrome_samples, chrome_umin, chrome_umax, chrome_vmin, chrome_vmax, span );
+	}
+#endif
 }
 
 
@@ -2991,14 +3046,29 @@ void R_DrawViewModel( void )
 		return;
 
 #if XASH_GAMECUBE
-	/* G157: no client CalcRefdef — pin gun to the current eye every draw. */
+	/* G157: no client CalcRefdef — pin gun to the current eye every draw.
+	 * G162: HL viewmesh extends below the frustum at raw eye pose
+	 * (ndc mid≈-2); nudge forward+up so a useful band sits in the lower third. */
 	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) || GC_UseGxWorldDraw() )
 	{
 		vec3_t delta;
 		static qboolean g157_pose_logged;
+		static qboolean g162_offset_logged;
 
 		VectorCopy( RI.rvp.vieworigin, view->origin );
 		VectorCopy( RI.rvp.viewangles, view->angles );
+		if( RI.vforward[0] != 0.0f || RI.vforward[1] != 0.0f || RI.vforward[2] != 0.0f
+			|| RI.vup[0] != 0.0f || RI.vup[1] != 0.0f || RI.vup[2] != 0.0f )
+		{
+			VectorMA( view->origin, 5.0f, RI.vforward, view->origin );
+			VectorMA( view->origin, 12.0f, RI.vup, view->origin );
+			if( !g162_offset_logged )
+			{
+				g162_offset_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G162 viewmodel frame offset forward=5 up=12\n" );
+			}
+		}
 		VectorCopy( view->origin, view->curstate.origin );
 		VectorCopy( view->angles, view->curstate.angles );
 		if( view->curstate.animtime <= 0.0f )

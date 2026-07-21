@@ -212,6 +212,12 @@ static void CL_ParseSignon( sizebuf_t *msg, connprotocol_t proto )
 
 	cls.signon = i;
 	CL_SignonReply( proto );
+#if XASH_GAMECUBE
+	/* G158: keep Flipper alive through signon 1 while ca_active is pending. */
+	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
+		&& GC_IsNewGameWorldReady() && cls.state < ca_active )
+		SCR_UpdateScreen();
+#endif
 }
 
 /*

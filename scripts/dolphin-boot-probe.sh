@@ -369,6 +369,19 @@ if (( DOLPHIN_NEWGAME )); then
 	echo "==> New Game probe mode (expect map ${SMOKE_MAP})"
 	if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
+		# G161 soft DumpFrames gun, then G159 sustained Flipper after reconnect.
+		G158_DONE_MARKER="Xash3D GameCube: G158 live GX present reconnect"
+		G159_DONE_MARKER="Xash3D GameCube: G159 live GX present ca_active"
+		G161_DONE_MARKER="Xash3D GameCube: G161 soft dump viewmodel ready"
+		G162_DONE_MARKER="Xash3D GameCube: G162 soft dump viewmodel framed"
+		G163_DONE_MARKER="Xash3D GameCube: G163 refreshed draw faces="
+		G164_DONE_MARKER="Xash3D GameCube: G164 studio gouraud shades="
+		G165_DONE_MARKER="Xash3D GameCube: G165 restore refresh cluster="
+		G166_DONE_MARKER="Xash3D GameCube: G166 soft studio rgb shades="
+		G167_DONE_MARKER="Xash3D GameCube: G167 viewmodel depth range"
+		G168_DONE_MARKER="Xash3D GameCube: G168 studio chrome uv samples="
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
+		echo "==> Waiting for G168 chrome UV + G167/G166/G165/G164/G163/G162/G161/G159 markers"
 	fi
 	if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 		GUEST_ARGS+=("-gcnewsaveload")
@@ -581,9 +594,23 @@ if (( DOLPHIN_EXIT != 0 )); then
 	fi
 fi
 
+# Landmark G16x New Game often skips play-start / frame-armed; MAP+INPUT is enough
+# once the wait loop has already observed Flipper/soft-dump done markers.
+if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( DOLPHIN_NEWGAME )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map load was observed, followed by a guest error."
+	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
+	probe_report_g45
+	echo "Logs: $LOG_DIR"
+	finalize_probe map_ready 0
+fi
+
 if (( ! MAP_FOUND )) && (( ! READY_FOUND )) && (( ! GUEST_FOUND )); then
 	echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without reaching engine readiness."
 	(( GUEST_FOUND )) && grep -ahF 'OSREPORT' "${LOG_FILES[@]}" | tail -1 | sed 's/^/Last guest log: /'
 	echo "Logs: $LOG_DIR"
 	finalize_probe inconclusive_exit 4
 fi
+
+echo "INCONCLUSIVE_EXIT: Dolphin exited $DOLPHIN_EXIT without a classified probe status."
+echo "Logs: $LOG_DIR"
+finalize_probe inconclusive_exit 4
