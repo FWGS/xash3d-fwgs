@@ -385,8 +385,12 @@ if (( DOLPHIN_NEWGAME )); then
 		G171_DONE_MARKER="Xash3D GameCube: G171 outdoor refresh"
 		G172_DONE_MARKER="Xash3D GameCube: G172 HUD sheets loaded"
 		G173_DONE_MARKER="Xash3D GameCube: G173 HUD hud1 lean"
+		G174_DONE_MARKER="Xash3D GameCube: G174 HUD crosshairs lean"
+		G175_DONE_MARKER="Xash3D GameCube: G175 outdoor refresh"
+		G176_DONE_MARKER="Xash3D GameCube: G176 raised face cap"
+		G177_DONE_MARKER="Xash3D GameCube: G177 soft dump HUD composite"
 		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
-		echo "==> Waiting for G173 HUD hud1 + G172/G171/G170/G169/G168/G167/G166/G165/G164/G163/G162/G161/G159 markers"
+		echo "==> Waiting for G177 soft HUD + G176/G175/G174/G173/G172/G171/G170/G169/G168/G167/G166/G165/G164/G163/G162/G161/G159 markers"
 	fi
 	if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 		GUEST_ARGS+=("-gcnewsaveload")

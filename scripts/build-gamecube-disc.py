@@ -836,11 +836,12 @@ GC_STUDIO_MODELS = (
 GC_HUD_SPRITES = (
 	"sprites/320_pain.spr",
 	"sprites/320_train.spr",
-	"sprites/crosshairs.spr",
 	# Unique names so retail ISO9660 sprites/320hud*.spr cannot shadow a bad read.
 	("sprites/320hud2.spr", "sprites/gc_320hud2.spr"),
-	# G173: lean 128×128 downsample of fat 320hud1 (~66 KiB → ~17 KiB).
+	# G173: lean 64×64 downsample of fat 320hud1 (~66 KiB → ~5 KiB).
 	("sprites/320hud1.spr", "sprites/gc_320hud1.spr"),
+	# G174: lean 64×64 downsample of 128×128 crosshairs (~17 KiB → ~5 KiB).
+	("sprites/crosshairs.spr", "sprites/gc_crosshairs.spr"),
 )
 
 # Lean skybox BMPs for New Game RGB565 fills. Use gc_desert* names so retail
@@ -901,7 +902,7 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 
 
 def lean_hl_spr_bytes(src: Path, scale: int = 2) -> bytes | None:
-	"""Nearest-neighbor downsample a single-frame HL SPR (G173: 320hud1 256→128)."""
+	"""Nearest-neighbor downsample a single-frame HL SPR (G173/G174 lean HUD)."""
 	import math
 
 	try:
@@ -957,6 +958,11 @@ def lean_hl_spr_bytes(src: Path, scale: int = 2) -> bytes | None:
 
 def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	"""Add allowlisted HUD sprites into bootstrap under their disc paths."""
+	# G173/G174: downsample fat sheets to ~5 KiB under gc_* aliases.
+	lean_scale = {
+		"gc_320hud1.spr": 4,  # 256→64
+		"gc_crosshairs.spr": 2,  # 128→64
+	}
 	staged = 0
 	for entry in GC_HUD_SPRITES:
 		if isinstance(entry, tuple):
@@ -969,9 +975,9 @@ def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 		arcname = arc_rel.lower()
 		if arcname in archive.NameToInfo:
 			continue
-		# G173: store a lean downsample for fat hud1 under the gc_ alias.
-		if arc_rel.endswith("gc_320hud1.spr"):
-			payload = lean_hl_spr_bytes(src, scale=2)
+		arc_base = Path(arc_rel).name.lower()
+		if arc_base in lean_scale:
+			payload = lean_hl_spr_bytes(src, scale=lean_scale[arc_base])
 			if not payload:
 				continue
 			archive.writestr(arcname, payload, compress_type=zipfile.ZIP_STORED)

@@ -74,11 +74,12 @@ static byte *gc_newgame_pvs_table; /* [numclusters][visbytes] or lean slots */
 static byte *gc_newgame_node_table; /* [numclusters][nodebytes] or lean slots */
 static byte *gc_newgame_surf_table; /* G132: [numclusters][surfbytes] marksurface bits at capture */
 static byte *gc_newgame_surfbits; /* active row into surf_table */
-/* G163/G171: when full surf_table OOMs, keep a few capture-time rows (marks die later).
- * G171: trade cache slots 8→5 for refresh cands 32→48 (same/less BSS cells: 240 vs 256)
- * so outdoor restore can admit more wall faces without the 64-cand MEM1 OOM. */
-#define GC_SURFBITS_CACHE_SLOTS 5
-#define GC_CAP_REFRESH_NEW_MAX 48
+/* G163/G171/G175: when full surf_table OOMs, keep a few capture-time rows (marks die later).
+ * G171: trade cache slots 8→5 for refresh cands 32→48 (240 cells).
+ * G175: trade again 5→4 for cands 48→64 (256 cells = original 8×32 budget)
+ * so outdoor restore admits more wall faces without the old 8×64 MEM1 OOM. */
+#define GC_SURFBITS_CACHE_SLOTS 4
+#define GC_CAP_REFRESH_NEW_MAX 64
 static byte *gc_newgame_surf_cache;
 static int gc_newgame_surf_cache_cluster[GC_SURFBITS_CACHE_SLOTS];
 static int gc_newgame_surf_cache_slots;
@@ -100,6 +101,7 @@ static gc_refresh_cand_t gc_refresh_cands[GC_SURFBITS_CACHE_SLOTS][GC_CAP_REFRES
 static int gc_refresh_ncands[GC_SURFBITS_CACHE_SLOTS];
 static int gc_g165_eye_cluster = -1; /* G165: player-eye cluster for restore refresh */
 static qboolean gc_g171_logged;
+static qboolean gc_g175_logged;
 static byte *gc_newgame_cluster_valid; /* one byte per cluster (full) or per lean slot */
 static int gc_newgame_numclusters;
 static qboolean gc_newgame_pvs_lean; /* G96/G101: compact cache when multi-row OOM */
@@ -122,13 +124,13 @@ static int gc_newgame_numnodes;
 static int gc_newgame_numsurfaces;
 static int gc_newgame_vis_leafs;
 static int gc_newgame_vis_nodes;
-/* G132/G148/G150/G160: compact face records captured while msurface_t is still valid.
- * Cap stays 256 (larger BSS OOMs surfbits capture). G150 keeps top-K by area;
- * G160 boosts near-vertical walls and re-captures when lean PVS follows. */
-#define GC_MAX_CAP_FACES 256
-#define GC_CAP_AREA_SLOTS (( GC_MAX_CAP_FACES * 7 ) / 8) /* 224 top-K by area */
-/* G153: bake style-0 lightmap to RGB565 at capture (samples dangle later). */
-#define GC_CAP_LM_DIM 8
+/* G132/G148/G150/G160/G176: compact face records captured while msurface_t is still valid.
+ * G176: trade lightmap tile 8→4 (GX 4×4 RGB565) to raise face cap 256→320
+ * without BSS growth (~−4 KiB net: LM save outweighs +64 face structs). */
+#define GC_MAX_CAP_FACES 320
+#define GC_CAP_AREA_SLOTS (( GC_MAX_CAP_FACES * 7 ) / 8) /* 280 top-K by area */
+/* G153/G176: bake style-0 lightmap to RGB565 at capture (must be multiple of 4). */
+#define GC_CAP_LM_DIM 4
 typedef struct
 {
 	int		firstedge;
@@ -153,6 +155,7 @@ static byte gc_newgame_cap_lm_real[GC_MAX_CAP_FACES]; /* 1 if baked from samples
 static int gc_newgame_cap_face_count;
 static int gc_newgame_cap_tex_faces; /* faces that kept a live texture* */
 static int gc_newgame_cap_lm_faces; /* faces with real sample bake */
+static qboolean gc_g176_logged;
 
 int GC_GetNewGameCapFaceCount( void )
 {
@@ -680,6 +683,15 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	SYS_Report( "Xash3D GameCube: G160 captured draw faces=%d textured=%d lm=%d replaced=%d wallboost=%d (max=%d)\n",
 		gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces,
 		replaced, wall_boost, GC_MAX_CAP_FACES );
+	/* G176: prove LM 8→4 funded face cap 256→320 without BSS growth. */
+	if( !gc_g176_logged && gc_newgame_cap_face_count >= 300
+		&& GC_MAX_CAP_FACES >= 320 && GC_CAP_LM_DIM == 4 )
+	{
+		gc_g176_logged = true;
+		SYS_Report( "Xash3D GameCube: G176 raised face cap count=%d max=%d lm_dim=%d lm_real=%d\n",
+			gc_newgame_cap_face_count, GC_MAX_CAP_FACES, GC_CAP_LM_DIM,
+			gc_newgame_cap_lm_faces );
+	}
 }
 
 /*
@@ -995,11 +1007,18 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 	{
 		SYS_Report( "Xash3D GameCube: G165 restore refresh cluster=%d mid_new=%d cands=%d leaves=%d\n",
 			gc_newgame_viewcluster, mid_new, ncand, leaves );
-		/* G171: prove slots↔cands trade (48 cands) admitted outdoor walls. */
+		/* G171/G175: prove slots↔cands trade admitted outdoor walls. */
 		if( !gc_g171_logged && ncand >= 40 && ( mid_new >= 18 || wall_new >= 10 ))
 		{
 			gc_g171_logged = true;
 			SYS_Report( "Xash3D GameCube: G171 outdoor refresh mid_new=%d wall_new=%d cands=%d leaves=%d cluster=%d\n",
+				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
+		}
+		/* G175: 4×64 trade — more outdoor walls than G171's 5×48. */
+		if( !gc_g175_logged && ncand >= 56 && ( mid_new >= 20 || wall_new >= 14 ))
+		{
+			gc_g175_logged = true;
+			SYS_Report( "Xash3D GameCube: G175 outdoor refresh mid_new=%d wall_new=%d cands=%d leaves=%d cluster=%d\n",
 				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
 		}
 	}
@@ -3129,6 +3148,54 @@ static void GC_DrawStatusPanelToBuffer( unsigned short *dst, int width, int heig
 }
 
 /*
+ * G177: blit lean HUD sheets into the soft DumpFrames RGB565 buffer before the
+ * status panel so Dolphin captures crosshair / hud1 with the world composite.
+ */
+static qboolean gc_g177_logged;
+
+static void GC_SoftDumpCompositeHUD( void )
+{
+	qboolean saved_prepped;
+	int i;
+	int real_sheets = 0;
+
+	if( !gc.buffer || gc.width <= 0 || gc.height <= 0 )
+		return;
+
+	for( i = 0; i < MAX_CLIENT_SPRITES; i++ )
+	{
+		model_t *mod = &clgame.sprites[i];
+
+		if( mod->needload == NL_UNREFERENCED )
+			continue;
+		if( mod->type != mod_sprite )
+			continue;
+		if( !Mod_GCIsSpriteStub( mod ))
+			real_sheets++;
+	}
+	if( real_sheets < 1 )
+		return;
+
+	saved_prepped = cl.video_prepped;
+	cl.video_prepped = true;
+	ref.dllFuncs.R_BeginFrame( false );
+	ref.dllFuncs.R_AllowFog( false );
+	ref.dllFuncs.R_Set2DMode( true );
+	CL_DrawHUD( CL_ACTIVE );
+	ref.dllFuncs.R_AllowFog( true );
+	Platform_SetTimer( 0.0f );
+	ref.dllFuncs.R_EndFrame();
+	cl.video_prepped = saved_prepped;
+
+	if( !gc_g177_logged )
+	{
+		gc_g177_logged = true;
+		Con_Reportf( "Xash3D GameCube: G177 soft dump HUD composite sheets=%d\n",
+			real_sheets );
+	}
+}
+
+/*
  * G60: Present loading progress without relying on renderer assets. Long map
  * loads can otherwise look like a hard hang on real hardware or composite
  * capture, especially before the client has a valid loading texture.
@@ -5040,8 +5107,8 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 					max_c = i;
 				}
 			}
-			/* G165/G171: exact outdoor leaf-count, then near-band.
-			 * With 5 slots, reserve 1 for max_c / leafbox (was -2 with 8). */
+			/* G165/G171/G175: exact outdoor leaf-count, then near-band.
+			 * With 4 slots, reserve 1 for max_c / leafbox. */
 			for( i = 0; i < numclusters
 				&& gc_newgame_surf_cache_slots < GC_SURFBITS_CACHE_SLOTS - 1; i++ )
 			{
@@ -5477,6 +5544,8 @@ void GC_PresentLandmarkViewModel( void )
 					GC_ScrubLiveWorldSpeckles( gc.buffer, gc.width, gc.height, gc.stride );
 					Con_Reportf( "Xash3D GameCube: G161 soft dump composite viewmodel %s\n",
 						path );
+					/* G177: HUD on the gun soft dump before VIEWMODEL panel. */
+					GC_SoftDumpCompositeHUD();
 					/* G162: present gun first with lower FOV clear, then top panel. */
 					gc_cpu_dump_presents_left = 2;
 					Con_Reportf( "Xash3D GameCube: G161 soft dump viewmodel presents begin\n" );
@@ -5816,6 +5885,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 							depth_valid, nonblack, samples );
 					}
 				}
+				/* G177: HUD sheets into soft buffer before WORLD PRESENT panel. */
+				GC_SoftDumpCompositeHUD();
 				Q_snprintf( details, sizeof( details ), "MAP=%s",
 					sv.name[0] ? sv.name : "?" );
 				GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride,

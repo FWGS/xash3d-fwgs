@@ -71,11 +71,21 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G170: soft studio chroma tint proof (DumpFrames warm amber when light white)
 - G171: outdoor Flipper refresh via slots↔cands trade (5×48, no BSS growth)
 - G172: HUD sheets via sys-malloc after studios (gc_320hud2/train/crosshairs real)
+- G173: lean gc_320hud1 (64×64 bootstrap) preferred under memopt
+- G174: lean gc_crosshairs (64×64 bootstrap) preferred under memopt
+- G175: outdoor Flipper refresh via slots↔cands trade (4×64, no BSS growth)
+- G176: face cap 256→320 via LM tile 8→4 trade (no BSS growth)
+- G177: soft DumpFrames HUD composite (lean sheets into WORLD PRESENT)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(none — G172 complete; next open polish TBD)*
+1. *(none — G177 complete; next open polish TBD)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260721-002355` (G177 soft dump HUD sheets=4; G176/G174/G155 green)
+- `.ai/logs/dolphin-probe-20260721-001608` (G176 cap=320 drawn=249 rim=133; G175/G174/G155 green)
+- `.ai/logs/dolphin-probe-20260721-000815` (G175 mid_new=23 wall_new=15 cands=64; rim=187; G174/G155 green)
+- `.ai/logs/dolphin-probe-20260721-000202` (G174 crosshairs lean real=4/4; G173/G172; view=2; G155 viewmodel=1)
+- `.ai/logs/dolphin-probe-20260720-235658` (G173 hud1 lean real=3/3; G172 3/3; view=2; G155 viewmodel=1)
 - `.ai/logs/dolphin-probe-20260720-234531` (G172 real=3/3; view=2; G155 viewmodel=1)
 - `.ai/logs/dolphin-probe-20260720-231838` (G171 mid_new=17 wall_new=12 cands=48; rim fill 180)
 - `.ai/logs/dolphin-probe-20260720-185130` (G168 chrome uv samples=798 span=0.999)
@@ -2931,6 +2941,91 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   `deferred studio done … view=2`, `G155 … tris=908 viewmodel=1`,
   `G161 soft dump viewmodel ready`, `G171 outdoor refresh mid_new=17`.
 - Residual: fat `320hud1` still stubs; further GX polish.
+
+## G173 [x] Lean gc_320hud1 bootstrap sheet
+
+- Status: DONE 2026-07-20. Fat retail `320hud1.spr` (~66 KiB) soft-fails under
+  memopt even via sys-malloc after studios. Disc injects lean `gc_320hud1.spr`
+  (64×64, ~4.8 KiB); memopt prefers that alias over ISO retail. Early post-studio
+  HUD preload loads hud1 first; late retry still covers stubs.
+- Acceptance:
+  - `G173 HUD hud1 lean real=N` with hud1 real (not stub)
+  - `G172 HUD sheets loaded real≥2`; `deferred studio done` with `view≥1`
+  - `G155 … viewmodel=1`; G171/G170/G169/G161 remain green; probe exit 0
+- Evidence: `.ai/logs/dolphin-probe-20260720-235658` —
+  `HUD sprite fallback … → sprites/gc_320hud1.spr`,
+  `G172 HUD sprite sys-malloc sprites/gc_320hud1.spr size=4.81 Kb`,
+  `G173 HUD hud1 lean real=3 of 3`, `G172 … real=3 of 3`,
+  `deferred studio done … view=2`, `G155 … viewmodel=1`;
+  `.ai/screenshots/demo-stages/stage-04p-g173-hud1-lean.png`.
+- Residual: `crosshairs.spr` (~17 KiB) may still stub as third fat sheet; further GX.
+
+## G174 [x] Lean gc_crosshairs bootstrap sheet
+
+- Status: DONE 2026-07-21. Fat retail `crosshairs.spr` (128×128, ~17 KiB) soft-failed
+  as a third ~17 KiB HUD sheet after hud2+train. Disc injects lean `gc_crosshairs.spr`
+  (64×64, ~4.8 KiB); memopt prefers that alias. Early post-studio preload includes it.
+- Acceptance:
+  - `G174 HUD crosshairs lean real=N` with crosshairs real (not stub)
+  - `G173 HUD hud1 lean` + `G172 HUD sheets loaded real≥3`
+  - `deferred studio done` with `view≥1`; `G155 … viewmodel=1`; probe exit 0
+- Evidence: `.ai/logs/dolphin-probe-20260721-000202` —
+  `HUD sprite fallback … → sprites/gc_crosshairs.spr`,
+  `G172 HUD sprite sys-malloc sprites/gc_crosshairs.spr size=4.81 Kb`,
+  `G174 HUD crosshairs lean real=4 of 4`, `G172 … real=4 of 4`,
+  `deferred studio done … view=2`, `G155 … viewmodel=1`;
+  `.ai/screenshots/demo-stages/stage-04r-g174-crosshairs-lean.png`.
+- Residual: further GX / outdoor coverage polish.
+
+## G175 [x] Outdoor Flipper refresh via 4×64 slots↔cands trade
+
+- Status: DONE 2026-07-21. G171's 5×48 cand budget still left outdoor restore
+  under-admitting walls (`mid_new=17 wall_new=12`). Trade cache slots 5→4 for
+  refresh cands 48→64 (256 cells = original 8×32 budget) without BSS growth /
+  MEM1 OOM.
+- Acceptance:
+  - `G175 outdoor refresh … cands=64` with `mid_new≥20` or `wall_new≥14`
+  - `G171 outdoor refresh` still logs; rim fill ≤ prior (~200)
+  - `G155 … viewmodel=1`; G174/G173 remain green; probe exit 0
+- Evidence: `.ai/logs/dolphin-probe-20260721-000815` —
+  `G175 outdoor refresh mid_new=23 wall_new=15 cands=64 leaves=35 cluster=429`,
+  `G171 … mid_new=23 wall_new=15 cands=64`, `G150 sky-hole rim fill=187`,
+  `G155 … viewmodel=1`, `G174 … real=4 of 4`;
+  `.ai/screenshots/demo-stages/stage-04s-g175-outdoor-coverage.png`.
+- Residual: static 256-face draw cap; further GX polish.
+
+## G176 [x] Raise face cap 256→320 via LM 8→4 trade
+
+- Status: DONE 2026-07-21. Static 256-face cap left outdoor sky holes after G175
+  refresh. GX RGB565 LM tiles must be multiples of 4; shrink bake tile 8→4
+  (32→10 KiB) and raise `GC_MAX_CAP_FACES` 256→320 (~−4 KiB net BSS on
+  `vid_gamecube`).
+- Acceptance:
+  - `G176 raised face cap count=320 max=320 lm_dim=4`
+  - `G151 GX world faces drawn` absolute count > prior ~196
+  - `G150 sky-hole rim fill` ≤ prior ~187; G175/G174/G155 remain green
+- Evidence: `.ai/logs/dolphin-probe-20260721-001608` —
+  `G176 raised face cap count=320 max=320 lm_dim=4 lm_real=320`,
+  `G151 … drawn=249 of 320`, `G150 sky-hole rim fill=133`,
+  `G175 … cands=64`, `G155 … viewmodel=1`, `G174 … real=4 of 4`;
+  `.ai/screenshots/demo-stages/stage-04t-g176-face-cap.png`.
+- Residual: further GX polish (LM sharpness / soft DumpFrames HUD).
+
+## G177 [x] Soft DumpFrames HUD composite
+
+- Status: DONE 2026-07-21. Lean HUD sheets loaded (G172–G174) but WORLD PRESENT /
+  G161 soft DumpFrames never called `CL_DrawHUD` into the RGB565 buffer before
+  the status panel. Composite HUD after scrub / before panel on both paths.
+- Acceptance:
+  - `G177 soft dump HUD composite sheets=N` with N≥2
+  - `RGB565 2D/HUD draw active` during dump window
+  - G176/G174/G161/G155 remain green; probe exit 0
+- Evidence: `.ai/logs/dolphin-probe-20260721-002355` —
+  `RGB565 2D/HUD draw active`, `G177 soft dump HUD composite sheets=4`,
+  `G176 … count=320`, `G174 … real=4 of 4`, `G155 … viewmodel=1`,
+  `G161 soft dump viewmodel ready`;
+  `.ai/screenshots/demo-stages/stage-04u-g177-soft-hud.png`.
+- Residual: further GX polish (LM sharpness / Flipper HUD).
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

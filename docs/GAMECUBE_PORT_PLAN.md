@@ -3265,7 +3265,58 @@ viewmodels. Studios stay first; HUD uses libc malloc under memopt + late retry.
 
 Evidence: `.ai/logs/dolphin-probe-20260720-234531` —
 `G172 … real=3 of 3`, `view=2`, `G155 viewmodel=1`.
-Next: open polish (320hud1 / further GX).
+Next: lean 320hud1 (G173).
+
+## G173 — Lean gc_320hud1 bootstrap sheet (COMPLETE 2026-07-20)
+
+Fat ISO `320hud1` soft-fails (~66 KiB). Inject 64×64 `gc_320hud1` (~4.8 KiB)
+into bootstrap; memopt prefers alias over retail. Early HUD preload loads hud1
+first after studios.
+
+Evidence: `.ai/logs/dolphin-probe-20260720-235658` —
+`G173 … real=3 of 3`, `G172 … real=3 of 3`, `view=2`, `G155 viewmodel=1`;
+`stage-04p-g173-hud1-lean.png`.
+Next: lean crosshairs (G174).
+
+## G174 — Lean gc_crosshairs bootstrap sheet (COMPLETE 2026-07-21)
+
+Fat ISO `crosshairs` (~17 KiB) soft-failed after hud2+train. Inject 64×64
+`gc_crosshairs` (~4.8 KiB); memopt prefers alias. Early HUD preload loads all
+four lean sheets real.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-000202` —
+`G174 … real=4 of 4`, `G173/G172 … real=4 of 4`, `view=2`, `G155 viewmodel=1`;
+`stage-04r-g174-crosshairs-lean.png`.
+Next: outdoor Flipper coverage without BSS growth (G175).
+
+## G175 — Outdoor Flipper refresh via 4×64 slots↔cands trade (COMPLETE 2026-07-21)
+
+Trade surfbits cache slots 5→4 for refresh cands 48→64 (256 cells = original
+8×32 budget). Restore cluster 429: `mid_new=23 wall_new=15 cands=64` (was
+17/12 @ 48); rim fill 200→187.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-000815`;
+`stage-04s-g175-outdoor-coverage.png`.
+Next: raise static face cap (G176).
+
+## G176 — Raise face cap 256→320 via LM 8→4 trade (COMPLETE 2026-07-21)
+
+GX LM tiles must be 4×N; shrink bake 8→4 and raise cap 256→320 (~−4 KiB
+BSS). Capture fills 320; Flipper draws 249 (was 196/256); rim fill 187→133.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-001608`;
+`stage-04t-g176-face-cap.png`.
+Next: soft DumpFrames HUD composite (G177).
+
+## G177 — Soft DumpFrames HUD composite (COMPLETE 2026-07-21)
+
+Blit lean HUD sheets into the soft RGB565 DumpFrames buffer before WORLD
+PRESENT / VIEWMODEL panels (`CL_DrawHUD` after scrub).
+
+Evidence: `.ai/logs/dolphin-probe-20260721-002355` —
+`G177 soft dump HUD composite sheets=4`, `RGB565 2D/HUD draw active`;
+`stage-04u-g177-soft-hud.png`.
+Next: open polish (further GX).
 
 ## Next wake-up commands
 

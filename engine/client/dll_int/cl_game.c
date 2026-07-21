@@ -1339,11 +1339,46 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 					szSpriteName, loadname );
 			}
 		}
-		/* G173: fat retail 320hud1 often ISO-misses / OOMs; lean bootstrap alias. */
-		if( !FS_FileExists( loadname, false )
+		/*
+		 * G173: prefer lean bootstrap hud1 under memopt even when fat retail
+		 * exists on ISO — 66 KiB soft-fails; ~5 KiB gc_ alias loads.
+		 */
+		if( !Q_stricmp( loadname, "sprites/320hud1.spr" ) && GC_MapLoadMemoryOpt())
+		{
+			Q_strncpy( altname, "sprites/gc_320hud1.spr", sizeof( altname ));
+			if( FS_FileExists( altname, false ))
+			{
+				loadname = altname;
+				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
+					szSpriteName, loadname );
+			}
+		}
+		else if( !FS_FileExists( loadname, false )
 			&& !Q_stricmp( loadname, "sprites/320hud1.spr" ))
 		{
 			Q_strncpy( altname, "sprites/gc_320hud1.spr", sizeof( altname ));
+			if( FS_FileExists( altname, false ))
+			{
+				loadname = altname;
+				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
+					szSpriteName, loadname );
+			}
+		}
+		/* G174: prefer lean 64×64 crosshairs over fat 128×128 ISO sheet. */
+		if( !Q_stricmp( loadname, "sprites/crosshairs.spr" ) && GC_MapLoadMemoryOpt())
+		{
+			Q_strncpy( altname, "sprites/gc_crosshairs.spr", sizeof( altname ));
+			if( FS_FileExists( altname, false ))
+			{
+				loadname = altname;
+				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
+					szSpriteName, loadname );
+			}
+		}
+		else if( !FS_FileExists( loadname, false )
+			&& !Q_stricmp( loadname, "sprites/crosshairs.spr" ))
+		{
+			Q_strncpy( altname, "sprites/gc_crosshairs.spr", sizeof( altname ));
 			if( FS_FileExists( altname, false ))
 			{
 				loadname = altname;
@@ -1591,17 +1626,22 @@ HSPRITE EXPORT pfnSPR_Load( const char *szPicName );
 void CL_GCPreloadNewGameHudSprites( void )
 {
 	/*
-	 * G172: after studios, load lean HUD sheets (sys-malloc fallback on FS soft-fail).
-	 * Fat 320hud1 stays in the late pass so viewmodels keep MEM1.
+	 * G172–G174: after studios, load lean HUD sheets (sys-malloc).
+	 * Lean hud1 + crosshairs (~5 KiB each) fit with hud2/train.
 	 */
 	static const char *const sheets[] = {
+		"sprites/320hud1.spr", /* → lean gc_320hud1 (~5 KiB @ 64×64) */
 		"sprites/gc_320hud2.spr",
 		"sprites/320_train.spr",
-		"sprites/crosshairs.spr",
+		"sprites/crosshairs.spr", /* → lean gc_crosshairs (~5 KiB @ 64×64) */
 	};
 	int i;
 	int real = 0;
+	qboolean hud1_real = false;
+	qboolean cross_real = false;
 	static qboolean g172_logged;
+	static qboolean g173_logged;
+	static qboolean g174_logged;
 
 	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_MapLoadMemoryOpt())
 		return;
@@ -1619,7 +1659,15 @@ void CL_GCPreloadNewGameHudSprites( void )
 			mod = &clgame.sprites[handle - 1];
 		is_real = ( mod && !Mod_GCIsSpriteStub( mod ));
 		if( is_real )
+		{
 			real++;
+			if( !Q_stricmp( sheets[i], "sprites/320hud1.spr" )
+				|| ( mod && !Q_stricmp( mod->name, "sprites/gc_320hud1.spr" )))
+				hud1_real = true;
+			if( !Q_stricmp( sheets[i], "sprites/crosshairs.spr" )
+				|| ( mod && !Q_stricmp( mod->name, "sprites/gc_crosshairs.spr" )))
+				cross_real = true;
+		}
 		Con_Reportf( "Xash3D GameCube: G127 HUD sheet %s handle=%d real=%d\n",
 			sheets[i], (int)handle, is_real ? 1 : 0 );
 	}
@@ -1628,6 +1676,18 @@ void CL_GCPreloadNewGameHudSprites( void )
 	{
 		g172_logged = true;
 		Con_Reportf( "Xash3D GameCube: G172 HUD sheets loaded real=%d of %d\n",
+			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
+	}
+	if( !g173_logged && hud1_real )
+	{
+		g173_logged = true;
+		Con_Reportf( "Xash3D GameCube: G173 HUD hud1 lean real=%d of %d\n",
+			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
+	}
+	if( !g174_logged && cross_real )
+	{
+		g174_logged = true;
+		Con_Reportf( "Xash3D GameCube: G174 HUD crosshairs lean real=%d of %d\n",
 			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
 	}
 }
@@ -1642,15 +1702,17 @@ G172: after SFX preload, free any gcmap stubs and retry small HUD sheets.
 void CL_GCPreloadNewGameHudSpritesLate( void )
 {
 	static const char *const sheets[] = {
-		"sprites/320hud1.spr", /* G173: resolves to lean gc_320hud1 via fallback */
+		"sprites/320hud1.spr", /* G173: → lean gc_320hud1 */
 		"sprites/gc_320hud2.spr",
 		"sprites/320_train.spr",
-		"sprites/crosshairs.spr",
+		"sprites/crosshairs.spr", /* G174: → lean gc_crosshairs */
 	};
 	int i;
 	int real = 0;
 	qboolean hud1_real = false;
+	qboolean cross_real = false;
 	static qboolean g173_late_logged;
+	static qboolean g174_late_logged;
 
 	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_MapLoadMemoryOpt())
 		return;
@@ -1672,7 +1734,9 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 				continue;
 			if( Q_stricmp( mod->name, sheets[i] )
 				&& !( !Q_stricmp( sheets[i], "sprites/320hud1.spr" )
-					&& !Q_stricmp( mod->name, "sprites/gc_320hud1.spr" )))
+					&& !Q_stricmp( mod->name, "sprites/gc_320hud1.spr" ))
+				&& !( !Q_stricmp( sheets[i], "sprites/crosshairs.spr" )
+					&& !Q_stricmp( mod->name, "sprites/gc_crosshairs.spr" )))
 				continue;
 			if( Mod_GCIsSpriteStub( mod ))
 			{
@@ -1693,6 +1757,9 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 			if( !Q_stricmp( sheets[i], "sprites/320hud1.spr" )
 				|| ( mod && !Q_stricmp( mod->name, "sprites/gc_320hud1.spr" )))
 				hud1_real = true;
+			if( !Q_stricmp( sheets[i], "sprites/crosshairs.spr" )
+				|| ( mod && !Q_stricmp( mod->name, "sprites/gc_crosshairs.spr" )))
+				cross_real = true;
 		}
 		Con_Reportf( "Xash3D GameCube: G172 HUD sheet late %s handle=%d real=%d\n",
 			sheets[i], (int)handle, is_real ? 1 : 0 );
@@ -1702,6 +1769,12 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 	{
 		g173_late_logged = true;
 		Con_Reportf( "Xash3D GameCube: G173 HUD hud1 lean real=%d of %d\n",
+			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
+	}
+	if( !g174_late_logged && cross_real )
+	{
+		g174_late_logged = true;
+		Con_Reportf( "Xash3D GameCube: G174 HUD crosshairs lean real=%d of %d\n",
 			real, (int)( sizeof( sheets ) / sizeof( sheets[0] )));
 	}
 }

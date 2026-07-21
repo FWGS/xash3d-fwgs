@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G172 COMPLETE: HUD sheets via sys-malloc after studios (real=3/3; view=2; G155 viewmodel=1). Next: open polish (fat 320hud1 stub / further GX)."
+  "note": "G177 COMPLETE: soft DumpFrames HUD composite sheets=4 (WORLD PRESENT path; G176/G174/G155 green). Next: open polish (further GX / LM sharpness / Flipper HUD)."
 }
