@@ -93,11 +93,13 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G192: re-arm DumpFrames after changelevel (CPU soft + ViSwap; local Dolphin XFB RAM decode)
 - G193: denser landmark soft DumpFrames (soft snap + XFB soft-lock; no Flipper grey overwrite)
 - G194: DumpFrames encode backlog (TGA dump + G191 EFB latch; multi soft DumpFrames)
+- G195: Flipper resume after soft DumpFrames (clear soft-lock; G159 gx=1)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(empty — automatic goals through G194 complete; next is G75 manual checkpoint)*
+1. *(empty — automatic goals through G195 complete; next is G75 manual checkpoint)*
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260721-105226` (G195 Flipper resume; G151 drawn=203; G159 gx=1; soft f20–f23 intact)
 - `.ai/logs/dolphin-probe-20260721-093730` (G194: 10 soft DumpFrames, 9 unique; `framedump_20`–`23` soft walls; TGA path)
 - `.ai/logs/dolphin-probe-20260721-081137` (G193 soft-lock yuyv=0xa7b1a75f; G143/G190; soft `framedump_19`)
 - `.ai/logs/dolphin-probe-20260721-080311` (G193 XFB-hold soft-lock; dual-XFB latch ready)
@@ -3399,6 +3401,30 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_FULLPHYSICS=1 \
   DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa DOLPHIN_G105=1 \
   DOLPHIN_DUMP_FRAMES=1 DOLPHIN_TIMEOUT=400 DOLPHIN_FRAME_SAMPLE_SEC=60 \
+  scripts/dolphin-boot-probe.sh
+  ```
+- Residual: soft-lock held Flipper off for the rest of the probe → G195.
+
+## G195 [x] Flipper resume after soft DumpFrames
+
+- Status: DONE 2026-07-21. After G194 paced soft latch + TGA drain idle, clear
+  soft-lock, `GC_EnableGxWorldLive`, smoke world+viewmodel, then sustained
+  presents. Also coalesce Flipper present to one `DrawDone` before `CopyDisp`
+  and studio end `Flush` (no mid-pass `DrawDone`).
+- Acceptance:
+  - `G195 Flipper resume after soft DumpFrames` after landmark soft latch ✓
+  - `G151` / `G155 viewmodel=1` / `G159 … gx=1` fire post-resume ✓
+  - Soft DumpFrames latch still lands multiple soft frames (G194) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260721-105226` —
+  `G194 … stamp ready` → `G151 GX world live` → `G195 Flipper resume` →
+  `G159 live GX present ca_active gx=1`; soft `framedump_20`–`23`; Flipper
+  DumpFrames mid≈(89,141,210); `stage-04am-g195-flipper-resume.png`.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_FULLPHYSICS=1 \
+  DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa DOLPHIN_G105=1 \
+  DOLPHIN_DUMP_FRAMES=1 DOLPHIN_TIMEOUT=400 DOLPHIN_FRAME_SAMPLE_SEC=45 \
   scripts/dolphin-boot-probe.sh
   ```
 

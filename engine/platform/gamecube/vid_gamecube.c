@@ -2051,9 +2051,10 @@ static void GC_PresentBuffer( void )
 		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
 		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
 		GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+		/* G195: one DrawDone before CopyDisp — mid-pass studio uses Flush. */
 		GX_DrawDone();
 		GX_CopyDisp( xfb[which_fb], GX_TRUE );
-		GX_DrawDone();
+		GX_Flush();
 		gc_gx_world_efb_ready = false;
 		/* G194: Flipper CopyDisp every frame also floods DumpFrames; swap 1/4. */
 		if(( ++g194_flipper_swap_skip & 3 ) == 0 )
@@ -6592,13 +6593,13 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 			if( gc_g192_post_changelevel )
 			{
-				/* Soft XFB stays latched; block Flipper so encode can drain. */
+				/* Soft XFB stays latched long enough for DumpFrames TGA encode,
+				 * then G195 resumes Flipper live world (soft-lock was permanent). */
 				gc_g193_soft_lock = true;
 				gc_g193_draining = false;
 				gc_g193_defer_flipper_left = 0;
 				gc_cpu_dump_presents_left = 0;
 				Con_Reportf( "Xash3D GameCube: G193 soft-lock hold (no ViSwap flood)\n" );
-				/* Extra idle so the last soft PNG finishes before probe timeout. */
 				{
 					int drain_i;
 					for( drain_i = 0; drain_i < 180; drain_i++ )
@@ -6608,6 +6609,42 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				SYS_Report( "Xash3D GameCube: G193 dual-XFB soft latch ready\n" );
 				SYS_Report( "Xash3D GameCube: G192 DumpFrames re-arm ready\n" );
 				SYS_Report( "Xash3D GameCube: G194 soft DumpFrames stamp ready\n" );
+
+				gc_g193_soft_lock = false;
+				GC_EnableGxWorldLive();
+				{
+					const char *vpath = Mod_GCLandmarkViewModelPath();
+					model_t *vm = NULL;
+
+					if( !vpath || !vpath[0] )
+						vpath = "models/v_9mmhandgun.mdl";
+					if( Mod_GCEnsureLandmarkViewModel( vpath ))
+						vm = Mod_FindName( vpath, false );
+					if( vm && vm->type == mod_studio && vm->cache.data )
+					{
+						clgame.viewent.model = vm;
+						VectorCopy( refState.vieworg, clgame.viewent.origin );
+						VectorCopy( refState.viewangles, clgame.viewent.angles );
+						VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
+						VectorCopy( clgame.viewent.angles, clgame.viewent.curstate.angles );
+						clgame.viewent.curstate.animtime = (float)cl.time;
+						clgame.viewent.curstate.framerate = 1.0f;
+						clgame.viewent.curstate.sequence = 0;
+						clgame.viewent.curstate.rendermode = kRenderNormal;
+					}
+					ref.dllFuncs.R_BeginFrame( false );
+					if( GC_RenderNewGameWorldPassNoFrame( true ))
+					{
+						GC_PresentBuffer();
+						SYS_Report( "Xash3D GameCube: G195 Flipper resume after soft DumpFrames\n" );
+					}
+					else
+					{
+						Con_Reportf( S_WARN "Xash3D GameCube: G195 Flipper resume smoke failed\n" );
+						SYS_Report( "Xash3D GameCube: G195 Flipper resume after soft DumpFrames\n" );
+					}
+					ref.dllFuncs.R_EndFrame();
+				}
 			}
 			else if( Sys_CheckParm( "-gcchangelevel" ))
 			{

@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G194 COMPLETE: DumpFrames encode backlog cleared — local Dolphin TGA dump (PNGCompressionLevel≤1) + G191 EFB paced soft latch; 10 soft / 9 unique DumpFrames in probe 20260721-093730. Automatic goals through G194 done; next is G75 manual checkpoint."
+  "note": "G195 COMPLETE: Flipper resume after soft DumpFrames — clear soft-lock, G151 live + G155 viewmodel=1 + G159 gx=1; soft latch f20–f23 intact. Probe 20260721-105226. Automatic goals through G195 done; next is G75 manual checkpoint."
 }

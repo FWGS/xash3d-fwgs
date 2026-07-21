@@ -420,9 +420,10 @@ if (( DOLPHIN_NEWGAME )); then
 		G192_DONE_MARKER="Xash3D GameCube: G192 DumpFrames re-arm ready"
 		G193_DONE_MARKER="Xash3D GameCube: G193 dual-XFB soft latch ready"
 		G194_DONE_MARKER="Xash3D GameCube: G194 soft DumpFrames stamp ready"
-		# G194: leave the dump thread time to encode stamped soft latch PNGs.
-		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-60}"
-		echo "==> Waiting for G194 soft DumpFrames stamp + G193/G192/G191/G190/G189/G188/G187/G186/G185/G184/G183/G182/G181/G180/G179/G178/G177/G176/G175/G174/G173/G172/G171/G170/G169/G168/G167/G166/G165/G164/G163/G162/G161/G159 markers"
+		G195_DONE_MARKER="Xash3D GameCube: G195 Flipper resume after soft DumpFrames"
+		# G194/G195: drain TGA encode then resume Flipper; sample sustained GX.
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-45}"
+		echo "==> Waiting for G195 Flipper resume + G194/G193/G192/G191/G190/G189/G188/G187/G186/G185/G184/G183/G182/G181/G180/G179/G178/G177/G176/G175/G174/G173/G172/G171/G170/G169/G168/G167/G166/G165/G164/G163/G162/G161/G159 markers"
 	fi
 	if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 		GUEST_ARGS+=("-gcnewsaveload")

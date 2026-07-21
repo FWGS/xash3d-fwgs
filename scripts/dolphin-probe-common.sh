@@ -324,6 +324,10 @@ probe_wait_flatpak() {
 				sleep 2
 				continue
 			fi
+			if [[ -n "${G195_DONE_MARKER:-}" ]] && ! probe_log_has "$G195_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			# G101: lean-N multi-cluster PVS follow after changelevel.
 			if [[ -n "${G101_DONE_MARKER:-}" ]]; then
 				if ! probe_log_has "$G101_DONE_MARKER" \
@@ -603,6 +607,10 @@ probe_wait_native() {
 				continue
 			fi
 			if [[ -n "${G194_DONE_MARKER:-}" ]] && ! probe_log_has "$G194_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G195_DONE_MARKER:-}" ]] && ! probe_log_has "$G195_DONE_MARKER"; then
 				sleep 2
 				continue
 			fi

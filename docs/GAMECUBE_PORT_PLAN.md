@@ -3512,6 +3512,17 @@ when `PNGCompressionLevel≤1`; guest paces G191 EFB soft latch (defer Flipper o
 Evidence: `.ai/logs/dolphin-probe-20260721-093730` —
 `G194 soft DumpFrames stamp ready`, `framedump_20`–`23` unique soft walls,
 10 soft / 9 unique; `stage-04al-g194-dumpframes-backlog.png`.
+Residual: soft-lock never released Flipper → G195.
+
+## G195 — Flipper resume after soft DumpFrames (COMPLETE 2026-07-21)
+
+After TGA drain idle, clear soft-lock and re-enable Flipper live world + viewmodel
+smoke. Present path uses one `DrawDone` before `CopyDisp`; studio ends with
+`GX_Flush`.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-105226` —
+`G195 Flipper resume`, `G151 drawn=203`, `G155 viewmodel=1`, `G159 gx=1`;
+`stage-04am-g195-flipper-resume.png`.
 Next: G75 manual completion checkpoint.
 
 ## Next wake-up commands

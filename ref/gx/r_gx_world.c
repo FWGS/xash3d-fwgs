@@ -1166,7 +1166,7 @@ void R_GXStudioEnd( void )
 	if( !r_gx_studio_active )
 		return;
 
-	GX_DrawDone();
+	GX_Flush();
 	/* Restore full EFB depth range after a compressed viewmodel pass. */
 	rmode = (GXRModeObj *)GC_GetGxVideoMode();
 	if( rmode )
