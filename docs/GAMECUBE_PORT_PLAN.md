@@ -3365,6 +3365,155 @@ Evidence: `.ai/logs/dolphin-probe-20260721-011535` —
 `G181 … texloads=61 texreuses=188`; `stage-04y-g181-tex-bands.png`.
 Next: Flipper HUD path, or finer TEXMAP0 clustering if still CPU-bound.
 
+## G182 — Flipper GX HUD StretchPic (COMPLETE 2026-07-21)
+
+Live HUD via GX ortho quads onto the world EFB before CopyDisp. SCR newgame
+loop now draws `CL_DrawHUD` after GX world (V_PostRender was skipped). Soft
+DumpFrames HUD (G177) unchanged. Sustained render ~1.48 ms with `pics=3`.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-012635` —
+`G182 GX HUD stretch pics=3`; `stage-04z-g182-gx-hud.png`.
+Next: richer live HUD (health/ammo) or further Flipper fill-rate work.
+
+## G183 — Richer Flipper GX HUD (COMPLETE 2026-07-21)
+
+Root cause of G182 `pics=3`: HUD TEXMAP0 `memalign` failed after world filled
+the cache (free-before-realloc lost MEM1). Fix: reuse oversized tiled staging,
+prefer/pin HUD slots, draw lean `gc_320hud2` first, TriColor vertex tint, scale
+hud.txt rects to sheet size. Live Flipper now draws health/suit digits + chrome
+(`pics=11`).
+
+Evidence: `.ai/logs/dolphin-probe-20260721-015137` —
+`G183 GX HUD rich pics=11`; `G182 … pics=11`; render ~2.83 ms;
+`stage-04aa-g183-rich-hud.png`.
+Next: Flipper alpha-test holes for crosshair, or fill-rate / playability.
+
+## G184 — Flipper HUD alpha holes / RGB5A3 (COMPLETE 2026-07-21)
+
+HUD sheets upload as `GX_TF_RGB5A3` (transparent soft texels → α=0). Holes mode
+sets GX alpha compare. Reserve 4 TEXMAP0 slabs before world binds so crosshairs
+still upload (`pics=11` + `holes=1`).
+
+Evidence: `.ai/logs/dolphin-probe-20260721-020444` —
+`G184 GX HUD alpha holes pics=1`; `G183 … pics=11`;
+`stage-04ab-g184-alpha-holes.png`.
+Next: Flipper fill-rate or playability.
+
+## G185 — Flipper HUD fill lean (COMPLETE 2026-07-21)
+
+Lean crosshair draws a 24×24 cell instead of the full 64×64 sheet. Holes fill
+4096→576 px; sustained Flipper render 2.83→1.77 ms. Note: rebuild+relink the
+engine after HLSDK client archive changes.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-022251` —
+`G185 … holes_px=576`; `cell=24x24`; render 1.77 ms;
+`stage-04ac-g185-hud-fill.png`.
+Next: world Flipper fill-rate or playability.
+
+## G186 — Flipper world face cull (COMPLETE 2026-07-21)
+
+Skip far-small Flipper faces (`area < 8192` and `|dot| > 512`) before ST/LM
+emit. Drawn 249→233 (`skips=16`). Soft DumpFrames timing is separate from the
+Flipper path.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-024928` —
+`G186 … skips=16 … drawn=233`; `G151 … drawn=233`; G185–G155 green;
+`stage-04ad-g186-face-cull.png`.
+Next: playability / landmark changelevel polish.
+
+## G187 — HUD crosshair holes (COMPLETE 2026-07-21)
+
+Opaque black crosshair plate fixed: soft RGB565 holes skip transparent /
+near-black; Flipper RGB5A3 punches near-black; lean SPR downsample keeps
+non-255 ink. Soft dump shows green `+` without a black square.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-030352` —
+`G187 … punched=4516`; G186/G185/G184 green;
+`stage-04ae-g187-crosshair-holes.png`.
+Next: landmark Flipper continuity or outdoor tex polish.
+
+## G188 — landmark Flipper continuity (COMPLETE 2026-07-21)
+
+Fullphysics put-in after `c0a0toa` was wiping the lean landmark origin (spawn
+reset → uncached cluster 800, no Flipper face refresh). Stash + reapply the
+continued origin after grant, then refresh cap faces and log
+`G188 landmark Flipper continuity`.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-034746` —
+`G188 … faces=320`, reposition `(2864,3620,66)`, G105/G159/G187 green;
+`stage-04af-g188-landmark-continuity.png`.
+Next: outdoor soft-dump geometry at landmark origin, or tex-band polish.
+
+## G189 — outdoor soft-dump cluster + near-aim (COMPLETE 2026-07-21)
+
+Densest PVS row was wiping outdoor faces after landmark hops; dump look aimed
+across the map into empty sky. Prefer cached outdoor-band clusters when densest
+is mega, and near-aim (256u) toward capture on far hops.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-041100` —
+`G189 outdoor cluster prefer 528 leaves=51`, soft dump `local=1`,
+`G188 … cluster=528 faces=320`; `stage-04ag-g189-outdoor-soft-dump.png`.
+Next: wall-filling soft dump coverage, or tex-band polish.
+
+## G190 — wall-filling soft dump (COMPLETE 2026-07-21)
+
+Prefer outdoor-band clusters by wall-cand count; lean FatPVS steals an outdoor
+slot + builds refresh cands; dump look aims into the largest wall face.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-042936` —
+`G190 outdoor wall cluster prefer 772 walls=38 leaves=37`,
+`G190 landmark wall soft dump walls=38`, `G188 … cluster=772`;
+`stage-04ah-g190-wall-soft-dump.png`.
+Next: soft-dump present path (G191).
+
+## G191 — soft-dump present via EFB (COMPLETE 2026-07-21)
+
+Soft DumpFrames latch presents scrubbed RGB565 through tiled EFB with full 2D
+GX state restore after Flipper; skip `efb_ready` steal during latch; keep EFB
+after CopyDisp while dumping.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-050753` —
+`G191 soft dump EFB presents ready`, G143/G190/G188 green;
+`stage-04ai-g191-soft-dump-efb.png`.
+Residual: DumpFrames freeze after changelevel (G192).
+
+## G192 — re-arm DumpFrames after changelevel (COMPLETE 2026-07-21)
+
+ImmediateXFB skipped ViSwap (CPU soft invisible); stock Dolphin also kept a
+stale XFB cache across soft blits. Guest post-changelevel path: VI black-kick +
+K0 soft blit/`DCFlushRange` + WaitVSync. Probe GFX: XFB→RAM, DisableCopyToVRAM,
+ImmediateXFB=False. Local Dolphin GetXFBFromCache misses when DisableCopyToVRAM;
+boot-probe prefers `3rdparty/dolphin/build/Binaries/dolphin-emu`.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-063139` —
+`G192 DumpFrames re-arm ready`, soft YUYV latch, 9 unique DumpFrames in the
+latch window (`framedump_21` soft);
+`stage-04aj-g192-dumpframes-rearm.png`.
+Next: denser landmark soft DumpFrames (G193).
+
+## G193 — denser landmark soft DumpFrames (COMPLETE 2026-07-21)
+
+Flipper CopyDisp and soft-lock re-blits from wiped live soft were destroying the
+latch YUYV before DumpFrames encode. Guest now snapshots soft RGB565, dual-XFB
+latches it, then soft-locks by re-presenting XFB without re-blit (no Flipper).
+
+Evidence: `.ai/logs/dolphin-probe-20260721-081137` —
+`G193 soft-lock … yuyv=0xa7b1a75f`, G143/G190 green, soft `framedump_19`;
+`stage-04ak-g193-dual-xfb-soft.png`.
+Residual: PNG encode backlog → G194 (COMPLETE).
+
+## G194 — DumpFrames encode backlog before soft latch (COMPLETE 2026-07-21)
+
+Soft PNG zlib encode (~5 min/frame) and Flipper sky ViSwaps before the landmark
+latch left only one soft DumpFrame. Local Dolphin now writes uncompressed TGA
+when `PNGCompressionLevel≤1`; guest paces G191 EFB soft latch (defer Flipper on
+`-gcchangelevel`, soft-lock without ViSwap flood).
+
+Evidence: `.ai/logs/dolphin-probe-20260721-093730` —
+`G194 soft DumpFrames stamp ready`, `framedump_20`–`23` unique soft walls,
+10 soft / 9 unique; `stage-04al-g194-dumpframes-backlog.png`.
+Next: G75 manual completion checkpoint.
+
 ## Next wake-up commands
 
 ```sh

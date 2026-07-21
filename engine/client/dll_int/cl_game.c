@@ -425,8 +425,8 @@ static void SPR_DrawGeneric( int frame, float x, float y, float width, float hei
 		wrect_t	rc = *prc;
 
 		// Sigh! some stupid modmakers set wrong rectangles in hud.txt
-		if( rc.left <= 0 || rc.left >= width ) rc.left = 0;
-		if( rc.top <= 0 || rc.top >= height ) rc.top = 0;
+		if( rc.left < 0 || rc.left >= width ) rc.left = 0;
+		if( rc.top < 0 || rc.top >= height ) rc.top = 0;
 		if( rc.right <= 0 || rc.right > width ) rc.right = width;
 		if( rc.bottom <= 0 || rc.bottom > height ) rc.bottom = height;
 

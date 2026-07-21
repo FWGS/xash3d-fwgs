@@ -200,18 +200,33 @@ static void R_DrawStretchPicImplementation( int x, int y, int w, int h, int s1, 
 				/* New Game world FB is display RGB565; soft blend tables do not apply. */
 				if( rgb565_fb )
 				{
-					pixel_t src565 = vid.screen[src];
+					pixel_t src565;
+					unsigned int r, g, b;
+
+					/* G187: SPR_DrawHoles — skip transparent + near-black ink. */
+					if( src == TRANSPARENT_COLOR )
+						continue;
+					src565 = vid.screen[src];
+					if( vid.rendermode == kRenderTransColor
+						|| vid.rendermode == kRenderTransAlpha )
+					{
+						r = ( src565 >> 11 ) & 0x1Fu;
+						g = ( src565 >> 5 ) & 0x3Fu;
+						b = src565 & 0x1Fu;
+						if( r <= 1u && ( g >> 1 ) <= 1u && b <= 1u )
+							continue;
+					}
 
 					if( vid.rendermode == kRenderTransAdd )
 					{
 						pixel_t d = dest[u];
-						unsigned int r = (( d >> 11 ) & 0x1F ) + (( src565 >> 11 ) & 0x1F );
-						unsigned int g = (( d >> 5 ) & 0x3F ) + (( src565 >> 5 ) & 0x3F );
-						unsigned int b = ( d & 0x1F ) + ( src565 & 0x1F );
-						if( r > 31 ) r = 31;
-						if( g > 63 ) g = 63;
-						if( b > 31 ) b = 31;
-						dest[u] = (pixel_t)(( r << 11 ) | ( g << 5 ) | b );
+						unsigned int ar = (( d >> 11 ) & 0x1F ) + (( src565 >> 11 ) & 0x1F );
+						unsigned int ag = (( d >> 5 ) & 0x3F ) + (( src565 >> 5 ) & 0x3F );
+						unsigned int ab = ( d & 0x1F ) + ( src565 & 0x1F );
+						if( ar > 31 ) ar = 31;
+						if( ag > 63 ) ag = 63;
+						if( ab > 31 ) ab = 31;
+						dest[u] = (pixel_t)(( ar << 11 ) | ( ag << 5 ) | ab );
 					}
 					else if( alpha < 4 )
 						continue;
@@ -311,6 +326,13 @@ void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1,
 		return;
 	if( s1 < 0.0f || t1 < 0.0f )
 		return;
+
+#if XASH_GAMECUBE
+	/* G182: live Flipper world already in EFB — soft HUD would be discarded. */
+	if( GC_UseGxWorldDraw() && R_GXWorldDrewThisFrame()
+		&& R_GXDrawStretchPic( x, y, w, h, s1, t1, s2, t2, texnum ))
+		return;
+#endif
 
 	pic = R_GetTexture( texnum );
 	if( !pic || pic->width <= 0 || pic->height <= 0 )

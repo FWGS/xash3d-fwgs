@@ -393,6 +393,8 @@ void GC_EnableGxWorldLive( void );
 void *GC_GetGxVideoMode( void );
 qboolean R_GXWorldDrewThisFrame( void );
 void R_GXClearWorldDrewFlag( void );
+qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
+	float s1, float t1, float s2, float t2, int texnum );
 int R_GXDrawNewGameCapFaces( void );
 qboolean R_GXStudioIsActive( void );
 int R_GXStudioLastTriCount( void );

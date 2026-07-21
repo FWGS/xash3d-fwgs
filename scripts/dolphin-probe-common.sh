@@ -79,7 +79,7 @@ probe_wait_flatpak() {
 			if (( DOLPHIN_NEWGAME )); then
 				# Landmark Flipper/G16x markers prove play progressed past
 				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
-				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" && -z "${G169_DONE_MARKER:-}" && -z "${G170_DONE_MARKER:-}" && -z "${G171_DONE_MARKER:-}" && -z "${G172_DONE_MARKER:-}" && -z "${G173_DONE_MARKER:-}" && -z "${G174_DONE_MARKER:-}" && -z "${G175_DONE_MARKER:-}" && -z "${G176_DONE_MARKER:-}" && -z "${G177_DONE_MARKER:-}" && -z "${G178_DONE_MARKER:-}" && -z "${G179_DONE_MARKER:-}" && -z "${G180_DONE_MARKER:-}" && -z "${G181_DONE_MARKER:-}" ]]; then
+				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" && -z "${G169_DONE_MARKER:-}" && -z "${G170_DONE_MARKER:-}" && -z "${G171_DONE_MARKER:-}" && -z "${G172_DONE_MARKER:-}" && -z "${G173_DONE_MARKER:-}" && -z "${G174_DONE_MARKER:-}" && -z "${G175_DONE_MARKER:-}" && -z "${G176_DONE_MARKER:-}" && -z "${G177_DONE_MARKER:-}" && -z "${G178_DONE_MARKER:-}" && -z "${G179_DONE_MARKER:-}" && -z "${G180_DONE_MARKER:-}" && -z "${G181_DONE_MARKER:-}" && -z "${G182_DONE_MARKER:-}" && -z "${G183_DONE_MARKER:-}" && -z "${G184_DONE_MARKER:-}" && -z "${G185_DONE_MARKER:-}" && -z "${G186_DONE_MARKER:-}" && -z "${G187_DONE_MARKER:-}" && -z "${G188_DONE_MARKER:-}" && -z "${G189_DONE_MARKER:-}" && -z "${G190_DONE_MARKER:-}" && -z "${G191_DONE_MARKER:-}" && -z "${G192_DONE_MARKER:-}" ]]; then
 					if ! probe_log_has "${PLAY_READY_MARKER:-Xash3D GameCube: play start ready}"; then
 						sleep 2
 						continue
@@ -272,6 +272,58 @@ probe_wait_flatpak() {
 				sleep 2
 				continue
 			fi
+			if [[ -n "${G182_DONE_MARKER:-}" ]] && ! probe_log_has "$G182_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G183_DONE_MARKER:-}" ]] && ! probe_log_has "$G183_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G184_DONE_MARKER:-}" ]] && ! probe_log_has "$G184_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G185_DONE_MARKER:-}" ]] && ! probe_log_has "$G185_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G186_DONE_MARKER:-}" ]] && ! probe_log_has "$G186_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G187_DONE_MARKER:-}" ]] && ! probe_log_has "$G187_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G188_DONE_MARKER:-}" ]] && ! probe_log_has "$G188_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G189_DONE_MARKER:-}" ]] && ! probe_log_has "$G189_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G190_DONE_MARKER:-}" ]] && ! probe_log_has "$G190_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G191_DONE_MARKER:-}" ]] && ! probe_log_has "$G191_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G192_DONE_MARKER:-}" ]] && ! probe_log_has "$G192_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G193_DONE_MARKER:-}" ]] && ! probe_log_has "$G193_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G194_DONE_MARKER:-}" ]] && ! probe_log_has "$G194_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			# G101: lean-N multi-cluster PVS follow after changelevel.
 			if [[ -n "${G101_DONE_MARKER:-}" ]]; then
 				if ! probe_log_has "$G101_DONE_MARKER" \
@@ -292,7 +344,7 @@ probe_wait_flatpak() {
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
-			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" || -n "${G158_DONE_MARKER:-}" || -n "${G159_DONE_MARKER:-}" || -n "${G161_DONE_MARKER:-}" || -n "${G162_DONE_MARKER:-}" || -n "${G163_DONE_MARKER:-}" || -n "${G164_DONE_MARKER:-}" || -n "${G165_DONE_MARKER:-}" || -n "${G166_DONE_MARKER:-}" || -n "${G167_DONE_MARKER:-}" || -n "${G168_DONE_MARKER:-}" || -n "${G169_DONE_MARKER:-}" || -n "${G170_DONE_MARKER:-}" || -n "${G171_DONE_MARKER:-}" || -n "${G172_DONE_MARKER:-}" || -n "${G173_DONE_MARKER:-}" || -n "${G174_DONE_MARKER:-}" || -n "${G175_DONE_MARKER:-}" || -n "${G176_DONE_MARKER:-}" || -n "${G177_DONE_MARKER:-}" || -n "${G178_DONE_MARKER:-}" || -n "${G179_DONE_MARKER:-}" || -n "${G180_DONE_MARKER:-}" || -n "${G181_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
+			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" || -n "${G158_DONE_MARKER:-}" || -n "${G159_DONE_MARKER:-}" || -n "${G161_DONE_MARKER:-}" || -n "${G162_DONE_MARKER:-}" || -n "${G163_DONE_MARKER:-}" || -n "${G164_DONE_MARKER:-}" || -n "${G165_DONE_MARKER:-}" || -n "${G166_DONE_MARKER:-}" || -n "${G167_DONE_MARKER:-}" || -n "${G168_DONE_MARKER:-}" || -n "${G169_DONE_MARKER:-}" || -n "${G170_DONE_MARKER:-}" || -n "${G171_DONE_MARKER:-}" || -n "${G172_DONE_MARKER:-}" || -n "${G173_DONE_MARKER:-}" || -n "${G174_DONE_MARKER:-}" || -n "${G175_DONE_MARKER:-}" || -n "${G176_DONE_MARKER:-}" || -n "${G177_DONE_MARKER:-}" || -n "${G178_DONE_MARKER:-}" || -n "${G179_DONE_MARKER:-}" || -n "${G180_DONE_MARKER:-}" || -n "${G181_DONE_MARKER:-}" || -n "${G182_DONE_MARKER:-}" || -n "${G183_DONE_MARKER:-}" || -n "${G184_DONE_MARKER:-}" || -n "${G185_DONE_MARKER:-}" || -n "${G186_DONE_MARKER:-}" || -n "${G187_DONE_MARKER:-}" || -n "${G188_DONE_MARKER:-}" || -n "${G189_DONE_MARKER:-}" || -n "${G190_DONE_MARKER:-}" || -n "${G191_DONE_MARKER:-}" || -n "${G192_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
@@ -337,7 +389,7 @@ probe_wait_native() {
 			if (( DOLPHIN_NEWGAME )); then
 				# Landmark Flipper/G16x markers prove play progressed past
 				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
-				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" && -z "${G169_DONE_MARKER:-}" && -z "${G170_DONE_MARKER:-}" && -z "${G171_DONE_MARKER:-}" && -z "${G172_DONE_MARKER:-}" && -z "${G173_DONE_MARKER:-}" && -z "${G174_DONE_MARKER:-}" && -z "${G175_DONE_MARKER:-}" && -z "${G176_DONE_MARKER:-}" && -z "${G177_DONE_MARKER:-}" && -z "${G178_DONE_MARKER:-}" && -z "${G179_DONE_MARKER:-}" && -z "${G180_DONE_MARKER:-}" && -z "${G181_DONE_MARKER:-}" ]]; then
+				if [[ -z "${G159_DONE_MARKER:-}" && -z "${G161_DONE_MARKER:-}" && -z "${G162_DONE_MARKER:-}" && -z "${G163_DONE_MARKER:-}" && -z "${G164_DONE_MARKER:-}" && -z "${G165_DONE_MARKER:-}" && -z "${G166_DONE_MARKER:-}" && -z "${G167_DONE_MARKER:-}" && -z "${G168_DONE_MARKER:-}" && -z "${G169_DONE_MARKER:-}" && -z "${G170_DONE_MARKER:-}" && -z "${G171_DONE_MARKER:-}" && -z "${G172_DONE_MARKER:-}" && -z "${G173_DONE_MARKER:-}" && -z "${G174_DONE_MARKER:-}" && -z "${G175_DONE_MARKER:-}" && -z "${G176_DONE_MARKER:-}" && -z "${G177_DONE_MARKER:-}" && -z "${G178_DONE_MARKER:-}" && -z "${G179_DONE_MARKER:-}" && -z "${G180_DONE_MARKER:-}" && -z "${G181_DONE_MARKER:-}" && -z "${G182_DONE_MARKER:-}" && -z "${G183_DONE_MARKER:-}" && -z "${G184_DONE_MARKER:-}" && -z "${G185_DONE_MARKER:-}" && -z "${G186_DONE_MARKER:-}" && -z "${G187_DONE_MARKER:-}" && -z "${G188_DONE_MARKER:-}" && -z "${G189_DONE_MARKER:-}" && -z "${G190_DONE_MARKER:-}" && -z "${G191_DONE_MARKER:-}" && -z "${G192_DONE_MARKER:-}" ]]; then
 					if ! probe_log_has "${PLAY_READY_MARKER:-Xash3D GameCube: play start ready}"; then
 						sleep 2
 						continue
@@ -502,6 +554,58 @@ probe_wait_native() {
 				sleep 2
 				continue
 			fi
+			if [[ -n "${G182_DONE_MARKER:-}" ]] && ! probe_log_has "$G182_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G183_DONE_MARKER:-}" ]] && ! probe_log_has "$G183_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G184_DONE_MARKER:-}" ]] && ! probe_log_has "$G184_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G185_DONE_MARKER:-}" ]] && ! probe_log_has "$G185_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G186_DONE_MARKER:-}" ]] && ! probe_log_has "$G186_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G187_DONE_MARKER:-}" ]] && ! probe_log_has "$G187_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G188_DONE_MARKER:-}" ]] && ! probe_log_has "$G188_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G189_DONE_MARKER:-}" ]] && ! probe_log_has "$G189_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G190_DONE_MARKER:-}" ]] && ! probe_log_has "$G190_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G191_DONE_MARKER:-}" ]] && ! probe_log_has "$G191_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G192_DONE_MARKER:-}" ]] && ! probe_log_has "$G192_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G193_DONE_MARKER:-}" ]] && ! probe_log_has "$G193_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G194_DONE_MARKER:-}" ]] && ! probe_log_has "$G194_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
 			if [[ -n "${G101_DONE_MARKER:-}" ]]; then
 				if ! probe_log_has "$G101_DONE_MARKER" \
 					&& { [[ -z "${G101_ALT_MARKER:-}" ]] || ! probe_log_has "$G101_ALT_MARKER"; }; then
@@ -520,7 +624,7 @@ probe_wait_native() {
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi
-			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" || -n "${G158_DONE_MARKER:-}" || -n "${G159_DONE_MARKER:-}" || -n "${G161_DONE_MARKER:-}" || -n "${G162_DONE_MARKER:-}" || -n "${G163_DONE_MARKER:-}" || -n "${G164_DONE_MARKER:-}" || -n "${G165_DONE_MARKER:-}" || -n "${G166_DONE_MARKER:-}" || -n "${G167_DONE_MARKER:-}" || -n "${G168_DONE_MARKER:-}" || -n "${G169_DONE_MARKER:-}" || -n "${G170_DONE_MARKER:-}" || -n "${G171_DONE_MARKER:-}" || -n "${G172_DONE_MARKER:-}" || -n "${G173_DONE_MARKER:-}" || -n "${G174_DONE_MARKER:-}" || -n "${G175_DONE_MARKER:-}" || -n "${G176_DONE_MARKER:-}" || -n "${G177_DONE_MARKER:-}" || -n "${G178_DONE_MARKER:-}" || -n "${G179_DONE_MARKER:-}" || -n "${G180_DONE_MARKER:-}" || -n "${G181_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
+			if [[ -n "${G68_DONE_MARKER:-}" || -n "${G95_DONE_MARKER:-}" || -n "${G96_DONE_MARKER:-}" || -n "${G97_DONE_MARKER:-}" || -n "${G98_DONE_MARKER:-}" || -n "${G99_DONE_MARKER:-}" || -n "${G100_DONE_MARKER:-}" || -n "${G101_DONE_MARKER:-}" || -n "${G102_DONE_MARKER:-}" || -n "${G103_DONE_MARKER:-}" || -n "${G104_DONE_MARKER:-}" || -n "${G105_DONE_MARKER:-}" || -n "${G158_DONE_MARKER:-}" || -n "${G159_DONE_MARKER:-}" || -n "${G161_DONE_MARKER:-}" || -n "${G162_DONE_MARKER:-}" || -n "${G163_DONE_MARKER:-}" || -n "${G164_DONE_MARKER:-}" || -n "${G165_DONE_MARKER:-}" || -n "${G166_DONE_MARKER:-}" || -n "${G167_DONE_MARKER:-}" || -n "${G168_DONE_MARKER:-}" || -n "${G169_DONE_MARKER:-}" || -n "${G170_DONE_MARKER:-}" || -n "${G171_DONE_MARKER:-}" || -n "${G172_DONE_MARKER:-}" || -n "${G173_DONE_MARKER:-}" || -n "${G174_DONE_MARKER:-}" || -n "${G175_DONE_MARKER:-}" || -n "${G176_DONE_MARKER:-}" || -n "${G177_DONE_MARKER:-}" || -n "${G178_DONE_MARKER:-}" || -n "${G179_DONE_MARKER:-}" || -n "${G180_DONE_MARKER:-}" || -n "${G181_DONE_MARKER:-}" || -n "${G182_DONE_MARKER:-}" || -n "${G183_DONE_MARKER:-}" || -n "${G184_DONE_MARKER:-}" || -n "${G185_DONE_MARKER:-}" || -n "${G186_DONE_MARKER:-}" || -n "${G187_DONE_MARKER:-}" || -n "${G188_DONE_MARKER:-}" || -n "${G189_DONE_MARKER:-}" || -n "${G190_DONE_MARKER:-}" || -n "${G191_DONE_MARKER:-}" || -n "${G192_DONE_MARKER:-}" ]] && (( g94_sample_armed == 0 )); then
 				map_ready_at=$(date +%s)
 				g94_sample_armed=1
 			fi

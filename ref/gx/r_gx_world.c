@@ -8,6 +8,12 @@ G178: cache world TEV/vtx + TEXMAP0 binds.
 G179: lean sync — skip hot InvalidateTexAll, Flush not DrawDone, cache LM objs.
 G180: pack face lightmaps into one TEXMAP1 atlas.
 G181: cluster TEXMAP0 binds within area-order bands.
+G182: Flipper GX 2D StretchPic for live HUD on EFB.
+G183: pin HUD TEXMAP0 slots + TriColor tint; richer Flipper pic count.
+G184: HUD RGB5A3 + alpha compare so SPR_DrawHoles drop transparent texels.
+G185: cut Flipper HUD fill (lean crosshair cell + fill-px telemetry).
+G186: skip tiny / far-small Flipper faces before ST/LM emit (fill lean).
+G187: HUD holes punch near-black ink (crosshair sheet non-255 dark texels).
 */
 #include "r_local.h"
 
@@ -22,17 +28,22 @@ extern qboolean GC_UseGxWorldDraw( void );
 extern void GC_MarkGxWorldEfbReady( void );
 extern void *GC_GetGxVideoMode( void );
 extern void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t );
+extern unsigned R_GXGetTriColorRGBA( void );
 
 #define GC_GX_TEX_SLOTS		24
+#define GC_GX_TEX_HUD_RESERVE	4	/* last slots preferred for live HUD sheets */
 #define GC_GX_TEX_MAX_DIM	64	/* MEM1: 24 × 64×64×2 ≈ 192 KiB tiled staging */
 
 typedef struct
 {
 	unsigned	texnum;
 	int		w, h;
+	size_t		alloc_bytes;
+	u8		fmt;	/* GX_TF_RGB565 or GX_TF_RGB5A3 */
 	GXTexObj	obj;
 	u16		*tiled;	/* MEM1 aligned */
 	qboolean	valid;
+	qboolean	hud_pin;	/* G183: do not LRU-evict for world binds */
 } gc_gx_tex_t;
 
 static gc_gx_tex_t r_gx_tex[GC_GX_TEX_SLOTS];
@@ -72,6 +83,20 @@ static int r_gx_tex_invalidates;
 static qboolean r_gx_sync_lean_logged;
 static qboolean r_gx_lm_atlas_logged;
 static qboolean r_gx_tex_band_logged;
+/* G186: Flipper world fill cull (extents dust + far-small). */
+#ifndef GC_GX_MIN_FACE_AREA
+#define GC_GX_MIN_FACE_AREA 3072	/* extents product; skip small detail */
+#endif
+#ifndef GC_GX_FAR_FACE_DIST
+#define GC_GX_FAR_FACE_DIST 512.0f
+#endif
+#ifndef GC_GX_FAR_MIN_AREA
+#define GC_GX_FAR_MIN_AREA 8192	/* keep large walls even when far */
+#endif
+static int r_gx_face_skips;
+static int r_gx_face_skip_area;
+static int r_gx_face_skip_far;
+static qboolean r_gx_face_cull_logged;
 
 /* G155 studio overlay */
 static qboolean r_gx_studio_active;
@@ -93,15 +118,89 @@ static float r_gx_vm_ndc_ymin = 1e9f;
 static float r_gx_vm_ndc_ymax = -1e9f;
 static int r_gx_vm_ndc_samples;
 static float r_gx_vm_fov_x;
+static qboolean r_gx_hud_2d_ready;
+static qboolean r_gx_hud_2d_logged;
+static qboolean r_gx_hud_rich_logged;
+static qboolean r_gx_hud_holes_logged;
+static qboolean r_gx_hud_fill_logged;
+static qboolean r_gx_hud_pool_ready;
+static int r_gx_hud_2d_pics;
+static int r_gx_hud_holes_pics;
+static int r_gx_hud_bind_fails;
+static int r_gx_hud_fill_px;
+static int r_gx_hud_holes_fill_px;
+/* G183: keep convert scratch off the deep world→HUD stack. */
+static u16 r_gx_tex_linear[GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM];
+
+#define GC_GX_TEX_HUD_SLOT0	( GC_GX_TEX_SLOTS - GC_GX_TEX_HUD_RESERVE )
+
+/* G184: soft TRANSPARENT_COLOR → RGB5A3 with alpha 0 (not opaque black).
+ * G187: also punch near-black — crosshair sheets use dark non-255 ink. */
+static int r_gx_hud_nearblack_punched;
+static qboolean r_gx_hud_nearblack_logged;
+
+static u16 R_GXSoftToRGB5A3( pixel_t soft )
+{
+	u16 rgb565;
+	u32 r5, g6, b5, g5;
+
+	if( soft == TRANSPARENT_COLOR )
+		return 0;
+	rgb565 = (u16)R_GCSoftToRGB565( soft );
+	r5 = ( rgb565 >> 11 ) & 31u;
+	g6 = ( rgb565 >> 5 ) & 63u;
+	b5 = rgb565 & 31u;
+	g5 = g6 >> 1;
+	/* Near-black → α=0 so GX_GREATER alpha-compare drops the texel. */
+	if( r5 <= 1u && g5 <= 1u && b5 <= 1u )
+	{
+		r_gx_hud_nearblack_punched++;
+		return 0;
+	}
+	return (u16)( 0x8000u | ( r5 << 10 ) | ( g5 << 5 ) | b5 );
+}
+
+/*
+ * G184: carve 4×64×64 TEXMAP0 slabs before world fills MEM1 so crosshair /
+ * hud sheets never memalign-fail on the Flipper HUD pass.
+ */
+static void R_GXReserveHudPool( void )
+{
+	int i;
+	const size_t bytes = (size_t)GC_GX_TEX_MAX_DIM * (size_t)GC_GX_TEX_MAX_DIM * sizeof( u16 );
+
+	if( r_gx_hud_pool_ready )
+		return;
+	for( i = 0; i < GC_GX_TEX_HUD_RESERVE; i++ )
+	{
+		int slot = GC_GX_TEX_HUD_SLOT0 + i;
+
+		if( r_gx_tex[slot].tiled && r_gx_tex[slot].alloc_bytes >= bytes )
+			continue;
+		if( r_gx_tex[slot].tiled )
+		{
+			free( r_gx_tex[slot].tiled );
+			r_gx_tex[slot].tiled = NULL;
+			r_gx_tex[slot].alloc_bytes = 0;
+			r_gx_tex[slot].valid = false;
+		}
+		r_gx_tex[slot].tiled = (u16 *)memalign( 32, bytes );
+		if( !r_gx_tex[slot].tiled )
+		{
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G184 HUD pool alloc fail slot=%d\n", slot );
+			continue;
+		}
+		r_gx_tex[slot].alloc_bytes = bytes;
+		r_gx_tex[slot].valid = false;
+		r_gx_tex[slot].hud_pin = true;
+	}
+	r_gx_hud_pool_ready = true;
+}
 
 qboolean R_GXWorldDrewThisFrame( void )
 {
 	return r_gx_world_drew;
-}
-
-void R_GXClearWorldDrewFlag( void )
-{
-	r_gx_world_drew = false;
 }
 
 qboolean R_GXStudioIsActive( void )
@@ -206,6 +305,7 @@ static void R_GXTexCacheReset( void )
 	}
 	r_gx_tex_clock = 0;
 	r_gx_tex_world = NULL;
+	r_gx_hud_pool_ready = false;
 }
 
 static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
@@ -213,9 +313,10 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 	image_t *img;
 	int i, slot, victim, src_w, src_h, dst_w, dst_h;
 	int x, y, step_x, step_y;
-	u16 linear[GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM];
 	size_t bytes;
 	gc_gx_tex_t *t;
+	const qboolean hud_bind = r_gx_hud_2d_ready;
+	const u8 want_fmt = hud_bind ? (u8)GX_TF_RGB5A3 : (u8)GX_TF_RGB565;
 
 	if( texnum == 0 )
 		return NULL;
@@ -226,9 +327,12 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 
 	for( i = 0; i < GC_GX_TEX_SLOTS; i++ )
 	{
-		if( r_gx_tex[i].valid && r_gx_tex[i].texnum == texnum )
+		if( r_gx_tex[i].valid && r_gx_tex[i].texnum == texnum
+			&& r_gx_tex[i].fmt == want_fmt )
 		{
 			r_gx_tex_lru[i] = ++r_gx_tex_clock;
+			if( hud_bind )
+				r_gx_tex[i].hud_pin = true;
 			if( r_gx_bound_texnum != texnum )
 			{
 				GX_LoadTexObj( &r_gx_tex[i].obj, GX_TEXMAP0 );
@@ -241,29 +345,54 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 		}
 	}
 
-	/* LRU free slot */
+	/* Prefer free slot; HUD only uses reserved high slots (preallocated). */
 	slot = -1;
-	victim = 0;
-	for( i = 0; i < GC_GX_TEX_SLOTS; i++ )
+	victim = -1;
+	if( hud_bind )
 	{
-		if( !r_gx_tex[i].valid )
+		R_GXReserveHudPool();
+		for( i = GC_GX_TEX_HUD_SLOT0; i < GC_GX_TEX_SLOTS; i++ )
 		{
-			slot = i;
-			break;
+			if( !r_gx_tex[i].valid )
+			{
+				slot = i;
+				break;
+			}
 		}
-		if( r_gx_tex_lru[i] < r_gx_tex_lru[victim] )
-			victim = i;
+		if( slot < 0 )
+		{
+			for( i = GC_GX_TEX_HUD_SLOT0; i < GC_GX_TEX_SLOTS; i++ )
+			{
+				if( victim < 0 || r_gx_tex_lru[i] < r_gx_tex_lru[victim] )
+					victim = i;
+			}
+			slot = victim;
+		}
 	}
-	if( slot < 0 )
-		slot = victim;
+	else
+	{
+		for( i = 0; i < GC_GX_TEX_HUD_SLOT0; i++ )
+		{
+			if( !r_gx_tex[i].valid )
+			{
+				slot = i;
+				break;
+			}
+		}
+		if( slot < 0 )
+		{
+			for( i = 0; i < GC_GX_TEX_HUD_SLOT0; i++ )
+			{
+				if( victim < 0 || r_gx_tex_lru[i] < r_gx_tex_lru[victim] )
+					victim = i;
+			}
+			if( victim < 0 )
+				victim = 0;
+			slot = victim;
+		}
+	}
 
 	t = &r_gx_tex[slot];
-	if( t->tiled )
-	{
-		free( t->tiled );
-		t->tiled = NULL;
-	}
-	memset( t, 0, sizeof( *t ));
 
 	src_w = img->width;
 	src_h = img->height;
@@ -289,28 +418,62 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 			if( sx >= src_w )
 				sx = src_w - 1;
 			soft = img->pixels[0][sy * src_w + sx];
-			if( soft == TRANSPARENT_COLOR )
-				linear[y * dst_w + x] = 0;
+			if( hud_bind )
+				r_gx_tex_linear[y * dst_w + x] = R_GXSoftToRGB5A3( soft );
+			else if( soft == TRANSPARENT_COLOR )
+				r_gx_tex_linear[y * dst_w + x] = 0;
 			else
-				linear[y * dst_w + x] = (u16)R_GCSoftToRGB565( soft );
+				r_gx_tex_linear[y * dst_w + x] = (u16)R_GCSoftToRGB565( soft );
 		}
 	}
 
 	bytes = (size_t)dst_w * (size_t)dst_h * sizeof( u16 );
-	t->tiled = (u16 *)memalign( 32, bytes );
-	if( !t->tiled )
-		return NULL;
+	/*
+	 * G183: never free-before-alloc — MEM1 is fragmented after world upload.
+	 * Reuse any staging buffer large enough (HUD snaps are ≤ 64×64).
+	 */
+	{
+		const size_t max_tile = (size_t)GC_GX_TEX_MAX_DIM * (size_t)GC_GX_TEX_MAX_DIM * sizeof( u16 );
+		size_t want = bytes;
 
-	R_GXSwizzleRGB565( linear, dst_w, dst_w, dst_h, t->tiled );
+		/* HUD uploads prefer a full 64×64 staging slab so later sheets reuse. */
+		if( hud_bind && want < max_tile )
+			want = max_tile;
+
+		if( !t->tiled || t->alloc_bytes < bytes )
+		{
+			u16 *neu = (u16 *)memalign( 32, want );
+
+			if( !neu )
+			{
+				if( !t->tiled || t->alloc_bytes < bytes )
+				{
+					r_gx_hud_bind_fails++;
+					return NULL;
+				}
+			}
+			else
+			{
+				if( t->tiled )
+					free( t->tiled );
+				t->tiled = neu;
+				t->alloc_bytes = want;
+			}
+		}
+	}
+
+	R_GXSwizzleRGB565( r_gx_tex_linear, dst_w, dst_w, dst_h, t->tiled );
 	DCFlushRange( t->tiled, (u32)bytes );
 
 	GX_InitTexObj( &t->obj, t->tiled, (u16)dst_w, (u16)dst_h,
-		GX_TF_RGB565, GX_REPEAT, GX_REPEAT, GX_FALSE );
+		want_fmt, GX_REPEAT, GX_REPEAT, GX_FALSE );
 	GX_InitTexObjFilterMode( &t->obj, GX_NEAR, GX_NEAR );
 	t->texnum = texnum;
 	t->w = dst_w;
 	t->h = dst_h;
+	t->fmt = want_fmt;
 	t->valid = true;
+	t->hud_pin = hud_bind;
 	r_gx_tex_lru[slot] = ++r_gx_tex_clock;
 	/* New tiled texels — invalidate once here, not every world pass. */
 	GX_InvalidateTexAll();
@@ -727,6 +890,9 @@ int R_GXDrawNewGameCapFaces( void )
 	if( !GC_UseGxWorldDraw() )
 		return 0;
 
+	/* G184: reserve HUD TEXMAP0 slabs before world uploads fill MEM1. */
+	R_GXReserveHudPool();
+
 	world = WORLDMODEL;
 	draw = GC_GetNewGameDrawSurfs();
 	n = GC_GetNewGameCapFaceCount();
@@ -738,12 +904,14 @@ int R_GXDrawNewGameCapFaces( void )
 	if( r_gx_tex_world != world )
 	{
 		R_GXTexCacheReset();
+		R_GXReserveHudPool();
 		r_gx_tex_world = world;
 		r_gx_tex_logged = false;
 		r_gx_lm_logged = false;
 		r_gx_sync_lean_logged = false;
 		r_gx_lm_atlas_logged = false;
 		r_gx_tex_band_logged = false;
+		r_gx_face_cull_logged = false;
 	}
 
 	gen = GC_GetNewGameCapGeneration();
@@ -768,6 +936,9 @@ int R_GXDrawNewGameCapFaces( void )
 	r_gx_lm_inits = 0;
 	r_gx_lm_loads = 0;
 	r_gx_lm_reuses = 0;
+	r_gx_face_skips = 0;
+	r_gx_face_skip_area = 0;
+	r_gx_face_skip_far = 0;
 	R_GXSetupWorld3DState();
 
 	R_GXOrderFacesByTexBands( draw, n, order );
@@ -775,6 +946,7 @@ int R_GXDrawNewGameCapFaces( void )
 	for( i = 0; i < n; i++ )
 	{
 		float dot;
+		int area;
 		const int slot = order[i];
 		msurface_t *surf = &draw[slot];
 
@@ -790,6 +962,21 @@ int R_GXDrawNewGameCapFaces( void )
 		{
 			if( dot < BACKFACE_EPSILON )
 				continue;
+		}
+		/* G186: drop dust faces and far-small detail before ST/LM work. */
+		area = (int)surf->extents[0] * (int)surf->extents[1];
+		if( area > 0 && area < GC_GX_MIN_FACE_AREA )
+		{
+			r_gx_face_skips++;
+			r_gx_face_skip_area++;
+			continue;
+		}
+		if( area > 0 && area < GC_GX_FAR_MIN_AREA
+			&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
+		{
+			r_gx_face_skips++;
+			r_gx_face_skip_far++;
+			continue;
 		}
 		/* slot stays the atlas/LM index — only draw order changes. */
 		drawn += R_GXEmitFace( surf, world, slot );
@@ -846,6 +1033,14 @@ int R_GXDrawNewGameCapFaces( void )
 		gEngfuncs.Con_Reportf(
 			"Xash3D GameCube: G181 GX tex band order faces=%d bands=%d texloads=%d texreuses=%d\n",
 			drawn, GC_GX_TEX_BANDS, r_gx_tex_loads, r_gx_tex_reuses );
+	}
+	if( !r_gx_face_cull_logged && drawn > 0 )
+	{
+		r_gx_face_cull_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G186 GX Flipper face cull skips=%d area=%d far=%d drawn=%d min_area=%d\n",
+			r_gx_face_skips, r_gx_face_skip_area, r_gx_face_skip_far, drawn,
+			GC_GX_MIN_FACE_AREA );
 	}
 	return drawn;
 }
@@ -1132,10 +1327,205 @@ void R_GXStudioEmitTri(
 		x2, y2, z2, u2, v2, r_gx_studio_color );
 }
 
+/*
+================
+G182: live HUD / 2D into Flipper EFB (soft StretchPic is discarded when
+CopyDisp presents the world EFB).
+================
+*/
+static void R_GXPrepareHud2DState( void )
+{
+	GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
+	Mtx44 ortho;
+	Mtx ident;
+	f32 vb_w, vb_h;
+
+	if( !rmode || vid.width < 1 || vid.height < 1 )
+		return;
+
+	vb_w = (f32)rmode->fbWidth;
+	vb_h = (f32)rmode->efbHeight;
+	GX_SetViewport( 0.0f, 0.0f, vb_w, vb_h, 0.0f, 1.0f );
+	GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
+	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetColorUpdate( GX_TRUE );
+	GX_SetNumChans( 1 );
+	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
+		GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE );
+	GX_SetNumTexGens( 1 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+	/* Default: no hole punch until a holes/alpha StretchPic. */
+	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+
+	/* Match soft FB coordinates (y down) onto the full EFB. */
+	guOrtho( ortho, 0.0f, (f32)vid.height, 0.0f, (f32)vid.width, 0.0f, 1.0f );
+	GX_LoadProjectionMtx( ortho, GX_ORTHOGRAPHIC );
+	guMtxIdentity( ident );
+	GX_LoadPosMtxImm( ident, GX_PNMTX0 );
+
+	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+	r_gx_bound_texnum = 0;
+	r_gx_lm_atlas_bound = false;
+	r_gx_hud_2d_ready = true;
+}
+
+qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
+	float s1, float t1, float s2, float t2, int texnum )
+{
+	gc_gx_tex_t *gxt;
+	u32 color;
+	int alpha;
+	f32 x0, y0, x1, y1;
+	qboolean holes;
+
+	if( !GC_UseGxWorldDraw() || !r_gx_world_drew )
+		return false;
+	if( texnum <= 0 || w < 1.0f || h < 1.0f )
+		return false;
+
+	if( !r_gx_hud_2d_ready )
+		R_GXPrepareHud2DState();
+	if( !r_gx_hud_2d_ready )
+		return false;
+
+	gxt = R_GXBindTexnum( (unsigned)texnum );
+	if( !gxt )
+		return false;
+
+	alpha = vid.alpha;
+	if( alpha < 0 )
+		alpha = 0;
+	else if( alpha > 7 )
+		alpha = 7;
+	/* G183: modulate with TriColor (SPR_Set tint), not flat white. */
+	color = R_GXGetTriColorRGBA();
+	color = ( color & 0xFFFFFF00u ) | (u32)(( alpha * 255 ) / 7 );
+
+	/* G184: SPR_DrawHoles / TransAlpha — punch RGB5A3 alpha==0 texels. */
+	holes = ( vid.rendermode == kRenderTransColor
+		|| vid.rendermode == kRenderTransAlpha );
+	if( holes )
+		GX_SetAlphaCompare( GX_GREATER, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	else
+		GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+
+	if( vid.rendermode == kRenderTransAdd )
+		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_NOOP );
+	else if( vid.rendermode == kRenderTransTexture
+		|| vid.rendermode == kRenderTransAlpha
+		|| vid.rendermode == kRenderTransColor
+		|| alpha < 7 )
+		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+	else
+		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+
+	x0 = x;
+	y0 = y;
+	x1 = x + w;
+	y1 = y + h;
+
+	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+	GX_Position3f32( x0, y0, 0.0f );
+	GX_Color1u32( color );
+	GX_TexCoord2f32( s1, t1 );
+	GX_Position3f32( x1, y0, 0.0f );
+	GX_Color1u32( color );
+	GX_TexCoord2f32( s2, t1 );
+	GX_Position3f32( x1, y1, 0.0f );
+	GX_Color1u32( color );
+	GX_TexCoord2f32( s2, t2 );
+	GX_Position3f32( x0, y1, 0.0f );
+	GX_Color1u32( color );
+	GX_TexCoord2f32( s1, t2 );
+	GX_End();
+
+	r_gx_hud_2d_pics++;
+	{
+		const int px = (int)( w * h );
+
+		if( px > 0 )
+			r_gx_hud_fill_px += px;
+		if( holes )
+		{
+			r_gx_hud_holes_pics++;
+			if( px > 0 )
+				r_gx_hud_holes_fill_px += px;
+		}
+	}
+	return true;
+}
+
+void R_GXClearWorldDrewFlag( void )
+{
+	if( !r_gx_hud_2d_logged && r_gx_hud_2d_pics > 0 )
+	{
+		r_gx_hud_2d_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G182 GX HUD stretch pics=%d (Flipper EFB 2D)\n",
+			r_gx_hud_2d_pics );
+	}
+	if( !r_gx_hud_rich_logged && r_gx_hud_2d_pics >= 8 )
+	{
+		r_gx_hud_rich_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G183 GX HUD rich pics=%d (Flipper EFB 2D)\n",
+			r_gx_hud_2d_pics );
+	}
+	if( !r_gx_hud_holes_logged && r_gx_hud_holes_pics > 0 )
+	{
+		r_gx_hud_holes_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G184 GX HUD alpha holes pics=%d (RGB5A3)\n",
+			r_gx_hud_holes_pics );
+	}
+	if( !r_gx_hud_nearblack_logged && r_gx_hud_nearblack_punched > 0
+		&& r_gx_hud_holes_pics > 0 )
+	{
+		r_gx_hud_nearblack_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G187 GX HUD nearblack holes punched=%d pics=%d\n",
+			r_gx_hud_nearblack_punched, r_gx_hud_holes_pics );
+	}
+	/* G185: full-sheet cross was ≥4096 px holes-fill; cell target ≪ that. */
+	if( !r_gx_hud_fill_logged && r_gx_hud_2d_pics >= 8 && r_gx_hud_holes_fill_px > 0
+		&& r_gx_hud_holes_fill_px < 4096 )
+	{
+		r_gx_hud_fill_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: G185 GX HUD fill lean px=%d holes_px=%d pics=%d\n",
+			r_gx_hud_fill_px, r_gx_hud_holes_fill_px, r_gx_hud_2d_pics );
+	}
+	r_gx_hud_bind_fails = 0;
+	r_gx_world_drew = false;
+	r_gx_hud_2d_ready = false;
+	r_gx_hud_2d_pics = 0;
+	r_gx_hud_holes_pics = 0;
+	r_gx_hud_fill_px = 0;
+	r_gx_hud_holes_fill_px = 0;
+}
+
 #else /* !XASH_GAMECUBE */
 
 qboolean R_GXWorldDrewThisFrame( void ) { return false; }
 void R_GXClearWorldDrewFlag( void ) {}
+qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
+	float s1, float t1, float s2, float t2, int texnum )
+{
+	(void)x; (void)y; (void)w; (void)h;
+	(void)s1; (void)t1; (void)s2; (void)t2; (void)texnum;
+	return false;
+}
 int R_GXDrawNewGameCapFaces( void ) { return 0; }
 qboolean R_GXStudioIsActive( void ) { return false; }
 void R_GXStudioBegin( qboolean viewmodel ) { (void)viewmodel; }

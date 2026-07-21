@@ -902,7 +902,11 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 
 
 def lean_hl_spr_bytes(src: Path, scale: int = 2) -> bytes | None:
-	"""Nearest-neighbor downsample a single-frame HL SPR (G173/G174 lean HUD)."""
+	"""Nearest-neighbor downsample a single-frame HL SPR (G173/G174 lean HUD).
+
+	G187: for SPR_ALPHATEST sheets, prefer any non-255 texel in the scale×scale
+	block so thin crosshair strokes survive 128→64 (plain NN often empties them).
+	"""
 	import math
 
 	try:
@@ -937,16 +941,32 @@ def lean_hl_spr_bytes(src: Path, scale: int = 2) -> bytes | None:
 	nw, nh = w // scale, h // scale
 	pix = d[pix_off : pix_off + w * h]
 	out_pix = bytearray(nw * nh)
+	# texFormat 3 = SPR_ALPHATEST — index 255 is transparent.
+	preserve_ink = tex == 3
 	for y in range(nh):
 		sy = y * scale
 		for x in range(nw):
-			out_pix[y * nw + x] = pix[sy * w + x * scale]
+			sx = x * scale
+			sample = pix[sy * w + sx]
+			if preserve_ink and sample == 255:
+				found = 255
+				for dy in range(scale):
+					row = (sy + dy) * w
+					for dx in range(scale):
+						p = pix[row + sx + dx]
+						if p != 255:
+							found = p
+							break
+					if found != 255:
+						break
+				sample = found
+			out_pix[y * nw + x] = sample
 	br = math.sqrt((nw * 0.5) ** 2 + (nh * 0.5) ** 2)
 	out = bytearray()
 	out += b"IDSP"
 	out += struct.pack("<iii", 2, typ, tex)
 	out += struct.pack("<f", br)
-	out += struct.pack("<ff", float(nw), float(nh))
+	out += struct.pack("<ii", nw, nh)
 	out += struct.pack("<iii", 1, face, sync)
 	out += struct.pack("<h", ncolors)
 	out += d[pal_off:frame_off]

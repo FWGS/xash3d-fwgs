@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G181 COMPLETE: 8 area-band texture order; TEXMAP0 loads 149→61; render~1.43ms; G180/G179/G155 green. Next: Flipper HUD or finer TEXMAP0 clustering."
+  "note": "G194 COMPLETE: DumpFrames encode backlog cleared — local Dolphin TGA dump (PNGCompressionLevel≤1) + G191 EFB paced soft latch; 10 soft / 9 unique DumpFrames in probe 20260721-093730. Automatic goals through G194 done; next is G75 manual checkpoint."
 }

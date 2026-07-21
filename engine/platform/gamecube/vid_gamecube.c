@@ -809,6 +809,8 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
  * on c1a0a. Face geom must be snapshotted at capture — live plane* dangles at present.
  */
 static qboolean gc_cap_refresh_pending;
+/* G188: landmark put-in reposition wants a fresh cap-face set at that origin. */
+static qboolean gc_g188_reposition_pending;
 
 /* Prefer larger faces first so outdoor wall swaps beat leftover floors. */
 static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
@@ -837,6 +839,7 @@ static void GC_BuildSurfbitsForVisRow( model_t *wmodel, const byte *vis, byte *s
 static byte *GC_LookupSurfbitsCache( int cluster );
 static int GC_VisLeafsForCluster( int cluster );
 static int GC_SelectClusterForOrigin( const float *org );
+static qboolean GC_SetActiveNewGameCluster( int cluster, qboolean log_change );
 static int GC_LookupSurfbitsCacheSlot( int cluster )
 {
 	int i;
@@ -1132,6 +1135,159 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 	}
 }
 
+static int GC_RefreshCandWallCount( int cache_slot )
+{
+	int i, n = 0;
+
+	if( cache_slot < 0 || cache_slot >= GC_SURFBITS_CACHE_SLOTS )
+		return 0;
+	for( i = 0; i < gc_refresh_ncands[cache_slot]; i++ )
+	{
+		if( fabs( gc_refresh_cands[cache_slot][i].plane.normal[2] ) < 0.35f )
+			n++;
+	}
+	return n;
+}
+
+/* G189/G190: densest SelectCluster often returns a mega indoor row. Prefer a
+ * cached outdoor-band cluster (leaves 20–48, matches G163 outdoor refresh)
+ * with the most near-vertical wall cands so soft dumps fill with walls. */
+static qboolean GC_PreferOutdoorWallCluster( void )
+{
+	int cur_leaves = GC_VisLeafsForCluster( gc_newgame_viewcluster );
+	int cur_slot = GC_LookupSurfbitsCacheSlot( gc_newgame_viewcluster );
+	int cur_walls = ( cur_slot >= 0 ) ? GC_RefreshCandWallCount( cur_slot ) : 0;
+	int outdoor = -1;
+	int outdoor_walls = -1;
+	int outdoor_leaves = -1;
+	int i;
+	qboolean need_any = ( cur_slot < 0 || gc_refresh_ncands[cur_slot] <= 0 );
+
+	/* Prefer a true outdoor-band row when densest, or when active has no cands. */
+	for( i = 0; i < gc_newgame_surf_cache_slots; i++ )
+	{
+		int cand = gc_newgame_surf_cache_cluster[i];
+		int leaves;
+		int walls;
+
+		if( cand < 0 || gc_refresh_ncands[i] <= 0 )
+			continue;
+		leaves = GC_VisLeafsForCluster( cand );
+		if( leaves < 20 || leaves > 48 )
+			continue;
+		walls = GC_RefreshCandWallCount( i );
+		if( walls > outdoor_walls
+			|| ( walls == outdoor_walls && leaves > outdoor_leaves ))
+		{
+			outdoor_walls = walls;
+			outdoor_leaves = leaves;
+			outdoor = cand;
+		}
+	}
+	if( outdoor >= 0 && outdoor != gc_newgame_viewcluster
+		&& ( cur_leaves > 80 || outdoor_walls > cur_walls || need_any )
+		&& GC_SetActiveNewGameCluster( outdoor, true ))
+	{
+		SYS_Report( "Xash3D GameCube: G190 outdoor wall cluster prefer %d walls=%d leaves=%d (was %d)\n",
+			outdoor, outdoor_walls, outdoor_leaves, cur_leaves );
+		return true;
+	}
+	/* Fallback only when the active cluster has no refresh cands at all. */
+	if( !need_any )
+		return false;
+	outdoor = -1;
+	outdoor_walls = -1;
+	outdoor_leaves = -1;
+	for( i = 0; i < gc_newgame_surf_cache_slots; i++ )
+	{
+		int cand = gc_newgame_surf_cache_cluster[i];
+		int leaves;
+		int walls;
+
+		if( cand < 0 || cand == gc_newgame_viewcluster || gc_refresh_ncands[i] <= 0 )
+			continue;
+		leaves = GC_VisLeafsForCluster( cand );
+		walls = GC_RefreshCandWallCount( i );
+		if( walls > outdoor_walls
+			|| ( walls == outdoor_walls && leaves > outdoor_leaves ))
+		{
+			outdoor_walls = walls;
+			outdoor_leaves = leaves;
+			outdoor = cand;
+		}
+	}
+	if( outdoor < 0 || !GC_SetActiveNewGameCluster( outdoor, true ))
+		return false;
+	SYS_Report( "Xash3D GameCube: G190 outdoor wall cluster prefer %d walls=%d leaves=%d (was %d)\n",
+		outdoor, outdoor_walls, outdoor_leaves, cur_leaves );
+	return true;
+}
+
+/* G190: aim dump camera into the largest near-vertical cap face. */
+static qboolean GC_DumpLookAtBestWall( const float *eye, float *out_angles )
+{
+	int i;
+	int best = -1;
+	int best_area = 0;
+	vec3_t look;
+	float d;
+
+	if( !eye || !out_angles || gc_newgame_cap_face_count <= 0 )
+		return false;
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		const gc_cap_face_t *f = &gc_newgame_cap_faces[i];
+		int area = gc_newgame_cap_areas[i];
+
+		if( fabs( f->plane.normal[2] ) >= 0.35f )
+			continue;
+		if( area <= best_area )
+			continue;
+		d = DotProduct( eye, f->plane.normal ) - f->plane.dist;
+		if( d <= 8.0f )
+			continue;
+		best_area = area;
+		best = i;
+	}
+	if( best < 0 )
+	{
+		for( i = 0; i < gc_newgame_cap_face_count; i++ )
+		{
+			const gc_cap_face_t *f = &gc_newgame_cap_faces[i];
+			int area = gc_newgame_cap_areas[i];
+
+			if( fabs( f->plane.normal[2] ) >= 0.35f )
+				continue;
+			if( area <= best_area )
+				continue;
+			best_area = area;
+			best = i;
+		}
+	}
+	if( best < 0 )
+		return false;
+	{
+		const gc_cap_face_t *f = &gc_newgame_cap_faces[best];
+		vec3_t on_plane;
+
+		d = DotProduct( eye, f->plane.normal ) - f->plane.dist;
+		on_plane[0] = eye[0] - f->plane.normal[0] * d;
+		on_plane[1] = eye[1] - f->plane.normal[1] * d;
+		on_plane[2] = eye[2] - f->plane.normal[2] * d;
+		VectorSubtract( on_plane, eye, look );
+		if( VectorLength( look ) < 1.0f )
+			VectorScale( f->plane.normal, -1.0f, look );
+		VectorAngles( look, out_angles );
+		out_angles[2] = 0.0f;
+		if( out_angles[0] > -5.0f )
+			out_angles[0] = -10.0f;
+		SYS_Report( "Xash3D GameCube: G190 landmark wall soft dump walls=%d area=%d yaw=%.0f cluster=%d\n",
+			GC_RefreshCandWallCount( GC_LookupSurfbitsCacheSlot( gc_newgame_viewcluster )),
+			best_area, out_angles[1], gc_newgame_viewcluster );
+		return true;
+	}
+}
+
 static void GC_FlushPendingCapFaceRefresh( void )
 {
 	int cache_slot;
@@ -1142,14 +1298,44 @@ static void GC_FlushPendingCapFaceRefresh( void )
 	if( gc_newgame_cap_face_count <= 0 )
 		return;
 
+	/* G189/G190: landmark reposition often lands densest indoor; swap to an
+	 * outdoor wall-heavy cached row before refresh. */
+	if( gc_g188_reposition_pending )
+		GC_PreferOutdoorWallCluster();
+
 	cache_slot = GC_LookupSurfbitsCacheSlot( gc_newgame_viewcluster );
 	if( cache_slot < 0 || gc_refresh_ncands[cache_slot] <= 0 )
 	{
 		SYS_Report( "Xash3D GameCube: G163 refresh skipped (no capture cands cluster=%d)\n",
 			gc_newgame_viewcluster );
+		gc_g188_reposition_pending = false;
 		return;
 	}
 	GC_RefreshCapFacesFromCands( cache_slot );
+	if( gc_g188_reposition_pending )
+	{
+		gc_g188_reposition_pending = false;
+		SYS_Report( "Xash3D GameCube: G188 landmark Flipper continuity cluster=%d faces=%d\n",
+			gc_newgame_viewcluster, gc_newgame_cap_face_count );
+	}
+}
+
+/* G188: after put-in landmark reposition, force a cap-face refresh so the
+ * Flipper face set matches the continued origin (not the load-time cluster). */
+void GC_NewGameNotifyLandmarkReposition( void )
+{
+	edict_t *player;
+	vec3_t eye;
+
+	gc_g188_reposition_pending = true;
+	player = ( svgame.edicts && svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+	if( player && !player->free && !VectorIsNull( player->v.origin ))
+	{
+		VectorCopy( player->v.origin, eye );
+		eye[2] += 48.0f;
+		GC_UpdateNewGamePVSForOrigin( eye );
+	}
+	gc_cap_refresh_pending = true;
 }
 
 typedef struct
@@ -1162,8 +1348,9 @@ static gc_newgame_leafbox_t *gc_newgame_leafboxes;
 static int gc_newgame_nleafboxes;
 static qboolean gc_newgame_pvs_follow_proved;
 static qboolean gc_gx_present_logged;
-/* G128: remaining presents that must use CPU YUYV→XFB so Dolphin DumpFrames
- * captures a readable image (GX tiled path dumps as period-32 noise). */
+/* G128/G191: remaining soft DumpFrames latch presents. After Flipper EFB
+ * clear, Dolphin DumpFramesAsImages follows EFB — CPU YUYV→XFB alone stays
+ * invisible (flat sky). G191 presents soft RGB565 via tiled EFB quad. */
 static int gc_cpu_dump_presents_left;
 static qboolean gc_dump_look_into_map;
 static vec3_t gc_newgame_capture_origin; /* G132: dump camera aim target */
@@ -1440,6 +1627,45 @@ static qboolean gc_gx_present_pipe_ready;
 /* G151: live New Game draws world tris into EFB; DumpFrames stay on soft. */
 static qboolean gc_gx_world_live;
 static qboolean gc_gx_world_efb_ready;
+static qboolean gc_g192_post_changelevel; /* G192: DumpFrames re-arm after changelevel */
+static int gc_g193_defer_flipper_left; /* G193: soft-only presents before Flipper */
+static qboolean gc_g193_draining; /* G193: soft drain active (defer Flipper) */
+static qboolean gc_g193_soft_lock; /* G193: keep soft in XFB — DumpFrames encode lags Flipper */
+/* G193: dedicated linear soft snap (tiled staging is overwritten by GX swizzle). */
+static u16 gc_g193_soft_snap[GC_GX_TILE_MAX_W * GC_GX_TILE_MAX_H] __attribute__((aligned( 32 )));
+static qboolean gc_g193_snap_valid;
+static int gc_g193_snap_w, gc_g193_snap_h, gc_g193_snap_stride;
+
+static void GC_G193CaptureSoftSnap( void )
+{
+	size_t bytes;
+	size_t snap_bytes;
+
+	if( !gc.buffer || gc.width <= 0 || gc.height <= 0 || gc.stride <= 0 )
+		return;
+	bytes = (size_t)gc.stride * (size_t)gc.height * sizeof( unsigned short );
+	snap_bytes = sizeof( gc_g193_soft_snap );
+	if( bytes > snap_bytes )
+	{
+		gc_g193_snap_valid = false;
+		Con_Reportf( S_ERROR "Xash3D GameCube: G193 soft snap too large (%u > %u)\n",
+			(unsigned)bytes, (unsigned)snap_bytes );
+		return;
+	}
+	memcpy( gc_g193_soft_snap, gc.buffer, bytes );
+	gc_g193_snap_w = gc.width;
+	gc_g193_snap_h = gc.height;
+	gc_g193_snap_stride = gc.stride;
+	gc_g193_snap_valid = true;
+	Con_Reportf( "Xash3D GameCube: G193 soft snap captured %dx%d soft0=0x%04x\n",
+		gc.width, gc.height, gc.buffer[0] );
+}
+
+static void GC_G193ReleaseSoftSnap( void )
+{
+	gc_g193_snap_valid = false;
+	gc_g193_snap_w = gc_g193_snap_h = gc_g193_snap_stride = 0;
+}
 
 static void GC_InitPresentTextureTiled( void *tiled, int width, int height )
 {
@@ -1525,6 +1751,10 @@ static qboolean GC_CanPresentViaGX( int width, int height )
 static void GC_PresentBufferViaGX( void )
 {
 	f32 fb_w, fb_h;
+	Mtx44 proj;
+	Mtx modelview;
+	u32 copy_clear;
+	qboolean dump_latch = ( gc_cpu_dump_presents_left > 0 );
 
 	if( !rmode || !xfb[which_fb] || !gc_present_tex_ready )
 		return;
@@ -1532,32 +1762,41 @@ static void GC_PresentBufferViaGX( void )
 	fb_w = (f32)rmode->fbWidth;
 	fb_h = (f32)rmode->efbHeight;
 
-	/* One-time ortho / copy / vtx setup; per-frame we only refresh the
-	 * textured quad after DCFlush of the tiled RGB565 staging buffer. */
-	if( !gc_gx_present_pipe_ready )
-	{
-		Mtx44 proj;
-		Mtx modelview;
+	/* Always restore 2D soft-present state. Flipper world/HUD (G151+) leave
+	 * multi-stage TEV / 3D matrices / vtx formats; skipping rebuild made
+	 * landmark DumpFrames CopyDisp a cleared EFB (flat sky). */
+	GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
+	GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
+	GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
+	GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
+	GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
+	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+	GX_SetDispCopyGamma( GX_GM_1_0 );
 
-		GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
-		GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
-		GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
-		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
-		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
-		GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
-		GX_SetDispCopyGamma( GX_GM_1_0 );
+	guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
+	GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
+	guMtxIdentity( modelview );
+	GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
 
-		guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
-		GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
-		guMtxIdentity( modelview );
-		GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
-
-		GX_ClearVtxDesc();
-		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
-		gc_gx_present_pipe_ready = true;
-	}
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+	GX_SetNumChans( 1 );
+	GX_SetNumTexGens( 1 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+	GX_SetColorUpdate( GX_TRUE );
+	GX_SetCullMode( GX_CULL_NONE );
+	gc_gx_present_pipe_ready = true;
 
 	GX_InvVtxCache();
 	GX_InvalidateTexAll();
@@ -1579,7 +1818,10 @@ static void GC_PresentBufferViaGX( void )
 	GX_End();
 
 	GX_DrawDone();
-	GX_CopyDisp( xfb[which_fb], GX_TRUE );
+	/* G191: keep soft RGB565 on EFB during dump latch — Dolphin DumpFramesAsImages
+	 * after changelevel tracks EFB; CopyDisp clear left flat sky in dumps. */
+	copy_clear = dump_latch ? GX_FALSE : GX_TRUE;
+	GX_CopyDisp( xfb[which_fb], copy_clear );
 	/* Second sync wait is only needed when the next CPU work can race the
 	 * copy; silent G36 windows skip it to reclaim present ms at 160×120. */
 	if( !gc_budget_probe_active )
@@ -1793,11 +2035,14 @@ static void GC_PresentBuffer( void )
 
 	gc_present_count++;
 
-	/* G151: Flipper already holds world geometry — CopyDisp only (no soft blit). */
-	if( gc_gx_world_efb_ready )
+	/* G151: Flipper already holds world geometry — CopyDisp only (no soft blit).
+	 * G191: never steal soft DumpFrames latch presents onto a cleared EFB.
+	 * G193 soft_lock: never CopyDisp Flipper over soft XFB while DumpFrames lag. */
+	if( gc_gx_world_efb_ready && gc_cpu_dump_presents_left <= 0 && !gc_g193_soft_lock )
 	{
 		f32 fb_w = (f32)rmode->fbWidth;
 		f32 fb_h = (f32)rmode->efbHeight;
+		static int g194_flipper_swap_skip;
 
 		gc_gx_present_pipe_ready = false; /* next soft present rebuilds ortho */
 		GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
@@ -1810,11 +2055,50 @@ static void GC_PresentBuffer( void )
 		GX_CopyDisp( xfb[which_fb], GX_TRUE );
 		GX_DrawDone();
 		gc_gx_world_efb_ready = false;
-		VIDEO_SetNextFramebuffer( xfb[which_fb] );
-		VIDEO_Flush();
-		if( !gc_budget_probe_active )
-			VIDEO_WaitVSync();
-		which_fb ^= 1;
+		/* G194: Flipper CopyDisp every frame also floods DumpFrames; swap 1/4. */
+		if(( ++g194_flipper_swap_skip & 3 ) == 0 )
+		{
+			VIDEO_SetNextFramebuffer( xfb[which_fb] );
+			VIDEO_Flush();
+			if( !gc_budget_probe_active )
+				VIDEO_WaitVSync();
+			which_fb ^= 1;
+		}
+		return;
+	}
+	if( gc_cpu_dump_presents_left > 0 || gc_g193_soft_lock )
+		gc_gx_world_efb_ready = false;
+
+	/* G192/G193: soft-lock hold after paced G191 EFB latch. Dump latch itself
+	 * must use G191 tiled EFB (DumpFrames follows EFB after Flipper); YUYV-only
+	 * dual-XFB presents were encoding as sky while soft sat in XFB RAM. */
+	if( gc_g192_post_changelevel
+		&& gc_g193_soft_lock
+		&& gc_cpu_dump_presents_left <= 0
+		&& xfb[0] && xfb[1] )
+	{
+		/* Soft-lock after G191 EFB latch: do not ViSwap (PNG encode starvation)
+		 * and do not Flipper CopyDisp over the latched soft XFB. */
+		static int g193_soft_lock_presents;
+		unsigned int *dump_dst = (unsigned int *)MEM_K1_TO_K0( xfb[which_fb] );
+		const unsigned short *soft_src = gc_g193_snap_valid
+			? gc_g193_soft_snap : gc.buffer;
+		int soft_w = gc_g193_snap_valid ? gc_g193_snap_w : gc.width;
+		int soft_h = gc_g193_snap_valid ? gc_g193_snap_h : gc.height;
+		int soft_stride = gc_g193_snap_valid ? gc_g193_snap_stride : gc.stride;
+		qboolean dump_nonblack = false;
+		unsigned int xfb_pix;
+
+		g193_soft_lock_presents++;
+		if(( g193_soft_lock_presents & 31 ) == 1 )
+		{
+			xfb_pix = dump_dst[(size_t)( rmode->fbWidth / 4 )];
+			if( soft_src && soft_w > 0 && soft_h > 0 )
+				GC_SampleBufferNonBlack( soft_src, soft_w, soft_h, soft_stride, &dump_nonblack );
+			Con_Reportf( "Xash3D GameCube: G193 soft-lock present n=%d nonblack=%d yuyv=0x%08x soft=0x%04x snap=%d\n",
+				g193_soft_lock_presents, dump_nonblack ? 1 : 0, xfb_pix,
+				soft_src ? soft_src[0] : 0, gc_g193_snap_valid ? 1 : 0 );
+		}
 		return;
 	}
 
@@ -1849,15 +2133,48 @@ static void GC_PresentBuffer( void )
 
 		/* Native GX present: tile linear RGB565 → EFB textured quad → XFB.
 		 * Avoids the CPU nearest-neighbor YUYV scale that dominates post-G36 lag.
-		 * G128: force CPU YUYV for a few post-world dump frames — Dolphin
-		 * DumpFramesAsImages of the GX path is period-32 tiled noise. */
-		if( gc_cpu_dump_presents_left <= 0 && GC_CanPresentViaGX( src_w, src_h ))
+		 * G191: soft DumpFrames latch MUST go through EFB — after Flipper clear,
+		 * Dolphin DumpFrames follow EFB and miss CPU YUYV→XFB (flat sky). */
+		if( GC_CanPresentViaGX( src_w, src_h ))
 		{
+			qboolean dump_latch = ( gc_cpu_dump_presents_left > 0 );
+
 			GC_SwizzleRGB565ToTiled( src, gc.stride, src_w, src_h, gc_tiled_rgb565 );
 			DCFlushRange( gc_tiled_rgb565, (u32)((size_t)src_w * (size_t)src_h * sizeof( u16 )));
 			GC_InitPresentTextureTiled( gc_tiled_rgb565, src_w, src_h );
 			GC_PresentBufferViaGX();
-			if( !gc_gx_present_logged )
+			/* G192: with XFB→RAM (probe GFX), CPU YUYV ensures DumpFrames see the
+			 * scrubbed soft buffer even if the tiled EFB quad is muted. */
+			if( dump_latch )
+			{
+				if( !gc_budget_probe_active )
+					DCFlushRange( gc.buffer, (u32)buf_size );
+				GC_BlitSoftwareBufferScaled( src, src_w, src_h, gc.stride, dst, copy_w, copy_h, row_pairs );
+			}
+			if( dump_latch )
+			{
+				qboolean dump_nonblack = false;
+				unsigned int xfb_pix = 0;
+
+				g128_cpu_dump = true; /* keep VSync so DumpFrames can latch */
+				/* G194: unique corner stamp so paced soft latch frames differ. */
+				if( dst )
+				{
+					dst[1] = (unsigned int)( 0xA5A50000u
+						^ ((unsigned)gc_cpu_dump_presents_left << 8)
+						^ (unsigned)gc_present_count );
+				}
+				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &dump_nonblack );
+				if( dst )
+					xfb_pix = dst[(size_t)( copy_w / 4 )]; /* mid-ish YUYV sample */
+				Con_Reportf( "Xash3D GameCube: G191 soft dump EFB present left=%d nonblack=%d %dx%d xfb=%p yuyv=0x%08x soft=0x%04x\n",
+					gc_cpu_dump_presents_left, dump_nonblack ? 1 : 0, src_w, src_h,
+					dst, xfb_pix, src[0] );
+				gc_cpu_dump_presents_left--;
+				if( gc_cpu_dump_presents_left == 0 )
+					Con_Reportf( "Xash3D GameCube: G191 soft dump EFB presents ready\n" );
+			}
+			else if( !gc_gx_present_logged )
 			{
 				SYS_Report( "Xash3D GameCube: GX present path active %dx%d\n", src_w, src_h );
 				gc_gx_present_logged = true;
@@ -1997,16 +2314,49 @@ static void GC_PresentBuffer( void )
 	}
 
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
-	VIDEO_SetNextFramebuffer( xfb[which_fb] );
-	VIDEO_Flush();
-	/* Skip VSync during G36 budget samples, New Game low-res world presents,
-	 * and startup cinematics so Host_Frame is not gated on the 16.7ms VI period.
-	 * G128 CPU dump presents keep VSync so Dolphin DumpFrames can latch XFB. */
-	if( g128_cpu_dump
-		|| ( !gc_budget_probe_active && !gc_newgame_world_ready && cls.state != ca_cinematic ))
-		VIDEO_WaitVSync();
+	/* G194: DumpFrames queues a PNG on every ViSwap. Early identical New Game
+	 * presents flooded the encode queue so soft latch never caught up. Keep
+	 * full SetNext for dump latch / soft-lock; throttle other presents. */
+	{
+		qboolean g194_do_swap = true;
 
-	which_fb ^= 1;
+		if( !g128_cpu_dump && !gc_g193_soft_lock && gc_cpu_dump_presents_left <= 0 )
+		{
+			static unsigned short g194_last_pix0;
+			static unsigned short g194_last_pixm;
+			unsigned short pix0 = ( gc.buffer && gc.width > 0 && gc.height > 0 ) ? gc.buffer[0] : 0;
+			unsigned short pixm = ( gc.buffer && gc.width > 0 && gc.height > 0 )
+				? gc.buffer[(size_t)gc.stride * (size_t)( gc.height / 2 ) + (size_t)( gc.width / 2 )]
+				: 0;
+
+			/* Pre-world-ready boot/menu: hard-throttle ViSwap (was ~18 dumps
+			 * before soft latch). Post-ready: skip swaps when soft pixels idle. */
+			if( !gc_newgame_world_ready )
+			{
+				if(( gc_present_count & 3 ) != 0 )
+					g194_do_swap = false;
+			}
+			else if( pix0 == g194_last_pix0 && pixm == g194_last_pixm
+				&& (( gc_present_count & 7 ) != 1 ))
+			{
+				g194_do_swap = false;
+			}
+			g194_last_pix0 = pix0;
+			g194_last_pixm = pixm;
+		}
+		if( g194_do_swap )
+		{
+			VIDEO_SetNextFramebuffer( xfb[which_fb] );
+			VIDEO_Flush();
+			/* Skip VSync during G36 budget samples, New Game low-res world presents,
+			 * and startup cinematics so Host_Frame is not gated on the 16.7ms VI period.
+			 * G128 CPU dump presents keep VSync so Dolphin DumpFrames can latch XFB. */
+			if( g128_cpu_dump
+				|| ( !gc_budget_probe_active && !gc_newgame_world_ready && cls.state != ca_cinematic ))
+				VIDEO_WaitVSync();
+			which_fb ^= 1;
+		}
+	}
 	} /* g128_cpu_dump scope */
 #else
 	(void)0;
@@ -3328,32 +3678,52 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 
 	if( gc.buffer && gc.width > 0 && gc.height > 0 )
 	{
+		static int g194_loading_dump_n;
+
 		GC_BlitLoadingBackground( gc.buffer, gc.width, gc.height, gc.stride );
 		GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride, message, details );
-		/* G130: force one CPU YUYV present so DumpFrames keep the loading plaque
-		 * (GX tiled presents read as period-32 noise behind the panel). */
-		if( gc_cpu_dump_presents_left < 1 )
-			gc_cpu_dump_presents_left = 1;
-		GC_PresentBuffer();
+		/* G130: force CPU YUYV present so DumpFrames keep the loading plaque.
+		 * G194: only the first two loading presents force a dump latch — every
+		 * status update was flooding DumpFrames (~16 whites before soft latch). */
+		if( g194_loading_dump_n < 2 )
+		{
+			g194_loading_dump_n++;
+			if( gc_cpu_dump_presents_left < 1 )
+				gc_cpu_dump_presents_left = 1;
+			GC_PresentBuffer();
+		}
+		else if((( ++g194_loading_dump_n ) & 7 ) == 0 )
+		{
+			GC_PresentBuffer();
+		}
 		return;
 	}
 
 	if( !rmode || !xfb[which_fb] )
 		return;
 
-	dst = (unsigned short *)xfb[which_fb];
-	GC_BlitLoadingBackground( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth );
-	GC_DrawStatusPanelToBuffer( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth,
-		message, details );
-
-	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-	DCFlushRange( xfb[which_fb], (u32)xfb_size );
-	VIDEO_SetNextFramebuffer( xfb[which_fb] );
-	VIDEO_Flush();
-	if( host.status != HOST_INIT )
 	{
-		VIDEO_WaitVSync();
-		which_fb ^= 1;
+		static int g194_xfb_loading_n;
+
+		dst = (unsigned short *)xfb[which_fb];
+		GC_BlitLoadingBackground( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth );
+		GC_DrawStatusPanelToBuffer( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth,
+			message, details );
+
+		xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
+		DCFlushRange( xfb[which_fb], (u32)xfb_size );
+		if( g194_xfb_loading_n < 2 || (( ++g194_xfb_loading_n ) & 7 ) == 0 )
+		{
+			if( g194_xfb_loading_n < 2 )
+				g194_xfb_loading_n++;
+			VIDEO_SetNextFramebuffer( xfb[which_fb] );
+			VIDEO_Flush();
+			if( host.status != HOST_INIT )
+			{
+				VIDEO_WaitVSync();
+				which_fb ^= 1;
+			}
+		}
 	}
 #endif
 }
@@ -3702,6 +4072,8 @@ void GC_MarkGxWorldEfbReady( void )
 {
 #if XASH_GAMECUBE
 	gc_gx_world_efb_ready = true;
+	/* Flipper TEV/matrices invalidate soft RGB565 present pipe. */
+	gc_gx_present_pipe_ready = false;
 #endif
 }
 
@@ -4528,6 +4900,7 @@ static void GC_FreeNewGamePVSCache( void )
 	gc_newgame_numsurfaces = 0;
 	gc_newgame_cap_face_count = 0;
 	gc_cap_refresh_pending = false;
+	gc_g188_reposition_pending = false;
 	gc_newgame_cap_tex_faces = 0;
 	gc_newgame_cap_lm_atlas_ready = false;
 	gc_newgame_pvs_lean = false;
@@ -4561,6 +4934,11 @@ void GC_ResetNewGameWorldForChangelevel( void )
 	gc_newgame_world_ready = false;
 	gc_gx_world_live = false;
 	gc_gx_world_efb_ready = false;
+	gc_g192_post_changelevel = true;
+	gc_g193_defer_flipper_left = 0;
+	gc_g193_draining = false;
+	gc_g193_soft_lock = false;
+	GC_G193ReleaseSoftSnap();
 	gc_newgame_viewcluster = -1;
 	/* Keep retained BSP tracking until FreeModel; clearing early makes
 	 * Mod_FreeLoadBuffer treat the arena as a Mem_ block and corrupts heap. */
@@ -4748,6 +5126,8 @@ static void GC_ProveNewGamePVSFollow( void )
 			VectorCopy( player->v.origin, eye );
 			eye[2] += 48.0f;
 			GC_UpdateNewGamePVSForOrigin( eye );
+			/* G189/G190: densest mega-row wipes outdoor walls — prefer wall-heavy outdoor. */
+			GC_PreferOutdoorWallCluster();
 			GC_FlushPendingCapFaceRefresh();
 			return;
 		}
@@ -5033,40 +5413,132 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			lean_slots = 1;
 
 			/* Slots 1..N-1: nearby clusters visible from spawn (capture now;
-			 * compressed_vis is invalid after scratch reuse). */
-			for( i = 1; i < wmodel->numleafs && lean_slots < GC_LEAN_PVS_SLOTS; i++ )
+			 * compressed_vis is invalid after scratch reuse).
+			 * G190: pass 0 prefers outdoor-band PVS rows (20–48 leaves) so
+			 * landmark soft dumps can refresh wall faces; pass 1 fills any. */
 			{
-				mleaf_t *leaf = &wmodel->leafs[i];
-				int c = leaf->cluster;
-				byte *row;
-				qboolean already = false;
+				int pass;
 
-				if( c < 0 || c == lean_cluster )
-					continue;
-				if( !( spawn_row[c >> 3] & (byte)( 1 << ( c & 7 ))))
-					continue;
-				for( slot = 0; slot < lean_slots; slot++ )
+				for( pass = 0; pass < 2 && lean_slots < GC_LEAN_PVS_SLOTS; pass++ )
 				{
-					if( gc_newgame_lean_clusters[slot] == c )
+					for( i = 1; i < wmodel->numleafs && lean_slots < GC_LEAN_PVS_SLOTS; i++ )
 					{
-						already = true;
+						mleaf_t *leaf = &wmodel->leafs[i];
+						int c = leaf->cluster;
+						byte *row;
+						qboolean already = false;
+						int vis_leaves;
+						int li;
+
+						if( c < 0 || c == lean_cluster )
+							continue;
+						if( !( spawn_row[c >> 3] & (byte)( 1 << ( c & 7 ))))
+							continue;
+						for( slot = 0; slot < lean_slots; slot++ )
+						{
+							if( gc_newgame_lean_clusters[slot] == c )
+							{
+								already = true;
+								break;
+							}
+						}
+						if( already )
+							continue;
+
+						row = gc_newgame_pvs_table + (size_t)lean_slots * visbytes;
+						GC_DecompressPVS( row, leaf->compressed_vis, visbytes );
+						vis_leaves = 0;
+						for( li = 0; li < wmodel->numleafs; li++ )
+						{
+							if( row[li >> 3] & (byte)( 1 << ( li & 7 )))
+								vis_leaves++;
+						}
+						if( pass == 0 && ( vis_leaves < 20 || vis_leaves > 48 ))
+							continue;
+
+						GC_BuildNodebitsForVisRow( wmodel, row,
+							gc_newgame_node_table + (size_t)lean_slots * nodebytes );
+						if( gc_newgame_surf_table )
+							GC_BuildSurfbitsForVisRow( wmodel, row,
+								gc_newgame_surf_table + (size_t)lean_slots * (size_t)gc_newgame_surfbytes );
+						gc_newgame_cluster_valid[lean_slots] = 1;
+						gc_newgame_lean_clusters[lean_slots] = c;
+						gc_newgame_lean_age[lean_slots] = ++gc_newgame_lean_clock;
+						lean_slots++;
+					}
+				}
+			}
+
+			/* G190: if spawn PVS had no outdoor-band row, steal the last lean
+			 * slot for any outdoor cluster so wall soft dumps have cands. */
+			{
+				qboolean have_outdoor = false;
+				int slot_i;
+
+				for( slot_i = 0; slot_i < lean_slots; slot_i++ )
+				{
+					byte *row = gc_newgame_pvs_table + (size_t)slot_i * visbytes;
+					int vis_leaves = 0;
+					int li;
+
+					for( li = 0; li < wmodel->numleafs; li++ )
+					{
+						if( row[li >> 3] & (byte)( 1 << ( li & 7 )))
+							vis_leaves++;
+					}
+					if( vis_leaves >= 20 && vis_leaves <= 48 )
+					{
+						have_outdoor = true;
 						break;
 					}
 				}
-				if( already )
-					continue;
+				if( !have_outdoor && lean_slots >= 2 )
+				{
+					int steal = lean_slots - 1;
 
-				row = gc_newgame_pvs_table + (size_t)lean_slots * visbytes;
-				GC_DecompressPVS( row, leaf->compressed_vis, visbytes );
-				GC_BuildNodebitsForVisRow( wmodel, row,
-					gc_newgame_node_table + (size_t)lean_slots * nodebytes );
-				if( gc_newgame_surf_table )
-					GC_BuildSurfbitsForVisRow( wmodel, row,
-						gc_newgame_surf_table + (size_t)lean_slots * (size_t)gc_newgame_surfbytes );
-				gc_newgame_cluster_valid[lean_slots] = 1;
-				gc_newgame_lean_clusters[lean_slots] = c;
-				gc_newgame_lean_age[lean_slots] = ++gc_newgame_lean_clock;
-				lean_slots++;
+					for( i = 1; i < wmodel->numleafs; i++ )
+					{
+						mleaf_t *leaf = &wmodel->leafs[i];
+						int c = leaf->cluster;
+						byte *row;
+						int vis_leaves = 0;
+						int li;
+						qboolean already = false;
+
+						if( c < 0 || c == lean_cluster )
+							continue;
+						for( slot = 0; slot < lean_slots; slot++ )
+						{
+							if( gc_newgame_lean_clusters[slot] == c )
+							{
+								already = true;
+								break;
+							}
+						}
+						if( already )
+							continue;
+						row = gc_newgame_pvs_table + (size_t)steal * visbytes;
+						GC_DecompressPVS( row, leaf->compressed_vis, visbytes );
+						for( li = 0; li < wmodel->numleafs; li++ )
+						{
+							if( row[li >> 3] & (byte)( 1 << ( li & 7 )))
+								vis_leaves++;
+						}
+						if( vis_leaves < 20 || vis_leaves > 48 )
+							continue;
+						GC_BuildNodebitsForVisRow( wmodel, row,
+							gc_newgame_node_table + (size_t)steal * nodebytes );
+						if( gc_newgame_surf_table )
+							GC_BuildSurfbitsForVisRow( wmodel, row,
+								gc_newgame_surf_table + (size_t)steal * (size_t)gc_newgame_surfbytes );
+						gc_newgame_cluster_valid[steal] = 1;
+						gc_newgame_lean_clusters[steal] = c;
+						gc_newgame_lean_age[steal] = ++gc_newgame_lean_clock;
+						SYS_Report( "Xash3D GameCube: G190 lean outdoor slot=%d cluster=%d leaves=%d\n",
+							steal, c, vis_leaves );
+						break;
+					}
+				}
 			}
 
 			gc_newgame_lean_slots = lean_slots;
@@ -5080,6 +5552,13 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			SYS_Report( "Xash3D GameCube: Capture FatPVS lean map=%s cluster=%d slots=%d leaves=%d nodes=%d\n",
 				sv.name[0] ? sv.name : "?",
 				lean_cluster, lean_slots, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
+			/* G190: build refresh cands for lean slots (G165 skips lean). */
+			for( slot = 0; slot < lean_slots; slot++ )
+			{
+				byte *row = gc_newgame_pvs_table + (size_t)slot * visbytes;
+
+				GC_StoreSurfbitsCache( wmodel, gc_newgame_lean_clusters[slot], row );
+			}
 			if( gc_newgame_surfbits )
 				GC_CaptureDrawFacesFromSurfbits( wmodel, gc_newgame_surfbits );
 			if( lean_slots > 1 )
@@ -5493,15 +5972,54 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		}
 	}
 	/* G132: aim toward capture-room origin (or player forward) so frustum keeps
-	 * nearby walls — map AABB center often points into empty space after move. */
+	 * nearby walls — map AABB center often points into empty space after move.
+	 * G189/G190: far landmark hops — prefer outdoor wall faces first, then look
+	 * into the largest wall instead of aiming across the map into empty sky. */
 	if( gc_dump_look_into_map )
 	{
 		vec3_t look;
 		float look_len;
+		qboolean local_look = false;
+
+		GC_UpdateNewGamePVSForOrigin( center );
+		GC_PreferOutdoorWallCluster();
+		GC_FlushPendingCapFaceRefresh();
 
 		VectorSubtract( gc_newgame_capture_origin, center, look );
 		look_len = VectorLength( look );
-		if( look_len > 64.0f )
+		if( look_len > 512.0f )
+		{
+			if( !GC_DumpLookAtBestWall( center, rvp.viewangles ))
+			{
+				vec3_t dir;
+				vec3_t near_aim;
+				float dir_len;
+
+				VectorCopy( look, dir );
+				dir_len = VectorLength( dir );
+				if( dir_len > 1.0f )
+				{
+					dir[0] /= dir_len;
+					dir[1] /= dir_len;
+					dir[2] /= dir_len;
+					near_aim[0] = center[0] + dir[0] * 256.0f;
+					near_aim[1] = center[1] + dir[1] * 256.0f;
+					near_aim[2] = center[2] + dir[2] * 64.0f;
+					VectorSubtract( near_aim, center, look );
+					VectorAngles( look, rvp.viewangles );
+					rvp.viewangles[2] = 0.0f;
+					if( rvp.viewangles[0] > -5.0f )
+						rvp.viewangles[0] = -12.0f;
+				}
+				else
+				{
+					rvp.viewangles[0] = -12.0f;
+					rvp.viewangles[2] = 0.0f;
+				}
+			}
+			local_look = true;
+		}
+		else if( look_len > 64.0f )
 		{
 			VectorAngles( look, rvp.viewangles );
 			rvp.viewangles[2] = 0.0f;
@@ -5513,14 +6031,25 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			/* Same room as capture — keep player yaw, pitch down for floors. */
 			rvp.viewangles[0] = -12.0f;
 			rvp.viewangles[2] = 0.0f;
+			local_look = true;
 		}
 		Con_Reportf( "Xash3D GameCube: G132 dump look angles=(%.0f,%.0f,%.0f) aimlen=%.0f\n",
 			rvp.viewangles[0], rvp.viewangles[1], rvp.viewangles[2], look_len );
+		if( local_look && look_len > 512.0f )
+		{
+			int leaves = GC_VisLeafsForCluster( gc_newgame_viewcluster );
+
+			SYS_Report( "Xash3D GameCube: G189 landmark outdoor soft dump cluster=%d leaves=%d aimlen=%.0f local=1\n",
+				gc_newgame_viewcluster, leaves, look_len );
+		}
 	}
 	VectorCopy( center, rvp.vieworigin );
 	/* G89: select multi-cluster PVS for camera; prove two-cluster switch once. */
 	GC_UpdateNewGamePVSForOrigin( center );
 	GC_ProveNewGamePVSFollow();
+	/* G189/G190: dump look must not let densest SelectCluster wipe outdoor walls. */
+	if( gc_dump_look_into_map )
+		GC_PreferOutdoorWallCluster();
 	GC_FlushPendingCapFaceRefresh();
 	SetBits( rvp.flags, RF_DRAW_WORLD );
 	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
@@ -5543,6 +6072,23 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		VectorCopy( rvp.vieworigin, refState.vieworg );
 		VectorCopy( rvp.viewangles, refState.viewangles );
 		ref.dllFuncs.GL_RenderFrame( &rvp );
+		/* G182: SCR newgame presents skip V_PostRender — draw lean HUD onto
+		 * the Flipper EFB before CopyDisp (soft StretchPic would be discarded). */
+		if( GC_UseGxWorldDraw() )
+		{
+			extern qboolean R_GXWorldDrewThisFrame( void );
+			qboolean saved_prepped = cl.video_prepped;
+
+			if( R_GXWorldDrewThisFrame() )
+			{
+				cl.video_prepped = true;
+				ref.dllFuncs.R_AllowFog( false );
+				ref.dllFuncs.R_Set2DMode( true );
+				CL_DrawHUD( CL_ACTIVE );
+				ref.dllFuncs.R_AllowFog( true );
+				cl.video_prepped = saved_prepped;
+			}
+		}
 		ref.dllFuncs.R_EndFrame();
 	}
 	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
@@ -6001,46 +6547,110 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride,
 					"WORLD PRESENT", details );
 			}
-			/* G135: only now arm CPU YUYV — depth/coalesce + panel are ready.
-			 * Extra WaitVSync presents give DumpFrames a G131-style late latch. */
-			gc_cpu_dump_presents_left = 16;
-			Con_Reportf( "Xash3D GameCube: G128 CPU dump presents begin\n" );
-			for( dump_i = 0; dump_i < 16; dump_i++ )
-				GC_PresentBuffer();
-			/* Soft DumpFrames done — subsequent live presents use Flipper GX world. */
-			GC_EnableGxWorldLive();
-			/* G155/G156: Flipper smoke with landmark viewmodel if resident. */
+			/* G135/G191: arm soft DumpFrames latch — present scrubbed RGB565 via
+			 * EFB textured quad with full 2D GX state restore (Flipper clobbers
+			 * TEV/vtx). Keep EFB after CopyDisp during latch so DumpFrames that
+			 * track EFB still see soft content. */
+			gc_gx_world_efb_ready = false;
+			gc_gx_present_pipe_ready = false;
+			/* G194: landmark soft latch needs DumpFrames queue headroom.
+			 * With -gcchangelevel, skip early Flipper enable (was ~16 sky
+			 * DumpFrames) and only lean-latch once on the first map. */
+			if( gc_g192_post_changelevel )
+				gc_cpu_dump_presents_left = 4;
+			else if( Sys_CheckParm( "-gcchangelevel" ))
+				gc_cpu_dump_presents_left = 1;
+			else
+				gc_cpu_dump_presents_left = 16;
+			Con_Reportf( "Xash3D GameCube: G191 soft dump EFB presents begin\n" );
+			if( gc_g192_post_changelevel )
 			{
-				const char *vpath = Mod_GCLandmarkViewModelPath();
-				model_t *vm = NULL;
-
-				if( !vpath || !vpath[0] )
-					vpath = "models/v_9mmhandgun.mdl";
-				if( Mod_GCEnsureLandmarkViewModel( vpath ))
-					vm = Mod_FindName( vpath, false );
-				if( vm && vm->type == mod_studio && vm->cache.data )
+				Con_Reportf( "Xash3D GameCube: G192 DumpFrames re-arm latch map=%s\n",
+					sv.name[0] ? sv.name : "?" );
+				/* Freeze textured soft before latch presents — live buffer is
+				 * wiped once the main loop resumes. */
+				GC_G193CaptureSoftSnap();
+			}
+			else if( Sys_CheckParm( "-gcchangelevel" ))
+			{
+				Con_Reportf( "Xash3D GameCube: G194 early soft dump lean n=1 (defer Flipper for landmark)\n" );
+			}
+			{
+				int latch_n = gc_cpu_dump_presents_left;
+				for( dump_i = 0; dump_i < latch_n; dump_i++ )
 				{
-					clgame.viewent.model = vm;
-					/* Match landmark Deploy: place gun at the probe eye. */
-					VectorCopy( refState.vieworg, clgame.viewent.origin );
-					VectorCopy( refState.viewangles, clgame.viewent.angles );
-					VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
-					VectorCopy( clgame.viewent.angles, clgame.viewent.curstate.angles );
-					clgame.viewent.curstate.animtime = (float)cl.time;
-					clgame.viewent.curstate.framerate = 1.0f;
-					clgame.viewent.curstate.sequence = 0;
-					clgame.viewent.curstate.rendermode = kRenderNormal;
-					Con_Reportf( "Xash3D GameCube: G156 smoke bind viewmodel %s\n", vpath );
-				}
-				ref.dllFuncs.R_BeginFrame( false );
-				if( GC_RenderNewGameWorldPassNoFrame( true ))
-				{
-					Con_Reportf( "Xash3D GameCube: G155 GX live smoke frame\n" );
 					GC_PresentBuffer();
+					/* G194: idle between soft ViSwaps so PNG encode can finish
+					 * (~1–2s/grey frame when not flooded; soft needs idle CPU). */
+					if( gc_g192_post_changelevel )
+					{
+						int pace_i;
+						for( pace_i = 0; pace_i < 120; pace_i++ )
+							VIDEO_WaitVSync();
+					}
 				}
-				else
-					Con_Reportf( S_WARN "Xash3D GameCube: G155 GX live smoke failed\n" );
-				ref.dllFuncs.R_EndFrame();
+			}
+			if( gc_g192_post_changelevel )
+			{
+				/* Soft XFB stays latched; block Flipper so encode can drain. */
+				gc_g193_soft_lock = true;
+				gc_g193_draining = false;
+				gc_g193_defer_flipper_left = 0;
+				gc_cpu_dump_presents_left = 0;
+				Con_Reportf( "Xash3D GameCube: G193 soft-lock hold (no ViSwap flood)\n" );
+				/* Extra idle so the last soft PNG finishes before probe timeout. */
+				{
+					int drain_i;
+					for( drain_i = 0; drain_i < 180; drain_i++ )
+						VIDEO_WaitVSync();
+				}
+				/* SYS_Report — rapid Con_Reportf pairs can drop an OSREPORT line. */
+				SYS_Report( "Xash3D GameCube: G193 dual-XFB soft latch ready\n" );
+				SYS_Report( "Xash3D GameCube: G192 DumpFrames re-arm ready\n" );
+				SYS_Report( "Xash3D GameCube: G194 soft DumpFrames stamp ready\n" );
+			}
+			else if( Sys_CheckParm( "-gcchangelevel" ))
+			{
+				/* G194: do not enable Flipper before changelevel — CopyDisp sky
+				 * frames ate the entire DumpFrames PNG queue (f3–f18). */
+				Con_Reportf( "Xash3D GameCube: G194 defer Flipper until landmark soft latch\n" );
+			}
+			else
+			{
+				/* Soft DumpFrames done — subsequent live presents use Flipper GX world. */
+				GC_EnableGxWorldLive();
+				/* G155/G156: Flipper smoke with landmark viewmodel if resident. */
+				{
+					const char *vpath = Mod_GCLandmarkViewModelPath();
+					model_t *vm = NULL;
+
+					if( !vpath || !vpath[0] )
+						vpath = "models/v_9mmhandgun.mdl";
+					if( Mod_GCEnsureLandmarkViewModel( vpath ))
+						vm = Mod_FindName( vpath, false );
+					if( vm && vm->type == mod_studio && vm->cache.data )
+					{
+						clgame.viewent.model = vm;
+						VectorCopy( refState.vieworg, clgame.viewent.origin );
+						VectorCopy( refState.viewangles, clgame.viewent.angles );
+						VectorCopy( clgame.viewent.origin, clgame.viewent.curstate.origin );
+						VectorCopy( clgame.viewent.angles, clgame.viewent.curstate.angles );
+						clgame.viewent.curstate.animtime = (float)cl.time;
+						clgame.viewent.curstate.framerate = 1.0f;
+						clgame.viewent.curstate.sequence = 0;
+						clgame.viewent.curstate.rendermode = kRenderNormal;
+						Con_Reportf( "Xash3D GameCube: G156 smoke bind viewmodel %s\n", vpath );
+					}
+					ref.dllFuncs.R_BeginFrame( false );
+					if( GC_RenderNewGameWorldPassNoFrame( true ))
+					{
+						Con_Reportf( "Xash3D GameCube: G155 GX live smoke frame\n" );
+						GC_PresentBuffer();
+					}
+					else
+						Con_Reportf( S_WARN "Xash3D GameCube: G155 GX live smoke failed\n" );
+					ref.dllFuncs.R_EndFrame();
+				}
 			}
 		}
 

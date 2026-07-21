@@ -193,6 +193,8 @@ void GC_G94ApplyPendingRestore( void );
 qboolean GC_RenderNewGameWorldFrames( int count );
 /* G105: after landmark Deploy, bind + present the first-person viewmodel once. */
 void GC_PresentLandmarkViewModel( void );
+/* G188: landmark reposition after put-in wants a cap-face refresh + marker. */
+void GC_NewGameNotifyLandmarkReposition( void );
 /* G86: fill a post-G36 New Game usercmd from probe-synthetic or live PAD. */
 #include "q_client.h"
 qboolean GC_FillNewGameMoveUsercmd( usercmd_t *cmd, const float *cur_angles );

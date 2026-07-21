@@ -129,9 +129,23 @@ if (( DUMP_FRAMES )); then
 DumpFrames = True
 DumpFramesSilent = True
 EOF
+	# G192: DumpFrames freeze was ImmediateXFB (ViSwap skipped) + VRAM XFB
+	# stitch. CPU soft blits after CopyDisp never reach DumpFrames when
+	# ImmediateXFB is on. Disable both; soft latch relies on ViSwap RAM decode.
+	# G194: PNGCompressionLevel=1 — default zlib-6 was too slow (soft latch never
+	# reached the dump queue); level 0 wrote ~1MB/frame and I/O-bound the same.
+	# SkipDuplicateXFBs helps when XFB cache hits; with DisableCopyToVRAM the
+	# local Dolphin patch always misses (G192), so guest stamps soft latch XFBs
+	# and rate-limits non-latch SetNextFramebuffer to cut early dump spam.
 	cat > "$USER_DIR/Config/GFX.ini" <<'EOF'
 [Settings]
 DumpFramesAsImages = True
+PNGCompressionLevel = 1
+[Hacks]
+XFBToTextureEnable = False
+DisableCopyToVRAM = True
+SkipDuplicateXFBs = True
+ImmediateXFBEnable = False
 EOF
 fi
 
@@ -171,15 +185,15 @@ if (( SKIP_DISC )); then
 			cp -f "$PREBUILT_ISO" "$ISO_PATH"
 		fi
 	fi
+else
+	if (( SKIP_ENGINE )); then
+		echo "==> Skipping engine rebuild (DOLPHIN_SKIP_BUILD=1); rebuilding disc image..."
 	else
-		if (( SKIP_ENGINE )); then
-			echo "==> Skipping engine rebuild (DOLPHIN_SKIP_BUILD=1); rebuilding disc image..."
-		else
-			if ! XASH3D_GC_SKIP_DISC_BUILD=1 bash scripts/build-gamecube.sh; then
-				echo "FAIL: Engine build failed."
-				exit 1
-			fi
+		if ! XASH3D_GC_SKIP_DISC_BUILD=1 bash scripts/build-gamecube.sh; then
+			echo "FAIL: Engine build failed."
+			exit 1
 		fi
+	fi
 
 	echo "==> Building GameCube disc image..."
 	BUILD_ARGS=(--output "$ISO_PATH")
@@ -393,8 +407,22 @@ if (( DOLPHIN_NEWGAME )); then
 		G179_DONE_MARKER="Xash3D GameCube: G179 GX world sync lean"
 		G180_DONE_MARKER="Xash3D GameCube: G180 GX lightmap atlas"
 		G181_DONE_MARKER="Xash3D GameCube: G181 GX tex band order"
-		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-12}"
-		echo "==> Waiting for G181 GX tex bands + G180/G179/G178/G177/G176/G175/G174/G173/G172/G171/G170/G169/G168/G167/G166/G165/G164/G163/G162/G161/G159 markers"
+		G182_DONE_MARKER="Xash3D GameCube: G182 GX HUD stretch"
+		G183_DONE_MARKER="Xash3D GameCube: G183 GX HUD rich"
+		G184_DONE_MARKER="Xash3D GameCube: G184 GX HUD alpha holes"
+		G185_DONE_MARKER="Xash3D GameCube: G185 GX HUD fill lean"
+		G186_DONE_MARKER="Xash3D GameCube: G186 GX Flipper face cull"
+		G187_DONE_MARKER="Xash3D GameCube: G187 GX HUD nearblack holes"
+		G188_DONE_MARKER="Xash3D GameCube: G188 landmark Flipper continuity"
+		G189_DONE_MARKER="Xash3D GameCube: G189 outdoor"
+		G190_DONE_MARKER="Xash3D GameCube: G190"
+		G191_DONE_MARKER="Xash3D GameCube: G191 soft dump EFB"
+		G192_DONE_MARKER="Xash3D GameCube: G192 DumpFrames re-arm ready"
+		G193_DONE_MARKER="Xash3D GameCube: G193 dual-XFB soft latch ready"
+		G194_DONE_MARKER="Xash3D GameCube: G194 soft DumpFrames stamp ready"
+		# G194: leave the dump thread time to encode stamped soft latch PNGs.
+		FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-60}"
+		echo "==> Waiting for G194 soft DumpFrames stamp + G193/G192/G191/G190/G189/G188/G187/G186/G185/G184/G183/G182/G181/G180/G179/G178/G177/G176/G175/G174/G173/G172/G171/G170/G169/G168/G167/G166/G165/G164/G163/G162/G161/G159 markers"
 	fi
 	if [[ "${DOLPHIN_G94:-0}" == "1" ]]; then
 		GUEST_ARGS+=("-gcnewsaveload")
@@ -437,6 +465,13 @@ if [[ "${DOLPHIN_EXECUTABLE:-}" == flatpak:* ]]; then
 elif [[ -n "${DOLPHIN_EXECUTABLE:-}" ]]; then
 	DOLPHIN_CMD=("$DOLPHIN_EXECUTABLE" -u "$USER_DIR" "${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
 	append_guest_args DOLPHIN_CMD
+elif [[ -x "$ROOT/3rdparty/dolphin/build/Binaries/dolphin-emu" ]]; then
+	# G192: local tree build includes XFB RAM re-decode when DisableCopyToVRAM
+	# is set; Flatpak/stock Dolphin DumpFrames stay on a stale sky XFB.
+	DOLPHIN_CMD=("$ROOT/3rdparty/dolphin/build/Binaries/dolphin-emu" -u "$USER_DIR"
+		"${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
+	append_guest_args DOLPHIN_CMD
+	echo "==> Using local Dolphin: ${DOLPHIN_CMD[0]}"
 elif command -v dolphin-emu >/dev/null 2>&1; then
 	DOLPHIN_CMD=(dolphin-emu -u "$USER_DIR" "${DOLPHIN_MODE_ARGS[@]}" -e "$ISO_PATH" -v "$DOLPHIN_VIDEO_BACKEND")
 	append_guest_args DOLPHIN_CMD

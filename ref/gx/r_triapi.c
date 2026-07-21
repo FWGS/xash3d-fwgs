@@ -31,6 +31,11 @@ static uint        light;
 #if XASH_GAMECUBE
 static float       gx_u, gx_v;
 static unsigned    gx_rgba = 0xFFFFFFFFu; /* G164: per-vertex RGBA for GX studio */
+
+unsigned R_GXGetTriColorRGBA( void )
+{
+	return gx_rgba;
+}
 static struct { float x, y, z, u, v; unsigned c; } gx_triv[3];
 /* G166: soft DumpFrames studio RGB light (R5G5B5<<8), not greyscale Quake ramp.
  * Only attribute shade stats to the viewmodel so world studio props do not

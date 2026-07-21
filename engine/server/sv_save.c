@@ -52,6 +52,7 @@ void GC_LeanLandmarkProbePlantAmmo( void );
 void GC_LeanLandmarkGrantWeapons( void );
 void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void );
 void GC_PresentLandmarkViewModel( void );
+void GC_NewGameNotifyLandmarkReposition( void );
 static qboolean gc_save_use_sysheap;
 qboolean gc_lean_weapon_grant_active;
 #endif // XASH_GAMECUBE
@@ -2471,6 +2472,11 @@ static int		gc_g100_grant_weapons;
 static int		gc_g100_grant_ammo[GC_HL_MAX_AMMO_SLOTS];
 static qboolean		gc_g100_grant_pending;
 static qboolean		gc_g100_grant_have_ammo;
+/* G188: fullphysics ClientPutInServer respawns the player at info_player_start,
+ * losing the landmark-continued origin. Keep it for post-put-in reapply. */
+static vec3_t		gc_g188_restore_origin;
+static vec3_t		gc_g188_restore_angles;
+static qboolean		gc_g188_restore_valid;
 
 /* Updated when pfnPvAllocEntPrivateData allocates a large reserved client edict. */
 edict_t			*gc_hl_player_priv_edict;
@@ -2994,6 +3000,8 @@ void GC_LeanLandmarkRestore( void )
 		|| memcmp( gc_g100_pending.magic, GC_G100_LAND_MAGIC, sizeof( gc_g100_pending.magic )))
 		return;
 
+	gc_g188_restore_valid = false;
+
 	pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
 	if( !pl )
 	{
@@ -3007,6 +3015,7 @@ void GC_LeanLandmarkRestore( void )
 	{
 		VectorSubtract( new_lm, gc_g100_pending.landmark_origin, offset );
 		VectorAdd( gc_g100_pending.player_origin, offset, pl->v.origin );
+		gc_g188_restore_valid = true;
 	}
 	else
 	{
@@ -3038,6 +3047,10 @@ void GC_LeanLandmarkRestore( void )
 	if( gc_g100_pending.have_ammo )
 		memcpy( gc_g100_grant_ammo, gc_g100_pending.ammo, sizeof( gc_g100_grant_ammo ));
 	gc_g100_grant_pending = ( gc_g100_grant_weapons != 0 );
+
+	/* G188: keep the continued origin — fullphysics put-in respawns the player. */
+	VectorCopy( pl->v.origin, gc_g188_restore_origin );
+	VectorCopy( pl->v.angles, gc_g188_restore_angles );
 
 	Con_Reportf( "Xash3D GameCube: G100 landmark restore health=%.0f armor=%.0f weapons=0x%x ammo1=%d ammo2=%d origin=(%.0f,%.0f,%.0f) landmark=%s\n",
 		pl->v.health, pl->v.armorvalue, (unsigned)pl->v.weapons,
@@ -3120,6 +3133,31 @@ void GC_LeanLandmarkGrantWeaponsAfterPutInServer( void )
 	Con_Reportf( "Xash3D GameCube: G119 re-grant after ClientPutInServer weapons=0x%x\n",
 		(unsigned)gc_g100_grant_weapons );
 	GC_LeanLandmarkGrantWeapons();
+
+	/* G188: put-in respawned the player at info_player_start — reapply the
+	 * landmark-continued origin/angles so map continuity holds. */
+	if( gc_g188_restore_valid )
+	{
+		edict_t *pl = ( svs.clients && svs.clients[0].edict ) ? svs.clients[0].edict : NULL;
+		edict_t *priv_ed = GC_LeanPlayerPrivateEdict();
+
+		gc_g188_restore_valid = false;
+		if( pl )
+		{
+			VectorCopy( gc_g188_restore_origin, pl->v.origin );
+			VectorCopy( gc_g188_restore_angles, pl->v.angles );
+			VectorCopy( gc_g188_restore_angles, pl->v.v_angle );
+			pl->v.fixangle = 1;
+			if( priv_ed && priv_ed != pl )
+				VectorCopy( gc_g188_restore_origin, priv_ed->v.origin );
+			SV_LinkEdict( pl, false );
+			Con_Reportf( "Xash3D GameCube: G188 landmark reposition origin=(%.0f,%.0f,%.0f)\n",
+				pl->v.origin[0], pl->v.origin[1], pl->v.origin[2] );
+#if XASH_GAMECUBE
+			GC_NewGameNotifyLandmarkReposition();
+#endif
+		}
+	}
 #if XASH_GAMECUBE
 	GC_PresentLandmarkViewModel();
 #endif
