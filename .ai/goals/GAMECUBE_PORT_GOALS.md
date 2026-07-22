@@ -111,13 +111,81 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G210: tighter front-side eye + GX_CULL_BACK (EDGE winding)
 - G211: indoor dump aim (PreferIndoor cluster + enclosure-scored wall eye); clear-blue ↓ vs G210
 - G212: near-eye keep-score streams the 320 Flipper slots; live BSP emit budget 384→768; lock stops refresh thrash/DSI
+- G213: lean early-pool live faces (≤192, ~12–24 KiB) beyond the 320 LM-cap; full surface promote still OOM (~662 KiB); edges mempool walk works
+- G214: complementary non-cap skyfill pool + dump-eye refresh-cand merge/rerank (no dangling msurface_t); skyfill emit + G36 PASS
+- G215: capture-time dump-eye predict + PreferIndoor cluster overflow into lean live pool (surfaces intact); primary=16 drawn↑
+- G216: bake lean live verts at capture (s16) + Flipper emit via baked pts; skyfill 9→169 fail=0; drawn 231→391
+- G217: no truncated EDGE bakes; dump-eye frustum LiveViewScore; dump-eye cluster prefer; skyfill=189 drawn=411; clear-blue ↓↓
+- G218: steal outdoor surfbits slot for dump-eye leaf cluster (primary=eye_cl=27); boot-safe lean inline (heavy Ensure starved stuffcmds)
+- G219: no live plane-bake; live skyfill MODULATE; LM TEV ×4→×2 — DumpFrames white%~50→~4
+- G220: wider live frustum + side/ceiling rank (skyfill 166→179 frustum 22→11); dump-eye pullback/pool↑ regressed — kept 192
+- G221: sync SetCopyClear + force world indoor clear past dump-hold; skyblue holes → indoor gray `(72,80,84)`
+- G222: heap flat-fill ×96 after live 192 (no BSS steal); fill=96 drawn 401→497; DumpFrames clear%~19→~7.5
+- G223: stack neighbor PVS probes (fwd+side) outside 4-slot cache; or_hits=1 skyfill 179→192 drawn 497→510
+- G224: fill 96→128 + neighbor probes 2→4 (fwd/+side/−side/up); or_hits=2 drawn 510→542; clear%~9 flat
+- G225: ARAM append-only overflow fill (max=96); fill emit 128→224 drawn 542→638; live=192 kept
+- G226: wider neighbor probes 4→6 (back+down); or_hits 2→4; DOL reclaim via leaner logs; clear%~9 flat
+- G227: New Game dump eye → c0a0 tram start `(2864,2804,542)` yaw 180 (was indoor wall-aim)
+- G228: tram cover — no live frustum; wider LiveViewScore; fill area 512; ARAM 128; drawn 629→674
+- G229: denser track PVS table + tram-eye 320-cap restream (mid=52); clear%~14.8→~11.3 fill%~36→~27
+- G230: lock tram LM-cap/PVS through DumpFrames (no cl 0/16 thrash); f25 clear stable ~14.6 vs G229~33
+- G231: flat-fill AFTER LM + Z-test-only (no Z write); more ARAM fill = gray mush — kept pools
+- G232: near-eye cap score↑ + wall |nz|<0.55 + emit min_area 512; f19 clear%~14.4→~9.9
+- G233: sticky tram eye on Frames+PassNoFrame smoke; f21+ clear%~64→~14.3 stable
+- G234: portal holes ~14.2 clear — outvis/fill-shrink/capmerge/centroid fail; kept along-CapNearEye + or=18
+- G235: Flipper opaque bmodel pass after cap faces (was skipped); tram DumpFrames e=0/0
+- G236: ranking levers exhausted under G230 — along*100 noop; side-demote clear↑; LiveViewScore along↑ clear%~29; cand along*400 DOL tip CL_Shutdown; restored G235
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G213** — Pin live BSP30 edges/surfedges past scratch so Flipper can walk full PVS (not 320 snapshot)
+1. **G234** — Track-view portal holes ~14.2%; need **DOL reclaim** for larger live/cap (ranking alone can't admit portal faces into the 64 under lock)
 2. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) for pure Flipper
-3. ~~G197~~ — obsolete once soft DumpFrames path is not the retail present route
+3. ~~G236~~ — CapNearEye/LiveViewScore/cand-along punches (no pixel win / tip)
+4. ~~G235~~ — Flipper opaque bmodel draw (edge list was skipped on GX path)
+4. ~~G197~~ — obsolete once soft DumpFrames path is not the retail present route
+5. ~~G233~~ — sticky tram DumpFrames eye (post-move / smoke clear thrash)
+6. ~~G232~~ — near-eye LM/live rank for tram holes
+7. ~~G231~~ — fill Z-order so PASSCLR can't occlude LM
+8. ~~G230~~ — lock tram cap vs late cluster refresh thrash
+9. ~~G229~~ — tram track PVS + cap restream
+10. ~~G228~~ — tram-view coverage (frustum/rank/ARAM)
+11. ~~G227~~ — tram-start dump camera (not indoor wall-aim)
+12. ~~G226~~ — wider neighbor vis probes (back+down)
+13. ~~G225~~ — ARAM fill overflow beyond MEM1 128
+14. ~~G224~~ — denser fill + neighbor probes (lean, pre-ARAM)
+15. ~~G223~~ — neighbor PVS beyond 4-slot cache
+16. ~~G222~~ — heap flat-fill beyond 320+192
+17. ~~G221~~ — indoor EFB clear (holes ≠ outdoor sky)
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260722-120957` (G236 final restore: G235-identical f19 clear%~14.21; live=192; G36 PASS)
+- `.ai/logs/dolphin-probe-20260722-120049` (G236 mid restore: G235-identical f19 clear%~14.21; live=192; G36 PASS)
+- `.ai/logs/dolphin-probe-20260722-115815` (G236 miss: LiveViewScore along↑ → clear%~29.14; reverted)
+- `.ai/logs/dolphin-probe-20260722-120355` (G236 tip: cand along*400 → DOL 6274688 → CL_Shutdown; reverted)
+- `.ai/logs/dolphin-probe-20260722-114147` (G235: GX bmodel hook; `G235 bmodel f=0 e=0/0`; clear%~14.21 unchanged; live=192; G36 PASS; shot `stage-04cr-g235-flipper-bmodels.png`)
+- `.ai/logs/dolphin-probe-20260722-111712` (G234: CapNearEye along-look + OR 14→18 `or=4`; mid=52; f19–f25 clear%~14.21 fill%~27.6; G36 PASS; shot `stage-04cm-g234-flipper-alongcap.png`)
+- `.ai/logs/dolphin-probe-20260722-111458` (G234: one-shot cl=0/16 capmerge — uniq↓ clear flat/worse; reverted)
+- `.ai/logs/dolphin-probe-20260722-110944` (G234: restore cands=64 → G212 mid=52 wall=48; fill=128; clear%~14.25 = G233; shot `stage-04ck-g234-flipper-cands64.png`)
+- `.ai/logs/dolphin-probe-20260722-093608` (G233: sticky tram eye Frames+PassNoFrame; f19–f25 clear%~14.3 fill%~27.7 identical; G36 PASS; shot `stage-04ca-g233-flipper-stickyeye.png`)
+- `.ai/logs/dolphin-probe-20260722-092224` (G232: near-eye score↑ wall|nz|<0.55 min_area=512; mid=52 wall=48 live=192; f19 clear%~9.9 fill%~7.6; G36 PASS; shot `stage-04bz-g232-flipper-ceilrank.png`)
+- `.ai/logs/dolphin-probe-20260722-090548` (G231: fill after LM Z-test-only; fill=256 drawn=668; f19 clear%~14.4 stable f25; G36 PASS; shot `stage-04by-g231-flipper-tramholes.png`)
+- `.ai/logs/dolphin-probe-20260722-084910` (G230: tram cap locked cl=117; only refresh@117; FatPVS=117; skyfill=192 fill=256 drawn=668; f19 clear%~14.4 f25~14.6 vs G229 f25~33; G36 PASS; shot `stage-04bx-g230-flipper-caplock.png`)
+- `.ai/logs/dolphin-probe-20260722-084406` (G229: G212 mid=52 @cl=117; skyfill=191 fill=256 drawn=667; clear%~11.3 fill%~27 f19; G36 PASS; shot `stage-04bw-g229-flipper-trackpvs.png`)
+- `.ai/logs/dolphin-probe-20260722-083758` (G228: skyfill 168→181 fill=256/256 drawn=674; clear%~14.8 f19; G36 PASS; shot `stage-04bv-g228-flipper-tramcover.png`)
+- `.ai/logs/dolphin-probe-20260722-082618` (G227: tram eye=(2864,2804,542) primary=117 drawn=629 live=192; G36 PASS; shot `stage-04bu-g227-flipper-tramstart.png`)
+- `.ai/logs/dolphin-probe-20260722-081518` (G226: or_hits=4 live=192 fill=224/224 drawn=638; clear%~9.0 f19; G36 PASS; shot `stage-04bt-g226-flipper-widervis.png`)
+- `.ai/logs/dolphin-probe-20260722-074426` (G225: ARAM n→96 fill=224/224 drawn=638 live=192; clear%~9.0 f19; G36 PASS; shot `stage-04bs-g225-flipper-aramfill.png`)
+- `.ai/logs/dolphin-probe-20260722-073106` (G224: or_hits=2 live=192 fill=128/128 drawn=542; clear%~9.4 f19; G36 PASS; shot `stage-04br-g224-flipper-denserfills.png`)
+- `.ai/logs/dolphin-probe-20260722-010803` (G223: or_hits=1 live=192 skyfill=192 drawn=510; G36 PASS; shot `stage-04bq-g223-flipper-neighborpvs.png`)
+- `.ai/logs/dolphin-probe-20260722-004420` (G222: fill pool=96 fill=96/96 drawn=497; clear%~7.5 on f19 vs G221~19; live=192 kept; G36 PASS; shot `stage-04bp-g222-flipper-fillfaces.png`)
+- `.ai/logs/dolphin-probe-20260722-002524` (G221: `EFB clear indoor rgb=72,80,84`; world DumpFrames sky%=0 ind%~18; drawn=401; G36 PASS; shot `stage-04bo-g221-flipper-indoorclear.png`)
+- `.ai/logs/dolphin-probe-20260722-000955` (G220: skyfill=179/192 frustum=11 drawn=401; blue%~G219; G36 PASS; shot `stage-04bn-g220-flipper-roomview.png`)
+- `.ai/logs/dolphin-probe-20260722-000510` (G219: TEV*2 + no live plane; skyfill=166; white%~4 blue%~6; G36 PASS; shot `stage-04bm-g219-flipper-noliveplane.png`)
+- `.ai/logs/dolphin-probe-20260721-235914` (G218: dump-eye surfbits slot=3 cluster=27; primary=27; skyfill=166 frustum=22 drawn=388; G36 PASS; shot `stage-04bl-g218-flipper-eyecluster.png`)
+- `.ai/logs/dolphin-probe-20260721-233342` (G217: skyfill=189/192 frustum=0 drawn=411; wall-aim blue%~6 vs G216~20; G36 PASS; shot `stage-04bk-g217-flipper-frustum.png`)
+- `.ai/logs/dolphin-probe-20260721-232509` (G216: skyfill=169/192 skip_cap=22 back=1 noverts=0 fail=0; drawn=391; G36 PASS; shot `stage-04bj-g216-flipper-bakedverts.png`)
+- `.ai/logs/dolphin-probe-20260721-231759` (G215: primary=16 walls=30 leaves=246; dump eye=(2662,3443,819); drawn=231 skyfill=9; G36 PASS; shot `stage-04bi-g215-flipper-dumpcluster.png`)
+- `.ai/logs/dolphin-probe-20260721-231039` (G214: non-cap pool=192 merge=68 skyfill=10 drawn=227; G36 PASS; shot `stage-04bh-g214-flipper-skyfill.png`)
+- `.ai/logs/dolphin-probe-20260721-225800` (G213: pool=256 live Flipper=10; cap drawn=227; G212 mid_new=36; G36 PASS; shot `stage-04bg-g213-flipper-livebsp.png`)
 - `.ai/logs/dolphin-probe-20260721-221516` (G212: mid_new=36 near-eye stream; drawn=217; refresh thrash fixed; G36 PASS)
 - `.ai/logs/dolphin-probe-20260721-215231` (G211: indoor cluster=16; clear-blue 28.5k vs G210 72k; avg≈231 uniq≈13364; G36 PASS)
 - `.ai/logs/dolphin-probe-20260721-214859` (G210: cull BACK + front eye; G36 PASS)
@@ -3487,6 +3555,359 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_FULLPHYSICS=1 \
   DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa DOLPHIN_G105=1 \
   DOLPHIN_DUMP_FRAMES=1 DOLPHIN_TIMEOUT=400 DOLPHIN_FRAME_SAMPLE_SEC=45 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G236 [x] Portal ranking punches (under G230)
+
+- Status: DONE 2026-07-22 (no clear% win). Tried CapNearEye along*100 (noop,
+  pixel-identical), side ultra-near demote (clear%~14.29↑), LiveViewScore
+  along*48 (clear%~29), indoor portal punch admit (noop — faces not in 64),
+  cand along*400 (DOL 6274688 → `CL_Shutdown`). Restored G235 baseline
+  (clear%~14.21, DOL ~6273664, live=192).
+- Acceptance: not met for portal clear%; documenting exhausted ranking levers.
+- Evidence: restore `.ai/logs/dolphin-probe-20260722-120049`; tip `120355`;
+  LiveViewScore miss `115815`.
+- Residual: G234 needs **budget** (DOL reclaim → larger live/cap), not more
+  score tweaks under the locked 320+64+192.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G235 [x] Flipper opaque brush movers (edge list)
+
+- Status: DONE 2026-07-22. Pure GX `R_EdgeDrawingGcmapProbe` returned after
+  `R_GXDrawNewGameCapFaces` and never called `R_DrawBEntitiesOnList` (soft
+  path did). Wired ≤8 `R_GXDrawBrushModel` calls on `edge_entities`.
+- Acceptance:
+  - `G235 bmodel …` marker ✓
+  - live=192, G230 lock, G36 PASS ✓
+  - No clear% regress vs G234 ~14.21 ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-114147` —
+  `G235 bmodel f=0 e=0/0` (tram DumpFrames have no opaque movers in the
+  edge list); clear%~14.21; shot `stage-04cr-g235-flipper-bmodels.png`.
+- Residual: portal holes are **world** BSP, not brush ents — G234 still open.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G234 [~] Track-view portal holes (ranking / OR only)
+
+- Status: BLOCKED 2026-07-22 (updated). Under G230 lock, clear stays
+  ~14.2%. Failed: fill↓96, cands↓48, outside-PVS live/ARAM, capmerge,
+  centroid outaram=0/0 (DOL tip), soft CapNearEye, score-origin bias (live=96),
+  G235 brush movers (`e=0/0` at tram), **G236 ranking** (along/LiveView/
+  cand-along — noop or tip). Kept: OR×18 (`or=4`), CapNearEye G232
+  + along*60, fill=128, cands=64, mid=52, G235 GX bmodel hook, DOL ~6273664.
+- Acceptance: not met — holes are in-PVS world faces missing from the 320+192
+  budget; the 64 refresh cands + lock saturate before portal throat faces rank in.
+- Evidence: `.ai/logs/dolphin-probe-20260722-120049` / `114147` clear%~14.21.
+- Next: **reclaim DOL/.text** for a larger live or cand pool (not more CapNearEye).
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G233 [x] Sticky tram DumpFrames eye (smoke + post-move)
+
+- Status: DONE 2026-07-22. G232 near-eye faces + EFB dump-hold (no clear)
+  made pure-Flipper `PassNoFrame` smoke (player eye, yaw 0) paint a permanent
+  clear hole — f19/f20 good (~9.9) then f21+ clear%~64. Fix: pin
+  `GC_DumpEyeAtTramStart` on Frames **and** PassNoFrame while stream-locked;
+  skip Prove/Flush under lock; keep `gc_dump_look_into_map` under `-gcnewgame`
+  when aim ends; soften CapNearEye ultra-near boost so track walls compete.
+- Acceptance:
+  - `G230 lock cl=117` + G36 PASS ✓
+  - f19–f25 clear%~14.3 fill%~27.7 (identical; no f21 thrash) ✓
+  - DOL ~6273536 (safe band) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-093608` —
+  sticky eye; shot `stage-04ca-g233-flipper-stickyeye.png`.
+- Residual: track-view tunnel holes still ~14% clear. Outside-PVS admit tips
+  live 192→96 / `CL_Shutdown` (DOL/MEM1) — G234 still open.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G232 [x] Near-eye LM/live rank for tram holes
+
+- Status: DONE 2026-07-22. Extra flat fill / Flipper brush scan blew DOL
+  (live 192→96). Landed constant-only textured rank: `GC_CapNearEyeScore`
+  nearer boost / harder far demote; wall `|nz|<0.55` (was 0.35) for live +
+  refresh; Flipper emit `GC_GX_MIN_FACE_AREA` 1024→512. Brush entity draw
+  deferred (DOL).
+- Acceptance:
+  - `G213 live face pool max=192` + G230 lock + G36 PASS ✓
+  - `G212 mid=52 wall=48` kept; drawn≈671; min_area=512 ✓
+  - f19 clear%~14.4→~9.9 (fill%~27→~7.6 — more textured near geometry) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-092224` —
+  near-eye score; shot `stage-04bz-g232-flipper-ceilrank.png`.
+- Residual: track-ahead frames still ~14% clear; after player-move DumpFrames
+  clear%~64 — fixed in G233 (PassNoFrame sticky eye under EFB hold).
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G231 [x] Fill after LM (Z-test-only hole plugs)
+
+- Status: DONE 2026-07-22. Tram holes were not fixed by dumping more flat
+  fill into ARAM (128→160 + eviction spill → fill%~27→~49 gray mush, clear
+  flat/worse). Real fix path is textured live/cap. Landed the safe emit
+  order: live → LM cap → PASSCLR fill with `GX_SetZMode(LEQUAL, no write)`
+  so gray only paints clear-depth pixels and cannot occlude LM/live.
+- Acceptance:
+  - `G231 Flipper fill=… (after LM)` ✓
+  - live=192, fill=256, drawn=668, G230 lock held, G36 PASS ✓
+  - f19/f25 clear%~14.4 (no regress vs G230) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-090548` —
+  after-LM fill; shot `stage-04by-g231-flipper-tramholes.png`.
+- Residual: ~14% clear still needs textured faces / Flipper brush ents
+  (G232). Extra flat fill regresses the tram view.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G230 [x] Lock tram LM-cap through DumpFrames
+
+- Status: DONE 2026-07-22. G229 restreamed mid=52 @cl=117 at capture, then
+  prepare/PVS-follow flushed to cluster 0 (mid=0) and explore cluster 16
+  (mid=36), and g196 aim-end cleared `gc_g212_stream_locked`. Fix: set lock
+  immediately after tram restream; `GC_FlushPendingCapFaceRefresh` /
+  `GC_UpdateNewGamePVSForOrigin` / prove explore+PreferOutdoor no-op while
+  locked; keep lock under `-gcnewgame` when dump wall-aim ends.
+- Acceptance:
+  - `G230 tram cap locked cl=117` after `G212 mid=52` ✓
+  - Only one `G163 refresh begin` (cluster=117); no cl 0/16 refresh ✓
+  - FatPVS active cluster=117 through present; live=192; G36 PASS ✓
+  - DumpFrames f25 clear stable (~14.6) vs G229 thrash (~33) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-084910` —
+  locked cl=117; skyfill=192 fill=256 drawn=668; shot
+  `stage-04bx-g230-flipper-caplock.png`.
+- Residual: tram clear/fill holes still ~14% — need outside-PVS / brush faces
+  (G231). DOL ~6273568 (booted).
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G229 [x] Tram track PVS + cap restream
+
+- Status: DONE 2026-07-22. Table-driven neighbor probes (10 along-track /
+  side offsets) replaced the bulky G226 if/else (DOL shrank). More important:
+  tram eye never restreamed the 320 LM-cap — `gc_cap_refresh_pending` after
+  `GC_DumpEyeAtTramStart`, steal cluster-117 surfbits, set viewcluster=117,
+  `GC_FlushPendingCapFaceRefresh` before live/fill → `G212 mid=52 wall=48`.
+- Acceptance:
+  - `G229 or_hits≥3` + `G227 tram eye` + live=192 ✓
+  - `G163 refresh … cl=117` + `G212 mid=52` ✓
+  - f19 clear%~14.8→~11.3, fill%~36→~27; skyfill 181→191; G36 PASS ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-084406` —
+  mid=52 @117; clear%~11.3; shot `stage-04bw-g229-flipper-trackpvs.png`.
+- Residual: late present thrash fixed in G230; clear holes → G231.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G228 [x] Tram-view coverage (frustum / rank / ARAM)
+
+- Status: DONE 2026-07-22. At tram start, live skyfill was 168/192 with
+  frustum=8 side-wall skips; fill min-area 1024 + ARAM 96 left clear%~16 and
+  gray fill%~35. Lean (no new capture loops): drop live frustum cull, relax
+  LiveViewScore side-wall demotion, fill area 1024→512, ARAM 96→128.
+- Acceptance:
+  - `G227 tram eye` + `live face pool max=192` kept ✓
+  - Skyfill 168→181; Flipper fill 224→256; drawn 629→674 ✓
+  - f19 clear%~15.7→~14.8; G36 PASS ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-083758` —
+  skyfill=181 fill=256/256 drawn=674; shot
+  `stage-04bv-g228-flipper-tramcover.png`.
+- Residual: clear still ~15% and fill%~36 — need outside-PVS / tram brush
+  entity faces (G229).
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G227 [x] Tram-start dump camera (not indoor wall-aim)
+
+- Status: DONE 2026-07-22. G199/G211 indoor wall-aim parked the New Game
+  DumpFrames eye in an enclosed room `(~2662,3443,819)`. User wants the
+  beginning of the c0a0 tram ride. Hardcoded `info_player_start` eye
+  `(2864,2804,542)` yaw 180 (look down monorail −X). Prefer this under
+  `-gcnewgame` for capture + present; keep indoor wall-aim for landmark.
+- Acceptance:
+  - `G227 tram eye=(2864,2804,542)` ✓
+  - `G213 live face pool max=192` + G36 PASS ✓
+  - DumpFrames show tram tunnel / car ahead (not indoor wall room) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-082618` —
+  tram eye + primary=117 drawn=629; shot
+  `stage-04bu-g227-flipper-tramstart.png`.
+- Residual: tram view still has fill/clear holes — outside-PVS stream (G228).
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G226 [x] Wider neighbor vis probes (back+down)
+
+- Status: DONE 2026-07-22. Full outside-PVS near-eye mark pass (+all-ones /
+  bit-mask scan) grew the DOL ~+0.9–1.4 KiB and starved live 192→96 /
+  `InitInput` abort — even after reclaiming capture log strings. Landing:
+  extend stack neighbor probes 4→6 (fwd/+side/−side/up/**back**/**down**);
+  `or_hits` 2→4. Shortened capture SYS_Report strings so DOL is ≤ G225.
+- Acceptance:
+  - `G213 live face pool max=192` preserved ✓
+  - `G226 neighbor or_hits=4` with fill=128 aram=96 ✓
+  - `G222 Flipper fill=224 of 224` / drawn=638; G36 PASS ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-081518` —
+  `G226 neighbor or_hits=4 live 192→192 fill=128 aram=96`; f19 clear%~9.0
+  (flat vs G225); shot `stage-04bt-g226-flipper-widervis.png`.
+- Residual: clear holes still ~9%; outside-PVS candidates exist (mark trials
+  saw 600–1000 near-eye hits) but need a DOL-safe stream path (G227).
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G225 [x] ARAM overflow fill beyond MEM1 128
+
+- Status: DONE 2026-07-22. MEM1 fill+live is at the DOL razor edge (~6.27 MiB);
+  a ranked ARAM page (+scores BSS) grew the DOL ~+3.8 KiB and starved live
+  192→96 / `InitInput` abort. Landing: append-only ARAM page `max=96`
+  (~6 KiB ARAM), DMA via aligned MEM1 stage, no score BSS. Capture inserts
+  MEM1 rank losers; emit indexes MEM1 then ARAM through existing fill APIs.
+- Acceptance:
+  - `G213 live face pool max=192` preserved ✓
+  - `G225 ARAM max=96` + `G225 ARAM n` →96 after neighbor append ✓
+  - `G222 Flipper fill=224 of 224` (128 MEM1 + 96 ARAM) ✓
+  - Drawn 542→638; G36 PASS ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-074426` —
+  ARAM page + fill=224/224 drawn=638; f19 clear%~9.0 (fill≈14%); shot
+  `stage-04bs-g225-flipper-aramfill.png`.
+- Residual: clear holes still ~9% — wider vis in G226; outside-PVS → G227.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G224 [x] Denser fill + neighbor probes (lean pre-ARAM)
+
+- Status: DONE 2026-07-22. Raising live beyond 192 OOMs; full surface promote
+  still ~661 KiB. Lean densify: heap fill `GC_FILL_MAX_FACES` 96→128 (~+2 KiB
+  after live) and expand stack neighbor PVS probes 2→4 (fwd, +side, −side, up).
+  Keep stack-only ubuf/tbuf — malloc helpers tip live 192→96 and abort
+  `InitInput`.
+- Acceptance:
+  - `G213 live face pool max=192` preserved ✓
+  - `G222 fill face pool max=128` + `G222 Flipper fill=128 of 128` ✓
+  - `G224 neighbor or_hits=2` live 192→192 fill=128 ✓
+  - Drawn 510→542; G36 PASS ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-073106` —
+  `G224 neighbor or_hits=2 live 192→192 fill=128`, skyfill=192 drawn=542;
+  DumpFrames f19 ind%~9.4 (flat vs G223); shot
+  `stage-04br-g224-flipper-denserfills.png`.
+- Residual: clear holes still ~9% — ARAM overflow in G225; outside-PVS → G226.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G223 [x] Neighbor PVS beyond 4-slot cache
+
+- Status: DONE 2026-07-22. Dump-eye live/fill only saw the 4-slot surfbits
+  cache. Lean stack union of 2 probes (forward 512 + forward×XY-side) OR's
+  marksurfaces from clusters outside the cache, then append-captures.
+  Larger helpers/malloc tipped live 192→96 and aborted client init — keep
+  stack-only and DOL lean.
+- Acceptance:
+  - `G223 neighbor or_hits≥1` with `live face pool max=192` ✓
+  - Skyfill 179→192 / drawn 497→510 ✓
+  - G36 PASS ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-010803` —
+  `G223 neighbor or_hits=1 live 192→192 fill=96`, skyfill=192 drawn=510;
+  shot `stage-04bq-g223-flipper-neighborpvs.png`.
+- Residual: DumpFrames clear holes still ~8% — densified in G224; ARAM → G225.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G222 [x] Heap flat-fill faces beyond 320+192
+
+- Status: DONE 2026-07-22. Raising live pool OOMs; BSS fill stole live
+  192→96. Allocate a lean fill pool **after** live succeeds (`max=96`, ~6 KiB
+  heap). Capture front-facing EDGE/TEX overflow (incl. >5-edge TEX bakes);
+  Flipper emits PASSCLR concrete `(104,112,104)` with backface cull only
+  (no frustum — plugs side/ceiling holes live demoted).
+- Acceptance:
+  - `G213 live face pool max=192` preserved ✓
+  - `G222 fill face pool max=96` + `G222 Flipper fill=96 of 96` ✓
+  - Drawn 401→497; DumpFrames clear holes down vs G221 (f19 ~7.5% vs ~19%) ✓
+  - G36 PASS ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-004420` —
+  fill=96/96 drawn=497; shot `stage-04bp-g222-flipper-fillfaces.png`.
+- Residual: some dump-eye frames still ~19% indoor-clear — need faces outside
+  current PVS/cluster set (ARAM/disc stream → G223).
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G221 [x] Soft indoor EFB clear (holes ≠ outdoor sky)
+
+- Status: DONE 2026-07-22. Ortho indoor clear alone was overwritten: soft
+  `CopyDisp(TRUE)` restored outdoor `GX_SetCopyClear(89,141,210)`, and
+  `-gcnewgame` re-armed `R_GXHoldEfbForDump(6)` every Flipper present so later
+  world clears never ran. Sync CopyClear to indoor `(72,80,84)` in
+  `R_GXClearEfbSky`, force one clear when `GC_UseGxWorldDraw` first goes live.
+- Acceptance:
+  - `G221 Flipper EFB clear indoor rgb=72,80,84` ✓
+  - World DumpFrames: exact outdoor sky `(89,141,210)` → 0%; holes ≈ indoor gray ✓
+  - G36 PASS; skyfill/drawn unchanged (401 / 179) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-002524` —
+  G221 log + framedump_21 ind%~18 sky%=0; shot
+  `stage-04bo-g221-flipper-indoorclear.png`.
+- Residual: geometry holes remain under 320+192 — need ARAM/disc face stream
+  (G222); white blowout polish optional.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
   scripts/dolphin-boot-probe.sh
   ```
 

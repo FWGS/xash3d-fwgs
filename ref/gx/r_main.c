@@ -1508,10 +1508,34 @@ static void R_EdgeDrawingGcmapProbe( void )
 	{
 		extern int R_GXDrawNewGameCapFaces( void );
 		extern void R_GXClearWorldDrewFlag( void );
+		extern int R_GXDrawBrushModel( cl_entity_t *e );
+		int bi, bn, bdrawn = 0;
+		static qboolean g235_logged;
 
 		R_GXClearWorldDrewFlag();
 		VectorCopy( RI.rvp.vieworigin, tr.modelorg );
 		R_GXDrawNewGameCapFaces();
+		/* G235: opaque brush movers were skipped by this early return —
+		 * soft path called R_DrawBEntitiesOnList; Flipper never did. */
+		bn = (int)tr.draw_list->num_edge_entities;
+		if( bn > 8 )
+			bn = 8;
+		for( bi = 0; bi < bn; bi++ )
+		{
+			cl_entity_t *be = tr.draw_list->edge_entities[bi];
+
+			if( !be || !be->model || be->model->type != mod_brush )
+				continue;
+			if( be->model->nummodelsurfaces <= 0 )
+				continue;
+			bdrawn += R_GXDrawBrushModel( be );
+		}
+		if( !g235_logged && tr.framecount >= 8 )
+		{
+			g235_logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G235 bmodel f=%d e=%d/%u\n",
+				bdrawn, bn, tr.draw_list->num_edge_entities );
+		}
 		return;
 	}
 

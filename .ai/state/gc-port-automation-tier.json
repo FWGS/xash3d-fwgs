@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G212: near-eye stream into 320 Flipper slots + live emit 768; thrash lock (no DSI). Probe 20260721-221516 drawn=217 G36 PASS. Next G213: pin live BSP30 edges for full PVS walk. G38 hardware still open."
+  "note": "G236 exhausted ranking under G230 (noop/tip); restored G235 clear%~14.21 DOL~6273664. G234 next: DOL reclaim for larger live/cand pool. G38 hardware still open."
 }

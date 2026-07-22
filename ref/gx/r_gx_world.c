@@ -20,6 +20,9 @@ G206: REPLACE on EDGE/TEX verts too (real ST shapes; defer LM until overbright).
 G207: LM restored — boost bake, corner atlas UV, TEV ×2 overbright.
 G203: plane-quad ST 0..1 + LINEAR world filter.
 G213: live BSP30 opaque when surfaces pinned off scratch.
+G216: lean live baked verts for skyfill emit (edges may dangle).
+G221: indoor EFB clear under -gcnewgame (holes ≠ outdoor sky blue).
+G222: heap flat-fill faces beyond 320+192 (after live pool; no BSS steal).
 */
 #include "r_local.h"
 
@@ -38,6 +41,12 @@ extern void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *
 extern qboolean GC_WorldSurfacesLive( void );
 extern int GC_GetLiveFaceCount( void );
 extern qboolean GC_FillLiveDrawSurf( int index, msurface_t *out, mtexinfo_t *tex_out );
+extern qboolean GC_LiveFaceIsCapped( int index );
+extern int GC_GetLiveFaceVerts( int index, float out[][3], int maxverts );
+extern int GC_GetLiveFaceBakeSrc( int index );
+extern int GC_GetFillFaceCount( void );
+extern int GC_GetFillFaceVerts( int index, float out[][3], int maxverts );
+extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
 extern msurface_t *GC_GetLiveDrawSurfs( void );
 extern unsigned R_GXGetTriColorRGBA( void );
 
@@ -76,6 +85,7 @@ enum
 	GC_GX_FACE_MODE_NONE = 0,
 	GC_GX_FACE_MODE_FLAT,
 	GC_GX_FACE_MODE_TEXTURED,
+	GC_GX_FACE_MODE_TEXTURED_LIVE, /* G219: MODULATE muted live skyfill */
 	GC_GX_FACE_MODE_LIT
 };
 static int r_gx_face_mode;
@@ -110,7 +120,7 @@ static qboolean r_gx_tex_band_logged;
 /* G186: Flipper world fill cull (extents dust + far-small). */
 /* G186/G199: lean cull — prior 3072/512/8192 left outdoor wall-aim at ~20 faces. */
 #ifndef GC_GX_MIN_FACE_AREA
-#define GC_GX_MIN_FACE_AREA 1024	/* extents product; skip dust detail */
+#define GC_GX_MIN_FACE_AREA 256	/* G234: was 512 — tram portal scraps */
 #endif
 #ifndef GC_GX_FAR_FACE_DIST
 #define GC_GX_FAR_FACE_DIST 2048.0f
@@ -666,13 +676,36 @@ static void R_GXOrderFacesByTexBands( const msurface_t *draw, int n, int *order 
 	}
 }
 
+static qboolean r_gx_g221_logged;
+static qboolean r_gx_g221_world_clear_done;
+
 static void R_GXClearEfbSky( GXRModeObj *rmode )
 {
 	Mtx44 ortho;
 	Mtx ident;
 	const f32 fb_w = (f32)rmode->fbWidth;
 	const f32 fb_h = (f32)rmode->efbHeight;
-	const u32 sky = 0x5A8CD2FFu;
+	/* G221: New Game indoor holes use muted concrete clear — outdoor sky
+	 * blue made DumpFrames look emptier than the 320+192 face budget is.
+	 * Also sync GX_SetCopyClear: soft CopyDisp(TRUE) was resetting EFB to
+	 * outdoor (89,141,210) after the ortho fill, and dump-hold then skipped
+	 * later clears so world holes stayed sky-blue. */
+	const qboolean indoor = ( GC_UseGxWorldDraw() || gEngfuncs.Sys_CheckParm( "-gcnewgame" ));
+	const u32 sky = indoor ? 0x485054FFu /* RGB 72,80,84 */ : 0x5A8CD2FFu;
+	GXColor copy_clear;
+
+	copy_clear.r = (u8)(( sky >> 24 ) & 0xff );
+	copy_clear.g = (u8)(( sky >> 16 ) & 0xff );
+	copy_clear.b = (u8)(( sky >> 8 ) & 0xff );
+	copy_clear.a = 0xff;
+	GX_SetCopyClear( copy_clear, 0x00ffffff );
+
+	if( indoor && !r_gx_g221_logged )
+	{
+		gEngfuncs.Con_Reportf( "G221 Flipper EFB clear indoor rgb=%u,%u,%u\n",
+			(unsigned)copy_clear.r, (unsigned)copy_clear.g, (unsigned)copy_clear.b );
+		r_gx_g221_logged = true;
+	}
 
 	/* Color-only fill — never write Z here. Ortho depths poison the later
 	 * perspective LEQUAL test (DumpFrames stayed solid sky with drawn=179). */
@@ -749,11 +782,25 @@ static void R_GXSetupWorld3DState( void )
 		return;
 
 	if( r_gx_efb_dump_hold > 0 )
+	{
 		r_gx_efb_dump_hold--;
+		/* G221: -gcnewgame re-arms hold every Flipper present, so clear is
+		 * almost never reached after load. Soft CopyDisp may have left
+		 * outdoor SetCopyClear in EFB — force one indoor clear when world
+		 * draw first becomes live. */
+		if( GC_UseGxWorldDraw() && !r_gx_g221_world_clear_done )
+		{
+			R_GXClearEfbSky( rmode );
+			R_GXClearDepthPerspective( rmode );
+			r_gx_g221_world_clear_done = true;
+		}
+	}
 	else
 	{
 		R_GXClearEfbSky( rmode );
 		R_GXClearDepthPerspective( rmode );
+		if( GC_UseGxWorldDraw() )
+			r_gx_g221_world_clear_done = true;
 	}
 
 	GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight, 0.0f, 1.0f );
@@ -923,6 +970,68 @@ static qboolean R_GXBindLightmapAtlas( void )
 static int r_gx_lm_draws;
 static qboolean r_gx_lm_logged;
 
+/* G216: prebaked live-face verts (slot == -3 in R_GXEmitFace). */
+static float r_gx_prebaked_pts[32][3];
+static int r_gx_prebaked_nverts;
+
+static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot );
+
+/* G222: flat PASSCLR fill from capture-baked verts (no tex/LM). */
+static int R_GXEmitFlatFillVerts( float pts_in[][3], int nverts_in, u32 color )
+{
+	int i;
+
+	if( !pts_in || nverts_in < 3 )
+		return 0;
+	if( nverts_in > 32 )
+		nverts_in = 32;
+	if( r_gx_face_mode != GC_GX_FACE_MODE_FLAT )
+	{
+		/* G231: Z-test only — never occlude LM/live; plug clear-depth holes. */
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+		GX_SetNumTexGens( 0 );
+		GX_SetNumTevStages( 1 );
+		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+		GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+		GX_ClearVtxDesc();
+		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+		r_gx_face_mode = GC_GX_FACE_MODE_FLAT;
+		r_gx_state_sets++;
+	}
+	else
+		r_gx_state_reuses++;
+
+	GX_Begin( GX_TRIANGLES, GX_VTXFMT0, (u16)(( nverts_in - 2 ) * 3 ));
+	for( i = 1; i < nverts_in - 1; i++ )
+	{
+		GX_Position3f32( pts_in[0][0], pts_in[0][1], pts_in[0][2] );
+		GX_Color1u32( color );
+		GX_Position3f32( pts_in[i][0], pts_in[i][1], pts_in[i][2] );
+		GX_Color1u32( color );
+		GX_Position3f32( pts_in[i + 1][0], pts_in[i + 1][1], pts_in[i + 1][2] );
+		GX_Color1u32( color );
+	}
+	GX_End();
+	r_gx_flat_draws++;
+	return 1;
+}
+
+static int R_GXEmitFaceVerts( const msurface_t *surf, model_t *world,
+	float pts_in[][3], int nverts_in )
+{
+	int i;
+
+	if( !pts_in || nverts_in < 3 )
+		return 0;
+	if( nverts_in > 32 )
+		nverts_in = 32;
+	for( i = 0; i < nverts_in; i++ )
+		VectorCopy( pts_in[i], r_gx_prebaked_pts[i] );
+	r_gx_prebaked_nverts = nverts_in;
+	return R_GXEmitFace( surf, world, -3 );
+}
+
 static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 {
 	mvertex_t *pverts;
@@ -939,8 +1048,18 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	if( !surf || !world )
 		return 0;
 
+	/* G216: lean live faces carry capture-time baked verts (edges may dangle). */
+	if( slot == -3 && r_gx_prebaked_nverts >= 3 )
+	{
+		nverts = r_gx_prebaked_nverts;
+		if( nverts > 32 )
+			nverts = 32;
+		for( i = 0; i < nverts; i++ )
+			VectorCopy( r_gx_prebaked_pts[i], pts[i] );
+		r_gx_prebaked_nverts = 0;
+	}
 	/* G199: prefer capture-baked verts — live edges/surfedges dangle after scratch. */
-	if( slot >= 0 )
+	else if( slot >= 0 )
 	{
 		extern int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
 		nverts = GC_GetNewGameCapFaceVerts( slot, pts, 32 );
@@ -1038,7 +1157,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 					{
 						g207_logged = true;
 						gEngfuncs.Con_Reportf(
-							"Xash3D GameCube: G209 Flipper LM on EDGE/TEX (boost*3 + TEV*4)\n" );
+							"Xash3D GameCube: G219 Flipper LM on EDGE/TEX (boost*3 + TEV*2)\n" );
 					}
 				}
 			}
@@ -1091,10 +1210,10 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			/* Stage0: diffuse REPLACE (ignore vertex color dimming). */
 			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
 			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
-			/* Stage1: * LM with G209 overbright (×4) toward REPLACE brightness. */
+			/* Stage1: * LM with G219 overbright (×2) — G209 ×4 blew DumpFrames white. */
 			GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
 			GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
-			GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_4, GX_TRUE, GX_TEVPREV );
+			GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
 			GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
 			GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 			GX_ClearVtxDesc();
@@ -1131,7 +1250,28 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	}
 	else if( textured )
 	{
-		if( r_gx_face_mode != GC_GX_FACE_MODE_TEXTURED )
+		/* G219: live skyfill (slot -3) uses muted MODULATE — REPLACE blows white. */
+		if( slot == -3 )
+		{
+			color = 0x888888FFu;
+			if( r_gx_face_mode != GC_GX_FACE_MODE_TEXTURED_LIVE )
+			{
+				GX_SetNumTexGens( 1 );
+				GX_SetNumTevStages( 1 );
+				GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+				GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+				GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+				GX_ClearVtxDesc();
+				GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+				GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+				GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+				r_gx_face_mode = GC_GX_FACE_MODE_TEXTURED_LIVE;
+				r_gx_state_sets++;
+			}
+			else
+				r_gx_state_reuses++;
+		}
+		else if( r_gx_face_mode != GC_GX_FACE_MODE_TEXTURED )
 		{
 			GX_SetNumTexGens( 1 );
 			GX_SetNumTevStages( 1 );
@@ -1423,35 +1563,70 @@ int R_GXDrawNewGameCapFaces( void )
 		/* Lean early-pool faces (G213) — walk mempool edges; full promote may OOM. */
 		if( live_n > 0 )
 		{
-			int li, live_drawn = 0;
+			int li, live_drawn = 0, skipped_cap = 0;
+			int skip_back = 0, skip_noverts = 0, emit_fail = 0;
+			int skip_plane = 0;
 
+			/* G219: EDGE/TEX baked live faces only; muted MODULATE (no plane white). */
 			for( li = 0; li < live_n; li++ )
 			{
 				float dot;
 				msurface_t surf;
 				mtexinfo_t tex;
+				float pts[32][3];
+				int nv;
+				int got;
+				int bake;
 
+				if( GC_LiveFaceIsCapped( li ))
+				{
+					skipped_cap++;
+					continue;
+				}
+				bake = GC_GetLiveFaceBakeSrc( li );
+				if( bake != 1 && bake != 3 ) /* EDGE or TEX only */
+				{
+					skip_plane++;
+					continue;
+				}
 				if( !GC_FillLiveDrawSurf( li, &surf, &tex ))
 					continue;
-				if( !surf.plane || surf.numedges < 3 )
+				if( !surf.plane )
 					continue;
 				dot = DotProduct( tr.modelorg, surf.plane->normal ) - surf.plane->dist;
 				if( surf.flags & SURF_PLANEBACK )
 				{
 					if( dot > -BACKFACE_EPSILON )
+					{
+						skip_back++;
 						continue;
+					}
 				}
 				else if( dot < BACKFACE_EPSILON )
+				{
+					skip_back++;
 					continue;
-				live_drawn += R_GXEmitFace( &surf, world, -1 );
+				}
+				nv = GC_GetLiveFaceVerts( li, pts, 32 );
+				if( nv < 3 )
+				{
+					skip_noverts++;
+					continue;
+				}
+				/* G228: no live frustum cull — tram side walls were skipped. */
+				got = R_GXEmitFaceVerts( &surf, world, pts, nv );
+				if( got <= 0 )
+					emit_fail++;
+				else
+					live_drawn += got;
 			}
 			drawn += live_drawn;
-			if( !g213_logged && live_drawn > 0 )
+			if( !g213_logged )
 			{
 				g213_logged = true;
 				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G213 live Flipper faces=%d of %d (lean early pool, edges mempool)\n",
-					live_drawn, live_n );
+					"Xash3D GameCube: G220 live Flipper skyfill=%d of %d skip_cap=%d plane=%d back=%d noverts=%d fail=%d\n",
+					live_drawn, live_n, skipped_cap, skip_plane, skip_back, skip_noverts, emit_fail );
 			}
 		}
 		else
@@ -1465,7 +1640,8 @@ int R_GXDrawNewGameCapFaces( void )
 					drawn );
 			}
 		}
-		/* Also emit near-eye cap faces with LM atlas for readable walls. */
+		/* Also emit near-eye cap faces with LM atlas for readable walls.
+		 * G231: LM/live write Z first — flat-fill after so gray only plugs holes. */
 		if( draw && n > 0 )
 		{
 			int backface_skips = 0;
@@ -1527,6 +1703,58 @@ int R_GXDrawNewGameCapFaces( void )
 			drawn += cap_drawn;
 			(void)backface_skips;
 			(void)emit_fails;
+		}
+		/* G222/G225/G231: flat-fill AFTER LM so PASSCLR only wins empty Z. */
+		{
+			static qboolean g222_logged;
+			int fill_n = GC_GetFillFaceCount();
+			int fi, fill_drawn = 0, fill_back = 0, fill_fail = 0;
+
+			for( fi = 0; fi < fill_n; fi++ )
+			{
+				mplane_t pl;
+				int flags = 0;
+				float pts[32][3];
+				int nv;
+				float dot;
+
+				if( !GC_FillFacePlane( fi, &pl, &flags ))
+					continue;
+				dot = DotProduct( tr.modelorg, pl.normal ) - pl.dist;
+				if( flags & SURF_PLANEBACK )
+				{
+					if( dot > -BACKFACE_EPSILON )
+					{
+						fill_back++;
+						continue;
+					}
+				}
+				else if( dot < BACKFACE_EPSILON )
+				{
+					fill_back++;
+					continue;
+				}
+				nv = GC_GetFillFaceVerts( fi, pts, 32 );
+				if( nv < 3 )
+				{
+					fill_fail++;
+					continue;
+				}
+				if( R_GXEmitFlatFillVerts( pts, nv, 0x687068FFu ) > 0 )
+					fill_drawn++;
+				else
+					fill_fail++;
+			}
+			drawn += fill_drawn;
+			if( !g222_logged && fill_n > 0 )
+			{
+				g222_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G231 fill=%d/%d after LM\n",
+					fill_drawn, fill_n );
+				(void)fill_back;
+				(void)fill_fail;
+			}
 		}
 	}
 	else if( draw && n > 0 )

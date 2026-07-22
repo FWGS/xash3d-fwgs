@@ -173,6 +173,12 @@ qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without t
 void GC_ApplyNewGameSurfVis( int surf_frame );
 qboolean GC_WorldSurfacesLive( void ); /* G213: live Flipper beyond 320-cap */
 int GC_GetLiveFaceCount( void );
+qboolean GC_LiveFaceIsCapped( int index ); /* G214 */
+int GC_GetLiveFaceVerts( int index, float out[][3], int maxverts ); /* G216 */
+int GC_GetLiveFaceBakeSrc( int index ); /* G219: 1=edge 2=plane 3=tex 0=none */
+int GC_GetFillFaceCount( void ); /* G222/G225: MEM1 + ARAM flat-fill beyond 320+192 */
+int GC_GetFillFaceVerts( int index, float out[][3], int maxverts );
+qboolean GC_FillFacePlane( int index, struct mplane_s *out, int *out_flags );
 struct msurface_s *GC_GetLiveDrawSurfs( void ); /* always NULL — use Fill */
 qboolean GC_FillLiveDrawSurf( int index, struct msurface_s *out, mtexinfo_t *tex_out );
 int GC_GetNewGameCapFaceCount( void );
