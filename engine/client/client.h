@@ -445,6 +445,7 @@ typedef struct
 	double			timeout;
 	double			timesend;	// time when request was sended
 	int			flags;	// FNETAPI_MULTIPLE_RESPONSE etc
+	int			challenge;	// GoldSrc query challenge, -1 until received
 } net_request_t;
 
 // new versions of client dlls have a single export with all callbacks
@@ -793,6 +794,7 @@ void CL_ClearState( void );
 void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticket, size_t ticketlen );
 void CL_NotifyServerListResponse( void );
+qboolean CL_NetRequestSend( net_request_t *nr );
 
 //
 // cl_demo.c

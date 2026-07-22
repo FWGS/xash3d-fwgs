@@ -2073,12 +2073,47 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	UI_AddServerToList( from, infostring );
 }
 
+static net_request_t *CL_NetRequestFind( netadr_t from, int type )
+{
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
+	{
+		net_request_t *nr = &clgame.net_requests[i];
+
+		if( !nr->pfnFunc || nr->resp.type != type )
+			continue;
+
+		if( NET_CompareAdr( nr->resp.remote_address, from ))
+			return nr;
+
+		// broadcast requests accept a response from anyone
+		if( NET_NetadrType( &nr->resp.remote_address ) == NA_BROADCAST )
+			return nr;
+	}
+
+	return NULL;
+}
+
+static void CL_NetRequestComplete( net_request_t *nr, netadr_t from, const char *response )
+{
+	netadr_t request_adr = nr->resp.remote_address;
+
+	nr->resp.response = (void *)response;
+	nr->resp.remote_address = from;
+	nr->resp.error = NET_SUCCESS;
+	nr->resp.ping = host.realtime - nr->timesend;
+
+	nr->pfnFunc( &nr->resp );
+
+	if( FBitSet( nr->flags, FNETAPI_MULTIPLE_RESPONSE ))
+		nr->resp.remote_address = request_adr;
+	else memset( nr, 0, sizeof( *nr )); // done
+}
+
 static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legacy_format )
 {
 	static char	s[512+8];
-	int p, numcl, maxcl, password, remaining, bots;
+	int p, numcl, maxcl, password, bots;
 	string host, map, gamedir, version;
-	char *replace;
 
 	// set to beginning but skip header
 	MSG_SeekToBit( msg, (sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
@@ -2163,7 +2198,7 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolea
 
 	// write host last so we can try to cut off too long hostnames
 	// TODO: value size limit for infostrings
-	remaining = sizeof( s ) - Q_strlen( s ) - sizeof( "\\host\\" ) - 1;
+	int remaining = sizeof( s ) - Q_strlen( s ) - sizeof( "\\host\\" ) - 1;
 	if( remaining < 0 )
 	{
 		// should never happen?
@@ -2171,103 +2206,205 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolea
 		return;
 	}
 
+	char *replace;
 	while(( replace = Q_strpbrk( host, "\\\"" )))
-	{
 		*replace = ' '; // find a better replacement?
-	}
 
 	Info_SetValueForKey( s, "host", host, sizeof( s ));
 
+	// tell mainui about server
 	UI_AddServerToList( from, s );
+
+	// now process NetAPI requst
+	net_request_t *nr = CL_NetRequestFind( from, NETAPI_REQUEST_DETAILS );
+
+	if( !nr )
+		return;
+
+	s[0] = 0;
+	Info_SetValueForKey( s, "gamedir", gamedir, sizeof( s ));
+	Info_SetValueForKeyf( s, "current", sizeof( s ), "%i", numcl );
+	Info_SetValueForKeyf( s, "max", sizeof( s ), "%i", maxcl );
+	Info_SetValueForKey( s, "map", map, sizeof( s ));
+	Info_SetValueForKey( s, "hostname", host, sizeof( s ));
+
+	CL_NetRequestComplete( nr, from, s );
 }
 
 /*
 =================
-CL_ParseNETInfoMessage
-
-Handle a reply from a netinfo
+CL_NetRequestSend
 =================
 */
-static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
+qboolean CL_NetRequestSend( net_request_t *nr )
 {
-	net_request_t	*nr = NULL;
-	static char	infostring[MAX_PRINT_MSG];
-	int		i, context, type;
-	int		errorBits = 0;
-	const char		*val;
+	byte buf[64];
+	sizebuf_t msg;
 
-	context = Q_atoi( Cmd_Argv( 1 ));
-	type = Q_atoi( Cmd_Argv( 2 ));
-
-	// find request with specified context and type
-	for( i = 0; i < MAX_REQUESTS; i++ )
+	if( nr->resp.type == NETAPI_REQUEST_PING )
 	{
-		if( clgame.net_requests[i].resp.context == context && clgame.net_requests[i].resp.type == type )
-		{
-			nr = &clgame.net_requests[i];
-			break;
-		}
+		Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, A2A_GOLDSRC_PING );
+		return true;
 	}
 
-	// not found, ignore
-	if( nr == NULL )
-		return;
+	MSG_Init( &msg, "NetRequest", buf, sizeof( buf ));
 
-	// find the payload
-	s = Q_strchr( s, ' ' ); // skip netinfo
-	if( !s )
-		return;
-
-	s = Q_strchr( s + 1, ' ' ); // skip challenge
-	if( !s )
-		return;
-
-	s = Q_strchr( s + 1, ' ' ); // skip type
-	if( s )
-		s++; // skip final whitespace
-	else if( type != NETAPI_REQUEST_PING ) // ping have no payload, and that's ok
-		return;
-
-	if( s )
+	switch( nr->resp.type )
 	{
-		if( s[0] == '\\' )
-		{
-			// check for errors
-			val = Info_ValueForKey( s, "neterror" );
-
-			if( !Q_stricmp( val, "protocol" ))
-				SetBits( errorBits, NET_ERROR_PROTO_UNSUPPORTED );
-			else if( !Q_stricmp( val, "undefined" ))
-				SetBits( errorBits, NET_ERROR_UNDEFINED );
-			else if( !Q_stricmp( val, "forbidden" ))
-				SetBits( errorBits, NET_ERROR_FORBIDDEN );
-
-			CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
-		}
-		else
-		{
-			Q_strncpy( infostring, s, sizeof( infostring ));
-		}
-	}
-	else
-	{
-		infostring[0] = 0;
+	case NETAPI_REQUEST_DETAILS:
+		MSG_WriteString( &msg, A2S_GOLDSRC_INFO );
+		break;
+	case NETAPI_REQUEST_PLAYERS:
+		MSG_WriteByte( &msg, A2S_GOLDSRC_PLAYERS );
+		break;
+	case NETAPI_REQUEST_RULES:
+		MSG_WriteByte( &msg, A2S_GOLDSRC_RULES );
+		break;
+	default:
+		return false;
 	}
 
-	// setup the answer
-	nr->resp.response = infostring;
-	nr->resp.remote_address = from;
-	nr->resp.error = NET_SUCCESS;
-	nr->resp.ping = host.realtime - nr->timesend;
+	MSG_WriteLong( &msg, nr->challenge );
 
-	if( nr->timeout <= host.realtime )
-		SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
-	SetBits( nr->resp.error, errorBits ); // misc error bits
+	Netchan_OutOfBand( NS_CLIENT, nr->resp.remote_address, MSG_GetNumBytesWritten( &msg ), MSG_GetData( &msg ));
 
-	nr->pfnFunc( &nr->resp );
+	return true;
+}
 
-	if( !FBitSet( nr->flags, FNETAPI_MULTIPLE_RESPONSE ))
-		memset( nr, 0, sizeof( *nr )); // done
+/*
+=================
+CL_HasActiveNetRequest
+=================
+*/
+qboolean CL_HasActiveNetRequest( netadr_t from )
+{
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
+	{
+		const net_request_t *nr = &clgame.net_requests[i];
+
+		if( !nr->pfnFunc )
+			continue;
+
+		if( nr->resp.type != NETAPI_REQUEST_RULES && nr->resp.type != NETAPI_REQUEST_PLAYERS )
+			continue;
+
+		if( NET_CompareAdr( nr->resp.remote_address, from ))
+			return true;
+	}
+
+	return false;
+}
+
+/*
+=================
+CL_NetRequestChallenge
+=================
+*/
+static void CL_NetRequestChallenge( netadr_t from, sizebuf_t *msg )
+{
+	MSG_SeekToBit( msg, ( sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
+	int challenge = MSG_ReadLong( msg );
+
+	// give the challenge to the first request without one,
+	// the server sends a challenge per received query
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
+	{
+		net_request_t *nr = &clgame.net_requests[i];
+
+		if( !nr->pfnFunc || nr->resp.type == NETAPI_REQUEST_PING )
+			continue;
+
+		if( nr->challenge != -1 )
+			continue;
+
+		if( !NET_CompareAdr( nr->resp.remote_address, from ))
+			continue;
+
+		nr->challenge = challenge;
+		CL_NetRequestSend( nr );
+		break;
+	}
+}
+
+/*
+=================
+CL_NetRequestPing
+=================
+*/
+static void CL_NetRequestPing( netadr_t from )
+{
+	net_request_t *nr = CL_NetRequestFind( from, NETAPI_REQUEST_PING );
+
+	if( !nr )
+		return;
+
+	CL_NetRequestComplete( nr, from, "" );
+}
+
+/*
+=================
+CL_NetRequestPlayers
+=================
+*/
+static void CL_NetRequestPlayers( netadr_t from, sizebuf_t *msg )
+{
+	static char s[MAX_PRINT_MSG];
+	net_request_t *nr = CL_NetRequestFind( from, NETAPI_REQUEST_PLAYERS );
+
+	if( !nr )
+		return;
+
+	MSG_SeekToBit( msg, ( sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
+
+	int count = MSG_ReadByte( msg );
+
+	s[0] = 0;
+	for( int i = 0; i < count && !MSG_CheckOverflow( msg ); i++ )
+	{
+		MSG_ReadByte( msg ); // index, GoldSrc servers always send 0 here
+		Info_SetValueForKey( s, va( "p%iname", i ), MSG_ReadString( msg ), sizeof( s ));
+		Info_SetValueForKeyf( s, va( "p%ifrags", i ), sizeof( s ), "%i", MSG_ReadLong( msg ));
+		Info_SetValueForKeyf( s, va( "p%itime", i ), sizeof( s ), "%f", MSG_ReadFloat( msg ));
+	}
+	Info_SetValueForKeyf( s, "players", sizeof( s ), "%i", count );
+
+	if( MSG_CheckOverflow( msg ))
+		return;
+
+	CL_NetRequestComplete( nr, from, s );
+}
+
+/*
+=================
+CL_NetRequestRules
+=================
+*/
+static void CL_NetRequestRules( netadr_t from, sizebuf_t *msg )
+{
+	static char s[MAX_PRINT_MSG];
+	net_request_t *nr = CL_NetRequestFind( from, NETAPI_REQUEST_RULES );
+
+	if( !nr )
+		return;
+
+	MSG_SeekToBit( msg, ( sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
+
+	int count = MSG_ReadShort( msg );
+
+	s[0] = 0;
+	for( int i = 0; i < count && !MSG_CheckOverflow( msg ); i++ )
+	{
+		string key;
+
+		Q_strncpy( key, MSG_ReadString( msg ), sizeof( key ));
+		Info_SetValueForKey( s, key, MSG_ReadString( msg ), sizeof( s ));
+	}
+	Info_SetValueForKeyf( s, "rules", sizeof( s ), "%i", count );
+
+	if( MSG_CheckOverflow( msg ))
+		return;
+
+	CL_NetRequestComplete( nr, from, s );
 }
 
 /*
@@ -2279,14 +2416,13 @@ check for timeouts
 */
 static void CL_ProcessNetRequests( void )
 {
-	net_request_t	*nr;
-	int		i;
-
 	// find a request with specified context
-	for( i = 0; i < MAX_REQUESTS; i++ )
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
 	{
-		nr = &clgame.net_requests[i];
-		if( !nr->pfnFunc ) continue;	// not used
+		net_request_t *nr = &clgame.net_requests[i];
+
+		if( !nr->pfnFunc )
+			continue; // not used
 
 		if( nr->timeout <= host.realtime )
 		{
@@ -2524,8 +2660,16 @@ static void CL_Print( const char *c, const char *args, netadr_t from, sizebuf_t 
 	Con_Printf( "%s%c", s, s[Q_strlen( s ) - 1] != '\n' ? '\n' : '\0' );
 }
 
-static void CL_Challenge( const char *c, netadr_t from )
+static void CL_Challenge( const char *c, netadr_t from, sizebuf_t *msg )
 {
+	// connection challenge is text and always comes as literal A00000000,
+	// query challenge is binary: challenge type byte and the challenge value
+	if( c[0] == S2C_GOLDSRC_CHALLENGE[0] && Q_strcmp( c, S2C_GOLDSRC_CHALLENGE ))
+	{
+		CL_NetRequestChallenge( from, msg );
+		return;
+	}
+
 	if( cls.state != ca_connecting )
 		return;
 
@@ -2727,9 +2871,13 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	{
 		CL_ParseGoldSrcStatusMessage( from, msg, true );
 	}
-	else if( !Q_strcmp( c, A2A_NETINFO ))
+	else if( c[0] == S2A_GOLDSRC_PLAYERS )
 	{
-		CL_ParseNETInfoMessage( from, args ); // server responding to a status broadcast
+		CL_NetRequestPlayers( from, msg );
+	}
+	else if( c[0] == S2A_GOLDSRC_RULES )
+	{
+		CL_NetRequestRules( from, msg );
 	}
 	else if( c[0] == A2C_GOLDSRC_PRINT || !Q_strcmp( c, A2C_PRINT ))
 	{
@@ -2749,11 +2897,11 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( c, A2A_ACK ) || !Q_strcmp( c, A2A_GOLDSRC_ACK ))
 	{
-		// no-op
+		CL_NetRequestPing( from ); // server responding to a NetAPI ping
 	}
-	else if( !Q_strcmp( c, S2C_CHALLENGE ) || !Q_strcmp( c, S2C_GOLDSRC_CHALLENGE ))
+	else if( !Q_strcmp( c, S2C_CHALLENGE ) || c[0] == S2C_GOLDSRC_CHALLENGE[0] )
 	{
-		CL_Challenge( c, from );
+		CL_Challenge( c, from, msg );
 	}
 	else if( !Q_strcmp( c, S2C_REJECT ) || c[0] == S2C_GOLDSRC_REJECT || c[0] == S2C_GOLDSRC_REJECT_BADPASSWORD )
 	{

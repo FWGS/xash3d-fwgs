@@ -1364,9 +1364,14 @@ static qboolean NET_QueuePacket( int net_socket, netsrc_t sock, netadr_t *from, 
 			// check for split message
 			if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
 			{
-				if( !CL_IsFromConnectingServer( *from ))
-					return false;
-				return NET_GetLong( data, ret, length, CL_GetSplitSize( ), CL_Protocol( ));
+				if( CL_IsFromConnectingServer( *from ))
+					return NET_GetLong( data, ret, length, CL_GetSplitSize( ), CL_Protocol( ));
+
+				// GoldSrc servers (e.g. ReUnion) can split large query responses
+				if( CL_HasActiveNetRequest( *from ))
+					return NET_GetLong( data, ret, length, 1400, PROTO_GOLDSRC );
+
+				return false;
 			}
 #endif
 

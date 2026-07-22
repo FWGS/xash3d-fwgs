@@ -3364,44 +3364,60 @@ NetAPI_SendRequest
 */
 static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags, double timeout, netadr_t *remote_address, net_api_response_func_t response )
 {
-	net_request_t	*nr = NULL;
-	int		i;
-
 	if( !response )
 	{
-		Con_DPrintf( S_ERROR "%s: no callbcak specified for request with context %i!\n", __func__, context );
+		Con_DPrintf( S_ERROR "%s: no callback specified for request with context %i!\n", __func__, context );
 		return;
 	}
+
+	// FIXME: call pfnFunc and tell client.dll about errors?
 
 	if( NET_NetadrType( remote_address ) == NA_IPX || NET_NetadrType( remote_address ) == NA_BROADCAST_IPX )
 		return; // IPX no longer support
 
-	if( request == NETAPI_REQUEST_SERVERLIST )
+	switch( request )
+	{
+	case NETAPI_REQUEST_SERVERLIST:
 		return; // no support for server list requests
+	case NETAPI_REQUEST_PING:
+	case NETAPI_REQUEST_RULES:
+	case NETAPI_REQUEST_PLAYERS:
+	case NETAPI_REQUEST_DETAILS:
+		break;
+	default:
+		Con_Printf( S_ERROR "%s: unknown request type %d, context %i\n", __func__, request, context );
+		return;
+	}
 
 	// find a free request
-	for( i = 0; i < MAX_REQUESTS; i++ )
+	net_request_t *nr = NULL, *oldest_nr = NULL;
+	int i;
+	double max_timeout = 0;
+	for( i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
 	{
 		nr = &clgame.net_requests[i];
-		if( !nr->pfnFunc ) break;
-	}
 
-	if( i == MAX_REQUESTS )
-	{
-		double	max_timeout = 0;
-
-		// no free requests? use oldest
-		for( i = 0, nr = NULL; i < MAX_REQUESTS; i++ )
+		if(( host.realtime - nr->timesend ) > max_timeout )
 		{
-			if(( host.realtime - clgame.net_requests[i].timesend ) > max_timeout )
-			{
-				max_timeout = host.realtime - clgame.net_requests[i].timesend;
-				nr = &clgame.net_requests[i];
-			}
+			max_timeout = host.realtime - nr->timesend;
+			oldest_nr = nr;
 		}
+
+		if( !nr->pfnFunc )
+			break;
 	}
 
-	Assert( nr != NULL );
+	if( i == ARRAYSIZE( clgame.net_requests ))
+	{
+		// no free requests? use oldest
+		nr = oldest_nr;
+	}
+
+	if( !nr )
+	{
+		Con_Printf( S_ERROR "%s: no free requests\n", __func__ );
+		return;
+	}
 
 	// clear slot
 	memset( nr, 0, sizeof( *nr ));
@@ -3414,9 +3430,10 @@ static void GAME_EXPORT NetAPI_SendRequest( int context, int request, int flags,
 	nr->resp.type = request;
 	nr->resp.remote_address = *remote_address;
 	nr->flags = flags;
+	nr->challenge = -1;
 
-	// local servers request
-	Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, A2A_NETINFO" %i %i %i", PROTOCOL_VERSION, context, request );
+	if( !CL_NetRequestSend( nr ))
+		Con_Printf( S_ERROR "%s: failed to send net request for type %d with context %i\n", __func__, request, context );
 }
 
 /*
@@ -3428,7 +3445,7 @@ NetAPI_CancelRequest
 static void GAME_EXPORT NetAPI_CancelRequest( int context )
 {
 	// find a specified request
-	for( int i = 0; i < MAX_REQUESTS; i++ )
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
 	{
 		net_request_t *nr = &clgame.net_requests[i];
 
@@ -3456,7 +3473,7 @@ NetAPI_CancelAllRequests
 void GAME_EXPORT NetAPI_CancelAllRequests( void )
 {
 	// tell the user about cancel
-	for( int i = 0; i < MAX_REQUESTS; i++ )
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
 	{
 		net_request_t *nr = &clgame.net_requests[i];
 		if( !nr->pfnFunc ) continue;	// not used

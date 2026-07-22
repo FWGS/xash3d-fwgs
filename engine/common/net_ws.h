@@ -89,6 +89,7 @@ void NET_GetLocalAddress( netadr_t *ip4, netadr_t *ip6 );
 #if !XASH_DEDICATED
 size_t CL_GetSplitSize( void );
 qboolean CL_IsFromConnectingServer( netadr_t from );
+qboolean CL_HasActiveNetRequest( netadr_t from );
 #endif
 
 void HTTP_AddCustomServer( const char *url );
