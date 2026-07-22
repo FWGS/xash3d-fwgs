@@ -68,7 +68,7 @@ Simple ack message.
 
 #### Deprecated queries
 
-These text-based Xash protocol queries are deprecated in favor of [GoldSrc server queries](#goldsrc-server-queries), which Xash3D FWGS servers implement as well. The server still responds to them for compatibility with older clients, but new implementations must not send them.
+These text-based Xash protocol queries are deprecated in favor of [GoldSrc server queries](#goldsrc-server-queries), which Xash3D FWGS servers implement as well. New implementations must not send them. The server still responds to `A2A_INFO` for compatibility with older clients, `A2A_NETINFO` is not handled anymore.
 
 ##### `A2A_NETINFO`
 
