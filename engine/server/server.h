@@ -705,4 +705,23 @@ int SV_LightForEntity( edict_t *pEdict );
 //
 void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from, sizebuf_t *msg );
 
+static inline qboolean SV_CheckGroupOp( int op, int groupinfo, int mask )
+{
+	if( op == GROUP_OP_AND && !FBitSet( groupinfo, mask ))
+		return false;
+
+	if( op == GROUP_OP_NAND && FBitSet( groupinfo, mask ))
+		return false;
+
+	return true;
+}
+
+static inline qboolean SV_CheckGroupTrace( const edict_t *e1, const edict_t *e2 )
+{
+	if( e1->v.groupinfo && e2->v.groupinfo )
+		return SV_CheckGroupOp( svs.groupop, e1->v.groupinfo, e2->v.groupinfo );
+
+	return true;
+}
+
 #endif//SERVER_H

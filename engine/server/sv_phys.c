@@ -62,6 +62,47 @@ Utility functions
 */
 /*
 ================
+SV_CheckVelocity
+================
+*/
+void SV_CheckVelocity( edict_t *ent )
+{
+	float	wishspd;
+	float	maxspd;
+
+	// bound velocity
+	for( int i = 0; i < 3; i++ )
+	{
+		if( IS_NAN( ent->v.velocity[i] ))
+		{
+			if( sv_check_errors.value )
+				Con_Printf( "Got a NaN velocity on %s\n", SV_GetString( ent->v.classname ));
+			ent->v.velocity[i] = 0.0f;
+		}
+
+		if( IS_NAN( ent->v.origin[i] ))
+		{
+			if( sv_check_errors.value )
+				Con_Printf( "Got a NaN origin on %s\n", SV_GetString( ent->v.classname ));
+			ent->v.origin[i] = 0.0f;
+		}
+	}
+
+	wishspd = DotProduct( ent->v.velocity, ent->v.velocity );
+	maxspd = sv_maxvelocity.value * sv_maxvelocity.value * 1.73f; // half-diagonal
+
+	if( wishspd > maxspd )
+	{
+		wishspd = sqrt( wishspd );
+		if( sv_check_errors.value )
+			Con_Printf( "Got a velocity too high on %s ( %.2f > %.2f )\n", SV_GetString( ent->v.classname ), wishspd, sqrt( maxspd ));
+		wishspd = sv_maxvelocity.value / wishspd;
+		VectorScale( ent->v.velocity, wishspd, ent->v.velocity );
+	}
+}
+
+/*
+================
 SV_CheckAllEnts
 ================
 */
@@ -112,72 +153,25 @@ static void SV_CheckAllEnts( void )
 
 /*
 ================
-SV_CheckVelocity
-================
-*/
-void SV_CheckVelocity( edict_t *ent )
-{
-	float	wishspd;
-	float	maxspd;
-
-	// bound velocity
-	for( int i = 0; i < 3; i++ )
-	{
-		if( IS_NAN( ent->v.velocity[i] ))
-		{
-			if( sv_check_errors.value )
-				Con_Printf( "Got a NaN velocity on %s\n", SV_GetString( ent->v.classname ));
-			ent->v.velocity[i] = 0.0f;
-		}
-
-		if( IS_NAN( ent->v.origin[i] ))
-		{
-			if( sv_check_errors.value )
-				Con_Printf( "Got a NaN origin on %s\n", SV_GetString( ent->v.classname ));
-			ent->v.origin[i] = 0.0f;
-		}
-	}
-
-	wishspd = DotProduct( ent->v.velocity, ent->v.velocity );
-	maxspd = sv_maxvelocity.value * sv_maxvelocity.value * 1.73f; // half-diagonal
-
-	if( wishspd > maxspd )
-	{
-		wishspd = sqrt( wishspd );
-		if( sv_check_errors.value )
-			Con_Printf( "Got a velocity too high on %s ( %.2f > %.2f )\n", SV_GetString( ent->v.classname ), wishspd, sqrt( maxspd ));
-		wishspd = sv_maxvelocity.value / wishspd;
-		VectorScale( ent->v.velocity, wishspd, ent->v.velocity );
-	}
-}
-
-/*
-================
 SV_UpdateBaseVelocity
 ================
 */
 void SV_UpdateBaseVelocity( edict_t *ent )
 {
-	if( ent->v.flags & FL_ONGROUND )
-	{
-		edict_t	*groundentity = ent->v.groundentity;
+	if( !FBitSet( ent->v.flags, FL_ONGROUND ))
+		return;
 
-		if( SV_IsValidEdict( groundentity ))
-		{
-			// On conveyor belt that's moving?
-			if( groundentity->v.flags & FL_CONVEYOR )
-			{
-				vec3_t	new_basevel;
+	const edict_t *groundentity = ent->v.groundentity;
 
-				VectorScale( groundentity->v.movedir, groundentity->v.speed, new_basevel );
-				if( ent->v.flags & FL_BASEVELOCITY )
-					VectorAdd( new_basevel, ent->v.basevelocity, new_basevel );
+	if( !SV_IsValidEdict( groundentity ) || !FBitSet( groundentity->v.flags, FL_CONVEYOR ))
+		return;
 
-				ent->v.flags |= FL_BASEVELOCITY;
-				VectorCopy( new_basevel, ent->v.basevelocity );
-			}
-		}
-	}
+	if( FBitSet( ent->v.flags, FL_BASEVELOCITY ))
+		VectorMA( ent->v.basevelocity, groundentity->v.speed, groundentity->v.movedir, ent->v.basevelocity );
+	else
+		VectorScale( groundentity->v.movedir, groundentity->v.speed, ent->v.basevelocity );
+
+	ent->v.flags |= FL_BASEVELOCITY;
 }
 
 /*
@@ -189,18 +183,15 @@ returns true if the entity is in solid currently
 */
 static qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker )
 {
-	qboolean	monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
-	trace_t	trace;
-
 	if( FBitSet( ent->v.flags, FL_CLIENT|FL_FAKECLIENT ))
 	{
 		// to avoid falling through tracktrain update client mins\maxs here
-		if( FBitSet( ent->v.flags, FL_DUCKING ))
-			SV_SetMinMaxSize( ent, host.player_mins[1], host.player_maxs[1], true );
-		else SV_SetMinMaxSize( ent, host.player_mins[0], host.player_maxs[0], true );
+		int hull = FBitSet( ent->v.flags, FL_DUCKING ) ? 1 : 0;
+		SV_SetMinMaxSize( ent, host.player_mins[hull], host.player_maxs[hull], true );
 	}
 
-	trace = SV_Move( ent->v.origin, ent->v.mins, ent->v.maxs, ent->v.origin, MOVE_NORMAL, ent, monsterClip );
+	qboolean monsterClip = FBitSet( ent->v.flags, FL_MONSTERCLIP ) ? true : false;
+	trace_t trace = SV_Move( ent->v.origin, ent->v.mins, ent->v.maxs, ent->v.origin, MOVE_NORMAL, ent, monsterClip );
 
 	if( SV_IsValidEdict( blocker ) && SV_IsValidEdict( trace.ent ))
 	{
@@ -210,6 +201,25 @@ static qboolean SV_TestEntityPosition( edict_t *ent, edict_t *blocker )
 	}
 
 	return trace.startsolid;
+}
+
+static qboolean SV_TryThink( edict_t *ent, double frametime, double time )
+{
+	float thinktime = ent->v.nextthink;
+	if( thinktime <= 0.0f || thinktime > ( time + frametime ))
+		return false;
+
+	// don't let things stay in the past.
+	// it is possible to start that way
+	// by a trigger with a local time.
+	if( thinktime < time )
+		thinktime = time;
+
+	ent->v.nextthink = 0.0f;
+	svgame.globals->time = thinktime;
+	svgame.dllFuncs.pfnThink( ent );
+
+	return true;
 }
 
 /*
@@ -224,21 +234,10 @@ Returns false if the entity removed itself.
 */
 static qboolean SV_RunThink( edict_t *ent )
 {
-	float	thinktime;
-
 	if( !FBitSet( ent->v.flags, FL_KILLME ))
 	{
-		thinktime = ent->v.nextthink;
-		if( thinktime <= 0.0f || thinktime > (sv.time + sv.frametime))
+		if( !SV_TryThink( ent, sv.frametime, sv.time ))
 			return true;
-
-		if( thinktime < sv.time )
-			thinktime = sv.time;	// don't let things stay in the past.
-						// it is possible to start that way
-						// by a trigger with a local time.
-		ent->v.nextthink = 0.0f;
-		svgame.globals->time = thinktime;
-		svgame.dllFuncs.pfnThink( ent );
 	}
 
 	if( FBitSet( ent->v.flags, FL_KILLME ))
@@ -259,25 +258,13 @@ Returns false if the entity removed itself.
 */
 qboolean SV_PlayerRunThink( edict_t *ent, float frametime, double time )
 {
-	float	thinktime;
-
 	if( svgame.physFuncs.SV_PlayerThink )
 		return svgame.physFuncs.SV_PlayerThink( ent, frametime, time );
 
 	if( !FBitSet( ent->v.flags, FL_KILLME|FL_DORMANT ))
 	{
-		thinktime = ent->v.nextthink;
-		if( thinktime <= 0.0f || thinktime > (time + frametime))
+		if( !SV_TryThink( ent, frametime, time ))
 			return true;
-
-		if( thinktime < time )
-			thinktime = time;	// don't let things stay in the past.
-					// it is possible to start that way
-					// by a trigger with a local time.
-
-		ent->v.nextthink = 0.0f;
-		svgame.globals->time = thinktime;
-		svgame.dllFuncs.pfnThink( ent );
 	}
 
 	if( FBitSet( ent->v.flags, FL_KILLME ))
@@ -297,17 +284,11 @@ void SV_Impact( edict_t *e1, edict_t *e2, trace_t *trace )
 {
 	svgame.globals->time = sv.time;
 
-	if(( e1->v.flags|e2->v.flags ) & FL_KILLME )
+	if( FBitSet( e1->v.flags|e2->v.flags, FL_KILLME ))
 		return;
 
-	if( e1->v.groupinfo && e2->v.groupinfo )
-	{
-		if( svs.groupop == GROUP_OP_AND && !FBitSet( e1->v.groupinfo, e2->v.groupinfo ))
-			return;
-
-		if( svs.groupop == GROUP_OP_NAND && FBitSet( e1->v.groupinfo, e2->v.groupinfo ))
-			return;
-	}
+	if( !SV_CheckGroupTrace( e1, e2 ))
+		return;
 
 	if( e1->v.solid != SOLID_NOT )
 	{

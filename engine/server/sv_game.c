@@ -435,14 +435,8 @@ static int SV_Multicast( int dest, const vec3_t origin, const edict_t *ent, qboo
 		if( filter && cl == sv.current_client && FBitSet( sv.current_client->flags, FCL_PREDICT_MOVEMENT ))
 			continue;
 
-		if( SV_IsValidEdict( ent ) && ent->v.groupinfo && cl->edict->v.groupinfo )
-		{
-			if( svs.groupop == GROUP_OP_AND && !FBitSet( cl->edict->v.groupinfo, ent->v.groupinfo ))
-				continue;
-
-			if( svs.groupop == GROUP_OP_NAND && FBitSet( cl->edict->v.groupinfo, ent->v.groupinfo ))
-				continue;
-		}
+		if( SV_IsValidEdict( ent ) && !SV_CheckGroupTrace( ent, cl->edict ))
+			continue;
 
 		if( !SV_CheckClientVisiblity( cl, mask ))
 			continue;
@@ -4123,14 +4117,8 @@ void GAME_EXPORT SV_PlaybackEventFull( int flags, const edict_t *pInvoker, word 
 		if( cl->state != cs_spawned || !cl->edict || FBitSet( cl->flags, FCL_FAKECLIENT ))
 			continue;
 
-		if( SV_IsValidEdict( pInvoker ) && pInvoker->v.groupinfo && cl->edict->v.groupinfo )
-		{
-			if( svs.groupop == GROUP_OP_AND && !FBitSet( cl->edict->v.groupinfo, pInvoker->v.groupinfo ))
-				continue;
-
-			if( svs.groupop == GROUP_OP_NAND && FBitSet( cl->edict->v.groupinfo, pInvoker->v.groupinfo ))
-				continue;
-		}
+		if( SV_IsValidEdict( pInvoker ) && !SV_CheckGroupTrace( pInvoker, cl->edict ))
+			continue;
 
 		if( SV_IsValidEdict( pInvoker ))
 		{

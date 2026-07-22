@@ -205,10 +205,7 @@ static void SV_AddLinksToPmove( areanode_t *node, const vec3_t pmove_mins, const
 
 		if( check->v.groupinfo != 0 )
 		{
-			if( svs.groupop == GROUP_OP_AND && !FBitSet( check->v.groupinfo, pl->v.groupinfo ))
-				continue;
-
-			if( svs.groupop == GROUP_OP_NAND && FBitSet( check->v.groupinfo, pl->v.groupinfo ))
+			if( !SV_CheckGroupOp( svs.groupop, check->v.groupinfo, pl->v.groupinfo ))
 				continue;
 		}
 
@@ -977,9 +974,9 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 			// touch other objects
 			for( int i = 0; i < svgame.pmove->numtouch; i++ )
 			{
-				pmtrace_t	*pmtrace = &svgame.pmove->touchindex[i];
-				edict_t		*touch = SV_EdictNum( svgame.pmove->physents[pmtrace->ent].info );
-				trace_t		trace;
+				pmtrace_t *pmtrace = &svgame.pmove->touchindex[i];
+				edict_t *touch = SV_EdictNum( svgame.pmove->physents[pmtrace->ent].info );
+				trace_t trace;
 
 				VectorCopy( pmtrace->deltavelocity, clent->v.velocity );
 				PM_ConvertTrace( &trace, pmtrace, touch );
