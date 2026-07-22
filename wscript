@@ -275,6 +275,14 @@ def configure(conf):
 		conf.options.GX               = True
 		conf.options.LOW_MEMORY       = max( conf.options.LOW_MEMORY, 1 )
 		conf.options.BUILD_BUNDLED_DEPS = True
+		# Pure Flipper: GameCube builds must ship GX and must not enable soft/GL.
+		if not conf.options.GX:
+			conf.fatal('GameCube requires --enable-gx (pure Flipper renderer)')
+		if conf.options.SOFT:
+			conf.fatal('GameCube pure Flipper build forbids --enable-soft')
+		if conf.options.GL or conf.options.NANOGL or conf.options.GLWES or conf.options.GL4ES or conf.options.GLES3COMPAT:
+			conf.fatal('GameCube pure Flipper build forbids GL/GLES renderers')
+		Logs.info('GameCube pure Flipper GX renderer enabled (soft/GL disabled)')
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC
 	enforce_pic = conf.env.DEST_OS != 'psvita' and not conf.env.STATIC_LINKING

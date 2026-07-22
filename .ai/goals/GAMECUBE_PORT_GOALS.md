@@ -94,11 +94,17 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G193: denser landmark soft DumpFrames (soft snap + XFB soft-lock; no Flipper grey overwrite)
 - G194: DumpFrames encode backlog (TGA dump + G191 EFB latch; multi soft DumpFrames)
 - G195: Flipper resume after soft DumpFrames (clear soft-lock; G159 gx=1)
+- G196: Flipper DumpFrames wall-aim after resume (G189/G190 eye for N SCR frames)
+- G198: Pure Flipper GX renderer (retail default; soft DumpFrames diagnostic-only)
 
 **Immediate source queue (open automatic goals, in order):**
-1. *(empty — automatic goals through G195 complete; next is G75 manual checkpoint)*
+1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) for pure Flipper
+2. ~~G197~~ — obsolete once soft DumpFrames path is not the retail present route
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260721-123257` (G198 pure Flipper: G36 PASS; sky-only Flipper present when G132 surfaces unpromoted; no soft raster hang)
+- `.ai/logs/hardware-handoff-20260721-121855` (G198 pure Flipper handoff: boot.dol + ISO + operator checklist)
+- `.ai/logs/dolphin-probe-20260721-114349` (G196 wall-aim begin/ready; G195/G194; soft f20–f23 intact)
 - `.ai/logs/dolphin-probe-20260721-105226` (G195 Flipper resume; G151 drawn=203; G159 gx=1; soft f20–f23 intact)
 - `.ai/logs/dolphin-probe-20260721-093730` (G194: 10 soft DumpFrames, 9 unique; `framedump_20`–`23` soft walls; TGA path)
 - `.ai/logs/dolphin-probe-20260721-081137` (G193 soft-lock yuyv=0xa7b1a75f; G143/G190; soft `framedump_19`)
@@ -3427,6 +3433,41 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   DOLPHIN_DUMP_FRAMES=1 DOLPHIN_TIMEOUT=400 DOLPHIN_FRAME_SAMPLE_SEC=45 \
   scripts/dolphin-boot-probe.sh
   ```
+- Residual: post-resume Flipper DumpFrames were pure sky+HUD (landmark eye) → G196.
+
+## G196 [x] Flipper DumpFrames wall-aim after resume
+
+- Status: DONE 2026-07-21. After G195 Flipper resume, re-enable G189/G190
+  `gc_dump_look_into_map` for 32 SCR frames so DumpFrames capture walls instead
+  of open sky. Resume smoke uses `GC_RenderNewGameWorldFrames` (wall-aim path).
+- Acceptance:
+  - `G196 Flipper dump wall-aim begin` / `ready` ✓
+  - Soft latch `framedump_20`–`23` unchanged ✓
+  - Post-resume Flipper DumpFrames no longer flat sky-only ✓
+  - `G195` / `G159 gx=1` still fire ✓
+- Evidence: `.ai/logs/dolphin-probe-20260721-114349` —
+  `G196 … begin n=32` → `G195 Flipper resume` → `G196 … ready`; G189 outdoor
+  aim during Flipper SCR; soft hashes match G194; `stage-04an-g196-flipper-dump-walls.png`.
+- Residual: Flipper DumpFrames show ~4× horizontal tiling (XFB/stride) → G197.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_FULLPHYSICS=1 \
+  DOLPHIN_CHANGELEVEL=c0a0a DOLPHIN_LANDMARK=c0a0toa DOLPHIN_G105=1 \
+  DOLPHIN_DUMP_FRAMES=1 DOLPHIN_TIMEOUT=400 DOLPHIN_FRAME_SAMPLE_SEC=45 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G197 [ ] Flipper DumpFrames XFB horizontal tiling
+
+- Status: OPEN. Post-G196 Flipper wall-aim DumpFrames show world content but
+  ~4× horizontal wrap (soft TGA latch does not). Likely XFB width/stride vs
+  DumpFrames decode under DisableCopyToVRAM.
+- Acceptance:
+  - Flipper DumpFrames after wall-aim show a single coherent view (no 4× tile)
+  - Soft latch + G196 markers remain green
+- Next: compare Flipper CopyDisp XFB layout vs soft G191 EFB path; fix stride
+  or DumpFrames source rect.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

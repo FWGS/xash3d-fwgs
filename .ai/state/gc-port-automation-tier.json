@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G195 COMPLETE: Flipper resume after soft DumpFrames — clear soft-lock, G151 live + G155 viewmodel=1 + G159 gx=1; soft latch f20–f23 intact. Probe 20260721-105226. Automatic goals through G195 done; next is G75 manual checkpoint."
+  "note": "G196 COMPLETE: Flipper DumpFrames wall-aim after resume (32 SCR frames G189/G190). Soft latch intact. Residual G197: Flipper DumpFrames ~4× horizontal XFB tiling. Probe 20260721-114349."
 }

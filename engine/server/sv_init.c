@@ -750,6 +750,8 @@ void SV_ActivateServer( int runPhysics )
 	GC_MemSample( "map active" );
 	if( Sys_CheckParm( "-gcnewgame" ) && !SV_GCPrimeDirectMapPlayer() )
 		Con_Reportf( S_WARN "Xash3D GameCube: direct-map player unavailable map=%s\n", sv.name );
+	/* Pure Flipper prepare runs from SCR / changelevel re-prepare once the
+	 * map-spawn MEM1 cliff has passed — do not Prepare immediately here. */
 	/* G68: second map after a probe changelevel. */
 	if( Sys_CheckParm( "-gcchangelevel" ))
 	{
@@ -771,7 +773,7 @@ void SV_ActivateServer( int runPhysics )
 
 		/* G95: G68 may changelevel before first-map G36. Always re-Prepare
 		 * on the destination so large maps still get a world present. */
-		if( second_map && Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
+		if( second_map && !GC_IsNewGameWorldReady() )
 		{
 			Con_Reportf( "Xash3D GameCube: G95 post-changelevel prepare map=%s\n",
 				sv.name );
@@ -793,7 +795,7 @@ void SV_ActivateServer( int runPhysics )
 		}
 	}
 	/* G92: after changelevel, G36 is already done — re-Prepare for the new map. */
-	else if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done() && !GC_IsNewGameWorldReady() )
+	else if( GC_IsNewGameG36Done() && !GC_IsNewGameWorldReady() )
 	{
 		Con_Reportf( "Xash3D GameCube: changelevel re-prepare map=%s\n", sv.name );
 		GC_PrepareNewGameWorldPresent();

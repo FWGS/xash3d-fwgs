@@ -328,10 +328,13 @@ void GAME_EXPORT R_DrawStretchPic( float x, float y, float w, float h, float s1,
 		return;
 
 #if XASH_GAMECUBE
-	/* G182: live Flipper world already in EFB — soft HUD would be discarded. */
-	if( GC_UseGxWorldDraw() && R_GXWorldDrewThisFrame()
+	/* Pure Flipper 2D: menus/HUD/console/loading use GX whenever renderer is live. */
+	if( GC_UseGxRenderer()
 		&& R_GXDrawStretchPic( x, y, w, h, s1, t1, s2, t2, texnum ))
+	{
+		GC_MarkGxWorldEfbReady();
 		return;
+	}
 #endif
 
 	pic = R_GetTexture( texnum );

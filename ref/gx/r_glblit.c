@@ -807,11 +807,21 @@ void R_BlitScreen( void )
 	void *buffer;
 
 #if XASH_GAMECUBE
-	/* G151: world already in EFB — skip soft blit, just present CopyDisp. */
+	/* Pure Flipper: never soft-blit into the software framebuffer for present.
+	 * World / HUD / TriAPI already wrote EFB; R_EndFrame → PresentBuffer does
+	 * CopyDisp. Soft DumpFrames latch temporarily opts out via UseGxRenderer. */
 	{
 		extern qboolean R_GXWorldDrewThisFrame( void );
 		extern void R_GXClearWorldDrewFlag( void );
+		extern qboolean GC_UseGxRenderer( void );
 
+		if( GC_UseGxRenderer() )
+		{
+			R_GXEffectsTriEnd();
+			R_GXClearWorldDrewFlag();
+			gEngfuncs.SW_UnlockBuffer();
+			return;
+		}
 		if( R_GXWorldDrewThisFrame() )
 		{
 			R_GXClearWorldDrewFlag();

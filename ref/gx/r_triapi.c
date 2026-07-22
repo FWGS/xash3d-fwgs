@@ -167,6 +167,10 @@ void GAME_EXPORT TriBegin( int mode1 )
 		mode1 = TRI_TRIANGLE_FAN;
 	mode = mode1;
 	n = vertcount = 0;
+#if XASH_GAMECUBE
+	if( GC_UseGxWorldDraw() && !R_GXStudioIsActive() )
+		R_GXEffectsTriBegin();
+#endif
 }
 
 /*
@@ -178,6 +182,11 @@ draw triangle sequence
 */
 void GAME_EXPORT TriEnd( void )
 {
+#if XASH_GAMECUBE
+	/* Keep effects TriAPI pipe open across many TriBegin/End pairs in one
+	 * particle/sprite batch; studio End owns its own flush. */
+	(void)0;
+#endif
 }
 
 /*
@@ -299,7 +308,7 @@ void GAME_EXPORT TriTexCoord2f( float u, float v )
 #if XASH_GAMECUBE
 	/* G168: Flipper studio matches GL — pass UVs through (chrome sphere maps
 	 * land in 0..1; soft fmod/wrap was for affine texel coords only). */
-	if( R_GXStudioIsActive() )
+	if( R_GXTriApiIsActive() )
 	{
 		float uu = u, vv = v;
 
@@ -367,7 +376,7 @@ void GAME_EXPORT TriVertex3f( float x, float y, float z )
 #if XASH_GAMECUBE
 	/* G155: Flipper studio/viewmodel — emit world-space tris into EFB.
 	 * G164: per-vertex RGBA rides in gx_triv for Gouraud shading. */
-	if( R_GXStudioIsActive() )
+	if( R_GXTriApiIsActive() )
 	{
 		if( mode == TRI_TRIANGLES )
 		{

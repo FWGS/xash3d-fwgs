@@ -162,6 +162,7 @@ qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_IsNewGameG36Done( void );
 /* G151: Flipper GX world draw (live); soft spans remain for DumpFrames. */
 qboolean GC_UseGxWorldDraw( void );
+qboolean GC_UseGxRenderer( void );
 void GC_MarkGxWorldEfbReady( void );
 void GC_EnableGxWorldLive( void );
 void *GC_GetGxVideoMode( void );

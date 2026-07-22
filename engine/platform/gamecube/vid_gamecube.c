@@ -1569,8 +1569,12 @@ static void GC_InitVideoHardware( void )
 	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
 	GX_SetFieldMode( rmode->field_rendering, (( rmode->viHeight == 2 * rmode->xfbHeight ) ? GX_ENABLE : GX_DISABLE ));
 
-	/* Software renderer outputs 16-bit RGB565; force matching display format */
+	/* Pure Flipper: RGB565 EFB + explicit copy-clear (sky/black). */
 	GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
+	{
+		GXColor clear = { 89, 141, 210, 255 }; /* outdoor sky match */
+		GX_SetCopyClear( clear, 0x00ffffff );
+	}
 
 	GX_SetViewport( 0, 0, rmode->fbWidth, rmode->efbHeight, 0, 1 );
 	GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
@@ -1631,6 +1635,9 @@ static qboolean gc_g192_post_changelevel; /* G192: DumpFrames re-arm after chang
 static int gc_g193_defer_flipper_left; /* G193: soft-only presents before Flipper */
 static qboolean gc_g193_draining; /* G193: soft drain active (defer Flipper) */
 static qboolean gc_g193_soft_lock; /* G193: keep soft in XFB — DumpFrames encode lags Flipper */
+/* G196: after Flipper resume, force G189/G190 wall-aim for N SCR frames so
+ * DumpFrames capture walls (landmark player eye often faces open sky). */
+static int gc_g196_flipper_dump_aim_left;
 /* G193: dedicated linear soft snap (tiled staging is overwritten by GX swizzle). */
 static u16 gc_g193_soft_snap[GC_GX_TILE_MAX_W * GC_GX_TILE_MAX_H] __attribute__((aligned( 32 )));
 static qboolean gc_g193_snap_valid;
@@ -1845,7 +1852,8 @@ static void GC_ShutdownVideoHardware( void )
 	gc_tiled_tex_h = 0;
 
 	GX_AbortFrame();
-	VIDEO_SetBlack( true );
+	/* Leave the last XFB visible (fatal breadcrumb / last frame). Blacking
+	 * the display hides the only diagnostic the player can see on hardware. */
 	VIDEO_Flush();
 #endif
 }
@@ -2051,18 +2059,22 @@ static void GC_PresentBuffer( void )
 		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
 		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
 		GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
-		/* G195: one DrawDone before CopyDisp — mid-pass studio uses Flush. */
+		/* Retail Flipper: one DrawDone → CopyDisp → VI swap every frame. */
 		GX_DrawDone();
 		GX_CopyDisp( xfb[which_fb], GX_TRUE );
 		GX_Flush();
 		gc_gx_world_efb_ready = false;
-		/* G194: Flipper CopyDisp every frame also floods DumpFrames; swap 1/4. */
-		if(( ++g194_flipper_swap_skip & 3 ) == 0 )
+		/* DumpFrames-only throttle: Dolphin PNG/TGA encode floods on every
+		 * ViSwap. Retail / native hardware always swaps + VSync. */
+		if( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+		{
+			if(( ++g194_flipper_swap_skip & 3 ) != 0 )
+				return;
+		}
 		{
 			VIDEO_SetNextFramebuffer( xfb[which_fb] );
 			VIDEO_Flush();
-			if( !gc_budget_probe_active )
-				VIDEO_WaitVSync();
+			VIDEO_WaitVSync();
 			which_fb ^= 1;
 		}
 		return;
@@ -3683,6 +3695,20 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 
 		GC_BlitLoadingBackground( gc.buffer, gc.width, gc.height, gc.stride );
 		GC_DrawStatusPanelToBuffer( gc.buffer, gc.width, gc.height, gc.stride, message, details );
+		/* Pure Flipper: present loading plaque via GX tiled EFB when available. */
+		if( GC_CanPresentViaGX( gc.width, gc.height ))
+		{
+			GC_SwizzleRGB565ToTiled( gc.buffer, gc.stride, gc.width, gc.height, gc_tiled_rgb565 );
+			DCFlushRange( gc_tiled_rgb565, (u32)((size_t)gc.width * (size_t)gc.height * sizeof( u16 )));
+			GC_InitPresentTextureTiled( gc_tiled_rgb565, gc.width, gc.height );
+			GC_PresentBufferViaGX();
+			VIDEO_SetNextFramebuffer( xfb[which_fb] );
+			VIDEO_Flush();
+			VIDEO_WaitVSync();
+			which_fb ^= 1;
+			gc_gx_world_efb_ready = false;
+			return;
+		}
 		/* G130: force CPU YUYV present so DumpFrames keep the loading plaque.
 		 * G194: only the first two loading presents force a dump latch — every
 		 * status update was flooding DumpFrames (~16 whites before soft latch). */
@@ -3954,83 +3980,76 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 {
 #if XASH_GAMECUBE
-	unsigned short *dst;
-	unsigned short *rowdst;
+	unsigned short *panel;
+	unsigned int *dst;
 	int row;
-	int col_fatal;
+	int col;
 	int i;
-	size_t xfb_size;
+	const int panel_w = 160;
+	const int panel_h = 120;
+	const int row_pairs = rmode ? ( rmode->fbWidth / 2 ) : 0;
+	/* Static panel — never Mem_Alloc during fatal (MEM1 is already exhausted). */
+	static unsigned short fatal_panel[160 * 120];
 
-	dst = NULL;
-	rowdst = NULL;
-	row = 0;
-	col_fatal = 0;
-	i = 0;
-	xfb_size = 0;
-
-	/* G65: Guard against early Sys_Error before video init.
-	 * GC_DrawFatalBreadcrumb writes directly to XFB via rmode/xfb pointers.
-	 * If called before GC_InitVideoHardware completes, rmode/xfb are uninitialized,
-	 * causing guest_fatal in Dolphin or real hardware. Skip visual output if
-	 * video hardware is not initialized; rely on Sys_Error/SYS_Report for diagnostics. */
 	if( !gc.initialized )
 		return;
-
-	/* G66: Additional safety guard - verify rmode and xfb[0] are valid before drawing.
-	 * Prevents guest_fatal in Dolphin when video subsystem is partially initialized
-	 * or in an inconsistent state during error paths. */
 	if( !rmode || !rmode->fbWidth || !rmode->xfbHeight || !xfb[0] )
 		return;
 
-	/* Do not clear gc.initialized - this function draws to XFB and
-	 * leaves hardware in a presentable state. Clearing initialization
-	 * can break subsequent rendering attempts or cause hardware state
-	 * mismatches during error recovery paths. */
-
-	/* Present to front buffer immediately for visibility */
-	dst = (unsigned short *)xfb[0];
-
-	/* Fill XFB with high-contrast Magenta (RGB565 0xF81F) to signal FATAL ERROR */
-	for( row = 0; row < rmode->xfbHeight; row++ )
+	panel = fatal_panel;
+	for( row = 0; row < panel_h; row++ )
 	{
-		rowdst = dst + row * rmode->fbWidth;
-		for( col_fatal = 0; col_fatal < rmode->fbWidth; col_fatal++ )
-			rowdst[col_fatal] = 0xF81F; /* magenta */
+		unsigned short *rowdst = panel + row * panel_w;
+		for( col = 0; col < panel_w; col++ )
+			rowdst[col] = 0xF81F; /* magenta RGB565 */
+	}
+	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
+		4, 4, "XASH3D GC FATAL", 0xFFFF, 1, 24 );
+	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
+		4, 20, message ? message : "UNKNOWN ERROR", 0xFFE0, 1, 36 );
+	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
+		4, 40, details ? details : "NO DETAILS", 0xFFFF, 1, 36 );
+	GC_StatusDrawLine( panel, panel_w, panel_w, panel_h,
+		4, panel_h - 14, "POWER CYCLE OR RESET", 0x07E0, 1, 28 );
+
+	if( GC_CanPresentViaGX( panel_w, panel_h ))
+	{
+		GC_SwizzleRGB565ToTiled( panel, panel_w, panel_w, panel_h, gc_tiled_rgb565 );
+		DCFlushRange( gc_tiled_rgb565, (u32)((size_t)panel_w * (size_t)panel_h * sizeof( u16 )));
+		GC_InitPresentTextureTiled( gc_tiled_rgb565, panel_w, panel_h );
+		GC_PresentBufferViaGX();
+		VIDEO_SetNextFramebuffer( xfb[which_fb] );
+		VIDEO_Flush();
+		VIDEO_WaitVSync();
+	}
+	else
+	{
+		unsigned int magenta = GC_RGBPairToYUYV( 0xF81F, 0xF81F );
+		dst = (unsigned int *)xfb[0];
+		/* Prefer scaled RGB→YUYV blit; fall back to solid magenta YUYV. */
+		if( row_pairs > 0 )
+		{
+			GC_BlitSoftwareBufferScaled( panel, panel_w, panel_h, panel_w,
+				dst, rmode->fbWidth, rmode->xfbHeight, row_pairs );
+		}
+		else
+		{
+			for( row = 0; row < rmode->xfbHeight; row++ )
+			{
+				unsigned int *rowdst = dst + row * ( rmode->fbWidth / 2 );
+				for( col = 0; col < rmode->fbWidth / 2; col++ )
+					rowdst[col] = magenta;
+			}
+		}
+		DCFlushRange( xfb[0], (u32)( rmode->fbWidth * rmode->xfbHeight * sizeof( unsigned short )));
+		VIDEO_SetNextFramebuffer( xfb[0] );
+		VIDEO_Flush();
+		VIDEO_WaitVSync();
 	}
 
-	GC_FatalDrawLine( dst, 24, 6, "XASH3D GAMECUBE FATAL", 0xFFFF, 2, 34 );
-	GC_FatalDrawWrapped( dst, 24, 42, message ? message : "UNKNOWN ERROR", 0xFFE0, 2, 38, 5 );
-	GC_FatalDrawWrapped( dst, 24, 150, details ? details : "NO DETAILS", 0xFFFF, 2, 38, 8 );
-	GC_FatalDrawLine( dst, 24, rmode->xfbHeight - 28, "HALTED: POWER CYCLE OR RESET", 0x07E0, 2, 38 );
-
-	/* G51: Do not flush GX pipeline here. If GX is in an inconsistent state due to
-	 * the fatal error, GX_Flush/GX_DrawDone can trigger guest_fatal hangs in
-	 * Dolphin or on real hardware. We only need to flush the data cache for the
-	 * XFB region and present it via VIDEO_SetNextFramebuffer. The GX command
-	 * buffer is not used for this CPU-written fatal message. */
-
-	xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-	DCFlushRange( xfb[0], (u32)xfb_size );
-	VIDEO_SetNextFramebuffer( xfb[0] );
-	VIDEO_Flush();
-	VIDEO_WaitVSync();
-
-	/* Block briefly to ensure the fatal frame reaches the display before the
-	 * caller halts or exits. Keep this bounded so the error path cannot loop. */
 	for( i = 0; i < 3; i++ )
 		VIDEO_WaitVSync();
-
-	/* Do not toggle which_fb here. The fatal breadcrumb draws directly to xfb[0]
-	 * and leaves the double-buffering state unchanged. Modifying which_fb during
-	 * an error path can cause subsequent rendering (if any) to target the wrong
-	 * framebuffer, leading to visual artifacts or guest_fatal hangs in Dolphin.
-	 * Since this function is called from Sys_Error before process exit, preserving
-	 * the original which_fb value ensures any late-stage diagnostic output remains
-	 * consistent with the normal rendering path. */
-
-	/* Return control to caller (e.g., Sys_Error) for proper termination or
-	 * recovery. Do not call SYS_ResetSystem here as it can cause guest_fatal
-	 * hangs or crash loops in emulated or real hardware environments. */
+	/* Leave display active — do not VIDEO_SetBlack. */
 #endif
 }
 
@@ -4052,18 +4071,34 @@ qboolean GC_IsNewGameWorldReady( void )
 #endif
 }
 
-qboolean GC_UseGxWorldDraw( void )
+qboolean GC_UseGxRenderer( void )
 {
 #if XASH_GAMECUBE
-	/* Live Flipper path after the soft DumpFrames latch finishes.
-	 * `-gcsoftworld` forces the Quake span raster for comparison. */
-	if( !gc_newgame_world_ready || !gc_gx_world_live )
-		return false;
-	if( gc_cpu_dump_presents_left > 0 )
+	/* Any Flipper path (menus / loading / world). Soft DumpFrames latch and
+	 * `-gcsoftworld` remain the only diagnostic opt-outs. */
+	if( !gc.initialized )
 		return false;
 	if( Sys_CheckParm( "-gcsoftworld" ))
 		return false;
-	return Sys_CheckParm( "-gcnewgame" ) ? true : false;
+	if( gc_cpu_dump_presents_left > 0 )
+		return false;
+	return true;
+#else
+	return false;
+#endif
+}
+
+qboolean GC_UseGxWorldDraw( void )
+{
+#if XASH_GAMECUBE
+	/* Pure Flipper 3D: live GX whenever the world is prepared. */
+	if( !GC_UseGxRenderer() )
+		return false;
+	if( !gc_newgame_world_ready )
+		return false;
+	if( !gc_gx_world_live )
+		return false;
+	return true;
 #else
 	return false;
 #endif
@@ -4081,11 +4116,13 @@ void GC_MarkGxWorldEfbReady( void )
 void GC_EnableGxWorldLive( void )
 {
 #if XASH_GAMECUBE
-	if( !Sys_CheckParm( "-gcsoftworld" ))
+	if( Sys_CheckParm( "-gcsoftworld" ))
 	{
-		gc_gx_world_live = true;
-		Con_Reportf( "Xash3D GameCube: G151 GX world live enabled (Flipper EFB)\n" );
+		Con_Reportf( S_ERROR "Xash3D GameCube: -gcsoftworld is unsupported in pure Flipper builds\n" );
+		return;
 	}
+	gc_gx_world_live = true;
+	Con_Reportf( "Xash3D GameCube: G151 GX world live enabled (Flipper EFB)\n" );
 #endif
 }
 
@@ -4939,6 +4976,7 @@ void GC_ResetNewGameWorldForChangelevel( void )
 	gc_g193_defer_flipper_left = 0;
 	gc_g193_draining = false;
 	gc_g193_soft_lock = false;
+	gc_g196_flipper_dump_aim_left = 0;
 	GC_G193ReleaseSoftSnap();
 	gc_newgame_viewcluster = -1;
 	/* Keep retained BSP tracking until FreeModel; clearing early makes
@@ -5972,6 +6010,22 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			rvp.viewangles[2] = 0.0f;
 		}
 	}
+	/* G196: Flipper DumpFrames wall-aim — landmark eye often faces sky. */
+	if( gc_g196_flipper_dump_aim_left > 0 && gc_gx_world_live
+		&& gc_cpu_dump_presents_left <= 0 )
+	{
+		static qboolean g196_aim_logged;
+
+		gc_dump_look_into_map = true;
+		if( !g196_aim_logged )
+		{
+			g196_aim_logged = true;
+			SYS_Report( "Xash3D GameCube: G196 Flipper dump wall-aim begin n=%d\n",
+				gc_g196_flipper_dump_aim_left );
+		}
+		(void)g196_aim_logged;
+	}
+
 	/* G132: aim toward capture-room origin (or player forward) so frustum keeps
 	 * nearby walls — map AABB center often points into empty space after move.
 	 * G189/G190: far landmark hops — prefer outdoor wall faces first, then look
@@ -6119,6 +6173,17 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			Con_Reportf( "Xash3D GameCube: newgame world render SCR frames=%u\n",
 				scr_frames );
 		}
+		if( gc_g196_flipper_dump_aim_left > 0 && gc_gx_world_live
+			&& gc_cpu_dump_presents_left <= 0 )
+		{
+			gc_g196_flipper_dump_aim_left -= count;
+			if( gc_g196_flipper_dump_aim_left <= 0 )
+			{
+				gc_g196_flipper_dump_aim_left = 0;
+				gc_dump_look_into_map = false;
+				SYS_Report( "Xash3D GameCube: G196 Flipper dump wall-aim ready\n" );
+			}
+		}
 	}
 	return true;
 #else
@@ -6236,6 +6301,16 @@ void GC_PresentLandmarkViewModel( void )
 #endif
 }
 
+static qboolean GC_WantSoftDumpLatch( void )
+{
+	/* Soft DumpFrames latch is Dolphin diagnostic only. Retail / native
+	 * Flipper boots enable live GX immediately after Prepare. */
+	if( Sys_CheckParm( "-gcsoftworld" ))
+		return false;
+	return ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )
+		|| Sys_CheckParm( "-gcchangelevel" )) ? true : false;
+}
+
 qboolean GC_PrepareNewGameWorldPresent( void )
 {
 #if XASH_GAMECUBE
@@ -6246,8 +6321,8 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 
 	if( gc_newgame_world_ready )
 		return true;
-	if( !Sys_CheckParm( "-gcnewgame" ))
-		return false;
+	/* Pure Flipper: prepare on every map load (menu New Game + changelevel),
+	 * not only the `-gcnewgame` probe route. */
 
 	/* Prefer Arm-time capture; retry here if map-ready ran before entities. */
 	GC_CaptureNewGamePVS();
@@ -6284,13 +6359,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	if( !R_TryInitLowResSurfaceCache() )
 		SYS_Report( "Xash3D GameCube: newgame textured cache unavailable (flat fill)\n" );
 
-	/* One desert side for RGB565 sky fills — deferred past map-prep OOM cliff. */
-	{
-		const char *sky = clgame.movevars.skyName;
-		if( COM_StringEmptyOrNULL( sky ))
-			sky = DEFAULT_SKYBOX_NAME;
-		R_SetupSkyLeanGameCube( sky );
-	}
+	/* Pure Flipper clears EFB to sky color in R_GXClearEfbSky — skip lean
+	 * BMP sky decode here. It Host_Errors on 16 KiB ImageLib OOM at ~3.8 Mb. */
+	Con_Reportf( "Xash3D GameCube: pure GX skip lean skybox decode (EFB clear)\n" );
 
 	/* After sky proves FS/MEM headroom, promote a few mesh-only studios.
 	 * Viewmodel bind is forced in V_SetupViewModel (tram starts unarmed).
@@ -6310,6 +6381,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_budget_probe_active = false;
 	gc_newgame_world_ready = true;
 	gc_newgame_g36_done = true;
+	/* Pure Flipper: enable live GX before the post-prepare present pump so
+	 * the first world frames never soft-raster. Soft DumpFrames latch (if
+	 * any) temporarily clears this via presents_left. */
+	GC_EnableGxWorldLive();
 	/* G135: do NOT arm CPU dump presents yet. Soft-tiled RGB565 blits dump as
 	 * chroma noise and steal Dolphin DumpFrames slots before depth/coalesce.
 	 * GX is fine for the pre-dump pump; G128 arms after WORLD PRESENT panel. */
@@ -6411,6 +6486,24 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			}
 		}
 
+		/* G128/G134 soft DumpFrames latch is Dolphin-only. Retail Flipper
+		 * enables live GX immediately after the world pump. */
+		if( !GC_WantSoftDumpLatch() )
+		{
+			GC_EnableGxWorldLive();
+			Con_Reportf( "Xash3D GameCube: pure Flipper GX live (no soft DumpFrames latch)\n" );
+			{
+				ref.dllFuncs.R_BeginFrame( false );
+				if( GC_RenderNewGameWorldPassNoFrame( true ))
+				{
+					Con_Reportf( "Xash3D GameCube: pure GX live smoke frame\n" );
+					GC_PresentBuffer();
+				}
+				ref.dllFuncs.R_EndFrame();
+			}
+		}
+		else
+		{
 		/* G128/G134: after world+HUD, keep textured+lit RGB565 when present;
 		 * only fall back to depth-shade/coalesce for empty/flat buffers.
 		 * G131 shade was overwriting G133 textures → flat blue + DumpFrames
@@ -6612,6 +6705,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 
 				gc_g193_soft_lock = false;
 				GC_EnableGxWorldLive();
+				/* G196: keep wall-aim for enough SCR frames that Flipper ViSwap
+				 * (1/4) lands several DumpFrames with walls, not sky. */
+				gc_g196_flipper_dump_aim_left = 32;
+				gc_dump_look_into_map = true;
 				{
 					const char *vpath = Mod_GCLandmarkViewModelPath();
 					model_t *vm = NULL;
@@ -6632,10 +6729,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 						clgame.viewent.curstate.sequence = 0;
 						clgame.viewent.curstate.rendermode = kRenderNormal;
 					}
-					ref.dllFuncs.R_BeginFrame( false );
-					if( GC_RenderNewGameWorldPassNoFrame( true ))
+					/* Use Frames path so G196 wall-aim applies (PassNoFrame skips it). */
+					if( GC_RenderNewGameWorldFrames( 1 ))
 					{
-						GC_PresentBuffer();
 						SYS_Report( "Xash3D GameCube: G195 Flipper resume after soft DumpFrames\n" );
 					}
 					else
@@ -6643,7 +6739,6 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 						Con_Reportf( S_WARN "Xash3D GameCube: G195 Flipper resume smoke failed\n" );
 						SYS_Report( "Xash3D GameCube: G195 Flipper resume after soft DumpFrames\n" );
 					}
-					ref.dllFuncs.R_EndFrame();
 				}
 			}
 			else if( Sys_CheckParm( "-gcchangelevel" ))
@@ -6690,6 +6785,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 				}
 			}
 		}
+		} /* GC_WantSoftDumpLatch else */
 
 		for( i = 0; i < 2; i++ )
 			Host_ServerFrame();
@@ -6895,9 +6991,9 @@ void GC_NoteLightPresentFrame( void )
 #if XASH_GAMECUBE
 	if( gc_light_present_left > 0 )
 		gc_light_present_left--;
-	/* After G36 samples + grace, switch New Game to low-res world presents. */
+	/* After G36 samples + grace, switch to Flipper world presents. */
 	if( gc_light_present_left == 0 && !gc_budget_probe_active
-		&& Sys_CheckParm( "-gcnewgame" ) && !gc_newgame_world_ready )
+		&& !gc_newgame_world_ready )
 		GC_PrepareNewGameWorldPresent();
 #endif
 }

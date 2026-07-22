@@ -3523,7 +3523,21 @@ smoke. Present path uses one `DrawDone` before `CopyDisp`; studio ends with
 Evidence: `.ai/logs/dolphin-probe-20260721-105226` —
 `G195 Flipper resume`, `G151 drawn=203`, `G155 viewmodel=1`, `G159 gx=1`;
 `stage-04am-g195-flipper-resume.png`.
-Next: G75 manual completion checkpoint.
+Residual: Flipper DumpFrames sky-only after resume → G196.
+
+## G196 — Flipper DumpFrames wall-aim after resume (COMPLETE 2026-07-21)
+
+Re-enable G189/G190 wall-aim for 32 SCR frames after Flipper resume so DumpFrames
+capture walls instead of landmark sky. Soft latch unchanged.
+
+Evidence: `.ai/logs/dolphin-probe-20260721-114349` —
+`G196 Flipper dump wall-aim begin/ready`, soft f20–f23 intact;
+`stage-04an-g196-flipper-dump-walls.png`.
+Residual: Flipper DumpFrames 4× horizontal tiling → G197.
+
+## G197 — Flipper DumpFrames XFB horizontal tiling (OPEN)
+
+Fix ~4× horizontal wrap on Flipper ViSwap DumpFrames (soft G191 TGA path OK).
 
 ## Next wake-up commands
 

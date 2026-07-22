@@ -1375,6 +1375,12 @@ R_DrawBrushModel
 void R_DrawBrushModel( cl_entity_t *pent )
 {
 #if XASH_GAMECUBE
+	/* Pure Flipper: brush ents go through GX, not soft edge tables. */
+	if( GC_UseGxWorldDraw() )
+	{
+		R_GXDrawBrushModel( pent );
+		return;
+	}
 	/* Probe path: no stack edge tables (NUMSTACKEDGES would blow MEM1). */
 	if( GC_UseLowResWorldProbe() )
 	{
@@ -1677,6 +1683,11 @@ static void R_MarkLeaves( void )
 			for( i = 0; i < WORLDMODEL->numnodes; i++ )
 				WORLDMODEL->nodes[i].visframe = tr.visframecount;
 		}
+		if( WORLDMODEL && WORLDMODEL->surfaces )
+		{
+			for( i = 0; i < WORLDMODEL->numsurfaces; i++ )
+				WORLDMODEL->surfaces[i].visframe = tr.framecount;
+		}
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: full-vis leaf mark active (low-res no visdata)\n" );
 		return;
@@ -1717,6 +1728,12 @@ static void R_MarkLeaves( void )
 		{
 			for( i = 0; i < WORLDMODEL->numnodes; i++ )
 				WORLDMODEL->nodes[i].visframe = tr.visframecount;
+		}
+		/* Pure Flipper: surfaces need visframe too (no soft RecursiveWorldNode). */
+		if( WORLDMODEL && WORLDMODEL->surfaces )
+		{
+			for( i = 0; i < WORLDMODEL->numsurfaces; i++ )
+				WORLDMODEL->surfaces[i].visframe = tr.framecount;
 		}
 		if( tr.framecount <= 1 )
 			gEngfuncs.Con_Reportf( "Xash3D GameCube: full-vis leaf mark fallback (low-res newgame) cluster=%d\n",
@@ -1868,8 +1885,15 @@ void GAME_EXPORT R_RenderScene( void )
 		gEngfuncs.Con_Reportf( "Xash3D GameCube: R_RenderScene after edges\n" );
 #endif
 #if XASH_GAMECUBE
-	/* -gcmap smoke: world only. New Game low-res: world + bounded ents
-	 * (studio/sprites/translucent brushes via probe BSS). */
+	/* Pure Flipper: full entity coverage even on -gcnewgame routes.
+	 * Soft/smoke -gcmap still returns early after world (+ low-res studios). */
+	if( GC_UseGxWorldDraw() )
+	{
+		gEngfuncs.CL_ExtraUpdate();
+		R_DrawEntitiesOnList();
+		return;
+	}
+	/* -gcmap smoke: world only. Soft New Game low-res: world + bounded ents. */
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )

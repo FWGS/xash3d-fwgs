@@ -388,6 +388,7 @@ static inline qboolean GC_UseLowResWorldProbe( void )
 #if XASH_GAMECUBE
 /* G151: Flipper GX world draw (defined in engine platform). */
 qboolean GC_UseGxWorldDraw( void );
+qboolean GC_UseGxRenderer( void );
 void GC_MarkGxWorldEfbReady( void );
 void GC_EnableGxWorldLive( void );
 void *GC_GetGxVideoMode( void );
@@ -397,6 +398,9 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 	float s1, float t1, float s2, float t2, int texnum );
 int R_GXDrawNewGameCapFaces( void );
 qboolean R_GXStudioIsActive( void );
+qboolean R_GXTriApiIsActive( void );
+void R_GXEffectsTriBegin( void );
+void R_GXEffectsTriEnd( void );
 int R_GXStudioLastTriCount( void );
 void R_GXStudioBegin( qboolean viewmodel );
 void R_GXStudioEnd( void );
@@ -410,6 +414,7 @@ void R_GXStudioEmitTriC(
 	float x0, float y0, float z0, float u0, float v0, unsigned c0,
 	float x1, float y1, float z1, float u1, float v1, unsigned c1,
 	float x2, float y2, float z2, float u2, float v2, unsigned c2 );
+int R_GXDrawBrushModel( cl_entity_t *e );
 #endif
 
 typedef struct image_s

@@ -25,14 +25,15 @@ G187: HUD holes punch near-black ink (crosshair sheet non-255 dark texels).
 #include <math.h>
 
 extern qboolean GC_UseGxWorldDraw( void );
+extern qboolean GC_UseGxRenderer( void );
 extern void GC_MarkGxWorldEfbReady( void );
 extern void *GC_GetGxVideoMode( void );
 extern void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t );
 extern unsigned R_GXGetTriColorRGBA( void );
 
-#define GC_GX_TEX_SLOTS		24
+#define GC_GX_TEX_SLOTS		32
 #define GC_GX_TEX_HUD_RESERVE	4	/* last slots preferred for live HUD sheets */
-#define GC_GX_TEX_MAX_DIM	64	/* MEM1: 24 × 64×64×2 ≈ 192 KiB tiled staging */
+#define GC_GX_TEX_MAX_DIM	64	/* MEM1: keep tiled staging lean (32×64²×2 working set) */
 
 typedef struct
 {
@@ -203,9 +204,43 @@ qboolean R_GXWorldDrewThisFrame( void )
 	return r_gx_world_drew;
 }
 
+static void R_GXPrepareStudioState( qboolean viewmodel );
+
 qboolean R_GXStudioIsActive( void )
 {
 	return r_gx_studio_active;
+}
+
+/* True while Flipper should consume TriAPI (studio or particles/sprites/beams). */
+static qboolean r_gx_effects_tri;
+
+qboolean R_GXTriApiIsActive( void )
+{
+	return r_gx_studio_active || r_gx_effects_tri;
+}
+
+void R_GXEffectsTriBegin( void )
+{
+	if( !GC_UseGxWorldDraw() )
+		return;
+	if( r_gx_studio_active )
+		return;
+	if( !r_gx_effects_tri )
+	{
+		R_GXPrepareStudioState( false );
+		r_gx_effects_tri = true;
+		r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+		r_gx_bound_texnum = 0;
+		GC_MarkGxWorldEfbReady();
+	}
+}
+
+void R_GXEffectsTriEnd( void )
+{
+	if( !r_gx_effects_tri )
+		return;
+	r_gx_effects_tri = false;
+	GX_Flush();
 }
 
 int R_GXStudioLastTriCount( void )
@@ -696,7 +731,6 @@ static qboolean r_gx_lm_logged;
 
 static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 {
-	medge16_t *pedges;
 	mvertex_t *pverts;
 	vec3_t pts[32];
 	float sts[32][2];
@@ -712,27 +746,25 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		return 0;
 	if( surf->numedges < 3 || surf->numedges > 32 )
 		return 0;
-
-	pedges = world->edges16;
-	if( !pedges )
+	if( !world->edges16 && !world->edges32 )
 		return 0;
+
 	pverts = world->vertexes;
 
 	for( i = 0; i < surf->numedges; i++ )
 	{
 		int lindex = world->surfedges[surf->firstedge + i];
-		medge16_t *e;
 		int v;
 
-		if( lindex > 0 )
+		if( world->edges32 )
 		{
-			e = &pedges[lindex];
-			v = e->v[0];
+			medge32_t *e = ( lindex > 0 ) ? &world->edges32[lindex] : &world->edges32[-lindex];
+			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
 		}
 		else
 		{
-			e = &pedges[-lindex];
-			v = e->v[1];
+			medge16_t *e = ( lindex > 0 ) ? &world->edges16[lindex] : &world->edges16[-lindex];
+			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
 		}
 		if( v < 0 || v >= world->numvertexes )
 			return 0;
@@ -755,14 +787,28 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				float ls, lt;
 
 				R_GXFaceST( surf, pts[i], &sts[i][0], &sts[i][1] );
-				R_GXFaceLMST( surf, pts[i], &ls, &lt );
-				GC_GetNewGameCapLightmapAtlasUV( slot, ls, lt, &lmst[i][0], &lmst[i][1] );
+				if( slot >= 0 )
+				{
+					R_GXFaceLMST( surf, pts[i], &ls, &lt );
+					GC_GetNewGameCapLightmapAtlasUV( slot, ls, lt, &lmst[i][0], &lmst[i][1] );
+				}
 			}
-			lit = R_GXBindLightmapAtlas();
+			/* Cap atlas lightmaps only when we have a matching slot. */
+			lit = ( slot >= 0 ) ? R_GXBindLightmapAtlas() : false;
 		}
 	}
 	if( !textured )
 		color = R_GXFaceColor( surf );
+
+	/* Turbulent / translucent surfaces: textured + alpha blend, no LM. */
+	if( textured && ( surf->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT )))
+	{
+		lit = false;
+		if( surf->flags & SURF_TRANSPARENT )
+			color = 0xFFFFFFC0u;
+		GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+	}
 
 	if( textured && lit )
 	{
@@ -873,7 +919,151 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 		GX_End();
 		r_gx_flat_draws++;
 	}
+
+	/* Restore opaque depth/blend after translucent faces. */
+	if( surf->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT ))
+	{
+		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	}
 	return 1;
+}
+
+/*
+================
+R_GXMarkVisibleSurfaces
+
+Stamp surf->visframe from marked leaves (MarkLeaves only tags nodes/leaves;
+soft RecursiveWorldNode used to stamp surfaces during the edge walk).
+================
+*/
+static void R_GXMarkVisibleSurfaces( model_t *world )
+{
+	int i;
+
+	if( !world || !world->leafs || world->numleafs <= 0 )
+		return;
+
+	for( i = 0; i < world->numleafs; i++ )
+	{
+		mleaf_t *leaf = &world->leafs[i + 1];
+		msurface_t **mark;
+		int c;
+
+		if(((mnode_t *)leaf )->visframe != tr.visframecount )
+			continue;
+		mark = leaf->firstmarksurface;
+		c = leaf->nummarksurfaces;
+		if( !mark || c <= 0 )
+			continue;
+		do
+		{
+			( *mark )->visframe = tr.framecount;
+			mark++;
+		}
+		while( --c );
+	}
+}
+
+/*
+================
+R_GXDrawWorldLiveSurfaces
+
+Per-frame BSP/PVS helpers. When lightmapped cap faces already cover opaque
+geometry, only emit water/translucents here. When no cap is available, emit
+all marked opaque surfaces textured (no LM atlas).
+================
+*/
+static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
+{
+	msurface_t *surf;
+	int i, drawn = 0;
+	int opaque_drawn = 0;
+	int trans_drawn = 0;
+	static qboolean live_logged;
+
+	if( !world || !world->surfaces || world->numsurfaces <= 0 )
+		return 0;
+
+	/* Opaque pass — only when cap atlas is unavailable. */
+	if( opaque_too )
+	{
+		int emit_budget = 384; /* Flipper fill budget; prefer nearest walls */
+
+		for( i = 0; i < world->numsurfaces && emit_budget > 0; i++ )
+		{
+			float dot;
+
+			surf = &world->surfaces[i];
+			if( surf->visframe != tr.framecount )
+				continue;
+			if( !surf->plane || surf->numedges < 3 )
+				continue;
+			if( surf->flags & SURF_DRAWSKY )
+				continue;
+			if( surf->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT ))
+				continue;
+
+			dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
+			if( surf->flags & SURF_PLANEBACK )
+			{
+				if( dot > -BACKFACE_EPSILON )
+					continue;
+			}
+			else if( dot < BACKFACE_EPSILON )
+				continue;
+
+			/* Prefer closer / larger walls under the emit budget. */
+			{
+				int area = (int)surf->extents[0] * (int)surf->extents[1];
+				if( area > 0 && area < GC_GX_MIN_FACE_AREA )
+					continue;
+				if( area > 0 && area < GC_GX_FAR_MIN_AREA
+					&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
+					continue;
+			}
+
+			opaque_drawn += R_GXEmitFace( surf, world, -1 );
+			emit_budget--;
+		}
+	}
+
+	/* Translucent / water pass (no Z write) — always from live PVS. */
+	for( i = 0; i < world->numsurfaces; i++ )
+	{
+		float dot;
+
+		surf = &world->surfaces[i];
+		if( surf->visframe != tr.framecount )
+			continue;
+		if( !surf->plane || surf->numedges < 3 )
+			continue;
+		if( !( surf->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT )))
+			continue;
+		if( surf->flags & SURF_DRAWSKY )
+			continue;
+
+		dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
+		if( surf->flags & SURF_PLANEBACK )
+		{
+			if( dot > -BACKFACE_EPSILON )
+				continue;
+		}
+		else if( dot < BACKFACE_EPSILON )
+			continue;
+
+		trans_drawn += R_GXEmitFace( surf, world, -1 );
+	}
+
+	drawn = opaque_drawn + trans_drawn;
+	if( !live_logged && drawn > 0 )
+	{
+		live_logged = true;
+		gEngfuncs.Con_Reportf(
+			"Xash3D GameCube: pure GX live BSP faces opaque=%d trans=%d frame=%d\n",
+			opaque_drawn, trans_drawn, tr.framecount );
+	}
+	return drawn;
 }
 
 int R_GXDrawNewGameCapFaces( void )
@@ -890,16 +1080,12 @@ int R_GXDrawNewGameCapFaces( void )
 	if( !GC_UseGxWorldDraw() )
 		return 0;
 
-	/* G184: reserve HUD TEXMAP0 slabs before world uploads fill MEM1. */
+	/* Reserve HUD TEXMAP0 slabs before world uploads fill MEM1. */
 	R_GXReserveHudPool();
 
 	world = WORLDMODEL;
-	draw = GC_GetNewGameDrawSurfs();
-	n = GC_GetNewGameCapFaceCount();
-	if( !world || !draw || n <= 0 )
+	if( !world )
 		return 0;
-	if( n > (int)( sizeof( order ) / sizeof( order[0] )))
-		n = (int)( sizeof( order ) / sizeof( order[0] ));
 
 	if( r_gx_tex_world != world )
 	{
@@ -917,7 +1103,6 @@ int R_GXDrawNewGameCapFaces( void )
 	gen = GC_GetNewGameCapGeneration();
 	if( gen != r_gx_cap_generation )
 	{
-		/* Cap faces/LMs rewrote — invalidate once; atlas texobj rebuilds on bind. */
 		GX_InvalidateTexAll();
 		r_gx_tex_invalidates++;
 		r_gx_lm_atlas_valid = false;
@@ -941,48 +1126,84 @@ int R_GXDrawNewGameCapFaces( void )
 	r_gx_face_skip_far = 0;
 	R_GXSetupWorld3DState();
 
-	R_GXOrderFacesByTexBands( draw, n, order );
+	/* Stamp marksurfaces only when leaf→surface links are still valid.
+	 * After G132 scratch reuse on -gcnewgame, MarkLeaves already full-stamped
+	 * surf->visframe; walking dangling firstmarksurface hangs the guest. */
+	if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() ))
+		R_GXMarkVisibleSurfaces( world );
 
-	for( i = 0; i < n; i++ )
+	draw = GC_GetNewGameDrawSurfs();
+	n = GC_GetNewGameCapFaceCount();
+
+	/* Pure Flipper: live marked surfaces are authoritative when BSP pins are
+	 * intact. After G132 promote OOM the world msurface_t/edges may dangle —
+	 * never walk them. Cap faces are the safe lightmapped fallback. */
+	drawn = 0;
+	if( draw && n > 0 )
 	{
-		float dot;
-		int area;
-		const int slot = order[i];
-		msurface_t *surf = &draw[slot];
+		if( n > (int)( sizeof( order ) / sizeof( order[0] )))
+			n = (int)( sizeof( order ) / sizeof( order[0] ));
 
-		if( !surf->plane )
-			continue;
-		dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
-		if( surf->flags & SURF_PLANEBACK )
+		R_GXOrderFacesByTexBands( draw, n, order );
+
+		for( i = 0; i < n; i++ )
 		{
-			if( dot > -BACKFACE_EPSILON )
+			float dot;
+			int area;
+			const int slot = order[i];
+			msurface_t *surf = &draw[slot];
+
+			if( !surf->plane )
 				continue;
-		}
-		else
-		{
-			if( dot < BACKFACE_EPSILON )
+			dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
+			if( surf->flags & SURF_PLANEBACK )
+			{
+				if( dot > -BACKFACE_EPSILON )
+					continue;
+			}
+			else
+			{
+				if( dot < BACKFACE_EPSILON )
+					continue;
+			}
+			area = (int)surf->extents[0] * (int)surf->extents[1];
+			if( area > 0 && area < GC_GX_MIN_FACE_AREA )
+			{
+				r_gx_face_skips++;
+				r_gx_face_skip_area++;
 				continue;
+			}
+			if( area > 0 && area < GC_GX_FAR_MIN_AREA
+				&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
+			{
+				r_gx_face_skips++;
+				r_gx_face_skip_far++;
+				continue;
+			}
+			drawn += R_GXEmitFace( surf, world, slot );
 		}
-		/* G186: drop dust faces and far-small detail before ST/LM work. */
-		area = (int)surf->extents[0] * (int)surf->extents[1];
-		if( area > 0 && area < GC_GX_MIN_FACE_AREA )
+	}
+	else if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() ))
+	{
+		/* Retail / non-scratch path: live BSP/PVS textured emit. */
+		drawn = R_GXDrawWorldLiveSurfaces( world, true );
+	}
+	else
+	{
+		static qboolean sky_only_logged;
+		/* Cap empty + surfaces unpromoted: still present sky-cleared EFB. */
+		if( !sky_only_logged )
 		{
-			r_gx_face_skips++;
-			r_gx_face_skip_area++;
-			continue;
+			sky_only_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: pure GX sky-only present (cap=0, surfaces unpromoted)\n" );
 		}
-		if( area > 0 && area < GC_GX_FAR_MIN_AREA
-			&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
-		{
-			r_gx_face_skips++;
-			r_gx_face_skip_far++;
-			continue;
-		}
-		/* slot stays the atlas/LM index — only draw order changes. */
-		drawn += R_GXEmitFace( surf, world, slot );
+		drawn = 1; /* mark EFB ready so CopyDisp shows sky clear */
 	}
 
-	/* G179: defer GPU sync to present — Flush keeps the pipe moving. */
+	/* Also draw brush entities already marked on the edge list path via
+	 * R_DrawBEntities — handled later by studio/brush GX entity hooks. */
+
 	GX_Flush();
 	r_gx_world_drew = ( drawn > 0 );
 	if( r_gx_world_drew )
@@ -1389,7 +1610,7 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 	f32 x0, y0, x1, y1;
 	qboolean holes;
 
-	if( !GC_UseGxWorldDraw() || !r_gx_world_drew )
+	if( !GC_UseGxRenderer() )
 		return false;
 	if( texnum <= 0 || w < 1.0f || h < 1.0f )
 		return false;
@@ -1466,6 +1687,79 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 	return true;
 }
 
+/*
+=============
+R_GXDrawBrushModel
+
+Flipper path for doors / trains / func_ brushes — emit model surfaces with
+entity transform applied via GX modelview (object * worldview).
+=============
+*/
+int R_GXDrawBrushModel( cl_entity_t *e )
+{
+	model_t *mod;
+	msurface_t *psurf;
+	int i, drawn = 0;
+	Mtx mv, obj, world;
+	matrix4x4 xash_obj;
+
+	if( !GC_UseGxWorldDraw() || !e || !e->model )
+		return 0;
+	mod = e->model;
+	if( mod->type != mod_brush || mod->nummodelsurfaces <= 0 || !mod->surfaces )
+		return 0;
+
+	/* Entity modelview: worldview * object */
+	Matrix4x4_CreateFromEntity( xash_obj, e->angles, e->origin, 1.0f );
+	R_GXLoadMtxFromXashMV( obj, xash_obj );
+	R_GXLoadMtxFromXashMV( world, RI.worldviewMatrix );
+	guMtxConcat( world, obj, mv );
+	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+
+	RI.currententity = e;
+	RI.currentmodel = mod;
+	VectorSubtract( RI.rvp.vieworigin, e->origin, tr.modelorg );
+
+	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+	r_gx_bound_texnum = 0;
+	r_gx_lm_atlas_bound = false;
+
+	psurf = &mod->surfaces[mod->firstmodelsurface];
+	for( i = 0; i < mod->nummodelsurfaces; i++, psurf++ )
+	{
+		float dot;
+
+		if( !psurf->plane || psurf->numedges < 3 )
+			continue;
+		if( psurf->flags & SURF_DRAWSKY )
+			continue;
+
+		dot = DotProduct( tr.modelorg, psurf->plane->normal ) - psurf->plane->dist;
+		if( psurf->flags & SURF_PLANEBACK )
+		{
+			if( dot > -BACKFACE_EPSILON )
+				continue;
+		}
+		else if( dot < BACKFACE_EPSILON )
+			continue;
+
+		drawn += R_GXEmitFace( psurf, mod, -1 );
+	}
+
+	/* Restore world modelview for subsequent draws. */
+	R_GXLoadMtxFromXashMV( world, RI.worldviewMatrix );
+	GX_LoadPosMtxImm( world, GX_PNMTX0 );
+	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+
+	if( drawn > 0 )
+	{
+		r_gx_world_drew = true;
+		GC_MarkGxWorldEfbReady();
+		GX_Flush();
+	}
+	return drawn;
+}
+
 void R_GXClearWorldDrewFlag( void )
 {
 	if( !r_gx_hud_2d_logged && r_gx_hud_2d_pics > 0 )
@@ -1528,6 +1822,10 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 }
 int R_GXDrawNewGameCapFaces( void ) { return 0; }
 qboolean R_GXStudioIsActive( void ) { return false; }
+qboolean R_GXTriApiIsActive( void ) { return false; }
+void R_GXEffectsTriBegin( void ) {}
+void R_GXEffectsTriEnd( void ) {}
+int R_GXDrawBrushModel( cl_entity_t *e ) { (void)e; return 0; }
 void R_GXStudioBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioEnd( void ) {}
 void R_GXStudioBindTexnum( unsigned texnum ) { (void)texnum; }

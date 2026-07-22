@@ -145,3 +145,16 @@ Dolphin evidence is diagnostic only and is not accepted as final hardware proof.
 Real hardware evidence remains under G38/G66 until a dated operator run records
 the required route, loader, storage, controller, memory-card, audio, save, and
 shutdown behavior.
+
+## Pure Flipper GX (G198)
+
+Retail GameCube builds ship a Flipper-only renderer (`ref_gx`). Soft edge/span
+rasterization is not used for gameplay presents. Soft DumpFrames latch remains
+available only behind `-gcdumpframes` / `-gcdump` / `-gcchangelevel` diagnostic
+routes. `-gcsoftworld` is rejected.
+
+Hardware validation still requires the GC-DOL-SD and GC-ISO-RO routes above
+(480i, wired controller, audio, map transitions, save behavior, fatal display,
+sustained frame pacing). Latest repository handoff packet:
+
+`.ai/logs/hardware-handoff-20260721-121855`
