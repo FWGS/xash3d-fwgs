@@ -78,9 +78,11 @@ static byte *gc_newgame_surfbits; /* active row into surf_table */
 /* G163/G171/G175: when full surf_table OOMs, keep a few capture-time rows (marks die later).
  * G171: trade cache slots 8→5 for refresh cands 32→48 (240 cells).
  * G175: trade again 5→4 for cands 48→64 (256 cells = original 8×32 budget)
- * so outdoor restore admits more wall faces without the old 8×64 MEM1 OOM. */
+ * so outdoor restore admits more wall faces without the old 8×64 MEM1 OOM.
+ * G199: keep 4×64 — raising cands starved stuffcmds/boot MEM1. */
 #define GC_SURFBITS_CACHE_SLOTS 4
 #define GC_CAP_REFRESH_NEW_MAX 64
+#define GC_CAP_MAX_VERTS 5	/* G199: s16 verts; reclaim per-face LM BSS */
 static byte *gc_newgame_surf_cache;
 static int gc_newgame_surf_cache_cluster[GC_SURFBITS_CACHE_SLOTS];
 static int gc_newgame_surf_cache_slots;
@@ -103,6 +105,7 @@ static int gc_refresh_ncands[GC_SURFBITS_CACHE_SLOTS];
 static int gc_g165_eye_cluster = -1; /* G165: player-eye cluster for restore refresh */
 static qboolean gc_g171_logged;
 static qboolean gc_g175_logged;
+static qboolean gc_g199_logged;
 static byte *gc_newgame_cluster_valid; /* one byte per cluster (full) or per lean slot */
 static int gc_newgame_numclusters;
 static qboolean gc_newgame_pvs_lean; /* G96/G101: compact cache when multi-row OOM */
@@ -150,12 +153,27 @@ typedef struct
 	byte		styles[MAXLIGHTMAPS];
 	color24		*samples;	/* may dangle later — lit path tolerates NULL */
 } gc_cap_face_t;
+/* G199: bake ≤8 verts per cap so Flipper emit survives scratch edge reuse. */
 static gc_cap_face_t gc_newgame_cap_faces[GC_MAX_CAP_FACES];
 static msurface_t gc_newgame_draw_surfs[GC_MAX_CAP_FACES];
 static int gc_newgame_cap_areas[GC_MAX_CAP_FACES]; /* extents product per slot */
-static u16 gc_newgame_cap_lm[GC_MAX_CAP_FACES][GC_CAP_LM_DIM * GC_CAP_LM_DIM]
+static byte gc_cap_nverts[GC_MAX_CAP_FACES];
+/* G204: bake provenance — EDGE/TEX keep real ST/LM; PLANE quads are eye-centered. */
+enum
+{
+	GC_CAP_BAKE_NONE = 0,
+	GC_CAP_BAKE_EDGE = 1,
+	GC_CAP_BAKE_PLANE = 2,
+	GC_CAP_BAKE_TEX = 3 /* G205: texinfo ST solve — real world pos, LM-valid */
+};
+static byte gc_cap_bake_src[GC_MAX_CAP_FACES];
+/* G199: reclaim former per-face LM staging (~10 KiB) for baked Flipper verts.
+ * Lightmaps write straight into the G180 atlas tiles. */
+static signed short gc_cap_pts_s16[GC_MAX_CAP_FACES][GC_CAP_MAX_VERTS][3];
+/* G180/G198: BSS atlas — memalign(16 KiB) fails under MEM1 fragmentation. */
+static u16 gc_newgame_cap_lm_atlas_bss[GC_LM_ATLAS_W * GC_LM_ATLAS_H]
 	__attribute__((aligned( 32 )));
-static u16 *gc_newgame_cap_lm_atlas; /* G180: memalign 128×64 RGB565 */
+static u16 *gc_newgame_cap_lm_atlas = gc_newgame_cap_lm_atlas_bss;
 static byte gc_newgame_cap_lm_w[GC_MAX_CAP_FACES];
 static byte gc_newgame_cap_lm_h[GC_MAX_CAP_FACES];
 static byte gc_newgame_cap_lm_real[GC_MAX_CAP_FACES]; /* 1 if baked from samples */
@@ -166,6 +184,7 @@ static int gc_newgame_cap_generation; /* bumps when faces/LMs rewrite */
 static qboolean gc_newgame_cap_lm_atlas_ready;
 static qboolean gc_g176_logged;
 static qboolean gc_g180_logged;
+static vec3_t gc_newgame_capture_origin; /* G132/G201e: bake + dump camera eye */
 
 int GC_GetNewGameCapFaceCount( void )
 {
@@ -182,6 +201,283 @@ msurface_t *GC_GetNewGameDrawSurfs( void )
 	return gc_newgame_cap_face_count > 0 ? gc_newgame_draw_surfs : NULL;
 }
 
+
+/* G199: Flipper emit uses baked verts when live edges dangle after scratch. */
+int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts )
+{
+	int i, n;
+
+	if( slot < 0 || slot >= gc_newgame_cap_face_count || !out || maxverts < 3 )
+		return 0;
+	n = gc_cap_nverts[slot];
+	if( n < 3 )
+		return 0;
+	if( n > maxverts )
+		n = maxverts;
+	if( n > GC_CAP_MAX_VERTS )
+		n = GC_CAP_MAX_VERTS;
+	for( i = 0; i < n; i++ )
+	{
+		out[i][0] = (float)gc_cap_pts_s16[slot][i][0];
+		out[i][1] = (float)gc_cap_pts_s16[slot][i][1];
+		out[i][2] = (float)gc_cap_pts_s16[slot][i][2];
+	}
+	return n;
+}
+
+/* G204: EDGE=1, PLANE=2, TEX=3, missing=0 — Flipper emit gates LM/ST on this. */
+int GC_GetNewGameCapBakeSrc( int slot )
+{
+	if( slot < 0 || slot >= gc_newgame_cap_face_count )
+		return GC_CAP_BAKE_NONE;
+	return (int)gc_cap_bake_src[slot];
+}
+
+/* Pack world verts as s16 — reuses former per-face LM staging BSS. */
+static int GC_BakeCapVertsFromModel( model_t *wmodel, int firstedge, int numedges,
+	signed short out[][3], int maxverts )
+{
+	int i, n = 0;
+
+	if( !wmodel || !wmodel->vertexes || !wmodel->surfedges || !out || numedges < 3 )
+		return 0;
+	if( !wmodel->edges16 && !wmodel->edges32 )
+		return 0;
+	if( firstedge < 0 || firstedge + numedges > wmodel->numsurfedges )
+		return 0;
+	if( numedges > maxverts )
+		numedges = maxverts;
+	for( i = 0; i < numedges; i++ )
+	{
+		int lindex = wmodel->surfedges[firstedge + i];
+		int v;
+		const float *pos;
+
+		/* Match Mod_GetVertexByNumber / R_GXEmitFace (lindex > 0). */
+		if( wmodel->edges32 )
+		{
+			medge32_t *e = ( lindex > 0 ) ? &wmodel->edges32[lindex] : &wmodel->edges32[-lindex];
+			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
+		}
+		else
+		{
+			medge16_t *e = ( lindex > 0 ) ? &wmodel->edges16[lindex] : &wmodel->edges16[-lindex];
+			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
+		}
+		if( v < 0 || v >= wmodel->numvertexes )
+			return 0;
+		pos = wmodel->vertexes[v].position;
+		out[n][0] = (signed short)pos[0];
+		out[n][1] = (signed short)pos[1];
+		out[n][2] = (signed short)pos[2];
+		n++;
+	}
+	return n;
+}
+
+/*
+ * G199/G200: place a UV-aligned quad on the real face plane using texinfo.
+ * Edge walks often fail after BSP scratch reuse; normal*dist quads floated at
+ * the wrong world origin (DumpFrames stayed clear-sky despite drawn=179).
+ */
+static qboolean GC_SolveFaceSTPoint( const mplane_t *pl, const float svec[4], const float tvec[4],
+	float s, float t, vec3_t out )
+{
+	float	a00, a01, a02, a10, a11, a12, a20, a21, a22;
+	float	b0, b1, b2, det, inv;
+
+	if( !pl || !svec || !tvec || !out )
+		return false;
+	a00 = pl->normal[0]; a01 = pl->normal[1]; a02 = pl->normal[2];
+	a10 = svec[0]; a11 = svec[1]; a12 = svec[2];
+	a20 = tvec[0]; a21 = tvec[1]; a22 = tvec[2];
+	b0 = pl->dist;
+	b1 = s - svec[3];
+	b2 = t - tvec[3];
+	det = a00 * ( a11 * a22 - a12 * a21 )
+		- a01 * ( a10 * a22 - a12 * a20 )
+		+ a02 * ( a10 * a21 - a11 * a20 );
+	if( fabs( det ) < 1e-5f )
+		return false;
+	inv = 1.0f / det;
+	out[0] = inv * ( b0 * ( a11 * a22 - a12 * a21 )
+		- a01 * ( b1 * a22 - a12 * b2 )
+		+ a02 * ( b1 * a21 - a11 * b2 ));
+	out[1] = inv * ( a00 * ( b1 * a22 - a12 * b2 )
+		- b0 * ( a10 * a22 - a12 * a20 )
+		+ a02 * ( a10 * b2 - b1 * a20 ));
+	out[2] = inv * ( a00 * ( a11 * b2 - b1 * a21 )
+		- a01 * ( a10 * b2 - b1 * a20 )
+		+ b0 * ( a10 * a21 - a11 * a20 ));
+	return true;
+}
+
+static int GC_BakeCapVertsFromTexinfo( const mplane_t *pl, const mtexinfo_t *tex,
+	const short mins[2], const short extents[2], signed short out[][3], int maxverts )
+{
+	vec3_t	p;
+	float	s0, t0, s1, t1;
+	int	i;
+	static const float uv[4][2] = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
+
+	if( !pl || !tex || !mins || !extents || !out || maxverts < 4 )
+		return 0;
+	if( extents[0] < 1 || extents[1] < 1 )
+		return 0;
+	s0 = (float)mins[0];
+	t0 = (float)mins[1];
+	s1 = (float)( mins[0] + extents[0] );
+	t1 = (float)( mins[1] + extents[1] );
+	for( i = 0; i < 4; i++ )
+	{
+		float s = s0 + uv[i][0] * ( s1 - s0 );
+		float t = t0 + uv[i][1] * ( t1 - t0 );
+
+		if( !GC_SolveFaceSTPoint( pl, tex->vecs[0], tex->vecs[1], s, t, p ))
+			return 0;
+		out[i][0] = (signed short)p[0];
+		out[i][1] = (signed short)p[1];
+		out[i][2] = (signed short)p[2];
+	}
+	return 4;
+}
+
+/* G201e: axis quad on the face plane, centered at the eye's projection onto
+ * the plane (not normal*dist — that pinned quads near the world origin and
+ * left DumpFrames sky-only despite drawn=179 + working guFrustum/lookAt). */
+static int GC_BakeCapVertsFromPlane( const mplane_t *pl, int ext0, int ext1,
+	signed short out[][3], int maxverts )
+{
+	vec3_t	right, up, org, p, eye;
+	float	hs, ht, dist_eye;
+	int	i;
+	static const float corners[4][2] = { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } };
+
+	if( !pl || !out || maxverts < 4 || ext0 < 1 || ext1 < 1 )
+		return 0;
+	hs = (float)ext0 * 0.5f;
+	ht = (float)ext1 * 0.5f;
+	if( hs < 16.0f )
+		hs = 16.0f;
+	if( ht < 16.0f )
+		ht = 16.0f;
+	/* Clamp half-size so a single face cannot span the whole map in s16. */
+	if( hs > 512.0f )
+		hs = 512.0f;
+	if( ht > 512.0f )
+		ht = 512.0f;
+
+	if( !VectorIsNull( gc_newgame_capture_origin ))
+	{
+		VectorCopy( gc_newgame_capture_origin, eye );
+		dist_eye = DotProduct( eye, pl->normal ) - pl->dist;
+		VectorMA( eye, -dist_eye, pl->normal, org );
+	}
+	else
+		VectorScale( pl->normal, pl->dist, org );
+
+	if( fabs( pl->normal[2] ) < 0.7f )
+	{
+		right[0] = pl->normal[1];
+		right[1] = -pl->normal[0];
+		right[2] = 0.0f;
+	}
+	else
+	{
+		right[0] = 1.0f;
+		right[1] = 0.0f;
+		right[2] = 0.0f;
+	}
+	if( VectorLength( right ) < 0.1f )
+		return 0;
+	VectorNormalize( right );
+	CrossProduct( pl->normal, right, up );
+	if( VectorLength( up ) < 0.1f )
+		return 0;
+	VectorNormalize( up );
+	for( i = 0; i < 4; i++ )
+	{
+		VectorMA( org, corners[i][0] * hs, right, p );
+		VectorMA( p, corners[i][1] * ht, up, p );
+		out[i][0] = (signed short)p[0];
+		out[i][1] = (signed short)p[1];
+		out[i][2] = (signed short)p[2];
+	}
+	return 4;
+}
+
+static int GC_BakeCapVertsForSurf( model_t *wmodel, const msurface_t *src,
+	signed short out[][3], int maxverts, byte *out_src )
+{
+	int n;
+
+	if( out_src )
+		*out_src = GC_CAP_BAKE_NONE;
+	if( !src || !out )
+		return 0;
+	n = GC_BakeCapVertsFromModel( wmodel, src->firstedge, src->numedges, out, maxverts );
+	if( n >= 3 )
+	{
+		if( out_src )
+			*out_src = GC_CAP_BAKE_EDGE;
+		return n;
+	}
+	/* G205: texinfo ST solve puts quads on the real face (LM/ST valid). Prefer
+	 * over eye-centered plane when wall-aim can look at those walls. */
+	if( src->plane && src->texinfo )
+	{
+		n = GC_BakeCapVertsFromTexinfo( src->plane, src->texinfo,
+			src->texturemins, src->extents, out, maxverts );
+		if( n >= 3 )
+		{
+			if( out_src )
+				*out_src = GC_CAP_BAKE_TEX;
+			return n;
+		}
+	}
+	if( !src->plane )
+		return 0;
+	n = GC_BakeCapVertsFromPlane( src->plane, src->extents[0], src->extents[1],
+		out, maxverts );
+	if( out_src && n >= 3 )
+		*out_src = GC_CAP_BAKE_PLANE;
+	return n;
+}
+
+static int GC_BakeCapVertsForCap( model_t *wmodel, int firstedge, int numedges,
+	const mplane_t *pl, const mtexinfo_t *tex, const short mins[2], const short extents[2],
+	signed short out[][3], int maxverts, byte *out_src )
+{
+	int n = GC_BakeCapVertsFromModel( wmodel, firstedge, numedges, out, maxverts );
+
+	if( out_src )
+		*out_src = GC_CAP_BAKE_NONE;
+	if( n >= 3 )
+	{
+		if( out_src )
+			*out_src = GC_CAP_BAKE_EDGE;
+		return n;
+	}
+	if( pl && tex && mins && extents )
+	{
+		n = GC_BakeCapVertsFromTexinfo( pl, tex, mins, extents, out, maxverts );
+		if( n >= 3 )
+		{
+			if( out_src )
+				*out_src = GC_CAP_BAKE_TEX;
+			return n;
+		}
+	}
+	if( !pl || !extents )
+		return 0;
+	n = GC_BakeCapVertsFromPlane( pl, extents[0], extents[1], out, maxverts );
+	if( out_src && n >= 3 )
+		*out_src = GC_CAP_BAKE_PLANE;
+	return n;
+}
+
+static u16 *GC_CapAtlasTile( int slot );
+
 const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h )
 {
 	if( slot < 0 || slot >= gc_newgame_cap_face_count )
@@ -192,7 +488,7 @@ const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h )
 		*w = gc_newgame_cap_lm_w[slot];
 	if( h )
 		*h = gc_newgame_cap_lm_h[slot];
-	return gc_newgame_cap_lm[slot];
+	return GC_CapAtlasTile( slot );
 }
 
 const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h )
@@ -237,6 +533,15 @@ void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, 
 	*out_t = v / (float)GC_LM_ATLAS_H;
 }
 
+static u16 *GC_CapAtlasTile( int slot )
+{
+	if( slot < 0 || slot >= GC_MAX_CAP_FACES || !gc_newgame_cap_lm_atlas )
+		return NULL;
+	if( slot >= GC_LM_ATLAS_COLS * GC_LM_ATLAS_ROWS )
+		return NULL;
+	return &gc_newgame_cap_lm_atlas[slot * ( GC_CAP_LM_DIM * GC_CAP_LM_DIM )];
+}
+
 /* Pack already-tiled 4×4 face LMs into one GX_TF_RGB565 atlas. */
 static void GC_PackCapLightmapAtlas( void )
 {
@@ -245,34 +550,17 @@ static void GC_PackCapLightmapAtlas( void )
 	const size_t bytes = (size_t)GC_LM_ATLAS_W * (size_t)GC_LM_ATLAS_H * sizeof( u16 );
 
 	gc_newgame_cap_lm_atlas_ready = false;
-	if( !gc_newgame_cap_lm_atlas )
+	gc_newgame_cap_lm_atlas = gc_newgame_cap_lm_atlas_bss;
+
+	/* Face LMs were written directly into atlas tiles; paint unused tiles mid-grey. */
+	for( i = gc_newgame_cap_face_count; i < GC_LM_ATLAS_COLS * GC_LM_ATLAS_ROWS; i++ )
 	{
-		gc_newgame_cap_lm_atlas = (u16 *)memalign( 32, bytes );
-		if( !gc_newgame_cap_lm_atlas )
-		{
-			Con_Reportf( "Xash3D GameCube: G180 lightmap atlas alloc failed\n" );
-			return;
-		}
-	}
-
-	for( i = 0; i < GC_LM_ATLAS_W * GC_LM_ATLAS_H; i++ )
-		gc_newgame_cap_lm_atlas[i] = mid;
-
-	for( i = 0; i < gc_newgame_cap_face_count; i++ )
-	{
-		int col, row, tile;
-
-		if( gc_newgame_cap_lm_w[i] < 4 || gc_newgame_cap_lm_h[i] < 4 )
-			continue;
-		col = i % GC_LM_ATLAS_COLS;
-		row = i / GC_LM_ATLAS_COLS;
-		if( row >= GC_LM_ATLAS_ROWS )
+		u16 *tile = GC_CapAtlasTile( i );
+		int k;
+		if( !tile )
 			break;
-		/* Each face LM is one 4×4 GX tile (16 texels in tile order). */
-		tile = row * GC_LM_ATLAS_COLS + col;
-		memcpy( &gc_newgame_cap_lm_atlas[tile * ( GC_CAP_LM_DIM * GC_CAP_LM_DIM )],
-			gc_newgame_cap_lm[i],
-			GC_CAP_LM_DIM * GC_CAP_LM_DIM * sizeof( u16 ));
+		for( k = 0; k < GC_CAP_LM_DIM * GC_CAP_LM_DIM; k++ )
+			tile[k] = mid;
 	}
 	DCFlushRange( gc_newgame_cap_lm_atlas, (u32)bytes );
 	gc_newgame_cap_lm_atlas_ready = ( gc_newgame_cap_face_count > 0 );
@@ -300,7 +588,9 @@ static void GC_BakeCapLightmap( const msurface_t *src, int slot )
 
 	gc_newgame_cap_lm_w[slot] = 0;
 	gc_newgame_cap_lm_h[slot] = 0;
-	dst = gc_newgame_cap_lm[slot];
+	dst = GC_CapAtlasTile( slot );
+	if( !dst )
+		return;
 	info = src->info;
 
 	if( !info )
@@ -343,16 +633,24 @@ static void GC_BakeCapLightmap( const msurface_t *src, int slot )
 			if( lm && sx >= 0 && sy >= 0 && sx < smax && sy < tmax )
 			{
 				const color24 *c = &lm[sy * smax + sx];
-				unsigned r = c->r >> 3;
-				unsigned g = c->g >> 2;
-				unsigned b = c->b >> 3;
-				if( r > 24 )
-					r = 24 + (( r - 24 ) >> 1 );
-				if( g > 48 )
-					g = 48 + (( g - 48 ) >> 1 );
-				if( b > 24 )
-					b = 24 + (( b - 24 ) >> 1 );
-				pix = (u16)(( r << 11 ) | ( g << 5 ) | b );
+				/* G207: keep full RGB565 range — old crush + MODULATE made
+				 * DumpFrames near-black (avg≈12). Boost then clamp. */
+				unsigned r = ((unsigned)c->r * 2u);
+				unsigned g = ((unsigned)c->g * 2u);
+				unsigned b = ((unsigned)c->b * 2u);
+				if( r < 96 )
+					r = 96;
+				if( g < 96 )
+					g = 96;
+				if( b < 96 )
+					b = 96;
+				if( r > 255 )
+					r = 255;
+				if( g > 255 )
+					g = 255;
+				if( b > 255 )
+					b = 255;
+				pix = (u16)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
 			}
 			linear[y * dw + x] = pix;
 		}
@@ -452,6 +750,9 @@ static qboolean GC_CaptureOneDrawFaceAt( model_t *wmodel, int surf_index, int sl
 	if( dst->texinfo.texture )
 		draw->texinfo = &dst->texinfo;
 	gc_newgame_cap_areas[slot] = (int)src->extents[0] * (int)src->extents[1];
+	/* Best-effort bake — do not reject the face if edges are briefly unreadable. */
+	gc_cap_nverts[slot] = (byte)GC_BakeCapVertsForSurf( wmodel, src,
+		gc_cap_pts_s16[slot], GC_CAP_MAX_VERTS, &gc_cap_bake_src[slot] );
 	return true;
 }
 
@@ -472,7 +773,9 @@ static void GC_FillCapLightmapMid( int slot )
 	gc_newgame_cap_lm_real[slot] = 0;
 	gc_newgame_cap_lm_w[slot] = (byte)dw;
 	gc_newgame_cap_lm_h[slot] = (byte)dh;
-	dst = gc_newgame_cap_lm[slot];
+	dst = GC_CapAtlasTile( slot );
+	if( !dst )
+		return;
 	out = dst;
 	for( tile_y = 0; tile_y < dh; tile_y += 4 )
 	{
@@ -498,33 +801,49 @@ static void GC_SwapCapSlots( int a, int b )
 	msurface_t draw;
 	int area;
 	u16 lm[GC_CAP_LM_DIM * GC_CAP_LM_DIM];
-	byte lmw, lmh, lmr;
+	u16 *tile_a, *tile_b;
+	byte lmw, lmh, lmr, nv, bsrc;
+	signed short pts[GC_CAP_MAX_VERTS][3];
 
 	if( a == b || a < 0 || b < 0 || a >= GC_MAX_CAP_FACES || b >= GC_MAX_CAP_FACES )
 		return;
 	face = gc_newgame_cap_faces[a];
 	draw = gc_newgame_draw_surfs[a];
 	area = gc_newgame_cap_areas[a];
-	memcpy( lm, gc_newgame_cap_lm[a], sizeof( lm ));
+	tile_a = GC_CapAtlasTile( a );
+	tile_b = GC_CapAtlasTile( b );
+	if( tile_a )
+		memcpy( lm, tile_a, sizeof( lm ));
 	lmw = gc_newgame_cap_lm_w[a];
 	lmh = gc_newgame_cap_lm_h[a];
 	lmr = gc_newgame_cap_lm_real[a];
+	nv = gc_cap_nverts[a];
+	bsrc = gc_cap_bake_src[a];
+	memcpy( pts, gc_cap_pts_s16[a], sizeof( pts ));
 
 	gc_newgame_cap_faces[a] = gc_newgame_cap_faces[b];
 	gc_newgame_draw_surfs[a] = gc_newgame_draw_surfs[b];
 	gc_newgame_cap_areas[a] = gc_newgame_cap_areas[b];
-	memcpy( gc_newgame_cap_lm[a], gc_newgame_cap_lm[b], sizeof( lm ));
+	if( tile_a && tile_b )
+		memcpy( tile_a, tile_b, sizeof( lm ));
 	gc_newgame_cap_lm_w[a] = gc_newgame_cap_lm_w[b];
 	gc_newgame_cap_lm_h[a] = gc_newgame_cap_lm_h[b];
 	gc_newgame_cap_lm_real[a] = gc_newgame_cap_lm_real[b];
+	gc_cap_nverts[a] = gc_cap_nverts[b];
+	gc_cap_bake_src[a] = gc_cap_bake_src[b];
+	memcpy( gc_cap_pts_s16[a], gc_cap_pts_s16[b], sizeof( pts ));
 
 	gc_newgame_cap_faces[b] = face;
 	gc_newgame_draw_surfs[b] = draw;
 	gc_newgame_cap_areas[b] = area;
-	memcpy( gc_newgame_cap_lm[b], lm, sizeof( lm ));
+	if( tile_b )
+		memcpy( tile_b, lm, sizeof( lm ));
 	gc_newgame_cap_lm_w[b] = lmw;
 	gc_newgame_cap_lm_h[b] = lmh;
 	gc_newgame_cap_lm_real[b] = lmr;
+	gc_cap_nverts[b] = nv;
+	gc_cap_bake_src[b] = bsrc;
+	memcpy( gc_cap_pts_s16[b], pts, sizeof( pts ));
 }
 
 /* Geometry + optional sample bake. bake_lm=false → mid tile only (G163). */
@@ -588,6 +907,8 @@ static qboolean GC_CaptureOneDrawFaceGeomSafe( model_t *wmodel, int surf_index, 
 	if( dst->texinfo.texture )
 		draw->texinfo = &dst->texinfo;
 	gc_newgame_cap_areas[slot] = (int)src->extents[0] * (int)src->extents[1];
+	gc_cap_nverts[slot] = (byte)GC_BakeCapVertsForSurf( wmodel, src,
+		gc_cap_pts_s16[slot], GC_CAP_MAX_VERTS, &gc_cap_bake_src[slot] );
 	return true;
 }
 
@@ -632,40 +953,19 @@ static void GC_SortCapFacesByAreaDesc( void )
 
 	for( i = 1; i < gc_newgame_cap_face_count; i++ )
 	{
-		gc_cap_face_t face = gc_newgame_cap_faces[i];
-		msurface_t draw = gc_newgame_draw_surfs[i];
-		int area = gc_newgame_cap_areas[i];
-		u16 lm[GC_CAP_LM_DIM * GC_CAP_LM_DIM];
-		byte lmw = gc_newgame_cap_lm_w[i];
-		byte lmh = gc_newgame_cap_lm_h[i];
-		byte lmr = gc_newgame_cap_lm_real[i];
-
-		memcpy( lm, gc_newgame_cap_lm[i], sizeof( lm ));
 		j = i;
-		while( j > 0 && gc_newgame_cap_areas[j - 1] < area )
+		while( j > 0 && gc_newgame_cap_areas[j - 1] < gc_newgame_cap_areas[j] )
 		{
-			gc_newgame_cap_faces[j] = gc_newgame_cap_faces[j - 1];
-			gc_newgame_draw_surfs[j] = gc_newgame_draw_surfs[j - 1];
-			gc_newgame_cap_areas[j] = gc_newgame_cap_areas[j - 1];
-			memcpy( gc_newgame_cap_lm[j], gc_newgame_cap_lm[j - 1], sizeof( lm ));
-			gc_newgame_cap_lm_w[j] = gc_newgame_cap_lm_w[j - 1];
-			gc_newgame_cap_lm_h[j] = gc_newgame_cap_lm_h[j - 1];
-			gc_newgame_cap_lm_real[j] = gc_newgame_cap_lm_real[j - 1];
+			GC_SwapCapSlots( j - 1, j );
 			j--;
 		}
-		gc_newgame_cap_faces[j] = face;
-		gc_newgame_draw_surfs[j] = draw;
-		gc_newgame_cap_areas[j] = area;
-		memcpy( gc_newgame_cap_lm[j], lm, sizeof( lm ));
-		gc_newgame_cap_lm_w[j] = lmw;
-		gc_newgame_cap_lm_h[j] = lmh;
-		gc_newgame_cap_lm_real[j] = lmr;
 	}
 	/* Re-bind plane/texinfo/info pointers after moves. */
 	for( i = 0; i < gc_newgame_cap_face_count; i++ )
 	{
 		msurface_t *draw = &gc_newgame_draw_surfs[i];
 		gc_cap_face_t *dst = &gc_newgame_cap_faces[i];
+		u16 *tile;
 
 		draw->plane = &dst->plane;
 		draw->info = &dst->info;
@@ -674,12 +974,113 @@ static void GC_SortCapFacesByAreaDesc( void )
 			draw->texinfo = &dst->texinfo;
 		else
 			draw->texinfo = NULL;
-		if( gc_newgame_cap_lm_w[i] >= 4 && gc_newgame_cap_lm_h[i] >= 4 )
-			DCFlushRange( gc_newgame_cap_lm[i],
+		tile = GC_CapAtlasTile( i );
+		if( tile && gc_newgame_cap_lm_w[i] >= 4 && gc_newgame_cap_lm_h[i] >= 4 )
+			DCFlushRange( tile,
 				(u32)( gc_newgame_cap_lm_w[i] * gc_newgame_cap_lm_h[i] * sizeof( u16 )));
 	}
 	GC_PackCapLightmapAtlas();
 	gc_newgame_cap_generation++;
+}
+
+/* G150: sort captured faces largest-first so edge budget prefers towers. */
+static void GC_SortCapFacesByAreaDesc( void );
+static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbits );
+static qboolean GC_CaptureOneDrawFaceAtEx( model_t *wmodel, int surf_index, int slot, qboolean bake_lm );
+
+/*
+================
+GC_CaptureDrawFacesNoPVS
+
+When FatPVS lean calloc fails, still bake Flipper cap faces while msurface_t
+is intact (BSP load). Top-K by area across all opaque surfaces — no surfbits.
+================
+*/
+static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
+{
+	int i;
+	int min_i;
+	int min_area;
+	int area_slots = GC_CAP_AREA_SLOTS;
+	byte *allbits = NULL;
+	size_t bytes;
+
+	if( !wmodel || !wmodel->surfaces || wmodel->numsurfaces <= 0 )
+		return;
+	if( gc_newgame_cap_face_count > 0 )
+		return; /* already baked this map */
+
+	bytes = (size_t)( wmodel->numsurfaces + 7 ) / 8;
+	allbits = (byte *)malloc( bytes );
+	if( allbits )
+	{
+		memset( allbits, 0xff, bytes );
+		GC_CaptureDrawFacesFromSurfbits( wmodel, allbits );
+		free( allbits );
+		SYS_Report( "Xash3D GameCube: G198 no-PVS face bake count=%d (Flipper cap)\n",
+			gc_newgame_cap_face_count );
+		return;
+	}
+
+	/* Even malloc for surfbits failed — capture top faces inline. */
+	gc_newgame_cap_face_count = 0;
+	gc_newgame_cap_tex_faces = 0;
+	gc_newgame_cap_lm_faces = 0;
+	gc_newgame_cap_lm_atlas_ready = false;
+
+	for( i = 0; i < wmodel->numsurfaces; i++ )
+	{
+		msurface_t *src = &wmodel->surfaces[i];
+		int area;
+		qboolean is_wall;
+
+		if( !src->plane || src->numedges < 3 || src->numedges > 32 )
+			continue;
+		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+			continue;
+		area = (int)src->extents[0] * (int)src->extents[1];
+		if( area <= 0 )
+			continue;
+		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
+		if( is_wall )
+			area += ( area >> 1 );
+
+		if( gc_newgame_cap_face_count < area_slots )
+		{
+			if( !GC_CaptureOneDrawFaceAtEx( wmodel, i, gc_newgame_cap_face_count, true ))
+				continue;
+			gc_newgame_cap_areas[gc_newgame_cap_face_count] = area;
+			if( src->texinfo && src->texinfo->texture )
+				gc_newgame_cap_tex_faces++;
+			gc_newgame_cap_face_count++;
+			continue;
+		}
+
+		min_i = 0;
+		min_area = gc_newgame_cap_areas[0];
+		{
+			int k;
+			for( k = 1; k < area_slots; k++ )
+			{
+				if( gc_newgame_cap_areas[k] < min_area )
+				{
+					min_area = gc_newgame_cap_areas[k];
+					min_i = k;
+				}
+			}
+		}
+		if( area <= min_area )
+			continue;
+		if( !GC_CaptureOneDrawFaceAtEx( wmodel, i, min_i, true ))
+			continue;
+		gc_newgame_cap_areas[min_i] = area;
+	}
+
+	GC_SortCapFacesByAreaDesc();
+	GC_PackCapLightmapAtlas();
+	gc_newgame_cap_generation++;
+	SYS_Report( "Xash3D GameCube: G198 inline face bake count=%d tex=%d lm=%d\n",
+		gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces );
 }
 
 static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbits )
@@ -783,14 +1184,27 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 
 	GC_SortCapFacesByAreaDesc();
 	gc_newgame_cap_lm_faces = 0;
-	for( i = 0; i < gc_newgame_cap_face_count; i++ )
 	{
-		if( gc_newgame_cap_lm_real[i] )
-			gc_newgame_cap_lm_faces++;
+		int baked = 0;
+		int edge = 0, plane = 0, tex = 0;
+
+		for( i = 0; i < gc_newgame_cap_face_count; i++ )
+		{
+			if( gc_newgame_cap_lm_real[i] )
+				gc_newgame_cap_lm_faces++;
+			if( gc_cap_nverts[i] >= 3 )
+				baked++;
+			if( gc_cap_bake_src[i] == GC_CAP_BAKE_EDGE )
+				edge++;
+			else if( gc_cap_bake_src[i] == GC_CAP_BAKE_PLANE )
+				plane++;
+			else if( gc_cap_bake_src[i] == GC_CAP_BAKE_TEX )
+				tex++;
+		}
+		SYS_Report( "Xash3D GameCube: G160 captured draw faces=%d textured=%d lm=%d baked=%d edge=%d tex=%d plane=%d replaced=%d wallboost=%d (max=%d)\n",
+			gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces,
+			baked, edge, tex, plane, replaced, wall_boost, GC_MAX_CAP_FACES );
 	}
-	SYS_Report( "Xash3D GameCube: G160 captured draw faces=%d textured=%d lm=%d replaced=%d wallboost=%d (max=%d)\n",
-		gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces,
-		replaced, wall_boost, GC_MAX_CAP_FACES );
 	/* G176: prove LM 8→4 funded face cap 256→320 without BSS growth. */
 	if( !gc_g176_logged && gc_newgame_cap_face_count >= 300
 		&& GC_MAX_CAP_FACES >= 320 && GC_CAP_LM_DIM == 4 )
@@ -901,8 +1315,39 @@ static qboolean GC_InstallRefreshCand( const gc_refresh_cand_t *cand, int slot )
 	if( dst->texinfo.texture )
 		draw->texinfo = &dst->texinfo;
 	gc_newgame_cap_areas[slot] = cand->area;
+	{
+		model_t *wmodel = sv.models[1];
+#if !XASH_DEDICATED
+		if( !wmodel )
+			wmodel = cl.worldmodel;
+#endif
+		if( wmodel )
+		{
+			gc_cap_nverts[slot] = (byte)GC_BakeCapVertsForCap( wmodel,
+				cand->firstedge, cand->numedges,
+				&cand->plane, cand->has_tex ? &cand->texinfo : NULL,
+				cand->texturemins, cand->extents,
+				gc_cap_pts_s16[slot], GC_CAP_MAX_VERTS, &gc_cap_bake_src[slot] );
+		}
+		else
+		{
+			gc_cap_nverts[slot] = (byte)GC_BakeCapVertsFromPlane( &cand->plane,
+				cand->extents[0], cand->extents[1],
+				gc_cap_pts_s16[slot], GC_CAP_MAX_VERTS );
+			gc_cap_bake_src[slot] = gc_cap_nverts[slot] >= 3
+				? (byte)GC_CAP_BAKE_PLANE : (byte)GC_CAP_BAKE_NONE;
+		}
+		if( !gc_cap_nverts[slot] )
+		{
+			gc_cap_nverts[slot] = (byte)GC_BakeCapVertsFromPlane( &cand->plane,
+				cand->extents[0], cand->extents[1],
+				gc_cap_pts_s16[slot], GC_CAP_MAX_VERTS );
+			gc_cap_bake_src[slot] = gc_cap_nverts[slot] >= 3
+				? (byte)GC_CAP_BAKE_PLANE : (byte)GC_CAP_BAKE_NONE;
+		}
+	}
 	GC_FillCapLightmapMid( slot );
-	return true;
+	return gc_cap_nverts[slot] >= 3;
 }
 
 static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfbits, int cache_slot )
@@ -1078,11 +1523,14 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 			{
 				int threshold = gc_newgame_cap_areas[min_i];
 				int cand_score = cand->area;
+				qboolean victim_floor = ( fabs( gc_newgame_cap_faces[min_i].plane.normal[2] ) >= 0.35f );
 
 				/* Outdoor wall vs floor: 25% area boost so towers beat leftover floors. */
-				if( outdoor && cand_wall
-					&& fabs( gc_newgame_cap_faces[min_i].plane.normal[2] ) >= 0.35f )
+				if( outdoor && cand_wall && victim_floor )
 					cand_score += ( cand->area >> 2 );
+				/* G199: always punch floors out for outdoor wall cands (Flipper coverage). */
+				if( outdoor && cand_wall && victim_floor )
+					cand_score = threshold + 1;
 				if( cand_score <= threshold )
 					continue;
 			}
@@ -1130,6 +1578,13 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		{
 			gc_g175_logged = true;
 			SYS_Report( "Xash3D GameCube: G175 outdoor refresh mid_new=%d wall_new=%d cands=%d leaves=%d cluster=%d\n",
+				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
+		}
+		/* G199: outdoor wall-aim refresh proof (4×64 + eye-in-front). */
+		if( !gc_g199_logged && ncand >= 40 && ( mid_new >= 24 || wall_new >= 16 ))
+		{
+			gc_g199_logged = true;
+			SYS_Report( "Xash3D GameCube: G199 outdoor refresh mid_new=%d wall_new=%d cands=%d leaves=%d cluster=%d\n",
 				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
 		}
 	}
@@ -1220,6 +1675,101 @@ static qboolean GC_PreferOutdoorWallCluster( void )
 		return false;
 	SYS_Report( "Xash3D GameCube: G190 outdoor wall cluster prefer %d walls=%d leaves=%d (was %d)\n",
 		outdoor, outdoor_walls, outdoor_leaves, cur_leaves );
+	return true;
+}
+
+/* G190: aim dump camera into the largest near-vertical cap face. */
+static qboolean GC_DumpLookAtBestWall( const float *eye, float *out_angles );
+
+/* G199: place the dump eye in front of the largest outdoor wall so Flipper
+ * backface cull keeps ~100+ faces (player tram eye often sees sky only). */
+static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles )
+{
+	int i;
+	int best = -1;
+	int best_area = 0;
+	vec3_t point;
+	const gc_cap_face_t *f;
+	int nv;
+
+	if( !eye || !out_angles || gc_newgame_cap_face_count <= 0 )
+		return false;
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		f = &gc_newgame_cap_faces[i];
+		if( fabs( f->plane.normal[2] ) >= 0.35f )
+			continue;
+		if( gc_newgame_cap_areas[i] > best_area )
+		{
+			best_area = gc_newgame_cap_areas[i];
+			best = i;
+		}
+	}
+	if( best < 0 )
+		return false;
+	f = &gc_newgame_cap_faces[best];
+	nv = gc_cap_nverts[best];
+	if( nv >= 3 )
+	{
+		int v;
+		float sx = 0.0f, sy = 0.0f, sz = 0.0f;
+
+		for( v = 0; v < nv && v < GC_CAP_MAX_VERTS; v++ )
+		{
+			sx += (float)gc_cap_pts_s16[best][v][0];
+			sy += (float)gc_cap_pts_s16[best][v][1];
+			sz += (float)gc_cap_pts_s16[best][v][2];
+		}
+		point[0] = sx / (float)nv;
+		point[1] = sy / (float)nv;
+		point[2] = sz / (float)nv;
+	}
+	else
+	{
+		/* Fallback: plane point along normal from origin. */
+		point[0] = f->plane.normal[0] * f->plane.dist;
+		point[1] = f->plane.normal[1] * f->plane.dist;
+		point[2] = f->plane.normal[2] * f->plane.dist;
+	}
+	eye[0] = point[0] + f->plane.normal[0] * 192.0f;
+	eye[1] = point[1] + f->plane.normal[1] * 192.0f;
+	eye[2] = point[2] + f->plane.normal[2] * 192.0f + 48.0f;
+	VectorSubtract( point, eye, point );
+	VectorAngles( point, out_angles );
+	out_angles[2] = 0.0f;
+	if( out_angles[0] > -5.0f )
+		out_angles[0] = -12.0f;
+	SYS_Report( "Xash3D GameCube: G199 dump eye-in-front wall area=%d bake=%d eye=(%.0f,%.0f,%.0f)\n",
+		best_area, (int)gc_cap_bake_src[best], eye[0], eye[1], eye[2] );
+	VectorCopy( eye, gc_newgame_capture_origin );
+	/* G201e/G204: rebake only plane-fallback verts around the dump eye —
+	 * edge-baked faces keep real BSP loops for ST/LM. */
+	{
+		static int rebake_gen = -1;
+		int	s;
+		int	nplane = 0;
+
+		if( rebake_gen != gc_newgame_cap_generation )
+		{
+			for( s = 0; s < gc_newgame_cap_face_count; s++ )
+			{
+				const gc_cap_face_t *cf = &gc_newgame_cap_faces[s];
+				if( gc_cap_bake_src[s] != GC_CAP_BAKE_PLANE )
+					continue;
+				gc_cap_nverts[s] = (byte)GC_BakeCapVertsFromPlane( &cf->plane,
+					cf->extents[0], cf->extents[1],
+					gc_cap_pts_s16[s], GC_CAP_MAX_VERTS );
+				if( gc_cap_nverts[s] < 3 )
+					gc_cap_bake_src[s] = GC_CAP_BAKE_NONE;
+				else
+					nplane++;
+			}
+			gc_newgame_cap_generation++;
+			rebake_gen = gc_newgame_cap_generation;
+			SYS_Report( "Xash3D GameCube: G204 rebaked %d plane quads (edge verts preserved)\n",
+				nplane );
+		}
+	}
 	return true;
 }
 
@@ -1353,7 +1903,6 @@ static qboolean gc_gx_present_logged;
  * invisible (flat sky). G191 presents soft RGB565 via tiled EFB quad. */
 static int gc_cpu_dump_presents_left;
 static qboolean gc_dump_look_into_map;
-static vec3_t gc_newgame_capture_origin; /* G132: dump camera aim target */
 static qboolean gc_force_draw_viewmodel; /* G149: allow dump/G105 presents to keep VM on */
 static convar_t *gc_quality;
 static double gc_last_present_time;
@@ -1638,8 +2187,9 @@ static qboolean gc_g193_soft_lock; /* G193: keep soft in XFB — DumpFrames enco
 /* G196: after Flipper resume, force G189/G190 wall-aim for N SCR frames so
  * DumpFrames capture walls (landmark player eye often faces open sky). */
 static int gc_g196_flipper_dump_aim_left;
-/* G193: dedicated linear soft snap (tiled staging is overwritten by GX swizzle). */
-static u16 gc_g193_soft_snap[GC_GX_TILE_MAX_W * GC_GX_TILE_MAX_H] __attribute__((aligned( 32 )));
+/* G193: dedicated linear soft snap (tiled staging is overwritten by GX swizzle).
+ * Heap after clipnodes pin — 150 KiB BSS here starved the 59 KiB pin. */
+static u16 *gc_g193_soft_snap;
 static qboolean gc_g193_snap_valid;
 static int gc_g193_snap_w, gc_g193_snap_h, gc_g193_snap_stride;
 
@@ -1651,13 +2201,24 @@ static void GC_G193CaptureSoftSnap( void )
 	if( !gc.buffer || gc.width <= 0 || gc.height <= 0 || gc.stride <= 0 )
 		return;
 	bytes = (size_t)gc.stride * (size_t)gc.height * sizeof( unsigned short );
-	snap_bytes = sizeof( gc_g193_soft_snap );
+	snap_bytes = (size_t)GC_GX_TILE_MAX_W * (size_t)GC_GX_TILE_MAX_H * sizeof( u16 );
 	if( bytes > snap_bytes )
 	{
 		gc_g193_snap_valid = false;
 		Con_Reportf( S_ERROR "Xash3D GameCube: G193 soft snap too large (%u > %u)\n",
 			(unsigned)bytes, (unsigned)snap_bytes );
 		return;
+	}
+	if( !gc_g193_soft_snap )
+	{
+		gc_g193_soft_snap = (u16 *)memalign( 32, snap_bytes );
+		if( !gc_g193_soft_snap )
+		{
+			gc_g193_snap_valid = false;
+			Con_Reportf( S_ERROR "Xash3D GameCube: G193 soft snap alloc failed (%u)\n",
+				(unsigned)snap_bytes );
+			return;
+		}
 	}
 	memcpy( gc_g193_soft_snap, gc.buffer, bytes );
 	gc_g193_snap_w = gc.width;
@@ -2059,11 +2620,20 @@ static void GC_PresentBuffer( void )
 		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
 		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
 		GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
-		/* Retail Flipper: one DrawDone → CopyDisp → VI swap every frame. */
+		/* Retail Flipper: one DrawDone → CopyDisp → VI swap every frame.
+		 * G198: never clear EFB on CopyDisp — Dolphin DumpFramesAsImages
+		 * follows EFB, so GX_TRUE left solid sky dumps after a good XFB copy.
+		 * Next world pass clears via R_GXClearEfbSky. */
 		GX_DrawDone();
-		GX_CopyDisp( xfb[which_fb], GX_TRUE );
+		GX_CopyDisp( xfb[which_fb], GX_FALSE );
 		GX_Flush();
 		gc_gx_world_efb_ready = false;
+		/* G200: hold EFB for DumpFramesAsImages encode window (-gcnewgame probes). */
+		if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+		{
+			extern void R_GXHoldEfbForDump( int frames );
+			R_GXHoldEfbForDump( 6 );
+		}
 		/* DumpFrames-only throttle: Dolphin PNG/TGA encode floods on every
 		 * ViSwap. Retail / native hardware always swaps + VSync. */
 		if( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
@@ -5320,8 +5890,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			? (int)(( (size_t)wmodel->numsurfaces + 7 ) / 8) : 0;
 		gc_newgame_nleafboxes = wmodel->numleafs > 1 ? wmodel->numleafs - 1 : 0;
 
-		/* G101: -gcleanpvs forces lean-N path (probe / MEM1-safe follow). */
-		if( !Sys_CheckParm( "-gcleanpvs" ))
+		/* Prefer lean FatPVS on GameCube — full multi-row calloc for ~900
+		 * clusters OOMs / fragments MEM1 before face bake can run. */
+		if( !Sys_CheckParm( "-gcleanpvs" ) && !Sys_CheckParm( "-gcnewgame" ))
 		{
 			gc_newgame_pvs_table = (byte *)calloc( (size_t)numclusters, visbytes );
 			gc_newgame_node_table = (byte *)calloc( (size_t)numclusters, nodebytes );
@@ -5332,7 +5903,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		}
 		else
 		{
-			SYS_Report( "Xash3D GameCube: Capture FatPVS force lean-N (-gcleanpvs) clusters=%d\n",
+			SYS_Report( "Xash3D GameCube: Capture FatPVS lean-first (-gcnewgame/-gcleanpvs) clusters=%d\n",
 				numclusters );
 		}
 
@@ -5390,32 +5961,41 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			gc_newgame_lean_slots = 0;
 			memset( gc_newgame_lean_clusters, -1, sizeof( gc_newgame_lean_clusters ));
 
+			Image_GCPurgeDecodeScratch();
 			gc_newgame_pvs_table = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, visbytes );
 			gc_newgame_node_table = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, nodebytes );
 			gc_newgame_surf_table = ( gc_newgame_surfbytes > 0 )
 				? (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, (size_t)gc_newgame_surfbytes )
 				: NULL;
 			gc_newgame_cluster_valid = (byte *)calloc( (size_t)GC_LEAN_PVS_SLOTS, 1 );
+			/* Leafboxes are optional for Flipper face bake — skip if freelist is tight. */
 			gc_newgame_leafboxes = gc_newgame_nleafboxes > 0
 				? (gc_newgame_leafbox_t *)calloc( (size_t)gc_newgame_nleafboxes, sizeof( gc_newgame_leafbox_t ))
 				: NULL;
-			if( !gc_newgame_pvs_table || !gc_newgame_node_table || !gc_newgame_cluster_valid
-				|| ( gc_newgame_nleafboxes > 0 && !gc_newgame_leafboxes ))
+			if( !gc_newgame_leafboxes )
+				gc_newgame_nleafboxes = 0;
+			if( !gc_newgame_pvs_table || !gc_newgame_node_table || !gc_newgame_cluster_valid )
 			{
 				SYS_Report( "Xash3D GameCube: Capture FatPVS lean alloc failed\n" );
 				GC_FreeNewGamePVSCache();
+				/* Surfaces still valid during BSP load — bake Flipper caps now. */
+				Image_GCPurgeDecodeScratch();
+				GC_CaptureDrawFacesNoPVS( wmodel );
 				return;
 			}
 
 			/* Leaf AABBs enable origin follow among cached clusters. */
-			for( i = 1; i < wmodel->numleafs; i++ )
+			if( gc_newgame_leafboxes )
 			{
-				mleaf_t *leaf = &wmodel->leafs[i];
-				gc_newgame_leafbox_t *box = &gc_newgame_leafboxes[i - 1];
+				for( i = 1; i < wmodel->numleafs; i++ )
+				{
+					mleaf_t *leaf = &wmodel->leafs[i];
+					gc_newgame_leafbox_t *box = &gc_newgame_leafboxes[i - 1];
 
-				VectorCopy( leaf->minmaxs, box->mins );
-				VectorCopy( leaf->minmaxs + 3, box->maxs );
-				box->cluster = leaf->cluster;
+					VectorCopy( leaf->minmaxs, box->mins );
+					VectorCopy( leaf->minmaxs + 3, box->maxs );
+					box->cluster = leaf->cluster;
+				}
 			}
 			if( !GC_CaptureLeanCompressedPVS( wmodel, numclusters, visbytes )
 				|| !GC_CaptureLeanNodebits( wmodel, numclusters ))
@@ -6040,53 +6620,62 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		GC_PreferOutdoorWallCluster();
 		GC_FlushPendingCapFaceRefresh();
 
-		VectorSubtract( gc_newgame_capture_origin, center, look );
-		look_len = VectorLength( look );
-		if( look_len > 512.0f )
+		/* G199: after outdoor caps land, stand in front of a wall (not tram sky). */
+		if( GC_DumpEyeInFrontOfBestWall( center, rvp.viewangles ))
 		{
-			if( !GC_DumpLookAtBestWall( center, rvp.viewangles ))
-			{
-				vec3_t dir;
-				vec3_t near_aim;
-				float dir_len;
-
-				VectorCopy( look, dir );
-				dir_len = VectorLength( dir );
-				if( dir_len > 1.0f )
-				{
-					dir[0] /= dir_len;
-					dir[1] /= dir_len;
-					dir[2] /= dir_len;
-					near_aim[0] = center[0] + dir[0] * 256.0f;
-					near_aim[1] = center[1] + dir[1] * 256.0f;
-					near_aim[2] = center[2] + dir[2] * 64.0f;
-					VectorSubtract( near_aim, center, look );
-					VectorAngles( look, rvp.viewangles );
-					rvp.viewangles[2] = 0.0f;
-					if( rvp.viewangles[0] > -5.0f )
-						rvp.viewangles[0] = -12.0f;
-				}
-				else
-				{
-					rvp.viewangles[0] = -12.0f;
-					rvp.viewangles[2] = 0.0f;
-				}
-			}
 			local_look = true;
-		}
-		else if( look_len > 64.0f )
-		{
-			VectorAngles( look, rvp.viewangles );
-			rvp.viewangles[2] = 0.0f;
-			if( rvp.viewangles[0] > -5.0f )
-				rvp.viewangles[0] = -10.0f;
+			look_len = 192.0f;
 		}
 		else
 		{
-			/* Same room as capture — keep player yaw, pitch down for floors. */
-			rvp.viewangles[0] = -12.0f;
-			rvp.viewangles[2] = 0.0f;
-			local_look = true;
+			VectorSubtract( gc_newgame_capture_origin, center, look );
+			look_len = VectorLength( look );
+			if( look_len > 512.0f )
+			{
+				if( !GC_DumpLookAtBestWall( center, rvp.viewangles ))
+				{
+					vec3_t dir;
+					vec3_t near_aim;
+					float dir_len;
+
+					VectorCopy( look, dir );
+					dir_len = VectorLength( dir );
+					if( dir_len > 1.0f )
+					{
+						dir[0] /= dir_len;
+						dir[1] /= dir_len;
+						dir[2] /= dir_len;
+						near_aim[0] = center[0] + dir[0] * 256.0f;
+						near_aim[1] = center[1] + dir[1] * 256.0f;
+						near_aim[2] = center[2] + dir[2] * 64.0f;
+						VectorSubtract( near_aim, center, look );
+						VectorAngles( look, rvp.viewangles );
+						rvp.viewangles[2] = 0.0f;
+						if( rvp.viewangles[0] > -5.0f )
+							rvp.viewangles[0] = -12.0f;
+					}
+					else
+					{
+						rvp.viewangles[0] = -12.0f;
+						rvp.viewangles[2] = 0.0f;
+					}
+				}
+				local_look = true;
+			}
+			else if( look_len > 64.0f )
+			{
+				VectorAngles( look, rvp.viewangles );
+				rvp.viewangles[2] = 0.0f;
+				if( rvp.viewangles[0] > -5.0f )
+					rvp.viewangles[0] = -10.0f;
+			}
+			else
+			{
+				/* Same room as capture — keep player yaw, pitch down for floors. */
+				rvp.viewangles[0] = -12.0f;
+				rvp.viewangles[2] = 0.0f;
+				local_look = true;
+			}
 		}
 		Con_Reportf( "Xash3D GameCube: G132 dump look angles=(%.0f,%.0f,%.0f) aimlen=%.0f\n",
 			rvp.viewangles[0], rvp.viewangles[1], rvp.viewangles[2], look_len );
@@ -6099,9 +6688,19 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		}
 	}
 	VectorCopy( center, rvp.vieworigin );
-	/* G89: select multi-cluster PVS for camera; prove two-cluster switch once. */
-	GC_UpdateNewGamePVSForOrigin( center );
-	GC_ProveNewGamePVSFollow();
+	/* G89: select multi-cluster PVS for camera; prove two-cluster switch once.
+	 * G199: during Flipper wall-aim, densest-cluster prove rewrites outdoor caps
+	 * back to indoor (drawn≈19). Keep outdoor refresh sticky until aim ends. */
+	if( !gc_dump_look_into_map )
+	{
+		GC_UpdateNewGamePVSForOrigin( center );
+		GC_ProveNewGamePVSFollow();
+	}
+	else
+	{
+		GC_PreferOutdoorWallCluster();
+		GC_FlushPendingCapFaceRefresh();
+	}
 	/* G189/G190: dump look must not let densest SelectCluster wipe outdoor walls. */
 	if( gc_dump_look_into_map )
 		GC_PreferOutdoorWallCluster();
@@ -6385,6 +6984,14 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * the first world frames never soft-raster. Soft DumpFrames latch (if
 	 * any) temporarily clears this via presents_left. */
 	GC_EnableGxWorldLive();
+	/* G199: Flipper wall-aim during New Game present pump — spawn eye often
+	 * faces outdoor sky (drawn≈19); G189/G190 look raises coverage to ~200. */
+	if( Sys_CheckParm( "-gcnewgame" ))
+	{
+		gc_g196_flipper_dump_aim_left = 64;
+		gc_dump_look_into_map = true;
+		SYS_Report( "Xash3D GameCube: G199 Flipper wall-aim armed for New Game present\n" );
+	}
 	/* G135: do NOT arm CPU dump presents yet. Soft-tiled RGB565 blits dump as
 	 * chroma noise and steal Dolphin DumpFrames slots before depth/coalesce.
 	 * GX is fine for the pre-dump pump; G128 arms after WORLD PRESENT panel. */
@@ -6751,6 +7358,9 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			{
 				/* Soft DumpFrames done — subsequent live presents use Flipper GX world. */
 				GC_EnableGxWorldLive();
+				/* G199: wall-aim smoke through Frames so DumpFrames / G151 see walls. */
+				gc_g196_flipper_dump_aim_left = 32;
+				gc_dump_look_into_map = true;
 				/* G155/G156: Flipper smoke with landmark viewmodel if resident. */
 				{
 					const char *vpath = Mod_GCLandmarkViewModelPath();
@@ -6774,10 +7384,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 						Con_Reportf( "Xash3D GameCube: G156 smoke bind viewmodel %s\n", vpath );
 					}
 					ref.dllFuncs.R_BeginFrame( false );
-					if( GC_RenderNewGameWorldPassNoFrame( true ))
+					if( GC_RenderNewGameWorldFrames( 4 ))
 					{
 						Con_Reportf( "Xash3D GameCube: G155 GX live smoke frame\n" );
-						GC_PresentBuffer();
+						SYS_Report( "Xash3D GameCube: G199 Flipper wall present ready\n" );
 					}
 					else
 						Con_Reportf( S_WARN "Xash3D GameCube: G155 GX live smoke failed\n" );
@@ -6835,18 +7445,17 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		/* G92/G68: force changelevel after first-map world present.
 		 * Skipped when Host_Main already queued -gcmap+-gcchangelevel
 		 * (large maps hang before present). Skipped during G94 save/load.
-		 * Default tram hop c0a0→c0a0a; `-gcchangelevel <map>` overrides. */
-		else if( !Sys_CheckParm( "-gcmap" ))
+		 * G208: only hop when the probe explicitly passed -gcchangelevel —
+		 * the old default c0a0→c0a0a OOMs MEM1 (~194 KiB) after Flipper walls. */
+		else if( !Sys_CheckParm( "-gcmap" ) && Sys_CheckParm( "-gcchangelevel" ))
 		{
 			static qboolean gc_changelevel_queued;
 			static char gc_cl_from[MAX_QPATH];
 			char dest[MAX_QPATH];
-			const char *to = "c0a0a";
+			const char *to = NULL;
 
 			if( Sys_GetParmFromCmdLine( "-gcchangelevel", dest ))
 				to = dest;
-			else if( Q_stricmp( sv.name, "c0a0" ))
-				to = NULL;
 
 			if( to != NULL && !gc_changelevel_queued && Q_stricmp( sv.name, to ))
 			{
@@ -6871,6 +7480,15 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					SYS_Report( "Xash3D GameCube: G68 changelevel ready from=%s to=%s\n",
 						gc_cl_from[0] ? gc_cl_from : "?", sv.name );
 				}
+			}
+		}
+		else if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
+		{
+			static qboolean g208_logged;
+			if( !g208_logged )
+			{
+				g208_logged = true;
+				SYS_Report( "Xash3D GameCube: G208 hold Flipper map (no auto changelevel)\n" );
 			}
 		}
 	}

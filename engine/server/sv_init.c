@@ -1108,13 +1108,20 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		return false;
 
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcnodeltareinit" ))
+	/* G201: spawn-time Delta_Init re-parses delta.lst; under tight MEM1 that
+	 * second FS_LoadFile can stall forever after a layout shift. Progs already
+	 * initialized delta — skip reinit on New Game (also -gcnodeltareinit). */
+	if( Sys_CheckParm( "-gcnodeltareinit" ) || Sys_CheckParm( "-gcnewgame" ))
 	{
-		Con_Reportf( "Xash3D GameCube: delta reinit skipped\n" );
+		Con_Reportf( "Xash3D GameCube: G201 delta reinit skipped (newgame)\n" );
 	}
 	else
 #endif
-	Delta_Init(); // re-initialize delta
+	{
+		Con_Reportf( "Xash3D GameCube: G201 delta reinit begin\n" );
+		Delta_Init(); // re-initialize delta
+		Con_Reportf( "Xash3D GameCube: G201 delta reinit ready\n" );
+	}
 
 	// unlock sv_cheats in local game
 	ClearBits( sv_cheats.flags, FCVAR_READ_ONLY );

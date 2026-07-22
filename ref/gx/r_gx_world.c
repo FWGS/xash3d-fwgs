@@ -14,6 +14,11 @@ G184: HUD RGB5A3 + alpha compare so SPR_DrawHoles drop transparent texels.
 G185: cut Flipper HUD fill (lean crosshair cell + fill-px telemetry).
 G186: skip tiny / far-small Flipper faces before ST/LM emit (fill lean).
 G187: HUD holes punch near-black ink (crosshair sheet non-255 dark texels).
+G201: guFrustum projection for GX_PERSPECTIVE (Xash GL proj was invisible).
+G202: Flipper diffuse REPLACE (no LM crush on eye-centered quads).
+G206: REPLACE on EDGE/TEX verts too (real ST shapes; defer LM until overbright).
+G207: LM restored — boost bake, corner atlas UV, TEV ×2 overbright.
+G203: plane-quad ST 0..1 + LINEAR world filter.
 */
 #include "r_local.h"
 
@@ -34,6 +39,10 @@ extern unsigned R_GXGetTriColorRGBA( void );
 #define GC_GX_TEX_SLOTS		32
 #define GC_GX_TEX_HUD_RESERVE	4	/* last slots preferred for live HUD sheets */
 #define GC_GX_TEX_MAX_DIM	64	/* MEM1: keep tiled staging lean (32×64²×2 working set) */
+/* G199: 4 BSS world tiles (~32 KiB) — 8 tipped clipnodes pin on c0a0. */
+#define GC_GX_TEX_WORLD_POOL	4
+static u16 r_gx_tex_world_pool[GC_GX_TEX_WORLD_POOL][GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM]
+	__attribute__((aligned( 32 )));
 
 typedef struct
 {
@@ -76,6 +85,15 @@ static GXTexObj r_gx_lm_atlas_obj;
 static qboolean r_gx_lm_atlas_valid;
 static int r_gx_lm_atlas_gen = -1;
 static qboolean r_gx_lm_atlas_bound;
+static int r_gx_efb_dump_hold; /* G200: keep Flipper EFB for DumpFramesAsImages */
+
+/* Dolphin DumpFramesAsImages samples EFB asynchronously — clearing at the
+ * start of the next world pass left solid sky dumps despite drawn=179. */
+void R_GXHoldEfbForDump( int frames )
+{
+	if( frames > r_gx_efb_dump_hold )
+		r_gx_efb_dump_hold = frames;
+}
 static int r_gx_cap_generation = -1;
 static int r_gx_lm_inits;
 static int r_gx_lm_loads;
@@ -85,14 +103,15 @@ static qboolean r_gx_sync_lean_logged;
 static qboolean r_gx_lm_atlas_logged;
 static qboolean r_gx_tex_band_logged;
 /* G186: Flipper world fill cull (extents dust + far-small). */
+/* G186/G199: lean cull — prior 3072/512/8192 left outdoor wall-aim at ~20 faces. */
 #ifndef GC_GX_MIN_FACE_AREA
-#define GC_GX_MIN_FACE_AREA 3072	/* extents product; skip small detail */
+#define GC_GX_MIN_FACE_AREA 1024	/* extents product; skip dust detail */
 #endif
 #ifndef GC_GX_FAR_FACE_DIST
-#define GC_GX_FAR_FACE_DIST 512.0f
+#define GC_GX_FAR_FACE_DIST 2048.0f
 #endif
 #ifndef GC_GX_FAR_MIN_AREA
-#define GC_GX_FAR_MIN_AREA 8192	/* keep large walls even when far */
+#define GC_GX_FAR_MIN_AREA 4096	/* keep medium walls when far */
 #endif
 static int r_gx_face_skips;
 static int r_gx_face_skip_area;
@@ -248,17 +267,6 @@ int R_GXStudioLastTriCount( void )
 	return r_gx_studio_tris;
 }
 
-static void R_GXLoadMtx44FromXash( Mtx44 out, const matrix4x4 in )
-{
-	float gl[16];
-	int i, j;
-
-	Matrix4x4_ToArrayFloatGL( in, gl );
-	for( i = 0; i < 4; i++ )
-		for( j = 0; j < 4; j++ )
-			out[i][j] = gl[j * 4 + i];
-}
-
 static void R_GXLoadMtxFromXashMV( Mtx out, const matrix4x4 in )
 {
 	float gl[16];
@@ -268,6 +276,54 @@ static void R_GXLoadMtxFromXashMV( Mtx out, const matrix4x4 in )
 	for( i = 0; i < 3; i++ )
 		for( j = 0; j < 4; j++ )
 			out[i][j] = gl[j * 4 + i];
+}
+
+/*
+ * G201: GX_LoadProjectionMtx(…, GX_PERSPECTIVE) expects a guFrustum /
+ * guPerspective matrix — not an OpenGL-style Matrix4x4_CreateProjection.
+ * Feeding Xash GL proj made drawn=179 faces invisible while a camera-space
+ * guPerspective magenta marker still showed in DumpFrames.
+ */
+static void R_GXBuildWorldProjection( Mtx44 out )
+{
+	f32 zNear = 4.0f;
+	f32 zFar = Q_max( 256.0f, RI.farClip > 1.0f ? RI.farClip : 4096.0f );
+	f32 fov_y = RI.rvp.fov_y > 1.0f ? RI.rvp.fov_y : 90.0f;
+	f32 fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
+	f32 yMax = zNear * tanf( fov_y * (f32)M_PI_F / 360.0f );
+	f32 xMax = zNear * tanf( fov_x * (f32)M_PI_F / 360.0f );
+
+	/* guFrustum(mt, top, bottom, left, right, near, far) */
+	guFrustum( out, yMax, -yMax, -xMax, xMax, zNear, zFar );
+}
+
+/*
+ * G201b: build GX modelview from Quake view basis directly.
+ * Xash Matrix4x4_CreateModelview + R_GXLoadMtxFromXashMV still left walls
+ * invisible under guFrustum (DumpFrames ~97% sky despite drawn=179).
+ * Eye space: +X right, +Y up, -Z forward (libogc guPerspective expectation).
+ */
+static void R_GXBuildWorldModelview( Mtx out )
+{
+	vec3_t	forward, right, up;
+	const float *org = RI.rvp.vieworigin;
+
+	AngleVectors( RI.rvp.viewangles, forward, right, up );
+
+	out[0][0] = right[0];
+	out[0][1] = right[1];
+	out[0][2] = right[2];
+	out[0][3] = -DotProduct( right, org );
+
+	out[1][0] = up[0];
+	out[1][1] = up[1];
+	out[1][2] = up[2];
+	out[1][3] = -DotProduct( up, org );
+
+	out[2][0] = -forward[0];
+	out[2][1] = -forward[1];
+	out[2][2] = -forward[2];
+	out[2][3] = DotProduct( forward, org );
 }
 
 static u32 R_GXFaceColor( const msurface_t *surf )
@@ -330,27 +386,33 @@ static int R_GXSnapDim( int n )
 static void R_GXTexCacheReset( void )
 {
 	int i;
+	const size_t pool_bytes =
+		(size_t)GC_GX_TEX_MAX_DIM * (size_t)GC_GX_TEX_MAX_DIM * sizeof( u16 );
 
 	for( i = 0; i < GC_GX_TEX_SLOTS; i++ )
 	{
-		if( r_gx_tex[i].tiled )
+		if( r_gx_tex[i].tiled && i >= GC_GX_TEX_WORLD_POOL )
 			free( r_gx_tex[i].tiled );
 		memset( &r_gx_tex[i], 0, sizeof( r_gx_tex[i] ));
 		r_gx_tex_lru[i] = 0;
+		if( i < GC_GX_TEX_WORLD_POOL )
+		{
+			r_gx_tex[i].tiled = r_gx_tex_world_pool[i];
+			r_gx_tex[i].alloc_bytes = pool_bytes;
+		}
 	}
 	r_gx_tex_clock = 0;
 	r_gx_tex_world = NULL;
 	r_gx_hud_pool_ready = false;
 }
 
-static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
+static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 {
 	image_t *img;
 	int i, slot, victim, src_w, src_h, dst_w, dst_h;
 	int x, y, step_x, step_y;
 	size_t bytes;
 	gc_gx_tex_t *t;
-	const qboolean hud_bind = r_gx_hud_2d_ready;
 	const u8 want_fmt = hud_bind ? (u8)GX_TF_RGB5A3 : (u8)GX_TF_RGB565;
 
 	if( texnum == 0 )
@@ -406,7 +468,8 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 	}
 	else
 	{
-		for( i = 0; i < GC_GX_TEX_HUD_SLOT0; i++ )
+		/* G199: world diffuse only uses BSS pool — never heap memalign. */
+		for( i = 0; i < GC_GX_TEX_WORLD_POOL; i++ )
 		{
 			if( !r_gx_tex[i].valid )
 			{
@@ -416,7 +479,7 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 		}
 		if( slot < 0 )
 		{
-			for( i = 0; i < GC_GX_TEX_HUD_SLOT0; i++ )
+			for( i = 0; i < GC_GX_TEX_WORLD_POOL; i++ )
 			{
 				if( victim < 0 || r_gx_tex_lru[i] < r_gx_tex_lru[victim] )
 					victim = i;
@@ -475,7 +538,12 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 		if( hud_bind && want < max_tile )
 			want = max_tile;
 
-		if( !t->tiled || t->alloc_bytes < bytes )
+		if( slot < GC_GX_TEX_WORLD_POOL )
+		{
+			t->tiled = r_gx_tex_world_pool[slot];
+			t->alloc_bytes = max_tile;
+		}
+		else if( !t->tiled || t->alloc_bytes < bytes )
 		{
 			u16 *neu = (u16 *)memalign( 32, want );
 
@@ -502,7 +570,11 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 
 	GX_InitTexObj( &t->obj, t->tiled, (u16)dst_w, (u16)dst_h,
 		want_fmt, GX_REPEAT, GX_REPEAT, GX_FALSE );
-	GX_InitTexObjFilterMode( &t->obj, GX_NEAR, GX_NEAR );
+	/* G203: LINEAR on world diffuse; HUD stays NEAR for crisp sprites. */
+	if( hud_bind )
+		GX_InitTexObjFilterMode( &t->obj, GX_NEAR, GX_NEAR );
+	else
+		GX_InitTexObjFilterMode( &t->obj, GX_LINEAR, GX_LINEAR );
 	t->texnum = texnum;
 	t->w = dst_w;
 	t->h = dst_h;
@@ -521,9 +593,29 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum )
 
 static gc_gx_tex_t *R_GXBindTexture( texture_t *mt )
 {
+	gc_gx_tex_t *gxt;
+
 	if( !mt || mt->gl_texturenum <= 0 )
 		return NULL;
-	return R_GXBindTexnum( (unsigned)mt->gl_texturenum );
+	/* World faces must not inherit HUD RGB5A3/slot mode from StretchPic. */
+	gxt = R_GXBindTexnum( (unsigned)mt->gl_texturenum, false );
+	if( !gxt )
+	{
+		static qboolean bind_fail_logged;
+		image_t *img;
+
+		if( !bind_fail_logged )
+		{
+			bind_fail_logged = true;
+			img = R_GetTexture( (unsigned)mt->gl_texturenum );
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G198 GX tex bind fail texnum=%d name=%s pixels=%d %dx%d\n",
+				mt->gl_texturenum, mt->name[0] ? mt->name : "?",
+				( img && img->pixels[0] ) ? 1 : 0,
+				img ? img->width : 0, img ? img->height : 0 );
+		}
+	}
+	return gxt;
 }
 
 /*
@@ -577,8 +669,11 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	const f32 fb_h = (f32)rmode->efbHeight;
 	const u32 sky = 0x5A8CD2FFu;
 
-	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_TRUE );
+	/* Color-only fill — never write Z here. Ortho depths poison the later
+	 * perspective LEQUAL test (DumpFrames stayed solid sky with drawn=179). */
+	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
 	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetColorUpdate( GX_TRUE );
 	GX_SetNumChans( 1 );
 	GX_SetNumTexGens( 0 );
 	GX_SetNumTevStages( 1 );
@@ -607,6 +702,38 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	GX_End();
 }
 
+static void R_GXClearDepthPerspective( GXRModeObj *rmode )
+{
+	Mtx44 ortho;
+	Mtx ident;
+	const f32 fb_w = (f32)rmode->fbWidth;
+	const f32 fb_h = (f32)rmode->efbHeight;
+
+	/* Far-Z fill under a throwaway ortho so perspective world LEQUAL starts clean. */
+	GX_SetColorUpdate( GX_FALSE );
+	GX_SetZMode( GX_TRUE, GX_ALWAYS, GX_TRUE );
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetNumChans( 0 );
+	GX_SetNumTexGens( 0 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLORNULL );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	guOrtho( ortho, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
+	GX_LoadProjectionMtx( ortho, GX_ORTHOGRAPHIC );
+	guMtxIdentity( ident );
+	GX_LoadPosMtxImm( ident, GX_PNMTX0 );
+	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+	GX_Position3f32( 0.0f, 0.0f, -1.0f );
+	GX_Position3f32( fb_w, 0.0f, -1.0f );
+	GX_Position3f32( fb_w, fb_h, -1.0f );
+	GX_Position3f32( 0.0f, fb_h, -1.0f );
+	GX_End();
+	GX_SetColorUpdate( GX_TRUE );
+}
+
 static void R_GXSetupWorld3DState( void )
 {
 	GXRModeObj *rmode = (GXRModeObj *)GC_GetGxVideoMode();
@@ -616,14 +743,22 @@ static void R_GXSetupWorld3DState( void )
 	if( !rmode )
 		return;
 
-	R_GXClearEfbSky( rmode );
+	if( r_gx_efb_dump_hold > 0 )
+		r_gx_efb_dump_hold--;
+	else
+	{
+		R_GXClearEfbSky( rmode );
+		R_GXClearDepthPerspective( rmode );
+	}
 
 	GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight, 0.0f, 1.0f );
 	GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
 	GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
+	/* G202: Z on again — eye-centered verts are in front of the camera.
+	 * Cull stays off: plane-quad winding is not BSP-edge ordered. */
 	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 	GX_SetColorUpdate( GX_TRUE );
-	GX_SetCullMode( GX_CULL_BACK );
+	GX_SetCullMode( GX_CULL_NONE );
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	GX_SetNumChans( 1 );
 	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
@@ -635,10 +770,65 @@ static void R_GXSetupWorld3DState( void )
 	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
 	GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
 
-	R_GXLoadMtx44FromXash( proj, RI.projectionMatrix );
+	/* G201: native GX frustum + Quake view basis (not Xash GL matrices). */
+	R_GXBuildWorldProjection( proj );
 	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
-	R_GXLoadMtxFromXashMV( mv, RI.worldviewMatrix );
+	R_GXBuildWorldModelview( mv );
 	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+
+	/* Optional camera-space marker: -gcmagenta (proved EFB→DumpFrames in G200). */
+	if( gEngfuncs.Sys_CheckParm( "-gcmagenta" ))
+	{
+		static int diag_left = 8;
+		if( diag_left > 0 )
+		{
+			Mtx44 persp;
+			Mtx ident;
+			diag_left--;
+			guPerspective( persp, 60.0f, (f32)rmode->fbWidth / Q_max( 1.0f, (f32)rmode->efbHeight ), 1.0f, 4096.0f );
+			GX_LoadProjectionMtx( persp, GX_PERSPECTIVE );
+			guMtxIdentity( ident );
+			GX_LoadPosMtxImm( ident, GX_PNMTX0 );
+			GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+			GX_SetCullMode( GX_CULL_NONE );
+			GX_SetNumChans( 1 );
+			GX_SetNumTexGens( 0 );
+			GX_SetNumTevStages( 1 );
+			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
+			GX_SetTevOp( GX_TEVSTAGE0, GX_PASSCLR );
+			GX_ClearVtxDesc();
+			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 3 );
+			GX_Position3f32( -80.0f, -60.0f, -120.0f );
+			GX_Color1u32( 0xFF00FFFFu );
+			GX_Position3f32( 80.0f, -60.0f, -120.0f );
+			GX_Color1u32( 0xFF00FFFFu );
+			GX_Position3f32( 0.0f, 70.0f, -120.0f );
+			GX_Color1u32( 0xFF00FFFFu );
+			GX_End();
+			if( diag_left == 7 )
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: G200 Flipper camera-space magenta diag\n" );
+			GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
+			GX_LoadPosMtxImm( mv, GX_PNMTX0 );
+			GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+		}
+	}
+	else
+	{
+		static qboolean g201_logged;
+		if( !g201_logged && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		{
+			vec3_t	forward, right, up;
+			g201_logged = true;
+			AngleVectors( RI.rvp.viewangles, forward, right, up );
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G201 Flipper guFrustum+lookAt fov_y=%.1f eye=(%.0f,%.0f,%.0f) fwd=(%.2f,%.2f,%.2f)\n",
+				RI.rvp.fov_y,
+				RI.rvp.vieworigin[0], RI.rvp.vieworigin[1], RI.rvp.vieworigin[2],
+				forward[0], forward[1], forward[2] );
+		}
+	}
 
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
@@ -742,34 +932,46 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 	qboolean textured = false;
 	qboolean lit = false;
 
-	if( !surf || !world || !world->vertexes || !world->surfedges )
-		return 0;
-	if( surf->numedges < 3 || surf->numedges > 32 )
-		return 0;
-	if( !world->edges16 && !world->edges32 )
+	if( !surf || !world )
 		return 0;
 
-	pverts = world->vertexes;
-
-	for( i = 0; i < surf->numedges; i++ )
+	/* G199: prefer capture-baked verts — live edges/surfedges dangle after scratch. */
+	if( slot >= 0 )
 	{
-		int lindex = world->surfedges[surf->firstedge + i];
-		int v;
-
-		if( world->edges32 )
-		{
-			medge32_t *e = ( lindex > 0 ) ? &world->edges32[lindex] : &world->edges32[-lindex];
-			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
-		}
-		else
-		{
-			medge16_t *e = ( lindex > 0 ) ? &world->edges16[lindex] : &world->edges16[-lindex];
-			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
-		}
-		if( v < 0 || v >= world->numvertexes )
+		extern int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
+		nverts = GC_GetNewGameCapFaceVerts( slot, pts, 32 );
+	}
+	if( nverts < 3 )
+	{
+		if( !world->vertexes || !world->surfedges )
 			return 0;
-		VectorCopy( pverts[v].position, pts[nverts] );
-		nverts++;
+		if( surf->numedges < 3 || surf->numedges > 32 )
+			return 0;
+		if( !world->edges16 && !world->edges32 )
+			return 0;
+
+		pverts = world->vertexes;
+		nverts = 0;
+		for( i = 0; i < surf->numedges; i++ )
+		{
+			int lindex = world->surfedges[surf->firstedge + i];
+			int v;
+
+			if( world->edges32 )
+			{
+				medge32_t *e = ( lindex > 0 ) ? &world->edges32[lindex] : &world->edges32[-lindex];
+				v = ( lindex > 0 ) ? e->v[0] : e->v[1];
+			}
+			else
+			{
+				medge16_t *e = ( lindex > 0 ) ? &world->edges16[lindex] : &world->edges16[-lindex];
+				v = ( lindex > 0 ) ? e->v[0] : e->v[1];
+			}
+			if( v < 0 || v >= world->numvertexes )
+				return 0;
+			VectorCopy( pverts[v].position, pts[nverts] );
+			nverts++;
+		}
 	}
 
 	if( nverts < 3 )
@@ -789,16 +991,80 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 				R_GXFaceST( surf, pts[i], &sts[i][0], &sts[i][1] );
 				if( slot >= 0 )
 				{
-					R_GXFaceLMST( surf, pts[i], &ls, &lt );
+					/* G207: 4-vert TEX/EDGE quads match the downsampled 4×4
+					 * face LM tile — map bake corners 0..1 into the atlas cell
+					 * instead of lmvecs (often mismatch → near-black samples). */
+					if( nverts == 4 )
+					{
+						static const float corner_uv[4][2] = {
+							{ 0.0f, 0.0f }, { 1.0f, 0.0f },
+							{ 1.0f, 1.0f }, { 0.0f, 1.0f }
+						};
+						ls = corner_uv[i][0];
+						lt = corner_uv[i][1];
+					}
+					else
+						R_GXFaceLMST( surf, pts[i], &ls, &lt );
 					GC_GetNewGameCapLightmapAtlasUV( slot, ls, lt, &lmst[i][0], &lmst[i][1] );
 				}
 			}
 			/* Cap atlas lightmaps only when we have a matching slot. */
 			lit = ( slot >= 0 ) ? R_GXBindLightmapAtlas() : false;
+			/* G207: re-enable LM for EDGE/TEX (boosted bake + corner atlas UV).
+			 * Plane-fallback quads still REPLACE — LM ST meaningless there. */
+			if( lit && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+			{
+				extern int GC_GetNewGameCapBakeSrc( int slot );
+				int bake = GC_GetNewGameCapBakeSrc( slot );
+				if( bake != 1 && bake != 3 )
+				{
+					static qboolean g202_logged;
+					lit = false;
+					if( !g202_logged )
+					{
+						g202_logged = true;
+						gEngfuncs.Con_Reportf(
+							"Xash3D GameCube: G202 Flipper REPLACE (plane bake; EDGE/TEX use LM)\n" );
+					}
+				}
+				else
+				{
+					static qboolean g207_logged;
+					if( !g207_logged )
+					{
+						g207_logged = true;
+						gEngfuncs.Con_Reportf(
+							"Xash3D GameCube: G207 Flipper LM on EDGE/TEX (boost+corner UV)\n" );
+					}
+				}
+			}
 		}
 	}
 	if( !textured )
 		color = R_GXFaceColor( surf );
+	else if( slot >= 0 && nverts == 4 )
+	{
+		extern int GC_GetNewGameCapBakeSrc( int slot );
+		int bake = GC_GetNewGameCapBakeSrc( slot );
+		/* G203/G205: only force 0..1 ST on plane-fallback quads. */
+		if( bake != 1 && bake != 3 )
+		{
+			static const float plane_uv[4][2] = {
+				{ 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f }
+			};
+			static qboolean g203_logged;
+			for( i = 0; i < 4; i++ )
+			{
+				sts[i][0] = plane_uv[i][0];
+				sts[i][1] = plane_uv[i][1];
+			}
+			if( !g203_logged && gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+			{
+				g203_logged = true;
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: G203 Flipper plane-quad ST 0..1\n" );
+			}
+		}
+	}
 
 	/* Turbulent / translucent surfaces: textured + alpha blend, no LM. */
 	if( textured && ( surf->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT )))
@@ -818,10 +1084,15 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 			GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
 			GX_SetNumTevStages( 2 );
-			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
-			GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+			/* Stage0: diffuse REPLACE (ignore vertex color dimming). */
+			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+			/* Stage1: * LM with Quake-style overbright (×2). */
 			GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
-			GX_SetTevOp( GX_TEVSTAGE1, GX_MODULATE );
+			GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
+			GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+			GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+			GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 			GX_ClearVtxDesc();
 			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
@@ -862,7 +1133,8 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			GX_SetNumTevStages( 1 );
 			GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
-			GX_SetTevOp( GX_TEVSTAGE0, GX_MODULATE );
+			/* G202: REPLACE shows the diffuse sheet clearly. */
+			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
 			GX_ClearVtxDesc();
 			GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
 			GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
@@ -1141,6 +1413,9 @@ int R_GXDrawNewGameCapFaces( void )
 	drawn = 0;
 	if( draw && n > 0 )
 	{
+		int backface_skips = 0;
+		int emit_fails = 0;
+
 		if( n > (int)( sizeof( order ) / sizeof( order[0] )))
 			n = (int)( sizeof( order ) / sizeof( order[0] ));
 
@@ -1150,21 +1425,31 @@ int R_GXDrawNewGameCapFaces( void )
 		{
 			float dot;
 			int area;
+			int got;
 			const int slot = order[i];
 			msurface_t *surf = &draw[slot];
 
 			if( !surf->plane )
+			{
+				emit_fails++;
 				continue;
+			}
 			dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
 			if( surf->flags & SURF_PLANEBACK )
 			{
 				if( dot > -BACKFACE_EPSILON )
+				{
+					backface_skips++;
 					continue;
+				}
 			}
 			else
 			{
 				if( dot < BACKFACE_EPSILON )
+				{
+					backface_skips++;
 					continue;
+				}
 			}
 			area = (int)surf->extents[0] * (int)surf->extents[1];
 			if( area > 0 && area < GC_GX_MIN_FACE_AREA )
@@ -1180,7 +1465,17 @@ int R_GXDrawNewGameCapFaces( void )
 				r_gx_face_skip_far++;
 				continue;
 			}
-			drawn += R_GXEmitFace( surf, world, slot );
+			got = R_GXEmitFace( surf, world, slot );
+			if( got <= 0 )
+				emit_fails++;
+			else
+				drawn += got;
+		}
+		if( !r_gx_world_logged && ( drawn > 0 || backface_skips > 0 || emit_fails > 0 ))
+		{
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G199 GX face filter drawn=%d backface=%d emit_fail=%d cull=%d of %d\n",
+				drawn, backface_skips, emit_fails, r_gx_face_skips, n );
 		}
 	}
 	else if( !( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() ))
@@ -1340,21 +1635,20 @@ static void R_GXPrepareStudioState( qboolean viewmodel )
 
 	r_gx_studio_mvp_valid = false;
 	r_gx_vm_fov_x = RI.rvp.fov_x > 1.0f ? RI.rvp.fov_x : 90.0f;
+	/* G201: same guFrustum world projection for studio/viewmodel. */
+	R_GXBuildWorldProjection( proj );
 	if( viewmodel )
 	{
-		/* G157: same projection as the world; eye-pose sync frames the gun. */
-		R_GXLoadMtx44FromXash( proj, RI.projectionMatrix );
+		/* G157: eye-pose sync frames the gun; keep Xash MVP for NDC telemetry. */
 		Matrix4x4_Concat( r_gx_studio_mvp, RI.projectionMatrix, RI.worldviewMatrix );
 		r_gx_studio_mvp_valid = true;
 		r_gx_vm_ndc_ymin = 1e9f;
 		r_gx_vm_ndc_ymax = -1e9f;
 		r_gx_vm_ndc_samples = 0;
 	}
-	else
-		R_GXLoadMtx44FromXash( proj, RI.projectionMatrix );
 
 	GX_LoadProjectionMtx( proj, GX_PERSPECTIVE );
-	R_GXLoadMtxFromXashMV( mv, RI.worldviewMatrix );
+	R_GXBuildWorldModelview( mv );
 	GX_LoadPosMtxImm( mv, GX_PNMTX0 );
 
 	GX_ClearVtxDesc();
@@ -1473,7 +1767,7 @@ void R_GXStudioBindTexnum( unsigned texnum )
 		return;
 	if( texnum == r_gx_studio_bound_tex && texnum != 0 )
 		return;
-	if( R_GXBindTexnum( texnum ))
+	if( R_GXBindTexnum( texnum, false ))
 		r_gx_studio_bound_tex = texnum;
 }
 
@@ -1620,7 +1914,7 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 	if( !r_gx_hud_2d_ready )
 		return false;
 
-	gxt = R_GXBindTexnum( (unsigned)texnum );
+	gxt = R_GXBindTexnum( (unsigned)texnum, true );
 	if( !gxt )
 		return false;
 

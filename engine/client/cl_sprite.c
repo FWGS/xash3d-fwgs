@@ -47,6 +47,8 @@ mspriteframe_t *R_GetSpriteFrame( const model_t *pModel, int frame, float yaw )
 		return NULL;
 
 	psprite = pModel->cache.data;
+	if( !psprite )
+		return NULL;
 
 	if( frame < 0 )
 	{
@@ -98,10 +100,13 @@ void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int cu
 {
 	mspriteframe_t *pFrame;
 
-	if( !pSprite || pSprite->type != mod_sprite )
+	if( !pSprite || pSprite->type != mod_sprite || !pSprite->cache.data )
 		return;
 
 	pFrame = R_GetSpriteFrame( pSprite, currentFrame, 0.0f );
+	/* Lean/GameCube HUD may leave HSPRITE handles whose frames never loaded. */
+	if( !pFrame )
+		return;
 
 	if( frameWidth )
 		*frameWidth = pFrame->width;
@@ -113,10 +118,16 @@ void R_GetSpriteParms( int *frameWidth, int *frameHeight, int *numFrames, int cu
 
 int R_GetSpriteTexture( const model_t *m_pSpriteModel, int frame )
 {
+	mspriteframe_t *pFrame;
+
 	if( !m_pSpriteModel || m_pSpriteModel->type != mod_sprite || !m_pSpriteModel->cache.data )
 		return 0;
 
-	return R_GetSpriteFrame( m_pSpriteModel, frame, 0.0f )->gl_texturenum;
+	pFrame = R_GetSpriteFrame( m_pSpriteModel, frame, 0.0f );
+	if( !pFrame )
+		return 0;
+
+	return pFrame->gl_texturenum;
 }
 
 static void Mod_SpriteTextureReplacementReport( const char *modelname, int gl_texturenum, const char *foundpath )

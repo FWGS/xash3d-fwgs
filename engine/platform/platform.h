@@ -173,6 +173,7 @@ qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without t
 void GC_ApplyNewGameSurfVis( int surf_frame );
 int GC_GetNewGameCapFaceCount( void );
 int GC_GetNewGameCapGeneration( void ); /* G179: bumps when cap faces/LMs rewrite */
+int GC_GetNewGameCapBakeSrc( int slot ); /* G204/G205: 1=edge, 2=plane, 3=tex, 0=none */
 struct msurface_s *GC_GetNewGameDrawSurfs( void );
 const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h );
 const unsigned short *GC_GetNewGameCapLightmapAtlas( int *w, int *h ); /* G180 */

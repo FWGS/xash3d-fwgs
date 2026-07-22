@@ -96,13 +96,36 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G195: Flipper resume after soft DumpFrames (clear soft-lock; G159 gx=1)
 - G196: Flipper DumpFrames wall-aim after resume (G189/G190 eye for N SCR frames)
 - G198: Pure Flipper GX renderer (retail default; soft DumpFrames diagnostic-only)
+- G198b: cap faces + LM atlas BSS + Flipper textured/LM walls (not sky-only)
+- G199: bake Flipper verts (s16 reclaim LM staging + plane-quad fallback); emit_fail=0
+- G200: DumpFrames EFB path proven (camera-space magenta); EFB hold + HUD sprite null fix
+- G201: guFrustum+lookAt + eye-centered plane bake; DumpFrames show Flipper walls (not sky)
+- G202: Flipper diffuse REPLACE (skip LM crush on eye-centered quads); restore Z test
+- G203: plane-quad ST 0..1 + LINEAR world filter (readable textured walls)
+- G204: preserve edge-baked verts through wall-aim; LM+texinfo ST for EDGE only
+- G205: texinfo ST bake (real world pos) between edge and plane; LM for EDGE+TEX
+- G206: REPLACE diffuse on EDGE/TEX verts (defer LM crush); keep real ST shapes
+- G207: LM on EDGE/TEX — boost bake + corner atlas UV + TEV ×2
+- G208: skip tram changelevel under -gcnewgame (avoid MEM1 OOM aborting G36)
 
 **Immediate source queue (open automatic goals, in order):**
 1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) for pure Flipper
 2. ~~G197~~ — obsolete once soft DumpFrames path is not the retail present route
 
 Evidence anchors:
-- `.ai/logs/dolphin-probe-20260721-123257` (G198 pure Flipper: G36 PASS; sky-only Flipper present when G132 surfaces unpromoted; no soft raster hang)
+- `.ai/logs/dolphin-probe-20260721-205548` (G208+G207: G36 PASS; LM=241; hold map no auto-hop; avg≈87)
+- `.ai/logs/dolphin-probe-20260721-204445` (G208+G207: G36 PASS; LM=241; skip changelevel; avg≈87)
+- `.ai/logs/dolphin-probe-20260721-204230` (G207: LM=241/241 avg≈87 uniq≈1859; G36 FAIL changelevel OOM)
+- `.ai/logs/dolphin-probe-20260721-203811` (G206: REPLACE on EDGE/TEX; sky%=0 avg≈115 uniq≈2314; tex=295; G36 PASS)
+- `.ai/logs/dolphin-probe-20260721-203600` (G205: edge=25 tex=295 plane=0; LM=241/241; dark avg≈12; G36 PASS)
+- `.ai/logs/dolphin-probe-20260721-203232` (G204: edge preserved=25 LM=23; wall-aim bake=1; G36 PASS; sky%~48)
+- `.ai/logs/dolphin-probe-20260721-202644` (G203: plane ST+LINEAR; DumpFrames uniq=2456 avg≈116; G202/G201e)
+- `.ai/logs/dolphin-probe-20260721-202438` (G202: diffuse REPLACE; DumpFrames avg≈121 readable walls; lm=0; G201e rebake)
+- `.ai/logs/dolphin-probe-20260721-201859` (G201e: G36 PASS; rebaked eye quads; DumpFrames non-sky Flipper walls; drawn=180)
+- `.ai/logs/dolphin-probe-20260721-193708` (G200: magenta DumpFrames proof; world still sky-only under Xash GL proj)
+- `.ai/logs/dolphin-probe-20260721-191447` (G199: G36 PASS; baked=320; drawn=179 emit_fail=0; G152/G154 all textured+LM)
+- `.ai/logs/dolphin-probe-20260721-182707` (G198b: G36 PASS; G160 faces=320; G180 atlas; G152 textured=15 LM=15; not sky-only)
+- `.ai/logs/dolphin-probe-20260721-123257` (G198 pure Flipper: G36 PASS; sky-only when G132 surfaces unpromoted)
 - `.ai/logs/hardware-handoff-20260721-121855` (G198 pure Flipper handoff: boot.dol + ISO + operator checklist)
 - `.ai/logs/dolphin-probe-20260721-114349` (G196 wall-aim begin/ready; G195/G194; soft f20–f23 intact)
 - `.ai/logs/dolphin-probe-20260721-105226` (G195 Flipper resume; G151 drawn=203; G159 gx=1; soft f20–f23 intact)

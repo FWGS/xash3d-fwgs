@@ -803,6 +803,23 @@ void SV_QueueChangeLevel( const char *level, const char *landname )
 	uint	flags, smooth = false;
 	char	mapname[MAX_QPATH];
 
+#if XASH_GAMECUBE
+	/* G208: tram/landmark changelevel OOMs MEM1 (~194 KiB planes) and aborts
+	 * G36 after Flipper walls already present. Hold on c0a0 unless the probe
+	 * explicitly requested -gcchangelevel. */
+	if( Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
+	{
+		static qboolean logged;
+		if( !logged )
+		{
+			logged = true;
+			Con_Reportf( "Xash3D GameCube: G208 skip changelevel to %s (hold Flipper map)\n",
+				level ? level : "?" );
+		}
+		return;
+	}
+#endif
+
 	// hold mapname to other place
 	Q_strncpy( mapname, level, sizeof( mapname ));
 	COM_StripExtension( mapname );
