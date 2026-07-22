@@ -167,10 +167,47 @@ static void SV_SourceQuery_Players( netadr_t from )
 
 /*
 ==================
+SV_SourceQuery_CheckChallenge
+
+Validates the challenge that follows the query type byte.
+On missing, mismatched or explicitly requested (-1) challenge,
+replies with a new challenge for this address.
+==================
+*/
+static qboolean SV_SourceQuery_CheckChallenge( netadr_t from, sizebuf_t *msg )
+{
+	qboolean error = false;
+
+	MSG_SeekToBit( msg, ( sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
+	int challenge = MSG_ReadLong( msg );
+
+	if( !MSG_CheckOverflow( msg ) && challenge != -1 && SV_ValidateChallenge( from, challenge ))
+		return true;
+
+	challenge = SV_CreateChallenge( from, &error );
+	if( error )
+		return false;
+
+	sizebuf_t buf;
+	char answer[16];
+
+	MSG_Init( &buf, "QueryChallenge", answer, sizeof( answer ));
+
+	MSG_WriteDword( &buf, 0xFFFFFFFFU );
+	MSG_WriteByte( &buf, S2C_GOLDSRC_CHALLENGE[0] );
+	MSG_WriteLong( &buf, challenge );
+
+	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &buf ), MSG_GetData( &buf ), from );
+
+	return false;
+}
+
+/*
+==================
 SV_SourceQuery_HandleConnnectionlessPacket
 ==================
 */
-void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from )
+void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from, sizebuf_t *msg )
 {
 	if( !Q_strcmp( c, A2S_GOLDSRC_INFO ))
 	{
@@ -179,10 +216,12 @@ void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from )
 	else switch( c[0] )
 	{
 	case A2S_GOLDSRC_RULES:
-		SV_SourceQuery_Rules( from );
+		if( SV_SourceQuery_CheckChallenge( from, msg ))
+			SV_SourceQuery_Rules( from );
 		break;
 	case A2S_GOLDSRC_PLAYERS:
-		SV_SourceQuery_Players( from );
+		if( SV_SourceQuery_CheckChallenge( from, msg ))
+			SV_SourceQuery_Players( from );
 		break;
 	}
 }

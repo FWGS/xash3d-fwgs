@@ -109,11 +109,43 @@ static int SV_GetChallenge( netadr_t from, uint32_t time_window, qboolean *error
 	return digest[0] | digest[1] << 8 | digest[2] << 16 | digest[3] << 24;
 }
 
-static void SV_SendChallenge( netadr_t from, qboolean skip_bandwidth_test )
+/*
+=================
+SV_CreateChallenge
+=================
+*/
+int SV_CreateChallenge( netadr_t from, qboolean *error )
+{
+	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
+
+	return SV_GetChallenge( from, time_window, error );
+}
+
+/*
+=================
+SV_ValidateChallenge
+=================
+*/
+qboolean SV_ValidateChallenge( netadr_t from, int challenge )
 {
 	qboolean error = false;
 	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
-	int challenge = SV_GetChallenge( from, time_window, &error );
+
+	// accept the current window and the previous one so challenges issued just
+	// before a window boundary remain valid for the full expected lifetime
+	if( SV_GetChallenge( from, time_window, &error ) == challenge && !error )
+		return true;
+
+	if( SV_GetChallenge( from, time_window - 1, &error ) == challenge && !error )
+		return true;
+
+	return false;
+}
+
+static void SV_SendChallenge( netadr_t from, qboolean skip_bandwidth_test )
+{
+	qboolean error = false;
+	int challenge = SV_CreateChallenge( from, &error );
 
 	if( error )
 		return;
@@ -213,15 +245,7 @@ Make sure connecting client is not spoofing
 */
 static int SV_CheckChallenge( netadr_t from, int challenge )
 {
-	qboolean error = false;
-	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
-
-	// accept the current window and the previous one so challenges issued just
-	// before a window boundary remain valid for the full expected lifetime
-	if( SV_GetChallenge( from, time_window, &error ) == challenge && !error )
-		return true;
-
-	if( SV_GetChallenge( from, time_window - 1, &error ) == challenge && !error )
+	if( SV_ValidateChallenge( from, challenge ))
 		return true;
 
 	SV_RejectConnection( from, "no challenge for your address\n" );
@@ -3138,7 +3162,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	// `pcmd` points only to the first word from the query string.
 	if( !Q_strcmp( args, A2S_GOLDSRC_INFO ) || pcmd[0] == A2S_GOLDSRC_PLAYERS || pcmd[0] == A2S_GOLDSRC_RULES )
 	{
-		SV_SourceQuery_HandleConnnectionlessPacket( args, from );
+		SV_SourceQuery_HandleConnnectionlessPacket( args, from, msg );
 	}
 	else if( !Q_strcmp( pcmd, A2A_INFO ))
 	{

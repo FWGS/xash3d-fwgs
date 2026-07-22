@@ -542,6 +542,8 @@ void SV_UpdateServerInfo( void );
 void SV_EndRedirect( host_redirect_t *rd );
 void SV_RejectConnection( netadr_t from, const char *fmt, ... ) FORMAT_CHECK( 2 );
 void SV_GetPlayerCount( int *clients, int *bots );
+int SV_CreateChallenge( netadr_t from, qboolean *error );
+qboolean SV_ValidateChallenge( netadr_t from, int challenge );
 
 static inline qboolean SV_HavePassword( void )
 {
@@ -701,6 +703,6 @@ int SV_LightForEntity( edict_t *pEdict );
 //
 // sv_query.c
 //
-void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from );
+void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from, sizebuf_t *msg );
 
 #endif//SERVER_H
