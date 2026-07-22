@@ -171,6 +171,10 @@ qboolean GC_HasNewGameCachedVis( void ); /* G83: prepare-time FatPVS + parent ma
 qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without tree walks */
 /* G132: stamp msurface visframe from capture-time bits (marksurfaces dangle after scratch). */
 void GC_ApplyNewGameSurfVis( int surf_frame );
+qboolean GC_WorldSurfacesLive( void ); /* G213: live Flipper beyond 320-cap */
+int GC_GetLiveFaceCount( void );
+struct msurface_s *GC_GetLiveDrawSurfs( void ); /* always NULL — use Fill */
+qboolean GC_FillLiveDrawSurf( int index, struct msurface_s *out, mtexinfo_t *tex_out );
 int GC_GetNewGameCapFaceCount( void );
 int GC_GetNewGameCapGeneration( void ); /* G179: bumps when cap faces/LMs rewrite */
 int GC_GetNewGameCapBakeSrc( int slot ); /* G204/G205: 1=edge, 2=plane, 3=tex, 0=none */

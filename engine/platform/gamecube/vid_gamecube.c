@@ -184,11 +184,146 @@ static int gc_newgame_cap_generation; /* bumps when faces/LMs rewrite */
 static qboolean gc_newgame_cap_lm_atlas_ready;
 static qboolean gc_g176_logged;
 static qboolean gc_g180_logged;
+static qboolean gc_g212_logged;
+static qboolean gc_g212_stream_locked; /* hold near-eye set; stop cluster refresh thrash */
 static vec3_t gc_newgame_capture_origin; /* G132/G201e: bake + dump camera eye */
+/* G213: compact PVS faces on heap (full msurface promote is 662 KiB OOM).
+ * Emit walks mempool edges16/surfedges; planes/texinfo are copied here. */
+/*
+ * G213: lean live-face pool for Flipper beyond the 320 LM-cap snapshot.
+ * Full msurface_t promote (~662 KiB) OOMs; full gc_refresh_cand_t + draw
+ * arrays also starve MEM1 after FatPVS. Allocate a compact geom table
+ * BEFORE lean FatPVS calloc, then fill from surfbits. Emit builds a stack
+ * msurface_t (no resident draw array).
+ */
+typedef struct
+{
+	int		firstedge;
+	int		numedges;
+	int		flags;
+	int		area;
+	mplane_t	plane;
+	short		texturemins[2];
+	short		extents[2];
+	byte		styles[MAXLIGHTMAPS];
+	float		vecs[2][4];
+	texture_t	*texture;
+	int		tex_flags;
+	qboolean	has_tex;
+} gc_live_cand_t;
+#define GC_LIVE_MAX_FACES 256
+static gc_live_cand_t *gc_live_faces;
+static int gc_live_face_capacity;
+static int gc_live_face_count;
+static int *gc_live_face_scores; /* sized with pool */
+static qboolean gc_g213_live_logged;
+
+/*
+ * G212: keep-score for the 320-slot Flipper budget. MEM1 cannot hold all BSP30
+ * faces, so stream the set toward geometry near the dump/capture eye — local
+ * room walls beat distant towers that leave sky holes in DumpFrames.
+ */
+static int GC_CapNearEyeScore( const mplane_t *pl, int area, qboolean is_wall )
+{
+	float	dist;
+	int	score = area;
+
+	if( area <= 0 )
+		return 0;
+	if( is_wall )
+		score += ( area >> 1 );
+	if( !pl || VectorIsNull( gc_newgame_capture_origin ))
+		return score;
+	dist = (float)fabs( DotProduct( gc_newgame_capture_origin, pl->normal ) - pl->dist );
+	if( dist < 192.0f )
+		score += 250000;
+	else if( dist < 384.0f )
+		score += 120000;
+	else if( dist < 768.0f )
+		score += 50000;
+	else if( dist > 1536.0f )
+		score /= 3;
+	else if( dist > 1024.0f )
+		score /= 2;
+	return score;
+}
+
+static int GC_CapSlotKeepScore( int slot )
+{
+	const gc_cap_face_t *f;
+	int area;
+	qboolean wall;
+	int score;
+
+	if( slot < 0 || slot >= gc_newgame_cap_face_count )
+		return 0;
+	f = &gc_newgame_cap_faces[slot];
+	area = (int)f->extents[0] * (int)f->extents[1];
+	wall = ( fabs( f->plane.normal[2] ) < 0.35f );
+	score = GC_CapNearEyeScore( &f->plane, area, wall );
+	if( !gc_newgame_cap_lm_real[slot] )
+		score -= 1;
+	return score;
+}
 
 int GC_GetNewGameCapFaceCount( void )
 {
 	return gc_newgame_cap_face_count;
+}
+
+/* G213: compact live faces and/or full surface pin. */
+qboolean GC_WorldSurfacesLive( void )
+{
+	model_t *wmodel;
+
+	if( gc_live_face_count > 0 && gc_live_faces )
+		return true;
+	wmodel = sv.models[1];
+#if !XASH_DEDICATED
+	if( !wmodel )
+		wmodel = cl.worldmodel;
+#endif
+	return Mod_GCWorldSurfacesPinned( wmodel );
+}
+
+int GC_GetLiveFaceCount( void )
+{
+	return gc_live_face_count;
+}
+
+msurface_t *GC_GetLiveDrawSurfs( void )
+{
+	/* Draw surfs are stack-built via GC_FillLiveDrawSurf — no resident array. */
+	return NULL;
+}
+
+qboolean GC_FillLiveDrawSurf( int index, msurface_t *out, mtexinfo_t *tex_out )
+{
+	gc_live_cand_t *src;
+
+	if( !out || index < 0 || index >= gc_live_face_count || !gc_live_faces )
+		return false;
+	src = &gc_live_faces[index];
+	memset( out, 0, sizeof( *out ));
+	out->firstedge = src->firstedge;
+	out->numedges = src->numedges;
+	out->flags = src->flags;
+	out->plane = &src->plane;
+	out->texturemins[0] = src->texturemins[0];
+	out->texturemins[1] = src->texturemins[1];
+	out->extents[0] = src->extents[0];
+	out->extents[1] = src->extents[1];
+	memcpy( out->styles, src->styles, sizeof( out->styles ));
+	if( src->has_tex && tex_out )
+	{
+		memset( tex_out, 0, sizeof( *tex_out ));
+		memcpy( tex_out->vecs, src->vecs, sizeof( src->vecs ));
+		tex_out->texture = src->texture;
+		tex_out->flags = src->tex_flags;
+		tex_out->faceinfo = NULL;
+		out->texinfo = tex_out;
+	}
+	return true;
 }
 
 int GC_GetNewGameCapGeneration( void )
@@ -238,6 +373,7 @@ static int GC_BakeCapVertsFromModel( model_t *wmodel, int firstedge, int numedge
 	signed short out[][3], int maxverts )
 {
 	int i, n = 0;
+	int nedges;
 
 	if( !wmodel || !wmodel->vertexes || !wmodel->surfedges || !out || numedges < 3 )
 		return 0;
@@ -245,23 +381,30 @@ static int GC_BakeCapVertsFromModel( model_t *wmodel, int firstedge, int numedge
 		return 0;
 	if( firstedge < 0 || firstedge + numedges > wmodel->numsurfedges )
 		return 0;
+	nedges = wmodel->numedges;
+	if( nedges < 1 )
+		return 0;
 	if( numedges > maxverts )
 		numedges = maxverts;
 	for( i = 0; i < numedges; i++ )
 	{
 		int lindex = wmodel->surfedges[firstedge + i];
+		int eabs = ( lindex > 0 ) ? lindex : -lindex;
 		int v;
 		const float *pos;
 
-		/* Match Mod_GetVertexByNumber / R_GXEmitFace (lindex > 0). */
-		if( wmodel->edges32 )
+		/* G209: reject OOB edge indices (was aborting whole bake → tex-only). */
+		if( eabs <= 0 || eabs >= nedges )
+			return 0;
+		/* Prefer edges16 when present — HL1 maps; edges32 may be stale pin. */
+		if( wmodel->edges16 )
 		{
-			medge32_t *e = ( lindex > 0 ) ? &wmodel->edges32[lindex] : &wmodel->edges32[-lindex];
+			medge16_t *e = &wmodel->edges16[eabs];
 			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
 		}
 		else
 		{
-			medge16_t *e = ( lindex > 0 ) ? &wmodel->edges16[lindex] : &wmodel->edges16[-lindex];
+			medge32_t *e = &wmodel->edges32[eabs];
 			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
 		}
 		if( v < 0 || v >= wmodel->numvertexes )
@@ -633,17 +776,16 @@ static void GC_BakeCapLightmap( const msurface_t *src, int slot )
 			if( lm && sx >= 0 && sy >= 0 && sx < smax && sy < tmax )
 			{
 				const color24 *c = &lm[sy * smax + sx];
-				/* G207: keep full RGB565 range — old crush + MODULATE made
-				 * DumpFrames near-black (avg≈12). Boost then clamp. */
-				unsigned r = ((unsigned)c->r * 2u);
-				unsigned g = ((unsigned)c->g * 2u);
-				unsigned b = ((unsigned)c->b * 2u);
-				if( r < 96 )
-					r = 96;
-				if( g < 96 )
-					g = 96;
-				if( b < 96 )
-					b = 96;
+				/* G209: stronger boost toward REPLACE brightness (~115 avg). */
+				unsigned r = ((unsigned)c->r * 3u);
+				unsigned g = ((unsigned)c->g * 3u);
+				unsigned b = ((unsigned)c->b * 3u);
+				if( r < 128 )
+					r = 128;
+				if( g < 128 )
+					g = 128;
+				if( b < 128 )
+					b = 128;
 				if( r > 255 )
 					r = 255;
 				if( g > 255 )
@@ -1099,12 +1241,14 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	if( !wmodel || !wmodel->surfaces || !surfbits || gc_newgame_surfbytes <= 0 )
 		return;
 
-	/* Pass 1 (G150): online top-K by area into area_slots — not surface order.
-	 * G160: +50% score for near-vertical walls so outdoor towers beat floors. */
+	/* Pass 1 (G150/G212): online top-K by near-eye keep-score into area_slots.
+	 * G160 wall boost + G212 eye proximity so the 320 Flipper slots track local
+	 * BSP geometry instead of map-wide towers. */
 	for( i = 0; i < wmodel->numsurfaces; i++ )
 	{
 		msurface_t *src;
 		int area;
+		int score;
 		qboolean is_wall;
 
 		if( !( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
@@ -1119,16 +1263,14 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 			continue;
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
 		if( is_wall )
-		{
-			area += ( area >> 1 );
 			wall_boost++;
-		}
+		score = GC_CapNearEyeScore( src->plane, area, is_wall );
 
 		if( gc_newgame_cap_face_count < area_slots )
 		{
 			if( !GC_CaptureOneDrawFaceAtEx( wmodel, i, gc_newgame_cap_face_count, true ))
 				continue;
-			gc_newgame_cap_areas[gc_newgame_cap_face_count] = area;
+			gc_newgame_cap_areas[gc_newgame_cap_face_count] = score;
 			if( src->texinfo && src->texinfo->texture )
 				gc_newgame_cap_tex_faces++;
 			gc_newgame_cap_face_count++;
@@ -1148,15 +1290,15 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 				}
 			}
 		}
-		if( area <= min_area )
+		if( score <= min_area )
 			continue;
 		{
 			qboolean had_tex = ( gc_newgame_cap_faces[min_i].texinfo.texture != NULL );
 
 			if( !GC_CaptureOneDrawFaceAtEx( wmodel, i, min_i, true ))
 				continue;
-			/* Store boosted score so later compares stay consistent. */
-			gc_newgame_cap_areas[min_i] = area;
+			/* Store keep-score so later compares stay consistent. */
+			gc_newgame_cap_areas[min_i] = score;
 			if( had_tex && !( src->texinfo && src->texinfo->texture ))
 				gc_newgame_cap_tex_faces--;
 			else if( !had_tex && src->texinfo && src->texinfo->texture )
@@ -1216,6 +1358,224 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	}
 }
 
+
+/*
+ * G213: heap-backed compact PVS faces (full surface promote is 662 KiB OOM).
+ * Emit uses mempool edges via firstedge; planes/texinfo are snapshotted here.
+ */
+static void GC_FreeLiveFaces( void )
+{
+	if( gc_live_faces )
+	{
+		free( gc_live_faces );
+		gc_live_faces = NULL;
+	}
+	if( gc_live_face_scores )
+	{
+		free( gc_live_face_scores );
+		gc_live_face_scores = NULL;
+	}
+	gc_live_face_capacity = 0;
+	gc_live_face_count = 0;
+	gc_g213_live_logged = false;
+}
+
+/* Allocate lean live-face pool BEFORE FatPVS calloc — after lean tables
+ * reside, even 64×(cand+msurface) OOMs. */
+static qboolean GC_AllocLiveFacePool( int want )
+{
+	int max_faces = want;
+
+	if( gc_live_faces && gc_live_face_capacity > 0 )
+		return true;
+	GC_FreeLiveFaces();
+	if( max_faces > GC_LIVE_MAX_FACES )
+		max_faces = GC_LIVE_MAX_FACES;
+	while( max_faces >= 64 )
+	{
+		size_t cand_bytes = (size_t)max_faces * sizeof( gc_live_cand_t );
+		size_t score_bytes = (size_t)max_faces * sizeof( int );
+
+		gc_live_faces = (gc_live_cand_t *)malloc( cand_bytes );
+		gc_live_face_scores = (int *)malloc( score_bytes );
+		if( gc_live_faces && gc_live_face_scores )
+		{
+			gc_live_face_capacity = max_faces;
+			gc_live_face_count = 0;
+			memset( gc_live_faces, 0, cand_bytes );
+			memset( gc_live_face_scores, 0, score_bytes );
+			SYS_Report( "Xash3D GameCube: G213 live face pool max=%d (~%u Kb lean)\n",
+				max_faces, (unsigned)(( cand_bytes + score_bytes ) / 1024 ));
+			return true;
+		}
+		if( gc_live_faces )
+		{
+			free( gc_live_faces );
+			gc_live_faces = NULL;
+		}
+		if( gc_live_face_scores )
+		{
+			free( gc_live_face_scores );
+			gc_live_face_scores = NULL;
+		}
+		max_faces /= 2;
+	}
+	SYS_Report( "Xash3D GameCube: G213 live face pool OOM\n" );
+	return false;
+}
+
+/* Re-score lean live faces after dump eye moves capture_origin (geom already snapshotted). */
+static void GC_RerankLiveFacesNearEye( void )
+{
+	int i, swapped;
+
+	if( !gc_live_faces || gc_live_face_count <= 1 || !gc_live_face_scores )
+		return;
+	for( i = 0; i < gc_live_face_count; i++ )
+	{
+		gc_live_cand_t *c = &gc_live_faces[i];
+		qboolean is_wall = ( fabs( c->plane.normal[2] ) < 0.35f );
+
+		gc_live_face_scores[i] = GC_CapNearEyeScore( &c->plane, c->area, is_wall );
+	}
+	/* Simple bubble so near-eye walls emit first within the Flipper budget. */
+	do
+	{
+		swapped = 0;
+		for( i = 0; i < gc_live_face_count - 1; i++ )
+		{
+			if( gc_live_face_scores[i + 1] > gc_live_face_scores[i] )
+			{
+				int ts = gc_live_face_scores[i];
+				gc_live_cand_t tc = gc_live_faces[i];
+
+				gc_live_face_scores[i] = gc_live_face_scores[i + 1];
+				gc_live_face_scores[i + 1] = ts;
+				gc_live_faces[i] = gc_live_faces[i + 1];
+				gc_live_faces[i + 1] = tc;
+				swapped = 1;
+			}
+		}
+	} while( swapped );
+	SYS_Report( "Xash3D GameCube: G213 live faces reranked n=%d top_score=%d eye=(%.0f,%.0f,%.0f)\n",
+		gc_live_face_count, gc_live_face_scores[0],
+		gc_newgame_capture_origin[0], gc_newgame_capture_origin[1],
+		gc_newgame_capture_origin[2] );
+}
+
+static void GC_CaptureLiveFacesFromSurfbits( model_t *wmodel, const byte *surfbits )
+{
+	int i, max_faces;
+	int replaced = 0;
+
+	if( !wmodel || !wmodel->surfaces || !surfbits || gc_newgame_surfbytes <= 0 )
+		return;
+	if( !wmodel->surfedges || !wmodel->vertexes || ( !wmodel->edges16 && !wmodel->edges32 ))
+		return;
+	/* After scratch reuse, plane* dangles — never wipe a good early pool. */
+	if( !Mod_GCWorldSurfacesPinned( wmodel ) && gc_live_face_count > 0 )
+	{
+		SYS_Report( "Xash3D GameCube: G213 live faces keep early pool n=%d (surfaces dangling)\n",
+			gc_live_face_count );
+		return;
+	}
+	if( !gc_live_faces || gc_live_face_capacity <= 0 )
+	{
+		if( !GC_AllocLiveFacePool( GC_LIVE_MAX_FACES ))
+			return;
+	}
+
+	max_faces = gc_live_face_capacity;
+	gc_live_face_count = 0;
+	memset( gc_live_faces, 0, (size_t)max_faces * sizeof( gc_live_cand_t ));
+	memset( gc_live_face_scores, 0, (size_t)max_faces * sizeof( int ));
+
+	for( i = 0; i < wmodel->numsurfaces; i++ )
+	{
+		msurface_t *src;
+		int area, score, min_i, min_score, k;
+		qboolean is_wall;
+		gc_live_cand_t *dst;
+
+		if( !( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
+			continue;
+		src = &wmodel->surfaces[i];
+		if( !src->plane || src->numedges < 3 || src->numedges > 32 )
+			continue;
+		if( src->firstedge < 0
+			|| src->firstedge + src->numedges > wmodel->numsurfedges )
+			continue;
+		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+			continue;
+		area = (int)src->extents[0] * (int)src->extents[1];
+		if( area <= 0 )
+			continue;
+		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
+		score = GC_CapNearEyeScore( src->plane, area, is_wall );
+
+		if( gc_live_face_count < max_faces )
+		{
+			dst = &gc_live_faces[gc_live_face_count];
+			dst->firstedge = src->firstedge;
+			dst->numedges = src->numedges;
+			dst->flags = src->flags;
+			dst->area = area;
+			dst->plane = *src->plane;
+			dst->texturemins[0] = src->texturemins[0];
+			dst->texturemins[1] = src->texturemins[1];
+			dst->extents[0] = src->extents[0];
+			dst->extents[1] = src->extents[1];
+			memcpy( dst->styles, src->styles, sizeof( dst->styles ));
+			if( src->texinfo && src->texinfo->texture )
+			{
+				memcpy( dst->vecs, src->texinfo->vecs, sizeof( dst->vecs ));
+				dst->texture = src->texinfo->texture;
+				dst->tex_flags = src->texinfo->flags;
+				dst->has_tex = true;
+			}
+			gc_live_face_scores[gc_live_face_count] = score;
+			gc_live_face_count++;
+			continue;
+		}
+		min_i = 0;
+		min_score = gc_live_face_scores[0];
+		for( k = 1; k < max_faces; k++ )
+		{
+			if( gc_live_face_scores[k] < min_score )
+			{
+				min_score = gc_live_face_scores[k];
+				min_i = k;
+			}
+		}
+		if( score <= min_score )
+			continue;
+		dst = &gc_live_faces[min_i];
+		memset( dst, 0, sizeof( *dst ));
+		dst->firstedge = src->firstedge;
+		dst->numedges = src->numedges;
+		dst->flags = src->flags;
+		dst->area = area;
+		dst->plane = *src->plane;
+		dst->texturemins[0] = src->texturemins[0];
+		dst->texturemins[1] = src->texturemins[1];
+		dst->extents[0] = src->extents[0];
+		dst->extents[1] = src->extents[1];
+		memcpy( dst->styles, src->styles, sizeof( dst->styles ));
+		if( src->texinfo && src->texinfo->texture )
+		{
+			memcpy( dst->vecs, src->texinfo->vecs, sizeof( dst->vecs ));
+			dst->texture = src->texinfo->texture;
+			dst->tex_flags = src->texinfo->flags;
+			dst->has_tex = true;
+		}
+		gc_live_face_scores[min_i] = score;
+		replaced++;
+	}
+
+	SYS_Report( "Xash3D GameCube: G213 live faces=%d max=%d replaced=%d (lean early pool, edges mempool)\n",
+		gc_live_face_count, max_faces, replaced );
+}
+
 /*
  * G163/G170: live cluster face refresh without sample LM rebake.
  * Deferred + incremental: keep baked faces; admit up to GC_CAP_REFRESH_NEW_MAX
@@ -1226,7 +1586,7 @@ static qboolean gc_cap_refresh_pending;
 /* G188: landmark put-in reposition wants a fresh cap-face set at that origin. */
 static qboolean gc_g188_reposition_pending;
 
-/* Prefer larger faces first so outdoor wall swaps beat leftover floors. */
+/* Prefer near-eye / larger faces first so local walls beat distant floors. */
 static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
 {
 	int i, j;
@@ -1239,7 +1599,14 @@ static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
 	{
 		for( j = i + 1; j < n; j++ )
 		{
-			if( gc_refresh_cands[cache_slot][j].area > gc_refresh_cands[cache_slot][i].area )
+			const gc_refresh_cand_t *a = &gc_refresh_cands[cache_slot][i];
+			const gc_refresh_cand_t *b = &gc_refresh_cands[cache_slot][j];
+			int sa = GC_CapNearEyeScore( &a->plane, a->area,
+				fabs( a->plane.normal[2] ) < 0.35f );
+			int sb = GC_CapNearEyeScore( &b->plane, b->area,
+				fabs( b->plane.normal[2] ) < 0.35f );
+
+			if( sb > sa )
 			{
 				gc_refresh_cand_t tmp = gc_refresh_cands[cache_slot][i];
 				gc_refresh_cands[cache_slot][i] = gc_refresh_cands[cache_slot][j];
@@ -1314,7 +1681,8 @@ static qboolean GC_InstallRefreshCand( const gc_refresh_cand_t *cand, int slot )
 	draw->info = &dst->info;
 	if( dst->texinfo.texture )
 		draw->texinfo = &dst->texinfo;
-	gc_newgame_cap_areas[slot] = cand->area;
+	gc_newgame_cap_areas[slot] = GC_CapNearEyeScore( &cand->plane, cand->area,
+		fabs( cand->plane.normal[2] ) < 0.35f );
 	{
 		model_t *wmodel = sv.models[1];
 #if !XASH_DEDICATED
@@ -1372,8 +1740,9 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 		msurface_t *src;
 		gc_refresh_cand_t *dst;
 		int area;
+		int score;
 		qboolean is_wall;
-		int min_i, min_area;
+		int min_i, min_score;
 
 		if( !( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
 			continue;
@@ -1390,14 +1759,11 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 			continue;
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
 		if( is_wall )
-		{
-			/* G171: outdoor walls +100% so towers fill the larger cand set. */
-			if( outdoor )
-				area += area;
-			else
-				area += ( area >> 1 );
 			wall_boost++;
-		}
+		/* Raw area in cand->area; G212 near-eye (+ outdoor wall) ranks the 64. */
+		score = GC_CapNearEyeScore( src->plane, area, is_wall );
+		if( outdoor && is_wall )
+			score += area;
 
 		if( ncand < GC_CAP_REFRESH_NEW_MAX )
 		{
@@ -1423,16 +1789,26 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 			continue;
 		}
 		min_i = 0;
-		min_area = gc_refresh_cands[cache_slot][0].area;
+		min_score = GC_CapNearEyeScore( &gc_refresh_cands[cache_slot][0].plane,
+			gc_refresh_cands[cache_slot][0].area,
+			fabs( gc_refresh_cands[cache_slot][0].plane.normal[2] ) < 0.35f );
+		if( outdoor && fabs( gc_refresh_cands[cache_slot][0].plane.normal[2] ) < 0.35f )
+			min_score += gc_refresh_cands[cache_slot][0].area;
 		for( k = 1; k < GC_CAP_REFRESH_NEW_MAX; k++ )
 		{
-			if( gc_refresh_cands[cache_slot][k].area < min_area )
+			int ks = GC_CapNearEyeScore( &gc_refresh_cands[cache_slot][k].plane,
+				gc_refresh_cands[cache_slot][k].area,
+				fabs( gc_refresh_cands[cache_slot][k].plane.normal[2] ) < 0.35f );
+
+			if( outdoor && fabs( gc_refresh_cands[cache_slot][k].plane.normal[2] ) < 0.35f )
+				ks += gc_refresh_cands[cache_slot][k].area;
+			if( ks < min_score )
 			{
-				min_area = gc_refresh_cands[cache_slot][k].area;
+				min_score = ks;
 				min_i = k;
 			}
 		}
-		if( area <= min_area )
+		if( score <= min_score )
 			continue;
 		dst = &gc_refresh_cands[cache_slot][min_i];
 		memset( dst, 0, sizeof( *dst ));
@@ -1474,7 +1850,7 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 	ncand = gc_refresh_ncands[cache_slot];
 	leaves = GC_VisLeafsForCluster( gc_newgame_viewcluster );
 	outdoor = ( leaves > 0 && leaves <= 48 );
-	/* G170: largest cands first; outdoor wall preference below. */
+	/* G170/G212: near-eye keep-score first; outdoor wall preference below. */
 	GC_SortRefreshCandsByAreaDesc( cache_slot );
 	SYS_Report( "Xash3D GameCube: G163 refresh begin cluster=%d faces=%d cands=%d\n",
 		gc_newgame_viewcluster, prev_count, ncand );
@@ -1485,12 +1861,14 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		int slot = -1;
 		int min_i, min_score;
 		qboolean cand_wall;
+		int cand_score;
 
 		if( GC_CapFaceAlready( cand->firstedge, cand->numedges ))
 			continue;
 		cand_wall = ( fabs( cand->plane.normal[2] ) < 0.35f );
 		if( cand_wall )
 			wall_boost++;
+		cand_score = GC_CapNearEyeScore( &cand->plane, cand->area, cand_wall );
 
 		if( gc_newgame_cap_face_count < GC_MAX_CAP_FACES )
 			slot = gc_newgame_cap_face_count;
@@ -1498,20 +1876,16 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		{
 			min_i = 0;
 			/*
-			 * Score: lower = better victim. Outdoor: prefer replacing floors
-			 * (high |nz|) so wall cands can punch sky holes closed.
+			 * Score: lower = better victim. G212: far-from-eye slots lose first.
+			 * Outdoor: also prefer replacing floors (high |nz|).
 			 */
-			min_score = gc_newgame_cap_areas[0];
-			if( !gc_newgame_cap_lm_real[0] )
-				min_score -= 1;
+			min_score = GC_CapSlotKeepScore( 0 );
 			if( outdoor && fabs( gc_newgame_cap_faces[0].plane.normal[2] ) >= 0.35f )
 				min_score -= ( gc_newgame_cap_areas[0] >> 2 );
 			for( k = 1; k < GC_MAX_CAP_FACES; k++ )
 			{
-				int score = gc_newgame_cap_areas[k];
+				int score = GC_CapSlotKeepScore( k );
 
-				if( !gc_newgame_cap_lm_real[k] )
-					score -= 1;
 				if( outdoor && fabs( gc_newgame_cap_faces[k].plane.normal[2] ) >= 0.35f )
 					score -= ( gc_newgame_cap_areas[k] >> 2 );
 				if( score < min_score )
@@ -1521,17 +1895,14 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 				}
 			}
 			{
-				int threshold = gc_newgame_cap_areas[min_i];
-				int cand_score = cand->area;
+				int threshold = GC_CapSlotKeepScore( min_i );
+				int admit = cand_score;
 				qboolean victim_floor = ( fabs( gc_newgame_cap_faces[min_i].plane.normal[2] ) >= 0.35f );
 
-				/* Outdoor wall vs floor: 25% area boost so towers beat leftover floors. */
+				/* Outdoor wall vs floor: punch floors for Flipper coverage. */
 				if( outdoor && cand_wall && victim_floor )
-					cand_score += ( cand->area >> 2 );
-				/* G199: always punch floors out for outdoor wall cands (Flipper coverage). */
-				if( outdoor && cand_wall && victim_floor )
-					cand_score = threshold + 1;
-				if( cand_score <= threshold )
+					admit = threshold + 1;
+				if( admit <= threshold )
 					continue;
 			}
 			slot = min_i;
@@ -1561,6 +1932,15 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 	SYS_Report( "Xash3D GameCube: G163 refreshed draw faces=%d prev=%d reused_lm=%d mid_new=%d lm=%d wallboost=%d cluster=%d\n",
 		gc_newgame_cap_face_count, prev_count, prev_count, mid_new, gc_newgame_cap_lm_faces,
 		wall_boost, gc_newgame_viewcluster );
+	/* G212: prove near-eye streaming replaced far faces after dump aim. */
+	if( !gc_g212_logged && mid_new > 0 && !VectorIsNull( gc_newgame_capture_origin ))
+	{
+		gc_g212_logged = true;
+		SYS_Report( "Xash3D GameCube: G212 near-eye stream mid_new=%d wall_new=%d faces=%d eye=(%.0f,%.0f,%.0f)\n",
+			mid_new, wall_new, gc_newgame_cap_face_count,
+			gc_newgame_capture_origin[0], gc_newgame_capture_origin[1],
+			gc_newgame_capture_origin[2] );
+	}
 	/* G165: sparse clusters (outdoor / landmark camera) — leaves typically << indoor. */
 	if( outdoor )
 	{
@@ -1681,67 +2061,246 @@ static qboolean GC_PreferOutdoorWallCluster( void )
 /* G190: aim dump camera into the largest near-vertical cap face. */
 static qboolean GC_DumpLookAtBestWall( const float *eye, float *out_angles );
 
-/* G199: place the dump eye in front of the largest outdoor wall so Flipper
- * backface cull keeps ~100+ faces (player tram eye often sees sky only). */
+/* G211: centroid of baked cap verts (or plane point fallback). */
+static void GC_CapFaceCentroid( int slot, vec3_t out )
+{
+	const gc_cap_face_t *f;
+	int nv, v;
+	float sx, sy, sz;
+
+	if( !out || slot < 0 || slot >= gc_newgame_cap_face_count )
+	{
+		if( out )
+			VectorClear( out );
+		return;
+	}
+	f = &gc_newgame_cap_faces[slot];
+	nv = gc_cap_nverts[slot];
+	if( nv >= 3 )
+	{
+		sx = sy = sz = 0.0f;
+		for( v = 0; v < nv && v < GC_CAP_MAX_VERTS; v++ )
+		{
+			sx += (float)gc_cap_pts_s16[slot][v][0];
+			sy += (float)gc_cap_pts_s16[slot][v][1];
+			sz += (float)gc_cap_pts_s16[slot][v][2];
+		}
+		out[0] = sx / (float)nv;
+		out[1] = sy / (float)nv;
+		out[2] = sz / (float)nv;
+		return;
+	}
+	out[0] = f->plane.normal[0] * f->plane.dist;
+	out[1] = f->plane.normal[1] * f->plane.dist;
+	out[2] = f->plane.normal[2] * f->plane.dist;
+}
+
+/* G211: how many other cap faces sit near this one (indoor enclosure). */
+static int GC_CountNearbyCapFaces( int slot, float radius )
+{
+	vec3_t	c0, c1, d;
+	int	i, n = 0;
+	float	r2 = radius * radius;
+
+	GC_CapFaceCentroid( slot, c0 );
+	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+	{
+		if( i == slot || gc_cap_nverts[i] < 3 )
+			continue;
+		GC_CapFaceCentroid( i, c1 );
+		VectorSubtract( c1, c0, d );
+		if( DotProduct( d, d ) <= r2 )
+			n++;
+	}
+	return n;
+}
+
+/* G211: densest indoor-ish cluster (leaves > 48) with wall cands — rooms, not sky. */
+static qboolean GC_PreferIndoorWallCluster( void )
+{
+	int cur_leaves = GC_VisLeafsForCluster( gc_newgame_viewcluster );
+	int indoor = -1;
+	int indoor_walls = -1;
+	int indoor_leaves = -1;
+	int i;
+
+	for( i = 0; i < gc_newgame_surf_cache_slots; i++ )
+	{
+		int cand = gc_newgame_surf_cache_cluster[i];
+		int leaves;
+		int walls;
+
+		if( cand < 0 || gc_refresh_ncands[i] <= 0 )
+			continue;
+		leaves = GC_VisLeafsForCluster( cand );
+		/* Outdoor band is ≤48 (G163/G190); indoor rooms sit above that. */
+		if( leaves <= 48 )
+			continue;
+		walls = GC_RefreshCandWallCount( i );
+		if( walls > indoor_walls
+			|| ( walls == indoor_walls && leaves > indoor_leaves ))
+		{
+			indoor_walls = walls;
+			indoor_leaves = leaves;
+			indoor = cand;
+		}
+	}
+	if( indoor < 0 || indoor == gc_newgame_viewcluster )
+		return false;
+	if( !GC_SetActiveNewGameCluster( indoor, true ))
+		return false;
+	{
+		static int prefer_log_gen = -1;
+
+		if( prefer_log_gen != gc_newgame_cap_generation )
+		{
+			prefer_log_gen = gc_newgame_cap_generation;
+			SYS_Report( "Xash3D GameCube: G211 indoor wall cluster prefer %d walls=%d leaves=%d (was %d)\n",
+				indoor, indoor_walls, indoor_leaves, cur_leaves );
+		}
+	}
+	return true;
+}
+
+/* G199/G211: place dump eye in front of an enclosed wall (not outdoor sky slab). */
 static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles )
 {
 	int i;
 	int best = -1;
+	int best_score = -1;
 	int best_area = 0;
+	int best_near = 0;
 	vec3_t point;
 	const gc_cap_face_t *f;
-	int nv;
+	static int aim_gen = -1;
+	static int aim_slot = -1;
+	static int aim_area = 0;
+	static int aim_near = 0;
+	vec3_t	cents[GC_MAX_CAP_FACES];
 
 	if( !eye || !out_angles || gc_newgame_cap_face_count <= 0 )
 		return false;
-	for( i = 0; i < gc_newgame_cap_face_count; i++ )
+
+	/* Score once per cap generation — O(n²) neighbor counts are too heavy per frame. */
+	if( aim_gen != gc_newgame_cap_generation || aim_slot < 0
+		|| aim_slot >= gc_newgame_cap_face_count )
 	{
-		f = &gc_newgame_cap_faces[i];
-		if( fabs( f->plane.normal[2] ) >= 0.35f )
-			continue;
-		if( gc_newgame_cap_areas[i] > best_area )
+		for( i = 0; i < gc_newgame_cap_face_count; i++ )
+			GC_CapFaceCentroid( i, cents[i] );
+		best = -1;
+		best_score = -1;
+		for( i = 0; i < gc_newgame_cap_face_count; i++ )
 		{
-			best_area = gc_newgame_cap_areas[i];
-			best = i;
+			int area = gc_newgame_cap_areas[i];
+			int nearby = 0;
+			int score;
+			int j;
+
+			f = &gc_newgame_cap_faces[i];
+			if( fabs( f->plane.normal[2] ) >= 0.35f )
+				continue;
+			if( area < 1024 || gc_cap_nverts[i] < 3 )
+				continue;
+			for( j = 0; j < gc_newgame_cap_face_count; j++ )
+			{
+				vec3_t d;
+				if( j == i || gc_cap_nverts[j] < 3 )
+					continue;
+				VectorSubtract( cents[j], cents[i], d );
+				if( DotProduct( d, d ) <= ( 640.0f * 640.0f ))
+					nearby++;
+			}
+			/* Mid-size walls in dense neighborhoods beat outdoor mega-slabs.
+			 * (Aggressive area penalties hurt DumpFrames fill under the 320 cap.) */
+			score = nearby * 8000 + ( area > 24000 ? 24000 : area );
+			if( area > 60000 )
+				score /= 4;
+			if( nearby < 12 )
+				score /= 2;
+			if( score > best_score )
+			{
+				best_score = score;
+				best_area = area;
+				best_near = nearby;
+				best = i;
+			}
 		}
+		aim_gen = gc_newgame_cap_generation;
+		aim_slot = best;
+		aim_area = best_area;
+		aim_near = best_near;
 	}
+	best = aim_slot;
+	best_area = aim_area;
+	best_near = aim_near;
 	if( best < 0 )
 		return false;
 	f = &gc_newgame_cap_faces[best];
-	nv = gc_cap_nverts[best];
-	if( nv >= 3 )
+	GC_CapFaceCentroid( best, point );
+	/* Closer indoor standoff — outdoor 320 left DumpFrames sky-heavy. */
+	eye[0] = point[0] + f->plane.normal[0] * 224.0f;
+	eye[1] = point[1] + f->plane.normal[1] * 224.0f;
+	eye[2] = point[2] + f->plane.normal[2] * 224.0f + 40.0f;
 	{
-		int v;
-		float sx = 0.0f, sy = 0.0f, sz = 0.0f;
+		vec3_t	right, up_ref;
+		float	front;
 
-		for( v = 0; v < nv && v < GC_CAP_MAX_VERTS; v++ )
+		if( fabs( f->plane.normal[2] ) < 0.9f )
 		{
-			sx += (float)gc_cap_pts_s16[best][v][0];
-			sy += (float)gc_cap_pts_s16[best][v][1];
-			sz += (float)gc_cap_pts_s16[best][v][2];
+			up_ref[0] = 0.0f;
+			up_ref[1] = 0.0f;
+			up_ref[2] = 1.0f;
 		}
-		point[0] = sx / (float)nv;
-		point[1] = sy / (float)nv;
-		point[2] = sz / (float)nv;
+		else
+		{
+			up_ref[0] = 0.0f;
+			up_ref[1] = 1.0f;
+			up_ref[2] = 0.0f;
+		}
+		CrossProduct( f->plane.normal, up_ref, right );
+		VectorNormalize( right );
+		eye[0] += right[0] * 72.0f;
+		eye[1] += right[1] * 72.0f;
+		eye[2] += right[2] * 72.0f;
+		front = DotProduct( eye, f->plane.normal ) - f->plane.dist;
+		if( front < 48.0f )
+		{
+			float push = 48.0f - front + 48.0f;
+			eye[0] += f->plane.normal[0] * push;
+			eye[1] += f->plane.normal[1] * push;
+			eye[2] += f->plane.normal[2] * push;
+		}
 	}
-	else
-	{
-		/* Fallback: plane point along normal from origin. */
-		point[0] = f->plane.normal[0] * f->plane.dist;
-		point[1] = f->plane.normal[1] * f->plane.dist;
-		point[2] = f->plane.normal[2] * f->plane.dist;
-	}
-	eye[0] = point[0] + f->plane.normal[0] * 192.0f;
-	eye[1] = point[1] + f->plane.normal[1] * 192.0f;
-	eye[2] = point[2] + f->plane.normal[2] * 192.0f + 48.0f;
 	VectorSubtract( point, eye, point );
 	VectorAngles( point, out_angles );
 	out_angles[2] = 0.0f;
-	if( out_angles[0] > -5.0f )
-		out_angles[0] = -12.0f;
-	SYS_Report( "Xash3D GameCube: G199 dump eye-in-front wall area=%d bake=%d eye=(%.0f,%.0f,%.0f)\n",
-		best_area, (int)gc_cap_bake_src[best], eye[0], eye[1], eye[2] );
+	if( out_angles[0] > -2.0f )
+		out_angles[0] = -6.0f;
+	{
+		static int eye_log_gen = -1;
+		static int eye_log_slot = -1;
+
+		if( eye_log_gen != gc_newgame_cap_generation || eye_log_slot != best )
+		{
+			eye_log_gen = gc_newgame_cap_generation;
+			eye_log_slot = best;
+			SYS_Report( "Xash3D GameCube: G211 dump eye indoor wall area=%d near=%d bake=%d eye=(%.0f,%.0f,%.0f)\n",
+				best_area, best_near, (int)gc_cap_bake_src[best], eye[0], eye[1], eye[2] );
+		}
+	}
 	VectorCopy( eye, gc_newgame_capture_origin );
+	/* G212: restream 320 slots toward the new eye once per significant move. */
+	{
+		static vec3_t g212_last_stream_eye;
+		vec3_t	d;
+
+		VectorSubtract( eye, g212_last_stream_eye, d );
+		if( VectorIsNull( g212_last_stream_eye ) || DotProduct( d, d ) > ( 96.0f * 96.0f ))
+		{
+			gc_cap_refresh_pending = true;
+			VectorCopy( eye, g212_last_stream_eye );
+		}
+	}
 	/* G201e/G204: rebake only plane-fallback verts around the dump eye —
 	 * edge-baked faces keep real BSP loops for ST/LM. */
 	{
@@ -1766,6 +2325,8 @@ static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles )
 			}
 			gc_newgame_cap_generation++;
 			rebake_gen = gc_newgame_cap_generation;
+			/* Keep aim_slot — generation bump alone must not re-pick a worse wall. */
+			aim_gen = gc_newgame_cap_generation;
 			SYS_Report( "Xash3D GameCube: G204 rebaked %d plane quads (edge verts preserved)\n",
 				nplane );
 		}
@@ -3000,6 +3561,7 @@ void R_Free_Video( void )
 	gc.stride = 0;
 	gc.bpp = 0;
 	GC_FreeNewGamePVSCache();
+	GC_FreeLiveFaces();
 	gc_newgame_world_ready = false;
 	gc_newgame_viewcluster = -1;
 	gc_newgame_g36_done = false;
@@ -5066,6 +5628,10 @@ static void GC_MaybeRefreshCapFacesAfterClusterChange( int prev_cluster )
 		return;
 	if( gc_newgame_cap_face_count <= 0 )
 		return;
+	/* G212: after near-eye stream, PreferIndoor↔UpdatePVS thrash must not
+	 * re-pending forever (DSI / grey DumpFrames under constant Flush). */
+	if( gc_g212_stream_locked )
+		return;
 	gc_cap_refresh_pending = true;
 }
 
@@ -5448,6 +6014,8 @@ static qboolean GC_CaptureLeanNodebits( model_t *wmodel, int numclusters )
 
 static void GC_FreeNewGamePVSCache( void )
 {
+	/* G213: keep lean live-face pool across PVS lean retries — FreeNewGamePVSCache
+	 * runs mid-capture and must not wipe the early MEM1 reservation. */
 	if( gc_newgame_pvs_table )
 	{
 		free( gc_newgame_pvs_table );
@@ -5531,6 +6099,7 @@ Prepare again. Keep G36 done sticky (do not re-arm the budget probe).
 */
 void GC_ResetNewGameWorldForChangelevel( void )
 {
+	GC_FreeLiveFaces();
 #if XASH_GAMECUBE
 	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
 		return;
@@ -5547,6 +6116,7 @@ void GC_ResetNewGameWorldForChangelevel( void )
 	gc_g193_draining = false;
 	gc_g193_soft_lock = false;
 	gc_g196_flipper_dump_aim_left = 0;
+	gc_g212_stream_locked = false;
 	GC_G193ReleaseSoftSnap();
 	gc_newgame_viewcluster = -1;
 	/* Keep retained BSP tracking until FreeModel; clearing early makes
@@ -5831,22 +6401,6 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		vieworigin[0], vieworigin[1], vieworigin[2] );
 	VectorCopy( vieworigin, gc_newgame_capture_origin );
 
-	/* G132: promote surfaces on the post-changelevel map only — promoting on
-	 * c0a0 plus FatPVS OOMs the guest before changelevel. */
-	{
-		static int capture_gen;
-		char cl_dest[64];
-
-		capture_gen++;
-		cl_dest[0] = '\0';
-		Sys_GetParmFromCmdLine( "-gcchangelevel", cl_dest );
-		if( capture_gen > 1 || ( cl_dest[0] && sv.name[0] && !Q_stricmp( sv.name, cl_dest )))
-		{
-			if( !Mod_GCPromoteWorldSurfaces( wmodel ))
-				SYS_Report( "Xash3D GameCube: G132 surface promote skipped\n" );
-		}
-	}
-
 	if( !wmodel->visdata || world.visbytes <= 0 )
 	{
 		SYS_Report( "Xash3D GameCube: Capture FatPVS skipped vis=%d\n",
@@ -5879,6 +6433,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		int valid_clusters = 0;
 
 		GC_FreeNewGamePVSCache();
+
+		/* G213: reserve lean live-face pool after PVS-cache free, before FatPVS calloc. */
+		GC_AllocLiveFacePool( GC_LIVE_MAX_FACES );
 
 		gc_newgame_visbytes = (int)visbytes;
 		gc_newgame_nodebytes = (int)nodebytes;
@@ -6179,7 +6736,11 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 				GC_StoreSurfbitsCache( wmodel, gc_newgame_lean_clusters[slot], row );
 			}
 			if( gc_newgame_surfbits )
+			{
+				/* Live compact faces first — LM atlas bake for caps is hungrier. */
+				GC_CaptureLiveFacesFromSurfbits( wmodel, gc_newgame_surfbits );
 				GC_CaptureDrawFacesFromSurfbits( wmodel, gc_newgame_surfbits );
+			}
 			if( lean_slots > 1 )
 			{
 				SYS_Report( "Xash3D GameCube: Capture FatPVS lean-N map=%s slots=%d c0=%d c1=%d\n",
@@ -6606,25 +7167,45 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		(void)g196_aim_logged;
 	}
 
-	/* G132: aim toward capture-room origin (or player forward) so frustum keeps
-	 * nearby walls — map AABB center often points into empty space after move.
-	 * G189/G190: far landmark hops — prefer outdoor wall faces first, then look
-	 * into the largest wall instead of aiming across the map into empty sky. */
+	/* G189/G190: far landmark hops — prefer outdoor wall faces first, then look
+	 * into the largest wall instead of aiming across the map into empty sky.
+	 * G211: Flipper DumpFrames prefer indoor enclosed walls (less sky bleed).
+	 * Lock indoor cluster once — UpdatePVS(eye) would thrash back to outdoor. */
 	if( gc_dump_look_into_map )
 	{
 		vec3_t look;
 		float look_len;
 		qboolean local_look = false;
 
-		GC_UpdateNewGamePVSForOrigin( center );
-		GC_PreferOutdoorWallCluster();
-		GC_FlushPendingCapFaceRefresh();
+		/* PreferIndoor every frame after UpdatePVS — PVS follow undoes indoor
+		 * cluster. After G212 near-eye lock, keep the streamed face set. */
+		if( !gc_g212_stream_locked )
+		{
+			GC_UpdateNewGamePVSForOrigin( center );
+			if( gc_gx_world_live && gc_g196_flipper_dump_aim_left > 0 )
+			{
+				if( !GC_PreferIndoorWallCluster() )
+					GC_PreferOutdoorWallCluster();
+			}
+			else
+				GC_PreferOutdoorWallCluster();
+			GC_FlushPendingCapFaceRefresh();
+		}
 
-		/* G199: after outdoor caps land, stand in front of a wall (not tram sky). */
+		/* G199/G211: stand in front of an enclosed wall (not tram/outdoor sky). */
 		if( GC_DumpEyeInFrontOfBestWall( center, rvp.viewangles ))
 		{
 			local_look = true;
 			look_len = 192.0f;
+			/* G212/G213: one near-eye restream after dump eye, then lock.
+			 * Do NOT rebuild live faces from wmodel->surfaces — scratch already
+			 * reused; re-rank the lean pool that was snapshotted at capture. */
+			if( !gc_g212_stream_locked )
+			{
+				GC_FlushPendingCapFaceRefresh();
+				GC_RerankLiveFacesNearEye();
+				gc_g212_stream_locked = true;
+			}
 		}
 		else
 		{
@@ -6696,15 +7277,18 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		GC_UpdateNewGamePVSForOrigin( center );
 		GC_ProveNewGamePVSFollow();
 	}
-	else
+	else if( !gc_g212_stream_locked )
 	{
+		/* G212: once near-eye streamed, do not PreferOutdoor+Flush thrash. */
 		GC_PreferOutdoorWallCluster();
 		GC_FlushPendingCapFaceRefresh();
 	}
-	/* G189/G190: dump look must not let densest SelectCluster wipe outdoor walls. */
-	if( gc_dump_look_into_map )
+	/* G189/G190: dump look must not let densest SelectCluster wipe outdoor walls.
+	 * G212: skip after near-eye lock — PreferOutdoor↔indoor flip crashed (DSI). */
+	if( gc_dump_look_into_map && !gc_g212_stream_locked )
 		GC_PreferOutdoorWallCluster();
-	GC_FlushPendingCapFaceRefresh();
+	if( !gc_g212_stream_locked )
+		GC_FlushPendingCapFaceRefresh();
 	SetBits( rvp.flags, RF_DRAW_WORLD );
 	Q_snprintf( old_drawviewmodel, sizeof( old_drawviewmodel ), "%s", Cvar_VariableString( "r_drawviewmodel" ));
 	/* G149: dump/landmark path may force viewmodel on for DumpFrames evidence. */
@@ -6780,6 +7364,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			{
 				gc_g196_flipper_dump_aim_left = 0;
 				gc_dump_look_into_map = false;
+				gc_g212_stream_locked = false;
 				SYS_Report( "Xash3D GameCube: G196 Flipper dump wall-aim ready\n" );
 			}
 		}

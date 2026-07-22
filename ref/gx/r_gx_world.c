@@ -19,6 +19,7 @@ G202: Flipper diffuse REPLACE (no LM crush on eye-centered quads).
 G206: REPLACE on EDGE/TEX verts too (real ST shapes; defer LM until overbright).
 G207: LM restored — boost bake, corner atlas UV, TEV ×2 overbright.
 G203: plane-quad ST 0..1 + LINEAR world filter.
+G213: live BSP30 opaque when surfaces pinned off scratch.
 */
 #include "r_local.h"
 
@@ -34,6 +35,10 @@ extern qboolean GC_UseGxRenderer( void );
 extern void GC_MarkGxWorldEfbReady( void );
 extern void *GC_GetGxVideoMode( void );
 extern void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t );
+extern qboolean GC_WorldSurfacesLive( void );
+extern int GC_GetLiveFaceCount( void );
+extern qboolean GC_FillLiveDrawSurf( int index, msurface_t *out, mtexinfo_t *tex_out );
+extern msurface_t *GC_GetLiveDrawSurfs( void );
 extern unsigned R_GXGetTriColorRGBA( void );
 
 #define GC_GX_TEX_SLOTS		32
@@ -754,11 +759,10 @@ static void R_GXSetupWorld3DState( void )
 	GX_SetViewport( 0.0f, 0.0f, (f32)rmode->fbWidth, (f32)rmode->efbHeight, 0.0f, 1.0f );
 	GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
 	GX_SetPixelFmt( GX_PF_RGB565_Z16, GX_ZC_LINEAR );
-	/* G202: Z on again — eye-centered verts are in front of the camera.
-	 * Cull stays off: plane-quad winding is not BSP-edge ordered. */
+	/* G210: EDGE verts restore BSP winding — HW backface cull on again. */
 	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 	GX_SetColorUpdate( GX_TRUE );
-	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetCullMode( GX_CULL_BACK );
 	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 	GX_SetNumChans( 1 );
 	GX_SetChanCtrl( GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX,
@@ -1034,7 +1038,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 					{
 						g207_logged = true;
 						gEngfuncs.Con_Reportf(
-							"Xash3D GameCube: G207 Flipper LM on EDGE/TEX (boost+corner UV)\n" );
+							"Xash3D GameCube: G209 Flipper LM on EDGE/TEX (boost*3 + TEV*4)\n" );
 					}
 				}
 			}
@@ -1087,10 +1091,10 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 			/* Stage0: diffuse REPLACE (ignore vertex color dimming). */
 			GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
 			GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
-			/* Stage1: * LM with Quake-style overbright (×2). */
+			/* Stage1: * LM with G209 overbright (×4) toward REPLACE brightness. */
 			GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
 			GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
-			GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+			GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_4, GX_TRUE, GX_TEVPREV );
 			GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
 			GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
 			GX_ClearVtxDesc();
@@ -1260,7 +1264,8 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 	/* Opaque pass — only when cap atlas is unavailable. */
 	if( opaque_too )
 	{
-		int emit_budget = 384; /* Flipper fill budget; prefer nearest walls */
+		/* G212/G213: raise Flipper live BSP emit toward full PVS when pinned. */
+		int emit_budget = GC_WorldSurfacesLive() ? 2048 : 768;
 
 		for( i = 0; i < world->numsurfaces && emit_budget > 0; i++ )
 		{
@@ -1407,11 +1412,124 @@ int R_GXDrawNewGameCapFaces( void )
 	draw = GC_GetNewGameDrawSurfs();
 	n = GC_GetNewGameCapFaceCount();
 
-	/* Pure Flipper: live marked surfaces are authoritative when BSP pins are
-	 * intact. After G132 promote OOM the world msurface_t/edges may dangle —
-	 * never walk them. Cap faces are the safe lightmapped fallback. */
+	/* G213: when surfaces are pinned off scratch, walk live BSP30 via surfbits
+	 * visframe (MarkLeaves). Cap faces remain LM fallback if promote OOM'd. */
 	drawn = 0;
-	if( draw && n > 0 )
+	if( GC_WorldSurfacesLive() )
+	{
+		static qboolean g213_logged;
+		int live_n = GC_GetLiveFaceCount();
+
+		/* Lean early-pool faces (G213) — walk mempool edges; full promote may OOM. */
+		if( live_n > 0 )
+		{
+			int li, live_drawn = 0;
+
+			for( li = 0; li < live_n; li++ )
+			{
+				float dot;
+				msurface_t surf;
+				mtexinfo_t tex;
+
+				if( !GC_FillLiveDrawSurf( li, &surf, &tex ))
+					continue;
+				if( !surf.plane || surf.numedges < 3 )
+					continue;
+				dot = DotProduct( tr.modelorg, surf.plane->normal ) - surf.plane->dist;
+				if( surf.flags & SURF_PLANEBACK )
+				{
+					if( dot > -BACKFACE_EPSILON )
+						continue;
+				}
+				else if( dot < BACKFACE_EPSILON )
+					continue;
+				live_drawn += R_GXEmitFace( &surf, world, -1 );
+			}
+			drawn += live_drawn;
+			if( !g213_logged && live_drawn > 0 )
+			{
+				g213_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G213 live Flipper faces=%d of %d (lean early pool, edges mempool)\n",
+					live_drawn, live_n );
+			}
+		}
+		else
+		{
+			drawn = R_GXDrawWorldLiveSurfaces( world, true );
+			if( !g213_logged && drawn > 0 )
+			{
+				g213_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G213 live BSP Flipper opaque=%d (surfaces pinned)\n",
+					drawn );
+			}
+		}
+		/* Also emit near-eye cap faces with LM atlas for readable walls. */
+		if( draw && n > 0 )
+		{
+			int backface_skips = 0;
+			int emit_fails = 0;
+			int cap_drawn = 0;
+
+			if( n > (int)( sizeof( order ) / sizeof( order[0] )))
+				n = (int)( sizeof( order ) / sizeof( order[0] ));
+
+			R_GXOrderFacesByTexBands( draw, n, order );
+
+			for( i = 0; i < n; i++ )
+			{
+				float dot;
+				int area;
+				int got;
+				const int slot = order[i];
+				msurface_t *surf = &draw[slot];
+
+				if( !surf->plane )
+				{
+					emit_fails++;
+					continue;
+				}
+				dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
+				if( surf->flags & SURF_PLANEBACK )
+				{
+					if( dot > -BACKFACE_EPSILON )
+					{
+						backface_skips++;
+						continue;
+					}
+				}
+				else if( dot < BACKFACE_EPSILON )
+				{
+					backface_skips++;
+					continue;
+				}
+				area = (int)surf->extents[0] * (int)surf->extents[1];
+				if( area > 0 && area < GC_GX_MIN_FACE_AREA )
+				{
+					r_gx_face_skips++;
+					r_gx_face_skip_area++;
+					continue;
+				}
+				if( area > 0 && area < GC_GX_FAR_MIN_AREA
+					&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
+				{
+					r_gx_face_skips++;
+					r_gx_face_skip_far++;
+					continue;
+				}
+				got = R_GXEmitFace( surf, world, slot );
+				if( got <= 0 )
+					emit_fails++;
+				else
+					cap_drawn += got;
+			}
+			drawn += cap_drawn;
+			(void)backface_skips;
+			(void)emit_fails;
+		}
+	}
+	else if( draw && n > 0 )
 	{
 		int backface_skips = 0;
 		int emit_fails = 0;

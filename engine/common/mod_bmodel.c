@@ -4842,6 +4842,20 @@ qboolean Mod_GCPromoteWorldSurfaces( model_t *mod )
 	return true;
 }
 
+qboolean Mod_GCWorldSurfacesPinned( model_t *mod )
+{
+	if( !mod || !mod->surfaces || mod->numsurfaces <= 0 )
+		return false;
+	if( !mod->surfedges || !mod->vertexes )
+		return false;
+	if( !mod->edges16 && !mod->edges32 )
+		return false;
+	/* Surfaces must be outside the map-load arena (edges/verts are mempool). */
+	if( Mod_GCPointerInScratchArena( mod->surfaces ))
+		return false;
+	return true;
+}
+
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 {
 	if( gc_marksurfaces_malloc_block )

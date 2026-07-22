@@ -107,12 +107,21 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G206: REPLACE diffuse on EDGE/TEX verts (defer LM crush); keep real ST shapes
 - G207: LM on EDGE/TEX — boost bake + corner atlas UV + TEV ×2
 - G208: skip tram changelevel under -gcnewgame (avoid MEM1 OOM aborting G36)
+- G209: LM boost×3 + TEV×4; room-view dump eye; edge bake bounds + prefer edges16
+- G210: tighter front-side eye + GX_CULL_BACK (EDGE winding)
+- G211: indoor dump aim (PreferIndoor cluster + enclosure-scored wall eye); clear-blue ↓ vs G210
+- G212: near-eye keep-score streams the 320 Flipper slots; live BSP emit budget 384→768; lock stops refresh thrash/DSI
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) for pure Flipper
-2. ~~G197~~ — obsolete once soft DumpFrames path is not the retail present route
+1. **G213** — Pin live BSP30 edges/surfedges past scratch so Flipper can walk full PVS (not 320 snapshot)
+2. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) for pure Flipper
+3. ~~G197~~ — obsolete once soft DumpFrames path is not the retail present route
 
 Evidence anchors:
+- `.ai/logs/dolphin-probe-20260721-221516` (G212: mid_new=36 near-eye stream; drawn=217; refresh thrash fixed; G36 PASS)
+- `.ai/logs/dolphin-probe-20260721-215231` (G211: indoor cluster=16; clear-blue 28.5k vs G210 72k; avg≈231 uniq≈13364; G36 PASS)
+- `.ai/logs/dolphin-probe-20260721-214859` (G210: cull BACK + front eye; G36 PASS)
+- `.ai/logs/dolphin-probe-20260721-214555` (G209: edge=320; room view sky%~22 avg≈211 uniq≈3756; LM=229; G36 PASS)
 - `.ai/logs/dolphin-probe-20260721-205548` (G208+G207: G36 PASS; LM=241; hold map no auto-hop; avg≈87)
 - `.ai/logs/dolphin-probe-20260721-204445` (G208+G207: G36 PASS; LM=241; skip changelevel; avg≈87)
 - `.ai/logs/dolphin-probe-20260721-204230` (G207: LM=241/241 avg≈87 uniq≈1859; G36 FAIL changelevel OOM)

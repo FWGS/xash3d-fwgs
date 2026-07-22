@@ -1,4 +1,4 @@
 {
   "tier": "landmark_changelevel",
-  "note": "G196 COMPLETE: Flipper DumpFrames wall-aim after resume (32 SCR frames G189/G190). Soft latch intact. Residual G197: Flipper DumpFrames ~4× horizontal XFB tiling. Probe 20260721-114349."
+  "note": "G212: near-eye stream into 320 Flipper slots + live emit 768; thrash lock (no DSI). Probe 20260721-221516 drawn=217 G36 PASS. Next G213: pin live BSP30 edges for full PVS walk. G38 hardware still open."
 }

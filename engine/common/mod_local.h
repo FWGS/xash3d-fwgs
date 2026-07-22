@@ -171,6 +171,7 @@ const char *Mod_GCLandmarkViewModelPath( void );
 void Mod_ReleaseBrushSourceBuffer( void *buf );
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod );
 qboolean Mod_GCPromoteWorldSurfaces( model_t *mod ); /* G132: scratch → malloc before present */
+qboolean Mod_GCWorldSurfacesPinned( model_t *mod ); /* G213: surfaces outside scratch (live Flipper) */
 /* G92: retained BSP scratch is not a Mem_ block — skip Mem_Free on changelevel. */
 qboolean Mod_GCIsRetainedBspScratch( const void *buf );
 void Mod_GCClearRetainedBspScratch( void );
