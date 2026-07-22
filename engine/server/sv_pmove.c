@@ -520,8 +520,7 @@ static void SV_SetupPMove( playermove_t *pmove, sv_client_t *cl, usercmd_t *ucmd
 	vec3_t	absmin, absmax;
 	edict_t	*clent = cl->edict;
 
-	svgame.globals->frametime = (ucmd->msec * 0.001f);
-
+	pmove->frametime = ucmd->msec * 0.001f;
 	pmove->player_index = NUM_FOR_EDICT( clent ) - 1;
 	pmove->multiplayer = (svs.maxclients > 1) ? true : false;
 	pmove->time = (float)(cl->timebase * 1000.0);
