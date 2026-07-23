@@ -162,6 +162,8 @@ qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_IsNewGameG36Done( void );
 /* Retail Flipper vs Dolphin/capture diagnostics (DumpFrames, probe argv). */
 qboolean GC_IsCaptureDiagnostics( void );
+/* 10% 4:3 safe-area inset for HUD / loading panels (homebrew compliance). */
+void GC_GetVideoSafeArea( int *x, int *y, int *w, int *h );
 int GC_GXDrawIntroTrain( void );
 struct model_s *GC_GetWorldModel( void );
 int GC_GetTramFaceCount( void ); /* G277: capture-baked *12 faces */

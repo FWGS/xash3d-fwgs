@@ -1925,14 +1925,19 @@ void GAME_EXPORT R_RenderScene( void )
 #endif
 #if XASH_GAMECUBE
 	/* Pure Flipper: full entity coverage even on -gcnewgame routes.
-	 * Soft/smoke -gcmap still returns early after world (+ low-res studios). */
+	 * Soft/smoke -gcmap still returns early after world (+ low-res studios).
+	 * Frame lifecycle: R_EdgeDrawing (GX world EFB) → entities (studio /
+	 * viewmodel via TriAPI) → caller HUD → GC_PresentBuffer CopyDisp.
+	 * Unsupported GoldSrc categories (full particle systems, beams, decals,
+	 * turb water meshes) are not claimed — soft fallback via -gcsoftworld
+	 * or capture dump latch only. */
 	if( GC_UseGxWorldDraw() )
 	{
 		gEngfuncs.CL_ExtraUpdate();
 		R_DrawEntitiesOnList();
 		return;
 	}
-	/* -gcmap smoke: world only. Soft New Game low-res: world + bounded ents. */
+	/* Software / low-res probe fallback — not retail Flipper. */
 	if( gEngfuncs.Sys_CheckParm( "-gcmap" ) || gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_UseLowResWorldProbe() )

@@ -374,9 +374,10 @@ static void CL_CheckClientState( void )
 		}
 
 		/* G159: Flipper presents immediately on post-reconnect ca_active —
-		 * fullphysics spawn can otherwise starve SCR until the probe exits. */
+		 * fullphysics spawn can otherwise starve SCR until the probe exits.
+		 * Retail uses the same pump when world Flipper is already armed. */
 		if( gc_g159_reconnect_active_pending
-			&& Sys_CheckParm( "-gcnewgame" )
+			&& ( Sys_CheckParm( "-gcnewgame" ) || GC_IsNewGameWorldReady() )
 			&& GC_IsNewGameG36Done() && GC_IsNewGameWorldReady() )
 		{
 			int i;

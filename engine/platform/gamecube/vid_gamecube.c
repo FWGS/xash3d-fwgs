@@ -5340,7 +5340,8 @@ static void GC_PresentBuffer( void )
 
 	copy_w = rmode->fbWidth;
 	copy_h = rmode->xfbHeight;
-	dst = (unsigned int *)xfb[which_fb];
+	/* XFB policy: CPU writes through cached K0, DCFlushRange, VI/GX use K1. */
+	dst = (unsigned int *)MEM_K1_TO_K0( xfb[which_fb] );
 
 	{
 	qboolean g128_cpu_dump = false;
@@ -5554,7 +5555,7 @@ static void GC_PresentBuffer( void )
 		gc_last_present_time = now;
 	}
 
-	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
+	DCFlushRange( MEM_K1_TO_K0( xfb[which_fb] ), VIDEO_GetFrameBufferSize( rmode ));
 	/* G194: DumpFrames queues a PNG on every ViSwap. Capture diagnostics may
 	 * throttle identical soft presents; retail always SetNext + VSync. */
 	{
@@ -6967,13 +6968,13 @@ void GC_DrawLoadingStatus( const char *message, const char *details )
 	{
 		static int g194_xfb_loading_n;
 
-		dst = (unsigned short *)xfb[which_fb];
+		dst = (unsigned short *)MEM_K1_TO_K0( xfb[which_fb] );
 		GC_BlitLoadingBackground( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth );
 		GC_DrawStatusPanelToBuffer( dst, rmode->fbWidth, rmode->xfbHeight, rmode->fbWidth,
 			message, details );
 
 		xfb_size = rmode->fbWidth * rmode->xfbHeight * sizeof(unsigned short);
-		DCFlushRange( xfb[which_fb], (u32)xfb_size );
+		DCFlushRange( dst, (u32)xfb_size );
 		if( g194_xfb_loading_n < 2 || (( ++g194_xfb_loading_n ) & 7 ) == 0 )
 		{
 			if( g194_xfb_loading_n < 2 )
@@ -7276,7 +7277,7 @@ void GC_DrawFatalBreadcrumb( const char *message, const char *details )
 					rowdst[col] = magenta;
 			}
 		}
-		DCFlushRange( xfb[0], (u32)( rmode->fbWidth * rmode->xfbHeight * sizeof( unsigned short )));
+		DCFlushRange( MEM_K1_TO_K0( xfb[0] ), (u32)( rmode->fbWidth * rmode->xfbHeight * sizeof( unsigned short )));
 		VIDEO_SetNextFramebuffer( xfb[0] );
 		VIDEO_Flush();
 		VIDEO_WaitVSync();
@@ -7345,6 +7346,35 @@ qboolean GC_IsCaptureDiagnostics( void )
 		|| Sys_CheckParm( "-gcworldrender" )) ? true : false;
 #else
 	return false;
+#endif
+}
+
+void GC_GetVideoSafeArea( int *x, int *y, int *w, int *h )
+{
+#if XASH_GAMECUBE
+	int sx, sy, sw, sh;
+
+	if( !rmode )
+	{
+		if( x ) *x = 0;
+		if( y ) *y = 0;
+		if( w ) *w = 640;
+		if( h ) *h = 480;
+		return;
+	}
+	sx = ( rmode->fbWidth * GC_VIDEO_SAFE_AREA_PERCENT ) / 100;
+	sy = ( rmode->xfbHeight * GC_VIDEO_SAFE_AREA_PERCENT ) / 100;
+	sw = rmode->fbWidth - sx * 2;
+	sh = rmode->xfbHeight - sy * 2;
+	if( x ) *x = sx;
+	if( y ) *y = sy;
+	if( w ) *w = sw;
+	if( h ) *h = sh;
+#else
+	if( x ) *x = 0;
+	if( y ) *y = 0;
+	if( w ) *w = 640;
+	if( h ) *h = 480;
 #endif
 }
 
@@ -10606,8 +10636,9 @@ void GC_ArmPostMapFrameBudgetSamples( void )
 	 * again once the client reaches ca_active. */
 	GC_ResetNewGameGameplaySoundState();
 
-	/* G83: capture PointInLeaf/FatPVS before G36 light presents reuse BSP scratch. */
-	if( Sys_CheckParm( "-gcnewgame" ))
+	/* G83: capture PointInLeaf/FatPVS before G36 light presents reuse BSP scratch.
+	 * Retail Flipper needs this too — not only -gcnewgame probes. */
+	if( !Sys_CheckParm( "-gcsoftworld" ))
 		GC_CaptureNewGamePVS();
 
 	/* Match smoke-probe present cost: half-res buffer, skip VSync, cheap samples. */

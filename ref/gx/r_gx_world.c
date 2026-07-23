@@ -23,6 +23,10 @@ G213: live BSP30 opaque when surfaces pinned off scratch.
 G216: lean live baked verts for skyfill emit (edges may dangle).
 G221: indoor EFB clear under -gcnewgame (holes ≠ outdoor sky blue).
 G222: heap flat-fill faces beyond 320+192 (after live pool; no BSS steal).
+
+Retail Flipper scope (G198): capped/PVS world faces + studio/viewmodel + HUD.
+Not feature-parity: full brush-mover lighting, particles, beams, decals, and
+turb water remain unsupported; use -gcsoftworld / capture dump latch only.
 */
 #include "r_local.h"
 

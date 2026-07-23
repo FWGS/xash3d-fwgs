@@ -923,8 +923,9 @@ void SCR_UpdateScreen( void )
 	 *
 	 * G158: once Prepare has armed the world (and Flipper), reconnect often
 	 * stalls at signon=1/2 without ca_active. Keep bounded GX/soft presents
-	 * running so live frames continue past loopback:reconnect. */
-	if( Sys_CheckParm( "-gcnewgame" )
+	 * running so live frames continue past loopback:reconnect.
+	 * Retail Flipper uses the same path when world-ready (no probe argv). */
+	if( ( Sys_CheckParm( "-gcnewgame" ) || GC_IsNewGameWorldReady() )
 		&& cls.state >= ca_connecting && cls.state < ca_active )
 	{
 		static qboolean gc_connect_skip_logged;

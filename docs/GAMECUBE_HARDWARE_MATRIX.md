@@ -157,7 +157,8 @@ throttles, wall-aim pumps, and long VSync drains are confined to
 Retail boots do not require probe argv or `gamecube.cfg` tokens. Disc overrides
 may still inject `-gcnewgame` / `-gcworldrender` for automated probes. Present
 contract: `GX_DrawDone` → `GX_CopyDisp` → `VIDEO_SetNextFramebuffer` →
-`VIDEO_Flush` → field-safe `VIDEO_WaitVSync` → dual-XFB rotate.
+`VIDEO_Flush` → field-safe `VIDEO_WaitVSync` → dual-XFB rotate. XFB policy:
+CPU writes through cached K0 + `DCFlushRange`; VI/`GX_CopyDisp` use K1.
 
 Hardware validation still requires the GC-DOL-SD and GC-ISO-RO routes above
 (480i, wired controller, audio, map transitions, save behavior, fatal display,

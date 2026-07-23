@@ -75,6 +75,7 @@ write_manifest() {
 		for path in \
 			OUT/bin/boot.dol \
 			OUT/bin/xash \
+			OUT/bin/gamecube-handoff.txt \
 			OUT/xash3d-gc.iso \
 			OUT/libref_gx.a \
 			OUT/libfilesystem_stdio.a \
@@ -128,6 +129,11 @@ Do not copy Nintendo SDK files, BIOS/IPL dumps, proprietary Nintendo docs, or
 copyrighted game assets into Git or public release archives.
 
 ## Minimum G38 Test
+
+Retail Flipper policy: no probe argv required. Expect OSReport markers
+\`REF_GX static GetRefAPI retail Flipper policy=on\` and
+\`retail Flipper policy capture=0\`. Capture diagnostics only with
+\`-gcdumpframes\` / \`-gcnewgame\` / etc.
 
 1. Boot \`boot.dol\` through Swiss or another homebrew loader.
 2. Record hardware model, video cable/mode, loader version, and controller type.
