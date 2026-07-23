@@ -2223,7 +2223,21 @@ void GAME_EXPORT SV_StartSound( edict_t *ent, int chan, const char *sample, floa
 		filter = true;
 
 	if( SV_BuildSoundMsg( &sv.multicast, ent, chan, sample, vol * 255, attn, flags, pitch, origin ))
+	{
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcnewgame" ) && sample && sample[0] )
+		{
+			static int gc_intro_snd_log;
+			if( gc_intro_snd_log < 12 )
+			{
+				Con_Reportf( "Xash3D GameCube: G278 sound chan=%d sample=%s\n",
+					chan, sample );
+				gc_intro_snd_log++;
+			}
+		}
+#endif
 		SV_Multicast( msg_dest, origin, NULL, false, filter );
+	}
 }
 
 /*

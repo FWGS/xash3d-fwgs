@@ -278,6 +278,7 @@ static int gc_fill_face_count;
 static qboolean gc_g222_fill_logged;
 /* G277: *12 intro tram — live msurface_t dangles after scratch; bake at capture. */
 #define GC_TRAM_MAX_FACES 16
+#define GC_TRAM_LM_SLOT0 320	/* unused tiles in 128×64 cap atlas (512 capacity) */
 typedef struct
 {
 	byte		nverts;
@@ -285,6 +286,9 @@ typedef struct
 } gc_tram_face_t;
 static gc_tram_face_t gc_tram_faces[GC_TRAM_MAX_FACES];
 static int gc_tram_face_count;
+static qboolean gc_tram_lm_ready;
+static int gc_tram_diffuse_texnum;
+static qboolean gc_tram_lm_logged;
 /* G225: ARAM page + aligned MEM1 DMA stage. */
 static u32 gc_aram_fill_base;
 static int gc_aram_fill_count;
@@ -531,12 +535,19 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 	model_t *tram;
 	int i, q;
 	static qboolean baked_ok;
-	/* *12 local AABB shell (mins/maxs); skip rear (-X). Fits GC_CAP_MAX_VERTS. */
-	static const short shell[4][4][3] = {
-		{ { 144, -75, -6 }, { 144, 75, -6 }, { 144, 75, 131 }, { 144, -75, 131 } },
-		{ { -80, 75, 20 }, { 144, 75, 20 }, { 144, 75, 131 }, { -80, 75, 131 } },
-		{ { 144, -75, 20 }, { -80, -75, 20 }, { -80, -75, 131 }, { 144, -75, 131 } },
-		{ { -80, -75, 131 }, { 144, -75, 131 }, { 144, 75, 131 }, { -80, 75, 131 } },
+	/*
+	 * Windshield frame on local x=144 (hole shows tunnel). Keep the hole large
+	 * enough that Z-ignore frame quads do not paint out the tunnel mid.
+	 * Short ±Y returns add depth; ceil/sill / Z-split body tipped InitInput.
+	 */
+	static const short shell[6][4][3] = {
+		{ { 144, -75, 100 }, { 144, 75, 100 }, { 144, 75, 131 }, { 144, -75, 131 } },
+		{ { 144, -75, -6 }, { 144, 75, -6 }, { 144, 75, 40 }, { 144, -75, 40 } },
+		{ { 144, 40, 40 }, { 144, 75, 40 }, { 144, 75, 100 }, { 144, 40, 100 } },
+		{ { 144, -75, 40 }, { 144, -40, 40 }, { 144, -40, 100 }, { 144, -75, 100 } },
+		/* Short depth returns at the pillars (x 120→144). */
+		{ { 120, 72, 40 }, { 144, 72, 40 }, { 144, 72, 100 }, { 120, 72, 100 } },
+		{ { 144, -72, 40 }, { 120, -72, 40 }, { 120, -72, 100 }, { 144, -72, 100 } },
 	};
 
 	(void)wmodel;
@@ -549,7 +560,7 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 	if( !tram || tram->type != mod_brush || tram->nummodelsurfaces < 273 )
 		return;
 
-	for( q = 0; q < 4 && q < GC_TRAM_MAX_FACES; q++ )
+	for( q = 0; q < 6 && q < GC_TRAM_MAX_FACES; q++ )
 	{
 		gc_tram_face_t *dst = &gc_tram_faces[gc_tram_face_count];
 
@@ -565,6 +576,201 @@ void GC_CaptureIntroTrainFaces( model_t *wmodel )
 
 	if( gc_tram_face_count > 0 )
 		baked_ok = true;
+}
+
+static u16 *GC_CapAtlasTile( int slot );
+
+/*
+=============
+GC_BakeTramLightmapTile
+
+Downsample *12 style-0 samples into one 4×4 RGB565 GX tile (same boost as caps).
+=============
+*/
+static void GC_BakeTramLightmapTile( const msurface_t *src, u16 *dst )
+{
+	const mextrasurf_t *info;
+	int sample_size, smax, tmax, dw, dh, x, y;
+	u16 linear[GC_CAP_LM_DIM * GC_CAP_LM_DIM];
+	const color24 *lm;
+	const u16 mid = 0xC618;
+	int tile_x, tile_y, ty;
+	u16 *out;
+
+	if( !dst )
+		return;
+	info = src ? src->info : NULL;
+	dw = dh = GC_CAP_LM_DIM;
+	lm = ( src && src->samples ) ? src->samples : NULL;
+
+	if( info && lm )
+	{
+		sample_size = Mod_SampleSizeForFace( src );
+		if( sample_size < 1 )
+			sample_size = 16;
+		smax = ( info->lightextents[0] / sample_size ) + 1;
+		tmax = ( info->lightextents[1] / sample_size ) + 1;
+		if( smax < 1 )
+			smax = 1;
+		if( tmax < 1 )
+			tmax = 1;
+	}
+	else
+	{
+		smax = tmax = 1;
+		lm = NULL;
+	}
+
+	for( y = 0; y < dh; y++ )
+	{
+		int sy = ( tmax <= 1 ) ? 0 : ( y * ( tmax - 1 )) / ( dh > 1 ? dh - 1 : 1 );
+
+		for( x = 0; x < dw; x++ )
+		{
+			int sx = ( smax <= 1 ) ? 0 : ( x * ( smax - 1 )) / ( dw > 1 ? dw - 1 : 1 );
+			u16 pix = mid;
+
+			if( lm && sx >= 0 && sy >= 0 && sx < smax && sy < tmax )
+			{
+				const color24 *c = &lm[sy * smax + sx];
+				/* Match cap LM boost (G209 ×3, floor 128). */
+				unsigned r = ((unsigned)c->r * 3u);
+				unsigned g = ((unsigned)c->g * 3u);
+				unsigned b = ((unsigned)c->b * 3u);
+
+				if( r < 128 )
+					r = 128;
+				if( g < 128 )
+					g = 128;
+				if( b < 128 )
+					b = 128;
+				if( r > 255 )
+					r = 255;
+				if( g > 255 )
+					g = 255;
+				if( b > 255 )
+					b = 255;
+				pix = (u16)((( r >> 3 ) << 11 ) | (( g >> 2 ) << 5 ) | ( b >> 3 ));
+			}
+			linear[y * dw + x] = pix;
+		}
+	}
+
+	out = dst;
+	for( tile_y = 0; tile_y < dh; tile_y += 4 )
+	{
+		for( tile_x = 0; tile_x < dw; tile_x += 4 )
+		{
+			for( ty = 0; ty < 4; ty++ )
+			{
+				const u16 *row = linear + ( tile_y + ty ) * dw + tile_x;
+
+				out[0] = row[0];
+				out[1] = row[1];
+				out[2] = row[2];
+				out[3] = row[3];
+				out += 4;
+			}
+		}
+	}
+}
+
+/*
+=============
+GC_BakeTramLightmaps
+
+G277: after disc LM is live, sample *12 front faces into the tram atlas so
+Flipper can draw tex×LM instead of flat orange.
+=============
+*/
+static void GC_BakeTramLightmaps( model_t *wmodel )
+{
+	model_t *tram;
+	int fi, si, baked = 0;
+
+	gc_tram_lm_ready = false;
+	gc_tram_diffuse_texnum = 0;
+	if( !wmodel || !wmodel->surfaces || gc_tram_face_count <= 0 )
+		return;
+
+	tram = Mod_FindName( "*12", false );
+	if( !tram || tram->type != mod_brush || tram->nummodelsurfaces <= 0 )
+		return;
+	if( tram->firstmodelsurface < 0
+		|| tram->firstmodelsurface + tram->nummodelsurfaces > wmodel->numsurfaces )
+		return;
+
+	for( fi = 0; fi < gc_tram_face_count && fi < GC_TRAM_MAX_FACES; fi++ )
+	{
+		const gc_tram_face_t *face = &gc_tram_faces[fi];
+		msurface_t *best = NULL;
+		int best_score = -1;
+		float cy = 0.0f, cz = 0.0f;
+		int v;
+		u16 *tile;
+
+		if( GC_TRAM_LM_SLOT0 + fi >= GC_LM_ATLAS_COLS * GC_LM_ATLAS_ROWS )
+			break;
+
+		for( v = 0; v < (int)face->nverts && v < 4; v++ )
+		{
+			cy += (float)face->pts_s16[v][1];
+			cz += (float)face->pts_s16[v][2];
+		}
+		cy *= 0.25f;
+		cz *= 0.25f;
+
+		for( si = 0; si < tram->nummodelsurfaces; si++ )
+		{
+			msurface_t *surf = &wmodel->surfaces[tram->firstmodelsurface + si];
+			float nx, dist_pl;
+			int area, score;
+
+			if( !surf->plane || !surf->samples )
+				continue;
+			if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+				continue;
+			if( surf->numedges < 3 )
+				continue;
+			nx = surf->plane->normal[0];
+			if( nx < 0.55f )
+				continue;
+			area = (int)surf->extents[0] * (int)surf->extents[1];
+			if( area <= 0 )
+				continue;
+			dist_pl = (float)fabs( (double)surf->plane->dist - 144.0 );
+			score = area + (int)( nx * 200000.0f ) - (int)( dist_pl * 100.0f );
+			score -= (int)( fabs( (double)cy ) + fabs( (double)cz ) ) / 8;
+			if( score > best_score )
+			{
+				best_score = score;
+				best = surf;
+			}
+		}
+
+		/* G277: reuse unused cap-atlas tiles (slots 320+) — no dedicated BSS. */
+		tile = GC_CapAtlasTile( GC_TRAM_LM_SLOT0 + fi );
+		if( !tile )
+			continue;
+		if( best )
+		{
+			GC_BakeTramLightmapTile( best, tile );
+			baked++;
+			if( !gc_tram_diffuse_texnum && best->texinfo && best->texinfo->texture )
+				gc_tram_diffuse_texnum = best->texinfo->texture->gl_texturenum;
+		}
+		else
+			GC_BakeTramLightmapTile( NULL, tile );
+		DCFlushRange( tile, (u32)( GC_CAP_LM_DIM * GC_CAP_LM_DIM * sizeof( u16 )));
+	}
+
+	gc_tram_lm_ready = ( baked > 0 );
+	if( !gc_tram_lm_logged && gc_tram_face_count > 0 )
+	{
+		gc_tram_lm_logged = true;
+		Con_Reportf( "Xash3D GameCube: G277 tram LM baked=%d/%d tex=%d\n",
+			baked, gc_tram_face_count, gc_tram_diffuse_texnum );
+	}
 }
 
 int GC_GetTramFaceCount( void )
@@ -594,6 +800,57 @@ int GC_GetTramFaceVerts( int index, float out[][3], int maxverts )
 		out[i][2] = (float)src->pts_s16[i][2];
 	}
 	return n;
+}
+
+qboolean GC_TramLightmapReady( void )
+{
+	return gc_tram_lm_ready;
+}
+
+int GC_GetTramDiffuseTexnum( void )
+{
+	return gc_tram_diffuse_texnum;
+}
+
+const unsigned short *GC_GetTramLightmapAtlas( int *w, int *h )
+{
+	/* Same 128×64 RGB565 atlas as Flipper caps; tram tiles start at slot 320. */
+	if( !gc_tram_lm_ready || !gc_newgame_cap_lm_atlas )
+		return NULL;
+	if( w )
+		*w = GC_LM_ATLAS_W;
+	if( h )
+		*h = GC_LM_ATLAS_H;
+	return gc_newgame_cap_lm_atlas;
+}
+
+void GC_GetTramLightmapUV( int face, float s, float t, float *out_s, float *out_t )
+{
+	int slot, col, row;
+	float u, v;
+
+	if( !out_s || !out_t )
+		return;
+	if( face < 0 || face >= gc_tram_face_count || !gc_tram_lm_ready )
+	{
+		*out_s = *out_t = 0.0f;
+		return;
+	}
+	if( s < 0.0f )
+		s = 0.0f;
+	else if( s > 1.0f )
+		s = 1.0f;
+	if( t < 0.0f )
+		t = 0.0f;
+	else if( t > 1.0f )
+		t = 1.0f;
+	slot = GC_TRAM_LM_SLOT0 + face;
+	col = slot % GC_LM_ATLAS_COLS;
+	row = slot / GC_LM_ATLAS_COLS;
+	u = (float)( col * GC_CAP_LM_DIM ) + 0.5f + s * (float)( GC_CAP_LM_DIM - 1 );
+	v = (float)( row * GC_CAP_LM_DIM ) + 0.5f + t * (float)( GC_CAP_LM_DIM - 1 );
+	*out_s = u / (float)GC_LM_ATLAS_W;
+	*out_t = v / (float)GC_LM_ATLAS_H;
 }
 
 int GC_GetNewGameCapGeneration( void )
@@ -1374,8 +1631,6 @@ static int GC_BakeCapVertsForCap( model_t *wmodel, int firstedge, int numedges,
 	return n;
 }
 
-static u16 *GC_CapAtlasTile( int slot );
-
 const unsigned short *GC_GetNewGameCapLightmap( int slot, int *w, int *h )
 {
 	if( slot < 0 || slot >= gc_newgame_cap_face_count )
@@ -1433,7 +1688,7 @@ void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, 
 
 static u16 *GC_CapAtlasTile( int slot )
 {
-	if( slot < 0 || slot >= GC_MAX_CAP_FACES || !gc_newgame_cap_lm_atlas )
+	if( slot < 0 || !gc_newgame_cap_lm_atlas )
 		return NULL;
 	if( slot >= GC_LM_ATLAS_COLS * GC_LM_ATLAS_ROWS )
 		return NULL;
@@ -1975,6 +2230,7 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 
 	GC_SortCapFacesByAreaDesc();
 	GC_PackCapLightmapAtlas();
+	GC_BakeTramLightmaps( wmodel );
 	gc_newgame_cap_generation++;
 	GC_FlipperTrace( "Xash3D GameCube: G198 inline face bake count=%d tex=%d lm=%d\n",
 		gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces );
@@ -2102,6 +2358,8 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 			gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces,
 			baked, edge, tex, plane, replaced, wall_boost, GC_MAX_CAP_FACES );
 	}
+	/* G277: *12 style-0 LM while samples still live. */
+	GC_BakeTramLightmaps( wmodel );
 	/* G176: prove LM 8→4 funded face cap 256→320 without BSS growth. */
 	if( !gc_g176_logged && gc_newgame_cap_face_count >= 300
 		&& GC_MAX_CAP_FACES >= 320 && GC_CAP_LM_DIM == 4 )
@@ -2154,6 +2412,8 @@ static void GC_FreeLiveFaces( void )
 static void GC_FreeTramFaces( void )
 {
 	gc_tram_face_count = 0;
+	gc_tram_lm_ready = false;
+	gc_tram_diffuse_texnum = 0;
 }
 
 /* Allocate lean live-face pool BEFORE FatPVS calloc — after lean tables

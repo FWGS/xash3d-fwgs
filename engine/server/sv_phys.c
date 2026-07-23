@@ -1902,70 +1902,115 @@ static void SV_TryNewGameWorldInteraction( edict_t *player )
 #if XASH_GAMECUBE
 /*
 =============
+SV_GCIsIntroTrackTrain
+
+G278: bounded post-G36 physics skips PUSH (doors stall Host_Frame). Admit only
+the c0a0 intro tram (*12 / func_tracktrain) so the ride can move.
+=============
+*/
+static qboolean SV_GCIsIntroTrackTrain( edict_t *ent )
+{
+	const char *precache;
+	const char *classname;
+
+	if( !SV_IsValidEdict( ent ) || ent->v.movetype != MOVETYPE_PUSH )
+		return false;
+	classname = SV_ClassName( ent );
+	if( classname && !Q_stricmp( classname, "func_tracktrain" ))
+		return true;
+	if( ent->v.modelindex <= 0 || ent->v.modelindex >= MAX_MODELS )
+		return false;
+	precache = sv.model_precache[ent->v.modelindex];
+	return ( precache && !Q_strcmp( precache, "*12" ));
+}
+
+/*
+=============
 SV_GCPlaceNewGameTrackTrains
 
-G277: TrackTrain::Find is a deferred PUSH think; post-G36 skips PUSH so the
-c0a0 intro tram never leaves its map origin. Snap to path_track once.
+G277/G278: snap *12 to path for dump eye. Keep speed=0 until Find has a few
+PUSH ticks (setting speed=80 immediately tips during path walk). Then arm.
 =============
 */
 void SV_GCPlaceNewGameTrackTrains( void )
 {
-	static qboolean done;
-	int e, found = 0;
-	int first_world;
+	static qboolean placed;
+	static qboolean armed;
+	static int frames;
+	int e, first_world;
 
-	if( done || !Sys_CheckParm( "-gcnewgame" ))
+	if( !Sys_CheckParm( "-gcnewgame" ))
 		return;
-	done = true;
 
 	first_world = svs.maxclients + 1;
+	if( !placed )
+	{
+		int found = 0;
+
+		placed = true;
+		for( e = first_world; e < svgame.numEntities; e++ )
+		{
+			edict_t *ent = SV_EdictNum( e );
+			edict_t *path = NULL;
+			const char *targ;
+			int pe;
+
+			if( !SV_GCIsIntroTrackTrain( ent ))
+				continue;
+			targ = SV_GetString( ent->v.target );
+			if( !targ || !targ[0] )
+				continue;
+			for( pe = first_world; pe < svgame.numEntities; pe++ )
+			{
+				edict_t *cand = SV_EdictNum( pe );
+
+				if( !SV_IsValidEdict( cand ))
+					continue;
+				if( Q_stricmp( SV_ClassName( cand ), "path_track" ))
+					continue;
+				if( Q_strcmp( SV_GetString( cand->v.targetname ), targ ))
+					continue;
+				path = cand;
+				break;
+			}
+			if( !path )
+				continue;
+			VectorCopy( path->v.origin, ent->v.origin );
+			ent->v.origin[2] += 4.0f;
+			ent->v.angles[YAW] = 180.0f;
+			ent->v.angles[PITCH] = 0.0f;
+			ent->v.angles[ROLL] = 0.0f;
+			ent->v.speed = 0.0f;
+			ent->v.nextthink = sv.time + 0.1f;
+			VectorAdd( ent->v.origin, ent->v.mins, ent->v.absmin );
+			VectorAdd( ent->v.origin, ent->v.maxs, ent->v.absmax );
+			found++;
+		}
+		Con_Reportf( "Xash3D GameCube: G277 train=%d (G278 ride-ready)\n", found );
+		return;
+	}
+
+	if( armed )
+		return;
+	frames++;
+	if( frames < 24 )
+		return;
+
 	for( e = first_world; e < svgame.numEntities; e++ )
 	{
 		edict_t *ent = SV_EdictNum( e );
-		edict_t *path = NULL;
-		const char *targ;
-		int pe;
 
-		if( !SV_IsValidEdict( ent ) || ent->v.movetype != MOVETYPE_PUSH )
+		if( !SV_GCIsIntroTrackTrain( ent ))
 			continue;
-		{
-			const char *precache = ( ent->v.modelindex > 0 && ent->v.modelindex < MAX_MODELS )
-				? sv.model_precache[ent->v.modelindex] : NULL;
-			if( !precache || Q_strcmp( precache, "*12" ))
-				continue;
-		}
-		targ = SV_GetString( ent->v.target );
-		if( !targ || !targ[0] )
-			continue;
-		for( pe = first_world; pe < svgame.numEntities; pe++ )
-		{
-			edict_t *cand = SV_EdictNum( pe );
-
-			if( !SV_IsValidEdict( cand ))
-				continue;
-			if( Q_stricmp( SV_ClassName( cand ), "path_track" ))
-				continue;
-			if( Q_strcmp( SV_GetString( cand->v.targetname ), targ ))
-				continue;
-			path = cand;
-			break;
-		}
-		if( !path )
-			continue;
-		VectorCopy( path->v.origin, ent->v.origin );
-		ent->v.origin[2] += 4.0f;
-		ent->v.angles[YAW] = 180.0f;
-		ent->v.angles[PITCH] = 0.0f;
-		ent->v.angles[ROLL] = 0.0f;
-		VectorClear( ent->v.velocity );
-		VectorClear( ent->v.avelocity );
-		ent->v.speed = 0.0f;
-		ent->v.nextthink = 0.0f;
-		VectorAdd( ent->v.origin, ent->v.mins, ent->v.absmin );
-		VectorAdd( ent->v.origin, ent->v.maxs, ent->v.absmax );
-		found++;
+		ent->v.speed = 80.0f;
+		ent->v.nextthink = sv.time + 0.05f;
+		Con_Reportf( "Xash3D GameCube: G278 tram armed origin=(%.0f,%.0f,%.0f) speed=%.0f\n",
+			ent->v.origin[0], ent->v.origin[1], ent->v.origin[2], ent->v.speed );
+		armed = true;
+		break;
 	}
-	Con_Reportf( "Xash3D GameCube: G277 train=%d\n", found );
+	if( !armed )
+		armed = true;
 }
 #endif
 
@@ -1996,7 +2041,7 @@ void SV_Physics( void )
 		static int gc_phys_think_cursor;
 		edict_t *player;
 		int thought = 0;
-		const int max_world_thinks = 8;
+		const int max_world_thinks = 16; /* G278: room for multi_manager + sentences */
 		int world_thought = 0;
 		int scanned = 0;
 		int first_world = svs.maxclients + 1;
@@ -2006,6 +2051,30 @@ void SV_Physics( void )
 		svgame.globals->time = sv.time;
 		SV_RunLightStyles();
 		SV_GCPlaceNewGameTrackTrains();
+
+		/* G278: always step the intro tram once per frame (don't starve it). */
+		{
+			static int gc_intro_train_log;
+			int te;
+
+			for( te = first_world; te < svgame.numEntities; te++ )
+			{
+				edict_t *train = SV_EdictNum( te );
+
+				if( !SV_GCIsIntroTrackTrain( train ))
+					continue;
+				SV_Physics_Pusher( train );
+				thought++;
+				if( gc_intro_train_log < 8 )
+				{
+					Con_Reportf( "Xash3D GameCube: G278 tram origin=(%.0f,%.0f,%.0f) speed=%.0f next=%.2f\n",
+						train->v.origin[0], train->v.origin[1], train->v.origin[2],
+						train->v.speed, train->v.nextthink );
+					gc_intro_train_log++;
+				}
+				break;
+			}
+		}
 
 		player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
 		if( player && SV_IsValidEdict( player ))
@@ -2164,7 +2233,7 @@ void SV_Physics( void )
 					continue;
 				if( FBitSet( ent->v.flags, FL_KILLME ))
 					continue;
-				/* Skip pushers — their think often walks the BSP and stalls. */
+				/* Skip most pushers (doors stall); intro tram already stepped above. */
 				if( ent->v.movetype == MOVETYPE_PUSH || ent->v.movetype == MOVETYPE_PUSHSTEP )
 					continue;
 				thinktime = ent->v.nextthink;

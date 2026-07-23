@@ -49,6 +49,10 @@ extern int GC_GetFillFaceVerts( int index, float out[][3], int maxverts );
 extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
 extern int GC_GetTramFaceCount( void );
 extern int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
+extern qboolean GC_TramLightmapReady( void );
+extern int GC_GetTramDiffuseTexnum( void );
+extern const unsigned short *GC_GetTramLightmapAtlas( int *w, int *h );
+extern void GC_GetTramLightmapUV( int face, float s, float t, float *out_s, float *out_t );
 extern msurface_t *GC_GetLiveDrawSurfs( void );
 extern unsigned R_GXGetTriColorRGBA( void );
 
@@ -984,6 +988,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot );
 
 /* G222: flat PASSCLR fill from capture-baked verts (no tex/LM). */
 static qboolean r_gx_flat_z_write; /* G277 tram: write Z so mesh occludes */
+static qboolean r_gx_flat_z_ignore; /* G277 tram: draw over closer cap ceiling */
 
 static int R_GXEmitFlatFillVerts( float pts_in[][3], int nverts_in, u32 color )
 {
@@ -996,8 +1001,11 @@ static int R_GXEmitFlatFillVerts( float pts_in[][3], int nverts_in, u32 color )
 	if( r_gx_face_mode != GC_GX_FACE_MODE_FLAT )
 	{
 		/* G231: Z-test only — never occlude LM/live; plug clear-depth holes.
-		 * G277 tram sets r_gx_flat_z_write to occupy depth. */
-		GX_SetZMode( GX_TRUE, GX_LEQUAL, r_gx_flat_z_write ? GX_TRUE : GX_FALSE );
+		 * G277 tram: ignore Z so tunnel ceiling caps do not eat the frame. */
+		if( r_gx_flat_z_ignore )
+			GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+		else
+			GX_SetZMode( GX_TRUE, GX_LEQUAL, r_gx_flat_z_write ? GX_TRUE : GX_FALSE );
 		GX_SetNumTexGens( 0 );
 		GX_SetNumTevStages( 1 );
 		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
@@ -2344,12 +2352,21 @@ R_GXDrawTramBaked
 
 G277: Flipper emit of capture-baked *12 verts with entity transform.
 Live msurface_t is garbage after BSP scratch reuse.
+Prefer *12 style-0 LM × diffuse; flat orange only if LM bake missed.
 =============
 */
 int R_GXDrawTramBaked( const float *origin, const float *angles )
 {
 	int i, n, drawn = 0;
 	Mtx view;
+	qboolean lit = false;
+	const unsigned short *tram_lm = NULL;
+	int lm_w = 0, lm_h = 0;
+	int texnum;
+	static GXTexObj tram_lm_obj;
+	static const float corner_uv[4][2] = {
+		{ 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f }
+	};
 
 	(void)angles;
 	if( !GC_UseGxWorldDraw() || !origin )
@@ -2358,7 +2375,6 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	if( n <= 0 )
 		return 0;
 
-	/* Same guLookAt-style MV as Flipper world — not RI.worldviewMatrix. */
 	R_GXBuildWorldModelview( view );
 	GX_LoadPosMtxImm( view, GX_PNMTX0 );
 
@@ -2366,12 +2382,26 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	r_gx_bound_texnum = 0;
 	r_gx_lm_atlas_bound = false;
 	GX_SetCullMode( GX_CULL_NONE );
-	r_gx_flat_z_write = true;
+	r_gx_flat_z_ignore = true;
+	r_gx_flat_z_write = false;
 
-	/* Intro tram is yaw 180 — fold to -lx/-ly (no sinf). */
+	texnum = GC_GetTramDiffuseTexnum();
+	tram_lm = GC_GetTramLightmapAtlas( &lm_w, &lm_h );
+	if( GC_TramLightmapReady() && tram_lm && lm_w >= 4 && lm_h >= 4
+		&& texnum > 0 && R_GXBindTexnum( (unsigned)texnum, false ))
+	{
+		GX_InitTexObj( &tram_lm_obj, (void *)tram_lm, (u16)lm_w, (u16)lm_h,
+			GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE );
+		GX_InitTexObjFilterMode( &tram_lm_obj, GX_LINEAR, GX_LINEAR );
+		GX_LoadTexObj( &tram_lm_obj, GX_TEXMAP1 );
+		lit = true;
+	}
+
 	for( i = 0; i < n; i++ )
 	{
 		float pts[32][3];
+		float sts[4][2];
+		float lmst[4][2];
 		int nv = GC_GetTramFaceVerts( i, pts, 32 );
 		int v;
 
@@ -2383,15 +2413,71 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 			pts[v][1] = origin[1] - pts[v][1];
 			pts[v][2] = origin[2] + pts[v][2];
 		}
-		r_gx_face_mode = GC_GX_FACE_MODE_NONE;
-		if( R_GXEmitFlatFillVerts( pts, nv, 0xE07030FFu ) > 0 )
-			drawn++;
-	}
-	r_gx_flat_z_write = false;
 
+		if( lit && nv == 4 )
+		{
+			for( v = 0; v < 4; v++ )
+			{
+				sts[v][0] = corner_uv[v][0];
+				sts[v][1] = corner_uv[v][1];
+				GC_GetTramLightmapUV( i, corner_uv[v][0], corner_uv[v][1],
+					&lmst[v][0], &lmst[v][1] );
+			}
+			if( r_gx_face_mode != GC_GX_FACE_MODE_LIT )
+			{
+				GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+				GX_SetNumTexGens( 2 );
+				GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+				GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
+				GX_SetNumTevStages( 2 );
+				GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL );
+				GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+				GX_SetTevOrder( GX_TEVSTAGE1, GX_TEXCOORD1, GX_TEXMAP1, GX_COLORNULL );
+				GX_SetTevColorIn( GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO );
+				GX_SetTevColorOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, GX_TRUE, GX_TEVPREV );
+				GX_SetTevAlphaIn( GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV );
+				GX_SetTevAlphaOp( GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV );
+				GX_ClearVtxDesc();
+				GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+				GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+				GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+				GX_SetVtxDesc( GX_VA_TEX1, GX_DIRECT );
+				GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX1, GX_TEX_ST, GX_F32, 0 );
+				r_gx_face_mode = GC_GX_FACE_MODE_LIT;
+				r_gx_state_sets++;
+			}
+			GX_Begin( GX_TRIANGLES, GX_VTXFMT0, 6 );
+			for( v = 1; v < 3; v++ )
+			{
+				GX_Position3f32( pts[0][0], pts[0][1], pts[0][2] );
+				GX_Color1u32( 0xFFFFFFFFu );
+				GX_TexCoord2f32( sts[0][0], sts[0][1] );
+				GX_TexCoord2f32( lmst[0][0], lmst[0][1] );
+				GX_Position3f32( pts[v][0], pts[v][1], pts[v][2] );
+				GX_Color1u32( 0xFFFFFFFFu );
+				GX_TexCoord2f32( sts[v][0], sts[v][1] );
+				GX_TexCoord2f32( lmst[v][0], lmst[v][1] );
+				GX_Position3f32( pts[v + 1][0], pts[v + 1][1], pts[v + 1][2] );
+				GX_Color1u32( 0xFFFFFFFFu );
+				GX_TexCoord2f32( sts[v + 1][0], sts[v + 1][1] );
+				GX_TexCoord2f32( lmst[v + 1][0], lmst[v + 1][1] );
+			}
+			GX_End();
+			r_gx_tex_draws++;
+			r_gx_lm_draws++;
+			drawn++;
+		}
+		else
+		{
+			r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+			if( R_GXEmitFlatFillVerts( pts, nv, 0xE07030FFu ) > 0 )
+				drawn++;
+		}
+	}
+	r_gx_flat_z_ignore = false;
+	r_gx_flat_z_write = false;
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	GX_SetCullMode( GX_CULL_BACK );
-
 	if( drawn > 0 )
 	{
 		r_gx_world_drew = true;

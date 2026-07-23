@@ -164,6 +164,10 @@ int GC_GXDrawIntroTrain( void );
 struct model_s *GC_GetWorldModel( void );
 int GC_GetTramFaceCount( void ); /* G277: capture-baked *12 faces */
 int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
+qboolean GC_TramLightmapReady( void );
+int GC_GetTramDiffuseTexnum( void );
+const unsigned short *GC_GetTramLightmapAtlas( int *w, int *h );
+void GC_GetTramLightmapUV( int face, float s, float t, float *out_s, float *out_t );
 /* G151: Flipper GX world draw (live); soft spans remain for DumpFrames. */
 qboolean GC_UseGxWorldDraw( void );
 qboolean GC_UseGxRenderer( void );
