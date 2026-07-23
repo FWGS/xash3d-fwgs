@@ -18,7 +18,7 @@ GNU General Public License for more details.
 #include "platform_sdl3.h"
 
 static SDL_SensorID g_system_gyro_id = -1;
-static SDL_Sensor *g_system_gyro;
+static SDL_Sensor   *g_system_gyro;
 
 /*
 ==============
@@ -31,7 +31,7 @@ void SDLash_InitSensors( void )
 	if( SDL_InitSubSystem( SDL_INIT_SENSOR ) == 0 )
 	{
 		int num_sensors;
-		SDL_SensorID *sensors = SDL_GetSensors(&num_sensors);
+		SDL_SensorID *sensors = SDL_GetSensors( &num_sensors );
 
 		for( int i = 0; i < num_sensors; i++ )
 		{
@@ -41,16 +41,16 @@ void SDLash_InitSensors( void )
 				if( g_system_gyro )
 				{
 					g_system_gyro_id = sensors[i];
-					Con_Printf( "SDL: Opened built-in gyroscope: %s\n", SDL_GetSensorName( g_system_gyro ) );
+					Con_Printf( "SDL: Opened built-in gyroscope: %s\n", SDL_GetSensorName( g_system_gyro ));
 					break;
 				}
 			}
 		}
-		SDL_free(sensors);
+		SDL_free( sensors );
 	}
 	else
 	{
-		Con_Reportf( S_ERROR "Failed to init SDL Sensor subsystem: %s\n", SDL_GetError() );
+		Con_Reportf( S_ERROR "Failed to init SDL Sensor subsystem: %s\n", SDL_GetError());
 	}
 }
 
@@ -80,7 +80,7 @@ SDLash_GyroIsAvailable
 */
 qboolean SDLash_GyroIsAvailable( void )
 {
-	return ( g_system_gyro != NULL );
+	return( g_system_gyro != NULL );
 }
 
 /*
@@ -96,4 +96,3 @@ void SDLash_SensorUpdate( SDL_SensorEvent sensor )
 		IN_GyroEvent( sensor.data );
 	}
 }
-
