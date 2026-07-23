@@ -161,6 +161,9 @@ qboolean GC_PrepareNewGameWorldPresent( void );
 qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_IsNewGameG36Done( void );
 int GC_GXDrawIntroTrain( void );
+struct model_s *GC_GetWorldModel( void );
+int GC_GetTramFaceCount( void ); /* G277: capture-baked *12 faces */
+int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
 /* G151: Flipper GX world draw (live); soft spans remain for DumpFrames. */
 qboolean GC_UseGxWorldDraw( void );
 qboolean GC_UseGxRenderer( void );

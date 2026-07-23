@@ -47,6 +47,8 @@ extern int GC_GetLiveFaceBakeSrc( int index );
 extern int GC_GetFillFaceCount( void );
 extern int GC_GetFillFaceVerts( int index, float out[][3], int maxverts );
 extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
+extern int GC_GetTramFaceCount( void );
+extern int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
 extern msurface_t *GC_GetLiveDrawSurfs( void );
 extern unsigned R_GXGetTriColorRGBA( void );
 
@@ -981,6 +983,8 @@ static int r_gx_prebaked_nverts;
 static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot );
 
 /* G222: flat PASSCLR fill from capture-baked verts (no tex/LM). */
+static qboolean r_gx_flat_z_write; /* G277 tram: write Z so mesh occludes */
+
 static int R_GXEmitFlatFillVerts( float pts_in[][3], int nverts_in, u32 color )
 {
 	int i;
@@ -991,8 +995,9 @@ static int R_GXEmitFlatFillVerts( float pts_in[][3], int nverts_in, u32 color )
 		nverts_in = 32;
 	if( r_gx_face_mode != GC_GX_FACE_MODE_FLAT )
 	{
-		/* G231: Z-test only — never occlude LM/live; plug clear-depth holes. */
-		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+		/* G231: Z-test only — never occlude LM/live; plug clear-depth holes.
+		 * G277 tram sets r_gx_flat_z_write to occupy depth. */
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, r_gx_flat_z_write ? GX_TRUE : GX_FALSE );
 		GX_SetNumTexGens( 0 );
 		GX_SetNumTevStages( 1 );
 		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORDNULL, GX_TEXMAP_NULL, GX_COLOR0A0 );
@@ -2335,6 +2340,69 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 
 /*
 =============
+R_GXDrawTramBaked
+
+G277: Flipper emit of capture-baked *12 verts with entity transform.
+Live msurface_t is garbage after BSP scratch reuse.
+=============
+*/
+int R_GXDrawTramBaked( const float *origin, const float *angles )
+{
+	int i, n, drawn = 0;
+	Mtx view;
+
+	(void)angles;
+	if( !GC_UseGxWorldDraw() || !origin )
+		return 0;
+	n = GC_GetTramFaceCount();
+	if( n <= 0 )
+		return 0;
+
+	/* Same guLookAt-style MV as Flipper world — not RI.worldviewMatrix. */
+	R_GXBuildWorldModelview( view );
+	GX_LoadPosMtxImm( view, GX_PNMTX0 );
+
+	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+	r_gx_bound_texnum = 0;
+	r_gx_lm_atlas_bound = false;
+	GX_SetCullMode( GX_CULL_NONE );
+	r_gx_flat_z_write = true;
+
+	/* Intro tram is yaw 180 — fold to -lx/-ly (no sinf). */
+	for( i = 0; i < n; i++ )
+	{
+		float pts[32][3];
+		int nv = GC_GetTramFaceVerts( i, pts, 32 );
+		int v;
+
+		if( nv < 3 )
+			continue;
+		for( v = 0; v < nv; v++ )
+		{
+			pts[v][0] = origin[0] - pts[v][0];
+			pts[v][1] = origin[1] - pts[v][1];
+			pts[v][2] = origin[2] + pts[v][2];
+		}
+		r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+		if( R_GXEmitFlatFillVerts( pts, nv, 0xE07030FFu ) > 0 )
+			drawn++;
+	}
+	r_gx_flat_z_write = false;
+
+	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+	GX_SetCullMode( GX_CULL_BACK );
+
+	if( drawn > 0 )
+	{
+		r_gx_world_drew = true;
+		GC_MarkGxWorldEfbReady();
+		GX_Flush();
+	}
+	return drawn;
+}
+
+/*
+=============
 R_GXDrawBrushModel
 
 Flipper path for doors / trains / func_ brushes — emit model surfaces with
@@ -2344,6 +2412,7 @@ entity transform applied via GX modelview (object * worldview).
 int R_GXDrawBrushModel( cl_entity_t *e )
 {
 	model_t *mod;
+	model_t *geom;
 	msurface_t *psurf;
 	int i, drawn = 0;
 	Mtx mv, obj, world;
@@ -2354,6 +2423,15 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 	mod = e->model;
 	if( mod->type != mod_brush || mod->nummodelsurfaces <= 0 || !mod->surfaces )
 		return 0;
+	/* Submodels share world vertex/edge tables; mod->numvertexes may be 0. */
+	{
+		extern model_t *GC_GetWorldModel( void );
+		geom = GC_GetWorldModel();
+	}
+	if( !geom || !geom->vertexes || !geom->surfedges )
+		geom = WORLDMODEL;
+	if( !geom || !geom->vertexes || !geom->surfedges )
+		geom = mod;
 
 	/* Entity modelview: worldview * object */
 	Matrix4x4_CreateFromEntity( xash_obj, e->angles, e->origin, 1.0f );
@@ -2372,17 +2450,22 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 	/* G277: cabin interiors — HW backface would drop inner tram walls. */
 	GX_SetCullMode( GX_CULL_NONE );
 
-	psurf = &mod->surfaces[mod->firstmodelsurface];
+	psurf = &geom->surfaces[mod->firstmodelsurface];
 	for( i = 0; i < mod->nummodelsurfaces; i++, psurf++ )
 	{
+		int got;
+
 		if( drawn >= 96 ) /* G277 tram face budget */
 			break;
 		if( !psurf->plane || psurf->numedges < 3 )
 			continue;
 		if( psurf->flags & SURF_DRAWSKY )
 			continue;
+		if( psurf->numedges > 32 )
+			continue;
 		/* No CPU backface — cabin walls face inward; angles break modelorg. */
-		drawn += R_GXEmitFace( psurf, mod, -1 );
+		got = R_GXEmitFace( psurf, geom, -1 );
+		drawn += got;
 	}
 
 	/* Restore world modelview for subsequent draws. */
@@ -2468,6 +2551,10 @@ qboolean R_GXTriApiIsActive( void ) { return false; }
 void R_GXEffectsTriBegin( void ) {}
 void R_GXEffectsTriEnd( void ) {}
 int R_GXDrawBrushModel( cl_entity_t *e ) { (void)e; return 0; }
+int R_GXDrawTramBaked( const float *origin, const float *angles )
+{
+	(void)origin; (void)angles; return 0;
+}
 void R_GXStudioBegin( qboolean viewmodel ) { (void)viewmodel; }
 void R_GXStudioEnd( void ) {}
 void R_GXStudioBindTexnum( unsigned texnum ) { (void)texnum; }

@@ -415,6 +415,7 @@ void R_GXStudioEmitTriC(
 	float x1, float y1, float z1, float u1, float v1, unsigned c1,
 	float x2, float y2, float z2, float u2, float v2, unsigned c2 );
 int R_GXDrawBrushModel( cl_entity_t *e );
+int R_GXDrawTramBaked( const float *origin, const float *angles );
 #endif
 
 typedef struct image_s

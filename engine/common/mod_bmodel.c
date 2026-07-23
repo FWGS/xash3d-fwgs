@@ -30,6 +30,7 @@ GNU General Public License for more details.
 
 void GC_CaptureNewGamePVS( void );
 void GC_CaptureNewGamePVSFromModel( model_t *wmodel );
+void GC_CaptureIntroTrainFaces( model_t *wmodel ); /* G277 */
 
 static void Mod_GCFreeBspPin( void **ptr );
 
@@ -6555,6 +6556,9 @@ static qboolean Mod_LoadBmodelLumps( model_t *mod, byte *mod_base, size_t buffer
 	Mod_SetupSubmodels( mod, bmod );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: bmodel submodels ready\n" );
+	/* G277: bake *12 before lighting scratch-stomps msurface_t. */
+	if( isworld && Sys_CheckParm( "-gcnewgame" ))
+		GC_CaptureIntroTrainFaces( mod );
 	Con_Reportf( "Xash3D GameCube: bmodel lighting begin\n" );
 #endif
 	Mod_LoadLighting( mod, bmod );

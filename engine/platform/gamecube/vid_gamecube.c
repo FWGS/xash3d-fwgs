@@ -242,6 +242,11 @@ static int GC_VisLeafsForCluster( int cluster );
 static int GC_RefreshCandWallCount( int cache_slot );
 static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbits, qboolean append );
 static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfbits, int cache_slot );
+void GC_CaptureIntroTrainFaces( model_t *wmodel ); /* G277: also called from mod_bmodel */
+static int GC_BakeCapVertsFromModel( model_t *wmodel, int firstedge, int numedges,
+	signed short out[][3], int maxverts );
+static int GC_BakeCapVertsFromModelDecimated( model_t *wmodel, int firstedge, int numedges,
+	const mplane_t *pl, signed short out[][3], int maxverts );
 static gc_live_cand_t *gc_live_faces;
 static int gc_live_face_capacity;
 static int gc_live_face_count;
@@ -271,6 +276,15 @@ static int *gc_fill_face_scores;
 static int gc_fill_face_capacity;
 static int gc_fill_face_count;
 static qboolean gc_g222_fill_logged;
+/* G277: *12 intro tram — live msurface_t dangles after scratch; bake at capture. */
+#define GC_TRAM_MAX_FACES 16
+typedef struct
+{
+	byte		nverts;
+	signed short	pts_s16[GC_CAP_MAX_VERTS][3];
+} gc_tram_face_t;
+static gc_tram_face_t gc_tram_faces[GC_TRAM_MAX_FACES];
+static int gc_tram_face_count;
 /* G225: ARAM page + aligned MEM1 DMA stage. */
 static u32 gc_aram_fill_base;
 static int gc_aram_fill_count;
@@ -502,6 +516,84 @@ qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags )
 	if( out_flags )
 		*out_flags = (int)src->flags;
 	return true;
+}
+
+/*
+=============
+GC_CaptureIntroTrainFaces
+
+G277: snapshot *12 brush faces while msurface_t/edges are still valid.
+Full surface promote OOMs (~662 KiB); Flipper world already uses baked caps.
+=============
+*/
+void GC_CaptureIntroTrainFaces( model_t *wmodel )
+{
+	model_t *tram;
+	int i, q;
+	static qboolean baked_ok;
+	/* *12 local AABB shell (mins/maxs); skip rear (-X). Fits GC_CAP_MAX_VERTS. */
+	static const short shell[4][4][3] = {
+		{ { 144, -75, -6 }, { 144, 75, -6 }, { 144, 75, 131 }, { 144, -75, 131 } },
+		{ { -80, 75, 20 }, { 144, 75, 20 }, { 144, 75, 131 }, { -80, 75, 131 } },
+		{ { 144, -75, 20 }, { -80, -75, 20 }, { -80, -75, 131 }, { 144, -75, 131 } },
+		{ { -80, -75, 131 }, { 144, -75, 131 }, { 144, 75, 131 }, { -80, 75, 131 } },
+	};
+
+	(void)wmodel;
+	if( baked_ok && gc_tram_face_count > 0 )
+		return;
+	gc_tram_face_count = 0;
+	baked_ok = false;
+
+	tram = Mod_FindName( "*12", false );
+	if( !tram || tram->type != mod_brush || tram->nummodelsurfaces < 273 )
+		return;
+
+	for( q = 0; q < 4 && q < GC_TRAM_MAX_FACES; q++ )
+	{
+		gc_tram_face_t *dst = &gc_tram_faces[gc_tram_face_count];
+
+		dst->nverts = 4;
+		for( i = 0; i < 4; i++ )
+		{
+			dst->pts_s16[i][0] = shell[q][i][0];
+			dst->pts_s16[i][1] = shell[q][i][1];
+			dst->pts_s16[i][2] = shell[q][i][2];
+		}
+		gc_tram_face_count++;
+	}
+
+	if( gc_tram_face_count > 0 )
+		baked_ok = true;
+}
+
+int GC_GetTramFaceCount( void )
+{
+	return gc_tram_face_count;
+}
+
+int GC_GetTramFaceVerts( int index, float out[][3], int maxverts )
+{
+	const gc_tram_face_t *src;
+	int n, i;
+
+	if( !out || maxverts < 3 || index < 0 || index >= gc_tram_face_count )
+		return 0;
+	src = &gc_tram_faces[index];
+	n = (int)src->nverts;
+	if( n < 3 )
+		return 0;
+	if( n > GC_CAP_MAX_VERTS )
+		n = GC_CAP_MAX_VERTS;
+	if( n > maxverts )
+		n = maxverts;
+	for( i = 0; i < n; i++ )
+	{
+		out[i][0] = (float)src->pts_s16[i][0];
+		out[i][1] = (float)src->pts_s16[i][1];
+		out[i][2] = (float)src->pts_s16[i][2];
+	}
+	return n;
 }
 
 int GC_GetNewGameCapGeneration( void )
@@ -2056,6 +2148,12 @@ static void GC_FreeLiveFaces( void )
 	gc_g222_fill_logged = false;
 	gc_aram_fill_count = 0;
 	gc_g225_aram_logged = false;
+	/* G277: do NOT free tram faces here — AllocLiveFacePool calls this. */
+}
+
+static void GC_FreeTramFaces( void )
+{
+	gc_tram_face_count = 0;
 }
 
 /* Allocate lean live-face pool BEFORE FatPVS calloc — after lean tables
@@ -4997,6 +5095,7 @@ void R_Free_Video( void )
 	gc.bpp = 0;
 	GC_FreeNewGamePVSCache();
 	GC_FreeLiveFaces();
+	GC_FreeTramFaces();
 	gc_newgame_world_ready = false;
 	gc_newgame_viewcluster = -1;
 	gc_newgame_g36_done = false;
@@ -6717,19 +6816,20 @@ qboolean GC_IsNewGameG36Done( void )
 GC_GXDrawIntroTrain
 
 G277: New Game never runs CL_EmitEntities on the Flipper present path, so
-edge_entities stay empty. Draw c0a0 intro tram (*12) from the server edict.
+edge_entities stay empty. Draw c0a0 intro tram (*12) from the server edict
+using capture-baked verts (live msurface_t dangles after scratch).
 =============
 */
 int GC_GXDrawIntroTrain( void )
 {
 #if XASH_GAMECUBE
-	extern int R_GXDrawBrushModel( cl_entity_t *e );
+	extern int R_GXDrawTramBaked( const float *origin, const float *angles );
 	static int tram_e;
-	cl_entity_t fake;
 	edict_t *ent;
-	model_t *mod;
 
 	if( !Sys_CheckParm( "-gcnewgame" ) || !gc_newgame_world_ready )
+		return 0;
+	if( GC_GetTramFaceCount() <= 0 )
 		return 0;
 	if( tram_e <= 0 )
 	{
@@ -6740,7 +6840,7 @@ int GC_GXDrawIntroTrain( void )
 			const char *precache;
 
 			ent = SV_EdictNum( e );
-			if( !SV_IsValidEdict( ent ) || ent->v.movetype != MOVETYPE_PUSH )
+			if( !SV_IsValidEdict( ent ))
 				continue;
 			if( ent->v.modelindex <= 0 || ent->v.modelindex >= MAX_MODELS )
 				continue;
@@ -6756,32 +6856,18 @@ int GC_GXDrawIntroTrain( void )
 	ent = SV_EdictNum( tram_e );
 	if( !SV_IsValidEdict( ent ))
 		return 0;
-	mod = SV_ModelHandle( ent->v.modelindex );
-	if( !mod || mod->type != mod_brush || mod->nummodelsurfaces <= 0 )
-		return 0;
-	memset( &fake, 0, sizeof( fake ));
-	fake.model = mod;
-	VectorCopy( ent->v.origin, fake.origin );
-	VectorCopy( ent->v.angles, fake.angles );
-	VectorCopy( ent->v.origin, fake.curstate.origin );
-	VectorCopy( ent->v.angles, fake.curstate.angles );
-	fake.curstate.rendermode = kRenderNormal;
-	fake.curstate.renderamt = 255;
-	{
-		int d = R_GXDrawBrushModel( &fake );
-		static qboolean once;
-
-		if( !once )
-		{
-			once = true;
-			Con_Reportf( "Xash3D GameCube: G277 draw surfs=%d d=%d o=(%.0f,%.0f,%.0f)\n",
-				mod->nummodelsurfaces, d,
-				ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
-		}
-		return d;
-	}
+	return R_GXDrawTramBaked( ent->v.origin, ent->v.angles );
 #else
 	return 0;
+#endif
+}
+
+model_t *GC_GetWorldModel( void )
+{
+#if XASH_GAMECUBE
+	return ( sv.models[1] && sv.models[1]->vertexes ) ? sv.models[1] : NULL;
+#else
+	return NULL;
 #endif
 }
 
@@ -7617,6 +7703,7 @@ void GC_ResetNewGameWorldForChangelevel( void )
 		sv.name[0] ? sv.name : "?", gc_newgame_world_ready ? 1 : 0,
 		gc_newgame_pvs_ready ? 1 : 0 );
 	GC_FreeLiveFaces();
+	GC_FreeTramFaces();
 	GC_FreeNewGamePVSCache();
 	gc_newgame_world_ready = false;
 	gc_gx_world_live = false;
@@ -7865,6 +7952,8 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		SYS_Report( "Xash3D GameCube: CaptureNewGamePVS skipped (no world nodes)\n" );
 		return;
 	}
+
+	/* G277: *12 faces baked just after submodels (before lighting scratch). */
 
 	VectorAverage( wmodel->mins, wmodel->maxs, vieworigin );
 	vieworigin[2] += 64.0f;
