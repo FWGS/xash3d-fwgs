@@ -282,6 +282,12 @@ def configure(conf):
 			conf.fatal('GameCube pure Flipper build forbids --enable-soft')
 		if conf.options.GL or conf.options.NANOGL or conf.options.GLWES or conf.options.GL4ES or conf.options.GLES3COMPAT:
 			conf.fatal('GameCube pure Flipper build forbids GL/GLES renderers')
+		# Require libogc headers/libs from DEVKITPRO.
+		dkp = os.environ.get('DEVKITPRO', '/opt/devkitpro')
+		ogc_inc = os.path.join(dkp, 'libogc', 'include')
+		ogc_lib = os.path.join(dkp, 'libogc', 'lib', 'cube')
+		if not os.path.isdir(ogc_inc) or not os.path.isfile(os.path.join(ogc_lib, 'libogc.a')):
+			conf.fatal('GameCube requires libogc under DEVKITPRO (%s); missing include or libogc.a' % dkp)
 		Logs.info('GameCube pure Flipper GX renderer enabled (soft/GL disabled)')
 
 	# psvita needs -fPIC set manually and static builds are incompatible with -fPIC

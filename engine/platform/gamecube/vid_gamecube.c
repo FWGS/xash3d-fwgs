@@ -4753,6 +4753,10 @@ static void GC_InitVideoHardware( void )
 	gc_present_tex_ready = false;
 	gc.initialized = true;
 	GC_FlipperTrace( "Xash3D GameCube: renderer initialized gx\n" );
+	SYS_Report( "Xash3D GameCube: retail Flipper policy capture=%d softworld=%d xfb_dual=1 copy_clear=1 safe_area=%d%%\n",
+		GC_IsCaptureDiagnostics() ? 1 : 0,
+		Sys_CheckParm( "-gcsoftworld" ) ? 1 : 0,
+		GC_VIDEO_SAFE_AREA_PERCENT );
 	GC_ReportBootPhase( GC_BOOT_RENDERER );
 #endif
 }
@@ -5214,38 +5218,66 @@ static void GC_PresentBuffer( void )
 
 	/* G151: Flipper already holds world geometry — CopyDisp only (no soft blit).
 	 * G191: never steal soft DumpFrames latch presents onto a cleared EFB.
-	 * G193 soft_lock: never CopyDisp Flipper over soft XFB while DumpFrames lag. */
-	if( gc_gx_world_efb_ready && gc_cpu_dump_presents_left <= 0 && !gc_g193_soft_lock )
+	 * G193 soft_lock: never CopyDisp Flipper over soft XFB while DumpFrames lag
+	 * (capture diagnostics only — retail never soft-locks). */
+	if( gc_gx_world_efb_ready && gc_cpu_dump_presents_left <= 0
+		&& !( GC_IsCaptureDiagnostics() && gc_g193_soft_lock ))
 	{
 		f32 fb_w = (f32)rmode->fbWidth;
 		f32 fb_h = (f32)rmode->efbHeight;
 		static int g194_flipper_swap_skip;
+		static qboolean g197_logged;
+		u16 copy_w_u = rmode->fbWidth;
+		u16 copy_h_u = rmode->efbHeight;
+		u16 xfb_h_u = rmode->xfbHeight;
 
 		gc_gx_present_pipe_ready = false; /* next soft present rebuilds ortho */
+
+		/* G197: validate copy geometry against VI mode (retail + probe). */
+		if( copy_w_u == 0 || copy_h_u == 0 || xfb_h_u == 0
+			|| copy_w_u > 640 || copy_h_u > 528 || xfb_h_u > 528 )
+		{
+			if( !g197_logged )
+			{
+				g197_logged = true;
+				SYS_Report( "Xash3D GameCube: G197 CopyDisp geom invalid fb=%u efb=%u xfb=%u\n",
+					(unsigned)copy_w_u, (unsigned)copy_h_u, (unsigned)xfb_h_u );
+			}
+			gc_gx_world_efb_ready = false;
+			return;
+		}
+		if( !g197_logged )
+		{
+			g197_logged = true;
+			SYS_Report( "Xash3D GameCube: G197 CopyDisp ok fb=%u efb=%u xfb=%u stride=%u xfb_k1=%d\n",
+				(unsigned)copy_w_u, (unsigned)copy_h_u, (unsigned)xfb_h_u,
+				(unsigned)rmode->fbWidth,
+				( xfb[which_fb] && ((u32)xfb[which_fb] & 0xC0000000u ) == 0xC0000000u ) ? 1 : 0 );
+		}
+
 		GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
 		GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
-		GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
-		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
-		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
+		GX_SetDispCopySrc( 0, 0, copy_w_u, copy_h_u );
+		GX_SetDispCopyDst( copy_w_u, xfb_h_u );
+		GX_SetDispCopyYScale((f32)xfb_h_u / (f32)copy_h_u );
 		GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
-		/* Retail Flipper: one DrawDone → CopyDisp → VI swap every frame.
-		 * G198: never clear EFB on CopyDisp — Dolphin DumpFramesAsImages
-		 * follows EFB, so GX_TRUE left solid sky dumps after a good XFB copy.
-		 * Next world pass clears via R_GXClearEfbSky. */
+		/* One fence before CopyDisp; never clear EFB on retail Flipper copy
+		 * (DumpFrames follows EFB — GX_TRUE left solid sky after a good XFB). */
 		GX_DrawDone();
 		GX_CopyDisp( xfb[which_fb], GX_FALSE );
 		GX_Flush();
 		gc_gx_world_efb_ready = false;
-		/* G200/G281: do not hold EFB on early -gcnewgame presents — that froze
-		 * DumpFrames on tram-start voids. Late hold is armed from G281 restream. */
-		if( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+
+		/* Capture-only: hold EFB for Dolphin DumpFramesAsImages. */
+		if( GC_IsCaptureDiagnostics()
+			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
 		{
 			extern void R_GXHoldEfbForDump( int frames );
 			R_GXHoldEfbForDump( 6 );
 		}
-		/* DumpFrames-only throttle: Dolphin PNG/TGA encode floods on every
-		 * ViSwap. Retail / native hardware always swaps + VSync. */
-		if( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+		/* Capture-only 1/4 ViSwap throttle — retail always swaps + VSync. */
+		if( GC_IsCaptureDiagnostics()
+			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
 		{
 			if(( ++g194_flipper_swap_skip & 3 ) != 0 )
 				return;
@@ -5254,17 +5286,24 @@ static void GC_PresentBuffer( void )
 			VIDEO_SetNextFramebuffer( xfb[which_fb] );
 			VIDEO_Flush();
 			VIDEO_WaitVSync();
+			if( rmode->viTVMode & VI_NON_INTERLACE )
+				VIDEO_WaitVSync(); /* field-safe progressive */
 			which_fb ^= 1;
 		}
 		return;
 	}
-	if( gc_cpu_dump_presents_left > 0 || gc_g193_soft_lock )
+	if( gc_cpu_dump_presents_left > 0
+		|| ( GC_IsCaptureDiagnostics() && gc_g193_soft_lock ))
 		gc_gx_world_efb_ready = false;
 
-	/* G192/G193: soft-lock hold after paced G191 EFB latch. Dump latch itself
-	 * must use G191 tiled EFB (DumpFrames follows EFB after Flipper); YUYV-only
-	 * dual-XFB presents were encoding as sky while soft sat in XFB RAM. */
-	if( gc_g192_post_changelevel
+	/* G192/G193: soft-lock is capture-diagnostics only. Retail never arms it. */
+	if( !GC_IsCaptureDiagnostics() )
+	{
+		gc_g193_soft_lock = false;
+		gc_g193_draining = false;
+		gc_g193_defer_flipper_left = 0;
+	}
+	else if( gc_g192_post_changelevel
 		&& gc_g193_soft_lock
 		&& gc_cpu_dump_presents_left <= 0
 		&& xfb[0] && xfb[1] )
@@ -5516,13 +5555,13 @@ static void GC_PresentBuffer( void )
 	}
 
 	DCFlushRange( xfb[which_fb], VIDEO_GetFrameBufferSize( rmode ));
-	/* G194: DumpFrames queues a PNG on every ViSwap. Early identical New Game
-	 * presents flooded the encode queue so soft latch never caught up. Keep
-	 * full SetNext for dump latch / soft-lock; throttle other presents. */
+	/* G194: DumpFrames queues a PNG on every ViSwap. Capture diagnostics may
+	 * throttle identical soft presents; retail always SetNext + VSync. */
 	{
 		qboolean g194_do_swap = true;
 
-		if( !g128_cpu_dump && !gc_g193_soft_lock && gc_cpu_dump_presents_left <= 0 )
+		if( GC_IsCaptureDiagnostics()
+			&& !g128_cpu_dump && !gc_g193_soft_lock && gc_cpu_dump_presents_left <= 0 )
 		{
 			static unsigned short g194_last_pix0;
 			static unsigned short g194_last_pixm;
@@ -5531,8 +5570,8 @@ static void GC_PresentBuffer( void )
 				? gc.buffer[(size_t)gc.stride * (size_t)( gc.height / 2 ) + (size_t)( gc.width / 2 )]
 				: 0;
 
-			/* Pre-world-ready boot/menu: hard-throttle ViSwap (was ~18 dumps
-			 * before soft latch). Post-ready: skip swaps when soft pixels idle. */
+			/* Pre-world-ready boot/menu: hard-throttle ViSwap. Post-ready: skip
+			 * swaps when soft pixels idle (DumpFrames encode starvation). */
 			if( !gc_newgame_world_ready )
 			{
 				if(( gc_present_count & 3 ) != 0 )
@@ -5550,12 +5589,16 @@ static void GC_PresentBuffer( void )
 		{
 			VIDEO_SetNextFramebuffer( xfb[which_fb] );
 			VIDEO_Flush();
-			/* Skip VSync during G36 budget samples, New Game low-res world presents,
-			 * and startup cinematics so Host_Frame is not gated on the 16.7ms VI period.
-			 * G128 CPU dump presents keep VSync so Dolphin DumpFrames can latch XFB. */
-			if( g128_cpu_dump
+			/* Retail Flipper always waits VSync. Capture may skip during G36
+			 * budget samples / cinematics; dump latch keeps VSync. */
+			if( !GC_IsCaptureDiagnostics()
+				|| g128_cpu_dump
 				|| ( !gc_budget_probe_active && !gc_newgame_world_ready && cls.state != ca_cinematic ))
+			{
 				VIDEO_WaitVSync();
+				if( !GC_IsCaptureDiagnostics() && ( rmode->viTVMode & VI_NON_INTERLACE ))
+					VIDEO_WaitVSync();
+			}
 			which_fb ^= 1;
 		}
 	}
@@ -6759,16 +6802,16 @@ static void GC_DrawStatusPanelToBufferEx( unsigned short *dst, int width, int he
 	unsigned short border = 0xFB40; /* HL amber border */
 	unsigned short fill = 0x10A2;   /* dark brown-black panel */
 
-	panel_x = width * 24 / 640;
+	panel_x = width * GC_VIDEO_SAFE_AREA_PERCENT / 100;
 	panel_w = width - panel_x * 2;
 	panel_h = height * 110 / 480;
 	if( top_aligned )
-		panel_y = height * 18 / 480;
+		panel_y = height * GC_VIDEO_SAFE_AREA_PERCENT / 100;
 	else
 	{
-		panel_y = height - panel_h - height * 18 / 480;
-		if( panel_y < height * 18 / 480 )
-			panel_y = height * 18 / 480;
+		panel_y = height - panel_h - height * GC_VIDEO_SAFE_AREA_PERCENT / 100;
+		if( panel_y < height * GC_VIDEO_SAFE_AREA_PERCENT / 100 )
+			panel_y = height * GC_VIDEO_SAFE_AREA_PERCENT / 100;
 	}
 	text_scale = height >= 240 ? 2 : 1;
 	line_scale = height >= 240 ? 2 : 1;
@@ -7280,10 +7323,35 @@ qboolean GC_UseGxRenderer( void )
 #endif
 }
 
+/*
+===========
+GC_IsCaptureDiagnostics
+
+True for Dolphin/probe capture routes (DumpFrames, New Game harness, smoke
+maps, changelevel probes). Retail / native hardware boots return false and
+must never enter soft-lock, ViSwap throttles, or wall-aim dump pumps.
+===========
+*/
+qboolean GC_IsCaptureDiagnostics( void )
+{
+#if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcsoftworld" ))
+		return false;
+	return ( Sys_CheckParm( "-gcdumpframes" )
+		|| Sys_CheckParm( "-gcdump" )
+		|| Sys_CheckParm( "-gcchangelevel" )
+		|| Sys_CheckParm( "-gcnewgame" )
+		|| Sys_CheckParm( "-gcmap" )
+		|| Sys_CheckParm( "-gcworldrender" )) ? true : false;
+#else
+	return false;
+#endif
+}
+
 qboolean GC_UseGxWorldDraw( void )
 {
 #if XASH_GAMECUBE
-	/* Pure Flipper 3D: live GX whenever the world is prepared. */
+	/* Pure Flipper 3D: live GX whenever the world is prepared (retail + probe). */
 	if( !GC_UseGxRenderer() )
 		return false;
 	if( !gc_newgame_world_ready )
@@ -8236,7 +8304,10 @@ Prepare again. Keep G36 done sticky (do not re-arm the budget probe).
 void GC_ResetNewGameWorldForChangelevel( void )
 {
 #if XASH_GAMECUBE
-	if( !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
+	/* Always tear down Flipper world state on changelevel when it was armed;
+	 * probe argv alone must not gate retail map transitions. */
+	if( !gc_newgame_world_ready && !gc_gx_world_live
+		&& !Sys_CheckParm( "-gcnewgame" ) && !Sys_CheckParm( "-gcchangelevel" ))
 		return;
 
 	SYS_Report( "Xash3D GameCube: changelevel teardown map=%s world_ready=%d pvs=%d\n",
@@ -8474,7 +8545,9 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 	int max_cluster = -1;
 	int i;
 
-	if( !Sys_CheckParm( "-gcnewgame" ))
+	/* Retail Flipper and -gcnewgame both need prepare-time PVS. Soft-only
+	 * smoke without Flipper can skip via -gcsoftworld. */
+	if( Sys_CheckParm( "-gcsoftworld" ))
 		return;
 	if( gc_newgame_pvs_ready )
 		return;
@@ -9688,6 +9761,8 @@ static qboolean GC_WantSoftDumpLatch( void )
 	 * Flipper boots enable live GX immediately after Prepare. */
 	if( Sys_CheckParm( "-gcsoftworld" ))
 		return false;
+	if( !GC_IsCaptureDiagnostics() )
+		return false;
 	return ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )
 		|| Sys_CheckParm( "-gcchangelevel" )) ? true : false;
 }
@@ -9766,13 +9841,12 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	 * the first world frames never soft-raster. Soft DumpFrames latch (if
 	 * any) temporarily clears this via presents_left. */
 	GC_EnableGxWorldLive();
-	/* G199: Flipper wall-aim during New Game present pump — spawn eye often
-	 * faces outdoor sky (drawn≈19); G189/G190 look raises coverage to ~200. */
-	if( Sys_CheckParm( "-gcnewgame" ))
+	/* G199: Flipper wall-aim is Dolphin DumpFrames diagnostic only. */
+	if( GC_IsCaptureDiagnostics() && Sys_CheckParm( "-gcnewgame" ))
 	{
 		gc_g196_flipper_dump_aim_left = 64;
 		gc_dump_look_into_map = true;
-		GC_FlipperTrace( "Xash3D GameCube: G199 Flipper wall-aim armed for New Game present\n" );
+		GC_FlipperTrace( "Xash3D GameCube: G199 Flipper wall-aim armed for capture diagnostics\n" );
 	}
 	/* G135: do NOT arm CPU dump presents yet. Soft-tiled RGB565 blits dump as
 	 * chroma noise and steal Dolphin DumpFrames slots before depth/coalesce.

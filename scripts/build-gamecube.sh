@@ -39,9 +39,32 @@ fi
 
 if command -v elf2dol >/dev/null 2>&1; then
 	elf2dol OUT/bin/xash OUT/bin/boot.dol
-elif command -v powerpc-eabi-objcopy >/dev/null 2>&1; then
-	powerpc-eabi-objcopy -O binary OUT/bin/xash OUT/bin/boot.dol 2>/dev/null || true
+else
+	echo "error: elf2dol not found; refusing powerpc-eabi-objcopy pseudo-DOL fallback" >&2
+	echo "Install gamecube-tools (elf2dol) from devkitPro to produce a valid boot.dol." >&2
+	exit 1
 fi
+
+# Artifact / linkage metadata for hardware handoff.
+{
+	echo "xash3d-gc hardware handoff"
+	echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+	echo "host=$(uname -n 2>/dev/null || echo unknown)"
+	echo "renderer=REF_GX"
+	echo "policy=retail-flipper"
+	echo "elf=OUT/bin/xash"
+	echo "dol=OUT/bin/boot.dol"
+	if [ -f OUT/bin/xash ]; then
+		echo "elf_bytes=$(wc -c < OUT/bin/xash | tr -d ' ')"
+	fi
+	if [ -f OUT/bin/boot.dol ]; then
+		echo "dol_bytes=$(wc -c < OUT/bin/boot.dol | tr -d ' ')"
+		command -v powerpc-eabi-nm >/dev/null 2>&1 && \
+			powerpc-eabi-nm OUT/bin/xash 2>/dev/null | grep -E 'GetRefAPI|GC_UseGxWorldDraw|GC_IsCaptureDiagnostics' | head -20 \
+			| sed 's/^/sym /' || true
+	fi
+} | tee OUT/bin/gamecube-handoff.txt
+echo "Handoff metadata: OUT/bin/gamecube-handoff.txt"
 
 ./waf install --destdir=OUT
 

@@ -149,9 +149,15 @@ shutdown behavior.
 ## Pure Flipper GX (G198)
 
 Retail GameCube builds ship a Flipper-only renderer (`ref_gx`). Soft edge/span
-rasterization is not used for gameplay presents. Soft DumpFrames latch remains
-available only behind `-gcdumpframes` / `-gcdump` / `-gcchangelevel` diagnostic
-routes. `-gcsoftworld` is rejected.
+rasterization is not used for gameplay presents. Soft DumpFrames latch, ViSwap
+throttles, wall-aim pumps, and long VSync drains are confined to
+`GC_IsCaptureDiagnostics()` (`-gcdumpframes` / `-gcdump` / `-gcchangelevel` /
+`-gcnewgame` / `-gcmap` / `-gcworldrender`). `-gcsoftworld` is rejected.
+
+Retail boots do not require probe argv or `gamecube.cfg` tokens. Disc overrides
+may still inject `-gcnewgame` / `-gcworldrender` for automated probes. Present
+contract: `GX_DrawDone` → `GX_CopyDisp` → `VIDEO_SetNextFramebuffer` →
+`VIDEO_Flush` → field-safe `VIDEO_WaitVSync` → dual-XFB rotate.
 
 Hardware validation still requires the GC-DOL-SD and GC-ISO-RO routes above
 (480i, wired controller, audio, map transitions, save behavior, fatal display,

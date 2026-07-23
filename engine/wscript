@@ -221,16 +221,22 @@ def build(bld):
 			'gamecube_server_entity_exports.inc')
 		has_hlsdk_server = os.path.isfile(hlsdk_server)
 		has_hlsdk_client = os.path.isfile(hlsdk_client)
-		release_build = (
-			os.environ.get('XASH_GAMECUBE_REQUIRE_HLSDK', '') == '1'
+		# Production Flipper: never silently stub HLSDK gameplay for GameCube.
+		require_hlsdk = (
+			os.environ.get('XASH_GAMECUBE_REQUIRE_HLSDK', '1') != '0'
 			or getattr(bld.options, 'BUILD_TYPE', '') in (
 				'release', 'humanrights', 'fast', 'fastnative', 'gottagofast'))
-		if release_build and (not has_hlsdk_server or not has_hlsdk_client):
-			Logs.error('GameCube release build requires HLSDK archives:')
+		if require_hlsdk and (not has_hlsdk_server or not has_hlsdk_client):
+			Logs.error('GameCube Flipper build requires HLSDK archives:')
 			Logs.error('  server: %s (%s)' % (hlsdk_server, 'found' if has_hlsdk_server else 'MISSING'))
 			Logs.error('  client: %s (%s)' % (hlsdk_client, 'found' if has_hlsdk_client else 'MISSING'))
 			Logs.error('Run scripts/hlsdk-gamecube-build.sh or set HLSDK_GAMECUBE_DESTDIR')
-			raise Errors.WafError('missing HLSDK GameCube archives for release build')
+			Logs.error('Set XASH_GAMECUBE_REQUIRE_HLSDK=0 only for intentional stub linkage.')
+			raise Errors.WafError('missing HLSDK GameCube archives for Flipper build')
+		# ref_gx must be present as a sibling static lib target.
+		ref_gx_node = bld.path.parent.find_node('ref/gx')
+		if ref_gx_node is None:
+			raise Errors.WafError('GameCube Flipper build requires ref/gx sources')
 		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-lasnd', '-logc', '-lm', '-lfat']
 		source += ['platform/stub/s_stub.c']
 		if has_hlsdk_server:

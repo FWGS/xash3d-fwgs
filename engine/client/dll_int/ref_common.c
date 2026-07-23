@@ -686,6 +686,9 @@ static qboolean R_LoadProgs( const char *name )
 	refState.developer = host_developer.value;
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: renderer GetRefAPI ready\n" );
+	Con_Reportf( "Xash3D GameCube: REF_GX static GetRefAPI retail Flipper policy=on soft=%d capture=%d\n",
+		Sys_CheckParm( "-gcsoftworld" ) ? 1 : 0,
+		GC_IsCaptureDiagnostics() ? 1 : 0 );
 #endif
 
 	if( !ref.dllFuncs.R_Init( ))

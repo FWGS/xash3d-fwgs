@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
+from waflib import Logs, Errors
+
 def options(opt):
 	pass
 
@@ -16,11 +18,16 @@ def build(bld):
 
 	if bld.env.DEST_OS == 'gamecube':
 		common_dir = bld.path.parent.find_dir('common')
+		if common_dir is None:
+			Logs.error('GameCube Flipper build: ref/common missing')
+			raise Errors.WafError('ref/common required for ref_gx')
 		common_src = [x for x in common_dir.ant_glob('*.c') if x.name != 'ref_context.c']
 		# Pure Flipper is the retail path. Soft edge/span sources remain linked
 		# only so `-gcsoftworld` diagnostic builds resolve symbols; runtime
 		# refuses soft gameplay via GC_UseGxRenderer / GC_UseGxWorldDraw.
 		source = bld.path.ant_glob('*.c') + common_src
+		if not source:
+			raise Errors.WafError('ref_gx has no sources')
 		gc_libs = [ 'engine_includes', 'werror', 'public', 'M' ]
 		bld.stlib(source = source,
 			target = 'ref_gx',
@@ -28,6 +35,7 @@ def build(bld):
 			defines = 'REF_DLL=1 XASH_PURE_GX=1',
 			use = gc_libs,
 			install_path = bld.env.LIBDIR)
+		Logs.info('GameCube ref_gx static library (XASH_PURE_GX=1) scheduled')
 	else:
 		bld.shlib(source = bld.path.ant_glob('*.c'),
 			target = 'ref_gx',

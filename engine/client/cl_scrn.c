@@ -820,11 +820,11 @@ void SCR_UpdateScreen( void )
 		return;
 	}
 
-	/* After G36: bounded V_RenderView-style presents via GC_RenderNewGameWorldFrames
-	 * (same GL_RenderFrame contract as V_RenderViewBoundedGC). Full V_PreRender
-	 * still hangs; helper self-contained Begin/End is the primary path. */
-	if( cls.state == ca_active && Sys_CheckParm( "-gcnewgame" )
-		&& GC_IsNewGameG36Done() )
+	/* After G36 (probe) or retail world-ready: Flipper presents via
+	 * GC_RenderNewGameWorldFrames. Full V_PreRender still hangs on GC. */
+	if( cls.state == ca_active
+		&& ( GC_IsNewGameG36Done()
+			|| ( GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" ))) )
 	{
 		static qboolean gc_post_g36_present_logged;
 		static qboolean gc_post_g36_world_ok;

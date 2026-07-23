@@ -419,6 +419,7 @@ static qboolean gc_changelevel_configured;
 static qboolean gc_landmark_configured;
 static qboolean gc_leanpvs_configured;
 static qboolean gc_fullphysics_configured;
+static qboolean gc_worldrender_configured;
 
 static void GCube_LoadDiscBootOverrides( void )
 {
@@ -434,6 +435,7 @@ static void GCube_LoadDiscBootOverrides( void )
 	gc_landmark_configured = false;
 	gc_leanpvs_configured = false;
 	gc_fullphysics_configured = false;
+	gc_worldrender_configured = false;
 	gc_phase_test[0] = '\0';
 	gc_changelevel_map[0] = '\0';
 	gc_landmark_name[0] = '\0';
@@ -469,6 +471,29 @@ static void GCube_LoadDiscBootOverrides( void )
 			{
 				gc_newgame_configured = true;
 				SYS_Report( "Xash3D GameCube: disc boot override newgame\n" );
+				continue;
+			}
+		}
+
+		if( !Q_strnicmp( cursor, "gcworldrender", 13 ))
+		{
+			char ch = cursor[13];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_worldrender_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override gcworldrender\n" );
+				continue;
+			}
+		}
+
+		/* Also accept bare "worldrender" token from older cfg drafts. */
+		if( !Q_strnicmp( cursor, "worldrender", 11 ))
+		{
+			char ch = cursor[11];
+			if( ch == '\0' || ch == '\r' || ch == '\n' || ch == ' ' || ch == '\t' )
+			{
+				gc_worldrender_configured = true;
+				SYS_Report( "Xash3D GameCube: disc boot override worldrender\n" );
 				continue;
 			}
 		}
@@ -635,14 +660,16 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 	gc_argv[fake_argc++] = "valve";
 	if( gc_newgame_configured )
 		gc_argv[fake_argc++] = "-gcnewgame";
+	if( gc_worldrender_configured )
+		gc_argv[fake_argc++] = "-gcworldrender";
 	if( gc_smoke_map_configured )
 	{
 		gc_argv[fake_argc++] = "-gcmap";
 		gc_argv[fake_argc++] = gc_smoke_map;
 	}
-	if( !gc_newgame_configured && !gc_smoke_map_configured )
+	if( !gc_newgame_configured && !gc_smoke_map_configured && !gc_worldrender_configured )
 	{
-		SYS_Report( "Xash3D GameCube: disc boot override menu\n" );
+		SYS_Report( "Xash3D GameCube: disc boot override menu (retail Flipper)\n" );
 	}
 	if( gc_newsaveload_configured )
 		gc_argv[fake_argc++] = "-gcnewsaveload";

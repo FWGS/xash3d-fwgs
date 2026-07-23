@@ -1533,6 +1533,31 @@ def build_disc(
 		raise ValueError("embedded DOL does not match the input DOL")
 
 	print(f"Built {output_path} ({next_offset} bytes, hybrid GameCube/ISO9660)")
+	handoff = output_path.parent / f"{output_path.stem}-handoff.txt"
+	# Reject objcopy pseudo-DOL: real DOLs start with text section offsets.
+	with dol.open("rb") as df:
+		dol_hdr = df.read(0x100)
+	if len(dol_hdr) < 0x100 or dol_hdr[0:4] == b"\x7fELF":
+		raise ValueError(
+			f"boot.dol looks invalid (elf2dol required, not objcopy): {dol}"
+		)
+	handoff.write_text(
+		"\n".join(
+			[
+				"xash3d-gc disc hardware handoff",
+				f"iso={output_path}",
+				f"iso_bytes={next_offset}",
+				f"dol={dol}",
+				f"dol_bytes={dol_size}",
+				"renderer=REF_GX",
+				"policy=retail-flipper",
+				"note=boot.dol must be produced by elf2dol (objcopy pseudo-DOL rejected)",
+			]
+		)
+		+ "\n",
+		encoding="utf-8",
+	)
+	print(f"Handoff metadata: {handoff}")
 
 
 def validate_assets(data_path: Path) -> list[str]:

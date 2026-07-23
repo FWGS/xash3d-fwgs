@@ -711,7 +711,7 @@ void Platform_RunEvents( void )
 		{
 			Con_Reportf( "Joystick: no GameCube controller detected; waiting for any port reconnect\n" );
 		}
-		Con_Reportf( "Xash3D GameCube: G45 controller waiting\n" );
+		Con_Reportf( "Xash3D GameCube: G45 controller waiting (retail: plug Port 1 Standard/WaveBird)\n" );
 		gc_no_controller_logged = true;
 	}
 
