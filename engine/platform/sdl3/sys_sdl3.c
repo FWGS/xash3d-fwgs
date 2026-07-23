@@ -38,6 +38,7 @@ void Platform_Sleep( int msec )
 {
 	SDL_Delay( msec );
 }
+
 #endif // XASH_TIMER == TIMER_SDL
 
 #if XASH_MESSAGEBOX == MSGBOX_SDL
@@ -45,6 +46,7 @@ void Platform_MessageBox( const char *title, const char *message, qboolean paren
 {
 	SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, title, message, parentMainWindow ? host.hWnd : NULL );
 }
+
 #endif
 
 void SDLash_NanoSleep( int nsec )

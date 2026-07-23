@@ -93,8 +93,8 @@ static SDL_Window *VID_CreateWindowWithSafeGL( const char *title, SDL_Rect *rect
 static void VID_SaveWindowSize( SDL_Window *hWnd, int width, int height )
 {
 	qboolean maximized = FBitSet( SDL_GetWindowFlags( hWnd ), SDL_WINDOW_MAXIMIZED );
-	int render_w;
-	int render_h;
+	int      render_w;
+	int      render_h;
 
 	if( !SDL_GetWindowSizeInPixels( hWnd, &render_w, &render_h ))
 	{
@@ -111,7 +111,7 @@ static void VID_SaveWindowSize( SDL_Window *hWnd, int width, int height )
 static qboolean VID_CreateWindow( const int input_width, const int input_height, window_mode_t window_mode )
 {
 	SDL_Rect rect = { SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, input_width, input_height };
-	Uint32 flags = SDL_WINDOW_RESIZABLE;
+	Uint32   flags = SDL_WINDOW_RESIZABLE;
 
 	if( !glw_state.software )
 		SetBits( flags, SDL_WINDOW_OPENGL );
@@ -119,7 +119,7 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 	// probe true fullscreen first, if it fails, try borderless next
 	if( window_mode == WINDOW_MODE_FULLSCREEN )
 	{
-		SDL_DisplayID display = SDL_GetPrimaryDisplay();
+		SDL_DisplayID   display = SDL_GetPrimaryDisplay();
 
 		SDL_DisplayMode dm;
 		if( SDL_GetClosestFullscreenDisplayMode( display, rect.w, rect.h, 0.0f, true, &dm ))
@@ -204,24 +204,24 @@ static qboolean VID_CreateWindow( const int input_width, const int input_height,
 	return true;
 }
 
-void VID_Info_f ( void )
+void VID_Info_f( void )
 {
 	Uint32 flags = SDL_GetWindowFlags( host.hWnd );
-	int width, height;
-	int render_width, render_height;
-	int x, y;
+	int    width, height;
+	int    render_width, render_height;
+	int    x, y;
 
 	SDL_GetWindowSize( host.hWnd, &width, &height );
-	SDL_GetWindowSizeInPixels( host.hWnd, &render_width, &render_height);
+	SDL_GetWindowSizeInPixels( host.hWnd, &render_width, &render_height );
 	SDL_GetWindowPosition( host.hWnd, &x, &y );
 
 	Con_Printf( "Video: " S_GREEN "SDL3" S_DEFAULT "\n" );
 	Con_Printf( "Video driver: " S_GREEN "%s" S_DEFAULT "\n", SDL_GetCurrentVideoDriver( ));
-	Con_Printf( "Window size: " S_GREEN "%dx%d" S_DEFAULT " (" S_YELLOW"real %dx%d" S_DEFAULT")\n", width, height, render_width, render_height );
+	Con_Printf( "Window size: " S_GREEN "%dx%d" S_DEFAULT " (" S_YELLOW "real %dx%d" S_DEFAULT ")\n", width, height, render_width, render_height );
 	Con_Printf( "Window position: " S_GREEN "%dx%d" S_DEFAULT "\n", x, y );
 	Con_Printf( "Window mode: %s" S_DEFAULT "\n",
-		FBitSet( flags, SDL_WINDOW_FULLSCREEN ) ? S_YELLOW "fullscreen" :
-		S_CYAN "windowed" );
+		    FBitSet( flags, SDL_WINDOW_FULLSCREEN ) ? S_YELLOW "fullscreen"
+		    : S_CYAN "windowed" );
 	Con_Printf( "Window bordered: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_BORDERLESS ) ? S_RED "false" : S_GREEN "true" );
 	Con_Printf( "Window resizable: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_RESIZABLE ) ? S_GREEN "true" : S_RED "false" );
 	Con_Printf( "Window maximized: %s" S_DEFAULT "\n", FBitSet( flags, SDL_WINDOW_MAXIMIZED ) ? S_GREEN "true" : S_RED "false" );
@@ -233,7 +233,7 @@ void VID_Info_f ( void )
 		Con_Printf( "Window display index: " S_RED "fail: " S_DEFAULT "%s\n", SDL_GetError( ));
 
 	const SDL_DisplayMode *dm = SDL_GetWindowFullscreenMode( host.hWnd );
-	if ( dm )
+	if( dm )
 		Con_Printf( "Window display mode: " S_GREEN "%dx%d@%f" S_DEFAULT "\n", dm->w, dm->h, dm->refresh_rate );
 	else
 		Con_Printf( "Window display mode: " S_RED "fail: " S_DEFAULT "%s\n", SDL_GetError( ));
@@ -241,7 +241,7 @@ void VID_Info_f ( void )
 
 static void R_InitVideoModes( void )
 {
-	SDL_DisplayID display = SDL_GetDisplayForWindow( host.hWnd );
+	SDL_DisplayID   display = SDL_GetDisplayForWindow( host.hWnd );
 	int count;
 	SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes( display, &count );
 
@@ -295,12 +295,12 @@ void Platform_Minimize_f( void )
 
 platform_orientation_t Platform_GetDisplayOrientation( void )
 {
-	if (host.hWnd)
+	if( host.hWnd )
 	{
 		int display_index = SDL_GetDisplayForWindow( host.hWnd );
 		if( display_index >= 0 )
 		{
-			switch( SDL_GetCurrentDisplayOrientation( display_index ) )
+			switch( SDL_GetCurrentDisplayOrientation( display_index ))
 			{
 			case SDL_ORIENTATION_LANDSCAPE:
 				return ORIENTATION_LANDSCAPE;
@@ -404,26 +404,26 @@ int GL_SetAttribute( int attr, int val )
 {
 	switch( attr )
 	{
-#define MAP_REF_API_ATTRIBUTE_TO_SDL( name ) case REF_##name: return SDL_GL_SetAttribute( SDL_##name, val );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_RED_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_GREEN_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_BLUE_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ALPHA_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_DOUBLEBUFFER );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_DEPTH_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_STENCIL_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLEBUFFERS );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLESAMPLES );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ACCELERATED_VISUAL );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MAJOR_VERSION );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MINOR_VERSION );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_FLAGS );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_SHARE_WITH_CURRENT_CONTEXT );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_FRAMEBUFFER_SRGB_CAPABLE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_PROFILE_MASK );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RELEASE_BEHAVIOR );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RESET_NOTIFICATION );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_NO_ERROR );
+#define MAP_REF_API_ATTRIBUTE_TO_SDL( name ) case REF_ ## name: return SDL_GL_SetAttribute( SDL_ ## name, val );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_RED_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_GREEN_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_BLUE_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ALPHA_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_DOUBLEBUFFER );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_DEPTH_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_STENCIL_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLEBUFFERS );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLESAMPLES );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ACCELERATED_VISUAL );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MAJOR_VERSION );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MINOR_VERSION );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_FLAGS );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_SHARE_WITH_CURRENT_CONTEXT );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_FRAMEBUFFER_SRGB_CAPABLE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_PROFILE_MASK );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RELEASE_BEHAVIOR );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RESET_NOTIFICATION );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_NO_ERROR );
 #undef MAP_REF_API_ATTRIBUTE_TO_SDL
 	}
 
@@ -434,26 +434,26 @@ int GL_GetAttribute( int attr, int *val )
 {
 	switch( attr )
 	{
-#define MAP_REF_API_ATTRIBUTE_TO_SDL( name ) case REF_##name: return SDL_GL_GetAttribute( SDL_##name, val );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_RED_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_GREEN_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_BLUE_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ALPHA_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_DOUBLEBUFFER );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_DEPTH_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_STENCIL_SIZE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLEBUFFERS );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLESAMPLES );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ACCELERATED_VISUAL );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MAJOR_VERSION );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MINOR_VERSION );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_FLAGS );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_SHARE_WITH_CURRENT_CONTEXT );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_FRAMEBUFFER_SRGB_CAPABLE );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_PROFILE_MASK );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RELEASE_BEHAVIOR );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RESET_NOTIFICATION );
-		MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_NO_ERROR );
+#define MAP_REF_API_ATTRIBUTE_TO_SDL( name ) case REF_ ## name: return SDL_GL_GetAttribute( SDL_ ## name, val );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_RED_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_GREEN_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_BLUE_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ALPHA_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_DOUBLEBUFFER );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_DEPTH_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_STENCIL_SIZE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLEBUFFERS );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_MULTISAMPLESAMPLES );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_ACCELERATED_VISUAL );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MAJOR_VERSION );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_MINOR_VERSION );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_FLAGS );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_SHARE_WITH_CURRENT_CONTEXT );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_FRAMEBUFFER_SRGB_CAPABLE );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_PROFILE_MASK );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RELEASE_BEHAVIOR );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_RESET_NOTIFICATION );
+	MAP_REF_API_ATTRIBUTE_TO_SDL( GL_CONTEXT_NO_ERROR );
 #undef MAP_REF_API_ATTRIBUTE_TO_SDL
 	}
 
@@ -687,7 +687,7 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 	case WINDOW_MODE_FULLSCREEN:
 	{
 		const SDL_DisplayMode want = { .w = width, .h = height };
-		SDL_DisplayMode **modes;
+		SDL_DisplayMode       **modes;
 		const SDL_DisplayMode *got = 0;
 		int mode_count;
 
@@ -744,7 +744,7 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 			const SDL_DisplayMode *dm;
 			qboolean center_window = false;
 
-			if( !(dm = SDL_GetDesktopDisplayMode( display_id )) && width >= dm->w && height >= dm->h )
+			if( !( dm = SDL_GetDesktopDisplayMode( display_id )) && width >= dm->w && height >= dm->h )
 			{
 				SDL_SetWindowSize( host.hWnd, dm->w, dm->h );
 				// Con_Printf( "%s: activating fake fullscreen mode\n", __func__ );
@@ -777,8 +777,8 @@ static rserr_t VID_SetScreenResolution( int width, int height, window_mode_t win
 	SDL_GetWindowSize( host.hWnd, &out_width, &out_height );
 
 	Con_Printf( "%s: Setting video mode to %dx%d %s\n", __func__, out_width, out_height,
-		window_mode == WINDOW_MODE_BORDERLESS ? "borderless" :
-		window_mode == WINDOW_MODE_FULLSCREEN ? "fullscreen" : "windowed" );
+		    window_mode == WINDOW_MODE_BORDERLESS ? "borderless"
+		    : window_mode == WINDOW_MODE_FULLSCREEN ? "fullscreen" : "windowed" );
 
 	VID_SaveWindowSize( host.hWnd, out_width, out_height );
 
@@ -801,7 +801,7 @@ rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mod
 	else
 	{
 		err = VID_SetScreenResolution( width, height, window_mode, refState.window_mode );
-		if ( err != rserr_ok )
+		if( err != rserr_ok )
 			return err;
 	}
 
