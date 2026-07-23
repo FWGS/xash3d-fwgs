@@ -160,6 +160,7 @@ void GC_PresentBudgetProbeFrame( void );
 qboolean GC_PrepareNewGameWorldPresent( void );
 qboolean GC_IsNewGameWorldReady( void );
 qboolean GC_IsNewGameG36Done( void );
+int GC_GXDrawIntroTrain( void );
 /* G151: Flipper GX world draw (live); soft spans remain for DumpFrames. */
 qboolean GC_UseGxWorldDraw( void );
 qboolean GC_UseGxRenderer( void );

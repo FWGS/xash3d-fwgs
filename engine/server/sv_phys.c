@@ -1899,10 +1899,79 @@ static void SV_TryNewGameWorldInteraction( edict_t *player )
 }
 #endif
 
+#if XASH_GAMECUBE
+/*
+=============
+SV_GCPlaceNewGameTrackTrains
+
+G277: TrackTrain::Find is a deferred PUSH think; post-G36 skips PUSH so the
+c0a0 intro tram never leaves its map origin. Snap to path_track once.
+=============
+*/
+void SV_GCPlaceNewGameTrackTrains( void )
+{
+	static qboolean done;
+	int e, found = 0;
+	int first_world;
+
+	if( done || !Sys_CheckParm( "-gcnewgame" ))
+		return;
+	done = true;
+
+	first_world = svs.maxclients + 1;
+	for( e = first_world; e < svgame.numEntities; e++ )
+	{
+		edict_t *ent = SV_EdictNum( e );
+		edict_t *path = NULL;
+		const char *targ;
+		int pe;
+
+		if( !SV_IsValidEdict( ent ) || ent->v.movetype != MOVETYPE_PUSH )
+			continue;
+		{
+			const char *precache = ( ent->v.modelindex > 0 && ent->v.modelindex < MAX_MODELS )
+				? sv.model_precache[ent->v.modelindex] : NULL;
+			if( !precache || Q_strcmp( precache, "*12" ))
+				continue;
+		}
+		targ = SV_GetString( ent->v.target );
+		if( !targ || !targ[0] )
+			continue;
+		for( pe = first_world; pe < svgame.numEntities; pe++ )
+		{
+			edict_t *cand = SV_EdictNum( pe );
+
+			if( !SV_IsValidEdict( cand ))
+				continue;
+			if( Q_stricmp( SV_ClassName( cand ), "path_track" ))
+				continue;
+			if( Q_strcmp( SV_GetString( cand->v.targetname ), targ ))
+				continue;
+			path = cand;
+			break;
+		}
+		if( !path )
+			continue;
+		VectorCopy( path->v.origin, ent->v.origin );
+		ent->v.origin[2] += 4.0f;
+		ent->v.angles[YAW] = 180.0f;
+		ent->v.angles[PITCH] = 0.0f;
+		ent->v.angles[ROLL] = 0.0f;
+		VectorClear( ent->v.velocity );
+		VectorClear( ent->v.avelocity );
+		ent->v.speed = 0.0f;
+		ent->v.nextthink = 0.0f;
+		VectorAdd( ent->v.origin, ent->v.mins, ent->v.absmin );
+		VectorAdd( ent->v.origin, ent->v.maxs, ent->v.absmax );
+		found++;
+	}
+	Con_Reportf( "Xash3D GameCube: G277 train=%d\n", found );
+}
+#endif
+
 /*
 ================
 SV_Physics
-
 ================
 */
 void SV_Physics( void )
@@ -1936,6 +2005,7 @@ void SV_Physics( void )
 
 		svgame.globals->time = sv.time;
 		SV_RunLightStyles();
+		SV_GCPlaceNewGameTrackTrains();
 
 		player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
 		if( player && SV_IsValidEdict( player ))

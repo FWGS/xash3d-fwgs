@@ -1530,11 +1530,26 @@ static void R_EdgeDrawingGcmapProbe( void )
 				continue;
 			bdrawn += R_GXDrawBrushModel( be );
 		}
-		if( !g235_logged && tr.framecount >= 8 )
+		/* G277: EmitEntities skipped on New Game Flipper path — draw tram. */
 		{
-			g235_logged = true;
-			gEngfuncs.Con_Reportf( "Xash3D GameCube: G235 bmodel f=%d e=%d/%u\n",
-				bdrawn, bn, tr.draw_list->num_edge_entities );
+			extern int GC_GXDrawIntroTrain( void );
+			bdrawn += GC_GXDrawIntroTrain();
+		}
+		if( !g235_logged || ( bdrawn > 0 && g235_logged ))
+		{
+			static qboolean g235_ok;
+			if( bdrawn > 0 && !g235_ok )
+			{
+				g235_ok = true;
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: G235 bmodel f=%d e=%d/%u\n",
+					bdrawn, bn, tr.draw_list->num_edge_entities );
+			}
+			else if( !g235_logged && tr.framecount >= 8 )
+			{
+				g235_logged = true;
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: G235 bmodel f=%d e=%d/%u\n",
+					bdrawn, bn, tr.draw_list->num_edge_entities );
+			}
 		}
 		return;
 	}

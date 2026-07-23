@@ -5600,6 +5600,8 @@ void SV_SpawnEntities( const char *mapname )
 	SV_LoadFromFile( mapname, sv.worldmodel->entities );
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: entity lump spawn ready\n" );
+	if( Sys_CheckParm( "-gcnewgame" ))
+		SV_GCPlaceNewGameTrackTrains();
 	if( Sys_CheckParm( "-gcmap" ))
 		GC_MemSample( "entity spawn" );
 #endif

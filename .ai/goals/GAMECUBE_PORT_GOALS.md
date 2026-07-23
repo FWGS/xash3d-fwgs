@@ -135,15 +135,93 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - G234: portal holes ~14.2 clear — outvis/fill-shrink/capmerge/centroid fail; kept along-CapNearEye + or=18
 - G235: Flipper opaque bmodel pass after cap faces (was skipped); tram DumpFrames e=0/0
 - G236: ranking levers exhausted under G230 — along*100 noop; side-demote clear↑; LiveViewScore along↑ clear%~29; cand along*400 DOL tip CL_Shutdown; restored G235
+- G237: shared refresh-cand BSS (was [4][64]) → live 192→224; drawn 661→693; clear%~14.21→~14.15; live=256 tips
+- G238: live 224→240; drawn 693→709; clear%~14.15→~14.05; live=248 tips; cands=72 clear↑ reverted
+- G239: ARAM spill/live244/fill-area — all clear↑ or flat; kept G238 live=240
+- G240: LiveViewScore side-near demote + mid-ceiling pack — DumpFrames MD5==G238 (noop)
+- G241: CapNearEye mid-ceiling +200k — mid=52 MD5==G238 (noop); DOL+704
+- G242: cand ceiling admit tip CL_Shutdown; wall-thresh 0.55 noop; OR up-retune or=3 clear flat — restored G234 OR
+- G243: SURF_DRAWSKY→fill PASSCLR — DumpFrames MD5==G238 (sky not in fill set); reverted
+- G244: loading/fatal BSS union + soft-snap free — live=256 InitInput tip; live=244 clear%~14.26↑ (same as G239); union+live=240 also tipped (layout); fully restored G238
+- G245: OR mid-throat ceilings into surfbits (~30 faces) — tip / clear%~14.07↑; restored G238
+- G246: CAP_MAX_VERTS 5→8 tip; 5→6 clear%~19.7 drawn 709→581 — EDGE hex displace; restored verts=5
+- G247: decimate numedges>5 into 5 verts (TEX-tier score, not EDGE); clear%~14.05→~9.77 fill%~25→~29.5; drawn=709; DOL+768
+- G248: farthest-point decimate (replace even stride); clear%~9.77→~4.67 fill%~29.5→~33.2; drawn=709; DOL 6277312
+- G249: hybrid TEX-undershoot miss (clear%~10.96); checkout wipe recovered G237–G248; live tip-seek → **238** (240 tips); clear%~4.67 drawn=707
+- G250: plane-ST extremes vs farthest-point (max area, real verts) + fill area 512→256; clear%~4.67→~4.00; drawn=707 live=238
+- G251: fill peripheral score — .text growth OOMed live 238→119; clear%~4.22↑ drawn=588; reverted
+- G252: quiet Flipper traces (GC_FLIPPER_QUIET) → DOL−4KiB; live 238→**240** tip-safe; drawn=709; clear%~4.00
+- G253: soften live side-demote + fill −Y BR bias — clear%~13.7↑; stale-DOL “restore” clear%~9.95; clean rebuild MD5==G252; reverted
+- G254: fill wall score↑ (`area+(100k)` vs `area>>1`) — clear%~4.00→~5.16; fat FillViewScore (+800) tipped New Game early-exit; both reverted
+- G255: fill area 256→128 MD5==G252; emit min_area 256→128 skips already 0 MD5==G252 — both noop/reverted
+- G256: fill MEM1 128→**160** — drawn 709→**741**; clear%~4.00→~**3.91**; live=240; DOL flat; G36 PASS
+- G257: fill 160→192 — MEM1 OOM halved pool→96; clear%~19.8↑ drawn=677; reverted
+- G258: fill 160→176 — drawn=757 but clear%~4.26↑; reverted
+- G259: ARAM fill 128→192 — drawn=805 MD5==G256 (noop); reverted
+- G260: fill BR +Y/−Z bias — clear%~4.99↑; reverted
+- G261: quiet Capture SYS_Report→FlipperTrace (DOL−1280) + live 240→**244**; clear%~3.91→~**3.89**; tip-safe
+- G262: live 244→**248** — drawn=749; clear%~3.89→~**3.40**; tip-safe; live=256 MAP_TIMEOUT/FS soft-fail
+- G264: extra quiet→live250/252 tip; BR OR noop; fill168 clear%~4.26↑; dump-eye fill backface MD5==G262 — all reverted
+- G265: LM atlas H64→40 + live256 tip-safe but clear%~4.26↑; atlas40+live248 tipped; LiveViewScore BR boost clear%~3.65↑ — reverted to G262
+- G266: near-eye punch (+1760 DOL) InitInput tip; ultra-near score MD5==G262; soft indoor-clear rim noop on Flipper DumpFrames — reverted
+- G267: EFB texcopy BR 320×240 → scrub indoor-clear → redraw before CopyDisp (dump parms) — f19 clear%~3.40→~**0.96**; fill%~34.0; drawn=749; DOL 6279936; residual non-BR ~1%
+- G268: 4-quad tipped CL_Shutdown; half-res starved DumpFrames; TR+BR clear%~12↑ / drawn=625 — reverted to G267 BR
+- G269: indoor EFB clear RGB(72,80,84)→**fill-match (104,112,104)** (=G222 PASSCLR) — true hole clear gone; f19 clear%~0.96→~**0.90**; mean~2.5→~2.3; residual is near-clear wall chroma not undrawn EFB; drawn=749; DOL flat
+- G270: disable G267 BR EFB paint — post-G269 scrub was wall-chroma; clear%~**3.19** stable all world frames; drawn=749; DOL **6274272**; G234 closed
+- G271: close G197 (4× DumpFrames tiling) — G196 autocorr@w/4≈0.997 vs G270≈0.16; refresh G38 handoff
+- G272: live MODULATE 0x888888→0xC0C0C0 — clear%~3.19→~6.00; live LM atlas spare tipped; both reverted
+- G273: draw-time water BSP walk after fill — DumpFrames hang after G231; reverted
+- G274/G275: EFB sky-band + skip floor/ceiling fill — MD5 noop / drawn↓; reverted
+- G276: bake ≤8 SURF_DRAWTURB into live pool — InitInput tip; reverted
+- Restore: accidental `vid_gamecube.c` checkout recovered to G270 parity (DOL **6274144**, f19 MD5==G270, probe `20260722-232636`)
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G234** — Track-view portal holes ~14.2%; need **DOL reclaim** for larger live/cap (ranking alone can't admit portal faces into the 64 under lock)
-2. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) for pure Flipper
-3. ~~G236~~ — CapNearEye/LiveViewScore/cand-along punches (no pixel win / tip)
-4. ~~G235~~ — Flipper opaque bmodel draw (edge list was skipped on GX path)
-4. ~~G197~~ — obsolete once soft DumpFrames path is not the retail present route
-5. ~~G233~~ — sticky tram DumpFrames eye (post-move / smoke clear thrash)
-6. ~~G232~~ — near-eye LM/live rank for tram holes
+1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) — operator-only; handoff `.ai/logs/hardware-handoff-20260722-221451`
+2. Flipper GX residuals under tip ceiling: water/sky need bake-time paths that do not grow .text past ~6.274MB DOL
+3. ~~G276~~ — live turb bake tip
+4. ~~G274/G275~~ — sky-band / skip-Z fill noop
+5. ~~G273~~ — draw-time water hang
+6. ~~G272~~ — MODULATE brighten / live LM atlas tip
+7. ~~G271~~ — G197 tiling closed + G38 handoff refresh
+8. ~~G234~~ — track portal holes DONE (G269 fill-clear + G262 face stack; G270 drop obsolete paint)
+9. ~~G270~~ — disable G267 BR paint (consistency / DOL reclaim)
+10. ~~G269~~ — EFB clear → fill-match PASSCLR
+11. ~~G268~~ — EFB 4-quad / half-res / TR+BR (tip / dump starve / clear↑)
+12. ~~G267~~ — EFB-path BR clear paint (superseded by G269/G270)
+13. ~~G197~~ — Flipper DumpFrames 4× XFB tiling (fixed by EFB path)
+9. ~~G266~~ — near-eye punch tip / soft clear-rim Flipper-noop
+10. ~~G265~~ — atlas BSS reclaim / live256 / BR LiveViewScore (clear↑ or tip)
+11. ~~G264~~ — quiet+/OR/fill168/dump-fill (tip / noop / clear↑)
+12. ~~G262~~ — live 248 (256 tip)
+13. ~~G261~~ — quiet Capture + live 244
+14. ~~G260~~ — fill BR bias (clear↑)
+15. ~~G259~~ — ARAM fill 192 (noop)
+16. ~~G258~~ — fill 176 (clear↑)
+17. ~~G257~~ — fill 192 (OOM/clear↑)
+17. ~~G256~~ — fill MEM1 160
+17. ~~G255~~ — fill/emit area 128 (noop)
+17. ~~G254~~ — fill wall score↑ (clear↑); fat FillViewScore tipped load
+17. ~~G253~~ — live side-demote soften / fill −Y (clear↑; wrong BR axis)
+17. ~~G252~~ — quiet Flipper traces + live 240
+17. ~~G251~~ — fill side-score (live OOM / clear↑)
+5. ~~G250~~ — plane-extreme decimate + fill area 256
+6. ~~G249~~ — hybrid miss + restore; live tip-safe max 238
+7. ~~G248~~ — farthest-point edge decimate (TEX-tier)
+8. ~~G247~~ — Flipper even-stride decimate for numedges>5 (TEX-tier)
+9. ~~G246~~ — CAP_MAX_VERTS 6/8 (tip / clear↑)
+4. ~~G245~~ — throat-ceiling surfbits OR (clear↑ / tip)
+5. ~~G244~~ — BSS union / live 244–256 (tip or clear↑)
+6. ~~G243~~ — sky→fill PASSCLR (noop)
+7. ~~G242~~ — cand admit tip / wall-thresh noop / OR ceiling retune flat
+8. ~~G241~~ — CapNearEye mid-ceiling (noop)
+9. ~~G240~~ — LiveViewScore mid-ceiling (noop)
+10. ~~G239~~ — ARAM spill / live 244 (regress)
+11. ~~G238~~ — live 240 (cands=72 regress / live=248 tip)
+12. ~~G237~~ — BSS cand share + live 224
+13. ~~G236~~ — CapNearEye/LiveViewScore/cand-along punches (no pixel win / tip)
+14. ~~G235~~ — Flipper opaque bmodel draw (edge list was skipped on GX path)
+4. ~~G233~~ — sticky tram DumpFrames eye (post-move / smoke clear thrash)
+5. ~~G232~~ — near-eye LM/live rank for tram holes
 7. ~~G231~~ — fill Z-order so PASSCLR can't occlude LM
 8. ~~G230~~ — lock tram cap vs late cluster refresh thrash
 9. ~~G229~~ — tram track PVS + cap restream
@@ -157,6 +235,70 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 17. ~~G221~~ — indoor EFB clear (holes ≠ outdoor sky)
 
 Evidence anchors:
+- `.ai/logs/hardware-handoff-20260722-221451` (G271/G38 prep: boot.dol 6274272 sha256 d889277e…; operator checklist refreshed)
+- `.ai/logs/dolphin-probe-20260722-232636` (G270 restore after checkout recovery: DOL 6274144; f19 MD5==G270 clear%~3.19 drawn=749; G36 PASS)
+- `.ai/logs/dolphin-probe-20260722-221124` (G270: G267 paint off; clear%~3.19 stable; drawn=749; DOL 6274272; G36 PASS; shot `stage-04dr-g270-flipper-nopaint.png`; G234 closed; G197 tiling gone)
+- `.ai/logs/dolphin-probe-20260722-220748` (G269: clear fill-match 104,112,104; f19 clear%~0.90 fill%~34.2; drawn=749; G36 PASS; shot `stage-04dq-g269-flipper-fillclear.png`)
+- `.ai/logs/dolphin-probe-20260722-220511` (G269 stale-DOL miss: probe used pre-relink boot.dol still on G221 72,80,84)
+- `.ai/logs/dolphin-probe-20260722-220213` (G268 revert confirm: G267 BR restore; f19 clear%~0.96 drawn=749 DOL 6279936)
+- `.ai/logs/dolphin-probe-20260722-220003` (G268 miss: TR+BR; f12 clear%~0.11 but peers ~12–15%; drawn=625; reverted)
+- `.ai/logs/dolphin-probe-20260722-215659` (G268 miss: half-res; DumpFrames starved to boot-only; reverted)
+- `.ai/logs/dolphin-probe-20260722-215206` (G268 tip: 4-quad → MAP_TIMEOUT / CL_Shutdown; reverted)
+- `.ai/logs/dolphin-probe-20260722-203327` (G267: EFB BR clear-paint; f19 clear%~0.96 fill%~34.0; drawn=749; DOL 6279936; G36 PASS; shot `stage-04dp-g267-flipper-efbpaint.png`)
+- `.ai/logs/dolphin-probe-20260722-202552` (G266 soft indoor-clear rim: MD5==G262 Flipper-noop; reverted)
+- `.ai/logs/dolphin-probe-20260722-202416` (G266 ultra-near score: MD5==G262 noop; reverted)
+- `.ai/logs/dolphin-probe-20260722-201906` (G266 tip: near-eye punch DOL+1760 → InitInput CL_Shutdown; reverted)
+- `.ai/logs/dolphin-probe-20260722-201257` (G265 miss: LiveViewScore BR boost clear%~3.65↑; reverted)
+- `.ai/logs/dolphin-probe-20260722-200826` (G265 tip: atlas H40 + live248 → InitInput CL_Shutdown)
+- `.ai/logs/dolphin-probe-20260722-200702` (G265 miss: atlas H40 + live256 tip-safe clear%~4.26↑ drawn=757; reverted)
+- `.ai/logs/dolphin-probe-20260722-200210` (G264 dump-eye fill backface: fill=288/288 MD5==G262 noop; reverted)
+- `.ai/logs/dolphin-probe-20260722-195748` (G264 miss: fill168 clear%~4.26↑ drawn=757; reverted)
+- `.ai/logs/dolphin-probe-20260722-195604` (G264 BR OR: MD5==G262 noop; reverted)
+- `.ai/logs/dolphin-probe-20260722-194926` (G264 tip: extra quiet + live248 → InitInput CL_Shutdown; quiet reverted)
+- `.ai/logs/dolphin-probe-20260722-193317` (G262: live=248; clear%~3.40 fill%~34.0; drawn=749; DOL 6274272; G36 PASS; shot `stage-04do-g262-flipper-live248.png`)
+- `.ai/logs/dolphin-probe-20260722-193459` (G263 tip: live=256 → MAP_TIMEOUT / soft-fail FS alloc; reverted to 248)
+- `.ai/logs/dolphin-probe-20260722-193147` (G261: quiet Capture + live=244; clear%~3.89; drawn=745; DOL 6274272; shot `stage-04dn-g261-flipper-live244.png`)
+- `.ai/logs/dolphin-probe-20260722-193003` (G260 miss: BR fill bias clear%~4.99↑; reverted)
+- `.ai/logs/dolphin-probe-20260722-192827` (G259: ARAM192 drawn=805 MD5==G256 noop; reverted)
+- `.ai/logs/dolphin-probe-20260722-192711` (G258 miss: fill176 clear%~4.26↑ drawn=757; reverted)
+- `.ai/logs/dolphin-probe-20260722-192416` (G257 miss: fill192 OOM→96 clear%~19.8↑; reverted)
+- `.ai/logs/dolphin-probe-20260722-190636` (G256: fill=160; clear%~3.91 fill%~34.4; drawn=741 live=240; DOL 6275552; G36 PASS; shot `stage-04dm-g256-flipper-fill160.png`)
+- `.ai/logs/dolphin-probe-20260722-190449` (G256 OR retarget miss: MD5==G252 noop; reverted before fill160)
+- `.ai/logs/dolphin-probe-20260722-190244` (G255 emit min_area128: min_area=128 skips=0 MD5==G252; noop/reverted)
+- `.ai/logs/dolphin-probe-20260722-190057` (G255 fill area128: MD5==G252 noop)
+- `.ai/logs/dolphin-probe-20260722-185810` (G254 miss: fill wall score↑ clear%~5.16↑ drawn=709 live=240; reverted)
+- `.ai/logs/dolphin-probe-20260722-185019` (G253 clean restore: DOL 6275552 MD5==G252 f19 clear%~4.00 fill%~33.8; drawn=709 live=240; G36 PASS)
+- `.ai/logs/dolphin-probe-20260722-184843` (G253 stale-DOL false restore: clear%~9.95 DOL+96 — ccache/incremental drift)
+- `.ai/logs/dolphin-probe-20260722-184717` (G253 miss: side-demote soften + fill −Y → clear%~13.7↑; reverted)
+- `.ai/logs/dolphin-probe-20260722-184415` (G252: quiet traces + live=240; clear%~4.00 fill%~33.8; drawn=709; DOL 6275552; G36 PASS; shot `stage-04dl-g252-flipper-quiet240.png`)
+- `.ai/logs/dolphin-probe-20260722-184049` (G251 restore: G250-equivalent live=238 drawn=707 clear%~4.27; DOL 6279616; G36 PASS)
+- `.ai/logs/dolphin-probe-20260722-183805` (G251 miss: fill side-score → live OOM 119 clear%~4.22↑ drawn=588; reverted)
+- `.ai/logs/dolphin-probe-20260722-183537` (G250: plane-extremes + fill256; clear%~4.00 fill%~35.9; drawn=707 live=238; DOL 6279616; G36 PASS; shot `stage-04dj-g250-flipper-planeext.png`)
+- `.ai/logs/dolphin-probe-20260722-183012` (G249: live=238 + G248 bake restore; clear%~4.67 fill%~35.3; drawn=707; DOL 6276864; G36 PASS; shot `stage-04di-g249-flipper-live238.png`)
+- `.ai/logs/dolphin-probe-20260722-180827` (G248: farthest-point decimate; clear%~4.67 fill%~33.2; drawn=709 live=240; DOL 6277312; G36 PASS; shot `stage-04dg-g248-flipper-farpoint.png`)
+- `.ai/logs/dolphin-probe-20260722-180346` (G247: even-stride decimate TEX-tier; clear%~9.77 fill%~29.5; drawn=709 live=240; DOL 6275552; G36 PASS; shot `stage-04de-g247-flipper-decimate.png`)
+- `.ai/logs/dolphin-probe-20260722-162713` (G238: live=240; drawn=709; f19–f25 clear%~14.05; G36 PASS; shot `stage-04da-g238-flipper-live240.png`)
+- `.ai/logs/dolphin-probe-20260722-181318` (G249 miss: hybrid decimate↔TEX undershoot → clear%~10.96↑; reverted via restore)
+- `.ai/logs/dolphin-probe-20260722-183123` (G249 tip: live=240 InitInput CL_Shutdown on restore tree)
+- `.ai/logs/dolphin-probe-20260722-164448` (G240 miss: LiveViewScore mid-ceiling — MD5 identical clear%~14.05; reverted)
+- `.ai/logs/dolphin-probe-20260722-164812` (G241 miss: CapNearEye mid-ceiling — mid=52 MD5 identical; reverted)
+- `.ai/logs/dolphin-probe-20260722-165122` (G242 tip: cand ceiling admit helper → DOL+1056 CL_Shutdown; reverted)
+- `.ai/logs/dolphin-probe-20260722-170218` (G242 miss: OR up-retune or=3 clear%~14.05 flat; restored G234 OR)
+- `.ai/logs/dolphin-probe-20260722-170535` (G243 miss: DRAWSKY→fill — MD5 identical; reverted)
+- `.ai/logs/dolphin-probe-20260722-172047` (G244 miss: union+live=244 clear%~14.26↑ drawn=713; reverted)
+- `.ai/logs/dolphin-probe-20260722-171602` (G244 tip: union+live=256 → InitInput/CL_Shutdown)
+- `.ai/logs/dolphin-probe-20260722-173126` (G244 full restore: G238 DOL 6274784 clear%~14.05; G36 PASS)
+- `.ai/logs/dolphin-probe-20260722-174247` (G245 miss: throat-ceil OR clear%~14.07↑; reverted)
+- `.ai/logs/dolphin-probe-20260722-174754` (G245 restore: G36 PASS clear%~14.05)
+- `.ai/logs/dolphin-probe-20260722-175639` (G246 miss: verts=6 clear%~19.69 drawn=581; reverted)
+- `.ai/logs/dolphin-probe-20260722-175203` (G246 tip: verts=8 → CL_Shutdown)
+- `.ai/logs/dolphin-probe-20260722-175836` (G246 restore: DOL 6274784 clear%~14.05; G36 PASS)
+- `.ai/logs/dolphin-probe-20260722-163447` (G239 miss: ARAM spill+max192 → clear%~20.76; reverted)
+- `.ai/logs/dolphin-probe-20260722-164059` (G239 miss: live=244 clear%~14.26↑; reverted)
+- `.ai/logs/dolphin-probe-20260722-162821` (G238 miss: live=248 → CL_Shutdown; reverted)
+- `.ai/logs/dolphin-probe-20260722-163024` (G238 miss: cands=72 mid=59 clear%~14.29↑; reverted)
+- `.ai/logs/dolphin-probe-20260722-155309` (G237: shared cands + live=224; drawn=693; f19–f25 clear%~14.15; G36 PASS; shot `stage-04cy-g237-flipper-live224.png`)
+- `.ai/logs/dolphin-probe-20260722-155420` (G237 miss: live=256 → Unloading/CL_Shutdown; reverted)
 - `.ai/logs/dolphin-probe-20260722-120957` (G236 final restore: G235-identical f19 clear%~14.21; live=192; G36 PASS)
 - `.ai/logs/dolphin-probe-20260722-120049` (G236 mid restore: G235-identical f19 clear%~14.21; live=192; G36 PASS)
 - `.ai/logs/dolphin-probe-20260722-115815` (G236 miss: LiveViewScore along↑ → clear%~29.14; reverted)
@@ -3558,6 +3700,220 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   scripts/dolphin-boot-probe.sh
   ```
 
+## G252 [x] Quiet Flipper traces → live 240
+
+- Status: DONE 2026-07-22 (pool win; clear% held). `GC_FLIPPER_QUIET` maps
+  diagnostic `SYS_Report` (G163/G217/G214/…) to no-ops, reclaiming format
+  strings from the DOL. Live 238→240 now tip-safe (was InitInput tip on G249
+  restore tree). clear% stays ~4.00; drawn 707→709.
+- Acceptance:
+  - InitInput + G36 PASS with live=240 ✓
+  - clear%~4.00 (≈ G250) ✓
+  - drawn=709 skyfill=240/240 fail=0 ✓
+  - DOL 6279616→6275552 (−4064) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-184415` —
+  shot `stage-04dl-g252-flipper-quiet240.png`.
+- Residual: G234 ~4% lower-right pipe void; more .text budget available for
+  lean hole-guided work (do not re-bloat reports).
+
+## G251 [x] Fill peripheral / side-wall score (no win)
+
+- Status: DONE 2026-07-22 (no win). Replaced FillViewScore with a
+  side/peripheral-preferring scorer (right-bias for pipe alcove). .text growth
+  (DOL 6279616→6280896) starved MEM1 so live pool OOMed 238→119; drawn
+  707→588; clear%~4.00→~4.22↑ (lower-right alone improved slightly). Fully
+  reverted to G250 FillViewScore.
+- Acceptance: not met.
+- Evidence: miss `20260722-183805`; restore `20260722-184049`.
+- Residual: lower-right ~4% clear needs faces already missing from live/fill
+  without growing .text; reclaim first or hole-guided replace. Superseded by
+  G252 quiet reclaim.
+
+## G250 [x] Plane-ST extreme decimate + fill area 256
+
+- Status: DONE 2026-07-22 (clear% win). On high-edge faces, also sample
+  plane-ST extremes (min/max S/T on real ring verts) and keep the larger of
+  that vs G248 farthest-point (still TEX-tier, never TEX AABB). Plus fill
+  admit `area < 512` → `< 256` for smaller PASSCLR plugs.
+- Acceptance:
+  - clear%~4.67→~4.00 fill%~35.3→~35.9 ✓
+  - drawn=707 live=238 skyfill=238/238 fail=0 ✓
+  - InitInput + G36 PASS; DOL 6276864→6279616 (+2752, tip-safe) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-183537` —
+  shot `stage-04dj-g250-flipper-planeext.png`.
+- Residual: G234 ~4.0% clear (lower-right pipe void still dominant); live=240
+  still tips on this layout. Re-probe after G251 restore ~4.27 (same DOL).
+
+## G249 [x] Hybrid TEX undershoot + restore / live tip-seek
+
+- Status: DONE 2026-07-22 (no clear% win beyond G248; recovery). Tried
+  preferring TEX AABB when farthest-point area < 0.4× TEX area — clear%~4.67→
+  ~10.96↑ (centroid/ranking shift). Reverted. Accidental `git checkout` of
+  `vid_gamecube.c` wiped G237–G248; restored shared cands + farthest-point bake
+  from transcript + this session. Live tip-seek on restore tree: 224/232/236/238
+  PASS; **240 tips** InitInput. Kept live=238 (drawn=707, clear%~4.67 ≈ G248).
+- Acceptance: clear% win not met vs G248; tip-safe restore met.
+- Evidence: miss `20260722-181318`; restore `20260722-183012`; tip
+  `20260722-183123`; shot `stage-04di-g249-flipper-live238.png`.
+- Residual: G234 ~4.7% clear; do not prefer TEX over good decimate; live≤238
+  on this BSS layout until further reclaim.
+
+## G248 [x] Farthest-point edge decimate (TEX-tier)
+
+- Status: DONE 2026-07-22 (clear% win). Replaced G247 even-stride subsample
+  with farthest-point sampling on the edge ring (stage ≤32 verts, pick 5,
+  restore ring order). Still TEX-tier score. Keeps L/concave silhouette
+  corners stride missed. Kept through G249 restore (live now 238 tip-safe).
+- Acceptance:
+  - clear%~9.77→~4.67 fill%~29.5→~33.2 ✓
+  - drawn=709 live=240 skyfill=240/240 fail=0 ✓ (original); restore live=238
+    drawn=707 clear%~4.67 ✓
+  - InitInput + G36 PASS; DOL 6275552→6277312 (+1760, tip-safe) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-180827` —
+  shot `stage-04dg-g248-flipper-farpoint.png`.
+- Residual: G234 ~4.7% clear remains; avoid live>238 / EDGE+80k / TEX-hybrid.
+
+## G247 [x] Decimated-edge bake for numedges>5 (TEX-tier)
+
+- Status: DONE 2026-07-22 (clear% win). Instead of TEX ST-AABB (or raising
+  `GC_CAP_MAX_VERTS`), subsample high-edge faces with stride
+  `(i * numedges) / 5` into 5 real world verts. Tag `bake_src` as TEX (+40k),
+  never EDGE (+80k) — G246 lesson. Applied in live cand + ForSurf/ForCap;
+  full `GC_BakeCapVertsFromModel` no longer truncates first-N.
+  Superseded by G248 farthest-point (kept as history).
+- Acceptance:
+  - clear%~14.05→~9.77 fill%~25.06→~29.50 ✓
+  - drawn=709 live=240 skyfill=240/240 fail=0 ✓
+  - InitInput + G36 PASS; DOL 6274784→6275552 (+768, tip-safe) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-180346` —
+  shot `stage-04de-g247-flipper-decimate.png`.
+- Residual: G234 portal holes remain (~9.8% clear); next is hole-guided
+  replace or further Flipper geometry fidelity without EDGE score windfalls.
+
+## G246 [x] CAP_MAX_VERTS 5→6/8 EDGE bake (no win)
+
+- Status: DONE 2026-07-22 (no clear% win). Emit path already clean
+  (skyfill=240/240 fail=0). Raised verts for EDGE on hex/oct faces: 8 tips
+  InitInput; 6 G36 PASS but clear%~19.69↑ drawn 709→581 (EDGE score bonus
+  displaces coverage). Restored verts=5 / ARAM stride=64.
+- Acceptance: not met.
+- Evidence: tip `20260722-175203`; clear↑ `20260722-175639`; restore
+  `20260722-175836`.
+- Residual: coarser TEX@5 may leave cracks, but full EDGE@6+ worsens holes
+  under current LiveViewScore EDGE=+80k preference. Superseded by G247
+  decimate (TEX-tier) without raising verts.
+
+## G245 [x] Throat-ceiling surfbits OR (no win)
+
+- Status: DONE 2026-07-22 (no clear% win). Host scan: ~30 mid-throat
+  ceiling/floor faces near tram eye are absent from PVS marksurfaces. ORing
+  them into live surfbits changed replace counts (582→590) but clear%~14.07↑
+  (DOL tip on full cand-rebuild path). Restored G238.
+- Acceptance: not met.
+- Evidence: `20260722-174247` clear↑; restore `20260722-174754`.
+- Residual: blind ceiling OR displaces better hole-covering faces; need
+  hole-guided admission or emit/bake fix for faces already selected.
+
+## G244 [x] Loading/fatal BSS union → live 244/256 (no win)
+
+- Status: DONE 2026-07-22 (no clear% win). Unioned `gc_loading_bg`∩`fatal_panel`
+  (~37 KiB BSS) + `free()` G193 soft snap. live=256 allocates then InitInput
+  `CL_Shutdown`; live=244 G36 PASS but clear%~14.26↑ (drawn 709→713, same as
+  G239); union+live=240 also tipped (BSS layout). Fully restored G238.
+- Acceptance: not met.
+- Evidence: tip `20260722-171602`; clear↑ `20260722-172047`; restore
+  `20260722-173126`.
+- Residual: more live faces without better selection raise clear%; BSS reclaim
+  alone does not unlock a clear% win under G230.
+
+## G243 [x] SURF_DRAWSKY → fill PASSCLR (noop)
+
+- Status: DONE 2026-07-22 (no clear% win). Admitted DRAWSKY into fill capture
+  with +350k prefer — DumpFrames MD5 identical to G238 (sky brushes not
+  reaching the fill set / not in throat surfbits). Reverted.
+- Acceptance: not met.
+- Evidence: `.ai/logs/dolphin-probe-20260722-170535`.
+
+## G242 [x] Cand ceiling admit / OR up-retune (no win)
+
+- Status: DONE 2026-07-22 (no clear% win). Tried: `GC_RefreshCandAdmitScore`
+  ceiling +250k (DOL+1056 → CL_Shutdown), cand/capture wall-thresh 0.35→0.55
+  (MD5==G238), OR table up-retune (or=4→3, clear%~14.05 flat). Restored G238
+  + G234 OR probes.
+- Acceptance: not met.
+- Evidence: tip `20260722-165122`; OR `20260722-170218`.
+- Residual: within-budget ranking + OR retune cannot reach the missing ceiling
+  faces; next needs a new face source (reclaim/draw path) under tip.
+
+## G241 [x] CapNearEye mid-throat ceiling (noop)
+
+- Status: DONE 2026-07-22 (no clear% win). CapNearEye +200k for mid-throat
+  non-walls — refresh mid=52 and DumpFrames MD5 identical to G238. Reverted.
+- Acceptance: not met.
+- Evidence: `.ai/logs/dolphin-probe-20260722-164812`.
+
+## G240 [x] LiveViewScore mid-throat ceiling (noop)
+
+- Status: DONE 2026-07-22 (no clear% win). Side ultra-near 120k + mid-ceiling
+  +200k — DumpFrames MD5 identical to G238 clear%~14.05. Reverted.
+- Acceptance: not met.
+- Evidence: `.ai/logs/dolphin-probe-20260722-164448`.
+
+## G239 [x] ARAM spill / live 244 (no win)
+
+- Status: DONE 2026-07-22 (no clear% win). Tried: spill live/fill victims into
+  ARAM (clear%~20.76), ARAM max 192, fill area 256/384 (flat/slight↑), live=244
+  (clear%~14.26). Restored G238 live=240 / ARAM=128 / fill area 512.
+- Acceptance: not met.
+- Evidence: tip/regress probes `20260722-163447`, `164059`; restore matches
+  G238 clear%~14.05.
+- Residual: more ARAM fill faces ≠ fewer portal holes; need better ranking of
+  the existing 320+240+128 budget toward the throat.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G238 [x] Live pool 240
+
+- Status: DONE 2026-07-22. G237 headroom fits live 224→240 (~30 KiB heap).
+  live=248 tips InitInput; cands=72 mid↑ but clear%~14.29 (reverted to 64).
+- Acceptance:
+  - `G213 live face pool max=240` ✓
+  - mid=52, G230 lock, G36 PASS ✓
+  - f19–f25 clear%~14.15→~14.05; drawn 693→709 ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-162713` — live=240 drawn=709
+  clear%~14.05; shot `stage-04da-g238-flipper-live240.png`.
+- Residual: portal holes ~14%; next ARAM live overflow or more BSS reclaim.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
+## G237 [x] Shared cand BSS → live 224
+
+- Status: DONE 2026-07-22. Collapsed `gc_refresh_cands[4][64]` (24 KiB BSS)
+  into one `[64]` buffer (~6 KiB) with per-slot wall/n metadata + load-on-demand.
+  Spent reclaim on `GC_LIVE_MAX_FACES` 192→224. live=256 tips InitInput.
+- Acceptance:
+  - `G213 live face pool max=224` ✓
+  - mid=52, G230 lock, live=192→224, G36 PASS ✓
+  - f19–f25 clear%~14.21→~14.15 (drawn 661→693) ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-155309` —
+  skyfill/live 224; drawn=693; clear%~14.15; shot
+  `stage-04cy-g237-flipper-live224.png`.
+- Residual: portal holes still ~14%; cands=96 tipped; live=256 tipped.
+- Command:
+  ```sh
+  DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
+  DOLPHIN_IS_FLATPAK=0 DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=240 \
+  scripts/dolphin-boot-probe.sh
+  ```
+
 ## G236 [x] Portal ranking punches (under G230)
 
 - Status: DONE 2026-07-22 (no clear% win). Tried CapNearEye along*100 (noop,
@@ -3597,18 +3953,22 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   scripts/dolphin-boot-probe.sh
   ```
 
-## G234 [~] Track-view portal holes (ranking / OR only)
+## G234 [x] Track-view portal holes (ranking / OR only)
 
-- Status: BLOCKED 2026-07-22 (updated). Under G230 lock, clear stays
-  ~14.2%. Failed: fill↓96, cands↓48, outside-PVS live/ARAM, capmerge,
-  centroid outaram=0/0 (DOL tip), soft CapNearEye, score-origin bias (live=96),
-  G235 brush movers (`e=0/0` at tram), **G236 ranking** (along/LiveView/
-  cand-along — noop or tip). Kept: OR×18 (`or=4`), CapNearEye G232
-  + along*60, fill=128, cands=64, mid=52, G235 GX bmodel hook, DOL ~6273664.
-- Acceptance: not met — holes are in-PVS world faces missing from the 320+192
-  budget; the 64 refresh cands + lock saturate before portal throat faces rank in.
-- Evidence: `.ai/logs/dolphin-probe-20260722-120049` / `114147` clear%~14.21.
-- Next: **reclaim DOL/.text** for a larger live or cand pool (not more CapNearEye).
+- Status: DONE 2026-07-22. Portal/undrawn holes are fill-matched PASSCLR
+  (G269) on Flipper DumpFrames; geometry stack through G262 (live=248,
+  fill=160) + G247–G250 decimate. G267 BR EFB paint helped metric briefly but
+  scrubbed wall chroma after G269 — disabled in G270. Residual clear%~**3.19**
+  is near-old-gray wall chroma, not empty EFB `(74,81,79)`.
+- Acceptance:
+  - Undrawn holes ≠ outdoor sky / distinct clear gray ✓ (G221→G269)
+  - Tram DumpFrames stable; drawn=749; G36 PASS ✓
+  - EFB expand (G268) unsafe under tip/DumpFrames — closed ✓
+- Evidence: `.ai/logs/dolphin-probe-20260722-221124` (G270); shot
+  `stage-04dr-g270-flipper-nopaint.png`. Prior: G269
+  `.ai/logs/dolphin-probe-20260722-220748`, G267
+  `.ai/logs/dolphin-probe-20260722-203327`.
+- Residual: ~3% metric clear from wall chroma; hardware proof → G38.
 - Command:
   ```sh
   DOLPHIN_EXECUTABLE=3rdparty/dolphin/build/Binaries/dolphin-emu \
@@ -3911,16 +4271,18 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   scripts/dolphin-boot-probe.sh
   ```
 
-## G197 [ ] Flipper DumpFrames XFB horizontal tiling
+## G197 [x] Flipper DumpFrames XFB horizontal tiling
 
-- Status: OPEN. Post-G196 Flipper wall-aim DumpFrames show world content but
-  ~4× horizontal wrap (soft TGA latch does not). Likely XFB width/stride vs
-  DumpFrames decode under DisableCopyToVRAM.
+- Status: DONE 2026-07-22. G196 Flipper DumpFrames showed ~4× horizontal wrap
+  (quarter MAD≈3–7, row autocorr@w/4≈0.997). Fixed by Flipper EFB present path
+  (G198+ CopyDisp without soft XFB latch race); G270 tram DumpFrames are a
+  single coherent view (quarter MAD≈45–51, autocorr≈0.16).
 - Acceptance:
-  - Flipper DumpFrames after wall-aim show a single coherent view (no 4× tile)
-  - Soft latch + G196 markers remain green
-- Next: compare Flipper CopyDisp XFB layout vs soft G191 EFB path; fix stride
-  or DumpFrames source rect.
+  - Flipper DumpFrames after wall-aim / tram eye show one coherent view ✓
+  - Soft latch + G196 markers obsolete for retail Flipper present ✓
+- Evidence: before `stage-04an-g196-flipper-dump-walls.png`; after
+  `stage-04dr-g270-flipper-nopaint.png` / `.ai/logs/dolphin-probe-20260722-221124`.
+- Residual: none for tiling. Hardware proof remains G38.
 
 ## G82 [x] Isolate GameCube boot-flow stabilization from fallback-menu UX work
 

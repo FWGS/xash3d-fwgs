@@ -1365,11 +1365,12 @@ unless the distributor has the required rights.
 | Hardware | G38 has a repeatable handoff packet, but real GameCube/Swiss/Wii-GC-mode evidence remains open. |
 
 Latest G38 handoff evidence:
-`.ai/logs/hardware-handoff-20260626-011714/summary.md` records checksums for
-`OUT/bin/boot.dol`, `OUT/bin/xash`, `OUT/xash3d-gc.iso`, `libref_gx.a`,
-`libfilesystem_stdio.a`, and `extras.pk3`, plus an operator checklist and
-hardware evidence template. This prepares physical validation but does not
-complete G38 until a real hardware run is recorded.
+`.ai/logs/hardware-handoff-20260722-221451/summary.md` records checksums for
+`OUT/bin/boot.dol` (6274272, G270 baseline), `OUT/bin/xash`, `OUT/xash3d-gc.iso`,
+`libref_gx.a`, `libfilesystem_stdio.a`, and `extras.pk3`, plus an operator
+checklist and hardware evidence template. Prior packet:
+`.ai/logs/hardware-handoff-20260626-011714/summary.md`. This prepares physical
+validation but does not complete G38 until a real hardware run is recorded.
 
 ### G39 hardware and loader support matrix
 

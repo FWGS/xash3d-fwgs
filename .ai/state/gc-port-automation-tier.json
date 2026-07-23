@@ -1,4 +1,4 @@
 {
-  "tier": "landmark_changelevel",
-  "note": "G236 exhausted ranking under G230 (noop/tip); restored G235 clear%~14.21 DOL~6273664. G234 next: DOL reclaim for larger live/cand pool. G38 hardware still open."
+  "tier": "hardware_validation",
+  "note": "G234/G197 closed. Only open goal G38 (operator hardware). Handoff: .ai/logs/hardware-handoff-20260722-221451 (boot.dol 6274272). Local automation idle until hardware evidence recorded."
 }

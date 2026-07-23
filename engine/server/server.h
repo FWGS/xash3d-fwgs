@@ -508,6 +508,9 @@ void SV_CheckVelocity( edict_t *ent );
 qboolean SV_PlayerRunThink( edict_t *ent, float frametime, double time );
 void SV_Impact( edict_t *e1, edict_t *e2, trace_t *trace );
 void SV_FreeOldEntities( void );
+#if XASH_GAMECUBE
+void SV_GCPlaceNewGameTrackTrains( void );
+#endif
 
 //
 // sv_move.c

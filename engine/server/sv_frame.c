@@ -89,12 +89,19 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 	/* New Game: pack entities in-engine. Avoid HLSDK AddToFullPack/Classify —
 	 * stub-freed studio ents and hull-only players (no model string) DSI or get
 	 * skipped. Prefer the local player + brush submodels; drop dangling studios.
-	 * After G36 (G87): player-only — full brush walk can stall Host_Frame. */
+	 * After G36 (G87): was player-only (full brush walk stalled Host_Frame).
+	 * G277: still admit a small near-eye brush-mover budget so the c0a0 tram
+	 * (*submodel) reaches Flipper R_GXDrawBrushModel / edge_entities. */
 	if( Sys_CheckParm( "-gcnewgame" ) && from_client )
 	{
 		int		e;
 		int		player_e = NUM_FOR_EDICT( pClient );
-		qboolean	player_only = GC_IsNewGameG36Done();
+		qboolean	post_g36 = GC_IsNewGameG36Done();
+		int		brush_budget = post_g36 ? 6 : 64;
+		int		brush_added = 0;
+		vec3_t		view_org;
+
+		VectorCopy( pViewEnt->v.origin, view_org );
 
 		for( e = 1; e < svgame.numEntities; e++ )
 		{
@@ -119,30 +126,41 @@ static void SV_AddEntitiesToPacket( edict_t *pViewEnt, edict_t *pClient, client_
 			}
 			else
 			{
-				if( player_only )
-					continue;
 				if( !ent->v.modelindex )
 					continue;
 				if( FBitSet( ent->v.effects, EF_NODRAW ))
 					continue;
 
-				mod = SV_ModelHandle( ent->v.modelindex );
-				if( !mod )
+				/* G277: Flipper draws tram from server edict — no brush pack. */
+				if( post_g36 )
+					continue;
 				{
-					/* Freed studio stub — never touch Classify on these. */
-					if( ent->v.modelindex > 1
-						&& sv.model_precache[ent->v.modelindex][0]
-						&& Q_stristr( sv.model_precache[ent->v.modelindex], ".mdl" ))
+					mod = SV_ModelHandle( ent->v.modelindex );
+					if( !mod )
+					{
+						if( ent->v.modelindex > 1
+							&& sv.model_precache[ent->v.modelindex][0]
+							&& Q_stristr( sv.model_precache[ent->v.modelindex], ".mdl" ))
+							continue;
 						continue;
-				}
-				else if( mod->type == mod_studio )
-				{
-					if( mod->needload == NL_UNREFERENCED || !mod->name[0] )
+					}
+					else if( mod->type == mod_studio )
+					{
+						if( mod->needload == NL_UNREFERENCED || !mod->name[0] )
+							continue;
+					}
+					else if( mod->type != mod_brush )
+					{
 						continue;
-				}
-				else if( mod->type != mod_brush )
-				{
-					continue; /* sprites/etc. stay inhibited for New Game MEM1 */
+					}
+					else
+					{
+						if( brush_added >= brush_budget )
+							continue;
+						if( mod->nummodelsurfaces <= 0 )
+							continue;
+						brush_added++;
+					}
 				}
 			}
 

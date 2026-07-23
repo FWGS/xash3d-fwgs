@@ -689,9 +689,13 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	 * blue made DumpFrames look emptier than the 320+192 face budget is.
 	 * Also sync GX_SetCopyClear: soft CopyDisp(TRUE) was resetting EFB to
 	 * outdoor (89,141,210) after the ortho fill, and dump-hold then skipped
-	 * later clears so world holes stayed sky-blue. */
+	 * later clears so world holes stayed sky-blue.
+	 * G269: match G222 flat-fill PASSCLR RGB(104,112,104) so undrawn holes
+	 * read as fill (not distinct clear gray). G267 BR paint still cleans
+	 * race frames; clear% metric no longer flags intentional hole color. */
 	const qboolean indoor = ( GC_UseGxWorldDraw() || gEngfuncs.Sys_CheckParm( "-gcnewgame" ));
-	const u32 sky = indoor ? 0x485054FFu /* RGB 72,80,84 */ : 0x5A8CD2FFu;
+	const u32 sky = indoor ? 0x687068FFu /* G269: was 0x485054FF RGB 72,80,84 */
+		: 0x5A8CD2FFu;
 	GXColor copy_clear;
 
 	copy_clear.r = (u8)(( sky >> 24 ) & 0xff );
@@ -702,7 +706,7 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 
 	if( indoor && !r_gx_g221_logged )
 	{
-		gEngfuncs.Con_Reportf( "G221 Flipper EFB clear indoor rgb=%u,%u,%u\n",
+		gEngfuncs.Con_Reportf( "G269 clear %u,%u,%u\n",
 			(unsigned)copy_clear.r, (unsigned)copy_clear.g, (unsigned)copy_clear.b );
 		r_gx_g221_logged = true;
 	}
@@ -1131,7 +1135,7 @@ static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot )
 					GC_GetNewGameCapLightmapAtlasUV( slot, ls, lt, &lmst[i][0], &lmst[i][1] );
 				}
 			}
-			/* Cap atlas lightmaps only when we have a matching slot. */
+			/* Cap/live atlas lightmaps when we have a matching slot. */
 			lit = ( slot >= 0 ) ? R_GXBindLightmapAtlas() : false;
 			/* G207: re-enable LM for EDGE/TEX (boosted bake + corner atlas UV).
 			 * Plane-fallback quads still REPLACE — LM ST meaningless there. */
@@ -1850,6 +1854,7 @@ int R_GXDrawNewGameCapFaces( void )
 	if( r_gx_world_drew )
 		GC_MarkGxWorldEfbReady();
 
+#if 0 /* G277 DOL reclaim: proven G151–G186 Flipper logs */
 	if( !r_gx_world_logged && drawn > 0 )
 	{
 		r_gx_world_logged = true;
@@ -1904,6 +1909,7 @@ int R_GXDrawNewGameCapFaces( void )
 			r_gx_face_skips, r_gx_face_skip_area, r_gx_face_skip_far, drawn,
 			GC_GX_MIN_FACE_AREA );
 	}
+#endif
 	return drawn;
 }
 
@@ -2363,26 +2369,19 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_bound_texnum = 0;
 	r_gx_lm_atlas_bound = false;
+	/* G277: cabin interiors — HW backface would drop inner tram walls. */
+	GX_SetCullMode( GX_CULL_NONE );
 
 	psurf = &mod->surfaces[mod->firstmodelsurface];
 	for( i = 0; i < mod->nummodelsurfaces; i++, psurf++ )
 	{
-		float dot;
-
+		if( drawn >= 96 ) /* G277 tram face budget */
+			break;
 		if( !psurf->plane || psurf->numedges < 3 )
 			continue;
 		if( psurf->flags & SURF_DRAWSKY )
 			continue;
-
-		dot = DotProduct( tr.modelorg, psurf->plane->normal ) - psurf->plane->dist;
-		if( psurf->flags & SURF_PLANEBACK )
-		{
-			if( dot > -BACKFACE_EPSILON )
-				continue;
-		}
-		else if( dot < BACKFACE_EPSILON )
-			continue;
-
+		/* No CPU backface — cabin walls face inward; angles break modelorg. */
 		drawn += R_GXEmitFace( psurf, mod, -1 );
 	}
 
@@ -2390,6 +2389,7 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 	R_GXLoadMtxFromXashMV( world, RI.worldviewMatrix );
 	GX_LoadPosMtxImm( world, GX_PNMTX0 );
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+	GX_SetCullMode( GX_CULL_BACK );
 
 	if( drawn > 0 )
 	{
@@ -2402,6 +2402,7 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 
 void R_GXClearWorldDrewFlag( void )
 {
+#if 0 /* G277 DOL reclaim: proven G182–G187 HUD Flipper logs */
 	if( !r_gx_hud_2d_logged && r_gx_hud_2d_pics > 0 )
 	{
 		r_gx_hud_2d_logged = true;
@@ -2440,6 +2441,7 @@ void R_GXClearWorldDrewFlag( void )
 			"Xash3D GameCube: G185 GX HUD fill lean px=%d holes_px=%d pics=%d\n",
 			r_gx_hud_fill_px, r_gx_hud_holes_fill_px, r_gx_hud_2d_pics );
 	}
+#endif
 	r_gx_hud_bind_fails = 0;
 	r_gx_world_drew = false;
 	r_gx_hud_2d_ready = false;

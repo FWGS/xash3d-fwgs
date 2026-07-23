@@ -83,7 +83,8 @@ static byte *gc_newgame_surfbits; /* active row into surf_table */
  * G199: keep 4×64 — raising cands starved stuffcmds/boot MEM1.
  * Do not shrink to 48: G212 mid dropped 52→43 with no working portal admit. */
 #define GC_SURFBITS_CACHE_SLOTS 4
-#define GC_CAP_REFRESH_NEW_MAX 64
+/* G237: one shared cand buffer (was [4][64] = 24 KiB BSS). 96×96 B ≈ 9 KiB. */
+#define GC_CAP_REFRESH_NEW_MAX 64 /* G234/G238: 72+ raised clear%; keep 64 */
 #define GC_CAP_MAX_VERTS 5	/* G199: s16 verts; reclaim per-face LM BSS */
 static byte *gc_newgame_surf_cache;
 static int gc_newgame_surf_cache_cluster[GC_SURFBITS_CACHE_SLOTS];
@@ -102,8 +103,10 @@ typedef struct
 	short		extents[2];
 	byte		styles[MAXLIGHTMAPS];
 } gc_refresh_cand_t;
-static gc_refresh_cand_t gc_refresh_cands[GC_SURFBITS_CACHE_SLOTS][GC_CAP_REFRESH_NEW_MAX];
-static int gc_refresh_ncands[GC_SURFBITS_CACHE_SLOTS];
+static gc_refresh_cand_t gc_refresh_cands[GC_CAP_REFRESH_NEW_MAX];
+static int gc_refresh_ncands[GC_SURFBITS_CACHE_SLOTS]; /* last build n per cache slot */
+static int gc_refresh_walls[GC_SURFBITS_CACHE_SLOTS]; /* wall count in last build */
+static int gc_refresh_loaded_slot = -1; /* which slot currently fills gc_refresh_cands */
 static int gc_g165_eye_cluster = -1; /* G165: player-eye cluster for restore refresh */
 static qboolean gc_g171_logged;
 static qboolean gc_g175_logged;
@@ -218,7 +221,16 @@ typedef struct
 	byte		bake_src; /* G217: 1=edge 2=plane 3=tex 0=none */
 	signed short	pts_s16[GC_CAP_MAX_VERTS][3];
 } gc_live_cand_t;
-#define GC_LIVE_MAX_FACES 192
+/* G252: drop Flipper diagnostic format strings from .rodata/.text to free MEM1. */
+#ifndef GC_FLIPPER_QUIET
+#define GC_FLIPPER_QUIET 1
+#endif
+#if GC_FLIPPER_QUIET
+#define GC_FlipperTrace(...) ((void)0)
+#else
+#define GC_FlipperTrace(...) SYS_Report( __VA_ARGS__ )
+#endif
+#define GC_LIVE_MAX_FACES 248 /* G262: quiet Capture reclaim → tip-safe 248 (256 hangs) */
 static qboolean GC_CapFaceAlready( int firstedge, int numedges );
 static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles );
 static qboolean GC_DumpEyeAtTramStart( float *eye, float *out_angles );
@@ -229,6 +241,7 @@ static void GC_BuildSurfbitsForVisRow( model_t *wmodel, const byte *vis, byte *s
 static int GC_VisLeafsForCluster( int cluster );
 static int GC_RefreshCandWallCount( int cache_slot );
 static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbits, qboolean append );
+static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfbits, int cache_slot );
 static gc_live_cand_t *gc_live_faces;
 static int gc_live_face_capacity;
 static int gc_live_face_count;
@@ -240,7 +253,7 @@ static qboolean gc_g213_live_logged;
  * pool succeeds — BSS here starved live 192→96. G224 raises 96→128 (~+2 KiB).
  * G225: lean ARAM overflow (append-only, no score BSS) for MEM1 rank losers.
  */
-#define GC_FILL_MAX_FACES 128 /* do not shrink — 96 raised clear%~20 */
+#define GC_FILL_MAX_FACES 160 /* G256: was 128 — more MEM1 fill for TR residual */
 #define GC_ARAM_FILL_MAX 128
 #define GC_ARAM_FACE_STRIDE 64 /* sizeof(gc_fill_face_t); DMA multiple of 32 */
 typedef struct
@@ -533,7 +546,40 @@ int GC_GetNewGameCapBakeSrc( int slot )
 	return (int)gc_cap_bake_src[slot];
 }
 
-/* Pack world verts as s16 — reuses former per-face LM staging BSS. */
+/* Pack one surfedge index into out[n]; returns 0 on OOB. */
+static int GC_BakeOneSurfedgeVert( model_t *wmodel, int firstedge, int ei, int nedges,
+	signed short out[][3], int n )
+{
+	int lindex, eabs, v;
+	const float *pos;
+
+	lindex = wmodel->surfedges[firstedge + ei];
+	eabs = ( lindex > 0 ) ? lindex : -lindex;
+	/* G209: reject OOB edge indices (was aborting whole bake → tex-only). */
+	if( eabs <= 0 || eabs >= nedges )
+		return 0;
+	/* Prefer edges16 when present — HL1 maps; edges32 may be stale pin. */
+	if( wmodel->edges16 )
+	{
+		medge16_t *e = &wmodel->edges16[eabs];
+		v = ( lindex > 0 ) ? e->v[0] : e->v[1];
+	}
+	else
+	{
+		medge32_t *e = &wmodel->edges32[eabs];
+		v = ( lindex > 0 ) ? e->v[0] : e->v[1];
+	}
+	if( v < 0 || v >= wmodel->numvertexes )
+		return 0;
+	pos = wmodel->vertexes[v].position;
+	out[n][0] = (signed short)pos[0];
+	out[n][1] = (signed short)pos[1];
+	out[n][2] = (signed short)pos[2];
+	return 1;
+}
+
+/* Pack world verts as s16 — reuses former per-face LM staging BSS.
+ * Full edge walk only; callers must not pass numedges > maxverts. */
 static int GC_BakeCapVertsFromModel( model_t *wmodel, int firstedge, int numedges,
 	signed short out[][3], int maxverts )
 {
@@ -546,39 +592,303 @@ static int GC_BakeCapVertsFromModel( model_t *wmodel, int firstedge, int numedge
 		return 0;
 	if( firstedge < 0 || firstedge + numedges > wmodel->numsurfedges )
 		return 0;
+	if( numedges > maxverts )
+		return 0;
 	nedges = wmodel->numedges;
 	if( nedges < 1 )
 		return 0;
-	if( numedges > maxverts )
-		numedges = maxverts;
 	for( i = 0; i < numedges; i++ )
 	{
-		int lindex = wmodel->surfedges[firstedge + i];
-		int eabs = ( lindex > 0 ) ? lindex : -lindex;
-		int v;
-		const float *pos;
-
-		/* G209: reject OOB edge indices (was aborting whole bake → tex-only). */
-		if( eabs <= 0 || eabs >= nedges )
+		if( !GC_BakeOneSurfedgeVert( wmodel, firstedge, i, nedges, out, n ))
 			return 0;
-		/* Prefer edges16 when present — HL1 maps; edges32 may be stale pin. */
-		if( wmodel->edges16 )
+		n++;
+	}
+	return n;
+}
+
+/* Approximate polygon area via fan cross-products (world units²). */
+static float GC_BakePolyArea3( const signed short pts[][3], int n )
+{
+	int i;
+	float area, x0, y0, z0;
+	vec3_t cr;
+
+	if( !pts || n < 3 )
+		return 0.0f;
+	x0 = (float)pts[0][0];
+	y0 = (float)pts[0][1];
+	z0 = (float)pts[0][2];
+	area = 0.0f;
+	for( i = 1; i < n - 1; i++ )
+	{
+		float x1 = (float)pts[i][0] - x0;
+		float y1 = (float)pts[i][1] - y0;
+		float z1 = (float)pts[i][2] - z0;
+		float x2 = (float)pts[i + 1][0] - x0;
+		float y2 = (float)pts[i + 1][1] - y0;
+		float z2 = (float)pts[i + 1][2] - z0;
+
+		cr[0] = y1 * z2 - z1 * y2;
+		cr[1] = z1 * x2 - x1 * z2;
+		cr[2] = x1 * y2 - y1 * x2;
+		area += VectorLength( cr );
+	}
+	return area * 0.5f;
+}
+
+static void GC_BakeSortSelByRing( byte *sel, int nsel )
+{
+	int i, k;
+
+	for( i = 0; i < nsel - 1; i++ )
+	{
+		for( k = i + 1; k < nsel; k++ )
 		{
-			medge16_t *e = &wmodel->edges16[eabs];
-			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
+			if( sel[k] < sel[i] )
+			{
+				byte t = sel[i];
+				sel[i] = sel[k];
+				sel[k] = t;
+			}
+		}
+	}
+}
+
+static int GC_BakeSelToOut( const signed short all[][3], const byte *sel, int nsel,
+	signed short out[][3] )
+{
+	int i, n = 0;
+
+	for( i = 0; i < nsel; i++ )
+	{
+		int j = (int)sel[i];
+
+		out[n][0] = all[j][0];
+		out[n][1] = all[j][1];
+		out[n][2] = all[j][2];
+		n++;
+	}
+	return n;
+}
+
+/* G247/G248/G250: subsample edge loop into maxverts verts for Flipper emit.
+ * G248 farthest-point; G250 also try plane-ST extremes on the same real verts
+ * and keep the larger area (still TEX-tier — never EDGE +80k / never TEX AABB). */
+static int GC_BakeCapVertsFromModelDecimated( model_t *wmodel, int firstedge, int numedges,
+	const mplane_t *pl, signed short out[][3], int maxverts )
+{
+	signed short all[32][3];
+	signed short cand[GC_CAP_MAX_VERTS][3];
+	byte sel[GC_CAP_MAX_VERTS];
+	byte taken[32];
+	int nedges, nall, i, k, n, best, nsel;
+	float cx, cy, cz, best_d, d, area_best;
+
+	if( !wmodel || !wmodel->vertexes || !wmodel->surfedges || !out || numedges < 3 || maxverts < 3 )
+		return 0;
+	if( maxverts > GC_CAP_MAX_VERTS )
+		maxverts = GC_CAP_MAX_VERTS;
+	if( !wmodel->edges16 && !wmodel->edges32 )
+		return 0;
+	if( firstedge < 0 || firstedge + numedges > wmodel->numsurfedges )
+		return 0;
+	nedges = wmodel->numedges;
+	if( nedges < 1 )
+		return 0;
+	if( numedges <= maxverts )
+		return GC_BakeCapVertsFromModel( wmodel, firstedge, numedges, out, maxverts );
+
+	nall = numedges;
+	if( nall > 32 )
+	{
+		for( i = 0; i < 32; i++ )
+		{
+			if( !GC_BakeOneSurfedgeVert( wmodel, firstedge, ( i * numedges ) / 32,
+				nedges, all, i ))
+				return 0;
+		}
+		nall = 32;
+	}
+	else
+	{
+		for( i = 0; i < nall; i++ )
+		{
+			if( !GC_BakeOneSurfedgeVert( wmodel, firstedge, i, nedges, all, i ))
+				return 0;
+		}
+	}
+
+	cx = cy = cz = 0.0f;
+	for( i = 0; i < nall; i++ )
+	{
+		cx += (float)all[i][0];
+		cy += (float)all[i][1];
+		cz += (float)all[i][2];
+	}
+	cx /= (float)nall;
+	cy /= (float)nall;
+	cz /= (float)nall;
+
+	/* --- farthest-point --- */
+	memset( taken, 0, sizeof( taken ));
+	nsel = 0;
+	best = 0;
+	best_d = -1.0f;
+	for( i = 0; i < nall; i++ )
+	{
+		float dx = (float)all[i][0] - cx;
+		float dy = (float)all[i][1] - cy;
+		float dz = (float)all[i][2] - cz;
+
+		d = dx * dx + dy * dy + dz * dz;
+		if( d > best_d )
+		{
+			best_d = d;
+			best = i;
+		}
+	}
+	sel[nsel++] = (byte)best;
+	taken[best] = 1;
+	while( nsel < maxverts && nsel < nall )
+	{
+		best = -1;
+		best_d = -1.0f;
+		for( i = 0; i < nall; i++ )
+		{
+			float mind;
+
+			if( taken[i] )
+				continue;
+			mind = 1e30f;
+			for( k = 0; k < nsel; k++ )
+			{
+				int j = (int)sel[k];
+				float dx = (float)all[i][0] - (float)all[j][0];
+				float dy = (float)all[i][1] - (float)all[j][1];
+				float dz = (float)all[i][2] - (float)all[j][2];
+
+				d = dx * dx + dy * dy + dz * dz;
+				if( d < mind )
+					mind = d;
+			}
+			if( mind > best_d )
+			{
+				best_d = mind;
+				best = i;
+			}
+		}
+		if( best < 0 )
+			break;
+		sel[nsel++] = (byte)best;
+		taken[best] = 1;
+	}
+	GC_BakeSortSelByRing( sel, nsel );
+	n = GC_BakeSelToOut( all, sel, nsel, out );
+	area_best = GC_BakePolyArea3( out, n );
+
+	/* --- G250: plane-ST extremes on the same ring (real verts only) --- */
+	if( pl && nall >= 3 )
+	{
+		vec3_t right, up, tmp;
+		int imins, imaxs, imint, imaxt, iext[4], next;
+		float mins, maxs, mint, maxt;
+
+		VectorCopy( pl->normal, tmp );
+		if( fabs( tmp[2] ) < 0.9f )
+		{
+			right[0] = -tmp[1];
+			right[1] = tmp[0];
+			right[2] = 0.0f;
 		}
 		else
 		{
-			medge32_t *e = &wmodel->edges32[eabs];
-			v = ( lindex > 0 ) ? e->v[0] : e->v[1];
+			right[0] = 0.0f;
+			right[1] = -tmp[2];
+			right[2] = tmp[1];
 		}
-		if( v < 0 || v >= wmodel->numvertexes )
-			return 0;
-		pos = wmodel->vertexes[v].position;
-		out[n][0] = (signed short)pos[0];
-		out[n][1] = (signed short)pos[1];
-		out[n][2] = (signed short)pos[2];
-		n++;
+		if( VectorLength( right ) < 0.1f )
+			return n;
+		VectorNormalize( right );
+		CrossProduct( pl->normal, right, up );
+		if( VectorLength( up ) < 0.1f )
+			return n;
+		VectorNormalize( up );
+
+		imins = imaxs = imint = imaxt = 0;
+		mins = maxs = DotProduct( all[0], right ); /* position as vec — need float */
+		/* DotProduct expects float[3]; promote */
+		{
+			vec3_t p0;
+			p0[0] = (float)all[0][0]; p0[1] = (float)all[0][1]; p0[2] = (float)all[0][2];
+			mins = maxs = DotProduct( p0, right );
+			mint = maxt = DotProduct( p0, up );
+		}
+		for( i = 1; i < nall; i++ )
+		{
+			vec3_t pi;
+			float s, t;
+
+			pi[0] = (float)all[i][0];
+			pi[1] = (float)all[i][1];
+			pi[2] = (float)all[i][2];
+			s = DotProduct( pi, right );
+			t = DotProduct( pi, up );
+			if( s < mins ) { mins = s; imins = i; }
+			if( s > maxs ) { maxs = s; imaxs = i; }
+			if( t < mint ) { mint = t; imint = i; }
+			if( t > maxt ) { maxt = t; imaxt = i; }
+		}
+		iext[0] = imins; iext[1] = imaxs; iext[2] = imint; iext[3] = imaxt;
+		memset( taken, 0, sizeof( taken ));
+		nsel = 0;
+		for( i = 0; i < 4 && nsel < maxverts; i++ )
+		{
+			int j = iext[i];
+
+			if( taken[j] )
+				continue;
+			sel[nsel++] = (byte)j;
+			taken[j] = 1;
+		}
+		/* Pad with farthest-from-centroid if under maxverts. */
+		while( nsel < maxverts && nsel < nall )
+		{
+			best = -1;
+			best_d = -1.0f;
+			for( i = 0; i < nall; i++ )
+			{
+				float dx, dy, dz;
+
+				if( taken[i] )
+					continue;
+				dx = (float)all[i][0] - cx;
+				dy = (float)all[i][1] - cy;
+				dz = (float)all[i][2] - cz;
+				d = dx * dx + dy * dy + dz * dz;
+				if( d > best_d )
+				{
+					best_d = d;
+					best = i;
+				}
+			}
+			if( best < 0 )
+				break;
+			sel[nsel++] = (byte)best;
+			taken[best] = 1;
+		}
+		if( nsel >= 3 )
+		{
+			float area_ext;
+
+			GC_BakeSortSelByRing( sel, nsel );
+			next = GC_BakeSelToOut( all, sel, nsel, cand );
+			area_ext = GC_BakePolyArea3( cand, next );
+			if( area_ext > area_best )
+			{
+				memcpy( out, cand, (size_t)next * sizeof( cand[0] ));
+				n = next;
+			}
+		}
 	}
 	return n;
 }
@@ -717,7 +1027,9 @@ static int GC_BakeCapVertsFromPlane( const mplane_t *pl, int ext0, int ext1,
 
 /* G216: snapshot verts into lean cand while edges/verts are still valid.
  * G217: do not truncate EDGE walks — faces with >GC_CAP_MAX_VERTS edges
- * must use TEX/PLANE quads (truncated loops made skyfill jagged + off-frustum). */
+ * must not use first-N truncation (made skyfill jagged + off-frustum).
+ * G247/G248/G250: farthest-point / plane-ST decimate (TEX-tier) before ST-AABB.
+ * G249 TEX-AABB undershoot hybrid was reverted (clear%↑) — do not restore. */
 static void GC_BakeLiveCandVerts( gc_live_cand_t *dst, model_t *wmodel )
 {
 	int n;
@@ -737,6 +1049,19 @@ static void GC_BakeLiveCandVerts( gc_live_cand_t *dst, model_t *wmodel )
 			dst->bake_src = GC_CAP_BAKE_EDGE;
 		else
 			n = 0;
+	}
+	/* G247/G248/G250: Flipper-side geometry for high-edge faces — real world
+	 * verts, farthest-point / plane-ST subsample. TEX-tier (never EDGE +80k). */
+	if( n < 3 && dst->numedges > GC_CAP_MAX_VERTS )
+	{
+		int nd = GC_BakeCapVertsFromModelDecimated( wmodel, dst->firstedge, dst->numedges,
+			&dst->plane, dst->pts_s16, GC_CAP_MAX_VERTS );
+
+		if( nd >= 3 )
+		{
+			n = nd;
+			dst->bake_src = GC_CAP_BAKE_TEX;
+		}
 	}
 	if( n < 3 && dst->has_tex )
 	{
@@ -827,6 +1152,7 @@ static int GC_LiveViewScore( const gc_live_cand_t *c )
 		/* G220/G228: admit wide side walls (was 0.04 / ~70°). */
 		if( along > 0.0f && along * along < 0.01f * dist2 )
 			score /= 2;
+		/* G220: sticky ultra-near so throat walls stay in the live set. */
 		if( dist < 192.0f )
 			score += 300000;
 		else if( dist < 384.0f )
@@ -839,7 +1165,7 @@ static int GC_LiveViewScore( const gc_live_cand_t *c )
 		score += (int)((float)c->area * (180.0f / dist));
 		if( along > 0.0f )
 			score += (int)( along * 8.0f );
-		/* G234: tunnel portal ceilings/floors + portal-frame walls along look. */
+		/* G234: portal ceilings/floors mid-field + portal-frame walls. */
 		if( along > 48.0f && dist < 896.0f )
 		{
 			if( fabs( c->plane.normal[2] ) > 0.55f )
@@ -861,12 +1187,30 @@ static int GC_BakeCapVertsForSurf( model_t *wmodel, const msurface_t *src,
 		*out_src = GC_CAP_BAKE_NONE;
 	if( !src || !out )
 		return 0;
-	n = GC_BakeCapVertsFromModel( wmodel, src->firstedge, src->numedges, out, maxverts );
-	if( n >= 3 )
+	n = 0;
+	if( src->numedges >= 3 && src->numedges <= maxverts )
 	{
-		if( out_src )
-			*out_src = GC_CAP_BAKE_EDGE;
-		return n;
+		n = GC_BakeCapVertsFromModel( wmodel, src->firstedge, src->numedges, out, maxverts );
+		if( n >= 3 )
+		{
+			if( out_src )
+				*out_src = GC_CAP_BAKE_EDGE;
+			return n;
+		}
+		n = 0;
+	}
+	/* G247/G248/G250: decimated edge (no G249 TEX-AABB undershoot hybrid). */
+	if( src->numedges > maxverts )
+	{
+		n = GC_BakeCapVertsFromModelDecimated( wmodel, src->firstedge, src->numedges,
+			src->plane, out, maxverts );
+		if( n >= 3 )
+		{
+			if( out_src )
+				*out_src = GC_CAP_BAKE_TEX;
+			return n;
+		}
+		n = 0;
 	}
 	/* G205: texinfo ST solve puts quads on the real face (LM/ST valid). Prefer
 	 * over eye-centered plane when wall-aim can look at those walls. */
@@ -894,15 +1238,31 @@ static int GC_BakeCapVertsForCap( model_t *wmodel, int firstedge, int numedges,
 	const mplane_t *pl, const mtexinfo_t *tex, const short mins[2], const short extents[2],
 	signed short out[][3], int maxverts, byte *out_src )
 {
-	int n = GC_BakeCapVertsFromModel( wmodel, firstedge, numedges, out, maxverts );
+	int n = 0;
 
 	if( out_src )
 		*out_src = GC_CAP_BAKE_NONE;
-	if( n >= 3 )
+	if( numedges >= 3 && numedges <= maxverts )
 	{
-		if( out_src )
-			*out_src = GC_CAP_BAKE_EDGE;
-		return n;
+		n = GC_BakeCapVertsFromModel( wmodel, firstedge, numedges, out, maxverts );
+		if( n >= 3 )
+		{
+			if( out_src )
+				*out_src = GC_CAP_BAKE_EDGE;
+			return n;
+		}
+		n = 0;
+	}
+	if( numedges > maxverts )
+	{
+		n = GC_BakeCapVertsFromModelDecimated( wmodel, firstedge, numedges, pl, out, maxverts );
+		if( n >= 3 )
+		{
+			if( out_src )
+				*out_src = GC_CAP_BAKE_TEX;
+			return n;
+		}
+		n = 0;
 	}
 	if( pl && tex && mins && extents )
 	{
@@ -1462,7 +1822,7 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 		memset( allbits, 0xff, bytes );
 		GC_CaptureDrawFacesFromSurfbits( wmodel, allbits );
 		free( allbits );
-		SYS_Report( "Xash3D GameCube: G198 no-PVS face bake count=%d (Flipper cap)\n",
+		GC_FlipperTrace( "Xash3D GameCube: G198 no-PVS face bake count=%d (Flipper cap)\n",
 			gc_newgame_cap_face_count );
 		return;
 	}
@@ -1524,7 +1884,7 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 	GC_SortCapFacesByAreaDesc();
 	GC_PackCapLightmapAtlas();
 	gc_newgame_cap_generation++;
-	SYS_Report( "Xash3D GameCube: G198 inline face bake count=%d tex=%d lm=%d\n",
+	GC_FlipperTrace( "Xash3D GameCube: G198 inline face bake count=%d tex=%d lm=%d\n",
 		gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces );
 }
 
@@ -1646,7 +2006,7 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 			else if( gc_cap_bake_src[i] == GC_CAP_BAKE_TEX )
 				tex++;
 		}
-		SYS_Report( "Xash3D GameCube: G160 f=%d tx=%d lm=%d e=%d t=%d p=%d r=%d w=%d m=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: G160 f=%d tx=%d lm=%d e=%d t=%d p=%d r=%d w=%d m=%d\n",
 			gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces,
 			baked, edge, tex, plane, replaced, wall_boost, GC_MAX_CAP_FACES );
 	}
@@ -1655,7 +2015,7 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		&& GC_MAX_CAP_FACES >= 320 && GC_CAP_LM_DIM == 4 )
 	{
 		gc_g176_logged = true;
-		SYS_Report( "Xash3D GameCube: G176 cap=%d max=%d lm=%d real=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: G176 cap=%d max=%d lm=%d real=%d\n",
 			gc_newgame_cap_face_count, GC_MAX_CAP_FACES, GC_CAP_LM_DIM,
 			gc_newgame_cap_lm_faces );
 	}
@@ -1722,7 +2082,7 @@ static qboolean GC_AllocLiveFacePool( int want )
 			gc_live_face_count = 0;
 			memset( gc_live_faces, 0, cand_bytes );
 			memset( gc_live_face_scores, 0, score_bytes );
-			SYS_Report( "Xash3D GameCube: G213 live face pool max=%d (~%u Kb lean)\n",
+			GC_FlipperTrace( "Xash3D GameCube: G213 live face pool max=%d (~%u Kb lean)\n",
 				max_faces, (unsigned)(( cand_bytes + score_bytes ) / 1024 ));
 			return true;
 		}
@@ -1774,7 +2134,7 @@ static void GC_RerankLiveFacesNearEye( void )
 			}
 		}
 	} while( swapped );
-	SYS_Report( "Xash3D GameCube: G214 rerank n=%d top=%d\n",
+	GC_FlipperTrace( "Xash3D GameCube: G214 rerank n=%d top=%d\n",
 		gc_live_face_count, gc_live_face_scores[0] );
 }
 
@@ -1897,11 +2257,35 @@ static void GC_MergeRefreshCandsIntoLiveFaces( void )
 
 	for( slot = 0; slot < GC_SURFBITS_CACHE_SLOTS; slot++ )
 	{
-		int n = gc_refresh_ncands[slot];
+		int n;
+		byte *bits;
+		model_t *wmodel;
+
+		if( gc_refresh_ncands[slot] <= 0 )
+			continue;
+		/* G237: shared cand buffer — rebuild this slot before merging. */
+		if( gc_refresh_loaded_slot != slot )
+		{
+			wmodel = sv.models[1];
+#if !XASH_DEDICATED
+			if( !wmodel )
+				wmodel = cl.worldmodel;
+#endif
+			bits = NULL;
+			if( gc_newgame_surf_cache && gc_newgame_surfbytes > 0
+				&& slot < gc_newgame_surf_cache_slots )
+				bits = gc_newgame_surf_cache + (size_t)slot * (size_t)gc_newgame_surfbytes;
+			if( !wmodel || !bits )
+				continue;
+			GC_BuildRefreshCandsFromSurfbits( wmodel, bits, slot );
+		}
+		n = gc_refresh_ncands[slot];
+		if( gc_refresh_loaded_slot != slot || n <= 0 )
+			continue;
 
 		for( i = 0; i < n; i++ )
 		{
-			const gc_refresh_cand_t *cand = &gc_refresh_cands[slot][i];
+			const gc_refresh_cand_t *cand = &gc_refresh_cands[i];
 			qboolean is_wall;
 			int score;
 
@@ -1931,7 +2315,7 @@ static void GC_MergeRefreshCandsIntoLiveFaces( void )
 		}
 	}
 	GC_RerankLiveFacesNearEye();
-	SYS_Report( "Xash3D GameCube: G214 merge +%d skipcap=%d n=%d\n",
+	GC_FlipperTrace( "Xash3D GameCube: G214 merge +%d skipcap=%d n=%d\n",
 		merged, skipped_cap, gc_live_face_count );
 }
 
@@ -1947,7 +2331,7 @@ static void GC_CaptureLiveFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	/* After scratch reuse, plane* dangles — never wipe a good early pool. */
 	if( !Mod_GCWorldSurfacesPinned( wmodel ) && gc_live_face_count > 0 && !append )
 	{
-		SYS_Report( "Xash3D GameCube: G213 live faces keep early pool n=%d (surfaces dangling)\n",
+		GC_FlipperTrace( "Xash3D GameCube: G213 live faces keep early pool n=%d (surfaces dangling)\n",
 			gc_live_face_count );
 		return;
 	}
@@ -2090,7 +2474,7 @@ static void GC_CaptureLiveFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		}
 	}
 
-	SYS_Report( "Xash3D GameCube: G217 live=%d max=%d rep=%d app=%d\n",
+	GC_FlipperTrace( "Xash3D GameCube: G217 live=%d max=%d rep=%d app=%d\n",
 		gc_live_face_count, max_faces, replaced, append ? 1 : 0 );
 
 	/* G222: overflow into BSS flat-fill (no malloc). */
@@ -2128,7 +2512,7 @@ static qboolean GC_AramFillEnsure( void )
 		SYS_Report( "Xash3D GameCube: G225 ARAM fail\n" );
 		return false;
 	}
-	SYS_Report( "Xash3D GameCube: G225 ARAM max=%d\n", GC_ARAM_FILL_MAX );
+	GC_FlipperTrace( "Xash3D GameCube: G225 ARAM max=%d\n", GC_ARAM_FILL_MAX );
 	return true;
 }
 
@@ -2229,7 +2613,7 @@ static qboolean GC_AllocFillFacePool( int want )
 			gc_fill_face_count = 0;
 			memset( gc_fill_faces, 0, face_bytes );
 			memset( gc_fill_face_scores, 0, score_bytes );
-			SYS_Report( "Xash3D GameCube: G222 fill face pool max=%d (~%u Kb heap)\n",
+			GC_FlipperTrace( "Xash3D GameCube: G222 fill face pool max=%d (~%u Kb heap)\n",
 				max_faces, (unsigned)(( face_bytes + score_bytes ) / 1024 ));
 			return true;
 		}
@@ -2291,7 +2675,7 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 			|| src->firstedge + src->numedges > wmodel->numsurfedges )
 			continue;
 		area = (int)src->extents[0] * (int)src->extents[1];
-		if( area < 512 )
+		if( area < 256 ) /* G250: was 512 — admit smaller fill plugs for pipe/nook holes */
 			continue;
 		if( GC_CapFaceAlready( src->firstedge, src->numedges ))
 			continue;
@@ -2364,13 +2748,13 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	if( !gc_g222_fill_logged || !append )
 	{
 		gc_g222_fill_logged = true;
-		SYS_Report( "Xash3D GameCube: G222 fill=%d max=%d rep=%d app=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: G222 fill=%d max=%d rep=%d app=%d\n",
 			gc_fill_face_count, max_faces, replaced, append ? 1 : 0 );
 	}
 	if( ( !gc_g225_aram_logged || !append ) && gc_aram_fill_count > 0 )
 	{
 		gc_g225_aram_logged = true;
-		SYS_Report( "Xash3D GameCube: G225 ARAM n=%d\n", gc_aram_fill_count );
+		GC_FlipperTrace( "Xash3D GameCube: G225 ARAM n=%d\n", gc_aram_fill_count );
 	}
 }
 
@@ -2392,13 +2776,15 @@ static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
 
 	if( cache_slot < 0 || cache_slot >= GC_SURFBITS_CACHE_SLOTS )
 		return;
+	if( gc_refresh_loaded_slot != cache_slot )
+		return;
 	n = gc_refresh_ncands[cache_slot];
 	for( i = 0; i < n - 1; i++ )
 	{
 		for( j = i + 1; j < n; j++ )
 		{
-			const gc_refresh_cand_t *a = &gc_refresh_cands[cache_slot][i];
-			const gc_refresh_cand_t *b = &gc_refresh_cands[cache_slot][j];
+			const gc_refresh_cand_t *a = &gc_refresh_cands[i];
+			const gc_refresh_cand_t *b = &gc_refresh_cands[j];
 			int sa = GC_CapNearEyeScore( &a->plane, a->area,
 				fabs( a->plane.normal[2] ) < 0.35f );
 			int sb = GC_CapNearEyeScore( &b->plane, b->area,
@@ -2406,9 +2792,9 @@ static void GC_SortRefreshCandsByAreaDesc( int cache_slot )
 
 			if( sb > sa )
 			{
-				gc_refresh_cand_t tmp = gc_refresh_cands[cache_slot][i];
-				gc_refresh_cands[cache_slot][i] = gc_refresh_cands[cache_slot][j];
-				gc_refresh_cands[cache_slot][j] = tmp;
+				gc_refresh_cand_t tmp = gc_refresh_cands[i];
+				gc_refresh_cands[i] = gc_refresh_cands[j];
+				gc_refresh_cands[j] = tmp;
 			}
 		}
 	}
@@ -2527,6 +2913,9 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 	if( cache_slot < 0 || cache_slot >= GC_SURFBITS_CACHE_SLOTS )
 		return;
 	gc_refresh_ncands[cache_slot] = 0;
+	gc_refresh_walls[cache_slot] = 0;
+	if( gc_refresh_loaded_slot == cache_slot )
+		gc_refresh_loaded_slot = -1;
 	if( !wmodel || !wmodel->surfaces || !surfbits || gc_newgame_surfbytes <= 0 )
 		return;
 
@@ -2558,14 +2947,14 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
 		if( is_wall )
 			wall_boost++;
-		/* Raw area in cand->area; G212 near-eye (+ outdoor wall) ranks the 64. */
+		/* Raw area in cand->area; G212 near-eye (+ outdoor wall) ranks the cand set. */
 		score = GC_CapNearEyeScore( src->plane, area, is_wall );
 		if( outdoor && is_wall )
 			score += area;
 
 		if( ncand < GC_CAP_REFRESH_NEW_MAX )
 		{
-			dst = &gc_refresh_cands[cache_slot][ncand];
+			dst = &gc_refresh_cands[ncand];
 			memset( dst, 0, sizeof( *dst ));
 			dst->firstedge = src->firstedge;
 			dst->numedges = src->numedges;
@@ -2587,19 +2976,19 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 			continue;
 		}
 		min_i = 0;
-		min_score = GC_CapNearEyeScore( &gc_refresh_cands[cache_slot][0].plane,
-			gc_refresh_cands[cache_slot][0].area,
-			fabs( gc_refresh_cands[cache_slot][0].plane.normal[2] ) < 0.35f );
-		if( outdoor && fabs( gc_refresh_cands[cache_slot][0].plane.normal[2] ) < 0.35f )
-			min_score += gc_refresh_cands[cache_slot][0].area;
+		min_score = GC_CapNearEyeScore( &gc_refresh_cands[0].plane,
+			gc_refresh_cands[0].area,
+			fabs( gc_refresh_cands[0].plane.normal[2] ) < 0.35f );
+		if( outdoor && fabs( gc_refresh_cands[0].plane.normal[2] ) < 0.35f )
+			min_score += gc_refresh_cands[0].area;
 		for( k = 1; k < GC_CAP_REFRESH_NEW_MAX; k++ )
 		{
-			int ks = GC_CapNearEyeScore( &gc_refresh_cands[cache_slot][k].plane,
-				gc_refresh_cands[cache_slot][k].area,
-				fabs( gc_refresh_cands[cache_slot][k].plane.normal[2] ) < 0.35f );
+			int ks = GC_CapNearEyeScore( &gc_refresh_cands[k].plane,
+				gc_refresh_cands[k].area,
+				fabs( gc_refresh_cands[k].plane.normal[2] ) < 0.35f );
 
-			if( outdoor && fabs( gc_refresh_cands[cache_slot][k].plane.normal[2] ) < 0.35f )
-				ks += gc_refresh_cands[cache_slot][k].area;
+			if( outdoor && fabs( gc_refresh_cands[k].plane.normal[2] ) < 0.35f )
+				ks += gc_refresh_cands[k].area;
 			if( ks < min_score )
 			{
 				min_score = ks;
@@ -2608,7 +2997,7 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 		}
 		if( score <= min_score )
 			continue;
-		dst = &gc_refresh_cands[cache_slot][min_i];
+		dst = &gc_refresh_cands[min_i];
 		memset( dst, 0, sizeof( *dst ));
 		dst->firstedge = src->firstedge;
 		dst->numedges = src->numedges;
@@ -2627,8 +3016,19 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 			dst->has_tex = true;
 		}
 	}
+	{
+		int wi, walls = 0;
+
+		for( wi = 0; wi < ncand; wi++ )
+		{
+			if( fabs( gc_refresh_cands[wi].plane.normal[2] ) < 0.35f )
+				walls++;
+		}
+		gc_refresh_walls[cache_slot] = walls;
+	}
 	gc_refresh_ncands[cache_slot] = ncand;
-	SYS_Report( "Xash3D GameCube: G163 refresh cands ready slot=%d n=%d wallboost=%d\n",
+	gc_refresh_loaded_slot = cache_slot;
+	GC_FlipperTrace( "Xash3D GameCube: G163 refresh cands ready slot=%d n=%d wallboost=%d\n",
 		cache_slot, ncand, wall_boost );
 }
 
@@ -2645,17 +3045,33 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 
 	if( cache_slot < 0 || cache_slot >= GC_SURFBITS_CACHE_SLOTS )
 		return;
+	if( gc_refresh_loaded_slot != cache_slot )
+	{
+		model_t *wmodel = sv.models[1];
+		byte *bits = NULL;
+#if !XASH_DEDICATED
+		if( !wmodel )
+			wmodel = cl.worldmodel;
+#endif
+		if( gc_newgame_surf_cache && gc_newgame_surfbytes > 0
+			&& cache_slot < gc_newgame_surf_cache_slots )
+			bits = gc_newgame_surf_cache + (size_t)cache_slot * (size_t)gc_newgame_surfbytes;
+		if( wmodel && bits )
+			GC_BuildRefreshCandsFromSurfbits( wmodel, bits, cache_slot );
+	}
 	ncand = gc_refresh_ncands[cache_slot];
+	if( gc_refresh_loaded_slot != cache_slot || ncand <= 0 )
+		return;
 	leaves = GC_VisLeafsForCluster( gc_newgame_viewcluster );
 	outdoor = ( leaves > 0 && leaves <= 48 );
 	/* G170/G212: near-eye keep-score first; outdoor wall preference below. */
 	GC_SortRefreshCandsByAreaDesc( cache_slot );
-	SYS_Report( "Xash3D GameCube: G163 refresh begin cluster=%d faces=%d cands=%d\n",
+	GC_FlipperTrace( "Xash3D GameCube: G163 refresh begin cluster=%d faces=%d cands=%d\n",
 		gc_newgame_viewcluster, prev_count, ncand );
 
 	for( i = 0; i < ncand; i++ )
 	{
-		const gc_refresh_cand_t *cand = &gc_refresh_cands[cache_slot][i];
+		const gc_refresh_cand_t *cand = &gc_refresh_cands[i];
 		int slot = -1;
 		int min_i, min_score;
 		qboolean cand_wall;
@@ -2727,40 +3143,40 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		if( gc_newgame_cap_faces[i].texinfo.texture )
 			gc_newgame_cap_tex_faces++;
 	}
-	SYS_Report( "Xash3D GameCube: G163 refresh=%d prev=%d mid=%d lm=%d wb=%d cl=%d\n",
+	GC_FlipperTrace( "Xash3D GameCube: G163 refresh=%d prev=%d mid=%d lm=%d wb=%d cl=%d\n",
 		gc_newgame_cap_face_count, prev_count, mid_new, gc_newgame_cap_lm_faces,
 		wall_boost, gc_newgame_viewcluster );
 	/* G212: prove near-eye streaming replaced far faces after dump aim. */
 	if( !gc_g212_logged && mid_new > 0 && !VectorIsNull( gc_newgame_capture_origin ))
 	{
 		gc_g212_logged = true;
-		SYS_Report( "Xash3D GameCube: G212 mid=%d wall=%d n=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: G212 mid=%d wall=%d n=%d\n",
 			mid_new, wall_new, gc_newgame_cap_face_count );
 	}
 	/* G165: sparse clusters (outdoor / landmark camera) — leaves typically << indoor. */
 	if( outdoor )
 	{
-		SYS_Report( "Xash3D GameCube: G165 restore cl=%d mid=%d c=%d lf=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: G165 restore cl=%d mid=%d c=%d lf=%d\n",
 			gc_newgame_viewcluster, mid_new, ncand, leaves );
 		/* G171/G175: prove slots↔cands trade admitted outdoor walls. */
 		if( !gc_g171_logged && ncand >= 40 && ( mid_new >= 18 || wall_new >= 10 ))
 		{
 			gc_g171_logged = true;
-			SYS_Report( "Xash3D GameCube: G171 out mid=%d wall=%d c=%d L=%d cl=%d\n",
+			GC_FlipperTrace( "Xash3D GameCube: G171 out mid=%d wall=%d c=%d L=%d cl=%d\n",
 				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
 		}
 		/* G175: 4×64 trade — more outdoor walls than G171's 5×48. */
 		if( !gc_g175_logged && ncand >= 56 && ( mid_new >= 20 || wall_new >= 14 ))
 		{
 			gc_g175_logged = true;
-			SYS_Report( "Xash3D GameCube: G175 out mid=%d wall=%d c=%d L=%d cl=%d\n",
+			GC_FlipperTrace( "Xash3D GameCube: G175 out mid=%d wall=%d c=%d L=%d cl=%d\n",
 				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
 		}
 		/* G199: outdoor wall-aim refresh proof (4×64 + eye-in-front). */
 		if( !gc_g199_logged && ncand >= 40 && ( mid_new >= 24 || wall_new >= 16 ))
 		{
 			gc_g199_logged = true;
-			SYS_Report( "Xash3D GameCube: G199 out mid=%d wall=%d c=%d L=%d cl=%d\n",
+			GC_FlipperTrace( "Xash3D GameCube: G199 out mid=%d wall=%d c=%d L=%d cl=%d\n",
 				mid_new, wall_new, ncand, leaves, gc_newgame_viewcluster );
 		}
 	}
@@ -2768,16 +3184,9 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 
 static int GC_RefreshCandWallCount( int cache_slot )
 {
-	int i, n = 0;
-
 	if( cache_slot < 0 || cache_slot >= GC_SURFBITS_CACHE_SLOTS )
 		return 0;
-	for( i = 0; i < gc_refresh_ncands[cache_slot]; i++ )
-	{
-		if( fabs( gc_refresh_cands[cache_slot][i].plane.normal[2] ) < 0.35f )
-			n++;
-	}
-	return n;
+	return gc_refresh_walls[cache_slot];
 }
 
 /* G189/G190: densest SelectCluster often returns a mega indoor row. Prefer a
@@ -2819,7 +3228,7 @@ static qboolean GC_PreferOutdoorWallCluster( void )
 		&& ( cur_leaves > 80 || outdoor_walls > cur_walls || need_any )
 		&& GC_SetActiveNewGameCluster( outdoor, true ))
 	{
-		SYS_Report( "Xash3D GameCube: G190 prefer %d walls=%d L=%d was=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: G190 prefer %d walls=%d L=%d was=%d\n",
 			outdoor, outdoor_walls, outdoor_leaves, cur_leaves );
 		return true;
 	}
@@ -2849,7 +3258,7 @@ static qboolean GC_PreferOutdoorWallCluster( void )
 	}
 	if( outdoor < 0 || !GC_SetActiveNewGameCluster( outdoor, true ))
 		return false;
-	SYS_Report( "Xash3D GameCube: G190 prefer %d walls=%d L=%d was=%d\n",
+	GC_FlipperTrace( "Xash3D GameCube: G190 prefer %d walls=%d L=%d was=%d\n",
 		outdoor, outdoor_walls, outdoor_leaves, cur_leaves );
 	return true;
 }
@@ -2931,7 +3340,7 @@ static void GC_CaptureLiveFacesForDumpClusters( model_t *wmodel )
 	if( !( Sys_CheckParm( "-gcnewgame" ) && GC_DumpEyeAtTramStart( eye, angles ))
 		&& !GC_DumpEyeInFrontOfBestWall( eye, angles ))
 	{
-		SYS_Report( "Xash3D GameCube: G218 dump-eye predict skipped (no wall)\n" );
+		GC_FlipperTrace( "Xash3D GameCube: G218 dump-eye predict skipped (no wall)\n" );
 		return;
 	}
 
@@ -2970,7 +3379,7 @@ static void GC_CaptureLiveFacesForDumpClusters( model_t *wmodel )
 			GC_BuildSurfbitsForVisRow( wmodel, vis, bits );
 			gc_newgame_surf_cache_cluster[slot] = eye_cluster;
 			GC_BuildRefreshCandsFromSurfbits( wmodel, bits, slot );
-			SYS_Report( "Xash3D GameCube: G218 dump-eye surfbits slot=%d cluster=%d\n",
+			GC_FlipperTrace( "Xash3D GameCube: G218 dump-eye surfbits slot=%d cluster=%d\n",
 				slot, eye_cluster );
 			break;
 		}
@@ -3015,7 +3424,7 @@ static void GC_CaptureLiveFacesForDumpClusters( model_t *wmodel )
 		bits = gc_newgame_surfbits;
 	if( !bits )
 	{
-		SYS_Report( "Xash3D GameCube: G218 skip cl=%d eye=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: G218 skip cl=%d eye=%d\n",
 			primary, eye_cluster );
 		return;
 	}
@@ -3094,11 +3503,11 @@ static void GC_CaptureLiveFacesForDumpClusters( model_t *wmodel )
 		}
 		if( or_hits > 0 )
 			GC_CaptureLiveFacesFromSurfbits( wmodel, ubuf, true );
-		SYS_Report( "Xash3D GameCube: G234 or=%d f=%d a=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: G234 or=%d f=%d a=%d\n",
 			or_hits, gc_fill_face_count, gc_aram_fill_count );
 	}
 	GC_RerankLiveFacesNearEye();
-	SYS_Report( "Xash3D GameCube: G218 p=%d eye=%d n=%d\n",
+	GC_FlipperTrace( "Xash3D GameCube: G218 p=%d eye=%d n=%d\n",
 		primary, eye_cluster, gc_live_face_count );
 }
 
@@ -3142,7 +3551,7 @@ static qboolean GC_PreferIndoorWallCluster( void )
 		if( prefer_log_gen != gc_newgame_cap_generation )
 		{
 			prefer_log_gen = gc_newgame_cap_generation;
-			SYS_Report( "Xash3D GameCube: G211 prefer %d walls=%d L=%d was=%d\n",
+			GC_FlipperTrace( "Xash3D GameCube: G211 prefer %d walls=%d L=%d was=%d\n",
 				indoor, indoor_walls, indoor_leaves, cur_leaves );
 		}
 	}
@@ -3171,7 +3580,7 @@ static qboolean GC_DumpEyeAtTramStart( float *eye, float *out_angles )
 		if( !logged )
 		{
 			logged = true;
-			SYS_Report( "Xash3D GameCube: G227 tram eye=(2864,2804,542)\n" );
+			GC_FlipperTrace( "Xash3D GameCube: G227 tram eye=(2864,2804,542)\n" );
 		}
 	}
 	return true;
@@ -3299,7 +3708,7 @@ static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles )
 		{
 			eye_log_gen = gc_newgame_cap_generation;
 			eye_log_slot = best;
-			SYS_Report( "Xash3D GameCube: G220 eye area=%d near=%d bake=%d\n",
+			GC_FlipperTrace( "Xash3D GameCube: G220 eye area=%d near=%d bake=%d\n",
 				best_area, best_near, (int)gc_cap_bake_src[best] );
 		}
 	}
@@ -3347,7 +3756,7 @@ static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles )
 			rebake_gen = gc_newgame_cap_generation;
 			/* Keep aim_slot — generation bump alone must not re-pick a worse wall. */
 			aim_gen = gc_newgame_cap_generation;
-			SYS_Report( "Xash3D GameCube: G204 rebaked %d plane quads (edge verts preserved)\n",
+			GC_FlipperTrace( "Xash3D GameCube: G204 rebaked %d plane quads (edge verts preserved)\n",
 				nplane );
 		}
 	}
@@ -3412,7 +3821,7 @@ static qboolean GC_DumpLookAtBestWall( const float *eye, float *out_angles )
 		out_angles[2] = 0.0f;
 		if( out_angles[0] > -5.0f )
 			out_angles[0] = -10.0f;
-		SYS_Report( "Xash3D GameCube: G190 landmark wall soft dump walls=%d area=%d yaw=%.0f cluster=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: G190 landmark wall soft dump walls=%d area=%d yaw=%.0f cluster=%d\n",
 			GC_RefreshCandWallCount( GC_LookupSurfbitsCacheSlot( gc_newgame_viewcluster )),
 			best_area, out_angles[1], gc_newgame_viewcluster );
 		return true;
@@ -3443,7 +3852,7 @@ static void GC_FlushPendingCapFaceRefresh( void )
 	cache_slot = GC_LookupSurfbitsCacheSlot( gc_newgame_viewcluster );
 	if( cache_slot < 0 || gc_refresh_ncands[cache_slot] <= 0 )
 	{
-		SYS_Report( "Xash3D GameCube: G163 refresh skipped (no capture cands cluster=%d)\n",
+		GC_FlipperTrace( "Xash3D GameCube: G163 refresh skipped (no capture cands cluster=%d)\n",
 			gc_newgame_viewcluster );
 		gc_g188_reposition_pending = false;
 		return;
@@ -3635,7 +4044,7 @@ void GC_EarlyBootSplash( void )
 	if( gc.initialized || rmode )
 		return;
 
-	SYS_Report( "Xash3D GameCube: early video splash\n" );
+	GC_FlipperTrace( "Xash3D GameCube: early video splash\n" );
 	VIDEO_Init();
 	rmode = VIDEO_GetPreferredMode( NULL );
 	if( !rmode )
@@ -3675,7 +4084,7 @@ static void GC_InitVideoHardware( void )
 	}
 	else
 	{
-		SYS_Report( "Xash3D GameCube: video init continuing after early splash\n" );
+		GC_FlipperTrace( "Xash3D GameCube: video init continuing after early splash\n" );
 	}
 	progressive = ( rmode->viTVMode & VI_NON_INTERLACE ) ? true : false;
 	safe_x = ( rmode->fbWidth * GC_VIDEO_SAFE_AREA_PERCENT ) / 100;
@@ -3731,7 +4140,7 @@ static void GC_InitVideoHardware( void )
 
 	gc_present_tex_ready = false;
 	gc.initialized = true;
-	SYS_Report( "Xash3D GameCube: renderer initialized gx\n" );
+	GC_FlipperTrace( "Xash3D GameCube: renderer initialized gx\n" );
 	GC_ReportBootPhase( GC_BOOT_RENDERER );
 #endif
 }
@@ -4265,7 +4674,7 @@ static void GC_PresentBuffer( void )
 			xfb_pix = dump_dst[(size_t)( rmode->fbWidth / 4 )];
 			if( soft_src && soft_w > 0 && soft_h > 0 )
 				GC_SampleBufferNonBlack( soft_src, soft_w, soft_h, soft_stride, &dump_nonblack );
-			Con_Reportf( "Xash3D GameCube: G193 softlock n=%d nb=%d yuyv=0x%08x soft=0x%04x snap=%d\n",
+			Con_Reportf( "Xash3D GameCube: G193 softlock n=%d nb=%d y=0x%08x s=0x%04x snap=%d\n",
 				g193_soft_lock_presents, dump_nonblack ? 1 : 0, xfb_pix,
 				soft_src ? soft_src[0] : 0, gc_g193_snap_valid ? 1 : 0 );
 		}
@@ -4337,7 +4746,7 @@ static void GC_PresentBuffer( void )
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &dump_nonblack );
 				if( dst )
 					xfb_pix = dst[(size_t)( copy_w / 4 )]; /* mid-ish YUYV sample */
-				Con_Reportf( "Xash3D GameCube: G191 soft EFB left=%d nb=%d %dx%d xfb=%p yuyv=0x%08x soft=0x%04x\n",
+				Con_Reportf( "Xash3D GameCube: G191 soft EFB l=%d nb=%d %dx%d xfb=%p y=0x%08x s=0x%04x\n",
 					gc_cpu_dump_presents_left, dump_nonblack ? 1 : 0, src_w, src_h,
 					dst, xfb_pix, src[0] );
 				gc_cpu_dump_presents_left--;
@@ -4783,7 +5192,7 @@ void GC_TrimVideoMemoryForMapLoad( void )
 		gc_buffer_owns_heap = false;
 	}
 	gc_present_tex_ready = false;
-	Con_Reportf( "Xash3D GameCube: presentation buffer released for map load\n" );
+	Con_Reportf( "Xash3D GameCube: present buf released map load\n" );
 }
 
 static void GC_ReleasePresentationBufferForWorldRender( void )
@@ -4798,7 +5207,7 @@ static void GC_ReleasePresentationBufferForWorldRender( void )
 	gc.buffer_pixels = 0;
 	gc_buffer_owns_heap = false;
 	gc_present_tex_ready = false;
-	Con_Reportf( "Xash3D GameCube: released presentation buffer for world render\n" );
+	Con_Reportf( "Xash3D GameCube: released present buf for world\n" );
 #endif
 }
 
@@ -5628,6 +6037,7 @@ static void GC_ScrubWorldSpecklesPasses( unsigned short *dst, int width, int hei
 	}
 }
 
+
 /* G130: snap every pixel to sky vs wall so DumpFrames show a room silhouette.
  * Soft-edge / textured-sky speckles collapse to two planes (+ dark). */
 static void GC_PosterizeDumpWorldBuffer( unsigned short *dst, int width, int height, int stride )
@@ -6026,14 +6436,14 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 	Cvar_Set( "gc_quality", "0" );
 	if( !R_GcmapEnsureWorldRenderScratch() )
 	{
-		Con_Reportf( "Xash3D GameCube: gcmap world render scratch alloc failed\n" );
+		Con_Reportf( "Xash3D GameCube: gcmap scratch alloc fail\n" );
 		return false;
 	}
 	GC_MemSample( "pre-world render" );
 
 	if( !R_GcmapPrepareWorldRender() )
 	{
-		Con_Reportf( "Xash3D GameCube: gcmap world render screen alloc failed\n" );
+		Con_Reportf( "Xash3D GameCube: gcmap screen alloc fail\n" );
 		Cvar_Set( "gc_quality", "0" );
 		if( !R_GcmapPrepareWorldRender() )
 			return false;
@@ -6049,7 +6459,7 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 
 	if( !GC_EnsurePresentationBuffer( present_w, present_h ))
 	{
-		Con_Reportf( "Xash3D GameCube: gcmap world render presentation buffer failed\n" );
+		Con_Reportf( "Xash3D GameCube: gcmap present buf fail\n" );
 		return false;
 	}
 
@@ -6066,11 +6476,11 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 	if( Sys_CheckParm( "-gcworldrender" ))
 	{
 		R_GcmapTrimSurfaceCache();
-		Con_Reportf( "Xash3D GameCube: gcmap world render using quality=0 without surface cache\n" );
+		Con_Reportf( "Xash3D GameCube: gcmap q0 no surfcache\n" );
 	}
 	else if( !R_GcmapEnsureSurfaceCache() )
 	{
-		Con_Reportf( "Xash3D GameCube: gcmap world render using quality=0 without surface cache\n" );
+		Con_Reportf( "Xash3D GameCube: gcmap q0 no surfcache\n" );
 		Cvar_Set( "gc_quality", "0" );
 	}
 
@@ -6100,7 +6510,7 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 			continue;
 		VectorCopy( ent->v.origin, center );
 		center[2] += 48.0f;
-		Con_Reportf( "Xash3D GameCube: gcmap world render view from edict=%d origin=(%.0f,%.0f,%.0f)\n",
+		Con_Reportf( "Xash3D GameCube: gcmap view ed=%d org=(%.0f,%.0f,%.0f)\n",
 			i, center[0], center[1], center[2] );
 		break;
 	}
@@ -6112,7 +6522,7 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 	if( count > 6 )
 		count = 6;
 
-	Con_Reportf( "Xash3D GameCube: gcmap world render begin frames=%d\n", count );
+	Con_Reportf( "Xash3D GameCube: gcmap begin frames=%d\n", count );
 	for( i = 0; i < count; ++i )
 	{
 		ref.dllFuncs.R_BeginFrame( false );
@@ -6123,7 +6533,7 @@ qboolean GC_AttemptGcmapWorldRender( int count )
 		ref.dllFuncs.R_EndFrame();
 	}
 	Cvar_Set( "r_drawviewmodel", old_drawviewmodel );
-	Con_Reportf( "Xash3D GameCube: gcmap world render ready\n" );
+	Con_Reportf( "Xash3D GameCube: gcmap ready\n" );
 	return true;
 #endif
 
@@ -6299,6 +6709,79 @@ qboolean GC_IsNewGameG36Done( void )
 	return gc_newgame_g36_done;
 #else
 	return false;
+#endif
+}
+
+/*
+=============
+GC_GXDrawIntroTrain
+
+G277: New Game never runs CL_EmitEntities on the Flipper present path, so
+edge_entities stay empty. Draw c0a0 intro tram (*12) from the server edict.
+=============
+*/
+int GC_GXDrawIntroTrain( void )
+{
+#if XASH_GAMECUBE
+	extern int R_GXDrawBrushModel( cl_entity_t *e );
+	static int tram_e;
+	cl_entity_t fake;
+	edict_t *ent;
+	model_t *mod;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) || !gc_newgame_world_ready )
+		return 0;
+	if( tram_e <= 0 )
+	{
+		int e, first = svs.maxclients + 1;
+
+		for( e = first; e < svgame.numEntities; e++ )
+		{
+			const char *precache;
+
+			ent = SV_EdictNum( e );
+			if( !SV_IsValidEdict( ent ) || ent->v.movetype != MOVETYPE_PUSH )
+				continue;
+			if( ent->v.modelindex <= 0 || ent->v.modelindex >= MAX_MODELS )
+				continue;
+			precache = sv.model_precache[ent->v.modelindex];
+			if( !precache || Q_strcmp( precache, "*12" ))
+				continue;
+			tram_e = e;
+			break;
+		}
+		if( tram_e <= 0 )
+			return 0;
+	}
+	ent = SV_EdictNum( tram_e );
+	if( !SV_IsValidEdict( ent ))
+		return 0;
+	mod = SV_ModelHandle( ent->v.modelindex );
+	if( !mod || mod->type != mod_brush || mod->nummodelsurfaces <= 0 )
+		return 0;
+	memset( &fake, 0, sizeof( fake ));
+	fake.model = mod;
+	VectorCopy( ent->v.origin, fake.origin );
+	VectorCopy( ent->v.angles, fake.angles );
+	VectorCopy( ent->v.origin, fake.curstate.origin );
+	VectorCopy( ent->v.angles, fake.curstate.angles );
+	fake.curstate.rendermode = kRenderNormal;
+	fake.curstate.renderamt = 255;
+	{
+		int d = R_GXDrawBrushModel( &fake );
+		static qboolean once;
+
+		if( !once )
+		{
+			once = true;
+			Con_Reportf( "Xash3D GameCube: G277 draw surfs=%d d=%d o=(%.0f,%.0f,%.0f)\n",
+				mod->nummodelsurfaces, d,
+				ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+		}
+		return d;
+	}
+#else
+	return 0;
 #endif
 }
 
@@ -6641,7 +7124,7 @@ static void GC_CaptureG165RestoreCands( void )
 	if( !GC_LookupSurfbitsCache( eye_c ))
 		return;
 	gc_g165_eye_cluster = eye_c;
-	SYS_Report( "Xash3D GameCube: G165 restore cands ready cluster=%d leaves=%d\n",
+	GC_FlipperTrace( "Xash3D GameCube: G165 restore cands ready cluster=%d leaves=%d\n",
 		eye_c, GC_VisLeafsForCluster( eye_c ));
 }
 
@@ -7000,7 +7483,7 @@ static qboolean GC_CaptureLeanCompressedPVS( model_t *wmodel, int numclusters, s
 			gc_newgame_compressed_ofs[i] = -gc_newgame_compressed_ofs[i] - 2;
 	}
 	gc_newgame_compressed_size = total;
-	SYS_Report( "Xash3D GameCube: Capture FatPVS lean LRU rows=%d packed=%u\n",
+	GC_FlipperTrace( "Xash3D GameCube: Capture FatPVS lean LRU rows=%d packed=%u\n",
 		numclusters, (unsigned)total );
 	return true;
 }
@@ -7034,7 +7517,7 @@ static qboolean GC_CaptureLeanNodebits( model_t *wmodel, int numclusters )
 		memcpy( gc_newgame_packed_nodebits + (size_t)cluster * (size_t)gc_newgame_nodebytes,
 			node_scratch, (size_t)gc_newgame_nodebytes );
 	}
-	SYS_Report( "Xash3D GameCube: Capture FatPVS lean LRU nodebits=%u\n",
+	GC_FlipperTrace( "Xash3D GameCube: Capture FatPVS lean LRU nodebits=%u\n",
 		(unsigned)gc_newgame_packed_nodebits_size );
 	return true;
 }
@@ -7319,7 +7802,7 @@ static void GC_ProveNewGamePVSFollow( void )
 		}
 		if( explore >= 0 && GC_SetActiveNewGameCluster( explore, true ))
 		{
-			SYS_Report( "Xash3D GameCube: G163 explore cluster=%d leaves=%d for face refresh\n",
+			GC_FlipperTrace( "Xash3D GameCube: G163 explore cluster=%d leaves=%d for face refresh\n",
 				explore, explore_leaves );
 			GC_FlushPendingCapFaceRefresh();
 		}
@@ -7375,7 +7858,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 	gc_newgame_vis_leafs = 0;
 	gc_newgame_vis_nodes = 0;
 
-	SYS_Report( "Xash3D GameCube: CaptureNewGamePVS begin\n" );
+	GC_FlipperTrace( "Xash3D GameCube: CaptureNewGamePVS begin\n" );
 
 	if( !wmodel || !wmodel->nodes || !wmodel->leafs )
 	{
@@ -7431,7 +7914,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		}
 	}
 
-	SYS_Report( "Xash3D GameCube: Capture leaf cl=%d c=%d o=(%.0f,%.0f,%.0f)\n",
+	GC_FlipperTrace( "Xash3D GameCube: Capture leaf cl=%d c=%d o=(%.0f,%.0f,%.0f)\n",
 		gc_newgame_viewcluster, viewleaf ? viewleaf->contents : 0,
 		vieworigin[0], vieworigin[1], vieworigin[2] );
 	VectorCopy( vieworigin, gc_newgame_capture_origin );
@@ -7495,7 +7978,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		}
 		else
 		{
-			SYS_Report( "Xash3D GameCube: Capture FatPVS lean-first clusters=%d\n",
+			GC_FlipperTrace( "Xash3D GameCube: Capture FatPVS lean-first clusters=%d\n",
 				numclusters );
 		}
 
@@ -7745,7 +8228,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 						gc_newgame_cluster_valid[steal] = 1;
 						gc_newgame_lean_clusters[steal] = c;
 						gc_newgame_lean_age[steal] = ++gc_newgame_lean_clock;
-						SYS_Report( "Xash3D GameCube: G190 lean outdoor slot=%d cluster=%d leaves=%d\n",
+						GC_FlipperTrace( "Xash3D GameCube: G190 lean outdoor slot=%d cluster=%d leaves=%d\n",
 							steal, c, vis_leaves );
 						break;
 					}
@@ -7760,7 +8243,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 				return;
 			}
 			gc_newgame_pvs_ready = true;
-			SYS_Report( "Xash3D GameCube: Capture lean map=%s cl=%d slots=%d L=%d N=%d\n",
+			GC_FlipperTrace( "Xash3D GameCube: Capture lean map=%s cl=%d slots=%d L=%d N=%d\n",
 				sv.name[0] ? sv.name : "?",
 				lean_cluster, lean_slots, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
 			/* G190: build refresh cands for lean slots (G165 skips lean). */
@@ -7778,14 +8261,14 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 			}
 			if( lean_slots > 1 )
 			{
-				SYS_Report( "Xash3D GameCube: Capture FatPVS lean-N map=%s slots=%d c0=%d c1=%d\n",
+				GC_FlipperTrace( "Xash3D GameCube: Capture FatPVS lean-N map=%s slots=%d c0=%d c1=%d\n",
 					sv.name[0] ? sv.name : "?",
 					lean_slots, gc_newgame_lean_clusters[0], gc_newgame_lean_clusters[1] );
 			}
 			return;
 		}
 
-		SYS_Report( "Xash3D GameCube: Capture multi-cluster PVS begin clusters=%d visbytes=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: Capture multi-cluster PVS begin clusters=%d visbytes=%d\n",
 			numclusters, (int)visbytes );
 
 		/* G132: best-effort surfbits — must not force lean fallback on OOM.
@@ -7844,10 +8327,10 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		}
 
 		gc_newgame_pvs_ready = true;
-		SYS_Report( "Xash3D GameCube: Capture FatPVS map=%s cluster=%d leaves=%d nodes=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: Capture FatPVS map=%s cluster=%d leaves=%d nodes=%d\n",
 			sv.name[0] ? sv.name : "?",
 			gc_newgame_viewcluster, gc_newgame_vis_leafs, gc_newgame_vis_nodes );
-		SYS_Report( "Xash3D GameCube: Capture multi-PVS map=%s cl=%d ok=%d\n",
+		GC_FlipperTrace( "Xash3D GameCube: Capture multi-PVS map=%s cl=%d ok=%d\n",
 			sv.name[0] ? sv.name : "?", numclusters, valid_clusters );
 		/* G163: capture-time surfbits — marks die before present-time rebuild.
 		 * G165: cache SelectClusterForOrigin hits for leafbox centers (same
@@ -7893,7 +8376,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 					GC_StoreSurfbitsCache( wmodel, eye_c,
 						gc_newgame_pvs_table + (size_t)eye_c * visbytes );
 					gc_g165_eye_cluster = eye_c;
-					SYS_Report( "Xash3D GameCube: G165 restore cands ready cluster=%d\n",
+					GC_FlipperTrace( "Xash3D GameCube: G165 restore cands ready cluster=%d\n",
 						eye_c );
 				}
 			}
@@ -7927,7 +8410,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 				if( gc_g165_eye_cluster < 0 )
 				{
 					gc_g165_eye_cluster = i;
-					SYS_Report( "Xash3D GameCube: G165 restore cands ready cluster=%d leaves=%d\n",
+					GC_FlipperTrace( "Xash3D GameCube: G165 restore cands ready cluster=%d leaves=%d\n",
 						i, leaves );
 				}
 			}
@@ -7977,7 +8460,7 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 					gc_newgame_pvs_table + (size_t)max_c * visbytes );
 			if( gc_newgame_surf_cache_slots > 0 )
 			{
-				SYS_Report( "Xash3D GameCube: G163 surfbits cache slots=%d max_c=%d eye_c=%d g165=%d\n",
+				GC_FlipperTrace( "Xash3D GameCube: G163 surfbits cache slots=%d max_c=%d eye_c=%d g165=%d\n",
 					gc_newgame_surf_cache_slots, max_c, eye_c, gc_g165_eye_cluster );
 				gc_newgame_surfbits = GC_LookupSurfbitsCache( gc_newgame_viewcluster );
 			}
@@ -8403,7 +8886,7 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		if( sustained_frames == 8 || sustained_frames == 16
 			|| ( sustained_frames > 0 && ( sustained_frames % 32 ) == 0 ))
 		{
-			Con_Reportf( "Xash3D GameCube: newgame world render sustained frames=%u scr=%u\n",
+			Con_Reportf( "Xash3D GameCube: newgame sustained frames=%u scr=%u\n",
 				sustained_frames, scr_frames );
 		}
 		if( scr_frames == 8 || scr_frames == 16
@@ -8635,7 +9118,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	{
 		gc_g196_flipper_dump_aim_left = 64;
 		gc_dump_look_into_map = true;
-		SYS_Report( "Xash3D GameCube: G199 Flipper wall-aim armed for New Game present\n" );
+		GC_FlipperTrace( "Xash3D GameCube: G199 Flipper wall-aim armed for New Game present\n" );
 	}
 	/* G135: do NOT arm CPU dump presents yet. Soft-tiled RGB565 blits dump as
 	 * chroma noise and steal Dolphin DumpFrames slots before depth/coalesce.
@@ -8691,7 +9174,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	{
 		int i;
 
-		Con_Reportf( "Xash3D GameCube: post-G36 sustained present (world render deferred)\n" );
+		Con_Reportf( "Xash3D GameCube: post-G36 present deferred\n" );
 		for( i = 0; i < 8; i++ )
 		{
 			GC_FillBudgetProbeFrameBuffer();
@@ -8705,7 +9188,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		/* G85/G90: pump V_RenderView-style presents BEFORE post-G36 server
 		 * ticks — Host_ServerFrame (move/snapshots) has been leaving the
 		 * next GL_RenderFrame hung on this route. */
-		Con_Reportf( "Xash3D GameCube: post-G36 sustained world present\n" );
+		Con_Reportf( "Xash3D GameCube: post-G36 world present\n" );
 		/* Pre-dump pump may use GX; DumpFrames evidence comes after G135. */
 		for( i = 0; i < 8; i++ )
 		{
@@ -8743,7 +9226,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		if( !GC_WantSoftDumpLatch() )
 		{
 			GC_EnableGxWorldLive();
-			Con_Reportf( "Xash3D GameCube: pure Flipper GX live (no soft DumpFrames latch)\n" );
+			Con_Reportf( "Xash3D GameCube: pure Flipper GX live (no soft latch)\n" );
 			{
 				ref.dllFuncs.R_BeginFrame( false );
 				if( GC_RenderNewGameWorldPassNoFrame( true ))
@@ -9032,7 +9515,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 					if( GC_RenderNewGameWorldFrames( 4 ))
 					{
 						Con_Reportf( "Xash3D GameCube: G155 GX live smoke frame\n" );
-						SYS_Report( "Xash3D GameCube: G199 Flipper wall present ready\n" );
+						GC_FlipperTrace( "Xash3D GameCube: G199 Flipper wall present ready\n" );
 					}
 					else
 						Con_Reportf( S_WARN "Xash3D GameCube: G155 GX live smoke failed\n" );
@@ -9044,7 +9527,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 
 		for( i = 0; i < 2; i++ )
 			Host_ServerFrame();
-		Con_Reportf( "Xash3D GameCube: post-G36 bounded server ticks ready\n" );
+		Con_Reportf( "Xash3D GameCube: post-G36 ticks ready\n" );
 
 		/* G94: skip gameplay SFX — SoundLib alloc can fatal under MEM1 before
 		 * the lean save blob is written. G91 still covered on non-G94 New Game. */
@@ -9209,28 +9692,28 @@ void GC_PlayNewGameGameplaySound( void )
 		return;
 	}
 
-	Con_Reportf( "Xash3D GameCube: gameplay sound begin name=%s state=%d\n",
+	Con_Reportf( "Xash3D GameCube: gameplay snd begin %s st=%d\n",
 		name, cls.state );
 
 	/* Pre-voice paints fill silence up to mixahead while soundtime stays 0.
 	 * Rewind so the late channel can paint into the live DMA window. */
 	if( snd.initialized && (int)( snd.paintedtime - snd.soundtime ) > 64 )
 	{
-		Con_Reportf( "Xash3D GameCube: gameplay sound mix window rewind painted=%d sound=%d\n",
+		Con_Reportf( "Xash3D GameCube: gameplay snd rewind p=%d s=%d\n",
 			snd.paintedtime, snd.soundtime );
 		snd.paintedtime = snd.soundtime;
 	}
 
 	/* G118: budget gate in S_LoadSound — no one-shot Allow/Disallow. */
 	S_StartLocalSound( name, 1.0f, true );
-	Con_Reportf( "Xash3D GameCube: gameplay sound start name=%s channel=static budget_used=%u\n",
+	Con_Reportf( "Xash3D GameCube: gameplay snd start %s ch=static bud=%u\n",
 		name, (uint)S_GCGameplaySfxBudgetUsed() );
 
 	/* Mix enough updates for the clip to reach the 48 kHz DMA ring. */
 	for( i = 0; i < 8; i++ )
 		SND_UpdateSound();
 
-	Con_Reportf( "Xash3D GameCube: gameplay sound ready name=%s\n", name );
+	Con_Reportf( "Xash3D GameCube: gameplay snd ready %s\n", name );
 }
 #else
 void GC_PlayNewGameGameplaySound( void )
