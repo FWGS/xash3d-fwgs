@@ -134,6 +134,16 @@ static qboolean r_gx_tex_band_logged;
 #ifndef GC_GX_FAR_MIN_AREA
 #define GC_GX_FAR_MIN_AREA 4096	/* keep medium walls when far */
 #endif
+/* G280/G282: Flipper per-frame emit. Caps + live PVS pool share FRAME. */
+#ifndef GC_GX_FRAME_FACE_BUDGET
+#define GC_GX_FRAME_FACE_BUDGET 288
+#endif
+#ifndef GC_GX_LIVE_FACE_BUDGET
+#define GC_GX_LIVE_FACE_BUDGET 128
+#endif
+#ifndef GC_GX_FILL_FACE_BUDGET
+#define GC_GX_FILL_FACE_BUDGET 40
+#endif
 static int r_gx_face_skips;
 static int r_gx_face_skip_area;
 static int r_gx_face_skip_far;
@@ -1572,12 +1582,15 @@ int R_GXDrawNewGameCapFaces( void )
 	/* G213: when surfaces are pinned off scratch, walk live BSP30 via surfbits
 	 * visframe (MarkLeaves). Cap faces remain LM fallback if promote OOM'd. */
 	drawn = 0;
-	if( GC_WorldSurfacesLive() )
+	/* G282: emit LM-caps whenever New Game has them — do not require a live
+	 * pool (empty live used to fall through to sky-only and drop caps). */
+	if( GC_WorldSurfacesLive() || ( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && n > 0 ))
 	{
 		static qboolean g213_logged;
 		int live_n = GC_GetLiveFaceCount();
 
-		/* Lean early-pool faces (G213) — walk mempool edges; full promote may OOM. */
+		/* Lean early-pool faces (G213) — walk mempool edges; full promote may OOM.
+		 * G282: LIVE budget raised so restreamed PVS faces read the tunnel. */
 		if( live_n > 0 )
 		{
 			int li, live_drawn = 0, skipped_cap = 0;
@@ -1595,6 +1608,9 @@ int R_GXDrawNewGameCapFaces( void )
 				int got;
 				int bake;
 
+				if( live_drawn >= GC_GX_LIVE_FACE_BUDGET
+					|| drawn + live_drawn >= GC_GX_FRAME_FACE_BUDGET )
+					break;
 				if( GC_LiveFaceIsCapped( li ))
 				{
 					skipped_cap++;
@@ -1641,12 +1657,17 @@ int R_GXDrawNewGameCapFaces( void )
 			if( !g213_logged )
 			{
 				g213_logged = true;
+#if 0 /* G281 DOL reclaim */
 				gEngfuncs.Con_Reportf(
 					"Xash3D GameCube: G220 live Flipper skyfill=%d of %d skip_cap=%d plane=%d back=%d noverts=%d fail=%d\n",
 					live_drawn, live_n, skipped_cap, skip_plane, skip_back, skip_noverts, emit_fail );
+#else
+				(void)live_drawn; (void)skipped_cap; (void)skip_plane;
+				(void)skip_back; (void)skip_noverts; (void)emit_fail; (void)live_n;
+#endif
 			}
 		}
-		else
+		else if( GC_WorldSurfacesLive() )
 		{
 			drawn = R_GXDrawWorldLiveSurfaces( world, true );
 			if( !g213_logged && drawn > 0 )
@@ -1678,6 +1699,8 @@ int R_GXDrawNewGameCapFaces( void )
 				const int slot = order[i];
 				msurface_t *surf = &draw[slot];
 
+				if( drawn + cap_drawn >= GC_GX_FRAME_FACE_BUDGET )
+					break;
 				if( !surf->plane )
 				{
 					emit_fails++;
@@ -1704,7 +1727,10 @@ int R_GXDrawNewGameCapFaces( void )
 					r_gx_face_skip_area++;
 					continue;
 				}
-				if( area > 0 && area < GC_GX_FAR_MIN_AREA
+				/* G281: skip far-small cull on New Game — tunnel walls along
+				 * the look path were dropped while dump eye was distant. */
+				if( !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+					&& area > 0 && area < GC_GX_FAR_MIN_AREA
 					&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
 				{
 					r_gx_face_skips++;
@@ -1735,6 +1761,9 @@ int R_GXDrawNewGameCapFaces( void )
 				int nv;
 				float dot;
 
+				if( fill_drawn >= GC_GX_FILL_FACE_BUDGET
+					|| drawn + fill_drawn >= GC_GX_FRAME_FACE_BUDGET )
+					break;
 				if( !GC_FillFacePlane( fi, &pl, &flags ))
 					continue;
 				dot = DotProduct( tr.modelorg, pl.normal ) - pl.dist;

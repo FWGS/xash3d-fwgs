@@ -71,7 +71,10 @@ fi
 FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 if (( DOLPHIN_NEWGAME )); then
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
-	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-16}"
+	# G278 intro + G280 Flipper FPS: need sustained sample after present marker.
+	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-40}"
+	# G280 playable target is 24–30 FPS (not 60).
+	export TARGET_FRAME_TIME="${TARGET_FRAME_TIME:-33.33}"
 else
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0e}"
 fi
@@ -380,7 +383,10 @@ if (( DOLPHIN_NEWGAME )); then
 	GUEST_ARGS+=("-gcnewgame")
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
 	MAP_MARKER="Xash3D GameCube: map loaded ${SMOKE_MAP}"
+	# Prefer G281 ride restream (map reading along tram).
+	G278_DONE_MARKER="G281 cl="
 	echo "==> New Game probe mode (expect map ${SMOKE_MAP})"
+	echo "==> Waiting for G281 Flipper map restream (GPU faces follow tram)"
 	if [[ -n "$DOLPHIN_CHANGELEVEL" ]]; then
 		G68_DONE_MARKER="Xash3D GameCube: G68 changelevel ready from=${SMOKE_MAP} to=${DOLPHIN_CHANGELEVEL}"
 		# G161 soft DumpFrames gun, then G159 sustained Flipper after reconnect.

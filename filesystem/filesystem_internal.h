@@ -42,6 +42,10 @@ typedef struct android_assets_s android_assets_t;
 
 #define FILE_BUFF_SIZE (2048)
 #define FILE_DEFLATED BIT( 0 )
+#if XASH_GAMECUBE
+#define FILE_SYS_MALLOC BIT( 1 ) /* file_t came from libc malloc (FS pool soft-fail) */
+#define FILE_GC_INTRO_STATIC BIT( 2 ) /* G278 static intro VO file_t slot */
+#endif
 
 typedef struct ztoolkit_s
 {

@@ -323,6 +323,14 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 				Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
+		/* G278: intro bgTrack raw ring (~8 KiB) must soft-fail rather than
+		 * Host_Error when Sound Zone is exhausted post-G36. */
+		if( pool && !Q_stricmp( pool->name, "Sound Zone" ))
+		{
+			Con_Reportf( "Xash3D GameCube: soft-fail Sound Zone alloc size=%s at %s:%i\n",
+				Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
 #endif
 		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 		return NULL;

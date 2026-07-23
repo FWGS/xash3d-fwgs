@@ -83,8 +83,9 @@ static byte *gc_newgame_surfbits; /* active row into surf_table */
  * G199: keep 4×64 — raising cands starved stuffcmds/boot MEM1.
  * Do not shrink to 48: G212 mid dropped 52→43 with no working portal admit. */
 #define GC_SURFBITS_CACHE_SLOTS 4
-/* G237: one shared cand buffer (was [4][64] = 24 KiB BSS). 96×96 B ≈ 9 KiB. */
-#define GC_CAP_REFRESH_NEW_MAX 64 /* G234/G238: 72+ raised clear%; keep 64 */
+/* G237: one shared cand buffer (was [4][64] = 24 KiB BSS). 96×96 B ≈ 9 KiB.
+ * G281: keep 64 — 96 tipped Client Static / InitInput (BSS +3 KiB). */
+#define GC_CAP_REFRESH_NEW_MAX 64
 #define GC_CAP_MAX_VERTS 5	/* G199: s16 verts; reclaim per-face LM BSS */
 static byte *gc_newgame_surf_cache;
 static int gc_newgame_surf_cache_cluster[GC_SURFBITS_CACHE_SLOTS];
@@ -326,6 +327,10 @@ static int GC_CapNearEyeScore( const mplane_t *pl, int area, qboolean is_wall )
 	else if( dist > 1280.0f )
 		score /= 4;
 	else if( dist > 896.0f )
+		score /= 2;
+	/* G281: under tram lock, demote mid/far faces harder so look-ahead
+	 * walls win refresh admits without BSS eviction. */
+	if( gc_g212_stream_locked && dist > 640.0f )
 		score /= 2;
 	if( !VectorIsNull( gc_newgame_capture_forward ))
 	{
@@ -2686,7 +2691,8 @@ static void GC_CaptureLiveFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		return;
 	if( !wmodel->surfedges || !wmodel->vertexes || ( !wmodel->edges16 && !wmodel->edges32 ))
 		return;
-	/* After scratch reuse, plane* dangles — never wipe a good early pool. */
+	/* After scratch reuse, plane* dangles — never wipe a good early pool.
+	 * Ride restream appends PVS faces (see GC_MaybeRestreamRideMapFaces). */
 	if( !Mod_GCWorldSurfacesPinned( wmodel ) && gc_live_face_count > 0 && !append )
 	{
 		GC_FlipperTrace( "Xash3D GameCube: G213 live faces keep early pool n=%d (surfaces dangling)\n",
@@ -2729,7 +2735,7 @@ static void GC_CaptureLiveFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		if( area <= 0 )
 			continue;
 		if( GC_CapFaceAlready( src->firstedge, src->numedges ))
-			continue; /* complementary to LM 320-cap */
+			continue; /* complementary to LM-cap (PVS leftovers) */
 		if( GC_LiveFaceAlready( src->firstedge, src->numedges ))
 			continue;
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.55f ); /* G234: match LiveViewScore */
@@ -3279,6 +3285,9 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 
 	leaves = GC_VisLeafsForCluster( gc_newgame_surf_cache_cluster[cache_slot] );
 	outdoor = ( leaves > 0 && leaves <= 48 );
+	/* G281: locked tram also wall-boosts cand heap (indoor tunnel). */
+	{
+		const qboolean prefer_walls = outdoor || gc_g212_stream_locked;
 
 	for( i = 0; i < wmodel->numsurfaces; i++ )
 	{
@@ -3305,9 +3314,8 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 		is_wall = ( fabs( src->plane->normal[2] ) < 0.35f );
 		if( is_wall )
 			wall_boost++;
-		/* Raw area in cand->area; G212 near-eye (+ outdoor wall) ranks the cand set. */
 		score = GC_CapNearEyeScore( src->plane, area, is_wall );
-		if( outdoor && is_wall )
+		if( prefer_walls && is_wall )
 			score += area;
 
 		if( ncand < GC_CAP_REFRESH_NEW_MAX )
@@ -3337,7 +3345,7 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 		min_score = GC_CapNearEyeScore( &gc_refresh_cands[0].plane,
 			gc_refresh_cands[0].area,
 			fabs( gc_refresh_cands[0].plane.normal[2] ) < 0.35f );
-		if( outdoor && fabs( gc_refresh_cands[0].plane.normal[2] ) < 0.35f )
+		if( prefer_walls && fabs( gc_refresh_cands[0].plane.normal[2] ) < 0.35f )
 			min_score += gc_refresh_cands[0].area;
 		for( k = 1; k < GC_CAP_REFRESH_NEW_MAX; k++ )
 		{
@@ -3345,7 +3353,7 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 				gc_refresh_cands[k].area,
 				fabs( gc_refresh_cands[k].plane.normal[2] ) < 0.35f );
 
-			if( outdoor && fabs( gc_refresh_cands[k].plane.normal[2] ) < 0.35f )
+			if( prefer_walls && fabs( gc_refresh_cands[k].plane.normal[2] ) < 0.35f )
 				ks += gc_refresh_cands[k].area;
 			if( ks < min_score )
 			{
@@ -3374,6 +3382,7 @@ static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfb
 			dst->has_tex = true;
 		}
 	}
+	} /* prefer_walls */
 	{
 		int wi, walls = 0;
 
@@ -3422,7 +3431,10 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		return;
 	leaves = GC_VisLeafsForCluster( gc_newgame_viewcluster );
 	outdoor = ( leaves > 0 && leaves <= 48 );
-	/* G170/G212: near-eye keep-score first; outdoor wall preference below. */
+	/* G281: locked New Game tram also prefers walls over floors. */
+	{
+		const qboolean prefer_walls = outdoor || gc_g212_stream_locked;
+
 	GC_SortRefreshCandsByAreaDesc( cache_slot );
 	GC_FlipperTrace( "Xash3D GameCube: G163 refresh begin cluster=%d faces=%d cands=%d\n",
 		gc_newgame_viewcluster, prev_count, ncand );
@@ -3441,24 +3453,22 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		if( cand_wall )
 			wall_boost++;
 		cand_score = GC_CapNearEyeScore( &cand->plane, cand->area, cand_wall );
+		if( prefer_walls && cand_wall )
+			cand_score += ( cand->area >> 1 );
 
 		if( gc_newgame_cap_face_count < GC_MAX_CAP_FACES )
 			slot = gc_newgame_cap_face_count;
 		else
 		{
 			min_i = 0;
-			/*
-			 * Score: lower = better victim. G212: far-from-eye slots lose first.
-			 * Outdoor: also prefer replacing floors (high |nz|).
-			 */
 			min_score = GC_CapSlotKeepScore( 0 );
-			if( outdoor && fabs( gc_newgame_cap_faces[0].plane.normal[2] ) >= 0.55f )
+			if( prefer_walls && fabs( gc_newgame_cap_faces[0].plane.normal[2] ) >= 0.55f )
 				min_score -= ( gc_newgame_cap_areas[0] >> 2 );
 			for( k = 1; k < GC_MAX_CAP_FACES; k++ )
 			{
 				int score = GC_CapSlotKeepScore( k );
 
-				if( outdoor && fabs( gc_newgame_cap_faces[k].plane.normal[2] ) >= 0.55f )
+				if( prefer_walls && fabs( gc_newgame_cap_faces[k].plane.normal[2] ) >= 0.55f )
 					score -= ( gc_newgame_cap_areas[k] >> 2 );
 				if( score < min_score )
 				{
@@ -3471,8 +3481,10 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 				int admit = cand_score;
 				qboolean victim_floor = ( fabs( gc_newgame_cap_faces[min_i].plane.normal[2] ) >= 0.55f );
 
-				/* Outdoor wall vs floor: punch floors for Flipper coverage. */
-				if( outdoor && cand_wall && victim_floor )
+				if( prefer_walls && cand_wall && victim_floor )
+					admit = threshold + 1;
+				/* G281: also punch far victims (tram-start walls left behind). */
+				else if( prefer_walls && cand_wall && threshold < 90000 )
 					admit = threshold + 1;
 				if( admit <= threshold )
 					continue;
@@ -3488,6 +3500,7 @@ static void GC_RefreshCapFacesFromCands( int cache_slot )
 		if( cand_wall )
 			wall_new++;
 	}
+	} /* prefer_walls */
 
 	if( mid_new > 0 )
 		GC_SortCapFacesByAreaDesc();
@@ -3944,6 +3957,201 @@ static qboolean GC_DumpEyeAtTramStart( float *eye, float *out_angles )
 	return true;
 }
 
+/*
+===========
+GC_NewGameRideEye
+
+G279: follow the parented tram cabin eye. The G233 lock used DumpEyeAtTramStart
+every frame, so Flipper stayed at trainstop while *12 rolled away.
+===========
+*/
+static qboolean GC_NewGameRideEye( float *eye, float *out_angles )
+{
+	edict_t *player;
+
+	if( !eye || !out_angles || !Sys_CheckParm( "-gcnewgame" ))
+		return false;
+	if( !svgame.edicts || svs.maxclients < 1 )
+		return GC_DumpEyeAtTramStart( eye, out_angles );
+
+	player = SV_EdictNum( 1 );
+	if( player && !player->free && !VectorIsNull( player->v.origin ))
+	{
+		VectorCopy( player->v.origin, eye );
+		/* G279: ignore player-move probe yaw — keep looking down the tunnel. */
+		out_angles[0] = -6.0f;
+		out_angles[1] = 180.0f;
+		out_angles[2] = 0.0f;
+		{
+			vec3_t right, up;
+
+			VectorCopy( eye, gc_newgame_capture_origin );
+			AngleVectors( out_angles, gc_newgame_capture_forward, right, up );
+		}
+		{
+			static int ride_eye_log;
+			static float last_x = 1e30f;
+
+			if( ride_eye_log < 16 && ( ride_eye_log < 4 || fabs( eye[0] - last_x ) > 8.0f ))
+			{
+#if 0 /* G281 DOL reclaim */
+				Con_Reportf( "Xash3D GameCube: G279 ride eye=(%.0f,%.0f,%.0f) yaw=%.0f\n",
+					eye[0], eye[1], eye[2], out_angles[1] );
+#endif
+				last_x = eye[0];
+				ride_eye_log++;
+			}
+		}
+		return true;
+	}
+	return GC_DumpEyeAtTramStart( eye, out_angles );
+}
+
+/*
+===========
+GC_MaybeRestreamRideMapFaces
+
+G281: under G212 lock, refresh LM-cap/live as the ride eye moves. Sample a
+look-ahead origin (tunnel yaw≈180) so faces ahead of the cabin enter the
+cap — not only the tram-start leaf. Recycle one outdoor surfbits slot in
+place when the ahead cluster is uncached (G218, no alloc).
+===========
+*/
+static void GC_MaybeRestreamRideMapFaces( const float *eye )
+{
+	static float last[3];
+	static int cd, nlog;
+	float dx, dy, dz;
+	int cluster, slot, i;
+	model_t *wm;
+	const byte *bits;
+	vec3_t ahead;
+
+	if( !eye || !gc_g212_stream_locked )
+		return;
+	if( cd > 0 )
+	{
+		cd--;
+		return;
+	}
+	dx = eye[0] - last[0];
+	dy = eye[1] - last[1];
+	dz = eye[2] - last[2];
+	if( ( last[0] || last[1] || last[2] ) && ( dx * dx + dy * dy + dz * dz ) < 16384.0f )
+		return;
+
+	wm = sv.models[1];
+	if( !wm )
+		return;
+
+	/* Walk look-ahead along −X until cluster changes (c0a0 cl 117 is large). */
+	VectorCopy( eye, ahead );
+	cluster = GC_SelectClusterForOrigin( eye );
+	{
+		const float looks[4] = { 384.0f, 768.0f, 1152.0f, 1536.0f };
+		int base = cluster;
+
+		for( i = 0; i < 4; i++ )
+		{
+			int c;
+
+			ahead[0] = eye[0] - looks[i];
+			ahead[1] = eye[1];
+			ahead[2] = eye[2];
+			c = GC_SelectClusterForOrigin( ahead );
+			if( c >= 0 && ( base < 0 || c != base ))
+			{
+				cluster = c;
+				break;
+			}
+			if( i == 3 && c >= 0 )
+			{
+				/* Furthest sample — still use it for ranking even if same cl. */
+				cluster = c;
+			}
+		}
+	}
+	if( cluster < 0 )
+		return;
+
+	slot = GC_LookupSurfbitsCacheSlot( cluster );
+	if( slot < 0 && gc_newgame_surf_cache && gc_newgame_surf_cache_slots > 0
+		&& gc_newgame_surfbytes > 0 && gc_newgame_visbytes > 0
+		&& gc_newgame_visbytes <= 512 )
+	{
+		byte vis[512];
+		int li;
+
+		slot = gc_newgame_surf_cache_slots - 1;
+		for( i = 0; i < gc_newgame_surf_cache_slots; i++ )
+		{
+			if( GC_VisLeafsForCluster( gc_newgame_surf_cache_cluster[i] ) <= 48 )
+			{
+				slot = i;
+				break;
+			}
+		}
+		for( li = 1; li < wm->numleafs; li++ )
+		{
+			if( wm->leafs[li].cluster != cluster || !wm->leafs[li].compressed_vis )
+				continue;
+			GC_DecompressPVS( vis, wm->leafs[li].compressed_vis,
+				(size_t)gc_newgame_visbytes );
+			{
+				byte *row = gc_newgame_surf_cache
+					+ (size_t)slot * (size_t)gc_newgame_surfbytes;
+				GC_BuildSurfbitsForVisRow( wm, vis, row );
+				gc_newgame_surf_cache_cluster[slot] = cluster;
+				GC_BuildRefreshCandsFromSurfbits( wm, row, slot );
+			}
+			break;
+		}
+		if( gc_newgame_surf_cache_cluster[slot] != cluster )
+			slot = -1;
+	}
+	if( slot < 0 )
+		slot = GC_LookupSurfbitsCacheSlot( gc_newgame_viewcluster );
+	if( slot < 0 )
+		return;
+
+	/* Rank faces toward look-ahead (tunnel reading), not cabin origin. */
+	VectorCopy( ahead, gc_newgame_capture_origin );
+	gc_newgame_capture_forward[0] = -1.0f;
+	gc_newgame_capture_forward[1] = 0.0f;
+	gc_newgame_capture_forward[2] = 0.0f;
+	if( cluster != gc_newgame_viewcluster
+		&& GC_LookupSurfbitsCacheSlot( cluster ) >= 0 )
+		(void)GC_SetActiveNewGameCluster( cluster, false );
+	/* Rebuild cand top-K with new capture_origin, then incrementally replace
+	 * weak Flipper LM-cap slots. Full CaptureDrawFacesFromSurfbits softlocks
+	 * Host_Frame under MEM1 during present. */
+	gc_refresh_loaded_slot = -1;
+	GC_RefreshCapFacesFromCands( slot );
+	bits = GC_LookupSurfbitsCache( gc_newgame_viewcluster );
+	if( !bits )
+		bits = GC_LookupSurfbitsCache( cluster );
+	if( bits )
+		GC_CaptureLiveFacesFromSurfbits( wm, bits, true );
+
+	last[0] = eye[0];
+	last[1] = eye[1];
+	last[2] = eye[2];
+	cd = 8;
+	gc_cap_refresh_pending = false;
+	if( nlog < 12 )
+	{
+		Con_Reportf( "G281 cl=%d n=%d L=%d\n", cluster, gc_newgame_cap_face_count,
+			gc_live_face_count );
+		nlog++;
+		/* Arm DumpFrames EFB hold after restream so late ride frames encode. */
+		if( nlog == 2 || nlog == 5 )
+		{
+			extern void R_GXHoldEfbForDump( int frames );
+			R_GXHoldEfbForDump( 5 );
+		}
+	}
+}
+
 /* G199/G211: place dump eye in front of an enclosed wall (not outdoor sky slab). */
 static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles )
 {
@@ -4219,8 +4427,10 @@ static void GC_FlushPendingCapFaceRefresh( void )
 	if( gc_g188_reposition_pending )
 	{
 		gc_g188_reposition_pending = false;
+#if 0 /* G281 DOL reclaim */
 		SYS_Report( "Xash3D GameCube: G188 landmark Flipper continuity cluster=%d faces=%d\n",
 			gc_newgame_viewcluster, gc_newgame_cap_face_count );
+#endif
 	}
 }
 
@@ -4982,8 +5192,9 @@ static void GC_PresentBuffer( void )
 		GX_CopyDisp( xfb[which_fb], GX_FALSE );
 		GX_Flush();
 		gc_gx_world_efb_ready = false;
-		/* G200: hold EFB for DumpFramesAsImages encode window (-gcnewgame probes). */
-		if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
+		/* G200/G281: do not hold EFB on early -gcnewgame presents — that froze
+		 * DumpFrames on tram-start voids. Late hold is armed from G281 restream. */
+		if( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" ))
 		{
 			extern void R_GXHoldEfbForDump( int frames );
 			R_GXHoldEfbForDump( 6 );
@@ -5032,9 +5243,14 @@ static void GC_PresentBuffer( void )
 			xfb_pix = dump_dst[(size_t)( rmode->fbWidth / 4 )];
 			if( soft_src && soft_w > 0 && soft_h > 0 )
 				GC_SampleBufferNonBlack( soft_src, soft_w, soft_h, soft_stride, &dump_nonblack );
+#if 0 /* G281 DOL reclaim */
 			Con_Reportf( "Xash3D GameCube: G193 softlock n=%d nb=%d y=0x%08x s=0x%04x snap=%d\n",
 				g193_soft_lock_presents, dump_nonblack ? 1 : 0, xfb_pix,
 				soft_src ? soft_src[0] : 0, gc_g193_snap_valid ? 1 : 0 );
+#else
+			(void)xfb_pix;
+			(void)dump_nonblack;
+#endif
 		}
 		return;
 	}
@@ -5104,9 +5320,14 @@ static void GC_PresentBuffer( void )
 				GC_SampleBufferNonBlack( src, src_w, src_h, gc.stride, &dump_nonblack );
 				if( dst )
 					xfb_pix = dst[(size_t)( copy_w / 4 )]; /* mid-ish YUYV sample */
+#if 0 /* G281 DOL reclaim */
 				Con_Reportf( "Xash3D GameCube: G191 soft EFB l=%d nb=%d %dx%d xfb=%p y=0x%08x s=0x%04x\n",
 					gc_cpu_dump_presents_left, dump_nonblack ? 1 : 0, src_w, src_h,
 					dst, xfb_pix, src[0] );
+#else
+				(void)xfb_pix;
+				(void)dump_nonblack;
+#endif
 				gc_cpu_dump_presents_left--;
 				if( gc_cpu_dump_presents_left == 0 )
 					Con_Reportf( "Xash3D GameCube: G191 soft dump EFB presents ready\n" );
@@ -7116,6 +7337,21 @@ int GC_GXDrawIntroTrain( void )
 	ent = SV_EdictNum( tram_e );
 	if( !SV_IsValidEdict( ent ))
 		return 0;
+	/* G280: eye is parented inside the cabin — drawing *12 exterior faces
+	 * with Z-ignore paints ghost cars and burns Flipper time. Skip while riding. */
+	{
+		edict_t *player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+		vec3_t delta;
+		float dist2;
+
+		if( player && SV_IsValidEdict( player ))
+		{
+			VectorSubtract( player->v.origin, ent->v.origin, delta );
+			dist2 = DotProduct( delta, delta );
+			if( dist2 < ( 220.0f * 220.0f ))
+				return 0;
+		}
+	}
 	return R_GXDrawTramBaked( ent->v.origin, ent->v.angles );
 #else
 	return 0;
@@ -8890,7 +9126,8 @@ qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel )
 		if( player && !player->free && !VectorIsNull( player->v.origin ))
 		{
 			VectorCopy( player->v.origin, center );
-			center[2] += 48.0f;
+			if( !Sys_CheckParm( "-gcnewgame" ))
+				center[2] += 48.0f;
 			VectorCopy( player->v.v_angle, rvp.viewangles );
 		}
 		else
@@ -8907,10 +9144,14 @@ qboolean GC_RenderNewGameWorldPassNoFrame( qboolean draw_viewmodel )
 			}
 		}
 	}
-	/* G233: pure-Flipper smoke used player eye/yaw0 while DumpFrames EFB hold
-	 * skips clear — G232 near faces then painted a permanent clear hole. */
+	/* G279: locked tram stream follows the parented ride eye (not the fixed
+	 * trainstop dump pose). G233 pinned DumpEyeAtTramStart and left the
+	 * camera stranded as *12 rolled away — exterior tram-in-tunnel shots. */
 	if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" ))
-		(void)GC_DumpEyeAtTramStart( center, rvp.viewangles );
+	{
+		(void)GC_NewGameRideEye( center, rvp.viewangles );
+		GC_MaybeRestreamRideMapFaces( center );
+	}
 	VectorCopy( center, rvp.vieworigin );
 	if( !gc_g212_stream_locked )
 	{
@@ -8990,7 +9231,9 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		if( player && !player->free && !VectorIsNull( player->v.origin ))
 		{
 			VectorCopy( player->v.origin, center );
-			center[2] += 48.0f;
+			/* G279: tram ride origin is already eye height — do not +48. */
+			if( !Sys_CheckParm( "-gcnewgame" ))
+				center[2] += 48.0f;
 			VectorCopy( player->v.v_angle, rvp.viewangles );
 		}
 		else
@@ -9009,10 +9252,12 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			}
 		}
 	}
-	/* G233: locked tram stream — pin camera to tram eye so player-move
-	 * probes cannot orphan the near-eye face set (DumpFrames clear%~64). */
+	/* G279: follow parented ride eye under stream lock (was fixed DumpEye). */
 	if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" ))
-		(void)GC_DumpEyeAtTramStart( center, rvp.viewangles );
+	{
+		(void)GC_NewGameRideEye( center, rvp.viewangles );
+		GC_MaybeRestreamRideMapFaces( center );
+	}
 	/* G132: if lean PVS cannot follow the player cluster, render from the
 	 * capture-room origin so surfbits/nodebits match the camera. */
 	if( !( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" )))
@@ -9034,9 +9279,12 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			rvp.viewangles[2] = 0.0f;
 		}
 	}
-	/* G196: Flipper DumpFrames wall-aim — landmark eye often faces sky. */
+	/* G196: Flipper DumpFrames wall-aim — landmark eye often faces sky.
+	 * G281: once G212 lock + ride eye owns the camera, do not re-arm dump-look
+	 * (DumpEyeAtTramStart froze DumpFrames on tram-start voids). */
 	if( gc_g196_flipper_dump_aim_left > 0 && gc_gx_world_live
-		&& gc_cpu_dump_presents_left <= 0 )
+		&& gc_cpu_dump_presents_left <= 0
+		&& !( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" )))
 	{
 		static qboolean g196_aim_logged;
 
@@ -9049,6 +9297,8 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 		}
 		(void)g196_aim_logged;
 	}
+	else if( gc_g212_stream_locked && Sys_CheckParm( "-gcnewgame" ))
+		gc_dump_look_into_map = false;
 
 	/* G189/G190: far landmark hops — prefer outdoor wall faces first, then look
 	 * into the largest wall instead of aiming across the map into empty sky.
@@ -9146,8 +9396,12 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 				local_look = true;
 			}
 		}
+#if 0 /* G281 DOL reclaim */
 		Con_Reportf( "Xash3D GameCube: G132 dump look angles=(%.0f,%.0f,%.0f) aimlen=%.0f\n",
 			rvp.viewangles[0], rvp.viewangles[1], rvp.viewangles[2], look_len );
+#else
+		(void)look_len;
+#endif
 		if( local_look && look_len > 512.0f )
 		{
 			int leaves = GC_VisLeafsForCluster( gc_newgame_viewcluster );
@@ -9251,13 +9505,13 @@ qboolean GC_RenderNewGameWorldFrames( int count )
 			if( gc_g196_flipper_dump_aim_left <= 0 )
 			{
 				gc_g196_flipper_dump_aim_left = 0;
-				/* G233: keep dump-look under -gcnewgame so tram eye stays pinned. */
-				if( !Sys_CheckParm( "-gcnewgame" ))
-					gc_dump_look_into_map = false;
+				/* G281: release dump-look so G279 ride eye reaches Flipper /
+				 * DumpFrames. G233 sticky tram-start froze late dumps. */
+				gc_dump_look_into_map = false;
 				/* G230: keep tram cap lock under -gcnewgame DumpFrames. */
 				if( !Sys_CheckParm( "-gcnewgame" ))
 					gc_g212_stream_locked = false;
-				SYS_Report( "Xash3D GameCube: G233 dump eye sticky\n" );
+				SYS_Report( "Xash3D GameCube: G281 ride eye\n" );
 			}
 		}
 	}
@@ -9692,22 +9946,18 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 						&& ( nonblack * 5 >= samples * 2 )
 						&& ( uniq >= 8 )
 						&& ( chroma * 4 < samples );
-					if( !keep_textured && uniq >= 8 && chroma * 4 >= samples )
-						Con_Reportf( "Xash3D GameCube: G140 reject chroma nb=%u/%u uniq=%u ch=%u\n",
-							nonblack, samples, uniq, chroma );
 				}
 
 				if( keep_textured )
 				{
 					/* G143: fill span cracks + scrub neon/outliers before panel. */
 					GC_ScrubDumpWorldSpeckles( gc.buffer, gc.width, gc.height, gc.stride );
-					Con_Reportf( "Xash3D GameCube: G143 keep textured dump (nonblack=%u/%u uniq=%u)\n",
-						nonblack, samples, uniq );
 				}
 				else
 				{
-					Con_Reportf( "Xash3D GameCube: G135 dump depth/coalesce (nonblack=%u/%u uniq=%u)\n",
-						nonblack, samples, uniq );
+					(void)nonblack;
+					(void)samples;
+					(void)uniq;
 					/* G136: zi→3-plane silhouette fallback. */
 					depth_valid = R_GcmapPosterizeDumpFromDepth( gc.buffer, gc.width, gc.height, gc.stride );
 					if( depth_valid < 64 )
@@ -9978,6 +10228,102 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 #if XASH_GAMECUBE
 /*
 ===========
+GC_UpdateNewGameIntroAudio
+
+G278: retail c0a0 intro VO lives on ambient_generic wav1/wav2 (tride/*.wav),
+fired by multi_manager audiomm. Spawning those ents OOMs MEM1, and the WAVs
+(~250–460 KiB) exceed the 48 KiB gameplay SFX budget — stream them instead.
+
+Retail timing (from map ents): gmorn @ ~2s, train Use @ ~3.3s, time @ ~15s.
+===========
+*/
+void GC_UpdateNewGameIntroAudio( void )
+{
+	static double arm_time;
+	static int phase; /* 0=wait, 1=gmorn, 2=rumble, 3=time, 4=done */
+	static qboolean armed;
+	double elapsed;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) || !GC_IsNewGameG36Done() )
+		return;
+	if( !GC_IsNewGameWorldReady() || Sys_CheckParm( "-gcnewsaveload" ))
+		return;
+	if( cls.state != ca_active )
+		return;
+
+	if( !armed )
+	{
+		armed = true;
+		arm_time = host.realtime;
+		phase = 0;
+		/* Ensure bgTrack mixer path is audible (default is 1.0). */
+		if( s_musicvolume.value < 0.1f )
+			Cvar_DirectSet( &s_musicvolume, "1.0" );
+		Con_Reportf( "G278 audio arm\n" );
+	}
+
+	elapsed = host.realtime - arm_time;
+
+	/* Start gmorn immediately once the world is present. Retail fires ~2s after
+	 * map start; Flipper New Game already spent that budget reaching G36.
+	 * Paths live under media/ — libogc often misses deep sound/tride/ entries. */
+	if( phase == 0 && elapsed >= 0.0 )
+	{
+		FS_ClearFindMissCache();
+		S_StartBackgroundTrack( "media/c0a0_tr_gmorn.wav", NULL, 0, true );
+		if( S_StreamGetCurrentState( NULL, 0, NULL, 0, NULL ))
+		{
+			/* Prefetch wav2 before DVD reads poison ISO9660 find/open. */
+			S_GCPrefetchBackgroundTrack( "media/c0a0_tr_time.wav" );
+		}
+		phase = 1;
+	}
+	/* Prefetch hold: do not open rumble here — that would close gmorn and
+	 * risk dropping the prefetched time stream under MEM1/ISO fd limits. */
+	else if( phase == 1 && elapsed >= 2.0 )
+	{
+		phase = 2;
+	}
+	/* Retail wav2 @ ~15s from map start; Flipper + Null-probe budget → ~3s. */
+	else if( phase >= 1 && phase < 3 && elapsed >= 3.0 )
+	{
+		qboolean ok = S_GCPlayPrefetchedBackgroundTrack( "media/c0a0_tr_time.wav" );
+
+		if( !ok )
+		{
+			FS_ClearFindMissCache();
+			S_StartBackgroundTrack( "media/c0a0_tr_time.wav", NULL, 0, true );
+			ok = S_StreamGetCurrentState( NULL, 0, NULL, 0, NULL );
+		}
+		if( ok )
+		{
+			/* Slot freed by gmorn close — prefetch rumble while time VO plays. */
+			S_GCPrefetchBackgroundTrack( "media/ttrain1.wav" );
+		}
+		phase = 3;
+	}
+	/* After a beat of time VO, loop tram rumble for ride atmosphere.
+	 * Compressed vs retail (~35s) so Dolphin Null still observes it. */
+	else if( phase == 3 && elapsed >= 5.0 )
+	{
+		qboolean ok = S_GCPlayPrefetchedBackgroundTrackEx( "media/ttrain1.wav", "media/ttrain1.wav" );
+
+		if( !ok )
+		{
+			FS_ClearFindMissCache();
+			S_StartBackgroundTrack( "media/ttrain1.wav", "media/ttrain1.wav", 0, true );
+			ok = S_StreamGetCurrentState( NULL, 0, NULL, 0, NULL );
+		}
+		Con_Reportf( "Xash3D GameCube: G278 intro tram rumble resume t=%.2f ok=%d\n",
+			elapsed, ok ? 1 : 0 );
+		if( ok )
+			Con_Reportf( "Xash3D GameCube: G278 intro atmosphere ready\n" );
+		phase = 4;
+	}
+}
+
+/*
+===========
 GC_PlayNewGameGameplaySound
 
 G91/G117: post-G36 gameplay SFX via S_StartLocalSound (not streaming music).
@@ -10025,17 +10371,8 @@ void GC_PlayNewGameGameplaySound( void )
 		int s;
 
 		FS_ClearFindMissCache();
-		Con_Reportf( "Xash3D GameCube: G127 preload fire+steps+ric begin budget_used=%u\n",
-			(uint)S_GCGameplaySfxBudgetUsed() );
 		for( s = 0; s < (int)( sizeof( preload ) / sizeof( preload[0] )); s++ )
-		{
-			sound_t handle = S_RegisterSound( preload[s] );
-
-			Con_Reportf( "Xash3D GameCube: G127 preload %s handle=%d budget_used=%u\n",
-				preload[s], (int)handle, (uint)S_GCGameplaySfxBudgetUsed() );
-		}
-		Con_Reportf( "Xash3D GameCube: G127 preload fire+steps+ric ready budget_used=%u\n",
-			(uint)S_GCGameplaySfxBudgetUsed() );
+			(void)S_RegisterSound( preload[s] );
 		/* G172: retry HUD sheets after SFX while freelist may have coalesced. */
 		CL_GCPreloadNewGameHudSpritesLate();
 		return;
@@ -10065,6 +10402,10 @@ void GC_PlayNewGameGameplaySound( void )
 	Con_Reportf( "Xash3D GameCube: gameplay snd ready %s\n", name );
 }
 #else
+void GC_UpdateNewGameIntroAudio( void )
+{
+}
+
 void GC_PlayNewGameGameplaySound( void )
 {
 }
@@ -10265,8 +10606,8 @@ void GC_RestoreVideoMemoryAfterMapLoad( void )
 				refState.width = gc.width;
 				refState.height = gc.height;
 			}
-			SYS_Report( "Xash3D GameCube: restored presentation buffer %dx%d (fallback after %dx%d fail)\n",
-				gc.width, gc.height, width, height );
+			SYS_Report( "Xash3D GameCube: restored presentation buffer %dx%d\n",
+				gc.width, gc.height );
 			return;
 		}
 	}

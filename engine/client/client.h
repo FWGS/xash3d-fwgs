@@ -1159,6 +1159,12 @@ void Mod_ReleaseHullPolygons( void );
 typedef int sound_t;
 void S_StartBackgroundTrack( const char *intro, const char *loop, int position, qboolean fullpath );
 void S_StopBackgroundTrack( void );
+#if XASH_GAMECUBE
+void S_GCPrefetchBackgroundTrack( const char *path );
+qboolean S_GCPlayPrefetchedBackgroundTrack( const char *path );
+qboolean S_GCPlayPrefetchedBackgroundTrackEx( const char *path, const char *loop );
+void S_GCClearPrefetchedBackgroundTrack( void );
+#endif
 void S_StreamSetPause( int pause );
 void S_StartStreaming( void );
 void S_StopStreaming( void );

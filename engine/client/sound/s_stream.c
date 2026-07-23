@@ -31,6 +31,12 @@ static struct
 	float percent;
 } musicfade; // controlled by game dlls
 
+#if XASH_GAMECUBE
+/* G278: hold a second intro VO open while gmorn still streams — reopening
+ * after DVD reads often fails find/open on libogc ISO9660. */
+static stream_t *s_gc_intro_prefetch;
+#endif
+
 /*
 =================
 S_PrintBackgroundTrackState
@@ -142,6 +148,62 @@ void S_StopBackgroundTrack( void )
 	memset( &musicfade, 0, sizeof( musicfade ));
 }
 
+#if XASH_GAMECUBE
+/*
+=================
+S_GCPrefetchBackgroundTrack / S_GCPlayPrefetchedBackgroundTrack
+
+Open the next intro clip while the current one still holds an ISO fd.
+=================
+*/
+void S_GCPrefetchBackgroundTrack( const char *path )
+{
+	if( !snd.initialized || !path || !path[0] )
+		return;
+	if( s_gc_intro_prefetch )
+	{
+		FS_FreeStream( s_gc_intro_prefetch );
+		s_gc_intro_prefetch = NULL;
+	}
+	FS_ClearFindMissCache();
+	s_gc_intro_prefetch = FS_OpenStream( path );
+	Con_Reportf( "Xash3D GameCube: G278 intro prefetch %s ok=%d\n",
+		path, s_gc_intro_prefetch ? 1 : 0 );
+}
+
+qboolean S_GCPlayPrefetchedBackgroundTrack( const char *path )
+{
+	return S_GCPlayPrefetchedBackgroundTrackEx( path, NULL );
+}
+
+qboolean S_GCPlayPrefetchedBackgroundTrackEx( const char *path, const char *loop )
+{
+	if( !snd.initialized || !s_gc_intro_prefetch )
+		return false;
+
+	S_StopBackgroundTrack();
+	s_bgTrack.stream = s_gc_intro_prefetch;
+	s_gc_intro_prefetch = NULL;
+	if( loop && loop[0] )
+		Q_strncpy( s_bgTrack.loopName, loop, sizeof( s_bgTrack.loopName ));
+	else
+		s_bgTrack.loopName[0] = '\0';
+	Q_strncpy( s_bgTrack.current, path, sizeof( s_bgTrack.current ));
+	memset( &musicfade, 0, sizeof( musicfade ));
+	s_bgTrack.source = cls.key_dest;
+	return true;
+}
+
+void S_GCClearPrefetchedBackgroundTrack( void )
+{
+	if( s_gc_intro_prefetch )
+	{
+		FS_FreeStream( s_gc_intro_prefetch );
+		s_gc_intro_prefetch = NULL;
+	}
+}
+#endif
+
 /*
 =================
 S_StreamSetPause
@@ -211,7 +273,8 @@ void S_StreamBackgroundTrack( void )
 
 	rawchan_t *ch = S_FindRawChannel( S_RAW_SOUND_BACKGROUNDTRACK, true );
 
-	Assert( ch != NULL );
+	if( !ch )
+		return;
 
 	// see how many samples should be copied into the raw buffer
 	if( ch->s_rawend < snd.soundtime )
@@ -250,6 +313,19 @@ void S_StreamBackgroundTrack( void )
 			// add to raw buffer
 			int music_vol = (int)(255.0f * S_GetMusicVolume());
 			S_RawEntSamples( S_RAW_SOUND_BACKGROUNDTRACK, fileSamples, info->rate, info->width, info->channels, raw, music_vol, ATTN_NONE );
+#if XASH_GAMECUBE
+			if( Sys_CheckParm( "-gcnewgame" ))
+			{
+				static int gc_intro_mix_log;
+				if( gc_intro_mix_log < 3 )
+				{
+					Con_Reportf( "Xash3D GameCube: G278 intro mix bytes=%d rate=%d vol=%d track=%s\n",
+						r, info->rate, music_vol,
+						s_bgTrack.current[0] ? s_bgTrack.current : "?" );
+					gc_intro_mix_log++;
+				}
+			}
+#endif
 		}
 		else
 		{

@@ -3871,18 +3871,21 @@ void Host_ClientFrame( void )
 	}
 
 	/* G85: after New Game world present is armed, present via SCR first and
-	 * skip pfnFrame/EmitEntities that can stall Host_Frame before sustained frames. */
+	 * skip pfnFrame/EmitEntities that can stall Host_Frame before sustained frames.
+	 * G278: drain net so ride SFX can reach the mixer; stream intro VO. */
 	if( Sys_CheckParm( "-gcnewgame" ) && GC_IsNewGameG36Done()
 		&& GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		static int gc_scr_sustain_log;
 
 		VID_CheckChanges();
+		CL_ReadPackets();
+		GC_UpdateNewGameIntroAudio();
 		SCR_UpdateScreen();
 		SND_UpdateSound();
 		if( gc_scr_sustain_log < 2 )
 		{
-			Con_Reportf( "Xash3D GameCube: post-G36 SCR sustain ClientFrame\n" );
+			Con_Reportf( "Xash3D GameCube: post-G36 SCR sustain ClientFrame (G278 snd)\n" );
 			gc_scr_sustain_log++;
 		}
 		return;

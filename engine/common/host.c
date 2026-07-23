@@ -524,6 +524,12 @@ static double Host_CalcFPS( void )
 	}
 	else if( Host_IsSinglePlayerGame( ))
 	{
+#if XASH_GAMECUBE
+		/* G280: Flipper New Game targets sustained 24–30 FPS (not 60). */
+		if( Sys_CheckParm( "-gcnewgame" ))
+			fps = 30.0;
+		else
+#endif
 		if( !gl_vsync.value )
 			fps = host_maxfps.value;
 	}
@@ -1468,6 +1474,9 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			if( Sys_CheckParm( "-gcnewgame" ) && !SV_Active( ))
 			{
 				Con_Reportf( "Xash3D GameCube: gcnewgame begin\n" );
+				/* G280: host pace at 30 FPS so Flipper world+present can stay 24–30. */
+				Cvar_SetValue( "fps_max", 30.0f );
+				Con_Reportf( "Xash3D GameCube: G280 host fps_max=30 (Flipper playable target)\n" );
 				Cbuf_AddText( "gc_playstart\n" );
 				Cbuf_Execute();
 				Con_Reportf( "Xash3D GameCube: gcnewgame queued\n" );

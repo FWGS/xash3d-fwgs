@@ -21,6 +21,10 @@ GNU General Public License for more details.
 #include "ref_common.h"
 #if XASH_GAMECUBE
 #include "platform/platform.h"
+#include <math.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #endif
 
 typedef int (*PHYSICAPI)( int, server_physics_api_t*, physics_interface_t* );
@@ -1928,32 +1932,100 @@ static qboolean SV_GCIsIntroTrackTrain( edict_t *ent )
 =============
 SV_GCPlaceNewGameTrackTrains
 
-G277/G278: snap *12 to path for dump eye. Keep speed=0 until Find has a few
-PUSH ticks (setting speed=80 immediately tips during path walk). Then arm.
+G277: snap *12 to first path_track for dump eye.
+G278: TrackTrain PUSH with speed>0 tips Host_Frame; keep HLSDK speed at 0 and
+advance origin along path_track in SV_GCStepIntroTrain (visual ride).
 =============
 */
 void SV_GCPlaceNewGameTrackTrains( void )
 {
-	static qboolean placed;
-	static qboolean armed;
-	static int frames;
-	int e, first_world;
+	static qboolean done;
+	int e, found = 0;
+	int first_world;
+
+	if( done || !Sys_CheckParm( "-gcnewgame" ))
+		return;
+	done = true;
+
+	first_world = svs.maxclients + 1;
+	for( e = first_world; e < svgame.numEntities; e++ )
+	{
+		edict_t *ent = SV_EdictNum( e );
+		edict_t *path = NULL;
+		const char *targ;
+		int pe;
+
+		if( !SV_GCIsIntroTrackTrain( ent ))
+			continue;
+		targ = SV_GetString( ent->v.target );
+		if( !targ || !targ[0] )
+			continue;
+		for( pe = first_world; pe < svgame.numEntities; pe++ )
+		{
+			edict_t *cand = SV_EdictNum( pe );
+
+			if( !SV_IsValidEdict( cand ))
+				continue;
+			if( Q_stricmp( SV_ClassName( cand ), "path_track" ))
+				continue;
+			if( Q_strcmp( SV_GetString( cand->v.targetname ), targ ))
+				continue;
+			path = cand;
+			break;
+		}
+		if( !path )
+			continue;
+		VectorCopy( path->v.origin, ent->v.origin );
+		ent->v.origin[2] += 4.0f;
+		ent->v.angles[YAW] = 180.0f;
+		ent->v.angles[PITCH] = 0.0f;
+		ent->v.angles[ROLL] = 0.0f;
+		ent->v.speed = 0.0f;
+		ent->v.nextthink = 0.0f;
+		VectorClear( ent->v.velocity );
+		VectorClear( ent->v.avelocity );
+		VectorAdd( ent->v.origin, ent->v.mins, ent->v.absmin );
+		VectorAdd( ent->v.origin, ent->v.maxs, ent->v.absmax );
+		found++;
+	}
+	Con_Reportf( "Xash3D GameCube: G277 train=%d (G278 path-follow)\n", found );
+}
+
+/*
+=============
+SV_GCStepIntroTrain
+
+G278: move *12 along path_track without HLSDK TrackTrain PUSH (tips).
+Flipper draw reads server origin, so the cabin rides visually.
+=============
+*/
+static void SV_GCStepIntroTrain( void )
+{
+	static edict_t *train;
+	static edict_t *path;
+	static int log_n;
+	static qboolean inited;
+	static double ride_arm_time;
+	static qboolean ride_started;
+	int first_world = svs.maxclients + 1;
+	vec3_t delta, dest;
+	float dist, step, yaw;
+	int pe;
 
 	if( !Sys_CheckParm( "-gcnewgame" ))
 		return;
 
-	first_world = svs.maxclients + 1;
-	if( !placed )
+	if( !inited || !path || !SV_IsValidEdict( path ))
 	{
-		int found = 0;
+		int e;
 
-		placed = true;
+		train = NULL;
+		path = NULL;
 		for( e = first_world; e < svgame.numEntities; e++ )
 		{
 			edict_t *ent = SV_EdictNum( e );
-			edict_t *path = NULL;
+			edict_t *found_path = NULL;
 			const char *targ;
-			int pe;
 
 			if( !SV_GCIsIntroTrackTrain( ent ))
 				continue;
@@ -1970,47 +2042,109 @@ void SV_GCPlaceNewGameTrackTrains( void )
 					continue;
 				if( Q_strcmp( SV_GetString( cand->v.targetname ), targ ))
 					continue;
+				found_path = cand;
+				break;
+			}
+			if( !found_path )
+				continue;
+			train = ent;
+			path = found_path;
+			break;
+		}
+		inited = true;
+		if( ride_arm_time == 0.0 )
+			ride_arm_time = host.realtime;
+	}
+
+	if( !train || !SV_IsValidEdict( train ) || !path || !SV_IsValidEdict( path ))
+	{
+		static qboolean miss_logged;
+		if( !miss_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: G278 tram step miss train=%d path=%d\n",
+				train ? 1 : 0, path ? 1 : 0 );
+			miss_logged = true;
+		}
+		return;
+	}
+
+	/* Retail start_titles trains the Use ~3s after titles; Flipper New Game
+	 * already delayed to world-present — start the ride on first post-G36 step. */
+	if( !ride_started )
+	{
+		ride_started = true;
+		Con_Reportf( "G278 ride\n" );
+	}
+
+	VectorCopy( path->v.origin, dest );
+	dest[2] += 4.0f;
+	VectorSubtract( dest, train->v.origin, delta );
+	dist = VectorLength( delta );
+	step = 80.0f * (float)sv.frametime;
+	if( step < 0.5f )
+		step = 0.5f;
+
+	if( dist <= step || dist < 1.0f )
+	{
+		const char *next_name;
+
+		VectorCopy( dest, train->v.origin );
+		next_name = SV_GetString( path->v.target );
+		path = NULL;
+		if( next_name && next_name[0] )
+		{
+			for( pe = first_world; pe < svgame.numEntities; pe++ )
+			{
+				edict_t *cand = SV_EdictNum( pe );
+
+				if( !SV_IsValidEdict( cand ))
+					continue;
+				if( Q_stricmp( SV_ClassName( cand ), "path_track" ))
+					continue;
+				if( Q_strcmp( SV_GetString( cand->v.targetname ), next_name ))
+					continue;
 				path = cand;
 				break;
 			}
-			if( !path )
-				continue;
-			VectorCopy( path->v.origin, ent->v.origin );
-			ent->v.origin[2] += 4.0f;
-			ent->v.angles[YAW] = 180.0f;
-			ent->v.angles[PITCH] = 0.0f;
-			ent->v.angles[ROLL] = 0.0f;
-			ent->v.speed = 0.0f;
-			ent->v.nextthink = sv.time + 0.1f;
-			VectorAdd( ent->v.origin, ent->v.mins, ent->v.absmin );
-			VectorAdd( ent->v.origin, ent->v.maxs, ent->v.absmax );
-			found++;
 		}
-		Con_Reportf( "Xash3D GameCube: G277 train=%d (G278 ride-ready)\n", found );
-		return;
 	}
-
-	if( armed )
-		return;
-	frames++;
-	if( frames < 24 )
-		return;
-
-	for( e = first_world; e < svgame.numEntities; e++ )
+	else
 	{
-		edict_t *ent = SV_EdictNum( e );
-
-		if( !SV_GCIsIntroTrackTrain( ent ))
-			continue;
-		ent->v.speed = 80.0f;
-		ent->v.nextthink = sv.time + 0.05f;
-		Con_Reportf( "Xash3D GameCube: G278 tram armed origin=(%.0f,%.0f,%.0f) speed=%.0f\n",
-			ent->v.origin[0], ent->v.origin[1], ent->v.origin[2], ent->v.speed );
-		armed = true;
-		break;
+		VectorScale( delta, step / dist, delta );
+		VectorAdd( train->v.origin, delta, train->v.origin );
 	}
-	if( !armed )
-		armed = true;
+
+	VectorSubtract( dest, train->v.origin, delta );
+	if( delta[0] != 0.0f || delta[1] != 0.0f )
+	{
+		yaw = (float)( atan2( (double)delta[1], (double)delta[0] ) * ( 180.0 / M_PI ));
+		train->v.angles[YAW] = yaw;
+	}
+	VectorAdd( train->v.origin, train->v.mins, train->v.absmin );
+	VectorAdd( train->v.origin, train->v.maxs, train->v.absmax );
+
+	/* Keep the local player riding with the tram (intro eye). */
+	{
+		edict_t *player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
+
+		if( player && SV_IsValidEdict( player ))
+		{
+			/* World-space cabin offset (trainstop1a dump). Path is mostly
+			 * yaw=180 early; rotate later if turns leave the cabin. */
+			player->v.origin[0] = train->v.origin[0] - 119.0f;
+			player->v.origin[1] = train->v.origin[1] - 32.0f;
+			player->v.origin[2] = train->v.origin[2] + 89.0f;
+			VectorCopy( player->v.origin, player->v.absmin );
+			VectorCopy( player->v.origin, player->v.absmax );
+		}
+	}
+
+	if( log_n < 10 )
+	{
+		Con_Reportf( "G278 tram=(%.0f,%.0f,%.0f)\n",
+			train->v.origin[0], train->v.origin[1], train->v.origin[2] );
+		log_n++;
+	}
 }
 #endif
 
@@ -2041,7 +2175,7 @@ void SV_Physics( void )
 		static int gc_phys_think_cursor;
 		edict_t *player;
 		int thought = 0;
-		const int max_world_thinks = 16; /* G278: room for multi_manager + sentences */
+		const int max_world_thinks = 8;
 		int world_thought = 0;
 		int scanned = 0;
 		int first_world = svs.maxclients + 1;
@@ -2051,30 +2185,7 @@ void SV_Physics( void )
 		svgame.globals->time = sv.time;
 		SV_RunLightStyles();
 		SV_GCPlaceNewGameTrackTrains();
-
-		/* G278: always step the intro tram once per frame (don't starve it). */
-		{
-			static int gc_intro_train_log;
-			int te;
-
-			for( te = first_world; te < svgame.numEntities; te++ )
-			{
-				edict_t *train = SV_EdictNum( te );
-
-				if( !SV_GCIsIntroTrackTrain( train ))
-					continue;
-				SV_Physics_Pusher( train );
-				thought++;
-				if( gc_intro_train_log < 8 )
-				{
-					Con_Reportf( "Xash3D GameCube: G278 tram origin=(%.0f,%.0f,%.0f) speed=%.0f next=%.2f\n",
-						train->v.origin[0], train->v.origin[1], train->v.origin[2],
-						train->v.speed, train->v.nextthink );
-					gc_intro_train_log++;
-				}
-				break;
-			}
-		}
+		SV_GCStepIntroTrain();
 
 		player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
 		if( player && SV_IsValidEdict( player ))

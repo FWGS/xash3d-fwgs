@@ -70,7 +70,7 @@ probe_wait_flatpak() {
 	DOLPHIN_WRAPPER_PID=$!
 	DOLPHIN_EXIT=124
 	local deadline=$(( $(date +%s) + TIMEOUT_SEC ))
-	local map_ready_at=0 retail_ready_at=0 g94_sample_armed=0
+	local map_ready_at=0 retail_ready_at=0 g94_sample_armed=0 g278_sample_armed=0
 	while (( $(date +%s) < deadline )); do
 		if [[ -n "${G82_FAULT_MARKER:-}" ]] && probe_log_has "$G82_FAULT_MARKER"; then
 			DOLPHIN_EXIT=0; break
@@ -332,6 +332,18 @@ probe_wait_flatpak() {
 				sleep 2
 				continue
 			fi
+			# G278/G280: New Game Flipper present / intro markers.
+			if [[ -n "${G278_DONE_MARKER:-}" ]] && ! probe_log_has "$G278_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			# Always restart the sample clock on first G280/G278 sight — do not
+			# share g94_sample_armed (may already be set from map-ready path).
+			if [[ -n "${G278_DONE_MARKER:-}" ]] && probe_log_has "$G278_DONE_MARKER" && (( g278_sample_armed == 0 )); then
+				map_ready_at=$(date +%s)
+				g278_sample_armed=1
+				g94_sample_armed=1
+			fi
 			# G101: lean-N multi-cluster PVS follow after changelevel.
 			if [[ -n "${G101_DONE_MARKER:-}" ]]; then
 				if ! probe_log_has "$G101_DONE_MARKER" \
@@ -383,7 +395,7 @@ probe_wait_native() {
 	DOLPHIN_WRAPPER_PID=$!
 	DOLPHIN_EXIT=124
 	local deadline=$(( $(date +%s) + TIMEOUT_SEC ))
-	local map_ready_at=0 retail_ready_at=0 g94_sample_armed=0
+	local map_ready_at=0 retail_ready_at=0 g94_sample_armed=0 g278_sample_armed=0
 	while (( $(date +%s) < deadline )); do
 		if ! kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
 			wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
@@ -621,6 +633,16 @@ probe_wait_native() {
 			if [[ -n "${G196_DONE_MARKER:-}" ]] && ! probe_log_has "$G196_DONE_MARKER"; then
 				sleep 2
 				continue
+			fi
+			# G278/G280: New Game Flipper present / intro markers.
+			if [[ -n "${G278_DONE_MARKER:-}" ]] && ! probe_log_has "$G278_DONE_MARKER"; then
+				sleep 2
+				continue
+			fi
+			if [[ -n "${G278_DONE_MARKER:-}" ]] && probe_log_has "$G278_DONE_MARKER" && (( g278_sample_armed == 0 )); then
+				map_ready_at=$(date +%s)
+				g278_sample_armed=1
+				g94_sample_armed=1
 			fi
 			if [[ -n "${G101_DONE_MARKER:-}" ]]; then
 				if ! probe_log_has "$G101_DONE_MARKER" \

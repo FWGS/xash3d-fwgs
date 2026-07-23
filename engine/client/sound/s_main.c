@@ -20,6 +20,9 @@ GNU General Public License for more details.
 #include "con_nprint.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#define GC_INTRO_RAW_SAMPLES 256
+static byte s_gc_intro_raw_store[sizeof( rawchan_t ) + sizeof( portable_samplepair_t ) * GC_INTRO_RAW_SAMPLES];
+static qboolean s_gc_intro_raw_busy;
 #endif
 #include "pm_local.h"
 #include "platform/platform.h"
@@ -1213,7 +1216,32 @@ rawchan_t *S_FindRawChannel( int entnum, qboolean create )
 	if( !snd.raw_channels[best] )
 	{
 		size_t raw_samples = MAX_RAW_SAMPLES;
+#if XASH_GAMECUBE
+		/* G278: full 8k stereo pairs (~64 KiB) fatals Sound Zone post-G36. */
+		if( entnum == S_RAW_SOUND_BACKGROUNDTRACK && Sys_CheckParm( "-gcnewgame" ))
+			raw_samples = GC_INTRO_RAW_SAMPLES;
+#endif
 		snd.raw_channels[best] = Mem_Calloc( sndpool, sizeof( *ch ) + sizeof( portable_samplepair_t ) * raw_samples );
+#if XASH_GAMECUBE
+		if( !snd.raw_channels[best]
+			&& entnum == S_RAW_SOUND_BACKGROUNDTRACK
+			&& Sys_CheckParm( "-gcnewgame" )
+			&& !s_gc_intro_raw_busy )
+		{
+			memset( s_gc_intro_raw_store, 0, sizeof( s_gc_intro_raw_store ));
+			snd.raw_channels[best] = (rawchan_t *)s_gc_intro_raw_store;
+			s_gc_intro_raw_busy = true;
+			raw_samples = GC_INTRO_RAW_SAMPLES;
+			Con_Reportf( "Xash3D GameCube: G278 raw channel static slot samples=%u\n",
+				(uint)raw_samples );
+		}
+		if( !snd.raw_channels[best] )
+		{
+			Con_Reportf( "Xash3D GameCube: G278 raw channel soft-fail ent=%d samples=%u\n",
+				entnum, (uint)raw_samples );
+			return NULL;
+		}
+#endif
 		snd.raw_channels[best]->max_samples = raw_samples;
 	}
 
@@ -1384,6 +1412,14 @@ static void S_FreeIdleRawChannels( void )
 		if(( snd.paintedtime - ch->s_rawend ) / SOUND_DMA_SPEED >= S_RAW_SOUND_IDLE_SEC )
 		{
 			snd.raw_channels[i] = NULL;
+#if XASH_GAMECUBE
+			if( ch == (rawchan_t *)s_gc_intro_raw_store )
+			{
+				s_gc_intro_raw_busy = false;
+				memset( s_gc_intro_raw_store, 0, sizeof( s_gc_intro_raw_store ));
+			}
+			else
+#endif
 			Mem_Free( ch );
 		}
 	}
@@ -1467,7 +1503,17 @@ static void S_FreeRawChannels( void )
 {
 	// free raw samples
 	for( int i = 0; i < snd.max_raw_channels; i++ )
+	{
+#if XASH_GAMECUBE
+		if( snd.raw_channels[i] == (rawchan_t *)s_gc_intro_raw_store )
+		{
+			snd.raw_channels[i] = NULL;
+			s_gc_intro_raw_busy = false;
+			continue;
+		}
+#endif
 		Mem_Free2( &snd.raw_channels[i] );
+	}
 }
 
 //=============================================================================

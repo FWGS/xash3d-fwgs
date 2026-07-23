@@ -76,9 +76,10 @@ struct stream_s
 
 	// current stream state
 	void		*ptr;	// internal decoder state
-	char		temp[OUTBUF_SIZE]; // mpeg decoder stuff
 	size_t		pos;	// actual track position (or actual buffer remains)
 	int		buffsize;	// cached buffer size
+	/* MPEG/Opus scratch — keep last so WAV streams can omit it (G278). */
+	char		temp[OUTBUF_SIZE];
 };
 
 /*

@@ -28,6 +28,7 @@ GNU General Public License for more details.
 #include <sys/sendfile.h>
 #endif
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include "port.h"
@@ -71,7 +72,28 @@ file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedi
 {
 	char netpath[MAX_SYSPATH];
 	int pack_ind;
-	searchpath_t *search = FS_FindFile( filename, &pack_ind, netpath, sizeof( netpath ), gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 );
+	searchpath_t *search;
+
+#if XASH_GAMECUBE
+	/* G278: prefer absolute disc open for intro VO — libogc ISO9660
+	 * find/readdir is flaky for media/ siblings after world load. */
+	if( mode && mode[0] == 'r'
+		&& !Q_strnicmp( filename, "media/", 6 )
+		&& ( Q_stristr( filename, "c0a0_tr_" ) || Q_stristr( filename, "ttrain1" )))
+	{
+		file_t *direct;
+
+		Q_snprintf( netpath, sizeof( netpath ), "gcdisc:/xash3d/valve/%s", filename );
+		direct = FS_SysOpen( netpath, mode );
+		if( direct )
+		{
+			Con_Reportf( "Xash3D GameCube: G278 direct disc open %s\n", netpath );
+			return direct;
+		}
+	}
+#endif
+
+	search = FS_FindFile( filename, &pack_ind, netpath, sizeof( netpath ), gamedironly ? FS_GAMEDIRONLY_SEARCH_FLAGS : 0 );
 
 	// not found?
 	if( search == NULL )
@@ -162,6 +184,19 @@ int FS_Close( file_t *file )
 		Mem_Free( file->ztk );
 	}
 
+#if XASH_GAMECUBE
+	if( FBitSet( file->flags, FILE_GC_INTRO_STATIC ))
+	{
+		extern void GC_IntroFileRelease( file_t *f );
+		GC_IntroFileRelease( file );
+		return 0;
+	}
+	if( FBitSet( file->flags, FILE_SYS_MALLOC ))
+	{
+		free( file );
+		return 0;
+	}
+#endif
 	Mem_Free( file );
 	return 0;
 }

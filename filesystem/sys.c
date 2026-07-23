@@ -46,6 +46,7 @@ GNU General Public License for more details.
 #endif
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "port.h"
 #include "crtlib.h"
 #include "filesystem.h"
@@ -54,6 +55,29 @@ GNU General Public License for more details.
 
 #if XASH_GAMECUBE
 extern int Sys_CheckParm( const char *parm );
+/* G278: intro VO file_t slots when FileSystem pool + libc heap both refuse ~2 KiB.
+ * Two slots: gmorn plays while time VO is prefetched. */
+static file_t s_gc_intro_file[2];
+static qboolean s_gc_intro_file_busy[2];
+/* Kept for diagnostics; true while any intro static slot is busy. */
+qboolean g_gc_intro_file_busy;
+
+void GC_IntroFileRelease( file_t *f )
+{
+	int i;
+
+	if( !f )
+		return;
+	for( i = 0; i < 2; i++ )
+	{
+		if( f == &s_gc_intro_file[i] )
+		{
+			s_gc_intro_file_busy[i] = false;
+			break;
+		}
+	}
+	g_gc_intro_file_busy = s_gc_intro_file_busy[0] || s_gc_intro_file_busy[1];
+}
 #endif
 
 #if !defined( O_BINARY )
@@ -423,6 +447,43 @@ file_t *FS_SysOpen( const char *filepath, const char *mode )
 #endif
 
 	file = (file_t *)Mem_Calloc( fs_mempool, sizeof( *file ));
+#if XASH_GAMECUBE
+	/* G278: post-G36 FileSystem pool is often exhausted (~2 KiB file_t soft-fails).
+	 * Intro VO streams need an open fd; try libc, then a single static slot. */
+	if( !file && Sys_CheckParm( "-gcnewgame" ))
+	{
+		file = (file_t *)calloc( 1, sizeof( *file ));
+		if( file )
+		{
+			SetBits( file->flags, FILE_SYS_MALLOC );
+			Con_Reportf( "Xash3D GameCube: G278 FS_SysOpen malloc fallback path=%s\n", filepath );
+		}
+		else if( Q_stristr( filepath, "/media/" )
+			&& ( Q_stristr( filepath, "c0a0_tr_" ) || Q_stristr( filepath, "ttrain1" )))
+		{
+			int i;
+			for( i = 0; i < 2; i++ )
+			{
+				if( s_gc_intro_file_busy[i] )
+					continue;
+				memset( &s_gc_intro_file[i], 0, sizeof( s_gc_intro_file[i] ));
+				file = &s_gc_intro_file[i];
+				s_gc_intro_file_busy[i] = true;
+				g_gc_intro_file_busy = true;
+				SetBits( file->flags, FILE_SYS_MALLOC );
+				SetBits( file->flags, FILE_GC_INTRO_STATIC );
+				/* Stash slot index in handle unused high... use ptr in ungetc? Keep simple: tag via comparing pointer on close. */
+				Con_Reportf( "Xash3D GameCube: G278 FS_SysOpen static slot=%d path=%s\n", i, filepath );
+				break;
+			}
+		}
+	}
+#endif
+	if( !file )
+	{
+		close( fd );
+		return NULL;
+	}
 	file->filetime = memfile ? 0 : FS_SysFileTime( filepath );
 	file->ungetc = EOF;
 	file->handle = fd;

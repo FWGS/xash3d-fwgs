@@ -1211,6 +1211,21 @@ def create_retail_boot_overlays(
 		overlays.append(("media/logo.gcvid", logo_gcvid))
 	startup_vids = media / "StartupVids.txt"
 
+	# G278: libogc ISO9660 directory walks often miss deep sound/tride/*.wav.
+	# Mirror the two audiomm VO clips (and tram rumble) into shallow media/.
+	intro_vo = (
+		("media/c0a0_tr_gmorn.wav", source / "sound/tride/c0a0_tr_gmorn.wav"),
+		("media/c0a0_tr_time.wav", source / "sound/tride/c0a0_tr_time.wav"),
+		("media/ttrain1.wav", source / "sound/plats/ttrain1.wav"),
+	)
+	for dest_rel, src_wav in intro_vo:
+		if not src_wav.is_file():
+			continue
+		dest = output / dest_rel
+		dest.parent.mkdir(parents=True, exist_ok=True)
+		shutil.copy2(src_wav, dest)
+		overlays.append((dest_rel, dest))
+
 	if not include_startup_vids:
 		startup_vids.write_text("", encoding="ascii")
 		overlays.append(("media/StartupVids.txt", startup_vids))

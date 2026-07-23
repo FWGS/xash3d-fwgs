@@ -18,6 +18,10 @@ GNU General Public License for more details.
 #include "soundlib.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include "system.h"
+/* G278: two lean stream_t slots so gmorn can play while time VO is prefetched. */
+static byte s_gc_intro_stream_store[2][128];
+static qboolean s_gc_intro_stream_busy[2];
 #endif
 
 static const byte *iff_data;
@@ -497,7 +501,33 @@ stream_t *Stream_OpenWAV( const char *filename )
 	sound.samples = ( LittleLong( sound.samples ) / sound.width ) / sound.channels;
 
 	// at this point we have valid stream
+#if XASH_GAMECUBE
+	/* G278: WAV PCM never touches temp[]; allocate a lean header only so
+	 * SoundLib can spare ~64 B instead of a full 8 KiB stream_t. */
+	stream = Mem_Calloc( host.soundpool, offsetof( stream_t, temp ));
+	/* Prefetch holds gmorn+time concurrently — pool often refuses the 2nd. */
+	if( !stream && Sys_CheckParm( "-gcnewgame" ))
+	{
+		int i;
+		for( i = 0; i < 2; i++ )
+		{
+			if( s_gc_intro_stream_busy[i] )
+				continue;
+			memset( s_gc_intro_stream_store[i], 0, sizeof( s_gc_intro_stream_store[i] ));
+			stream = (stream_t *)s_gc_intro_stream_store[i];
+			s_gc_intro_stream_busy[i] = true;
+			Con_Reportf( "Xash3D GameCube: G278 stream_t static slot=%d file=%s\n", i, filename );
+			break;
+		}
+	}
+#else
 	stream = Mem_Calloc( host.soundpool, sizeof( stream_t ));
+#endif
+	if( !stream )
+	{
+		FS_Close( file );
+		return NULL;
+	}
 	stream->file = file;
 	stream->size = sound.samples * sound.width * sound.channels;
 	stream->buffsize = FS_Tell( file ); // header length
@@ -580,5 +610,18 @@ void Stream_FreeWAV( stream_t *stream )
 {
 	if( stream->file )
 		FS_Close( stream->file );
+#if XASH_GAMECUBE
+	{
+		int i;
+		for( i = 0; i < 2; i++ )
+		{
+			if( stream == (stream_t *)s_gc_intro_stream_store[i] )
+			{
+				s_gc_intro_stream_busy[i] = false;
+				return;
+			}
+		}
+	}
+#endif
 	Mem_Free( stream );
 }
