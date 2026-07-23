@@ -39,6 +39,8 @@ extern void GC_MarkGxWorldEfbReady( void );
 extern void *GC_GetGxVideoMode( void );
 extern void GC_GetNewGameCapLightmapAtlasUV( int slot, float s, float t, float *out_s, float *out_t );
 extern qboolean GC_WorldSurfacesLive( void );
+extern qboolean GC_WorldSurfacesPinned( void );
+extern qboolean GC_WorldSurfacesScratchRetained( void );
 extern int GC_GetLiveFaceCount( void );
 extern qboolean GC_FillLiveDrawSurf( int index, msurface_t *out, mtexinfo_t *tex_out );
 extern qboolean GC_LiveFaceIsCapped( int index );
@@ -1423,6 +1425,7 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 	int i, drawn = 0;
 	int opaque_drawn = 0;
 	int trans_drawn = 0;
+	int skip_vis = 0, skip_plane = 0, skip_back = 0, skip_area = 0, emit_zero = 0;
 	static qboolean live_logged;
 
 	if( !world || !world->surfaces || world->numsurfaces <= 0 )
@@ -1431,18 +1434,48 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 	/* Opaque pass — only when cap atlas is unavailable. */
 	if( opaque_too )
 	{
-		/* G212/G213: raise Flipper live BSP emit toward full PVS when pinned. */
+		/* G212/G213: raise Flipper live BSP emit toward full PVS when pinned.
+		 * G283: on New Game leave LM-cap headroom under FRAME budget. */
 		int emit_budget = GC_WorldSurfacesLive() ? 2048 : 768;
+
+		if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_WorldSurfacesPinned() )
+		{
+			emit_budget = GC_GX_FRAME_FACE_BUDGET - 64;
+			if( emit_budget < 96 )
+				emit_budget = 96;
+		}
 
 		for( i = 0; i < world->numsurfaces && emit_budget > 0; i++ )
 		{
 			float dot;
+			msurface_t tmp;
+			const msurface_t *esurf;
 
 			surf = &world->surfaces[i];
 			if( surf->visframe != tr.framecount )
+			{
+				skip_vis++;
 				continue;
-			if( !surf->plane || surf->numedges < 3 )
+			}
+			if( !surf->plane || surf->numedges < 3 || surf->numedges > 32 )
+			{
+				skip_plane++;
 				continue;
+			}
+			/* G283: reject dangling plane* (must live in mempool planes[]). */
+			if( world->planes
+				&& ( surf->plane < world->planes
+					|| surf->plane >= world->planes + world->numplanes ))
+			{
+				skip_plane++;
+				continue;
+			}
+			if( surf->firstedge < 0
+				|| surf->firstedge + surf->numedges > world->numsurfedges )
+			{
+				skip_plane++;
+				continue;
+			}
 			if( surf->flags & SURF_DRAWSKY )
 				continue;
 			if( surf->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT ))
@@ -1452,22 +1485,53 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 			if( surf->flags & SURF_PLANEBACK )
 			{
 				if( dot > -BACKFACE_EPSILON )
+				{
+					skip_back++;
 					continue;
+				}
 			}
 			else if( dot < BACKFACE_EPSILON )
+			{
+				skip_back++;
 				continue;
+			}
 
 			/* Prefer closer / larger walls under the emit budget. */
 			{
 				int area = (int)surf->extents[0] * (int)surf->extents[1];
 				if( area > 0 && area < GC_GX_MIN_FACE_AREA )
+				{
+					skip_area++;
 					continue;
-				if( area > 0 && area < GC_GX_FAR_MIN_AREA
+				}
+				/* G283: match cap path — far-small cull dropped tunnel walls. */
+				if( !gEngfuncs.Sys_CheckParm( "-gcnewgame" )
+					&& area > 0 && area < GC_GX_FAR_MIN_AREA
 					&& fabsf( dot ) > GC_GX_FAR_FACE_DIST )
+				{
+					skip_area++;
 					continue;
+				}
 			}
 
-			opaque_drawn += R_GXEmitFace( surf, world, -1 );
+			/* G283: scratch texinfo* may dangle after lighting — emit flat
+			 * geom from mempool edges so Flipper never chases bad texture*. */
+			esurf = surf;
+			if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ) && GC_WorldSurfacesPinned() )
+			{
+				tmp = *surf;
+				tmp.texinfo = NULL;
+				tmp.samples = NULL;
+				esurf = &tmp;
+			}
+
+			{
+				int got = R_GXEmitFace( esurf, world, -1 );
+				if( got <= 0 )
+					emit_zero++;
+				else
+					opaque_drawn += got;
+			}
 			emit_budget--;
 		}
 	}
@@ -1500,12 +1564,13 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 	}
 
 	drawn = opaque_drawn + trans_drawn;
-	if( !live_logged && drawn > 0 )
+	if( !live_logged )
 	{
 		live_logged = true;
 		gEngfuncs.Con_Reportf(
-			"Xash3D GameCube: pure GX live BSP faces opaque=%d trans=%d frame=%d\n",
-			opaque_drawn, trans_drawn, tr.framecount );
+			"Xash3D GameCube: pure GX live BSP faces opaque=%d trans=%d frame=%d vis=%d plane=%d back=%d area=%d emit0=%d\n",
+			opaque_drawn, trans_drawn, tr.framecount,
+			skip_vis, skip_plane, skip_back, skip_area, emit_zero );
 	}
 	return drawn;
 }
@@ -1579,8 +1644,9 @@ int R_GXDrawNewGameCapFaces( void )
 	draw = GC_GetNewGameDrawSurfs();
 	n = GC_GetNewGameCapFaceCount();
 
-	/* G213: when surfaces are pinned off scratch, walk live BSP30 via surfbits
-	 * visframe (MarkLeaves). Cap faces remain LM fallback if promote OOM'd. */
+	/* G213/G283: when surfaces are pinned (malloc or scratch-retain), walk
+	 * live BSP30 via surfbits visframe (MarkLeaves). Cap faces keep LM.
+	 * Lean pool only when surfaces dangle after scratch reuse. */
 	drawn = 0;
 	/* G282: emit LM-caps whenever New Game has them — do not require a live
 	 * pool (empty live used to fall through to sky-only and drop caps). */
@@ -1589,9 +1655,27 @@ int R_GXDrawNewGameCapFaces( void )
 		static qboolean g213_logged;
 		int live_n = GC_GetLiveFaceCount();
 
-		/* Lean early-pool faces (G213) — walk mempool edges; full promote may OOM.
-		 * G282: LIVE budget raised so restreamed PVS faces read the tunnel. */
-		if( live_n > 0 )
+		/* G283: malloc-pinned → live BSP. Scratch retain softlocks on edge-walk
+		 * and lean OOMs Capture — Flipper is LM-caps + surfbits stamp only. */
+		if( GC_WorldSurfacesPinned() && !GC_WorldSurfacesScratchRetained() )
+		{
+			drawn = R_GXDrawWorldLiveSurfaces( world, true );
+			if( !g213_logged )
+			{
+				g213_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G283 live BSP Flipper opaque=%d (malloc pin)\n",
+					drawn );
+			}
+		}
+		else if( GC_WorldSurfacesScratchRetained() && !g213_logged )
+		{
+			g213_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G283 scratch retain-pin (stamp+LM-caps; no live edge-walk)\n" );
+		}
+		/* Lean early-pool faces (G213) — only when surfaces are unpinned. */
+		else if( live_n > 0 )
 		{
 			int li, live_drawn = 0, skipped_cap = 0;
 			int skip_back = 0, skip_noverts = 0, emit_fail = 0;

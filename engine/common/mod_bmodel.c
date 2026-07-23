@@ -52,6 +52,8 @@ static void *gc_texinfo_malloc_block;
 static void *gc_nodes_malloc_block;
 static void *gc_clipnodes_malloc_block;
 static qboolean gc_retain_bsp_source_buffer;
+/* G283: world msurface_t settled in retained BSP scratch (busy-protected). */
+static qboolean gc_world_msurface_retained;
 static byte *gc_bsp_scratch_base;
 static size_t gc_bsp_scratch_size;
 static size_t gc_bsp_scratch_carve_high;
@@ -80,6 +82,7 @@ void Mod_GCClearRetainedBspScratch( void )
 	gc_bsp_scratch_size = 0;
 	gc_bsp_scratch_carve_high = 0;
 	gc_retain_bsp_source_buffer = false;
+	gc_world_msurface_retained = false;
 }
 
 static qboolean Mod_GCPointerInScratchArena( const void *ptr )
@@ -4100,7 +4103,9 @@ static void Mod_LoadSurfaces( model_t *mod, dbspmodel_t *bmod )
 		{
 			memset( surf_block, 0, surf_bytes );
 			Mod_GCInvalidateScratchOverlap( bmod, gc_bsp_scratch_base, gc_bsp_scratch_size, surf_block, surf_bytes );
-			Con_Reportf( "Xash3D GameCube: world surfaces using BSP scratch %s\n", Q_memprint( surf_bytes ));
+			gc_world_msurface_retained = true;
+			Con_Reportf( "Xash3D GameCube: world surfaces using BSP scratch %s (G283 retain-pin)\n",
+				Q_memprint( surf_bytes ));
 		}
 	}
 
@@ -4851,14 +4856,29 @@ qboolean Mod_GCWorldSurfacesPinned( model_t *mod )
 		return false;
 	if( !mod->edges16 && !mod->edges32 )
 		return false;
-	/* Surfaces must be outside the map-load arena (edges/verts are mempool). */
-	if( Mod_GCPointerInScratchArena( mod->surfaces ))
+	if( !mod->planes )
 		return false;
-	return true;
+	/* Malloc/mempool surfaces are always safe for visframe + Flipper emit. */
+	if( !Mod_GCPointerInScratchArena( mod->surfaces ))
+		return true;
+	/* G283: scratch-backed surfaces stay busy under retain — stampable, but
+	 * Flipper must not edge-walk them after G36 present reuses the arena
+	 * (softlocks). Lean/cap bake remains the emit path. */
+	return gc_world_msurface_retained;
+}
+
+/* True when world surfaces live in retained BSP scratch (not malloc). */
+qboolean Mod_GCWorldSurfacesScratchRetained( model_t *mod )
+{
+	if( !mod || !mod->surfaces || !gc_world_msurface_retained )
+		return false;
+	return Mod_GCPointerInScratchArena( mod->surfaces );
 }
 
 void Mod_GameCubeFreeMallocSurfaces( model_t *mod )
 {
+	gc_world_msurface_retained = false;
+
 	if( gc_marksurfaces_malloc_block )
 	{
 		if( mod && mod->marksurfaces == (msurface_t **)gc_marksurfaces_malloc_block )

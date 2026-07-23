@@ -381,6 +381,26 @@ qboolean GC_WorldSurfacesLive( void )
 	return Mod_GCWorldSurfacesPinned( wmodel );
 }
 
+qboolean GC_WorldSurfacesPinned( void )
+{
+	model_t *wmodel = sv.models[1];
+#if !XASH_DEDICATED
+	if( !wmodel )
+		wmodel = cl.worldmodel;
+#endif
+	return Mod_GCWorldSurfacesPinned( wmodel );
+}
+
+qboolean GC_WorldSurfacesScratchRetained( void )
+{
+	model_t *wmodel = sv.models[1];
+#if !XASH_DEDICATED
+	if( !wmodel )
+		wmodel = cl.worldmodel;
+#endif
+	return Mod_GCWorldSurfacesScratchRetained( wmodel );
+}
+
 int GC_GetLiveFaceCount( void )
 {
 	return gc_live_face_count;
@@ -2691,9 +2711,22 @@ static void GC_CaptureLiveFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		return;
 	if( !wmodel->surfedges || !wmodel->vertexes || ( !wmodel->edges16 && !wmodel->edges32 ))
 		return;
+	/* G283: pinned (scratch retain or malloc) — Flipper uses caps + surfbits
+	 * stamp; lean pool OOMs Capture FatPVS on c0a0. */
+	if( Mod_GCWorldSurfacesPinned( wmodel ))
+	{
+		static qboolean g283_skip_logged;
+
+		if( !g283_skip_logged )
+		{
+			g283_skip_logged = true;
+			Con_Reportf( "Xash3D GameCube: G283 lean live pool skipped (surfaces pinned)\n" );
+		}
+		return;
+	}
 	/* After scratch reuse, plane* dangles — never wipe a good early pool.
 	 * Ride restream appends PVS faces (see GC_MaybeRestreamRideMapFaces). */
-	if( !Mod_GCWorldSurfacesPinned( wmodel ) && gc_live_face_count > 0 && !append )
+	if( gc_live_face_count > 0 && !append )
 	{
 		GC_FlipperTrace( "Xash3D GameCube: G213 live faces keep early pool n=%d (surfaces dangling)\n",
 			gc_live_face_count );
@@ -3002,6 +3035,9 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	int i, replaced = 0, max_faces;
 
 	if( !wmodel || !surfbits || !wmodel->surfaces )
+		return;
+	/* G283: scratch retain + lean/caps cover Flipper — skip fill to reclaim MEM1. */
+	if( Mod_GCWorldSurfacesScratchRetained( wmodel ))
 		return;
 	/* Live pool first — fill is optional overflow. */
 	if( !gc_live_faces || gc_live_face_capacity <= 0 )
@@ -4131,7 +4167,13 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 	if( !bits )
 		bits = GC_LookupSurfbitsCache( cluster );
 	if( bits )
-		GC_CaptureLiveFacesFromSurfbits( wm, bits, true );
+	{
+		/* G283: MarkLeaves stamps ride-cluster surfbits onto live msurface_t. */
+		gc_newgame_surfbits = bits;
+		/* Lean only when surfaces are unpinned (dangling scratch without retain). */
+		if( !Mod_GCWorldSurfacesPinned( wm ))
+			GC_CaptureLiveFacesFromSurfbits( wm, bits, true );
+	}
 
 	last[0] = eye[0];
 	last[1] = eye[1];
@@ -4140,8 +4182,10 @@ static void GC_MaybeRestreamRideMapFaces( const float *eye )
 	gc_cap_refresh_pending = false;
 	if( nlog < 12 )
 	{
-		Con_Reportf( "G281 cl=%d n=%d L=%d\n", cluster, gc_newgame_cap_face_count,
-			gc_live_face_count );
+		Con_Reportf( "G281 cl=%d n=%d L=%d%s\n", cluster, gc_newgame_cap_face_count,
+			gc_live_face_count,
+			Mod_GCWorldSurfacesScratchRetained( wm ) ? " pin" :
+			( Mod_GCWorldSurfacesPinned( wm ) ? " mpin" : "" ) );
 		nlog++;
 		/* Arm DumpFrames EFB hold after restream so late ride frames encode. */
 		if( nlog == 2 || nlog == 5 )
@@ -8537,8 +8581,15 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 
 		GC_FreeNewGamePVSCache();
 
-		/* G213: reserve lean live-face pool after PVS-cache free, before FatPVS. */
-		GC_AllocLiveFacePool( GC_LIVE_MAX_FACES );
+		/* G213: reserve lean live-face pool after PVS-cache free, before FatPVS.
+		 * G283: scratch retain + caps cover Flipper — skip lean/fill so FatPVS
+		 * and FS get the MEM1 (lean OOM'd and starved Capture). Malloc pin
+		 * also skips lean (live BSP emit). */
+		if( Mod_GCWorldSurfacesPinned( wmodel ))
+			Con_Reportf( "Xash3D GameCube: G283 Capture skips lean live pool (%s)\n",
+				Mod_GCWorldSurfacesScratchRetained( wmodel ) ? "scratch retain" : "malloc pin" );
+		else
+			GC_AllocLiveFacePool( GC_LIVE_MAX_FACES );
 
 		gc_newgame_visbytes = (int)visbytes;
 		gc_newgame_nodebytes = (int)nodebytes;

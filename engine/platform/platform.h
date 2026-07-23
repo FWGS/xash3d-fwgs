@@ -180,6 +180,8 @@ qboolean GC_ApplyNewGameCachedVis( int visframe ); /* stamp cached PVS without t
 /* G132: stamp msurface visframe from capture-time bits (marksurfaces dangle after scratch). */
 void GC_ApplyNewGameSurfVis( int surf_frame );
 qboolean GC_WorldSurfacesLive( void ); /* G213: live Flipper beyond 320-cap */
+qboolean GC_WorldSurfacesPinned( void ); /* G283: malloc pin or scratch retain */
+qboolean GC_WorldSurfacesScratchRetained( void ); /* G283: scratch retain (lean emit) */
 int GC_GetLiveFaceCount( void );
 qboolean GC_LiveFaceIsCapped( int index ); /* G214 */
 int GC_GetLiveFaceVerts( int index, float out[][3], int maxverts ); /* G216 */
