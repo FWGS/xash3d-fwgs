@@ -53,6 +53,7 @@ void GC_RunGcmapSmokeFrames( const char *mapname, int count );
 qboolean GC_AttemptGcmapWorldRender( int count );
 qboolean R_GcmapEnsureSurfaceCache( void );
 qboolean GC_ShouldUseLightPresent( void );
+qboolean GC_IsFrameBudgetProbeActive( void );
 #endif
 
 host_parm_t		host;	// host parms
@@ -527,10 +528,14 @@ static double Host_CalcFPS( void )
 #if XASH_GAMECUBE
 		/* G284: Flipper targets 60 fields/sec. VIDEO_WaitVSync in present is the
 		 * pace; do not Host-sleep to 30fps (G280) — that locked every probe to
-		 * ~33ms even when CopyDisp was cheap. */
+		 * ~33ms even when CopyDisp was cheap.
+		 * G297: during the armed G36 sample window, leave fps=0 so Host_Autosleep
+		 * cannot re-lock every sample to ~16.67ms after WaitVSync is skipped. */
 		if( Sys_CheckParm( "-gcnewgame" ))
 		{
-			if( !gl_vsync.value )
+			if( GC_IsFrameBudgetProbeActive() )
+				fps = 0.0;
+			else if( !gl_vsync.value )
 			{
 				fps = host_maxfps.value;
 				if( fps <= 0.0 )

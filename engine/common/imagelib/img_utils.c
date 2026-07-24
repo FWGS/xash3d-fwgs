@@ -325,9 +325,9 @@ int Image_GCMaxLoadDimension( const char *name )
 	if( name && ( Q_stristr( name, "resource/background" ) || Q_stristr( name, "resource/logo" )
 		|| Q_stristr( name, "gfx/shell" )))
 		return Q_min( max_dim, 128 );
-	/* G285: lean Flipper sky sides — 32² RGBA is 4 KiB (was 16 KiB @64 and tip-fatal). */
+	/* G285/G300: lean Flipper sky — 16² RGBA is 1 KiB (32² was 4 KiB soft-fail). */
 	if( name && Q_stristr( name, "gfx/env" ))
-		return Q_min( max_dim, 32 );
+		return Q_min( max_dim, 16 );
 
 	if( name && name[0] == '#' && Q_strstr( name, "_stb_font" ))
 		return Q_min( max_dim, 128 );

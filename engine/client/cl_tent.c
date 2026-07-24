@@ -3008,6 +3008,124 @@ CL_DecalIndex
 get texture index from decal global index
 ===============
 */
+#if XASH_GAMECUBE
+/*
+=============
+CL_GCEnsureLeanDecalKind / CL_GCEnsureLeanDecalForName
+
+G293/G295: tip-safe 16×16 embeds — no disc/WAD alloc (bootstrap TGA inject
+hung New Game; fat decals.wad MIPs tip under memopt).
+Kinds: shot (gun), scorch (burn), blood, break (glass/crack).
+=============
+*/
+typedef enum
+{
+	GC_LEAN_DECAL_SHOT = 0,
+	GC_LEAN_DECAL_SCORCH,
+	GC_LEAN_DECAL_BLOOD,
+	GC_LEAN_DECAL_BREAK,
+	GC_LEAN_DECAL_KINDS
+} gc_lean_decal_kind_t;
+
+static int CL_GCEnsureLeanDecalKind( gc_lean_decal_kind_t kind )
+{
+	static int tex[GC_LEAN_DECAL_KINDS];
+	static byte pixels[GC_LEAN_DECAL_KINDS][16 * 16 * 4];
+	static const char *names[GC_LEAN_DECAL_KINDS] = {
+		"#gc_lean_shot1",
+		"#gc_lean_scorch1",
+		"#gc_lean_blood1",
+		"#gc_lean_break1",
+	};
+	static const byte rgb[GC_LEAN_DECAL_KINDS][3] = {
+		{ 48, 36, 24 },
+		{ 28, 24, 20 },
+		{ 140, 24, 24 },
+		{ 160, 170, 180 },
+	};
+	int x, y;
+	byte *dst;
+
+	if( kind < 0 || kind >= GC_LEAN_DECAL_KINDS )
+		kind = GC_LEAN_DECAL_SHOT;
+	if( tex[kind] > 0 )
+		return tex[kind];
+
+	dst = pixels[kind];
+	for( y = 0; y < 16; y++ )
+	{
+		for( x = 0; x < 16; x++ )
+		{
+			float dx = (float)x - 7.5f;
+			float dy = (float)y - 7.5f;
+			float d = sqrtf( dx * dx + dy * dy );
+			int i = ( y * 16 + x ) * 4;
+			byte a;
+
+			if( d > 7.5f )
+				a = 0;
+			else if( kind == GC_LEAN_DECAL_BREAK )
+			{
+				/* Thin cross crack. */
+				int ax = x - 8;
+				int ay = y - 8;
+				if( ax < 0 ) ax = -ax;
+				if( ay < 0 ) ay = -ay;
+				a = ( ax <= 1 || ay <= 1 )
+					? (byte)( 200.0f * ( 1.0f - d / 7.5f )) : 0;
+			}
+			else
+				a = (byte)( 220.0f * ( 1.0f - d / 7.5f ));
+			dst[i + 0] = rgb[kind][0];
+			dst[i + 1] = rgb[kind][1];
+			dst[i + 2] = rgb[kind][2];
+			dst[i + 3] = a;
+		}
+	}
+
+	tex[kind] = ref.dllFuncs.GL_CreateTexture( names[kind], 16, 16, dst,
+		TF_DECAL | TF_CLAMP | TF_NOMIPMAP | TF_HAS_ALPHA );
+	if( tex[kind] > 0 )
+		Con_Reportf( "Xash3D GameCube: G295 lean %s decal tex=%d (embedded 16x16)\n",
+			names[kind] + 9, tex[kind] ); /* skip "#gc_lean_" */
+	return tex[kind];
+}
+
+int CL_GCEnsureLeanShotDecal( void )
+{
+	return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_SHOT );
+}
+
+int CL_GCEnsureLeanDecalForName( const char *name )
+{
+	const char *n;
+
+	if( !name || !name[0] )
+		return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_SHOT );
+
+	n = name;
+	if( n[0] == '{' )
+		n++;
+
+	if( !Q_strnicmp( n, "blood", 5 ) || !Q_strnicmp( n, "yblood", 6 )
+		|| !Q_strnicmp( n, "bigblood", 8 ) || !Q_strnicmp( n, "bloodhand", 9 ))
+		return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_BLOOD );
+	if( !Q_strnicmp( n, "scorch", 6 ) || !Q_strnicmp( n, "smscorch", 8 ))
+		return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_SCORCH );
+	if( !Q_strnicmp( n, "break", 5 ) || !Q_strnicmp( n, "crack", 5 ))
+		return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_BREAK );
+	/* shot / bigshot / gaussshot / default tip-safe fallback */
+	return CL_GCEnsureLeanDecalKind( GC_LEAN_DECAL_SHOT );
+}
+#endif
+
+/*
+===============
+CL_DecalIndex
+
+get texture index from decal global index
+===============
+*/
 int GAME_EXPORT CL_DecalIndex( int id )
 {
 	id = bound( 0, id, MAX_DECALS - 1 );
@@ -3017,6 +3135,20 @@ int GAME_EXPORT CL_DecalIndex( int id )
 		int gl_texturenum = 0;
 
 		Image_SetForceFlags( IL_LOAD_DECAL );
+
+#if XASH_GAMECUBE
+		/*
+		 * G295: under memopt map all `{` decals to lean embeds — never open
+		 * fat decals.wad MIPs (W_ReadLump tip).
+		 */
+		if( GC_MapLoadMemoryOpt() && host.draw_decals[id][0] == '{' )
+		{
+			gl_texturenum = CL_GCEnsureLeanDecalForName( host.draw_decals[id] );
+			cl.decal_index[id] = gl_texturenum;
+			Image_ClearForceFlags();
+			return gl_texturenum;
+		}
+#endif
 
 		if( Mod_AllowMaterials( ))
 		{
@@ -3040,13 +3172,19 @@ int GAME_EXPORT CL_DecalIndex( int id )
 			{
 				byte *fin;
 
-				Q_snprintf( decalname, sizeof( decalname ), "decals.wad/%s", host.draw_decals[id] );
-
-				if(( fin = g_fsapi.LoadFile( decalname, NULL, false )) != NULL )
+#if XASH_GAMECUBE
+				/* G293: lean embed already sized — skip fat wad reopen under tip. */
+				if( !GC_MapLoadMemoryOpt())
+#endif
 				{
-					mip_t *mip = (mip_t *)fin;
-					ref.dllFuncs.R_OverrideTextureSourceSize( gl_texturenum, mip->width, mip->height );
-					Mem_Free( fin );
+					Q_snprintf( decalname, sizeof( decalname ), "decals.wad/%s", host.draw_decals[id] );
+
+					if(( fin = g_fsapi.LoadFile( decalname, NULL, false )) != NULL )
+					{
+						mip_t *mip = (mip_t *)fin;
+						ref.dllFuncs.R_OverrideTextureSourceSize( gl_texturenum, mip->width, mip->height );
+						Mem_Free( fin );
+					}
 				}
 			}
 		}

@@ -179,11 +179,15 @@ Avoids six 256² TGA decodes that exhaust MEM1 during map prep.
 void R_SetupSkyLeanGameCube( const char *name )
 {
 	/* G285 Flipper backdrop only needs one resident side. Prefer up, then ft.
-	 * Prefer bootstrap gc_desert* BMPs; fall back to retail desert*.bmp. */
+	 * Prefer bootstrap gc_desert* BMPs; fall back to retail desert*.bmp.
+	 * G300: ImageLib soft-fails 4 KiB BMP under tip — install BSS procedural. */
 	static const struct { const char *suffix; int index; } sides[] = {
 		{ "up", 4 },
 		{ "ft", 3 },
 	};
+	/* G285 clear 90,140,210 — slight vertical gradient for Flipper backdrop. */
+	static byte gc_sky_proc_rgba[16 * 16 * 4];
+	static qboolean gc_sky_proc_ready;
 	int skyboxTextures[SKYBOX_MAX_SIDES] = { 0 };
 	string loadname;
 	int s;
@@ -234,6 +238,43 @@ void R_SetupSkyLeanGameCube( const char *name )
 			break; /* one side is enough for Flipper outdoor backdrop */
 		}
 		Image_GCPurgeDecodeScratch();
+	}
+
+	/* G300: tip-safe BSS sky when ImageLib cannot decode desert BMPs. */
+	if( !loaded )
+	{
+		int tex;
+		int y, x;
+
+		if( !gc_sky_proc_ready )
+		{
+			for( y = 0; y < 16; y++ )
+			{
+				const byte r = (byte)( 90 + ( 20 * y ) / 15 );
+				const byte g = (byte)( 140 + ( 30 * y ) / 15 );
+				const byte b = (byte)( 210 - ( 40 * y ) / 15 );
+
+				for( x = 0; x < 16; x++ )
+				{
+					byte *p = &gc_sky_proc_rgba[( y * 16 + x ) * 4];
+
+					p[0] = r;
+					p[1] = g;
+					p[2] = b;
+					p[3] = 255;
+				}
+			}
+			gc_sky_proc_ready = true;
+		}
+		tex = ref.dllFuncs.GL_CreateTexture( "*gc_sky_proc", 16, 16, gc_sky_proc_rgba,
+			TF_CLAMP|TF_SKY|TF_NOMIPMAP );
+		if( tex )
+		{
+			skyboxTextures[4] = tex; /* up */
+			Q_strncpy( loaded_list, "proc", sizeof( loaded_list ));
+			loaded = 1;
+			Con_Reportf( "Xash3D GameCube: G300 lean sky BSS procedural 16x16\n" );
+		}
 	}
 
 	if( !loaded && Q_stricmp( name, DEFAULT_SKYBOX_NAME ))

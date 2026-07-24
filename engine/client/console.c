@@ -570,6 +570,32 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font )
 	if( font->valid )
 		return; // already loaded
 
+#if XASH_GAMECUBE
+	/* G301: New Game / gcmap — never open fonts.wad or gfx/conchars (18–34 KiB
+	 * W_ReadLump tip). Reuse bootstrap CREDITSFONT already pinned for HUD. */
+	if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
+	{
+		static qboolean g301_logged;
+
+		(void)fontNumber;
+		if( CL_GCLoadLeanHudFont( font, scale, &con_fontrender ))
+		{
+			if( !g301_logged )
+			{
+				g301_logged = true;
+				Con_Reportf( "Xash3D GameCube: G301 lean console font (shared HUD)\n" );
+			}
+			return;
+		}
+		if( !g301_logged )
+		{
+			g301_logged = true;
+			Con_Reportf( "Xash3D GameCube: G301 lean console font unavailable\n" );
+		}
+		return;
+	}
+#endif
+
 	if( con_oldfont.value )
 	{
 		success = Con_LoadVariableWidthFont( "gfx/conchars.fnt", font, scale, &con_fontrender, TF_FONT|TF_NEAREST );

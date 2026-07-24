@@ -17,6 +17,7 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include "mod_local.h"
 #include "sound.h"
 #include "gamecube/mem_gamecube.h"
+#include "cl_tent.h"
 
 void CL_GCSeedFlipperEfxProof( const float *org );
 
@@ -235,6 +236,9 @@ typedef struct
 #define GC_FlipperTrace(...) SYS_Report( __VA_ARGS__ )
 #endif
 #define GC_LIVE_MAX_FACES 248 /* G262: quiet Capture reclaim → tip-safe 248 (256 hangs) */
+/* G298/G299: after FatPVS, heap is fragmented — BSS lean under tip.
+ * 96 tipped NEWGAME_EARLY; 48 passed; G299 raises 48→64 (no extra ents). */
+#define GC_LIVE_BSS_FACES 64
 static qboolean GC_CapFaceAlready( int firstedge, int numedges );
 static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles );
 static qboolean GC_DumpEyeAtTramStart( float *eye, float *out_angles );
@@ -257,6 +261,9 @@ static int gc_live_face_capacity;
 static int gc_live_face_count;
 static int *gc_live_face_scores; /* sized with pool */
 static qboolean gc_g213_live_logged;
+static gc_live_cand_t gc_live_faces_bss[GC_LIVE_BSS_FACES];
+static int gc_live_face_scores_bss[GC_LIVE_BSS_FACES];
+static qboolean gc_live_faces_bss_active;
 
 /*
  * G222/G224: flat-fill faces beyond the 320+192 MEM1 budget. Heap AFTER live
@@ -2558,15 +2565,24 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
  */
 static void GC_FreeLiveFaces( void )
 {
-	if( gc_live_faces )
+	if( gc_live_faces_bss_active )
 	{
-		free( gc_live_faces );
 		gc_live_faces = NULL;
-	}
-	if( gc_live_face_scores )
-	{
-		free( gc_live_face_scores );
 		gc_live_face_scores = NULL;
+		gc_live_faces_bss_active = false;
+	}
+	else
+	{
+		if( gc_live_faces )
+		{
+			free( gc_live_faces );
+			gc_live_faces = NULL;
+		}
+		if( gc_live_face_scores )
+		{
+			free( gc_live_face_scores );
+			gc_live_face_scores = NULL;
+		}
 	}
 	gc_live_face_capacity = 0;
 	gc_live_face_count = 0;
@@ -2599,7 +2615,7 @@ static void GC_FreeTramFaces( void )
 }
 
 /* Allocate lean live-face pool BEFORE FatPVS calloc — after lean tables
- * reside, even 64×(cand+msurface) OOMs. */
+ * reside, even 64×(cand+msurface) OOMs. G298: BSS fallback when heap is dead. */
 static qboolean GC_AllocLiveFacePool( int want )
 {
 	int max_faces = want;
@@ -2620,6 +2636,7 @@ static qboolean GC_AllocLiveFacePool( int want )
 		{
 			gc_live_face_capacity = max_faces;
 			gc_live_face_count = 0;
+			gc_live_faces_bss_active = false;
 			memset( gc_live_faces, 0, cand_bytes );
 			memset( gc_live_face_scores, 0, score_bytes );
 			GC_FlipperTrace( "Xash3D GameCube: G213 live face pool max=%d (~%u Kb lean)\n",
@@ -2638,8 +2655,18 @@ static qboolean GC_AllocLiveFacePool( int want )
 		}
 		max_faces /= 2;
 	}
-	SYS_Report( "Xash3D GameCube: G213 live face pool OOM\n" );
-	return false;
+	/* G298: tip-safe BSS — heap OOM after FatPVS under G283 scratch retain. */
+	gc_live_faces = gc_live_faces_bss;
+	gc_live_face_scores = gc_live_face_scores_bss;
+	gc_live_face_capacity = GC_LIVE_BSS_FACES;
+	gc_live_face_count = 0;
+	gc_live_faces_bss_active = true;
+	memset( gc_live_faces_bss, 0, sizeof( gc_live_faces_bss ));
+	memset( gc_live_face_scores_bss, 0, sizeof( gc_live_face_scores_bss ));
+	Con_Reportf( "Xash3D GameCube: G298 lean live BSS pool max=%d (~%u Kb)\n",
+		GC_LIVE_BSS_FACES,
+		(unsigned)(( sizeof( gc_live_faces_bss ) + sizeof( gc_live_face_scores_bss )) / 1024 ));
+	return true;
 }
 
 /* Re-score lean live faces after dump eye moves capture_origin (geom already snapshotted). */
@@ -2868,16 +2895,19 @@ static void GC_CaptureLiveFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 		return;
 	if( !wmodel->surfedges || !wmodel->vertexes || ( !wmodel->edges16 && !wmodel->edges32 ))
 		return;
-	/* G283: pinned (scratch retain or malloc) — Flipper uses caps + surfbits
-	 * stamp; lean pool OOMs Capture FatPVS on c0a0. */
-	if( Mod_GCWorldSurfacesPinned( wmodel ))
+	/* G283: malloc-pin uses live BSP emit — skip lean pool.
+	 * G298: scratch retain — bake lean AFTER FatPVS (MEM1 free). Flipper
+	 * emits baked verts only (no late edge-walk). Do not alloc lean before
+	 * FatPVS (that OOMs Capture on c0a0). */
+	if( Mod_GCWorldSurfacesPinned( wmodel )
+		&& !Mod_GCWorldSurfacesScratchRetained( wmodel ))
 	{
 		static qboolean g283_skip_logged;
 
 		if( !g283_skip_logged )
 		{
 			g283_skip_logged = true;
-			Con_Reportf( "Xash3D GameCube: G283 lean live pool skipped (surfaces pinned)\n" );
+			Con_Reportf( "Xash3D GameCube: G283 lean live pool skipped (malloc pin)\n" );
 		}
 		return;
 	}
@@ -3193,7 +3223,8 @@ static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 
 	if( !wmodel || !surfbits || !wmodel->surfaces )
 		return;
-	/* G283: scratch retain + lean/caps cover Flipper — skip fill to reclaim MEM1. */
+	/* G283/G298: under scratch retain keep fill off — heap fill tipped
+	 * Mem_AllocPool (cl_game) after lean BSS bake. Caps + lean BSS only. */
 	if( Mod_GCWorldSurfacesScratchRetained( wmodel ))
 		return;
 	/* Live pool first — fill is optional overflow. */
@@ -4071,6 +4102,9 @@ static void GC_CaptureLiveFacesForDumpClusters( model_t *wmodel )
 			or_hits, gc_fill_face_count, gc_aram_fill_count );
 	}
 	GC_RerankLiveFacesNearEye();
+	if( Mod_GCWorldSurfacesScratchRetained( wmodel ))
+		Con_Reportf( "Xash3D GameCube: G298 lean live after Capture n=%d fill=%d (scratch retain)\n",
+			gc_live_face_count, gc_fill_face_count );
 	GC_FlipperTrace( "Xash3D GameCube: G218 p=%d eye=%d n=%d\n",
 		primary, eye_cluster, gc_live_face_count );
 }
@@ -5073,6 +5107,7 @@ static void GC_TryDeferredLeanSky( void );
 static void GC_TryDeferredHudSheets( void );
 static void GC_TryDeferredStudios( void );
 static void GC_TryDeferredEfxProof( void );
+static void GC_TryDeferredDecalProof( void );
 static void GC_ScrubLiveWorldSpeckles( unsigned short *dst, int width, int height, int stride );
 
 static qboolean GC_CanPresentViaGX( int width, int height )
@@ -5385,6 +5420,7 @@ static void GC_PresentBuffer( void )
 	GC_TryDeferredHudSheets();
 	GC_TryDeferredStudios();
 	GC_TryDeferredEfxProof();
+	GC_TryDeferredDecalProof();
 
 	/* G151: Flipper already holds world geometry — CopyDisp only (no soft blit).
 	 * G191: never steal soft DumpFrames latch presents onto a cleared EFB.
@@ -5479,12 +5515,26 @@ static void GC_PresentBuffer( void )
 			}
 		}
 		{
+			static qboolean g297_cpu_logged;
+			double cpu_ms;
+			const qboolean budget_no_vsync = gc_budget_probe_active
+				&& Sys_CheckParm( "-gcnewgame" );
+
+			cpu_ms = gc_last_present_time > 0.0 ? ( Sys_FloatTime() - gc_last_present_time ) * 1000.0 : 0.0;
 			VIDEO_SetNextFramebuffer( xfb[which_fb] );
 			VIDEO_Flush();
-			/* One VSync per present — dual-XFB is tear-safe at 60 fields/sec.
-			 * A second progressive WaitVSync locked gameplay to ~30fps. */
-			VIDEO_WaitVSync();
+			/* G297: during G36 samples skip WaitVSync so frame times measure
+			 * Flipper work (vsync locked every sample to ~16.7ms). Retail and
+			 * post-sample presents still VI-pace at 60 fields/sec. */
+			if( !budget_no_vsync )
+				VIDEO_WaitVSync();
 			which_fb ^= 1;
+			if( !g297_cpu_logged && cpu_ms > 0.05 && Sys_CheckParm( "-gcnewgame" ))
+			{
+				g297_cpu_logged = true;
+				SYS_Report( "Xash3D GameCube: G297 Flipper cpu=%.2fms (pre-vsync) frame_budget=%d live=%d fill=%d\n",
+					cpu_ms, 192, 80, 24 );
+			}
 		}
 		/* Flipper path used to return before timing updates (G36 blind spot). */
 		now = Sys_FloatTime();
@@ -5816,10 +5866,19 @@ static void GC_PresentBuffer( void )
 		{
 			VIDEO_SetNextFramebuffer( xfb[which_fb] );
 			VIDEO_Flush();
-			/* Retail always waits one VSync. Capture may skip during G36
-			 * budget samples / cinematics; dump latch keeps VSync.
-			 * No second progressive wait — that locked presents to ~30fps. */
-			if( !GC_IsCaptureDiagnostics()
+			/* G297: New Game G36 samples skip WaitVSync; Host_CalcFPS also
+			 * drops Autosleep while the probe is armed (else fps_max=60 re-locks
+			 * every sample to ~16.7ms). Retail outside the window still paces. */
+			if( gc_budget_probe_active && Sys_CheckParm( "-gcnewgame" ))
+			{
+				static qboolean g297_soft_logged;
+				if( !g297_soft_logged )
+				{
+					g297_soft_logged = true;
+					SYS_Report( "Xash3D GameCube: G297 budget present without WaitVSync (Host sleep off)\n" );
+				}
+			}
+			else if( !GC_IsCaptureDiagnostics()
 				|| g128_cpu_dump
 				|| ( !gc_budget_probe_active && !gc_newgame_world_ready && cls.state != ca_cinematic ))
 			{
@@ -7574,7 +7633,8 @@ static void GC_TryDeferredLeanSky( void )
 	}
 	if( gc_lean_sky_attempts >= 3 )
 		return;
-	/* Try at presents 4, 16, 32 after world-ready arm. */
+	/* Try at presents 4, 16, 32 after world-ready arm. G300 BSS procedural
+	 * covers ImageLib soft-fail when these run. */
 	if( gc_present_count != 4 && gc_present_count != 16 && gc_present_count != 32 )
 		return;
 
@@ -7616,7 +7676,8 @@ static void GC_TryDeferredHudSheets( void )
 ===========
 GC_TryDeferredStudios
 
-G287: promote crowbar/handgun after Flipper presents (prepare tip-fails MDL malloc).
+G287/G294: promote crowbar/handgun after Flipper presents (prepare tip-fails
+MDL malloc). Early present slots so short probes still reach view≥2.
 ===========
 */
 static void GC_TryDeferredStudios( void )
@@ -7624,9 +7685,12 @@ static void GC_TryDeferredStudios( void )
 #if XASH_GAMECUBE
 	if( !gc_newgame_world_ready )
 		return;
-	/* After sky/HUD retry — give HUD soft-fails a frame to settle. */
-	if( gc_present_count != 8 && gc_present_count != 20 && gc_present_count != 40
-		&& gc_present_count != 64 )
+	/* G297: MDL promote mid-G36 sample window spikes present hitch. */
+	if( GC_IsFrameBudgetProbeActive() )
+		return;
+	/* G294: early presents for short probes; keep post-G36 retries. */
+	if( gc_present_count != 1 && gc_present_count != 2 && gc_present_count != 4
+		&& gc_present_count != 8 && gc_present_count != 20 && gc_present_count != 40 )
 		return;
 	Mod_GCTryDeferredStudios();
 #endif
@@ -7647,15 +7711,78 @@ static void GC_TryDeferredEfxProof( void )
 
 	if( !gc_newgame_world_ready || seeded )
 		return;
-	if( gc_present_count != 24 )
+	/* Prepare (0) or early present backup — probe often SIGINT before 6. */
+	if( gc_present_count != 0 && gc_present_count != 2 )
 		return;
 	if( !Sys_CheckParm( "-gcnewgame" ))
 		return;
 
 	VectorCopy( refState.vieworg, org );
-	org[2] -= 16.0f;
 	CL_GCSeedFlipperEfxProof( org );
 	seeded = true;
+#endif
+}
+
+/*
+===========
+GC_TryDeferredDecalProof
+
+G293: tip-safe lean {shot1 seed (bootstrap TGA) so Flipper emits a real pool
+decal — not only the empty-pool proof quad.
+===========
+*/
+static void GC_TryDeferredDecalProof( void )
+{
+#if XASH_GAMECUBE
+	vec3_t org, end, dir;
+	pmtrace_t tr;
+	int tex;
+	static qboolean seeded;
+
+	if( !gc_newgame_world_ready || seeded )
+		return;
+	/* Prepare (0) or early present backup — probe often SIGINT before 6. */
+	if( gc_present_count != 0 && gc_present_count != 2 )
+		return;
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return;
+
+	VectorCopy( refState.vieworg, org );
+	dir[0] = 0.0f;
+	dir[1] = 1.0f;
+	dir[2] = -0.25f;
+	VectorNormalize( dir );
+	VectorMA( org, 96.0f, dir, end );
+	tr = CL_TraceLine( org, end, PM_STUDIO_IGNORE );
+	if( tr.fraction < 1.0f )
+		VectorMA( tr.endpos, 1.0f, tr.plane.normal, org );
+	else
+	{
+		/* Engine R_DecalShoot still projects onto nearby brushes from a point. */
+		VectorCopy( end, org );
+	}
+	tex = CL_GCEnsureLeanShotDecal();
+	if( tex <= 0 )
+	{
+		int id = CL_DecalIndexFromName( "{shot1" );
+		if( id <= 0 )
+			id = CL_DecalIndexFromName( "{smscorch1" );
+		if( id > 0 )
+			tex = CL_DecalIndex( id );
+	}
+	if( tex > 0 )
+		CL_DecalShoot( tex, 0, 0, org, 0 );
+	/* G295: touch blood/scorch/break embeds so gameplay paths stay tip-safe. */
+	{
+		int blood = CL_GCEnsureLeanDecalForName( "{blood1" );
+		int scorch = CL_GCEnsureLeanDecalForName( "{scorch1" );
+		int brk = CL_GCEnsureLeanDecalForName( "{break1" );
+		Con_Reportf( "Xash3D GameCube: G295 lean decal kinds shot=%d scorch=%d blood=%d break=%d\n",
+			tex, scorch, blood, brk );
+	}
+	seeded = ( tex > 0 );
+	Con_Reportf( "Xash3D GameCube: G293 tip-safe lean decal seed tex=%d hit=%.2f\n",
+		tex, tr.fraction );
 #endif
 }
 
@@ -9038,12 +9165,14 @@ void GC_CaptureNewGamePVSFromModel( model_t *wmodel )
 		GC_FreeNewGamePVSCache();
 
 		/* G213: reserve lean live-face pool after PVS-cache free, before FatPVS.
-		 * G283: scratch retain + caps cover Flipper — skip lean/fill so FatPVS
-		 * and FS get the MEM1 (lean OOM'd and starved Capture). Malloc pin
-		 * also skips lean (live BSP emit). */
-		if( Mod_GCWorldSurfacesPinned( wmodel ))
-			Con_Reportf( "Xash3D GameCube: G283 Capture skips lean live pool (%s)\n",
-				Mod_GCWorldSurfacesScratchRetained( wmodel ) ? "scratch retain" : "malloc pin" );
+		 * G283/G298: scratch retain skips lean HERE so FatPVS gets MEM1; lean
+		 * alloc+bake runs later in CaptureLiveFacesForDumpClusters. Malloc pin
+		 * keeps live BSP emit (no lean). */
+		if( Mod_GCWorldSurfacesPinned( wmodel )
+			&& !Mod_GCWorldSurfacesScratchRetained( wmodel ))
+			Con_Reportf( "Xash3D GameCube: G283 Capture skips lean live pool (malloc pin)\n" );
+		else if( Mod_GCWorldSurfacesScratchRetained( wmodel ))
+			Con_Reportf( "Xash3D GameCube: G298 Capture defers lean live pool (scratch retain)\n" );
 		else
 			GC_AllocLiveFacePool( GC_LIVE_MAX_FACES );
 
@@ -10217,6 +10346,20 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_newgame_world_ready = true;
 	gc_lean_sky_attempts = 0;
 	gc_newgame_g36_done = true;
+	/* G300: BSS procedural sky needs no ImageLib heap — install at prepare so
+	 * Flipper outdoor backdrop is ready before present-log truncation. BMP
+	 * soft-fail still falls through to *gc_sky_proc. */
+	{
+		const char *sky = clgame.movevars.skyName;
+
+		if( !sky || !sky[0] )
+			sky = "desert";
+		Image_GCPurgeDecodeScratch();
+		FS_ClearFindMissCache();
+		R_SetupSkyLeanGameCube( sky );
+		if( FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX ))
+			gc_lean_sky_attempts = 3;
+	}
 	/* Pure Flipper: enable live GX before the post-prepare present pump so
 	 * the first world frames never soft-raster. Soft DumpFrames latch (if
 	 * any) temporarily clears this via presents_left. */
@@ -10278,6 +10421,11 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		}
 	}
 	GC_MemSample( "newgame world present" );
+
+	/* G291/G293: seed tip-safe FX + lean decal before the Flipper present
+	 * pump (probe often SIGINT after the first CopyDisp). */
+	GC_TryDeferredEfxProof();
+	GC_TryDeferredDecalProof();
 
 	/* Prefer real low-res world frames here: the Dolphin probe often exits as
 	 * soon as G36 evidence is scored, before the next Host_Frame can run SCR.

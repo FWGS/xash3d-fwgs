@@ -1,4 +1,4 @@
 {
   "tier": "hardware_validation",
-  "note": "G234/G197 closed. Only open goal G38 (operator hardware). Handoff: .ai/logs/hardware-handoff-20260722-221451 (boot.dol 6274272). Local automation idle until hardware evidence recorded."
+  "note": "G300 closed (lean sky loaded desert up at prepare; 16x16 BMP + BSS proc fallback). Open: G38 hardware + tip residuals (ents/TGA/conchars). Handoff: .ai/logs/hardware-handoff-20260722-221451."
 }

@@ -1037,6 +1037,23 @@ void SCR_LoadCreditsFont( void )
 	float scale = hud_fontscale.value;
 	dword crc = 0;
 
+#if XASH_GAMECUBE
+	/* G296: tip-safe lean font before wad/conchars (18–34 KiB W_ReadLump tip). */
+	if( GC_MapLoadMemoryOpt() || Sys_CheckParm( "-gcnewgame" ))
+	{
+		if( CL_GCLoadLeanHudFont( font, scale, &hud_fontrender ))
+		{
+			clgame.scrInfo.iCharHeight = cls.creditsFont.charHeight;
+			for( int i = 0; i < ARRAYSIZE( cls.creditsFont.charWidths ); i++ )
+				clgame.scrInfo.charWidths[i] = cls.creditsFont.charWidths[i];
+			return;
+		}
+		/* Never open gfx.wad fonts under tip — soft-fail only. */
+		Con_Reportf( "Xash3D GameCube: G296 lean HUD font unavailable\n" );
+		return;
+	}
+#endif
+
 	// replace default gfx.wad textures by current charset's font
 	if( !CRC32_File( &crc, "gfx.wad" ) || crc == 0x49eb9f16 )
 	{

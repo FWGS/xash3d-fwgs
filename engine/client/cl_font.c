@@ -117,6 +117,145 @@ qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float sc
 	return true;
 }
 
+#if XASH_GAMECUBE
+/*
+=============
+CL_GCLoadLeanHudFont
+
+G296: load CREDITSFONT from bootstrap via BSS + libc RGBA expand — wad
+W_ReadLump (18–34 KiB) tips at New Game VidInit.
+=============
+*/
+#define GC_LEAN_FONT_BSS_BYTES (8 * 1024)
+
+qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermode )
+{
+	static byte bss[GC_LEAN_FONT_BSS_BYTES] __attribute__((aligned( 32 )));
+	static qfont_t cached_src;
+	static int cached_tex;
+	static qboolean cached;
+	file_t *f;
+	fs_offset_t flen, total, got;
+	qfont_t src;
+	byte *rgba;
+	const byte *fin, *pal;
+	int i, tex, font_width, pixels;
+	unsigned short numcolors;
+
+	if( !font || !rendermode )
+		return false;
+	if( font->valid )
+		return true;
+
+	font_width = 128;
+
+	if( cached && cached_tex > 0 )
+	{
+		if( ref.dllFuncs.GL_FindTexture( "#gc_lean_hudfont" ) == cached_tex )
+		{
+			src = cached_src;
+			tex = cached_tex;
+			goto apply_font;
+		}
+		cached = false;
+		cached_tex = 0;
+	}
+
+	f = FS_Open( "gfx/gc_creditsfont.fnt", "rb", false );
+	if( !f )
+		return false;
+	flen = FS_FileLength( f );
+	if( flen < (fs_offset_t)sizeof( qfont_t ) || flen > (fs_offset_t)GC_LEAN_FONT_BSS_BYTES )
+	{
+		FS_Close( f );
+		return false;
+	}
+	total = 0;
+	while( total < flen )
+	{
+		got = FS_Read( f, bss + total, flen - total );
+		if( got <= 0 )
+			break;
+		total += got;
+	}
+	FS_Close( f );
+	if( total != flen )
+		return false;
+
+	memcpy( &src, bss, sizeof( src ));
+	le_struct_swap( qfont_swap, &src );
+
+	/* G296 lean bake: 128 × height atlas (retail oldstyle was 256 × height). */
+	pixels = font_width * src.height;
+	fin = bss + sizeof( qfont_t ) - 4;
+	if((size_t)( fin - bss ) + (size_t)pixels + 2 + 768 > (size_t)flen )
+		return false;
+	pal = fin + pixels;
+	numcolors = (unsigned short)( pal[0] | ( pal[1] << 8 ));
+	pal += 2;
+	if( numcolors != 256 )
+		return false;
+
+	tex = ref.dllFuncs.GL_FindTexture( "#gc_lean_hudfont" );
+	if( tex <= 0 )
+	{
+		rgba = (byte *)malloc( (size_t)pixels * 4u );
+		if( !rgba )
+			return false;
+		for( i = 0; i < pixels; i++ )
+		{
+			byte idx = fin[i];
+			byte *d = rgba + i * 4;
+
+			if( idx == 255 )
+			{
+				d[0] = d[1] = d[2] = d[3] = 0;
+			}
+			else
+			{
+				d[0] = pal[idx * 3 + 0];
+				d[1] = pal[idx * 3 + 1];
+				d[2] = pal[idx * 3 + 2];
+				d[3] = 255;
+			}
+		}
+
+		tex = ref.dllFuncs.GL_CreateTexture( "#gc_lean_hudfont", font_width, src.height, rgba,
+			TF_FONT | TF_NEAREST | TF_HAS_ALPHA );
+		free( rgba );
+		if( tex <= 0 )
+			return false;
+		Con_Reportf( "Xash3D GameCube: G296 lean HUD font tex=%d %dx%d row=%d\n",
+			tex, font_width, src.height, src.rowheight );
+	}
+
+	cached_src = src;
+	cached_tex = tex;
+	cached = true;
+
+apply_font:
+	font->hFontTexture = tex;
+	font->type = FONT_VARIABLE;
+	font->valid = true;
+	font->scale = scale ? scale : 1.0f;
+	font->rendermode = rendermode;
+	font->charHeight = Q_rint( src.rowheight * font->scale );
+
+	for( i = 0; i < ARRAYSIZE( font->fontRc ); i++ )
+	{
+		const charinfo *ci = &src.fontinfo[i];
+
+		font->fontRc[i].left   = (word)ci->startoffset % font_width;
+		font->fontRc[i].right  = font->fontRc[i].left + ci->charwidth;
+		font->fontRc[i].top    = (word)ci->startoffset / font_width;
+		font->fontRc[i].bottom = font->fontRc[i].top + src.rowheight;
+		font->charWidths[i] = Q_rint( ci->charwidth * font->scale );
+	}
+
+	return true;
+}
+#endif
+
 qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags )
 {
 	fs_offset_t length;
@@ -172,6 +311,16 @@ void CL_FreeFont( cl_font_t *font )
 {
 	if( !font || !font->valid )
 		return;
+
+#if XASH_GAMECUBE
+	/* G296: pin lean HUD font TEXMAP — VidInit reload must not tip-recreate. */
+	if( font->hFontTexture
+		&& ref.dllFuncs.GL_FindTexture( "#gc_lean_hudfont" ) == font->hFontTexture )
+	{
+		memset( font, 0, sizeof( *font ));
+		return;
+	}
+#endif
 
 	ref.dllFuncs.GL_FreeTexture( font->hFontTexture );
 	memset( font, 0, sizeof( *font ));

@@ -5150,7 +5150,9 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 	/* New Game (-gcnewgame) still runs under map-load memopt, but must keep world
 	 * decoration, nodes, and triggers so ClientPutInServer / graph setup can finish.
 	 * Strip heavy gameplay plus sprite/sound decor that burns MEM1 on retail c0a0
-	 * (env_glow/env_sprite flare loads previously OOMed past HUD_Init). */
+	 * (env_glow/env_sprite flare loads previously OOMed past HUD_Init).
+	 * G299: restoring multi_manager/ambient/env_message tipped InitInput — keep
+	 * stripped until a lean private-data path exists. */
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( !Q_strnicmp( classname, "monster_", 8 )
@@ -5552,6 +5554,11 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 		}
 
 		Con_DPrintf( "\n%i entities inhibited\n", inhibited );
+#if XASH_GAMECUBE
+		if( Sys_CheckParm( "-gcnewgame" ))
+			Con_Reportf( "Xash3D GameCube: G299 entities inhibited=%d (logic ents still tip InitInput)\n",
+				inhibited );
+#endif
 	}
 
 	// reset world origin and angles for some reason

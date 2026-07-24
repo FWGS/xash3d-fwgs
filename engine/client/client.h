@@ -840,6 +840,9 @@ void CL_FireEvents( void );
 qboolean CL_FixedFont( cl_font_t *font );
 qboolean Con_LoadFixedWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags );
 qboolean Con_LoadVariableWidthFont( const char *fontname, cl_font_t *font, float scale, convar_t *rendermode, uint texFlags );
+#if XASH_GAMECUBE
+qboolean CL_GCLoadLeanHudFont( cl_font_t *font, float scale, convar_t *rendermode );
+#endif
 void CL_FreeFont( cl_font_t *font );
 void CL_SetFontRendermode( cl_font_t *font );
 void CL_SetFontColor( cl_font_t *font, const rgba_t color );

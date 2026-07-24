@@ -177,7 +177,16 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 
 **Immediate source queue (open automatic goals, in order):**
 1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) — operator-only; handoff `.ai/logs/hardware-handoff-20260722-221451`
-2. Flipper GX residuals under tip ceiling (decals / turb water meshes / remaining FX)
+2. Flipper GX residuals under tip ceiling (bootstrap TGA inject still unsafe; console conchars optional; **logic ents tip InitInput** — keep 58 inhibited)
+3. ~~G300~~ — tip-safe lean sky: prepare-time install + 16×16 bootstrap BMPs + BSS procedural fallback — `lean skybox loaded 'desert' sides=1 (up)`; probe `20260723-205857`
+3. ~~G299~~ — lean live BSS 48→**64** under scratch retain (`n=64 drawn=64`); entity restore tips InitInput — deferred — probe `20260723-204111`
+3. ~~G298~~ — lean live after Capture under G283 scratch retain (48-face BSS; fill stays off) — `n=48 fill=0`; probe `20260723-202358`
+3. ~~G297~~ — Flipper frame lean + unmasked G36 work cost — face 192/80/24; Host Autosleep+WaitVSync off while armed → **avg≈0.94ms p95≈1.10ms** (probe `20260723-195917`); retail remains 60 Hz VI/`fps_max=60` paced
+3. ~~G296~~ — tip-safe lean HUD font (128×32 CREDITSFONT in bootstrap; pin TEXMAP; no wad tip) — probe `20260723-193935`
+3. ~~G295~~ — memopt lean decal kinds (shot/scorch/blood/break embeds; `{` never opens wad) — probe `20260723-193103`
+3. ~~G294~~ — early Flipper studio promote (present 1/2/4; prepare only presents once) — view=2 npc=1; probe `20260723-192743`
+3. ~~G293~~ — tip-safe lean `{shot1` embed + Flipper pool seed on cap face (`R_DecalShootSurface`); pool emit≥1 — probe `20260723-192427`
+3. ~~G292~~ — Flipper world decals (pool walk + TriAPI emit ≤8; tip-safe proof quad when pool empty)
 3. ~~G291~~ — Flipper EFX TriAPI emit (effects gate + lean particle init + tip-safe seed); tris≥1
 3. ~~G290~~ — tip-safe lean HUD (crosshairs early + 8 KiB BSS FS fallback + deferred retry); real=4/4
 3. ~~G289~~ — lean mesh-only handgun+roach in bootstrap; 84 KiB BSS bump (view≥2)

@@ -322,7 +322,35 @@ static void GAME_EXPORT GL_SubdivideSurface( model_t *mod, msurface_t *fa )
 
 static void GAME_EXPORT DrawSingleDecal( decal_t *pDecal, msurface_t *fa )
 {
+#if XASH_GAMECUBE
+	/*
+	 * G292: Flipper path — TriAPI → R_GXEffectsTri* (was empty stub; soft
+	 * RGB565 still uses R_DrawSurfaceDecals in the span path).
+	 */
+	if( GC_UseGxWorldDraw() && pDecal && fa && pDecal->texture )
+	{
+		int numVerts;
+		int i;
+		float *v = R_DecalSetupVerts( pDecal, fa, pDecal->texture, &numVerts );
 
+		if( numVerts < 3 )
+			return;
+
+		GL_SetRenderMode( kRenderTransTexture );
+		GL_Bind( XASH_TEXTURE0, pDecal->texture );
+		_TriColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+		TriBegin( TRI_TRIANGLE_FAN );
+		for( i = 0; i < numVerts; i++, v += VERTEXSIZE )
+		{
+			TriTexCoord2f( v[3], v[4] );
+			TriVertex3f( v[0], v[1], v[2] );
+		}
+		TriEnd();
+	}
+#else
+	(void)pDecal;
+	(void)fa;
+#endif
 }
 
 static void GAME_EXPORT GL_SelectTexture( int texture )

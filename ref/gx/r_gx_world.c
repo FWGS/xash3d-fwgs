@@ -13,6 +13,8 @@ G183: pin HUD TEXMAP0 slots + TriColor tint; richer Flipper pic count.
 G184: HUD RGB5A3 + alpha compare so SPR_DrawHoles drop transparent texels.
 G185: cut Flipper HUD fill (lean crosshair cell + fill-px telemetry).
 G186: skip tiny / far-small Flipper faces before ST/LM emit (fill lean).
+G297: tighter face budgets + skip EFX/decals during G36 sample window.
+G298: lean live+fill after Capture under G283 scratch retain (baked verts).
 G187: HUD holes punch near-black ink (crosshair sheet non-255 dark texels).
 G201: guFrustum projection for GX_PERSPECTIVE (Xash GL proj was invisible).
 G202: Flipper diffuse REPLACE (no LM crush on eye-centered quads).
@@ -24,9 +26,9 @@ G216: lean live baked verts for skyfill emit (edges may dangle).
 G221: indoor EFB clear under -gcnewgame (holes ≠ outdoor sky blue).
 G222: heap flat-fill faces beyond 320+192 (after live pool; no BSS steal).
 
-Retail Flipper scope (G198/G285/G286): capped/PVS world faces + studio/viewmodel +
-HUD + lean skybox backdrop + baked turb/water (≤8 BSS). Not feature-parity:
-particles, beams, decals, and full brush-mover lighting remain soft/diagnostic.
+Retail Flipper scope (G198/G285/G286/G291/G292): capped/PVS world + studio +
+HUD + lean sky + baked water + Flipper EFX + tip-safe world decals (≤8).
+Not feature-parity: full brush-mover lighting remains soft/diagnostic.
 */
 #include "r_local.h"
 
@@ -135,7 +137,7 @@ static qboolean r_gx_tex_band_logged;
 /* G186: Flipper world fill cull (extents dust + far-small). */
 /* G186/G199: lean cull — prior 3072/512/8192 left outdoor wall-aim at ~20 faces. */
 #ifndef GC_GX_MIN_FACE_AREA
-#define GC_GX_MIN_FACE_AREA 256	/* G234: was 512 — tram portal scraps */
+#define GC_GX_MIN_FACE_AREA 384	/* G297: was 256 — drop dust for 60Hz headroom */
 #endif
 #ifndef GC_GX_FAR_FACE_DIST
 #define GC_GX_FAR_FACE_DIST 2048.0f
@@ -143,15 +145,15 @@ static qboolean r_gx_tex_band_logged;
 #ifndef GC_GX_FAR_MIN_AREA
 #define GC_GX_FAR_MIN_AREA 4096	/* keep medium walls when far */
 #endif
-/* G280/G282: Flipper per-frame emit. Caps + live PVS pool share FRAME. */
+/* G280/G282/G297: Flipper per-frame emit. Caps + live PVS pool share FRAME. */
 #ifndef GC_GX_FRAME_FACE_BUDGET
-#define GC_GX_FRAME_FACE_BUDGET 224	/* was 288 — cut Flipper fill for 60Hz headroom */
+#define GC_GX_FRAME_FACE_BUDGET 192	/* G297: was 224 — Flipper fill lean */
 #endif
 #ifndef GC_GX_LIVE_FACE_BUDGET
-#define GC_GX_LIVE_FACE_BUDGET 96	/* was 128 */
+#define GC_GX_LIVE_FACE_BUDGET 80	/* G297: was 96 */
 #endif
 #ifndef GC_GX_FILL_FACE_BUDGET
-#define GC_GX_FILL_FACE_BUDGET 32	/* was 40 */
+#define GC_GX_FILL_FACE_BUDGET 24	/* G297: was 32 */
 #endif
 static int r_gx_face_skips;
 static int r_gx_face_skip_area;
@@ -282,9 +284,14 @@ qboolean R_GXTriApiIsActive( void )
 
 void R_GXEffectsTriBegin( void )
 {
+	extern qboolean GC_IsFrameBudgetProbeActive( void );
+
 	if( !GC_UseGxWorldDraw() )
 		return;
 	if( r_gx_studio_active )
+		return;
+	/* G297: skip particle/sprite/beam TriAPI during G36 sample window. */
+	if( GC_IsFrameBudgetProbeActive() )
 		return;
 	if( !r_gx_effects_tri )
 	{
@@ -1154,6 +1161,7 @@ static float r_gx_prebaked_pts[32][3];
 static int r_gx_prebaked_nverts;
 
 static int R_GXEmitFace( const msurface_t *surf, model_t *world, int slot );
+static int R_GXEmitWorldDecals( model_t *world );
 
 /* G222: flat PASSCLR fill from capture-baked verts (no tex/LM). */
 static qboolean r_gx_flat_z_write; /* G277 tram: write Z so mesh occludes */
@@ -1749,7 +1757,210 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 			opaque_drawn, trans_drawn, tr.framecount,
 			skip_vis, skip_plane, skip_back, skip_area, emit_zero );
 	}
+	{
+		extern qboolean GC_IsFrameBudgetProbeActive( void );
+		if( !GC_IsFrameBudgetProbeActive() )
+			drawn += R_GXEmitWorldDecals( world );
+	}
 	return drawn;
+}
+
+/*
+===========
+R_GXEmitWorldDecals
+
+G292: emit ≤8 world-surface decals into Flipper EFB. Soft span path already
+draws RGB565 decals; pure GX left DrawSingleDecal empty.
+===========
+*/
+static int R_GXTrySeedLeanPoolDecal( void )
+{
+	static qboolean tried;
+	static byte poly_store[sizeof( glpoly2_t ) + 16 * VERTEXSIZE * sizeof( float )];
+	int tex, i, n, j, nv;
+	msurface_t *draw;
+	vec3_t pos;
+	float bake[16][3];
+	glpoly2_t *poly;
+	extern msurface_t *GC_GetNewGameDrawSurfs( void );
+	extern int GC_GetNewGameCapFaceCount( void );
+	extern int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
+	extern decal_t gDecalPool[MAX_RENDER_DECALS];
+
+	if( tried || !gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+		return 0;
+
+	tex = GL_FindTexture( "#gc_lean_shot1" );
+	if( tex <= 0 )
+		return 0;
+
+	draw = GC_GetNewGameDrawSurfs();
+	n = GC_GetNewGameCapFaceCount();
+	if( !draw || n <= 0 )
+		return 0;
+
+	tried = true;
+	poly = (glpoly2_t *)poly_store;
+
+	for( i = 0; i < n && i < 96; i++ )
+	{
+		msurface_t *fa = &draw[i];
+
+		if( !fa->plane || !fa->texinfo )
+			continue;
+		if( fa->flags & ( SURF_DRAWTURB | SURF_DRAWSKY | SURF_CONVEYOR ))
+			continue;
+
+		nv = GC_GetNewGameCapFaceVerts( i, bake, 16 );
+		if( nv < 3 )
+			continue;
+
+		/* Cap draw surfs have no polys — attach a tip-safe BSS poly for clip. */
+		memset( poly, 0, sizeof( *poly ));
+		poly->numverts = nv;
+		poly->flags = fa->flags;
+		for( j = 0; j < nv; j++ )
+		{
+			VectorCopy( bake[j], poly->verts[j] );
+			poly->verts[j][3] = 0.0f;
+			poly->verts[j][4] = 0.0f;
+			poly->verts[j][5] = 0.0f;
+			poly->verts[j][6] = 0.0f;
+		}
+		fa->polys = poly;
+
+		VectorCopy( bake[0], pos );
+		VectorMA( pos, 0.25f, fa->plane->normal, pos );
+		R_DecalShootSurface( tex, fa, pos, 1.0f );
+
+		for( j = 0; j < MAX_RENDER_DECALS; j++ )
+		{
+			if( gDecalPool[j].psurface && gDecalPool[j].texture == tex )
+			{
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G293 Flipper lean pool seed tex=%d face=%d\n",
+					tex, i );
+				return 1;
+			}
+		}
+		fa->polys = NULL;
+	}
+
+	gEngfuncs.Con_Reportf(
+		"Xash3D GameCube: G293 Flipper lean pool seed failed tex=%d faces=%d\n",
+		tex, n );
+	return 0;
+}
+
+static int R_GXEmitWorldDecals( model_t *world )
+{
+	int i, emitted = 0;
+	const int max_decals = 8;
+	static qboolean g292_logged;
+	extern decal_t gDecalPool[MAX_RENDER_DECALS];
+
+	(void)world;
+
+	/*
+	 * Walk the active decal pool — not world->surfaces. Under New Game scratch
+	 * reuse, surface pdecals chains can be stale and hang a full BSP walk.
+	 */
+emit_pool:
+	emitted = 0;
+	for( i = 0; i < MAX_RENDER_DECALS && emitted < max_decals; i++ )
+	{
+		decal_t *p = &gDecalPool[i];
+		msurface_t *fa;
+		int numVerts, vi;
+		float *v;
+
+		fa = p->psurface;
+		if( !fa || !p->texture )
+			continue;
+		if( !fa->plane )
+			continue;
+
+		v = R_DecalSetupVerts( p, fa, p->texture, &numVerts );
+		if( numVerts < 3 )
+			continue;
+
+		GL_SetRenderMode( kRenderTransTexture );
+		GL_Bind( XASH_TEXTURE0, p->texture );
+		_TriColor4f( 1.0f, 1.0f, 1.0f, 1.0f );
+		TriBegin( TRI_TRIANGLE_FAN );
+		for( vi = 0; vi < numVerts; vi++, v += VERTEXSIZE )
+		{
+			TriTexCoord2f( v[3], v[4] );
+			TriVertex3f( v[0], v[1], v[2] );
+		}
+		TriEnd();
+		emitted++;
+	}
+
+	if( emitted > 0 )
+	{
+		static qboolean g293_pool_logged;
+
+		if( !g293_pool_logged )
+		{
+			g293_pool_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G293 Flipper pool decals emit=%d (budget=%d)\n",
+				emitted, max_decals );
+		}
+		if( !g292_logged )
+		{
+			g292_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G292 Flipper decals emit=%d (budget=%d)\n",
+				emitted, max_decals );
+		}
+		return 1;
+	}
+
+	/* G293: stamp lean scorch onto a Flipper draw face, then re-emit. */
+	if( R_GXTrySeedLeanPoolDecal() )
+		goto emit_pool;
+
+	/* Tip-safe proof when pool empty — prefer lean scorch tex over white. */
+	if( gEngfuncs.Sys_CheckParm( "-gcnewgame" ))
+	{
+		vec3_t org, right, up, p0, p1, p2, p3;
+		const float s = 8.0f;
+		int lean = GL_FindTexture( "#gc_lean_shot1" );
+
+		VectorCopy( RI.rvp.vieworigin, org );
+		VectorMA( org, 48.0f, RI.cull_vforward, org );
+		VectorScale( RI.cull_vright, s, right );
+		VectorScale( RI.cull_vup, s, up );
+		VectorSubtract( org, right, p0 ); VectorAdd( p0, up, p0 );
+		VectorAdd( org, right, p1 ); VectorAdd( p1, up, p1 );
+		VectorAdd( org, right, p2 ); VectorSubtract( p2, up, p2 );
+		VectorSubtract( org, right, p3 ); VectorSubtract( p3, up, p3 );
+
+		GL_SetRenderMode( kRenderTransTexture );
+		GL_Bind( XASH_TEXTURE0, lean > 0 ? (unsigned)lean : (unsigned)tr.whiteTexture );
+		_TriColor4f( 0.15f, 0.12f, 0.10f, 0.85f );
+		TriBegin( TRI_TRIANGLE_FAN );
+		TriTexCoord2f( 0.0f, 0.0f ); TriVertex3fv( p0 );
+		TriTexCoord2f( 1.0f, 0.0f ); TriVertex3fv( p1 );
+		TriTexCoord2f( 1.0f, 1.0f ); TriVertex3fv( p2 );
+		TriTexCoord2f( 0.0f, 1.0f ); TriVertex3fv( p3 );
+		TriEnd();
+		emitted = 1;
+		if( !g292_logged )
+		{
+			g292_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G292 Flipper decal proof quad (pool empty lean=%d)\n",
+				lean );
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G292 Flipper decals emit=%d (budget=%d)\n",
+				emitted, max_decals );
+		}
+	}
+
+	return emitted > 0 ? 1 : 0;
 }
 
 int R_GXDrawNewGameCapFaces( void )
@@ -1832,8 +2043,8 @@ int R_GXDrawNewGameCapFaces( void )
 		static qboolean g213_logged;
 		int live_n = GC_GetLiveFaceCount();
 
-		/* G283: malloc-pinned → live BSP. Scratch retain softlocks on edge-walk
-		 * and lean OOMs Capture — Flipper is LM-caps + surfbits stamp only. */
+		/* G283: malloc-pinned → live BSP. Scratch retain: LM-caps + G298 lean
+		 * baked verts (no edge-walk of retained scratch after present reuse). */
 		if( GC_WorldSurfacesPinned() && !GC_WorldSurfacesScratchRetained() )
 		{
 			drawn = R_GXDrawWorldLiveSurfaces( world, true );
@@ -1845,13 +2056,7 @@ int R_GXDrawNewGameCapFaces( void )
 					drawn );
 			}
 		}
-		else if( GC_WorldSurfacesScratchRetained() && !g213_logged )
-		{
-			g213_logged = true;
-			gEngfuncs.Con_Reportf(
-				"Xash3D GameCube: G283 scratch retain-pin (stamp+LM-caps; no live edge-walk)\n" );
-		}
-		/* Lean early-pool faces (G213) — only when surfaces are unpinned. */
+		/* G298: lean early-pool faces under scratch retain or dangling surfaces. */
 		else if( live_n > 0 )
 		{
 			int li, live_drawn = 0, skipped_cap = 0;
@@ -1918,15 +2123,25 @@ int R_GXDrawNewGameCapFaces( void )
 			if( !g213_logged )
 			{
 				g213_logged = true;
+				if( GC_WorldSurfacesScratchRetained() )
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G298 lean Flipper under scratch retain live=%d drawn=%d\n",
+						live_n, live_drawn );
 #if 0 /* G281 DOL reclaim */
-				gEngfuncs.Con_Reportf(
-					"Xash3D GameCube: G220 live Flipper skyfill=%d of %d skip_cap=%d plane=%d back=%d noverts=%d fail=%d\n",
-					live_drawn, live_n, skipped_cap, skip_plane, skip_back, skip_noverts, emit_fail );
-#else
-				(void)live_drawn; (void)skipped_cap; (void)skip_plane;
-				(void)skip_back; (void)skip_noverts; (void)emit_fail; (void)live_n;
+				else
+					gEngfuncs.Con_Reportf(
+						"Xash3D GameCube: G220 live Flipper skyfill=%d of %d skip_cap=%d plane=%d back=%d noverts=%d fail=%d\n",
+						live_drawn, live_n, skipped_cap, skip_plane, skip_back, skip_noverts, emit_fail );
 #endif
+				(void)skipped_cap; (void)skip_plane;
+				(void)skip_back; (void)skip_noverts; (void)emit_fail;
 			}
+		}
+		else if( GC_WorldSurfacesScratchRetained() && !g213_logged )
+		{
+			g213_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G283 scratch retain-pin (stamp+LM-caps; lean empty)\n" );
 		}
 		else if( GC_WorldSurfacesLive() )
 		{
@@ -2112,6 +2327,12 @@ int R_GXDrawNewGameCapFaces( void )
 					"Xash3D GameCube: G286 water emit=%d/%d\n",
 					water_drawn, water_n );
 			}
+		}
+		/* G292/G297: tip-safe Flipper world decals — skip during G36 samples. */
+		{
+			extern qboolean GC_IsFrameBudgetProbeActive( void );
+			if( !GC_IsFrameBudgetProbeActive() )
+				drawn += R_GXEmitWorldDecals( world );
 		}
 	}
 	else if( draw && n > 0 )

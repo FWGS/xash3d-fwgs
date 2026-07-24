@@ -803,6 +803,45 @@ void GAME_EXPORT R_DecalShoot( int textureIndex, int entityIndex, int modelIndex
 	R_DecalNode( model, &model->nodes[hull->firstclipnode], &decalInfo );
 }
 
+/*
+===========
+R_DecalShootSurface
+
+G293: tip-safe Flipper seed — place a decal on a known msurface without BSP
+node walk (scratch world trees can miss DECAL_DISTANCE traces).
+===========
+*/
+void R_DecalShootSurface( int textureIndex, msurface_t *surf, vec3_t pos, float scale )
+{
+	decalinfo_t decalInfo;
+	int         width, height;
+
+	if( textureIndex <= 0 || textureIndex >= MAX_TEXTURES || !surf || !pos )
+		return;
+	if( !surf->texinfo || !surf->plane )
+		return;
+	if( surf->flags & ( SURF_DRAWTURB | SURF_DRAWSKY | SURF_CONVEYOR ))
+		return;
+
+	memset( &decalInfo, 0, sizeof( decalInfo ));
+	VectorCopy( pos, decalInfo.m_Position );
+	decalInfo.m_iTexture = textureIndex;
+	decalInfo.m_Entity = 0;
+	decalInfo.m_Flags = 0;
+	decalInfo.m_pModel = WORLDMODEL;
+
+	R_GetDecalDimensions( textureIndex, &width, &height );
+	decalInfo.m_Size = width >> 1;
+	if(( height >> 1 ) > decalInfo.m_Size )
+		decalInfo.m_Size = height >> 1;
+
+	decalInfo.m_scale = bound( MIN_DECAL_SCALE, scale, MAX_DECAL_SCALE );
+	decalInfo.m_decalWidth = width / decalInfo.m_scale;
+	decalInfo.m_decalHeight = height / decalInfo.m_scale;
+
+	R_DecalSurface( surf, &decalInfo );
+}
+
 // Build the vertex list for a decal on a surface and clip it to the surface.
 // This is a template so it can work on world surfaces and dynamic displacement
 // triangles the same way.

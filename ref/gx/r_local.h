@@ -460,6 +460,8 @@ void R_EntityRemoveDecals( model_t *mod );
 // void DrawDecalsBatch( void );
 void R_ClearDecals( void );
 void R_DecalComputeBasis( msurface_t *surf, int flags, vec3_t textureSpaceBasis[3] );
+/* G293: stamp a texture onto a known surface (skip BSP node walk). */
+void R_DecalShootSurface( int textureIndex, msurface_t *surf, vec3_t pos, float scale );
 
 void GL_Bind( int tmu, unsigned int texnum );
 

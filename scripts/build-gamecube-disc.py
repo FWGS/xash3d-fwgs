@@ -296,9 +296,13 @@ def build_iso9660(
 			hud_count = inject_gc_hud_into_bootstrap(archive, data)
 			if hud_count:
 				print(f"GameCube HUD mirror: injected {hud_count} sprite(s) into bootstrap pk3")
+			font_count = inject_gc_font_into_bootstrap(archive, data)
+			if font_count:
+				print(f"GameCube font mirror: injected {font_count} lean font(s) into bootstrap pk3")
 			sky_count = inject_gc_sky_into_bootstrap(archive, data)
 			if sky_count:
 				print(f"GameCube sky mirror: injected {sky_count} lean BMP(s) into bootstrap pk3")
+			# G293 disc inject deferred — ISO early-exit while debugging tip-safe path.
 
 		if extras is not None:
 			command.append(f"/xash3d/valve/extras.pk3={extras}")
@@ -853,6 +857,99 @@ GC_SKY_SIDES = (
 	("gfx/env/desertrt.bmp", "gfx/env/gc_desertrt.bmp"),
 )
 
+# G293: tip-safe lean decal TGAs. Path must NOT be under decals/ — that
+# collides with decals.wad on ISO9660 and hung New Game before map load.
+GC_LEAN_DECALS = (
+	("{shot1", "gc_decals/gc_shot1.tga"),
+	("{smscorch1", "gc_decals/gc_smscorch1.tga"),
+)
+
+
+def lean_decal_tga_from_wad(wad_path: Path, lump_name: str) -> bytes | None:
+	"""Decode one WAD3 MIP lump to an uncompressed 32-bit TGA (tip-safe size)."""
+	if not wad_path.is_file():
+		return None
+	try:
+		data = wad_path.read_bytes()
+	except OSError:
+		return None
+	if len(data) < 12:
+		return None
+	magic, count, doff = struct.unpack_from("<4sii", data, 0)
+	if magic not in (b"WAD2", b"WAD3") or count < 1:
+		return None
+	lump = None
+	for i in range(count):
+		off = doff + i * 32
+		if off + 32 > len(data):
+			break
+		filepos, disksize, _size, _typ, compression, _pad, name = struct.unpack_from(
+			"<iiibbh16s", data, off
+		)
+		n = name.split(b"\0", 1)[0].decode("latin-1", "replace")
+		if n.lower() != lump_name.lower() or compression:
+			continue
+		if filepos < 0 or disksize < 40 or filepos + disksize > len(data):
+			return None
+		lump = data[filepos : filepos + disksize]
+		break
+	if not lump:
+		return None
+	w, h = struct.unpack_from("<II", lump, 16)
+	offs = struct.unpack_from("<IIII", lump, 24)
+	if w < 1 or h < 1 or w > 64 or h > 64:
+		return None
+	if offs[0] + w * h > len(lump):
+		return None
+	pix = lump[offs[0] : offs[0] + w * h]
+	last = offs[3] + max(1, w // 8) * max(1, h // 8)
+	rest = lump[last:] if last < len(lump) else b""
+	if len(rest) >= 2 + 768:
+		pal = rest[2 : 2 + 768]
+	elif len(lump) >= 768:
+		pal = lump[-768:]
+	else:
+		return None
+	rgba = bytearray(w * h * 4)
+	for i, idx in enumerate(pix):
+		r, g, b = pal[idx * 3], pal[idx * 3 + 1], pal[idx * 3 + 2]
+		a = 0 if idx == 255 else 255
+		rgba[i * 4 : i * 4 + 4] = bytes((r, g, b, a))
+	header = bytearray(18)
+	header[2] = 2
+	header[12] = w & 255
+	header[13] = (w >> 8) & 255
+	header[14] = h & 255
+	header[15] = (h >> 8) & 255
+	header[16] = 32
+	header[17] = 8
+	rows = []
+	for y in range(h - 1, -1, -1):
+		row = bytearray()
+		for x in range(w):
+			i = (y * w + x) * 4
+			r, g, b, a = rgba[i : i + 4]
+			row += bytes((b, g, r, a))
+		rows.append(row)
+	return bytes(header) + b"".join(rows)
+
+
+def inject_gc_decals_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
+	"""G293: inject lean shot/scorch TGAs so Flipper decals skip fat WAD alloc."""
+	wad = data / "decals.wad"
+	staged = 0
+	for lump_name, arc_rel in GC_LEAN_DECALS:
+		arcname = arc_rel.lower()
+		if arcname in archive.NameToInfo:
+			continue
+		payload = lean_decal_tga_from_wad(wad, lump_name)
+		if not payload:
+			continue
+		archive.writestr(arcname, payload, compress_type=zipfile.ZIP_STORED)
+		print(f"  lean decal {lump_name}: → {arcname} ({len(payload)} bytes)")
+		staged += 1
+	return staged
+
 
 def _downsample_bmp_to_bytes(src: Path, size: int = 64) -> bytes | None:
 	"""Return a size×size 8-bit BMP suitable for ImageLib sky loads."""
@@ -873,11 +970,14 @@ def _downsample_bmp_to_bytes(src: Path, size: int = 64) -> bytes | None:
 
 
 def inject_gc_sky_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
-	"""Add lean 64×64 desert sky BMPs into bootstrap under gc_desert* names."""
+	"""Add lean 16×16 desert sky BMPs into bootstrap under gc_desert* names.
+
+	G300: 64→16 so ImageLib decode is ≤1 KiB (32² soft-failed under tip).
+	"""
 	staged = 0
 	for src_rel, arc_rel in GC_SKY_SIDES:
 		src = data / src_rel
-		payload = _downsample_bmp_to_bytes(src, 64)
+		payload = _downsample_bmp_to_bytes(src, 16)
 		if not payload:
 			continue
 		arcname = arc_rel.lower()
@@ -1025,6 +1125,67 @@ def lean_hl_spr_bytes(src: Path, scale: int = 2) -> bytes | None:
 	out += struct.pack("<iiii", ox // scale, oy // scale, nw, nh)
 	out += out_pix
 	return bytes(out)
+
+
+def inject_gc_font_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
+	"""G296: tip-safe downsampled CREDITSFONT (128×32) — full wad tip at VidInit."""
+	wad = data / "gfx.wad"
+	if not wad.is_file():
+		return 0
+	arcname = "gfx/gc_creditsfont.fnt"
+	if arcname in archive.NameToInfo:
+		return 0
+	try:
+		blob = wad.read_bytes()
+	except OSError:
+		return 0
+	if len(blob) < 12:
+		return 0
+	magic, count, doff = struct.unpack_from("<4sii", blob, 0)
+	if magic not in (b"WAD2", b"WAD3") or count < 1:
+		return 0
+	for i in range(count):
+		off = doff + i * 32
+		if off + 32 > len(blob):
+			break
+		filepos, disksize, _size, _typ, compression, _pad, name = struct.unpack_from(
+			"<iiibbh16s", blob, off
+		)
+		n = name.split(b"\0", 1)[0].decode("latin-1", "replace")
+		if n.upper() != "CREDITSFONT" or compression:
+			continue
+		if filepos < 0 or disksize < 1024 or filepos + disksize > len(blob):
+			return 0
+		lump = bytearray(blob[filepos : filepos + disksize])
+		# qfont_t: 4 ints + 256 charinfo + data[4]  → fin at sizeof-4
+		qfont_size = 4 * 4 + 256 * 4 + 4
+		fin_off = qfont_size - 4
+		src_w, src_h = 256, 64
+		if fin_off + src_w * src_h + 2 + 768 > len(lump):
+			return 0
+		pix = lump[fin_off : fin_off + src_w * src_h]
+		pal = lump[fin_off + src_w * src_h :]
+		dst_w, dst_h = 128, 32
+		out = bytearray(dst_w * dst_h)
+		for y in range(dst_h):
+			for x in range(dst_w):
+				out[y * dst_w + x] = pix[(y * 2) * src_w + (x * 2)]
+		_width, _height, rowcount, rowheight = struct.unpack_from("<iiii", lump, 0)
+		struct.pack_into(
+			"<iiii", lump, 0, _width, dst_h, rowcount, max(1, rowheight // 2)
+		)
+		for gi in range(256):
+			so, cw = struct.unpack_from("<hh", lump, 16 + gi * 4)
+			sx, sy = so % src_w, so // src_w
+			nso = (sy // 2) * dst_w + (sx // 2)
+			struct.pack_into("<hh", lump, 16 + gi * 4, nso, max(1, cw // 2))
+		payload = bytes(lump[:fin_off]) + bytes(out) + bytes(pal)
+		if len(payload) > 8 * 1024:
+			return 0
+		archive.writestr(arcname, payload, compress_type=zipfile.ZIP_STORED)
+		print(f"  lean font CREDITSFONT: → {arcname} ({len(payload)} bytes, {dst_w}x{dst_h})")
+		return 1
+	return 0
 
 
 def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
