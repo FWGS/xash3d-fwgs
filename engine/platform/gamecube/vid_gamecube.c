@@ -5533,7 +5533,7 @@ static void GC_PresentBuffer( void )
 			{
 				g297_cpu_logged = true;
 				SYS_Report( "Xash3D GameCube: G297 Flipper cpu=%.2fms (pre-vsync) frame_budget=%d live=%d fill=%d\n",
-					cpu_ms, 192, 80, 24 );
+					cpu_ms, 224, 112, 32 );
 			}
 		}
 		/* Flipper path used to return before timing updates (G36 blind spot). */

@@ -5151,8 +5151,8 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 	 * decoration, nodes, and triggers so ClientPutInServer / graph setup can finish.
 	 * Strip heavy gameplay plus sprite/sound decor that burns MEM1 on retail c0a0
 	 * (env_glow/env_sprite flare loads previously OOMed past HUD_Init).
-	 * G299: restoring multi_manager/ambient/env_message tipped InitInput — keep
-	 * stripped until a lean private-data path exists. */
+	 * G303/G304/G305: mm + ambient + env_message after G302 reclaim; titles
+	 * init already skipped on smoke route. */
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{
 		if( !Q_strnicmp( classname, "monster_", 8 )
@@ -5164,17 +5164,13 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 		 || !Q_stricmp( classname, "scripted_sequence" )
 		 || !Q_stricmp( classname, "aiscripted_sequence" )
 		 || !Q_stricmp( classname, "scripted_sentence" )
-		 || !Q_stricmp( classname, "ambient_generic" )
 		 || !Q_stricmp( classname, "env_sprite" )
 		 || !Q_stricmp( classname, "env_glow" )
 		 || !Q_stricmp( classname, "env_beam" )
 		 || !Q_stricmp( classname, "env_laser" )
 		 || !Q_stricmp( classname, "env_explosion" )
-		 || !Q_stricmp( classname, "env_message" )
 		 || !Q_stricmp( classname, "infodecal" )
-		 || !Q_stricmp( classname, "speaker" )
-		 || !Q_stricmp( classname, "multi_manager" )
-		 || !Q_stricmp( classname, "multisource" ))
+		 || !Q_stricmp( classname, "speaker" ))
 			return true;
 		return false;
 	}
@@ -5556,7 +5552,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 		Con_DPrintf( "\n%i entities inhibited\n", inhibited );
 #if XASH_GAMECUBE
 		if( Sys_CheckParm( "-gcnewgame" ))
-			Con_Reportf( "Xash3D GameCube: G299 entities inhibited=%d (logic ents still tip InitInput)\n",
+			Con_Reportf( "Xash3D GameCube: G305 entities inhibited=%d (mm+ambient+message)\n",
 				inhibited );
 #endif
 	}

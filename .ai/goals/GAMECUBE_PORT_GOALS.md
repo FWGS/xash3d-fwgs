@@ -177,7 +177,11 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 
 **Immediate source queue (open automatic goals, in order):**
 1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) — operator-only; handoff `.ai/logs/hardware-handoff-20260722-221451`
-2. Flipper GX residuals under tip ceiling (bootstrap TGA inject still unsafe; console conchars optional; **logic ents tip InitInput** — keep 58 inhibited)
+2. Flipper GX residuals under tip ceiling (monsters/scripted/glow/sprites still tip — **41 inhibited**)
+3. ~~G305~~ — restore `env_message` — inhibited **41**; InitInput OK; probe `20260723-211215`
+3. ~~G304~~ — restore `ambient_generic` — inhibited 52→**50**; probe `20260723-211047`
+3. ~~G303~~ — restore `multi_manager` after G302 MEM reclaim — inhibited 58→**52**; mm fires; probe `20260723-210845`
+3. ~~G302~~ — Flipper live emit 80→**112** + lean Host_InitDecals (4 kinds) — `drawn=112`; probe `20260723-210700`
 3. ~~G300~~ — tip-safe lean sky: prepare-time install + 16×16 bootstrap BMPs + BSS procedural fallback — `lean skybox loaded 'desert' sides=1 (up)`; probe `20260723-205857`
 3. ~~G299~~ — lean live BSS 48→**64** under scratch retain (`n=64 drawn=64`); entity restore tips InitInput — deferred — probe `20260723-204111`
 3. ~~G298~~ — lean live after Capture under G283 scratch retain (48-face BSS; fill stays off) — `n=48 fill=0`; probe `20260723-202358`

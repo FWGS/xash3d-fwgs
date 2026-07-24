@@ -473,6 +473,27 @@ static void Host_InitDecals( void )
 
 	memset( host.draw_decals, 0, sizeof( host.draw_decals ));
 
+#if XASH_GAMECUBE
+	/* G302: New Game / gcmap use embedded lean `{` kinds — skip enumerating
+	 * 222 decals.wad MIPs (name table + FS search pressure under tip). */
+	if( Sys_CheckParm( "-gcnewgame" ) || Sys_CheckParm( "-gcmap" ))
+	{
+		static const char *lean[] = {
+			"{shot1", "{smscorch1", "{blood1", "{break1"
+		};
+		int i;
+
+		for( i = 0; i < (int)( sizeof( lean ) / sizeof( lean[0] )); i++ )
+		{
+			if( !Host_RegisterDecal( lean[i], &num_decals ))
+				break;
+		}
+		Con_Reportf( "Xash3D GameCube: G302 lean Host_InitDecals: %i (skip wad enum)\n",
+			num_decals );
+		return;
+	}
+#endif
+
 	// lookup all the decals in decals.wad (basedir, gamedir, falldir)
 	search_t *t = FS_Search( "decals.wad/*.*", true, false );
 

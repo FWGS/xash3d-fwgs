@@ -15,6 +15,7 @@ G185: cut Flipper HUD fill (lean crosshair cell + fill-px telemetry).
 G186: skip tiny / far-small Flipper faces before ST/LM emit (fill lean).
 G297: tighter face budgets + skip EFX/decals during G36 sample window.
 G298: lean live+fill after Capture under G283 scratch retain (baked verts).
+G302: raise Flipper live emit 80→112 — lean pool holds ~124, work ~1ms.
 G187: HUD holes punch near-black ink (crosshair sheet non-255 dark texels).
 G201: guFrustum projection for GX_PERSPECTIVE (Xash GL proj was invisible).
 G202: Flipper diffuse REPLACE (no LM crush on eye-centered quads).
@@ -145,15 +146,16 @@ static qboolean r_gx_tex_band_logged;
 #ifndef GC_GX_FAR_MIN_AREA
 #define GC_GX_FAR_MIN_AREA 4096	/* keep medium walls when far */
 #endif
-/* G280/G282/G297: Flipper per-frame emit. Caps + live PVS pool share FRAME. */
+/* G280/G282/G297/G302: Flipper per-frame emit. Caps + live PVS pool share FRAME.
+ * G297 cut for headroom; unmasked G36 ~1ms so G302 restores live toward pool size. */
 #ifndef GC_GX_FRAME_FACE_BUDGET
-#define GC_GX_FRAME_FACE_BUDGET 192	/* G297: was 224 — Flipper fill lean */
+#define GC_GX_FRAME_FACE_BUDGET 224	/* G302: was 192 — room for live+caps */
 #endif
 #ifndef GC_GX_LIVE_FACE_BUDGET
-#define GC_GX_LIVE_FACE_BUDGET 80	/* G297: was 96 */
+#define GC_GX_LIVE_FACE_BUDGET 112	/* G302: was 80 — lean pool n≈124 */
 #endif
 #ifndef GC_GX_FILL_FACE_BUDGET
-#define GC_GX_FILL_FACE_BUDGET 24	/* G297: was 32 */
+#define GC_GX_FILL_FACE_BUDGET 32	/* G302: was 24 */
 #endif
 static int r_gx_face_skips;
 static int r_gx_face_skip_area;
