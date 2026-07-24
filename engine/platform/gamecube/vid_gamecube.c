@@ -237,8 +237,9 @@ typedef struct
 #endif
 #define GC_LIVE_MAX_FACES 248 /* G262: quiet Capture reclaim → tip-safe 248 (256 hangs) */
 /* G298/G299: after FatPVS, heap is fragmented — BSS lean under tip.
- * 96 tipped NEWGAME_EARLY; 48 passed; G299 raises 48→64 (no extra ents). */
-#define GC_LIVE_BSS_FACES 64
+ * 96 tipped NEWGAME_EARLY; 48 passed; G299 raises 48→64 (no extra ents).
+ * G310: 64→48 reclaim ~2 KiB BSS into denser tram (heap live still →124). */
+#define GC_LIVE_BSS_FACES 48
 static qboolean GC_CapFaceAlready( int firstedge, int numedges );
 static qboolean GC_DumpEyeInFrontOfBestWall( float *eye, float *out_angles );
 static qboolean GC_DumpEyeAtTramStart( float *eye, float *out_angles );
@@ -256,6 +257,8 @@ static int GC_BakeCapVertsFromModel( model_t *wmodel, int firstedge, int numedge
 	signed short out[][3], int maxverts );
 static int GC_BakeCapVertsFromModelDecimated( model_t *wmodel, int firstedge, int numedges,
 	const mplane_t *pl, signed short out[][3], int maxverts );
+static int GC_BakeCapVertsForSurf( model_t *wmodel, const msurface_t *src,
+	signed short out[][3], int maxverts, byte *out_src );
 static gc_live_cand_t *gc_live_faces;
 static int gc_live_face_capacity;
 static int gc_live_face_count;
@@ -288,19 +291,30 @@ static int *gc_fill_face_scores;
 static int gc_fill_face_capacity;
 static int gc_fill_face_count;
 static qboolean gc_g222_fill_logged;
-/* G277: *12 intro tram — live msurface_t dangles after scratch; bake at capture. */
-#define GC_TRAM_MAX_FACES 16
+/*
+ * G306–G310: *12 intro tram — bake ranked brush faces at capture.
+ * G310: live BSS 64→48 unlocked lean×192 + live=124.
+ * Atlas LM only covers slots 320..511 (192); extra faces draw flat.
+ */
+#define GC_TRAM_MAX_FACES 256 /* geom; first 192 get LM tiles */
+#define GC_TRAM_LM_MAX 192 /* GC_TRAM_LM_SLOT0 .. atlas end */
+#define GC_TRAM_EXT_RESERVE 24 /* windshield/nose slots after cabin fill */
+#define GC_TRAM_MAX_VERTS 4 /* quads; decimate n>4 at bake (caps still use 5) */
 #define GC_TRAM_LM_SLOT0 320	/* unused tiles in 128×64 cap atlas (512 capacity) */
+#define GC_TRAM_FACE_EXTERIOR 0x01
 typedef struct
 {
 	byte		nverts;
-	signed short	pts_s16[GC_CAP_MAX_VERTS][3];
+	byte		flags; /* GC_TRAM_FACE_* */
+	signed short	pts_s16[GC_TRAM_MAX_VERTS][3];
+	int		firstedge; /* match world msurface for LM bake */
 } gc_tram_face_t;
 static gc_tram_face_t gc_tram_faces[GC_TRAM_MAX_FACES];
 static int gc_tram_face_count;
 static qboolean gc_tram_lm_ready;
 static int gc_tram_diffuse_texnum;
 static qboolean gc_tram_lm_logged;
+static qboolean gc_tram_cabin_ride; /* G306: skip exterior while eye is in cabin */
 /* G286: tip-safe Flipper water — baked turb verts (no live-pool tip / no draw walk hang). */
 #define GC_WATER_MAX_FACES 8
 typedef struct
@@ -574,56 +588,169 @@ qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags )
 =============
 GC_CaptureIntroTrainFaces
 
-G277: snapshot *12 brush faces while msurface_t/edges are still valid.
-Full surface promote OOMs (~662 KiB); Flipper world already uses baked caps.
+G310: bake ranked *12 brush faces while msurface_t/edges are still valid.
+Full surface promote OOMs (~662 KiB); Flipper uses these baked verts instead.
+Cabin-first fill, then reserve windshield exterior slots for outside view.
 =============
 */
 void GC_CaptureIntroTrainFaces( model_t *wmodel )
 {
 	model_t *tram;
-	int i, q;
+	int i;
+	int scores[GC_TRAM_MAX_FACES];
+	int cabin_n = 0, ext_n = 0;
+	int cabin_cap = GC_TRAM_MAX_FACES - GC_TRAM_EXT_RESERVE;
+	int exterior = 0;
 	static qboolean baked_ok;
-	/*
-	 * Windshield frame on local x=144 (hole shows tunnel). Keep the hole large
-	 * enough that Z-ignore frame quads do not paint out the tunnel mid.
-	 * Short ±Y returns add depth; ceil/sill / Z-split body tipped InitInput.
-	 */
-	static const short shell[6][4][3] = {
-		{ { 144, -75, 100 }, { 144, 75, 100 }, { 144, 75, 131 }, { 144, -75, 131 } },
-		{ { 144, -75, -6 }, { 144, 75, -6 }, { 144, 75, 40 }, { 144, -75, 40 } },
-		{ { 144, 40, 40 }, { 144, 75, 40 }, { 144, 75, 100 }, { 144, 40, 100 } },
-		{ { 144, -75, 40 }, { 144, -40, 40 }, { 144, -40, 100 }, { 144, -75, 100 } },
-		/* Short depth returns at the pillars (x 120→144). */
-		{ { 120, 72, 40 }, { 144, 72, 40 }, { 144, 72, 100 }, { 120, 72, 100 } },
-		{ { 144, -72, 40 }, { 120, -72, 40 }, { 120, -72, 100 }, { 144, -72, 100 } },
-	};
 
-	(void)wmodel;
 	if( baked_ok && gc_tram_face_count > 0 )
 		return;
 	gc_tram_face_count = 0;
 	baked_ok = false;
+	memset( gc_tram_faces, 0, sizeof( gc_tram_faces ));
+	memset( scores, 0, sizeof( scores ));
+	if( cabin_cap < 32 )
+		cabin_cap = 32;
 
+	if( !wmodel || !wmodel->surfaces || !wmodel->surfedges )
+		return;
 	tram = Mod_FindName( "*12", false );
-	if( !tram || tram->type != mod_brush || tram->nummodelsurfaces < 273 )
+	if( !tram || tram->type != mod_brush || tram->nummodelsurfaces < 200 )
+		return;
+	if( tram->firstmodelsurface < 0
+		|| tram->firstmodelsurface + tram->nummodelsurfaces > wmodel->numsurfaces )
 		return;
 
-	for( q = 0; q < 6 && q < GC_TRAM_MAX_FACES; q++ )
+	/* Pass 1: cabin / body (not strict forward windshield). */
+	for( i = 0; i < tram->nummodelsurfaces; i++ )
 	{
-		gc_tram_face_t *dst = &gc_tram_faces[gc_tram_face_count];
+		msurface_t *src = &wmodel->surfaces[tram->firstmodelsurface + i];
+		gc_tram_face_t trial;
+		byte bake_src = GC_CAP_BAKE_NONE;
+		int n, area, score, min_i, min_score, k;
+		float nx;
 
-		dst->nverts = 4;
-		for( i = 0; i < 4; i++ )
+		if( !src->plane || src->numedges < 3 )
+			continue;
+		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+			continue;
+		if( src->firstedge < 0
+			|| src->firstedge + src->numedges > wmodel->numsurfedges )
+			continue;
+		nx = src->plane->normal[0];
+		if( nx > 0.70f )
+			continue;
+		area = (int)src->extents[0] * (int)src->extents[1];
+		if( area < 64 )
+			continue;
+
+		memset( &trial, 0, sizeof( trial ));
+		n = GC_BakeCapVertsForSurf( wmodel, src, trial.pts_s16, GC_TRAM_MAX_VERTS, &bake_src );
+		if( n < 3 || ( bake_src != GC_CAP_BAKE_EDGE && bake_src != GC_CAP_BAKE_TEX
+			&& bake_src != GC_CAP_BAKE_PLANE ))
+			continue;
+		trial.nverts = (byte)n;
+		trial.firstedge = src->firstedge;
+		score = area;
+		if( src->samples )
+			score += 10000;
+
+		if( cabin_n < cabin_cap )
 		{
-			dst->pts_s16[i][0] = shell[q][i][0];
-			dst->pts_s16[i][1] = shell[q][i][1];
-			dst->pts_s16[i][2] = shell[q][i][2];
+			gc_tram_faces[cabin_n] = trial;
+			scores[cabin_n] = score;
+			cabin_n++;
+			continue;
 		}
-		gc_tram_face_count++;
+		min_i = 0;
+		min_score = scores[0];
+		for( k = 1; k < cabin_cap; k++ )
+		{
+			if( scores[k] < min_score )
+			{
+				min_score = scores[k];
+				min_i = k;
+			}
+		}
+		if( score <= min_score )
+			continue;
+		gc_tram_faces[min_i] = trial;
+		scores[min_i] = score;
 	}
 
+	/* Pass 2: windshield / nose exterior into reserved slots. */
+	ext_n = 0;
+	for( i = 0; i < tram->nummodelsurfaces; i++ )
+	{
+		msurface_t *src = &wmodel->surfaces[tram->firstmodelsurface + i];
+		gc_tram_face_t trial;
+		byte bake_src = GC_CAP_BAKE_NONE;
+		int n, area, score, min_i, min_score, k, slot0;
+		float nx;
+		int ext_cap = GC_TRAM_MAX_FACES - cabin_n;
+
+		if( ext_cap <= 0 )
+			break;
+		if( !src->plane || src->numedges < 3 )
+			continue;
+		if( src->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
+			continue;
+		if( src->firstedge < 0
+			|| src->firstedge + src->numedges > wmodel->numsurfedges )
+			continue;
+		nx = src->plane->normal[0];
+		if( nx <= 0.70f )
+			continue;
+		area = (int)src->extents[0] * (int)src->extents[1];
+		if( area < 64 )
+			continue;
+
+		memset( &trial, 0, sizeof( trial ));
+		n = GC_BakeCapVertsForSurf( wmodel, src, trial.pts_s16, GC_TRAM_MAX_VERTS, &bake_src );
+		if( n < 3 || ( bake_src != GC_CAP_BAKE_EDGE && bake_src != GC_CAP_BAKE_TEX
+			&& bake_src != GC_CAP_BAKE_PLANE ))
+			continue;
+		trial.nverts = (byte)n;
+		trial.firstedge = src->firstedge;
+		trial.flags = GC_TRAM_FACE_EXTERIOR;
+		score = area;
+		if( src->samples )
+			score += 10000;
+
+		slot0 = cabin_n;
+		if( ext_n < ext_cap )
+		{
+			gc_tram_faces[slot0 + ext_n] = trial;
+			scores[slot0 + ext_n] = score;
+			ext_n++;
+			continue;
+		}
+		min_i = 0;
+		min_score = scores[slot0];
+		for( k = 1; k < ext_cap; k++ )
+		{
+			if( scores[slot0 + k] < min_score )
+			{
+				min_score = scores[slot0 + k];
+				min_i = k;
+			}
+		}
+		if( score <= min_score )
+			continue;
+		gc_tram_faces[slot0 + min_i] = trial;
+		scores[slot0 + min_i] = score;
+	}
+
+	gc_tram_face_count = cabin_n + ext_n;
+	exterior = ext_n;
+
 	if( gc_tram_face_count > 0 )
+	{
 		baked_ok = true;
+		Con_Reportf( "Xash3D GameCube: G310 tram bake n=%d max=%d cabin=%d ext=%d surfs=%d lean=%uB\n",
+			gc_tram_face_count, GC_TRAM_MAX_FACES, cabin_n, exterior,
+			tram->nummodelsurfaces, (unsigned)sizeof( gc_tram_face_t ));
+	}
 }
 
 static u16 *GC_CapAtlasTile( int slot );
@@ -752,55 +879,29 @@ static void GC_BakeTramLightmaps( model_t *wmodel )
 	{
 		const gc_tram_face_t *face = &gc_tram_faces[fi];
 		msurface_t *best = NULL;
-		int best_score = -1;
-		float cy = 0.0f, cz = 0.0f;
-		int v;
 		u16 *tile;
 
-		if( GC_TRAM_LM_SLOT0 + fi >= GC_LM_ATLAS_COLS * GC_LM_ATLAS_ROWS )
+		if( fi >= GC_TRAM_LM_MAX
+			|| GC_TRAM_LM_SLOT0 + fi >= GC_LM_ATLAS_COLS * GC_LM_ATLAS_ROWS )
 			break;
 
-		for( v = 0; v < (int)face->nverts && v < 4; v++ )
-		{
-			cy += (float)face->pts_s16[v][1];
-			cz += (float)face->pts_s16[v][2];
-		}
-		cy *= 0.25f;
-		cz *= 0.25f;
-
+		/* G306: match by firstedge (was windshield-normal heuristic for 6 shells). */
 		for( si = 0; si < tram->nummodelsurfaces; si++ )
 		{
 			msurface_t *surf = &wmodel->surfaces[tram->firstmodelsurface + si];
-			float nx, dist_pl;
-			int area, score;
 
-			if( !surf->plane || !surf->samples )
+			if( surf->firstedge != face->firstedge )
 				continue;
-			if( surf->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT ))
-				continue;
-			if( surf->numedges < 3 )
-				continue;
-			nx = surf->plane->normal[0];
-			if( nx < 0.55f )
-				continue;
-			area = (int)surf->extents[0] * (int)surf->extents[1];
-			if( area <= 0 )
-				continue;
-			dist_pl = (float)fabs( (double)surf->plane->dist - 144.0 );
-			score = area + (int)( nx * 200000.0f ) - (int)( dist_pl * 100.0f );
-			score -= (int)( fabs( (double)cy ) + fabs( (double)cz ) ) / 8;
-			if( score > best_score )
-			{
-				best_score = score;
-				best = surf;
-			}
+			best = surf;
+			break;
 		}
 
 		/* G277: reuse unused cap-atlas tiles (slots 320+) — no dedicated BSS. */
 		tile = GC_CapAtlasTile( GC_TRAM_LM_SLOT0 + fi );
 		if( !tile )
 			continue;
-		if( best )
+		if( best && best->samples
+			&& !( best->flags & ( SURF_DRAWSKY | SURF_DRAWTURB | SURF_TRANSPARENT )))
 		{
 			GC_BakeTramLightmapTile( best, tile );
 			baked++;
@@ -824,6 +925,18 @@ static void GC_BakeTramLightmaps( model_t *wmodel )
 int GC_GetTramFaceCount( void )
 {
 	return gc_tram_face_count;
+}
+
+int GC_GetTramFaceFlags( int index )
+{
+	if( index < 0 || index >= gc_tram_face_count )
+		return 0;
+	return (int)gc_tram_faces[index].flags;
+}
+
+qboolean GC_TramCabinRide( void )
+{
+	return gc_tram_cabin_ride;
 }
 
 int GC_GetWaterFaceCount( void )
@@ -876,8 +989,8 @@ int GC_GetTramFaceVerts( int index, float out[][3], int maxverts )
 	n = (int)src->nverts;
 	if( n < 3 )
 		return 0;
-	if( n > GC_CAP_MAX_VERTS )
-		n = GC_CAP_MAX_VERTS;
+	if( n > GC_TRAM_MAX_VERTS )
+		n = GC_TRAM_MAX_VERTS;
 	if( n > maxverts )
 		n = maxverts;
 	for( i = 0; i < n; i++ )
@@ -931,6 +1044,11 @@ void GC_GetTramLightmapUV( int face, float s, float t, float *out_s, float *out_
 		t = 0.0f;
 	else if( t > 1.0f )
 		t = 1.0f;
+	if( face >= GC_TRAM_LM_MAX )
+	{
+		*out_s = *out_t = 0.0f;
+		return;
+	}
 	slot = GC_TRAM_LM_SLOT0 + face;
 	col = slot % GC_LM_ATLAS_COLS;
 	row = slot / GC_LM_ATLAS_COLS;
@@ -7958,8 +8076,8 @@ int GC_GXDrawIntroTrain( void )
 	ent = SV_EdictNum( tram_e );
 	if( !SV_IsValidEdict( ent ))
 		return 0;
-	/* G280: eye is parented inside the cabin — drawing *12 exterior faces
-	 * with Z-ignore paints ghost cars and burns Flipper time. Skip while riding. */
+	/* G306: while riding, still draw cabin mesh; skip exterior windshield only. */
+	gc_tram_cabin_ride = false;
 	{
 		edict_t *player = ( svs.maxclients >= 1 ) ? SV_EdictNum( 1 ) : NULL;
 		vec3_t delta;
@@ -7970,7 +8088,7 @@ int GC_GXDrawIntroTrain( void )
 			VectorSubtract( player->v.origin, ent->v.origin, delta );
 			dist2 = DotProduct( delta, delta );
 			if( dist2 < ( 220.0f * 220.0f ))
-				return 0;
+				gc_tram_cabin_ride = true;
 		}
 	}
 	return R_GXDrawTramBaked( ent->v.origin, ent->v.angles );

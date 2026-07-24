@@ -166,8 +166,10 @@ qboolean GC_IsCaptureDiagnostics( void );
 void GC_GetVideoSafeArea( int *x, int *y, int *w, int *h );
 int GC_GXDrawIntroTrain( void );
 struct model_s *GC_GetWorldModel( void );
-int GC_GetTramFaceCount( void ); /* G277: capture-baked *12 faces */
+int GC_GetTramFaceCount( void ); /* G277/G306: capture-baked *12 faces */
 int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
+int GC_GetTramFaceFlags( int index ); /* G306: GC_TRAM_FACE_EXTERIOR */
+qboolean GC_TramCabinRide( void ); /* G306: eye inside cabin — skip exterior */
 qboolean GC_TramLightmapReady( void );
 int GC_GetTramDiffuseTexnum( void );
 const unsigned short *GC_GetTramLightmapAtlas( int *w, int *h );

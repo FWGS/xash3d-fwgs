@@ -61,6 +61,11 @@ extern qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags );
 extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
 extern int GC_GetTramFaceCount( void );
 extern int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
+extern int GC_GetTramFaceFlags( int index );
+extern qboolean GC_TramCabinRide( void );
+#ifndef GC_TRAM_FACE_EXTERIOR
+#define GC_TRAM_FACE_EXTERIOR 0x01
+#endif
 extern qboolean GC_TramLightmapReady( void );
 extern int GC_GetTramDiffuseTexnum( void );
 extern const unsigned short *GC_GetTramLightmapAtlas( int *w, int *h );
@@ -149,10 +154,10 @@ static qboolean r_gx_tex_band_logged;
 /* G280/G282/G297/G302: Flipper per-frame emit. Caps + live PVS pool share FRAME.
  * G297 cut for headroom; unmasked G36 ~1ms so G302 restores live toward pool size. */
 #ifndef GC_GX_FRAME_FACE_BUDGET
-#define GC_GX_FRAME_FACE_BUDGET 224	/* G302: was 192 — room for live+caps */
+#define GC_GX_FRAME_FACE_BUDGET 248	/* G306: was 224 — room for live 124 + caps */
 #endif
 #ifndef GC_GX_LIVE_FACE_BUDGET
-#define GC_GX_LIVE_FACE_BUDGET 112	/* G302: was 80 — lean pool n≈124 */
+#define GC_GX_LIVE_FACE_BUDGET 124	/* G306: was 112 — match lean pool n≈124 */
 #endif
 #ifndef GC_GX_FILL_FACE_BUDGET
 #define GC_GX_FILL_FACE_BUDGET 32	/* G302: was 24 */
@@ -2916,9 +2921,10 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 =============
 R_GXDrawTramBaked
 
-G277: Flipper emit of capture-baked *12 verts with entity transform.
+G306: Flipper emit of capture-baked *12 verts with entity transform.
 Live msurface_t is garbage after BSP scratch reuse.
 Prefer *12 style-0 LM × diffuse; flat orange only if LM bake missed.
+Cabin ride skips exterior windshield (G280 ghost); interior uses normal Z.
 =============
 */
 int R_GXDrawTramBaked( const float *origin, const float *angles )
@@ -2926,6 +2932,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	int i, n, drawn = 0;
 	Mtx view;
 	qboolean lit = false;
+	qboolean cabin = GC_TramCabinRide();
 	const unsigned short *tram_lm = NULL;
 	int lm_w = 0, lm_h = 0;
 	int texnum;
@@ -2948,8 +2955,9 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	r_gx_bound_texnum = 0;
 	r_gx_lm_atlas_bound = false;
 	GX_SetCullMode( GX_CULL_NONE );
-	r_gx_flat_z_ignore = true;
-	r_gx_flat_z_write = false;
+	/* Full mesh: normal Z. Exterior-only Z-ignore was for the 6-quad shell. */
+	r_gx_flat_z_ignore = false;
+	r_gx_flat_z_write = true;
 
 	texnum = GC_GetTramDiffuseTexnum();
 	tram_lm = GC_GetTramLightmapAtlas( &lm_w, &lm_h );
@@ -2968,9 +2976,13 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 		float pts[32][3];
 		float sts[4][2];
 		float lmst[4][2];
-		int nv = GC_GetTramFaceVerts( i, pts, 32 );
+		int nv;
 		int v;
+		int flags = GC_GetTramFaceFlags( i );
 
+		if( cabin && ( flags & GC_TRAM_FACE_EXTERIOR ))
+			continue;
+		nv = GC_GetTramFaceVerts( i, pts, 32 );
 		if( nv < 3 )
 			continue;
 		for( v = 0; v < nv; v++ )
@@ -2980,7 +2992,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 			pts[v][2] = origin[2] + pts[v][2];
 		}
 
-		if( lit && nv == 4 )
+		if( lit && nv == 4 && i < 192 ) /* G310: overflow faces are flat (no LM tile) */
 		{
 			for( v = 0; v < 4; v++ )
 			{
@@ -2991,7 +3003,7 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 			}
 			if( r_gx_face_mode != GC_GX_FACE_MODE_LIT )
 			{
-				GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
 				GX_SetNumTexGens( 2 );
 				GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
 				GX_SetTexCoordGen( GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY );
@@ -3046,9 +3058,17 @@ int R_GXDrawTramBaked( const float *origin, const float *angles )
 	GX_SetCullMode( GX_CULL_BACK );
 	if( drawn > 0 )
 	{
+		static qboolean g306_draw_logged;
+
 		r_gx_world_drew = true;
 		GC_MarkGxWorldEfbReady();
 		GX_Flush();
+		if( !g306_draw_logged )
+		{
+			g306_draw_logged = true;
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: G310 tram draw n=%d/%d cabin=%d\n",
+				drawn, n, cabin ? 1 : 0 );
+		}
 	}
 	return drawn;
 }
@@ -3107,7 +3127,7 @@ int R_GXDrawBrushModel( cl_entity_t *e )
 	{
 		int got;
 
-		if( drawn >= 96 ) /* G277 tram face budget */
+		if( drawn >= 256 ) /* G310 tram face budget matches GC_TRAM_MAX_FACES */
 			break;
 		if( !psurf->plane || psurf->numedges < 3 )
 			continue;
