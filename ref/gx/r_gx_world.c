@@ -24,9 +24,9 @@ G216: lean live baked verts for skyfill emit (edges may dangle).
 G221: indoor EFB clear under -gcnewgame (holes ≠ outdoor sky blue).
 G222: heap flat-fill faces beyond 320+192 (after live pool; no BSS steal).
 
-Retail Flipper scope (G198): capped/PVS world faces + studio/viewmodel + HUD.
-Not feature-parity: full brush-mover lighting, particles, beams, decals, and
-turb water remain unsupported; use -gcsoftworld / capture dump latch only.
+Retail Flipper scope (G198/G285/G286): capped/PVS world faces + studio/viewmodel +
+HUD + lean skybox backdrop + baked turb/water (≤8 BSS). Not feature-parity:
+particles, beams, decals, and full brush-mover lighting remain soft/diagnostic.
 */
 #include "r_local.h"
 
@@ -52,6 +52,9 @@ extern int GC_GetLiveFaceVerts( int index, float out[][3], int maxverts );
 extern int GC_GetLiveFaceBakeSrc( int index );
 extern int GC_GetFillFaceCount( void );
 extern int GC_GetFillFaceVerts( int index, float out[][3], int maxverts );
+extern int GC_GetWaterFaceCount( void );
+extern int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts );
+extern qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags );
 extern qboolean GC_FillFacePlane( int index, mplane_t *out, int *out_flags );
 extern int GC_GetTramFaceCount( void );
 extern int GC_GetTramFaceVerts( int index, float out[][3], int maxverts );
@@ -142,13 +145,13 @@ static qboolean r_gx_tex_band_logged;
 #endif
 /* G280/G282: Flipper per-frame emit. Caps + live PVS pool share FRAME. */
 #ifndef GC_GX_FRAME_FACE_BUDGET
-#define GC_GX_FRAME_FACE_BUDGET 288
+#define GC_GX_FRAME_FACE_BUDGET 224	/* was 288 — cut Flipper fill for 60Hz headroom */
 #endif
 #ifndef GC_GX_LIVE_FACE_BUDGET
-#define GC_GX_LIVE_FACE_BUDGET 128
+#define GC_GX_LIVE_FACE_BUDGET 96	/* was 128 */
 #endif
 #ifndef GC_GX_FILL_FACE_BUDGET
-#define GC_GX_FILL_FACE_BUDGET 40
+#define GC_GX_FILL_FACE_BUDGET 32	/* was 40 */
 #endif
 static int r_gx_face_skips;
 static int r_gx_face_skip_area;
@@ -269,6 +272,8 @@ qboolean R_GXStudioIsActive( void )
 
 /* True while Flipper should consume TriAPI (studio or particles/sprites/beams). */
 static qboolean r_gx_effects_tri;
+static int r_gx_effects_tris;
+static qboolean r_gx_effects_logged;
 
 qboolean R_GXTriApiIsActive( void )
 {
@@ -283,8 +288,22 @@ void R_GXEffectsTriBegin( void )
 		return;
 	if( !r_gx_effects_tri )
 	{
+		/* G291: particles/beams/sprites share studio TriAPI emit, with
+		 * billboard cull + additive blend (PrepareStudioState is opaque). */
 		R_GXPrepareStudioState( false );
+		GX_SetCullMode( GX_CULL_NONE );
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+		if( vid.rendermode == kRenderTransAdd || vid.rendermode == kRenderGlow )
+			GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_NOOP );
+		else if( vid.rendermode == kRenderTransTexture
+			|| vid.rendermode == kRenderTransAlpha
+			|| vid.rendermode == kRenderTransColor )
+			GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+		else
+			GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
 		r_gx_effects_tri = true;
+		r_gx_effects_tris = 0;
+		r_gx_studio_bound_tex = 0;
 		r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 		r_gx_bound_texnum = 0;
 		GC_MarkGxWorldEfbReady();
@@ -297,6 +316,22 @@ void R_GXEffectsTriEnd( void )
 		return;
 	r_gx_effects_tri = false;
 	GX_Flush();
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetCullMode( GX_CULL_BACK );
+	GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+	if( r_gx_effects_tris > 0 )
+	{
+		r_gx_world_drew = true;
+		GC_MarkGxWorldEfbReady();
+		if( !r_gx_effects_logged )
+		{
+			r_gx_effects_logged = true;
+			gEngfuncs.Con_Reportf(
+				"Xash3D GameCube: G291 Flipper EFX tris=%d (particles/sprites/beams)\n",
+				r_gx_effects_tris );
+		}
+	}
+	r_gx_effects_tris = 0;
 }
 
 int R_GXStudioLastTriCount( void )
@@ -677,6 +712,10 @@ static void R_GXOrderFacesByTexBands( const msurface_t *draw, int n, int *order 
 	for( i = 0; i < n; i++ )
 		order[i] = i;
 
+	/* Tiny batches: insertion sort overhead exceeds bind savings. */
+	if( n < 24 )
+		return;
+
 	for( b = 0; b < GC_GX_TEX_BANDS; b++ )
 	{
 		const int band0 = ( b * n ) / GC_GX_TEX_BANDS;
@@ -700,6 +739,124 @@ static void R_GXOrderFacesByTexBands( const msurface_t *draw, int n, int *order 
 
 static qboolean r_gx_g221_logged;
 static qboolean r_gx_g221_world_clear_done;
+static qboolean r_gx_sky_backdrop_logged;
+
+static qboolean R_GXHasSkyboxSide( void )
+{
+	int i;
+
+	for( i = 0; i < 6; i++ )
+	{
+		if( tr.skyboxTextures[i] > 0 )
+			return true;
+	}
+	return false;
+}
+
+static int R_GXPickSkyboxSide( void )
+{
+	vec3_t forward, right, up;
+	float ax, ay, az;
+	int prefer = 3; /* ft */
+
+	AngleVectors( RI.rvp.viewangles, forward, right, up );
+	ax = fabsf( forward[0] );
+	ay = fabsf( forward[1] );
+	az = fabsf( forward[2] );
+	/* skybox order: rt bk lf ft up dn */
+	if( az >= ax && az >= ay )
+		prefer = ( forward[2] > 0.0f ) ? 4 : 5;
+	else if( ax >= ay )
+		prefer = ( forward[0] > 0.0f ) ? 0 : 2;
+	else
+		prefer = ( forward[1] > 0.0f ) ? 3 : 1;
+
+	if( tr.skyboxTextures[prefer] > 0 )
+		return prefer;
+	if( tr.skyboxTextures[4] > 0 )
+		return 4;
+	if( tr.skyboxTextures[3] > 0 )
+		return 3;
+	if( tr.skyboxTextures[1] > 0 )
+		return 1;
+	if( tr.skyboxTextures[0] > 0 )
+		return 0;
+	return -1;
+}
+
+/*
+=============
+R_GXDrawSkyBackdrop
+
+G285: tip-safe Flipper outdoor sky — one lean skybox side as a fullscreen
+textured quad (no SURF_DRAWSKY BSP walk, no new BSS). Falls back to clear.
+=============
+*/
+static void R_GXDrawSkyBackdrop( GXRModeObj *rmode )
+{
+	Mtx44 ortho;
+	Mtx ident;
+	gc_gx_tex_t *gxt;
+	const f32 fb_w = (f32)rmode->fbWidth;
+	const f32 fb_h = (f32)rmode->efbHeight;
+	int side;
+	unsigned texnum;
+
+	side = R_GXPickSkyboxSide();
+	if( side < 0 )
+		return;
+	texnum = (unsigned)tr.skyboxTextures[side];
+	gxt = R_GXBindTexnum( texnum, false );
+	if( !gxt )
+		return;
+
+	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+	GX_SetCullMode( GX_CULL_NONE );
+	GX_SetColorUpdate( GX_TRUE );
+	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+	GX_SetNumChans( 1 );
+	GX_SetNumTexGens( 1 );
+	GX_SetNumTevStages( 1 );
+	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+	GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+	GX_ClearVtxDesc();
+	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+
+	guOrtho( ortho, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
+	GX_LoadProjectionMtx( ortho, GX_ORTHOGRAPHIC );
+	guMtxIdentity( ident );
+	GX_LoadPosMtxImm( ident, GX_PNMTX0 );
+
+	GX_Begin( GX_QUADS, GX_VTXFMT0, 4 );
+	GX_Position3f32( 0.0f, 0.0f, -0.9f );
+	GX_Color1u32( 0xFFFFFFFFu );
+	GX_TexCoord2f32( 0.0f, 0.0f );
+	GX_Position3f32( fb_w, 0.0f, -0.9f );
+	GX_Color1u32( 0xFFFFFFFFu );
+	GX_TexCoord2f32( 1.0f, 0.0f );
+	GX_Position3f32( fb_w, fb_h, -0.9f );
+	GX_Color1u32( 0xFFFFFFFFu );
+	GX_TexCoord2f32( 1.0f, 1.0f );
+	GX_Position3f32( 0.0f, fb_h, -0.9f );
+	GX_Color1u32( 0xFFFFFFFFu );
+	GX_TexCoord2f32( 0.0f, 1.0f );
+	GX_End();
+
+	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+	r_gx_bound_texnum = 0;
+	if( !r_gx_sky_backdrop_logged )
+	{
+		r_gx_sky_backdrop_logged = true;
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: G285 Flipper sky backdrop side=%d tex=%u\n",
+			side, texnum );
+	}
+}
 
 static void R_GXClearEfbSky( GXRModeObj *rmode )
 {
@@ -707,17 +864,10 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	Mtx ident;
 	const f32 fb_w = (f32)rmode->fbWidth;
 	const f32 fb_h = (f32)rmode->efbHeight;
-	/* G221: New Game indoor holes use muted concrete clear — outdoor sky
-	 * blue made DumpFrames look emptier than the 320+192 face budget is.
-	 * Also sync GX_SetCopyClear: soft CopyDisp(TRUE) was resetting EFB to
-	 * outdoor (89,141,210) after the ortho fill, and dump-hold then skipped
-	 * later clears so world holes stayed sky-blue.
-	 * G269: match G222 flat-fill PASSCLR RGB(104,112,104) so undrawn holes
-	 * read as fill (not distinct clear gray). G267 BR paint still cleans
-	 * race frames; clear% metric no longer flags intentional hole color. */
-	const qboolean indoor = ( GC_UseGxWorldDraw() || gEngfuncs.Sys_CheckParm( "-gcnewgame" ));
-	const u32 sky = indoor ? 0x687068FFu /* G269: was 0x485054FF RGB 72,80,84 */
-		: 0x5A8CD2FFu;
+	/* G221/G285: Flipper outdoor clear (desert sky). Indoor hole fill used to
+	 * force concrete gray whenever GX world was live — outdoor tram looked wrong
+	 * on hardware. Textured backdrop draws when lean sides are resident. */
+	const u32 sky = 0x5A8CD2FFu;
 	GXColor copy_clear;
 
 	copy_clear.r = (u8)(( sky >> 24 ) & 0xff );
@@ -726,10 +876,11 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	copy_clear.a = 0xff;
 	GX_SetCopyClear( copy_clear, 0x00ffffff );
 
-	if( indoor && !r_gx_g221_logged )
+	if( !r_gx_g221_logged )
 	{
-		gEngfuncs.Con_Reportf( "G269 clear %u,%u,%u\n",
-			(unsigned)copy_clear.r, (unsigned)copy_clear.g, (unsigned)copy_clear.b );
+		gEngfuncs.Con_Reportf( "G285 clear %u,%u,%u skybox=%d\n",
+			(unsigned)copy_clear.r, (unsigned)copy_clear.g, (unsigned)copy_clear.b,
+			R_GXHasSkyboxSide() ? 1 : 0 );
 		r_gx_g221_logged = true;
 	}
 
@@ -764,6 +915,9 @@ static void R_GXClearEfbSky( GXRModeObj *rmode )
 	GX_Position3f32( 0.0f, fb_h, -0.5f );
 	GX_Color1u32( sky );
 	GX_End();
+
+	/* Textured backdrop replaces flat clear when lean sky sides are resident. */
+	R_GXDrawSkyBackdrop( rmode );
 }
 
 static void R_GXClearDepthPerspective( GXRModeObj *rmode )
@@ -910,8 +1064,7 @@ static void R_GXSetupWorld3DState( void )
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
-	GX_InvVtxCache();
-	/* G179: InvalidateTexAll only on cap rewrite / tex upload, not every pass. */
+	/* InvVtxCache only when vtx format changes — world format is stable. */
 	r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	r_gx_bound_texnum = 0;
 	r_gx_lm_atlas_bound = false;
@@ -1540,31 +1693,51 @@ static int R_GXDrawWorldLiveSurfaces( model_t *world, qboolean opaque_too )
 		}
 	}
 
-	/* Translucent / water pass (no Z write) — always from live PVS. */
-	for( i = 0; i < world->numsurfaces; i++ )
+	/* Translucent / water pass (no Z write) — live/pinned surfaces only.
+	 * G273: uncapped BSP walk after scratch reuse hung DumpFrames.
+	 * G285: hard budget + plane range checks (same as opaque). */
+	if( GC_WorldSurfacesLive() || GC_WorldSurfacesPinned() )
 	{
-		float dot;
+		const int water_budget = 12;
+		int water_left = water_budget;
 
-		surf = &world->surfaces[i];
-		if( surf->visframe != tr.framecount )
-			continue;
-		if( !surf->plane || surf->numedges < 3 )
-			continue;
-		if( !( surf->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT )))
-			continue;
-		if( surf->flags & SURF_DRAWSKY )
-			continue;
-
-		dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
-		if( surf->flags & SURF_PLANEBACK )
+		for( i = 0; i < world->numsurfaces && water_left > 0; i++ )
 		{
-			if( dot > -BACKFACE_EPSILON )
-				continue;
-		}
-		else if( dot < BACKFACE_EPSILON )
-			continue;
+			float dot;
 
-		trans_drawn += R_GXEmitFace( surf, world, -1 );
+			surf = &world->surfaces[i];
+			if( surf->visframe != tr.framecount )
+				continue;
+			if( !surf->plane || surf->numedges < 3 || surf->numedges > 32 )
+				continue;
+			if( world->planes
+				&& ( surf->plane < world->planes
+					|| surf->plane >= world->planes + world->numplanes ))
+				continue;
+			if( surf->firstedge < 0
+				|| surf->firstedge + surf->numedges > world->numsurfedges )
+				continue;
+			if( !( surf->flags & ( SURF_DRAWTURB | SURF_TRANSPARENT )))
+				continue;
+			if( surf->flags & SURF_DRAWSKY )
+				continue;
+
+			dot = DotProduct( tr.modelorg, surf->plane->normal ) - surf->plane->dist;
+			if( surf->flags & SURF_PLANEBACK )
+			{
+				if( dot > -BACKFACE_EPSILON )
+					continue;
+			}
+			else if( dot < BACKFACE_EPSILON )
+				continue;
+
+			trans_drawn += R_GXEmitFace( surf, world, -1 );
+			water_left--;
+		}
+		/* Restore opaque Z write after blend pass. */
+		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+		GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+		r_gx_face_mode = GC_GX_FACE_MODE_NONE;
 	}
 
 	drawn = opaque_drawn + trans_drawn;
@@ -1888,6 +2061,56 @@ int R_GXDrawNewGameCapFaces( void )
 					fill_drawn, fill_n );
 				(void)fill_back;
 				(void)fill_fail;
+			}
+		}
+		/* G286: baked turb sheets (capture-time BSS) — translucent blue, no Z write. */
+		{
+			static qboolean g286_logged;
+			int water_n = GC_GetWaterFaceCount();
+			int wi, water_drawn = 0;
+
+			if( water_n > 0 )
+			{
+				GX_SetBlendMode( GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP );
+				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_FALSE );
+				r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+			}
+			for( wi = 0; wi < water_n; wi++ )
+			{
+				mplane_t pl;
+				float pts[32][3];
+				int nv;
+				float dot;
+
+				if( water_drawn >= 8
+					|| drawn + water_drawn >= GC_GX_FRAME_FACE_BUDGET )
+					break;
+				if( !GC_WaterFacePlane( wi, &pl, NULL ))
+					continue;
+				dot = DotProduct( tr.modelorg, pl.normal ) - pl.dist;
+				/* Water sheets: draw from either side (tram floor views). */
+				if( fabsf( dot ) < BACKFACE_EPSILON )
+					continue;
+				nv = GC_GetWaterFaceVerts( wi, pts, 32 );
+				if( nv < 3 )
+					continue;
+				/* Soft cyan water — alpha ~0.45 so LM walls show through. */
+				if( R_GXEmitFlatFillVerts( pts, nv, 0x4080C078u ) > 0 )
+					water_drawn++;
+			}
+			if( water_n > 0 )
+			{
+				GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+				GX_SetZMode( GX_TRUE, GX_LEQUAL, GX_TRUE );
+				r_gx_face_mode = GC_GX_FACE_MODE_NONE;
+				drawn += water_drawn;
+			}
+			if( !g286_logged )
+			{
+				g286_logged = true;
+				gEngfuncs.Con_Reportf(
+					"Xash3D GameCube: G286 water emit=%d/%d\n",
+					water_drawn, water_n );
 			}
 		}
 	}
@@ -2245,7 +2468,7 @@ void R_GXStudioEnd( void )
 
 void R_GXStudioBindTexnum( unsigned texnum )
 {
-	if( !r_gx_studio_active )
+	if( !r_gx_studio_active && !r_gx_effects_tri )
 		return;
 	if( texnum == r_gx_studio_bound_tex && texnum != 0 )
 		return;
@@ -2286,7 +2509,7 @@ void R_GXStudioEmitTriC(
 	float x1, float y1, float z1, float u1, float v1, unsigned c1,
 	float x2, float y2, float z2, float u2, float v2, unsigned c2 )
 {
-	if( !r_gx_studio_active )
+	if( !r_gx_studio_active && !r_gx_effects_tri )
 		return;
 
 	if( r_gx_studio_bound_tex == 0 )
@@ -2310,7 +2533,10 @@ void R_GXStudioEmitTriC(
 	GX_Color1u32( c2 );
 	GX_TexCoord2f32( u2, v2 );
 	GX_End();
-	r_gx_studio_tris++;
+	if( r_gx_effects_tri )
+		r_gx_effects_tris++;
+	else
+		r_gx_studio_tris++;
 }
 
 void R_GXStudioEmitTri(

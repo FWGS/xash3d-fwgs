@@ -178,14 +178,11 @@ Avoids six 256² TGA decodes that exhaust MEM1 during map prep.
 */
 void R_SetupSkyLeanGameCube( const char *name )
 {
-	/* skybox order: rt bk lf ft up dn — load horizon + up, skip dn.
-	 * Prefer bootstrap gc_desert* BMPs (64²) so retail ISO copies cannot
-	 * shadow a failed decode; fall back to retail desert*.bmp. */
+	/* G285 Flipper backdrop only needs one resident side. Prefer up, then ft.
+	 * Prefer bootstrap gc_desert* BMPs; fall back to retail desert*.bmp. */
 	static const struct { const char *suffix; int index; } sides[] = {
 		{ "up", 4 },
 		{ "ft", 3 },
-		{ "bk", 1 },
-		{ "rt", 0 },
 	};
 	int skyboxTextures[SKYBOX_MAX_SIDES] = { 0 };
 	string loadname;
@@ -233,6 +230,8 @@ void R_SetupSkyLeanGameCube( const char *name )
 				Q_strncat( loaded_list, ",", sizeof( loaded_list ));
 			Q_strncat( loaded_list, sides[s].suffix, sizeof( loaded_list ));
 			loaded++;
+			Image_GCPurgeDecodeScratch();
+			break; /* one side is enough for Flipper outdoor backdrop */
 		}
 		Image_GCPurgeDecodeScratch();
 	}

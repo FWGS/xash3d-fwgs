@@ -91,7 +91,7 @@ void CL_InitParticles( void )
 {
 	int max_particles = GI->max_particles;
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( Sys_CheckParm( "-gcmap" ) || GC_MapLoadMemoryOpt())
 		max_particles = Q_min( max_particles, 48 );
 #endif
 
@@ -121,7 +121,7 @@ void CL_ClearParticles( void )
 {
 	int max_particles = GI->max_particles;
 #if XASH_GAMECUBE
-	if( Sys_CheckParm( "-gcmap" ))
+	if( Sys_CheckParm( "-gcmap" ) || GC_MapLoadMemoryOpt())
 		max_particles = Q_min( max_particles, 48 );
 #endif
 
@@ -2144,6 +2144,94 @@ void CL_DrawEFX( float time, qboolean fTrans )
 			ref.dllFuncs.CL_DrawTracers( time, cl_active_tracers );
 	}
 }
+
+#if XASH_GAMECUBE
+/*
+================
+CL_GCSeedFlipperEfxProof
+
+G291: reclaim lean pool + seed a few static particles so Flipper TriAPI EFX
+emits during Dolphin probe (tracers often exhaust the shared 48-slot pool).
+================
+*/
+void CL_GCSeedFlipperEfxProof( const float *org )
+{
+	int i, n = 0;
+
+	if( !org )
+		return;
+
+	R_FreeDeadParticles( &cl_active_particles );
+	R_FreeDeadParticles( &cl_active_tracers );
+
+	/* Lean shared pool (48) can be fully live or leaked off-list; steal / reset. */
+	{
+		int reclaimed = 0;
+
+		while( !cl_free_particles && reclaimed < 8
+			&& ( cl_active_tracers || cl_active_particles ))
+		{
+			particle_t *t;
+
+			if( cl_active_tracers )
+			{
+				t = cl_active_tracers;
+				cl_active_tracers = t->next;
+			}
+			else
+			{
+				t = cl_active_particles;
+				cl_active_particles = t->next;
+			}
+			t->next = cl_free_particles;
+			cl_free_particles = t;
+			reclaimed++;
+		}
+
+		if( !cl_free_particles && cl_particles )
+		{
+			int max_particles = GI ? GI->max_particles : 48;
+			int pi;
+
+			if( max_particles < 4 )
+				max_particles = 4;
+			cl_active_particles = NULL;
+			cl_active_tracers = NULL;
+			cl_free_particles = cl_particles;
+			for( pi = 0; pi < max_particles - 1; pi++ )
+				cl_particles[pi].next = &cl_particles[pi + 1];
+			cl_particles[max_particles - 1].next = NULL;
+			Con_Reportf( "Xash3D GameCube: G291 particle pool reset max=%d\n",
+				max_particles );
+		}
+	}
+
+	for( i = 0; i < 4; i++ )
+	{
+		particle_t *p = R_AllocParticle( NULL );
+
+		if( !p )
+		{
+			/* Bypass frametime gate if needed — probe can report 0 briefly. */
+			p = CL_AllocParticleFast();
+			if( !p )
+				break;
+			p->next = cl_active_particles;
+			cl_active_particles = p;
+			VectorClear( p->vel );
+			p->unused = 0;
+			p->ramp = 0;
+		}
+		VectorCopy( org, p->org );
+		p->org[0] += (float)( i - 1 ) * 4.0f;
+		p->color = 52;
+		p->type = pt_static;
+		p->die = cl.time + 3.0f;
+		n++;
+	}
+	Con_Reportf( "Xash3D GameCube: G291 tip-safe particle seed n=%d\n", n );
+}
+#endif
 
 void CL_ThinkParticle( double frametime, particle_t *p )
 {

@@ -911,8 +911,13 @@ static void R_DrawEntitiesOnList( void )
 	d_pdrawspans = R_PolysetDrawSpans8_33;
 
 #if XASH_GAMECUBE
-		if( !GC_IsLowMemoryMode() )
+		/* G291: Flipper still draws translucent sprites under quality-0;
+		 * soft RGB565 path keeps the skip to save span cost. Cap sprites. */
+		if( !GC_IsLowMemoryMode() || GC_UseGxWorldDraw() )
 		{
+			const int max_gx_sprites = GC_UseGxWorldDraw() ? 8 : 256;
+			int gx_sprites = 0;
+
 			// then draw translucent entities
 			for( int i = 0; i < tr.draw_list->num_trans_entities && !FBitSet( RI.rvp.flags, RF_ONLY_CLIENTDRAW ); i++ )
 			{
@@ -937,18 +942,25 @@ static void R_DrawEntitiesOnList( void )
 				switch( RI.currentmodel->type )
 				{
 				case mod_brush:
+					if( GC_IsLowMemoryMode() && GC_UseGxWorldDraw() )
+						break; /* tip-safe: skip translucent brushes on Flipper Q0 */
 					R_DrawBrushModel( RI.currententity );
 					break;
 				case mod_alias:
 					// R_DrawAliasModel( RI.currententity );
 					break;
 				case mod_studio:
+					if( GC_IsLowMemoryMode() && GC_UseGxWorldDraw() )
+						break;
 					R_SetUpWorldTransform();
 					R_DrawStudioModel( RI.currententity );
 					break;
 				case mod_sprite:
+					if( gx_sprites >= max_gx_sprites )
+						break;
 					R_SetUpWorldTransform();
 					R_DrawSpriteModel( RI.currententity );
+					gx_sprites++;
 					break;
 				default:
 					break;
@@ -1927,10 +1939,8 @@ void GAME_EXPORT R_RenderScene( void )
 	/* Pure Flipper: full entity coverage even on -gcnewgame routes.
 	 * Soft/smoke -gcmap still returns early after world (+ low-res studios).
 	 * Frame lifecycle: R_EdgeDrawing (GX world EFB) → entities (studio /
-	 * viewmodel via TriAPI) → caller HUD → GC_PresentBuffer CopyDisp.
-	 * Unsupported GoldSrc categories (full particle systems, beams, decals,
-	 * turb water meshes) are not claimed — soft fallback via -gcsoftworld
-	 * or capture dump latch only. */
+	 * viewmodel via TriAPI) → EFX particles/beams (G291) → caller HUD →
+	 * GC_PresentBuffer CopyDisp. */
 	if( GC_UseGxWorldDraw() )
 	{
 		gEngfuncs.CL_ExtraUpdate();

@@ -230,7 +230,14 @@ qboolean Image_LoadBMP( const char *name, const byte *buffer, fs_offset_t filesi
 		image.size = image.width * image.height * bpp;
 		Con_Reportf( "Xash3D GameCube: ImageLib load %s src=%dx%d decode=%dx%d alloc=%s\n",
 			name, src_columns, src_rows, image.width, image.height, Q_memprint( image.size ));
-		image.rgba = Mem_Malloc( host.imagepool, image.size );
+		/* G285: never Host_Error on lean sky / tip-tight BMP decode. */
+		image.rgba = Mem_TryMalloc( host.imagepool, image.size );
+		if( !image.rgba )
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: ImageLib soft-fail BMP %s alloc=%s\n",
+				name, Q_memprint( image.size ));
+			return false;
+		}
 		if( downsample && bpp == 4 )
 			memset( image.rgba, 0, image.size );
 

@@ -693,9 +693,10 @@ int GCube_GetArgv( int in_argc, char **in_argv, char ***out_argv )
 		gc_argv[fake_argc++] = gc_landmark_name;
 	}
 	gc_argv[fake_argc++] = "-width";
-	gc_argv[fake_argc++] = "640";
+	/* Tip-safe soft/internal FB. Flipper EFB/XFB stay native 640×480 via VI. */
+	gc_argv[fake_argc++] = "320";
 	gc_argv[fake_argc++] = "-height";
-	gc_argv[fake_argc++] = "480";
+	gc_argv[fake_argc++] = "240";
 
 	*out_argv = gc_argv;
 	return fake_argc;

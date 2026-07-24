@@ -16,6 +16,8 @@ GNU General Public License for more details.
 #include "common.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+qboolean GC_IsNewGameWorldReady( void );
+qboolean Mod_GCIsStudioBssCache( const void *ptr );
 #endif
 #include "server.h"
 #include "studio.h"
@@ -1239,8 +1241,9 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 
 #if XASH_GAMECUBE
 	skip_studio_textures = (GC_GetVisualQuality( ) == 0);
-	/* New Game allowlisted MDLs: lean mesh + soft skin upload (malloc cache). */
-	if( Sys_CheckParm( "-gcnewgame" ) && buffer && buffersize > sizeof( studiohdr_t ))
+	/* Allowlisted MDLs (New Game + retail Flipper): lean mesh, tip-safe cache. */
+	if( buffer && buffersize > sizeof( studiohdr_t )
+		&& ( Sys_CheckParm( "-gcnewgame" ) || GC_IsNewGameWorldReady() ))
 	{
 		Cvar_Set( "gc_quality", "0" );
 		skip_studio_textures = false;
@@ -1350,11 +1353,23 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 			mod->cache.data = calloc( 1, mesh );
 			if( !mod->cache.data )
 			{
-				Con_Reportf( S_ERROR "Xash3D GameCube: studio malloc failed '%s' (%s)\n",
-					mod->name, Q_memprint( mesh ));
-				return;
+				/* G287/G289: reuse tip-safe BSS bump slice as the resident cache. */
+				extern qboolean Mod_GCIsStudioBssCache( const void *ptr );
+				if( Mod_GCIsStudioBssCache( buffer ) && mesh <= buffersize )
+				{
+					mod->cache.data = buffer;
+					Con_Reportf( "Xash3D GameCube: G289 studio BSS-resident '%s' (%s)\n",
+						mod->name, Q_memprint( mesh ));
+				}
+				else
+				{
+					Con_Reportf( S_ERROR "Xash3D GameCube: studio malloc failed '%s' (%s)\n",
+						mod->name, Q_memprint( mesh ));
+					return;
+				}
 			}
-			memcpy( mod->cache.data, buffer, mesh );
+			else
+				memcpy( mod->cache.data, buffer, mesh );
 			phdr = (studiohdr_t *)mod->cache.data;
 			phdr->length = (int)mesh;
 			if( src->numtextures > 0 )

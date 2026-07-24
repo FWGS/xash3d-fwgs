@@ -331,6 +331,14 @@ void *_Mem_Alloc( poolhandle_t poolptr, size_t size, qboolean clear, const char 
 				Q_memprint( size ), filename, fileline );
 			return NULL;
 		}
+		/* G285: lean sky BMP decode must soft-fail under tip instead of
+		 * Host_Error; callers treat NULL as missing content. */
+		if( pool && !Q_stricmp( pool->name, "ImageLib Pool" ))
+		{
+			Con_Reportf( "Xash3D GameCube: soft-fail ImageLib alloc size=%s at %s:%i\n",
+				Q_memprint( size ), filename, fileline );
+			return NULL;
+		}
 #endif
 		Sys_Error( "%s: out of memory (alloc size %s at %s:%i)\n", __func__, Q_memprint( size ), filename, fileline );
 		return NULL;

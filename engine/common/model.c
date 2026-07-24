@@ -31,6 +31,7 @@ poolhandle_t      com_studiocache;		// cache for submodels
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
 void FS_ClearFindMissCache( void );
+qboolean GC_IsNewGameWorldReady( void );
 static poolhandle_t gc_gcmap_stubpool;
 
 /* New Game only: a few real MDLs (NPCs/viewweapons) instead of empty stubs.
@@ -45,6 +46,36 @@ static size_t gc_real_studio_bytes;
 static char   gc_landmark_viewmodel[64];
 static model_t *gc_pinned_viewmodels[GC_REAL_STUDIO_MAX_VIEW];
 static int     gc_pinned_viewmodel_count;
+static int     gc_deferred_studio_attempts;
+/* G287/G289: tip-safe studio staging — bump-allocate lean meshes into BSS.
+ * Crowbar ~19 KiB + handgun ~60 KiB fit in 80 KiB (heap is empty post-prep). */
+#define GC_STUDIO_BSS_BYTES (84 * 1024) /* crowbar+handgun+roach lean mesh */
+static byte    gc_studio_bss[GC_STUDIO_BSS_BYTES] __attribute__((aligned( 32 )));
+static size_t  gc_studio_bss_bump;
+static int     gc_studio_bss_owners; /* resident cache.data slices */
+
+qboolean Mod_GCIsStudioBssCache( const void *ptr )
+{
+	const byte *p = (const byte *)ptr;
+
+	if( !ptr )
+		return false;
+	return ( p >= gc_studio_bss && p < gc_studio_bss + GC_STUDIO_BSS_BYTES );
+}
+
+static byte *Mod_GCStudioBssAlloc( size_t size )
+{
+	size_t align_off;
+
+	if( size == 0 || size > GC_STUDIO_BSS_BYTES )
+		return NULL;
+	align_off = ( gc_studio_bss_bump + 31u ) & ~31u;
+	if( align_off + size > GC_STUDIO_BSS_BYTES )
+		return NULL;
+	gc_studio_bss_bump = align_off + size;
+	gc_studio_bss_owners++;
+	return gc_studio_bss + align_off;
+}
 
 static qboolean Mod_GCIsPinnedViewModel( const model_t *mod )
 {
@@ -130,7 +161,8 @@ static qboolean Mod_GCAllowRealStudioLoad( const char *name, size_t filesize )
 {
 	qboolean is_view = false;
 
-	if( !Sys_CheckParm( "-gcnewgame" ))
+	/* Retail Flipper + New Game probe — allowlisted meshes only. */
+	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
 		return false;
 	if( !Mod_GCStudioNameAllowed( name, &is_view ))
 		return false;
@@ -169,17 +201,70 @@ Mod_GCLoadStudioFile
 
 Read an MDL via FS (prefer tiny gc_studio/ mirror — retail models/ is too large
 for reliable ISO9660 lookup after map prep).
+
+G287/G289: stream into BSS bump arena (crowbar+handgun lean meshes) when heap
+cannot serve tens of KiB after map prep.
 =============
 */
-static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length )
+static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, qboolean *from_bss )
 {
 	char bare[64];
 	char mirror[MAX_QPATH];
 	byte *buf;
+	byte *slot;
+	file_t *f;
+	fs_offset_t flen, total, got;
 
 	*length = 0;
+	if( from_bss )
+		*from_bss = false;
 	COM_FileBase( model_path, bare, sizeof( bare ));
 	Q_snprintf( mirror, sizeof( mirror ), "gc_studio/%s.mdl", bare );
+
+	if( FS_FileExists( mirror, false ))
+	{
+		f = FS_Open( mirror, "rb", false );
+		if( f )
+		{
+			flen = FS_FileLength( f );
+			slot = NULL;
+			if( flen >= (fs_offset_t)sizeof( studiohdr_t )
+				&& flen <= (fs_offset_t)GC_STUDIO_BSS_BYTES )
+				slot = Mod_GCStudioBssAlloc( (size_t)flen );
+			if( slot )
+			{
+				total = 0;
+				while( total < flen )
+				{
+					got = FS_Read( f, slot + total, flen - total );
+					if( got <= 0 )
+						break;
+					total += got;
+				}
+				FS_Close( f );
+				if( total == flen )
+				{
+					*length = flen;
+					if( from_bss )
+						*from_bss = true;
+					Con_Reportf( "Xash3D GameCube: G289 studio BSS read '%s' via %s (%s) bump=%s\n",
+						model_path, mirror, Q_memprint( (size_t)flen ),
+						Q_memprint( gc_studio_bss_bump ));
+					return slot;
+				}
+				/* Bump already advanced — leave hole (rare short read). */
+				Con_Reportf( "Xash3D GameCube: G289 studio BSS short '%s' read=%li want=%li\n",
+					mirror, (long)total, (long)flen );
+			}
+			else
+			{
+				FS_Close( f );
+				if( flen > (fs_offset_t)GC_STUDIO_BSS_BYTES )
+					Con_Reportf( "Xash3D GameCube: G289 studio too large for BSS '%s' (%s)\n",
+						mirror, Q_memprint( (size_t)flen ));
+			}
+		}
+	}
 
 	buf = FS_LoadFileMalloc( mirror, length, false );
 	if( buf && *length >= (fs_offset_t)sizeof( studiohdr_t ))
@@ -225,6 +310,7 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 	fs_offset_t length = 0;
 	qboolean loaded = false;
 	qboolean is_view = false;
+	qboolean from_bss = false;
 
 	if( !path || !path[0] )
 		return false;
@@ -239,12 +325,12 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 		return true;
 	}
 
-	buf = Mod_GCLoadStudioFile( path, &length );
+	buf = Mod_GCLoadStudioFile( path, &length, &from_bss );
 	if( !buf || length < (fs_offset_t)sizeof( studiohdr_t ))
 	{
 		Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' read=%li\n",
 			path, (long)length );
-		if( buf )
+		if( buf && !from_bss )
 			free( buf );
 		return false;
 	}
@@ -253,7 +339,8 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 	{
 		Con_Reportf( "Xash3D GameCube: deferred studio budget skip '%s' (%s)\n",
 			path, Q_memprint( (size_t)length ));
-		free( buf );
+		if( !from_bss )
+			free( buf );
 		return false;
 	}
 
@@ -261,13 +348,15 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 	if( !mod )
 	{
 		Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' (not registered)\n", path );
-		free( buf );
+		if( !from_bss )
+			free( buf );
 		return false;
 	}
 
 	if( Mod_GCStudioAlreadyResident( mod ))
 	{
-		free( buf );
+		if( !from_bss )
+			free( buf );
 		Mod_GCStudioNameAllowed( path, &is_view );
 		if( is_view )
 			Mod_GCPinViewModel( mod );
@@ -282,7 +371,9 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 
 	Image_GCPurgeDecodeScratch();
 	Mod_LoadStudioModel( mod, buf, (size_t)length, &loaded );
-	free( buf );
+	/* BSS bump slot is never free()'d — cache may point at it or a calloc copy. */
+	if( !from_bss )
+		free( buf );
 	Image_GCPurgeDecodeScratch();
 
 	if( loaded )
@@ -309,8 +400,7 @@ qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path )
 	qboolean ok;
 	model_t *mod;
 
-	if( !Sys_CheckParm( "-gcnewgame" ))
-		return false;
+	/* Landmark Deploy on retail Flipper too — not only -gcnewgame probes. */
 	if( !model_path || !model_path[0] )
 		return false;
 
@@ -335,23 +425,19 @@ qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path )
 =============
 Mod_GCLoadNewGameStudios
 
-Promote allowlisted stub MDLs to lean mesh+skin studios after map prep / netchan
-are past the MEM1 cliff (same deferral idea as lean skybox).
+Prepare-time attempt (often tip-starved). Prefer Mod_GCTryDeferredStudios after
+a few Flipper presents when MEM1 has coalesced (G287).
 =============
 */
 void Mod_GCLoadNewGameStudios( void )
 {
-	/* First-person view models first so landmark Deploy can bind glock after hop. */
+	/* Crowbar first — handgun is 134 KiB and starves the tip at prepare. */
 	static const char *promote[] = {
 		"models/v_crowbar.mdl",
-		"models/v_9mmhandgun.mdl",
 		"models/roach.mdl",
 		NULL
 	};
 	int i;
-
-	if( !Sys_CheckParm( "-gcnewgame" ))
-		return;
 
 	FS_ClearFindMissCache();
 	Image_GCPurgeDecodeScratch();
@@ -361,6 +447,43 @@ void Mod_GCLoadNewGameStudios( void )
 
 	Con_Reportf( "Xash3D GameCube: deferred studio done npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
+}
+
+/*
+=============
+Mod_GCTryDeferredStudios
+
+G287: retry allowlisted MDLs after Flipper presents so malloc can serve the
+~47 KiB crowbar mirror (prepare-time tip returns NULL even for 7 KiB).
+=============
+*/
+void Mod_GCTryDeferredStudios( void )
+{
+	if( gc_real_studio_view >= 2 )
+		return;
+	if( gc_deferred_studio_attempts >= 4 )
+		return;
+	if( !GC_IsNewGameWorldReady() )
+		return;
+
+	gc_deferred_studio_attempts++;
+	Con_Reportf( "Xash3D GameCube: G289 deferred studio try=%d view=%d npc=%d bump=%s\n",
+		gc_deferred_studio_attempts, gc_real_studio_view, gc_real_studio_npc,
+		Q_memprint( gc_studio_bss_bump ));
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+
+	if( gc_real_studio_view <= 0 )
+		Mod_GCPromoteStudioPath( "models/v_crowbar.mdl" );
+	/* G289: lean handgun (~60 KiB) shares the 80 KiB BSS bump with crowbar. */
+	if( gc_real_studio_view < 2 )
+		Mod_GCPromoteStudioPath( "models/v_9mmhandgun.mdl" );
+	if( gc_real_studio_npc <= 0 )
+		Mod_GCPromoteStudioPath( "models/roach.mdl" );
+
+	Con_Reportf( "Xash3D GameCube: G289 studio after try npc=%d view=%d budget=%s bump=%s\n",
+		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ),
+		Q_memprint( gc_studio_bss_bump ));
 }
 
 static qboolean Mod_GCMapVerboseModelLoad( const char *name )
@@ -541,11 +664,26 @@ void Mod_FreeModel( model_t *mod )
 			Mod_FreeLoadBuffer( mod->cache.data );
 			mod->cache.data = NULL;
 		}
-		/* Mesh-only New Game studios keep cache on malloc (mempool == 0). */
+		/* Mesh-only New Game studios keep cache on malloc (mempool == 0).
+		 * G287 BSS-resident crowbar must not be passed to free(). */
 		if( mod->type == mod_studio && !mod->mempool && mod->cache.data )
 		{
-			free( mod->cache.data );
-			mod->cache.data = NULL;
+			if( Mod_GCIsStudioBssCache( mod->cache.data ))
+			{
+				if( gc_studio_bss_owners > 0 )
+					gc_studio_bss_owners--;
+				if( gc_studio_bss_owners <= 0 )
+				{
+					gc_studio_bss_owners = 0;
+					gc_studio_bss_bump = 0;
+				}
+				mod->cache.data = NULL;
+			}
+			else
+			{
+				free( mod->cache.data );
+				mod->cache.data = NULL;
+			}
 		}
 #endif
 #if XASH_GAMECUBE
@@ -624,6 +762,9 @@ void Mod_FreeAll( void )
 	gc_real_studio_npc = 0;
 	gc_real_studio_view = 0;
 	gc_real_studio_bytes = 0;
+	gc_deferred_studio_attempts = 0;
+	gc_studio_bss_bump = 0;
+	gc_studio_bss_owners = 0;
 	gc_landmark_viewmodel[0] = '\0';
 #endif
 	mod_numknown = 0;

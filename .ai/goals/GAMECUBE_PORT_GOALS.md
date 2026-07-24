@@ -177,10 +177,17 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 
 **Immediate source queue (open automatic goals, in order):**
 1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) — operator-only; handoff `.ai/logs/hardware-handoff-20260722-221451`
-2. Flipper GX residuals under tip ceiling: water/sky need bake-time paths that do not grow .text past ~6.274MB DOL
-3. ~~G276~~ — live turb bake tip
-4. ~~G274/G275~~ — sky-band / skip-Z fill noop
-5. ~~G273~~ — draw-time water hang
+2. Flipper GX residuals under tip ceiling (decals / turb water meshes / remaining FX)
+3. ~~G291~~ — Flipper EFX TriAPI emit (effects gate + lean particle init + tip-safe seed); tris≥1
+3. ~~G290~~ — tip-safe lean HUD (crosshairs early + 8 KiB BSS FS fallback + deferred retry); real=4/4
+3. ~~G289~~ — lean mesh-only handgun+roach in bootstrap; 84 KiB BSS bump (view≥2)
+4. ~~G288~~ — lean gc_* HUD hud2/train/pain (~3–5 KiB) prefer under memopt (fat retail soft-fail)
+4. ~~G287~~ — BSS-resident crowbar promote after presents (prepare/heap MDL malloc tip; view=1 pinned)
+4. ~~G286~~ — baked ≤8 SURF_DRAWTURB BSS at cap capture + Flipper blend emit (avoids G273 hang / G276 tip)
+5. ~~G285~~ — tip-safe lean sky (soft-fail ImageLib + deferred load + outdoor Flipper backdrop)
+5. ~~G276~~ — live turb bake tip
+6. ~~G274/G275~~ — sky-band / skip-Z fill noop
+7. ~~G273~~ — draw-time water hang
 6. ~~G272~~ — MODULATE brighten / live LM atlas tip
 7. ~~G271~~ — G197 tiling closed + G38 handoff refresh
 8. ~~G234~~ — track portal holes DONE (G269 fill-clear + G262 face stack; G270 drop obsolete paint)

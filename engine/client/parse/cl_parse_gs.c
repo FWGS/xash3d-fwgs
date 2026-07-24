@@ -73,11 +73,13 @@ static void CL_ParseNewMovevars( sizebuf_t *msg )
 	if( Q_strcmp( clgame.oldmovevars.skyName, clgame.movevars.skyName ) && cl.video_prepped )
 	{
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcnewgame" ))
+		/* Defer lean sky until Flipper world is armed — map-load MEM1 is too
+		 * tight for BMP decode (G285). Deferred present tries + outdoor clear. */
+		if( GC_IsNewGameWorldReady() )
 			R_SetupSkyLeanGameCube( clgame.movevars.skyName );
-		else
+#else
+		R_SetupSky( clgame.movevars.skyName );
 #endif
-			R_SetupSky( clgame.movevars.skyName );
 	}
 
 	clgame.oldmovevars = clgame.movevars;

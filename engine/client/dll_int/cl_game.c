@@ -1296,6 +1296,56 @@ static void Mod_LoadMapSprite( model_t *mod, const void *buffer, size_t size, qb
 	if( loaded ) *loaded = true;
 }
 
+#if XASH_GAMECUBE
+/* G290: tip-safe lean HUD file stage — libc malloc fails ~5 KiB under cliff. */
+#define GC_HUD_SPR_BSS_BYTES (8 * 1024)
+static byte gc_hud_spr_bss[GC_HUD_SPR_BSS_BYTES] __attribute__((aligned( 32 )));
+static qboolean gc_hud_spr_bss_busy;
+
+static byte *CL_GCLoadHudSpriteBss( const char *path, fs_offset_t *sizeptr )
+{
+	file_t *f;
+	fs_offset_t flen, total, got;
+
+	if( sizeptr )
+		*sizeptr = 0;
+	if( !path || !path[0] || gc_hud_spr_bss_busy )
+		return NULL;
+	f = FS_Open( path, "rb", false );
+	if( !f )
+		return NULL;
+	flen = FS_FileLength( f );
+	if( flen < 44 || flen > (fs_offset_t)GC_HUD_SPR_BSS_BYTES )
+	{
+		FS_Close( f );
+		return NULL;
+	}
+	total = 0;
+	while( total < flen )
+	{
+		got = FS_Read( f, gc_hud_spr_bss + total, flen - total );
+		if( got <= 0 )
+			break;
+		total += got;
+	}
+	FS_Close( f );
+	if( total != flen )
+		return NULL;
+	gc_hud_spr_bss_busy = true;
+	if( sizeptr )
+		*sizeptr = flen;
+	Con_Reportf( "Xash3D GameCube: G290 HUD sprite BSS read %s size=%s\n",
+		path, Q_memprint( (size_t)flen ));
+	return gc_hud_spr_bss;
+}
+
+static void CL_GCReleaseHudSpriteBss( byte *buf )
+{
+	if( buf == gc_hud_spr_bss )
+		gc_hud_spr_bss_busy = false;
+}
+#endif
+
 /*
 =============
 CL_LoadHudSprite
@@ -1328,62 +1378,69 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 		if( Sys_CheckParm( "-gcnewgame" ) && !FS_FileExists( loadname, false ))
 			FS_ClearFindMissCache();
 
-		if( !FS_FileExists( loadname, false )
-			&& !Q_stricmp( loadname, "sprites/320hud2.spr" ))
-		{
-			Q_strncpy( altname, "sprites/gc_320hud2.spr", sizeof( altname ));
-			if( FS_FileExists( altname, false ))
-			{
-				loadname = altname;
-				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
-					szSpriteName, loadname );
-			}
-		}
 		/*
-		 * G173: prefer lean bootstrap hud1 under memopt even when fat retail
-		 * exists on ISO — 66 KiB soft-fails; ~5 KiB gc_ alias loads.
+		 * G173/G174/G288: under memopt prefer lean gc_* bootstrap sheets even
+		 * when fat retail exists on ISO — 7–66 KiB soft-fail under tip.
 		 */
-		if( !Q_stricmp( loadname, "sprites/320hud1.spr" ) && GC_MapLoadMemoryOpt())
+		if( GC_MapLoadMemoryOpt())
 		{
-			Q_strncpy( altname, "sprites/gc_320hud1.spr", sizeof( altname ));
-			if( FS_FileExists( altname, false ))
+			static const struct { const char *retail; const char *lean; } lean_hud[] = {
+				{ "sprites/320hud1.spr", "sprites/gc_320hud1.spr" },
+				{ "sprites/320hud2.spr", "sprites/gc_320hud2.spr" },
+				{ "sprites/crosshairs.spr", "sprites/gc_crosshairs.spr" },
+				{ "sprites/320_train.spr", "sprites/gc_320_train.spr" },
+				{ "sprites/320_pain.spr", "sprites/gc_320_pain.spr" },
+			};
+			int hi;
+
+			for( hi = 0; hi < (int)( sizeof( lean_hud ) / sizeof( lean_hud[0] )); hi++ )
 			{
-				loadname = altname;
-				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
-					szSpriteName, loadname );
+				if( Q_stricmp( loadname, lean_hud[hi].retail ))
+					continue;
+				Q_strncpy( altname, lean_hud[hi].lean, sizeof( altname ));
+				if( FS_FileExists( altname, false ))
+				{
+					loadname = altname;
+					Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
+						szSpriteName, loadname );
+				}
+				break;
 			}
 		}
-		else if( !FS_FileExists( loadname, false )
-			&& !Q_stricmp( loadname, "sprites/320hud1.spr" ))
+		else
 		{
-			Q_strncpy( altname, "sprites/gc_320hud1.spr", sizeof( altname ));
-			if( FS_FileExists( altname, false ))
+			if( !FS_FileExists( loadname, false )
+				&& !Q_stricmp( loadname, "sprites/320hud2.spr" ))
 			{
-				loadname = altname;
-				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
-					szSpriteName, loadname );
+				Q_strncpy( altname, "sprites/gc_320hud2.spr", sizeof( altname ));
+				if( FS_FileExists( altname, false ))
+				{
+					loadname = altname;
+					Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
+						szSpriteName, loadname );
+				}
 			}
-		}
-		/* G174: prefer lean 64×64 crosshairs over fat 128×128 ISO sheet. */
-		if( !Q_stricmp( loadname, "sprites/crosshairs.spr" ) && GC_MapLoadMemoryOpt())
-		{
-			Q_strncpy( altname, "sprites/gc_crosshairs.spr", sizeof( altname ));
-			if( FS_FileExists( altname, false ))
+			else if( !FS_FileExists( loadname, false )
+				&& !Q_stricmp( loadname, "sprites/320hud1.spr" ))
 			{
-				loadname = altname;
-				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
-					szSpriteName, loadname );
+				Q_strncpy( altname, "sprites/gc_320hud1.spr", sizeof( altname ));
+				if( FS_FileExists( altname, false ))
+				{
+					loadname = altname;
+					Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
+						szSpriteName, loadname );
+				}
 			}
-		}
-		else if( !FS_FileExists( loadname, false )
-			&& !Q_stricmp( loadname, "sprites/crosshairs.spr" ))
-		{
-			Q_strncpy( altname, "sprites/gc_crosshairs.spr", sizeof( altname ));
-			if( FS_FileExists( altname, false ))
+			else if( !FS_FileExists( loadname, false )
+				&& !Q_stricmp( loadname, "sprites/crosshairs.spr" ))
 			{
-				loadname = altname;
-				Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
-					szSpriteName, loadname );
+				Q_strncpy( altname, "sprites/gc_crosshairs.spr", sizeof( altname ));
+				if( FS_FileExists( altname, false ))
+				{
+					loadname = altname;
+					Con_Reportf( "Xash3D GameCube: HUD sprite fallback %s -> %s\n",
+						szSpriteName, loadname );
+				}
 			}
 		}
 
@@ -1451,6 +1508,13 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 						loadname, Q_memprint( (size_t)size ));
 				}
 			}
+			/* G290: lean sheet file into BSS when both pools tip. */
+			if( buf == NULL && GC_MapLoadMemoryOpt()
+				&& ( type == SPR_HUDSPRITE || type == SPR_CLIENT ))
+			{
+				Image_GCPurgeDecodeScratch();
+				buf = CL_GCLoadHudSpriteBss( loadname, &size );
+			}
 			if( buf == NULL )
 			{
 				/* Exists on disc but alloc soft-failed. Stub under memopt so HUD continues. */
@@ -1477,7 +1541,9 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 				ref.dllFuncs.Mod_ProcessRenderData( m_pSprite, true, buf, size );
 			}
 
-			if( used_sys )
+			if( buf == gc_hud_spr_bss )
+				CL_GCReleaseHudSpriteBss( buf );
+			else if( used_sys )
 				free( buf );
 			else
 				Mem_Free( buf );
@@ -1626,14 +1692,13 @@ HSPRITE EXPORT pfnSPR_Load( const char *szPicName );
 void CL_GCPreloadNewGameHudSprites( void )
 {
 	/*
-	 * G172–G174: after studios, load lean HUD sheets (sys-malloc).
-	 * Lean hud1 + crosshairs (~5 KiB each) fit with hud2/train.
+	 * G172–G174/G290: lean HUD sheets. Crosshairs early — last slot tip-fails.
 	 */
 	static const char *const sheets[] = {
 		"sprites/320hud1.spr", /* → lean gc_320hud1 (~5 KiB @ 64×64) */
-		"sprites/gc_320hud2.spr",
-		"sprites/320_train.spr",
-		"sprites/crosshairs.spr", /* → lean gc_crosshairs (~5 KiB @ 64×64) */
+		"sprites/crosshairs.spr", /* → lean gc_crosshairs (G290: before hud2/train) */
+		"sprites/320_train.spr", /* → lean gc_320_train (G288) */
+		"sprites/320hud2.spr", /* → lean gc_320hud2 (G288) */
 	};
 	int i;
 	int real = 0;
@@ -1703,9 +1768,9 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 {
 	static const char *const sheets[] = {
 		"sprites/320hud1.spr", /* G173: → lean gc_320hud1 */
-		"sprites/gc_320hud2.spr",
-		"sprites/320_train.spr",
-		"sprites/crosshairs.spr", /* G174: → lean gc_crosshairs */
+		"sprites/crosshairs.spr", /* G174/G290: before hud2/train */
+		"sprites/320_train.spr", /* G288: → lean gc_320_train */
+		"sprites/320hud2.spr", /* G288: → lean gc_320hud2 */
 	};
 	int i;
 	int real = 0;
@@ -1736,7 +1801,11 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 				&& !( !Q_stricmp( sheets[i], "sprites/320hud1.spr" )
 					&& !Q_stricmp( mod->name, "sprites/gc_320hud1.spr" ))
 				&& !( !Q_stricmp( sheets[i], "sprites/crosshairs.spr" )
-					&& !Q_stricmp( mod->name, "sprites/gc_crosshairs.spr" )))
+					&& !Q_stricmp( mod->name, "sprites/gc_crosshairs.spr" ))
+				&& !( !Q_stricmp( sheets[i], "sprites/320hud2.spr" )
+					&& !Q_stricmp( mod->name, "sprites/gc_320hud2.spr" ))
+				&& !( !Q_stricmp( sheets[i], "sprites/320_train.spr" )
+					&& !Q_stricmp( mod->name, "sprites/gc_320_train.spr" )))
 				continue;
 			if( Mod_GCIsSpriteStub( mod ))
 			{
@@ -4590,7 +4659,10 @@ qboolean CL_LoadProgs( const char *name )
 		if( GC_MapLoadMemoryOpt())
 		{
 			Con_Reportf( "Xash3D GameCube: titles init skipped for gcmap smoke route\n" );
-			Con_Reportf( "Xash3D GameCube: transient client effects skipped for gcmap smoke route\n" );
+			/* G291: tip-safe particle pool (≤48 × ~56 B) so Flipper EFX TriAPI
+			 * can emit; beams/tents stay deferred under memopt. */
+			CL_InitParticles();
+			Con_Reportf( "Xash3D GameCube: transient client effects lean particles only\n" );
 		}
 		else
 #endif

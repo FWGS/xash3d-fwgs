@@ -834,9 +834,9 @@ GC_STUDIO_MODELS = (
 # Direct-load HUD sheets for lean New Game Redraw (ISO9660 sprites/ lookups
 # false-miss like models/). Keep the set tiny — bootstrap MEM is tight.
 GC_HUD_SPRITES = (
-	"sprites/320_pain.spr",
-	"sprites/320_train.spr",
-	# Unique names so retail ISO9660 sprites/320hud*.spr cannot shadow a bad read.
+	# G288: lean single-frame aliases — fat retail soft-fails under tip.
+	("sprites/320_pain.spr", "sprites/gc_320_pain.spr"),
+	("sprites/320_train.spr", "sprites/gc_320_train.spr"),
 	("sprites/320hud2.spr", "sprites/gc_320hud2.spr"),
 	# G173: lean 64×64 downsample of fat 320hud1 (~66 KiB → ~5 KiB).
 	("sprites/320hud1.spr", "sprites/gc_320hud1.spr"),
@@ -888,6 +888,48 @@ def inject_gc_sky_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	return staged
 
 
+def lean_studio_mesh_bytes(src: Path) -> bytes | None:
+	"""G289: truncate MDL before texture blobs (numtextures=0) for tip-safe BSS.
+
+	Keeps bones/meshes/seqs; Flipper binds white soft skins under quality 0.
+	Handgun drops ~134 KiB → ~60 KiB; crowbar ~47 → ~19 KiB.
+	"""
+	try:
+		raw = src.read_bytes()
+	except OSError:
+		return None
+	if len(raw) < 192 or raw[:4] not in (b"IDST", b"IDSQ"):
+		return None
+	# studiohdr_t: textureindex @184, texturedataindex @188, numtextures @180
+	numtextures = struct.unpack_from("<i", raw, 180)[0]
+	textureindex = struct.unpack_from("<i", raw, 184)[0]
+	texturedataindex = struct.unpack_from("<i", raw, 188)[0]
+	length = struct.unpack_from("<i", raw, 72)[0]
+	if textureindex <= 244 or textureindex > len(raw):
+		# No usable texture cursor — keep whole file if small enough.
+		if length <= 0 or length > len(raw):
+			length = len(raw)
+		return bytes(raw[:length])
+	# Cut at texture chunk; clear texture counts so loaders skip skin blobs.
+	cut = textureindex
+	if cut > len(raw):
+		cut = len(raw)
+	out = bytearray(raw[:cut])
+	struct.pack_into("<i", out, 72, cut)  # length
+	struct.pack_into("<i", out, 180, 0)  # numtextures
+	struct.pack_into("<i", out, 184, 0)  # textureindex
+	struct.pack_into("<i", out, 188, 0)  # texturedataindex
+	# skinref tables often live after textures; zero if past cut
+	numskinref = struct.unpack_from("<i", out, 192)[0] if len(out) >= 196 else 0
+	skinindex = struct.unpack_from("<i", out, 200)[0] if len(out) >= 204 else 0
+	if skinindex >= cut:
+		struct.pack_into("<i", out, 192, 0)
+		struct.pack_into("<i", out, 196, 0)
+		struct.pack_into("<i", out, 200, 0)
+	_ = (numtextures, texturedataindex, numskinref)
+	return bytes(out)
+
+
 def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	"""Add allowlisted MDLs into an existing bootstrap ZIP under gc_studio/."""
 	staged = 0
@@ -896,7 +938,16 @@ def inject_gc_studio_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> i
 		if not src.is_file():
 			continue
 		arcname = f"gc_studio/{Path(relative).name.lower()}"
-		archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
+		if arcname in archive.NameToInfo:
+			continue
+		payload = lean_studio_mesh_bytes(src)
+		if payload is None:
+			archive.write(src, arcname, compress_type=zipfile.ZIP_STORED)
+		else:
+			archive.writestr(arcname, payload, compress_type=zipfile.ZIP_STORED)
+			print(
+				f"  lean studio {Path(relative).name}: {src.stat().st_size} → {len(payload)} bytes"
+			)
 		staged += 1
 	return staged
 
@@ -978,10 +1029,13 @@ def lean_hl_spr_bytes(src: Path, scale: int = 2) -> bytes | None:
 
 def inject_gc_hud_into_bootstrap(archive: "zipfile.ZipFile", data: Path) -> int:
 	"""Add allowlisted HUD sprites into bootstrap under their disc paths."""
-	# G173/G174: downsample fat sheets to ~5 KiB under gc_* aliases.
+	# G173/G174/G288: downsample fat sheets to ~5 KiB under gc_* aliases.
 	lean_scale = {
 		"gc_320hud1.spr": 4,  # 256→64
 		"gc_crosshairs.spr": 2,  # 128→64
+		"gc_320hud2.spr": 2,  # 128→64 (~17 KiB → ~5 KiB)
+		"gc_320_train.spr": 1,  # 48×48 multi-frame → single lean frame
+		"gc_320_pain.spr": 1,  # 64×64 multi-frame → single lean frame
 	}
 	staged = 0
 	for entry in GC_HUD_SPRITES:

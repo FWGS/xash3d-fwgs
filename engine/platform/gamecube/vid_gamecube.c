@@ -18,6 +18,8 @@ Ported from Division-Zero-GX/xash3d-wii with libogc GX output for GameCube.
 #include "sound.h"
 #include "gamecube/mem_gamecube.h"
 
+void CL_GCSeedFlipperEfxProof( const float *org );
+
 qboolean R_GcmapEnsureSurfaceCache( void );
 qboolean R_TryInitLowResSurfaceCache( void );
 void R_GcmapTrimSurfaceCache( void );
@@ -68,6 +70,7 @@ static unsigned int gc_budget_warmup_left;
 static unsigned int gc_light_present_left;
 static qboolean gc_newgame_world_ready;
 static qboolean gc_newgame_g36_done; /* sticky: never re-arm probe after first flush */
+static int gc_lean_sky_attempts; /* G285 deferred textured backdrop tries */
 static int gc_newgame_viewcluster = -1;
 static qboolean gc_newgame_pvs_ready;
 static byte *gc_newgame_vis; /* active row pointer into pvs table */
@@ -242,6 +245,7 @@ static void GC_BuildSurfbitsForVisRow( model_t *wmodel, const byte *vis, byte *s
 static int GC_VisLeafsForCluster( int cluster );
 static int GC_RefreshCandWallCount( int cache_slot );
 static void GC_CaptureFillFacesFromSurfbits( model_t *wmodel, const byte *surfbits, qboolean append );
+static void GC_CaptureWaterFacesFromSurfbits( model_t *wmodel, const byte *surfbits );
 static void GC_BuildRefreshCandsFromSurfbits( model_t *wmodel, const byte *surfbits, int cache_slot );
 void GC_CaptureIntroTrainFaces( model_t *wmodel ); /* G277: also called from mod_bmodel */
 static int GC_BakeCapVertsFromModel( model_t *wmodel, int firstedge, int numedges,
@@ -290,6 +294,18 @@ static int gc_tram_face_count;
 static qboolean gc_tram_lm_ready;
 static int gc_tram_diffuse_texnum;
 static qboolean gc_tram_lm_logged;
+/* G286: tip-safe Flipper water — baked turb verts (no live-pool tip / no draw walk hang). */
+#define GC_WATER_MAX_FACES 8
+typedef struct
+{
+	byte		nverts;
+	byte		flags; /* SURF_PLANEBACK */
+	signed short	pts_s16[GC_CAP_MAX_VERTS][3];
+	mplane_t	plane;
+} gc_water_face_t;
+static gc_water_face_t gc_water_faces[GC_WATER_MAX_FACES];
+static int gc_water_face_count;
+static qboolean gc_g286_water_logged;
 /* G225: ARAM page + aligned MEM1 DMA stage. */
 static u32 gc_aram_fill_base;
 static int gc_aram_fill_count;
@@ -801,6 +817,45 @@ static void GC_BakeTramLightmaps( model_t *wmodel )
 int GC_GetTramFaceCount( void )
 {
 	return gc_tram_face_count;
+}
+
+int GC_GetWaterFaceCount( void )
+{
+	return gc_water_face_count;
+}
+
+int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts )
+{
+	const gc_water_face_t *src;
+	int n, i;
+
+	if( !out || maxverts < 3 || index < 0 || index >= gc_water_face_count )
+		return 0;
+	src = &gc_water_faces[index];
+	n = (int)src->nverts;
+	if( n < 3 )
+		return 0;
+	if( n > GC_CAP_MAX_VERTS )
+		n = GC_CAP_MAX_VERTS;
+	if( n > maxverts )
+		n = maxverts;
+	for( i = 0; i < n; i++ )
+	{
+		out[i][0] = (float)src->pts_s16[i][0];
+		out[i][1] = (float)src->pts_s16[i][1];
+		out[i][2] = (float)src->pts_s16[i][2];
+	}
+	return n;
+}
+
+qboolean GC_WaterFacePlane( int index, mplane_t *out, int *out_flags )
+{
+	if( !out || index < 0 || index >= gc_water_face_count )
+		return false;
+	*out = gc_water_faces[index].plane;
+	if( out_flags )
+		*out_flags = (int)gc_water_faces[index].flags;
+	return true;
 }
 
 int GC_GetTramFaceVerts( int index, float out[][3], int maxverts )
@@ -2261,6 +2316,104 @@ static void GC_CaptureDrawFacesNoPVS( model_t *wmodel )
 		gc_newgame_cap_face_count, gc_newgame_cap_tex_faces, gc_newgame_cap_lm_faces );
 }
 
+/*
+=============
+GC_CaptureWaterFacesFromSurfbits
+
+G286: bake ≤8 SURF_DRAWTURB faces from capture surfbits into BSS. Avoids G276
+live-pool tip and G273 uncapped draw-time BSP walk. Runs on scratch-retain.
+=============
+*/
+static void GC_CaptureWaterFacesFromSurfbits( model_t *wmodel, const byte *surfbits )
+{
+	int i;
+	int replaced = 0;
+	int scores[GC_WATER_MAX_FACES];
+	int pvs_hits = 0;
+
+	gc_water_face_count = 0;
+	gc_g286_water_logged = false;
+	memset( gc_water_faces, 0, sizeof( gc_water_faces ));
+	memset( scores, 0, sizeof( scores ));
+	if( !wmodel || !wmodel->surfaces )
+		return;
+	(void)surfbits; /* Prefer near-eye turb even outside capture surfbits. */
+
+	for( i = 0; i < wmodel->numsurfaces; i++ )
+	{
+		msurface_t *src;
+		gc_water_face_t trial;
+		byte bake_src = GC_CAP_BAKE_NONE;
+		int area, score, n, min_i, min_score, k;
+		float fdot, dist;
+
+		src = &wmodel->surfaces[i];
+		if( !src->plane || src->numedges < 3 || src->numedges > 32 )
+			continue;
+		if( !( src->flags & SURF_DRAWTURB ))
+			continue;
+		if( src->flags & SURF_DRAWSKY )
+			continue;
+		if( src->firstedge < 0
+			|| src->firstedge + src->numedges > wmodel->numsurfedges )
+			continue;
+		area = (int)src->extents[0] * (int)src->extents[1];
+		if( area < 64 )
+			continue;
+		fdot = DotProduct( gc_newgame_capture_origin, src->plane->normal )
+			- src->plane->dist;
+		dist = (float)fabs( fdot );
+		/* Water is often a floor sheet — keep near-eye regardless of side. */
+		if( dist > 1536.0f )
+			continue;
+		if( surfbits && ( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
+			pvs_hits++;
+
+		memset( &trial, 0, sizeof( trial ));
+		n = GC_BakeCapVertsForSurf( wmodel, src, trial.pts_s16, GC_CAP_MAX_VERTS, &bake_src );
+		if( n < 3 || ( bake_src != GC_CAP_BAKE_EDGE && bake_src != GC_CAP_BAKE_TEX
+			&& bake_src != GC_CAP_BAKE_PLANE ))
+			continue;
+		trial.nverts = (byte)n;
+		trial.flags = (byte)( src->flags & SURF_PLANEBACK );
+		trial.plane = *src->plane;
+		score = GC_CapNearEyeScore( src->plane, area, false );
+		score += area;
+		if( surfbits && ( surfbits[i >> 3] & ( 1 << ( i & 7 ))))
+			score += 100000;
+
+		if( gc_water_face_count < GC_WATER_MAX_FACES )
+		{
+			gc_water_faces[gc_water_face_count] = trial;
+			scores[gc_water_face_count] = score;
+			gc_water_face_count++;
+			continue;
+		}
+		min_i = 0;
+		min_score = scores[0];
+		for( k = 1; k < GC_WATER_MAX_FACES; k++ )
+		{
+			if( scores[k] < min_score )
+			{
+				min_score = scores[k];
+				min_i = k;
+			}
+		}
+		if( score <= min_score )
+			continue;
+		gc_water_faces[min_i] = trial;
+		scores[min_i] = score;
+		replaced++;
+	}
+
+	if( !gc_g286_water_logged )
+	{
+		gc_g286_water_logged = true;
+		Con_Reportf( "Xash3D GameCube: G286 water bake n=%d max=%d rep=%d pvs=%d\n",
+			gc_water_face_count, GC_WATER_MAX_FACES, replaced, pvs_hits );
+	}
+}
+
 static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbits )
 {
 	int i;
@@ -2385,6 +2538,8 @@ static void GC_CaptureDrawFacesFromSurfbits( model_t *wmodel, const byte *surfbi
 	}
 	/* G277: *12 style-0 LM while samples still live. */
 	GC_BakeTramLightmaps( wmodel );
+	/* G286: bake visible turb sheets while edges/planes are still valid. */
+	GC_CaptureWaterFacesFromSurfbits( wmodel, surfbits );
 	/* G176: prove LM 8→4 funded face cap 256→320 without BSS growth. */
 	if( !gc_g176_logged && gc_newgame_cap_face_count >= 300
 		&& GC_MAX_CAP_FACES >= 320 && GC_CAP_LM_DIM == 4 )
@@ -2439,6 +2594,8 @@ static void GC_FreeTramFaces( void )
 	gc_tram_face_count = 0;
 	gc_tram_lm_ready = false;
 	gc_tram_diffuse_texnum = 0;
+	gc_water_face_count = 0;
+	gc_g286_water_logged = false;
 }
 
 /* Allocate lean live-face pool BEFORE FatPVS calloc — after lean tables
@@ -4753,10 +4910,11 @@ static void GC_InitVideoHardware( void )
 	gc_present_tex_ready = false;
 	gc.initialized = true;
 	GC_FlipperTrace( "Xash3D GameCube: renderer initialized gx\n" );
-	SYS_Report( "Xash3D GameCube: retail Flipper policy capture=%d softworld=%d xfb_dual=1 copy_clear=1 safe_area=%d%%\n",
+	SYS_Report( "Xash3D GameCube: retail Flipper policy capture=%d softworld=%d xfb_dual=1 copy_clear=1 safe_area=%d%% soft_fb_max=%dx%d efb_native=1\n",
 		GC_IsCaptureDiagnostics() ? 1 : 0,
 		Sys_CheckParm( "-gcsoftworld" ) ? 1 : 0,
-		GC_VIDEO_SAFE_AREA_PERCENT );
+		GC_VIDEO_SAFE_AREA_PERCENT,
+		GC_VIDEO_NEWGAME_PROBE_WIDTH, GC_VIDEO_NEWGAME_PROBE_HEIGHT );
 	GC_ReportBootPhase( GC_BOOT_RENDERER );
 #endif
 }
@@ -4911,6 +5069,10 @@ static void GC_SwizzleRGB565ToTiled( const unsigned short *src, int src_stride,
 }
 
 static void GC_PresentBufferViaGX( void );
+static void GC_TryDeferredLeanSky( void );
+static void GC_TryDeferredHudSheets( void );
+static void GC_TryDeferredStudios( void );
+static void GC_TryDeferredEfxProof( void );
 static void GC_ScrubLiveWorldSpeckles( unsigned short *dst, int width, int height, int stride );
 
 static qboolean GC_CanPresentViaGX( int width, int height )
@@ -4942,43 +5104,50 @@ static void GC_PresentBufferViaGX( void )
 	fb_w = (f32)rmode->fbWidth;
 	fb_h = (f32)rmode->efbHeight;
 
-	/* Always restore 2D soft-present state. Flipper world/HUD (G151+) leave
-	 * multi-stage TEV / 3D matrices / vtx formats; skipping rebuild made
-	 * landmark DumpFrames CopyDisp a cleared EFB (flat sky). */
-	GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
-	GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
-	GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
-	GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
-	GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
-	GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
-	GX_SetDispCopyGamma( GX_GM_1_0 );
+	/* Rebuild 2D soft-present pipe only after Flipper/world dirtied GX state.
+	 * Consecutive soft presents reuse ortho/TEV (was full rebuild every frame). */
+	if( !gc_gx_present_pipe_ready )
+	{
+		GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
+		GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
+		GX_SetDispCopySrc( 0, 0, rmode->fbWidth, rmode->efbHeight );
+		GX_SetDispCopyDst( rmode->fbWidth, rmode->xfbHeight );
+		GX_SetDispCopyYScale((f32)rmode->xfbHeight / (f32)rmode->efbHeight );
+		/* Match Flipper present: CRT vfilter on 480i, lean on progressive. */
+		if( rmode->viTVMode & VI_NON_INTERLACE )
+			GX_SetCopyFilter( GX_FALSE, NULL, GX_FALSE, NULL );
+		else
+			GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+		GX_SetDispCopyGamma( GX_GM_1_0 );
 
-	guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
-	GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
-	guMtxIdentity( modelview );
-	GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
+		guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
+		GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
+		guMtxIdentity( modelview );
+		GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
 
-	GX_ClearVtxDesc();
-	GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
-	GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
-	GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
-	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
-	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
-	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
-	GX_SetNumChans( 1 );
-	GX_SetNumTexGens( 1 );
-	GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
-	GX_SetNumTevStages( 1 );
-	GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
-	GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
-	GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
-	GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
-	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
-	GX_SetColorUpdate( GX_TRUE );
-	GX_SetCullMode( GX_CULL_NONE );
-	gc_gx_present_pipe_ready = true;
+		GX_ClearVtxDesc();
+		GX_SetVtxDesc( GX_VA_POS, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_CLR0, GX_DIRECT );
+		GX_SetVtxDesc( GX_VA_TEX0, GX_DIRECT );
+		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0 );
+		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
+		GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
+		GX_SetNumChans( 1 );
+		GX_SetNumTexGens( 1 );
+		GX_SetTexCoordGen( GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY );
+		GX_SetNumTevStages( 1 );
+		GX_SetTevOp( GX_TEVSTAGE0, GX_REPLACE );
+		GX_SetTevOrder( GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0 );
+		GX_SetBlendMode( GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_NOOP );
+		GX_SetAlphaCompare( GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0 );
+		GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
+		GX_SetColorUpdate( GX_TRUE );
+		GX_SetCullMode( GX_CULL_NONE );
+		gc_gx_present_pipe_ready = true;
+		GX_InvVtxCache();
+	}
 
-	GX_InvVtxCache();
+	/* Soft RGB565 tiles change every present — invalidate before bind. */
 	GX_InvalidateTexAll();
 	GX_LoadTexObj( &gc_present_tex, GX_TEXMAP0 );
 
@@ -5002,12 +5171,9 @@ static void GC_PresentBufferViaGX( void )
 	 * after changelevel tracks EFB; CopyDisp clear left flat sky in dumps. */
 	copy_clear = dump_latch ? GX_FALSE : GX_TRUE;
 	GX_CopyDisp( xfb[which_fb], copy_clear );
-	/* Second sync wait is only needed when the next CPU work can race the
-	 * copy; silent G36 windows skip it to reclaim present ms at 160×120. */
-	if( !gc_budget_probe_active )
-		GX_DrawDone();
-	else
-		GX_Flush();
+	/* Flush only — a second DrawDone after CopyDisp was locking soft presents
+	 * near 33ms. VIDEO_WaitVSync (retail) covers copy retirement. */
+	GX_Flush();
 }
 #endif
 
@@ -5215,6 +5381,10 @@ static void GC_PresentBuffer( void )
 		return;
 
 	gc_present_count++;
+	GC_TryDeferredLeanSky();
+	GC_TryDeferredHudSheets();
+	GC_TryDeferredStudios();
+	GC_TryDeferredEfxProof();
 
 	/* G151: Flipper already holds world geometry — CopyDisp only (no soft blit).
 	 * G191: never steal soft DumpFrames latch presents onto a cleared EFB.
@@ -5249,18 +5419,37 @@ static void GC_PresentBuffer( void )
 		if( !g197_logged )
 		{
 			g197_logged = true;
-			SYS_Report( "Xash3D GameCube: G197 CopyDisp ok fb=%u efb=%u xfb=%u stride=%u xfb_k1=%d\n",
+			SYS_Report( "Xash3D GameCube: G197 CopyDisp ok fb=%u efb=%u xfb=%u stride=%u xfb_k1=%d crt_vf=%d\n",
 				(unsigned)copy_w_u, (unsigned)copy_h_u, (unsigned)xfb_h_u,
 				(unsigned)rmode->fbWidth,
-				( xfb[which_fb] && ((u32)xfb[which_fb] & 0xC0000000u ) == 0xC0000000u ) ? 1 : 0 );
+				( xfb[which_fb] && ((u32)xfb[which_fb] & 0xC0000000u ) == 0xC0000000u ) ? 1 : 0,
+				( rmode->viTVMode & VI_NON_INTERLACE ) ? 0 : 1 );
 		}
 
-		GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
-		GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
-		GX_SetDispCopySrc( 0, 0, copy_w_u, copy_h_u );
-		GX_SetDispCopyDst( copy_w_u, xfb_h_u );
-		GX_SetDispCopyYScale((f32)xfb_h_u / (f32)copy_h_u );
-		GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+		{
+			static u16 last_copy_w, last_copy_h, last_xfb_h;
+			static qboolean last_interlaced;
+			const qboolean interlaced = !( rmode->viTVMode & VI_NON_INTERLACE );
+
+			if( last_copy_w != copy_w_u || last_copy_h != copy_h_u || last_xfb_h != xfb_h_u
+				|| last_interlaced != interlaced )
+			{
+				GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
+				GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
+				GX_SetDispCopySrc( 0, 0, copy_w_u, copy_h_u );
+				GX_SetDispCopyDst( copy_w_u, xfb_h_u );
+				GX_SetDispCopyYScale((f32)xfb_h_u / (f32)copy_h_u );
+				/* Hardware CRT (480i): keep VI vfilter. Progressive: lean copy. */
+				if( interlaced )
+					GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
+				else
+					GX_SetCopyFilter( GX_FALSE, NULL, GX_FALSE, NULL );
+				last_copy_w = copy_w_u;
+				last_copy_h = copy_h_u;
+				last_xfb_h = xfb_h_u;
+				last_interlaced = interlaced;
+			}
+		}
 		/* One fence before CopyDisp; never clear EFB on retail Flipper copy
 		 * (DumpFrames follows EFB — GX_TRUE left solid sky after a good XFB). */
 		GX_DrawDone();
@@ -5280,16 +5469,53 @@ static void GC_PresentBuffer( void )
 			&& ( Sys_CheckParm( "-gcdumpframes" ) || Sys_CheckParm( "-gcdump" )))
 		{
 			if(( ++g194_flipper_swap_skip & 3 ) != 0 )
+			{
+				now = Sys_FloatTime();
+				elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
+				if( elapsed_ms > gc_worst_frame_ms )
+					gc_worst_frame_ms = elapsed_ms;
+				gc_last_present_time = now;
 				return;
+			}
 		}
 		{
 			VIDEO_SetNextFramebuffer( xfb[which_fb] );
 			VIDEO_Flush();
+			/* One VSync per present — dual-XFB is tear-safe at 60 fields/sec.
+			 * A second progressive WaitVSync locked gameplay to ~30fps. */
 			VIDEO_WaitVSync();
-			if( rmode->viTVMode & VI_NON_INTERLACE )
-				VIDEO_WaitVSync(); /* field-safe progressive */
 			which_fb ^= 1;
 		}
+		/* Flipper path used to return before timing updates (G36 blind spot). */
+		now = Sys_FloatTime();
+		elapsed_ms = gc_last_present_time > 0.0 ? ( now - gc_last_present_time ) * 1000.0 : 0.0;
+		if( elapsed_ms > gc_worst_frame_ms )
+			gc_worst_frame_ms = elapsed_ms;
+		if( gc_budget_probe_active && gc_budget_warmup_left <= 0
+			&& gc_budget_sample_count < GC_GetFrameBudgetSampleTarget() )
+		{
+			gc_budget_sample_ms[gc_budget_sample_count] = (float)elapsed_ms;
+			gc_budget_sample_nonblack[gc_budget_sample_count] = 1;
+			gc_budget_sample_count++;
+			if( gc_budget_sample_count >= GC_GetFrameBudgetSampleTarget() )
+			{
+				unsigned int i;
+
+				gc_budget_probe_active = false;
+				if( Sys_CheckParm( "-gcnewgame" ))
+					gc_newgame_g36_done = true;
+				for( i = 0; i < gc_budget_sample_count; i++ )
+				{
+					SYS_Report( "Xash3D GameCube: present frame=%u sampled_nonblack=%u frame time=%.2fms\n",
+						i + 1, gc_budget_sample_nonblack[i], gc_budget_sample_ms[i] );
+				}
+				SYS_Report( "Xash3D GameCube: budget sample flush count=%u worst=%.2fms\n",
+					gc_budget_sample_count, gc_worst_frame_ms );
+			}
+		}
+		else if( gc_budget_probe_active && gc_budget_warmup_left > 0 )
+			gc_budget_warmup_left--;
+		gc_last_present_time = now;
 		return;
 	}
 	if( gc_cpu_dump_presents_left > 0
@@ -5590,15 +5816,14 @@ static void GC_PresentBuffer( void )
 		{
 			VIDEO_SetNextFramebuffer( xfb[which_fb] );
 			VIDEO_Flush();
-			/* Retail Flipper always waits VSync. Capture may skip during G36
-			 * budget samples / cinematics; dump latch keeps VSync. */
+			/* Retail always waits one VSync. Capture may skip during G36
+			 * budget samples / cinematics; dump latch keeps VSync.
+			 * No second progressive wait — that locked presents to ~30fps. */
 			if( !GC_IsCaptureDiagnostics()
 				|| g128_cpu_dump
 				|| ( !gc_budget_probe_active && !gc_newgame_world_ready && cls.state != ca_cinematic ))
 			{
 				VIDEO_WaitVSync();
-				if( !GC_IsCaptureDiagnostics() && ( rmode->viTVMode & VI_NON_INTERLACE ))
-					VIDEO_WaitVSync();
 			}
 			which_fb ^= 1;
 		}
@@ -5666,6 +5891,7 @@ void R_Free_Video( void )
 	GC_FreeLiveFaces();
 	GC_FreeTramFaces();
 	gc_newgame_world_ready = false;
+	gc_lean_sky_attempts = 0;
 	gc_newgame_viewcluster = -1;
 	gc_newgame_g36_done = false;
 	gc_budget_probe_active = false;
@@ -5696,6 +5922,25 @@ qboolean SW_CreateBuffer( int width, int height, uint *stride, uint *bpp, uint *
 
 	if( width <= 0 || height <= 0 )
 		return false;
+
+#if XASH_GAMECUBE
+	/* Hardware MEM1: never calloc a native 640×480 soft FB (~0.59 MiB tip).
+	 * Flipper owns full-res EFB/XFB; soft buffer is menus/probe/diagnostic only. */
+	if( width > GC_VIDEO_NEWGAME_PROBE_WIDTH || height > GC_VIDEO_NEWGAME_PROBE_HEIGHT )
+	{
+		static qboolean clamped_logged;
+
+		if( !clamped_logged )
+		{
+			SYS_Report( "Xash3D GameCube: hardware soft FB clamp %dx%d → %dx%d (Flipper EFB native %dx%d)\n",
+				width, height, GC_VIDEO_NEWGAME_PROBE_WIDTH, GC_VIDEO_NEWGAME_PROBE_HEIGHT,
+				rmode ? rmode->fbWidth : 640, rmode ? rmode->efbHeight : 480 );
+			clamped_logged = true;
+		}
+		width = GC_VIDEO_NEWGAME_PROBE_WIDTH;
+		height = GC_VIDEO_NEWGAME_PROBE_HEIGHT;
+	}
+#endif
 
 	needed_pixels = (size_t)width * (size_t)height;
 
@@ -7307,6 +7552,113 @@ qboolean GC_IsNewGameWorldReady( void )
 #endif
 }
 
+/*
+===========
+GC_TryDeferredLeanSky
+
+G285: after HUD/studios settle, try one tip-safe lean sky BMP for Flipper
+outdoor backdrop. Soft-fails must not Host_Error; outdoor clear covers gaps.
+===========
+*/
+static void GC_TryDeferredLeanSky( void )
+{
+#if XASH_GAMECUBE
+	const char *sky;
+
+	if( !gc_newgame_world_ready )
+		return;
+	if( FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX ))
+	{
+		gc_lean_sky_attempts = 3;
+		return;
+	}
+	if( gc_lean_sky_attempts >= 3 )
+		return;
+	/* Try at presents 4, 16, 32 after world-ready arm. */
+	if( gc_present_count != 4 && gc_present_count != 16 && gc_present_count != 32 )
+		return;
+
+	gc_lean_sky_attempts++;
+	sky = clgame.movevars.skyName;
+	if( !sky || !sky[0] )
+		sky = "desert";
+	Image_GCPurgeDecodeScratch();
+	FS_ClearFindMissCache();
+	Con_Reportf( "Xash3D GameCube: G285 deferred lean sky try=%d present=%u name=%s\n",
+		gc_lean_sky_attempts, gc_present_count, sky );
+	R_SetupSkyLeanGameCube( sky );
+	if( FBitSet( world.flags, FWORLD_CUSTOM_SKYBOX ))
+		gc_lean_sky_attempts = 3;
+#endif
+}
+
+/*
+===========
+GC_TryDeferredHudSheets
+
+G290: retry stubbed lean HUD (crosshairs) before studio bump steals residual heap.
+===========
+*/
+static void GC_TryDeferredHudSheets( void )
+{
+#if XASH_GAMECUBE
+	if( !gc_newgame_world_ready )
+		return;
+	if( gc_present_count != 6 && gc_present_count != 12 )
+		return;
+	Con_Reportf( "Xash3D GameCube: G290 deferred HUD sheets present=%u\n",
+		gc_present_count );
+	CL_GCPreloadNewGameHudSpritesLate();
+#endif
+}
+
+/*
+===========
+GC_TryDeferredStudios
+
+G287: promote crowbar/handgun after Flipper presents (prepare tip-fails MDL malloc).
+===========
+*/
+static void GC_TryDeferredStudios( void )
+{
+#if XASH_GAMECUBE
+	if( !gc_newgame_world_ready )
+		return;
+	/* After sky/HUD retry — give HUD soft-fails a frame to settle. */
+	if( gc_present_count != 8 && gc_present_count != 20 && gc_present_count != 40
+		&& gc_present_count != 64 )
+		return;
+	Mod_GCTryDeferredStudios();
+#endif
+}
+
+/*
+===========
+GC_TryDeferredEfxProof
+
+G291: tip-safe particle seed so Flipper EFX TriAPI emits during probe.
+===========
+*/
+static void GC_TryDeferredEfxProof( void )
+{
+#if XASH_GAMECUBE
+	vec3_t org;
+	static qboolean seeded;
+
+	if( !gc_newgame_world_ready || seeded )
+		return;
+	if( gc_present_count != 24 )
+		return;
+	if( !Sys_CheckParm( "-gcnewgame" ))
+		return;
+
+	VectorCopy( refState.vieworg, org );
+	org[2] -= 16.0f;
+	CL_GCSeedFlipperEfxProof( org );
+	seeded = true;
+#endif
+}
+
 qboolean GC_UseGxRenderer( void )
 {
 #if XASH_GAMECUBE
@@ -8347,6 +8699,7 @@ void GC_ResetNewGameWorldForChangelevel( void )
 	GC_FreeTramFaces();
 	GC_FreeNewGamePVSCache();
 	gc_newgame_world_ready = false;
+	gc_lean_sky_attempts = 0;
 	gc_gx_world_live = false;
 	gc_gx_world_efb_ready = false;
 	gc_g192_post_changelevel = true;
@@ -9845,14 +10198,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	if( !R_TryInitLowResSurfaceCache() )
 		SYS_Report( "Xash3D GameCube: newgame textured cache unavailable (flat fill)\n" );
 
-	/* Pure Flipper clears EFB to sky color in R_GXClearEfbSky — skip lean
-	 * BMP sky decode here. It Host_Errors on 16 KiB ImageLib OOM at ~3.8 Mb. */
-	Con_Reportf( "Xash3D GameCube: pure GX skip lean skybox decode (EFB clear)\n" );
-
-	/* After sky proves FS/MEM headroom, promote a few mesh-only studios.
-	 * Viewmodel bind is forced in V_SetupViewModel (tram starts unarmed).
-	 * G172: keep studios BEFORE HUD — even lean sheets starve 47–134 KiB MDLs. */
-	Mod_GCLoadNewGameStudios();
+	/* Pure Flipper: defer lean sky + studios until after HUD/presents.
+	 * Prepare-time MDL malloc tip-fails even for 7 KiB (G287). */
+	Con_Reportf( "Xash3D GameCube: pure GX defer lean skybox until after HUD\n" );
+	Con_Reportf( "Xash3D GameCube: G287 defer studios until post-present MEM headroom\n" );
 
 	/* Mark world-ready before VidInit so SCR_UpdateScreen cannot re-arm the
 	 * G36 "frame budget samples armed" marker mid-Prepare (harness scores
@@ -9866,6 +10215,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	gc_worst_frame_ms = 0.0;
 	gc_budget_probe_active = false;
 	gc_newgame_world_ready = true;
+	gc_lean_sky_attempts = 0;
 	gc_newgame_g36_done = true;
 	/* Pure Flipper: enable live GX before the post-prepare present pump so
 	 * the first world frames never soft-raster. Soft DumpFrames latch (if
@@ -9893,6 +10243,10 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 		Con_Reportf( "Xash3D GameCube: newgame lean HUD VidInit after world present\n" );
 	}
 	CL_GCPreloadNewGameHudSprites();
+
+	/* G285: lean sky BMP decode is deferred to GC_TryDeferredLeanSky after a
+	 * few presents (ImageLib soft-fails under tip). Outdoor EFB clear covers
+	 * until a side lands; textured backdrop follows when try succeeds. */
 
 	refState.width = present_w;
 	refState.height = present_h;

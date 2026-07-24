@@ -525,9 +525,19 @@ static double Host_CalcFPS( void )
 	else if( Host_IsSinglePlayerGame( ))
 	{
 #if XASH_GAMECUBE
-		/* G280: Flipper New Game targets sustained 24–30 FPS (not 60). */
+		/* G284: Flipper targets 60 fields/sec. VIDEO_WaitVSync in present is the
+		 * pace; do not Host-sleep to 30fps (G280) — that locked every probe to
+		 * ~33ms even when CopyDisp was cheap. */
 		if( Sys_CheckParm( "-gcnewgame" ))
-			fps = 30.0;
+		{
+			if( !gl_vsync.value )
+			{
+				fps = host_maxfps.value;
+				if( fps <= 0.0 )
+					fps = 60.0;
+			}
+			/* gl_vsync on → fps stays 0 → Host_Autosleep off; VI paces. */
+		}
 		else
 #endif
 		if( !gl_vsync.value )
@@ -1474,9 +1484,10 @@ int EXPORT Host_Main( int argc, char **argv, const char *progname, int bChangeGa
 			if( Sys_CheckParm( "-gcnewgame" ) && !SV_Active( ))
 			{
 				Con_Reportf( "Xash3D GameCube: gcnewgame begin\n" );
-				/* G280: host pace at 30 FPS so Flipper world+present can stay 24–30. */
-				Cvar_SetValue( "fps_max", 30.0f );
-				Con_Reportf( "Xash3D GameCube: G280 host fps_max=30 (Flipper playable target)\n" );
+				/* G284: host allows 60 FPS; Flipper present WaitVSync is the pace. */
+				Cvar_SetValue( "fps_max", 60.0f );
+				Cvar_SetValue( "gl_vsync", 0.0f ); /* avoid Host sleep + VI double-pace */
+				Con_Reportf( "Xash3D GameCube: G284 host fps_max=60 gl_vsync=0 (Flipper 60Hz target)\n" );
 				Cbuf_AddText( "gc_playstart\n" );
 				Cbuf_Execute();
 				Con_Reportf( "Xash3D GameCube: gcnewgame queued\n" );

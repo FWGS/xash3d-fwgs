@@ -159,9 +159,13 @@ may still inject `-gcnewgame` / `-gcworldrender` for automated probes. Present
 contract: `GX_DrawDone` → `GX_CopyDisp` → `VIDEO_SetNextFramebuffer` →
 `VIDEO_Flush` → field-safe `VIDEO_WaitVSync` → dual-XFB rotate. XFB policy:
 CPU writes through cached K0 + `DCFlushRange`; VI/`GX_CopyDisp` use K1.
+480i CRT keeps VI vertical filter on CopyDisp; progressive uses a lean copy.
+Soft/internal RGB565 stays ≤320×240 (BSS) for MEM1 tip safety while Flipper
+EFB/XFB remain native console resolution from `VIDEO_GetPreferredMode`.
+Host play target is 60 fields/sec (G284); VI paces presents.
 
 Hardware validation still requires the GC-DOL-SD and GC-ISO-RO routes above
 (480i, wired controller, audio, map transitions, save behavior, fatal display,
 sustained frame pacing). Latest repository handoff packet:
 
-`.ai/logs/hardware-handoff-20260721-121855`
+`.ai/logs/hardware-handoff-20260723-145125`

@@ -193,6 +193,9 @@ int GC_GetLiveFaceBakeSrc( int index ); /* G219: 1=edge 2=plane 3=tex 0=none */
 int GC_GetFillFaceCount( void ); /* G222/G225: MEM1 + ARAM flat-fill beyond 320+192 */
 int GC_GetFillFaceVerts( int index, float out[][3], int maxverts );
 qboolean GC_FillFacePlane( int index, struct mplane_s *out, int *out_flags );
+int GC_GetWaterFaceCount( void ); /* G286: baked SURF_DRAWTURB Flipper sheets */
+int GC_GetWaterFaceVerts( int index, float out[][3], int maxverts );
+qboolean GC_WaterFacePlane( int index, struct mplane_s *out, int *out_flags );
 struct msurface_s *GC_GetLiveDrawSurfs( void ); /* always NULL — use Fill */
 qboolean GC_FillLiveDrawSurf( int index, struct msurface_s *out, mtexinfo_t *tex_out );
 int GC_GetNewGameCapFaceCount( void );

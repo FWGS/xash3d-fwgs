@@ -240,8 +240,12 @@ void CL_ParseMovevars( sizebuf_t *msg )
 	if( Q_strcmp( clgame.oldmovevars.skyName, clgame.movevars.skyName ) && cl.video_prepped )
 	{
 #if XASH_GAMECUBE
-		if( Sys_CheckParm( "-gcnewgame" ))
-			R_SetupSkyLeanGameCube( clgame.movevars.skyName );
+		/* Defer until Flipper world is armed — map-load MEM1 is tip-tight. */
+		if( Sys_CheckParm( "-gcnewgame" ) || CL_GameCubeLocalMapRoute())
+		{
+			if( GC_IsNewGameWorldReady() )
+				R_SetupSkyLeanGameCube( clgame.movevars.skyName );
+		}
 		else
 #endif
 			R_SetupSky( clgame.movevars.skyName );

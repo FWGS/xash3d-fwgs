@@ -35,6 +35,33 @@ qboolean R_GcmapOwnsStaticViewBuffer( void )
 	return vid.buffer == gc_gcmap_static_viewbuffer;
 }
 
+/*
+===========
+R_GcmapBindStaticScreenBuffers
+
+Tip-safe Pure Flipper path: bind BSS 320×240 Z/view scratch instead of malloc
+native 640×480 soft rasters (~1.2 MiB MEM1 tip on real hardware).
+===========
+*/
+qboolean R_GcmapBindStaticScreenBuffers( int logical_w, int logical_h )
+{
+	const int soft_w = ( logical_w > 0 && logical_w <= GC_GCMAP_STATIC_MAX_W )
+		? logical_w : GC_GCMAP_STATIC_MAX_W;
+	const int soft_h = ( logical_h > 0 && logical_h <= GC_GCMAP_STATIC_MAX_H )
+		? logical_h : GC_GCMAP_STATIC_MAX_H;
+	const size_t soft_pixels = (size_t)soft_w * (size_t)soft_h;
+
+	R_GcmapReleaseDynamicScreenBuffers();
+	d_pzbuffer = gc_gcmap_static_zbuffer;
+	vid.buffer = gc_gcmap_static_viewbuffer;
+	memset( d_pzbuffer, 0xff, soft_pixels * sizeof( d_pzbuffer[0] ));
+	memset( vid.buffer, 0, soft_pixels * sizeof( vid.buffer[0] ));
+	gEngfuncs.Con_Reportf(
+		"Xash3D GameCube: hardware Flipper screen soft=%dx%d logical=%dx%d (static BSS)\n",
+		soft_w, soft_h, logical_w, logical_h );
+	return true;
+}
+
 void R_GcmapReleaseDynamicScreenBuffers( void )
 {
 	if( d_pzbuffer )

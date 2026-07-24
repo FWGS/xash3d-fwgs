@@ -83,7 +83,12 @@ def main() -> int:
 	checks.append(Check(
 		"default software resolution",
 		"PASS" if '"320"' in sys_text and '"240"' in sys_text else "FAIL",
-		"GameCube default argv keeps a low-memory 320x240 internal buffer",
+		"GameCube argv keeps tip-safe 320x240 soft FB; Flipper EFB/XFB stay native 640x480",
+	))
+	checks.append(Check(
+		"Flipper native EFB policy",
+		"PASS" if "efb_native=1" in vid or "Flipper EFB native" in vid or "hardware soft FB clamp" in vid else "FAIL",
+		"source documents Flipper native EFB with soft FB clamp for MEM1 tip safety",
 	))
 	checks.append(Check(
 		"hardware matrix video policy",

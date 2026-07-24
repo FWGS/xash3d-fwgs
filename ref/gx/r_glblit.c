@@ -695,36 +695,26 @@ qboolean R_AllocScreen( void )
 	{
 		if( !R_GcmapOwnsStaticZBuffer() )
 			free( d_pzbuffer );
+		d_pzbuffer = NULL;
 	}
+#if XASH_GAMECUBE
+	/* Pure Flipper: BSS soft Z/view only — never malloc native 640×480 rasters. */
+	if( !R_GcmapBindStaticScreenBuffers( vid.width, vid.height ))
+		return false;
+#else
 	d_pzbuffer = malloc( vid.width * vid.height * 2 + 64 );
 	if( !d_pzbuffer )
-	{
-#if XASH_GAMECUBE
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc missing z buffer\n" );
-#endif
 		return false;
-	}
 
-#if XASH_GAMECUBE
-	/* The platform backend owns gc.buffer (RGB565). Keep renderer indices in a
-	 * separate buffer so R_BlitScreen can translate without aliasing. */
 	if( vid.buffer )
-	{
-		if( !R_GcmapOwnsStaticViewBuffer() )
-			free( vid.buffer );
-	}
+		free( vid.buffer );
 	vid.buffer = malloc( vid.width * vid.height * sizeof( pixel_t ));
 	if( !vid.buffer )
 	{
-		gEngfuncs.Con_Reportf( "Xash3D GameCube: renderer screen alloc missing colormap buffer\n" );
 		free( d_pzbuffer );
 		d_pzbuffer = NULL;
 		return false;
 	}
-#else
-	if( vid.buffer )
-		free( vid.buffer );
-	vid.buffer = malloc( vid.width * vid.height * sizeof( pixel_t ));
 #endif
 
 #if XASH_GAMECUBE
