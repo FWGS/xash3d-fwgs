@@ -18,11 +18,11 @@ All New Game interactive bring-up is complete:
 
 | Artifact | Size | Format | SHA256 |
 |----------|------|--------|--------|
-| boot.dol | 5,823,404 bytes | PowerPC DOL | 20f7e8e8b4e78a624e8f674d3d874e6a1f499a1442296b9c33a8b8a641744f51 |
+| boot.dol | 5,823,404 bytes | PowerPC DOL | bdf3f7c594cde39f67ff8eb9e3bb48de993ad888cda153334d99e25fcf8f4c93 |
 | xash | 33,122,656 bytes | PowerPC ELF | 079e70d9e87e19d16f7274f17f46fa661eecf99fb6a0949aeb934a0356fe8464 |
 
 **Build command**: `scripts/build-gamecube.sh`
-**Last build**: 2026-07-25T17:37:07Z
+**Last build**: 2026-07-25T18:32:48Z
 **Renderer**: REF_GX
 **Policy**: retail-flipper
 
@@ -163,7 +163,7 @@ The following goals require physical GameCube hardware and cannot be completed i
 
 ## Last Updated
 
-2026-07-25T17:37:11Z
+2026-07-25T18:32:48Z
 
 ## Git Status
 
@@ -171,4 +171,4 @@ The following goals require physical GameCube hardware and cannot be completed i
 - Last commit: `0ba81f01cb` - "docs: update G38 handoff to latest hardware-handoff-20260725-103707"
 - Submodules: 8 modified
 - Binary assets: 1 modified (OUT/valve/extras.pk3)
-- Build artifacts: boot.dol regenerated (5,823,404 bytes)
+- Build artifacts: boot.dol regenerated (5,823,404 bytes, SHA256: bdf3f7c5...)
