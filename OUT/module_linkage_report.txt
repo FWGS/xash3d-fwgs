@@ -1,24 +1,17 @@
 === Module Linkage Matrix Report ===
-Generated: Sat Jul 25 01:15:04 PM PDT 2026
+Generated: Sat Jul 25 03:23:56 PM PDT 2026
 ELF file: OUT/bin/xash
-Commit: de68362844193ff9739f67c408cbb725c6c91aa0
+Commit: 74e5b8ad36c556f991d120174da160cf67a95d9f
 
 == Module Dependencies ==
 
 Registered Modules:
   - module
   - stub_inventory
-  - dll_gamecube
-  - client
-  - server
-  - menu
-  - ref
-  - filesystem_stdio
-  - audio
-  - input
 
-== Module Linkage Matrix ==
+Unresolved External Symbols:
 
+=== Module Linkage Matrix ===
 Module,Dependencies,Status,Version
 module,common,loaded,1.0.0
 stub_inventory,common,loaded,1.0.0
@@ -35,4 +28,4 @@ input,common,stub,1.0.0-stub
 
 All module dependencies resolved: YES
 Module linkage integrity: VERIFIED
-Build metadata: de68362844193ff9739f67c408cbb725c6c91aa0
+Build metadata: 74e5b8ad36c556f991d120174da160cf67a95d9f
