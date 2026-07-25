@@ -52,3 +52,59 @@ evidence under `.ai/logs/`.
 The ideal local agent cycle is:
 
 `Dolphin evidence -> ConAct/mempalace summary -> tiny source patch -> build -> Dolphin proof -> commit`
+
+---
+
+## Additional Technical Goals
+
+### Module Linkage & Stub Replacement
+- [ ] Audit stub/client, stub/server, stub/menu, stub/pm_shared for real implementations
+- [ ] Replace stub/client with real HLSDK client_gamecube_ppc.a when available
+- [ ] Replace stub/server with real HLSDK hl_gamecube_ppc.a when available
+- [ ] Replace stub/menu with real menu implementation from ref/gx or HLSDK
+- [ ] Replace stub/pm_shared with real pm_shared implementation from pm_shared directory
+- [ ] Verify all module exports match expected HLSDK interfaces
+- [ ] Build GameCube target and inspect final ELF symbols to confirm real implementations
+- [ ] Update GameCube roadmap with verified module-linkage matrix
+
+### Build System & Configuration
+- [ ] Verify wscript GameCube build configuration uses real HLSDK archives
+- [ ] Ensure XASH_GAMECUBE_REQUIRE_HLSDK=0 is not set unintentionally
+- [ ] Verify DEVKITPRO/libogc paths are correctly configured
+- [ ] Confirm ref_gx is built as sibling static lib target
+- [ ] Verify all required libraries (fat, snd, ogc, m, iso9660) are linked
+- [ ] Ensure proper symbol renaming for HLSDK archives (gamecube_hlsdk_* prefixes)
+
+### GameCube Platform Support
+- [ ] Verify platform/gamecube/*.c implementations are complete
+- [ ] Check platform/stub/s_stub.c for proper stub implementation
+- [ ] Ensure GX renderer integration is correct for GameCube
+- [ ] Verify SDL2/SDL3 configuration for GameCube (should be disabled for pure Flipper)
+- [ ] Confirm soft/GL renderers are disabled for pure Flipper builds
+- [ ] Verify low memory mode is enabled (XASH_LOW_MEMORY >= 1)
+
+### Testing & Verification
+- [ ] Build GameCube target and inspect final ELF symbols
+- [ ] Run Dolphin emulator and verify non-black screen output
+- [ ] Verify game loop execution (no infinite loops or crashes)
+- [ ] Check frame pacing and render timing
+- [ ] Verify input handling (controller, memory card, etc.)
+- [ ] Test save/load functionality with memory card emulation
+- [ ] Verify audio output through Dolphin's audio backend
+
+### Documentation & Roadmap
+- [ ] Update GameCube roadmap with verified module implementations
+- [ ] Document stub-to-real migration status
+- [ ] Record build configuration requirements (DEVKITPRO, libogc, HLSDK)
+- [ ] Document known limitations and workarounds
+- [ ] Add build verification steps to CI/CD pipeline
+- [ ] Create release checklist for GameCube builds
+
+### Release Engineering
+- [ ] Verify ISO generation works (xash3d-gc-*.iso files)
+- [ ] Ensure release artifacts are reproducible
+- [ ] Check that release evidence is stored in .ai/logs/
+- [ ] Verify RC gate passes (scripts/gamecube-rc-check.sh)
+- [ ] Document release evidence chain (build -> ISO -> Dolphin test)
+- [ ] Create automated release verification script
+
