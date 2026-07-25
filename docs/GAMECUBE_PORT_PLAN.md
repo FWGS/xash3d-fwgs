@@ -1365,8 +1365,8 @@ unless the distributor has the required rights.
 | Hardware | G38 has a repeatable handoff packet, but real GameCube/Swiss/Wii-GC-mode evidence remains open. |
 
 Latest G38 handoff evidence:
-`.ai/logs/hardware-handoff-20260722-221451/summary.md` records checksums for
-`OUT/bin/boot.dol` (6274272, G270 baseline), `OUT/bin/xash`, `OUT/xash3d-gc.iso`,
+`.ai/logs/hardware-handoff-20260725-062515/summary.md` records checksums for
+`OUT/bin/boot.dol` (5823404, current), `OUT/bin/xash`, `OUT/xash3d-gc.iso`,
 `libref_gx.a`, `libfilesystem_stdio.a`, and `extras.pk3`, plus an operator
 checklist and hardware evidence template. Prior packet:
 `.ai/logs/hardware-handoff-20260626-011714/summary.md`. This prepares physical
@@ -3551,3 +3551,79 @@ scripts/hlsdk-gamecube-build.sh || true
 scripts/ai-verify.sh
 scripts/dolphin-boot-probe.sh
 ```
+
+## G38 Hardware Validation — 2026-07-25 — HW-G38-001
+
+- Tester: AI agent (preparation)
+- Commit: 810ea8f3d0
+- Build command: `scripts/gamecube-hardware-handoff.sh --build --build-disc`
+- Artifact: `OUT/bin/boot.dol` (5823404 bytes, sha256: 29b0e4cd9db4e72f649f81bb84acb95178ea1002c480a8c9af3587565e214e15)
+- Hardware: GameCube (pending physical validation)
+- Loader: Swiss / homebrew loader (pending physical validation)
+- Video route: NTSC analog (pending physical validation)
+- Storage route: SD writable (pending physical validation)
+- Asset route: Local `Half-Life/valve` (pending physical validation)
+- Result: Handoff prepared, awaiting operator hardware validation
+- Furthest reached: Engine readiness marker (`MAP_READY` in Dolphin)
+- Evidence: Handoff packet at `.ai/logs/hardware-handoff-20260725-062515/`
+- Failure label: None (preparation complete)
+- Notes: All automatic goals (G83-G121) complete. Build verified. Handoff packet generated with artifact manifest, operator checklist, and evidence template. Physical hardware testing required for G38 completion.
+- Next blocker: Physical GameCube hardware access for native validation
+
+### Hardware Handoff Packet Contents
+
+- `OUT/bin/boot.dol` — PowerPC DOL executable (5823404 bytes)
+- `OUT/bin/xash` — PowerPC ELF (33122656 bytes)
+- `OUT/libref_gx.a` — GX renderer static archive (2802932 bytes)
+- `OUT/libfilesystem_stdio.a` — Filesystem backend static archive (881436 bytes)
+- `OUT/valve/extras.pk3` — Minimal extras package (184 bytes)
+- Handoff metadata: `.ai/logs/hardware-handoff-20260725-062515/`
+
+### Required Operator Actions
+
+1. Copy `OUT/bin/boot.dol` to SD card at `sd:/apps/xash3d-gc/boot.dol`
+2. Copy legally owned Half-Life `valve` assets to `sd:/xash3d/valve/`
+3. Boot through Swiss loader or compatible homebrew loader
+4. Record evidence in `.ai/logs/hardware-handoff-20260725-062515/evidence-template.md`
+5. Copy completed evidence into `docs/GAMECUBE_PORT_PLAN.md` with new test ID
+
+### Pre-Flight Commands
+
+Before physical hardware testing, run:
+
+```sh
+scripts/gamecube-boot-media-compliance.py --build-disc
+scripts/gamecube-video-compliance.py
+scripts/gamecube-controller-compliance.py
+scripts/gamecube-save-compliance.py
+scripts/gamecube-audio-compliance.py
+scripts/gamecube-timing-compliance.py
+scripts/gamecube-ux-compliance.py
+scripts/gamecube-fatal-ux-compliance.py
+```
+
+### Completion Criteria
+
+G38 is complete when:
+- Real hardware boot evidence recorded with date, tester, hardware revision
+- Loader accepts artifact and reaches engine readiness marker
+- Controller input detected and responsive
+- Audio policy behavior documented (null fallback or audible output)
+- Storage behavior documented (SD writable or read-only fallback)
+- Minimum 5 minutes runtime without unbounded hang or crash
+- Evidence entry added to `docs/GAMECUBE_PORT_PLAN.md`
+
+### Manual-Only Goals
+
+The following goals remain manual and require physical hardware:
+
+- **G40**: End-to-end Half-Life 1 campaign audit
+- **G62**: Validate scripted sequence and trigger route
+- **G63**: Validate scripted sequence and trigger route (BLOCKED: asset staging)
+- **G66**: Validate save integrity and storage failure modes
+- **G70**: Manually capture target-display audio/video evidence
+- **G71**: Manually prove persistent save/config storage on real media
+- **G75**: Manually sign off native Half-Life 1 GameCube completion
+
+Automation has completed all automatic goals (G83-G121). The port is ready for
+manual hardware validation with all artifacts generated and documented.
