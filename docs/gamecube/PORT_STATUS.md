@@ -22,7 +22,7 @@ All New Game interactive bring-up is complete:
 | xash | 33,122,656 bytes | PowerPC ELF | c9f73c0a2d53baa82b31c7f72a28d006d88549c5324acb8405ab26c5373669fc |
 
 **Build command**: `scripts/build-gamecube.sh`
-**Last build**: 2026-07-25T12:49:52Z
+**Last build**: 2026-07-25T12:58:58Z
 **Renderer**: REF_GX
 **Policy**: retail-flipper
 
@@ -157,11 +157,11 @@ The following goals require physical GameCube hardware and cannot be completed i
 
 ## Last Updated
 
-2026-07-25T12:49:52Z
+2026-07-25T12:58:58Z
 
 ## Git Status
 
 - Branch: `agent/gamecube-port`
-- Last commit: `99aeae680c` - "Fix DOL generation with correct header structure"
+- Last commit: `81005a45e2` - "Update submodules: remove unused assets"
 - Submodules: 8 modified
 - Binary assets: 1 modified (OUT/valve/extras.pk3)
