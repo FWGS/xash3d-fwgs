@@ -38,6 +38,9 @@ Mirrored on github - https://github.com/solidi/hl-mods/tree/master/cir
 ## Counter-Life
 Available on ModDB - https://www.moddb.com/mods/counter-life/downloads/cl-version-1-source-code
 
+## Crack-Life Anniversary Campaign
+Available on ModDB - https://www.moddb.com/mods/crack-life/downloads/crack-life-anniversary-campaign-sdk
+
 ## Cthulhu
 Uploaded to github by Oleg Cherkasky - https://github.com/gunrunners-paradise/Cthulhu-HLmod-SDK
 
@@ -85,11 +88,20 @@ Available on ModDB - https://www.moddb.com/mods/half-life-echoes
 ## Half-Life: Expanded Arsenal
 Available on ModDB - https://www.moddb.com/mods/half-life-expanded-arsenal
 
+## Half-Life: Featureful
+Branch **featureful** in halflife-featureful - https://github.com/FreeSlave/halflife-featureful
+
 ## Half-Life: Field Intensity
 Branch **field_intensity_1.7** in halflife-featureful - https://github.com/FreeSlave/halflife-featureful/tree/field_intensity_1.7
 
 ## Half-Life: Gravgun mod
 Branch **gravgun** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/gravgun
+
+## Half-Life: Induction
+Version 1.4: Branch **induction** in halflife-featureful - https://github.com/FreeSlave/halflife-featureful/tree/induction
+
+## Half-Life: Insecure
+Version 1.5 is available on ModDB - https://www.moddb.com/mods/half-life-insecure/downloads/half-life-insecure-map-tools-and-source-code-ver-15
 
 ## Half-Life: Invasion
 Official github repository - https://github.com/jlecorre/hlinvasion
@@ -108,6 +120,9 @@ Official github repository - https://github.com/Fograin/hl-subsmod-ex
 
 ## Half-Life: Rally
 Official gitlab repository - https://gitlab.com/hlrally/src
+
+## Half-Life: Reprocessing
+Official github repository - https://github.com/EgorYak/ReprocessingSourceCode
 
 ## Half-Life: RXT
 Available on ModDB - https://www.moddb.com/mods/half-life-rxt/downloads/rxt-source-code-v57
@@ -146,6 +161,9 @@ Mirrored on github (Includes maps and models source files) - https://github.com/
 
 ## Ingram Chillin' Mod
 Official SourceForge repository - https://sourceforge.net/projects/icm-hl/
+
+## Intense Force
+Branch **intense_force** in halflife-featureful - https://github.com/FreeSlave/halflife-featureful/tree/intense_force
 
 ## Master Sword
 Official github repository of Master Sword Classic - https://github.com/BerntA/MasterSwordClassic
@@ -189,6 +207,9 @@ Available in Valve's Half-Life repository - https://github.com/ValveSoftware/hal
 ## Spirit of Half-Life
 [Logic&Trick's](https://github.com/LogicAndTrick) mirror - https://files.logic-and-trick.com/#/Half-Life/Mods/Spirit%20of%20Half-Life
 
+## The Last Bullet
+Official github repository - https://github.com/GT-Project-Cat/The-Last-Bullet-Updated-Code
+
 ## The Wastes
 Version 1.5: mirrored on code.idtech.space - https://code.idtech.space/vera/halflife-thewastes-sdk
 
@@ -211,6 +232,19 @@ Download page on official site - http://www.thothie.com/ww/
 
 ## Wrong Door
 Available on ModDB - https://www.moddb.com/mods/wrong-door/downloads/wrong-door-sdk
+
+## XDM
+*This mod is opensource but access to source code is always rebus*
+
+How to get sources of version 3.0.4.3:
+
+Download SFX-archive from ModDB - https://www.moddb.com/mods/xdm/downloads/xdm3043
+
+Extract it.
+
+Open client.dll in HEX-editor and patch header - change `Win!` to `Rar!`
+
+Extract it using unrar - password `iamtheone` 
 
 ## XashXT
 Mirrored on github - https://github.com/a1batross/XashXT_original
@@ -301,7 +335,7 @@ Unkle Mike's recreation - https://hlfx.ru/forum/showthread.php?s=&threadid=5253
 Reverse-engineered code: branch **bshift** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/bshift
 
 ## Half-Life: Induction
-Branch **induction** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/induction
+Version 1.0-1.2: Branch **induction_1.2** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/induction_1.2
 
 ## Half-Life: Opposing Force
 Recreation by lostgamer aka nillerusr - https://github.com/LostGamerHL/hlsdk-xash3d
@@ -375,6 +409,9 @@ Branch **aghl** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/
 ## Bubblemod
 Branch **bubblemod** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/bubblemod
 
+## Counter-Life
+Branch **counter-life** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/counter-life
+
 ## Deathmatch Classic
 Deathmatch Classic: Adrenaline Gamer Edition - https://github.com/martinwebrant/agmod/tree/master/src/dmc
 
@@ -387,6 +424,9 @@ Branch **delta_particles** in hlsdk-portable - https://github.com/FWGS/hlsdk-por
 
 ## Half-Life: Echoes
 Branch **echoes** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/echoes
+
+## Half-Life: Insecure
+Branch **insecure** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/insecure
 
 ## Half-Life: Invasion
 Port to HLSDK 2.4 by malortie - https://github.com/HL1-Mods-Reimplementations-and-Ports/hl-invasion
@@ -423,4 +463,3 @@ Branch **sohl1.2** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tr
 
 ## Zombie-X
 Branch **zombie-x** in hlsdk-portable - https://github.com/FWGS/hlsdk-portable/tree/zombie-x
-
