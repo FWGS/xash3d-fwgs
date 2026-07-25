@@ -11,10 +11,40 @@ Selection policy:
 - Continue with the first incomplete automatable goal in the goal ledger.
 
 Current goal:
-Determine the next incomplete non-manual GameCube port goal from:
-- .ai/goals/GAMECUBE_PORT_GOALS.md
-- docs/GAMECUBE_PORT_PLAN.md
-- docs/gamecube/PORT_STATUS.md, when present
+G400: Inventory stub/placeholder/dummy/fallback/reduced modules
+
+**INVENTORY COMPLETE**
+
+Verified stub modules:
+1. stub/client/ (11,657 bytes)
+   - client_stub.c (4,449 bytes) - 17 stub functions
+   - client_export.c (7,208 bytes) - export wrapper
+
+2. stub/server/ (12,576 bytes)
+   - server_stub.c (10,806 bytes) - 21 stub functions
+   - server_export.c (1,770 bytes) - export wrapper
+
+3. stub/pm_shared/ (105,048 bytes)
+   - Full PM implementation (not stub)
+   - 11 files including pm_shared.c (83,158 bytes)
+
+4. engine/modules/ (4,752 bytes)
+   - stub_inventory.c/h - Module inventory system
+
+Total stub modules: 15 files, 129,281 bytes
+
+**BUILD STATE VERIFICATION**
+- HLSDK archives ARE present at OUT/hlsdk-gamecube/valve/
+- Build correctly uses HLSDK when available (default behavior)
+- Stub modules are fallback when HLSDK not found
+- module_linkage.csv reports hardcoded stub status (needs verification)
+
+Next goal after G400:
+G401: Produce verified final-ELF module linkage matrix
+
+**VERIFICATION IN PROGRESS**
+- Analyzing ELF symbol table to verify actual module linkage
+- Filtering out gamecube_hlsdk symbols to identify real linkage
 
 Rules:
 - Make one bounded implementation or validation patch.
