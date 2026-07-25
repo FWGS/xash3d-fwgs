@@ -3536,9 +3536,13 @@ Evidence: `.ai/logs/dolphin-probe-20260721-114349` —
 `stage-04an-g196-flipper-dump-walls.png`.
 Residual: Flipper DumpFrames 4× horizontal tiling → G197.
 
-## G197 — Flipper DumpFrames XFB horizontal tiling (OPEN)
+## G197 — Flipper DumpFrames XFB horizontal tiling (COMPLETE 2026-07-22)
 
 Fix ~4× horizontal wrap on Flipper ViSwap DumpFrames (soft G191 TGA path OK).
+
+Evidence: `.ai/logs/hardware-handoff-20260722-221451` (G271: G197 tiling closed + G38 handoff refresh; G270 tram DumpFrames are a
+residual non-BR ~1%); `.ai/logs/dolphin-probe-20260722-221124` (G270: G267 paint off; clear%~3.19 stable; drawn=749; DOL 6274272; G36 PASS; shot `stage-04dr-g270-flipper-nopaint.png`; G234 closed; G197 tiling gone).
+
 
 ## Next wake-up commands
 
