@@ -107,7 +107,8 @@ SUBDIRS = [
 	Subproject('3rdparty/vgui_support', lambda x: x.env.CLIENT),
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 #	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
-		Subproject('stub/client',           lambda x: False), # built into engine on GameCube
+	Subproject('stub/client',           lambda x: False), # built into engine on GameCube
+	Subproject('stub/menu'),
 	Subproject('game_launch',           lambda x: x.env.LAUNCHER),
 	Subproject('engine'), # keep latest for static linking
 
@@ -428,8 +429,9 @@ def configure(conf):
 			opt_cxxflags = []
 
 		# GameCube builds need to disable packed warnings because libogc headers use packed attributes
+		# Also disable logical-op warnings as they can produce false positives in certain conditions
 		if conf.env.DEST_OS == 'gamecube':
-			opt_flags = [f for f in opt_flags if 'packed' not in f]
+			opt_flags = [f for f in opt_flags if 'packed' not in f and 'logical-op' not in f]
 
 		conf.env.CFLAGS_werror = conf.filter_cflags(opt_flags + opt_cflags, cflags)
 		conf.env.CXXFLAGS_werror = conf.filter_cxxflags(opt_flags + opt_cxxflags, cxxflags)
