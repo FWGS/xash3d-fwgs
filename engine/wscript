@@ -246,19 +246,17 @@ def build(bld):
 				os.path.dirname(hlsdk_server),
 				os.path.dirname(hlsdk_vcs),
 			]
-			bld.env.STLIB_HLSDK_GAMECUBE = []
 			if has_hlsdk_client:
 				Logs.info('Using GameCube HLSDK client archive from %s' % hlsdk_dest)
-				bld.env.STLIB_HLSDK_GAMECUBE += ['client_gamecube_ppc']
+				bld.env.LDFLAGS += ['-lclient_gamecube_ppc']
 				gamecube_defines += ['XASH_GAMECUBE_HLSDK_STATIC=1']
 				source += [bld.path.parent.find_node('stub/client/client_export.c')]
 			else:
 				Logs.warn('GameCube HLSDK client archive not found under %s; using client stub' % hlsdk_dest)
 				source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
-			bld.env.STLIB_HLSDK_GAMECUBE += ['hl_gamecube_ppc']
+			bld.env.LDFLAGS += ['-lhl_gamecube_ppc']
 			if os.path.isfile(hlsdk_vcs):
-				bld.env.STLIB_HLSDK_GAMECUBE += ['vcs_info']
-			libs += ['HLSDK_GAMECUBE']
+				bld.env.LDFLAGS += ['-lvcs_info']
 			gamecube_defines += ['XASH_GAMECUBE_HLSDK_SERVER_STATIC=1']
 			if os.path.isfile(hlsdk_server_exports):
 				includes += [os.path.dirname(hlsdk_server_exports)]
@@ -287,6 +285,10 @@ def build(bld):
 		# but dedicated server is enabled. They're both called 'xash' in this case
 		server_source = copy(source)
 		server_libs = copy(libs)
+		server_libpath = []
+		if bld.env.DEST_OS == 'gamecube' and bld.env.STLIBPATH_HLSDK_GAMECUBE:
+			server_libpath = bld.env.STLIBPATH_HLSDK_GAMECUBE
+
 		bld.program(
 			source = server_source,
 			target = 'xash',
@@ -294,6 +296,7 @@ def build(bld):
 			includes = includes,
 			defines = 'XASH_ENABLE_MAIN=1 XASH_DEDICATED=1',
 			rpath = bld.env.DEFAULT_RPATH,
+			libpath = server_libpath,
 			install_path = bld.env.BINDIR,
 		)
 
@@ -371,6 +374,10 @@ def build(bld):
 				bld.fatal('Put game data into rodir folder in source tree root')
 			linkflags += ['--preload-file', '%s@/rodir' % node.path_from(bld.bldnode)]
 
+		client_libpath = []
+		if bld.env.DEST_OS == 'gamecube' and bld.env.STLIBPATH_HLSDK_GAMECUBE:
+			client_libpath = bld.env.STLIBPATH_HLSDK_GAMECUBE
+
 		f(source = source,
 			target = 'xash',
 			includes = includes,
@@ -385,6 +392,7 @@ def build(bld):
 			title_id = 'XASH10000',
 			app_name = 'xash3d-fwgs',
 			rpath = bld.env.DEFAULT_RPATH,
+			libpath = client_libpath,
 			linkflags = linkflags,
 		)
 
@@ -400,6 +408,7 @@ def build(bld):
 				defines = defines + ['XASH_ENABLE_MAIN=1', 'XASH_ENGINE_TESTS=1'],
 				install_path = None,
 				rpath = bld.env.DEFAULT_RPATH,
+				libpath = client_libpath,
 				linkflags = linkflags,
 				ut_str = '${SRC[0].abspath()} -dev 2 -runtests',
 			)
