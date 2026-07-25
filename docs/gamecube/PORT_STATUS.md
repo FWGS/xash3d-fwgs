@@ -22,7 +22,7 @@ All New Game interactive bring-up is complete:
 | xash | 33,122,656 bytes | PowerPC ELF | b725111d... |
 
 **Build command**: `scripts/build-gamecube.sh`
-**Last build**: 2026-07-25T09:47:03Z
+**Last build**: 2026-07-25T11:29:07Z
 **Renderer**: REF_GX
 **Policy**: retail-flipper
 
@@ -43,7 +43,7 @@ All New Game interactive bring-up is complete:
 
 - Physical GameCube hardware test pending
 - Swiss DOL+SD / ISO RO paths prepared
-- Handoff artifacts ready at `.ai/logs/hardware-handoff-20260725-094703/`
+- Handoff artifacts ready at `.ai/logs/hardware-handoff-20260725-042904/`
 
 ## Known Failures (Manual Validation Required)
 
@@ -94,7 +94,7 @@ The following goals require physical GameCube hardware and cannot be completed i
 
 ## Handoff Package
 
-**Location**: `.ai/logs/hardware-handoff-20260725-094703/`
+**Location**: `.ai/logs/hardware-handoff-20260725-042904/`
 
 **Contents**:
 - Build artifacts (boot.dol, xash)
@@ -121,7 +121,7 @@ The following goals require physical GameCube hardware and cannot be completed i
 
 ## Last Updated
 
-2026-07-25T09:47:03Z
+2026-07-25T11:29:07Z
 
 ## Git Status
 
