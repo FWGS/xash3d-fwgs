@@ -177,7 +177,19 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 
 **Immediate source queue (open automatic goals, in order):**
 1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) — operator-only; handoff `.ai/logs/hardware-handoff-20260722-221451`
-2. Flipper GX residuals under tip ceiling (monsters/scripted/glow/sprites still tip — **41 inhibited**)
+2. Flipper GX residuals under tip ceiling (all `c0a0` entities now admitted as
+   full controllers or lean static placeholders — **0 inhibited**; next promote
+   placeholder studio meshes/behavior incrementally)
+3. ~~G316~~ — restore 8 walking scientists as non-solid static placeholders,
+   release inert static-actor private blocks, omit optional third-person camera
+   registrations with guarded callbacks, and defer synthetic gameplay input
+   until sign-on — inhibited **8→0**; New Game G36/G45 PASS; probe
+   `20260724-223425`
+3. ~~G315~~ — restore 3 static Barneys + lean particles 48→16 — inhibited **11→8**; New Game G36/G45 PASS; probe `20260724-143231`
+3. ~~G314~~ — restore 2 seated scientists as static script-visible actors — inhibited **13→11**; New Game G36/G45 PASS; probe `20260724-141459`
+3. ~~G313~~ — restore 2 static `monster_generic` forklifts with no autonomous AI + shared late-sprite pool — inhibited **15→13**; New Game G36/G45 PASS; probe `20260724-115312`
+3. ~~G312~~ — restore 17 scripted controllers independently of monster actors — inhibited **32→15**; New Game G36/G45 PASS; probe `20260724-113719`
+3. ~~G311~~ — restore 9 `env_glow` entities through the shared map-load sprite stub — inhibited **41→32**; New Game G36/G45 PASS; probe `20260724-113515`
 3. ~~G305~~ — restore `env_message` — inhibited **41**; InitInput OK; probe `20260723-211215`
 3. ~~G304~~ — restore `ambient_generic` — inhibited 52→**50**; probe `20260723-211047`
 3. ~~G303~~ — restore `multi_manager` after G302 MEM reclaim — inhibited 58→**52**; mm fires; probe `20260723-210845`

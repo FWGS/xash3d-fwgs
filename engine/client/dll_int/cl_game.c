@@ -47,11 +47,11 @@ static void CL_GameCubeApplySmokeClientBudgets( void )
 	gameinfo_t *mutable_gi;
 	/* Retail play keeps modest FX budgets so the world BSP (~2 MiB) and client
 	 * can coexist. Smoke probes stay even tighter. */
-	int particles = GC_MapLoadMemoryOpt() ? 48 : 256;
+	int particles = GC_MapLoadMemoryOpt() ? 16 : 256;
 	int beams = GC_MapLoadMemoryOpt() ? 4 : 16;
 	int tents = GC_MapLoadMemoryOpt() ? 4 : 64;
 
-	/* G127: fullphysics combat needs more than the lean 48-tracer pool;
+	/* G127: fullphysics combat needs more than the lean tracer pool;
 	 * 96 coexists with HUD+SFX preload. Larger pools (192) hung the probe. */
 	if( Sys_CheckParm( "-gcfullphysics" ))
 		particles = Q_max( particles, 96 );

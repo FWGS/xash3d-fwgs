@@ -5151,21 +5151,25 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 	 * decoration, nodes, and triggers so ClientPutInServer / graph setup can finish.
 	 * Strip heavy gameplay plus sprite/sound decor that burns MEM1 on retail c0a0
 	 * (env_glow/env_sprite flare loads previously OOMed past HUD_Init).
-	 * G303/G304/G305: mm + ambient + env_message after G302 reclaim; titles
-	 * init already skipped on smoke route. */
+	 * G303/G304/G305: mm + ambient + env_message after G302 reclaim. G311:
+	 * env_glow uses the shared map-load sprite stub. G312 restores scripted
+	 * controllers. G313 admits static monster_generic props through the HLSDK's
+	 * lean GameCube spawn path. G314 does the same for seated scientists. G315
+	 * admits static Barneys; G316 admits static walking scientists without
+	 * talk, heal, sound, or autonomous AI precache. */
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{
-		if( !Q_strnicmp( classname, "monster_", 8 )
+		if(( !Q_strnicmp( classname, "monster_", 8 )
+			&& Q_stricmp( classname, "monster_generic" )
+			&& Q_stricmp( classname, "monster_sitting_scientist" )
+			&& Q_stricmp( classname, "monster_barney" )
+			&& Q_stricmp( classname, "monster_scientist" ))
 		 || !Q_strnicmp( classname, "weapon_", 7 )
 		 || !Q_strnicmp( classname, "ammo_", 5 )
 		 || !Q_strnicmp( classname, "item_", 5 )
 		 || !Q_stricmp( classname, "world_items" )
 		 || !Q_strnicmp( classname, "cycler", 6 )
-		 || !Q_stricmp( classname, "scripted_sequence" )
-		 || !Q_stricmp( classname, "aiscripted_sequence" )
-		 || !Q_stricmp( classname, "scripted_sentence" )
 		 || !Q_stricmp( classname, "env_sprite" )
-		 || !Q_stricmp( classname, "env_glow" )
 		 || !Q_stricmp( classname, "env_beam" )
 		 || !Q_stricmp( classname, "env_laser" )
 		 || !Q_stricmp( classname, "env_explosion" )
@@ -5541,6 +5545,19 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 				}
 			}
 #if XASH_GAMECUBE
+			else if( Sys_CheckParm( "-gcnewgame" )
+				&& ( !Q_stricmp( SV_ClassName( ent ), "monster_scientist" )
+					|| !Q_stricmp( SV_ClassName( ent ), "monster_barney" )
+					|| !Q_stricmp( SV_ClassName( ent ), "monster_sitting_scientist" )))
+			{
+				/* G316: lean static actors install no AI/use callbacks, so
+				 * their C++ objects provide no post-spawn behavior. Keep the
+				 * render/collision edicts and target names, but release every
+				 * private block to leave room for the local-client handshake. */
+				SV_FreePrivateData( ent );
+				Con_Reportf( "Xash3D GameCube: G316 static private released class=%s edict=%d\n",
+					SV_ClassName( ent ), NUM_FOR_EDICT( ent ));
+			}
 			else if( SV_GCMapSmokeRoute() && entity_index >= 90 && ( entity_index & 15 ) == 0 )
 			{
 				Con_Reportf( "Xash3D GameCube: entity spawn done=%d classname=%s\n",
@@ -5552,7 +5569,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 		Con_DPrintf( "\n%i entities inhibited\n", inhibited );
 #if XASH_GAMECUBE
 		if( Sys_CheckParm( "-gcnewgame" ))
-			Con_Reportf( "Xash3D GameCube: G305 entities inhibited=%d (mm+ambient+message)\n",
+			Con_Reportf( "Xash3D GameCube: G316 entities inhibited=%d (static scientists restored)\n",
 				inhibited );
 #endif
 	}

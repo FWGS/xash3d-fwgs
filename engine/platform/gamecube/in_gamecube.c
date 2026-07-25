@@ -471,12 +471,12 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 	{
 		if( !SV_Active() )
 			return 0;
-		if( Sys_CheckParm( "-gcfullphysics" )
-			&& ( cls.state != ca_active || cls.signon != SIGNONS ))
+		if( cls.state != ca_active || cls.signon != SIGNONS )
 		{
 			/* The direct-map bootstrap becomes active before the real loopback
-			 * sign-on. Re-arm the probe while reconnecting so native usercmds
-			 * are exercised only after standard spawn/begin completes. */
+			 * sign-on. Re-arm the synthetic probe while reconnecting so its
+			 * press/release commands cannot consume handshake memory and
+			 * native usercmds run only after standard spawn/begin completes. */
 			gc_probe_action_stage = 0;
 			gc_probe_action_logged = false;
 			gc_probe_action_complete_logged = false;
