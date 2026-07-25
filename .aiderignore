@@ -57,3 +57,20 @@ Half-Life/
 3rdparty/nanogl/
 3rdparty/vgui_support/
 3rdparty/library_suffix/
+
+# Large local agent histories and generated evidence
+.aider.chat.history.md
+.aider.input.history
+.continue/
+.agent-logs/
+.ai/logs/
+.ai/screenshots/
+.ai/tmp/
+OUT/
+*.jsonl
+*.iso
+
+# Force targeted reads instead of full-file context injection
+scripts/ai-goal-loop.py
+.ai/goals/GAMECUBE_PORT_GOALS.md
+docs/GAMECUBE_PORT_PLAN.md

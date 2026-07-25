@@ -1,0 +1,11 @@
+module,dependencies,status,version
+module,common,loaded,1.0.0
+stub_inventory,common,loaded,1.0.0
+dll_gamecube,common,loaded,1.0.0
+client,common,stub,1.0.0-stub
+server,common,stub,1.0.0-stub
+menu,common,stub,1.0.0-stub
+ref,common,stub,1.0.0-stub
+filesystem_stdio,common,loaded,1.0.0-stub
+audio,common,stub,1.0.0-stub
+input,common,stub,1.0.0-stub

@@ -1,0 +1,37 @@
+# Agent and model histories
+.aider.chat.history.md
+.aider.input.history
+.aider-gc-overnight.log
+.aider.tags.cache.v4/
+.continue/
+.agent-logs/
+
+# Generated evidence and probe archives
+.ai/logs/
+.ai/screenshots/
+.ai/tmp/
+.ai/dolphin-user-run/
+.ai/manual-intro-telemetry/
+.ai/c1a0-probe.iso
+.ai/menu-test.iso
+
+# Generated build outputs
+OUT/
+build/
+.cache/
+
+# Git internals and unrelated generated files
+.git/
+*.iso
+*.dol
+*.elf
+*.o
+*.a
+*.log
+*.jsonl
+
+# Extremely large planning/automation implementation files.
+# Read targeted ranges or grep them explicitly when required.
+scripts/ai-goal-loop.py
+.ai/goals/GAMECUBE_PORT_GOALS.md
+docs/GAMECUBE_PORT_PLAN.md
