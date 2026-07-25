@@ -1,4 +1,4 @@
 {
   "tier": "hardware_validation",
-  "note": "G304/G305 closed (ambient+env_message; 41 inhibited). Open: G38 hardware + monsters/scripted/glow. Handoff: .ai/logs/hardware-handoff-20260722-221451."
+  "note": "G304/G305 closed (ambient+env_message; 41 inhibited). Open: G38 hardware + monsters/scripted/glow. Handoff: .ai/logs/hardware-handoff-20260725-042904."
 }
