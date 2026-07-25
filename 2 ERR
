@@ -1,0 +1,2 @@
+[2026-07-25 01:10:55] ERROR: command failed at line 148 with status : printf "[%s] ERROR: command failed at line %s with status %s: %s\n" "$(date "+%Y-%m-%d %H:%M:%S")" "$LINENO" "$status" "$BASH_COMMAND" >&2' ERR
+'''
