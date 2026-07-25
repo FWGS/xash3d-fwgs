@@ -18,11 +18,11 @@ All New Game interactive bring-up is complete:
 
 | Artifact | Size | Format | SHA256 |
 |----------|------|--------|--------|
-| boot.dol | 5,823,404 bytes | PowerPC DOL | 81c5ef441576cd5e3e235cd3d43305cd7f3f37dd23b72025b4c7fcdf57c04268 |
-| xash | 33,122,656 bytes | PowerPC ELF | 46a8e1e6dff2951ad4dd7d7eb49fc4477b1a3b3413d5c22d158a1a6943381978 |
+| boot.dol | 5,823,404 bytes | PowerPC DOL | 8bef64df365766534e578789165df99236fd24bbaf0df3348fc24811a3e390c2 |
+| xash | 33,122,656 bytes | PowerPC ELF | b140829f7315d6d1f18ff00388fec86e54afdfe13a6d4bdb1909a53ef734ed9a |
 
 **Build command**: `scripts/build-gamecube.sh`
-**Last build**: 2026-07-25T13:00:53Z
+**Last build**: 2026-07-25T13:06:16Z
 **Renderer**: REF_GX
 **Policy**: retail-flipper
 
@@ -131,9 +131,9 @@ The following goals require physical GameCube hardware and cannot be completed i
 **Artifacts**:
 | Path | Size | SHA256 |
 |------|------|--------|
-| OUT/bin/boot.dol | 5,823,404 bytes | 116e768535d2d8ca4b9791d50e9b38dedad94ddb813555e94588ef394ba19d80 |
-| OUT/bin/xash | 33,122,656 bytes | c9f73c0a2d53baa82b31c7f72a28d006d88549c5324acb8405ab26c5373669fc |
-| OUT/bin/gamecube-handoff.txt | 181 bytes | 1144c392264d397adadaa73a0e47b6ee08afbf6a2ad76b04e1936ec83145573f |
+| OUT/bin/boot.dol | 5,823,404 bytes | 8bef64df365766534e578789165df99236fd24bbaf0df3348fc24811a3e390c2 |
+| OUT/bin/xash | 33,122,656 bytes | b140829f7315d6d1f18ff00388fec86e54afdfe13a6d4bdb1909a53ef734ed9a |
+| OUT/bin/gamecube-handoff.txt | 181 bytes | ec5e79bbe1a617d85814bceeede37ad1e4bcc42d113b2049eabba0abeaf340be |
 | OUT/libref_gx.a | 2,802,932 bytes | 7a441250dd05ae8d21fe777b3f3352cc6e0fc43d17b823206a0d16f2fbdaaff0 |
 | OUT/libfilesystem_stdio.a | 881,436 bytes | f57b64104049760c114234a59219334bf0f7a0af957881e049988b3b7307e209 |
 | OUT/valve/extras.pk3 | 184 bytes | 6e34e5116df0466f85193ee9dda0c6a15875212111cb2161ab7315de65d4d32f |
@@ -157,12 +157,12 @@ The following goals require physical GameCube hardware and cannot be completed i
 
 ## Last Updated
 
-2026-07-25T13:03:59Z
+2026-07-25T13:06:30Z
 
 ## Git Status
 
 - Branch: `agent/gamecube-port`
-- Last commit: `99aeae680c` - "Update PORT_STATUS.md with latest build info and commit hash"
+- Last commit: `7d19cf62ad` - "state: Update automation tier with latest handoff package info"
 - Submodules: 8 modified
 - Binary assets: 1 modified (OUT/valve/extras.pk3)
 - Build artifacts: boot.dol regenerated (5,823,404 bytes)
