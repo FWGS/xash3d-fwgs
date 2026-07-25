@@ -32,7 +32,7 @@ def build(bld):
 
 	bld.program(source = source,
 		target   = 'xash3d', # hl.exe
-		use      = 'sdk_includes DL USER32 SHELL32 werror',
+		use      = 'sdk_includes DL USER32 SHELL32 werror yy_thunks',
 		rpath    = bld.env.DEFAULT_RPATH,
 		install_path = bld.env.BINDIR,
 		subsystem = bld.env.MSVC_SUBSYSTEM

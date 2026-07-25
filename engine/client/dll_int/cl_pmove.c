@@ -101,10 +101,9 @@ CL_SetIdealPitch
 void CL_SetIdealPitch( void )
 {
 	float	angleval, sinval, cosval;
-	int	i, j, step, dir, steps;
+	int	i, dir, steps;
 	float	z[MAX_FORWARD];
 	vec3_t	top, bottom;
-	pmtrace_t	tr;
 
 	if( cl.local.onground == -1 )
 		return;
@@ -116,6 +115,8 @@ void CL_SetIdealPitch( void )
 	// 160 or so units to see what's below
 	for( i = 0; i < MAX_FORWARD; i++ )
 	{
+		pmtrace_t	tr;
+
 		top[0] = cl.simorg[0] + cosval * (i + 3.0f) * 12.0f;
 		top[1] = cl.simorg[1] + sinval * (i + 3.0f) * 12.0f;
 		top[2] = cl.simorg[2] + cl.viewheight[2];
@@ -137,9 +138,10 @@ void CL_SetIdealPitch( void )
 	dir = 0;
 	steps = 0;
 
-	for( j = 1; j < i; j++ )
+	for( int j = 1; j < i; j++ )
 	{
-		step = z[j] - z[j-1];
+		int step = z[j] - z[j-1];
+
 		if( step > -ON_EPSILON && step < ON_EPSILON )
 			continue;
 
@@ -244,15 +246,10 @@ This sets up the first phase.
 */
 void GAME_EXPORT CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient )
 {
-	entity_state_t	*state;
-	predicted_player_t	*player;
-	cl_entity_t	*ent;
-	int		i;
-
-	for( i = 0; i < MAX_CLIENTS; i++ )
+	for( int i = 0; i < MAX_CLIENTS; i++ )
 	{
-		state = &cl.frames[cl.parsecountmod].playerstate[i];
-		player = &cls.predicted_players[i];
+		entity_state_t *state = &cl.frames[cl.parsecountmod].playerstate[i];
+		predicted_player_t *player = &cls.predicted_players[i];
 
 		player->active = false;
 
@@ -279,7 +276,7 @@ void GAME_EXPORT CL_SetUpPlayerPrediction( int dopred, int bIncludeLocalClient )
 		}
 		else
 		{
-			ent = CL_GetEntityByIndex( i + 1 );
+			cl_entity_t *ent = CL_GetEntityByIndex( i + 1 );
 
 			CL_ComputePlayerOrigin( ent );
 
@@ -397,16 +394,13 @@ collect solid entities
 */
 static void CL_AddLinksToPmove( frame_t *frame )
 {
-	entity_state_t	*state;
-	model_t		*model;
-	physent_t		*pe;
-	int		i;
-
 	if( !frame->valid ) return;
 
-	for( i = 0; i < frame->num_entities; i++ )
+	for( int i = 0; i < frame->num_entities; i++ )
 	{
-		state = &cls.packet_entities[(frame->first_entity + i) % cls.num_client_entities];
+		entity_state_t *state = &cls.packet_entities[(frame->first_entity + i) % cls.num_client_entities];
+		model_t *model;
+		physent_t *pe;
 
 		if( state->number >= 1 && state->number <= cl.maxclients )
 			continue;
@@ -506,18 +500,14 @@ pmove must be setup with world and solid entity hulls before calling
 */
 void GAME_EXPORT CL_SetSolidPlayers( int playernum )
 {
-	entity_state_t	*state;
-	predicted_player_t	*player;
-	physent_t		*pe;
-	int		i;
-
 	if( !cl_solid_players.value )
 		return;
 
-	for( i = 0; i < MAX_CLIENTS; i++ )
+	for( int i = 0; i < MAX_CLIENTS; i++ )
 	{
-		state = &cl.frames[cl.parsecountmod].playerstate[i];
-		player = &cls.predicted_players[i];
+		entity_state_t *state = &cl.frames[cl.parsecountmod].playerstate[i];
+		predicted_player_t *player = &cls.predicted_players[i];
+		physent_t *pe;
 
 		if( playernum == -1 )
 		{
@@ -562,18 +552,17 @@ CL_WaterEntity
 */
 int GAME_EXPORT CL_WaterEntity( const float *rgflPos )
 {
-	physent_t		*pe;
-	hull_t		*hull;
-	vec3_t		test, offset;
-	int		i, oldhull;
+	int oldhull;
 
 	if( !rgflPos ) return -1;
 
 	oldhull = clgame.pmove->usehull;
 
-	for( i = 0; i < clgame.pmove->numphysent; i++ )
+	for( int i = 0; i < clgame.pmove->numphysent; i++ )
 	{
-		pe = &clgame.pmove->physents[i];
+		physent_t *pe = &clgame.pmove->physents[i];
+		hull_t *hull;
+		vec3_t test, offset;
 
 		if( pe->solid != SOLID_NOT ) // disabled ?
 			continue;
@@ -657,9 +646,8 @@ returns water brush where inside pos
 */
 cl_entity_t *CL_GetWaterEntity( const float *rgflPos )
 {
-	int	entnum;
+	int entnum = CL_WaterEntity( rgflPos );
 
-	entnum = CL_WaterEntity( rgflPos );
 	if( entnum <= 0 ) return NULL; // world or not water
 
 	return CL_GetEntityByIndex( entnum );
@@ -732,8 +720,6 @@ CL_InitClientMove
 */
 void CL_InitClientMove( void )
 {
-	int	i;
-
 	Pmove_Init ();
 
 	clgame.pmove->server = false;	// running at client
@@ -741,7 +727,7 @@ void CL_InitClientMove( void )
 	clgame.pmove->runfuncs = false;
 
 	// enumerate client hulls
-	for( i = 0; i < MAX_MAP_HULLS; i++ )
+	for( int i = 0; i < MAX_MAP_HULLS; i++ )
 	{
 		if( clgame.dllFuncs.pfnGetHullBounds( i, host.player_mins[i], host.player_maxs[i] ))
 			Con_Reportf( "CL: hull%i, player_mins: %g %g %g, player_maxs: %g %g %g\n", i,

@@ -25,30 +25,25 @@ Assume input buffer is RGBA
 */
 byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int outWidth, int outHeight, qboolean isNormalMap )
 {
-	uint		frac, fracStep;
-	uint		*in = (uint *)source;
-	uint		p1[0x1000], p2[0x1000];
-	byte		*pix1, *pix2, *pix3, *pix4;
-	uint		*out, *inRow1, *inRow2;
 	static byte	*scaledImage = NULL;	// pointer to a scaled image
-	vec3_t		normal;
-	int		i, x, y;
+	uint		p1[0x1000], p2[0x1000];
 
 	if( !source ) return NULL;
 
 	scaledImage = Mem_Realloc( r_temppool, scaledImage, outWidth * outHeight * 4 );
-	fracStep = inWidth * 0x10000 / outWidth;
-	out = (uint *)scaledImage;
+	const uint fracStep = inWidth * 0x10000 / outWidth;
+	uint *in = (uint *)source;
+	uint *out = (uint *)scaledImage;
 
-	frac = fracStep >> 2;
-	for( i = 0; i < outWidth; i++ )
+	uint frac = fracStep >> 2;
+	for( int i = 0; i < outWidth; i++ )
 	{
 		p1[i] = 4 * (frac >> 16);
 		frac += fracStep;
 	}
 
 	frac = (fracStep >> 2) * 3;
-	for( i = 0; i < outWidth; i++ )
+	for( int i = 0; i < outWidth; i++ )
 	{
 		p2[i] = 4 * (frac >> 16);
 		frac += fracStep;
@@ -56,17 +51,18 @@ byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int out
 
 	if( isNormalMap )
 	{
-		for( y = 0; y < outHeight; y++, out += outWidth )
+		for( int y = 0; y < outHeight; y++, out += outWidth )
 		{
-			inRow1 = in + inWidth * (int)(((float)y + 0.25f) * inHeight / outHeight);
-			inRow2 = in + inWidth * (int)(((float)y + 0.75f) * inHeight / outHeight);
+			uint *inRow1 = in + inWidth * (int)(((float)y + 0.25f) * inHeight / outHeight);
+			uint *inRow2 = in + inWidth * (int)(((float)y + 0.75f) * inHeight / outHeight);
 
-			for( x = 0; x < outWidth; x++ )
+			for( int x = 0; x < outWidth; x++ )
 			{
-				pix1 = (byte *)inRow1 + p1[x];
-				pix2 = (byte *)inRow1 + p2[x];
-				pix3 = (byte *)inRow2 + p1[x];
-				pix4 = (byte *)inRow2 + p2[x];
+				byte *pix1 = (byte *)inRow1 + p1[x];
+				byte *pix2 = (byte *)inRow1 + p2[x];
+				byte *pix3 = (byte *)inRow2 + p1[x];
+				byte *pix4 = (byte *)inRow2 + p2[x];
+				vec3_t normal;
 
 				normal[0] = MAKE_SIGNED( pix1[0] ) + MAKE_SIGNED( pix2[0] ) + MAKE_SIGNED( pix3[0] ) + MAKE_SIGNED( pix4[0] );
 				normal[1] = MAKE_SIGNED( pix1[1] ) + MAKE_SIGNED( pix2[1] ) + MAKE_SIGNED( pix3[1] ) + MAKE_SIGNED( pix4[1] );
@@ -84,17 +80,17 @@ byte *GL_ResampleTexture( const byte *source, int inWidth, int inHeight, int out
 	}
 	else
 	{
-		for( y = 0; y < outHeight; y++, out += outWidth )
+		for( int y = 0; y < outHeight; y++, out += outWidth )
 		{
-			inRow1 = in + inWidth * (int)(((float)y + 0.25f) * inHeight / outHeight);
-			inRow2 = in + inWidth * (int)(((float)y + 0.75f) * inHeight / outHeight);
+			uint *inRow1 = in + inWidth * (int)(((float)y + 0.25f) * inHeight / outHeight);
+			uint *inRow2 = in + inWidth * (int)(((float)y + 0.75f) * inHeight / outHeight);
 
-			for( x = 0; x < outWidth; x++ )
+			for( int x = 0; x < outWidth; x++ )
 			{
-				pix1 = (byte *)inRow1 + p1[x];
-				pix2 = (byte *)inRow1 + p2[x];
-				pix3 = (byte *)inRow2 + p1[x];
-				pix4 = (byte *)inRow2 + p2[x];
+				byte *pix1 = (byte *)inRow1 + p1[x];
+				byte *pix2 = (byte *)inRow1 + p2[x];
+				byte *pix3 = (byte *)inRow2 + p1[x];
+				byte *pix4 = (byte *)inRow2 + p2[x];
 
 				((byte *)(out+x))[0] = (pix1[0] + pix2[0] + pix3[0] + pix4[0]) >> 2;
 				((byte *)(out+x))[1] = (pix1[1] + pix2[1] + pix3[1] + pix4[1]) >> 2;

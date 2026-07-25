@@ -124,17 +124,15 @@ extern GLboolean fogging;
 
 static GLuint VGL_GenerateShader( const vgl_prog_t *prog, GLenum type )
 {
-	char *shader, shader_buf[MAX_SHADERLEN + 1];
+	char shader_buf[MAX_SHADERLEN + 1];
 	char tmp[256];
-	int i;
-	GLint status, len;
-	GLuint id;
+	GLint status;
 
-	shader = shader_buf;
+	char *shader = shader_buf;
 	shader[0] = '\n';
 	shader[1] = 0;
 
-	for ( i = 0; i < VGL_FLAG_MAX; ++i )
+	for ( int i = 0; i < VGL_FLAG_MAX; ++i )
 	{
 		Q_snprintf( tmp, sizeof( tmp ), "#define %s %d\n", vgl_flag_name[i], prog->flags & ( 1 << i ) );
 		Q_strncat( shader, tmp, MAX_SHADERLEN );
@@ -145,8 +143,8 @@ static GLuint VGL_GenerateShader( const vgl_prog_t *prog, GLenum type )
 	else
 		Q_strncat( shader, vgl_vert_src, MAX_SHADERLEN );
 
-	id = glCreateShader( type );
-	len = Q_strlen( shader );
+	GLuint id = glCreateShader( type );
+	GLint len = Q_strlen( shader );
 	glShaderSource( id, 1, (const void *)&shader, &len );
 	glCompileShader( id );
 	glGetShaderiv( id, GL_COMPILE_STATUS, &status );
@@ -163,9 +161,7 @@ static GLuint VGL_GenerateShader( const vgl_prog_t *prog, GLenum type )
 
 static vgl_prog_t *VGL_GetProg( const GLuint flags )
 {
-	int i, loc, status;
-	GLuint vp, fp, glprog;
-	vgl_prog_t *prog;
+	int i, status;
 
 	// try to find existing prog matching this feature set
 
@@ -189,22 +185,22 @@ static vgl_prog_t *VGL_GetProg( const GLuint flags )
 	// new prog; generate shaders
 
 	gEngfuncs.Con_DPrintf( S_NOTE "VGL_GetProg(): Generating progs for 0x%04x\n", flags );
-	prog = &vgl.progs[i];
+	vgl_prog_t *prog = &vgl.progs[i];
 	prog->flags = flags;
 
-	vp = VGL_GenerateShader( prog, GL_VERTEX_SHADER );
-	fp = VGL_GenerateShader( prog, GL_FRAGMENT_SHADER );
+	GLuint vp = VGL_GenerateShader( prog, GL_VERTEX_SHADER );
+	GLuint fp = VGL_GenerateShader( prog, GL_FRAGMENT_SHADER );
 	if ( !vp || !fp )
 	{
 		prog->flags = 0;
 		return NULL;
 	}
 
-	glprog = glCreateProgram();
+	GLuint glprog = glCreateProgram();
 	glAttachShader( glprog, vp );
 	glAttachShader( glprog, fp );
 
-	loc = 0;
+	int loc = 0;
 	for ( i = 0; i < VGL_ATTR_MAX; ++i )
 	{
 		if ( flags & ( 1 << i ) )
@@ -283,8 +279,7 @@ static vgl_prog_t *VGL_SetProg( const GLuint flags )
 
 int VGL_ShimInit( void )
 {
-	int i;
-	GLuint total, size;
+	GLuint total;
 	static const GLuint precache_progs[] = {
 		0x0001, // out = ucolor
 		0x0005, // out = tex0 * ucolor
@@ -308,9 +303,9 @@ int VGL_ShimInit( void )
 	vgl.uchanged = GL_TRUE;
 
 	total = 0;
-	for ( i = 0; i < VGL_ATTR_MAX; ++i )
+	for ( int i = 0; i < VGL_ATTR_MAX; ++i )
 	{
-		size = VGL_MAX_VERTS * vgl_attr_size[i] * sizeof( GLfloat );
+		GLuint size = VGL_MAX_VERTS * vgl_attr_size[i] * sizeof( GLfloat );
 		vgl.attrbuf[i] = memalign( 0x100, size );
 		total += size;
 	}
@@ -319,7 +314,7 @@ int VGL_ShimInit( void )
 
 	gEngfuncs.Con_DPrintf( S_NOTE "VGL_ShimInit(): %u bytes allocated for vertex buffer\n", total );
 	gEngfuncs.Con_DPrintf( S_NOTE "VGL_ShimInit(): Pre-generating %u progs...\n", sizeof( precache_progs ) / sizeof( *precache_progs ) );
-	for ( i = 0; i < (int)( sizeof( precache_progs ) / sizeof( *precache_progs ) ); ++i )
+	for ( int i = 0; i < (int)( sizeof( precache_progs ) / sizeof( *precache_progs ) ); ++i )
 		VGL_GetProg( precache_progs[i] );
 
 	vgl_init = 1;
@@ -328,8 +323,6 @@ int VGL_ShimInit( void )
 
 void VGL_ShimShutdown( void )
 {
-	int i;
-
 	if ( !vgl_init )
 		return;
 
@@ -339,14 +332,14 @@ void VGL_ShimShutdown( void )
 	/*
 	// FIXME: this sometimes causes the game to block on glDeleteProgram for up to a minute
 	//        but since this is only called on shutdown or game change, it should be fine to skip
-	for ( i = 0; i < MAX_PROGS; ++i )
+	for ( int i = 0; i < MAX_PROGS; ++i )
 	{
 		if ( vgl.progs[i].flags )
 			glDeleteProgram( vgl.progs[i].glprog );
 	}
 	*/
 
-	for ( i = 0; i < VGL_ATTR_MAX; ++i )
+	for ( int i = 0; i < VGL_ATTR_MAX; ++i )
 		free( vgl.attrbuf[i] );
 
 	memset( &vgl, 0, sizeof( vgl ) );
@@ -361,22 +354,20 @@ void VGL_ShimEndFrame( void )
 
 static void VGL_Begin( GLenum prim )
 {
-	int i;
 	vgl.prim = prim;
 	vgl.begin = vgl.end;
 	// pos always enabled
 	vgl.cur_flags = 1 << VGL_ATTR_POS;
 	// disable all vertex attrib pointers
-	for ( i = 0; i < VGL_ATTR_MAX; ++i )
+	for ( int i = 0; i < VGL_ATTR_MAX; ++i )
 		glDisableVertexAttribArray( i );
 }
 
 static void VGL_End( void )
 {
-	int i;
-	vgl_prog_t *prog;
 	GLuint flags = vgl.cur_flags;
-	GLint count = vgl.end - vgl.begin;
+	const GLint count = vgl.end - vgl.begin;
+	const vgl_prog_t *prog;
 
 	if ( !vgl.prim || !count )
 		goto _leave; // end without begin
@@ -394,7 +385,7 @@ static void VGL_End( void )
 		goto _leave;
 	}
 
-	for ( i = 0; i < VGL_ATTR_MAX; ++i )
+	for ( int i = 0; i < VGL_ATTR_MAX; ++i )
 	{
 		if ( prog->attridx[i] >= 0 )
 		{

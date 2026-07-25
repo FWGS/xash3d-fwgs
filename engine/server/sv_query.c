@@ -71,7 +71,6 @@ SV_SourceQuery_Rules
 */
 static void SV_SourceQuery_Rules( netadr_t from )
 {
-	const cvar_t *cvar;
 	sizebuf_t buf;
 	char answer[MAX_PRINT_MSG - 4];
 	int pos;
@@ -85,7 +84,7 @@ static void SV_SourceQuery_Rules( netadr_t from )
 	pos = MSG_GetNumBitsWritten( &buf );
 	MSG_WriteShort( &buf, 0 );
 
-	for( cvar = Cvar_GetList( ); cvar; cvar = cvar->next )
+	for( const cvar_t *cvar = Cvar_GetList( ); cvar; cvar = cvar->next )
 	{
 		if( !FBitSet( cvar->flags, FCVAR_SERVER ))
 			continue;
@@ -123,7 +122,7 @@ static void SV_SourceQuery_Players( netadr_t from )
 {
 	sizebuf_t buf;
 	char answer[MAX_PRINT_MSG - 4];
-	int i, count = 0;
+	int count = 0;
 	int pos;
 
 	// respect players privacy
@@ -138,7 +137,7 @@ static void SV_SourceQuery_Players( netadr_t from )
 	pos = MSG_GetNumBitsWritten( &buf );
 	MSG_WriteByte( &buf, 0 );
 
-	for( i = 0; i < svs.maxclients; i++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		const sv_client_t *cl = &svs.clients[i];
 
@@ -168,10 +167,47 @@ static void SV_SourceQuery_Players( netadr_t from )
 
 /*
 ==================
+SV_SourceQuery_CheckChallenge
+
+Validates the challenge that follows the query type byte.
+On missing, mismatched or explicitly requested (-1) challenge,
+replies with a new challenge for this address.
+==================
+*/
+static qboolean SV_SourceQuery_CheckChallenge( netadr_t from, sizebuf_t *msg )
+{
+	qboolean error = false;
+
+	MSG_SeekToBit( msg, ( sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
+	int challenge = MSG_ReadLong( msg );
+
+	if( !MSG_CheckOverflow( msg ) && challenge != -1 && SV_ValidateChallenge( from, challenge ))
+		return true;
+
+	challenge = SV_CreateChallenge( from, &error );
+	if( error )
+		return false;
+
+	sizebuf_t buf;
+	char answer[16];
+
+	MSG_Init( &buf, "QueryChallenge", answer, sizeof( answer ));
+
+	MSG_WriteDword( &buf, 0xFFFFFFFFU );
+	MSG_WriteByte( &buf, S2C_GOLDSRC_CHALLENGE[0] );
+	MSG_WriteLong( &buf, challenge );
+
+	NET_SendPacket( NS_SERVER, MSG_GetNumBytesWritten( &buf ), MSG_GetData( &buf ), from );
+
+	return false;
+}
+
+/*
+==================
 SV_SourceQuery_HandleConnnectionlessPacket
 ==================
 */
-void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from )
+void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from, sizebuf_t *msg )
 {
 	if( !Q_strcmp( c, A2S_GOLDSRC_INFO ))
 	{
@@ -180,10 +216,12 @@ void SV_SourceQuery_HandleConnnectionlessPacket( const char *c, netadr_t from )
 	else switch( c[0] )
 	{
 	case A2S_GOLDSRC_RULES:
-		SV_SourceQuery_Rules( from );
+		if( SV_SourceQuery_CheckChallenge( from, msg ))
+			SV_SourceQuery_Rules( from );
 		break;
 	case A2S_GOLDSRC_PLAYERS:
-		SV_SourceQuery_Players( from );
+		if( SV_SourceQuery_CheckChallenge( from, msg ))
+			SV_SourceQuery_Players( from );
 		break;
 	}
 }

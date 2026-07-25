@@ -43,6 +43,7 @@ void IN_GyroInit( void );
 void IN_GyroCheckAvailability( void );
 void IN_GyroEvent( vec3_t data );
 void IN_GyroFinalizeMove( float *fw, float *side, float *dpitch, float *dyaw );
+void IN_GyroDrawDebug( void );
 
 uint IN_CollectInputDevices( void );
 void IN_LockInputDevices( qboolean lock );

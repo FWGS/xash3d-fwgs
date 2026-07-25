@@ -59,9 +59,7 @@ static void SoundList_Free( soundlst_t *lst )
 
 void SoundList_Shutdown( void )
 {
-	int i;
-
-	for( i = 0; i < SoundList_Groups; i++ )
+	for( int i = 0; i < SoundList_Groups; i++ )
 		SoundList_Free( &soundlst[i] );
 }
 
@@ -91,7 +89,14 @@ const char *SoundList_Get( enum soundlst_group_e group, int i )
 	switch( lst->type )
 	{
 	case SoundList_Range:
+#if __GNUC__ || __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#endif
 		Q_snprintf( temp, sizeof( temp ), lst->snd, lst->min + i );
+#if __GNUC__ || __clang__
+#pragma GCC diagnostic pop
+#endif
 		return temp;
 	case SoundList_List:
 		return &lst->snd[i * lst->min];
@@ -113,15 +118,11 @@ const char *SoundList_GetRandom( enum soundlst_group_e group )
 static qboolean SoundList_ParseGroup( soundlst_t *lst, char **file )
 {
 	string token;
-	int count = 0, slen = 0, i;
-	char *p;
-
-	p = *file;
+	int count = 0, slen = 0;
+	char *p = *file;
 
 	while(( p = COM_ParseFile( p, token, sizeof( token ))))
 	{
-		int len;
-
 		if( !Q_strcmp( token, "}" ))
 			break;
 
@@ -136,7 +137,7 @@ static qboolean SoundList_ParseGroup( soundlst_t *lst, char **file )
 			return false;
 		}
 
-		len = Q_strlen( token ) + 1;
+		int len = Q_strlen( token ) + 1;
 		if( slen < len )
 			slen = len;
 
@@ -156,7 +157,7 @@ static qboolean SoundList_ParseGroup( soundlst_t *lst, char **file )
 	lst->max = count;
 	lst->snd = Mem_Malloc( host.mempool, count * slen ); // allocate single buffer for the whole group
 
-	for( i = 0; i < count; i++ )
+	for( int i = 0; i < count; i++ )
 	{
 		*file = COM_ParseFile( *file, token, sizeof( token ));
 
@@ -169,15 +170,13 @@ static qboolean SoundList_ParseGroup( soundlst_t *lst, char **file )
 static qboolean SoundList_ParseRange( soundlst_t *lst, char **file )
 {
 	string token, snd;
-	char *p;
-	int i = 0;
 
 	lst->type = SoundList_Range;
 	*file = COM_ParseFile( *file, snd, sizeof( snd ));
 
 	// validate format string, count all % characters
-	p = snd;
-	i = 0;
+	char *p = snd;
+	int i = 0;
 	while(( p = Q_strchr( p, '%' )))
 	{
 		// only decimal
@@ -221,14 +220,12 @@ static qboolean SoundList_ParseRange( soundlst_t *lst, char **file )
 static qboolean SoundList_Parse( char *file )
 {
 	string token;
-	int i;
 
 	while(( file = COM_ParseFile( file, token, sizeof( token ))))
 	{
 		soundlst_t *lst = NULL;
-		char *p;
 
-		for( i = 0; i < SoundList_Groups; i++ )
+		for( int i = 0; i < SoundList_Groups; i++ )
 		{
 			if( !Q_strcmp( token, soundlst_groups[i] ))
 			{
@@ -243,7 +240,7 @@ static qboolean SoundList_Parse( char *file )
 			goto cleanup;
 		}
 
-		p = COM_ParseFile( file, token, sizeof( token ));
+		char *p = COM_ParseFile( file, token, sizeof( token ));
 
 		// group is a range
 		if( !Q_strcmp( token, "{" ))
@@ -280,9 +277,7 @@ cleanup:
 
 static void SoundList_Print_f( void )
 {
-	int i;
-
-	for( i = 0; i < SoundList_Groups; i++ )
+	for( int i = 0; i < SoundList_Groups; i++ )
 	{
 		soundlst_t *lst = &soundlst[i];
 
@@ -294,10 +289,8 @@ static void SoundList_Print_f( void )
 			break;
 		case SoundList_List:
 		{
-			int j;
-
 			Con_Reportf( "%-16s\t" S_MAGENTA "List" S_DEFAULT " [", soundlst_groups[i] );
-			for( j = 0; j < lst->max; j++ )
+			for( int j = 0; j < lst->max; j++ )
 				Con_Reportf( "%s%s", &lst->snd[j * lst->min], j + 1 == lst->max ? "" : ", " );
 			Con_Reportf( "]\n" );
 			break;

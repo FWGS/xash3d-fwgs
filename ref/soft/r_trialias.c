@@ -51,7 +51,6 @@ R_SetUpWorldTransform
 */
 void R_SetUpWorldTransform( void )
 {
-	int          i;
 	static float viewmatrix[3][4];
 	vec3_t       angles;
 
@@ -71,7 +70,7 @@ void R_SetUpWorldTransform( void )
 	memset( aliasworldtransform, 0, sizeof( aliasworldtransform ));
 	memset( aliasoldworldtransform, 0, sizeof( aliasworldtransform ));
 
-	for( i = 0; i < 3; i++ )
+	for( int i = 0; i < 3; i++ )
 	{
 		aliasoldworldtransform[i][0] = aliasworldtransform[i][0] = s_alias_forward[i];
 		aliasoldworldtransform[i][0] = aliasworldtransform[i][1] = -s_alias_right[i];
@@ -123,14 +122,11 @@ R_AliasProjectAndClipTestFinalVert
 */
 void R_AliasProjectAndClipTestFinalVert( finalvert_t *fv )
 {
-	float zi;
-	float x, y, z;
-
 	// project points
-	x = fv->xyz[0];
-	y = fv->xyz[1];
-	z = fv->xyz[2];
-	zi = 1.0f / z;
+	float x = fv->xyz[0];
+	float y = fv->xyz[1];
+	float z = fv->xyz[2];
+	float zi = 1.0f / z;
 
 	fv->zi = zi * s_ziscale;
 

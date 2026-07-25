@@ -333,9 +333,9 @@ void Evdev_CloseDevice_f ( void )
 
 void IN_EvdevFrame ( void )
 {
-	int dx = 0, dy = 0, i;
+	int dx = 0, dy = 0;
 
-	for( i = 0; i < evdev.devices; i++ )
+	for( int i = 0; i < evdev.devices; i++ )
 	{
 		struct input_event ev;
 
@@ -403,8 +403,6 @@ void Evdev_SetGrab( qboolean grab )
 {
 	// grab only if evdev is secondary input source
 #if XASH_INPUT != INPUT_EVDEV
-	int i;
-
 	if( grab )
 	{
 		Key_Event( K_ESCAPE, 0 ); //Do not leave ESC down
@@ -413,7 +411,7 @@ void Evdev_SetGrab( qboolean grab )
 	}
 	else
 	{
-		for( i = 0; i < evdev.devices; i++ )
+		for( int i = 0; i < evdev.devices; i++ )
 			ioctl( evdev.fds[i], EVIOCGRAB, (void*) 0 );
 	}
 	evdev.grab = grab;
@@ -454,14 +452,12 @@ void Evdev_Init( void )
 
 void Evdev_Shutdown( void )
 {
-	int i;
-
 	Cmd_RemoveCommand( "evdev_open" );
 	Cmd_RemoveCommand( "evdev_close" );
 	Cmd_RemoveCommand( "evdev_autodetect" );
 	Cvar_RegisterVariable( &evdev_keydebug );
 
-	for( i = 0; i < evdev.devices; i++ )
+	for( int i = 0; i < evdev.devices; i++ )
 	{
 		ioctl( evdev.fds[i], EVIOCGRAB, (void*) 0 );
 		close( evdev.fds[i] );

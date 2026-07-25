@@ -58,8 +58,8 @@ GNU General Public License for more details.
 // path to saved games
 #define DEFAULT_SAVE_DIRECTORY	"save/"
 
-// path to download games
-#define DEFAULT_DOWNLOADED_DIRECTORY "downloaded/"
+// goldsrc compatible suffix for downloads directory
+#define DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX "_downloads"
 
 // path to user mod directory
 #define DEFAULT_CUSTOM_DIRECTORY "custom/"

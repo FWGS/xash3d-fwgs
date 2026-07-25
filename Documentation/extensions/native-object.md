@@ -16,6 +16,7 @@ Only these objects are guaranteed to be available on all targets.
 |-------------|-----------|
 | `VFileSystem009` | Provides C++ interface to filesystem, binary-compatible with Valve's VFileSystem009. |
 | `XashFileSystemXXX` | Provides C interface to filesystem. This interface is unstable and not recommended for generic use, outside of engine internals. For more info about current version look into `filesystem.h`. |
+| `MenuFactory` | Returns a `CreateInterface` function pointer (`pfnCreateInterface_t`) for the currently loaded menu library. |
 
 #### Android-specific objects
 

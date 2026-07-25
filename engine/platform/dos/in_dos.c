@@ -52,9 +52,7 @@ byte        scantokey[128] =
 // will be implemented later
 void Platform_RunEvents( void )
 {
-	int i;
-
-	for( i = 0; i < keystate.buf_head;i++ )
+	for( int i = 0; i < keystate.buf_head;i++ )
 	{
 		int k = keystate.buf[i];
 		int key = scantokey[k&0x7f];

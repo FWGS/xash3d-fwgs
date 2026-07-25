@@ -99,6 +99,7 @@ void SX_RoomFX( portable_samplepair_t *paint, int num_samples );
 void SX_ClearState( void );
 
 qboolean S_Init( void );
+qboolean S_InitSoundAPI( void );
 void S_Shutdown( void );
 void S_SoundList_f( void );
 void S_SoundInfo_f( void );

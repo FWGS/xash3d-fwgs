@@ -4,8 +4,12 @@
 
 from waflib import Build, Context, Logs, TaskGen
 from waflib.Tools import waf_unit_test, c_tests
+import clang_format
 import sys
 import os
+
+# we need version 17 minimum
+clang_format.CLANG_FORMAT_MIN_MAJOR = 17
 
 VERSION = '0.99'
 APPNAME = 'xash3d-fwgs'
@@ -31,6 +35,24 @@ def apply_subsystem_msvc(self):
 
 	if 'test' in self.features:
 		self.subsystem = self.env.CONSOLE_SUBSYSTEM
+
+@TaskGen.feature('format')
+@TaskGen.after_method('make_format_tasks')
+def use_xash_clang_format(self):
+	if self.bld.cmd != 'format':
+		return
+
+	wrapper = self.bld.bldnode.find_node('utils/xash-clang-format/xash-clang-format')
+	if not wrapper:
+		self.bld.fatal('no xash-clang-format found in build directory, reconfigure and rebuild with --enable-utils')
+		return
+
+	real_cf = clang_format.ClangFormatTask.binary
+	for t in self.tasks:
+		if isinstance(t, clang_format.ClangFormatTask):
+			t.binary = wrapper.abspath()
+			t.env.env = dict(os.environ, XASH_CLANG_FORMAT_BIN=real_cf)
+
 
 class Subproject:
 	def __init__(self, name, fnFilter = None):
@@ -85,6 +107,8 @@ SUBDIRS = [
 	Subproject('stub/server'),
 	Subproject('3rdparty/libbacktrace'),
 	Subproject('3rdparty/library_suffix'),
+	Subproject('3rdparty/yy-thunks'),
+	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
 
 	# disable only by engine feature, makes no sense to even parse subprojects in dedicated mode
 	Subproject('3rdparty/extras',       lambda x: x.env.CLIENT and x.env.DEST_OS != 'android'),
@@ -96,6 +120,7 @@ SUBDIRS = [
 	Subproject('ref/soft',              lambda x: x.env.CLIENT and x.env.SOFT),
 	Subproject('ref/null',              lambda x: x.env.CLIENT and x.env.NULL),
 	Subproject('3rdparty/bzip2',        lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_BZ2),
+	Subproject('3rdparty/mbedtls'),
 	Subproject('3rdparty/opus',         lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OPUS),
 	Subproject('3rdparty/libogg',       lambda x: x.env.CLIENT and not x.env.HAVE_SYSTEM_OGG),
 	Subproject('3rdparty/vorbis',       lambda x: x.env.CLIENT and (not x.env.HAVE_SYSTEM_VORBIS or not x.env.HAVE_SYSTEM_VORBISFILE)),
@@ -110,9 +135,9 @@ SUBDIRS = [
 	Subproject('engine'), # keep latest for static linking
 
 	# enabled optionally
-	Subproject('utils/mdldec',     lambda x: x.env.ENABLE_UTILS),
-	Subproject('utils/xar',        lambda x: x.env.ENABLE_UTILS and x.env.ENABLE_XAR),
-	Subproject('utils/run-fuzzer', lambda x: x.env.ENABLE_FUZZER),
+	Subproject('utils/mdldec',            lambda x: x.env.ENABLE_UTILS),
+	Subproject('utils/xar',               lambda x: x.env.ENABLE_UTILS and x.env.ENABLE_XAR),
+	Subproject('utils/xash-clang-format', lambda x: x.env.ENABLE_UTILS),
 
 	# enabled on PSVita only
 	Subproject('ref/gl/vgl_shim',   lambda x: x.env.DEST_OS == 'psvita'),
@@ -173,7 +198,6 @@ def options(opt):
 		help = 'disables rpath, duh!')
 
 	# a1ba: special option for me
-	grp.add_option('--debug-all-servers', action='store_true', dest='ALL_SERVERS', default=False, help='')
 	grp.add_option('--enable-msvcdeps', action='store_true', dest='MSVCDEPS', default=False, help='')
 	grp.add_option('--enable-wafcache', action='store_true', dest='WAFCACHE', default=False, help='')
 
@@ -235,7 +259,7 @@ def configure(conf):
 	if conf.env.COMPILER_CC == 'msvc':
 		conf.load('msvc_pdb')
 
-	conf.load('msvs subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic force_32bit ninja')
+	conf.load('msvs subproject clang_compilation_database strip_on_install waf_unit_test enforce_pic force_32bit ninja clang_format')
 
 	conf.env.MSVC_SUBSYSTEM = 'WINDOWS'
 	conf.env.CONSOLE_SUBSYSTEM = 'CONSOLE'
@@ -445,7 +469,6 @@ def configure(conf):
 
 	conf.env.GAMEDIR = conf.options.GAMEDIR
 	conf.define('XASH_GAMEDIR', conf.options.GAMEDIR)
-	conf.define_cond('XASH_ALL_SERVERS', conf.options.ALL_SERVERS)
 
 	if conf.env.DEST_OS == 'nswitch':
 		conf.check_cfg(package='solder', args='--cflags --libs', uselib_store='SOLDER')
@@ -472,7 +495,7 @@ def configure(conf):
 		# Don't check them more than once, to save time
 		# Usually, they are always available
 		# but we need them in uselib
-		a = [ 'user32', 'shell32', 'gdi32', 'advapi32', 'dbghelp', 'psapi', 'ws2_32' ]
+		a = [ 'user32', 'shell32', 'gdi32', 'advapi32', 'dbghelp', 'psapi', 'ws2_32', 'bcrypt' ]
 		if conf.env.COMPILER_CC == 'msvc':
 			for i in a:
 				conf.start_msg('Checking for MSVC library')

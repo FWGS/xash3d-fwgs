@@ -70,6 +70,7 @@ jobs:
     env:
       SDL_VERSION: 2.32.10
       FFMPEG_VERSION: 8.1
+      YY_THUNKS_VERSION: v1.2.1
       GH_CPU_ARCH: ${{ matrix.targetarch }}
       GH_CPU_OS: ${{ matrix.targetos }}
       GH_CROSSCOMPILING: ${{ matrix.cross }}

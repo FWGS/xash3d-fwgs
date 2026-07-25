@@ -229,11 +229,9 @@ float SV_VecToYaw( const vec3_t src )
 
 qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 {
-	int	i;
 	trace_t	trace;
 	vec3_t	oldorg, neworg, end;
 	qboolean	monsterClip;
-	edict_t	*enemy;
 	float	dz;
 
 	VectorCopy( ent->v.origin, oldorg );
@@ -243,8 +241,10 @@ qboolean SV_MoveStep( edict_t *ent, vec3_t move, qboolean relink )
 	// well, try it.  Flying and swimming monsters are easiest.
 	if( FBitSet( ent->v.flags, FL_SWIM|FL_FLY ))
 	{
+		edict_t	*enemy = NULL;
+
 		// try one move with vertical motion, then one without
-		for( i = 0; i < 2; i++ )
+		for( int i = 0; i < 2; i++ )
 		{
 			VectorAdd( ent->v.origin, move, neworg );
 
@@ -409,11 +409,10 @@ static qboolean SV_StepDirection( edict_t *ent, float yaw, float dist )
 {
 	int	ret;
 	float	cSin, cCos;
-	vec3_t	move;
 
 	yaw = yaw * M_PI2 / 360.0f;
 	SinCos( yaw, &cSin, &cCos );
-	VectorSet( move, cCos * dist, cSin * dist, 0.0f );
+	vec3_t move = { cCos * dist, cSin * dist, 0.0f };
 
 	ret = SV_MoveStep( ent, move, false );
 	SV_LinkEdict( ent, true );
@@ -519,9 +518,7 @@ static void SV_NewChaseDir( edict_t *actor, vec3_t destination, float dist )
 
 void SV_MoveToOrigin( edict_t *ent, const vec3_t pflGoal, float dist, int iMoveType )
 {
-	vec3_t	vecDist;
-
-	VectorCopy( pflGoal, vecDist );
+	vec3_t vecDist = Vec3( pflGoal );
 
 	if( ent->v.flags & ( FL_FLY|FL_SWIM|FL_ONGROUND ))
 	{

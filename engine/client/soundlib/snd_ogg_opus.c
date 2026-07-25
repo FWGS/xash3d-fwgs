@@ -258,13 +258,12 @@ int Stream_ReadOggOpus( stream_t *stream, int needBytes, void *buffer )
 
 	while( 1 )
 	{
-		int  ret;
 		byte *data;
 		int  outsize;
 
 		if( !stream->buffsize )
 		{
-			ret = op_read( ctx->of, (opus_int16 *)stream->temp, OUTBUF_SIZE / stream->width, NULL );
+			int ret = op_read( ctx->of, (opus_int16 *)stream->temp, OUTBUF_SIZE / stream->width, NULL );
 			if( ret == 0 )
 				break; // end of file
 			else if( ret < 0 )
@@ -298,9 +297,9 @@ int Stream_ReadOggOpus( stream_t *stream, int needBytes, void *buffer )
 
 int Stream_SetPosOggOpus( stream_t *stream, int newpos )
 {
-	int ret;
 	opus_streaming_ctx_t *ctx = (opus_streaming_ctx_t *)stream->ptr;
-	if(( ret = op_raw_seek( ctx->of, newpos )) == 0 )
+	int ret = op_raw_seek( ctx->of, newpos );
+	if( ret == 0 )
 	{
 		stream->buffsize = 0; // flush any previous data
 		return true;

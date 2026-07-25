@@ -308,8 +308,6 @@ void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 	int	nBitsLeft = numbits;
 	int	iCurBit = sb->iCurBit;
 	uint	iDWord = iCurBit >> 5;	// Mask in a dword.
-	uint32_t	iCurBitMasked;
-	int	nBitsWritten;
 
 	Assert( numbits >= 1 && numbits <= 32 );
 
@@ -320,14 +318,14 @@ void MSG_WriteUBitLong( sizebuf_t *sb, uint curData, int numbits )
 		return;
 	}
 
-	iCurBitMasked = iCurBit & 31;
+	uint32_t iCurBitMasked = iCurBit & 31;
 	uint32_t dword = LittleLong(((uint32_t *)sb->pData)[iDWord] );
 	dword &= BitWriteMasks[iCurBitMasked][nBitsLeft-1];
 	dword |= curData << iCurBitMasked;
 	((uint32_t *)sb->pData)[iDWord] = LittleLong( dword );
 
 	// did it span a dword?
-	nBitsWritten = 32 - iCurBitMasked;
+	int nBitsWritten = 32 - iCurBitMasked;
 
 	if( nBitsWritten < nBitsLeft )
 	{
@@ -429,13 +427,12 @@ void MSG_WriteBitAngle( sizebuf_t *sb, float fAngle, int numbits )
 {
 	const uint shift = ( 1 << numbits );
 	const uint mask = shift - 1;
-	int	d;
 
 	// clamp the angle before receiving
 	fAngle = fmod( fAngle, 360.0f );
 	if( fAngle < 0 ) fAngle += 360.0f;
 
-	d = (int)(( fAngle * shift ) / 360.0f );
+	int d = (int)(( fAngle * shift ) / 360.0f );
 	d &= mask;
 
 	MSG_WriteUBitLong( sb, (uint)d, numbits );
@@ -546,11 +543,10 @@ qboolean MSG_WriteString( sizebuf_t *sb, const char *pStr )
 qboolean MSG_WriteStringf( sizebuf_t *sb, const char *format, ... )
 {
 	va_list va;
-	int len;
 	char buf[MAX_VA_STRING];
 
 	va_start( va, format );
-	len = Q_vsnprintf( buf, sizeof( buf ), format, va );
+	int len = Q_vsnprintf( buf, sizeof( buf ), format, va );
 	va_end( va );
 
 	if( len < 0 )
@@ -577,9 +573,6 @@ int MSG_ReadOneBit( sizebuf_t *sb )
 
 uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 {
-	int	idword1;
-	uint	dword1, ret;
-
 	if( numbits == 8 )
 	{
 		int leftBits = MSG_GetNumBitsLeft( sb );
@@ -597,12 +590,12 @@ uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 	Assert( numbits > 0 && numbits <= 32 );
 
 	// Read the current dword.
-	idword1 = sb->iCurBit >> 5;
-	dword1 = LittleLong(((uint *)sb->pData)[idword1] );
+	int idword1 = sb->iCurBit >> 5;
+	uint dword1 = LittleLong(((uint *)sb->pData)[idword1] );
 	dword1 >>= ( sb->iCurBit & 31 );	// get the bits we're interested in.
 
 	sb->iCurBit += numbits;
-	ret = dword1;
+	uint ret = dword1;
 
 	// Does it span this dword?
 	if(( sb->iCurBit - 1 ) >> 5 == idword1 )
@@ -622,41 +615,43 @@ uint MSG_ReadUBitLong( sizebuf_t *sb, int numbits )
 	return ret;
 }
 
-qboolean MSG_ReadBits( sizebuf_t *sb, void *pOutData, int nBits )
+qboolean MSG_ReadBits( sizebuf_t *sb, void *out, size_t maxBytes, int bits )
 {
-	byte	*pOut = (byte *)pOutData;
-	int	nBitsLeft = nBits;
+	byte *p = (byte *)out;
+	int left = bits;
+
+	if((size_t)bits > ( maxBytes << 3 ))
+		return false;
 
 	// get output dword-aligned.
-	while((( uintptr_t )pOut & 3) != 0 && nBitsLeft >= 8 )
+	while((( uintptr_t )p & 3) != 0 && left >= 8 )
 	{
-		*pOut = (byte)MSG_ReadUBitLong( sb, 8 );
-		++pOut;
-		nBitsLeft -= 8;
+		*p = (byte)MSG_ReadUBitLong( sb, 8 );
+		++p;
+		left -= 8;
 	}
 
 	// read dwords.
-	while( nBitsLeft >= 32 )
+	while( left >= 32 )
 	{
 		uint32_t dword = MSG_ReadUBitLong( sb, 32 );
-		*((uint32_t *)pOut) = LittleLong( dword );
-		pOut += sizeof( uint32_t );
-		nBitsLeft -= 32;
+		dword = LittleLong( dword );
+		memcpy( p, &dword, sizeof( dword ));
+		p += sizeof( dword );
+		left -= 32;
 	}
 
 	// read the remaining bytes.
-	while( nBitsLeft >= 8 )
+	while( left >= 8 )
 	{
-		*pOut = MSG_ReadUBitLong( sb, 8 );
-		++pOut;
-		nBitsLeft -= 8;
+		*p = MSG_ReadUBitLong( sb, 8 );
+		++p;
+		left -= 8;
 	}
 
 	// read the remaining bits.
-	if( nBitsLeft )
-	{
-		*pOut = MSG_ReadUBitLong( sb, nBitsLeft );
-	}
+	if( left )
+		*p = MSG_ReadUBitLong( sb, left );
 
 	return !sb->bOverflow;
 }
@@ -726,10 +721,10 @@ int MSG_ReadCmd( sizebuf_t *sb, netsrc_t type )
 
 int MSG_ReadChar( sizebuf_t *sb )
 {
-	int alt = sb->iAlternateSign, ret;
+	int alt = sb->iAlternateSign;
 
 	sb->iAlternateSign = 0;
-	ret = MSG_ReadSBitLong( sb, sizeof( int8_t ) << 3 );
+	int ret = MSG_ReadSBitLong( sb, sizeof( int8_t ) << 3 );
 	sb->iAlternateSign = alt;
 
 	return ret;
@@ -742,10 +737,10 @@ int MSG_ReadByte( sizebuf_t *sb )
 
 int MSG_ReadShort( sizebuf_t *sb )
 {
-	int alt = sb->iAlternateSign, ret;
+	int alt = sb->iAlternateSign;
 
 	sb->iAlternateSign = 0;
-	ret = MSG_ReadSBitLong( sb, sizeof( int16_t ) << 3 );
+	int ret = MSG_ReadSBitLong( sb, sizeof( int16_t ) << 3 );
 	sb->iAlternateSign = alt;
 
 	return ret;
@@ -780,10 +775,10 @@ void MSG_ReadVec3Angles( sizebuf_t *sb, vec3_t fa )
 
 int MSG_ReadLong( sizebuf_t *sb )
 {
-	int alt = sb->iAlternateSign, ret;
+	int alt = sb->iAlternateSign;
 
 	sb->iAlternateSign = 0;
-	ret = MSG_ReadSBitLong( sb, sizeof( int32_t ) << 3 );
+	int ret = MSG_ReadSBitLong( sb, sizeof( int32_t ) << 3 );
 	sb->iAlternateSign = alt;
 
 	return ret;
@@ -799,9 +794,9 @@ float MSG_ReadFloat( sizebuf_t *sb )
 	return UintAsFloat( MSG_ReadUBitLong( sb, sizeof( float ) << 3 ));
 }
 
-qboolean MSG_ReadBytes( sizebuf_t *sb, void *pOut, int nBytes )
+qboolean MSG_ReadBytes( sizebuf_t *sb, void *out, size_t maxBytes, int bytes )
 {
-	return MSG_ReadBits( sb, pOut, nBytes << 3 );
+	return MSG_ReadBits( sb, out, maxBytes, bytes << 3 );
 }
 
 static char *MSG_ReadStringExt( sizebuf_t *sb, qboolean bLine )
@@ -842,14 +837,14 @@ char *MSG_ReadStringLine( sizebuf_t *sb )
 
 void MSG_ExciseBits( sizebuf_t *sb, int startbit, int bitstoremove )
 {
-	int	i, endbit = startbit + bitstoremove;
+	int	endbit = startbit + bitstoremove;
 	int	remaining_to_end = sb->nDataBits - endbit;
 	sizebuf_t	temp;
 
 	MSG_StartWriting( &temp, sb->pData, MSG_GetMaxBytes( sb ), startbit, -1 );
 	MSG_SeekToBit( sb, endbit, SEEK_SET );
 
-	for( i = 0; i < remaining_to_end; i++ )
+	for( int i = 0; i < remaining_to_end; i++ )
 	{
 		MSG_WriteOneBit( &temp, MSG_ReadOneBit( sb ));
 	}
@@ -939,7 +934,7 @@ static void Test_Buffer_Read( void )
 	TASSERT_EQp( sb.pData, (void *)g_testbuf );
 	TASSERT_EQi( sb.bOverflow, false );
 
-	MSG_ReadBytes( &sb, buf, 4 );
+	MSG_ReadBytes( &sb, buf, sizeof( buf ), 4 );
 	TASSERT( !memcmp( buf, "asdf", 4 ));
 	TASSERT_EQi( sb.iCurBit, 32 );
 	TASSERT_EQi( sb.bOverflow, false );

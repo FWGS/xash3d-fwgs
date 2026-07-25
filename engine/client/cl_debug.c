@@ -50,7 +50,7 @@ const char *CL_MsgInfo( int cmd )
 		// get engine message name
 		const char *svc_string = NULL;
 
-		switch( cls.legacymode )
+		switch( cls.net_protocol )
 		{
 		case PROTO_CURRENT:
 			svc_string = svc_strings[cmd];
@@ -71,9 +71,7 @@ const char *CL_MsgInfo( int cmd )
 	}
 	else if( cmd > svc_lastmsg && cmd <= ( svc_lastmsg + MAX_USER_MESSAGES ))
 	{
-		int	i;
-
-		for( i = 0; i < MAX_USER_MESSAGES; i++ )
+		for( int i = 0; i < MAX_USER_MESSAGES; i++ )
 		{
 			if( clgame.msg[i].number == cmd )
 			{
@@ -106,11 +104,9 @@ record new message params into debug buffer
 */
 void CL_Parse_RecordCommand( int cmd, int startoffset )
 {
-	int	slot;
-
 	if( cmd == svc_nop ) return;
 
-	slot = ( cls_message_debug.currentcmd++ & MSG_MASK );
+	int	slot = ( cls_message_debug.currentcmd++ & MSG_MASK );
 	cls_message_debug.oldcmd[slot].command = cmd;
 	cls_message_debug.oldcmd[slot].starting_offset = startoffset;
 	cls_message_debug.oldcmd[slot].frame_number = host.framecount;
@@ -141,9 +137,7 @@ write net_message into buffer.dat for debugging
 static void CL_WriteErrorMessage( int current_count, sizebuf_t *msg )
 {
 	const char	*buffer_file = "buffer.dat";
-	file_t		*fp;
-
-	fp = FS_Open( buffer_file, "wb", false );
+	file_t		*fp = FS_Open( buffer_file, "wb", false );
 	if( !fp )
 	{
 		Con_Printf( S_ERROR "%s: can't open %s for write\n", __func__, buffer_file );
@@ -152,7 +146,7 @@ static void CL_WriteErrorMessage( int current_count, sizebuf_t *msg )
 
 	FS_Write( fp, &cls.starting_count, sizeof( int ));
 	FS_Write( fp, &current_count, sizeof( int ));
-	FS_Write( fp, &cls.legacymode, sizeof( cls.legacymode ));
+	FS_Write( fp, &cls.net_protocol, sizeof( cls.net_protocol ));
 	FS_Write( fp, MSG_GetData( msg ), MSG_GetMaxBytes( msg ));
 	FS_Close( fp );
 
@@ -170,7 +164,7 @@ void CL_WriteMessageHistory( void )
 {
 	oldcmd_t	*old;
 	sizebuf_t	*msg = &net_message;
-	int	i, thecmd;
+	int	thecmd;
 
 	if( !cls.initialized || cls.state == ca_disconnected )
 		return;
@@ -184,7 +178,7 @@ void CL_WriteMessageHistory( void )
 	thecmd = cls_message_debug.currentcmd - 1;
 	thecmd -= ( MSG_COUNT - 1 );	// back up to here
 
-	for( i = 0; i < MSG_COUNT - 1; i++ )
+	for( int i = 0; i < MSG_COUNT - 1; i++ )
 	{
 		thecmd &= MSG_MASK;
 		old = &cls_message_debug.oldcmd[thecmd];
@@ -213,7 +207,7 @@ void CL_ReplayBufferDat_f( void )
 	FS_Read( f, &current_count, sizeof( current_count ));
 	FS_Read( f, &protocol, sizeof( protocol ));
 
-	cls.legacymode = protocol;
+	cls.net_protocol = protocol;
 
 	len = FS_Read( f, buffer, sizeof( buffer ));
 	FS_Close( f );

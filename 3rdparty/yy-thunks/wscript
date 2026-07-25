@@ -1,0 +1,59 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+import hashlib
+from waflib import Task, TaskGen, Logs
+
+OBJ_NAME = 'YY_Thunks_for_WinXP.obj'
+OBJ_SHA256 = '51a13c4b667c82181d357e274a50308a273be63f5f85ae958465774857721573'
+DLL_LINKFLAGS = ['-ENTRY:DllMainCRTStartupForYY_Thunks', '-alternatename:_YY_ThunksOriginalDllMainCRTStartup@12=__DllMainCRTStartup@12']
+
+class copy_yy_thunks(Task.Task):
+	color = 'CYAN'
+	def run(self):
+		return self.outputs[0].write(self.inputs[0].read('rb'), 'wb')
+
+@TaskGen.feature('yy_thunks')
+def add_yy_thunks_obj(self):
+	src = self.path.find_node(OBJ_NAME)
+	out = self.path.find_or_declare(OBJ_NAME)
+	self.compiled_tasks = [self.create_task('copy_yy_thunks', src, out)]
+
+@TaskGen.feature('cshlib', 'cxxshlib')
+@TaskGen.after_method('process_use')
+def apply_yy_thunks_dll(self):
+	if 'yy_thunks' not in self.to_list(getattr(self, 'use', [])):
+		return
+
+	try:
+		self.bld.get_tgen_by_name('yy_thunks')
+	except Exception:
+		return
+	self.env.append_value('LINKFLAGS', DLL_LINKFLAGS)
+
+def options(opt):
+	pass
+
+def configure(conf):
+	if conf.env.DEST_OS != 'win32' or conf.env.COMPILER_CC != 'msvc':
+		return
+
+	if conf.env.MSVC_TARGETS[0] not in ['amd64_x86', 'x86']:
+		return
+
+	obj = conf.path.find_node(OBJ_NAME)
+	if not obj:
+		Logs.warn('YY-Thunks: %s not found, XP compatibility disabled' % OBJ_NAME)
+		return
+
+	with open(obj.abspath(), 'rb') as f:
+		digest = hashlib.sha256(f.read()).hexdigest()
+
+	if digest != OBJ_SHA256:
+		conf.fatal('%s checksum mismatch: expected %s, got %s' % (OBJ_NAME, OBJ_SHA256, digest))
+
+	conf.env.YY_THUNKS = True
+
+def build(bld):
+	if bld.env.YY_THUNKS:
+		bld(name='yy_thunks', features='yy_thunks')

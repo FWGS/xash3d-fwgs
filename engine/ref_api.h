@@ -73,7 +73,10 @@ GNU General Public License for more details.
 //     Moved detail textures parsing and cinematic texture management to engine
 //     Moved creation of default textures to the engine
 // 16. RefGetParm return type changed from int to intptr_t.
-#define REF_API_VERSION 16
+// 17. _Mem_AllocPool now takes a flags argument (see MEM_SMALL_ALLOC_OPT in engine/common/common.h).
+//     Pools that opt into MEM_SMALL_ALLOC_OPT use a compact 16/24-byte header for allocations
+//     <= 255 bytes, dropping per-allocation filename/fileline tracking.
+#define REF_API_VERSION 17
 
 #define TF_SKY		(TF_SKYSIDE|TF_NOMIPMAP|TF_ALLOW_NEAREST)
 #define TF_FONT		(TF_NOMIPMAP|TF_CLAMP|TF_ALLOW_NEAREST)
@@ -330,7 +333,7 @@ typedef enum
 	PARM_WATER_LEVEL       = -8, // cl.local.water_level
 	PARM_GET_WORLD_PTR     = -9, // world
 	PARM_LOCAL_HEALTH      = -10, // cl.local.health
-	PARM_LOCAL_GAME        = -11,
+	PARM_SINGLEPLAYER_GAME = -11, // was PARM_LOCAL_GAME
 	PARM_NUMENTITIES       = -12, // local game only
 	PARM_GET_MOVEVARS_PTR  = -13, // clgame.movevars
 	PARM_GET_PALETTE_PTR   = -14, // clgame.palette
@@ -444,7 +447,7 @@ typedef struct ref_api_s
 	void *(*Mod_Calloc)( int number, size_t size );
 
 	// memory
-	poolhandle_t (*_Mem_AllocPool)( const char *name, const char *filename, int fileline )
+	poolhandle_t (*_Mem_AllocPool)( const char *name, unsigned int flags, const char *filename, int fileline )
 		WARN_UNUSED_RESULT;
 	void  (*_Mem_FreePool)( poolhandle_t *poolptr, const char *filename, int fileline );
 	void *(*_Mem_Alloc)( poolhandle_t poolptr, size_t size, qboolean clear, const char *filename, int fileline )

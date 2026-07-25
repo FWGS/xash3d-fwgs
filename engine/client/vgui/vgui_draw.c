@@ -73,9 +73,7 @@ static void GAME_EXPORT VGUI_DrawInit( void )
 
 static void GAME_EXPORT VGUI_DrawShutdown( void )
 {
-	int i;
-
-	for( i = 1; i < vgui.texture_id; i++ )
+	for( int i = 1; i < vgui.texture_id; i++ )
 		ref.dllFuncs.GL_FreeTexture( vgui.textures[i].gl_texturenum );
 
 	Mem_FreePool( &vgui.mempool );
@@ -136,9 +134,7 @@ static void GAME_EXPORT VGUI_UploadTexture( int id, const char *buffer, int widt
 	// it's a new texture, try to find a copy
 	if( vgui.textures[id].gl_texturenum == 0 )
 	{
-		int i;
-
-		for( i = 1; i < vgui.texture_id; i++ )
+		for( int i = 1; i < vgui.texture_id; i++ )
 		{
 			if( vgui.textures[i].gl_texturenum != 0 && !memcmp( vgui.textures[i].hash, hash, sizeof( hash )))
 			{
@@ -210,26 +206,22 @@ static void GAME_EXPORT VGUI_SetupDrawingText( int *pColor )
 
 static void GAME_EXPORT VGUI_DrawQuad( const vpoint_t *ul, const vpoint_t *lr )
 {
-	float x, y, w, h;
-
 	if( !ul || !lr )
 		return;
 
-	x = ul->point[0];
-	y = ul->point[1];
-	w = lr->point[0] - x;
-	h = lr->point[1] - y;
+	float x = ul->point[0];
+	float y = ul->point[1];
+	float w = lr->point[0] - x;
+	float h = lr->point[1] - y;
 
 	SPR_AdjustSize( &x, &y, &w, &h );
 
 	if( vgui.enable_texture )
 	{
-		float s1, s2, t1, t2;
-
-		s1 = ul->coord[0];
-		t1 = ul->coord[1];
-		s2 = lr->coord[0];
-		t2 = lr->coord[1];
+		float s1 = ul->coord[0];
+		float t1 = ul->coord[1];
+		float s2 = lr->coord[0];
+		float t2 = lr->coord[1];
 
 		ref.dllFuncs.Color4ub( vgui.color[0], vgui.color[1], vgui.color[2], vgui.color[3] );
 		ref.dllFuncs.R_DrawStretchPic( x, y, w, h, s1, t1, s2, t2, vgui.textures[vgui.bound_texture].gl_texturenum );

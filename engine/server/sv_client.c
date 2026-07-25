@@ -13,11 +13,11 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <inttypes.h>
 #include "common.h"
 #include "const.h"
 #include "server.h"
 #include "net_encode.h"
-#include "net_api.h"
 
 // challenges are valid for two consecutive windows of this size (max lifetime ~10s).
 #define CHALLENGE_WINDOW_SECONDS 5
@@ -109,11 +109,43 @@ static int SV_GetChallenge( netadr_t from, uint32_t time_window, qboolean *error
 	return digest[0] | digest[1] << 8 | digest[2] << 16 | digest[3] << 24;
 }
 
-static void SV_SendChallenge( netadr_t from, qboolean skip_bandwidth_test )
+/*
+=================
+SV_CreateChallenge
+=================
+*/
+int SV_CreateChallenge( netadr_t from, qboolean *error )
+{
+	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
+
+	return SV_GetChallenge( from, time_window, error );
+}
+
+/*
+=================
+SV_ValidateChallenge
+=================
+*/
+qboolean SV_ValidateChallenge( netadr_t from, int challenge )
 {
 	qboolean error = false;
 	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
-	int challenge = SV_GetChallenge( from, time_window, &error );
+
+	// accept the current window and the previous one so challenges issued just
+	// before a window boundary remain valid for the full expected lifetime
+	if( SV_GetChallenge( from, time_window, &error ) == challenge && !error )
+		return true;
+
+	if( SV_GetChallenge( from, time_window - 1, &error ) == challenge && !error )
+		return true;
+
+	return false;
+}
+
+static void SV_SendChallenge( netadr_t from, qboolean skip_bandwidth_test )
+{
+	qboolean error = false;
+	int challenge = SV_CreateChallenge( from, &error );
 
 	if( error )
 		return;
@@ -213,15 +245,7 @@ Make sure connecting client is not spoofing
 */
 static int SV_CheckChallenge( netadr_t from, int challenge )
 {
-	qboolean error = false;
-	uint32_t time_window = (uint32_t)( host.realtime / CHALLENGE_WINDOW_SECONDS );
-
-	// accept the current window and the previous one so challenges issued just
-	// before a window boundary remain valid for the full expected lifetime
-	if( SV_GetChallenge( from, time_window, &error ) == challenge && !error )
-		return true;
-
-	if( SV_GetChallenge( from, time_window - 1, &error ) == challenge && !error )
+	if( SV_ValidateChallenge( from, challenge ))
 		return true;
 
 	SV_RejectConnection( from, "no challenge for your address\n" );
@@ -255,9 +279,7 @@ We don't do this search on a "reconnect, we just reuse the slot
 */
 static sv_client_t *SV_FindEmptySlot( void )
 {
-	int i;
-
-	for( i = 0; i < svs.maxclients; i++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		if( svs.clients[i].state == cs_free )
 			return &svs.clients[i];
@@ -268,11 +290,11 @@ static sv_client_t *SV_FindEmptySlot( void )
 
 static void SV_MaybeNotifyPlayerCountChange( const sv_client_t *cl, const char *address )
 {
-	int i, count = 0;
+	int count = 0;
 
 	// if this was the first client on the server, or the last client
 	// the server can hold, send a heartbeat to the master.
-	for( i = 0; i < svs.maxclients; i++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		if( svs.clients[i].state >= cs_connected )
 			count++;
@@ -299,11 +321,11 @@ static void SV_ConnectClient( netadr_t from )
 	client_frame_t *frames;
 	sv_client_t *newcl = NULL;
 	int qport, version;
-	int i;
 	int challenge;
 	const char *s;
 	int extensions;
 	uint netchan_flags = 0;
+	uint64_t netchan_cookie = 0;
 
 	if( Cmd_Argc() < 5 )
 	{
@@ -348,6 +370,27 @@ static void SV_ConnectClient( netadr_t from )
 	qport = Q_atoi( Info_ValueForKey( protinfo, "qport" ));
 	extensions = Q_atoi( Info_ValueForKey( protinfo, "ext" ));
 
+	if( FBitSet( extensions, NET_EXT_NETCHAN_COOKIE ))
+	{
+		const char *cookie_str = Info_ValueForKey( protinfo, "cookie" );
+
+		if( Q_strlen( cookie_str ) != 16 )
+		{
+			SV_RejectConnection( from, "client advertised NET_EXT_NETCHAN_COOKIE but did not supply a cookie\n" );
+			return;
+		}
+
+		byte buf[8];
+		COM_HexConvert( cookie_str, 16, buf );
+		for( int i = 0; i < 8; i++ )
+			netchan_cookie = ( netchan_cookie << 8 ) | buf[i];
+	}
+
+	// these keys aren't useragent
+	Info_RemoveKey( protinfo, "cookie" );
+	Info_RemoveKey( protinfo, "ext" );
+	Info_RemoveKey( protinfo, "qport" );
+
 	s = Cmd_Argv( 4 );	// user info
 
 	if( Q_strlen( s ) > sizeof( userinfo ) || !Info_IsValid( s ))
@@ -361,7 +404,7 @@ static void SV_ConnectClient( netadr_t from )
 	// check connection password (don't verify local client)
 	if( !NET_IsLocalAddress( from ) && SV_HavePassword( ))
 	{
-		if( Q_stricmp( sv_password.string, Info_ValueForKey( userinfo, "password" )))
+		if( Q_strcmp_constant_time( sv_password.string, Info_ValueForKey( userinfo, "password" )))
 		{
 			SV_RejectConnection( from, "invalid password\n" );
 			return;
@@ -369,7 +412,7 @@ static void SV_ConnectClient( netadr_t from )
 	}
 
 	// if there is already a slot for this ip, reuse it
-	for( i = 0; i < svs.maxclients; i++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		sv_client_t *cl = &svs.clients[i];
 
@@ -422,7 +465,7 @@ static void SV_ConnectClient( netadr_t from )
 	newcl->frames = frames;
 	newcl->userid = g_userid++;	// create unique userid
 	newcl->state = cs_connected;	// now expect "spawn" command
-	newcl->extensions = FBitSet( extensions, NET_EXT_SPLITSIZE );
+	newcl->extensions = FBitSet( extensions, NET_EXT_SPLITSIZE | NET_EXT_NETCHAN_COOKIE );
 	Q_strncpy( newcl->useragent, protinfo, sizeof( newcl->useragent ));
 
 	// HACKHACK: can hear all players by default to avoid issues
@@ -432,7 +475,11 @@ static void SV_ConnectClient( netadr_t from )
 	// initailize netchan
 	if( !Host_IsLocalClient( ))
 		SetBits( netchan_flags, NETCHAN_USE_LZSS );
+	if( FBitSet( newcl->extensions, NET_EXT_NETCHAN_COOKIE ))
+		SetBits( netchan_flags, NETCHAN_USE_COOKIE );
 	Netchan_Setup( NS_SERVER, &newcl->netchan, from, qport, newcl, SV_GetFragmentSize, netchan_flags );
+	if( FBitSet( newcl->extensions, NET_EXT_NETCHAN_COOKIE ))
+		Netchan_SetCookie( &newcl->netchan, netchan_cookie );
 	MSG_Init( &newcl->datagram, "Datagram", newcl->datagram_buf, sizeof( newcl->datagram_buf )); // datagram buf
 
 	Q_strncpy( newcl->hashedcdkey, Info_ValueForKey( protinfo, "uuid" ), 32 );
@@ -442,6 +489,9 @@ static void SV_ConnectClient( netadr_t from )
 	protinfo[0] = '\0';
 	Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", newcl->extensions );
 	Info_SetValueForKey( protinfo, "cheats", sv_cheats.value ? "1" : "0", sizeof( protinfo ));
+	Info_SetValueForKeyf( protinfo, "challenge", sizeof( protinfo ), "%d", challenge );
+	if( FBitSet( newcl->extensions, NET_EXT_NETCHAN_COOKIE ))
+		Info_SetValueForKeyf( protinfo, "cookie", sizeof( protinfo ), "%016"PRIx64, netchan_cookie );
 
 	// send the connect packet to the client
 	Netchan_OutOfBandPrint( NS_SERVER, from, S2C_CONNECTION" %s", protinfo );
@@ -474,7 +524,6 @@ A connection request that came from the game module
 edict_t *GAME_EXPORT SV_FakeConnect( const char *netname )
 {
 	char userinfo[MAX_INFO_STRING];
-	int i, count = 0;
 	sv_client_t *cl;
 
 	// find a client slot
@@ -799,8 +848,6 @@ static void SV_TestBandWidth( netadr_t from )
 {
 	const int version = Q_atoi( Cmd_Argv( 1 ));
 	const int packetsize = Q_atoi( Cmd_Argv( 2 ));
-	uint32_t crc;
-	int ofs;
 
 	// don't waste time of protocol mismatched
 	if( version != PROTOCOL_VERSION )
@@ -829,14 +876,14 @@ static void SV_TestBandWidth( netadr_t from )
 	}
 
 	// don't go out of bounds
-	ofs = packetsize - svs.testpacket_filepos - 1;
+	int ofs = packetsize - svs.testpacket_filepos - 1;
 	if(( ofs < 0 ) || ( ofs > svs.testpacket_filelen ))
 	{
 		SV_SendChallenge( from, true );
 		return;
 	}
 
-	crc = LittleLong( svs.testpacket_crcs[ofs] );
+	uint32_t crc = LittleLong( svs.testpacket_crcs[ofs] );
 	memcpy( svs.testpacket_crcpos, &crc, sizeof( crc ));
 
 	// send the datagram
@@ -930,111 +977,6 @@ static void SV_ConnectNatClient( netadr_t from )
 
 /*
 ================
-SV_BuildNetAnswer
-
-Responds with long info for local and broadcast requests
-================
-*/
-static void SV_BuildNetAnswer( netadr_t from )
-{
-	const cvar_t *cv;
-	char string[4096];
-	int  version;
-	int  context;
-	int  type;
-	int  count = 0;
-	int  i;
-
-	// ignore in single player
-	if( svs.maxclients == 1 || !svs.initialized )
-		return;
-
-	version = Q_atoi( Cmd_Argv( 1 ));
-	context = Q_atoi( Cmd_Argv( 2 ));
-	type = Q_atoi( Cmd_Argv( 3 ));
-
-	string[0] = 0;
-
-	if( version != PROTOCOL_VERSION )
-	{
-		// send error unsupported protocol
-		Info_SetValueForKey( string, "neterror", "protocol", sizeof( string ));
-		Netchan_OutOfBandPrint( NS_SERVER, from, A2A_NETINFO" %i %i %s\n", context, type, string );
-		return;
-	}
-
-	switch( type )
-	{
-	case NETAPI_REQUEST_PING:
-		break;
-	case NETAPI_REQUEST_RULES:
-		for( cv = Cvar_GetList( ); cv; cv = cv->next )
-		{
-			if( !FBitSet( cv->flags, FCVAR_SERVER ))
-				continue;
-
-			if( FBitSet( cv->flags, FCVAR_PROTECTED ))
-			{
-				if( !COM_StringEmpty( cv->string ) && Q_stricmp( cv->string, "none" ))
-					Info_SetValueForKey( string, cv->name, "1", sizeof( string ));
-				else Info_SetValueForKey( string, cv->name, "0", sizeof( string ));
-			}
-			else Info_SetValueForKey( string, cv->name, cv->string, sizeof( string ));
-
-			count++;
-		}
-
-		Info_SetValueForKeyf( string, "rules", sizeof( string ), "%i", count );
-		break;
-	case NETAPI_REQUEST_PLAYERS:
-		if( !sv_expose_player_list.value || SV_HavePassword( ))
-		{
-			Info_SetValueForKey( string, "neterror", "forbidden", sizeof( string ));
-		}
-		else
-		{
-			for( i = 0; i < svs.maxclients; i++ )
-			{
-				const sv_client_t *cl = &svs.clients[i];
-
-				if( cl->state < cs_connected )
-					continue;
-
-				Info_SetValueForKey( string, va( "p%iname", count ), cl->name, sizeof( string ));
-				Info_SetValueForKeyf( string, va( "p%ifrags", count ), sizeof( string ), "%i", (int)cl->edict->v.frags );
-				Info_SetValueForKeyf( string, va( "p%itime", count ), sizeof( string ), "%f", host.realtime - cl->connection_started );
-
-				count++;
-			}
-
-			Info_SetValueForKeyf( string, "players", sizeof( string ), "%i", count );
-		}
-		break;
-	case NETAPI_REQUEST_DETAILS:
-		for( i = 0; i < svs.maxclients; i++ )
-		{
-			if( svs.clients[i].state >= cs_connected )
-				count++;
-		}
-
-		// should match SV_SourceQuery_Details
-		Info_SetValueForKey( string, "hostname", hostname.string, sizeof( string ));
-		Info_SetValueForKey( string, "gamedir", GI->gamefolder, sizeof( string ));
-		Info_SetValueForKeyf( string, "current", sizeof( string ), "%i", count );
-		Info_SetValueForKeyf( string, "max", sizeof( string ), "%i", svs.maxclients );
-		Info_SetValueForKey( string, "map", sv.name, sizeof( string ));
-		break;
-	default:
-		// send error undefined request type
-		Info_SetValueForKey( string, "neterror", "undefined", sizeof( string ));
-		break;
-	}
-
-	Netchan_OutOfBandPrint( NS_SERVER, from, A2A_NETINFO" %i %i %s\n", context, type, string );
-}
-
-/*
-================
 Rcon_Validate
 ================
 */
@@ -1042,7 +984,7 @@ static qboolean Rcon_Validate( void )
 {
 	if( COM_StringEmptyOrNULL( rcon_password.string ))
 		return false;
-	if( Q_strcmp( Cmd_Argv( 1 ), rcon_password.string ))
+	if( Q_strcmp_constant_time( Cmd_Argv( 1 ), rcon_password.string ))
 		return false;
 	return true;
 }
@@ -1059,15 +1001,11 @@ Redirect all printfs
 void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 {
 	const char	*adr;
-	int		i;
 
 	if( !rcon_enable.value || COM_StringEmpty( rcon_password.string ))
 		return;
 
 	adr = NET_AdrToString( from );
-
-	Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
-	Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
 
 	if( Rcon_Validate( ))
 	{
@@ -1075,8 +1013,11 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 		char remaining[1024];
 		char *p = remaining;
 
+		Con_Printf( "Rcon from %s:\n%s\n", adr, MSG_GetData( msg ) + 4 );
+		Log_Printf( "Rcon: \"%s\" from \"%s\"\n", MSG_GetData( msg ) + 4, adr );
+
 		remaining[0] = 0;
-		for( i = 2; i < Cmd_Argc(); i++ )
+		for( int i = 2; i < Cmd_Argc(); i++ )
 		{
 			p += Q_strncpy( p, "\"", sizeof( remaining ) - ( p - remaining ));
 			p += Q_strncpy( p, Cmd_Argv( i ), sizeof( remaining ) - ( p - remaining ));
@@ -1087,7 +1028,11 @@ void SV_RemoteCommand( netadr_t from, sizebuf_t *msg )
 		Cmd_ExecuteString( remaining );
 		SV_EndRedirect( &host.rd );
 	}
-	else Con_Printf( S_ERROR "Bad rcon_password.\n" );
+	else
+	{
+		Con_Printf( S_ERROR "Bad rcon_password from %s\n", adr );
+		Log_Printf( "Bad Rcon from \"%s\"\n", adr );
+	}
 }
 
 /*
@@ -1100,9 +1045,8 @@ recalc ping on current client
 int SV_CalcPing( const sv_client_t *cl )
 {
 	float		ping = 0;
-	int		i, count;
-	int		idx, back;
-	client_frame_t	*frame;
+	int		count;
+	int		back;
 
 	// bots don't have a real ping
 	if( FBitSet( cl->flags, FCL_FAKECLIENT ) || !cl->frames )
@@ -1117,10 +1061,10 @@ int SV_CalcPing( const sv_client_t *cl )
 
 	count = 0;
 
-	for( i = 0; i < back; i++ )
+	for( int i = 0; i < back; i++ )
 	{
-		idx = cl->netchan.incoming_acknowledged + ~i;
-		frame = &cl->frames[idx & SV_UPDATE_MASK];
+		int idx = cl->netchan.incoming_acknowledged + ~i;
+		client_frame_t *frame = &cl->frames[idx & SV_UPDATE_MASK];
 
 		if( frame->ping_time > 0.0f )
 		{
@@ -1144,7 +1088,6 @@ Finangles latency and the like.
 static void SV_EstablishTimeBase( sv_client_t *cl, const usercmd_t *cmds, int dropped, int numbackup, int numcmds )
 {
 	double	runcmd_time = 0.0;
-	int	i, cmdnum = dropped;
 
 	if( dropped < 24 )
 	{
@@ -1156,13 +1099,13 @@ static void SV_EstablishTimeBase( sv_client_t *cl, const usercmd_t *cmds, int dr
 
 		while( dropped > 0 )
 		{
-			cmdnum = dropped + numcmds - 1;
+			int cmdnum = dropped + numcmds - 1;
 			runcmd_time += (double)cmds[cmdnum].msec / 1000.0;
 			dropped--;
 		}
 	}
 
-	for( i = numcmds - 1; i >= 0; i-- )
+	for( int i = numcmds - 1; i >= 0; i-- )
 		runcmd_time += cmds[i].msec / 1000.0;
 
 	cl->timebase = sv.time + sv.frametime - runcmd_time;
@@ -1177,7 +1120,6 @@ compute latency for client
 */
 static float SV_CalcClientTime( sv_client_t *cl )
 {
-	float	minping, maxping;
 	float	ping = 0.0f;
 	int	i, count = 0;
 	int	backtrack;
@@ -1203,8 +1145,8 @@ static float SV_CalcClientTime( sv_client_t *cl )
 
 	if( !count ) return 0.0f;
 
-	minping =  9999.0f;
-	maxping = -9999.0f;
+	float minping =  9999.0f;
+	float maxping = -9999.0f;
 	ping /= count;
 
 	for( i = 0; i < ( SV_UPDATE_BACKUP <= 4 ? SV_UPDATE_BACKUP : 4 ); i++ )
@@ -1238,12 +1180,11 @@ void SV_FullClientUpdate( sv_client_t *cl, sizebuf_t *msg )
 	char		info[MAX_INFO_STRING];
 	char		digest[16];
 	MD5Context_t	ctx;
-	int		i;
 
 	// process userinfo before updating
 	SV_UserinfoChanged( cl );
 
-	i = cl - svs.clients;
+	int i = cl - svs.clients;
 
 	MSG_BeginServerCmd( msg, svc_updateuserinfo );
 	MSG_WriteUBitLong( msg, i, MAX_CLIENT_BITS );
@@ -1364,7 +1305,6 @@ static void SV_PutClientInServer( sv_client_t *cl )
 		{
 			SAVERESTOREDATA	levelData;
 			string		name;
-			int		i;
 
 			memset( &levelData, 0, sizeof( levelData ));
 			svgame.globals->pSaveData = &levelData;
@@ -1376,7 +1316,7 @@ static void SV_PutClientInServer( sv_client_t *cl )
 			MSG_WriteString( &msg, name );
 			MSG_WriteByte( &msg, levelData.connectionCount );
 
-			for( i = 0; i < levelData.connectionCount; i++ )
+			for( int i = 0; i < levelData.connectionCount; i++ )
 				MSG_WriteString( &msg, levelData.levelList[i].mapName );
 
 			svgame.globals->pSaveData = NULL;
@@ -1605,9 +1545,7 @@ static qboolean SV_New_f( sv_client_t *cl )
 	char		szRejectReason[128];
 	char		szAddress[128];
 	char		szName[32];
-	sv_client_t	*cur;
 	sizebuf_t		msg;
-	int		i;
 
 	memset( msg_buf, 0, sizeof( msg_buf ));
 	MSG_Init( &msg, "New", msg_buf, sizeof( msg_buf ));
@@ -1640,8 +1578,10 @@ static qboolean SV_New_f( sv_client_t *cl )
 	MSG_WriteStringf( &msg, "fullserverinfo \"%s\"\n", svs.serverinfo );
 
 	// collect the info about all the players and send to me
-	for( i = 0, cur = svs.clients; i < svs.maxclients; i++, cur++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
+		sv_client_t *cur = &svs.clients[i];
+
 		if( !cur->edict || cur->state != cs_spawned )
 			continue;	// not in game yet
 		SV_FullClientUpdate( cur, &msg );
@@ -1724,7 +1664,7 @@ static qboolean SV_ShouldUpdateUserinfo( sv_client_t *cl )
 	if( FBitSet( cl->flags, FCL_FAKECLIENT ))
 		return allow;
 
-	if( Host_IsLocalGame( ))
+	if( Host_IsSinglePlayerGame( ))
 		return allow;
 
 	// start from 1 second
@@ -2215,7 +2155,7 @@ static qboolean SV_ClientStatus_f( sv_client_t *cl )
 {
 	netadr_t ip4, ip6;
 	vec3_t origin = { 0 };
-	int clients, bots, i;
+	int clients, bots;
 
 	if( cl->state != cs_spawned )
 		return false;
@@ -2243,7 +2183,7 @@ static qboolean SV_ClientStatus_f( sv_client_t *cl )
 		sv.name, (int)origin[0], (int)origin[1], (int)origin[2],
 		clients, svs.maxclients );
 
-	for( i = 0; i < svs.maxclients; i++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		const sv_client_t *pcl = &svs.clients[i];
 		int j = 0;
@@ -2298,7 +2238,6 @@ static edict_t *SV_GetCrossEnt( edict_t *player )
 	float flMaxDot = 0.94;
 	vec3_t forward;
 	vec3_t viewPos;
-	int i;
 	float maxLen = 1000;
 
 	AngleVectors( player->v.v_angle, forward, NULL, NULL );
@@ -2317,12 +2256,11 @@ static edict_t *SV_GetCrossEnt( edict_t *player )
 	}
 
 	// check untraceable entities
-	for ( i = 1; i < svgame.numEntities; i++, ent++ )
+	for ( int i = 1; i < svgame.numEntities; i++, ent++ )
 	{
 		vec3_t vecLOS;
 		vec3_t vecOrigin;
 		float flDot, traceLen;
-		vec3_t boxSize;
 		trace_t trace;
 		vec3_t vecTrace;
 
@@ -2348,7 +2286,7 @@ static edict_t *SV_GetCrossEnt( edict_t *player )
 		if( traceLen > maxLen )
 			continue;
 
-		VectorCopy( ent->v.size, boxSize);
+		vec3_t boxSize = Vec3( ent->v.size );
 		VectorScale( boxSize, 0.5, boxSize );
 
 		if ( vecLOS[0] > boxSize[0] )
@@ -2463,12 +2401,10 @@ Print list of entities to client
 static qboolean SV_EntList_f( sv_client_t *cl )
 {
 	vec3_t borigin;
-	edict_t	*ent = NULL;
-	int	i;
 
-	for( i = 0; i < svgame.numEntities; i++ )
+	for( int i = 0; i < svgame.numEntities; i++ )
 	{
-		ent = SV_EdictNum( i );
+		edict_t *ent = SV_EdictNum( i );
 		if( !SV_IsValidEdict( ent ))
 			continue;
 
@@ -2670,16 +2606,17 @@ static qboolean SV_EntFire_f( sv_client_t *cl )
 		{
 			string keyname;
 			string value;
-			KeyValueData	pkvd;
 			if( Cmd_Argc() != 5 )
 				return false;
 
-			pkvd.szClassName = (char*)SV_GetString( ent->v.classname );
 			Q_strncpy( keyname, Cmd_Argv( 3 ), sizeof( keyname ));
 			Q_strncpy( value, Cmd_Argv( 4 ), sizeof( value ));
-			pkvd.szKeyName = keyname;
-			pkvd.szValue = value;
-			pkvd.fHandled = false;
+			KeyValueData pkvd =
+			{
+				.szClassName = (char*)SV_GetString( ent->v.classname ),
+				.szKeyName = keyname,
+				.szValue = value,
+			};
 			svgame.dllFuncs.pfnKeyValue( ent, &pkvd );
 
 			if( pkvd.fHandled )
@@ -2962,7 +2899,6 @@ static qboolean SV_EntCreate_f( sv_client_t *cl )
 		{
 			string keyname;
 			string value;
-			KeyValueData pkvd;
 
 			// allow split keyvalues to prespawn and postspawn
 			if( !Q_strcmp( Cmd_Argv( i ), "|" ) )
@@ -2970,10 +2906,12 @@ static qboolean SV_EntCreate_f( sv_client_t *cl )
 
 			Q_strncpy( keyname, Cmd_Argv( i++ ), sizeof( keyname ));
 			Q_strncpy( value, Cmd_Argv( i ), sizeof( value ));
-			pkvd.fHandled = false;
-			pkvd.szClassName = (char*)SV_GetString( ent->v.classname );
-			pkvd.szKeyName = keyname;
-			pkvd.szValue = value;
+			KeyValueData pkvd =
+			{
+				.szClassName = (char*)SV_GetString( ent->v.classname ),
+				.szKeyName = keyname,
+				.szValue = value,
+			};
 			svgame.dllFuncs.pfnKeyValue( ent, &pkvd );
 
 			if( pkvd.fHandled )
@@ -3029,14 +2967,15 @@ static qboolean SV_EntCreate_f( sv_client_t *cl )
 		{
 			string keyname;
 			string value;
-			KeyValueData pkvd;
 
 			Q_strncpy( keyname, Cmd_Argv( i++ ), sizeof( keyname ));
 			Q_strncpy( value, Cmd_Argv( i ), sizeof( value ));
-			pkvd.fHandled = false;
-			pkvd.szClassName = (char*)SV_GetString( ent->v.classname );
-			pkvd.szKeyName = keyname;
-			pkvd.szValue = value;
+			KeyValueData pkvd =
+			{
+				.szClassName = (char*)SV_GetString( ent->v.classname ),
+				.szKeyName = keyname,
+				.szValue = value,
+			};
 			svgame.dllFuncs.pfnKeyValue( ent, &pkvd );
 
 			if( pkvd.fHandled )
@@ -3223,11 +3162,7 @@ void SV_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	// `pcmd` points only to the first word from the query string.
 	if( !Q_strcmp( args, A2S_GOLDSRC_INFO ) || pcmd[0] == A2S_GOLDSRC_PLAYERS || pcmd[0] == A2S_GOLDSRC_RULES )
 	{
-		SV_SourceQuery_HandleConnnectionlessPacket( args, from );
-	}
-	else if( !Q_strcmp( pcmd, A2A_NETINFO ))
-	{
-		SV_BuildNetAnswer( from );
+		SV_SourceQuery_HandleConnnectionlessPacket( args, from, msg );
 	}
 	else if( !Q_strcmp( pcmd, A2A_INFO ))
 	{
@@ -3434,18 +3369,16 @@ Parse resource list
 static void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 {
 	int		totalsize;
-	resource_t	*resource;
-	int		i, total;
 	resourceinfo_t	ri;
 
-	total = MSG_ReadShort( msg );
+	int total = MSG_ReadShort( msg );
 
 	SV_ClearResourceList( &cl->resourcesneeded );
 	SV_ClearResourceList( &cl->resourcesonhand );
 
-	for( i = 0; i < total; i++ )
+	for( int i = 0; i < total; i++ )
 	{
-		resource = Z_Calloc( sizeof( resource_t ) );
+		resource_t *resource = Z_Calloc( sizeof( resource_t ) );
 		Q_strncpy( resource->szFileName, MSG_ReadString( msg ), sizeof( resource->szFileName ));
 		resource->type = MSG_ReadByte( msg );
 		resource->nIndex = MSG_ReadShort( msg );
@@ -3456,7 +3389,7 @@ static void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 		ClearBits( resource->ucFlags, RES_WASMISSING );
 
 		if( FBitSet( resource->ucFlags, RES_CUSTOM ))
-			MSG_ReadBytes( msg, resource->rgucMD5_hash, 16 );
+			MSG_ReadBytes( msg, resource->rgucMD5_hash, sizeof( resource->rgucMD5_hash ), 16 );
 
 		if( resource->type > t_world || resource->nDownloadSize > 1024 * 1024 * 1024 )
 		{
@@ -3467,15 +3400,22 @@ static void SV_ParseResourceList( sv_client_t *cl, sizebuf_t *msg )
 		SV_AddToResourceList( resource, &cl->resourcesneeded );
 	}
 
-	if( host.realtime < cl->resourcelist_next_changetime )
+	if( FBitSet( cl->flags, FCL_EXPECT_RESOURCELIST ))
 	{
-		Con_Reportf( "%s: ignoring resource list update from %s: too soon\n", __func__, cl->name );
-		SV_ClearResourceList( &cl->resourcesneeded );
-		SV_ClearResourceList( &cl->resourcesonhand );
-		return;
+		ClearBits( cl->flags, FCL_EXPECT_RESOURCELIST );
 	}
+	else
+	{
+		if( host.realtime < cl->resourcelist_next_changetime )
+		{
+			Con_Reportf( "%s: ignoring resource list update from %s: too soon\n", __func__, cl->name );
+			SV_ClearResourceList( &cl->resourcesneeded );
+			SV_ClearResourceList( &cl->resourcesonhand );
+			return;
+		}
 
-	cl->resourcelist_next_changetime = host.realtime + sv_upload_penalty_time.value;
+		cl->resourcelist_next_changetime = host.realtime + sv_upload_penalty_time.value;
+	}
 
 	totalsize = COM_SizeofResourceList( &cl->resourcesneeded, &ri );
 
@@ -3567,7 +3507,6 @@ SV_ParseVoiceData
 static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 {
 	char received[4096];
-	int i;
 
 	const qboolean loopback = !!MSG_ReadByte( msg );
 	const uint frames = MSG_ReadByte( msg );
@@ -3581,7 +3520,7 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 		return;
 	}
 
-	MSG_ReadBytes( msg, received, size );
+	MSG_ReadBytes( msg, received, sizeof( received ), size );
 
 	if( !sv_voiceenable.value || cl->state != cs_spawned )
 		return;
@@ -3595,7 +3534,7 @@ static void SV_ParseVoiceData( sv_client_t *cl, sizebuf_t *msg )
 	if( svs.maxclients <= 1 && sv_voice_singleplayer.value == 0.0f )
 		return;
 
-	for( i = 0; i < svs.maxclients; i++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		sv_client_t *cur = &svs.clients[i];
 		const qboolean local = cl == cur;

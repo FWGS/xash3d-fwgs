@@ -30,7 +30,6 @@ CL_RunLightStyles
 void CL_RunLightStyles( lightstyle_t *ls )
 {
 	const model_t *world = gp_cl->models[1];
-	int i;
 	float frametime = gp_cl->time - gp_cl->oldtime;
 
 	if( !world )
@@ -38,18 +37,15 @@ void CL_RunLightStyles( lightstyle_t *ls )
 
 	if( r_fullbright->value || !world->lightdata )
 	{
-		for( i = 0; i < MAX_LIGHTSTYLES; i++ )
+		for( int i = 0; i < MAX_LIGHTSTYLES; i++ )
 			g_lightstylevalue[i] = 256 * 256;
 		return;
 	}
 
 	// light animations
 	// 'm' is normal light, 'a' is no light, 'z' is double bright
-	for( i = 0; i < MAX_LIGHTSTYLES; i++ )
+	for( int i = 0; i < MAX_LIGHTSTYLES; i++ )
 	{
-		int k, flight, clight;
-		float l, lerpfrac, backlerp;
-
 		if( !gp_cl->paused && frametime <= 0.1f )
 			ls[i].time += frametime; // evaluate local time
 
@@ -65,7 +61,7 @@ void CL_RunLightStyles( lightstyle_t *ls )
 			continue;
 		}
 
-		flight = (int)Q_floor( ls[i].time * 10 );
+		int flight = (int)Q_floor( ls[i].time * 10 );
 
 		if( !ls[i].interp || !cl_lightstyle_lerping->value )
 		{
@@ -73,14 +69,14 @@ void CL_RunLightStyles( lightstyle_t *ls )
 			continue;
 		}
 
-		clight = (int)Q_ceil( ls[i].time * 10 );
-		lerpfrac = ( ls[i].time * 10 ) - flight;
-		backlerp = 1.0f - lerpfrac;
+		int clight = (int)Q_ceil( ls[i].time * 10 );
+		float lerpfrac = ( ls[i].time * 10 ) - flight;
+		float backlerp = 1.0f - lerpfrac;
 
 		// interpolate animating light
 		// frame just gone
-		k = ls[i].map[flight % ls[i].length];
-		l = (float)( k * 22.0f ) * backlerp;
+		int k = ls[i].map[flight % ls[i].length];
+		float l = (float)( k * 22.0f ) * backlerp;
 
 		// upcoming frame
 		k = ls[i].map[clight % ls[i].length];
@@ -198,8 +194,7 @@ void R_PushDlightsForBmodel( model_t *model, int framecount, const matrix4x4 obj
 		if( l->die < gp_cl->time || !l->radius )
 			continue;
 
-		vec3_t oldorigin;
-		VectorCopy( l->origin, oldorigin );
+		vec3_t oldorigin = Vec3( l->origin );
 
 		Matrix4x4_VectorITransform( object_matrix, oldorigin, l->origin );
 		R_MarkLights( l, 1 << i, model->nodes + model->hulls[0].firstclipnode, model, framecount );
@@ -345,10 +340,16 @@ start:
 
 			if( dm != NULL )
 			{
-				vec3_t	srcNormal, lightNormal;
-				float	f = (1.0f / 128.0f);
+				const float f = (1.0f / 128.0f);
+				vec3_t srcNormal =
+				{
+					((float)dm->r - 128.0f) * f,
+					((float)dm->g - 128.0f) * f,
+					((float)dm->b - 128.0f) * f,
+				};
+				vec3_t lightNormal;
 
-				VectorSet( srcNormal, ((float)dm->r - 128.0f) * f, ((float)dm->g - 128.0f) * f, ((float)dm->b - 128.0f) * f );
+
 				Matrix3x4_VectorIRotate( tbn, srcNormal, lightNormal );		// turn to world space
 				VectorScale( lightNormal, (float)scale * -1.0f, lightNormal );	// turn direction from light
 				VectorAdd( g_trace_lightvec, lightNormal, g_trace_lightvec );
@@ -469,9 +470,7 @@ light from floor
 */
 colorVec R_LightPoint( const vec3_t p0 )
 {
-	vec3_t p1;
-
-	VectorSet( p1, p0[0], p0[1], p0[2] - 2048.0f );
+	vec3_t p1 = { p0[0], p0[1], p0[2] - 2048.0f };
 
 	return R_LightVec( p0, p1, NULL, NULL );
 }
@@ -498,14 +497,6 @@ R_EntityDynamicLight
 */
 void R_EntityDynamicLight( cl_entity_t *ent, alight_t *plight, qboolean draw_world, double time, vec3_t lightspot, vec3_t lightvec )
 {
-	movevars_t	*mv = gp_movevars;
-	vec3_t		lightDir, vecSrc, vecEnd;
-	vec3_t		origin, dist, finalLight;
-	float		add, radius, total;
-	colorVec		light;
-	uint		lnum;
-	dlight_t		*dl;
-
 	if( !plight || !ent )
 		return;
 
@@ -519,21 +510,25 @@ void R_EntityDynamicLight( cl_entity_t *ent, alight_t *plight, qboolean draw_wor
 		return;
 	}
 
+	movevars_t *mv = gp_movevars;
+	vec3_t lightDir;
+
 	// determine plane to get lightvalues from: ceil or floor
 	if( FBitSet( ent->curstate.effects, EF_INVLIGHT ))
 		VectorSet( lightDir, 0.0f, 0.0f, 1.0f );
 	else
 		VectorSet( lightDir, 0.0f, 0.0f, -1.0f );
 
-	VectorCopy( ent->origin, origin );
+	vec3_t origin = Vec3( ent->origin );
 
-	VectorSet( vecSrc, origin[0], origin[1], origin[2] - lightDir[2] * 8.0f );
+	vec3_t vecSrc = { origin[0], origin[1], origin[2] - lightDir[2] * 8.0f };
+	vec3_t vecEnd;
+
+	colorVec light;
 	light.r = light.g = light.b = light.a = 0;
 
 	if(( mv->skycolor[0] + mv->skycolor[1] + mv->skycolor[2] ) != 0 )
 	{
-		msurface_t	*psurf = NULL;
-		pmtrace_t		trace;
 		vec3_t skyvec;
 
 		if( FBitSet( gp_host->features, ENGINE_WRITE_LARGE_COORD ))
@@ -543,7 +538,8 @@ void R_EntityDynamicLight( cl_entity_t *ent, alight_t *plight, qboolean draw_wor
 
 		VectorSubtract( origin, skyvec, vecEnd );
 
-		trace = gEngfuncs.CL_TraceLine( vecSrc, vecEnd, PM_WORLD_ONLY );
+		pmtrace_t trace = gEngfuncs.CL_TraceLine( vecSrc, vecEnd, PM_WORLD_ONLY );
+		msurface_t *psurf;
 		if( trace.ent > 0 )
 			psurf = gEngfuncs.EV_TraceSurface( trace.ent, vecSrc, vecEnd );
 		else
@@ -562,9 +558,6 @@ void R_EntityDynamicLight( cl_entity_t *ent, alight_t *plight, qboolean draw_wor
 
 	if(( light.r + light.g + light.b ) == 0 )
 	{
-		colorVec	gcolor;
-		float	grad[4];
-
 		VectorScale( lightDir, 2048.0f, vecEnd );
 		VectorAdd( vecEnd, vecSrc, vecEnd );
 
@@ -572,6 +565,9 @@ void R_EntityDynamicLight( cl_entity_t *ent, alight_t *plight, qboolean draw_wor
 
 		if( VectorIsNull( lightvec ))
 		{
+			float grad[4];
+			colorVec gcolor;
+
 			vecSrc[0] -= 16.0f;
 			vecSrc[1] -= 16.0f;
 			vecEnd[0] -= 16.0f;
@@ -615,27 +611,28 @@ void R_EntityDynamicLight( cl_entity_t *ent, alight_t *plight, qboolean draw_wor
 		light.b *= ent->curstate.iuser4 / 10.0f;
 	}
 
-	VectorSet( finalLight, light.r, light.g, light.b );
+	vec3_t finalLight = { light.r, light.g, light.b };
 	ent->cvFloorColor = light;
 
-	total = Q_max( Q_max( light.r, light.g ), light.b );
+	float total = Q_max( Q_max( light.r, light.g ), light.b );
 	if( total == 0.0f )
 		total = 1.0f;
 
 	// scale lightdir by light intentsity
 	VectorScale( lightDir, total, lightDir );
 
-	for( lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
+	for( uint lnum = 0; lnum < MAX_DLIGHTS; lnum++ )
 	{
-		dl = &gp_dlights[lnum];
+		const dlight_t *dl = &gp_dlights[lnum];
 
 		if( dl->die < time || !r_dynamic->value )
 			continue;
 
+		vec3_t dist;
 		VectorSubtract( ent->origin, dl->origin, dist );
 
-		radius = VectorLength( dist );
-		add = ( dl->radius - radius );
+		float radius = VectorLength( dist );
+		float add = ( dl->radius - radius );
 
 		if( add > 0.0f )
 		{
@@ -654,14 +651,15 @@ void R_EntityDynamicLight( cl_entity_t *ent, alight_t *plight, qboolean draw_wor
 		}
 	}
 
+	float scale;
 	if( ent->model->type == mod_alias )
-		add = 0.9f;
+		scale = 0.9f;
 	else if( ent->model->type == mod_studio && FBitSet( ent->model->flags, STUDIO_AMBIENT_LIGHT ))
-		add = 0.6f;
+		scale = 0.6f;
 	else
-		add = bound( 0.75f, v_direct->value, 1.0f );
+		scale = bound( 0.75f, v_direct->value, 1.0f );
 
-	VectorScale( lightDir, add, lightDir );
+	VectorScale( lightDir, scale, lightDir );
 
 	plight->shadelight = VectorLength( lightDir );
 	plight->ambientlight = total - plight->shadelight;

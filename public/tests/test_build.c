@@ -3,8 +3,6 @@
 
 int main( void )
 {
-	int res;
-
 	if( Q_buildnum_compat() != 4529 )
 		return 200;
 

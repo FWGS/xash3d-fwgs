@@ -150,12 +150,12 @@ void Platform_EnableTextInput( qboolean enable )
 
 int Platform_GetClipboardText( char *buffer, size_t size )
 {
-	int len;
 	char *text = SDL_GetClipboardText();
 
 	if( !text )
 		return 0;
 
+	int len;
 	if( buffer && size > 0 )
 		len = Q_strncpy( buffer, text, size );
 	else

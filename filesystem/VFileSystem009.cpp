@@ -12,13 +12,10 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU General Public License for more details.
 */
-#include <string.h>
-#include <stdio.h>
 #include <time.h>
 #include <stdarg.h>
 #include ALLOCA_H
 #include "crtlib.h"
-#include "filesystem.h"
 #include "filesystem_internal.h"
 #include "VFileSystem009.h"
 #include "common/com_strings.h"
@@ -31,7 +28,7 @@ GNU General Public License for more details.
 // GoldSrc Directories and ID
 // GAME          gamedir
 // GAMECONFIG    gamedir (rodir integration?)
-// GAMEDOWNLOAD  gamedir_downloads (gamedir/downloads for us)
+// GAMEDOWNLOAD  gamedir_downloads
 // GAME_FALLBACK liblist.gam's fallback_dir
 // ROOT and BASE rootdir
 // PLATFORM      platform
@@ -44,21 +41,29 @@ GNU General Public License for more details.
 	char * const var = static_cast<char *>( alloca( var ## _size )); \
 	CopyAndFixSlashes( var, ( str ), var ## _size )
 
-static inline bool IsIdGamedir( const char *id )
+static bool IsIdGamedir( const char *id )
 {
 	return !Q_strcmp( id, "GAME" ) ||
 		!Q_strcmp( id, "GAMECONFIG" ) ||
 		!Q_strcmp( id, "GAMEDOWNLOAD" );
 }
 
-static inline const char *IdToDir( char *dir, size_t size, const char *id )
+static searchpath_t *IdToWritableSearchpath( const char *id )
+{
+	if( !Q_strcmp( id, "GAME" ) || !Q_strcmp( id, "GAMECONFIG" ))
+		return fs_writepath;
+
+	return NULL;
+}
+
+static const char *IdToDir( char *dir, size_t size, const char *id )
 {
 	if( !Q_strcmp( id, "GAME" ))
 		return GI->gamefolder;
 
 	if( !Q_strcmp( id, "GAMEDOWNLOAD" ))
 	{
-		Q_snprintf( dir, size, "%s/" DEFAULT_DOWNLOADED_DIRECTORY , GI->gamefolder );
+		Q_snprintf( dir, size, "%s" DEFAULT_DOWNLOADED_DIRECTORY_SUFFIX, GI->gamefolder );
 		return dir;
 	}
 
@@ -75,7 +80,7 @@ static inline const char *IdToDir( char *dir, size_t size, const char *id )
 	return fs_rootdir; // give at least root directory
 }
 
-static inline void CopyAndFixSlashes( char *p, const char *in, size_t size )
+static void CopyAndFixSlashes( char *p, const char *in, size_t size )
 {
 	Q_strncpy( p, in, size );
 	COM_FixSlashes( p );
@@ -150,10 +155,9 @@ public:
 
 	void RemoveFile( const char *path, const char *id ) override
 	{
-		char dir[MAX_VA_STRING], fullpath[MAX_VA_STRING];
-
-		Q_snprintf( fullpath, sizeof( fullpath ), "%s/%s", IdToDir( dir, sizeof( dir ), id ), path );
-		FS_Delete( fullpath ); // FS_Delete is aware of slashes
+		// FIXME: handle writable downloads path
+		if( IdToWritableSearchpath( id ))
+			FS_Delete( path ); // FS_Delete is aware of slashes
 	}
 
 	void CreateDirHierarchy( const char *path, const char *id ) override
@@ -178,12 +182,8 @@ public:
 
 	FileHandle_t Open( const char *path, const char *mode, const char *id ) override
 	{
-		file_t *fd;
-
 		FixupPath( p, path );
-		fd = FS_Open( p, mode, IsIdGamedir( id ));
-
-		return fd;
+		return FS_Open( p, mode, IsIdGamedir( id ));
 	}
 
 	void Close( FileHandle_t handle ) override
@@ -307,19 +307,16 @@ public:
 
 	const char *FindFirst( const char *pattern, FileFindHandle_t *handle, const char *id ) override
 	{
-		CSearchState *state;
-		search_t *search;
-
 		if( !handle || !pattern )
 			return nullptr;
 
 		FixupPath( p, pattern );
-		search = FS_Search( p, true, IsIdGamedir( id ));
+		search_t *search = FS_Search( p, true, IsIdGamedir( id ));
 
 		if( !search )
 			return nullptr;
 
-		state = new CSearchState( &searchHead, search );
+		CSearchState *state = new CSearchState( &searchHead, search );
 		if( !state )
 		{
 			Mem_Free( search );
@@ -381,8 +378,6 @@ public:
 
 	const char *GetLocalPath( const char *name, char *buf, int size ) override
 	{
-		const char *fullpath;
-
 		if( !name )
 			return nullptr;
 
@@ -399,7 +394,7 @@ public:
 			return buf;
 		}
 
-		fullpath = FS_GetDiskPath( p, false );
+		const char *fullpath = FS_GetDiskPath( p, false );
 		if( !fullpath )
 			return nullptr;
 
@@ -410,10 +405,8 @@ public:
 	char *ParseFile( char *buf, char *token, bool *quoted ) override
 	{
 		qboolean qquoted;
-		char *p;
-
 		// filesystem_stdio expects 512 byte buffers
-		p = COM_ParseFileSafe( buf, token, 512, 0, nullptr, &qquoted );
+		char *p = COM_ParseFileSafe( buf, token, 512, 0, nullptr, &qquoted );
 
 		if( quoted )
 			*quoted = qquoted;
@@ -436,7 +429,7 @@ public:
 
 	bool GetCurrentDirectory( char *p, int size ) override
 	{
-		return FS_GetRootDirectory( p, size );
+		return g_api.GetRootDirectory( p, size );
 	}
 
 	void PrintOpenedFiles() override

@@ -45,11 +45,9 @@ void *_Mem_Realloc( poolhandle_t poolptr, void *memptr, size_t size, qboolean cl
 
 void GL_InitRandomTable( void )
 {
-	int tu, tv;
-
-	for( tu = 0; tu < MOD_FRAMES; tu++ )
+	for( int tu = 0; tu < MOD_FRAMES; tu++ )
 	{
-		for( tv = 0; tv < MOD_FRAMES; tv++ )
+		for( int tv = 0; tv < MOD_FRAMES; tv++ )
 		{
 			rtable[tu][tv] = gEngfuncs.COM_RandomLong( 0, 0x7FFF );
 		}

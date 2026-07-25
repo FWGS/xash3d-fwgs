@@ -34,8 +34,7 @@ void Matrix3x4_VectorTransform( const matrix3x4 in, const float v[3], float out[
 
 void Matrix3x4_VectorITransform( const matrix3x4 in, const float v[3], float out[3] )
 {
-	vec3_t	dir;
-
+	vec3_t dir;
 	dir[0] = v[0] - in[0][3];
 	dir[1] = v[1] - in[1][3];
 	dir[2] = v[2] - in[2][3];
@@ -116,10 +115,10 @@ void Matrix3x4_FromOriginQuat( matrix3x4 out, const vec4_t quaternion, const vec
 
 void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_t origin, float scale )
 {
-	float	angle, sr, sp, sy, cr, cp, cy;
-
 	if( angles[ROLL] )
 	{
+		float angle, sr, sp, sy, cr, cp, cy;
+
 		angle = angles[YAW] * (M_PI2 / 360.0f);
 		SinCos( angle, &sy, &cy );
 		angle = angles[PITCH] * (M_PI2 / 360.0f);
@@ -142,6 +141,8 @@ void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_
 	}
 	else if( angles[PITCH] )
 	{
+		float angle, sp, sy, cp, cy;
+
 		angle = angles[YAW] * (M_PI2 / 360.0f);
 		SinCos( angle, &sy, &cy );
 		angle = angles[PITCH] * (M_PI2 / 360.0f);
@@ -162,6 +163,8 @@ void Matrix3x4_CreateFromEntity( matrix3x4 out, const vec3_t angles, const vec3_
 	}
 	else if( angles[YAW] )
 	{
+		float angle, sy, cy;
+
 		angle = angles[YAW] * (M_PI2 / 360.0f);
 		SinCos( angle, &sy, &cy );
 
@@ -202,12 +205,11 @@ Matrix3x4_TransformAABB
 */
 void Matrix3x4_TransformAABB( const matrix3x4 world, const vec3_t mins, const vec3_t maxs, vec3_t absmin, vec3_t absmax )
 {
-	vec3_t	localCenter, localExtents;
-	vec3_t	worldCenter, worldExtents;
-
+	vec3_t localCenter, localExtents;
 	VectorAverage( mins, maxs, localCenter );
 	VectorSubtract( maxs, localCenter, localExtents );
 
+	vec3_t worldCenter, worldExtents;
 	Matrix3x4_VectorTransform( world, localCenter, worldCenter );
 	worldExtents[0] = DotProductFabs( localExtents, world[0] );	// auto-transposed!
 	worldExtents[1] = DotProductFabs( localExtents, world[1] );
@@ -233,8 +235,7 @@ void Matrix4x4_VectorTransform( const matrix4x4 in, const float v[3], float out[
 
 void Matrix4x4_VectorITransform( const matrix4x4 in, const float v[3], float out[3] )
 {
-	vec3_t	dir;
-
+	vec3_t dir;
 	dir[0] = v[0] - in[0][3];
 	dir[1] = v[1] - in[1][3];
 	dir[2] = v[2] - in[2][3];
@@ -276,10 +277,10 @@ void Matrix4x4_ConcatTransforms( matrix4x4 out, const matrix4x4 in1, const matri
 
 void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_t origin, float scale )
 {
-	float	angle, sr, sp, sy, cr, cp, cy;
-
 	if( angles[ROLL] )
 	{
+		float angle, sr, sp, sy, cr, cp, cy;
+
 		angle = angles[YAW] * (M_PI2 / 360.0f);
 		SinCos( angle, &sy, &cy );
 		angle = angles[PITCH] * (M_PI2 / 360.0f);
@@ -306,6 +307,8 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 	}
 	else if( angles[PITCH] )
 	{
+		float angle, sp, sy, cp, cy;
+
 		angle = angles[YAW] * (M_PI2 / 360.0f);
 		SinCos( angle, &sy, &cy );
 		angle = angles[PITCH] * (M_PI2 / 360.0f);
@@ -330,6 +333,8 @@ void Matrix4x4_CreateFromEntity( matrix4x4 out, const vec3_t angles, const vec3_
 	}
 	else if( angles[YAW] )
 	{
+		float angle, sy, cy;
+
 		angle = angles[YAW] * (M_PI2 / 360.0f);
 		SinCos( angle, &sy, &cy );
 
@@ -439,11 +444,10 @@ void Matrix4x4_Invert_Simple( matrix4x4 out, const matrix4x4 in1 )
 
 qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 )
 {
-	float	*temp;
-	float	*r[4];
-	float	rtemp[4][8];
-	float	m[4];
-	float	s;
+	float *r[4];
+	float rtemp[4][8];
+	float m[4];
+	float s;
 
 	r[0] = rtemp[0];
 	r[1] = rtemp[1];
@@ -488,21 +492,21 @@ qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 )
 
 	if( fabs( r[3][0] ) > fabs( r[2][0] ))
 	{
-		temp = r[3];
+		float *temp = r[3];
 		r[3] = r[2];
 		r[2] = temp;
 	}
 
 	if( fabs( r[2][0] ) > fabs( r[1][0] ))
 	{
-		temp = r[2];
+		float *temp = r[2];
 		r[2] = r[1];
 		r[1] = temp;
 	}
 
 	if( fabs( r[1][0] ) > fabs( r[0][0] ))
 	{
-		temp = r[1];
+		float *temp = r[1];
 		r[1] = r[0];
 		r[0] = temp;
 	}
@@ -562,14 +566,14 @@ qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 )
 
 		if( fabs( r[3][1] ) > fabs( r[2][1] ))
 		{
-			temp = r[3];
+			float *temp = r[3];
 			r[3] = r[2];
 			r[2] = temp;
 		}
 
 		if( fabs( r[2][1] ) > fabs( r[1][1] ))
 		{
-			temp = r[2];
+			float *temp = r[2];
 			r[2] = r[1];
 			r[1] = temp;
 		}
@@ -613,7 +617,7 @@ qboolean Matrix4x4_Invert_Full( matrix4x4 out, const matrix4x4 in1 )
 
 			if( fabs( r[3][2] ) > fabs( r[2][2] ))
 			{
-				temp = r[3];
+				float *temp = r[3];
 				r[3] = r[2];
 				r[2] = temp;
 			}

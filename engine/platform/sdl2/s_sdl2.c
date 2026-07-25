@@ -40,14 +40,11 @@ static char sdl_backend_name[32];
 static void SDL_SoundCallback( void *userdata, Uint8 *stream, int len )
 {
 	const int size = snd.samples << 1;
-	int pos;
-	int wrapped;
-
-	pos = snd.samplepos << 1;
+	int pos = snd.samplepos << 1;
 	if( pos >= size )
 		pos = snd.samplepos = 0;
 
-	wrapped = pos + len - size;
+	int wrapped = pos + len - size;
 
 	if( wrapped < 0 )
 	{
@@ -77,9 +74,8 @@ Returns false if nothing is found.
 */
 qboolean SNDDMA_Init( void )
 {
-	SDL_AudioSpec desired, obtained;
+	SDL_AudioSpec obtained;
 	int samplecount;
-	const char *driver = NULL;
 
 	// Modders often tend to use proprietary crappy solutions
 	// like FMOD to play music, sometimes even with versions outdated by a few decades!
@@ -98,7 +94,7 @@ qboolean SNDDMA_Init( void )
 	// reference SDL audio functions there. It's probably has DirectSound backend, that's
 	// why modders never stumble upon this bug.
 #if XASH_WIN32
-	driver = "directsound";
+	const char *driver = "directsound";
 
 	if( SDL_getenv( "SDL_AUDIODRIVER" ))
 		driver = NULL; // let SDL2 and user decide
@@ -121,12 +117,14 @@ qboolean SNDDMA_Init( void )
 		return false;
 	}
 
-	memset( &desired, 0, sizeof( desired ) );
-	desired.freq     = SOUND_DMA_SPEED;
-	desired.format   = AUDIO_S16SYS;
-	desired.samples  = 1024;
-	desired.channels = 2;
-	desired.callback = SDL_SoundCallback;
+	SDL_AudioSpec desired =
+	{
+		.freq = SOUND_DMA_SPEED,
+		.format = AUDIO_S16SYS,
+		.samples = 1024,
+		.channels = 2,
+		.callback = SDL_SoundCallback,
+	};
 
 	sdl_dev = SDL_OpenAudioDevice( NULL, 0, &desired, &obtained, 0 );
 

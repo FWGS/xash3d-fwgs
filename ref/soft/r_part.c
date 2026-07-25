@@ -47,11 +47,7 @@ update particle color, position, free expired and draw it
 */
 void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_particles, float partsize )
 {
-	particle_t *p;
-	vec3_t     right, up;
-	color24    color;
-	int        alpha;
-	float      size;
+	vec3_t right, up;
 
 	if( !cl_active_particles )
 		return; // nothing to draw?
@@ -65,11 +61,11 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 	// pglTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 	// pglDepthMask( GL_FALSE );
 
-	for( p = cl_active_particles; p; p = p->next )
+	for( particle_t *p = cl_active_particles; p; p = p->next )
 	{
 		if(( p->type != pt_blob ) || ( p->unused == 255 ))
 		{
-			size = partsize; // get initial size of particle
+			float size = partsize; // get initial size of particle
 
 			// scale up to keep particles from disappearing
 			size += ( p->org[0] - RI.rvp.vieworigin[0] ) * RI.cull_vforward[0];
@@ -86,9 +82,9 @@ void GAME_EXPORT CL_DrawParticles( double frametime, particle_t *cl_active_parti
 			VectorScale( RI.cull_vup, size, up );
 
 			p->color = bound( 0, p->color, 255 );
-			color = tr.palette[p->color];
+			color24 color = tr.palette[p->color];
 
-			alpha = 255 * ( p->die - gp_cl->time ) * 16.0f;
+			int alpha = 255 * ( p->die - gp_cl->time ) * 16.0f;
 			if( alpha > 255 || p->type == pt_static )
 				alpha = 255;
 
@@ -140,10 +136,8 @@ update tracer color, position, free expired and draw it
 */
 void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers )
 {
-	float      scale, atten, gravity;
-	vec3_t     screenLast, screen;
-	vec3_t     start, end, delta;
-	particle_t *p;
+	vec3_t screenLast, screen;
+	vec3_t start, end, delta;
 
 	// update tracer color if this is changed
 	if( FBitSet( tracerred->flags | tracergreen->flags | tracerblue->flags | traceralpha->flags, FCVAR_CHANGED ))
@@ -171,14 +165,14 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 	// pglDisable( GL_ALPHA_TEST );
 	// pglDepthMask( GL_FALSE );
 
-	gravity = frametime * gp_movevars->gravity;
-	scale = 1.0 - ( frametime * 0.9 );
+	float gravity = frametime * gp_movevars->gravity;
+	float scale = 1.0 - ( frametime * 0.9 );
 	if( scale < 0.0f )
 		scale = 0.0f;
 
-	for( p = cl_active_tracers; p; p = p->next )
+	for( particle_t *p = cl_active_tracers; p; p = p->next )
 	{
-		atten = ( p->die - gp_cl->time );
+		float atten = ( p->die - gp_cl->time );
 		if( atten > 0.1f )
 			atten = 0.1f;
 
@@ -188,10 +182,9 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 
 		if( !CL_CullTracer( p, start, end ))
 		{
-			vec3_t  verts[4], tmp2;
-			vec3_t  tmp, normal;
-			color24 color;
-			short   alpha = p->unused;
+			vec3_t verts[4], tmp2;
+			vec3_t tmp, normal;
+			short  alpha = p->unused;
 
 			// Transform point into screen space
 			TriWorldToScreen( start, screen );
@@ -220,7 +213,7 @@ void GAME_EXPORT CL_DrawTracers( double frametime, particle_t *cl_active_tracers
 				p->color = TRACER_COLORINDEX_DEFAULT;
 			}
 
-			color = gTracerColors[p->color];
+			color24 color = gTracerColors[p->color];
 			// TriColor4ub( color.r, color.g, color.b, p->packedColor );
 			_TriColor4f( 1.0f * alpha / 255 / 255 * color.r, 1.0f * alpha / 255 / 255 * color.g, 1.0f * alpha / 255 / 255 * color.b, 1.0f );
 

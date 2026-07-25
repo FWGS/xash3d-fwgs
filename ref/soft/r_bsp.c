@@ -77,9 +77,8 @@ R_EntityRotate
 */
 static void R_EntityRotate( vec3_t vec )
 {
-	vec3_t tvec;
+	vec3_t tvec = Vec3( vec );
 
-	VectorCopy( vec, tvec );
 	vec[0] = DotProduct( entity_rotation[0], tvec );
 	vec[1] = DotProduct( entity_rotation[1], tvec );
 	vec[2] = DotProduct( entity_rotation[2], tvec );
@@ -172,11 +171,10 @@ R_RecursiveClipBPoly
 static void R_RecursiveClipBPoly( model_t *mod, bedge_t *pedges, mnode_t *pnode, msurface_t *psurf )
 {
 	bedge_t   *psideedges[2], *pnextedge, *ptedge;
-	int       i, side, lastside;
+	int       side, lastside;
 	float     dist, frac, lastdist;
-	mplane_t  *splitplane, tplane;
+	mplane_t  tplane;
 	mvertex_t *pvert, *plastvert, *ptvert;
-	mnode_t   *pn;
 
 	psideedges[0] = psideedges[1] = NULL;
 
@@ -184,7 +182,7 @@ static void R_RecursiveClipBPoly( model_t *mod, bedge_t *pedges, mnode_t *pnode,
 
 // transform the BSP plane into model space
 // FIXME: cache these?
-	splitplane = pnode->plane;
+	mplane_t *splitplane = pnode->plane;
 	tplane.dist = splitplane->dist
 		      - DotProduct( r_entorigin, splitplane->normal );
 	tplane.normal[0] = DotProduct( entity_rotation[0], splitplane->normal );
@@ -304,13 +302,13 @@ static void R_RecursiveClipBPoly( model_t *mod, bedge_t *pedges, mnode_t *pnode,
 	}
 
 // draw or recurse further
-	for( i = 0; i < 2; i++ )
+	for( int i = 0; i < 2; i++ )
 	{
 		if( psideedges[i] )
 		{
 			// draw if we've reached a non-solid leaf, done if all that's left is a
 			// solid leaf, and continue down the tree if it's not a leaf
-			pn = node_child( pnode, i, mod );
+			mnode_t *pn = node_child( pnode, i, mod );
 
 			// we're done with this branch if the node or leaf isn't in the PVS
 			if( pn->visframe == tr.visframecount )
@@ -342,22 +340,17 @@ Bmodel crosses multiple leafs
 */
 void R_DrawSolidClippedSubmodelPolygons( model_t *pmodel, mnode_t *topnode )
 {
-	int        i, j, lindex;
-	vec_t      dot;
-	msurface_t *psurf;
-	int        numsurfaces;
-	mplane_t   *pplane;
-	mvertex_t  bverts[MAX_BMODEL_VERTS];
-	bedge_t    bedges[MAX_BMODEL_EDGES], *pbedge;
-	medge16_t  *pedge, *pedges;
+	int       j;
+	mvertex_t bverts[MAX_BMODEL_VERTS];
+	bedge_t   bedges[MAX_BMODEL_EDGES];
 
 // FIXME: use bounding-box-based frustum clipping info?
 
-	psurf = &pmodel->surfaces[pmodel->firstmodelsurface];
-	numsurfaces = pmodel->nummodelsurfaces;
-	pedges = pmodel->edges16;
+	msurface_t *psurf = &pmodel->surfaces[pmodel->firstmodelsurface];
+	int       numsurfaces = pmodel->nummodelsurfaces;
+	medge16_t *pedges = pmodel->edges16;
 
-	for( i = 0; i < numsurfaces; i++, psurf++ )
+	for( int i = 0; i < numsurfaces; i++, psurf++ )
 	{
 		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 		{
@@ -367,9 +360,9 @@ void R_DrawSolidClippedSubmodelPolygons( model_t *pmodel, mnode_t *topnode )
 				continue;
 		}
 		// find which side of the node we are on
-		pplane = psurf->plane;
+		mplane_t *pplane = psurf->plane;
 
-		dot = DotProduct( tr.modelorg, pplane->normal ) - pplane->dist;
+		vec_t dot = DotProduct( tr.modelorg, pplane->normal ) - pplane->dist;
 
 		// draw the polygon
 		if(( !( psurf->flags & SURF_PLANEBACK ) && ( dot < -BACKFACE_EPSILON ))
@@ -385,12 +378,13 @@ void R_DrawSolidClippedSubmodelPolygons( model_t *pmodel, mnode_t *topnode )
 		pbverts = bverts;
 		pbedges = bedges;
 		numbverts = numbedges = 0;
-		pbedge = &bedges[numbedges];
+		bedge_t *pbedge = &bedges[numbedges];
 		numbedges += psurf->numedges;
 
 		for( j = 0; j < psurf->numedges; j++ )
 		{
-			lindex = pmodel->surfedges[psurf->firstedge + j];
+			int lindex = pmodel->surfedges[psurf->firstedge + j];
+			medge16_t *pedge;
 
 			if( lindex > 0 )
 			{
@@ -428,18 +422,12 @@ All in one leaf
 */
 void R_DrawSubmodelPolygons( model_t *pmodel, int clipflags, mnode_t *topnode )
 {
-	int        i;
-	vec_t      dot;
-	msurface_t *psurf;
-	int        numsurfaces;
-	mplane_t   *pplane;
-
 // FIXME: use bounding-box-based frustum clipping info?
 
-	psurf = &pmodel->surfaces[pmodel->firstmodelsurface];
-	numsurfaces = pmodel->nummodelsurfaces;
+	msurface_t *psurf = &pmodel->surfaces[pmodel->firstmodelsurface];
+	int        numsurfaces = pmodel->nummodelsurfaces;
 
-	for( i = 0; i < numsurfaces; i++, psurf++ )
+	for( int i = 0; i < numsurfaces; i++, psurf++ )
 	{
 		if( FBitSet( psurf->flags, SURF_DRAWTURB ) && !FBitSet( gp_host->features, ENGINE_QUAKE_COMPATIBLE ))
 		{
@@ -449,9 +437,9 @@ void R_DrawSubmodelPolygons( model_t *pmodel, int clipflags, mnode_t *topnode )
 				continue;
 		}
 		// find which side of the node we are on
-		pplane = psurf->plane;
+		mplane_t *pplane = psurf->plane;
 
-		dot = DotProduct( tr.modelorg, pplane->normal ) - pplane->dist;
+		vec_t dot = DotProduct( tr.modelorg, pplane->normal ) - pplane->dist;
 
 		// draw the polygon
 		if((( psurf->flags & SURF_PLANEBACK ) && ( dot < -BACKFACE_EPSILON ))
@@ -477,12 +465,9 @@ R_RecursiveWorldNode
 */
 static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 {
-	int        i, c, side, *pindex;
-	vec3_t     acceptpt, rejectpt;
-	mplane_t   *plane;
-	msurface_t *surf, **mark;
-	mleaf_t    *pleaf;
-	double     d, dot;
+	int    c, side;
+	vec3_t acceptpt, rejectpt;
+	double d, dot;
 
 	if( node->contents == CONTENTS_SOLID )
 		return; // solid
@@ -495,7 +480,7 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 //  twice as fast in ASM
 	if( clipflags )
 	{
-		for( i = 0; i < 4; i++ )
+		for( int i = 0; i < 4; i++ )
 		{
 			if( !( clipflags & ( 1 << i )))
 				continue; // don't need to clip against it
@@ -504,7 +489,7 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 			// FIXME: do with fast look-ups or integer tests based on the sign bit
 			// of the floating point values
 
-			pindex = qfrustum.pfrustum_indexes[i];
+			int *pindex = qfrustum.pfrustum_indexes[i];
 
 			rejectpt[0] = (float)node->minmaxs[pindex[0]];
 			rejectpt[1] = (float)node->minmaxs[pindex[1]];
@@ -531,9 +516,9 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 // if a leaf node, draw stuff
 	if( node->contents < 0 )
 	{
-		pleaf = (mleaf_t *)node;
+		mleaf_t *pleaf = (mleaf_t *)node;
 
-		mark = pleaf->firstmarksurface;
+		msurface_t **mark = pleaf->firstmarksurface;
 		c = pleaf->nummarksurfaces;
 
 		if( c )
@@ -559,12 +544,10 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 	}
 	else
 	{
-		int firstsurface;
-
 		// node is just a decision point, so go down the apropriate sides
 
 		// find which side of the node we are on
-		plane = node->plane;
+		mplane_t *plane = node->plane;
 
 		switch( plane->type )
 		{
@@ -592,11 +575,11 @@ static void R_RecursiveWorldNode( mnode_t *node, int clipflags )
 
 		// draw stuff
 		c = node_numsurfaces( node, WORLDMODEL );
-		firstsurface = node_firstsurface( node, WORLDMODEL );
+		int firstsurface = node_firstsurface( node, WORLDMODEL );
 
 		if( c )
 		{
-			surf = WORLDMODEL->surfaces + firstsurface;
+			msurface_t *surf = WORLDMODEL->surfaces + firstsurface;
 
 			if( dot < -BACKFACE_EPSILON )
 			{

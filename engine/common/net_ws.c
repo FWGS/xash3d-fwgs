@@ -75,16 +75,16 @@ typedef struct
 #pragma pack(push, 1)
 typedef struct
 {
-	int		net_id;
-	int		sequence_number;
-	short		packet_id;
+	int            net_id;
+	int            sequence_number;
+	unsigned short packet_id;
 } SPLITPACKET;
 
 typedef struct
 {
-	int		net_id;
-	int		sequence_number;
-	unsigned char	packet_id;
+	int           net_id;
+	int           sequence_number;
+	unsigned char packet_id;
 } SPLITPACKETGS;
 #pragma pack(pop)
 
@@ -99,6 +99,7 @@ typedef struct
 	int		sequence_number;
 	int		ip_sockets[NS_COUNT];
 	int		ip6_sockets[NS_COUNT];
+	qboolean		rr_state[NS_COUNT];
 	qboolean		initialized;
 	qboolean		threads_initialized;
 	qboolean		configured;
@@ -132,7 +133,7 @@ static CVAR_DEFINE_AUTO( net6_address, "0", FCVAR_PRIVILEGED|FCVAR_READ_ONLY, "c
 
 static void NET_ClearLagData( qboolean bClient, qboolean bServer );
 
-static inline qboolean NET_IsSocketError( int retval )
+qboolean NET_IsSocketError( int retval )
 {
 #if XASH_WIN32 || XASH_DOS4GW
 	return retval == SOCKET_ERROR ? true : false;
@@ -141,13 +142,37 @@ static inline qboolean NET_IsSocketError( int retval )
 #endif
 }
 
-static inline qboolean NET_IsSocketValid( int socket )
+qboolean NET_IsSocketValid( int socket )
 {
 #if XASH_WIN32 || XASH_DOS4GW
 	return socket != INVALID_SOCKET;
 #else
 	return socket >= 0;
 #endif
+}
+
+qboolean NET_MakeSocketNonBlocking( int socket_fd )
+{
+#if XASH_LINUX
+	int res = fcntl( socket_fd, F_GETFL, 0 );
+	if( NET_IsSocketError( res ))
+		return false;
+
+	// SOCK_NONBLOCK is not portable, so use fcntl
+	if( NET_IsSocketError( fcntl( socket_fd, F_SETFL, res | O_NONBLOCK )))
+		return false;
+#else
+	uint mode = 1;
+	if( NET_IsSocketError( ioctlsocket( socket_fd, FIONBIO, (void*)&mode )))
+		return false;
+#endif
+	return true;
+}
+
+qboolean NET_MakeSocketReuseAddr( int socket_fd )
+{
+	uint opt = 1;
+	return !NET_IsSocketError( setsockopt( socket_fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof( opt )));
 }
 
 void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr )
@@ -177,7 +202,7 @@ static int NET_NetadrIP6Compare( const netadr_t *a, const netadr_t *b )
 NET_NetadrToSockadr
 ====================
 */
-static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
+void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 {
 	netadrtype_t type = NET_NetadrType( a );
 
@@ -214,7 +239,7 @@ static void NET_NetadrToSockadr( netadr_t *a, struct sockaddr_storage *s )
 NET_SockadrToNetAdr
 ====================
 */
-static void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
+void NET_SockadrToNetadr( const struct sockaddr_storage *s, netadr_t *a )
 {
 	if( s->ss_family == AF_INET )
 	{
@@ -238,7 +263,6 @@ NET_GetHostByName
 static qboolean NET_GetHostByName( const char *hostname, int family, struct sockaddr_storage *addr )
 {
 	struct addrinfo *ai = NULL, *cur;
-	struct addrinfo hints;
 	qboolean ret = false;
 
 #if XASH_NO_IPV6_RESOLVE
@@ -246,8 +270,10 @@ static qboolean NET_GetHostByName( const char *hostname, int family, struct sock
 		return false;
 #endif
 
-	memset( &hints, 0, sizeof( hints ));
-	hints.ai_family = family;
+	struct addrinfo hints =
+	{
+		.ai_family = family,
+	};
 
 	if( !getaddrinfo( hostname, NULL, &hints, &ai ))
 	{
@@ -386,8 +412,8 @@ idnewt:28000
 */
 net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sadr, qboolean nonblocking, int family )
 {
-	int ret = 0, port;
-	char	*colon;
+	int ret = 0;
+	int port;
 	char	copy[128];
 	byte ip6[16];
 	struct sockaddr_storage temp;
@@ -411,7 +437,7 @@ net_gai_state_t NET_StringToSockaddr( const char *s, struct sockaddr_storage *sa
 
 	// strip off a trailing :port if present
 	((struct sockaddr_in *)sadr)->sin_port = 0;
-	for( colon = copy; *colon; colon++ )
+	for( char *colon = copy; *colon; colon++ )
 	{
 		if( *colon == ':' )
 		{
@@ -502,7 +528,7 @@ NET_StringToFilterAdr
 */
 qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen )
 {
-	char copy[128], *temp;
+	char copy[128];
 	qboolean hasCIDR = false;
 	byte ip6[16];
 	uint len;
@@ -514,7 +540,7 @@ qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen )
 
 	// copy the string and remove CIDR prefix
 	Q_strncpy( copy, s, sizeof( copy ));
-	temp = Q_strrchr( copy, '/' );
+	char *temp = Q_strrchr( copy, '/' );
 
 	if( temp )
 	{
@@ -576,11 +602,9 @@ qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen )
 
 		if( !hasCIDR )
 		{
-			int i;
-
 			*prefixlen = 32;
 
-			for( i = 3; i >= 0; i-- )
+			for( int i = 3; i >= 0; i-- )
 			{
 				if( !adr->ip[i] )
 					*prefixlen -= 8;
@@ -590,13 +614,11 @@ qboolean NET_StringToFilterAdr( const char *s, netadr_t *adr, uint *prefixlen )
 		}
 		else
 		{
-			uint32_t mask;
-
 			len = bound( 0, len, 32 );
 			*prefixlen = len;
 
 			// drop unneeded bits
-			mask = htonl( adr->ip4 ) & ( 0xFFFFFFFF << ( 32 - len ));
+			uint32_t mask = htonl( adr->ip4 ) & ( 0xFFFFFFFF << ( 32 - len ));
 			adr->ip4 = ntohl( mask );
 		}
 
@@ -754,6 +776,16 @@ NET_IsReservedAdr
 Check for reserved ip's
 ====================
 */
+static qboolean NET_IsReservedIPv4( const uint8_t ip[4] )
+{
+	// Following checks was imported from GameNetworkingSockets library
+	return ( ip[0] == 10 ) // 10.x.x.x is reserved
+		|| ( ip[0] == 127 ) // 127.x.x.x
+		|| ( ip[0] == 169 && ip[1] == 254 ) // 169.254.x.x is link-local ipv4
+		|| ( ip[0] == 172 && ip[1] >= 16 && ip[1] <= 31 ) // 172.16.x.x - 172.31.x.x
+		|| ( ip[0] == 192 && ip[1] == 168 ); // 192.168.x.x
+}
+
 qboolean NET_IsReservedAdr( netadr_t a )
 {
 	netadrtype_t type_a = NET_NetadrType( &a );
@@ -761,18 +793,8 @@ qboolean NET_IsReservedAdr( netadr_t a )
 	if( type_a == NA_LOOPBACK )
 		return true;
 
-	// Following checks was imported from GameNetworkingSockets library
 	if( type_a == NA_IP )
-	{
-		if(( a.ip[0] == 10 ) || // 10.x.x.x is reserved
-			( a.ip[0] == 127 ) || // 127.x.x.x
-			( a.ip[0] == 169 && a.ip[1] == 254 ) || // 169.254.x.x is link-local ipv4
-			( a.ip[0] == 172 && a.ip[1] >= 16 && a.ip[1] <= 31 ) || // 172.16.x.x  - 172.31.x.x
-			( a.ip[0] == 192 && a.ip[1] >= 168 )) // 192.168.x.x
-		{
-			return true;
-		}
-	}
+		return NET_IsReservedIPv4( a.ip );
 
 	if( type_a == NA_IP6 )
 	{
@@ -780,19 +802,18 @@ qboolean NET_IsReservedAdr( netadr_t a )
 
 		NET_NetadrToIP6Bytes( ip6, &a );
 
+		// IPv4-mapped IPv6 (::ffff:0:0/96) — defer to IPv4 reservation check
+		static const uint8_t v4mapped_prefix[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF };
+		if( !memcmp( ip6, v4mapped_prefix, sizeof( v4mapped_prefix )))
+			return NET_IsReservedIPv4( &ip6[12] );
+
 		// Private addresses, fc00::/7
-		// Range is fc00:: to fdff:ffff:etc
-		if( ip6[0] >= 0xFC && ip6[1] <= 0xFD )
-		{
+		if(( ip6[0] & 0xFE ) == 0xFC )
 			return true;
-		}
 
 		// Link-local fe80::/10
-		// Range is fe80:: to febf::
-		if( ip6[0] == 0xFE && ( ip6[1] >= 0x80 && ip6[1] <= 0xBF ))
-		{
+		if( ip6[0] == 0xFE && ( ip6[1] & 0xC0 ) == 0x80 )
 			return true;
-		}
 	}
 
 	return false;
@@ -845,17 +866,17 @@ guaranteed to return -1, 0 or 1
 int NET_CompareAdrSort( const void *_a, const void *_b )
 {
 	const netadr_t *a = _a, *b = _b;
-	int porta, portb, portdiff, addrdiff;
-	netadrtype_t type_a, type_b;
+	int addrdiff;
 
-	type_a = NET_NetadrType( a );
-	type_b = NET_NetadrType( b );
+	netadrtype_t type_a = NET_NetadrType( a );
+	netadrtype_t type_b = NET_NetadrType( b );
 
 	if( type_a != type_b )
 		return bound( -1, (int)type_a - (int)type_b, 1 );
 
-	porta = ntohs( a->port );
-	portb = ntohs( b->port );
+	int porta = ntohs( a->port );
+	int portb = ntohs( b->port );
+	int portdiff;
 	if( porta < portb )
 		portdiff = -1;
 	else if( porta > portb )
@@ -925,7 +946,6 @@ qboolean NET_StringToAdr( const char *string, netadr_t *adr )
 net_gai_state_t NET_StringToAdrNB( const char *string, netadr_t *adr, qboolean v6only )
 {
 	struct sockaddr_storage s;
-	net_gai_state_t res;
 
 	memset( adr, 0, sizeof( netadr_t ));
 
@@ -935,7 +955,7 @@ net_gai_state_t NET_StringToAdrNB( const char *string, netadr_t *adr, qboolean v
 		return NET_EAI_OK;
 	}
 
-	res = NET_StringToSockaddr( string, &s, true, v6only ? AF_INET6 : AF_UNSPEC );
+	net_gai_state_t res = NET_StringToSockaddr( string, &s, true, v6only ? AF_INET6 : AF_UNSPEC );
 
 	if( res == NET_EAI_OK )
 		NET_SockadrToNetadr( &s, adr );
@@ -957,20 +977,17 @@ NET_GetLoopPacket
 */
 static qboolean NET_GetLoopPacket( netsrc_t sock, netadr_t *from, byte *data, size_t *length )
 {
-	net_loopback_t	*loop;
-	int		i;
-
 	if( !data || !length )
 		return false;
 
-	loop = &net.loopbacks[sock];
+	net_loopback_t *loop = &net.loopbacks[sock];
 
 	if( loop->send - loop->get > MAX_LOOPBACK )
 		loop->get = loop->send - MAX_LOOPBACK;
 
 	if( loop->get >= loop->send )
 		return false;
-	i = loop->get & MASK_LOOPBACK;
+	int i = loop->get & MASK_LOOPBACK;
 	loop->get++;
 
 	memcpy( data, loop->msgs[i].data, loop->msgs[i].datalen );
@@ -989,12 +1006,9 @@ NET_SendLoopPacket
 */
 static void NET_SendLoopPacket( netsrc_t sock, size_t length, const void *data, netadr_t to )
 {
-	net_loopback_t	*loop;
-	int		i;
+	net_loopback_t *loop = &net.loopbacks[sock^1];
 
-	loop = &net.loopbacks[sock^1];
-
-	i = loop->send & MASK_LOOPBACK;
+	int i = loop->send & MASK_LOOPBACK;
 	loop->send++;
 
 	memcpy( loop->msgs[i].data, data, length );
@@ -1043,12 +1057,10 @@ double linked list remove queue
 */
 static void NET_ClearLaggedList( packetlag_t *list )
 {
-	packetlag_t	*p, *n;
-
-	p = list->next;
+	packetlag_t *p = list->next;
 	while( p && p != list )
 	{
-		n = p->next;
+		packetlag_t *n = p->next;
 
 		NET_RemoveFromPacketList( p );
 
@@ -1075,8 +1087,6 @@ add lagged packet to stream
 */
 static void NET_AddToLagged( netsrc_t sock, packetlag_t *list, packetlag_t *packet, netadr_t *from, size_t length, const void *data, float timestamp )
 {
-	byte	*pStart;
-
 	if( packet->prev || packet->next )
 		return;
 
@@ -1085,7 +1095,7 @@ static void NET_AddToLagged( netsrc_t sock, packetlag_t *list, packetlag_t *pack
 	list->prev = packet;
 	packet->next = list;
 
-	pStart = (byte *)Z_Malloc( length );
+	byte *pStart = (byte *)Z_Malloc( length );
 	memcpy( pStart, data, length );
 	packet->data = pStart;
 	packet->size = length;
@@ -1103,10 +1113,8 @@ adjust time to next fake lag
 static void NET_AdjustLag( void )
 {
 	static double	lasttime = 0.0;
-	float		diff, converge;
-	double		dt;
 
-	dt = host.realtime - lasttime;
+	double dt = host.realtime - lasttime;
 	dt = bound( 0.0, dt, 0.1 );
 	lasttime = host.realtime;
 
@@ -1114,8 +1122,8 @@ static void NET_AdjustLag( void )
 	{
 		if( net_fakelag.value != net.fakelag )
 		{
-			diff = net_fakelag.value - net.fakelag;
-			converge = dt * 200.0f;
+			float diff = net_fakelag.value - net.fakelag;
+			float converge = dt * 200.0f;
 			if( fabs( diff ) < converge )
 				converge = fabs( diff );
 			if( diff < 0.0f )
@@ -1140,18 +1148,13 @@ add fake lagged packet into rececived message
 */
 static qboolean NET_LagPacket( qboolean newdata, netsrc_t sock, netadr_t *from, size_t *length, void *data )
 {
-	packetlag_t	*pNewPacketLag;
-	packetlag_t	*pPacket;
-	int		ninterval;
-	float		curtime;
-
 	if( net.fakelag <= 0.0f )
 	{
 		NET_ClearLagData( true, true );
 		return newdata;
 	}
 
-	curtime = host.realtime;
+	float curtime = host.realtime;
 
 	if( newdata )
 	{
@@ -1162,7 +1165,7 @@ static qboolean NET_LagPacket( qboolean newdata, netsrc_t sock, netadr_t *from, 
 				net.losscount[sock]++;
 				if( net_fakeloss.value <= 0.0f )
 				{
-					ninterval = fabs( net_fakeloss.value );
+					int ninterval = fabs( net_fakeloss.value );
 					if( ninterval < 2 ) ninterval = 2;
 
 					if(( net.losscount[sock] % ninterval ) == 0 )
@@ -1180,12 +1183,12 @@ static qboolean NET_LagPacket( qboolean newdata, netsrc_t sock, netadr_t *from, 
 			}
 		}
 
-		pNewPacketLag = (packetlag_t *)Z_Malloc( sizeof( packetlag_t ));
+		packetlag_t *pNewPacketLag = (packetlag_t *)Z_Malloc( sizeof( packetlag_t ));
 		// queue packet to simulate fake lag
 		NET_AddToLagged( sock, &net.lagdata[sock], pNewPacketLag, from, *length, data, curtime );
 	}
 
-	pPacket = net.lagdata[sock].next;
+	packetlag_t *pPacket = net.lagdata[sock].next;
 
 	while( pPacket != &net.lagdata[sock] )
 	{
@@ -1220,25 +1223,21 @@ NET_GetLong
 receive long packet from network
 ==================
 */
-static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsize, connprotocol_t proto )
+static qboolean NET_GetLong( byte *pData, size_t size, size_t *outSize, size_t splitsize, connprotocol_t proto )
 {
-	int		i, sequence_number, offset;
-	int		packet_number;
-	int		packet_count;
-	short		packet_id;
-	size_t header_size = proto == PROTO_GOLDSRC ? sizeof( SPLITPACKETGS ) : sizeof( SPLITPACKET );
-	int body_size = splitsize - header_size;
-	int max_splits;
+	const size_t header_size = proto == PROTO_GOLDSRC ? sizeof( SPLITPACKETGS ) : sizeof( SPLITPACKET );
 
-	if( body_size < 0 )
+	if( splitsize < header_size )
 		return false;
 
 	if( size < header_size )
 	{
-		Con_Printf( S_ERROR "invalid split packet length %i\n", size );
+		Con_Printf( S_ERROR "invalid split packet length %zu\n", size );
 		return false;
 	}
 
+	int sequence_number, packet_count, packet_number, max_splits;
+	unsigned short packet_id;
 	if( proto == PROTO_GOLDSRC )
 	{
 		SPLITPACKETGS *pHeader = (SPLITPACKETGS *)pData;
@@ -1262,7 +1261,7 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 		max_splits = ARRAYSIZE( net.split_flags );
 	}
 
-	if( packet_number >= max_splits || packet_count > max_splits )
+	if( packet_number < 0 || packet_count <= 0 || packet_number >= max_splits || packet_count > max_splits || packet_number >= packet_count )
 	{
 		Con_Printf( S_ERROR "malformed packet number (%i/%i)\n", packet_number + 1, packet_count );
 		return false;
@@ -1275,7 +1274,7 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 		net.split.total_size = 0;
 
 		// clear part's sequence
-		for( i = 0; i < ARRAYSIZE( net.split_flags ); i++ )
+		for( int i = 0; i < ARRAYSIZE( net.split_flags ); i++ )
 			net.split_flags[i] = -1;
 
 		if( net_showpackets.value == 4.0f )
@@ -1283,6 +1282,15 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 	}
 
 	size -= header_size;
+
+	size_t body_size = splitsize - header_size;
+	size_t offset = (size_t)packet_number * body_size;
+	if( offset + size > sizeof( net.split.buffer ))
+	{
+		Con_Printf( S_ERROR "%s: split packet would overflow reassembly buffer (offset %zu + size %zu > %zu)\n",
+			__func__, offset, size, sizeof( net.split.buffer ));
+		return false;
+	}
 
 	if( net.split_flags[packet_number] != sequence_number )
 	{
@@ -1293,14 +1301,13 @@ static qboolean NET_GetLong( byte *pData, int size, size_t *outSize, int splitsi
 		net.split_flags[packet_number] = sequence_number;
 
 		if( net_showpackets.value == 4.0f )
-			Con_Printf( "<-- Split packet %i of %i, %i bytes %i seq\n", packet_number + 1, packet_count, size, sequence_number );
+			Con_Printf( "<-- Split packet %i of %i, %zu bytes %i seq\n", packet_number + 1, packet_count, size, sequence_number );
 	}
 	else
 	{
-		Con_DPrintf( "%s: Ignoring duplicated split packet %i of %i ( %i bytes )\n", __func__, packet_number + 1, packet_count, size );
+		Con_DPrintf( "%s: Ignoring duplicated split packet %i of %i ( %zu bytes )\n", __func__, packet_number + 1, packet_count, size );
 	}
 
-	offset = (packet_number * body_size);
 	memcpy( net.split.buffer + offset, pData + header_size, size );
 
 	// have we received all of the pieces to the packet?
@@ -1330,70 +1337,67 @@ NET_QueuePacket
 queue normal and lagged packets
 ==================
 */
-static qboolean NET_QueuePacket( netsrc_t sock, netadr_t *from, byte *data, size_t *length )
+static qboolean NET_QueuePacket( int net_socket, netsrc_t sock, netadr_t *from, byte *data, size_t *length )
 {
 	byte		buf[NET_MAX_FRAGMENT];
-	int		ret, protocol;
-	int		net_socket;
-	WSAsize_t	addr_len;
 	struct sockaddr_storage	addr = { 0 };
 
 	*length = 0;
 
-	for( protocol = 0; protocol < 2; protocol++ )
+	if( !NET_IsSocketValid( net_socket ))
+		return NET_LagPacket( false, sock, from, length, data );
+
+	WSAsize_t addr_len = sizeof( addr );
+	int ret = recvfrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
+
+	NET_SockadrToNetadr( &addr, from );
+
+	if( !NET_IsSocketError( ret ))
 	{
-		switch( protocol )
+		if( ret < NET_MAX_FRAGMENT )
 		{
-		case 0: net_socket = net.ip_sockets[sock]; break;
-		case 1: net_socket = net.ip6_sockets[sock]; break;
-		}
-
-		if( !NET_IsSocketValid( net_socket ))
-			continue;
-
-		addr_len = sizeof( addr );
-		ret = recvfrom( net_socket, buf, sizeof( buf ), 0, (struct sockaddr *)&addr, &addr_len );
-
-		NET_SockadrToNetadr( &addr, from );
-
-		if( !NET_IsSocketError( ret ))
-		{
-			if( ret < NET_MAX_FRAGMENT )
-			{
-				// Transfer data
-				memcpy( data, buf, ret );
-				*length = ret;
+			// Transfer data
+			memcpy( data, buf, ret );
+			*length = ret;
 
 #if !XASH_DEDICATED
-				// check for split message
-				if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
+			// check for split message
+			if( sock == NS_CLIENT && *(int *)data == NET_HEADER_SPLITPACKET )
+			{
+				if( CL_IsFromConnectingServer( *from ))
 					return NET_GetLong( data, ret, length, CL_GetSplitSize( ), CL_Protocol( ));
+
+				// GoldSrc servers (e.g. ReUnion) can split large query responses
+				if( CL_HasActiveNetRequest( *from ))
+					return NET_GetLong( data, ret, length, 1400, PROTO_GOLDSRC );
+
+				return false;
+			}
 #endif
 
-				// lag the packet, if needed
-				return NET_LagPacket( true, sock, from, length, data );
-			}
-			else
-			{
-				Con_Reportf( "%s: oversize packet from %s\n", __func__, NET_AdrToString( *from ));
-			}
+			// lag the packet, if needed
+			return NET_LagPacket( true, sock, from, length, data );
 		}
 		else
 		{
-			int	err = WSAGetLastError();
+			Con_Reportf( "%s: oversize packet from %s\n", __func__, NET_AdrToString( *from ));
+		}
+	}
+	else
+	{
+		int err = WSAGetLastError();
 
-			switch( err )
-			{
-			case WSAEWOULDBLOCK:
-			case WSAECONNRESET:
-			case WSAECONNREFUSED:
-			case WSAEMSGSIZE:
-			case WSAETIMEDOUT:
-				break;
-			default:	// let's continue even after errors
-				Con_DPrintf( S_ERROR "%s: %s from %s\n", __func__, NET_ErrorString(), NET_AdrToString( *from ));
-				break;
-			}
+		switch( err )
+		{
+		case WSAEWOULDBLOCK:
+		case WSAECONNRESET:
+		case WSAECONNREFUSED:
+		case WSAEMSGSIZE:
+		case WSAETIMEDOUT:
+			break;
+		default:	// let's continue even after errors
+			Con_DPrintf( S_ERROR "%s: %s from %s\n", __func__, NET_ErrorString(), NET_AdrToString( *from ));
+			break;
 		}
 	}
 
@@ -1420,7 +1424,20 @@ qboolean NET_GetPacket( netsrc_t sock, netadr_t *from, byte *data, size_t *lengt
 	}
 	else
 	{
-		return NET_QueuePacket( sock, from, data, length );
+		// Round-robin the socket to prevent constant activity on one starving the other.
+		int i = net.rr_state[sock];
+		int net_socket = i ? net.ip_sockets[sock] : net.ip6_sockets[sock];
+
+		if( NET_QueuePacket( net_socket, sock, from, data, length ))
+		{
+			net.rr_state[sock] = !i;
+			return true;
+		}
+
+		// try the other one before giving up
+		net_socket = i ? net.ip6_sockets[sock] : net.ip_sockets[sock];
+		net.rr_state[sock] = !i;
+		return NET_QueuePacket( net_socket, sock, from, data, length );
 	}
 }
 
@@ -1438,25 +1455,22 @@ static int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, size_t 
 	if( splitsize > sizeof( SPLITPACKET ) && sock == NS_SERVER && len > splitsize )
 	{
 		char		packet[SPLITPACKET_MAX_SIZE];
-		int		total_sent, size, packet_count;
-		int		ret, packet_number;
 		int body_size = splitsize - sizeof( SPLITPACKET );
-		SPLITPACKET	*pPacket;
 
 		net.sequence_number++;
 		if( net.sequence_number <= 0 )
 			net.sequence_number = 1;
 
-		pPacket = (SPLITPACKET *)packet;
+		SPLITPACKET *pPacket = (SPLITPACKET *)packet;
 		pPacket->sequence_number = net.sequence_number;
 		pPacket->net_id = NET_HEADER_SPLITPACKET;
-		packet_number = 0;
-		total_sent = 0;
-		packet_count = (len + body_size - 1) / body_size;
+		int packet_number = 0;
+		int total_sent = 0;
+		int packet_count = (len + body_size - 1) / body_size;
 
 		while( len > 0 )
 		{
-			size = Q_min( body_size, len );
+			int size = Q_min( body_size, len );
 			pPacket->packet_id = (packet_number << 8) + packet_count;
 			memcpy( packet + sizeof( SPLITPACKET ), buf + ( packet_number * body_size ), size );
 
@@ -1471,7 +1485,7 @@ static int NET_SendLong( netsrc_t sock, int net_socket, const char *buf, size_t 
 					packet_number + 1, packet_count, size, net.sequence_number, NET_AdrToString( adr ));
 			}
 
-			ret = sendto( net_socket, packet, size + sizeof( SPLITPACKET ), flags, (const struct sockaddr *)to, tolen );
+			int ret = sendto( net_socket, packet, size + sizeof( SPLITPACKET ), flags, (const struct sockaddr *)to, tolen );
 			if( ret < 0 ) return ret; // error
 
 			if( ret >= size )
@@ -1498,7 +1512,6 @@ NET_SendPacketEx
 */
 void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t to, size_t splitsize )
 {
-	int		ret;
 	struct sockaddr_storage	addr = { 0 };
 	SOCKET		net_socket = 0;
 	netadrtype_t type = NET_NetadrType( &to );
@@ -1527,7 +1540,7 @@ void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t 
 
 	NET_NetadrToSockadr( &to, &addr );
 
-	ret = NET_SendLong( sock, net_socket, data, length, 0, &addr, NET_SockAddrLen( &addr ), splitsize );
+	int ret = NET_SendLong( sock, net_socket, data, length, 0, &addr, NET_SockAddrLen( &addr ), splitsize );
 
 	if( NET_IsSocketError( ret ))
 	{
@@ -1575,7 +1588,7 @@ NET_IPSocket
 static int NET_IPSocket( const char *net_iface, int port, int family )
 {
 	struct sockaddr_storage	addr = { 0 };
-	int		err, net_socket;
+	int		net_socket;
 	uint		optval = 1;
 	dword		_true = 1;
 	int pfamily = PF_INET;
@@ -1585,13 +1598,13 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 
 	if( NET_IsSocketError(( net_socket = socket( pfamily, SOCK_DGRAM, IPPROTO_UDP ))))
 	{
-		err = WSAGetLastError();
+		int err = WSAGetLastError();
 		if( err != WSAEAFNOSUPPORT )
 			Con_DPrintf( S_WARN "%s: port: %d socket: %s\n", __func__, port, NET_ErrorString( ));
 		return INVALID_SOCKET;
 	}
 
-	if( NET_IsSocketError( ioctlsocket( net_socket, FIONBIO, (void*)&_true )))
+	if( !NET_MakeSocketNonBlocking( net_socket ))
 	{
 		struct timeval timeout;
 
@@ -1607,7 +1620,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 		Con_DPrintf( S_WARN "%s: port: %d setsockopt SO_BROADCAST: %s\n", __func__, port, NET_ErrorString( ));
 	}
 
-	if( NET_IsSocketError( setsockopt( net_socket, SOL_SOCKET, SO_REUSEADDR, (const char *)&optval, sizeof( optval ))))
+	if( !NET_MakeSocketReuseAddr( net_socket ))
 	{
 		Con_DPrintf( S_WARN "%s: port: %d setsockopt SO_REUSEADDR: %s\n", __func__, port, NET_ErrorString( ));
 		closesocket( net_socket );
@@ -1654,7 +1667,7 @@ static int NET_IPSocket( const char *net_iface, int port, int family )
 
 			if( NET_IsSocketError( setsockopt( net_socket, IPPROTO_IP, IP_TOS, (const char *)&optval, sizeof( optval ))))
 			{
-				err = WSAGetLastError();
+				int err = WSAGetLastError();
 				if( err != WSAENOPROTOOPT )
 					Con_Printf( S_WARN "%s: port: %d  setsockopt IP_TOS: %s\n", __func__, port, NET_ErrorString( ));
 				closesocket( net_socket );
@@ -1768,10 +1781,9 @@ static void NET_DetermineLocalAddress( void )
 	char		buff[512];
 	struct sockaddr_storage	address;
 	WSAsize_t		namelen;
-	const char		*net_addr_string;
 
-	memset( &net_local, 0, sizeof( netadr_t ));
-	memset( &net6_local, 0, sizeof( netadr_t ));
+	memset( &net_local, 0, sizeof( net_local ));
+	memset( &net6_local, 0, sizeof( net6_local ));
 
 	if( !net.allow_ip && !net.allow_ip6 )
 	{
@@ -1796,7 +1808,7 @@ static void NET_DetermineLocalAddress( void )
 			if( !NET_IsSocketError( getsockname( net.ip_sockets[NS_SERVER], (struct sockaddr *)&address, &namelen )))
 			{
 				net_local.port = ((struct sockaddr_in *)&address)->sin_port;
-				net_addr_string = NET_AdrToString( net_local );
+				const char *net_addr_string = NET_AdrToString( net_local );
 				Con_Printf( "Server IPv4 address %s\n", net_addr_string );
 				Cvar_FullSet( "net_address", net_addr_string, net_address.flags );
 			}
@@ -1819,7 +1831,7 @@ static void NET_DetermineLocalAddress( void )
 			if( !NET_IsSocketError( getsockname( net.ip6_sockets[NS_SERVER], (struct sockaddr *)&address, &namelen )))
 			{
 				net6_local.port = ((struct sockaddr_in6 *)&address)->sin6_port;
-				net_addr_string = NET_AdrToString( net6_local );
+				const char *net_addr_string = NET_AdrToString( net6_local );
 				Con_Printf( "Server IPv6 address %s\n", net_addr_string );
 				Cvar_FullSet( "net6_address", net_addr_string, net6_address.flags );
 			}
@@ -1861,9 +1873,8 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 		// validate sockets for dedicated
 		if( Host_IsDedicated( ))
 		{
-			qboolean nov4, nov6;
-			nov4 = net.allow_ip  && NET_IsSocketError( net.ip_sockets[NS_SERVER] );
-			nov6 = net.allow_ip6 && NET_IsSocketError( net.ip6_sockets[NS_SERVER] );
+			qboolean nov4 = net.allow_ip  && NET_IsSocketError( net.ip_sockets[NS_SERVER] );
+			qboolean nov6 = net.allow_ip6 && NET_IsSocketError( net.ip6_sockets[NS_SERVER] );
 
 			if( nov4 && nov6 )
 				Host_Error( "Couldn't allocate IPv4 and IPv6 server ports.\n" );
@@ -1882,10 +1893,8 @@ void NET_Config( qboolean multiplayer, qboolean changeport )
 	}
 	else
 	{
-		int	i;
-
 		// shut down any existing sockets
-		for( i = 0; i < NS_COUNT; i++ )
+		for( int i = 0; i < NS_COUNT; i++ )
 		{
 			if( NET_IsSocketValid( net.ip_sockets[i] ))
 			{
@@ -1963,7 +1972,6 @@ NET_Init
 void NET_Init( void )
 {
 	char	cmd[64];
-	int	i = 1;
 
 	if( net.initialized ) return;
 
@@ -1988,12 +1996,13 @@ void NET_Init( void )
 	Cvar_RegisterVariable( &net6_address );
 
 	// prepare some network data
-	for( i = 0; i < NS_COUNT; i++ )
+	for( int i = 0; i < NS_COUNT; i++ )
 	{
 		net.lagdata[i].prev = &net.lagdata[i];
 		net.lagdata[i].next = &net.lagdata[i];
 		net.ip_sockets[i]  = INVALID_SOCKET;
 		net.ip6_sockets[i] = INVALID_SOCKET;
+		net.rr_state[i] = false;
 	}
 
 #if XASH_WIN32

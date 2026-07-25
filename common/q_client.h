@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 typedef struct usercmd_s
 {
 	int16_t   lerp_msec; // added in HL
-	int8_t    msec;      // added in QW
+	uint8_t   msec;      // added in QW
 	uint8_t   pad1;
 	vec3_t    viewangles;
 

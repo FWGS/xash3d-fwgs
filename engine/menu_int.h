@@ -32,6 +32,8 @@ typedef int		HIMAGE;		// handle to a graphic
 #define PIC_KEEP_SOURCE	(1<<1)		// some images keep source
 #define PIC_NOFLIP_TGA	(1<<2)		// Steam background completely ignore tga attribute 0x20
 #define PIC_EXPAND_SOURCE (1<<3)		// don't keep as 8-bit source, expand to RGBA
+#define PIC_NOMIPMAP	(1<<12)		// disable mipmaps
+#define PIC_HAS_ALPHA	(1<<16)		// image has alpha channel
 
 // flags for COM_ParseFileSafe
 #define PFILE_IGNOREBRACKET (1<<0)

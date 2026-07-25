@@ -78,14 +78,12 @@ Android_GetAndroidID
 const char *Android_GetAndroidID( void )
 {
 	static char id[32];
-	jstring resultJNIStr;
-	const char *resultCStr;
 
 	if( !COM_StringEmpty( id ))
 		return id;
 
-	resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getAndroidID );
-	resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
+	jstring resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.getAndroidID );
+	const char *resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
 	Q_strncpy( id, resultCStr, sizeof( id ) );
 	(*jni.env)->ReleaseStringUTFChars( jni.env, resultJNIStr, resultCStr );
 	(*jni.env)->DeleteLocalRef( jni.env, resultJNIStr );
@@ -101,11 +99,8 @@ Android_LoadID
 const char *Android_LoadID( void )
 {
 	static char id[32];
-	jstring resultJNIStr;
-	const char *resultCStr;
-
-	resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.loadAndroidID );
-	resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
+	jstring resultJNIStr = (*jni.env)->CallObjectMethod( jni.env, jni.activity, jni.loadAndroidID );
+	const char *resultCStr = (*jni.env)->GetStringUTFChars( jni.env, resultJNIStr, NULL );
 	Q_strncpy( id, resultCStr, sizeof( id ) );
 	(*jni.env)->ReleaseStringUTFChars( jni.env, resultJNIStr, resultCStr );
 	(*jni.env)->DeleteLocalRef( jni.env, resultJNIStr );

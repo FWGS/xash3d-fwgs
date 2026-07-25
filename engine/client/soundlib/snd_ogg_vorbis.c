@@ -268,9 +268,9 @@ int Stream_ReadOggVorbis( stream_t *stream, int needBytes, void *buffer )
 
 int Stream_SetPosOggVorbis( stream_t *stream, int newpos )
 {
-	int ret;
 	vorbis_streaming_ctx_t *ctx = (vorbis_streaming_ctx_t *)stream->ptr;
-	if(( ret = ov_raw_seek_lap( &ctx->vf, newpos )) == 0 )
+	int ret = ov_raw_seek_lap( &ctx->vf, newpos );
+	if( ret == 0 )
 	{
 		stream->buffsize = 0; // flush any previous data
 		return true;

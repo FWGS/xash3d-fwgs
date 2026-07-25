@@ -225,11 +225,13 @@ static inline void Sys_RestoreCrashHandler( void )
 static inline qboolean Platform_LibraryExists( const char *name, qboolean gamedironly )
 {
 #if XASH_ANDROID
-	// sorry, unimplemented
-	return false;
-#else
-	return g_fsapi.FileExists( name, gamedironly );
+	// when libs come from a separate APK (cs16client, tf15client, …) we can't see them
+	// from the VFS; trust the launcher.
+	if( !COM_StringEmptyOrNULL( getenv( "XASH3D_GAMELIBDIR" )))
+		return true;
 #endif
+	// FIXME: use FS_FindLibrary
+	return g_fsapi.FileExists( name, gamedironly );
 }
 
 

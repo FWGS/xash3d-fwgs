@@ -200,14 +200,14 @@ static const dllfunc_t multitexturefuncs[] =
 { GL_CALL( glClientActiveTextureARB ) },
 };
 
-static const dllfunc_t texture3dextfuncs[] =
+static const dllfunc_t texture3dextfuncs[] MAYBE_UNUSED =
 {
 { GL_CALL( glTexImage3D ) },
 { GL_CALL( glTexSubImage3D ) },
 { GL_CALL( glCopyTexSubImage3D ) },
 };
 
-static const dllfunc_t texturecompressionfuncs[] =
+static const dllfunc_t texturecompressionfuncs[] MAYBE_UNUSED =
 {
 { GL_CALL( glCompressedTexImage3DARB ) },
 { GL_CALL( glCompressedTexImage2DARB ) },
@@ -232,17 +232,17 @@ static const dllfunc_t vbofuncs[] =
 { GL_CALL( glBufferSubDataARB ) },
 };
 
-static const dllfunc_t multisampletexfuncs[] =
+static const dllfunc_t multisampletexfuncs[] MAYBE_UNUSED =
 {
 { GL_CALL(glTexImage2DMultisample) },
 };
 
-static const dllfunc_t drawrangeelementsfuncs[] =
+static const dllfunc_t drawrangeelementsfuncs[] MAYBE_UNUSED =
 {
 { GL_CALL( glDrawRangeElements ) },
 };
 
-static const dllfunc_t drawrangeelementsextfuncs[] =
+static const dllfunc_t drawrangeelementsextfuncs[] MAYBE_UNUSED =
 {
 { GL_CALL( glDrawRangeElementsEXT ) },
 };
@@ -271,7 +271,7 @@ static const dllfunc_t bufferstoragefuncs[] =
 { GL_CALL( glBufferStorage ) },
 };
 
-static const dllfunc_t shaderobjectsfuncs[] =
+static const dllfunc_t shaderobjectsfuncs[] MAYBE_UNUSED =
 {
 { GL_CALL( glDeleteObjectARB ) },
 { GL_CALL( glGetHandleARB ) },
@@ -406,7 +406,7 @@ static const dllfunc_t vaofuncs[] =
 { GL_CALL( glIsVertexArray ) },
 };
 
-static const dllfunc_t multitexturefuncs_es[] =
+static const dllfunc_t multitexturefuncs_es[] MAYBE_UNUSED =
 {
 { GL_CALL( glActiveTexture ) },
 { GL_CALL( glActiveTextureARB ) },
@@ -414,7 +414,7 @@ static const dllfunc_t multitexturefuncs_es[] =
 { GL_CALL( glClientActiveTextureARB ) },
 };
 
-static const dllfunc_t multitexturefuncs_es2[] =
+static const dllfunc_t multitexturefuncs_es2[] MAYBE_UNUSED =
 {
 { GL_CALL( glActiveTexture ) },
 { GL_CALL( glActiveTextureARB ) },
@@ -472,18 +472,16 @@ GL_CheckExtension
 */
 static qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, size_t num_funcs, const char *cvarname, int r_ext, float minver )
 {
-	size_t i;
-	cvar_t *parm = NULL;
-	const char *extensions_string;
-	char desc[MAX_VA_STRING];
-	float glver = (float)glConfig.version_major + glConfig.version_minor / 10.0f;
+	const float glver = (float)glConfig.version_major + glConfig.version_minor / 10.0f;
 
 	gEngfuncs.Con_Reportf( "%s: %s ", __func__, name );
 	GL_SetExtension( r_ext, true );
 
+	cvar_t *parm = NULL;
 	if( cvarname )
 	{
 		// system config disable extensions
+		char desc[MAX_VA_STRING];
 		Q_snprintf( desc, sizeof( desc ), CVAR_GLCONFIG_DESCRIPTION, name );
 		parm = gEngfuncs.Cvar_Get( cvarname, "1", FCVAR_GLCONFIG|FCVAR_READ_ONLY, desc );
 	}
@@ -495,7 +493,7 @@ static qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, siz
 		return false; // nothing to process at
 	}
 
-	extensions_string = glConfig.extensions_string;
+	const char *extensions_string = glConfig.extensions_string;
 
 	if(( name[2] == '_' || name[3] == '_' ) && !Q_strstr( extensions_string, name ) && ( glver < minver  || !minver || !glver ) )
 	{
@@ -508,7 +506,7 @@ static qboolean GL_CheckExtension( const char *name, const dllfunc_t *funcs, siz
 	// clear exports
 	ClearExports( funcs, num_funcs );
 
-	for( i = 0; i < num_funcs; i++ )
+	for( size_t i = 0; i < num_funcs; i++ )
 	{
 		// functions are cleared before all the extensions are evaluated
 		if(( *(funcs[i].func) = (void *)gEngfuncs.GL_GetProcAddress( funcs[i].name )) == NULL )
@@ -593,14 +591,11 @@ GL_SetDefaultTexState
 */
 static void GL_SetDefaultTexState( void )
 {
-
-	int	i;
-
 	memset( glState.currentTextures, -1, MAX_TEXTURE_UNITS * sizeof( *glState.currentTextures ));
 	memset( glState.texCoordArrayMode, 0, MAX_TEXTURE_UNITS * sizeof( *glState.texCoordArrayMode ));
 	memset( glState.genSTEnabled, 0, MAX_TEXTURE_UNITS * sizeof( *glState.genSTEnabled ));
 
-	for( i = 0; i < MAX_TEXTURE_UNITS; i++ )
+	for( int i = 0; i < MAX_TEXTURE_UNITS; i++ )
 	{
 		glState.currentTextureTargets[i] = GL_NONE;
 		glState.texIdentityMatrix[i] = true;
@@ -736,8 +731,6 @@ static void R_RenderInfo_f( void )
 #if XASH_GLES
 static void GL_InitExtensionsGLES( void )
 {
-	int extid;
-
 	// intialize wrapper type
 #if XASH_NANOGL
 	glConfig.context = CONTEXT_TYPE_GLES_1_X;
@@ -754,7 +747,7 @@ static void GL_InitExtensionsGLES( void )
 
 	glConfig.hardware_type = GLHW_GENERIC;
 
-	for( extid = GL_OPENGL_110 + 1; extid < GL_EXTCOUNT; extid++ )
+	for( int extid = GL_OPENGL_110 + 1; extid < GL_EXTCOUNT; extid++ )
 	{
 		switch( extid )
 		{
@@ -1034,10 +1027,9 @@ void GL_InitExtensions( void )
 	if( !major && glConfig.version_string )
 	{
 		const char *str = glConfig.version_string;
-		float ver;
 
 		while( *str && ( *str < '0' || *str > '9' )) str++;
-		ver = Q_atof(str);
+		float ver = Q_atof(str);
 		if( ver )
 		{
 			glConfig.version_major = ver;
@@ -1058,16 +1050,15 @@ void GL_InitExtensions( void )
 		pglGetIntegerv( GL_NUM_EXTENSIONS, &n );
 		if( n && pglGetStringi )
 		{
-			int i, len = 1;
-			char *str;
+			int len = 1;
 
-			for( i = 0; i < n; i++ )
+			for( int i = 0; i < n; i++ )
 				len += Q_strlen((const char *)pglGetStringi( GL_EXTENSIONS, i )) + 1;
 
-			str = (char*)Mem_Calloc( r_temppool, len );
+			char *str = (char*)Mem_Calloc( r_temppool, len );
 			glConfig.extensions_string = str;
 
-			for( i = 0; i < n; i++ )
+			for( int i = 0; i < n; i++ )
 			{
 				int l = Q_strncpy( str, pglGetStringi( GL_EXTENSIONS, i ), len );
 				str += l;
@@ -1357,7 +1348,7 @@ void GL_CheckForErrors_( const char *filename, const int fileline )
 	if( !gl_check_errors.value || !gpGlobals->developer )
 		return;
 
-	int err = pglGetError( );
+	int err = pglGetError();
 
 	if( err == GL_NO_ERROR )
 		return;

@@ -52,12 +52,12 @@ void FB_GetScreenRes( int *x, int *y )
 
 qboolean R_Init_Video( ref_graphic_apis_t type )
 {
-	qboolean retval;
-	string fbdev = DEFAULT_FBDEV;
 	fb.fd = -1;
 
 	if( type != REF_SOFTWARE )
 		return false;
+
+	string fbdev = DEFAULT_FBDEV;
 
 	Sys_GetParmFromCmdLine( "-fbdev", fbdev );
 
@@ -74,7 +74,8 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 	ioctl(fb.fd, FBIOGET_FSCREENINFO, &fb.finfo);
 	ioctl(fb.fd, FBIOGET_VSCREENINFO, &fb.vinfo);
 
-	if( !(retval = VID_SetMode()) )
+	qboolean retval = VID_SetMode();
+	if( !retval )
 	{
 		return retval;
 	}
@@ -124,12 +125,10 @@ qboolean VID_SetMode( void )
 
 rserr_t R_ChangeDisplaySettings( int width, int height, window_mode_t window_mode )
 {
-	int render_w, render_h;
-
 	FB_GetScreenRes( &width, &height );
 
-	render_w = width;
-	render_h = height;
+	int render_w = width;
+	int render_h = height;
 
 	Con_Reportf( "%s: forced resolution to %dx%d)\n", __func__, width, height );
 

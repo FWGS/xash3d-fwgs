@@ -446,6 +446,7 @@ typedef struct
 	double			timeout;
 	double			timesend;	// time when request was sended
 	int			flags;	// FNETAPI_MULTIPLE_RESPONSE etc
+	int			challenge;	// GoldSrc query challenge, -1 until received
 } net_request_t;
 
 // new versions of client dlls have a single export with all callbacks
@@ -580,6 +581,7 @@ typedef struct
 	sizebuf_t		datagram;			// unreliable stuff. gets sent in CL_Move about cl_cmdrate times per second.
 	byte		datagram_buf[MAX_DATAGRAM];
 
+	uint64_t		netchan_pending_cookie;	// random NET_EXT_NETCHAN_COOKIE
 	netchan_t		netchan;
 
 	float		packet_loss;
@@ -645,10 +647,9 @@ typedef struct
 	qboolean internetservers_pending; // if true, clean master server pings
 	qboolean internetservers_nat;
 	string   internetservers_customfilter;
-	uint32_t internetservers_key;     // compare key to validate master server reply
 
 	// multiprotocol support
-	connprotocol_t legacymode;
+	connprotocol_t net_protocol;
 	int extensions;
 
 	netadr_t serveradr;
@@ -796,6 +797,8 @@ void CL_SignonReply( connprotocol_t proto );
 void CL_ClearState( void );
 void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats );
 void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticket, size_t ticketlen );
+void CL_NotifyServerListResponse( void );
+qboolean CL_NetRequestSend( net_request_t *nr );
 
 //
 // cl_demo.c
@@ -1187,7 +1190,7 @@ void S_StopStreaming( void );
 void S_BeginRegistration( void );
 sound_t S_RegisterSound( const char *sample );
 void S_EndRegistration( void );
-void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float fvol, float attn, int pitch, int flags, double sample, double end, int wordIndex );
+void S_RestoreSound( const vec3_t pos, int ent, int chan, sound_t handle, float fvol, float attn, int pitch, int flags, double sample, double end, uint wordIndex );
 void S_StartSound( const vec3_t pos, int ent, int chan, sound_t sfx, float vol, float attn, int pitch, int flags );
 void S_AmbientSound( const vec3_t pos, int ent, sound_t handle, float fvol, float attn, int pitch, int flags );
 void S_SoundFade( int fade_percent, int hold_time, int fade_out_seconds, int fade_in_seconds );
@@ -1241,8 +1244,7 @@ void CL_GetSecuredClientAPI( CL_EXPORT_FUNCS F );
 void SteamBroker_Init( void );
 void SteamBroker_Shutdown( void );
 void SteamBroker_Frame( void );
-void SteamBroker_HandlePacket( netadr_t from, sizebuf_t *msg );
-int SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge );
+qboolean SteamBroker_InitiateGameConnection( netadr_t serveradr, int challenge );
 void SteamBroker_TerminateGameConnection( void );
 
 //

@@ -176,7 +176,6 @@ Sound_LoadWAV
 */
 qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesize )
 {
-	int	samples, fmt;
 	qboolean	mpeg_stream = false;
 
 	if( !buffer || filesize <= 0 )
@@ -205,7 +204,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	iff_dataPtr += 8;
-	fmt = GetLittleShort();
+	int fmt = GetLittleShort();
 
 	if( fmt != 1 )
 	{
@@ -276,7 +275,7 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	}
 
 	iff_dataPtr += 4;
-	samples = GetLittleLong() / sound.width;
+	int samples = GetLittleLong() / sound.width;
 
 	if( sound.samples )
 	{
@@ -331,15 +330,39 @@ qboolean Sound_LoadWAV( const char *name, const byte *buffer, fs_offset_t filesi
 	// now convert 8-bit sounds to signed
 	if( sound.width == 1 )
 	{
-		int	i, j;
 		signed char	*pData = (signed char *)sound.wav;
 
-		for( i = 0; i < sound.samples; i++ )
+		for( int i = 0; i < sound.samples; i++ )
 		{
-			for( j = 0; j < sound.channels; j++ )
+			for( int j = 0; j < sound.channels; j++ )
 			{
 				*pData = (byte)((int)((byte)*pData) - 128 );
 				pData++;
+			}
+		}
+	}
+
+	// silence known-broken WAVs that contain stray non-zero samples masquerading as silence
+	if( Q_stristr( name, "null.wav" ) || Q_stristr( name, "_period.wav" ) || Q_stristr( name, "_comma.wav" ))
+	{
+		static const uint32_t broken_crcs[] =
+		{
+			0x14a36f29, // common/null.wav (HL1/Q1)
+			0x005a43ab, // vox/_period.wav (HL1)
+			0x7749ed15, // vox/_comma.wav (HL1)
+		};
+		uint32_t crc;
+
+		CRC32_Init( &crc );
+		CRC32_ProcessBuffer( &crc, buffer, filesize );
+		crc = CRC32_Final( crc );
+
+		for( size_t i = 0; i < ARRAYSIZE( broken_crcs ); i++ )
+		{
+			if( crc == broken_crcs[i] )
+			{
+				memset( sound.wav, 0, sound.size );
+				break;
 			}
 		}
 	}
@@ -357,7 +380,6 @@ stream_t *Stream_OpenWAV( const char *filename )
 	stream_t	*stream;
 	int 	last_chunk = 0;
 	char	chunkName[4];
-	int	iff_data;
 	file_t	*file;
 	short	t;
 
@@ -393,7 +415,7 @@ stream_t *Stream_OpenWAV( const char *filename )
 	}
 
 	// get "fmt " chunk
-	iff_data = FS_Tell( file );
+	int iff_data = FS_Tell( file );
 	last_chunk = iff_data;
 	if( !StreamFindNextChunk( file, "fmt ", &last_chunk ))
 	{
@@ -460,11 +482,9 @@ assume stream is valid
 */
 int Stream_ReadWAV( stream_t *stream, int bytes, void *buffer )
 {
-	int	remaining;
-
 	if( !stream->file ) return 0;	// invalid file
 
-	remaining = stream->size - stream->pos;
+	int remaining = stream->size - stream->pos;
 	if( remaining <= 0 ) return 0;
 	if( bytes > remaining ) bytes = remaining;
 

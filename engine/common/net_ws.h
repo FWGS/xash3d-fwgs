@@ -74,6 +74,10 @@ void NET_SendPacket( netsrc_t sock, size_t length, const void *data, netadr_t to
 void NET_SendPacketEx( netsrc_t sock, size_t length, const void *data, netadr_t to, size_t splitsize );
 void NET_IP6BytesToNetadr( netadr_t *adr, const uint8_t *ip6 );
 void NET_NetadrToIP6Bytes( uint8_t *ip6, const netadr_t *adr );
+qboolean NET_IsSocketError( int retval );
+qboolean NET_IsSocketValid( int socket );
+qboolean NET_MakeSocketNonBlocking( int socket_fd );
+qboolean NET_MakeSocketReuseAddr( int socket_fd );
 
 static inline qboolean NET_IsLocalAddress( netadr_t adr )
 {
@@ -83,7 +87,9 @@ static inline qboolean NET_IsLocalAddress( netadr_t adr )
 void NET_GetLocalAddress( netadr_t *ip4, netadr_t *ip6 );
 
 #if !XASH_DEDICATED
-int CL_GetSplitSize( void );
+size_t CL_GetSplitSize( void );
+qboolean CL_IsFromConnectingServer( netadr_t from );
+qboolean CL_HasActiveNetRequest( netadr_t from );
 #endif
 
 void HTTP_AddCustomServer( const char *url );
@@ -93,5 +99,8 @@ void HTTP_Shutdown( void );
 void HTTP_ResetProcessState( void );
 void HTTP_Init( void );
 void HTTP_Run( void );
+
+typedef void ( *http_memory_cb_t )( const char *url, qboolean success, const byte *data, size_t size, void *userdata );
+qboolean HTTP_GetToMemory( const char *url, http_memory_cb_t cb, void *userdata );
 
 #endif//NET_WS_H

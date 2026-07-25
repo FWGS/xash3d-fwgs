@@ -33,7 +33,6 @@ GNU General Public License for more details.
 
 int dladdr(void *address, Dl_info* dl)
 {
-	void *v;
-	v = _rld_new_interface(_RLD_DLADDR, address, dl);
+	void *v = _rld_new_interface(_RLD_DLADDR, address, dl);
 	return (int)v;
 }

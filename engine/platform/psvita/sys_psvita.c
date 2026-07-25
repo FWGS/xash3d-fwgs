@@ -15,6 +15,7 @@ GNU General Public License for more details.
 
 #include "platform/platform.h"
 #include "xash3d_mathlib.h"
+#include "atlas.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -80,6 +81,7 @@ static const vrtld_export_t aux_exports[] =
 	VRTLD_EXPORT( "dlopen", vrtld_dlopen ),
 	VRTLD_EXPORT( "dlclose", vrtld_dlclose ),
 	VRTLD_EXPORT( "dlsym", vrtld_dlsym ),
+	VRTLD_EXPORT_SYMBOL( Atlas_AllocBlock ), // HACKHACK: remove when atlas utils will be used in engine
 };
 
 const vrtld_export_t *__vrtld_exports = aux_exports;
@@ -187,13 +189,11 @@ qboolean PSVita_GetBasePath( char *buf, const size_t buflen )
 	// check if a xash3d folder exists on one of these drives
 	// default to the last one (ux0)
 	static const char *drives[] = { "uma0", "imc0", "ux0" };
-	SceUID dir;
-	size_t i;
 
-	for ( i = 0; i < sizeof( drives ) / sizeof( *drives ); ++i )
+	for ( size_t i = 0; i < sizeof( drives ) / sizeof( *drives ); ++i )
 	{
 		Q_snprintf( buf, buflen, "%s:" DATA_PATH, drives[i] );
-		dir = sceIoDopen( buf );
+		SceUID dir = sceIoDopen( buf );
 		if ( dir >= 0 )
 		{
 			sceIoDclose( dir );

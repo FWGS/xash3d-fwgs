@@ -173,23 +173,20 @@ size_t Q_UTF8Length( const char *s )
 
 size_t Q_UTF16ToUTF8( char *dst, size_t dstsize, const uint16_t *src, size_t srcsize )
 {
-	utfstate_t state = { 0 };
-	size_t dsti = 0, srci;
-
 	if( !dst || !src || !dstsize || !srcsize )
 		return 0;
 
-	for( srci = 0; srci < srcsize && src[srci]; srci++ )
-	{
-		uint32_t ch;
-		size_t len;
+	utfstate_t state = { 0 };
+	size_t dsti = 0;
 
-		ch = Q_DecodeUTF16( &state, src[srci] );
+	for( size_t srci = 0; srci < srcsize && src[srci]; srci++ )
+	{
+		uint32_t ch = Q_DecodeUTF16( &state, src[srci] );
 
 		if( ch == 0 )
 			continue;
 
-		len = Q_CodepointLength( ch );
+		size_t len = Q_CodepointLength( ch );
 
 		if( dsti + len + 1 > dstsize )
 			break;
@@ -215,8 +212,6 @@ static const uint16_t table_cp1251[64] = {
 
 uint32_t Q_UnicodeToCP1251( uint32_t uc )
 {
-	size_t i;
-
 	if( uc < 0x80 )
 		return uc;
 
@@ -226,7 +221,7 @@ uint32_t Q_UnicodeToCP1251( uint32_t uc )
 	if( uc >= 0x0430 && uc <= 0x044F )
 		return uc - 0x430 + 0xE0;
 
-	for( i = 0; i < sizeof( table_cp1251 ) / sizeof( table_cp1251[0] ); i++ )
+	for( size_t i = 0; i < sizeof( table_cp1251 ) / sizeof( table_cp1251[0] ); i++ )
 	{
 		if( uc == (uint32_t)table_cp1251[i] )
 			return i + 0x80;

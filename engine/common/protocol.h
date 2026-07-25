@@ -100,9 +100,6 @@ GNU General Public License for more details.
 #define MAX_VISIBLE_PACKET_VIS_BYTES	((MAX_VISIBLE_PACKET + 7) / 8)
 
 // additional protocol data
-#define MAX_CLIENT_BITS		5
-#define MAX_CLIENTS			(1<<MAX_CLIENT_BITS)// 5 bits == 32 clients ( int32 limit )
-
 #define MAX_WEAPON_BITS		6
 #define MAX_WEAPONS			(1<<MAX_WEAPON_BITS)// 6 bits == 64 predictable weapons
 
@@ -283,7 +280,8 @@ extern const char *const svc_quake_strings[svc_lastmsg+1];
 extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 
 // FWGS extensions
-#define NET_EXT_SPLITSIZE (1U<<0) // set splitsize by cl_dlmax
+#define NET_EXT_SPLITSIZE       (1U<<0) // set splitsize by cl_dlmax
+#define NET_EXT_NETCHAN_COOKIE  (1U<<1) // per-connection 64-bit netchan cookie validated on every sequenced packet
 
 // GoldSrc protocol definitions
 #define PROTOCOL_GOLDSRC_VERSION 48
@@ -321,7 +319,6 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 #define A2A_PING         "ping" // reply with A2A_ACK
 #define A2A_ACK          "ack" // no-op
 #define A2A_INFO         "info" // different format for client and server, see code
-#define A2A_NETINFO      "netinfo" // different format for client and server, see code
 #define A2A_GOLDSRC_PING "i" // reply with A2A_GOLDSRC_ACK
 #define A2A_GOLDSRC_ACK  "j" // no-op
 
@@ -332,6 +329,7 @@ extern const char *const svc_goldsrc_strings[svc_lastmsg+1];
 
 // from server to any
 #define S2A_GOLDSRC_INFO    'I'
+#define S2A_GOLDSRC_LEGACY_INFO 'm'
 #define S2A_GOLDSRC_RULES   'E'
 #define S2A_GOLDSRC_PLAYERS 'D'
 

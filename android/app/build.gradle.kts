@@ -20,10 +20,12 @@ extensions.configure<ApplicationExtension> {
 		minSdk = 21
 		targetSdk = 35
 
+		buildConfigField("String", "GIT_HASH", "\"${getGitHash()}\"")
+
 		externalNativeBuild {
 			val engineRoot = projectDir.parentFile.parent
 
-			experimentalProperties["ninja.abiFilters"] = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+			experimentalProperties["ninja.abiFilters"] = setOf("armeabi-v7a", "arm64-v8a", "x86")
 			experimentalProperties["ninja.path"] = File(engineRoot, "wscript").path
 			experimentalProperties["ninja.configure"] = "run-python"
 			experimentalProperties["ninja.arguments"] = setOf(
@@ -56,6 +58,15 @@ extensions.configure<ApplicationExtension> {
 	buildFeatures {
 		viewBinding = true
 		buildConfig = true
+	}
+
+	signingConfigs {
+		create("androidDebugKey") {
+			storeFile = File(projectDir.parentFile, "debug.keystore")
+			storePassword = "android"
+			keyAlias = "androiddebugkey"
+			keyPassword = "android"
+		}
 	}
 
 	lint {
@@ -91,6 +102,7 @@ extensions.configure<ApplicationExtension> {
 			proguardFiles(
 				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
 			)
+			buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "false")
 		}
 
 		release {
@@ -99,6 +111,7 @@ extensions.configure<ApplicationExtension> {
 			proguardFiles(
 				getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
 			)
+			buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "false")
 		}
 
 		register("asan") {
@@ -108,6 +121,8 @@ extensions.configure<ApplicationExtension> {
 		register("continuous") {
 			initWith(getByName("release"))
 			applicationIdSuffix = ".test"
+			buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "true")
+			signingConfig = signingConfigs.getByName("androidDebugKey")
 		}
 	}
 }

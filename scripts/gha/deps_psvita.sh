@@ -13,6 +13,7 @@ echo "Downloading vitasdk..."
 export VITASDK=/usr/local/vitasdk
 
 VITAGL_SRCREV="4d3ab1053424abe3b2164a50d15c5e355e33ed99" # lock vitaGL version to avoid compilation errors
+SDL_SRCREV="28a709718422915dab13b6984e6ff8c8e37447c8" # lock vitaGL fork of SDL2 to a known-good revision
 
 install_package()
 {
@@ -39,7 +40,10 @@ popd || exit 1
 
 echo "Downloading vitaGL fork of SDL2..."
 
-git clone https://github.com/Northfear/SDL.git --depth=1 || exit 1
+git clone https://github.com/Northfear/SDL.git || exit 1
+pushd SDL || exit 1
+git checkout $SDL_SRCREV || exit 1
+popd || exit 1
 
 echo "Downloading vita-rtld..."
 

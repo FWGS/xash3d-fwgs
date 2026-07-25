@@ -144,8 +144,6 @@ qboolean OSK_KeyEvent( int key, int down )
 			break;
 		default:
 		{
-			int ch;
-
 			if( !down )
 			{
 				if( osk.shift && osk.curlayout & 1 )
@@ -156,7 +154,7 @@ qboolean OSK_KeyEvent( int key, int down )
 				break;
 			}
 
-			ch = (byte)osk.curbutton.val;
+			int ch = (byte)osk.curbutton.val;
 
 			// do not pass UTF-8 sequence into the engine, convert it here
 			if( !cls.accept_utf8 )

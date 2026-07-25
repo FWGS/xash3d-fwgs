@@ -66,13 +66,13 @@ S_GetMusicVolume
 */
 float S_GetMusicVolume( void )
 {
-	float	scale = 1.0f;
-
 	if( host.status == HOST_NOFOCUS && snd_mute_losefocus.value != 0.0f )
 	{
 		// we return zero volume to keep sounds running
 		return 0.0f;
 	}
+
+	float scale = 1.0f;
 
 	if( cls.key_dest != key_menu && musicfade.percent != 0 )
 	{
@@ -191,11 +191,7 @@ S_StreamBackgroundTrack
 */
 void S_StreamBackgroundTrack( void )
 {
-	int	bufferSamples;
-	int	fileSamples;
 	byte	raw[MAX_RAW_SAMPLES];
-	int	r, fileBytes;
-	rawchan_t	*ch = NULL;
 
 	if( !snd.initialized || !s_bgTrack.stream || snd.streaming )
 		return;
@@ -213,7 +209,7 @@ void S_StreamBackgroundTrack( void )
 	else if( cls.key_dest == key_console )
 		return;
 
-	ch = S_FindRawChannel( S_RAW_SOUND_BACKGROUNDTRACK, true );
+	rawchan_t *ch = S_FindRawChannel( S_RAW_SOUND_BACKGROUNDTRACK, true );
 
 	Assert( ch != NULL );
 
@@ -225,14 +221,14 @@ void S_StreamBackgroundTrack( void )
 	{
 		const stream_t *info = s_bgTrack.stream;
 
-		bufferSamples = ch->max_samples - (ch->s_rawend - snd.soundtime);
+		int bufferSamples = ch->max_samples - (ch->s_rawend - snd.soundtime);
 
 		// decide how much data needs to be read from the file
-		fileSamples = bufferSamples * ((float)info->rate / SOUND_DMA_SPEED );
+		int fileSamples = bufferSamples * ((float)info->rate / SOUND_DMA_SPEED );
 		if( fileSamples <= 1 ) return; // no more samples need
 
 		// our max buffer size
-		fileBytes = fileSamples * ( info->width * info->channels );
+		int fileBytes = fileSamples * ( info->width * info->channels );
 
 		if( fileBytes > sizeof( raw ))
 		{
@@ -241,7 +237,7 @@ void S_StreamBackgroundTrack( void )
 		}
 
 		// read
-		r = FS_ReadStream( s_bgTrack.stream, fileBytes, raw );
+		int r = FS_ReadStream( s_bgTrack.stream, fileBytes, raw );
 
 		if( r < fileBytes )
 		{

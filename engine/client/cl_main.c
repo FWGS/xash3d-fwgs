@@ -13,6 +13,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 */
 
+#include <inttypes.h>
 #include "common.h"
 #include "client.h"
 #include "net_encode.h"
@@ -36,10 +37,12 @@ CVAR_DEFINE( cl_allow_download, "cl_allowdownload", "1", FCVAR_ARCHIVE, "allow t
 static CVAR_DEFINE( cl_allow_upload, "cl_allowupload", "1", FCVAR_ARCHIVE, "allow to uploading resources to the server" );
 CVAR_DEFINE_AUTO( cl_download_ingame, "1", FCVAR_ARCHIVE, "allow to downloading resources while client is active" );
 static CVAR_DEFINE_AUTO( cl_logofile, "lambda", FCVAR_ARCHIVE, "player logo name" );
-static CVAR_DEFINE_AUTO( cl_logocolor, "orange", FCVAR_ARCHIVE, "player logo color" );
+static CVAR_DEFINE_AUTO( cl_logocolor, "255 120 24", FCVAR_ARCHIVE, "player logo color" );
 static CVAR_DEFINE_AUTO( cl_logoext, "bmp", FCVAR_ARCHIVE, "temporary cvar to tell engine which logo must be packed" );
+static CVAR_DEFINE( cl_logoupdate, "@cl_logoupdate", "0", 0, "set by menu to trigger clan logo update" );
 CVAR_DEFINE_AUTO( cl_logomaxdim, "96", FCVAR_ARCHIVE, "maximum decal dimension" );
 static CVAR_DEFINE_AUTO( cl_test_bandwidth, "1", FCVAR_ARCHIVE, "test network bandwith before connection" );
+static CVAR_DEFINE_AUTO( cl_require_challenge_echo, "-1", FCVAR_ARCHIVE, "reject connect packets that don't echo challenge, protects against spoofed servers but breaks connection to old servers (-1 = engine default)" );
 
 CVAR_DEFINE( cl_draw_particles, "r_drawparticles", "1", FCVAR_CHEAT, "render particles" );
 CVAR_DEFINE( cl_draw_tracers, "r_drawtracers", "1", FCVAR_CHEAT, "render tracers" );
@@ -47,18 +50,18 @@ CVAR_DEFINE( cl_draw_beams, "r_drawbeams", "1", FCVAR_CHEAT, "render beams" );
 
 static CVAR_DEFINE_AUTO( rcon_address, "", FCVAR_PRIVILEGED, "remote control address" );
 CVAR_DEFINE_AUTO( cl_timeout, "60", 0, "connect timeout (in-seconds)" );
-CVAR_DEFINE_AUTO( cl_nopred, "0", FCVAR_ARCHIVE|FCVAR_USERINFO, "disable client movement prediction" );
+CVAR_DEFINE_AUTO( cl_nopred, "0", FCVAR_USERINFO, "disable client movement prediction" );
 static CVAR_DEFINE_AUTO( cl_nodelta, "0", 0, "disable delta-compression for server messages" );
 CVAR_DEFINE( cl_crosshair, "crosshair", "1", FCVAR_ARCHIVE, "show weapon chrosshair" );
 static CVAR_DEFINE_AUTO( cl_cmdbackup, "10", FCVAR_ARCHIVE, "how many additional history commands are sent" );
 CVAR_DEFINE_AUTO( cl_showerror, "0", FCVAR_ARCHIVE, "show prediction error" );
-CVAR_DEFINE_AUTO( cl_bmodelinterp, "1", FCVAR_ARCHIVE, "enable bmodel interpolation" );
+CVAR_DEFINE_AUTO( cl_bmodelinterp, "1", 0, "enable bmodel interpolation" );
 static CVAR_DEFINE_AUTO( cl_lightstyle_lerping, "0", FCVAR_ARCHIVE, "enables animated light lerping (perfomance option)" );
 CVAR_DEFINE_AUTO( cl_idealpitchscale, "0.8", 0, "how much to look up/down slopes and stairs when not using freelook" );
-CVAR_DEFINE_AUTO( cl_nosmooth, "0", FCVAR_ARCHIVE, "disable smooth up stair climbing" );
-CVAR_DEFINE_AUTO( cl_smoothtime, "0.1", FCVAR_ARCHIVE, "time to smooth up" );
-CVAR_DEFINE_AUTO( cl_clockreset, "0.1", FCVAR_ARCHIVE, "frametime delta maximum value before reset" );
-static CVAR_DEFINE_AUTO( cl_fixtimerate, "7.5", FCVAR_ARCHIVE, "time in msec to client clock adjusting" );
+CVAR_DEFINE_AUTO( cl_nosmooth, "0", 0, "disable smooth up stair climbing" );
+CVAR_DEFINE_AUTO( cl_smoothtime, "0.1", 0, "time to smooth up" );
+CVAR_DEFINE_AUTO( cl_clockreset, "0.1", 0, "frametime delta maximum value before reset" );
+static CVAR_DEFINE_AUTO( cl_fixtimerate, "7.5", 0, "time in msec to client clock adjusting" );
 CVAR_DEFINE_AUTO( hud_fontscale, "1.0", FCVAR_ARCHIVE|FCVAR_LATCH, "scale hud font texture" );
 CVAR_DEFINE_AUTO( hud_fontrender, "0", FCVAR_ARCHIVE, "hud font render mode (0: additive, 1: holes, 2: trans)" );
 CVAR_DEFINE_AUTO( hud_scale, "0", FCVAR_ARCHIVE|FCVAR_LATCH, "scale hud at current resolution" );
@@ -97,7 +100,7 @@ static CVAR_DEFINE_AUTO( topcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTE
 static CVAR_DEFINE_AUTO( bottomcolor, "0", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player bottom color" );
 CVAR_DEFINE_AUTO( rate, "25000", FCVAR_USERINFO|FCVAR_ARCHIVE|FCVAR_FILTERABLE, "player network rate" );
 
-CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE, "you wouldn't steal a car" );
+CVAR_DEFINE_AUTO( cl_ticket_generator, "revemu2013", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "you wouldn't steal a car" );
 static CVAR_DEFINE_AUTO( cl_advertise_engine_in_name, "1", FCVAR_ARCHIVE|FCVAR_PRIVILEGED, "add [Xash3D] to the nickname when connecting to GoldSrc servers" );
 static CVAR_DEFINE_AUTO( cl_log_outofband, "0", FCVAR_ARCHIVE, "log out of band messages, can be useful for server admins and for engine debugging" );
 static CVAR_DEFINE_AUTO( cl_autorecord, "0", 0, "automatically start recording a demo after joining the server" );
@@ -172,7 +175,7 @@ int CL_IsDevOverviewMode( void )
 
 connprotocol_t CL_Protocol( void )
 {
-	return cls.legacymode;
+	return cls.net_protocol;
 }
 
 void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats )
@@ -198,6 +201,120 @@ void CL_SetCheatState( qboolean multiplayer, qboolean allow_cheats )
 	}
 }
 
+static resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
+{
+	resource_t	*r = &cl.resourcelist[cl.num_resources];
+
+	if( cl.num_resources >= MAX_RESOURCES )
+		Host_Error( "Too many resources on client\n" );
+	cl.num_resources++;
+
+	Q_strncpy( r->szFileName, name, sizeof( r->szFileName ));
+	r->ucFlags |= bFatalIfMissing ? RES_FATALIFMISSING : 0;
+	r->nDownloadSize = size;
+	r->nIndex = index;
+	r->type = type;
+
+	return r;
+}
+
+static void CL_CreateResourceList( void )
+{
+	char szFileName[MAX_OSPATH];
+	byte rgucMD5_hash[16] = { 0 };
+
+	HPAK_FlushHostQueue();
+	cl.num_resources = 0;
+	memset( rgucMD5_hash, 0, sizeof( rgucMD5_hash ));
+
+	ClearBits( cl_logoupdate.flags, FCVAR_CHANGED );
+#if 1 // FIXME: deprecated, remove later
+	ClearBits( cl_logofile.flags, FCVAR_CHANGED );
+	ClearBits( cl_logocolor.flags, FCVAR_CHANGED );
+	ClearBits( cl_logoext.flags, FCVAR_CHANGED );
+#endif
+
+	// sanitize cvar value
+	if( Q_strcmp( cl_logoext.string, "bmp" ) && Q_strcmp( cl_logoext.string, "png" ))
+		Cvar_DirectSet( &cl_logoext, "bmp" );
+
+	Q_snprintf( szFileName, sizeof( szFileName ), "logos/remapped.%s", cl_logoext.string );
+	if( cls.net_protocol == PROTO_GOLDSRC )
+	{
+		CL_ConvertImageToWAD3( szFileName );
+		Q_strncpy( szFileName, "tempdecal.wad", sizeof( szFileName ));
+	}
+	file_t		*fp = FS_Open( szFileName, "rb", true );
+
+	if( !fp )
+		return;
+
+	int		nSize = FS_FileLength( fp );
+
+	if( nSize != 0 )
+	{
+		resource_t	*pNewResource = CL_AddResource( t_decal, szFileName, nSize, false, 0 );
+
+		if( pNewResource )
+		{
+			MD5_HashFile( rgucMD5_hash, szFileName, NULL );
+			SetBits( pNewResource->ucFlags, RES_CUSTOM );
+			memcpy( pNewResource->rgucMD5_hash, rgucMD5_hash, 16 );
+			HPAK_AddLump( false, hpk_custom_file.string, pNewResource, NULL, fp );
+		}
+	}
+
+	FS_Close( fp );
+}
+
+/*
+==================
+CL_UpdateLogo
+
+repackage the clan logo and upload it to the server
+==================
+*/
+static void CL_UpdateLogo( void )
+{
+	if( cls.state != ca_active )
+		return;
+
+	CL_CreateResourceList();
+
+	if( cl.num_resources == 0 )
+		return;
+
+	player_info_t	*player = &cl.players[cl.playernum];
+	COM_ClearCustomizationList( &player->customdata, true );
+
+	for( int i = 0; i < cl.num_resources; i++ )
+	{
+		resource_t *pResource = &cl.resourcelist[i];
+
+		if( !COM_CreateCustomization( &player->customdata, pResource, cl.playernum, 0, NULL, NULL ))
+			Con_Printf( "Unable to create custom decal\n" );
+	}
+
+	CL_SendResourceList( cl.resourcelist, cl.num_resources );
+}
+
+static void CL_CheckLogoChanged( void )
+{
+	if( FBitSet( cl_logoupdate.flags, FCVAR_CHANGED ))
+	{
+		CL_UpdateLogo();
+		return;
+	}
+
+#if 1 // FIXME: deprecated, remove later
+	if( FBitSet( cl_logofile.flags | cl_logocolor.flags | cl_logoext.flags, FCVAR_CHANGED ))
+	{
+		CL_UpdateLogo();
+		return;
+	}
+#endif
+}
+
 /*
 ===============
 CL_CheckClientState
@@ -216,11 +333,13 @@ static void CL_CheckClientState( void )
 		cls.changedemo = false;		// changedemo is done
 		cl.first_frame = true;		// first rendering frame
 
+		CL_UpdateLogo();
+
 		SCR_MakeLevelShot();		// make levelshot if needs
 		Cvar_SetValue( "scr_loading", 0.0f );	// reset progress bar
 		Netchan_ReportFlow( &cls.netchan );
 
-		if( cls.legacymode == PROTO_GOLDSRC )
+		if( cls.net_protocol == PROTO_GOLDSRC )
 		{
 			CL_ServerCommand(true, "specmode 4\n");
 			CL_ServerCommand(true, "specmode 4\n");
@@ -318,7 +437,6 @@ should be put at.
 static float CL_LerpPoint( void )
 {
 	double f = cl_serverframetime();
-	double frac;
 
 	if( f == 0.0 || cls.timedemo )
 	{
@@ -335,7 +453,7 @@ static float CL_LerpPoint( void )
 	if( cl_interp.value <= 0.001 )
 		return 1.0f;
 
-	frac = ( cl.time - cl.mtime[0] ) / cl_interp.value;
+	double frac = ( cl.time - cl.mtime[0] ) / cl_interp.value;
 
 	return frac;
 }
@@ -349,20 +467,17 @@ Drift interpolation value (this is used for server unlag system)
 */
 static int CL_DriftInterpolationAmount( int goal )
 {
-	float	fgoal, maxmove, diff;
-	int	msec;
-
-	fgoal = (float)goal / 1000.0f;
+	float	fgoal = (float)goal / 1000.0f;
 
 	if( fgoal != cl.local.interp_amount )
 	{
-		maxmove = host.frametime * 0.05;
-		diff = fgoal - cl.local.interp_amount;
+		float	maxmove = host.frametime * 0.05;
+		float	diff = fgoal - cl.local.interp_amount;
 		diff = bound( -maxmove, diff, maxmove );
 		cl.local.interp_amount += diff;
 	}
 
-	msec = cl.local.interp_amount * 1000.0f;
+	int	msec = cl.local.interp_amount * 1000.0f;
 	msec = bound( 0, msec, 100 );
 
 	return msec;
@@ -423,14 +538,14 @@ CL_ComputePacketLoss
 */
 static void CL_ComputePacketLoss( void )
 {
-	int i, lost = 0;
+	int lost = 0;
 
 	if( host.realtime < cls.packet_loss_recalc_time )
 		return;
 
 	cls.packet_loss_recalc_time = host.realtime + 1.0;
 
-	for( i = cls.netchan.incoming_sequence - CL_UPDATE_BACKUP + 1; i <= cls.netchan.incoming_sequence; i++ )
+	for( int i = cls.netchan.incoming_sequence - CL_UPDATE_BACKUP + 1; i <= cls.netchan.incoming_sequence; i++ )
 	{
 		if( cl.frames[i & CL_UPDATE_MASK].receivedtime == -1.0 )
 			lost++;
@@ -458,18 +573,15 @@ void CL_UpdateFrameLerp( void )
 
 static void CL_FindInterpolatedAddAngle( float t, float *frac, pred_viewangle_t **prev, pred_viewangle_t **next )
 {
-	int	i, i0, i1, imod;
-	float	at;
-
-	imod = cl.angle_position - 1;
-	i0 = (imod + 1) & ANGLE_MASK;
-	i1 = (imod + 0) & ANGLE_MASK;
+	int	imod = cl.angle_position - 1;
+	int	i0 = (imod + 1) & ANGLE_MASK;
+	int	i1 = (imod + 0) & ANGLE_MASK;
 
 	if( cl.predicted_angle[i0].starttime >= t )
 	{
-		for( i = 0; i < ANGLE_BACKUP - 2; i++ )
+		for( int i = 0; i < ANGLE_BACKUP - 2; i++ )
 		{
-			at = cl.predicted_angle[imod & ANGLE_MASK].starttime;
+			float	at = cl.predicted_angle[imod & ANGLE_MASK].starttime;
 			if( at == 0.0f ) break;
 
 			if( at < t )
@@ -537,14 +649,12 @@ navigate around texture atlas
 static qboolean CL_ProcessShowTexturesCmds( usercmd_t *cmd )
 {
 	static int	oldbuttons;
-	int		changed;
-	int		released;
 
 	if( !r_showtextures.value || CL_IsDevOverviewMode( ))
 		return false;
 
-	changed = (oldbuttons ^ cmd->buttons);
-	released = changed & (~cmd->buttons);
+	int		changed = (oldbuttons ^ cmd->buttons);
+	int		released = changed & (~cmd->buttons);
 
 	if( released & ( IN_RIGHT|IN_MOVERIGHT ))
 		Cvar_SetValue( "r_showtextures", r_showtextures.value + 1 );
@@ -616,17 +726,16 @@ tell the client.dll about player origin, angles, fov, etc
 */
 static void CL_UpdateClientData( void )
 {
-	client_data_t	cdat;
-
 	if( cls.state != ca_active )
 		return;
 
-	memset( &cdat, 0, sizeof( cdat ) );
-
-	VectorCopy( cl.viewangles, cdat.viewangles );
-	VectorCopy( clgame.entities[cl.viewentity].origin, cdat.origin );
-	cdat.iWeaponBits = cl.local.weapons;
-	cdat.fov = cl.local.scr_fov;
+	client_data_t	cdat =
+	{
+		.viewangles = Vec3( cl.viewangles ),
+		.origin = Vec3( clgame.entities[cl.viewentity].origin ),
+		.iWeaponBits = cl.local.weapons,
+		.fov = cl.local.scr_fov,
+	};
 
 	if( clgame.dllFuncs.pfnUpdateClientData( &cdat, cl.time ))
 	{
@@ -645,21 +754,18 @@ static void CL_CreateCmd( void )
 {
 	usercmd_t nullcmd = { 0 }, *cmd;
 	runcmd_t  *pcmd;
-	qboolean  active;
-	double    accurate_ms;
-	vec3_t    angles;
 	int       input_override;
-	int       i, ms;
+	int       ms;
 
 	if( cls.state <= ca_connected || cls.state == ca_cinematic )
 		return;
 
 	// store viewangles in case it's will be freeze
-	VectorCopy( cl.viewangles, angles );
+	vec3_t angles = Vec3( cl.viewangles );
 	input_override = 0;
 
 	// fix rounding error and framerate depending player move
-	accurate_ms = host.frametime * 1000;
+	double    accurate_ms = host.frametime * 1000;
 	ms = (int)accurate_ms;
 	cl.frametime_remainder += accurate_ms - ms; // accumulate rounding error each frame
 
@@ -680,7 +786,7 @@ static void CL_CreateCmd( void )
 	CL_SetSolidPlayers( cl.playernum );
 
 	// message we are constructing.
-	i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
+	int       i = cls.netchan.outgoing_sequence & CL_UPDATE_MASK;
 	pcmd = &cl.commands[i];
 
 	if( !cls.demoplayback )
@@ -698,7 +804,7 @@ static void CL_CreateCmd( void )
 		cmd = &nullcmd;
 	}
 
-	active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback );
+	qboolean  active = (( cls.signon == SIGNONS ) && !cl.paused && !cls.demoplayback );
 	Platform_PreCreateMove();
 	clgame.dllFuncs.CL_CreateMove( host.frametime, cmd, active );
 	IN_EngineAppendMove( host.frametime, cmd, active );
@@ -766,7 +872,7 @@ static void CL_WritePacket( void )
 	byte data[MAX_CMD_BUFFER] = { 0 };
 	runcmd_t *pcmd;
 	int numbackup, maxbackup, maxcmds;
-	const connprotocol_t proto = cls.legacymode;
+	const connprotocol_t proto = cls.net_protocol;
 
 	// FIXME: on Xash protocol we don't send move commands until ca_active
 	// to prevent outgoing_command outrun incoming_acknowledged
@@ -949,13 +1055,12 @@ CL_BeginUpload_f
 */
 static void CL_BeginUpload_f( void )
 {
-	const char		*name;
 	resource_t	custResource;
 	byte		*buf = NULL;
 	int		size = 0;
 	byte		md5[16];
 
-	name = Cmd_Argv( 1 );
+	const char		*name = Cmd_Argv( 1 );
 
 	if( COM_StringEmptyOrNULL( name ))
 		return;
@@ -1041,9 +1146,8 @@ static void CL_GetCDKey( char *protinfo, size_t protinfosize )
 	byte hash[16] = { 0 };
 	MD5Context_t ctx = { 0 };
 	char key[64];
-	int keylength;
 
-	keylength = Q_snprintf( key, sizeof( key ), "%u", COM_RandomLong( 0, 0x7ffffffe ));
+	int keylength = Q_snprintf( key, sizeof( key ), "%u", COM_RandomLong( 0, 0x7ffffffe ));
 
 	MD5Init( &ctx );
 	MD5Update( &ctx, key, keylength );
@@ -1082,7 +1186,6 @@ static void CL_WriteSteamTicket( sizebuf_t *send )
 
 void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticket, size_t ticketlen )
 {
-	const char *name;
 	sizebuf_t send;
 	byte send_buf[2048];
 	char protinfo[MAX_INFO_STRING];
@@ -1093,7 +1196,7 @@ void CL_SendGoldSrcConnectPacket( netadr_t adr, int challenge, const void *ticke
 	Info_SetValueForKeyf( protinfo, "unique", sizeof( protinfo ), "%i", 0xffffffff );
 	Info_SetValueForKey( protinfo, "raw", "steam", sizeof( protinfo ));
 	CL_GetCDKey( protinfo, sizeof( protinfo ));
-	name = Info_ValueForKey( cls.userinfo, "name" );
+	const char *name = Info_ValueForKey( cls.userinfo, "name" );
 	if( cl_advertise_engine_in_name.value && Q_strnicmp( name, "[Xash3D]", 8 ))
 		Info_SetValueForKeyf( cls.userinfo, "name", sizeof( cls.userinfo ), "[Xash3D]%s", name );
 
@@ -1126,8 +1229,6 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 {
 	char protinfo[MAX_INFO_STRING];
 	netadr_t adr = { 0 };
-	int input_devices;
-	netadrtype_t adrtype;
 
 	protinfo[0] = 0;
 
@@ -1138,11 +1239,11 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		return;
 	}
 
-	adrtype = NET_NetadrType( &adr );
+	netadrtype_t adrtype = NET_NetadrType( &adr );
 
 	if( adr.port == 0 ) adr.port = MSG_BigShort( PORT_SERVER );
 
-	input_devices = IN_CollectInputDevices();
+	int input_devices = IN_CollectInputDevices();
 	IN_LockInputDevices( adrtype != NA_LOOPBACK ? true : false );
 
 	// GoldSrc doesn't need useragent string
@@ -1156,6 +1257,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	}
 
 	cls.broker_wait = false;
+	cls.netchan_pending_cookie = 0;
 
 	if( proto == PROTO_GOLDSRC )
 	{
@@ -1177,7 +1279,7 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 	else
 	{
 		const char *qport = Cvar_VariableString( "net_qport" );
-		int extensions = Host_IsLocalGame() ? 0 : NET_EXT_SPLITSIZE;
+		int extensions = adrtype == NA_LOOPBACK ? 0 : ( NET_EXT_SPLITSIZE | NET_EXT_NETCHAN_COOKIE );
 		string key;
 
 		ID_GetMD5ForAddress( key, adr, sizeof( key ));
@@ -1191,6 +1293,16 @@ static void CL_SendConnectPacket( connprotocol_t proto, int challenge )
 		Info_SetValueForKey( protinfo, "uuid", key, sizeof( protinfo ));
 		Info_SetValueForKey( protinfo, "qport", qport, sizeof( protinfo ));
 		Info_SetValueForKeyf( protinfo, "ext", sizeof( protinfo ), "%d", extensions );
+
+		if( FBitSet( extensions, NET_EXT_NETCHAN_COOKIE ))
+		{
+			uint64_t a = COM_RandomLong( 0, 0xFFFF );
+			uint64_t b = COM_RandomLong( 0, 0xFFFF );
+			uint64_t c = COM_RandomLong( 0, 0xFFFF );
+			uint64_t d = COM_RandomLong( 0, 0xFFFF );
+			cls.netchan_pending_cookie = ( a << 48 ) | ( b << 32 ) | ( c << 16 ) | d;
+			Info_SetValueForKeyf( protinfo, "cookie", sizeof( protinfo ), "%016"PRIx64, cls.netchan_pending_cookie );
+		}
 
 		Netchan_OutOfBandPrint( NS_CLIENT, adr, C2S_CONNECT" %i %i \"%s\" \"%s\"\n", PROTOCOL_VERSION, challenge, protinfo, cls.userinfo );
 		Con_Printf( "Trying to connect with modern protocol\n" );
@@ -1255,17 +1367,9 @@ Resend a connect message if the last one has timed out
 static void CL_CheckForResend( void )
 {
 	netadr_t adr;
-	net_gai_state_t res;
-	float resend_time;
 
 	if( cls.internetservers_wait )
-	{
-		cls.internetservers_wait = NET_MasterQuery(
-			cls.internetservers_key,
-			cls.internetservers_nat,
-			cls.internetservers_customfilter
-		);
-	}
+		cls.internetservers_wait = NET_MasterQuery( 1, cls.internetservers_nat, cls.internetservers_customfilter );
 
 	// if the local server is running and we aren't then connect
 	if( cls.state == ca_disconnected && SV_Active( ))
@@ -1274,7 +1378,7 @@ static void CL_CheckForResend( void )
 		cls.state = ca_connecting;
 		Q_strncpy( cls.servername, "localhost", sizeof( cls.servername ));
 		NET_NetadrSetType( &cls.serveradr, NA_LOOPBACK );
-		cls.legacymode = PROTO_CURRENT;
+		cls.net_protocol = PROTO_CURRENT;
 
 		// we don't need a challenge on the localhost
 		CL_SendConnectPacket( PROTO_CURRENT, 0 );
@@ -1290,6 +1394,7 @@ static void CL_CheckForResend( void )
 	else if( cl_resend.value > CL_MAX_RESEND_TIME )
 		Cvar_DirectSetValue( &cl_resend, CL_MAX_RESEND_TIME );
 
+	float resend_time;
 	if( cls.bandwidth_test.started && !cls.bandwidth_test.passed && !cls.bandwidth_test.failed )
 		resend_time = 2.0f;
 	else
@@ -1298,7 +1403,7 @@ static void CL_CheckForResend( void )
 	if(( host.realtime - cls.connect_time ) < resend_time )
 		return;
 
-	res = NET_StringToAdrNB( cls.servername, &adr, false );
+	net_gai_state_t res = NET_StringToAdrNB( cls.servername, &adr, false );
 
 	if( res == NET_EAI_NONAME )
 	{
@@ -1348,7 +1453,7 @@ static void CL_CheckForResend( void )
 		// but tell us that test is allowed
 		// in this case, just send connect packet and hope for the best
 		if( cls.bandwidth_test.passed || cls.bandwidth_test.failed )
-			CL_SendConnectPacket( cls.legacymode, cls.bandwidth_test.challenge );
+			CL_SendConnectPacket( cls.net_protocol, cls.bandwidth_test.challenge );
 		else
 			CL_SendBandwidthTest( adr, false );
 	}
@@ -1357,108 +1462,6 @@ static void CL_CheckForResend( void )
 		Con_Printf( "Connecting to %s... (retry #%i)\n", cls.servername, cls.connect_retry );
 		CL_SendGetChallenge( adr );
 	}
-}
-
-static resource_t *CL_AddResource( resourcetype_t type, const char *name, int size, qboolean bFatalIfMissing, int index )
-{
-	resource_t	*r = &cl.resourcelist[cl.num_resources];
-
-	if( cl.num_resources >= MAX_RESOURCES )
-		Host_Error( "Too many resources on client\n" );
-	cl.num_resources++;
-
-	Q_strncpy( r->szFileName, name, sizeof( r->szFileName ));
-	r->ucFlags |= bFatalIfMissing ? RES_FATALIFMISSING : 0;
-	r->nDownloadSize = size;
-	r->nIndex = index;
-	r->type = type;
-
-	return r;
-}
-
-static void CL_CreateResourceList( void )
-{
-	char szFileName[MAX_OSPATH];
-	byte rgucMD5_hash[16] = { 0 };
-	resource_t	*pNewResource;
-	int		nSize;
-	file_t		*fp;
-
-	HPAK_FlushHostQueue();
-	cl.num_resources = 0;
-	memset( rgucMD5_hash, 0, sizeof( rgucMD5_hash ));
-
-	ClearBits( cl_logofile.flags, FCVAR_CHANGED );
-	ClearBits( cl_logocolor.flags, FCVAR_CHANGED );
-	ClearBits( cl_logoext.flags, FCVAR_CHANGED );
-
-	// sanitize cvar value
-	if( Q_strcmp( cl_logoext.string, "bmp" ) && Q_strcmp( cl_logoext.string, "png" ))
-		Cvar_DirectSet( &cl_logoext, "bmp" );
-
-	Q_snprintf( szFileName, sizeof( szFileName ), "logos/remapped.%s", cl_logoext.string );
-	if( cls.legacymode == PROTO_GOLDSRC )
-	{
-		CL_ConvertImageToWAD3( szFileName );
-		Q_strncpy( szFileName, "tempdecal.wad", sizeof( szFileName ));
-	}
-	fp = FS_Open( szFileName, "rb", true );
-
-	if( !fp )
-		return;
-
-	nSize = FS_FileLength( fp );
-
-	if( nSize != 0 )
-	{
-		pNewResource = CL_AddResource( t_decal, szFileName, nSize, false, 0 );
-
-		if( pNewResource )
-		{
-			MD5_HashFile( rgucMD5_hash, szFileName, NULL );
-			SetBits( pNewResource->ucFlags, RES_CUSTOM );
-			memcpy( pNewResource->rgucMD5_hash, rgucMD5_hash, 16 );
-			HPAK_AddLump( false, hpk_custom_file.string, pNewResource, NULL, fp );
-		}
-	}
-
-	FS_Close( fp );
-}
-
-/*
-==================
-CL_CheckLogoChanged
-
-==================
-*/
-static void CL_CheckLogoChanged( void )
-{
-	player_info_t	*player;
-	int		i;
-
-	if( cls.state != ca_active )
-		return;
-
-	if( !FBitSet( cl_logofile.flags | cl_logocolor.flags | cl_logoext.flags, FCVAR_CHANGED ))
-		return;
-
-	CL_CreateResourceList();
-
-	if( cl.num_resources == 0 )
-		return;
-
-	player = &cl.players[cl.playernum];
-	COM_ClearCustomizationList( &player->customdata, true );
-
-	for( i = 0; i < cl.num_resources; i++ )
-	{
-		resource_t *pResource = &cl.resourcelist[i];
-
-		if( !COM_CreateCustomization( &player->customdata, pResource, cl.playernum, 0, NULL, NULL ))
-			Con_Printf( "Unable to create custom decal\n" );
-	}
-
-	CL_SendResourceList( cl.resourcelist, cl.num_resources );
 }
 
 static qboolean CL_StringToProtocol( const char *s, connprotocol_t *proto )
@@ -1513,7 +1516,7 @@ static void CL_Connect_f( void )
 	Key_SetKeyDest( key_console );
 
 	cls.state = ca_connecting;
-	cls.legacymode = proto;
+	cls.net_protocol = proto;
 	Q_strncpy( cls.servername, server, sizeof( cls.servername ));
 	cls.connect_time = MAX_HEARTBEAT; // CL_CheckForResend() will fire immediately
 	cls.max_fragment_size = FRAGMENT_MAX_SIZE; // guess a we can establish connection with maximum fragment size
@@ -1536,7 +1539,6 @@ static void CL_Rcon_f( void )
 	char message[1024];
 	sizebuf_t msg;
 	netadr_t to;
-	int	i;
 
 	if( COM_StringEmptyOrNULL( rcon_password.string ))
 	{
@@ -1568,7 +1570,7 @@ static void CL_Rcon_f( void )
 	MSG_WriteStringf( &msg, C2S_RCON" %s ", rcon_password.string );
 	MSG_SeekToBit( &msg, -8, SEEK_CUR );
 
-	for( i = 1; i < Cmd_Argc(); i++ )
+	for( int i = 1; i < Cmd_Argc(); i++ )
 	{
 		string command;
 
@@ -1591,11 +1593,9 @@ CL_ClearState
 */
 void CL_ClearState( void )
 {
-	int	i;
-
 	CL_ClearResourceLists();
 
-	for( i = 0; i < MAX_CLIENTS; i++ )
+	for( int i = 0; i < MAX_CLIENTS; i++ )
 		COM_ClearCustomizationList( &cl.players[i].customdata, false );
 
 	S_StopAllSounds ( true );
@@ -1660,9 +1660,9 @@ static void CL_SendDisconnectMessage( connprotocol_t proto )
 	Netchan_TransmitBits( &cls.netchan, MSG_GetNumBitsWritten( &buf ), MSG_GetData( &buf ));
 }
 
-int CL_GetSplitSize( void )
+size_t CL_GetSplitSize( void )
 {
-	int splitsize = (int)cl_dlmax.value;
+	size_t splitsize = (int)cl_dlmax.value;
 
 	if( !FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 		return 1400;
@@ -1673,7 +1673,7 @@ int CL_GetSplitSize( void )
 		return FRAGMENT_DEFAULT_SIZE;
 	}
 
-	return (int)cl_dlmax.value;
+	return splitsize;
 }
 
 void CL_SetupNetchanForProtocol( connprotocol_t proto )
@@ -1695,10 +1695,19 @@ void CL_SetupNetchanForProtocol( connprotocol_t proto )
 
 		if( FBitSet( cls.extensions, NET_EXT_SPLITSIZE ))
 			Con_Reportf( "^2NET_EXT_SPLITSIZE enabled^7 (packet size is %d)\n", (int)cl_dlmax.value );
+
+		if( FBitSet( cls.extensions, NET_EXT_NETCHAN_COOKIE ))
+		{
+			Con_Reportf( "^2NET_EXT_NETCHAN_COOKIE enabled^7\n" );
+			SetBits( flags, NETCHAN_USE_COOKIE );
+		}
 		break;
 	}
 
 	Netchan_Setup( NS_CLIENT, &cls.netchan, net_from, Cvar_VariableInteger( "net_qport" ), NULL, pfnBlockSize, flags );
+
+	if( FBitSet( flags, NETCHAN_USE_COOKIE ))
+		Netchan_SetCookie( &cls.netchan, cls.netchan_pending_cookie );
 }
 
 /*
@@ -1712,7 +1721,7 @@ static void CL_Reconnect( qboolean setup_netchan )
 {
 	if( setup_netchan )
 	{
-		CL_SetupNetchanForProtocol( cls.legacymode );
+		CL_SetupNetchanForProtocol( cls.net_protocol );
 	}
 	else
 	{
@@ -1757,7 +1766,7 @@ void CL_Disconnect( void )
 	CL_Stop_f();
 
 	// send a disconnect message to the server
-	CL_SendDisconnectMessage( cls.legacymode );
+	CL_SendDisconnectMessage( cls.net_protocol );
 	SteamBroker_TerminateGameConnection();
 	CL_ClearState ();
 
@@ -1775,7 +1784,7 @@ void CL_Disconnect( void )
 	cls.connect_retry = 0;
 	memset( &cls.bandwidth_test, 0, sizeof( cls.bandwidth_test ));
 	cls.signon = 0;
-	cls.legacymode = PROTO_CURRENT;
+	cls.net_protocol = PROTO_CURRENT;
 
 	// back to menu in non-developer mode
 	if( host_developer.value || cls.key_dest == key_menu )
@@ -1803,7 +1812,7 @@ void CL_Crashed( void )
 	CL_Stop_f(); // stop any demos
 
 	// send a disconnect message to the server
-	CL_SendDisconnectMessage( cls.legacymode );
+	CL_SendDisconnectMessage( cls.net_protocol );
 
 	Host_WriteOpenGLConfig();
 	Host_WriteConfig();	// write config
@@ -1853,27 +1862,10 @@ static void CL_InternetServers_f( void )
 
 	cls.internetservers_nat = cl_nat.value != 0.0f;
 	cls.internetservers_pending = true;
-	cls.internetservers_key = COM_RandomLong( 0, 0xFFFFFFFF );
 	Q_strncpy( cls.internetservers_customfilter, Cmd_Argv( 1 ), sizeof( cls.internetservers_customfilter ));
 
-	cls.internetservers_wait = NET_MasterQuery(
-		cls.internetservers_key,
-		cls.internetservers_nat,
-		cls.internetservers_customfilter
-	);
-}
-
-static void CL_QueryServer( netadr_t adr, connprotocol_t proto )
-{
-	switch( proto )
-	{
-	case PROTO_GOLDSRC:
-		Netchan_OutOfBand( NS_CLIENT, adr, sizeof( A2S_GOLDSRC_INFO ), A2S_GOLDSRC_INFO ); // includes null terminator!
-		break;
-	case PROTO_CURRENT:
-		Netchan_OutOfBandPrint( NS_CLIENT, adr, A2A_INFO" %i", PROTOCOL_VERSION );
-		break;
-	}
+	// the key is dead extension, keep for compatibility until we use UDP based master server protocol
+	cls.internetservers_wait = NET_MasterQuery( 1, cls.internetservers_nat, cls.internetservers_customfilter );
 }
 
 static void CL_QueryServer_f( void )
@@ -1901,7 +1893,7 @@ static void CL_QueryServer_f( void )
 	if( !CL_StringToProtocol( Cmd_Argv( 2 ), &proto ))
 		return;
 
-	CL_QueryServer( adr, proto );
+	NET_QueryServerByAddress( adr, proto );
 }
 
 /*
@@ -1926,7 +1918,7 @@ static void CL_Reconnect_f( void )
 
 	if( !COM_StringEmptyOrNULL( cls.servername ))
 	{
-		connprotocol_t proto = cls.legacymode;
+		connprotocol_t proto = cls.net_protocol;
 
 		if( cls.state >= ca_connected )
 			CL_Disconnect();
@@ -1935,7 +1927,7 @@ static void CL_Reconnect_f( void )
 		cls.demonum = cls.movienum = -1;	// not in the demo loop now
 		cls.state = ca_connecting;
 		cls.signon = 0;
-		cls.legacymode = proto; // don't change protocol
+		cls.net_protocol = proto; // don't change protocol
 
 		Con_Printf( "reconnecting...\n" );
 	}
@@ -1989,8 +1981,6 @@ all the keys and values must be ends with ^7
 */
 static void CL_FixupColorStringsForInfoString( const char *in, char *out, size_t len )
 {
-	qboolean	hasPrefix = false;
-	qboolean	endOfKeyVal = false;
 	int	color = 7;
 	int	count = 0;
 
@@ -2086,29 +2076,106 @@ static void CL_ParseStatusMessage( netadr_t from, sizebuf_t *msg )
 	UI_AddServerToList( from, infostring );
 }
 
-static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
+static net_request_t *CL_NetRequestFind( netadr_t from, int type )
+{
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
+	{
+		net_request_t *nr = &clgame.net_requests[i];
+
+		if( !nr->pfnFunc || nr->resp.type != type )
+			continue;
+
+		if( NET_CompareAdr( nr->resp.remote_address, from ))
+			return nr;
+
+		// broadcast requests accept a response from anyone
+		if( NET_NetadrType( &nr->resp.remote_address ) == NA_BROADCAST )
+			return nr;
+	}
+
+	return NULL;
+}
+
+static void CL_NetRequestComplete( net_request_t *nr, netadr_t from, const char *response )
+{
+	netadr_t request_adr = nr->resp.remote_address;
+
+	nr->resp.response = (void *)response;
+	nr->resp.remote_address = from;
+	nr->resp.error = NET_SUCCESS;
+	nr->resp.ping = host.realtime - nr->timesend;
+
+	nr->pfnFunc( &nr->resp );
+
+	if( FBitSet( nr->flags, FNETAPI_MULTIPLE_RESPONSE ))
+		nr->resp.remote_address = request_adr;
+	else memset( nr, 0, sizeof( *nr )); // done
+}
+
+static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg, qboolean legacy_format )
 {
 	static char	s[512+8];
-	int p, numcl, maxcl, password, remaining, bots;
+	int p, numcl, maxcl, password, bots;
 	string host, map, gamedir, version;
-	char *replace;
 
 	// set to beginning but skip header
 	MSG_SeekToBit( msg, (sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
 
-	p = MSG_ReadByte( msg );
-	Q_strncpy( host, MSG_ReadString( msg ), sizeof( host ));
-	Q_strncpy( map, MSG_ReadString( msg ), sizeof( map ));
-	Q_strncpy( gamedir, MSG_ReadString( msg ), sizeof( gamedir ));
-	MSG_ReadString( msg ); // game description
-	MSG_ReadShort( msg ); // app id
-	numcl = MSG_ReadByte( msg );
-	maxcl = MSG_ReadByte( msg );
-	bots = MSG_ReadByte( msg ); // bots count
-	MSG_ReadByte( msg ); // dedicated
-	MSG_ReadByte( msg ); // operating system
-	password = MSG_ReadByte( msg );
-	Q_strncpy( version, MSG_ReadString( msg ), sizeof( version ));
+	if( legacy_format )
+	{
+		int mod;
+
+		// FIXME: this is invalid, `m` servers might be geniune 47 proto servers
+		// but many servers that reply with legacy format are 47/48
+		// so at least let the user to connect them
+		p = PROTOCOL_GOLDSRC_VERSION;
+
+		MSG_ReadString( msg ); // address
+		Q_strncpy( host, MSG_ReadString( msg ), sizeof( host ));
+		Q_strncpy( map, MSG_ReadString( msg ), sizeof( map ));
+		Q_strncpy( gamedir, MSG_ReadString( msg ), sizeof( gamedir ));
+		MSG_ReadString( msg ); // game description
+		numcl = MSG_ReadByte( msg );
+		maxcl = MSG_ReadByte( msg );
+		MSG_ReadByte( msg ); // protocol version
+		MSG_ReadByte( msg ); // server type
+		MSG_ReadByte( msg ); // operating system
+		password = MSG_ReadByte( msg );
+		mod = MSG_ReadByte( msg ); // mod flag
+
+		if( mod == 1 )
+		{
+			MSG_ReadString( msg ); // mod URL
+			MSG_ReadString( msg ); // mod download URL
+			MSG_ReadLong( msg );   // mod version
+			MSG_ReadLong( msg );   // mod size
+			MSG_ReadByte( msg );   // mod type (SP/MP)
+			MSG_ReadByte( msg );   // custom DLL flag
+			Q_strncpy( version, MSG_ReadString( msg ), sizeof( version ));
+			bots = MSG_ReadByte( msg ); // bots count
+		}
+		else
+		{
+			Q_strncpy( version, MSG_ReadString( msg ), sizeof( version ));
+			bots = MSG_ReadByte( msg ); // bots count
+		}
+	}
+	else
+	{
+		p = MSG_ReadByte( msg );
+		Q_strncpy( host, MSG_ReadString( msg ), sizeof( host ));
+		Q_strncpy( map, MSG_ReadString( msg ), sizeof( map ));
+		Q_strncpy( gamedir, MSG_ReadString( msg ), sizeof( gamedir ));
+		MSG_ReadString( msg ); // game description
+		MSG_ReadShort( msg ); // app id
+		numcl = MSG_ReadByte( msg );
+		maxcl = MSG_ReadByte( msg );
+		bots = MSG_ReadByte( msg ); // bots count
+		MSG_ReadByte( msg ); // server type
+		MSG_ReadByte( msg ); // operating system
+		password = MSG_ReadByte( msg );
+		Q_strncpy( version, MSG_ReadString( msg ), sizeof( version ));
+	}
 
 	// sanity check
 	if( maxcl > MAX_CLIENTS || numcl > MAX_CLIENTS || bots > MAX_CLIENTS || numcl > maxcl || bots > maxcl )
@@ -2134,7 +2201,7 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 
 	// write host last so we can try to cut off too long hostnames
 	// TODO: value size limit for infostrings
-	remaining = sizeof( s ) - Q_strlen( s ) - sizeof( "\\host\\" ) - 1;
+	int remaining = sizeof( s ) - Q_strlen( s ) - sizeof( "\\host\\" ) - 1;
 	if( remaining < 0 )
 	{
 		// should never happen?
@@ -2142,104 +2209,205 @@ static void CL_ParseGoldSrcStatusMessage( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
+	char *replace;
 	while(( replace = Q_strpbrk( host, "\\\"" )))
-	{
 		*replace = ' '; // find a better replacement?
-	}
 
 	Info_SetValueForKey( s, "host", host, sizeof( s ));
 
+	// tell mainui about server
 	UI_AddServerToList( from, s );
+
+	// now process NetAPI requst
+	net_request_t *nr = CL_NetRequestFind( from, NETAPI_REQUEST_DETAILS );
+
+	if( !nr )
+		return;
+
+	s[0] = 0;
+	Info_SetValueForKey( s, "gamedir", gamedir, sizeof( s ));
+	Info_SetValueForKeyf( s, "current", sizeof( s ), "%i", numcl );
+	Info_SetValueForKeyf( s, "max", sizeof( s ), "%i", maxcl );
+	Info_SetValueForKey( s, "map", map, sizeof( s ));
+	Info_SetValueForKey( s, "hostname", host, sizeof( s ));
+
+	CL_NetRequestComplete( nr, from, s );
 }
 
 /*
 =================
-CL_ParseNETInfoMessage
-
-Handle a reply from a netinfo
+CL_NetRequestSend
 =================
 */
-static void CL_ParseNETInfoMessage( netadr_t from, const char *s )
+qboolean CL_NetRequestSend( net_request_t *nr )
 {
-	net_request_t	*nr = NULL;
-	static char	infostring[MAX_PRINT_MSG];
-	int		i, context, type;
-	int		errorBits = 0;
-	const char		*val;
-	size_t slen;
+	byte buf[64];
+	sizebuf_t msg;
 
-	context = Q_atoi( Cmd_Argv( 1 ));
-	type = Q_atoi( Cmd_Argv( 2 ));
-
-	// find request with specified context and type
-	for( i = 0; i < MAX_REQUESTS; i++ )
+	if( nr->resp.type == NETAPI_REQUEST_PING )
 	{
-		if( clgame.net_requests[i].resp.context == context && clgame.net_requests[i].resp.type == type )
-		{
-			nr = &clgame.net_requests[i];
-			break;
-		}
+		Netchan_OutOfBandPrint( NS_CLIENT, nr->resp.remote_address, A2A_GOLDSRC_PING );
+		return true;
 	}
 
-	// not found, ignore
-	if( nr == NULL )
-		return;
+	MSG_Init( &msg, "NetRequest", buf, sizeof( buf ));
 
-	// find the payload
-	s = Q_strchr( s, ' ' ); // skip netinfo
-	if( !s )
-		return;
-
-	s = Q_strchr( s + 1, ' ' ); // skip challenge
-	if( !s )
-		return;
-
-	s = Q_strchr( s + 1, ' ' ); // skip type
-	if( s )
-		s++; // skip final whitespace
-	else if( type != NETAPI_REQUEST_PING ) // ping have no payload, and that's ok
-		return;
-
-	if( s )
+	switch( nr->resp.type )
 	{
-		if( s[0] == '\\' )
-		{
-			// check for errors
-			val = Info_ValueForKey( s, "neterror" );
-
-			if( !Q_stricmp( val, "protocol" ))
-				SetBits( errorBits, NET_ERROR_PROTO_UNSUPPORTED );
-			else if( !Q_stricmp( val, "undefined" ))
-				SetBits( errorBits, NET_ERROR_UNDEFINED );
-			else if( !Q_stricmp( val, "forbidden" ))
-				SetBits( errorBits, NET_ERROR_FORBIDDEN );
-
-			CL_FixupColorStringsForInfoString( s, infostring, sizeof( infostring ));
-		}
-		else
-		{
-			Q_strncpy( infostring, s, sizeof( infostring ));
-		}
-	}
-	else
-	{
-		infostring[0] = 0;
+	case NETAPI_REQUEST_DETAILS:
+		MSG_WriteString( &msg, A2S_GOLDSRC_INFO );
+		break;
+	case NETAPI_REQUEST_PLAYERS:
+		MSG_WriteByte( &msg, A2S_GOLDSRC_PLAYERS );
+		break;
+	case NETAPI_REQUEST_RULES:
+		MSG_WriteByte( &msg, A2S_GOLDSRC_RULES );
+		break;
+	default:
+		return false;
 	}
 
-	// setup the answer
-	nr->resp.response = infostring;
-	nr->resp.remote_address = from;
-	nr->resp.error = NET_SUCCESS;
-	nr->resp.ping = host.realtime - nr->timesend;
+	MSG_WriteLong( &msg, nr->challenge );
 
-	if( nr->timeout <= host.realtime )
-		SetBits( nr->resp.error, NET_ERROR_TIMEOUT );
-	SetBits( nr->resp.error, errorBits ); // misc error bits
+	Netchan_OutOfBand( NS_CLIENT, nr->resp.remote_address, MSG_GetNumBytesWritten( &msg ), MSG_GetData( &msg ));
 
-	nr->pfnFunc( &nr->resp );
+	return true;
+}
 
-	if( !FBitSet( nr->flags, FNETAPI_MULTIPLE_RESPONSE ))
-		memset( nr, 0, sizeof( *nr )); // done
+/*
+=================
+CL_HasActiveNetRequest
+=================
+*/
+qboolean CL_HasActiveNetRequest( netadr_t from )
+{
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
+	{
+		const net_request_t *nr = &clgame.net_requests[i];
+
+		if( !nr->pfnFunc )
+			continue;
+
+		if( nr->resp.type != NETAPI_REQUEST_RULES && nr->resp.type != NETAPI_REQUEST_PLAYERS )
+			continue;
+
+		if( NET_CompareAdr( nr->resp.remote_address, from ))
+			return true;
+	}
+
+	return false;
+}
+
+/*
+=================
+CL_NetRequestChallenge
+=================
+*/
+static void CL_NetRequestChallenge( netadr_t from, sizebuf_t *msg )
+{
+	MSG_SeekToBit( msg, ( sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
+	int challenge = MSG_ReadLong( msg );
+
+	// give the challenge to the first request without one,
+	// the server sends a challenge per received query
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
+	{
+		net_request_t *nr = &clgame.net_requests[i];
+
+		if( !nr->pfnFunc || nr->resp.type == NETAPI_REQUEST_PING )
+			continue;
+
+		if( nr->challenge != -1 )
+			continue;
+
+		if( !NET_CompareAdr( nr->resp.remote_address, from ))
+			continue;
+
+		nr->challenge = challenge;
+		CL_NetRequestSend( nr );
+		break;
+	}
+}
+
+/*
+=================
+CL_NetRequestPing
+=================
+*/
+static void CL_NetRequestPing( netadr_t from )
+{
+	net_request_t *nr = CL_NetRequestFind( from, NETAPI_REQUEST_PING );
+
+	if( !nr )
+		return;
+
+	CL_NetRequestComplete( nr, from, "" );
+}
+
+/*
+=================
+CL_NetRequestPlayers
+=================
+*/
+static void CL_NetRequestPlayers( netadr_t from, sizebuf_t *msg )
+{
+	static char s[MAX_PRINT_MSG];
+	net_request_t *nr = CL_NetRequestFind( from, NETAPI_REQUEST_PLAYERS );
+
+	if( !nr )
+		return;
+
+	MSG_SeekToBit( msg, ( sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
+
+	int count = MSG_ReadByte( msg );
+
+	s[0] = 0;
+	for( int i = 0; i < count && !MSG_CheckOverflow( msg ); i++ )
+	{
+		MSG_ReadByte( msg ); // index, GoldSrc servers always send 0 here
+		Info_SetValueForKey( s, va( "p%iname", i ), MSG_ReadString( msg ), sizeof( s ));
+		Info_SetValueForKeyf( s, va( "p%ifrags", i ), sizeof( s ), "%i", MSG_ReadLong( msg ));
+		Info_SetValueForKeyf( s, va( "p%itime", i ), sizeof( s ), "%f", MSG_ReadFloat( msg ));
+	}
+	Info_SetValueForKeyf( s, "players", sizeof( s ), "%i", count );
+
+	if( MSG_CheckOverflow( msg ))
+		return;
+
+	CL_NetRequestComplete( nr, from, s );
+}
+
+/*
+=================
+CL_NetRequestRules
+=================
+*/
+static void CL_NetRequestRules( netadr_t from, sizebuf_t *msg )
+{
+	static char s[MAX_PRINT_MSG];
+	net_request_t *nr = CL_NetRequestFind( from, NETAPI_REQUEST_RULES );
+
+	if( !nr )
+		return;
+
+	MSG_SeekToBit( msg, ( sizeof( uint32_t ) + sizeof( uint8_t )) << 3, SEEK_SET );
+
+	int count = MSG_ReadShort( msg );
+
+	s[0] = 0;
+	for( int i = 0; i < count && !MSG_CheckOverflow( msg ); i++ )
+	{
+		string key;
+
+		Q_strncpy( key, MSG_ReadString( msg ), sizeof( key ));
+		Info_SetValueForKey( s, key, MSG_ReadString( msg ), sizeof( s ));
+	}
+	Info_SetValueForKeyf( s, "rules", sizeof( s ), "%i", count );
+
+	if( MSG_CheckOverflow( msg ))
+		return;
+
+	CL_NetRequestComplete( nr, from, s );
 }
 
 /*
@@ -2251,14 +2419,13 @@ check for timeouts
 */
 static void CL_ProcessNetRequests( void )
 {
-	net_request_t	*nr;
-	int		i;
-
 	// find a request with specified context
-	for( i = 0; i < MAX_REQUESTS; i++ )
+	for( int i = 0; i < ARRAYSIZE( clgame.net_requests ); i++ )
 	{
-		nr = &clgame.net_requests[i];
-		if( !nr->pfnFunc ) continue;	// not used
+		net_request_t *nr = &clgame.net_requests[i];
+
+		if( !nr->pfnFunc )
+			continue; // not used
 
 		if( nr->timeout <= host.realtime )
 		{
@@ -2318,7 +2485,7 @@ CL_IsFromConnectingServer
 Used for connectionless packets, when netchan may not be ready.
 =================
 */
-static qboolean CL_IsFromConnectingServer( netadr_t from )
+qboolean CL_IsFromConnectingServer( netadr_t from )
 {
 	return NET_IsLocalAddress( from ) ||
 		NET_CompareAdr( cls.serveradr, from );
@@ -2358,7 +2525,7 @@ static void CL_HandleTestPacket( netadr_t from, sizebuf_t *msg )
 	}
 
 	// reading test buffer
-	MSG_ReadBytes( msg, recv_buf, realsize );
+	MSG_ReadBytes( msg, recv_buf, sizeof( recv_buf ), realsize );
 
 	// procssing the CRC
 	CRC32_ProcessBuffer( &crcValue2, recv_buf, realsize );
@@ -2419,6 +2586,62 @@ static void CL_ClientConnect( connprotocol_t proto, const char *c, netadr_t from
 			return;
 		}
 
+		const char *challenge_str = Info_ValueForKey( Cmd_Argv( 1 ), "challenge" );
+
+		if( COM_StringEmpty( challenge_str ))
+		{
+			qboolean require_challenge;
+
+			if( cl_require_challenge_echo.value < 0 )
+				require_challenge = false; // FIXME: flip once most servers migrate to newer engine version
+			else
+				require_challenge = !!cl_require_challenge_echo.value;
+
+			if( require_challenge )
+			{
+				Con_Printf( S_WARN "%s: %s did not echo challenge, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+				return;
+			}
+		}
+		else if( Q_atoi( challenge_str ) != cls.bandwidth_test.challenge )
+		{
+			Con_Printf( S_WARN "%s: challenge mismatch from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+			return;
+		}
+
+		if( cls.netchan_pending_cookie != 0 )
+		{
+			int server_extensions = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "ext" ));
+
+			if( FBitSet( server_extensions, NET_EXT_NETCHAN_COOKIE ))
+			{
+				const char *cookie_str = Info_ValueForKey( Cmd_Argv( 1 ), "cookie" );
+
+				if( Q_strlen( cookie_str ) != 16 )
+				{
+					Con_Reportf( S_WARN "%s: missing cookie echo from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+					return;
+				}
+
+				byte buf[8];
+				COM_HexConvert( cookie_str, 16, buf );
+
+				uint64_t echoed = 0;
+				for( int i = 0; i < 8; i++ )
+					echoed = ( echoed << 8 ) | buf[i];
+
+				if( echoed != cls.netchan_pending_cookie )
+				{
+					Con_Reportf( S_WARN "%s: invalid cookie echo from %s, ignoring (possible spoof)\n", __func__, NET_AdrToString( from ));
+					return;
+				}
+			}
+			else
+			{
+				cls.netchan_pending_cookie = 0;
+			}
+		}
+
 		cls.build_num = 0; // not used in Xash3D protocols
 		cls.allow_cheats = Q_atoi( Info_ValueForKey( Cmd_Argv( 1 ), "cheats" ));
 	}
@@ -2440,8 +2663,16 @@ static void CL_Print( const char *c, const char *args, netadr_t from, sizebuf_t 
 	Con_Printf( "%s%c", s, s[Q_strlen( s ) - 1] != '\n' ? '\n' : '\0' );
 }
 
-static void CL_Challenge( const char *c, netadr_t from )
+static void CL_Challenge( const char *c, netadr_t from, sizebuf_t *msg )
 {
+	// connection challenge is text and always comes as literal A00000000,
+	// query challenge is binary: challenge type byte and the challenge value
+	if( c[0] == S2C_GOLDSRC_CHALLENGE[0] && Q_strcmp( c, S2C_GOLDSRC_CHALLENGE ))
+	{
+		CL_NetRequestChallenge( from, msg );
+		return;
+	}
+
 	if( cls.state != ca_connecting )
 		return;
 
@@ -2451,7 +2682,7 @@ static void CL_Challenge( const char *c, netadr_t from )
 	// try to autodetect protocol by challenge response
 	if( !Q_strcmp( c, S2C_GOLDSRC_CHALLENGE ))
 	{
-		cls.legacymode = PROTO_GOLDSRC;
+		cls.net_protocol = PROTO_GOLDSRC;
 
 		cls.steam_auth = Q_atoi( Cmd_Argv( 2 )) == 3;
 
@@ -2467,14 +2698,14 @@ static void CL_Challenge( const char *c, netadr_t from )
 
 	cls.bandwidth_test.challenge = Q_atoi( Cmd_Argv( 1 ));
 
-	if( cls.legacymode == PROTO_CURRENT && cl_test_bandwidth.value && !cls.bandwidth_test.passed )
+	if( cls.net_protocol == PROTO_CURRENT && cl_test_bandwidth.value && !cls.bandwidth_test.passed )
 	{
 		// when connecting to old server or server that has bandwidth test disabled
 		// it might be more preferrable to have some sane fragment size
 		if( !Q_atoi( Cmd_Argv( 2 )))
 		{
 			Cvar_SetValue( "cl_dlmax", FRAGMENT_DEFAULT_SIZE );
-			CL_SendConnectPacket( cls.legacymode, cls.bandwidth_test.challenge );
+			CL_SendConnectPacket( cls.net_protocol, cls.bandwidth_test.challenge );
 		}
 		else
 		{
@@ -2484,7 +2715,7 @@ static void CL_Challenge( const char *c, netadr_t from )
 	else
 	{
 		// challenge from the server we are connecting to
-		CL_SendConnectPacket( cls.legacymode, cls.bandwidth_test.challenge );
+		CL_SendConnectPacket( cls.net_protocol, cls.bandwidth_test.challenge );
 	}
 }
 
@@ -2537,6 +2768,21 @@ static void CL_Reject( const char *c, const char *args, netadr_t from )
 	CL_Disconnect_f();
 }
 
+/*
+=================
+CL_NotifyServerListResponse
+
+=================
+*/
+void CL_NotifyServerListResponse( void )
+{
+	if( !cls.internetservers_pending )
+		return;
+
+	UI_ResetPing();
+	cls.internetservers_pending = false;
+}
+
 static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 {
 	connprotocol_t proto;
@@ -2547,25 +2793,13 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 		return;
 	}
 
-	// check the extra header
 	if( proto == PROTO_CURRENT )
 	{
+		// dead extension
 		if( MSG_ReadByte( msg ) == 0x7f )
 		{
-			uint32_t key = MSG_ReadDword( msg );
-
-			if( cls.internetservers_key != key )
-			{
-				Con_Printf( S_WARN "unexpected server list packet from %s (invalid key)\n", NET_AdrToString( from ));
-			return;
-			}
-
-			MSG_ReadByte( msg ); // reserved byte
-		}
-		else
-		{
-			Con_Printf( S_WARN "invalid server list packet from %s (missing extra header)\n", NET_AdrToString( from ));
-			return;
+			MSG_ReadDword( msg ); // was key
+			MSG_ReadByte( msg );  // was reserved
 		}
 	}
 
@@ -2577,30 +2811,27 @@ static void CL_ServerList( netadr_t from, sizebuf_t *msg )
 
 		if( NET_NetadrType( &from ) == NA_IP6 ) // IPv6 master server only sends IPv6 addresses
 		{
-			MSG_ReadBytes( msg, addr, sizeof( addr ));
+			MSG_ReadBytes( msg, addr, sizeof( addr ), sizeof( addr ));
 			NET_IP6BytesToNetadr( &servadr, addr );
 			NET_NetadrSetType( &servadr, NA_IP6 );
 		}
 		else
 		{
-			MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ));	// 4 bytes for IP
+			MSG_ReadBytes( msg, servadr.ip, sizeof( servadr.ip ), sizeof( servadr.ip ));	// 4 bytes for IP
 			NET_NetadrSetType( &servadr, NA_IP );
 		}
-		MSG_ReadBytes( msg, &servadr.port, sizeof( servadr.port ));	// 2 bytes for Port, in network byte order
+
+		MSG_ReadBytes( msg, &servadr.port, sizeof( servadr.port ), sizeof( servadr.port ));	// 2 bytes for Port, in network byte order
 
 		// list is ends here
 		if( !servadr.port )
 			break;
 
 		NET_Config( true, false ); // allow remote
-		CL_QueryServer( servadr, proto );
+		NET_QueryServerByAddress( servadr, proto );
 	}
 
-	if( cls.internetservers_pending )
-	{
-		UI_ResetPing();
-		cls.internetservers_pending = false;
-	}
+	CL_NotifyServerListResponse();
 }
 
 /*
@@ -2627,13 +2858,9 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 		Con_Reportf( "%s: %s : %s\n", __func__, NET_AdrToString( from ), c );
 
 	// server connection
-	if( !Q_strcmp( c, "sb_connect" ))
-	{
-		SteamBroker_HandlePacket( from, msg );
-	}
 	if( !Q_strcmp( c, S2C_GOLDSRC_CONNECTION ) || !Q_strcmp( c, S2C_CONNECTION ))
 	{
-		CL_ClientConnect( cls.legacymode, c, from );
+		CL_ClientConnect( cls.net_protocol, c, from );
 	}
 	else if( !Q_strcmp( c, A2A_INFO ))
 	{
@@ -2641,11 +2868,19 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( c[0] == S2A_GOLDSRC_INFO )
 	{
-		CL_ParseGoldSrcStatusMessage( from, msg );
+		CL_ParseGoldSrcStatusMessage( from, msg, false );
 	}
-	else if( !Q_strcmp( c, A2A_NETINFO ))
+	else if( c[0] == S2A_GOLDSRC_LEGACY_INFO )
 	{
-		CL_ParseNETInfoMessage( from, args ); // server responding to a status broadcast
+		CL_ParseGoldSrcStatusMessage( from, msg, true );
+	}
+	else if( c[0] == S2A_GOLDSRC_PLAYERS )
+	{
+		CL_NetRequestPlayers( from, msg );
+	}
+	else if( c[0] == S2A_GOLDSRC_RULES )
+	{
+		CL_NetRequestRules( from, msg );
 	}
 	else if( c[0] == A2C_GOLDSRC_PRINT || !Q_strcmp( c, A2C_PRINT ))
 	{
@@ -2665,11 +2900,11 @@ static void CL_ConnectionlessPacket( netadr_t from, sizebuf_t *msg )
 	}
 	else if( !Q_strcmp( c, A2A_ACK ) || !Q_strcmp( c, A2A_GOLDSRC_ACK ))
 	{
-		// no-op
+		CL_NetRequestPing( from ); // server responding to a NetAPI ping
 	}
-	else if( !Q_strcmp( c, S2C_CHALLENGE ) || !Q_strcmp( c, S2C_GOLDSRC_CHALLENGE ))
+	else if( !Q_strcmp( c, S2C_CHALLENGE ) || c[0] == S2C_GOLDSRC_CHALLENGE[0] )
 	{
-		CL_Challenge( c, from );
+		CL_Challenge( c, from, msg );
 	}
 	else if( !Q_strcmp( c, S2C_REJECT ) || c[0] == S2C_GOLDSRC_REJECT || c[0] == S2C_GOLDSRC_REJECT_BADPASSWORD )
 	{
@@ -2749,7 +2984,7 @@ static void CL_ReadNetMessage( void )
 	size_t	curSize;
 	void (*parsefn)( sizebuf_t *msg );
 
-	switch( cls.legacymode )
+	switch( cls.net_protocol )
 	{
 	case PROTO_QUAKE:
 		parsefn = CL_ParseQuakeMessage;
@@ -2861,7 +3096,7 @@ static void CL_ReadPackets( void )
 	// hot precache and downloading resources
 	if( cls.signon == SIGNONS && cl.lastresourcecheck < host.realtime )
 	{
-		double checktime = Host_IsLocalGame() ? 0.1 : 1.0;
+		double checktime = Host_IsLocalClient() ? 0.1 : 1.0;
 
 		if( !cls.dl.custom && cl.resourcesneeded.pNext != &cl.resourcesneeded )
 		{
@@ -2963,12 +3198,6 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 	{
 		if( filename[0] != '!' )
 			Con_Printf( "processing %s\n", filename );
-
-		if( !Q_strnicmp( filename, DEFAULT_DOWNLOADED_DIRECTORY, sizeof( DEFAULT_DOWNLOADED_DIRECTORY ) - 1 ))
-		{
-			// skip "downloaded/" part to avoid mismatch with needed resources list
-			filename += sizeof( DEFAULT_DOWNLOADED_DIRECTORY ) - 1;
-		}
 	}
 	else if( !successfully_received )
 	{
@@ -3051,7 +3280,7 @@ void CL_ProcessFile( qboolean successfully_received, const char *filename )
 			MSG_Init( &msg, "Resource Registration", msg_buf, sizeof( msg_buf ));
 
 			if( CL_PrecacheResources( ))
-				CL_RegisterResources( &msg, cls.legacymode );
+				CL_RegisterResources( &msg, cls.net_protocol );
 
 			if( MSG_GetNumBytesWritten( &msg ) > 0 )
 			{
@@ -3111,7 +3340,7 @@ tell server about changed userinfo
 */
 void CL_UpdateInfo( const char *key, const char *value )
 {
-	switch( cls.legacymode )
+	switch( cls.net_protocol )
 	{
 	case PROTO_GOLDSRC:
 		if( cl_advertise_engine_in_name.value && !Q_stricmp( key, "name" ) && Q_strnicmp( value, "[Xash3D]", 8 ))
@@ -3441,8 +3670,10 @@ static void CL_InitLocal( void )
 	Cvar_RegisterVariable( &cl_logofile );
 	Cvar_RegisterVariable( &cl_logocolor );
 	Cvar_RegisterVariable( &cl_logoext );
+	Cvar_RegisterVariable( &cl_logoupdate );
 	Cvar_RegisterVariable( &cl_logomaxdim );
 	Cvar_RegisterVariable( &cl_test_bandwidth );
+	Cvar_RegisterVariable( &cl_require_challenge_echo );
 
 	Voice_RegisterCvars();
 	VGui_RegisterCvars();
@@ -3568,11 +3799,11 @@ static void CL_InitLocal( void )
 	Cmd_AddCommand ("levelshot", CL_LevelShot_f, "same as \"screenshot\", used for create plaque images" );
 	Cmd_AddCommand ("saveshot", CL_GenericShot_f, "used for create save previews with LoadGame menu" );
 
-	Cmd_AddCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
+	Cmd_AddRestrictedCommand ("connect", CL_Connect_f, "connect to a server by hostname" );
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f, "reconnect to current level" );
 	Cmd_AddCommand ("retry", CL_Retry_f, "retry connection to last server" );
 
-	Cmd_AddCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
+	Cmd_AddRestrictedCommand ("rcon", CL_Rcon_f, "sends a command to the server console (rcon_password and rcon_address required)" );
 
 	Cmd_AddCommand( "richpresence_gamemode", Cmd_Null_f, "compatibility command, does nothing" );
 	Cmd_AddCommand( "richpresence_update", Cmd_Null_f, "compatibility command, does nothing" );
@@ -3734,14 +3965,15 @@ void CL_Init( void )
 
 	COM_GetCommonLibraryPath( LIBRARY_CLIENT, libpath, sizeof( libpath ));
 
-	if( !CL_LoadProgs( libpath ))
-		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
-
 	S_Init();	// init sound
 	Voice_Init( VOICE_DEFAULT_CODEC, 3, true ); // init voice (do not open the device)
 
 	ID_Init();
 	SteamBroker_Init();
+
+	// client must be always initialized last so it can fetch all cvars
+	if( !CL_LoadProgs( libpath ))
+		Host_Error( "can't initialize %s: %s\n", libpath, COM_GetLibraryError( ));
 
 	cls.build_num = 0;
 	cls.initialized = true;

@@ -15,11 +15,9 @@ void IPv6IPToString( char *pszOutText, const unsigned char *ip )
 	// If there's a tie, we want the leftmost one.
 	int idxLongestRunStart = -1;
 	int nLongestRun = 1; // It must be at least 2 quads in a row, a single 0 must not be compressed
-	int nCurrentRun = 0, idxQuad;
-	char *p;
-	qboolean bNeedColon;
+	int nCurrentRun = 0;
 
-	for ( idxQuad = 0 ; idxQuad < 8 ; ++idxQuad )
+	for ( int idxQuad = 0 ; idxQuad < 8 ; ++idxQuad )
 	{
 		// Zero
 		if ( ip[idxQuad*2] || ip[idxQuad*2 + 1] )
@@ -42,9 +40,9 @@ void IPv6IPToString( char *pszOutText, const unsigned char *ip )
 	}
 
 	// Print the quads
-	p = pszOutText;
-	idxQuad = 0;
-	bNeedColon = false;
+	char *p = pszOutText;
+	int idxQuad = 0;
+	qboolean bNeedColon = false;
 	while ( idxQuad < 8 )
 	{
 		// Run of compressed zeros?
@@ -59,7 +57,6 @@ void IPv6IPToString( char *pszOutText, const unsigned char *ip )
 		{
 			// Lowercase hex digits, with leading zeros omitted
 			static const char hexdigits[] = "0123456789abcdef";
-			unsigned quad;
 
 			// Colon to separate from previous, unless
 			// we are first or immediately follow compressed zero "::"
@@ -70,7 +67,7 @@ void IPv6IPToString( char *pszOutText, const unsigned char *ip )
 			bNeedColon = true;
 
 			// Assemble 16-bit quad value from the two bytes
-			quad = ( (unsigned)ip[idxQuad*2] << 8U ) | ip[idxQuad*2 + 1];
+			unsigned quad = ( (unsigned)ip[idxQuad*2] << 8U ) | ip[idxQuad*2 + 1];
 
 			// Manually do the hex number formatting.
 			if ( quad >= 0x0010 )
@@ -143,14 +140,9 @@ static bool ParseIPv6Addr_IsSpace( char c )
 }
 bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, uint32_t *pOutScope )
 {
-	unsigned char *d, *pZeroFill, *pEndIP;
-	const char *s;
-	qboolean bQuadMustFollow;
-	int nPort;
-
 	while ( ParseIPv6Addr_IsSpace( *pszText ) )
 		++pszText;
-	s = pszText;
+	const char *s = pszText;
 
 	// Skip opening bracket, if present
 	if ( *s == '[' )
@@ -161,10 +153,10 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 	}
 
 	// Special case for leading "::"
-	bQuadMustFollow = true;
-	d = pOutIP;
-	pZeroFill = NULL;
-	pEndIP = pOutIP + 16;
+	qboolean bQuadMustFollow = true;
+	unsigned char *d = pOutIP;
+	unsigned char *pZeroFill = NULL;
+	unsigned char *pEndIP = pOutIP + 16;
 	if ( s[0] == ':' && s[1] == ':' )
 	{
 		pZeroFill = d;
@@ -177,8 +169,6 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 	{
 		// Next thing must be a quad, or end of input.  Is it a quad?
 		int quadDigit = ParseIPv6Addr_HexDigitVal( *s );
-		const char *pszStartQuad;
-		int quad;
 
 		if ( quadDigit < 0 )
 		{
@@ -191,9 +181,9 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 		if ( d >= pEndIP )
 			return false;
 
-		pszStartQuad = s;
+		const char *pszStartQuad = s;
 		++s;
-		quad = quadDigit;
+		int quad = quadDigit;
 
 		// Now parse up to three additional characters
 		quadDigit = ParseIPv6Addr_HexDigitVal( *s );
@@ -233,12 +223,11 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 
 				// Parse 1-3 decimal digits
 				int octet = ParseIPv6Addr_DecimalDigitVal( *s );
-				int dig;
 
 				if ( octet < 0 )
 					return false;
 				++s;
-				dig = ParseIPv6Addr_DecimalDigitVal( *s );
+				int dig = ParseIPv6Addr_DecimalDigitVal( *s );
 				if ( dig >= 0 )
 				{
 					++s;
@@ -340,16 +329,13 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 
 	if ( *s == '%' )
 	{
-		// Parse scope number
-		uint32_t unScope = 0;
-		int nScopeDigit;
-
 		++s;
 
-		nScopeDigit = ParseIPv6Addr_DecimalDigitVal( *s );
+		// Parse scope number
+		int nScopeDigit = ParseIPv6Addr_DecimalDigitVal( *s );
 		if ( nScopeDigit < 0 )
 			return false;
-		unScope = (uint32_t)nScopeDigit;
+		uint32_t unScope = (uint32_t)nScopeDigit;
 		for (;;)
 		{
 			++s;
@@ -418,17 +404,15 @@ bool ParseIPv6Addr( const char *pszText, unsigned char *pOutIP, int *pOutPort, u
 		return false;
 
 	// Parse port number
-	nPort = ParseIPv6Addr_DecimalDigitVal( *s );
+	int nPort = ParseIPv6Addr_DecimalDigitVal( *s );
 	if ( nPort < 0 )
 		return false;
 	for (;;)
 	{
-		int portDigit;
-
 		++s;
 		if ( *s == '\0' || ParseIPv6Addr_IsSpace( *s ) )
 			break;
-		portDigit = ParseIPv6Addr_DecimalDigitVal( *s );
+		int portDigit = ParseIPv6Addr_DecimalDigitVal( *s );
 		if ( portDigit < 0 )
 			return false;
 		nPort = nPort * 10 + portDigit;

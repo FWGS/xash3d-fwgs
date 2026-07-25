@@ -165,12 +165,10 @@ returns true if server have spawned players
 */
 static qboolean SV_HasActivePlayers( void )
 {
-	int	i;
-
 	// server inactive
 	if( !svs.clients ) return false;
 
-	for( i = 0; i < svs.maxclients; i++ )
+	for( int i = 0; i < svs.maxclients; i++ )
 	{
 		if( svs.clients[i].state == cs_spawned )
 			return true;
@@ -250,7 +248,6 @@ static void SV_CheckCmdTimes( void )
 {
 	sv_client_t	*cl;
 	static double	lastreset = 0;
-	float		diff;
 	int		i;
 
 	if( sv_fps.value != 0.0f )
@@ -262,7 +259,7 @@ static void SV_CheckCmdTimes( void )
 			Cvar_SetValue( "sv_fps", MAX_FPS_HARD );
 	}
 
-	if( Host_IsLocalGame( ))
+	if( Host_IsSinglePlayerGame( ))
 		return;
 
 	if(( host.realtime - lastreset ) < 1.0 )
@@ -280,7 +277,7 @@ static void SV_CheckCmdTimes( void )
 			cl->connecttime = host.realtime;
 		}
 
-		diff = cl->connecttime + cl->cmdtime - host.realtime;
+		float diff = cl->connecttime + cl->cmdtime - host.realtime;
 
 		if( diff > net_clockwindow.value )
 		{
@@ -303,7 +300,6 @@ process incoming file (customization)
 */
 static void SV_ProcessFile( sv_client_t *cl, const char *filename )
 {
-	customization_t	*pList;
 	resource_t	*resource;
 	resource_t	*next;
 	byte		md5[16];
@@ -313,6 +309,12 @@ static void SV_ProcessFile( sv_client_t *cl, const char *filename )
 	if( filename[0] != '!' )
 	{
 		Con_Printf( "Ignoring non-customization file upload of %s\n", filename );
+		return;
+	}
+
+	if( Q_strlen( filename ) < 36 )
+	{
+		Con_Printf( "%s: Malformed customization filename from %s (too short)\n", __func__, cl->name );
 		return;
 	}
 
@@ -345,7 +347,7 @@ static void SV_ProcessFile( sv_client_t *cl, const char *filename )
 	bError = false;
 	bFound = false;
 
-	for( pList = cl->customdata.pNext; pList; pList = pList->pNext )
+	for( customization_t *pList = cl->customdata.pNext; pList; pList = pList->pNext )
 	{
 		if( !memcmp( pList->resource.rgucMD5_hash, resource->rgucMD5_hash, 16 ))
 		{
@@ -375,7 +377,7 @@ SV_ReadPackets
 static void SV_ReadPackets( void )
 {
 	sv_client_t	*cl;
-	int		i, qport;
+	int		i;
 	size_t		curSize;
 
 	while( NET_GetPacket( NS_SERVER, &net_from, net_message_buffer, &curSize ))
@@ -389,13 +391,6 @@ static void SV_ReadPackets( void )
 			continue;
 		}
 
-		// read the qport out of the message so we can fix up
-		// stupid address translating routers
-		MSG_Clear( &net_message );
-		MSG_ReadLong( &net_message );	// sequence number
-		MSG_ReadLong( &net_message );	// sequence number
-		qport = (int)MSG_ReadShort( &net_message ) & 0xffff;
-
 		// check for packets from connected clients
 		for( i = 0, sv.current_client = svs.clients; i < svs.maxclients; i++, sv.current_client++ )
 		{
@@ -407,24 +402,22 @@ static void SV_ReadPackets( void )
 			if( !NET_CompareBaseAdr( net_from, cl->netchan.remote_address ))
 				continue;
 
-			if( cl->netchan.qport != qport )
+			if( !Netchan_Process( &cl->netchan, &net_message ))
 				continue;
 
+			// authenticated; safe to adopt the (possibly NAT-rewritten) source port
 			if( cl->netchan.remote_address.port != net_from.port )
 				cl->netchan.remote_address.port = net_from.port;
 
-			if( Netchan_Process( &cl->netchan, &net_message ))
-			{
-				if(( svs.maxclients == 1 && !host_limitlocal.value ) || ( cl->state != cs_spawned ))
-					SetBits( cl->flags, FCL_SEND_NET_MESSAGE ); // reply at end of frame
+			if(( svs.maxclients == 1 && !host_limitlocal.value ) || ( cl->state != cs_spawned ))
+				SetBits( cl->flags, FCL_SEND_NET_MESSAGE ); // reply at end of frame
 
-				// this is a valid, sequenced packet, so process it
-				if( cl->frames != NULL && cl->state != cs_zombie )
-				{
-					SV_ExecuteClientMessage( cl, &net_message );
-					svgame.globals->frametime = sv.frametime;
-					svgame.globals->time = sv.time;
-				}
+			// this is a valid, sequenced packet, so process it
+			if( cl->frames != NULL && cl->state != cs_zombie )
+			{
+				SV_ExecuteClientMessage( cl, &net_message );
+				svgame.globals->frametime = sv.frametime;
+				svgame.globals->time = sv.time;
 			}
 
 			// fragmentation/reassembly sending takes priority over all game messages, want this in the future?
@@ -549,12 +542,9 @@ player processing happens outside RunWorldFrame
 */
 static void SV_PrepWorldFrame( void )
 {
-	edict_t	*ent;
-	int	i;
-
-	for( i = 1; i < svgame.numEntities; i++ )
+	for( int i = 1; i < svgame.numEntities; i++ )
 	{
-		ent = SV_EdictNum( i );
+		edict_t *ent = SV_EdictNum( i );
 		if( ent->free ) continue;
 
 		ClearBits( ent->v.effects, EF_MUZZLEFLASH|EF_NOINTERP );
@@ -788,7 +778,7 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 {
 	const char *input_devices_str = Info_ValueForKey( useragent, "d" );
 	const char *id = Info_ValueForKey( useragent, "uuid" );
-	size_t len, i;
+	size_t len;
 
 	len = Q_strlen( id );
 	if( len != 32 )
@@ -797,7 +787,7 @@ qboolean SV_ProcessUserAgent( netadr_t from, const char *useragent )
 		return false;
 	}
 
-	for( i = 0; i < len; i++ )
+	for( size_t i = 0; i < len; i++ )
 	{
 		char c = id[i];
 
