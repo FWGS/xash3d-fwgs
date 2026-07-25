@@ -18,11 +18,11 @@ All New Game interactive bring-up is complete:
 
 | Artifact | Size | Format | SHA256 |
 |----------|------|--------|--------|
-| boot.dol | 5,823,404 bytes | PowerPC DOL | 8bef64df365766534e578789165df99236fd24bbaf0df3348fc24811a3e390c2 |
-| xash | 33,122,656 bytes | PowerPC ELF | b140829f7315d6d1f18ff00388fec86e54afdfe13a6d4bdb1909a53ef734ed9a |
+| boot.dol | 5,823,404 bytes | PowerPC DOL | ad9975863a286e4083618cef66ba5a886b509063a462d0d8893bcf831e51dd8c |
+| xash | 33,122,656 bytes | PowerPC ELF | 8eb5bb366c12b4fe89de86392f4317640128ab424ead0469e656480ce75ddcf3 |
 
 **Build command**: `scripts/build-gamecube.sh`
-**Last build**: 2026-07-25T13:06:16Z
+**Last build**: 2026-07-25T13:07:47Z
 **Renderer**: REF_GX
 **Policy**: retail-flipper
 
@@ -131,9 +131,9 @@ The following goals require physical GameCube hardware and cannot be completed i
 **Artifacts**:
 | Path | Size | SHA256 |
 |------|------|--------|
-| OUT/bin/boot.dol | 5,823,404 bytes | 8bef64df365766534e578789165df99236fd24bbaf0df3348fc24811a3e390c2 |
-| OUT/bin/xash | 33,122,656 bytes | b140829f7315d6d1f18ff00388fec86e54afdfe13a6d4bdb1909a53ef734ed9a |
-| OUT/bin/gamecube-handoff.txt | 181 bytes | ec5e79bbe1a617d85814bceeede37ad1e4bcc42d113b2049eabba0abeaf340be |
+| OUT/bin/boot.dol | 5,823,404 bytes | ad9975863a286e4083618cef66ba5a886b509063a462d0d8893bcf831e51dd8c |
+| OUT/bin/xash | 33,122,656 bytes | 8eb5bb366c12b4fe89de86392f4317640128ab424ead0469e656480ce75ddcf3 |
+| OUT/bin/gamecube-handoff.txt | 181 bytes | 091b781ab05ff2b9cdcb53479649910e082e381f8f117df6a87c153b39c3d803 |
 | OUT/libref_gx.a | 2,802,932 bytes | 7a441250dd05ae8d21fe777b3f3352cc6e0fc43d17b823206a0d16f2fbdaaff0 |
 | OUT/libfilesystem_stdio.a | 881,436 bytes | f57b64104049760c114234a59219334bf0f7a0af957881e049988b3b7307e209 |
 | OUT/valve/extras.pk3 | 184 bytes | 6e34e5116df0466f85193ee9dda0c6a15875212111cb2161ab7315de65d4d32f |
@@ -145,24 +145,24 @@ The following goals require physical GameCube hardware and cannot be completed i
 | docs/gamecube/PORT_STATUS.md | **Created** |
 | docs/gamecube/ | Directory created |
 | docs/GAMECUBE_PORT_PLAN.md | Exists (174,918 bytes) |
-| docs/GAMECUBE_PORT_AUDIT.md | Not created |
-| docs/GAMECUBE_BUILDING_GAMECUBE.md | Not created |
-| docs/GAMECUBE_GX_RENDERER_DESIGN.md | Not created |
-| docs/GAMECUBE_GAME_MODULE_LINKING.md | Not created |
-| docs/GAMECUBE_ENDIANNESS_AUDIT.md | Not created |
-| docs/GAMECUBE_MEMORY_BUDGET.md | Not created |
-| docs/GAMECUBE_ASSET_DEPLOYMENT.md | Not created |
-| docs/GAMECUBE_ASSET_CACHE_FORMAT.md | Not created |
-| docs/GAMECUBE_HARDWARE_TEST_MATRIX.md | Not created |
+| docs/GAMECUBE_PORT_AUDIT.md | Exists (2,101 bytes) |
+| docs/GAMECUBE_BUILDING_GAMECUBE.md | Exists (6,124 bytes) |
+| docs/GAMECUBE_GX_RENDERER_DESIGN.md | Exists (8,466 bytes) |
+| docs/GAMECUBE_GAME_MODULE_LINKING.md | Exists (9,488 bytes) |
+| docs/GAMECUBE_ENDIANNESS_AUDIT.md | Exists (9,795 bytes) |
+| docs/GAMECUBE_MEMORY_BUDGET.md | Exists (7,016 bytes) |
+| docs/GAMECUBE_ASSET_DEPLOYMENT.md | Exists (8,060 bytes) |
+| docs/GAMECUBE_ASSET_CACHE_FORMAT.md | Exists (5,258 bytes) |
+| docs/GAMECUBE_HARDWARE_TEST_MATRIX.md | Exists (6,030 bytes) |
 
 ## Last Updated
 
-2026-07-25T13:06:30Z
+2026-07-25T13:07:47Z
 
 ## Git Status
 
 - Branch: `agent/gamecube-port`
-- Last commit: `7d19cf62ad` - "state: Update automation tier with latest handoff package info"
+- Last commit: `fe1c22c5d0` - "docs: Update PORT_STATUS.md with latest build info and commit hash"
 - Submodules: 8 modified
 - Binary assets: 1 modified (OUT/valve/extras.pk3)
 - Build artifacts: boot.dol regenerated (5,823,404 bytes)
