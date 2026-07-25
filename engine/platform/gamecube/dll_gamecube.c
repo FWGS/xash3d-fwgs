@@ -211,16 +211,17 @@ int dll_register( const char *name, dllexport_t *exports )
 int setup_gamecube_dll_functions( void )
 {
 	extern int setup_gamecube_ref_exports( void );
-	extern int setup_gamecube_client_exports( void );
 	extern int setup_gamecube_server_exports( void );
-	extern int setup_gamecube_menu_exports( void );
 	int ret = 0;
 
 	ret |= setup_gamecube_filesystem_exports();
 	ret |= setup_gamecube_ref_exports();
+#if !XASH_GAMECUBE_HLSDK_STATIC
+	// Only call client exports when not using HLSDK client archive
+	extern int setup_gamecube_client_exports( void );
 	ret |= setup_gamecube_client_exports();
+#endif
 	ret |= setup_gamecube_server_exports();
-	ret |= setup_gamecube_menu_exports();
 
 	return ret;
 }

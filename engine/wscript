@@ -211,7 +211,7 @@ def build(bld):
 			'-lm', '-lSceShaccCgExt', '-lkubridge_stub', '-ltaihen_stub', '-lSceShaccCg_stub', '-lSceKernelModulemgr_stub', '-lSceSblSsMgr_stub', '-lSceVshBridge_stub', '-lSceKernelDmacMgr_stub', '-lSceLibKernel_stub',
 		]
 	elif bld.env.DEST_OS == 'gamecube':
-		libs += ['filesystem_stdio', 'ref_gx', 'menu']
+		libs += ['filesystem_stdio', 'ref_gx']
 		hlsdk_dest = os.environ.get('HLSDK_GAMECUBE_DESTDIR',
 			os.path.join(bld.path.parent.abspath(), 'OUT', 'hlsdk-gamecube'))
 		hlsdk_server = os.path.join(hlsdk_dest, 'valve', 'dlls', 'libhl_gamecube_ppc.a')
@@ -250,7 +250,6 @@ def build(bld):
 				Logs.info('Using GameCube HLSDK client archive from %s' % hlsdk_dest)
 				bld.env.LDFLAGS += ['-lclient_gamecube_ppc']
 				gamecube_defines += ['XASH_GAMECUBE_HLSDK_STATIC=1']
-				source += [bld.path.parent.find_node('stub/client/client_export.c')]
 			else:
 				Logs.warn('GameCube HLSDK client archive not found under %s; using client stub' % hlsdk_dest)
 				source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
@@ -275,6 +274,20 @@ def build(bld):
 			str(bld.path.parent.find_dir('pm_shared')),
 			str(bld.path.parent.find_dir('common')),
 		]
+
+		# On GameCube with HLSDK client, skip engine files that define global variables
+		# which are also defined in the HLSDK (to avoid multiple definition errors)
+		if bld.env.DEST_OS == 'gamecube' and 'XASH_GAMECUBE_HLSDK_STATIC=1' in gamecube_defines:
+			# Convert source nodes to paths for filtering
+			source_paths = [s.path_from(bld.path) if hasattr(s, 'path_from') else str(s) for s in source]
+			# Skip filesystem/dll.c (defines g_engfuncs)
+			source = [s for s, p in zip(source, source_paths) if not p.endswith('filesystem/dll.c')]
+			# Skip ref/gx/r_refcontext.c (defines gpGlobals, gEngfuncs, etc)
+			source = [s for s, p in zip(source, source_paths) if not p.endswith('ref/gx/r_refcontext.c')]
+			# Skip public/xash3d_mathlib.c (defines VectorAngles)
+			source = [s for s, p in zip(source, source_paths) if not p.endswith('public/xash3d_mathlib.c')]
+			# Skip public/xash3d_mathlib.c from 'public' target too
+			bld.env.XASH_GAMECUBE_HLSDK_SKIP_MATHLIB = True
 	else: # POSIX
 		libs += ['M', 'RT', 'PTHREAD', 'ASOUND', 'HAIKU', 'MAGX', 'LOG', 'SOCKET']
 		if not bld.env.STATIC:
@@ -333,11 +346,13 @@ def build(bld):
 
 		# add client files
 		if not bld.env.DEDICATED:
-			source += bld.path.ant_glob('client/**/*.c')
-			if bld.env.DEST_OS == 'gamecube':
-				# GameCube uses the lightweight retail AVI/Cinepak backend instead
-				# of ffmpeg or preconverted movie streams.
-				source = [node for node in source if (node.path_from(bld.path) if hasattr(node, 'path_from') else node) != 'client/avi/avi_ffmpeg.c']
+			# On GameCube with HLSDK client, skip engine client files
+			if not (bld.env.DEST_OS == 'gamecube' and bld.env.XASH_GAMECUBE_HLSDK_STATIC):
+				source += bld.path.ant_glob('client/**/*.c')
+				if bld.env.DEST_OS == 'gamecube':
+					# GameCube uses the lightweight retail AVI/Cinepak backend instead
+					# of ffmpeg or preconverted movie streams.
+					source = [node for node in source if (node.path_from(bld.path) if hasattr(node, 'path_from') else node) != 'client/avi/avi_ffmpeg.c']
 			libs += ['bzip2', 'MultiEmulator', 'opus', 'opusfile', 'vorbis', 'vorbisfile']
 
 		# Android port is linked differently
