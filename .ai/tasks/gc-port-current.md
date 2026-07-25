@@ -1,26 +1,25 @@
 Auto-port task for Xash3D GameCube
-===================================
+=================================
 
-Current goal: G38 Validate on physical GameCube hardware (manual checkpoint)
+Manual checkpoint:
+G38 physical GameCube validation is MANUAL_VALIDATION_PENDING.
 
-Status:
-- Automation tier: hardware_validation
-- G304/G305 closed (ambient+env_message; 41 inhibited)
-- G197-G256 completed (Flipper GX renderer, landmark_changelevel milestone)
-- G38 is the open checkpoint for manual hardware validation
+Selection policy:
+- Skip manual-only goals when choosing autonomous implementation work.
+- Do not mark manual goals complete without operator evidence.
+- Prepare repeatable hardware artifacts and testing instructions.
+- Continue with the first incomplete automatable goal in the goal ledger.
+
+Current goal:
+Determine the next incomplete non-manual GameCube port goal from:
+- .ai/goals/GAMECUBE_PORT_GOALS.md
+- docs/GAMECUBE_PORT_PLAN.md
+- docs/gamecube/PORT_STATUS.md, when present
 
 Rules:
-- Manual hardware validation task
-- Use `scripts/gamecube-hardware-handoff.sh` for repeatable artifacts
-- Record results in `docs/GAMECUBE_PORT_PLAN.md`
-- Do not touch generated build/ files
-- Keep the validation focused and evidence-driven
-
-Acceptance:
-- Boot DOL or disc image on real hardware
-- Record video output, controller input, storage, audio, map load, frame pacing
-- Compare hardware behavior against Dolphin logs
-- Document results in port plan
-
-Verify:
-scripts/gamecube-hardware-handoff.sh
+- Make one bounded implementation or validation patch.
+- Preserve unmodified Half-Life asset compatibility.
+- Run relevant builds and probes.
+- Update durable evidence.
+- Do not touch generated build output unless generation is the explicit task.
+- Do not commit third-party submodule divergence accidentally.

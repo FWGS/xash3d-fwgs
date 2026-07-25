@@ -1,19 +1,21 @@
-Continue the Xash3D GameCube port with one bounded patch.
+Continue the Xash3D GameCube port with one bounded, automatable patch.
 
-Current mission (first open automatic goal):
-G38 — Validate on physical GameCube hardware (manual checkpoint)
+Manual checkpoint:
+G38 physical GameCube validation is pending operator execution. Prepare its
+artifacts and checklist, but do not stop automation solely because physical
+hardware is unavailable.
 
-Status:
-- Automation tier: hardware_validation
-- G304/G305 closed (ambient+env_message; 41 inhibited)
-- G197-G256 completed (Flipper GX renderer, landmark_changelevel milestone)
-- G38 is the open checkpoint for manual hardware validation
+Current autonomous mission:
+Inspect the goal ledger and port plan, skip goals explicitly classified as
+manual-only, and select the first incomplete goal that can be implemented,
+built, tested, or documented from this repository and Dolphin environment.
 
 Requirements:
-
-- Boot the generated DOL or disc image through at least one real hardware method
-- Record video output, controller input, storage, audio, map load, frame pacing
-- Compare hardware behavior against Dolphin logs and split emulator-only bugs
-- Use `scripts/gamecube-hardware-handoff.sh` to generate repeatable artifacts
-- Record results in `docs/GAMECUBE_PORT_PLAN.md`
-- Stop after this one validation session
+- Do not falsely complete G38.
+- Record G38 as MANUAL_VALIDATION_PENDING.
+- Generate or update the hardware handoff package if needed.
+- Select the next automatable incomplete goal.
+- Make one bounded patch.
+- Build and run the relevant verification.
+- Update docs/GAMECUBE_PORT_PLAN.md and durable task state.
+- Commit only after validation.
