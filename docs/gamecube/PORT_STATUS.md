@@ -18,11 +18,11 @@ All New Game interactive bring-up is complete:
 
 | Artifact | Size | Format | SHA256 |
 |----------|------|--------|--------|
-| boot.dol | 5,823,404 bytes | PowerPC DOL | 33d5505489e6143b35a6b957b9ef693d74b5d6db55f06640d81f434ba058a994 |
-| xash | 33,122,656 bytes | PowerPC ELF | 216662ae972185a6b242f6bfa869710def7ac2b2cf82dadd8c098ee1cf01a99c |
+| boot.dol | 5,823,404 bytes | PowerPC DOL | 20f7e8e8b4e78a624e8f674d3d874e6a1f499a1442296b9c33a8b8a641744f51 |
+| xash | 33,122,656 bytes | PowerPC ELF | 079e70d9e87e19d16f7274f17f46fa661eecf99fb6a0949aeb934a0356fe8464 |
 
 **Build command**: `scripts/build-gamecube.sh`
-**Last build**: 2026-07-25T14:02:49Z
+**Last build**: 2026-07-25T17:37:07Z
 **Renderer**: REF_GX
 **Policy**: retail-flipper
 
@@ -58,9 +58,9 @@ All New Game interactive bring-up is complete:
 
 - Physical GameCube hardware test pending
 - Swiss DOL+SD / ISO RO paths prepared
-- Handoff artifacts ready at `.ai/logs/hardware-handoff-20260725-070254/`
+- Handoff artifacts ready at `.ai/logs/hardware-handoff-20260725-103707/`
 
-**Handoff Package**: `.ai/logs/hardware-handoff-20260725-070254/`
+**Handoff Package**: `.ai/logs/hardware-handoff-20260725-103707/`
 - `artifact-manifest.tsv` - Build artifacts with SHA256 checksums
 - `operator-checklist.md` - Manual hardware validation checklist
 - `evidence-template.md` - Evidence template for hardware test results
@@ -108,7 +108,7 @@ The following goals cannot be completed autonomously and require physical GameCu
 1. Copy `OUT/bin/boot.dol` to SD card at `sd:/apps/xash3d-gc/boot.dol`
 2. Copy legally owned Half-Life `valve` assets to `sd:/xash3d/valve/`
 3. Boot through Swiss loader
-4. Record evidence in `.ai/logs/hardware-handoff-20260725-070254/evidence-template.md`
+4. Record evidence in `.ai/logs/hardware-handoff-20260725-103707/evidence-template.md`
 5. Copy completed evidence into `docs/GAMECUBE_PORT_PLAN.md`
 
 ## External Blockers
@@ -125,7 +125,7 @@ The following goals require physical GameCube hardware and cannot be completed i
 
 ## Handoff Package
 
-**Location**: `.ai/logs/hardware-handoff-20260725-070254/`
+**Location**: `.ai/logs/hardware-handoff-20260725-103707/`
 
 **Contents**:
 - `artifact-manifest.tsv` - Build artifacts with SHA256 checksums
@@ -137,9 +137,9 @@ The following goals require physical GameCube hardware and cannot be completed i
 **Artifacts**:
 | Path | Size | SHA256 |
 |------|------|--------|
-| OUT/bin/boot.dol | 5,823,404 bytes | 33d5505489e6143b35a6b957b9ef693d74b5d6db55f06640d81f434ba058a994 |
-| OUT/bin/xash | 33,122,656 bytes | 216662ae972185a6b242f6bfa869710def7ac2b2cf82dadd8c098ee1cf01a99c |
-| OUT/bin/gamecube-handoff.txt | 181 bytes | 6ae3044f99f3730e172d41d1ff2f314eb28433cf344f5bf7d098e8a341f19fa2 |
+| OUT/bin/boot.dol | 5,823,404 bytes | 20f7e8e8b4e78a624e8f674d3d874e6a1f499a1442296b9c33a8b8a641744f51 |
+| OUT/bin/xash | 33,122,656 bytes | 079e70d9e87e19d16f7274f17f46fa661eecf99fb6a0949aeb934a0356fe8464 |
+| OUT/bin/gamecube-handoff.txt | 181 bytes | 0a1695a2361baddcb5f1ebf47d9bc501e0c32b3dae57bb7318c50d1854277be8 |
 | OUT/libref_gx.a | 2,802,932 bytes | 7a441250dd05ae8d21fe777b3f3352cc6e0fc43d17b823206a0d16f2fbdaaff0 |
 | OUT/libfilesystem_stdio.a | 881,436 bytes | f57b64104049760c114234a59219334bf0f7a0af957881e049988b3b7307e209 |
 | OUT/valve/extras.pk3 | 184 bytes | 6e34e5116df0466f85193ee9dda0c6a15875212111cb2161ab7315de65d4d32f |
@@ -163,12 +163,12 @@ The following goals require physical GameCube hardware and cannot be completed i
 
 ## Last Updated
 
-2026-07-25T14:02:57Z
+2026-07-25T17:37:11Z
 
 ## Git Status
 
 - Branch: `agent/gamecube-port`
-- Last commit: `8167184d8d` - "docs: update G38 handoff to latest hardware-handoff-20260725-062515"
+- Last commit: `0ba81f01cb` - "docs: update G38 handoff to latest hardware-handoff-20260725-103707"
 - Submodules: 8 modified
 - Binary assets: 1 modified (OUT/valve/extras.pk3)
 - Build artifacts: boot.dol regenerated (5,823,404 bytes)

@@ -1059,7 +1059,7 @@ scripts/gamecube-map-compat-probe.sh
   manifest, operator checklist, and hardware evidence template without copying
   proprietary assets.
 - Handoff evidence packet:
-  `.ai/logs/hardware-handoff-20260626-011714/summary.md`.
+  `.ai/logs/hardware-handoff-20260725-103707/summary.md`.
 - Completion rule: keep G38 manual/open until a completed real GameCube,
   Swiss, or compatible Wii/GameCube-mode hardware evidence entry is recorded in
   `docs/GAMECUBE_PORT_PLAN.md`. Dolphin-only evidence and generated handoff

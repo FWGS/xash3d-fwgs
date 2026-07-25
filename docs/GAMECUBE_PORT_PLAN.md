@@ -1365,11 +1365,11 @@ unless the distributor has the required rights.
 | Hardware | G38 has a repeatable handoff packet, but real GameCube/Swiss/Wii-GC-mode evidence remains open. |
 
 Latest G38 handoff evidence:
-`.ai/logs/hardware-handoff-20260725-062515/summary.md` records checksums for
+`.ai/logs/hardware-handoff-20260725-103707/summary.md` records checksums for
 `OUT/bin/boot.dol` (5823404, current), `OUT/bin/xash`, `OUT/xash3d-gc.iso`,
 `libref_gx.a`, `libfilesystem_stdio.a`, and `extras.pk3`, plus an operator
 checklist and hardware evidence template. Prior packet:
-`.ai/logs/hardware-handoff-20260626-011714/summary.md`. This prepares physical
+`.ai/logs/hardware-handoff-20260725-062515/summary.md`. This prepares physical
 validation but does not complete G38 until a real hardware run is recorded.
 
 ### G39 hardware and loader support matrix
@@ -3565,7 +3565,7 @@ scripts/dolphin-boot-probe.sh
 - Asset route: Local `Half-Life/valve` (pending physical validation)
 - Result: Handoff prepared, awaiting operator hardware validation
 - Furthest reached: Engine readiness marker (`MAP_READY` in Dolphin)
-- Evidence: Handoff packet at `.ai/logs/hardware-handoff-20260725-062515/`
+- Evidence: Handoff packet at `.ai/logs/hardware-handoff-20260725-103707/`
 - Failure label: None (preparation complete)
 - Notes: All automatic goals (G83-G121) complete. Build verified. Handoff packet generated with artifact manifest, operator checklist, and evidence template. Physical hardware testing required for G38 completion.
 - Next blocker: Physical GameCube hardware access for native validation
@@ -3577,14 +3577,14 @@ scripts/dolphin-boot-probe.sh
 - `OUT/libref_gx.a` — GX renderer static archive (2802932 bytes)
 - `OUT/libfilesystem_stdio.a` — Filesystem backend static archive (881436 bytes)
 - `OUT/valve/extras.pk3` — Minimal extras package (184 bytes)
-- Handoff metadata: `.ai/logs/hardware-handoff-20260725-062515/`
+- Handoff metadata: `.ai/logs/hardware-handoff-20260725-103707/`
 
 ### Required Operator Actions
 
 1. Copy `OUT/bin/boot.dol` to SD card at `sd:/apps/xash3d-gc/boot.dol`
 2. Copy legally owned Half-Life `valve` assets to `sd:/xash3d/valve/`
 3. Boot through Swiss loader or compatible homebrew loader
-4. Record evidence in `.ai/logs/hardware-handoff-20260725-062515/evidence-template.md`
+4. Record evidence in `.ai/logs/hardware-handoff-20260725-103707/evidence-template.md`
 5. Copy completed evidence into `docs/GAMECUBE_PORT_PLAN.md` with new test ID
 
 ### Pre-Flight Commands
