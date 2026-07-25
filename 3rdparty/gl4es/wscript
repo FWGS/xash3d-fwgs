@@ -16,6 +16,8 @@ def build(bld):
 	cflags = []
 	if bld.env.COMPILER_CC != 'msvc':
 		cflags += ['-w', '-fvisibility=hidden', '-std=gnu99']
+	else:
+		cflags += ['-wd4098']
 	bld.stlib(source   = gl4es_srcdir.ant_glob(['gl/*.c', 'gl/*/*.c', 'glx/hardext.c']),
 		target   = 'gl4es',
 		includes = ['gl4es/src', 'gl4es/src/gl', 'gl4es/src/glx', 'gl4es/include'],
