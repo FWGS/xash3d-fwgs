@@ -737,7 +737,7 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 					uint changed_tiles;
 					const uint tile_size = 8;
 					const uint tiles_x = (uint)Avi->width / tile_size;
-					byte tilebuf[tile_size * tile_size * 2];
+					byte tilebuf[128]; /* 8 * 8 * 2 = 128 bytes, max tile size */
 
 					if( FS_Read( Avi->file, count_bytes, sizeof( count_bytes )) != sizeof( count_bytes ))
 						return false;
@@ -1236,7 +1236,7 @@ qboolean AVI_Think( movie_state_t *Avi )
 	qboolean need_upload;
 	const byte *upload_pixels;
 	pixformat_t upload_fmt;
-	double elapsed;
+	double elapsed = 0.0;
 
 	if( !Avi || !Avi->active || !Avi->file )
 		return false;

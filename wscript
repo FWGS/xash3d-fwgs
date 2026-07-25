@@ -427,6 +427,10 @@ def configure(conf):
 			opt_cflags = ['-Werror=implicit-function-declaration']
 			opt_cxxflags = []
 
+		# GameCube builds need to disable packed warnings because libogc headers use packed attributes
+		if conf.env.DEST_OS == 'gamecube':
+			opt_flags = [f for f in opt_flags if 'packed' not in f]
+
 		conf.env.CFLAGS_werror = conf.filter_cflags(opt_flags + opt_cflags, cflags)
 		conf.env.CXXFLAGS_werror = conf.filter_cxxflags(opt_flags + opt_cxxflags, cxxflags)
 

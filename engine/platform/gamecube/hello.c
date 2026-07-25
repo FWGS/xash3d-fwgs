@@ -1,6 +1,6 @@
 #include "common.h"
 
-void hello()
+void hello(void)
 {
     printf("Hello, World!\n");
 }

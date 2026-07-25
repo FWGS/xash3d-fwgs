@@ -81,7 +81,7 @@ void *dlopen( const char *name, int flag )
 	if( d )
 		d->refcnt++;
 	else
-		dll_err = "dlopen(): unknown dll name";
+		dll_err = (char *)"dlopen(): unknown dll name";
 	return d;
 }
 
@@ -92,20 +92,20 @@ void *dlsym( void *handle, const char *symbol )
 
 	if( !handle || !symbol )
 	{
-		dll_err = "dlsym(): NULL args";
+		dll_err = (char *)"dlsym(): NULL args";
 		return NULL;
 	}
 
 	if( !dlname( handle ))
 	{
-		dll_err = "dlsym(): unknown handle";
+		dll_err = (char *)"dlsym(): unknown handle";
 		return NULL;
 	}
 
 	d = handle;
 	if( !d->refcnt )
 	{
-		dll_err = "dlsym(): call dlopen() first";
+		dll_err = (char *)"dlsym(): call dlopen() first";
 		return NULL;
 	}
 
@@ -116,7 +116,7 @@ void *dlsym( void *handle, const char *symbol )
 	if( f && f->func )
 		return f->func;
 
-	dll_err = "dlsym(): symbol not found in dll";
+	dll_err = (char *)"dlsym(): symbol not found in dll";
 	return NULL;
 }
 
@@ -126,19 +126,19 @@ int dlclose( void *handle )
 
 	if( !handle )
 	{
-		dll_err = "dlclose(): NULL arg";
+		dll_err = (char *)"dlclose(): NULL arg";
 		return -1;
 	}
 
 	if( !dlname( handle ))
 	{
-		dll_err = "dlclose(): unknown handle";
+		dll_err = (char *)"dlclose(): unknown handle";
 		return -2;
 	}
 
 	if( !d->refcnt )
 	{
-		dll_err = "dlclose(): call dlopen() first";
+		dll_err = (char *)"dlclose(): call dlopen() first";
 		return -3;
 	}
 
