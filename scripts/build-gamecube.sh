@@ -37,11 +37,15 @@ if command -v powerpc-eabi-strip >/dev/null 2>&1; then
 	fi
 fi
 
-if command -v elf2dol >/dev/null 2>&1; then
-	elf2dol OUT/bin/xash OUT/bin/boot.dol
+if command -v python3 >/dev/null 2>&1; then
+	if python3 "$ROOT/scripts/elf-to-dol.py" OUT/bin/xash OUT/bin/boot.dol; then
+		echo "DOL generated successfully using Python script"
+	else
+		echo "error: Python DOL generation failed" >&2
+		exit 1
+	fi
 else
-	echo "error: elf2dol not found; refusing powerpc-eabi-objcopy pseudo-DOL fallback" >&2
-	echo "Install gamecube-tools (elf2dol) from devkitPro to produce a valid boot.dol." >&2
+	echo "error: python3 not found; cannot generate DOL" >&2
 	exit 1
 fi
 
