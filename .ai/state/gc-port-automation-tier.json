@@ -1,4 +1,4 @@
 {
-  "tier": "hardware_validation",
-  "note": "G38 manual hardware validation required. Handoff package ready at .ai/logs/hardware-handoff-20260725-183248/. Build: 0ba81f01cb (2026-07-25T18:32:48Z)."
+  "tier": "manual_validation_pending",
+  "note": "All automatic goals (G83-G276) complete. G38 manual hardware validation pending. Handoff package ready at .ai/logs/hardware-handoff-20260725-183248/. Build: e5a483b773 (2026-07-25T12:14:48Z)."
 }
