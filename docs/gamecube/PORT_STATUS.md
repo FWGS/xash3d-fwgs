@@ -32,6 +32,12 @@ All New Game interactive bring-up is complete:
 - DOL file generated successfully
 - No Half-Life assets included (user must provide legally owned assets)
 
+**ISO Build**:
+- ISO image can be built with: `python3 scripts/build-gamecube-disc.py --smoke-map c0a0e --output OUT/xash3d-gc.iso`
+- Requires local Half-Life `valve` assets in `Half-Life/valve/` directory
+- ISO is optional for hardware testing (DOL+SD is sufficient for initial validation)
+- See `docs/GAMECUBE_ASSET_DEPLOYMENT.md` for asset staging instructions
+
 ## Dolphin Status
 
 **Status**: Requires manual validation
