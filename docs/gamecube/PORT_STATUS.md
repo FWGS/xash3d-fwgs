@@ -18,11 +18,11 @@ All New Game interactive bring-up is complete:
 
 | Artifact | Size | Format | SHA256 |
 |----------|------|--------|--------|
-| boot.dol | 5,823,404 bytes | PowerPC DOL | 116e768535d2d8ca4b9791d50e9b38dedad94ddb813555e94588ef394ba19d80 |
-| xash | 33,122,656 bytes | PowerPC ELF | c9f73c0a2d53baa82b31c7f72a28d006d88549c5324acb8405ab26c5373669fc |
+| boot.dol | 5,823,404 bytes | PowerPC DOL | 81c5ef441576cd5e3e235cd3d43305cd7f3f37dd23b72025b4c7fcdf57c04268 |
+| xash | 33,122,656 bytes | PowerPC ELF | 46a8e1e6dff2951ad4dd7d7eb49fc4477b1a3b3413d5c22d158a1a6943381978 |
 
 **Build command**: `scripts/build-gamecube.sh`
-**Last build**: 2026-07-25T12:58:58Z
+**Last build**: 2026-07-25T13:00:53Z
 **Renderer**: REF_GX
 **Policy**: retail-flipper
 
