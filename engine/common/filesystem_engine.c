@@ -301,6 +301,23 @@ static qboolean FS_DetermineRootDirectory( char *out, size_t size )
 	Sys_Error( "couldn't find %s data directory", XASH_ENGINE_NAME );
 	return false;
 #elif XASH_GAMECUBE
+	/* Check environment variables first for asset root discovery */
+	{
+		const char *env_asset_root = getenv( "XASH3D_GC_ASSET_ROOT" );
+		if( !COM_StringEmptyOrNULL( env_asset_root ))
+		{
+			Q_strncpy( out, env_asset_root, size );
+			return true;
+		}
+	}
+	{
+		const char *env_valve_dir = getenv( "XASH3D_GC_VALVE_DIR" );
+		if( !COM_StringEmptyOrNULL( env_valve_dir ))
+		{
+			Q_strncpy( out, env_valve_dir, size );
+			return true;
+		}
+	}
 	/* Prefer SD when mounted; else disc. Never use G94 gcprobe: as FS root. */
 	{
 		char path[MAX_SYSPATH];
