@@ -11,7 +11,20 @@ Selection policy:
 - Continue with the first incomplete automatable goal in the goal ledger.
 
 Current goal:
-G433: Entity inhibition budgeting
+G400: Inventory stub/placeholder/dummy/fallback/reduced modules
+
+**COMPLETED (G400)**:
+- Created comprehensive inventory of stub modules in stub/ directory
+- Documented 3 stub modules: server, client, pm_shared
+- Server stub: stub/server/server_stub.c (4,248 lines), server_export.c, wscript
+- Client stub: stub/client/client_stub.c (141 lines), client_export.c, wscript
+- PM shared: stub/pm_shared/ with 10 files (pm_shared.c 3,447 lines, pm_math.c, pm_debug.c, headers)
+- All stubs provide minimal functionality for GameCube build
+- Build verified: boot.dol (5.8M), xash ELF (33M) with stub modules
+- Documentation: docs/GAMECUBE_STUB_MODULES.md
+- No stub references in final ELF - all stubs embedded or replaced
+
+---
 
 **COMPLETED (G410)**:
 - Added XASH3D_GC_ASSET_ROOT environment variable support
