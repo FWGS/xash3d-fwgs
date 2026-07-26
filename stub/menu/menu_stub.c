@@ -1,153 +1,246 @@
-/*
-menu_stub.c - Menu stub implementation for GameCube port
-Copyright (C) 2026 xash3d-gc contributors
-
-This file provides stub implementations for the menu module that
-are used when no real menu implementation is available.
-*/
-
 #include "common.h"
 #include "menu_int.h"
+#include "keydefs.h"
 
-// Stub UI_FUNCTIONS - all functions return default values
-static int Stub_pfnVidInit( void )
+static ui_enginefuncs_t *g_ui_eng;
+static ui_globalvars_t *g_ui_globals;
+static qboolean g_menu_active;
+static int g_menu_selection;
+
+typedef struct menu_item_s
 {
-	return 1;  // Success
+	const char *title;
+	const char *description;
+	const char *command;
+} menu_item_t;
+
+static const menu_item_t g_menu_items[] =
+{
+	{ "New Game", "Start a new single player game.", "newgame\n" },
+	{ "Load Game", "Load a previously saved game.", "menu_loadgame\n" },
+	{ "Options", "Change game settings, configure controls.", "menu_options\n" },
+	{ "Controller", "Configure GameCube controller settings.", "menu_controller\n" },
+	{ "System", "GameCube system settings and diagnostics.", "menu_system\n" },
+};
+
+static void Menu_DrawLine( int x, int y, const char *text, int r, int g, int b )
+{
+	int width = 0, height = 0;
+
+	if( !g_ui_eng || !text )
+		return;
+
+	g_ui_eng->pfnDrawSetTextColor( r, g, b, 255 );
+	g_ui_eng->pfnDrawConsoleStringLen( text, &width, &height );
+	g_ui_eng->pfnDrawConsoleString( x, y, text );
 }
 
-static void Stub_pfnInit( void )
+static void Menu_ActivateSelection( void )
 {
-	// Do nothing
+	if( !g_ui_eng )
+		return;
+
+	switch( g_menu_selection )
+	{
+	case 0: // New Game
+		g_menu_active = false;
+		g_ui_eng->pfnSetKeyDest( key_game );
+		g_ui_eng->pfnClientCmd( 1, g_menu_items[g_menu_selection].command );
+		break;
+	case 1: // Load Game
+		g_ui_eng->pfnClientCmd( 1, g_menu_items[g_menu_selection].command );
+		break;
+	case 2: // Options
+		g_ui_eng->pfnClientCmd( 1, g_menu_items[g_menu_selection].command );
+		break;
+	case 3: // Controller
+		g_ui_eng->pfnClientCmd( 1, "gc_controller_config\n" );
+		break;
+	case 4: // System
+		g_ui_eng->pfnClientCmd( 1, "gc_system_menu\n" );
+		break;
+	default:
+		break;
+	}
 }
 
-static void Stub_pfnShutdown( void )
+static int Menu_VidInit( void )
 {
-	// Do nothing
+	return 1;
 }
 
-static void Stub_pfnRedraw( float flTime )
+static void Menu_Init( void )
+{
+	g_menu_selection = 0;
+}
+
+static void Menu_Shutdown( void )
+{
+	g_menu_active = false;
+}
+
+static void Menu_Redraw( float flTime )
 {
 	(void)flTime;
-	// Do nothing
+
+	if( !g_menu_active || !g_ui_eng || !g_ui_globals )
+		return;
+
+	{
+		int base_x = ( 70 * g_ui_globals->scrWidth ) / 640;
+		int desc_x = ( 192 * g_ui_globals->scrWidth ) / 640;
+		int base_y = ( 249 * g_ui_globals->scrHeight ) / 480;
+		int step_y = ( 31 * g_ui_globals->scrHeight ) / 480;
+		size_t i;
+
+		for( i = 0; i < ARRAYSIZE( g_menu_items ); ++i )
+		{
+			int y = base_y + ( step_y * (int)i );
+			qboolean selected = ( i == (size_t)g_menu_selection );
+
+			Menu_DrawLine( base_x, y, g_menu_items[i].title,
+				selected ? 255 : 224,
+				selected ? 196 : 170,
+				selected ? 32 : 48 );
+			Menu_DrawLine( desc_x, y, g_menu_items[i].description, 96, 96, 96 );
+		}
+	}
 }
 
-static void Stub_pfnKeyEvent( int key, int down )
+static void Menu_KeyEvent( int key, int down )
 {
-	(void)key;
-	(void)down;
-	// Do nothing
+	if( !down || !g_menu_active )
+		return;
+
+	switch( key )
+	{
+	case K_UPARROW:
+	case K_DPAD_UP:
+		g_menu_selection--;
+		if( g_menu_selection < 0 )
+			g_menu_selection = (int)ARRAYSIZE( g_menu_items ) - 1;
+		break;
+	case K_DOWNARROW:
+	case K_DPAD_DOWN:
+		g_menu_selection++;
+		if( g_menu_selection >= (int)ARRAYSIZE( g_menu_items ))
+			g_menu_selection = 0;
+		break;
+	case K_ENTER:
+	case K_A_BUTTON:
+	case K_START_BUTTON:
+		Menu_ActivateSelection();
+		break;
+	case K_ESCAPE:
+	case K_B_BUTTON:
+		if( g_ui_eng )
+		{
+			g_menu_active = false;
+			g_ui_eng->pfnSetKeyDest( key_console );
+			g_ui_eng->pfnClientCmd( 1, "toggleconsole\n" );
+		}
+		break;
+	default:
+		break;
+	}
 }
 
-static void Stub_pfnMouseMove( int x, int y )
+static void Menu_SetActiveMenu( int active )
+{
+	g_menu_active = active ? true : false;
+	g_menu_selection = 0;
+
+	if( !g_ui_eng )
+		return;
+
+	if( g_menu_active )
+	{
+		g_ui_eng->pfnKeyClearStates();
+		g_ui_eng->pfnSetKeyDest( key_menu );
+	}
+	else
+	{
+		g_ui_eng->pfnSetKeyDest( key_game );
+	}
+}
+
+static void Menu_MouseMove( int x, int y )
 {
 	(void)x;
 	(void)y;
-	// Do nothing
 }
 
-static void Stub_pfnSetActiveMenu( int active )
-{
-	(void)active;
-	// Do nothing
-}
-
-static void Stub_pfnAddServerToList( struct netadr_s adr, const char *info )
+static void Menu_AddServerToList( netadr_t adr, const char *info )
 {
 	(void)adr;
 	(void)info;
-	// Do nothing
 }
 
-static void Stub_pfnGetCursorPos( int *pos_x, int *pos_y )
+static void Menu_GetCursorPos( int *pos_x, int *pos_y )
 {
 	if( pos_x ) *pos_x = 0;
 	if( pos_y ) *pos_y = 0;
 }
 
-static void Stub_pfnSetCursorPos( int pos_x, int pos_y )
+static void Menu_SetCursorPos( int pos_x, int pos_y )
 {
 	(void)pos_x;
 	(void)pos_y;
-	// Do nothing
 }
 
-static void Stub_pfnShowCursor( int show )
+static void Menu_ShowCursor( int show )
 {
 	(void)show;
-	// Do nothing
 }
 
-static void Stub_pfnCharEvent( int key )
+static void Menu_CharEvent( int key )
 {
 	(void)key;
-	// Do nothing
 }
 
-static int Stub_pfnMouseInRect( void )
+static int Menu_MouseInRect( void )
 {
-	return 0;  // Mouse not in rect
+	return 0;
 }
 
-static int Stub_pfnIsVisible( void )
+static int Menu_IsVisible( void )
 {
-	return 0;  // Not visible
+	return g_menu_active ? 1 : 0;
 }
 
-static int Stub_pfnCreditsActive( void )
+static int Menu_CreditsActive( void )
 {
-	return 0;  // Not active
+	return 0;
 }
 
-static void Stub_pfnFinalCredits( void )
+static void Menu_FinalCredits( void )
 {
-	// Do nothing
 }
 
-// Stub UI_FUNCTIONS structure
-static UI_FUNCTIONS g_stub_ui_functions = {
-	.pfnVidInit = Stub_pfnVidInit,
-	.pfnInit = Stub_pfnInit,
-	.pfnShutdown = Stub_pfnShutdown,
-	.pfnRedraw = Stub_pfnRedraw,
-	.pfnKeyEvent = Stub_pfnKeyEvent,
-	.pfnMouseMove = Stub_pfnMouseMove,
-	.pfnSetActiveMenu = Stub_pfnSetActiveMenu,
-	.pfnAddServerToList = Stub_pfnAddServerToList,
-	.pfnGetCursorPos = Stub_pfnGetCursorPos,
-	.pfnSetCursorPos = Stub_pfnSetCursorPos,
-	.pfnShowCursor = Stub_pfnShowCursor,
-	.pfnCharEvent = Stub_pfnCharEvent,
-	.pfnMouseInRect = Stub_pfnMouseInRect,
-	.pfnIsVisible = Stub_pfnIsVisible,
-	.pfnCreditsActive = Stub_pfnCreditsActive,
-	.pfnFinalCredits = Stub_pfnFinalCredits,
-};
-
-// Stub UI_EXTENDED_FUNCTIONS structure
-static UI_EXTENDED_FUNCTIONS g_stub_ui_extended_functions = {
-	// Extended functions not implemented in stub
-};
-
-// GetMenuAPI - returns stub UI_FUNCTIONS
-int EXPORT GetMenuAPI( UI_FUNCTIONS *pFunctionTable, ui_enginefuncs_t* engfuncs, ui_globalvars_t *pGlobals )
+int EXPORT GetMenuAPI( UI_FUNCTIONS *pFunctionTable, ui_enginefuncs_t *engfuncs, ui_globalvars_t *pGlobals )
 {
-	(void)engfuncs;
-	(void)pGlobals;
-
-	if( !pFunctionTable )
+	if( !pFunctionTable || !engfuncs || !pGlobals )
 		return 0;
 
-	// Copy stub functions to the provided table
-	memcpy( pFunctionTable, &g_stub_ui_functions, sizeof( UI_FUNCTIONS ) );
+	g_ui_eng = engfuncs;
+	g_ui_globals = pGlobals;
 
-	return 1;  // Success
-}
+	pFunctionTable->pfnVidInit = Menu_VidInit;
+	pFunctionTable->pfnInit = Menu_Init;
+	pFunctionTable->pfnShutdown = Menu_Shutdown;
+	pFunctionTable->pfnRedraw = Menu_Redraw;
+	pFunctionTable->pfnKeyEvent = Menu_KeyEvent;
+	pFunctionTable->pfnMouseMove = Menu_MouseMove;
+	pFunctionTable->pfnSetActiveMenu = Menu_SetActiveMenu;
+	pFunctionTable->pfnAddServerToList = Menu_AddServerToList;
+	pFunctionTable->pfnGetCursorPos = Menu_GetCursorPos;
+	pFunctionTable->pfnSetCursorPos = Menu_SetCursorPos;
+	pFunctionTable->pfnShowCursor = Menu_ShowCursor;
+	pFunctionTable->pfnCharEvent = Menu_CharEvent;
+	pFunctionTable->pfnMouseInRect = Menu_MouseInRect;
+	pFunctionTable->pfnIsVisible = Menu_IsVisible;
+	pFunctionTable->pfnCreditsActive = Menu_CreditsActive;
+	pFunctionTable->pfnFinalCredits = Menu_FinalCredits;
 
-// UIEXTENEDEDAPI - extended API (not implemented in stub)
-int EXPORT GetExtAPI( int version, UI_EXTENDED_FUNCTIONS *pFunctionTable, ui_extendedfuncs_t *engfuncs )
-{
-	(void)version;
-	(void)pFunctionTable;
-	(void)engfuncs;
-	return 0;  // Not implemented
+	return 1;
 }
