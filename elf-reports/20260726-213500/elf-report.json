@@ -1,0 +1,332 @@
+{
+  "generated": "2026-07-26T21:35:00.680562+00:00",
+  "file_path": "/home/tim/Desktop/xash3d-gamecube-agent/OUT/bin/xash",
+  "file_size": 20847632,
+  "architecture": "unknown",
+  "sections": [],
+  "bss_size": 0,
+  "data_size": 0,
+  "rodata_size": 0,
+  "text_size": 0,
+  "total_section_size": 0,
+  "symbol_stats": {
+    "total_symbols": 8146,
+    "symbol_type_counts": {
+      "t": 1755,
+      "b": 1315,
+      "T": 3133,
+      "D": 335,
+      "d": 1279,
+      "B": 212,
+      "r": 11,
+      "V": 36,
+      "W": 69,
+      "R": 1
+    },
+    "total_symbol_size": 15135807,
+    "max_symbol_size": 3670048,
+    "min_symbol_size": 1
+  },
+  "top_symbols": [
+    {
+      "name": "vid",
+      "size": 3670048,
+      "type": "B",
+      "addr": 2159000452
+    },
+    {
+      "name": "gc_gcmap_bootstrap_entities",
+      "size": 768000,
+      "type": "b",
+      "addr": 2156057380
+    },
+    {
+      "name": "cl",
+      "size": 652944,
+      "type": "B",
+      "addr": 2154940624
+    },
+    {
+      "name": "sv_",
+      "size": 637968,
+      "type": "B",
+      "addr": 2152967512
+    },
+    {
+      "name": "s_knownSfx",
+      "size": 524288,
+      "type": "b",
+      "addr": 2156897456
+    },
+    {
+      "name": "gpMove.14",
+      "size": 325072,
+      "type": "b",
+      "addr": 2155679456
+    },
+    {
+      "name": "gpMove.32",
+      "size": 325072,
+      "type": "b",
+      "addr": 2152552428
+    },
+    {
+      "name": "r_images",
+      "size": 319488,
+      "type": "b",
+      "addr": 2157935812
+    },
+    {
+      "name": "net",
+      "size": 295756,
+      "type": "b",
+      "addr": 2152090376
+    },
+    {
+      "name": "gx_fifo",
+      "size": 262144,
+      "type": "b",
+      "addr": 2154141600
+    },
+    {
+      "name": "r_leafkeys",
+      "size": 262144,
+      "type": "B",
+      "addr": 2158738232
+    },
+    {
+      "name": "clgame",
+      "size": 259880,
+      "type": "B",
+      "addr": 2154579616
+    },
+    {
+      "name": "mod_known",
+      "size": 200704,
+      "type": "b",
+      "addr": 2151848008
+    },
+    {
+      "name": "g_studio",
+      "size": 180320,
+      "type": "b",
+      "addr": 2158381464
+    },
+    {
+      "name": "gc_avi_static_frame",
+      "size": 153600,
+      "type": "b",
+      "addr": 2154403808
+    },
+    {
+      "name": "gc_cinematic_pixels",
+      "size": 153600,
+      "type": "b",
+      "addr": 2162698976
+    },
+    {
+      "name": "gc_gcmap_static_viewbuffer",
+      "size": 153600,
+      "type": "b",
+      "addr": 2157583120
+    },
+    {
+      "name": "gc_gcmap_static_zbuffer",
+      "size": 153600,
+      "type": "b",
+      "addr": 2157736720
+    },
+    {
+      "name": "gc_probe_rgb565",
+      "size": 153600,
+      "type": "b",
+      "addr": 2153695616
+    },
+    {
+      "name": "gc_tiled_rgb565",
+      "size": 153600,
+      "type": "b",
+      "addr": 2153849216
+    },
+    {
+      "name": "gc_lowres_surfcache_store",
+      "size": 131104,
+      "type": "b",
+      "addr": 2158561824
+    },
+    {
+      "name": "gc_rgb565_to_sw",
+      "size": 131072,
+      "type": "b",
+      "addr": 2162852576
+    },
+    {
+      "name": "s_mainStack",
+      "size": 131072,
+      "type": "b",
+      "addr": 2163072000
+    },
+    {
+      "name": "cls",
+      "size": 101128,
+      "type": "B",
+      "addr": 2154839496
+    },
+    {
+      "name": "gc_studio_bss",
+      "size": 86016,
+      "type": "b",
+      "addr": 2151761888
+    },
+    {
+      "name": "gc_newgame_cap_faces",
+      "size": 62720,
+      "type": "b",
+      "addr": 2154072480
+    },
+    {
+      "name": "con",
+      "size": 56972,
+      "type": "b",
+      "addr": 2155621380
+    },
+    {
+      "name": "gc_zip_inflate_scratch",
+      "size": 49152,
+      "type": "b",
+      "addr": 2163012868
+    },
+    {
+      "name": "__compound_literal.0",
+      "size": 48640,
+      "type": "b",
+      "addr": 2157421952
+    },
+    {
+      "name": "frame_ents.1",
+      "size": 44548,
+      "type": "b",
+      "addr": 2152490636
+    },
+    {
+      "name": "gc_gcmap_bootstrap_packet_entities",
+      "size": 43520,
+      "type": "b",
+      "addr": 2156013860
+    },
+    {
+      "name": "blocklights",
+      "size": 40960,
+      "type": "b",
+      "addr": 2158692944
+    },
+    {
+      "name": "fatal_panel.36",
+      "size": 38400,
+      "type": "b",
+      "addr": 2153618676
+    },
+    {
+      "name": "gc_loading_bg",
+      "size": 38400,
+      "type": "b",
+      "addr": 2153657152
+    },
+    {
+      "name": "svs_",
+      "size": 33480,
+      "type": "B",
+      "addr": 2152934032
+    },
+    {
+      "name": "msg_buf.2",
+      "size": 33280,
+      "type": "b",
+      "addr": 2152430448
+    },
+    {
+      "name": "ispow",
+      "size": 32828,
+      "type": "b",
+      "addr": 2157549760
+    },
+    {
+      "name": "net_message_buffer",
+      "size": 32816,
+      "type": "B",
+      "addr": 2152056904
+    },
+    {
+      "name": "cmd_text",
+      "size": 32772,
+      "type": "b",
+      "addr": 2151538920
+    },
+    {
+      "name": "filteredcmd_text",
+      "size": 32772,
+      "type": "b",
+      "addr": 2151506148
+    },
+    {
+      "name": "gc_parent_stack.14",
+      "size": 32768,
+      "type": "b",
+      "addr": 2151647852
+    },
+    {
+      "name": "r_gx_tex_world_pool",
+      "size": 32768,
+      "type": "b",
+      "addr": 2157902016
+    },
+    {
+      "name": "celt_encode_with_ec",
+      "size": 26436,
+      "type": "T",
+      "addr": 2149797352
+    },
+    {
+      "name": "gc_newgame_draw_surfs",
+      "size": 25600,
+      "type": "b",
+      "addr": 2154046880
+    },
+    {
+      "name": "voice",
+      "size": 25200,
+      "type": "B",
+      "addr": 2157506104
+    },
+    {
+      "name": "xrcon",
+      "size": 24720,
+      "type": "b",
+      "addr": 2152405720
+    },
+    {
+      "name": "gc_probe_edges_store",
+      "size": 24672,
+      "type": "b",
+      "addr": 2158295360
+    },
+    {
+      "name": "gc_probe_surfaces_store",
+      "size": 24672,
+      "type": "b",
+      "addr": 2158270688
+    },
+    {
+      "name": "gc_singleplayer_frames",
+      "size": 24512,
+      "type": "b",
+      "addr": 2152466080
+    },
+    {
+      "name": "tonemasks",
+      "size": 22848,
+      "type": "d",
+      "addr": 2150994560
+    }
+  ]
+}

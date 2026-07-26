@@ -1,0 +1,501 @@
+{
+  "generated": "2026-07-26T22:00:18.508365+00:00",
+  "file_path": "/home/tim/Desktop/xash3d-gamecube-agent/OUT/bin/xash",
+  "file_size": 20853348,
+  "architecture": "PowerPC",
+  "sections": [
+    {
+      "name": ".init",
+      "size": 160,
+      "addr": 2147496192,
+      "offset": 2147496192,
+      "align": 0
+    },
+    {
+      "name": ".text",
+      "size": 3129760,
+      "addr": 2147496352,
+      "offset": 2147496352,
+      "align": 0
+    },
+    {
+      "name": ".rodata",
+      "size": 447380,
+      "addr": 2150626112,
+      "offset": 2150626112,
+      "align": 0
+    },
+    {
+      "name": ".sdata2",
+      "size": 82,
+      "addr": 2151073492,
+      "offset": 2151073492,
+      "align": 0
+    },
+    {
+      "name": ".eh_frame_hdr",
+      "size": 39124,
+      "addr": 2151073576,
+      "offset": 2151073576,
+      "align": 0
+    },
+    {
+      "name": ".eh_frame",
+      "size": 346612,
+      "addr": 2151112700,
+      "offset": 2151112700,
+      "align": 0
+    },
+    {
+      "name": ".gcc_except_table",
+      "size": 60,
+      "addr": 2151459312,
+      "offset": 2151459312,
+      "align": 0
+    },
+    {
+      "name": ".ctors",
+      "size": 24,
+      "addr": 2151459372,
+      "offset": 2151459372,
+      "align": 0
+    },
+    {
+      "name": ".dtors",
+      "size": 16,
+      "addr": 2151459396,
+      "offset": 2151459396,
+      "align": 0
+    },
+    {
+      "name": ".data",
+      "size": 45016,
+      "addr": 2151459416,
+      "offset": 2151459416,
+      "align": 0
+    },
+    {
+      "name": ".sdata",
+      "size": 368,
+      "addr": 2151504432,
+      "offset": 2151504432,
+      "align": 0
+    },
+    {
+      "name": ".sbss",
+      "size": 1192,
+      "addr": 2151504800,
+      "offset": 2151504800,
+      "align": 0
+    },
+    {
+      "name": ".bss",
+      "size": 11751800,
+      "addr": 2151505992,
+      "offset": 2151505992,
+      "align": 0
+    },
+    {
+      "name": ".comment",
+      "size": 74,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".gnu.attributes",
+      "size": 18,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".debug_aranges",
+      "size": 61320,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".debug_info",
+      "size": 7306666,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".debug_abbrev",
+      "size": 519286,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".debug_line",
+      "size": 3885961,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".debug_frame",
+      "size": 288,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".debug_str",
+      "size": 408828,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".debug_line_str",
+      "size": 542,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".debug_loclists",
+      "size": 3861845,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    },
+    {
+      "name": ".debug_rnglists",
+      "size": 516169,
+      "addr": 0,
+      "offset": 0,
+      "align": 0
+    }
+  ],
+  "bss_size": 11751800,
+  "data_size": 45016,
+  "rodata_size": 447380,
+  "text_size": 3129760,
+  "total_section_size": 32322591,
+  "symbol_stats": {
+    "total_symbols": 8149,
+    "symbol_type_counts": {
+      "t": 1755,
+      "b": 1315,
+      "T": 3136,
+      "D": 335,
+      "d": 1279,
+      "B": 212,
+      "r": 11,
+      "V": 36,
+      "W": 69,
+      "R": 1
+    },
+    "total_symbol_size": 15135979,
+    "max_symbol_size": 3670048,
+    "min_symbol_size": 1
+  },
+  "top_symbols": [
+    {
+      "name": "vid",
+      "size": 3670048,
+      "type": "B",
+      "addr": 2159000932
+    },
+    {
+      "name": "gc_gcmap_bootstrap_entities",
+      "size": 768000,
+      "type": "b",
+      "addr": 2156057860
+    },
+    {
+      "name": "cl",
+      "size": 652944,
+      "type": "B",
+      "addr": 2154941104
+    },
+    {
+      "name": "sv_",
+      "size": 637968,
+      "type": "B",
+      "addr": 2152967992
+    },
+    {
+      "name": "s_knownSfx",
+      "size": 524288,
+      "type": "b",
+      "addr": 2156897936
+    },
+    {
+      "name": "gpMove.14",
+      "size": 325072,
+      "type": "b",
+      "addr": 2155679936
+    },
+    {
+      "name": "gpMove.32",
+      "size": 325072,
+      "type": "b",
+      "addr": 2152552908
+    },
+    {
+      "name": "r_images",
+      "size": 319488,
+      "type": "b",
+      "addr": 2157936292
+    },
+    {
+      "name": "net",
+      "size": 295756,
+      "type": "b",
+      "addr": 2152090856
+    },
+    {
+      "name": "gx_fifo",
+      "size": 262144,
+      "type": "b",
+      "addr": 2154142080
+    },
+    {
+      "name": "r_leafkeys",
+      "size": 262144,
+      "type": "B",
+      "addr": 2158738712
+    },
+    {
+      "name": "clgame",
+      "size": 259880,
+      "type": "B",
+      "addr": 2154580096
+    },
+    {
+      "name": "mod_known",
+      "size": 200704,
+      "type": "b",
+      "addr": 2151848488
+    },
+    {
+      "name": "g_studio",
+      "size": 180320,
+      "type": "b",
+      "addr": 2158381944
+    },
+    {
+      "name": "gc_avi_static_frame",
+      "size": 153600,
+      "type": "b",
+      "addr": 2154404288
+    },
+    {
+      "name": "gc_cinematic_pixels",
+      "size": 153600,
+      "type": "b",
+      "addr": 2162699456
+    },
+    {
+      "name": "gc_gcmap_static_viewbuffer",
+      "size": 153600,
+      "type": "b",
+      "addr": 2157583600
+    },
+    {
+      "name": "gc_gcmap_static_zbuffer",
+      "size": 153600,
+      "type": "b",
+      "addr": 2157737200
+    },
+    {
+      "name": "gc_probe_rgb565",
+      "size": 153600,
+      "type": "b",
+      "addr": 2153696096
+    },
+    {
+      "name": "gc_tiled_rgb565",
+      "size": 153600,
+      "type": "b",
+      "addr": 2153849696
+    },
+    {
+      "name": "gc_lowres_surfcache_store",
+      "size": 131104,
+      "type": "b",
+      "addr": 2158562304
+    },
+    {
+      "name": "gc_rgb565_to_sw",
+      "size": 131072,
+      "type": "b",
+      "addr": 2162853056
+    },
+    {
+      "name": "s_mainStack",
+      "size": 131072,
+      "type": "b",
+      "addr": 2163072480
+    },
+    {
+      "name": "cls",
+      "size": 101128,
+      "type": "B",
+      "addr": 2154839976
+    },
+    {
+      "name": "gc_studio_bss",
+      "size": 86016,
+      "type": "b",
+      "addr": 2151762368
+    },
+    {
+      "name": "gc_newgame_cap_faces",
+      "size": 62720,
+      "type": "b",
+      "addr": 2154072960
+    },
+    {
+      "name": "con",
+      "size": 56972,
+      "type": "b",
+      "addr": 2155621860
+    },
+    {
+      "name": "gc_zip_inflate_scratch",
+      "size": 49152,
+      "type": "b",
+      "addr": 2163013348
+    },
+    {
+      "name": "__compound_literal.0",
+      "size": 48640,
+      "type": "b",
+      "addr": 2157422432
+    },
+    {
+      "name": "frame_ents.1",
+      "size": 44548,
+      "type": "b",
+      "addr": 2152491116
+    },
+    {
+      "name": "gc_gcmap_bootstrap_packet_entities",
+      "size": 43520,
+      "type": "b",
+      "addr": 2156014340
+    },
+    {
+      "name": "blocklights",
+      "size": 40960,
+      "type": "b",
+      "addr": 2158693424
+    },
+    {
+      "name": "fatal_panel.36",
+      "size": 38400,
+      "type": "b",
+      "addr": 2153619156
+    },
+    {
+      "name": "gc_loading_bg",
+      "size": 38400,
+      "type": "b",
+      "addr": 2153657632
+    },
+    {
+      "name": "svs_",
+      "size": 33480,
+      "type": "B",
+      "addr": 2152934512
+    },
+    {
+      "name": "msg_buf.2",
+      "size": 33280,
+      "type": "b",
+      "addr": 2152430928
+    },
+    {
+      "name": "ispow",
+      "size": 32828,
+      "type": "b",
+      "addr": 2157550240
+    },
+    {
+      "name": "net_message_buffer",
+      "size": 32816,
+      "type": "B",
+      "addr": 2152057384
+    },
+    {
+      "name": "cmd_text",
+      "size": 32772,
+      "type": "b",
+      "addr": 2151539400
+    },
+    {
+      "name": "filteredcmd_text",
+      "size": 32772,
+      "type": "b",
+      "addr": 2151506628
+    },
+    {
+      "name": "gc_parent_stack.14",
+      "size": 32768,
+      "type": "b",
+      "addr": 2151648332
+    },
+    {
+      "name": "r_gx_tex_world_pool",
+      "size": 32768,
+      "type": "b",
+      "addr": 2157902496
+    },
+    {
+      "name": "celt_encode_with_ec",
+      "size": 26436,
+      "type": "T",
+      "addr": 2149797524
+    },
+    {
+      "name": "gc_newgame_draw_surfs",
+      "size": 25600,
+      "type": "b",
+      "addr": 2154047360
+    },
+    {
+      "name": "voice",
+      "size": 25200,
+      "type": "B",
+      "addr": 2157506584
+    },
+    {
+      "name": "xrcon",
+      "size": 24720,
+      "type": "b",
+      "addr": 2152406200
+    },
+    {
+      "name": "gc_probe_edges_store",
+      "size": 24672,
+      "type": "b",
+      "addr": 2158295840
+    },
+    {
+      "name": "gc_probe_surfaces_store",
+      "size": 24672,
+      "type": "b",
+      "addr": 2158271168
+    },
+    {
+      "name": "gc_singleplayer_frames",
+      "size": 24512,
+      "type": "b",
+      "addr": 2152466560
+    },
+    {
+      "name": "tonemasks",
+      "size": 22848,
+      "type": "d",
+      "addr": 2150994944
+    }
+  ]
+}

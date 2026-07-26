@@ -5225,6 +5225,40 @@ static qboolean SV_GCMapShouldInhibitClass( const char *classname )
 
 	return false;
 }
+
+/* G433: Replace policy-based entity inhibition with measured budgeting
+ * Check if entity should be inhibited based on memory budget.
+ * Returns true if entity should be inhibited. */
+static qboolean SV_GCMapShouldInhibitBudget( const char *classname, size_t entity_index )
+{
+	size_t entity_size;
+	qboolean over_budget;
+	
+	if( COM_StringEmpty( classname ))
+		return false;
+	
+	/* Check if we're already over budget */
+	over_budget = GC_MemBudgetExceeded();
+	
+	if( over_budget )
+	{
+		/* Estimate entity memory usage */
+		entity_size = GC_EntityEstimateSize();
+		
+		/* Check if we can afford to spawn this entity */
+		if( !GC_MemBudgetEnforce( entity_size, "entity_spawn" ))
+		{
+			/* Budget exceeded, inhibit entity */
+			if( entity_index >= 90 && ( entity_index & 63 ) == 0 )
+				Con_Reportf( "Xash3D GameCube: gcmap inhibited (budget) entity=%d classname=%s\n",
+					entity_index, classname );
+			return true;
+		}
+	}
+	
+	/* Fall back to policy-based inhibition for smoke probes */
+	return SV_GCMapShouldInhibitClass( classname );
+}
 #endif
 
 /*
@@ -5356,7 +5390,7 @@ static qboolean SV_ParseEdict( char **pfile, edict_t *ent, int entity_index, qbo
 	}
 
 #if XASH_GAMECUBE
-	if( SV_GCMapSmokeRoute() && SV_GCMapShouldInhibitClass( classname ))
+	if( SV_GCMapSmokeRoute() && SV_GCMapShouldInhibitBudget( classname, entity_index ))
 	{
 		if( inhibited_early )
 			*inhibited_early = true;
@@ -5520,7 +5554,7 @@ static void SV_LoadFromFile( const char *mapname, char *entities )
 					Con_Reportf( "Xash3D GameCube: entity spawn step=%d classname=%s\n",
 						entity_index - 1, spawn_class );
 
-				if( SV_GCMapShouldInhibitClass( spawn_class ))
+				if( SV_GCMapShouldInhibitBudget( spawn_class, entity_index ))
 				{
 					if(( entity_index & 63 ) == 0 )
 						Con_Reportf( "Xash3D GameCube: gcmap inhibited entity=%d classname=%s\n",
