@@ -11,30 +11,25 @@ Selection policy:
 - Continue with the first incomplete automatable goal in the goal ledger.
 
 Current goal:
-G404: Build real client implementation
+G405: Build real combined implementation
 
-**COMPLETED**
+**IN PROGRESS**
 
-Implemented GameCube client with:
-- Real HLSDK client archive (libclient_gamecube_ppc.a) linked
-- Client exports integrated via setup_gamecube_client_exports()
-- Client module uses real HLSDK implementation (not stub)
-- Server and menu modules use real implementations
-- Ref still uses real ref_gx implementation
-- Audio and input remain stubs (not yet implemented)
+Goal: Integrate menu, server, and client into unified build
 
-**BUILD STATE VERIFICATION**
-- Client uses real HLSDK client archive (XASH_GAMECUBE_HLSDK_STATIC=1)
-- Build uses -lclient_gamecube_ppc linker flag
-- No stub/client references in build output
-- Build completes successfully with real client implementation
+**COMPLETED (G404)**:
+- Client uses real HLSDK client archive (libclient_gamecube_ppc.a)
+- Server uses real HLSDK server archive (libhl_gamecube_ppc.a)
+- Menu uses real implementation
+- Ref uses real ref_gx implementation
+- Build verified: boot.dol (3.9M), xash (20M)
+- No stub references in build output
 
-**VERIFICATION**
-- Build: `python3 waf configure --gamecube && python3 waf build --gamecube` - SUCCESS
-- Install: `python3 waf install --gamecube --destdir=OUT` - SUCCESS
-- DOL generated: OUT/bin/boot.dol (3.9M)
-- ELF generated: OUT/bin/xash (20M)
-- Client and server archives linked: "Using GameCube HLSDK client archive", "Using GameCube HLSDK server archive"
+**NEXT STEPS**:
+- Verify all components work together in unified build
+- Test combined system functionality
+- Document integration architecture
+- Create build configuration for combined build
 
 Rules:
 - Make one bounded implementation or validation patch.
