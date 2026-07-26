@@ -1,5 +1,5 @@
 #ifndef MINIZ_EXPORT
-#define MINIZ_EXPORT
+#define MINIZ_EXPORT __attribute__((visibility("default")))
 #endif
 /* miniz.c 3.1.0 - public domain deflate/inflate, zlib-subset, ZIP reading/writing/appending, PNG writing
    See "unlicense" statement at the end of this file.
