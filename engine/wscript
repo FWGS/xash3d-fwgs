@@ -265,14 +265,6 @@ def build(bld):
 				gamecube_defines += ['XASH_GAMECUBE_HLSDK_ENTITY_EXPORTS=1']
 			else:
 				Logs.warn('GameCube HLSDK entity export list not found under %s' % hlsdk_dest)
-			source += [bld.path.parent.find_node('stub/server/server_export.c')]
-		else:
-			Logs.warn('GameCube HLSDK static archives not found under %s; using stubs' % hlsdk_dest)
-			source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
-			source += bld.path.parent.find_dir('stub/server').ant_glob('*.c')
-			source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_shared.c')
-			source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_math.c')
-		
 		# Always include menu stub for GameCube (required for menu functionality)
 		source += bld.path.parent.find_dir('stub/menu').ant_glob('*.c')
 		includes += [

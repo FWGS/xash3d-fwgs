@@ -26,6 +26,7 @@ GNU General Public License for more details.
 #if XASH_GAMECUBE
 #include "imagelib.h"
 #include "gamecube/mem_gamecube.h"
+#include "gamecube/dll_gamecube.h"
 void CL_GCRelinkEventHooks( void );
 #endif
 

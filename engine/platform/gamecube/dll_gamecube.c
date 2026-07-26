@@ -211,7 +211,6 @@ int dll_register( const char *name, dllexport_t *exports )
 int setup_gamecube_dll_functions( void )
 {
 	extern int setup_gamecube_ref_exports( void );
-	extern int setup_gamecube_server_exports( void );
 	int ret = 0;
 
 	ret |= setup_gamecube_filesystem_exports();
@@ -221,7 +220,6 @@ int setup_gamecube_dll_functions( void )
 	extern int setup_gamecube_client_exports( void );
 	ret |= setup_gamecube_client_exports();
 #endif
-	ret |= setup_gamecube_server_exports();
 
 	return ret;
 }

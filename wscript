@@ -82,7 +82,6 @@ SUBDIRS = [
 	# always configured and built
 	Subproject('public'),
 	Subproject('filesystem'),
-	Subproject('stub/server'),
 	Subproject('3rdparty/libbacktrace'),
 	Subproject('3rdparty/library_suffix'),
 
