@@ -38,6 +38,9 @@ def reverse_single(
 		objective_verifier_enabled=config.orchestrator.objective_verifier_enabled,
 		objective_call_count_tolerance=config.orchestrator.objective_call_count_tolerance,
 		objective_control_flow_tolerance=config.orchestrator.objective_control_flow_tolerance,
+		objective_signature_verification=config.orchestrator.objective_signature_verification,
+		objective_variable_verification=config.orchestrator.objective_variable_verification,
+		objective_type_verification=config.orchestrator.objective_type_verification,
 	)
 
 	if result.code:
@@ -68,3 +71,4 @@ def _target_to_hook(target: FunctionTarget) -> HookEntry:
 		locked=False,
 		is_virtual=False,
 	)
+

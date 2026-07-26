@@ -56,6 +56,9 @@ class OrchestratorConfig:
 	objective_verifier_enabled: bool = True
 	objective_call_count_tolerance: int = 3
 	objective_control_flow_tolerance: int = 2
+	objective_signature_verification: bool = True
+	objective_variable_verification: bool = True
+	objective_type_verification: bool = True
 
 
 @dataclass
@@ -78,3 +81,4 @@ class ReAgentConfig:
 	@classmethod
 	def create_default(cls) -> "ReAgentConfig":
 		return cls()
+

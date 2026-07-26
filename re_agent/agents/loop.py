@@ -32,6 +32,9 @@ def run_fix_loop(
 	objective_verifier_enabled: bool = True,
 	objective_call_count_tolerance: int = 3,
 	objective_control_flow_tolerance: int = 2,
+	objective_signature_verification: bool = True,
+	objective_variable_verification: bool = True,
+	objective_type_verification: bool = True,
 ) -> ReversalResult:
 	if checker_llm is None:
 		checker_llm = reverser_llm
@@ -74,6 +77,9 @@ def run_fix_loop(
 			backend,
 			call_count_tolerance=objective_call_count_tolerance,
 			control_flow_tolerance=objective_control_flow_tolerance,
+			signature_verification=objective_signature_verification,
+			variable_verification=objective_variable_verification,
+			type_verification=objective_type_verification,
 		) if objective_verifier_enabled else None
 
 		if log_dir is not None:
@@ -103,3 +109,4 @@ def run_fix_loop(
 		rounds_used=max_rounds,
 		success=False,
 	)
+

@@ -45,6 +45,9 @@ def _as_serializable() -> dict[str, object]:
 			"objective_verifier_enabled": config.orchestrator.objective_verifier_enabled,
 			"objective_call_count_tolerance": config.orchestrator.objective_call_count_tolerance,
 			"objective_control_flow_tolerance": config.orchestrator.objective_control_flow_tolerance,
+			"objective_signature_verification": config.orchestrator.objective_signature_verification,
+			"objective_variable_verification": config.orchestrator.objective_variable_verification,
+			"objective_type_verification": config.orchestrator.objective_type_verification,
 		},
 		"output": {
 			"report_dir": config.output.report_dir,
@@ -56,3 +59,4 @@ def _as_serializable() -> dict[str, object]:
 
 
 DEFAULT_CONFIG_YAML = json.dumps(_as_serializable(), indent=2) + "\n"
+
