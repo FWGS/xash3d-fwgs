@@ -6018,6 +6018,8 @@ qboolean R_Init_Video( ref_graphic_apis_t type )
 
 #if XASH_GAMECUBE
 	gc_quality = Cvar_Get( "gc_quality", "1", FCVAR_ARCHIVE, "GameCube quality profile: 0=playable/low-mem, 1=standard (default), 2=high telemetry-only" );
+	Cvar_Get( "gc_telemetry", "0", FCVAR_ARCHIVE, "Enable GameCube telemetry reporting (0=disabled, 1=enabled)" );
+	Cvar_Get( "gc_telemetry_format", "0", FCVAR_ARCHIVE, "Telemetry output format (0=short, 1=detailed)" );
 	Cvar_Get( "gc_hud_probe_skip", "0", 0, "GameCube HUD UpdateClientData skip gate during post-map probe" );
 	GC_ReportQualityProfile( "video-init" );
 #endif
