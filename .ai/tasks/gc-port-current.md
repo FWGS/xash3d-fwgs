@@ -11,25 +11,21 @@ Selection policy:
 - Continue with the first incomplete automatable goal in the goal ledger.
 
 Current goal:
-G405: Build real combined implementation
+G410: Asset root discovery
 
-**IN PROGRESS**
-
-Goal: Integrate menu, server, and client into unified build
-
-**COMPLETED (G404)**:
-- Client uses real HLSDK client archive (libclient_gamecube_ppc.a)
-- Server uses real HLSDK server archive (libhl_gamecube_ppc.a)
-- Menu uses real implementation
-- Ref uses real ref_gx implementation
-- Build verified: boot.dol (3.9M), xash (20M)
+**COMPLETED (G410)**:
+- Added XASH3D_GC_ASSET_ROOT environment variable support
+- Added XASH3D_GC_VALVE_DIR environment variable support
+- Environment variables take precedence over default paths
+- Enables flexible asset deployment for SD card and disc
+- Build verified: boot.dol (3.8M), xash (20M)
 - No stub references in build output
 
 **NEXT STEPS**:
-- Verify all components work together in unified build
-- Test combined system functionality
-- Document integration architecture
-- Create build configuration for combined build
+- G411: Asset staging to SD - Create asset staging tools and scripts
+- G412: Asset root discovery and SD staging - Combine asset root discovery and SD staging
+- G420: Telemetry - Implement telemetry system for GameCube
+- G421: BSP loading - Implement BSP file loading for GameCube
 
 Rules:
 - Make one bounded implementation or validation patch.
