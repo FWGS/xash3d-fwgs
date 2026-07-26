@@ -2552,7 +2552,7 @@ def main() -> int:
 				pass_env.setdefault("AIDER_MODEL_MAX_CONTEXT", "32768")
 				pass_env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
 				pass_env.setdefault("AIDER_RESERVED_OUTPUT_SLACK", "512")
-				pass_env.setdefault("DOLPHIN_PROBE_MAX_LINES", "400")
+				pass_env.setdefault("DOLPHIN_PROBE_MAX_LINES", "700")
 			pass_env["AI_COMMIT_BODY"] = goal_commit_body(goal,
 				attempt=attempts[goal.goal_id],
 				context_files=context_files,

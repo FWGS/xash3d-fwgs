@@ -15,6 +15,12 @@ static char gc_mem_map[MAX_QPATH] = "(none)";
 static size_t gc_mem_last;
 static size_t gc_mem_hwm;
 
+/* Map-load memory pressure tracking */
+static size_t gc_mapload_pressure_base;
+static size_t gc_mapload_pressure_peak;
+static size_t gc_mapload_pressure_delta;
+static qboolean gc_mapload_pressure_active;
+
 /* Contiguous staging buffer for maps/*.bsp. Borrowed after menu/client trim. */
 static byte *gc_mapload_buf;
 static size_t gc_mapload_buf_size;
@@ -53,6 +59,142 @@ void GC_MemFail( const char *subsystem, size_t size, const char *file, int line 
 	Con_Reportf( "Xash3D GameCube: mem FAIL subsystem=%s size=%s map=%s at=%s:%i total=%s hwm=%s\n",
 		subsystem ? subsystem : "unknown", Q_memprint( size ), gc_mem_map, file, line,
 		Q_memprint( Mem_TotalRealSize() ), Q_memprint( gc_mem_hwm ));
+}
+
+/* Runtime memory arena telemetry */
+void GC_MemArena_GetStats( GC_MemArenaStats *stats )
+{
+	size_t total = Mem_TotalRealSize();
+	
+	if( !stats )
+		return;
+	
+	stats->total = total;
+	stats->hwm = gc_mem_hwm;
+	stats->budget = GC_MEMORY_BUDGET_BYTES;
+	stats->budget_used = total;
+	stats->budget_free = (total < GC_MEMORY_BUDGET_BYTES) ? (GC_MEMORY_BUDGET_BYTES - total) : 0;
+	stats->budget_exceeded = (total > GC_MEMORY_BUDGET_BYTES);
+}
+
+qboolean GC_MemBudgetCheck( void )
+{
+	size_t total = Mem_TotalRealSize();
+	return (total <= GC_MEMORY_BUDGET_BYTES);
+}
+
+void GC_MemBudgetWarn( const char *stage )
+{
+	size_t total = Mem_TotalRealSize();
+	size_t used_percent = (total * 100) / GC_MEMORY_BUDGET_BYTES;
+	
+	if( total >= GC_MEMORY_CRITICAL_95_PERCENT )
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: mem CRITICAL %s%% budget used (%s/%s) at %s\n",
+			used_percent, Q_memprint( total ), Q_memprint( GC_MEMORY_BUDGET_BYTES ), stage );
+	}
+	else if( total >= GC_MEMORY_WARNING_90_PERCENT )
+	{
+		Con_Reportf( S_WARN "Xash3D GameCube: mem WARNING %s%% budget used (%s/%s) at %s\n",
+			used_percent, Q_memprint( total ), Q_memprint( GC_MEMORY_BUDGET_BYTES ), stage );
+	}
+	else if( total >= GC_MEMORY_WARNING_80_PERCENT )
+	{
+		Con_Reportf( "Xash3D GameCube: mem INFO %s%% budget used (%s/%s) at %s\n",
+			used_percent, Q_memprint( total ), Q_memprint( GC_MEMORY_BUDGET_BYTES ), stage );
+	}
+}
+
+qboolean GC_MemBudgetEnforce( size_t requested, const char *subsystem )
+{
+	size_t total = Mem_TotalRealSize();
+	size_t new_total = total + requested;
+	
+	if( new_total > GC_MEMORY_BUDGET_BYTES )
+	{
+		Con_Reportf( S_ERROR "Xash3D GameCube: mem BUDGET EXCEEDED requested=%s total=%s new=%s budget=%s subsystem=%s\n",
+			Q_memprint( requested ), Q_memprint( total ), Q_memprint( new_total ),
+			Q_memprint( GC_MEMORY_BUDGET_BYTES ), subsystem ? subsystem : "unknown" );
+		return false;
+	}
+	
+	return true;
+}
+
+/* Memory budget telemetry */
+size_t GC_MemBudgetTotal( void )
+{
+	return Mem_TotalRealSize();
+}
+
+size_t GC_MemBudgetUsed( void )
+{
+	return Mem_TotalRealSize();
+}
+
+size_t GC_MemBudgetFree( void )
+{
+	size_t total = Mem_TotalRealSize();
+	return (total < GC_MEMORY_BUDGET_BYTES) ? (GC_MEMORY_BUDGET_BYTES - total) : 0;
+}
+
+qboolean GC_MemBudgetExceeded( void )
+{
+	return (Mem_TotalRealSize() > GC_MEMORY_BUDGET_BYTES);
+}
+
+/* Entity memory estimation */
+size_t GC_EntityEstimateSize( void )
+{
+	/* Estimate edict_t + typical private data (model strings, etc.)
+	 * edict_t is ~2KB on GameCube, private data varies by entity type.
+	 * Use a conservative average estimate for budgeting.
+	 * Note: This is an estimate based on typical entity sizes.
+	 * The actual size depends on the progdefs and entity type. */
+	return 2048 + 512; /* ~2.5KB per entity average */
+}
+
+/* Map-load memory pressure measurement */
+void GC_MapLoadPressureBegin( void )
+{
+	gc_mapload_pressure_base = Mem_TotalRealSize();
+	gc_mapload_pressure_peak = gc_mapload_pressure_base;
+	gc_mapload_pressure_delta = 0;
+	gc_mapload_pressure_active = true;
+}
+
+void GC_MapLoadPressureEnd( void )
+{
+	gc_mapload_pressure_active = false;
+}
+
+void GC_MapLoadPressureSample( const char *stage )
+{
+	size_t total;
+	
+	if( !gc_mapload_pressure_active )
+		return;
+	
+	total = Mem_TotalRealSize();
+	
+	if( total > gc_mapload_pressure_peak )
+	{
+		gc_mapload_pressure_peak = total;
+		gc_mapload_pressure_delta = gc_mapload_pressure_peak - gc_mapload_pressure_base;
+		Con_Reportf( "Xash3D GameCube: map-load pressure stage=%s peak=%s delta=%s base=%s\n",
+			stage, Q_memprint( gc_mapload_pressure_peak ), Q_memprint( gc_mapload_pressure_delta ),
+			Q_memprint( gc_mapload_pressure_base ) );
+	}
+}
+
+size_t GC_MapLoadPressurePeak( void )
+{
+	return gc_mapload_pressure_peak;
+}
+
+size_t GC_MapLoadPressureDelta( void )
+{
+	return gc_mapload_pressure_delta;
 }
 
 void GC_InitMapLoadBuffer( void )

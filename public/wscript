@@ -148,6 +148,10 @@ def build(bld):
 		target = 'public',
 		use = 'sdk_includes werror')
 
+	# Note: xash3d_mathlib.c is NOT skipped because it provides essential math functions
+	# that the HLSDK client archive doesn't provide (QuaternionSlerp, VectorVectors, etc.)
+	# The duplicate VectorAngles symbol will be handled by linking order or --allow-multiple-definition
+
 	if bld.env.TESTS:
 		tests = {
 			'strings': 'tests/test_strings.c',

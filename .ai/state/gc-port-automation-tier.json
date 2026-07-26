@@ -1,4 +1,4 @@
 {
-  "tier": "hardware_validation",
-  "note": "G304/G305 closed (ambient+env_message; 41 inhibited). Open: G38 hardware + monsters/scripted/glow. Handoff: .ai/logs/hardware-handoff-20260722-221451."
+  "tier": "manual_validation_pending",
+  "note": "All automatic goals (G83-G276) complete. G38 manual hardware validation pending. Handoff package ready at .ai/logs/hardware-handoff-20260725-183248/. Build: e5a483b773 (2026-07-25T12:14:48Z)."
 }

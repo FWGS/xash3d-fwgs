@@ -1,0 +1,11 @@
+800ceafc T dlsym
+800cecc4 T dll_register
+800ceed0 T setup_gamecube_dll_functions
+8033a77c d cdll_new_exports
+8033a7d4 d cdll_exports
+803cfa6c d r_refdll_loaded
+805d77bc b gc_registered_dll_count
+805d77c0 b dll_err
+805d77c4 b dll_storage_count
+805d77c8 b dll_storage
+805d7bc8 b dll_list

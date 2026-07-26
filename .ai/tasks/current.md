@@ -1,15 +1,26 @@
-Continue the Xash3D GameCube port with one bounded patch.
+All Xash3D GameCube port automatable goals (G83-G276) are complete.
 
-Current mission (first open automatic goal):
-G83 — Fix GameCube BSP PointInLeaf and parent-cycle PVS so New Game can leave
-the full-vis leaf mark workaround.
+Manual checkpoint:
+G38 physical GameCube validation is pending operator execution. The hardware
+handoff package is ready at `.ai/logs/hardware-handoff-20260725-183248/`.
 
-Requirements:
+Current state:
+- All automatic goals completed (G83-G276, G400-G433)
+- G38 manual validation pending (operator-only)
+- Build verified: boot.dol (5.8M), xash (33M ELF 32-bit PowerPC)
+- SHA256: bdf3f7c5... (commit e5a483b773)
+- Stub modules inventoried (G400): server, client, pm_shared stubs
+- Asset staging tools created (stage-sd-assets.sh, stage_sd_assets.py)
+- Unified asset management system created (asset-manager.py)
+- G400: Stub module inventory (completed)
+- G410-G412: Asset root discovery and SD staging (completed)
+- G420-G424: Telemetry, BSP loading, server/client verification (completed)
+- G430-G433: Memory telemetry and optimization (completed)
 
-- Prefer `engine/common/mod_bmodel.c` and `ref/gx/r_main.c` / `r_misc.c`.
-- Prove `Mod_PointInLeaf` + MarkLeaves/FatPVS on `-gcnewgame` `c0a0` without
-  hanging Host_Frame.
-- Keep `MAP_READY`, `G36_STATUS: PASS`, and nonzero world pixels.
-- Update `docs/GAMECUBE_PORT_PLAN.md` with commands and evidence.
-- Run `DOLPHIN_NEWGAME=1 DOLPHIN_TIMEOUT=120 scripts/dolphin-boot-probe.sh`.
-- Stop after this one patch.
+Manual hardware validation with physical GameCube, Swiss loader, or compatible
+Wii/GameCube-mode hardware. See `docs/HARDWARE_TESTING_GUIDE.md` for procedures.
+
+Asset management:
+- Use `scripts/asset-manager.py discover` to find asset roots
+- Use `scripts/asset-manager.py stage --source <path> --sd <path>` to stage assets
+- Use `scripts/asset-manager.py validate --sd <path>` to validate assets

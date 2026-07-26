@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 from waflib import Logs, Errors
+import os
 
 def options(opt):
 	pass
@@ -26,6 +27,10 @@ def build(bld):
 		# only so `-gcsoftworld` diagnostic builds resolve symbols; runtime
 		# refuses soft gameplay via GC_UseGxRenderer / GC_UseGxWorldDraw.
 		source = bld.path.ant_glob('*.c') + common_src
+		
+		# Note: r_refcontext.c is NOT skipped because it provides essential rendering functionality.
+		# The duplicate gpGlobals/gEngfuncs symbols will be handled by linking order or --allow-multiple-definition
+		
 		if not source:
 			raise Errors.WafError('ref_gx has no sources')
 		gc_libs = [ 'engine_includes', 'werror', 'public', 'M' ]

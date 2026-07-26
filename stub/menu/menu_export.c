@@ -2,11 +2,14 @@
 #include "menu_int.h"
 #include "gamecube/dll_gamecube.h"
 
-extern int EXPORT GetMenuAPI( UI_FUNCTIONS *pFunctionTable, ui_enginefuncs_t *engfuncs, ui_globalvars_t *pGlobals );
+// Forward declarations
+int EXPORT GetMenuAPI( UI_FUNCTIONS *pFunctionTable, ui_enginefuncs_t* engfuncs, ui_globalvars_t *pGlobals );
+int EXPORT GetExtAPI( int version, UI_EXTENDED_FUNCTIONS *pFunctionTable, ui_extendedfuncs_t *engfuncs );
 
 static dllexport_t gamecube_menu_exports[] =
 {
 	{ "GetMenuAPI", (void *)GetMenuAPI },
+	{ "GetExtAPI", (void *)GetExtAPI },
 	{ NULL, NULL },
 };
 

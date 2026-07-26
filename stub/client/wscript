@@ -14,7 +14,8 @@ def build(bld):
 	bld.stlib(
 		source = bld.path.ant_glob('*.c'),
 		target = 'client_stub',
-		includes = ['../../engine', '../../engine/common', '../../engine/client', '../../engine/platform/gamecube', '../../public'],
+		includes = ['.', '../../engine', '../../engine/common', '../../engine/client', '../../engine/platform', '../../public'],
+		defines = ['ENGINE_DLL=1'],
 		use = ['engine_includes', 'public', 'werror'],
 		install_path = bld.env.LIBDIR,
 	)

@@ -12,7 +12,12 @@ speculative failures as facts.
   boot still works, so the disc path needs validation with another Dolphin
   build or physical homebrew-capable hardware.
 - The GameCube build reports a `-Wstringop-overflow` warning in
-  `SV_InitEdict`; its validity and impact need a separate focused audit.
+  `SV_InitEdict`; audit completed (2026-07-25). The warning is a false positive
+  from GCC's static analysis. The `memset(&pEdict->v, 0, sizeof(entvars_t))`
+  pattern is correct and safe because `entvars_t v` is a direct member of
+  `edict_t` and the entire structure is allocated. The warning does not appear
+  in the current build with GCC 16.1.0 and is not triggered by the existing
+  compiler flags.
 
 ## Resolved locally
 

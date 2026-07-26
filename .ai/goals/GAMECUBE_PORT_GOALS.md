@@ -1071,7 +1071,7 @@ scripts/gamecube-map-compat-probe.sh
   manifest, operator checklist, and hardware evidence template without copying
   proprietary assets.
 - Handoff evidence packet:
-  `.ai/logs/hardware-handoff-20260626-011714/summary.md`.
+  `.ai/logs/hardware-handoff-20260725-103707/summary.md`.
 - Completion rule: keep G38 manual/open until a completed real GameCube,
   Swiss, or compatible Wii/GameCube-mode hardware evidence entry is recorded in
   `docs/GAMECUBE_PORT_PLAN.md`. Dolphin-only evidence and generated handoff
@@ -4357,3 +4357,147 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
   describe the same final commit and artifact hashes.
 - Additional prerequisite (2026-07-16): G83–G94 New Game interactive bring-up
   must be complete or explicitly limited in release notes before G75 sign-off.
+
+### G400: Inventory stub/placeholder/dummy/fallback/reduced modules
+
+- Create inventory system stubs for GameCube port
+- Implement minimal module infrastructure for placeholder modules
+- Define module interface contracts for GameCube-specific modules
+- Create fallback implementations for missing GameCube hardware features
+- Document module dependencies and stub behavior
+
+### G401: Produce verified final-ELF module linkage matrix
+
+- Generate final ELF module linkage information
+- Verify all module dependencies are resolved
+- Document module interdependencies and linkage order
+- Create verification script for module linkage integrity
+- Archive linkage matrix with commit hash and build metadata
+
+### G402: Build real menu implementation
+
+- Implement GameCube menu system
+- Integrate with existing menu infrastructure
+- Add GameCube-specific menu options and controls
+- Test menu navigation and functionality
+- Document menu system architecture
+
+### G403: Build real server implementation
+
+- Implement GameCube dedicated server
+- Integrate with existing server infrastructure
+- Add GameCube-specific server options
+- Test server functionality and performance
+- Document server architecture and configuration
+
+### G404: Build real client implementation
+
+- Implement GameCube client
+- Integrate with existing client infrastructure
+- Add GameCube-specific client features
+- Test client functionality and performance
+- Document client architecture
+
+### G405: Build real combined implementation
+
+- Integrate menu server, and client into unified build
+- Verify all components work together
+- Test combined system functionality
+- Document integration architecture
+- Create build configuration for combined build
+
+### G410: Asset root discovery
+
+- Implement asset root discovery for GameCube
+- Support multiple asset locations (SD card, internal storage)
+- Add asset path configuration
+- Test asset discovery with various configurations
+- Document asset discovery process
+
+### G411: Asset staging to SD
+
+- Implement asset staging to SD card
+- Create asset staging tools and scripts
+- Add asset validation and verification
+- Test asset staging with various asset types
+- Document staging process and requirements
+
+### G412: Asset root discovery and SD staging
+
+- Combine asset root discovery and SD staging
+- Create unified asset management system
+- Test complete asset workflow
+- Document asset management system
+- Create asset deployment guide
+
+### G420: Telemetry
+
+- Implement telemetry system for GameCube
+- Add telemetry data collection and reporting
+- Test telemetry with various scenarios
+- Document telemetry system and data format
+- Create telemetry configuration options
+
+### G421: BSP loading
+
+- Implement BSP file loading for GameCube
+- Optimize BSP loading for SD card access
+- Add BSP caching and preloading
+- Test BSP loading with various maps
+- Document BSP loading process and optimization
+
+### G422: Server
+
+- Implement GameCube server with all features
+- Test server functionality and performance
+- Add server configuration options
+- Document server architecture and configuration
+- Create server deployment guide
+
+### G423: Client
+
+- Implement GameCube client with all features
+- Test client functionality and performance
+- Add client configuration options
+- Document client architecture and configuration
+- Create client deployment guide
+
+### G424: Playable frame
+
+- Create playable game frame for GameCube
+- Integrate all components (menu, server, client)
+- Test complete gameplay loop
+- Document playable frame architecture
+- Create gameplay testing guide
+
+### G430: Memory reports
+
+- Implement memory reporting system for GameCube
+- Add memory usage tracking and reporting
+- Test memory reports with various scenarios
+- Document memory usage patterns and optimization opportunities
+- Create memory reporting configuration
+
+### G431: Memory budgeting
+
+- Define memory budget for GameCube port
+- Implement memory budget enforcement
+- Add memory usage warnings and limits
+- Test memory budget with various scenarios
+- Document memory budget and optimization strategies
+
+### G432: Memory optimization
+
+- Optimize memory usage for GameCube
+- Implement memory pooling and caching
+- Add memory compression where applicable
+- Test optimized memory usage
+- Document memory optimization techniques
+
+### G433: Memory budgeting and optimization
+
+- Combine memory budgeting and optimization
+- Create comprehensive memory management system
+- Test complete memory system
+- Document memory management system
+- Create memory optimization guide

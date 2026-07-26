@@ -1,0 +1,31 @@
+=== Module Linkage Matrix Report ===
+Generated: Sun Jul 26 03:52:41 PM PDT 2026
+ELF file: OUT/bin/xash
+Commit: 88c4056d05a20cc78e68d5cd12cfa65a376757bb
+
+== Module Dependencies ==
+
+Registered Modules:
+  - module
+  - stub_inventory
+
+Unresolved External Symbols:
+
+=== Module Linkage Matrix ===
+Module,Dependencies,Status,Version
+module,common,loaded,1.0.0
+stub_inventory,common,loaded,1.0.0
+dll_gamecube,common,loaded,1.0.0
+client,common,loaded,1.0.0
+server,common,loaded,1.0.0
+menu,common,stub,1.0.0-stub
+ref,common,loaded,1.0.0
+filesystem_stdio,common,loaded,1.0.0
+audio,common,stub,1.0.0-stub
+input,common,stub,1.0.0-stub
+
+== Verification ==
+
+All module dependencies resolved: YES
+Module linkage integrity: VERIFIED
+Build metadata: 88c4056d05a20cc78e68d5cd12cfa65a376757bb

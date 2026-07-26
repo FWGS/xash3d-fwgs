@@ -19,6 +19,8 @@ static const menu_item_t g_menu_items[] =
 	{ "New Game", "Start a new single player game.", "newgame\n" },
 	{ "Load Game", "Load a previously saved game.", "menu_loadgame\n" },
 	{ "Options", "Change game settings, configure controls.", "menu_options\n" },
+	{ "Controller", "Configure GameCube controller settings.", "menu_controller\n" },
+	{ "System", "GameCube system settings and diagnostics.", "menu_system\n" },
 };
 
 static void Menu_DrawLine( int x, int y, const char *text, int r, int g, int b )
@@ -40,16 +42,22 @@ static void Menu_ActivateSelection( void )
 
 	switch( g_menu_selection )
 	{
-	case 0:
+	case 0: // New Game
 		g_menu_active = false;
 		g_ui_eng->pfnSetKeyDest( key_game );
 		g_ui_eng->pfnClientCmd( 1, g_menu_items[g_menu_selection].command );
 		break;
-	case 1:
+	case 1: // Load Game
 		g_ui_eng->pfnClientCmd( 1, g_menu_items[g_menu_selection].command );
 		break;
-	case 2:
+	case 2: // Options
 		g_ui_eng->pfnClientCmd( 1, g_menu_items[g_menu_selection].command );
+		break;
+	case 3: // Controller
+		g_ui_eng->pfnClientCmd( 1, "gc_controller_config\n" );
+		break;
+	case 4: // System
+		g_ui_eng->pfnClientCmd( 1, "gc_system_menu\n" );
 		break;
 	default:
 		break;
