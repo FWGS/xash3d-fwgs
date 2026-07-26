@@ -11,38 +11,29 @@ Selection policy:
 - Continue with the first incomplete automatable goal in the goal ledger.
 
 Current goal:
-G401: Produce verified final-ELF module linkage matrix
+G402: Build real menu implementation
 
 **COMPLETED**
 
-Verified module linkage from ELF analysis:
-- client: loaded (hlsdk) - libclient_gamecube_ppc.a
-- server: loaded (hlsdk) - libhl_gamecube_ppc.a
-- ref: loaded (ref_gx) - libref_gx.a
-- filesystem_stdio: loaded - libfilesystem_stdio.a
-- menu: stub (not yet implemented)
-- audio: stub (not yet implemented)
-- input: stub (not yet implemented)
+Implemented GameCube menu with:
+- 5 menu items: New Game, Load Game, Options, Controller, System
+- D-pad and A/B/Start button support for navigation
+- Visual menu rendering with descriptions
+- Proper key destination management
+- Integration with engine menu interface
 
 **BUILD STATE VERIFICATION**
-- HLSDK archives ARE present at OUT/hlsdk-gamecube/valve/
-- Build correctly uses HLSDK when available (default behavior)
-- Stub modules are fallback when HLSDK not found
-- module_linkage.csv updated to reflect actual module linkage
+- Menu module now uses real implementation (not stub)
+- Client and server still use real HLSDK implementations
+- Ref still uses real ref_gx implementation
+- Audio and input remain stubs (not yet implemented)
 
 **VERIFICATION**
-- ELF symbol analysis confirms 1048 gamecube_* symbols from gamecube_hlsdk
-- No stub modules are currently linked into the final ELF
-- module_linkage.csv now accurately reflects real module linkage
-
-Next goal after G401:
-G402: Build real menu implementation
-
-**NOTES**
-- Menu module is still stub (not implemented)
-- Client and server are using real HLSDK implementations
-- Ref is using real ref_gx implementation
-- Audio and input are still stubs (not yet implemented)
+- menu_stub.c replaced with full menu implementation
+- Menu includes GameCube-specific items (Controller, System)
+- Navigation supports K_UPARROW, K_DPAD_UP, K_DOWNARROW, K_DPAD_DOWN
+- Selection supports K_ENTER, K_A_BUTTON, K_START_BUTTON
+- Exit supports K_ESCAPE, K_B_BUTTON
 
 Rules:
 - Make one bounded implementation or validation patch.
