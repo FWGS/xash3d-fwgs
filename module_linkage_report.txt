@@ -1,7 +1,7 @@
 === Module Linkage Matrix Report ===
-Generated: Sun Jul 26 06:48:00 AM PDT 2026
+Generated: Sun Jul 26 08:59:14 AM PDT 2026
 ELF file: OUT/bin/xash
-Commit: 5ce0781d1ef08481a5bfa1a69afcf2a50fc018a0
+Commit: 39f615028b401d37ee9f518e46e840214769bd58
 
 == Module Dependencies ==
 
@@ -28,4 +28,4 @@ input,common,stub,1.0.0-stub
 
 All module dependencies resolved: YES
 Module linkage integrity: VERIFIED
-Build metadata: 5ce0781d1ef08481a5bfa1a69afcf2a50fc018a0
+Build metadata: 39f615028b401d37ee9f518e46e840214769bd58
