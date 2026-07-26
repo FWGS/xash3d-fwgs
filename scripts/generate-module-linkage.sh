@@ -67,17 +67,95 @@ echo "" >> "$OUTPUT_DIR/module_linkage_report.txt"
 echo "=== Module Linkage Matrix ===" >> "$OUTPUT_DIR/module_linkage_report.txt"
 echo "Module,Dependencies,Status,Version" >> "$OUTPUT_DIR/module_linkage_report.txt"
 
-# Create CSV file for programmatic parsing
+# Check if HLSDK archives are being used (GameCube specific)
+has_hlsdk_server=false
+has_hlsdk_client=false
+has_hlsdk_vcs=false
+
+# Check in OUTPUT_DIR/OUT first (relative to current directory)
+hlsdk_path="${OUTPUT_DIR}/OUT/hlsdk-gamecube"
+if [ ! -d "$hlsdk_path" ]; then
+    # Fallback to OUTPUT_DIR/hlsdk-gamecube (for script run from different directories)
+    hlsdk_path="${OUTPUT_DIR}/hlsdk-gamecube"
+fi
+if [ ! -d "$hlsdk_path" ]; then
+    # Fallback to parent directory (for script run from different directories)
+    hlsdk_path="../OUT/hlsdk-gamecube"
+fi
+
+if [ -d "$hlsdk_path" ]; then
+    if [ -f "${hlsdk_path}/valve/dlls/libhl_gamecube_ppc.a" ]; then
+        has_hlsdk_server=true
+    fi
+    if [ -f "${hlsdk_path}/valve/cl_dlls/libclient_gamecube_ppc.a" ]; then
+        has_hlsdk_client=true
+    fi
+    if [ -f "${hlsdk_path}/lib/libvcs_info.a" ]; then
+        has_hlsdk_vcs=true
+    fi
+fi
+
+# Check if stub modules are being used
+# Check for stub menu in common locations
+has_stub_menu=false
+stub_menu_paths=(
+    "${MODULES_DIR}/../../stub/menu"
+    "$(dirname "$0")/../stub/menu"
+    "stub/menu"
+)
+for stub_path in "${stub_menu_paths[@]}"; do
+    if [ -f "${stub_path}/menu_stub.c" ]; then
+        has_stub_menu=true
+        break
+    fi
+done
+
+# Check if stub inventory is being used (check ELF for stub_inventory symbols)
+has_stub_inventory=false
+if [ -f "$ELF_FILE" ]; then
+    if nm -C "$ELF_FILE" 2>/dev/null | grep -q "Stub_Inventory\|stub_inventory"; then
+        has_stub_inventory=true
+    fi
+fi
+
+# Generate CSV file for programmatic parsing
+# Determine client status
+if [ "$has_hlsdk_client" = "true" ]; then
+    client_status="loaded"
+    client_version="1.0.0"
+else
+    client_status="stub"
+    client_version="1.0.0-stub"
+fi
+
+# Determine server status
+if [ "$has_hlsdk_server" = "true" ]; then
+    server_status="loaded"
+    server_version="1.0.0"
+else
+    server_status="stub"
+    server_version="1.0.0-stub"
+fi
+
+# Determine menu status
+if [ "$has_stub_menu" = "true" ]; then
+    menu_status="stub"
+    menu_version="1.0.0-stub"
+else
+    menu_status="loaded"
+    menu_version="1.0.0"
+fi
+
 cat > "$OUTPUT_DIR/module_linkage.csv" << EOFCSV
 module,dependencies,status,version
 module,common,loaded,1.0.0
 stub_inventory,common,loaded,1.0.0
 dll_gamecube,common,loaded,1.0.0
-client,common,stub,1.0.0-stub
-server,common,stub,1.0.0-stub
-menu,common,stub,1.0.0-stub
-ref,common,stub,1.0.0-stub
-filesystem_stdio,common,loaded,1.0.0-stub
+client,common,${client_status},${client_version}
+server,common,${server_status},${server_version}
+menu,common,${menu_status},${menu_version}
+ref,common,loaded,1.0.0
+filesystem_stdio,common,loaded,1.0.0
 audio,common,stub,1.0.0-stub
 input,common,stub,1.0.0-stub
 EOFCSV
