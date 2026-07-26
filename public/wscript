@@ -148,14 +148,9 @@ def build(bld):
 		target = 'public',
 		use = 'sdk_includes werror')
 
-	# On GameCube with HLSDK client, skip xash3d_mathlib.c
-	# which defines VectorAngles that's also defined in HLSDK
-	if bld.env.DEST_OS == 'gamecube' and bld.env.XASH_GAMECUBE_HLSDK_SKIP_MATHLIB:
-		Logs.info('public: skipping xash3d_mathlib.c (using HLSDK client)')
-		bld.targets = [t for t in bld.targets if not (hasattr(t, 'target') and t.target == 'public')]
-		bld.stlib(source = [f for f in bld.path.ant_glob('*.c', excl='build_vcs.c') if not f.name == 'xash3d_mathlib.c'],
-			target = 'public',
-			use = 'sdk_includes werror')
+	# Note: xash3d_mathlib.c is NOT skipped because it provides essential math functions
+	# that the HLSDK client archive doesn't provide (QuaternionSlerp, VectorVectors, etc.)
+	# The duplicate VectorAngles symbol will be handled by linking order or --allow-multiple-definition
 
 	if bld.env.TESTS:
 		tests = {

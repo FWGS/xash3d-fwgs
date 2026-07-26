@@ -174,6 +174,9 @@ def build(bld):
 	# include platform-specific sources, this shall not fail if directory doesn't exist
 	source += bld.path.ant_glob('platform/%s/*.c' % bld.env.DEST_OS)
 
+	# include module infrastructure
+	source += bld.path.find_dir('modules').ant_glob('*.c')
+
 	# Android _is_ Linux based, after all
 	if bld.env.DEST_OS == 'android':
 		source += bld.path.ant_glob('platform/linux/*.c')
@@ -237,7 +240,7 @@ def build(bld):
 		ref_gx_node = bld.path.parent.find_node('ref/gx')
 		if ref_gx_node is None:
 			raise Errors.WafError('GameCube Flipper build requires ref/gx sources')
-		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-lasnd', '-logc', '-lm', '-lfat']
+		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-lasnd', '-logc', '-lm', '-lfat', '-Wl,--allow-multiple-definition']
 		source += ['platform/stub/s_stub.c']
 		if has_hlsdk_server:
 			Logs.info('Using GameCube HLSDK server archive from %s' % hlsdk_dest)
@@ -269,25 +272,14 @@ def build(bld):
 			source += bld.path.parent.find_dir('stub/server').ant_glob('*.c')
 			source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_shared.c')
 			source += bld.path.parent.find_dir('stub/pm_shared').ant_glob('pm_math.c')
+		
+		# Always include menu stub for GameCube (required for menu functionality)
+		source += bld.path.parent.find_dir('stub/menu').ant_glob('*.c')
 		includes += [
 			str(bld.path.parent.find_dir('stub/pm_shared')),
 			str(bld.path.parent.find_dir('pm_shared')),
 			str(bld.path.parent.find_dir('common')),
 		]
-
-		# On GameCube with HLSDK client, skip engine files that define global variables
-		# which are also defined in the HLSDK (to avoid multiple definition errors)
-		if bld.env.DEST_OS == 'gamecube' and 'XASH_GAMECUBE_HLSDK_STATIC=1' in gamecube_defines:
-			# Convert source nodes to paths for filtering
-			source_paths = [s.path_from(bld.path) if hasattr(s, 'path_from') else str(s) for s in source]
-			# Skip filesystem/dll.c (defines g_engfuncs)
-			source = [s for s, p in zip(source, source_paths) if not p.endswith('filesystem/dll.c')]
-			# Skip ref/gx/r_refcontext.c (defines gpGlobals, gEngfuncs, etc)
-			source = [s for s, p in zip(source, source_paths) if not p.endswith('ref/gx/r_refcontext.c')]
-			# Skip public/xash3d_mathlib.c (defines VectorAngles)
-			source = [s for s, p in zip(source, source_paths) if not p.endswith('public/xash3d_mathlib.c')]
-			# Skip public/xash3d_mathlib.c from 'public' target too
-			bld.env.XASH_GAMECUBE_HLSDK_SKIP_MATHLIB = True
 	else: # POSIX
 		libs += ['M', 'RT', 'PTHREAD', 'ASOUND', 'HAIKU', 'MAGX', 'LOG', 'SOCKET']
 		if not bld.env.STATIC:

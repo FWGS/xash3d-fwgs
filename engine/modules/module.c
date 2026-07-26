@@ -87,7 +87,7 @@ module_info_t *Module_Find(const char *name)
 
 	for (int i = 0; i < inv->module_count; i++)
 	{
-		if (inv->modules[i].name && Q_strcasecmp(inv->modules[i].name, name) == 0)
+		if (inv->modules[i].name && Q_stricmp(inv->modules[i].name, name) == 0)
 			return &inv->modules[i];
 	}
 
