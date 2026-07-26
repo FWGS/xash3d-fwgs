@@ -1,7 +1,7 @@
 # Xash3D GameCube Stub Modules Inventory
 
 **Date:** 2026-07-25  
-**Branch:** `agent/gamecube-port`  
+**Branch:** `master`  
 **Build Status:** ✅ Successful (32MB ELF, 5.6MB DOL)
 
 ---

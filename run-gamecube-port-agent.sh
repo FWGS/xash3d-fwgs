@@ -17,7 +17,7 @@ set -Eeuo pipefail
 #   STALL_LIMIT=3                    Stop after N no-progress passes
 #   PASS_PAUSE_SECONDS=15            Pause between successful passes
 #   FAILURE_PAUSE_SECONDS=45         Pause after failed passes
-#   CREATE_BRANCH=1                  Create/switch to agent/gamecube-port
+#   CREATE_BRANCH=0                  Create/switch to master
 #   COMMIT_DIRTY_BASELINE=0          Commit pre-existing changes before starting
 #
 # Recommended:
@@ -38,7 +38,7 @@ STATUS_FILE="${STATUS_FILE:-docs/gamecube/PORT_STATUS.md}"
 STALL_LIMIT="${STALL_LIMIT:-3}"
 PASS_PAUSE_SECONDS="${PASS_PAUSE_SECONDS:-15}"
 FAILURE_PAUSE_SECONDS="${FAILURE_PAUSE_SECONDS:-45}"
-CREATE_BRANCH="${CREATE_BRANCH:-1}"
+CREATE_BRANCH="${CREATE_BRANCH:-0}"
 COMMIT_DIRTY_BASELINE="${COMMIT_DIRTY_BASELINE:-0}"
 
 LOG_DIR="$REPO/.agent-logs/gamecube"
@@ -273,20 +273,20 @@ PROMPT
     log "Created default task prompt: $PROMPT_PATH"
 fi
 
-if [[ "$CREATE_BRANCH" == "1" ]]; then
+if [[ "${CREATE_BRANCH:-0}" == "1" ]]; then
     current_branch="$(git branch --show-current)"
     if [[ -z "$current_branch" ]]; then
         die "Detached HEAD detected. Check out or create a branch before running."
     fi
 
-    if [[ "$current_branch" != "agent/gamecube-port" ]]; then
-        if git show-ref --verify --quiet refs/heads/agent/gamecube-port; then
+    if [[ "$current_branch" != "master" ]]; then
+        if git show-ref --verify --quiet refs/heads/master; then
             if [[ -n "$(git status --porcelain)" ]]; then
-                die "Working tree has changes; cannot safely switch to agent/gamecube-port."
+                die "Working tree has changes; cannot safely switch to master."
             fi
-            git switch agent/gamecube-port
+            git switch master
         else
-            git switch -c agent/gamecube-port
+            git switch -c master
         fi
     fi
 fi

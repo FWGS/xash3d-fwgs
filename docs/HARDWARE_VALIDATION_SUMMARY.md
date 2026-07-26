@@ -139,7 +139,7 @@ If testing fails, use one of these labels:
 Run the hardware test script to verify the build:
 
 ```bash
-cd /home/tim/Desktop/xash3d-gamecube-agent
+cd /home/tim/Desktop/xash3d-gc
 ./scripts/gamecube-hardware-test.sh
 ```
 

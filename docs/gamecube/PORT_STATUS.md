@@ -167,7 +167,7 @@ The following goals require physical GameCube hardware and cannot be completed i
 
 ## Git Status
 
-- Branch: `agent/gamecube-port`
+- Branch: `master`
 - Last commit: `0ba81f01cb` - "docs: update G38 handoff to latest hardware-handoff-20260725-103707"
 - Submodules: 8 modified
 - Binary assets: 1 modified (OUT/valve/extras.pk3)
