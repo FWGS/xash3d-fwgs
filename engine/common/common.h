@@ -745,6 +745,7 @@ qboolean CL_IsRecordDemo( void );
 qboolean CL_IsPlaybackDemo( void );
 qboolean UI_CreditsActive( void );
 void *UI_GetMenuFactory( void );
+struct ttf_funcs_s *TTF_GetFuncs( void );
 int CL_GetMaxClients( void );
 #else
 static inline qboolean CL_Initialized( void ) { return false; }
@@ -756,6 +757,7 @@ static inline qboolean CL_IsRecordDemo( void ) { return false; }
 static inline qboolean CL_IsPlaybackDemo( void ) { return false; }
 static inline qboolean UI_CreditsActive( void ) { return false; }
 static inline void *UI_GetMenuFactory( void ) { return NULL; }
+static inline struct ttf_funcs_s *TTF_GetFuncs( void ) { return NULL; }
 static inline int CL_GetMaxClients( void ) { return SV_GetMaxClients(); }
 #endif
 

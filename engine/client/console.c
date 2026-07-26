@@ -628,18 +628,19 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font, qboolean creat
 	if( createTTF && con_truetype.value && con_truetype_size.value > 0 )
 	{
 		const char *fontName = COM_StringEmptyOrNULL( con_truetype_name.string ) ? DEFAULT_CONFONT : con_truetype_name.string;
-		font->ttfont = TTF_Create( fontName, (int)con_truetype_size.value, DEFAULT_WEIGHT, 0, 1 );
+		int ttfSize = (int)( con_truetype_size.value * scale + 0.5f );
+		font->ttfont = TTF_Create( fontName, ttfSize, DEFAULT_WEIGHT, 0, 1 );
 
 		if( !font->ttfont && fontName != DEFAULT_CONFONT )
 		{
 			Con_Printf( S_WARN "Failed to load console truetype font '%s', falling back to '%s'\n", fontName, DEFAULT_CONFONT );
-			font->ttfont = TTF_Create( DEFAULT_CONFONT, (int)con_truetype_size.value, DEFAULT_WEIGHT, 0, 1 );
+			font->ttfont = TTF_Create( DEFAULT_CONFONT, ttfSize, DEFAULT_WEIGHT, 0, 1 );
 		}
 
 		if( font->ttfont )
 		{
 			int i;
-			Con_DPrintf( "Loaded console truetype font '%s' size %i\n", fontName, (int)con_truetype_size.value );
+			Con_DPrintf( "Loaded console truetype font '%s' size %i\n", fontName, ttfSize );
 			font->charHeight = TTF_GetHeight( font->ttfont );
 			for( i = 0; i < ARRAYSIZE( font->charWidths ); i++ )
 				font->charWidths[i] = TTF_GetCharWidth( font->ttfont, i );

@@ -449,7 +449,7 @@ void CL_DrawCenterPrint( void )
 	byte	line[MAX_LINELENGTH];
 	int	charHeight;
 
-	if( !clgame.centerPrint.time )
+	if( !clgame.centerPrint.time || UI_IsVisible() )
 		return;
 
 	if(( cl.time - clgame.centerPrint.time ) >= scr_centertime.value )
@@ -505,7 +505,7 @@ void CL_DrawCenterPrint( void )
 			line[lineLength] = 0;
 
 			rx = ( refState.width - lineWidthPx ) / 2;
-			for( j = 0; j < lineLength; j++ )
+			for( int j = 0; j < lineLength; j++ )
 				rx += TTF_DrawChar( cls.creditsFont.ttfont, rx, ry, line[j], colorDefault[0], colorDefault[1], colorDefault[2], alpha );
 
 			ry += charHeight;
@@ -2015,6 +2015,9 @@ returns drawed chachter width (in real screen pixels)
 */
 static int GAME_EXPORT pfnDrawCharacter( int x, int y, int number, int r, int g, int b )
 {
+	if( UI_IsVisible() )
+		return 0;
+
 	if( cls.creditsFont.ttfont )
 	{
 		// convert scrInfo coords to real pixels, draw, then convert advance back
@@ -2043,6 +2046,9 @@ drawing string like a console string
 */
 int GAME_EXPORT pfnDrawConsoleString( int x, int y, char *string )
 {
+	if( UI_IsVisible() )
+		return x;
+
 	cl_font_t *font = Con_GetFont( con_fontsize.value );
 	rgba_t color;
 	Vector4Copy( clgame.ds.textColor, color );

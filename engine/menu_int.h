@@ -27,6 +27,21 @@ GNU General Public License for more details.
 
 typedef int		HIMAGE;		// handle to a graphic
 
+// font engine function table
+typedef struct ttf_funcs_s
+{
+	void *( *Create )( const char *name, int tall, int weight, int flags, int outlineSize );
+	void  ( *Destroy )( void *font );
+	int   ( *DrawChar )( void *font, int x, int y, int ch, int r, int g, int b, int a );
+	int   ( *GetHeight )( void *font );
+	int   ( *GetAscent )( void *font );
+	int   ( *GetMaxCharWidth )( void *font );
+	int   ( *GetEllipsisWide )( void *font );
+	int   ( *GetCharWidth )( void *font, int ch );
+	void  ( *GetABCWidths )( void *font, int ch, int *a, int *b, int *c );
+	void  ( *SetRenderMode )( int additive );
+} ttf_funcs_t;
+
 // flags for PIC_Load
 #define PIC_NEAREST		(1<<0)		// disable texfilter
 #define PIC_KEEP_SOURCE	(1<<1)		// some images keep source

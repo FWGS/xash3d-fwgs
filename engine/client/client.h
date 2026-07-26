@@ -855,13 +855,19 @@ void CL_FireEvents( void );
 #ifdef __cplusplus
 extern "C" {
 #endif
-void  TTF_Init( void );
-void  TTF_Shutdown( void );
-void *TTF_Create( const char *name, int tall, int weight, int flags, int outlineSize );
-void  TTF_Destroy( void *font );
-int   TTF_DrawChar( void *font, int x, int y, int ch, int r, int g, int b, int a );
-int   TTF_GetHeight( void *font );
-int   TTF_GetCharWidth( void *font, int ch );
+	void         TTF_Init( void );
+	void         TTF_Shutdown( void );
+	void *TTF_Create( const char *name, int tall, int weight, int flags, int outlineSize );
+	void         TTF_Destroy( void *font );
+	int          TTF_DrawChar( void *font, int x, int y, int ch, int r, int g, int b, int a );
+	int          TTF_GetHeight( void *font );
+	int          TTF_GetAscent( void *font );
+	int          TTF_GetMaxCharWidth( void *font );
+	int          TTF_GetEllipsisWide( void *font );
+	int          TTF_GetCharWidth( void *font, int ch );
+	void         TTF_GetCharABCWidths( void *font, int ch, int *a, int *b, int *c );
+	void         TTF_SetRenderMode( int additive );
+	struct ttf_funcs_s *TTF_GetFuncs( void );
 #ifdef __cplusplus
 }
 #endif

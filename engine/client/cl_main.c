@@ -3957,8 +3957,8 @@ void CL_Init( void )
 
 	CL_InitLocal();
 
-	VID_Init();	// init video
 	TTF_Init();
+	VID_Init(); // init video
 
 	// unreliable buffer. unsed for unreliable commands and voice stream
 	MSG_Init( &cls.datagram, "cls.datagram", cls.datagram_buf, sizeof( cls.datagram_buf ));

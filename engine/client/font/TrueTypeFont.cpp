@@ -509,8 +509,6 @@ int CTrueTypeFont::DrawCharacter(int ch, Point pt, int charH, const unsigned int
 			float s2 = (float)glyph.rect.right  / texW;
 			float t2 = (float)glyph.rect.bottom / texH;
 
-			if( forceAdditive )
-				ref.dllFuncs.GL_SetRenderMode( kRenderTransAdd );
 			ref.dllFuncs.Color4ub( r, g, b, alpha );
 			ref.dllFuncs.R_DrawStretchPic( pt.x, pt.y, charSize.w, charSize.h, s1, t1, s2, t2, glyph.texture );
 		}
@@ -635,7 +633,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 
 	uint bmpFileSize = bmp->fileSize;
 	CBMP::SwapBmpHdrToLE( bmp );
-	int hImage = ref.dllFuncs.GL_LoadTexture( filename, (const byte*)bmp, bmpFileSize, TF_IMAGE | TF_NOMIPMAP );
+	int hImage = ref.dllFuncs.GL_LoadTexture( filename, (const byte *)bmp, bmpFileSize, TF_FONT );
 
 	if( !hImage )
 	{
@@ -924,12 +922,41 @@ int TTF_GetHeight( void *font )
 	return ((CTrueTypeFont *)font)->GetHeight();
 }
 
+int TTF_GetAscent( void *font )
+{
+	if( !font ) return 0;
+	return ( (CTrueTypeFont *)font )->GetAscent( );
+}
+
+int TTF_GetMaxCharWidth( void *font )
+{
+	if( !font ) return 0;
+	return ( (CTrueTypeFont *)font )->GetMaxCharWidth( );
+}
+
+int TTF_GetEllipsisWide( void *font )
+{
+	if( !font ) return 0;
+	return ( (CTrueTypeFont *)font )->GetEllipsisWide( );
+}
+
 int TTF_GetCharWidth( void *font, int ch )
 {
 	if( !font ) return 0;
 	int a, b, c;
 	((CTrueTypeFont *)font)->GetCharABCWidths( ch, a, b, c );
 	return a + b + c;
+}
+
+void TTF_GetCharABCWidths( void *font, int ch, int *a, int *b, int *c )
+{
+	if( !font ) return;
+	( (CTrueTypeFont *)font )->GetCharABCWidths( ch, *a, *b, *c );
+}
+
+void TTF_SetRenderMode( int additive )
+{
+	ref.dllFuncs.GL_SetRenderMode( additive ? kRenderTransAdd : kRenderTransTexture );
 }
 
 void TTF_Init( void )
@@ -941,6 +968,25 @@ void TTF_Shutdown( void )
 {
 	delete g_TTFontMgr;
 	g_TTFontMgr = NULL;
+}
+
+static ttf_funcs_t g_ttf_funcs =
+{
+	TTF_Create,
+	TTF_Destroy,
+	TTF_DrawChar,
+	TTF_GetHeight,
+	TTF_GetAscent,
+	TTF_GetMaxCharWidth,
+	TTF_GetEllipsisWide,
+	TTF_GetCharWidth,
+	TTF_GetCharABCWidths,
+	TTF_SetRenderMode,
+};
+
+ttf_funcs_t *TTF_GetFuncs( void )
+{
+	return g_TTFontMgr ? &g_ttf_funcs : NULL;
 }
 
 } // extern "C"

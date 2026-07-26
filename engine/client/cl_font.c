@@ -200,6 +200,9 @@ int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_
 	if( !font || !font->valid || y < -font->charHeight )
 		return 0;
 
+	if( UI_IsVisible() && FBitSet( flags, FONT_DRAW_HUD ) )
+		return 0;
+
 	// truetype dispatch
 	if( font->ttfont )
 	{

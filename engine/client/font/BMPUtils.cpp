@@ -55,5 +55,5 @@ int CBMP::Upload( const char *name, int flags )
 {
 	uint fileSize = GetBitmapHdr()->fileSize;
 	SwapHdrToLE();
-	return ref.dllFuncs.GL_LoadTexture( name, GetBitmap(), fileSize, TF_IMAGE | TF_NOMIPMAP | flags );
+	return ref.dllFuncs.GL_LoadTexture( name, GetBitmap( ), fileSize, TF_FONT | flags );
 }

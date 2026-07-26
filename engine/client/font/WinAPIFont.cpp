@@ -25,13 +25,23 @@ extern "C" {
 #include <math.h>
 
 
-CWinAPIFont::CWinAPIFont( ) : CTrueTypeFont( )
+CWinAPIFont::CWinAPIFont( ) : CTrueTypeFont( ),
+m_bFound( false ),
+m_hDC( NULL ),
+m_hFont( NULL ),
+m_hDIB( NULL ),
+m_pBuf( NULL )
 {
 }
 
 CWinAPIFont::~CWinAPIFont( )
 {
-
+	if( m_hDC )
+		::DeleteDC( m_hDC );
+	if( m_hFont )
+		::DeleteObject( m_hFont );
+	if( m_hDIB )
+		::DeleteObject( m_hDIB );
 }
 
 int CALLBACK FontEnumProc( const LOGFONTA *, const TEXTMETRICA *, DWORD, LPARAM lpParam )
@@ -46,7 +56,7 @@ bool CWinAPIFont::Create( const char *name, int tall, int weight, int blur, floa
 {
 	Q_strncpy( m_szName, name, sizeof( m_szName )  );
 
-	m_iTall = tall + 6;
+	m_iTall = tall;
 	m_iWeight = weight;
 	m_iFlags = flags;
 
@@ -128,29 +138,29 @@ void CWinAPIFont::GetCharRGBA( int ch, Point pt, Size sz, unsigned char *rgba, S
 
 	int a, b, c;
 	GetCharABCWidths( ch, a, b, c );
-	
+
 	int wide = b;
 	if( m_iFlags & TTF_UNDERLINE )
 	{
 		wide += ( a + c );
 	}
-	
+
 	int tall = m_iHeight;
 	GLYPHMETRICS glyphMetrics;
 	MAT2 mat2 = { { 0, 1 }, { 0, 0 }, { 0, 0 }, { 0, 1 } };
 	int bytesNeeded = 0;
-	
+
 	// try and get the glyph directly
 
 	::SelectObject( m_hDC, m_hFont );
 	bytesNeeded = ::GetGlyphOutline( m_hDC, ch, GGO_GRAY8_BITMAP, &glyphMetrics, 0, NULL, &mat2 );
-	
+
 	if( bytesNeeded > 0 )
 	{
 		// take it
 		unsigned char *lpbuf = ( unsigned char * )_alloca( bytesNeeded );
 		::GetGlyphOutline( m_hDC, ch, GGO_GRAY8_BITMAP, &glyphMetrics, bytesNeeded, lpbuf, &mat2 );
-		
+
 		// rows are on DWORD boundaries
 		wide = glyphMetrics.gmBlackBoxX;
 		while( wide % 4 != 0 )
@@ -160,10 +170,10 @@ void CWinAPIFont::GetCharRGBA( int ch, Point pt, Size sz, unsigned char *rgba, S
 
 		// see where we should start rendering
 		int pushDown = m_iAscent - glyphMetrics.gmptGlyphOrigin.y;
-		
+
 		// set where we start copying from
 		int xstart = 0;
-		
+
 		// don't copy the first set of pixels if the antialiased bmp is bigger than the char width
 		if( ( int )glyphMetrics.gmBlackBoxX >= b + 2 )
 		{
