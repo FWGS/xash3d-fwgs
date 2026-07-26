@@ -11,29 +11,30 @@ Selection policy:
 - Continue with the first incomplete automatable goal in the goal ledger.
 
 Current goal:
-G402: Build real menu implementation
+G403: Build real server implementation
 
 **COMPLETED**
 
-Implemented GameCube menu with:
-- 5 menu items: New Game, Load Game, Options, Controller, System
-- D-pad and A/B/Start button support for navigation
-- Visual menu rendering with descriptions
-- Proper key destination management
-- Integration with engine menu interface
-
-**BUILD STATE VERIFICATION**
-- Menu module now uses real implementation (not stub)
-- Client and server still use real HLSDK implementations
+Implemented GameCube server with:
+- Real HLSDK server archive (libhl_gamecube_ppc.a) linked
+- Server exports integrated via setup_gamecube_server_exports()
+- Server module uses real HLSDK implementation (not stub)
+- Client and menu modules use real implementations
 - Ref still uses real ref_gx implementation
 - Audio and input remain stubs (not yet implemented)
 
+**BUILD STATE VERIFICATION**
+- Removed stub/server/server_export.c from build
+- Removed stub/client, stub/server, stub/pm_shared stub files from build
+- Server now uses real HLSDK server archive
+- Build completes successfully with real server implementation
+
 **VERIFICATION**
-- menu_stub.c replaced with full menu implementation
-- Menu includes GameCube-specific items (Controller, System)
-- Navigation supports K_UPARROW, K_DPAD_UP, K_DOWNARROW, K_DPAD_DOWN
-- Selection supports K_ENTER, K_A_BUTTON, K_START_BUTTON
-- Exit supports K_ESCAPE, K_B_BUTTON
+- Build: `python3 waf configure --gamecube && python3 waf build --gamecube` - SUCCESS
+- Install: `python3 waf install --gamecube --destdir=OUT` - SUCCESS
+- DOL generated: OUT/bin/boot.dol (3.9M)
+- ELF generated: OUT/bin/xash (20M)
+- Server init messages visible in output: "server init ready", "engine subsystems ready"
 
 Rules:
 - Make one bounded implementation or validation patch.
