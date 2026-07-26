@@ -11,30 +11,30 @@ Selection policy:
 - Continue with the first incomplete automatable goal in the goal ledger.
 
 Current goal:
-G403: Build real server implementation
+G404: Build real client implementation
 
 **COMPLETED**
 
-Implemented GameCube server with:
-- Real HLSDK server archive (libhl_gamecube_ppc.a) linked
-- Server exports integrated via setup_gamecube_server_exports()
-- Server module uses real HLSDK implementation (not stub)
-- Client and menu modules use real implementations
+Implemented GameCube client with:
+- Real HLSDK client archive (libclient_gamecube_ppc.a) linked
+- Client exports integrated via setup_gamecube_client_exports()
+- Client module uses real HLSDK implementation (not stub)
+- Server and menu modules use real implementations
 - Ref still uses real ref_gx implementation
 - Audio and input remain stubs (not yet implemented)
 
 **BUILD STATE VERIFICATION**
-- Removed stub/server/server_export.c from build
-- Removed stub/client, stub/server, stub/pm_shared stub files from build
-- Server now uses real HLSDK server archive
-- Build completes successfully with real server implementation
+- Client uses real HLSDK client archive (XASH_GAMECUBE_HLSDK_STATIC=1)
+- Build uses -lclient_gamecube_ppc linker flag
+- No stub/client references in build output
+- Build completes successfully with real client implementation
 
 **VERIFICATION**
 - Build: `python3 waf configure --gamecube && python3 waf build --gamecube` - SUCCESS
 - Install: `python3 waf install --gamecube --destdir=OUT` - SUCCESS
 - DOL generated: OUT/bin/boot.dol (3.9M)
 - ELF generated: OUT/bin/xash (20M)
-- Server init messages visible in output: "server init ready", "engine subsystems ready"
+- Client and server archives linked: "Using GameCube HLSDK client archive", "Using GameCube HLSDK server archive"
 
 Rules:
 - Make one bounded implementation or validation patch.
