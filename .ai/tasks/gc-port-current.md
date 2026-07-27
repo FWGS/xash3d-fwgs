@@ -2,7 +2,7 @@ Auto-port task for Xash3D GameCube
 ===================================
 
 Failed phase: dolphin_boot
-Failure kind: runtime_or_unknown
+Failure kind: timeout
 Patch targets: ['engine/platform/gamecube/in_gamecube.c', 'engine/client/cl_scrn.c']
 Log path: .ai/logs/supervisor/dolphin_boot.log
 
@@ -15,9 +15,21 @@ Rules:
 
 Error context:
 --------------
-HOST_FAILURE: another Dolphin boot probe is already running.
-Terminated                 exit $?
-Terminated                 exit $?
+==> Building GameCube engine and DOL...
+==> Skipping engine rebuild (DOLPHIN_SKIP_BUILD=1); rebuilding disc image...
+==> Building GameCube disc image...
+  lean studio v_crowbar.mdl: 47356 → 18912 bytes
+  lean studio v_9mmhandgun.mdl: 134016 → 61352 bytes
+  lean studio w_crowbar.mdl: 2472 → 2472 bytes
+GameCube studio mirror: injected 3 MDL(s) into bootstrap pk3
+GameCube HUD mirror: injected 5 sprite(s) into bootstrap pk3
+xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.
+
+Built /home/tim/Desktop/xash3d-gc/.ai/logs/dolphin-probe-20260726-211356/xash3d-gc.iso (91052032 bytes, hybrid GameCube/ISO9660)
+Handoff metadata: /home/tim/Desktop/xash3d-gc/.ai/logs/dolphin-probe-20260726-211356/xash3d-gc-handoff.txt
+==> Launching bounded Dolphin boot probe (180s, MMU=True)...
+==> Analyzing probe results...
+INCONCLUSIVE_TIMEOUT: No guest bootstrap within 180s.
 
 
 Automation pass rules:
