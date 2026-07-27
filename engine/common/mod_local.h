@@ -177,6 +177,7 @@ qboolean Mod_GCWorldSurfacesScratchRetained( model_t *mod ); /* G283: scratch re
 /* G92: retained BSP scratch is not a Mem_ block — skip Mem_Free on changelevel. */
 qboolean Mod_GCIsRetainedBspScratch( const void *buf );
 void Mod_GCClearRetainedBspScratch( void );
+qboolean Mod_GCIsStudioBssCache( const void *ptr );
 #endif
 
 //
@@ -207,6 +208,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 void Mod_LoadStudioGcmapStub( model_t *mod, qboolean *loaded );
 void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded );
 qboolean Mod_GCIsSpriteStub( const model_t *mod );
+void Mod_StudioLoadGcmapStub( model_t *mod, qboolean *loaded );
 #endif
 void Mod_InitStudioAPI( void );
 void Mod_InitStudioHull( void );

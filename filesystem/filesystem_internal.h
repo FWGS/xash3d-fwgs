@@ -208,6 +208,13 @@ qboolean FS_SysFileOrFolderExists( const char *path );
 int FS_SetCurrentDirectory( const char *path );
 
 //
+// sys.c (GameCube)
+//
+#if XASH_GAMECUBE
+void GC_IntroFileRelease( file_t *f );
+#endif
+
+//
 // io.c
 //
 file_t *FS_OpenReadFile( const char *filename, const char *mode, qboolean gamedironly );
@@ -270,6 +277,21 @@ void FS_InitDirectorySearchpath( searchpath_t *search, const char *path, int fla
 //
 void FS_InitAndroid( void );
 searchpath_t *FS_AddAndroidAssets_Fullpath( const char *path, int flags );
+
+//
+// probe_save_gc.c
+//
+#if XASH_GAMECUBE
+qboolean GC_ProbeSaveActive( void );
+qboolean GC_ProbeSaveFileExists( const char *filename );
+file_t *GC_ProbeSaveOpen( const char *filepath, const char *mode );
+qboolean GC_ProbeSaveIsHandle( const file_t *file );
+fs_offset_t GC_ProbeSaveWrite( file_t *file, const void *data, size_t datasize );
+fs_offset_t GC_ProbeSaveRead( file_t *file, void *buffer, size_t buffersize );
+void GC_ProbeSaveClose( file_t *file );
+fs_offset_t GC_ProbeSaveSeek( file_t *file, fs_offset_t offset, int whence );
+void GC_ProbeSaveInitOpens( void );
+#endif
 
 #ifdef __cplusplus
 }

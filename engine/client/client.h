@@ -1293,6 +1293,7 @@ void UI_GameCubeLeaveMenuOnlyBootstrap( void );
 qboolean UI_UsingBuiltInFallbackMenu( void );
 void UI_EnableBuiltInFallbackMenu( void );
 void UI_PreloadBuiltInFallbackMenuAssets( void );
+qboolean CL_GameCubePostReconnect( void );
 #endif
 
 #endif//CLIENT_H

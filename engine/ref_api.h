@@ -657,6 +657,7 @@ typedef struct ref_interface_s
 } ref_interface_t;
 
 typedef int (*REFAPI)( int version, ref_interface_t *pFunctionTable, ref_api_t* engfuncs, ref_globals_t *pGlobals );
+int EXPORT GetRefAPI( int version, ref_interface_t *funcs, ref_api_t *engfuncs, ref_globals_t *globals );
 #define GET_REF_API "GetRefAPI"
 
 #ifdef REF_DLL

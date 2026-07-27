@@ -31,6 +31,7 @@ unsigned R_GcmapShadeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, i
 unsigned R_GcmapPosterizeDumpFromDepth( unsigned short *dst, int dst_w, int dst_h, int dst_stride );
 qboolean GC_PrepareNewGameWorldPresent( void );
 void R_GcmapTrimForMapLoad( void );
+int GC_GetNewGameCapFaceVerts( int slot, float out[][3], int maxverts );
 void Mod_GCClearRetainedBspScratch( void );
 #endif
 #include <stdlib.h>

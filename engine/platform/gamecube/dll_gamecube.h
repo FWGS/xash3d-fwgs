@@ -30,6 +30,7 @@ int dladdr( const void *addr, Dl_info *info );
 
 int dll_register( const char *name, dllexport_t *exports );
 int setup_gamecube_dll_functions( void );
+int setup_gamecube_ref_exports( void );
 
 #ifdef __cplusplus
 }

@@ -126,11 +126,7 @@ double Platform_DoubleTime( void )
 #endif
 }
 
-void *Platform_GetNativeObject( const char *name )
-{
-	(void)name;
-	return NULL;
-}
+
 
 void Platform_MouseMove( float *x, float *y )
 {
@@ -143,29 +139,7 @@ platform_orientation_t Platform_GetDisplayOrientation( void )
 	return ORIENTATION_UNKNOWN;
 }
 
-#if XASH_GAMECUBE
-struct passwd {
-	char *pw_name;
-};
 
-uid_t geteuid( void )
-{
-	return 0;
-}
-
-struct passwd *getpwuid( uid_t uid )
-{
-	(void)uid;
-	return NULL;
-}
-
-int execv( const char *path, char *const argv[] )
-{
-	(void)path;
-	(void)argv;
-	return -1;
-}
-#endif
 
 void GCube_EarlyInit( void )
 {
