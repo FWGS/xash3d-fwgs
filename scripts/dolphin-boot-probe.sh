@@ -56,20 +56,32 @@ fi
 USER_DIR="$ROOT/$LOG_DIR/dolphin-user"
 DOLPHIN_RETAIL="${DOLPHIN_RETAIL:-0}"
 DOLPHIN_NEWGAME="${DOLPHIN_NEWGAME:-0}"
+# G471: Default to smoke-map mode for bounded testing. Even when DOLPHIN_NEWGAME=1
+# is set by automation, use smoke-map unless DOLPHIN_RETAIL=1 is explicitly set.
+# This prevents full retail disc builds (~500MB) that timeout on GameCube boot.
 if (( DOLPHIN_NEWGAME )); then
-	DOLPHIN_RETAIL=1
+	# Only enable retail mode if DOLPHIN_RETAIL=1 is explicitly set
+	if [[ "$DOLPHIN_RETAIL" != "1" ]]; then
+		# Use smoke-map mode with newgame args, not full retail disc
+		DOLPHIN_RETAIL=0
+	fi
 	DOLPHIN_SKIP_INTRO=1
 fi
+# G440-G470: Default to smoke-map mode for bounded testing. Retail mode
+# builds full discs (~500MB) that timeout on GameCube boot. Use smoke-map
+# unless explicitly configured for retail testing.
+# Note: DOLPHIN_RETAIL defaults to 0, which enables smoke-map mode.
+# When DOLPHIN_RETAIL=1, it builds a full retail disc (no smoke map).
 if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
-	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-240}"
-elif (( DOLPHIN_NEWGAME )); then
 	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-240}"
 else
 	# Entity spawn on large smoke maps (c1a0) needs headroom after BSP load.
+	# Note: DOLPHIN_NEWGAME alone doesn't trigger retail mode; smoke-map is used
 	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-180}"
 fi
 FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 if (( DOLPHIN_NEWGAME )); then
+	# Use smoke-map mode even with DOLPHIN_NEWGAME=1 to avoid full retail disc
 	SMOKE_MAP="${DOLPHIN_SMOKE_MAP:-c0a0}"
 	# G278 intro + G280 Flipper FPS: need sustained sample after present marker.
 	FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-40}"
@@ -204,6 +216,7 @@ else
 		SMOKE_MAP=""
 		BUILD_ARGS+=(--data Half-Life/valve)
 		echo "==> Retail disc mode (full valve assets, no smoke map)"
+		echo "WARNING: Full retail disc mode may timeout on GameCube boot. Use smoke-map mode for bounded testing."
 		if [[ "${DOLPHIN_SKIP_INTRO:-0}" == "1" ]]; then
 			BUILD_ARGS+=(--skip-startup-vids)
 			echo "==> Skipping startup cinematic for faster menu validation"
