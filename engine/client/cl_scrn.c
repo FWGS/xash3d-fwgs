@@ -51,13 +51,13 @@ void GC_SetLoadingProgress( float progress );
 static qboolean gc_scr_synthetic_activity;
 static double gc_scr_next_activity;
 
-static void GC_Scr_NoteSyntheticActivity( void )
+void GC_Scr_NoteSyntheticActivity( void )
 {
 	gc_scr_synthetic_activity = true;
 	gc_scr_next_activity = host.realtime + 0.5;
 }
 
-static qboolean GC_Scr_CheckSyntheticActivity( void )
+qboolean GC_Scr_CheckSyntheticActivity( void )
 {
 	if( gc_scr_synthetic_activity && host.realtime > gc_scr_next_activity )
 	{
