@@ -1057,7 +1057,7 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 			if( !Q_strncmp( name, "maps/", 5 ) || !Q_strncmp( name, "models/", 7 ))
 				Con_Reportf( "Xash3D GameCube: find found '%s' as '%s' in %s index=%d\n",
 					name, fixedname ? fixedname : "", search->filename, pack_ind );
-				FS_AddToHitCache( name );
+					FS_AddToHitCache( name );
 #endif
 			if( index )
 				*index = pack_ind;
