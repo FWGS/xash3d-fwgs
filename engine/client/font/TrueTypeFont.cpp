@@ -577,7 +577,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 	{
 		Con_Printf( "Font cache file is too short\n" );
 		Mem_Free( data );
-		g_fsapi.Delete( filename );
+		g_fsapi.Delete( path );
 		return false;
 	}
 
@@ -585,7 +585,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 	{
 		Con_Printf( "Wrong font cache file format\n" );
 		Mem_Free( data );
-		g_fsapi.Delete( filename );
+		g_fsapi.Delete( path );
 		return false;
 	}
 
@@ -593,7 +593,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 	{
 		Con_Printf( "Wrong font cache file version. Expected %d, got %d\n", CACHED_FONT_VERSION, hdr->version );
 		Mem_Free( data );
-		g_fsapi.Delete( filename );
+		g_fsapi.Delete( path );
 		return false;
 	}
 
@@ -601,7 +601,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 	{
 		Con_Printf( "Font cache file has different character set. Expected %d characters in set, got %d\n", charsCount, hdr->charsCount );
 		Mem_Free( data );
-		g_fsapi.Delete( filename );
+		g_fsapi.Delete( path );
 		return false;
 	}
 
@@ -609,7 +609,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 	{
 		Con_Printf( "Font cache file is too short (2nd check)\n" );
 		Mem_Free( data );
-		g_fsapi.Delete( filename );
+		g_fsapi.Delete( path );
 		return false;
 	}
 
@@ -619,7 +619,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 	{
 		Con_Printf( "Font cache BMP file id check failed\n" );
 		Mem_Free( data );
-		g_fsapi.Delete( filename );
+		g_fsapi.Delete( path );
 		return false;
 	}
 
@@ -627,7 +627,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 	{
 		Con_Printf( "Font cache file is too short or too long (3rd check)\n" );
 		Mem_Free( data );
-		g_fsapi.Delete( filename );
+		g_fsapi.Delete( path );
 		return false;
 	}
 
@@ -639,7 +639,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 	{
 		Con_Printf( "Failed to load font cache BMP\n" );
 		Mem_Free( data );
-		g_fsapi.Delete( filename );
+		g_fsapi.Delete( path );
 		return false;
 	}
 
@@ -656,7 +656,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 				Con_Printf( "Font cache file has different character set. Expected %d, got %d", range[i].Character( j ), ch->ch );
 				Mem_Free( data );
 				ref.dllFuncs.GL_FreeTexture( hImage );
-				g_fsapi.Delete( filename );
+				g_fsapi.Delete( path );
 				return false;
 			}
 
