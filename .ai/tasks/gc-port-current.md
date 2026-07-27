@@ -25,8 +25,8 @@ GameCube studio mirror: injected 3 MDL(s) into bootstrap pk3
 GameCube HUD mirror: injected 5 sprite(s) into bootstrap pk3
 xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.
 
-Built /home/tim/Desktop/xash3d-gc/.ai/logs/dolphin-probe-20260726-211356/xash3d-gc.iso (91052032 bytes, hybrid GameCube/ISO9660)
-Handoff metadata: /home/tim/Desktop/xash3d-gc/.ai/logs/dolphin-probe-20260726-211356/xash3d-gc-handoff.txt
+Built /home/tim/Desktop/xash3d-gc/.ai/logs/dolphin-probe-20260726-213823/xash3d-gc.iso (91052032 bytes, hybrid GameCube/ISO9660)
+Handoff metadata: /home/tim/Desktop/xash3d-gc/.ai/logs/dolphin-probe-20260726-213823/xash3d-gc-handoff.txt
 ==> Launching bounded Dolphin boot probe (180s, MMU=True)...
 ==> Analyzing probe results...
 INCONCLUSIVE_TIMEOUT: No guest bootstrap within 180s.
