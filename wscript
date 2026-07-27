@@ -107,7 +107,7 @@ SUBDIRS = [
 	Subproject('3rdparty/MultiEmulator',lambda x: x.env.CLIENT),
 #	Subproject('3rdparty/freevgui',     lambda x: x.env.CLIENT),
 	Subproject('stub/client',           lambda x: False), # built into engine on GameCube
-	Subproject('stub/menu',             lambda x: x.env.CLIENT and x.env.DEST_OS == 'gamecube'),
+	Subproject('stub/menu',             lambda x: False), # GameCube has proper menu in 3rdparty/mainui
 	Subproject('game_launch',           lambda x: x.env.LAUNCHER),
 	Subproject('engine'), # keep latest for static linking
 

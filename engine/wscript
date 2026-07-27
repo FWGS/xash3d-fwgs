@@ -265,10 +265,9 @@ def build(bld):
 				gamecube_defines += ['XASH_GAMECUBE_HLSDK_ENTITY_EXPORTS=1']
 			else:
 				Logs.warn('GameCube HLSDK entity export list not found under %s' % hlsdk_dest)
-		# Always include menu stub for GameCube (required for menu functionality)
-		source += bld.path.parent.find_dir('stub/menu').ant_glob('*.c')
+		# GameCube uses proper menu from 3rdparty/mainui, not stub
+		# GameCube uses proper pm_shared from 3rdparty/mainui, not stub
 		includes += [
-			str(bld.path.parent.find_dir('stub/pm_shared')),
 			str(bld.path.parent.find_dir('pm_shared')),
 			str(bld.path.parent.find_dir('common')),
 		]
