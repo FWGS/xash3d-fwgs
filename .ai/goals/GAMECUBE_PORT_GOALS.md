@@ -4501,3 +4501,280 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Test complete memory system
 - Document memory management system
 - Create memory optimization guide
+
+### G440: Client rendering implementation
+
+- Implement actual client rendering with GX renderer
+- Add proper vertex and texture handling
+- Implement sprite rendering
+- Test rendering with various game assets
+- Document rendering architecture and configuration
+- Create rendering performance guide
+
+### G441: Server game logic implementation
+
+- Implement actual server game logic
+- Add entity spawning and behavior
+- Implement game state management
+- Test server with various game scenarios
+- Document server architecture and configuration
+- Create server performance guide
+
+### G442: Audio system implementation
+
+- Implement audio system for GameCube
+- Add libogc DSP/AI audio path
+- Implement sound loading and playback
+- Test audio with various sound effects
+- Document audio architecture and configuration
+- Create audio performance guide
+
+### G443: Input system implementation
+
+- Implement input system for GameCube
+- Add controller input handling
+- Implement mouse input (if supported)
+- Test input with various game scenarios
+- Document input architecture and configuration
+- Create input configuration guide
+
+### G444: Network implementation
+
+- Implement network functionality for GameCube
+- Add local loopback support
+- Implement multiplayer networking
+- Test network with various scenarios
+- Document network architecture and configuration
+- Create network configuration guide
+
+### G445: Save/load implementation
+
+- Implement save/load functionality for GameCube
+- Add save file management
+- Implement save slot system
+- Test save/load with various game states
+- Document save/load architecture and configuration
+- Create save/load usage guide
+
+### G446: HUD implementation
+
+- Implement HUD for GameCube
+- Add health/ammo display
+- Implement weapon selection
+- Test HUD with various game scenarios
+- Document HUD architecture and configuration
+- Create HUD customization guide
+
+### G447: Game menu implementation
+
+- Implement game menu for GameCube
+- Add New Game, Load Game, Options menus
+- Implement controller navigation
+- Test menu with various scenarios
+- Document menu architecture and configuration
+- Create menu customization guide
+
+### G448: Asset loading optimization
+
+- Optimize asset loading for GameCube
+- Add asset caching
+- Implement asset preloading
+- Test asset loading with various scenarios
+- Document asset loading architecture and configuration
+- Create asset loading guide
+
+### G449: Performance profiling
+
+- Implement performance profiling for GameCube
+- Add frame rate monitoring
+- Implement memory profiling
+- Test performance with various scenarios
+- Document performance profiling architecture and configuration
+- Create performance optimization guide
+
+### G450: Campaign map support
+
+- Implement campaign map support for GameCube
+- Add map progression support
+- Implement level transitions
+- Test campaign with various maps
+- Document campaign architecture and configuration
+- Create campaign testing guide
+
+### G451: Multi-map progression
+
+- Implement multi-map progression for GameCube
+- Add map chain support
+- Implement save state management
+- Test multi-map progression
+- Document multi-map architecture and configuration
+- Create multi-map guide
+
+### G452: Debug tools implementation
+
+- Implement debug tools for GameCube
+- Add console commands
+- Implement debug rendering
+- Test debug tools with various scenarios
+- Document debug tools architecture and configuration
+- Create debug tools guide
+
+### G453: Developer build support
+
+- Implement developer build support for GameCube
+- Add debug symbols
+- Implement developer console
+- Test developer build with various scenarios
+- Document developer build architecture and configuration
+- Create developer build guide
+
+### G454: Release build optimization
+
+- Optimize release build for GameCube
+- Add size optimization
+- Implement release-specific features
+- Test release build with various scenarios
+- Document release build architecture and configuration
+- Create release build guide
+
+### G455: Hardware validation
+
+- Validate GameCube port on physical hardware
+- Add hardware-specific optimizations
+- Test on various GameCube models
+- Document hardware compatibility
+- Create hardware testing guide
+
+### G456: Dolphin emulator testing
+
+- Test GameCube port with Dolphin emulator
+- Add emulator-specific optimizations
+- Test with various Dolphin versions
+- Document emulator compatibility
+- Create emulator testing guide
+
+### G457: Documentation completion
+
+- Complete documentation for GameCube port
+- Add user guide
+- Implement developer documentation
+- Test documentation with various scenarios
+- Document documentation architecture and configuration
+- Create documentation guide
+
+### G458: Release packaging
+
+- Package release for GameCube
+- Add installation instructions
+- Implement update system
+- Test release with various scenarios
+- Document release packaging architecture and configuration
+- Create release packaging guide
+
+### G459: Community support
+
+- Provide community support for GameCube port
+- Add community documentation
+- Implement community feedback system
+- Test community support with various scenarios
+- Document community support architecture and configuration
+- Create community support guide
+
+### G460: Long-term maintenance
+
+- Plan long-term maintenance for GameCube port
+- Add update strategy
+- Implement bug tracking
+- Test maintenance with various scenarios
+- Document maintenance architecture and configuration
+- Create maintenance guide
+
+### G461: Performance optimization
+
+- Optimize performance for GameCube
+- Add frame rate optimization
+- Implement memory optimization
+- Test performance with various scenarios
+- Document performance optimization architecture and configuration
+- Create performance optimization guide
+
+### G462: Visual quality improvement
+
+- Improve visual quality for GameCube
+- Add texture optimization
+- Implement lighting improvements
+- Test visual quality with various scenarios
+- Document visual quality architecture and configuration
+- Create visual quality guide
+
+### G463: Audio quality improvement
+
+- Improve audio quality for GameCube
+- Add audio optimization
+- Implement audio effects
+- Test audio quality with various scenarios
+- Document audio quality architecture and configuration
+- Create audio quality guide
+
+### G464: Input quality improvement
+
+- Improve input quality for GameCube
+- Add input optimization
+- Implement input smoothing
+- Test input quality with various scenarios
+- Document input quality architecture and configuration
+- Create input quality guide
+
+### G465: Stability improvement
+
+- Improve stability for GameCube
+- Add error handling
+- Implement crash recovery
+- Test stability with various scenarios
+- Document stability architecture and configuration
+- Create stability guide
+
+### G466: Compatibility improvement
+
+- Improve compatibility for GameCube
+- Add compatibility modes
+- Implement backward compatibility
+- Test compatibility with various scenarios
+- Document compatibility architecture and configuration
+- Create compatibility guide
+
+### G467: User experience improvement
+
+- Improve user experience for GameCube
+- Add UI improvements
+- Implement user feedback
+- Test user experience with various scenarios
+- Document user experience architecture and configuration
+- Create user experience guide
+
+### G468: Accessibility improvement
+
+- Improve accessibility for GameCube
+- Add accessibility options
+- Implement accessibility features
+- Test accessibility with various scenarios
+- Document accessibility architecture and configuration
+- Create accessibility guide
+
+### G469: Localization support
+
+- Implement localization support for GameCube
+- Add language options
+- Implement text localization
+- Test localization with various scenarios
+- Document localization architecture and configuration
+- Create localization guide
+
+### G470: Final validation
+
+- Validate GameCube port for release
+- Add final testing
+- Implement final documentation
+- Test final validation with various scenarios
+- Document final validation architecture and configuration
+- Create final validation guide

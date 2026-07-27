@@ -1,4 +1,4 @@
 {
-  "tier": "manual_validation_pending",
-  "note": "All automatic goals (G83-G276) complete. G38 manual hardware validation pending. Handoff package ready at .ai/logs/hardware-handoff-20260725-183248/. Build: e5a483b773 (2026-07-25T12:14:48Z)."
+  "tier": "gameplay_implementation",
+  "note": "New focus on G440-G470 gameplay implementation goals. G38 manual hardware validation pending. G400-G433 completed. Current focus: client rendering, server logic, audio, input, and gameplay features."
 }

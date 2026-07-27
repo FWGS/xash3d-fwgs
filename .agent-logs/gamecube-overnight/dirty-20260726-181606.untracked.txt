@@ -1,0 +1,3 @@
+.agent-logs/gamecube-overnight/dirty-20260726-181606.patch
+.agent-logs/gamecube-overnight/dirty-20260726-181606.untracked.txt
+.ai/gc-port-loop.lock

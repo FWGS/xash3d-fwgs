@@ -17,6 +17,29 @@ Current state:
 - G420-G424: Telemetry, BSP loading, server/client verification (completed)
 - G430-G433: Memory telemetry and optimization (completed)
 
+New focus (G440-G470):
+- G440: Client rendering implementation
+- G441: Server game logic implementation
+- G442: Audio system implementation
+- G443: Input system implementation
+- G444: Network implementation
+- G445: Save/load implementation
+- G446: HUD implementation
+- G447: Game menu implementation
+- G448: Asset loading optimization
+- G449: Performance profiling
+- G450: Campaign map support
+- G451: Multi-map progression
+- G452: Debug tools implementation
+- G453: Developer build support
+- G454: Release build optimization
+- G455: Hardware validation
+- G456: Dolphin emulator testing
+- G457: Documentation completion
+- G458: Release packaging
+- G459: Community support
+- G460-G470: Long-term maintenance and quality improvements
+
 Manual hardware validation with physical GameCube, Swiss loader, or compatible
 Wii/GameCube-mode hardware. See `docs/HARDWARE_TESTING_GUIDE.md` for procedures.
 
