@@ -164,11 +164,90 @@ if [[ -z "$AIDER_CONFIG" ]]; then
 fi
 TEMP_MODEL_SETTINGS=()
 BUDGETED_CONTEXT_ACTIVE=0
+TMP_AIDER_INPUT_HISTORY=""
+TMP_AIDER_CHAT_HISTORY=""
+TMP_AIDER_LLM_HISTORY=""
+TMP_AIDER_MESSAGE_FILE=""
+HIDDEN_AIDER_FILES=()
 
 cleanup_temp_settings() {
+	local item src backup
+	for item in "${HIDDEN_AIDER_FILES[@]:-}"; do
+		src="${item%%:*}"
+		backup="${item#*:}"
+		if [[ -n "$src" && -n "$backup" && -e "$backup" ]]; then
+			mv -f "$backup" "$src"
+		fi
+	done
 	rm -f "${TEMP_MODEL_SETTINGS[@]}"
 }
 trap cleanup_temp_settings EXIT
+
+TMP_AIDER_INPUT_HISTORY="$(mktemp .ai/logs/aider-input-history-XXXXXX)"
+TMP_AIDER_CHAT_HISTORY="$(mktemp .ai/logs/aider-chat-history-XXXXXX.md)"
+TMP_AIDER_LLM_HISTORY="$(mktemp .ai/logs/aider-llm-history-XXXXXX.log)"
+TMP_AIDER_MESSAGE_FILE="$(mktemp .ai/logs/aider-message-XXXXXX.md)"
+TEMP_MODEL_SETTINGS+=(
+	"$TMP_AIDER_INPUT_HISTORY"
+	"$TMP_AIDER_CHAT_HISTORY"
+	"$TMP_AIDER_LLM_HISTORY"
+	"$TMP_AIDER_MESSAGE_FILE"
+)
+
+# Keep unattended passes isolated from repo-local aider history files, which can
+# become enormous and poison context estimation for otherwise tiny edit chats.
+: > "$TMP_AIDER_INPUT_HISTORY"
+: > "$TMP_AIDER_CHAT_HISTORY"
+: > "$TMP_AIDER_LLM_HISTORY"
+
+hide_repo_aider_history() {
+	local path backup
+	for path in .aider.chat.history.md .aider.input.history; do
+		[[ -e "$path" ]] || continue
+		backup="$(mktemp ".ai/logs/${path##*/}.hidden-XXXXXX")"
+		rm -f "$backup"
+		mv "$path" "$backup"
+		HIDDEN_AIDER_FILES+=("$path:$backup")
+	done
+}
+
+hide_repo_aider_history
+
+sanitize_task_message() {
+	python3 - "$TASK_FILE" "$TMP_AIDER_MESSAGE_FILE" "${CONTEXT_FILES[@]}" "${READ_CONTEXT_FILES[@]}" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+allowed = {item.replace("\\", "/") for item in sys.argv[3:]}
+text = src.read_text(encoding="utf-8", errors="replace")
+
+pattern = re.compile(r'(?<![\w./-])([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.(?:c|cc|cpp|cxx|h|hh|hpp|py|sh))(?![\w./-])')
+
+def repl(match: re.Match[str]) -> str:
+	path = match.group(1).replace("\\", "/")
+	if path in allowed:
+		return path
+	return "[non-editable source file]"
+
+basename_pattern = re.compile(r'(?<![\w./-])([A-Za-z0-9_.-]+\.(?:c|cc|cpp|cxx|h|hh|hpp|py|sh))(?![\w./-])')
+allowed_basenames = {Path(path).name for path in allowed}
+
+def repl_basename(match: re.Match[str]) -> str:
+	name = match.group(1)
+	if name in allowed_basenames:
+		return name
+	return "[non-editable source file]"
+
+text = pattern.sub(repl, text)
+text = basename_pattern.sub(repl_basename, text)
+dst.write_text(text, encoding="utf-8")
+PY
+}
+
+sanitize_task_message
 
 cleanup_stale_git_lock() {
 	local min_age="${1:-30}"
@@ -497,6 +576,7 @@ run_aider_with_recovery() {
 		set +e
 		timeout --signal=TERM --kill-after=30 "$AIDER_MODEL_TIMEOUT_SEC" aider \
 			--config "$AIDER_CONFIG" \
+			--model "openai/${AIDER_SERVED_MODEL:-qwen-local}" \
 			--no-browser \
 			--no-gui \
 			--no-detect-urls \
@@ -507,6 +587,9 @@ run_aider_with_recovery() {
 			--no-auto-lint \
 			--no-auto-test \
 			--max-chat-history-tokens "${AIDER_MAX_CHAT_HISTORY_TOKENS:-2048}" \
+			--input-history-file "$TMP_AIDER_INPUT_HISTORY" \
+			--chat-history-file "$TMP_AIDER_CHAT_HISTORY" \
+			--llm-history-file "$TMP_AIDER_LLM_HISTORY" \
 			"${settings_args[@]}" \
 			"${context_args[@]}" \
 			"$@" \
@@ -542,7 +625,7 @@ if command -v python3 >/dev/null 2>&1 && [[ -f scripts/aider-token-budget.py ]];
 	python3 scripts/aider-token-budget.py --sync-metadata --quiet >/dev/null 2>&1 || true
 fi
 load_token_budget "${AIDER_BUDGET_ATTEMPT:-1}"
-run_aider_with_recovery "Aider" --message-file "$TASK_FILE"
+run_aider_with_recovery "Aider" --message-file "$TMP_AIDER_MESSAGE_FILE"
 AIDER_STATUS="$?"
 set -e
 

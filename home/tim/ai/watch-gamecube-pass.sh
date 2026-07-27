@@ -8,18 +8,23 @@
 
 set -Eeuo pipefail
 
-REPO="${1:-$HOME/Desktop/xash3d-gamecube}"
+REPO="${1:-$HOME/Desktop/xash3d-gc}"
 IDLE_MINUTES="${IDLE_MINUTES:-25}"
+STATE_DIR="${STATE_DIR:-.continue/gamecube-agent}"
+LOG_DIR="${LOG_DIR:-.agent-logs/gamecube}"
 
 cd "$REPO"
 
 while sleep 60; do
-    timeout_pid="$(pgrep -f '^timeout --signal=INT --kill-after=60s .* cn -p' | head -1 || true)"
+    timeout_pid="$(
+        pgrep -f 'timeout .* cn ' | head -1 || \
+        pgrep -f 'run-gamecube-port-agent\.sh' | head -1 || true
+    )"
     [[ -n "$timeout_pid" ]] || continue
 
-    pass="$(cat .continue/gamecube/pass-counter 2>/dev/null || echo 0)"
+    pass="$(cat "$STATE_DIR/pass-counter" 2>/dev/null || echo 0)"
     pattern="pass-$(printf '%04d' "$pass")-*.log"
-    log_file="$(find .agent-logs/gamecube -type f -name "$pattern" | sort | tail -1)"
+    log_file="$(find "$LOG_DIR" -type f -name "$pattern" | sort | tail -1)"
 
     [[ -n "$log_file" ]] || continue
 

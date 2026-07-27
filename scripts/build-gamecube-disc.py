@@ -125,8 +125,8 @@ def flatten(node: Node, parent_index: int, entries: list[Node]) -> None:
 
 
 def encode_names(entries: list[Node]) -> bytes:
-	names = bytearray(b"\0")
-	for entry in entries[1:]:
+	names = bytearray()
+	for entry in entries:
 		encoded = entry.name.encode("utf-8")
 		if b"\0" in encoded:
 			raise ValueError(f"invalid filename: {entry.name!r}")
@@ -1696,7 +1696,19 @@ def build_disc(
 	dol_offset = align(iso9660_size, 0x800)
 	# The boot process requires an FST, while game data is deliberately exposed
 	# through ISO9660 so libc and filesystem_stdio can use normal POSIX calls.
-	fst = struct.pack(">III", 0x01000000, 0, 1) + b"\0"
+	# Build FST from staged data tree
+	root = Node("xash3d")
+	add_tree(root, data)
+	entries: list[Node] = []
+	flatten(root, 0, entries)
+	names = encode_names(entries)
+	# Assign disc offsets for files (after ISO9660 data)
+	file_offset = align(DISC_HEADER_SIZE + dol_size, 0x800)
+	for entry in entries:
+		if not entry.is_dir:
+			entry.disc_offset = file_offset
+			file_offset += align(entry.source.stat().st_size, 0x20)
+	fst = build_fst(entries, names)
 	fst_offset = align(dol_offset + dol_size, 0x20)
 	fst_size = len(fst)
 	next_offset = align(fst_offset + fst_size, 0x800)
@@ -1717,9 +1729,10 @@ def build_disc(
 	struct.pack_into(">I", header, 0x430, 0x8000)
 	struct.pack_into(">I", header, 0x434, iso9660_size - 0x8000)
 	struct.pack_into(">I", header, 0x458, 1)  # NTSC region in BI2
-	header[APPLOADER_HEADER_OFFSET:APPLOADER_HEADER_OFFSET + 11] = b"2026/06/20\0"
-	struct.pack_into(">I", header, APPLOADER_HEADER_OFFSET + 0x10, APPLOADER_ADDRESS)
-	struct.pack_into(">I", header, APPLOADER_HEADER_OFFSET + 0x14, len(apploader))
+	# Apploader header at disc offset 0x2440 (BI2 header area)
+	# Entry point and length are written at 0x2450 and 0x2454
+	struct.pack_into(">I", header, 0x2450, APPLOADER_ADDRESS)
+	struct.pack_into(">I", header, 0x2454, len(apploader))
 	header[APPLOADER_DATA_OFFSET:APPLOADER_DATA_OFFSET + len(apploader)] = apploader
 	if len(header) != DISC_HEADER_SIZE:
 		raise AssertionError(

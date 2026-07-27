@@ -224,6 +224,8 @@ void GC_ResetNewGameWorldForChangelevel( void );
 void GC_MarkNewGameWorldStale( void );
 void GC_G94ApplyPendingRestore( void );
 qboolean GC_RenderNewGameWorldFrames( int count );
+/* G161: synthetic activity markers for Dolphin probe detection */
+qboolean GC_ShouldUseProbeInputFallback( void );
 /* G105: after landmark Deploy, bind + present the first-person viewmodel once. */
 void GC_PresentLandmarkViewModel( void );
 /* G188: landmark reposition after put-in wants a cap-face refresh + marker. */

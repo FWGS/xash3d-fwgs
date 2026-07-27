@@ -411,7 +411,7 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
 	}
 }
 
-static qboolean GC_ShouldUseProbeInputFallback( void )
+qboolean GC_ShouldUseProbeInputFallback( void )
 {
 	/* Automated Dolphin probes do not receive real SI pad packets. */
 	if( Sys_CheckParm( "-gcmap" ))
@@ -443,11 +443,13 @@ static void GC_EnableProbeInputFallback( void )
 {
 	if( gc_connected || gc_probe_synthetic )
 		return;
-	if( !GC_ShouldUseProbeInputFallback( ))
+	if( !GC_ShouldUseProbeInputFallback() )
 		return;
 
 	memset( gc_pad, 0, sizeof( gc_pad ));
 	gc_pad[GC_PAD_PREFERRED].err = PAD_ERR_NONE;
+	/* Set initial synthetic button activity so GC_FindActivePort can detect the pad */
+	gc_pad[GC_PAD_PREFERRED].button = PAD_BUTTON_A;
 	gc_connected = true;
 	gc_active_port = GC_PAD_PREFERRED;
 	gc_controller_type = SI_GC_STANDARD;
@@ -679,6 +681,8 @@ void Platform_RunEvents( void )
 			gc_input_logged = true;
 		}
 		held = GC_ProbeSyntheticHeldButtons();
+		/* Store synthetic held buttons in gc_pad for activity detection */
+		gc_pad[GC_PAD_PREFERRED].button = held;
 		GC_UpdateButtons( held );
 		GC_UpdateProbeSyntheticAxes();
 		return;
@@ -788,24 +792,29 @@ int Platform_JoyInit( void )
 	}
 	Con_Reportf( "Joystick: fallback scans ports 1-4 for reconnect\n" );
 
-	/* Dolphin and cold hardware can need several SI polls before PAD_ERR_NONE. */
-	for( attempt = 0; attempt < 120; attempt++ )
+	/* Skip the 120-iteration wait loop during automated Dolphin probes to prevent boot timeouts.
+	 * Synthetic probe input is enabled immediately via GC_EnableProbeInputFallback() below. */
+	if( !Sys_CheckParm( "-gcnewgame" ) && GC_ShouldUseProbeInputFallback() )
 	{
-		PAD_ScanPads();
-		PAD_Read( gc_pad );
-		PAD_Clamp( gc_pad );
-		port = GC_FindActivePort();
-		if( port >= 0 )
+		/* Dolphin and cold hardware can need several SI polls before PAD_ERR_NONE. */
+		for( attempt = 0; attempt < 120; attempt++ )
 		{
-			gc_connected = true;
-			gc_active_port = port;
-			gc_controller_type = GC_SanitizeControllerType( port, true, SI_GetType( port ));
-			if( GC_IsGameCubeControllerType( gc_controller_type ))
-				gc_probe_synthetic = false;
-			GC_HandleConnectionChange( port, gc_controller_type, true );
-			Con_Reportf( "Xash3D GameCube: input polling active\n" );
-			gc_input_logged = true;
-			break;
+			PAD_ScanPads();
+			PAD_Read( gc_pad );
+			PAD_Clamp( gc_pad );
+			port = GC_FindActivePort();
+			if( port >= 0 )
+			{
+				gc_connected = true;
+				gc_active_port = port;
+				gc_controller_type = GC_SanitizeControllerType( port, true, SI_GetType( port ));
+				if( GC_IsGameCubeControllerType( gc_controller_type ))
+					gc_probe_synthetic = false;
+				GC_HandleConnectionChange( port, gc_controller_type, true );
+				Con_Reportf( "Xash3D GameCube: input polling active\n" );
+				gc_input_logged = true;
+				break;
+			}
 		}
 	}
 

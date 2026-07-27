@@ -5,7 +5,7 @@ set -Eeuo pipefail
 #
 # Usage:
 #   chmod +x run-gamecube-port-agent.sh
-#   ./run-gamecube-port-agent.sh ~/Desktop/xash3d
+#   ./run-gamecube-port-agent.sh ~/Desktop/xash3d-gc
 #
 # Optional environment variables:
 #   HOURS=12                         Maximum wall-clock runtime; 0 = no deadline
@@ -22,7 +22,7 @@ set -Eeuo pipefail
 #
 # Recommended:
 #   tmux new-session -d -s xash3d-gamecube \
-#     "cd ~/Desktop/xash3d && HOURS=24 ./run-gamecube-port-agent.sh ."
+#     "cd ~/Desktop/xash3d-gc && HOURS=24 ./run-gamecube-port-agent.sh ."
 #
 # This supervisor does not modify or include copyrighted Half-Life assets.
 
@@ -316,6 +316,20 @@ is_nonnegative_integer "$pass" || pass=0
 is_nonnegative_integer "$stall_count" || stall_count=0
 
 repository_fingerprint() {
+    local fingerprint_paths=()
+    local path
+    for path in \
+        docs/gamecube \
+        engine/platform/gamecube \
+        engine/render/gx \
+        engine/audio/gamecube \
+        engine/input/gamecube \
+        cmake/toolchains \
+        scripts/gamecube
+    do
+        [[ -d "$path" ]] && fingerprint_paths+=("$path")
+    done
+
     {
         git rev-parse HEAD
         git status --porcelain=v1
@@ -326,10 +340,9 @@ repository_fingerprint() {
         else
             printf 'missing-status-file\n'
         fi
-        find docs/gamecube engine/platform/gamecube engine/render/gx \
-             engine/audio/gamecube engine/input/gamecube \
-             cmake/toolchains scripts/gamecube \
-             -type f -printf '%p %s %T@\n' 2>/dev/null | sort
+        if (( ${#fingerprint_paths[@]} )); then
+            find "${fingerprint_paths[@]}" -type f -printf '%p %s %T@\n' 2>/dev/null | sort
+        fi
     } | sha256sum | awk '{print $1}'
 }
 

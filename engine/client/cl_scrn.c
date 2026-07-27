@@ -47,6 +47,26 @@ static double scr_gc_next_loading_status;
 void GC_DrawLoadingStatus( const char *message, const char *details );
 void GC_SetLoadingProgress( float progress );
 
+/* G161: synthetic activity markers for Dolphin probe detection */
+static qboolean gc_scr_synthetic_activity;
+static double gc_scr_next_activity;
+
+static void GC_Scr_NoteSyntheticActivity( void )
+{
+	gc_scr_synthetic_activity = true;
+	gc_scr_next_activity = host.realtime + 0.5;
+}
+
+static qboolean GC_Scr_CheckSyntheticActivity( void )
+{
+	if( gc_scr_synthetic_activity && host.realtime > gc_scr_next_activity )
+	{
+		gc_scr_synthetic_activity = false;
+		return true;
+	}
+	return false;
+}
+
 static void SCR_GameCubeReportUXPolicy( void )
 {
 	if( scr_gc_ux_policy_logged )
@@ -916,6 +936,23 @@ void SCR_UpdateScreen( void )
 		return;
 	}
 
+	/* G161: Dolphin probe detection requires synthetic activity markers.
+	 * Keep frames alive with brief pauses to prevent timeout during probe. */
+	if( !Sys_CheckParm( "-gcnewgame" ) && GC_ShouldUseProbeInputFallback() )
+	{
+		static qboolean gc_probe_activity_logged;
+		if( !gc_probe_activity_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: G161 synthetic activity for Dolphin probe\n" );
+			gc_probe_activity_logged = true;
+		}
+		if( GC_Scr_CheckSyntheticActivity() )
+		{
+			Platform_Sleep( 1 ); // Brief pause to allow Dolphin to detect activity
+			GC_Scr_NoteSyntheticActivity();
+		}
+	}
+
 	/* After map-load the present buffer is 160×120 while the soft renderer
 	 * screen is still deferred at 640×480. StretchPic/R_BlitScreen during
 	 * connect stalls Host_Frame before the local server can accept — New Game
@@ -966,6 +1003,12 @@ void SCR_UpdateScreen( void )
 		{
 			Con_Reportf( "Xash3D GameCube: skipping connect-time screen update for newgame\n" );
 			gc_connect_skip_logged = true;
+		}
+		/* G161: synthetic activity for Dolphin probe during connect skip */
+		if( !Sys_CheckParm( "-gcnewgame" ) && GC_ShouldUseProbeInputFallback() )
+		{
+			GC_Scr_NoteSyntheticActivity();
+			Platform_Sleep( 1 );
 		}
 		return;
 	}
