@@ -27,6 +27,20 @@ static void Stub_Void( void )
 {
 }
 
+static void Stub_Save( edict_t *ent, SAVERESTOREDATA *pSaveData )
+{
+	(void)ent;
+	(void)pSaveData;
+}
+
+static int Stub_Restore( edict_t *ent, SAVERESTOREDATA *pSaveData, int spawn )
+{
+	(void)ent;
+	(void)pSaveData;
+	(void)spawn;
+	return 0;
+}
+
 static void Stub_VoidEdict( edict_t *ent )
 {
 	(void)ent;
@@ -40,6 +54,17 @@ static void Stub_VoidTwoEdicts( edict_t *a, edict_t *b )
 
 static int Stub_IntZero( void )
 {
+	return 0;
+}
+
+static int Stub_ConnectionlessPacket( const struct netadr_s *netfrom, const char *args, char *response, int *response_length )
+{
+	(void)netfrom;
+	(void)args;
+	if( response )
+		response[0] = 0;
+	if( response_length )
+		*response_length = 0;
 	return 0;
 }
 
@@ -70,6 +95,8 @@ static void Stub_ParseVector( const char *value, vec3_t out )
 
 static void Stub_FillEntityState( entity_state_t *state, int e, edict_t *ent )
 {
+	if( !state )
+		return;
 	memset( state, 0, sizeof( *state ));
 
 	state->number = e;
@@ -263,11 +290,13 @@ static void Stub_SetupVisibility( edict_t *viewent, edict_t *client, byte **pvs,
 
 static int Stub_AddToFullPack( entity_state_t *state, int e, edict_t *ent, edict_t *host, int hostflags, int player, byte *pset )
 {
+	if( !state || !ent )
+		return 0;
 	(void)host;
 	(void)hostflags;
 	(void)player;
 
-	if( !state || !ent || !g_eng )
+	if( !g_eng )
 		return 0;
 
 	if( pset && !g_eng->pfnCheckVisibility( ent, pset ))
@@ -279,13 +308,12 @@ static int Stub_AddToFullPack( entity_state_t *state, int e, edict_t *ent, edict
 
 static void Stub_CreateBaseline( int player, int eindex, entity_state_t *baseline, edict_t *entity, int playermodel, vec3_t player_mins, vec3_t player_maxs )
 {
+	if( !baseline || !entity )
+		return;
 	(void)player;
 	(void)playermodel;
 	(void)player_mins;
 	(void)player_maxs;
-
-	if( !baseline || !entity )
-		return;
 
 	Stub_FillEntityState( baseline, eindex, entity );
 }
@@ -334,8 +362,8 @@ static void Stub_FillAPI( DLL_FUNCTIONS *funcs )
 	funcs->pfnTouch = Stub_VoidTwoEdicts;
 	funcs->pfnBlocked = Stub_VoidTwoEdicts;
 	funcs->pfnKeyValue = Stub_KeyValue;
-	funcs->pfnSave = (void (*)( edict_t *, SAVERESTOREDATA * ))Stub_VoidEdict;
-	funcs->pfnRestore = (int (*)( edict_t *, SAVERESTOREDATA *, int ))Stub_IntZero;
+	funcs->pfnSave = (void (*)( edict_t *, SAVERESTOREDATA * ))Stub_Save;
+	funcs->pfnRestore = (int (*)( edict_t *, SAVERESTOREDATA *, int ))Stub_Restore;
 	funcs->pfnSetAbsBox = Stub_VoidEdict;
 	funcs->pfnSaveWriteFields = (void (*)( SAVERESTOREDATA *, const char *, void *, TYPEDESCRIPTION *, int ))Stub_Void;
 	funcs->pfnSaveReadFields = (void (*)( SAVERESTOREDATA *, const char *, void *, TYPEDESCRIPTION *, int ))Stub_Void;
@@ -372,7 +400,7 @@ static void Stub_FillAPI( DLL_FUNCTIONS *funcs )
 	funcs->pfnGetWeaponData = (int (*)( edict_t *, struct weapon_data_s * ))Stub_IntZero;
 	funcs->pfnCmdStart = (void (*)( const edict_t *, const struct usercmd_s *, unsigned int ))Stub_Void;
 	funcs->pfnCmdEnd = (void (*)( const edict_t * ))Stub_VoidEdict;
-	funcs->pfnConnectionlessPacket = (int (*)( const struct netadr_s *, const char *, char *, int * ))Stub_IntZero;
+	funcs->pfnConnectionlessPacket = (int (*)( const struct netadr_s *, const char *, char *, int * ))Stub_ConnectionlessPacket;
 	funcs->pfnGetHullBounds = Stub_GetHullBounds;
 	funcs->pfnCreateInstancedBaselines = Stub_Void;
 	funcs->pfnInconsistentFile = (int (*)( const edict_t *, const char *, char * ))Stub_IntZero;

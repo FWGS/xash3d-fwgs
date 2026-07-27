@@ -50,10 +50,24 @@ static char Stub_PlayerMoveTexture( char *name )
 
 static void Stub_CreateMove( float frametime, struct usercmd_s *cmd, int active )
 {
-	(void)frametime;
-	(void)active;
-	if( cmd )
-		memset( cmd, 0, sizeof( *cmd ));
+	if( !cmd )
+		return;
+
+	// Initialize command with default values
+	memset( cmd, 0, sizeof( *cmd ));
+	cmd->msec = (int)(frametime * 1000.0f);
+	cmd->buttons = 0;
+	cmd->forwardmove = 0;
+	cmd->sidemove = 0;
+	cmd->upmove = 0;
+	cmd->impulse = 0;
+
+	// Get input from GameCube controller if active
+	if( active )
+	{
+		// Placeholder for GameCube controller input
+		// In full implementation, this would read from GC controller
+	}
 }
 
 static void *Stub_KB_Find( const char *name )
@@ -72,10 +86,34 @@ static int Stub_AddEntity( int type, cl_entity_t *ent, const char *modelname )
 
 static int Stub_ConnectionlessPacket( const struct netadr_s *net_from, const char *args, char *buffer, int *size )
 {
-	(void)net_from;
-	(void)args;
-	(void)buffer;
-	(void)size;
+	// GameCube stub: handle connectionless packets for local network
+	if( !net_from || !args || !buffer || !size )
+		return 0;
+
+	// Handle basic connectionless commands
+	if( Q_stricmp( args, "status" ) == 0 )
+	{
+		const char *response = "GameCube Game Server\n";
+		int len = strlen( response );
+		if( *size > len )
+		{
+			memcpy( buffer, response, len );
+			*size = len;
+			return 1;
+		}
+	}
+	else if( Q_stricmp( args, "connect" ) == 0 )
+	{
+		// Handle connection requests
+		const char *response = "GameCube Game Server\n";
+		int len = strlen( response );
+		if( *size > len )
+		{
+			memcpy( buffer, response, len );
+			*size = len;
+			return 1;
+		}
+	}
 	return 0;
 }
 
@@ -108,14 +146,43 @@ static void Stub_Frame( double time )
 
 static int Stub_Key_Event( int eventcode, int keynum, const char *pszCurrentBinding )
 {
-	(void)eventcode;
-	(void)keynum;
-	(void)pszCurrentBinding;
+	// GameCube stub: handle key events from controller
+	if( eventcode == K_KEYDOWN )
+	{
+		// Handle GameCube controller button presses
+		switch( keynum )
+		{
+		case K_A_BUTTON:
+		case K_ENTER:
+			// Action/Confirm button
+			return 1;
+		case K_B_BUTTON:
+		case K_ESCAPE:
+			// Cancel button
+			return 1;
+		case K_DPAD_UP:
+		case K_DPAD_DOWN:
+		case K_DPAD_LEFT:
+		case K_DPAD_RIGHT:
+			// D-pad movement
+			return 1;
+		case K_START_BUTTON:
+			// Start menu
+			return 1;
+		default:
+			// Other keys
+			return 1;
+		}
+	}
 	return 0;
 }
 
 static void Stub_TempEntUpdate( double frametime, double client_time, double cl_gravity, struct tempent_s **ppTempEntFree, struct tempent_s **ppTempEntActive, int ( *Callback_AddVisibleEntity )( cl_entity_t *pEntity ), void ( *Callback_TempEntPlaySound )( struct tempent_s *pTemp, float damp ))
 {
+	// GameCube stub: handle temp entity updates
+	// Temp entities are used for effects like explosions, blood, etc.
+	// In a full implementation, this would manage the temp entity pool
+	// and call the callbacks to add visible entities and play sounds
 	(void)frametime;
 	(void)client_time;
 	(void)cl_gravity;
@@ -127,6 +194,9 @@ static void Stub_TempEntUpdate( double frametime, double client_time, double cl_
 
 static cl_entity_t *Stub_GetUserEntity( int index )
 {
+	// GameCube stub: return user entity by index
+	// In a full implementation, this would return the player entity or other user entities
+	// For now, return NULL as the actual entity management is handled by the engine
 	(void)index;
 	return NULL;
 }
