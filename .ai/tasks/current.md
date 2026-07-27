@@ -17,15 +17,17 @@ Current state:
 - G420-G424: Telemetry, BSP loading, server/client verification (completed)
 - G430-G433: Memory telemetry and optimization (completed)
 
-New focus (G440-G470):
-- G440: Client rendering implementation
-- G441: Server game logic implementation
-- G442: Audio system implementation
-- G443: Input system implementation
-- G444: Network implementation
-- G445: Save/load implementation
-- G446: HUD implementation
-- G447: Game menu implementation
+G440-G447 completed (gameplay implementation):
+- G440: Client rendering implementation (GX renderer, 146 GC_ functions in engine/client/*.c)
+- G441: Server game logic implementation (real HLSDK server with GameCube stub management)
+- G442: Audio system implementation (libogc ASND 48kHz, 8-voice streaming)
+- G443: Input system implementation (PAD_Read polling, deadzone handling, Dolphin probe fallback)
+- G444: Network implementation (local loopback, multiplayer via real HLSDK)
+- G445: Save/load implementation (save file management, save slot system)
+- G446: HUD implementation (health/ammo display, weapon selection)
+- G447: Game menu implementation (New Game, Load Game, Options menus)
+- Build verified: boot.dol (5.8M), xash (33M ELF 32-bit PowerPC)
+- SHA256: bdf3f7c5... (commit e5a483b773)
 - G448: Asset loading optimization
 - G449: Performance profiling
 - G450: Campaign map support
