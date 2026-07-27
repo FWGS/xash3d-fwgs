@@ -28,7 +28,7 @@ G440-G447 completed (gameplay implementation):
 - G447: Game menu implementation (New Game, Load Game, Options menus)
 - Build verified: boot.dol (5.8M), xash (33M ELF 32-bit PowerPC)
 - SHA256: bdf3f7c5... (commit e5a483b773)
-- G448: Asset loading optimization
+- G448: Asset loading optimization (filesystem hit cache, 64-entry lookup cache)
 - G449: Performance profiling
 - G450: Campaign map support
 - G451: Multi-map progression
