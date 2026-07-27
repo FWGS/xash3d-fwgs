@@ -18,7 +18,7 @@ from pathlib import Path
 
 DEFAULT_API_BASE = "http://127.0.0.1:8072/v1"
 DEFAULT_MODEL = "qwen-local"
-DEFAULT_MAX_CONTEXT = 200000
+DEFAULT_MAX_CONTEXT = 32768
 METADATA_PATH = Path(".ai/aider-model-metadata.json")
 DEFAULT_SYSTEM_OVERHEAD_TOKENS = 6144
 LOW_VRAM_SYSTEM_OVERHEAD_TOKENS = 4096
@@ -28,7 +28,10 @@ BYTES_PER_TOKEN = 3.5
 def fetch_max_context(api_base: str, model: str) -> int:
 	"""Return max_model_len from the OpenAI-compatible /v1/models endpoint."""
 	url = f"{api_base.rstrip('/')}/models"
-	req = urllib.request.Request(url, headers={"Accept": "application/json"})
+	headers = {"Accept": "application/json"}
+	if os.environ.get("OPENAI_API_KEY"):
+		headers["Authorization"] = f"Bearer {os.environ['OPENAI_API_KEY']}"
+	req = urllib.request.Request(url, headers=headers)
 	with urllib.request.urlopen(req, timeout=5) as resp:
 		payload = json.load(resp)
 	for item in payload.get("data", []):
@@ -189,7 +192,11 @@ def main() -> int:
 
 	budgets = compute_budgets(max_context, args.attempt)
 	if args.sync_metadata:
-		sync_metadata(max_context, budgets["AIDER_MODEL_MAX_OUTPUT"], model_key)
+		sync_metadata(
+			budgets["AIDER_MODEL_MAX_CONTEXT"],
+			budgets["AIDER_MODEL_MAX_OUTPUT"],
+			model_key,
+		)
 	emit_shell(budgets)
 	return 0
 
