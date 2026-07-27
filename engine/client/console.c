@@ -35,7 +35,7 @@ static CVAR_DEFINE_AUTO( scr_drawversion, "1", FCVAR_ARCHIVE, "draw version in m
 static CVAR_DEFINE_AUTO( con_oldfont, "0", 0, "use legacy font from gfx.wad, might be missing or broken" );
 static CVAR_DEFINE_AUTO( con_showcompletion, "1", FCVAR_ARCHIVE, "perform simplified autocompletion while typing" );
 static CVAR_DEFINE_AUTO( con_truetype, "0", FCVAR_ARCHIVE|FCVAR_VIDRESTART, "use truetype font for console text if available" );
-static CVAR_DEFINE_AUTO( con_truetype_size, "14", FCVAR_ARCHIVE|FCVAR_VIDRESTART, "font height for console truetype text" );
+static CVAR_DEFINE_AUTO( con_truetype_size, "18", FCVAR_ARCHIVE|FCVAR_VIDRESTART, "font height for console truetype text" );
 static CVAR_DEFINE_AUTO( con_truetype_name, "", FCVAR_ARCHIVE|FCVAR_VIDRESTART, "truetype font name for console text (empty = default)" );
 
 static int g_codepage = 0;
@@ -616,25 +616,16 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font, qboolean creat
 	if( success )
 		Con_DPrintf( "Loaded console bitmap font %i (scale %.1f)\n", fontNumber, scale );
 
-	if( !success && createTTF && con_truetype.value && con_truetype_size.value > 0 )
-	{
-		// no bitmap available - avoid crash
-		font->valid = true;
-		font->scale = scale ? scale : 1.0f;
-		font->rendermode = &con_fontrender;
-		font->type = FONT_VARIABLE;
-	}
-
 	if( createTTF && con_truetype.value && con_truetype_size.value > 0 )
 	{
 		const char *fontName = COM_StringEmptyOrNULL( con_truetype_name.string ) ? DEFAULT_CONFONT : con_truetype_name.string;
 		int ttfSize = (int)( con_truetype_size.value * scale + 0.5f );
-		font->ttfont = TTF_Create( fontName, ttfSize, DEFAULT_WEIGHT, 0, 1 );
+		font->ttfont = TTF_Create( fontName, ttfSize, 700, 0, 1 );
 
 		if( !font->ttfont && fontName != DEFAULT_CONFONT )
 		{
 			Con_Printf( S_WARN "Failed to load console truetype font '%s', falling back to '%s'\n", fontName, DEFAULT_CONFONT );
-			font->ttfont = TTF_Create( DEFAULT_CONFONT, ttfSize, DEFAULT_WEIGHT, 0, 1 );
+			font->ttfont = TTF_Create( DEFAULT_CONFONT, ttfSize, 700, 0, 1 );
 		}
 
 		if( font->ttfont )
@@ -644,6 +635,13 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font, qboolean creat
 			font->charHeight = TTF_GetHeight( font->ttfont );
 			for( i = 0; i < ARRAYSIZE( font->charWidths ); i++ )
 				font->charWidths[i] = TTF_GetCharWidth( font->ttfont, i );
+			if( !success )
+			{
+				font->valid = true;
+				font->scale = scale ? scale : 1.0f;
+				font->rendermode = &con_fontrender;
+				font->type = FONT_VARIABLE;
+			}
 		}
 		else
 		{
@@ -1734,8 +1732,10 @@ static void Con_DrawInput( int lines )
 		return;
 
 	int y = lines - ( con.curFont->charHeight * 2 );
-	CL_DrawCharacter( con.curFont->charWidths[' '], y, ']', g_color_table[7], con.curFont, 0 );
-	int x = Field_DrawInputLine( con.curFont->charWidths[' ']*2, y, &con.input, 255, true );
+	int start_x = con.curFont->charWidths[' '];
+	int prompt_w = CL_DrawCharacter( start_x, y, ']', g_color_table[7], con.curFont, 0 );
+	int input_x = start_x + prompt_w + con.curFont->charWidths[' '];
+	int x = Field_DrawInputLine( input_x, y, &con.input, 255, true );
 
 	// HACKHACK: avoid rendering issues when scroll != 0
 	if( con_showcompletion.value && con.input.scroll == 0 )
@@ -1752,7 +1752,7 @@ static void Con_DrawInput( int lines )
 		if( Q_strlen(con.input_completion.buffer) > len && !Q_strncmp( con.input.buffer, con.input_completion.buffer, len ))
 		{
 			con.input_completion.scroll = len;
-			Field_DrawInputLine( con.curFont->charWidths[' ']*2 + x, y, &con.input_completion, 128, false );
+			Field_DrawInputLine( input_x + x, y, &con.input_completion, 128, false );
 		}
 	}
 }

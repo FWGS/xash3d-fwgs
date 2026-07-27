@@ -207,7 +207,23 @@ int CL_DrawCharacter( float x, float y, int number, const rgba_t color, cl_font_
 	if( font->ttfont )
 	{
 		int r = 255, g = 255, b = 255, a = 255;
-		if( color ) { r = color[0]; g = color[1]; b = color[2]; a = color[3]; }
+		// adjust console font color to be more similar to bitmap
+		if( color )
+		{
+			if( font == Con_GetCurFont() )
+			{
+				r = (int)( color[0] * 0.80f );
+				g = (int)( color[1] * 0.75f );
+				b = (int)( color[2] * 0.95f );
+			}
+			else
+			{
+				r = color[0];
+				g = color[1];
+				b = color[2];
+			}
+			a = color[3];
+		}
 
 		if( number <= 32 )
 		{

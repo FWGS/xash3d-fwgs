@@ -1,10 +1,12 @@
 #! /usr/bin/env python
+# encoding: utf-8
 # mittorn, 2018
 
+from waflib import Logs, TaskGen, Utils
+from waflib.extras import pthread
 import os
 from copy import copy
 
-from waflib import Logs, TaskGen, Utils
 
 top = '.'
 
@@ -380,5 +382,5 @@ def build(bld):
 			# taken from dyld(1) man-page
 			if Utils.unversioned_sys_platform() == 'darwin':
 				if not hasattr(tg, 'ut_env'):
-					tg.ut_env = dict(os.environ)
+					setattr(tg, 'ut_env', dict(os.environ))
 				tg.ut_env['DYLD_FALLBACK_FRAMEWORK_PATH'] = '/Library/Frameworks:/System/Library/Frameworks'

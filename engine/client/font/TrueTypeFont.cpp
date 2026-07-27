@@ -797,8 +797,8 @@ void CTrueTypeFontManager::DeleteFont( CTrueTypeFont *font )
 	{
 		if( m_Fonts[i] == font )
 		{
-			m_Fonts[i] = NULL;
 			delete font;
+			m_Fonts.FastRemove( i );
 			return;
 		}
 	}
@@ -950,7 +950,13 @@ int TTF_GetCharWidth( void *font, int ch )
 
 void TTF_GetCharABCWidths( void *font, int ch, int *a, int *b, int *c )
 {
-	if( !font ) return;
+	if( !font || !a || !b || !c )
+	{
+		if( a ) *a = 0;
+		if( b ) *b = 0;
+		if( c ) *c = 0;
+		return;
+	}
 	( (CTrueTypeFont *)font )->GetCharABCWidths( ch, *a, *b, *c );
 }
 
