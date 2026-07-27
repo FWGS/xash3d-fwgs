@@ -794,7 +794,7 @@ int Platform_JoyInit( void )
 
 	/* Skip the 120-iteration wait loop during automated Dolphin probes to prevent boot timeouts.
 	 * Synthetic probe input is enabled immediately via GC_EnableProbeInputFallback() below. */
-	if( !Sys_CheckParm( "-gcnewgame" ) && GC_ShouldUseProbeInputFallback() )
+	if( !GC_ShouldUseProbeInputFallback() )
 	{
 		/* Dolphin and cold hardware can need several SI polls before PAD_ERR_NONE. */
 		for( attempt = 0; attempt < 120; attempt++ )
