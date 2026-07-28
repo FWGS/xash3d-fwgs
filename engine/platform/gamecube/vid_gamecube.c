@@ -7288,24 +7288,8 @@ static qboolean gc_g177_logged;
 static void GC_SoftDumpCompositeHUD( void )
 {
 	qboolean saved_prepped;
-	int i;
-	int real_sheets = 0;
 
 	if( !gc.buffer || gc.width <= 0 || gc.height <= 0 )
-		return;
-
-	for( i = 0; i < MAX_CLIENT_SPRITES; i++ )
-	{
-		model_t *mod = &clgame.sprites[i];
-
-		if( mod->needload == NL_UNREFERENCED )
-			continue;
-		if( mod->type != mod_sprite )
-			continue;
-		if( !Mod_GCIsSpriteStub( mod ))
-			real_sheets++;
-	}
-	if( real_sheets < 1 )
 		return;
 
 	saved_prepped = cl.video_prepped;
@@ -7322,8 +7306,7 @@ static void GC_SoftDumpCompositeHUD( void )
 	if( !gc_g177_logged )
 	{
 		gc_g177_logged = true;
-		Con_Reportf( "Xash3D GameCube: G177 soft dump HUD composite sheets=%d\n",
-			real_sheets );
+		Con_Reportf( "Xash3D GameCube: G177 soft dump HUD composite\n" );
 	}
 }
 

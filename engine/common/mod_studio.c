@@ -1181,46 +1181,7 @@ void GC_ReportQualityProfile( const char *stage )
 		hud, audio, lightmaps, overlay, purpose );
 }
 
-void Mod_StudioLoadGcmapStub( model_t *mod, qboolean *loaded )
-{
-	static studiohdr_t stub;
-
-	if( !stub.ident )
-	{
-		memset( &stub, 0, sizeof( stub ));
-		stub.ident = IDSTUDIOHEADER;
-		stub.version = STUDIO_VERSION;
-		Q_strncpy( stub.name, "gc_view_stub", sizeof( stub.name ));
-		stub.length = sizeof( stub );
-		VectorSet( stub.bbmin, -16.0f, -16.0f, -16.0f );
-		VectorSet( stub.bbmax, 16.0f, 16.0f, 16.0f );
-	}
-
-	mod->cache.data = &stub;
-
-	VectorCopy( stub.bbmin, mod->mins );
-	VectorCopy( stub.bbmax, mod->maxs );
-	mod->numframes = 1;
-	mod->radius = RadiusFromBounds( mod->mins, mod->maxs );
-	mod->flags = stub.flags;
-
-	if( loaded ) *loaded = true;
-}
-
-void Mod_LoadStudioGcmapStub( model_t *mod, qboolean *loaded )
-{
-	char poolname[MAX_VA_STRING];
-
-	if( loaded ) *loaded = false;
-	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
-	if( GC_MapLoadMemoryOpt())
-		mod->mempool = Mod_GameCubeSharedModelStubPool();
-	else
-		mod->mempool = Mem_AllocPool( poolname );
-	mod->type = mod_studio;
-	Mod_StudioLoadGcmapStub( mod, loaded );
-}
-#endif
+#endif /* XASH_GAMECUBE */
 
 /*
 =================
@@ -1256,9 +1217,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 
 	if( loaded ) *loaded = false;
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt() && !gc_real_studio )
-		mod->mempool = Mod_GameCubeSharedModelStubPool();
-	else if( gc_mesh_only )
+	if( gc_mesh_only )
 		/* Lean New Game studios: keep cache on malloc, not MEM1 pools. */
 		mod->mempool = 0;
 	else
@@ -1269,8 +1228,7 @@ void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 #if XASH_GAMECUBE
 	if( skip_studio_textures )
 	{
-		Mod_StudioLoadGcmapStub( mod, loaded );
-		return;
+		/* Stub loading removed - real studio loading required */
 	}
 #endif
 

@@ -32,7 +32,6 @@ poolhandle_t      com_studiocache;		// cache for submodels
 #include "gamecube/mem_gamecube.h"
 void FS_ClearFindMissCache( void );
 qboolean GC_IsNewGameWorldReady( void );
-static poolhandle_t gc_gcmap_stubpool;
 
 /* New Game only: a few real MDLs (NPCs/viewweapons) instead of empty stubs.
  * Mesh-only (no studio texel upload) — skins bind white under quality 0. */
@@ -364,8 +363,7 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 	}
 
 	mod->cache.data = NULL;
-	if( mod->mempool == gc_gcmap_stubpool )
-		mod->mempool = 0;
+	mod->mempool = 0;
 	mod->needload = NL_PRESENT;
 	mod->type = mod_studio;
 
@@ -391,7 +389,6 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 	}
 
 	Con_Reportf( S_WARN "Xash3D GameCube: deferred studio promote failed '%s'\n", path );
-	Mod_LoadStudioGcmapStub( mod, &loaded );
 	return false;
 }
 
@@ -687,7 +684,6 @@ void Mod_FreeModel( model_t *mod )
 		}
 #endif
 #if XASH_GAMECUBE
-		if( mod->mempool != gc_gcmap_stubpool )
 			Mem_FreePool( &mod->mempool );
 #else
 		Mem_FreePool( &mod->mempool );
@@ -724,9 +720,6 @@ Mod_Init
 void Mod_Init( void )
 {
 	com_studiocache = Mem_AllocPool( "Studio Cache" );
-#if XASH_GAMECUBE
-	gc_gcmap_stubpool = Mem_AllocPool( "GCMap Model Stub Pool" );
-#endif
 	Cvar_RegisterVariable( &mod_studiocache );
 	Cvar_RegisterVariable( &r_wadtextures );
 	Cvar_RegisterVariable( &r_showhull );
@@ -757,8 +750,6 @@ void Mod_FreeAll( void )
 	for( int i = 0; i < mod_numknown; i++ )
 		Mod_FreeModel( &mod_known[i] );
 #if XASH_GAMECUBE
-	if( gc_gcmap_stubpool )
-		Mem_EmptyPool( gc_gcmap_stubpool );
 	gc_real_studio_npc = 0;
 	gc_real_studio_view = 0;
 	gc_real_studio_bytes = 0;
@@ -790,17 +781,7 @@ void Mod_Shutdown( void )
 {
 	Mod_FreeAll();
 	Mem_FreePool( &com_studiocache );
-#if XASH_GAMECUBE
-	Mem_FreePool( &gc_gcmap_stubpool );
-#endif
 }
-
-#if XASH_GAMECUBE
-poolhandle_t Mod_GameCubeSharedModelStubPool( void )
-{
-	return gc_gcmap_stubpool;
-}
-#endif
 
 /*
 ===============================================================================
@@ -920,13 +901,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		{
 			/* Real meshes are promoted after map prep in Mod_GCLoadNewGameStudios. */
 			mod->needload = NL_PRESENT;
-			Mod_LoadStudioGcmapStub( mod, &loaded );
-			if( !loaded )
-			{
-				if( crash ) Host_Error( "Could not load model %s\n", tempname );
-				else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
-				return NULL;
-			}
+			Host_Error( "Could not load model %s\n", tempname );
 
 			if( world.loading )
 				SetBits( mod->flags, MODEL_WORLD );
@@ -937,13 +912,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		if( ext && !Q_stricmp( ext, "spr" ))
 		{
 			mod->needload = NL_PRESENT;
-			Mod_LoadSpriteGcmapStub( mod, &loaded );
-			if( !loaded )
-			{
-				if( crash ) Host_Error( "Could not load model %s\n", tempname );
-				else Con_Printf( S_ERROR "Could not load model %s\n", tempname );
-				return NULL;
-			}
+			Host_Error( "Could not load model %s\n", tempname );
 
 			return mod;
 		}

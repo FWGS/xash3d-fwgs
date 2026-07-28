@@ -162,7 +162,6 @@ void Mod_FreeUnused( void );
 void Mod_GcmapMarkPrecacheFreeable( void );
 void Mod_LoadDetailTextures( model_t *mod );
 #if XASH_GAMECUBE
-poolhandle_t Mod_GameCubeSharedModelStubPool( void );
 poolhandle_t Mod_GameCubeSharedStudioPool( void );
 void Mod_GCLoadNewGameStudios( void );
 void Mod_GCTryDeferredStudios( void ); /* G287: post-present MDL promote */
@@ -204,12 +203,7 @@ void Mod_PrintWorldStats_f( void );
 // mod_studio.c
 //
 void Mod_LoadStudioModel( model_t *mod, void *buffer, size_t buffersize, qboolean *loaded );
-#if XASH_GAMECUBE
-void Mod_LoadStudioGcmapStub( model_t *mod, qboolean *loaded );
-void Mod_LoadSpriteGcmapStub( model_t *mod, qboolean *loaded );
-qboolean Mod_GCIsSpriteStub( const model_t *mod );
-void Mod_StudioLoadGcmapStub( model_t *mod, qboolean *loaded );
-#endif
+
 void Mod_InitStudioAPI( void );
 void Mod_InitStudioHull( void );
 void Mod_ResetStudioAPI( void );

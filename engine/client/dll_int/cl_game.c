@@ -1452,19 +1452,6 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 				m_pSprite->needload = NL_NEEDS_LOADED;
 				return true;
 			}
-			else if( GC_MapLoadMemoryOpt())
-			{
-				Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
-				if( loaded )
-				{
-					m_pSprite->needload = NL_PRESENT;
-					Con_Reportf( "Xash3D GameCube: HUD sprite stub %s\n", szSpriteName );
-					return true;
-				}
-
-				Mod_FreeModel( m_pSprite );
-				return false;
-			}
 			else
 			{
 				Con_Reportf( S_ERROR "Could not load HUD sprite %s\n", szSpriteName );
@@ -1517,19 +1504,6 @@ static qboolean CL_LoadHudSprite( const char *szSpriteName, model_t *m_pSprite, 
 			}
 			if( buf == NULL )
 			{
-				/* Exists on disc but alloc soft-failed. Stub under memopt so HUD continues. */
-				if( GC_MapLoadMemoryOpt())
-				{
-					Mod_LoadSpriteGcmapStub( m_pSprite, &loaded );
-					if( loaded )
-					{
-						m_pSprite->needload = NL_PRESENT;
-						Con_Reportf( "Xash3D GameCube: HUD sprite stub after soft-fail %s\n",
-							szSpriteName );
-						return true;
-					}
-					Mod_FreeModel( m_pSprite );
-				}
 				return false;
 			}
 
@@ -1722,7 +1696,7 @@ void CL_GCPreloadNewGameHudSprites( void )
 
 		if( handle > 0 && handle <= MAX_CLIENT_SPRITES )
 			mod = &clgame.sprites[handle - 1];
-		is_real = ( mod && !Mod_GCIsSpriteStub( mod ));
+		is_real = ( mod != NULL );
 		if( is_real )
 		{
 			real++;
@@ -1807,19 +1781,13 @@ void CL_GCPreloadNewGameHudSpritesLate( void )
 				&& !( !Q_stricmp( sheets[i], "sprites/320_train.spr" )
 					&& !Q_stricmp( mod->name, "sprites/gc_320_train.spr" )))
 				continue;
-			if( Mod_GCIsSpriteStub( mod ))
-			{
-				Mod_FreeModel( mod );
-				memset( mod, 0, sizeof( *mod ));
-				mod->needload = NL_UNREFERENCED;
-			}
 			break;
 		}
 
 		handle = pfnSPR_Load( sheets[i] );
 		mod = ( handle > 0 && handle <= MAX_CLIENT_SPRITES )
 			? &clgame.sprites[handle - 1] : NULL;
-		is_real = ( mod && !Mod_GCIsSpriteStub( mod ));
+		is_real = ( mod != NULL );
 		if( is_real )
 		{
 			real++;
