@@ -49,8 +49,11 @@ LAST_FINGERPRINT_FILE="$STATE_DIR/last-fingerprint"
 STALL_COUNTER_FILE="$STATE_DIR/stall-counter"
 SUMMARY_FILE="$STATE_DIR/last-pass-summary.txt"
 WORKING_MEMORY_FILE="$STATE_DIR/working-memory.md"
+PASS_CONTEXT_FILE="$STATE_DIR/pass-context.md"
 PROMPT_PATH="$REPO/$MODEL_PROMPT_FILE"
 STATUS_PATH="$REPO/$STATUS_FILE"
+GOALS_PATH="$REPO/.ai/goals/GAMECUBE_PORT_GOALS.md"
+PLAN_PATH="$REPO/docs/GAMECUBE_PORT_PLAN.md"
 
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$(dirname "$PROMPT_PATH")"
 
@@ -391,6 +394,94 @@ update_working_memory() {
     } >"$WORKING_MEMORY_FILE"
 }
 
+update_pass_context() {
+    python3 - "$PASS_CONTEXT_FILE" "$WORKING_MEMORY_FILE" "$STATUS_PATH" "$GOALS_PATH" "$PLAN_PATH" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+out_path = Path(sys.argv[1])
+memory_path = Path(sys.argv[2])
+status_path = Path(sys.argv[3])
+goals_path = Path(sys.argv[4])
+plan_path = Path(sys.argv[5])
+
+def read(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace")
+
+def section(text: str, heading: str, limit: int = 80) -> list[str]:
+    lines = text.splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        if line.strip() == heading:
+            start = i
+            break
+    if start is None:
+        return []
+    collected = [lines[start]]
+    for line in lines[start + 1:]:
+        if line.startswith("## ") and line.strip() != heading:
+            break
+        collected.append(line)
+        if len(collected) >= limit:
+            break
+    return collected
+
+def grep_lines(text: str, pattern: str, limit: int = 20) -> list[str]:
+    rx = re.compile(pattern)
+    out = []
+    for line in text.splitlines():
+        if rx.search(line):
+            out.append(line)
+            if len(out) >= limit:
+                break
+    return out
+
+memory = read(memory_path).strip()
+status = read(status_path)
+goals = read(goals_path)
+plan = read(plan_path)
+
+parts: list[str] = ["# GameCube Pass Context", ""]
+
+if memory:
+    parts += ["## Working memory", memory, ""]
+
+if status:
+    parts += ["## Port status excerpt"]
+    parts += status.splitlines()[:80]
+    parts += [""]
+
+goal_focus = section(goals, "## Current focus (2026-07-18)", limit=120)
+if goal_focus:
+    parts += goal_focus + [""]
+
+immediate_queue = grep_lines(goals, r"Immediate source queue|^\d+\.\s+\*\*G|^### G47[1-9]:|^### G480:", limit=80)
+if immediate_queue:
+    parts += ["## Queue excerpts"] + immediate_queue + [""]
+
+plan_lines = grep_lines(
+    plan,
+    r"Current automatic goal arc:|Endgame / release goals|Current focus|Immediate source queue|Next automatic goal|G47[1-9]|G480",
+    limit=40,
+)
+if plan_lines:
+    parts += ["## Plan hints"] + plan_lines + [""]
+
+parts += [
+    "## Context rules",
+    "- Use this file as the default startup context instead of loading large planning documents.",
+    "- If more detail is needed, grep targeted ranges from the durable source files.",
+    "- Do not treat this file as proof; verify against current repository state before claiming progress.",
+    "",
+]
+
+out_path.write_text("\n".join(parts).rstrip() + "\n", encoding="utf-8")
+PY
+}
+
 completion_from_repository() {
     [[ -f "$STATUS_PATH" ]] || return 1
 
@@ -444,9 +535,17 @@ while :; do
     timestamp="$(date '+%Y%m%d-%H%M%S')"
     logfile="$LOG_DIR/pass-$(printf '%04d' "$pass")-$timestamp.log"
     before_fingerprint="$(repository_fingerprint)"
+    update_pass_context
 
     log "Starting pass $pass."
     log "Log: $logfile"
+    {
+        printf '[%s] pass=%s start\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$pass"
+        printf '[%s] branch=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$(git branch --show-current)"
+        printf '[%s] head=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$(git rev-parse --short HEAD)"
+        printf '[%s] prompt=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$PROMPT_PATH"
+        printf '[%s] status=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$STATUS_PATH"
+    } >>"$logfile"
 
     # Give each individual Continue invocation a generous ceiling while keeping
     # the outer supervisor in control. Eight hours supports deeper bounded
