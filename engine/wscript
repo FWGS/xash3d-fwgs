@@ -241,7 +241,6 @@ def build(bld):
 		if ref_gx_node is None:
 			raise Errors.WafError('GameCube Flipper build requires ref/gx sources')
 		bld.env.LDFLAGS += ['-lstdc++', '-liso9660', '-lasnd', '-logc', '-lm', '-lfat', '-Wl,--allow-multiple-definition']
-		source += ['platform/stub/s_stub.c']
 		if has_hlsdk_server:
 			Logs.info('Using GameCube HLSDK server archive from %s' % hlsdk_dest)
 			bld.env.STLIBPATH_HLSDK_GAMECUBE = [
