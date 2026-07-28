@@ -3473,7 +3473,7 @@ string_t GAME_EXPORT SV_AllocString( const char *szValue )
 		}
 
 		//MsgDev( D_NOTE, "SV_AllocString: %ld %s\n", str64.plast - svgame.globals->pStringBase, processed_string );
-		Q_strncpy( str64.plast, processed_string, len );
+		Q_strncpy( str64.plast, processed_string, str64.maxstringarray - (str64.plast - str64.poldstringbase) );
 		str64.totalalloc += len;
 
 		dupe_string = str64.plast;
