@@ -26,7 +26,12 @@ int main(int argc, char **argv)
 }
 '''
 
-frameworks = ['Foundation', 'UIKit', 'QuartzCore', 'GameController', 'SystemConfiguration', 'CFNetwork', 'AVFoundation', 'CoreGraphics']
+def get_frameworks(env):
+	if env.IOS:
+		return ['Foundation', 'UIKit', 'QuartzCore', 'GameController', 'SystemConfiguration', 'CFNetwork', 'AVFoundation', 'CoreGraphics']
+	if env.DEST_OS == 'darwin':
+		return ['IOKit', 'CoreFoundation']
+	return []
 
 @TaskGen.extension('.m')
 def m_hook(self, node):
@@ -124,9 +129,8 @@ def configure(conf):
 	if not conf.env.DEST_OS in ['win32', 'android']:
 		conf.check_pthreads(mode='c')
 	
-	if conf.env.IOS:
-		for i in frameworks :
-			conf.check(features='c cprogram', framework=i, uselib_store=i, msg='Checking for %s framework' % i)
+	for i in get_frameworks(conf.env):
+		conf.check(features='c cprogram', framework=i, uselib_store=i, msg='Checking for %s framework' % i)
 
 	conf.define('ENGINE_DLL', 1)
 
@@ -179,6 +183,8 @@ def build(bld):
 		source += bld.path.ant_glob('platform/ios/*.c')
 		source += bld.path.ant_glob('platform/ios/*.m')
 		includes += bld.path.ant_glob('platform/ios')
+	elif bld.env.DEST_OS == 'darwin':
+		source += bld.path.ant_glob('platform/apple/*.c')
 	
 	# include sources for optional features
 	if bld.get_define('XASH_CUSTOM_SWAP'):
@@ -206,6 +212,7 @@ def build(bld):
 		]
 	else: # POSIX
 		libs += ['M', 'RT', 'PTHREAD', 'ASOUND', 'HAIKU', 'MAGX', 'LOG', 'SOCKET']
+		libs += get_frameworks(bld.env)
 		if not bld.env.STATIC:
 			libs += ['DL']
 
@@ -274,7 +281,6 @@ def build(bld):
 			install_path = bld.env.LIBDIR
 
 		if bld.env.IOS:
-			libs += frameworks
 			defines += ['XASH_SDLMAIN=1']
 
 		if bld.env.DEST_OS in ['nswitch', 'psvita', 'emscripten']:
