@@ -200,6 +200,12 @@ def main() -> int:
     args = parser.parse_args()
 
     bootstrap_env()
+    
+    # Ensure required directories exist (resilience to missing directories)
+    (REPO / ".ai").mkdir(parents=True, exist_ok=True)
+    (REPO / ".ai/logs").mkdir(parents=True, exist_ok=True)
+    (REPO / ".ai/logs/supervisor").mkdir(parents=True, exist_ok=True)
+    (REPO / ".ai/tasks").mkdir(parents=True, exist_ok=True)
 
     lock = SupervisorLock()
     if not lock.acquire():

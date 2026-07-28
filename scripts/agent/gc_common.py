@@ -127,6 +127,25 @@ class SupervisorLock:
             return True
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Check for stale lock (process no longer exists)
+        if self.path.exists():
+            try:
+                content = self.path.read_text(encoding="utf-8").strip()
+                if content:
+                    pid = int(content)
+                    # Check if process exists
+                    try:
+                        os.kill(pid, 0)
+                        # Process exists, lock is valid
+                        return False
+                    except ProcessLookupError:
+                        # Process doesn't exist, remove stale lock
+                        self.path.unlink(missing_ok=True)
+            except (ValueError, OSError):
+                # Invalid content or other error, remove stale lock
+                self.path.unlink(missing_ok=True)
+        
         self._file = self.path.open("w", encoding="utf-8")
         try:
             fcntl.flock(self._file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)

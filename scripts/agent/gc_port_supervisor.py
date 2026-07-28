@@ -449,6 +449,28 @@ def main():
     )
     args = ap.parse_args()
 
+    # Ensure required directories exist (resilience to missing directories)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    TASK_OUT.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Check for stale lock state (resilience to interrupted passes)
+    lock_path = REPO / ".ai/gc-port-loop.lock"
+    if lock_path.exists():
+        try:
+            content = lock_path.read_text(encoding="utf-8").strip()
+            if content:
+                pid = int(content)
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    # Stale lock - clean it up silently
+                    lock_path.unlink(missing_ok=True)
+                    print(f"Cleaned up stale lock file (pid {pid} not found)", flush=True)
+        except (ValueError, OSError):
+            # Invalid lock file - clean it up
+            lock_path.unlink(missing_ok=True)
+
     tier = args.tier or load_port_automation_tier()
     phases = phases_for_tier(tier)
     print(f"Supervisor automation tier: {tier}", flush=True)
