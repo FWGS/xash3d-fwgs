@@ -5,7 +5,9 @@ Copyright (C) 2026 xash3d-gc contributors
 #include "platform/platform.h"
 #include "common.h"
 #include "cvar.h"
+#include "crtlib.h"
 #include "mem_gamecube.h"
+#include "client.h"
 #include "perf_gamecube.h"
 #include <string.h>
 
@@ -15,9 +17,13 @@ Copyright (C) 2026 xash3d-gc contributors
 static GC_PerfMetrics gc_perf_metrics;
 
 /* Performance cvars */
-static cvar_t gc_perf_enable = { "gc_perf_enable", "1", FCVAR_ARCHIVE, "Enable performance profiling" };
-static cvar_t gc_perf_draw = { "gc_perf_draw", "1", FCVAR_ARCHIVE, "Draw performance overlay" };
-static cvar_t gc_perf_window = { "gc_perf_window", "60", FCVAR_ARCHIVE, "FPS window size" };
+CVAR_DEFINE_AUTO( gc_perf_enable, "1", FCVAR_ARCHIVE, "Enable performance profiling" );
+CVAR_DEFINE_AUTO( gc_perf_draw, "1", FCVAR_ARCHIVE, "Draw performance overlay" );
+CVAR_DEFINE_AUTO( gc_perf_window, "60", FCVAR_ARCHIVE, "FPS window size" );
+
+/* Memory profiling */
+static size_t gc_mem_hwm = 0;
+static size_t gc_mem_last = 0;
 
 /* Initialize performance metrics */
 void GC_PerfInit( void )
@@ -27,9 +33,9 @@ void GC_PerfInit( void )
     gc_perf_metrics.last_fps_update = Platform_DoubleTime();
     
     /* Register cvars */
-    Cvar_Register( &gc_perf_enable );
-    Cvar_Register( &gc_perf_draw );
-    Cvar_Register( &gc_perf_window );
+    Cvar_RegisterVariable( &gc_perf_enable );
+    Cvar_RegisterVariable( &gc_perf_draw );
+    Cvar_RegisterVariable( &gc_perf_window );
     
     Con_Reportf( "Xash3D GameCube: performance profiling initialized\n" );
 }
@@ -55,7 +61,7 @@ void GC_PerfUpdate( void )
     /* Update FPS window */
     gc_perf_metrics.fps_window[gc_perf_metrics.fps_window_index] = (float)fps;
     gc_perf_metrics.fps_window_index = (gc_perf_metrics.fps_window_index + 1) % gc_perf_metrics.fps_window_count;
-    if( gc_perf_metrics.fps_window_count < gc_perf_window.int_val )
+    if( gc_perf_metrics.fps_window_count < (int)atoi(gc_perf_window.string) )
         gc_perf_metrics.fps_window_count++;
     
     /* Calculate FPS statistics */
@@ -132,7 +138,7 @@ void GC_PerfReport( void )
 /* Performance profiling console commands */
 static void GC_PerfCmd_Report_f( void )
 {
-    if( !gc_perf_enable.int_val )
+    if( !gc_perf_enable.string || atoi(gc_perf_enable.string) == 0 )
     {
         Con_Reportf( "Xash3D GameCube: performance profiling disabled (gc_perf_enable=0)\n" );
         return;
@@ -160,29 +166,28 @@ void GC_PerfCmd_Init( void )
 /* Performance telemetry display */
 void GC_PerfDraw( void )
 {
-    if( !gc_perf_enable.int_val || !gc_perf_draw.int_val )
+    if( !gc_perf_enable.string || !gc_perf_draw.string || atoi(gc_perf_enable.string) == 0 || atoi(gc_perf_draw.string) == 0 )
         return;
     
     const GC_PerfMetrics* m = GC_PerfGetMetrics();
     
     /* Draw FPS overlay in top-left corner */
-    Con_DrawString( 8, 8, va( "FPS: %.1f (%.1f/%.1f)", m->fps, m->avg_fps, m->min_fps ), 1.0f );
+    Con_DrawString( 8, 8, va( "FPS: %.1f (%.1f/%.1f)", m->fps, m->avg_fps, m->min_fps ), 0 );
     
     /* Draw memory usage */
-    Con_DrawString( 8, 24, va( "MEM: %s/%s", Q_memprint( m->memory_used ), Q_memprint( GC_MEMORY_BUDGET_BYTES ) ), 1.0f );
+    Con_DrawString( 8, 24, va( "MEM: %s/%s", Q_memprint( m->memory_used ), Q_memprint( GC_MEMORY_BUDGET_BYTES ) ), 0 );
     
     /* Draw frame time */
-    Con_DrawString( 8, 40, va( "FRM: %.1f ms", m->frame_time ), 1.0f );
+    Con_DrawString( 8, 40, va( "FRM: %.1f ms", m->frame_time ), 0 );
     
     /* Draw budget status */
-    Con_DrawString( 8, 56, va( "BUDGET: %s", m->budget_exceeded ? "EXCEEDED" : "OK" ),
-        m->budget_exceeded ? 1.0f : 0.5f );
+    Con_DrawString( 8, 56, va( "BUDGET: %s", m->budget_exceeded ? "EXCEEDED" : "OK" ), 0 );
 }
 
 /* Memory profiling */
 void GC_PerfMemSample( const char *stage )
 {
-    if( !gc_perf_enable.int_val )
+    if( !gc_perf_enable.string || atoi(gc_perf_enable.string) == 0 )
         return;
     
     size_t total = Mem_TotalRealSize();
@@ -219,7 +224,7 @@ void GC_PerfFrameEnd( void )
 /* Performance profiling markers */
 void GC_PerfMarker( const char *name )
 {
-    if( !gc_perf_enable.int_val )
+    if( !gc_perf_enable.string || atoi(gc_perf_enable.string) == 0 )
         return;
     
     static double last_marker_time = 0.0;

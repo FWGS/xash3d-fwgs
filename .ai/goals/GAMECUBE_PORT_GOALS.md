@@ -4778,3 +4778,108 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - Test final validation with various scenarios
 - Document final validation architecture and configuration
 - Create final validation guide
+
+### G471: Automation prompt and queue hygiene
+
+- Keep `.continue/gamecube-port-task.md`, the immediate queue, and durable
+  status documents aligned so the overnight runner chooses the same next task a
+  human would choose from repository evidence.
+- Remove stale automation assumptions that cause the runner to chase obsolete
+  branches, placeholder ranges, or hardware-only work.
+- Add a bounded verification check proving the runner can identify the first
+  live automatic queue item without loading broad historical context.
+
+### G472: Supervisor resilience and restartability
+
+- Harden the supervisor and watcher so they survive missing optional
+  directories, stale lock state, and quiet startup phases without silently
+  exiting.
+- Verify detached launch, foreground launch, and watcher attachment against the
+  same repository state and log layout.
+- Record the minimum durable state needed to resume after an interrupted pass.
+
+### G473: Lean working-memory handoff
+
+- Maintain a tiny, current, pass-to-pass memory surface that helps the runner
+  re-orient without bloating prompts or replaying long history.
+- Restrict memory to branch, HEAD, last task, last verification, blocker, next
+  task, and log reference.
+- Reject broad historical narration, whole-log copies, or memory files that
+  grow beyond a compact operator-readable summary.
+
+### G474: Warning-driven cleanup queue
+
+- Turn recurring compiler/linker/runtime warnings into explicit bounded queue
+  items with proof of reproduction and proof of resolution.
+- Prioritize warnings that affect correctness, determinism, memory pressure, or
+  automated verification before cosmetic or speculative cleanup.
+- Keep the queue narrow enough that each pass can resolve one warning or prove
+  why it is not yet actionable.
+
+### G475: Probe-proof gameplay continuity
+
+- Extend automated evidence beyond boot and map-ready into short, repeatable
+  gameplay-continuity checks that prove world interaction stays intact after the
+  latest source change.
+- Prefer checks tied to existing New Game proof routes, landmark transitions,
+  and bounded movement/input actions.
+- Fail this goal if the added proof depends on manual operator judgment or
+  broad one-off diagnostics.
+
+### G476: Asset/data path correctness
+
+- Keep repository code, legal asset roots, SD staging paths, and generated
+  cache locations unambiguous across scripts, docs, and automation prompts.
+- Verify that source-repo operations never assume the legal asset directory is
+  the automation repository, and vice versa.
+- Require path changes to update the smallest set of durable surfaces needed to
+  keep launches, probes, and staging commands coherent.
+
+### G477: Dolphin evidence packaging
+
+- Standardize which files under `.agent-logs`, `.ai`, and generated evidence
+  are the durable references for a completed pass versus ephemeral debugging.
+- Ensure each automated pass can point to one primary log and one concise
+  summary without searching broad log trees.
+- Reject packaging changes that increase prompt size or duplicate large logs in
+  durable state.
+
+### G478: Runtime-compatible placeholder retirement
+
+- Convert remaining placeholders, stubs, and reduced-runtime behavior into a
+  bounded retirement queue ordered by gameplay impact and proofability.
+- Prefer work that preserves the already-proven New Game path while restoring
+  real entities, menu flow, save/config behavior, or renderer/client fidelity.
+- Mark items complete only when the replacement is verified on the current
+  automated evidence route, not by source inspection alone.
+
+### G479: Regression-gate expansion
+
+- Add small build, verifier, or log-shape checks that specifically guard the
+  most expensive-to-rediscover regressions in automation, pathing, memory, and
+  boot/gameplay continuity.
+- Keep each gate cheap enough to run inside normal passes.
+- Do not add broad test suites that crowd out source work or duplicate existing
+  evidence routes.
+
+### G480: Autonomous release-readiness triage
+
+- Maintain a realistic autonomous definition of "still worth running
+  overnight" versus "needs manual operator validation or design choice."
+- When the immediate queue is exhausted, route the runner into the smallest
+  actionable release-readiness task instead of speculative broad refactors.
+- If no grounded autonomous task remains, require the runner to emit
+  `AGENT_RESULT: COMPLETE` with the exact manual blocker or handoff boundary.
+
+## Extended automatic queue
+
+1. **G471** — Automation prompt and queue hygiene
+2. **G472** — Supervisor resilience and restartability
+3. **G473** — Lean working-memory handoff
+4. **G474** — Warning-driven cleanup queue
+5. **G475** — Probe-proof gameplay continuity
+6. **G476** — Asset/data path correctness
+7. **G477** — Dolphin evidence packaging
+8. **G478** — Runtime-compatible placeholder retirement
+9. **G479** — Regression-gate expansion
+10. **G480** — Autonomous release-readiness triage

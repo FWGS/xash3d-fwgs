@@ -8,8 +8,8 @@ set -Eeuo pipefail
 #   ./run-gamecube-port-agent.sh ~/Desktop/xash3d-gc
 #
 # Optional environment variables:
-#   HOURS=12                         Maximum wall-clock runtime; 0 = no deadline
-#   MAX_PASSES=100                   Maximum Continue passes; 0 = unlimited
+#   HOURS=24                         Maximum wall-clock runtime; 0 = no deadline
+#   MAX_PASSES=200                   Maximum Continue passes; 0 = unlimited
 #   CONTINUE_BIN=cn                  Continue CLI executable
 #   AUTO_FLAG=--auto                 Continue automatic tool approval flag
 #   MODEL_PROMPT_FILE=.continue/gamecube-port-task.md
@@ -29,8 +29,8 @@ set -Eeuo pipefail
 REPO="${1:-$PWD}"
 REPO="$(realpath "$REPO")"
 
-HOURS="${HOURS:-12}"
-MAX_PASSES="${MAX_PASSES:-100}"
+HOURS="${HOURS:-24}"
+MAX_PASSES="${MAX_PASSES:-200}"
 CONTINUE_BIN="${CONTINUE_BIN:-cn}"
 AUTO_FLAG="${AUTO_FLAG:---auto}"
 MODEL_PROMPT_FILE="${MODEL_PROMPT_FILE:-.continue/gamecube-port-task.md}"
@@ -48,6 +48,7 @@ PASS_COUNTER_FILE="$STATE_DIR/pass-counter"
 LAST_FINGERPRINT_FILE="$STATE_DIR/last-fingerprint"
 STALL_COUNTER_FILE="$STATE_DIR/stall-counter"
 SUMMARY_FILE="$STATE_DIR/last-pass-summary.txt"
+WORKING_MEMORY_FILE="$STATE_DIR/working-memory.md"
 PROMPT_PATH="$REPO/$MODEL_PROMPT_FILE"
 STATUS_PATH="$REPO/$STATUS_FILE"
 
@@ -346,6 +347,50 @@ repository_fingerprint() {
     } | sha256sum | awk '{print $1}'
 }
 
+update_working_memory() {
+    local logfile="$1"
+    local marker="$2"
+    local status="$3"
+    local task_line blocker_line next_line verify_line files_line
+
+    task_line="$(
+        grep -E '^(task|current task|milestone worked)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+    files_line="$(
+        grep -E '^(files changed|changed files)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+    verify_line="$(
+        grep -E '^(verification|builds/tests run|tests run)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+    blocker_line="$(
+        grep -E '^(blocker|unresolved failures)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+    next_line="$(
+        grep -E '^(next task|exact next milestone)[[:space:]]*[:=-]' "$logfile" \
+        | tail -n 1 | sed 's/^[[:space:]]*//' || true
+    )"
+
+    {
+        printf '# GameCube Agent Working Memory\n\n'
+        printf '- Updated: %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+        printf '- Branch: %s\n' "$(git branch --show-current)"
+        printf '- HEAD: %s\n' "$(git rev-parse --short HEAD)"
+        printf '- Pass: %s\n' "$pass"
+        printf '- Exit status: %s\n' "$status"
+        printf '- Result marker: %s\n' "${marker:-missing}"
+        [[ -n "$task_line" ]] && printf '- %s\n' "$task_line"
+        [[ -n "$files_line" ]] && printf '- %s\n' "$files_line"
+        [[ -n "$verify_line" ]] && printf '- %s\n' "$verify_line"
+        [[ -n "$blocker_line" ]] && printf '- %s\n' "$blocker_line"
+        [[ -n "$next_line" ]] && printf '- %s\n' "$next_line"
+        printf '- Log: %s\n' "$logfile"
+    } >"$WORKING_MEMORY_FILE"
+}
+
 completion_from_repository() {
     [[ -f "$STATUS_PATH" ]] || return 1
 
@@ -404,10 +449,10 @@ while :; do
     log "Log: $logfile"
 
     # Give each individual Continue invocation a generous ceiling while keeping
-    # the outer supervisor in control. Six hours prevents a wedged pass from
-    # occupying the loop forever.
+    # the outer supervisor in control. Eight hours supports deeper bounded
+    # repair/build cycles while still terminating truly wedged passes.
     set +e
-    timeout --signal=INT --kill-after=60s 6h \
+    timeout --signal=INT --kill-after=60s 8h \
         "$CONTINUE_BIN" \
         -p "$(cat "$PROMPT_PATH")" \
         "$AUTO_FLAG" \
@@ -434,6 +479,7 @@ while :; do
         printf 'branch=%s\n' "$(git branch --show-current)"
         printf 'log=%s\n' "$logfile"
     } >"$SUMMARY_FILE"
+    update_working_memory "$logfile" "${result_marker:-missing}" "$continue_status"
 
     if [[ "$before_fingerprint" == "$after_fingerprint" ]]; then
         stall_count=$((stall_count + 1))
