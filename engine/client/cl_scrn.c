@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include "library.h"
 #if XASH_GAMECUBE
 #include "gamecube/mem_gamecube.h"
+#include "gamecube/perf_gamecube.h"
 #include "platform/platform.h"
 qboolean CL_GameCubePostReconnect( void );
 #endif
@@ -847,6 +848,7 @@ void SCR_UpdateScreen( void )
 			|| ( GC_IsNewGameWorldReady() && !Sys_CheckParm( "-gcnewgame" ))) )
 	{
 		static qboolean gc_post_g36_present_logged;
+		GC_PerfUpdate();
 		static qboolean gc_post_g36_world_ok;
 		static qboolean gc_vrv_path_logged;
 		static qboolean gc_hud_lean_logged;
@@ -922,6 +924,7 @@ void SCR_UpdateScreen( void )
 				gc_post_g36_present_logged = true;
 			}
 			gc_post_g36_world_ok = true;
+			GC_PerfUpdate();
 			return;
 		}
 
@@ -933,6 +936,7 @@ void SCR_UpdateScreen( void )
 		if( !gc_post_g36_world_ok )
 			GC_FillBudgetProbeFrameBuffer();
 		GC_PresentBudgetProbeFrame();
+		GC_PerfUpdate();
 		return;
 	}
 
@@ -951,6 +955,7 @@ void SCR_UpdateScreen( void )
 			Platform_Sleep( 1 ); // Brief pause to allow Dolphin to detect activity
 			GC_Scr_NoteSyntheticActivity();
 		}
+		GC_PerfUpdate();
 	}
 
 	/* After map-load the present buffer is 160×120 while the soft renderer
@@ -966,6 +971,7 @@ void SCR_UpdateScreen( void )
 		&& cls.state >= ca_connecting && cls.state < ca_active )
 	{
 		static qboolean gc_connect_skip_logged;
+		GC_PerfUpdate();
 		static qboolean g158_reconnect_present_logged;
 		static unsigned g158_reconnect_presents;
 
@@ -995,6 +1001,7 @@ void SCR_UpdateScreen( void )
 						"Xash3D GameCube: G158 reconnect presents=%u state=%d signon=%d\n",
 						g158_reconnect_presents, cls.state, cls.signon );
 				}
+			GC_PerfUpdate();
 			}
 			return;
 		}
@@ -1010,6 +1017,7 @@ void SCR_UpdateScreen( void )
 			GC_Scr_NoteSyntheticActivity();
 			Platform_Sleep( 1 );
 		}
+		GC_PerfUpdate();
 		return;
 	}
 #endif
@@ -1044,6 +1052,7 @@ void SCR_UpdateScreen( void )
 			GC_RestoreVideoMemoryAfterMapLoad();
 #endif
 		V_RenderView();
+		GC_PerfUpdate();
 		break;
 	case ca_cinematic:
 		SCR_DrawCinematic();

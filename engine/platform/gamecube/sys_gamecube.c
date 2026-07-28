@@ -24,6 +24,7 @@ Platform layer ported from Division-Zero-GX/xash3d-wii.
 #include "dll_gamecube.h"
 #include "mem_gamecube.h"
 #include "storage_gamecube.h"
+#include "perf_gamecube.h"
 
 #define GC_DATA_PATH "xash3d"
 #define GC_DVD_DEVICE "gcdisc"
@@ -341,6 +342,10 @@ void GCube_Init( void )
 	}
 
 	setup_gamecube_dll_functions();
+
+	/* Initialize performance profiling */
+	GC_PerfInit();
+	GC_PerfCmd_Init();
 #endif
 }
 
