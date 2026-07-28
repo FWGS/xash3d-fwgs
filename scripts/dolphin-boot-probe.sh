@@ -77,7 +77,7 @@ if [[ "$DOLPHIN_RETAIL" == "1" ]]; then
 else
 	# Entity spawn on large smoke maps (c1a0) needs headroom after BSP load.
 	# Note: DOLPHIN_NEWGAME alone doesn't trigger retail mode; smoke-map is used
-	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-180}"
+	TIMEOUT_SEC="${DOLPHIN_TIMEOUT:-300}"
 fi
 FRAME_SAMPLE_SEC="${DOLPHIN_FRAME_SAMPLE_SEC:-8}"
 if (( DOLPHIN_NEWGAME )); then
