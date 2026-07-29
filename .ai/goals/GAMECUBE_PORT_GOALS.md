@@ -4871,6 +4871,117 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 - If no grounded autonomous task remains, require the runner to emit
   `AGENT_RESULT: COMPLETE` with the exact manual blocker or handoff boundary.
 
+### G481: Placeholder entity promotion backlog
+
+- Maintain an explicit, evidence-backed backlog for remaining placeholder or
+  reduced-runtime entities still standing between the current New Game proof
+  path and fuller Half-Life map behavior.
+- Group promotions by shared risk surface such as scripted monsters, brush
+  entities, env effects, or client-visible props so one pass can restore one
+  bounded family safely.
+- Require each promotion step to record inhibited counts before/after, any new
+  allocations or static pools touched, and the exact Dolphin or verifier probe
+  proving the promoted entities did not regress map load or interaction.
+
+### G482: Save, config, and persistence correctness
+
+- Audit the GameCube path for persistence behavior that still differs from the
+  desktop engine in ways that could break save/load, config retention, binds,
+  cvars, or campaign continuity.
+- Prefer bounded fixes that preserve legal asset immutability while making
+  generated save/config/cache data land in deterministic GameCube-compatible
+  writable locations.
+- Accept this goal only when the chosen persistence surface is verified through
+  focused probes and documented with the exact writable path expectations.
+
+### G483: Filesystem and cache lifecycle hardening
+
+- Verify that staged assets, decoded caches, and transient runtime products can
+  be created, reused, invalidated, and recovered after missing-file or
+  version-skew scenarios without corrupting future boots.
+- Favor versioned, reproducible cache behavior over silent reuse of stale data,
+  especially for textures, audio, and converted render assets.
+- Add narrow checks that distinguish source assets, generated caches, and
+  deployment artifacts so cleanup and probes cannot delete or overwrite the
+  wrong class of data.
+
+### G484: Audio streaming and channel continuity
+
+- Extend the already-proven bounded SFX path toward longer-lived audio
+  behaviors such as looping ambient sounds, sentence playback, music/streaming,
+  and channel reuse under memory pressure.
+- Prefer fixes that preserve mixer determinism, bounded decode memory, and
+  audible continuity during movement, combat, and map transitions.
+- Record each new audio behavior with a concrete probe or log signature so the
+  runner can tell a real regression from a missing optional asset.
+
+### G485: Memory-budget enforcement and regression surfacing
+
+- Turn current MEM1/MEM2/ARAM assumptions into explicit, durable budget checks
+  around the highest-risk runtime surfaces: live world faces, lightmaps,
+  viewmodels, HUD sheets, particles, decals, and restored entities.
+- Make memory regressions easy to spot in normal passes by capturing the small
+  set of counters or log lines that actually predict tip-at-boot or
+  changelevel failures.
+- Reject changes that merely shift pressure elsewhere unless the new trade is
+  measured, documented, and improves gameplay continuity or fidelity.
+
+### G486: Changelevel and campaign continuity expansion
+
+- Grow automated proof beyond the current New Game landmark path into a
+  slightly broader set of short, repeatable chapter or changelevel continuity
+  checks that expose regressions in entity carryover, inventory, audio, or
+  renderer state.
+- Prefer scenarios that reuse existing probes and save instrumentation instead
+  of introducing long exploratory play sessions.
+- Mark progress only when the added route is both stable enough for automation
+  and useful for catching a real class of regressions.
+
+### G487: Menu, console, and front-end parity
+
+- Close the highest-impact gaps in menu, console, HUD, and front-end behavior
+  that still block a credible GameCube-native player flow before gameplay even
+  starts.
+- Prioritize issues that affect boot-to-menu, option changes, save/load menu
+  visibility, text readability, or controller-driven navigation rather than
+  cosmetic polish.
+- Verify fixes using bounded menu/front-end probes and lightweight evidence
+  that can run without requiring a full exploratory gameplay session.
+
+### G488: Renderer state and effect fidelity backlog
+
+- Maintain a bounded queue for remaining renderer fidelity gaps that matter to
+  actual Half-Life playability on Flipper GX, including translucent surfaces,
+  decals, particles, beams, dynamic effects, and state transitions between 2D
+  and 3D passes.
+- Favor work that removes clearly observable gameplay-facing mismatches while
+  preserving the stable world-present baseline already proven in Dolphin.
+- Require each fidelity step to identify the affected render path, the memory
+  or state trade involved, and the smallest repeatable visual proof.
+
+### G489: Toolchain and reproducible build hygiene
+
+- Keep the GameCube build, DOL output, and supporting scripts reproducible
+  enough that automation can tell a real behavior change from stale artifacts,
+  partial rebuild drift, or toolchain mismatch.
+- Prefer targeted fixes around relink correctness, stale-output detection,
+  symbol/report generation, and scripted staging rather than broad build-system
+  churn.
+- Record the exact build artifact paths, sizes, and identifying hashes needed
+  to compare runs across passes and operator handoff.
+
+### G490: Hardware handoff readiness
+
+- Continuously refine the operator-facing boundary for real GameCube hardware
+  validation so autonomous work leaves behind a crisp, low-friction handoff
+  instead of a pile of ambiguous logs.
+- Keep the handoff centered on bootable artifacts, required asset layout,
+  controller/storage expectations, and the minimum checklist needed to confirm
+  whether a hardware-only issue is real.
+- Treat this as a support goal for G38 rather than a replacement for hardware
+  proof, and avoid documentation churn that is not backed by a new automated or
+  operator-discovered fact.
+
 ## Extended automatic queue
 
 1. **G471** — Automation prompt and queue hygiene
@@ -4883,3 +4994,13 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 8. **G478** — Runtime-compatible placeholder retirement
 9. **G479** — Regression-gate expansion
 10. **G480** — Autonomous release-readiness triage
+11. **G481** — Placeholder entity promotion backlog
+12. **G482** — Save, config, and persistence correctness
+13. **G483** — Filesystem and cache lifecycle hardening
+14. **G484** — Audio streaming and channel continuity
+15. **G485** — Memory-budget enforcement and regression surfacing
+16. **G486** — Changelevel and campaign continuity expansion
+17. **G487** — Menu, console, and front-end parity
+18. **G488** — Renderer state and effect fidelity backlog
+19. **G489** — Toolchain and reproducible build hygiene
+20. **G490** — Hardware handoff readiness

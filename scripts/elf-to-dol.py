@@ -1,176 +1,172 @@
 #!/usr/bin/env python3
 """
-Convert ELF to DOL format for Nintendo GameCube.
-This script provides a reliable alternative to elf2dol from devkitPro.
+Convert a PowerPC ELF executable into a Nintendo GameCube/Wii DOL image.
 """
+
+from __future__ import annotations
 
 import struct
 import sys
+from dataclasses import dataclass
+from pathlib import Path
 
 
-def parse_elf_segments(elf_data):
-    """Parse PT_LOAD segments from ELF file."""
-    if elf_data[:4] != b'\x7fELF':
+DOL_HEADER_SIZE = 0x100
+MAX_TEXT_SECTIONS = 7
+MAX_DATA_SECTIONS = 11
+PT_LOAD = 1
+PF_X = 0x1
+
+
+@dataclass
+class Segment:
+    file_offset: int
+    virt_addr: int
+    file_size: int
+    mem_size: int
+    is_text: bool
+
+
+def align(value: int, boundary: int) -> int:
+    return (value + boundary - 1) & ~(boundary - 1)
+
+
+def unpack_half(data: bytes, offset: int, is_big_endian: bool) -> int:
+    fmt = ">H" if is_big_endian else "<H"
+    return struct.unpack_from(fmt, data, offset)[0]
+
+
+def unpack_word(data: bytes, offset: int, is_big_endian: bool) -> int:
+    fmt = ">I" if is_big_endian else "<I"
+    return struct.unpack_from(fmt, data, offset)[0]
+
+
+def parse_elf_segments(elf_data: bytes) -> tuple[list[Segment], int]:
+    if elf_data[:4] != b"\x7fELF":
         raise ValueError("Not a valid ELF file")
+    if elf_data[4] != 1:
+        raise ValueError("Only ELF32 inputs are supported")
 
-    # Determine ELF class (32-bit or 64-bit)
-    elf_class = elf_data[4]
-    
-    if elf_class == 1:  # 32-bit ELF
-        is_64bit = False
-        e_entry = struct.unpack('>I', elf_data[0x18:0x1C])[0]
-        e_phoff = struct.unpack('>I', elf_data[0x1C:0x20])[0]
-        e_phnum = struct.unpack('<H', elf_data[0x36:0x38])[0]
-        e_phentsize = struct.unpack('<H', elf_data[0x3A:0x3C])[0]
-        phdr_size = 32
-    elif elf_class == 2:  # 64-bit ELF
-        is_64bit = True
-        e_entry = struct.unpack('>Q', elf_data[0x18:0x20])[0]
-        e_phoff = struct.unpack('>Q', elf_data[0x20:0x28])[0]
-        e_phnum = struct.unpack('<H', elf_data[0x3C:0x3E])[0]
-        e_phentsize = struct.unpack('<H', elf_data[0x3A:0x3C])[0]
-        phdr_size = 56
+    data_encoding = elf_data[5]
+    if data_encoding == 1:
+        is_big_endian = False
+    elif data_encoding == 2:
+        is_big_endian = True
     else:
-        raise ValueError(f"Unknown ELF class: {elf_class}")
+        raise ValueError(f"Unknown ELF data encoding: {data_encoding}")
 
-    segments = []
-    for i in range(e_phnum):
-        offset = e_phoff + i * phdr_size
-        
-        if is_64bit:
-            p_type = struct.unpack('>I', elf_data[offset:offset+4])[0]
-            p_flags = struct.unpack('>I', elf_data[offset+4:offset+8])[0]
-            p_offset = struct.unpack('>Q', elf_data[offset+8:offset+16])[0]
-            p_vaddr = struct.unpack('>Q', elf_data[offset+16:offset+24])[0]
-            p_paddr = struct.unpack('>Q', elf_data[offset+24:offset+32])[0]
-            p_filesz = struct.unpack('>Q', elf_data[offset+32:offset+40])[0]
-            p_memsz = struct.unpack('>Q', elf_data[offset+40:offset+48])[0]
-        else:
-            p_type = struct.unpack('>I', elf_data[offset:offset+4])[0]
-            p_offset = struct.unpack('>I', elf_data[offset+4:offset+8])[0]
-            p_vaddr = struct.unpack('>I', elf_data[offset+8:offset+12])[0]
-            p_paddr = struct.unpack('>I', elf_data[offset+12:offset+16])[0]
-            p_filesz = struct.unpack('>I', elf_data[offset+16:offset+20])[0]
-            p_memsz = struct.unpack('>I', elf_data[offset+20:offset+24])[0]
+    entry_point = unpack_word(elf_data, 0x18, is_big_endian)
+    phoff = unpack_word(elf_data, 0x1C, is_big_endian)
+    phentsize = unpack_half(elf_data, 0x2A, is_big_endian)
+    phnum = unpack_half(elf_data, 0x2C, is_big_endian)
 
-        if p_type == 1:  # PT_LOAD
-            segments.append({
-                'offset': p_offset,
-                'vaddr': p_vaddr,
-                'paddr': p_paddr,
-                'filesz': p_filesz,
-                'memsz': p_memsz
-            })
+    if phentsize < 32:
+        raise ValueError(f"Unexpected program header size: {phentsize}")
 
-    # Sort by virtual address
-    segments.sort(key=lambda x: x['vaddr'])
-    
-    # Mark first segment as text, rest as data
-    # This is a heuristic for PowerPC ELF files
-    if len(segments) > 0:
-        segments[0]['is_text'] = True
-        for i in range(1, len(segments)):
-            segments[i]['is_text'] = False
-    
-    return segments, e_entry
-
-
-def create_dol_header(segments, entry_point):
-    """Create DOL header (780 bytes)."""
-    header = bytearray(780)  # 0x30C bytes
-
-    # DOL header structure (780 bytes = 0x30C):
-    # 0x00-0x17: Text segment file offsets (6 * 4 = 24 bytes)
-    # 0x18-0x2F: Data segment file offsets (6 * 4 = 24 bytes)
-    # 0x30-0x47: Text segment memory addresses (6 * 4 = 24 bytes)
-    # 0x48-0x5F: Data segment memory addresses (6 * 4 = 24 bytes)
-    # 0x60-0x77: Text segment sizes (6 * 4 = 24 bytes)
-    # 0x78-0x8F: Data segment sizes (6 * 4 = 24 bytes)
-    # 0x90-0x93: BSS address
-    # 0x94-0x97: BSS size
-    # 0x98-0x9B: Entry point
-
-    # Calculate file offsets for segments (after 780-byte header)
-    file_offset = 780  # 0x30C
-
-    text_idx = 0
-    data_idx = 0
-
-    for seg in segments:
-        if seg['filesz'] == 0:
+    segments: list[Segment] = []
+    for index in range(phnum):
+        offset = phoff + index * phentsize
+        p_type = unpack_word(elf_data, offset + 0x00, is_big_endian)
+        if p_type != PT_LOAD:
             continue
 
-        if seg.get('is_text', seg['vaddr'] >= 0x80000000):  # Text segment
-            if text_idx < 6:
-                # Text segment file offset at 0x00 + text_idx * 4
-                header[0x00 + text_idx * 4:0x04 + text_idx * 4] = struct.pack('>I', file_offset)
-                # Text segment memory address at 0x30 + text_idx * 4
-                header[0x30 + text_idx * 4:0x34 + text_idx * 4] = struct.pack('>I', seg['vaddr'])
-                # Text segment size at 0x60 + text_idx * 4
-                header[0x60 + text_idx * 4:0x64 + text_idx * 4] = struct.pack('>I', seg['filesz'])
-                text_idx += 1
-        else:  # Data segment
-            if data_idx < 6:
-                # Data segment file offset at 0x18 + data_idx * 4
-                header[0x18 + data_idx * 4:0x1C + data_idx * 4] = struct.pack('>I', file_offset)
-                # Data segment memory address at 0x48 + data_idx * 4
-                header[0x48 + data_idx * 4:0x4C + data_idx * 4] = struct.pack('>I', seg['vaddr'])
-                # Data segment size at 0x78 + data_idx * 4
-                header[0x78 + data_idx * 4:0x7C + data_idx * 4] = struct.pack('>I', seg['filesz'])
-                data_idx += 1
+        p_offset = unpack_word(elf_data, offset + 0x04, is_big_endian)
+        p_vaddr = unpack_word(elf_data, offset + 0x08, is_big_endian)
+        p_filesz = unpack_word(elf_data, offset + 0x10, is_big_endian)
+        p_memsz = unpack_word(elf_data, offset + 0x14, is_big_endian)
+        p_flags = unpack_word(elf_data, offset + 0x18, is_big_endian)
 
-        file_offset += seg['filesz']
+        segments.append(
+            Segment(
+                file_offset=p_offset,
+                virt_addr=p_vaddr,
+                file_size=p_filesz,
+                mem_size=p_memsz,
+                is_text=bool(p_flags & PF_X),
+            )
+        )
 
-    # BSS info (from the last segment if it has memsz > filesz)
-    if segments:
-        last_seg = segments[-1]
-        if last_seg['memsz'] > last_seg['filesz']:
-            header[0x90:0x94] = struct.pack('>I', last_seg['vaddr'] + last_seg['filesz'])
-            header[0x94:0x98] = struct.pack('>I', last_seg['memsz'] - last_seg['filesz'])
+    if not segments:
+        raise ValueError("No PT_LOAD segments found")
 
-    # Entry point
-    header[0x98:0x9C] = struct.pack('>I', entry_point)
+    segments.sort(key=lambda segment: (not segment.is_text, segment.virt_addr))
+    return segments, entry_point
 
+
+def create_dol_header(segments: list[Segment], entry_point: int) -> bytearray:
+    header = bytearray(DOL_HEADER_SIZE)
+    current_output_offset = DOL_HEADER_SIZE
+    text_index = 0
+    data_index = 0
+    bss_start: int | None = None
+    bss_end: int | None = None
+
+    for segment in segments:
+        if segment.file_size == 0 and segment.mem_size == 0:
+            continue
+
+        current_output_offset = align(current_output_offset, 0x20)
+
+        if segment.is_text:
+            if text_index >= MAX_TEXT_SECTIONS:
+                raise ValueError("Too many text segments for DOL")
+            index = text_index
+            struct.pack_into(">I", header, 0x00 + index * 4, current_output_offset)
+            struct.pack_into(">I", header, 0x48 + index * 4, segment.virt_addr)
+            struct.pack_into(">I", header, 0x90 + index * 4, segment.file_size)
+            text_index += 1
+        else:
+            if data_index >= MAX_DATA_SECTIONS:
+                raise ValueError("Too many data segments for DOL")
+            index = data_index
+            struct.pack_into(">I", header, 0x1C + index * 4, current_output_offset)
+            struct.pack_into(">I", header, 0x64 + index * 4, segment.virt_addr)
+            struct.pack_into(">I", header, 0xAC + index * 4, segment.file_size)
+            data_index += 1
+
+        current_output_offset += segment.file_size
+
+        if segment.mem_size > segment.file_size:
+            segment_bss_start = segment.virt_addr + segment.file_size
+            segment_bss_end = segment.virt_addr + segment.mem_size
+            bss_start = segment_bss_start if bss_start is None else min(bss_start, segment_bss_start)
+            bss_end = segment_bss_end if bss_end is None else max(bss_end, segment_bss_end)
+
+    if bss_start is not None and bss_end is not None and bss_end > bss_start:
+        struct.pack_into(">I", header, 0xD8, bss_start)
+        struct.pack_into(">I", header, 0xDC, bss_end - bss_start)
+
+    struct.pack_into(">I", header, 0xE0, entry_point)
     return header
 
 
-def elf_to_dol(elf_path, dol_path):
-    """Convert ELF file to DOL format."""
-    with open(elf_path, 'rb') as f:
-        elf_data = f.read()
-
+def elf_to_dol(elf_path: Path, dol_path: Path) -> None:
+    elf_data = elf_path.read_bytes()
     segments, entry_point = parse_elf_segments(elf_data)
-
-    print(f"ELF entry point: 0x{entry_point:08X}")
-    print(f"Segments: {len(segments)}")
-    for i, seg in enumerate(segments):
-        print(f"  [{i}] vaddr=0x{seg['vaddr']:08X}, filesz=0x{seg['filesz']:X}, memsz=0x{seg['memsz']:X}")
-
-    # Create DOL header
     header = create_dol_header(segments, entry_point)
 
-    # Build DOL file
     dol_data = bytearray(header)
+    current_output_offset = DOL_HEADER_SIZE
+    for segment in segments:
+        if segment.file_size == 0:
+            continue
+        current_output_offset = align(current_output_offset, 0x20)
+        if len(dol_data) < current_output_offset:
+            dol_data.extend(b"\0" * (current_output_offset - len(dol_data)))
+        dol_data.extend(elf_data[segment.file_offset:segment.file_offset + segment.file_size])
+        current_output_offset += segment.file_size
 
-    # Add segment data
-    for seg in segments:
-        if seg['filesz'] > 0:
-            dol_data.extend(elf_data[seg['offset']:seg['offset']+seg['filesz']])
-
-    # Write DOL file
-    with open(dol_path, 'wb') as f:
-        f.write(dol_data)
-
-    print(f"\nDOL file created: {len(dol_data)} bytes")
-    print(f"  Header: 780 bytes")
-    for i, seg in enumerate(segments):
-        if seg['filesz'] > 0:
-            print(f"  Segment {i}: {seg['filesz']} bytes at offset 0x{dol_data[:780][i*4 if i < 6 else (i-6)*4+24]:X}")
+    dol_path.write_bytes(dol_data)
 
 
-if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <input.elf> <output.dol>")
-        sys.exit(1)
+def main(argv: list[str]) -> int:
+    if len(argv) != 3:
+        print(f"Usage: {argv[0]} <input.elf> <output.dol>", file=sys.stderr)
+        return 1
 
-    elf_to_dol(sys.argv[1], sys.argv[2])
+    elf_to_dol(Path(argv[1]), Path(argv[2]))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))
