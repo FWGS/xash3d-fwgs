@@ -73,7 +73,7 @@ char *Posix_Input( void );
 int Posix_GetNetDeviceAddresses( uint64_t *addresses, int max );
 #endif
 
-#if XASH_APPLE && !XASH_IOS
+#if XASH_OSX
 qboolean Apple_GetSerialNumber( char *out, size_t size );
 #endif
 

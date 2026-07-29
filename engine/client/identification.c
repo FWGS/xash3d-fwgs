@@ -543,7 +543,7 @@ static bloomfilter_t ID_GenerateRawId( void )
 	count += ID_ProcessCPUInfo( &value );
 	count += ID_ProcessFiles( &value, "/sys/block", "device/cid" );
 #endif
-#if XASH_APPLE && !XASH_IOS
+#if XASH_OSX
 	char buf[64];
 
 	if( Apple_GetSerialNumber( buf, sizeof( buf )))
@@ -606,7 +606,7 @@ static uint ID_CheckRawId( bloomfilter_t filter )
 		count += (filter & value) == value;
 #endif
 
-#if XASH_APPLE && !XASH_IOS
+#if XASH_OSX
 	char buf[64];
 
 	if( Apple_GetSerialNumber( buf, sizeof( buf )))
