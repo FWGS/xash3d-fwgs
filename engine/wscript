@@ -222,6 +222,8 @@ def build(bld):
 		hlsdk_vcs = os.path.join(hlsdk_dest, 'lib', 'libvcs_info.a')
 		hlsdk_server_exports = os.path.join(os.path.dirname(hlsdk_server),
 			'gamecube_server_entity_exports.inc')
+		hlsdk_client_exports = os.path.join(os.path.dirname(hlsdk_client),
+			'gamecube_client_exports.inc')
 		has_hlsdk_server = os.path.isfile(hlsdk_server)
 		has_hlsdk_client = os.path.isfile(hlsdk_client)
 		# Production Flipper: never silently stub HLSDK gameplay for GameCube.
@@ -252,6 +254,8 @@ def build(bld):
 				Logs.info('Using GameCube HLSDK client archive from %s' % hlsdk_dest)
 				bld.env.LDFLAGS += ['-lclient_gamecube_ppc']
 				gamecube_defines += ['XASH_GAMECUBE_HLSDK_STATIC=1']
+				gamecube_defines += ['XASH_GAMECUBE_HLSDK_CLIENT_STATIC=1']
+				gamecube_defines += ['XASH_GAMECUBE_HLSDK_CLIENT_EXPORTS=1']
 			else:
 				Logs.warn('GameCube HLSDK client archive not found under %s; using client stub' % hlsdk_dest)
 				source += bld.path.parent.find_dir('stub/client').ant_glob('*.c')
@@ -262,8 +266,14 @@ def build(bld):
 			if os.path.isfile(hlsdk_server_exports):
 				includes += [os.path.dirname(hlsdk_server_exports)]
 				gamecube_defines += ['XASH_GAMECUBE_HLSDK_ENTITY_EXPORTS=1']
+				gamecube_defines += ['XASH_GAMECUBE_HLSDK_SERVER_EXPORTS=1']
 			else:
 				Logs.warn('GameCube HLSDK entity export list not found under %s' % hlsdk_dest)
+			if os.path.isfile(hlsdk_client_exports):
+				includes += [os.path.dirname(hlsdk_client_exports)]
+				gamecube_defines += ['XASH_GAMECUBE_HLSDK_CLIENT_EXPORTS=1']
+			else:
+				Logs.warn('GameCube HLSDK client exports not found under %s' % hlsdk_dest)
 		# GameCube uses proper menu from 3rdparty/mainui, not stub
 		# GameCube uses proper pm_shared from 3rdparty/mainui, not stub
 		includes += [

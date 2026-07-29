@@ -176,7 +176,10 @@ Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.
 - Restore: accidental `vid_gamecube.c` checkout recovered to G270 parity (DOL **6274144**, f19 MD5==G270, probe `20260722-232636`)
 
 **Immediate source queue (open automatic goals, in order):**
-1. **G38** — Native GameCube hardware validation (Swiss DOL+SD / ISO RO) — operator-only; handoff `.ai/logs/hardware-handoff-20260722-221451`
+1. Dolphin runtime gate — make the current GameCube build boot, reach engine
+   readiness, and load the smoke map in Dolphin using the standard bounded
+   probe harness; then keep extending runtime proof from boot to playable map
+   continuity without regressing the existing New Game route.
 2. Flipper GX residuals under tip ceiling (all `c0a0` entities now admitted as
    full controllers or lean static placeholders — **0 inhibited**; next promote
    placeholder studio meshes/behavior incrementally)
@@ -1075,7 +1078,11 @@ scripts/gamecube-map-compat-probe.sh
 - Completion rule: keep G38 manual/open until a completed real GameCube,
   Swiss, or compatible Wii/GameCube-mode hardware evidence entry is recorded in
   `docs/GAMECUBE_PORT_PLAN.md`. Dolphin-only evidence and generated handoff
-  packets are preparation, not completion.
+  packets are release-signoff preparation, not completion.
+- Automation policy update (2026-07-29): G38 is no longer the boundary for
+  autonomous work. Dolphin runtime bring-up, smoke-map load, and bounded
+  gameplay continuity remain required autonomous gates before the port is ready
+  for physical-hardware sign-off.
 
 ## G39 [x] Define minimum supported hardware and loader matrix
 
