@@ -51,12 +51,14 @@ STALL_COUNTER_FILE="$STATE_DIR/stall-counter"
 SUMMARY_FILE="$STATE_DIR/last-pass-summary.txt"
 WORKING_MEMORY_FILE="$STATE_DIR/working-memory.md"
 PASS_CONTEXT_FILE="$STATE_DIR/pass-context.md"
+RECURSIVE_TASK_FILE="$STATE_DIR/recursive-task.md"
 PROMPT_PATH="$REPO/$MODEL_PROMPT_FILE"
 STATUS_PATH="$REPO/$STATUS_FILE"
 GOALS_PATH="$REPO/.ai/goals/GAMECUBE_PORT_GOALS.md"
 PLAN_PATH="$REPO/docs/GAMECUBE_PORT_PLAN.md"
 SCREENSHOT_BASELINES_PATH="$REPO/.ai/screenshots/baselines.json"
 HARNESS_INCIDENT_PATH="$REPO/.ai/state/gamecube-harness-incident.json"
+RECURSIVE_GOALS_PATH="$REPO/.ai/state/gamecube-recursive-goals.json"
 
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$(dirname "$PROMPT_PATH")"
 
@@ -399,7 +401,7 @@ update_working_memory() {
 }
 
 update_pass_context() {
-    python3 - "$PASS_CONTEXT_FILE" "$WORKING_MEMORY_FILE" "$STATUS_PATH" "$GOALS_PATH" "$PLAN_PATH" "$SCREENSHOT_BASELINES_PATH" "$HARNESS_INCIDENT_PATH" <<'PY'
+    python3 - "$PASS_CONTEXT_FILE" "$WORKING_MEMORY_FILE" "$STATUS_PATH" "$GOALS_PATH" "$PLAN_PATH" "$SCREENSHOT_BASELINES_PATH" "$HARNESS_INCIDENT_PATH" "$RECURSIVE_GOALS_PATH" "$RECURSIVE_TASK_FILE" <<'PY'
 from pathlib import Path
 import json
 import re
@@ -412,6 +414,8 @@ goals_path = Path(sys.argv[4])
 plan_path = Path(sys.argv[5])
 baselines_path = Path(sys.argv[6])
 harness_incident_path = Path(sys.argv[7])
+recursive_goals_path = Path(sys.argv[8])
+recursive_task_path = Path(sys.argv[9])
 
 def read(path: Path) -> str:
     if not path.is_file():
@@ -452,11 +456,16 @@ goals = read(goals_path)
 plan = read(plan_path)
 baselines = read(baselines_path)
 harness_incident = read(harness_incident_path)
+recursive_goals = read(recursive_goals_path)
+recursive_task = read(recursive_task_path).strip()
 
 parts: list[str] = ["# GameCube Pass Context", ""]
 
 if memory:
     parts += ["## Working memory", memory, ""]
+
+if recursive_task:
+    parts += ["## Recursive task", recursive_task, ""]
 
 if status:
     parts += ["## Port status excerpt"]
@@ -518,6 +527,29 @@ if harness_incident:
     except Exception:
         pass
 
+if recursive_goals:
+    try:
+        goal_state = json.loads(recursive_goals)
+        summary = []
+        root = goal_state.get("root_goal", {})
+        if isinstance(root, dict) and root.get("title"):
+            summary.append(f"- root: {root.get('title')} status={root.get('status', 'unknown')}")
+        if goal_state.get("active_child_id"):
+            summary.append(f"- active_child_id: {goal_state.get('active_child_id')}")
+        if goal_state.get("active_child_title"):
+            summary.append(f"- active_child: {goal_state.get('active_child_title')}")
+        children = goal_state.get("children", [])
+        if isinstance(children, list):
+            for child in children[:5]:
+                if isinstance(child, dict) and child.get("id"):
+                    summary.append(
+                        f"- child {child.get('id')}: {child.get('status', 'pending')} attempts={child.get('attempts', 0)}"
+                    )
+        if summary:
+            parts += ["## Recursive goal ledger"] + summary + [""]
+    except Exception:
+        pass
+
 parts += [
     "## Context rules",
     "- Use this file as the default startup context instead of loading large planning documents.",
@@ -535,6 +567,31 @@ refresh_harness_incident() {
     if [[ -f "$REPO/scripts/gamecube-harness-incident.py" ]]; then
         python3 "$REPO/scripts/gamecube-harness-incident.py" --repo "$REPO" >/dev/null 2>&1 || true
     fi
+}
+
+refresh_recursive_goals() {
+    if [[ -f "$REPO/scripts/gamecube-recursive-goals.py" ]]; then
+        python3 "$REPO/scripts/gamecube-recursive-goals.py" --repo "$REPO" >/dev/null 2>&1 || true
+    fi
+}
+
+finalize_recursive_goals() {
+    local result="$1"
+    local exit_status="$2"
+    local logfile="$3"
+    local repo_changed="${4:-0}"
+    local args=(
+        python3 "$REPO/scripts/gamecube-recursive-goals.py"
+        --repo "$REPO"
+        --finalize
+        --result "$result"
+        --exit-status "$exit_status"
+        --log "$logfile"
+    )
+    if [[ "$repo_changed" == "1" ]]; then
+        args+=(--repo-changed)
+    fi
+    "${args[@]}" >/dev/null 2>&1 || true
 }
 
 completion_from_repository() {
@@ -629,6 +686,7 @@ while :; do
     logfile="$LOG_DIR/pass-$(printf '%04d' "$pass")-$timestamp.log"
     before_fingerprint="$(repository_fingerprint)"
     refresh_harness_incident
+    refresh_recursive_goals
     update_pass_context
 
     log "Starting pass $pass."
@@ -685,11 +743,13 @@ while :; do
         stall_count=$((stall_count + 1))
         printf '%s\n' "$stall_count" >"$STALL_COUNTER_FILE"
         log "Pass $pass made no detectable repository progress. Stall count: $stall_count/$STALL_LIMIT."
+        finalize_recursive_goals "${result_marker:-missing}" "$continue_status" "$logfile" "0"
     else
         stall_count=0
         printf '0\n' >"$STALL_COUNTER_FILE"
         printf '%s\n' "$after_fingerprint" >"$LAST_FINGERPRINT_FILE"
         log "Pass $pass changed repository state."
+        finalize_recursive_goals "${result_marker:-missing}" "$continue_status" "$logfile" "1"
     fi
 
     case "$result_marker" in
