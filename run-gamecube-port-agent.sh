@@ -59,6 +59,17 @@ PLAN_PATH="$REPO/docs/GAMECUBE_PORT_PLAN.md"
 SCREENSHOT_BASELINES_PATH="$REPO/.ai/screenshots/baselines.json"
 HARNESS_INCIDENT_PATH="$REPO/.ai/state/gamecube-harness-incident.json"
 RECURSIVE_GOALS_PATH="$REPO/.ai/state/gamecube-recursive-goals.json"
+GENERATED_STATE_PATHS=(
+    ".ai/state/gamecube-harness-incident.json"
+    ".ai/state/gamecube-recursive-goals.json"
+    ".continue/gamecube-agent/recursive-task.md"
+    ".continue/gamecube-agent/pass-context.md"
+    ".continue/gamecube-agent/working-memory.md"
+    ".continue/gamecube-agent/last-pass-summary.txt"
+    ".continue/gamecube-agent/pass-counter"
+    ".continue/gamecube-agent/stall-counter"
+    ".continue/gamecube-agent/last-fingerprint"
+)
 
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$(dirname "$PROMPT_PATH")"
 
@@ -77,6 +88,44 @@ require_command() {
 
 is_nonnegative_integer() {
     [[ "$1" =~ ^[0-9]+$ ]]
+}
+
+git_status_filtered() {
+    local line path generated
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        path="${line:3}"
+        if [[ "$path" == *" -> "* ]]; then
+            path="${path##* -> }"
+        fi
+        generated=0
+        for candidate in "${GENERATED_STATE_PATHS[@]}"; do
+            if [[ "$path" == "$candidate" ]]; then
+                generated=1
+                break
+            fi
+        done
+        (( generated == 1 )) && continue
+        printf '%s\n' "$line"
+    done < <(git status --porcelain=v1)
+}
+
+git_diff_stat_filtered() {
+    local args=(diff --stat)
+    local candidate
+    for candidate in "${GENERATED_STATE_PATHS[@]}"; do
+        args+=(-- ":(exclude)$candidate")
+    done
+    git "${args[@]}"
+}
+
+git_diff_cached_stat_filtered() {
+    local args=(diff --cached --stat)
+    local candidate
+    for candidate in "${GENERATED_STATE_PATHS[@]}"; do
+        args+=(-- ":(exclude)$candidate")
+    done
+    git "${args[@]}"
 }
 
 require_command git
@@ -291,7 +340,7 @@ if [[ "${CREATE_BRANCH:-0}" == "1" ]]; then
 
     if [[ "$current_branch" != "master" ]]; then
         if git show-ref --verify --quiet refs/heads/master; then
-            if [[ -n "$(git status --porcelain)" ]]; then
+            if [[ -n "$(git_status_filtered)" ]]; then
                 die "Working tree has changes; cannot safely switch to master."
             fi
             git switch master
@@ -301,7 +350,7 @@ if [[ "${CREATE_BRANCH:-0}" == "1" ]]; then
     fi
 fi
 
-if [[ -n "$(git status --porcelain)" ]]; then
+if [[ -n "$(git_status_filtered)" ]]; then
     if [[ "$COMMIT_DIRTY_BASELINE" == "1" ]]; then
         git add -A
         git commit -m "chore(gamecube): checkpoint before autonomous porting" || true
@@ -342,9 +391,9 @@ repository_fingerprint() {
 
     {
         git rev-parse HEAD
-        git status --porcelain=v1
-        git diff --stat
-        git diff --cached --stat
+        git_status_filtered
+        git_diff_stat_filtered
+        git_diff_cached_stat_filtered
         if [[ -f "$STATUS_PATH" ]]; then
             sha256sum "$STATUS_PATH"
         else
