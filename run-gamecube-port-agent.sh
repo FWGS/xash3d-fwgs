@@ -38,6 +38,7 @@ STATUS_FILE="${STATUS_FILE:-docs/gamecube/PORT_STATUS.md}"
 STALL_LIMIT="${STALL_LIMIT:-3}"
 PASS_PAUSE_SECONDS="${PASS_PAUSE_SECONDS:-15}"
 FAILURE_PAUSE_SECONDS="${FAILURE_PAUSE_SECONDS:-45}"
+PASS_OUTPUT_STALL_SECONDS="${PASS_OUTPUT_STALL_SECONDS:-1800}"
 CREATE_BRANCH="${CREATE_BRANCH:-0}"
 COMMIT_DIRTY_BASELINE="${COMMIT_DIRTY_BASELINE:-0}"
 
@@ -88,6 +89,7 @@ is_nonnegative_integer "$MAX_PASSES" || die "MAX_PASSES must be a non-negative i
 is_nonnegative_integer "$STALL_LIMIT" || die "STALL_LIMIT must be a non-negative integer."
 is_nonnegative_integer "$PASS_PAUSE_SECONDS" || die "PASS_PAUSE_SECONDS must be a non-negative integer."
 is_nonnegative_integer "$FAILURE_PAUSE_SECONDS" || die "FAILURE_PAUSE_SECONDS must be a non-negative integer."
+is_nonnegative_integer "$PASS_OUTPUT_STALL_SECONDS" || die "PASS_OUTPUT_STALL_SECONDS must be a non-negative integer."
 
 [[ -d "$REPO/.git" ]] || die "Not a Git repository: $REPO"
 
@@ -551,6 +553,44 @@ blocker_from_repository() {
       "$STATUS_PATH"
 }
 
+monitor_pass_output() {
+    local supervised_pid="$1"
+    local logfile="$2"
+    local idle_limit="$3"
+    local last_size last_change now size
+
+    (( idle_limit > 0 )) || return 0
+
+    if [[ -f "$logfile" ]]; then
+        last_size="$(wc -c <"$logfile" 2>/dev/null || printf '0')"
+    else
+        last_size=0
+    fi
+    last_change="$(date +%s)"
+
+    while kill -0 "$supervised_pid" 2>/dev/null; do
+        sleep 30
+        if [[ -f "$logfile" ]]; then
+            size="$(wc -c <"$logfile" 2>/dev/null || printf '0')"
+        else
+            size=0
+        fi
+        now="$(date +%s)"
+        if [[ "$size" != "$last_size" ]]; then
+            last_size="$size"
+            last_change="$now"
+            continue
+        fi
+        if (( now - last_change >= idle_limit )); then
+            log "Pass output stalled for $((idle_limit / 60)) minute(s); stopping pid $supervised_pid."
+            kill -TERM "$supervised_pid" 2>/dev/null || true
+            sleep 10
+            kill -KILL "$supervised_pid" 2>/dev/null || true
+            return 0
+        fi
+    done
+}
+
 log "Repository: $REPO"
 log "Branch: $(git branch --show-current)"
 log "Prompt: $PROMPT_PATH"
@@ -605,12 +645,19 @@ while :; do
     # the outer supervisor in control. Eight hours supports deeper bounded
     # repair/build cycles while still terminating truly wedged passes.
     set +e
-    timeout --signal=INT --kill-after=60s 8h \
-        "$CONTINUE_BIN" \
-        -p "$(cat "$PROMPT_PATH")" \
-        "$AUTO_FLAG" \
-        2>&1 | tee "$logfile"
-    continue_status=${PIPESTATUS[0]}
+    (
+        timeout --signal=INT --kill-after=60s 8h \
+            "$CONTINUE_BIN" \
+            -p "$(cat "$PROMPT_PATH")" \
+            "$AUTO_FLAG"
+    ) 2>&1 | tee -a "$logfile" &
+    continue_pipe_pid=$!
+    monitor_pass_output "$continue_pipe_pid" "$logfile" "$PASS_OUTPUT_STALL_SECONDS" &
+    output_watchdog_pid=$!
+    wait "$continue_pipe_pid"
+    continue_status=$?
+    kill "$output_watchdog_pid" 2>/dev/null || true
+    wait "$output_watchdog_pid" 2>/dev/null || true
     set -e
 
     after_fingerprint="$(repository_fingerprint)"
