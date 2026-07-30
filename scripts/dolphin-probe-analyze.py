@@ -214,11 +214,55 @@ def visual_status(text: str) -> str:
 	return "unknown"
 
 
+def classify_probe_failure(
+	text: str,
+	*,
+	probe_status: str,
+	map_loaded: bool,
+	input_active: bool,
+	guest_error: bool,
+	visual: str,
+	last_boot_phase: str,
+) -> tuple[str, str]:
+	probe_status = probe_status.lower()
+	guest_seen = MARKERS["guest"] in text
+	ready_seen = MARKERS["ready"] in text
+	world_render_seen = MARKERS["world_render_present"] in text or MARKERS["world_render_ready"] in text
+	menu_seen = (
+		"retail menu steam background ready" in text.lower()
+		or "retail menu button text ready" in text.lower()
+	)
+
+	if probe_status == "retail_ready":
+		return "RETAIL_MENU_READY", "Retail menu reached readiness markers."
+	if guest_error:
+		return "GUEST_RUNTIME_ERROR", "Guest runtime error markers were observed."
+	if not guest_seen:
+		return "BOOT_NO_BOOTSTRAP", "Guest bootstrap marker was never observed."
+	if guest_seen and not ready_seen:
+		return "BOOT_NO_ENGINE_READY", "Bootstrap marker was seen but engine readiness was not."
+	if ready_seen and not map_loaded:
+		return (
+			f"ENGINE_READY_MAP_TIMEOUT_{last_boot_phase.upper()}",
+			f"Engine readiness was observed, but the smoke map did not load (boot phase {last_boot_phase}).",
+		)
+	if map_loaded and not input_active:
+		return "MAP_LOADED_NO_INPUT", "Map loaded marker was observed without input polling activity."
+	if map_loaded and visual == "unknown" and not world_render_seen and not menu_seen:
+		return "MAP_LOADED_RENDER_UNKNOWN", "Map loaded marker was observed but no visual readiness markers were captured."
+	if map_loaded and visual in {"diagnostic marker", "unknown"} and not world_render_seen:
+		return "MAP_LOADED_RENDER_FALLBACK_ONLY", "Map loaded marker was observed but only diagnostic/fallback visuals were captured."
+	if map_loaded and input_active:
+		return "MAP_LOADED_INPUT_READY", "Map and input markers were both observed."
+	return "PROBE_STATE_UNKNOWN", "Probe markers do not match a known classifier."
+
+
 def write_harness_latest(
 	repo: Path,
 	*,
 	goal: str,
 	status: str,
+	failure_label: str,
 	visual: str,
 	log_dir: Path,
 	next_action: str,
@@ -234,6 +278,7 @@ def write_harness_latest(
 			"",
 			f"- Goal: {goal}",
 			f"- Status: {status}",
+			f"- Failure label: {failure_label}",
 			f"- Visual: {visual}",
 			f"- Audio: unknown",
 			f"- Screenshot: none",
@@ -261,6 +306,7 @@ def write_harness_latest(
 		"log_dir": str(log_dir.relative_to(repo) if log_dir.is_relative_to(repo) else log_dir),
 		"classification": {
 			"status": status,
+			"failure_label": failure_label,
 			"visual": visual,
 			"audio": "unknown",
 			"g36_status": g36_status,
@@ -318,12 +364,23 @@ def main() -> int:
 	max_ms = max(steady) if steady else 0.0
 	boot_phases = BOOT_PHASE_RE.findall(text)
 	last_boot_phase = boot_phases[-1] if boot_phases else "none"
+	failure_label, failure_note = classify_probe_failure(
+		text,
+		probe_status=args.probe_status,
+		map_loaded=map_loaded,
+		input_active=input_active,
+		guest_error=guest_error,
+		visual=visual,
+		last_boot_phase=last_boot_phase,
+	)
 
 	print(
 		f"FRAME_BUDGET_STATS: samples={len(frame_times)} "
 		f"avg={avg:.2f}ms p95={p95:.2f}ms max={max_ms:.2f}ms target={args.target_ms:.2f}ms"
 	)
 	print(f"BOOT_PHASE: {last_boot_phase}")
+	print(f"HARNESS_FAILURE_LABEL: {failure_label}")
+	print(f"HARNESS_FAILURE_SUMMARY: {failure_note}")
 	print(f"G36_STATUS: {g36_status}")
 	print(
 		f"G36_SUMMARY: {g36_note}; map_loaded={'yes' if map_loaded else 'no'}; "
@@ -362,7 +419,7 @@ def main() -> int:
 		else:
 			next_action = "Re-run scripts/dolphin-boot-probe.sh after renderer or memory fixes."
 		analysis = (
-			f"Probe status={probe_status}. {g36_note}. "
+			f"Probe status={probe_status}. Failure={failure_label}. {g36_note}. "
 			f"G45={g45_status} ({g45_note}). "
 			f"G45_ACTION={action_status} ({action_note}). "
 			f"Captured {len(frame_times)} frame timing sample(s)."
@@ -371,6 +428,7 @@ def main() -> int:
 			repo,
 			goal=args.goal,
 			status=harness_status,
+			failure_label=failure_label,
 			visual=visual,
 			log_dir=log_dir,
 			next_action=next_action,

@@ -55,6 +55,7 @@ STATUS_PATH="$REPO/$STATUS_FILE"
 GOALS_PATH="$REPO/.ai/goals/GAMECUBE_PORT_GOALS.md"
 PLAN_PATH="$REPO/docs/GAMECUBE_PORT_PLAN.md"
 SCREENSHOT_BASELINES_PATH="$REPO/.ai/screenshots/baselines.json"
+HARNESS_INCIDENT_PATH="$REPO/.ai/state/gamecube-harness-incident.json"
 
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$(dirname "$PROMPT_PATH")"
 
@@ -396,7 +397,7 @@ update_working_memory() {
 }
 
 update_pass_context() {
-    python3 - "$PASS_CONTEXT_FILE" "$WORKING_MEMORY_FILE" "$STATUS_PATH" "$GOALS_PATH" "$PLAN_PATH" "$SCREENSHOT_BASELINES_PATH" <<'PY'
+    python3 - "$PASS_CONTEXT_FILE" "$WORKING_MEMORY_FILE" "$STATUS_PATH" "$GOALS_PATH" "$PLAN_PATH" "$SCREENSHOT_BASELINES_PATH" "$HARNESS_INCIDENT_PATH" <<'PY'
 from pathlib import Path
 import json
 import re
@@ -408,6 +409,7 @@ status_path = Path(sys.argv[3])
 goals_path = Path(sys.argv[4])
 plan_path = Path(sys.argv[5])
 baselines_path = Path(sys.argv[6])
+harness_incident_path = Path(sys.argv[7])
 
 def read(path: Path) -> str:
     if not path.is_file():
@@ -447,6 +449,7 @@ status = read(status_path)
 goals = read(goals_path)
 plan = read(plan_path)
 baselines = read(baselines_path)
+harness_incident = read(harness_incident_path)
 
 parts: list[str] = ["# GameCube Pass Context", ""]
 
@@ -488,6 +491,31 @@ if baselines:
     except Exception:
         pass
 
+if harness_incident:
+    try:
+        incident = json.loads(harness_incident)
+        summary = []
+        for key in ("classification", "probe_status", "g36_status", "visual_status", "latest_probe_log_dir"):
+            value = incident.get(key, "")
+            if value:
+                summary.append(f"- {key}: {value}")
+        focus_files = incident.get("focus_files", [])
+        if isinstance(focus_files, list) and focus_files:
+            summary.append("- focus_files: " + ", ".join(str(item) for item in focus_files[:5]))
+        next_actions = incident.get("next_actions", [])
+        if isinstance(next_actions, list):
+            for item in next_actions[:4]:
+                summary.append(f"- action: {item}")
+        screenshot = incident.get("latest_screenshot", {})
+        if isinstance(screenshot, dict) and screenshot.get("milestone"):
+            summary.append(
+                f"- screenshot: {screenshot.get('milestone')} verdict={screenshot.get('verdict', 'unknown')}"
+            )
+        if summary:
+            parts += ["## Harness incident"] + summary + [""]
+    except Exception:
+        pass
+
 parts += [
     "## Context rules",
     "- Use this file as the default startup context instead of loading large planning documents.",
@@ -499,6 +527,12 @@ parts += [
 
 out_path.write_text("\n".join(parts).rstrip() + "\n", encoding="utf-8")
 PY
+}
+
+refresh_harness_incident() {
+    if [[ -f "$REPO/scripts/gamecube-harness-incident.py" ]]; then
+        python3 "$REPO/scripts/gamecube-harness-incident.py" --repo "$REPO" >/dev/null 2>&1 || true
+    fi
 }
 
 completion_from_repository() {
@@ -554,6 +588,7 @@ while :; do
     timestamp="$(date '+%Y%m%d-%H%M%S')"
     logfile="$LOG_DIR/pass-$(printf '%04d' "$pass")-$timestamp.log"
     before_fingerprint="$(repository_fingerprint)"
+    refresh_harness_incident
     update_pass_context
 
     log "Starting pass $pass."
