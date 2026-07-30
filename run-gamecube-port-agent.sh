@@ -167,6 +167,27 @@ request_reload() {
 
 trap 'request_reload' HUP USR1
 
+await_pass_exit() {
+    local supervised_pid="$1"
+    local wait_status="$2"
+    local poll_count=0
+
+    while kill -0 "$supervised_pid" 2>/dev/null; do
+        if (( poll_count == 0 )); then
+            log "Waiting for pass pid $supervised_pid to exit cleanly before clearing state."
+        fi
+        sleep 1
+        poll_count=$((poll_count + 1))
+        if (( poll_count >= 30 )); then
+            log "Pass pid $supervised_pid is still alive after reload/interrupt wait; sending KILL."
+            kill -KILL "$supervised_pid" 2>/dev/null || true
+            break
+        fi
+    done
+
+    return "$wait_status"
+}
+
 require_command git
 require_command "$CONTINUE_BIN"
 require_command flock
@@ -823,9 +844,11 @@ while :; do
     output_watchdog_pid=$!
     wait "$continue_pipe_pid"
     continue_status=$?
-    clear_current_pass_state
+    await_pass_exit "$continue_pipe_pid" "$continue_status"
+    continue_status=$?
     kill "$output_watchdog_pid" 2>/dev/null || true
     wait "$output_watchdog_pid" 2>/dev/null || true
+    clear_current_pass_state
     set -e
 
     after_fingerprint="$(repository_fingerprint)"
