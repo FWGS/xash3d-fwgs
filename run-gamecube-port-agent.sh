@@ -54,6 +54,7 @@ PROMPT_PATH="$REPO/$MODEL_PROMPT_FILE"
 STATUS_PATH="$REPO/$STATUS_FILE"
 GOALS_PATH="$REPO/.ai/goals/GAMECUBE_PORT_GOALS.md"
 PLAN_PATH="$REPO/docs/GAMECUBE_PORT_PLAN.md"
+SCREENSHOT_BASELINES_PATH="$REPO/.ai/screenshots/baselines.json"
 
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$(dirname "$PROMPT_PATH")"
 
@@ -395,8 +396,9 @@ update_working_memory() {
 }
 
 update_pass_context() {
-    python3 - "$PASS_CONTEXT_FILE" "$WORKING_MEMORY_FILE" "$STATUS_PATH" "$GOALS_PATH" "$PLAN_PATH" <<'PY'
+    python3 - "$PASS_CONTEXT_FILE" "$WORKING_MEMORY_FILE" "$STATUS_PATH" "$GOALS_PATH" "$PLAN_PATH" "$SCREENSHOT_BASELINES_PATH" <<'PY'
 from pathlib import Path
+import json
 import re
 import sys
 
@@ -405,6 +407,7 @@ memory_path = Path(sys.argv[2])
 status_path = Path(sys.argv[3])
 goals_path = Path(sys.argv[4])
 plan_path = Path(sys.argv[5])
+baselines_path = Path(sys.argv[6])
 
 def read(path: Path) -> str:
     if not path.is_file():
@@ -443,6 +446,7 @@ memory = read(memory_path).strip()
 status = read(status_path)
 goals = read(goals_path)
 plan = read(plan_path)
+baselines = read(baselines_path)
 
 parts: list[str] = ["# GameCube Pass Context", ""]
 
@@ -470,10 +474,25 @@ plan_lines = grep_lines(
 if plan_lines:
     parts += ["## Plan hints"] + plan_lines + [""]
 
+if baselines:
+    try:
+        baseline_data = json.loads(baselines)
+        milestone_lines = []
+        for item in baseline_data.get("milestones", [])[:8]:
+            milestone_id = item.get("id", "")
+            label = item.get("label", "")
+            if milestone_id and label:
+                milestone_lines.append(f"- {milestone_id}: {label}")
+        if milestone_lines:
+            parts += ["## Screenshot baselines"] + milestone_lines + [""]
+    except Exception:
+        pass
+
 parts += [
     "## Context rules",
     "- Use this file as the default startup context instead of loading large planning documents.",
     "- If more detail is needed, grep targeted ranges from the durable source files.",
+    "- When a runtime-visible milestone has a stored screenshot baseline, prefer capturing and comparing that frame over making subjective visual claims.",
     "- Do not treat this file as proof; verify against current repository state before claiming progress.",
     "",
 ]
