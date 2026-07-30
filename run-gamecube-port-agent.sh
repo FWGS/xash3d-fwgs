@@ -52,6 +52,10 @@ SUMMARY_FILE="$STATE_DIR/last-pass-summary.txt"
 WORKING_MEMORY_FILE="$STATE_DIR/working-memory.md"
 PASS_CONTEXT_FILE="$STATE_DIR/pass-context.md"
 RECURSIVE_TASK_FILE="$STATE_DIR/recursive-task.md"
+SUPERVISOR_PID_FILE="$STATE_DIR/supervisor.pid"
+CURRENT_PASS_PID_FILE="$STATE_DIR/current-pass.pid"
+CURRENT_PASS_LOG_FILE="$STATE_DIR/current-pass-log.txt"
+RELOAD_REQUEST_FILE="$STATE_DIR/reload-requested"
 PROMPT_PATH="$REPO/$MODEL_PROMPT_FILE"
 STATUS_PATH="$REPO/$STATUS_FILE"
 GOALS_PATH="$REPO/.ai/goals/GAMECUBE_PORT_GOALS.md"
@@ -128,6 +132,41 @@ git_diff_cached_stat_filtered() {
     git "${args[@]}"
 }
 
+RELOAD_REQUESTED=0
+CURRENT_SUPERVISED_PID=""
+CURRENT_PASS_LOG=""
+
+write_supervisor_state() {
+    printf '%s\n' "$$" >"$SUPERVISOR_PID_FILE"
+    if [[ -n "$CURRENT_SUPERVISED_PID" ]]; then
+        printf '%s\n' "$CURRENT_SUPERVISED_PID" >"$CURRENT_PASS_PID_FILE"
+    else
+        : >"$CURRENT_PASS_PID_FILE"
+    fi
+    if [[ -n "$CURRENT_PASS_LOG" ]]; then
+        printf '%s\n' "$CURRENT_PASS_LOG" >"$CURRENT_PASS_LOG_FILE"
+    else
+        : >"$CURRENT_PASS_LOG_FILE"
+    fi
+}
+
+clear_current_pass_state() {
+    CURRENT_SUPERVISED_PID=""
+    CURRENT_PASS_LOG=""
+    write_supervisor_state
+}
+
+request_reload() {
+    RELOAD_REQUESTED=1
+    : >"$RELOAD_REQUEST_FILE"
+    log "Reload requested; current pass will be interrupted so the next pass reloads prompt/scripts."
+    if [[ -n "$CURRENT_SUPERVISED_PID" ]]; then
+        kill -TERM "$CURRENT_SUPERVISED_PID" 2>/dev/null || true
+    fi
+}
+
+trap 'request_reload' HUP USR1
+
 require_command git
 require_command "$CONTINUE_BIN"
 require_command flock
@@ -149,6 +188,7 @@ cd "$REPO"
 # Prevent two supervisors from editing the same checkout.
 exec 9>"$LOCK_FILE"
 flock -n 9 || die "Another GameCube supervisor is already running for this checkout."
+write_supervisor_state
 
 if [[ ! -f "$PROMPT_PATH" ]]; then
     cat >"$PROMPT_PATH" <<'PROMPT'
@@ -624,6 +664,19 @@ refresh_recursive_goals() {
     fi
 }
 
+clear_reload_request() {
+    RELOAD_REQUESTED=0
+    if [[ -e "$RELOAD_REQUEST_FILE" ]]; then
+        python3 - "$RELOAD_REQUEST_FILE" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+if p.exists():
+    p.unlink()
+PY
+    fi
+}
+
 finalize_recursive_goals() {
     local result="$1"
     local exit_status="$2"
@@ -706,6 +759,9 @@ log "Maximum passes: $MAX_PASSES"
 log "Starting at pass: $((pass + 1))"
 
 while :; do
+    if [[ -e "$RELOAD_REQUEST_FILE" ]]; then
+        RELOAD_REQUESTED=1
+    fi
     now="$(date +%s)"
 
     if (( deadline_epoch > 0 && now >= deadline_epoch )); then
@@ -733,10 +789,12 @@ while :; do
 
     timestamp="$(date '+%Y%m%d-%H%M%S')"
     logfile="$LOG_DIR/pass-$(printf '%04d' "$pass")-$timestamp.log"
+    CURRENT_PASS_LOG="$logfile"
     before_fingerprint="$(repository_fingerprint)"
     refresh_harness_incident
     refresh_recursive_goals
     update_pass_context
+    write_supervisor_state
 
     log "Starting pass $pass."
     log "Log: $logfile"
@@ -759,10 +817,13 @@ while :; do
             "$AUTO_FLAG"
     ) 2>&1 | tee -a "$logfile" &
     continue_pipe_pid=$!
+    CURRENT_SUPERVISED_PID="$continue_pipe_pid"
+    write_supervisor_state
     monitor_pass_output "$continue_pipe_pid" "$logfile" "$PASS_OUTPUT_STALL_SECONDS" &
     output_watchdog_pid=$!
     wait "$continue_pipe_pid"
     continue_status=$?
+    clear_current_pass_state
     kill "$output_watchdog_pid" 2>/dev/null || true
     wait "$output_watchdog_pid" 2>/dev/null || true
     set -e
@@ -820,6 +881,12 @@ while :; do
             ;;
     esac
 
+    if (( RELOAD_REQUESTED == 1 )); then
+        log "Reload request acknowledged after pass $pass; continuing immediately with refreshed files."
+        clear_reload_request
+        continue
+    fi
+
     if (( STALL_LIMIT > 0 && stall_count >= STALL_LIMIT )); then
         log "Stopping after $stall_count consecutive no-progress passes."
         log "Review $SUMMARY_FILE and the latest logs before resuming."
@@ -836,6 +903,7 @@ while :; do
 done
 
 log "Supervisor stopped."
+clear_current_pass_state
 log "Final branch: $(git branch --show-current)"
 log "Final HEAD: $(git rev-parse --short HEAD)"
 log "Working tree:"
