@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "description": "Retail-vs-GameCube screenshot baselines for repeatable Dolphin validation milestones.",
+  "milestones": [
+    {
+      "id": "retail_main_menu",
+      "label": "Retail main menu",
+      "reference": ".ai/screenshots/retail-main-menu-reference.png",
+      "candidate": ".ai/screenshots/gc-main-menu.png",
+      "comparison": ".ai/screenshots/gc-main-menu-vs-retail.png",
+      "notes": [
+        "Menu background composition should broadly match retail layout.",
+        "Button stack should be readable and vertically aligned.",
+        "Use this as a UI/layout baseline, not a world-rendering gate."
+      ]
+    },
+    {
+      "id": "world_present_demo",
+      "label": "World present demo stage",
+      "reference": ".ai/screenshots/demo-stages/stage-04-world-present.png",
+      "candidate": ".ai/screenshots/demo-stages/stage-04b-live-gx-present.png",
+      "comparison": ".ai/screenshots/comparisons/world-present-demo-vs-live.png",
+      "notes": [
+        "Tracks world-rendering progress relative to the stored demo-stage reference.",
+        "Useful for regression detection even when an exact retail PC pose is unavailable."
+      ]
+    }
+  ]
+}
