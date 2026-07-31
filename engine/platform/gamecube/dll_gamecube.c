@@ -51,7 +51,7 @@ static dllexport_t gamecube_filesystem_exports[] =
 // Register the statically linked server library
 static int setup_gamecube_server_exports( void )
 {
-	return dll_register( "dlls/hl_gamecube_ppc.so", lib_hl_gamecube_ppc_exports );
+	return dll_register( "server", lib_hl_gamecube_ppc_exports );
 }
 
 // Client exports are provided by the statically linked client archive
@@ -60,9 +60,25 @@ static int setup_gamecube_server_exports( void )
 
 static int setup_gamecube_client_exports( void )
 {
-	return dll_register( "cl_dlls/client_gamecube_ppc.so", lib_client_gamecube_ppc_exports );
+	return dll_register( "client", lib_client_gamecube_ppc_exports );
+}
+#else
+// When using static linking but without client exports, provide a stub
+static int setup_gamecube_client_exports( void )
+{
+	return 0;
 }
 #endif
+#else
+// Non-static linking: client is built into the main executable
+// We still need to register it so COM_LoadLibrary can find it
+// The exports are provided by the main executable's symbol table
+static int setup_gamecube_client_exports( void )
+{
+	// For non-static builds, the client is linked into the main executable
+	// and doesn't need to be registered separately
+	return 0;
+}
 #endif
 
 static int setup_gamecube_filesystem_exports( void )

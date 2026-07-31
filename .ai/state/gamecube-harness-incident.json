@@ -8,7 +8,7 @@
     "engine/platform/gamecube/sys_gamecube.c"
   ],
   "g36_status": "FAIL",
-  "generated_at": "2026-07-30T01:03:41+00:00",
+  "generated_at": "2026-07-30T01:28:27+00:00",
   "harness_latest_excerpt": "# Dolphin Harness Latest - Goal: G36 - Status: map_timeout - Visual: unknown - Audio: unknown - Screenshot: none - Analysis: FAIL - Logs: .ai/logs/dolphin-probe-20260728-225124 - Next action: Re-run scripts/dolphin-boot-probe.sh after renderer or memory fixes. ## Model Analysis Probe status=map_timeout. map load marker missing. G45=PASS (port=1 type=probe-synthetic). G45_ACTION=WAIT (none). Captured 0 frame timing sample(s).",
   "latest_probe_analysis": "Probe status=map_timeout. map load marker missing. G45=PASS (port=1 type=probe-synthetic). G45_ACTION=WAIT (none). Captured 0 frame timing sample(s).",
   "latest_probe_log_dir": ".ai/logs/dolphin-probe-20260728-225124",
