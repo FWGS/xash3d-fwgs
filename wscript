@@ -365,6 +365,7 @@ def configure(conf):
 			'-Werror=duplicated-cond',
 			'-Werror=format=2',
 			'-Werror=free-nonheap-object',
+			'-Werror=init-self',
 			'-Werror=implicit-fallthrough=2',
 			'-Werror=logical-op',
 			'-Werror=nonnull',
@@ -385,7 +386,6 @@ def configure(conf):
 
 			# unstable diagnostics, may cause false positives
 			'-Walloc-zero',
-			'-Winit-self',
 			'-Wmisleading-indentation',
 			'-Wmismatched-dealloc',
 			'-Wstringop-overflow',

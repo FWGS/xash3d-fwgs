@@ -731,69 +731,77 @@ Image_SaveWAD
 */
 qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
 {
-	byte        *mip1_data = NULL, *mip2_data = NULL, *mip3_data = NULL;
-	byte        grad_palette[256 * 3];
-	file_t      *f;
-	dwadinfo_t  header =
-	{
-		.ident = IDWAD3HEADER,
-		.numlumps = 1,
-	};
-	mip_t       miptex;
-	long        infotableofs;
-	dlumpinfo_t lump;
-	fs_offset_t pad;
-	qboolean    result = false;
-	int         lump_type = ( pix->flags & IMAGE_GRADIENT_DECAL ) ? TYP_PALETTE : TYP_MIPTEX;
-	short       palette_size = 256;
-	int         infotableofs32 = 0;
-
 	if( !pix || !pix->buffer )
 		return false;
 
-	const byte *palette = pix->palette ? pix->palette : (const byte *)image.palette;
+	const int lump_type = ( pix->flags & IMAGE_GRADIENT_DECAL ) ? TYP_PALETTE : TYP_MIPTEX;
 
 	int m0size = pix->width * pix->height;
 	int m1size = m0size / 4;
 	int m2size = m0size / 16;
 	int m3size = m0size / 64;
 
-	mip1_data = (byte *)Mem_Malloc( host.imagepool, m1size );
-	mip2_data = (byte *)Mem_Malloc( host.imagepool, m2size );
-	mip3_data = (byte *)Mem_Malloc( host.imagepool, m3size );
-	if( !mip1_data || !mip2_data || !mip3_data )
-		goto cleanup;
+	byte *mip1_data = Mem_Malloc( host.imagepool, m1size );
+	byte *mip2_data = Mem_Malloc( host.imagepool, m2size );
+	byte *mip3_data = Mem_Malloc( host.imagepool, m3size );
+	if( !mip1_data || !mip2_data || !mip3_data ) // Mem_Malloc never returns NULL, but keep this check anyway
+	{
+		Mem_Free( mip1_data );
+		Mem_Free( mip2_data );
+		Mem_Free( mip3_data );
+		return false;
+	}
 
 	Image_GenerateMipmaps( pix->buffer, pix->width, pix->height, mip1_data, mip2_data, mip3_data );
 
-	memset( &miptex, 0, sizeof( mip_t ));
-	Q_strncpy( miptex.name, "{LOGO", sizeof( miptex.name ));
-	miptex.width = pix->width;
-	miptex.height = pix->height;
-	miptex.offsets[0] = sizeof( mip_t );
-	miptex.offsets[1] = miptex.offsets[0] + m0size;
-	miptex.offsets[2] = miptex.offsets[1] + m1size;
-	miptex.offsets[3] = miptex.offsets[2] + m2size;
-
-	f = FS_Open( name, "wb", false );
+	file_t *f = FS_Open( name, "wb", false );
 	if( !f )
-		goto cleanup;
+	{
+		Mem_Free( mip1_data );
+		Mem_Free( mip2_data );
+		Mem_Free( mip3_data );
+		return false;
+	}
 
-	le_struct_swap( dwadinfo_swap, &header );
-	FS_Write( f, &header, sizeof( header ));
+	{
+		dwadinfo_t header =
+		{
+			.ident = IDWAD3HEADER,
+			.numlumps = 1,
+		};
+		le_struct_swap( dwadinfo_swap, &header );
+		FS_Write( f, &header, sizeof( header ));
+	}
+
+	mip_t miptex = {
+		.name = "{LOGO",
+		.width = pix->width,
+		.height = pix->height,
+		.offsets[0] = sizeof( mip_t ),
+		.offsets[1] = sizeof( mip_t ) + m0size,
+		.offsets[2] = sizeof( mip_t ) + m0size + m1size,
+		.offsets[3] = sizeof( mip_t ) + m0size + m1size + m2size,
+	};
 	le_struct_swap( mip_swap, &miptex );
 	FS_Write( f, &miptex, sizeof( mip_t ));
 	le_struct_swap( mip_swap, &miptex );
+
 	FS_Write( f, pix->buffer, m0size );
 	FS_Write( f, mip1_data, m1size );
 	FS_Write( f, mip2_data, m2size );
 	FS_Write( f, mip3_data, m3size );
-	palette_size = LittleShort( palette_size );
-	FS_Write( f, &palette_size, sizeof( short ));
+
+	{
+		short palette_size = LittleShort( 256 );
+		FS_Write( f, &palette_size, sizeof( short ));
+	}
+
+	const byte *palette = pix->palette ? pix->palette : (const byte *)image.palette;
 
 	if( lump_type == TYP_PALETTE )
 	{
 		const byte *frontColorPtr = palette + 255 * 3;
+		byte grad_palette[256 * 3];
 		for( int i = 0; i < 256; ++i )
 		{
 			float t = i / 255.0f;
@@ -809,34 +817,37 @@ qboolean Image_SaveWAD( const char *name, rgbdata_t *pix )
 	}
 
 	// padding up to a multiple of 4
-	pad = (( FS_Tell( f ) + 3 ) & ~3 ) - FS_Tell( f );
+	fs_offset_t pad = (( FS_Tell( f ) + 3 ) & ~3 ) - FS_Tell( f );
 	for( int i = 0; i < pad; ++i )
-		FS_Write( f, (const void *)&(char){0}, 1 );
+	{
+		byte x = 0;
+		FS_Write( f, &x, 1 );
+	}
 
-	infotableofs = FS_Tell( f );
-	memset( &lump, 0, sizeof( lump ));
-	lump.filepos = sizeof( dwadinfo_t );
-	lump.disksize = (int)( miptex.offsets[3] + m3size + sizeof( short ) + 256 * 3 );
-	lump.size = lump.disksize;
-	lump.type = (char)lump_type;
-	lump.attribs = 0;
-	Q_strncpy( lump.name, "tempdecal", sizeof( lump.name ));
-	le_struct_swap( dlumpinfo_swap, &lump );
-	FS_Write( f, &lump, sizeof( lump ));
+	fs_offset_t infotableofs = FS_Tell( f );
+
+	{
+		dlumpinfo_t lump =
+		{
+			.filepos = sizeof( dwadinfo_t ),
+			.disksize = (int)( miptex.offsets[3] + m3size + sizeof( short ) + 256 * 3 ),
+			.size = (int)( miptex.offsets[3] + m3size + sizeof( short ) + 256 * 3 ),
+			.type = (char)lump_type,
+			.attribs = 0,
+			.name = "tempdecal",
+		};
+		le_struct_swap( dlumpinfo_swap, &lump );
+		FS_Write( f, &lump, sizeof( lump ));
+	}
 
 	FS_Seek( f, offsetof( dwadinfo_t, infotableofs ), SEEK_SET );
-	infotableofs32 = LittleLong((int)infotableofs );
+	int infotableofs32 = LittleLong((int)infotableofs );
 	FS_Write( f, &infotableofs32, sizeof( int ));
 
 	FS_Close( f );
-	result = true;
 
-cleanup:
-	if( mip1_data )
-		Mem_Free( mip1_data );
-	if( mip2_data )
-		Mem_Free( mip2_data );
-	if( mip3_data )
-		Mem_Free( mip3_data );
-	return result;
+	Mem_Free( mip1_data );
+	Mem_Free( mip2_data );
+	Mem_Free( mip3_data );
+	return true;
 }
