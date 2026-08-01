@@ -69,6 +69,12 @@ void IOS_LaunchDialog( void );
 void Posix_Daemonize( void );
 void Posix_SetupSigtermHandling( void );
 char *Posix_Input( void );
+// returns the number of stable network device MAC addresses, each packed into low 48 bits
+int Posix_GetNetDeviceAddresses( uint64_t *addresses, int max );
+#endif
+
+#if XASH_OSX
+qboolean Apple_GetSerialNumber( char *out, size_t size );
 #endif
 
 #if XASH_SDL

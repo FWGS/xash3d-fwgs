@@ -522,14 +522,8 @@ static void SV_TouchLinks( edict_t *ent, areanode_t *node )
 			if( touch == ent || touch->v.solid != SOLID_TRIGGER ) // disabled ?
 				continue;
 
-			if( touch->v.groupinfo && ent->v.groupinfo )
-			{
-				if( svs.groupop == GROUP_OP_AND && !FBitSet( touch->v.groupinfo, ent->v.groupinfo ))
-					continue;
-
-				if( svs.groupop == GROUP_OP_NAND && FBitSet( touch->v.groupinfo, ent->v.groupinfo ))
-					continue;
-			}
+			if( !SV_CheckGroupTrace( touch, ent ))
+				continue;
 
 			if( !BoundsIntersect( ent->v.absmin, ent->v.absmax, touch->v.absmin, touch->v.absmax ))
 				continue;
@@ -725,10 +719,7 @@ static void SV_WaterLinks( const vec3_t origin, int *pCont, areanode_t *node )
 
 		if( touch->v.groupinfo )
 		{
-			if( svs.groupop == GROUP_OP_AND && !FBitSet( touch->v.groupinfo, svs.groupmask ))
-				continue;
-
-			if( svs.groupop == GROUP_OP_NAND && FBitSet( touch->v.groupinfo, svs.groupmask ))
+			if( !SV_CheckGroupOp( svs.groupop, touch->v.groupinfo, svs.groupmask ))
 				continue;
 		}
 
@@ -1101,14 +1092,8 @@ static qboolean SV_ClipToEntity( edict_t *touch, moveclip_t *clip )
 	trace_t	trace;
 	model_t	*mod;
 
-	if( touch->v.groupinfo && SV_IsValidEdict( clip->passedict ) && clip->passedict->v.groupinfo != 0 )
-	{
-		if( svs.groupop == GROUP_OP_AND && !FBitSet( touch->v.groupinfo, clip->passedict->v.groupinfo ))
-			return true;
-
-		if( svs.groupop == GROUP_OP_NAND && FBitSet( touch->v.groupinfo, clip->passedict->v.groupinfo ))
-			return true;
-	}
+	if( SV_IsValidEdict( clip->passedict ) && !SV_CheckGroupTrace( touch, clip->passedict ))
+		return true;
 
 	if( touch == clip->passedict || touch->v.solid == SOLID_NOT )
 		return true;
