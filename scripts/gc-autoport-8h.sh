@@ -132,6 +132,14 @@ start_runner() {
 	if [[ -f "$ROOT/scripts/gamecube-env.sh" ]]; then
 		source "$ROOT/scripts/gamecube-env.sh"
 	fi
+	# The timeout wrapper can disappear while its Python child remains orphaned.
+	# Never launch a second runner for this repository in that case.
+	local existing_runner
+	existing_runner="$(pgrep -af "python3 scripts/ai-run-until-done.py --repo $ROOT" | awk -v self="$$" '$1 != self {print; exit}')"
+	if [[ -n "$existing_runner" ]]; then
+		echo "$(date -Is) existing goal runner detected; refusing duplicate start: $existing_runner" | tee -a "$LOGFILE"
+		return 0
+	fi
 	if ! resource_guard; then
 		echo "$(date -Is) resource guard blocked runner start" | tee -a "$LOGFILE"
 		return 0
@@ -181,6 +189,7 @@ kill_runner_tree() {
 		kill -KILL "$pid" 2>/dev/null || true
 	fi
 	# Leftover aider / probe children from a hung pass.
+	pkill -TERM -f "python3 scripts/ai-run-until-done.py --repo $ROOT" 2>/dev/null || true
 	pkill -TERM -f 'scripts/ai-aider-pass.sh' 2>/dev/null || true
 	pkill -TERM -f 'aider --config .aider.automation.conf.yml|aider --config .aider.overnight.conf.yml' 2>/dev/null || true
 	sleep 1
