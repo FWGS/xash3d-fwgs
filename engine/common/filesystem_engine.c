@@ -129,7 +129,7 @@ static void FS_LoadVFSConfig( const char *gamedir )
 		// On GameCube with no persistent storage, mount addon from disc
 		if( !FS_FileExists( "vfs.cfg", true ) )
 		{
-			Con_Reportf( "%s: vfs.cfg not found on disc, skipping\n", __func__ );
+			Con_Reportf( "%s: vfs.cfg not found on disc, mounting addon fallback\n", __func__ );
 			Cvar_DirectSet( &fs_mount_addon, "1" );
 			FS_Rescan_f();
 			return;
