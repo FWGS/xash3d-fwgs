@@ -900,7 +900,7 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 #endif
 
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt())
+	if( GC_MapLoadMemoryOpt() && !world.loading )
 	{
 		const char *ext = COM_FileExtension( tempname );
 
@@ -908,19 +908,12 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		{
 			/* Real meshes are promoted after map prep in Mod_GCLoadNewGameStudios. */
 			mod->needload = NL_PRESENT;
-			Host_Error( "Could not load model %s\n", tempname );
-
-			if( world.loading )
-				SetBits( mod->flags, MODEL_WORLD );
-
 			return mod;
 		}
 
 		if( ext && !Q_stricmp( ext, "spr" ))
 		{
 			mod->needload = NL_PRESENT;
-			Host_Error( "Could not load model %s\n", tempname );
-
 			return mod;
 		}
 	}
