@@ -616,9 +616,9 @@ static void Mod_FreeLoadBuffer( void *buf )
 	if( !buf )
 		return;
 	/* Map-load staging / retained BSP scratch are never Mem_ pool blocks. */
-	if( GC_ReleaseMapLoadBuffer( buf ))
-		return;
 	if( GC_IsMapLoadBuffer( buf ) || R_GCIsMapLoadStaticArena( buf ))
+		return;
+	if( GC_ReleaseMapLoadBuffer( buf ))
 		return;
 	if( Mod_GCIsRetainedBspScratch( buf ))
 	{
