@@ -990,7 +990,29 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	}
 	if( !buf )
 #endif
+	{
+		// Check file exists before attempting to load
+		if( !FS_FileExists( loadname, false ))
+		{
+#if XASH_GAMECUBE
+			if( GC_MapLoadMemoryOpt() && ( !Q_strncmp( loadname, "maps", 4 ) || !Q_strncmp( loadname, "models", 6 )))
+			{
+				fs_offset_t filesize = FS_FileSize( loadname, false );
+
+				Con_Reportf( "Xash3D GameCube: model file missing mod='%s' path='%s' size=%li\n",
+					mod->name, loadname, (long)filesize );
+			}
+#endif
+			memset( mod, 0, sizeof( model_t ));
+
+			if( crash ) Host_Error( "Could not load model %s from disk\n", loadname );
+			else Con_Printf( S_ERROR "Could not load model %s from disk\n", loadname );
+
+			return NULL;
+		}
+
 		buf = FS_LoadFile( loadname, &length, false );
+	}
 
 	if( !buf || length < sizeof( uint ))
 	{
