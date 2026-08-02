@@ -316,6 +316,8 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 
 	/* G156: reuse resident mesh — never re-read 130KB from disc under MEM1. */
 	mod = Mod_FindName( path, false );
+	if( !mod )
+		return false;
 	if( Mod_GCStudioAlreadyResident( mod ))
 	{
 		Mod_GCStudioNameAllowed( path, &is_view );
