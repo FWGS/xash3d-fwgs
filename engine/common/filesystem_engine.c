@@ -93,6 +93,10 @@ static uint32_t FS_MountFlags( void )
 	uint32_t flags = 0;
 
 	// FIXME: VFS shouldn't care about this, allow engine to mount gamedirs
+#if XASH_GAMECUBE
+	// GameCube: mount addon by default to ensure delta.lst and other assets are available
+	SetBits( flags, FS_MOUNT_ADDON );
+#endif
 	if( fs_mount_lv.value ) SetBits( flags, FS_MOUNT_LV );
 	if( fs_mount_hd.value ) SetBits( flags, FS_MOUNT_HD );
 	if( fs_mount_addon.value ) SetBits( flags, FS_MOUNT_ADDON );
