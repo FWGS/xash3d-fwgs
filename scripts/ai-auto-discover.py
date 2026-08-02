@@ -444,7 +444,8 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	# Keep generated/monolithic backends out of the bounded local-model edit
 	# context; otherwise discovery can only produce a guaranteed no-edit retry.
 	bounded_context = [path for path in context
-		if (root / path).stat().st_size <= 60000]
+		if (root / path).stat().st_size <= 60000
+		and path != "engine/platform/gamecube/mem_gamecube.c"]
 	if bounded_context:
 		context = bounded_context
 	if failure_class in {"runtime_probe", "no_edit", "review_reject"} and context:
