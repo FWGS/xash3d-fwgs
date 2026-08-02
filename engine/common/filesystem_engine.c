@@ -125,8 +125,10 @@ static void FS_LoadVFSConfig( const char *gamedir )
 #if XASH_GAMECUBE
 	if( !GCube_HasPersistentWritableStorage( ))
 	{
-		Con_Reportf( "%s: no writable storage, skipping vfs.cfg load\n", __func__ );
-		// On GameCube with no persistent storage, ensure addon is mounted from disc
+		Con_Reportf( "%s: no writable storage, loading vfs.cfg from disc\n", __func__ );
+		// On GameCube with no persistent storage, mount addon from disc
+		Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
+		Cbuf_Execute();
 		Cvar_DirectSet( &fs_mount_addon, "1" );
 		return;
 	}
