@@ -116,7 +116,7 @@ drop_ephemeral_discovery_state() {
 dirty_status_without_ephemeral_state() {
 	drop_ephemeral_discovery_state
 	cleanup_forbidden_dirty_paths
-	local status path excluded
+	local status path excluded excluded_path
 	while IFS= read -r status; do
 		[[ -n "$status" ]] || continue
 		path="${status:3}"
