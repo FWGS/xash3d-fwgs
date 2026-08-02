@@ -1075,12 +1075,12 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		}
 	}
 #if XASH_GAMECUBE
-		if( mod->type != mod_brush || mod->cache.data != buf )
+	if( mod->type != mod_brush || mod->cache.data != buf )
 #endif
-			Mod_FreeLoadBuffer( buf );
+		Mod_FreeLoadBuffer( buf );
 
-		return mod;
-	}
+	return mod;
+}
 
 /*
 ==================
