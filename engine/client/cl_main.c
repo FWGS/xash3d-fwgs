@@ -84,7 +84,7 @@ CVAR_DEFINE_AUTO( cl_trace_events, "0", FCVAR_CHEAT, "enable events tracing (goo
 static CVAR_DEFINE_AUTO( cl_nat, "0", 0, "show servers running under NAT" );
 CVAR_DEFINE_AUTO( hud_utf8, "0", FCVAR_ARCHIVE, "Use utf-8 encoding for hud text" );
 CVAR_DEFINE_AUTO( hud_truetype, "0", FCVAR_ARCHIVE | FCVAR_VIDRESTART, "use truetype font for on-screen text if available" );
-CVAR_DEFINE_AUTO( hud_truetype_size, "16", FCVAR_ARCHIVE | FCVAR_VIDRESTART, "font height for hud_truetype text" );
+CVAR_DEFINE_AUTO( hud_truetype_size, "18", FCVAR_ARCHIVE | FCVAR_VIDRESTART, "font height for hud_truetype text" );
 CVAR_DEFINE_AUTO( hud_truetype_name, "", FCVAR_ARCHIVE | FCVAR_VIDRESTART, "truetype font name for hud text (empty = default)" );
 CVAR_DEFINE_AUTO( ui_renderworld, "0", FCVAR_ARCHIVE, "render world when UI is visible" );
 static CVAR_DEFINE_AUTO( cl_maxframetime, "0", 0, "set deadline timer for client rendering to catch freezes" );

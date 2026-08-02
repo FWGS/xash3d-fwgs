@@ -90,7 +90,7 @@ bool CWinAPIFont::Create( const char *name, int tall, int weight, int blur, floa
 		m_iFlags & TTF_UNDERLINE,
 		m_iFlags & TTF_STRIKEOUT,
 		charset, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-		CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font.lfFaceName );
+		PROOF_QUALITY, DEFAULT_PITCH | FF_DONTCARE, font.lfFaceName );
 
 	if( !m_hFont )
 	{

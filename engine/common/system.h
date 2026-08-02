@@ -82,7 +82,9 @@ void Sys_PrintLog( const char *pMsg );
 int Sys_LogFileNo( void );
 
 // text messages
+#ifndef Msg
 #define Msg	Con_Printf
+#endif
 
 #ifdef __cplusplus
 }

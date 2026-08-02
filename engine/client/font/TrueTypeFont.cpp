@@ -633,7 +633,7 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 
 	uint bmpFileSize = bmp->fileSize;
 	CBMP::SwapBmpHdrToLE( bmp );
-	int hImage = ref.dllFuncs.GL_LoadTexture( filename, (const byte *)bmp, bmpFileSize, TF_FONT );
+	int hImage = ref.dllFuncs.GL_LoadTexture( filename, (const byte *)bmp, bmpFileSize, TF_FONT | TF_NEAREST );
 
 	if( !hImage )
 	{

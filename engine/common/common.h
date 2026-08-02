@@ -139,11 +139,13 @@ typedef enum instance_e
 
 #define FORCE_DRAW_VERSION_TIME 5.0 // draw version for 5 seconds
 
+#ifndef Assert
 #ifdef _DEBUG
 void DBG_AssertFunction( qboolean fExpr, const char* szExpr, const char* szFile, int szLine, const char* szMessage );
 #define Assert( f )		DBG_AssertFunction( f, #f, __FILE__, __LINE__, NULL )
 #else
 #define Assert( f )
+#endif
 #endif
 
 extern convar_t	gl_vsync;

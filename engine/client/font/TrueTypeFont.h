@@ -18,6 +18,13 @@ GNU General Public License for more details.
 
 #include "xash3d_types.h"
 #include "wrect.h"
+#if defined(Assert)
+#undef Assert
+#endif
+#if defined(Msg)
+#undef Msg
+#endif
+
 #include "utlrbtree.h"
 #include "utlvector.h"
 #include "BMPUtils.h"
