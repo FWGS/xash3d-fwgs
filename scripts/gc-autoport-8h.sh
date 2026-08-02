@@ -67,16 +67,61 @@ export AIDER_CONFIG="${AIDER_CONFIG:-.aider.overnight.conf.yml}"
 export DOLPHIN_PROBE_MAX_LINES="${DOLPHIN_PROBE_MAX_LINES:-700}"
 export AIDER_MODEL_TIMEOUT_SEC="${AIDER_MODEL_TIMEOUT_SEC:-900}"
 export AI_OOM_BACKOFF_SEC="${AI_OOM_BACKOFF_SEC:-90}"
+export AI_GPU_INDEX="${AI_GPU_INDEX:-0}"
+export AI_GPU_MIN_FREE_MIB="${AI_GPU_MIN_FREE_MIB:-2048}"
+export AI_HOST_MIN_AVAILABLE_MIB="${AI_HOST_MIN_AVAILABLE_MIB:-8192}"
+export AI_RESOURCE_BACKOFF_SEC="${AI_RESOURCE_BACKOFF_SEC:-120}"
 export PYTHONUNBUFFERED=1
 
 rm -f "$ROOT/.ai/goal-supervisor.lock" "$ROOT/.ai/gc-port-loop.lock"
 rm -f "$ROOT/.ai/state/discovery-supervisor.json"
+
+live_config_number() {
+	local key="$1" fallback="$2"
+	python3 - "$ROOT/.ai/config/automation-live.json" "$key" "$fallback" <<'PY'
+import json, sys
+path, key, fallback = sys.argv[1:]
+try:
+    with open(path, encoding="utf-8") as handle:
+        value = json.load(handle).get(key, fallback)
+except (OSError, ValueError, TypeError):
+    value = fallback
+print(value)
+PY
+}
+
+resource_guard() {
+	local gpu_index gpu_free gpu_min host_available host_min
+	gpu_index="$(live_config_number AI_GPU_INDEX "${AI_GPU_INDEX:-0}")"
+	gpu_min="$(live_config_number AI_GPU_MIN_FREE_MIB "${AI_GPU_MIN_FREE_MIB:-2048}")"
+	host_min="$(live_config_number AI_HOST_MIN_AVAILABLE_MIB "${AI_HOST_MIN_AVAILABLE_MIB:-8192}")"
+	if command -v nvidia-smi >/dev/null 2>&1; then
+		gpu_free="$(nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits 2>/dev/null | awk -F',' -v idx="$gpu_index" '$1+0 == idx {gsub(/ /, "", $2); print $2; exit}')"
+		if [[ -n "$gpu_free" && "$gpu_free" -lt "$gpu_min" ]]; then
+			echo "resource guard: GPU${gpu_index} free=${gpu_free}MiB < ${gpu_min}MiB" | tee -a "$LOGFILE"
+			return 1
+		fi
+	fi
+	host_available="$(free -m | awk '/^Mem:/ {print $7}')"
+	if [[ -n "$host_available" && "$host_available" -lt "$host_min" ]]; then
+		echo "resource guard: host available=${host_available}MiB < ${host_min}MiB" | tee -a "$LOGFILE"
+		return 1
+	fi
+	return 0
+}
 
 echo "Logging to $LOGFILE"
 echo "Runtime budget: ${RUNTIME_SEC}s (~$((RUNTIME_SEC / 3600))h)"
 echo "Discovery mode: $DISCOVERY_MODE (stuck threshold=${AI_DISCOVERY_STUCK_THRESHOLD})"
 
 start_runner() {
+	if [[ -f "$ROOT/scripts/gamecube-env.sh" ]]; then
+		source "$ROOT/scripts/gamecube-env.sh"
+	fi
+	if ! resource_guard; then
+		echo "$(date -Is) resource guard blocked runner start" | tee -a "$LOGFILE"
+		return 0
+	fi
 	# Wall-clock limit is enforced by the outer watchdog deadline plus timeout(1).
 	# Keep argv compatible with ai-run-until-done.py (no --max-runtime-sec required).
 	nohup timeout --foreground --signal=TERM --kill-after=60 "$RUNTIME_SEC" \
@@ -123,10 +168,10 @@ kill_runner_tree() {
 	fi
 	# Leftover aider / probe children from a hung pass.
 	pkill -TERM -f 'scripts/ai-aider-pass.sh' 2>/dev/null || true
-	pkill -TERM -f 'aider --config .aider.automation.conf.yml' 2>/dev/null || true
+	pkill -TERM -f 'aider --config .aider.automation.conf.yml|aider --config .aider.overnight.conf.yml' 2>/dev/null || true
 	sleep 1
 	pkill -KILL -f 'scripts/ai-aider-pass.sh' 2>/dev/null || true
-	pkill -KILL -f 'aider --config .aider.automation.conf.yml' 2>/dev/null || true
+	pkill -KILL -f 'aider --config .aider.automation.conf.yml|aider --config .aider.overnight.conf.yml' 2>/dev/null || true
 }
 
 deadline=$(( $(date +%s) + RUNTIME_SEC ))
@@ -136,6 +181,12 @@ echo $$ >"$WATCHDOG_PID_FILE"
 restarts=0
 while (( $(date +%s) < deadline )); do
 	sleep "$WATCH_INTERVAL_SEC"
+	if ! resource_guard; then
+		kill_runner_tree
+		rm -f "$ROOT/.ai/goal-supervisor.lock"
+		sleep "$(live_config_number AI_RESOURCE_BACKOFF_SEC "${AI_RESOURCE_BACKOFF_SEC:-120}")"
+		continue
+	fi
 	runner_pid="$(cat "$RUNNER_PID_FILE" 2>/dev/null || true)"
 	if [[ -z "${runner_pid:-}" ]] || ! kill -0 "$runner_pid" 2>/dev/null; then
 		remaining=$(( deadline - $(date +%s) ))

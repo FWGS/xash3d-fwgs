@@ -13,6 +13,10 @@ Useful controls:
   "sleep_sec": 20,
   "AI_RUNTIME_PROBE_TIMEOUT": 90,
   "AIDER_MODEL_TIMEOUT_SEC": 300,
+  "AI_GPU_INDEX": 0,
+  "AI_GPU_MIN_FREE_MIB": 2048,
+  "AI_HOST_MIN_AVAILABLE_MIB": 8192,
+  "AI_RESOURCE_BACKOFF_SEC": 120,
   "AI_MAX_PATCH_LINES": 240
 }
 ```
@@ -21,3 +25,7 @@ Set `pause` to `true` to hold at a safe cycle boundary. Set it back to
 `false` to resume. Valid discovery modes are `off`, `after-goals`, `prefer`,
 and `only`. Invalid values are ignored. The current applied values are shown
 in `.ai/state/autoport-heartbeat.json`.
+
+The watchdog checks GPU free memory with `nvidia-smi` and host available
+memory with `free`. If either falls below its threshold, it stops only the
+GameCube worker tree, waits, and retries. It does not stop the vLLM server.
