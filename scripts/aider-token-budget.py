@@ -123,12 +123,14 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 	editable_tiers = context_tiers
 	if low_vram and source_first:
 		# Overnight must not force 40k editables into a 32k window — that OOMs
-		# the 7B worker. Cap around medium platform files (mem/vid).
+		# the 7B worker. Keep the cap below the full context budget while
+		# allowing the actual runtime blocker files (model.c/sv_init.c) to be
+		# edited instead of silently dropping them.
 		editable_tiers = (
-			min(20000, max(8000, context_tiers[0])),
-			min(16000, max(6000, context_tiers[1])),
-			min(12000, max(5000, context_tiers[2])),
-			min(10000, max(4000, context_tiers[3])),
+			min(36000, max(16000, context_tiers[0] * 2)),
+			min(30000, max(12000, context_tiers[1] * 2)),
+			min(22000, max(8000, context_tiers[2] * 2)),
+			min(16000, max(6000, context_tiers[3] * 2)),
 		)
 	elif low_vram:
 		# Non-overnight discovery may still need one medium frame source file.
