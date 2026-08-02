@@ -442,6 +442,9 @@ void FS_Init( void )
 		return;
 	}
 
+	// Load gameinfo.txt to ensure delta.lst and other game assets are available
+	FS_LoadGameInfo();
+
 	Cmd_AddRestrictedCommand( "fs_rescan", FS_Rescan_f, "rescan filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_path", FS_Path_f_, "show filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_find", FS_FindFile_f_, "find file across search pathes and show all occurences" );
