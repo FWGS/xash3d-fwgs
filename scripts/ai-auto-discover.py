@@ -303,6 +303,42 @@ def latest_recent_step(memory: dict[str, object]) -> dict[str, object] | None:
 	return None
 
 
+def recent_harness_failure(root: Path) -> dict[str, object] | None:
+	"""Turn the latest bounded runtime result into discovery input.
+
+	The fixed goal ledger can be exhausted while the Dolphin harness still has
+	a current guest failure. Keep that evidence actionable instead of allowing
+	the overnight supervisor to treat an empty discovery list as success.
+	"""
+	path = root / ".ai/state/dolphin-harness-latest.md"
+	if not path.is_file():
+		return None
+	text = path.read_text(encoding="utf-8", errors="replace")
+	status_match = re.search(r"(?m)^- Status:\s*(.+)$", text)
+	if not status_match:
+		return None
+	status = status_match.group(1).strip().lower()
+	if status in {"pass", "ready", "complete", "ok"}:
+		return None
+	failure_map = {
+		"guest_failure": "runtime_probe",
+		"map_timeout": "runtime_probe",
+		"asset_lookup": "asset_lookup",
+		"memory_pressure": "memory_pressure",
+		"visual_runtime": "visual_runtime",
+		"audio_runtime": "audio_runtime",
+	}
+	result = failure_map.get(status, "runtime_probe")
+	return {
+		"result": result,
+		"intent": "Use the latest bounded Dolphin evidence to restore the runtime route.",
+		"observation": sanitize_for_prompt(
+			text.replace("\n", " "), limit=320
+		),
+		"phase": "dolphin-probe",
+	}
+
+
 def sanitize_for_prompt(text: str, *, limit: int) -> str:
 	text = text.replace("\x00", " ")
 	text = PATH_RE.sub(lambda match: match.group(0).replace(match.group(1), "[path]"), text)
@@ -339,6 +375,22 @@ def existing_paths(root: Path, paths: tuple[str, ...]) -> list[str]:
 	return [path for path in paths if (root / path).is_file()]
 
 
+def incident_focus_paths(root: Path) -> list[str]:
+	path = root / ".ai/state/gamecube-harness-incident.json"
+	if not path.is_file():
+		return []
+	try:
+		payload = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return []
+	if not isinstance(payload, dict):
+		return []
+	focus = payload.get("focus_files")
+	if not isinstance(focus, list):
+		return []
+	return [str(item) for item in focus if isinstance(item, str) and (root / item).is_file()]
+
+
 def sort_paths_by_size(root: Path, paths: list[str]) -> list[str]:
 	return sorted(paths, key=lambda path: ((root / path).stat().st_size, path))
 
@@ -361,6 +413,10 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	if recipe is None:
 		return None
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
+	if failure_class == "runtime_probe":
+		focused = incident_focus_paths(root)
+		if focused:
+			context = focused
 	if failure_class in {"runtime_probe", "no_edit", "review_reject"} and context:
 		engine_or_ref = [path for path in context if path.startswith(("engine/", "ref/"))]
 		# Keep recipe order (source-first targets first). Sorting by size always
@@ -481,13 +537,19 @@ def discover_items(root: Path) -> list[WorkItem]:
 	items: list[WorkItem] = []
 	if goal is not None:
 		items.append(build_goal_item(goal))
-	recent = load_discovery_state(root) or latest_recent_step(load_memory(root))
-	if recent is not None:
+	candidates = [
+		load_discovery_state(root),
+		latest_recent_step(load_memory(root)),
+		recent_harness_failure(root),
+	]
+	for recent in candidates:
+		if recent is None:
+			continue
 		recent = normalize_discovery_state(root, recent)
-	if recent is not None:
 		discovered = build_discovered_item(root, goal, recent)
 		if discovered is not None:
 			items.append(discovered)
+			break
 	return sorted(items, key=lambda item: (-item.priority, item.item_id))
 
 

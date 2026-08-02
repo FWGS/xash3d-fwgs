@@ -164,7 +164,8 @@ def read_goals(root: Path) -> list[dict[str, object]]:
 
 def next_automatic_goal(root: Path) -> str | None:
 	for goal in read_goals(root):
-		if not goal["complete"] and not goal["manual"] and not goal["blocked"]:
+		if (not goal["complete"] and not goal["manual"]
+				and not goal["skipped"] and not goal["blocked"]):
 			return f"{goal['goal_id']} {goal['title']}"
 	return None
 

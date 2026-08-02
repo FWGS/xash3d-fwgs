@@ -1,8 +1,9 @@
 {
-  "pid": 2472437,
-  "timestamp": "2026-08-02T09:33:29.719222+00:00",
+  "pid": 2634215,
+  "timestamp": "2026-08-02T09:55:24.214547+00:00",
   "state": "running",
   "cycle": 1,
-  "kind": "goal",
-  "label": "G73 Prove clean checkout release rebuild and archive reproducibility"
+  "kind": "discovery",
+  "label": "fix the current GameCube map/runtime blocker",
+  "item_id": "discovery:runtime_probe"
 }
