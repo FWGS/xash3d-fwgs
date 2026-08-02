@@ -292,6 +292,13 @@ def clear_discovery_feedback(root: Path) -> None:
 	(root / DISCOVERY_STATE_PATH).unlink(missing_ok=True)
 
 
+def read_text(path: Path) -> str:
+	try:
+		return path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+	except OSError:
+		return ""
+
+
 def experiment_progress(text: str) -> dict[str, object]:
 	lower = text.lower()
 	completed = [name for name, marker in PROGRESS_MARKERS if marker in lower]
