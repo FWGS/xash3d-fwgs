@@ -1072,7 +1072,13 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 #if XASH_GAMECUBE
 	if( mod->type != mod_brush || mod->cache.data != buf )
 #endif
-		Mod_FreeLoadBuffer( buf );
+	{
+#if XASH_GAMECUBE
+		/* Don't free map load buffer - it's managed by GC system */
+		if( !GC_IsMapLoadBuffer( buf ) && !R_GCIsMapLoadStaticArena( buf ))
+#endif
+			Mod_FreeLoadBuffer( buf );
+	}
 
 	return mod;
 }
