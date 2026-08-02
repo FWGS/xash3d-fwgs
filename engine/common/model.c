@@ -904,13 +904,13 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 		if( ext && !Q_stricmp( ext, "mdl" ))
 		{
 			/* Real meshes are promoted after map prep in Mod_GCLoadNewGameStudios. */
-			mod->needload = NL_PRESENT;
+			mod->needload = NL_NEEDS_LOADED;
 			return mod;
 		}
 
 		if( ext && !Q_stricmp( ext, "spr" ))
 		{
-			mod->needload = NL_PRESENT;
+			mod->needload = NL_NEEDS_LOADED;
 			return mod;
 		}
 	}
