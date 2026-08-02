@@ -427,6 +427,40 @@ qboolean Mod_GCEnsureLandmarkViewModel( const char *model_path )
 
 /*
 =============
+Mod_GCTryDeferredStudios
+
+Attempt to load deferred studios after map prep when memory is available.
+=============
+*/
+void Mod_GCTryDeferredStudios( void )
+{
+	/* Try to load additional deferred studios if budget allows. */
+	static const char *promote[] = {
+		"models/v_9mmhandgun.mdl",
+		"models/v_9mmar.mdl",
+		"models/v_shotgun.mdl",
+		"models/v_357.mdl",
+		"models/headcrab.mdl",
+		"models/zombie.mdl",
+		NULL
+	};
+	int i;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
+		return;
+
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+
+	for( i = 0; promote[i]; i++ )
+		Mod_GCPromoteStudioPath( promote[i] );
+
+	Con_Reportf( "Xash3D GameCube: deferred studios try npc=%d view=%d budget=%s\n",
+		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
+}
+
+/*
+=============
 Mod_GCLoadNewGameStudios
 
 Prepare-time attempt (often tip-starved). Prefer Mod_GCTryDeferredStudios after
@@ -453,18 +487,6 @@ void Mod_GCLoadNewGameStudios( void )
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
 }
 
-/*
-=============
-Mod_GCTryDeferredStudios
-
-G287: retry allowlisted MDLs after Flipper presents so malloc can serve the
-~47 KiB crowbar mirror (prepare-time tip returns NULL even for 7 KiB).
-=============
-*/
-void Mod_GCTryDeferredStudios( void )
-{
-	// No retry after G45 failure - BSS bump exhausted
-}
 
 static qboolean Mod_GCMapVerboseModelLoad( const char *name )
 {
