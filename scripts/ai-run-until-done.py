@@ -44,6 +44,7 @@ RUNTIME_DISCOVERY_RESULTS = {
 }
 HEARTBEAT_PATH = Path(".ai/state/autoport-heartbeat.json")
 EXPERIMENT_STATE_PATH = Path(".ai/state/experiment-latest.json")
+LIVE_CONFIG_PATH = Path(".ai/config/automation-live.json")
 PROGRESS_MARKERS = (
 	("bootstrap", "bootstrap"),
 	("engine_ready", "engine subsystems ready"),
@@ -161,6 +162,32 @@ def model_ready(api_base: str) -> bool:
 			return 200 <= response.status < 500
 	except (OSError, URLError):
 		return False
+
+
+def load_live_config(root: Path) -> dict[str, object]:
+	path = root / LIVE_CONFIG_PATH
+	if not path.is_file():
+		return {}
+	try:
+		payload = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return {}
+	return payload if isinstance(payload, dict) else {}
+
+
+def apply_live_config(root: Path, args: argparse.Namespace) -> dict[str, object]:
+	config = load_live_config(root)
+	mode = config.get("discovery_mode")
+	if mode in {"off", "after-goals", "prefer", "only"}:
+		args.discovery_mode = str(mode)
+	for key in (
+		"AI_DISCOVERY_STUCK_THRESHOLD", "AI_DISCOVERY_STUCK_BACKOFF",
+		"AI_RUNTIME_PROBE_TIMEOUT", "AIDER_MODEL_TIMEOUT_SEC",
+		"AI_MAX_PATCH_FILES", "AI_MAX_PATCH_LINES", "AI_MAX_PATCH_DELETED_LINES",
+	):
+		if key in config and isinstance(config[key], (int, float, str)):
+			os.environ[key] = str(config[key])
+	return config
 
 
 def read_goals(root: Path) -> list[dict[str, object]]:
@@ -463,11 +490,23 @@ def main() -> int:
 	cycles = count(1) if args.max_cycles == 0 else range(1, args.max_cycles + 1)
 	write_heartbeat(root, state="starting", discovery_mode=args.discovery_mode)
 	for cycle in cycles:
+		live = apply_live_config(root, args)
+		try:
+			sleep_sec = max(1, int(live.get("sleep_sec", args.sleep)))
+		except (TypeError, ValueError):
+			sleep_sec = args.sleep
+		api_base = str(live.get("openai_api_base") or os.environ.get(
+			"OPENAI_API_BASE", "http://127.0.0.1:8072/v1"))
+		if live.get("pause") is True:
+			write_heartbeat(root, state="paused", cycle=cycle,
+				discovery_mode=args.discovery_mode)
+			time.sleep(sleep_sec)
+			continue
 		if not model_ready(api_base):
-			print(f"run-until-done: model API is not reachable at {api_base}; retrying after {args.sleep}s",
+			print(f"run-until-done: model API is not reachable at {api_base}; retrying after {sleep_sec}s",
 				file=sys.stderr, flush=True)
 			write_heartbeat(root, state="waiting-for-model", cycle=cycle, api_base=api_base)
-			time.sleep(args.sleep)
+			time.sleep(sleep_sec)
 			continue
 		work_item = next_work_item(root, args.discovery_mode)
 		if work_item is None:
@@ -518,7 +557,7 @@ def main() -> int:
 			print(f"run-until-done: child exit {status}; retrying immediately with refreshed discovery state",
 				file=sys.stderr, flush=True)
 			continue
-		print(f"run-until-done: child exit {status}; continuing after {args.sleep}s",
+		print(f"run-until-done: child exit {status}; continuing after {sleep_sec}s",
 			file=sys.stderr, flush=True)
 		# SIGKILL/OOM (-9/137/22): cool down so the next pass does not instantly
 		# re-OOM the local 7B worker on GPU1.
@@ -533,7 +572,7 @@ def main() -> int:
 				exit_code=status, backoff_sec=backoff)
 			time.sleep(backoff)
 		else:
-			time.sleep(args.sleep)
+			time.sleep(sleep_sec)
 		continue
 
 	if args.max_cycles > 0:

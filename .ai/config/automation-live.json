@@ -1,0 +1,13 @@
+{
+  "pause": false,
+  "discovery_mode": "prefer",
+  "sleep_sec": 20,
+  "openai_api_base": "http://127.0.0.1:8001/v1",
+  "AI_DISCOVERY_STUCK_THRESHOLD": 3,
+  "AI_DISCOVERY_STUCK_BACKOFF": 60,
+  "AI_RUNTIME_PROBE_TIMEOUT": 90,
+  "AIDER_MODEL_TIMEOUT_SEC": 300,
+  "AI_MAX_PATCH_FILES": 8,
+  "AI_MAX_PATCH_LINES": 240,
+  "AI_MAX_PATCH_DELETED_LINES": 160
+}
