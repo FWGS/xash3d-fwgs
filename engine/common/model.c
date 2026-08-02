@@ -453,7 +453,10 @@ void Mod_GCTryDeferredStudios( void )
 	Image_GCPurgeDecodeScratch();
 
 	for( i = 0; promote[i]; i++ )
-		Mod_GCPromoteStudioPath( promote[i] );
+	{
+		if( !Mod_GCPromoteStudioPath( promote[i] ) && Sys_CheckParm( "-gclowmem" ))
+			continue; // skip failures in low-memory mode
+	}
 
 	Con_Reportf( "Xash3D GameCube: deferred studios try npc=%d view=%d budget=%s\n",
 		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
