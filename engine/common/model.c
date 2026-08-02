@@ -529,6 +529,11 @@ static qboolean Mod_GCMapVerboseModelLoad( const char *name )
 {
 	return false;
 }
+
+void Mod_PrintWorldStats_f( void )
+{
+	Con_Printf( "worldmodel %s: loaded\n", mod_known->name );
+}
 #endif
 CVAR_DEFINE( mod_studiocache, "r_studiocache", "1", FCVAR_ARCHIVE, "enables studio cache for speedup tracing hitboxes" );
 CVAR_DEFINE_AUTO( r_wadtextures, "0", FCVAR_LATCH, "completely ignore textures in the bsp-file if enabled" );
