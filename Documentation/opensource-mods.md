@@ -115,6 +115,13 @@ Mirrored on github - https://github.com/solidi/hl-mods/tree/master/pong
 ## Half-Life: Quest Mode
 Available on cs-mapping.com.ua - https://old.cs-mapping.com.ua/forum/showthread.php?t=38030
 
+## Half-Life: Sum
+Original Version: Branch **sum_orig** in halflife-featureful - https://github.com/FreeSlave/halflife-featureful/tree/sum_orig
+
+Version 2022: Branch **sum_2022** in halflife-featureful - https://github.com/FreeSlave/halflife-featureful/tree/sum_2022
+
+Current Version: Branch **sum** in halflife-featureful - https://github.com/FreeSlave/halflife-featureful/tree/sum
+
 ## Half-Life: Top-Down
 Official gitlab repository - https://gitlab.com/Sockman/hltopdown
 
