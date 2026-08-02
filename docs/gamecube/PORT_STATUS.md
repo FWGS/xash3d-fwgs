@@ -67,6 +67,21 @@ Interpretation:
      within probe timeout
    - Priority: highest autonomous blocker
 
+### Latest reproducible evidence — 2026-08-02
+
+- Build: `scripts/build-gamecube.sh` completes with devkitPPC/libogc and emits
+  a valid DOL (`OUT/bin/boot.dol`, about 4.6 MiB).
+- Static HLSDK registration: fixed/confirmed in the rebuilt artifact;
+  Dolphin reports `COM_LoadLibrary server (registered)`.
+- Probe: `DOLPHIN_TIMEOUT=60 scripts/dolphin-boot-probe.sh`.
+- Evidence: `.ai/logs/dolphin-probe-20260802-022115/` and later retries.
+- Failure boundary: after `find found 'maps/c0a0e.bsp'`, the bounded route
+  enters `G201 delta reinit` and fails on `Delta_InitFields: couldn't load
+  file delta.lst`; the probe then reports `GUEST_RUNTIME_ERROR`.
+- Important non-fix: skipping G201 reinitialization for `-gcmap` was tested but
+  caused the subsequent BSP open to report `exists=0`; that experiment was
+  reverted. Do not treat it as a passing workaround.
+
 ## Next Task
 
 **Make the smoke-map Dolphin probe pass again**
