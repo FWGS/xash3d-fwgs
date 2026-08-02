@@ -161,8 +161,6 @@ static qboolean Mod_GCAllowRealStudioLoad( const char *name, size_t filesize )
 	qboolean is_view = false;
 
 	/* Retail Flipper + New Game probe — allowlisted meshes only. */
-	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
-		return false;
 	if( !Mod_GCStudioNameAllowed( name, &is_view ))
 		return false;
 	if( is_view )
