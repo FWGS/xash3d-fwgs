@@ -1117,6 +1117,11 @@ static void Mod_PurgeStudioCache( void )
 #if !XASH_DEDICATED
 	Mod_ReleaseHullPolygons();
 #endif
+#if XASH_GAMECUBE
+	/* G156: unpin viewmodels before freeing to avoid dangling references. */
+	gc_pinned_viewmodel_count = 0;
+	memset( gc_pinned_viewmodels, 0, sizeof( gc_pinned_viewmodels ));
+#endif
 	// release previois map
 	Mod_FreeModel( mod_known );	// world is stuck on slot #0 always
 
