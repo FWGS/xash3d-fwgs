@@ -461,31 +461,7 @@ G287: retry allowlisted MDLs after Flipper presents so malloc can serve the
 */
 void Mod_GCTryDeferredStudios( void )
 {
-	if( gc_real_studio_view >= 2 )
-		return;
-	if( gc_deferred_studio_attempts >= 4 )
-		return;
-	if( !GC_IsNewGameWorldReady() )
-		return;
-
-	gc_deferred_studio_attempts++;
-	Con_Reportf( "Xash3D GameCube: G289 deferred studio try=%d view=%d npc=%d bump=%s\n",
-		gc_deferred_studio_attempts, gc_real_studio_view, gc_real_studio_npc,
-		Q_memprint( gc_studio_bss_bump ));
-	FS_ClearFindMissCache();
-	Image_GCPurgeDecodeScratch();
-
-	if( gc_real_studio_view <= 0 )
-		Mod_GCPromoteStudioPath( "models/v_crowbar.mdl" );
-	/* G289: lean handgun (~60 KiB) shares the 80 KiB BSS bump with crowbar. */
-	if( gc_real_studio_view < 2 )
-		Mod_GCPromoteStudioPath( "models/v_9mmhandgun.mdl" );
-	if( gc_real_studio_npc <= 0 )
-		Mod_GCPromoteStudioPath( "models/roach.mdl" );
-
-	Con_Reportf( "Xash3D GameCube: G289 studio after try npc=%d view=%d budget=%s bump=%s\n",
-		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ),
-		Q_memprint( gc_studio_bss_bump ));
+	// No retry after G45 failure - BSS bump exhausted
 }
 
 static qboolean Mod_GCMapVerboseModelLoad( const char *name )
