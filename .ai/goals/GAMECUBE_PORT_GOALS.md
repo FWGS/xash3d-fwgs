@@ -5011,3 +5011,88 @@ in `.ai/logs/dolphin-probe-*/stderr.log` or hardware captures.
 18. **G488** — Renderer state and effect fidelity backlog
 19. **G489** — Toolchain and reproducible build hygiene
 20. **G490** — Hardware handoff readiness
+
+## Completion ladder for verified native gameplay
+
+These goals are intentionally separate from the historical milestone ledger
+above. They describe the current evidence required to call the port complete.
+They must be executed in order and may not be marked complete from stale
+historical notes.
+
+## G491 [ ] Restore runtime map readiness
+
+- Resolve the current guest-engine blocker, beginning with the fresh Dolphin
+  failure signature rather than assuming the previous map path works.
+- Acceptance requires a fresh `scripts/dolphin-boot-probe.sh` run with no guest
+  fatal error, `MAP_READY`/`map_ready`, `c0a0e` loaded, and direct-map-ready
+  evidence.
+- Record the exact probe log and artifact hash in the port plan.
+
+## G492 [ ] Prove memory-safe map and asset loading
+
+- Measure MEM1/MEM2/ARAM high-water marks through map load, model staging,
+  client precache, and first gameplay frame.
+- Remove the current allocation failure or fragmentation cliff without merely
+  hiding the fatal error or moving pressure to another subsystem.
+- Acceptance requires memory telemetry, no allocation-failure marker, and a
+  successful G491 runtime pass.
+
+## G493 [ ] Prove controller readiness and recovery
+
+- Verify controller discovery, neutral state, reconnect handling, port/type
+  changes, deadzones, and stuck-input cleanup.
+- Acceptance requires `G45_STATUS: PASS`, controller-ready evidence, and a
+  scripted reconnect or alternate-port result where the emulator supports it.
+
+## G494 [ ] Prove automated gameplay smoke
+
+- Drive a repeatable gameplay sequence: start/new game, move, look, jump/use,
+  attack, trigger an entity interaction, and return to a stable frame.
+- Acceptance requires gameplay action markers, no guest error, map-ready state,
+  stable input, and at least one post-action visual frame.
+
+## G495 [ ] Prove native visual output
+
+- Validate world geometry, HUD, sprites, models, lighting, transparency, and
+  the first active gameplay frame through the GX path.
+- Acceptance requires nonblack visual evidence, a saved frame or equivalent
+  render marker, and frame timing within the documented GameCube budget.
+
+## G496 [ ] Prove native audio output
+
+- Validate startup audio, one-shot weapon/effect audio, movement audio, channel
+  reuse, and audio behavior after a map transition.
+- Acceptance requires nonzero audio/mixer evidence with no allocation failure
+  and a fresh gameplay probe reference.
+
+## G497 [ ] Prove campaign and changelevel continuity
+
+- Run a bounded set of representative maps and at least one changelevel route.
+- Preserve inventory, player state, entities, models, audio, renderer state,
+  and writable-path behavior across the transition.
+- Acceptance requires the map-compatibility/campaign reports with no hard
+  failures and recorded memory/frame telemetry for each route.
+
+## G498 [ ] Prove sustained soak stability
+
+- Run repeated boot/map/gameplay iterations and a strict soak long enough to
+  expose leaks, allocator fragmentation, stale GX state, and audio/channel
+  accumulation.
+- Acceptance requires `scripts/gamecube-soak-probe.py --strict`, bounded memory
+  growth, no guest failures, and stable frame/audio evidence.
+
+## G499 [ ] Sign off a reproducible scripted release
+
+- Rebuild from a clean output, verify the DOL/ELF/ISO hashes and handoff
+  manifest, run the complete release-candidate gate, and archive all reports.
+- Acceptance requires `scripts/ai-verify.sh`, the GameCube RC gate, the runtime
+  gate, the gameplay smoke, and soak reports to pass from the same build.
+
+## G500 [MANUAL] Validate physical GameCube hardware handoff
+
+- Boot the release DOL/ISO on physical GameCube hardware with the documented
+  SD/DVD asset layout and controller configuration.
+- Execute boot, map load, controller, gameplay, visual, audio, changelevel,
+  and persistence checks using the hardware checklist.
+- This goal cannot be completed by Dolphin or the unattended AI. Completion
+  requires operator-recorded hardware evidence and must remain manual.
