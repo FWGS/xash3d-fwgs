@@ -245,6 +245,7 @@ def record_discovery_feedback(root: Path, item: dict[str, object], status: int,
 		"result": result,
 		"intent": intent,
 		"observation": observation,
+		"context": item.get("context", []),
 		"repeat_count": repeat_count,
 		"timestamp": datetime.now(timezone.utc).isoformat(),
 	}

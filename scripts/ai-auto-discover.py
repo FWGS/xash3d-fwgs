@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 from dataclasses import asdict, dataclass
@@ -225,6 +226,21 @@ def load_discovery_state(root: Path) -> dict[str, object] | None:
 	return data if isinstance(data, dict) else None
 
 
+def quarantined_paths(root: Path) -> set[str]:
+	state = load_discovery_state(root)
+	if not state:
+		return set()
+	try:
+		repeat_count = int(state.get("repeat_count") or 0)
+		threshold = max(1, int(os.environ.get("AI_DISCOVERY_STUCK_THRESHOLD", "3")))
+	except (TypeError, ValueError):
+		return set()
+	if repeat_count < threshold:
+		return set()
+	context = state.get("context")
+	return {str(path) for path in context if isinstance(path, str)} if isinstance(context, list) else set()
+
+
 def dirty_runtime_paths(root: Path) -> list[str]:
 	result = subprocess.run(
 		["git", "status", "--short"],
@@ -437,6 +453,9 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	if recipe is None:
 		return None
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
+	quarantine = quarantined_paths(root)
+	if quarantine:
+		context = [path for path in context if path not in quarantine]
 	if failure_class == "runtime_probe":
 		focused = incident_focus_paths(root)
 		if focused:

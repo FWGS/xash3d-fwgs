@@ -753,6 +753,33 @@ unstage_out_of_scope_edits() {
 	done < <(git diff --cached --name-only)
 }
 
+patch_safety_guard() {
+	local changed_files added deleted path
+	local max_files="${AI_MAX_PATCH_FILES:-8}"
+	local max_lines="${AI_MAX_PATCH_LINES:-240}"
+	local max_deleted="${AI_MAX_PATCH_DELETED_LINES:-160}"
+	changed_files="$(git diff --cached --name-only | sed '/^$/d' | wc -l)"
+	if (( changed_files > max_files )); then
+		echo "ai-aider-pass: patch changes ${changed_files} files (maximum ${max_files})" >&2
+		return 23
+	fi
+	added=0
+	deleted=0
+	while IFS=$'\t' read -r path_added path_deleted path; do
+		[[ -n "${path:-}" ]] || continue
+		[[ "$path_added" == "-" ]] || added=$((added + path_added))
+		[[ "$path_deleted" == "-" ]] || deleted=$((deleted + path_deleted))
+		if [[ "$path_deleted" != "-" && "$path_deleted" -gt "$max_deleted" ]]; then
+			echo "ai-aider-pass: destructive rewrite in $path (${path_deleted} deleted lines)" >&2
+			return 23
+		fi
+	done < <(git diff --cached --numstat)
+	if (( added + deleted > max_lines )); then
+		echo "ai-aider-pass: patch changes ${added}+${deleted} lines (maximum ${max_lines})" >&2
+		return 23
+	fi
+}
+
 stage_and_validate_patch() {
 	cleanup_stale_git_lock
 	git add -A
@@ -770,6 +797,9 @@ stage_and_validate_patch() {
 	fi
 	if ! reject_out_of_scope_edits; then
 		return 16
+	fi
+	if ! patch_safety_guard; then
+		return 23
 	fi
 }
 
