@@ -444,6 +444,28 @@ def runtime_port_status(root: Path) -> str:
 	return " ".join(parts)
 
 
+def experiment_contract(failure_class: str, evidence: str, context: list[str]) -> tuple[str, str]:
+	if "map loaded" not in evidence.lower():
+		return (
+			"The first unresolved boundary is map startup; the selected source can affect the current map/runtime failure.",
+			"Xash3D GameCube: map loaded",
+		)
+	if "g45=pass" not in evidence.lower() and "controller ready" not in evidence.lower():
+		return (
+			"The map reaches startup but controller readiness is still missing; the selected source should affect input initialization or its ordering.",
+			"G45=PASS or G45 controller ready",
+		)
+	if "nonblack" not in evidence.lower():
+		return (
+			"The runtime reaches input but visual output is not confirmed; the selected source should affect the first visible frame.",
+			"nonblack sampled or world render ready",
+		)
+	return (
+		f"The latest `{failure_class}` evidence is a regression in the selected source path ({context[0] if context else 'no source target'}).",
+		"the same or a later readiness marker with no new guest error",
+	)
+
+
 def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, object]) -> WorkItem | None:
 	failure_class = str(recent.get("result") or "").strip() or "runtime_probe"
 	recipe = DISCOVERY_RECIPES.get(failure_class)
@@ -500,6 +522,7 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		"If the loaded editable file list above is not empty, choose from that list and do not claim that no editable files were provided.\n\n"
 	)
 	objective_guidance = ""
+	hypothesis, expected_marker = experiment_contract(failure_class, evidence_body, context)
 	if failure_class in AUTOMATION_FAILURES:
 		evidence_heading = "Automation evidence"
 		evidence_body = (
@@ -533,6 +556,11 @@ Reason: {reason}
 Intent: {intent}
 Observation: {observation}
 
+Experiment contract:
+- Hypothesis: {hypothesis}
+- Expected evidence: {expected_marker}
+- Validation: run the existing Dolphin probe and compare the readiness markers before and after this patch.
+
 {evidence_heading}:
 {evidence_body}
 
@@ -564,6 +592,7 @@ Output rules:
 			"Reasoning source:",
 			f"- Latest autonomous observation: {observation[:240]}",
 			f"- Latest autonomous intent: {intent[:240]}",
+			f"- Experiment expected marker: {expected_marker}",
 			"",
 			"This commit came from the auto-discovery supervisor path rather than a fixed ledger step.",
 		)),

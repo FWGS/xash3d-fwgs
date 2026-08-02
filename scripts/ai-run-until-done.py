@@ -43,6 +43,15 @@ RUNTIME_DISCOVERY_RESULTS = {
 	"asset_lookup",
 }
 HEARTBEAT_PATH = Path(".ai/state/autoport-heartbeat.json")
+EXPERIMENT_STATE_PATH = Path(".ai/state/experiment-latest.json")
+PROGRESS_MARKERS = (
+	("bootstrap", "bootstrap"),
+	("engine_ready", "engine subsystems ready"),
+	("map_loaded", "map loaded"),
+	("input_active", "input polling active"),
+	("controller_ready", "G45=PASS"),
+	("visual_ready", "nonblack"),
+)
 
 
 def stuck_discovery_threshold() -> int:
@@ -256,6 +265,24 @@ def clear_discovery_feedback(root: Path) -> None:
 	(root / DISCOVERY_STATE_PATH).unlink(missing_ok=True)
 
 
+def experiment_progress(text: str) -> dict[str, object]:
+	lower = text.lower()
+	completed = [name for name, marker in PROGRESS_MARKERS if marker in lower]
+	return {"score": len(completed), "markers": completed}
+
+
+def write_experiment_result(root: Path, item: dict[str, object], before: str, after: str) -> None:
+	payload = {
+		"item_id": item.get("item_id"),
+		"timestamp": datetime.now(timezone.utc).isoformat(),
+		"before": experiment_progress(before),
+		"after": experiment_progress(after),
+	}
+	path = root / EXPERIMENT_STATE_PATH
+	path.parent.mkdir(parents=True, exist_ok=True)
+	path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def is_runtime_discovery_item(item: dict[str, object]) -> bool:
 	if item.get("kind") != "discovery":
 		return False
@@ -329,6 +356,7 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		return 1
 	context = [str(path) for path in item.get("context", []) if isinstance(path, str)]
 	read_context = [f"read:{path}" for path in item.get("read_context", []) if isinstance(path, str)]
+	before_probe = read_text(root / HARNESS_STATE_PATH)
 	if is_runtime_discovery_item(item) and context:
 		task += (
 			"\nRuntime child-process constraint:\n"
@@ -384,6 +412,8 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		if is_runtime_discovery_item(item):
 			probe_status = refresh_runtime_probe(root, env)
 			gate_status = runtime_regression_gate(root, env)
+			after_probe = read_text(root / HARNESS_STATE_PATH)
+			write_experiment_result(root, item, before_probe, after_probe)
 			if probe_status != 0 or gate_status != 0:
 				record_discovery_feedback(
 					root,
