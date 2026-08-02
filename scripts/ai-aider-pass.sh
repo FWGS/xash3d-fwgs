@@ -793,6 +793,45 @@ patch_safety_guard() {
 	fi
 }
 
+semantic_patch_guard() {
+	local diff required path token
+	diff="$(git diff --cached --unified=0)"
+	if grep -Fq 'Q_strncpy( mod->name, mod->name' <<<"$diff"; then
+		echo "ai-aider-pass: rejecting no-op model-name copy" >&2
+		return 24
+	fi
+	if [[ -n "${AI_REQUIRED_EDIT_PATHS:-}" ]]; then
+		local matched=0
+		local required_paths=()
+		IFS=: read -r -a required_paths <<< "${AI_REQUIRED_EDIT_PATHS}"
+		for path in "${required_paths[@]}"; do
+			[[ -n "$path" ]] || continue
+			if git diff --cached --name-only | grep -Fxq "$path"; then
+				matched=1
+				break
+			fi
+		done
+		if (( ! matched )); then
+			echo "ai-aider-pass: evidence requires an edit in: ${AI_REQUIRED_EDIT_PATHS}" >&2
+			return 24
+		fi
+	fi
+	if [[ -n "${AI_DISCOVERY_EVIDENCE_TOKENS:-}" ]]; then
+		local token_match=0
+		while IFS= read -r token; do
+			[[ -n "$token" ]] || continue
+			if grep -Fqi -- "$token" <<<"$diff"; then
+				token_match=1
+				break
+			fi
+		done < <(tr ',' '\n' <<< "${AI_DISCOVERY_EVIDENCE_TOKENS}")
+		if (( ! token_match )); then
+			echo "ai-aider-pass: patch does not reference runtime evidence: ${AI_DISCOVERY_EVIDENCE_TOKENS}" >&2
+			return 24
+		fi
+	fi
+}
+
 stage_and_validate_patch() {
 	cleanup_stale_git_lock
 	git add -A
@@ -813,6 +852,9 @@ stage_and_validate_patch() {
 	fi
 	if ! patch_safety_guard; then
 		return 23
+	fi
+	if ! semantic_patch_guard; then
+		return 24
 	fi
 }
 

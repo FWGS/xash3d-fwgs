@@ -31,8 +31,9 @@ DISCOVERY_RETRY_RESULTS = {
 	19: "no_edit",
 	20: "runtime_probe",
 	21: "runtime_probe",
+	24: "runtime_probe",
 }
-DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 19, 20, 21}
+DISCOVERY_FAST_RETRY_STATUSES = {1, 10, 15, 16, 18, 20, 21, 24}
 AUTOMATION_DISCOVERY_RESULTS = {"no_edit", "model_budget", "review_reject"}
 STUCK_DISCOVERY_RESULTS = {"no_edit", "model_budget"}
 RUNTIME_DISCOVERY_RESULTS = {
@@ -307,7 +308,8 @@ def experiment_progress(text: str) -> dict[str, object]:
 
 
 def write_experiment_result(root: Path, item: dict[str, object], before: str, after: str,
-	decision: str = "pending", reason: str = "") -> None:
+	decision: str = "pending", reason: str = "", baseline: str = "",
+	candidate: str = "") -> None:
 	payload = {
 		"item_id": item.get("item_id"),
 		"timestamp": datetime.now(timezone.utc).isoformat(),
@@ -315,6 +317,8 @@ def write_experiment_result(root: Path, item: dict[str, object], before: str, af
 		"after": experiment_progress(after),
 		"decision": decision,
 		"reason": reason,
+		"baseline_commit": baseline,
+		"candidate_commit": candidate,
 	}
 	path = root / EXPERIMENT_STATE_PATH
 	path.parent.mkdir(parents=True, exist_ok=True)
@@ -438,6 +442,9 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 		env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
 		env.setdefault("AI_REVIEW_ALLOW_SOURCE_ONLY_DISCOVERY", "1")
 		if is_runtime_discovery_item(item):
+			if "delta.lst" in task.lower():
+				env["AI_REQUIRED_EDIT_PATHS"] = "engine/server/sv_init.c:engine/common/delta.c"
+				env["AI_DISCOVERY_EVIDENCE_TOKENS"] = "Delta_InitFields,delta.lst"
 			env.setdefault("AI_FORBIDDEN_EDIT_PATHS", "engine/platform/gamecube/sys_gamecube.c,re_agent,mathweb,main.py,hello.py")
 			env.setdefault("AIDER_PRESERVE_CONTEXT_ORDER", "1")
 			env.setdefault("AIDER_CONFIG_PROMPT_SLACK_TOKENS", "1024")
@@ -454,6 +461,7 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 				18: "Keep the next pass runtime-focused with reduced context pressure.",
 				19: "Restore at least one editable file to the discovery pass before retrying.",
 				21: "Discard the forbidden startup-file edit and retry on the loaded runtime file.",
+				24: "Align the patch with the runtime error path and retry the bounded source pass.",
 			}.get(status, "Inspect the failed discovery pass before retrying.")
 			observation = f"Discovery pass `{item.get('item_id')}` exited {status} before an accepted patch."
 			record_discovery_feedback(root, item, status, result, intent, observation)
@@ -473,13 +481,15 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 			probe_status = refresh_runtime_probe(root, env)
 			gate_status = runtime_regression_gate(root, env)
 			after_probe = read_text(root / HARNESS_STATE_PATH)
+			candidate = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
+				text=True, capture_output=True, check=False).stdout.strip()
 			before_score = int(experiment_progress(before_probe)["score"])
 			after_score = int(experiment_progress(after_probe)["score"])
 			if os.environ.get("AI_STRICT_RUNTIME_PROGRESS", "1").lower() not in {"0", "false", "no"} and after_score <= before_score:
 				reason = f"readiness score did not advance ({before_score} -> {after_score})"
 				if not baseline or not discard_to_baseline(root, baseline):
 					write_experiment_result(root, item, before_probe, after_probe,
-						"discard_restore_failed", reason)
+						"discard_restore_failed", reason, baseline, candidate)
 					record_discovery_feedback(
 						root, item, 21, "runtime_probe",
 						"Stop automation and inspect the failed baseline restore before retrying.",
@@ -487,14 +497,14 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 					)
 					return 21
 				write_experiment_result(root, item, before_probe, after_probe,
-					"discard_no_runtime_progress", reason)
+					"discard_no_runtime_progress", reason, baseline, candidate)
 				record_discovery_feedback(
 					root, item, 20, "runtime_probe",
 					"Discarded the patch because the readiness score did not advance.",
 					f"Runtime experiment made no progress ({before_score} -> {after_score}); patch reverted.")
 				return 20
 			write_experiment_result(root, item, before_probe, after_probe, "keep",
-				f"readiness score advanced ({before_score} -> {after_score})")
+				f"readiness score advanced ({before_score} -> {after_score})", baseline, candidate)
 			if probe_status != 0 or gate_status != 0:
 				record_discovery_feedback(
 					root,

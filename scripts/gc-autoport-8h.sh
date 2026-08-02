@@ -29,6 +29,20 @@ LOGFILE="${GC_AUTOPORT_LOG:-$LOG_DIR/overnight-autoport-$(date +%Y%m%d-%H%M%S).l
 HEARTBEAT="$ROOT/.ai/state/autoport-heartbeat.json"
 WATCHDOG_PID_FILE="$ROOT/.ai/state/autoport-watchdog.pid"
 RUNNER_PID_FILE="$ROOT/.ai/state/autoport-runner.pid"
+WATCHDOG_LOCK_DIR="/tmp/xash3d-gc-autoport-watchdog.lock"
+
+if ! mkdir "$WATCHDOG_LOCK_DIR" 2>/dev/null; then
+	owner="$(cat "$WATCHDOG_LOCK_DIR/pid" 2>/dev/null || true)"
+	if [[ -n "$owner" ]] && kill -0 "$owner" 2>/dev/null; then
+		echo "ERROR: another GameCube watchdog is already running (pid=$owner)" >&2
+		exit 76
+	fi
+	rm -rf -- "$WATCHDOG_LOCK_DIR"
+	mkdir "$WATCHDOG_LOCK_DIR"
+fi
+echo "$$" >"$WATCHDOG_LOCK_DIR/pid"
+cleanup_watchdog_lock() { rm -rf -- "$WATCHDOG_LOCK_DIR"; }
+trap cleanup_watchdog_lock EXIT INT TERM
 
 export OPENAI_API_KEY="${OPENAI_API_KEY:-local}"
 export OPENAI_API_BASE="${OPENAI_API_BASE:-http://127.0.0.1:8001/v1}"

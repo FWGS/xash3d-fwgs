@@ -481,14 +481,16 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		return None
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
 	evidence_hint = str(recent.get("observation") or "").lower()
+	evidence_specific_context = False
 	if "delta.lst" in evidence_hint:
-		context = existing_paths(root, ("engine/server/sv_init.c",))
+		context = existing_paths(root, ("engine/server/sv_init.c", "engine/common/delta.c"))
+		evidence_specific_context = True
 	elif "bsp" in evidence_hint and failure_class == "runtime_probe":
 		context = existing_paths(root, ("engine/common/filesystem_engine.c", "engine/common/model.c"))
 	quarantine = quarantined_paths(root)
 	if quarantine:
 		context = [path for path in context if path not in quarantine]
-	if failure_class == "runtime_probe":
+	if failure_class == "runtime_probe" and not evidence_specific_context:
 		focused = incident_focus_paths(root)
 		if focused:
 			context = focused
