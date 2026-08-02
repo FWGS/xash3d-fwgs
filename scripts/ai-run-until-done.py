@@ -476,16 +476,18 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 			before_score = int(experiment_progress(before_probe)["score"])
 			after_score = int(experiment_progress(after_probe)["score"])
 			if os.environ.get("AI_STRICT_RUNTIME_PROGRESS", "1").lower() not in {"0", "false", "no"} and after_score <= before_score:
-				write_experiment_result(root, item, before_probe, after_probe,
-					"discard_no_runtime_progress",
-					f"readiness score did not advance ({before_score} -> {after_score})")
+				reason = f"readiness score did not advance ({before_score} -> {after_score})"
 				if not baseline or not discard_to_baseline(root, baseline):
+					write_experiment_result(root, item, before_probe, after_probe,
+						"discard_restore_failed", reason)
 					record_discovery_feedback(
 						root, item, 21, "runtime_probe",
 						"Stop automation and inspect the failed baseline restore before retrying.",
 						"Runtime progress was absent, but the generated patch could not be safely discarded.",
 					)
 					return 21
+				write_experiment_result(root, item, before_probe, after_probe,
+					"discard_no_runtime_progress", reason)
 				record_discovery_feedback(
 					root, item, 20, "runtime_probe",
 					"Discarded the patch because the readiness score did not advance.",
