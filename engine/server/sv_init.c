@@ -1130,11 +1130,9 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		}
 	}
 #else
-	{
-		Con_Reportf( "Xash3D GameCube: G201 delta reinit begin\n" );
-		Delta_Init(); // re-initialize delta
-		Con_Reportf( "Xash3D GameCube: G201 delta reinit ready\n" );
-	}
+	// delta.lst is required on non-GameCube platforms
+	Delta_Init(); // re-initialize delta
+	Con_Reportf( "Xash3D GameCube: G201 delta reinit ready\n" );
 #endif
 
 	// unlock sv_cheats in local game
