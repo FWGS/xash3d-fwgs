@@ -468,6 +468,36 @@ void Mod_GCTryDeferredStudios( void )
 
 /*
 =============
+Mod_GCLoadStartupStudios
+
+Load minimal studios needed for initial map (e.g., player viewweapon).
+Runs before map load to avoid late allocation stalls.
+=============
+*/
+void Mod_GCLoadStartupStudios( void )
+{
+	static const char *promote[] = {
+		"models/v_crowbar.mdl",
+		"models/v_9mmhandgun.mdl",
+		NULL
+	};
+	int i;
+
+	if( !Sys_CheckParm( "-gcnewgame" ) && !GC_IsNewGameWorldReady() )
+		return;
+
+	FS_ClearFindMissCache();
+	Image_GCPurgeDecodeScratch();
+
+	for( i = 0; promote[i]; i++ )
+		Mod_GCPromoteStudioPath( promote[i] );
+
+	Con_Reportf( "Xash3D GameCube: startup studios loaded npc=%d view=%d budget=%s\n",
+		gc_real_studio_npc, gc_real_studio_view, Q_memprint( gc_real_studio_bytes ));
+}
+
+/*
+=============
 Mod_GCLoadNewGameStudios
 
 Prepare-time attempt (often tip-starved). Prefer Mod_GCTryDeferredStudios after
