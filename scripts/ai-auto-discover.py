@@ -329,11 +329,27 @@ def recent_harness_failure(root: Path) -> dict[str, object] | None:
 		"audio_runtime": "audio_runtime",
 	}
 	result = failure_map.get(status, "runtime_probe")
+	observation = text.replace("\n", " ")
+	log_match = re.search(r"(?m)^- Logs:\s*(\S+)", text)
+	if log_match:
+		probe_log = root / log_match.group(1)
+		stderr = probe_log / "stderr.log"
+		if stderr.is_file():
+			lines = stderr.read_text(encoding="utf-8", errors="replace").splitlines()
+			evidence = [
+				line for line in lines
+				if any(token in line for token in (
+					"fatal message=", "Error:", "G201", "model file failed",
+					"direct map", "map loaded",
+				))
+			]
+			if evidence:
+				observation += " Probe evidence: " + " | ".join(evidence[-12:])
 	return {
 		"result": result,
 		"intent": "Use the latest bounded Dolphin evidence to restore the runtime route.",
 		"observation": sanitize_for_prompt(
-			text.replace("\n", " "), limit=320
+			observation, limit=900
 		),
 		"phase": "dolphin-probe",
 	}
@@ -388,7 +404,15 @@ def incident_focus_paths(root: Path) -> list[str]:
 	focus = payload.get("focus_files")
 	if not isinstance(focus, list):
 		return []
-	return [str(item) for item in focus if isinstance(item, str) and (root / item).is_file()]
+	paths = [str(item) for item in focus if isinstance(item, str) and (root / item).is_file()]
+	preferred = (
+		"engine/common/model.c",
+		"engine/server/sv_init.c",
+		"filesystem/filesystem.c",
+		"engine/platform/gamecube/dll_gamecube.c",
+		"engine/platform/gamecube/sys_gamecube.c",
+	)
+	return sorted(paths, key=lambda item: preferred.index(item) if item in preferred else len(preferred))
 
 
 def sort_paths_by_size(root: Path, paths: list[str]) -> list[str]:
@@ -429,7 +453,7 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	goal_label = f"{goal.goal_id} {goal.title}" if goal is not None else "the final GameCube port objective"
 	observation = sanitize_for_prompt(
 		str(recent.get("observation") or "").strip() or "No captured observation.",
-		limit=280,
+		limit=900 if failure_class == "runtime_probe" else 280,
 	)
 	intent = sanitize_for_prompt(
 		str(recent.get("intent") or "").strip() or "Use the freshest runtime evidence.",
