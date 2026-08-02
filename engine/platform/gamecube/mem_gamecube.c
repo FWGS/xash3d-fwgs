@@ -350,3 +350,4 @@ qboolean GC_MapLoadMemoryOpt( void )
 		|| ( Sys_CheckParm( "-gcnewgame" ) != 0 && gc_newgame_bootstrap_memopt );
 }
 #endif
+
