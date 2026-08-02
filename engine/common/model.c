@@ -323,6 +323,11 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 			Mod_GCPinViewModel( mod );
 		return true;
 	}
+	else if( Mod_GCIsPinnedViewModel( mod ))
+	{
+		/* Already pinned - nothing to do */
+		return true;
+	}
 
 	buf = Mod_GCLoadStudioFile( path, &length, &from_bss );
 	if( !buf || length < (fs_offset_t)sizeof( studiohdr_t ))
