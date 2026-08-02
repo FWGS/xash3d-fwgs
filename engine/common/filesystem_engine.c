@@ -136,6 +136,12 @@ static void FS_LoadVFSConfig( const char *gamedir )
 	}
 #endif
 
+	if( !FS_FileExists( "vfs.cfg", true ))
+	{
+		Con_Reportf( "%s: vfs.cfg not found, skipping\n", __func__ );
+		return;
+	}
+
 	Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
 	Cbuf_Execute();
 
