@@ -111,7 +111,12 @@ if python3 - <<'PY'
 from pathlib import Path
 text = Path("engine/platform/gamecube/sys_gamecube.c").read_text(encoding="utf-8")
 start = text.index("double Platform_DoubleTime")
-end = text.index("void *Platform_GetNativeObject", start)
+end_marker = "void *Platform_GetNativeObject"
+if end_marker in text[start:]:
+	end = text.index(end_marker, start)
+else:
+	# The GameCube backend may omit the optional native-object hook.
+	end = text.index("void Platform_MouseMove", start)
 body = text[start:end]
 raise SystemExit(0 if "/ clock" in body and "PPC_TIMER_CLOCK" in body else 1)
 PY

@@ -441,6 +441,12 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		focused = incident_focus_paths(root)
 		if focused:
 			context = focused
+	# Keep generated/monolithic backends out of the bounded local-model edit
+	# context; otherwise discovery can only produce a guaranteed no-edit retry.
+	bounded_context = [path for path in context
+		if (root / path).stat().st_size <= 60000]
+	if bounded_context:
+		context = bounded_context
 	if failure_class in {"runtime_probe", "no_edit", "review_reject"} and context:
 		engine_or_ref = [path for path in context if path.startswith(("engine/", "ref/"))]
 		# Keep recipe order (source-first targets first). Sorting by size always
