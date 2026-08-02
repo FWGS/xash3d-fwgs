@@ -630,6 +630,8 @@ static void Mod_FreeLoadBuffer( void *buf )
 
 void Mod_ReleaseBrushSourceBuffer( void *buf )
 {
+	if( !buf )
+		return;
 	Mod_FreeLoadBuffer( buf );
 	GC_DiscardMapLoadBuffer();
 }
