@@ -254,6 +254,8 @@ static byte *Mod_GCLoadStudioFile( const char *model_path, fs_offset_t *length, 
 				/* Bump already advanced — leave hole (rare short read). */
 				Con_Reportf( "Xash3D GameCube: G289 studio BSS short '%s' read=%li want=%li\n",
 					mirror, (long)total, (long)flen );
+				/* Rewind bump to avoid corrupting BSS arena. */
+				gc_studio_bss_bump = ( gc_studio_bss_bump + 31u ) & ~31u;
 			}
 			else
 			{
