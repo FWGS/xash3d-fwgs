@@ -45,6 +45,7 @@ RUNTIME_DISCOVERY_RESULTS = {
 }
 HEARTBEAT_PATH = Path(".ai/state/autoport-heartbeat.json")
 EXPERIMENT_STATE_PATH = Path(".ai/state/experiment-latest.json")
+HYPOTHESIS_STATE_PATH = Path(".ai/state/discovery-hypotheses.json")
 LIVE_CONFIG_PATH = Path(".ai/config/automation-live.json")
 PROGRESS_MARKERS = (
 	("bootstrap", "bootstrap"),
@@ -323,6 +324,27 @@ def write_experiment_result(root: Path, item: dict[str, object], before: str, af
 	path = root / EXPERIMENT_STATE_PATH
 	path.parent.mkdir(parents=True, exist_ok=True)
 	path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+	if decision.startswith("discard"):
+		hypothesis_path = root / HYPOTHESIS_STATE_PATH
+		hypotheses: list[dict[str, object]] = []
+		try:
+			loaded = json.loads(hypothesis_path.read_text(encoding="utf-8"))
+			if isinstance(loaded, list):
+				hypotheses = [entry for entry in loaded if isinstance(entry, dict)]
+		except (OSError, json.JSONDecodeError):
+			pass
+		hypotheses.append({
+			"key": item.get("hypothesis_key"),
+			"item_id": item.get("item_id"),
+			"failure_class": item.get("failure_class"),
+			"decision": decision,
+			"reason": reason,
+			"candidate_commit": candidate,
+			"timestamp": payload["timestamp"],
+		})
+		hypothesis_path.parent.mkdir(parents=True, exist_ok=True)
+		hypothesis_path.write_text(json.dumps(hypotheses[-200:], indent=2) + "\n",
+			encoding="utf-8")
 
 
 def discard_to_baseline(root: Path, baseline: str) -> bool:

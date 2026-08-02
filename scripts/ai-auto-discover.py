@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -22,6 +23,7 @@ COMMON_READ_CONTEXT = (
 	".ai/prompts/GAMECUBE_HOMEBREW_COMPLIANCE.md",
 )
 DISCOVERY_STATE_PATH = Path(".ai/state/discovery-supervisor.json")
+HYPOTHESIS_STATE_PATH = Path(".ai/state/discovery-hypotheses.json")
 AUTOMATION_FAILURES = {"no_edit", "model_budget", "review_reject"}
 RUNTIME_DIRTY_RE = re.compile(r"^(engine/|ref/|common/|filesystem/|public/|stub/)")
 
@@ -180,6 +182,7 @@ class WorkItem:
 	commit_body: str
 	source_goal_id: str | None = None
 	failure_class: str | None = None
+	hypothesis_key: str | None = None
 
 
 def parse_goals(path: Path) -> list[Goal]:
@@ -224,6 +227,30 @@ def load_discovery_state(root: Path) -> dict[str, object] | None:
 	except (OSError, json.JSONDecodeError):
 		return None
 	return data if isinstance(data, dict) else None
+
+
+def load_hypotheses(root: Path) -> list[dict[str, object]]:
+	path = root / HYPOTHESIS_STATE_PATH
+	if not path.is_file():
+		return []
+	try:
+		data = json.loads(path.read_text(encoding="utf-8"))
+	except (OSError, json.JSONDecodeError):
+		return []
+	return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+
+
+def hypothesis_key(failure_class: str, context: list[str], hypothesis: str,
+		expected_marker: str) -> str:
+	value = "|".join((failure_class, ",".join(context), hypothesis, expected_marker))
+	return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+
+def hypothesis_rejected(root: Path, key: str) -> bool:
+	return sum(1 for item in load_hypotheses(root)
+		if item.get("key") == key and item.get("decision") in {
+			"discard_no_runtime_progress", "discard_runtime_regression", "semantic_reject"
+		}) >= 2
 
 
 def quarantined_paths(root: Path) -> set[str]:
@@ -361,6 +388,23 @@ def recent_harness_failure(root: Path) -> dict[str, object] | None:
 			]
 			if evidence:
 				observation += " Probe evidence: " + " | ".join(evidence[-12:])
+	combined_lower = observation.lower()
+	if any(token in combined_lower for token in (
+		"out of memory", "mem1", "memory pressure", "memory failure", "malloc failed",
+		"allocation failed", "hwm=",
+	)):
+		result = "memory_pressure"
+		focus_paths = [
+			"engine/platform/gamecube/mem_gamecube.c",
+			"engine/common/zone.c",
+			"engine/common/mod_studio.c",
+			"engine/client/sound/s_load.c",
+		]
+	elif "delta_initfields" in combined_lower or "delta.lst" in combined_lower:
+		result = "runtime_probe"
+		focus_paths = ["engine/server/sv_init.c", "engine/common/delta.c"]
+	else:
+		focus_paths = []
 	return {
 		"result": result,
 		"intent": "Use the latest bounded Dolphin evidence to restore the runtime route.",
@@ -368,6 +412,7 @@ def recent_harness_failure(root: Path) -> dict[str, object] | None:
 			observation, limit=900
 		),
 		"phase": "dolphin-probe",
+		"focus_paths": focus_paths,
 	}
 
 
@@ -482,6 +527,11 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
 	evidence_hint = str(recent.get("observation") or "").lower()
 	evidence_specific_context = False
+	causal_paths = [str(path) for path in recent.get("focus_paths", [])
+		if isinstance(path, str)]
+	if causal_paths:
+		context = existing_paths(root, tuple(causal_paths))
+		evidence_specific_context = True
 	if "delta.lst" in evidence_hint:
 		context = existing_paths(root, ("engine/server/sv_init.c", "engine/common/delta.c"))
 		evidence_specific_context = True
@@ -535,6 +585,9 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	)
 	objective_guidance = ""
 	hypothesis, expected_marker = experiment_contract(failure_class, evidence_body, context)
+	key = hypothesis_key(failure_class, context, hypothesis, expected_marker)
+	if hypothesis_rejected(root, key):
+		return None
 	if failure_class in AUTOMATION_FAILURES:
 		evidence_heading = "Automation evidence"
 		evidence_body = (
@@ -610,6 +663,7 @@ Output rules:
 		)),
 		source_goal_id=goal.goal_id if goal is not None else None,
 		failure_class=failure_class,
+		hypothesis_key=key,
 	)
 
 

@@ -10,6 +10,10 @@ from pathlib import Path
 
 
 DEFAULT_STATE = Path(".ai/state/dolphin-harness-latest.md")
+MEMORY_TELEMETRY_RE = re.compile(r"Xash3D GameCube: mem stage=.*hwm=", re.IGNORECASE)
+PERF_TELEMETRY_RE = re.compile(r"Xash3D GameCube: perf stage=.*hwm=", re.IGNORECASE)
+OOM_RE = re.compile(r"out of memory|malloc failed|allocation failed|MEM1 exhaustion",
+	re.IGNORECASE)
 
 
 def read_text(path: Path) -> str:
@@ -58,6 +62,8 @@ def main() -> int:
 		read_text(log_dir / "stderr.log"),
 	])
 	combined = state + "\n" + log_text
+	memory_samples = len(MEMORY_TELEMETRY_RE.findall(log_text))
+	perf_samples = len(PERF_TELEMETRY_RE.findall(log_text))
 
 	failures: list[str] = []
 	require("state status is map_ready", "- Status: map_ready" in state, failures)
@@ -72,15 +78,19 @@ def main() -> int:
 	require("direct map reached ready marker", "Xash3D GameCube: direct map ready" in log_text, failures)
 	require("frame timing samples captured", "no frame timing samples captured" not in state and
 		re.search(r"frame time=([\d.]+)ms", log_text) is not None, failures)
+	require("memory telemetry captured", memory_samples > 0, failures)
+	require("no runtime allocation failure", not OOM_RE.search(log_text), failures)
 
 	if failures:
 		print("runtime gate: FAIL", file=sys.stderr)
 		print(f"runtime gate: logs={log_dir.relative_to(root) if log_dir.is_relative_to(root) else log_dir}", file=sys.stderr)
 		for failure in failures:
 			print(f"- missing: {failure}", file=sys.stderr)
+		print(f"- telemetry: memory_samples={memory_samples} perf_samples={perf_samples}", file=sys.stderr)
 		return 1
 
 	print("runtime gate: OK")
+	print(f"runtime telemetry: memory_samples={memory_samples} perf_samples={perf_samples}")
 	print(f"runtime gate: logs={log_dir.relative_to(root) if log_dir.is_relative_to(root) else log_dir}")
 	return 0
 

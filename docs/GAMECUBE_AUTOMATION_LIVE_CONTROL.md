@@ -42,3 +42,10 @@ initialization instead of a generic model or renderer file. The patch gate
 rejects unrelated targets and obvious no-op fallback edits before they can be
 committed. The outer watchdog uses an atomic process lock so a second
 watchdog cannot launch a competing runner for the same repository.
+
+Discovery stores rejected experiment keys in
+`.ai/state/discovery-hypotheses.json`; after two failed attempts at the same
+hypothesis, that experiment is quarantined and discovery moves to another
+route. Successful runtime acceptance also requires memory telemetry and no
+allocation-failure marker, in addition to map, input, visual, and frame-timing
+evidence.
