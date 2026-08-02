@@ -35,3 +35,10 @@ With `AI_STRICT_RUNTIME_PROGRESS` enabled, a runtime patch is retained only
 when the post-probe readiness score advances. Otherwise the supervisor
 restores the pre-pass commit and records a discard decision in
 `.ai/state/experiment-latest.json`.
+
+Runtime discovery also binds specific evidence to its owning source area. For
+example, a `delta.lst`/`Delta_InitFields` failure is routed to server delta
+initialization instead of a generic model or renderer file. The patch gate
+rejects unrelated targets and obvious no-op fallback edits before they can be
+committed. The outer watchdog uses an atomic process lock so a second
+watchdog cannot launch a competing runner for the same repository.
