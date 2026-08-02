@@ -625,7 +625,7 @@ static void Mod_FreeLoadBuffer( void *buf )
 		Mod_GCClearRetainedBspScratch();
 		return;
 	}
-	Mem_Free( buf );
+	free( buf );
 }
 
 void Mod_ReleaseBrushSourceBuffer( void *buf )
