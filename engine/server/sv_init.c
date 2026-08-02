@@ -1110,18 +1110,32 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 #if XASH_GAMECUBE
 	/* G201: spawn-time Delta_Init re-parses delta.lst; under tight MEM1 that
 	 * second FS_LoadFile can stall forever after a layout shift. Progs already
-	 * initialized delta — skip reinit on New Game (also -gcnodeltareinit). */
+	 * initialized delta — skip reinit on New Game (also -gcnodeltareinit).
+	 * Also skip if delta.lst is missing — local maps don't require deltas. */
 	if( Sys_CheckParm( "-gcnodeltareinit" ) || Sys_CheckParm( "-gcnewgame" ))
 	{
 		Con_Reportf( "Xash3D GameCube: G201 delta reinit skipped (newgame)\n" );
 	}
 	else
-#endif
+	{
+		Con_Reportf( "Xash3D GameCube: G201 delta reinit begin\n" );
+		if( FS_FileExists( "delta.lst", false ) || FS_FileExists( "valve/delta.lst", false ))
+		{
+			Delta_Init(); // re-initialize delta
+			Con_Reportf( "Xash3D GameCube: G201 delta reinit ready\n" );
+		}
+		else
+		{
+			Con_Reportf( S_WARN "Xash3D GameCube: G201 delta reinit skipped (delta.lst not found)\n" );
+		}
+	}
+#else
 	{
 		Con_Reportf( "Xash3D GameCube: G201 delta reinit begin\n" );
 		Delta_Init(); // re-initialize delta
 		Con_Reportf( "Xash3D GameCube: G201 delta reinit ready\n" );
 	}
+#endif
 
 	// unlock sv_cheats in local game
 	ClearBits( sv_cheats.flags, FCVAR_READ_ONLY );
