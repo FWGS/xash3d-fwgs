@@ -490,13 +490,10 @@ void Mod_GCLoadNewGameStudios( void )
 
 static qboolean Mod_GCMapVerboseModelLoad( const char *name )
 {
-	if( !GC_MapLoadMemoryOpt())
-		return false;
 	if( !name )
 		return false;
 
-	/* High-traffic campaign chapters precache hundreds of weapon/item stubs.
-	 * Keep OSReport readable and avoid probe slowdowns by logging only the
+	/* Keep OSReport readable and avoid probe slowdowns by logging only the
 	 * world BSP and unusual failure paths, not every successful stub load. */
 	if( !Q_strnicmp( name, "maps/", 5 ))
 		return true;
