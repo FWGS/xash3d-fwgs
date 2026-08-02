@@ -135,7 +135,7 @@ start_runner() {
 	# The timeout wrapper can disappear while its Python child remains orphaned.
 	# Never launch a second runner for this repository in that case.
 	local existing_runner
-	existing_runner="$(pgrep -af "python3 scripts/ai-run-until-done.py --repo $ROOT" | awk -v self="$$" '$1 != self {print; exit}')"
+	existing_runner="$(ps -eo pid=,args= | awk -v root="$ROOT" -v self="$$" '$1 != self && $0 ~ "^[[:space:]]*[0-9]+[[:space:]]+python3 scripts/ai-run-until-done.py --repo " root {print; exit}')"
 	if [[ -n "$existing_runner" ]]; then
 		echo "$(date -Is) existing goal runner detected; refusing duplicate start: $existing_runner" | tee -a "$LOGFILE"
 		return 0
