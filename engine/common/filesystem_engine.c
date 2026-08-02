@@ -99,7 +99,12 @@ static uint32_t FS_MountFlags( void )
 #endif
 	if( fs_mount_lv.value ) SetBits( flags, FS_MOUNT_LV );
 	if( fs_mount_hd.value ) SetBits( flags, FS_MOUNT_HD );
+	// Always mount addon on GameCube to ensure delta.lst is available
+#if !XASH_GAMECUBE
 	if( fs_mount_addon.value ) SetBits( flags, FS_MOUNT_ADDON );
+#else
+	SetBits( flags, FS_MOUNT_ADDON );
+#endif
 	if( fs_mount_l10n.value ) SetBits( flags, FS_MOUNT_L10N );
 
 	return flags;
