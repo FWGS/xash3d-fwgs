@@ -448,6 +448,13 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 		and path != "engine/platform/gamecube/mem_gamecube.c"]
 	if bounded_context:
 		context = bounded_context
+	else:
+		context = existing_paths(root, (
+			"engine/common/model.c",
+			"engine/server/sv_init.c",
+			"engine/platform/gamecube/dll_gamecube.c",
+			"engine/platform/gamecube/sys_gamecube.c",
+		))
 	if failure_class in {"runtime_probe", "no_edit", "review_reject"} and context:
 		engine_or_ref = [path for path in context if path.startswith(("engine/", "ref/"))]
 		# Keep recipe order (source-first targets first). Sorting by size always
