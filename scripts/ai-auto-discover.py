@@ -445,6 +445,11 @@ def runtime_port_status(root: Path) -> str:
 
 
 def experiment_contract(failure_class: str, evidence: str, context: list[str]) -> tuple[str, str]:
+	if "delta.lst" in evidence.lower():
+		return (
+			"Delta field initialization fails before the map can start; the selected server initialization path should restore the required delta table lookup.",
+			"Xash3D GameCube: map loaded or no Delta_InitFields failure",
+		)
 	if "map loaded" not in evidence.lower():
 		return (
 			"The first unresolved boundary is map startup; the selected source can affect the current map/runtime failure.",
@@ -475,6 +480,11 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	if recipe is None:
 		return None
 	context = existing_paths(root, tuple(str(path) for path in recipe["context"]))
+	evidence_hint = str(recent.get("observation") or "").lower()
+	if "delta.lst" in evidence_hint:
+		context = existing_paths(root, ("engine/server/sv_init.c",))
+	elif "bsp" in evidence_hint and failure_class == "runtime_probe":
+		context = existing_paths(root, ("engine/common/filesystem_engine.c", "engine/common/model.c"))
 	quarantine = quarantined_paths(root)
 	if quarantine:
 		context = [path for path in context if path not in quarantine]
