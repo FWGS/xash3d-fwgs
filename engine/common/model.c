@@ -369,6 +369,13 @@ static qboolean Mod_GCPromoteStudioPath( const char *path )
 		return true;
 	}
 
+	/* G287/G289: ensure we have a valid cache buffer before proceeding */
+	if( !buf )
+	{
+		Con_Reportf( "Xash3D GameCube: deferred studio skip '%s' null buffer\n", path );
+		return false;
+	}
+
 	mod->cache.data = NULL;
 	mod->mempool = 0;
 	mod->needload = NL_PRESENT;
