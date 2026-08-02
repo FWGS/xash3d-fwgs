@@ -116,7 +116,20 @@ drop_ephemeral_discovery_state() {
 dirty_status_without_ephemeral_state() {
 	drop_ephemeral_discovery_state
 	cleanup_forbidden_dirty_paths
-	git status --porcelain
+	local status path excluded
+	while IFS= read -r status; do
+		[[ -n "$status" ]] || continue
+		path="${status:3}"
+		excluded=0
+		IFS=':' read -r -a _excluded_paths <<< "${AI_DIRTY_COMMIT_EXCLUDE:-}"
+		for excluded_path in "${_excluded_paths[@]}"; do
+			if [[ "$path" == "$excluded_path" ]]; then
+				excluded=1
+				break
+			fi
+		done
+		(( excluded )) || echo "$status"
+	done < <(git status --porcelain)
 }
 
 if gamecube_gui_wip_dirty && [[ "${AI_SKIP_DIRTY_CHECKPOINT:-0}" != "1" ]]; then
