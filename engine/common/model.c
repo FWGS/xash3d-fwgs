@@ -908,15 +908,9 @@ static model_t *Mod_LoadModel( model_t *mod, qboolean crash )
 	{
 		const char *ext = COM_FileExtension( tempname );
 
-		if( ext && !Q_stricmp( ext, "mdl" ))
+		if( ext && ( !Q_stricmp( ext, "mdl" ) || !Q_stricmp( ext, "spr" )) )
 		{
 			/* Real meshes are promoted after map prep in Mod_GCLoadNewGameStudios. */
-			mod->needload = NL_NEEDS_LOADED;
-			return mod;
-		}
-
-		if( ext && !Q_stricmp( ext, "spr" ))
-		{
 			mod->needload = NL_NEEDS_LOADED;
 			return mod;
 		}
