@@ -1,7 +1,7 @@
 # Slim Aider profile for autonomous goal-loop passes.
 # Keeps essential guardrails without loading the full prompt corpus every turn.
 model: openai/qwen-local
-openai-api-base: http://127.0.0.1:8072/v1
+openai-api-base: http://127.0.0.1:8001/v1
 model-settings-file: .ai/aider-model-settings.yml
 model-metadata-file: .ai/aider-model-metadata.json
 show-model-warnings: false
