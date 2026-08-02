@@ -184,6 +184,7 @@ def apply_live_config(root: Path, args: argparse.Namespace) -> dict[str, object]
 		"AI_DISCOVERY_STUCK_THRESHOLD", "AI_DISCOVERY_STUCK_BACKOFF",
 		"AI_RUNTIME_PROBE_TIMEOUT", "AIDER_MODEL_TIMEOUT_SEC",
 		"AI_MAX_PATCH_FILES", "AI_MAX_PATCH_LINES", "AI_MAX_PATCH_DELETED_LINES",
+		"AI_STRICT_RUNTIME_PROGRESS",
 	):
 		if key in config and isinstance(config[key], (int, float, str)):
 			os.environ[key] = str(config[key])
@@ -305,16 +306,39 @@ def experiment_progress(text: str) -> dict[str, object]:
 	return {"score": len(completed), "markers": completed}
 
 
-def write_experiment_result(root: Path, item: dict[str, object], before: str, after: str) -> None:
+def write_experiment_result(root: Path, item: dict[str, object], before: str, after: str,
+	decision: str = "pending", reason: str = "") -> None:
 	payload = {
 		"item_id": item.get("item_id"),
 		"timestamp": datetime.now(timezone.utc).isoformat(),
 		"before": experiment_progress(before),
 		"after": experiment_progress(after),
+		"decision": decision,
+		"reason": reason,
 	}
 	path = root / EXPERIMENT_STATE_PATH
 	path.parent.mkdir(parents=True, exist_ok=True)
 	path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def discard_to_baseline(root: Path, baseline: str) -> bool:
+	current = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
+		text=True, capture_output=True, check=False).stdout.strip()
+	if not current or current == baseline:
+		return True
+	ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", baseline, current],
+		cwd=root, check=False)
+	if ancestor.returncode != 0:
+		return False
+	result = subprocess.run(["git", "reset", "--hard", baseline], cwd=root,
+		text=True, capture_output=True, check=False)
+	if result.returncode != 0:
+		print(f"run-until-done: failed to discard runtime patch: {result.stderr.strip()}",
+			file=sys.stderr, flush=True)
+		return False
+	print(f"run-until-done: discarded no-progress runtime patch; restored {baseline[:12]}",
+		file=sys.stderr, flush=True)
+	return True
 
 
 def is_runtime_discovery_item(item: dict[str, object]) -> bool:
@@ -391,6 +415,8 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 	context = [str(path) for path in item.get("context", []) if isinstance(path, str)]
 	read_context = [f"read:{path}" for path in item.get("read_context", []) if isinstance(path, str)]
 	before_probe = read_text(root / HARNESS_STATE_PATH)
+	baseline = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root,
+		text=True, capture_output=True, check=False).stdout.strip()
 	if is_runtime_discovery_item(item) and context:
 		task += (
 			"\nRuntime child-process constraint:\n"
@@ -447,7 +473,26 @@ def run_discovery_pass(root: Path, item: dict[str, object]) -> int:
 			probe_status = refresh_runtime_probe(root, env)
 			gate_status = runtime_regression_gate(root, env)
 			after_probe = read_text(root / HARNESS_STATE_PATH)
-			write_experiment_result(root, item, before_probe, after_probe)
+			before_score = int(experiment_progress(before_probe)["score"])
+			after_score = int(experiment_progress(after_probe)["score"])
+			if os.environ.get("AI_STRICT_RUNTIME_PROGRESS", "1").lower() not in {"0", "false", "no"} and after_score <= before_score:
+				write_experiment_result(root, item, before_probe, after_probe,
+					"discard_no_runtime_progress",
+					f"readiness score did not advance ({before_score} -> {after_score})")
+				if not baseline or not discard_to_baseline(root, baseline):
+					record_discovery_feedback(
+						root, item, 21, "runtime_probe",
+						"Stop automation and inspect the failed baseline restore before retrying.",
+						"Runtime progress was absent, but the generated patch could not be safely discarded.",
+					)
+					return 21
+				record_discovery_feedback(
+					root, item, 20, "runtime_probe",
+					"Discarded the patch because the readiness score did not advance.",
+					f"Runtime experiment made no progress ({before_score} -> {after_score}); patch reverted.")
+				return 20
+			write_experiment_result(root, item, before_probe, after_probe, "keep",
+				f"readiness score advanced ({before_score} -> {after_score})")
 			if probe_status != 0 or gate_status != 0:
 				record_discovery_feedback(
 					root,

@@ -13,6 +13,7 @@ Useful controls:
   "sleep_sec": 20,
   "AI_RUNTIME_PROBE_TIMEOUT": 90,
   "AIDER_MODEL_TIMEOUT_SEC": 300,
+  "AI_STRICT_RUNTIME_PROGRESS": 1,
   "AI_GPU_INDEX": 0,
   "AI_GPU_MIN_FREE_MIB": 1024,
   "AI_HOST_MIN_AVAILABLE_MIB": 8192,
@@ -29,3 +30,8 @@ in `.ai/state/autoport-heartbeat.json`.
 The watchdog checks GPU free memory with `nvidia-smi` and host available
 memory with `free`. If either falls below its threshold, it stops only the
 GameCube worker tree, waits, and retries. It does not stop the vLLM server.
+
+With `AI_STRICT_RUNTIME_PROGRESS` enabled, a runtime patch is retained only
+when the post-probe readiness score advances. Otherwise the supervisor
+restores the pre-pass commit and records a discard decision in
+`.ai/state/experiment-latest.json`.
