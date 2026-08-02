@@ -1264,7 +1264,6 @@ void Mod_GcmapMarkPrecacheFreeable( void )
 	Mem_EmptyPool( com_studiocache );
 	Mod_ClearStudioCache();
 	Mod_FreeUnused();
-	GC_MemSample( "post-precache free" );
 	Con_Reportf( "Xash3D GameCube: gcmap released %d precache models for world render\n", marked );
 }
 #endif
