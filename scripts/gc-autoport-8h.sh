@@ -30,6 +30,7 @@ HEARTBEAT="$ROOT/.ai/state/autoport-heartbeat.json"
 WATCHDOG_PID_FILE="$ROOT/.ai/state/autoport-watchdog.pid"
 RUNNER_PID_FILE="$ROOT/.ai/state/autoport-runner.pid"
 NO_WORK_STATE="$ROOT/.ai/state/automation-no-work.pid"
+RESOURCE_PAUSE_STATE="/tmp/xash3d-gc-resource-paused"
 WATCHDOG_LOCK_DIR="/tmp/xash3d-gc-autoport-watchdog.lock"
 
 if ! mkdir "$WATCHDOG_LOCK_DIR" 2>/dev/null; then
@@ -106,15 +107,26 @@ PY
 }
 
 resource_guard() {
-	local gpu_index gpu_free gpu_min host_available host_min
+	local gpu_index gpu_free gpu_resume gpu_pause host_available host_min
 	gpu_index="$(live_config_number AI_GPU_INDEX "${AI_GPU_INDEX:-0}")"
-	gpu_min="$(live_config_number AI_GPU_MIN_FREE_MIB "${AI_GPU_MIN_FREE_MIB:-2048}")"
+	gpu_resume="$(live_config_number AI_GPU_RESUME_FREE_MIB "$(live_config_number AI_GPU_MIN_FREE_MIB "${AI_GPU_MIN_FREE_MIB:-2048}")")"
+	gpu_pause="$(live_config_number AI_GPU_PAUSE_FREE_MIB "$((gpu_resume * 2))")"
 	host_min="$(live_config_number AI_HOST_MIN_AVAILABLE_MIB "${AI_HOST_MIN_AVAILABLE_MIB:-8192}")"
 	if command -v nvidia-smi >/dev/null 2>&1; then
 		gpu_free="$(nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits 2>/dev/null | awk -F',' -v idx="$gpu_index" '$1+0 == idx {gsub(/ /, "", $2); print $2; exit}')"
-		if [[ -n "$gpu_free" && "$gpu_free" -lt "$gpu_min" ]]; then
-			echo "resource guard: GPU${gpu_index} free=${gpu_free}MiB < ${gpu_min}MiB" | tee -a "$LOGFILE"
-			return 1
+		if [[ -n "$gpu_free" ]]; then
+			if [[ -f "$RESOURCE_PAUSE_STATE" ]]; then
+				if (( gpu_free < gpu_resume )); then
+					echo "resource guard: GPU${gpu_index} paused free=${gpu_free}MiB < resume=${gpu_resume}MiB" | tee -a "$LOGFILE"
+					return 1
+				fi
+				rm -f "$RESOURCE_PAUSE_STATE"
+				echo "resource guard: GPU${gpu_index} recovered free=${gpu_free}MiB >= resume=${gpu_resume}MiB" | tee -a "$LOGFILE"
+			elif (( gpu_free < gpu_pause )); then
+				touch "$RESOURCE_PAUSE_STATE"
+				echo "resource guard: GPU${gpu_index} entering pause free=${gpu_free}MiB < pause=${gpu_pause}MiB" | tee -a "$LOGFILE"
+				return 1
+			fi
 		fi
 	fi
 	host_available="$(free -m | awk '/^Mem:/ {print $7}')"
