@@ -1152,8 +1152,9 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 	// load the newmap
 	world.loading = true;
 	model_t *pworld = Mod_FindName( name, false );
+	if( preload ) Mod_LoadModel( pworld, true );
 #if XASH_GAMECUBE
-	if( GC_MapLoadMemoryOpt())
+	if( GC_MapLoadMemoryOpt() )
 	{
 		fs_offset_t filesize = FS_FileSize( name, false );
 		qboolean exists = FS_FileExists( name, false );
@@ -1162,7 +1163,6 @@ model_t *Mod_LoadWorld( const char *name, qboolean preload )
 			name, pworld ? pworld->name : "(null)", exists, (long)filesize, preload );
 	}
 #endif
-	if( preload ) Mod_LoadModel( pworld, true );
 	world.loading = false;
 
 	ASSERT( pworld == mod_known );
