@@ -816,6 +816,14 @@ void SV_ActivateServer( int runPhysics )
 
 	if( sv.ignored_world_decals )
 		Con_Printf( S_WARN "%i static decals was rejected due buffer overflow\n", sv.ignored_world_decals );
+
+#if XASH_GAMECUBE
+	if( GC_MapLoadMemoryOpt() )
+	{
+		Con_Reportf( "Xash3D GameCube: MAP_READY %s\n", sv.name );
+		GC_ReportBootPhase( GC_BOOT_MAP );
+	}
+#endif
 }
 
 /*
