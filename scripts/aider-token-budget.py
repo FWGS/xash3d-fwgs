@@ -127,10 +127,10 @@ def compute_budgets(max_context: int, attempt: int) -> dict[str, int]:
 		# allowing the actual runtime blocker files (model.c/sv_init.c) to be
 		# edited instead of silently dropping them.
 		editable_tiers = (
-			min(36000, max(16000, context_tiers[0] * 2)),
-			min(30000, max(12000, context_tiers[1] * 2)),
-			min(22000, max(8000, context_tiers[2] * 2)),
-			min(16000, max(6000, context_tiers[3] * 2)),
+			min(36000, max(16000, context_tiers[0] * 3)),
+			min(30000, max(12000, context_tiers[1] * 3)),
+			min(22000, max(8000, context_tiers[2] * 3)),
+			min(16000, max(6000, context_tiers[3] * 3)),
 		)
 	elif low_vram:
 		# Non-overnight discovery may still need one medium frame source file.
