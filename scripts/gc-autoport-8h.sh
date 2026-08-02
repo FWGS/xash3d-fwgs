@@ -29,6 +29,7 @@ LOGFILE="${GC_AUTOPORT_LOG:-$LOG_DIR/overnight-autoport-$(date +%Y%m%d-%H%M%S).l
 HEARTBEAT="$ROOT/.ai/state/autoport-heartbeat.json"
 WATCHDOG_PID_FILE="$ROOT/.ai/state/autoport-watchdog.pid"
 RUNNER_PID_FILE="$ROOT/.ai/state/autoport-runner.pid"
+NO_WORK_STATE="$ROOT/.ai/state/automation-no-work.pid"
 WATCHDOG_LOCK_DIR="/tmp/xash3d-gc-autoport-watchdog.lock"
 
 if ! mkdir "$WATCHDOG_LOCK_DIR" 2>/dev/null; then
@@ -144,6 +145,7 @@ start_runner() {
 		echo "$(date -Is) resource guard blocked runner start" | tee -a "$LOGFILE"
 		return 0
 	fi
+	rm -f "$NO_WORK_STATE"
 	# Wall-clock limit is enforced by the outer watchdog deadline plus timeout(1).
 	# Keep argv compatible with ai-run-until-done.py (no --max-runtime-sec required).
 	nohup timeout --foreground --signal=TERM --kill-after=60 "$RUNTIME_SEC" \
@@ -212,6 +214,10 @@ while (( $(date +%s) < deadline )); do
 	fi
 	runner_pid="$(cat "$RUNNER_PID_FILE" 2>/dev/null || true)"
 	if [[ -z "${runner_pid:-}" ]] || ! kill -0 "$runner_pid" 2>/dev/null; then
+		if [[ -n "${runner_pid:-}" && -f "$NO_WORK_STATE" ]] && grep -Fxq "$runner_pid" "$NO_WORK_STATE"; then
+			echo "$(date -Is) runner exhausted with no work; stopping watchdog instead of restarting an idle loop" | tee -a "$LOGFILE"
+			break
+		fi
 		remaining=$(( deadline - $(date +%s) ))
 		if (( remaining < 120 )); then
 			echo "$(date -Is) runner exited near deadline; not restarting" | tee -a "$LOGFILE"

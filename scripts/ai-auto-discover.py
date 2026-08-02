@@ -532,10 +532,10 @@ def build_discovered_item(root: Path, goal: Goal | None, recent: dict[str, objec
 	if causal_paths:
 		context = existing_paths(root, tuple(causal_paths))
 		evidence_specific_context = True
-	if "delta.lst" in evidence_hint:
+	if not causal_paths and "delta.lst" in evidence_hint:
 		context = existing_paths(root, ("engine/server/sv_init.c", "engine/common/delta.c"))
 		evidence_specific_context = True
-	elif "bsp" in evidence_hint and failure_class == "runtime_probe":
+	elif not causal_paths and "bsp" in evidence_hint and failure_class == "runtime_probe":
 		context = existing_paths(root, ("engine/common/filesystem_engine.c", "engine/common/model.c"))
 	quarantine = quarantined_paths(root)
 	if quarantine:
@@ -702,6 +702,25 @@ def discover_items(root: Path) -> list[WorkItem]:
 		if discovered is not None:
 			items.append(discovered)
 			break
+	# Do not turn an unresolved runtime failure into an empty queue merely
+	# because one hypothesis was quarantined. Rotate to allocator/cache work.
+	if len(items) == (1 if goal is not None else 0):
+		failure = recent_harness_failure(root)
+		if failure is not None:
+			fallback = dict(failure)
+			fallback["result"] = "memory_pressure"
+			fallback["focus_paths"] = [
+				"engine/platform/gamecube/mem_gamecube.c",
+				"engine/common/zone.c",
+				"engine/common/mod_studio.c",
+			]
+			fallback["observation"] = (
+				str(failure.get("observation") or "") +
+				" Previous runtime hypotheses were quarantined; investigate allocator, cache, and MEM1 headroom paths."
+			)
+			discovered = build_discovered_item(root, goal, fallback)
+			if discovered is not None:
+				items.append(discovered)
 	return sorted(items, key=lambda item: (-item.priority, item.item_id))
 
 

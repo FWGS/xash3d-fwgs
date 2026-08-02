@@ -44,6 +44,7 @@ RUNTIME_DISCOVERY_RESULTS = {
 	"asset_lookup",
 }
 HEARTBEAT_PATH = Path(".ai/state/autoport-heartbeat.json")
+NO_WORK_STATE_PATH = Path(".ai/state/automation-no-work.pid")
 EXPERIMENT_STATE_PATH = Path(".ai/state/experiment-latest.json")
 HYPOTHESIS_STATE_PATH = Path(".ai/state/discovery-hypotheses.json")
 LIVE_CONFIG_PATH = Path(".ai/config/automation-live.json")
@@ -600,6 +601,7 @@ def main() -> int:
 				print("run-until-done: all automatic goals are complete or blocked")
 			else:
 				print("run-until-done: no automatic goals or discovered work items remain")
+			(root / NO_WORK_STATE_PATH).write_text(f"{os.getpid()}\n", encoding="utf-8")
 			write_heartbeat(root, state="exhausted", cycle=cycle)
 			return 0
 		cycle_limit = "unlimited" if args.max_cycles == 0 else str(args.max_cycles)
