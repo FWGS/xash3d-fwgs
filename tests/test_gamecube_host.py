@@ -137,6 +137,24 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertEqual(gate.check(base)[0], True)
 		self.assertEqual(gate.check(base.replace("gcmap smoke frames ready", ""))[0], False)
 
+	def test_release_packet_validates_dol_elf_and_iso(self) -> None:
+		packet = load_script("release_packet", "scripts/gamecube-release-packet.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			(root / "OUT/bin").mkdir(parents=True)
+			(root / "OUT/xash3d-gc.iso").parent.mkdir(parents=True, exist_ok=True)
+			(root / "OUT/bin/xash").write_bytes(b"\x7fELF")
+			dol = bytearray(0x100)
+			dol[0x90:0x94] = (0x20).to_bytes(4, "big")
+			(root / "OUT/bin/boot.dol").write_bytes(dol)
+			iso = bytearray(0x8006)
+			iso[0x8001:0x8006] = b"CD001"
+			(root / "OUT/xash3d-gc.iso").write_bytes(iso)
+			_, failures = packet.validate_artifacts(root)
+			self.assertIn("ELF header is not a valid PowerPC executable", failures)
+			self.assertNotIn("DOL header is empty", failures)
+			self.assertNotIn("ISO9660 primary volume descriptor is missing", failures)
+
 	def test_endian_sensitive_elf_to_dol_serialization(self) -> None:
 		converter = load_script("elf_to_dol", "scripts/elf-to-dol.py")
 		for endian in (">", "<"):

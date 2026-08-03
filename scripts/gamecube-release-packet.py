@@ -149,14 +149,17 @@ def main() -> int:
         if source_path.exists():
             copy_evidence(source_path, output / "evidence" / name)
 
-    lines = ["# Dolphin Release Packet", "", f"- Generated: {datetime.now(timezone.utc).isoformat()}", f"- Commit: `{manifest['commit']}`", "- Packet status: **INCOMPLETE / NOT RELEASE-READY**", "", "## Evidence", "", "| Area | Status |", "|---|---|"]
+    complete = not artifact_failures and all(item["status"] == "PASS" for item in evidence.values())
+    packet_status = "COMPLETE / RELEASE-READY" if complete else "INCOMPLETE / NOT RELEASE-READY"
+    lines = ["# Dolphin Release Packet", "", f"- Generated: {datetime.now(timezone.utc).isoformat()}", f"- Commit: `{manifest['commit']}`", f"- Packet status: **{packet_status}**", "", "## Evidence", "", "| Area | Status |", "|---|---|"]
     lines.extend(f"| {name} | {item['status']} |" for name, item in evidence.items())
     lines += ["", "## Artifacts", "", "See `artifact-manifest.json`; ELF, DOL, and ISO structural validation failures: " + (", ".join(artifact_failures) if artifact_failures else "none") + ".", "", "## Unsupported or Unverified", ""]
     lines.extend(f"- {item}" for item in unsupported)
     lines += ["", "## Reproduction", "", "```text", "./waf clean", "XASH3D_GC_SKIP_DISC_BUILD=1 scripts/build-gamecube.sh", "python3 scripts/build-gamecube-disc.py --output OUT/xash3d-gc.iso --smoke-map c0a0e", "```", "", "Gameplay acceptance is intentionally fail-closed until its required guest markers are present."]
     (output / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"RELEASE_PACKET: {'COMPLETE' if complete else 'INCOMPLETE'}")
     print(output)
-    return 1 if artifact_failures or not all(item["status"] == "PASS" for item in evidence.values()) else 0
+    return 0 if complete else 1
 
 
 if __name__ == "__main__":

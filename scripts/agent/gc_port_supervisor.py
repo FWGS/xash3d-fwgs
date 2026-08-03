@@ -91,6 +91,13 @@ DOLPHIN_RELEASE_PHASE = {
     "success": ["- Status: PASS"],
 }
 
+RELEASE_PACKET_PHASE = {
+    "name": "release_packet",
+    "cmd": ["bash", "scripts/gamecube-release-packet.sh"],
+    "timeout": 180,
+    "success": ["RELEASE_PACKET: COMPLETE"],
+}
+
 GAMEPLAY_PHASE = {
     "name": "gameplay_probe",
     "cmd": ["bash", "scripts/gamecube-gameplay-probe.sh"],
@@ -130,6 +137,7 @@ def phases_for_tier(tier: str) -> list[dict]:
         if tier == "dolphin_release":
             phases.append(GAMEPLAY_PHASE)
             phases.append(DOLPHIN_RELEASE_PHASE)
+            phases.append(RELEASE_PACKET_PHASE)
         return phases
 
     return phases
@@ -153,6 +161,7 @@ PHASE_DEFAULT_TARGETS: dict[str, list[str]] = {
     "runtime_regression": ["engine/client/cl_scrn.c", "ref/gx/r_main.c"],
     "dolphin_release_soak": ["scripts/gamecube-soak-probe.py"],
     "gameplay_probe": ["engine/server/sv_pmove.c", "engine/server/sv_phys.c", "engine/platform/gamecube/in_gamecube.c"],
+    "release_packet": ["scripts/gamecube-release-packet.py", "scripts/gamecube-release-packet.sh"],
 }
 
 SCRIPT_EXCEPTION_TARGETS: dict[str, list[str]] = {
@@ -207,7 +216,7 @@ def run(cmd, timeout, phase):
     finally:
         text = "".join(output)
         log_path.write_text(text, encoding="utf-8")
-        if phase in {"dolphin_boot", "runtime_probe", "map_compat_probe", "runtime_regression", "gameplay_probe"}:
+        if phase in {"dolphin_boot", "runtime_probe", "map_compat_probe", "runtime_regression", "gameplay_probe", "release_packet"}:
             kill_dolphin_stragglers()
 
     return proc.returncode if proc.returncode is not None else 124, text, str(log_path.relative_to(REPO))
@@ -538,6 +547,13 @@ def main():
         ok = success_for_phase(phase, code, log)
 
         if not ok:
+            # Gameplay and soak are evidence phases. Preserve their failure
+            # logs and continue to release_packet so an unattended run still
+            # emits a complete, fail-closed diagnosis. Build and runtime
+            # failures remain immediate stops.
+            if tier == "dolphin_release" and phase["name"] in {"gameplay_probe", "dolphin_release_soak"}:
+                print(f"Evidence phase {phase['name']} failed; continuing to release packet.", flush=True)
+                continue
             context = first_error_context(log)
             failure_kind = classify_failure(log)
             patch_targets = extract_patch_targets(log, failure_kind)
