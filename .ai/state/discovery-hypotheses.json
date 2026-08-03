@@ -1,0 +1,74 @@
+[
+  {
+    "key": "307450b73cc98261",
+    "item_id": "discovery:runtime_probe",
+    "failure_class": "runtime_probe",
+    "decision": "discard_no_runtime_progress",
+    "reason": "readiness score did not advance (1 -> 1)",
+    "candidate_commit": "37116eec669fadf192036bd7f8a62128519889a1",
+    "timestamp": "2026-08-02T20:43:12.242323+00:00"
+  },
+  {
+    "key": "8bf59abe12d3cf3f",
+    "item_id": "discovery:no_edit",
+    "failure_class": "no_edit",
+    "decision": "discard_no_runtime_progress",
+    "reason": "readiness score did not advance (1 -> 1)",
+    "candidate_commit": "f1f6045d7f275460f27f91895dbeb21f7daf7c4e",
+    "timestamp": "2026-08-02T20:44:02.636767+00:00"
+  },
+  {
+    "key": "8bf59abe12d3cf3f",
+    "item_id": "discovery:no_edit",
+    "failure_class": "no_edit",
+    "decision": "discard_no_runtime_progress",
+    "reason": "readiness score did not advance (1 -> 1)",
+    "candidate_commit": "84bdcd93ed208f12dfd917729deda75210393710",
+    "timestamp": "2026-08-02T20:50:57.205444+00:00"
+  },
+  {
+    "key": "307450b73cc98261",
+    "item_id": "discovery:runtime_probe",
+    "failure_class": "runtime_probe",
+    "decision": "discard_no_runtime_progress",
+    "reason": "readiness score did not advance (1 -> 1)",
+    "candidate_commit": "c4ed5e8e5424f5ef628d27fe63dc935d00b18115",
+    "timestamp": "2026-08-02T20:51:39.951464+00:00"
+  },
+  {
+    "key": "390ceb58cfe9fc18",
+    "item_id": "discovery:runtime_probe",
+    "failure_class": "runtime_probe",
+    "decision": "discard_no_runtime_progress",
+    "reason": "readiness score did not advance (1 -> 1)",
+    "candidate_commit": "92be68297112019c6a331e8fab94b1a60c975037",
+    "timestamp": "2026-08-02T20:58:51.310937+00:00"
+  },
+  {
+    "key": "390ceb58cfe9fc18",
+    "item_id": "discovery:runtime_probe",
+    "failure_class": "runtime_probe",
+    "decision": "discard_no_runtime_progress",
+    "reason": "readiness score did not advance (1 -> 1)",
+    "candidate_commit": "8424b47e9f6640f3261bf36ddaf3396c7275a5f9",
+    "timestamp": "2026-08-02T21:11:58.935794+00:00"
+  },
+  {
+    "key": "f0ac855a9e5a1d27",
+    "item_id": "discovery:memory_pressure:G491",
+    "failure_class": "memory_pressure",
+    "decision": "discard_no_runtime_progress",
+    "reason": "readiness score did not advance (1 -> 1)",
+    "candidate_commit": "031a41fee644c82321e65c3b17595ff817d08dc0",
+    "timestamp": "2026-08-02T22:36:28.939474+00:00"
+  },
+  {
+    "key": "f0ac855a9e5a1d27",
+    "item_id": "discovery:memory_pressure:G491",
+    "failure_class": "memory_pressure",
+    "decision": "discard_no_runtime_progress",
+    "reason": "readiness score did not advance (1 -> 1)",
+    "candidate_commit": "930f44ae92a38d05481c69f329870bdd7d4c60b2",
+    "timestamp": "2026-08-02T22:37:14.411130+00:00"
+  }
+]
