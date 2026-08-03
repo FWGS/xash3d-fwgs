@@ -133,8 +133,6 @@ static void FS_LoadVFSConfig( const char *gamedir )
 			Cvar_DirectSet( &fs_mount_addon, "1" );
 			// Ensure addon is mounted by triggering a rescan
 			FS_Rescan_f();
-			// Load gameinfo to ensure search paths and game config are set up
-			g_fsapi.LoadGameInfo( FS_MountFlags(), ui_language.string );
 			// Set smoke map override for boot
 			Cbuf_AddText( "smoke_map_override c0a0e\n" );
 			Cbuf_Execute();
@@ -148,8 +146,6 @@ static void FS_LoadVFSConfig( const char *gamedir )
 		Cvar_DirectSet( &fs_mount_addon, "1" );
 		// Ensure addon is mounted by triggering a rescan
 		FS_Rescan_f();
-		// Load gameinfo to ensure search paths and game config are set up
-		g_fsapi.LoadGameInfo( FS_MountFlags(), ui_language.string );
 		return;
 	}
 #endif
@@ -221,8 +217,6 @@ void FS_SaveVFSConfig( void )
 void FS_LoadGameInfo( void )
 {
 	FS_LoadVFSConfig( g_fsapi.Gamedir( ));
-
-	g_fsapi.LoadGameInfo( FS_MountFlags(), ui_language.string );
 }
 
 static void FS_ClearPaths_f( void )
