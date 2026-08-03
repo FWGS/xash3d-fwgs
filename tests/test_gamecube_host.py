@@ -53,6 +53,11 @@ class GameCubeHostTests(unittest.TestCase):
 		find_file = searchpath.split("FS_FindFile(", 1)[1]
 		self.assertIn("for( search = fs_searchpaths; search; search = search->next )", find_file)
 		self.assertIn("FS_ShouldSkipSearchpath( search, name )", find_file)
+		self.assertIn("FS_ClearFindMissCache();", searchpath)
+		self.assertIn("FS_ClearFindHitCache();", searchpath)
+		# A successful FileExists lookup must not make the next LoadFile lookup
+		# return NULL based on a name-only hit-cache entry.
+		self.assertNotIn("FS_FindHitCached( name )", searchpath)
 
 	def test_file_exists_and_load_file_share_the_same_filesystem_api(self) -> None:
 		engine = (ROOT / "engine/common/filesystem_engine.c").read_text(encoding="utf-8")
