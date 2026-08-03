@@ -123,6 +123,18 @@ probe; then update this status from fresh evidence.
   server-library path and G201 diagnostics.
 - Decision: keep the filesystem fallback change as an experiment, do not accept
   it as a release fix yet, and do not invoke re_agent without a function/address
+
+### Server initialization follow-up — 2026-08-02
+
+- Probe bundle: `.ai/logs/dolphin-probe-20260802-194638/`.
+- The fresh DOL contains `SV_InitGame entry`, `SV_InitGame reset error begin`,
+  and server-library path markers, but the guest emitted none of them after
+  `server game init begin`.
+- The observed call path therefore does not reach the first statement of the
+  expected `SV_InitGame` body, or guest state is already invalid at entry.
+- This is not sufficient evidence for re_agent: no repeated guest address or
+  proven function mismatch exists yet. Capture a call-site/ABI or guest trace
+  target before using decompilation.
   target.
 
 ## Next Task

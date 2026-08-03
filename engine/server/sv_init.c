@@ -897,11 +897,14 @@ qboolean SV_InitGame( qboolean silent )
 {
 	string dllpath;
 
+	Con_Reportf( "Xash3D GameCube: SV_InitGame entry\n" );
 	if( svgame.hInstance )
 		return true;
 
 	// first initialize?
+	Con_Reportf( "Xash3D GameCube: SV_InitGame reset error begin\n" );
 	COM_ResetLibraryError();
+	Con_Reportf( "Xash3D GameCube: SV_InitGame reset error done\n" );
 
 	Con_Reportf( "Xash3D GameCube: server library path begin\n" );
 	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
