@@ -1072,11 +1072,18 @@ void SV_Init( void )
 
 	Cvar_FullSet( "sv_version", versionString, FCVAR_READ_ONLY );
 
+	Con_Reportf( "Xash3D GameCube: server game info before filter=%p\n", (void *)GI );
 	SV_InitFilter();
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server game info after filter=%p\n", (void *)GI );
+	Con_Reportf( "Xash3D GameCube: server game state clear begin info=%p\n", (void *)GI );
+#endif
 	SV_ClearGameState ();	// delete all temporary *.hl files
 #if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: server game state clear done info=%p\n", (void *)GI );
 	Con_Reportf( "Xash3D GameCube: server game init begin\n" );
 	Con_Reportf( "Xash3D GameCube: server game init argument begin\n" );
+	Con_Reportf( "Xash3D GameCube: server game info pointer=%p\n", (void *)GI );
 	server_game_silent = GI->gamemode != GAME_SINGLEPLAYER_ONLY;
 	Con_Reportf( "Xash3D GameCube: server game init argument ready silent=%d\n", server_game_silent );
 #else

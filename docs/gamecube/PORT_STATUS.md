@@ -151,6 +151,23 @@ probe; then update this status from fresh evidence.
 - Do not invoke re_agent yet: there is still no concrete repeated guest fault
   address or proven function/ABI mismatch.
 
+### G201 reached — 2026-08-02
+
+- Probe bundle: `.ai/logs/dolphin-probe-20260802-195808/`.
+- Root cause of the previous null `GI`: the engine-side `FS_LoadGameInfo`
+  wrapper processed `vfs.cfg` but never called the filesystem API's
+  `LoadGameInfo` entry point. Adding that handoff produced
+  `FI->GameInfo=0x80ff6218` and allowed `SV_InitGame` to enter.
+- Server module boundary passed: server path resolved to `server`, and G201
+  executed.
+- G201 result: `delta.lst` has `FS_FileExists=0`, `FS_LoadFile=0`; the explicit
+  `valve/delta.lst` query has `FS_FileExists=1` but `FS_LoadFile=0`. Both disk
+  paths report `(none)`, despite the ISO containing
+  `xash3d/valve/delta.lst`.
+- The next fatal is independent: `maps/c0a0e.bsp` cannot be loaded from disk.
+  Do not skip Delta initialization or accept the game-info handoff as a
+  release fix until the filesystem load contract and map staging pass.
+
 ## Next Task
 
 **Isolate the FI.GameInfo/GI handoff before SV_InitGame**

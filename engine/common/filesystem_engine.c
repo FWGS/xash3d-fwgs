@@ -228,6 +228,9 @@ void FS_SaveVFSConfig( void )
 void FS_LoadGameInfo( void )
 {
 	FS_LoadVFSConfig( g_fsapi.Gamedir( ));
+	Con_Reportf( "Xash3D GameCube: filesystem gameinfo load begin\n" );
+	g_fsapi.LoadGameInfo( FS_MountFlags(), ui_language.string );
+	Con_Reportf( "Xash3D GameCube: filesystem gameinfo load ready info=%p\n", (void *)( FI ? FI->GameInfo : NULL ));
 }
 
 static void FS_ClearPaths_f( void )
