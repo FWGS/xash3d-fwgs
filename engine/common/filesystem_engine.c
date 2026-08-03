@@ -135,8 +135,8 @@ static void FS_LoadVFSConfig( const char *gamedir )
 		{
 			Con_Reportf( "%s: vfs.cfg not found on disc, mounting addon fallback\n", __func__ );
 			Cvar_DirectSet( &fs_mount_addon, "1" );
-			// Skip rescan and command buffer execution to avoid potential hangs
-			// Map loading will be handled by FS_Init() after full initialization
+			// Ensure addon is mounted by triggering a rescan so map files are found
+			FS_Rescan_f();
 			return;
 		}
 		Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
