@@ -59,6 +59,7 @@ void CTrueTypeFont::GetTextureName( char *dst, size_t len ) const
 	int i = 0;
 	if( GetFlags() & TTF_ITALIC ) attribs[i++] = 'i'; // 1 parameter
 	if( GetFlags() & TTF_UNDERLINE ) attribs[i++] = 'u'; // 1 parameter
+	if( GetFlags( ) & TTF_NEAREST ) attribs[i++] = 'n'; // 1 parameter
 	if( m_iBlur )
 	{
 		int chars = snprintf( attribs + i, sizeof( attribs ) - 1 - i, "g%i%.2f", m_iBlur, m_fBrighten );
@@ -225,7 +226,8 @@ void CTrueTypeFont::UploadGlyphsForRanges(charRange_t *range, int rangeSize)
 
 	SaveToCache( m_szTextureName, range, rangeSize, &bmp );
 
-	int hImage = bmp.Upload( m_szTextureName );
+	int texFlags = ( m_iFlags & TTF_NEAREST ) ? TF_NEAREST : 0;
+	int hImage = bmp.Upload( m_szTextureName, texFlags );
 
 	delete[] temp;
 
@@ -633,7 +635,8 @@ bool CTrueTypeFont::ReadFromCache( const char *filename, charRange_t *range, siz
 
 	uint bmpFileSize = bmp->fileSize;
 	CBMP::SwapBmpHdrToLE( bmp );
-	int hImage = ref.dllFuncs.GL_LoadTexture( filename, (const byte *)bmp, bmpFileSize, TF_FONT | TF_NEAREST );
+	int texFlags = TF_FONT | ( ( m_iFlags & TTF_NEAREST ) ? TF_NEAREST : 0 );
+	int hImage = ref.dllFuncs.GL_LoadTexture( filename, (const byte *)bmp, bmpFileSize, texFlags );
 
 	if( !hImage )
 	{

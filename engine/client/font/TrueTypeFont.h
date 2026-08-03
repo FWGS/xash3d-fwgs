@@ -28,11 +28,7 @@ GNU General Public License for more details.
 #include "utlrbtree.h"
 #include "utlvector.h"
 #include "BMPUtils.h"
-
-// font flags (EFontFlags)
-#define TTF_ITALIC    ( 1 << 0 )
-#define TTF_UNDERLINE ( 1 << 1 )
-#define TTF_STRIKEOUT ( 1 << 2 )
+#include "menu_int.h"
 
 #if defined(__ANDROID__) || TARGET_OS_IPHONE || defined(XASH_SAILFISH) || defined(MAINUI_FONT_SCALE)
 #define SCALE_FONTS

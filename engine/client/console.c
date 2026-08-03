@@ -620,12 +620,12 @@ static void Con_LoadConsoleFont( int fontNumber, cl_font_t *font, qboolean creat
 	{
 		const char *fontName = COM_StringEmptyOrNULL( con_truetype_name.string ) ? DEFAULT_CONFONT : con_truetype_name.string;
 		int ttfSize = (int)( con_truetype_size.value * scale + 0.5f );
-		font->ttfont = TTF_Create( fontName, ttfSize, DEFAULT_WEIGHT, 0, 1 );
+		font->ttfont = TTF_Create( fontName, ttfSize, DEFAULT_WEIGHT, TTF_NEAREST, 1 );
 
 		if( !font->ttfont && fontName != DEFAULT_CONFONT )
 		{
 			Con_Printf( S_WARN "Failed to load console truetype font '%s', falling back to '%s'\n", fontName, DEFAULT_CONFONT );
-			font->ttfont = TTF_Create( DEFAULT_CONFONT, ttfSize, DEFAULT_WEIGHT, 0, 1 );
+			font->ttfont = TTF_Create( DEFAULT_CONFONT, ttfSize, DEFAULT_WEIGHT, TTF_NEAREST, 1 );
 		}
 
 		if( font->ttfont )

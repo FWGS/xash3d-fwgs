@@ -27,6 +27,12 @@ GNU General Public License for more details.
 
 typedef int		HIMAGE;		// handle to a graphic
 
+// font flags
+#define TTF_ITALIC    ( 1 << 0 )
+#define TTF_UNDERLINE ( 1 << 1 )
+#define TTF_STRIKEOUT ( 1 << 2 )
+#define TTF_NEAREST   ( 1 << 3 )
+
 // font engine function table
 typedef struct ttf_funcs_s
 {
