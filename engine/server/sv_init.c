@@ -903,9 +903,14 @@ qboolean SV_InitGame( qboolean silent )
 	// first initialize?
 	COM_ResetLibraryError();
 
+	Con_Reportf( "Xash3D GameCube: server library path begin\n" );
 	COM_GetCommonLibraryPath( LIBRARY_SERVER, dllpath, sizeof( dllpath ));
+	Con_Reportf( "Xash3D GameCube: server library path=%s\n", dllpath );
 
-	if( !SV_LoadProgs( dllpath ))
+	Con_Reportf( "Xash3D GameCube: SV_LoadProgs call begin\n" );
+	qboolean sv_progs_ok = SV_LoadProgs( dllpath );
+	Con_Reportf( "Xash3D GameCube: SV_LoadProgs call return=%d\n", sv_progs_ok );
+	if( !sv_progs_ok )
 	{
 		if( !silent )
 			Sys_Warn( "can't initialize %s: %s\n", dllpath, COM_GetLibraryError( ));
@@ -1116,6 +1121,35 @@ qboolean SV_SpawnServer( const char *mapname, const char *startspot, qboolean ba
 		return false;
 
 #if XASH_GAMECUBE
+	extern void FS_FindFile_f( const char *filename );
+
+	/* Temporary G201 evidence: FS_FileExists and FS_LoadFile use separate
+	 * filesystem paths. Keep both observations before Delta_Init so a missing
+	 * disc/search-path asset cannot be mistaken for a delta encoder failure. */
+	{
+		fs_offset_t delta_size = 0, valve_delta_size = 0;
+		byte *delta_data, *valve_delta_data;
+		const char *delta_disk, *valve_delta_disk;
+		qboolean delta_exists, valve_delta_exists;
+
+		delta_exists = FS_FileExists( "delta.lst", false );
+		valve_delta_exists = FS_FileExists( "valve/delta.lst", false );
+		delta_disk = FS_GetDiskPath( "delta.lst", false );
+		valve_delta_disk = FS_GetDiskPath( "valve/delta.lst", false );
+		delta_data = FS_LoadFile( "delta.lst", &delta_size, false );
+		valve_delta_data = FS_LoadFile( "valve/delta.lst", &valve_delta_size, false );
+		Con_Reportf( "Xash3D GameCube: G201 delta diagnostic exists=%d load=%d size=%lld disk=%s valve_exists=%d valve_load=%d valve_size=%lld valve_disk=%s\n",
+			delta_exists, delta_data != NULL, (long long)delta_size,
+			delta_disk ? delta_disk : "(none)", valve_delta_exists,
+			valve_delta_data != NULL, (long long)valve_delta_size,
+			valve_delta_disk ? valve_delta_disk : "(none)" );
+		FS_Path_f();
+		FS_FindFile_f( "delta.lst" );
+		FS_FindFile_f( "valve/delta.lst" );
+		if( delta_data ) Mem_Free( delta_data );
+		if( valve_delta_data ) Mem_Free( valve_delta_data );
+	}
+
 	/* G201: spawn-time Delta_Init re-parses delta.lst; under tight MEM1 that
 	 * second FS_LoadFile can stall forever after a layout shift. Progs already
 	 * initialized delta — skip reinit on New Game (also -gcnodeltareinit).

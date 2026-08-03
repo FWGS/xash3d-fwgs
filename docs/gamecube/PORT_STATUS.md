@@ -76,11 +76,11 @@ Immediate delta.lst sequence: pause automation; instrument independent
 smoke ISO; run the reduced ladder; make one filesystem/path fix; rerun the
 probe; then update this status from fresh evidence.
 
-1. **Dolphin smoke-map runtime timeout**
+1. **Dolphin filesystem initialization timeout**
    - Repro: `scripts/dolphin-boot-probe.sh`
    - Current route: bounded smoke-map boot
-   - Symptom: engine readiness observed, `c0a0e` never reaches `map loaded`
-     within probe timeout
+   - Symptom: read-only boot reaches `gcdisc:/xash3d`, then stalls during the
+     missing-`vfs.cfg` addon fallback before engine readiness
    - Priority: highest autonomous blocker
 
 ### Latest reproducible evidence — 2026-08-02
@@ -98,14 +98,44 @@ probe; then update this status from fresh evidence.
   caused the subsequent BSP open to report `exists=0`; that experiment was
   reverted. Do not treat it as a passing workaround.
 
+### Latest diagnostic probe — 2026-08-02
+
+- Diagnostic build: passed; fresh `OUT/bin/boot.dol` and smoke ISO generated.
+- ISO staging: `xash3d/valve/delta.lst` present, 12,567 bytes.
+- Probe bundle: `.ai/logs/dolphin-probe-20260802-191640/`.
+- New first failure boundary: the guest reached DVD mount, filesystem module
+  registration, and `gcdisc:/xash3d`, then timed out before engine readiness.
+- Last guest marker: `FS_LoadVFSConfig: vfs.cfg not found on disc, mounting addon fallback`.
+- The G201 `FS_FileExists`/`FS_LoadFile` diagnostic did not execute in this
+  run, so the delta contract remains unclassified. Do not apply a delta fix
+  from this probe.
+
+### Follow-up filesystem experiment — 2026-08-02
+
+- Hypothesis: the missing-`vfs.cfg` read-only fallback hangs in
+  `FS_Rescan_f()`, before engine/server startup.
+- Evidence: `.ai/logs/dolphin-probe-20260802-192020/` reached
+  `vfs fallback rescan begin` but never reached `vfs fallback rescan done`.
+- One scoped change: skip that rescan because GameCube `FS_MountFlags()` already
+  enables the addon path on the read-only route.
+- Result: `.ai/logs/dolphin-probe-20260802-192224/` passed the fallback and
+  reached controller readiness, then stalled inside `SV_InitGame` before the
+  server-library path and G201 diagnostics.
+- Decision: keep the filesystem fallback change as an experiment, do not accept
+  it as a release fix yet, and do not invoke re_agent without a function/address
+  target.
+
 ## Next Task
 
-**Make the smoke-map Dolphin probe pass again**
+**Reproduce and isolate the filesystem fallback boundary**
 
-1. Inspect the latest probe bundle under `.ai/logs/dolphin-probe-20260728-225124/`
-2. Trace the runtime path from engine readiness to `Xash3D GameCube: map loaded c0a0e`
-3. Fix the narrowest source-side blocker preventing bounded map load
-4. Re-run `scripts/dolphin-boot-probe.sh`
+1. Inspect `.ai/logs/dolphin-probe-20260802-191640/` and confirm the
+   `vfs.cfg` fallback is the first stalled boundary.
+2. Determine whether smoke staging needs an explicit valid `vfs.cfg` or
+   whether addon rescan is hanging on the read-only disc route.
+3. Rerun the reduced ladder after one narrowly scoped filesystem experiment.
+4. Only if engine readiness and G201 are reached, use the new independent
+   `FS_FileExists`/`FS_LoadFile` diagnostic to classify `delta.lst`.
 5. Keep physical-hardware handoff docs intact, but do not treat them as the
    next blocking milestone while Dolphin runtime is still failing
 

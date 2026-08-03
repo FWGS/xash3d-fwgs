@@ -136,8 +136,10 @@ static void FS_LoadVFSConfig( const char *gamedir )
 		{
 			Con_Reportf( "%s: vfs.cfg not found on disc, mounting addon fallback\n", __func__ );
 			Cvar_DirectSet( &fs_mount_addon, "1" );
-			// Ensure addon is mounted by triggering a rescan so map files are found
-			FS_Rescan_f();
+			/* GameCube FS_MountFlags already includes the addon on the read-only
+			 * disc route. A rescan here re-enters VFS setup and can hang before
+			 * engine readiness; continue with the paths already mounted. */
+			Con_Reportf( "Xash3D GameCube: vfs fallback using existing addon paths\n" );
 			vfs_done = true;
 		}
 		else
