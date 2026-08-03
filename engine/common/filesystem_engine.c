@@ -141,6 +141,7 @@ static void FS_LoadVFSConfig( const char *gamedir )
 			Cbuf_AddText( "smoke_map_override c0a0e\n" );
 			Cbuf_Execute();
 			// Explicitly load the smoke map to ensure engine readiness
+			Con_Reportf( "%s: loading map c0a0e\n", __func__ );
 			Cbuf_AddText( "map c0a0e\n" );
 			Cbuf_Execute();
 			return;
