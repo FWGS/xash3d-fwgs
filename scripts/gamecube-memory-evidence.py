@@ -11,14 +11,16 @@ from pathlib import Path
 
 SIZE_RE = re.compile(r"(?P<value>[0-9.]+)\s*(?P<unit>bytes|Kb|KiB|Mb|MiB|Gb|GiB)", re.I)
 MEM_RE = re.compile(
-    r"mem stage=(?P<stage>\S+)\s+total=(?P<total>[^ ]+)\s+delta=(?P<delta>[^ ]+)\s+"
-    r"hwm=(?P<hwm>[^ ]+)\s+map=(?P<map>\S+)", re.I)
+    r"mem stage=(?P<stage>\S+)\s+total=(?P<total>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+"
+    r"delta=(?P<delta>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+"
+    r"hwm=(?P<hwm>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+map=(?P<map>\S+)", re.I)
 PRESSURE_RE = re.compile(
     r"map-load pressure stage=(?P<stage>\S+)\s+peak=(?P<peak>[^ ]+)\s+"
     r"delta=(?P<delta>[^ ]+)\s+base=(?P<base>[^ ]+)", re.I)
 FAIL_RE = re.compile(
-    r"mem FAIL subsystem=(?P<subsystem>\S+)\s+size=(?P<size>[^ ]+)\s+"
-    r"map=(?P<map>\S+)\s+at=(?P<at>\S+)\s+total=(?P<total>[^ ]+)\s+hwm=(?P<hwm>[^ ]+)", re.I)
+    r"mem FAIL subsystem=(?P<subsystem>\S+)\s+size=(?P<size>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+"
+    r"map=(?P<map>\S+)\s+at=(?P<at>\S+)\s+total=(?P<total>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)\s+"
+    r"hwm=(?P<hwm>[0-9.]+(?:\s*(?:bytes|Kb|KiB|Mb|MiB|Gb|GiB))?)", re.I)
 
 
 def parse_size(value: str) -> int | None:
