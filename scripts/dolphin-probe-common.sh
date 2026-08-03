@@ -11,6 +11,117 @@ probe_guest_error() {
 		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
 }
 
+probe_log_regex() {
+	grep -aqsE "$1" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
+}
+
+# Bounded map-loading ladder. Each gate is emitted once, in order, so the
+# autonomous loop can work on the first failed boundary instead of treating
+# every timeout as an undifferentiated map-load failure.
+LADDER_INDEX=0
+LADDER_FAILED=0
+LADDER_GATES=(
+	engine_initialized
+	filesystem_initialized
+	delta_lst_loadable
+	server_module_registered
+	bsp_found_opened
+	delta_tables_initialized
+	entities_spawned
+	map_loaded
+	controller_ready
+	stable_rendered_frame
+)
+
+probe_ladder_emit() {
+	printf 'GC_LADDER gate=%s status=%s detail=%s\n' "$1" "$2" "${3:-observed}"
+}
+
+probe_ladder_update() {
+	local gate detail
+	(( LADDER_FAILED )) && return 1
+	while (( LADDER_INDEX < ${#LADDER_GATES[@]} )); do
+		gate="${LADDER_GATES[$LADDER_INDEX]}"
+		detail="observed"
+		case "$gate" in
+			engine_initialized)
+				probe_log_has "$GUEST_MARKER" || break
+				detail="bootstrap"
+				;;
+			filesystem_initialized)
+				if probe_log_regex 'GameCube DVD filesystem mounted|filesystem_stdio successfully loaded|GC_MemSample.*searchpaths'; then
+					detail="search_paths"
+				elif probe_log_regex 'DVD filesystem init failed|Can.t init filesystem'; then
+					probe_ladder_emit "$gate" fail "filesystem_init_error"
+					LADDER_FAILED=1
+					return 1
+				else
+					break
+				fi
+				;;
+			delta_lst_loadable)
+				if probe_log_has 'Xash3D GameCube: G201 delta reinit ready' \
+					|| probe_log_regex 'FS_LoadFile path=(delta\.lst|valve/delta\.lst).*net='; then
+					detail="delta_lst"
+				elif probe_log_regex 'Delta_InitFields:.*delta\.lst|couldn.t load file delta\.lst'; then
+					probe_ladder_emit "$gate" fail "delta_lst_unloadable"
+					LADDER_FAILED=1
+					return 1
+				else
+					break
+				fi
+				;;
+			server_module_registered)
+				probe_log_has 'Xash3D GameCube: server game init ready' || break
+				detail="server_game_init"
+				;;
+			bsp_found_opened)
+				if probe_log_regex 'Mod_LoadWorld request=.*exists=1|find found .maps/[^ ]+\.bsp'; then
+					detail="bsp_open"
+				elif probe_log_regex 'Mod_LoadWorld request=.*exists=0|No map loaded|maps/[^ ]+\.bsp.*not found'; then
+					probe_ladder_emit "$gate" fail "bsp_unavailable"
+					LADDER_FAILED=1
+					return 1
+				else
+					break
+				fi
+				;;
+			delta_tables_initialized)
+				probe_log_has 'Xash3D GameCube: server progs delta ready' \
+					|| probe_log_has 'Xash3D GameCube: G201 delta reinit ready' || break
+				detail="delta_tables"
+				;;
+			entities_spawned)
+				probe_log_has 'Xash3D GameCube: entity lump spawn ready' || break
+				detail="entity_lump"
+				;;
+			map_loaded)
+				probe_log_has "$MAP_MARKER" || break
+				detail="world_active"
+				;;
+			controller_ready)
+				probe_log_has "$G45_READY_MARKER" || break
+				detail="g45"
+				;;
+			stable_rendered_frame)
+				local presents
+			presents=$(grep -aE 'Xash3D GameCube: present frame=' "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null | wc -l)
+			(( presents >= 2 )) || break
+				detail="present_frames=2+"
+				;;
+		esac
+		probe_ladder_emit "$gate" pass "$detail"
+		(( LADDER_INDEX++ ))
+	done
+
+	if (( LADDER_INDEX < ${#LADDER_GATES[@]} )) && probe_guest_error; then
+		probe_ladder_emit "${LADDER_GATES[$LADDER_INDEX]}" fail "guest_error"
+		LADDER_FAILED=1
+		return 1
+	fi
+	return 0
+}
+
 probe_retail_menu_seen() {
 	[[ "${DOLPHIN_RETAIL:-0}" == "1" ]] && (( ! DOLPHIN_NEWGAME )) && \
 		( probe_log_has "$RETAIL_MENU_INTERACTIVE_MARKER" || probe_log_has "$RETAIL_MENU_MARKER" || \
@@ -72,6 +183,7 @@ probe_wait_flatpak() {
 	local deadline=$(( $(date +%s) + TIMEOUT_SEC ))
 	local map_ready_at=0 retail_ready_at=0 g94_sample_armed=0 g278_sample_armed=0
 	while (( $(date +%s) < deadline )); do
+		if ! probe_ladder_update; then DOLPHIN_EXIT=3; break; fi
 		if [[ -n "${G82_FAULT_MARKER:-}" ]] && probe_log_has "$G82_FAULT_MARKER"; then
 			DOLPHIN_EXIT=0; break
 		fi
@@ -397,6 +509,7 @@ probe_wait_native() {
 	local deadline=$(( $(date +%s) + TIMEOUT_SEC ))
 	local map_ready_at=0 retail_ready_at=0 g94_sample_armed=0 g278_sample_armed=0
 	while (( $(date +%s) < deadline )); do
+		if ! probe_ladder_update; then DOLPHIN_EXIT=3; break; fi
 		if ! kill -0 "$DOLPHIN_WRAPPER_PID" 2>/dev/null; then
 			wait "$DOLPHIN_WRAPPER_PID" >/dev/null 2>&1 || true
 			DOLPHIN_EXIT=$?

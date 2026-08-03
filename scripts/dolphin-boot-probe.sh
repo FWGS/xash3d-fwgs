@@ -537,6 +537,11 @@ fi
 
 echo "==> Analyzing probe results..."
 LOG_FILES=("$LOG_DIR/stdout.log" "$LOG_DIR/stderr.log")
+probe_ladder_update || true
+if (( LADDER_INDEX < ${#LADDER_GATES[@]} && !LADDER_FAILED )); then
+	probe_ladder_emit "${LADDER_GATES[$LADDER_INDEX]}" fail "timeout"
+	LADDER_FAILED=1
+fi
 GUEST_FOUND=0 READY_FOUND=0 MAP_FOUND=0 INPUT_FOUND=0
 PLAY_READY_FOUND=0 FRAME_ARMED_FOUND=0
 grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
@@ -567,6 +572,12 @@ if [[ -n "$GC_PHASE_TEST" ]]; then
 	echo "G82_FAIL: expected intentional phase fault at ${GC_PHASE_TEST} with boot breadcrumb."
 	echo "Logs: $LOG_DIR"
 	finalize_probe g82_fail 3
+fi
+
+if (( LADDER_FAILED )); then
+	echo "GC_LADDER_RESULT: first_failed_gate=${LADDER_GATES[$LADDER_INDEX]}"
+	echo "Logs: $LOG_DIR"
+	finalize_probe ladder_failed 3
 fi
 
 RETAIL_MENU_SEEN=0
