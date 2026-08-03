@@ -138,6 +138,9 @@ static void FS_LoadVFSConfig( const char *gamedir )
 			// Set smoke map override for boot
 			Cbuf_AddText( "smoke_map_override c0a0e\n" );
 			Cbuf_Execute();
+			// Explicitly load the smoke map to ensure engine readiness
+			Cbuf_AddText( "map c0a0e\n" );
+			Cbuf_Execute();
 			return;
 		}
 		Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
