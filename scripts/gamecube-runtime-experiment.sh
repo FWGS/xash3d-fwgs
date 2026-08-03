@@ -15,13 +15,20 @@ REPORT_DIR="$REPO/.ai/runtime-experiments/$EXPERIMENT_ID"
 REPORT_PATH="$REPORT_DIR/report.json"
 mkdir -p "$REPORT_DIR"
 [[ -f "$BASELINE_PATH" ]] || { echo "Missing runtime baseline: $BASELINE_PATH" >&2; exit 2; }
-if [[ -n "$(git status --porcelain)" ]]; then
-    echo "Refusing to experiment on a dirty worktree." >&2
-    git status --short >&2
-    exit 2
-fi
 for target in "${TARGETS[@]}"; do
     [[ -f "$target" ]] || { echo "Experiment target is not a file: $target" >&2; exit 2; }
+done
+mapfile -t DIRTY_PATHS < <(git status --porcelain --untracked-files=all | sed -E 's/^.. //; s/ -> .*//' | sed '/^$/d')
+for dirty_path in "${DIRTY_PATHS[@]}"; do
+    allowed=0
+    for target in "${TARGETS[@]}"; do
+        [[ "$dirty_path" == "$target" ]] && allowed=1
+    done
+    if (( ! allowed )); then
+        echo "Refusing experiment: unrelated dirty path: $dirty_path" >&2
+        git status --short >&2
+        exit 2
+    fi
 done
 PARENT_COMMIT="$(git rev-parse HEAD)"
 BASELINE_SIGNATURE="$(python3 - "$BASELINE_PATH" <<'PY'
