@@ -14,11 +14,31 @@ def load_script_module(name: str, path: Path):
 	module = importlib.util.module_from_spec(spec)
 	assert spec is not None and spec.loader is not None
 	sys.modules[name] = module
-	spec.loader.exec_module(module)
+	agent_dir = str(path.parent)
+	if agent_dir not in sys.path:
+		sys.path.insert(0, agent_dir)
+	try:
+		spec.loader.exec_module(module)
+	finally:
+		if sys.path and sys.path[0] == agent_dir:
+			sys.path.pop(0)
 	return module
 
 
 class AiAutonomyTests(unittest.TestCase):
+	def test_runtime_recovery_commit_subject_is_short_and_deterministic(self) -> None:
+		module = load_script_module(
+			"gc_run_until_done_subject",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_run_until_done.py",
+		)
+		subject = module.commit_subject({
+			"failure_kind": "runtime_or_unknown",
+			"failed_phase": "runtime_regression",
+			"patch_targets": ["engine/client/cl_scrn.c"],
+		})
+		self.assertLessEqual(len(subject), 72)
+		self.assertRegex(subject, r"^(fix|feat|build|chore|ci|docs|style|refactor|perf|test): [A-Za-z0-9]")
+
 	def test_auto_discovery_prefers_recent_blocker(self) -> None:
 		with tempfile.TemporaryDirectory() as tmpdir:
 			root = Path(tmpdir)

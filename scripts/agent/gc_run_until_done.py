@@ -19,6 +19,7 @@ from gc_common import (
     advance_port_automation_tier,
     bootstrap_env,
     commit_changes,
+    git_changed_files,
     git_blocks_port_automation,
     load_port_automation_tier,
     mark_port_automation_complete,
@@ -53,11 +54,13 @@ def supervisor_report_for_fixes(report: dict) -> dict:
 
 
 def commit_subject(report: dict) -> str:
-    failure = report.get("failure_kind") or "build"
+    failure = (report.get("failure_kind") or "build").replace("_", " ")
     targets = report.get("patch_targets") or []
     target = Path(targets[0]).name if targets else "gamecube"
-    phase = report.get("failed_phase") or report.get("build_reason") or "pipeline"
-    return f"fix: resolve GameCube {failure} in {target} ({phase})"
+    # ai-aider-pass.sh intentionally caps deterministic subjects at 72 chars.
+    # Keep the subject stable and short; the report carries the full context.
+    subject = f"fix: GameCube {failure} {target}"
+    return subject[:72].rstrip()
 
 
 def write_aider_task(report: dict) -> Path:
@@ -129,6 +132,9 @@ def run_aider_pass(report: dict) -> int:
         f"Failure kind: {report.get('failure_kind')}\n"
         f"Primary target: {primary}\n"
     )
+    # .ai state, locks, and task files are harness state, not a patch. Never
+    # checkpoint them into the source branch before an Aider attempt.
+    env["AI_SKIP_DIRTY_CHECKPOINT"] = "1"
     env.setdefault("AIDER_AUTOMATION", "1")
     env.setdefault("AI_VERIFY_REQUIRE_DOC_UPDATE", "0")
     env.setdefault("AI_ENFORCE_EDITABLE_CONTEXT", "1")
@@ -169,6 +175,19 @@ def run_aider_pass(report: dict) -> int:
 
     print("+", " ".join(cmd), flush=True)
     proc = subprocess.run(cmd, cwd=REPO, env=env, check=False)
+
+    if proc.returncode != 0:
+        # A failed model pass must not strand a speculative source edit. The
+        # Aider wrapper normally discards it; this is the bounded outer guard.
+        leaked = []
+        for path in git_changed_files():
+            if path in targets:
+                leaked.append(path)
+        if leaked:
+            subprocess.run(["git", "reset", "--", *leaked], cwd=REPO, check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["git", "restore", "--", *leaked], cwd=REPO, check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return proc.returncode
 
 

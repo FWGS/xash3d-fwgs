@@ -276,12 +276,12 @@ def commit_changes(message: str) -> bool:
     if sync_script.is_file():
         run(["bash", str(sync_script), "--no-parent-commit"])
 
-    changed = git_changed_files()
+    changed = [path for path in git_changed_files() if not path.startswith(".ai/")]
     if not changed:
         print("No changes to commit.")
         return False
 
-    run(["git", "add", "-A"])
+    run(["git", "add", "--", *changed])
     code, _ = run(["git", "commit", "-m", message])
     return code == 0
 
