@@ -135,6 +135,9 @@ static void FS_LoadVFSConfig( const char *gamedir )
 			FS_Rescan_f();
 			// Load gameinfo to ensure search paths and game config are set up
 			g_fsapi.LoadGameInfo( FS_MountFlags(), ui_language.string );
+			// Set smoke map override for boot
+			Cbuf_AddText( "smoke_map_override c0a0e\n" );
+			Cbuf_Execute();
 			return;
 		}
 		Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
