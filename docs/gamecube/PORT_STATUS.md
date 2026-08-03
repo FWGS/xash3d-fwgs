@@ -9,6 +9,20 @@ map through the standard bounded probe route.
 
 ## Current Automated State
 
+### Runtime-only acceptance contract
+
+Automation may accept a source patch only when the shared verifier in
+`scripts/agent/gc_runtime_acceptance.py` reports `accepted: true`. A compile
+result, DOL file, emulator boot, or ledger edit alone is insufficient. The
+required evidence is a clean build, structurally valid DOL, successful disc
+build, required smoke-map marker, no guest-fatal marker, no source mutation
+outside the intended patch, and preserved regression markers (`G36_STATUS:
+PASS` and `G45_STATUS: PASS`). Screenshot, frame-timing, and audio checks are
+optional milestone requirements and are enabled explicitly by the caller.
+
+The acceptance report is the authority; this status document records the
+contract and cannot turn a failed runtime report into a pass.
+
 - Early DOL boot regression was fixed on **July 29, 2026** by correcting
   `scripts/elf-to-dol.py` so generated DOL headers carry the proper entry
   point, section tables, and BSS metadata.

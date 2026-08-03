@@ -14,6 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from gc_common import REPO, repo_path_pattern, load_port_automation_tier
+from gc_runtime_acceptance import evaluate_runtime_evidence
 STATE = REPO / ".ai/gc-port-supervisor.json"
 LOG_DIR = REPO / ".ai/logs/supervisor"
 TASK_OUT = REPO / ".ai/next-patch-task.txt"
@@ -476,9 +477,19 @@ def main():
     print(f"Supervisor automation tier: {tier}", flush=True)
 
     full_log = ""
+    baseline_commit = os.environ.get("AI_RUNTIME_BASELINE_COMMIT", "").strip()
+    if not baseline_commit:
+        baseline_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=REPO, text=True,
+            stdout=subprocess.PIPE, check=False,
+        ).stdout.strip()
+    phase_logs: dict[str, str] = {}
+    phase_codes: dict[str, int] = {}
 
     for phase in phases:
         code, log, log_path = run(phase["cmd"], phase["timeout"], phase["name"])
+        phase_logs[phase["name"]] = log
+        phase_codes[phase["name"]] = code
         full_log += f"\n\n===== {phase['name']} =====\n{log}"
 
         ok = success_for_phase(phase, code, log)
@@ -514,6 +525,35 @@ def main():
             save_state(report)
             return 0
 
+    intended_paths = [
+        path for path in re.split(
+            r"[:,]", os.environ.get("AI_INTENDED_EDIT_PATHS")
+            or os.environ.get("AI_REQUIRED_EDIT_PATHS", "")) if path
+    ]
+    evidence = evaluate_runtime_evidence(
+        REPO,
+        build_code=phase_codes.get("build_engine", 125),
+        build_log=phase_logs.get("build_engine", ""),
+        disc_code=phase_codes.get("build_disc", 125),
+        disc_log=phase_logs.get("build_disc", ""),
+        probe_log=phase_logs.get("dolphin_boot", ""),
+        baseline=baseline_commit,
+        intended_paths=intended_paths,
+    )
+    if not evidence["accepted"]:
+        report = {
+            "ok": False,
+            "tier": tier,
+            "failed_phase": "runtime_evidence",
+            "exit_code": 1,
+            "failure_kind": "runtime_evidence",
+            "runtime_evidence": evidence,
+            "patch_targets": [],
+            "next_action": "inspect_runtime_evidence",
+        }
+        save_state(report)
+        return 1
+
     report = {
         "ok": True,
         "tier": tier,
@@ -525,6 +565,7 @@ def main():
             "OUT/bin/boot.dol",
             "OUT/xash3d-gc.iso",
         ],
+        "runtime_evidence": evidence,
     }
     save_state(report)
     return 0
