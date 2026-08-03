@@ -1,341 +1,94 @@
-# GameCube Memory Budget
+# GameCube Memory Evidence
 
-This document describes the memory budget and allocation strategy for Xash3D on GameCube.
+This is an evidence report, not a hand-authored memory budget. Run
+`python3 scripts/gamecube-memory-evidence.py --repo .` after a build and after
+each representative map probe. The generated report is the source of truth;
+missing measurements are reported as `UNAVAILABLE` and must not be replaced by
+estimates.
 
-## Overview
+## Memory model used by this project
 
-The GameCube has **24 MB of main RAM** and **32 MB of VRAM**. This document details how memory is allocated and managed.
+The release model currently treats approximately **24 MiB of MEM1/main
+memory** and **16 MiB of MEM2/auxiliary memory** as the relevant operating
+assumptions. These are capacity assumptions, not allocations available to the
+engine. The report must account for executable sections, runtime arenas,
+stacks, libraries, caches, and temporary staging before claiming headroom.
 
-## Memory Architecture
+No fixed pool split is authorized by this document. In particular, this report
+does not assume a 32 MiB VRAM budget. GPU-visible memory, embedded framebuffers,
+texture residency, and auxiliary-memory use must be identified from linker,
+runtime, or hardware evidence separately.
 
-### GameCube Memory Map
+## Required generated evidence
 
-```
-GameCube Memory Map (24 MB Main RAM)
-├─ Exception Vectors (256 bytes)
-├─ Application Memory (20 MB)
-│  ├─ Text Section (code)
-│  ├─ Data Section (initialized data)
-│  └─ BSS Section (uninitialized data)
-├─ Stack (2 MB)
-├─ Heap (4 MB)
-└─ Texture Cache (8 MB)
+| Evidence | Source | Required result |
+|---|---|---|
+| ELF/DOL section sizes | ELF section table and DOL header | text/data/BSS and every DOL load section, in bytes and address range |
+| Linker map | linker map emitted by the build | largest symbols/sections and placement in MEM1/MEM2; `UNAVAILABLE` if absent |
+| MEM1/MEM2 high-water | Dolphin/hardware log telemetry | base, peak, free-at-peak, stage, map, and route; never infer MEM2 from MEM1 |
+| Per-map peak usage | map compatibility/campaign/probe logs | one row per map and route, including failures |
+| Texture/lightmap/audio/cache | tagged allocation telemetry or allocator report | subsystem, requested bytes, resident peak, and owner; `UNAVAILABLE` if untagged |
+| Largest failed allocation | `mem FAIL`, allocator, or guest-fatal marker | requested bytes, subsystem, map, total/HWM, and source location |
 
-GameCube Memory Map (32 MB VRAM)
-├─ Framebuffer (2 MB)
-├─ Texture Memory (24 MB)
-└─ Vertex Buffer Memory (6 MB)
-```
+## Current evidence state
 
-### Memory Constraints
+Run the generator to refresh this section’s companion artifact:
 
-- **Main RAM**: 24 MB total
-- **VRAM**: 32 MB total
-- **Texture Cache**: 8 MB
-- **Stack**: 1-2 MB
-- **Heap**: 4 MB
-
-## Memory Budget Allocation
-
-### Main RAM Budget
-
-```
-Main RAM Budget (24 MB)
-├─ Engine (8 MB)
-│  ├─ Core Engine (4 MB)
-│  ├─ Rendering (2 MB)
-│  └─ Audio (2 MB)
-├─ Game Module (4 MB)
-│  ├─ Game Logic (2 MB)
-│  └─ Entity Data (2 MB)
-├─ Client Module (4 MB)
-│  ├─ Rendering (2 MB)
-│  └─ HUD (2 MB)
-├─ Server Module (4 MB)
-│  ├─ Network (2 MB)
-│  └─ Entity Management (2 MB)
-├─ Texture Cache (4 MB)
-└─ Stack/Heap (2 MB)
+```sh
+python3 scripts/gamecube-memory-evidence.py \
+  --repo . \
+  --output .ai/state/gamecube-memory-evidence.json \
+  --markdown .ai/state/gamecube-memory-evidence.md
 ```
 
-### VRAM Budget
+The checked-in interpretation is intentionally conservative:
 
-```
-VRAM Budget (32 MB)
-├─ Framebuffer (2 MB)
-│  ├─ Color Buffer (1 MB)
-│  └─ Depth Buffer (1 MB)
-├─ Texture Memory (24 MB)
-│  ├─ Main Textures (16 MB)
-│  ├─ Lightmaps (4 MB)
-│  └─ UI Textures (4 MB)
-└─ Vertex Buffer Memory (6 MB)
-```
+- MEM1 capacity: approximately 24 MiB project assumption; measured available
+  capacity and free-at-peak: **UNAVAILABLE until a current runtime report is
+  generated**.
+- MEM2 capacity: approximately 16 MiB project assumption; measured use and
+  high-water: **UNAVAILABLE unless explicitly emitted by the runtime**.
+- ELF/DOL sections: **read from the current artifact by the generator**; a DOL
+  file size is not a RAM-usage measurement.
+- Linker map: **UNAVAILABLE when the build does not preserve one**. Add map
+  output to the build before making placement or BSS claims.
+- Per-map peaks: **only accepted from fresh logs** containing map and stage
+  markers. Historical prose does not establish a current peak.
+- Texture, lightmap, audio, and cache peaks: **UNAVAILABLE unless allocations
+  carry subsystem tags**. Renderer source size or a guessed cache capacity is
+  not residency evidence.
+- Largest failed allocation: **taken from the largest parsed failure marker**;
+  if no marker exists, it is `UNAVAILABLE`, not zero.
 
-## Memory Allocation Strategy
+## Runtime markers currently consumed
 
-### Memory Pools
+The existing MEM1 telemetry is useful and is consumed without changing its
+meaning:
 
-#### 1. Main Pool (16 MB)
-- Game data
-- Entity data
-- World data
-- Model data
-
-#### 2. Texture Pool (4 MB)
-- Texture data
-- Mipmaps
-- Texture cache
-
-#### 3. Audio Pool (2 MB)
-- Sound data
-- Audio buffers
-- Music data
-
-#### 4. Stack Pool (1 MB)
-- Call stacks
-- Local variables
-- Function parameters
-
-#### 5. Heap Pool (1 MB)
-- Dynamic allocation
-- Temporary data
-- Temporary buffers
-
-### Memory Pool Implementation
-
-```c
-// Memory pool structure
-typedef struct {
-    void* pool;           // Memory pool
-    int size;             // Pool size
-    int used;             // Used memory
-    int max_used;         // Maximum used
-    int alignment;        // Alignment
-    int flags;            // Flags
-} MemoryPool;
-
-// Memory pool functions
-void* Mem_Alloc(MemoryPool* pool, int size);
-void Mem_Free(MemoryPool* pool, void* ptr);
-void Mem_Init(MemoryPool* pool, void* data, int size);
-void Mem_Shutdown(MemoryPool* pool);
+```text
+Xash3D GameCube: mem stage=<stage> total=<size> delta=<size> hwm=<size> map=<map>
+Xash3D GameCube: map-load pressure stage=<stage> peak=<size> delta=<size> base=<size>
+Xash3D GameCube: mem FAIL subsystem=<name> size=<size> map=<map> at=<file>:<line> total=<size> hwm=<size>
 ```
 
-### Memory Pool Configuration
+These lines describe the allocator/accounting path currently instrumented.
+They do not prove that all allocations are in MEM1, do not expose MEM2 unless
+the platform allocator reports it, and do not partition renderer/audio/cache
+usage without subsystem tags.
 
-```c
-// Memory pool configuration
-#define POOL_MAIN_SIZE      (16 * 1024 * 1024)  // 16 MB
-#define POOL_TEXTURE_SIZE   (4 * 1024 * 1024)   // 4 MB
-#define POOL_AUDIO_SIZE     (2 * 1024 * 1024)   // 2 MB
-#define POOL_STACK_SIZE     (1 * 1024 * 1024)   // 1 MB
-#define POOL_HEAP_SIZE      (1 * 1024 * 1024)   // 1 MB
+## Acceptance rules
 
-// Memory pool allocation
-MemoryPool main_pool;
-MemoryPool texture_pool;
-MemoryPool audio_pool;
-MemoryPool stack_pool;
-MemoryPool heap_pool;
-```
+Memory pressure is a secondary hypothesis for the map failure, not a license to
+hide the filesystem failure or skip `Delta_Init()`. A memory claim is accepted
+only when it includes:
 
-## Memory Usage Analysis
+1. artifact identity and ELF/DOL section data;
+2. linker-map evidence or an explicit missing-map result;
+3. fresh runtime high-water data for the named map and route;
+4. the largest failed request and owning subsystem, when a failure occurred;
+5. separate MEM1 and MEM2 fields, with `UNAVAILABLE` where the runtime did not
+   measure the region.
 
-### Engine Memory Usage
-
-#### Core Engine (4 MB)
-- Entity system: 1 MB
-- World system: 1 MB
-- File system: 0.5 MB
-- Network system: 0.5 MB
-- Utility functions: 1 MB
-
-#### Rendering (2 MB)
-- Vertex buffers: 0.5 MB
-- Texture cache: 1 MB
-- Render targets: 0.5 MB
-
-#### Audio (2 MB)
-- Sound buffers: 1 MB
-- Music buffers: 0.5 MB
-- Audio system: 0.5 MB
-
-### Game Module Memory Usage
-
-#### Game Logic (2 MB)
-- Entity definitions: 1 MB
-- Game rules: 0.5 MB
-- Game state: 0.5 MB
-
-#### Entity Data (2 MB)
-- Entity instances: 1 MB
-- Entity data: 0.5 MB
-- Entity cache: 0.5 MB
-
-### Client Module Memory Usage
-
-#### Rendering (2 MB)
-- Scene graph: 0.5 MB
-- View model: 0.5 MB
-- HUD: 1 MB
-
-#### HUD (2 MB)
-- HUD elements: 1 MB
-- HUD data: 0.5 MB
-- HUD cache: 0.5 MB
-
-### Server Module Memory Usage
-
-#### Network (2 MB)
-- Network buffers: 1 MB
-- Network state: 0.5 MB
-- Network cache: 0.5 MB
-
-#### Entity Management (2 MB)
-- Entity list: 1 MB
-- Entity cache: 0.5 MB
-- Entity data: 0.5 MB
-
-## Memory Optimization
-
-### Texture Optimization
-
-#### 1. Texture Compression
-- Use DXT1 compression (8:1)
-- Use DXT3 compression (4:1)
-- Use DXT5 compression (4:1)
-
-#### 2. Mipmapping
-- Generate mipmaps for all textures
-- Use smaller mipmaps for distant objects
-
-#### 3. Texture Atlasing
-- Combine multiple textures into one
-- Reduce texture switches
-
-### Model Optimization
-
-#### 1. Vertex Optimization
-- Use shared vertices
-- Use index buffers
-- Use vertex caching
-
-#### 2. Geometry Optimization
-- Use LOD (Level of Detail)
-- Use culling
-- Use occlusion culling
-
-#### 3. Animation Optimization
-- Use skinning
-- Use animation caching
-- Use animation compression
-
-### Audio Optimization
-
-#### 1. Audio Compression
-- Use OGG Vorbis compression
-- Use 16-bit audio
-- Use stereo audio
-
-#### 2. Audio Caching
-- Cache audio data
-- Use streaming for large files
-- Use preloading for small files
-
-### Network Optimization
-
-#### 1. Packet Optimization
-- Use compression
-- Use delta compression
-- Use prediction
-
-#### 2. Buffer Optimization
-- Use fixed-size buffers
-- Use buffer pooling
-- Use buffer reuse
-
-## Memory Monitoring
-
-### Memory Statistics
-
-```c
-// Memory statistics
-typedef struct {
-    int total_memory;     // Total memory
-    int used_memory;      // Used memory
-    int free_memory;      // Free memory
-    int max_used;         // Maximum used
-    int allocations;      // Number of allocations
-    int deallocations;    // Number of deallocations
-} MemoryStats;
-
-// Memory statistics functions
-void Mem_GetStats(MemoryStats* stats);
-void Mem_PrintStats(void);
-```
-
-### Memory Profiling
-
-```c
-// Memory profiling
-typedef struct {
-    void* address;        // Memory address
-    int size;             // Size
-    const char* file;     // File
-    int line;             // Line
-    const char* function; // Function
-} MemoryProfile;
-
-// Memory profiling functions
-void Mem_Profile(void);
-void Mem_PrintProfile(void);
-```
-
-## Memory Issues
-
-### Common Issues
-
-#### 1. Memory Leaks
-- Use memory tracking
-- Use memory pools
-- Use smart pointers
-
-#### 2. Memory Fragmentation
-- Use memory pools
-- Use fixed-size allocations
-- Use memory compaction
-
-#### 3. Memory Overflows
-- Use bounds checking
-- Use memory guards
-- Use memory validation
-
-### Debugging
-
-#### 1. Memory Debugging
-- Enable memory debugging
-- Use memory guards
-- Use memory validation
-
-#### 2. Memory Profiling
-- Profile memory usage
-- Identify memory hotspots
-- Optimize memory usage
-
-## Memory Future Enhancements
-
-### Planned Features
-
-1. **Dynamic Memory**: Dynamic memory allocation
-2. **Memory Compression**: Memory compression
-3. **Memory Pooling**: Memory pooling
-4. **Memory Tracking**: Memory tracking
-
-### Roadmap
-
-- **Phase 1**: Static memory allocation (completed)
-- **Phase 2**: Dynamic memory allocation
-- **Phase 3**: Memory compression
-- **Phase 4**: Memory pooling
-- **Phase 5**: Memory tracking
+Until those fields exist, use the wording **“memory pressure is plausible but
+unproven”** and continue debugging the first failing filesystem/map ladder
+gate.
