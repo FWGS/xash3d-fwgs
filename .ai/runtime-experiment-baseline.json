@@ -1,0 +1,7 @@
+{
+  "parent_commit": "5179c6a72495f69a24637f2919c6061297dbf874",
+  "result_signature": "GUEST_RUNTIME_ERROR:delta.lst",
+  "required_marker": "Xash3D GameCube: map loaded c0a0e",
+  "evidence": "docs/gamecube/PORT_STATUS.md and the 2026-08-02 Dolphin probe evidence",
+  "notes": "Baseline is engine-ready, finds maps/c0a0e.bsp, then fails during G201 Delta_InitFields loading delta.lst."
+}
