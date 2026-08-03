@@ -316,6 +316,12 @@ void FS_ClearSearchPath( void )
 {
 	searchpath_t *cur, **prev = &fs_searchpaths;
 
+#if XASH_GAMECUBE
+	/* Search results are invalid whenever the mounted path set changes. */
+	FS_ClearFindMissCache();
+	FS_ClearFindHitCache();
+#endif
+
 	while( true )
 	{
 		cur = *prev;
@@ -1042,12 +1048,9 @@ searchpath_t *FS_FindFile( const char *name, int *index, char *fixedname, size_t
 		if( FS_ShouldSkipSearchpath( search, name ))
 			continue;
 
-		if( FS_FindHitCached( name ))
-		{
-			if( index )
-				*index = -1;
-			return NULL;
-		}
+		/* A prior successful lookup is not a failure result. The cache stores
+		 * names only, not the searchpath/index needed to load the file, so keep
+		 * searching instead of turning FileExists into a later load failure. */
 #endif
 
 		pack_ind = search->pfnFindFile( search, name, fixedname, len );

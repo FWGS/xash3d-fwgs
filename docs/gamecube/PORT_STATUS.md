@@ -168,6 +168,21 @@ probe; then update this status from fresh evidence.
   Do not skip Delta initialization or accept the game-info handoff as a
   release fix until the filesystem load contract and map staging pass.
 
+### Filesystem lookup/load contract resolved — 2026-08-02
+
+- Probe bundle: `.ai/logs/dolphin-probe-20260802-200351/`.
+- Cause: GameCube `FS_FindFile` treated a successful-lookup cache entry as a
+  negative result. `FS_FileExists` populated that cache, then `FS_LoadFile` or
+  `FS_Open` returned `NULL` on the next lookup. Search-path rebuilds also left
+  stale hit/miss entries behind.
+- Fix: successful cache entries no longer short-circuit lookup, and both
+  caches are cleared when search paths are rebuilt.
+- Validation: `delta.lst` and `valve/delta.lst` both report
+  `FS_FileExists=1`, `FS_LoadFile=1`, size `12567`, with disk path
+  `gcdisc:/xash3d/valve/delta.lst`.
+- Runtime validation passed through G201 reinit, BSP load, entity spawn,
+  `map loaded c0a0e`, and stable rendered frames without a guest fatal.
+
 ## Next Task
 
 **Isolate the FI.GameInfo/GI handoff before SV_InitGame**
