@@ -1,4 +1,4 @@
 {
-  "tier": "gameplay_implementation",
-  "note": "New focus on G440-G470 gameplay implementation goals. G38 manual hardware validation pending. G400-G433 completed. Current focus: client rendering, server logic, audio, input, and gameplay features."
+  "tier": "runtime_gate",
+  "note": "advanced from map_ready after supervisor pass"
 }
