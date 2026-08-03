@@ -60,6 +60,22 @@ Interpretation:
 
 ## Known Active Failure
 
+### Evidence-gated re_agent use
+
+The function-level re_agent path is opt-in. It is eligible only when fresh
+evidence names a concrete function result, static call path, ABI/structure
+layout, or repeated guest-trace address. A `delta.lst`, search-path, or asset
+staging failure is a filesystem contract and must not be routed to decompilation.
+
+When eligible, acceptance requires the re_agent report fields `address`,
+`decompile`, `source_match`, and `confidence`, followed by the normal clean
+build, valid DOL/disc, reduced map-load ladder, and no-guest-fatal gates.
+
+Immediate delta.lst sequence: pause automation; instrument independent
+`FS_FileExists` and `FS_LoadFile` calls; verify `delta.lst` in the generated
+smoke ISO; run the reduced ladder; make one filesystem/path fix; rerun the
+probe; then update this status from fresh evidence.
+
 1. **Dolphin smoke-map runtime timeout**
    - Repro: `scripts/dolphin-boot-probe.sh`
    - Current route: bounded smoke-map boot

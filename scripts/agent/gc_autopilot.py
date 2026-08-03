@@ -10,6 +10,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from gc_common import REPO, commit_changes, run
+from gc_reagent_policy import evidence_from_paths, target_eligibility
 
 REPORT = REPO / ".ai/reagent-last-probe.json"
 TASK_OUT = REPO / ".ai/next-patch-task.txt"
@@ -22,6 +23,20 @@ def load_report():
 
 
 def run_reagent():
+    evidence = evidence_from_paths([
+        REPO / ".ai/state/dolphin-harness-latest.md",
+        REPO / ".ai/reagent-last-probe.json",
+    ])
+    decision = target_eligibility(evidence)
+    if not decision["eligible"]:
+        print("Skipping re_agent: evidence does not name a concrete function-level target.")
+        print("Next:", decision["next_action"])
+        return 4, {
+            "build_ok": False,
+            "failure_kind": decision["reason"],
+            "next_action": decision["next_action"],
+            "re_agent": decision,
+        }
     code, _ = run(["python3", "scripts/agent/gc_reagent.py"])
     report = load_report()
     if report is None:
