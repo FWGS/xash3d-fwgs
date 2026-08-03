@@ -122,6 +122,7 @@ void FS_Rescan_f( void )
 static void FS_LoadVFSConfig( const char *gamedir )
 {
 	string parm;
+	qboolean vfs_done = false;
 
 	if( Host_IsDedicated( ))
 		return;
@@ -137,7 +138,7 @@ static void FS_LoadVFSConfig( const char *gamedir )
 			Cvar_DirectSet( &fs_mount_addon, "1" );
 			// Ensure addon is mounted by triggering a rescan so map files are found
 			FS_Rescan_f();
-			// Continue initialization - don't return here
+			vfs_done = true;
 		}
 		else
 		{
@@ -146,30 +147,38 @@ static void FS_LoadVFSConfig( const char *gamedir )
 			Cvar_DirectSet( &fs_mount_addon, "1" );
 			// Ensure addon is mounted by triggering a rescan
 			FS_Rescan_f();
+			vfs_done = true;
 		}
 	}
 #endif
 
 	if( !FS_FileExists( "vfs.cfg", true ))
 	{
-		Con_Reportf( "%s: vfs.cfg not found, skipping\n", __func__ );
-		return;
+		if( !vfs_done )
+		{
+			Con_Reportf( "%s: vfs.cfg not found, skipping\n", __func__ );
+			return;
+		}
+		// GameCube no-writable-storage already handled; continue initialization
 	}
 
-	Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
-	Cbuf_Execute();
-
-	if( Sys_GetParmFromCmdLine( "-language", parm ))
+	if( !vfs_done )
 	{
-		Cvar_DirectSet( &ui_language, parm );
-		Cvar_DirectSet( &fs_mount_l10n, "1" );
-	}
+		Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
+		Cbuf_Execute();
 
-	ClearBits( fs_mount_hd.flags, FCVAR_CHANGED );
-	ClearBits( fs_mount_lv.flags, FCVAR_CHANGED );
-	ClearBits( fs_mount_l10n.flags, FCVAR_CHANGED );
-	ClearBits( fs_mount_addon.flags, FCVAR_CHANGED );
-	ClearBits( ui_language.flags, FCVAR_CHANGED );
+		if( Sys_GetParmFromCmdLine( "-language", parm ))
+		{
+			Cvar_DirectSet( &ui_language, parm );
+			Cvar_DirectSet( &fs_mount_l10n, "1" );
+		}
+
+		ClearBits( fs_mount_hd.flags, FCVAR_CHANGED );
+		ClearBits( fs_mount_lv.flags, FCVAR_CHANGED );
+		ClearBits( fs_mount_l10n.flags, FCVAR_CHANGED );
+		ClearBits( fs_mount_addon.flags, FCVAR_CHANGED );
+		ClearBits( ui_language.flags, FCVAR_CHANGED );
+	}
 }
 
 void FS_SaveVFSConfig( void )
