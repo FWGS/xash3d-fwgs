@@ -267,6 +267,9 @@ Mirrored on github - https://github.com/a1batross/XashXT_original
 ## Yet another PS2 Half-Life port
 Official github repository - https://github.com/supadupaplex/ya-ps2hl-dll
 
+## Zombie Panic!
+Official github repository - https://github.com/Monochrome-Inc/ZombiePanic-HL
+
 ## Zombie-X
 Available in mod archive on ModDB - https://www.moddb.com/mods/zombie-x-10-final/downloads/zombie-x-10-dle-beta6-last-version
 
