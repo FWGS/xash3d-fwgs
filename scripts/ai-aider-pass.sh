@@ -830,6 +830,15 @@ semantic_patch_guard() {
 			return 24
 		fi
 	fi
+	if [[ -n "${AI_FORBIDDEN_PATCH_TOKENS:-}" ]]; then
+		while IFS= read -r token; do
+			[[ -n "$token" ]] || continue
+			if grep -Fqi -- "+${token}" <<< "$diff"; then
+				echo "ai-aider-pass: patch cannot manufacture acceptance evidence: ${token}" >&2
+				return 24
+			fi
+		done < <(tr ',' '\n' <<< "${AI_FORBIDDEN_PATCH_TOKENS}")
+	fi
 }
 
 stage_and_validate_patch() {

@@ -156,6 +156,13 @@ def run_aider_pass(report: dict) -> int:
             ]
         )
     env.setdefault("AI_FORBIDDEN_EDIT_PATHS", ",".join(forbidden))
+    # Acceptance markers are observations, not valid model outputs. Prevent a
+    # candidate from making a failing probe look successful by adding its own
+    # marker to the guest source.
+    env.setdefault(
+        "AI_FORBIDDEN_PATCH_TOKENS",
+        "Xash3D GameCube: map loaded,MAP_READY:,direct map ready,G45_STATUS: PASS,runtime gate: OK",
+    )
     env.setdefault("AIDER_CONTEXT_BYTES_INITIAL", "8000")
     env.setdefault("AIDER_CONTEXT_BYTES_RETRY_1", "6000")
     env.setdefault("AIDER_CONTEXT_BYTES_RETRY_2", "4000")
