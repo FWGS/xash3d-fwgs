@@ -43,6 +43,10 @@ fs_globals_t *FI;
 static pfnCreateInterface_t fs_pfnCreateInterface;
 static HINSTANCE fs_hInstance;
 
+// Forward declarations for GameCube smoke boot mode functions
+qboolean FS_SmokeBootMode( void );
+void FS_SetSmokeBootMode( qboolean mode );
+
 search_t *FS_Search( const char *pattern, int caseinsensitive, int gamedironly )
 {
 	return g_fsapi.Search( pattern, caseinsensitive, gamedironly );
@@ -244,6 +248,19 @@ static void FS_MakeGameInfo_f( void )
 	g_fsapi.MakeGameInfo();
 }
 
+// GameCube smoke boot mode
+static qboolean s_smoke_boot_mode = false;
+
+qboolean FS_SmokeBootMode( void )
+{
+	return s_smoke_boot_mode;
+}
+
+void FS_SetSmokeBootMode( qboolean mode )
+{
+	s_smoke_boot_mode = mode;
+}
+
 static const fs_interface_t fs_memfuncs =
 {
 	Con_Printf,
@@ -433,6 +450,7 @@ static qboolean FS_DetermineReadOnlyRootDirectory( char *out, size_t size )
 FS_Init
 ================
 */
+
 void FS_Init( void )
 {
 	string gamedir;
@@ -504,6 +522,13 @@ void FS_Init( void )
 	 * G94 gcprobe: is save-only and must not disable smoke layout. */
 	FS_SetSmokeBootMode( Sys_CheckParm( "-gcmap" )
 		|| !GCube_HasPersistentWritableStorage() );
+
+	/* Load smoke map automatically when in smoke boot mode */
+	if (FS_SmokeBootMode() && !Sys_CheckParm( "-gcmap" ))
+	{
+		Cbuf_AddText( "map c0a0e\n" );
+		Cbuf_Execute();
+	}
 #endif
 }
 
