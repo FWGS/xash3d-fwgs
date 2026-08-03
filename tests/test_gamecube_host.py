@@ -46,6 +46,13 @@ class GameCubeHostTests(unittest.TestCase):
 				path.write_bytes(b"asset")
 			self.assertEqual(disc.validate_staged_retail_assets(staged), [])
 
+	def test_smoke_newgame_can_stage_fullphysics_override(self) -> None:
+		disc = load_script("disc_fullphysics", "scripts/build-gamecube-disc.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			out = Path(tmpdir)
+			disc.write_smoke_overrides(out, "c0a0", fullphysics=True)
+			self.assertIn("fullphysics", (out / "gamecube.cfg").read_text(encoding="ascii"))
+
 	def test_filesystem_search_path_contract_checks_directories_and_order(self) -> None:
 		searchpath = (ROOT / "filesystem/searchpath.c").read_text(encoding="utf-8")
 		self.assertIn("FS_SysFolderExists( dir )", searchpath)
@@ -102,6 +109,33 @@ class GameCubeHostTests(unittest.TestCase):
 		loop = load_script("goal_loop_classify", "scripts/ai-goal-loop.py")
 		self.assertEqual(loop.failure_class_for(1, [{"text": "Delta_InitFields: couldn't load file delta.lst"}], "dolphin-probe"), "runtime_probe")
 		self.assertEqual(loop.failure_class_for(1, [{"text": "black screen"}], "dolphin-probe"), "visual_runtime")
+
+	def test_gameplay_gate_rejects_input_only_evidence(self) -> None:
+		gate = load_script("gameplay_gate", "scripts/gamecube-gameplay-gate.py")
+		ok, failures = gate.check("Xash3D GameCube: probe gameplay action attack\n")
+		self.assertFalse(ok)
+		self.assertTrue(any("attack usercmd" in item for item in failures))
+
+	def test_gameplay_gate_requires_ordered_post_action_stability(self) -> None:
+		gate = load_script("gameplay_gate_order", "scripts/gamecube-gameplay-gate.py")
+		base = "\n".join((
+			"Xash3D GameCube: map loaded c0a0",
+			"Xash3D GameCube: entity lump spawn ready",
+			"Xash3D GameCube: probe gameplay move/look begin",
+			"Xash3D GameCube: native axis usercmd ready delta=(1,0,0)",
+			"Xash3D GameCube: probe gameplay action attack",
+			"Xash3D GameCube: probe gameplay action jump",
+			"Xash3D GameCube: probe jump PMove ready velocity=(0,0,180) flags=0",
+			"Xash3D GameCube: probe gameplay action use",
+			"Xash3D GameCube: probe gameplay input ready",
+			"Xash3D GameCube: G120 attack usercmd buttons=1",
+			"Xash3D GameCube: G121 PlaybackEvent deliver index=1 name=events/glock.sc",
+			"Xash3D GameCube: world interaction use done classname=func_button",
+			"Xash3D GameCube: gcmap smoke frames ready",
+			"frame time=10ms\nframe time=11ms\nframe time=12ms",
+		))
+		self.assertEqual(gate.check(base)[0], True)
+		self.assertEqual(gate.check(base.replace("gcmap smoke frames ready", ""))[0], False)
 
 	def test_endian_sensitive_elf_to_dol_serialization(self) -> None:
 		converter = load_script("elf_to_dol", "scripts/elf-to-dol.py")

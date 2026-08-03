@@ -72,8 +72,18 @@ class AiAutonomyTests(unittest.TestCase):
 			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
 		)
 		names = [phase["name"] for phase in module.phases_for_tier("dolphin_release")]
-		self.assertLess(names.index("runtime_regression"), names.index("dolphin_release_soak"))
+		self.assertLess(names.index("runtime_regression"), names.index("gameplay_probe"))
+		self.assertLess(names.index("gameplay_probe"), names.index("dolphin_release_soak"))
 		self.assertEqual(names[-1], "dolphin_release_soak")
+
+	def test_gameplay_phase_requires_guest_gate(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_gameplay",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		phase = next(p for p in module.phases_for_tier("dolphin_release") if p["name"] == "gameplay_probe")
+		self.assertEqual(phase["success"], ["GAMEPLAY_GATE: PASS"])
+		self.assertEqual(phase["timeout"], 600)
 
 	def test_early_dolphin_boot_hang_is_not_sent_to_model(self) -> None:
 		module = load_script_module(

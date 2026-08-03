@@ -91,6 +91,13 @@ DOLPHIN_RELEASE_PHASE = {
     "success": ["- Status: PASS"],
 }
 
+GAMEPLAY_PHASE = {
+    "name": "gameplay_probe",
+    "cmd": ["bash", "scripts/gamecube-gameplay-probe.sh"],
+    "timeout": 600,
+    "success": ["GAMEPLAY_GATE: PASS"],
+}
+
 
 def phases_for_tier(tier: str) -> list[dict]:
     phases = [dict(phase) for phase in PHASES_BASE]
@@ -121,6 +128,7 @@ def phases_for_tier(tier: str) -> list[dict]:
         phases.append(RUNTIME_PROBE_PHASE)
         phases.append(RUNTIME_GATE_PHASE)
         if tier == "dolphin_release":
+            phases.append(GAMEPLAY_PHASE)
             phases.append(DOLPHIN_RELEASE_PHASE)
         return phases
 
@@ -144,6 +152,7 @@ PHASE_DEFAULT_TARGETS: dict[str, list[str]] = {
     "runtime_probe": ["engine/common/host.c", "engine/server/sv_init.c", "engine/common/mod_bmodel.c"],
     "runtime_regression": ["engine/client/cl_scrn.c", "ref/gx/r_main.c"],
     "dolphin_release_soak": ["scripts/gamecube-soak-probe.py"],
+    "gameplay_probe": ["engine/server/sv_pmove.c", "engine/server/sv_phys.c", "engine/platform/gamecube/in_gamecube.c"],
 }
 
 SCRIPT_EXCEPTION_TARGETS: dict[str, list[str]] = {
@@ -198,7 +207,7 @@ def run(cmd, timeout, phase):
     finally:
         text = "".join(output)
         log_path.write_text(text, encoding="utf-8")
-        if phase in {"dolphin_boot", "runtime_probe", "map_compat_probe", "runtime_regression"}:
+        if phase in {"dolphin_boot", "runtime_probe", "map_compat_probe", "runtime_regression", "gameplay_probe"}:
             kill_dolphin_stragglers()
 
     return proc.returncode if proc.returncode is not None else 124, text, str(log_path.relative_to(REPO))
@@ -314,9 +323,11 @@ def success_for_phase(phase, code, log):
     # Dolphin scripts may return nonzero if killed after useful evidence,
     # so success markers are authoritative.
     markers = phase["success"]
-    if phase["name"] in {"dolphin_boot", "runtime_probe"}:
+    if phase["name"] in {"dolphin_boot", "runtime_probe", "gameplay_probe"}:
         # Require the full boot contract. Matching only G45/visual previously
         # let menu-stuck MAP_TIMEOUT runs advance into runtime_gate.
+        if phase["name"] == "gameplay_probe":
+            return code == 0 and all(marker in log for marker in markers)
         return all(marker in log for marker in markers)
 
     if phase["name"] == "dolphin_release_soak":

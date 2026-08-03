@@ -235,6 +235,10 @@ else
 		fi
 	elif [[ -n "$SMOKE_MAP" ]]; then
 		BUILD_ARGS+=(--smoke-map "$SMOKE_MAP")
+		if (( DOLPHIN_NEWGAME )) && [[ "${DOLPHIN_FULLPHYSICS:-0}" == "1" ]]; then
+			BUILD_ARGS+=(--probe-fullphysics)
+			echo "==> Native full server/physics probe on smoke map"
+		fi
 		if (( DOLPHIN_WORLD_RENDER )); then
 			BUILD_ARGS+=(--world-render)
 			echo "==> World render probe mode (gcworldrender in gamecube.cfg)"

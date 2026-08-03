@@ -1290,16 +1290,20 @@ def write_smoke_overrides(
 	output: Path,
 	smoke_map: str,
 	*,
+	newgame: bool = False,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
 	landmark: str | None = None,
 	leanpvs: bool = False,
+	fullphysics: bool = False,
 ) -> None:
 	(output / "valve.rc").write_text("stuffcmds\n", encoding="ascii")
 	(output / "config.cfg").write_text("\n", encoding="ascii")
 	(output / "autoexec.cfg").write_text("\n", encoding="ascii")
 	lines = [f"map {Path(smoke_map).stem}"]
+	if newgame:
+		lines.append("newgame")
 	if changelevel:
 		# G68: enable New Game PVS/present/changelevel path on the smoke map.
 		lines.append("newgame")
@@ -1309,6 +1313,8 @@ def write_smoke_overrides(
 		lines.append(f"phasetest {phasetest}")
 	if leanpvs:
 		lines.append("leanpvs")
+	if fullphysics:
+		lines.append("fullphysics")
 	if changelevel and landmark:
 		lines.append(f"changelevel {Path(changelevel).stem} {landmark}")
 	elif changelevel:
@@ -1589,11 +1595,13 @@ def stage_smoke_data(
 	output: Path,
 	smoke_map: str,
 	*,
+	newgame: bool = False,
 	world_render: bool = False,
 	phasetest: str | None = None,
 	changelevel: str | None = None,
 	landmark: str | None = None,
 	leanpvs: bool = False,
+	fullphysics: bool = False,
 ) -> Path:
 	map_name = smoke_map if smoke_map.endswith(".bsp") else f"{smoke_map}.bsp"
 	map_relative = f"maps/{map_name}"
@@ -1611,11 +1619,13 @@ def stage_smoke_data(
 	write_smoke_overrides(
 		output,
 		smoke_map,
+		newgame=newgame,
 		world_render=world_render,
 		phasetest=phasetest,
 		changelevel=changelevel,
 		landmark=landmark,
 		leanpvs=leanpvs,
+		fullphysics=fullphysics,
 	)
 	for relative in smoke_hud_resources(source):
 		copy_if_present(source, output, relative)
@@ -1986,8 +1996,6 @@ def main() -> None:
 			
 	if args.smoke_map and args.intro_avi:
 		parser.error("--smoke-map and --intro-avi are mutually exclusive")
-	if args.smoke_map and args.probe_newgame:
-		parser.error("--smoke-map and --probe-newgame are mutually exclusive")
 	if args.probe_newsaveload and not args.probe_newgame:
 		parser.error("--probe-newsaveload requires --probe-newgame")
 	if args.world_render and not args.smoke_map:
@@ -2015,11 +2023,13 @@ def main() -> None:
 				args.data,
 				Path(temp) / "valve",
 				args.smoke_map,
+				newgame=args.probe_fullphysics,
 				world_render=args.world_render,
 				phasetest=args.probe_phasetest,
 				changelevel=args.probe_changelevel,
 				landmark=args.probe_landmark,
 				leanpvs=args.probe_leanpvs,
+				fullphysics=args.probe_fullphysics,
 			)
 			validation_errors = validate_smoke_assets(smoke_data, args.smoke_map)
 			if validation_errors:

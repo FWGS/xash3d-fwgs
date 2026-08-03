@@ -22,6 +22,9 @@ GNU General Public License for more details.
 
 static qboolean has_update = false;
 static void SV_GetTrueOrigin( sv_client_t *cl, int edictnum, vec3_t origin );
+#if XASH_GAMECUBE
+static qboolean gc_probe_jump_logged;
+#endif
 
 void SV_ClipPMoveToEntity( physent_t *pe, const vec3_t start, vec3_t mins, vec3_t maxs, const vec3_t end, pmtrace_t *tr )
 {
@@ -1011,6 +1014,14 @@ void SV_RunCmd( sv_client_t *cl, usercmd_t *ucmd, int random_seed )
 	// copy results back to client
 	SV_FinishPMove( svgame.pmove, cl );
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& ( ucmd->buttons & IN_JUMP ) && !gc_probe_jump_logged )
+	{
+		gc_probe_jump_logged = true;
+		Con_Reportf( "Xash3D GameCube: probe jump PMove ready velocity=(%.1f,%.1f,%.1f) flags=0x%x\n",
+			clent->v.velocity[0], clent->v.velocity[1], clent->v.velocity[2],
+			(unsigned)clent->v.flags );
+	}
 	if( gc_fullphysics_trace )
 	{
 		Con_Reportf( "Xash3D GameCube: native usercmd PM_Move ready origin=(%.0f,%.0f,%.0f) velocity=(%.0f,%.0f,%.0f)\n",
