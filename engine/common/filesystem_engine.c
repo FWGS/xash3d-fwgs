@@ -487,6 +487,14 @@ void FS_Init( void )
 		return;
 	}
 
+	// Register CVARs before FS_LoadGameInfo to avoid "already defined" errors
+	// when FS_LoadVFSConfig tries to set these CVARs
+	Cvar_RegisterVariable( &fs_mount_hd );
+	Cvar_RegisterVariable( &fs_mount_lv );
+	Cvar_RegisterVariable( &fs_mount_addon );
+	Cvar_RegisterVariable( &fs_mount_l10n );
+	Cvar_RegisterVariable( &ui_language );
+
 	// Load gameinfo.txt to ensure delta.lst and other game assets are available
 	FS_LoadGameInfo();
 
@@ -495,12 +503,6 @@ void FS_Init( void )
 	Cmd_AddRestrictedCommand( "fs_find", FS_FindFile_f_, "find file across search pathes and show all occurences" );
 	Cmd_AddRestrictedCommand( "fs_clearpaths", FS_ClearPaths_f, "clear filesystem search pathes" );
 	Cmd_AddRestrictedCommand( "fs_make_gameinfo", FS_MakeGameInfo_f, "create gameinfo.txt for current running game" );
-
-	Cvar_RegisterVariable( &fs_mount_hd );
-	Cvar_RegisterVariable( &fs_mount_lv );
-	Cvar_RegisterVariable( &fs_mount_addon );
-	Cvar_RegisterVariable( &fs_mount_l10n );
-	Cvar_RegisterVariable( &ui_language );
 
 	if( !Sys_GetParmFromCmdLine( "-dll", host.gamedll ))
 		host.gamedll[0] = 0;
