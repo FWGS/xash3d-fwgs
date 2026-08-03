@@ -52,6 +52,20 @@ class AiAutonomyTests(unittest.TestCase):
 		self.assertIn("DOLPHIN_SMOKE_MAP=c0a0e", probe["cmd"])
 		self.assertIn("MAP_READY:", probe["success"])
 
+	def test_missing_waf_object_is_not_sent_to_model(self) -> None:
+		module = load_script_module(
+			"gc_run_until_done_transient_build",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_run_until_done.py",
+		)
+		self.assertTrue(module.is_transient_build_failure({
+			"failed_phase": "build_engine",
+			"error_context": "Build failed -> missing file: build/ref/common/ref_math.c.1.o",
+		}))
+		self.assertFalse(module.is_transient_build_failure({
+			"failed_phase": "runtime_regression",
+			"error_context": "missing file: c0a0e map loaded",
+		}))
+
 	def test_auto_discovery_prefers_recent_blocker(self) -> None:
 		with tempfile.TemporaryDirectory() as tmpdir:
 			root = Path(tmpdir)

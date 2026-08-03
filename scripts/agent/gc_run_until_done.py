@@ -35,6 +35,7 @@ TASK_FILE = REPO / ".ai/tasks/gc-port-current.md"
 
 RECOVERABLE_AIDER_STATUSES = {10, 15, 16, 17, 18, 19}
 FAST_RETRY_STATUSES = {1, 3, 10, 15, 16, 17, 18, 19}
+MAX_TRANSIENT_BUILD_RETRIES = 2
 
 
 def load_supervisor_report() -> dict | None:
@@ -225,6 +226,14 @@ def runtime_accept_candidate(tier: str, baseline: str) -> bool:
     return False
 
 
+def is_transient_build_failure(report: dict) -> bool:
+    """Recognize Waf missing-object races that do not justify source edits."""
+    if report.get("failed_phase") != "build_engine":
+        return False
+    context = str(report.get("error_context") or "").lower()
+    return "missing file:" in context and ".o" in context
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-cycles", type=int, default=0, help="0 means unlimited")
@@ -273,6 +282,7 @@ def main() -> int:
             return 0
 
         tier = args.tier or load_port_automation_tier()
+        transient_build_retries = 0
         print(f"gc-run-until-done: automation tier={tier}", flush=True)
 
         for cycle in cycles:
@@ -302,6 +312,7 @@ def main() -> int:
                 return 1
 
             if report.get("ok"):
+                transient_build_retries = 0
                 next_tier = advance_port_automation_tier(tier)
                 if args.continuous and next_tier and not args.probe_only:
                     print(
@@ -328,6 +339,23 @@ def main() -> int:
             if args.probe_only:
                 print("gc-run-until-done: probe-only mode; supervisor reported a failure.")
                 return code or 1
+
+            if is_transient_build_failure(report):
+                transient_build_retries += 1
+                if transient_build_retries <= MAX_TRANSIENT_BUILD_RETRIES:
+                    print(
+                        "gc-run-until-done: transient Waf missing-object failure; "
+                        f"retrying build ({transient_build_retries}/{MAX_TRANSIENT_BUILD_RETRIES})",
+                        file=sys.stderr,
+                    )
+                    time.sleep(5)
+                    continue
+                print(
+                    "gc-run-until-done: repeated Waf missing-object failure; "
+                    "stopping without an LLM source patch.",
+                    file=sys.stderr,
+                )
+                return 30
 
             fix_report = supervisor_report_for_fixes(report)
             ok, message = apply_known_fix(fix_report)
