@@ -135,21 +135,34 @@ probe; then update this status from fresh evidence.
 - This is not sufficient evidence for re_agent: no repeated guest address or
   proven function mismatch exists yet. Capture a call-site/ABI or guest trace
   target before using decompilation.
-  target.
+
+### SV_InitGame argument boundary — 2026-08-02
+
+- Probe bundle: `.ai/logs/dolphin-probe-20260802-195057/`.
+- The guest emitted `server game init begin` and
+  `server game init argument begin`, but not `server game init argument ready`.
+- The argument is `GI->gamemode != GAME_SINGLEPLAYER_ONLY`; therefore the
+  failure occurs while reading `GI`, before the direct call to `SV_InitGame`.
+- Static ELF inspection confirms `SV_Init` branches directly from `0x800b3d18`
+  to `SV_InitGame` at `0x800afec8`, whose first report call is at `0x800afeec`.
+- Current blocker: unusable or invalid `FI.GameInfo`/`GI` state at the
+  `gamemode` read, or a guest memory/ABI fault at that access. `delta.lst` and
+  server-module loading have not been reached in this run.
+- Do not invoke re_agent yet: there is still no concrete repeated guest fault
+  address or proven function/ABI mismatch.
 
 ## Next Task
 
-**Reproduce and isolate the filesystem fallback boundary**
+**Isolate the FI.GameInfo/GI handoff before SV_InitGame**
 
-1. Inspect `.ai/logs/dolphin-probe-20260802-191640/` and confirm the
-   `vfs.cfg` fallback is the first stalled boundary.
-2. Determine whether smoke staging needs an explicit valid `vfs.cfg` or
-   whether addon rescan is hanging on the read-only disc route.
-3. Rerun the reduced ladder after one narrowly scoped filesystem experiment.
-4. Only if engine readiness and G201 are reached, use the new independent
-   `FS_FileExists`/`FS_LoadFile` diagnostic to classify `delta.lst`.
+1. Identify where `FI.GameInfo` is assigned before `SV_Init`.
+2. Add one bounded diagnostic for its pointer and safe scalar state.
+3. Validate the pointer against the generated ELF/DOL memory sections and
+   rerun the reduced probe.
+4. Only after this boundary passes, return to the independent `delta.lst`
+   `FS_FileExists`/`FS_LoadFile` diagnostic.
 5. Keep physical-hardware handoff docs intact, but do not treat them as the
-   next blocking milestone while Dolphin runtime is still failing
+   next blocking milestone while Dolphin runtime is still failing.
 
 ## External Blockers
 

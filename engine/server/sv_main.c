@@ -919,6 +919,9 @@ Only called at startup, not for each game
 void SV_Init( void )
 {
 	string	versionString;
+#if XASH_GAMECUBE
+	qboolean server_game_silent;
+#endif
 
 	SV_InitHostCommands();
 
@@ -1073,8 +1076,15 @@ void SV_Init( void )
 	SV_ClearGameState ();	// delete all temporary *.hl files
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: server game init begin\n" );
-#endif
+	Con_Reportf( "Xash3D GameCube: server game init argument begin\n" );
+	server_game_silent = GI->gamemode != GAME_SINGLEPLAYER_ONLY;
+	Con_Reportf( "Xash3D GameCube: server game init argument ready silent=%d\n", server_game_silent );
+#else
 	SV_InitGame( GI->gamemode != GAME_SINGLEPLAYER_ONLY );
+#endif
+#if XASH_GAMECUBE
+	SV_InitGame( server_game_silent );
+#endif
 #if XASH_GAMECUBE
 	Con_Reportf( "Xash3D GameCube: server game init ready\n" );
 #endif
