@@ -57,6 +57,21 @@ RUNTIME_GATE_PHASE = {
     "success": ["runtime gate: OK"],
 }
 
+# Map compatibility ends on its last map, so its state file cannot be used as
+# the c0a0e input to the runtime gate. Refresh the canonical smoke map first.
+RUNTIME_PROBE_PHASE = {
+    "name": "runtime_probe",
+    "cmd": [
+        "env",
+        "DOLPHIN_SKIP_BUILD=1",
+        "DOLPHIN_SMOKE_MAP=c0a0e",
+        "scripts/dolphin-boot-probe.sh",
+        "OUT/xash3d-gc.iso",
+    ],
+    "timeout": 480,
+    "success": ["MAP_READY:", "G45_STATUS: PASS", "VISUAL_STATUS: nonblack"],
+}
+
 
 def phases_for_tier(tier: str) -> list[dict]:
     phases = [dict(phase) for phase in PHASES_BASE]
@@ -84,6 +99,7 @@ def phases_for_tier(tier: str) -> list[dict]:
                     *phase["cmd"],
                 ]
                 phase["success"] = ["MAP_COMPAT_PROBE: PASS"]
+        phases.append(RUNTIME_PROBE_PHASE)
         phases.append(RUNTIME_GATE_PHASE)
         return phases
 
@@ -104,6 +120,7 @@ PHASE_DEFAULT_TARGETS: dict[str, list[str]] = {
     "build_disc": ["scripts/build-gamecube-disc.py"],
     "dolphin_boot": ["engine/platform/gamecube/in_gamecube.c", "engine/client/cl_scrn.c"],
     "map_compat_probe": ["engine/platform/gamecube/in_gamecube.c", "engine/common/mod_bmodel.c"],
+    "runtime_probe": ["engine/common/host.c", "engine/server/sv_init.c", "engine/common/mod_bmodel.c"],
     "runtime_regression": ["engine/client/cl_scrn.c", "ref/gx/r_main.c"],
 }
 
@@ -159,7 +176,7 @@ def run(cmd, timeout, phase):
     finally:
         text = "".join(output)
         log_path.write_text(text, encoding="utf-8")
-        if phase in {"dolphin_boot", "map_compat_probe", "runtime_regression"}:
+        if phase in {"dolphin_boot", "runtime_probe", "map_compat_probe", "runtime_regression"}:
             kill_dolphin_stragglers()
 
     return proc.returncode if proc.returncode is not None else 124, text, str(log_path.relative_to(REPO))
@@ -275,7 +292,7 @@ def success_for_phase(phase, code, log):
     # Dolphin scripts may return nonzero if killed after useful evidence,
     # so success markers are authoritative.
     markers = phase["success"]
-    if phase["name"] == "dolphin_boot":
+    if phase["name"] in {"dolphin_boot", "runtime_probe"}:
         # Require the full boot contract. Matching only G45/visual previously
         # let menu-stuck MAP_TIMEOUT runs advance into runtime_gate.
         return all(marker in log for marker in markers)

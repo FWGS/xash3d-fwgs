@@ -39,6 +39,19 @@ class AiAutonomyTests(unittest.TestCase):
 		self.assertLessEqual(len(subject), 72)
 		self.assertRegex(subject, r"^(fix|feat|build|chore|ci|docs|style|refactor|perf|test): [A-Za-z0-9]")
 
+	def test_runtime_gate_refreshes_canonical_smoke_map_after_compatibility_probe(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_runtime_probe",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		phases = module.phases_for_tier("runtime_gate")
+		names = [phase["name"] for phase in phases]
+		self.assertLess(names.index("map_compat_probe"), names.index("runtime_probe"))
+		self.assertLess(names.index("runtime_probe"), names.index("runtime_regression"))
+		probe = phases[names.index("runtime_probe")]
+		self.assertIn("DOLPHIN_SMOKE_MAP=c0a0e", probe["cmd"])
+		self.assertIn("MAP_READY:", probe["success"])
+
 	def test_auto_discovery_prefers_recent_blocker(self) -> None:
 		with tempfile.TemporaryDirectory() as tmpdir:
 			root = Path(tmpdir)
