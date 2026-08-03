@@ -36,6 +36,7 @@ TASK_FILE = REPO / ".ai/tasks/gc-port-current.md"
 RECOVERABLE_AIDER_STATUSES = {10, 15, 16, 17, 18, 19}
 FAST_RETRY_STATUSES = {1, 3, 10, 15, 16, 17, 18, 19}
 MAX_TRANSIENT_BUILD_RETRIES = 2
+MAX_TRANSIENT_DOLPHIN_RETRIES = 2
 
 
 def load_supervisor_report() -> dict | None:
@@ -234,6 +235,18 @@ def is_transient_build_failure(report: dict) -> bool:
     return "missing file:" in context and ".o" in context
 
 
+def is_transient_dolphin_boot_failure(report: dict) -> bool:
+    """Recognize a probe that dies before engine readiness without a guest fault."""
+    if report.get("failed_phase") != "runtime_probe":
+        return False
+    context = str(report.get("error_context") or "").lower()
+    return (
+        "boot_no_engine_ready" in context
+        or "inconclusive_exit" in context
+        or report.get("exit_code") in {124, 137}
+    ) and "fatal" not in context and "out of memory" not in context
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-cycles", type=int, default=0, help="0 means unlimited")
@@ -283,6 +296,7 @@ def main() -> int:
 
         tier = args.tier or load_port_automation_tier()
         transient_build_retries = 0
+        transient_dolphin_retries = 0
         print(f"gc-run-until-done: automation tier={tier}", flush=True)
 
         for cycle in cycles:
@@ -313,6 +327,7 @@ def main() -> int:
 
             if report.get("ok"):
                 transient_build_retries = 0
+                transient_dolphin_retries = 0
                 next_tier = advance_port_automation_tier(tier)
                 if args.continuous and next_tier and not args.probe_only:
                     print(
@@ -356,6 +371,23 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 return 30
+
+            if is_transient_dolphin_boot_failure(report):
+                transient_dolphin_retries += 1
+                if transient_dolphin_retries <= MAX_TRANSIENT_DOLPHIN_RETRIES:
+                    print(
+                        "gc-run-until-done: transient Dolphin boot failure; "
+                        f"retrying probe ({transient_dolphin_retries}/{MAX_TRANSIENT_DOLPHIN_RETRIES})",
+                        file=sys.stderr,
+                    )
+                    time.sleep(5)
+                    continue
+                print(
+                    "gc-run-until-done: repeated Dolphin boot failure; "
+                    "stopping without an LLM source patch.",
+                    file=sys.stderr,
+                )
+                return 31
 
             fix_report = supervisor_report_for_fixes(report)
             ok, message = apply_known_fix(fix_report)

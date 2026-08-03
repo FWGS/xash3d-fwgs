@@ -75,6 +75,22 @@ class AiAutonomyTests(unittest.TestCase):
 		self.assertLess(names.index("runtime_regression"), names.index("dolphin_release_soak"))
 		self.assertEqual(names[-1], "dolphin_release_soak")
 
+	def test_early_dolphin_boot_hang_is_not_sent_to_model(self) -> None:
+		module = load_script_module(
+			"gc_run_until_done_transient_dolphin",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_run_until_done.py",
+		)
+		self.assertTrue(module.is_transient_dolphin_boot_failure({
+			"failed_phase": "runtime_probe",
+			"exit_code": 137,
+			"error_context": "INCONCLUSIVE_EXIT: Dolphin exited 0; BOOT_NO_ENGINE_READY after DVD mount begin",
+		}))
+		self.assertFalse(module.is_transient_dolphin_boot_failure({
+			"failed_phase": "runtime_probe",
+			"exit_code": 1,
+			"error_context": "GUEST_RUNTIME_ERROR: fatal message=out of memory",
+		}))
+
 	def test_auto_discovery_prefers_recent_blocker(self) -> None:
 		with tempfile.TemporaryDirectory() as tmpdir:
 			root = Path(tmpdir)
