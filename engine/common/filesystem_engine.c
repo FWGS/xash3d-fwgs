@@ -137,14 +137,16 @@ static void FS_LoadVFSConfig( const char *gamedir )
 			Cvar_DirectSet( &fs_mount_addon, "1" );
 			// Ensure addon is mounted by triggering a rescan so map files are found
 			FS_Rescan_f();
-			return;
+			// Continue initialization - don't return here
 		}
-		Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
-		Cbuf_Execute();
-		Cvar_DirectSet( &fs_mount_addon, "1" );
-		// Ensure addon is mounted by triggering a rescan
-		FS_Rescan_f();
-		return;
+		else
+		{
+			Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
+			Cbuf_Execute();
+			Cvar_DirectSet( &fs_mount_addon, "1" );
+			// Ensure addon is mounted by triggering a rescan
+			FS_Rescan_f();
+		}
 	}
 #endif
 
