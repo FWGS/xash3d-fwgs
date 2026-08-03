@@ -518,13 +518,6 @@ void FS_Init( void )
 	 * G94 gcprobe: is save-only and must not disable smoke layout. */
 	FS_SetSmokeBootMode( Sys_CheckParm( "-gcmap" )
 		|| !GCube_HasPersistentWritableStorage() );
-
-	/* Load smoke map automatically when in smoke boot mode */
-	if (FS_SmokeBootMode())
-	{
-		Cbuf_AddText( "map c0a0e\n" );
-		Cbuf_Execute();
-	}
 #endif
 }
 
