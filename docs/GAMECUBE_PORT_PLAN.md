@@ -141,7 +141,33 @@ text is not an applied patch. Aider is forced to request zero thinking tokens
 without capability filtering, reducing repetitive deliberation in local Qwen
 logs while leaving the verifier and Git commit as the source of truth.
 
-## Milestones
+## Release readiness matrix
+
+The historical micro-goal ledger below is reference material, not the active
+queue. Automation must work the first incomplete item in G491-G500 and require
+runtime evidence before accepting it. Renderer polish is frozen until the map,
+player-spawn, and input gates are green.
+
+| Gate | Goal | Required evidence | Status / next boundary |
+|---|---|---|---|
+| Build and boot | G491 | Clean build, valid DOL, disc build, boot marker | BLOCKED until the first failing runtime marker is reproduced |
+| Filesystem and asset loading | G492 | Search paths, `delta.lst` found/loadable, asset load markers | BLOCKED; investigate the filesystem contract |
+| Static client/server modules | G492/G493 | Client/server registration markers, no module fatal | OPEN after filesystem |
+| BSP/map load | G491/G492 | BSP found/opened, delta tables initialized, `map loaded` | OPEN; first release-critical runtime gate |
+| Player spawn and input | G493/G494 | Entities spawned, controller ready, gameplay action marker | OPEN |
+| World rendering | G495 | Stable nonblack gameplay frame and frame timing | FROZEN until map/gameplay gates pass |
+| Studio models and HUD | G495 | Model/HUD visible in a stable gameplay frame | FROZEN until map/gameplay gates pass |
+| Audio | G496 | Nonzero mixer/audio evidence during gameplay | OPEN after gameplay |
+| Save/load | G497 | Save and reload preserve player/map state | OPEN after map continuity |
+| Changelevel | G497 | Changelevel route completes with state continuity | OPEN after save/load |
+| Campaign smoke test | G498/G499 | Bounded campaign route, no guest fatal, reproducible report | OPEN |
+| Hardware validation | G500 | Physical GameCube checklist and handoff report | MANUAL final gate |
+
+The acceptance contract is centralized in
+`scripts/agent/gc_runtime_acceptance.py`. Compile success, a DOL, emulator boot,
+or a changed status document alone do not advance a row.
+
+## Historical milestone archive
 
 1. Reproducible clean build from a fresh checkout.
 2. Boot in Dolphin with visible diagnostics and a controlled failure path.

@@ -38,6 +38,7 @@ except ImportError:  # pragma: no cover - non-Unix fallback
 GOAL_RE = re.compile(r"^##\s+(G\d+)\s+\[( |~|x|X|MANUAL|SKIP)\]\s+(.+)$")
 DOLPHIN_PROBE_GOALS = frozenset({"G14", "G19", "G21", "G34", "G35",
 	"G491", "G492", "G493", "G494", "G495", "G496", "G497", "G498", "G499"})
+READINESS_GOALS = tuple(f"G{number}" for number in range(491, 501))
 PROBE_AUTO_COMPLETE = {
 	"G19": "MAP_READY:",
 	"G35": "MAP_READY:",
@@ -2436,7 +2437,10 @@ def main() -> int:
 	for pass_index in pass_indexes:
 		goals = reconcile_port_plan_completions(root, parse_goals(goal_file))
 		seed_conact_from_goal_state(memory, goals)
-		goal = next((item for item in goals if not item.automatic_done), None)
+		goal = next((item for item in goals
+			if item.goal_id in READINESS_GOALS and not item.automatic_done), None)
+		if goal is None:
+			goal = next((item for item in goals if not item.automatic_done), None)
 		if goal is None:
 			write_state(state_file, state="complete", pass_index=pass_index - 1,
 				message="All automatic goals are complete, skipped, or blocked")
