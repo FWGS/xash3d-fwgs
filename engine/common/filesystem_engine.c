@@ -135,15 +135,8 @@ static void FS_LoadVFSConfig( const char *gamedir )
 		{
 			Con_Reportf( "%s: vfs.cfg not found on disc, mounting addon fallback\n", __func__ );
 			Cvar_DirectSet( &fs_mount_addon, "1" );
-			// Ensure addon is mounted by triggering a rescan
-			FS_Rescan_f();
-			// Set smoke map override for boot
-			Cbuf_AddText( "smoke_map_override c0a0e\n" );
-			Cbuf_Execute();
-			// Explicitly load the smoke map to ensure engine readiness
-			Con_Reportf( "%s: loading map c0a0e\n", __func__ );
-			Cbuf_AddText( "map c0a0e\n" );
-			Cbuf_Execute();
+			// Skip rescan and command buffer execution to avoid potential hangs
+			// Map loading will be handled by FS_Init() after full initialization
 			return;
 		}
 		Cbuf_AddTextf( "exec %s/vfs.cfg\n", gamedir );
