@@ -17,8 +17,9 @@ from pathlib import Path
 
 # Critical assets required for basic engine boot and map loading
 CRITICAL_ASSETS = (
-    "liblist.gam",
-    "gfx.wad",
+	"liblist.gam",
+	"delta.lst",
+	"gfx.wad",
     "gfx/palette.lmp",
     "gfx/conback.lmp",
     "gfx/colormap.lmp",
