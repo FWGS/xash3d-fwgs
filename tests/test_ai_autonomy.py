@@ -104,6 +104,14 @@ class AiAutonomyTests(unittest.TestCase):
 		self.assertLess(names.index("gameplay_probe"), names.index("release_packet"))
 		self.assertLess(names.index("dolphin_release_soak"), names.index("release_packet"))
 
+	def test_incomplete_release_packet_is_not_a_patch_target(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_release_evidence",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		self.assertEqual(module.classify_failure("RELEASE_PACKET: INCOMPLETE"), "release_evidence")
+		self.assertEqual(module.default_patch_targets("release_packet", "release_evidence"), [])
+
 	def test_early_dolphin_boot_hang_is_not_sent_to_model(self) -> None:
 		module = load_script_module(
 			"gc_run_until_done_transient_dolphin",

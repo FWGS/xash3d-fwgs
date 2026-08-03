@@ -355,6 +355,8 @@ def success_for_phase(phase, code, log):
 def classify_failure(log):
     low = log.lower()
 
+    if "release_packet: incomplete" in low:
+        return "release_evidence"
     if "mem fail" in low or "_mem_alloc: out of memory" in low or "xash3d gamecube: fatal message=" in low:
         return "memory"
     if "guest_failure" in low or "map_loaded_no_input" in low or "map_ready_gap" in low:
@@ -432,6 +434,8 @@ def extract_patch_targets(log, failure_kind: str | None = None):
 
 
 def default_patch_targets(failed_phase: str | None, failure_kind: str | None) -> list[str]:
+    if failure_kind == "release_evidence":
+        return []
     if failure_kind == "script_exception" and failed_phase:
         return list(SCRIPT_EXCEPTION_TARGETS.get(failed_phase, []))
 
