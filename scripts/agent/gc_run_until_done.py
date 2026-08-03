@@ -256,7 +256,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--tier",
-        choices=["map_loaded", "map_ready", "runtime_gate"],
+        choices=["map_loaded", "map_ready", "runtime_gate", "dolphin_release"],
         help="force a specific automation tier for this run",
     )
     args = parser.parse_args()

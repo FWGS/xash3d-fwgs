@@ -310,7 +310,7 @@ def ensure_agent_imports() -> None:
         sys.path.insert(0, str(script_dir))
 
 
-PORT_AUTOMATION_TIERS = ("map_loaded", "map_ready", "runtime_gate")
+PORT_AUTOMATION_TIERS = ("map_loaded", "map_ready", "runtime_gate", "dolphin_release")
 TIER_STATE_PATH = REPO / ".ai/state/gc-port-automation-tier.json"
 
 

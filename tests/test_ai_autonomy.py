@@ -66,6 +66,15 @@ class AiAutonomyTests(unittest.TestCase):
 			"error_context": "missing file: c0a0e map loaded",
 		}))
 
+	def test_dolphin_release_tier_adds_soak_after_runtime_gate(self) -> None:
+		module = load_script_module(
+			"gc_port_supervisor_dolphin_release",
+			Path(__file__).resolve().parents[1] / "scripts/agent/gc_port_supervisor.py",
+		)
+		names = [phase["name"] for phase in module.phases_for_tier("dolphin_release")]
+		self.assertLess(names.index("runtime_regression"), names.index("dolphin_release_soak"))
+		self.assertEqual(names[-1], "dolphin_release_soak")
+
 	def test_auto_discovery_prefers_recent_blocker(self) -> None:
 		with tempfile.TemporaryDirectory() as tmpdir:
 			root = Path(tmpdir)

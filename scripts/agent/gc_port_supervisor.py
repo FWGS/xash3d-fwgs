@@ -72,6 +72,25 @@ RUNTIME_PROBE_PHASE = {
     "success": ["MAP_READY:", "G45_STATUS: PASS", "VISUAL_STATUS: nonblack"],
 }
 
+DOLPHIN_RELEASE_PHASE = {
+    "name": "dolphin_release_soak",
+    "cmd": [
+        "python3",
+        "scripts/gamecube-soak-probe.py",
+        "--log-dir",
+        ".ai/logs/dolphin-release-soak",
+        "--maps",
+        "c0a0e",
+        "c1a0",
+        "--iterations",
+        "2",
+        "--timeout",
+        "180",
+    ],
+    "timeout": 480,
+    "success": ["- Status: PASS"],
+}
+
 
 def phases_for_tier(tier: str) -> list[dict]:
     phases = [dict(phase) for phase in PHASES_BASE]
@@ -90,7 +109,7 @@ def phases_for_tier(tier: str) -> list[dict]:
                 phase["success"] = ["MAP_COMPAT_PROBE: PASS"]
         return phases
 
-    if tier == "runtime_gate":
+    if tier in {"runtime_gate", "dolphin_release"}:
         for phase in phases:
             if phase["name"] == "map_compat_probe":
                 phase["cmd"] = [
@@ -101,6 +120,8 @@ def phases_for_tier(tier: str) -> list[dict]:
                 phase["success"] = ["MAP_COMPAT_PROBE: PASS"]
         phases.append(RUNTIME_PROBE_PHASE)
         phases.append(RUNTIME_GATE_PHASE)
+        if tier == "dolphin_release":
+            phases.append(DOLPHIN_RELEASE_PHASE)
         return phases
 
     return phases
@@ -122,6 +143,7 @@ PHASE_DEFAULT_TARGETS: dict[str, list[str]] = {
     "map_compat_probe": ["engine/platform/gamecube/in_gamecube.c", "engine/common/mod_bmodel.c"],
     "runtime_probe": ["engine/common/host.c", "engine/server/sv_init.c", "engine/common/mod_bmodel.c"],
     "runtime_regression": ["engine/client/cl_scrn.c", "ref/gx/r_main.c"],
+    "dolphin_release_soak": ["scripts/gamecube-soak-probe.py"],
 }
 
 SCRIPT_EXCEPTION_TARGETS: dict[str, list[str]] = {
@@ -297,6 +319,10 @@ def success_for_phase(phase, code, log):
         # let menu-stuck MAP_TIMEOUT runs advance into runtime_gate.
         return all(marker in log for marker in markers)
 
+    if phase["name"] == "dolphin_release_soak":
+        summary = REPO / ".ai/logs/dolphin-release-soak/summary.md"
+        return code == 0 and summary.is_file() and "- Status: PASS" in summary.read_text(encoding="utf-8")
+
     if phase["name"] in {"map_compat_probe", "runtime_regression"}:
         return any(marker in log for marker in markers)
 
@@ -461,7 +487,7 @@ def main():
     ap.add_argument("--stop-after", choices=["build_engine", "build_disc", "dolphin_boot"])
     ap.add_argument(
         "--tier",
-        choices=["map_loaded", "map_ready", "runtime_gate"],
+        choices=["map_loaded", "map_ready", "runtime_gate", "dolphin_release"],
         help="automation acceptance tier (default: GC_PORT_SUPERVISOR_TIER or saved state)",
     )
     args = ap.parse_args()
@@ -537,7 +563,7 @@ def main():
         "failed_phase": None,
         "failure_kind": None,
         "patch_targets": [],
-        "next_action": "advance_automation_tier" if tier != "runtime_gate" else "hardware_handoff",
+        "next_action": "hardware_handoff" if tier == "dolphin_release" else "advance_automation_tier",
         "artifacts": [
             "OUT/bin/boot.dol",
             "OUT/xash3d-gc.iso",
