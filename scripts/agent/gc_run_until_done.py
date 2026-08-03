@@ -191,6 +191,33 @@ def run_aider_pass(report: dict) -> int:
     return proc.returncode
 
 
+def discard_unaccepted_commit(baseline: str) -> bool:
+    """Remove the just-created candidate without touching unrelated work."""
+    code, _ = run(["git", "reset", "--keep", baseline])
+    return code == 0
+
+
+def runtime_accept_candidate(tier: str, baseline: str) -> bool:
+    """Keep a candidate only when the tier probe passes after the change."""
+    _, post_report = run_supervisor(None, tier)
+    if post_report and post_report.get("ok"):
+        return True
+
+    if baseline and discard_unaccepted_commit(baseline):
+        print(
+            "gc-run-until-done: candidate failed runtime acceptance; "
+            "discarded and stopping for fresh evidence.",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            "gc-run-until-done: candidate failed runtime acceptance and "
+            "could not be safely discarded.",
+            file=sys.stderr,
+        )
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-cycles", type=int, default=0, help="0 means unlimited")
@@ -298,14 +325,27 @@ def main() -> int:
             fix_report = supervisor_report_for_fixes(report)
             ok, message = apply_known_fix(fix_report)
             if ok:
+                baseline_code, baseline_out = run(["git", "rev-parse", "HEAD"])
+                baseline = baseline_out.strip()
                 run(["git", "diff", "--"] + (fix_report.get("patch_targets") or []))
                 if commit_changes(message):
-                    continue
+                    if baseline_code == 0 and runtime_accept_candidate(tier, baseline):
+                        continue
+                    return 20
                 print("gc-run-until-done: known fix produced no commit; continuing.", file=sys.stderr)
 
+            baseline_code, baseline_out = run(["git", "rev-parse", "HEAD"])
+            baseline = baseline_out.strip()
             aider_status = run_aider_pass(report)
             if aider_status == 0:
-                continue
+                # ai-aider-pass performs host/build verification, but that is
+                # not acceptance for this port. Require the same runtime
+                # evidence immediately after the candidate commit. If the
+                # probe does not pass, discard the candidate and stop rather
+                # than feeding the unchanged failure back into the model.
+                if runtime_accept_candidate(tier, baseline):
+                    continue
+                return 20
             if (
                 aider_status == 18
                 and report.get("failure_kind") == "script_exception"
