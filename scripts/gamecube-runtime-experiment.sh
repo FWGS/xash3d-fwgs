@@ -21,6 +21,9 @@ done
 mapfile -t DIRTY_PATHS < <(git status --porcelain --untracked-files=all | sed -E 's/^.. //; s/ -> .*//' | sed '/^$/d')
 for dirty_path in "${DIRTY_PATHS[@]}"; do
     [[ "$dirty_path" == .ai/runtime-experiments/* ]] && continue
+    if git ls-files --stage -- "$dirty_path" | awk '$1 == "160000" { found=1 } END { exit !found }'; then
+        continue
+    fi
     allowed=0
     for target in "${TARGETS[@]}"; do
         [[ "$dirty_path" == "$target" ]] && allowed=1
