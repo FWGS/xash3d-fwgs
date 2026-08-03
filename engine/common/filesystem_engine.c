@@ -520,7 +520,7 @@ void FS_Init( void )
 		|| !GCube_HasPersistentWritableStorage() );
 
 	/* Load smoke map automatically when in smoke boot mode */
-	if (FS_SmokeBootMode() && !Sys_CheckParm( "-gcmap" ))
+	if (FS_SmokeBootMode())
 	{
 		Cbuf_AddText( "map c0a0e\n" );
 		Cbuf_Execute();
