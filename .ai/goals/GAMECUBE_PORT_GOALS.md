@@ -6,9 +6,11 @@ goal complete only when its acceptance checks are demonstrated and recorded in
 lines. Real-hardware/operator-only work is tracked below as non-automation
 checkpoints, not as runnable goals.
 
-## Current focus (2026-07-18)
+## Current focus (2026-08-03)
 
-Automation tier: `landmark_changelevel` (see `.ai/state/gc-port-automation-tier.json`).
+Automation tier: `runtime_gate` (see `.ai/state/gc-port-automation-tier.json`).
+The release-critical queue is G491–G500 below. Renderer polish and historical
+micro-goals are reference material only and must not displace this ladder.
 
 **Proven on Dolphin New Game (`-gcnewgame`, map `c0a0`):**
 - `MAP_READY` + interactive input (`G45`)
@@ -5096,3 +5098,116 @@ historical notes.
   and persistence checks using the hardware checklist.
 - This goal cannot be completed by Dolphin or the unattended AI. Completion
   requires operator-recorded hardware evidence and must remain manual.
+
+## Supporting completion tasks
+
+These tasks support G491–G500 without creating another milestone history. Each
+task must produce a small artifact or marker that can be linked from the
+readiness matrix. They are ordered by dependency, not by cosmetic importance.
+
+### G501 [ ] Freeze and record the experiment baseline
+
+- Pause competing automation, record branch, parent commit, toolchain, model,
+  asset source, and active tier in one run manifest.
+- Require every candidate attempt to record its hypothesis, one or two target
+  files, build result, probe result, and keep/revert decision.
+- Acceptance: a clean worktree except harness state, a unique run manifest,
+  and no candidate commit accepted without post-patch runtime evidence.
+
+### G502 [ ] Generate the measured memory report
+
+- Replace fixed budget diagrams with ELF/DOL section sizes, linker-map data,
+  MEM1/MEM2 high-water marks, per-map peaks, texture/lightmap/audio/cache
+  allocations, and the largest failed allocation with subsystem.
+- Emit `UNAVAILABLE` explicitly when telemetry is absent; never substitute an
+  estimate for a measurement.
+- Acceptance: one generated report is consumed by G492 and archived beside the
+  probe that produced it.
+
+### G503 [ ] Close the host-side regression surface
+
+- Keep tests for disc staging, `delta.lst`, search-path resolution,
+  `FS_FileExists` versus `FS_LoadFile`, DOL/BSS metadata, module registration,
+  marker classification, endian serialization, and memory-report generation.
+- Run these tests before any Dolphin attempt and classify unrelated baseline
+  failures without allowing them to become runtime evidence.
+- Acceptance: deterministic host test command and a zero-failure result for
+  the port harness tests.
+
+### G504 [ ] Enforce the reduced runtime ladder
+
+- Emit and parse explicit gates for engine init, filesystem init, delta load,
+  server registration, BSP open, delta tables, entity spawn, map loaded,
+  controller ready, and first stable frame.
+- Stop at the first missing gate and attach the exact log to the run manifest.
+- Acceptance: G491 and all later runtime goals consume the same structured
+  markers rather than broad success text.
+
+### G505 [ ] Resolve ABI and module-boundary risks
+
+- Investigate only concrete evidence around `FI.GameInfo`, static client/server
+  registration, structure layout, calling convention, or a repeated guest
+  address. Use re_agent only when such a target exists.
+- Require the re_agent report fields `address`, `decompile`, `source_match`,
+  and `confidence`, followed by the normal build/DOL/disc/runtime gates.
+- Acceptance: the boundary has a fresh probe result and no speculative
+  decompilation-only patch is committed.
+
+### G506 [ ] Make gameplay smoke machine-verifiable
+
+- Extend the current map-ready probe with move/look, jump/use, attack,
+  entity interaction, HUD/viewmodel, and stable post-action frame markers.
+- Keep the route short enough for every candidate validation and preserve the
+  existing New Game regression markers.
+- Acceptance: G494 can distinguish map load from playable interaction without
+  screenshot-only judgment.
+
+### G507 [ ] Finish visual and audio release evidence
+
+- Add bounded checks for world geometry, HUD, studio models, lighting,
+  transparency, effects, startup audio, one-shot audio, movement audio, and
+  channel reuse.
+- Record frame timing, nonblack/frame evidence, mixer activity, and failures by
+  subsystem so memory regressions remain visible.
+- Acceptance: G495 and G496 each have a repeatable probe and archived evidence.
+
+### G508 [ ] Prove writable paths and persistence
+
+- Define deterministic GameCube locations for saves, config, binds, and cache
+  data without modifying legal source assets or disc contents.
+- Test first-run creation, reload, missing/corrupt data, and read-only media
+  behavior; include changelevel continuity.
+- Acceptance: G497 has a save/config result and a documented storage layout.
+
+### G509 [ ] Run campaign and soak gates from one build
+
+- Select a bounded representative map/changelevel route, then repeat boot,
+  load, gameplay, and shutdown enough to expose leaks, fragmentation, stale GX
+  state, and audio accumulation.
+- Compare per-map memory/frame/audio telemetry and require no guest fatal.
+- Acceptance: G498 passes strict soak and G499 archives the same-build reports.
+
+### G510 [MANUAL] Execute the hardware release checklist
+
+- Use the G500 handoff packet to test DOL/ISO boot, map load, controller,
+  gameplay, video, audio, changelevel, save/config, and recovery on physical
+  hardware.
+- Record hardware model, loader, media path, display mode, build hash, and
+  operator evidence for every failed or passed gate.
+- Acceptance: operator signs the hardware matrix; Dolphin evidence alone is
+  insufficient.
+
+## Readiness matrix
+
+| Area | Goal | Automated evidence | Current state |
+|---|---:|---|---|
+| Build/boot | G491 | clean build, valid DOL, disc, no guest fatal | active |
+| Filesystem/assets | G491–G492 | staging manifest, delta/load markers, map ladder | proven once; must remain regression-tested |
+| Memory | G492/G502 | generated section and high-water report | telemetry/reporting incomplete |
+| Modules/ABI | G491/G505 | registration markers and targeted reports | investigate only from fresh evidence |
+| Input/gameplay | G493–G494/G506 | controller and action markers | partial New Game proof |
+| Renderer/HUD | G495/G507 | nonblack frame, GX markers, timing | partial; no new polish queue |
+| Audio | G496/G507 | nonzero mixer/audio evidence | partial SFX proof |
+| Changelevel/save | G497/G508 | persistence and continuity reports | incomplete |
+| Soak/release | G498–G499/G509 | strict soak and same-build archive | incomplete |
+| Hardware | G500/G510 | operator checklist and hardware matrix | manual pending |
