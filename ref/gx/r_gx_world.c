@@ -2912,13 +2912,16 @@ static void R_GXPrepareHud2DState( void )
 	Mtx44 ortho;
 	Mtx ident;
 	f32 vb_w, vb_h;
-	const qboolean cinematic = ENGINE_GET_PARM( PARM_CONNSTATE ) == ca_cinematic;
 
 	if( !rmode || vid.width < 1 || vid.height < 1 )
 		return;
 
-	vb_w = cinematic ? (f32)GC_GX_CINEMATIC_WIDTH : (f32)rmode->fbWidth;
-	vb_h = cinematic ? (f32)GC_GX_CINEMATIC_HEIGHT : (f32)rmode->efbHeight;
+	/* The cinematic texture is 320x240, but its destination rectangle is in
+	 * the normal screen coordinate space (for example 640x480).  Using the
+	 * texture dimensions as the GX viewport makes a full-screen quad occupy
+	 * only the left half/quarter of the display. */
+	vb_w = (f32)rmode->fbWidth;
+	vb_h = (f32)rmode->efbHeight;
 	GX_SetViewport( 0.0f, 0.0f, vb_w, vb_h, 0.0f, 1.0f );
 	GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
 	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
