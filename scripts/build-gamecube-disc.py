@@ -736,6 +736,33 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 		logo.thumbnail((256, 32), Image.Resampling.LANCZOS)
 		logo.save(menu_dir / "logo.tga", format="TGA")
 
+	# Bake the complete retail menu composition into one opaque GX texture.
+	# This keeps the menu independent of the low-memory fallback font and the
+	# separate RGB5A3 logo alpha path, both of which are unreliable during the
+	# read-only retail bootstrap.
+	composite = background.resize((640, 480), Image.Resampling.LANCZOS)
+	if logo is not None:
+		logo_draw = logo.resize((int(640 * 0.74), max(1, int(logo.height * (640 * 0.74 / logo.width)))), Image.Resampling.LANCZOS)
+		composite.alpha_composite(logo_draw, (int((640 - logo_draw.width) / 2), int(480 * 0.08)))
+	from PIL import ImageDraw
+	draw = ImageDraw.Draw(composite)
+	menu_items = (
+		("New game", "Start a new single player game."),
+		("Load game", "Load a previously saved game."),
+		("Options", "Change game settings, configure controls."),
+	)
+	for index, (label, desc) in enumerate(menu_items):
+		y = 270 + index * 42
+		draw.text((57, y), label, fill=(255, 207, 24, 255) if index == 0 else (230, 184, 16, 255))
+		draw.text((192, y + 2), desc, fill=(110, 110, 110, 255))
+	# Nine GX-sized tiles preserve 384x288 working resolution while keeping
+	# every texture within the 128x96 tile limit and the bounded HUD pool.
+	composite = composite.resize((384, 288), Image.Resampling.LANCZOS).convert("RGBA")
+	for row in range(3):
+		for col in range(3):
+			composite.crop((col * 128, row * 96, (col + 1) * 128, (row + 1) * 96)).save(
+				menu_dir / f"menu_{row * 3 + col}.tga", format="TGA")
+
 	print(f"GameCube menu assets: baked {background_path.relative_to(output)} from {source_note}")
 	return True
 

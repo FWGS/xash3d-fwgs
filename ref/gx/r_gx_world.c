@@ -74,7 +74,7 @@ extern msurface_t *GC_GetLiveDrawSurfs( void );
 extern unsigned R_GXGetTriColorRGBA( void );
 
 #define GC_GX_TEX_SLOTS		32
-#define GC_GX_TEX_HUD_RESERVE	4	/* last slots preferred for live HUD sheets */
+#define GC_GX_TEX_HUD_RESERVE	9	/* menu tiles plus live HUD sheets */
 #define GC_GX_TEX_MAX_DIM	128	/* HUD menu background needs the full 128x96 tile */
 /* G199: 4 BSS world tiles (~32 KiB) — 8 tipped clipnodes pin on c0a0. */
 #define GC_GX_TEX_WORLD_POOL	4
@@ -2950,10 +2950,9 @@ static void R_GXPrepareHud2DState( void )
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
 
-	/* Menu/HUD rectangles are expressed in the logical render surface.  GX
-	 * scales that surface through the full EFB viewport; keep X/Y in the
-	 * correct order (the old height/width swap caused the half-screen image). */
-	guOrtho( ortho, 0.0f, (f32)vid.width, 0.0f, (f32)vid.height, 0.0f, 1.0f );
+	/* libogc guOrtho takes (top, bottom, left, right). Menu/HUD rectangles
+	 * use the logical render surface, which GX scales through the full EFB. */
+	guOrtho( ortho, 0.0f, (f32)vid.height, 0.0f, (f32)vid.width, 0.0f, 1.0f );
 	GX_LoadProjectionMtx( ortho, GX_ORTHOGRAPHIC );
 	guMtxIdentity( ident );
 	GX_LoadPosMtxImm( ident, GX_PNMTX0 );

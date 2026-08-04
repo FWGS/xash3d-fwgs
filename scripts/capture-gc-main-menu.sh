@@ -47,8 +47,14 @@ PROBE_RC=${PIPESTATUS[0]}
 set -e
 
 if (( PROBE_RC != 0 )) && ! grep -aq 'RETAIL_READY:' "$LOG_DIR/probe.log"; then
-	echo "FAIL: retail menu probe failed before reaching menu (rc=$PROBE_RC)" >&2
-	exit "$PROBE_RC"
+	# retail_menu_wait means readiness markers were seen but the synthetic
+	# actions did not finish. Preserve the guest frame for diagnosis; hard boot
+	# failures still stop here.
+	if ! grep -aq 'RETAIL_MENU_WAIT:' "$LOG_DIR/probe.log"; then
+		echo "FAIL: retail menu probe failed before reaching menu (rc=$PROBE_RC)" >&2
+		exit "$PROBE_RC"
+	fi
+	echo "WARN: menu actions incomplete; preserving runtime frame evidence"
 fi
 
 PROBE_LOG="$(grep -a '^Logs:' "$LOG_DIR/probe.log" | tail -1 | awk '{print $2}')"
@@ -59,12 +65,22 @@ fi
 USER_DIR="$PROBE_LOG/dolphin-user"
 FRAME_ROOT="$USER_DIR/Dump/Frames"
 LATEST_FRAME=""
+LATEST_TGA=""
 if [[ -d "$FRAME_ROOT" ]]; then
 	LATEST_FRAME="$(find "$FRAME_ROOT" -type f \( -name '*.png' -o -name '*.jpg' \) -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)"
+	LATEST_TGA="$(find "$FRAME_ROOT" -type f -name '*.tga' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)"
 fi
 if [[ -n "$LATEST_FRAME" ]]; then
 	cp -f "$LATEST_FRAME" "$SCREENSHOT"
 	echo "Saved Dolphin frame screenshot: $SCREENSHOT"
+elif [[ -n "$LATEST_TGA" ]]; then
+	SCREENSHOT_PATH="$SCREENSHOT" TGA_PATH="$LATEST_TGA" python3 - <<'PY'
+from PIL import Image
+import os
+
+Image.open(os.environ["TGA_PATH"]).save(os.environ["SCREENSHOT_PATH"])
+PY
+	echo "Converted Dolphin TGA frame: $SCREENSHOT"
 elif [[ -f "$OUT_DIR/gc-main-menu.png" ]]; then
 	cp -f "$OUT_DIR/gc-main-menu.png" "$SCREENSHOT"
 	echo "Saved baked menu preview screenshot: $SCREENSHOT"

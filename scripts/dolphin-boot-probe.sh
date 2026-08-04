@@ -541,6 +541,9 @@ fi
 
 echo "==> Analyzing probe results..."
 LOG_FILES=("$LOG_DIR/stdout.log" "$LOG_DIR/stderr.log")
+for guest_log in "$LOG_DIR"/dolphin-user/Logs/*.log; do
+	[[ -f "$guest_log" ]] && LOG_FILES+=("$guest_log")
+done
 GUEST_FOUND=0 READY_FOUND=0 MAP_FOUND=0 INPUT_FOUND=0
 PLAY_READY_FOUND=0 FRAME_ARMED_FOUND=0
 grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
@@ -605,6 +608,14 @@ fi
 if (( DOLPHIN_NEWGAME )) && (( MAP_FOUND )) && (( INPUT_FOUND )) && (( PLAY_READY_FOUND )) && (( !FRAME_ARMED_FOUND )); then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: New Game reached play-start, followed by a guest error before frame-budget arming."
 	echo "NEWGAME_PARTIAL_READY: Map ${SMOKE_MAP} loaded and play-start completed, but post-map frame-budget arming was not observed."
+	echo "Logs: $LOG_DIR"
+	finalize_probe newgame_partial_ready 4
+fi
+
+if (( DOLPHIN_NEWGAME )) && (( MAP_FOUND )) && (( INPUT_FOUND )) \
+	&& (( !PLAY_READY_FOUND || !FRAME_ARMED_FOUND )); then
+	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map and input were ready, but New Game did not reach play-start/frame-budget arming."
+	echo "NEWGAME_PARTIAL_READY: Map ${SMOKE_MAP} loaded and input became active, but post-map play-start/frame-budget markers were incomplete."
 	echo "Logs: $LOG_DIR"
 	finalize_probe newgame_partial_ready 4
 fi

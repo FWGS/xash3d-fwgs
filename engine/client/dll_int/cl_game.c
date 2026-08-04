@@ -2068,6 +2068,10 @@ static client_sprite_t *SPR_GetList( char *psz, int *piCount )
 	Q_strncpy( pEntry->szListName, psz, sizeof( pEntry->szListName ));
 
 	// name, res, pic, x, y, w, h
+	#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: client sprite list alloc path=%s count=%d bytes=%u\n",
+		psz, numSprites, (unsigned)( sizeof( client_sprite_t ) * numSprites ));
+	#endif
 	pEntry->pList = Mem_Calloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
 
 	for( index = 0; index < numSprites; index++ )

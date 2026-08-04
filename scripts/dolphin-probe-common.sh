@@ -3,12 +3,14 @@
 
 probe_log_has() {
 	local needle="$1"
-	grep -aqsF "$needle" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
+	grep -aqsF "$needle" "$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" \
+		"$LOG_DIR"/dolphin-user/Logs/*.log 2>/dev/null
 }
 
 probe_guest_error() {
 	grep -aEiq 'Host_Error|Sys_Error|Xash Error|_Mem_Alloc: out of memory|fatal error|guest.*(crash|abort)|Invalid read from|MMU fault|Program attempting to read|trashed (small )?header sentinel' \
-		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" 2>/dev/null
+		"$LOG_DIR/stderr.log" "$LOG_DIR/stdout.log" \
+		"$LOG_DIR"/dolphin-user/Logs/*.log 2>/dev/null
 }
 
 probe_retail_menu_seen() {

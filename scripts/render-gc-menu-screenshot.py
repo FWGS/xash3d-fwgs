@@ -69,10 +69,7 @@ def gc_menu_preview(source: Path, output_root: Path) -> "Image.Image":
 	menu_items = (
 		("New game", "Start a new single player game."),
 		("Load game", "Load a previously saved game."),
-		("Find servers", "Search for online multiplayer servers."),
-		("Create server", "Host an online multiplayer server for others to join."),
 		("Options", "Change game settings, configure controls."),
-		("Quit", "Quit playing Half-Life."),
 	)
 	menu_x, menu_desc_x = 57, 192
 	menu_y, row_h = 270, 42

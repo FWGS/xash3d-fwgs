@@ -5274,10 +5274,9 @@ static void GC_PresentBufferViaGX( void )
 			GX_SetCopyFilter( rmode->aa, rmode->sample_pattern, GX_TRUE, rmode->vfilter );
 		GX_SetDispCopyGamma( GX_GM_1_0 );
 
-		/* The software buffer is presented across the full EFB. Keep the
-		 * framebuffer width/height in X/Y order; swapping them crops the
-		 * menu/present quad into the wrong portion of the screen. */
-		guOrtho( proj, 0.0f, fb_w, 0.0f, fb_h, 0.0f, 1.0f );
+		/* libogc guOrtho takes (top, bottom, left, right). The software
+		 * buffer is presented across the full EFB. */
+		guOrtho( proj, 0.0f, fb_h, 0.0f, fb_w, 0.0f, 1.0f );
 		GX_LoadProjectionMtx( proj, GX_ORTHOGRAPHIC );
 		guMtxIdentity( modelview );
 		GX_LoadPosMtxImm( modelview, GX_PNMTX0 );
