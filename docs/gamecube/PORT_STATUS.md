@@ -2,28 +2,29 @@
 
 ## Current Milestone
 
-**Dolphin runtime gate** - the current autonomous milestone is no longer
-physical-hardware-only G38. The next required proof is that the current
-GameCube build boots in Dolphin, reaches engine readiness, and loads the smoke
-map through the standard bounded probe route.
+**Dolphin gameplay gate** - the current build boots in Dolphin, loads the
+smoke map, presents the world, and completes the scripted attack/jump/use
+gameplay path. The next release-facing gaps are retail menu/video/audio
+evidence, save/config round trips, changelevel continuity, and soak coverage.
 
 ## Current Automated State
 
 - Early DOL boot regression was fixed on **July 29, 2026** by correcting
   `scripts/elf-to-dol.py` so generated DOL headers carry the proper entry
   point, section tables, and BSS metadata.
-- The latest bounded Dolphin probe now reaches **engine readiness** and
-  reports `BOOT_PHASE: sw_fb`, which moves the failure boundary beyond raw boot
-  and into runtime/map-load behavior.
-- The current blocking runtime failure is:
-  `MAP_TIMEOUT: Engine readiness was observed, but c0a0e did not load within 180s.`
+- The latest direct New Game probe reaches `NEWGAME_READY` with sustained world
+  presentation and attack/jump/use actions.
+- The latest supervisor release-disc probe loads `c0a0e` with G36 and G45
+  passing and nonblack visual output.
+- The client sprite-list OOM was removed by a contiguous 384-entry cache;
+  all 15 weapon lists loaded in Dolphin without an allocation fatal.
 
 ## Build Status
 
 | Artifact | Size | Format |
 |----------|------|--------|
-| `OUT/bin/boot.dol` | about 4.0 MiB | PowerPC DOL |
-| `OUT/bin/xash` | about 20.8 MiB | PowerPC ELF |
+| `OUT/bin/boot.dol` | 5,852,032 bytes | PowerPC DOL |
+| `OUT/bin/xash` | 33,230,496 bytes | PowerPC ELF |
 
 **Build Notes**:
 - Engine builds successfully.
@@ -32,22 +33,21 @@ map through the standard bounded probe route.
 
 ## Dolphin Status
 
-**Status**: Active autonomous blocker
+**Status**: Gameplay smoke passing; release systems remain unverified
 
-Latest useful runtime evidence on **July 29, 2026**:
-- Probe log: `.ai/logs/dolphin-probe-20260728-225124/`
-- Result: `MAP_TIMEOUT`
-- Engine readiness: observed
-- Time to first frame: 1.884 seconds
-- Boot phase: `sw_fb`
-- G45 synthetic input readiness: PASS
-- Smoke map load (`c0a0e`): FAIL within 180 seconds
+Latest useful runtime evidence on **August 4, 2026**:
+- Gameplay probe: `.ai/logs/dolphin-probe-20260804-141721/`
+- Result: `NEWGAME_READY`, exit code 0
+- Frame samples: 15; average 0.71 ms, p95 0.73 ms, max 0.73 ms
+- G36: PASS; G45: PASS; G45 actions attack/jump/use: PASS
+- Supervisor release-disc probe: `.ai/logs/dolphin-probe-20260804-143927/`
+- Smoke map (`c0a0e`): loaded; G36/G45/visual: PASS
 
 Interpretation:
-- The disc boots.
-- The guest reaches early engine/runtime initialization.
-- The current autonomous blocker is smoke-map load or runtime progression after
-  early video/input readiness, not raw emulator launch and not DOL entry.
+- The disc boots and the guest reaches playable map state in Dolphin.
+- The observed client sprite-cache OOM is fixed and runtime-verified.
+- Physical hardware and release-facing systems remain unverified; future
+  failures must not be accepted from build success alone.
 
 ## Real-Hardware Status
 

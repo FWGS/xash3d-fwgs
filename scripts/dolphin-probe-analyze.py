@@ -235,6 +235,8 @@ def classify_probe_failure(
 
 	if probe_status == "retail_ready":
 		return "RETAIL_MENU_READY", "Retail menu reached readiness markers."
+	if probe_status == "newgame_ready":
+		return "NEWGAME_READY", "Sustained world presentation and scripted gameplay actions reached readiness."
 	if guest_error:
 		return "GUEST_RUNTIME_ERROR", "Guest runtime error markers were observed."
 	if not guest_seen:
@@ -398,8 +400,8 @@ def main() -> int:
 	probe_status = args.probe_status.lower()
 	if guest_error and probe_status in {"map_ready", "map_loaded_no_input", "engine_ready"}:
 		harness_status = "guest_failure"
-	elif probe_status == "map_ready":
-		harness_status = "map_ready"
+	elif probe_status in {"map_ready", "newgame_ready"}:
+		harness_status = probe_status
 	elif probe_status.startswith("guest"):
 		harness_status = "guest_failure"
 	elif probe_status.startswith("boot"):
@@ -412,7 +414,7 @@ def main() -> int:
 			next_action = "Continue menu interaction or visual validation; G36 does not apply to retail menu boots."
 		elif g36_status == "PASS":
 			next_action = "Continue G36 optimization with RC evidence and visual validation."
-		elif harness_status == "map_ready" and g36_status == "WEAK":
+		elif harness_status in {"map_ready", "newgame_ready"} and g36_status == "WEAK":
 			next_action = "Collect more frame samples or reduce steady-state CPU cost for G36."
 		elif guest_error:
 			next_action = "Fix guest memory/runtime failure before frame-budget work."

@@ -337,6 +337,12 @@ def success_for_phase(phase, code, log):
         # let menu-stuck MAP_TIMEOUT runs advance into runtime_gate.
         if phase["name"] == "gameplay_probe":
             return code == 0 and all(marker in log for marker in markers)
+        if "NEWGAME_READY:" in log:
+            # Direct -gcnewgame uses the stronger gameplay readiness marker
+            # instead of the legacy MAP_READY marker. Keep the independent
+            # frame, controller, and visual gates mandatory.
+            required = ["NEWGAME_READY:", "G36_STATUS: PASS", "G45_STATUS: PASS", "VISUAL_STATUS: nonblack"]
+            return all(marker in log for marker in required)
         return all(marker in log for marker in markers)
 
     if phase["name"] == "dolphin_release_soak":

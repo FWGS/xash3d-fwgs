@@ -16,9 +16,11 @@ fi
 
 cleanup_boot_probe_processes() {
     # Only clean the probe/emulator family for this repo.
-    pkill -TERM -f 'dolphin-emu|DolphinQt|xash3d-gc.iso' 2>/dev/null || true
+    # Do not include the ISO argument in the pattern: it is also present in
+    # this shell's command line and can make pkill terminate the probe itself.
+    pkill -TERM -f '[d]olphin-emu|[D]olphinQt' 2>/dev/null || true
     sleep 1
-    pkill -KILL -f 'dolphin-emu|DolphinQt|xash3d-gc.iso' 2>/dev/null || true
+    pkill -KILL -f '[d]olphin-emu|[D]olphinQt' 2>/dev/null || true
 }
 
 cleanup_boot_probe_locks() {
@@ -545,12 +547,15 @@ for guest_log in "$LOG_DIR"/dolphin-user/Logs/*.log; do
 	[[ -f "$guest_log" ]] && LOG_FILES+=("$guest_log")
 done
 GUEST_FOUND=0 READY_FOUND=0 MAP_FOUND=0 INPUT_FOUND=0
-PLAY_READY_FOUND=0 FRAME_ARMED_FOUND=0
+PLAY_READY_FOUND=0 FRAME_ARMED_FOUND=0 NEWGAME_PROGRESS_FOUND=0
 grep -aqsF "$GUEST_MARKER" "${LOG_FILES[@]}" && GUEST_FOUND=1
 grep -aqsF "$READY_MARKER" "${LOG_FILES[@]}" && READY_FOUND=1
 grep -aqsF "$INPUT_MARKER" "${LOG_FILES[@]}" && INPUT_FOUND=1
 grep -aqsF "$PLAY_READY_MARKER" "${LOG_FILES[@]}" && PLAY_READY_FOUND=1
 grep -aqsF "$FRAME_ARMED_MARKER" "${LOG_FILES[@]}" && FRAME_ARMED_FOUND=1
+if probe_newgame_progress_ready; then
+	NEWGAME_PROGRESS_FOUND=1
+fi
 if [[ -n "$SMOKE_MAP" ]]; then
 	grep -aqsF "$MAP_MARKER" "${LOG_FILES[@]}" && MAP_FOUND=1
 fi
@@ -597,12 +602,20 @@ if (( RETAIL_MENU_READY )) && [[ "$DOLPHIN_RETAIL" == "1" ]] && (( ! DOLPHIN_NEW
 		finalize_probe retail_ready 0
 fi
 
-if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( !DOLPHIN_NEWGAME || ( PLAY_READY_FOUND && FRAME_ARMED_FOUND ) )); then
+if (( MAP_FOUND )) && (( INPUT_FOUND )) && (( !DOLPHIN_NEWGAME || ( PLAY_READY_FOUND && FRAME_ARMED_FOUND ) || NEWGAME_PROGRESS_FOUND )); then
 	probe_guest_error && probe_fail_guest guest_failure "GUEST_FAILURE: Map load was observed, followed by a guest error."
-	echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
+	if (( NEWGAME_PROGRESS_FOUND )) && (( !PLAY_READY_FOUND || !FRAME_ARMED_FOUND )); then
+		echo "NEWGAME_READY: Sustained world, gameplay input, and attack/jump/use actions were observed on ${SMOKE_MAP}."
+	else
+		echo "MAP_READY: Xash3D loaded ${SMOKE_MAP} on GameCube with interactive input."
+	fi
 	probe_report_g45
 	echo "Logs: $LOG_DIR"
-	finalize_probe map_ready 0
+	if (( NEWGAME_PROGRESS_FOUND )); then
+		finalize_probe newgame_ready 0
+	else
+		finalize_probe map_ready 0
+	fi
 fi
 
 if (( DOLPHIN_NEWGAME )) && (( MAP_FOUND )) && (( INPUT_FOUND )) && (( PLAY_READY_FOUND )) && (( !FRAME_ARMED_FOUND )); then

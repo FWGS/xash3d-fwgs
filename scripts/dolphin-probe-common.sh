@@ -65,6 +65,20 @@ probe_fail_guest() {
 	finalize_probe "$status" 3
 }
 
+# -gcnewgame can take the direct client path and therefore does not emit the
+# legacy server-side play-start/frame-arm pair.  Require independent runtime
+# evidence instead: a sustained presented world, gameplay input, and all three
+# scripted gameplay actions. This is intentionally stricter than map-loaded.
+probe_newgame_progress_ready() {
+	(( DOLPHIN_NEWGAME )) || return 1
+	probe_log_has "Xash3D GameCube: post-G36 sustained world present" \
+		&& probe_log_has "Xash3D GameCube: newgame sustained frames=32" \
+		&& probe_log_has "Xash3D GameCube: probe gameplay input ready" \
+		&& probe_log_has "Xash3D GameCube: probe gameplay action attack" \
+		&& probe_log_has "Xash3D GameCube: probe gameplay action jump" \
+		&& probe_log_has "Xash3D GameCube: probe gameplay action use"
+}
+
 probe_wait_flatpak() {
 	flatpak kill "${DOLPHIN_FLATPAK_ID:-org.DolphinEmu.dolphin-emu}" >/dev/null 2>&1 || true
 	trap cleanup_flatpak_dolphin EXIT
@@ -78,6 +92,10 @@ probe_wait_flatpak() {
 			DOLPHIN_EXIT=0; break
 		fi
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
+			if probe_newgame_progress_ready; then
+				if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+				DOLPHIN_EXIT=0; break
+			fi
 			if (( DOLPHIN_NEWGAME )); then
 				# Landmark Flipper/G16x markers prove play progressed past
 				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
@@ -408,6 +426,10 @@ probe_wait_native() {
 			DOLPHIN_EXIT=0; break
 		fi
 		if probe_log_has "$MAP_MARKER" && probe_log_has "$INPUT_MARKER"; then
+			if probe_newgame_progress_ready; then
+				if probe_guest_error; then DOLPHIN_EXIT=3; break; fi
+				DOLPHIN_EXIT=0; break
+			fi
 			if (( DOLPHIN_NEWGAME )); then
 				# Landmark Flipper/G16x markers prove play progressed past
 				# "play start ready" / frame-budget arm (often omitted on -gcnewgame).
