@@ -29,14 +29,17 @@ def run(command: list[str], root: Path, *, env: dict[str, str] | None = None) ->
 def write_config(user_dir: Path, *, frame_dump_fallback: bool = False) -> None:
 	config = user_dir / "Config"
 	config.mkdir(parents=True, exist_ok=True)
+	cpu_thread = os.environ.get("DOLPHIN_CPU_THREAD", "0").strip().lower() in {"1", "true", "yes", "on"}
+	gfx_backend = os.environ.get("DOLPHIN_GFX_BACKEND", "").strip()
+	gfx_line = f"GFXBackend = {gfx_backend}\n" if gfx_backend else ""
 	movie_settings = """[Movie]
 DumpFrames = True
 DumpFramesSilent = True
 """ if frame_dump_fallback else ""
 	(config / "Dolphin.ini").write_text(f"""[Core]
 CPUCore = 0
-CPUThread = False
-DSPHLE = True
+CPUThread = {str(cpu_thread)}
+{gfx_line}DSPHLE = True
 FastDiscSpeed = True
 [Analytics]
 Enabled = False

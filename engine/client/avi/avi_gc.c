@@ -1246,6 +1246,7 @@ void AVI_CloseVideo( movie_state_t *Avi )
 
 qboolean AVI_Think( movie_state_t *Avi )
 {
+	static uint gc_last_draw_trace_frame = (uint)-1;
 	uint target_frame;
 	qboolean need_upload;
 	const byte *upload_pixels;
@@ -1337,7 +1338,7 @@ qboolean AVI_Think( movie_state_t *Avi )
 		else if( Avi->texture == 0 )
 		{
 		#if XASH_GAMECUBE
-			if( target_frame == 30 || target_frame == 31 || target_frame == 32 || target_frame == 33 || target_frame == 34 || target_frame == 35 || target_frame == 36 || target_frame == 37 || target_frame == 45 || target_frame == 60 )
+			if( target_frame == 30 || target_frame == 60 || target_frame == 120 )
 				Con_Reportf( "Xash3D GameCube: intro AVI upload begin frame=%u\n", target_frame );
 		#endif
 			ref.dllFuncs.GL_UpdateTexture( SCR_GetCinematicTexture(), Avi->upload_width, Avi->upload_height,
@@ -1346,14 +1347,14 @@ qboolean AVI_Think( movie_state_t *Avi )
 		else if( Avi->texture > 0 )
 		{
 		#if XASH_GAMECUBE
-			if( target_frame == 30 || target_frame == 31 || target_frame == 32 || target_frame == 33 || target_frame == 34 || target_frame == 35 || target_frame == 36 || target_frame == 37 || target_frame == 45 || target_frame == 60 )
+			if( target_frame == 30 || target_frame == 60 || target_frame == 120 )
 				Con_Reportf( "Xash3D GameCube: intro AVI upload begin frame=%u\n", target_frame );
 		#endif
 			ref.dllFuncs.GL_UpdateTexture( Avi->texture, Avi->upload_width, Avi->upload_height,
 				Avi->upload_width, Avi->upload_height, upload_pixels, upload_fmt );
 		}
 		#if XASH_GAMECUBE
-		if( target_frame == 30 || target_frame == 31 || target_frame == 32 || target_frame == 33 || target_frame == 34 || target_frame == 35 || target_frame == 36 || target_frame == 37 || target_frame == 45 || target_frame == 60 )
+		if( target_frame == 30 || target_frame == 60 || target_frame == 120 )
 			Con_Reportf( "Xash3D GameCube: intro AVI upload done frame=%u\n", target_frame );
 		#endif
 
@@ -1383,8 +1384,12 @@ qboolean AVI_Think( movie_state_t *Avi )
 		int h = Avi->h >= 0 ? Avi->h : refState.height;
 		ref.dllFuncs.R_DrawStretchPic( Avi->x, Avi->y, w, h, 0, 0, 1, 1, SCR_GetCinematicTexture() );
 	#if XASH_GAMECUBE
-		if( target_frame == 30 || target_frame == 31 || target_frame == 32 || target_frame == 33 || target_frame == 34 || target_frame == 35 || target_frame == 36 || target_frame == 37 || target_frame == 45 || target_frame == 60 )
+		if( ( target_frame == 30 || target_frame == 60 || target_frame == 120 )
+			&& gc_last_draw_trace_frame != target_frame )
+		{
 			Con_Reportf( "Xash3D GameCube: intro AVI draw done frame=%u\n", target_frame );
+			gc_last_draw_trace_frame = target_frame;
+		}
 	#endif
 	}
 

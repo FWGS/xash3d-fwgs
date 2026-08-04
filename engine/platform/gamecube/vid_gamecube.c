@@ -5535,11 +5535,14 @@ static void GC_PresentBuffer( void )
 		return;
 
 	gc_present_count++;
-	GC_TryDeferredLeanSky();
-	GC_TryDeferredHudSheets();
-	GC_TryDeferredStudios();
-	GC_TryDeferredEfxProof();
-	GC_TryDeferredDecalProof();
+	if( cls.state != ca_cinematic )
+	{
+		GC_TryDeferredLeanSky();
+		GC_TryDeferredHudSheets();
+		GC_TryDeferredStudios();
+		GC_TryDeferredEfxProof();
+		GC_TryDeferredDecalProof();
+	}
 
 	/* G151: Flipper already holds world geometry — CopyDisp only (no soft blit).
 	 * G191: never steal soft DumpFrames latch presents onto a cleared EFB.
@@ -5552,9 +5555,11 @@ static void GC_PresentBuffer( void )
 		f32 fb_h = (f32)rmode->efbHeight;
 		static int g194_flipper_swap_skip;
 		static qboolean g197_logged;
-		u16 copy_w_u = rmode->fbWidth;
-		u16 copy_h_u = rmode->efbHeight;
+		const qboolean cinematic = cls.state == ca_cinematic;
+		u16 copy_w_u = cinematic ? 320 : rmode->fbWidth;
+		u16 copy_h_u = cinematic ? 240 : rmode->efbHeight;
 		u16 xfb_h_u = rmode->xfbHeight;
+		u16 copy_dst_w_u = cinematic ? rmode->fbWidth : copy_w_u;
 
 		gc_gx_present_pipe_ready = false; /* next soft present rebuilds ortho */
 
@@ -5592,7 +5597,7 @@ static void GC_PresentBuffer( void )
 				GX_SetViewport( 0.0f, 0.0f, fb_w, fb_h, 0.0f, 1.0f );
 				GX_SetScissor( 0, 0, (u32)fb_w, (u32)fb_h );
 				GX_SetDispCopySrc( 0, 0, copy_w_u, copy_h_u );
-				GX_SetDispCopyDst( copy_w_u, xfb_h_u );
+				GX_SetDispCopyDst( copy_dst_w_u, xfb_h_u );
 				GX_SetDispCopyYScale((f32)xfb_h_u / (f32)copy_h_u );
 				/* Hardware CRT (480i): keep VI vfilter. Progressive: lean copy. */
 				if( interlaced )

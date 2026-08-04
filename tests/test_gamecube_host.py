@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import struct
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -35,6 +37,15 @@ class GameCubeHostTests(unittest.TestCase):
 			(root / "valve" / "delta.lst").unlink()
 			errors = disc.validate_assets(root / "valve")
 			self.assertTrue(any("delta.lst" in error for error in errors))
+
+	def test_native_gcvid_converter_preserves_avi_fallback_and_encoder(self) -> None:
+		converter = (ROOT / "scripts/convert-avi-to-gcvid.py").read_text(encoding="utf-8")
+		disc = (ROOT / "scripts/build-gamecube-disc.py").read_text(encoding="utf-8")
+		self.assertIn("build_gcvid_companion", converter)
+		self.assertIn("rgb565=True", converter)
+		self.assertIn("stage_intro_avi_data", disc)
+		self.assertIn("SMOKE_INTRO_MEDIA", disc)
+		self.assertIn("build_intro_gcvid_companions", disc)
 
 	def test_staged_assets_preserve_required_delta_lst_path(self) -> None:
 		disc = load_script("disc_staged", "scripts/build-gamecube-disc.py")
@@ -147,6 +158,16 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertIn("raw_dirty_count", avi)
 		self.assertIn("R_GXUpdateRawCinematicTiles", gx)
 		self.assertIn("GX_InvalidateTexAll", gx)
+
+	def test_dolphin_harness_exposes_cpu_and_backend_experiments(self) -> None:
+		harness = load_script("dolphin_vision_config", "scripts/dolphin-vision-test.py")
+		with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
+			os.environ, {"DOLPHIN_CPU_THREAD": "1", "DOLPHIN_GFX_BACKEND": "Vulkan"}, clear=False
+		):
+			harness.write_config(Path(tmpdir))
+			config = (Path(tmpdir) / "Config" / "Dolphin.ini").read_text(encoding="utf-8")
+			self.assertIn("CPUThread = True", config)
+			self.assertIn("GFXBackend = Vulkan", config)
 
 	def test_gameplay_gate_requires_ordered_post_action_stability(self) -> None:
 		gate = load_script("gameplay_gate_order", "scripts/gamecube-gameplay-gate.py")

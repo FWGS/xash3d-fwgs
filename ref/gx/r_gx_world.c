@@ -100,6 +100,7 @@ typedef struct
 static gc_gx_tex_t r_gx_tex[GC_GX_TEX_SLOTS];
 static gc_gx_tex_t r_gx_cinematic_tex;
 static qboolean r_gx_cinematic_ready;
+static unsigned r_gx_cinematic_updates;
 static int r_gx_tex_clock;
 static int r_gx_tex_lru[GC_GX_TEX_SLOTS];
 static model_t *r_gx_tex_world;
@@ -529,8 +530,12 @@ static int R_GXSnapDim( int n )
 void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
 	const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload )
 {
+	double stage_start, stage_tiles, stage_flush;
+	unsigned update_number;
 	if( texnum <= 0 || width != GC_GX_CINEMATIC_WIDTH || height != GC_GX_CINEMATIC_HEIGHT || !buffer )
 		return;
+	update_number = ++r_gx_cinematic_updates;
+	stage_start = gEngfuncs.pfnTime();
 
 	if( !r_gx_cinematic_tex.tiled )
 	{
@@ -551,7 +556,9 @@ void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *b
 		R_GXUpdateRawCinematicTiles( buffer, r_gx_cinematic_tex.tiled, dirty_tiles, dirty_count );
 	else
 		return;
+	stage_tiles = gEngfuncs.pfnTime();
 	DCFlushRange( r_gx_cinematic_tex.tiled, sizeof( r_gx_cinematic_pool ));
+	stage_flush = gEngfuncs.pfnTime();
 	r_gx_cinematic_tex.texnum = (unsigned)texnum;
 	r_gx_cinematic_tex.w = GC_GX_CINEMATIC_WIDTH;
 	r_gx_cinematic_tex.h = GC_GX_CINEMATIC_HEIGHT;
@@ -559,6 +566,12 @@ void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *b
 	r_gx_cinematic_tex.valid = true;
 	r_gx_cinematic_ready = true;
 	GX_InvalidateTexAll();
+	if( update_number == 1 || !( update_number % 15 ))
+		gEngfuncs.Con_Reportf( "Xash3D GameCube: cinematic gx stages frame=%u tiles=%u full=%d update=%.3fms flush=%.3fms invalidate=%.3fms\n",
+			update_number, dirty_count, full_upload,
+			( stage_tiles - stage_start ) * 1000.0,
+			( stage_flush - stage_tiles ) * 1000.0,
+			( gEngfuncs.pfnTime() - stage_flush ) * 1000.0 );
 }
 
 static void R_GXTexCacheReset( void )
@@ -2899,12 +2912,13 @@ static void R_GXPrepareHud2DState( void )
 	Mtx44 ortho;
 	Mtx ident;
 	f32 vb_w, vb_h;
+	const qboolean cinematic = ENGINE_GET_PARM( PARM_CONNSTATE ) == ca_cinematic;
 
 	if( !rmode || vid.width < 1 || vid.height < 1 )
 		return;
 
-	vb_w = (f32)rmode->fbWidth;
-	vb_h = (f32)rmode->efbHeight;
+	vb_w = cinematic ? (f32)GC_GX_CINEMATIC_WIDTH : (f32)rmode->fbWidth;
+	vb_h = cinematic ? (f32)GC_GX_CINEMATIC_HEIGHT : (f32)rmode->efbHeight;
 	GX_SetViewport( 0.0f, 0.0f, vb_w, vb_h, 0.0f, 1.0f );
 	GX_SetScissor( 0, 0, rmode->fbWidth, rmode->efbHeight );
 	GX_SetZMode( GX_FALSE, GX_ALWAYS, GX_FALSE );
@@ -2953,7 +2967,6 @@ qboolean R_GXDrawStretchPic( float x, float y, float w, float h,
 		return false;
 	if( texnum <= 0 || w < 1.0f || h < 1.0f )
 		return false;
-
 	if( !r_gx_hud_2d_ready )
 		R_GXPrepareHud2DState();
 	if( !r_gx_hud_2d_ready )
