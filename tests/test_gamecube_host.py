@@ -7,6 +7,7 @@ import struct
 import sys
 import tempfile
 import unittest
+import wave
 from unittest.mock import patch
 from pathlib import Path
 
@@ -42,10 +43,58 @@ class GameCubeHostTests(unittest.TestCase):
 		converter = (ROOT / "scripts/convert-avi-to-gcvid.py").read_text(encoding="utf-8")
 		disc = (ROOT / "scripts/build-gamecube-disc.py").read_text(encoding="utf-8")
 		self.assertIn("build_gcvid_companion", converter)
+		self.assertIn("build_gcpcm_companion", converter)
 		self.assertIn("rgb565=True", converter)
 		self.assertIn("stage_intro_avi_data", disc)
 		self.assertIn("SMOKE_INTRO_MEDIA", disc)
 		self.assertIn("build_intro_gcvid_companions", disc)
+		self.assertIn('GCPCM_MAGIC = b"GCPA"', disc)
+		self.assertIn('GCPCM_RATE = 48000', disc)
+		self.assertIn("GameCube big-endian byte order", disc)
+
+	def test_native_audio_runtime_requires_mixer_format_and_keeps_fallback(self) -> None:
+		runtime = (ROOT / "engine/client/avi/avi_gc.c").read_text(encoding="utf-8")
+		self.assertIn('".gcpcm"', runtime)
+		self.assertIn("AVI_AttachNativeAudio", runtime)
+		self.assertIn("SOUND_DMA_SPEED", runtime)
+		self.assertIn("native_audio_file", runtime)
+		self.assertIn("AVI_AttachAudioFromAVI", runtime)
+
+	def test_dolphin_classification_accepts_native_audio_marker(self) -> None:
+		harness = load_script("vision_markers", "scripts/dolphin-vision-test.py")
+		result = harness.classify_logs(
+			"Xash3D GameCube: bootstrap\n"
+			"Xash3D GameCube: native intro audio opened media/valve.gcpcm rate=48000 width=2 channels=2 bytes=1920000\n"
+			"Xash3D GameCube: native intro audio queued bytes=8192 rate=48000\n",
+			"c0a0e",
+		)
+		self.assertTrue(result["markers"]["native_audio_opened"])
+		self.assertTrue(result["markers"]["native_audio_queued"])
+		self.assertEqual(result["audio"], "intro_pcm_submitted")
+
+	def test_audio_comparator_aligns_and_measures_fixture(self) -> None:
+		compare = load_script("audio_compare", "scripts/compare-audio-fixture.py")
+		with tempfile.TemporaryDirectory() as tmpdir:
+			root = Path(tmpdir)
+			frames = bytearray()
+			for i in range(4800):
+				sample = int(12000 * ((i % 80) / 40.0 - 1.0))
+				frames.extend(struct.pack("<hh", sample, sample))
+			ref_path = root / "ref.wav"
+			candidate_path = root / "candidate.wav"
+			for path, payload in ((ref_path, bytes(frames)), (candidate_path, b"\0\0\0\0" * 37 + bytes(frames))):
+				with wave.open(str(path), "wb") as wav:
+					wav.setnchannels(2)
+					wav.setsampwidth(2)
+					wav.setframerate(48000)
+					wav.writeframes(payload)
+			reference, rate = compare.read_wav(ref_path)
+			candidate, candidate_rate = compare.read_wav(candidate_path)
+			result = compare.metrics(reference, compare.resample(candidate, candidate_rate, rate), rate)
+			self.assertEqual(result["offset_samples"], 37)
+			self.assertEqual(result["aligned_frames"], len(reference))
+			self.assertEqual(result["channel_mismatch_rms"], 0.0)
+			self.assertGreater(result["correlation"], 0.99)
 
 	def test_staged_assets_preserve_required_delta_lst_path(self) -> None:
 		disc = load_script("disc_staged", "scripts/build-gamecube-disc.py")
@@ -162,12 +211,19 @@ class GameCubeHostTests(unittest.TestCase):
 	def test_dolphin_harness_exposes_cpu_and_backend_experiments(self) -> None:
 		harness = load_script("dolphin_vision_config", "scripts/dolphin-vision-test.py")
 		with tempfile.TemporaryDirectory() as tmpdir, patch.dict(
-			os.environ, {"DOLPHIN_CPU_THREAD": "1", "DOLPHIN_GFX_BACKEND": "Vulkan"}, clear=False
+			os.environ, {
+				"DOLPHIN_CPU_THREAD": "1",
+				"DOLPHIN_CPU_CORE": "1",
+				"DOLPHIN_GFX_BACKEND": "Vulkan",
+				"DOLPHIN_GFX_MULTITHREADING": "1",
+			}, clear=False
 		):
 			harness.write_config(Path(tmpdir))
 			config = (Path(tmpdir) / "Config" / "Dolphin.ini").read_text(encoding="utf-8")
 			self.assertIn("CPUThread = True", config)
+			self.assertIn("CPUCore = 1", config)
 			self.assertIn("GFXBackend = Vulkan", config)
+			self.assertIn("BackendMultithreading = True", (Path(tmpdir) / "Config" / "GFX.ini").read_text(encoding="utf-8"))
 
 	def test_gameplay_gate_requires_ordered_post_action_stability(self) -> None:
 		gate = load_script("gameplay_gate_order", "scripts/gamecube-gameplay-gate.py")

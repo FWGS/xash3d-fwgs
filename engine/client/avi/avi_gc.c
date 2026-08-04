@@ -25,6 +25,11 @@ static movie_state_t avi[2];
 #define AVI_GCVID_FLAG_BGRA32 ( 1u << 30 )
 #define AVI_GCVID_KEYFRAME 0
 #define AVI_GCVID_DELTAFRAME 1
+#define AVI_GCPCM_MAGIC_0 'G'
+#define AVI_GCPCM_MAGIC_1 'C'
+#define AVI_GCPCM_MAGIC_2 'P'
+#define AVI_GCPCM_MAGIC_3 'A'
+#define AVI_GCPCM_HEADER_SIZE 16
 
 static qboolean AVI_ParseHeader( movie_state_t *Avi, qboolean quiet );
 qboolean AVI_HaveAudioTrack( const movie_state_t *Avi );
@@ -81,6 +86,22 @@ static qboolean AVI_GCVIDPath( const char *filename, char *path, size_t size )
 		*dot = '\0';
 
 	Q_strncat( path, ".gcvid", size );
+	return true;
+}
+
+static qboolean AVI_GCPCMPath( const char *filename, char *path, size_t size )
+{
+	char *dot, *slash;
+
+	if( !filename || !filename[0] )
+		return false;
+	Q_strncpy( path, filename, size );
+	COM_FixSlashes( path );
+	dot = strrchr( path, '.' );
+	slash = strrchr( path, '/' );
+	if( dot && ( !slash || dot > slash ))
+		*dot = '\0';
+	Q_strncat( path, ".gcpcm", size );
 	return true;
 }
 
@@ -220,6 +241,8 @@ static void AVI_BeginAudioPlayback( movie_state_t *Avi )
 	Avi->audio_chunk_size = 0;
 	Avi->audio_chunk_offset = 0;
 	Avi->audio_bytes_submitted = 0;
+	Avi->native_audio_offset = 0;
+	Avi->native_audio_reported_second = 0;
 	Avi->audio_reported = false;
 	Avi->audio_channel_ready = false;
 
@@ -239,6 +262,55 @@ static void AVI_BeginAudioPlayback( movie_state_t *Avi )
 	Con_Reportf( "Xash3D GameCube: intro AVI audio playback synced sound=%d painted=%d rate=%u\n",
 		snd.soundtime, snd.paintedtime, Avi->audio_rate );
 #endif
+}
+
+static void AVI_AttachNativeAudio( movie_state_t *Avi, const char *filename )
+{
+	byte header[AVI_GCPCM_HEADER_SIZE];
+	char path[MAX_SYSPATH];
+	file_t *file;
+	fs_offset_t size;
+
+	if( !Avi || !AVI_GCPCMPath( filename, path, sizeof( path )))
+		return;
+	file = FS_Open( path, "rb", true );
+	if( !file )
+		return;
+	if( FS_Seek( file, 0, SEEK_END ) == -1 )
+		goto fail;
+	size = FS_Tell( file );
+	if( size < AVI_GCPCM_HEADER_SIZE || FS_Seek( file, 0, SEEK_SET ) == -1 ||
+		FS_Read( file, header, sizeof( header )) != sizeof( header ) ||
+		header[0] != AVI_GCPCM_MAGIC_0 || header[1] != AVI_GCPCM_MAGIC_1 ||
+		header[2] != AVI_GCPCM_MAGIC_2 || header[3] != AVI_GCPCM_MAGIC_3 ||
+		AVI_RL32( header + 4 ) != SOUND_DMA_SPEED || AVI_RL16( header + 8 ) != 2 ||
+		AVI_RL16( header + 10 ) != 2 || AVI_RL32( header + 12 ) == 0 ||
+		(fs_offset_t)AVI_RL32( header + 12 ) > size - AVI_GCPCM_HEADER_SIZE )
+		goto fail;
+	Avi->native_audio_file = file;
+	Avi->native_audio_data_size = AVI_RL32( header + 12 );
+	Avi->native_audio_offset = 0;
+	if( !Avi->audio_chunk )
+	{
+		Avi->audio_chunk = Mem_Malloc( avi_mempool, GC_AVI_AUDIO_SLICE_BYTES );
+		if( !Avi->audio_chunk )
+			goto fail_native;
+		Avi->chunk_capacity = GC_AVI_AUDIO_SLICE_BYTES;
+	}
+	Avi->audio_rate = SOUND_DMA_SPEED;
+	Avi->audio_width = 2;
+	Avi->audio_channels = 2;
+#if XASH_GAMECUBE
+	Con_Reportf( "Xash3D GameCube: native intro audio opened %s rate=%u width=%u channels=%u bytes=%u\n",
+		path, Avi->audio_rate, Avi->audio_width, Avi->audio_channels,
+		Avi->native_audio_data_size );
+#endif
+	return;
+fail_native:
+	Avi->native_audio_file = NULL;
+	Avi->native_audio_data_size = 0;
+fail:
+	FS_Close( file );
 }
 
 static void AVI_ResetSoundtrackRawChannel( movie_state_t *Avi )
@@ -898,8 +970,9 @@ qboolean AVI_GetVideoInfo( movie_state_t *Avi, int *xres, int *yres, float *dura
 
 qboolean AVI_HaveAudioTrack( const movie_state_t *Avi )
 {
-	return Avi && Avi->audio_index && Avi->audio_chunk_count > 0 &&
-		Avi->audio_rate > 0 && Avi->audio_width > 0 && Avi->audio_channels > 0;
+	return Avi && (( Avi->native_audio_file && Avi->native_audio_data_size > 0 ) ||
+		( Avi->audio_index && Avi->audio_chunk_count > 0 &&
+		Avi->audio_rate > 0 && Avi->audio_width > 0 && Avi->audio_channels > 0 ));
 }
 
 static void AVI_StreamAudio( movie_state_t *Avi )
@@ -934,6 +1007,46 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 	if( target_ahead > GC_AVI_AUDIO_LEAD_SAMPLES )
 		target_ahead = GC_AVI_AUDIO_LEAD_SAMPLES;
 #endif
+	if( Avi->native_audio_file )
+	{
+		bytes_per_sample = 4;
+		while( Avi->native_audio_offset < Avi->native_audio_data_size &&
+			ch->s_rawend < snd.soundtime + target_ahead )
+		{
+			uint buffer_samples = target_ahead - ( ch->s_rawend - snd.soundtime );
+			uint slice_size = buffer_samples * bytes_per_sample;
+			uint remaining = Avi->native_audio_data_size - Avi->native_audio_offset;
+			if( slice_size > remaining ) slice_size = remaining;
+			if( slice_size > GC_AVI_AUDIO_SLICE_BYTES ) slice_size = GC_AVI_AUDIO_SLICE_BYTES;
+			slice_size -= slice_size % bytes_per_sample;
+			if( slice_size == 0 || FS_Seek( Avi->native_audio_file,
+				AVI_GCPCM_HEADER_SIZE + Avi->native_audio_offset, SEEK_SET ) == -1 ||
+				!Avi->audio_chunk || FS_Read( Avi->native_audio_file, Avi->audio_chunk,
+					slice_size ) != (fs_offset_t)slice_size )
+				break;
+			S_RawEntSamples( S_RAW_SOUND_SOUNDTRACK, slice_size / bytes_per_sample,
+				SOUND_DMA_SPEED, 2, 2, Avi->audio_chunk, movie_vol, ATTN_NONE );
+			Avi->native_audio_offset += slice_size;
+			Avi->audio_bytes_submitted += slice_size;
+#if XASH_GAMECUBE
+			if( Avi->native_audio_offset / ( SOUND_DMA_SPEED * 4 ) > Avi->native_audio_reported_second )
+			{
+				Avi->native_audio_reported_second++;
+				Con_Reportf( "Xash3D GameCube: native intro audio progress second=%u bytes=%u sound=%d painted=%d samplepos=%d\n",
+					Avi->native_audio_reported_second, Avi->native_audio_offset,
+					snd.soundtime, snd.paintedtime, snd.samplepos );
+			}
+			if( !Avi->audio_reported )
+			{
+				Con_Reportf( "Xash3D GameCube: native intro audio queued bytes=%u rate=%u raw=%u/%u dma=%u\n",
+					Avi->audio_bytes_submitted, SOUND_DMA_SPEED,
+					ch->s_rawend - snd.soundtime, target_ahead, SOUND_DMA_SPEED );
+				Avi->audio_reported = true;
+			}
+#endif
+		}
+		return;
+	}
 
 	bytes_per_sample = Avi->audio_width * Avi->audio_channels;
 	while( Avi->audio_current_chunk < Avi->audio_chunk_count &&
@@ -1070,7 +1183,10 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 	if( AVI_OpenGCVID( Avi, safe_filename, true ))
 	{
 		if( load_audio )
+		{
 			AVI_AttachAudioFromAVI( Avi, safe_filename );
+			AVI_AttachNativeAudio( Avi, safe_filename );
+		}
 		Avi->x = 0;
 		Avi->y = 0;
 		Avi->w = -1;
@@ -1097,7 +1213,10 @@ void AVI_OpenVideo( movie_state_t *Avi, const char *filename, qboolean load_audi
 		if( AVI_OpenGCVID( Avi, gc_fallback, true ))
 		{
 			if( load_audio )
+			{
 				AVI_AttachAudioFromAVI( Avi, gc_fallback );
+				AVI_AttachNativeAudio( Avi, gc_fallback );
+			}
 			Avi->x = 0;
 			Avi->y = 0;
 			Avi->w = -1;
@@ -1195,8 +1314,11 @@ void AVI_CloseVideo( movie_state_t *Avi )
 		FS_Close( Avi->file );
 	if( Avi->audio_file )
 		FS_Close( Avi->audio_file );
+	if( Avi->native_audio_file )
+		FS_Close( Avi->native_audio_file );
 	Avi->file = NULL;
 	Avi->audio_file = NULL;
+	Avi->native_audio_file = NULL;
 	Avi->active = false;
 	Avi->paused = false;
 	Avi->playback_started = false;
@@ -1210,6 +1332,9 @@ void AVI_CloseVideo( movie_state_t *Avi )
 	Avi->audio_width = 0;
 	Avi->audio_channels = 0;
 	Avi->audio_bytes_submitted = 0;
+	Avi->native_audio_data_size = 0;
+	Avi->native_audio_offset = 0;
+	Avi->native_audio_reported_second = 0;
 	Avi->audio_reported = false;
 	Avi->audio_playback_started = false;
 	Avi->audio_channel_ready = false;

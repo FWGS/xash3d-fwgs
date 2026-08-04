@@ -30,17 +30,23 @@ def write_config(user_dir: Path, *, frame_dump_fallback: bool = False) -> None:
 	config = user_dir / "Config"
 	config.mkdir(parents=True, exist_ok=True)
 	cpu_thread = os.environ.get("DOLPHIN_CPU_THREAD", "0").strip().lower() in {"1", "true", "yes", "on"}
+	cpu_core = os.environ.get("DOLPHIN_CPU_CORE", "1").strip()
 	gfx_backend = os.environ.get("DOLPHIN_GFX_BACKEND", "").strip()
+	gfx_multithreading = os.environ.get("DOLPHIN_GFX_MULTITHREADING", "1").strip().lower() in {"1", "true", "yes", "on"}
+	dump_audio = os.environ.get("DOLPHIN_DUMP_AUDIO", "0").strip().lower() in {"1", "true", "yes", "on"}
 	gfx_line = f"GFXBackend = {gfx_backend}\n" if gfx_backend else ""
 	movie_settings = """[Movie]
 DumpFrames = True
 DumpFramesSilent = True
 """ if frame_dump_fallback else ""
 	(config / "Dolphin.ini").write_text(f"""[Core]
-CPUCore = 0
+CPUCore = {cpu_core}
 CPUThread = {str(cpu_thread)}
 {gfx_line}DSPHLE = True
 FastDiscSpeed = True
+[DSP]
+DumpAudio = {str(dump_audio)}
+DumpAudioSilent = False
 [Analytics]
 Enabled = False
 PermissionAsked = True
@@ -49,10 +55,10 @@ ConfirmStop = False
 [Display]
 RenderToMain = True
 {movie_settings}""", encoding="utf-8")
+	gfx_settings = ["[Settings]", f"BackendMultithreading = {str(gfx_multithreading)}"]
 	if frame_dump_fallback:
-		(config / "GFX.ini").write_text("""[Settings]
-DumpFramesAsImages = True
-""", encoding="utf-8")
+		gfx_settings.append("DumpFramesAsImages = True")
+	(config / "GFX.ini").write_text("\n".join(gfx_settings) + "\n", encoding="utf-8")
 	(config / "Logger.ini").write_text("""[Logs]
 BOOT = True
 CORE = True
@@ -290,7 +296,10 @@ def classify_logs(logs: str, smoke_map: str,
 		"audio_voice_started": marker_bool(logs, r"audio voice started"),
 		"audio_nonzero_pcm": marker_bool(logs, r"audio submitted nonzero PCM"),
 		"intro_audio_pcm": marker_bool(logs, r"intro AVI audio PCM"),
-		"intro_audio_submitted": marker_bool(logs, r"intro AVI audio submitted"),
+		"intro_audio_submitted": marker_bool(logs,
+			r"intro AVI audio submitted", r"native intro audio queued"),
+		"native_audio_opened": marker_bool(logs, r"native intro audio opened"),
+		"native_audio_queued": marker_bool(logs, r"native intro audio queued"),
 		"intro_requested": marker_bool(logs, r"Xash3D GameCube: intro AVI play"),
 		"intro_opened": marker_bool(logs, r"Xash3D GameCube: intro AVI opened"),
 		"intro_first_frame": marker_bool(logs, r"Xash3D GameCube: intro AVI decoded first frame"),

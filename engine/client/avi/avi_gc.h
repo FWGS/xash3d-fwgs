@@ -19,6 +19,7 @@ struct movie_state_s
 {
 	file_t			*file;
 	file_t			*audio_file;
+	file_t			*native_audio_file;
 	byte			*frame;
 	byte			*upload_frame;
 	byte			*chunk;
@@ -38,6 +39,9 @@ struct movie_state_s
 	uint			audio_width;
 	uint			audio_channels;
 	uint			audio_bytes_submitted;
+	uint			native_audio_data_size;
+	uint			native_audio_offset;
+	uint			native_audio_reported_second;
 	uint			audio_chunk_size;
 	uint			audio_chunk_offset;
 	qboolean		audio_reported;

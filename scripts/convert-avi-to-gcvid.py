@@ -17,7 +17,7 @@ def load_encoder():
 	module = importlib.util.module_from_spec(spec)
 	sys.modules[spec.name] = module
 	spec.loader.exec_module(module)
-	return module.build_gcvid_companion
+	return module
 
 
 def main() -> int:
@@ -37,7 +37,8 @@ def main() -> int:
 	if args.width <= 0 or args.height <= 0 or args.fps <= 0:
 		parser.error("width, height, and fps must be positive")
 
-	load_encoder()(
+	encoder = load_encoder()
+	encoder.build_gcvid_companion(
 		args.source.resolve(),
 		args.output.resolve(),
 		width=args.width,
@@ -47,6 +48,7 @@ def main() -> int:
 		still_frame_index=args.still_frame,
 		rgb565=True,
 	)
+	encoder.build_gcpcm_companion(args.source.resolve(), args.output.with_suffix(".gcpcm").resolve())
 	return 0
 
 

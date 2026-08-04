@@ -55,7 +55,7 @@ DISC_MAGIC = 0xC2339F3D
 APPLOADER_ADDRESS = 0x81200000
 APPLOADER_HEADER_OFFSET = 0x2440
 APPLOADER_DATA_OFFSET = APPLOADER_HEADER_OFFSET + 0x20
-BOOTSTRAP_EXCLUDED_EXTENSIONS = {".avi", ".gcvid", ".mdl", ".pak", ".pk3", ".wad", ".wav"}
+BOOTSTRAP_EXCLUDED_EXTENSIONS = {".avi", ".gcvid", ".gcpcm", ".mdl", ".pak", ".pk3", ".wad", ".wav"}
 GCVID_MAGIC = b"GCV2"
 GCVID_HEADER_SIZE = 28
 # Half-res static-hold companions — matches runtime intro decode/upload scale
@@ -75,6 +75,10 @@ GCVID_LOGO_HEIGHT = 48
 GCVID_LOGO_FPS_NUM = 24
 GCVID_LOGO_FPS_DEN = 1
 GCVID_LOGO_STILL_FRAME_INDEX = 80
+GCPCM_MAGIC = b"GCPA"
+GCPCM_RATE = 48000
+GCPCM_CHANNELS = 2
+GCPCM_WIDTH = 2
 
 
 def align(value: int, boundary: int) -> int:
@@ -1469,6 +1473,10 @@ def create_retail_boot_overlays(
 			gcvid_output = media / gcvid_name
 			build_gcvid_companion(source_movie, gcvid_output, rgb565=True)
 			overlays.append((f"media/{gcvid_name}", gcvid_output))
+			gcpcm_name = Path(relative).with_suffix(".gcpcm").name
+			gcpcm_output = media / gcpcm_name
+			if build_gcpcm_companion(source_movie, gcpcm_output):
+				overlays.append((f"media/{gcpcm_name}", gcpcm_output))
 
 	return tuple(overlays)
 
@@ -1595,6 +1603,40 @@ def build_gcvid_companion(
 	)
 
 
+def build_gcpcm_companion(source_movie: Path, output_audio: Path) -> bool:
+	"""Convert movie audio to the GameCube mixer format: 48 kHz stereo s16le."""
+	ffmpeg = shutil.which("ffmpeg")
+	if ffmpeg is None:
+		raise FileNotFoundError("ffmpeg is required to build .gcpcm intro companions")
+	raw_audio = subprocess.run(
+		[
+			ffmpeg, "-v", "error", "-i", str(source_movie), "-map", "0:a:0",
+			"-ar", str(GCPCM_RATE), "-ac", str(GCPCM_CHANNELS),
+			"-f", "s16le", "-acodec", "pcm_s16le", "-",
+		], capture_output=True,
+	)
+	if raw_audio.returncode != 0 and b"matches no streams" in raw_audio.stderr:
+		print(f"Skipped native GCPCM {output_audio.name}: source has no audio stream")
+		return False
+	if raw_audio.returncode != 0:
+		raise subprocess.CalledProcessError(raw_audio.returncode, raw_audio.args, raw_audio.stdout, raw_audio.stderr)
+	if not raw_audio.stdout or len(raw_audio.stdout) % (GCPCM_CHANNELS * GCPCM_WIDTH):
+		raise ValueError(f"ffmpeg produced invalid PCM audio for {source_movie}")
+	# The runtime passes this buffer directly to the native-endian mixer and
+	# ASND's VOICE_STEREO_16BIT_BE path. Keep the metadata little-endian, but
+	# store each signed-16 PCM sample in GameCube big-endian byte order.
+	pcm = bytearray(raw_audio.stdout)
+	for offset in range(0, len(pcm), GCPCM_WIDTH):
+		pcm[offset], pcm[offset + 1] = pcm[offset + 1], pcm[offset]
+	header = GCPCM_MAGIC + struct.pack(
+		"<IHHI", GCPCM_RATE, GCPCM_CHANNELS, GCPCM_WIDTH, len(pcm)
+	)
+	output_audio.parent.mkdir(parents=True, exist_ok=True)
+	output_audio.write_bytes(header + pcm)
+	print(f"Built native GCPCM {output_audio.name} ({len(pcm)} PCM bytes, 48 kHz stereo s16be/GameCube-native)")
+	return True
+
+
 def build_intro_gcvid_companions(output: Path) -> None:
 	for relative in SMOKE_INTRO_MEDIA:
 		source_movie = output / relative
@@ -1602,6 +1644,8 @@ def build_intro_gcvid_companions(output: Path) -> None:
 			continue
 		gcvid = source_movie.with_suffix(".gcvid")
 		build_gcvid_companion(source_movie, gcvid, rgb565=True)
+		gcpcm = source_movie.with_suffix(".gcpcm")
+		build_gcpcm_companion(source_movie, gcpcm)
 	build_logo_gcvid_companion(output, output)
 
 
