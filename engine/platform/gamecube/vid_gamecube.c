@@ -7789,6 +7789,19 @@ static void GC_TryDeferredStudios( void )
 #if XASH_GAMECUBE
 	if( !gc_newgame_world_ready )
 		return;
+	/* Gameplay validation must return to Host_RunFrame after sign-on. The
+	 * optional six-model promotion can consume the whole MEM1 tip and starve
+	 * input polling; studio coverage has its own release-facing probe. */
+	if( Sys_CheckParm( "-gcfullphysics" ))
+	{
+		static qboolean gc_gameplay_studio_skip_logged;
+		if( !gc_gameplay_studio_skip_logged )
+		{
+			gc_gameplay_studio_skip_logged = true;
+			Con_Reportf( "Xash3D GameCube: gameplay probe deferred studios skipped\n" );
+		}
+		return;
+	}
 	/* G297: MDL promote mid-G36 sample window spikes present hitch. */
 	if( GC_IsFrameBudgetProbeActive() )
 		return;
@@ -10534,7 +10547,16 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 	/* Prefer real low-res world frames here: the Dolphin probe often exits as
 	 * soon as G36 evidence is scored, before the next Host_Frame can run SCR.
 	 * Fall back to lean green fills if the world path is not ready yet. */
-	if( !GC_RenderNewGameWorldFrames( 4 ))
+	if( Sys_CheckParm( "-gcfullphysics" ))
+	{
+		static qboolean gc_gameplay_present_skip_logged;
+		if( !gc_gameplay_present_skip_logged )
+		{
+			gc_gameplay_present_skip_logged = true;
+			Con_Reportf( "Xash3D GameCube: gameplay probe post-G36 render skipped\n" );
+		}
+	}
+	else if( !GC_RenderNewGameWorldFrames( 4 ))
 	{
 		int i;
 
@@ -10545,7 +10567,7 @@ qboolean GC_PrepareNewGameWorldPresent( void )
 			GC_PresentBudgetProbeFrame();
 		}
 	}
-	else
+	else if( !Sys_CheckParm( "-gcfullphysics" ))
 	{
 		int i;
 

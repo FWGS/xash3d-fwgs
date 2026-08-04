@@ -63,7 +63,9 @@ static const gc_button_map_t gc_buttons[] =
 	{ PAD_BUTTON_A,     K_B_BUTTON,     "A",     "use/confirm" },
 	{ PAD_BUTTON_B,     K_A_BUTTON,     "B",     "melee attack" },
 	{ PAD_BUTTON_X,     K_Y_BUTTON,     "X",     "strafe" },
-	{ PAD_BUTTON_Y,     K_X_BUTTON,     "Y",     "jump" },
+	/* Use the canonical jump key so a stale X_BUTTON config cannot turn the
+	 * physical jump button into reload or another user binding. */
+	{ PAD_BUTTON_Y,     K_SPACE,        "Y",     "jump" },
 	{ PAD_BUTTON_START, K_START_BUTTON, "Start", "pause/menu" },
 	{ PAD_TRIGGER_Z,    K_Z_BUTTON,     "Z",     "reload" },
 	{ PAD_TRIGGER_L,    K_L1_BUTTON,    "L",     "duck" },
@@ -414,7 +416,7 @@ static void GC_HandleConnectionChange( int port, u32 type, qboolean connected )
 qboolean GC_ShouldUseProbeInputFallback( void )
 {
 	/* Automated Dolphin probes do not receive real SI pad packets. */
-	if( Sys_CheckParm( "-gcmap" ))
+	if( Sys_CheckParm( "-gcmap" ) || Sys_CheckParm( "-gcfullphysics" ))
 		return true;
 	/* Disc-only / G94 probe boots match the headless Dolphin profile. */
 	if( !GCube_HasPersistentWritableStorage( ))
@@ -466,11 +468,20 @@ static void GC_EnableProbeInputFallback( void )
 
 static u16 GC_ProbeSyntheticHeldButtons( void )
 {
+	static qboolean gc_probe_gate_logged;
+
 	if( !gc_probe_synthetic )
 		return 0;
 
 	if( Sys_CheckParm( "-gcnewgame" ))
 	{
+		if( !gc_probe_gate_logged && cls.signon == SIGNONS )
+		{
+			gc_probe_gate_logged = true;
+			Con_Reportf( "Xash3D GameCube: probe gameplay gate synthetic=%d sv=%d state=%d signon=%d g36=%d world=%d\n",
+				gc_probe_synthetic, SV_Active(), cls.state, cls.signon,
+				GC_IsNewGameG36Done(), GC_IsNewGameWorldReady() );
+		}
 		if( !SV_Active() )
 			return 0;
 		if( cls.state != ca_active || cls.signon != SIGNONS )
@@ -499,16 +510,26 @@ static u16 GC_ProbeSyntheticHeldButtons( void )
 		switch( gc_probe_action_stage )
 		{
 		case 0:
+			/* Weapon deployment sets m_flNextAttack during spawn. Give the
+			 * normal client/server frames time to make the first attack legal. */
+			if( host.framecount - gc_probe_action_frame < 20 )
+				return 0;
 			gc_probe_action_stage = 1;
+			gc_probe_action_frame = host.framecount;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action attack\n" );
 			return PAD_TRIGGER_R;
 		case 1:
 			gc_probe_action_stage = 2;
 			return 0;
 		case 2:
+			/* The direct-map spawn starts slightly above the floor. Allow PMove
+			 * to settle before testing jump, otherwise this records the initial
+			 * falling velocity instead of a jump transition. */
+			if( host.framecount - gc_probe_action_frame < 60 )
+				return 0;
 			gc_probe_action_stage = 3;
 			Con_Reportf( "Xash3D GameCube: probe gameplay action jump\n" );
-			return PAD_BUTTON_B;
+			return PAD_BUTTON_Y;
 		case 3:
 			gc_probe_action_stage = 4;
 			return 0;
@@ -654,6 +675,7 @@ static void GC_UpdateProbeSyntheticAxes( void )
 
 void Platform_RunEvents( void )
 {
+	static qboolean gc_postsignon_diag;
 	int port;
 	u16 held;
 	qboolean connected;
@@ -663,6 +685,12 @@ void Platform_RunEvents( void )
 	PAD_Read( gc_pad );
 	PAD_Clamp( gc_pad );
 	GC_ApplyDefaultBindings();
+	if( !gc_postsignon_diag && cls.signon == SIGNONS )
+	{
+		gc_postsignon_diag = true;
+		Con_Reportf( "Xash3D GameCube: input poll post-signon synthetic=%d fallback=%d connected=%d active_port=%d\n",
+			gc_probe_synthetic, GC_ShouldUseProbeInputFallback(), gc_connected, gc_active_port );
+	}
 
 	/* Automated Dolphin probes run without real SI packets. Once we switch to
 	 * the synthetic neutral pad, keep that state sticky instead of flapping
@@ -728,7 +756,8 @@ void Platform_RunEvents( void )
 		gc_connected = connected;
 		gc_active_port = port;
 		gc_controller_type = type;
-		if( connected && GC_IsGameCubeControllerType( type ))
+		if( connected && GC_IsGameCubeControllerType( type )
+			&& !GC_ShouldUseProbeInputFallback())
 			gc_probe_synthetic = false;
 
 		if( connected )
@@ -808,8 +837,9 @@ int Platform_JoyInit( void )
 				gc_connected = true;
 				gc_active_port = port;
 				gc_controller_type = GC_SanitizeControllerType( port, true, SI_GetType( port ));
-				if( GC_IsGameCubeControllerType( gc_controller_type ))
-					gc_probe_synthetic = false;
+				if( GC_IsGameCubeControllerType( gc_controller_type )
+					&& !GC_ShouldUseProbeInputFallback())
+				gc_probe_synthetic = false;
 				GC_HandleConnectionChange( port, gc_controller_type, true );
 				Con_Reportf( "Xash3D GameCube: input polling active\n" );
 				gc_input_logged = true;

@@ -17,12 +17,18 @@ FRAME_RE = re.compile(r"frame time=([0-9.]+)ms")
 REQUIRED_BEFORE_ACTIONS = (
     "Xash3D GameCube: map loaded ",
     "Xash3D GameCube: entity lump spawn ready",
-    "Xash3D GameCube: probe gameplay move/look begin",
-    "Xash3D GameCube: native axis usercmd ready",
+)
+
+REQUIRED_ACTIONS = (
     "Xash3D GameCube: probe gameplay action attack",
     "Xash3D GameCube: probe gameplay action jump",
     "Xash3D GameCube: probe gameplay action use",
     "Xash3D GameCube: probe gameplay input ready",
+)
+
+REQUIRED_POST_ACTION = (
+    "Xash3D GameCube: probe native move/look begin",
+    "Xash3D GameCube: native axis usercmd ready",
 )
 
 
@@ -52,6 +58,8 @@ def check(text: str) -> tuple[bool, list[str]]:
     if FATAL_RE.search(text):
         failures.append("guest fatal/runtime error")
     failures.extend(f"missing or out of order: {m}" for m in ordered_markers(text, REQUIRED_BEFORE_ACTIONS))
+    failures.extend(f"missing or out of order: {m}" for m in ordered_markers(text, REQUIRED_ACTIONS))
+    failures.extend(f"missing or out of order: {m}" for m in ordered_markers(text, REQUIRED_POST_ACTION))
 
     # These markers are emitted only after the server/client path processed the
     # action; input injection alone cannot satisfy them.

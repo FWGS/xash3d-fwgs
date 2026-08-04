@@ -1944,6 +1944,16 @@ void GAME_EXPORT R_RenderScene( void )
 	if( GC_UseGxWorldDraw() )
 	{
 		gEngfuncs.CL_ExtraUpdate();
+		if( gEngfuncs.Sys_CheckParm( "-gcfullphysics" ))
+		{
+			static qboolean gameplay_entities_skipped;
+			if( !gameplay_entities_skipped )
+			{
+				gameplay_entities_skipped = true;
+				gEngfuncs.Con_Reportf( "Xash3D GameCube: gameplay probe GX entities skipped\n" );
+			}
+			return;
+		}
 		R_DrawEntitiesOnList();
 		return;
 	}
