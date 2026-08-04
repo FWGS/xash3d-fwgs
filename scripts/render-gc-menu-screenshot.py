@@ -103,7 +103,8 @@ def main() -> int:
 	out_dir = args.out_dir.resolve()
 	out_dir.mkdir(parents=True, exist_ok=True)
 
-	retail = retail_reference(source).resize((640, 480), load_pil()[0].Resampling.LANCZOS)
+	disc = import_disc_builder()
+	retail = disc._gc_menu_fit_aspect(retail_reference(source), (640, 480))
 	retail_path = out_dir / "retail-main-menu-reference.png"
 	retail.save(retail_path)
 

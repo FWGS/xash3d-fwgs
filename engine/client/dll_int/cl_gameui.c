@@ -53,6 +53,10 @@ typedef struct gc_menu_bg_piece_s
 	int y;
 	int w;
 	int h;
+	float s0;
+	float t0;
+	float s1;
+	float t1;
 } gc_menu_bg_piece_t;
 static gc_menu_bg_piece_t gc_menu_background[GC_MENU_MAX_BG_PIECES];
 static int gc_menu_background_count;
@@ -127,6 +131,10 @@ static void UI_GCLoadFallbackMenuLayout( void )
 		if( !pfile )
 			break;
 		piece->y = Q_atoi( token );
+		piece->s0 = 0.0f;
+		piece->t0 = 0.0f;
+		piece->s1 = 1.0f;
+		piece->t1 = 1.0f;
 
 		piece_count++;
 	}
@@ -178,7 +186,11 @@ static void UI_GCLoadFallbackMenuTextures( void )
 			piece->x = 0;
 			piece->y = 0;
 			piece->w = baked_w;
-			piece->h = baked_h;
+			piece->h = gc_menu_background_height;
+			piece->s0 = 0.0f;
+			piece->t0 = 0.0f;
+			piece->s1 = 1.0f;
+			piece->t1 = 1.0f;
 		}
 	}
 
@@ -208,6 +220,10 @@ static void UI_GCLoadFallbackMenuTextures( void )
 				piece->y = ( row == 0 ) ? 0 : ( row == 1 ) ? 256 : 512;
 				piece->w = source_widths[col];
 				piece->h = source_heights[row];
+				piece->s0 = 0.0f;
+				piece->t0 = 0.0f;
+				piece->s1 = 1.0f;
+				piece->t1 = 1.0f;
 			}
 		}
 	}
@@ -248,7 +264,8 @@ static void UI_GCDrawFallbackMenuBackground( void )
 		else
 			ref.dllFuncs.Color4ub( 150, 150, 150, 255 );
 		ref.dllFuncs.R_DrawStretchPic( piece->x * scale_x, piece->y * scale_y,
-			piece->w * scale_x, piece->h * scale_y, 0, 0, 1, 1, piece->texnum );
+			piece->w * scale_x, piece->h * scale_y, piece->s0, piece->t0,
+			piece->s1, piece->t1, piece->texnum );
 	}
 
 	if( !gc_menu_use_baked_retail )

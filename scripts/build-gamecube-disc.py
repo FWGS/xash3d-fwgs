@@ -633,6 +633,25 @@ def _gc_menu_preserve_retail_tone(image):
 	return rgb.convert("RGBA")
 
 
+def _gc_menu_fit_aspect(image, size):
+	"""Crop wide retail layouts before fitting the fixed 4:3 GC menu canvas."""
+	target_w, target_h = size
+	src_w, src_h = image.size
+	if not src_w or not src_h or not target_w or not target_h:
+		return image.resize(size)
+	src_aspect = src_w / float(src_h)
+	target_aspect = target_w / float(target_h)
+	if src_aspect > target_aspect:
+		crop_w = max(1, int(round(src_h * target_aspect)))
+		left = (src_w - crop_w) // 2
+		image = image.crop((left, 0, left + crop_w, src_h))
+	elif src_aspect < target_aspect:
+		crop_h = max(1, int(round(src_w / target_aspect)))
+		top = (src_h - crop_h) // 2
+		image = image.crop((0, top, src_w, top + crop_h))
+	return image.resize(size)
+
+
 def _gc_menu_synthetic_background(size: tuple[int, int]):
 	"""Fallback when retail tiles are missing or pure black placeholders."""
 	from PIL import Image
@@ -690,10 +709,11 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	menu_dir = output / "resource" / "gc_menu"
 	menu_dir.mkdir(parents=True, exist_ok=True)
 
-	# 128x96 keeps the transient RGBA decode buffer under 50 KiB for MEM1 menu boot.
+	# Keep the baked menu at the native 4:3 logical aspect. The GX HUD upload
+	# path retains the tiled 128x96 dimensions directly.
 	if best is not None and best_ratio >= 0.02:
 		background = _gc_menu_preserve_retail_tone(
-			best.resize((128, 96), Image.Resampling.LANCZOS))
+			_gc_menu_fit_aspect(best, (128, 96)))
 		source_note = best_label
 	else:
 		background = _gc_menu_synthetic_background((128, 96))

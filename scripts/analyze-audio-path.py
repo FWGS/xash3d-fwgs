@@ -119,23 +119,32 @@ def parse_telemetry(path: Path) -> list[dict[str, int]]:
 
 def anomalies(ref: np.ndarray, cand: np.ndarray, offset: int, telemetry: list[dict[str, int]]) -> list[dict[str, object]]:
 	d = (cand[offset:offset + len(ref)] - ref).mean(axis=1)
+	# Do not hide one-sample holes inside a low-RMS 1024-frame block.  Those
+	# are the signature of a ring/DMA discontinuity, not harmless quantization.
+	bad = np.flatnonzero(np.abs(d) >= 0.01)
 	rows = []
-	for frame in range(0, len(d), 1024):
-		block = d[frame:frame + 1024]
-		rms = float(np.sqrt(np.mean(block * block)))
-		if rms < 0.01:
-			continue
-		second = min(10, frame // 48000 + 1)
+	if len(bad):
+		groups = np.split(bad, np.flatnonzero(np.diff(bad) > 1) + 1)
+	else:
+		groups = []
+	for group in groups:
+		start = int(group[0])
+		end = int(group[-1]) + 1
+		block = d[start:end]
+		frame = (start // 1024) * 1024
+		second = min(10, start // 48000 + 1)
 		near = min(telemetry, key=lambda x: abs(x["second"] - second), default={})
 		rows.append({
-			"frame": frame,
+			"frame": start,
+			"run_frames": end - start,
+			"anomaly_kind": "sample_impulse" if end - start <= 4 else "contiguous_residual",
 			"callback_index": frame // 1024,
 			"callback_bytes": 4096,
-			"ring_frame": frame % 8192,
-			"residual_rms": rms,
+			"ring_frame": start % 8192,
+			"residual_rms": float(np.sqrt(np.mean(block * block))),
 			"residual_peak": float(np.max(np.abs(block))),
-			"waveform_before": np.rint(cand[offset + max(0, frame - 8):offset + frame].mean(axis=1) * 32768).astype(int).tolist(),
-			"waveform_after": np.rint(cand[offset + frame + 1024:offset + frame + 1032].mean(axis=1) * 32768).astype(int).tolist(),
+			"waveform_before": np.rint(cand[offset + max(0, start - 8):offset + start].mean(axis=1) * 32768).astype(int).tolist(),
+			"waveform_after": np.rint(cand[offset + end:offset + end + 8].mean(axis=1) * 32768).astype(int).tolist(),
 			"telemetry": near,
 		})
 	return rows

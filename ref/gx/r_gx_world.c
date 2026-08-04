@@ -75,7 +75,7 @@ extern unsigned R_GXGetTriColorRGBA( void );
 
 #define GC_GX_TEX_SLOTS		32
 #define GC_GX_TEX_HUD_RESERVE	4	/* last slots preferred for live HUD sheets */
-#define GC_GX_TEX_MAX_DIM	64	/* MEM1: keep tiled staging lean (32×64²×2 working set) */
+#define GC_GX_TEX_MAX_DIM	128	/* HUD menu background needs the full 128x96 tile */
 /* G199: 4 BSS world tiles (~32 KiB) — 8 tipped clipnodes pin on c0a0. */
 #define GC_GX_TEX_WORLD_POOL	4
 static u16 r_gx_tex_world_pool[GC_GX_TEX_WORLD_POOL][GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM]
@@ -211,7 +211,8 @@ static u16 r_gx_tex_linear[GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM];
 #define GC_GX_TEX_HUD_SLOT0	( GC_GX_TEX_SLOTS - GC_GX_TEX_HUD_RESERVE )
 
 /* G184: soft TRANSPARENT_COLOR → RGB5A3 with alpha 0 (not opaque black).
- * G187: also punch near-black — crosshair sheets use dark non-255 ink. */
+ * Do not infer transparency from RGB darkness: the retail menu background
+ * is intentionally near-black and must remain opaque. */
 static int r_gx_hud_nearblack_punched;
 static qboolean r_gx_hud_nearblack_logged;
 
@@ -227,12 +228,6 @@ static u16 R_GXSoftToRGB5A3( pixel_t soft )
 	g6 = ( rgb565 >> 5 ) & 63u;
 	b5 = rgb565 & 31u;
 	g5 = g6 >> 1;
-	/* Near-black → α=0 so GX_GREATER alpha-compare drops the texel. */
-	if( r5 <= 1u && g5 <= 1u && b5 <= 1u )
-	{
-		r_gx_hud_nearblack_punched++;
-		return 0;
-	}
 	return (u16)( 0x8000u | ( r5 << 10 ) | ( g5 << 5 ) | b5 );
 }
 
@@ -2955,8 +2950,10 @@ static void R_GXPrepareHud2DState( void )
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0 );
 	GX_SetVtxAttrFmt( GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0 );
 
-	/* Match soft FB coordinates (y down) onto the full EFB. */
-	guOrtho( ortho, 0.0f, (f32)vid.height, 0.0f, (f32)vid.width, 0.0f, 1.0f );
+	/* Menu/HUD rectangles are expressed in the logical render surface.  GX
+	 * scales that surface through the full EFB viewport; keep X/Y in the
+	 * correct order (the old height/width swap caused the half-screen image). */
+	guOrtho( ortho, 0.0f, (f32)vid.width, 0.0f, (f32)vid.height, 0.0f, 1.0f );
 	GX_LoadProjectionMtx( ortho, GX_ORTHOGRAPHIC );
 	guMtxIdentity( ident );
 	GX_LoadPosMtxImm( ident, GX_PNMTX0 );

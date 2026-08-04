@@ -1644,7 +1644,12 @@ static void S_UpdateChannels( void )
 
 #if XASH_GAMECUBE
 		if( AVI_IsSoundtrackActive() && mixahead > 0.04f )
-			mixahead = 0.04f;
+			/* The native intro is presented at 15 fps (~66 ms), while the
+			 * ASND callback consumes 1024 stereo frames (~21 ms).  A 40 ms
+			 * paint-ahead cap can therefore expose stale data in the DMA ring
+			 * between cinematic frames.  Keep the bound below the 8192-frame
+			 * GameCube ring, but cover at least one video-frame interval. */
+			mixahead = 0.12f;
 #endif
 		endtime = snd.soundtime + mixahead * SOUND_DMA_SPEED;
 	}
