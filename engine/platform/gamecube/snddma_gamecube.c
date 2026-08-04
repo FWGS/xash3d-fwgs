@@ -32,6 +32,18 @@ static u32 gc_audio_counter_base;
 static qboolean gc_audio_counter_valid;
 static int16_t gc_audio_chunk[2][GC_AUDIO_CHUNK_SAMPLES * 2] __attribute__((aligned( 32 )));
 
+void S_GCGetAudioTelemetry( unsigned int *chunks, unsigned int *nonzero_chunks,
+	unsigned int *sample_counter_delta )
+{
+	if( chunks ) *chunks = gc_audio_chunks_submitted;
+	if( nonzero_chunks ) *nonzero_chunks = gc_audio_nonzero_chunks;
+	if( sample_counter_delta )
+	{
+		u32 counter = ASND_GetSampleCounter();
+		*sample_counter_delta = gc_audio_counter_valid ? counter - gc_audio_counter_base : 0;
+	}
+}
+
 static qboolean GCube_NullAudioInit( void );
 
 static qboolean GCube_AudioShouldStartVoice( void )

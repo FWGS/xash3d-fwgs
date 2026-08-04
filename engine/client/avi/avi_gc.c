@@ -38,7 +38,11 @@ static void AVI_ParseAudioFormat( movie_state_t *Avi, fs_offset_t file_size );
 
 #if XASH_GAMECUBE
 #define GC_AVI_AUDIO_SLICE_BYTES	16384
-#define GC_AVI_AUDIO_LEAD_SAMPLES	2048
+/* The intro video is 15 fps, while the 48 kHz DMA cursor advances about
+ * 3200 samples between AVI_Think calls.  A 2048-sample lead therefore
+ * underruns even though the ASND clock itself is correct.  Fill the raw
+ * channel's complete ring so producer cadence cannot starve playback. */
+#define GC_AVI_AUDIO_LEAD_SAMPLES	8192
 /* Quarter-res Cinepak fallback when no .gcvid companion is present. */
 #define GC_AVI_DECODE_SCALE		4
 #define GC_AVI_UPLOAD_MAX_W		160
@@ -1031,10 +1035,13 @@ static void AVI_StreamAudio( movie_state_t *Avi )
 #if XASH_GAMECUBE
 			if( Avi->native_audio_offset / ( SOUND_DMA_SPEED * 4 ) > Avi->native_audio_reported_second )
 			{
+				unsigned int audio_chunks, audio_nonzero, audio_counter;
+				S_GCGetAudioTelemetry( &audio_chunks, &audio_nonzero, &audio_counter );
 				Avi->native_audio_reported_second++;
-				Con_Reportf( "Xash3D GameCube: native intro audio progress second=%u bytes=%u sound=%d painted=%d samplepos=%d\n",
+				Con_Reportf( "Xash3D GameCube: native intro audio progress second=%u bytes=%u sound=%d painted=%d samplepos=%d chunks=%u nonzero=%u asnd=%u\n",
 					Avi->native_audio_reported_second, Avi->native_audio_offset,
-					snd.soundtime, snd.paintedtime, snd.samplepos );
+					snd.soundtime, snd.paintedtime, snd.samplepos,
+					audio_chunks, audio_nonzero, audio_counter );
 			}
 			if( !Avi->audio_reported )
 			{
