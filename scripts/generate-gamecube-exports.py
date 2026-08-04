@@ -15,6 +15,8 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument("--archive", required=True, type=Path)
 	parser.add_argument("--output", required=True, type=Path)
 	parser.add_argument("--symbol-name", default="lib_hl_gamecube_ppc_exports", help="Symbol name for the exports array")
+	parser.add_argument("--symbol-prefix", default="", help="C symbol prefix applied to exported function references")
+	parser.add_argument("--entity-include", help="Generated LINK_ENTITY_TO_CLASS include to append to a server export table")
 	parser.add_argument("--nm", default=os.environ.get("NM"))
 	return parser.parse_args()
 
@@ -41,7 +43,7 @@ def archive_symbols(nm: str, archive: Path) -> set[str]:
 	return symbols
 
 
-def write_output(output: Path, symbols: set[str], symbol_name: str) -> None:
+def write_output(output: Path, symbols: set[str], symbol_name: str, symbol_prefix: str, entity_include: str | None) -> None:
 	output.parent.mkdir(parents=True, exist_ok=True)
 	
 	# Filter for the functions we need
@@ -52,6 +54,44 @@ def write_output(output: Path, symbols: set[str], symbol_name: str) -> None:
 		"GetNewDLLFunctions",
 		"CreateInterface",
 		"GetFSAPI",
+		"Initialize",
+		"HUD_VidInit",
+		"HUD_Init",
+		"HUD_Shutdown",
+		"HUD_Redraw",
+		"HUD_UpdateClientData",
+		"HUD_Reset",
+		"HUD_PlayerMove",
+		"HUD_PlayerMoveInit",
+		"HUD_PlayerMoveTexture",
+		"HUD_ConnectionlessPacket",
+		"HUD_GetHullBounds",
+		"HUD_Frame",
+		"HUD_PostRunCmd",
+		"HUD_Key_Event",
+		"HUD_AddEntity",
+		"HUD_CreateEntities",
+		"HUD_StudioEvent",
+		"HUD_TxferLocalOverrides",
+		"HUD_ProcessPlayerState",
+		"HUD_TxferPredictionData",
+		"HUD_TempEntUpdate",
+		"HUD_DrawNormalTriangles",
+		"HUD_DrawTransparentTriangles",
+		"HUD_GetUserEntity",
+		"Demo_ReadBuffer",
+		"CAM_Think",
+		"CL_IsThirdPerson",
+		"CL_CameraOffset",
+		"CL_CreateMove",
+		"IN_ActivateMouse",
+		"IN_DeactivateMouse",
+		"IN_MouseEvent",
+		"IN_Accumulate",
+		"IN_ClearStates",
+		"V_CalcRefdef",
+		"KB_Find",
+		"HUD_GetStudioModelInterface",
 	}
 	
 	# Find the symbols that match our required functions
@@ -69,14 +109,18 @@ def write_output(output: Path, symbols: set[str], symbol_name: str) -> None:
 	
 	# Generate extern declarations for each symbol
 	for sym in sorted(found_symbols):
-		lines.append(f"extern void {sym}(void);")
+		lines.append(f"extern void {symbol_prefix}{sym}(void);")
+	if entity_include:
+		lines.extend(["", "#define GAMECUBE_SERVER_ENTITY(name) extern void name(void);", f'#include "{entity_include}"', "#undef GAMECUBE_SERVER_ENTITY"])
 	
 	lines.append("")
 	
 	# Generate the dllexport_t array
 	lines.append(f"dllexport_t {symbol_name}[] = {{")
 	for sym in sorted(found_symbols):
-		lines.append(f'	{{ "{sym}", (void *){sym} }},')
+		lines.append("	{ \"" + sym + "\", (void *)" + symbol_prefix + sym + " },")
+	if entity_include:
+		lines.extend(["#define GAMECUBE_SERVER_ENTITY(name) { #name, (void *)name },", f'#include "{entity_include}"', "#undef GAMECUBE_SERVER_ENTITY"])
 	lines.append("	{ NULL, NULL },")
 	lines.append("};")
 	lines.append("")
@@ -98,7 +142,7 @@ def main() -> int:
 		print("generate: no symbols found in archive", file=sys.stderr)
 		return 3
 	
-	write_output(args.output, symbols, args.symbol_name)
+	write_output(args.output, symbols, args.symbol_name, args.symbol_prefix, args.entity_include)
 	print(f"Generated GameCube exports: {args.output}")
 	return 0
 

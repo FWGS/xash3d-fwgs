@@ -213,12 +213,6 @@ void Mod_LoadSpriteModel( model_t *mod, void *buffer, size_t buffersize, qboolea
 	mod->type = mod_sprite;
 	char poolname[MAX_VA_STRING];
 	Q_snprintf( poolname, sizeof( poolname ), "^2%s^7", mod->name );
-#if XASH_GAMECUBE
-	/* G313: late lean HUD sprites arrive at the MEM1 tip after static generic
-	 * actors are admitted. Reuse the existing shared model pool; allocating a
-	 * per-sprite pool header can fail even when the 96-byte descriptor fits. */
-	if( !GC_MapLoadMemoryOpt())
-#endif
 	mod->mempool = Mem_AllocPool( poolname );
 
 	if( version == SPRITE_VERSION_Q1 || version == SPRITE_VERSION_32 )
