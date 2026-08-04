@@ -473,6 +473,8 @@ void GL_Bind( int tmu, unsigned int texnum );
 //
 void R_Set2DMode( qboolean enable );
 void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
+void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
+	const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload );
 
 // gl_image.c
 //

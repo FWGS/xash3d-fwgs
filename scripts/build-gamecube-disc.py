@@ -2023,6 +2023,14 @@ def main() -> None:
 	for path in (args.dol, args.data):
 		if not path.exists():
 			parser.error(f"required path does not exist: {path}")
+	# Never package a stale DOL when a newer GameCube ELF is present.  This is
+	# especially important for runtime probes: a clean host build must be the
+	# artifact that Dolphin actually boots.
+	elf_candidate = Path("build/engine/xash")
+	if elf_candidate.is_file() and args.dol.is_file() and elf_candidate.stat().st_mtime > args.dol.stat().st_mtime:
+		parser.error(
+			f"stale DOL: {args.dol} predates {elf_candidate}; run scripts/build-gamecube.sh first"
+		)
 			
 	if args.smoke_map and args.intro_avi:
 		parser.error("--smoke-map and --intro-avi are mutually exclusive")

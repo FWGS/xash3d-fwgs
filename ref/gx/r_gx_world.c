@@ -80,6 +80,10 @@ extern unsigned R_GXGetTriColorRGBA( void );
 #define GC_GX_TEX_WORLD_POOL	4
 static u16 r_gx_tex_world_pool[GC_GX_TEX_WORLD_POOL][GC_GX_TEX_MAX_DIM * GC_GX_TEX_MAX_DIM]
 	__attribute__((aligned( 32 )));
+#define GC_GX_CINEMATIC_WIDTH 320
+#define GC_GX_CINEMATIC_HEIGHT 240
+static u16 r_gx_cinematic_pool[GC_GX_CINEMATIC_WIDTH * GC_GX_CINEMATIC_HEIGHT]
+	__attribute__((aligned( 32 )));
 
 typedef struct
 {
@@ -94,6 +98,8 @@ typedef struct
 } gc_gx_tex_t;
 
 static gc_gx_tex_t r_gx_tex[GC_GX_TEX_SLOTS];
+static gc_gx_tex_t r_gx_cinematic_tex;
+static qboolean r_gx_cinematic_ready;
 static int r_gx_tex_clock;
 static int r_gx_tex_lru[GC_GX_TEX_SLOTS];
 static model_t *r_gx_tex_world;
@@ -456,6 +462,57 @@ static void R_GXSwizzleRGB565( const u16 *src, int stride, int w, int h, u16 *ds
 	}
 }
 
+static void R_GXSwizzleRawCinematic( const byte *src, u16 *dst )
+{
+	int tile_x, tile_y, row, x;
+
+	for( tile_y = 0; tile_y < GC_GX_CINEMATIC_HEIGHT; tile_y += 4 )
+	{
+		for( tile_x = 0; tile_x < GC_GX_CINEMATIC_WIDTH; tile_x += 4 )
+		{
+			for( row = 0; row < 4; row++ )
+			{
+				const byte *pixels = src + ((( tile_y + row ) * GC_GX_CINEMATIC_WIDTH ) + tile_x) * 2;
+				for( x = 0; x < 4; x++, pixels += 2 )
+					*dst++ = (u16)( pixels[0] | ((u16)pixels[1] << 8) );
+			}
+		}
+	}
+}
+
+static void R_GXUpdateRawCinematicTiles( const byte *src, u16 *dst,
+	const uint16_t *tiles, uint tile_count )
+{
+	uint tile;
+
+	for( tile = 0; tile < tile_count; tile++ )
+	{
+		const uint tile_index = tiles[tile];
+		const uint tile_x = ( tile_index % 40u ) * 8u;
+		const uint tile_y = ( tile_index / 40u ) * 8u;
+		uint block_y, block_x, row, col;
+
+		/* GX stores 4x4 blocks linearly.  Address the four blocks in
+		 * this 8x8 delta tile directly; avoid per-pixel divide/modulo. */
+		for( block_y = 0; block_y < 2; block_y++ )
+		{
+			for( block_x = 0; block_x < 2; block_x++ )
+			{
+				const uint block = ((( tile_y / 4u + block_y ) * 80u) +
+					(tile_x / 4u + block_x)) * 16u;
+				for( row = 0; row < 4; row++ )
+				{
+					const byte *pixels = src + ((( tile_y + block_y * 4u + row ) *
+						GC_GX_CINEMATIC_WIDTH) + tile_x + block_x * 4u) * 2;
+					for( col = 0; col < 4; col++, pixels += 2 )
+						dst[block + row * 4u + col] =
+							(u16)( pixels[0] | ((u16)pixels[1] << 8) );
+				}
+			}
+		}
+	}
+}
+
 static int R_GXSnapDim( int n )
 {
 	int d;
@@ -467,6 +524,41 @@ static int R_GXSnapDim( int n )
 	/* Round down to multiple of 4 (GX_TF_RGB565 tile). */
 	d = n & ~3;
 	return d < 4 ? 4 : d;
+}
+
+void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
+	const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload )
+{
+	if( texnum <= 0 || width != GC_GX_CINEMATIC_WIDTH || height != GC_GX_CINEMATIC_HEIGHT || !buffer )
+		return;
+
+	if( !r_gx_cinematic_tex.tiled )
+	{
+		r_gx_cinematic_tex.tiled = r_gx_cinematic_pool;
+		r_gx_cinematic_tex.alloc_bytes = sizeof( r_gx_cinematic_pool );
+	}
+	if( !r_gx_cinematic_ready || r_gx_cinematic_tex.texnum != (unsigned)texnum )
+	{
+		full_upload = true;
+		GX_InitTexObj( &r_gx_cinematic_tex.obj, r_gx_cinematic_tex.tiled,
+			GC_GX_CINEMATIC_WIDTH, GC_GX_CINEMATIC_HEIGHT, GX_TF_RGB565,
+			GX_CLAMP, GX_CLAMP, GX_FALSE );
+		GX_InitTexObjFilterMode( &r_gx_cinematic_tex.obj, GX_LINEAR, GX_LINEAR );
+	}
+	if( full_upload )
+		R_GXSwizzleRawCinematic( buffer, r_gx_cinematic_tex.tiled );
+	else if( dirty_count )
+		R_GXUpdateRawCinematicTiles( buffer, r_gx_cinematic_tex.tiled, dirty_tiles, dirty_count );
+	else
+		return;
+	DCFlushRange( r_gx_cinematic_tex.tiled, sizeof( r_gx_cinematic_pool ));
+	r_gx_cinematic_tex.texnum = (unsigned)texnum;
+	r_gx_cinematic_tex.w = GC_GX_CINEMATIC_WIDTH;
+	r_gx_cinematic_tex.h = GC_GX_CINEMATIC_HEIGHT;
+	r_gx_cinematic_tex.fmt = GX_TF_RGB565;
+	r_gx_cinematic_tex.valid = true;
+	r_gx_cinematic_ready = true;
+	GX_InvalidateTexAll();
 }
 
 static void R_GXTexCacheReset( void )
@@ -488,6 +580,10 @@ static void R_GXTexCacheReset( void )
 		}
 	}
 	r_gx_tex_clock = 0;
+	memset( &r_gx_cinematic_tex, 0, sizeof( r_gx_cinematic_tex ));
+	r_gx_cinematic_tex.tiled = r_gx_cinematic_pool;
+	r_gx_cinematic_tex.alloc_bytes = sizeof( r_gx_cinematic_pool );
+	r_gx_cinematic_ready = false;
 	r_gx_tex_world = NULL;
 	r_gx_hud_pool_ready = false;
 }
@@ -505,6 +601,19 @@ static gc_gx_tex_t *R_GXBindTexnum( unsigned texnum, qboolean hud_bind )
 		return NULL;
 
 	img = R_GetTexture( texnum );
+	if( img && !Q_strcmp( img->name, "*cintexture" ) && r_gx_cinematic_ready &&
+		r_gx_cinematic_tex.texnum == texnum )
+	{
+		if( r_gx_bound_texnum != texnum )
+		{
+			GX_LoadTexObj( &r_gx_cinematic_tex.obj, GX_TEXMAP0 );
+			r_gx_bound_texnum = texnum;
+			r_gx_tex_loads++;
+		}
+		else
+			r_gx_tex_reuses++;
+		return &r_gx_cinematic_tex;
+	}
 	if( !img || !img->pixels[0] || img->width < 1 || img->height < 1 )
 		return NULL;
 

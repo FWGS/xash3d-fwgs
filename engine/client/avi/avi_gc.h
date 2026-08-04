@@ -7,6 +7,8 @@ Copyright (C) 2026 Xash3D GameCube port contributors
 
 #include "avi_cinepak.h"
 
+#define AVI_GC_MAX_TILES 1200
+
 typedef struct avi_frame_index_s
 {
 	fs_offset_t	offset;
@@ -62,6 +64,9 @@ struct movie_state_s
 	qboolean		frame_on_gpu;
 	qboolean		ui_logo;
 	uint			debug_think_calls;
+	uint16_t		raw_dirty_tiles[AVI_GC_MAX_TILES];
+	uint			raw_dirty_count;
+	qboolean		raw_full_upload;
 };
 
 #endif // AVI_GC_H

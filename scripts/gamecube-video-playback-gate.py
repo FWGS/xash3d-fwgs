@@ -19,6 +19,10 @@ OPEN_RE = re.compile(
 PROGRESS_RE = re.compile(
     r"intro AVI progress frame=(\d+)/(\d+) elapsed=([0-9.]+)"
 )
+HOST_PROGRESS_RE = re.compile(
+    r"^(\d+):(\d{2}):(\d{3}).*intro AVI progress frame=(\d+)/(\d+) elapsed=([0-9.]+)",
+    re.MULTILINE,
+)
 
 
 def read_log(log_dir: Path) -> str:
@@ -59,6 +63,11 @@ def check(text: str) -> tuple[bool, list[str]]:
         int(frame): (int(total), float(elapsed))
         for frame, total, elapsed in PROGRESS_RE.findall(text)
     }
+    host_progress = {
+        int(frame): (int(minutes) * 60 + int(seconds) + int(milliseconds) / 1000.0,
+                     int(total), float(elapsed))
+        for minutes, seconds, milliseconds, frame, total, elapsed in HOST_PROGRESS_RE.findall(text)
+    }
     expected = (15, 30, 60, 120)
     for frame in expected:
         if frame not in progress:
@@ -70,6 +79,22 @@ def check(text: str) -> tuple[bool, list[str]]:
         target = frame / 15.0
         if abs(elapsed - target) > 0.25:
             failures.append(f"frame {frame} pacing outside 250ms: elapsed={elapsed:.2f} expected={target:.2f}")
+
+    if 15 not in host_progress:
+        failures.append("missing Dolphin host timestamp for frame 15")
+    else:
+        first_host = host_progress[15][0]
+        for frame in expected[1:]:
+            if frame not in host_progress:
+                failures.append(f"missing Dolphin host timestamp for frame {frame}")
+                continue
+            host_elapsed = host_progress[frame][0] - first_host
+            expected_host = (frame - 15) / 15.0
+            if abs(host_elapsed - expected_host) > 0.25:
+                failures.append(
+                    f"Dolphin host pacing outside 250ms at frame {frame}: "
+                    f"elapsed={host_elapsed:.2f} expected={expected_host:.2f}"
+                )
 
     if frame_count and f"intro AVI reached end frame={frame_count}/{frame_count}" not in text:
         failures.append("video did not reach its final frame")

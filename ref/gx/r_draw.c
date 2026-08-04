@@ -656,6 +656,7 @@ gc_texture_update_done:
 #endif
 }
 
+
 /*
 ===============
 R_Set2DMode

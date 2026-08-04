@@ -125,14 +125,28 @@ class GameCubeHostTests(unittest.TestCase):
 			"intro AVI audio start synced to first uploaded frame",
 			"intro AVI decoded first frame",
 			"audio submitted nonzero PCM chunks=1 peak=256",
-			"intro AVI progress frame=15/150 elapsed=1.01",
-			"intro AVI progress frame=30/150 elapsed=2.01",
-			"intro AVI progress frame=60/150 elapsed=4.00",
-			"intro AVI progress frame=120/150 elapsed=8.01",
+			"00:01:000 Core: intro AVI progress frame=15/150 elapsed=1.01",
+			"00:02:000 Core: intro AVI progress frame=30/150 elapsed=2.01",
+			"00:04:000 Core: intro AVI progress frame=60/150 elapsed=4.00",
+			"00:08:000 Core: intro AVI progress frame=120/150 elapsed=8.01",
 			"intro AVI reached end frame=150/150 elapsed=10.00",
 		))
 		self.assertTrue(gate.check(text)[0])
 		self.assertFalse(gate.check(text.replace("frame=120/150", "frame=90/150"))[0])
+		slow = text.replace("00:02:000", "00:06:300")
+		slow_ok, slow_failures = gate.check(slow)
+		self.assertFalse(slow_ok)
+		self.assertTrue(any("Dolphin host pacing" in item for item in slow_failures))
+
+	def test_cinematic_gpu_path_preserves_dirty_tile_contract(self) -> None:
+		api = (ROOT / "engine/ref_api.h").read_text(encoding="utf-8")
+		avi = (ROOT / "engine/client/avi/avi_gc.c").read_text(encoding="utf-8")
+		gx = (ROOT / "ref/gx/r_gx_world.c").read_text(encoding="utf-8")
+		self.assertIn("GL_UpdateCinematicTexture", api)
+		self.assertIn("raw_dirty_tiles", avi)
+		self.assertIn("raw_dirty_count", avi)
+		self.assertIn("R_GXUpdateRawCinematicTiles", gx)
+		self.assertIn("GX_InvalidateTexAll", gx)
 
 	def test_gameplay_gate_requires_ordered_post_action_stability(self) -> None:
 		gate = load_script("gameplay_gate_order", "scripts/gamecube-gameplay-gate.py")

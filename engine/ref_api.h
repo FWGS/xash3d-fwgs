@@ -621,6 +621,8 @@ typedef struct ref_interface_s
 	void	(*R_OverrideTextureSourceSize)( unsigned int texnum, unsigned int srcWidth, unsigned int srcHeight ); // used to override decal size for texture replacement
 
 	void		(*GL_UpdateTexture)( int texnum, int cols, int rows, int width, int height, const byte *buffer, pixformat_t fmt );
+	void		(*GL_UpdateCinematicTexture)( int texnum, int width, int height, const byte *buffer,
+			const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload );
 
 	// glState related calls (used by engine directly)
 	void		(*GL_Bind)( int tmu, unsigned int texnum );

@@ -119,6 +119,13 @@ void GL_UpdateTexture( int texnum, int cols, int rows, int width, int height, co
 	GL_ApplyTextureParams( tex );
 }
 
+void GL_UpdateCinematicTexture( int texnum, int width, int height, const byte *buffer,
+	const uint16_t *dirty_tiles, uint dirty_count, qboolean full_upload )
+{
+	(void)dirty_tiles; (void)dirty_count; (void)full_upload;
+	GL_UpdateTexture( texnum, width, height, width, height, buffer, PF_RGB_565 );
+}
+
 /*
 ===============
 R_Set2DMode

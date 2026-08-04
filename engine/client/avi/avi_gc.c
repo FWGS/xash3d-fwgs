@@ -713,6 +713,8 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 
 		if( Avi->raw_delta_tiles )
 		{
+			Avi->raw_dirty_count = 0;
+			Avi->raw_full_upload = false;
 			if( frame < Avi->current_frame )
 			{
 				Avi->current_frame = (uint)-1;
@@ -723,12 +725,18 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 			for( uint f = start; f <= frame; f++ )
 			{
 				fs_offset_t offset = Avi->data_offset + (fs_offset_t)Avi->raw_frame_offsets[f];
+				#if XASH_GAMECUBE
+				if( f == 30 || f == 31 || f == 32 || f == 33 || f == 34 || f == 35 || f == 36 || f == 37 || f == 45 || f == 60 )
+					Con_Reportf( "Xash3D GameCube: intro GCVID decode begin frame=%u offset=%ld current=%u\n",
+						f, (long)offset, Avi->current_frame );
+				#endif
 				if( FS_Seek( Avi->file, offset, SEEK_SET ) == -1 )
 					return false;
 				if( FS_Read( Avi->file, &tag, 1 ) != 1 )
 					return false;
 				if( tag == AVI_GCVID_KEYFRAME )
 				{
+					Avi->raw_full_upload = true;
 					if( FS_Read( Avi->file, Avi->frame, Avi->frame_size ) != (fs_offset_t)Avi->frame_size )
 						return false;
 				}
@@ -759,9 +767,15 @@ static qboolean AVI_DecodeFrame( movie_state_t *Avi, uint frame, qboolean upload
 							byte *dst = Avi->frame + ((( tile_y * tile_size + row ) * Avi->width ) + tile_x * tile_size ) * 2;
 							memcpy( dst, tilebuf + row * tile_size * 2, tile_size * 2 );
 						}
+						if( Avi->raw_dirty_count < AVI_GC_MAX_TILES )
+							Avi->raw_dirty_tiles[Avi->raw_dirty_count++] = (uint16_t)tile_index;
 					}
 				}
 				else return false;
+				#if XASH_GAMECUBE
+				if( f == 30 || f == 31 || f == 32 || f == 33 || f == 34 || f == 35 || f == 36 || f == 37 || f == 45 || f == 60 )
+					Con_Reportf( "Xash3D GameCube: intro GCVID decode done frame=%u\n", f );
+				#endif
 			}
 			return true;
 		}
@@ -1316,12 +1330,32 @@ qboolean AVI_Think( movie_state_t *Avi )
 		upload_pixels = Avi->frame;
 		upload_fmt = Avi->raw_rgb565 ? PF_RGB_565 : PF_BGRA_32;
 
-		if( Avi->texture == 0 )
+		if( Avi->raw_rgb565 && ref.dllFuncs.GL_UpdateCinematicTexture )
+			ref.dllFuncs.GL_UpdateCinematicTexture( Avi->texture == 0 ? SCR_GetCinematicTexture() : Avi->texture,
+				Avi->upload_width, Avi->upload_height, upload_pixels,
+				Avi->raw_dirty_tiles, Avi->raw_dirty_count, Avi->raw_full_upload );
+		else if( Avi->texture == 0 )
+		{
+		#if XASH_GAMECUBE
+			if( target_frame == 30 || target_frame == 31 || target_frame == 32 || target_frame == 33 || target_frame == 34 || target_frame == 35 || target_frame == 36 || target_frame == 37 || target_frame == 45 || target_frame == 60 )
+				Con_Reportf( "Xash3D GameCube: intro AVI upload begin frame=%u\n", target_frame );
+		#endif
 			ref.dllFuncs.GL_UpdateTexture( SCR_GetCinematicTexture(), Avi->upload_width, Avi->upload_height,
 				Avi->upload_width, Avi->upload_height, upload_pixels, upload_fmt );
+		}
 		else if( Avi->texture > 0 )
+		{
+		#if XASH_GAMECUBE
+			if( target_frame == 30 || target_frame == 31 || target_frame == 32 || target_frame == 33 || target_frame == 34 || target_frame == 35 || target_frame == 36 || target_frame == 37 || target_frame == 45 || target_frame == 60 )
+				Con_Reportf( "Xash3D GameCube: intro AVI upload begin frame=%u\n", target_frame );
+		#endif
 			ref.dllFuncs.GL_UpdateTexture( Avi->texture, Avi->upload_width, Avi->upload_height,
 				Avi->upload_width, Avi->upload_height, upload_pixels, upload_fmt );
+		}
+		#if XASH_GAMECUBE
+		if( target_frame == 30 || target_frame == 31 || target_frame == 32 || target_frame == 33 || target_frame == 34 || target_frame == 35 || target_frame == 36 || target_frame == 37 || target_frame == 45 || target_frame == 60 )
+			Con_Reportf( "Xash3D GameCube: intro AVI upload done frame=%u\n", target_frame );
+		#endif
 
 		Avi->frame_on_gpu = true;
 #if XASH_GAMECUBE
@@ -1348,6 +1382,10 @@ qboolean AVI_Think( movie_state_t *Avi )
 		int w = Avi->w >= 0 ? Avi->w : refState.width;
 		int h = Avi->h >= 0 ? Avi->h : refState.height;
 		ref.dllFuncs.R_DrawStretchPic( Avi->x, Avi->y, w, h, 0, 0, 1, 1, SCR_GetCinematicTexture() );
+	#if XASH_GAMECUBE
+		if( target_frame == 30 || target_frame == 31 || target_frame == 32 || target_frame == 33 || target_frame == 34 || target_frame == 35 || target_frame == 36 || target_frame == 37 || target_frame == 45 || target_frame == 60 )
+			Con_Reportf( "Xash3D GameCube: intro AVI draw done frame=%u\n", target_frame );
+	#endif
 	}
 
 	if( !Avi->playback_started )

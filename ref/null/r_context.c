@@ -399,6 +399,7 @@ static const ref_interface_t gReffuncs =
 	.R_OverrideTextureSourceSize = R_OverrideTextureSourceSize,
 
 	.GL_UpdateTexture = GL_UpdateTexture,
+	.GL_UpdateCinematicTexture = NULL,
 
 	.GL_Bind = GL_Bind,
 

@@ -507,6 +507,7 @@ const ref_interface_t gReffuncs =
 	R_OverrideTextureSourceSize,
 
 	GL_UpdateTexture,
+	GL_UpdateCinematicTexture,
 
 	GL_Bind,
 
@@ -531,4 +532,3 @@ const ref_interface_t gReffuncs =
 
 	VGUI_SetupDrawing,
 };
-
