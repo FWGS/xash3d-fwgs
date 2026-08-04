@@ -532,8 +532,11 @@ void FS_Init( void )
 #if XASH_GAMECUBE
 	/* Keep disc-only smoke searchpaths unless real SD is mounted.
 	 * G94 gcprobe: is save-only and must not disable smoke layout. */
-	FS_SetSmokeBootMode( Sys_CheckParm( "-gcmap" )
-		|| !GCube_HasPersistentWritableStorage() );
+	{
+		qboolean smoke_mode = Sys_CheckParm( "-gcmap" ) || !GCube_HasPersistentWritableStorage();
+		FS_SetSmokeBootMode( smoke_mode );
+		Con_Reportf( "Xash3D GameCube: smoke boot mode=%d (gcmap=%d, storage=%d)\n", smoke_mode, Sys_CheckParm( "-gcmap" ), !GCube_HasPersistentWritableStorage() );
+	}
 #endif
 }
 
