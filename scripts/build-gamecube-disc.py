@@ -1527,20 +1527,50 @@ def build_gcvid_companion(
 		for i in range(actual_frames)
 	]
 	still_frame_index = min(still_frame_index, actual_frames - 1)
-	still_frame = frames[still_frame_index]
 	offsets: list[int] = []
 	packets = bytearray()
-	offsets.extend(0 for _ in range(actual_frames))
-	packets.append(GCVID_KEYFRAME)
-	if rgb565:
-		for pixel in range(0, len(still_frame), 4):
-			b = still_frame[pixel + 0]
-			g = still_frame[pixel + 1]
-			r = still_frame[pixel + 2]
+	previous: bytes | None = None
+	tiles_x = width // tile_size if tile_size else 0
+	tiles_y = height // tile_size if tile_size else 0
+
+	def convert_frame(frame: bytes) -> bytes:
+		if not rgb565:
+			return frame
+		converted = bytearray(width * height * 2)
+		for pixel in range(0, len(frame), 4):
+			b = frame[pixel + 0]
+			g = frame[pixel + 1]
+			r = frame[pixel + 2]
 			rgb565_pixel = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
-			packets.extend(struct.pack("<H", rgb565_pixel))
-	else:
-		packets.extend(still_frame)
+			converted[pixel // 2:pixel // 2 + 2] = struct.pack("<H", rgb565_pixel)
+		return bytes(converted)
+
+	def tile_bytes(frame: bytes, tile_x: int, tile_y: int) -> bytes:
+		tile = bytearray()
+		for row in range(tile_size):
+			start = ((tile_y * tile_size + row) * width + tile_x * tile_size) * 2
+			tile.extend(frame[start:start + tile_size * 2])
+		return bytes(tile)
+
+	for frame_index, source_frame in enumerate(frames):
+		current = convert_frame(source_frame)
+		offsets.append(len(packets))
+		if frame_index == 0 or not tile_size:
+			packets.append(GCVID_KEYFRAME)
+			packets.extend(current)
+		else:
+			changed: list[tuple[int, bytes]] = []
+			for tile_y in range(tiles_y):
+				for tile_x in range(tiles_x):
+					tile = tile_bytes(current, tile_x, tile_y)
+					if tile != tile_bytes(previous, tile_x, tile_y):
+						changed.append((tile_y * tiles_x + tile_x, tile))
+			packets.append(GCVID_DELTAFRAME)
+			packets.extend(struct.pack("<H", len(changed)))
+			for tile_index, tile in changed:
+				packets.extend(struct.pack("<H", tile_index))
+				packets.extend(tile)
+		previous = current
 
 	header = bytearray()
 	header.extend(GCVID_MAGIC)
@@ -1549,7 +1579,7 @@ def build_gcvid_companion(
 	header.extend(struct.pack("<I", fps_num))
 	header.extend(struct.pack("<I", fps_den))
 	header.extend(struct.pack("<I", actual_frames))
-	flags = tile_size | GCVID_FLAG_STATIC_HOLD
+	flags = tile_size
 	if not rgb565:
 		flags |= GCVID_FLAG_BGRA32
 	header.extend(struct.pack("<I", flags))
@@ -1559,7 +1589,7 @@ def build_gcvid_companion(
 	output_movie.parent.mkdir(parents=True, exist_ok=True)
 	output_movie.write_bytes(bytes(header) + bytes(packets))
 	print(
-		f"Built static-hold GCVID {output_movie.name} from frame {still_frame_index} "
+		f"Built delta GCVID {output_movie.name} "
 		f"({width}x{height}, duration {actual_frames} frames, "
 		f"{'rgb565' if rgb565 else 'bgra32'})"
 	)

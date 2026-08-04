@@ -1614,6 +1614,12 @@ static void SV_PutClientInServer( sv_client_t *cl )
 		if( Sys_CheckParm( "-gcnewgame" ))
 			Con_Reportf( "Xash3D GameCube: ClientPutInServer ready private=%p model=%d\n",
 				ent->pvPrivateData, ent->v.modelindex );
+		if( Sys_CheckParm( "-gcnewgame" ) && FBitSet( ent->v.flags, FL_CLIENT ))
+		{
+			int dropped = pfnDropToFloor( ent );
+			Con_Reportf( "Xash3D GameCube: gameplay spawn grounding result=%d origin=(%.0f,%.0f,%.0f)\n",
+				dropped, ent->v.origin[0], ent->v.origin[1], ent->v.origin[2] );
+		}
 		/* G119: put-in rebuilds CBasePlayer; re-grant queued landmark inventory. */
 		if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcchangelevel" ))
 			GC_LeanLandmarkGrantWeaponsAfterPutInServer();

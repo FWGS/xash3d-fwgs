@@ -2406,6 +2406,11 @@ void SV_Physics( void )
 		SV_Physics_Entity( ent );
 	}
 #if XASH_GAMECUBE
+	if( Sys_CheckParm( "-gcnewgame" ) && Sys_CheckParm( "-gcfullphysics" )
+		&& svs.maxclients >= 1 && ( SV_EdictNum( 1 )->v.button & IN_USE ))
+		SV_TryNewGameWorldInteraction( SV_EdictNum( 1 ));
+#endif
+#if XASH_GAMECUBE
 	if( gc_fullphysics_trace )
 	{
 		Con_Reportf( "Xash3D GameCube: full physics entities ready\n" );

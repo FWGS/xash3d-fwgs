@@ -116,6 +116,24 @@ class GameCubeHostTests(unittest.TestCase):
 		self.assertFalse(ok)
 		self.assertTrue(any("attack usercmd" in item for item in failures))
 
+	def test_video_gate_requires_complete_paced_audio_video(self) -> None:
+		gate = load_script("video_playback_gate", "scripts/gamecube-video-playback-gate.py")
+		text = "\n".join((
+			"intro GCVID opened media/valve.gcvid (320x240, 150 frames, static hold, rgb565)",
+			"intro AVI audio PCM rate=22050 width=1 channels=1",
+			"intro AVI audio attached media/valve.avi rate=22050 width=1 channels=1 chunks=10",
+			"intro AVI audio start synced to first uploaded frame",
+			"intro AVI decoded first frame",
+			"audio submitted nonzero PCM chunks=1 peak=256",
+			"intro AVI progress frame=15/150 elapsed=1.01",
+			"intro AVI progress frame=30/150 elapsed=2.01",
+			"intro AVI progress frame=60/150 elapsed=4.00",
+			"intro AVI progress frame=120/150 elapsed=8.01",
+			"intro AVI reached end frame=150/150 elapsed=10.00",
+		))
+		self.assertTrue(gate.check(text)[0])
+		self.assertFalse(gate.check(text.replace("frame=120/150", "frame=90/150"))[0])
+
 	def test_gameplay_gate_requires_ordered_post_action_stability(self) -> None:
 		gate = load_script("gameplay_gate_order", "scripts/gamecube-gameplay-gate.py")
 		base = "\n".join((

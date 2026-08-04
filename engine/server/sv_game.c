@@ -2012,7 +2012,13 @@ int GAME_EXPORT pfnDropToFloor( edict_t *e )
 
 	monsterClip = FBitSet( e->v.flags, FL_MONSTERCLIP ) ? true : false;
 	vec3_t end = Vec3( e->v.origin );
-	end[2] -= 256.0f;
+	/* Some GameCube smoke maps place info_player_start above a long shaft.
+	 * The stock 256-unit probe misses the actual floor, leaving the player
+	 * to fall into a death state before the first gameplay input. */
+	float drop_distance = 256.0f;
+	if( Sys_CheckParm( "-gcnewgame" ) && FBitSet( e->v.flags, FL_CLIENT ))
+		drop_distance = 1024.0f;
+	end[2] -= drop_distance;
 
 	trace = SV_Move( e->v.origin, e->v.mins, e->v.maxs, end, MOVE_NORMAL, e, monsterClip );
 
