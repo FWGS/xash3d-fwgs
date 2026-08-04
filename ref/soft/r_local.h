@@ -955,6 +955,7 @@ extern convar_t sw_texfilt;
 extern convar_t r_traceglow;
 extern convar_t sw_noalphabrushes;
 extern convar_t r_studio_sort_textures;
+extern convar_t r_studio_builtin_renderer;
 
 extern struct qfrustum_s
 {
