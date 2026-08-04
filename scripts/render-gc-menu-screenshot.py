@@ -50,7 +50,7 @@ def retail_reference(source: Path) -> "Image.Image":
 def gc_menu_preview(source: Path, output_root: Path) -> "Image.Image":
 	disc = import_disc_builder()
 
-	Image, ImageDraw, _ = load_pil()
+	Image, ImageDraw, ImageFont = load_pil()
 	disc.stage_gc_menu_assets(source, output_root)
 	bg_path = output_root / "resource" / "gc_menu" / "background.tga"
 	logo_path = output_root / "resource" / "gc_menu" / "logo.tga"
@@ -73,12 +73,14 @@ def gc_menu_preview(source: Path, output_root: Path) -> "Image.Image":
 	)
 	menu_x, menu_desc_x = 57, 192
 	menu_y, row_h = 270, 42
+	label_font = disc._gc_menu_font(source, ImageFont, 18, medium=True)
+	desc_font = disc._gc_menu_font(source, ImageFont, 12)
 	for index, (label, desc) in enumerate(menu_items):
 		y = menu_y + index * row_h
 		label_color = (255, 207, 24, 255) if index == 0 else (230, 184, 16, 255)
 		desc_color = (110, 110, 110, 255)
-		draw.text((menu_x, y), label, fill=label_color)
-		draw.text((menu_desc_x, y + 2), desc, fill=desc_color)
+		draw.text((menu_x, y), label, font=label_font, fill=label_color)
+		draw.text((menu_desc_x, y + 3), desc, font=desc_font, fill=desc_color)
 	return canvas
 
 

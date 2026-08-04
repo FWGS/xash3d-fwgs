@@ -674,10 +674,23 @@ def _gc_menu_synthetic_background(size: tuple[int, int]):
 	return image
 
 
+def _gc_menu_font(source: Path, image_font, size: int, medium: bool = False):
+	"""Use the shipped UI font so baked text is reproducible on every host."""
+	font_name = "FiraSans-Medium.ttf" if medium else "FiraSans-Regular.ttf"
+	candidates = (
+		source.parent / "platform" / "resource" / "linux_fonts" / font_name,
+		Path(__file__).resolve().parents[1] / "fonts" / "GameCube.ttf",
+	)
+	for path in candidates:
+		if path.is_file():
+			return image_font.truetype(str(path), size)
+	return image_font.load_default()
+
+
 def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	"""Bake a single MEM1-friendly retail menu background and title logo."""
 	try:
-		from PIL import Image
+		from PIL import Image, ImageDraw, ImageFont
 	except ImportError:
 		print("Warning: Pillow not installed; skipping GameCube menu background bake.", file=sys.stderr)
 		return False
@@ -744,8 +757,9 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	if logo is not None:
 		logo_draw = logo.resize((int(640 * 0.74), max(1, int(logo.height * (640 * 0.74 / logo.width)))), Image.Resampling.LANCZOS)
 		composite.alpha_composite(logo_draw, (int((640 - logo_draw.width) / 2), int(480 * 0.08)))
-	from PIL import ImageDraw
 	draw = ImageDraw.Draw(composite)
+	label_font = _gc_menu_font(source, ImageFont, 18, medium=True)
+	desc_font = _gc_menu_font(source, ImageFont, 12)
 	menu_items = (
 		("New game", "Start a new single player game."),
 		("Load game", "Load a previously saved game."),
@@ -753,8 +767,8 @@ def stage_gc_menu_assets(source: Path, output: Path) -> bool:
 	)
 	for index, (label, desc) in enumerate(menu_items):
 		y = 270 + index * 42
-		draw.text((57, y), label, fill=(255, 207, 24, 255) if index == 0 else (230, 184, 16, 255))
-		draw.text((192, y + 2), desc, fill=(110, 110, 110, 255))
+		draw.text((57, y), label, font=label_font, fill=(255, 207, 24, 255) if index == 0 else (230, 184, 16, 255))
+		draw.text((192, y + 3), desc, font=desc_font, fill=(110, 110, 110, 255))
 	# Nine GX-sized tiles preserve 384x288 working resolution while keeping
 	# every texture within the 128x96 tile limit and the bounded HUD pool.
 	composite = composite.resize((384, 288), Image.Resampling.LANCZOS).convert("RGBA")

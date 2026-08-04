@@ -38,6 +38,7 @@ static qboolean gc_menu_builtin_fallback;
 static qboolean gc_menu_vidinit_pending;
 static qboolean gc_menu_use_baked_retail;
 static qboolean gc_menu_reported_retail_ready;
+static qboolean gc_menu_reported_button_ready;
 static int gc_menu_selection;
 static int gc_menu_logo;
 static int gc_menu_composite[9];
@@ -345,6 +346,12 @@ static void UI_GCDrawFallbackMenu( void )
 		{
 			Con_Reportf( "Xash3D GameCube: retail menu steam background ready\n" );
 			gc_menu_reported_retail_ready = true;
+		}
+		if( !gc_menu_reported_button_ready )
+		{
+			Cvar_SetValue( "gc_menu_ready", 1.0f );
+			Con_Reportf( "Xash3D GameCube: retail menu button text ready\n" );
+			gc_menu_reported_button_ready = true;
 		}
 		return;
 	}
