@@ -5555,11 +5555,15 @@ static void GC_PresentBuffer( void )
 		f32 fb_h = (f32)rmode->efbHeight;
 		static int g194_flipper_swap_skip;
 		static qboolean g197_logged;
-		const qboolean cinematic = cls.state == ca_cinematic;
-		u16 copy_w_u = cinematic ? 320 : rmode->fbWidth;
-		u16 copy_h_u = cinematic ? 240 : rmode->efbHeight;
+		/* Cinematic content is a 320x240 texture, but GX already maps its
+		 * destination quad into the full EFB. Copying only a 320x240 source
+		 * rectangle here crops that quad before VI scaling, yielding the
+		 * observed half-width/double-height image. Present the full EFB for
+		 * cinematics just like the normal Flipper path. */
+		u16 copy_w_u = rmode->fbWidth;
+		u16 copy_h_u = rmode->efbHeight;
 		u16 xfb_h_u = rmode->xfbHeight;
-		u16 copy_dst_w_u = cinematic ? rmode->fbWidth : copy_w_u;
+		u16 copy_dst_w_u = copy_w_u;
 
 		gc_gx_present_pipe_ready = false; /* next soft present rebuilds ortho */
 

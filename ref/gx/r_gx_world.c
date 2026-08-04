@@ -2915,6 +2915,16 @@ static void R_GXPrepareHud2DState( void )
 
 	if( !rmode || vid.width < 1 || vid.height < 1 )
 		return;
+	{
+		static qboolean gc_hud_state_logged;
+		if( !gc_hud_state_logged )
+		{
+			gEngfuncs.Con_Reportf( "Xash3D GameCube: GX HUD state fb=%dx%d efb=%d vid=%dx%d\n",
+				rmode->fbWidth, rmode->efbHeight, rmode->efbHeight,
+				vid.width, vid.height );
+			gc_hud_state_logged = true;
+		}
+	}
 
 	/* The cinematic texture is 320x240, but its destination rectangle is in
 	 * the normal screen coordinate space (for example 640x480).  Using the

@@ -1517,6 +1517,16 @@ qboolean AVI_Think( movie_state_t *Avi )
 	{
 		int w = Avi->w >= 0 ? Avi->w : refState.width;
 		int h = Avi->h >= 0 ? Avi->h : refState.height;
+	#if XASH_GAMECUBE
+		static qboolean gc_cinematic_rect_logged;
+		if( !gc_cinematic_rect_logged )
+		{
+			Con_Reportf( "Xash3D GameCube: intro AVI rect x=%d y=%d w=%d h=%d ref=%dx%d upload=%dx%d\n",
+				Avi->x, Avi->y, w, h,
+				refState.width, refState.height, Avi->upload_width, Avi->upload_height );
+			gc_cinematic_rect_logged = true;
+		}
+	#endif
 		ref.dllFuncs.R_DrawStretchPic( Avi->x, Avi->y, w, h, 0, 0, 1, 1, SCR_GetCinematicTexture() );
 	#if XASH_GAMECUBE
 		if( ( target_frame == 30 || target_frame == 60 || target_frame == 120 )
