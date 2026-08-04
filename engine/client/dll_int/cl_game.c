@@ -42,6 +42,13 @@ GNU General Public License for more details.
 #include "platform/platform.h"
 #if XASH_GAMECUBE
 
+/* One contiguous allocation prevents the weapon HUD list cache from
+ * fragmenting the small GameCube client heap.  384 entries covers the stock
+ * weapon set plus the HUD lists without changing the public cache contract. */
+#define GC_SPRITE_LIST_POOL_ENTRIES 384
+static client_sprite_t *gc_sprite_list_pool;
+static int gc_sprite_list_pool_used;
+
 static void CL_GameCubeApplySmokeClientBudgets( void )
 {
 	gameinfo_t *mutable_gi;
@@ -2072,7 +2079,26 @@ static client_sprite_t *SPR_GetList( char *psz, int *piCount )
 	Con_Reportf( "Xash3D GameCube: client sprite list alloc path=%s count=%d bytes=%u\n",
 		psz, numSprites, (unsigned)( sizeof( client_sprite_t ) * numSprites ));
 	#endif
-	pEntry->pList = Mem_Calloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
+	#if XASH_GAMECUBE
+	/*
+	 * The retail client reparses weapon sprite lists throughout a map.  On
+	 * GameCube those small, long-lived allocations fragment the client pool
+	 * and eventually make a perfectly modest list fail even when the total
+	 * free space is sufficient.  Reserve one contiguous cache at DLL load and
+	 * carve lists from it instead.
+	 */
+	if( gc_sprite_list_pool && numSprites > 0 &&
+		gc_sprite_list_pool_used + numSprites <= GC_SPRITE_LIST_POOL_ENTRIES )
+	{
+		pEntry->pList = &gc_sprite_list_pool[gc_sprite_list_pool_used];
+		gc_sprite_list_pool_used += numSprites;
+		memset( pEntry->pList, 0, sizeof( client_sprite_t ) * numSprites );
+		Con_Reportf( "Xash3D GameCube: client sprite list pool offset=%d\n",
+			gc_sprite_list_pool_used - numSprites );
+	}
+	else
+	#endif
+		pEntry->pList = Mem_Calloc( cls.mempool, sizeof( client_sprite_t ) * numSprites );
 
 	for( index = 0; index < numSprites; index++ )
 	{
@@ -4405,6 +4431,8 @@ void CL_UnloadProgs( void )
 	COM_FreeLibrary( clgame.hInstance );
 	Mem_FreePool( &cls.mempool );
 	Mem_FreePool( &clgame.mempool );
+	gc_sprite_list_pool = NULL;
+	gc_sprite_list_pool_used = 0;
 	memset( &clgame, 0, sizeof( clgame ));
 }
 
@@ -4488,6 +4516,14 @@ qboolean CL_LoadProgs( const char *name )
 
 	cls.mempool = Mem_AllocPool( "Client Static Pool" );
 	clgame.mempool = Mem_AllocPool( "Client Edicts Zone" );
+	#if XASH_GAMECUBE
+	gc_sprite_list_pool = Mem_Calloc( cls.mempool,
+		sizeof( client_sprite_t ) * GC_SPRITE_LIST_POOL_ENTRIES );
+	gc_sprite_list_pool_used = 0;
+	Con_Reportf( "Xash3D GameCube: client sprite list pool entries=%d bytes=%u\n",
+		GC_SPRITE_LIST_POOL_ENTRIES,
+		(unsigned)( sizeof( client_sprite_t ) * GC_SPRITE_LIST_POOL_ENTRIES ));
+	#endif
 	clgame.entities = NULL;
 
 	// a1ba: we need to check if client.dll has direct dependency on SDL2

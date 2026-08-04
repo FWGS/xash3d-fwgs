@@ -1,8 +1,9 @@
 {
   "pid": 2412048,
-  "timestamp": "2026-08-04T20:06:27.050089+00:00",
-  "state": "running",
+  "timestamp": "2026-08-04T20:09:14.185794+00:00",
+  "state": "cycle-complete",
   "cycle": 1,
   "kind": "goal",
-  "label": "G491 Restore runtime map readiness"
+  "label": "G491 Restore runtime map readiness",
+  "exit_code": 1
 }
